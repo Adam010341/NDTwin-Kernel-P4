@@ -34,6 +34,10 @@
 # depends on somebody else's build tree reports on that tree, not on this ticket. The test then
 # skips, loudly, as it is written to.
 #
+# ROUND 3 (section 7 ruling 6) added R3-F1a..F4: the A-4d restore obeys the route scope, the
+# watchdog promise is taken back where no watchdog runs, an owned switch left empty says why,
+# and the recorder's sha is pinned at every head.
+#
 # ROUND 2 (TICKET-P4-roles section 7 ruling 5) added: the mutations for items 1-8; the
 # 07_roles_basic.sh --self-test mutations (item 6), run on a copy of the script, each named for
 # the self-test case that must go red; and a check that NEW_CLASSES -- a typed list -- names
@@ -61,6 +65,7 @@ COMMON="$REPO/tools/p4_exercise/common.py"
 LIVE_DIR_REL="doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1"
 LIVE07="$REPO/$LIVE_DIR_REL/07_roles_basic.sh"
 FLOWROUTE_TEST="$REPO/p4_proxy/tests/test_flow_stats_route.py"
+RECORDER="$REPO/p4_proxy/tests/record_stats_flow_http_body.py"
 SOURCES=("$BINDING" "$CLIENT" "$MAIN" "$TOPOMGR" "$ROUTES" "$STATS" "$PKG" "$CONVERT"
          "$PREFLIGHT" "$COMMON")
 # One per line: check_gate_anchors.py reads a continuation line that starts with a path and has
@@ -90,6 +95,7 @@ tests.test_switch_state:CapabilitiesOnTheEndpointTest tests.test_switch_state:Th
 tests.test_switch_state:TheDeclaredLinksReportOnTheEndpointTest \
 tests.test_flow_stats_route:TheNdtwinClientsHttpBodyIsByteIdenticalToTheBaseTest \
 tests.test_readopt:ReadoptOnAFabricThatSkipsItsRoutesTest tests.test_readopt:OnlyTheAttachedHostsTest \
+tests.test_readopt:ADeleteOnAFabricThatSkipsItsRoutesTest \
 tests.test_app_package:APackageWithoutRolesLoadsByteIdenticallyTest \
 tests.test_app_package:RolesShapeTest \
 tests.test_readopt:ReadoptOnAFabricWhoseRouteTablesNdtwinOwnsTest \
@@ -1299,6 +1305,61 @@ m=$(mutant mn_seedunwired "$MAIN" \
     '# (the seed reporter is not wired)')
 report "R2-8i: the proxy never wires the seed reporter" "$m" \
        "test_the_proxy_wires_the_reporter_at_import"
+
+# --- round 3 (TICKET-P4-roles section 7 ruling 6) --------------------------------------------------
+
+# F1 -- the A-4d restore is the second writer on a fabric that skips its routes
+m=$(mutant tm_restorethrough "$TOPOMGR" \
+    '            if self.routes_to_attached_hosts_only and next_node != ipv4_dst:' \
+    '            if False and next_node != ipv4_dst:')
+report "R3-F1a: withdrawing a rule restores a route through another switch" "$m" \
+       "test_withdrawing_a_rule_for_a_host_behind_another_switch_restores_nothing_through_it"
+
+m=$(mutant tm_restoreattached "$TOPOMGR" \
+    '            if self.routes_to_attached_hosts_only and next_node != ipv4_dst:' \
+    '            if self.routes_to_attached_hosts_only:')
+report "R3-F1b: on a fabric that skips its routes nothing is restored, attached hosts included" "$m" \
+       "test_an_attached_host_is_still_restored_in_place"
+
+m=$(mutant tm_restorealways "$TOPOMGR" \
+    '            if self.routes_to_attached_hosts_only and next_node != ipv4_dst:' \
+    '            if next_node != ipv4_dst:')
+report "R3-F1c: every fabric stops restoring routes that cross another switch" "$m" \
+       "test_on_a_fabric_that_installs_routes_the_remote_host_is_restored_as_before"
+
+# F2 -- no watchdog, no promise
+m=$(mutant mn_pendingkept "$MAIN" \
+    '    if (ndtwin and result.get("status") == "success" and result.get("routes_pending")
+            and not _fabric.get("watchdog")):' \
+    '    if False:')
+report "R3-F2a: a fabric with no watchdog is still promised the watchdog will refill" "$m" \
+       "test_with_no_host_of_its_own_it_promises_no_watchdog_that_does_not_run"
+
+m=$(mutant mn_pendingdropped "$MAIN" \
+    '            and not _fabric.get("watchdog")):' \
+    '            and True):')
+report "R3-F2b: the pending note is taken back where the watchdog does run" "$m" \
+       "test_where_the_watchdog_runs_the_pending_note_stays"
+
+# F3 -- an owned switch left empty says why
+m=$(mutant mn_ownednote "$MAIN" \
+    '    elif binding is not None and binding.owner == route_binding.OWNER_NDTWIN:' \
+    '    elif False:')
+report "R3-F3a: an owned switch left empty keeps the pre-roles reason" "$m" \
+       "test_a_skipped_refill_on_an_owned_switch_says_the_fabric_skipped_its_routes"
+
+m=$(mutant mn_ownednotenull "$MAIN" \
+    '               if _control_plane.get("skipped") is None' \
+    '               if False')
+report "R3-F3b: before startup, an owned switch blames a skip that was never decided" "$m" \
+       "test_before_startup_an_owned_switch_says_startup_has_not_decided"
+
+# F4 -- the recorder in the repo is the one that made the recording
+m=$(mutant rec_edited "$RECORDER" \
+    'from __future__ import annotations' \
+    'from __future__ import annotations  # edited after the recording')
+report "R3-F4: the recorder is edited after it produced the pinned bytes" "$m" \
+       "test_the_recorder_in_the_repo_is_the_one_that_recorded"
 
 # --- item 6: 07_roles_basic.sh --self-test, mutated ------------------------------------------------
 #

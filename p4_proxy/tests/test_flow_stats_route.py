@@ -167,6 +167,19 @@ BASELINE_NDTWIN_HTTP_BODY_SHA256 = "aca1a88af0d889a8a7cc84468ee775cbccfb34ed1f3b
 class TheNdtwinClientsHttpBodyIsByteIdenticalToTheBaseTest(unittest.TestCase):
     """GET /stats/flow/1 for an NDTwin-pipeline switch, through FastAPI's own serialisation."""
 
+    #: sha256 of tests/record_stats_flow_http_body.py as it ran at the base (the recording
+    #: log's third line). Section 7 ruling 6, F4: recomputed at every head, so a recorder edited
+    #: after the recording cannot keep claiming it produced these bytes.
+    RECORDER_SHA256 = "89e3576613bedf4920158e68ad019feabf3c317896fc602c4dacf76f96c7a540"
+
+    def test_the_recorder_in_the_repo_is_the_one_that_recorded(self):
+        import hashlib
+
+        from tests import record_stats_flow_http_body as recorder
+
+        with open(recorder.__file__, "rb") as fh:
+            self.assertEqual(hashlib.sha256(fh.read()).hexdigest(), self.RECORDER_SHA256)
+
     def test_the_constant_is_the_recording(self):
         import hashlib
 

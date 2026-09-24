@@ -1421,6 +1421,18 @@ def readopt_switch(topology, dpid, client_factory, sample_callback, package=None
             f"attached to this switch; a route through another switch would be a path "
             f"half-installed")
 
+    if (ndtwin and result.get("status") == "success" and result.get("routes_pending")
+            and not _fabric.get("watchdog")):
+        # Section 7 ruling 6, F2. TopologyManager.readopt_switch promises the link watchdog
+        # will install the routes when the beacons resume; on a fabric where no watchdog runs
+        # (one with a foreign switch, or one whose watchdog did not start) nothing ever will.
+        # Taken back here, not there: that line is another gate's anchor (M-B29).
+        # [Co-developed with claude code -- Adam]
+        result.pop("routes_pending")
+        result["note"] = ("adopted, but no route was installable: no path from this switch "
+                          "reaches a host it may write a route to, and no link watchdog runs "
+                          "on this fabric to install one later")
+
     if ndtwin or result.get("status") != "success":
         return result
 
@@ -1467,6 +1479,19 @@ def readopt_switch(topology, dpid, client_factory, sample_callback, package=None
             result.update({"status": "failed", "step": "routes",
                            "error": f"the switch refused all {attempted} route writes into its "
                                     f"bound route table after accepting the pipeline"})
+    elif binding is not None and binding.owner == route_binding.OWNER_NDTWIN:
+        # Section 7 ruling 6, F3: an OWNED table left empty on purpose says why -- not the
+        # pre-roles "the refill names NDTwin's own tables", which is not the reason here.
+        # [Co-developed with claude code -- Adam]
+        why = ("startup has not recorded yet whether this fabric installs routes"
+               if _control_plane.get("skipped") is None
+               else f"this fabric skipped {SKIP_ROUTES} at startup (a switch on it is unbound "
+                    f"or keeps its own route table)")
+        result["routes_note"] = (
+            f"this switch's route table is bound with owner ndtwin, but {why}, so no NDTwin "
+            f"route was written into it: a route here while the rest of the fabric carries none "
+            f"would be a path half-installed. The table keeps only its default action (a "
+            f"package declares no entries for a table NDTwin owns)")
     return result
 
 

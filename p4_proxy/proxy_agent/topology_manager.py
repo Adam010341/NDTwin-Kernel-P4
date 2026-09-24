@@ -516,6 +516,13 @@ LIVENESS_PROBE_TIMEOUT_S = 1.5
 class TopologyManager:
     """Maintains the network state and computes shortest paths via BFS"""
 
+    #: Also a class attribute, with the same value __init__ gives it (see there): the A-4d
+    #: restore now reads it, and tests/test_delete_restores_route.py builds its manager with
+    #: `TopologyManager.__new__`, so an instance-only attribute would turn every existing
+    #: restore test into an AttributeError. False is the pre-roles behaviour, every host.
+    #: [Co-developed with claude code -- Adam] Section 7 ruling 6, F1.
+    routes_to_attached_hosts_only = False
+
     def __init__(self, kernel_notifier=None, clock=time.monotonic, journal=None):
         # [Co-developed with claude code -- Adam]
         # `kernel_notifier` is optional so the many tests that build a bare TopologyManager keep
@@ -658,8 +665,11 @@ class TopologyManager:
 
         #: TICKET-P4-roles section 7 ruling 5, item 1. True on a fabric that skips
         #: install_initial_routes (startup sets it from `control_plane.skipped`): every route
-        #: written after that -- readopt's refill is the one writer left there -- stops at the
-        #: hosts attached to the switch it is written on. Before the declared links existed,
+        #: the control plane writes after that stops at the hosts attached to the switch it is
+        #: written on. There are TWO writers left there, and both obey it: readopt's refill
+        #: (install_initial_routes) and the A-4d restore of a withdrawn application rule
+        #: (`_control_plane_port`) -- round 2 named only the first; section 7 ruling 6, F1.
+        #: Before the declared links existed,
         #: `net` had no inter-switch edge on such a fabric and no other route was computable;
         #: with them, a shortest path can cross a switch whose table NDTwin may not write, and
         #: that is a path half-installed. False (every host, as before) everywhere else.
@@ -1078,6 +1088,12 @@ class TopologyManager:
             try:
                 next_node = path[path.index(dpid) + 1]
             except (ValueError, IndexError):
+                return None
+            if self.routes_to_attached_hosts_only and next_node != ipv4_dst:
+                # The path crosses another switch on a fabric that skips its routes: the
+                # control plane would not write it (install_initial_routes skips it the same
+                # way), so there is nothing to hand the slot back to -- the withdrawal is a
+                # removal. Section 7 ruling 6, F1. [Co-developed with claude code -- Adam]
                 return None
             try:
                 return self.net.edges[dpid, next_node]["port"]

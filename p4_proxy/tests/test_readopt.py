@@ -956,6 +956,25 @@ class ReadoptOnAFabricWhoseRouteTablesNdtwinOwnsTest(unittest.TestCase):
         self.assertEqual(result["routes"], "skipped")
         self.assertEqual(self.made[0].routes, [])
 
+    def test_a_skipped_refill_on_an_owned_switch_says_the_fabric_skipped_its_routes(self):
+        # Section 7 ruling 6, F3: round 2 kept round 1's note -- "the refill names NDTwin's own
+        # tables" -- which is not why an OWNED switch was left empty. [Co-developed with claude
+        # code -- Adam]
+        self.startup_skipped([main.SKIP_LLDP, main.SKIP_WATCHDOG, main.SKIP_ROUTES])
+        result = main.readopt_switch(self.topo, 1, self.factory(self.owned), sample_sink,
+                                     package=self.package())
+        self.assertEqual(result["routes"], "skipped")
+        self.assertIn("owner ndtwin", result["routes_note"])
+        self.assertIn(f"skipped {main.SKIP_ROUTES}", result["routes_note"])
+        self.assertNotIn("names NDTwin's own tables", result["routes_note"])
+
+    def test_before_startup_an_owned_switch_says_startup_has_not_decided(self):
+        main._control_plane.update({"skipped": None})
+        result = main.readopt_switch(self.topo, 1, self.factory(self.owned), sample_sink,
+                                     package=self.package())
+        self.assertIn("startup has not recorded", result["routes_note"])
+        self.assertNotIn("names NDTwin's own tables", result["routes_note"])
+
     def test_a_package_owned_switch_is_not_refilled_on_a_fabric_that_installs_routes(self):
         from proxy_agent import route_binding
 
@@ -989,12 +1008,12 @@ class ReadoptOnAFabricThatSkipsItsRoutesTest(unittest.TestCase):
         self._real_sleep = topology_manager.time.sleep
         topology_manager.time.sleep = lambda seconds: None
         saved = (dict(main._table_entries), dict(main._capabilities),
-                 dict(main._control_plane), dict(main._pipelines))
+                 dict(main._control_plane), dict(main._pipelines), dict(main._fabric))
 
         def restore():
             topology_manager.time.sleep = self._real_sleep
             for live, old in zip((main._table_entries, main._capabilities,
-                                  main._control_plane, main._pipelines), saved):
+                                  main._control_plane, main._pipelines, main._fabric), saved):
                 live.clear()
                 live.update(old)
         self.addCleanup(restore)
@@ -1038,12 +1057,77 @@ class ReadoptOnAFabricThatSkipsItsRoutesTest(unittest.TestCase):
         self.assertEqual(result["routes_scope"], "attached_hosts")
         self.assertIn(main.SKIP_ROUTES, result["routes_note"])
 
+    def test_with_no_host_of_its_own_it_promises_no_watchdog_that_does_not_run(self):
+        # Section 7 ruling 6, F2: nothing to write (s1's only host is gone), so
+        # TopologyManager.readopt_switch adds `routes_pending` and "the link watchdog installs
+        # them" -- on a fabric where no watchdog runs. [Co-developed with claude code -- Adam]
+        self.topo.net.remove_node(H1)
+        self.fabric(skips_routes=True)
+        main._fabric.update(watchdog=False)
+        result = self.readopt_s1()
+        self.assertEqual(result["routes_attempted"], 0)
+        self.assertNotIn("routes_pending", result)
+        self.assertNotIn("watchdog installs", result.get("note", ""))
+        self.assertIn("no link watchdog runs", result["note"])
+
+    def test_where_the_watchdog_runs_the_pending_note_stays(self):
+        self.topo.net.remove_node(H1)
+        self.topo.net.remove_node(H2)
+        self.fabric(skips_routes=False)
+        main._fabric.update(watchdog=True)
+        result = self.readopt_s1()
+        self.assertIs(result["routes_pending"], True)
+        self.assertIn("link watchdog", result["note"])
+
     def test_on_a_fabric_that_installs_routes_the_same_readopt_refills_every_host(self):
         # The other direction, so "write nothing" cannot pass the test above.
         self.fabric(skips_routes=False)
         result = self.readopt_s1()
         self.assertEqual(sorted(r[0] for r in self.made[0].routes), sorted([H1, H2]))
         self.assertNotIn("routes_scope", result)
+
+
+class ADeleteOnAFabricThatSkipsItsRoutesTest(unittest.TestCase):
+    """
+    TICKET-P4-roles section 7 ruling 6, F1: the second writer.
+
+    [Co-developed with claude code -- Adam]
+    `unroute_flow` hands an ipv4_lpm slot back to the control plane (KNOWN-ISSUES A-4d) by
+    writing the port `_control_plane_port` says install_initial_routes would write now. Round 2
+    restricted install_initial_routes on a fabric that skips its routes and left this mirror of
+    it alone -- so on the mixed fabric (s1 NDTwin, s2 unbound) withdrawing an application's rule
+    for h2 on s1 "restored" s1 -> s2 -> h2, the half-installed path item 1 closed, through a
+    second door. There the control plane has no route to h2 from s1, so the delete is a removal.
+    """
+
+    def setUp(self):
+        self.topo, self.s1, self.s2 = build_topology()   # h1 -- s1 -- s2 -- h2
+        self.s1.deleted = []
+        self.s1.delete_ipv4_route = (
+            lambda dst, prefix: self.s1.deleted.append((dst, prefix)) or True)
+
+    def withdraw(self, restricted, dst):
+        self.topo.routes_to_attached_hosts_only = restricted
+        self.topo.install_initial_routes()
+        self.s1.routes.clear()
+        return self.topo.unroute_flow(1, {"nw_dst": dst})
+
+    def test_withdrawing_a_rule_for_a_host_behind_another_switch_restores_nothing_through_it(
+            self):
+        self.assertTrue(self.withdraw(True, H2))
+        self.assertEqual(self.s1.routes, [], "restored a route that crosses s2")
+        self.assertEqual(self.s1.deleted, [(H2, 32)])
+        self.assertNotIn((1, H2), self.topo.installed_routes())
+
+    def test_an_attached_host_is_still_restored_in_place(self):
+        self.assertTrue(self.withdraw(True, H1))
+        self.assertEqual([(r[0], r[3]) for r in self.s1.routes], [(H1, 1)])
+        self.assertEqual(self.s1.deleted, [])
+
+    def test_on_a_fabric_that_installs_routes_the_remote_host_is_restored_as_before(self):
+        self.assertTrue(self.withdraw(False, H2))
+        self.assertEqual([(r[0], r[3]) for r in self.s1.routes], [(H2, 2)])
+        self.assertEqual(self.s1.deleted, [])
 
 
 class OnlyTheAttachedHostsTest(unittest.TestCase):
