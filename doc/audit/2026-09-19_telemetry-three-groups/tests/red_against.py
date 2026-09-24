@@ -155,7 +155,10 @@ def main(argv=None):
             command = ["bash", os.path.join(tree, "tests", "mutate_analyse.sh")]
             cwd = tree
         else:
-            command = [args.python, "-m", "unittest", "-v"] + (args.ids or ["discover", "-s", "."])
+            # `discover` has to come before -v, or unittest reads it as a test name (round 10's
+            # first whole-suite run exited 2 on exactly that, with no test run)
+            command = ([args.python, "-m", "unittest", "-v"] + args.ids if args.ids
+                       else [args.python, "-m", "unittest", "discover", "-v", "-s", "."])
             cwd = os.path.join(tree, "tests")
         result = subprocess.run(command, cwd=cwd, env=environment, stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT)
