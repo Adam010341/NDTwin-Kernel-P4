@@ -1,0 +1,5 @@
+doc: ANALYSIS corrected per the judge -- 45 replacements from the analysis worker, checked by the orchestrator; the acceptance criterion is now something the API shows
+
+GUI edges are coloured by usage, not is_up, so 'edges turn red/green' is gone: acceptance is get_graph_data's inter-switch is_enabled/is_up and the port panel. Today's failure mode under a foreign pipeline is 500 or a silent MODIFY overwrite, not 501; external-mode clients are guarded by _refuse_write, the eleven ndtwin-mode pipelines are not. One judge item (Classifier.cpp as evidence for 'read as drop') is not upheld: the kernel's path walk in FlowLinkUsageCollector.cpp:3346-3373 leaves the flow's path empty.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>

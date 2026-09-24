@@ -1,0 +1,8 @@
+P3 FINDINGS: fill every placeholder outside the two sections that wait on ruling 38 -- provenance shas, per-group telemetry presence, the twelve load-gate rows, what the ceiling verdicts mean per PREREG 9, the half-confirmed directional expectation, the fixed-cost candidates, and section 8
+
+All numbers are extracted from raw/2026-09-19T115737Z_full/summary.json by the script that
+made this commit, not transcribed. The 38 placeholders left are all in sections 3 and 4 and
+wait on the group-level H-B / H-C labels of E round 10. Section 8 quotes only registered-level
+verdicts; the per-cell sampling-error labels are named as not quotable.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>

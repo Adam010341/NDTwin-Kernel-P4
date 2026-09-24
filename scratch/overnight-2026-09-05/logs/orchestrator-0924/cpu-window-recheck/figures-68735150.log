@@ -1,0 +1,39 @@
+### figures: plot.py at 68735150 with /home/adam/miniconda3/bin/python3 on the round-2 summary; fig1/fig2 compared with the committed ones
+# when: 2026-09-24 12:09:31 UTC  matplotlib 3.10.8  plot.py sha256 bff27a0c933f  git 68735150, 0 uncommitted under the round dir
+# committed figures are the working tree's files at 68735150, which equal c1f4174f's: fig1 c1f4174f fig2 c1f4174f fig3 c1f4174f
+### (1) the regeneration
+wrote /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/cpu-window-recheck/figs-68735150/fig1_pps_ceiling.png
+wrote /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/cpu-window-recheck/figs-68735150/fig1_pps_ceiling.pdf
+wrote /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/cpu-window-recheck/figs-68735150/fig2_sampling_error.png
+wrote /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/cpu-window-recheck/figs-68735150/fig2_sampling_error.pdf
+wrote /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/cpu-window-recheck/figs-68735150/fig3_cpu.png
+wrote /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/cpu-window-recheck/figs-68735150/fig3_cpu.pdf
+rc=0
+### (2) compare with the committed figures
+fig1_pps_ceiling.png       BYTE-IDENTICAL (49657 bytes)
+fig1_pps_ceiling.pdf       not byte-identical: 6 differing byte(s) at offsets 13757..13763; /CreationDate value spans 13748..13770; committed D:20260920001544+08'00', regenerated D:20260924200932+08'00'; ALL differences inside /CreationDate: True
+fig2_sampling_error.png    BYTE-IDENTICAL (50311 bytes)
+fig2_sampling_error.pdf    not byte-identical: 6 differing byte(s) at offsets 14415..14421; /CreationDate value spans 14406..14428; committed D:20260920001544+08'00', regenerated D:20260924200932+08'00'; ALL differences inside /CreationDate: True
+fig3_cpu.png               DIFFERS (114275 vs 116752 bytes)
+fig3_cpu.pdf               DIFFERS (21475 vs 22501 bytes)
+real differences (outside /CreationDate): 2
+compare rc=1
+### (3) CONTROL: the committed code (plot.py at 30aa500c) on the ARCHIVED summary.json -- what a regeneration of the unchanged figures looks like
+wrote /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/figs-control/fig1_pps_ceiling.png
+wrote /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/figs-control/fig1_pps_ceiling.pdf
+wrote /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/figs-control/fig2_sampling_error.png
+wrote /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/figs-control/fig2_sampling_error.pdf
+wrote /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/figs-control/fig3_cpu.png
+wrote /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/figs-control/fig3_cpu.pdf
+rc=0
+fig1_pps_ceiling.png       BYTE-IDENTICAL (49657 bytes)
+fig1_pps_ceiling.pdf       not byte-identical: 6 differing byte(s) at offsets 13757..13763; /CreationDate value spans 13748..13770; committed D:20260920001544+08'00', regenerated D:20260924200935+08'00'; ALL differences inside /CreationDate: True
+fig2_sampling_error.png    BYTE-IDENTICAL (50311 bytes)
+fig2_sampling_error.pdf    not byte-identical: 6 differing byte(s) at offsets 14415..14421; /CreationDate value spans 14406..14428; committed D:20260920001544+08'00', regenerated D:20260924200935+08'00'; ALL differences inside /CreationDate: True
+fig3_cpu.png               BYTE-IDENTICAL (114275 bytes)
+fig3_cpu.pdf               not byte-identical: 5 differing byte(s) at offsets 20069..20074; /CreationDate value spans 20060..20082; committed D:20260920001545+08'00', regenerated D:20260924200935+08'00'; ALL differences inside /CreationDate: True
+real differences (outside /CreationDate): 0
+control compare rc=0
+### (4) fig3 title as drawn from the round-2 summary
+fig3_cpu: CPU by telemetry source and offered rate (1024 B frames, rung window: climb)
+### rc=0

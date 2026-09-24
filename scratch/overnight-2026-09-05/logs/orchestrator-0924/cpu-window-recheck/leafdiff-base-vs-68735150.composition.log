@@ -1,0 +1,11 @@
+### composition of leafdiff-base-vs-68735150.full.log, by top-level key (computed from the listing)
+41 CHANGED cpu_bmv2
+7 CHANGED cpu_bmv2_ratio
+45 CHANGED cpu_kernel
+6 CHANGED reconciliation[]
+1 ONLY-B cpu_bmv2
+1 ONLY-B cpu_bmv2_ratio
+1 ONLY-B cpu_kernel
+1662 ONLY-B cpu_window
+2 ONLY-B reconciliation[]
+### rc=0

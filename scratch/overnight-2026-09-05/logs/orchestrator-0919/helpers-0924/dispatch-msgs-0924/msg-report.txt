@@ -1,0 +1,5 @@
+doc: stage-three report to Adam (2026-09-24) -- what to rule, what was overturned, what was delivered, the details
+
+Four parts. Delivered: 13/13 both ways on the NDTwin fabric, the generic link-usage cell in the gate, the three-group campaign with group-level verdicts (cooperative neither H-B1 nor H-B2, link H-B1, not H-B4; cooperative H-C1 on the marginal band alone, link undecided), and the reconciliation against the three old results. Overturned: thirteen of the orchestrator's own errors, all of the same shape.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>

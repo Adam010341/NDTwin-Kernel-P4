@@ -1,0 +1,89 @@
+# gate    : demo: mutants 105/106 vs the ROUND-1 test file (da0fa021, blob 1bd38d62, run from a temp mirror) and vs the current one
+# cmd     : bash /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/demo_105_106.sh
+# worktree: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-driver-0924
+# head    : bf349b64fa938efc647244753cdc17b79061cf46
+# dirty   : 0 path(s) (clean)
+# blob    : WT 13f60fda31d9f462ffe9dccef5c2f1b5f29afd9e  HEAD 13f60fda31d9f462ffe9dccef5c2f1b5f29afd9e  doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py
+# blob    : WT 38343a20770c56c9b7fa1a2dd13dee99c95c93e5  HEAD 38343a20770c56c9b7fa1a2dd13dee99c95c93e5  doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py
+# blob    : WT 04d5acd1a498203a18a6cc73069d101a5452aed1  HEAD 04d5acd1a498203a18a6cc73069d101a5452aed1  tests/shell/mutate_drive_exercise.sh
+# start   : 2026-09-24T20:00:45+08:00
+
+# script:
+#   #!/usr/bin/env bash
+#   # Round-2 demonstration: mutants 105 and 106 against the ROUND-1 test file (da0fa021) and the
+#   # CURRENT test file. The round-1 suite runs from a temp mirror of the tests directory.
+#   # [Co-developed with claude code -- Adam]
+#   set -uo pipefail
+#   export PYTHONDONTWRITEBYTECODE=1
+#   W=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-driver-0924
+#   P=doc/audit/2026-09-04_p4-tutorial-exercise-prep
+#   PY=$W/p4_proxy/venv/bin/python
+#   M="$(mktemp -d "${TMPDIR:-/tmp}/p4d-demo-XXXXXX")"
+#   trap 'rm -rf "$M"' EXIT
+#   mkdir -p "$M/prep/tests" "$M/prep/live-p1" "$M/mut"
+#   git -C "$W" show da0fa021:$P/tests/test_drive_exercise.py > "$M/prep/tests/test_drive_exercise.py"
+#   cp -r "$W/$P/tests/fixtures" "$M/prep/tests/fixtures"
+#   cp "$W/$P/live-p1/_common.sh" "$M/prep/live-p1/_common.sh"
+#   echo "round-1 test blob (mirror): $(git hash-object "$M/prep/tests/test_drive_exercise.py")"
+#   echo "current test blob (WT)    : $(git -C "$W" hash-object $P/tests/test_drive_exercise.py)"
+#   echo "driver blob (WT)          : $(git -C "$W" hash-object $P/drive_exercise.py)"
+#   mk() {  # mk <name> <anchor> <repl>
+#     cp "$W/$P/drive_exercise.py" "$M/mut/$1.py"
+#     ANCHOR="$2" REPL="$3" "$PY" - "$M/mut/$1.py" <<'PY'
+#   import os, pathlib, sys
+#   p = pathlib.Path(sys.argv[1]); s = p.read_text()
+#   a, r = os.environ["ANCHOR"], os.environ["REPL"]
+#   assert s.count(a) == 1, "anchor not unique"
+#   p.write_text(s.replace(a, r, 1))
+#   PY
+#   }
+#   mk m105 '        if self.fabric != "ndtwin" and os.path.dirname(ctrl):
+#               inherited = [p for p in [env.get("PYTHONPATH")] if p]' '        inherited = [p for p in [env.pop("PYTHONPATH", None)] if p]  # MUTANT: for every arm
+#           if self.fabric != "ndtwin" and os.path.dirname(ctrl):'
+#   mk m106 '        say("$ %s   (> %s)" % (shown, path))' '        say("$ %s   (> %s)" % (" ".join(argv), path))  # MUTANT'
+#   suite() {  # suite <label> <tests dir> <driver>
+#     local out rc
+#     out=$(DRIVE_EXERCISE_UNDER_TEST="$3" timeout 600 "$PY" -m unittest discover -s "$2" -t "$2" 2>&1); rc=$?
+#     printf '\n--- %s\n    driver under test: %s\n    rc=%s  %s\n' "$1" "$3" "$rc" "$(grep -E '^Ran [0-9]+ tests' <<<"$out")"
+#     grep -E '^(OK|FAILED)' <<<"$out" | sed 's/^/    /'
+#     sed -n 's/^\(FAIL\|ERROR\): \([A-Za-z_][A-Za-z0-9_]*\) .*/    red: \2/p' <<<"$out" | sort | uniq -c
+#   }
+#   suite "CONTROL: round-1 suite (mirror) vs the unmutated driver" "$M/prep/tests" "$W/$P/drive_exercise.py"
+#   suite "105 vs the round-1 suite" "$M/prep/tests" "$M/mut/m105.py"
+#   suite "106 vs the round-1 suite" "$M/prep/tests" "$M/mut/m106.py"
+#   suite "105 vs the current suite" "$W/$P/tests" "$M/mut/m105.py"
+#   suite "106 vs the current suite" "$W/$P/tests" "$M/mut/m106.py"
+
+round-1 test blob (mirror): 1bd38d623d313f09dd9039ac545a27ef0a928b93
+current test blob (WT)    : 38343a20770c56c9b7fa1a2dd13dee99c95c93e5
+driver blob (WT)          : 13f60fda31d9f462ffe9dccef5c2f1b5f29afd9e
+
+--- CONTROL: round-1 suite (mirror) vs the unmutated driver
+    driver under test: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-driver-0924/doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py
+    rc=0  Ran 169 tests in 14.446s
+    OK
+
+--- 105 vs the round-1 suite
+    driver under test: /tmp/p4d-demo-D6wYwp/mut/m105.py
+    rc=0  Ran 169 tests in 14.194s
+    OK
+
+--- 106 vs the round-1 suite
+    driver under test: /tmp/p4d-demo-D6wYwp/mut/m106.py
+    rc=0  Ran 169 tests in 14.221s
+    OK
+
+--- 105 vs the current suite
+    driver under test: /tmp/p4d-demo-D6wYwp/mut/m105.py
+    rc=1  Ran 170 tests in 15.308s
+    FAILED (failures=6)
+      4     red: test_the_ndtwin_arm_is_handed_the_environment_it_always_had
+      2     red: test_the_skeleton_arm_is_handed_the_environment_it_always_had
+
+--- 106 vs the current suite
+    driver under test: /tmp/p4d-demo-D6wYwp/mut/m106.py
+    rc=1  Ran 170 tests in 14.625s
+    FAILED (failures=2)
+      2     red: test_the_printed_start_line_carries_the_prefix_on_the_solution_arm_only
+# rc=0
+# end 2026-09-24T20:01:58+08:00

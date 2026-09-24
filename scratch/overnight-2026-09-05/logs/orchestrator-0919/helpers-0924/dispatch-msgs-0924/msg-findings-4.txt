@@ -1,0 +1,5 @@
+P3 FINDINGS: the fifth campaign's on-path edge distribution in threat 6, threat 7 rewritten for the group-level analysis of round 10 and the outcomes PREREG never registered, and reconciliation (a) names the difference that carries the outside result
+
+Threat 6 now cites the fifth campaign ({0: 9, 4: 16, 5: 2}; link 20 and 100 Mbit/s take N from a first window that read five edges). Threat 7 no longer claims the analysis labels per cell. Reconciliation (a): the old 16.0 kpps was measured with cooperative sampling on, so the aligned pair is cooperative and only a same-spec fabric can decide none's 1.875.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>

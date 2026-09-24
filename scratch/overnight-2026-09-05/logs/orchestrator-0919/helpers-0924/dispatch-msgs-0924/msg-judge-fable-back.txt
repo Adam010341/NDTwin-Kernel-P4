@@ -1,0 +1,5 @@
+agents: the judge definition is Fable again -- Adam 2026-09-24: "Fable is the judge for hard rulings"
+
+Routine per-delivery judging moves to a user-level opus-judge definition (Opus 5.5, same body); this repo definition keeps the Fable model for the hard rulings and second opinions Adam reserved it for. Reverts the model line of 057a01f0.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>

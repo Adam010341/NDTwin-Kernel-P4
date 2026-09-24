@@ -1,0 +1,9 @@
+### composition of the leaf diff above, by top-level key (computed from the listing)
+41 CHANGED cpu_bmv2
+7 CHANGED cpu_bmv2_ratio
+45 CHANGED cpu_kernel
+6 CHANGED reconciliation[]
+1 ONLY-B cpu_bmv2
+1 ONLY-B cpu_kernel
+1653 ONLY-B cpu_window
+### rc=0

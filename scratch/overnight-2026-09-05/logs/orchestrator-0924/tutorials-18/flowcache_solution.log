@@ -1,0 +1,96 @@
+drive_exercise.py -- flowcache / solution
+(non-interactive: no mininet CLI, no xterm; kills nothing)
+
+== pre-flight (read-only) ==============================================
+OK   ports 9090-9099 free
+OK   interpreter /home/adam/p4dev-python-venv/bin/python (3.12.3)
+OK   switch  /usr/local/bin/simple_switch_grpc  sha256[:16]=327fa7d172217397  --version=1.15.3-f0b7d201
+OK   p4c     /usr/local/bin/p4c-bm2-ss  sha256[:16]=226f3f66df515c9e  --version=Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release)
+OK   exercise dir /home/adam/tutorials/exercises/flowcache
+
+== compile =============================================================
+$ /usr/local/bin/p4c-bm2-ss --p4v 16 --p4runtime-files /home/adam/tutorials/exercises/flowcache/build/flowcache.p4.p4info.txtpb -o /home/adam/tutorials/exercises/flowcache/build/flowcache.json /home/adam/tutorials/exercises/flowcache/solution/flowcache.p4
+/home/adam/tutorials/exercises/flowcache/solution/flowcache.p4(9): [--Wwarn=unused] warning: 'egressSpec_t' is unused
+typedef bit<9> egressSpec_t;
+               ^^^^^^^^^^^^
+-> /home/adam/tutorials/exercises/flowcache/build/flowcache.json  50620 B  sha256[:16]=6156e996ba5c3ec4  warnings=1
+
+== plan ================================================================
+topology : topology.json
+hosts    : h1, h2, h3
+switches : s1, s2, s3
+links    : 6
+program  : /home/adam/tutorials/exercises/flowcache/solution/flowcache.p4 -> build/flowcache.json
+switch   : /usr/local/bin/simple_switch_grpc
+steps    : run the exercise's controller; h1 ping h2/h3; assert ICMP replies
+equivalent to (cwd must be the exercise dir):
+  cd /home/adam/tutorials/exercises/flowcache && \
+  sudo /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/utils/run_exercise.py -t topology.json -j build/flowcache.json -b /usr/local/bin/simple_switch_grpc
+  ... except do_net_cli() is replaced by the scripted steps above.
+Reading topology file.
+Building mininet topology.
+/usr/local/bin/simple_switch_grpc -i 1@s1-eth1 -i 2@s1-eth2 -i 3@s1-eth3 --pcap /home/adam/tutorials/exercises/flowcache/pcaps --nanolog ipc:///tmp/bm-0-log.ipc --device-id 0 build/flowcache.json --log-console --thrift-port 9090 -- --grpc-server-addr 0.0.0.0:50051 --cpu-port 510
+
+/usr/local/bin/simple_switch_grpc -i 1@s2-eth1 -i 2@s2-eth2 -i 3@s2-eth3 --pcap /home/adam/tutorials/exercises/flowcache/pcaps --nanolog ipc:///tmp/bm-1-log.ipc --device-id 1 build/flowcache.json --log-console --thrift-port 9091 -- --grpc-server-addr 0.0.0.0:50052 --cpu-port 510
+
+/usr/local/bin/simple_switch_grpc -i 1@s3-eth1 -i 2@s3-eth2 -i 3@s3-eth3 --pcap /home/adam/tutorials/exercises/flowcache/pcaps --nanolog ipc:///tmp/bm-2-log.ipc --device-id 2 build/flowcache.json --log-console --thrift-port 9092 -- --grpc-server-addr 0.0.0.0:50053 --cpu-port 510
+
+Warning: No control plane file provided for switch s1.
+Warning: No control plane file provided for switch s2.
+Warning: No control plane file provided for switch s3.
+
+== topology as brought up ==============================================
+s1 -> gRPC port: 50051
+s2 -> gRPC port: 50052
+s3 -> gRPC port: 50053
+**********
+h1
+default interface: eth0	10.0.1.1	08:00:00:00:01:11
+**********
+**********
+h2
+default interface: eth0	10.0.2.2	08:00:00:00:02:22
+**********
+**********
+h3
+default interface: eth0	10.0.3.3	08:00:00:00:03:33
+**********
+
+== scripted steps (no CLI, no xterm) ===================================
+$ /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/flowcache/solution/mycontroller.py   (> /home/adam/tutorials/exercises/flowcache/logs/driver-controller-flowcache.log)
+   controller pid 966400 (handed to the generic cell; stopped after it)
+-- controller log (/home/adam/tutorials/exercises/flowcache/logs/driver-controller-flowcache.log) --
+Traceback (most recent call last):
+  File "/home/adam/tutorials/exercises/flowcache/solution/mycontroller.py", line 26, in <module>
+    import p4runtime_lib.bmv2
+ModuleNotFoundError: No module named 'p4runtime_lib'
+
+   FAIL injection: the controller stayed up            want=alive after 12s        got=exited
+   FAIL switches the controller programmed             want=[1, 2, 3]              got=[]
+$ h1: ping -c3 10.0.2.2 (warming the cache) -> 100% loss, 0/3 received
+   flow cache warm after 10.0s: False
+$ h1: ping -c5 10.0.2.2 -> 100% loss, 0/5 received
+   FAIL the controller cached the flow it was punted   want=a flow_cache entry     got=no 'added table entry' line
+   FAIL h1 -> h2 forwards once the cache is warm       want=0.0%                   got=100% loss, 0/5 received
+
+-- switch logs --
+   /home/adam/tutorials/exercises/flowcache/logs/driver-controller-flowcache.log 215 B
+   /home/adam/tutorials/exercises/flowcache/logs/s1-p4runtime-requests.txt 5203 B
+   /home/adam/tutorials/exercises/flowcache/logs/s1.log 283598 B
+   /home/adam/tutorials/exercises/flowcache/logs/s2-p4runtime-requests.txt 2991 B
+   /home/adam/tutorials/exercises/flowcache/logs/s2.log 242758 B
+   /home/adam/tutorials/exercises/flowcache/logs/s3-p4runtime-requests.txt 447 B
+   /home/adam/tutorials/exercises/flowcache/logs/s3.log 231168 B
+
+== net.stop() ==========================================================
+net.stop() returned cleanly
+
+== verdict =============================================================
+   FAIL injection: the controller stayed up            want=alive after 12s        got=exited   【源碼推導，未執行】
+   FAIL switches the controller programmed             want=[1, 2, 3]              got=[]   【源碼推導，未執行】
+   FAIL the controller cached the flow it was punted   want=a flow_cache entry     got=no 'added table entry' line   【源碼推導，未執行】
+   FAIL h1 -> h2 forwards once the cache is warm       want=0.0%                   got=100% loss, 0/5 received   【README 宣稱】＋【源碼推導，未執行】
+
+>>> FAIL (4/4)
+
+report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T095545Z_flowcache_solution.md

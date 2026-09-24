@@ -1,0 +1,175 @@
+### fill_findings_erratum.py --write: FINDINGS 4 / 5(b) / 6 / 8 regenerated from the round-2 summary, erratum 4.0 inserted
+# when: 2026-09-24 12:13:37 UTC  worktree head 68735150  FINDINGS.md before: sha256 9fdeed9d6bf5 (= git adb3a0aa, working tree restored with git checkout after a first write by an older script version)
+# script sha256 883886a3d13a   old: summary.115737Z.base-30aa500c.json   new: summary.115737Z.fix-68735150.json   raw: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-audit-raw/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full   leafdiff: leafdiff-base-vs-68735150.full.log
+replaced  section 4 table, 1 kpps                      (unchanged text)
+replaced  section 4 table, 2 kpps                      (unchanged text)
+replaced  section 4 table, 3 kpps                      (unchanged text)
+replaced  section 4 table, 5 kpps                      (unchanged text)
+replaced  section 4 table, 8 kpps                      (unchanged text)
+replaced  section 4 table, 12 kpps                     
+replaced  section 4 table, 20 kpps                     
+replaced  section 4 table, 30 kpps                     
+replaced  section 4 table, 45 kpps                     (unchanged text)
+replaced  section 4 table, 70 kpps                     (unchanged text)
+replaced  section 4 table, 110 kpps                    (unchanged text)
+replaced  section 4 table header (11 resolved)         (unchanged text)
+replaced  decomposition, cooperative                   
+replaced  decomposition, link                          
+replaced  decomposition heading: the reading           
+replaced  how-to-read paragraph                        
+replaced  how-to-read paragraph                        
+replaced  bmv2 per-rung sentence                       
+replaced  section 4 intro: source                      
+replaced  section 4 intro: figure                      
+replaced  reconciliation (b) row                       
+replaced  reconciliation (b) row                       
+replaced  reconciliation (b) row                       
+replaced  reconciliation (b) row                       
+replaced  reconciliation (b) heading: the reading      
+replaced  reconciliation (b) candidate 1               
+replaced  reconciliation (b) candidate 2               
+replaced  section 8, supported                         
+replaced  section 8, not supported                     
+the two readings agree: H-C True, (b) True, bmv2 per rung True
+from the raw: union window of G4/link_f64_b at 20 kpps = 110.0 s; 1024 B cells with c-rows: coop 12／30、link 12／20、none 30
+inserted  section 4.0 erratum
+inserted  section 6 item 11
+--- FINDINGS.md (before)
++++ FINDINGS.md (after)
+@@ -136,9 +136,55 @@
+ 
+ ## 4. 三、CPU
+ 
+-本節的 H-C 判決是**每個處理組一次**（PREREG 5.3 為 kernel 的擬合註冊 H-C1／H-C2／H-C3／H-C0，擬合用三組共同的每一階；bmv2 只註冊逐階比值 ∈ [0.90, 1.15]、不帶 H-C 標籤——第十輪任務 C 查證、裁決 40）。H-C2 的第二條件沒有註冊容差 ⇒ 本輪**不可判**（裁決 40③），不准事後挑容差。數字由腳本從 `cpu_kernel`／`cpu_bmv2_ratio`／`external_gate` 抽出。
+-
+-**圖：`fig3_cpu.png` / `.pdf`（bmv2／kernel／proxy+emitter 三個面板）。**
++### 4.0 🔴 勘誤（2026-09-24）：逐階 CPU 視窗吞進了更高階
++
++**錯在哪。** `analyse.py` 的 `rung_windows`（`:693-703`；本段行號皆為勘誤前的 `30aa500c`）把 `rungs.tsv` 裡同一個 kpps 的所有列聯集成**一個** (min t_start, max t_end) 視窗。梯頂再確認的三個 rep（`c1`–`c3`，`run_group_arm.sh:420-440`）以同一個 kpps 記在**整個爬梯之後**，所以被確認那一階的視窗從爬梯第一個 rep 一路包到確認最後一個 rep、中間更高的階全在裡面（例：`G4/link_f64_b` 的 20 kpps 視窗 110.0 s，包住 30–110 kpps）。兩個消費者都錯在那一階：逐階 CPU（`cpu_by_rung`，`:739-740`）與 S(k)（`rung_samples_per_second`，`:708`——分子只有爬梯的樣本、分母是整段）。本節 1024 B 受影響的格：coop 12／30、link 12／20、none 30 kpps。第四次 campaign 的 raw 同形狀。
++
++**誰、何時。** 2026-09-24 由 P4 worker P 發現；orchestrator、worker C（離線重驗）與判官（opus，HOLDS WITH CORRECTIONS）各自驗證。修正後每一階的視窗＝它自己的 rep，S(k) 只用爬梯（PREREG A1.5 `:505-507`）。
++
++**讀法——Adam 裁定，不是 PREREG 註冊的。** 梯頂再確認的 rep 算不算該階的 CPU，PREREG 沒有決定（§4.1 `:161-162` 只說再確認是梯子程序的一部分）。本文的主讀法＝**climb（只算爬升的 rep）**，由 **Adam 2026-09-24, TICKET-P4 §7 ruling 4** 裁定、**非 PREREG 註冊**。記錄的理由：§5.3（`:263-266`）把 CPU(k) 與 S(k) 配成同一個擬合，而 S(k) 只涵蓋爬升（`:505-507`）⇒ 兩邊同一個窗；本輪沿用的 08-28 規則（`2026-08-28_flow-count-capacity/PREREG.md:254-255`）把首讀與再確認分開記，“so a disagreement between them is visible rather than overwritten”。另一讀法（climb＋再確認 rep）照算、並列在 `summary.json` 的 `cpu_window`；**兩種讀法在第五次 campaign 的判決逐項相同**（H-C ×2、對帳 (b) ×2、bmv2 逐階 ×11），但數字不全同（例：bmv2 30 kpps 比值 1.206 vs 1.235）。
++
++**判決。** H-C（兩組）與對帳 (b) **不變**；**註冊的 bmv2 逐階判決有 2／11 翻轉**（12 kpps 由帶外翻帶內（1.513→1.006）、30 kpps 由帶內翻帶外（1.099→1.206）），帶外總數仍 2／11。`cooperative` 仍是 H-C1，但它的固定份額現在是 0.0257——H-C1 成立的依據**只有** m 落帶（裁決 40④）。
++
++**舊值不刪。** 下表每一列＝一個被這次勘誤改動的數（舊＝勘誤前公開的值，新＝climb 讀法）；本節其餘的數字與 §1–§3、§5(a)(c) 都沒有變（summary.json 逐葉對帳：1560 個葉值相同、99 個變，全在 `cpu_kernel`／`cpu_bmv2`／`cpu_bmv2_ratio`／對帳 (b)）。
++
++| 出處 | 量 | 舊（勘誤前） | 新（climb） |
++|---|---|---|---|
++| §4 表 12 kpps | 量到的 samples/s（coop） | 132.0 | 215.7 |
++| §4 表 12 kpps | Δkernel(coop−none) | +4.149 | +2.921 |
++| §4 表 12 kpps | Δkernel(link−none) | +3.131 | +2.286 |
++| §4 表 12 kpps | 散佈 coop | 2.612 | 0.157 |
++| §4 表 12 kpps | 散佈 link | 1.157 | 0.533 |
++| §4 表 20 kpps | Δkernel(link−none) | +4.538 | +3.481 |
++| §4 表 20 kpps | 散佈 link | 3.164 | 1.050 |
++| §4 表 30 kpps | 量到的 samples/s（coop） | 367.0 | 550.6 |
++| §4 表 30 kpps | Δkernel(coop−none) | +7.836 | +7.119 |
++| §4 表 30 kpps | Δkernel(link−none) | +5.281 | +5.327 |
++| §4 表 30 kpps | 散佈 coop | 0.895 | 2.422 |
++| §4 分解 `cooperative` | F（% of one core） | 0.9234 | 0.3212 |
++| §4 分解 `cooperative` | m（µs/sample） | 122.89 | 126.19 |
++| §4 分解 `cooperative` | 固定份額（＝H-C2 條件一的 share） | 0.0722 | 0.0257 |
++| §4 分解 `cooperative` | 判定 | H-C1 cost is dominated by a fixed component (08-20 reproduces) | **不變** |
++| §4 分解 `cooperative` | Δ比 / S比（1 與 110 kpps） | 20.297 / 51.802 | **不變** |
++| §4 分解 `link` | F（% of one core） | 0.7692 | 0.2492 |
++| §4 分解 `link` | m（µs/sample） | 79.00 | 82.41 |
++| §4 分解 `link` | 固定份額（＝H-C2 條件一的 share） | 0.0623 | 0.0202 |
++| §4 分解 `link` | 判定 | not decided: H-C2 condition 1 holds (share <= 0.2); condition 2 (delta ratio ~ S ratio) has no registered tolerance | **不變** |
++| §4 分解 `link` | Δ比 / S比（1 與 110 kpps） | 31.505 / 58.680 | **不變** |
++| §4 bmv2 coop/none | 12 kpps | 1.513（帶外） | 1.006（帶內）——**註冊的逐階判決翻轉** |
++| §4 bmv2 coop/none | 30 kpps | 1.099（帶內） | 1.206（帶外）——**註冊的逐階判決翻轉** |
++| §4 bmv2 coop/none | 帶外的階 | 12、45（2／11） | 30、45（2／11） |
++| §5 (b) `cooperative` | m / 固定份額 | 122.9 / 0.072 | 126.2 / 0.026 |
++| §5 (b) `cooperative` | 判定 | 一致 | **不變** |
++| §5 (b) `link` | m / 固定份額 | 79.0 / 0.062 | 82.4 / 0.020 |
++| §5 (b) `link` | 判定 | 落外 | **不變** |
++| fig3 | 三個面板在 12／20／30 kpps 的點 | `c1f4174f` 的圖 | 重生，標題寫明 `rung window: climb` |
++
++勘誤後的數字取自 `summary.115737Z.fix-68735150.json`（勘誤前的取自 `summary.115737Z.base-30aa500c.json`）。重驗的全部輸出（兩份 summary.json、逐葉對帳、不 import `analyse.py` 的第二套儀器、逐臂的再確認段 CPU）：`scratch/overnight-2026-09-05/logs/orchestrator-0924/cpu-window-recheck/`；報告 `scratch/overnight-2026-09-05/hunt-0911/fix/P4-C-SUMMARY.md`。
++
++本節的 H-C 判決是**每個處理組一次**（PREREG 5.3 為 kernel 的擬合註冊 H-C1／H-C2／H-C3／H-C0，擬合用三組共同的每一階；bmv2 只註冊逐階比值 ∈ [0.90, 1.15]、不帶 H-C 標籤——第十輪任務 C 查證、裁決 40）。H-C2 的第二條件沒有註冊容差 ⇒ 本輪**不可判**（裁決 40③），不准事後挑容差。數字由腳本從 `cpu_kernel`／`cpu_bmv2_ratio`／`external_gate` 抽出（2026-09-24 起取自勘誤後的 summary.json；逐階視窗＝climb，Adam 裁定、非 PREREG 註冊；勘誤前的值在 §4.0）。
++
++**圖：`fig3_cpu.png` / `.pdf`（bmv2／kernel／proxy+emitter 三個面板）。** 2026-09-24 以 climb 讀法重生（標題寫明 `rung window: climb`）；勘誤前的圖在 git 歷史 `c1f4174f`。
+ 
+ 🔴 數字只取**梯子臂**：取樣誤差視窗自帶 4 Hz 的 `/ndt/get_graph_data` poll，而那個 HTTP 工作
+ 就是被量 CPU 的 kernel 行程在服務（08-20 的 `POLL=off` 為此存在）。
+@@ -150,23 +196,25 @@
+ | 3 | 59 | +1.333 | +1.133 | coop 0.133／link 0.800 | 是 |
+ | 5 | 97 | +1.400 | +1.333 | coop 0.133／link 0.133 | 是 |
+ | 8 | 153 | +2.251 | +1.831 | coop 0.164／link 0.706 | 是 |
+-| 12 | 132 | +4.149 | +3.131 | coop 2.612／link 1.157 | 是 |
+-| 20 | 359 | +4.444 | +4.538 | coop 0.485／link 3.164 | 是 |
+-| 30 | 367 | +7.836 | +5.281 | coop 0.895／link 1.741 | 是 |
++| 12 | 216 | +2.921 | +2.286 | coop 0.157／link 0.533 | 是 |
++| 20 | 359 | +4.444 | +3.481 | coop 0.485／link 1.050 | 是 |
++| 30 | 551 | +7.119 | +5.327 | coop 2.422／link 1.741 | 是 |
+ | 45 | 824 | +10.398 | +8.132 | coop 0.268／link 1.334 | 是 |
+ | 70 | 948 | +11.764 | +10.331 | coop 0.868／link 3.066 | 是 |
+ | 110 | 965 | +13.530 | +12.598 | coop 0.133／link 4.668 | 是 |
+ 
+ ### 分解（PREREG 5.3）
+ 
++逐階視窗＝**climb**（Adam 2026-09-24 裁定、非 PREREG 註冊，§4.0）。
++
+ | 組 | F（% of one core） | m（us/sample） | 固定份額 F/(F+m·S_top) | 判定 |
+ |---|---|---|---|---|
+-| `cooperative` | 0.9234 | 122.89 | 0.0722 | H-C1 cost is dominated by a fixed component (08-20 reproduces)（H-C2 條件一成立：share 0.072；條件二 Δ(高)/Δ(低) 20.297 vs S(高)/S(低) 51.802，PREREG 無註冊容差 ⇒ 不可判，裁決 40③） |
+-| `link` | 0.7692 | 79.00 | 0.0623 | not decided: H-C2 condition 1 holds (share <= 0.2); condition 2 (delta ratio ~ S ratio) has no registered tolerance（H-C2 條件一成立：share 0.062；條件二 Δ(高)/Δ(低) 31.505 vs S(高)/S(低) 58.680，PREREG 無註冊容差 ⇒ 不可判，裁決 40③） |
+-
+-🔴 **判定欄怎麼讀**（裁決 40③④）：`cooperative` 的 H-C1 **只靠 m 落帶**（122.89 ∈ [103, 618]）；固定份額 0.0722 < 0.5 那一條不成立，而 H-C2 的條件一（≤ 0.2）反而成立。`link` 的註冊結局是**不可判**：m 79.00 落帶外、固定份額 0.0623 ⇒ 不是 H-C1；H-C2 的第二條件沒有註冊容差；不是 H-C3（H-C3＝介於兩者，link 的份額落在 H-C2 那一側）。兩組的 Δ 比與 S 比只當資料列出，沒有任何東西拿它們下判決。
+-
+-**bmv2 CPU**（08-20 預測不動；PREREG 5.3 逐階註冊、沒有跨階彙總）：`bmv2(cooperative)/bmv2(none)` 逐階＝1 kpps 0.991、2 kpps 0.988、3 kpps 1.105、5 kpps 1.038、8 kpps 0.943、12 kpps 1.513、20 kpps 1.084、30 kpps 1.099、45 kpps 1.164、70 kpps 1.067、110 kpps 1.022；區間 [0.90, 1.15] ⇒ **9 階一致、2 階不一致**（落外的階：12 kpps 1.513、45 kpps 1.164）。
++| `cooperative` | 0.3212 | 126.19 | 0.0257 | H-C1 cost is dominated by a fixed component (08-20 reproduces)【🔴 標籤名說「固定成分主導」，但固定份額只有 0.0257——H-C1 在這裡成立的依據**只有** m＝126.19 落在 [103, 618]（裁決 40④）；固定份額那一條（≥ 0.5）不成立】（H-C2 條件一成立：share 0.026；條件二 Δ(高)/Δ(低) 20.297 vs S(高)/S(低) 51.802，PREREG 無註冊容差 ⇒ 不可判，裁決 40③） |
++| `link` | 0.2492 | 82.41 | 0.0202 | not decided: H-C2 condition 1 holds (share <= 0.2); condition 2 (delta ratio ~ S ratio) has no registered tolerance（H-C2 條件一成立：share 0.020；條件二 Δ(高)/Δ(低) 31.505 vs S(高)/S(低) 58.680，PREREG 無註冊容差 ⇒ 不可判，裁決 40③） |
++
++🔴 **判定欄怎麼讀**（裁決 40③④）：`cooperative` 的 H-C1 **只靠 m 落帶**（126.19 ∈ [103, 618]）；固定份額 0.0257 < 0.5 那一條不成立，而 H-C2 的條件一（≤ 0.2）反而成立。`link` 的註冊結局是**不可判**：m 82.41 落帶外、固定份額 0.0202 ⇒ 不是 H-C1；H-C2 的第二條件沒有註冊容差；不是 H-C3（H-C3＝介於兩者，link 的份額落在 H-C2 那一側）。兩組的 Δ 比與 S 比只當資料列出，沒有任何東西拿它們下判決。
++
++**bmv2 CPU**（08-20 預測不動；PREREG 5.3 逐階註冊、沒有跨階彙總）：`bmv2(cooperative)/bmv2(none)` 逐階＝1 kpps 0.991、2 kpps 0.988、3 kpps 1.105、5 kpps 1.038、8 kpps 0.943、12 kpps 1.006、20 kpps 1.084、30 kpps 1.206、45 kpps 1.164、70 kpps 1.067、110 kpps 1.022；區間 [0.90, 1.15] ⇒ **9 階一致、2 階不一致**（落外的階：30 kpps 1.206、45 kpps 1.164）。逐階視窗＝climb（Adam 2026-09-24 裁定、非 PREREG 註冊）；勘誤翻了 2 個註冊的逐階判決：12 kpps 由帶外翻帶內（1.513→1.006）、30 kpps 由帶內翻帶外（1.099→1.206），見 §4.0。
+ 
+ **softirq**（`link` 的資料面成本歸屬不到任何 pid；各組臂的 `softirq_share` 中位數）：`none` 0.0105／`cooperative` 0.0082／`link` 0.0102 ⇒ **沒有成真**（PREREG 5.3 只註冊「逐組報」與方向，沒有區間）。
+ 
+@@ -191,15 +239,17 @@
+ 
+ ### (b) CPU vs 08-20「遙測成本固定、不是每樣本」
+ 
++逐階視窗＝**climb**（Adam 2026-09-24 裁定、非 PREREG 註冊；勘誤前的值在 §4.0）。
++
+ | | 本輪 | 08-20 | 判準 | 判定 |
+ |---|---|---|---|---|
+-| m（us/sample）（cooperative） | 122.9 | 206 | 落在 [103, 618] | **一致** |
+-| 固定份額（cooperative） | 0.072 | 0.81 | 大於等於 0.5 | **不成立** |
+-| m（us/sample）（link） | 79.0 | 206 | 落在 [103, 618] | **落外** |
+-| 固定份額（link） | 0.062 | 0.81 | 大於等於 0.5 | **不成立** |
++| m（us/sample）（cooperative） | 126.2 | 206 | 落在 [103, 618] | **一致** |
++| 固定份額（cooperative） | 0.026 | 0.81 | 大於等於 0.5 | **不成立** |
++| m（us/sample）（link） | 82.4 | 206 | 落在 [103, 618] | **落外** |
++| 固定份額（link） | 0.020 | 0.81 | 大於等於 0.5 | **不成立** |
+ 
+ 任一成立＝與「成本固定」一致。兩個都不成立 ⇒ **「固定成本的結論在 10 台 fabric／8 s 視窗上沒有重現」
+-是一個結果**——本輪它只落在 `link`（`cooperative` 的 m 落在區間內，所以 cooperative 與「成本固定」一致）。候選（INFERRED，未量）：① **視窗長度**（8 s vs 08-20 的長視窗）——短視窗把 emitter 的啟動成本攤進斜率，會把 m 壓低（本輪 79.0 < 103）；② **fabric 大小**（10 台、32 條交換機間埠）——`link` 的 psample 成本分散在多個 softirq 脈絡，「集中在單一執行緒」的固定份額（0.062）自然變小；③ **零點**——08-20 的零點是「零取樣但機制開著」，本輪的 `none` 是「機制關掉」，兩者對「固定成本」的定義不同。能判定的：同 fabric 把視窗拉到 30 s（若 m 進區間＝①）；同視窗換 4 台 fabric（若固定份額回到 ≥0.5＝②）；加一個「取樣率趨近 0 但 emitter 開著」的臂（釘住 ③）。三者都是另一輪。
++是一個結果**——本輪它只落在 `link`（`cooperative` 的 m 落在區間內，所以 cooperative 與「成本固定」一致）。候選（INFERRED，未量）：① **視窗長度**（8 s vs 08-20 的長視窗）——短視窗把 emitter 的啟動成本攤進斜率，會把 m 壓低（本輪 82.4 < 103）；② **fabric 大小**（10 台、32 條交換機間埠）——`link` 的 psample 成本分散在多個 softirq 脈絡，「集中在單一執行緒」的固定份額（0.020）自然變小；③ **零點**——08-20 的零點是「零取樣但機制開著」，本輪的 `none` 是「機制關掉」，兩者對「固定成本」的定義不同。能判定的：同 fabric 把視窗拉到 30 s（若 m 進區間＝①）；同視窗換 4 台 fabric（若固定份額回到 ≥0.5＝②）；加一個「取樣率趨近 0 但 emitter 開著」的臂（釘住 ③）。三者都是另一輪。
+ 
+ 比 `m` 不比 `F` 的理由（註冊過）：`m` 是邊際斜率該跨 fabric 轉移；`F` 跟圖的大小走，本來就不該轉移。
+ 
+@@ -241,6 +291,7 @@
+ 10. **`cpu.jsonl` 的樣本列不在結構對帳範圍內**(裁決 37⑥a):`inventory.py` 的基數比對
+     只讀 `.jsonl` 第一行,所以每列 `proc` 裡的十個 bmv2 沒有被守住——
+     一份「header 宣告十台、每列只寫一台」的 fixture 會完整通過那支對帳。
++11. 🔴 **逐階 CPU 視窗的讀法不是 PREREG 註冊的**（§4.0）：PREREG 沒說梯頂再確認的 rep 算不算該階；本文用 climb（Adam 2026-09-24 裁定）。另一讀法的數字在 `summary.json` 的 `cpu_window`——第五次兩讀法判決逐項相同，但數字不全同（bmv2 30 kpps 比值 1.206 vs 1.235、link 20 kpps 散佈 1.050 vs 1.148）。
+ 
+ ---
+ 
+@@ -260,6 +311,6 @@
+ 
+ | 支持 | 不支持 |
+ |---|---|
+-| C1／C2 產生器天花板 733,469.6／727,636.4 pps ≥ 5×150,000 ⇒ 天花板數字不是產生器的；C3 陽性對照 FIRES ⇒ 外部 CPU 閘會動；`link` 在 64 B 與 1024 B 都把 pps 天花板從 30.0 壓到 16.0 kpps（H-A2）；對帳 (b) `cooperative` 的 m＝122.9 µs/sample 落在 [103,618]；對帳 (c) 四列並排、無一格除以另一格 | `cooperative` 的天花板比值（H-A0，臂差 2 階，不報比值）；六格 H-B 取樣誤差判決與 H-C 標籤（**等第十輪的 PREREG 註冊層級判決，此處不引用逐格標籤**）；對帳 (a) `none` 30.0 vs 舊 16.0 落外 ⇒ 舊的 pps 天花板數字不能直接沿用到本 fabric；對帳 (b) `link` 的 m＝79.0 落外且固定份額 0.062 ⇒「成本固定」在 link 路沒有重現（§5 候選） |
++| C1／C2 產生器天花板 733,469.6／727,636.4 pps ≥ 5×150,000 ⇒ 天花板數字不是產生器的；C3 陽性對照 FIRES ⇒ 外部 CPU 閘會動；`link` 在 64 B 與 1024 B 都把 pps 天花板從 30.0 壓到 16.0 kpps（H-A2）；對帳 (b) `cooperative` 的 m＝126.2 µs/sample 落在 [103,618]（climb 讀法）；對帳 (c) 四列並排、無一格除以另一格 | `cooperative` 的天花板比值（H-A0，臂差 2 階，不報比值）；六格 H-B 取樣誤差判決與 H-C 標籤（**等第十輪的 PREREG 註冊層級判決，此處不引用逐格標籤**）；對帳 (a) `none` 30.0 vs 舊 16.0 落外 ⇒ 舊的 pps 天花板數字不能直接沿用到本 fabric；對帳 (b) `link` 的 m＝82.4 落外且固定份額 0.020（climb 讀法） ⇒「成本固定」在 link 路沒有重現（§5 候選） |
+ 
+ **[Co-developed with claude code -- Adam]**
+
+written: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-cpuwin-0924/doc/audit/2026-09-19_telemetry-three-groups/FINDINGS.md
+# FINDINGS.md after: sha256 b42eb0a237e7
+### rc=0

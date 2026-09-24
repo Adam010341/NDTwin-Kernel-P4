@@ -1,0 +1,10 @@
+doc: feasibility analysis of a P4-program-driven API shape (Adam's 09-24 question), with the orchestrator's citation spot-check
+
+Read-only investigation by an Opus 5.5 worker, written to the repo by the orchestrator because
+the harness refuses subagent report files. Conclusion: what should follow the .p4 is the
+proxy's intent-to-table binding, not the kernel's northbound API; the blocker for reroute under
+a foreign pipeline is link discovery (LLDP needs packet_in/out), not table names. Ten
+load-bearing citations checked against source; one count (8/13 pipelines with ipv4_lpm) is
+verified for 7, p4runtime not covered by the check. Four questions for Adam in section 7.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>

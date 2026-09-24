@@ -1,0 +1,5 @@
+  recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+  ok  lab claimed by orch-0924 for 150m (tutorials control 18 arms (REPORT-P3 §1②, phase-4 goal 7))
+  the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+  this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+  ok  lab released

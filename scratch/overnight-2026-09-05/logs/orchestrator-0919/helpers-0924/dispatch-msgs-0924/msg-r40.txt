@@ -1,0 +1,5 @@
+TICKET-P3 §9 ruling 40: E round 10 holds after three fixes, ruling 38's 'does not change the results' was true of the fourth campaign and not the fifth, and the H-C2 second condition is undecidable as registered
+
+The group-level verdicts drop two per-cell H-B1 and two per-rate H-B4 labels on the fifth campaign; cooperative's 'neither H-B1 nor H-B2' is an outcome PREREG never registered, so FINDINGS reports the numbers and applies no outcome-table action. H-C2's second condition has no registered tolerance, so no tolerance is chosen after the fact and the code may not print a string that starts with H-C2. Round 11 is dispatched for the judge's three fixes plus the three-window rule for H-B2.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>

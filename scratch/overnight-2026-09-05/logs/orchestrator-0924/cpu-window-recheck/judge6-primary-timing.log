@@ -1,0 +1,12 @@
+### judge item 6: when CPU_WINDOW_PRIMARY was set, against when the fixed code first ran on a campaign
+# when: 2026-09-24 12:03:11 UTC
+commit 93033c44  committer date 2026-09-24T19:15:35+08:00  analyse: telemetry three-group CPU -- a rung's window is its own reps; both readi
+commit 50563d38  committer date 2026-09-24T19:12:00+08:00  tests: telemetry three-group analysis -- a rung's CPU window must be its own reps
+commit 30aa500c  committer date 2026-09-24T18:48:55+08:00  TICKET-P4 section 7 ruling 1: tutorials control arms -- 16 as expected, flowcache
+# the first logged run of the fixed analyse.py on raw (header of analyse-115737Z.fix-93033c44.log):
+### analyse.py at the fix 93033c44 on the fifth campaign (read-only raw)
+# analyse.py sha256: 68c7dea1e7f3  git: 93033c449df3802ca14b547d13e94dbdcffaa7cb  uncommitted under round dir: 0
+# raw: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-audit-raw/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full  (audit-raw worktree head 1872be70)
+# when: 2026-09-24 11:15:44 UTC
+# NOT provable by an artifact: that no UNLOGGED run of the fixed code on real raw happened before the commit. Round 1's only pre-commit runs on real data were the unit tests' three verbatim rungs.tsv files under a SYNTHETIC cpu.jsonl (tests/test_analyse.py RungWindowTest).
+### rc=0

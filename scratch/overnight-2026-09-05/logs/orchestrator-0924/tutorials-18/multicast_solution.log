@@ -1,0 +1,99 @@
+drive_exercise.py -- multicast / solution
+(non-interactive: no mininet CLI, no xterm; kills nothing)
+
+== pre-flight (read-only) ==============================================
+OK   ports 9090-9099 free
+OK   interpreter /home/adam/p4dev-python-venv/bin/python (3.12.3)
+OK   switch  /usr/local/bin/simple_switch_grpc  sha256[:16]=327fa7d172217397  --version=1.15.3-f0b7d201
+OK   p4c     /usr/local/bin/p4c-bm2-ss  sha256[:16]=226f3f66df515c9e  --version=Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release)
+OK   exercise dir /home/adam/tutorials/exercises/multicast
+
+== compile =============================================================
+$ /usr/local/bin/p4c-bm2-ss --p4v 16 --p4runtime-files /home/adam/tutorials/exercises/multicast/build/multicast.p4.p4info.txtpb -o /home/adam/tutorials/exercises/multicast/build/multicast.json /home/adam/tutorials/exercises/multicast/solution/multicast.p4
+/home/adam/tutorials/exercises/multicast/solution/multicast.p4(13): [--Wwarn=unused] warning: 'ip4Addr_t' is unused
+typedef bit<32> ip4Addr_t;
+                ^^^^^^^^^
+-> /home/adam/tutorials/exercises/multicast/build/multicast.json  11287 B  sha256[:16]=350746c489bec11e  warnings=1
+
+== plan ================================================================
+topology : sig-topo/topology.json
+hosts    : h1, h2, h3, h4
+switches : s1
+links    : 4
+program  : /home/adam/tutorials/exercises/multicast/solution/multicast.p4 -> build/multicast.json
+switch   : /usr/local/bin/simple_switch_grpc
+steps    : disable IPv6 in each host; pingall; assert h1/h2/h3 reach each other and nobody reaches h4 (sig-topo's group is ports 1,2,3)
+equivalent to (cwd must be the exercise dir):
+  cd /home/adam/tutorials/exercises/multicast && \
+  sudo /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/utils/run_exercise.py -t sig-topo/topology.json -j build/multicast.json -b /usr/local/bin/simple_switch_grpc
+  ... except do_net_cli() is replaced by the scripted steps above.
+Reading topology file.
+Building mininet topology.
+/usr/local/bin/simple_switch_grpc -i 1@s1-eth1 -i 2@s1-eth2 -i 3@s1-eth3 -i 4@s1-eth4 --pcap /home/adam/tutorials/exercises/multicast/pcaps --nanolog ipc:///tmp/bm-0-log.ipc --device-id 0 build/multicast.json --log-console --thrift-port 9090 -- --grpc-server-addr 0.0.0.0:50051
+
+Configuring switch s1 using P4Runtime with file sig-topo/s1-runtime.json
+ - Using P4Info file build/multicast.p4.p4info.txtpb...
+ - Connecting to P4Runtime server on 127.0.0.1:50051 (bmv2)...
+ - Setting pipeline config (build/multicast.json)...
+ - Inserting 4 table entries...
+ - MyIngress.mac_lookup: hdr.ethernet.dstAddr=08:00:00:00:01:11 => MyIngress.mac_forward(port=1)
+ - MyIngress.mac_lookup: hdr.ethernet.dstAddr=08:00:00:00:02:22 => MyIngress.mac_forward(port=2)
+ - MyIngress.mac_lookup: hdr.ethernet.dstAddr=08:00:00:00:03:33 => MyIngress.mac_forward(port=3)
+ - MyIngress.mac_lookup: hdr.ethernet.dstAddr=08:00:00:00:04:44 => MyIngress.mac_forward(port=4)
+ - Inserting 1 group entries...
+ - Group 1 => (1, 2, 3)
+
+== topology as brought up ==============================================
+s1 -> gRPC port: 50051
+**********
+h1
+default interface: eth0	10.0.0.1	08:00:00:00:01:11
+**********
+**********
+h2
+default interface: eth0	10.0.0.2	08:00:00:00:02:22
+**********
+**********
+h3
+default interface: eth0	10.0.0.3	08:00:00:00:03:33
+**********
+**********
+h4
+default interface: eth0	10.0.0.4	08:00:00:00:04:44
+**********
+
+== scripted steps (no CLI, no xterm) ===================================
+$ h1: disable_ipv6 -> net.ipv6.conf.all.disable_ipv6 = 1 | net.ipv6.conf.default.disable_ipv6 = 1
+$ h2: disable_ipv6 -> net.ipv6.conf.all.disable_ipv6 = 1 | net.ipv6.conf.default.disable_ipv6 = 1
+$ h3: disable_ipv6 -> net.ipv6.conf.all.disable_ipv6 = 1 | net.ipv6.conf.default.disable_ipv6 = 1
+$ h4: disable_ipv6 -> net.ipv6.conf.all.disable_ipv6 = 1 | net.ipv6.conf.default.disable_ipv6 = 1
+$ ip neigh flush all, in each host namespace -> h1, h2, h3, h4
+$ every ordered host pair: ping -c 5 -W 2, loss parsed from ping's summary
+   h1 -> h4 (10.0.0.4): 100% loss, 0/5 received
+   h2 -> h4 (10.0.0.4): 100% loss, 0/5 received
+   h3 -> h4 (10.0.0.4): 100% loss, 0/5 received
+-> pingall 25% (9/12 pairs at 0%, 3 lossy)
+   PASS injection: every ordered pair was tested       want=0 untested             got=0 untested of 12
+   PASS h1/h2/h3 reach each other                      want=0% on all 6 pairs      got=0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 received
+   PASS nobody reaches h4                              want=100% on the three hX -> h4 pairs got=100% loss, 0/5 received, 100% loss, 0/5 received, 100% loss, 0/5 received
+   PASS but h4 reaches them                            want=0% on the three h4 -> hX pairs got=0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 received
+$ ip neigh flush all again -> h1, h2, h3, h4; re-measuring the three hX -> h4 pairs
+   PASS and h4 is unreachable from cold caches, not just from this ping order want=100% on all three, after a second flush got=h1->h4 100% loss, 0/5 received, h2->h4 100% loss, 0/5 received, h3->h4 100% loss, 0/5 received
+
+-- switch logs --
+   /home/adam/tutorials/exercises/multicast/logs/s1-p4runtime-requests.txt 2389 B
+   /home/adam/tutorials/exercises/multicast/logs/s1.log 850041 B
+
+== net.stop() ==========================================================
+net.stop() returned cleanly
+
+== verdict =============================================================
+   PASS injection: every ordered pair was tested       want=0 untested             got=0 untested of 12   【源碼推導，未執行】
+   PASS h1/h2/h3 reach each other                      want=0% on all 6 pairs      got=0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 received   【README 宣稱】＋【源碼推導，未執行】
+   PASS nobody reaches h4                              want=100% on the three hX -> h4 pairs got=100% loss, 0/5 received, 100% loss, 0/5 received, 100% loss, 0/5 received   【README 宣稱】＋【源碼推導，未執行】
+   PASS but h4 reaches them                            want=0% on the three h4 -> hX pairs got=0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 received   【源碼推導，未執行】
+   PASS and h4 is unreachable from cold caches, not just from this ping order want=100% on all three, after a second flush got=h1->h4 100% loss, 0/5 received, h2->h4 100% loss, 0/5 received, h3->h4 100% loss, 0/5 received   【源碼推導，未執行】
+
+>>> PASS (5/5)
+
+report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T095816Z_multicast_solution.md

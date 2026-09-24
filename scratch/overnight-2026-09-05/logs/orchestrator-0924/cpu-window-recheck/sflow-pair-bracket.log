@@ -1,0 +1,8 @@
+### sflow pair bracket check, fifth campaign (read-only raw)
+# when: 2026-09-24 11:23:33 UTC
+G2/cooperative_f1024_a   clean=12  monotone in climb order: True  rung12_after=60247  next rung's before=60247  equal: True  110_after=94981  arm sflow_after=100503  samples after the last climb pair: 5522
+G3/link_f1024_a          clean=12  monotone in climb order: True  rung12_after=126756  next rung's before=126756  equal: True  110_after=183657  arm sflow_after=190327  samples after the last climb pair: 6670
+G4/link_f1024_b          clean=20  monotone in climb order: True  rung20_after=19824  next rung's before=19824  equal: True  110_after=54866  arm sflow_after=66217  samples after the last climb pair: 11351
+G5/cooperative_f1024_b   clean=30  monotone in climb order: True  rung30_after=32250  next rung's before=32250  equal: True  110_after=55479  arm sflow_after=69674  samples after the last climb pair: 14195
+G4/link_f64_b            clean=20  monotone in climb order: True  rung20_after=89680  next rung's before=89680  equal: True  110_after=136619  arm sflow_after=147875  samples after the last climb pair: 11256
+### rc=0

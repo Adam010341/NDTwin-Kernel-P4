@@ -1,0 +1,23 @@
+Merge feat/p3-three-groups-0919 rounds 8-11 (P3-E): the registered labels are made where PREREG registers them, and what PREREG did not register stays undecided
+
+Rounds 8 and 9 (e222176d, 9204e3e3): the structural reconciliation of fixtures against real raw
+(inventory, cardinalities, ten bmv2 pids folded into one class with unequal weights), the anchor
+sweep, and the plot post-checks. Round 10 (bc1db4c0, ruling 38): per-cell H-B labels become
+descriptions and H-B1/H-B2/H-B4 are decided once per group; the H-C fit uses only rungs all three
+groups share and bmv2 carries no H-C label, only its registered per-rung ratio. Round 11
+(a7fb0789, ruling 40): H-C2's second condition has no registered tolerance, so the verdict says
+"not decided" and carries both conditions as data; bmv2 gets no H-C0 either; H-B2 needs three
+same-sign windows.
+
+On the fifth campaign nothing numeric moved (1424 and then 1612 leaf values identical across the
+rounds); the labels did: cooperative is "neither H-B1 nor H-B2" -- an outcome PREREG never
+registered -- link is H-B1, and H-B4 does not hold (0.253 at 2 Mbit/s). Ruling 38's "does not
+change the results" was true of the fourth campaign only; corrected in ruling 40.
+
+Gates reproduced by the orchestrator at a7fb0789 (logs/orchestrator-0919/rerun-E11-a7fb0789.log):
+unit 101x2, offline 78/0, gate self-test 14/0, hazard 4 files 0, anchor sweep 50+13, check_gate_anchors
+115/115, mutate_analyse 48 mutations / 0 survivors / 0 drifted + 2 controls. Judge (Opus 5.5) on
+round 10: MERGE AFTER FIXES; round 11 closed its three fixes and was checked hunk by hunk by the
+orchestrator without a second judge round (ruling 40(10)).
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>

@@ -1,0 +1,15 @@
+# gate    : red-first test blob reconstruction: delivered da0fa021 test file minus ONE line == 888d7db5?
+# cmd     : git show da0fa021:<test> | grep -v -F '<the addCleanup line>' | git hash-object --stdin
+# worktree: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-driver-0924
+# head    : bf349b64fa938efc647244753cdc17b79061cf46
+# dirty   : 0 path(s) (clean)
+# blob    : WT 13f60fda31d9f462ffe9dccef5c2f1b5f29afd9e  HEAD 13f60fda31d9f462ffe9dccef5c2f1b5f29afd9e  doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py
+# blob    : WT 38343a20770c56c9b7fa1a2dd13dee99c95c93e5  HEAD 38343a20770c56c9b7fa1a2dd13dee99c95c93e5  doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py
+# blob    : WT 04d5acd1a498203a18a6cc73069d101a5452aed1  HEAD 04d5acd1a498203a18a6cc73069d101a5452aed1  tests/shell/mutate_drive_exercise.sh
+# start   : 2026-09-24T20:05:59+08:00
+
+delivered (da0fa021) test blob : 1bd38d623d313f09dd9039ac545a27ef0a928b93
+red-first log header test blob : blob 888d7db5704b30bef9f279f63d14abfb982f1daf
+occurrences of the line in delivered file: 1  at line 2626
+delivered minus that line -> 888d7db5704b30bef9f279f63d14abfb982f1daf
+# end 2026-09-24T20:05:59+08:00

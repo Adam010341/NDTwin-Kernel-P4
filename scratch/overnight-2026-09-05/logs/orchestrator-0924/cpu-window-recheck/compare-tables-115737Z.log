@@ -1,0 +1,85 @@
+### old-vs-new tables, fifth campaign -- every value read from the two summary.json files
+# base: summary.115737Z.base-30aa500c.json   fix: summary.115737Z.fix-93033c44.json
+# when: 2026-09-24 11:17:57 UTC
+## (1) FINDINGS 4 per-rung table -- old -> climb / climb+conf
+
+| kpps | coop S (samples/s) | delta coop | delta link | spread coop | spread link | resolved coop/link |
+|---|---|---|---|---|---|---|
+| 1 | 18.6 / 18.6 / 18.6 | 0.667 / 0.667 / 0.667 | 0.400 / 0.400 / 0.400 | 0.133 / 0.133 / 0.133 | 0.400 / 0.400 / 0.400 | yy/yy/yy |
+| 2 | 39.4 / 39.4 / 39.4 | 1.067 / 1.067 / 1.067 | 0.704 / 0.704 / 0.704 | 0.133 / 0.133 / 0.133 | 0.375 / 0.375 / 0.375 | yy/yy/yy |
+| 3 | 58.7 / 58.7 / 58.7 | 1.333 / 1.333 / 1.333 | 1.133 / 1.133 / 1.133 | 0.133 / 0.133 / 0.133 | 0.800 / 0.800 / 0.800 | yy/yy/yy |
+| 5 | 96.5 / 96.5 / 96.5 | 1.400 / 1.400 / 1.400 | 1.333 / 1.333 / 1.333 | 0.133 / 0.133 / 0.133 | 0.133 / 0.133 / 0.133 | yy/yy/yy |
+| 8 | 153.2 / 153.2 / 153.2 | 2.251 / 2.251 / 2.251 | 1.831 / 1.831 / 1.831 | 0.164 / 0.164 / 0.164 | 0.706 / 0.706 / 0.706 | yy/yy/yy |
+| **12** | 132.0 / 215.7 / 215.7 | 4.149 / 2.921 / 2.932 | 3.131 / 2.286 / 2.276 | 2.612 / 0.157 / 0.180 | 1.157 / 0.533 / 0.553 | yy/yy/yy |
+| **20** | 359.2 / 359.2 / 359.2 | 4.444 / 4.444 / 4.444 | 4.538 / 3.481 / 3.530 | 0.485 / 0.485 / 0.485 | 3.164 / 1.050 / 1.148 | yy/yy/yy |
+| **30** | 367.0 / 550.6 / 550.6 | 7.836 / 7.119 / 7.125 | 5.281 / 5.327 / 5.314 | 0.895 / 2.422 / 2.383 | 1.741 / 1.741 / 1.741 | yy/yy/yy |
+| 45 | 823.6 / 823.6 / 823.6 | 10.398 / 10.398 / 10.398 | 8.132 / 8.132 / 8.132 | 0.268 / 0.268 / 0.268 | 1.334 / 1.334 / 1.334 | yy/yy/yy |
+| 70 | 947.8 / 947.8 / 947.8 | 11.764 / 11.764 / 11.764 | 10.331 / 10.331 / 10.331 | 0.868 / 0.868 / 0.868 | 3.066 / 3.066 / 3.066 | yy/yy/yy |
+| 110 | 965.2 / 965.2 / 965.2 | 13.530 / 13.530 / 13.530 | 12.598 / 12.598 / 12.598 | 0.133 / 0.133 / 0.133 | 4.668 / 4.668 / 4.668 | yy/yy/yy |
+
+(each cell: old / climb / climb+conf; bold kpps = a value moved)
+
+## (2) decomposition (PREREG 5.3), per treated group
+
+| group | reading | F (% of one core) | m (us/sample) | share F/(F+m*S_top) | verdict | H-C2 cond 1 | delta ratio | S ratio | S_top |
+|---|---|---|---|---|---|---|---|---|---|
+| cooperative | old (union) | 0.9234 | 122.89 | 0.0722 | H-C1 cost is dominated by a fixed component (08-20 reproduces) | True (share 0.0722) | 20.297 | 51.802 | 965.2 |
+| cooperative | new: climb | 0.3212 | 126.19 | 0.0257 | H-C1 cost is dominated by a fixed component (08-20 reproduces) | True (share 0.0257) | 20.297 | 51.802 | 965.2 |
+| cooperative | new: climb+conf | 0.3231 | 126.18 | 0.0258 | H-C1 cost is dominated by a fixed component (08-20 reproduces) | True (share 0.0258) | 20.297 | 51.802 | 965.2 |
+| link | old (union) | 0.7692 | 79.00 | 0.0623 | not decided: H-C2 condition 1 holds (share <= 0.2); condition 2 (delta ratio ~ S ratio) has no registered tolerance | True (share 0.0623) | 31.505 | 58.680 | 1466.1 |
+| link | new: climb | 0.2492 | 82.41 | 0.0202 | not decided: H-C2 condition 1 holds (share <= 0.2); condition 2 (delta ratio ~ S ratio) has no registered tolerance | True (share 0.0202) | 31.505 | 58.680 | 1466.1 |
+| link | new: climb+conf | 0.2521 | 82.40 | 0.0204 | not decided: H-C2 condition 1 holds (share <= 0.2); condition 2 (delta ratio ~ S ratio) has no registered tolerance | True (share 0.0204) | 31.505 | 58.680 | 1466.1 |
+
+## (3) registered bmv2 coop/none per rung, [0.90, 1.15]
+
+| kpps | old (union) | new: climb | new: climb+conf |
+|---|---|---|---|
+| 1 | 0.991 in | 0.991 in | 0.991 in |
+| 2 | 0.988 in | 0.988 in | 0.988 in |
+| 3 | 1.105 in | 1.105 in | 1.105 in |
+| 5 | 1.038 in | 1.038 in | 1.038 in |
+| 8 | 0.943 in | 0.943 in | 0.943 in |
+| **12** | 1.513 OUT | 1.006 in | 1.001 in |
+| 20 | 1.084 in | 1.084 in | 1.084 in |
+| **30** | 1.099 in | 1.206 OUT | 1.235 OUT |
+| 45 | 1.164 OUT | 1.164 OUT | 1.164 OUT |
+| 70 | 1.067 in | 1.067 in | 1.067 in |
+| 110 | 1.022 in | 1.022 in | 1.022 in |
+
+old (union): 9 inside, 2 outside (12, 45)
+
+new: climb: 9 inside, 2 outside (30, 45)
+
+new: climb+conf: 9 inside, 2 outside (30, 45)
+
+## (4) reconciliation (b)
+
+| group | reading | m | fixed share | consistent | verdict |
+|---|---|---|---|---|---|
+| cooperative | old (union) | 122.89 | 0.0722 | True | H-C1 cost is dominated by a fixed component (08-20 reproduces) |
+| link | old (union) | 79.00 | 0.0623 | False | not decided: H-C2 condition 1 holds (share <= 0.2); condition 2 (delta ratio ~ S ratio) has no registered tolerance |
+| cooperative | new: climb | 126.19 | 0.0257 | True | H-C1 cost is dominated by a fixed component (08-20 reproduces) |
+| link | new: climb | 82.41 | 0.0202 | False | not decided: H-C2 condition 1 holds (share <= 0.2); condition 2 (delta ratio ~ S ratio) has no registered tolerance |
+| cooperative | new: climb+conf | 126.18 | 0.0258 | True | H-C1 cost is dominated by a fixed component (08-20 reproduces) |
+| link | new: climb+conf | 82.40 | 0.0204 | False | not decided: H-C2 condition 1 holds (share <= 0.2); condition 2 (delta ratio ~ S ratio) has no registered tolerance |
+
+## (5) per-group CPU cells that moved (fig3 panels; % of one core)
+
+| label | group | kpps | old | climb | climb+conf |
+|---|---|---|---|---|---|
+| kernel | none | 30.0 | 0.648 | 0.601 | 0.614 |
+| kernel | cooperative | 12.0 | 4.795 | 3.568 | 3.579 |
+| kernel | cooperative | 30.0 | 8.483 | 7.720 | 7.739 |
+| kernel | link | 12.0 | 3.778 | 2.933 | 2.923 |
+| kernel | link | 20.0 | 5.120 | 4.063 | 4.112 |
+| bmv2 | none | 30.0 | 376.788 | 306.056 | 302.101 |
+| bmv2 | cooperative | 12.0 | 209.954 | 139.603 | 138.909 |
+| bmv2 | cooperative | 30.0 | 414.180 | 369.255 | 373.212 |
+| bmv2 | link | 12.0 | 204.935 | 138.619 | 137.413 |
+| bmv2 | link | 20.0 | 267.709 | 214.676 | 216.615 |
+| proxy+emitter | none | 30.0 | 2.318 | 2.292 | 2.224 |
+| proxy+emitter | cooperative | 12.0 | 16.765 | 12.233 | 12.160 |
+| proxy+emitter | cooperative | 30.0 | 26.975 | 24.383 | 24.500 |
+| proxy+emitter | link | 12.0 | 7.305 | 6.062 | 5.885 |
+| proxy+emitter | link | 20.0 | 8.416 | 6.855 | 7.188 |
+### rc=0

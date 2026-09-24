@@ -1,0 +1,45 @@
+記憶目錄結構檢查  /home/adam/.claude/projects/-home-adam-Desktop-NDTwin-Kernel/memory  (196 個記憶檔)
+
+1 · frontmatter 重複鍵
+  (無)
+
+2 · frontmatter 缺 name
+  (無)
+
+3 · name 與檔名不符
+  (無)
+
+4 · 索引與磁碟不符
+  索引指到 196 個記憶(含段落內的行內引用) · 磁碟 196 檔 · 索引來源 8 檔(MEMORY.md index/00-project-state.md index/01-adam-and-workflow.md index/02-recurring-mistakes.md index/03-test-discipline.md index/04-bug-shapes.md index/05-env-and-tools.md index/06-docs-and-cross-repo.md)
+  (無)
+
+5 · 斷掉的 wikilink
+  (無)
+
+6 · 自我指向的 wikilink
+  (無)
+
+7 · 被換行切斷的 wikilink
+  (無)
+
+8 · 索引容量(單條 150 字元 · 全檔 200 行 / 25000 字元)
+  ndtwin-current-state.md — 鉤子 235 字元 (index/00-project-state.md:20)
+  nslab-remote-dev-machine.md — 鉤子 324 字元 (index/00-project-state.md:21)
+  physical-testbed-operations.md — 鉤子 206 字元 (index/00-project-state.md:24)
+  jitter-is-the-receiver-not-the-network.md — 鉤子 152 字元 (index/00-project-state.md:25)
+  bmv2-fast-build-ratio-is-eight-not-twelve.md — 鉤子 199 字元 (index/00-project-state.md:26)
+  bmv2-ceiling-is-pps-not-bps.md — 鉤子 176 字元 (index/00-project-state.md:27)
+  bmv2-and-ovs-capacity-do-not-compose.md — 鉤子 168 字元 (index/00-project-state.md:28)
+  api-flow-list-inflated-by-idle-timeout.md — 鉤子 193 字元 (index/00-project-state.md:31)
+  confirmatory-round-both-planes-uncapped.md — 鉤子 151 字元 (index/00-project-state.md:36)
+  telemetry-cost-is-fixed-not-per-sample.md — 鉤子 334 字元 (index/00-project-state.md:37)
+  …另有 72 條同樣超長
+  行首鉤子 164 條(行內引用不計,故可能少於第 4 項) · 超長 82 條 · MEMORY.md 25 行 (12%/200) · 5712 字元 (22%/25000)
+  另有 95 行以「- 」開頭但不指向任何 .md — 那是散文不是指標,未計入上面的條數
+
+有發現。修之前注意:
+  · 退休 / 合併檔案前先查 inbound 連結,每一條各自判斷「它是為了哪一段連過來的」
+  · 改檔名會打斷所有指向它的 [[wikilink]] — 檔名是位址
+  · 第 8 項先看是哪一道逼近:字元 → 瘦身肥 hook;行數 → 退休條目。兩者修法相反
+    超長清單看的是「哪幾條變短了」,不是「總數有沒有降」 — 有人瘦身有人加肥,計數可以整晚不動
+  · 這支腳本查不到「內容過時 / 自相矛盾」,那要開檔判讀

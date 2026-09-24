@@ -1,0 +1,67 @@
+# gate    : tests/shell/test_mutate_gate_dead_mutant.sh (section 5 runs mutate_drive_exercise.sh with broken interpreters + ANCHOR_CHECK from /tmp)
+# cmd     : (cwd worktree) bash tests/shell/test_mutate_gate_dead_mutant.sh   [nothing else running]
+# worktree: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-driver-0924
+# head    : bf349b64fa938efc647244753cdc17b79061cf46
+# dirty   : 0 path(s) (clean)
+# blob    : WT 13f60fda31d9f462ffe9dccef5c2f1b5f29afd9e  HEAD 13f60fda31d9f462ffe9dccef5c2f1b5f29afd9e  doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py
+# blob    : WT 38343a20770c56c9b7fa1a2dd13dee99c95c93e5  HEAD 38343a20770c56c9b7fa1a2dd13dee99c95c93e5  doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py
+# blob    : WT 04d5acd1a498203a18a6cc73069d101a5452aed1  HEAD 04d5acd1a498203a18a6cc73069d101a5452aed1  tests/shell/mutate_drive_exercise.sh
+# start   : 2026-09-24T19:58:45+08:00
+
+
+1. 🔴 a mutant that does not parse is REFUSED, not counted
+  ok         the gate exits 2 (refused), not 1 (a survivor)
+  ok       🔴 it says the mutant is DEAD
+  ok         and why that is not a measurement
+  ok         the refusal is spelled out
+  ok       🔴 and it prints NO verdict line at all
+  ok       🔴 in particular it does not say anything survived
+  ok         report_green refuses the same way
+  ok         with the same DEAD line
+  ok         and no verdict line either
+
+2. 🔴 THE CONTROL: a mutant that DOES parse is not reported dead
+  ok         a parseable mutant lets the gate reach its verdict
+  ok       🔴 it is NOT called dead
+  ok         and the gate does not refuse
+  ok         the verdict line is printed
+  ok         and it counts the dead separately
+  ok         the mutation itself was caught
+
+3. the counters are three, not two
+  ok       🔴 both report functions increment DEAD, not SURVIVORS
+  ok       🔴 and no SURVIVORS increment sits in a dead branch
+  ok         the verdict is gated on DEAD
+
+5. 🔴 mutate_drive_exercise.sh answers about ITSELF, not about its subject
+  ok       🔴 gate mode with a dead interpreter exits 2
+  ok       🔴 and prints NO verdict line
+  ok       🔴 no 'ANCHOR IS NOT UNIQUE' about the subject
+  ok       🔴 no empty-count line
+  ok       🔴 and no 'anchor(s) have moved'
+  ok         it is named as the gate's own refusal
+  ok       🔴 an anchor_count that cannot run exits 2
+  ok         named as anchor_count's failure
+  ok         and the parent shell acts on it
+  ok       🔴 no verdict line
+  ok       🔴 not folded into 'the anchor is stale'
+  ok       🔴 an interpreter that dies MID-RUN is a refusal
+  ok         named as the suite not having run
+  ok         and it says nothing was measured
+  ok       🔴 and the refusal comes from the MUTATION loop
+  ok       🔴 no verdict line after a mid-run death
+  ok       🔴 and it is NOT called a survivor
+  ok       🔴 run from /tmp every anchor still resolves
+  ok         nothing reported as a stale anchor
+  ok         and the header names the cwd it ran in
+  ok         the resolved subject
+  ok         and the subject's sha
+
+4. 🔴 the lift must FAIL LOUDLY when the gate's shape changes
+  ok         the rename really changed the copy
+  ok       🔴 a gate whose shape moved makes THIS suite red, not green
+  ok         and it is visible as a failure, not as silence
+
+Ran 43 checks, 0 failed
+# rc=0
+# end 2026-09-24T20:00:45+08:00

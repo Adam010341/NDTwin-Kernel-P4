@@ -1,0 +1,281 @@
+drive_exercise.py -- basic_tunnel / solution
+(non-interactive: no mininet CLI, no xterm; kills nothing)
+
+== pre-flight (read-only) ==============================================
+OK   ports 9090-9099 free
+OK   interpreter /home/adam/p4dev-python-venv/bin/python (3.12.3)
+OK   switch  /usr/local/bin/simple_switch_grpc  sha256[:16]=327fa7d172217397  --version=1.15.3-f0b7d201
+OK   p4c     /usr/local/bin/p4c-bm2-ss  sha256[:16]=226f3f66df515c9e  --version=Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release)
+OK   exercise dir /home/adam/tutorials/exercises/basic_tunnel
+
+== compile =============================================================
+$ /usr/local/bin/p4c-bm2-ss --p4v 16 --p4runtime-files /home/adam/tutorials/exercises/basic_tunnel/build/basic_tunnel.p4.p4info.txtpb -o /home/adam/tutorials/exercises/basic_tunnel/build/basic_tunnel.json /home/adam/tutorials/exercises/basic_tunnel/solution/basic_tunnel.p4
+-> /home/adam/tutorials/exercises/basic_tunnel/build/basic_tunnel.json  19548 B  sha256[:16]=bcb4ff532f309154  warnings=0
+
+== plan ================================================================
+topology : topology.json
+hosts    : h1, h2, h3
+switches : s1, s2, s3
+links    : 6
+program  : /home/adam/tutorials/exercises/basic_tunnel/solution/basic_tunnel.p4 -> build/basic_tunnel.json
+switch   : /usr/local/bin/simple_switch_grpc
+steps    : h2/h3 receive.py; h1 send.py 10.0.2.2 --dst_id 2 then --dst_id 3; assert which host the tunnel delivered to
+equivalent to (cwd must be the exercise dir):
+  cd /home/adam/tutorials/exercises/basic_tunnel && \
+  sudo /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/utils/run_exercise.py -t topology.json -j build/basic_tunnel.json -b /usr/local/bin/simple_switch_grpc
+  ... except do_net_cli() is replaced by the scripted steps above.
+Reading topology file.
+Building mininet topology.
+/usr/local/bin/simple_switch_grpc -i 1@s1-eth1 -i 2@s1-eth2 -i 3@s1-eth3 --pcap /home/adam/tutorials/exercises/basic_tunnel/pcaps --nanolog ipc:///tmp/bm-0-log.ipc --device-id 0 build/basic_tunnel.json --log-console --thrift-port 9090 -- --grpc-server-addr 0.0.0.0:50051
+
+/usr/local/bin/simple_switch_grpc -i 1@s2-eth1 -i 2@s2-eth2 -i 3@s2-eth3 --pcap /home/adam/tutorials/exercises/basic_tunnel/pcaps --nanolog ipc:///tmp/bm-1-log.ipc --device-id 1 build/basic_tunnel.json --log-console --thrift-port 9091 -- --grpc-server-addr 0.0.0.0:50052
+
+/usr/local/bin/simple_switch_grpc -i 1@s3-eth1 -i 2@s3-eth2 -i 3@s3-eth3 --pcap /home/adam/tutorials/exercises/basic_tunnel/pcaps --nanolog ipc:///tmp/bm-2-log.ipc --device-id 2 build/basic_tunnel.json --log-console --thrift-port 9092 -- --grpc-server-addr 0.0.0.0:50053
+
+Configuring switch s1 using P4Runtime with file s1-runtime.json
+ - Using P4Info file build/basic_tunnel.p4.p4info.txtpb...
+ - Connecting to P4Runtime server on 127.0.0.1:50051 (bmv2)...
+ - Setting pipeline config (build/basic_tunnel.json)...
+ - Inserting 6 table entries...
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.1.1', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:01:11, port=1)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.2.2', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:02:00, port=2)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.3.3', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:03:00, port=3)
+ - MyIngress.myTunnel_exact: hdr.myTunnel.dst_id=[1] => MyIngress.myTunnel_forward(port=1)
+ - MyIngress.myTunnel_exact: hdr.myTunnel.dst_id=[2] => MyIngress.myTunnel_forward(port=2)
+ - MyIngress.myTunnel_exact: hdr.myTunnel.dst_id=[3] => MyIngress.myTunnel_forward(port=3)
+Configuring switch s2 using P4Runtime with file s2-runtime.json
+ - Using P4Info file build/basic_tunnel.p4.p4info.txtpb...
+ - Connecting to P4Runtime server on 127.0.0.1:50052 (bmv2)...
+ - Setting pipeline config (build/basic_tunnel.json)...
+ - Inserting 6 table entries...
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.1.1', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:01:00, port=2)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.2.2', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:02:22, port=1)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.3.3', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:03:00, port=3)
+ - MyIngress.myTunnel_exact: hdr.myTunnel.dst_id=[1] => MyIngress.myTunnel_forward(port=2)
+ - MyIngress.myTunnel_exact: hdr.myTunnel.dst_id=[2] => MyIngress.myTunnel_forward(port=1)
+ - MyIngress.myTunnel_exact: hdr.myTunnel.dst_id=[3] => MyIngress.myTunnel_forward(port=3)
+Configuring switch s3 using P4Runtime with file s3-runtime.json
+ - Using P4Info file build/basic_tunnel.p4.p4info.txtpb...
+ - Connecting to P4Runtime server on 127.0.0.1:50053 (bmv2)...
+ - Setting pipeline config (build/basic_tunnel.json)...
+ - Inserting 6 table entries...
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.1.1', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:01:00, port=2)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.2.2', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:02:00, port=3)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.3.3', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:03:33, port=1)
+ - MyIngress.myTunnel_exact: hdr.myTunnel.dst_id=[1] => MyIngress.myTunnel_forward(port=2)
+ - MyIngress.myTunnel_exact: hdr.myTunnel.dst_id=[2] => MyIngress.myTunnel_forward(port=3)
+ - MyIngress.myTunnel_exact: hdr.myTunnel.dst_id=[3] => MyIngress.myTunnel_forward(port=1)
+
+== topology as brought up ==============================================
+s1 -> gRPC port: 50051
+s2 -> gRPC port: 50052
+s3 -> gRPC port: 50053
+**********
+h1
+default interface: eth0	10.0.1.1	08:00:00:00:01:11
+**********
+**********
+h2
+default interface: eth0	10.0.2.2	08:00:00:00:02:22
+**********
+**********
+h3
+default interface: eth0	10.0.3.3	08:00:00:00:03:33
+**********
+
+== scripted steps (no CLI, no xterm) ===================================
+$ h2: /home/adam/p4dev-python-venv/bin/python -u /home/adam/tutorials/exercises/basic_tunnel/receive.py   (> /home/adam/tutorials/exercises/basic_tunnel/logs/driver-h2-1-receive.log)
+$ h3: /home/adam/p4dev-python-venv/bin/python -u /home/adam/tutorials/exercises/basic_tunnel/receive.py   (> /home/adam/tutorials/exercises/basic_tunnel/logs/driver-h3-1-receive.log)
+$ h1: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/basic_tunnel/send.py 10.0.2.2 P4 driver probe --dst_id 2
+sending on interface eth0 to dst_id 2
+###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:11
+  type      = 0x1212
+###[ MyTunnel ]### 
+     pid       = 2048
+     dst_id    = 2
+###[ IP ]### 
+        version   = 4
+        ihl       = 5
+        tos       = 0x0
+        len       = 55
+        id        = 1
+        flags     = 
+        frag      = 0
+        ttl       = 64
+        proto     = tcp
+        chksum    = 0x63be
+        src       = 10.0.1.1
+        dst       = 10.0.2.2
+        \options   \
+###[ TCP ]### 
+           sport     = 49206
+           dport     = 1234
+           seq       = 0
+           ack       = 0
+           dataofs   = 5
+           reserved  = 0
+           flags     = S
+           window    = 8192
+           chksum    = 0xa36b
+           urgptr    = 0
+           options   = []
+###[ Raw ]### 
+              load      = 'P4 driver probe'
+
+
+-- h2 (/home/adam/tutorials/exercises/basic_tunnel/logs/driver-h2-1-receive.log) --
+sniffing on eth0
+got a packet
+###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:11
+  type      = 0x1212
+###[ MyTunnel ]### 
+     pid       = 2048
+     dst_id    = 2
+###[ IP ]### 
+        version   = 4
+        ihl       = 5
+        tos       = 0x0
+        len       = 55
+        id        = 1
+        flags     = 
+        frag      = 0
+        ttl       = 64
+        proto     = tcp
+        chksum    = 0x63be
+        src       = 10.0.1.1
+        dst       = 10.0.2.2
+        \options   \
+###[ TCP ]### 
+           sport     = 49206
+           dport     = 1234
+           seq       = 0
+           ack       = 0
+           dataofs   = 5
+           reserved  = 0
+           flags     = S
+           window    = 8192
+           chksum    = 0xa36b
+           urgptr    = 0
+           options   = []
+###[ Raw ]### 
+              load      = 'P4 driver probe'
+
+
+-- h3 (/home/adam/tutorials/exercises/basic_tunnel/logs/driver-h3-1-receive.log) --
+sniffing on eth0
+
+$ h2: /home/adam/p4dev-python-venv/bin/python -u /home/adam/tutorials/exercises/basic_tunnel/receive.py   (> /home/adam/tutorials/exercises/basic_tunnel/logs/driver-h2-2-receive.log)
+$ h3: /home/adam/p4dev-python-venv/bin/python -u /home/adam/tutorials/exercises/basic_tunnel/receive.py   (> /home/adam/tutorials/exercises/basic_tunnel/logs/driver-h3-2-receive.log)
+$ h1: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/basic_tunnel/send.py 10.0.2.2 P4 driver probe --dst_id 3
+sending on interface eth0 to dst_id 3
+###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:11
+  type      = 0x1212
+###[ MyTunnel ]### 
+     pid       = 2048
+     dst_id    = 3
+###[ IP ]### 
+        version   = 4
+        ihl       = 5
+        tos       = 0x0
+        len       = 55
+        id        = 1
+        flags     = 
+        frag      = 0
+        ttl       = 64
+        proto     = tcp
+        chksum    = 0x63be
+        src       = 10.0.1.1
+        dst       = 10.0.2.2
+        \options   \
+###[ TCP ]### 
+           sport     = 58867
+           dport     = 1234
+           seq       = 0
+           ack       = 0
+           dataofs   = 5
+           reserved  = 0
+           flags     = S
+           window    = 8192
+           chksum    = 0x7dae
+           urgptr    = 0
+           options   = []
+###[ Raw ]### 
+              load      = 'P4 driver probe'
+
+
+-- h2 (/home/adam/tutorials/exercises/basic_tunnel/logs/driver-h2-2-receive.log) --
+sniffing on eth0
+
+-- h3 (/home/adam/tutorials/exercises/basic_tunnel/logs/driver-h3-2-receive.log) --
+sniffing on eth0
+got a packet
+###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:11
+  type      = 0x1212
+###[ MyTunnel ]### 
+     pid       = 2048
+     dst_id    = 3
+###[ IP ]### 
+        version   = 4
+        ihl       = 5
+        tos       = 0x0
+        len       = 55
+        id        = 1
+        flags     = 
+        frag      = 0
+        ttl       = 64
+        proto     = tcp
+        chksum    = 0x63be
+        src       = 10.0.1.1
+        dst       = 10.0.2.2
+        \options   \
+###[ TCP ]### 
+           sport     = 58867
+           dport     = 1234
+           seq       = 0
+           ack       = 0
+           dataofs   = 5
+           reserved  = 0
+           flags     = S
+           window    = 8192
+           chksum    = 0x7dae
+           urgptr    = 0
+           options   = []
+###[ Raw ]### 
+              load      = 'P4 driver probe'
+
+
+   PASS injection: send.py built 2 tunnel frames       want=2                      got=2
+   PASS --dst_id 2 lands on h2                         want=h2=1 h3=0              got=h2=1 h3=0
+   PASS --dst_id 3 lands on h3, same IP                want=h2=0 h3>=1             got=h2=0 h3=1
+
+-- switch logs --
+   /home/adam/tutorials/exercises/basic_tunnel/logs/driver-h2-1-receive.log 885 B
+   /home/adam/tutorials/exercises/basic_tunnel/logs/driver-h2-2-receive.log 17 B
+   /home/adam/tutorials/exercises/basic_tunnel/logs/driver-h3-1-receive.log 17 B
+   /home/adam/tutorials/exercises/basic_tunnel/logs/driver-h3-2-receive.log 885 B
+   /home/adam/tutorials/exercises/basic_tunnel/logs/s1-p4runtime-requests.txt 3128 B
+   /home/adam/tutorials/exercises/basic_tunnel/logs/s1.log 188255 B
+   /home/adam/tutorials/exercises/basic_tunnel/logs/s2-p4runtime-requests.txt 3204 B
+   /home/adam/tutorials/exercises/basic_tunnel/logs/s2.log 179088 B
+   /home/adam/tutorials/exercises/basic_tunnel/logs/s3-p4runtime-requests.txt 3203 B
+   /home/adam/tutorials/exercises/basic_tunnel/logs/s3.log 156774 B
+
+== net.stop() ==========================================================
+net.stop() returned cleanly
+
+== verdict =============================================================
+   PASS injection: send.py built 2 tunnel frames       want=2                      got=2   【源碼推導，未執行】
+   PASS --dst_id 2 lands on h2                         want=h2=1 h3=0              got=h2=1 h3=0   【README 宣稱】＋【源碼推導，未執行】
+   PASS --dst_id 3 lands on h3, same IP                want=h2=0 h3>=1             got=h2=0 h3=1   【README 宣稱】＋【源碼推導，未執行】
+
+>>> PASS (3/3)
+
+report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T095344Z_basic_tunnel_solution.md

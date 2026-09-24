@@ -1,0 +1,33 @@
+### sflow pair bracket, every ladder arm of every campaign (read-only raw)
+# when: 2026-09-24 12:03:46 UTC
+2026-09-19T093122Z_full    G1/none_f1024_a            monotone=True  30: after=0 next(45).before=0 EQUAL  | after last climb pair -> arm sflow_after: 0 samples
+2026-09-19T093122Z_full    G1/none_f64_a              monotone=True  30: after=0 next(45).before=0 EQUAL  | after last climb pair -> arm sflow_after: 0 samples
+2026-09-19T105759Z_full    G1/none_f1024_a            monotone=True  30: after=0 next(45).before=0 EQUAL  | after last climb pair -> arm sflow_after: 0 samples
+2026-09-19T105759Z_full    G1/none_f64_a              monotone=True  30: after=0 next(45).before=0 EQUAL  | after last climb pair -> arm sflow_after: 0 samples
+2026-09-19T105759Z_full    G2/cooperative_f1024_a     monotone=True  30: after=101001 next(45).before=101001 EQUAL  | after last climb pair -> arm sflow_after: 13956 samples
+2026-09-19T105759Z_full    G2/cooperative_f64_a       monotone=True  30: after=36048 next(45).before=36048 EQUAL  | after last climb pair -> arm sflow_after: 14118 samples
+2026-09-19T105759Z_full    G3/link_f1024_a            monotone=True  30: after=129762 next(45).before=129762 EQUAL  | after last climb pair -> arm sflow_after: 16857 samples
+2026-09-19T105759Z_full    G3/link_f64_a              monotone=True  30: after=47658 next(45).before=47658 EQUAL  | after last climb pair -> arm sflow_after: 16848 samples
+2026-09-19T105759Z_full    G4/link_f1024_b            monotone=True  12: after=5762 next(20).before=5762 EQUAL  | after last climb pair -> arm sflow_after: 6871 samples
+2026-09-19T105759Z_full    G4/link_f64_b              monotone=True  30: after=94192 next(45).before=94192 EQUAL  | after last climb pair -> arm sflow_after: 16958 samples
+2026-09-19T105759Z_full    G5/cooperative_f1024_b     monotone=True  30: after=31764 next(45).before=31764 EQUAL  | after last climb pair -> arm sflow_after: 14112 samples
+2026-09-19T105759Z_full    G5/cooperative_f64_b       monotone=True  30: after=96879 next(45).before=96879 EQUAL  | after last climb pair -> arm sflow_after: 13888 samples
+2026-09-19T105759Z_full    G6/none_f1024_b            monotone=True  30: after=0 next(45).before=0 EQUAL  | after last climb pair -> arm sflow_after: 0 samples
+2026-09-19T105759Z_full    G6/none_f64_b              monotone=True  30: after=0 next(45).before=0 EQUAL  | after last climb pair -> arm sflow_after: 0 samples
+2026-09-19T115737Z_full    G1/none_f1024_a            monotone=True  30: after=0 next(45).before=0 EQUAL  | after last climb pair -> arm sflow_after: 0 samples
+2026-09-19T115737Z_full    G1/none_f64_a              monotone=True  30: after=0 next(45).before=0 EQUAL  | after last climb pair -> arm sflow_after: 0 samples
+2026-09-19T115737Z_full    G2/cooperative_f1024_a     monotone=True  12: after=60247 next(20).before=60247 EQUAL  | after last climb pair -> arm sflow_after: 5522 samples
+2026-09-19T115737Z_full    G2/cooperative_f64_a       monotone=True  12: after=17848 next(20).before=17848 EQUAL  | after last climb pair -> arm sflow_after: 5620 samples
+2026-09-19T115737Z_full    G3/link_f1024_a            monotone=True  12: after=126756 next(20).before=126756 EQUAL  | after last climb pair -> arm sflow_after: 6670 samples
+2026-09-19T115737Z_full    G3/link_f64_a              monotone=True  12: after=22512 next(20).before=22512 EQUAL; 20: after=33594 next(30).before=33594 EQUAL; 30: after=50261 next(45).before=50261 EQUAL  | after last climb pair -> arm sflow_after: 34534 samples
+2026-09-19T115737Z_full    G4/link_f1024_b            monotone=True  20: after=19824 next(30).before=19824 EQUAL  | after last climb pair -> arm sflow_after: 11351 samples
+2026-09-19T115737Z_full    G4/link_f64_b              monotone=True  20: after=89680 next(30).before=89680 EQUAL  | after last climb pair -> arm sflow_after: 11256 samples
+2026-09-19T115737Z_full    G5/cooperative_f1024_b     monotone=True  30: after=32250 next(45).before=32250 EQUAL  | after last climb pair -> arm sflow_after: 14195 samples
+2026-09-19T115737Z_full    G5/cooperative_f64_b       monotone=True  30: after=97094 next(45).before=97094 EQUAL  | after last climb pair -> arm sflow_after: 14217 samples
+2026-09-19T115737Z_full    G6/none_f1024_b            monotone=True  30: after=0 next(45).before=0 EQUAL  | after last climb pair -> arm sflow_after: 0 samples
+2026-09-19T115737Z_full    G6/none_f64_b              monotone=True  30: after=0 next(45).before=0 EQUAL  | after last climb pair -> arm sflow_after: 0 samples
+2026-09-19T130352Z_G2      G2/cooperative_f1024_a     monotone=True  30: after=107287 next(45).before=107287 EQUAL  | after last climb pair -> arm sflow_after: 13967 samples
+2026-09-19T130352Z_G2      G2/cooperative_f64_a       monotone=True  12: after=18922 next(20).before=18922 EQUAL; 20: after=28151 next(30).before=28151 EQUAL  | after last climb pair -> arm sflow_after: 14933 samples
+
+re-confirmed rungs compared: 31   not equal (or non-monotone arms): 0
+### rc=0

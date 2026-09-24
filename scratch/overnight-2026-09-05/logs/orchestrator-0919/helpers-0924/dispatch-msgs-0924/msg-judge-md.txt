@@ -1,0 +1,5 @@
+doc: judge report on the P4-driven API-shape analysis -- HOLDS WITH CORRECTIONS, 19 items; the orchestrator confirmed the five load-bearing ones against source
+
+The GUI colours nodes by is_up and edges by usage, so the analysis's 'inter-switch edges turn red' and its acceptance criterion 'edges turn green' are both wrong; external-mode clients are guarded by _refuse_write; readopt re-applies package entries; the kernel enables edges from enableSwitchAndEdges too. Corrections are being applied to ANALYSIS.md by the analysis worker under the orchestrator's check.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>

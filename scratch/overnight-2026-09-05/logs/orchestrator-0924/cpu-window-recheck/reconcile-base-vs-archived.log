@@ -1,0 +1,52 @@
+### base analysis vs the archived summary.json in audit-raw (1872be70)
+# when: 2026-09-24 11:06:11 UTC
+A: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-audit-raw/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/summary.json
+B: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/cpu-window-recheck/summary.115737Z.base-30aa500c.json
+leaf values identical in both: 1644
+changed: 15   only in A: 0   only in B: 0
+  CHANGED /arms[0]/dir
+      A='doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/G1/none_f1024_a'
+      B='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-audit-raw/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/G1/none_f1024_a'
+  CHANGED /arms[1]/dir
+      A='doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/G1/none_f64_a'
+      B='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-audit-raw/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/G1/none_f64_a'
+  CHANGED /arms[2]/dir
+      A='doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/G2/cooperative_f1024_a'
+      B='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-audit-raw/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/G2/cooperative_f1024_a'
+  CHANGED /arms[3]/dir
+      A='doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/G2/cooperative_f64_a'
+      B='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-audit-raw/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/G2/cooperative_f64_a'
+  CHANGED /arms[4]/dir
+      A='doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/G3/link_f1024_a'
+      B='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-audit-raw/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/G3/link_f1024_a'
+  CHANGED /arms[5]/dir
+      A='doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/G3/link_f64_a'
+      B='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-audit-raw/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/G3/link_f64_a'
+  CHANGED /arms[6]/dir
+      A='doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/G4/link_f1024_b'
+      B='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-audit-raw/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/G4/link_f1024_b'
+  CHANGED /arms[7]/dir
+      A='doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/G4/link_f64_b'
+      B='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-audit-raw/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/G4/link_f64_b'
+  CHANGED /arms[8]/dir
+      A='doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/G5/cooperative_f1024_b'
+      B='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-audit-raw/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/G5/cooperative_f1024_b'
+  CHANGED /arms[9]/dir
+      A='doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/G5/cooperative_f64_b'
+      B='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-audit-raw/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/G5/cooperative_f64_b'
+  CHANGED /arms[10]/dir
+      A='doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/G6/none_f1024_b'
+      B='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-audit-raw/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/G6/none_f1024_b'
+  CHANGED /arms[11]/dir
+      A='doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/G6/none_f64_b'
+      B='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-audit-raw/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/G6/none_f64_b'
+  CHANGED /control_arms[0]/dir
+      A='doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/controls/C3/c3a_noburn'
+      B='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-audit-raw/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/controls/C3/c3a_noburn'
+  CHANGED /control_arms[1]/dir
+      A='doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/controls/C3/c3b_burn'
+      B='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-audit-raw/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/controls/C3/c3b_burn'
+  CHANGED /raw
+      A='/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full'
+      B='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-audit-raw/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full'
+### rc=0

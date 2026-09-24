@@ -1,0 +1,7 @@
+### per-arm kernel/bmv2 and S at 30 kpps, cooperative 1024 B, both readings (analyse.py at 93033c44)
+# when: 2026-09-24 11:23:05 UTC
+cooperative_f1024_a    climb                kernel=8.931 bmv2=438.28 S=558.1 elapsed=7.5 climb=(1789820473.8, 1789820481.8) confirmation=None
+cooperative_f1024_a    climb+confirmation   kernel=8.931 bmv2=438.28 S=558.1 elapsed=7.5 climb=(1789820473.8, 1789820481.8) confirmation=None
+cooperative_f1024_b    climb                kernel=6.509 bmv2=300.23 S=543.1 elapsed=25.5 climb=(1789822044.1, 1789822070.3) confirmation=(1789822098.7, 1789822124.9)
+cooperative_f1024_b    climb+confirmation   kernel=6.548 bmv2=308.14 S=543.1 elapsed=51.0 climb=(1789822044.1, 1789822070.3) confirmation=(1789822098.7, 1789822124.9)
+### rc=0

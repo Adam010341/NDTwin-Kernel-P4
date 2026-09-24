@@ -1,0 +1,73 @@
+# gate    : O2: real tutorials controllers, real p4dev venv, no root, p4info that cannot exist
+# cmd     : bash /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/obs_O2.sh
+# worktree: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-driver-0924
+# head    : bf349b64fa938efc647244753cdc17b79061cf46
+# dirty   : 0 path(s) (clean)
+# blob    : WT 13f60fda31d9f462ffe9dccef5c2f1b5f29afd9e  HEAD 13f60fda31d9f462ffe9dccef5c2f1b5f29afd9e  doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py
+# blob    : WT 38343a20770c56c9b7fa1a2dd13dee99c95c93e5  HEAD 38343a20770c56c9b7fa1a2dd13dee99c95c93e5  doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py
+# blob    : WT 04d5acd1a498203a18a6cc73069d101a5452aed1  HEAD 04d5acd1a498203a18a6cc73069d101a5452aed1  tests/shell/mutate_drive_exercise.sh
+# start   : 2026-09-24T20:02:42+08:00
+
+# script:
+#   #!/usr/bin/env bash
+#   # O2: the REAL tutorials controllers under the REAL p4dev venv, cwd = exdir, with a p4info that
+#   # cannot exist -- so each runs its whole import prologue and stops at the argparse file check,
+#   # dialling nothing. No root. Bytecode off, so nothing is written under ~/tutorials.
+#   # [Co-developed with claude code -- Adam]
+#   PY=/home/adam/p4dev-python-venv/bin/python
+#   for ex in flowcache p4runtime; do
+#     ED=/home/adam/tutorials/exercises/$ex
+#     for case in "solution/mycontroller.py|" "solution/mycontroller.py|/home/adam/tutorials/utils" "mycontroller.py|"; do
+#       ctrl=${case%%|*}; pp=${case#*|}
+#       echo "=== $ex  $ctrl  PYTHONPATH=${pp:-<unset>}"
+#       echo "\$ (cd $ED && env -u PYTHONPATH ${pp:+PYTHONPATH=$pp }PYTHONDONTWRITEBYTECODE=1 $PY $ED/$ctrl --p4info /nonexistent/p4info.txtpb)"
+#       out=$(cd $ED && env -u PYTHONPATH ${pp:+PYTHONPATH=$pp} PYTHONDONTWRITEBYTECODE=1 timeout 60 $PY $ED/$ctrl --p4info /nonexistent/p4info.txtpb 2>&1); rc=$?
+#       echo "$out" | tail -4 | sed 's/^/    /'
+#       echo "    rc=$rc"
+#     done
+#   done
+
+=== flowcache  solution/mycontroller.py  PYTHONPATH=<unset>
+$ (cd /home/adam/tutorials/exercises/flowcache && env -u PYTHONPATH PYTHONDONTWRITEBYTECODE=1 /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/flowcache/solution/mycontroller.py --p4info /nonexistent/p4info.txtpb)
+    Traceback (most recent call last):
+      File "/home/adam/tutorials/exercises/flowcache/solution/mycontroller.py", line 26, in <module>
+        import p4runtime_lib.bmv2
+    ModuleNotFoundError: No module named 'p4runtime_lib'
+    rc=1
+=== flowcache  solution/mycontroller.py  PYTHONPATH=/home/adam/tutorials/utils
+$ (cd /home/adam/tutorials/exercises/flowcache && env -u PYTHONPATH PYTHONPATH=/home/adam/tutorials/utils PYTHONDONTWRITEBYTECODE=1 /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/flowcache/solution/mycontroller.py --p4info /nonexistent/p4info.txtpb)
+                            BMv2 JSON file from p4c
+    
+    p4info file not found: /nonexistent/p4info.txtpb
+    Have you run 'make'?
+    rc=1
+=== flowcache  mycontroller.py  PYTHONPATH=<unset>
+$ (cd /home/adam/tutorials/exercises/flowcache && env -u PYTHONPATH PYTHONDONTWRITEBYTECODE=1 /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/flowcache/mycontroller.py --p4info /nonexistent/p4info.txtpb)
+      File "/home/adam/tutorials/exercises/flowcache/mycontroller.py", line 274
+        def readTableRules(p4info_helper, sw):
+        ^
+    IndentationError: expected an indented block after function definition on line 271
+    rc=1
+=== p4runtime  solution/mycontroller.py  PYTHONPATH=<unset>
+$ (cd /home/adam/tutorials/exercises/p4runtime && env -u PYTHONPATH PYTHONDONTWRITEBYTECODE=1 /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/p4runtime/solution/mycontroller.py --p4info /nonexistent/p4info.txtpb)
+    Traceback (most recent call last):
+      File "/home/adam/tutorials/exercises/p4runtime/solution/mycontroller.py", line 18, in <module>
+        import p4runtime_lib.bmv2
+    ModuleNotFoundError: No module named 'p4runtime_lib'
+    rc=1
+=== p4runtime  solution/mycontroller.py  PYTHONPATH=/home/adam/tutorials/utils
+$ (cd /home/adam/tutorials/exercises/p4runtime && env -u PYTHONPATH PYTHONPATH=/home/adam/tutorials/utils PYTHONDONTWRITEBYTECODE=1 /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/p4runtime/solution/mycontroller.py --p4info /nonexistent/p4info.txtpb)
+                            BMv2 JSON file from p4c
+    
+    p4info file not found: /nonexistent/p4info.txtpb
+    Have you run 'make'?
+    rc=1
+=== p4runtime  mycontroller.py  PYTHONPATH=<unset>
+$ (cd /home/adam/tutorials/exercises/p4runtime && env -u PYTHONPATH PYTHONDONTWRITEBYTECODE=1 /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/p4runtime/mycontroller.py --p4info /nonexistent/p4info.txtpb)
+                            BMv2 JSON file from p4c
+    
+    p4info file not found: /nonexistent/p4info.txtpb
+    Have you run 'make'?
+    rc=1
+# rc=0
+# end 2026-09-24T20:02:43+08:00

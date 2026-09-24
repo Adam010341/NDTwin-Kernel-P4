@@ -1,0 +1,67 @@
+# gate    : anchor-count explanation: check_gate_anchors over 0c85ad9c/da0fa021/bf349b64 + the gate table's distinct anchors
+# cmd     : bash /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/anchor_counts.sh
+# worktree: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-driver-0924
+# head    : bf349b64fa938efc647244753cdc17b79061cf46
+# dirty   : 0 path(s) (clean)
+# blob    : WT 13f60fda31d9f462ffe9dccef5c2f1b5f29afd9e  HEAD 13f60fda31d9f462ffe9dccef5c2f1b5f29afd9e  doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py
+# blob    : WT 38343a20770c56c9b7fa1a2dd13dee99c95c93e5  HEAD 38343a20770c56c9b7fa1a2dd13dee99c95c93e5  doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py
+# blob    : WT 04d5acd1a498203a18a6cc73069d101a5452aed1  HEAD 04d5acd1a498203a18a6cc73069d101a5452aed1  tests/shell/mutate_drive_exercise.sh
+# start   : 2026-09-24T20:04:11+08:00
+
+# script:
+#   #!/usr/bin/env bash
+#   # Why check_gate_anchors says ok(N) with N != the number of mutants: it counts DISTINCT anchor
+#   # strings (plus the negative control's), and several mutants share one anchor line.
+#   # [Co-developed with claude code -- Adam]
+#   W=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-driver-0924
+#   cd $W
+#   echo "--- check_gate_anchors.py over the three revs (read-only matrix mode)"
+#   p4_proxy/venv/bin/python tests/shell/check_gate_anchors.py 0c85ad9c da0fa021 bf349b64 --gates mutate_drive_exercise.sh 2>&1
+#   echo "rc=$?"
+#   echo; echo "--- the gate's own table, per rev: mutants, distinct anchors, and the shared ones"
+#   for rev in 0c85ad9c da0fa021 bf349b64; do
+#     f=$(mktemp); git show $rev:tests/shell/mutate_drive_exercise.sh > $f
+#     bash -c '
+#       DRIVER=D; PREP=P; REPO=R
+#       eval "$(sed -n "/^MUT_LABEL=(); MUT_SRC=()/,/^CTRL_SRC=/p" "$1" | sed "\$d")"
+#       python3 - "$2" "${#MUT_LABEL[@]}" "${MUT_ANCHOR[@]}" <<PY
+#   import sys, collections
+#   rev, n, anchors = sys.argv[1], int(sys.argv[2]), sys.argv[3:]
+#   c = collections.Counter(anchors)
+#   shared = {a: k for a, k in c.items() if k > 1}
+#   print("%s: mutants=%d  distinct mutation anchors=%d  + 1 negative-control anchor = %d" % (rev, n, len(c), len(c) + 1))
+#   for a, k in shared.items():
+#       print("    shared by %d mutants: %r" % (k, a.splitlines()[0].strip()[:90]))
+#   PY
+#     ' _ "$f" "$rev"
+#     rm -f $f
+#   done
+
+--- check_gate_anchors.py over the three revs (read-only matrix mode)
+anchors of each gate, counted in each rev's own files
+columns:
+  c0   0c85ad9c
+  c1   da0fa021
+  c2   bf349b64
+
+                          c0            c1            c2            
+mutate_drive_exercise.sh  ok(96)        ok(100)       ok(102)       
+
+3/3 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+rc=0
+
+--- the gate's own table, per rev: mutants, distinct anchors, and the shared ones
+0c85ad9c: mutants=97  distinct mutation anchors=95  + 1 negative-control anchor = 96
+    shared by 2 mutants: 'ports == [0], G_BOTH,'
+    shared by 2 mutants: 'reflushed = self.h.flush_arp()'
+da0fa021: mutants=104  distinct mutation anchors=99  + 1 negative-control anchor = 100
+    shared by 2 mutants: 'ports == [0], G_BOTH,'
+    shared by 2 mutants: 'reflushed = self.h.flush_arp()'
+    shared by 3 mutants: 'if self.fabric != "ndtwin" and os.path.dirname(ctrl):'
+    shared by 2 mutants: 'return os.path.normpath(os.path.join(os.path.abspath(exdir), os.pardir, os.pardir, "utils"'
+bf349b64: mutants=106  distinct mutation anchors=101  + 1 negative-control anchor = 102
+    shared by 2 mutants: 'ports == [0], G_BOTH,'
+    shared by 2 mutants: 'reflushed = self.h.flush_arp()'
+    shared by 3 mutants: 'if self.fabric != "ndtwin" and os.path.dirname(ctrl):'
+    shared by 2 mutants: 'return os.path.normpath(os.path.join(os.path.abspath(exdir), os.pardir, os.pardir, "utils"'
+# end 2026-09-24T20:04:11+08:00

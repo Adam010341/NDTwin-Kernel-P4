@@ -1,0 +1,212 @@
+### red-cpuwin -- the whole unit suite on the tests-only commit (analyse.py unchanged from 30aa500c)
+# tree:        /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-cpuwin-0924/doc/audit/2026-09-19_telemetry-three-groups
+# head:        50563d38 (0 uncommitted path(s) under the round directory)
+# when:        2026-09-24 11:12:10 UTC
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+# as run:      analyse.py 3d95ba4fa035  test_analyse.py 68d80ebd1d45  synthetic.py a05b9f81c935
+# analyse.py identical to 30aa500c: yes
+# command:     bash -c cd tests && /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python -m unittest discover -v -s .
+###
+test_a_ratio_below_the_registered_interval_is_H_A2 (test_analyse.CeilingTest.test_a_ratio_below_the_registered_interval_is_H_A2) ... ok
+test_a_ratio_inside_one_realised_rung_is_H_A1 (test_analyse.CeilingTest.test_a_ratio_inside_one_realised_rung_is_H_A1) ... ok
+test_an_unresolved_cell_produces_NO_ratio_at_all (test_analyse.CeilingTest.test_an_unresolved_cell_produces_NO_ratio_at_all) ... ok
+test_the_interval_boundaries_are_the_realised_step_not_the_nominal_one (test_analyse.CeilingTest.test_the_interval_boundaries_are_the_realised_step_not_the_nominal_one) ... ok
+test_a_cell_whose_arms_are_one_rung_apart_is_resolved (test_analyse.CellTableTest.test_a_cell_whose_arms_are_one_rung_apart_is_resolved) ... ok
+test_a_cell_whose_arms_are_six_rungs_apart_is_NOT_resolved (test_analyse.CellTableTest.test_a_cell_whose_arms_are_six_rungs_apart_is_NOT_resolved) ... ok
+test_every_arm_was_found_and_none_of_them_is_invalid (test_analyse.CellTableTest.test_every_arm_was_found_and_none_of_them_is_invalid) ... ok
+test_the_none_1024_cell_is_the_two_ladder_arms_only (test_analyse.CellTableTest.test_the_none_1024_cell_is_the_two_ladder_arms_only) ... ok
+test_the_two_C3_throwaway_ladders_are_found_and_tagged_as_controls (test_analyse.CellTableTest.test_the_two_C3_throwaway_ladders_are_found_and_tagged_as_controls) ... ok
+test_H_C2_is_NOT_DECIDED_while_its_second_condition_has_no_tolerance (test_analyse.CpuTest.test_H_C2_is_NOT_DECIDED_while_its_second_condition_has_no_tolerance) ... ok
+test_a_bmv2_ratio_outside_090_115_is_reported_outside (test_analyse.CpuTest.test_a_bmv2_ratio_outside_090_115_is_reported_outside) ... ok
+test_a_delta_smaller_than_its_spread_is_H_C0_and_no_line_is_fitted (test_analyse.CpuTest.test_a_delta_smaller_than_its_spread_is_H_C0_and_no_line_is_fitted) ... ok
+test_a_process_alive_before_the_window_is_not_charged_its_lifetime (test_analyse.CpuTest.test_a_process_alive_before_the_window_is_not_charged_its_lifetime) ... ok
+test_a_process_that_appears_inside_the_window_IS_charged_from_zero (test_analyse.CpuTest.test_a_process_that_appears_inside_the_window_IS_charged_from_zero) ... ok
+test_a_rung_one_group_does_not_have_is_in_NO_groups_fit (test_analyse.CpuTest.test_a_rung_one_group_does_not_have_is_in_NO_groups_fit) ... ok
+test_bmv2_carries_NO_H_C_label (test_analyse.CpuTest.test_bmv2_carries_NO_H_C_label) ... ok
+test_bmv2_gets_no_H_C0_either_when_no_rung_resolves (test_analyse.CpuTest.test_bmv2_gets_no_H_C0_either_when_no_rung_resolves) ... ok
+test_samples_per_second_comes_from_the_rung_pair_not_from_the_offered_rate (test_analyse.CpuTest.test_samples_per_second_comes_from_the_rung_pair_not_from_the_offered_rate) ... ok
+test_the_H_C_verdict_is_made_once_per_treated_group_over_every_common_rung (test_analyse.CpuTest.test_the_H_C_verdict_is_made_once_per_treated_group_over_every_common_rung) ... ok
+test_the_cpu_verdict_names_a_mixed_decomposition_as_a_result (test_analyse.CpuTest.test_the_cpu_verdict_names_a_mixed_decomposition_as_a_result) ... ok
+test_the_fit_block_carries_both_H_C2_conditions_and_the_two_ratios (test_analyse.CpuTest.test_the_fit_block_carries_both_H_C2_conditions_and_the_two_ratios) ... ok
+test_the_fit_recovers_the_fixed_and_marginal_costs_and_calls_it_H_C1 (test_analyse.CpuTest.test_the_fit_recovers_the_fixed_and_marginal_costs_and_calls_it_H_C1) ... ok
+test_the_reconciliation_row_and_the_render_say_what_the_fit_says (test_analyse.CpuTest.test_the_reconciliation_row_and_the_render_say_what_the_fit_says) ... ok
+test_the_registered_bmv2_comparison_is_coop_over_none_at_each_rung (test_analyse.CpuTest.test_the_registered_bmv2_comparison_is_coop_over_none_at_each_rung) ... ok
+test_the_ten_bmv2_processes_are_folded_into_one_class_and_SUMMED (test_analyse.CpuTest.test_the_ten_bmv2_processes_are_folded_into_one_class_and_SUMMED) ... ok
+test_when_H_C1_holds_the_block_still_says_H_C2_condition_1_held (test_analyse.CpuTest.test_when_H_C1_holds_the_block_still_says_H_C2_condition_1_held) ... ok
+test_with_no_rung_all_three_groups_share_there_is_no_fit_and_it_says_why (test_analyse.CpuTest.test_with_no_rung_all_three_groups_share_there_is_no_fit_and_it_says_why) ... ok
+test_sample_loss_IS_attributed_once_a_drop_counter_has_moved (test_analyse.EmitterAttributionTest.test_sample_loss_IS_attributed_once_a_drop_counter_has_moved) ... ok
+test_sample_loss_is_NOT_attributed_when_every_drop_counter_is_zero (test_analyse.EmitterAttributionTest.test_sample_loss_is_NOT_attributed_when_every_drop_counter_is_zero) ... ok
+test_the_last_statistics_line_wins (test_analyse.EmitterAttributionTest.test_the_last_statistics_line_wins) ... ok
+test_analyse_renders_without_raising_and_carries_the_family_counts (test_analyse.EndToEndTest.test_analyse_renders_without_raising_and_carries_the_family_counts) ... ok
+test_a_genuinely_foreign_arm_inside_a_group_still_fires (test_analyse.LoadGateTest.test_a_genuinely_foreign_arm_inside_a_group_still_fires) ... ok
+test_the_gate_is_within_group_so_the_link_treatment_does_not_fire_it (test_analyse.LoadGateTest.test_the_gate_is_within_group_so_the_link_treatment_does_not_fire_it) ... ok
+test_the_none_group_gate_median_counts_the_ladder_arms_only (test_analyse.LoadGateTest.test_the_none_group_gate_median_counts_the_ladder_arms_only) ... ok
+test_a_value_with_a_trailing_comment_still_parses_as_its_number (test_analyse.MetaParsingTest.test_a_value_with_a_trailing_comment_still_parses_as_its_number) ... ok
+test_an_absent_counter_is_not_zero (test_analyse.MetaParsingTest.test_an_absent_counter_is_not_zero) ... ok
+test_a_for_none_is_the_ladder_cell_and_not_C3s_throwaway_ladders (test_analyse.ReconciliationTest.test_a_for_none_is_the_ladder_cell_and_not_C3s_throwaway_ladders) ... ok
+test_a_is_reported_for_BOTH_the_none_and_the_cooperative_cell (test_analyse.ReconciliationTest.test_a_is_reported_for_BOTH_the_none_and_the_cooperative_cell) ... ok
+test_a_sender_control_below_five_times_FAILS (test_analyse.ReconciliationTest.test_a_sender_control_below_five_times_FAILS) ... ok
+test_a_uses_the_registered_interval_and_says_outside_is_not_a_refutation (test_analyse.ReconciliationTest.test_a_uses_the_registered_interval_and_says_outside_is_not_a_refutation) ... ok
+test_b_compares_the_marginal_slope_against_08_20s_206_microseconds (test_analyse.ReconciliationTest.test_b_compares_the_marginal_slope_against_08_20s_206_microseconds) ... ok
+test_c_forbids_dividing_any_cell_of_its_table_by_another (test_analyse.ReconciliationTest.test_c_forbids_dividing_any_cell_of_its_table_by_another) ... ok
+test_the_sender_control_passes_only_at_five_times_the_measured_ceiling (test_analyse.ReconciliationTest.test_the_sender_control_passes_only_at_five_times_the_measured_ceiling) ... ok
+test_H_B4_holds_when_all_three_rates_are_inside (test_analyse.RegisteredLevelTest.test_H_B4_holds_when_all_three_rates_are_inside) ... ok
+test_H_B4_needs_all_three_rates_and_each_rate_keeps_its_description (test_analyse.RegisteredLevelTest.test_H_B4_needs_all_three_rates_and_each_rate_keeps_its_description) ... ok
+test_a_100_Mbit_cell_with_only_two_valid_windows_cannot_be_H_B2 (test_analyse.RegisteredLevelTest.test_a_100_Mbit_cell_with_only_two_valid_windows_cannot_be_H_B2) ... ok
+test_a_registered_rate_with_no_reading_leaves_the_group_not_decided (test_analyse.RegisteredLevelTest.test_a_registered_rate_with_no_reading_leaves_the_group_not_decided) ... ok
+test_a_same_sign_excess_at_2_Mbit_is_NOT_H_B2 (test_analyse.RegisteredLevelTest.test_a_same_sign_excess_at_2_Mbit_is_NOT_H_B2) ... ok
+test_all_three_rates_inside_IS_H_B1 (test_analyse.RegisteredLevelTest.test_all_three_rates_inside_IS_H_B1) ... ok
+test_no_cell_or_rate_row_carries_a_label_registered_at_the_group_level (test_analyse.RegisteredLevelTest.test_no_cell_or_rate_row_carries_a_label_registered_at_the_group_level) ... ok
+test_one_signed_excess_at_100_Mbit_IS_H_B2 (test_analyse.RegisteredLevelTest.test_one_signed_excess_at_100_Mbit_IS_H_B2) ... ok
+test_summary_json_carries_the_cell_descriptions_AND_the_group_verdicts (test_analyse.RegisteredLevelTest.test_summary_json_carries_the_cell_descriptions_AND_the_group_verdicts) ... ok
+test_the_fifth_campaigns_shape_outside_at_the_FIRST_rate_is_not_H_B1_either (test_analyse.RegisteredLevelTest.test_the_fifth_campaigns_shape_outside_at_the_FIRST_rate_is_not_H_B1_either) ... ok
+test_two_rates_inside_and_one_outside_is_NOT_H_B1_for_the_group (test_analyse.RegisteredLevelTest.test_two_rates_inside_and_one_outside_is_NOT_H_B1_for_the_group) ... ok
+test_both_readings_are_in_the_summary_side_by_side_and_neither_is_called_registered (test_analyse.RungWindowTest.test_both_readings_are_in_the_summary_side_by_side_and_neither_is_called_registered) ... FAIL
+test_on_the_real_rows_every_rungs_cpu_is_that_rungs_own (test_analyse.RungWindowTest.test_on_the_real_rows_every_rungs_cpu_is_that_rungs_own) ... FAIL
+test_on_the_real_rows_the_climb_plus_confirmation_reading_stays_on_its_rung_too (test_analyse.RungWindowTest.test_on_the_real_rows_the_climb_plus_confirmation_reading_stays_on_its_rung_too) ... FAIL
+test_samples_per_second_at_the_confirmed_rung_is_over_its_own_pairs_seconds (test_analyse.RungWindowTest.test_samples_per_second_at_the_confirmed_rung_is_over_its_own_pairs_seconds) ... FAIL
+test_the_climb_plus_confirmation_reading_pools_the_reps_own_seconds_only (test_analyse.RungWindowTest.test_the_climb_plus_confirmation_reading_pools_the_reps_own_seconds_only) ... FAIL
+test_the_confirmed_rungs_climb_window_does_not_reach_the_rungs_climbed_after_it (test_analyse.RungWindowTest.test_the_confirmed_rungs_climb_window_does_not_reach_the_rungs_climbed_after_it) ... FAIL
+test_the_default_tree_has_no_confirmation_rows_so_both_readings_agree_there (test_analyse.RungWindowTest.test_the_default_tree_has_no_confirmation_rows_so_both_readings_agree_there) ... FAIL
+test_N_counts_the_edges_that_carried_the_flow_not_every_edge_in_the_fabric (test_analyse.SamplingErrorTest.test_N_counts_the_edges_that_carried_the_flow_not_every_edge_in_the_fabric) ... ok
+test_a_fabric_where_more_edges_carried_the_flow_is_reported_not_hidden (test_analyse.SamplingErrorTest.test_a_fabric_where_more_edges_carried_the_flow_is_reported_not_hidden) ... ok
+test_a_group_with_no_twin_readings_falls_back_to_the_registered_four_and_says_so (test_analyse.SamplingErrorTest.test_a_group_with_no_twin_readings_falls_back_to_the_registered_four_and_says_so) ... ok
+test_an_error_at_the_prediction_is_described_as_inside_the_band (test_analyse.SamplingErrorTest.test_an_error_at_the_prediction_is_described_as_inside_the_band) ... ok
+test_an_error_far_above_the_band_with_one_sign_is_described_as_such (test_analyse.SamplingErrorTest.test_an_error_far_above_the_band_with_one_sign_is_described_as_such) ... ok
+test_the_none_group_is_n_a_and_is_NOT_zero (test_analyse.SamplingErrorTest.test_the_none_group_is_n_a_and_is_NOT_zero) ... ok
+test_the_shot_noise_prediction_is_the_registered_formula (test_analyse.SamplingErrorTest.test_the_shot_noise_prediction_is_the_registered_formula) ... ok
+test_a_DOT_LESS_option_value_is_still_not_the_binary (test_manifest.RealManifestTest.test_a_DOT_LESS_option_value_is_still_not_the_binary) ... ok
+test_a_list_argv_still_works (test_manifest.RealManifestTest.test_a_list_argv_still_works) ... ok
+test_a_missing_or_broken_manifest_is_empty_not_a_crash (test_manifest.RealManifestTest.test_a_missing_or_broken_manifest_is_empty_not_a_crash) ... ok
+test_an_argument_that_merely_contains_the_word_is_not_the_binary (test_manifest.RealManifestTest.test_an_argument_that_merely_contains_the_word_is_not_the_binary) ... ok
+test_every_switch_gives_a_pid_and_its_device_id (test_manifest.RealManifestTest.test_every_switch_gives_a_pid_and_its_device_id) ... ok
+test_the_LD_LIBRARY_PATH_prefix_is_not_mistaken_for_the_binary (test_manifest.RealManifestTest.test_the_LD_LIBRARY_PATH_prefix_is_not_mistaken_for_the_binary) ... ok
+test_the_binary_is_found_in_a_string_argv (test_manifest.RealManifestTest.test_the_binary_is_found_in_a_string_argv) ... ok
+test_the_fixture_really_is_the_shape_that_broke_it (test_manifest.RealManifestTest.test_the_fixture_really_is_the_shape_that_broke_it) ... ok
+test_the_keys_this_round_reads_are_the_manifest_s_own (test_manifest.RealManifestTest.test_the_keys_this_round_reads_are_the_manifest_s_own) ... ok
+test_check_mode_prints_every_figure_without_matplotlib (test_plot.DescribeTest.test_check_mode_prints_every_figure_without_matplotlib) ... ok
+test_a_resolved_cell_is_labelled_with_its_mean_alone (test_plot.Figure1Test.test_a_resolved_cell_is_labelled_with_its_mean_alone) ... ok
+test_an_unresolved_cell_is_marked_and_shows_BOTH_arm_values (test_plot.Figure1Test.test_an_unresolved_cell_is_marked_and_shows_BOTH_arm_values) ... ok
+test_one_bar_per_cell_grouped_by_frame_size (test_plot.Figure1Test.test_one_bar_per_cell_grouped_by_frame_size) ... ok
+test_a_measured_group_is_drawn_as_a_percentage (test_plot.Figure2Test.test_a_measured_group_is_drawn_as_a_percentage) ... ok
+test_the_none_group_is_drawn_as_n_a_and_NOT_as_a_zero_bar (test_plot.Figure2Test.test_the_none_group_is_drawn_as_n_a_and_NOT_as_a_zero_bar) ... ok
+test_the_y_axis_says_what_the_number_is (test_plot.Figure2Test.test_the_y_axis_says_what_the_number_is) ... ok
+test_ends_that_are_far_apart_on_the_display_are_not_moved_at_all (test_plot.Figure3EndLabelTest.test_ends_that_are_far_apart_on_the_display_are_not_moved_at_all) ... ok
+test_three_ends_within_a_label_height_get_three_different_offsets (test_plot.Figure3EndLabelTest.test_three_ends_within_a_label_height_get_three_different_offsets) ... ok
+test_a_label_with_EXACTLY_zero_headroom_is_handled_not_divided_by (test_plot.Figure3LabelsStayInsideTest.test_a_label_with_EXACTLY_zero_headroom_is_handled_not_divided_by) ... ok
+test_a_stack_taller_than_its_axes_is_not_reported_as_fitting (test_plot.Figure3LabelsStayInsideTest.test_a_stack_taller_than_its_axes_is_not_reported_as_fitting) ... ok
+test_no_label_is_drawn_above_the_top_of_its_own_axes (test_plot.Figure3LabelsStayInsideTest.test_no_label_is_drawn_above_the_top_of_its_own_axes) ... ok
+test_only_the_panel_that_needs_room_is_given_any (test_plot.Figure3LabelsStayInsideTest.test_only_the_panel_that_needs_room_is_given_any) ... ok
+test_the_computed_axes_match_the_ones_the_real_figure_drew (test_plot.Figure3LabelsStayInsideTest.test_the_computed_axes_match_the_ones_the_real_figure_drew) ... ok
+test_each_panel_has_one_series_per_group_named_by_a_single_word (test_plot.Figure3Test.test_each_panel_has_one_series_per_group_named_by_a_single_word) ... ok
+test_the_kernel_panel_rises_with_offered_rate_for_a_sampling_group (test_plot.Figure3Test.test_the_kernel_panel_rises_with_offered_rate_for_a_sampling_group) ... ok
+test_the_x_axis_is_the_offered_rate (test_plot.Figure3Test.test_the_x_axis_is_the_offered_rate) ... ok
+test_three_panels_one_per_process_class (test_plot.Figure3Test.test_three_panels_one_per_process_class) ... ok
+test_a_figure_carries_only_a_title_axes_and_labels (test_plot.FigureContentRulesTest.test_a_figure_carries_only_a_title_axes_and_labels) ... ok
+test_every_figure_names_both_of_its_axes (test_plot.FigureContentRulesTest.test_every_figure_names_both_of_its_axes) ... ok
+test_no_value_label_is_a_sentence (test_plot.FigureContentRulesTest.test_no_value_label_is_a_sentence) ... ok
+test_render_writes_a_png_and_a_pdf_for_each_figure (test_plot.RenderTest.test_render_writes_a_png_and_a_pdf_for_each_figure) ... skipped 'this interpreter has no matplotlib; run this case under one that has'
+test_figures_are_built_from_a_json_round_trip (test_plot.SummaryIsTheOnlyInputTest.test_figures_are_built_from_a_json_round_trip) ... ok
+test_plot_never_reads_the_raw_tree (test_plot.SummaryIsTheOnlyInputTest.test_plot_never_reads_the_raw_tree) ... ok
+test_a_real_run_has_the_six_directory_classes_and_so_does_the_fixture (test_real_shape.RealRunShapeTest.test_a_real_run_has_the_six_directory_classes_and_so_does_the_fixture) ... ok
+test_a_window_really_does_carry_more_edges_than_the_flow_crosses (test_real_shape.RealRunShapeTest.test_a_window_really_does_carry_more_edges_than_the_flow_crosses) ... ok
+test_every_file_the_analysis_reads_carries_the_real_key_set (test_real_shape.RealRunShapeTest.test_every_file_the_analysis_reads_carries_the_real_key_set) ... ok
+test_every_file_the_analysis_reads_has_the_real_CARDINALITIES (test_real_shape.RealRunShapeTest.test_every_file_the_analysis_reads_has_the_real_CARDINALITIES) ... ok
+test_the_file_classes_the_fixture_skips_are_exactly_the_declared_ones (test_real_shape.RealRunShapeTest.test_the_file_classes_the_fixture_skips_are_exactly_the_declared_ones) ... ok
+test_the_fixture_invents_no_file_class_a_real_run_does_not_have (test_real_shape.RealRunShapeTest.test_the_fixture_invents_no_file_class_a_real_run_does_not_have) ... ok
+test_the_fixture_invents_no_key_in_a_file_the_analysis_reads (test_real_shape.RealRunShapeTest.test_the_fixture_invents_no_key_in_a_file_the_analysis_reads) ... ok
+
+======================================================================
+FAIL: test_both_readings_are_in_the_summary_side_by_side_and_neither_is_called_registered (test_analyse.RungWindowTest.test_both_readings_are_in_the_summary_side_by_side_and_neither_is_called_registered)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-cpuwin-0924/doc/audit/2026-09-19_telemetry-three-groups/tests/test_analyse.py", line 819, in test_both_readings_are_in_the_summary_side_by_side_and_neither_is_called_registered
+    self.assertTrue("cpu_window" in summary,
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+                    "the summary does not say which rung window its CPU was taken over")
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : the summary does not say which rung window its CPU was taken over
+
+======================================================================
+FAIL: test_on_the_real_rows_every_rungs_cpu_is_that_rungs_own (test_analyse.RungWindowTest.test_on_the_real_rows_every_rungs_cpu_is_that_rungs_own)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-cpuwin-0924/doc/audit/2026-09-19_telemetry-three-groups/tests/test_analyse.py", line 763, in test_on_the_real_rows_every_rungs_cpu_is_that_rungs_own
+    self.assertAlmostEqual(measured["kernel"], synthetic.real_rung_level(kpps),
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                           delta=0.1, msg="%s: rung %g kpps" % (name, kpps))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 73.75342465753425 != 40.0 within 0.1 delta (33.753424657534254 difference) : rungs.115737Z.G4.link_f64_b.tsv: rung 20 kpps
+
+======================================================================
+FAIL: test_on_the_real_rows_the_climb_plus_confirmation_reading_stays_on_its_rung_too (test_analyse.RungWindowTest.test_on_the_real_rows_the_climb_plus_confirmation_reading_stays_on_its_rung_too)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-cpuwin-0924/doc/audit/2026-09-19_telemetry-three-groups/tests/test_analyse.py", line 769, in test_on_the_real_rows_the_climb_plus_confirmation_reading_stays_on_its_rung_too
+    self.assert_has_reading_parameter()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-cpuwin-0924/doc/audit/2026-09-19_telemetry-three-groups/tests/test_analyse.py", line 749, in assert_has_reading_parameter
+    self.assertIn("reading", inspect.signature(analyse.cpu_by_rung).parameters,
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                  "cpu_by_rung has no `reading`: the confirmation reps have no reading of "
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                  "their own to be computed under")
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'reading' not found in mappingproxy(OrderedDict({'arm': <Parameter "arm">})) : cpu_by_rung has no `reading`: the confirmation reps have no reading of their own to be computed under
+
+======================================================================
+FAIL: test_samples_per_second_at_the_confirmed_rung_is_over_its_own_pairs_seconds (test_analyse.RungWindowTest.test_samples_per_second_at_the_confirmed_rung_is_over_its_own_pairs_seconds)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-cpuwin-0924/doc/audit/2026-09-19_telemetry-three-groups/tests/test_analyse.py", line 795, in test_samples_per_second_at_the_confirmed_rung_is_over_its_own_pairs_seconds
+    self.assertAlmostEqual(analyse.rung_samples_per_second(arm, 8.0), recoverable, places=6)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 26.375 != 158.25 within 6 places (131.875 difference)
+
+======================================================================
+FAIL: test_the_climb_plus_confirmation_reading_pools_the_reps_own_seconds_only (test_analyse.RungWindowTest.test_the_climb_plus_confirmation_reading_pools_the_reps_own_seconds_only)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-cpuwin-0924/doc/audit/2026-09-19_telemetry-three-groups/tests/test_analyse.py", line 801, in test_the_climb_plus_confirmation_reading_pools_the_reps_own_seconds_only
+    self.assert_has_reading_parameter()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-cpuwin-0924/doc/audit/2026-09-19_telemetry-three-groups/tests/test_analyse.py", line 749, in assert_has_reading_parameter
+    self.assertIn("reading", inspect.signature(analyse.cpu_by_rung).parameters,
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                  "cpu_by_rung has no `reading`: the confirmation reps have no reading of "
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                  "their own to be computed under")
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'reading' not found in mappingproxy(OrderedDict({'arm': <Parameter "arm">})) : cpu_by_rung has no `reading`: the confirmation reps have no reading of their own to be computed under
+
+======================================================================
+FAIL: test_the_confirmed_rungs_climb_window_does_not_reach_the_rungs_climbed_after_it (test_analyse.RungWindowTest.test_the_confirmed_rungs_climb_window_does_not_reach_the_rungs_climbed_after_it)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-cpuwin-0924/doc/audit/2026-09-19_telemetry-three-groups/tests/test_analyse.py", line 784, in test_the_confirmed_rungs_climb_window_does_not_reach_the_rungs_climbed_after_it
+    self.assertAlmostEqual(by_rung[8.0]["kernel"], self.level_at(8), delta=0.2)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 16.020833333333332 != 18.25995 within 0.2 delta (2.2391166666666678 difference)
+
+======================================================================
+FAIL: test_the_default_tree_has_no_confirmation_rows_so_both_readings_agree_there (test_analyse.RungWindowTest.test_the_default_tree_has_no_confirmation_rows_so_both_readings_agree_there)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-cpuwin-0924/doc/audit/2026-09-19_telemetry-three-groups/tests/test_analyse.py", line 843, in test_the_default_tree_has_no_confirmation_rows_so_both_readings_agree_there
+    self.assert_has_reading_parameter()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-cpuwin-0924/doc/audit/2026-09-19_telemetry-three-groups/tests/test_analyse.py", line 749, in assert_has_reading_parameter
+    self.assertIn("reading", inspect.signature(analyse.cpu_by_rung).parameters,
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                  "cpu_by_rung has no `reading`: the confirmation reps have no reading of "
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                  "their own to be computed under")
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'reading' not found in mappingproxy(OrderedDict({'arm': <Parameter "arm">})) : cpu_by_rung has no `reading`: the confirmation reps have no reading of their own to be computed under
+
+----------------------------------------------------------------------
+Ran 108 tests in 1.487s
+
+FAILED (failures=7, skipped=1)
+
+### rc=1

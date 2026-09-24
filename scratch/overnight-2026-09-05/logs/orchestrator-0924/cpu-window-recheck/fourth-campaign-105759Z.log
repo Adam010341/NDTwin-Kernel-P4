@@ -1,0 +1,18 @@
+### fourth campaign 105759Z: base analyse.py (30aa500c, git show) vs fix (93033c44) -- CPU fits and bmv2 ratios only
+# when: 2026-09-24 11:20:12 UTC
+# base rc=0
+# fix rc=0
+cooperative  old (union)  F=0.9098 m=110.95 share=0.0715  H-C1 cost is dominated by a fixed component (08-20 reproduce
+cooperative  climb        F=0.2038 m=116.46 share=0.0162  H-C1 cost is dominated by a fixed component (08-20 reproduce
+cooperative  climb+conf   F=0.2099 m=116.56 share=0.0166  H-C1 cost is dominated by a fixed component (08-20 reproduce
+link         old (union)  F=0.9809 m=83.91 share=0.0691  not decided: H-C2 condition 1 holds (share <= 0.2); conditio
+link         climb        F=0.3670 m=86.91 share=0.0261  not decided: H-C2 condition 1 holds (share <= 0.2); conditio
+link         climb+conf   F=0.3789 m=86.90 share=0.0269  not decided: H-C2 condition 1 holds (share <= 0.2); conditio
+bmv2 old (union)  outside: none
+bmv2 climb        outside: none
+bmv2 climb+conf   outside: none
+coop S old (union)  1:19.6 2:38.7 3:60.4 5:97.4 8:154.5 12:217.3 20:357.6 30:173.2 45:826.0 70:947.4 110:1064.2
+coop S climb        1:19.6 2:38.7 3:60.4 5:97.4 8:154.5 12:217.3 20:357.6 30:534.9 45:826.0 70:947.4 110:1064.2
+coop S climb+conf   1:19.6 2:38.7 3:60.4 5:97.4 8:154.5 12:217.3 20:357.6 30:534.9 45:826.0 70:947.4 110:1064.2
+unresolved rows: none
+### rc=0

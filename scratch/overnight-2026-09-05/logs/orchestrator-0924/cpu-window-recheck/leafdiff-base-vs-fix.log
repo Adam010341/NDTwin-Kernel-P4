@@ -1,0 +1,7 @@
+### leaf diff: base 30aa500c vs fix 93033c44, fifth campaign
+# when: 2026-09-24 11:16:09 UTC
+A: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/cpu-window-recheck/summary.115737Z.base-30aa500c.json
+B: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/cpu-window-recheck/summary.115737Z.fix-93033c44.json
+leaf values identical in both: 1560
+changed: 99   only in A: 0   only in B: 1655
+### rc=0

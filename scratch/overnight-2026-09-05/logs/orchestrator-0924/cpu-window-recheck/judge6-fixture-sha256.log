@@ -1,0 +1,9 @@
+### judge item 6: the fixture rungs.tsv files are verbatim copies of the raw (full sha256)
+# when: 2026-09-24 12:03:11 UTC  fixtures as committed at 50563d38 (read with git show, not from the working tree)
+raw G4/link_f64_b/rungs.tsv 9ccf52ab67fd24dc2adf9b9f6b3e72f8c232ca4db3799cd1a883631290ccf9aa
+fix rungs.115737Z.G4.link_f64_b.tsv 9ccf52ab67fd24dc2adf9b9f6b3e72f8c232ca4db3799cd1a883631290ccf9aa  IDENTICAL
+raw G3/link_f64_a/rungs.tsv b7d1cbeaf18d13feab58b179514881cee852f4d1200f8eee61921d68055eed7e
+fix rungs.115737Z.G3.link_f64_a.tsv b7d1cbeaf18d13feab58b179514881cee852f4d1200f8eee61921d68055eed7e  IDENTICAL
+raw G2/cooperative_f1024_a/rungs.tsv ede7c88c3886051d11384c046399a6816755b693b711c910fba70d28171ef1c8
+fix rungs.115737Z.G2.cooperative_f1024_a.tsv ede7c88c3886051d11384c046399a6816755b693b711c910fba70d28171ef1c8  IDENTICAL
+### rc=0

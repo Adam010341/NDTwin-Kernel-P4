@@ -1,0 +1,23 @@
+### judge item 3: tests/synthetic.py between the tests-only commit 50563d38 and the fix 93033c44
+# when: 2026-09-24 12:02:44 UTC
+# sha256: 50563d38 a05b9f81c935   93033c44 9d18a2d3b239
+### git diff 50563d38 93033c44 -- doc/audit/2026-09-19_telemetry-three-groups/tests/synthetic.py
+diff --git a/doc/audit/2026-09-19_telemetry-three-groups/tests/synthetic.py b/doc/audit/2026-09-19_telemetry-three-groups/tests/synthetic.py
+index c32e8886..de7256c6 100644
+--- a/doc/audit/2026-09-19_telemetry-three-groups/tests/synthetic.py
++++ b/doc/audit/2026-09-19_telemetry-three-groups/tests/synthetic.py
+@@ -48,6 +48,11 @@ if the difference is anything other than exactly those. The table below is what
+                  six-rung throwaway ladder, clean=12, external 0.0538 / 0.2262  -> tagged
+                                                                                    `control`,
+                                                                                    in NO cell
++    rung window  NOT in the default tree: build(confirm=...) appends the top-rung
++                 re-confirmation rows (rep c1..c3) after the climb, in the real
++                 shape; write_cpu_following_real_rungs() puts a CPU trace under a
++                 real rungs.tsv copied verbatim                                 -> each rung reads
++                                                                                   its own level
+ 
+ Nothing here imports analyse.py: a fixture that borrowed the code under test would agree with it
+ by construction.
+### the two files' code, compared with every docstring removed (ast)
+CODE IDENTICAL WITH DOCSTRINGS REMOVED: True
+### rc=0

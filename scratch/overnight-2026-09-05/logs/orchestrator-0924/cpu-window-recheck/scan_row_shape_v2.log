@@ -1,0 +1,83 @@
+### scan_row_shape_v2 -- every rungs.tsv under /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-audit-raw/doc/audit/2026-09-19_telemetry-three-groups/raw, with per-campaign totals
+# when: 2026-09-24 12:03:28 UTC
+=== 2026-09-19T062206Z_full
+=== 2026-09-19T093122Z_full
+  G1/none_f1024_a                          1024B-MEASUREMENT  clean=30    reps=1,2,3,c1,c2,c3 confirmation_kpps=30
+      union window of 30 kpps is 80.7 s and contains the reps of 45,70,110 kpps
+  G1/none_f64_a                            64B                clean=30    reps=1,2,3,c1,c2,c3 confirmation_kpps=30
+      union window of 30 kpps is 80.7 s and contains the reps of 45,70,110 kpps
+  controls/C3/c3a_noburn                   CONTROL            clean=12    reps=1,2,3,c1,c2,c3 confirmation_kpps=12
+  controls/C3/c3b_burn                     CONTROL            clean=12    reps=1,2,3,c1,c2,c3 confirmation_kpps=12
+=== 2026-09-19T105437Z_full
+=== 2026-09-19T105759Z_full
+  G1/none_f1024_a                          1024B-MEASUREMENT  clean=30    reps=1,2,3,c1,c2,c3 confirmation_kpps=30
+      union window of 30 kpps is 80.7 s and contains the reps of 45,70,110 kpps
+  G1/none_f64_a                            64B                clean=30    reps=1,2,3,c1,c2,c3 confirmation_kpps=30
+      union window of 30 kpps is 80.7 s and contains the reps of 45,70,110 kpps
+  G2/cooperative_f1024_a                   1024B-MEASUREMENT  clean=30    reps=1,2,3,c1,c2,c3 confirmation_kpps=30
+      union window of 30 kpps is 80.8 s and contains the reps of 45,70,110 kpps
+  G2/cooperative_f64_a                     64B                clean=30    reps=1,2,3,c1,c2,c3 confirmation_kpps=30
+      union window of 30 kpps is 80.7 s and contains the reps of 45,70,110 kpps
+  G3/link_f1024_a                          1024B-MEASUREMENT  clean=30    reps=1,2,3,c1,c2,c3 confirmation_kpps=30
+      union window of 30 kpps is 80.7 s and contains the reps of 45,70,110 kpps
+  G3/link_f64_a                            64B                clean=30    reps=1,2,3,c1,c2,c3 confirmation_kpps=30
+      union window of 30 kpps is 80.7 s and contains the reps of 45,70,110 kpps
+  G4/link_f1024_b                          1024B-MEASUREMENT  clean=12    reps=1,2,3,c1,c2,c3 confirmation_kpps=12
+      union window of 12 kpps is 98.9 s and contains the reps of 20,30,45,70,110 kpps
+  G4/link_f64_b                            64B                clean=30    reps=1,2,3,c1,c2,c3 confirmation_kpps=30
+      union window of 30 kpps is 80.7 s and contains the reps of 45,70,110 kpps
+  G5/cooperative_f1024_b                   1024B-MEASUREMENT  clean=30    reps=1,2,3,c1,c2,c3 confirmation_kpps=30
+      union window of 30 kpps is 80.7 s and contains the reps of 45,70,110 kpps
+  G5/cooperative_f64_b                     64B                clean=30    reps=1,2,3,c1,c2,c3 confirmation_kpps=30
+      union window of 30 kpps is 80.8 s and contains the reps of 45,70,110 kpps
+  G6/none_f1024_b                          1024B-MEASUREMENT  clean=30    reps=1,2,3,c1,c2,c3 confirmation_kpps=30
+      union window of 30 kpps is 80.7 s and contains the reps of 45,70,110 kpps
+  G6/none_f64_b                            64B                clean=30    reps=1,2,3,c1,c2,c3 confirmation_kpps=30
+      union window of 30 kpps is 80.7 s and contains the reps of 45,70,110 kpps
+  controls/C3/c3a_noburn                   CONTROL            clean=12    reps=1,c1,c2,c3 confirmation_kpps=12
+  controls/C3/c3b_burn                     CONTROL            clean=12    reps=1,2,3,c1,c2,c3 confirmation_kpps=12
+=== 2026-09-19T115737Z_full
+  G1/none_f1024_a                          1024B-MEASUREMENT  clean=30    reps=1,2,3,c1,c2,c3 confirmation_kpps=30
+      union window of 30 kpps is 80.7 s and contains the reps of 45,70,110 kpps
+  G1/none_f64_a                            64B                clean=30    reps=1,2,3,c1,c2,c3 confirmation_kpps=30
+      union window of 30 kpps is 80.7 s and contains the reps of 45,70,110 kpps
+  G2/cooperative_f1024_a                   1024B-MEASUREMENT  clean=12    reps=1,2,3,c1,c2,c3 confirmation_kpps=12
+      union window of 12 kpps is 117.4 s and contains the reps of 20,30,45,70,110 kpps
+  G2/cooperative_f64_a                     64B                clean=12    reps=1,2,3,c1,c2,c3 confirmation_kpps=12
+      union window of 12 kpps is 99.6 s and contains the reps of 20,30,45,70,110 kpps
+  G3/link_f1024_a                          1024B-MEASUREMENT  clean=12    reps=1,2,3,c1,c2,c3 confirmation_kpps=12
+      union window of 12 kpps is 137.5 s and contains the reps of 20,30,45,70,110 kpps
+  G3/link_f64_a                            64B                clean=12    reps=1,2,3,c1,c2,c3 confirmation_kpps=12,20,30
+      union window of 12 kpps is 192.1 s and contains the reps of 20,30,45,70,110 kpps
+      union window of 20 kpps is 137.1 s and contains the reps of 30,45,70,110 kpps
+      union window of 30 kpps is 82.2 s and contains the reps of 45,70,110 kpps
+  G4/link_f1024_b                          1024B-MEASUREMENT  clean=20    reps=1,2,3,c1,c2,c3 confirmation_kpps=20
+      union window of 20 kpps is 91.7 s and contains the reps of 30,45,70,110 kpps
+  G4/link_f64_b                            64B                clean=20    reps=1,2,3,c1,c2,c3 confirmation_kpps=20
+      union window of 20 kpps is 110.0 s and contains the reps of 30,45,70,110 kpps
+  G5/cooperative_f1024_b                   1024B-MEASUREMENT  clean=30    reps=1,2,3,c1,c2,c3 confirmation_kpps=30
+      union window of 30 kpps is 80.8 s and contains the reps of 45,70,110 kpps
+  G5/cooperative_f64_b                     64B                clean=30    reps=1,2,3,c1,c2,c3 confirmation_kpps=30
+      union window of 30 kpps is 80.7 s and contains the reps of 45,70,110 kpps
+  G6/none_f1024_b                          1024B-MEASUREMENT  clean=30    reps=1,2,3,c1,c2,c3 confirmation_kpps=30
+      union window of 30 kpps is 80.7 s and contains the reps of 45,70,110 kpps
+  G6/none_f64_b                            64B                clean=30    reps=1,2,3,c1,c2,c3 confirmation_kpps=30
+      union window of 30 kpps is 80.7 s and contains the reps of 45,70,110 kpps
+  controls/C3/c3a_noburn                   CONTROL            clean=12    reps=1,2,3,c1,c2,c3 confirmation_kpps=12
+  controls/C3/c3b_burn                     CONTROL            clean=12    reps=1,c1,c2,c3 confirmation_kpps=12
+=== 2026-09-19T130352Z_G2
+  G2/cooperative_f1024_a                   1024B-MEASUREMENT  clean=30    reps=1,2,3,c1,c2,c3 confirmation_kpps=30
+      union window of 30 kpps is 80.8 s and contains the reps of 45,70,110 kpps
+  G2/cooperative_f64_a                     64B                clean=12    reps=1,2,3,c1,c2,c3 confirmation_kpps=12,20
+      union window of 12 kpps is 162.4 s and contains the reps of 20,30,45,70,110 kpps
+      union window of 20 kpps is 108.0 s and contains the reps of 30,45,70,110 kpps
+
+per campaign: arms (incl. controls) / ladder measurement arms / of them with c-rows / of them whose union window swallows another rung / of those, 1024 B
+  2026-09-19T093122Z_full    4 / 2 / 2 / 2 / 1
+  2026-09-19T105759Z_full    14 / 12 / 12 / 12 / 6
+  2026-09-19T115737Z_full    14 / 12 / 12 / 12 / 6
+  2026-09-19T130352Z_G2      2 / 2 / 2 / 2 / 1
+
+rep labels seen anywhere: 1,2,3,c1,c2,c3
+arms: 34   arms whose union window swallows another rung: 28   of them 1024 B measurement arms: 14
+### rc=0

@@ -1,0 +1,92 @@
+drive_exercise.py -- calc / skeleton
+(non-interactive: no mininet CLI, no xterm; kills nothing)
+
+== pre-flight (read-only) ==============================================
+OK   ports 9090-9099 free
+OK   interpreter /home/adam/p4dev-python-venv/bin/python (3.12.3)
+OK   switch  /usr/local/bin/simple_switch_grpc  sha256[:16]=327fa7d172217397  --version=1.15.3-f0b7d201
+OK   p4c     /usr/local/bin/p4c-bm2-ss  sha256[:16]=226f3f66df515c9e  --version=Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release)
+OK   exercise dir /home/adam/tutorials/exercises/calc
+
+== compile =============================================================
+$ /usr/local/bin/p4c-bm2-ss --p4v 16 --p4runtime-files /home/adam/tutorials/exercises/calc/build/calc.p4.p4info.txtpb -o /home/adam/tutorials/exercises/calc/build/calc.json /home/adam/tutorials/exercises/calc/calc.p4
+/home/adam/tutorials/exercises/calc/calc.p4(116): [--Wwarn=parser-transition] warning: check_p4calc: implicit transition to `reject'
+    state check_p4calc {
+          ^^^^^^^^^^^^
+/home/adam/tutorials/exercises/calc/calc.p4(63): [--Wwarn=unused] warning: 'P4CALC_P' is unused
+const bit<8> P4CALC_P = 0x50; // 'P'
+             ^^^^^^^^
+/home/adam/tutorials/exercises/calc/calc.p4(64): [--Wwarn=unused] warning: 'P4CALC_4' is unused
+const bit<8> P4CALC_4 = 0x34; // '4'
+             ^^^^^^^^
+/home/adam/tutorials/exercises/calc/calc.p4(65): [--Wwarn=unused] warning: 'P4CALC_VER' is unused
+const bit<8> P4CALC_VER = 0x01; // v0.1
+             ^^^^^^^^^^
+/home/adam/tutorials/exercises/calc/calc.p4(148): [--Wwarn=unused] warning: 'send_back' is unused
+    action send_back(bit<32> result) {
+           ^^^^^^^^^
+/home/adam/tutorials/exercises/calc/calc.p4(148): [--Wwarn=unused] warning: 'result' is unused
+    action send_back(bit<32> result) {
+                             ^^^^^^
+[--Wwarn=unsupported] warning: Explicit transition to reject not supported on this target
+-> /home/adam/tutorials/exercises/calc/build/calc.json  13480 B  sha256[:16]=b70e4ffd6c14d9b2  warnings=7
+
+== plan ================================================================
+topology : topology.json
+hosts    : h1, h2
+switches : s1
+links    : 2
+program  : /home/adam/tutorials/exercises/calc/calc.p4 -> build/calc.json
+switch   : /usr/local/bin/simple_switch_grpc
+steps    : h1 calc.py <<< '1+1'; assert the answer line (solution 2, skeleton no response)
+equivalent to (cwd must be the exercise dir):
+  cd /home/adam/tutorials/exercises/calc && \
+  sudo /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/utils/run_exercise.py -t topology.json -j build/calc.json -b /usr/local/bin/simple_switch_grpc
+  ... except do_net_cli() is replaced by the scripted steps above.
+Reading topology file.
+Building mininet topology.
+/usr/local/bin/simple_switch_grpc -i 1@s1-eth1 -i 2@s1-eth2 --pcap /home/adam/tutorials/exercises/calc/pcaps --nanolog ipc:///tmp/bm-0-log.ipc --device-id 0 build/calc.json --log-console --thrift-port 9090 -- --grpc-server-addr 0.0.0.0:50051
+
+Configuring switch s1 using P4Runtime with file s1-runtime.json
+ - Using P4Info file build/calc.p4.p4info.txtpb...
+ - Connecting to P4Runtime server on 127.0.0.1:50051 (bmv2)...
+ - Setting pipeline config (build/calc.json)...
+ - Inserting 0 table entries...
+
+== topology as brought up ==============================================
+s1 -> gRPC port: 50051
+**********
+h1
+default interface: eth0	10.0.1.1	08:00:00:00:01:01
+**********
+**********
+h2
+default interface: eth0	10.0.1.2	08:00:00:00:01:02
+**********
+
+== scripted steps (no CLI, no xterm) ===================================
+$ h1: /home/adam/p4dev-python-venv/bin/python -u /home/adam/tutorials/exercises/calc/calc.py   <<< b'1+1\nquit\n'
+/home/adam/tutorials/exercises/calc/calc.py:50: SyntaxWarning: invalid escape sequence '\s'
+  pattern = "^\s*([0-9]+)\s*"
+/home/adam/tutorials/exercises/calc/calc.py:59: SyntaxWarning: invalid escape sequence '\s'
+  pattern = "^\s*([-+&|^])\s*"
+> 1+1
+Didn't receive response
+> 
+   PASS injection: calc.py read the expression         want=> 1+1                  got=yes
+   PASS RED ARM: the skeleton must not answer          want=Didn't receive response got=Didn't receive response
+
+-- switch logs --
+   /home/adam/tutorials/exercises/calc/logs/s1-p4runtime-requests.txt 128 B
+   /home/adam/tutorials/exercises/calc/logs/s1.log      52513 B
+
+== net.stop() ==========================================================
+net.stop() returned cleanly
+
+== verdict =============================================================
+   PASS injection: calc.py read the expression         want=> 1+1                  got=yes   【README 宣稱】＋【源碼推導，未執行】
+   PASS RED ARM: the skeleton must not answer          want=Didn't receive response got=Didn't receive response   【README 宣稱】＋【源碼推導，未執行】
+
+>>> PASS (2/2)
+
+report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T095413Z_calc_skeleton.md

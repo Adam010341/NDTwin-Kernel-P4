@@ -1,0 +1,5 @@
+doc: ANALYSIS section 8 -- Adam's four rulings on the P4-driven API shape (ownership, no .p4 changes required, GUI reads capabilities once, seven same-shape pipelines first)
+
+Recorded verbatim from the interactive form so the stage-four ticket can cite them.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>

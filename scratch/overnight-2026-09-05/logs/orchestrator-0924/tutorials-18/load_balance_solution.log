@@ -1,0 +1,692 @@
+drive_exercise.py -- load_balance / solution
+(non-interactive: no mininet CLI, no xterm; kills nothing)
+
+== pre-flight (read-only) ==============================================
+OK   ports 9090-9099 free
+OK   interpreter /home/adam/p4dev-python-venv/bin/python (3.12.3)
+OK   switch  /usr/local/bin/simple_switch_grpc  sha256[:16]=327fa7d172217397  --version=1.15.3-f0b7d201
+OK   p4c     /usr/local/bin/p4c-bm2-ss  sha256[:16]=226f3f66df515c9e  --version=Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release)
+OK   exercise dir /home/adam/tutorials/exercises/load_balance
+
+== compile =============================================================
+$ /usr/local/bin/p4c-bm2-ss --p4v 16 --p4runtime-files /home/adam/tutorials/exercises/load_balance/build/load_balance.p4.p4info.txtpb -o /home/adam/tutorials/exercises/load_balance/build/load_balance.json /home/adam/tutorials/exercises/load_balance/solution/load_balance.p4
+-> /home/adam/tutorials/exercises/load_balance/build/load_balance.json  25353 B  sha256[:16]=f160936ef0877ac1  warnings=0
+
+== plan ================================================================
+topology : topology.json
+hosts    : h1, h2, h3
+switches : s1, s2, s3
+links    : 6
+program  : /home/adam/tutorials/exercises/load_balance/solution/load_balance.p4 -> build/load_balance.json
+switch   : /usr/local/bin/simple_switch_grpc
+steps    : h2 and h3 receive.py; h1 send.py 10.0.0.1 x10; assert both servers got some (solution) / only h2 did (skeleton)
+equivalent to (cwd must be the exercise dir):
+  cd /home/adam/tutorials/exercises/load_balance && \
+  sudo /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/utils/run_exercise.py -t topology.json -j build/load_balance.json -b /usr/local/bin/simple_switch_grpc
+  ... except do_net_cli() is replaced by the scripted steps above.
+Reading topology file.
+Building mininet topology.
+/usr/local/bin/simple_switch_grpc -i 1@s1-eth1 -i 2@s1-eth2 -i 3@s1-eth3 --pcap /home/adam/tutorials/exercises/load_balance/pcaps --nanolog ipc:///tmp/bm-0-log.ipc --device-id 0 build/load_balance.json --log-console --thrift-port 9090 -- --grpc-server-addr 0.0.0.0:50051
+
+/usr/local/bin/simple_switch_grpc -i 1@s2-eth1 -i 2@s2-eth2 -i 3@s2-eth3 --pcap /home/adam/tutorials/exercises/load_balance/pcaps --nanolog ipc:///tmp/bm-1-log.ipc --device-id 1 build/load_balance.json --log-console --thrift-port 9091 -- --grpc-server-addr 0.0.0.0:50052
+
+/usr/local/bin/simple_switch_grpc -i 1@s3-eth1 -i 2@s3-eth2 -i 3@s3-eth3 --pcap /home/adam/tutorials/exercises/load_balance/pcaps --nanolog ipc:///tmp/bm-2-log.ipc --device-id 2 build/load_balance.json --log-console --thrift-port 9092 -- --grpc-server-addr 0.0.0.0:50053
+
+Configuring switch s1 using P4Runtime with file s1-runtime.json
+ - Using P4Info file build/load_balance.p4.p4info.txtpb...
+ - Connecting to P4Runtime server on 127.0.0.1:50051 (bmv2)...
+ - Setting pipeline config (build/load_balance.json)...
+ - Inserting 6 table entries...
+ - MyIngress.ecmp_group: (default action) => MyIngress.drop()
+ - MyIngress.ecmp_group: hdr.ipv4.dstAddr=['10.0.0.1', 32] => MyIngress.set_ecmp_select(ecmp_base=0, ecmp_count=2)
+ - MyIngress.ecmp_nhop: meta.ecmp_select=0 => MyIngress.set_nhop(nhop_dmac=08:00:00:00:02:02, nhop_ipv4=10.0.2.2, port=2)
+ - MyIngress.ecmp_nhop: meta.ecmp_select=1 => MyIngress.set_nhop(nhop_dmac=08:00:00:00:03:03, nhop_ipv4=10.0.3.3, port=3)
+ - MyEgress.send_frame: standard_metadata.egress_port=2 => MyEgress.rewrite_mac(smac=08:00:00:00:01:00)
+ - MyEgress.send_frame: standard_metadata.egress_port=3 => MyEgress.rewrite_mac(smac=08:00:00:00:01:00)
+Configuring switch s2 using P4Runtime with file s2-runtime.json
+ - Using P4Info file build/load_balance.p4.p4info.txtpb...
+ - Connecting to P4Runtime server on 127.0.0.1:50052 (bmv2)...
+ - Setting pipeline config (build/load_balance.json)...
+ - Inserting 4 table entries...
+ - MyIngress.ecmp_group: (default action) => MyIngress.drop()
+ - MyIngress.ecmp_group: hdr.ipv4.dstAddr=['10.0.2.2', 32] => MyIngress.set_ecmp_select(ecmp_base=0, ecmp_count=1)
+ - MyIngress.ecmp_nhop: meta.ecmp_select=0 => MyIngress.set_nhop(nhop_dmac=08:00:00:00:02:02, nhop_ipv4=10.0.2.2, port=1)
+ - MyEgress.send_frame: standard_metadata.egress_port=1 => MyEgress.rewrite_mac(smac=08:00:00:00:02:00)
+Configuring switch s3 using P4Runtime with file s3-runtime.json
+ - Using P4Info file build/load_balance.p4.p4info.txtpb...
+ - Connecting to P4Runtime server on 127.0.0.1:50053 (bmv2)...
+ - Setting pipeline config (build/load_balance.json)...
+ - Inserting 4 table entries...
+ - MyIngress.ecmp_group: (default action) => MyIngress.drop()
+ - MyIngress.ecmp_group: hdr.ipv4.dstAddr=['10.0.3.3', 32] => MyIngress.set_ecmp_select(ecmp_base=0, ecmp_count=1)
+ - MyIngress.ecmp_nhop: meta.ecmp_select=0 => MyIngress.set_nhop(nhop_dmac=08:00:00:00:03:03, nhop_ipv4=10.0.3.3, port=1)
+ - MyEgress.send_frame: standard_metadata.egress_port=1 => MyEgress.rewrite_mac(smac=08:00:00:00:03:00)
+
+== topology as brought up ==============================================
+s1 -> gRPC port: 50051
+s2 -> gRPC port: 50052
+s3 -> gRPC port: 50053
+**********
+h1
+default interface: eth0	10.0.1.1	08:00:00:00:01:01
+**********
+**********
+h2
+default interface: eth0	10.0.2.2	08:00:00:00:02:02
+**********
+**********
+h3
+default interface: eth0	10.0.3.3	08:00:00:00:03:03
+**********
+
+== scripted steps (no CLI, no xterm) ===================================
+$ h2: /home/adam/p4dev-python-venv/bin/python -u /home/adam/tutorials/exercises/load_balance/receive.py   (> /home/adam/tutorials/exercises/load_balance/logs/driver-h2-receive.log)
+$ h3: /home/adam/p4dev-python-venv/bin/python -u /home/adam/tutorials/exercises/load_balance/receive.py   (> /home/adam/tutorials/exercises/load_balance/logs/driver-h3-receive.log)
+$ h1: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/load_balance/send.py 10.0.0.1 P4 driver probe 0
+sending on interface eth0 to 10.0.0.1
+###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:01
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = tcp
+     chksum    = 0x65bd
+     src       = 10.0.1.1
+     dst       = 10.0.0.1
+     \options   \
+###[ TCP ]### 
+        sport     = 54849
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x5f3f
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 0'
+
+
+$ h1: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/load_balance/send.py 10.0.0.1 P4 driver probe 1
+sending on interface eth0 to 10.0.0.1
+###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:01
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = tcp
+     chksum    = 0x65bd
+     src       = 10.0.1.1
+     dst       = 10.0.0.1
+     \options   \
+###[ TCP ]### 
+        sport     = 53000
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x6578
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 1'
+
+
+$ h1: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/load_balance/send.py 10.0.0.1 P4 driver probe 2
+sending on interface eth0 to 10.0.0.1
+###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:01
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = tcp
+     chksum    = 0x65bd
+     src       = 10.0.1.1
+     dst       = 10.0.0.1
+     \options   \
+###[ TCP ]### 
+        sport     = 60771
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x461d
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 2'
+
+
+$ h1: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/load_balance/send.py 10.0.0.1 P4 driver probe 3
+sending on interface eth0 to 10.0.0.1
+###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:01
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = tcp
+     chksum    = 0x65bd
+     src       = 10.0.1.1
+     dst       = 10.0.0.1
+     \options   \
+###[ TCP ]### 
+        sport     = 53676
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x60d4
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 3'
+
+
+$ h1: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/load_balance/send.py 10.0.0.1 P4 driver probe 4
+sending on interface eth0 to 10.0.0.1
+###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:01
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = tcp
+     chksum    = 0x65bd
+     src       = 10.0.1.1
+     dst       = 10.0.0.1
+     \options   \
+###[ TCP ]### 
+        sport     = 50893
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x6ab3
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 4'
+
+
+$ h1: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/load_balance/send.py 10.0.0.1 P4 driver probe 5
+sending on interface eth0 to 10.0.0.1
+###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:01
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = tcp
+     chksum    = 0x65bd
+     src       = 10.0.1.1
+     dst       = 10.0.0.1
+     \options   \
+###[ TCP ]### 
+        sport     = 53429
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x5fcb
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 5'
+
+
+$ h1: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/load_balance/send.py 10.0.0.1 P4 driver probe 6
+sending on interface eth0 to 10.0.0.1
+###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:01
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = tcp
+     chksum    = 0x65bd
+     src       = 10.0.1.1
+     dst       = 10.0.0.1
+     \options   \
+###[ TCP ]### 
+        sport     = 60747
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x4235
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 6'
+
+
+$ h1: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/load_balance/send.py 10.0.0.1 P4 driver probe 7
+sending on interface eth0 to 10.0.0.1
+###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:01
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = tcp
+     chksum    = 0x65bd
+     src       = 10.0.1.1
+     dst       = 10.0.0.1
+     \options   \
+###[ TCP ]### 
+        sport     = 61063
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x3ff9
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 7'
+
+
+$ h1: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/load_balance/send.py 10.0.0.1 P4 driver probe 8
+sending on interface eth0 to 10.0.0.1
+###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:01
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = tcp
+     chksum    = 0x65bd
+     src       = 10.0.1.1
+     dst       = 10.0.0.1
+     \options   \
+###[ TCP ]### 
+        sport     = 61221
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x3e5b
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 8'
+
+
+$ h1: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/load_balance/send.py 10.0.0.1 P4 driver probe 9
+sending on interface eth0 to 10.0.0.1
+###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:01
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = tcp
+     chksum    = 0x65bd
+     src       = 10.0.1.1
+     dst       = 10.0.0.1
+     \options   \
+###[ TCP ]### 
+        sport     = 61815
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x3b09
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 9'
+
+
+-- h2 (/home/adam/tutorials/exercises/load_balance/logs/driver-h2-receive.log) --
+sniffing on eth0
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = tcp
+     chksum    = 0x65bc
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ TCP ]### 
+        sport     = 54849
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x5f3f
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 0'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = tcp
+     chksum    = 0x65bc
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ TCP ]### 
+        sport     = 53000
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x6578
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 1'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = tcp
+     chksum    = 0x65bc
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ TCP ]### 
+        sport     = 61815
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x3b09
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 9'
+
+
+-- h3 (/home/adam/tutorials/exercises/load_balance/logs/driver-h3-receive.log) --
+sniffing on eth0
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:03:03
+  src       = 08:00:00:00:03:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = tcp
+     chksum    = 0x64bb
+     src       = 10.0.1.1
+     dst       = 10.0.3.3
+     \options   \
+###[ TCP ]### 
+        sport     = 60771
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x461d
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 2'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:03:03
+  src       = 08:00:00:00:03:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = tcp
+     chksum    = 0x64bb
+     src       = 10.0.1.1
+     dst       = 10.0.3.3
+     \options   \
+###[ TCP ]### 
+        sport     = 53676
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x60d4
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 3'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:03:03
+  src       = 08:00:00:00:03:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = tcp
+     chksum    = 0x64bb
+     src       = 10.0.1.1
+     dst       = 10.0.3.3
+     \options   \
+###[ TCP ]### 
+        sport     = 50893
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x6ab3
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 4'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:03:03
+  src       = 08:00:00:00:03:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+  
+... [trimmed; 5141 chars total]
+   PASS injection: send.py emitted 10 frames           want=10                     got=10
+   PASS both servers were used                         want=h2>=1 and h3>=1        got=h2=3 h3=7
+
+-- switch logs --
+   /home/adam/tutorials/exercises/load_balance/logs/driver-h2-receive.log 2213 B
+   /home/adam/tutorials/exercises/load_balance/logs/driver-h3-receive.log 5141 B
+   /home/adam/tutorials/exercises/load_balance/logs/s1-p4runtime-requests.txt 3125 B
+   /home/adam/tutorials/exercises/load_balance/logs/s1.log 269221 B
+   /home/adam/tutorials/exercises/load_balance/logs/s2-p4runtime-requests.txt 2099 B
+   /home/adam/tutorials/exercises/load_balance/logs/s2.log 212624 B
+   /home/adam/tutorials/exercises/load_balance/logs/s3-p4runtime-requests.txt 2099 B
+   /home/adam/tutorials/exercises/load_balance/logs/s3.log 234298 B
+
+== net.stop() ==========================================================
+net.stop() returned cleanly
+
+== verdict =============================================================
+   PASS injection: send.py emitted 10 frames           want=10                     got=10   【源碼推導，未執行】
+   PASS both servers were used                         want=h2>=1 and h3>=1        got=h2=3 h3=7   【README 宣稱】＋【源碼推導，未執行】
+
+>>> PASS (2/2)
+
+report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T095641Z_load_balance_solution.md

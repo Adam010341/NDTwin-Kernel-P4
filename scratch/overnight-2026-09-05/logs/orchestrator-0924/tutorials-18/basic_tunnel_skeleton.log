@@ -1,0 +1,74 @@
+drive_exercise.py -- basic_tunnel / skeleton
+(non-interactive: no mininet CLI, no xterm; kills nothing)
+
+== pre-flight (read-only) ==============================================
+OK   ports 9090-9099 free
+OK   interpreter /home/adam/p4dev-python-venv/bin/python (3.12.3)
+OK   switch  /usr/local/bin/simple_switch_grpc  sha256[:16]=327fa7d172217397  --version=1.15.3-f0b7d201
+OK   p4c     /usr/local/bin/p4c-bm2-ss  sha256[:16]=226f3f66df515c9e  --version=Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release)
+OK   exercise dir /home/adam/tutorials/exercises/basic_tunnel
+
+== compile =============================================================
+$ /usr/local/bin/p4c-bm2-ss --p4v 16 --p4runtime-files /home/adam/tutorials/exercises/basic_tunnel/build/basic_tunnel.p4.p4info.txtpb -o /home/adam/tutorials/exercises/basic_tunnel/build/basic_tunnel.json /home/adam/tutorials/exercises/basic_tunnel/basic_tunnel.p4
+/home/adam/tutorials/exercises/basic_tunnel/basic_tunnel.p4(8): [--Wwarn=unused] warning: 'TYPE_MYTUNNEL' is unused
+const bit<16> TYPE_MYTUNNEL = 0x1212;
+              ^^^^^^^^^^^^^
+-> /home/adam/tutorials/exercises/basic_tunnel/build/basic_tunnel.json  14360 B  sha256[:16]=44af1a4289aa8b00  warnings=1
+
+== plan ================================================================
+topology : topology.json
+hosts    : h1, h2, h3
+switches : s1, s2, s3
+links    : 6
+program  : /home/adam/tutorials/exercises/basic_tunnel/basic_tunnel.p4 -> build/basic_tunnel.json
+switch   : /usr/local/bin/simple_switch_grpc
+steps    : h2/h3 receive.py; h1 send.py 10.0.2.2 --dst_id 2 then --dst_id 3; assert which host the tunnel delivered to
+equivalent to (cwd must be the exercise dir):
+  cd /home/adam/tutorials/exercises/basic_tunnel && \
+  sudo /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/utils/run_exercise.py -t topology.json -j build/basic_tunnel.json -b /usr/local/bin/simple_switch_grpc
+  ... except do_net_cli() is replaced by the scripted steps above.
+Reading topology file.
+Building mininet topology.
+/usr/local/bin/simple_switch_grpc -i 1@s1-eth1 -i 2@s1-eth2 -i 3@s1-eth3 --pcap /home/adam/tutorials/exercises/basic_tunnel/pcaps --nanolog ipc:///tmp/bm-0-log.ipc --device-id 0 build/basic_tunnel.json --log-console --thrift-port 9090 -- --grpc-server-addr 0.0.0.0:50051
+
+/usr/local/bin/simple_switch_grpc -i 1@s2-eth1 -i 2@s2-eth2 -i 3@s2-eth3 --pcap /home/adam/tutorials/exercises/basic_tunnel/pcaps --nanolog ipc:///tmp/bm-1-log.ipc --device-id 1 build/basic_tunnel.json --log-console --thrift-port 9091 -- --grpc-server-addr 0.0.0.0:50052
+
+/usr/local/bin/simple_switch_grpc -i 1@s3-eth1 -i 2@s3-eth2 -i 3@s3-eth3 --pcap /home/adam/tutorials/exercises/basic_tunnel/pcaps --nanolog ipc:///tmp/bm-2-log.ipc --device-id 2 build/basic_tunnel.json --log-console --thrift-port 9092 -- --grpc-server-addr 0.0.0.0:50053
+
+Configuring switch s1 using P4Runtime with file s1-runtime.json
+ - Using P4Info file build/basic_tunnel.p4.p4info.txtpb...
+ - Connecting to P4Runtime server on 127.0.0.1:50051 (bmv2)...
+ - Setting pipeline config (build/basic_tunnel.json)...
+ - Inserting 6 table entries...
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.1.1', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:01:11, port=1)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.2.2', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:02:00, port=2)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.3.3', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:03:00, port=3)
+ - MyIngress.myTunnel_exact: hdr.myTunnel.dst_id=[1] => MyIngress.myTunnel_forward(port=1)
+
+== the skeleton's runtime entries ======================================
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py", line 2287, in _program_switches_arm
+    self.program_switches()
+  File "/home/adam/tutorials/utils/run_exercise.py", line 312, in program_switches
+    self.program_switch_p4runtime(sw_name, sw_dict)
+  File "/home/adam/tutorials/utils/run_exercise.py", line 274, in program_switch_p4runtime
+    p4runtime_lib.simple_controller.program_switch(
+  File "/home/adam/tutorials/utils/p4runtime_lib/simple_controller.py", line 129, in program_switch
+    validateTableEntry(entry, p4info_helper, runtime_json)
+  File "/home/adam/tutorials/utils/p4runtime_lib/simple_controller.py", line 161, in validateTableEntry
+    p4info_match = p4info_helper.get_match_field(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/adam/tutorials/utils/p4runtime_lib/helper.py", line 77, in get_match_field
+    raise AttributeError("%r has no attribute %r" % (table_name, name if name is not None else id))
+AttributeError: 'MyIngress.myTunnel_exact' has no attribute 'hdr.myTunnel.dst_id'
+
+
+== net.stop() ==========================================================
+net.stop() returned cleanly
+
+== verdict =============================================================
+   PASS RED ARM: the skeleton's runtime entries must NOT install want=the control plane refuses got=AttributeError("'MyIngress.myTunnel_exact' has no attribute 'hdr.myTunnel.dst_id'")   【README 宣稱】＋【源碼推導，未執行】
+
+>>> RED ARM (1/1): the skeleton does not get past the control plane, by design
+
+report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T095340Z_basic_tunnel_skeleton.md

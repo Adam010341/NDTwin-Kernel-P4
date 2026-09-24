@@ -1,0 +1,19 @@
+# gate    : check_gate_anchors.py HEAD --gates mutate_drive_exercise.sh (read-only)
+# cmd     : (cwd worktree) p4_proxy/venv/bin/python tests/shell/check_gate_anchors.py HEAD --gates mutate_drive_exercise.sh
+# worktree: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-driver-0924
+# head    : bf349b64fa938efc647244753cdc17b79061cf46
+# dirty   : 0 path(s) (clean)
+# blob    : WT 13f60fda31d9f462ffe9dccef5c2f1b5f29afd9e  HEAD 13f60fda31d9f462ffe9dccef5c2f1b5f29afd9e  doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py
+# blob    : WT 38343a20770c56c9b7fa1a2dd13dee99c95c93e5  HEAD 38343a20770c56c9b7fa1a2dd13dee99c95c93e5  doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py
+# blob    : WT 04d5acd1a498203a18a6cc73069d101a5452aed1  HEAD 04d5acd1a498203a18a6cc73069d101a5452aed1  tests/shell/mutate_drive_exercise.sh
+# start   : 2026-09-24T19:58:27+08:00
+
+anchors of each gate, counted in each rev's own files
+columns:
+  c0   HEAD
+
+                          c0            
+mutate_drive_exercise.sh  ok(102)       
+
+1/1 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+# rc=0

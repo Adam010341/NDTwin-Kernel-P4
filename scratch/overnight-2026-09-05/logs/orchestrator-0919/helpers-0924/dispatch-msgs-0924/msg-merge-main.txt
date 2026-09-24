@@ -1,0 +1,5 @@
+Merge Adam010341/main (README badge row, 699b7c85) into trunk so trunk and main are one line again
+
+main on Adam010341/NDTwin-Kernel-P4 received the badge-row commit while trunk was being pushed; merging it back keeps the standing arrangement trunk == main on both public copies.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>

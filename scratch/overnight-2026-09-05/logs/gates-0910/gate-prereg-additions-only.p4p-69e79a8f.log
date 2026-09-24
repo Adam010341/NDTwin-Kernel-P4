@@ -1,0 +1,20 @@
+### gate: PREREG additions-only  tree 69e79a8f951056bdba6ca3c5d0d6972bbab253a4  base 0c85ad9c  2026-09-24T10:56:27Z
+## files changed 0c85ad9c..HEAD
+doc/audit/2026-09-19_telemetry-three-groups/PREREG.md
+## stat
+ .../2026-09-19_telemetry-three-groups/PREREG.md    | 94 ++++++++++++++++++++++
+ 1 file changed, 94 insertions(+)
+## hunk headers
+@@ -511,0 +512,94 @@ kernel 自己數到的樣本數是比 twin 更直接的證據（twin 是它的
+## removed lines: 0
+## sha256 base file / head first 511 lines
+3d2e26c6eb064a5e85a920120919a00db15bdba1a67b309e3b482517bd699fd0  -
+3d2e26c6eb064a5e85a920120919a00db15bdba1a67b309e3b482517bd699fd0  -
+## worktree status (expect empty)
+## trailer
+
+### end
+## trailer (re-read: previous tail -1 hit the blank line after the body)
+27:[Co-developed with claude code -- Adam]
+29:Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+### end (2)

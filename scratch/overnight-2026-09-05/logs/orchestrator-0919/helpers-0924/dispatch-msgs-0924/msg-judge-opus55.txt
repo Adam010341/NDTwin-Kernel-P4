@@ -1,0 +1,9 @@
+agents: the judge runs as Opus 5.5 -- Adam 2026-09-24: every subagent is Opus 5.5 from now on
+
+Fable hit its rate limit twice on 09-19 (HTTP 429 on the round-8 judge), and the
+round-9 judge already ran with model: opus by per-call override. Adam's ruling today
+makes it the definition: model claude-opus-5-5, effort stays max. The file name
+fable-judge is kept so the tickets that cite it still resolve. Agent definitions are
+read at session start, so this takes effect from the next session.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>

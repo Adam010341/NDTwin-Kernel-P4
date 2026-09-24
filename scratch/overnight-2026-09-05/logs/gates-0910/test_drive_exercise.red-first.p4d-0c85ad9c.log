@@ -1,0 +1,141 @@
+# RED-FIRST run: new cells against the UNFIXED driver
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-driver-0924  head 0c85ad9cfe5ea3e5d399d4066462ead21eaad541
+# driver blob (working tree) 99c862a93d2fe27262dd07f0d045ab5ca9922674  == HEAD blob 99c862a93d2fe27262dd07f0d045ab5ca9922674
+# test file (uncommitted, new cells added) blob 888d7db5704b30bef9f279f63d14abfb982f1daf
+# cmd: PYTHONDONTWRITEBYTECODE=1 p4_proxy/venv/bin/python -m unittest discover -s <tests> -t <tests> -k TheSolutionControllerFindsTheTutorialsLibrary -v
+# date 2026-09-24T18:55:05+08:00
+
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-driver-0924/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:2195: SyntaxWarning: invalid escape sequence '\s'
+  `^\s*`, which does not match those, so `count` came back empty and `swid` came back [] --
+test_a_pythonpath_the_driver_inherited_is_kept_behind_the_exercises_utils (test_drive_exercise.TheSolutionControllerFindsTheTutorialsLibrary.test_a_pythonpath_the_driver_inherited_is_kept_behind_the_exercises_utils)
+Prepended, not replaced: whatever the caller put there still reaches the child. ... FAIL
+test_the_command_the_report_records_reproduces_the_run (test_drive_exercise.TheSolutionControllerFindsTheTutorialsLibrary.test_the_command_the_report_records_reproduces_the_run)
+C1's command string is what a reader pastes to re-run the controller. Without the ... FAIL
+test_the_ndtwin_arm_is_handed_the_environment_it_always_had (test_drive_exercise.TheSolutionControllerFindsTheTutorialsLibrary.test_the_ndtwin_arm_is_handed_the_environment_it_always_had)
+run_external_controller.py finds utils/ itself (find_tutorials_utils) and inserts it ... /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-driver-0924/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:2674: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/drv-ctrlpath-log-dhaivsgp/driver-controller-p4runtime.log'>
+  _s, argv, kw = self.launch(ex, which, fabric="ndtwin", package="/pkg")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-driver-0924/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:2674: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/drv-ctrlpath-log-3mxvjlh5/driver-controller-p4runtime.log'>
+  _s, argv, kw = self.launch(ex, which, fabric="ndtwin", package="/pkg")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-driver-0924/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:2674: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/drv-ctrlpath-log-c4vo182i/driver-controller-flowcache.log'>
+  _s, argv, kw = self.launch(ex, which, fabric="ndtwin", package="/pkg")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_the_real_solution_controllers_get_past_their_imports (test_drive_exercise.TheSolutionControllerFindsTheTutorialsLibrary.test_the_real_solution_controllers_get_past_their_imports)
+🔴 THE REAL FILES, THE REAL INTERPRETER, NO SWITCH (and no root). ... 
+  test_the_real_solution_controllers_get_past_their_imports (test_drive_exercise.TheSolutionControllerFindsTheTutorialsLibrary.test_the_real_solution_controllers_get_past_their_imports) (exercise='p4runtime')
+🔴 THE REAL FILES, THE REAL INTERPRETER, NO SWITCH (and no root). ... FAIL
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-driver-0924/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:2723: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/drv-ctrlpath-log-0cax0yq3/driver-controller-p4runtime.log'>
+  _s, argv, kw = self.launch(ex, "solution", exdir=exdir)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+  test_the_real_solution_controllers_get_past_their_imports (test_drive_exercise.TheSolutionControllerFindsTheTutorialsLibrary.test_the_real_solution_controllers_get_past_their_imports) (exercise='flowcache')
+🔴 THE REAL FILES, THE REAL INTERPRETER, NO SWITCH (and no root). ... FAIL
+test_the_skeleton_arm_is_handed_the_environment_it_always_had (test_drive_exercise.TheSolutionControllerFindsTheTutorialsLibrary.test_the_skeleton_arm_is_handed_the_environment_it_always_had)
+The skeleton sits where the tutorials put it and finds utils/ by itself. ... /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-driver-0924/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:2659: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/drv-ctrlpath-log-wht22a0x/driver-controller-p4runtime.log'>
+  _s, argv, kw = self.launch(ex, "skeleton")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_the_tutorials_solution_controller_imports_the_exercises_p4runtime_lib (test_drive_exercise.TheSolutionControllerFindsTheTutorialsLibrary.test_the_tutorials_solution_controller_imports_the_exercises_p4runtime_lib)
+The red run IS the live failure: rc 1 and `No module named 'p4runtime_lib'`. ... /home/adam/miniconda3/lib/python3.13/contextlib.py:136: ResourceWarning: unclosed file <_io.FileIO name='/tmp/drv-ctrlpath-log-jdsrjeyq/driver-controller-flowcache.log' mode='wb' closefd=True>
+  def __enter__(self):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+
+  test_the_tutorials_solution_controller_imports_the_exercises_p4runtime_lib (test_drive_exercise.TheSolutionControllerFindsTheTutorialsLibrary.test_the_tutorials_solution_controller_imports_the_exercises_p4runtime_lib) (exercise='p4runtime')
+The red run IS the live failure: rc 1 and `No module named 'p4runtime_lib'`. ... FAIL
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-driver-0924/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:2647: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/drv-ctrlpath-log-bri492xr/driver-controller-p4runtime.log'>
+  _s, argv, kw = self.launch(ex, "solution")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+  test_the_tutorials_solution_controller_imports_the_exercises_p4runtime_lib (test_drive_exercise.TheSolutionControllerFindsTheTutorialsLibrary.test_the_tutorials_solution_controller_imports_the_exercises_p4runtime_lib) (exercise='flowcache')
+The red run IS the live failure: rc 1 and `No module named 'p4runtime_lib'`. ... FAIL
+
+======================================================================
+FAIL: test_a_pythonpath_the_driver_inherited_is_kept_behind_the_exercises_utils (test_drive_exercise.TheSolutionControllerFindsTheTutorialsLibrary.test_a_pythonpath_the_driver_inherited_is_kept_behind_the_exercises_utils)
+Prepended, not replaced: whatever the caller put there still reaches the child.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-driver-0924/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py", line 2689, in test_a_pythonpath_the_driver_inherited_is_kept_behind_the_exercises_utils
+    self.assertEqual([os.path.normpath(self.utils), "/somewhere/else"],
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                     [os.path.normpath(p) for p in kw["env"]["PYTHONPATH"].split(os.pathsep)])
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: ['/tmp/drv-ctrlpath-gnii4em1/utils', '/somewhere/else'] != ['/somewhere/else']
+
+First differing element 0:
+'/tmp/drv-ctrlpath-gnii4em1/utils'
+'/somewhere/else'
+
+First list contains 1 additional elements.
+First extra element 1:
+'/somewhere/else'
+
+- ['/tmp/drv-ctrlpath-gnii4em1/utils', '/somewhere/else']
++ ['/somewhere/else']
+
+======================================================================
+FAIL: test_the_command_the_report_records_reproduces_the_run (test_drive_exercise.TheSolutionControllerFindsTheTutorialsLibrary.test_the_command_the_report_records_reproduces_the_run)
+C1's command string is what a reader pastes to re-run the controller. Without the
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-driver-0924/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py", line 2704, in test_the_command_the_report_records_reproduces_the_run
+    self.assertEqual(0, p.returncode, "%s\n%s" % (cmd, out))
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 0 != 1 : /home/adam/p4dev-python-venv/bin/python /tmp/drv-ctrlpath-y36fzd7k/exercises/flowcache/solution/mycontroller.py
+Traceback (most recent call last):
+  File "/tmp/drv-ctrlpath-y36fzd7k/exercises/flowcache/solution/mycontroller.py", line 6, in <module>
+    import p4runtime_lib.bmv2
+ModuleNotFoundError: No module named 'p4runtime_lib'
+
+
+======================================================================
+FAIL: test_the_real_solution_controllers_get_past_their_imports (test_drive_exercise.TheSolutionControllerFindsTheTutorialsLibrary.test_the_real_solution_controllers_get_past_their_imports) (exercise='p4runtime')
+🔴 THE REAL FILES, THE REAL INTERPRETER, NO SWITCH (and no root).
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-driver-0924/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py", line 2729, in test_the_real_solution_controllers_get_past_their_imports
+    self.assertNotIn("ModuleNotFoundError", out)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'ModuleNotFoundError' unexpectedly found in 'Traceback (most recent call last):\n  File "/home/adam/tutorials/exercises/p4runtime/solution/mycontroller.py", line 18, in <module>\n    import p4runtime_lib.bmv2\nModuleNotFoundError: No module named \'p4runtime_lib\'\n'
+
+======================================================================
+FAIL: test_the_real_solution_controllers_get_past_their_imports (test_drive_exercise.TheSolutionControllerFindsTheTutorialsLibrary.test_the_real_solution_controllers_get_past_their_imports) (exercise='flowcache')
+🔴 THE REAL FILES, THE REAL INTERPRETER, NO SWITCH (and no root).
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-driver-0924/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py", line 2729, in test_the_real_solution_controllers_get_past_their_imports
+    self.assertNotIn("ModuleNotFoundError", out)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'ModuleNotFoundError' unexpectedly found in 'Traceback (most recent call last):\n  File "/home/adam/tutorials/exercises/flowcache/solution/mycontroller.py", line 26, in <module>\n    import p4runtime_lib.bmv2\nModuleNotFoundError: No module named \'p4runtime_lib\'\n'
+
+======================================================================
+FAIL: test_the_tutorials_solution_controller_imports_the_exercises_p4runtime_lib (test_drive_exercise.TheSolutionControllerFindsTheTutorialsLibrary.test_the_tutorials_solution_controller_imports_the_exercises_p4runtime_lib) (exercise='p4runtime')
+The red run IS the live failure: rc 1 and `No module named 'p4runtime_lib'`.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-driver-0924/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py", line 2651, in test_the_tutorials_solution_controller_imports_the_exercises_p4runtime_lib
+    self.assertEqual(0, rc, out)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+AssertionError: 0 != 1 : Traceback (most recent call last):
+  File "/tmp/drv-ctrlpath-y2ez_b4c/exercises/p4runtime/solution/mycontroller.py", line 6, in <module>
+    import p4runtime_lib.bmv2
+ModuleNotFoundError: No module named 'p4runtime_lib'
+
+
+======================================================================
+FAIL: test_the_tutorials_solution_controller_imports_the_exercises_p4runtime_lib (test_drive_exercise.TheSolutionControllerFindsTheTutorialsLibrary.test_the_tutorials_solution_controller_imports_the_exercises_p4runtime_lib) (exercise='flowcache')
+The red run IS the live failure: rc 1 and `No module named 'p4runtime_lib'`.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-driver-0924/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py", line 2651, in test_the_tutorials_solution_controller_imports_the_exercises_p4runtime_lib
+    self.assertEqual(0, rc, out)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+AssertionError: 0 != 1 : Traceback (most recent call last):
+  File "/tmp/drv-ctrlpath-y2ez_b4c/exercises/flowcache/solution/mycontroller.py", line 6, in <module>
+    import p4runtime_lib.bmv2
+ModuleNotFoundError: No module named 'p4runtime_lib'
+
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.488s
+
+FAILED (failures=6)

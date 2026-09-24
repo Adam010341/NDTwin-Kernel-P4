@@ -1,0 +1,74 @@
+# gate    : O3: find_spec with and without PYTHONPATH=~/tutorials/utils (nothing imported)
+# cmd     : bash /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/obs_O3.sh
+# worktree: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-driver-0924
+# head    : bf349b64fa938efc647244753cdc17b79061cf46
+# dirty   : 0 path(s) (clean)
+# blob    : WT 13f60fda31d9f462ffe9dccef5c2f1b5f29afd9e  HEAD 13f60fda31d9f462ffe9dccef5c2f1b5f29afd9e  doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py
+# blob    : WT 38343a20770c56c9b7fa1a2dd13dee99c95c93e5  HEAD 38343a20770c56c9b7fa1a2dd13dee99c95c93e5  doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py
+# blob    : WT 04d5acd1a498203a18a6cc73069d101a5452aed1  HEAD 04d5acd1a498203a18a6cc73069d101a5452aed1  tests/shell/mutate_drive_exercise.sh
+# start   : 2026-09-24T20:02:43+08:00
+
+# script:
+#   #!/usr/bin/env bash
+#   # O3: does putting ~/tutorials/utils on PYTHONPATH shadow anything the p4dev venv resolves?
+#   # importlib.util.find_spec only -- nothing is imported or executed. No root.
+#   # [Co-developed with claude code -- Adam]
+#   PY=/home/adam/p4dev-python-venv/bin/python
+#   echo "utils top level: $(ls /home/adam/tutorials/utils | tr '\n' ' ')"
+#   echo "utils/mininet/__init__.py present? $( [ -e /home/adam/tutorials/utils/mininet/__init__.py ] && echo yes || echo no)"
+#   for pp in "" /home/adam/tutorials/utils; do
+#     echo; echo "=== PYTHONPATH=${pp:-<unset>}   (cwd /tmp)"
+#     (cd /tmp && env -u PYTHONPATH ${pp:+PYTHONPATH=$pp} PYTHONDONTWRITEBYTECODE=1 $PY - <<'PYEOF'
+#   import importlib.util as u
+#   for n in ('mininet', 'cheat_sheet_src', 'img', 'scapy', 'grpc', 'p4runtime_sh', 'p4', 'google.protobuf', 'p4runtime_lib',
+#             'netstat', 'p4_mininet', 'p4runtime_switch', 'run_exercise', 'p4apprunner'):
+#       try:
+#           s = u.find_spec(n)
+#       except Exception as e:                      # noqa: BLE001
+#           print("  %-16s ERROR %r" % (n, e)); continue
+#       print("  %-16s %s" % (n, (s.origin or "namespace %s" % list(s.submodule_search_locations or []))
+#                                 if s else "None (absent)"))
+#   PYEOF
+#     )
+#   done
+
+utils top level: cheat_sheet_src img Makefile mininet netstat.py p4apprunner.py p4_mininet.py p4runtime_lib p4runtime_switch.py __pycache__ README.md run_exercise.py 
+utils/mininet/__init__.py present? no
+
+=== PYTHONPATH=<unset>   (cwd /tmp)
+  mininet          /home/adam/p4dev-python-venv/lib/python3.12/site-packages/mininet/__init__.py
+  cheat_sheet_src  None (absent)
+  img              None (absent)
+  scapy            /home/adam/p4dev-python-venv/lib/python3.12/site-packages/scapy/__init__.py
+  grpc             /home/adam/p4dev-python-venv/lib/python3.12/site-packages/grpc/__init__.py
+  p4runtime_sh     /home/adam/p4dev-python-venv/lib/python3.12/site-packages/p4runtime_sh/__init__.py
+  p4               /home/adam/p4dev-python-venv/lib/python3.12/site-packages/p4/__init__.py
+  google.protobuf  /home/adam/p4dev-python-venv/lib/python3.12/site-packages/google/protobuf/__init__.py
+  p4runtime_lib    None (absent)
+  netstat          None (absent)
+  p4_mininet       None (absent)
+  p4runtime_switch None (absent)
+  run_exercise     None (absent)
+  p4apprunner      None (absent)
+
+=== PYTHONPATH=/home/adam/tutorials/utils   (cwd /tmp)
+  mininet          /home/adam/p4dev-python-venv/lib/python3.12/site-packages/mininet/__init__.py
+  cheat_sheet_src  namespace ['/home/adam/tutorials/utils/cheat_sheet_src']
+  img              namespace ['/home/adam/tutorials/utils/img']
+  scapy            /home/adam/p4dev-python-venv/lib/python3.12/site-packages/scapy/__init__.py
+  grpc             /home/adam/p4dev-python-venv/lib/python3.12/site-packages/grpc/__init__.py
+  p4runtime_sh     /home/adam/p4dev-python-venv/lib/python3.12/site-packages/p4runtime_sh/__init__.py
+  p4               /home/adam/p4dev-python-venv/lib/python3.12/site-packages/p4/__init__.py
+  google.protobuf  /home/adam/p4dev-python-venv/lib/python3.12/site-packages/google/protobuf/__init__.py
+  p4runtime_lib    /home/adam/tutorials/utils/p4runtime_lib/__init__.py
+  netstat          /home/adam/tutorials/utils/netstat.py
+  p4_mininet       /home/adam/tutorials/utils/p4_mininet.py
+  p4runtime_switch /home/adam/tutorials/utils/p4runtime_switch.py
+  run_exercise     /home/adam/tutorials/utils/run_exercise.py
+  p4apprunner      /home/adam/tutorials/utils/p4apprunner.py
+# rc=0
+# end 2026-09-24T20:02:43+08:00
+
+# ---- APPENDED 2026-09-24T20:03:27+08:00: is any top-level name of utils/ a STDLIB module name? (PYTHONPATH sits before the stdlib on sys.path)
+utils names: ['cheat_sheet_src', 'img', 'mininet', 'netstat', 'p4_mininet', 'p4apprunner', 'p4runtime_lib', 'p4runtime_switch', 'run_exercise']
+python 3.12.3 -- intersection with sys.stdlib_module_names: EMPTY

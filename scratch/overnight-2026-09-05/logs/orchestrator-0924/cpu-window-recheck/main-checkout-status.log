@@ -1,0 +1,14 @@
+### the main checkout's tracked modifications (git status --short, untracked excluded), to compare with the session-start snapshot
+# when: 2026-09-24 12:16:42 UTC
+ M doc/2026-08-29_bmv2-performance-study-figs/fig6_twelve_numbers_one_axis.pdf
+ M doc/2026-08-29_bmv2-performance-study-figs/fig7_aggregate_two_planes.pdf
+ M doc/2026-08-29_bmv2-performance-study-figs/fig7_aggregate_two_planes.png
+ M doc/2026-08-29_bmv2-performance-study-figs/fig8_known_but_never_reported.pdf
+ M doc/audit/2026-08-31_sampling-ceiling-after-merge/gates_e.dryrun.log
+ M doc/audit/2026-08-31_sampling-ceiling-after-merge/run_e.dryrun.log
+ M doc/audit/2026-09-02_fix-design-campaign/LEDGER.md
+ M doc/audit/2026-09-02_fix-design-campaign/agents.tsv
+ M doc/audit/2026-09-02_fix-design-campaign/batch/agents.tsv
+ M doc/audit/2026-09-02_manual-usertest/prep5-ovs-without-p4/REPORT.md
+ M p4_proxy/mininet/host_count_override
+### rc=0

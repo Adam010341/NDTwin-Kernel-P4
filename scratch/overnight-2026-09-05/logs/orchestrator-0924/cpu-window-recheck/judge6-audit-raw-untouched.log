@@ -1,0 +1,8 @@
+### judge item 6: the audit-raw worktree is untouched (checked now; the earlier checks in round 1 were console-only)
+# when: 2026-09-24 12:03:18 UTC
+# HEAD: 1872be70b0545fa6e79402828337548c7b4b1018  branch: audit-raw
+# git status --porcelain --ignored under the round's raw directory:
+# (end of status; empty means no modified, untracked or ignored file there)
+# files under raw with an mtime after the round-1 start 2026-09-24T11:00:00Z:
+# (end; empty means none)
+### rc=0

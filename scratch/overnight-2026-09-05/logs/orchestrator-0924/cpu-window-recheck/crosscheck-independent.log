@@ -1,0 +1,40 @@
+### independent cross-check (does not import analyse.py) -- fifth campaign, 1024 B measurement arms
+# when: 2026-09-24 11:17:00 UTC  interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+# base summary: summary.115737Z.base-30aa500c.json   fix summary: summary.115737Z.fix-93033c44.json
+=== per arm, the rungs whose window differs between readings (kernel / bmv2 % of one core)
+  none_f1024_a              30 kpps  union   80.7s kern  0.650 bmv2  379.70 | climb  26.1s kern  0.549 bmv2  305.32 | climb+conf kern  0.608 bmv2  299.72 | S climb     0.0 union     0.0
+  cooperative_f1024_a       12 kpps  union  117.4s kern  6.101 bmv2  279.31 | climb  26.2s kern  3.646 bmv2  138.61 | climb+conf kern  3.669 bmv2  137.22 | S climb   215.3 union    48.0
+  link_f1024_a              12 kpps  union  137.5s kern  4.357 bmv2  272.69 | climb  26.1s kern  2.666 bmv2  140.06 | climb+conf kern  2.647 bmv2  137.65 | S climb   254.9 union    48.4
+  link_f1024_b              20 kpps  union   91.7s kern  6.702 bmv2  318.23 | climb  26.2s kern  4.588 bmv2  212.16 | climb+conf kern  4.685 bmv2  216.04 | S climb   421.7 union   120.3
+  cooperative_f1024_b       30 kpps  union   80.8s kern  8.036 bmv2  390.08 | climb  26.1s kern  6.509 bmv2  300.23 | climb+conf kern  6.548 bmv2  308.14 | S climb   543.1 union   175.9
+  none_f1024_b              30 kpps  union   80.7s kern  0.646 bmv2  373.88 | climb  26.1s kern  0.654 bmv2  306.79 | climb+conf kern  0.621 bmv2  304.48 | S climb     0.0 union     0.0
+
+=== reading UNION
+  cooperative  F=0.9234 m=122.89 us/sample share=0.0722   | summary: F=0.9234 m=122.89  |dF|=2.3e-15 |dm|=4.3e-14
+  cooperative  S by rung: 1:18.6 2:39.4 3:58.7 5:96.5 8:153.2 12:132.0 20:359.2 30:367.0 45:823.6 70:947.8 110:965.2
+  cooperative  dkernel:   1:0.667 2:1.067 3:1.333 5:1.400 8:2.251 12:4.149 20:4.444 30:7.836 45:10.398 70:11.764 110:13.530
+  link         F=0.7692 m=79.00 us/sample share=0.0623   | summary: F=0.7692 m=79.00  |dF|=3.3e-16 |dm|=1.4e-14
+  link         S by rung: 1:25.0 2:47.5 3:70.9 5:120.5 8:172.8 12:161.4 20:274.6 30:655.1 45:964.7 70:1225.3 110:1466.1
+  link         dkernel:   1:0.400 2:0.704 3:1.133 5:1.333 8:1.831 12:3.131 20:4.538 30:5.281 45:8.132 70:10.331 110:12.598
+  bmv2 coop/none: 1:0.991 2:0.988 3:1.105 5:1.038 8:0.943 12:1.513 20:1.084 30:1.099 45:1.164 70:1.067 110:1.022
+
+=== reading CLIMB
+  cooperative  F=0.3212 m=126.19 us/sample share=0.0257   | summary: F=0.3212 m=126.19  |dF|=3.3e-16 |dm|=0.0e+00
+  cooperative  S by rung: 1:18.6 2:39.4 3:58.7 5:96.5 8:153.2 12:215.7 20:359.2 30:550.6 45:823.6 70:947.8 110:965.2
+  cooperative  dkernel:   1:0.667 2:1.067 3:1.333 5:1.400 8:2.251 12:2.921 20:4.444 30:7.119 45:10.398 70:11.764 110:13.530
+  link         F=0.2492 m=82.41 us/sample share=0.0202   | summary: F=0.2492 m=82.41  |dF|=4.2e-16 |dm|=0.0e+00
+  link         S by rung: 1:25.0 2:47.5 3:70.9 5:120.5 8:172.8 12:264.6 20:425.3 30:655.1 45:964.7 70:1225.3 110:1466.1
+  link         dkernel:   1:0.400 2:0.704 3:1.133 5:1.333 8:1.831 12:2.286 20:3.481 30:5.327 45:8.132 70:10.331 110:12.598
+  bmv2 coop/none: 1:0.991 2:0.988 3:1.105 5:1.038 8:0.943 12:1.006 20:1.084 30:1.206 45:1.164 70:1.067 110:1.022
+
+=== reading CLIMB+CONF
+  cooperative  F=0.3231 m=126.18 us/sample share=0.0258   | summary: F=0.3231 m=126.18  |dF|=5.0e-16 |dm|=1.4e-14
+  cooperative  S by rung: 1:18.6 2:39.4 3:58.7 5:96.5 8:153.2 12:215.7 20:359.2 30:550.6 45:823.6 70:947.8 110:965.2
+  cooperative  dkernel:   1:0.667 2:1.067 3:1.333 5:1.400 8:2.251 12:2.932 20:4.444 30:7.125 45:10.398 70:11.764 110:13.530
+  link         F=0.2521 m=82.40 us/sample share=0.0204   | summary: F=0.2521 m=82.40  |dF|=3.9e-16 |dm|=0.0e+00
+  link         S by rung: 1:25.0 2:47.5 3:70.9 5:120.5 8:172.8 12:264.6 20:425.3 30:655.1 45:964.7 70:1225.3 110:1466.1
+  link         dkernel:   1:0.400 2:0.704 3:1.133 5:1.333 8:1.831 12:2.276 20:3.530 30:5.314 45:8.132 70:10.331 110:12.598
+  bmv2 coop/none: 1:0.991 2:0.988 3:1.105 5:1.038 8:0.943 12:1.001 20:1.084 30:1.235 45:1.164 70:1.067 110:1.022
+
+largest |independent - summary.json| over every per-group kernel/bmv2 cell of the three readings: 0.00e+00 (% of one core)
+### rc=0

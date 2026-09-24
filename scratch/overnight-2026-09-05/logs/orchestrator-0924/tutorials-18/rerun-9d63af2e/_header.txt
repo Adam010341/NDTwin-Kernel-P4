@@ -1,0 +1,2 @@
+start 2026-09-24T21:15:15+08:00 trunk 9d63af2e driver blob 13f60fda31d9f462ffe9dccef5c2f1b5f29afd9e dirty 0
+/dev/nvme0n1p5   98G   91G  2.4G  98% /

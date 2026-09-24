@@ -1,0 +1,82 @@
+# gate    : O7: ~/tutorials untouched by the non-root runs (git status before/after + find -newer)
+# cmd     : bash /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/obs_O7.sh
+# worktree: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-driver-0924
+# head    : bf349b64fa938efc647244753cdc17b79061cf46
+# dirty   : 0 path(s) (clean)
+# blob    : WT 13f60fda31d9f462ffe9dccef5c2f1b5f29afd9e  HEAD 13f60fda31d9f462ffe9dccef5c2f1b5f29afd9e  doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py
+# blob    : WT 38343a20770c56c9b7fa1a2dd13dee99c95c93e5  HEAD 38343a20770c56c9b7fa1a2dd13dee99c95c93e5  doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py
+# blob    : WT 04d5acd1a498203a18a6cc73069d101a5452aed1  HEAD 04d5acd1a498203a18a6cc73069d101a5452aed1  tests/shell/mutate_drive_exercise.sh
+# start   : 2026-09-24T20:02:41+08:00
+
+# script:
+#   #!/usr/bin/env bash
+#   # O7: ~/tutorials is not written by anything this worker runs without root -- O2's real
+#   # controllers, O3's find_spec, and the suite's real-tree cell -- read as `git status` before and
+#   # after AND as `find -newer <marker>` over the whole tree (mtime; catches ignored files too,
+#   # which git status does not). The root half (what a sudo round writes) is NOT observable here.
+#   # [Co-developed with claude code -- Adam]
+#   SP=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad
+#   W=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-driver-0924
+#   G=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910
+#   H=$(git -C $W rev-parse --short=8 HEAD)
+#   T=/home/adam/tutorials
+#   M=$SP/o7.marker; rm -f $M; touch $M; sleep 1
+#   echo "marker   : $M  mtime $(stat -c %y $M)"
+#   echo "--- git -C ~/tutorials status --porcelain (BEFORE)"; B=$(git -C $T status --porcelain); echo "$B"; echo "md5 $(md5sum <<<"$B" | cut -d' ' -f1)"
+#   echo; echo "--- running O2 -> $G/obs_O2_real_controllers_imports.p4d-$H.log"
+#   { $SP/hdr.sh "O2: real tutorials controllers, real p4dev venv, no root, p4info that cannot exist" "bash $SP/obs_O2.sh"; echo "# script:"; sed 's/^/#   /' $SP/obs_O2.sh; echo; bash $SP/obs_O2.sh 2>&1; echo "# rc=$?"; echo "# end $(date -Is)"; } > $G/obs_O2_real_controllers_imports.p4d-$H.log 2>&1
+#   echo "--- running O3 -> $G/obs_O3_find_spec_shadowing.p4d-$H.log"
+#   { $SP/hdr.sh "O3: find_spec with and without PYTHONPATH=~/tutorials/utils (nothing imported)" "bash $SP/obs_O3.sh"; echo "# script:"; sed 's/^/#   /' $SP/obs_O3.sh; echo; bash $SP/obs_O3.sh 2>&1; echo "# rc=$?"; echo "# end $(date -Is)"; } > $G/obs_O3_find_spec_shadowing.p4d-$H.log 2>&1
+#   echo "--- running the suite's real-tree cell"
+#   (cd $W && PYTHONDONTWRITEBYTECODE=1 p4_proxy/venv/bin/python -m unittest discover -s doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests -t doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests -k test_the_real_solution_controllers_get_past_their_imports -v 2>&1 | grep -E "\.\.\. |^Ran|^OK|FAIL")
+#   echo; echo "--- git -C ~/tutorials status --porcelain (AFTER)"; A=$(git -C $T status --porcelain); echo "$A"; echo "md5 $(md5sum <<<"$A" | cut -d' ' -f1)"
+#   [ "$A" == "$B" ] && echo "BEFORE == AFTER" || echo "🔴 BEFORE != AFTER"
+#   echo; echo "--- find ~/tutorials -newer marker (any file or dir whose mtime moved during the above)"
+#   N=$(find $T -newer $M 2>&1); echo "${N:-<none>}"; echo "count: $(printf '%s' "$N" | grep -c .)"
+#   echo; echo "--- who owns utils/p4runtime_lib/__pycache__ (stat only; written by earlier sudo runs, not by this)"
+#   stat -c '%U:%G %A %y %n' $T/utils/p4runtime_lib/__pycache__ $T/utils/p4runtime_lib/__pycache__/* $T/utils/__pycache__ 2>&1
+
+marker   : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/o7.marker  mtime 2026-09-24 20:02:41.792908464 +0800
+--- git -C ~/tutorials status --porcelain (BEFORE)
+ M exercises/basic/basic.p4
+?? antoninbas.vscode-p4-0.2.1.vsix
+?? antoninbas.vscode-p4.vsix
+md5 b2f872b1916e20a3879d2dbebc35e06c
+
+--- running O2 -> /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/obs_O2_real_controllers_imports.p4d-bf349b64.log
+--- running O3 -> /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/obs_O3_find_spec_shadowing.p4d-bf349b64.log
+--- running the suite's real-tree cell
+🔴 THE REAL FILES, THE REAL INTERPRETER, NO SWITCH (and no root). ... ok
+Ran 1 test in 0.445s
+OK
+
+--- git -C ~/tutorials status --porcelain (AFTER)
+ M exercises/basic/basic.p4
+?? antoninbas.vscode-p4-0.2.1.vsix
+?? antoninbas.vscode-p4.vsix
+md5 b2f872b1916e20a3879d2dbebc35e06c
+BEFORE == AFTER
+
+--- find ~/tutorials -newer marker (any file or dir whose mtime moved during the above)
+/home/adam/tutorials/.git
+count: 1
+
+--- who owns utils/p4runtime_lib/__pycache__ (stat only; written by earlier sudo runs, not by this)
+root:root drwxr-xr-x 2026-09-24 17:59:37.139320929 +0800 /home/adam/tutorials/utils/p4runtime_lib/__pycache__
+root:root -rw-r--r-- 2026-07-13 17:57:50.856060745 +0800 /home/adam/tutorials/utils/p4runtime_lib/__pycache__/bmv2.cpython-312.pyc
+root:root -rw-r--r-- 2026-07-13 18:09:37.885258779 +0800 /home/adam/tutorials/utils/p4runtime_lib/__pycache__/convert.cpython-312.pyc
+root:root -rw-r--r-- 2026-09-24 17:59:37.139320929 +0800 /home/adam/tutorials/utils/p4runtime_lib/__pycache__/error_utils.cpython-312.pyc
+root:root -rw-r--r-- 2026-07-13 18:09:37.883151680 +0800 /home/adam/tutorials/utils/p4runtime_lib/__pycache__/helper.cpython-312.pyc
+root:root -rw-r--r-- 2026-07-13 17:57:50.723601136 +0800 /home/adam/tutorials/utils/p4runtime_lib/__pycache__/__init__.cpython-312.pyc
+root:root -rw-r--r-- 2026-07-13 17:57:50.727458080 +0800 /home/adam/tutorials/utils/p4runtime_lib/__pycache__/simple_controller.cpython-312.pyc
+root:root -rw-r--r-- 2026-07-13 18:09:37.782069979 +0800 /home/adam/tutorials/utils/p4runtime_lib/__pycache__/switch.cpython-312.pyc
+root:root drwxr-xr-x 2026-09-08 17:24:10.342286264 +0800 /home/adam/tutorials/utils/__pycache__
+# rc=0
+# end 2026-09-24T20:02:44+08:00
+
+# ---- APPENDED 2026-09-24T20:02:58+08:00: control for the one '-newer' hit (/home/adam/tutorials/.git) ----
+# Hypothesis: `git status` itself (optional index-lock refresh) moves .git's dir mtime; nothing else ran.
+$ git --no-optional-locks -C /home/adam/tutorials status --porcelain >/dev/null; find /home/adam/tutorials -newer marker
+  -> <none>
+$ git -C /home/adam/tutorials status --porcelain >/dev/null; find /home/adam/tutorials -newer marker
+  -> /home/adam/tutorials/.git

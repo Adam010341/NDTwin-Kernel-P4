@@ -1,0 +1,21 @@
+### leaf diff: round-1 fix 93033c44 vs round-2 fix 68735150, fifth campaign, EVERY path listed
+# when: 2026-09-24 12:08:51 UTC
+A: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/cpu-window-recheck/summary.115737Z.fix-93033c44.json
+B: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/cpu-window-recheck/summary.115737Z.fix-68735150.json
+leaf values identical in both: 3313
+changed: 0   only in A: 1   only in B: 13
+  ONLY-A  /cpu_window/why_not_decided = "PREREG 4.1 (:161-162) names the re-confirmation as part of the ladder procedure; 5.3 (:262-264) measures kernel_CPU(g, k) at each rung; A1.5 (:503-509) defines S(k) over the rung's own get_sflow_stats pair, which brackets the climb reps only. None of them says whether CPU(k) includes the re-confirmation reps."
+  ONLY-B  /cpu_bmv2_ratio/rung_window_reading = 'climb'
+  ONLY-B  /cpu_window/decided_by = 'Adam 2026-09-24, TICKET-P4 §7 ruling 4'
+  ONLY-B  /cpu_window/rationale = "PREREG 5.3 (:263-266) pairs kernel_CPU(g, k) with S(k) in one fit, and S(k) is measured over the climb only (AMENDMENT-1 A1.5, :505-507), so under 'climb' both sides of the fit share one window; and the 08-28 rule this round inherits (2026-08-28_flow-count-capacity/PREREG.md:254-255) records the first reading and the confirmation separately, 'so a disagreement between them is visible rather than overwritten'"
+  ONLY-B  /cpu_window/readings/climb/cpu_bmv2_ratio/rung_window_reading = 'climb'
+  ONLY-B  /cpu_window/readings/climb/reconciliation_b[0]/rung_window_reading = 'climb'
+  ONLY-B  /cpu_window/readings/climb/reconciliation_b[1]/rung_window_reading = 'climb'
+  ONLY-B  /cpu_window/readings/climb+confirmation/cpu_bmv2_ratio/rung_window_reading = 'climb+confirmation'
+  ONLY-B  /cpu_window/readings/climb+confirmation/reconciliation_b[0]/rung_window_reading = 'climb+confirmation'
+  ONLY-B  /cpu_window/readings/climb+confirmation/reconciliation_b[1]/rung_window_reading = 'climb+confirmation'
+  ONLY-B  /cpu_window/secondary[0] = 'climb+confirmation'
+  ONLY-B  /cpu_window/why_prereg_does_not_decide = "PREREG 4.1 (:161-162) names the re-confirmation as part of the ladder procedure; 5.3 (:263-266) measures kernel_CPU(g, k) at each rung; A1.5 (:505-507) defines S(k) over the rung's own get_sflow_stats pair, which is read around the climb reps only. None of them says whether CPU(k) includes the re-confirmation reps."
+  ONLY-B  /reconciliation[2]/rung_window_reading = 'climb'
+  ONLY-B  /reconciliation[3]/rung_window_reading = 'climb'
+### rc=0

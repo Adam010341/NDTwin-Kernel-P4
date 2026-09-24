@@ -1,0 +1,10 @@
+# gate: tests/shell/check_gate_anchors.py HEAD --gates mutate_drive_exercise.sh (read-only)   head da0fa021b1119c8fb5cbcbb858a6be2733f52010  date 2026-09-24T19:00:53+08:00
+anchors of each gate, counted in each rev's own files
+columns:
+  c0   HEAD
+
+                          c0            
+mutate_drive_exercise.sh  ok(100)       
+
+1/1 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+# rc=0

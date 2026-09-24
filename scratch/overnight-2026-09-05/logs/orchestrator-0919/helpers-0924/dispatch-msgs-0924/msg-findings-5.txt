@@ -1,0 +1,5 @@
+P3 FINDINGS: sections 3 and 4 filled by script from the fifth campaign's summary.json on the merged trunk -- group-level H-B verdicts, the H-C decomposition with H-C2 left undecided, the per-rung bmv2 ratio and the softirq shares
+
+The last 36 placeholders. cooperative: neither H-B1 nor H-B2 (an outcome PREREG never registered -- numbers reported, no label); link: H-B1; H-B4 does not hold at 2 Mbit/s; cooperative H-C1 on the marginal band alone; link not decided (H-C2's second condition has no registered tolerance); bmv2 cooperative/none inside [0.90, 1.15] at 9 of 11 rungs; the softirq prediction did not come true. Figures regenerated on the merged code are byte-identical PNGs (PDFs differ only in metadata), so the committed figures stand.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
