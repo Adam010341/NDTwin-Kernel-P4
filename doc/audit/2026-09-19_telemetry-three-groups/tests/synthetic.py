@@ -32,9 +32,16 @@ if the difference is anything other than exactly those. The table below is what 
                  coop/64   = 20,20      ratio 1.00                              -> H-A1
                  link/64   = 1,20       six rungs apart                         -> H-A0
     sampling     none                   no ratio at all                         -> n/a
-                 coop@20M  median 0.045 = the shot-noise prediction             -> H-B1
-                 link@20M  median 0.150, all three the same sign                -> H-B2
+      per cell   coop@20M  median 0.045 = the shot-noise prediction             -> inside the band
+                 link@20M  median 0.150, all three the same sign                -> above, one sign
+      per group  coop 0.045 at every rate: 2M below, 20M inside, 100M above     -> H-B2 (100M)
+                 link 0.150 at every rate: 2M inside, 20M above, 100M above     -> H-B2 (100M)
+                 link/coop = 3.33 at every rate                                 -> NOT H-B4
+                 (ruling 38: the registered labels are made where PREREG 5.2 registers them
+                 -- H-B1/H-B4 over the three rates together, H-B2 at 100 Mbit/s only -- and a
+                 cell only ever gets a description)
     CPU          Delta(coop - none) = 5.0 + 0.0206 * samples_per_s              -> H-C1 (206 us)
+                 bmv2: the same ten shares in every group                       -> coop/none 1.0
     gate         link's external is 0.30 against the other groups' 0.05         -> within-group
                                                                                    it does NOT fire
     controls     controls/C3/{c3a_noburn,c3b_burn}: group none, 1024 B, the
@@ -166,12 +173,17 @@ def _sflow_document(addressed, families=True):
 
 
 def write_arm(root, group, frame, pass_label, clean_kpps, external=None, softirq=None,
-              kernel_spread=0.0, invalid=None, ladder=None, arm_name=None, burners=0):
+              kernel_spread=0.0, invalid=None, ladder=None, arm_name=None, burners=0,
+              bmv2_factor=1.0):
     """One ladder arm directory, exactly as run_group_arm.sh writes one.
 
     `arm_name` and `burners` exist for C3's two throwaway ladders, which run_group_arm.sh writes
     with exactly this code path -- the driver only passes it a different `--arm`, a different
     `--out` and `BURNERS=` (drive_e.sh:660-665).
+
+    `bmv2_factor` scales all ten switches of this arm together, for the registered bmv2
+    comparison of PREREG 5.3 (cooperative/none at the same rung, against [0.90, 1.15]); 1.0 is
+    every arm's default, so the default tree is unchanged by it.
     """
     ladder = LADDER if ladder is None else ladder
     arm = arm_name or ("%s_f%d_%s" % (group, frame, pass_label))
@@ -186,9 +198,14 @@ def write_arm(root, group, frame, pass_label, clean_kpps, external=None, softirq
     # 🔴 TEN SWITCHES, NOT ONE. The fabric runs ten simple_switch_grpc processes and the real
     # cpu.jsonl carries all ten (raw/.../cpu.jsonl's `static` has 12 entries, 13 on a link arm);
     # this fixture used to write a single `bmv2-1`, so `label_of`'s folding of ten pids into one
-    # class -- the thing every bmv2 number in the round depends on -- was never exercised. Found
-    # by the structural reconciliation of ruling 35(3). The total is unchanged: ten processes at
-    # BMV2_BASE/10 each.
+    # class -- the thing every bmv2 number in the round depends on -- was never exercised BY A
+    # TEST. (In production it always was: every real cpu.jsonl has carried ten bmv2 pids, so
+    # every bmv2 number of the fourth campaign went through the fold. Ruling 37(3).) Found by the
+    # structural reconciliation of ruling 35(3). Each switch runs at its own BMV2_WEIGHTS share
+    # -- ten UNEQUAL weights whose sum is BMV2_BASE (see the constant for why they must differ)
+    # -- times `bmv2_factor`, which is 1 unless a case asks for another group-wide level.
+    # (Ruling 39(1): this comment used to say "the total is unchanged: ten processes at
+    # BMV2_BASE/10 each", which stopped being true when round 9 made the shares unequal.)
     totals = {"kernel:11": 500000, "proxy:12": 400000, "iperf3:31": 0}
     for switch in range(1, 11):
         # unequal lifetimes too: nothing may depend on the ten having started together
@@ -220,7 +237,8 @@ def write_arm(root, group, frame, pass_label, clean_kpps, external=None, softirq
         rates = {"kernel:11": kernel, "proxy:12": 4.0 if group == "none" else 12.0,
                  "iperf3:31": 110.0}
         for switch in range(1, 11):
-            rates["bmv2-%d:%d" % (switch, 20 + switch)] = float(BMV2_WEIGHTS[switch - 1])
+            rates["bmv2-%d:%d" % (switch, 20 + switch)] = (float(BMV2_WEIGHTS[switch - 1])
+                                                           * bmv2_factor)
         if group == "link":
             rates["emitter:13"] = 8.0
         step = 0.5
@@ -364,32 +382,59 @@ def write_control(root, control, **fields):
     _write(os.path.join(root, "controls", control, "control.meta"), "\n".join(lines) + "\n")
 
 
+def _window_errors(spec, rate):
+    """The three windows' signed errors for one (group, rate) cell.
+
+    `spec` is what build() was given for the group: one number for every rate (the default), or
+    a {rate: value} dict whose value is either one number or the three windows' signed errors
+    written out. A single number becomes a little spread around it, all three the same sign
+    (low, as the prior of PREREG 5.2 expects) -- so its median |error| is exactly that number.
+    """
+    value = spec.get(rate) if isinstance(spec, dict) else spec
+    if isinstance(value, (list, tuple)):
+        assert len(value) == 3, "a cell has three windows (PREREG 4.2)"
+        return list(value)
+    return [-(value + (index - 1) * value * 0.1) for index in range(3)]
+
+
 def build(root, cells=None, coop_error=0.045, link_error=0.150, emitter_dropped=0,
-          kernel_spread=0.0, c1_ceiling=770000.0, c2_ceiling=500000.0):
-    """The whole tree. Returns root."""
+          kernel_spread=0.0, c1_ceiling=770000.0, c2_ceiling=500000.0, ladders=None,
+          bmv2_factor=None):
+    """The whole tree. Returns root.
+
+    `coop_error` / `link_error`: see _window_errors -- one number for all three rates, or a
+    per-rate dict, which is how a case builds "two rates inside the band and one outside"
+    (ruling 38). `ladders`: {group: ladder} for a group whose arms stop at a different set of
+    rungs, which is how a case builds "a rung one group does not have" (PREREG 5.3 fits over the
+    rungs all three groups share). `bmv2_factor`: {group: factor} for the ten switches. Every
+    one of them defaults to the tree the rest of the suite has always been built on.
+    """
     cells = DEFAULT_CELLS if cells is None else cells
+    ladders = ladders or {}
+    bmv2_factor = bmv2_factor or {}
     generations = {("none", "a"): "G1", ("cooperative", "a"): "G2", ("link", "a"): "G3",
                    ("link", "b"): "G4", ("cooperative", "b"): "G5", ("none", "b"): "G6"}
     for (group, frame), values in sorted(cells.items()):
         for pass_label, clean in zip(("a", "b"), values):
             directory = write_arm(os.path.join(root, generations[(group, pass_label)]),
                                   group, frame, pass_label, clean,
-                                  kernel_spread=kernel_spread)
+                                  kernel_spread=kernel_spread, ladder=ladders.get(group),
+                                  bmv2_factor=bmv2_factor.get(group, 1.0))
             if group == "link":
                 write_emitter_log(directory, dropped=emitter_dropped)
-    for group, base in (("none", None), ("cooperative", coop_error), ("link", link_error)):
+    for group, spec in (("none", None), ("cooperative", coop_error), ("link", link_error)):
         generation = os.path.join(root, generations[(group, "a")])
         for rate in (2, 20, 100):
+            errors = None if spec is None else _window_errors(spec, rate)
             for index, label in enumerate(("p1", "p2", "p3")):
-                if base is None:
+                if errors is None:
                     write_window(generation, group, rate, label)
                 else:
-                    # a little spread around the cell's median, all with the same sign
-                    write_window(generation, group, rate, label,
-                                 signed_error=-(base + (index - 1) * base * 0.1))
+                    write_window(generation, group, rate, label, signed_error=errors[index])
     # `requirement` and `verdict` are written because the real C1/C2 control.meta carry them
     # (sender_control writes them at drive_e.sh:645-646, inside the block that redirects to
-    # $out/control.meta at :648). The earlier citation here said :576-582, which is the top of
+    # $out/control.meta at :647 -- `} > "$out/control.meta"`; :648 is the `note` after it,
+    # ruling 39(4a)). The earlier citation here said :576-582, which is the top of
     # sampling_block and supports nothing -- ruling 37(1).
     #
     # 🔴 Only `requirement` was ever PROVEN missing by a log: the union of C1, C2 and C3 hid

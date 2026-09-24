@@ -287,6 +287,25 @@ class Figure3LabelsStayInsideTest(unittest.TestCase):
                          ["display_points", "name", "natural_points", "offset", "x", "y"])
         self.assertGreaterEqual(ylim[1], 19.0)      # it still raised what it could
 
+    def test_a_label_with_EXACTLY_zero_headroom_is_handled_not_divided_by(self):
+        # 🔴 THE ONE INPUT THAT MAKES THE `headroom <= 0` GUARD MORE THAN AN EQUIVALENT
+        # MUTATION (ruling 39(9c)). Below zero, the unguarded bound (y-low)*H/headroom is
+        # negative and can never win the max, so `< 0` and `<= 0` and no guard at all behave the
+        # same; AT zero it is a division by zero. Three labels in 27.5 pt give the lowest one
+        # 27.5 - 2 x 11 - 11/2 = 0.0 exactly (every term is exact in binary). With that label
+        # at the axes' own bottom the stack fits with not a point to spare -- so the right
+        # answer exists, and a guard of `< 0` never reaches it (M-E41).
+        ends = [(0.0, 110.0, "a"), (1.0, 110.0, "b"), (3.0, 110.0, "c")]
+        height = 2 * plot.LABEL_HEIGHT_PT + plot.LABEL_HEIGHT_PT / 2.0
+        self.assertEqual(height - 2 * plot.LABEL_HEIGHT_PT - plot.LABEL_HEIGHT_PT / 2.0, 0.0)
+        ylim, placed = plot.place_end_labels(ends, (0.0, 3.0), height)
+        positions = [p["display_points"] for p in placed]
+        self.assertEqual(positions[0], 0.0)                     # the bottom label, at the bottom
+        for lower, upper in zip(positions, positions[1:]):
+            self.assertGreaterEqual(upper - lower, plot.LABEL_HEIGHT_PT - 1e-9)
+        self.assertLessEqual(positions[-1] + plot.LABEL_HEIGHT_PT / 2.0, height + 1e-9)
+        self.assertGreater(ylim[1], 3.0)                        # room was made, from the others
+
     def test_only_the_panel_that_needs_room_is_given_any(self):
         # The control: a rule that inflated every axis would be as wrong as one that inflated
         # none. Only bmv2 has labels within a label height of each other at the top.

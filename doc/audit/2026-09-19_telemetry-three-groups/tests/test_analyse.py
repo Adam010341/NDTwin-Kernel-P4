@@ -10,6 +10,7 @@ file is where the round's registered branches (PREREG sections 5, 6, 8) stop bei
 
 Run:  p4_proxy/venv/bin/python -m unittest discover -s doc/audit/2026-09-19_telemetry-three-groups/tests
 """
+import json
 import os
 import sys
 import tempfile
@@ -191,16 +192,158 @@ class SamplingErrorTest(unittest.TestCase):
         self.assertAlmostEqual(predicted["n_samples"], 223.214, places=2)
         self.assertAlmostEqual(predicted["median_abs"], 0.0451, places=4)
 
-    def test_an_error_at_the_prediction_is_H_B1(self):
+    # 🔴 A CELL GETS A DESCRIPTION, NEVER A REGISTERED LABEL (ruling 38). These two cases used to
+    # be called `..._is_H_B1` / `..._is_H_B2` and asserted exactly the per-cell labelling that
+    # PREREG 5.2 does not register: H-B1 is registered over the three rates together and H-B2 at
+    # 100 Mbit/s only. What a cell can honestly say is where it sits against its own band.
+    def test_an_error_at_the_prediction_is_described_as_inside_the_band(self):
         row = self.row("cooperative", 20)
         self.assertAlmostEqual(row["median_abs_error"], 0.045, places=6)
-        self.assertTrue(row["verdict"].startswith("H-B1"))
+        self.assertEqual(row.get("description"), "inside the shot-noise band")
 
-    def test_an_error_far_above_the_band_with_one_sign_is_H_B2(self):
+    def test_an_error_far_above_the_band_with_one_sign_is_described_as_such(self):
         row = self.row("link", 20)
         self.assertAlmostEqual(row["median_abs_error"], 0.150, places=6)
-        self.assertTrue(row["verdict"].startswith("H-B2"))
+        self.assertEqual(row.get("description"),
+                         "above the shot-noise band, every window the same sign")
         self.assertLess(row["median_signed_error"], 0)   # the prior is that the twin reads LOW
+
+
+class RegisteredLevelTest(unittest.TestCase):
+    """Ruling 38: each registered H-B label is made at the level PREREG 5.2 registers it.
+
+    PREREG 5.2 (`PREREG.md:251-254`):
+      H-B1  "三個速率的 median|ratio-1| 都落在 [0.5, 2.0] x 0.674/sqrt(N)"  -- the three rates TOGETHER
+      H-B2  "100 Mbit/s 那格 > 2.0x 預測, 且 三個視窗的 ratio-1 同號"        -- ONE rate, with a sign rule
+      H-B4  "E(link,r)/E(coop,r) in [0.5, 2.0], 三個速率都是"                 -- the three rates TOGETHER
+    The analysis used to paste those labels on every (group, rate) cell. The cell keeps a
+    description -- that is data -- and the label is decided once per group.
+
+    The per-rate errors below are chosen against the registered prediction at N over the four
+    on-path edges: 0.1427 at 2 Mbit/s, 0.0451 at 20 and 0.0202 at 100 (band = [0.5, 2.0] x that).
+    """
+
+    def summary(self, **kwargs):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        synthetic.build(tmp.name, **kwargs)
+        return analyse.analyse(tmp.name)
+
+    @staticmethod
+    def cells(summary, group):
+        return {row["offered_mbit"]: row for row in summary["sampling_error"]
+                if row["group"] == group}
+
+    @staticmethod
+    def registered(summary):
+        # .get(), deliberately: on a tree with no group level at all this has to FAIL with the
+        # finding in its message, not ERROR with a KeyError that says nothing about it.
+        return {row["group"]: row for row in summary.get("sampling_error_by_group") or []}
+
+    def group(self, summary, name):
+        registered = self.registered(summary)
+        self.assertIn(name, registered,
+                      "no registered H-B label at the group level at all -- PREREG 5.2 "
+                      "registers H-B1 over the three rates together")
+        return registered[name]
+
+    def description(self, summary, group, rate):
+        return self.cells(summary, group)[rate].get("description")
+
+    def test_two_rates_inside_and_one_outside_is_NOT_H_B1_for_the_group(self):
+        # 🔴 THE CASE RULING 38 NAMES. 2 and 20 Mbit/s sit on the prediction; 100 Mbit/s is three
+        # times it with mixed signs. The outside rate is deliberately NOT the first one: a
+        # roll-up that consulted only the first cell would call this group H-B1 (M-E37).
+        summary = self.summary(coop_error={2: 0.1427, 20: 0.0451,
+                                           100: (-0.0606, 0.0606, -0.0667)})
+        group = self.group(summary, "cooperative")
+        self.assertIs(group["H-B1"]["holds"], False)
+        self.assertIs(group["H-B2"]["holds"], False)          # 100 M is above, but signs mix
+        self.assertFalse(group["label"].startswith("H-B1"), group["label"])
+        # ... and every cell is still described correctly, on its own terms
+        self.assertEqual(self.description(summary, "cooperative", 2), "inside the shot-noise band")
+        self.assertEqual(self.description(summary, "cooperative", 20), "inside the shot-noise band")
+        self.assertEqual(self.description(summary, "cooperative", 100),
+                         "above the shot-noise band, signs mixed")
+
+    def test_the_fifth_campaigns_shape_outside_at_the_FIRST_rate_is_not_H_B1_either(self):
+        # The other placement, and the real one: raw/2026-09-19T115737Z_full's cooperative 2 M
+        # windows read -0.3508, -0.2953, +0.1865 (median 0.2953, above the 0.2854 top of the
+        # band) while 20 and 100 Mbit/s are inside. A roll-up that looked at the LAST cell only
+        # would call this H-B1.
+        summary = self.summary(coop_error={2: (-0.3508, -0.2953, 0.1865), 20: 0.0451,
+                                           100: 0.0202})
+        group = self.group(summary, "cooperative")
+        self.assertIs(group["H-B1"]["holds"], False)
+        self.assertEqual(self.description(summary, "cooperative", 2),
+                         "above the shot-noise band, signs mixed")
+
+    def test_all_three_rates_inside_IS_H_B1(self):
+        # the positive control: a roll-up that never said H-B1 would pass both cases above
+        summary = self.summary(coop_error={2: 0.1427, 20: 0.0451, 100: 0.0202})
+        group = self.group(summary, "cooperative")
+        self.assertIs(group["H-B1"]["holds"], True)
+        self.assertTrue(group["label"].startswith("H-B1"), group["label"])
+        self.assertEqual([rate["offered_mbit"] for rate in group["H-B1"]["rates"]],
+                         [2, 20, 100])
+
+    def test_a_same_sign_excess_at_2_Mbit_is_NOT_H_B2(self):
+        # 🔴 THE FOURTH CAMPAIGN'S PRE-FIX `link 2M: H-B2`, AS A CASE. Every window low and far
+        # above the band -- at 2 Mbit/s, where H-B2 was never registered. The cell may say what
+        # it is; the group is judged at 100 Mbit/s, which is inside here (M-E38).
+        summary = self.summary(coop_error={2: 0.5, 20: 0.0451, 100: 0.0202})
+        self.assertEqual(self.description(summary, "cooperative", 2),
+                         "above the shot-noise band, every window the same sign")
+        h_b2 = self.group(summary, "cooperative")["H-B2"]
+        self.assertEqual(h_b2["offered_mbit"], 100)
+        self.assertIs(h_b2["holds"], False)
+
+    def test_one_signed_excess_at_100_Mbit_IS_H_B2(self):
+        summary = self.summary(coop_error={2: 0.1427, 20: 0.0451, 100: 0.0606})
+        group = self.group(summary, "cooperative")
+        self.assertIs(group["H-B2"]["holds"], True)
+        self.assertIs(group["H-B1"]["holds"], False)
+        self.assertTrue(group["label"].startswith("H-B2"), group["label"])
+
+    def test_H_B4_needs_all_three_rates_and_each_rate_keeps_its_description(self):
+        # link equal to coop at 2 and 20 Mbit/s, three times it at 100: two rates inside
+        # [0.5, 2.0] and one outside, the outside one again not first.
+        summary = self.summary(coop_error={2: 0.1427, 20: 0.0451, 100: 0.0202},
+                               link_error={2: 0.1427, 20: 0.0451, 100: 0.0606})
+        cross = summary.get("sampling_error_cross_group_registered") or {}
+        self.assertIs(cross.get("holds"), False, cross)
+        self.assertFalse((cross.get("label") or "").startswith("H-B4"), cross)
+        rows = {row["offered_mbit"]: row for row in summary["sampling_error_cross_group"]}
+        self.assertEqual([rows[r].get("inside") for r in (2, 20, 100)], [True, True, False])
+
+    def test_H_B4_holds_when_all_three_rates_are_inside(self):
+        summary = self.summary(coop_error={2: 0.1427, 20: 0.0451, 100: 0.0202},
+                               link_error={2: 0.1427, 20: 0.0451, 100: 0.0202})
+        cross = summary.get("sampling_error_cross_group_registered") or {}
+        self.assertIs(cross.get("holds"), True, cross)
+        self.assertTrue(cross["label"].startswith("H-B4"), cross["label"])
+
+    def test_no_cell_or_rate_row_carries_a_label_registered_at_the_group_level(self):
+        # 🔴 FINDINGS may quote only the group-level verdicts (ruling 38); a per-cell string that
+        # still read "H-B1 ..." would be one copy-paste away from being quoted as one. H-B3 is
+        # the exception PREREG itself makes: it is registered per rate ("在該視窗").
+        summary = self.summary()
+        for row in summary["sampling_error"] + summary["sampling_error_cross_group"]:
+            for key, value in row.items():
+                if not isinstance(value, str) or key == "attribution":
+                    continue
+                for label in ("H-B1", "H-B2", "H-B4"):
+                    self.assertNotIn(label, value, "%s=%r in %s" % (key, value, row))
+
+    def test_summary_json_carries_the_cell_descriptions_AND_the_group_verdicts(self):
+        # both, so a reader can see that "this cell's description" and "this group's registered
+        # verdict" are two different things
+        summary = json.loads(json.dumps(self.summary(), default=str))
+        self.assertTrue(all("description" in row for row in summary["sampling_error"]
+                            if row["group"] != "none"))
+        self.assertEqual(sorted(row["group"] for row in summary["sampling_error_by_group"]),
+                         ["cooperative", "link"])
+        self.assertIn("holds", summary["sampling_error_cross_group_registered"])
 
 
 class EmitterAttributionTest(unittest.TestCase):
@@ -346,6 +489,95 @@ class CpuTest(unittest.TestCase):
         per_sample = {"fixed_percent": 0.1, "marginal_percent_per_sample": 0.09,
                       "marginal_us_per_sample": 900.0, "points": 3, "max_samples_per_s": 1000.0}
         self.assertTrue(analyse.cpu_verdict(per_sample).startswith("H-C2"))
+
+    # --- where PREREG 5.3 registers the CPU hypotheses, and whether the code labels there --------
+    # PREREG 5.3 (`PREREG.md:262-268`): the main axis is "1024 B 梯子上三組共同有的每一階", the
+    # quantity is Delta-kernel(g, k) = kernel(g, k) - kernel(none, k), and "擬合 Delta-kernel = F + m*S"
+    # -- one fit per treated group over those rungs, which H-C1/H-C2/H-C3 then judge. The bmv2
+    # statement is registered separately (`:275-276`): bmv2_total(cooperative)/bmv2_total(none)
+    # "在相同階 in [0.90, 1.15]" -- a ratio at each rung, NOT a fit and NOT an H-C hypothesis.
+
+    def test_the_H_C_verdict_is_made_once_per_treated_group_over_every_common_rung(self):
+        # 🔴 THE LEVEL, PINNED (task C): the code already matched PREREG here, so this case is
+        # what keeps it matching. One verdict per treated group, from a fit over EVERY rung the
+        # three groups share -- not from the first few (M-E42), and never on a rung row.
+        comparison = analyse.cpu_comparison(self.arms, frame=1024, label="kernel")
+        self.assertEqual(sorted(comparison["fits"]), ["cooperative", "link"])
+        for group in ("cooperative", "link"):
+            entry = comparison["fits"][group]
+            self.assertIsNotNone(entry["fit"], entry["verdict"])
+            self.assertEqual(entry["fit"]["points"], len(synthetic.LADDER), group)
+            self.assertTrue(entry["verdict"].startswith("H-C"), entry["verdict"])
+        for row in comparison["rows"]:
+            for key, value in row.items():
+                self.assertFalse(isinstance(value, str) and "H-C" in value, (key, row))
+
+    def test_a_rung_one_group_does_not_have_is_in_NO_groups_fit(self):
+        # 🔴 "三組共同有的每一階" -- common to all THREE groups. The code intersected each treated
+        # group with `none` only, so a rung the link arms never reached still went into the
+        # cooperative fit. Here link stops at 8 kpps, and 20 must leave both fits (M-E39).
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        synthetic.build(tmp.name, ladders={"link": [1, 8]})
+        arms, _windows, _controls = analyse.walk_raw(tmp.name)
+        comparison = analyse.cpu_comparison(arms, frame=1024, label="kernel")
+        rungs = sorted(row["kpps"] for row in comparison["rows"] if row["group"] == "cooperative")
+        self.assertEqual(rungs, [1.0, 8.0],
+                         "the cooperative fit used rungs the link group never measured")
+        self.assertEqual(comparison["fits"]["cooperative"]["fit"]["points"], 2)
+
+    def test_with_no_rung_all_three_groups_share_there_is_no_fit_and_it_says_why(self):
+        # Without one group at 1024 B there is no registered axis at all. That is NOT H-C0 (a
+        # spread larger than the effect) and must not be reported as one.
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        cells = {key: value for key, value in synthetic.DEFAULT_CELLS.items()
+                 if key != ("link", 1024)}
+        synthetic.build(tmp.name, cells=cells)
+        arms, _windows, _controls = analyse.walk_raw(tmp.name)
+        comparison = analyse.cpu_comparison(arms, frame=1024, label="kernel")
+        entry = comparison["fits"]["cooperative"]
+        self.assertIsNone(entry["fit"], entry["verdict"])
+        self.assertIn("common to all three groups", entry["verdict"])
+        self.assertNotIn("H-C0", entry["verdict"])
+
+    def test_bmv2_carries_NO_H_C_label(self):
+        # 🔴 A REGISTERED LABEL ON A QUANTITY IT WAS NOT REGISTERED FOR. analyse() ran the same
+        # fit-and-verdict over bmv2 and printed H-C1/H-C2/H-C3 for it; PREREG 5.3 registers those
+        # for Delta-kernel only. The fit's numbers may stay as a description (M-E40).
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        synthetic.build(tmp.name)
+        summary = analyse.analyse(tmp.name)
+        for group, entry in summary["cpu_bmv2"]["fits"].items():
+            self.assertNotIn("H-C", entry.get("verdict") or "", group)
+        # and the kernel, where it IS registered, keeps it
+        self.assertTrue(summary["cpu_kernel"]["fits"]["cooperative"]["verdict"].startswith("H-C1"))
+
+    def test_the_registered_bmv2_comparison_is_coop_over_none_at_each_rung(self):
+        # The fixture gives every group the same ten shares, so the ratio is 1.0 at every rung.
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        synthetic.build(tmp.name)
+        block = analyse.analyse(tmp.name).get("cpu_bmv2_ratio") or {}
+        self.assertEqual(block.get("interval"), [0.90, 1.15], block)
+        rows = block.get("rows") or []
+        self.assertEqual(sorted(row["kpps"] for row in rows), [1.0, 8.0, 20.0])
+        for row in rows:
+            self.assertAlmostEqual(row["ratio"], 1.0, places=6)
+            self.assertIs(row["inside"], True)
+
+    def test_a_bmv2_ratio_outside_090_115_is_reported_outside(self):
+        # cooperative's ten switches at twice the none level: 300% vs 150% of one core, ratio 2.0
+        # at every rung (every weight is even, so the jiffies stay whole). (M-E43)
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        synthetic.build(tmp.name, bmv2_factor={"cooperative": 2.0})
+        rows = (analyse.analyse(tmp.name).get("cpu_bmv2_ratio") or {}).get("rows") or []
+        self.assertTrue(rows, "no registered bmv2 comparison at all")
+        for row in rows:
+            self.assertAlmostEqual(row["ratio"], 2.0, places=6)
+            self.assertIs(row["inside"], False)
 
 
 class LoadGateTest(unittest.TestCase):
