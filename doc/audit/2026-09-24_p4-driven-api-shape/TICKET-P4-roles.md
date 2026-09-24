@@ -256,3 +256,18 @@ M-R12 外來 fabric `reroute: true`；M-R13 baseline 綁定任一名字改掉；
   F2 `main.readopt_switch` 依 `_fabric["watchdog"]` 拿掉沒有 watchdog 時的 `routes_pending`／「watchdog 會補」（不動 M-B29 的錨點行）；F3 外來 owned 交換機的補路由被跳過時，`routes_note` 寫真正的原因；
   F4 錄製 wrapper 放進 scripts 目錄、錄製腳本的 sha 在新 head 由閘門重算；F5（① 無 live、all-NDTwin LLDP 啟動失敗只剩 `reroute:false`）寫進 SUMMARY 的已知缺口。
 - 第三輪收件：orchestrator 逐 hunk 讀＋重跑 `mutate_roles_binding` 與 p4_proxy 全套（範圍限定，同裁決 40⑩ 前例不另開判官）。
+
+### 裁決 7（09-25 01:1x）：06 回歸的 ecn solution 臂是鑑別力不足的儀器——修 driver 後只跑一次完整 06（同裁決 1 前例）
+
+- 事實（OBSERVED，`logs/orchestrator-0924/live-0925/`）：合併樹 `572d9462` 的 06 是 25/26，只有 ecn solution 為 FAIL (1/4)：h2 收到 2 個封包，都是 tos 0x1。
+  今晚這一臂 10 次過 5 次。交錯 A/B（R 的 8 支正式檔暫時換回 `9d63af2e`）：A 2/3、B 2/3，B3 的失敗形狀相同 ⇒ **與本刀無關**。
+  階段三同一臂 5 次都看得到 0x3。
+- 機制（讀碼）：`drive_exercise.py` `steps_ecn` 只送 `SEND_SECONDS=6` 個探測封包，一秒一個；經過 0.5 Mbit/s 的瓶頸之後只剩 2–4 個到得了 h2。
+  標記只發生在 `enq_qdepth >= 10` 的那一刻 ⇒ 「0x3 在收到的 tos 之中」是一個樣本只有 2–4 的檢定。**鑑別力不足是儀器的問題，不是資料面的問題。**
+- 裁：派 D''（worktree `wt-p4-ecn-0925`，分支 `fix/ecn-probe-power-0925`，base trunk `18dd0408`；只准動 `drive_exercise.py`、`DRIVER.md`、`tests/**`、`mutate_drive_exercise.sh`）：
+  - 只給 ecn 用專屬的探測數與背景時長，mri／qos 的 `SEND_SECONDS`／`BG_SECONDS` 不動；
+  - 骨架臂的 RED ARM（全部是 0x1）照舊，封包變多只會讓它更嚴；
+  - README 的宣稱（tos 隨佇列累積從 1 變 3）照舊，不准放寬成空洞的檢查；
+  - 紅燈先行，並配具名變異。
+- 收件：orchestrator 逐 hunk 讀並重跑閘門 ⇒ `--no-ff` 併入 ⇒ 主 checkout 跑 `ONLY=ecn` 5 次估修後的誤判率 ⇒ **完整 06 只跑一次**。
+  26/26 如預期才算 goal (4) 的「13/13 兩向全綠」；不如預期就照實回報，**不准重跑到綠為止**。
