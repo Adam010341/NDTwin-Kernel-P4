@@ -221,3 +221,29 @@ M-R12 外來 fabric `reroute: true`；M-R13 baseline 綁定任一名字改掉；
   08-28 規則（`2026-08-28_flow-count-capacity/PREREG.md:254-255`）把首讀與確認分開記。FINDINGS 與輸出要標「Adam 2026-09-24 裁定、非 PREREG 註冊」。
 - C 第二輪：判官各項＋下游（`cpu_bmv2_ratio`、對帳 (b)、render、fig3）標明讀法＋FINDINGS 以腳本重生＋勘誤表（舊值保留）＋重生 fig3（fig1／fig2 須逐位元不變）。
   cooperative 仍貼 H-C1，但名稱「固定成分主導」與 share 0.026 字面不符 ⇒ FINDINGS 在標籤旁明寫「成立依據只有 m 落帶」（裁決 40④）。
+
+### 裁決 5（09-24 21:4x）：R 首刀 opus-judge「MERGE AFTER FIXES」——R 第二輪修 9 項；orchestrator 裁 4 項口徑
+
+- 判官全文：`scratch/overnight-2026-09-05/logs/orchestrator-0924/judge-R-57aae1bf.md`（agent `a8ed6d7da8b264752`，對 `57aae1bf`）。基線主宣稱大致成立（NDTwin pipeline 的 WriteRequest／`/stats/flow` 不變、unbound／`owner: package` 寫入 501、宣告鏈路不通知 kernel、§2.4 兩分支看過紅、108/0）。
+- orchestrator 開檔核過（OBSERVED）：判官 1——`main.py:1336-1338` readopt 以 `install_routes=ndtwin` 呼叫，繞過 `:1838-1849` 的 fabric 級 routes 跳過；本刀在外來 fabric seed 了交換機間的邊 ⇒ 混合 fabric 上 readopt 一台 NDTwin 交換機會寫穿過 unbound 交換機的路由（刀前 `net` 無此邊，只補得到直連主機）。
+  判官 4——`ryu_flow_stats.py:307-313` 只在 match 有可用鍵時才計數；renamed fixture 的非路由列用 `hdr.ip4.proto`，不在詞彙內 ⇒ 不列也不計。判官 12——主 checkout 的 `host_count_override` 未提交值是 **4**（HEAD 與 R worktree 為 128；我先前記成 128 是錯的）。
+- **R 第二輪（紅先＋具名變異；只准動 R 已動過的檔、新測試、SUMMARY）：**
+  ① readopt 補路由服從 fabric 級的 routes 跳過：fabric 跳過 routes 時，readopt **不得寫任何路徑穿過其他交換機的路由**；優先保留刀前行為（只補該台直連主機），做不乾淨就整個不補並揭露。
+     全 owned fabric 上外來交換機 readopt：與啟動同一判準（fabric 未跳過 routes 且該台綁定 owner `ndtwin` 才補）。兩個方向都要有看過紅的測試（紅先：一台 NDTwin＋一台 unbound＋宣告鏈路，readopt NDTwin 那台 ⇒ 無遠端路由）。
+  ② 字面常數閘門擴到 route role 的 match field：`FIELD_TO_RYU` 的 `hdr.ipv4.dstAddr` 鍵改由 `BASELINE.match_field` 導出；閘門斷言表名、action、match field、`dst_mac_param` 只在 BASELINE＋具名例外。
+     5-tuple 的鍵（`p4_client.py:1648`、`topology_manager.py:197-198,222`）不屬 route role ⇒ 具名例外；`"port"` 無法 grep ⇒ 豁免並寫明。
+  ③ `unrendered_entries`＝外來交換機上**所有未列出的非預設列**（action 不認得，或 match 無可用鍵）——即該欄自己的語意「描述不了的規則不列、但計數」。NDTwin pipeline 恆為 0、`/stats/flow` body 不變。M-R11 殺手測試改用 renamed fixture 的真實列形狀。
+  ④ 補 baseline 逐位元證據鏈：base（`d492a346`）四個 fixture 常數區塊對 HEAD 的 diff（或在 HEAD production 上跑 base 的四個 fixture 測試類別），log 進 `logs/gates-0910/`；
+     NDTwin client 的 `/stats/flow` 加一條 HTTP body 位元組比對（在 base 錄，錄製腳本入 repo、附出處標頭）。
+  ⑤ 外來交換機上 5-tuple delete／modify 經 HTTP 回 501 的測試（§2.2-3；現只測 add 與 client 層 insert）。
+  ⑥ 07 自測：其餘 8 個判定各一顆變異，另加拿掉 reason、`"unbound"` 子字串、`is_enabled` 子條件各一顆；L5 加一個打作者 /32 的探針（例：s1 上 10.0.1.1 換 port），驗同一 /32 不被悄悄 MODIFY。
+  ⑦ 跑 `tests/shell/mutate_a7_dispatch_status.sh --python-only`（錨點在本刀改過的 `api_routes.py`）。
+  ⑧ `link_discovery` 由模式決定、不由 seed 數目決定：外來 fabric（非 external）⇒ `"declared"`（含零條宣告鏈路、含 seed 拋錯）；seed 拋錯另在 fabric 層 `switch_state` 揭露（欄名 R 定、SUMMARY 寫明）。`"none"` 只留給 external。
+  ⑨ SUMMARY 更正：§0「全綠」改成實際（merged_checks 七項逐項、tools 全套用真 tutorials 紅且 base 同紅）；D12 行號（`:20`）；§4 最後一行；OBS4「不是手打」；D3 範圍（照 ②）；D5 措辭照碼（external 下任何綁定含 baseline 都寫 `package`）；
+     OBS6 無 log 的那筆標明；OBS1 無 roles 的行為宣稱收窄（外來無 roles 的 `/stats/flow` 會漏列未知 action）；OBS10 `_withmodel` 兩份 log 的出處；記名揭露 fail-open 預設（`p4_client.py:260,429` 綁 BASELINE、production 唯一建構點 `main.py:245`）。
+- **orchestrator 裁（不改碼）：**
+  (a) §2.2-4 的「409 唯讀」更正：`_refuse_write` 在綁定之前擋（成立），但 `/stats/flowentry/*` 不接 `ControlPlaneReadOnly` ⇒ HTTP 500，與 base 相同；本刀照 §2.2-4 不改，列第二刀。
+  (b) 附錄 A 補 `link_discovery: "none"`＝external 模式（沒有任何機制發現或宣告鏈路；提示用，不擋操作）。G 的草稿下一次動時補這個值。
+  (c) D7（external 不 seed）＝對 §2.3-1 的窄讀，**照准**：§2.2-4 定了 external 本刀不改，seed 會改變 external 下 kernel 看到的邊。
+  (d) 判官 11 的 fail-open 預設是被「既有測試不改斷言」逼出的設計，可接受；照 ⑨ 記名揭露。`merged_checks.sh` 整支由 orchestrator 在合併樹跑（D12）。
+- 第二輪收件：同一個判官（`a8ed6d7da8b264752`）只審第二輪 diff 與 ①–⑨ 的逐項證據（範圍限定，同裁決 40⑩ 前例不另開判官）。
