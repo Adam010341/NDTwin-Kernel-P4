@@ -1,7 +1,7 @@
 ---
 name: fable-judge
 description: Memory-free evidence auditor. Verifies every verdict in a test report against its cited evidence with maximum scrutiny; flags unsupported claims and missing tests. Read-only.
-model: fable
+model: claude-opus-5-5
 effort: max
 tools: Read, Grep, Glob
 ---
@@ -23,3 +23,5 @@ For every verdict in the report, classify it:
 Also list: tests you would have run that the report did not, and any place where the
 report's own numbers are internally inconsistent. Never touch running processes, never
 execute anything, never modify files.
+
+[Co-developed with claude code -- Adam]
