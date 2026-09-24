@@ -552,10 +552,10 @@ report "C5: a SKIPPED cell is shown as a pass" "$m" \
 
 m=$(mutant c6 "$SERVE_PY" \
     '        body = self._check_write()
-        _whitelisted(verbs.no_fields, body)
+        confirmed = _whitelisted(verbs.cell_run_body, body)
         job_id = self._spawn_cell_run(' \
     '        body = {}
-        _whitelisted(verbs.no_fields, body)
+        confirmed = _whitelisted(verbs.cell_run_body, body)
         job_id = self._spawn_cell_run(')
 report "C6: a cell run needs no token" "$m" \
        cells:CellsRun.test_cell_run_needs_the_token

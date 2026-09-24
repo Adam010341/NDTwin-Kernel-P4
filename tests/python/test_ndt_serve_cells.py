@@ -31,6 +31,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import test_ndt_serve as base  # noqa: E402
+from test_ndt_serve import tearDownModule  # noqa: E402,F401 -- the same leftover-server sweep
 
 GRIDSTUB = textwrap.dedent('''\
     import json, os, sys, time

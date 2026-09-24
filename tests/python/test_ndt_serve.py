@@ -78,6 +78,23 @@ STUB_PY = textwrap.dedent('''\
     ''')
 
 
+STARTED = []   # every server process a case started, by its Popen -- see tearDownModule
+
+
+def tearDownModule():
+    """A server a failing case forgot is still this suite's process. Found 09-24: every gate run
+    left the M40 mutant's second server running (the case closed only the first). Each is
+    stopped here by the Popen that started it -- never looked up by name -- and named on stderr."""
+    for p in STARTED:
+        if p.poll() is None:
+            sys.stderr.write("tearDownModule: a case left server pid %d running; stopping it\n" % p.pid)
+            try:
+                os.killpg(p.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            p.wait(10)
+
+
 class Serve:
     """One server process, its temp tree and its stub."""
 
@@ -115,6 +132,7 @@ class Serve:
             self.proc = subprocess.Popen(argv or self.argv(), stdout=o, stderr=e, stdin=subprocess.DEVNULL,
                                          env=self.env, start_new_session=True,
                                          preexec_fn=(lambda: os.umask(umask)) if umask is not None else None)
+        STARTED.append(self.proc)
         deadline = time.monotonic() + 15
         while time.monotonic() < deadline:
             text = _read(out)
@@ -1078,6 +1096,7 @@ class Entry(unittest.TestCase):
 
     def test_second_server_on_the_same_state_refuses(self):
         s = Serve().start()
+        other = None
         try:
             tok = s.token()
             other = Serve(tmp=s.tmp)
@@ -1088,6 +1107,8 @@ class Entry(unittest.TestCase):
             st, _, _, _ = s.get("/health")
             self.assertEqual(st, 200)
         finally:
+            if other is not None:   # when it wrongly started (M40), it is still running
+                other.stop(signal.SIGKILL)
             s.close()
 
 
