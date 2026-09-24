@@ -2,7 +2,8 @@
 
 [Co-developed with claude code -- Adam]
 
-First cut (TICKET-ndt-serve, 09-24): backend only, one user, `127.0.0.1` only, no login.
+First cut (TICKET-ndt-serve, 09-24): backend only, one user, `127.0.0.1` only, no login. Second
+ticket (Adam, 09-24 21:4x): the live_cells grid and a guided walk through one cell.
 Standard-library Python; nothing to install.
 
 ## Start
@@ -65,6 +66,46 @@ curl -s -H "$H" -H "$T" -H "$J" -d '{}' $U/down
 curl -s -H "$H" -H "$T" -H "$J" -d '{}' $U/release
 ```
 
+### The live_cells grid and the guided walk
+
+Adam's ruling (09-24 21:4x): the regression cells in `tools/test_workflow/live_cells/`, opened so
+he can see a fix's red and green for himself. Everything is read from the tree of the ndt the
+server drives; the cells are what `run_cells.sh --list` prints.
+
+| method | path | what runs | answer |
+|---|---|---|---|
+| GET | `/cells` | `run_cells.sh --list` | the 11 cells, with CELLS.md's expected verdict and which fixtures exist |
+| GET | `/cells/<name>` | same | one cell |
+| GET | `/cells/<name>/old` | `<cell>.sh judge tests/fixtures/live_cells/<name>/old` | the **pre-fix red**: ASSERT rows, the CELL: line, whether the failing set equals `EXPECTED-FAILS`, `PROVENANCE.md` |
+| GET | `/cells/<name>/new` | the same over `new/` | the first **green**, as it was the night of the fix |
+| GET | `/cells/<name>/old/raw/<file>` | nothing | a raw file of the fixture (cannot leave it) |
+| POST | `/cells/<name>/run` `{}` | `run_cells.sh --cell <name> --raw-root <state>/cells-raw/…` | 202 + job, in the one slot. **Claim first** for a cell that needs the lab |
+| GET | `/cells/<name>/runs/<job>` | nothing | that run's ASSERT rows, and per row: red on old/, and now |
+| GET | `/jobs/<job>/raw/<path>` | nothing | a raw file of a run (cannot leave its raw root) |
+| POST | `/cells/<name>/guided` `{}` | nothing | 201 + a walk |
+| GET | `/guided`, `/guided/<id>` | nothing | the walks; a walk's state is derived, a GET writes nothing |
+| POST | `/guided/<id>/next` `{}` | the current step | the walk, one step further (or the same step again, if it was blocked) |
+| POST | `/guided/<id>/verdict` `{"verdict":"green"\|"red","note":"..."}` | nothing | Adam's call; `next` refuses to make it |
+| POST | `/guided/<id>/abort` `{}` | nothing | stops the walk, and says whether its claim is still held |
+
+A run's `rc` is run_cells.sh's: 0 is PASS **or SKIP**, so the job carries `cell_verdict` (the
+cell's own CELL: line) and `rc_class` `pass` / `skip`; 1 is `fail`; 2 is `harness` -- the harness
+could not run, or the restore after the cell failed and **the lab is not restored**.
+
+A walk, for a cell that needs the lab: `old → new → status → claim → run → release → compare →
+verdict` (no status/claim/release for a `requires none` cell; no `new` where there is no new/).
+Every step says where to look and what green looks like. The lab is given back right after the
+run -- judging reads the raw, not the lab. A step that did not come out **blocks** the walk: a
+refused claim never leads to a run, a failed restore never leads to a release. The verdict is
+Adam's.
+
+```bash
+G=$(curl -s -H "$H" -H "$T" -H "$J" -d '{}' $U/cells/up_target_names_a_readable_model/guided | jq -r .walk.id)
+curl -s -H "$H" -H "$T" -H "$J" -d '{}' $U/guided/$G/next | jq '.walk.steps[.walk.current]'   # repeat
+curl -s -H "$H" "$U/guided/$G" | jq '.walk.steps[] | {step, state, look_at}'
+curl -s -H "$H" -H "$T" -H "$J" -d '{"verdict":"green","note":"h4nl_* all flipped"}' $U/guided/$G/verdict
+```
+
 ## Reading an answer
 
 `rc` is always the integer `ndt` exited with. `rc_class` and `meaning` are a per-verb reading
@@ -90,5 +131,6 @@ still holds the slot), `lost` (it ended and nobody recorded its rc).
 
 ```bash
 python3 tests/python/test_ndt_serve.py        # 51 cases against a stub ndt, no lab
-bash tests/shell/mutate_ndt_serve.sh          # 42 named mutations, each must redden its case
+python3 tests/python/test_ndt_serve_cells.py  # 25 cases against a stub grid, no lab
+bash tests/shell/mutate_ndt_serve.sh          # 58 named mutations, each must redden its case
 ```
