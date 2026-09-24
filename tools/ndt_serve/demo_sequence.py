@@ -138,6 +138,9 @@ def main():
         d.call("probe-slot-while-up", "GET", "/api/v1/health", token=False)
         d.finish("up", up_id, row)
     d.call("probe-check-no-token", "GET", "/api/v1/status?check=1", token=False)
+    # ... and the same verdict WITH the token: the gate refuses the unauthorised read, it does not
+    # take the feature away (orchestrator 09-24, item 9)
+    d.call("status-check-after-up", "GET", "/api/v1/status?check=1")
     d.call("status-after-up", "GET", "/api/v1/status")
     d.call("apps-before", "GET", "/api/v1/apps")
     d.job("nsr-start", "/api/v1/apps/nsr/start")
