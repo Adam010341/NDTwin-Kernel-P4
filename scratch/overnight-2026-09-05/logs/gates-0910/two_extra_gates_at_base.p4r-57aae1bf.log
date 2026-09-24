@@ -1,0 +1,13 @@
+# Are mutate_p4_rule_install_time.sh and mutate_rule_journal_is_wired.sh red WITHOUT this ticket? Both run from a git-archive of trunk 6291db35 (p4_proxy tools tests setting), PROXY_PY=the worktree venv. 2026-09-24T12:58:47Z
+=== mutate_p4_rule_install_time at 6291db35
+interpreter: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924/p4_proxy/venv/bin/python
+baseline (must be green before any mutation):
+  baseline is RED -- fix that first, mutations prove nothing on a red baseline
+rc=2
+=== mutate_rule_journal_is_wired at 6291db35
+interpreter: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924/p4_proxy/venv/bin/python
+baseline (must be green before any mutation):
+Ran 12 tests in 0.126s
+FAILED (errors=12)
+  baseline is RED -- fix that first, mutations prove nothing on a red baseline
+rc=2

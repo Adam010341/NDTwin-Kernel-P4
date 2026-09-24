@@ -1,0 +1,46 @@
+lab
+  claim          none
+  prev claim     orch-0924 (until 00:47:58), superseded 2026-09-25 00:06:08  (.test_run/lab.claim.prev)
+                 nothing holds the lab now: that claim was released or replaced
+                 it said: down at 2026-09-25 00:06:08; verified clean; claim kept
+  measuring      nothing
+  code           67b64869  +62 file(s) with uncommitted changes
+                 2 of them can change behaviour:
+                 p4_proxy/mininet/host_count_override
+                 tools/remote-lab/dorm_lab/
+  knob baseline  4 (the default; no round baseline recorded -- 'ndt claim' writes one)
+  tree vs round  no baseline in .test_run/round.baseline -- nothing here can say what this round changed ('ndt claim' records one)
+  ok  helper: /usr/local/sbin/ndtwin-lab is tools/test_workflow/ndtwin-lab (sha256 6685d3a9)
+
+configuration
+  hosts          unknown (no up.target) -- nothing here records what the running fabric was asked for
+  topology       unknown (no up.target); last kernel.exit is from 2026-09-25T00:06:04+08:00 and names no model this script can classify
+  p4 host knob   4   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')
+  app package    none   (p4_proxy/mininet/app_package_override absent -- the baseline fabric)
+  bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc
+  telemetry      auto   (p4_proxy/mininet/telemetry_override absent -- auto, then the package)
+                 every switch: cooperative
+                 link emitter: none (/tmp/ndtwin_link_telemetry.json absent)
+  link shaping   off (no package link asks for one)
+  sample rate    1/256
+  rate source    no fabric running -- this is the COMPILED P4 pipeline, not a reading
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  0       topo session   absent
+  host/switch    0       manifest       absent
+  :8000 kernel   closed  :8081 proxy    closed  :8080 ryu closed
+  pidfiles       none recorded
+
+network health
+  switches       kernel not answering; no graph
+  tc netem       none
+  sudo grants    all 3 granted
+  apps           none running
+
+
+up target
+  record         none -- the last 'ndt up' record was cleared by 'ndt down' at 2026-09-25T00:06:04+08:00; history is in .test_run/pids/*.exit  (.test_run/up.target)
+                 there is no baseline, so --check did NOT check. this is not 'checked and matched'.
+                 bring the lab up from this checkout first:  ndt up <target>
+                 .test_run/ is per checkout, so another checkout's 'up' is invisible here (finding #79)

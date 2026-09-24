@@ -1,0 +1,185 @@
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924  HEAD 3ff87a10780018b70575348b6d953a851a93b6dd  2026-09-24T14:44:59Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924/tools/contract_test
+# cmd python3 run_contract_test.py --self-test
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ python3 run_contract_test.py --self-test
+Self-test: validating schemas against doc/2026-01-02_ndt_api.md examples
+
+  ok    get_graph_data
+  ok    get_detected_flow_data
+  ok    get_detected_top_k_flow_data
+  ok    get_switch_openflow_table_entries
+  ok    get_power_report
+  ok    get_switches_power_state
+  ok    get_cpu_utilization
+  ok    get_memory_utilization
+  ok    get_temperature
+  ok    get_average_link_usage
+  ok    get_path_switch_count
+  ok    get_num_of_flows_passing_a_switch
+  ok    get_total_input_traffic_load_passing_a_switch
+  ok    get_nickname
+  ok    acquire_lock
+  ok    release_lock
+  ok    install_flow_entry
+  ok    modify_nickname
+  ok    get_openflow_capacity
+  ok    get_flow_dispatch_status
+  ok    get_flow_dispatch_status (kernel without the A-7 follow-up fields)
+  ok    get_flow_dispatch_status (kernel from before the W11 rename)
+  ok    get_flow_dispatch_status?request_id=<id>
+  ok    link_failure_detected
+  ok    link_failure_detected (kernel from trunk, no down_reason/until)
+  ok    link_recovery_detected (withdrawn)
+  ok    link_recovery_detected (declined: declaration_retained)
+  ok    inject_link_failure (MININET)
+  ok    inject_link_failure (tc skipped, not MININET)
+  ok    inject_link_recovery
+  ok    link request body (all four endpoints take the same one)
+
+  Invariants against documented/synthetic data:
+  ok    graph_matches_topology: accepts matching graph
+  ok    graph_matches_topology: catches wrong switch count (correctly reported: switch count is 1, topology file says 10)
+  ok    graph_matches_topology: catches missing dpid (correctly reported: dpid(s) not present in the topology file: [106225808380928])
+  ok    graph_matches_topology: a graph that matches node for node reports nothing
+  ok    graph_matches_topology: catches a switch served under the wrong brand (correctly reported: switch dpid 106225808380928 is served as brand 'OVS', topology file sa)
+  ok    graph_matches_topology: catches a switch served with the wrong address (correctly reported: switch dpid 106225808380928 is served with addresses ['10.10.10.10'], )
+  ok    graph_matches_topology: catches a different host behind the right host count (correctly reported: host mac(s) not present in the topology file: [31362038109890])
+  ok    graph_matches_topology: a renamed device is accounted for, not failed (no failure; said: ACCOUNTED-FOR: switch dpid 106225808380928 is named 's4' in the graph )
+  ok    capacity_names_its_source: accepts a fully labelled report
+  ok    capacity_names_its_source: catches a block with no provenance (correctly reported: capacity block(s) with neither a `source` nor a `why`: OVS)
+  ok    capacity_available_closes: accepts max - in_use
+  ok    capacity_available_closes: catches available that does not close (correctly reported: dpid 1: available 512 != 512 - 128)
+  ok    capacity_available_closes: an unpolled switch is not a failure
+  ok    all_switches_up: accepts healthy graph
+  ok    all_switches_up: catches switch down / not enabled (correctly reported: switch(es) not up: s4(dpid=106225808380928))
+  ok    all_switches_up: a switch the power state says is OFF is not a failure (no failure; said: ACCOUNTED-FOR: 1 switch(es) are down/disabled because /ndt/get_switche)
+  ok    all_switches_up: an unreadable power state is not a failure either (no failure; said: TOOL-PRECONDITION-FAILED: 1 switch(es) report is_up=false and 1 report)
+  ok    edges_enabled: accepts healthy edges
+  ok    edges_enabled: catches a down edge (correctly reported: 1 edge(s) down/disabled: 106225808402492:1->0:0)
+  ok    edges_enabled: a down edge incident to a powered-off switch is not a failure (no failure; said: ACCOUNTED-FOR: 1 edge(s) are down/disabled because they are incident t)
+  ok    edges_enabled: an edge an operator declared down is not a failure (no failure; said: ACCOUNTED-FOR: 1 edge(s) are down because down_reason says an operator)
+  ok    link_bandwidth_sane: accepts usage below capacity
+  ok    link_bandwidth_sane: catches usage above capacity (correctly reported: edge 106225808402492:1 reports usage 2000000000 bps above capacity 100)
+  ok    flows_present: catches no flows while traffic runs (correctly reported: no flows detected, but --with-traffic says traffic should be running)
+  ok    flows_present: accepts flows
+  ok    flow_paths_non_empty: accepts populated path
+  ok    flow_paths_non_empty: catches empty path (the P4 Classifier gap) (correctly reported: 1 of 1 routable flow(s) with an empty path: 1359063232->16885952 -- th)
+  ok    flow_paths_non_empty: refuses an all-multicast sample (checked nothing) (correctly reported: no routable-unicast flows among 2 sampled flow(s), so this invariant e)
+  ok    flow_paths_non_empty: refuses an all-broadcast sample (checked nothing) (correctly reported: no routable-unicast flows among 1 sampled flow(s), so this invariant e)
+  ok    flow_paths_non_empty: refuses an all-link-local sample (checked nothing) (correctly reported: no routable-unicast flows among 1 sampled flow(s), so this invariant e)
+  ok    flow_paths_non_empty: one routable flow among multicast noise is enough
+  ok    flow_paths_non_empty: still catches the bad one among multicast noise (correctly reported: 1 of 1 routable flow(s) with an empty path: 1359063232->67108874 -- th)
+  ok    flow_rates_nonzero: accepts non-zero rates
+  ok    flow_rates_nonzero: catches all-zero rates (correctly reported: every detected flow reports a rate of 0 -- telemetry is arriving but r)
+  ok    tables_non_empty: accepts populated table
+  ok    tables_non_empty: catches the [] stub (correctly reported: no switch reported a flow table -- in P4 mode /stats/flow/<dpid> is pr)
+  ok    tables_non_empty: catches an empty per-switch table (correctly reported: switch(es) with an empty flow table: 106225808402492)
+  ok    topk_bounded: accepts k or fewer
+  ok    topk_bounded: catches more than k (correctly reported: asked for top 5 flows, got 6)
+  ok    power_covers_switches: accepts full coverage
+  ok    power_covers_switches: catches a missing switch (correctly reported: no power reading for dpid(s): [999])
+  ok    avg_link_usage_range: accepts 0..100
+  ok    avg_link_usage_range: catches out-of-range (correctly reported: avg_link_usage is 150, expected 0..100)
+  ok    power_state_values: accepts ON/OFF
+  ok    power_state_values: catches an unexpected value (correctly reported: unexpected power state value(s): {'10.0.0.1': 'MAYBE'})
+  ok    util_map_covers_switches: accepts full coverage
+  ok    util_map_covers_switches: catches partial coverage (correctly reported: only 1 switch(es) reported, expected 2)
+  ok    dispatch_counters_close: accepts closed arithmetic
+  ok    dispatch_counters_close: catches dispatched ahead of the sum (correctly reported: dispatched (9) != succeeded (1) + failed (2) = 3; some outcome is coun)
+  ok    dispatch_counters_close: catches more failures listed than counted (correctly reported: recent_failures lists 2 entries but only 1 failure(s) were counted)
+  ok    dispatch_counters_close: catches eviction from a list that is not full (correctly reported: recent_failures_evicted is 4 while the list holds 2 of 256 -- nothing )
+  ok    dispatch_counters_close: a shutdown drop is not a counting error
+  ok    dispatch_counters_close: still checks a kernel without the newer fields
+  ok    dispatcher_is_running: accepts a live dispatcher
+  ok    dispatcher_is_running: catches a stopped dispatcher still answering 'queued' (correctly reported: the flow dispatcher is not running, so every queued write is being ref)
+  ok    dispatcher_is_running: says nothing about a kernel that lacks the field
+  ok    switch_outcome_closes: accepts a group that partitions the dispatches
+  ok    switch_outcome_closes: catches a dispatch in no bucket (correctly reported: accepted_by_switch (0) + rejected_by_switch (1) + unknown (1) = 2, but)
+  ok    switch_outcome_closes: catches acceptance borrowed from dispatched_ok (correctly reported: accepted_by_switch (3) exceeds dispatched_ok (1); a switch cannot have)
+  ok    switch_outcome_closes: catches an unknown count with no reason beside it (correctly reported: switch_outcome.unknown is published without why_unknown; a permanently)
+  ok    switch_outcome_closes: says nothing about a kernel that predates the group
+  ok    declared_failure_says_who_can_withdraw_it: accepts the branch's answer
+  ok    declared_failure_says_who_can_withdraw_it: reports trunk's bare status (correctly reported: the reply does not say how long the failure lasts: it carries ['status)
+  ok    declared_failure_says_who_can_withdraw_it: catches the wrong withdrawal endpoint (correctly reported: the reply names '/ndt/inject_link_recovery' as what withdraws this dec)
+  ok    recovery_withdrew_the_declaration: accepts the paired withdrawal
+  ok    recovery_withdrew_the_declaration: catches a report the rule refused to spend (correctly reported: the recovery was DECLINED for a link /ndt/link_failure_detected report)
+  ok    recovery_was_declined_and_said_so: accepts the declined reply (the E-21 shape)
+  ok    recovery_was_declined_and_said_so: catches an injection withdrawn anyway (correctly reported: the recovery report was not declined: a failure injected through /ndt/)
+  ok    recovery_was_declined_and_said_so: a run that cannot confirm the injection says nothing (no failure; said: TOOL-PRECONDITION-FAILED: the recovery report was not declined, and th)
+  ok    recovery_was_declined_and_said_so: catches a decline that names no way out (correctly reported: the declined reply names None as the way out. Only /ndt/inject_link_re)
+  ok    tc_half_is_reported_per_interface: accepts both ends cut and named
+  ok    tc_half_is_reported_per_interface: accepts the idempotent restore
+  ok    tc_half_is_reported_per_interface: a skipped half is accounted for, not failed (no failure; said: ACCOUNTED-FOR: the tc half did not run: 'skipped (not MININET)'. The d)
+  ok    tc_half_is_reported_per_interface: catches one end cut instead of two (correctly reported: the tc report covers 1 interface(s), not the two ends of the link. An )
+  ok    tc_half_is_reported_per_interface: catches a failure that does not say why (correctly reported: the twin reports it did not touch 's1-eth1' and does not say why, so a)
+  ok    tc_half_is_reported_per_interface: catches an ok that names no command (correctly reported: s1-eth1: reported ok without naming the tc it ran, so the 200 is not e)
+
+  Negative controls: each schema against the other endpoints' bodies:
+  ok    acquire_lock rejects 14/28 foreign bodies
+  ok    get_average_link_usage rejects 28/28 foreign bodies
+  ok    get_cpu_utilization rejects 27/28 foreign bodies
+  ok    get_detected_flow_data rejects 27/28 foreign bodies
+  ok    get_detected_top_k_flow_data rejects 27/28 foreign bodies
+  ok    get_flow_dispatch_status rejects 26/26 foreign bodies
+  ok    get_graph_data rejects 28/28 foreign bodies
+  ok    get_memory_utilization rejects 27/28 foreign bodies
+  ok    get_nickname rejects 28/28 foreign bodies
+  ok    get_num_of_flows_passing_a_switch rejects 28/28 foreign bodies
+  ok    get_openflow_capacity rejects 4/28 foreign bodies
+  ok    get_path_switch_count rejects 27/28 foreign bodies
+  ok    get_power_report rejects 28/28 foreign bodies
+  ok    get_switch_openflow_table_entries rejects 28/28 foreign bodies
+  ok    get_switches_power_state rejects 28/28 foreign bodies
+  ok    get_temperature rejects 26/28 foreign bodies
+  ok    get_total_input_traffic_load_passing_a_switch rejects 28/28 foreign bodies
+  ok    inject_link_failure rejects 27/27 foreign bodies
+  ok    inject_link_recovery rejects 26/28 foreign bodies
+  ok    install_flow_entry rejects 28/28 foreign bodies
+  ok    link_failure_detected rejects 14/27 foreign bodies
+  ok    link_recovery_detected rejects 14/28 foreign bodies
+  ok    link_recovery_detected__declined_after_injection rejects 14/28 foreign bodies
+  ok    modify_nickname rejects 14/28 foreign bodies
+  ok    release_lock rejects 14/28 foreign bodies
+
+  Cross-application: each endpoint's invariants against its own fixture:
+  ok    get_graph_data / inv_kernel_serves_the_model_under_test no verdict: this kernel does not report which topology it loaded (no `to
+  ok    get_graph_data / inv_graph_matches_topology 
+  ok    get_graph_data / inv_all_switches_up 
+  ok    get_graph_data / inv_edges_enabled 
+  ok    get_graph_data / inv_link_bandwidth_sane 
+  ok    get_graph_data / inv_no_silent_telemetry reports, as declared: doc/2026-01-02_ndt_api.md 3's example predates A-4f, so its one edge carries no telemetry_status. The invariant reporting that is the whole of A-4f: on this kernel a link that stopped being sampled reads 0 bps and cannot be told from an idle one
+  ok    get_detected_flow_data / inv_flow_rates_nonzero 
+  ok    get_detected_top_k_flow_data / inv_topk_bounded 
+  ok    get_switch_openflow_table_entries / inv_tables_non_empty 
+  ok    get_power_report / inv_power_covers_switches 
+  ok    get_switches_power_state / inv_power_state_values 
+  ok    get_cpu_utilization / inv_util_map_covers_switches 
+  ok    get_memory_utilization / inv_util_map_covers_switches 
+  ok    get_average_link_usage / inv_avg_link_usage_range 
+  ok    acquire_lock / inv_lock_acquired 
+  ok    install_flow_entry / inv_flow_write_is_honest_about_being_queued 
+  ok    get_openflow_capacity / inv_capacity_names_its_source 
+  ok    get_openflow_capacity / inv_capacity_available_closes 
+  ok    get_flow_dispatch_status / inv_dispatch_counters_close 
+  ok    get_flow_dispatch_status / inv_dispatcher_is_running 
+  ok    get_flow_dispatch_status / inv_switch_outcome_closes 
+  ok    get_flow_dispatch_status (kernel without the A-7 follow-up fields) / inv_dispatch_counters_close 
+  ok    get_flow_dispatch_status (kernel without the A-7 follow-up fields) / inv_dispatcher_is_running 
+  ok    get_flow_dispatch_status (kernel without the A-7 follow-up fields) / inv_switch_outcome_closes 
+  ok    get_flow_dispatch_status (kernel from before the W11 rename) / inv_dispatch_counters_close 
+  ok    get_flow_dispatch_status (kernel from before the W11 rename) / inv_dispatcher_is_running 
+  ok    get_flow_dispatch_status (kernel from before the W11 rename) / inv_switch_outcome_closes 
+  ok    link_failure_detected / inv_declared_failure_says_who_can_withdraw_it 
+  ok    link_failure_detected (kernel from trunk, no down_reason/until) / inv_declared_failure_says_who_can_withdraw_it reports, as declared: the fixture IS the trunk kernel's reply -- {"status": ...} and nothing else -- and the finding that it does not say who can withdraw the declaration is B-6/W8b. The structural check passes it because down_reason and until are optional there; this is where it is reported
+  ok    link_recovery_detected (withdrawn) / inv_recovery_withdrew_the_declaration 
+  ok    link_recovery_detected (declined: declaration_retained) / inv_recovery_was_declined_and_said_so 
+  ok    inject_link_failure (MININET) / inv_tc_half_is_reported_per_interface 
+  ok    inject_link_failure (tc skipped, not MININET) / inv_tc_half_is_reported_per_interface accounted for: the tc half did not run: 'skipped (not MININET)'. The declar
+  ok    inject_link_recovery / inv_tc_half_is_reported_per_interface 
+
+======================================================================
+Self-test passed: 166 checks
+guarded_build: exit 0
+# rc=0

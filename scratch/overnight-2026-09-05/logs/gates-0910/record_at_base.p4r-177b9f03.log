@@ -1,0 +1,19 @@
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924  HEAD 177b9f03022bb96c6a73607f40640de4239517d4  2026-09-24T15:34:45Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924
+# cmd bash /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/record_at_base.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/record_at_base.sh
+HEAD                 177b9f03022bb96c6a73607f40640de4239517d4
+recorder at HEAD     89e3576613bedf4920158e68ad019feabf3c317896fc602c4dacf76f96c7a540
+recorder as recorded 89e3576613bedf4920158e68ad019feabf3c317896fc602c4dacf76f96c7a540
+production diff 6291db35..d492a346: [] (empty = identical)
+status       200
+content-type application/json
+length       2346
+sha256       aca1a88af0d889a8a7cc84468ee775cbccfb34ed1f3b8d3c1d3d4373f87a8659
+recorded now at d492a346  aca1a88af0d889a8a7cc84468ee775cbccfb34ed1f3b8d3c1d3d4373f87a8659
+pinned at HEAD             aca1a88af0d889a8a7cc84468ee775cbccfb34ed1f3b8d3c1d3d4373f87a8659
+RECORD-AT-BASE: recorder unchanged, re-recorded bytes equal the pin
+guarded_build: exit 0
+# rc=0

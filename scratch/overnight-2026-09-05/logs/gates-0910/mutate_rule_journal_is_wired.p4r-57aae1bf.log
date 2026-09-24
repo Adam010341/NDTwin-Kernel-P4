@@ -1,0 +1,9 @@
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924  HEAD 57aae1bf22e90096f846b2776ec9c3847d9b699b  2026-09-24T12:52:40Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924
+# cmd bash tests/shell/mutate_rule_journal_is_wired.sh
+interpreter: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924/p4_proxy/venv/bin/python
+baseline (must be green before any mutation):
+Ran 12 tests in 0.305s
+FAILED (errors=12)
+  baseline is RED -- fix that first, mutations prove nothing on a red baseline
+# rc=2

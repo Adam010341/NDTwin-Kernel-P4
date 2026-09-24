@@ -1,0 +1,46 @@
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924  HEAD 57aae1bf22e90096f846b2776ec9c3847d9b699b  2026-09-24T12:51:52Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924
+# cmd bash /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/baseline_bytes.sh
+production diff 6291db35..d492a346: [] (empty = identical)
+== tree /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/at-d492  (p4_proxy classes)
+rc=0
+test_every_case_was_captured_and_none_is_empty (tests.test_p4_client_writes.TheNdtwinPipelinesWritesAreByteIdenticalToTheBaseTest.test_every_case_was_captured_and_none_is_empty) ... ok
+test_every_request_is_byte_identical_to_the_one_the_base_sent (tests.test_p4_client_writes.TheNdtwinPipelinesWritesAreByteIdenticalToTheBaseTest.test_every_request_is_byte_identical_to_the_one_the_base_sent) ... ok
+test_the_render_is_the_one_the_base_produced (tests.test_ryu_flow_stats.TheNdtwinPipelinesFlowStatsAreByteIdenticalToTheBaseTest.test_the_render_is_the_one_the_base_produced) ... ok
+test_every_case_was_captured (tests.test_app_package.APackageWithoutRolesLoadsByteIdenticallyTest.test_every_case_was_captured) ... ok
+test_the_fields_that_existed_at_the_base_hash_to_what_they_hashed_to_there (tests.test_app_package.APackageWithoutRolesLoadsByteIdenticallyTest.test_the_fields_that_existed_at_the_base_hash_to_what_they_hashed_to_there) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.210s
+
+OK
+== tree /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/at-d492  (tools class)
+rc=0
+test_every_file_of_every_conversion_is_the_one_the_base_wrote (test_convert.WithoutTheRoleFlagTheOutputIsByteIdenticalTest.test_every_file_of_every_conversion_is_the_one_the_base_wrote) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.020s
+
+OK
+== tree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924  (p4_proxy classes)
+rc=0
+test_every_case_was_captured_and_none_is_empty (tests.test_p4_client_writes.TheNdtwinPipelinesWritesAreByteIdenticalToTheBaseTest.test_every_case_was_captured_and_none_is_empty) ... ok
+test_every_request_is_byte_identical_to_the_one_the_base_sent (tests.test_p4_client_writes.TheNdtwinPipelinesWritesAreByteIdenticalToTheBaseTest.test_every_request_is_byte_identical_to_the_one_the_base_sent) ... ok
+test_the_render_is_the_one_the_base_produced (tests.test_ryu_flow_stats.TheNdtwinPipelinesFlowStatsAreByteIdenticalToTheBaseTest.test_the_render_is_the_one_the_base_produced) ... ok
+test_every_case_was_captured (tests.test_app_package.APackageWithoutRolesLoadsByteIdenticallyTest.test_every_case_was_captured) ... ok
+test_the_fields_that_existed_at_the_base_hash_to_what_they_hashed_to_there (tests.test_app_package.APackageWithoutRolesLoadsByteIdenticallyTest.test_the_fields_that_existed_at_the_base_hash_to_what_they_hashed_to_there) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.202s
+
+OK
+== tree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924  (tools class)
+rc=0
+test_every_file_of_every_conversion_is_the_one_the_base_wrote (test_convert.WithoutTheRoleFlagTheOutputIsByteIdenticalTest.test_every_file_of_every_conversion_is_the_one_the_base_wrote) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.027s
+
+OK
+BASELINE-BYTES: green on the base tree and on HEAD
+# rc=0

@@ -1,0 +1,34 @@
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924  HEAD 57aae1bf22e90096f846b2776ec9c3847d9b699b  2026-09-24T12:51:54Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924
+# cmd bash /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/provenance_at_base.sh
+~/tutorials/exercises/p4runtime/build/advanced_tunnel.json mtime: 2026-09-24 17:59:55.924759178 +0800
+test_every_fixture_is_still_byte_identical_to_its_tutorials_original (test_convert.FixtureProvenance.test_every_fixture_is_still_byte_identical_to_its_tutorials_original) ... FAIL
+test_the_generated_fixtures_are_all_there_and_are_the_only_exemptions (test_convert.FixtureProvenance.test_the_generated_fixtures_are_all_there_and_are_the_only_exemptions) ... ok
+
+======================================================================
+FAIL: test_every_fixture_is_still_byte_identical_to_its_tutorials_original (test_convert.FixtureProvenance.test_every_fixture_is_still_byte_identical_to_its_tutorials_original)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/at-base/tools/p4_exercise/tests/test_convert.py", line 572, in test_every_fixture_is_still_byte_identical_to_its_tutorials_original
+    self.assertEqual(mismatched, [],
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+                     "fixture(s) that have drifted from ~/tutorials; the tests describe a "
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                     "file shape the upstream exercise no longer has")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: ['p4runtime/build/advanced_tunnel.json'] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+'p4runtime/build/advanced_tunnel.json'
+
+- ['p4runtime/build/advanced_tunnel.json']
++ [] : fixture(s) that have drifted from ~/tutorials; the tests describe a file shape the upstream exercise no longer has
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.006s
+
+FAILED (failures=1)
+unittest rc=1
+PROVENANCE-AT-BASE: red at the base on exactly advanced_tunnel.json (pre-existing)
+# rc=0

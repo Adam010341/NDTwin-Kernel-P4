@@ -1,0 +1,18 @@
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924  HEAD 3ff87a10780018b70575348b6d953a851a93b6dd  2026-09-24T14:19:51Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924
+# cmd bash /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/provenance_at_base.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/provenance_at_base.sh
+~/tutorials/exercises/p4runtime/build/advanced_tunnel.json mtime: 2026-09-24 21:16:14.976981492 +0800
+test_every_fixture_is_still_byte_identical_to_its_tutorials_original (test_convert.FixtureProvenance.test_every_fixture_is_still_byte_identical_to_its_tutorials_original) ... ok
+test_the_generated_fixtures_are_all_there_and_are_the_only_exemptions (test_convert.FixtureProvenance.test_the_generated_fixtures_are_all_there_and_are_the_only_exemptions) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.002s
+
+OK
+unittest rc=0
+PROVENANCE-AT-BASE: NOT the expected pre-existing red
+guarded_build: exit 1
+# rc=1

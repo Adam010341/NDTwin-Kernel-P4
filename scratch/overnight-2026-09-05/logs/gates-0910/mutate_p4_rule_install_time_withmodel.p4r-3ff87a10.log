@@ -1,0 +1,42 @@
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924  HEAD 3ff87a10780018b70575348b6d953a851a93b6dd  2026-09-24T14:49:22Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924
+# cmd env NDTWIN_P4_TOPO_FILE=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json bash tests/shell/mutate_p4_rule_install_time.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env NDTWIN_P4_TOPO_FILE=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json bash tests/shell/mutate_p4_rule_install_time.sh
+interpreter: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924/p4_proxy/venv/bin/python
+baseline (must be green before any mutation):
+Ran 256 tests in 0.103s
+OK
+
+  caught   M1: an accepted route install is not recorded at all             (test_an_accepted_route_install_is_dated went red)
+  caught   M2: the renderer emits 0/0 again, record or no record (the line as it stood) (test_a_rule_this_proxy_installed_reports_how_long_ago went red)
+  caught   M3: a rule nobody recorded is given an age anyway (widening)     (test_a_rule_with_no_record_stays_zero_which_is_what_unknown_looks_like went red)
+  caught   M4: the key drops the match, so one table is one rule            (test_two_rules_in_one_table_at_one_priority_do_not_share_an_age went red)
+  caught   M5: the endpoint stops passing the record (finding #71 again)    (test_a_rule_the_client_installed_comes_back_with_its_age went red)
+  caught   M6: a deleted route keeps its stamp, to be inherited by the next rule (test_an_accepted_delete_takes_the_date_away went red)
+  caught   M7: the 5-tuple branch does not record (nothing else knows)      (test_an_accepted_five_tuple_install_is_dated went red)
+  caught   M8: the write side records a priority the switch never reports   (test_an_accepted_route_install_is_dated went red)
+  caught   M9: the write side spells the table name its own way             (test_an_address_with_a_leading_zero_octet_is_found_after_bmv2_canonicalises_it went red)
+  caught   M10: the 5-tuple record drops the priority the entry is identified by (test_an_accepted_five_tuple_install_is_dated went red)
+  caught   N1 (control): the stamp is written before the switch has accepted anything (test_a_refused_route_install_is_not_dated went red)
+  caught   N2 (control): a second write of the same entry restarts the clock (test_an_idempotent_rewrite_does_not_restart_the_clock went red)
+  caught   N3 (control): a reroute restarts the clock (the design Adam ruled out) (test_an_app_rerouting_a_destination_does_not_make_the_rule_look_new went red)
+  caught   N4 (control): the pipeline wipe leaves stamps for rules it destroyed (test_the_pipeline_push_forgets_every_rule_it_destroyed went red)
+  caught   N5 (control): the key keeps wildcards the renderer drops (the two sides drift) (test_a_zero_masked_ternary_field_is_not_part_of_the_entry went red)
+  caught   N6 (control): a negative age reaches an unsigned field           (test_a_negative_age_can_never_reach_the_payload went red)
+  caught   N7 (control): the record itself can report a negative age        (test_a_clock_that_went_backwards_reports_zero_rather_than_a_negative_age went red)
+  caught   N8 (control): the sub-second remainder is thrown away            (test_the_sub_second_remainder_goes_into_duration_nsec went red)
+  caught   N9 (control): the key forgets which switch, so ten switches share one table (test_a_different_switch_is_a_different_entry went red)
+  caught   M11: the liveness payload does not carry the counts at all       (test_the_count_is_of_records_not_of_the_rows_on_the_switch went red)
+  caught   M12: rules_timed is taken from the row count, so every table looks fully dated (test_the_count_is_of_records_not_of_the_rows_on_the_switch went red)
+  caught   M13: reading the table does not count its rows, so there is no denominator (test_a_table_read_records_how_many_rows_it_returned went red)
+  caught   N10 (control): a switch nobody has read is reported as a switch with no rules (test_a_switch_whose_tables_nobody_has_read_reports_no_total_rather_than_zero went red)
+  caught   N11 (control): the reach of the record is read off its newest stamp (test_the_oldest_stamp_is_reported_not_the_newest went red)
+  caught   N12 (control): the pipeline wipe keeps the row count of the table it destroyed (test_the_pipeline_push_also_drops_the_row_count_that_record_is_reported_against went red)
+  caught   N13 (control): the row count is served with no age, so a stale one reads as fresh (test_the_age_of_the_count_advances_with_the_clock went red)
+
+baseline byte-identical: yes (5 sources, 4 test files)
+mutation gate: 26 mutations, 0 survived
+guarded_build: exit 0
+# rc=0

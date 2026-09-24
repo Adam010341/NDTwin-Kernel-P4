@@ -19,9 +19,9 @@ copy() {   # copy <relative path under REPO>
     printf '   %-78s %s\n' "$rel" "$(du -sh "$dst" | cut -f1)"
 }
 
-echo "== orchestrator-0924 (minus the ndt serve ticket)"
+echo "== orchestrator-0924 (minus the ndt serve ticket, diffs and judge reports: they go with Adam's ruling on that branch)"
 mkdir -p "$AR/$S/logs/orchestrator-0924"
-rsync -a --exclude 'TICKET-ndt-serve-0924.md' "$REPO/$S/logs/orchestrator-0924/" "$AR/$S/logs/orchestrator-0924/"
+rsync -a --exclude 'TICKET-ndt-serve-0924.md' --exclude 'ndt-serve-diff-*' --exclude 'judge-ndt-serve-*' "$REPO/$S/logs/orchestrator-0924/" "$AR/$S/logs/orchestrator-0924/"
 du -sh "$AR/$S/logs/orchestrator-0924"
 
 echo "== helpers-0924 session-close items (minus index-backup-0924)"
@@ -43,5 +43,14 @@ for f in "${globs[@]}"; do
     cp -a "$f" "$AR/$S/logs/gates-0910/" && n=$((n+1))
 done
 echo "   $n gate log(s)"
+
+
+if [[ "${1:-}" == --with-r ]]; then
+    echo "== live acceptance raw (09-25 00:02-00:56: 07, 01, 06, ecn re-runs and A/B)"
+    D=doc/audit/2026-09-04_p4-tutorial-exercise-prep
+    for d in "$REPO/$D"/live-p1/runs/2026-09-24T16*; do copy "${d#$REPO/}"; done
+    n=0; for f in "$REPO/$D"/runs/2026-09-24T16*; do mkdir -p "$AR/$D/runs"; cp -a "$f" "$AR/$D/runs/" && n=$((n+1)); done
+    echo "   $n per-arm report(s) and dir(s) under $D/runs"
+fi
 
 echo "== audit-raw would commit $(git -C "$AR" status --porcelain | wc -l) path(s); disk free $(df -h / | awk 'NR==2{print $4}')"

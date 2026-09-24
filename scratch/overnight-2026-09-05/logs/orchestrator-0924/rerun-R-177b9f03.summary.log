@@ -1,0 +1,5 @@
+p4_proxy_suite           rc=0  [TopologyManager] Refusing delete for DPID 1: neither table can honour ['dl_dst']
+live07_selftest          rc=0  SELF-TEST PASS
+check_gate_anchors       rc=0  116/116 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+mutate_roles_binding     rc=0  mutation gate: 162 mutations, 0 survived
+ORCH-RERUN 177b9f03: ALL-GREEN

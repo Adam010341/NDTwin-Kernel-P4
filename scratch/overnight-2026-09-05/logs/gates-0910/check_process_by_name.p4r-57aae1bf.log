@@ -1,0 +1,6 @@
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924  HEAD 57aae1bf22e90096f846b2776ec9c3847d9b699b  2026-09-24T12:52:13Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924
+# cmd python3 tests/shell/check_process_by_name.py
+check_process_by_name: 2 registered audit exceptions scanned (7 file(s) under them); doc/audit/** is not a scan surface otherwise
+check_process_by_name: 318 file(s) scanned, 0 site(s), 0 registered, 0 new, 0 stale
+# rc=0

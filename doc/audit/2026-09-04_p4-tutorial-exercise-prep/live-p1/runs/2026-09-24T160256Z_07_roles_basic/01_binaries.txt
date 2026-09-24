@@ -1,0 +1,8 @@
+repo HEAD  572d9462feda629fe31063efcd5517ee1fee467a
+kernel     be70b5dd32356847  build/bin/ndtwin_kernel
+source     f35fb704c7e83d0a  p4_proxy/proxy_agent/route_binding.py
+source     7869c86891cafd67  p4_proxy/proxy_agent/p4_client.py
+source     f52b03439ab6b254  p4_proxy/proxy_agent/main.py
+source     a8c2a5242443a39b  p4_proxy/proxy_agent/topology_manager.py
+source     fb30c4cd11575575  tools/p4_exercise/convert.py
+source     c30e4e8b451c6dc6  tools/p4_exercise/preflight.py

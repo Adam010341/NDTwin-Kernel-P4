@@ -1,0 +1,1467 @@
+{
+  "edges": [
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 5,
+      "dst_interface": 1,
+      "dst_ip": [
+        259762368
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 1000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 1000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 1,
+      "src_interface": 1,
+      "src_ip": [
+        192653504
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 6,
+      "dst_interface": 1,
+      "dst_ip": [
+        276539584
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 1000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 1000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 1,
+      "src_interface": 2,
+      "src_ip": [
+        192653504
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 0,
+      "dst_interface": 1,
+      "dst_ip": [
+        16777226
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 1000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 1000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 1,
+      "src_interface": 3,
+      "src_ip": [
+        192653504
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 5,
+      "dst_interface": 2,
+      "dst_ip": [
+        259762368
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 1000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 1000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 2,
+      "src_interface": 1,
+      "src_ip": [
+        209430720
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 6,
+      "dst_interface": 2,
+      "dst_ip": [
+        276539584
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 1000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 1000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 2,
+      "src_interface": 2,
+      "src_ip": [
+        209430720
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 0,
+      "dst_interface": 1,
+      "dst_ip": [
+        33554442
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 1000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 1000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 2,
+      "src_interface": 3,
+      "src_ip": [
+        209430720
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 7,
+      "dst_interface": 1,
+      "dst_ip": [
+        293316800
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 1000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 1000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 3,
+      "src_interface": 1,
+      "src_ip": [
+        226207936
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 8,
+      "dst_interface": 1,
+      "dst_ip": [
+        310094016
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 1000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 1000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 3,
+      "src_interface": 2,
+      "src_ip": [
+        226207936
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 0,
+      "dst_interface": 1,
+      "dst_ip": [
+        50331658
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 1000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 1000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 3,
+      "src_interface": 3,
+      "src_ip": [
+        226207936
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 7,
+      "dst_interface": 2,
+      "dst_ip": [
+        293316800
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 1000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 1000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 4,
+      "src_interface": 1,
+      "src_ip": [
+        242985152
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 8,
+      "dst_interface": 2,
+      "dst_ip": [
+        310094016
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 1000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 1000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 4,
+      "src_interface": 2,
+      "src_ip": [
+        242985152
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 0,
+      "dst_interface": 1,
+      "dst_ip": [
+        67108874
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 1000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 1000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 4,
+      "src_interface": 3,
+      "src_ip": [
+        242985152
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 1,
+      "dst_interface": 1,
+      "dst_ip": [
+        192653504
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 1000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 1000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 5,
+      "src_interface": 1,
+      "src_ip": [
+        259762368
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 2,
+      "dst_interface": 1,
+      "dst_ip": [
+        209430720
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 1000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 1000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 5,
+      "src_interface": 2,
+      "src_ip": [
+        259762368
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 9,
+      "dst_interface": 1,
+      "dst_ip": [
+        326871232
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 10000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 10000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 5,
+      "src_interface": 3,
+      "src_ip": [
+        259762368
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 10,
+      "dst_interface": 1,
+      "dst_ip": [
+        343648448
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 10000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 10000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 5,
+      "src_interface": 4,
+      "src_ip": [
+        259762368
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 1,
+      "dst_interface": 2,
+      "dst_ip": [
+        192653504
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 1000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 1000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 6,
+      "src_interface": 1,
+      "src_ip": [
+        276539584
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 2,
+      "dst_interface": 2,
+      "dst_ip": [
+        209430720
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 1000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 1000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 6,
+      "src_interface": 2,
+      "src_ip": [
+        276539584
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 9,
+      "dst_interface": 2,
+      "dst_ip": [
+        326871232
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 10000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 10000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 6,
+      "src_interface": 3,
+      "src_ip": [
+        276539584
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 10,
+      "dst_interface": 2,
+      "dst_ip": [
+        343648448
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 10000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 10000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 6,
+      "src_interface": 4,
+      "src_ip": [
+        276539584
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 3,
+      "dst_interface": 1,
+      "dst_ip": [
+        226207936
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 1000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 1000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 7,
+      "src_interface": 1,
+      "src_ip": [
+        293316800
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 4,
+      "dst_interface": 1,
+      "dst_ip": [
+        242985152
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 1000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 1000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 7,
+      "src_interface": 2,
+      "src_ip": [
+        293316800
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 9,
+      "dst_interface": 3,
+      "dst_ip": [
+        326871232
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 10000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 10000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 7,
+      "src_interface": 3,
+      "src_ip": [
+        293316800
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 10,
+      "dst_interface": 3,
+      "dst_ip": [
+        343648448
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 10000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 10000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 7,
+      "src_interface": 4,
+      "src_ip": [
+        293316800
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 3,
+      "dst_interface": 2,
+      "dst_ip": [
+        226207936
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 1000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 1000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 8,
+      "src_interface": 1,
+      "src_ip": [
+        310094016
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 4,
+      "dst_interface": 2,
+      "dst_ip": [
+        242985152
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 1000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 1000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 8,
+      "src_interface": 2,
+      "src_ip": [
+        310094016
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 9,
+      "dst_interface": 4,
+      "dst_ip": [
+        326871232
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 10000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 10000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 8,
+      "src_interface": 3,
+      "src_ip": [
+        310094016
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 10,
+      "dst_interface": 4,
+      "dst_ip": [
+        343648448
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 10000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 10000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 8,
+      "src_interface": 4,
+      "src_ip": [
+        310094016
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 5,
+      "dst_interface": 3,
+      "dst_ip": [
+        259762368
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 10000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 10000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 9,
+      "src_interface": 1,
+      "src_ip": [
+        326871232
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 6,
+      "dst_interface": 3,
+      "dst_ip": [
+        276539584
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 10000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 10000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 9,
+      "src_interface": 2,
+      "src_ip": [
+        326871232
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 7,
+      "dst_interface": 3,
+      "dst_ip": [
+        293316800
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 10000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 10000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 9,
+      "src_interface": 3,
+      "src_ip": [
+        326871232
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 8,
+      "dst_interface": 3,
+      "dst_ip": [
+        310094016
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 10000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 10000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 9,
+      "src_interface": 4,
+      "src_ip": [
+        326871232
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 5,
+      "dst_interface": 4,
+      "dst_ip": [
+        259762368
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 10000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 10000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 10,
+      "src_interface": 1,
+      "src_ip": [
+        343648448
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 6,
+      "dst_interface": 4,
+      "dst_ip": [
+        276539584
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 10000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 10000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 10,
+      "src_interface": 2,
+      "src_ip": [
+        343648448
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 7,
+      "dst_interface": 4,
+      "dst_ip": [
+        293316800
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 10000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 10000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 10,
+      "src_interface": 3,
+      "src_ip": [
+        343648448
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 8,
+      "dst_interface": 4,
+      "dst_ip": [
+        310094016
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 10000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 10000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 10,
+      "src_interface": 4,
+      "src_ip": [
+        343648448
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 1,
+      "dst_interface": 3,
+      "dst_ip": [
+        192653504
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 1000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 1000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 0,
+      "src_interface": 1,
+      "src_ip": [
+        16777226
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 2,
+      "dst_interface": 3,
+      "dst_ip": [
+        209430720
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 1000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 1000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 0,
+      "src_interface": 1,
+      "src_ip": [
+        33554442
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 3,
+      "dst_interface": 3,
+      "dst_ip": [
+        226207936
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 1000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 1000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 0,
+      "src_interface": 1,
+      "src_ip": [
+        50331658
+      ],
+      "telemetry_status": "unknown"
+    },
+    {
+      "admin_disabled": false,
+      "agent_last_sample_age_seconds": -1.0,
+      "down_reason": "none",
+      "dst_dpid": 4,
+      "dst_interface": 3,
+      "dst_ip": [
+        242985152
+      ],
+      "flow_set": [],
+      "is_enabled": true,
+      "is_up": true,
+      "last_sample_age_seconds": -1.0,
+      "left_link_bandwidth_bps": 1000000000,
+      "left_link_bandwidth_source": "declared",
+      "link_bandwidth_bps": 1000000000,
+      "link_bandwidth_usage_bps": 0,
+      "link_bandwidth_utilization_percent": 0.0,
+      "src_dpid": 0,
+      "src_interface": 1,
+      "src_ip": [
+        67108874
+      ],
+      "telemetry_status": "unknown"
+    }
+  ],
+  "nodes": [
+    {
+      "admin_disabled": false,
+      "admin_state": "on",
+      "brand_name": "BMv2",
+      "device_layer": 2,
+      "device_name": "s1",
+      "down_reason": "none",
+      "dpid": 1,
+      "ecmp_groups": [
+        {
+          "members": [
+            {
+              "port_id": 1,
+              "type": "port"
+            },
+            {
+              "port_id": 2,
+              "type": "port"
+            }
+          ]
+        }
+      ],
+      "ip": [
+        192653504
+      ],
+      "is_enabled": true,
+      "is_up": true,
+      "mac": 0,
+      "nickname": "s1",
+      "power_path": "synthetic",
+      "reachable": true,
+      "telemetry_path": "none",
+      "vertex_type": 0
+    },
+    {
+      "admin_disabled": false,
+      "admin_state": "on",
+      "brand_name": "BMv2",
+      "device_layer": 2,
+      "device_name": "s2",
+      "down_reason": "none",
+      "dpid": 2,
+      "ecmp_groups": [
+        {
+          "members": [
+            {
+              "port_id": 1,
+              "type": "port"
+            },
+            {
+              "port_id": 2,
+              "type": "port"
+            }
+          ]
+        }
+      ],
+      "ip": [
+        209430720
+      ],
+      "is_enabled": true,
+      "is_up": true,
+      "mac": 0,
+      "nickname": "s2",
+      "power_path": "synthetic",
+      "reachable": true,
+      "telemetry_path": "none",
+      "vertex_type": 0
+    },
+    {
+      "admin_disabled": false,
+      "admin_state": "on",
+      "brand_name": "BMv2",
+      "device_layer": 2,
+      "device_name": "s3",
+      "down_reason": "none",
+      "dpid": 3,
+      "ecmp_groups": [
+        {
+          "members": [
+            {
+              "port_id": 1,
+              "type": "port"
+            },
+            {
+              "port_id": 2,
+              "type": "port"
+            }
+          ]
+        }
+      ],
+      "ip": [
+        226207936
+      ],
+      "is_enabled": true,
+      "is_up": true,
+      "mac": 0,
+      "nickname": "s3",
+      "power_path": "synthetic",
+      "reachable": true,
+      "telemetry_path": "none",
+      "vertex_type": 0
+    },
+    {
+      "admin_disabled": false,
+      "admin_state": "on",
+      "brand_name": "BMv2",
+      "device_layer": 2,
+      "device_name": "s4",
+      "down_reason": "none",
+      "dpid": 4,
+      "ecmp_groups": [
+        {
+          "members": [
+            {
+              "port_id": 1,
+              "type": "port"
+            },
+            {
+              "port_id": 2,
+              "type": "port"
+            }
+          ]
+        }
+      ],
+      "ip": [
+        242985152
+      ],
+      "is_enabled": true,
+      "is_up": true,
+      "mac": 0,
+      "nickname": "s4",
+      "power_path": "synthetic",
+      "reachable": true,
+      "telemetry_path": "none",
+      "vertex_type": 0
+    },
+    {
+      "admin_disabled": false,
+      "admin_state": "on",
+      "brand_name": "BMv2",
+      "device_layer": 1,
+      "device_name": "s5",
+      "down_reason": "none",
+      "dpid": 5,
+      "ecmp_groups": [
+        {
+          "members": [
+            {
+              "port_id": 3,
+              "type": "port"
+            },
+            {
+              "port_id": 4,
+              "type": "port"
+            }
+          ]
+        }
+      ],
+      "ip": [
+        259762368
+      ],
+      "is_enabled": true,
+      "is_up": true,
+      "mac": 0,
+      "nickname": "s5",
+      "power_path": "synthetic",
+      "reachable": true,
+      "telemetry_path": "none",
+      "vertex_type": 0
+    },
+    {
+      "admin_disabled": false,
+      "admin_state": "on",
+      "brand_name": "BMv2",
+      "device_layer": 1,
+      "device_name": "s6",
+      "down_reason": "none",
+      "dpid": 6,
+      "ecmp_groups": [
+        {
+          "members": [
+            {
+              "port_id": 3,
+              "type": "port"
+            },
+            {
+              "port_id": 4,
+              "type": "port"
+            }
+          ]
+        }
+      ],
+      "ip": [
+        276539584
+      ],
+      "is_enabled": true,
+      "is_up": true,
+      "mac": 0,
+      "nickname": "s6",
+      "power_path": "synthetic",
+      "reachable": true,
+      "telemetry_path": "none",
+      "vertex_type": 0
+    },
+    {
+      "admin_disabled": false,
+      "admin_state": "on",
+      "brand_name": "BMv2",
+      "device_layer": 1,
+      "device_name": "s7",
+      "down_reason": "none",
+      "dpid": 7,
+      "ecmp_groups": [
+        {
+          "members": [
+            {
+              "port_id": 3,
+              "type": "port"
+            },
+            {
+              "port_id": 4,
+              "type": "port"
+            }
+          ]
+        }
+      ],
+      "ip": [
+        293316800
+      ],
+      "is_enabled": true,
+      "is_up": true,
+      "mac": 0,
+      "nickname": "s7",
+      "power_path": "synthetic",
+      "reachable": true,
+      "telemetry_path": "none",
+      "vertex_type": 0
+    },
+    {
+      "admin_disabled": false,
+      "admin_state": "on",
+      "brand_name": "BMv2",
+      "device_layer": 1,
+      "device_name": "s8",
+      "down_reason": "none",
+      "dpid": 8,
+      "ecmp_groups": [
+        {
+          "members": [
+            {
+              "port_id": 3,
+              "type": "port"
+            },
+            {
+              "port_id": 4,
+              "type": "port"
+            }
+          ]
+        }
+      ],
+      "ip": [
+        310094016
+      ],
+      "is_enabled": true,
+      "is_up": true,
+      "mac": 0,
+      "nickname": "s8",
+      "power_path": "synthetic",
+      "reachable": true,
+      "telemetry_path": "none",
+      "vertex_type": 0
+    },
+    {
+      "admin_disabled": false,
+      "admin_state": "on",
+      "brand_name": "BMv2",
+      "device_layer": 0,
+      "device_name": "s9",
+      "down_reason": "none",
+      "dpid": 9,
+      "ecmp_groups": [
+        {
+          "members": [
+            {
+              "port_id": 1,
+              "type": "port"
+            },
+            {
+              "port_id": 2,
+              "type": "port"
+            }
+          ]
+        },
+        {
+          "members": [
+            {
+              "port_id": 3,
+              "type": "port"
+            },
+            {
+              "port_id": 4,
+              "type": "port"
+            }
+          ]
+        }
+      ],
+      "ip": [
+        326871232
+      ],
+      "is_enabled": true,
+      "is_up": true,
+      "mac": 0,
+      "nickname": "s9",
+      "power_path": "synthetic",
+      "reachable": true,
+      "telemetry_path": "none",
+      "vertex_type": 0
+    },
+    {
+      "admin_disabled": false,
+      "admin_state": "on",
+      "brand_name": "BMv2",
+      "device_layer": 0,
+      "device_name": "s10",
+      "down_reason": "none",
+      "dpid": 10,
+      "ecmp_groups": [
+        {
+          "members": [
+            {
+              "port_id": 1,
+              "type": "port"
+            },
+            {
+              "port_id": 2,
+              "type": "port"
+            }
+          ]
+        },
+        {
+          "members": [
+            {
+              "port_id": 3,
+              "type": "port"
+            },
+            {
+              "port_id": 4,
+              "type": "port"
+            }
+          ]
+        }
+      ],
+      "ip": [
+        343648448
+      ],
+      "is_enabled": true,
+      "is_up": true,
+      "mac": 0,
+      "nickname": "s10",
+      "power_path": "synthetic",
+      "reachable": true,
+      "telemetry_path": "none",
+      "vertex_type": 0
+    },
+    {
+      "admin_disabled": false,
+      "admin_state": "on",
+      "brand_name": "",
+      "device_layer": 3,
+      "device_name": "h1",
+      "down_reason": "none",
+      "dpid": 0,
+      "ecmp_groups": [],
+      "ip": [
+        16777226
+      ],
+      "is_enabled": true,
+      "is_up": true,
+      "mac": 1,
+      "nickname": "h1",
+      "reachable": true,
+      "vertex_type": 1
+    },
+    {
+      "admin_disabled": false,
+      "admin_state": "on",
+      "brand_name": "",
+      "device_layer": 3,
+      "device_name": "h2",
+      "down_reason": "none",
+      "dpid": 0,
+      "ecmp_groups": [],
+      "ip": [
+        33554442
+      ],
+      "is_enabled": true,
+      "is_up": true,
+      "mac": 2,
+      "nickname": "h2",
+      "reachable": true,
+      "vertex_type": 1
+    },
+    {
+      "admin_disabled": false,
+      "admin_state": "on",
+      "brand_name": "",
+      "device_layer": 3,
+      "device_name": "h3",
+      "down_reason": "none",
+      "dpid": 0,
+      "ecmp_groups": [],
+      "ip": [
+        50331658
+      ],
+      "is_enabled": true,
+      "is_up": true,
+      "mac": 3,
+      "nickname": "h3",
+      "reachable": true,
+      "vertex_type": 1
+    },
+    {
+      "admin_disabled": false,
+      "admin_state": "on",
+      "brand_name": "",
+      "device_layer": 3,
+      "device_name": "h4",
+      "down_reason": "none",
+      "dpid": 0,
+      "ecmp_groups": [],
+      "ip": [
+        67108874
+      ],
+      "is_enabled": true,
+      "is_up": true,
+      "mac": 4,
+      "nickname": "h4",
+      "reachable": true,
+      "vertex_type": 1
+    }
+  ],
+  "topology_file": "/home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json",
+  "topology_loaded_at": 1790265980,
+  "topology_round": {
+    "complete": true,
+    "endpoints": {
+      "hosts": {
+        "http_status": 200,
+        "outcome": "ok"
+      },
+      "links": {
+        "http_status": 200,
+        "outcome": "ok"
+      },
+      "switches": {
+        "http_status": 200,
+        "outcome": "ok"
+      }
+    },
+    "kind": "complete"
+  },
+  "topology_sha256": "50a3246390a6eca9284dc59812aca297cd482df616afc03109466934059f2e94"
+}

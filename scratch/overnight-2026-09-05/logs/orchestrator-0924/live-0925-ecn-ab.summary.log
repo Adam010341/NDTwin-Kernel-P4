@@ -1,0 +1,16 @@
+== 00:42:37 A1 main.py f52b03439ab6
+   rc=0     ecn       solution  0   PASS (4/4)  /home/adam/Desktop/ND
+== 00:44:49 B1 main.py ec6855df4204
+   rc=0     ecn       solution  0   PASS (4/4)  /home/adam/Desktop/ND
+== 00:47:02 A2 main.py f52b03439ab6
+   rc=1     ecn       solution  1   FAIL (1/4)  /home/adam/Desktop/ND
+== 00:49:15 B2 main.py ec6855df4204
+   rc=0     ecn       solution  0   PASS (4/4)  /home/adam/Desktop/ND
+== 00:51:28 A3 main.py f52b03439ab6
+   rc=0     ecn       solution  0   PASS (4/4)  /home/adam/Desktop/ND
+== 00:53:41 B3 main.py ec6855df4204
+   rc=1     ecn       solution  1   FAIL (1/4)  /home/adam/Desktop/ND
+== DONE
+== restored: p4_proxy/proxy_agent/api_routes.py p4_proxy/proxy_agent/main.py p4_proxy/proxy_agent/p4_client.py
+   p4_proxy/proxy_agent/ryu_flow_stats.py p4_proxy/proxy_agent/topology_manager.py
+   tools/p4_exercise/common.py tools/p4_exercise/convert.py tools/p4_exercise/preflight.py clean at 67b64869

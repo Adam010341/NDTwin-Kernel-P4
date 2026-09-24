@@ -1,0 +1,8 @@
+p4_proxy_suite                           rc=0  [TopologyManager] Refusing delete for DPID 1: neither table can honour ['dl_dst']
+mutate_roles_binding                     rc=0  mutation gate: 162 mutations, 0 survived
+live07_selftest                          rc=0  SELF-TEST PASS
+check_gate_anchors                       rc=0  116/116 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+round3_red_first                         rc=0  ROUND3-RED-FIRST: every behaviour test red on the old code, every guard green
+record_at_base                           rc=0  RECORD-AT-BASE: recorder unchanged, re-recorded bytes equal the pin
+FINAL-GATES 177b9f03: ALL-AS-EXPECTED
+exit=0

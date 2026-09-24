@@ -1,0 +1,16 @@
+== 2026-09-25 00:02:56 trunk 572d9462; kernel be70b5dd32356847; disk 2.2G
+== 2026-09-25 00:02:56 start 07_roles_basic
+== 2026-09-25 00:06:08 end 07_roles_basic rc=0  last: PASS 07_roles_basic
+  claim          none
+  prev claim     orch-0924 (until 00:47:58), superseded 2026-09-25 00:06:08  (.test_run/lab.claim.prev)
+== 2026-09-25 00:06:09 start 01_baseline
+== 2026-09-25 00:06:36 end 01_baseline rc=0  last: PASS 01_baseline
+  claim          none
+  prev claim     orch-0924 (until 00:51:10), superseded 2026-09-25 00:06:36  (.test_run/lab.claim.prev)
+== 2026-09-25 00:06:37 start 06_thirteen
+== 2026-09-25 00:31:40 end 06_thirteen rc=1  last: FAIL 06_thirteen -- 1 of 26 arm(s) were not what the exercise says they should be
+  claim          none
+  prev claim     orch-0924 (until 01:15:45), superseded 2026-09-25 00:31:40  (.test_run/lab.claim.prev)
+== 2026-09-25 00:31:41 knob unchanged
+== 2026-09-25 00:31:43 p4_exercise after live rc=1  FAILED (failures=1)
+== 2026-09-25 00:31:43 DONE

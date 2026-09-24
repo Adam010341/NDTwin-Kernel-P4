@@ -1,0 +1,16 @@
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924  HEAD 57aae1bf22e90096f846b2776ec9c3847d9b699b  2026-09-24T12:52:43Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924
+# cmd bash tests/shell/mutate_path_determinism.sh
+== baseline (working tree) ==
+[32mPASS[0m  [2m10 tests[0m
+== mutations ==
+  M1 canonical_path -> nx.shortest_path          [32mcaught[0m [2mby test_every_host_pair_is_insertion_order_independent (3 red)[0m
+  M2 calculate_all_paths -> nx.shortest_path     [32mcaught[0m [2mby test_topology_manager_all_pairs_is_stable (1 red)[0m
+  M3 digest -> lowest node token                 [32mcaught[0m [2mby test_no_switch_on_a_shortest_path_is_left_dark (1 red)[0m
+  M4 hop rank keyed on the source                [32mcaught[0m [2mby test_advertised_hops_match_each_switch_own_next_hop (1 red)[0m
+  M5 blake2b -> builtin hash()                   [32mcaught[0m [2mby test_same_answer_under_different_hash_seeds (1 red)[0m
+== baseline restored ==
+[32mbyte-identical[0m
+
+5 mutations, 0 survived
+# rc=0

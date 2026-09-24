@@ -1,0 +1,29 @@
+..../home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/google/protobuf/internal/well_known_types.py:91: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+  _EPOCH_DATETIME_NAIVE = datetime.datetime.utcfromtimestamp(0)
+......F................................................................................................................................................................................
+======================================================================
+FAIL: test_every_fixture_is_still_byte_identical_to_its_tutorials_original (test_convert.FixtureProvenance.test_every_fixture_is_still_byte_identical_to_its_tutorials_original)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/tests/test_convert.py", line 572, in test_every_fixture_is_still_byte_identical_to_its_tutorials_original
+    self.assertEqual(mismatched, [],
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+                     "fixture(s) that have drifted from ~/tutorials; the tests describe a "
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                     "file shape the upstream exercise no longer has")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: ['basic/build/basic.json', 'basic/build/ba[56 chars]son'] != []
+
+First list contains 3 additional elements.
+First extra element 0:
+'basic/build/basic.json'
+
++ []
+- ['basic/build/basic.json',
+-  'basic/build/basic.p4.p4info.txtpb',
+-  'p4runtime/build/advanced_tunnel.json'] : fixture(s) that have drifted from ~/tutorials; the tests describe a file shape the upstream exercise no longer has
+
+----------------------------------------------------------------------
+Ran 187 tests in 1.701s
+
+FAILED (failures=1)

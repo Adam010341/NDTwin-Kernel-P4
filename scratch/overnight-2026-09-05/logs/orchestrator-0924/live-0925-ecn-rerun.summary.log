@@ -1,0 +1,14 @@
+== 00:34:27 ecn re-run 1 (trunk 67b64869)
+   rc=1  FAIL 06_thirteen -- 1 of 2 arm(s) were not what the exercise says they should be
+   ecn       skeleton  0   PASS (3/3)  /home/adam/Desktop/NDTwin-Kerne
+   ecn       solution  1   FAIL (1/4)  /home/adam/Desktop/NDTwin-Kerne
+== 00:36:40 ecn re-run 2 (trunk 67b64869)
+   rc=1  FAIL 06_thirteen -- 1 of 2 arm(s) were not what the exercise says they should be
+   ecn       skeleton  0   PASS (3/3)  /home/adam/Desktop/NDTwin-Kerne
+   ecn       solution  1   FAIL (1/4)  /home/adam/Desktop/NDTwin-Kerne
+== 00:38:52 ecn re-run 3 (trunk 67b64869)
+   rc=0  PASS 06_thirteen -- 2 arm(s), every arm as the exercise says it should be
+   ecn       skeleton  0   PASS (3/3)  /home/adam/Desktop/NDTwin-Kerne
+   ecn       solution  0   PASS (4/4)  /home/adam/Desktop/NDTwin-Kerne
+== p4_exercise rc=0  OK
+== DONE

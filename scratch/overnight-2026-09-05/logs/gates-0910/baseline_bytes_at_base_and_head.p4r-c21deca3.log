@@ -1,0 +1,70 @@
+# The four byte-level baseline fixtures (commit d492a346), run on two trees:
+#  (1) d492a346 extracted with git archive: production code == trunk 6291db35 (git diff --stat 6291db35 d492a346 on p4_proxy/proxy_agent, p4_proxy/mininet, tools/p4_exercise/{convert,preflight,common}.py is empty)
+#  (2) the worktree at HEAD c21deca3f13bfc4c7f56ae8b449d94a3858ecb9c
+# green on both = the refactored code emits the same bytes the base emitted. 2026-09-24T12:02:12Z
+== tree /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/at-d492
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[1] Added route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Modified route: 10.0.0.4/32 -> port 7, mac 00:00:00:00:00:04
+[1] Modified route: 10.0.0.0/24 -> port 257, mac 0a:0b:0c:0d:0e:0f
+[1] Deleted route: 10.0.0.4/32
+[1] Added 5-tuple rule prio=101 {'srcAddr': '10.0.0.1', 'dstAddr': '10.0.0.4', 'protocol': 6, 'l4_dst_port': 80} -> port 3
+[TopologyManager] could not read topology /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/at-d492/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json: [Errno 2] No such file or directory: '/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/at-d492/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json'
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 9 (MAC: 00:00:00:00:00:01)
+[1] Added route: 10.0.0.1/32 -> port 9, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[2] Added route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[3] Added route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[4] Added route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.2/32 -> Port 9 (MAC: 00:00:00:00:00:02)
+[4] Added route: 10.0.0.2/32 -> port 9, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[2] Added route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.2/32 -> Port 4 (MAC: 00:00:00:00:00:02)
+[3] Added route: 10.0.0.2/32 -> port 4, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[1] Added route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+rc=0
+test_every_file_of_every_conversion_is_the_one_the_base_wrote (test_convert.WithoutTheRoleFlagTheOutputIsByteIdenticalTest.test_every_file_of_every_conversion_is_the_one_the_base_wrote) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.015s
+
+OK
+== tree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924
+[3] Added route: 10.0.0.2/32 -> port 4, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[1] Added route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Modified route: 10.0.0.4/32 -> port 7, mac 00:00:00:00:00:04
+[1] Modified route: 10.0.0.0/24 -> port 257, mac 0a:0b:0c:0d:0e:0f
+[1] Deleted route: 10.0.0.4/32
+[1] Added 5-tuple rule prio=101 {'srcAddr': '10.0.0.1', 'dstAddr': '10.0.0.4', 'protocol': 6, 'l4_dst_port': 80} -> port 3
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 9 (MAC: 00:00:00:00:00:01)
+[1] Added route: 10.0.0.1/32 -> port 9, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[2] Added route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[3] Added route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[4] Added route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.2/32 -> Port 9 (MAC: 00:00:00:00:00:02)
+[4] Added route: 10.0.0.2/32 -> port 9, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[2] Added route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.2/32 -> Port 4 (MAC: 00:00:00:00:00:02)
+[3] Added route: 10.0.0.2/32 -> port 4, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[1] Added route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+rc=0
+test_every_file_of_every_conversion_is_the_one_the_base_wrote (test_convert.WithoutTheRoleFlagTheOutputIsByteIdenticalTest.test_every_file_of_every_conversion_is_the_one_the_base_wrote) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.009s
+
+OK

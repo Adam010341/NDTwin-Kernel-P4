@@ -1,0 +1,10 @@
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924  HEAD 3ff87a10780018b70575348b6d953a851a93b6dd  2026-09-24T14:45:00Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924
+# cmd python3 tests/shell/check_process_by_name.py
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ python3 tests/shell/check_process_by_name.py
+check_process_by_name: 2 registered audit exceptions scanned (7 file(s) under them); doc/audit/** is not a scan surface otherwise
+check_process_by_name: 319 file(s) scanned, 0 site(s), 0 registered, 0 new, 0 stale
+guarded_build: exit 0
+# rc=0

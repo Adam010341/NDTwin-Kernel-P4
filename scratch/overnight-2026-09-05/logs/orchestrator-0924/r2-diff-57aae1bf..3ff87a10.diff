@@ -1,0 +1,1786 @@
+diff --git a/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh
+index d3859d20..9a6e914e 100755
+--- a/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh
++++ b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh
+@@ -31,6 +31,11 @@
+ #   L5  negative control, the same exercise WITHOUT roles: a kernel write answers 501
+ #       `unsupported_on_p4` (reason `unbound`) and lands in the dispatch failures, and the
+ #       author's own ipv4_lpm entries are row-for-row what they were before the write.
++#       Round 2 (section 7 ruling 5, item 6): one of the writes is aimed at the author's OWN /32
++#       -- s1's 10.0.1.1, declared -> port 1, written here with port 2. That is the hazard the
++#       cut exists to close: before it, the INSERT failed on the existing /32 and the proxy
++#       fell back to a MODIFY that silently rewrote the author's entry. It must answer 501, and
++#       s1 must still send 10.0.1.1 out of port 1 afterwards.
+ #   L6  `GET /p4/switch_state` -- every switch's `capabilities` is section 2.5's
+ #       {ipv4_route: ndtwin, five_tuple: false, reroute: false, link_discovery: declared,
+ #        binding_source: package}; and on the control, {unbound, false, false, declared, null}.
+@@ -56,6 +61,9 @@ CUT='{"src_dpid":1,"src_interface":3,"dst_dpid":3,"dst_interface":1}'
+ CUT_A="1 3 3 1"; CUT_B="3 1 1 3"
+ #: A destination nothing in pod-topo owns, for L2's write and L5's refused one.
+ PROBE_DST="10.0.9.9"
++#: The author's own /32 on s1 (exercises/basic/pod-topo/s1-runtime.json: 10.0.1.1 -> port 1),
++#: and the port L5 tries to move it to.
++AUTHOR_DST="10.0.1.1"; AUTHOR_PORT=1; AUTHOR_MOVED_TO=2
+ #: What section 2.5-2 says each switch of each fabric must report.
+ CAPS_OWNED='{"ipv4_route":"ndtwin","five_tuple":false,"reroute":false,"link_discovery":"declared","binding_source":"package"}'
+ CAPS_UNBOUND='{"ipv4_route":"unbound","five_tuple":false,"reroute":false,"link_discovery":"declared","binding_source":null}'
+@@ -338,10 +346,18 @@ for d in (1, 2):
+                       ("moved", [row("10.0.1.1", 2)])):
+         with open(os.path.join(t, sub, f"stats_flow_{d}.json"), "w") as fh:
+             json.dump({str(d): rows}, fh)
++disabled = copy.deepcopy(up)
++disabled["edges"][2]["is_enabled"] = False     # up, but the kernel has not enabled it
++dump("graph_disabled.json", disabled)
+ open(os.path.join(t, "code_501"), "w").write("501\n")
+ open(os.path.join(t, "code_500"), "w").write("500\n")
+ dump("body_501.json", {"detail": {"error": "no NDTwin route binding for this write",
+                                   "outcome": "unsupported_on_p4", "reason": "unbound"}})
++dump("body_501_owned.json", {"detail": {"error": "no NDTwin route binding for this write",
++                                        "outcome": "unsupported_on_p4",
++                                        "reason": "owned_by_package"}})
++dump("body_501_other.json", {"detail": {"error": "group tables are not supported",
++                                        "outcome": "not_implemented", "reason": "unbound"}})
+ dump("dispatch_clean.json", {"request_id": 7, "enqueued": 1, "complete": True,
+                              "counters": {"dispatched": 1, "dispatched_ok": 1,
+                                           "dispatch_failed": 0},
+@@ -352,6 +368,8 @@ dump("dispatch_failed.json", {"request_id": 8, "enqueued": 1, "complete": True,
+                               "switch_outcome": {"rejected_by_switch": 1}})
+ dump("dispatch_global.json", {"recent_failures": [{"dpid": 1, "message":
+     'HTTP 501: {"detail":{"error":"no NDTwin route binding for this write","outcome":"unsupported_on_p4","reason":"unbound"'}]})
++dump("dispatch_global_owned.json", {"recent_failures": [{"dpid": 1, "message":
++    'HTTP 501: {"detail":{"error":"no NDTwin route binding for this write","outcome":"unsupported_on_p4","reason":"owned_by_package"'}]})
+ dump("dispatch_global_empty.json", {"recent_failures": []})
+ open(os.path.join(t, "tc_clean"), "w").write("qdisc noqueue 0: root refcnt 2\n")
+ open(os.path.join(t, "tc_netem"), "w").write("qdisc netem 8001: root refcnt 2 limit 1000 loss 100%\n")
+@@ -364,11 +382,13 @@ PY
+     expect OK  "L1 all eight up"                 "$(edges_all_up "$t/graph_up.json" "$t/model.json")"
+     expect BAD "L1 all eight down (062604Z's shape)" "$(edges_all_up "$t/graph_all_down.json" "$t/model.json")"
+     expect BAD "L1 one direction down"           "$(edges_all_up "$t/graph_half_cut.json" "$t/model.json")"
++    expect BAD "L1 up but not enabled"           "$(edges_all_up "$t/graph_disabled.json" "$t/model.json")"
+     expect OK  "L4 the cut is down both ways"    "$(cut_is_down "$t/graph_cut.json")"
+     expect BAD "L4 only one direction down"      "$(cut_is_down "$t/graph_half_cut.json")"
+     expect BAD "L4 nothing down"                 "$(cut_is_down "$t/graph_up.json")"
+     expect OK  "L4 back up"                      "$(cut_is_up "$t/graph_up.json")"
+     expect BAD "L4 still down"                   "$(cut_is_up "$t/graph_cut.json")"
++    expect BAD "L4 only one direction back up"   "$(cut_is_up "$t/graph_half_cut.json")"
+     expect OK  "L4 no netem left"                "$(no_netem "$t/tc_clean" "$t/tc_clean")"
+     expect BAD "L4 netem left on one end"        "$(no_netem "$t/tc_clean" "$t/tc_netem")"
+     expect OK  "L6 capabilities owned"           "$(caps_are "$t/state_owned.json" "$CAPS_OWNED")"
+@@ -387,9 +407,12 @@ PY
+     expect BAD "L2 dispatch failed"              "$(dispatch_clean "$t/dispatch_failed.json")"
+     expect OK  "L5 the proxy said 501 unbound"   "$(refused_501 "$t/code_501" "$t/body_501.json")"
+     expect BAD "L5 a 500 is not the 501"         "$(refused_501 "$t/code_500" "$t/body_501.json")"
++    expect BAD "L5 a 501 for another reason"     "$(refused_501 "$t/code_501" "$t/body_501_owned.json")"
++    expect BAD "L5 a 501 that is not unsupported_on_p4" "$(refused_501 "$t/code_501" "$t/body_501_other.json")"
+     expect OK  "L5 dispatch failed, reason kept" "$(dispatch_refused_unbound "$t/dispatch_failed.json" "$t/dispatch_global.json")"
+     expect BAD "L5 a clean dispatch is not the refusal" "$(dispatch_refused_unbound "$t/dispatch_clean.json" "$t/dispatch_global.json")"
+     expect BAD "L5 no failure record names it"   "$(dispatch_refused_unbound "$t/dispatch_failed.json" "$t/dispatch_global_empty.json")"
++    expect BAD "L5 a refusal for another reason" "$(dispatch_refused_unbound "$t/dispatch_failed.json" "$t/dispatch_global_owned.json")"
+     expect OK  "L5 counters moved, rows did not" "$(rows_unchanged "$t/before" "$t/same")"
+     expect BAD "L5 a row changed"                "$(rows_unchanged "$t/before" "$t/moved")"
+     # 🔴 Against the REAL capture the ticket reconciles L1 with, where it exists on this machine:
+@@ -658,6 +681,13 @@ if (( DOWN_RC == 0 )); then
+             "{\"dpid\":1,\"match\":{\"dl_type\":2048,\"nw_dst\":\"$PROBE_DST\"},\"actions\":[{\"type\":\"OUTPUT\",\"port\":3}]}" \
+             "$RUN/73_proxy_add"
+         judge "$(refused_501 "$RUN/73_proxy_add.code" "$RUN/73_proxy_add.json")" "L5 proxy"
++        # The author's OWN /32 with another port -- round 1's silent-MODIFY hazard, aimed at
++        # directly (section 7 ruling 5, item 6).
++        post_json "$PROXY_URL/stats/flowentry/add" \
++            "{\"dpid\":1,\"match\":{\"dl_type\":2048,\"nw_dst\":\"$AUTHOR_DST\"},\"actions\":[{\"type\":\"OUTPUT\",\"port\":$AUTHOR_MOVED_TO}]}" \
++            "$RUN/73b_proxy_add_author_32"
++        judge "$(refused_501 "$RUN/73b_proxy_add_author_32.code" "$RUN/73b_proxy_add_author_32.json")" \
++              "L5 proxy, the author's own /32"
+         RID3="$(batch "$INSTALL" "$RUN/74_batch_install_plain")"
+         note "kernel batch: HTTP $(cat "$RUN/74_batch_install_plain.code" 2>/dev/null) request_id=${RID3:-none}"
+         if [[ -n "$RID3" ]] && dispatch_until "$RID3" "$RUN/75_dispatch_plain.json"; then
+@@ -667,8 +697,22 @@ if (( DOWN_RC == 0 )); then
+         else
+             fail "L5: the kernel batch has no completed dispatch record (request_id '${RID3:-none}')"
+         fi
++        # Through the kernel too: the same /32 in a batch install, which the kernel dispatches
++        # to the proxy exactly as it dispatched the one above.
++        INSTALL_AUTHOR="{\"install_flow_entries\":[{\"dpid\":1,\"priority\":10,\"match\":{\"eth_type\":2048,\"ipv4_dst\":\"$AUTHOR_DST\"},\"actions\":[{\"type\":\"OUTPUT\",\"port\":$AUTHOR_MOVED_TO}]}],\"modify_flow_entries\":[],\"delete_flow_entries\":[]}"
++        RID4="$(batch "$INSTALL_AUTHOR" "$RUN/76b_batch_install_author_32")"
++        note "kernel batch at the author's /32: HTTP $(cat "$RUN/76b_batch_install_author_32.code" 2>/dev/null) request_id=${RID4:-none}"
++        if [[ -n "$RID4" ]] && dispatch_until "$RID4" "$RUN/76c_dispatch_author_32.json"; then
++            get_json "$KERNEL_URL/ndt/get_flow_dispatch_status" "$RUN/76d_dispatch_global.json" || true
++            judge "$(dispatch_refused_unbound "$RUN/76c_dispatch_author_32.json" "$RUN/76d_dispatch_global.json")" \
++                  "L5 recent_failures, the author's own /32"
++        else
++            fail "L5: the author-/32 batch has no completed dispatch record (request_id '${RID4:-none}')"
++        fi
+         stats_flows "$RUN/77_after"
+         judge "$(rows_unchanged "$RUN/72_before" "$RUN/77_after")" "L5 author's entries"
++        judge "$(flow_has "$RUN/77_after/stats_flow_1.json" 1 "$AUTHOR_DST" "$AUTHOR_PORT")" \
++              "L5 the author's /32 still goes out of port $AUTHOR_PORT"
+         # Recorded: the same declared links on the control fabric, and the author's own
+         # forwarding (NDTwin wrote nothing here).
+         V="$(graph_until 30 edges_all_up "$RUN/78_graph_plain.json" "$PKG_PLAIN/ndtwin/topology.json")"
+diff --git a/p4_proxy/proxy_agent/api_routes.py b/p4_proxy/proxy_agent/api_routes.py
+index 69a108ca..3356c92a 100644
+--- a/p4_proxy/proxy_agent/api_routes.py
++++ b/p4_proxy/proxy_agent/api_routes.py
+@@ -137,6 +137,18 @@ capabilities_report = None
+ flow_stats_report = None
+ 
+ 
++#: TICKET-P4-roles section 7 ruling 5, item 8: what seeding the declared links did, for the
++#: FABRIC -- {directions, error} on a fabric whose links are declared, null on one whose are
++#: not. Its own injector, for the same reason as the one below: not injected, no key.
++#: [Co-developed with claude code -- Adam]
++declared_links_report = None
++
++
++def inject_declared_links_report(report):
++    global declared_links_report
++    declared_links_report = report
++
++
+ def inject_roles_reports(capabilities, flow_stats):
+     global capabilities_report, flow_stats_report
+     capabilities_report = capabilities
+@@ -744,8 +756,9 @@ async def switch_state():
+     #                 ndtwin / package / unbound), five_tuple, reroute, link_discovery and
+     #                 binding_source. Appendix A of the ticket: the kernel will copy this object
+     #                 verbatim onto get_graph_data's node in the third cut.
+-    #   flow_stats    `unrendered_entries`: how many rows the last /stats/flow render of this
+-    #                 switch left out because their action is not one it recognises.
++    #   flow_stats    `unrendered_entries`: how many non-default rows the last /stats/flow
++    #                 render of this switch did not list -- an action it does not recognise, or
++    #                 a match it cannot translate (section 7 ruling 5, item 3).
+     if capabilities_report is not None:
+         caps = capabilities_report()
+         for dpid, entry in state.get("switches", {}).items():
+@@ -754,6 +767,11 @@ async def switch_state():
+         rendered = flow_stats_report()
+         for dpid, entry in state.get("switches", {}).items():
+             entry["flow_stats"] = rendered.get(str(dpid), {"unrendered_entries": None})
++    # [Co-developed with claude code -- Adam] Section 7 ruling 5, item 8: top level, because a
++    # seed runs once for the whole fabric. `link_discovery` says the fabric's links are
++    # DECLARED; this says whether the declaration actually reached the graph.
++    if declared_links_report is not None:
++        state["declared_links"] = declared_links_report()
+     return state
+ 
+ 
+diff --git a/p4_proxy/proxy_agent/main.py b/p4_proxy/proxy_agent/main.py
+index 48b166c3..911ed9ee 100644
+--- a/p4_proxy/proxy_agent/main.py
++++ b/p4_proxy/proxy_agent/main.py
+@@ -1094,11 +1094,22 @@ _pre_entries.update({str(dpid): _blank_pre_counts() for dpid in DEFAULT_SWITCH_D
+ # 🔴 "none" is not in the ticket's two-word list, on purpose and disclosed (P4-R-SUMMARY,
+ # Dissent): under `control_plane.mode: external` nothing discovers links and nothing seeds them
+ # (this cut leaves external exactly as it was, 2.2-4), and "lldp" or "declared" would each be a
+-# claim about a mechanism that is not running.
++# claim about a mechanism that is not running. Appendix A carries it since section 7 ruling 5.
++#
++# 🔴 THE WORD IS THE FABRIC'S MODE, NOT WHAT HAPPENED TO IT (section 7 ruling 5, item 8). Round 1
++# said "none" when the seed entered nothing or raised, so a foreign fabric with a broken model
++# read exactly like an external one. Now: external -> "none", any other fabric with a foreign
++# switch -> "declared", every other fabric -> "lldp" -- whether LLDP started (`reroute` says
++# that) and whether the declaration reached the graph (the fabric-level `declared_links` on
++# switch_state says that) are separate facts, reported separately.
+ 
+ #: What startup did to the fabric as a whole. None until it has run; the endpoint predicts from
+ #: the package until then, like `_pipelines`.
+-_fabric = {"lldp": None, "watchdog": None, "declared_links": None}
++_fabric = {"lldp": None, "watchdog": None, "declared_links": None,
++           # {directions, error} once a foreign fabric's startup has tried the seed; None on
++           # every other fabric. Section 7 ruling 5, item 8. [Co-developed with claude code --
++           # Adam]
++           "declared_links_seed": None}
+ 
+ #: {dpid as string: capabilities}, re-recorded by startup and readopt.
+ _capabilities = {}
+@@ -1116,12 +1127,12 @@ def capabilities_for(owner_word, source_word, ndtwin, external, fabric):
+         # (`_refuse_write`, 409 on /p4/table_entry) whatever the roles say.
+         owner_word = (route_binding.OWNER_PACKAGE if source_word is not None
+                       else route_binding.REASON_UNBOUND)
+-    if fabric.get("lldp"):
+-        discovery = "lldp"
++    if external:
++        discovery = "none"
+     elif fabric.get("declared_links"):
+         discovery = "declared"
+     else:
+-        discovery = "none"
++        discovery = "lldp"
+     return {
+         "ipv4_route": owner_word,
+         "five_tuple": bool(ndtwin and not external
+@@ -1171,10 +1182,11 @@ def capabilities_report():
+ def flow_stats_report():
+     """{dpid as string: {"unrendered_entries": n or None}} from each client's last render.
+ 
+-    [Co-developed with claude code -- Adam] TICKET-P4-roles 2.5-1. The count is of rows the most
+-    recent /stats/flow render of that switch left OUT because their action is not one it
+-    recognises (a foreign pipeline only -- NDTwin's own renders every action it has). None
+-    before the first render: "nobody rendered this switch" is not "nothing was left out".
++    [Co-developed with claude code -- Adam] TICKET-P4-roles 2.5-1. The count is of the non-default
++    rows the most recent /stats/flow render of that switch did not list -- an action it does not
++    recognise, or a match it cannot translate (section 7 ruling 5, item 3) -- on a foreign
++    pipeline only; NDTwin's own is 0 once read. None before the first render: "nobody rendered
++    this switch" is not "nothing was left out".
+     """
+     out = {}
+     for dpid, client in list(topo.switches.items()):
+@@ -1210,6 +1222,24 @@ def routes_owned_by_ndtwin(clients, foreign):
+     return True
+ 
+ 
++def declared_links_report():
++    """{"directions": n, "error": "Type: message" or None} on a fabric whose links are declared,
++    None on one whose are not (or before startup). Section 7 ruling 5, item 8.
++    [Co-developed with claude code -- Adam]"""
++    seed = _fabric.get("declared_links_seed")
++    if not _fabric.get("declared_links") or seed is None:
++        return None
++    return dict(seed)
++
++
++def _fabric_installs_routes():
++    """Whether startup left install_initial_routes ON for this fabric. False before startup
++    has recorded anything: no decision is not a yes. Section 7 ruling 5, item 1.
++    [Co-developed with claude code -- Adam]"""
++    skipped = _control_plane.get("skipped")
++    return skipped is not None and SKIP_ROUTES not in skipped
++
++
+ def _record_and_report_capabilities(package, clients, foreign):
+     _record_capabilities(package, clients, foreign)
+     return capabilities_report()
+@@ -1227,23 +1257,27 @@ def _declared_links_path(package):
+ 
+ 
+ def _seed_declared_links(topo, package):
+-    """Enter the package topology's inter-switch links into the proxy's graph. Returns the count.
++    """Enter the package topology's inter-switch links into the proxy's graph.
++
++    Returns `(directions entered, "Type: message" or None)`.
+ 
+     [Co-developed with claude code -- Adam] TICKET-P4-roles 2.3-1. Never raises: a fabric whose
+-    links could not be declared still forwards on the package's own entries, and the endpoint
+-    says `link_discovery: "none"` rather than claiming a declaration that did not happen.
++    links could not be declared still forwards on the package's own entries. What went wrong is
++    returned, and served as the fabric-level `declared_links.error` on switch_state (section 7
++    ruling 5, item 8) -- round 1 folded it into `link_discovery: "none"`, which is external's
++    word.
+     """
+     try:
+         seeded = topo.seed_declared_links(_declared_links_path(package))
+     except Exception as e:  # noqa: BLE001 -- disclosed below, never fatal
+         print(f"[Proxy Agent] could not enter the package's declared links "
+               f"({type(e).__name__}: {e}); the twin's inter-switch edges stay disabled")
+-        return 0
++        return 0, f"{type(e).__name__}: {e}"
+     print(f"[Proxy Agent] {seeded} declared inter-switch link direction(s) entered from the "
+           f"package topology. Their is_up is the DECLARATION, not failure detection: this "
+           f"fabric runs no LLDP and no watchdog, so a cut link is not noticed and not "
+           f"rerouted around (capabilities.reroute is false).")
+-    return seeded
++    return seeded, None
+ 
+ 
+ def _install_owned_routes(topo):
+@@ -1377,6 +1411,16 @@ def readopt_switch(topology, dpid, client_factory, sample_callback, package=None
+             f"this switch on purpose. Its samples come from somewhere else, and programming "
+             f"one here would count every packet twice")
+ 
++    if (ndtwin and result.get("status") == "success"
++            and getattr(topology, "routes_to_attached_hosts_only", False)):
++        # Section 7 ruling 5, item 1. [Co-developed with claude code -- Adam]
++        result["routes_scope"] = "attached_hosts"
++        result["routes_note"] = (
++            f"this fabric skips {SKIP_ROUTES} (a switch on it runs a package pipeline whose "
++            f"route table NDTwin may not write), so the refill wrote only the routes to hosts "
++            f"attached to this switch; a route through another switch would be a path "
++            f"half-installed")
++
+     if ndtwin or result.get("status") != "success":
+         return result
+ 
+@@ -1405,8 +1449,14 @@ def readopt_switch(topology, dpid, client_factory, sample_callback, package=None
+     # else would put them back (no watchdog runs here), and a package with owner ndtwin carries
+     # no entries of its own for that table, so the switch would come back forwarding nothing.
+     # After the package's entries, so the table's default action is in place first.
+-    foreign = {d for d in topology.switches if not _pipeline_is_ndtwin(package, d)}
+-    if routes_owned_by_ndtwin(topology.switches, foreign):
++    #
++    # 🔴 THE SAME PREDICATE AS STARTUP (section 7 ruling 5, item 1): the FABRIC did not skip the
++    # routes, and THIS switch's new binding is owner ndtwin. Round 1 asked whether every client
++    # is owned now -- so a switch that was unbound or absent at startup (routes skipped for the
++    # whole fabric) and came back owned got NDTwin's routes while no other switch had any.
++    binding = getattr(topology.switches.get(dpid), "route_binding", None)
++    if (_fabric_installs_routes() and binding is not None
++            and binding.owner == route_binding.OWNER_NDTWIN):
+         routes, attempted = topology.install_initial_routes(only_dpid=dpid)
+         result.update({"routes": "installed", "routes_installed": routes,
+                        "routes_attempted": attempted,
+@@ -1434,6 +1484,9 @@ api_routes.inject_telemetry_reports(telemetry_report, pre_entries_report,
+ # TICKET-P4-roles 2.5: per-switch `capabilities` and `flow_stats`. [Co-developed with claude
+ # code -- Adam]
+ api_routes.inject_roles_reports(capabilities_report, flow_stats_report)
++# Section 7 ruling 5, item 8: the fabric-level outcome of the seed. [Co-developed with claude
++# code -- Adam]
++api_routes.inject_declared_links_report(declared_links_report)
+ 
+ 
+ async def startup(clients_factory, sflow, kernel, topo,
+@@ -1490,7 +1543,7 @@ async def startup(clients_factory, sflow, kernel, topo,
+     # What this startup does to the fabric as a whole, recorded as it happens (TICKET-P4-roles
+     # 2.5-2). Reset first: a module global that kept the last run's answer would describe a
+     # fabric that is not this one. [Co-developed with claude code -- Adam]
+-    _fabric.update(lldp=False, watchdog=False, declared_links=False)
++    _fabric.update(lldp=False, watchdog=False, declared_links=False, declared_links_seed=None)
+ 
+     clients = clients_factory()
+     for dpid, client in clients.items():
+@@ -1860,14 +1913,23 @@ async def startup(clients_factory, sflow, kernel, topo,
+         # LLDP, through the same add_link LLDP uses -- and NOTHING is sent to the kernel's
+         # link_recovery_detected / link_failure_detected. A declaration says "this cable exists",
+         # not "this cable just came back"; see TopologyManager.seed_declared_links.
+-        seeded = _seed_declared_links(topo, package)
+-        _fabric.update(lldp=False, watchdog=False, declared_links=seeded > 0)
+-        if routes_owned:
+-            route_counts = _install_owned_routes(topo)
++        # 🔴 `declared_links` is the MODE, set whatever the seed managed (section 7 ruling 5,
++        # item 8); the seed's own outcome is `declared_links_seed`, served at fabric level.
++        seeded, seed_error = _seed_declared_links(topo, package)
++        _fabric.update(lldp=False, watchdog=False, declared_links=True,
++                       declared_links_seed={"directions": seeded, "error": seed_error})
+     elif read_only:
+         # `external`: nothing discovers links and nothing seeds them -- unchanged by this cut.
+         _fabric.update(lldp=False, watchdog=False, declared_links=False)
+ 
++    # [Co-developed with claude code -- Adam] Section 7 ruling 5, item 1: the fabric's route
++    # skip reaches the route writer itself, so every later writer (readopt's refill) obeys it --
++    # not only this startup. Set before the one install below, which only runs when the routes
++    # are NOT skipped.
++    topo.routes_to_attached_hosts_only = SKIP_ROUTES in skipped
++    if routes_owned:
++        route_counts = _install_owned_routes(topo)
++
+     # Start LLDP dynamic topology discovery
+     #
+     # Skipped under an external control plane: discovery works by sending packet-outs and
+diff --git a/p4_proxy/proxy_agent/ryu_flow_stats.py b/p4_proxy/proxy_agent/ryu_flow_stats.py
+index 0c2bf288..e10c4363 100644
+--- a/p4_proxy/proxy_agent/ryu_flow_stats.py
++++ b/p4_proxy/proxy_agent/ryu_flow_stats.py
+@@ -45,8 +45,13 @@ ETH_TYPE_IPV4 = 0x0800
+ # P4 field name -> Ryu match key. Derived from ndtwin_switch.p4's table keys; anything not
+ # listed is deliberately dropped, because the Classifier ignores unknown keys anyway and
+ # passing them through would only make the payload look richer than it is.
++#
++# [Co-developed with claude code -- Adam] TICKET-P4-roles section 7 ruling 5, item 2: the route
++# match field is BASELINE's, like the route action below -- `hdr.ipv4.dstAddr` is written once,
++# in route_binding.BASELINE. (flow_5tuple matches on the same header field and reads it back
++# under this same key, so this one entry serves both of NDTwin's tables.)
+ FIELD_TO_RYU = {
+-    "hdr.ipv4.dstAddr": "nw_dst",
++    route_binding.BASELINE.match_field: "nw_dst",
+     "hdr.ipv4.srcAddr": "nw_src",
+     "hdr.ipv4.protocol": "nw_proto",
+     "meta.l4_src_port": "tp_src",
+@@ -259,6 +264,14 @@ def entry_to_ryu(entry: dict, age_seconds: Optional[float] = None, field_to_ryu=
+ # LISTED, and `GET /p4/switch_state` says how many were left out (`flow_stats.unrendered_entries`):
+ # a rule the twin cannot describe is absent and counted, never described wrongly.
+ #
++# 🔴 THE COUNT IS EVERY NON-DEFAULT ROW NOT LISTED (section 7 ruling 5, item 3): an unknown
++# action, OR a match this module cannot translate (reporting that row would be a match-everything
++# rule, so it is not listed on any pipeline). Round 1 counted only unknown-action rows whose match
++# it could translate -- and a foreign program's non-route tables match on the program's own
++# field names (renamed_route's proto_tags: `hdr.ip4.proto`), so its real rows were neither listed
++# nor counted. A default row is not a rule and is never counted. NDTwin's own pipeline is not
++# counted at all: its body is the base's, byte for byte, and its count stays 0.
++#
+ # The route action is recognised through the switch's binding: a package's roles add its own
+ # route action and match field to NDTwin's vocabulary. An UNBOUND foreign switch is rendered in
+ # NDTwin's vocabulary, as it was before roles existed -- so a package without roles keeps its
+@@ -304,12 +317,9 @@ def render_flow_stats_counted(dpid: int, entries, install_times=None,
+     field_to_ryu, forwarding_actions = _vocabulary(binding)
+     flows, unrendered = [], 0
+     for entry in entries or []:
+-        if (foreign and not entry.get("is_default")
+-                and not recognises_action(entry.get("action"), forwarding_actions)):
+-            # Counted only when it would otherwise have been listed: a default row or a row
+-            # with no usable match is never reported, on any pipeline, so it is not "left out".
+-            if _match_to_ryu(entry.get("match") or {}, field_to_ryu):
+-                unrendered += 1
++        counts = foreign and not entry.get("is_default")
++        if counts and not recognises_action(entry.get("action"), forwarding_actions):
++            unrendered += 1
+             continue
+         age = None
+         if install_times is not None:
+@@ -319,6 +329,9 @@ def render_flow_stats_counted(dpid: int, entries, install_times=None,
+                                  forwarding_actions=forwarding_actions)
+         if converted is not None:
+             flows.append(converted)
++        elif counts:
++            # A known action on a match this module cannot translate: not listed, so counted.
++            unrendered += 1
+     return {str(dpid): flows}, unrendered
+ 
+ 
+diff --git a/p4_proxy/proxy_agent/topology_manager.py b/p4_proxy/proxy_agent/topology_manager.py
+index 32457b5c..c242a173 100644
+--- a/p4_proxy/proxy_agent/topology_manager.py
++++ b/p4_proxy/proxy_agent/topology_manager.py
+@@ -656,6 +656,16 @@ class TopologyManager:
+         #: `link_liveness`. [Co-developed with claude code -- Adam]
+         self._declared_links = set()
+ 
++        #: TICKET-P4-roles section 7 ruling 5, item 1. True on a fabric that skips
++        #: install_initial_routes (startup sets it from `control_plane.skipped`): every route
++        #: written after that -- readopt's refill is the one writer left there -- stops at the
++        #: hosts attached to the switch it is written on. Before the declared links existed,
++        #: `net` had no inter-switch edge on such a fabric and no other route was computable;
++        #: with them, a shortest path can cross a switch whose table NDTwin may not write, and
++        #: that is a path half-installed. False (every host, as before) everywhere else.
++        #: [Co-developed with claude code -- Adam]
++        self.routes_to_attached_hosts_only = False
++
+         #: TICKET-P4-roles 2.4 -- what `report_external_link_state` has been told, and what it
+         #: did with it. Guarded by _liveness_lock. [Co-developed with claude code -- Adam]
+         self._external_reports = {"received": 0, "routed_through_watchdog": 0,
+@@ -1257,6 +1267,12 @@ class TopologyManager:
+                 path = path_info['path']
+                 # The next node in the path
+                 next_node = path[path.index(src) + 1]
++                if self.routes_to_attached_hosts_only and next_node != dst:
++                    # Crosses another switch on a fabric that skips its routes -- see
++                    # `routes_to_attached_hosts_only`. Not attempted, so not counted: the same
++                    # answer the graph gave before the declared links were in it.
++                    # [Co-developed with claude code -- Adam]
++                    continue
+                 # The port connecting src to next_node
+                 out_port = self.net.edges[src, next_node]['port']
+ 
+diff --git a/p4_proxy/tests/record_stats_flow_http_body.py b/p4_proxy/tests/record_stats_flow_http_body.py
+new file mode 100644
+index 00000000..121f3983
+--- /dev/null
++++ b/p4_proxy/tests/record_stats_flow_http_body.py
+@@ -0,0 +1,109 @@
++"""
++Records the HTTP body `GET /stats/flow/1` answers for a switch on NDTwin's own pipeline.
++
++[Co-developed with claude code -- Adam]
++TICKET-P4-roles section 7 ruling 5, item 4. The roles ticket promises that NDTwin's own
++/stats/flow body does not move by one byte. Round 1 pinned the renderer's output serialised with
++`json.dumps(sort_keys=True)` -- which cannot see a change of key order, and key order is exactly
++what the kernel's parser receives. This records the bytes FastAPI itself hands the ASGI server as
++the response body (its own serialisation: key order, separators, escaping), with no
++re-serialisation by the test, so the constant it produced can be compared byte for byte.
++
++PROVENANCE of `BASELINE_NDTWIN_HTTP_BODY` in tests/test_flow_stats_route.py:
++  This file, copied VERBATIM into a `git archive d492a346 p4_proxy setting` tree -- d492a346 is
++  the commit that added the round-1 base captures and changes no production file, so its
++  p4_proxy/proxy_agent is trunk 6291db35's (`git diff 6291db35 d492a346 -- p4_proxy/proxy_agent
++  p4_proxy/mininet` is empty) -- and run there, on 2026-09-24, as
++
++      cd p4_proxy && PYTHONPATH=. PYTHONDONTWRITEBYTECODE=1 venv/bin/python \
++          tests/record_stats_flow_http_body.py
++
++  printed the constant, its length and its sha256; the run is logged in
++  scratch/overnight-2026-09-05/logs/gates-0910/record_stats_flow_http_body_at_base.p4r-*.log.
++  Only what existed at d492a346 is used: `api_routes.router` / `api_routes.topology`,
++  `RuleInstallTimes`, and `tests.test_ryu_flow_stats.ndtwin_pipeline_rows` (which d492a346
++  itself added: every row shape ndtwin_switch.p4's tables can hold).
++
++The client double carries NO `route_binding`, as no client did at the base; the HEAD test runs
++it both ways (absent, and bound to BASELINE -- what every real NDTwin client carries now).
++"""
++
++from __future__ import annotations
++
++import asyncio
++import hashlib
++import os
++import sys
++
++sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
++
++
++class NdtwinClient:
++    """What get_flow_stats reads off a client: the rows and the client's own install record."""
++
++    def __init__(self, rows):
++        from proxy_agent.rule_install_times import RuleInstallTimes
++
++        self.rule_install_times = RuleInstallTimes()
++        self._rows = rows
++
++    def read_table_entries(self):
++        return list(self._rows)
++
++
++class Topology:
++    def __init__(self, switches):
++        self.switches = switches
++
++
++def asgi_get(app, path):
++    """(status, content-type, body bytes) of one GET, through the ASGI interface itself."""
++    scope = {"type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1",
++             "method": "GET", "scheme": "http", "path": path, "raw_path": path.encode(),
++             "root_path": "", "query_string": b"", "headers": [],
++             "client": ("127.0.0.1", 50000), "server": ("127.0.0.1", 8081)}
++    sent = []
++
++    async def receive():
++        return {"type": "http.request", "body": b"", "more_body": False}
++
++    async def send(message):
++        sent.append(message)
++
++    asyncio.run(app(scope, receive, send))
++    start = next(m for m in sent if m["type"] == "http.response.start")
++    body = b"".join(m.get("body", b"") for m in sent if m["type"] == "http.response.body")
++    headers = {k.decode("latin-1"): v.decode("latin-1") for k, v in start["headers"]}
++    return start["status"], headers.get("content-type"), body
++
++
++def record(client_attributes=None):
++    """GET /stats/flow/1 for an NDTwin-pipeline client holding every row shape it can hold."""
++    from fastapi import FastAPI
++
++    from proxy_agent import api_routes
++    from tests.test_ryu_flow_stats import ndtwin_pipeline_rows
++
++    client = NdtwinClient(ndtwin_pipeline_rows())
++    for name, value in (client_attributes or {}).items():
++        setattr(client, name, value)
++    app = FastAPI()
++    app.include_router(api_routes.router)
++    saved = api_routes.topology
++    api_routes.topology = Topology({1: client})
++    try:
++        return asgi_get(app, "/stats/flow/1")
++    finally:
++        api_routes.topology = saved
++
++
++if __name__ == "__main__":
++    status, content_type, body = record()
++    print(f"status       {status}")
++    print(f"content-type {content_type}")
++    print(f"length       {len(body)}")
++    print(f"sha256       {hashlib.sha256(body).hexdigest()}")
++    print("BASELINE_NDTWIN_HTTP_BODY = (")
++    for i in range(0, len(body), 76):
++        print(f"    {body[i:i + 76]!r}")
++    print(")")
+diff --git a/p4_proxy/tests/test_declared_links.py b/p4_proxy/tests/test_declared_links.py
+index 86d3fc77..8281dc19 100644
+--- a/p4_proxy/tests/test_declared_links.py
++++ b/p4_proxy/tests/test_declared_links.py
+@@ -184,14 +184,18 @@ class SeedingTheGraphTest(unittest.TestCase):
+ class SeedingTopo(FakeTopo):
+     """FakeTopo plus the two calls a foreign fabric's startup now makes."""
+ 
+-    def __init__(self):
++    def __init__(self, seed_result=8):
+         super().__init__()
+         self.seeded = []
+         self.installs = 0
++        #: What seed_declared_links answers: a count, or an exception it raises.
++        self.seed_result = seed_result
+ 
+     def seed_declared_links(self, path=None):
+         self.seeded.append(path)
+-        return 8
++        if isinstance(self.seed_result, BaseException):
++            raise self.seed_result
++        return self.seed_result
+ 
+     def install_initial_routes(self, only_dpid=None):
+         self.installs += 1
+@@ -261,6 +265,22 @@ class WhichFabricsSeedAndWhenRoutesComeBackTest(unittest.TestCase):
+         _summary, topo = self.start(clients_bound(None, None), a_foreign_package())
+         self.assertEqual(len(topo.seeded), 1)
+ 
++    def test_a_fabric_that_skips_its_routes_tells_the_route_writer(self):
++        # Section 7 ruling 5 item 1: the declared cables are in `net` now, so the fabric's
++        # route skip has to reach whatever writes routes later (readopt), not only startup.
++        _summary, topo = self.start(clients_bound(None, None), a_foreign_package())
++        self.assertIs(topo.routes_to_attached_hosts_only, True)
++
++    def test_a_fabric_whose_routes_ndtwin_owns_does_not_restrict_the_writer(self):
++        _summary, topo = self.start(clients_bound(bound("ndtwin"), bound("ndtwin")),
++                                    a_foreign_package(owner="ndtwin"))
++        self.assertIs(topo.routes_to_attached_hosts_only, False)
++        self.assertEqual(topo.installs, 1)
++
++    def test_an_all_ndtwin_fabric_does_not_restrict_the_writer(self):
++        _summary, topo = self.start({1: FakeClient(1), 2: FakeClient(2)}, app_package.baseline())
++        self.assertIs(topo.routes_to_attached_hosts_only, False)
++
+     def test_every_foreign_switch_owned_by_ndtwin_brings_the_routes_back(self):
+         summary, topo = self.start(clients_bound(bound("ndtwin"), bound("ndtwin")),
+                                    a_foreign_package(owner="ndtwin"))
+@@ -303,10 +323,75 @@ class WhichFabricsSeedAndWhenRoutesComeBackTest(unittest.TestCase):
+         self.assertEqual(topo.seeded, [])
+ 
+     def test_a_topology_double_without_the_seeding_call_does_not_stop_startup(self):
+-        # Every pre-roles FakeTopo is this; the endpoint then says link_discovery "none".
++        # Every pre-roles FakeTopo is this. Round 2 (TICKET-P4-roles section 7 ruling 5, item
++        # 8): the fabric's MODE is still "declared" -- the seed failing does not make it an
++        # external fabric -- and the failure is disclosed at fabric level instead.
+         summary, _parts = run_startup(clients_bound(None), topo=FakeTopo(),
+                                       package=a_foreign_package(dpids=(1,)))
+-        self.assertEqual(summary["capabilities"]["1"]["link_discovery"], "none")
++        self.assertEqual(summary["capabilities"]["1"]["link_discovery"], "declared")
++        self.assertIn("AttributeError", main.declared_links_report()["error"])
++
++
++@unittest.skipUnless(HAVE_PROXY, "proxy dependencies not available in this interpreter")
++class LinkDiscoveryIsTheModeNotTheSeedCountTest(unittest.TestCase):
++    """
++    TICKET-P4-roles section 7 ruling 5, item 8. [Co-developed with claude code -- Adam]
++
++    Round 1 derived `link_discovery` from how many directions the seed entered, so a foreign
++    fabric whose package declares no inter-switch cable -- or whose seed raised -- said "none",
++    the word that also means an external control plane. A reader could not tell the two apart.
++    The word is now the fabric's MODE (lldp / declared / none = external only), and what the
++    seed actually did is a separate, fabric-level `declared_links` object on switch_state.
++    """
++
++    def setUp(self):
++        saved = (dict(main._fabric), dict(main._capabilities))
++
++        def restore():
++            main._fabric.clear()
++            main._fabric.update(saved[0])
++            main._capabilities.clear()
++            main._capabilities.update(saved[1])
++        self.addCleanup(restore)
++
++    def start(self, topo, package=None, clients=None):
++        clients = clients_bound(None) if clients is None else clients
++        package = a_foreign_package(dpids=(1,)) if package is None else package
++        summary, _parts = run_startup(clients, topo=topo, package=package)
++        return summary
++
++    def test_a_foreign_fabric_that_declares_no_link_still_says_declared(self):
++        summary = self.start(SeedingTopo(seed_result=0))
++        self.assertEqual(summary["capabilities"]["1"]["link_discovery"], "declared")
++        self.assertEqual(main.declared_links_report(), {"directions": 0, "error": None})
++
++    def test_a_seed_that_raises_says_declared_and_names_the_error(self):
++        summary = self.start(SeedingTopo(seed_result=OSError("no such model")))
++        self.assertEqual(summary["capabilities"]["1"]["link_discovery"], "declared")
++        self.assertEqual(main.declared_links_report(),
++                         {"directions": 0, "error": "OSError: no such model"})
++
++    def test_a_seed_that_worked_reports_its_count_and_no_error(self):
++        self.start(SeedingTopo(seed_result=8))
++        self.assertEqual(main.declared_links_report(), {"directions": 8, "error": None})
++
++    def test_a_fabric_that_declares_nothing_reports_null(self):
++        self.start(SeedingTopo(), package=app_package.baseline(),
++                   clients={1: FakeClient(1)})
++        self.assertIsNone(main.declared_links_report())
++        external = app_package.Package(dir="/packages/p4runtime", name="p4runtime",
++                                       mode="external", election_id=(0, 65535))
++        self.start(SeedingTopo(), package=external, clients={1: FakeClient(1)})
++        self.assertIsNone(main.declared_links_report())
++
++    def test_none_is_for_an_external_control_plane_only(self):
++        # An all-NDTwin fabric whose LLDP did not start is still an LLDP fabric by mode; that
++        # nothing reroutes there is what `reroute: false` says.
++        stopped = {"lldp": False, "watchdog": False, "declared_links": False}
++        caps = main.capabilities_for("ndtwin", "baseline", True, False, stopped)
++        self.assertEqual((caps["link_discovery"], caps["reroute"]), ("lldp", False))
++        caps = main.capabilities_for("unbound", None, False, True, stopped)
++        self.assertEqual(caps["link_discovery"], "none")
+ 
+ 
+ if __name__ == "__main__":
+diff --git a/p4_proxy/tests/test_flow_stats_route.py b/p4_proxy/tests/test_flow_stats_route.py
+index 3d78489f..1ab045d5 100644
+--- a/p4_proxy/tests/test_flow_stats_route.py
++++ b/p4_proxy/tests/test_flow_stats_route.py
+@@ -117,6 +117,76 @@ class AForeignSwitchIsRenderedThroughItsBindingTest(unittest.TestCase):
+         self.assertFalse(hasattr(client, "last_flow_render"))
+ 
+ 
++# --- NDTwin's own /stats/flow, in HTTP-body bytes (TICKET-P4-roles section 7 ruling 5, item 4) --
++#
++# [Co-developed with claude code -- Adam]
++# 🔴 RECORDED AT THE BASE, NOT WRITTEN HERE. tests/record_stats_flow_http_body.py, copied verbatim
++# into a `git archive d492a346` tree (its production code is trunk 6291db35's) and run there,
++# printed these bytes; that file's docstring is the provenance, and the run is logged in
++# logs/gates-0910/record_stats_flow_http_body_at_base.p4r-57aae1bf.log (recorder sha256 89e35766).
++# Round 1 compared the renderer's output re-serialised with sort_keys=True, which cannot see a
++# change of key ORDER -- and key order is what the kernel's parser is handed.
++
++#: 2346 bytes, sha256 aca1a88af0d889a8a7cc84468ee775cbccfb34ed1f3b8d3c1d3d4373f87a8659.
++BASELINE_NDTWIN_HTTP_BODY = (
++    b'{"1":[{"table_id":0,"priority":0,"match":{"nw_dst":"10.0.0.4","dl_type":2048'
++    b'},"actions":["OUTPUT:6"],"byte_count":0,"packet_count":0,"duration_sec":0,"d'
++    b'uration_nsec":0,"idle_timeout":0,"hard_timeout":0,"cookie":0,"flags":0,"leng'
++    b'th":0},{"table_id":0,"priority":0,"match":{"nw_dst":"10.0.1.0/24","dl_type":'
++    b'2048},"actions":["OUTPUT:2"],"byte_count":0,"packet_count":0,"duration_sec":'
++    b'0,"duration_nsec":0,"idle_timeout":0,"hard_timeout":0,"cookie":0,"flags":0,"'
++    b'length":0},{"table_id":0,"priority":101,"match":{"nw_src":"10.0.0.1","nw_dst'
++    b'":"10.0.0.4","nw_proto":6,"in_port":3,"dl_type":2048},"actions":["OUTPUT:4"]'
++    b',"byte_count":0,"packet_count":0,"duration_sec":0,"duration_nsec":0,"idle_ti'
++    b'meout":0,"hard_timeout":0,"cookie":0,"flags":0,"length":0},{"table_id":0,"pr'
++    b'iority":0,"match":{"nw_src":"10.0.0.1","nw_dst":"10.0.0.4","nw_proto":6,"dl_'
++    b'type":2048},"actions":["OUTPUT:9"],"byte_count":0,"packet_count":0,"duration'
++    b'_sec":0,"duration_nsec":0,"idle_timeout":0,"hard_timeout":0,"cookie":0,"flag'
++    b's":0,"length":0},{"table_id":0,"priority":0,"match":{"dl_dst":"00:00:00:00:0'
++    b'0:04"},"actions":["OUTPUT:3"],"byte_count":1500,"packet_count":3,"duration_s'
++    b'ec":0,"duration_nsec":0,"idle_timeout":0,"hard_timeout":0,"cookie":0,"flags"'
++    b':0,"length":0},{"table_id":0,"priority":0,"match":{"nw_dst":"10.0.0.9","dl_t'
++    b'ype":2048},"actions":["OUTPUT:CONTROLLER"],"byte_count":0,"packet_count":0,"'
++    b'duration_sec":0,"duration_nsec":0,"idle_timeout":0,"hard_timeout":0,"cookie"'
++    b':0,"flags":0,"length":0},{"table_id":0,"priority":0,"match":{"nw_dst":"10.0.'
++    b'0.8","dl_type":2048},"actions":[],"byte_count":0,"packet_count":0,"duration_'
++    b'sec":0,"duration_nsec":0,"idle_timeout":0,"hard_timeout":0,"cookie":0,"flags'
++    b'":0,"length":0},{"table_id":0,"priority":0,"match":{"nw_dst":"10.0.0.7","dl_'
++    b'type":2048},"actions":[],"byte_count":0,"packet_count":0,"duration_sec":0,"d'
++    b'uration_nsec":0,"idle_timeout":0,"hard_timeout":0,"cookie":0,"flags":0,"leng'
++    b'th":0},{"table_id":0,"priority":0,"match":{"nw_dst":"10.0.0.6","dl_type":204'
++    b'8},"actions":[],"byte_count":0,"packet_count":0,"duration_sec":0,"duration_n'
++    b'sec":0,"idle_timeout":0,"hard_timeout":0,"cookie":0,"flags":0,"length":0},{"'
++    b'table_id":0,"priority":0,"match":{"nw_dst":"10.0.0.5","dl_type":2048},"actio'
++    b'ns":[],"byte_count":0,"packet_count":0,"duration_sec":0,"duration_nsec":0,"i'
++    b'dle_timeout":0,"hard_timeout":0,"cookie":0,"flags":0,"length":0}]}'
++)
++BASELINE_NDTWIN_HTTP_BODY_SHA256 = "aca1a88af0d889a8a7cc84468ee775cbccfb34ed1f3b8d3c1d3d4373f87a8659"
++
++
++class TheNdtwinClientsHttpBodyIsByteIdenticalToTheBaseTest(unittest.TestCase):
++    """GET /stats/flow/1 for an NDTwin-pipeline switch, through FastAPI's own serialisation."""
++
++    def test_the_constant_is_the_recording(self):
++        import hashlib
++
++        self.assertEqual(hashlib.sha256(BASELINE_NDTWIN_HTTP_BODY).hexdigest(),
++                         BASELINE_NDTWIN_HTTP_BODY_SHA256)
++
++    def test_the_body_is_the_one_the_base_answered_byte_for_byte(self):
++        from tests.record_stats_flow_http_body import record
++
++        self.assertEqual(record(), (200, "application/json", BASELINE_NDTWIN_HTTP_BODY))
++
++    def test_a_client_bound_to_the_baseline_answers_the_same_bytes(self):
++        # What every real NDTwin client carries since the roles cut; the base had no binding.
++        from proxy_agent import route_binding
++        from tests.record_stats_flow_http_body import record
++
++        self.assertEqual(record({"route_binding": route_binding.BASELINE}),
++                         (200, "application/json", BASELINE_NDTWIN_HTTP_BODY))
++
++
+ class AFailedReadIsNotAnEmptyTableTest(unittest.TestCase):
+     def tearDown(self):
+         api_routes.topology = None
+diff --git a/p4_proxy/tests/test_readopt.py b/p4_proxy/tests/test_readopt.py
+index 3243dab2..4559fb3a 100644
+--- a/p4_proxy/tests/test_readopt.py
++++ b/p4_proxy/tests/test_readopt.py
+@@ -882,7 +882,8 @@ class ReadoptOnAFabricWhoseRouteTablesNdtwinOwnsTest(unittest.TestCase):
+         self.old1.route_binding = self.old2.route_binding = self.owned
+         self._real_sleep = topology_manager.time.sleep
+         topology_manager.time.sleep = lambda seconds: None
+-        saved = (dict(main._table_entries), dict(main._capabilities))
++        saved = (dict(main._table_entries), dict(main._capabilities),
++                 dict(main._control_plane))
+ 
+         def restore():
+             topology_manager.time.sleep = self._real_sleep
+@@ -890,8 +891,16 @@ class ReadoptOnAFabricWhoseRouteTablesNdtwinOwnsTest(unittest.TestCase):
+             main._table_entries.update(saved[0])
+             main._capabilities.clear()
+             main._capabilities.update(saved[1])
++            main._control_plane.clear()
++            main._control_plane.update(saved[2])
+         self.addCleanup(restore)
+         self.made = []
++        # What startup left on this fabric: every foreign switch owned, so LLDP and the
++        # watchdog are skipped and the routes are not (round 2, section 7 ruling 5 item 1).
++        self.startup_skipped([main.SKIP_LLDP, main.SKIP_WATCHDOG])
++
++    def startup_skipped(self, skipped):
++        main._control_plane.update({"skipped": sorted(skipped)})
+ 
+     def factory(self, binding):
+         def make(dpid):
+@@ -927,6 +936,135 @@ class ReadoptOnAFabricWhoseRouteTablesNdtwinOwnsTest(unittest.TestCase):
+                             package=self.package())
+         self.assertEqual(main.capabilities_report()["1"]["ipv4_route"], "unbound")
+ 
++    def test_a_fabric_that_skipped_its_routes_at_startup_is_not_refilled_now(self):
++        # Round 2, section 7 ruling 5 item 1: the same predicate as startup -- the FABRIC did
++        # not skip the routes, and this switch's binding is owner ndtwin. Round 1 asked only
++        # whether every client is owned NOW, so a switch that was unbound (or absent) at
++        # startup and comes back owned would get NDTwin's routes into its table while the rest
++        # of the fabric carries none: a path half-installed.
++        self.startup_skipped([main.SKIP_LLDP, main.SKIP_WATCHDOG, main.SKIP_ROUTES])
++        result = main.readopt_switch(self.topo, 1, self.factory(self.owned), sample_sink,
++                                     package=self.package())
++        self.assertEqual(result["routes"], "skipped")
++        self.assertEqual(self.made[0].routes, [])
++
++    def test_before_startup_has_run_a_foreign_switch_is_not_refilled(self):
++        # `skipped` is null until startup records it: no decision is not a yes.
++        main._control_plane.update({"skipped": None})
++        result = main.readopt_switch(self.topo, 1, self.factory(self.owned), sample_sink,
++                                     package=self.package())
++        self.assertEqual(result["routes"], "skipped")
++        self.assertEqual(self.made[0].routes, [])
++
++    def test_a_package_owned_switch_is_not_refilled_on_a_fabric_that_installs_routes(self):
++        from proxy_agent import route_binding
++
++        kept = route_binding.RouteBinding(**dict(vars(self.owned), owner="package"))
++        result = main.readopt_switch(self.topo, 1, self.factory(kept), sample_sink,
++                                     package=self.package())
++        self.assertEqual(result["routes"], "skipped")
++        self.assertEqual(self.made[0].routes, [])
++
++
++class ReadoptOnAFabricThatSkipsItsRoutesTest(unittest.TestCase):
++    """
++    TICKET-P4-roles section 7 ruling 5, item 1: readopt obeys the fabric's route skip.
++
++    [Co-developed with claude code -- Adam]
++    A mixed fabric -- s1 on NDTwin's pipeline, s2 on a package's with no roles -- skips
++    install_initial_routes for the whole fabric at startup, because s2's table is nobody's to
++    write and a shortest path through it would be half-installed. Round 1 entered the declared
++    s1-s2 cable into `net` (2.3-1), and readopt of s1 kept refilling over the whole graph -- so
++    it wrote s1's route to h2, a path that crosses s2. Before the cut `net` had no inter-switch
++    edge on such a fabric, and the same refill could reach only the hosts attached to s1. That
++    is the behaviour kept: on a fabric that skips its routes, no route NDTwin writes may cross
++    another switch.
++    """
++
++    def setUp(self):
++        if main is None:  # pragma: no cover -- environment, not behaviour
++            self.skipTest("proxy_agent.main is not importable in this interpreter")
++        self.topo, self.old1, self.old2 = build_topology()   # h1 -- s1 -- s2 -- h2
++        self.old2.route_binding = None
++        self._real_sleep = topology_manager.time.sleep
++        topology_manager.time.sleep = lambda seconds: None
++        saved = (dict(main._table_entries), dict(main._capabilities),
++                 dict(main._control_plane), dict(main._pipelines))
++
++        def restore():
++            topology_manager.time.sleep = self._real_sleep
++            for live, old in zip((main._table_entries, main._capabilities,
++                                  main._control_plane, main._pipelines), saved):
++                live.clear()
++                live.update(old)
++        self.addCleanup(restore)
++        self.made = []
++
++    def fabric(self, skips_routes):
++        """What startup leaves behind on this fabric, in both places it leaves it."""
++        skipped = [main.SKIP_LLDP, main.SKIP_WATCHDOG] + ([main.SKIP_ROUTES] if skips_routes
++                                                          else [])
++        main._control_plane.update({"skipped": sorted(skipped)})
++        self.topo.routes_to_attached_hosts_only = skips_routes
++
++    def package(self):
++        switches = (main.app_package.SwitchSpec(dpid=1, name="s1", pipeline=None, entries=None),
++                    main.app_package.SwitchSpec(dpid=2, name="s2",
++                                                pipeline=PLAIN_FOREIGN_PIPELINE, entries=None))
++        return main.app_package.Package(dir="/pkg", name="mixed", switches=switches)
++
++    def factory(self):
++        def make(dpid):
++            client = FakeClient(dpid)
++            self.made.append(client)
++            return client
++        return make
++
++    def readopt_s1(self):
++        return main.readopt_switch(self.topo, 1, self.factory(), sample_sink,
++                                   package=self.package())
++
++    def test_readopting_the_ndtwin_switch_writes_no_route_through_the_unbound_one(self):
++        self.fabric(skips_routes=True)
++        result = self.readopt_s1()
++        self.assertEqual(result["status"], "success")
++        self.assertEqual([r[0] for r in self.made[0].routes], [H1],
++                         "a route to h2 from s1 crosses s2, whose table NDTwin may not write")
++        self.assertEqual((result["routes_installed"], result["routes_attempted"]), (1, 1))
++
++    def test_it_says_the_refill_stopped_at_the_attached_hosts_and_why(self):
++        self.fabric(skips_routes=True)
++        result = self.readopt_s1()
++        self.assertEqual(result["routes_scope"], "attached_hosts")
++        self.assertIn(main.SKIP_ROUTES, result["routes_note"])
++
++    def test_on_a_fabric_that_installs_routes_the_same_readopt_refills_every_host(self):
++        # The other direction, so "write nothing" cannot pass the test above.
++        self.fabric(skips_routes=False)
++        result = self.readopt_s1()
++        self.assertEqual(sorted(r[0] for r in self.made[0].routes), sorted([H1, H2]))
++        self.assertNotIn("routes_scope", result)
++
++
++class OnlyTheAttachedHostsTest(unittest.TestCase):
++    """TopologyManager.install_initial_routes under `routes_to_attached_hosts_only`.
++    [Co-developed with claude code -- Adam] Section 7 ruling 5 item 1, at the route writer."""
++
++    def setUp(self):
++        self.topo, self.s1, self.s2 = build_topology()
++
++    def test_the_default_is_every_host_as_before(self):
++        self.assertFalse(self.topo.routes_to_attached_hosts_only)
++        self.topo.install_initial_routes()
++        self.assertEqual(sorted(r[0] for r in self.s1.routes), sorted([H1, H2]))
++
++    def test_restricted_each_switch_routes_only_to_its_own_hosts_and_counts_only_those(self):
++        self.topo.routes_to_attached_hosts_only = True
++        installed, attempted = self.topo.install_initial_routes()
++        self.assertEqual([r[0] for r in self.s1.routes], [H1])
++        self.assertEqual([r[0] for r in self.s2.routes], [H2])
++        self.assertEqual((installed, attempted), (2, 2))
++
+ 
+ class InstallRoutesIsAParameterTest(ReadoptTestBase):
+     """
+diff --git a/p4_proxy/tests/test_route_binding.py b/p4_proxy/tests/test_route_binding.py
+index e973aa69..c3e09073 100644
+--- a/p4_proxy/tests/test_route_binding.py
++++ b/p4_proxy/tests/test_route_binding.py
+@@ -147,6 +147,20 @@ class TheBaselineIsTheLiteralsTest(unittest.TestCase):
+         self.assertEqual(app_package.ROLE_OWNERS, route_binding.OWNERS)
+ 
+ 
++def _string_constant_nodes(tree):
++    """The str Constant NODES `_string_constants` reports (docstrings excluded)."""
++    docstrings = set()
++    for node in ast.walk(tree):
++        if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
++            body = getattr(node, "body", [])
++            if body and isinstance(body[0], ast.Expr) and isinstance(
++                    getattr(body[0], "value", None), ast.Constant) and isinstance(
++                    body[0].value.value, str):
++                docstrings.add(id(body[0].value))
++    return [n for n in ast.walk(tree) if isinstance(n, ast.Constant)
++            and isinstance(n.value, str) and id(n) not in docstrings]
++
++
+ def _string_constants(tree):
+     """[(value, lineno, qualified function name or '')] for every str constant that is not a
+     docstring. A docstring naming the table is documentation; a string it is compared against
+@@ -175,18 +189,84 @@ def _string_constants(tree):
+     return out
+ 
+ 
++def _assignment_targets(tree):
++    """{id(str Constant): the name of the innermost assignment it sits in, or None}.
++
++    [Co-developed with claude code -- Adam] How a named exception is named: by the constant it
++    belongs to (`FIVE_TUPLE_FIELD_MAP`), not by a line number that moves with every edit above it.
++    """
++    out = {}
++
++    def visit(node, target):
++        if isinstance(node, (ast.Assign, ast.AnnAssign)):
++            first = node.targets[0] if isinstance(node, ast.Assign) else node.target
++            target = (first.id if isinstance(first, ast.Name)
++                      else first.attr if isinstance(first, ast.Attribute) else target)
++        if isinstance(node, ast.Constant) and isinstance(node.value, str):
++            out[id(node)] = target
++        for child in ast.iter_child_nodes(node):
++            visit(child, target)
++
++    visit(tree, None)
++    return out
++
++
+ @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
+ class TheLiteralsLiveOnlyInTheBaselineTest(unittest.TestCase):
+     """TICKET-P4-roles 2.2-1: after the refactor the literals appear only in BASELINE.
+ 
+     [Co-developed with claude code -- Adam]
+-    🔴 ONE DISCLOSED EXCEPTION. `P4RuntimeClient.IPV4_LPM_TABLE = "MyIngress.ipv4_lpm"` stays a
+-    literal because tests/shell/mutate_p4_rule_install_time.sh (not this ticket's file) anchors
+-    on that exact line and mutates it; removing it would break that gate. It is not a route
+-    name any write uses -- the writes use the binding -- it is the install-time record's key for
+-    a client bound to the baseline, and it is asserted equal to BASELINE.table below.
++    Round 2 (section 7 ruling 5, item 2) widened this from two names to four: the route table,
++    the route action, the route MATCH FIELD and the MAC parameter. Round 1 checked the first two
++    only, and `ryu_flow_stats.FIELD_TO_RYU` still spelled "hdr.ipv4.dstAddr" -- the read-back of
++    NDTwin's own route rows, next to an action that already came from BASELINE.
++
++    🔴 NAMED EXCEPTIONS, each by the constant it belongs to (NAMED_EXCEPTIONS below):
++      * `P4RuntimeClient.IPV4_LPM_TABLE` -- the table name. tests/shell/
++        mutate_p4_rule_install_time.sh (not this ticket's file) anchors on that exact line; it
++        is not a name any write uses (the writes use the binding), and it is asserted equal to
++        BASELINE.table below.
++      * `P4RuntimeClient._FIVE_TUPLE_KEY_BYTES`, `FIVE_TUPLE_FIELD_MAP` and
++        `IPV4_VALUED_MATCH_FIELDS` -- "hdr.ipv4.dstAddr" as a key of `flow_5tuple`, a DIFFERENT
++        table that happens to match on the same header field. Not the route role; this cut has
++        no 5-tuple role (every foreign 5-tuple write is a 501).
++    🔴 EXEMPT, NOT CHECKED: BASELINE.port_param, "port". It is also forward_l2's and the 5-tuple
++    action's parameter name and an OpenFlow action field, so a string equal to it says nothing
++    about the route role -- a value scan cannot tell those apart, and pretending it can would
++    be a gate that is either always red or always switched off.
+     """
+ 
++    #: (file, assignment) -> the one route name that constant may spell.
++    NAMED_EXCEPTIONS = {
++        ("p4_client.py", "IPV4_LPM_TABLE"): BASELINE.table,
++        ("p4_client.py", "_FIVE_TUPLE_KEY_BYTES"): BASELINE.match_field,
++        ("topology_manager.py", "FIVE_TUPLE_FIELD_MAP"): BASELINE.match_field,
++        ("topology_manager.py", "IPV4_VALUED_MATCH_FIELDS"): BASELINE.match_field,
++    }
++
++    def test_no_module_spells_the_four_route_names_outside_baseline_and_the_named_exceptions(
++            self):
++        checked = {BASELINE.table, BASELINE.action, BASELINE.match_field,
++                   BASELINE.dst_mac_param}
++        found, used, scanned = [], set(), 0
++        for filename, tree in self.modules():
++            scanned += 1
++            targets = _assignment_targets(tree)
++            # Docstrings excluded: a docstring naming the table is documentation, not a use.
++            for node in _string_constant_nodes(tree):
++                if node.value not in checked:
++                    continue
++                key = (filename, targets.get(id(node)))
++                if self.NAMED_EXCEPTIONS.get(key) == node.value:
++                    used.add(key)
++                    continue
++                found.append(f"{filename}:{node.lineno} in {key[1] or 'no assignment'} "
++                             f"{node.value!r}")
++        self.assertGreaterEqual(scanned, 10, "the scan read almost nothing -- wrong directory?")
++        self.assertEqual(found, [], "a route name is spelled outside BASELINE")
++        # Guard the guard: an exception that no longer matches anything is a stale hole.
++        self.assertEqual(used, set(self.NAMED_EXCEPTIONS), "a named exception matched nothing")
++
+     def modules(self):
+         for filename in sorted(os.listdir(PROXY_AGENT)):
+             if filename.endswith(".py") and filename != "route_binding.py":
+@@ -194,29 +274,6 @@ class TheLiteralsLiveOnlyInTheBaselineTest(unittest.TestCase):
+                 with open(path) as fh:
+                     yield filename, ast.parse(fh.read())
+ 
+-    @staticmethod
+-    def the_disclosed_exception(tree):
+-        """The line of `P4RuntimeClient.IPV4_LPM_TABLE = "..."`, or None."""
+-        for node in ast.walk(tree):
+-            if isinstance(node, ast.ClassDef) and node.name == "P4RuntimeClient":
+-                for stmt in node.body:
+-                    if (isinstance(stmt, ast.Assign) and len(stmt.targets) == 1
+-                            and isinstance(stmt.targets[0], ast.Name)
+-                            and stmt.targets[0].id == "IPV4_LPM_TABLE"):
+-                        return stmt.value.lineno
+-        return None
+-
+-    def test_no_other_module_spells_the_route_table_or_the_route_action(self):
+-        found, scanned = [], 0
+-        for filename, tree in self.modules():
+-            scanned += 1
+-            allowed = self.the_disclosed_exception(tree) if filename == "p4_client.py" else None
+-            for value, lineno, scope in _string_constants(tree):
+-                if value in (BASELINE.table, BASELINE.action) and lineno != allowed:
+-                    found.append(f"{filename}:{lineno} ({scope or 'module'}) {value!r}")
+-        self.assertGreaterEqual(scanned, 10, "the scan read almost nothing -- wrong directory?")
+-        self.assertEqual(found, [], "the route table / action is spelled outside BASELINE")
+-
+     def test_the_one_disclosed_exception_is_the_baselines_own_table_name(self):
+         self.assertEqual(P4RuntimeClient.IPV4_LPM_TABLE, BASELINE.table)
+ 
+@@ -242,6 +299,11 @@ class TheLiteralsLiveOnlyInTheBaselineTest(unittest.TestCase):
+         self.assertEqual(ryu_flow_stats.FORWARDING_ACTIONS.get(BASELINE.action),
+                          BASELINE.port_param)
+ 
++    def test_the_renderer_reads_the_route_match_field_back_as_nw_dst(self):
++        from proxy_agent import ryu_flow_stats
++
++        self.assertEqual(ryu_flow_stats.FIELD_TO_RYU.get(BASELINE.match_field), "nw_dst")
++
+ 
+ # --- resolve(): the names the package wrote, checked against one p4info ------------------------
+ 
+@@ -552,6 +614,25 @@ class AWriteWithNoBindingIs501OnTheRenamedFixtureTest(unittest.TestCase):
+         self.assertEqual((err.status_code, err.detail["reason"]), (501, "no_five_tuple_role"))
+         self.assertEqual(client.stub.requests, [])
+ 
++    #: A 5-tuple match (source + protocol beside the destination) -- flow_5tuple, not a route.
++    FIVE_TUPLE = dict(ROUTE, priority=101, match={"dl_type": 2048, "nw_dst": "10.0.1.1",
++                                                  "ip_proto": 6, "nw_src": "10.0.2.2"})
++
++    def five_tuple_refused(self, handler):
++        """Section 7 ruling 5, item 5: round 1 tested add over HTTP and insert on the client;
++        delete and modify reach the switch through their own client calls."""
++        client = self.switch(route_binding.resolve(RENAMED_ROLE, a_p4info(RENAMED_P4INFO)))
++        err = self.post(handler, dict(self.FIVE_TUPLE))
++        self.assertEqual((err.status_code, err.detail["outcome"], err.detail["reason"]),
++                         (501, "unsupported_on_p4", "no_five_tuple_role"))
++        self.assertEqual(client.stub.requests, [], "a foreign switch was sent a 5-tuple write")
++
++    def test_a_five_tuple_delete_on_a_foreign_switch_answers_501(self):
++        self.five_tuple_refused(api_routes.delete_flow_entry)
++
++    def test_a_five_tuple_modify_on_a_foreign_switch_answers_501(self):
++        self.five_tuple_refused(api_routes.modify_flow_entry)
++
+     def test_the_body_keeps_the_shape_the_other_501s_use_and_the_remedy_fits_the_window(self):
+         self.switch(None)
+         err = self.post(api_routes.add_flow_entry, dict(self.ROUTE))
+diff --git a/p4_proxy/tests/test_ryu_flow_stats.py b/p4_proxy/tests/test_ryu_flow_stats.py
+index dc2296da..bd333f7c 100644
+--- a/p4_proxy/tests/test_ryu_flow_stats.py
++++ b/p4_proxy/tests/test_ryu_flow_stats.py
+@@ -489,11 +489,51 @@ def a_renamed_route(dst=b"\x0a\x00\x03\x03", port=3):
+ 
+ 
+ def a_tag_row():
++    # fixtures/renamed_route/pod-topo/s1-runtime.json's last row, as read_table_entries reports
++    # it: proto_tags matches on the program's OWN field name, hdr.ip4.proto (p4info :41), not
++    # ndtwin_switch's hdr.ipv4.protocol -- round 1 used the latter, a row the fixture never
++    # produces (section 7 ruling 5, item 3). [Co-developed with claude code -- Adam]
+     return {"table": "RouteIngress.proto_tags", "priority": 0, "is_default": False,
+-            "match": {"hdr.ipv4.protocol": {"type": "exact", "value": b"\x11"}},
++            "match": {"hdr.ip4.proto": {"type": "exact", "value": b"\x11"}},
+             "action": {"name": "RouteIngress.tag_proto", "params": {"tag": b"\x04"}}}
+ 
+ 
++RENAMED_S1_RUNTIME = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures",
++                                  "renamed_route", "pod-topo", "s1-runtime.json")
++
++
++def _canonical(value):
++    """An integer as P4Runtime's canonical bytestring (big-endian, no leading zeros)."""
++    return value.to_bytes(max(1, (value.bit_length() + 7) // 8), "big")
++
++
++def rows_as_read_back(runtime_json):
++    """A runtime file's table_entries in read_table_entries' shape -- the rows that switch would
++    hold after the package's entries went on. Section 7 ruling 5, item 3: the unrendered count
++    is tested on the fixture's REAL rows, not on a hand-made one. [Co-developed with claude
++    code -- Adam]"""
++    import socket
++
++    with open(runtime_json) as fh:
++        entries = json.load(fh)["table_entries"]
++    rows = []
++    for entry in entries:
++        match = {}
++        for field, value in (entry.get("match") or {}).items():
++            if isinstance(value, list):
++                match[field] = {"type": "lpm", "value": socket.inet_aton(value[0]),
++                                "prefix_len": value[1]}
++            else:
++                match[field] = {"type": "exact", "value": _canonical(value)}
++        params = {name: (bytes.fromhex(value.replace(":", "")) if isinstance(value, str)
++                         else _canonical(value))
++                  for name, value in (entry.get("action_params") or {}).items()}
++        rows.append({"table": entry["table"], "priority": 0,
++                     "is_default": bool(entry.get("default_action")), "match": match,
++                     "action": {"name": entry["action_name"], "params": params}})
++    return rows
++
++
+ class ARenamedBindingIsReadBackThroughItsOwnNamesTest(unittest.TestCase):
+     """2.5-1: the reverse lookup is the binding's, so a renamed route renders as a route."""
+ 
+@@ -541,15 +581,39 @@ class OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTest(unittest.TestCase
+         self.assertEqual(body["1"][0]["actions"], [])
+         self.assertEqual(left_out, 0)
+ 
+-    def test_rows_that_are_never_listed_are_not_counted_as_left_out(self):
++    def test_the_renamed_fixtures_own_rows_list_its_four_routes_and_count_its_tag_row(self):
++        # Section 7 ruling 5, item 3: `unrendered_entries` is every non-default row a foreign
++        # switch holds that /stats/flow does not list. The fixture's s1 holds a default, four
++        # routes and one proto_tags row whose action nothing here knows.
++        rows = rows_as_read_back(RENAMED_S1_RUNTIME)
++        self.assertEqual(len(rows), 6, "the fixture changed under this test")
++        body, left_out = rf.render_flow_stats_counted(1, rows, binding=a_renamed_binding())
++        self.assertEqual(sorted(f["actions"][0] for f in body["1"]),
++                         ["OUTPUT:1", "OUTPUT:2", "OUTPUT:3", "OUTPUT:4"])
++        self.assertEqual(left_out, 1)
++
++    def test_a_default_row_is_never_counted(self):
+         default = a_tag_row()
+         default["is_default"] = True
+-        unusable = a_tag_row()
+-        unusable["match"] = {"meta.nothing_ryu_knows": {"type": "exact", "value": b"\x01"}}
+-        _body, left_out = rf.render_flow_stats_counted(1, [default, unusable],
++        _body, left_out = rf.render_flow_stats_counted(1, [default],
+                                                        binding=a_renamed_binding())
+         self.assertEqual(left_out, 0)
+ 
++    def test_a_row_with_no_usable_match_is_counted_whatever_its_action(self):
++        # A route the renderer knows the action of, on a match field it cannot translate: not
++        # listed (it would read as match-everything), so counted. Round 1 counted only rows
++        # whose match it could translate -- which left the fixture's own tag row uncounted.
++        unusable = a_renamed_route()
++        unusable["match"] = {"meta.nothing_ryu_knows": {"type": "exact", "value": b"\x01"}}
++        body, left_out = rf.render_flow_stats_counted(1, [unusable, a_tag_row()],
++                                                      binding=a_renamed_binding())
++        self.assertEqual(body["1"], [])
++        self.assertEqual(left_out, 2)
++
++    def test_on_an_unbound_foreign_switch_the_same_rows_are_counted(self):
++        body, left_out = rf.render_flow_stats_counted(1, [a_tag_row()], binding=None)
++        self.assertEqual((body["1"], left_out), ([], 1))
++
+     def test_ndtwins_own_pipeline_leaves_nothing_out(self):
+         body, left_out = rf.render_flow_stats_counted(1, ndtwin_pipeline_rows())
+         self.assertEqual(left_out, 0)
+diff --git a/p4_proxy/tests/test_switch_state.py b/p4_proxy/tests/test_switch_state.py
+index 59ab5eee..2f662f0e 100644
+--- a/p4_proxy/tests/test_switch_state.py
++++ b/p4_proxy/tests/test_switch_state.py
+@@ -1010,6 +1010,43 @@ class CapabilitiesOnTheEndpointTest(unittest.TestCase):
+                          [["capabilities_report", "flow_stats_report"]])
+ 
+ 
++class TheDeclaredLinksReportOnTheEndpointTest(unittest.TestCase):
++    """TICKET-P4-roles section 7 ruling 5, item 8: what the seed did, at FABRIC level.
++    [Co-developed with claude code -- Adam]"""
++
++    def setUp(self):
++        self.saved = (api_routes.topology, api_routes.declared_links_report)
++        self.addCleanup(self.restore)
++        api_routes.topology = CapabilitiesOnTheEndpointTest.FakeTopology()
++
++    def restore(self):
++        api_routes.topology, api_routes.declared_links_report = self.saved
++
++    def test_the_seed_outcome_is_a_top_level_key_not_a_per_switch_one(self):
++        api_routes.inject_declared_links_report(
++            lambda: {"directions": 0, "error": "OSError: no such model"})
++        body = asyncio.run(api_routes.switch_state())
++        self.assertEqual(body["declared_links"], {"directions": 0,
++                                                  "error": "OSError: no such model"})
++        self.assertNotIn("declared_links", body["switches"]["1"])
++
++    def test_a_fabric_that_declares_nothing_serves_null_rather_than_no_key(self):
++        api_routes.inject_declared_links_report(lambda: None)
++        body = asyncio.run(api_routes.switch_state())
++        self.assertIn("declared_links", body)
++        self.assertIsNone(body["declared_links"])
++
++    def test_an_uninjected_seed_reporter_adds_no_key(self):
++        api_routes.inject_declared_links_report(None)
++        self.assertNotIn("declared_links", asyncio.run(api_routes.switch_state()))
++
++    def test_the_proxy_wires_the_reporter_at_import(self):
++        from tests.test_route_binding import module_level_calls
++
++        self.assertEqual(module_level_calls(main.__file__, "inject_declared_links_report"),
++                         [["declared_links_report"]])
++
++
+ class TheUnrenderedCountTest(unittest.TestCase):
+     """main.flow_stats_report: the count the last render left, null before any."""
+ 
+diff --git a/tests/shell/mutate_roles_binding.sh b/tests/shell/mutate_roles_binding.sh
+index 046d78f0..07f288fe 100755
+--- a/tests/shell/mutate_roles_binding.sh
++++ b/tests/shell/mutate_roles_binding.sh
+@@ -34,6 +34,12 @@
+ # depends on somebody else's build tree reports on that tree, not on this ticket. The test then
+ # skips, loudly, as it is written to.
+ #
++# ROUND 2 (TICKET-P4-roles section 7 ruling 5) added: the mutations for items 1-8; the
++# 07_roles_basic.sh --self-test mutations (item 6), run on a copy of the script, each named for
++# the self-test case that must go red; and a check that NEW_CLASSES -- a typed list -- names
++# every TestCase class that exists now and did not exist at the ticket's base 6291db35, so a
++# class this ticket added cannot be left out of the "every new test seen red" check by omission.
++#
+ # Usage:  tests/shell/mutate_roles_binding.sh
+ #         PROXY_PY=/path/to/python tests/shell/mutate_roles_binding.sh
+ # Exit:   0 every mutation caught, every control green, every new test seen red;
+@@ -52,8 +58,17 @@ PKG="$REPO/p4_proxy/mininet/app_package.py"
+ CONVERT="$REPO/tools/p4_exercise/convert.py"
+ PREFLIGHT="$REPO/tools/p4_exercise/preflight.py"
+ COMMON="$REPO/tools/p4_exercise/common.py"
++LIVE_DIR_REL="doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1"
++LIVE07="$REPO/$LIVE_DIR_REL/07_roles_basic.sh"
++FLOWROUTE_TEST="$REPO/p4_proxy/tests/test_flow_stats_route.py"
+ SOURCES=("$BINDING" "$CLIENT" "$MAIN" "$TOPOMGR" "$ROUTES" "$STATS" "$PKG" "$CONVERT"
+          "$PREFLIGHT" "$COMMON")
++# One per line: check_gate_anchors.py reads a continuation line that starts with a path and has
++# four words as a mutation call.
++SOURCES+=("$LIVE07")
++SOURCES+=("$REPO/$LIVE_DIR_REL/_common.sh")
++#: The ticket's base: NEW_CLASSES must name every TestCase class added since.
++TICKET_BASE=6291db35
+ 
+ MODULES="tests.test_route_binding tests.test_declared_links tests.test_link_state_entry \
+ tests.test_p4_client_writes tests.test_ryu_flow_stats tests.test_flow_stats_route \
+@@ -72,6 +87,9 @@ tests.test_ryu_flow_stats:OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTe
+ tests.test_flow_stats_route:AForeignSwitchIsRenderedThroughItsBindingTest \
+ tests.test_switch_state:CapabilitiesShapeTest tests.test_switch_state:CapabilitiesFromStartupTest \
+ tests.test_switch_state:CapabilitiesOnTheEndpointTest tests.test_switch_state:TheUnrenderedCountTest \
++tests.test_switch_state:TheDeclaredLinksReportOnTheEndpointTest \
++tests.test_flow_stats_route:TheNdtwinClientsHttpBodyIsByteIdenticalToTheBaseTest \
++tests.test_readopt:ReadoptOnAFabricThatSkipsItsRoutesTest tests.test_readopt:OnlyTheAttachedHostsTest \
+ tests.test_app_package:APackageWithoutRolesLoadsByteIdenticallyTest \
+ tests.test_app_package:RolesShapeTest \
+ tests.test_readopt:ReadoptOnAFabricWhoseRouteTablesNdtwinOwnsTest \
+@@ -229,6 +247,41 @@ PY
+ # and a print line counted as a test would be a "test" no mutation can ever redden.
+ sed -n 's/^ID //p' "$NEW_IDS.raw" > "$NEW_IDS"
+ echo "  new tests to be seen red: $(wc -l < "$NEW_IDS")"
++# 🔴 NEW_CLASSES IS TYPED; THIS IS WHAT KEEPS IT HONEST (round 2, the judge's finding 9). Every
++# TestCase class in the modules this gate runs that is not in the base's version of its file must
++# be in NEW_CLASSES -- read by `git show <base>:<file>`, not remembered.
++missing=$("$PY" - "$REPO" "$TICKET_BASE" "$NEW_CLASSES" <<'PY'
++import ast, glob, os, subprocess, sys
++repo, base, listed = sys.argv[1], sys.argv[2], sys.argv[3].split()
++wild = {s.split(":")[0] for s in listed if s.endswith(":*")}
++named = {tuple(s.split(":")) for s in listed if not s.endswith(":*")}
++def classes(src):
++    """Top-level classes that define a test method of their own."""
++    return {n.name for n in ast.parse(src).body if isinstance(n, ast.ClassDef)
++            and any(isinstance(f, ast.FunctionDef) and f.name.startswith("test")
++                    for f in n.body)}
++files = ([("tests." + os.path.basename(p)[:-3], os.path.relpath(p, repo))
++          for p in sorted(glob.glob(f"{repo}/p4_proxy/tests/test_*.py"))]
++         + [(os.path.basename(p)[:-3], os.path.relpath(p, repo))
++            for p in sorted(glob.glob(f"{repo}/tools/p4_exercise/tests/test_*.py"))])
++for module, rel in files:
++    now = classes(open(f"{repo}/{rel}").read())
++    shown = subprocess.run(["git", "-C", repo, "show", f"{base}:{rel}"], capture_output=True,
++                           text=True)
++    then = classes(shown.stdout) if shown.returncode == 0 else set()
++    for cls in sorted(now - then):
++        if module not in wild and (module, cls) not in named:
++            print(f"{module}:{cls}")
++PY
++) || { echo "REFUSE: could not compare the test classes with $TICKET_BASE"; exit 2; }
++if [[ -n "$missing" ]]; then
++    echo "  🔴 NEW_CLASSES omits class(es) added since $TICKET_BASE -- their tests would never be"
++    echo "     required to go red:"
++    sed 's/^/       /' <<<"$missing"
++    SURVIVORS=$((SURVIVORS+1))
++else
++    echo "  NEW_CLASSES names every TestCase class added since $TICKET_BASE"
++fi
+ rm -rf "$base"
+ echo
+ 
+@@ -281,8 +334,8 @@ report "M-R5b: pre-flight does not size the port against the topology" "$m" \
+        "test_a_port_too_narrow_for_the_topology_fails_here"
+ 
+ m=$(mutant r6 "$MAIN" \
+-    '        seeded = _seed_declared_links(topo, package)' \
+-    '        seeded = 0')
++    '        seeded, seed_error = _seed_declared_links(topo, package)' \
++    '        seeded, seed_error = 0, None')
+ report "M-R6: a foreign fabric's declared links are never seeded" "$m" \
+        "test_a_foreign_fabric_seeds_its_declared_links"
+ 
+@@ -324,11 +377,23 @@ m=$(mutant r10 "$MAIN" \
+ report "M-R10: a foreign fabric starts LLDP and the watchdog" "$m" \
+        "test_lldp_and_the_watchdog_stay_off_on_a_foreign_fabric_even_when_every_table_is_owned"
+ 
++# Round 2 (section 7 ruling 5, item 3): the killer is the renamed fixture's OWN rows. Round 1's
++# killer used a tag row keyed `hdr.ipv4.protocol`, a shape the fixture never produces. On the
++# fixture's real rows an unknown action cannot be rendered as a drop at all -- proto_tags matches
++# `hdr.ip4.proto`, which no vocabulary translates -- so what this mutation (the base's foreign
++# path: everything through entry_to_ryu, nothing counted) takes away there is the COUNT; M-R11b
++# below takes away the omission alone, on a row whose match does translate.
+ m=$(mutant r11 "$STATS" \
+-    '        if (foreign and not entry.get("is_default")' \
+-    '        if (False and not entry.get("is_default")')
+-report "M-R11: an unknown action on a foreign switch is rendered as a drop again" "$m" \
+-       "test_an_unknown_action_on_a_bound_foreign_switch_is_not_listed"
++    '        counts = foreign and not entry.get("is_default")' \
++    '        counts = False')
++report "M-R11: a foreign switch is rendered as the base did -- unknown rows as drops, none counted" "$m" \
++       "test_the_renamed_fixtures_own_rows_list_its_four_routes_and_count_its_tag_row"
++
++m=$(mutant r11b "$STATS" \
++    '        if counts and not recognises_action(entry.get("action"), forwarding_actions):' \
++    '        if False:')
++report "M-R11b: an unknown action whose match translates is listed as a drop again" "$m" \
++       "test_an_unknown_action_on_an_unbound_foreign_switch_is_not_listed_either"
+ 
+ m=$(mutant r12 "$MAIN" \
+     '        "reroute": bool(fabric.get("lldp") and fabric.get("watchdog")),' \
+@@ -604,7 +669,8 @@ report "MN12: NDTwin's own pipeline never says it left nothing out" "$m" \
+        "test_ndtwins_own_pipeline_leaves_nothing_out_once_its_table_was_read"
+ 
+ m=$(mutant mn_readoptroutes "$MAIN" \
+-    '    if routes_owned_by_ndtwin(topology.switches, foreign):
++    '    if (_fabric_installs_routes() and binding is not None
++            and binding.owner == route_binding.OWNER_NDTWIN):
+         routes, attempted = topology.install_initial_routes(only_dpid=dpid)' \
+     '    if False:
+         routes, attempted = topology.install_initial_routes(only_dpid=dpid)')
+@@ -628,10 +694,10 @@ report "MN15: an external fabric seeds declared links too" "$m" \
+        "test_an_external_fabric_seeds_nothing_this_cut_leaves_it_as_it_was"
+ 
+ m=$(mutant mn_seedndtwin "$MAIN" \
+-    '        if routes_owned:
+-            route_counts = _install_owned_routes(topo)' \
+-    '        if routes_owned:
+-            route_counts = _install_owned_routes(topo)
++    '    if routes_owned:
++        route_counts = _install_owned_routes(topo)' \
++    '    if routes_owned:
++        route_counts = _install_owned_routes(topo)
+     if not foreign:
+         _seed_declared_links(topo, package)')
+ report "MN16: an all-NDTwin fabric seeds declared links beside LLDP" "$m" \
+@@ -756,18 +822,31 @@ report "FS2: a known drop on a foreign switch is left out as unknown" "$m" \
+        "test_a_known_drop_is_still_a_drop_and_is_not_counted"
+ 
+ m=$(mutant fs_count "$STATS" \
+-    '            if _match_to_ryu(entry.get("match") or {}, field_to_ryu):
+-                unrendered += 1' \
+-    '            if True:
+-                unrendered += 1')
+-report "FS3: a row that is never listed on any pipeline is counted as left out" "$m" \
+-       "test_rows_that_are_never_listed_are_not_counted_as_left_out"
++    '        elif counts:
++            # A known action on a match this module cannot translate: not listed, so counted.
++            unrendered += 1' \
++    '        elif False:
++            unrendered += 1')
++report "FS3: a foreign row with no usable match is left out and not counted (round 1's rule)" "$m" \
++       "test_a_row_with_no_usable_match_is_counted_whatever_its_action"
++
++m=$(mutant fs_countdefault "$STATS" \
++    '        counts = foreign and not entry.get("is_default")' \
++    '        counts = foreign')
++report "FS3b: a default row is counted as left out" "$m" \
++       "test_a_default_row_is_never_counted"
++
++m=$(mutant fs_countndtwin "$STATS" \
++    '        counts = foreign and not entry.get("is_default")' \
++    '        counts = not entry.get("is_default")')
++report "FS3c: NDTwin's own pipeline starts leaving rows out and counting them" "$m" \
++       "test_ndtwins_own_pipeline_leaves_nothing_out"
+ 
+ m=$(mutant fs_literal "$STATS" \
+     '    route_binding.BASELINE.action: route_binding.BASELINE.port_param,' \
+     '    "MyIngress.ipv4_forward": "port",')
+ report "FS4: the renderer spells the route action again" "$m" \
+-       "test_no_other_module_spells_the_route_table_or_the_route_action"
++       "test_no_module_spells_the_four_route_names_outside_baseline_and_the_named_exceptions"
+ 
+ m=$(mutant fs_nobase "$STATS" \
+     '    route_binding.BASELINE.action: route_binding.BASELINE.port_param,' \
+@@ -1033,6 +1112,315 @@ m=$(mutant mn_predict "$MAIN" \
+ report "MN17: the prediction applies a package's roles to an NDTwin-pipeline switch" "$m" \
+        "test_roles_do_not_apply_to_an_ndtwin_switch_beside_a_foreign_one"
+ 
++# --- round 2 (TICKET-P4-roles section 7 ruling 5) -------------------------------------------------
++
++# item 1 -- readopt obeys the fabric's route skip
++m=$(mutant tm_attachedoff "$TOPOMGR" \
++    '                if self.routes_to_attached_hosts_only and next_node != dst:' \
++    '                if False and next_node != dst:')
++report "R2-1a: on a fabric that skips its routes, a route through another switch is written" "$m" \
++       "test_restricted_each_switch_routes_only_to_its_own_hosts_and_counts_only_those"
++
++m=$(mutant tm_attacheddefault "$TOPOMGR" \
++    '        self.routes_to_attached_hosts_only = False' \
++    '        self.routes_to_attached_hosts_only = True')
++report "R2-1b: every fabric's route writer starts restricted" "$m" \
++       "test_the_default_is_every_host_as_before"
++
++m=$(mutant mn_scopenever "$MAIN" \
++    '    topo.routes_to_attached_hosts_only = SKIP_ROUTES in skipped' \
++    '    topo.routes_to_attached_hosts_only = False')
++report "R2-1c: startup never tells the route writer that the fabric skips its routes" "$m" \
++       "test_a_fabric_that_skips_its_routes_tells_the_route_writer"
++
++m=$(mutant mn_scopealways "$MAIN" \
++    '    topo.routes_to_attached_hosts_only = SKIP_ROUTES in skipped' \
++    '    topo.routes_to_attached_hosts_only = True')
++report "R2-1d: startup restricts the route writer on a fabric whose routes NDTwin owns" "$m" \
++       "test_a_fabric_whose_routes_ndtwin_owns_does_not_restrict_the_writer"
++
++m=$(mutant mn_scopenote "$MAIN" \
++    '    if (ndtwin and result.get("status") == "success"
++            and getattr(topology, "routes_to_attached_hosts_only", False)):' \
++    '    if False:')
++report "R2-1e: a restricted refill is reported as if it were the whole one" "$m" \
++       "test_it_says_the_refill_stopped_at_the_attached_hosts_and_why"
++
++m=$(mutant mn_scopenoteall "$MAIN" \
++    '            and getattr(topology, "routes_to_attached_hosts_only", False)):' \
++    '            and True):')
++report "R2-1f: every NDTwin readopt claims its refill was restricted" "$m" \
++       "test_on_a_fabric_that_installs_routes_the_same_readopt_refills_every_host"
++
++m=$(mutant mn_refillnow "$MAIN" \
++    '    if (_fabric_installs_routes() and binding is not None
++            and binding.owner == route_binding.OWNER_NDTWIN):' \
++    '    if (binding is not None
++            and binding.owner == route_binding.OWNER_NDTWIN):')
++report "R2-1g: a foreign readopt refills on a fabric that skipped its routes at startup" "$m" \
++       "test_a_fabric_that_skipped_its_routes_at_startup_is_not_refilled_now"
++
++m=$(mutant mn_refillnull "$MAIN" \
++    '    return skipped is not None and SKIP_ROUTES not in skipped' \
++    '    return SKIP_ROUTES not in (skipped or ())')
++report "R2-1h: before startup has decided, a foreign readopt refills" "$m" \
++       "test_before_startup_has_run_a_foreign_switch_is_not_refilled"
++
++m=$(mutant mn_refillowner "$MAIN" \
++    '    if (_fabric_installs_routes() and binding is not None
++            and binding.owner == route_binding.OWNER_NDTWIN):' \
++    '    if (_fabric_installs_routes() and binding is not None):')
++report "R2-1i: a package-owned switch is refilled with NDTwin's routes" "$m" \
++       "test_a_package_owned_switch_is_not_refilled_on_a_fabric_that_installs_routes"
++
++# Round 1's killer for this test was M-R9, inside routes_owned_by_ndtwin -- which readopt no
++# longer calls (item 1: the predicate is startup's recorded decision plus THIS switch's binding).
++m=$(mutant mn_refillunbound "$MAIN" \
++    '    if (_fabric_installs_routes() and binding is not None
++            and binding.owner == route_binding.OWNER_NDTWIN):' \
++    '    if (_fabric_installs_routes()
++            and getattr(binding, "owner", route_binding.OWNER_NDTWIN)
++            == route_binding.OWNER_NDTWIN):')
++report "R2-1j: a switch that came back unbound counts as owned and is refilled" "$m" \
++       "test_a_switch_that_came_back_unbound_is_not_refilled"
++
++# item 2 -- the literal gate over four names
++m=$(mutant fs_fieldliteral "$STATS" \
++    '    route_binding.BASELINE.match_field: "nw_dst",' \
++    '    "hdr.ipv4.dstAddr": "nw_dst",')
++report "R2-2a: the renderer spells the route match field again" "$m" \
++       "test_no_module_spells_the_four_route_names_outside_baseline_and_the_named_exceptions"
++
++m=$(mutant fs_fieldgone "$STATS" \
++    '    route_binding.BASELINE.match_field: "nw_dst",' \
++    '')
++report "R2-2b: the renderer loses NDTwin's own route match field" "$m" \
++       "test_the_renderer_reads_the_route_match_field_back_as_nw_dst"
++
++m=$(mutant tm_stale "$TOPOMGR" \
++    '    if p4_key in ("hdr.ipv4.srcAddr", "hdr.ipv4.dstAddr")' \
++    '    if p4_key in ("hdr.ipv4.srcAddr", FIVE_TUPLE_FIELD_MAP["nw_dst"])')
++report "R2-2c: a named exception stops matching anything and stays on the list" "$m" \
++       "test_no_module_spells_the_four_route_names_outside_baseline_and_the_named_exceptions"
++
++# item 4 -- NDTwin's /stats/flow in HTTP-body bytes. R2-4a is invisible to round 1's
++# sort_keys fixture (TheNdtwinPipelinesFlowStatsAreByteIdenticalToTheBaseTest stays green): that
++# is the point of the byte comparison.
++m=$(mutant fs_keyorder "$STATS" \
++    '        "idle_timeout": 0,
++        "hard_timeout": 0,' \
++    '        "hard_timeout": 0,
++        "idle_timeout": 0,')
++report "R2-4a: two keys of every flow swap places in the body the kernel parses" "$m" \
++       "test_the_body_is_the_one_the_base_answered_byte_for_byte"
++
++m=$(mutant http_drift "$FLOWROUTE_TEST" \
++    'BASELINE_NDTWIN_HTTP_BODY_SHA256 = "aca1a88af0d889a8a7cc84468ee775cbccfb34ed1f3b8d3c1d3d4373f87a8659"' \
++    'BASELINE_NDTWIN_HTTP_BODY_SHA256 = "0000000000000000000000000000000000000000000000000000000000000000"')
++report "R2-4b: the pinned bytes and the recording they claim to be part ways" "$m" \
++       "test_the_constant_is_the_recording"
++
++# item 5 -- a 5-tuple delete / modify on a foreign switch
++m=$(mutant pc_5del "$CLIENT" \
++    '        self._writable_five_tuple_binding("a 5-tuple rule delete")' \
++    '        None')
++report "R2-5a: a 5-tuple delete reaches a foreign switch" "$m" \
++       "test_a_five_tuple_delete_on_a_foreign_switch_answers_501"
++
++m=$(mutant pc_5mod "$CLIENT" \
++    '        binding = self._writable_five_tuple_binding("a 5-tuple rule modify")' \
++    '        binding = self.route_binding')
++report "R2-5b: a 5-tuple modify reaches a foreign switch" "$m" \
++       "test_a_five_tuple_modify_on_a_foreign_switch_answers_501"
++
++# item 8 -- link_discovery is the mode; the seed's outcome is its own fabric-level key
++m=$(mutant mn_seedcount "$MAIN" \
++    '        _fabric.update(lldp=False, watchdog=False, declared_links=True,' \
++    '        _fabric.update(lldp=False, watchdog=False, declared_links=seeded > 0,')
++report "R2-8a: link_discovery follows the seed count again" "$m" \
++       "test_a_foreign_fabric_that_declares_no_link_still_says_declared"
++
++m=$(mutant mn_nonewhen "$MAIN" \
++    '    if external:
++        discovery = "none"' \
++    '    if not fabric.get("lldp") and not fabric.get("declared_links"):
++        discovery = "none"')
++report "R2-8b: \"none\" means \"nothing started\" again, not \"external\"" "$m" \
++       "test_none_is_for_an_external_control_plane_only"
++
++m=$(mutant mn_seederror "$MAIN" \
++    '        return 0, f"{type(e).__name__}: {e}"' \
++    '        return 0, None')
++report "R2-8c: a seed that raised is reported as one that entered nothing" "$m" \
++       "test_a_seed_that_raises_says_declared_and_names_the_error"
++
++m=$(mutant mn_seednoreport "$MAIN" \
++    '    return dict(seed)' \
++    '    return None')
++report "R2-8d: the seed's outcome is never reported" "$m" \
++       "test_a_seed_that_worked_reports_its_count_and_no_error"
++
++m=$(mutant mn_seedexternal "$MAIN" \
++    '        _fabric.update(lldp=False, watchdog=False, declared_links=False)
++' \
++    '        _fabric.update(lldp=False, watchdog=False, declared_links=True,
++                       declared_links_seed={"directions": 0, "error": None})
++')
++report "R2-8e: an external fabric reports a declaration it never made" "$m" \
++       "test_a_fabric_that_declares_nothing_reports_null"
++
++m=$(mutant ar_seedkey "$ROUTES" \
++    '    if declared_links_report is not None:
++        state["declared_links"] = declared_links_report()' \
++    '    if False:
++        state["declared_links"] = declared_links_report()')
++report "R2-8f: switch_state never carries the seed's outcome" "$m" \
++       "test_the_seed_outcome_is_a_top_level_key_not_a_per_switch_one"
++
++m=$(mutant ar_seednull "$ROUTES" \
++    '    if declared_links_report is not None:
++        state["declared_links"] = declared_links_report()' \
++    '    if declared_links_report is not None and declared_links_report() is not None:
++        state["declared_links"] = declared_links_report()')
++report "R2-8g: a fabric that declares nothing serves no key instead of null" "$m" \
++       "test_a_fabric_that_declares_nothing_serves_null_rather_than_no_key"
++
++m=$(mutant ar_seedalways "$ROUTES" \
++    '    if declared_links_report is not None:
++        state["declared_links"] = declared_links_report()' \
++    '    if True:
++        state["declared_links"] = (declared_links_report() if declared_links_report
++                                   else None)')
++report "R2-8h: an uninjected reporter still adds the key" "$m" \
++       "test_an_uninjected_seed_reporter_adds_no_key"
++
++m=$(mutant mn_seedunwired "$MAIN" \
++    'api_routes.inject_declared_links_report(declared_links_report)' \
++    '# (the seed reporter is not wired)')
++report "R2-8i: the proxy never wires the seed reporter" "$m" \
++       "test_the_proxy_wires_the_reporter_at_import"
++
++# --- item 6: 07_roles_basic.sh --self-test, mutated ------------------------------------------------
++#
++# The live script is not run here (it needs a lab); its --self-test is. Each mutation weakens ONE
++# verdict function of a copy, and must turn SELF-TEST PASS into SELF-TEST FAIL through the named
++# case. The copy has no runs/ directory, so the comparison against the real 062604Z_02 capture is
++# skipped in the copy ("not compared (NOT a pass)") -- every case named below is synthetic.
++
++l7_mutant() {   # $1 = label, $2 = the anchor, $3 = its replacement
++    local label="$1" old="$2" new="$3"
++    local d="$BK/$label"; mkdir -p "$d/$LIVE_DIR_REL" "$d/p4_proxy" "$d/tmp"
++    cp "$REPO/$LIVE_DIR_REL/_common.sh" "$REPO/$LIVE_DIR_REL/07_roles_basic.sh" "$d/$LIVE_DIR_REL/"
++    ln -s "$(dirname "$(dirname "$PY")")" "$d/p4_proxy/venv"
++    python3 - "$d/$LIVE_DIR_REL/07_roles_basic.sh" "$old" "$new" <<'PY'
++import sys
++p, a, b = sys.argv[1], sys.argv[2], sys.argv[3]
++s = open(p).read()
++assert a != b, "identity mutation: %s" % a[:70]
++assert s.count(a) == 1, "anchor not unique (%d hits): %s" % (s.count(a), a[:70])
++open(p, "w").write(s.replace(a, b))
++PY
++    echo "$d"
++}
++
++l7_report() {   # $1 = mutation name, $2 = mutant dir, $3 = the self-test case that must go red
++    local out rc
++    MUTATIONS=$((MUTATIONS+1))
++    out=$(cd "$2" && TMPDIR="$2/tmp" timeout 120 bash "$LIVE_DIR_REL/07_roles_basic.sh" \
++              --self-test 2>&1); rc=$?
++    if [[ "$rc" -ne 0 ]] && /usr/bin/grep -qF "🔴    $3 " <<<"$out" \
++            && /usr/bin/grep -q '^SELF-TEST FAIL' <<<"$out"; then
++        printf '  caught   %-66s (self-test case "%s" went red)\n' "$1" "$3"
++    else
++        SURVIVORS=$((SURVIVORS+1))
++        printf '  SURVIVED %-66s (self-test case "%s" stayed green)\n' "$1" "$3"
++        /usr/bin/grep -E '🔴|SELF-TEST' <<<"$out" | head -4 | sed 's/^/             /'
++    fi
++    rm -rf "$2"
++}
++
++l7_base="$BK/l7_base"; mkdir -p "$l7_base/$LIVE_DIR_REL" "$l7_base/p4_proxy" "$l7_base/tmp"
++cp "$REPO/$LIVE_DIR_REL/_common.sh" "$LIVE07" "$l7_base/$LIVE_DIR_REL/"
++ln -s "$(dirname "$(dirname "$PY")")" "$l7_base/p4_proxy/venv"
++if (cd "$l7_base" && TMPDIR="$l7_base/tmp" bash "$LIVE_DIR_REL/07_roles_basic.sh" --self-test \
++        2>&1 | tail -1 | /usr/bin/grep -q '^SELF-TEST PASS'); then
++    echo "  07 self-test baseline: SELF-TEST PASS"
++else
++    echo "  07 self-test baseline is RED -- its mutations would prove nothing"; exit 2
++fi
++rm -rf "$l7_base"
++
++m=$(l7_mutant l7_edges 'if have.get(d) != (True, True)]' 'if have.get(d) is None]')
++l7_report "L7-1: edges_all_up accepts a direction that is present but down" "$m" \
++          "L1 one direction down"
++
++m=$(l7_mutant l7_enabled 'if have.get(d) != (True, True)]' \
++    'if (have.get(d) or (None, None))[1] is not True]')
++l7_report "L7-2: edges_all_up stops asking whether the kernel ENABLED the edge" "$m" \
++          "L1 up but not enabled"
++
++m=$(l7_mutant l7_cutdown 'if [[ "$a" == *" False" && "$b" == *" False" ]]; then' \
++    'if [[ "$a" == *" False" || "$b" == *" False" ]]; then')
++l7_report "L7-3: cut_is_down accepts one direction down" "$m" "L4 only one direction down"
++
++m=$(l7_mutant l7_cutup 'if [[ "$a" == "True True" && "$b" == "True True" ]]; then' \
++    'if [[ "$a" == "True True" || "$b" == "True True" ]]; then')
++l7_report "L7-4: cut_is_up accepts one direction back up" "$m" "L4 only one direction back up"
++
++m=$(l7_mutant l7_caps '       if s.get("capabilities") != want}' \
++    '       if s.get("capabilities") is None}')
++l7_report "L7-5: caps_are only checks that capabilities exist" "$m" \
++          "L6 one switch says reroute:true"
++
++m=$(l7_mutant l7_skipped 'if [[ "$got" == "$2" ]]; then echo "OK control_plane.skipped is $got"' \
++    'if [[ -n "$got" ]]; then echo "OK control_plane.skipped is $got"')
++l7_report "L7-6: skipped_is accepts any skipped list" "$m" "L6 routes still skipped"
++
++m=$(l7_mutant l7_declared 'if len(declared) == n and len(links) == n:' \
++    'if len(declared) == len(links):')
++l7_report "L7-7: declared_links_marked stops counting the links" "$m" "L1 no link entries"
++
++m=$(l7_mutant l7_flowhas 'if any(r.get("actions") == [f"OUTPUT:{port}"] for r in rows):' \
++    'if rows:')
++l7_report "L7-8: flow_has accepts the destination on any port" "$m" \
++          "L2 read back on the wrong port"
++
++m=$(l7_mutant l7_flowlacks 'print(f"BAD /stats/flow/{dpid} still has {dst}: {rows}" if rows' \
++    'print(f"BAD /stats/flow/{dpid} still has {dst}: {rows}" if False')
++l7_report "L7-9: flow_lacks never fails" "$m" "L2 delete left it"
++
++m=$(l7_mutant l7_dispclean 'ok = (d.get("complete") is True and c.get("dispatch_failed") == 0
++      and c.get("dispatched_ok") == d.get("enqueued") and so.get("rejected_by_switch", 0) == 0)' \
++    'ok = (d.get("complete") is True)')
++l7_report "L7-10: dispatch_clean only asks whether the request completed" "$m" \
++          "L2 dispatch failed"
++
++m=$(l7_mutant l7_501code 'if code == "501" and detail.get("outcome")' \
++    'if code in ("500", "501") and detail.get("outcome")')
++l7_report "L7-11: refused_501 accepts a 500" "$m" "L5 a 500 is not the 501"
++
++m=$(l7_mutant l7_501reason ' and detail.get("reason") == "unbound":' ':')
++l7_report "L7-12: refused_501 stops checking the reason" "$m" "L5 a 501 for another reason"
++
++m=$(l7_mutant l7_501outcome ' and detail.get("outcome") == "unsupported_on_p4"' '')
++l7_report "L7-13: refused_501 stops checking the outcome" "$m" \
++          "L5 a 501 that is not unsupported_on_p4"
++
++m=$(l7_mutant l7_dispfailed 'if failed >= 1 and hits:' 'if hits:')
++l7_report "L7-14: dispatch_refused_unbound stops asking whether the write failed" "$m" \
++          "L5 a clean dispatch is not the refusal"
++
++m=$(l7_mutant l7_dispunbound ' and "unbound" in str(f.get("message"))]' ']')
++l7_report "L7-15: dispatch_refused_unbound accepts a refusal for any reason" "$m" \
++          "L5 a refusal for another reason"
++
++m=$(l7_mutant l7_rows '    if not os.path.exists(after) or a != b:' \
++    '    if not os.path.exists(after):')
++l7_report "L7-16: rows_unchanged ignores the row diff" "$m" "L5 a row changed"
++
++m=$(l7_mutant l7_netem 'for f in "$@"; do' 'for f in "$1"; do')
++l7_report "L7-17: no_netem looks at one end only" "$m" "L4 netem left on one end"
++
+ # --- negative controls: edits no suite specifies, which must stay GREEN -------------------------
+ 
+ control() {  # $1 = label, $2 = mutant dir

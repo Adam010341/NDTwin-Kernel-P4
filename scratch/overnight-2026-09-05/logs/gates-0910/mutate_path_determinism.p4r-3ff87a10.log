@@ -1,0 +1,20 @@
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924  HEAD 3ff87a10780018b70575348b6d953a851a93b6dd  2026-09-24T14:45:19Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924
+# cmd bash tests/shell/mutate_path_determinism.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_path_determinism.sh
+== baseline (working tree) ==
+[32mPASS[0m  [2m10 tests[0m
+== mutations ==
+  M1 canonical_path -> nx.shortest_path          [32mcaught[0m [2mby test_every_host_pair_is_insertion_order_independent (3 red)[0m
+  M2 calculate_all_paths -> nx.shortest_path     [32mcaught[0m [2mby test_topology_manager_all_pairs_is_stable (1 red)[0m
+  M3 digest -> lowest node token                 [32mcaught[0m [2mby test_no_switch_on_a_shortest_path_is_left_dark (1 red)[0m
+  M4 hop rank keyed on the source                [32mcaught[0m [2mby test_advertised_hops_match_each_switch_own_next_hop (1 red)[0m
+  M5 blake2b -> builtin hash()                   [32mcaught[0m [2mby test_same_answer_under_different_hash_seeds (1 red)[0m
+== baseline restored ==
+[32mbyte-identical[0m
+
+5 mutations, 0 survived
+guarded_build: exit 0
+# rc=0

@@ -1,0 +1,166 @@
+== 06_thirteen
+   repo: /home/adam/Desktop/NDTwin-Kernel
+   raw : /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-24T160637Z_06_thirteen
+   owner: orch-0924
+
+== basic / skeleton
+   rc=0 (want 0)   PASS (4/4)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T160638Z_basic_skeleton_ndtwin.md
+
+== basic / solution
+   rc=0 (want 0)   PASS (6/6)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T160820Z_basic_solution_ndtwin.md
+
+== source_routing / skeleton
+   rc=0 (want 0)   PASS (2/2)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T160953Z_source_routing_skeleton_ndtwin.md
+
+== source_routing / solution
+   rc=0 (want 0)   PASS (5/5)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T161018Z_source_routing_solution_ndtwin.md
+
+== calc / skeleton
+   rc=0 (want 0)   PASS (2/2)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T161043Z_calc_skeleton_ndtwin.md
+
+== calc / solution
+   rc=0 (want 0)   PASS (3/3)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T161103Z_calc_solution_ndtwin.md
+
+== multicast / skeleton
+   rc=0 (want 0)   PASS (2/2)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T161122Z_multicast_skeleton_ndtwin.md
+
+== multicast / solution
+   rc=0 (want 0)   PASS (6/6)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T161254Z_multicast_solution_ndtwin.md
+
+== basic_tunnel / skeleton
+   rc=1 (want 1)   RED ARM (1/1): the skeleton does not get past the control plane, by design
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T161443Z_basic_tunnel_skeleton_ndtwin.md
+
+== basic_tunnel / solution
+   rc=0 (want 0)   PASS (4/4)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T161444Z_basic_tunnel_solution_ndtwin.md
+
+== load_balance / skeleton
+   rc=0 (want 0)   PASS (2/2)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T161544Z_load_balance_skeleton_ndtwin.md
+
+== load_balance / solution
+   rc=0 (want 0)   PASS (2/2)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T161618Z_load_balance_solution_ndtwin.md
+
+== qos / skeleton
+   rc=0 (want 0)   PASS (3/3)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T161651Z_qos_skeleton_ndtwin.md
+
+== qos / solution
+   rc=0 (want 0)   PASS (4/4)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T161732Z_qos_solution_ndtwin.md
+
+== link_monitor / skeleton
+   rc=0 (want 0)   PASS (4/4)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T161833Z_link_monitor_skeleton_ndtwin.md
+
+== link_monitor / solution
+   rc=0 (want 0)   PASS (4/4)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T161904Z_link_monitor_solution_ndtwin.md
+
+== firewall / skeleton
+   rc=0 (want 0)   PASS (3/3)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T161954Z_firewall_skeleton_ndtwin.md
+
+== firewall / solution
+   rc=0 (want 0)   PASS (4/4)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T162110Z_firewall_solution_ndtwin.md
+
+== ecn / skeleton
+   rc=0 (want 0)   PASS (3/3)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T162454Z_ecn_skeleton_ndtwin.md
+
+== ecn / solution
+   rc=1 (want 0)   FAIL (1/4)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T162527Z_ecn_solution_ndtwin.md
+   !! ecn/solution exited 1, want 0
+             -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only 
+     ... [trimmed; 5425 chars total]
+        ndt down rc=0
+        host_count_override: put back to the 2 bytes this round found
+        telemetry_override: unchanged (absent)
+     $ NDT_OWNER=orch-0924 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+       the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+       this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+       ok  lab released
+        ndt release rc=0
+     
+     == verdict =============================================================
+        PASS injection: packets reached h2                  want=>=1                    got=2   【源碼推導，未執行】
+        PASS injection: send.py showed the frame it built   want=1 show2                got=1   【源碼推導，未執行】
+        FAIL h2 saw a congestion-marked packet              want=0x3 among the tos values got=['0x1']   【README 宣稱】＋【源碼推導，未執行】
+        PASS G1  link usage follows the iperf path          want=primary on-path > 0; minor rows printed, not asserted; off-path under one sample's worth (256 x MTU x 8 bit) or 2% of the smallest PRIMARY on-path, whichever is larger got=PASS   【源碼推導，未執行】
+     
+     >>> FAIL (1/4)
+     
+     report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T162527Z_ecn_solution_ndtwin.md
+
+== mri / skeleton
+   rc=0 (want 0)   PASS (4/4)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T162707Z_mri_skeleton_ndtwin.md
+
+== mri / solution
+   rc=0 (want 0)   PASS (5/5)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T162740Z_mri_solution_ndtwin.md
+
+== p4runtime / skeleton
+   rc=0 (want 0)   PASS (4/4)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T162920Z_p4runtime_skeleton_ndtwin.md
+
+== p4runtime / solution
+   rc=0 (want 0)   PASS (5/5)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T162954Z_p4runtime_solution_ndtwin.md
+
+== flowcache / skeleton
+   rc=1 (want 1)   RED ARM (1/1): skeleton does not compile, by design
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T163045Z_flowcache_skeleton_ndtwin.md
+
+== flowcache / solution
+   rc=0 (want 0)   PASS (5/5)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T163045Z_flowcache_solution_ndtwin.md
+
+== the table
+   exercise        which     rc  verdict                                                                     report
+   basic           skeleton  0   PASS (4/4)                                                                  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T160638Z_basic_skeleton_ndtwin.md
+   basic           solution  0   PASS (6/6)                                                                  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T160820Z_basic_solution_ndtwin.md
+   source_routing  skeleton  0   PASS (2/2)                                                                  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T160953Z_source_routing_skeleton_ndtwin.md
+   source_routing  solution  0   PASS (5/5)                                                                  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T161018Z_source_routing_solution_ndtwin.md
+   calc            skeleton  0   PASS (2/2)                                                                  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T161043Z_calc_skeleton_ndtwin.md
+   calc            solution  0   PASS (3/3)                                                                  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T161103Z_calc_solution_ndtwin.md
+   multicast       skeleton  0   PASS (2/2)                                                                  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T161122Z_multicast_skeleton_ndtwin.md
+   multicast       solution  0   PASS (6/6)                                                                  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T161254Z_multicast_solution_ndtwin.md
+   basic_tunnel    skeleton  1   RED ARM (1/1): the skeleton does not get past the control plane, by design  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T161443Z_basic_tunnel_skeleton_ndtwin.md
+   basic_tunnel    solution  0   PASS (4/4)                                                                  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T161444Z_basic_tunnel_solution_ndtwin.md
+   load_balance    skeleton  0   PASS (2/2)                                                                  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T161544Z_load_balance_skeleton_ndtwin.md
+   load_balance    solution  0   PASS (2/2)                                                                  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T161618Z_load_balance_solution_ndtwin.md
+   qos             skeleton  0   PASS (3/3)                                                                  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T161651Z_qos_skeleton_ndtwin.md
+   qos             solution  0   PASS (4/4)                                                                  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T161732Z_qos_solution_ndtwin.md
+   link_monitor    skeleton  0   PASS (4/4)                                                                  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T161833Z_link_monitor_skeleton_ndtwin.md
+   link_monitor    solution  0   PASS (4/4)                                                                  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T161904Z_link_monitor_solution_ndtwin.md
+   firewall        skeleton  0   PASS (3/3)                                                                  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T161954Z_firewall_skeleton_ndtwin.md
+   firewall        solution  0   PASS (4/4)                                                                  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T162110Z_firewall_solution_ndtwin.md
+   ecn             skeleton  0   PASS (3/3)                                                                  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T162454Z_ecn_skeleton_ndtwin.md
+   ecn             solution  1   FAIL (1/4)                                                                  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T162527Z_ecn_solution_ndtwin.md
+   mri             skeleton  0   PASS (4/4)                                                                  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T162707Z_mri_skeleton_ndtwin.md
+   mri             solution  0   PASS (5/5)                                                                  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T162740Z_mri_solution_ndtwin.md
+   p4runtime       skeleton  0   PASS (4/4)                                                                  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T162920Z_p4runtime_skeleton_ndtwin.md
+   p4runtime       solution  0   PASS (5/5)                                                                  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T162954Z_p4runtime_solution_ndtwin.md
+   flowcache       skeleton  1   RED ARM (1/1): skeleton does not compile, by design                         /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T163045Z_flowcache_skeleton_ndtwin.md
+   flowcache       solution  0   PASS (5/5)                                                                  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T163045Z_flowcache_solution_ndtwin.md
+
+== what the rounds left behind
+   p4_proxy/mininet/host_count_override: 4
+   p4_proxy/mininet/app_package_override: absent
+   p4_proxy/mininet/telemetry_override: absent
+
+raw: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-24T160637Z_06_thirteen
+FAIL 06_thirteen -- 1 of 26 arm(s) were not what the exercise says they should be

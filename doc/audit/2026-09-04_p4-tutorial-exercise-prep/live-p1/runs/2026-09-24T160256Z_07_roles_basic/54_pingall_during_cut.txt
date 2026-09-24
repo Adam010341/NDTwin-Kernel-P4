@@ -1,0 +1,9 @@
+h1 -> h3 (10.0.3.3): 100% packet loss, 0/3 received
+h1 -> h4 (10.0.4.4): 100% packet loss, 0/3 received
+h2 -> h3 (10.0.3.3): 100% packet loss, 0/3 received
+h2 -> h4 (10.0.4.4): 100% packet loss, 0/3 received
+h3 -> h1 (10.0.1.1): 100% packet loss, 0/3 received
+h3 -> h2 (10.0.2.2): 100% packet loss, 0/3 received
+h4 -> h1 (10.0.1.1): 100% packet loss, 0/3 received
+h4 -> h2 (10.0.2.2): 100% packet loss, 0/3 received
+PINGALL_LOSS pairs=12 zero_loss=4 lossy=8 untested=0

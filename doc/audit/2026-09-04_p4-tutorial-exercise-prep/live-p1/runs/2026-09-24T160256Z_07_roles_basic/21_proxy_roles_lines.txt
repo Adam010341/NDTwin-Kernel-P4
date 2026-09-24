@@ -1,0 +1,2 @@
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION, not failure detection: this fabric runs no LLDP and no watchdog, so a cut link is not noticed and not rerouted around (capabilities.reroute is false).
+[Proxy Agent] every foreign switch binds roles.ipv4_route with owner ndtwin: 16 of 16 initial routes written into the package's route tables (once: no watchdog runs on this fabric, so nothing reroutes around a failed link)

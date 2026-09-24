@@ -1,0 +1,9 @@
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924  HEAD 57aae1bf22e90096f846b2776ec9c3847d9b699b  2026-09-24T12:52:18Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924
+# cmd python3 -m unittest tests.python.test_known_issues_references
+............................................
+----------------------------------------------------------------------
+Ran 44 tests in 0.846s
+
+OK
+# rc=0

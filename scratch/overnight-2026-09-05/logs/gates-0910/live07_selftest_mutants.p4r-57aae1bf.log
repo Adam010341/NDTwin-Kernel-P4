@@ -1,0 +1,27 @@
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924  HEAD 57aae1bf22e90096f846b2776ec9c3847d9b699b  2026-09-24T12:52:05Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924
+# cmd python3 /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/live07_mutants.py /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad
+== mutant: edges_all_up accepts a link that is present but down
+   🔴    L1 all eight down (062604Z's shape)                        wanted BAD, got: OK 8/8 inter-switch directions is_enabled:true is_up:true
+   🔴    L1 one direction down                                      wanted BAD, got: OK 8/8 inter-switch directions is_enabled:true is_up:true
+   SELF-TEST FAIL
+   -> RED (killed)
+== mutant: cut_is_down accepts one direction down
+   🔴    L4 only one direction down                                 wanted BAD, got: OK both directions of the cut link is_up:false (True False / True True)
+   SELF-TEST FAIL
+   -> RED (killed)
+== mutant: refused_501 accepts a 500
+   🔴    L5 a 500 is not the 501                                    wanted BAD, got: OK the proxy answered 501 unsupported_on_p4, reason unbound
+   SELF-TEST FAIL
+   -> RED (killed)
+== mutant: rows_unchanged ignores the row diff
+   🔴    L5 a row changed                                           wanted BAD, got: OK 2 rows across 2 switch(es), identical before and after
+   SELF-TEST FAIL
+   -> RED (killed)
+== mutant: caps_are only checks that capabilities exist
+   🔴    L6 one switch says reroute:true                            wanted BAD, got: OK all 4 switches report {"binding_source": "package", "five_tuple": false, "ipv4_route": "ndtwin", "link_discovery": "declared", "reroute"
+   🔴    L6 owned is not unbound                                    wanted BAD, got: OK all 4 switches report {"binding_source": null, "five_tuple": false, "ipv4_route": "unbound", "link_discovery": "declared", "reroute": fa
+   SELF-TEST FAIL
+   -> RED (killed)
+LIVE07-MUTANTS: all killed
+# rc=0

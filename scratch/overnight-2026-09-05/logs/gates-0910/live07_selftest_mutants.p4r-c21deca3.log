@@ -1,0 +1,18 @@
+# 07_roles_basic.sh --self-test against mutated copies of its own verdicts (worker R, HEAD c21deca3f13bfc4c7f56ae8b449d94a3858ecb9c)
+# each mutant must turn SELF-TEST PASS into SELF-TEST FAIL
+== mutant edges_all_up
+SELF-TEST PASS
+ANCHOR NOT UNIQUE (0): if [[ "$a" == *" False" \&\& "$b" == *" False" ]]; then
+== mutant cut_is_down
+SELF-TEST PASS
+== mutant refused_501
+  🔴    L5 a 500 is not the 501                                    wanted BAD, got: OK the proxy answered 501 unsupported_on_p4, reason unbound
+SELF-TEST FAIL
+== mutant rows_unchanged
+  🔴    L5 counters moved, rows did not                            wanted OK, got: 
+  🔴    L5 a row changed                                           wanted BAD, got: 
+SELF-TEST FAIL
+== mutant caps_are
+  🔴    L6 one switch says reroute:true                            wanted BAD, got: OK all 4 switches report {"binding_source": "package", "five_tuple": false, "ipv4_route": "ndtwin", "link_discovery": "declared", "reroute": false}
+  🔴    L6 owned is not unbound                                    wanted BAD, got: OK all 4 switches report {"binding_source": null, "five_tuple": false, "ipv4_route": "unbound", "link_discovery": "declared", "reroute": false}
+SELF-TEST FAIL

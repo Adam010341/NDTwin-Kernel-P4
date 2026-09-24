@@ -1,0 +1,2 @@
+qdisc netem 8002: root refcnt 15 limit 1000 loss 100%
+qdisc clsact ffff: parent ffff:fff1 

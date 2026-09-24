@@ -1,0 +1,41 @@
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924  HEAD 3ff87a10780018b70575348b6d953a851a93b6dd  2026-09-24T14:45:04Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924
+# cmd bash tests/shell/test_log_suffix_idempotent.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/test_log_suffix_idempotent.sh
+  ok       case 1  one suffix
+  ok       case 2  suffixes compose in order
+  ok       case 3  a child deriving from the base does not stack
+  ok       case 3b and appending to the inherited name is what stacked
+  ok       case 4  f(f(x)) == f(x): deriving twice from the base is stable
+  ok       case 5  no suffixes returns the base untouched
+  ok       case 6  lib_e.sh and run_f5.sh carry the same derive_log
+case 7 the rule is 'built from the inherited LOG', not one spelling of it
+  ok       case 7a  ${LOG%.log} (the one it caught)
+  ok       case 7b  (6)b the other strip operator
+  ok       case 7c  (6)c the suffix quoted
+  ok       case 7d  no quotes on the assignment
+  ok       case 7e  appended with no strip at all
+  ok       case 7f  braced and appended
+  ok       case 7o  after a case pattern is still an assignment
+  ok       case 7g  the base, not the inherited name
+  ok       case 7h  deriving from the base is the fix
+  ok       case 7i  a default is not an append
+  ok       case 7j  another variable is not it
+  ok       case 7p  a name that merely ends in it
+  ok       case 7k  a comment is not code
+  ok       case 7l  and the stripper still sees code
+  ok       case 7m  the scan found the shell scripts
+  ok       case 7n  the four the ticket named are in it (of 7 copies found)
+  ok       case 7  no script appends a suffix to the inherited LOG
+  ok       case 8  2026-08-31_sampling-ceiling-after-merge/round.env exports LOG_BASE
+  ok       case 8  2026-08-31_f5-fine-grid-round/round.env exports LOG_BASE
+  ok       case 9  a dry run whose LOG lacks .dryrun. says so
+  ok       case 9b and STOPS rather than carrying on
+  ok       case 10 a real run holding a dry-run transcript says so
+  ok       case 10b and STOPS too
+
+  30 passed, 0 failed
+guarded_build: exit 0
+# rc=0

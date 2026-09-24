@@ -1,0 +1,43 @@
+# Recording the NDTwin client's GET /stats/flow/1 HTTP body AT THE BASE. 2026-09-24T13:47:08Z
+# tree: git archive d492a346 p4_proxy setting (production diff 6291db35..d492a346 on p4_proxy/proxy_agent p4_proxy/mininet: [] -- empty = identical)
+# recorder: p4_proxy/tests/record_stats_flow_http_body.py copied verbatim from the worktree, sha256 89e3576613bedf4920158e68ad019feabf3c317896fc602c4dacf76f96c7a540
+# proxy_agent/api_routes.py in this tree: sha256 b09e2d0e103a352d (trunk 6291db35's: b09e2d0e103a352d)
+# cmd: env -C <tree>/p4_proxy PYTHONPATH=. PYTHONDONTWRITEBYTECODE=1 venv/bin/python tests/record_stats_flow_http_body.py
+status       200
+content-type application/json
+length       2346
+sha256       aca1a88af0d889a8a7cc84468ee775cbccfb34ed1f3b8d3c1d3d4373f87a8659
+BASELINE_NDTWIN_HTTP_BODY = (
+    b'{"1":[{"table_id":0,"priority":0,"match":{"nw_dst":"10.0.0.4","dl_type":2048'
+    b'},"actions":["OUTPUT:6"],"byte_count":0,"packet_count":0,"duration_sec":0,"d'
+    b'uration_nsec":0,"idle_timeout":0,"hard_timeout":0,"cookie":0,"flags":0,"leng'
+    b'th":0},{"table_id":0,"priority":0,"match":{"nw_dst":"10.0.1.0/24","dl_type":'
+    b'2048},"actions":["OUTPUT:2"],"byte_count":0,"packet_count":0,"duration_sec":'
+    b'0,"duration_nsec":0,"idle_timeout":0,"hard_timeout":0,"cookie":0,"flags":0,"'
+    b'length":0},{"table_id":0,"priority":101,"match":{"nw_src":"10.0.0.1","nw_dst'
+    b'":"10.0.0.4","nw_proto":6,"in_port":3,"dl_type":2048},"actions":["OUTPUT:4"]'
+    b',"byte_count":0,"packet_count":0,"duration_sec":0,"duration_nsec":0,"idle_ti'
+    b'meout":0,"hard_timeout":0,"cookie":0,"flags":0,"length":0},{"table_id":0,"pr'
+    b'iority":0,"match":{"nw_src":"10.0.0.1","nw_dst":"10.0.0.4","nw_proto":6,"dl_'
+    b'type":2048},"actions":["OUTPUT:9"],"byte_count":0,"packet_count":0,"duration'
+    b'_sec":0,"duration_nsec":0,"idle_timeout":0,"hard_timeout":0,"cookie":0,"flag'
+    b's":0,"length":0},{"table_id":0,"priority":0,"match":{"dl_dst":"00:00:00:00:0'
+    b'0:04"},"actions":["OUTPUT:3"],"byte_count":1500,"packet_count":3,"duration_s'
+    b'ec":0,"duration_nsec":0,"idle_timeout":0,"hard_timeout":0,"cookie":0,"flags"'
+    b':0,"length":0},{"table_id":0,"priority":0,"match":{"nw_dst":"10.0.0.9","dl_t'
+    b'ype":2048},"actions":["OUTPUT:CONTROLLER"],"byte_count":0,"packet_count":0,"'
+    b'duration_sec":0,"duration_nsec":0,"idle_timeout":0,"hard_timeout":0,"cookie"'
+    b':0,"flags":0,"length":0},{"table_id":0,"priority":0,"match":{"nw_dst":"10.0.'
+    b'0.8","dl_type":2048},"actions":[],"byte_count":0,"packet_count":0,"duration_'
+    b'sec":0,"duration_nsec":0,"idle_timeout":0,"hard_timeout":0,"cookie":0,"flags'
+    b'":0,"length":0},{"table_id":0,"priority":0,"match":{"nw_dst":"10.0.0.7","dl_'
+    b'type":2048},"actions":[],"byte_count":0,"packet_count":0,"duration_sec":0,"d'
+    b'uration_nsec":0,"idle_timeout":0,"hard_timeout":0,"cookie":0,"flags":0,"leng'
+    b'th":0},{"table_id":0,"priority":0,"match":{"nw_dst":"10.0.0.6","dl_type":204'
+    b'8},"actions":[],"byte_count":0,"packet_count":0,"duration_sec":0,"duration_n'
+    b'sec":0,"idle_timeout":0,"hard_timeout":0,"cookie":0,"flags":0,"length":0},{"'
+    b'table_id":0,"priority":0,"match":{"nw_dst":"10.0.0.5","dl_type":2048},"actio'
+    b'ns":[],"byte_count":0,"packet_count":0,"duration_sec":0,"duration_nsec":0,"i'
+    b'dle_timeout":0,"hard_timeout":0,"cookie":0,"flags":0,"length":0}]}'
+)
+# rc=0

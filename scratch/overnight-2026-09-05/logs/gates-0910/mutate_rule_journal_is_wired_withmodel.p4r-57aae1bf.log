@@ -1,0 +1,25 @@
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924 HEAD 57aae1bf22e90096f846b2776ec9c3847d9b699b 2026-09-24T12:59:54Z
+# env NDTWIN_P4_TOPO_FILE=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json -- the gate copies p4_proxy/{proxy_agent,tests,mininet} with no setting/ beside them, and main.py loads the fabric model at import (host_count_override is 128 at base and here), so without this the baseline is red at base too (two_extra_gates_at_base.p4r-57aae1bf.log)
+interpreter: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924/p4_proxy/venv/bin/python
+baseline (must be green before any mutation):
+Ran 12 tests in 0.414s
+OK
+
+  caught   M1: main.py stops passing the journal (the line as it stood)   (test_the_module_level_topology_holds_a_real_rule_journal went red)
+  caught   M2: the journal is BUILT and then not passed                   (test_the_module_level_topology_holds_a_real_rule_journal went red)
+  caught   M3: the REST handlers get a second, journal-less manager       (test_the_topology_the_rest_handlers_use_is_the_journalled_one went red)
+  caught   M4: _note_in_journal's guard is inverted                       (test_one_accepted_install_is_one_line_in_the_journal_file went red)
+  caught   M5: the 5-tuple branch stops journalling (no other record exists) (test_a_five_tuple_install_is_in_the_journal_file went red)
+  caught   M6: record() reports success without writing anything          (test_one_accepted_install_is_one_line_in_the_journal_file went red)
+  caught   M7: the file is written in a format its own reader cannot parse (test_the_journal_the_proxy_wrote_is_readable_by_rule_journal went red)
+  caught   M8: the path override is ignored (an env var with no reader again) (test_the_environment_override_is_read went red)
+  caught   N1 (control): refused writes are journalled too                (test_a_refused_install_leaves_the_journal_file_empty went red)
+  caught   N2 (control): a brand new journal for every proxy start        (test_the_default_path_does_not_move_between_constructions went red)
+  caught   N3 (control): the path follows the working directory           (test_the_default_path_does_not_depend_on_the_working_directory went red)
+  caught   N4 (control): the journal is written to one machine's home directory (test_the_default_path_is_inside_this_checkout went red)
+  caught   N5 (control): each entry replaces the file instead of appending (test_two_writes_append_rather_than_replace went red)
+  caught   N6 (control): the file is created empty at import              (test_importing_the_proxy_does_not_create_the_file went red)
+
+baseline byte-identical: yes (main.py, topology_manager.py, rule_journal.py, the test)
+mutation gate: 14 mutations, 0 survived
+# rc=0

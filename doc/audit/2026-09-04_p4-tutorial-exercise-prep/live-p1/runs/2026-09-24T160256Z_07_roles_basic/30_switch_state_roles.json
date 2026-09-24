@@ -1,0 +1,336 @@
+{
+  "boot_at": 1790265784.8249278,
+  "boot_id": "fa3289b597d54ae3a803bd735091aa88",
+  "control_plane": {
+    "mode": "ndtwin",
+    "package": "/home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic_roles",
+    "skipped": [
+      "link_watchdog",
+      "lldp_discovery"
+    ],
+    "telemetry": {
+      "knob": "absent",
+      "link_emitter": {
+        "alive": true,
+        "manifest": "/tmp/ndtwin_link_telemetry.json",
+        "pid": 2230507,
+        "rate": 256,
+        "switches": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "package": "auto"
+    }
+  },
+  "declared_links": {
+    "directions": 8,
+    "error": null
+  },
+  "external_link_reports": {
+    "last": null,
+    "received": 0,
+    "recorded_only": 0,
+    "routed_through_watchdog": 0
+  },
+  "links": {
+    "1:3->3:1": {
+      "down": null,
+      "last_beacon_age_s": null,
+      "reported_to_kernel": false,
+      "source": "declared"
+    },
+    "1:4->4:2": {
+      "down": null,
+      "last_beacon_age_s": null,
+      "reported_to_kernel": false,
+      "source": "declared"
+    },
+    "2:3->4:1": {
+      "down": null,
+      "last_beacon_age_s": null,
+      "reported_to_kernel": false,
+      "source": "declared"
+    },
+    "2:4->3:2": {
+      "down": null,
+      "last_beacon_age_s": null,
+      "reported_to_kernel": false,
+      "source": "declared"
+    },
+    "3:1->1:3": {
+      "down": null,
+      "last_beacon_age_s": null,
+      "reported_to_kernel": false,
+      "source": "declared"
+    },
+    "3:2->2:4": {
+      "down": null,
+      "last_beacon_age_s": null,
+      "reported_to_kernel": false,
+      "source": "declared"
+    },
+    "4:1->2:3": {
+      "down": null,
+      "last_beacon_age_s": null,
+      "reported_to_kernel": false,
+      "source": "declared"
+    },
+    "4:2->1:4": {
+      "down": null,
+      "last_beacon_age_s": null,
+      "reported_to_kernel": false,
+      "source": "declared"
+    }
+  },
+  "probe_interval_s": 2.0,
+  "status": "success",
+  "switches": {
+    "1": {
+      "capabilities": {
+        "binding_source": "package",
+        "five_tuple": false,
+        "ipv4_route": "ndtwin",
+        "link_discovery": "declared",
+        "reroute": false
+      },
+      "entries_recorded": 1,
+      "flow_stats": {
+        "unrendered_entries": null
+      },
+      "grpc_addr": "localhost:30051",
+      "last_lldp_age_s": null,
+      "last_packet_in_age_s": null,
+      "oldest_rule_installed_at": 1790265785.9614894,
+      "pipeline": {
+        "ndtwin": false,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic_roles/build/basic.p4.p4info.txtpb",
+        "p4info_sha256": "9213871cee36bd93",
+        "skipped": [
+          "clone_session",
+          "sflow_telemetry"
+        ]
+      },
+      "pipeline_commits": 1,
+      "pre_entries": {
+        "clone": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        },
+        "multicast": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        }
+      },
+      "probe_age_s": 0.029,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 5,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": true,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 1,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 1
+      },
+      "table_generation": "97a040eab1cc4949a12ab3a9c1a7da77",
+      "telemetry": {
+        "clone_session": false,
+        "packet_in_ids": null,
+        "reason": "this switch runs the app package's own pipeline, which does not clone to the CPU port; its samples come from 'link'",
+        "sflow_registered": false,
+        "source": "link"
+      }
+    },
+    "2": {
+      "capabilities": {
+        "binding_source": "package",
+        "five_tuple": false,
+        "ipv4_route": "ndtwin",
+        "link_discovery": "declared",
+        "reroute": false
+      },
+      "entries_recorded": 1,
+      "flow_stats": {
+        "unrendered_entries": null
+      },
+      "grpc_addr": "localhost:30052",
+      "last_lldp_age_s": null,
+      "last_packet_in_age_s": null,
+      "oldest_rule_installed_at": 1790265785.9625268,
+      "pipeline": {
+        "ndtwin": false,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic_roles/build/basic.p4.p4info.txtpb",
+        "p4info_sha256": "9213871cee36bd93",
+        "skipped": [
+          "clone_session",
+          "sflow_telemetry"
+        ]
+      },
+      "pipeline_commits": 1,
+      "pre_entries": {
+        "clone": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        },
+        "multicast": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        }
+      },
+      "probe_age_s": 0.029,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 5,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": true,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 1,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 1
+      },
+      "table_generation": "0c67d47d189944c78f5cb83c1f2325c0",
+      "telemetry": {
+        "clone_session": false,
+        "packet_in_ids": null,
+        "reason": "this switch runs the app package's own pipeline, which does not clone to the CPU port; its samples come from 'link'",
+        "sflow_registered": false,
+        "source": "link"
+      }
+    },
+    "3": {
+      "capabilities": {
+        "binding_source": "package",
+        "five_tuple": false,
+        "ipv4_route": "ndtwin",
+        "link_discovery": "declared",
+        "reroute": false
+      },
+      "entries_recorded": 1,
+      "flow_stats": {
+        "unrendered_entries": null
+      },
+      "grpc_addr": "localhost:30053",
+      "last_lldp_age_s": null,
+      "last_packet_in_age_s": null,
+      "oldest_rule_installed_at": 1790265785.9631755,
+      "pipeline": {
+        "ndtwin": false,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic_roles/build/basic.p4.p4info.txtpb",
+        "p4info_sha256": "9213871cee36bd93",
+        "skipped": [
+          "clone_session",
+          "sflow_telemetry"
+        ]
+      },
+      "pipeline_commits": 1,
+      "pre_entries": {
+        "clone": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        },
+        "multicast": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        }
+      },
+      "probe_age_s": 0.028,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 5,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": true,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 1,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 1
+      },
+      "table_generation": "c33a59985e8b428b9d60a4522076e1f4",
+      "telemetry": {
+        "clone_session": false,
+        "packet_in_ids": null,
+        "reason": "this switch runs the app package's own pipeline, which does not clone to the CPU port; its samples come from 'link'",
+        "sflow_registered": false,
+        "source": "link"
+      }
+    },
+    "4": {
+      "capabilities": {
+        "binding_source": "package",
+        "five_tuple": false,
+        "ipv4_route": "ndtwin",
+        "link_discovery": "declared",
+        "reroute": false
+      },
+      "entries_recorded": 1,
+      "flow_stats": {
+        "unrendered_entries": null
+      },
+      "grpc_addr": "localhost:30054",
+      "last_lldp_age_s": null,
+      "last_packet_in_age_s": null,
+      "oldest_rule_installed_at": 1790265785.9637587,
+      "pipeline": {
+        "ndtwin": false,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic_roles/build/basic.p4.p4info.txtpb",
+        "p4info_sha256": "9213871cee36bd93",
+        "skipped": [
+          "clone_session",
+          "sflow_telemetry"
+        ]
+      },
+      "pipeline_commits": 1,
+      "pre_entries": {
+        "clone": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        },
+        "multicast": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        }
+      },
+      "probe_age_s": 0.027,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 5,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": true,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 1,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 1
+      },
+      "table_generation": "3e00909234bb4233b045c77971532830",
+      "telemetry": {
+        "clone_session": false,
+        "packet_in_ids": null,
+        "reason": "this switch runs the app package's own pipeline, which does not clone to the CPU port; its samples come from 'link'",
+        "sflow_registered": false,
+        "source": "link"
+      }
+    }
+  }
+}

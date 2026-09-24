@@ -1,0 +1,45 @@
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924 HEAD 177b9f03022bb96c6a73607f40640de4239517d4 2026-09-24T15:37:05Z
+# cmd env SELFTEST_OLD_RUN=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-19T062604Z_02_app_basic SELFTEST_OLD_TOPO=/home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic/ndtwin/topology.json bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh --self-test
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env SELFTEST_OLD_RUN=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-19T062604Z_02_app_basic SELFTEST_OLD_TOPO=/home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic/ndtwin/topology.json bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh --self-test
+07_roles_basic --self-test (synthetic captures in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp-orch/live-p1-07-selftest-e6gWjO; no lab, no claim, nothing started)
+  ok    L1 all eight up                                            OK 8/8 inter-switch directions is_enabled:true is_up:true
+  ok    L1 all eight down (062604Z's shape)                        BAD 0/8 inter-switch directions enabled+up; not: (1, 3, 3, 1)=(False, 
+  ok    L1 one direction down                                      BAD 7/8 inter-switch directions enabled+up; not: (1, 3, 3, 1)=(True, F
+  ok    L1 up but not enabled                                      BAD 7/8 inter-switch directions enabled+up; not: (2, 3, 4, 1)=(False, 
+  ok    L4 the cut is down both ways                               OK both directions of the cut link is_up:false (True False / True Fals
+  ok    L4 only one direction down                                 BAD the cut link is not down in both directions: s1:3->s3:1 [True Fals
+  ok    L4 nothing down                                            BAD the cut link is not down in both directions: s1:3->s3:1 [True True
+  ok    L4 back up                                                 OK both directions of the cut link are back up
+  ok    L4 still down                                              BAD the cut link is not back up: s1:3->s3:1 [True False], s3:1->s1:3 [
+  ok    L4 only one direction back up                              BAD the cut link is not back up: s1:3->s3:1 [True False], s3:1->s1:3 [
+  ok    L4 no netem left                                           OK no netem on either end of the cut link
+  ok    L4 netem left on one end                                   BAD netem is still attached on 1 end(s)
+  ok    L6 capabilities owned                                      OK all 4 switches report {"binding_source": "package", "five_tuple": f
+  ok    L6 one switch says reroute:true                            BAD 1 of 4 switch(es) differ from {'ipv4_route': 'ndtwin', 'five_tuple
+  ok    L6 owned is not unbound                                    BAD 4 of 4 switch(es) differ from {'ipv4_route': 'unbound', 'five_tupl
+  ok    L6 skipped with every table owned                          OK control_plane.skipped is ['link_watchdog', 'lldp_discovery']
+  ok    L6 routes still skipped                                    BAD control_plane.skipped is ['install_initial_routes', 'link_watchdog
+  ok    L1 eight declared link entries                             OK 8 link entries, every one source: declared (down: null -- nobody ch
+  ok    L1 no link entries                                         BAD 0 of 0 link entries are declared, want 8 of 8
+  ok    L2 read back                                               OK /stats/flow/1 reads back nw_dst 10.0.9.9 -> OUTPUT:3
+  ok    L2 not read back                                           BAD /stats/flow/1 has no nw_dst 10.0.9.9 -> OUTPUT:3 (rows for it: [])
+  ok    L2 read back on the wrong port                             BAD /stats/flow/1 has no nw_dst 10.0.9.9 -> OUTPUT:4 (rows for it: [{'
+  ok    L2 delete took it out                                      OK /stats/flow/1 has no row for 10.0.9.9
+  ok    L2 delete left it                                          BAD /stats/flow/1 still has 10.0.9.9: [{'priority': 0, 'match': {'dl_t
+  ok    L2 dispatch clean                                          OK request 7: enqueued 1, dispatched_ok 1, dispatch_failed 0, rejected
+  ok    L2 dispatch failed                                         BAD request 8: enqueued 1, dispatched_ok 0, dispatch_failed 1, rejecte
+  ok    L5 the proxy said 501 unbound                              OK the proxy answered 501 unsupported_on_p4, reason unbound
+  ok    L5 a 500 is not the 501                                    BAD HTTP 500, outcome 'unsupported_on_p4', reason 'unbound'
+  ok    L5 a 501 for another reason                                BAD HTTP 501, outcome 'unsupported_on_p4', reason 'owned_by_package'
+  ok    L5 a 501 that is not unsupported_on_p4                     BAD HTTP 501, outcome 'not_implemented', reason 'unbound'
+  ok    L5 dispatch failed, reason kept                            OK the write failed (1) and recent_failures says why: HTTP 501: {"deta
+  ok    L5 a clean dispatch is not the refusal                     BAD dispatch_failed 0, 1 recent failure(s) naming unsupported_on_p4/un
+  ok    L5 no failure record names it                              BAD dispatch_failed 1, 0 recent failure(s) naming unsupported_on_p4/un
+  ok    L5 a refusal for another reason                            BAD dispatch_failed 1, 0 recent failure(s) naming unsupported_on_p4/un
+  ok    L5 counters moved, rows did not                            OK 2 rows across 2 switch(es), identical before and after
+  ok    L5 a row changed                                           BAD the author's rows changed: stats_flow_1.json: before 1 rows, after
+  ok    L1 on the real 062604Z_02 capture                          BAD 0/8 inter-switch directions enabled+up; not: (1, 3, 3, 1)=(False, 
+SELF-TEST PASS
+guarded_build: exit 0
+# rc=0

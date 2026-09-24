@@ -1,0 +1,46 @@
+== 06_thirteen
+   repo: /home/adam/Desktop/NDTwin-Kernel
+   raw : /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-24T163640Z_06_thirteen
+   owner: orch-0924
+
+== ecn / skeleton
+   rc=0 (want 0)   PASS (3/3)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T163640Z_ecn_skeleton_ndtwin.md
+
+== ecn / solution
+   rc=1 (want 0)   FAIL (1/4)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T163713Z_ecn_solution_ndtwin.md
+   !! ecn/solution exited 1, want 0
+             -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only 
+     ... [trimmed; 5425 chars total]
+        ndt down rc=0
+        host_count_override: put back to the 2 bytes this round found
+        telemetry_override: unchanged (absent)
+     $ NDT_OWNER=orch-0924 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+       the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+       this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+       ok  lab released
+        ndt release rc=0
+     
+     == verdict =============================================================
+        PASS injection: packets reached h2                  want=>=1                    got=2   【源碼推導，未執行】
+        PASS injection: send.py showed the frame it built   want=1 show2                got=1   【源碼推導，未執行】
+        FAIL h2 saw a congestion-marked packet              want=0x3 among the tos values got=['0x1']   【README 宣稱】＋【源碼推導，未執行】
+        PASS G1  link usage follows the iperf path          want=primary on-path > 0; minor rows printed, not asserted; off-path under one sample's worth (256 x MTU x 8 bit) or 2% of the smallest PRIMARY on-path, whichever is larger got=PASS   【源碼推導，未執行】
+     
+     >>> FAIL (1/4)
+     
+     report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T163713Z_ecn_solution_ndtwin.md
+
+== the table
+   exercise  which     rc  verdict     report
+   ecn       skeleton  0   PASS (3/3)  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T163640Z_ecn_skeleton_ndtwin.md
+   ecn       solution  1   FAIL (1/4)  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T163713Z_ecn_solution_ndtwin.md
+
+== what the rounds left behind
+   p4_proxy/mininet/host_count_override: 4
+   p4_proxy/mininet/app_package_override: absent
+   p4_proxy/mininet/telemetry_override: absent
+
+raw: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-24T163640Z_06_thirteen
+FAIL 06_thirteen -- 1 of 2 arm(s) were not what the exercise says they should be

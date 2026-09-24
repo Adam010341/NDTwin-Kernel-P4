@@ -1,0 +1,32 @@
+p4_proxy_suite                           rc=0  [TopologyManager] Refusing delete for DPID 1: neither table can honour ['dl_dst']
+p4_exercise_suite                        rc=0 (expected 1)  OK
+   🔴 p4_exercise_suite's reds are not exactly FixtureProvenance: 
+p4_exercise_suite_notutorials            rc=0  OK (skipped=1)
+fixture_provenance_at_base               rc=1  PROVENANCE-AT-BASE: NOT the expected pre-existing red
+mutate_roles_binding                     rc=0  mutation gate: 154 mutations, 0 survived
+mutate_app_package                       rc=0  mutation gate: 48 mutations, 0 survived
+mutate_table_entry                       rc=0  mutation gate: 41 mutations, 0 survived
+mutate_p4_exercise_tools                 rc=0  22 mutations, 0 survived
+contract_selftest                        rc=0  Self-test passed: 166 checks
+live07_selftest                          rc=0  SELF-TEST PASS
+check_process_by_name                    rc=0  check_process_by_name: 319 file(s) scanned, 0 site(s), 0 registered, 0 new, 0 stale
+check_gate_anchors                       rc=0  116/116 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+kiref                                    rc=0  OK
+check_test_tmpdirs                       rc=0  check_test_tmpdirs: 352 file(s) scanned, 0 fixed temp paths
+test_redirection_order                   rc=0  Ran 48 checks, 0 failed
+test_log_suffix_idempotent               rc=0    30 passed, 0 failed
+test_topo_from_json                      rc=0  PASS -- derived wiring is identical to the hard-coded lists
+round2_red_first                         rc=0  ROUND2-RED-FIRST: every behaviour test red on the old code, every guard green
+baseline_chain                           rc=0  BASELINE-CHAIN: HEAD's constants are d492a346's, and d492a346's tests pass on HEAD's code
+offline_5-3_six_plus_four                rc=0  OFFLINE-5-3: every exercise as expected
+mutate_a7_dispatch_status_python_only    rc=0  🔴 PARTIAL: the cpp lane did not run. This is not a full gate result.
+mutate_p4_priority_refusal               rc=0  9 mutations, 0 survived
+mutate_path_determinism                  rc=0  5 mutations, 0 survived
+mutate_telemetry_by_name                 rc=0  mutation gate: 22 mutations, 0 survived
+mutate_link_telemetry                    rc=0  mutation gate: 28 mutations, 0 survived
+mutate_p4_rule_install_time              rc=2 (expected 2)    baseline is RED -- fix that first, mutations prove nothing on a red baseline
+mutate_rule_journal_is_wired             rc=2 (expected 2)    baseline is RED -- fix that first, mutations prove nothing on a red baseline
+mutate_p4_rule_install_time_withmodel    rc=0  mutation gate: 26 mutations, 0 survived
+mutate_rule_journal_is_wired_withmodel   rc=0  mutation gate: 14 mutations, 0 survived
+FINAL-GATES 3ff87a10: RED
+exit=1

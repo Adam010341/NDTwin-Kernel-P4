@@ -1,0 +1,45 @@
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924  HEAD 3ff87a10780018b70575348b6d953a851a93b6dd  2026-09-24T14:45:07Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924
+# cmd env WT=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924 OUT=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/offline53f bash /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/offline_roles_check.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env WT=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924 OUT=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/offline53f bash /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/offline_roles_check.sh
+basic_tunnel    convert rc=0  preflight PASS (want PASS) -- as expected
+                     owned table   : 9 match entries for MyIngress.ipv4_lpm taken out of the runtime files (s1: 3, s2: 3, s3: 3); its default action stays
+                   PASS  roles.ipv4_route resolves           3 switch(es): MyIngress.ipv4_lpm hdr.ipv4.dstAddr -> MyIngress.ipv4_forward(dstAddr, port bit<9>), owner ndtwin
+                   PASS  owned table has no package entries  MyIngress.ipv4_lpm is NDTwin's on 3 switch(es)
+ecn             convert rc=0  preflight PASS (want PASS) -- as expected
+                     owned table   : 11 match entries for MyIngress.ipv4_lpm taken out of the runtime files (s1: 4, s2: 4, s3: 3); its default action stays
+                   PASS  roles.ipv4_route resolves           3 switch(es): MyIngress.ipv4_lpm hdr.ipv4.dstAddr -> MyIngress.ipv4_forward(dstAddr, port bit<9>), owner ndtwin
+                   PASS  owned table has no package entries  MyIngress.ipv4_lpm is NDTwin's on 3 switch(es)
+qos             convert rc=0  preflight PASS (want PASS) -- as expected
+                     owned table   : 11 match entries for MyIngress.ipv4_lpm taken out of the runtime files (s1: 4, s2: 4, s3: 3); its default action stays
+                   PASS  roles.ipv4_route resolves           3 switch(es): MyIngress.ipv4_lpm hdr.ipv4.dstAddr -> MyIngress.ipv4_forward(dstAddr, port bit<9>), owner ndtwin
+                   PASS  owned table has no package entries  MyIngress.ipv4_lpm is NDTwin's on 3 switch(es)
+mri             convert rc=0  preflight PASS (want PASS) -- as expected
+                     owned table   : 11 match entries for MyIngress.ipv4_lpm taken out of the runtime files (s1: 4, s2: 4, s3: 3); its default action stays
+                   PASS  roles.ipv4_route resolves           3 switch(es): MyIngress.ipv4_lpm hdr.ipv4.dstAddr -> MyIngress.ipv4_forward(dstAddr, port bit<9>), owner ndtwin
+                   PASS  owned table has no package entries  MyIngress.ipv4_lpm is NDTwin's on 3 switch(es)
+link_monitor    convert rc=0  preflight PASS (want PASS) -- as expected
+                     owned table   : 16 match entries for MyIngress.ipv4_lpm taken out of the runtime files (s1: 4, s2: 4, s3: 4, s4: 4); its default action stays
+                   PASS  roles.ipv4_route resolves           4 switch(es): MyIngress.ipv4_lpm hdr.ipv4.dstAddr -> MyIngress.ipv4_forward(dstAddr, port bit<9>), owner ndtwin
+                   PASS  owned table has no package entries  MyIngress.ipv4_lpm is NDTwin's on 4 switch(es)
+firewall        convert rc=0  preflight PASS (want PASS) -- as expected
+                     owned table   : 16 match entries for MyIngress.ipv4_lpm taken out of the runtime files (s1: 4, s2: 4, s3: 4, s4: 4); its default action stays
+                   PASS  roles.ipv4_route resolves           4 switch(es): MyIngress.ipv4_lpm hdr.ipv4.dstAddr -> MyIngress.ipv4_forward(dstAddr, port bit<9>), owner ndtwin
+                   PASS  owned table has no package entries  MyIngress.ipv4_lpm is NDTwin's on 4 switch(es)
+calc            convert rc=0  preflight FAIL (want FAIL) -- as expected
+                     owned table   : 0 match entries for MyIngress.ipv4_lpm taken out of the runtime files (s1: 0); its default action stays
+                   FAIL  roles.ipv4_route resolves         1 switch(es); first: s1: roles.ipv4_route.table: 'MyIngress.ipv4_lpm' is not a table of this pipeline (it has: ['MyIngress.calculate'])
+load_balance    convert rc=0  preflight FAIL (want FAIL) -- as expected
+                     owned table   : 0 match entries for MyIngress.ipv4_lpm taken out of the runtime files (s1: 0, s2: 0, s3: 0); its default action stays
+                   FAIL  roles.ipv4_route resolves         3 switch(es); first: s1: roles.ipv4_route.table: 'MyIngress.ipv4_lpm' is not a table of this pipeline (it has: ['MyEgress.send_frame', 'MyIngress.ecmp_group', 'MyIngress.ecmp_nhop'])
+multicast       convert rc=0  preflight FAIL (want FAIL) -- as expected
+                     owned table   : 0 match entries for MyIngress.ipv4_lpm taken out of the runtime files (s1: 0); its default action stays
+                   FAIL  roles.ipv4_route resolves         1 switch(es); first: s1: roles.ipv4_route.table: 'MyIngress.ipv4_lpm' is not a table of this pipeline (it has: ['MyIngress.mac_lookup'])
+source_routing  convert rc=0  preflight FAIL (want FAIL) -- as expected
+                     owned table   : 0 match entries for MyIngress.ipv4_lpm taken out of the runtime files (s1: 0, s2: 0, s3: 0); its default action stays
+                   FAIL  roles.ipv4_route resolves         3 switch(es); first: s1: roles.ipv4_route.table: 'MyIngress.ipv4_lpm' is not a table of this pipeline (it has: [])
+OFFLINE-5-3: every exercise as expected
+guarded_build: exit 0
+# rc=0

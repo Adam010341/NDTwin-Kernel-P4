@@ -7,16 +7,15 @@ set -u
 GD="$1"; RANGE="$2"
 PAT='-----BEGIN [A-Z ]*PRIVATE KEY-----|(ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{20,}|sk-(ant-)?[A-Za-z0-9_-]{24,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{35}|(api[_-]?key|secret|token|passw(or)?d)[[:space:]]*[:=][[:space:]]*["'"'"'][^"'"'"' ]{8,}["'"'"']'
 
-# Positive control: three synthetic credentials that MUST be found (built at run time so this
-# file itself never contains a matching literal).
-ctl=$(printf '+%s\n+%s\n+%s\n' \
-    "ghp_$(printf 'x%.0s' {1..36})" \
-    "sk-ant-$(printf 'Q%.0s' {1..40})" \
-    "AKIA$(printf 'Z%.0s' {1..16})" | grep -cE "$PAT")
-
-hits=$(git -C "$GD" diff "$RANGE" --no-color -U0 --text \
-       | grep -E '^\+' | grep -v '^+++' | grep -nE -i "$PAT")
-n=$(printf '%s' "$hits" | grep -c . || true)
+# Positive control: three synthetic credentials APPENDED TO THE SAME STREAM that is scanned, so a
+# failure of the stream itself (an option-parsed pattern, grep's binary-file suppression) also
+# silences the control. Built at run time so this file never contains a matching literal.
+C1="ghp_$(printf 'x%.0s' {1..36})"; C2="sk-ant-$(printf 'Q%.0s' {1..40})"; C3="AKIA$(printf 'Z%.0s' {1..16})"
+all=$( { git -C "$GD" diff "$RANGE" --no-color -U0 --text; printf '+%s\n+%s\n+%s\n' "$C1" "$C2" "$C3"; } \
+       | grep -a -E '^\+' | grep -a -v '^+++' | grep -a -nE -i -e "$PAT")
+ctl=$(printf '%s\n' "$all" | grep -a -c -F -e "$C1" -e "$C2" -e "$C3" || true)
+hits=$(printf '%s\n' "$all" | grep -a -v -F -e "$C1" -e "$C2" -e "$C3" | grep -a . || true)
+n=$(printf '%s' "$hits" | grep -a -c . || true)
 
 echo "range     : $RANGE ($(git -C "$GD" diff --shortstat "$RANGE"))"
 echo "scan hits : $n"

@@ -1,0 +1,67 @@
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924  HEAD 3ff87a10780018b70575348b6d953a851a93b6dd  2026-09-24T14:45:12Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924
+# cmd env PROXY_PY=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924/p4_proxy/venv/bin/python bash tests/shell/mutate_a7_dispatch_status.sh --python-only
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env PROXY_PY=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924/p4_proxy/venv/bin/python bash tests/shell/mutate_a7_dispatch_status.sh --python-only
+A-7 dispatch-status mutation gate
+  🔴 --python-only: PARTIAL RESULT, the cpp lane is skipped entirely
+  mode      : python
+  build dir : build
+  target    : test_routing_strategy
+  filter    : FlowDispatcherTest.*
+  baseline  : 011e895e04de3429 include/ndt_core/routing_management/FlowDispatcher.hpp
+  baseline  : 2b839cff9139db83 src/ndt_core/routing_management/FlowDispatcher.cpp
+  baseline  : 9a46ee805b1cb056 src/ndt_core/http/HttpSession.cpp
+  baseline  : 9d93c7aaacb464a7 p4_proxy/proxy_agent/api_routes.py
+  baseline  : f448aa3bf970302e tools/contract_test/spec.py
+
+baseline (unmutated) must build and be green:
+  ok       proxy baseline green
+  ok       contract baseline green
+
+=== 4. every rule claims it reached the priority-bearing table  [proxy] ===
+  anchor occurrences: 1 in p4_proxy/proxy_agent/api_routes.py
+  ✅ caught by test_a_destination_only_rule_says_its_priority_was_not_honoured
+     all red: test_a_destination_only_rule_says_its_priority_was_not_honoured test_an_install_is_still_disclosed_rather_than_refused test_the_note_is_only_for_a_caller_that_actually_asked_for_a_priority 
+
+=== 5. priority_honoured is pinned true whatever the table  [proxy] ===
+  anchor occurrences: 1 in p4_proxy/proxy_agent/api_routes.py
+  ✅ caught by test_a_destination_only_rule_says_its_priority_was_not_honoured
+     all red: test_a_destination_only_rule_says_its_priority_was_not_honoured test_an_install_is_still_disclosed_rather_than_refused test_the_note_is_only_for_a_caller_that_actually_asked_for_a_priority 
+
+=== 6. the note is emitted even when no priority was asked for  [proxy] ===
+  anchor occurrences: 1 in p4_proxy/proxy_agent/api_routes.py
+  ✅ caught by test_the_note_is_only_for_a_caller_that_actually_asked_for_a_priority
+     all red: test_the_note_is_only_for_a_caller_that_actually_asked_for_a_priority 
+
+=== 7. the counters invariant answers nothing  [contract] ===
+  anchor occurrences: 1 in tools/contract_test/spec.py
+  ✅ caught by dispatch_counters_close
+     all red: dispatch_counters_close 
+
+=== 8. dispatcher_running becomes a required field  [contract] ===
+  anchor occurrences: 1 in tools/contract_test/spec.py
+  ✅ caught by get_flow_dispatch_status
+     all red: get_flow_dispatch_status (kernel without the A-7 follow-up fields) 
+
+=== NEGATIVE CONTROL [proxy]: comment-only edit must stay GREEN ===
+  anchor occurrences: 1 in p4_proxy/proxy_agent/api_routes.py
+  ✅ green: the suite does not react to a comment
+
+=== NEGATIVE CONTROL [contract]: comment-only edit must stay GREEN ===
+  anchor occurrences: 1 in tools/contract_test/spec.py
+  ✅ green: the suite does not react to a comment
+
+--- baseline restored? ---
+  byte-identical  include/ndt_core/routing_management/FlowDispatcher.hpp
+  byte-identical  src/ndt_core/routing_management/FlowDispatcher.cpp
+  byte-identical  src/ndt_core/http/HttpSession.cpp
+  byte-identical  p4_proxy/proxy_agent/api_routes.py
+  byte-identical  tools/contract_test/spec.py
+  every lane green again after restore
+
+5 mutations, 0 survived
+🔴 PARTIAL: the cpp lane did not run. This is not a full gate result.
+guarded_build: exit 0
+# rc=0

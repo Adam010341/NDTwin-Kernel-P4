@@ -1,0 +1,32 @@
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924  HEAD 57aae1bf22e90096f846b2776ec9c3847d9b699b  2026-09-24T12:52:24Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924
+# cmd python3 tools/test_workflow/test_topo_from_json.py
+P4_10Switches_4Hosts
+  ok    switches: 10 dpids 1..10, names s1..s10
+  ok    inter-switch links: 16 entries identical
+  ok    host attachment: 4 entries identical
+  ok    hosts: 4, h1..h4, first ip 10.0.0.1
+
+P4_10Switches_128Hosts
+  ok    switches: 10 dpids 1..10, names s1..s10
+  ok    inter-switch links: 16 entries identical
+  ok    host attachment: 128 entries identical
+  ok    hosts: 128, h1..h128, first ip 10.0.0.1
+
+proxy host table (main.build_host_table vs the quarters formula it replaced)
+  ok    P4_10Switches_4Hosts add_host arguments: 4 entries identical
+  ok    P4_10Switches_128Hosts add_host arguments: 128 entries identical
+
+OVS_10Switches_4Hosts (must be cabled identically to the P4 model)
+  ok    inter-switch links: 16 entries identical
+  ok    host attachment: 4 entries identical
+
+single-switch model (exercises/calc's shape: 1 switch, 2 hosts, 0 inter-switch links)
+  ok    switches: 1 entries identical
+  ok    inter-switch links: 0 entries identical
+  ok    host attachment: 2 entries identical
+  ok    hosts: 2 entries identical
+  ok    two switches with no cable between them: still refused, and the message explains both cases
+
+PASS -- derived wiring is identical to the hard-coded lists
+# rc=0

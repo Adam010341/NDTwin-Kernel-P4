@@ -1,0 +1,240 @@
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924  HEAD 57aae1bf22e90096f846b2776ec9c3847d9b699b  2026-09-24T12:48:35Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924
+# cmd bash tests/shell/mutate_table_entry.sh
+interpreter: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924/p4_proxy/venv/bin/python
+baseline (must be green before any mutation):
+Ran 445 tests in 0.749s
+OK
+
+  caught   M-B1: a priority no table column can honour is accepted instead of refused (test_a_priority_on_a_table_with_no_priority_column_is_refused went red)
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_a_priority_on_a_table_with_no_priority_column_is_refused
+             also red: tests.test_p4_client_writes.WriteTableEntryTest.test_a_priority_this_table_cannot_honour_reaches_no_switch
+             also red: tests.test_table_entry_route.EveryRefusalIsItsOwnStatusCodeTest.test_a_priority_this_table_cannot_honour_is_400
+  caught   M-B2: an unknown table name resolves to some other table and the Write goes out (test_an_unknown_table_reaches_no_switch went red)
+             also red: tests.test_exact_one_element_list.TheProxyAcceptsWhatTheExerciseWritesTest.test_all_six_of_basic_tunnels_entries_go_on
+             also red: tests.test_exact_one_element_list.TheProxyAcceptsWhatTheExerciseWritesTest.test_a_one_element_list_holding_an_address_is_unwrapped_too
+             also red: tests.test_exact_one_element_list.TheProxyAcceptsWhatTheExerciseWritesTest.test_a_one_element_tuple_is_unwrapped_too
+             also red: tests.test_exact_one_element_list.TheProxyAcceptsWhatTheExerciseWritesTest.test_a_plain_value_is_unchanged
+             also red: tests.test_exact_one_element_list.TheProxyAcceptsWhatTheExerciseWritesTest.test_the_unwrapped_value_is_the_number_and_not_the_list
+             also red: tests.test_exact_one_element_list.TheProxyAndPreFlightAgreeTest.test_both_accept_every_entry_the_exercise_ships
+             also red: tests.test_exact_one_element_list.TheRefusalsThatStayTest.test_an_empty_list_is_refused
+             also red: tests.test_exact_one_element_list.TheRefusalsThatStayTest.test_a_nested_one_element_list_is_refused
+             also red: tests.test_exact_one_element_list.TheRefusalsThatStayTest.test_a_three_element_list_is_refused
+             also red: tests.test_exact_one_element_list.TheRefusalsThatStayTest.test_a_two_element_pair_on_an_exact_field_is_still_refused
+             also red: tests.test_exact_one_element_list.TheRefusalsThatStayTest.test_the_message_still_names_the_shape_it_wanted
+             also red: tests.test_foreign_pipeline.AgainstARealTutorialsPipelineTest.test_a_table_basic_does_not_have_is_a_keyerror_even_though_ndtwin_has_it
+             also red: tests.test_foreign_pipeline.AgainstARealTutorialsPipelineTest.test_firewalls_two_field_exact_table_builds
+             also red: tests.test_foreign_pipeline.AgainstARealTutorialsPipelineTest.test_the_names_basic_p4_shares_with_ndtwin_switch
+             also red: tests.test_foreign_pipeline.AgainstARealTutorialsPipelineTest.test_the_same_real_p4info_still_builds_its_exact_and_lpm_tables
+             also red: tests.test_foreign_pipeline.ARealPackageWithRealPipelinesTest.test_every_declared_entry_goes_onto_its_switch
+             also red: tests.test_foreign_pipeline.ARealPackageWithRealPipelinesTest.test_firewalls_own_table_is_written_only_to_the_switch_that_runs_firewall
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_an_exact_entry_carries_a_plain_value
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_an_exact_field_given_a_pair_is_refused
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_an_optional_field_is_unsupported_and_says_OPTIONAL
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_a_range_field_is_unsupported_and_says_RANGE
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_a_table_this_pipeline_does_not_have_is_a_keyerror_naming_it
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_a_ternary_field_is_unsupported_and_says_which_match_type_it_is
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_neither_range_nor_optional_reaches_the_switch
+             also red: tests.test_p4_client_writes.WriteTableEntryTest.test_an_unknown_table_reaches_no_switch
+             also red: tests.test_p4_client_writes.WriteTableEntryTest.test_an_unsupported_match_reaches_no_switch
+             also red: tests.test_table_entry_route.EveryRefusalIsItsOwnStatusCodeTest.test_an_optional_match_is_501_and_names_OPTIONAL
+             also red: tests.test_table_entry_route.EveryRefusalIsItsOwnStatusCodeTest.test_a_range_match_is_501_and_names_RANGE
+             also red: tests.test_table_entry_route.EveryRefusalIsItsOwnStatusCodeTest.test_a_refusal_is_not_counted_as_an_api_write
+             also red: tests.test_table_entry_route.EveryRefusalIsItsOwnStatusCodeTest.test_a_table_this_pipeline_does_not_have_is_404
+             also red: tests.test_table_entry_route.EveryRefusalIsItsOwnStatusCodeTest.test_a_ternary_match_is_501_and_names_the_match_type
+  caught   M-B3: every lpm entry is a /32, so a subnet route blackholes all but one address (test_the_prefix_length_is_not_pinned_to_the_field_width went red)
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_an_lpm_entry_carries_the_value_and_the_prefix_length_it_was_given
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_the_prefix_length_is_not_pinned_to_the_field_width
+  caught   M-B4: a default action is written as an ordinary entry with no key       (test_a_default_action_is_marked_as_one_and_carries_no_match went red)
+             also red: tests.test_foreign_pipeline.ARealPackageWithRealPipelinesTest.test_the_default_action_row_every_runtime_file_carries_is_a_modify
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_a_default_action_is_marked_as_one_and_carries_no_match
+             also red: tests.test_p4_client_writes.WriteTableEntryTest.test_a_default_action_insert_is_sent_as_a_modify_and_says_so
+  caught   M-B5: a value wider than its field is truncated rather than refused      (test_a_value_wider_than_its_field_is_refused_rather_than_truncated went red)
+             also red: tests.test_p4_client_writes.EncodeValueTest.test_a_value_wider_than_its_field_is_refused_rather_than_truncated
+             also red: tests.test_p4_client_writes.WriteTableEntryTest.test_an_over_wide_value_reaches_no_switch
+             also red: tests.test_table_entry_route.EveryRefusalIsItsOwnStatusCodeTest.test_a_value_wider_than_its_field_is_400
+  caught   M-B6: a ternary match is built as something else instead of answering 501 (test_a_ternary_match_is_501_and_names_the_match_type went red)
+             also red: tests.test_foreign_pipeline.AgainstARealTutorialsPipelineTest.test_a_ternary_table_in_a_real_compiled_p4info_answers_unsupported
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_an_optional_field_is_unsupported_and_says_OPTIONAL
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_a_range_field_is_unsupported_and_says_RANGE
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_a_ternary_field_is_unsupported_and_says_which_match_type_it_is
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_neither_range_nor_optional_reaches_the_switch
+             also red: tests.test_p4_client_writes.WriteTableEntryTest.test_an_unsupported_match_reaches_no_switch
+             also red: tests.test_table_entry_route.EveryRefusalIsItsOwnStatusCodeTest.test_an_optional_match_is_501_and_names_OPTIONAL
+             also red: tests.test_table_entry_route.EveryRefusalIsItsOwnStatusCodeTest.test_a_range_match_is_501_and_names_RANGE
+             also red: tests.test_table_entry_route.EveryRefusalIsItsOwnStatusCodeTest.test_a_ternary_match_is_501_and_names_the_match_type
+  caught   M-B40: the exercises' own one-element exact value is refused again       (test_all_six_of_basic_tunnels_entries_go_on went red)
+             also red: tests.test_exact_one_element_list.TheProxyAcceptsWhatTheExerciseWritesTest.test_all_six_of_basic_tunnels_entries_go_on
+             also red: tests.test_exact_one_element_list.TheProxyAcceptsWhatTheExerciseWritesTest.test_a_one_element_list_holding_an_address_is_unwrapped_too
+             also red: tests.test_exact_one_element_list.TheProxyAcceptsWhatTheExerciseWritesTest.test_a_one_element_tuple_is_unwrapped_too
+             also red: tests.test_exact_one_element_list.TheProxyAcceptsWhatTheExerciseWritesTest.test_the_unwrapped_value_is_the_number_and_not_the_list
+             also red: tests.test_exact_one_element_list.TheProxyAndPreFlightAgreeTest.test_both_accept_every_entry_the_exercise_ships
+  caught   M-B41: an lpm-shaped pair is taken on an EXACT field, so a subnet rule matches one host (test_a_two_element_pair_on_an_exact_field_is_still_refused went red)
+             also red: tests.test_exact_one_element_list.TheProxyAndPreFlightAgreeTest.test_both_refuse_a_two_element_pair_on_an_exact_field
+             also red: tests.test_exact_one_element_list.TheRefusalsThatStayTest.test_an_empty_list_is_refused
+             also red: tests.test_exact_one_element_list.TheRefusalsThatStayTest.test_a_two_element_pair_on_an_exact_field_is_still_refused
+             also red: tests.test_exact_one_element_list.TheRefusalsThatStayTest.test_the_message_still_names_the_shape_it_wanted
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_an_exact_field_given_a_pair_is_refused
+  caught   M-B16: a MAC goes onto the wire byte-reversed, and bmv2 takes it         (test_a_mac_string_is_six_raw_bytes_in_the_order_it_was_written went red)
+             also red: tests.test_exact_one_element_list.TheProxyAcceptsWhatTheExerciseWritesTest.test_a_one_element_list_holding_an_address_is_unwrapped_too
+             also red: tests.test_foreign_pipeline.AgainstARealTutorialsPipelineTest.test_an_entry_from_pod_topos_own_runtime_file_builds_against_basic
+             also red: tests.test_foreign_pipeline.AgainstARealTutorialsPipelineTest.test_the_same_real_p4info_still_builds_its_exact_and_lpm_tables
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_an_exact_entry_carries_a_plain_value
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_the_action_parameters_go_in_by_name_with_the_widths_the_p4info_declares
+             also red: tests.test_p4_client_writes.EncodeValueTest.test_a_mac_string_is_six_raw_bytes_in_the_order_it_was_written
+  caught   M-B25: a RANGE match is built instead of refused -- [lo, hi] becomes a prefix length (test_a_range_field_is_unsupported_and_says_RANGE went red)
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_a_range_field_is_unsupported_and_says_RANGE
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_neither_range_nor_optional_reaches_the_switch
+             also red: tests.test_table_entry_route.EveryRefusalIsItsOwnStatusCodeTest.test_a_range_match_is_501_and_names_RANGE
+  caught   M-B21: an alias is no longer a table name, so a tutorials-shaped entry is a 404 (test_the_names_may_be_aliases_because_the_tutorials_helper_accepts_both went red)
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_the_names_may_be_aliases_because_the_tutorials_helper_accepts_both
+             also red: tests.test_table_entry_route.AnAcceptedEntryTest.test_an_alias_names_the_same_table_and_the_response_gives_the_full_name
+  caught   M-B24: a default action is INSERTed, which every target refuses          (test_a_default_action_insert_is_sent_as_a_modify_and_says_so went red)
+             also red: tests.test_foreign_pipeline.ARealPackageWithRealPipelinesTest.test_the_default_action_row_every_runtime_file_carries_is_a_modify
+             also red: tests.test_p4_client_writes.WriteTableEntryTest.test_a_default_action_insert_is_sent_as_a_modify_and_says_so
+  caught   M-B19: the silent MODIFY fallback comes back, so an overwrite reports an insert (test_a_grpc_refusal_is_raised_and_not_retried_as_a_modify went red)
+             also red: tests.test_p4_client_writes.WriteTableEntryTest.test_a_grpc_refusal_is_raised_and_not_retried_as_a_modify
+  caught   M-B13: an external control plane's fabric takes the write and answers 200 (test_an_external_control_plane_is_409 went red)
+             also red: tests.test_p4_client_writes.WriteTableEntryTest.test_a_read_only_client_writes_no_table_entry
+             also red: tests.test_table_entry_route.EveryRefusalIsItsOwnStatusCodeTest.test_an_external_control_plane_is_409
+  caught   M-B7: switch_state stops saying what was written to each switch          (test_every_switch_reports_what_was_written_and_that_none_of_it_is_journaled went red)
+             also red: tests.test_app_package_proxy.SwitchStateDisclosesTheControlPlaneTest.test_every_switch_reports_what_was_written_and_that_none_of_it_is_journaled
+             also red: tests.test_app_package_proxy.SwitchStateDisclosesTheControlPlaneTest.test_journaled_is_false_even_when_entries_were_applied
+  caught   M-B14: switch_state claims these entries survive a proxy restart         (test_the_count_reaches_the_endpoint_report_not_just_the_response went red)
+             also red: tests.test_readopt.ThePackageHalfOfReadoptTest.test_the_count_reaches_the_endpoint_report_not_just_the_response
+             also red: tests.test_startup.AForeignPipelineTest.test_under_ndtwins_own_pipeline_the_entries_stay_recorded_and_unapplied
+  caught   M-B20: the response claims the entry survives a restart, next to a note saying it does not (test_every_success_says_the_entry_is_not_journaled_and_what_that_costs went red)
+             also red: tests.test_table_entry_route.AnAcceptedEntryTest.test_every_success_says_the_entry_is_not_journaled_and_what_that_costs
+  caught   M-B15: a rule POSTed by hand is never counted, so nothing says it will vanish (test_an_accepted_write_is_counted_where_switch_state_can_report_it went red)
+             also red: tests.test_table_entry_route.AnAcceptedEntryTest.test_an_accepted_write_is_counted_where_switch_state_can_report_it
+  caught   M-B17: switch_state stops saying which program each switch is running    (test_every_switch_says_which_pipeline_it_is_running_and_names_it went red)
+             also red: tests.test_app_package_proxy.SwitchStateDisclosesTheControlPlaneTest.test_every_switch_says_which_pipeline_it_is_running_and_names_it
+             also red: tests.test_app_package_proxy.SwitchStateDisclosesTheControlPlaneTest.test_the_per_switch_skipped_list_survives_the_trip_through_the_endpoint
+  caught   M-B18: every switch is called an NDTwin switch, so no branch below ever fires (test_a_package_naming_its_own_artefacts_does_not went red)
+             also red: tests.test_app_package_proxy.EachSwitchNamesItsOwnSkippedStepsTest.test_a_foreign_switch_names_the_two_steps_it_does_not_get
+             also red: tests.test_app_package_proxy.WhichPipelineEachSwitchRunsTest.test_a_package_naming_its_own_artefacts_does_not
+             also red: tests.test_foreign_pipeline.ARealPackageWithRealPipelinesTest.test_every_declared_entry_goes_onto_its_switch
+             also red: tests.test_foreign_pipeline.ARealPackageWithRealPipelinesTest.test_every_switch_is_reported_as_running_somebody_elses_program
+             also red: tests.test_foreign_pipeline.ARealPackageWithRealPipelinesTest.test_firewalls_own_table_is_written_only_to_the_switch_that_runs_firewall
+             also red: tests.test_foreign_pipeline.ARealPackageWithRealPipelinesTest.test_the_default_action_row_every_runtime_file_carries_is_a_modify
+             also red: tests.test_foreign_pipeline.ARealPackageWithRealPipelinesTest.test_the_fabric_names_the_three_steps_it_lost_and_each_switch_names_its_two
+             also red: tests.test_readopt.ReadoptOnAFabricWhoseRouteTablesNdtwinOwnsTest.test_a_switch_that_came_back_unbound_is_not_refilled
+             also red: tests.test_readopt.ReadoptOnAFabricWhoseRouteTablesNdtwinOwnsTest.test_the_routes_go_back_into_the_bound_table
+             also red: tests.test_readopt.ThePackageHalfOfReadoptTest.test_a_foreign_pipeline_gets_no_ndtwin_routes
+             also red: tests.test_readopt.ThePackageHalfOfReadoptTest.test_a_readopted_foreign_switch_without_the_header_still_gets_none
+             also red: tests.test_readopt.ThePackageHalfOfReadoptTest.test_a_readopted_foreign_switch_with_the_header_keeps_its_clone_session
+             also red: tests.test_readopt.ThePackageHalfOfReadoptTest.test_it_says_the_routes_were_skipped_rather_than_reporting_a_bare_zero
+             also red: tests.test_readopt.ThePackageHalfOfReadoptTest.test_the_count_reaches_the_endpoint_report_not_just_the_response
+             also red: tests.test_readopt.ThePackageHalfOfReadoptTest.test_the_packages_entries_go_back_on_after_the_push_that_erased_them
+             also red: tests.test_startup.AForeignPipelineTest.test_a_foreign_pipeline_gets_no_clone_session_and_no_sflow_registration
+             also red: tests.test_startup.AForeignPipelineTest.test_a_foreign_pipeline_names_every_fabric_wide_step_it_switched_off
+             also red: tests.test_startup.AForeignPipelineTest.test_a_refused_entry_is_named_not_just_counted
+             also red: tests.test_startup.AForeignPipelineTest.test_every_switch_is_reported_with_the_program_it_runs
+             also red: tests.test_startup.AForeignPipelineTest.test_no_lldp_and_no_watchdog_run_on_a_fabric_with_a_foreign_pipeline
+             also red: tests.test_startup.AForeignPipelineTest.test_one_foreign_switch_switches_the_whole_fabrics_discovery_off
+             also red: tests.test_startup.AForeignPipelineTest.test_one_refused_entry_does_not_cost_the_others
+             also red: tests.test_startup.AForeignPipelineTest.test_the_entries_go_on_after_the_pipeline_that_defines_their_tables
+             also red: tests.test_startup.AForeignPipelineTest.test_the_packages_entries_are_applied_to_a_foreign_pipeline
+             also red: tests.test_startup.AForeignPipelineTest.test_the_per_switch_skips_are_not_in_the_fabric_wide_list
+             also red: tests.test_startup.TelemetrySourceTest.test_a_foreign_program_that_included_the_header_gets_the_cooperative_path
+             also red: tests.test_startup.TelemetrySourceTest.test_an_external_fabric_reports_both_skipped_whatever_the_source_says
+             also red: tests.test_startup.TelemetrySourceTest.test_a_plain_foreign_program_still_says_both_were_skipped
+             also red: tests.test_startup.TelemetrySourceTest.test_link_on_a_foreign_pipeline_is_still_link_and_still_writes_nothing
+             also red: tests.test_startup.TelemetrySourceTest.test_the_endpoint_answers_the_same_before_startup_has_run
+             also red: tests.test_startup.TelemetrySourceTest.test_the_fabric_level_skips_are_unchanged_for_it
+             also red: tests.test_startup.TelemetrySourceTest.test_the_same_program_under_auto_is_still_link
+             also red: tests.test_startup.TelemetrySourceTest.test_the_same_program_under_link_gets_nothing_and_says_both_were_skipped
+  caught   M-B8: the exercise's entries are applied to NDTwin's own pipeline as well (test_under_ndtwins_own_pipeline_the_entries_stay_recorded_and_unapplied went red)
+             also red: tests.test_startup.AForeignPipelineTest.test_under_ndtwins_own_pipeline_the_entries_stay_recorded_and_unapplied
+  caught   M-B9b: a foreign program that includes the header is left without a clone session (test_a_foreign_program_that_included_the_header_gets_the_cooperative_path went red)
+             also red: tests.test_startup.TelemetrySourceTest.test_a_foreign_program_that_included_the_header_gets_the_cooperative_path
+             also red: tests.test_startup.TelemetrySourceTest.test_that_switch_says_it_skipped_nothing
+  caught   M-B10: LLDP, the watchdog and the routes are switched off, two without being named (test_a_foreign_pipeline_names_every_fabric_wide_step_it_switched_off went red)
+             also red: tests.test_foreign_pipeline.ARealPackageWithRealPipelinesTest.test_the_fabric_names_the_three_steps_it_lost_and_each_switch_names_its_two
+             also red: tests.test_startup.AForeignPipelineTest.test_a_foreign_pipeline_names_every_fabric_wide_step_it_switched_off
+             also red: tests.test_startup.TelemetrySourceTest.test_the_fabric_level_skips_are_unchanged_for_it
+  caught   M-B28: a foreign switch says it skipped nothing, so its dead telemetry looks like a fault (test_a_foreign_switch_names_the_two_steps_it_does_not_get went red)
+             also red: tests.test_app_package_proxy.EachSwitchNamesItsOwnSkippedStepsTest.test_a_foreign_switch_names_the_two_steps_it_does_not_get
+             also red: tests.test_foreign_pipeline.ARealPackageWithRealPipelinesTest.test_the_fabric_names_the_three_steps_it_lost_and_each_switch_names_its_two
+             also red: tests.test_startup.AForeignPipelineTest.test_a_foreign_pipeline_gets_no_clone_session_and_no_sflow_registration
+             also red: tests.test_startup.AForeignPipelineTest.test_the_per_switch_skips_are_not_in_the_fabric_wide_list
+             also red: tests.test_startup.TelemetrySourceTest.test_an_external_fabric_reports_both_skipped_whatever_the_source_says
+             also red: tests.test_startup.TelemetrySourceTest.test_a_plain_foreign_program_still_says_both_were_skipped
+             also red: tests.test_startup.TelemetrySourceTest.test_link_on_a_foreign_pipeline_is_still_link_and_still_writes_nothing
+             also red: tests.test_startup.TelemetrySourceTest.test_the_endpoint_answers_the_same_before_startup_has_run
+             also red: tests.test_startup.TelemetrySourceTest.test_the_same_program_under_auto_is_still_link
+             also red: tests.test_startup.TelemetrySourceTest.test_the_same_program_under_link_gets_nothing_and_says_both_were_skipped
+  caught   M-B11: an entry the switch refused is counted as applied                 (test_one_refused_entry_does_not_cost_the_others went red)
+             also red: tests.test_startup.AForeignPipelineTest.test_one_refused_entry_does_not_cost_the_others
+  caught   M-B12: readopt leaves the switch empty -- the push erased the package's entries (test_the_packages_entries_go_back_on_after_the_push_that_erased_them went red)
+             also red: tests.test_readopt.ReadoptOnAFabricWhoseRouteTablesNdtwinOwnsTest.test_a_switch_that_came_back_unbound_is_not_refilled
+             also red: tests.test_readopt.ReadoptOnAFabricWhoseRouteTablesNdtwinOwnsTest.test_the_routes_go_back_into_the_bound_table
+             also red: tests.test_readopt.ThePackageHalfOfReadoptTest.test_a_readopted_foreign_switch_with_the_header_keeps_its_clone_session
+             also red: tests.test_readopt.ThePackageHalfOfReadoptTest.test_it_says_the_routes_were_skipped_rather_than_reporting_a_bare_zero
+             also red: tests.test_readopt.ThePackageHalfOfReadoptTest.test_the_count_reaches_the_endpoint_report_not_just_the_response
+             also red: tests.test_readopt.ThePackageHalfOfReadoptTest.test_the_packages_entries_go_back_on_after_the_push_that_erased_them
+  caught   M-B22: entries are written to a switch whose pipeline push failed        (test_a_switch_whose_pipeline_push_failed_gets_no_entries went red)
+             also red: tests.test_startup.AForeignPipelineTest.test_a_switch_whose_pipeline_push_failed_gets_no_entries
+  caught   M-B23: readopt hands a foreign switch the sFlow callback, so a clone session goes in (test_a_foreign_pipeline_gets_no_clone_session went red)
+             also red: tests.test_readopt.ThePackageHalfOfReadoptTest.test_a_foreign_pipeline_gets_no_clone_session
+             also red: tests.test_readopt.ThePackageHalfOfReadoptTest.test_a_readopted_foreign_switch_without_the_header_still_gets_none
+  caught   M-B27: readopt reports a clone session on a switch that was given none   (test_it_does_not_claim_a_clone_session_it_never_programmed went red)
+             also red: tests.test_readopt.ThePackageHalfOfReadoptTest.test_a_readopted_foreign_switch_without_the_header_still_gets_none
+             also red: tests.test_readopt.ThePackageHalfOfReadoptTest.test_it_does_not_claim_a_clone_session_it_never_programmed
+  caught   M-B26: the refill runs anyway, putting NDTwin's routes in the exercise's own table (test_install_routes_false_attempts_not_one_write went red)
+             also red: tests.test_readopt.InstallRoutesIsAParameterTest.test_install_routes_false_attempts_not_one_write
+             also red: tests.test_readopt.ReadoptOnAFabricWhoseRouteTablesNdtwinOwnsTest.test_a_switch_that_came_back_unbound_is_not_refilled
+             also red: tests.test_readopt.ReadoptOnAFabricWhoseRouteTablesNdtwinOwnsTest.test_the_routes_go_back_into_the_bound_table
+             also red: tests.test_readopt.ThePackageHalfOfReadoptTest.test_a_foreign_pipeline_gets_no_ndtwin_routes
+  caught   M-B29: a fabric with no watchdog is promised the watchdog will install its routes (test_install_routes_false_does_not_claim_the_watchdog_will_fix_it went red)
+             also red: tests.test_readopt.InstallRoutesIsAParameterTest.test_install_routes_false_does_not_claim_the_watchdog_will_fix_it
+             also red: tests.test_readopt.ThePackageHalfOfReadoptTest.test_it_does_not_promise_a_watchdog_that_is_not_running_will_fix_it
+  caught   M-B30: the default flips, so the whole P4 plane silently stops refilling its routes (test_the_default_is_the_behaviour_every_caller_had_before_the_parameter went red)
+             also red: tests.test_readopt.InstallRoutesIsAParameterTest.test_the_default_is_the_behaviour_every_caller_had_before_the_parameter
+             also red: tests.test_readopt.InstallRoutesIsAParameterTest.test_zero_attempted_still_says_pending_when_the_refill_did_run
+             also red: tests.test_readopt.ReadoptMastershipGateTest.test_all_route_writes_refused_is_a_failure_not_a_success
+             also red: tests.test_readopt.ReadoptMastershipGateTest.test_installed_routes_are_not_reported_as_pending
+             also red: tests.test_readopt.ReadoptMastershipGateTest.test_zero_attempted_says_the_routes_are_pending
+             also red: tests.test_readopt.ReadoptSuccessTest.test_readopt_reinstalls_routes_on_that_switch_only
+             also red: tests.test_readopt.ReadoptSuccessTest.test_success_reports_status_clone_and_route_count
+  caught   M-B31: a deliberate zero is reported as a bare zero, which reads as a refusal (test_it_says_the_routes_were_skipped_rather_than_reporting_a_bare_zero went red)
+             also red: tests.test_readopt.ReadoptOnAFabricWhoseRouteTablesNdtwinOwnsTest.test_a_switch_that_came_back_unbound_is_not_refilled
+             also red: tests.test_readopt.ThePackageHalfOfReadoptTest.test_a_readopted_foreign_switch_with_the_header_keeps_its_clone_session
+             also red: tests.test_readopt.ThePackageHalfOfReadoptTest.test_it_says_the_routes_were_skipped_rather_than_reporting_a_bare_zero
+  caught   M-B32: round 1's swallow comes back, so a real fault is dressed as a route failure (test_an_exception_from_readopt_is_not_swallowed went red)
+             also red: tests.test_readopt.ThePackageHalfOfReadoptTest.test_an_exception_from_readopt_is_not_swallowed
+  caught   M-B33: the program identifier is half as wide as every reader of it expects (test_a_real_file_gets_sixteen_lowercase_hex_characters went red)
+             also red: tests.test_app_package_proxy.WhatTheProxySaysAboutOneSwitchesPipelineTest.test_a_real_file_gets_sixteen_lowercase_hex_characters
+             also red: tests.test_app_package_proxy.WhatTheProxySaysAboutOneSwitchesPipelineTest.test_it_is_the_first_sixteen_of_the_files_sha256
+             also red: tests.test_app_package_proxy.WhatTheProxySaysAboutOneSwitchesPipelineTest.test_the_real_ndtwin_p4info_fingerprints_when_it_is_on_disk
+             also red: tests.test_foreign_pipeline.ARealPackageWithRealPipelinesTest.test_the_fingerprint_is_a_digest_because_the_file_is_really_there
+  caught   M-B34: every switch is reported running NDTwin's artefacts, whatever it was given (test_the_fingerprint_is_a_digest_because_the_file_is_really_there went red)
+             also red: tests.test_foreign_pipeline.ARealPackageWithRealPipelinesTest.test_the_fingerprint_is_a_digest_because_the_file_is_really_there
+             also red: tests.test_startup.AForeignPipelineTest.test_every_switch_is_reported_with_the_program_it_runs
+  caught   M-B36: an unreadable p4info gets an identifier, so two of them are the same program (test_a_missing_file_is_none_rather_than_an_invented_identifier went red)
+             also red: tests.test_app_package_proxy.WhatTheProxySaysAboutOneSwitchesPipelineTest.test_a_missing_file_is_none_rather_than_an_invented_identifier
+  caught   M-B38: the fingerprint ignores the file, so every program has the same one (test_two_different_programs_do_not_share_a_fingerprint went red)
+             also red: tests.test_app_package_proxy.WhatTheProxySaysAboutOneSwitchesPipelineTest.test_it_is_the_first_sixteen_of_the_files_sha256
+             also red: tests.test_app_package_proxy.WhatTheProxySaysAboutOneSwitchesPipelineTest.test_two_different_programs_do_not_share_a_fingerprint
+             also red: tests.test_foreign_pipeline.ARealPackageWithRealPipelinesTest.test_the_fingerprint_is_a_digest_because_the_file_is_really_there
+  caught   M-B39: the factory drops the package's bid, so every write goes out as the old (0, 1) (test_the_client_the_factory_built_took_its_identity_from_the_package went red)
+             also red: tests.test_app_package_proxy.TheClientTheProxyBuildsTest.test_an_ndtwin_package_hands_the_client_its_election_id
+             also red: tests.test_foreign_pipeline.ARealPackageWithRealPipelinesTest.test_every_entry_that_went_out_carries_the_packages_election_id
+             also red: tests.test_foreign_pipeline.ARealPackageWithRealPipelinesTest.test_the_client_the_factory_built_took_its_identity_from_the_package
+  caught   M-B37: the two scopes overlap again, so a per-switch skip is told about the fabric (test_the_two_scopes_do_not_overlap went red)
+             also red: tests.test_app_package_proxy.EachSwitchNamesItsOwnSkippedStepsTest.test_the_names_are_the_same_constants_the_fabric_wide_list_uses
+             also red: tests.test_app_package_proxy.EachSwitchNamesItsOwnSkippedStepsTest.test_the_two_scopes_do_not_overlap
+             also red: tests.test_foreign_pipeline.ARealPackageWithRealPipelinesTest.test_the_fabric_names_the_three_steps_it_lost_and_each_switch_names_its_two
+             also red: tests.test_startup.AForeignPipelineTest.test_a_foreign_pipeline_names_every_fabric_wide_step_it_switched_off
+             also red: tests.test_startup.AForeignPipelineTest.test_the_per_switch_skips_are_not_in_the_fabric_wide_list
+             also red: tests.test_startup.TelemetrySourceTest.test_the_fabric_level_skips_are_unchanged_for_it
+  caught   M-B35: a table entry carries no election id, so the switch answers PERMISSION_DENIED (test_an_insert_is_an_insert_addressed_to_this_device_with_this_election_id went red)
+             also red: tests.test_foreign_pipeline.ARealPackageWithRealPipelinesTest.test_every_entry_that_went_out_carries_the_packages_election_id
+             also red: tests.test_p4_client_writes.WriteTableEntryTest.test_an_insert_is_an_insert_addressed_to_this_device_with_this_election_id
+  green    N1 (control): a comment-only edit beside the writer                      (the whole suite stays green)
+  green    N2 (control): a comment-only edit inside the entry-applying loop         (the whole suite stays green)
+  green    N3 (control): the same default written the long way                      (the whole suite stays green)
+
+baseline byte-identical: yes (4 sources, 7 test files)
+mutation gate: 41 mutations, 0 survived
+# rc=0

@@ -1,0 +1,80 @@
+# r2 of this check. r1 (baseline_bytes_at_base_and_head.p4r-c21deca3.log) is NOT evidence: it piped unittest through tail, so its rc= lines are tail's exit status and the p4_proxy summaries were cut off.
+# The four byte-level baseline fixtures (commit d492a346), run on two trees, full output, rc = the interpreter's:
+#  (1) d492a346 extracted with git archive: its production code == trunk 6291db35 (git diff 6291db35 d492a346 on p4_proxy/proxy_agent, p4_proxy/mininet, tools/p4_exercise/{convert,preflight,common}.py is empty)
+#  (2) the worktree at HEAD c21deca3f13bfc4c7f56ae8b449d94a3858ecb9c   2026-09-24T12:02:32Z
+== tree /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/at-d492  (p4_proxy classes)
+rc=1
+test_every_case_was_captured_and_none_is_empty (tests.test_p4_client_writes.TheNdtwinPipelinesWritesAreByteIdenticalToTheBaseTest.test_every_case_was_captured_and_none_is_empty) ... ok
+test_every_request_is_byte_identical_to_the_one_the_base_sent (tests.test_p4_client_writes.TheNdtwinPipelinesWritesAreByteIdenticalToTheBaseTest.test_every_request_is_byte_identical_to_the_one_the_base_sent) ... ok
+test_the_render_is_the_one_the_base_produced (tests.test_ryu_flow_stats.TheNdtwinPipelinesFlowStatsAreByteIdenticalToTheBaseTest.test_the_render_is_the_one_the_base_produced) ... ok
+test_every_case_was_captured (tests.test_app_package.APackageWithoutRolesLoadsByteIdenticallyTest.test_every_case_was_captured) ... ERROR
+test_the_fields_that_existed_at_the_base_hash_to_what_they_hashed_to_there (tests.test_app_package.APackageWithoutRolesLoadsByteIdenticallyTest.test_the_fields_that_existed_at_the_base_hash_to_what_they_hashed_to_there) ... ERROR
+
+======================================================================
+ERROR: test_every_case_was_captured (tests.test_app_package.APackageWithoutRolesLoadsByteIdenticallyTest.test_every_case_was_captured)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/at-d492/p4_proxy/tests/../tests/test_app_package.py", line 1441, in setUp
+    self.now = loaded_packages_digest(self.tmp)
+               ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/at-d492/p4_proxy/tests/../tests/test_app_package.py", line 1373, in loaded_packages_digest
+    "manifest": app_package.load(build_package(root, name="manifest")),
+                                 ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/at-d492/p4_proxy/tests/../tests/test_app_package.py", line 238, in build_package
+    shutil.copyfile(FOUR_HOST_MODEL, os.path.join(directory, "ndtwin", "topology.json"))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/adam/miniconda3/lib/python3.13/shutil.py", line 260, in copyfile
+    with open(src, 'rb') as fsrc:
+         ~~~~^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/at-d492/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json'
+
+======================================================================
+ERROR: test_the_fields_that_existed_at_the_base_hash_to_what_they_hashed_to_there (tests.test_app_package.APackageWithoutRolesLoadsByteIdenticallyTest.test_the_fields_that_existed_at_the_base_hash_to_what_they_hashed_to_there)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/at-d492/p4_proxy/tests/../tests/test_app_package.py", line 1441, in setUp
+    self.now = loaded_packages_digest(self.tmp)
+               ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/at-d492/p4_proxy/tests/../tests/test_app_package.py", line 1373, in loaded_packages_digest
+    "manifest": app_package.load(build_package(root, name="manifest")),
+                                 ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/at-d492/p4_proxy/tests/../tests/test_app_package.py", line 238, in build_package
+    shutil.copyfile(FOUR_HOST_MODEL, os.path.join(directory, "ndtwin", "topology.json"))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/adam/miniconda3/lib/python3.13/shutil.py", line 260, in copyfile
+    with open(src, 'rb') as fsrc:
+         ~~~~^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/at-d492/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json'
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.071s
+
+FAILED (errors=2)
+== tree /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/at-d492  (tools class)
+rc=0
+test_every_file_of_every_conversion_is_the_one_the_base_wrote (test_convert.WithoutTheRoleFlagTheOutputIsByteIdenticalTest.test_every_file_of_every_conversion_is_the_one_the_base_wrote) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.008s
+
+OK
+== tree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924  (p4_proxy classes)
+rc=0
+test_every_case_was_captured_and_none_is_empty (tests.test_p4_client_writes.TheNdtwinPipelinesWritesAreByteIdenticalToTheBaseTest.test_every_case_was_captured_and_none_is_empty) ... ok
+test_every_request_is_byte_identical_to_the_one_the_base_sent (tests.test_p4_client_writes.TheNdtwinPipelinesWritesAreByteIdenticalToTheBaseTest.test_every_request_is_byte_identical_to_the_one_the_base_sent) ... ok
+test_the_render_is_the_one_the_base_produced (tests.test_ryu_flow_stats.TheNdtwinPipelinesFlowStatsAreByteIdenticalToTheBaseTest.test_the_render_is_the_one_the_base_produced) ... ok
+test_every_case_was_captured (tests.test_app_package.APackageWithoutRolesLoadsByteIdenticallyTest.test_every_case_was_captured) ... ok
+test_the_fields_that_existed_at_the_base_hash_to_what_they_hashed_to_there (tests.test_app_package.APackageWithoutRolesLoadsByteIdenticallyTest.test_the_fields_that_existed_at_the_base_hash_to_what_they_hashed_to_there) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.085s
+
+OK
+== tree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924  (tools class)
+rc=0
+test_every_file_of_every_conversion_is_the_one_the_base_wrote (test_convert.WithoutTheRoleFlagTheOutputIsByteIdenticalTest.test_every_file_of_every_conversion_is_the_one_the_base_wrote) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.008s
+
+OK

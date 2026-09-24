@@ -1,0 +1,42 @@
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924  HEAD 57aae1bf22e90096f846b2776ec9c3847d9b699b  2026-09-24T12:56:51Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924
+# cmd bash tests/shell/mutate_link_telemetry.sh
+interpreter: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924/p4_proxy/venv/bin/python
+baseline (must be green before any mutation):
+Ran 329 tests in 1.984s
+OK
+
+  caught   M-B1: every port gets an egress filter, so every inter-switch link is double-counted (test_ingress_on_every_port_and_egress_on_host_facing_ports_only went red)
+  caught   M-B2: the ifindex map keeps all 32 bits, so the aliasing check never fires (test_the_map_is_keyed_on_the_low_sixteen_bits_psample_reports went red)
+  caught   M-B3: the namespace check is gone, so a silent fabric passes bring-up  (test_a_switch_in_its_own_namespace_is_refused went red)
+  caught   M-B4: an emitter that died is not fatal, so a silent fabric reports success (test_a_fabric_whose_emitter_exited_is_refused went red)
+  caught   M-B11a (coarse): tear_down neither stops the emitter nor removes the filters (test_the_qdiscs_come_off_before_the_net_is_stopped went red)
+  caught   M-B11b (ticket-literal): teardown stops the emitter but never detaches (test_it_stops_the_pid_the_manifest_names_and_detaches_every_interface went red)
+  caught   M-B5: --telemetry writes a knob nothing reads                          (test_the_knob_outranks_the_packages_own_declaration went red)
+  caught   M-B6: auto answers cooperative for a foreign pipeline, which measures nothing (test_auto_sends_a_foreign_pipeline_down_the_link_path went red)
+  caught   M-B7: TCLink is used for a fabric nobody asked to shape                (test_a_package_that_shapes_nothing_is_also_the_call_it_has_always_been went red)
+  caught   M-B8: bandwidth reaches Mininet in bits per second, so no bottleneck is built (test_a_bottleneck_is_reported_in_megabit_with_its_endpoints went red)
+  caught   M-B9: an egress sample is credited to the reverse edge                 (test_an_egress_sample_fills_the_egress_port_and_leaves_ingress_zero went red)
+  caught   M-B10: link usage is computed from the truncated length, so the whole fabric reads low (test_the_frame_length_is_origsize_and_not_the_captured_length went red)
+  caught   M-B18 (F1): a refused link telemetry plan unwinds instead of becoming a verdict (test_the_bridge_stops_the_net_it_started went red)
+  caught   M-B19 (F2): a bad telemetry knob is discovered only after the old fabric is destroyed (test_a_telemetry_knob_outside_the_domain_is_refused_in_the_pre_flight went red)
+  caught   M-B17: the emitter is started before the filters, so a failed attach orphans it (test_the_filters_are_on_before_the_emitter_is_started went red)
+  caught   M-B22: the manifest is written before the emitter exists, so it records no pid (test_the_manifest_is_written_after_the_emitter_so_it_can_carry_its_pid went red)
+  caught   M-B20: a previous run's emitter is killed without a word               (test_a_previous_runs_emitter_is_stopped_before_a_new_fabric_is_built went red)
+  caught   M-B21: the SIGTERM grace loop counts by subtracting floats             (test_one_that_will_not_go_is_killed_after_the_grace_period went red)
+  caught   M-B23 (19(1)): the teardown is not a finally, so a shutdown signal skips it (test_the_topology_script_tears_down_when_the_cli_is_cut_short went red)
+  caught   M-B24 (19(1)): the topology script arms no handler, so the finally is never reached (test_the_handlers_are_armed_before_the_cli_is_entered went red)
+  caught   M-B25 (19(1)): the bridge -- the main that really runs -- arms no handler (test_the_bridge_arms_them_too went red)
+  caught   M-B26: a second shutdown signal aborts the teardown the first one asked for (test_the_second_signal_does_not_interrupt_the_teardown_the_first_asked_for went red)
+  caught   M-B27: only SIGINT is handled, and SIGINT is the one Mininet already swallows (test_all_three_signals_are_installed went red)
+  caught   M-B28: the emitter does not handle the signal that actually kills it   (test_all_three_stop_signals_are_installed went red)
+  caught   M-B13: the emitter pid is signalled without checking it is still the emitter (test_a_pid_that_is_no_longer_the_emitter_is_not_signalled went red)
+  caught   M-B14: samples from another filter's group are counted as this fabric's (test_a_sample_from_another_groups_filter_is_dropped_and_counted went red)
+  caught   M-B15: a tc command that failed is ignored, so the fabric measures half of itself (test_a_tc_that_failed_stops_the_bring_up_rather_than_half_measuring went red)
+  caught   M-B16: the emitter inherits fds 1 and 2, so it holds the tee's pipe open (test_it_is_launched_onto_its_own_file_and_this_process_keeps_no_descriptor went red)
+  green    N1 (control): a comment-only edit where the tc commands are composed   (the whole suite stays green)
+  green    N2 (control): a comment-only edit where a sample direction is decided  (the whole suite stays green)
+
+baseline byte-identical: yes (5 sources, 4 test files)
+mutation gate: 28 mutations, 0 survived
+# rc=0

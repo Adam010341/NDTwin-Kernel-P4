@@ -1,0 +1,62 @@
+{
+  "counters": {
+    "dispatch_failed": 2,
+    "dispatched": 2,
+    "dispatched_ok": 0,
+    "dropped_after_stop": 0
+  },
+  "counters_cover": {
+    "dispatch_routes": [
+      "/ndt/install_flow_entry",
+      "/ndt/modify_flow_entry",
+      "/ndt/delete_flow_entry",
+      "/ndt/install_flow_entries_modify_flow_entries_and_delete_flow_entries"
+    ],
+    "includes_boot_time_programming": false,
+    "includes_intent_translator": false
+  },
+  "dispatcher_running": true,
+  "recent_failures": [
+    {
+      "at_unix_ms": 1790265963034,
+      "controller_status": 501,
+      "dpid": 1,
+      "match": {
+        "eth_type": 2048,
+        "ipv4_dst": "10.0.9.9"
+      },
+      "message": "P4 proxy agent returned HTTP 501: {\"detail\":{\"error\":\"no NDTwin route binding for this write\",\"outcome\":\"unsupported_on_p4\",\"reason\":\"unbound\",\"remedy\":\"declare roles.ipv4_route in the package, or use POST /p4/table_entry\",\"dpid\":1,\"m...",
+      "op": "install",
+      "requested_priority": 10,
+      "seq": 1
+    },
+    {
+      "at_unix_ms": 1790265963153,
+      "controller_status": 501,
+      "dpid": 1,
+      "match": {
+        "eth_type": 2048,
+        "ipv4_dst": "10.0.1.1"
+      },
+      "message": "P4 proxy agent returned HTTP 501: {\"detail\":{\"error\":\"no NDTwin route binding for this write\",\"outcome\":\"unsupported_on_p4\",\"reason\":\"unbound\",\"remedy\":\"declare roles.ipv4_route in the package, or use POST /p4/table_entry\",\"dpid\":1,\"m...",
+      "op": "install",
+      "requested_priority": 10,
+      "seq": 2
+    }
+  ],
+  "recent_failures_capacity": 2000,
+  "recent_failures_evicted": 0,
+  "renamed_keys": {
+    "failed": "counters.dispatch_failed",
+    "succeeded": "counters.dispatched_ok"
+  },
+  "request_ids_capacity": 256,
+  "request_ids_forgotten": 0,
+  "request_ids_tracked": 2,
+  "switch_outcome": {
+    "accepted_by_switch": 0,
+    "rejected_by_switch": 2,
+    "unknown": 0,
+    "why_unknown": "a count of jobs whose plane's reply is not evidence about any switch. On the OVS/OpenFlow plane that is every job and always will be until a barrier read-back exists: OpenFlow does not acknowledge a FLOW_MOD, so Ryu's 200 is emitted before any switch has adjudicated anything (doc/KNOWN-ISSUES.md C-4). On the P4 plane the proxy programs the entry before replying, so its answer lands in accepted_by_switch or rejected_by_switch. This bucket is NOT derived from counters.dispatched_ok and must not be read as one: a dispatch that succeeded is still unknown at the switch here"
+  }
+}

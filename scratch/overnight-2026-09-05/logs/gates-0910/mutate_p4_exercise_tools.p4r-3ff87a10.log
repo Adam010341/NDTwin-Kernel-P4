@@ -1,0 +1,171 @@
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924  HEAD 3ff87a10780018b70575348b6d953a851a93b6dd  2026-09-24T14:44:11Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924
+# cmd env HOME=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/emptyhome bash tests/shell/mutate_p4_exercise_tools.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-roles-0924/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env HOME=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/emptyhome bash tests/shell/mutate_p4_exercise_tools.sh
+TICKET-P1 §3 p4_exercise tools mutation gate
+  interpreter : p4_proxy/venv/bin/python
+  subjects    : tools/p4_exercise/convert.py
+                tools/p4_exercise/preflight.py
+                tools/p4_exercise/run_external_controller.py
+  suite       : tools/p4_exercise/tests
+  baseline    : fb30c4cd11575575 tools/p4_exercise/convert.py
+  baseline    : c30e4e8b451c6dc6 tools/p4_exercise/preflight.py
+  baseline    : 5605407255187e80 tools/p4_exercise/run_external_controller.py
+
+baseline (unmutated) must be green:
+    Ran 187 tests in 1.694s
+    
+    OK (skipped=1)
+  ok       baseline green
+
+=== 1. convert drops the reverse direction of every access link ===
+  subject           : tools/p4_exercise/convert.py
+  anchor occurrences: 1
+  ✅ caught by test_every_link_is_stored_in_both_directions
+     all red: test_every_file_of_every_conversion_is_the_one_the_base_wrote test_every_link_is_stored_in_both_directions test_host_edges_carry_dpid_zero_on_the_host_side test_pod_topo_is_four_hosts_four_switches_eight_links test_the_package_has_one_switch_two_hosts_and_two_links 
+
+=== 2. the host side of an access edge carries a real dpid instead of 0 ===
+  subject           : tools/p4_exercise/convert.py
+  anchor occurrences: 1
+  ✅ caught by test_host_edges_carry_dpid_zero_on_the_host_side
+     all red: test_a_clone_session_replica_may_name_the_cpu_port test_a_converted_owned_package_passes_every_check test_a_freshly_converted_package_passes_every_check test_an_absent_compiler_is_neither_pass_nor_fail test_an_external_package_passes_and_says_it_has_no_entries test_a_single_switch_package_passes_every_check test_a_two_program_package_passes_every_check test_auto_on_the_same_package_is_fine test_ecn_reads_back_with_its_five_hosts test_every_file_of_every_conversion_is_the_one_the_base_wrote test_every_link_is_stored_in_both_directions test_every_switch_is_null_and_the_row_says_so test_host_edges_carry_dpid_zero_on_the_host_side test_it_converts_and_passes_every_check test_it_converts_and_reads_back_through_the_proxys_reader test_link_on_the_same_package_is_fine test_one_block_resolves_on_both_programs test_the_model_reads_back_through_the_proxys_reader test_the_one_switch_topology_reads_back test_the_renamed_package_passes_and_binds_the_renamed_names test_the_same_port_with_a_second_instance_is_accepted test_the_shipped_default_action_entry_is_accepted test_the_suggestion_is_not_a_failure test_the_zero_link_row_is_a_pass_not_a_failure test_triangle_topo_reads_back_too 
+
+=== 3. pre-flight accepts an entry naming a table the p4info does not have ===
+  subject           : tools/p4_exercise/preflight.py
+  anchor occurrences: 1
+  ✅ caught by test_a_bad_table_name_fails
+     all red: test_a_bad_table_name_fails 
+
+=== 4. the adapter moves the address and leaves the device id behind ===
+  subject           : tools/p4_exercise/run_external_controller.py
+  anchor occurrences: 1
+  ✅ caught by test_device_id_moves_with_the_address
+     all red: test_a_connection_named_only_by_switch_name_still_lands test_a_grpc_base_from_the_package_is_honoured test_device_id_moves_with_the_address test_every_rewrite_is_printed test_the_address_is_the_pivot_not_the_device_id test_the_patch_rewrites_a_real_construction test_the_second_switch_moves_too 
+
+=== 5. pre-flight stops checking an lpm prefix length against the field width ===
+  subject           : tools/p4_exercise/preflight.py
+  anchor occurrences: 1
+  ✅ caught by test_an_lpm_prefix_longer_than_the_field_fails
+     all red: test_a_negative_lpm_prefix_fails test_an_lpm_prefix_longer_than_the_field_fails 
+
+=== 6. match_type_name goes back to the hand-typed (and wrong) enum table ===
+  subject           : tools/p4_exercise/preflight.py
+  anchor occurrences: 1
+  ✅ caught by test_the_match_type_names_come_out_of_the_enum
+     all red: test_a_clone_session_replica_may_name_the_cpu_port test_a_freshly_converted_package_passes_every_check test_an_absent_compiler_is_neither_pass_nor_fail test_a_negative_lpm_prefix_fails test_an_lpm_prefix_longer_than_the_field_fails test_an_lpm_value_that_is_not_a_pair_fails test_a_two_program_package_passes_every_check test_auto_on_the_same_package_is_fine test_every_switch_is_null_and_the_row_says_so test_it_converts_and_passes_every_check test_it_says_the_entries_are_recorded_and_not_applied test_link_on_the_same_package_is_fine test_one_block_resolves_on_both_programs test_the_match_type_names_come_out_of_the_enum test_the_owned_table_rows_speak_only_of_the_switches_whose_binding_resolved test_the_renamed_package_passes_and_binds_the_renamed_names test_the_same_port_with_a_second_instance_is_accepted test_the_shipped_default_action_entry_is_accepted test_the_suggestion_is_not_a_failure 
+
+=== 7. pre-flight stops enforcing the h<last octet> host naming rule ===
+  subject           : tools/p4_exercise/preflight.py
+  anchor occurrences: 1
+  ✅ caught by test_a_host_whose_name_does_not_match_its_address_fails
+     all red: test_a_host_whose_name_does_not_match_its_address_fails 
+
+=== 8. convert drops the per-switch 'program', so every switch runs the default ===
+  subject           : tools/p4_exercise/convert.py
+  anchor occurrences: 1
+  ✅ caught by test_the_switch_that_names_a_program_gets_it_and_the_others_get_the_default
+     all red: test_a_missing_pipeline_file_fails_and_names_the_switch test_an_unbuilt_program_is_refused_with_the_make_command test_a_p4info_naming_an_action_the_bmv2_json_does_not_have_fails test_a_p4info_naming_a_table_the_bmv2_json_does_not_have_fails test_a_p4info_that_exists_but_does_not_parse_fails_by_name test_a_two_program_package_passes_every_check test_each_switch_gets_its_own_row_with_the_p4info_sha_and_the_source test_entries_and_pipeline_agreeing_is_its_own_green_row test_entries_written_for_another_program_fail test_every_file_of_every_conversion_is_the_one_the_base_wrote test_one_block_resolves_on_both_programs test_the_printed_sha_is_the_p4infos_own test_the_switch_that_names_a_program_gets_it_and_the_others_get_the_default 
+
+=== 9. pre-flight stops checking that the p4info is a subset of the bmv2 json ===
+  subject           : tools/p4_exercise/preflight.py
+  anchor occurrences: 1
+  ✅ caught by test_a_p4info_naming_a_table_the_bmv2_json_does_not_have_fails
+     all red: test_a_p4info_naming_an_action_the_bmv2_json_does_not_have_fails test_a_p4info_naming_a_table_the_bmv2_json_does_not_have_fails 
+
+=== 10. pre-flight accepts entries written against a program the switch does not run ===
+  subject           : tools/p4_exercise/preflight.py
+  anchor occurrences: 1
+  ✅ caught by test_entries_written_for_another_program_fail
+     all red: test_entries_written_for_another_program_fail 
+
+=== 11. --ndtwin-pipeline stops meaning anything, so the phase-1 cell runs the exercise's programs ===
+  subject           : tools/p4_exercise/convert.py
+  anchor occurrences: 1
+  ✅ caught by test_the_ndtwin_pipeline_flag_nulls_every_switch_including_the_one_with_a_program
+     all red: test_a_role_on_a_package_whose_every_switch_runs_ndtwins_pipeline_is_refused test_every_switch_is_null_and_the_row_says_so test_the_ndtwin_pipeline_flag_nulls_every_switch_including_the_one_with_a_program test_with_no_pipeline_the_entries_are_not_compared_to_one 
+
+=== 12. a declared per-switch program with no --p4 is silently ignored instead of refused ===
+  subject           : tools/p4_exercise/convert.py
+  anchor occurrences: 1
+  ✅ caught by test_a_program_without_p4_is_refused_rather_than_half_applied
+     all red: test_a_program_without_p4_is_refused_rather_than_half_applied 
+
+=== 13. the per-switch INFO row stops printing the p4info sha256 ===
+  subject           : tools/p4_exercise/preflight.py
+  anchor occurrences: 1
+  ✅ caught by test_the_printed_sha_is_the_p4infos_own
+     all red: test_the_printed_sha_is_the_p4infos_own 
+
+=== 14. a pipeline may resolve outside the package directory ===
+  subject           : tools/p4_exercise/preflight.py
+  anchor occurrences: 1
+  ✅ caught by test_a_pipeline_escaping_the_package_directory_fails_here_and_not_only_at_bring_up
+     all red: test_a_pipeline_escaping_the_package_directory_fails_here_and_not_only_at_bring_up 
+
+=== 15. an absolute pipeline path is accepted here and refused by the loader ===
+  subject           : tools/p4_exercise/preflight.py
+  anchor occurrences: 1
+  ✅ caught by test_an_absolute_pipeline_path_fails_here_and_not_only_at_bring_up
+     all red: test_an_absolute_pipeline_path_fails_here_and_not_only_at_bring_up 
+
+=== 16. a p4info that exists but does not parse is skipped instead of reported ===
+  subject           : tools/p4_exercise/preflight.py
+  anchor occurrences: 1
+  ✅ caught by test_a_p4info_that_exists_but_does_not_parse_fails_by_name
+     all red: test_a_p4info_that_exists_but_does_not_parse_fails_by_name 
+
+=== 17. two switches may ask for two different CPU ports, and one is silently given the other's ===
+  subject           : tools/p4_exercise/convert.py
+  anchor occurrences: 1
+  ✅ caught by test_switches_that_disagree_are_refused_and_both_are_named
+     all red: test_switches_that_disagree_are_refused_and_both_are_named 
+
+=== 18. a cpu_port written as a string stays a string ===
+  subject           : tools/p4_exercise/convert.py
+  anchor occurrences: 1
+  ✅ caught by test_a_string_cpu_port_becomes_an_integer
+     all red: test_a_cpu_port_that_is_not_a_number_is_refused test_a_hex_string_is_read_base_zero test_a_string_cpu_port_becomes_an_integer test_one_switch_naming_it_is_enough_for_the_whole_package test_switches_that_disagree_are_refused_and_both_are_named 
+
+=== 19. pre-flight accepts a telemetry source outside the value domain ===
+  subject           : tools/p4_exercise/preflight.py
+  anchor occurrences: 1
+  ✅ caught by test_a_word_outside_the_domain_fails
+     all red: test_a_word_outside_the_domain_fails 
+
+=== 20. pre-flight lets a program with no controller header be asked for cooperative telemetry ===
+  subject           : tools/p4_exercise/preflight.py
+  anchor occurrences: 1
+  ✅ caught by test_cooperative_on_a_program_with_no_controller_header_fails
+     all red: test_cooperative_on_a_program_with_no_controller_header_fails test_the_failure_names_the_way_out 
+
+=== 21. a multicast replica may name a port the fabric does not build ===
+  subject           : tools/p4_exercise/preflight.py
+  anchor occurrences: 1
+  ✅ caught by test_a_replica_on_a_port_the_model_does_not_build_fails
+     all red: test_a_replica_on_a_port_the_model_does_not_build_fails 
+
+=== 22. the same (port, instance) twice is accepted, and the group is quietly smaller ===
+  subject           : tools/p4_exercise/preflight.py
+  anchor occurrences: 1
+  ✅ caught by test_the_same_replica_twice_fails
+     all red: test_the_same_replica_twice_fails 
+
+=== NEGATIVE CONTROL: comment-only edit must stay GREEN ===
+  subject           : tools/p4_exercise/convert.py
+  anchor occurrences: 1
+  ✅ green: the suite does not react to a comment
+
+--- baseline restored? ---
+  byte-identical  tools/p4_exercise/convert.py
+  byte-identical  tools/p4_exercise/preflight.py
+  byte-identical  tools/p4_exercise/run_external_controller.py
+  suite green again after restore
+
+not reddened by design: test_two_conversions_are_byte_identical and the p4c rows
+(regression guards; they discriminate nothing about the 22 behaviours above)
+
+22 mutations, 0 survived
+guarded_build: exit 0
+# rc=0

@@ -1,0 +1,18 @@
+{
+  "complete": true,
+  "counters": {
+    "dispatch_failed": 0,
+    "dispatched": 1,
+    "dispatched_ok": 1
+  },
+  "detail": "counters for this request only. complete=false means jobs from this batch are still queued -- or, if dispatcher_running is false, that they were dropped before any southbound attempt and are counted in the process-wide counters.dropped_after_stop instead",
+  "dispatcher_running": true,
+  "enqueued": 1,
+  "request_id": 2,
+  "switch_outcome": {
+    "accepted_by_switch": 1,
+    "rejected_by_switch": 0,
+    "unknown": 0,
+    "why_unknown": "a count of jobs whose plane's reply is not evidence about any switch. On the OVS/OpenFlow plane that is every job and always will be until a barrier read-back exists: OpenFlow does not acknowledge a FLOW_MOD, so Ryu's 200 is emitted before any switch has adjudicated anything (doc/KNOWN-ISSUES.md C-4). On the P4 plane the proxy programs the entry before replying, so its answer lands in accepted_by_switch or rejected_by_switch. This bucket is NOT derived from counters.dispatched_ok and must not be read as one: a dispatch that succeeded is still unknown at the switch here"
+  }
+}

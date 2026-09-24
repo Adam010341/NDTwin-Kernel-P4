@@ -1,0 +1,128 @@
+== 07_roles_basic
+   repo: /home/adam/Desktop/NDTwin-Kernel
+   raw : /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-24T160256Z_07_roles_basic
+   owner: orch-0924
+   root is reachable for exactly what this needs: sudoers grants ndtwin-lab and mnexec without a prompt
+
+== lab state before this step
+   lab
+     claim          none
+     prev claim     ndt-serve-0924 (until 23:22:32), superseded 2026-09-24 22:53:12  (.test_run/lab.claim.prev)
+                    nothing holds the lab now: that claim was released or replaced
+                    it said: down at 2026-09-24 22:53:12; verified clean; claim kept
+     measuring      nothing
+     code           572d9462  +61 file(s) with uncommitted changes
+                    2 of them can change behaviour:
+                    p4_proxy/mininet/host_count_override
+                    tools/remote-lab/dorm_lab/
+     knob baseline  4 (the default; no round baseline recorded -- 'ndt claim' writes one)
+     tree vs round  no baseline in .test_run/round.baseline -- nothing here can say what this round changed ('ndt claim' records one)
+     ok  helper: /usr/local/sbin/ndtwin-lab is tools/test_workflow/ndtwin-lab (sha256 6685d3a9)
+   
+   lab is free
+   host_count_override snapshot taken (4)
+   telemetry_override does not exist; it will be removed again at the end
+
+== which code this run is about
+   repo HEAD  572d9462feda629fe31063efcd5517ee1fee467a
+   kernel     be70b5dd32356847  build/bin/ndtwin_kernel
+   source     f35fb704c7e83d0a  p4_proxy/proxy_agent/route_binding.py
+   source     7869c86891cafd67  p4_proxy/proxy_agent/p4_client.py
+   source     f52b03439ab6b254  p4_proxy/proxy_agent/main.py
+   source     a8c2a5242443a39b  p4_proxy/proxy_agent/topology_manager.py
+   source     fb30c4cd11575575  tools/p4_exercise/convert.py
+   source     c30e4e8b451c6dc6  tools/p4_exercise/preflight.py
+
+== compiling /home/adam/tutorials/exercises/basic/solution/basic.p4 -> build/basic.json
+   9213871cee36bd93  build/basic.p4.p4info.txtpb
+
+== converting WITH --role-ipv4-route -> /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic_roles
+   roles         : ipv4_route owner=ndtwin table=MyIngress.ipv4_lpm match_field=hdr.ipv4.dstAddr action=MyIngress.ipv4_forward dst_mac=dstAddr port=port
+   owned table   : 16 match entries for MyIngress.ipv4_lpm taken out of the runtime files (s1: 4, s2: 4, s3: 4, s4: 4); its default action stays
+   the roles package's runtime entries (table, default?): [('MyIngress.ipv4_lpm', True)]
+
+== converting WITHOUT roles (the L5 control) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic_noroles
+   basic_roles: PASS -- every check passed
+   basic_noroles: PASS -- every check passed
+   pre-flight: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic_roles
+     PASS  roles.ipv4_route resolves           4 switch(es): MyIngress.ipv4_lpm hdr.ipv4.dstAddr -> MyIngress.ipv4_forward(dstAddr, port bit<9>), owner ndtwin
+     INFO  roles suggestion                  no roles declared, so NDTwin writes none of this program's tables. Its p4info has a destination-route-shaped table on 
+
+== claiming the lab
+     recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+     ok  lab claimed by orch-0924 for 45m (P4 roles live L1-L6: --app basic (pod-topo) with roles.ipv4_route owner ndtwin, then without roles)
+
+== ndt up p4 --app /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic_roles
+   rc=0 -> 20_up_roles.txt
+     
+     up. ready
+       proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+       !!  package pipeline: NDTwin discovered no links and installed no routes on this
+       !!    fabric; forwarding is whatever the package's 4 entries on
+       !!    4 switch(es) make of it. ndt status quotes no sample rate for it.
+
+== L6 -- switch_state capabilities (roles package)
+   L6 capabilities: all 4 switches report {"binding_source": "package", "five_tuple": false, "ipv4_route": "ndtwin", "link_discovery": "declared", "reroute": false}
+   L6 control_plane.skipped: control_plane.skipped is ['link_watchdog', 'lldp_discovery']
+   L1 declared links on switch_state: 8 link entries, every one source: declared (down: null -- nobody checks them)
+
+== L1 -- the kernel's graph: 8 inter-switch directions enabled and up (poll up to 90 s)
+   L1 (reconciled against 062604Z_02_app_basic: 0/8 there): 8/8 inter-switch directions is_enabled:true is_up:true
+   the edges are up by DECLARATION, not by failure detection (capabilities.reroute false)
+
+== L3 -- pingall, every ordered pair, ping -c 5 (NDTwin's routes in the exercise's table)
+   PINGALL_LOSS pairs=12 zero_loss=12 lossy=0 untested=0
+   L3: 0% loss on all 12 pairs
+
+== L2 -- a batch rule through the kernel API, read back, then deleted
+   install: HTTP 200 request_id=1
+   L2 dispatch: request 1: enqueued 1, dispatched_ok 1, dispatch_failed 0, rejected_by_switch 0, complete True
+   L2 read-back: /stats/flow/1 reads back nw_dst 10.0.9.9 -> OUTPUT:3
+   L2 delete: /stats/flow/1 has no row for 10.0.9.9
+
+== L4 -- inject_link_failure s1-p3<->s3-p1, hold >= 35 s, recover
+   inject_link_failure: HTTP 200
+   L4 down: both directions of the cut link is_up:false (True False / True False)
+   traffic during the cut (recorded, NOT asserted -- (c) does not hold): PINGALL_LOSS pairs=12 zero_loss=4 lossy=8 untested=0
+   holding 40 s -- at least one updateLinks poll (5 s while converging, 30 s after)
+   L4 still down after a poll: both directions of the cut link is_up:false (True False / True False)
+   inject_link_recovery: HTTP 200
+   L4 recovered: both directions of the cut link are back up
+   L4 netem: no netem on either end of the cut link
+   traffic after recovery (recorded): PINGALL_LOSS pairs=12 zero_loss=12 lossy=0 untested=0
+
+== ndt down (phase A)
+   rc=0 -> 69_down_roles.txt
+
+== ndt up p4 --app /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic_noroles
+   rc=0 -> 70_up_plain.txt
+
+== L6 -- switch_state capabilities (no roles)
+   L6 capabilities (unbound): all 4 switches report {"binding_source": null, "five_tuple": false, "ipv4_route": "unbound", "link_discovery": "declared", "reroute": false}
+   L6 control_plane.skipped (unbound): control_plane.skipped is ['install_initial_routes', 'link_watchdog', 'lldp_discovery']
+
+== L5 -- a write with no binding: 501, and the author's entries untouched
+   L5 proxy: the proxy answered 501 unsupported_on_p4, reason unbound
+   L5 proxy, the author's own /32: the proxy answered 501 unsupported_on_p4, reason unbound
+   kernel batch: HTTP 200 request_id=1
+   L5 recent_failures: the write failed (1) and recent_failures says why: P4 proxy agent returned HTTP 501: {"detail":{"error":"no NDTwin route binding for this write","outcome":"unsupported_on_
+   kernel batch at the author's /32: HTTP 200 request_id=2
+   L5 recent_failures, the author's own /32: the write failed (1) and recent_failures says why: P4 proxy agent returned HTTP 501: {"detail":{"error":"no NDTwin route binding for this write","outcome":"unsupported_on_
+   L5 author's entries: 16 rows across 4 switch(es), identical before and after
+   L5 the author's /32 still goes out of port 1: /stats/flow/1 reads back nw_dst 10.0.1.1 -> OUTPUT:1
+   control fabric's graph (recorded): OK 8/8 inter-switch directions is_enabled:true is_up:true
+
+== done -- teardown follows
+
+== teardown
+   ndt down rc=0 -> 2026-09-24T160256Z_07_roles_basic/90_down.txt
+         so stack.sh's exit 1 was a reading from the MIDDLE of this teardown, not
+         its ending, and it is not carried to the exit code. (ROLE-12, 2026-09-12)
+       claim note now says the lab is down and verified clean (owner and expiry unchanged)
+   app_package_override is gone, as 'ndt down' should leave it
+     the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+     this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+     ok  lab released
+
+raw: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-24T160256Z_07_roles_basic
+PASS 07_roles_basic

@@ -1,1 +1,13 @@
 == orchestrator-0924 (minus the ndt serve ticket)
+1.8M	/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-audit-raw/scratch/overnight-2026-09-05/logs/orchestrator-0924
+== helpers-0924 session-close items (minus index-backup-0924)
+   scratch/overnight-2026-09-05/logs/orchestrator-0919/helpers-0924/dispatch-msgs-0924 60K
+   scratch/overnight-2026-09-05/logs/orchestrator-0919/helpers-0924/draft-replay.sh 40K
+   scratch/overnight-2026-09-05/logs/orchestrator-0919/helpers-0924/lint-before.txt 4.0K
+   scratch/overnight-2026-09-05/logs/orchestrator-0919/helpers-0924/lint-after.txt 4.0K
+== worker summaries
+   scratch/overnight-2026-09-05/hunt-0911/fix/P4-C-SUMMARY.md                     52K
+   scratch/overnight-2026-09-05/hunt-0911/fix/P4-D-SUMMARY.md                     40K
+== gate logs
+   37 gate log(s)
+== audit-raw would commit 44 path(s); disk free 2.4G
