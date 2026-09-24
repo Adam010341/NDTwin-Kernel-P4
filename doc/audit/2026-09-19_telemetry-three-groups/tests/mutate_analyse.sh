@@ -240,7 +240,10 @@ report_shell() {   # $1 = mutation name, $2 = mutant dir, $3.. = EVERY cell that
              still green: $cell"
     done
     if [[ "$rc" -ne 0 && -z "$missing" ]]; then
-        printf '  caught   %-72s (%d cell(s) went red)\n' "$name" "$#"
+        # the number is how many BOUND cells went red -- all of them, or it would not be
+        # "caught" -- not how many cells went red; those others are the "also red" lines below
+        # (ruling 40(e): the old wording "(N cell(s) went red)" read as the second)
+        printf '  caught   %-72s (%d bound cell(s) went red)\n' "$name" "$#"
         # the same "what else" as report() (ruling 39(9a)): every FAIL cell the mutation was
         # not bound to
         local red_cells extra=0
@@ -418,11 +421,13 @@ m=$(mutant m11 "$ANALYSE" \
 report "M-E11: a line is fitted through deltas smaller than their own spread (H-C0 removed)" "$m" \
        "test_a_delta_smaller_than_its_spread_is_H_C0_and_no_line_is_fitted"
 
+# (Ruling 40(a) replaced the "H-C2 ..." return this anchors on with HC2_NOT_DECIDED; the mutation
+# is the same one -- the mixed band loses its own branch -- on the new text.)
 m=$(mutant m12 "$ANALYSE" \
     '    if share is not None and share <= FIXED_SHARE_PER_SAMPLE:
-        return "H-C2 cost is per sample (08-20'"'"'s fixed component does not reproduce here)"
+        return HC2_NOT_DECIDED
     return "H-C3 mixed -- the decomposition IS the result (PREREG 5.3)"' \
-    '    return "H-C2 cost is per sample (08-20'"'"'s fixed component does not reproduce here)"')
+    '    return HC2_NOT_DECIDED')
 report "M-E12: the mixed decomposition has no branch of its own (08-28 section 4's H3 lesson)" "$m" \
        "test_the_cpu_verdict_names_a_mixed_decomposition_as_a_result"
 
@@ -723,6 +728,47 @@ m=$(mutant m43 "$ANALYSE" \
     'BMV2_RATIO_LO, BMV2_RATIO_HI = 0.50, 2.00')
 report "M-E43: the registered bmv2 interval is widened to [0.5, 2.0]" "$m" \
        "test_a_bmv2_ratio_outside_090_115_is_reported_outside"
+
+# --- ruling 40: H-C2 undecided, no H-C0 on bmv2, H-B2 needs three windows ---------------------------
+
+# The round-10 label, put back: "H-C2" on the first of its two registered conditions.
+m=$(mutant m44 "$ANALYSE" \
+    '        return HC2_NOT_DECIDED' \
+    '        return "H-C2 cost is per sample (08-20'"'"'s fixed component does not reproduce here)"')
+report "M-E44: H-C2 is labelled on one of its two registered conditions again" "$m" \
+       "test_H_C2_is_NOT_DECIDED_while_its_second_condition_has_no_tolerance"
+
+# The judge's finding in 40(b): the H-C0 branch reached before the registered check.
+m=$(mutant m45 "$ANALYSE" \
+    '        if not registered:
+            out["fits"][group] = {"fit": None, "verdict": None,' \
+    '        if False:
+            out["fits"][group] = {"fit": None, "verdict": None,')
+report "M-E45: a bmv2 panel with no resolved rung is labelled H-C0 again" "$m" \
+       "test_bmv2_gets_no_H_C0_either_when_no_rung_resolves"
+
+m=$(mutant m46 "$ANALYSE" \
+    '                    and at_100.get("signed_windows") == H_B2_WINDOWS)' \
+    '                    )')
+report "M-E46: H-B2 is satisfied by fewer than the three registered windows" "$m" \
+       "test_a_100_Mbit_cell_with_only_two_valid_windows_cannot_be_H_B2"
+
+# Recommended in ruling 40: a registered rate with no reading counted as inside the band.
+m=$(mutant m47 "$ANALYSE" \
+    '    if any(value is None for value in registered):
+        return None' \
+    '    if False:
+        return None')
+report "M-E47: a registered rate with no reading is treated as inside the band" "$m" \
+       "test_a_registered_rate_with_no_reading_leaves_the_group_not_decided"
+
+# The other one-cell roll-up (M-E37 takes the first cell): the LAST one. It shares M-E37's anchor
+# with a different replacement; the case that sees it is the one whose outside rate is FIRST.
+m=$(mutant m48 "$ANALYSE" \
+    '    registered = [values.get(rate) for rate in REGISTERED_RATES_MBIT]' \
+    '    registered = [values.get(rate) for rate in REGISTERED_RATES_MBIT][-1:]')
+report "M-E48: the group-level H-B verdict falls back to the LAST cell" "$m" \
+       "test_the_fifth_campaigns_shape_outside_at_the_FIRST_rate_is_not_H_B1_either"
 
 # --- the controls: changes that must NOT be caught -------------------------------------------------
 # A suite that goes red on a comment is not sensitive, it is fragile, and a fragile suite gets
