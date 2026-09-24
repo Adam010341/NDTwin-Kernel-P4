@@ -17,7 +17,13 @@ It prints where it listens, which `ndt` it drives (with its sha256), and where t
 Options: `--port` (default 8765, `0` = any free port), `--ndt` (default `~/.local/bin/ndt` —
 the main checkout's, the only tree `sudo ndtwin-lab` acts in), `--state-dir` (jobs; default
 `~/.local/state/ndt-serve`), `--token-file` (default `~/.config/ndt-serve/token`), `--app-root`
-(where `up --app` packages may live; default `<repo>/.test_run/packages`), `--read-timeout`.
+(where `up --app` packages may live; default `<repo>/.test_run/packages`), `--read-timeout`
+(a read-only ndt call, default 60 s), `--read-queue-wait` (how long a third read waits for one of
+the two read slots before 503, default 30 s), `--max-connections` (default 32; more get an
+immediate 503), `--max-waiters` (`?wait=` long-polls at once, default 4).
+
+Every job and every read runs the file `--ndt` resolved to **when the server started**;
+`/health` reports `ndt_drift` if the symlink has been re-pointed or the file edited since.
 
 Every `NDT_*` variable of the shell that starts it is dropped, and every `ndt` call carries
 `NDT_OWNER=<owner>`. Stop it with Ctrl-C or SIGTERM; running jobs are not affected.
@@ -28,13 +34,14 @@ Every path outside `/api/` is reserved for the Web-GUI's static files (next cut)
 
 | method | path | what runs | answer |
 |---|---|---|---|
-| GET | `/health` | nothing | owner, the ndt path and sha256, app list, whether a job holds the slot |
-| GET | `/status` | `ndt status` | rc, `rc_class`, `meaning`, full stdout/stderr |
+| GET | `/health` | nothing | owner, the ndt path and sha256 (and `ndt_drift`), app list, whether a job holds the slot. **The one route that needs no token** |
+| GET | `/status` | `ndt status` | rc, `rc_class`, `meaning`, stdout/stderr decoded, and a `read` id whose bytes are kept |
 | GET | `/status?check=1` | `ndt status --check` | same; this one is a verdict (0/1/3) |
 | GET | `/apps` | `ndt apps status` | same, plus the app names ndt knows |
 | GET | `/jobs[?limit=N]` | nothing | the last jobs, newest first |
-| GET | `/jobs/<id>[?wait=S]` | nothing | one job; `wait` blocks up to S s (≤600) while it runs |
+| GET | `/jobs/<id>[?wait=S]` | nothing | one job; `wait` blocks up to S s (≤300) while it runs |
 | GET | `/jobs/<id>/log/stdout\|stderr[?offset=&limit=]` | nothing | the raw bytes; `X-NDT-Log-Next-Offset` for polling |
+| GET | `/reads/<id>/log/stdout\|stderr` | nothing | a read's output, byte for byte (the last 500 reads are kept) |
 | POST | `/claim` `{"minutes":1..240,"note":"..."}` | `ndt claim M [note]` | 202 + job |
 | POST | `/release` `{}` | `ndt release` | 202 + job |
 | POST | `/up` `{"plane":"ovs"\|"p4","hosts":4\|128}` or `{"plane":"p4","app":"<dir>"}` | `ndt up ovs` / `up 4` / `up p4 [N]` / `up p4 --app <realpath>` | 202 + job |
@@ -46,9 +53,16 @@ A POST changes the lab, so it is a **job**: it returns at once with a job id, an
 may run at a time (409 `busy` names the one that does). A job runs under a detached runner and
 keeps running if the server dies; a restarted server finds it again from disk.
 
-**Every POST needs:** the token in `X-NDT-Token`, `Content-Type: application/json`, and — if the
-client sends an `Origin` — this server's own origin. The Host header must be
-`127.0.0.1:<port>` or `localhost:<port>`. No CORS header is ever sent.
+**Every request but `GET /health` needs** the token in `X-NDT-Token` and -- if the client sends
+an `Origin` -- this server's own origin; a POST also needs `Content-Type: application/json`.
+The Host header must be `127.0.0.1:<port>` or `localhost:<port>`. No CORS header is ever sent.
+Reads are gated too because a read is not side-effect free: `ndt status --check` POSTs three
+lock probes to the kernel (ndt:8832-8847), and without the token any page in the browser could
+start one with an `<img>` (judge 09-24, finding 1).
+
+Two read-only ndt calls run at a time; a third waits up to `--read-queue-wait` seconds and then
+gets 503. A read that runs past `--read-timeout` has its process group killed and answers
+`rc_class: timeout`.
 
 ### curl
 
@@ -56,11 +70,11 @@ client sends an `Origin` — this server's own origin. The Host header must be
 H='Host: 127.0.0.1:8765'; U=http://127.0.0.1:8765/api/v1
 T="X-NDT-Token: $(cat ~/.config/ndt-serve/token)"; J='Content-Type: application/json'
 
-curl -s -H "$H" $U/status | jq -r .stdout
+curl -s -H "$H" -H "$T" $U/status | jq -r .stdout
 curl -s -H "$H" -H "$T" -H "$J" -d '{"minutes":30,"note":"trying ndt serve"}' $U/claim
 curl -s -H "$H" -H "$T" -H "$J" -d '{"plane":"ovs","hosts":4}' $U/up      # -> {"job":{"id":...}}
-curl -s -H "$H" "$U/jobs/<id>?wait=300" | jq '.job | {state, rc, rc_class, meaning}'
-curl -s -H "$H" $U/jobs/<id>/log/stdout
+curl -s -H "$H" -H "$T" "$U/jobs/<id>?wait=300" | jq '.job | {state, rc, rc_class, meaning}'
+curl -s -H "$H" -H "$T" $U/jobs/<id>/log/stdout
 curl -s -H "$H" -H "$T" -H "$J" -d '{}' $U/apps/nsr/start
 curl -s -H "$H" -H "$T" -H "$J" -d '{}' $U/down
 curl -s -H "$H" -H "$T" -H "$J" -d '{}' $U/release
@@ -102,14 +116,16 @@ Adam's.
 ```bash
 G=$(curl -s -H "$H" -H "$T" -H "$J" -d '{}' $U/cells/up_target_names_a_readable_model/guided | jq -r .walk.id)
 curl -s -H "$H" -H "$T" -H "$J" -d '{}' $U/guided/$G/next | jq '.walk.steps[.walk.current]'   # repeat
-curl -s -H "$H" "$U/guided/$G" | jq '.walk.steps[] | {step, state, look_at}'
+curl -s -H "$H" -H "$T" "$U/guided/$G" | jq '.walk.steps[] | {step, state, look_at}'
 curl -s -H "$H" -H "$T" -H "$J" -d '{"verdict":"green","note":"h4nl_* all flipped"}' $U/guided/$G/verdict
 ```
 
 ## Reading an answer
 
 `rc` is always the integer `ndt` exited with. `rc_class` and `meaning` are a per-verb reading
-of it, copied from `ndt help` (trunk `fd7382a3`):
+of it. For `up`, `down` and `status --check` it is taken from `ndt help`; for plain `status`,
+`claim`, `release` and the `apps` verbs `ndt help` says nothing, and the table was read from
+ndt's code -- `verbs.RC_SOURCE` names the lines, and a test holds both kinds to the real ndt:
 
 | rc_class | means |
 |---|---|
@@ -130,7 +146,7 @@ still holds the slot), `lost` (it ended and nobody recorded its rc).
 ## Tests
 
 ```bash
-python3 tests/python/test_ndt_serve.py        # 51 cases against a stub ndt, no lab
+python3 tests/python/test_ndt_serve.py        # 71 cases against a stub ndt (RcProvenance reads the real ndt), no lab
 python3 tests/python/test_ndt_serve_cells.py  # 25 cases against a stub grid, no lab
-bash tests/shell/mutate_ndt_serve.sh          # 58 named mutations, each must redden its case
+bash tests/shell/mutate_ndt_serve.sh          # 77 named mutations, each must redden its case
 ```

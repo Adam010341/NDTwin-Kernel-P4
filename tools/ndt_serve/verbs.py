@@ -12,10 +12,16 @@ name and checks that each argument is one of a fixed set of values; what the ver
 whether the lab is claimed, whether a teardown is in flight -- every guard -- is `ndt`'s, and the
 rc it answers with is passed through unchanged (section 3.4).
 
-The rc tables below are copied from `ndt help` (2026-09-24, trunk fd7382a3) and they are
-ANNOTATION ONLY: the `rc` field of every answer is the integer `ndt` exited with, whatever this
-table says about it. An rc the table does not know is reported as `unknown`, never folded into
-a neighbour.
+The rc tables below are ANNOTATION ONLY: the `rc` field of every answer is the integer `ndt`
+exited with, whatever this table says about it. An rc the table does not know is reported as
+`unknown`, never folded into a neighbour.
+
+Where each table comes from is RC_SOURCE, below, and it is not one place (judge 09-24, finding 5):
+`up`, `down` and `status --check` are in `ndt help`; plain `status`, `claim`, `release` and the
+three `apps` verbs are NOT -- they were read from ndt's code, and RC_SOURCE names the lines.
+tests/python/test_ndt_serve.py RcProvenance holds both kinds to the real ndt of this tree: a
+help phrase that is no longer printed, or a cited line that no longer says what it is cited
+for, turns it red.
 """
 import os
 import re
@@ -188,7 +194,13 @@ RC_TABLE = {
     },
     "status.check": {
         0: ("ok", "all compared fields match what the last 'ndt up' asked for"),
-        1: ("dirty", "a compared field does not match (the output names it)"),
+        # 🔴 ndt help says "1 one of them does not", but cmd_status answers 1 whenever its
+        # problems[] is not empty (ndt:6493-6495) -- a claim held by somebody else (6128), a
+        # declared measurement (6211), a netem qdisc (6355), a refused sudo grant (6368) are all
+        # problems. A GUI that printed "a field does not match" would name the wrong cause.
+        1: ("dirty", "ndt reported at least one problem -- a compared field that does not match, a claim "
+                     "held by somebody else, a measurement in progress, a netem qdisc, a refused sudo "
+                     "grant, and more; the output names each one"),
         3: ("nothing", "nothing was compared: there is no baseline right now -- NOT 'checked and matched'"),
     },
     "claim": {
@@ -220,6 +232,33 @@ RC_TABLE = {
     "apps.status": {
         0: ("ok", "the table was printed"),
     },
+}
+
+
+# Where each table's codes come from. "help": the phrase `ndt help` prints for each rc (compared
+# whitespace-normalised). "code": (line, rc, text that line must contain) in tools/test_workflow/ndt
+# -- lines below 10097 are identical to trunk fd7382a3.
+RC_SOURCE = {
+    "up": {"help": {0: "exit 0 the fabric came up and verified",
+                    1: "1 something was MEASURED and it was dirty",
+                    2: "2 is a usage error",
+                    5: "5 a GUARD REFUSED and nothing was built"}},
+    "down": {"help": {0: "exit 0 the teardown finished and the machine verified clean",
+                      1: "1 any of: stack.sh's half exited non-zero",
+                      2: "2 is a usage error",
+                      3: "3 THERE WAS NOTHING TO TEAR DOWN",
+                      5: "5 A GUARD REFUSED and nothing was torn down"}},
+    "status.check": {"help": {0: "exit 0 all compared fields match",
+                              1: "1 one of them does not (the message names it)",
+                              3: "3 nothing was compared, because there is no baseline RIGHT NOW"},
+                     "code": [(6486, 3, "return 3"), (6491, 0, "return 0"), (6495, 1, "return 1")]},
+    "status": {"code": [(6497, 0, "return 0")]},
+    "claim": {"code": [(748, 2, "return 2"), (757, 2, "return 2"), (782, 1, "return 1"),
+                       (855, 1, "return 1"), (857, 0, 'ok "lab claimed by')]},
+    "release": {"code": [(861, 0, "return 0"), (866, 1, "return 1"), (894, 1, "return 1")]},
+    "apps.start": {"code": [(8311, 0, "return 0"), (8315, 1, "return 1"), (8388, 1, "return 1")]},
+    "apps.stop": {"code": [(9814, 1, "return 1"), (9817, 2, "return 2"), (9820, 0, "return 0")]},
+    "apps.status": {"code": [(9747, 0, "return 0")]},
 }
 
 

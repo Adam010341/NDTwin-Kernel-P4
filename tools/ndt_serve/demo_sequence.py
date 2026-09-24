@@ -6,9 +6,15 @@
     python3 tools/ndt_serve/demo_sequence.py --port 8765 --out <dir>
 
 status -> claim -> up (ovs 4) -> status -> apps -> nsr start -> apps -> nsr stop -> down ->
-release -> status, all over HTTP. Three probes ride along, none of which can change anything:
-a write with no token (403), a request with a foreign Host (403), and a second write while the
-`up` job runs (409).
+release -> status, all over HTTP. Four probes ride along, and each is built so that it CANNOT
+reach ndt whatever state the lab is in: a write with no token (403 at the token check), a request
+with a foreign Host (403 at the Host check), `GET /status?check=1` with no token while the fabric
+is up (403 -- `--check` POSTs lock probes to the kernel, judge 09-24 finding 1), and a GET of
+/health while `up` runs, which shows the job holding the one slot.
+
+🔴 The slot probe used to be a real `POST /down` with the token (judge 09-24, finding 3): had
+`up` ended in the moment before it -- an rc 1 in a second -- the slot would have been free and
+the probe would have been an `ndt down` under this driver's own claim.
 
 For every request <out>/NN-<step>.http holds the request as sent and the response as received,
 headers and body in full. 🔴 The token is the one thing that is NOT kept: it is replaced by
@@ -45,10 +51,10 @@ class Driver:
         name = "%02d-%s" % (self.n, step)
         data = json.dumps(body).encode() if body is not None else b""
         headers = [("Host", host or "127.0.0.1:%d" % self.port)]
+        if token:
+            headers.append((TOKEN_HEADER, self.token()))
         if method == "POST":
             headers.append(("Content-Type", "application/json"))
-            if token:
-                headers.append((TOKEN_HEADER, self.token()))
             headers.append(("Content-Length", str(len(data))))
         conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=900)
         conn.putrequest(method, path, skip_host=True, skip_accept_encoding=True)
@@ -89,8 +95,11 @@ class Driver:
         return st, j, self.finish(step, job_id, row)
 
     def finish(self, step, job_id, row):
-        _, w, _, _, _ = self.call(step + "-wait", "GET", "/api/v1/jobs/%s?wait=600" % job_id)
-        job = w["job"]
+        while True:   # ?wait= is capped at 300 s by the server
+            _, w, _, _, _ = self.call(step + "-wait", "GET", "/api/v1/jobs/%s?wait=300" % job_id)
+            job = w["job"]
+            if job["state"] != "running":
+                break
         for stream in ("stdout", "stderr"):
             _, _, blob, _, _ = self.call(step + "-" + stream, "GET", "/api/v1/jobs/%s/log/%s" % (job_id, stream))
             with open(os.path.join(self.out, "%s.%s" % (step, stream)), "wb") as f:
@@ -122,12 +131,13 @@ def main():
         _dump(d)
         return 3
 
-    # up, with the 409 probe while it runs
+    # up, with a look at the slot while it runs
     st, j, _, row, _ = d.call("up", "POST", "/api/v1/up", {"plane": "ovs", "hosts": 4})
     if st == 202:
         up_id = j["job"]["id"]
-        d.call("probe-busy-while-up", "POST", "/api/v1/down", {})
+        d.call("probe-slot-while-up", "GET", "/api/v1/health", token=False)
         d.finish("up", up_id, row)
+    d.call("probe-check-no-token", "GET", "/api/v1/status?check=1", token=False)
     d.call("status-after-up", "GET", "/api/v1/status")
     d.call("apps-before", "GET", "/api/v1/apps")
     d.job("nsr-start", "/api/v1/apps/nsr/start")

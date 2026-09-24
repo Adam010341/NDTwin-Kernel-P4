@@ -37,8 +37,9 @@ VERBS_PY="$REPO/tools/ndt_serve/verbs.py"
 JOBS_PY="$REPO/tools/ndt_serve/jobs.py"
 RUNNER_PY="$REPO/tools/ndt_serve/runner.py"
 CELLS_PY="$REPO/tools/ndt_serve/cells.py"
+DEMO_PY="$REPO/tools/ndt_serve/demo_sequence.py"
 NDT="$REPO/tools/test_workflow/ndt"
-SUBJECTS=("$SERVE_PY" "$VERBS_PY" "$JOBS_PY" "$RUNNER_PY" "$CELLS_PY" "$NDT")
+SUBJECTS=("$SERVE_PY" "$VERBS_PY" "$JOBS_PY" "$RUNNER_PY" "$CELLS_PY" "$DEMO_PY" "$NDT")
 BK=$(mktemp -d "${TMPDIR:-/tmp}/ndt-serve-mutate-XXXXXX")
 trap 'rm -rf "$BK"' EXIT
 BASE_SHA=$(sha256sum "${SUBJECTS[@]}")
@@ -49,7 +50,7 @@ MUTATIONS=0
 layout() {   # $1 = dir -- a copy of the service and of ndt with what it sources
     local d="$1"
     mkdir -p "$d/tools/ndt_serve" "$d/tools/test_workflow"
-    cp "$SERVE_PY" "$VERBS_PY" "$JOBS_PY" "$RUNNER_PY" "$CELLS_PY" "$d/tools/ndt_serve/"
+    cp "$SERVE_PY" "$VERBS_PY" "$JOBS_PY" "$RUNNER_PY" "$CELLS_PY" "$DEMO_PY" "$d/tools/ndt_serve/"
     cp "$NDT" "$REPO/tools/test_workflow/ports.sh" "$REPO/tools/test_workflow/sudo_surface.sh" \
        "$REPO/tools/test_workflow/components.env" "$d/tools/test_workflow/"
     chmod +x "$d/tools/test_workflow/ndt"
@@ -386,6 +387,132 @@ m=$(mutant m40 "$SERVE_PY" \
     '    locks = []')
 report "M40: two servers can share one state directory and token" "$m" \
        Entry.test_second_server_on_the_same_state_refuses
+
+
+# --- the judge's fixes (opus-judge on e4589399, 09-24; orchestrator's ruling) ------------------
+
+m=$(mutant m43 "$SERVE_PY" \
+    '            if method == "GET" and route is not Handler.r_health:
+                self._check_read()' \
+    '            if method == "GET" and route is not Handler.r_health:
+                pass')
+report "M43: a GET needs no token (an <img> runs ndt status --check)" "$m" \
+       Csrf.test_status_check_without_token_runs_nothing
+
+m=$(mutant m44 "$SERVE_PY" \
+    '        """Every GET but /health: the token and the Origin, exactly as a write."""
+        self._check_token()
+        self._check_origin()' \
+    '        """Every GET but /health: the token and the Origin, exactly as a write."""
+        self._check_token()')
+report "M44: a cross-origin read with the token is served" "$m" \
+       Csrf.test_cross_origin_read_is_refused
+
+m=$(mutant m45 "$SERVE_PY" \
+    'MAX_WAIT_S = 300           # ?wait= on a job, per request' \
+    'MAX_WAIT_S = 100000       # ?wait= on a job, per request')
+report "M45: ?wait= has no cap" "$m" \
+       Csrf.test_wait_is_capped
+
+m=$(mutant m46 "$SERVE_PY" \
+    '    httpd.waiters = threading.BoundedSemaphore(a.max_waiters)' \
+    '    httpd.waiters = threading.BoundedSemaphore(100000)')
+report "M46: long-polls are not bounded" "$m" \
+       Bounded.test_waiters_are_bounded
+
+m=$(mutant m47 "$SERVE_PY" \
+    '    httpd.conn_slots = threading.BoundedSemaphore(a.max_connections)' \
+    '    httpd.conn_slots = threading.BoundedSemaphore(100000)')
+report "M47: connections are not bounded" "$m" \
+       Bounded.test_connections_are_bounded
+
+m=$(mutant m48 "$JOBS_PY" \
+    '        with open(os.path.join(d, "stdout"), "wb") as f:
+            f.write(out)' \
+    '        with open(os.path.join(d, "stdout"), "wb") as f:
+            f.write(out.decode("utf-8", "replace").encode())')
+report "M48: a read's output is kept decoded, not as bytes" "$m" \
+       ThinShell.test_read_output_is_kept_byte_for_byte
+
+m=$(mutant m49 "$SERVE_PY" \
+    '        job_id = self._spawn(kind, [self.cfg.ndt_real] + argv_tail, body)' \
+    '        job_id = self._spawn(kind, [self.cfg.ndt] + argv_tail, body)')
+report "M49: a job runs the symlink, not what it resolved to at start" "$m" \
+       Identity.test_jobs_run_the_ndt_resolved_at_start
+
+m=$(mutant m50 "$SERVE_PY" \
+    '                out, err = p.communicate(timeout=PIPE_GRACE_S)' \
+    '                out, err = p.communicate()')
+report "M50: after the timeout the read waits on the pipe without bound" "$m" \
+       ReadTimeout.test_a_pipe_held_outside_the_group_does_not_hang_the_read
+
+m=$(mutant m51 "$SERVE_PY" \
+    '                os.killpg(p.pid, signal.SIGKILL)' \
+    '                pass')
+report "M51: a timed-out read is not stopped" "$m" \
+       ReadTimeout.test_a_read_past_its_timeout_is_stopped_and_frees_its_slot
+
+m=$(mutant m52 "$SERVE_PY" \
+    '    if not READ_SLOTS.acquire(timeout=cfg.read_queue_wait):' \
+    '    if not READ_SLOTS.acquire(timeout=60):')
+report "M52: a third read waits past --read-queue-wait" "$m" \
+       ReadTimeout.test_reads_beyond_the_slots_wait_then_503
+
+m=$(mutant m53 "$SERVE_PY" \
+    '        with SLOT:
+            busy = cfg.store.holding_the_slot()' \
+    '        if True:
+            busy = cfg.store.holding_the_slot()')
+report "M53: 'is the slot free' and 'take it' are not one step" "$m" \
+       Jobs.test_concurrent_writes_get_exactly_one_slot
+
+m=$(mutant m54 "$SERVE_PY" \
+    '    os.chmod(d, 0o700)' \
+    '    pass')
+report "M54: an existing 0777 state/token directory is left open" "$m" \
+       Csrf.test_open_directories_left_by_someone_else_are_tightened
+
+m=$(mutant m55 "$VERBS_PY" \
+    '        if os.path.commonpath([root_real, real]) == root_real and real != root_real:' \
+    '        if real.startswith(root_real) and real != root_real:')
+report "M55: the app root is a string prefix (packages2/ passes)" "$m" \
+       Whitelist.test_app_root_is_a_directory_not_a_prefix
+
+m=$(mutant m56 "$JOBS_PY" \
+    '    return st == starttime and state not in ("Z", "X")' \
+    '    return st == starttime')
+report "M56: a zombie counts as alive" "$m" \
+       Jobs.test_a_zombie_is_not_alive
+
+m=$(mutant m57 "$VERBS_PY" \
+    '        1: ("refused", "the lab is claimed by somebody else, or another writer beat this claim"),' \
+    '        4: ("refused", "the lab is claimed by somebody else, or another writer beat this claim"),')
+report "M57: a code-sourced rc table drifts from the lines it cites" "$m" \
+       RcProvenance.test_code_sourced_tables_are_in_ndt
+
+m=$(mutant m58 "$VERBS_PY" \
+    '                    5: "5 a GUARD REFUSED and nothing was built"}},' \
+    '                    5: "5 a guard declined and did nothing"}},')
+report "M58: a help-sourced rc phrase ndt help does not print" "$m" \
+       RcProvenance.test_help_sourced_tables_are_in_ndt_help
+
+m=$(mutant m59 "$VERBS_PY" \
+    '        1: ("dirty", "ndt reported at least one problem -- a compared field that does not match, a claim "' \
+    '        1: ("dirty", "a compared field does not match -- a compared field that does not match, a claim "')
+report "M59: status --check rc 1 names one cause of many" "$m" \
+       RcProvenance.test_status_check_rc1_names_any_problem
+
+m=$(mutant m60 "$DEMO_PY" \
+    '        d.call("probe-slot-while-up", "GET", "/api/v1/health", token=False)' \
+    '        d.call("probe-busy-while-up", "POST", "/api/v1/down", {})')
+report "M60: the demo's slot probe is a real POST /down with the token" "$m" \
+       DemoProbes.test_demo_probes_cannot_touch_the_lab
+
+m=$(mutant m61 "$VERBS_PY" \
+    '    "apps.status": {"code": [(9747, 0, "return 0")]},' \
+    '')
+report "M61: an rc table with no source" "$m" \
+       RcProvenance.test_every_table_names_its_source
 
 
 # --- the live_cells entry and the guided walk (second ticket, Adam 09-24 21:4x) -------------

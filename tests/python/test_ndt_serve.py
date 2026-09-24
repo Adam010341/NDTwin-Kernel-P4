@@ -63,6 +63,11 @@ STUB_PY = textwrap.dedent('''\
     for k in sorted(beh, key=len):
         if key == k or key.startswith(k + " "):
             b = beh[k]
+    if b.get("hold_pipe"):
+        import subprocess
+        gp = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(%d)" % b["hold_pipe"]],
+                              start_new_session=True)
+        log({"grandchild": gp.pid, "argv": argv})
     time.sleep(b.get("sleep", 0))
     sys.stdout.buffer.write(bytes.fromhex(b["stdout_hex"]) if "stdout_hex" in b else
                             b.get("stdout", "stub stdout: %s\\n" % key).encode())
@@ -103,12 +108,13 @@ class Serve:
                 "--ndt", self.ndt, "--state-dir", self.state, "--token-file", self.token_file,
                 "--app-root", self.app_root] + self.extra
 
-    def start(self, argv=None, expect_ok=True):
+    def start(self, argv=None, expect_ok=True, umask=None):
         out = os.path.join(self.tmp, "serve.%d.out" % time.monotonic_ns())
         self.out = out
         with open(out, "wb") as o, open(out + ".err", "wb") as e:
             self.proc = subprocess.Popen(argv or self.argv(), stdout=o, stderr=e, stdin=subprocess.DEVNULL,
-                                         env=self.env, start_new_session=True)
+                                         env=self.env, start_new_session=True,
+                                         preexec_fn=(lambda: os.umask(umask)) if umask is not None else None)
         deadline = time.monotonic() + 15
         while time.monotonic() < deadline:
             text = _read(out)
@@ -157,7 +163,12 @@ class Serve:
         if not os.path.exists(p):
             return []
         rows = [json.loads(l) for l in _read(p).splitlines() if l.strip()]
-        return [r for r in rows if ("done" in r) == done]
+        return [r for r in rows if ("done" in r) == done and "grandchild" not in r]
+
+    def grandchildren(self):
+        p = os.path.join(self.stubdir, "calls.jsonl")
+        rows = [json.loads(l) for l in _read(p).splitlines() if l.strip()] if os.path.exists(p) else []
+        return [r["grandchild"] for r in rows if "grandchild" in r]
 
     def request(self, method, path, body=None, token=True, host="default", ctype="application/json",
                 headers=None, raw=None):
@@ -323,6 +334,25 @@ class Csrf(ServeCase):
         self.assertEqual(stat.S_IMODE(os.stat(os.path.dirname(self.s.token_file)).st_mode), 0o700)
         self.assertGreaterEqual(len(self.s.token()), 40)
 
+    def test_open_directories_left_by_someone_else_are_tightened(self):
+        """Judge finding 8: a state or token directory that already exists 0777, an old 0644
+        token, and a umask of 000 -- the server still leaves 0700 / 0600 behind."""
+        s = Serve()
+        try:
+            for d in (os.path.dirname(s.token_file), s.state):
+                os.makedirs(d)
+                os.chmod(d, 0o777)
+            with open(s.token_file, "w") as f:
+                f.write("old\n")
+            os.chmod(s.token_file, 0o644)
+            s.start(umask=0)
+            self.assertEqual(stat.S_IMODE(os.stat(os.path.dirname(s.token_file)).st_mode), 0o700)
+            self.assertEqual(stat.S_IMODE(os.stat(s.state).st_mode), 0o700)
+            self.assertEqual(stat.S_IMODE(os.stat(s.token_file).st_mode), 0o600)
+            self.assertNotEqual(s.token(), "old")
+        finally:
+            s.close()
+
     def test_token_is_new_on_every_start(self):
         old = self.s.token()
         self.s.stop()
@@ -365,6 +395,41 @@ class Csrf(ServeCase):
             self.assertEqual(st, 415, ctype)
         self.assertEqual(self.s.calls(), [])
 
+    def test_reads_need_the_token_except_health(self):
+        """Judge 09-24 finding 1: GET /status?check=1 runs `ndt status --check`, whose lock probes
+        POST /ndt/acquire_lock to the kernel (ndt:8832-8847). A read is not side-effect free, so
+        every GET but /health is gated the way a write is."""
+        paths = ["/status", "/status?check=1", "/apps", "/jobs", "/jobs/20260101T000000Z-abcdef",
+                 "/jobs/20260101T000000Z-abcdef/log/stdout", "/cells", "/cells/x", "/cells/x/old",
+                 "/guided", "/guided/g20260101T000000Z-abcdef", "/reads/r20260101T000000Z-abcdef/log/stdout"]
+        for p in paths:
+            st, j, _, _ = self.s.get(p, token=None)
+            self.assertEqual((st, (j or {}).get("error")), (403, "token"), p)
+        st, j, _, _ = self.s.get("/health", token=None)
+        self.assertEqual(st, 200)
+        self.assertEqual(self.s.calls(), [])
+
+    def test_status_check_without_token_runs_nothing(self):
+        """The <img src=".../status?check=1"> of finding 1: no token, no Origin -- refused, and
+        ndt is never started."""
+        st, j, _, _ = self.s.get("/status?check=1", token=None)
+        self.assertEqual((st, j["error"]), (403, "token"))
+        self.assertEqual(self.s.calls(), [])
+
+    def test_cross_origin_read_is_refused(self):
+        for origin in ("http://evil.example", "null"):
+            st, j, _, _ = self.s.get("/status", headers={"Origin": origin})
+            self.assertEqual((st, j["error"]), (403, "origin"), origin)
+        st, _, _, _ = self.s.get("/status", headers={"Origin": "http://127.0.0.1:%d" % self.s.port})
+        self.assertEqual(st, 200)
+        self.assertEqual([c["argv"] for c in self.s.calls()], [["status"]])
+
+    def test_wait_is_capped(self):
+        st, j, _, _ = self.s.get("/jobs/20260101T000000Z-abcdef?wait=301")
+        self.assertEqual(st, 400)
+        st, j, _, _ = self.s.get("/jobs/20260101T000000Z-abcdef?wait=300")
+        self.assertEqual(st, 404, "300 is inside the cap; the job simply does not exist")
+
     def test_get_runs_only_read_verbs(self):
         for p in ("/health", "/status", "/status?check=1", "/apps", "/jobs"):
             st, _, _, _ = self.s.get(p)
@@ -374,6 +439,50 @@ class Csrf(ServeCase):
             self.assertEqual(st, 405, "GET %s must not be a write" % p)
         self.assertEqual(sorted({tuple(c["argv"]) for c in self.s.calls()}),
                          [("apps", "status"), ("status",), ("status", "--check")])
+
+
+class Bounded(unittest.TestCase):
+    """Judge finding 1, second half: a blind GET flood must not pin an unbounded number of threads."""
+
+    def test_waiters_are_bounded(self):
+        s = Serve(extra=["--max-waiters", "2"]).start()
+        try:
+            s.behave(up={"sleep": 4})
+            job = s.post("/up", {"plane": "ovs", "hosts": 4})[1]["job"]["id"]
+            import threading
+            res = []
+            ts = [threading.Thread(target=lambda: res.append(s.get("/jobs/%s?wait=10" % job)[0])) for _ in range(3)]
+            for t in ts:
+                t.start()
+                time.sleep(0.2)
+            for t in ts:
+                t.join(30)
+            self.assertEqual(sorted(res), [200, 200, 503])
+        finally:
+            s.close()
+
+    def test_connections_are_bounded(self):
+        import socket
+        s = Serve(extra=["--max-connections", "4"]).start()
+        idle = []
+        try:
+            for _ in range(4):
+                c = socket.create_connection(("127.0.0.1", s.port))
+                idle.append(c)
+            time.sleep(0.3)
+            t0 = time.monotonic()
+            st, _, _, _ = s.get("/health", token=None)
+            self.assertEqual(st, 503)
+            self.assertLess(time.monotonic() - t0, 3, "a refused connection is answered at once")
+            for c in idle:
+                c.close()
+            idle = []
+            time.sleep(0.5)
+            self.assertEqual(s.get("/health", token=None)[0], 200)
+        finally:
+            for c in idle:
+                c.close()
+            s.close()
 
 
 # --- red line 3: whitelist, argv only ---------------------------------------------------------
@@ -427,6 +536,14 @@ class Whitelist(ServeCase):
             self.assertEqual((st, j["error"]), (400, "refused"))
         finally:
             shutil.rmtree(outside)
+        self.assertEqual(self.s.calls(), [])
+
+    def test_app_root_is_a_directory_not_a_prefix(self):
+        """Judge finding 8: commonpath, not startswith -- <root>2/x shares the root's prefix."""
+        sibling = self.s.app_root + "2"
+        os.makedirs(os.path.join(sibling, "x"))
+        st, j, _, _ = self.s.post("/up", {"plane": "p4", "app": os.path.join(sibling, "x")})
+        self.assertEqual((st, j["error"]), (400, "refused"))
         self.assertEqual(self.s.calls(), [])
 
     def test_app_dir_inside_the_root_is_passed_resolved(self):
@@ -529,6 +646,20 @@ class ThinShell(ServeCase):
         self.assertEqual(part, blob[1000:6000])
         self.assertEqual(h["x-ndt-log-next-offset"], "6000")
 
+    def test_read_output_is_kept_byte_for_byte(self):
+        """Judge finding 4: ndt cuts claim notes with `cut -c1-72`, which counts bytes, so a
+        multi-byte character can be cut in half. The JSON answer shows it with U+FFFD; the bytes
+        are kept and can be fetched back by the read's id."""
+        cut = "claim note 中文".encode()[:-1] + b"\n"
+        self.s.behave(status={"stdout_hex": cut.hex(), "stderr": "e\n"})
+        st, j, _, _ = self.s.get("/status")
+        self.assertIn("\ufffd", j["stdout"])
+        rid = j["read"]["id"]
+        st, _, _, raw = self.s.get("/reads/%s/log/stdout" % rid)
+        self.assertEqual((st, raw), (200, cut))
+        st, _, _, raw = self.s.get("/reads/%s/log/stderr" % rid)
+        self.assertEqual(raw, b"e\n")
+
     def test_status_answers_with_rc_and_full_output(self):
         self.s.behave(status={"rc": 3, "stdout": "claim none\nno baseline\n", "stderr": "e\n"})
         st, j, _, _ = self.s.get("/status?check=1")
@@ -545,6 +676,62 @@ class ThinShell(ServeCase):
         self.assertNotIn("match", j["meaning"])
         st, j, _, _ = self.s.get("/status?check=1")
         self.assertEqual((j["rc"], j["rc_class"]), (0, "ok"))
+
+
+class ReadTimeout(unittest.TestCase):
+    """Judge finding 7: the read-timeout path had never run."""
+
+    def test_a_read_past_its_timeout_is_stopped_and_frees_its_slot(self):
+        s = Serve(extra=["--read-timeout", "1"]).start()
+        try:
+            s.behave(status={"sleep": 20})
+            t0 = time.monotonic()
+            st, j, _, _ = s.get("/status")
+            self.assertLess(time.monotonic() - t0, 8)
+            self.assertEqual((st, j["rc_class"]), (200, "timeout"))
+            pid = s.calls()[0]["pid"]
+            time.sleep(0.3)
+            self.assertFalse(_pid_alive(pid), "the timed-out ndt's group is still running")
+            s.behave(status={"rc": 0})
+            import threading
+            res = []
+            ts = [threading.Thread(target=lambda: res.append(s.get("/status")[0])) for _ in range(2)]
+            [t.start() for t in ts]
+            [t.join(20) for t in ts]
+            self.assertEqual(res, [200, 200], "the timed-out read did not give its slot back")
+        finally:
+            s.close()
+
+    def test_a_pipe_held_outside_the_group_does_not_hang_the_read(self):
+        s = Serve(extra=["--read-timeout", "1"]).start()
+        try:
+            s.behave(status={"sleep": 20, "hold_pipe": 25})
+            t0 = time.monotonic()
+            st, j, _, _ = s.get("/status")
+            self.assertLess(time.monotonic() - t0, 12, "the handler waited on a pipe it cannot close")
+            self.assertEqual((st, j["rc_class"]), (200, "timeout"))
+        finally:
+            for gp in s.grandchildren():   # the test's own stub's child, by the pid it recorded
+                try:
+                    os.kill(gp, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+            s.close()
+
+    def test_reads_beyond_the_slots_wait_then_503(self):
+        s = Serve(extra=["--read-timeout", "10", "--read-queue-wait", "1"]).start()
+        try:
+            s.behave(status={"sleep": 3})
+            import threading
+            res = []
+            ts = [threading.Thread(target=lambda: res.append(s.get("/status")[0])) for _ in range(3)]
+            for t in ts:
+                t.start()
+                time.sleep(0.1)
+            [t.join(30) for t in ts]
+            self.assertEqual(sorted(res), [200, 200, 503])
+        finally:
+            s.close()
 
 
 # --- red line 5: long jobs --------------------------------------------------------------------
@@ -568,6 +755,41 @@ class Jobs(ServeCase):
             self.assertEqual((st, j["error"], j["job"]["id"]), (409, "busy", first), p)
         self.s.wait(first)
         self.assertEqual([c["argv"] for c in self.s.calls()], [["up", "4"]])
+
+    def test_concurrent_writes_get_exactly_one_slot(self):
+        """Judge finding 8: without `with SLOT:` two requests can both see a free slot."""
+        import threading
+        self.s.behave(up={"sleep": 3})
+        barrier = threading.Barrier(20)
+        res = []
+
+        def one():
+            barrier.wait()
+            res.append(self.s.post("/up", {"plane": "ovs", "hosts": 4})[0])
+        ts = [threading.Thread(target=one) for _ in range(20)]
+        [t.start() for t in ts]
+        [t.join(30) for t in ts]
+        self.assertEqual((res.count(202), res.count(409)), (1, 19))
+        time.sleep(0.5)
+        self.assertEqual(len(self.s.calls()), 1)
+
+    def test_a_zombie_is_not_alive(self):
+        """Judge finding 8: a runner that has exited but not been reaped is still in /proc."""
+        sys.path.insert(0, SERVE_DIR)
+        try:
+            import importlib
+            jobs = importlib.import_module("jobs")
+            importlib.reload(jobs)
+        finally:
+            sys.path.remove(SERVE_DIR)
+        p = subprocess.Popen([sys.executable, "-c", "pass"])
+        st = jobs.proc_starttime(p.pid)
+        deadline = time.monotonic() + 5
+        while jobs.proc_starttime(p.pid)[0] != "Z" and time.monotonic() < deadline:
+            time.sleep(0.05)
+        self.assertEqual(jobs.proc_starttime(p.pid)[0], "Z", "the child did not become a zombie")
+        self.assertFalse(jobs.alive(p.pid, st[1]))
+        p.wait()
 
     def test_slot_is_free_again_after_the_job(self):
         self.s.run_job("/up", {"plane": "ovs", "hosts": 4})
@@ -717,6 +939,33 @@ class Identity(unittest.TestCase):
         finally:
             s.close()
 
+    def test_jobs_run_the_ndt_resolved_at_start(self):
+        """Judge finding 6: the record names the sha of the file that ran. Re-pointing the symlink
+        after start neither changes what runs nor goes unreported."""
+        s = Serve()
+        try:
+            other = os.path.join(s.tmp, "other", "tools", "test_workflow")
+            os.makedirs(other)
+            for f in ("ndt", "stub.py"):
+                shutil.copy2(os.path.join(s.stubdir, f), os.path.join(other, f))
+            link = os.path.join(s.tmp, "bin", "ndt")
+            os.makedirs(os.path.dirname(link))
+            os.symlink(s.ndt, link)
+            real = s.ndt
+            s.ndt = link
+            s.start()
+            os.remove(link)
+            os.symlink(os.path.join(other, "ndt"), link)
+            job = s.run_job("/down")
+            self.assertEqual(job["argv"][0], real)
+            self.assertEqual(len(s.calls()), 1, "the call did not reach the ndt resolved at start")
+            self.assertFalse(os.path.exists(os.path.join(other, "calls.jsonl")), "the re-pointed ndt ran")
+            st, j, _, _ = s.get("/health")
+            self.assertTrue(j["ndt_drift"])
+            self.assertEqual(j["ndt_realpath_now"], os.path.join(other, "ndt"))
+        finally:
+            s.close()
+
     def test_server_refuses_to_start_without_an_owner(self):
         s = Serve()
         try:
@@ -729,6 +978,70 @@ class Identity(unittest.TestCase):
                 self.assertFalse(os.path.exists(s.token_file))
         finally:
             s.close()
+
+
+class RcProvenance(unittest.TestCase):
+    """Judge finding 5: say where each rc table comes from, and hold it to that source -- the real
+    ndt of this tree, not a stub."""
+
+    @classmethod
+    def setUpClass(cls):
+        sys.path.insert(0, SERVE_DIR)
+        try:
+            import importlib
+            cls.verbs = importlib.reload(importlib.import_module("verbs"))
+        finally:
+            sys.path.remove(SERVE_DIR)
+        with open(NDT) as f:
+            cls.lines = f.read().splitlines()
+        r = subprocess.run([NDT, "help"], capture_output=True, text=True, timeout=60)
+        cls.help = " ".join((r.stdout + r.stderr).split())
+
+    def test_every_table_names_its_source(self):
+        v = self.verbs
+        self.assertEqual(sorted(v.RC_SOURCE), sorted(k for k in v.RC_TABLE if k != "cells.run"))
+
+    def test_help_sourced_tables_are_in_ndt_help(self):
+        for kind, src in self.verbs.RC_SOURCE.items():
+            if "help" not in src:
+                continue
+            self.assertEqual(sorted(src["help"]), sorted(self.verbs.RC_TABLE[kind]), kind)
+            for rc, phrase in src["help"].items():
+                self.assertIn(" ".join(phrase.split()), self.help, "%s rc %d" % (kind, rc))
+
+    def test_code_sourced_tables_are_in_ndt(self):
+        for kind, src in self.verbs.RC_SOURCE.items():
+            if "code" not in src:
+                continue
+            self.assertEqual(sorted({rc for _, rc, _ in src["code"]}), sorted(self.verbs.RC_TABLE[kind]), kind)
+            for line, rc, needle in src["code"]:
+                text = self.lines[line - 1]
+                self.assertIn(needle, text, "%s rc %d: ndt:%d is %r" % (kind, rc, line, text.strip()))
+
+    def test_status_check_rc1_names_any_problem(self):
+        c, m = self.verbs.meaning("status.check", 1)
+        self.assertEqual(c, "dirty")
+        for word in ("problem", "claim", "measurement", "output"):
+            self.assertIn(word, m)
+
+
+class DemoProbes(unittest.TestCase):
+    def test_demo_probes_cannot_touch_the_lab(self):
+        """Judge finding 3: a probe that carries the token and names a writer IS a writer the
+        moment the slot is free. Every call whose step is a probe must be a GET or carry no token."""
+        import ast
+        tree = ast.parse(_read(os.path.join(SERVE_DIR, "demo_sequence.py")))
+        probes = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and getattr(node.func, "attr", None) == "call" and node.args \
+                    and isinstance(node.args[0], ast.Constant) and "probe" in str(node.args[0].value):
+                method = node.args[1].value if len(node.args) > 1 and isinstance(node.args[1], ast.Constant) else "?"
+                tok = [k.value.value for k in node.keywords if k.arg == "token" and isinstance(k.value, ast.Constant)]
+                probes.append((node.args[0].value, method, tok))
+        self.assertGreaterEqual(len(probes), 3)
+        for name, method, tok in probes:
+            self.assertTrue(method == "GET" or tok == [False], "%s: %s with the token" % (name, method))
+        self.assertNotIn("none of which can change anything", _read(os.path.join(SERVE_DIR, "demo_sequence.py")))
 
 
 # --- red line 8 and the routes: the entry point -----------------------------------------------

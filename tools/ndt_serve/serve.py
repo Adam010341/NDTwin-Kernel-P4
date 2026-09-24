@@ -13,10 +13,14 @@ The design red lines (TICKET section 3), and where each one lives:
 
   1. loopback only     BIND below; the Host header must be 127.0.0.1:<port> or localhost:<port>
                        (DNS rebinding); no CORS header is ever sent.
-  2. CSRF              every POST carries the token from ~/.config/ndt-serve/token (0600) in the
-                       X-NDT-Token header -- a custom header, so no browser sends it cross-origin
-                       without a preflight this server never answers -- and a JSON body; an Origin
-                       header, when present, must be this server's. GETs run read-only verbs only.
+  2. CSRF              every request but GET /health carries the token from
+                       ~/.config/ndt-serve/token (0600) in the X-NDT-Token header -- a custom header,
+                       so no browser sends it cross-origin without a preflight this server never
+                       answers -- and an Origin header, when present, must be this server's; a POST
+                       also needs a JSON body. 🔴 GETs are gated too (judge 09-24, finding 1): a
+                       "read" is not side-effect free -- `ndt status --check` POSTs three lock
+                       probes to the kernel (ndt:8832-8847) -- so an <img> in any page must not be
+                       able to start one.
   3. whitelist         verbs.py builds every argv; there is no shell on any path.
   4. thin shell        ndt's rc is passed through untouched, with a sentence from ndt help beside
                        it; stdout and stderr are kept byte for byte.
@@ -53,8 +57,9 @@ API = "/api/v1"
 BIND = "127.0.0.1"
 TOKEN_HEADER = "X-NDT-Token"
 MAX_BODY = 16 * 1024
-READ_TIMEOUT_S = 120
-MAX_WAIT_S = 600
+READ_TIMEOUT_S = 30        # an idle connection holds a handler thread this long at most
+MAX_WAIT_S = 300           # ?wait= on a job, per request
+PIPE_GRACE_S = 5           # after killpg, how long a read waits for its pipes to close
 MAX_LOG_CHUNK = 16 * 1024 * 1024
 OWNER_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 APP_NAMES_LINE = re.compile(r'^APP_NAMES="([a-z0-9 _-]*)"\s*$', re.M)
@@ -138,12 +143,18 @@ READ_SLOTS = threading.BoundedSemaphore(2)
 
 def run_read(cfg, kind, argv_tail, timeout):
     """Run a READ-ONLY ndt verb and answer with all of its output. Never used for a verb that
-    changes anything -- those are jobs."""
-    if not READ_SLOTS.acquire(timeout=30):
+    changes anything -- those are jobs.
+
+    Two of these at a time; a third waits up to cfg.read_queue_wait seconds for a slot and then
+    gets None (the caller answers 503). The output is kept BYTE FOR BYTE in the read log and
+    fetched back by id: the JSON answer can only carry it decoded, and `ndt` cuts claim notes
+    with `cut -c1-72`, which counts bytes (judge 09-24, finding 4)."""
+    if not READ_SLOTS.acquire(timeout=cfg.read_queue_wait):
         return None
+    note = None
     try:
         t0 = time.monotonic()
-        p = subprocess.Popen([cfg.ndt] + argv_tail, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+        p = subprocess.Popen([cfg.ndt_real] + argv_tail, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE, env=cfg.env, cwd=cfg.repo, close_fds=True,
                              start_new_session=True)
         timed_out = False
@@ -157,16 +168,39 @@ def run_read(cfg, kind, argv_tail, timeout):
                 os.killpg(p.pid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
-            out, err = p.communicate()
+            try:
+                out, err = p.communicate(timeout=PIPE_GRACE_S)
+            except subprocess.TimeoutExpired:
+                # 🔴 Something OUTSIDE the group still holds the pipe (a child that made its own
+                # session -- a sudo'd helper can). Waiting for EOF would pin this handler and its
+                # read slot for as long as that process lives (judge 09-24, finding 7). What was
+                # read before now is kept; the rest is given up, and the answer says so.
+                note = "a process outside ndt's group kept its output pipe open; output after the timeout is lost"
+                partial = getattr(p, "_fileobj2output", None) or {}
+                out = b"".join(partial.get(p.stdout, []))
+                err = b"".join(partial.get(p.stderr, []))
+                for f in (p.stdout, p.stderr):
+                    try:
+                        f.close()
+                    except OSError:
+                        pass
+                p.wait(timeout=PIPE_GRACE_S)
         rc = p.returncode
     finally:
         READ_SLOTS.release()
     rc_class, meaning = verbs.meaning(kind, rc)
     if timed_out:
         rc_class, meaning = "timeout", "ndt did not answer within %d s and was stopped" % timeout
-    return {"argv": [cfg.ndt] + argv_tail, "rc": rc, "rc_class": rc_class, "meaning": meaning,
-            "stdout": out.decode("utf-8", "replace"), "stderr": err.decode("utf-8", "replace"),
-            "duration_s": round(time.monotonic() - t0, 3), "owner": cfg.owner}
+    argv = [cfg.ndt_real] + argv_tail
+    rid = cfg.reads.save(kind, argv, rc, out, err, {"owner": cfg.owner, "timed_out": timed_out, "note": note})
+    res = {"argv": argv, "rc": rc, "rc_class": rc_class, "meaning": meaning,
+           "stdout": out.decode("utf-8", "replace"), "stderr": err.decode("utf-8", "replace"),
+           "duration_s": round(time.monotonic() - t0, 3), "owner": cfg.owner,
+           "read": {"id": rid, "stdout": "%s/reads/%s/log/stdout" % (API, rid),
+                    "stderr": "%s/reads/%s/log/stderr" % (API, rid)}}
+    if note:
+        res["note"] = note
+    return res
 
 
 # --- HTTP --------------------------------------------------------------------------------------
@@ -235,6 +269,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if path != API and not path.startswith(API + "/"):
                 raise HttpError(404, "not found", note=GUI_NOTE)
             route, args = self._route(method, path[len(API):] or "/")
+            if method == "GET" and route is not Handler.r_health:
+                self._check_read()
             route(self, query, *args)
         except HttpError as e:
             self._send(e.code, e.body, headers={"Allow": "GET, POST"} if e.code == 405 else None)
@@ -251,16 +287,27 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if len(hosts) != 1 or hosts[0].strip().lower() not in allowed:
             raise HttpError(403, "host", note="the Host header must be one of: %s" % ", ".join(allowed))
 
-    def _check_write(self):
-        """A state-changing request: the token, then the Origin, then a JSON body."""
+    def _check_token(self):
         sent = self.headers.get(TOKEN_HEADER, "")
         if not hmac.compare_digest(sent.encode(), self.cfg.token.encode()):
             raise HttpError(403, "token", note="send the token from %s in the %s header" % (
                 self.cfg.token_file, TOKEN_HEADER))
+
+    def _check_origin(self):
         origin = self.headers.get("Origin")
         port = self.server.server_address[1]
         if origin is not None and origin.lower() not in ("http://127.0.0.1:%d" % port, "http://localhost:%d" % port):
-            raise HttpError(403, "origin", note="a cross-origin write is refused")
+            raise HttpError(403, "origin", note="a cross-origin request is refused")
+
+    def _check_read(self):
+        """Every GET but /health: the token and the Origin, exactly as a write."""
+        self._check_token()
+        self._check_origin()
+
+    def _check_write(self):
+        """A state-changing request: the token, then the Origin, then a JSON body."""
+        self._check_token()
+        self._check_origin()
         ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
         if ctype != "application/json":
             raise HttpError(415, "content-type", note="a write must be Content-Type: application/json")
@@ -294,11 +341,22 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     # --- read-only ---
     def r_health(self, query):
+        """No token: it runs nothing and says nothing a local page could use against the lab."""
         busy = self.cfg.store.holding_the_slot()
+        now = os.path.realpath(self.cfg.ndt)
+        try:
+            sha_now = jobs.file_sha256(self.cfg.ndt_real)
+        except OSError:
+            sha_now = None
         self._send(200, {
             "service": "ndt-serve", "api": "v1", "owner": self.cfg.owner, "bind": BIND,
             "port": self.server.server_address[1], "ndt": self.cfg.ndt, "ndt_realpath": self.cfg.ndt_real,
-            "ndt_sha256": jobs.file_sha256(self.cfg.ndt_real), "repo": self.cfg.repo,
+            "ndt_sha256": sha_now, "ndt_sha256_at_start": self.cfg.ndt_sha_at_start,
+            # every ndt call runs ndt_realpath -- what the path resolved to at start. If the
+            # symlink has been re-pointed since, or the file edited, it is said here.
+            "ndt_realpath_now": now,
+            "ndt_drift": now != self.cfg.ndt_real or sha_now != self.cfg.ndt_sha_at_start,
+            "repo": self.cfg.repo,
             "apps": self.cfg.apps, "app_roots": self.cfg.app_roots, "token_file": self.cfg.token_file,
             "state_dir": self.cfg.state_dir, "stripped_env": self.cfg.stripped,
             "busy": busy["id"] if busy else None, "pid": os.getpid()})
@@ -313,7 +371,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def _read_verb(self, kind, argv_tail, extra=None):
         res = run_read(self.cfg, kind, argv_tail, self.cfg.read_timeout)
         if res is None:
-            raise HttpError(503, "busy", note="two read-only ndt calls are already running")
+            raise HttpError(503, "busy", note="two read-only ndt calls were running for %d s" % self.cfg.read_queue_wait)
         if extra:
             res.update(extra)
         self._send(200, res)
@@ -325,10 +383,26 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def r_job(self, query, job_id):
         wait = _int_param(query, "wait", 0, 0, MAX_WAIT_S)
         try:
-            v = self.cfg.store.wait(job_id, wait) if wait else self.cfg.store.view(job_id)
+            if wait:
+                # a long-poll holds a thread for up to MAX_WAIT_S; only so many at once
+                if not self.server.waiters.acquire(blocking=False):
+                    raise HttpError(503, "busy", note="too many ?wait= requests are already waiting")
+                try:
+                    v = self.cfg.store.wait(job_id, wait)
+                finally:
+                    self.server.waiters.release()
+            else:
+                v = self.cfg.store.view(job_id)
         except KeyError:
             raise HttpError(404, "no such job")
         self._send(200, {"job": self._job(job_id) if v["kind"] == "cells.run" else v, "links": _links(job_id)})
+
+    def r_read_log(self, query, rid, stream):
+        try:
+            data = self.cfg.reads.read(rid, stream)
+        except KeyError:
+            raise HttpError(404, "no such read")
+        self._send(200, raw=data, ctype="text/plain; charset=utf-8")
 
     def r_log(self, query, job_id, stream):
         offset = _int_param(query, "offset", 0, 0, 1 << 40)
@@ -364,7 +438,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self._start("apps." + action, _whitelisted(verbs.argv_app, name, action, body, self.cfg.apps), body)
 
     def _start(self, kind, argv_tail, body):
-        job_id = self._spawn(kind, [self.cfg.ndt] + argv_tail, body)
+        job_id = self._spawn(kind, [self.cfg.ndt_real] + argv_tail, body)
         cfg = self.cfg
         self._send(202, {"job": cfg.store.view(job_id), "links": _links(job_id)})
 
@@ -564,7 +638,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 raise HttpError(503, "busy", note="two read-only ndt calls are already running")
             st["result"] = dict(r, ok=r["rc"] == 0)
         elif st["step"] == "claim":
-            st["job"] = self._spawn("claim", [cfg.ndt] + verbs.argv_claim(
+            st["job"] = self._spawn("claim", [cfg.ndt_real] + verbs.argv_claim(
                 {"minutes": 30, "note": "guided walk %s (%s)" % (walk["id"], name)}), {"guided": walk["id"]})
         elif st["step"] == "run":
             st["job"] = self._spawn_cell_run(cell, {"guided": walk["id"]})
@@ -579,7 +653,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                             "still_red": [r["id"] for r in rows if r["still_red"]],
                             "verdict_line": (res or {}).get("verdict")}
         elif st["step"] == "release":
-            st["job"] = self._spawn("release", [cfg.ndt] + verbs.argv_release({}), {"guided": walk["id"]})
+            st["job"] = self._spawn("release", [cfg.ndt_real] + verbs.argv_release({}), {"guided": walk["id"]})
 
     def w_guided_verdict(self, query, gid):
         body = self._check_write()
@@ -665,6 +739,7 @@ ROUTES = [
     ("GET", re.compile(r"/jobs"), Handler.r_jobs),
     ("GET", re.compile(r"/jobs/([^/]+)"), Handler.r_job),
     ("GET", re.compile(r"/jobs/([^/]+)/log/(stdout|stderr)"), Handler.r_log),
+    ("GET", re.compile(r"/reads/([^/]+)/log/(stdout|stderr)"), Handler.r_read_log),
     ("POST", re.compile(r"/up"), Handler.w_up),
     ("POST", re.compile(r"/down"), Handler.w_down),
     ("POST", re.compile(r"/claim"), Handler.w_claim),
@@ -687,8 +762,35 @@ ROUTES = [
 
 
 class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
+    """One thread per connection, and only so many of them (judge 09-24, finding 1): a blind
+    flood of connections from a local page gets an immediate 503, not a thread each."""
     daemon_threads = True
     allow_reuse_address = True
+    conn_slots = None
+    waiters = None
+    _BUSY_BODY = b'{"error": "busy", "note": "too many connections"}\n'
+    BUSY = (b"HTTP/1.0 503 Service Unavailable\r\nContent-Type: application/json\r\n"
+            b"Content-Length: %d\r\nConnection: close\r\n\r\n" % len(_BUSY_BODY)) + _BUSY_BODY
+
+    def process_request(self, request, client_address):
+        if not self.conn_slots.acquire(blocking=False):
+            try:
+                request.sendall(self.BUSY)
+            except OSError:
+                pass
+            self.shutdown_request(request)
+            return
+        try:
+            super().process_request(request, client_address)
+        except Exception:
+            self.conn_slots.release()
+            raise
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self.conn_slots.release()
 
 
 def main(argv=None):
@@ -705,6 +807,10 @@ def main(argv=None):
                     help="a directory 'up --app' packages must lie under (repeatable; "
                          "default <repo>/.test_run/packages)")
     ap.add_argument("--read-timeout", type=int, default=60, help="seconds a read-only ndt call may take")
+    ap.add_argument("--read-queue-wait", type=int, default=30,
+                    help="seconds a third read-only call waits for one of the two slots before 503")
+    ap.add_argument("--max-connections", type=int, default=32, help="connections served at once")
+    ap.add_argument("--max-waiters", type=int, default=4, help="?wait= long-polls at once")
     a = ap.parse_args(argv)
 
     if not a.owner or not OWNER_RE.match(a.owner):
@@ -720,6 +826,8 @@ def main(argv=None):
     cfg.app_roots = [os.path.abspath(r) for r in (a.app_root or [os.path.join(cfg.repo, ".test_run", "packages")])]
     cfg.env, cfg.stripped = child_env(a.owner)
     cfg.read_timeout = a.read_timeout
+    cfg.read_queue_wait = a.read_queue_wait
+    cfg.ndt_sha_at_start = jobs.file_sha256(ndt_real)
     cfg.state_dir = os.path.abspath(a.state_dir)
     cfg.token_file = os.path.abspath(a.token_file)
 
@@ -727,6 +835,7 @@ def main(argv=None):
     private_dir(os.path.dirname(cfg.token_file))
     locks = [hold_lock(os.path.join(cfg.state_dir, "serve.lock")), hold_lock(cfg.token_file + ".lock")]
     cfg.store = jobs.JobStore(cfg.state_dir, verbs.meaning)
+    cfg.reads = jobs.ReadLog(cfg.state_dir)
     cfg.grid = cells.Grid(cfg.repo, cfg.env)
     cfg.guided = cells.Guided(cfg.state_dir)
     Handler.cfg = cfg
@@ -734,6 +843,8 @@ def main(argv=None):
         httpd = Server((BIND, a.port), Handler)
     except OSError as e:
         raise SystemExit("ndt serve: cannot listen on %s:%d: %s" % (BIND, a.port, e))
+    httpd.conn_slots = threading.BoundedSemaphore(a.max_connections)
+    httpd.waiters = threading.BoundedSemaphore(a.max_waiters)
     cfg.token = write_token(cfg.token_file)   # only after the bind: a server that could not
     #                                           start must not replace a running one's token
 

@@ -94,7 +94,7 @@
 
 **紅線的沿用：**
 
-- 所有 POST 照樣要 token、JSON body、同源的 Origin；
+- 所有 POST 照樣要 token、JSON body、同源的 Origin；修正輪之後，cells 和 walk 的每一個 GET 也要 token 和同源 Origin（判官第 1 項，orchestrator 裁定：除 `/health` 外所有 GET 一律照寫入的規矩檢查）；
 - 全部都用 argv 呼叫，不經過 shell；
 - 讀 raw 檔的路徑一律先取 realpath，並限制在 fixture 或 raw root 之內，symlink 逃不出去。
 

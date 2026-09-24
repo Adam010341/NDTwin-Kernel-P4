@@ -220,6 +220,52 @@ class JobStore:
             return f.read(limit), size
 
 
+class ReadLog:
+    """Every read-only ndt call's output, byte for byte, under an id (judge 09-24, finding 4).
+
+    A status page polled every few seconds would fill a disk, so only the last KEEP are kept --
+    the oldest go first, and an id that has gone answers 404 rather than something else."""
+    KEEP = 500
+    ID_RE = re.compile(r"^r[0-9]{8}T[0-9]{6}Z-[0-9a-f]{6}$")
+
+    def __init__(self, state_dir):
+        self.root = os.path.join(state_dir, "reads")
+        os.makedirs(self.root, mode=0o700, exist_ok=True)
+        self._lock = threading.Lock()
+
+    def save(self, kind, argv, rc, out, err, meta):
+        rid = "r" + time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()) + "-" + secrets.token_hex(3)
+        d = os.path.join(self.root, rid)
+        os.makedirs(d, mode=0o700)
+        with open(os.path.join(d, "stdout"), "wb") as f:
+            f.write(out)
+        with open(os.path.join(d, "stderr"), "wb") as f:
+            f.write(err)
+        rec = dict(meta)
+        rec.update({"id": rid, "kind": kind, "argv": argv, "rc": rc, "at": time.time()})
+        _write_json_atomic(os.path.join(d, "read.json"), rec)
+        self._prune()
+        return rid
+
+    def _prune(self):
+        with self._lock:
+            ids = sorted(n for n in os.listdir(self.root) if self.ID_RE.match(n))
+            for rid in ids[:-self.KEEP] if len(ids) > self.KEEP else []:
+                d = os.path.join(self.root, rid)
+                for f in os.listdir(d):
+                    os.remove(os.path.join(d, f))
+                os.rmdir(d)
+
+    def read(self, rid, stream):
+        if not self.ID_RE.match(rid or "") or stream not in ("stdout", "stderr"):
+            raise KeyError(rid)
+        try:
+            with open(os.path.join(self.root, rid, stream), "rb") as f:
+                return f.read()
+        except OSError:
+            raise KeyError(rid)
+
+
 def _size(p):
     try:
         return os.path.getsize(p)
