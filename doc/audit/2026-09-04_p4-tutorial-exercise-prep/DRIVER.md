@@ -184,7 +184,7 @@ sudo、沒有 lab、沒有跑過任何一支（TICKET-P3 §0-2）；離線測試
    `~/tutorials` 裡不複製、不寫任何檔案；**骨架臂與 `--fabric ndtwin` 的指令和環境一個字都沒變**
    （adapter 本來就自己找 utils 並插在 `sys.path[0]`）；報告裡 C1 那行記的指令帶著這個變數，
    貼出來就能重跑。測試：`TheSolutionControllerFindsTheTutorialsLibrary`（會真的執行 driver 交出去的
-   那條指令）；mutation gate 98–104。**這只修 driver 的啟動方式，兩支 solution 臂在 tutorials 上
+   那條指令）；mutation gate 98–106（105／106 是 round 2 補的：繼承到的 `PYTHONPATH` 在骨架／ndtwin 臂上不准丟，印出來的 `$ …` 那行要跟 C1 一致）。**這只修 driver 的啟動方式，兩支 solution 臂在 tutorials 上
    仍然一次都沒跑成功過**——要等 orchestrator 重跑。
 
 ### 6.3 通用格（`--fabric ndtwin` 的**解答臂**最後一步）

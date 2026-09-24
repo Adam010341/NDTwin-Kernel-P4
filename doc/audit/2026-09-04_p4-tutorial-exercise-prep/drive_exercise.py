@@ -1583,7 +1583,8 @@ class Steps(object):
         # it and inserts it at sys.path[0] (run_external_controller.py find_tutorials_utils) --
         # both keep the environment they always had. Prepended, so it resolves the way the
         # adapter's does; whatever PYTHONPATH this process inherited stays behind it. The
-        # recorded command carries it, so the line in the report is one a reader can re-run.
+        # recorded command carries it, so the line in the report is one a reader can re-run --
+        # from <exdir>, as before: the controllers read ./build/... relative to the cwd.
         # [Co-developed with claude code -- Adam]
         if self.fabric != "ndtwin" and os.path.dirname(ctrl):
             inherited = [p for p in [env.get("PYTHONPATH")] if p]

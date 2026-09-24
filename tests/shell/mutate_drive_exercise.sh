@@ -1060,6 +1060,25 @@ add "104. the report records the controller command without the PYTHONPATH it ra
     '            pass  # MUTANT' \
     'test_the_command_the_report_records_reproduces_the_run'
 
+# 105-106 (P4-D' round 2, judge's items 1-2). Both SURVIVED the round-1 suite (da0fa021's test
+# file): its guards ran with no PYTHONPATH in the process at all, so an arm that LOST an
+# inherited value had nothing to lose; and nothing read the printed `$ ...` start line.
+# 105 takes the caller's PYTHONPATH out for EVERY arm before the solution-only branch -- the
+# solution arm still gets utils/ + inherited, so only the two guarded arms change.
+add "105. the caller's PYTHONPATH is taken away from the skeleton and ndtwin arms" \
+    "$DRIVER" \
+    '        if self.fabric != "ndtwin" and os.path.dirname(ctrl):
+            inherited = [p for p in [env.get("PYTHONPATH")] if p]' \
+    '        inherited = [p for p in [env.pop("PYTHONPATH", None)] if p]  # MUTANT: for every arm
+        if self.fabric != "ndtwin" and os.path.dirname(ctrl):' \
+    'test_the_skeleton_arm_is_handed_the_environment_it_always_had'
+
+add "106. the printed start line drops the PYTHONPATH the controller runs with" \
+    "$DRIVER" \
+    '        say("$ %s   (> %s)" % (shown, path))' \
+    '        say("$ %s   (> %s)" % (" ".join(argv), path))  # MUTANT' \
+    'test_the_printed_start_line_carries_the_prefix_on_the_solution_arm_only'
+
 CTRL_SRC="$DRIVER"
 CTRL_ANCHOR='def host_key(name):'
 CTRL_REPL='# MUTANT: a comment, and nothing else.

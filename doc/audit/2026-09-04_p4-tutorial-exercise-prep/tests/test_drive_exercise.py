@@ -2594,6 +2594,9 @@ class TheSolutionControllerFindsTheTutorialsLibrary(unittest.TestCase):
         old = os.environ.pop("PYTHONPATH", None)
         if old is not None:
             self.addCleanup(os.environ.__setitem__, "PYTHONPATH", old)
+        # Registered after the restore, so it runs BEFORE it: whatever a cell exported is gone
+        # again before the caller's own value (if any) is put back.
+        self.addCleanup(os.environ.pop, "PYTHONPATH", None)
         self.utils = os.path.join(self.root, "utils")
         os.makedirs(os.path.join(self.utils, "p4runtime_lib"))
         for name in ("__init__.py", "bmv2.py"):
@@ -2608,6 +2611,34 @@ class TheSolutionControllerFindsTheTutorialsLibrary(unittest.TestCase):
     def exdir(self, exercise):
         return os.path.join(self.root, "exercises", exercise)
 
+    #: The two states of THIS process's PYTHONPATH the guards are run in: none at all, and one the
+    #: caller's shell exported (round 2: with none, "the arm keeps the environment it always had"
+    #: could not see an arm that LOST an inherited value -- there was no value to lose).
+    INHERITED = (None, "/somewhere/else")
+
+    def environment_before(self, inherited):
+        """Put this process's PYTHONPATH in state `inherited`.  -> the env the child must get.
+
+        🔴 SNAPSHOT BEFORE THE CALL (round 2). Round 1 built `want` from os.environ AFTER the
+        driver had run, so a driver that edited its own os.environ would have been compared with
+        its own edit. setUp's cleanups take whatever is set here away again.
+        """
+        if inherited is None:
+            os.environ.pop("PYTHONPATH", None)
+        else:
+            os.environ["PYTHONPATH"] = inherited
+        want = dict(os.environ)
+        want["PYTHONUNBUFFERED"] = "1"
+        return want
+
+    def start_line(self):
+        """The one `$ <command>   (> <log>)` line _start_controller printed.  -> <command>."""
+        lines = [l for l in self.said if l.startswith("$ ")]
+        self.assertEqual(1, len(lines), self.said)
+        cmd, sep, _log = lines[0][2:].partition("   (> ")
+        self.assertTrue(sep, lines[0])
+        return cmd
+
     def launch(self, exercise, which, fabric="tutorials", package=None, exdir=None):
         """_start_controller with local_popen recording.  -> (Steps, argv, kwargs)."""
         calls = []
@@ -2617,6 +2648,10 @@ class TheSolutionControllerFindsTheTutorialsLibrary(unittest.TestCase):
             return fake_controller("")(argv, **kw)
         self.mod.local_popen = record
         self.mod.CTRL_SETTLE = 0            # the same wait steps_for() zeroes
+        #: What the driver printed, line by line -- quiet() threw it away, and round 2 reads the
+        #: `$ ...` start line (the transcript's copy of the command).
+        self.said = []
+        self.mod.say = lambda *parts: self.said.append(" ".join(str(p) for p in parts))
         args = Args()
         args.which = which
         logs = mkdtemp(self, "drv-ctrlpath-log-")
@@ -2654,33 +2689,36 @@ class TheSolutionControllerFindsTheTutorialsLibrary(unittest.TestCase):
                               out, "imported, and from the exercise's own utils/")
 
     def test_the_skeleton_arm_is_handed_the_environment_it_always_had(self):
-        """The skeleton sits where the tutorials put it and finds utils/ by itself."""
-        for ex in self.EXERCISES:
-            with self.subTest(exercise=ex):
-                _s, argv, kw = self.launch(ex, "skeleton")
-                want = dict(os.environ)
-                want["PYTHONUNBUFFERED"] = "1"
-                self.assertEqual(want, kw["env"])
-                self.assertEqual([self.mod.CTRL_PY,
-                                  os.path.join(self.exdir(ex), "mycontroller.py")], argv)
-                rc, out = self.execute(argv, kw)
-                self.assertEqual(0, rc, out)
+        """The skeleton sits where the tutorials put it and finds utils/ by itself -- with or
+        without a PYTHONPATH of the caller's, which it gets exactly as the caller had it."""
+        for inherited in self.INHERITED:
+            for ex in self.EXERCISES:
+                with self.subTest(exercise=ex, inherited_pythonpath=inherited):
+                    want = self.environment_before(inherited)
+                    _s, argv, kw = self.launch(ex, "skeleton")
+                    self.assertEqual(want, kw["env"])
+                    self.assertEqual([self.mod.CTRL_PY,
+                                      os.path.join(self.exdir(ex), "mycontroller.py")], argv)
+                    rc, out = self.execute(argv, kw)
+                    self.assertEqual(0, rc, out)
 
     def test_the_ndtwin_arm_is_handed_the_environment_it_always_had(self):
         """run_external_controller.py finds utils/ itself (find_tutorials_utils) and inserts it
-        at sys.path[0]; the ndtwin arm's command and environment are not this fix's to touch."""
-        for ex in self.EXERCISES:
-            for which in ("skeleton", "solution"):
-                with self.subTest(exercise=ex, which=which):
-                    _s, argv, kw = self.launch(ex, which, fabric="ndtwin", package="/pkg")
-                    want = dict(os.environ)
-                    want["PYTHONUNBUFFERED"] = "1"
-                    self.assertEqual(want, kw["env"])
-                    ctrl = "mycontroller.py" if which == "skeleton" else "solution/mycontroller.py"
-                    self.assertEqual([self.mod.CTRL_PY,
-                                      os.path.join(self.mod.REPO, "tools", "p4_exercise",
-                                                   "run_external_controller.py"),
-                                      "/pkg", ctrl], argv)
+        at sys.path[0]; the ndtwin arm's command and environment are not this fix's to touch --
+        both arms, with or without a PYTHONPATH of the caller's."""
+        for inherited in self.INHERITED:
+            for ex in self.EXERCISES:
+                for which in ("skeleton", "solution"):
+                    with self.subTest(exercise=ex, which=which, inherited_pythonpath=inherited):
+                        want = self.environment_before(inherited)
+                        _s, argv, kw = self.launch(ex, which, fabric="ndtwin", package="/pkg")
+                        self.assertEqual(want, kw["env"])
+                        ctrl = ("mycontroller.py" if which == "skeleton"
+                                else "solution/mycontroller.py")
+                        self.assertEqual([self.mod.CTRL_PY,
+                                          os.path.join(self.mod.REPO, "tools", "p4_exercise",
+                                                       "run_external_controller.py"),
+                                          "/pkg", ctrl], argv)
 
     def test_a_pythonpath_the_driver_inherited_is_kept_behind_the_exercises_utils(self):
         """Prepended, not replaced: whatever the caller put there still reaches the child."""
@@ -2690,9 +2728,30 @@ class TheSolutionControllerFindsTheTutorialsLibrary(unittest.TestCase):
         self.assertEqual([os.path.normpath(self.utils), "/somewhere/else"],
                          [os.path.normpath(p) for p in kw["env"]["PYTHONPATH"].split(os.pathsep)])
 
+    def test_the_printed_start_line_carries_the_prefix_on_the_solution_arm_only(self):
+        """The transcript's `$ ...` line is the other copy of the command (round 2): it must say
+        what C1 says -- PYTHONPATH=<utils> on the tutorials solution arm, and nothing of the kind
+        on the three arms whose environment this fix does not touch."""
+        arms = (("tutorials", "solution", None), ("tutorials", "skeleton", None),
+                ("ndtwin", "skeleton", "/pkg"), ("ndtwin", "solution", "/pkg"))
+        for fabric, which, package in arms:
+            for ex in self.EXERCISES:
+                with self.subTest(exercise=ex, fabric=fabric, which=which):
+                    s, argv, _kw = self.launch(ex, which, fabric=fabric, package=package)
+                    printed = self.start_line()
+                    _label, recorded, _raw = [st for st in s.steps if st[0].startswith("C1")][-1]
+                    self.assertEqual(recorded, printed, "the transcript and the report disagree")
+                    if fabric == "tutorials" and which == "solution":
+                        self.assertEqual("PYTHONPATH=%s %s" % (os.path.normpath(self.utils),
+                                                               " ".join(argv)), printed)
+                    else:
+                        self.assertEqual(" ".join(argv), printed)
+
     def test_the_command_the_report_records_reproduces_the_run(self):
-        """C1's command string is what a reader pastes to re-run the controller. Without the
-        variable in it, the pasted line dies of exactly the import the round no longer does."""
+        """C1's command string is what a reader pastes to re-run the controller -- from <exdir>,
+        which this cell's cwd is and the report's reader must be too (the controllers read
+        ./build/...; that limit predates this fix). Without the variable in it, the pasted line
+        dies of exactly the import the round no longer does."""
         s, argv, kw = self.launch("flowcache", "solution")
         _label, cmd, _raw = [st for st in s.steps if st[0].startswith("C1")][-1]
         self.assertIn(argv[-1], cmd)
