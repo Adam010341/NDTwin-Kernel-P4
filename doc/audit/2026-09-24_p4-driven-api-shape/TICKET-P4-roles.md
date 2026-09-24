@@ -198,3 +198,16 @@ M-R12 外來 fabric `reroute: true`；M-R13 baseline 綁定任一名字改掉；
   （`ModuleNotFoundError`）。tutorials 的用法是把解答複製到練習目錄再跑；骨架在練習目錄所以正常。**這是 driver 在一條從未實跑過的路徑上的錯，不是資料面結果。**
 - 裁：派 D'（worktree `wt-p4-driver-0924`，分支 `fix/tutorials-solution-controller-0924`；只准動 `drive_exercise.py`／`DRIVER.md`／`tests/**`／`mutate_drive_exercise.sh`）：
   不改 `--fabric ndtwin` 路徑、不改骨架臂、不改凍結的 tutorials plan／sudo 行；紅先＋具名變異。併回後 orchestrator 重跑這 2 臂；REPORT-P3 附錄照「16 如預期＋2 儀器錯→修→重跑結果」寫，不把第一次的 FAIL 刪掉。
+
+### 裁決 2（09-24 19:0x，Adam 互動表單）：PREREG-AMENDMENT-2 不併，改寫進下一輪的新 PREREG
+
+- P 交 `69e79a8f`（`docs/prereg-amendment-2-0924`，只在 PREREG.md 檔尾加 94 行、刪除 0 行，orchestrator 核過）。P 的異議兩條改變了前提：
+  ① PREREG `:20` 把 AMENDMENT-1 的三條（零封包、理由只引既有資料、只收緊）定為本檔修訂門檻，而本修訂寫在第五次資料之後，(b) 的 [0.5, 2.0] 更是看過 link 0.537 之後提出、且 0.537 落在區間內；
+  ② (c)「同一格三窗 Δkernel」在梯子設計裡不存在（每階多半 1 rep，只有 loss ∈ (0, 2%] 才補到 3 rep）——**裁決 40⑤ 的前提有誤，REPORT-P3 §1③ 照抄了它**。
+- Adam 裁：**不併**；分支留作草稿；下一次排量測時（天花板換工作點本來就要重新註冊）寫進那一輪自己的 PREREG，不是事後修訂。goal (6) 以「草稿完成、刻意不併」收案。
+
+### 裁決 3（09-24 19:0x，Adam 互動表單）：FINDINGS §4 的每階 CPU 時間窗疑遭確認 rep 污染——現在派人離線重算，只算不改
+
+- orchestrator 開檔核過的部分（OBSERVED）：第五次 raw 的 `rungs.tsv` 把梯頂確認 rep 記成 `c1`–`c3`、kpps＝最高乾淨階、時間在更高階之後；`analyse.py` `rung_windows`（`:693`）把同 kpps 的列聯集成一個窗，`cpu_for_window`（`:739-740`）與 `rung_samples_per_second`（`:708`）都用它 ⇒ 例 `G4/link_f64_b` 的 20 kpps 窗 ≈ 110 s、包住 30–110 kpps。
+- 對 FINDINGS 判決的影響是 INFERRED、未重算。派工單 C（`wt-p4-cpuwin-0924`，`analysis/cpu-window-recheck-0924`）：先確認 PREREG 註冊的每階窗是什麼（PREREG 沒說清楚就兩種讀法並列、不選）、紅先修碼、新舊對照表。
+  **FINDINGS 要不要更正由 Adam 看過對照表再裁**；在那之前公開的 FINDINGS §4 維持原樣，報告裡明講「待驗證」。
