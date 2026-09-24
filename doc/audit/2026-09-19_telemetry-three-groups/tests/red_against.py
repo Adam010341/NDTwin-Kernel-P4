@@ -70,7 +70,11 @@ def copy_working_tree(destination):
 def extract_tree(revision, destination):
     """The round directory exactly as it was at `revision`."""
     prefix = round_prefix()
-    archive = git("archive", "--format=tar", revision, "--", prefix, binary=True)
+    # the pathspec is repo-relative, so archive from the top level: run from the round directory
+    # it resolved to nothing and git exited 128 (the first run of this function, round 10)
+    top = git("rev-parse", "--show-toplevel").strip()
+    archive = subprocess.run(["git", "-C", top, "archive", "--format=tar", revision, "--", prefix],
+                             check=True, capture_output=True).stdout
     with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
         for member in tar.getmembers():
             if not member.name.startswith(prefix + "/") or not member.isfile():
