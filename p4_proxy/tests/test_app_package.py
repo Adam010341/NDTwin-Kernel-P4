@@ -1463,6 +1463,83 @@ class APackageWithoutRolesLoadsByteIdenticallyTest(unittest.TestCase):
                                  f"{case}: the loaded package moved; it now reads {text[:600]}")
 
 
+# --- `roles`: the loader checks the shape and names every field (TICKET-P4-roles 2.1-1) ---------
+#
+# [Co-developed with claude code -- Adam]
+# Shape only. Whether the names exist in a p4info is route_binding.resolve's question, asked by
+# pre-flight and by the proxy (tests/test_route_binding.py); this module cannot import protobuf.
+
+A_ROUTE_ROLE = {"owner": "ndtwin", "table": "MyIngress.ipv4_lpm",
+                "match_field": "hdr.ipv4.dstAddr", "action": "MyIngress.ipv4_forward",
+                "params": {"dst_mac": "dstAddr", "port": "port"}}
+
+
+class RolesShapeTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ndtwin_app_pkg_roles_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+    def load(self, roles, name="pkg"):
+        return app_package.load(build_package(self.tmp, manifest=with_manifest(roles=roles),
+                                              name=name))
+
+    def refused(self, roles, *needles):
+        with self.assertRaises(app_package.AppPackageError) as caught:
+            self.load(roles, name=f"bad{len(os.listdir(self.tmp))}")
+        for needle in needles:
+            self.assertIn(needle, str(caught.exception))
+
+    def test_a_package_without_roles_has_none_not_an_empty_object(self):
+        package = app_package.load(build_package(self.tmp))
+        self.assertIsNone(package.roles)
+        self.assertIsNone(package.ipv4_route_role)
+        self.assertIsNone(app_package.baseline().roles)
+
+    def test_a_declared_route_role_is_carried_name_for_name(self):
+        role = self.load({"ipv4_route": A_ROUTE_ROLE}).ipv4_route_role
+        self.assertEqual((role.owner, role.table, role.match_field, role.action, role.dst_mac,
+                          role.port),
+                         ("ndtwin", "MyIngress.ipv4_lpm", "hdr.ipv4.dstAddr",
+                          "MyIngress.ipv4_forward", "dstAddr", "port"))
+        self.assertEqual(role.as_manifest(), A_ROUTE_ROLE)
+
+    def test_both_owners_are_accepted(self):
+        for owner in ("ndtwin", "package"):
+            with self.subTest(owner=owner):
+                self.assertEqual(self.load({"ipv4_route": dict(A_ROUTE_ROLE, owner=owner)},
+                                           name=owner).ipv4_route_role.owner, owner)
+
+    def test_roles_that_is_not_an_object_is_refused(self):
+        self.refused(["ipv4_route"], "'roles' must be an object")
+
+    def test_a_role_this_cut_does_not_know_is_refused_by_name(self):
+        self.refused({"ipv4_route": A_ROUTE_ROLE, "l2_route": {}}, "l2_route")
+
+    def test_a_missing_key_is_refused_by_name(self):
+        for key in ("owner", "table", "match_field", "action", "params"):
+            with self.subTest(key=key):
+                role = {k: v for k, v in A_ROUTE_ROLE.items() if k != key}
+                self.refused({"ipv4_route": role}, "missing", key)
+
+    def test_an_extra_key_is_refused_by_name(self):
+        self.refused({"ipv4_route": dict(A_ROUTE_ROLE, priority=10)}, "unknown", "priority")
+
+    def test_a_missing_or_extra_parameter_is_refused_by_name(self):
+        self.refused({"ipv4_route": dict(A_ROUTE_ROLE, params={"dst_mac": "dstAddr"})},
+                     "params", "port")
+        self.refused({"ipv4_route": dict(A_ROUTE_ROLE, params={"dst_mac": "dstAddr",
+                                                               "port": "port", "vlan": "v"})},
+                     "params", "vlan")
+
+    def test_an_owner_outside_the_two_words_is_refused(self):
+        self.refused({"ipv4_route": dict(A_ROUTE_ROLE, owner="kernel")}, "owner", "kernel")
+
+    def test_an_empty_name_is_refused_rather_than_guessed(self):
+        self.refused({"ipv4_route": dict(A_ROUTE_ROLE, table="")}, "table")
+        self.refused({"ipv4_route": dict(A_ROUTE_ROLE, params={"dst_mac": "", "port": "port"})},
+                     "params.dst_mac")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
 

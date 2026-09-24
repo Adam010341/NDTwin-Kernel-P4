@@ -972,5 +972,119 @@ class WithoutTheRoleFlagTheOutputIsByteIdenticalTest(TmpMixin, unittest.TestCase
                 self.assertEqual(now[case], BASELINE_CONVERSIONS[case])
 
 
+# --- --role-ipv4-route (TICKET-P4-roles 2.1-7) ---------------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+
+BASIC_ROLE_FLAG = ("owner=ndtwin,table=MyIngress.ipv4_lpm,match_field=hdr.ipv4.dstAddr,"
+                   "action=MyIngress.ipv4_forward,dst_mac=dstAddr,port=port")
+BASIC_ROLE_OBJECT = {"owner": "ndtwin", "table": "MyIngress.ipv4_lpm",
+                     "match_field": "hdr.ipv4.dstAddr", "action": "MyIngress.ipv4_forward",
+                     "params": {"dst_mac": "dstAddr", "port": "port"}}
+
+
+class TheRoleFlagTest(unittest.TestCase):
+    """Every name written out; nothing guessed; nothing extra."""
+
+    def test_the_six_names_become_the_roles_object_package_json_carries(self):
+        self.assertEqual(convert.parse_role_flag(BASIC_ROLE_FLAG), BASIC_ROLE_OBJECT)
+
+    def test_a_missing_name_is_refused_and_named(self):
+        for key in convert.ROLE_FLAG_KEYS:
+            with self.subTest(key=key):
+                parts = [p for p in BASIC_ROLE_FLAG.split(",") if not p.startswith(key + "=")]
+                with self.assertRaises(convert.ConversionError) as caught:
+                    convert.parse_role_flag(",".join(parts))
+                self.assertIn(key, str(caught.exception))
+
+    def test_an_unknown_duplicated_or_empty_key_is_refused(self):
+        for text, needle in ((BASIC_ROLE_FLAG + ",vlan=7", "vlan"),
+                             (BASIC_ROLE_FLAG + ",port=port", "twice"),
+                             (BASIC_ROLE_FLAG.replace("table=MyIngress.ipv4_lpm", "table="),
+                              "empty"),
+                             (BASIC_ROLE_FLAG.replace("owner=ndtwin", "owner=kernel"), "owner")):
+            with self.subTest(text=text):
+                with self.assertRaises(convert.ConversionError) as caught:
+                    convert.parse_role_flag(text)
+                self.assertIn(needle, str(caught.exception))
+
+
+class ConvertingWithTheRoleFlagTest(TmpMixin, unittest.TestCase):
+    def convert_with(self, flag, exercise=BASIC, topology="pod-topo/topology.json",
+                     p4="solution/basic.p4", **kw):
+        out = os.path.join(self.tmp, kw.pop("out", "pkg"))
+        removed = {}
+        package, _model, written = convert.convert(
+            exercise, topology, out, p4_rel=p4, role_ipv4_route=convert.parse_role_flag(flag),
+            removed=removed, **kw)
+        return package, out, removed, written
+
+    def test_the_package_carries_the_roles_block(self):
+        _package, out, _removed, _written = self.convert_with(BASIC_ROLE_FLAG)
+        self.assertEqual(common.load_json(os.path.join(out, "package.json"))["roles"],
+                         {"ipv4_route": BASIC_ROLE_OBJECT})
+
+    def test_owner_ndtwin_takes_the_owned_tables_match_entries_out_and_counts_them(self):
+        _package, out, removed, _written = self.convert_with(BASIC_ROLE_FLAG)
+        self.assertEqual(removed, {"1": 4, "2": 4, "3": 4, "4": 4})
+        for n in (1, 2, 3, 4):
+            entries = common.load_json(os.path.join(out, f"pod-topo/s{n}-runtime.json"))
+            self.assertEqual([e.get("default_action") for e in entries["table_entries"]],
+                             [True], "only the default action may stay in an owned table")
+
+    def test_everything_but_the_runtime_files_and_package_json_is_as_without_the_flag(self):
+        _package, with_flag, _removed, _written = self.convert_with(BASIC_ROLE_FLAG)
+        plain = os.path.join(self.tmp, "plain")
+        convert.convert(BASIC, "pod-topo/topology.json", plain, p4_rel="solution/basic.p4")
+        for rel in ("ndtwin/topology.json", "build/basic.json", "build/basic.p4.p4info.txtpb",
+                    "pod-topo/topology.json"):
+            with self.subTest(rel=rel):
+                self.assertEqual(sha(os.path.join(with_flag, rel)), sha(os.path.join(plain, rel)))
+
+    def test_owner_package_keeps_the_authors_entries_byte_for_byte(self):
+        flag = BASIC_ROLE_FLAG.replace("owner=ndtwin", "owner=package")
+        _package, out, removed, _written = self.convert_with(flag)
+        self.assertEqual(removed, {})
+        for n in (1, 2, 3, 4):
+            rel = f"pod-topo/s{n}-runtime.json"
+            self.assertEqual(sha(os.path.join(out, rel)), sha(os.path.join(BASIC, rel)))
+
+    def test_every_other_table_keeps_its_entries(self):
+        # firewall's s1 has check_ports entries besides ipv4_lpm: only ipv4_lpm's go.
+        _package, out, removed, _written = self.convert_with(
+            BASIC_ROLE_FLAG, exercise=FIREWALL, p4="basic.p4")
+        entries = common.load_json(os.path.join(out, "pod-topo/s1-runtime.json"))
+        tables = {e["table"] for e in entries["table_entries"] if not e.get("default_action")}
+        self.assertNotIn("MyIngress.ipv4_lpm", tables)
+        self.assertTrue(tables, "firewall's other table lost its entries too")
+        self.assertEqual(removed["1"], 4)
+
+    def test_a_role_on_a_package_whose_every_switch_runs_ndtwins_pipeline_is_refused(self):
+        for kw in ({"p4": None}, {"ndtwin_pipeline": True}):
+            with self.subTest(**{k: str(v) for k, v in kw.items()}):
+                with self.assertRaises(convert.ConversionError) as caught:
+                    self.convert_with(BASIC_ROLE_FLAG, out=f"pkg{len(kw)}{kw.get('p4')}", **kw)
+                self.assertIn("would apply to no switch", str(caught.exception))
+
+    def test_a_role_on_an_external_control_plane_is_refused(self):
+        with self.assertRaises(convert.ConversionError) as caught:
+            self.convert_with(BASIC_ROLE_FLAG, exercise=P4RUNTIME, topology="topology.json",
+                              p4=None)
+        self.assertIn("external", str(caught.exception))
+
+    def test_the_command_line_reports_the_count(self):
+        import contextlib
+        import io
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = convert.main([BASIC, "--topology", "pod-topo/topology.json", "--p4",
+                               "solution/basic.p4", "--out", os.path.join(self.tmp, "cli"),
+                               "--role-ipv4-route", BASIC_ROLE_FLAG])
+        self.assertEqual(rc, 0)
+        self.assertIn("16 match entries for MyIngress.ipv4_lpm taken out of the runtime files "
+                      "(s1: 4, s2: 4, s3: 4, s4: 4)", out.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

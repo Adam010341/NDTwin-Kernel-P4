@@ -13,6 +13,10 @@ from proxy_agent import ryu_topology, ryu_flow_stats
 # back here.
 from proxy_agent.p4_client import (ControlPlaneReadOnly, CounterNotFound, TableEntryInvalid,
                                    TableEntryUnsupported)
+# TICKET-P4-roles: the binding a route is written through, and the 501 when there is none.
+# [Co-developed with claude code -- Adam]
+from proxy_agent import route_binding
+from proxy_agent.route_binding import RouteWriteUnsupported
 
 # We will attach the topology manager instance to the router later
 router = APIRouter()
@@ -122,6 +126,54 @@ def inject_telemetry_reports(telemetry, pre_entries, fabric_telemetry):
     telemetry_report = telemetry
     pre_entries_report = pre_entries
     control_plane_telemetry = fabric_telemetry
+
+
+# --- the roles half of the disclosure (TICKET-P4-roles 2.5-2). [Co-developed with claude code --
+# Adam] A fourth injector, for the reason the third was one: these answer a different question --
+# "what may this switch be asked to do, and what could its flow table not be rendered as" -- and
+# a reporter that is not injected adds no key at all, so a proxy that has not wired them cannot
+# be read as one that reports every switch incapable.
+capabilities_report = None
+flow_stats_report = None
+
+
+def inject_roles_reports(capabilities, flow_stats):
+    global capabilities_report, flow_stats_report
+    capabilities_report = capabilities
+    flow_stats_report = flow_stats
+
+
+def _route_write_unsupported(err, dpid):
+    """
+    A route write this switch has no binding for, as the 501 the other unsupported writes use.
+
+    [Co-developed with claude code -- Adam]
+    TICKET-P4-roles 2.2-3. Replaces what a foreign pipeline used to answer: a 500 out of a
+    KeyError, or -- on the seven exercises that declare ndtwin_switch's own names -- a write into
+    the author's table that silently MODIFY'd an entry they had declared. The shape is
+    `_refuse_unhonourable_priority`'s and the six group/meter endpoints': `outcome:
+    unsupported_on_p4` plus a reason word (`unbound`, `owned_by_package`, or
+    `no_five_tuple_role`), with `remedy` placed ahead of the prose so it lands inside the 200
+    bytes the kernel keeps of a failure body (HttpRoutingStrategyBase.cpp:62-79).
+    """
+    remedy = {
+        route_binding.REASON_UNBOUND:
+            "declare roles.ipv4_route in the package, or use POST /p4/table_entry",
+        route_binding.REASON_OWNED_BY_PACKAGE:
+            "the package owns this table: use POST /p4/table_entry",
+        route_binding.REASON_NO_FIVE_TUPLE_ROLE:
+            "match on the destination only",
+    }.get(err.reason, "use POST /p4/table_entry")
+    return HTTPException(
+        status_code=501,
+        detail={
+            "error": "no NDTwin route binding for this write",
+            "outcome": "unsupported_on_p4",
+            "reason": err.reason,
+            "remedy": remedy,
+            "dpid": dpid,
+            "message": str(err),
+        })
 
 
 def _grpc_status_name(exc):
@@ -437,6 +489,9 @@ async def add_flow_entry(request: Request):
         raise HTTPException(status_code=400,
                             detail={"error": "unsupported match", "fields": err.fields,
                                     "message": str(err)})
+    except RouteWriteUnsupported as err:
+        # TICKET-P4-roles 2.2-3. [Co-developed with claude code -- Adam]
+        raise _route_write_unsupported(err, dpid)
 
     if not success:
         return {"status": "error", "message": "Failed to add route"}
@@ -504,6 +559,9 @@ async def delete_flow_entry(request: Request):
         raise HTTPException(status_code=400,
                             detail={"error": "unsupported match", "fields": err.fields,
                                     "message": str(err)})
+    except RouteWriteUnsupported as err:
+        # TICKET-P4-roles 2.2-3. [Co-developed with claude code -- Adam]
+        raise _route_write_unsupported(err, dpid)
     if success:
         return {"status": "success", **_priority_disclosure(match)}
     else:
@@ -531,6 +589,9 @@ async def modify_flow_entry(request: Request):
         raise HTTPException(status_code=400,
                             detail={"error": "unsupported match", "fields": err.fields,
                                     "message": str(err)})
+    except RouteWriteUnsupported as err:
+        # TICKET-P4-roles 2.2-3. [Co-developed with claude code -- Adam]
+        raise _route_write_unsupported(err, dpid)
     if not success:
         raise HTTPException(status_code=400, detail="Failed to modify flow entry in P4 switch")
     return {"status": "success", **_priority_disclosure(match)}
@@ -675,6 +736,24 @@ async def switch_state():
                             "clone": {"recorded": 0, "applied": 0, "failed": 0}})
     if control_plane_telemetry is not None and "control_plane" in state:
         state["control_plane"]["telemetry"] = control_plane_telemetry()
+    # [Co-developed with claude code -- Adam]
+    # TICKET-P4-roles 2.5. Two more per-switch keys, in loops of their own for the reason every
+    # loop above is one: each is a gate's anchor.
+    #
+    #   capabilities  what this switch may be asked to do -- ipv4_route (whose route table:
+    #                 ndtwin / package / unbound), five_tuple, reroute, link_discovery and
+    #                 binding_source. Appendix A of the ticket: the kernel will copy this object
+    #                 verbatim onto get_graph_data's node in the third cut.
+    #   flow_stats    `unrendered_entries`: how many rows the last /stats/flow render of this
+    #                 switch left out because their action is not one it recognises.
+    if capabilities_report is not None:
+        caps = capabilities_report()
+        for dpid, entry in state.get("switches", {}).items():
+            entry["capabilities"] = caps.get(str(dpid))
+    if flow_stats_report is not None:
+        rendered = flow_stats_report()
+        for dpid, entry in state.get("switches", {}).items():
+            entry["flow_stats"] = rendered.get(str(dpid), {"unrendered_entries": None})
     return state
 
 
@@ -1029,6 +1108,19 @@ def get_flow_stats(dpid: int):
             content={"error": f"switch {dpid} is not connected to the proxy"},
         )
     try:
+        # [Co-developed with claude code -- Adam]
+        # TICKET-P4-roles 2.5-1. A switch that is not on NDTwin's own pipeline is rendered
+        # through ITS binding (a package's roles, or none), and the rows whose action is not
+        # one this renderer recognises are left out and counted rather than described as drops.
+        # NDTwin's own pipeline takes the unchanged call below -- the one its byte-identity
+        # capture and the rule-clock gate were written against.
+        binding = getattr(client, "route_binding", route_binding.BASELINE)
+        if binding is None or binding.source != route_binding.SOURCE_BASELINE:
+            body, unrendered = ryu_flow_stats.render_flow_stats_counted(
+                dpid, client.read_table_entries(), install_times=client.rule_install_times,
+                binding=binding)
+            client.last_flow_render = (unrendered, time.monotonic())
+            return body
         # [Co-developed with claude code -- Adam]
         # The client's OWN install record, not a fresh one and not a module global: it is the
         # object the write paths on this same client stamped, and the switch it describes is the

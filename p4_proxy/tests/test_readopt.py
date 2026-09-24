@@ -856,6 +856,78 @@ class ThePackageHalfOfReadoptTest(unittest.TestCase):
         self.assertIs(self.topo.switches[1], self.old1)
 
 
+class ReadoptOnAFabricWhoseRouteTablesNdtwinOwnsTest(unittest.TestCase):
+    """
+    TICKET-P4-roles 2.3-3 on the power-on path.
+
+    [Co-developed with claude code -- Adam]
+    When every foreign switch binds roles.ipv4_route with owner ndtwin, startup put NDTwin's
+    routes into those tables -- and the push inside readopt has just emptied this one. The
+    package declares no entries for an owned table (pre-flight refuses them), and no watchdog
+    runs on this fabric, so unless readopt puts the routes back the switch comes back forwarding
+    nothing. The new client's binding is the factory's, re-resolved; one unbound switch, and the
+    fabric's routes are nobody's to refill -- exactly as before roles.
+    """
+
+    def setUp(self):
+        if main is None:  # pragma: no cover -- environment, not behaviour
+            self.skipTest("proxy_agent.main is not importable in this interpreter")
+        from proxy_agent import route_binding
+
+        self.owned = route_binding.RouteBinding(
+            table="MyIngress.ipv4_lpm", match_field="hdr.ipv4.dstAddr",
+            action="MyIngress.ipv4_forward", dst_mac_param="dstAddr", port_param="port",
+            owner="ndtwin", source="package")
+        self.topo, self.old1, self.old2 = build_topology()
+        self.old1.route_binding = self.old2.route_binding = self.owned
+        self._real_sleep = topology_manager.time.sleep
+        topology_manager.time.sleep = lambda seconds: None
+        saved = (dict(main._table_entries), dict(main._capabilities))
+
+        def restore():
+            topology_manager.time.sleep = self._real_sleep
+            main._table_entries.clear()
+            main._table_entries.update(saved[0])
+            main._capabilities.clear()
+            main._capabilities.update(saved[1])
+        self.addCleanup(restore)
+        self.made = []
+
+    def factory(self, binding):
+        def make(dpid):
+            client = FakeClient(dpid)
+            client.route_binding = binding
+            client.write_table_entry = lambda spec, op="insert": None
+            self.made.append(client)
+            return client
+        return make
+
+    def package(self):
+        switches = tuple(main.app_package.SwitchSpec(dpid=d, name=f"s{d}",
+                                                     pipeline=PLAIN_FOREIGN_PIPELINE,
+                                                     entries=None)
+                         for d in (1, 2))
+        return main.app_package.Package(dir="/pkg", name="basic", switches=switches)
+
+    def test_the_routes_go_back_into_the_bound_table(self):
+        result = main.readopt_switch(self.topo, 1, self.factory(self.owned), sample_sink,
+                                     package=self.package())
+        self.assertEqual(result["routes"], "installed")
+        self.assertEqual(sorted(r[0] for r in self.made[0].routes), sorted([H1, H2]))
+        self.assertEqual((result["routes_installed"], result["routes_attempted"]), (2, 2))
+
+    def test_a_switch_that_came_back_unbound_is_not_refilled(self):
+        result = main.readopt_switch(self.topo, 1, self.factory(None), sample_sink,
+                                     package=self.package())
+        self.assertEqual(result["routes"], "skipped")
+        self.assertEqual(self.made[0].routes, [])
+
+    def test_its_capabilities_follow_the_new_clients_binding(self):
+        main.readopt_switch(self.topo, 1, self.factory(None), sample_sink,
+                            package=self.package())
+        self.assertEqual(main.capabilities_report()["1"]["ipv4_route"], "unbound")
+
+
 class InstallRoutesIsAParameterTest(ReadoptTestBase):
     """
     `TopologyManager.readopt_switch(install_routes=...)` on its own, without the wrapper.

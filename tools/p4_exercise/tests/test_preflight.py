@@ -688,5 +688,205 @@ class TheCooperativeIncludeIsAccepted(PackageCase):
         self.assertEqual(rows["telemetry cooperative is possible"], preflight.PASS)
 
 
+# --- roles.ipv4_route (TICKET-P4-roles section 2.1) ---------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# Pre-flight runs the proxy's own two functions -- app_package.parse_roles for the shape,
+# route_binding.resolve for every foreign switch's p4info -- so a green row here is a switch the
+# proxy will bind, and a red one is a startup it will refuse with the same sentence.
+
+REPO = common.REPO
+RENAMED = os.path.join(REPO, "p4_proxy", "tests", "fixtures", "renamed_route")
+BASIC_FLAG = ("owner=ndtwin,table=MyIngress.ipv4_lpm,match_field=hdr.ipv4.dstAddr,"
+              "action=MyIngress.ipv4_forward,dst_mac=dstAddr,port=port")
+RENAMED_FLAG = ("owner=ndtwin,table=RouteIngress.dest_routes,match_field=hdr.ip4.dst,"
+                "action=RouteIngress.send_via,dst_mac=next_mac,port=out_port")
+BASIC_ROLE = {"owner": "ndtwin", "table": "MyIngress.ipv4_lpm",
+              "match_field": "hdr.ipv4.dstAddr", "action": "MyIngress.ipv4_forward",
+              "params": {"dst_mac": "dstAddr", "port": "port"}}
+
+
+class RolesCase(PackageCase):
+    """A package converted WITH --role-ipv4-route (or without, when `flag` is None)."""
+
+    p4 = "solution/basic.p4"
+    flag = BASIC_FLAG
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="p4_exercise_preflight_roles_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.pkg = os.path.join(self.tmp, "pkg")
+        convert.convert(self.exercise, self.topology, self.pkg, p4_rel=self.p4,
+                        role_ipv4_route=(None if self.flag is None
+                                         else convert.parse_role_flag(self.flag)))
+
+    def row(self, label):
+        rows = [r for r in self.report().rows if r[1] == label]
+        self.assertTrue(rows, f"no {label!r} row in:\n{self.report().render()}")
+        return rows[0]
+
+
+class BasicWithRolesTest(RolesCase):
+    def test_a_converted_owned_package_passes_every_check(self):
+        self.assert_green()
+
+    def test_the_binding_row_names_what_every_switch_resolved_to(self):
+        status, _label, detail = self.row("roles.ipv4_route resolves")
+        self.assertEqual(status, preflight.PASS)
+        self.assertIn("4 switch(es): MyIngress.ipv4_lpm hdr.ipv4.dstAddr -> "
+                      "MyIngress.ipv4_forward(dstAddr, port bit<9>), owner ndtwin", detail)
+
+    def test_the_kept_default_action_is_disclosed_not_refused(self):
+        status, _label, detail = self.row("owned table default action")
+        self.assertEqual(status, preflight.INFO)
+        self.assertIn("s1 entry 0: default action MyIngress.drop", detail)
+
+    def test_no_suggestion_is_printed_for_a_package_that_declared_its_roles(self):
+        self.assertNotIn("roles suggestion", self.statuses())
+
+    def test_the_owned_tables_match_entries_fail_and_each_one_is_named(self):
+        # 2.1-5 / ruling 8-1: put basic's own four routes back into s1 and s2.
+        for n in (1, 2):
+            original = common.load_json(os.path.join(BASIC, f"pod-topo/s{n}-runtime.json"))
+            path = os.path.join(self.pkg, f"pod-topo/s{n}-runtime.json")
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(common.dumps(original))
+        report = self.report()
+        failed = [d for status, label, d in report.rows if status == preflight.FAIL]
+        self.assert_red("owned table has no package entries", "8 match entries")
+        named = [d for d in failed if "MyIngress.ipv4_lpm" in d and "-> MyIngress.ipv4_forward"
+                 in d]
+        self.assertEqual(len(named), 8, report.render())
+        self.assertTrue(any(d.startswith("s2 entry 4") or "s2 entry 4:" in d for d in named))
+
+    def test_a_dst_mac_that_is_not_48_bits_fails_here_before_the_proxy_refuses(self):
+        self.edit_package(lambda d: d["roles"]["ipv4_route"]["params"].update(
+            dst_mac="port", port="dstAddr"))
+        self.assert_red("roles.ipv4_route resolves", "is 9 bits; a MAC address is 48")
+
+    def test_a_table_the_program_does_not_have_fails_and_names_the_switch(self):
+        self.edit_package(lambda d: d["roles"]["ipv4_route"].update(table="MyIngress.routes"))
+        self.assert_red("roles.ipv4_route resolves", "s1: roles.ipv4_route.table")
+
+    def test_a_shape_the_loader_refuses_is_refused_here_with_the_loaders_sentence(self):
+        self.edit_package(lambda d: d["roles"]["ipv4_route"].update(priority=5))
+        self.assert_red("roles", "unknown ['priority']")
+
+    def test_the_message_is_the_one_the_proxy_raises(self):
+        # One function, two callers (2.1-4): the row IS route_binding's exception text.
+        route_binding = common.import_route_binding()
+        self.edit_package(lambda d: d["roles"]["ipv4_route"].update(action="MyIngress.fwd"))
+        report = self.report()
+        detail = [r[2] for r in report.rows if r[1] == "roles.ipv4_route resolves"][0]
+        p4info = preflight.P4InfoIndex.parse(
+            os.path.join(self.pkg, "build", "basic.p4.p4info.txtpb")).p4info
+        with self.assertRaises(route_binding.RouteBindingError) as caught:
+            route_binding.resolve(dict(BASIC_ROLE, action="MyIngress.fwd"), p4info,
+                                  max_port=4, where="s1: roles.ipv4_route")
+        self.assertIn(str(caught.exception), detail)
+
+
+class RenamedRolesTest(RolesCase):
+    exercise = RENAMED
+    p4 = "renamed_route.p4"
+    flag = RENAMED_FLAG
+
+    def test_the_renamed_package_passes_and_binds_the_renamed_names(self):
+        self.assert_green()
+        _status, _label, detail = self.row("roles.ipv4_route resolves")
+        self.assertIn("RouteIngress.dest_routes hdr.ip4.dst -> "
+                      "RouteIngress.send_via(next_mac, out_port bit<8>)", detail)
+
+    def test_a_port_too_narrow_for_the_topology_fails_here(self):
+        # The model is what the proxy sizes the port against; give s1 a port 300.
+        def widen(model):
+            for edge in model["edges"]:
+                if edge["src_dpid"] == 1 and edge["src_interface"] == 4:
+                    edge["src_interface"] = 300
+                if edge["dst_dpid"] == 1 and edge["dst_interface"] == 4:
+                    edge["dst_interface"] = 300
+        self.edit_model(widen)
+        self.assert_red("roles.ipv4_route resolves",
+                        "out_port is 8 bits and the topology gives this switch port 300")
+
+
+class TheSuggestionTest(RolesCase):
+    """2.1-6: the heuristic, here and only here -- one INFO line, never fatal."""
+
+    flag = None
+
+    def test_a_foreign_route_shaped_table_without_roles_gets_one_pasteable_line(self):
+        status, _label, detail = self.row("roles suggestion")
+        self.assertEqual(status, preflight.INFO)
+        block = detail.split('"roles": ', 1)[1].rsplit(" (owner ndtwin", 1)[0]
+        self.assertEqual(json.loads(block), {"ipv4_route": BASIC_ROLE})
+
+    def test_the_suggestion_is_not_a_failure(self):
+        self.assert_green()
+
+    def test_there_is_exactly_one_suggestion_row(self):
+        self.assertEqual(len([r for r in self.report().rows if r[1] == "roles suggestion"]), 1)
+
+
+class NoSuggestionWhereNothingFitsTest(RolesCase):
+    exercise = CALC
+    topology = "topology.json"
+    p4 = "calc.p4"
+    flag = None
+
+    def test_calc_has_no_route_table_so_nothing_is_suggested(self):
+        self.assertNotIn("roles suggestion", self.statuses())
+
+
+class NoSuggestionOnNdtwinsOwnPipelineTest(RolesCase):
+    p4 = None
+    flag = None
+
+    def test_an_all_null_package_gets_no_suggestion(self):
+        self.assertNotIn("roles suggestion", self.statuses())
+
+
+class ReverseControlsTest(RolesCase):
+    """ANALYSIS section 3's four that cannot bind ipv4_lpm, from the fixtures that exist here:
+    a roles block naming ipv4_lpm must FAIL and say what is missing (TICKET 5-3)."""
+
+    flag = None
+
+    def fails_on(self, exercise, topology, p4):
+        pkg = os.path.join(self.tmp, os.path.basename(exercise))
+        convert.convert(exercise, topology, pkg, p4_rel=p4)
+        path = os.path.join(pkg, "package.json")
+        data = common.load_json(path)
+        data["roles"] = {"ipv4_route": BASIC_ROLE}
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(common.dumps(data))
+        report = preflight.run(pkg, compile_p4=False)
+        return {label: (status, detail) for status, label, detail in report.rows if label}
+
+    def test_calc_has_no_ipv4_lpm_and_says_so(self):
+        rows = self.fails_on(CALC, "topology.json", "calc.p4")
+        self.assertEqual(rows["roles.ipv4_route resolves"][0], preflight.FAIL)
+        self.assertIn("'MyIngress.ipv4_lpm' is not a table of this pipeline",
+                      rows["roles.ipv4_route resolves"][1])
+
+    def test_multicast_has_no_ipv4_lpm_and_says_so(self):
+        rows = self.fails_on(os.path.join(FIXTURES, "multicast"), "sig-topo/topology.json",
+                             "multicast.p4")
+        self.assertEqual(rows["roles.ipv4_route resolves"][0], preflight.FAIL)
+        self.assertIn("is not a table of this pipeline", rows["roles.ipv4_route resolves"][1])
+
+
+class FirewallWithRolesTest(RolesCase):
+    """firewall: s1 runs firewall.p4, s2-s4 basic.p4 -- one roles block, resolved per p4info
+    (2.1-3), and every switch passes because both programs declare the table."""
+
+    exercise = FIREWALL
+    p4 = "basic.p4"
+
+    def test_one_block_resolves_on_both_programs(self):
+        self.assert_green()
+        self.assertIn("4 switch(es)", self.row("roles.ipv4_route resolves")[2])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

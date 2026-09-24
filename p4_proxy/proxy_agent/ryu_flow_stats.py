@@ -37,6 +37,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from proxy_agent import rule_install_times
+from proxy_agent import route_binding
 
 # Ryu/OpenFlow constant for IPv4, and the value the Classifier expects in dl_type.
 ETH_TYPE_IPV4 = 0x0800
@@ -55,8 +56,13 @@ FIELD_TO_RYU = {
 }
 
 # Actions that forward out of a port, and which parameter carries it.
+#
+# [Co-developed with claude code -- Adam] TICKET-P4-roles 2.2-1: the route action's name and its
+# port parameter are BASELINE's, not a second spelling of them -- this map used to carry the
+# literal, and route_binding.BASELINE is now the only place it is written. A switch bound to a
+# package's roles adds ITS action on top (`_vocabulary`).
 FORWARDING_ACTIONS = {
-    "MyIngress.ipv4_forward": "port",
+    route_binding.BASELINE.action: route_binding.BASELINE.port_param,
     "MyIngress.forward_l2": "port",
 }
 
@@ -86,16 +92,20 @@ def _prefix_to_netmask_suffix(prefix_len: int) -> str:
     return "" if prefix_len >= 32 else f"/{prefix_len}"
 
 
-def _match_to_ryu(match: dict) -> dict:
+def _match_to_ryu(match: dict, field_to_ryu=None) -> dict:
     """
     One entry's match fields under Ryu's names.
 
     Ternary fields whose mask is zero are omitted: a zero mask means "don't care", and emitting
     it as a concrete value would turn a wildcard into a specific match.
+
+    `field_to_ryu` is FIELD_TO_RYU plus a bound switch's route match field (see `_vocabulary`);
+    None is FIELD_TO_RYU itself. [Co-developed with claude code -- Adam]
     """
+    field_to_ryu = FIELD_TO_RYU if field_to_ryu is None else field_to_ryu
     out: dict[str, Any] = {}
     for p4_name, spec in (match or {}).items():
-        ryu_name = FIELD_TO_RYU.get(p4_name)
+        ryu_name = field_to_ryu.get(p4_name)
         if ryu_name is None:
             continue
 
@@ -123,20 +133,24 @@ def _match_to_ryu(match: dict) -> dict:
     return out
 
 
-def _actions_to_ryu(action: Optional[dict]) -> list:
+def _actions_to_ryu(action: Optional[dict], forwarding_actions=None) -> list:
     """
     One entry's actions as Ryu's string forms.
 
     An empty list is correct for a drop, and the kernel handles it -- Ryu reports its own
     table-miss drop the same way.
+
+    `forwarding_actions` is FORWARDING_ACTIONS plus a bound switch's route action (see
+    `_vocabulary`); None is FORWARDING_ACTIONS itself. [Co-developed with claude code -- Adam]
     """
+    forwarding_actions = FORWARDING_ACTIONS if forwarding_actions is None else forwarding_actions
     if not action:
         return []
 
     name = action.get("name") or ""
     params = action.get("params") or {}
 
-    param_name = FORWARDING_ACTIONS.get(name)
+    param_name = forwarding_actions.get(name)
     if param_name is not None:
         port = _int(params.get(param_name, b""))
         return [f"OUTPUT:{port}"]
@@ -170,7 +184,8 @@ def _duration_fields(age_seconds: Optional[float]) -> tuple:
     return seconds, nanos
 
 
-def entry_to_ryu(entry: dict, age_seconds: Optional[float] = None) -> Optional[dict]:
+def entry_to_ryu(entry: dict, age_seconds: Optional[float] = None, field_to_ryu=None,
+                 forwarding_actions=None) -> Optional[dict]:
     """
     One P4 table entry as a Ryu flow-stats entry, or None if it should not be reported.
 
@@ -179,11 +194,14 @@ def entry_to_ryu(entry: dict, age_seconds: Optional[float] = None) -> Optional[d
 
     `age_seconds` is how long ago this proxy installed the entry, or None when it has no record
     of installing it -- see `render_flow_stats`, which is where that is looked up.
+
+    `field_to_ryu` / `forwarding_actions`: the vocabulary for this switch (`_vocabulary`), None
+    for NDTwin's own. [Co-developed with claude code -- Adam]
     """
     if entry.get("is_default"):
         return None
 
-    match = _match_to_ryu(entry.get("match") or {})
+    match = _match_to_ryu(entry.get("match") or {}, field_to_ryu)
     if not match:
         # No usable match. Reporting it would be a match-everything rule, as above.
         return None
@@ -197,7 +215,7 @@ def entry_to_ryu(entry: dict, age_seconds: Optional[float] = None) -> Optional[d
         # crash it outright.
         "priority": max(0, int(entry.get("priority") or 0)),
         "match": match,
-        "actions": _actions_to_ryu(entry.get("action")),
+        "actions": _actions_to_ryu(entry.get("action"), forwarding_actions),
         # Counters the kernel tolerates being absent but Ryu always sends. Still emitted even
         # when unknown, so the payload shape matches OVS's, which the L4 differential compares.
         #
@@ -226,7 +244,86 @@ def entry_to_ryu(entry: dict, age_seconds: Optional[float] = None) -> Optional[d
     }
 
 
-def render_flow_stats(dpid: int, entries, install_times=None) -> dict:
+# --- whose vocabulary, and what is left out. TICKET-P4-roles 2.5-1 ---------------------------
+# [Co-developed with claude code -- Adam]
+#
+# NDTwin's own pipeline renders exactly as it always did -- every action it declares is one this
+# module knows, and an unknown one still renders as an empty action list (the documented choice
+# for a future NDTwin action; tests/test_ryu_flow_stats.py pins that body against a capture taken
+# at 6291db35).
+#
+# 🔴 A FOREIGN PIPELINE IS WHERE "UNKNOWN" STOPS MEANING DROP. On somebody else's program an
+# action this module does not know is the AUTHOR's semantics -- load_balance's set_ecmp_select,
+# multicast's mac_forward -- and rendering it as `actions: []` told the kernel's Classifier "this
+# rule drops", which it does not (ANALYSIS section 6). So on a foreign switch such a row is NOT
+# LISTED, and `GET /p4/switch_state` says how many were left out (`flow_stats.unrendered_entries`):
+# a rule the twin cannot describe is absent and counted, never described wrongly.
+#
+# The route action is recognised through the switch's binding: a package's roles add its own
+# route action and match field to NDTwin's vocabulary. An UNBOUND foreign switch is rendered in
+# NDTwin's vocabulary, as it was before roles existed -- so a package without roles keeps its
+# /stats/flow body (and the live negative control has the author's entries to compare), except
+# for the unknown-action rows the paragraph above now leaves out.
+
+#: Actions that are a drop by name: `drop()` in whichever control declares it, and `NoAction`.
+#: Recognised, and rendered as the empty list, on every pipeline.
+DROP_ACTION_NAMES = ("drop", "NoAction")
+
+
+def _vocabulary(binding):
+    """(field -> Ryu name, action -> port parameter) this switch's rows are rendered with."""
+    if binding is None or binding.source == route_binding.SOURCE_BASELINE:
+        return FIELD_TO_RYU, FORWARDING_ACTIONS
+    fields = dict(FIELD_TO_RYU)
+    fields[binding.match_field] = "nw_dst"
+    actions = dict(FORWARDING_ACTIONS)
+    actions[binding.action] = binding.port_param
+    return fields, actions
+
+
+def recognises_action(action, forwarding_actions=None) -> bool:
+    """Whether this module knows what `action` does: forwards, goes to the CPU, or drops."""
+    forwarding_actions = FORWARDING_ACTIONS if forwarding_actions is None else forwarding_actions
+    name = (action or {}).get("name") or ""
+    if not name:
+        return False
+    if name in forwarding_actions or name.endswith("send_to_cpu"):
+        return True
+    return name.rsplit(".", 1)[-1] in DROP_ACTION_NAMES
+
+
+def render_flow_stats_counted(dpid: int, entries, install_times=None,
+                              binding=route_binding.BASELINE):
+    """
+    `(render_flow_stats(...), how many rows were left out as unrecognised)`.
+
+    `binding` is the switch's route binding: BASELINE (NDTwin's own pipeline -- nothing is ever
+    left out, the count is 0), a package binding, or None (a foreign switch with no roles).
+    """
+    foreign = binding is None or binding.source != route_binding.SOURCE_BASELINE
+    field_to_ryu, forwarding_actions = _vocabulary(binding)
+    flows, unrendered = [], 0
+    for entry in entries or []:
+        if (foreign and not entry.get("is_default")
+                and not recognises_action(entry.get("action"), forwarding_actions)):
+            # Counted only when it would otherwise have been listed: a default row or a row
+            # with no usable match is never reported, on any pipeline, so it is not "left out".
+            if _match_to_ryu(entry.get("match") or {}, field_to_ryu):
+                unrendered += 1
+            continue
+        age = None
+        if install_times is not None:
+            age = install_times.age_seconds(dpid, entry.get("table"), entry.get("priority"),
+                                            entry.get("match"))
+        converted = entry_to_ryu(entry, age_seconds=age, field_to_ryu=field_to_ryu,
+                                 forwarding_actions=forwarding_actions)
+        if converted is not None:
+            flows.append(converted)
+    return {str(dpid): flows}, unrendered
+
+
+def render_flow_stats(dpid: int, entries, install_times=None,
+                      binding=route_binding.BASELINE) -> dict:
     """
     A whole switch's tables in Ryu's `/stats/flow/<dpid>` shape.
 
@@ -239,14 +336,9 @@ def render_flow_stats(dpid: int, entries, install_times=None) -> dict:
     default exists so the translation stays testable as a pure function, and
     `api_routes.get_flow_stats` passes the real one. The lookup is by
     `rule_install_times.entry_key`, the same key the write paths record under.
+
+    `binding` -- TICKET-P4-roles 2.5-1, see `render_flow_stats_counted`. The default is NDTwin's
+    own pipeline, which is what every caller before roles meant.
     """
-    flows = []
-    for entry in entries or []:
-        age = None
-        if install_times is not None:
-            age = install_times.age_seconds(dpid, entry.get("table"), entry.get("priority"),
-                                            entry.get("match"))
-        converted = entry_to_ryu(entry, age_seconds=age)
-        if converted is not None:
-            flows.append(converted)
-    return {str(dpid): flows}
+    return render_flow_stats_counted(dpid, entries, install_times=install_times,
+                                     binding=binding)[0]

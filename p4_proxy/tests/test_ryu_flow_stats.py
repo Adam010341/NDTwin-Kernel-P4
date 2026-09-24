@@ -10,6 +10,7 @@ the value encodings, and the cases where emitting something would be worse than 
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 import unittest
@@ -462,6 +463,97 @@ class TheNdtwinPipelinesFlowStatsAreByteIdenticalToTheBaseTest(unittest.TestCase
     def test_the_render_is_the_one_the_base_produced(self):
         self.assertTrue(BASELINE_NDTWIN_RENDER, "the base capture is missing")
         self.assertEqual(ndtwin_pipeline_render(), BASELINE_NDTWIN_RENDER)
+
+
+# --- a foreign pipeline: the binding's vocabulary, and unknown actions left out -----------------
+#
+# [Co-developed with claude code -- Adam] TICKET-P4-roles 2.5-1. fixtures/renamed_route's rows,
+# as read_table_entries reports them: its route table and action under THEIR names, plus the
+# second table whose action (tag_proto) nothing here knows.
+
+
+def a_renamed_binding(owner="ndtwin"):
+    from proxy_agent import route_binding
+
+    return route_binding.RouteBinding(
+        table="RouteIngress.dest_routes", match_field="hdr.ip4.dst",
+        action="RouteIngress.send_via", dst_mac_param="next_mac", port_param="out_port",
+        owner=owner, source=route_binding.SOURCE_PACKAGE, port_bitwidth=8)
+
+
+def a_renamed_route(dst=b"\x0a\x00\x03\x03", port=3):
+    return {"table": "RouteIngress.dest_routes", "priority": 0, "is_default": False,
+            "match": {"hdr.ip4.dst": {"type": "lpm", "value": dst, "prefix_len": 32}},
+            "action": {"name": "RouteIngress.send_via",
+                       "params": {"out_port": bytes([port]), "next_mac": b"\x08" + bytes(5)}}}
+
+
+def a_tag_row():
+    return {"table": "RouteIngress.proto_tags", "priority": 0, "is_default": False,
+            "match": {"hdr.ipv4.protocol": {"type": "exact", "value": b"\x11"}},
+            "action": {"name": "RouteIngress.tag_proto", "params": {"tag": b"\x04"}}}
+
+
+class ARenamedBindingIsReadBackThroughItsOwnNamesTest(unittest.TestCase):
+    """2.5-1: the reverse lookup is the binding's, so a renamed route renders as a route."""
+
+    def test_the_renamed_route_renders_as_its_destination_and_output_port(self):
+        flows = rf.render_flow_stats(1, [a_renamed_route(port=3)],
+                                     binding=a_renamed_binding())["1"]
+        self.assertEqual(len(flows), 1)
+        self.assertEqual(flows[0]["match"], {"nw_dst": "10.0.3.3", "dl_type": 0x0800})
+        self.assertEqual(flows[0]["actions"], ["OUTPUT:3"])
+
+    def test_owner_package_is_rendered_too_ndtwin_reads_what_it_does_not_write(self):
+        flows = rf.render_flow_stats(1, [a_renamed_route(port=2)],
+                                     binding=a_renamed_binding(owner="package"))["1"]
+        self.assertEqual(flows[0]["actions"], ["OUTPUT:2"])
+
+
+class OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTest(unittest.TestCase):
+    """2.5-1: not rendered as a drop -- not listed, and counted for switch_state."""
+
+    def test_an_unknown_action_on_a_bound_foreign_switch_is_not_listed(self):
+        body, left_out = rf.render_flow_stats_counted(
+            1, [a_renamed_route(), a_tag_row()], binding=a_renamed_binding())
+        self.assertEqual([f["actions"] for f in body["1"]], [["OUTPUT:3"]])
+        self.assertEqual(left_out, 1)
+
+    def test_an_unknown_action_on_an_unbound_foreign_switch_is_not_listed_either(self):
+        future = an_lpm_route()
+        future["action"] = {"name": "MyIngress.set_ecmp_select", "params": {"base": b"\x01"}}
+        body, left_out = rf.render_flow_stats_counted(1, [an_lpm_route(port=4), future],
+                                                      binding=None)
+        self.assertEqual([f["actions"] for f in body["1"]], [["OUTPUT:4"]])
+        self.assertEqual(left_out, 1)
+
+    def test_an_unbound_foreign_switch_keeps_the_vocabulary_it_had_before_roles(self):
+        # A package without roles keeps its /stats/flow body: the author's ipv4_forward rows
+        # still render as routes (and the live negative control has them to compare).
+        body, left_out = rf.render_flow_stats_counted(1, [an_lpm_route(port=4)], binding=None)
+        self.assertEqual(body, rf.render_flow_stats(1, [an_lpm_route(port=4)]))
+        self.assertEqual(left_out, 0)
+
+    def test_a_known_drop_is_still_a_drop_and_is_not_counted(self):
+        dropped = a_renamed_route()
+        dropped["action"] = {"name": "MyIngress.drop", "params": {}}
+        body, left_out = rf.render_flow_stats_counted(1, [dropped], binding=a_renamed_binding())
+        self.assertEqual(body["1"][0]["actions"], [])
+        self.assertEqual(left_out, 0)
+
+    def test_rows_that_are_never_listed_are_not_counted_as_left_out(self):
+        default = a_tag_row()
+        default["is_default"] = True
+        unusable = a_tag_row()
+        unusable["match"] = {"meta.nothing_ryu_knows": {"type": "exact", "value": b"\x01"}}
+        _body, left_out = rf.render_flow_stats_counted(1, [default, unusable],
+                                                       binding=a_renamed_binding())
+        self.assertEqual(left_out, 0)
+
+    def test_ndtwins_own_pipeline_leaves_nothing_out(self):
+        body, left_out = rf.render_flow_stats_counted(1, ndtwin_pipeline_rows())
+        self.assertEqual(left_out, 0)
+        self.assertEqual(json.dumps(body, sort_keys=True), BASELINE_NDTWIN_RENDER)
 
 
 if __name__ == "__main__":

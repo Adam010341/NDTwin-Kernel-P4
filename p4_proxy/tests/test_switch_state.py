@@ -860,5 +860,167 @@ class TheLinkEmitterSummaryTest(unittest.TestCase):
         self.assertEqual(main.LINK_TELEMETRY_MANIFEST, link_telemetry.LINK_TELEMETRY_MANIFEST)
 
 
+# --- capabilities: what each switch may be asked to do (TICKET-P4-roles 2.5-2) ------------------
+#
+# [Co-developed with claude code -- Adam]
+# The object the kernel will copy verbatim onto get_graph_data's node in the third cut, and the
+# only thing the GUI draft reads (the ticket's Appendix A, whose four samples are asserted here
+# word for word). `reroute` is a FABRIC fact reported per switch: one foreign switch skips the
+# watchdog for all of them, so an NDTwin switch on a mixed fabric says false too.
+
+NDTWIN_FABRIC = {"lldp": True, "watchdog": True, "declared_links": False}
+FOREIGN_FABRIC = {"lldp": False, "watchdog": False, "declared_links": True}
+
+
+class CapabilitiesShapeTest(unittest.TestCase):
+    """main.capabilities_for -- the one function both the prediction and the record use."""
+
+    def test_an_ndtwin_switch_on_an_ndtwin_fabric_can_do_everything(self):
+        self.assertEqual(main.capabilities_for("ndtwin", "baseline", True, False, NDTWIN_FABRIC),
+                         {"ipv4_route": "ndtwin", "five_tuple": True, "reroute": True,
+                          "link_discovery": "lldp", "binding_source": "baseline"})
+
+    def test_a_foreign_switch_whose_roles_ndtwin_owns(self):
+        self.assertEqual(main.capabilities_for("ndtwin", "package", False, False, FOREIGN_FABRIC),
+                         {"ipv4_route": "ndtwin", "five_tuple": False, "reroute": False,
+                          "link_discovery": "declared", "binding_source": "package"})
+
+    def test_a_foreign_switch_with_no_roles(self):
+        self.assertEqual(main.capabilities_for("unbound", None, False, False, FOREIGN_FABRIC),
+                         {"ipv4_route": "unbound", "five_tuple": False, "reroute": False,
+                          "link_discovery": "declared", "binding_source": None})
+
+    def test_a_package_owned_table(self):
+        self.assertEqual(
+            main.capabilities_for("package", "package", False, False, FOREIGN_FABRIC)
+            ["ipv4_route"], "package")
+
+    def test_an_ndtwin_switch_on_a_mixed_fabric_cannot_reroute_either(self):
+        caps = main.capabilities_for("ndtwin", "baseline", True, False, FOREIGN_FABRIC)
+        self.assertEqual((caps["five_tuple"], caps["reroute"], caps["link_discovery"]),
+                         (True, False, "declared"))
+
+    def test_on_an_external_fabric_nothing_is_ndtwins_and_nothing_discovers_links(self):
+        external = {"lldp": False, "watchdog": False, "declared_links": False}
+        caps = main.capabilities_for("ndtwin", "baseline", True, True, external)
+        self.assertEqual((caps["ipv4_route"], caps["five_tuple"], caps["reroute"],
+                          caps["link_discovery"]), ("package", False, False, "none"))
+
+
+class CapabilitiesFromStartupTest(unittest.TestCase):
+    """What startup records, over a mixed fabric: one foreign switch beside an NDTwin one."""
+
+    def setUp(self):
+        saved = (dict(main._fabric), dict(main._capabilities))
+
+        def restore():
+            main._fabric.clear()
+            main._fabric.update(saved[0])
+            main._capabilities.clear()
+            main._capabilities.update(saved[1])
+        self.addCleanup(restore)
+
+    def test_a_mixed_fabric(self):
+        from tests.test_declared_links import SeedingTopo, a_foreign_package, clients_bound
+        from tests.test_startup import run_startup
+
+        clients = clients_bound(None, main.route_binding.BASELINE)
+        summary, _ = run_startup(clients, topo=SeedingTopo(),
+                                 package=a_foreign_package(dpids=(1,)))
+        foreign, ours = summary["capabilities"]["1"], summary["capabilities"]["2"]
+        self.assertEqual(foreign, {"ipv4_route": "unbound", "five_tuple": False,
+                                   "reroute": False, "link_discovery": "declared",
+                                   "binding_source": None})
+        self.assertEqual(ours, {"ipv4_route": "ndtwin", "five_tuple": True, "reroute": False,
+                                "link_discovery": "declared", "binding_source": "baseline"})
+
+    def test_an_all_ndtwin_fabric_reroutes(self):
+        from tests.test_declared_links import SeedingTopo, clients_bound
+        from tests.test_startup import run_startup
+
+        summary, _ = run_startup(clients_bound(main.route_binding.BASELINE), topo=SeedingTopo())
+        self.assertEqual(summary["capabilities"]["1"]["reroute"], True)
+        self.assertEqual(summary["capabilities"]["1"]["link_discovery"], "lldp")
+
+    def test_the_prediction_before_startup_says_the_same_about_a_foreign_owned_package(self):
+        from tests.test_declared_links import a_foreign_package
+
+        predicted = main._capabilities_blank(a_foreign_package(dpids=(1,), owner="ndtwin"), (1,))
+        self.assertEqual(predicted["1"], {"ipv4_route": "ndtwin", "five_tuple": False,
+                                          "reroute": False, "link_discovery": "declared",
+                                          "binding_source": "package"})
+
+
+class CapabilitiesOnTheEndpointTest(unittest.TestCase):
+    """The two per-switch keys reach GET /p4/switch_state -- and only when injected."""
+
+    class FakeTopology:
+        def switch_liveness(self):
+            return {"status": "success", "probe_interval_s": 2.0,
+                    "switches": {"1": {"probe_ok": True}, "2": {"probe_ok": None}},
+                    "boot_id": "b", "boot_at": 1.0}
+
+    def setUp(self):
+        self.saved = (api_routes.topology, api_routes.capabilities_report,
+                      api_routes.flow_stats_report)
+        self.addCleanup(self.restore)
+        api_routes.topology = self.FakeTopology()
+
+    def restore(self):
+        (api_routes.topology, api_routes.capabilities_report,
+         api_routes.flow_stats_report) = self.saved
+
+    def test_each_switch_carries_its_capabilities_and_its_flow_stats(self):
+        caps = main.capabilities_for("unbound", None, False, False, FOREIGN_FABRIC)
+        api_routes.inject_roles_reports(lambda: {"1": caps},
+                                        lambda: {"1": {"unrendered_entries": 3}})
+        body = asyncio.run(api_routes.switch_state())
+        self.assertEqual(body["switches"]["1"]["capabilities"], caps)
+        self.assertEqual(body["switches"]["1"]["flow_stats"], {"unrendered_entries": 3})
+        self.assertIsNone(body["switches"]["2"]["capabilities"])
+        self.assertEqual(body["switches"]["2"]["flow_stats"], {"unrendered_entries": None})
+
+    def test_an_uninjected_reporter_adds_no_key(self):
+        api_routes.inject_roles_reports(None, None)
+        body = asyncio.run(api_routes.switch_state())
+        self.assertNotIn("capabilities", body["switches"]["1"])
+        self.assertNotIn("flow_stats", body["switches"]["1"])
+
+    def test_the_proxy_wires_both_reporters_at_import(self):
+        # main.py's module-level call, read from the file: api_routes' globals are re-injected
+        # by other suites with doubles, so their value at this moment proves nothing.
+        from tests.test_route_binding import module_level_calls
+
+        self.assertEqual(module_level_calls(main.__file__, "inject_roles_reports"),
+                         [["capabilities_report", "flow_stats_report"]])
+
+
+class TheUnrenderedCountTest(unittest.TestCase):
+    """main.flow_stats_report: the count the last render left, null before any."""
+
+    class Switches:
+        def __init__(self, switches):
+            self.switches = switches
+
+    def test_a_foreign_switchs_count_is_its_last_renders(self):
+        foreign = type("C", (), {"route_binding": None, "last_flow_render": (2, 5.0)})()
+        with mock.patch.object(main, "topo", self.Switches({1: foreign})):
+            self.assertEqual(main.flow_stats_report(), {"1": {"unrendered_entries": 2}})
+
+    def test_before_any_render_it_is_null_not_zero(self):
+        foreign = type("C", (), {"route_binding": None})()
+        with mock.patch.object(main, "topo", self.Switches({1: foreign})):
+            self.assertEqual(main.flow_stats_report(), {"1": {"unrendered_entries": None}})
+
+    def test_ndtwins_own_pipeline_leaves_nothing_out_once_its_table_was_read(self):
+        read = type("C", (), {"route_binding": main.route_binding.BASELINE,
+                              "last_table_read": lambda self: (4, 0.1)})()
+        unread = type("C", (), {"route_binding": main.route_binding.BASELINE,
+                                "last_table_read": lambda self: None})()
+        with mock.patch.object(main, "topo", self.Switches({1: read, 2: unread})):
+            self.assertEqual(main.flow_stats_report(), {"1": {"unrendered_entries": 0},
+                                                        "2": {"unrendered_entries": None}})
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -72,6 +72,51 @@ def call(dpid):
     return api_routes.get_flow_stats(dpid)
 
 
+class ForeignClient(HealthyClient):
+    """A client on a foreign pipeline with no roles, whose table holds one row the renderer
+    knows and one it does not. [Co-developed with claude code -- Adam]"""
+
+    route_binding = None
+
+    def read_table_entries(self):
+        known = {"table": "MyIngress.ipv4_lpm", "priority": 0, "is_default": False,
+                 "match": {"hdr.ipv4.dstAddr": {"type": "lpm", "value": b"\x0a\x00\x01\x01",
+                                                "prefix_len": 32}},
+                 "action": {"name": "MyIngress.ipv4_forward", "params": {"port": b"\x01"}}}
+        unknown = dict(known, action={"name": "MyIngress.set_ecmp_select", "params": {}})
+        return [known, unknown]
+
+
+class AForeignSwitchIsRenderedThroughItsBindingTest(unittest.TestCase):
+    """TICKET-P4-roles 2.5-1 at the route: the binding reaches the renderer, the count is kept."""
+
+    def tearDown(self):
+        api_routes.topology = None
+
+    def test_the_unknown_row_is_left_out_and_the_count_is_kept_on_the_client(self):
+        client = ForeignClient()
+        api_routes.topology = FakeTopology(switches={7: client})
+        body = call(7)
+        self.assertEqual([f["actions"] for f in body["7"]], [["OUTPUT:1"]])
+        self.assertEqual(client.last_flow_render[0], 1)
+
+    def test_a_client_on_ndtwins_pipeline_takes_the_unchanged_path(self):
+        client = HealthyClient()
+        api_routes.topology = FakeTopology(switches={7: client})
+        self.assertEqual(call(7), {"7": []})
+        self.assertFalse(hasattr(client, "last_flow_render"))
+
+    def test_a_failed_read_records_no_render(self):
+        class FailingForeign(ForeignClient):
+            def read_table_entries(self):
+                raise RuntimeError("stream broken")
+
+        client = FailingForeign()
+        api_routes.topology = FakeTopology(switches={7: client})
+        self.assertEqual(call(7).status_code, 503)
+        self.assertFalse(hasattr(client, "last_flow_render"))
+
+
 class AFailedReadIsNotAnEmptyTableTest(unittest.TestCase):
     def tearDown(self):
         api_routes.topology = None
