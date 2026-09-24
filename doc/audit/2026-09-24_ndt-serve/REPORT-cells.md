@@ -47,7 +47,7 @@
 | 項目 | 內容 | 狀態 |
 |---|---|---|
 | 程式 | `tools/ndt_serve/cells.py`（新檔）；`serve.py` 加上路由和 walk 邏輯；`jobs.py`、`verbs.py` 各加幾行 | ✅ `727d4b00`、`940c1233` |
-| 測試 | `tests/python/test_ndt_serve_cells.py`：**25 條**，用 stub grid，不碰 lab。第一刀的 51 條仍然全綠 | ✅ |
+| 測試 | `tests/python/test_ndt_serve_cells.py`：**25 條**，用 stub grid，不碰 lab。第一刀當時的 51 條仍然全綠（判官修正輪之後是 71 條，`REPORT.md` §3） | ✅ |
 | 變異閘門 | `mutate_ndt_serve.sh` 增加 C1–C16，全部變異合計 **58 個**。在 `940c1233` 上實跑：**58 個全部被抓到、0 倖存**；`check_gate_anchors.py HEAD` 116 支閘門全部 ok | ✅ `mutate_ndt_serve.940c1233.log`、`check_gate_anchors.940c1233.log` |
 | live（唯讀） | 經 API 對真的 grid（主 checkout 上的 `fd7382a3`）判 **11 格的 old/ 和 new/**：11 格 old/ 全部 FAIL，而且失敗集合都等於 EXPECTED-FAILS；11 格 new/ 全部 PASS | ✅ `CLOGS/offline/` |
 | live（walk） | 兩格走到 verdict：no-lab 那格有 4 條紅轉綠；ovs4 那格有 8 條紅轉綠、still_red 為空、CELL: PASS，而且還原乾淨（down 0、clean 0、orphans CLEAN） | ✅ `CLOGS/walk-*` |
@@ -157,7 +157,7 @@
 | old/ 不再 FAIL 時流程會停 | C15 | — | — |
 | 先 release 再判定 | C16 | ovs4 那格在 compare 之前就已經 release | — |
 
-閘門全部 58 個變異的結果：`scratch/overnight-2026-09-05/logs/ndt-serve-0924/mutate_ndt_serve.940c1233.log`。
+閘門全部 58 個變異的結果：`scratch/overnight-2026-09-05/logs/ndt-serve-0924/mutate_ndt_serve.940c1233.log`。判官修正輪之後閘門合計 77 個，在 `5c07acf3` 上 77 個全部抓到（`logs/ndt-serve-0924/final-5c07acf3/mutate_ndt_serve.log`），C1–C16 一個都沒有少。
 
 ### 4.5 沒做的事、已知限制
 
