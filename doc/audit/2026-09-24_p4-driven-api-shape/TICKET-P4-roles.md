@@ -190,4 +190,11 @@ M-R12 外來 fabric `reroute: true`；M-R13 baseline 綁定任一名字改掉；
 
 ## 7. 執行中的裁定（orchestrator；工單本體不回頭改，這裡是有效的補充）
 
-（尚無）
+### 裁決 1（09-24 18:5x）：goal (7) tutorials 18 臂——16 臂如預期、2 臂是儀器錯，派工單 D' 修 driver 後重跑那 2 臂
+
+- 實跑（trunk `6291db35`、driver blob `99c862a9` 未改；`scratch/overnight-2026-09-05/logs/orchestrator-0924/tutorials-18/`）：16 臂與 P3-D-SUMMARY §7.1 的預期表一致
+  （basic_tunnel／flowcache 骨架 rc 1 RED ARM、其餘骨架與解答 rc 0 PASS）；**flowcache 與 p4runtime 的解答臂 FAIL (4/4)**。
+- 原因（讀 log＋開檔核過）：tutorials 臂直接執行 `solution/mycontroller.py`，它以自身目錄加 `../../utils/` 找 `p4runtime_lib` ⇒ 解析成 `exercises/utils/`（不存在）⇒ import 即死
+  （`ModuleNotFoundError`）。tutorials 的用法是把解答複製到練習目錄再跑；骨架在練習目錄所以正常。**這是 driver 在一條從未實跑過的路徑上的錯，不是資料面結果。**
+- 裁：派 D'（worktree `wt-p4-driver-0924`，分支 `fix/tutorials-solution-controller-0924`；只准動 `drive_exercise.py`／`DRIVER.md`／`tests/**`／`mutate_drive_exercise.sh`）：
+  不改 `--fabric ndtwin` 路徑、不改骨架臂、不改凍結的 tutorials plan／sudo 行；紅先＋具名變異。併回後 orchestrator 重跑這 2 臂；REPORT-P3 附錄照「16 如預期＋2 儀器錯→修→重跑結果」寫，不把第一次的 FAIL 刪掉。
