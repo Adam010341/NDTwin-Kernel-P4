@@ -48,6 +48,11 @@ if the difference is anything other than exactly those. The table below is what 
                  six-rung throwaway ladder, clean=12, external 0.0538 / 0.2262  -> tagged
                                                                                    `control`,
                                                                                    in NO cell
+    rung window  NOT in the default tree: build(confirm=...) appends the top-rung
+                 re-confirmation rows (rep c1..c3) after the climb, in the real
+                 shape; write_cpu_following_real_rungs() puts a CPU trace under a
+                 real rungs.tsv copied verbatim                                 -> each rung reads
+                                                                                   its own level
 
 Nothing here imports analyse.py: a fixture that borrowed the code under test would agree with it
 by construction.
@@ -174,7 +179,8 @@ def _sflow_document(addressed, families=True):
 
 def write_arm(root, group, frame, pass_label, clean_kpps, external=None, softirq=None,
               kernel_spread=0.0, invalid=None, ladder=None, arm_name=None, burners=0,
-              bmv2_factor=1.0, bmv2_spread=0.0, kernel_fixed=None, kernel_marginal=None):
+              bmv2_factor=1.0, bmv2_spread=0.0, kernel_fixed=None, kernel_marginal=None,
+              confirm=None):
     """One ladder arm directory, exactly as run_group_arm.sh writes one.
 
     `arm_name` and `burners` exist for C3's two throwaway ladders, which run_group_arm.sh writes
@@ -189,6 +195,21 @@ def write_arm(root, group, frame, pass_label, clean_kpps, external=None, softirq
     group difference smaller than it (the H-C0 condition, ruling 40(b)). `kernel_fixed` /
     `kernel_marginal` replace KERNEL_FIXED / KERNEL_MARGINAL for this arm (ruling 40(a) needs
     a fit whose fixed share is small); None keeps the module's values.
+
+    `confirm` -- {"kpps": k, "kernel_extra": x} -- appends the TOP-RUNG RE-CONFIRMATION the way
+    run_group_arm.sh:420-440 writes it: three rungs.tsv rows `k c1|c2|c3` AFTER the whole climb,
+    i.e. after the rungs above k, with the same kpps as the climb's rung k and no get_sflow_stats
+    pair of their own (the script reads one pair per climbed rung, :378/:393, and none in the
+    confirmation loop). Every real ladder arm of the fourth and fifth campaigns carries these
+    rows (logs/orchestrator-0924/cpu-window-recheck/scan_row_shape.log); this fixture wrote none,
+    which is why nothing saw analyse.py's rung window swallow the rungs climbed between the rung
+    and its confirmation. The confirmation reps run at rung k's own CPU rates, plus
+    `kernel_extra` points on the kernel so a case can tell a window that includes them from one
+    that does not. Two simplifications, stated: the three reps are written back to back as one
+    24 s CPU period (the real ones are ~1 s apart for the iperf3 server start), and, as
+    everywhere in this fixture, CPU rows exist only inside reps. None (the default) writes no
+    confirmation rows, so the default tree -- the one every other case is pinned to -- is
+    byte-for-byte what it was.
     """
     kernel_fixed = KERNEL_FIXED if kernel_fixed is None else kernel_fixed
     kernel_marginal = KERNEL_MARGINAL if kernel_marginal is None else kernel_marginal
@@ -221,6 +242,24 @@ def write_arm(root, group, frame, pass_label, clean_kpps, external=None, softirq
         totals["emitter:13"] = 300000
     machine = {"user": 10 ** 7, "nice": 0, "system": 10 ** 6, "idle": 10 ** 8, "iowait": 0,
                "irq": 0, "softirq": 10 ** 5, "steal": 0}
+    rates_by_kpps = {}
+
+    def run_cpu(rates, start, seconds):
+        """CPU rows every 0.5 s over [start, start + seconds], the processes at `rates`."""
+        step = 0.5
+        samples = int(seconds / step) + 1
+        for n in range(samples):
+            now = start + n * step
+            if n:
+                for key, percent in rates.items():
+                    totals[key] += percent * step
+                for column, per_second in (("user", 400.0), ("system", 100.0), ("idle", 900.0),
+                                           ("softirq", 60.0)):
+                    machine[column] += per_second * step
+            cpu_rows.append({"t": round(now, 3),
+                             "machine": {k: int(v) for k, v in machine.items()},
+                             "proc": {k: int(v) for k, v in totals.items()}})
+
     for index, kpps in enumerate(ladder):
         start, end = t, t + 8.0
         spans[kpps] = (start, end)
@@ -249,20 +288,19 @@ def write_arm(root, group, frame, pass_label, clean_kpps, external=None, softirq
                 * (1.0 + bmv2_spread if pass_label == "a" else 1.0 - bmv2_spread))
         if group == "link":
             rates["emitter:13"] = 8.0
-        step = 0.5
-        samples = int(8.0 / step) + 1
-        for n in range(samples):
-            now = start + n * step
-            if n:
-                for key, percent in rates.items():
-                    totals[key] += percent * step
-                for column, per_second in (("user", 400.0), ("system", 100.0), ("idle", 900.0),
-                                           ("softirq", 60.0)):
-                    machine[column] += per_second * step
-            cpu_rows.append({"t": round(now, 3),
-                             "machine": {k: int(v) for k, v in machine.items()},
-                             "proc": {k: int(v) for k, v in totals.items()}})
+        rates_by_kpps[kpps] = rates
+        run_cpu(rates, start, 8.0)
         t = end + 4.0
+    if confirm:
+        # the re-confirmation, after the whole climb (run_group_arm.sh:420-440)
+        kpps = confirm["kpps"]
+        rates = dict(rates_by_kpps[kpps])
+        rates["kernel:11"] += confirm.get("kernel_extra", 0.0)
+        for rep in range(3):
+            rung_rows.append((kpps, "c%d" % (rep + 1), t + 8.0 * rep, t + 8.0 * (rep + 1),
+                              0.0, kpps * 1000.0, kpps * 1000.0))
+        run_cpu(rates, t, 24.0)
+        t += 24.0 + 4.0
 
     static = {"kernel": 11, "proxy": 12}
     if group == "link":
@@ -278,7 +316,7 @@ def write_arm(root, group, frame, pass_label, clean_kpps, external=None, softirq
 
     _write(os.path.join(directory, "rungs.tsv"),
            "kpps\trep\tt_start\tt_end\tloss\tsent_pps\trecv_pps\n"
-           + "".join("%d\t%d\t%.3f\t%.3f\t%.4f\t%.1f\t%.1f\n" % row for row in rung_rows))
+           + "".join("%d\t%s\t%.3f\t%.3f\t%.4f\t%.1f\t%.1f\n" % row for row in rung_rows))
     _write(os.path.join(directory, "ladder.tsv"),
            "kpps_offered\treps\tloss_scored\tloss_reps\tsent_pps\trecv_pps\tclean\n"
            + "".join("%d\t1\t0.0000\t0.0000\t%.1f\t%.1f\t%s\n"
@@ -320,6 +358,66 @@ def write_arm(root, group, frame, pass_label, clean_kpps, external=None, softirq
         "invalid=%s" % (invalid or "no"),
     ]
     _write(os.path.join(directory, "arm.meta"), "\n".join(meta) + "\n")
+    return directory
+
+
+def real_rung_level(kpps):
+    """The kernel's % of one core while rung `kpps` is being offered, in the real-rows fixture:
+    2 x kpps, so every rung has its own level and a window that reaches into another rung reads
+    a different number. Even, so 0.5 s at that level is a whole number of jiffies."""
+    return 2.0 * float(kpps)
+
+
+def write_cpu_following_real_rungs(directory, rungs_tsv, baseline=1.0):
+    """A cpu.jsonl under a REAL rungs.tsv, copied verbatim beside it; returns the directory.
+
+    The rows are the real ones -- their real timestamps, their real rep labels, their real
+    order, the confirmation blocks where run_group_arm.sh really put them. Only the CPU is made
+    up: 2 Hz rows spanning the whole ladder, with the kernel at real_rung_level(k) from the
+    START of each rep of rung k until the start of the next rep (so the ~1 s gap before a rep,
+    the iperf3 server start, still belongs to the rep before it), and at `baseline` before the
+    first rep. The jiffies are integrated exactly across a level change that falls between two
+    rows, then truncated to int the way /proc reports them.
+    """
+    os.makedirs(directory, exist_ok=True)
+    with open(rungs_tsv) as fh:
+        text = fh.read()
+    _write(os.path.join(directory, "rungs.tsv"), text)
+    lines = [line.split("\t") for line in text.splitlines()[1:] if line.strip()]
+    starts = sorted((float(fields[2]), float(fields[0])) for fields in lines)
+    first, last = starts[0][0], max(float(fields[3]) for fields in lines)
+
+    def rate_at(t):
+        level = baseline
+        for start, kpps in starts:
+            if start <= t:
+                level = real_rung_level(kpps)
+        return level
+
+    def integral(a, b):
+        cuts = [a] + [s for s, _k in starts if a < s < b] + [b]
+        return sum(rate_at(lo) * (hi - lo) for lo, hi in zip(cuts, cuts[1:]))
+
+    t0 = float(int(first) - 2)
+    count = int((last + 2 - t0) / 0.5) + 1
+    kernel, rows = 500000.0, []
+    machine = {"user": 10 ** 7, "nice": 0, "system": 10 ** 6, "idle": 10 ** 8, "iowait": 0,
+               "irq": 0, "softirq": 10 ** 5, "steal": 0}
+    for n in range(count):
+        now = t0 + 0.5 * n
+        if n:
+            # CLK_TCK jiffies per core-second: P% of one core gains P jiffies per second
+            kernel += integral(now - 0.5, now) * CLK_TCK / 100.0
+            for column, per_second in (("user", 400.0), ("system", 100.0), ("idle", 900.0)):
+                machine[column] += per_second * 0.5
+        rows.append({"t": now, "machine": {k: int(v) for k, v in machine.items()},
+                     "proc": {"kernel:11": int(kernel)}})
+    header = {"clk_tck": CLK_TCK, "nproc": 14, "hz": 2.0,
+              "stat_columns": ["user", "nice", "system", "idle", "iowait", "irq", "softirq",
+                               "steal"],
+              "static": {"kernel": 11}, "comms": {}, "unreadable_at_start": [], "started": t0}
+    _write(os.path.join(directory, "cpu.jsonl"),
+           "\n".join([json.dumps(header)] + [json.dumps(row) for row in rows]) + "\n")
     return directory
 
 
@@ -408,7 +506,7 @@ def _window_errors(spec, rate):
 def build(root, cells=None, coop_error=0.045, link_error=0.150, emitter_dropped=0,
           kernel_spread=0.0, c1_ceiling=770000.0, c2_ceiling=500000.0, ladders=None,
           bmv2_factor=None, bmv2_spread=0.0, kernel_fixed=None, kernel_marginal=None,
-          invalid_windows=()):
+          invalid_windows=(), confirm=None):
     """The whole tree. Returns root.
 
     `coop_error` / `link_error`: see _window_errors -- one number for all three rates, or a
@@ -421,10 +519,13 @@ def build(root, cells=None, coop_error=0.045, link_error=0.150, emitter_dropped=
     `invalid_windows`: {(group, rate, "p1"|"p2"|"p3")} written with `invalid` set, which is how a
     case builds a cell with fewer than three valid windows (ruling 40(c)) or a registered rate
     with no reading at all.
+    `confirm`: {(group, frame): {"kpps": k, "kernel_extra": x}} -- both arms of that cell get
+    the top-rung re-confirmation rows (see write_arm); None, the default, gives none.
     """
     cells = DEFAULT_CELLS if cells is None else cells
     ladders = ladders or {}
     bmv2_factor = bmv2_factor or {}
+    confirm = confirm or {}
     generations = {("none", "a"): "G1", ("cooperative", "a"): "G2", ("link", "a"): "G3",
                    ("link", "b"): "G4", ("cooperative", "b"): "G5", ("none", "b"): "G6"}
     for (group, frame), values in sorted(cells.items()):
@@ -434,7 +535,8 @@ def build(root, cells=None, coop_error=0.045, link_error=0.150, emitter_dropped=
                                   kernel_spread=kernel_spread, ladder=ladders.get(group),
                                   bmv2_factor=bmv2_factor.get(group, 1.0),
                                   bmv2_spread=bmv2_spread, kernel_fixed=kernel_fixed,
-                                  kernel_marginal=kernel_marginal)
+                                  kernel_marginal=kernel_marginal,
+                                  confirm=confirm.get((group, frame)))
             if group == "link":
                 write_emitter_log(directory, dropped=emitter_dropped)
     for group, spec in (("none", None), ("cooperative", coop_error), ("link", link_error)):

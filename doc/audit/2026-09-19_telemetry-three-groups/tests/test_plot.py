@@ -149,6 +149,56 @@ class Figure3Test(unittest.TestCase):
         self.assertIn("kpps", self.figure["xlabel"])
 
 
+class Figure3RungWindowTest(unittest.TestCase):
+    """🔴 TICKET-P4 section 7 ruling 4 (Adam, 2026-09-24): figure 3 is drawn from the "climb"
+    reading -- decided by Adam, NOT registered by PREREG -- and it says which reading it is.
+
+    Built end to end: synthetic raw -> analyse.analyse -> plot.figure3_data and analyse.render,
+    on a tree whose re-confirmation reps run 4 points hotter than the climb, so the two readings
+    draw different lines and a figure from the wrong one is visible in its numbers as well as in
+    its title.
+    """
+
+    def setUp(self):
+        self.summary, self.tmp = build_summary(
+            confirm={("cooperative", 1024): {"kpps": 8, "kernel_extra": 4.0}})
+        self.addCleanup(self.tmp.cleanup)
+
+    def test_figure3_names_its_rung_window_and_draws_the_climb_reading(self):
+        # (M-E54: the primary reading flipped to climb+confirmation; M-E57: the title stops
+        # naming its reading)
+        import io
+        figure = plot.figure3_data(self.summary)
+        self.assertIn("rung window: climb", figure["title"])
+        self.assertNotIn("climb+confirmation", figure["title"])
+        readings = self.summary["cpu_window"]["readings"]
+        climb = readings["climb"]["cpu_kernel"]["per_group"]["cooperative"][8.0]["cpu"]
+        pooled = readings["climb+confirmation"]["cpu_kernel"]["per_group"]["cooperative"][8.0]["cpu"]
+        self.assertGreater(abs(pooled - climb), 2.0, "the fixture no longer tells the two apart")
+        kernel = next(p for p in figure["panels"] if p["panel"] == "kernel")
+        coop = dict(next(s for s in kernel["series"] if s["name"] == "coop")["points"])
+        self.assertAlmostEqual(coop[8.0], climb, places=9)
+        buffer = io.StringIO()
+        analyse.render(self.summary, buffer)
+        self.assertIn("rung window: climb (decided by Adam 2026-09-24, TICKET-P4 §7 ruling 4; "
+                      "NOT registered by PREREG)", buffer.getvalue())
+
+    def test_figure3_refuses_panels_from_two_different_rung_windows(self):
+        mixed = json.loads(json.dumps(self.summary, default=str))
+        mixed["cpu_bmv2"] = self.summary["cpu_window"]["readings"]["climb+confirmation"]["cpu_bmv2"]
+        with self.assertRaises(ValueError):
+            plot.figure3_data(mixed)
+
+    def test_a_summary_from_before_the_recheck_says_its_rung_window_was_not_recorded(self):
+        # the archived fifth-campaign summary.json predates the recheck: its figure must not
+        # claim a reading it was never computed under
+        old = json.loads(json.dumps(self.summary, default=str))
+        for key in ("cpu_kernel", "cpu_bmv2"):
+            old[key].pop("rung_window_reading", None)
+        old.pop("cpu_window", None)
+        self.assertIn("rung window: not recorded", plot.figure3_data(old)["title"])
+
+
 class Figure3EndLabelTest(unittest.TestCase):
     """Figure 3's end-of-line labels, against the three values that overprinted.
 

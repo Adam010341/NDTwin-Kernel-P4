@@ -692,6 +692,215 @@ class CpuTest(unittest.TestCase):
             self.assertIs(row["inside"], False)
 
 
+class RungWindowTest(unittest.TestCase):
+    """🔴 A RUNG'S WINDOW IS ITS OWN REPS (the 2026-09-24 recheck of the stage-3 CPU analysis).
+
+    run_group_arm.sh re-confirms the highest clean rung AFTER the climb has gone on to the rungs
+    above it (:420-440), and files those three reps as `c1 c2 c3` rows with the rung's own kpps.
+    rung_windows() took (min t_start, max t_end) over every row of a kpps, so the confirmed
+    rung's window ran from its first climb rep to its last confirmation rep and contained every
+    rung in between: the fifth campaign's link_f64_b read 20 kpps over 110 s that include 30,
+    45, 70 and 110 kpps. Every real ladder arm of the fourth and fifth campaigns has this shape
+    and the fixture had none of it.
+
+    What PREREG fixes and what it does not (PREREG.md line numbers):
+      * S(k) = the rung's addressed_total delta / "該階的秒數", from the ONE get_sflow_stats pair
+        read per rung (AMENDMENT-1 A1.5, :503-509). That pair brackets the climb reps only
+        (run_group_arm.sh:378, :393), so S's seconds are the climb's. Not a reading -- the only
+        seconds the counter delta covers.
+      * kernel_CPU(g, k) at "每一階" (5.3, :262-264): no reading puts 30-110 kpps in rung 20.
+      * whether the confirmation reps are PART of rung k's CPU: PREREG does not say. 4.1 (:161-162)
+        names the confirmation as part of the ladder procedure ("梯頂三 rep 再確認＋walk-down",
+        from 08-28's (3) AMENDMENT-2 11.1(b), a loss re-check), and nothing registers which
+        seconds CPU(k) is taken over. So both readings are computed, and neither is called the
+        registered one; the cases below pin each reading's arithmetic.
+      * which one the primary summary keys use: "climb", decided by Adam on 2026-09-24
+        (TICKET-P4 section 7 ruling 4) and NOT registered by PREREG. That choice is pinned where
+        it reaches a reader -- figure 3's title and the render (test_plot.py, M-E54) -- and every
+        downstream CPU output must name its reading (M-E56).
+    """
+
+    REAL_ROWS = ("rungs.115737Z.G4.link_f64_b.tsv",          # the orchestrator's example
+                 "rungs.115737Z.G3.link_f64_a.tsv",          # walk-down: 30, 20, 12 re-confirmed
+                 "rungs.115737Z.G2.cooperative_f1024_a.tsv")  # a 1024 B arm: 12 over 117 s
+
+    def real_arm(self, name):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        directory = synthetic.write_cpu_following_real_rungs(
+            tmp.name, os.path.join(HERE, "fixtures", name))
+        return {"dir": directory,
+                "rungs": analyse.read_tsv(os.path.join(directory, "rungs.tsv"))}
+
+    def confirmed_tree(self, kernel_extra=0.0):
+        """The default tree, with both cooperative 1024 B arms re-confirming 8 kpps after 20."""
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        synthetic.build(tmp.name, confirm={("cooperative", 1024): {"kpps": 8,
+                                                                   "kernel_extra": kernel_extra}})
+        arms, _windows, _controls = analyse.walk_raw(tmp.name)
+        return tmp.name, arms
+
+    @staticmethod
+    def level_at(kpps, group="cooperative"):
+        """What the fixture's kernel runs at on rung `kpps`: built on the samples/s the counter
+        can actually give back (write_arm's `recoverable`), not on the ideal rate."""
+        recoverable = int(round(synthetic.samples_per_second(kpps, group) * 8.0)) / 8.0
+        return synthetic.KERNEL_BASE + synthetic.KERNEL_FIXED + synthetic.KERNEL_MARGINAL * recoverable
+
+    def assert_has_reading_parameter(self):
+        import inspect
+        self.assertIn("reading", inspect.signature(analyse.cpu_by_rung).parameters,
+                      "cpu_by_rung has no `reading`: the confirmation reps have no reading of "
+                      "their own to be computed under")
+
+    def test_on_the_real_rows_every_rungs_cpu_is_that_rungs_own(self):
+        # 🔴 THE DEFECT ON THE ROWS IT HAPPENED ON (M-E49). Three real rungs.tsv files, verbatim;
+        # the kernel's level is 2 x kpps from each rep's start to the next rep's start, so a
+        # window that stays on its rung reads exactly 2 x kpps and one that reaches into the
+        # rungs after it reads more. The union window read 20 kpps on link_f64_b as ~2.5x that.
+        for name in self.REAL_ROWS:
+            arm = self.real_arm(name)
+            by_rung = analyse.cpu_by_rung(arm)
+            self.assertTrue(by_rung, name)
+            for kpps, measured in sorted(by_rung.items()):
+                self.assertAlmostEqual(measured["kernel"], synthetic.real_rung_level(kpps),
+                                       delta=0.1, msg="%s: rung %g kpps" % (name, kpps))
+
+    def test_on_the_real_rows_the_climb_plus_confirmation_reading_stays_on_its_rung_too(self):
+        # the other reading pools the confirmation block with the climb -- and must not get
+        # there by stretching one window across the rungs between them (M-E51 also sees this)
+        self.assert_has_reading_parameter()
+        for name in self.REAL_ROWS:
+            arm = self.real_arm(name)
+            by_rung = analyse.cpu_by_rung(arm, reading="climb+confirmation")
+            self.assertTrue(by_rung, name)
+            for kpps, measured in sorted(by_rung.items()):
+                self.assertAlmostEqual(measured["kernel"], synthetic.real_rung_level(kpps),
+                                       delta=0.1, msg="%s: rung %g kpps" % (name, kpps))
+
+    def test_the_confirmed_rungs_climb_window_does_not_reach_the_rungs_climbed_after_it(self):
+        # the synthetic version, with the arithmetic known: cooperative re-confirms 8 kpps after
+        # climbing to 20. Rung 8's CPU is its own 8 s rep, whatever came after.
+        # The climb reading is asked for BY NAME where it exists: which reading the primary keys
+        # use is a placeholder no case may pin (the gate's control C-E3 flips it). On a
+        # cpu_by_rung that has no readings at all -- the pre-fix one -- the call is its only
+        # window, which is the one under test.
+        import inspect
+        _root, arms = self.confirmed_tree()
+        arm = next(a for a in arms if a["arm"] == "cooperative_f1024_a")
+        named = ({"reading": "climb"}
+                 if "reading" in inspect.signature(analyse.cpu_by_rung).parameters else {})
+        by_rung = analyse.cpu_by_rung(arm, **named)
+        self.assertAlmostEqual(by_rung[8.0]["kernel"], self.level_at(8), delta=0.2)
+        self.assertAlmostEqual(by_rung[8.0]["_elapsed_s"], 8.0, places=3)
+        self.assertAlmostEqual(by_rung[20.0]["kernel"], self.level_at(20), delta=0.2)
+
+    def test_samples_per_second_at_the_confirmed_rung_is_over_its_own_pairs_seconds(self):
+        # 🔴 A1.5: S(k) = the pair's delta / "該階的秒數". The pair brackets the climb (the
+        # fixture's is 8 s); the old window divided it by 48 s -- the climb, the 20 kpps rung, two
+        # gaps and the confirmation -- and read 8 kpps at a sixth of its rate. (M-E50)
+        _root, arms = self.confirmed_tree()
+        arm = next(a for a in arms if a["arm"] == "cooperative_f1024_a")
+        recoverable = int(round(synthetic.samples_per_second(8, "cooperative") * 8.0)) / 8.0
+        self.assertAlmostEqual(analyse.rung_samples_per_second(arm, 8.0), recoverable, places=6)
+
+    def test_the_climb_plus_confirmation_reading_pools_the_reps_own_seconds_only(self):
+        # confirmation reps 4 points hotter than the climb: 8 s at L and 24 s at L + 4 pool to
+        # L + 3 over 32 s. The climb reading stays at L over 8 s. A window stretched from the
+        # climb to the confirmation would also hold the 20 kpps rep and two idle gaps. (M-E51)
+        self.assert_has_reading_parameter()
+        _root, arms = self.confirmed_tree(kernel_extra=4.0)
+        arm = next(a for a in arms if a["arm"] == "cooperative_f1024_a")
+        pooled = analyse.cpu_by_rung(arm, reading="climb+confirmation")[8.0]
+        self.assertAlmostEqual(pooled["kernel"], self.level_at(8) + 3.0, delta=0.2)
+        self.assertAlmostEqual(pooled["_elapsed_s"], 32.0, places=3)
+        climb = analyse.cpu_by_rung(arm, reading="climb")[8.0]
+        self.assertAlmostEqual(climb["kernel"], self.level_at(8), delta=0.2)
+        # S is the climb's under both readings: the confirmation reps have no pair of their own
+        self.assertEqual(pooled["_samples_per_s"], climb["_samples_per_s"])
+
+    def test_both_readings_are_in_the_summary_side_by_side_and_neither_is_called_registered(self):
+        # 🔴 NOT A REGISTERED READING. The summary carries every CPU quantity under both
+        # readings, says which one the primary keys (cpu_kernel, cpu_bmv2, cpu_bmv2_ratio,
+        # reconciliation (b)) were computed under, WHO decided that (Adam, TICKET-P4 section 7
+        # ruling 4), and that PREREG did not. (M-E52: the two readings collapse; M-E53: the
+        # summary says PREREG decided it.)
+        import io
+        root, _arms = self.confirmed_tree(kernel_extra=4.0)
+        summary = analyse.analyse(root)
+        self.assertTrue("cpu_window" in summary,
+                        "the summary does not say which rung window its CPU was taken over")
+        block = summary["cpu_window"]
+        self.assertIs(block["decided_by_prereg"], False)
+        self.assertEqual(block.get("decided_by"), "Adam 2026-09-24, TICKET-P4 §7 ruling 4")
+        self.assertEqual(sorted(block["readings"]), sorted(analyse.CPU_WINDOW_READINGS))
+        self.assertIn(block["primary"], analyse.CPU_WINDOW_READINGS)
+        self.assertEqual(block.get("secondary"),
+                         [r for r in analyse.CPU_WINDOW_READINGS if r != block["primary"]])
+        per_reading = {reading: block["readings"][reading]["cpu_kernel"]["per_group"]
+                       ["cooperative"][8.0]["cpu"] for reading in analyse.CPU_WINDOW_READINGS}
+        self.assertAlmostEqual(per_reading["climb"], self.level_at(8), delta=0.2)
+        self.assertAlmostEqual(per_reading["climb+confirmation"], self.level_at(8) + 3.0,
+                               delta=0.2)
+        primary = block["readings"][block["primary"]]
+        self.assertEqual(summary["cpu_kernel"], primary["cpu_kernel"])
+        self.assertEqual(summary["cpu_bmv2"], primary["cpu_bmv2"])
+        self.assertEqual(summary["cpu_bmv2_ratio"], primary["cpu_bmv2_ratio"])
+        self.assertEqual([r for r in summary["reconciliation"] if r["id"] == "b"],
+                         primary["reconciliation_b"])
+        buffer = io.StringIO()
+        analyse.render(summary, buffer)
+        self.assertIn("NOT registered by PREREG", buffer.getvalue())
+        self.assertIn("decided by Adam 2026-09-24, TICKET-P4 §7 ruling 4", buffer.getvalue())
+
+    def test_every_downstream_cpu_output_names_the_rung_window_it_was_taken_over(self):
+        # 🔴 TICKET-P4 section 7 ruling 4: the registered bmv2 ratio and reconciliation (b) are
+        # computed over a reading Adam chose and PREREG did not register, so each of them -- in
+        # summary.json and in the render -- says which reading it is. A number that reaches
+        # FINDINGS without its reading is the round-1 state this case exists to refuse. (M-E56)
+        import io
+        root, _arms = self.confirmed_tree(kernel_extra=4.0)
+        summary = analyse.analyse(root)
+        primary = summary["cpu_window"]["primary"]
+        for key in ("cpu_kernel", "cpu_bmv2", "cpu_bmv2_ratio"):
+            self.assertEqual((summary.get(key) or {}).get("rung_window_reading"), primary, key)
+        rows_b = [r for r in summary["reconciliation"] if r["id"] == "b"]
+        self.assertTrue(rows_b)
+        for row in rows_b:
+            self.assertEqual(row.get("rung_window_reading"), primary, row["group"])
+        buffer = io.StringIO()
+        analyse.render(summary, buffer)
+        text = buffer.getvalue()
+        named = "rung window: %s (decided by Adam 2026-09-24, TICKET-P4 §7 ruling 4; NOT " \
+                "registered by PREREG)" % primary
+        kernel_header = next(line for line in text.splitlines() if "=== (3) CPU" in line)
+        self.assertIn(named, kernel_header)
+        bmv2_header = next(line for line in text.splitlines() if "=== (3b) bmv2" in line)
+        self.assertIn("rung window: %s" % primary, bmv2_header)
+        for line in text.splitlines():
+            if line.strip().startswith("(b) "):
+                self.assertIn("[rung window: %s]" % primary, line)
+            if line.strip().startswith("(a) "):
+                self.assertNotIn("rung window", line)     # (a) is the pps ceiling, not CPU
+
+    def test_the_default_tree_has_no_confirmation_rows_so_both_readings_agree_there(self):
+        # the tree every other case is pinned to: one rep per rung, no c-rows. The two readings
+        # must give the same numbers on it, or the fix moved something it had no business moving.
+        # (M-E55: the second reading keeps only the rungs that were re-confirmed -- round 1 had no
+        # behavioural mutant here; this case was red on the pre-fix code only because
+        # cpu_by_rung had no `reading` at all.)
+        self.assert_has_reading_parameter()
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        synthetic.build(tmp.name)
+        arms, _windows, _controls = analyse.walk_raw(tmp.name)
+        for arm in arms:
+            self.assertFalse(any(str(row.get("rep", "")).startswith("c") for row in arm["rungs"]))
+            self.assertEqual(analyse.cpu_by_rung(arm, reading="climb"),
+                             analyse.cpu_by_rung(arm, reading="climb+confirmation"), arm["arm"])
+
+
 class LoadGateTest(unittest.TestCase):
     def test_the_gate_is_within_group_so_the_link_treatment_does_not_fire_it(self):
         # 🔴 PREREG 6.2. The link arms sit at 0.30 against 0.05 elsewhere -- a global median

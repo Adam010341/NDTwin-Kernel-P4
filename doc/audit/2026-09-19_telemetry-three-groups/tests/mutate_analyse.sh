@@ -770,6 +770,84 @@ m=$(mutant m48 "$ANALYSE" \
 report "M-E48: the group-level H-B verdict falls back to the LAST cell" "$m" \
        "test_the_fifth_campaigns_shape_outside_at_the_FIRST_rate_is_not_H_B1_either"
 
+# --- the 2026-09-24 recheck: a rung's window is its own reps ---------------------------------------
+# 🔴 THE DEFECT EXACTLY AS IT WAS. The re-confirmation reps (rep c1..c3) are filed as climb reps
+# again, so a rung's window is the (min, max) span over every row of its kpps -- which on every
+# real arm runs from the climb, across every rung above it, to the re-confirmation.
+m=$(mutant m49 "$ANALYSE" \
+    '        part = "confirmation" if is_confirmation_rep(row.get("rep")) else "climb"' \
+    '        part = "climb"')
+report "M-E49: a rung's window is the span of every row of its kpps again (the union window)" "$m" \
+       "test_on_the_real_rows_every_rungs_cpu_is_that_rungs_own"
+
+# S(k)'s denominator reaches to the end of the re-confirmation, whose reps the pair never saw.
+m=$(mutant m50 "$ANALYSE" \
+    '    windows = rung_windows(arm).get(kpps) or {}
+    span = windows.get("climb")' \
+    '    windows = rung_windows(arm).get(kpps) or {}
+    span = windows.get("climb") and (windows["climb"][0],
+                                     (windows.get("confirmation") or windows["climb"])[1])')
+report "M-E50: samples/s divides the pair's delta by seconds the pair never bracketed" "$m" \
+       "test_samples_per_second_at_the_confirmed_rung_is_over_its_own_pairs_seconds"
+
+# The pooled reading reached by stretching ONE window from the first span to the last -- which
+# puts back, for that reading only, exactly the rungs in between.
+m=$(mutant m51 "$ANALYSE" \
+    '    parts = [cpu_for_window(rows, clk_tck, t0, t1) for t0, t1 in spans]' \
+    '    parts = [cpu_for_window(rows, clk_tck, min(s[0] for s in spans), max(s[1] for s in spans))]')
+report "M-E51: climb+confirmation is one window stretched across the rungs between them" "$m" \
+       "test_the_climb_plus_confirmation_reading_pools_the_reps_own_seconds_only"
+
+# The side by side collapses: the second reading silently drops the re-confirmation, so the
+# summary shows the same numbers twice under two names.
+m=$(mutant m52 "$ANALYSE" \
+    '    return [span for span in (windows["climb"], windows["confirmation"]) if span]' \
+    '    return [windows["climb"]]')
+report "M-E52: the two readings are the same reading twice (the re-confirmation never counted)" "$m" \
+       "test_both_readings_are_in_the_summary_side_by_side_and_neither_is_called_registered"
+
+# The flag that says PREREG did not decide it, flipped. (Round 2: the anchor moved with the
+# line when ruling 4 added `decided_by` beside it; the mutation is the same one.)
+m=$(mutant m53 "$ANALYSE" \
+    '           "decided_by": CPU_WINDOW_DECIDED_BY, "decided_by_prereg": False,' \
+    '           "decided_by": CPU_WINDOW_DECIDED_BY, "decided_by_prereg": True,')
+report "M-E53: the summary says PREREG decided which reps a rung's CPU is over" "$m" \
+       "test_both_readings_are_in_the_summary_side_by_side_and_neither_is_called_registered"
+
+# --- round 2 of the recheck: TICKET-P4 section 7 ruling 4 (Adam, 2026-09-24) ----------------------
+# The primary reading is "climb", decided by Adam and NOT registered by PREREG. Round 1 kept a
+# control (C-E3) proving no case pinned the then-placeholder; the ruling turns that control into
+# this mutation, and it must go red where the reading reaches a reader: figure 3 and the render.
+m=$(mutant m54 "$ANALYSE" \
+    'CPU_WINDOW_PRIMARY = "climb"' \
+    'CPU_WINDOW_PRIMARY = "climb+confirmation"')
+report "M-E54: the primary reading is flipped to climb+confirmation, against ruling 4" "$m" \
+       "test_figure3_names_its_rung_window_and_draws_the_climb_reading"
+
+# The second reading keeps only the rungs that were re-confirmed -- so on a ladder with no
+# re-confirmation at all it reads nothing, and the two readings stop agreeing where they must.
+# (Same anchor as M-E52, a different replacement; the gate applies each to its own copy.)
+m=$(mutant m55 "$ANALYSE" \
+    '    return [span for span in (windows["climb"], windows["confirmation"]) if span]' \
+    '    return [span for span in (windows["climb"], windows["confirmation"]) if span] if windows["confirmation"] else []')
+report "M-E55: climb+confirmation keeps only the rungs that were re-confirmed" "$m" \
+       "test_the_default_tree_has_no_confirmation_rows_so_both_readings_agree_there"
+
+# The render stops naming the reading its CPU lines were computed under.
+m=$(mutant m56 "$ANALYSE" \
+    '    window_label = rung_window_label(summary)' \
+    '    window_label = ""')
+report "M-E56: the render's CPU sections stop naming their rung window" "$m" \
+       "test_every_downstream_cpu_output_names_the_rung_window_it_was_taken_over"
+
+# Figure 3's title goes back to the round-1 text, which named no reading.
+m=$(mutant m57 "$PLOT" \
+    '    return {"title": "CPU by telemetry source and offered rate (1024 B frames, rung window: %s)"
+                     % (reading or "not recorded"),' \
+    '    return {"title": "CPU by telemetry source and offered rate (1024 B frames)",')
+report "M-E57: figure 3's title stops naming the rung window it was drawn from" "$m" \
+       "test_figure3_names_its_rung_window_and_draws_the_climb_reading"
+
 # --- the controls: changes that must NOT be caught -------------------------------------------------
 # A suite that goes red on a comment is not sensitive, it is fragile, and a fragile suite gets
 # ignored -- which costs more than the mutations it catches.
@@ -786,6 +864,10 @@ m=$(mutant c2 "$PLOT" \
     '    bars = []
     for frame in sorted({size for (_g, size) in parsed}):')
 control "C-E2: a comprehension variable renamed in figure1_data (semantics unchanged)" "$m"
+
+# (C-E3 RETIRED in round 2 of the recheck: it flipped the then-placeholder primary reading and had
+# to stay green. TICKET-P4 section 7 ruling 4 decided the reading, so the same change is now
+# M-E54 above and must go red.)
 
 # --- nothing underneath the gate moved while it ran ---------------------------------------------
 # 🔴 EVERY FILE THIS GATE MUTATES OR RUNS, not just the python half (ruling 25(4)). The
