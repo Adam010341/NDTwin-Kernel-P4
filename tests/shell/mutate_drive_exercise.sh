@@ -512,9 +512,12 @@ add "47. calc.py is never told to quit" \
 # 48: 🔴 ecn WITHOUT THE QUEUE. ecn.p4:9's ECN_THRESHOLD is 10 enqueued packets; nothing else in
 # the exercise builds a queue, so the solution arm would be red for a reason that is not ecn.p4
 # and the report would say "no congestion mark" about a fabric that was never congested.
+# (P4-D'', TICKET-P4-roles §7 ruling 7: the anchor now carries the ecn background's own -t.)
 add "48. ecn stops running the background flow that builds the queue" \
     "$DRIVER" \
-    '        srv, cli, fh = self._background_udp("h11", "h22", self.ips["h22"], rate="1M")
+    '        srv, cli, fh = self._background_udp(
+            "h11", "h22", self.ips["h22"], rate="1M",
+            seconds=ecn_background_seconds(self.args.recv_warmup, self.args.drain_wait))
         try:
             recv, rfh, rpath, rcmd = self._start_receiver("h2", "h2")
             self.steps.append(("E1  h2 starts the sniffer", rcmd, "(background; output below)"))' \
@@ -1078,6 +1081,141 @@ add "106. the printed start line drops the PYTHONPATH the controller runs with" 
     '        say("$ %s   (> %s)" % (shown, path))' \
     '        say("$ %s   (> %s)" % (" ".join(argv), path))  # MUTANT' \
     'test_the_printed_start_line_carries_the_prefix_on_the_solution_arm_only'
+
+# 107-125 (P4-D'', TICKET-P4-roles §7 ruling 7): the ecn solution arm's mark check had 2-4
+# probes to look at. [Co-developed with claude code -- Adam]
+# Every one of these is a way back to an instrument that cannot tell a marking data plane from
+# a silent one -- or to one that cannot fail at all. 107-111 are the train (its count, and a
+# sender that is killed before its tail); 112-115 the background that has to outlast it;
+# 116-118 the two arms' claims, exactly as strict as before with ten times the probes; 119 the
+# injection row the ruling keeps; 120-121 mri/qos's shared constants; 122-125 the delivered
+# count, which is disclosed as a step and must stay out of the verdict table.
+add "107. ecn goes back to the shared six-probe train" \
+    "$DRIVER" \
+    '                    str(ECN_PROBES)]' \
+    '                    str(SEND_SECONDS)]  # MUTANT: the shared six' \
+    'test_the_ecn_sender_is_asked_for_enough_probes'
+
+add "108. the ecn train is cut under the 1% floor the 09-24 rate sets" \
+    "$DRIVER" \
+    'ECN_PROBES = 60' \
+    'ECN_PROBES = 30  # MUTANT: half the README'"'"'s 60 -- 0.9^30 = 4% false fails' \
+    'test_the_ecn_sender_is_asked_for_enough_probes'
+
+add "109. the ecn sender is handed the shared SEND_TIMEOUT, which kills the train's tail" \
+    "$DRIVER" \
+    '            sout = self._send_once("h1", scmd, label="E2  h1 send.py (one packet per second)",
+                                   timeout=ECN_SEND_TIMEOUT)' \
+    '            sout = self._send_once("h1", scmd, label="E2  h1 send.py (one packet per second)")  # MUTANT' \
+    'test_the_ecn_sender_is_not_killed_before_its_last_probe'
+
+add "110. _send_once ignores the timeout it is handed" \
+    "$DRIVER" \
+    '                                      timeout=SEND_TIMEOUT if timeout is None else timeout)' \
+    '                                      timeout=SEND_TIMEOUT)  # MUTANT: the parameter is decoration' \
+    'test_the_ecn_sender_is_not_killed_before_its_last_probe'
+
+add "111. the ecn sender's timeout leaves no room for start-up or sendp()" \
+    "$DRIVER" \
+    'ECN_SEND_TIMEOUT = ECN_PROBES + 20' \
+    'ECN_SEND_TIMEOUT = ECN_PROBES  # MUTANT: 60 probes are ~62 s at the 09-24 spacing' \
+    'test_the_ecn_sender_is_not_killed_before_its_last_probe'
+
+add "112. the ecn background falls back to the shared 20 s" \
+    "$DRIVER" \
+    '            "h11", "h22", self.ips["h22"], rate="1M",
+            seconds=ecn_background_seconds(self.args.recv_warmup, self.args.drain_wait))' \
+    '            "h11", "h22", self.ips["h22"], rate="1M")  # MUTANT: BG_SECONDS' \
+    'test_the_background_outlasts_the_whole_probe_train'
+
+# 113 and 115 are green at the shipped 3 s / 3 s waits (the 5 s margin absorbs either one) and
+# red only at the inflated --recv-warmup 12 / --drain-wait 9 subtest -- which is why it exists.
+add "113. the background covers the sender but not the sniffer's drain" \
+    "$DRIVER" \
+    '    return int(math.ceil(recv_warmup + ECN_SEND_TIMEOUT + drain_wait)) + ECN_BG_MARGIN' \
+    '    return int(math.ceil(recv_warmup + ECN_SEND_TIMEOUT)) + ECN_BG_MARGIN  # MUTANT: no drain' \
+    'test_the_background_outlasts_the_whole_probe_train'
+
+add "114. the background ends exactly when the sniffer can, with no margin" \
+    "$DRIVER" \
+    'ECN_BG_MARGIN = 5' \
+    'ECN_BG_MARGIN = 0  # MUTANT' \
+    'test_the_background_outlasts_the_whole_probe_train'
+
+add "115. the background forgets the receiver warm-up it starts before" \
+    "$DRIVER" \
+    '    return int(math.ceil(recv_warmup + ECN_SEND_TIMEOUT + drain_wait)) + ECN_BG_MARGIN' \
+    '    return int(math.ceil(ECN_SEND_TIMEOUT + drain_wait)) + ECN_BG_MARGIN  # MUTANT: no warm-up' \
+    'test_the_background_outlasts_the_whole_probe_train'
+
+add "116. the ecn RED ARM reads only the old six-probe prefix of the train" \
+    "$DRIVER" \
+    '                      bool(tos) and set(tos) == {"0x1"}, G_BOTH,
+                      "README step 1.8: '"'"'the ipv4.tos field is always 1'"'"'; ecn.p4:132-138 "' \
+    '                      bool(tos) and set(tos[:6]) == {"0x1"}, G_BOTH,  # MUTANT
+                      "README step 1.8: '"'"'the ipv4.tos field is always 1'"'"'; ecn.p4:132-138 "' \
+    'test_one_mark_anywhere_in_the_long_train_reddens_the_skeleton'
+
+add "117. the ecn RED ARM passes a run in which nothing reached h2" \
+    "$DRIVER" \
+    '                      bool(tos) and set(tos) == {"0x1"}, G_BOTH,
+                      "README step 1.8: '"'"'the ipv4.tos field is always 1'"'"'; ecn.p4:132-138 "' \
+    '                      set(tos) <= {"0x1"}, G_BOTH,  # MUTANT: an empty set is all-0x1 too
+                      "README step 1.8: '"'"'the ipv4.tos field is always 1'"'"'; ecn.p4:132-138 "' \
+    'test_no_packet_at_all_fails_the_injection_check_rather_than_passing_vacuously'
+
+add "118. the ecn solution takes any tos that is not 0x1 as the congestion mark" \
+    "$DRIVER" \
+    '                      str(sorted(set(tos))), "0x3" in tos, G_BOTH,' \
+    '                      str(sorted(set(tos))), bool(set(tos) - {"0x1"}), G_BOTH,  # MUTANT' \
+    'test_only_0x3_counts_as_the_congestion_mark'
+
+add "119. the ecn injection row is dropped" \
+    "$DRIVER" \
+    '        self._add("injection: packets reached h2", ">=1", "%d" % len(pkts),
+                  len(pkts) >= 1, G_SRC,
+                  "send.py:35-41 sends one UDP/4321 datagram per second; receive.py:34 filters "' \
+    '        if False: self._add("injection: packets reached h2", ">=1", "%d" % len(pkts),  # MUTANT
+                  len(pkts) >= 1, G_SRC,
+                  "send.py:35-41 sends one UDP/4321 datagram per second; receive.py:34 filters "' \
+    'test_the_verdict_rows_are_the_ones_the_ruling_keeps'
+
+add "120. the shared SEND_SECONDS is raised instead of ecn getting its own" \
+    "$DRIVER" \
+    'SEND_SECONDS = 6      # s of the mri/qos senders' \
+    'SEND_SECONDS = 60      # MUTANT: every sender gets the ecn train; s of the mri/qos senders' \
+    'test_mri_and_qos_keep_the_shared_sender_and_background'
+
+add "121. mri borrows the ecn probe train" \
+    "$DRIVER" \
+    '                    str(SEND_SECONDS)]' \
+    '                    str(ECN_PROBES)]  # MUTANT' \
+    'test_mri_and_qos_keep_the_shared_sender_and_background'
+
+add "122. the delivered-count disclosure is never filed" \
+    "$DRIVER" \
+    '        self.steps.append(("E4  probes that reached h2 (disclosure, not a verdict)",' \
+    '        if False: self.steps.append(("E4  probes that reached h2 (disclosure, not a verdict)",  # MUTANT' \
+    'test_the_arm_discloses_how_many_probes_reached_h2_and_in_what_order'
+
+add "123. the disclosure counts against the shared six, not what the sender was asked for" \
+    "$DRIVER" \
+    '                % (len(pkts), ECN_PROBES, self.args.drain_wait, " ".join(tos) or "(none)"))' \
+    '                % (len(pkts), SEND_SECONDS, self.args.drain_wait, " ".join(tos) or "(none)"))  # MUTANT' \
+    'test_the_arm_discloses_how_many_probes_reached_h2_and_in_what_order'
+
+add "124. the disclosure prints the tos SET, so the arrival order (the 1 -> 3) is lost" \
+    "$DRIVER" \
+    '                % (len(pkts), ECN_PROBES, self.args.drain_wait, " ".join(tos) or "(none)"))' \
+    '                % (len(pkts), ECN_PROBES, self.args.drain_wait, " ".join(sorted(set(tos))) or "(none)"))  # MUTANT' \
+    'test_the_arm_discloses_how_many_probes_reached_h2_and_in_what_order'
+
+add "125. the disclosure is also filed as a verdict row that cannot fail" \
+    "$DRIVER" \
+    '        say("   " + seen.replace("\n", "\n   "))' \
+    '        say("   " + seen.replace("\n", "\n   "))
+        self._add("probes that reached h2 (disclosure)", "-", "%d" % len(pkts), True, G_SRC)  # MUTANT' \
+    'test_the_verdict_rows_are_the_ones_the_ruling_keeps'
 
 CTRL_SRC="$DRIVER"
 CTRL_ANCHOR='def host_key(name):'

@@ -156,6 +156,12 @@ sudo、沒有 lab、沒有跑過任何一支（TICKET-P3 §0-2）；離線測試
    solution 臂必紅，而那不是 `ecn.p4` 的事**——spec 裡的 `"needs": "shaped_links"` 就是這件事，
    §2.4 也把 `ecn` 排在 G2-C 之前不進閘門。`mri` 的斷言只有 count 與 swid，不需要佇列
    （`qdepth` 刻意不斷言）；`qos` 的 topology **沒有**被節流的鏈路。
+   🆕 **2026-09-25（TICKET-P4-roles §7 裁決 7）：`ecn` 送 `ECN_PROBES = 60` 個探測封包，不再用
+   `mri`／`qos` 共用的 `SEND_SECONDS = 6`**——判定的樣本是「到得了 h2 的探測封包」，6 個只剩 2–4 個
+   （09-24 十次過五次）；60 是 README troubleshooting 第 5 點（README:198）自己建議的值，照 09-24 的
+   觀測率（送 60 個、到 h2 且為 0x3 的 6 個，q＝0.10）估誤判率 0.9^60≈0.2%（INFERRED：同一個佇列後面的
+   樣本不獨立）。送端的 timeout 與背景 iperf 的 `-t`（`ecn_background_seconds()`）跟著放長，背景蓋過
+   warm-up＋送端 timeout＋drain；兩臂的斷言不變，另加一個 E4 步驟揭露「幾個到了、依序的 tos」（不是判定列）。
 2. **兩支的紅臂不在資料面，而且兩個 fabric 上要讀成同一件事**（judge A6）。
    `flowcache` 停在 `p4c`（exit 1、verdict 寫 `skeleton does not compile, by design`）；
    `basic_tunnel` 停在控制面——tutorials 上 harness 在 `program_switches` 丟例外、
