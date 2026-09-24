@@ -24,6 +24,12 @@ WHAT IT REFUSES TO DO
   * attribute a link group's extra error to dropped samples when the emitter's drop counters
     read zero. That is ROLE-5's finding written as code: a mechanism that was not observed does
     not go into a verdict.
+  * paste a registered hypothesis on a level PREREG did not register it at (ruling 38). H-B1
+    and H-B4 are registered over the three offered rates TOGETHER and H-B2 at 100 Mbit/s only,
+    so a (group, rate) cell gets a description -- inside, above or below its band, one sign or
+    mixed -- and the registered label is decided once per group. The same rule on the CPU side:
+    H-C1/H-C2/H-C3 are registered for the kernel's fit, so bmv2 gets its own registered
+    comparison (cooperative/none at each rung) and no H-C label.
   * compare an arm's foreign-CPU residual to the median of ALL arms. The gate is within group,
     because `tc action sample` burns softirq charged to no pid and a global gate would fire on
     the treatment (PREREG 6.2).
@@ -54,11 +60,22 @@ EXTERNAL_THRESHOLD = 0.15
 #: PREREG 5.2. median|X| = 0.674 sd for a zero-mean normal; the band is [0.5, 2.0] x that.
 MEDIAN_OVER_SD = 0.674
 SHOT_BAND_LO, SHOT_BAND_HI = 0.5, 2.0
+#: PREREG 4.2: the three offered rates. 🔴 H-B1 and H-B4 are registered over EXACTLY these three
+#: together ("三個速率的 ... 都", PREREG 5.2 :251 and :254), so the group-level verdict is judged
+#: against this list and not against whatever rates a run happens to contain.
+REGISTERED_RATES_MBIT = (2, 20, 100)
+#: PREREG 5.2 :252. H-B2 is registered at this one rate ("100 Mbit/s 那格 > 2.0x 預測"), with
+#: "三個視窗的 ratio-1 同號" as its second condition.
+H_B2_RATE_MBIT = 100
+#: PREREG 5.2 :254: E(link,r)/E(coop,r) in [0.5, 2.0].
+CROSS_GROUP_LO, CROSS_GROUP_HI = 0.5, 2.0
 #: PREREG 5.2 / 3.4: the metric integrates over the inter-switch edges the flow crosses, and on
 #: the 4-host model h1 -> h4 crosses four of them (s1 -> agg -> core -> agg -> s4). Recomputed
 #: from the window's own key set when the raw records one, so this is only the fallback.
 DEFAULT_ONPATH_LINKS = 4
 DEFAULT_SAMPLING_DIVISOR = 256
+#: PREREG 5.3 (附帶註冊, :276-277): bmv2_total(cooperative)/bmv2_total(none) at the same rung.
+BMV2_RATIO_LO, BMV2_RATIO_HI = 0.90, 1.15
 #: PREREG 5.3 / 8(b). 08-20's marginal cost, and the factor band registered for "consistent".
 OLD_MARGINAL_US_PER_SAMPLE = 206.0
 MARGINAL_BAND_LO, MARGINAL_BAND_HI = 0.5, 3.0
@@ -389,7 +406,16 @@ def emitter_drops(log_text):
 
 
 def sampling_summary(windows):
-    """Per (group, rate): the median |ratio-1|, the signed bias, and the registered verdict."""
+    """Per (group, rate): the median |ratio-1|, the signed bias, and a DESCRIPTION of the cell.
+
+    🔴 A DESCRIPTION, NOT A REGISTERED VERDICT (ruling 38). This used to print "H-B1 shot-noise
+    limited" or "H-B2 systematic bias" on each cell, and PREREG 5.2 registers neither there:
+    H-B1 is "all three rates inside the band" and H-B2 is "the 100 Mbit/s cell above 2x AND the
+    three windows the same sign". The fourth campaign's pre-fix `link 2M: H-B2` was a label on a
+    rate H-B2 was never registered at. So each cell says where it sits against its own band and
+    whether its windows agree in sign -- that is data -- and registered_sampling() makes the
+    registered call, once per group, from these rows.
+    """
     cells = {}
     for window in windows:
         if window.get("invalid"):
@@ -400,7 +426,8 @@ def sampling_summary(windows):
     for (group, rate), members in sorted(cells.items(), key=lambda kv: (kv[0][0], kv[0][1] or 0)):
         row = {"group": group, "offered_mbit": rate, "windows": len(members),
                "median_abs_error": None, "median_signed_error": None,
-               "predicted": None, "verdict": None, "note": None,
+               "predicted": None, "band": None, "position": None, "same_sign": None,
+               "description": None, "note": None,
                "links_used": None, "keys_total": None, "links_note": None,
                "nonzero_twin_readings": sum(m.get("nonzero_twin_readings") or 0 for m in members)}
         sample = members[0]
@@ -423,25 +450,96 @@ def sampling_summary(windows):
         signed = [m["signed_error"] for m in members if m.get("signed_error") is not None]
         row["median_abs_error"] = median(abs_errors)
         row["median_signed_error"] = median(signed)
+        row["same_sign"] = bool(signed) and (all(s > 0 for s in signed)
+                                             or all(s < 0 for s in signed))
         if row["median_abs_error"] is None or not row["predicted"]:
-            row["verdict"] = "no reading"
+            row["description"] = "no reading"
         else:
             predicted = row["predicted"]["median_abs"]
             low, high = SHOT_BAND_LO * predicted, SHOT_BAND_HI * predicted
+            row["band"] = [low, high]
             if low <= row["median_abs_error"] <= high:
-                row["verdict"] = "H-B1 shot-noise limited"
+                row["position"] = "inside"
+                row["description"] = "inside the shot-noise band"
             elif row["median_abs_error"] > high:
-                same_sign = signed and (all(s > 0 for s in signed) or all(s < 0 for s in signed))
-                row["verdict"] = ("H-B2 systematic bias" if same_sign
-                                  else "above the shot-noise band, signs mixed")
+                row["position"] = "above"
+                row["description"] = ("above the shot-noise band, every window the same sign"
+                                      if row["same_sign"]
+                                      else "above the shot-noise band, signs mixed")
             else:
-                row["verdict"] = "below the shot-noise band"
+                row["position"] = "below"
+                row["description"] = "below the shot-noise band"
         out.append(row)
     return out
 
 
+def all_registered_rates(values, want):
+    """{rate: value} -> True / False / None: does EVERY registered rate have `want`?
+
+    False as soon as one registered rate has something else; None when none does but one of
+    them has no reading at all (a registered rate that was not measured cannot be counted as
+    inside); True only when all three do. Rates outside REGISTERED_RATES_MBIT are not consulted.
+    🔴 THE WHOLE OF RULING 38 IS THAT THIS LOOKS AT ALL THREE. A roll-up that consulted one cell
+    -- the first, the last, the one that happened to be printed -- would turn "two inside, one
+    outside" into H-B1 (M-E37).
+    """
+    registered = [values.get(rate) for rate in REGISTERED_RATES_MBIT]
+    if any(value is not None and value != want for value in registered):
+        return False
+    if any(value is None for value in registered):
+        return None
+    return True
+
+
+def registered_sampling(rows):
+    """PREREG 5.2's H-B1 and H-B2, per treated group, at the level they are registered.
+
+      H-B1  all three registered rates' median |ratio-1| inside [0.5, 2.0] x the prediction
+      H-B2  the 100 Mbit/s cell above 2.0x the prediction AND every window's ratio-1 one sign
+    The two cannot both hold (at 100 Mbit/s one needs inside the band, the other above it), so
+    the group's `label` is whichever holds, or says that neither does.
+    """
+    by_key = {(row["group"], row["offered_mbit"]): row for row in rows}
+    out = []
+    for group in ("cooperative", "link"):
+        cells = {rate: by_key.get((group, rate)) for rate in REGISTERED_RATES_MBIT}
+        positions = {rate: (cell or {}).get("position") for rate, cell in cells.items()}
+        h_b1 = all_registered_rates(positions, "inside")
+        at_100 = cells.get(H_B2_RATE_MBIT) or {}
+        if at_100.get("position") is None:
+            h_b2 = None
+        else:
+            h_b2 = at_100.get("position") == "above" and bool(at_100.get("same_sign"))
+        if h_b1:
+            label = "H-B1 shot-noise limited (all three rates inside the band)"
+        elif h_b2:
+            label = ("H-B2 systematic bias (%g Mbit/s above 2x the prediction, every window the "
+                     "same sign)" % H_B2_RATE_MBIT)
+        elif h_b1 is None or h_b2 is None:
+            label = "not decided: a registered rate has no reading"
+        else:
+            label = "neither H-B1 nor H-B2 holds as registered"
+        out.append({
+            "group": group, "label": label,
+            "H-B1": {"holds": h_b1,
+                     "rates": [{"offered_mbit": rate, "position": positions[rate],
+                                "median_abs_error": (cells[rate] or {}).get("median_abs_error"),
+                                "band": (cells[rate] or {}).get("band")}
+                               for rate in REGISTERED_RATES_MBIT]},
+            "H-B2": {"holds": h_b2, "offered_mbit": H_B2_RATE_MBIT,
+                     "position": at_100.get("position"), "same_sign": at_100.get("same_sign"),
+                     "windows": at_100.get("windows")},
+        })
+    return out
+
+
 def link_vs_cooperative(summary_rows, emitter_counters=None):
-    """H-B4, and H-B3's attribution -- which may only be made when a counter actually moved."""
+    """Per rate: link/coop and a description; and H-B3's attribution, which PREREG registers per
+    rate -- and which may only be made when a counter actually moved.
+
+    H-B4 itself is registered over the three rates together (PREREG 5.2 :254), so it is decided
+    in registered_cross_group() and never on one of these rows (ruling 38).
+    """
     by_key = {(row["group"], row["offered_mbit"]): row for row in summary_rows}
     rates = sorted({rate for (group, rate) in by_key if group == "cooperative"})
     out = []
@@ -449,15 +547,17 @@ def link_vs_cooperative(summary_rows, emitter_counters=None):
         link = by_key.get(("link", rate))
         coop = by_key.get(("cooperative", rate))
         row = {"offered_mbit": rate, "link": None, "cooperative": None,
-               "ratio": None, "verdict": "no reading", "attribution": None}
+               "ratio": None, "inside": None, "description": "no reading", "attribution": None}
         if link and coop:
             row["link"], row["cooperative"] = link["median_abs_error"], coop["median_abs_error"]
         if row["link"] is None or not row["cooperative"]:
             out.append(row)
             continue
         row["ratio"] = row["link"] / row["cooperative"]
-        row["verdict"] = ("H-B4 the two paths are equally accurate" if 0.5 <= row["ratio"] <= 2.0
-                          else "the two paths are NOT equally accurate")
+        row["inside"] = CROSS_GROUP_LO <= row["ratio"] <= CROSS_GROUP_HI
+        row["description"] = ("link/cooperative inside [%.1f, %.1f]" if row["inside"]
+                              else "link/cooperative outside [%.1f, %.1f]"
+                              ) % (CROSS_GROUP_LO, CROSS_GROUP_HI)
         if row["ratio"] > 2.0:
             dropped = sum(value for key, value in (emitter_counters or {}).items()
                           if key.startswith("dropped_") or key == "enobufs")
@@ -474,6 +574,25 @@ def link_vs_cooperative(summary_rows, emitter_counters=None):
                                       "counter read zero, so that mechanism was not observed")
         out.append(row)
     return out
+
+
+def registered_cross_group(rows):
+    """PREREG 5.2's H-B4, decided once: link/coop inside [0.5, 2.0] at all three rates."""
+    by_rate = {row["offered_mbit"]: row for row in rows}
+    inside = {rate: (by_rate.get(rate) or {}).get("inside") for rate in REGISTERED_RATES_MBIT}
+    holds = all_registered_rates(inside, True)
+    if holds:
+        label = "H-B4 the two paths are equally accurate (all three rates inside [0.5, 2.0])"
+    elif holds is None:
+        label = "not decided: a registered rate has no link/cooperative ratio"
+    else:
+        # a label starts with the hypothesis' name only when it holds, here as for H-B1/H-B2
+        label = ("not H-B4: link/cooperative is outside [0.5, 2.0] at %s Mbit/s"
+                 % ", ".join("%g" % rate for rate in REGISTERED_RATES_MBIT
+                             if inside[rate] is False))
+    return {"hypothesis": "H-B4", "holds": holds, "label": label,
+            "rates": [{"offered_mbit": rate, "ratio": (by_rate.get(rate) or {}).get("ratio"),
+                       "inside": inside[rate]} for rate in REGISTERED_RATES_MBIT]}
 
 
 # --- (3) CPU ----------------------------------------------------------------------------------
@@ -634,11 +753,21 @@ def fit_fixed_and_marginal(points):
             "max_samples_per_s": max(x for x, _ in usable)}
 
 
-def cpu_comparison(arms, frame=1024, label="kernel"):
-    """Delta<label>(group - none) at every rung both groups measured, plus the (F, m) fit.
+def cpu_comparison(arms, frame=1024, label="kernel", registered=True):
+    """Delta<label>(group - none) at every rung ALL THREE groups measured, plus the (F, m) fit.
 
     Control arms are excluded here too: `c3b_burn` runs four CPU burners, so a fit that included
     it would be reading the burners' cost as the telemetry's.
+
+    🔴 THE RUNGS ARE THE ONES THE THREE GROUPS SHARE. PREREG 5.3's main axis is "1024 B 梯子上
+    三組共同有的每一階" -- every rung common to all three groups. This used to intersect each
+    treated group with `none` only, so a rung the link arms never reached still went into the
+    cooperative fit. The fifth campaign's three groups happen to share all eleven rungs, so no
+    number of it moves; a truncated ladder would have (M-E39).
+
+    🔴 `registered=False` IS FOR bmv2. H-C1/H-C2/H-C3 are registered for the kernel's fit only;
+    bmv2's registered statement is a ratio at each rung (bmv2_ratio below). Its fit is kept as
+    a description -- the numbers are data -- and it carries no H-C label (task C of round 10).
     """
     by_group = {}
     for arm in arms:
@@ -669,13 +798,29 @@ def cpu_comparison(arms, frame=1024, label="kernel"):
             for kpps, values in collected.items()}
     out = {"frame": frame, "label": label, "rows": [], "fits": {}, "per_group": per_group_rung}
     base = per_group_rung.get("none", {})
+    common = set(base)
+    for group in GROUPS:
+        common &= set(per_group_rung.get(group, {}))
+    out["common_rungs"] = sorted(common)
     for group in ("cooperative", "link"):
         treated = per_group_rung.get(group, {})
         points, rows = [], []
-        for kpps in sorted(set(treated) & set(base)):
+        if not common:
+            out["fits"][group] = {"verdict": "no fit: no rung is common to all three groups at "
+                                             "%d B, so PREREG 5.3's axis does not exist here"
+                                             % frame,
+                                  "fit": None}
+            continue
+        for kpps in sorted(common):
             if treated[kpps]["cpu"] is None or base[kpps]["cpu"] is None:
                 continue
             delta = treated[kpps]["cpu"] - base[kpps]["cpu"]
+            # 🔴 NOT QUITE PREREG'S H-C0 QUANTITY (round 10's H-C check; disclosed, not changed).
+            # PREREG 5.3 :273 registers "同一格三個視窗（或三個 rep）的 Δkernel 散佈" -- the spread
+            # of the DELTA over three windows or reps. This is the larger of the two groups'
+            # between-ARM ranges of the raw CPU (each cell has one arm per generation, two in
+            # all). And PREREG's consequence is "不擬合" for the cell; here an unresolved rung
+            # is left out of the fit and the group is H-C0 only when no rung resolves.
             spread = max(treated[kpps]["spread"], base[kpps]["spread"])
             row = {"group": group, "kpps": kpps, "delta_percent": delta, "spread": spread,
                    "samples_per_s": treated[kpps]["samples_per_s"],
@@ -691,12 +836,47 @@ def cpu_comparison(arms, frame=1024, label="kernel"):
                                   "fit": None}
             continue
         fit = fit_fixed_and_marginal(points)
-        out["fits"][group] = {"fit": fit, "verdict": cpu_verdict(fit)}
+        if registered:
+            out["fits"][group] = {"fit": fit, "verdict": cpu_verdict(fit)}
+        else:
+            out["fits"][group] = {"fit": fit, "verdict": None,
+                                  "note": "a description, not a registered comparison: PREREG "
+                                          "5.3 registers H-C1/H-C2/H-C3 for the kernel only"}
     return out
 
 
+def bmv2_ratio(bmv2):
+    """PREREG 5.3's registered bmv2 statement: cooperative/none at each rung, in [0.90, 1.15].
+
+    Per rung, because that is where it is registered ("在相同階"); PREREG registers no roll-up
+    over rungs, so none is made -- falling outside at the top rungs is itself the registered
+    reading ("那句話在天花板附近不成立"). Only cooperative is registered; link is not compared.
+    """
+    per_group = bmv2.get("per_group") or {}
+    coop, none = per_group.get("cooperative") or {}, per_group.get("none") or {}
+    rows = []
+    for kpps in sorted(set(coop) & set(none)):
+        mine, base = coop[kpps]["cpu"], none[kpps]["cpu"]
+        ratio = (mine / base) if (mine is not None and base) else None
+        rows.append({"kpps": kpps, "cooperative": mine, "none": base, "ratio": ratio,
+                     "inside": None if ratio is None
+                     else BMV2_RATIO_LO <= ratio <= BMV2_RATIO_HI})
+    return {"interval": [BMV2_RATIO_LO, BMV2_RATIO_HI],
+            "registered": "PREREG 5.3: bmv2_total(cooperative)/bmv2_total(none) at the same rung",
+            "rows": rows}
+
+
 def cpu_verdict(fit):
-    """PREREG 5.3: H-C1 / H-C2 / H-C3, with H-C3 registered as a RESULT, not 'inconclusive'."""
+    """PREREG 5.3: H-C1 / H-C2 / H-C3, with H-C3 registered as a RESULT, not 'inconclusive'.
+
+    🔴 WHAT THIS DOES NOT EVALUATE (round 10's H-C registration check; open, not decided here).
+    PREREG 5.3 :271 registers H-C2 as TWO conditions, "F/(F+m*S_top) <= 0.2 且
+    Δ(高階)/Δ(低階) ≈ S(高)/S(低)". Only the first is evaluated below: PREREG gives the "≈" no
+    tolerance, and picking one after the data exists would be deciding the hypothesis rather
+    than testing it. So an "H-C2" from this function has met ONE of its two registered
+    conditions, and FINDINGS may not quote it as the registered H-C2 until that is ruled on.
+    H-C1's "m in [103, 618] 或 share >= 0.5" is evaluated as registered.
+    """
     if not fit:
         return "H-C0 not resolved"
     marginal = fit["marginal_us_per_sample"]
@@ -848,8 +1028,9 @@ def analyse(raw_dir):
         except OSError:
             pass
     sampling = sampling_summary(windows)
+    cross_group = link_vs_cooperative(sampling, emitter)
     cpu = cpu_comparison(arms, frame=1024, label="kernel")
-    bmv2 = cpu_comparison(arms, frame=1024, label="bmv2")
+    bmv2 = cpu_comparison(arms, frame=1024, label="bmv2", registered=False)
     summary = {
         "raw": os.path.abspath(raw_dir),
         "arms": [{k: v for k, v in arm.items() if k not in ("ladder", "rungs", "meta")}
@@ -862,11 +1043,16 @@ def analyse(raw_dir):
                          for a in all_arms if a["invalid"]],
         "cells": {"%s|%s" % key: value for key, value in cells.items()},
         "ceiling": ceiling_comparisons(cells),
+        # 🔴 TWO LEVELS, BOTH KEPT (ruling 38): what each (group, rate) cell IS, and what PREREG
+        # 5.2 lets be said about each group. FINDINGS quotes only the second.
         "sampling_error": sampling,
-        "sampling_error_cross_group": link_vs_cooperative(sampling, emitter),
+        "sampling_error_by_group": registered_sampling(sampling),
+        "sampling_error_cross_group": cross_group,
+        "sampling_error_cross_group_registered": registered_cross_group(cross_group),
         "emitter_counters": emitter,
         "cpu_kernel": cpu,
         "cpu_bmv2": bmv2,
+        "cpu_bmv2_ratio": bmv2_ratio(bmv2),
         "external_gate": external_gate(arms),
         "controls": controls,
         "reconciliation": reconcile(cells, cpu, controls),
@@ -908,14 +1094,20 @@ def render(summary, stream=sys.stdout):
                  "n/a" if row["median_signed_error"] is None else "%+.4f" % row["median_signed_error"],
                  "n/a" if predicted is None else "%.4f" % predicted,
                  row.get("links_used"), row.get("keys_total"),
-                 row["verdict"] or row["note"] or ""))
+                 row.get("description") or row["note"] or ""))
         if row.get("links_note"):
             write("      🔴 %s\n" % row["links_note"])
     for row in summary["sampling_error_cross_group"]:
         write("  link/coop at %6s Mbit/s: %-8s %s%s\n"
               % (row["offered_mbit"],
-                 "n/a" if row["ratio"] is None else "%.2f" % row["ratio"], row["verdict"],
+                 "n/a" if row["ratio"] is None else "%.2f" % row["ratio"], row["description"],
                  "" if not row["attribution"] else "\n      %s" % row["attribution"]))
+    write("  --- registered (PREREG 5.2), once per group -- the only lines FINDINGS may quote\n")
+    for row in summary.get("sampling_error_by_group") or []:
+        write("  %-12s %s\n" % (row["group"], row["label"]))
+    cross = summary.get("sampling_error_cross_group_registered")
+    if cross:
+        write("  %-12s %s\n" % ("link vs coop", cross["label"]))
     write("\n=== (3) CPU, 1024 B ladder, kernel\n")
     for row in summary["cpu_kernel"]["rows"]:
         write("  %-12s %6s kpps  delta=%-9s spread=%-9s samples/s=%-8s %s\n"
@@ -928,6 +1120,14 @@ def render(summary, stream=sys.stdout):
                                   "" if not fit else
                                   "  (F=%.2f%% of one core, m=%.0f us/sample)"
                                   % (fit["fixed_percent"], fit["marginal_us_per_sample"])))
+    ratio = summary.get("cpu_bmv2_ratio")
+    if ratio:
+        write("\n=== (3b) bmv2, cooperative/none at each rung, registered interval [%.2f, %.2f]\n"
+              % tuple(ratio["interval"]))
+        for row in ratio["rows"]:
+            write("  %6s kpps  ratio=%-8s %s\n"
+                  % (row["kpps"], "n/a" if row["ratio"] is None else "%.3f" % row["ratio"],
+                     {True: "inside", False: "OUTSIDE", None: "no reading"}[row["inside"]]))
     write("\n=== load gate (within group, +%.2f absolute)\n" % EXTERNAL_THRESHOLD)
     for row in summary["external_gate"]:
         write("  %-28s %-12s external=%.4f  group median=%.4f  softirq=%s  %s\n"

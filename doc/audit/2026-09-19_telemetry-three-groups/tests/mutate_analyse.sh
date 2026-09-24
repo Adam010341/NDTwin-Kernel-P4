@@ -158,6 +158,18 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = the test case that must
     fi
     if [[ "$rc" -ne 0 ]] && /usr/bin/grep -qE "^(FAIL|ERROR): $3 " <<<"$out"; then
         printf '  caught   %-72s (%s went red)\n' "$1" "$3"
+        # 🔴 AND WHAT ELSE WENT RED (ruling 39(9a)). "caught" only says the named case is red;
+        # it says nothing about whether the mutation also reddened cases that have no business
+        # seeing it, which is what "0 survivors" was being read as. Every run now says.
+        local others
+        others="$(/usr/bin/grep -oE '^(FAIL|ERROR): [A-Za-z0-9_]+' <<<"$out" \
+                  | sed -E 's/^(FAIL|ERROR): //' | /usr/bin/grep -vxF "$3" | sort -u \
+                  | paste -sd ' ' -)"
+        if [[ -z "$others" ]]; then
+            printf '           %-72s  (no other case went red)\n' ""
+        else
+            printf '           also red: %s\n' "$others"
+        fi
     else
         SURVIVORS=$((SURVIVORS + 1))
         printf '  SURVIVED %-72s (%s stayed green -- that case proves nothing)\n' "$1" "$3"
@@ -229,6 +241,19 @@ report_shell() {   # $1 = mutation name, $2 = mutant dir, $3.. = EVERY cell that
     done
     if [[ "$rc" -ne 0 && -z "$missing" ]]; then
         printf '  caught   %-72s (%d cell(s) went red)\n' "$name" "$#"
+        # the same "what else" as report() (ruling 39(9a)): every FAIL cell the mutation was
+        # not bound to
+        local red_cells extra=0
+        red_cells="$(/usr/bin/grep -E '^  FAIL  ' <<<"$out" | sed -E 's/^  FAIL  //')"
+        while IFS= read -r line; do
+            [[ -n "$line" ]] || continue
+            local bound=0
+            for cell in "$@"; do [[ "$line" == "$cell" ]] && bound=1; done
+            if (( ! bound )); then
+                printf '           also red: %s\n' "$line"; extra=$((extra + 1))
+            fi
+        done <<<"$red_cells"
+        (( extra == 0 )) && printf '           %-72s  (no other cell went red)\n' ""
     else
         SURVIVORS=$((SURVIVORS + 1))
         printf '  SURVIVED %-72s%s\n' "$name" "$missing"
@@ -641,6 +666,63 @@ m=$(mutant m36 "$PLOT" \
                     height_points - label_points / 2.0)')
 report "M-E36: the stack is clamped to the axes, so an overflow stops being visible to the caller" "$m" \
        "test_a_stack_taller_than_its_axes_is_not_reported_as_fitting"
+
+# --- ruling 38 and round 10's H-C check: each registered label where PREREG registers it ---------
+
+# 🔴 THE ROLL-UP THAT LOOKS AT ONE CELL. Ruling 38 names this mutation: the group-level verdict
+# falls back to the first registered rate. The case it is bound to puts its one outside rate at
+# 100 Mbit/s precisely so that the first cell (2 Mbit/s, inside) would call the group H-B1.
+m=$(mutant m37 "$ANALYSE" \
+    '    registered = [values.get(rate) for rate in REGISTERED_RATES_MBIT]' \
+    '    registered = [values.get(rate) for rate in REGISTERED_RATES_MBIT][:1]')
+report "M-E37: the group-level H-B verdict falls back to the first cell (ruling 38)" "$m" \
+       "test_two_rates_inside_and_one_outside_is_NOT_H_B1_for_the_group"
+
+# The fourth campaign's pre-fix `link 2M: H-B2`, put back: H-B2 judged at a rate it was never
+# registered at.
+m=$(mutant m38 "$ANALYSE" \
+    'H_B2_RATE_MBIT = 100' \
+    'H_B2_RATE_MBIT = 2')
+report "M-E38: H-B2 is judged at 2 Mbit/s, where PREREG never registered it" "$m" \
+       "test_a_same_sign_excess_at_2_Mbit_is_NOT_H_B2"
+
+# PREREG 5.3's axis is the rungs ALL THREE groups share; this puts back the pairwise
+# (treated & none) intersection the code used before round 10.
+m=$(mutant m39 "$ANALYSE" \
+    '        for kpps in sorted(common):' \
+    '        for kpps in sorted(set(treated) & set(base)):')
+report "M-E39: the H-C fit uses rungs one group never measured (treated & none, not all three)" "$m" \
+       "test_a_rung_one_group_does_not_have_is_in_NO_groups_fit"
+
+# An H-C label on bmv2, for which PREREG registers none.
+m=$(mutant m40 "$ANALYSE" \
+    '    bmv2 = cpu_comparison(arms, frame=1024, label="bmv2", registered=False)' \
+    '    bmv2 = cpu_comparison(arms, frame=1024, label="bmv2", registered=True)')
+report "M-E40: bmv2's fit carries an H-C verdict again" "$m" \
+       "test_bmv2_carries_NO_H_C_label"
+
+# 🔴 THE ONE NON-EQUIVALENT FORM OF THE headroom GUARD (ruling 39(9c)). Below zero the unguarded
+# bound is negative and loses every max, so `< 0` differs from `<= 0` only AT zero -- where it
+# divides by it.
+m=$(mutant m41 "$PLOT" \
+    '            if headroom <= 0:' \
+    '            if headroom < 0:')
+report "M-E41: the headroom guard lets exactly-zero through, and divides by it" "$m" \
+       "test_a_label_with_EXACTLY_zero_headroom_is_handled_not_divided_by"
+
+# The level that already matched PREREG, pinned: one fit per group over every common rung, not
+# over the first few.
+m=$(mutant m42 "$ANALYSE" \
+    '        fit = fit_fixed_and_marginal(points)' \
+    '        fit = fit_fixed_and_marginal(points[:2])')
+report "M-E42: the H-C fit falls back to the first two rungs of the group" "$m" \
+       "test_the_H_C_verdict_is_made_once_per_treated_group_over_every_common_rung"
+
+m=$(mutant m43 "$ANALYSE" \
+    'BMV2_RATIO_LO, BMV2_RATIO_HI = 0.90, 1.15' \
+    'BMV2_RATIO_LO, BMV2_RATIO_HI = 0.50, 2.00')
+report "M-E43: the registered bmv2 interval is widened to [0.5, 2.0]" "$m" \
+       "test_a_bmv2_ratio_outside_090_115_is_reported_outside"
 
 # --- the controls: changes that must NOT be caught -------------------------------------------------
 # A suite that goes red on a comment is not sensitive, it is fragile, and a fragile suite gets

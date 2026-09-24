@@ -220,9 +220,14 @@ def place_end_labels(ends, ylim, height_points, label_points=LABEL_HEIGHT_PT):
         for index, (y, _x, _name) in enumerate(ordered):
             headroom = height_points - (count - 1 - index) * label_points - label_points / 2.0
             if headroom <= 0:
-                # 🔴 MORE LABELS THAN THIS AXES CAN HOLD, whatever the span is: this one needs
-                # (count-1-index) label heights above it plus half its own, and the axes is not
-                # that tall. No limit fixes it, so this label contributes no bound.
+                # 🔴 NO ROOM ABOVE THIS LABEL, whatever the span is: it needs (count-1-index)
+                # label heights above it plus half its own, and that is the whole axes or more.
+                # Below zero no limit fixes it. AT zero it fits only by sitting exactly on the
+                # axes' bottom, where its bound (y-low)*H/headroom is a division by zero. Either
+                # way this label contributes no bound -- and at zero, skipping it is what keeps
+                # the function from dividing by zero (ruling 39(9c): test_plot's EXACTLY-zero
+                # case, M-E41; below zero the guard is an equivalent mutation, because the
+                # unguarded bound is negative and loses every max).
                 #
                 # What the caller gets in that case is EXACTLY the same 2-tuple as always: no
                 # flag, no exception, no third element. The overflow is visible -- the returned

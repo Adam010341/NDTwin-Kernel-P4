@@ -491,10 +491,10 @@ class CpuTest(unittest.TestCase):
         self.assertTrue(analyse.cpu_verdict(per_sample).startswith("H-C2"))
 
     # --- where PREREG 5.3 registers the CPU hypotheses, and whether the code labels there --------
-    # PREREG 5.3 (`PREREG.md:262-268`): the main axis is "1024 B 梯子上三組共同有的每一階", the
+    # PREREG 5.3 (`PREREG.md:262-266`): the main axis is "1024 B 梯子上三組共同有的每一階", the
     # quantity is Delta-kernel(g, k) = kernel(g, k) - kernel(none, k), and "擬合 Delta-kernel = F + m*S"
     # -- one fit per treated group over those rungs, which H-C1/H-C2/H-C3 then judge. The bmv2
-    # statement is registered separately (`:275-276`): bmv2_total(cooperative)/bmv2_total(none)
+    # statement is registered separately (`:276-277`): bmv2_total(cooperative)/bmv2_total(none)
     # "在相同階 in [0.90, 1.15]" -- a ratio at each rung, NOT a fit and NOT an H-C hypothesis.
 
     def test_the_H_C_verdict_is_made_once_per_treated_group_over_every_common_rung(self):
