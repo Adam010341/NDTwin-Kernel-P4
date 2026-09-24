@@ -268,6 +268,12 @@ m=$(mutant m25 "$SERVE_PY" \
 report "M25: the log is decoded and re-encoded" "$m" \
        ThinShell.test_output_is_kept_byte_for_byte
 
+m=$(mutant m41 "$SERVE_PY" \
+    '        self._read_verb("status.check" if check else "status", verbs.argv_status(check))' \
+    '        self._read_verb("status.check", verbs.argv_status(check))')
+report "M41: plain status is read with --check's table (live, 09-24 22:01)" "$m" \
+       ThinShell.test_plain_status_is_not_a_verdict
+
 # --- 5. long jobs -----------------------------------------------------------------------------
 
 m=$(mutant m26 "$SERVE_PY" \
@@ -313,6 +319,12 @@ m=$(mutant m32 "$JOBS_PY" \
     '            state, rc, ex = "finished", 0, {}')
 report "M32: a job with no recorded rc is called finished" "$m" \
        Jobs.test_a_job_nobody_recorded_is_lost_not_finished
+
+m=$(mutant m42 "$JOBS_PY" \
+    '        out.sort(key=lambda v: (v.get("created_at") or 0, v["id"]), reverse=True)' \
+    '        pass')
+report "M42: jobs listed by id, not by when they were created (live, 09-24 22:01)" "$m" \
+       Jobs.test_jobs_are_listed_newest_first_within_one_second
 
 # --- 6. no pattern kills ----------------------------------------------------------------------
 

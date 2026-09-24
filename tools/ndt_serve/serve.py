@@ -304,7 +304,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def r_status(self, query):
         check = query.get("check", ["0"])[-1] in ("1", "true", "yes")
-        self._read_verb("status", verbs.argv_status(check))
+        self._read_verb("status.check" if check else "status", verbs.argv_status(check))
 
     def r_apps(self, query):
         self._read_verb("apps.status", verbs.ARGV_APPS_STATUS, extra={"apps": self.cfg.apps})

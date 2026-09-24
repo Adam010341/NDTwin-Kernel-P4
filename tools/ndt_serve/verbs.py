@@ -172,7 +172,15 @@ RC_TABLE = {
         3: ("nothing", "there was nothing to tear down -- this is NOT 'this round ended clean'"),
         5: ("refused", "a GUARD REFUSED and nothing was torn down"),
     },
+    # 🔴 Two tables, because plain `ndt status` judges nothing: it prints the report and returns
+    # 0 whatever the report says (cmd_status's last line). Only --check answers 0/1/3. The live
+    # run of 09-24 22:01 had one table for both, and printed "all compared fields match" beside a
+    # plain status of a lab with no baseline, where nothing had been compared at all.
     "status": {
+        0: ("report", "the report was printed; plain 'ndt status' judges nothing and answers 0 "
+                      "whatever it found -- read the report, or ask for a verdict with ?check=1"),
+    },
+    "status.check": {
         0: ("ok", "all compared fields match what the last 'ndt up' asked for"),
         1: ("dirty", "a compared field does not match (the output names it)"),
         3: ("nothing", "nothing was compared: there is no baseline right now -- NOT 'checked and matched'"),

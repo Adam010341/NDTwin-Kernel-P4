@@ -170,13 +170,17 @@ class JobStore:
         return v
 
     def list(self, limit):
+        """Newest first by created_at. The id's clock has one-second resolution and its suffix is
+        random, so two jobs started in the same second would otherwise come back in random order
+        (live 09-24 22:01: the claim listed after the `up` it preceded)."""
         out = []
-        for job_id in self.ids()[:limit]:
+        for job_id in self.ids():
             try:
                 out.append(self.view(job_id))
             except KeyError:
                 continue
-        return out
+        out.sort(key=lambda v: (v.get("created_at") or 0, v["id"]), reverse=True)
+        return out[:limit]
 
     def holding_the_slot(self):
         """The job that holds the mutation slot, or None -- read from disk, so a restarted server

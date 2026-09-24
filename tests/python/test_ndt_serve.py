@@ -531,8 +531,20 @@ class ThinShell(ServeCase):
 
     def test_status_answers_with_rc_and_full_output(self):
         self.s.behave(status={"rc": 3, "stdout": "claim none\nno baseline\n", "stderr": "e\n"})
-        st, j, _, _ = self.s.get("/status")
+        st, j, _, _ = self.s.get("/status?check=1")
         self.assertEqual((j["rc"], j["rc_class"], j["stdout"], j["stderr"]), (3, "nothing", "claim none\nno baseline\n", "e\n"))
+        self.assertEqual(j["argv"][1:], ["status", "--check"])
+
+    def test_plain_status_is_not_a_verdict(self):
+        """Plain `ndt status` answers 0 whatever it found (ndt: `return 0` after the report); only
+        --check judges. The live run of 09-24 22:01 printed "all compared fields match" beside a
+        plain status of a lab with no baseline -- nothing had been compared."""
+        self.s.behave(status={"rc": 0})
+        st, j, _, _ = self.s.get("/status")
+        self.assertEqual((j["rc"], j["rc_class"]), (0, "report"))
+        self.assertNotIn("match", j["meaning"])
+        st, j, _, _ = self.s.get("/status?check=1")
+        self.assertEqual((j["rc"], j["rc_class"]), (0, "ok"))
 
 
 # --- red line 5: long jobs --------------------------------------------------------------------
@@ -621,6 +633,17 @@ class Jobs(ServeCase):
         job = self.s.get("/jobs/" + job_id)[1]["job"]
         self.assertEqual((job["state"], job["rc"]), ("lost", None), "its rc was never recorded, so none is claimed")
         self.assertEqual(self.s.run_job("/down")["state"], "finished")
+
+    def test_jobs_are_listed_newest_first_within_one_second(self):
+        for job_id, created in (("20260101T000000Z-ffffff", 100.1), ("20260101T000000Z-000000", 100.9)):
+            d = os.path.join(self.s.state, "jobs", job_id)
+            os.makedirs(d)
+            with open(os.path.join(d, "request.json"), "w") as f:
+                json.dump({"id": job_id, "kind": "down", "argv": ["ndt", "down"], "cwd": "/", "created_at": created}, f)
+            with open(os.path.join(d, "exit.json"), "w") as f:
+                json.dump({"rc": 0}, f)
+        st, j, _, _ = self.s.get("/jobs")
+        self.assertEqual([v["id"] for v in j["jobs"]], ["20260101T000000Z-000000", "20260101T000000Z-ffffff"])
 
     def test_a_job_nobody_recorded_is_lost_not_finished(self):
         d = os.path.join(self.s.state, "jobs", "20260101T000000Z-abcdef")
