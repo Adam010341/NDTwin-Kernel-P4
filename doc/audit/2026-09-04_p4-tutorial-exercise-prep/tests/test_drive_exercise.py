@@ -34,12 +34,14 @@ import glob
 import importlib.util
 import io
 import json
+import math
 import os
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import types
 import unittest
 
@@ -219,6 +221,10 @@ class FakeProc(object):
         self.pid = FakeProc._next_pid
         self.out, self.fh = out, fh
         self.fed = None
+        #: What the caller passed to communicate(timeout=...): how long it lets this process
+        #: run before killing it (TICKET-P4-roles §7 ruling 7 -- a sender cut at its timeout
+        #: loses its tail silently). [Co-developed with claude code -- Adam]
+        self.timeout = None
         self.terminated = self.killed = False
         self.timeout_first, self._timed_out = timeout_first, False
         if fh is not None:
@@ -227,6 +233,7 @@ class FakeProc(object):
 
     def communicate(self, input=None, timeout=None):
         self.fed = input
+        self.timeout = timeout
         if self.timeout_first and not self._timed_out:
             self._timed_out = True
             raise subprocess.TimeoutExpired("stub", timeout or 0)
@@ -1583,6 +1590,210 @@ class TheEcnAndQosArms(unittest.TestCase):
                          ["RED ARM: UDP tos stays 0x1"].ok)
         self.assertFalse(verdict(self.qos("solution", ["0x1"], ["0x1"]))
                          ["UDP is expedited forwarding"].ok)
+
+
+class NoSleep(object):
+    """`time`, with the waiting taken out: every sleep is recorded instead of slept.
+
+    [Co-developed with claude code -- Adam]
+
+    For the cells that must run an arm at the SHIPPED --recv-warmup/--drain-wait (3 s each),
+    because what they check is computed from those two: sleeping through them would cost six
+    seconds per cell, and the mutation gate runs this suite once per mutant. It is installed
+    as the module-under-test's `time` and nowhere else; every other attribute is the real one.
+    """
+
+    def __init__(self):
+        self.slept = []
+
+    def sleep(self, seconds):
+        self.slept.append(seconds)
+
+    def __getattr__(self, name):
+        return getattr(time, name)
+
+
+class TheEcnProbeTrain(unittest.TestCase):
+    """🔴 THE ecn SOLUTION ARM WAS A TWO-PROBE TEST (TICKET-P4-roles §7 ruling 7).
+
+    [Co-developed with claude code -- Adam]
+
+    solution/ecn.p4:135-137 marks a probe only when enq_qdepth >= 10 at the moment THAT probe
+    is enqueued, so "0x3 among the tos values h2 received" is a test whose sample is the probes
+    that reached h2 -- and with SEND_SECONDS = 6 that was 2-4 of them. OBSERVED on 2026-09-24
+    (the ten runs/2026-09-24T16*_ecn_solution_ndtwin.md): 60 probes sent, 22 reached h2, 6 of
+    those were 0x3, and the five runs that failed each saw exactly two packets, both 0x1. The
+    interleaved A/B of ruling 7 failed the same way on the proxy code from before the roles
+    change: too little power in the instrument, not a data plane that stopped marking.
+
+    These cells hold the fix to the ruling's terms: ecn gets its own probe count (sized below
+    from those numbers) and its own background, which outlasts the whole train; mri and qos keep
+    the shared constants; both arms assert exactly what they asserted before. The arithmetic is
+    INFERRED -- probes behind one queue are not independent draws (DRIVER.md §6.2).
+    """
+
+    #: OBSERVED, the ten 09-24 ndtwin solution runs: probes sent, and how many reached h2 as 0x3.
+    SENT_0924 = 60
+    MARKED_0924 = 6
+    #: The false-fail rate ruling 7 asks to be "well under"; the floor below is for exactly this.
+    FALSE_FAIL = 0.01
+    #: Seconds per probe of send.py (a sendp() and a sleep(1)). OBSERVED in the tutorials
+    #: fabric's s1.log of 09-24 17:54: six probe ingress times 1.02-1.03 s apart. 1.05 is the
+    #: cell's own round-up.
+    PROBE_SPACING = 1.05
+    #: Seconds send.py spends before its first sendp() (interpreter, scapy import), with slack.
+    #: The same s1.log puts the first probe 0.24 s after the 3.0 s receiver warm-up; 5 s is this
+    #: cell's allowance, not a measurement.
+    SENDER_STARTUP = 5
+
+    def setUp(self):
+        self.mod = load_driver()
+        quiet(self.mod)
+        self.tmp = mkdtemp(self, "drv-ecnp-")
+        #: The shipped values, read BEFORE steps_for() zeroes the shared two for speed.
+        self.shipped = {k: getattr(self.mod, k)
+                        for k in ("SEND_SECONDS", "BG_SECONDS", "RECV_WARMUP", "DRAIN_WAIT")}
+
+    def arm(self, exercise, which="solution", tos_values=("0x1", "0x3"),
+            recv_warmup=0.0, drain_wait=0.0):
+        """One arm on the stub fabric, with the argv a live run would carry. -> (steps, hosts)"""
+        rx = sniffed(*[show2(("IP", [("tos", t)])) for t in tos_values])
+        hosts = StubHosts(IPS5, popen_texts={
+            "receive.py": rx, "send.py": "###[ IP ]###\n     tos       = 0x1\n"})
+        s = steps_for(self.mod, exercise, which, hosts, self.tmp)
+        # 🔴 THE SHIPPED NUMBERS, PUT BACK. steps_for() zeroes the shared two so that no other
+        # cell waits on them; "ecn no longer uses the shared count" and "mri and qos still do"
+        # are claims about the values a live run is handed, so here they are what ships.
+        self.mod.SEND_SECONDS = self.shipped["SEND_SECONDS"]
+        self.mod.BG_SECONDS = self.shipped["BG_SECONDS"]
+        s.args.recv_warmup, s.args.drain_wait = recv_warmup, drain_wait
+        self.clock = NoSleep()
+        self.mod.time = self.clock
+        s.run()
+        return s, hosts
+
+    @staticmethod
+    def senders(hosts):
+        """[(argv, handle)] of every send.py h1 ran, in order."""
+        return [(a, p) for h, a, p in hosts.procs
+                if h == "h1" and any(x.endswith("send.py") for x in a)]
+
+    @staticmethod
+    def background(hosts):
+        """[argv] of every background iperf client h11 ran."""
+        return [a for h, a in hosts.popened if h == "h11" and a[:1] == ["iperf"] and "-c" in a]
+
+    def test_the_ecn_sender_is_asked_for_enough_probes(self):
+        """Sized from what 09-24 OBSERVED per probe SENT: 6 reached h2 as 0x3 out of 60 sent,
+        q = 0.10. If those were independent draws (INFERRED; they are not), a run with no 0x3
+        among N probes has probability (1 - q)^N, and 1% needs N >= ln(0.01)/ln(0.9) = 43.7.
+        Six gives 0.9^6 = 0.53 -- and 09-24 failed five times in ten."""
+        q = self.MARKED_0924 / float(self.SENT_0924)
+        floor = int(math.ceil(math.log(self.FALSE_FAIL) / math.log(1.0 - q)))
+        self.assertEqual(44, floor)          # the docstring's arithmetic, so it cannot drift
+        _s, hosts = self.arm("ecn")
+        ((argv, _proc),) = self.senders(hosts)
+        self.assertGreaterEqual(
+            int(argv[-1]), floor,
+            "ecn asks send.py for %s probes; at the 09-24 rate (q = %.2f) that leaves a %.0f%% "
+            "chance of no 0x3 on a data plane that marks" % (argv[-1], q,
+                                                            100 * (1 - q) ** int(argv[-1])))
+
+    def test_mri_and_qos_keep_the_shared_sender_and_background(self):
+        """Ruling 7: only ecn gets its own numbers. mri's and qos's arms passed the 09-24 06
+        with SEND_SECONDS = 6 / BG_SECONDS = 20 (the one FAIL there was ecn's solution arm),
+        and neither reads a congestion mark -- a longer train there buys nothing."""
+        self.assertEqual((6, 20), (self.shipped["SEND_SECONDS"], self.shipped["BG_SECONDS"]))
+        _s, hosts = self.arm("mri")
+        ((argv, _p),) = self.senders(hosts)
+        self.assertEqual("6", argv[-1])
+        (bg,) = self.background(hosts)
+        self.assertEqual("20", bg[bg.index("-t") + 1])
+        _s, hosts = self.arm("qos")
+        self.assertEqual(["--dur=6", "--dur=6"], [a[-1] for a, _p in self.senders(hosts)])
+
+    def test_the_ecn_sender_is_not_killed_before_its_last_probe(self):
+        """_send_once kills a sender that outlives the timeout it is handed, and SEND_TIMEOUT
+        (60 s) is shorter than a train of 60 one-per-second probes plus the interpreter's
+        start-up. A train cut there loses its tail without a word -- the arm still reports."""
+        _s, hosts = self.arm("ecn")
+        ((argv, proc),) = self.senders(hosts)
+        need = int(math.ceil(int(argv[-1]) * self.PROBE_SPACING)) + self.SENDER_STARTUP
+        self.assertIsNotNone(proc.timeout, "send.py was run with no timeout at all")
+        self.assertGreaterEqual(
+            proc.timeout, need,
+            "send.py is killed after %ss; %s probes need about %ss" % (proc.timeout, argv[-1], need))
+
+    def test_the_background_outlasts_the_whole_probe_train(self):
+        """The queue is the subject (solution/ecn.p4:136) and the background is the only thing
+        that builds it, so it has to be running for every probe the sender can emit and while
+        the sniffer drains. The arm stops it by its handle AFTER the sniffer, so `-t` is an
+        upper bound: it must cover the receiver warm-up, the sender's whole timeout (a slow
+        sender is still inside it) and the drain, with room to spare. Checked at the shipped
+        waits and at inflated ones, because --recv-warmup/--drain-wait are CLI flags."""
+        for rw, dw in ((self.shipped["RECV_WARMUP"], self.shipped["DRAIN_WAIT"]), (12.0, 9.0)):
+            with self.subTest(recv_warmup=rw, drain_wait=dw):
+                _s, hosts = self.arm("ecn", recv_warmup=rw, drain_wait=dw)
+                ((argv, proc),) = self.senders(hosts)
+                (bg,) = self.background(hosts)
+                t = float(bg[bg.index("-t") + 1])
+                self.assertGreater(
+                    t, rw + (proc.timeout or 0) + dw,
+                    "the background runs %ss; warm-up %ss + sender timeout %ss + drain %ss "
+                    "leaves nothing to spare" % (t, rw, proc.timeout, dw))
+                self.assertGreater(t, int(argv[-1]))
+
+    def test_one_mark_anywhere_in_the_long_train_reddens_the_skeleton(self):
+        """A longer train makes the RED ARM stricter, never looser: every tos must still be 0x1,
+        so one 0x3 as the sixtieth probe fails it as surely as one as the first."""
+        for pos in (0, 5, 59):
+            tos = ["0x1"] * 60
+            tos[pos] = "0x3"
+            with self.subTest(position=pos):
+                s, _h = self.arm("ecn", "skeleton", tos)
+                self.assertFalse(verdict(s)["RED ARM: every tos stays 0x1"].ok)
+        s, _h = self.arm("ecn", "skeleton", ["0x1"] * 60)
+        self.assertTrue(verdict(s)["RED ARM: every tos stays 0x1"].ok)
+
+    def test_only_0x3_counts_as_the_congestion_mark(self):
+        """README step 3 names the value -- 'tos values change from 1 to 3' -- and
+        solution/ecn.p4:132 writes exactly ecn = 3. A train long enough to find a 3 is long
+        enough to find anything else a fabric might do to tos, and none of that is the mark."""
+        for others in (["0x1", "0x0"], ["0x1", "0x2"], ["0x1", "0xb9"]):
+            with self.subTest(tos=others):
+                s, _h = self.arm("ecn", "solution", others)
+                self.assertFalse(verdict(s)["h2 saw a congestion-marked packet"].ok)
+        s, _h = self.arm("ecn", "solution", ["0x1"] * 59 + ["0x3"])
+        self.assertTrue(verdict(s)["h2 saw a congestion-marked packet"].ok)
+
+    def test_the_arm_discloses_how_many_probes_reached_h2_and_in_what_order(self):
+        """What a row cannot say by itself: "['0x1']" from 2 of 60 probes and from 58 of 60 are
+        different findings. The count, against what the sender was asked for, and the tos values
+        in arrival order go into the report as a STEP -- a disclosure that can neither pass nor
+        fail the arm."""
+        s, hosts = self.arm("ecn", "solution", ["0x1", "0x1", "0x3", "0x3", "0x1"])
+        ((argv, _p),) = self.senders(hosts)
+        e4 = [st for st in s.steps if st[0].startswith("E4")]
+        self.assertEqual(1, len(e4), [st[0] for st in s.steps])
+        _label, _cmd, text = e4[0]
+        self.assertIn("5 of %s probes" % argv[-1], text)
+        self.assertIn("0x1 0x1 0x3 0x3 0x1", text)
+
+    def test_the_verdict_rows_are_the_ones_the_ruling_keeps(self):
+        """Ruling 7 keeps the rows as they were: the injection row (>= 1 packet reached h2), the
+        sender's own show2, and one claim per arm. The disclosure above is not one of them -- a
+        row that always passed would add a PASS to every tally for a check that cannot fail."""
+        want = {"solution": ["injection: packets reached h2",
+                             "injection: send.py showed the frame it built",
+                             "h2 saw a congestion-marked packet"],
+                "skeleton": ["injection: packets reached h2",
+                             "injection: send.py showed the frame it built",
+                             "RED ARM: every tos stays 0x1"]}
+        for which, names in sorted(want.items()):
+            with self.subTest(which=which):
+                s, _h = self.arm("ecn", which, ["0x1"])
+                self.assertEqual(names, [e.name for e in s.expects])
+                self.assertEqual(">=1", verdict(s)["injection: packets reached h2"].want)
 
 
 class TheMriArms(unittest.TestCase):
