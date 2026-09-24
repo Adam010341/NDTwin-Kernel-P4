@@ -68,6 +68,7 @@ import datetime
 import glob
 import hashlib
 import json as _json
+import math
 import os
 import re
 import subprocess
@@ -324,8 +325,47 @@ PROBE_SECONDS = 8     # s of link_monitor send.py, which emits one probe per sec
 #: How long to wait for flowcache's controller to install the punted flow (§9 ruling 28②).
 FLOWCACHE_WARM_SECONDS = 10.0
 
-SEND_SECONDS = 6      # s of the ecn/mri/qos senders, whose argv carries a packet count
-BG_SECONDS = 20       # s of the ecn/mri background iperf -u (must outlast SEND_SECONDS)
+SEND_SECONDS = 6      # s of the mri/qos senders, whose argv carries a packet count (ecn: ECN_PROBES)
+BG_SECONDS = 20       # s of the mri background iperf -u (must outlast SEND_SECONDS; ecn: below)
+
+# [Co-developed with claude code -- Adam]
+# 🔴 ecn HAS ITS OWN PROBE TRAIN (TICKET-P4-roles §7 ruling 7). Its solution check is "0x3
+# among the tos values of the probes h2 received", and solution/ecn.p4:135-137 marks a probe
+# only when enq_qdepth >= 10 at the moment THAT probe is enqueued -- the probes that arrive
+# are the whole sample. At SEND_SECONDS = 6 the sample was 2-4 packets, and on 2026-09-24 the
+# arm passed 5 times in 10 on a data plane that was marking (ruling 7's interleaved A/B).
+# Why so few, OBSERVED once in the tutorials fabric's s1.log of 09-24 17:54, where bmv2 logs
+# each probe's enq_qdepth condition with a timestamp: the queue only starts to build ~4 s after
+# the background does, so the first probe goes out unmarked; about half of the later ones are
+# tail-dropped at the full queue; and one that IS enqueued waits seconds behind it -- the sixth
+# was marked and still inside s1 when the sniffer was stopped. Two of the six carried the
+# answer that time. 60 is the README's own advice for this exact failure (troubleshooting
+# item 5, README:198: "use a larger duration value (e.g., 60) when calling send.py"), and the
+# arithmetic that says it is enough is in the test class TheEcnProbeTrain (one line of it in
+# DRIVER.md §6.2). mri and qos keep SEND_SECONDS / BG_SECONDS: neither reads a congestion mark.
+ECN_PROBES = 60
+#: How long `_send_once` lets the ecn sender live. 60 probes at the 1.02-1.03 s spacing of that
+#: s1.log is ~62 s, and SEND_TIMEOUT (60 s) would kill the train before its tail -- silently.
+ECN_SEND_TIMEOUT = ECN_PROBES + 20
+#: Seconds the ecn background's `-t` reaches past the last moment the sniffer can still be up.
+ECN_BG_MARGIN = 5
+
+
+def ecn_background_seconds(recv_warmup, drain_wait):
+    """The ecn background's `iperf -t`: longer than everything the arm does while it runs.
+
+    [Co-developed with claude code -- Adam]
+
+    From the client's start the arm waits `recv_warmup` for the sniffer, runs the sender for at
+    most ECN_SEND_TIMEOUT, drains for `drain_wait`, and only THEN stops the background, by its
+    handle. The queue solution/ecn.p4:136 reads must be full for every probe the sender can
+    emit, so `-t` is set past all three rather than past the probe count: a slow sender is still
+    inside it. It is an upper bound, not the run length -- and both waits are CLI flags, which
+    is why this is computed and not a constant.
+    """
+    return int(math.ceil(recv_warmup + ECN_SEND_TIMEOUT + drain_wait)) + ECN_BG_MARGIN
+
+
 CTRL_SETTLE = 12      # s to let an exercise's own controller push its pipeline and rules
 #: Which step the controller's log is filed under, per arm.  `_start_controller` records it
 #: when it starts the process, because the step is appended by `stop_controller()` -- which
@@ -1507,15 +1547,20 @@ class Steps(object):
         # option in full. The prefix is presentation, not data: strip `|` and spaces first.
         return re.findall(r"^[|\s]*%s\s*=\s*(\S+)\s*$" % re.escape(field), text, re.M)
 
-    def _send_once(self, host, argv, feed=None, label=""):
-        """One sender, run to completion in the host namespace. -> its combined output."""
+    def _send_once(self, host, argv, feed=None, label="", timeout=None):
+        """One sender, run to completion in the host namespace. -> its combined output.
+
+        `timeout` (default SEND_TIMEOUT) is how long it may run before it is killed; a sender
+        whose own argv asks for longer than that must be handed its own (ecn: ECN_SEND_TIMEOUT).
+        """
         say("$ %s: %s%s" % (host, " ".join(argv), ("   <<< %r" % feed) if feed else ""))
         kw = {"stdout": subprocess.PIPE, "stderr": subprocess.STDOUT}
         if feed is not None:
             kw["stdin"] = subprocess.PIPE
         proc = self.h.popen(host, argv, **kw)
         try:
-            out, _ = proc.communicate(input=feed, timeout=SEND_TIMEOUT)
+            out, _ = proc.communicate(input=feed,
+                                      timeout=SEND_TIMEOUT if timeout is None else timeout)
         except subprocess.TimeoutExpired:
             proc.kill()
             out, _ = proc.communicate()
@@ -1768,14 +1813,29 @@ class Steps(object):
         the SOLUTION arm is red for a reason that is not about ecn.p4. spec["needs"] says so
         and DRIVER.md §6 repeats it; TICKET-P3 §2.4 keeps this exercise out of the gate until
         G2-C lands.
+
+        🔴 THE PROBES THAT REACH h2 ARE THE SAMPLE, SO THERE ARE ECN_PROBES OF THEM, NOT
+        SEND_SECONDS (TICKET-P4-roles §7 ruling 7; the why is at ECN_PROBES). The background's
+        `-t` comes from ecn_background_seconds() so it outlasts the whole train, the sniffer and
+        a sender that runs to its timeout; the arm still stops it by its handle.
+
+        NO SETTLING DELAY BEFORE THE FIRST PROBE, on purpose. README step 3's claim is a
+        transition -- "tos values change from 1 to 3 as the queue builds up" (README:128-129) --
+        and the probes that go out before the queue has built are the "1" half of it. They
+        cannot fail "0x3 among the tos values", only dilute it, and with 60 probes nearly all of
+        the train is sent behind a full queue anyway. A delay would buy what the count already
+        buys and take the "1" out of the transcript.
         """
-        srv, cli, fh = self._background_udp("h11", "h22", self.ips["h22"], rate="1M")
+        srv, cli, fh = self._background_udp(
+            "h11", "h22", self.ips["h22"], rate="1M",
+            seconds=ecn_background_seconds(self.args.recv_warmup, self.args.drain_wait))
         try:
             recv, rfh, rpath, rcmd = self._start_receiver("h2", "h2")
             self.steps.append(("E1  h2 starts the sniffer", rcmd, "(background; output below)"))
             scmd = [VENV_PY, self._script("send.py"), self.ips["h2"], "P4 driver probe",
-                    str(SEND_SECONDS)]
-            sout = self._send_once("h1", scmd, label="E2  h1 send.py (one packet per second)")
+                    str(ECN_PROBES)]
+            sout = self._send_once("h1", scmd, label="E2  h1 send.py (one packet per second)",
+                                   timeout=ECN_SEND_TIMEOUT)
             rtext = self._stop_receiver(recv, rfh, rpath)
         finally:
             self._stop_proc(cli)
@@ -1787,6 +1847,18 @@ class Steps(object):
 
         pkts = self._packets(rtext)
         tos = self._field_values(rtext, "tos")
+        # [Co-developed with claude code -- Adam]
+        # 🔴 A DISCLOSURE, NOT A VERDICT ROW (ruling 7). "['0x1']" from 2 of 60 probes and from
+        # 58 of 60 are different findings, and no row below can tell them apart; a row that
+        # always passed would add a PASS to every tally for a check that cannot fail. The
+        # count is "before the sniffer was stopped": a probe enqueued behind a full queue can
+        # still be inside s1 then (09-24 s1.log), so a short count is not all network loss.
+        seen = ("%d of %d probes reached h2 before the sniffer was stopped (%g s after the "
+                "sender exited)\ntos in arrival order: %s"
+                % (len(pkts), ECN_PROBES, self.args.drain_wait, " ".join(tos) or "(none)"))
+        say("   " + seen.replace("\n", "\n   "))
+        self.steps.append(("E4  probes that reached h2 (disclosure, not a verdict)",
+                           "counted from E3; E2 asked send.py for %d" % ECN_PROBES, seen))
         self._add("injection: packets reached h2", ">=1", "%d" % len(pkts),
                   len(pkts) >= 1, G_SRC,
                   "send.py:35-41 sends one UDP/4321 datagram per second; receive.py:34 filters "
