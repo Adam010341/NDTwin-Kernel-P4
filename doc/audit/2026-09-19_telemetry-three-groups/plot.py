@@ -119,6 +119,25 @@ def figure2_data(summary):
 
 # --- figure 3: CPU ------------------------------------------------------------------------------
 
+def rung_window_of(summary):
+    """The rung window figure 3's CPU was taken over, as the summary itself records it.
+
+    🔴 TICKET-P4 section 7 ruling 4 (Adam, 2026-09-24): the per-rung CPU reading is "climb" --
+    decided by Adam, NOT registered by PREREG -- and every output that carries it must say which
+    reading it is. The figure says it in its title, in two words; who decided it and why belong
+    in FINDINGS.md, not on the plot. Read from the summary, never assumed: a summary written
+    before the 2026-09-24 recheck has no reading and the title says so. And the three panels
+    must come from ONE reading -- kernel and bmv2 are separate blocks of the summary, so a figure
+    that drew one of each would be a picture no analysis produced; that is refused.
+    """
+    readings = {(summary.get(key) or {}).get("rung_window_reading")
+                for key in ("cpu_kernel", "cpu_bmv2")}
+    if len(readings) != 1:
+        raise ValueError("figure 3's panels would come from different rung windows: %s"
+                         % ", ".join(sorted(str(r) for r in readings)))
+    return readings.pop()
+
+
 def figure3_data(summary):
     """Three panels (bmv2, kernel, proxy+emitter), one line per group, x = offered kpps.
 
@@ -126,6 +145,7 @@ def figure3_data(summary):
     the group word sits where the reader's eye already is, and nothing else is added to the plot.
     """
     panels = []
+    reading = rung_window_of(summary)
     kernel = summary.get("cpu_kernel") or {}
     bmv2 = summary.get("cpu_bmv2") or {}
     for label, source in (("bmv2", bmv2), ("kernel", kernel)):
@@ -148,7 +168,8 @@ def figure3_data(summary):
         if points:
             series.append({"name": GROUP_TICK.get(group, group), "points": points})
     panels.append({"panel": "proxy + emitter", "series": series})
-    return {"title": "CPU by telemetry source and offered rate (1024 B frames)",
+    return {"title": "CPU by telemetry source and offered rate (1024 B frames, rung window: %s)"
+                     % (reading or "not recorded"),
             "xlabel": "offered rate (kpps)",
             "ylabel": "CPU (% of one core)",
             "panels": panels}

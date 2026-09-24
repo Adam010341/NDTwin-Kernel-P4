@@ -103,25 +103,31 @@ SENDER_CONTROL_FACTOR = 5.0
 
 GROUPS = ("none", "cooperative", "link")
 
-# --- 🔴 NOT a registered constant: a question PREREG leaves open (the 2026-09-24 recheck) --------
+# --- 🔴 NOT a registered constant: a question PREREG leaves open, decided by Adam ---------------
 #: Which seconds are "rung k" for the CPU side of PREREG 5.3's fit. The ladder re-confirms its
 #: highest clean rung with three more reps after the climb (PREREG 4.1 :161-162, from 08-28's
 #: (3) AMENDMENT-2 11.1(b) -- a loss re-check), and PREREG registers S(k) over the rung's own
-#: get_sflow_stats pair (A1.5 :503-509, which brackets the climb only) but says nothing about
-#: whether kernel_CPU(g, k) (5.3 :262-264) includes those re-confirmation reps. So both are
+#: get_sflow_stats pair (A1.5 :505-507, read around the climb only) but says nothing about
+#: whether kernel_CPU(g, k) (5.3 :263-266) includes those re-confirmation reps. Both readings are
 #: computed and reported side by side (summary["cpu_window"]):
-#:   "climb"               the reps the ladder took at rung k -- the same seconds S(k) is over;
+#:   "climb"               the reps the ladder took at rung k -- the span S(k) is divided by;
 #:   "climb+confirmation"  those pooled with rung k's re-confirmation block, if it has one.
 #: Under both, a rung's window is its own reps: never a span across the rungs between them.
 CPU_WINDOW_READINGS = ("climb", "climb+confirmation")
 #: The reading the primary summary keys -- cpu_kernel, cpu_bmv2, cpu_bmv2_ratio and
-#: reconciliation (b), which plot.py and FINDINGS read -- are computed under. 🔴 A PLACEHOLDER
-#: SO THOSE KEYS HAVE A VALUE, NOT A RULING: it was set before either reading had been computed
-#: on any campaign, and summary["cpu_window"] says `decided_by_prereg: false` beside both
-#: readings' numbers. "climb" is the placeholder because it is the one reading in which every
-#: number of a rung -- its CPU and its S -- comes from the one span PREREG does operationalise
-#: (A1.5's pair); that is a reason for the placeholder, not a reading of PREREG it does not make.
+#: reconciliation (b), which plot.py and FINDINGS read -- are computed under, and every one of
+#: them says so (`rung_window_reading`). 🔴 DECIDED BY ADAM, NOT REGISTERED BY PREREG
+#: (CPU_WINDOW_DECIDED_BY). Round 1 of the recheck set "climb" as a placeholder before either
+#: reading had run on a campaign; Adam's ruling made it the reading, for the reason in
+#: CPU_WINDOW_RATIONALE. "climb+confirmation" stays computed beside it as the secondary.
 CPU_WINDOW_PRIMARY = "climb"
+CPU_WINDOW_DECIDED_BY = "Adam 2026-09-24, TICKET-P4 §7 ruling 4"
+CPU_WINDOW_RATIONALE = (
+    "PREREG 5.3 (:263-266) pairs kernel_CPU(g, k) with S(k) in one fit, and S(k) is measured over "
+    "the climb only (AMENDMENT-1 A1.5, :505-507), so under 'climb' both sides of the fit share one "
+    "window; and the 08-28 rule this round inherits (2026-08-28_flow-count-capacity/PREREG.md:"
+    "254-255) records the first reading and the confirmation separately, 'so a disagreement "
+    "between them is visible rather than overwritten'")
 
 
 # --- reading the raw ---------------------------------------------------------------------------
@@ -765,8 +771,12 @@ def rung_windows(arm):
     scan_row_shape.log); the synthetic fixture had none of it until the same recheck.
 
     Two spans per rung, kept apart:
-      climb         the reps the ladder took at that rung -- contiguous, and exactly the seconds
-                    between the rung's own get_sflow_stats pair (run_group_arm.sh:378, :393).
+      climb         the reps the ladder took at that rung -- contiguous, and the reps the rung's
+                    own get_sflow_stats pair is read around (run_group_arm.sh:378, :393). NOT
+                    exactly the pair's seconds: the :378 read comes before the first rep's iperf3
+                    server start and `sleep 1` (:331-332), so the pair covers at least ~1 s more
+                    than this span. That was already so before this recheck and it is unchanged;
+                    no flow traffic runs in that second.
       confirmation  the re-confirmation block if this rung was re-confirmed (walk-down can
                     re-confirm several rungs, one block each), else None. Its reps have no
                     get_sflow_stats pair of their own.
@@ -803,13 +813,14 @@ def rung_cpu_spans(windows, reading):
 def rung_samples_per_second(arm, kpps):
     """Measured samples/s at one rung, from that rung's own get_sflow_stats pair (A1.5).
 
-    🔴 OVER THE SECONDS THAT PAIR BRACKETS, WHICH ARE THE CLIMB'S. AMENDMENT-1 A1.5
-    (PREREG.md:505-507) registers S(k) = the pair's addressed_total delta / "該階的秒數", and
-    run_group_arm.sh reads the pair before the rung's first rep and after its last CLIMB rep
-    (:378, :393) -- the re-confirmation loop reads none. So under either CPU reading S(k) is the
-    climb's: the confirmation reps are in neither the numerator nor, now, the denominator. The
-    union window used to divide the climb's delta by the climb, every higher rung and the
-    confirmation (link_f64_b at 20 kpps: 26 s of samples over 110 s).
+    🔴 OVER THE CLIMB, THE REPS THAT PAIR IS READ AROUND. AMENDMENT-1 A1.5 (PREREG.md:505-507)
+    registers S(k) = the pair's addressed_total delta / "該階的秒數", and run_group_arm.sh reads
+    the pair before the rung's first rep and after its last CLIMB rep (:378, :393) -- the
+    re-confirmation loop reads none. So under either CPU reading S(k) is the climb's: the
+    confirmation reps are in neither the numerator nor, now, the denominator. The union window
+    used to divide the climb's delta by the climb, every higher rung and the confirmation
+    (link_f64_b at 20 kpps: 26 s of samples over 110 s). The denominator is the climb span, which
+    is about 1 s shorter than the pair itself (see rung_windows) -- as it always was.
     """
     windows = rung_windows(arm).get(kpps) or {}
     span = windows.get("climb")
@@ -1008,26 +1019,31 @@ def bmv2_ratio(bmv2):
                      else BMV2_RATIO_LO <= ratio <= BMV2_RATIO_HI})
     return {"interval": [BMV2_RATIO_LO, BMV2_RATIO_HI],
             "registered": "PREREG 5.3: bmv2_total(cooperative)/bmv2_total(none) at the same rung",
+            # the ratio is registered; WHICH SECONDS its two sides are taken over is not
+            "rung_window_reading": bmv2.get("rung_window_reading"),
             "rows": rows}
 
 
 def cpu_window_readings(arms, cells, controls):
-    """🔴 BOTH RUNG-WINDOW READINGS, SIDE BY SIDE, AND NEITHER CALLED THE REGISTERED ONE.
+    """🔴 BOTH RUNG-WINDOW READINGS, SIDE BY SIDE, AND WHO CHOSE THE PRIMARY ONE.
 
     Every CPU quantity the summary reports -- the kernel comparison and its fits and verdicts,
     the bmv2 comparison, the registered bmv2 ratio, reconciliation (b) -- computed under each of
     CPU_WINDOW_READINGS. The primary keys are the CPU_WINDOW_PRIMARY entry of this block, and
-    this block says so, so a reader of summary.json can neither miss that a second reading
-    exists nor mistake the primary for a ruling.
+    this block says so and says who decided it: Adam, not PREREG. A reader of summary.json can
+    neither miss that a second reading exists nor mistake the primary for a registered one.
     """
-    out = {"primary": CPU_WINDOW_PRIMARY, "decided_by_prereg": False,
+    out = {"primary": CPU_WINDOW_PRIMARY, "secondary": [r for r in CPU_WINDOW_READINGS
+                                                       if r != CPU_WINDOW_PRIMARY],
+           "decided_by": CPU_WINDOW_DECIDED_BY, "decided_by_prereg": False,
+           "rationale": CPU_WINDOW_RATIONALE,
            "question": ("do the top-rung re-confirmation reps (rungs.tsv rep c1..c3, "
                         "run_group_arm.sh:420-440) belong to rung k's CPU window?"),
-           "why_not_decided": ("PREREG 4.1 (:161-162) names the re-confirmation as part of the "
-                               "ladder procedure; 5.3 (:262-264) measures kernel_CPU(g, k) at each "
-                               "rung; A1.5 (:503-509) defines S(k) over the rung's own "
-                               "get_sflow_stats pair, which brackets the climb reps only. None of "
-                               "them says whether CPU(k) includes the re-confirmation reps."),
+           "why_prereg_does_not_decide": (
+               "PREREG 4.1 (:161-162) names the re-confirmation as part of the ladder procedure; "
+               "5.3 (:263-266) measures kernel_CPU(g, k) at each rung; A1.5 (:505-507) defines "
+               "S(k) over the rung's own get_sflow_stats pair, which is read around the climb "
+               "reps only. None of them says whether CPU(k) includes the re-confirmation reps."),
            "both_readings_agree_on": ("a rung's window is its own reps, never a span across other "
                                       "rungs; S(k) is the climb's (A1.5)"),
            "readings": {}}
@@ -1172,6 +1188,7 @@ def reconcile(cells, cpu, controls):
                 or (share is not None and share >= FIXED_SHARE_CONSISTENT)),
             "verdict": entry.get("verdict"),
             "H-C2": entry.get("H-C2"),
+            "rung_window_reading": cpu.get("rung_window_reading"),
             "outside_means": ("the fixed-cost result does not reproduce on a 10-switch fabric at "
                               "8 s windows -- a result. Name the candidate among the three stated "
                               "differences (fabric size, window length, the zero point) and what "
@@ -1274,9 +1291,24 @@ def analyse(raw_dir):
     return summary
 
 
+def rung_window_label(summary):
+    """The words every CPU line of the render names its rung window with (Adam's ruling 4).
+
+    Read from the summary, never from this module's constants: a summary written under another
+    reading, or before the 2026-09-24 recheck, must say what IT was computed under.
+    """
+    window = summary.get("cpu_window") or {}
+    reading = (summary.get("cpu_kernel") or {}).get("rung_window_reading")
+    if not window or not reading:
+        return "rung window: not recorded (a summary from before the 2026-09-24 recheck)"
+    return ("rung window: %s (decided by %s; NOT registered by PREREG)"
+            % (reading, window.get("decided_by") or "nobody recorded"))
+
+
 def render(summary, stream=sys.stdout):
     """The text table. Deliberately terse: FINDINGS.md is where the prose belongs."""
     write = stream.write
+    window_label = rung_window_label(summary)
     write("=== arms\n")
     for arm in summary["arms"]:
         write("  %-28s %-12s %-6s clean=%-8s external=%-8s %s\n"
@@ -1318,7 +1350,7 @@ def render(summary, stream=sys.stdout):
     cross = summary.get("sampling_error_cross_group_registered")
     if cross:
         write("  %-12s %s\n" % ("link vs coop", cross["label"]))
-    write("\n=== (3) CPU, 1024 B ladder, kernel\n")
+    write("\n=== (3) CPU, 1024 B ladder, kernel -- %s\n" % window_label)
     for row in summary["cpu_kernel"]["rows"]:
         write("  %-12s %6s kpps  delta=%-9s spread=%-9s samples/s=%-8s %s\n"
               % (row["group"], row["kpps"], "%.2f" % row["delta_percent"], "%.2f" % row["spread"],
@@ -1341,18 +1373,19 @@ def render(summary, stream=sys.stdout):
                      block["low_kpps"], block["high_kpps"]))
     ratio = summary.get("cpu_bmv2_ratio")
     if ratio:
-        write("\n=== (3b) bmv2, cooperative/none at each rung, registered interval [%.2f, %.2f]\n"
-              % tuple(ratio["interval"]))
+        write("\n=== (3b) bmv2, cooperative/none at each rung, registered interval [%.2f, %.2f]"
+              " -- rung window: %s\n"
+              % (tuple(ratio["interval"]) + (ratio.get("rung_window_reading") or "not recorded",)))
         for row in ratio["rows"]:
             write("  %6s kpps  ratio=%-8s %s\n"
                   % (row["kpps"], "n/a" if row["ratio"] is None else "%.3f" % row["ratio"],
                      {True: "inside", False: "OUTSIDE", None: "no reading"}[row["inside"]]))
     window = summary.get("cpu_window")
     if window:
-        write("\n=== (3c) 🔴 the rung window is NOT decided by PREREG: are the top-rung "
-              "re-confirmation reps part of rung k's CPU?\n")
-        write("  (3) and (3b) above are the '%s' reading -- a placeholder, not a ruling. "
-              "Both readings:\n" % window["primary"])
+        write("\n=== (3c) the rung window: are the top-rung re-confirmation reps part of rung "
+              "k's CPU? PREREG does not say\n")
+        write("  (3), (3b) and (b) are the '%s' reading, decided by %s -- NOT registered by "
+              "PREREG. Both readings:\n" % (window["primary"], window.get("decided_by")))
         for reading in CPU_WINDOW_READINGS:
             block = window["readings"].get(reading) or {}
             for group, entry in sorted(((block.get("cpu_kernel") or {}).get("fits") or {}).items()):
@@ -1385,9 +1418,12 @@ def render(summary, stream=sys.stdout):
                   % (row["id"], row["ceiling_pps"], SENDER_CONTROL_FACTOR,
                      row["required_pps"], "PASSES" if row["passes"] else "FAILS"))
             continue
-        write("  (%s) %-12s %s%s\n" % (row["id"], row["group"],
-                                       "consistent" if row["consistent"] else "OUTSIDE the interval",
-                                       "  -- %s" % row["verdict"] if row.get("verdict") else ""))
+        write("  (%s) %-12s %s%s%s\n" % (row["id"], row["group"],
+                                         "consistent" if row["consistent"] else "OUTSIDE the interval",
+                                         "  -- %s" % row["verdict"] if row.get("verdict") else "",
+                                         "" if row["id"] != "b" else
+                                         "  [rung window: %s]" % (row.get("rung_window_reading")
+                                                                  or "not recorded")))
 
 
 def main(argv=None):

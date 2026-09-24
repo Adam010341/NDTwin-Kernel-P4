@@ -806,12 +806,47 @@ m=$(mutant m52 "$ANALYSE" \
 report "M-E52: the two readings are the same reading twice (the re-confirmation never counted)" "$m" \
        "test_both_readings_are_in_the_summary_side_by_side_and_neither_is_called_registered"
 
-# The flag that says PREREG did not decide it, flipped.
+# The flag that says PREREG did not decide it, flipped. (Round 2: the anchor moved with the
+# line when ruling 4 added `decided_by` beside it; the mutation is the same one.)
 m=$(mutant m53 "$ANALYSE" \
-    '    out = {"primary": CPU_WINDOW_PRIMARY, "decided_by_prereg": False,' \
-    '    out = {"primary": CPU_WINDOW_PRIMARY, "decided_by_prereg": True,')
+    '           "decided_by": CPU_WINDOW_DECIDED_BY, "decided_by_prereg": False,' \
+    '           "decided_by": CPU_WINDOW_DECIDED_BY, "decided_by_prereg": True,')
 report "M-E53: the summary says PREREG decided which reps a rung's CPU is over" "$m" \
        "test_both_readings_are_in_the_summary_side_by_side_and_neither_is_called_registered"
+
+# --- round 2 of the recheck: TICKET-P4 section 7 ruling 4 (Adam, 2026-09-24) ----------------------
+# The primary reading is "climb", decided by Adam and NOT registered by PREREG. Round 1 kept a
+# control (C-E3) proving no case pinned the then-placeholder; the ruling turns that control into
+# this mutation, and it must go red where the reading reaches a reader: figure 3 and the render.
+m=$(mutant m54 "$ANALYSE" \
+    'CPU_WINDOW_PRIMARY = "climb"' \
+    'CPU_WINDOW_PRIMARY = "climb+confirmation"')
+report "M-E54: the primary reading is flipped to climb+confirmation, against ruling 4" "$m" \
+       "test_figure3_names_its_rung_window_and_draws_the_climb_reading"
+
+# The second reading keeps only the rungs that were re-confirmed -- so on a ladder with no
+# re-confirmation at all it reads nothing, and the two readings stop agreeing where they must.
+# (Same anchor as M-E52, a different replacement; the gate applies each to its own copy.)
+m=$(mutant m55 "$ANALYSE" \
+    '    return [span for span in (windows["climb"], windows["confirmation"]) if span]' \
+    '    return [span for span in (windows["climb"], windows["confirmation"]) if span] if windows["confirmation"] else []')
+report "M-E55: climb+confirmation keeps only the rungs that were re-confirmed" "$m" \
+       "test_the_default_tree_has_no_confirmation_rows_so_both_readings_agree_there"
+
+# The render stops naming the reading its CPU lines were computed under.
+m=$(mutant m56 "$ANALYSE" \
+    '    window_label = rung_window_label(summary)' \
+    '    window_label = ""')
+report "M-E56: the render's CPU sections stop naming their rung window" "$m" \
+       "test_every_downstream_cpu_output_names_the_rung_window_it_was_taken_over"
+
+# Figure 3's title goes back to the round-1 text, which named no reading.
+m=$(mutant m57 "$PLOT" \
+    '    return {"title": "CPU by telemetry source and offered rate (1024 B frames, rung window: %s)"
+                     % (reading or "not recorded"),' \
+    '    return {"title": "CPU by telemetry source and offered rate (1024 B frames)",')
+report "M-E57: figure 3's title stops naming the rung window it was drawn from" "$m" \
+       "test_figure3_names_its_rung_window_and_draws_the_climb_reading"
 
 # --- the controls: changes that must NOT be caught -------------------------------------------------
 # A suite that goes red on a comment is not sensitive, it is fragile, and a fragile suite gets
@@ -830,13 +865,9 @@ m=$(mutant c2 "$PLOT" \
     for frame in sorted({size for (_g, size) in parsed}):')
 control "C-E2: a comprehension variable renamed in figure1_data (semantics unchanged)" "$m"
 
-# 🔴 NOT a semantics-preserving change -- a choice PREREG did not make. The primary keys'
-# reading is a placeholder (analyse.py CPU_WINDOW_PRIMARY), so no case may pin it: flipping it
-# must leave the suite green, or some case has quietly decided the question for PREREG.
-m=$(mutant c3 "$ANALYSE" \
-    'CPU_WINDOW_PRIMARY = "climb"' \
-    'CPU_WINDOW_PRIMARY = "climb+confirmation"')
-control "C-E3: the placeholder primary reading flipped (no case may decide what PREREG left open)" "$m"
+# (C-E3 RETIRED in round 2 of the recheck: it flipped the then-placeholder primary reading and had
+# to stay green. TICKET-P4 section 7 ruling 4 decided the reading, so the same change is now
+# M-E54 above and must go red.)
 
 # --- nothing underneath the gate moved while it ran ---------------------------------------------
 # 🔴 EVERY FILE THIS GATE MUTATES OR RUNS, not just the python half (ruling 25(4)). The
