@@ -437,6 +437,27 @@ def local_popen(argv, **kw):
     return subprocess.Popen(argv, **kw)
 
 
+def tutorials_utils_of(exdir):
+    """The tutorials `utils/` (the one holding p4runtime_lib) that belongs to exercise `exdir`.
+
+    [Co-developed with claude code -- Adam]
+
+    Every tutorials mycontroller.py finds p4runtime_lib by
+    ``sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../utils/'))``
+    (p4runtime/solution/mycontroller.py:15-17, flowcache/solution/mycontroller.py:23-25) --
+    relative to ITSELF, not to the cwd. At <exdir>/mycontroller.py that is <tutorials>/utils.
+    solution/mycontroller.py is one directory deeper, because the tutorials mean it to be
+    COPIED over the exercise's own file; run in place, its '../../utils/' is
+    <tutorials>/exercises/utils, which does not exist, and the controller dies at import
+    (orchestrator 2026-09-24, both solution arms: `No module named 'p4runtime_lib'`).
+
+    So this is exactly the directory the file would have appended had it been copied where the
+    tutorials put it: <exdir>/../../utils. Derived from the exercise, not from TUT/UTILS, so a
+    tree anywhere else is read the same way.
+    """
+    return os.path.normpath(os.path.join(os.path.abspath(exdir), os.pardir, os.pardir, "utils"))
+
+
 def trim(text, cap=6000):
     if text is None:
         return "(none)"
@@ -1555,7 +1576,20 @@ class Steps(object):
             argv = [CTRL_PY, os.path.join(self.exdir, ctrl)]
         env = dict(os.environ)
         env["PYTHONUNBUFFERED"] = "1"
-        say("$ %s   (> %s)" % (" ".join(argv), path))
+        shown = " ".join(argv)
+        # 🔴 THE TUTORIALS SOLUTION ARM, RUN IN PLACE, CANNOT FIND p4runtime_lib (2026-09-24;
+        # see tutorials_utils_of). Only that arm is given the exercise's utils/: the skeleton
+        # sits where the tutorials put it and finds utils/ itself, and the ndtwin adapter finds
+        # it and inserts it at sys.path[0] (run_external_controller.py find_tutorials_utils) --
+        # both keep the environment they always had. Prepended, so it resolves the way the
+        # adapter's does; whatever PYTHONPATH this process inherited stays behind it. The
+        # recorded command carries it, so the line in the report is one a reader can re-run.
+        # [Co-developed with claude code -- Adam]
+        if self.fabric != "ndtwin" and os.path.dirname(ctrl):
+            inherited = [p for p in [env.get("PYTHONPATH")] if p]
+            env["PYTHONPATH"] = os.pathsep.join([tutorials_utils_of(self.exdir)] + inherited)
+            shown = "PYTHONPATH=%s %s" % (env["PYTHONPATH"], shown)
+        say("$ %s   (> %s)" % (shown, path))
         proc = local_popen(argv, cwd=self.exdir, stdout=fh, stderr=subprocess.STDOUT,
                            stdin=subprocess.DEVNULL, env=env)
         # 🔴 THE PID OF THE PROCESS THIS LINE JUST STARTED, not a word about one (§9 ruling
@@ -1573,7 +1607,7 @@ class Steps(object):
             text = f.read()
         say("-- controller log (%s) --" % path)
         say(trim(text, 4000))
-        self.steps.append(("C1  %s under its own interpreter" % ctrl, " ".join(argv), text))
+        self.steps.append(("C1  %s under its own interpreter" % ctrl, shown, text))
         return proc, fh, path, text, alive, ctrl
 
     def _stop_controller(self, proc, fh, path):

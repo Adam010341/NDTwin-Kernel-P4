@@ -1002,6 +1002,64 @@ add "95. _start_controller publishes no pid for the process it started" \
     '        self.ctrl_pid = None  # MUTANT' \
     'test_start_controller_publishes_the_pid_of_the_process_it_started'
 
+# 98-104 (P4-D', 2026-09-24): the tutorials SOLUTION arms of flowcache and p4runtime ran
+# <exdir>/solution/mycontroller.py in place, whose own '../../utils/' is relative to __file__
+# and so names <tutorials>/exercises/utils -- and both died at `import p4runtime_lib.bmv2`
+# (logs/orchestrator-0924/tutorials-18/{flowcache,p4runtime}_solution.log). The fix hands that
+# arm, and only that arm, the exercise's own utils/ on PYTHONPATH.
+# [Co-developed with claude code -- Adam]
+#
+# 98 IS THE FIX REVERTED: the arm goes back to running the controller with nothing on its path,
+# which is the exact state the orchestrator's round measured. The killer RUNS the command the
+# driver would have run, against a tree whose controller opens with the tutorials' own lines.
+add "98. the tutorials solution arm runs its controller in place with no utils/ (the 09-24 fix reverted)" \
+    "$DRIVER" \
+    '        if self.fabric != "ndtwin" and os.path.dirname(ctrl):' \
+    '        if False:  # MUTANT: the 2026-09-24 fix reverted' \
+    'test_the_tutorials_solution_controller_imports_the_exercises_p4runtime_lib'
+
+# 99-100: the fix leaks into the two arms the ticket says it must not change.
+add "99. the skeleton arm is handed utils/ on PYTHONPATH too" \
+    "$DRIVER" \
+    '        if self.fabric != "ndtwin" and os.path.dirname(ctrl):' \
+    '        if self.fabric != "ndtwin":  # MUTANT: every tutorials arm, skeleton included' \
+    'test_the_skeleton_arm_is_handed_the_environment_it_always_had'
+
+add "100. the ndtwin arm is handed utils/ on PYTHONPATH too" \
+    "$DRIVER" \
+    '        if self.fabric != "ndtwin" and os.path.dirname(ctrl):' \
+    '        if os.path.dirname(ctrl):  # MUTANT: the adapter'"'"'s arm as well' \
+    'test_the_ndtwin_arm_is_handed_the_environment_it_always_had'
+
+# 101-102: the directory is the wrong one. 101 is off by one level -- <tutorials>/exercises/utils,
+# the very path the solution's own line already fails on. 102 is the hard-coded tree instead of
+# the exercise's: right on this laptop by coincidence, wrong for any tree that is not ~/tutorials.
+add "101. the exercise's utils/ is derived one level short" \
+    "$DRIVER" \
+    '    return os.path.normpath(os.path.join(os.path.abspath(exdir), os.pardir, os.pardir, "utils"))' \
+    '    return os.path.normpath(os.path.join(os.path.abspath(exdir), os.pardir, "utils"))  # MUTANT' \
+    'test_the_tutorials_solution_controller_imports_the_exercises_p4runtime_lib'
+
+add "102. the utils/ handed over is the hard-coded ~/tutorials one, not the exercise's" \
+    "$DRIVER" \
+    '    return os.path.normpath(os.path.join(os.path.abspath(exdir), os.pardir, os.pardir, "utils"))' \
+    '    return UTILS  # MUTANT' \
+    'test_the_tutorials_solution_controller_imports_the_exercises_p4runtime_lib'
+
+add "103. a PYTHONPATH the driver inherited is discarded instead of kept behind utils/" \
+    "$DRIVER" \
+    '            inherited = [p for p in [env.get("PYTHONPATH")] if p]' \
+    '            inherited = []  # MUTANT' \
+    'test_a_pythonpath_the_driver_inherited_is_kept_behind_the_exercises_utils'
+
+# 104: the round works and the report lies about how: C1 records a command that, pasted, dies of
+# the import the round itself no longer does.
+add "104. the report records the controller command without the PYTHONPATH it ran with" \
+    "$DRIVER" \
+    '            shown = "PYTHONPATH=%s %s" % (env["PYTHONPATH"], shown)' \
+    '            pass  # MUTANT' \
+    'test_the_command_the_report_records_reproduces_the_run'
+
 CTRL_SRC="$DRIVER"
 CTRL_ANCHOR='def host_key(name):'
 CTRL_REPL='# MUTANT: a comment, and nothing else.

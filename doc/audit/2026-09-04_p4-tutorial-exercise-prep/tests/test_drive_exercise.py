@@ -2544,6 +2544,193 @@ class TheControllerArms(unittest.TestCase):
         self.assertFalse(v["the controller cached the flow it was punted"].ok)
 
 
+#: The lines every tutorials mycontroller.py opens with, VERBATIM from
+#: exercises/p4runtime/solution/mycontroller.py:15-17 and exercises/flowcache/solution/
+#: mycontroller.py:23-25 (the skeletons carry the same three), followed by the import they exist
+#: for. 🔴 `__file__`, not the cwd, is what '../../utils/' is relative to -- and that is the whole
+#: defect: at <exdir>/mycontroller.py it names <tutorials>/utils, at <exdir>/solution/ it names
+#: <tutorials>/exercises/utils, which does not exist.
+TUTORIALS_CONTROLLER_PROLOGUE = (
+    "import os\n"
+    "import sys\n"
+    "sys.path.append(\n"
+    "    os.path.join(os.path.dirname(os.path.abspath(__file__)),\n"
+    "                 '../../utils/'))\n"
+    "import p4runtime_lib.bmv2\n"
+    "print('p4runtime_lib from ' + os.path.dirname(os.path.abspath(p4runtime_lib.__file__)))\n"
+)
+
+
+class TheSolutionControllerFindsTheTutorialsLibrary(unittest.TestCase):
+    """🔴 THE TUTORIALS SOLUTION ARMS DIED AT IMPORT (orchestrator, 2026-09-24 17:53-18:00).
+
+    [Co-developed with claude code -- Adam]
+
+    On `--fabric tutorials` the flowcache and p4runtime SOLUTION arms ran
+    `<exdir>/solution/mycontroller.py` in place, and both logged
+    `ModuleNotFoundError: No module named 'p4runtime_lib'` before doing anything
+    (logs/orchestrator-0924/tutorials-18/{flowcache,p4runtime}_solution.log, trunk 6291db35,
+    driver blob 99c862a9). The tutorials mean the solution to be COPIED over the exercise's own
+    mycontroller.py, one directory up, which is where its '../../utils/' works; the skeleton arms
+    passed because the skeleton already lives there.
+
+    These cells do not grep for PYTHONPATH. They capture the argv, cwd and env the driver hands
+    `local_popen`, and RUN that command against a tutorials-shaped tree whose controller opens
+    with the tutorials' own lines: what is asserted is that the import the live arm died on now
+    succeeds, and from the exercise's own utils/. The ndtwin arm and the skeleton arm are pinned
+    to the environment they always had -- the ticket's "must not change" is a property, so it has
+    cells of its own.
+    """
+
+    EXERCISES = ("p4runtime", "flowcache")
+
+    def setUp(self):
+        self.mod = load_driver()
+        quiet(self.mod)
+        self.root = mkdtemp(self, "drv-ctrlpath-")
+        # 🔴 AN INHERITED PYTHONPATH COULD ANSWER THE QUESTION FOR THE DRIVER, so it is taken out
+        # of this process for the duration (and put back): the red run must be red because the
+        # driver hands the child nothing, not green because the caller's shell did.
+        old = os.environ.pop("PYTHONPATH", None)
+        if old is not None:
+            self.addCleanup(os.environ.__setitem__, "PYTHONPATH", old)
+        self.utils = os.path.join(self.root, "utils")
+        os.makedirs(os.path.join(self.utils, "p4runtime_lib"))
+        for name in ("__init__.py", "bmv2.py"):
+            open(os.path.join(self.utils, "p4runtime_lib", name), "w").close()
+        for ex in self.EXERCISES:
+            exdir = os.path.join(self.root, "exercises", ex)
+            os.makedirs(os.path.join(exdir, "solution"))
+            for rel in ("mycontroller.py", os.path.join("solution", "mycontroller.py")):
+                with open(os.path.join(exdir, rel), "w") as f:
+                    f.write(TUTORIALS_CONTROLLER_PROLOGUE)
+
+    def exdir(self, exercise):
+        return os.path.join(self.root, "exercises", exercise)
+
+    def launch(self, exercise, which, fabric="tutorials", package=None, exdir=None):
+        """_start_controller with local_popen recording.  -> (Steps, argv, kwargs)."""
+        calls = []
+
+        def record(argv, **kw):
+            calls.append((list(argv), dict(kw)))
+            return fake_controller("")(argv, **kw)
+        self.mod.local_popen = record
+        self.mod.CTRL_SETTLE = 0            # the same wait steps_for() zeroes
+        args = Args()
+        args.which = which
+        logs = mkdtemp(self, "drv-ctrlpath-log-")
+        s = self.mod.Steps(StubHosts(IPS3), exercise, which, exdir or self.exdir(exercise), logs,
+                           args, ips=IPS3, fabric=fabric, package=package)
+        s._start_controller(which, exercise)
+        self.addCleanup(s.stop_controller)  # closes the log handle; runs before the rmtree
+        self.assertEqual(1, len(calls), "exactly one controller is started")
+        return s, calls[0][0], calls[0][1]
+
+    def execute(self, argv, kw, extra=()):
+        """Run what the driver would have run, with THIS interpreter in CTRL_PY's place.
+
+        The fake tree needs nothing but the stdlib, and the cell must not depend on which
+        packages the p4dev venv happens to hold -- a p4runtime_lib installed there some day
+        would turn the red run green for a reason that is not the driver's.
+        """
+        self.assertEqual(self.mod.CTRL_PY, argv[0])
+        env = dict(kw["env"])
+        env["PYTHONDONTWRITEBYTECODE"] = "1"
+        p = subprocess.run([sys.executable] + argv[1:] + list(extra), cwd=kw["cwd"], env=env,
+                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=120)
+        return p.returncode, p.stdout.decode("utf-8", "replace")
+
+    def test_the_tutorials_solution_controller_imports_the_exercises_p4runtime_lib(self):
+        """The red run IS the live failure: rc 1 and `No module named 'p4runtime_lib'`."""
+        for ex in self.EXERCISES:
+            with self.subTest(exercise=ex):
+                _s, argv, kw = self.launch(ex, "solution")
+                self.assertEqual(os.path.join(self.exdir(ex), "solution", "mycontroller.py"),
+                                 argv[-1], "the solution still runs in place, as itself")
+                rc, out = self.execute(argv, kw)
+                self.assertEqual(0, rc, out)
+                self.assertIn("p4runtime_lib from %s" % os.path.join(self.utils, "p4runtime_lib"),
+                              out, "imported, and from the exercise's own utils/")
+
+    def test_the_skeleton_arm_is_handed_the_environment_it_always_had(self):
+        """The skeleton sits where the tutorials put it and finds utils/ by itself."""
+        for ex in self.EXERCISES:
+            with self.subTest(exercise=ex):
+                _s, argv, kw = self.launch(ex, "skeleton")
+                want = dict(os.environ)
+                want["PYTHONUNBUFFERED"] = "1"
+                self.assertEqual(want, kw["env"])
+                self.assertEqual([self.mod.CTRL_PY,
+                                  os.path.join(self.exdir(ex), "mycontroller.py")], argv)
+                rc, out = self.execute(argv, kw)
+                self.assertEqual(0, rc, out)
+
+    def test_the_ndtwin_arm_is_handed_the_environment_it_always_had(self):
+        """run_external_controller.py finds utils/ itself (find_tutorials_utils) and inserts it
+        at sys.path[0]; the ndtwin arm's command and environment are not this fix's to touch."""
+        for ex in self.EXERCISES:
+            for which in ("skeleton", "solution"):
+                with self.subTest(exercise=ex, which=which):
+                    _s, argv, kw = self.launch(ex, which, fabric="ndtwin", package="/pkg")
+                    want = dict(os.environ)
+                    want["PYTHONUNBUFFERED"] = "1"
+                    self.assertEqual(want, kw["env"])
+                    ctrl = "mycontroller.py" if which == "skeleton" else "solution/mycontroller.py"
+                    self.assertEqual([self.mod.CTRL_PY,
+                                      os.path.join(self.mod.REPO, "tools", "p4_exercise",
+                                                   "run_external_controller.py"),
+                                      "/pkg", ctrl], argv)
+
+    def test_a_pythonpath_the_driver_inherited_is_kept_behind_the_exercises_utils(self):
+        """Prepended, not replaced: whatever the caller put there still reaches the child."""
+        os.environ["PYTHONPATH"] = "/somewhere/else"
+        self.addCleanup(os.environ.pop, "PYTHONPATH", None)
+        _s, _argv, kw = self.launch("p4runtime", "solution")
+        self.assertEqual([os.path.normpath(self.utils), "/somewhere/else"],
+                         [os.path.normpath(p) for p in kw["env"]["PYTHONPATH"].split(os.pathsep)])
+
+    def test_the_command_the_report_records_reproduces_the_run(self):
+        """C1's command string is what a reader pastes to re-run the controller. Without the
+        variable in it, the pasted line dies of exactly the import the round no longer does."""
+        s, argv, kw = self.launch("flowcache", "solution")
+        _label, cmd, _raw = [st for st in s.steps if st[0].startswith("C1")][-1]
+        self.assertIn(argv[-1], cmd)
+        env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+        env["PYTHONDONTWRITEBYTECODE"] = "1"
+        p = subprocess.run(["sh", "-c", cmd.replace(self.mod.CTRL_PY, sys.executable, 1)],
+                           cwd=kw["cwd"], env=env, stdout=subprocess.PIPE,
+                           stderr=subprocess.STDOUT, timeout=120)
+        out = p.stdout.decode("utf-8", "replace")
+        self.assertEqual(0, p.returncode, "%s\n%s" % (cmd, out))
+
+    @unittest.skipUnless(os.path.isdir("/home/adam/tutorials/exercises/p4runtime/solution")
+                         and os.access("/home/adam/p4dev-python-venv/bin/python", os.X_OK),
+                         "needs Adam's ~/tutorials tree and the p4dev venv (read-only use)")
+    def test_the_real_solution_controllers_get_past_their_imports(self):
+        """🔴 THE REAL FILES, THE REAL INTERPRETER, NO SWITCH (and no root).
+
+        Each solution's __main__ checks `os.path.exists(args.p4info)` right after its imports
+        and exits 1 with "p4info file not found" (p4runtime/solution/mycontroller.py:229-232,
+        flowcache/solution/mycontroller.py:548-551). Handing it a p4info that cannot exist runs
+        the whole import prologue -- scapy, grpc, p4runtime_lib, p4runtime_sh -- and stops
+        before it dials anything. The live failure was the prologue; so is this cell.
+        Nothing is written under ~/tutorials: the log goes to a temp dir, bytecode is off.
+        """
+        missing = os.path.join(self.root, "no-such-p4info.txtpb")
+        for ex in self.EXERCISES:
+            with self.subTest(exercise=ex):
+                exdir = os.path.join(self.mod.TUT, "exercises", ex)
+                _s, argv, kw = self.launch(ex, "solution", exdir=exdir)
+                env = dict(kw["env"])
+                env["PYTHONDONTWRITEBYTECODE"] = "1"
+                p = subprocess.run(argv + ["--p4info", missing], cwd=kw["cwd"], env=env,
+                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=120)
+                out = p.stdout.decode("utf-8", "replace")
+                self.assertNotIn("ModuleNotFoundError", out)
+                self.assertIn("p4info file not found: %s" % missing, out)
+
+
 class TheRedArmsThatAreNotTheDataPlane(unittest.TestCase):
     """flowcache stops at the compiler and basic_tunnel stops at the control plane."""
 
