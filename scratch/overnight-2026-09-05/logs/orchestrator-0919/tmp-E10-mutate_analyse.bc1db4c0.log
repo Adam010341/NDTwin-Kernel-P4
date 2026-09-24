@@ -1,0 +1,148 @@
+### mutation gate -- doc/audit/2026-09-19_telemetry-three-groups
+# tree:        /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups
+# head:        bc1db4c00268d726581235e6d6223045c9a1c20d
+# when:        2026-09-24 07:52:35 UTC
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/p4_proxy/venv/bin/python
+###
+baseline (must be green before any mutation):
+Ran 94 tests in 1.569s
+OK (skipped=1)
+
+  caught   M-E1: the ceiling interval is the NOMINAL 1.5x ladder step, not the realised 1.667x (test_the_interval_boundaries_are_the_realised_step_not_the_nominal_one went red)
+           also red: test_a_uses_the_registered_interval_and_says_outside_is_not_a_refutation
+  caught   M-E2: a cell is resolved however far apart its two arms landed           (test_a_cell_whose_arms_are_six_rungs_apart_is_NOT_resolved went red)
+           also red: test_an_unresolved_cell_is_marked_and_shows_BOTH_arm_values test_an_unresolved_cell_produces_NO_ratio_at_all
+  caught   M-E3: an unresolved cell still gets a ratio (1b section 4's missing branch, restored) (test_an_unresolved_cell_produces_NO_ratio_at_all went red)
+                                                                                     (no other case went red)
+  caught   M-E4: the none group's missing sampling error is reported as 0.0         (test_the_none_group_is_n_a_and_is_NOT_zero went red)
+           also red: test_check_mode_prints_every_figure_without_matplotlib test_the_none_group_is_drawn_as_n_a_and_NOT_as_a_zero_bar
+  caught   M-E5: figure 2 draws the none group as a zero bar instead of n/a         (test_the_none_group_is_drawn_as_n_a_and_NOT_as_a_zero_bar went red)
+           also red: test_check_mode_prints_every_figure_without_matplotlib
+  caught   M-E6: figure 1 labels an unresolved cell with a mean no arm measured     (test_an_unresolved_cell_is_marked_and_shows_BOTH_arm_values went red)
+                                                                                     (no other case went red)
+  caught   M-E7: the shot-noise prediction uses the sd rather than the median of |X| (test_the_shot_noise_prediction_is_the_registered_formula went red)
+           also red: test_N_counts_the_edges_that_carried_the_flow_not_every_edge_in_the_fabric test_the_fifth_campaigns_shape_outside_at_the_FIRST_rate_is_not_H_B1_either
+  caught   M-E8: sample loss is attributed with every drop counter at zero (the ROLE-5 failure) (test_sample_loss_is_NOT_attributed_when_every_drop_counter_is_zero went red)
+                                                                                     (no other case went red)
+  caught   M-E9: a process alive before the window is charged its whole lifetime to that window (test_a_process_alive_before_the_window_is_not_charged_its_lifetime went red)
+           also red: test_a_bmv2_ratio_outside_090_115_is_reported_outside test_a_process_that_appears_inside_the_window_IS_charged_from_zero test_the_fit_recovers_the_fixed_and_marginal_costs_and_calls_it_H_C1 test_the_kernel_panel_rises_with_offered_rate_for_a_sampling_group test_the_ten_bmv2_processes_are_folded_into_one_class_and_SUMMED
+  caught   M-E10: samples/s is assumed from the offered rate instead of read from the counter (test_samples_per_second_comes_from_the_rung_pair_not_from_the_offered_rate went red)
+                                                                                     (no other case went red)
+  caught   M-E11: a line is fitted through deltas smaller than their own spread (H-C0 removed) (test_a_delta_smaller_than_its_spread_is_H_C0_and_no_line_is_fitted went red)
+                                                                                     (no other case went red)
+  caught   M-E12: the mixed decomposition has no branch of its own (08-28 section 4's H3 lesson) (test_the_cpu_verdict_names_a_mixed_decomposition_as_a_result went red)
+                                                                                     (no other case went red)
+  caught   M-E13: the foreign-CPU gate compares an arm to the median of ALL arms, across groups (test_the_gate_is_within_group_so_the_link_treatment_does_not_fire_it went red)
+           also red: test_the_none_group_gate_median_counts_the_ladder_arms_only
+  caught   M-E14: reconciliation (a) drops the condition-matched cooperative pairing (test_a_is_reported_for_BOTH_the_none_and_the_cooperative_cell went red)
+                                                                                     (no other case went red)
+  caught   M-E15: the generator control passes at 1x instead of the registered 5x   (test_a_sender_control_below_five_times_FAILS went red)
+           also red: test_the_sender_control_passes_only_at_five_times_the_measured_ceiling
+  caught   M-E16: reconciliation (b) compares against the wrong 08-20 figure        (test_b_compares_the_marginal_slope_against_08_20s_206_microseconds went red)
+           also red: test_bmv2_carries_NO_H_C_label test_the_fit_recovers_the_fixed_and_marginal_costs_and_calls_it_H_C1
+  caught   M-E17: the generation check calls ndt verify_p4, which is not a subcommand (1 cell(s) went red)
+           also red:   it reached its own verdict, and it is a PASS
+           also red: 🔴 every ndt call names a real subcommand
+           also red:   the standalone re-check that does exist is used
+           also red:   and the bring-up's own telemetry assertion was read
+           also red: 🔴 C1 ran (the set -u local hazard would have killed the shell here)
+           also red:   C2 ran too
+           also red:   and the gate's positive control ran after them
+           also red: 🔴 a bring-up asserting the wrong telemetry source is caught
+           also red:   the failure names the generation and the rc
+           also red:   and it says the arms of that generation ran under it
+           also red:   the arms still ran (12 of them, as in a clean round)
+           also red: 🔴 rc 3 is recorded as NOTHING compared, and stays out of the verdict
+           also red:   so the round can still pass on it
+           also red:   the round passes
+           also red: 🔴 an interrupted round says it was interrupted, and by which signal
+           also red:   the round really is one arm short (13 readings on disk, not 14)
+           also red: 🔴 and the verdict says how many of how many
+           also red:   because the shell died of it
+           also red: 🔴 ... and said PASS in the same breath, because bad() never touched FAILURES
+  caught   M-E18: the four locals of the sender control are re-joined onto one line (1 cell(s) went red)
+           also red:   it reached its own verdict, and it is a PASS
+           also red:   six generations were brought up
+           also red:   every generation was torn down, plus the final one
+           also red:   C2 ran too
+           also red:   and the gate's positive control ran after them
+           also red: 🔴 every teardown is preceded by a claim that retracts measuring=
+           also red:   the arms still ran (12 of them, as in a clean round)
+           also red:   and all six generations were still brought up
+           also red:   so the round can still pass on it
+           also red:   the round passes
+           also red: 🔴 an interrupted round says it was interrupted, and by which signal
+           also red:   the round really is one arm short (13 readings on disk, not 14)
+           also red: 🔴 and the verdict says how many of how many
+           also red:   the pre-fix local shape was re-introduced (code, not the comment quoting it)
+           also red:   because the shell died of it
+           also red:   the teardown still ran (the EXIT trap fires even on the dead shell)
+           also red: 🔴 ... and said PASS in the same breath, because bad() never touched FAILURES
+           also red: 🔴 no cross-referencing `local` in any of the three scripts (scanner rc)
+  caught   M-E19: the teardown stops retracting measuring= (ndt down then refuses, rc 5) (2 cell(s) went red)
+           also red:   so the round can still pass on it
+           also red:   the round passes
+           also red: 🔴 ... and said PASS in the same breath, because bad() never touched FAILURES
+  caught   M-E20: a status --check rc 1 goes back to being a note, so PASS can coexist with it (1 cell(s) went red)
+           also red:   the failure names the generation and the rc
+           also red:   and it says the arms of that generation ran under it
+  caught   M-E21: the final re-claim is dropped, so the release compares against a stale baseline (1 cell(s) went red)
+           also red: 🔴 and the round does not report a release refusal
+           also red:   the round passes
+           also red:   the final claim re-recorded the baseline from the RESTORED value
+           also red:   the final claim renews for FINAL_CLAIM_MINUTES, not CLAIM_MINUTES
+  caught   M-E22: a refused release is printed but never reaches the verdict        (1 cell(s) went red)
+           also red:   in the failure list, not only on the way past
+           also red:   the pre-fix release shape was re-introduced
+           also red: 🔴 the old code DID print the refusal (the `||` fired -- pipefail)
+           also red: 🔴 ... and said PASS in the same breath, because bad() never touched FAILURES
+  caught   M-E23: a failed knob restore goes back to being swallowed by || true     (1 cell(s) went red)
+           also red:   and it says so in the failure list
+           also red:   naming the value the next 'ndt up p4' would read
+           also red:   hygiene: it does not re-claim over a knob it knows is wrong
+  caught   M-E24: the final retraction renews by CLAIM_MINUTES again (a refused release locks the lab) (1 cell(s) went red)
+                                                                                     (no other cell went red)
+  caught   M-E25: an unreadable path is counted as a clean scan (rc 0)              (1 cell(s) went red)
+           also red:   an incomplete sweep outranks a finding (2, not 1)
+  caught   M-E26: a string argv is not split, so iterating it yields characters (ruling 27) (1 cell(s) went red)
+                                                                                     (no other cell went red)
+  caught   M-E27: a dot-less option VALUE (--log-dir /var/log/simple_switch_grpc) is taken for the binary (test_a_DOT_LESS_option_value_is_still_not_the_binary went red)
+                                                                                     (no other case went red)
+  caught   M-E28: C3's throwaway ladders are pooled into the none|1024 cell again   (test_the_none_1024_cell_is_the_two_ladder_arms_only went red)
+           also red: test_a_ratio_below_the_registered_interval_is_H_A2 test_a_ratio_inside_one_realised_rung_is_H_A1
+  caught   M-E29: the load gate's own positive control is back in the group median it moves (test_the_none_group_gate_median_counts_the_ladder_arms_only went red)
+           also red: test_the_gate_is_within_group_so_the_link_treatment_does_not_fire_it
+  caught   M-E30: figure 3 judges label collisions as 3% of the end values' spread again (test_three_ends_within_a_label_height_get_three_different_offsets went red)
+           also red: test_a_label_with_EXACTLY_zero_headroom_is_handled_not_divided_by test_a_stack_taller_than_its_axes_is_not_reported_as_fitting test_no_label_is_drawn_above_the_top_of_its_own_axes
+  caught   M-E31: the traps stop recording WHICH signal ended the round (the 18:54 shape) (1 cell(s) went red)
+                                                                                     (no other cell went red)
+  caught   M-E32: the arm count is no longer compared against the selection         (2 cell(s) went red)
+           also red:   and it exits 1, not 0
+  caught   M-E33: N counts every edge in the fabric again, not the ones that carried the flow (test_N_counts_the_edges_that_carried_the_flow_not_every_edge_in_the_fabric went red)
+           also red: test_a_fabric_where_more_edges_carried_the_flow_is_reported_not_hidden test_a_group_with_no_twin_readings_falls_back_to_the_registered_four_and_says_so test_all_three_rates_inside_IS_H_B1 test_an_error_at_the_prediction_is_described_as_inside_the_band test_a_same_sign_excess_at_2_Mbit_is_NOT_H_B2 test_two_rates_inside_and_one_outside_is_NOT_H_B1_for_the_group
+  caught   M-E34: the axes are not raised, so a staggered top label is drawn outside them (test_no_label_is_drawn_above_the_top_of_its_own_axes went red)
+           also red: test_a_label_with_EXACTLY_zero_headroom_is_handled_not_divided_by test_only_the_panel_that_needs_room_is_given_any
+  caught   M-E35: one switch falls out of the bmv2 class, so the fold stops being a sum of ten (test_the_ten_bmv2_processes_are_folded_into_one_class_and_SUMMED went red)
+                                                                                     (no other case went red)
+  caught   M-E36: the stack is clamped to the axes, so an overflow stops being visible to the caller (test_a_stack_taller_than_its_axes_is_not_reported_as_fitting went red)
+           also red: test_ends_that_are_far_apart_on_the_display_are_not_moved_at_all test_three_ends_within_a_label_height_get_three_different_offsets
+  caught   M-E37: the group-level H-B verdict falls back to the first cell (ruling 38) (test_two_rates_inside_and_one_outside_is_NOT_H_B1_for_the_group went red)
+           also red: test_H_B4_needs_all_three_rates_and_each_rate_keeps_its_description test_one_signed_excess_at_100_Mbit_IS_H_B2
+  caught   M-E38: H-B2 is judged at 2 Mbit/s, where PREREG never registered it      (test_a_same_sign_excess_at_2_Mbit_is_NOT_H_B2 went red)
+           also red: test_one_signed_excess_at_100_Mbit_IS_H_B2
+  caught   M-E39: the H-C fit uses rungs one group never measured (treated & none, not all three) (test_a_rung_one_group_does_not_have_is_in_NO_groups_fit went red)
+                                                                                     (no other case went red)
+  caught   M-E40: bmv2's fit carries an H-C verdict again                           (test_bmv2_carries_NO_H_C_label went red)
+                                                                                     (no other case went red)
+  caught   M-E41: the headroom guard lets exactly-zero through, and divides by it   (test_a_label_with_EXACTLY_zero_headroom_is_handled_not_divided_by went red)
+                                                                                     (no other case went red)
+  caught   M-E42: the H-C fit falls back to the first two rungs of the group        (test_the_H_C_verdict_is_made_once_per_treated_group_over_every_common_rung went red)
+                                                                                     (no other case went red)
+  caught   M-E43: the registered bmv2 interval is widened to [0.5, 2.0]             (test_a_bmv2_ratio_outside_090_115_is_reported_outside went red)
+           also red: test_the_registered_bmv2_comparison_is_coop_over_none_at_each_rung
+  control  C-E1: a comment added above GROUPS (semantics unchanged)                 (stayed green, as a control must)
+  control  C-E2: a comprehension variable renamed in figure1_data (semantics unchanged) (stayed green, as a control must)
+
+mutations: 43   survivors: 0   drifted: 0
+
+### rc=0

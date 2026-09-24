@@ -1,0 +1,62 @@
+### recount-39-5-red-35-3-rows -- every row of red-35-3's difference appendix, classified by one rule per defect
+# tree:        /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups
+# head:        bc1db4c0 (0 uncommitted path(s) under the round directory)
+# when:        2026-09-24 07:36:21 UTC
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+# why:         ruling 39(5): the round-9 text said 10 rows and itemised 11; count by script, not by eye
+# command:     /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python -c import sys
+path = sys.argv[1]
+lines = open(path).read().split("\n")
+print("file: %s" % path)
+print("wc -l equivalent (newline count): %d; last line (:%d): %r" % (open(path).read().count("\n"), len([l for l in lines]) - 1, lines[-2]))
+start = next(i for i, l in enumerate(lines) if l.startswith("--- every structural difference")) + 1
+rows = [(i + 1, l) for i, l in enumerate(lines[start:], start) if l.startswith("  keys missing") or l.startswith("  cardinality")]
+# one rule per defect, stated once, applied to every row -- not chosen row by row
+def defect(text):
+    if "arm.meta" in text: return "declared: the twelve arm.meta keys NOT_WRITTEN_KEYS lists (not a defect)"
+    if "control.meta" in text: return "(3) C1/C2 control.meta missing a key"
+    if "sflow_rung" in text: return "(1) family counts nested inside telemetry_health"
+    if "cpu.jsonl" in text: return "(4) one bmv2 process instead of ten"
+    if "excluded_host_facing" in text: return "(2) excluded_host_facing 2 not 4"
+    if " keys " in text or "per_edge_peak_bps" in text: return "ruling 35(1) itself (the defect being fixed, not an extra find)"
+    return "UNCLASSIFIED"
+kinds = {"keys missing": 0, "cardinality": 0}
+tally = {}
+for number, text in rows:
+    kind = "keys missing" if text.startswith("  keys missing") else "cardinality"
+    kinds[kind] += 1
+    d = defect(text)
+    tally[d] = tally.get(d, 0) + 1
+    print("  :%-3d %-12s %-58s <- %s" % (number, kind, text.strip()[:58], d))
+print("\nrows: %d  (%s)" % (len(rows), ", ".join("%d %s" % (v, k) for k, v in kinds.items())))
+print("line range: :%d-%d" % (rows[0][0], rows[-1][0]))
+for d, n in sorted(tally.items()):
+    print("  %2d  %s" % (n, d)) /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/red-35-3-fixture-shape.p3e-e222176d.log
+###
+file: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/red-35-3-fixture-shape.p3e-e222176d.log
+wc -l equivalent (newline count): 85; last line (:85): '  cardinality  window.json                per_edge_peak_bps      real [0, 4]    fixture [4, 4]'
+  :72  keys missing keys missing from arm.meta                   ['clone_sessi <- declared: the twelve arm.meta keys NOT_WRITTEN_KEYS lists (not a defect)
+  :73  keys missing keys missing from control.meta               ['requirement <- (3) C1/C2 control.meta missing a key
+  :74  keys missing keys missing from sflow_rung<N>_after.json   ['malformed_i <- (1) family counts nested inside telemetry_health
+  :75  keys missing keys missing from sflow_rung<N>_before.json  ['malformed_i <- (1) family counts nested inside telemetry_health
+  :76  cardinality  cardinality  cpu.jsonl                  static             <- (4) one bmv2 process instead of ten
+  :77  cardinality  cardinality  sflow_rung<N>_after.json   non_ipv4_flows     <- (1) family counts nested inside telemetry_health
+  :78  cardinality  cardinality  sflow_rung<N>_after.json   samples_by_family  <- (1) family counts nested inside telemetry_health
+  :79  cardinality  cardinality  sflow_rung<N>_after.json   telemetry_health   <- (1) family counts nested inside telemetry_health
+  :80  cardinality  cardinality  sflow_rung<N>_before.json  non_ipv4_flows     <- (1) family counts nested inside telemetry_health
+  :81  cardinality  cardinality  sflow_rung<N>_before.json  samples_by_family  <- (1) family counts nested inside telemetry_health
+  :82  cardinality  cardinality  sflow_rung<N>_before.json  telemetry_health   <- (1) family counts nested inside telemetry_health
+  :83  cardinality  cardinality  window.json                excluded_host_faci <- (2) excluded_host_facing 2 not 4
+  :84  cardinality  cardinality  window.json                keys               <- ruling 35(1) itself (the defect being fixed, not an extra find)
+  :85  cardinality  cardinality  window.json                per_edge_peak_bps  <- ruling 35(1) itself (the defect being fixed, not an extra find)
+
+rows: 14  (4 keys missing, 10 cardinality)
+line range: :72-85
+   8  (1) family counts nested inside telemetry_health
+   1  (2) excluded_host_facing 2 not 4
+   1  (3) C1/C2 control.meta missing a key
+   1  (4) one bmv2 process instead of ten
+   1  declared: the twelve arm.meta keys NOT_WRITTEN_KEYS lists (not a defect)
+   2  ruling 35(1) itself (the defect being fixed, not an extra find)
+
+### rc=0

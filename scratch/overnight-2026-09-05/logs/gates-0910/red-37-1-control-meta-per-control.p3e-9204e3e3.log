@@ -1,0 +1,79 @@
+### RED RUN 37(1) -- control.meta unioned across C1/C2/C3 hides a key missing from two
+# head:        9204e3e3
+# when:        2026-09-19 15:38:50 UTC
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+# fixture:     tests/synthetic.py from f51ee88f (no requirement, no verdict for C1/C2)
+# instruments: inventory.py from e222176d (union) vs this head (per control)
+# 🔴 same fixture, same real run, two instruments -- the difference IS the finding.
+###
+OLD instrument (control.meta unioned):
+   control.meta         missing from the fixture: ['requirement']
+NEW instrument (control.meta per control):
+   control.meta (C1)    missing from the fixture: ['requirement', 'verdict']
+   control.meta (C2)    missing from the fixture: ['requirement', 'verdict']
+   control.meta (C3)    missing from the fixture: []
+
+the union hid `verdict` because C3 writes one, so the union always had it.
+
+--- and the structural test itself, old fixture under the new instrument
+test_a_real_run_has_the_six_directory_classes_and_so_does_the_fixture (test_real_shape.RealRunShapeTest.test_a_real_run_has_the_six_directory_classes_and_so_does_the_fixture) ... ok
+test_a_window_really_does_carry_more_edges_than_the_flow_crosses (test_real_shape.RealRunShapeTest.test_a_window_really_does_carry_more_edges_than_the_flow_crosses) ... ERROR
+test_every_file_the_analysis_reads_carries_the_real_key_set (test_real_shape.RealRunShapeTest.test_every_file_the_analysis_reads_carries_the_real_key_set) ... FAIL
+test_every_file_the_analysis_reads_has_the_real_CARDINALITIES (test_real_shape.RealRunShapeTest.test_every_file_the_analysis_reads_has_the_real_CARDINALITIES) ... FAIL
+test_the_file_classes_the_fixture_skips_are_exactly_the_declared_ones (test_real_shape.RealRunShapeTest.test_the_file_classes_the_fixture_skips_are_exactly_the_declared_ones) ... ok
+test_the_fixture_invents_no_file_class_a_real_run_does_not_have (test_real_shape.RealRunShapeTest.test_the_fixture_invents_no_file_class_a_real_run_does_not_have) ... ok
+test_the_fixture_invents_no_key_in_a_file_the_analysis_reads (test_real_shape.RealRunShapeTest.test_the_fixture_invents_no_key_in_a_file_the_analysis_reads) ... ok
+
+======================================================================
+ERROR: test_a_window_really_does_carry_more_edges_than_the_flow_crosses (test_real_shape.RealRunShapeTest.test_a_window_really_does_carry_more_edges_than_the_flow_crosses)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/r9red1/tests/test_real_shape.py", line 192, in test_a_window_really_does_carry_more_edges_than_the_flow_crosses
+    self.assertEqual(len(synthetic.ALL_EDGE_KEYS), 32)
+                         ^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'synthetic' has no attribute 'ALL_EDGE_KEYS'
+
+======================================================================
+FAIL: test_every_file_the_analysis_reads_carries_the_real_key_set (test_real_shape.RealRunShapeTest.test_every_file_the_analysis_reads_carries_the_real_key_set)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/r9red1/tests/test_real_shape.py", line 161, in test_every_file_the_analysis_reads_carries_the_real_key_set
+    self.assertEqual(missing, NOT_WRITTEN_KEYS.get(file_class, []),
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                     "%s: keys a real run has and the fixture does not" % file_class)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: ['requirement', 'verdict'] != []
+
+First list contains 2 additional elements.
+First extra element 0:
+'requirement'
+
+- ['requirement', 'verdict']
++ [] : control.meta (C1): keys a real run has and the fixture does not
+
+======================================================================
+FAIL: test_every_file_the_analysis_reads_has_the_real_CARDINALITIES (test_real_shape.RealRunShapeTest.test_every_file_the_analysis_reads_has_the_real_CARDINALITIES)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/r9red1/tests/test_real_shape.py", line 179, in test_every_file_the_analysis_reads_has_the_real_CARDINALITIES
+    self.assertEqual(mine.get(key), bounds,
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+                     "%s: %s is %s in a real run and %s in the fixture"
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                     % (file_class, key, bounds, mine.get(key)))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: [2, 2] != [12, 13]
+
+First differing element 0:
+2
+12
+
+- [2, 2]
++ [12, 13] : cpu.jsonl: static is [12, 13] in a real run and [2, 2] in the fixture
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.041s
+
+FAILED (failures=2, errors=1)
+
+### rc=1

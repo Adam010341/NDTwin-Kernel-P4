@@ -1,0 +1,33 @@
+### 37(9a) -- the REAL render, instrumented: do the labels fit the figure that is drawn?
+# head:        9204e3e3
+# when:        2026-09-19 15:41:02 UTC
+# interpreter: /home/adam/miniconda3/bin/python3
+# what:        place_end_labels wrapped in the real _line_panels flow over the fourth
+#              campaign summary.json (read-only); each panel axes read BEFORE and
+#              AFTER set_ylim, so "height_points still holds" stops being an inference.
+# 🔴 the first attempt at this measurement was WRONG and is not in this file: it hooked
+#    plt.Axes.annotate to find the axes, which figures 1 and 2 also call, so it paired
+#    panel records with the BAR charts axes and printed "height MOVED 206.49 -> 243.50".
+#    That was a harness bug, not a finding. Here the axes come from the subplots call
+#    that _line_panels itself makes.
+###
+panel bmv2             axes height BEFORE set_ylim 206.4880 pt   AFTER 206.4880 pt   UNCHANGED
+    ylim (np.float64(-9.97), np.float64(801.75)) -> (-9.97, np.float64(838.98))
+      link  drawn  178.99 pt   glyph top  184.49 pt   axes top  206.49 pt   inside
+      none  drawn  189.99 pt   glyph top  195.49 pt   axes top  206.49 pt   inside
+      coop  drawn  200.99 pt   glyph top  206.49 pt   axes top  206.49 pt   inside
+panel kernel           axes height BEFORE set_ylim 206.4880 pt   AFTER 206.4880 pt   UNCHANGED
+    ylim (np.float64(-0.13), np.float64(16.0)) -> (-0.13, 16.0)
+      none  drawn   10.24 pt   glyph top   15.74 pt   axes top  206.49 pt   inside
+      coop  drawn  184.13 pt   glyph top  189.63 pt   axes top  206.49 pt   inside
+      link  drawn  197.10 pt   glyph top  202.60 pt   axes top  206.49 pt   inside
+panel proxy + emitter  axes height BEFORE set_ylim 206.4880 pt   AFTER 206.4880 pt   UNCHANGED
+    ylim (np.float64(-0.19), np.float64(52.44)) -> (-0.19, 52.44)
+      none  drawn   10.69 pt   glyph top   16.19 pt   axes top  206.49 pt   inside
+      link  drawn   77.64 pt   glyph top   83.14 pt   axes top  206.49 pt   inside
+      coop  drawn  197.10 pt   glyph top  202.60 pt   axes top  206.49 pt   inside
+
+files written by _line_panels: ['fig3_cpu.pdf', 'fig3_cpu.png']
+EVERY LABEL INSIDE ITS OWN AXES, AND EVERY AXES BOX UNMOVED: True
+
+### rc=0

@@ -1,0 +1,32 @@
+### postcheck-guard-equivalence -- tests/postcheck_guard_equivalence.py: plot.py's headroom guard as written, as < 0, and removed
+# tree:        /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups
+# head:        bc1db4c0 (0 uncommitted path(s) under the round directory)
+# when:        2026-09-24 07:35:26 UTC
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+# why:         the claim in plot.py's comment and in ruling 39's M-E36 paragraph, run instead of repeated (ruling 39(0b)'s lesson)
+# command:     /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python tests/postcheck_guard_equivalence.py
+###
+real panel bmv2 (headroom > 0)
+    as written (<= 0)  same     ylim=(-9.9666, 838.975), top label at 201.0000 pt
+    < 0                same     ylim=(-9.9666, 838.975), top label at 201.0000 pt
+    no guard           same     ylim=(-9.9666, 838.975), top label at 201.0000 pt
+real panel kernel (headroom > 0)
+    as written (<= 0)  same     ylim=(-0.133267, 15.9968), top label at 197.1136 pt
+    < 0                same     ylim=(-0.133267, 15.9968), top label at 197.1136 pt
+    no guard           same     ylim=(-0.133267, 15.9968), top label at 197.1136 pt
+real panel proxy + emitter (headroom > 0)
+    as written (<= 0)  same     ylim=(-0.192578, 52.4377), top label at 197.1136 pt
+    < 0                same     ylim=(-0.192578, 52.4377), top label at 197.1136 pt
+    no guard           same     ylim=(-0.192578, 52.4377), top label at 197.1136 pt
+20 labels in 50 pt (headroom < 0 for 15 of them)
+    as written (<= 0)  same     ylim=(0, 1500), top label at 209.0000 pt
+    < 0                same     ylim=(0, 1500), top label at 209.0000 pt
+    no guard           same     ylim=(0, 1500), top label at 209.0000 pt
+3 labels in 27.5 pt, the lowest at the bottom (headroom == 0)
+    as written (<= 0)  same     ylim=(0, 3.75), top label at 22.0000 pt
+    < 0                DIFFERS  ZeroDivisionError: float division by zero
+    no guard           DIFFERS  ZeroDivisionError: float division by zero
+
+THE GUARD IS EQUIVALENT AWAY FROM ZERO AND NOT AT ZERO: True
+
+### rc=0

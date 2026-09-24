@@ -1,0 +1,27 @@
+### postcheck-9a-real-render-115737Z -- tests/postcheck_real_render.py over the FIFTH campaign's summary.json from this head
+# tree:        /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups
+# head:        bc1db4c0 (0 uncommitted path(s) under the round directory)
+# when:        2026-09-24 07:35:36 UTC
+# interpreter: /home/adam/miniconda3/bin/python3
+# why:         the figure FINDINGS reports; figures go to the scratchpad, not beside plot.py
+# command:     /home/adam/miniconda3/bin/python3 tests/postcheck_real_render.py --summary /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/scratch/p3e-round10/summary.115737Z.bc1db4c0.json --out /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/render5
+###
+# matplotlib 3.10.8, backend Agg
+panel bmv2             axes height BEFORE set_ylim 206.4880 pt  AFTER 206.4880 pt  UNCHANGED  (drawn box 206.4880 pt)
+    link  centre  178.99 pt   model top  184.49   REAL box  174.31 ..  183.67 pt (height  9.36)   axes top  206.49   margin +22.82 pt   inside
+    none  centre  189.99 pt   model top  195.49   REAL box  185.31 ..  194.67 pt (height  9.36)   axes top  206.49   margin +11.82 pt   inside
+    coop  centre  200.99 pt   model top  206.49   REAL box  196.31 ..  205.67 pt (height  9.36)   axes top  206.49   margin  +0.82 pt   inside
+panel kernel           axes height BEFORE set_ylim 206.4880 pt  AFTER 206.4880 pt  UNCHANGED  (drawn box 206.4880 pt)
+    none  centre   13.01 pt   model top   18.51   REAL box    8.33 ..   17.69 pt (height  9.36)   axes top  206.49   margin +188.80 pt   inside
+    link  centre  184.42 pt   model top  189.92   REAL box  179.74 ..  189.10 pt (height  9.36)   axes top  206.49   margin +17.39 pt   inside
+    coop  centre  197.10 pt   model top  202.60   REAL box  192.42 ..  201.78 pt (height  9.36)   axes top  206.49   margin  +4.71 pt   inside
+panel proxy + emitter  axes height BEFORE set_ylim 206.4880 pt  AFTER 206.4880 pt  UNCHANGED  (drawn box 206.4880 pt)
+    none  centre   12.80 pt   model top   18.30   REAL box    8.12 ..   17.48 pt (height  9.36)   axes top  206.49   margin +189.01 pt   inside
+    link  centre   82.38 pt   model top   87.88   REAL box   77.70 ..   87.06 pt (height  9.36)   axes top  206.49   margin +119.43 pt   inside
+    coop  centre  197.10 pt   model top  202.60   REAL box  192.42 ..  201.78 pt (height  9.36)   axes top  206.49   margin  +4.71 pt   inside
+
+labels measured: 9
+EVERY LABEL'S REAL TEXT BOX INSIDE ITS OWN AXES: True
+EVERY AXES BOX UNMOVED BY set_ylim: True
+
+### rc=0

@@ -1,0 +1,118 @@
+### red_against.py -- RED RUN 40 -- H-C2 undecided, no H-C0 on bmv2, H-B2 needs three windows; tests committed at fac4a96c, production code as at bc1db4c0 (unchanged)
+# head:        fac4a96c (the tree this script and its log belong to)
+# tree:        this working tree
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+# as run:      analyse.py             sha256 ee7d0f6421d2
+# as run:      plot.py                sha256 8326a3b3174e
+# as run:      tests/test_analyse.py  sha256 c9658a77b6e8
+# as run:      tests/test_plot.py     sha256 dbe528a6b11b
+# as run:      tests/synthetic.py     sha256 6f802de2654b
+###
+test_H_C2_is_NOT_DECIDED_while_its_second_condition_has_no_tolerance (test_analyse.CpuTest.test_H_C2_is_NOT_DECIDED_while_its_second_condition_has_no_tolerance) ... FAIL
+test_a_bmv2_ratio_outside_090_115_is_reported_outside (test_analyse.CpuTest.test_a_bmv2_ratio_outside_090_115_is_reported_outside) ... ok
+test_a_delta_smaller_than_its_spread_is_H_C0_and_no_line_is_fitted (test_analyse.CpuTest.test_a_delta_smaller_than_its_spread_is_H_C0_and_no_line_is_fitted) ... ok
+test_a_process_alive_before_the_window_is_not_charged_its_lifetime (test_analyse.CpuTest.test_a_process_alive_before_the_window_is_not_charged_its_lifetime) ... ok
+test_a_process_that_appears_inside_the_window_IS_charged_from_zero (test_analyse.CpuTest.test_a_process_that_appears_inside_the_window_IS_charged_from_zero) ... ok
+test_a_rung_one_group_does_not_have_is_in_NO_groups_fit (test_analyse.CpuTest.test_a_rung_one_group_does_not_have_is_in_NO_groups_fit) ... ok
+test_bmv2_carries_NO_H_C_label (test_analyse.CpuTest.test_bmv2_carries_NO_H_C_label) ... ok
+test_bmv2_gets_no_H_C0_either_when_no_rung_resolves (test_analyse.CpuTest.test_bmv2_gets_no_H_C0_either_when_no_rung_resolves) ... FAIL
+test_samples_per_second_comes_from_the_rung_pair_not_from_the_offered_rate (test_analyse.CpuTest.test_samples_per_second_comes_from_the_rung_pair_not_from_the_offered_rate) ... ok
+test_the_H_C_verdict_is_made_once_per_treated_group_over_every_common_rung (test_analyse.CpuTest.test_the_H_C_verdict_is_made_once_per_treated_group_over_every_common_rung) ... ok
+test_the_cpu_verdict_names_a_mixed_decomposition_as_a_result (test_analyse.CpuTest.test_the_cpu_verdict_names_a_mixed_decomposition_as_a_result) ... FAIL
+test_the_fit_block_carries_both_H_C2_conditions_and_the_two_ratios (test_analyse.CpuTest.test_the_fit_block_carries_both_H_C2_conditions_and_the_two_ratios) ... FAIL
+test_the_fit_recovers_the_fixed_and_marginal_costs_and_calls_it_H_C1 (test_analyse.CpuTest.test_the_fit_recovers_the_fixed_and_marginal_costs_and_calls_it_H_C1) ... ok
+test_the_reconciliation_row_and_the_render_say_what_the_fit_says (test_analyse.CpuTest.test_the_reconciliation_row_and_the_render_say_what_the_fit_says) ... FAIL
+test_the_registered_bmv2_comparison_is_coop_over_none_at_each_rung (test_analyse.CpuTest.test_the_registered_bmv2_comparison_is_coop_over_none_at_each_rung) ... ok
+test_the_ten_bmv2_processes_are_folded_into_one_class_and_SUMMED (test_analyse.CpuTest.test_the_ten_bmv2_processes_are_folded_into_one_class_and_SUMMED) ... ok
+test_when_H_C1_holds_the_block_still_says_H_C2_condition_1_held (test_analyse.CpuTest.test_when_H_C1_holds_the_block_still_says_H_C2_condition_1_held) ... FAIL
+test_with_no_rung_all_three_groups_share_there_is_no_fit_and_it_says_why (test_analyse.CpuTest.test_with_no_rung_all_three_groups_share_there_is_no_fit_and_it_says_why) ... ok
+test_H_B4_holds_when_all_three_rates_are_inside (test_analyse.RegisteredLevelTest.test_H_B4_holds_when_all_three_rates_are_inside) ... ok
+test_H_B4_needs_all_three_rates_and_each_rate_keeps_its_description (test_analyse.RegisteredLevelTest.test_H_B4_needs_all_three_rates_and_each_rate_keeps_its_description) ... ok
+test_a_100_Mbit_cell_with_only_two_valid_windows_cannot_be_H_B2 (test_analyse.RegisteredLevelTest.test_a_100_Mbit_cell_with_only_two_valid_windows_cannot_be_H_B2) ... FAIL
+test_a_registered_rate_with_no_reading_leaves_the_group_not_decided (test_analyse.RegisteredLevelTest.test_a_registered_rate_with_no_reading_leaves_the_group_not_decided) ... ok
+test_a_same_sign_excess_at_2_Mbit_is_NOT_H_B2 (test_analyse.RegisteredLevelTest.test_a_same_sign_excess_at_2_Mbit_is_NOT_H_B2) ... ok
+test_all_three_rates_inside_IS_H_B1 (test_analyse.RegisteredLevelTest.test_all_three_rates_inside_IS_H_B1) ... ok
+test_no_cell_or_rate_row_carries_a_label_registered_at_the_group_level (test_analyse.RegisteredLevelTest.test_no_cell_or_rate_row_carries_a_label_registered_at_the_group_level) ... ok
+test_one_signed_excess_at_100_Mbit_IS_H_B2 (test_analyse.RegisteredLevelTest.test_one_signed_excess_at_100_Mbit_IS_H_B2) ... ok
+test_summary_json_carries_the_cell_descriptions_AND_the_group_verdicts (test_analyse.RegisteredLevelTest.test_summary_json_carries_the_cell_descriptions_AND_the_group_verdicts) ... ok
+test_the_fifth_campaigns_shape_outside_at_the_FIRST_rate_is_not_H_B1_either (test_analyse.RegisteredLevelTest.test_the_fifth_campaigns_shape_outside_at_the_FIRST_rate_is_not_H_B1_either) ... ok
+test_two_rates_inside_and_one_outside_is_NOT_H_B1_for_the_group (test_analyse.RegisteredLevelTest.test_two_rates_inside_and_one_outside_is_NOT_H_B1_for_the_group) ... ok
+
+======================================================================
+FAIL: test_H_C2_is_NOT_DECIDED_while_its_second_condition_has_no_tolerance (test_analyse.CpuTest.test_H_C2_is_NOT_DECIDED_while_its_second_condition_has_no_tolerance)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/ndt-e-red-dboc2tvg/round/tests/test_analyse.py", line 539, in test_H_C2_is_NOT_DECIDED_while_its_second_condition_has_no_tolerance
+    self.assertEqual(verdict, self.NOT_DECIDED)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: "H-C2 cost is per sample (08-20's fixed c[29 chars]ere)" != 'not decided: H-C2 condition 1 holds (sha[71 chars]ance'
+- H-C2 cost is per sample (08-20's fixed component does not reproduce here)
++ not decided: H-C2 condition 1 holds (share <= 0.2); condition 2 (delta ratio ~ S ratio) has no registered tolerance
+
+
+======================================================================
+FAIL: test_bmv2_gets_no_H_C0_either_when_no_rung_resolves (test_analyse.CpuTest.test_bmv2_gets_no_H_C0_either_when_no_rung_resolves)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/ndt-e-red-dboc2tvg/round/tests/test_analyse.py", line 601, in test_bmv2_gets_no_H_C0_either_when_no_rung_resolves
+    self.assertNotIn("H-C", entry.get("verdict") or "", group)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'H-C' unexpectedly found in 'H-C0 not resolved -- the window-to-window spread is larger than the effect at every rung' : cooperative
+
+======================================================================
+FAIL: test_the_cpu_verdict_names_a_mixed_decomposition_as_a_result (test_analyse.CpuTest.test_the_cpu_verdict_names_a_mixed_decomposition_as_a_result)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/ndt-e-red-dboc2tvg/round/tests/test_analyse.py", line 518, in test_the_cpu_verdict_names_a_mixed_decomposition_as_a_result
+    self.assertTrue(analyse.cpu_verdict(per_sample).startswith("not decided: H-C2"))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true
+
+======================================================================
+FAIL: test_the_fit_block_carries_both_H_C2_conditions_and_the_two_ratios (test_analyse.CpuTest.test_the_fit_block_carries_both_H_C2_conditions_and_the_two_ratios)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/ndt-e-red-dboc2tvg/round/tests/test_analyse.py", line 546, in test_the_fit_block_carries_both_H_C2_conditions_and_the_two_ratios
+    self.assertEqual(entry["verdict"], self.NOT_DECIDED)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: "H-C2 cost is per sample (08-20's fixed c[29 chars]ere)" != 'not decided: H-C2 condition 1 holds (sha[71 chars]ance'
+- H-C2 cost is per sample (08-20's fixed component does not reproduce here)
++ not decided: H-C2 condition 1 holds (share <= 0.2); condition 2 (delta ratio ~ S ratio) has no registered tolerance
+
+
+======================================================================
+FAIL: test_the_reconciliation_row_and_the_render_say_what_the_fit_says (test_analyse.CpuTest.test_the_reconciliation_row_and_the_render_say_what_the_fit_says)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/ndt-e-red-dboc2tvg/round/tests/test_analyse.py", line 580, in test_the_reconciliation_row_and_the_render_say_what_the_fit_says
+    self.assertEqual(row["verdict"], self.NOT_DECIDED)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: "H-C2 cost is per sample (08-20's fixed c[29 chars]ere)" != 'not decided: H-C2 condition 1 holds (sha[71 chars]ance'
+- H-C2 cost is per sample (08-20's fixed component does not reproduce here)
++ not decided: H-C2 condition 1 holds (share <= 0.2); condition 2 (delta ratio ~ S ratio) has no registered tolerance
+
+
+======================================================================
+FAIL: test_when_H_C1_holds_the_block_still_says_H_C2_condition_1_held (test_analyse.CpuTest.test_when_H_C1_holds_the_block_still_says_H_C2_condition_1_held)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/ndt-e-red-dboc2tvg/round/tests/test_analyse.py", line 569, in test_when_H_C1_holds_the_block_still_says_H_C2_condition_1_held
+    self.assertIsNotNone(block, "no machine-readable H-C2 block in the fit")
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: unexpectedly None : no machine-readable H-C2 block in the fit
+
+======================================================================
+FAIL: test_a_100_Mbit_cell_with_only_two_valid_windows_cannot_be_H_B2 (test_analyse.RegisteredLevelTest.test_a_100_Mbit_cell_with_only_two_valid_windows_cannot_be_H_B2)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/ndt-e-red-dboc2tvg/round/tests/test_analyse.py", line 313, in test_a_100_Mbit_cell_with_only_two_valid_windows_cannot_be_H_B2
+    self.assertIs(group["H-B2"]["holds"], False, group["H-B2"])
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: True is not False : {'holds': True, 'offered_mbit': 100, 'position': 'above', 'same_sign': True, 'windows': 2}
+
+----------------------------------------------------------------------
+Ran 29 tests in 0.643s
+
+FAILED (failures=7)
+
+### rc=1

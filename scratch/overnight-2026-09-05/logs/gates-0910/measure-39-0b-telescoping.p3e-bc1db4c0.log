@@ -1,0 +1,46 @@
+### measure-39-0b-telescoping -- what cpu_for_window actually does with round 8's equal-share fixture: per-row increments, not the endpoints
+# tree:        /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups
+# head:        bc1db4c0 (0 uncommitted path(s) under the round directory)
+# when:        2026-09-24 07:37:39 UTC
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+# why:         ruling 39(0b): the round-9 report said 'only differences the endpoints'; the code accumulates every row
+# command:     /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python -c import importlib.util, json, os, subprocess, sys, tempfile
+here = sys.argv[1]
+def show(rev, path):
+    return subprocess.run(["git", "-C", here, "show", "%s:doc/audit/2026-09-19_telemetry-three-groups/%s" % (rev, path)],
+                          check=True, capture_output=True, text=True).stdout
+work = tempfile.mkdtemp()
+for rev, name, dest in (("e222176d", "tests/synthetic.py", "synthetic8.py"), ("e222176d", "analyse.py", "analyse8.py")):
+    open(os.path.join(work, dest), "w").write(show(rev, name))
+def load(name):
+    spec = importlib.util.spec_from_file_location(name, os.path.join(work, name + ".py"))
+    m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m); return m
+synthetic, analyse = load("synthetic8"), load("analyse8")
+root = os.path.join(work, "tree"); synthetic.build(root)
+arm = os.path.join(root, "G1", "none_f1024_a")
+header, rows = analyse.load_cpu(os.path.join(arm, "cpu.jsonl"))
+spans = analyse.rung_windows(analyse.load_arm(arm, root))
+t0, t1 = spans[1.0]
+inside = [r for r in rows if t0 <= r["t"] <= t1]
+key = "bmv2-1:21"
+values = [r["proc"][key] for r in inside]
+steps = [b - a for a, b in zip(values, values[1:])]
+print("round 8's fixture (e222176d), arm none_f1024_a, rung 1 kpps, window %.1f..%.1f s, %d rows" % (t0, t1, len(inside)))
+print("%s cumulative jiffies as written (int() of a total that grows 7.5 per 0.5 s row):" % key)
+print("  first %d   last %d   last - first = %d" % (values[0], values[-1], values[-1] - values[0]))
+print("  per-row increments cpu_for_window ADDS: %s" % steps)
+print("  their sum = %d; increments that are not 7.5: all of them (7 or 8) -- the .5s WERE truncated" % sum(steps))
+measured = analyse.cpu_for_window(rows, header["clk_tck"], t0, t1)
+print("cpu_for_window: %s = %.6f %% of one core; bmv2 class (ten folded) = %.6f" % ("bmv2 total", measured["bmv2"], measured["bmv2"]))
+print("MECHANISM: per-row accumulation of value - previous; truncated increments; the per-key sum telescopes to last - first: %s"
+      % (sum(steps) == values[-1] - values[0])) /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919
+###
+round 8's fixture (e222176d), arm none_f1024_a, rung 1 kpps, window 1000.0..1008.0 s, 17 rows
+bmv2-1:21 cumulative jiffies as written (int() of a total that grows 7.5 per 0.5 s row):
+  first 900000   last 900120   last - first = 120
+  per-row increments cpu_for_window ADDS: [7, 8, 7, 8, 7, 8, 7, 8, 7, 8, 7, 8, 7, 8, 7, 8]
+  their sum = 120; increments that are not 7.5: all of them (7 or 8) -- the .5s WERE truncated
+cpu_for_window: bmv2 total = 150.000000 % of one core; bmv2 class (ten folded) = 150.000000
+MECHANISM: per-row accumulation of value - previous; truncated increments; the per-key sum telescopes to last - first: True
+
+### rc=0

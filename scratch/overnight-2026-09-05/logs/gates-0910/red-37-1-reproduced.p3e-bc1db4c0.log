@@ -1,0 +1,17 @@
+### red-37-1-reproduced -- tests/compare_inventory_instruments.py: the round-9 red run 37(1), as a file
+# tree:        /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups
+# head:        bc1db4c0 (0 uncommitted path(s) under the round directory)
+# when:        2026-09-24 07:35:25 UTC
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+# why:         ruling 39(9b): round 9 kept only this comparison's stdout; same fixture (f51ee88f), old instrument e222176d vs this tree
+# command:     /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python tests/compare_inventory_instruments.py
+###
+fixture:     tests/synthetic.py at f51ee88f
+OLD instrument (inventory.py + real_run_inventory.json at e222176d):
+   control.meta         missing from the fixture: ['requirement']
+NEW instrument (inventory.py + real_run_inventory.json in this tree):
+   control.meta (C1)    missing from the fixture: ['requirement', 'verdict']
+   control.meta (C2)    missing from the fixture: ['requirement', 'verdict']
+   control.meta (C3)    missing from the fixture: []
+
+### rc=0

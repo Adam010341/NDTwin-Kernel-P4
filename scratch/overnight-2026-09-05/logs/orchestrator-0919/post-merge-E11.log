@@ -1,0 +1,80 @@
+### branch trunk at 87a43008; merging feat/p3-three-groups-0919 (a7fb0789)
+Merge made by the 'ort' strategy.
+ .../2026-09-19_telemetry-three-groups/analyse.py   | 454 ++++++++++++++++++--
+ .../2026-09-19_telemetry-three-groups/drive_e.sh   |  71 ++-
+ .../2026-09-19_telemetry-three-groups/plot.py      | 123 +++++-
+ .../tests/anchor_sweep.py                          | 177 ++++++++
+ .../tests/check_inventory_fresh.py                 |  51 +++
+ .../tests/compare_inventory_instruments.py         |  83 ++++
+ .../tests/fixtures/real_run_inventory.json         | 304 +++++++++++++
+ .../tests/inventory.py                             | 180 ++++++++
+ .../tests/mutate_analyse.sh                        | 240 ++++++++++-
+ .../tests/postcheck_guard_equivalence.py           |  79 ++++
+ .../tests/postcheck_real_render.py                 | 113 +++++
+ .../tests/red/sum_to_first.json                    |  10 +
+ .../tests/red/sum_to_max.json                      |  10 +
+ .../tests/red_against.py                           | 173 ++++++++
+ .../tests/scan_onpath_edges.py                     |  85 ++++
+ .../tests/synthetic.py                             | 270 ++++++++++--
+ .../tests/test_analyse.py                          | 476 ++++++++++++++++++++-
+ .../tests/test_drive_e_offline.sh                  |  72 +++-
+ .../tests/test_plot.py                             | 169 ++++++++
+ .../tests/test_real_shape.py                       | 198 +++++++++
+ 20 files changed, 3237 insertions(+), 101 deletions(-)
+ create mode 100755 doc/audit/2026-09-19_telemetry-three-groups/tests/anchor_sweep.py
+ create mode 100755 doc/audit/2026-09-19_telemetry-three-groups/tests/check_inventory_fresh.py
+ create mode 100755 doc/audit/2026-09-19_telemetry-three-groups/tests/compare_inventory_instruments.py
+ create mode 100644 doc/audit/2026-09-19_telemetry-three-groups/tests/fixtures/real_run_inventory.json
+ create mode 100644 doc/audit/2026-09-19_telemetry-three-groups/tests/inventory.py
+ create mode 100755 doc/audit/2026-09-19_telemetry-three-groups/tests/postcheck_guard_equivalence.py
+ create mode 100755 doc/audit/2026-09-19_telemetry-three-groups/tests/postcheck_real_render.py
+ create mode 100644 doc/audit/2026-09-19_telemetry-three-groups/tests/red/sum_to_first.json
+ create mode 100644 doc/audit/2026-09-19_telemetry-three-groups/tests/red/sum_to_max.json
+ create mode 100755 doc/audit/2026-09-19_telemetry-three-groups/tests/red_against.py
+ create mode 100755 doc/audit/2026-09-19_telemetry-three-groups/tests/scan_onpath_edges.py
+ create mode 100644 doc/audit/2026-09-19_telemetry-three-groups/tests/test_real_shape.py
+### merged: 305b9938
+ 20 files changed, 3237 insertions(+), 101 deletions(-)
+### merged_checks
+check_process_by_name rc=0  check_process_by_name: 313 file(s) scanned, 0 site(s), 0 registered, 0 new, 0 stale
+check_gate_anchors rc=0  115/115 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+kiref rc=0  OK
+check_test_tmpdirs rc=0  check_test_tmpdirs: 347 file(s) scanned, 0 fixed temp paths
+test_redirection_order rc=0  Ran 48 checks, 0 failed
+test_log_suffix_idempotent rc=0    30 passed, 0 failed
+test_topo_from_json rc=0  PASS -- derived wiring is identical to the hard-coded lists
+MERGED-CHECKS 305b9938 r1: ALL-GREEN
+merged_checks rc=0
+### analyse on trunk
+analyse rc=0
+      🔴 5 edges carried the flow, not the 4 PREREG 5.2 registered: s1-eth2, s10-eth4, s5-eth4, s6-eth4, s8-eth2
+      🔴 5 edges carried the flow, not the 4 PREREG 5.2 registered: s1-eth2, s10-eth4, s6-eth1, s6-eth4, s8-eth2
+      🔴 no edge reported traffic (a group with no twin readings), so PREREG 5.2's registered 4 on-path edges are used
+      🔴 no edge reported traffic (a group with no twin readings), so PREREG 5.2's registered 4 on-path edges are used
+      🔴 no edge reported traffic (a group with no twin readings), so PREREG 5.2's registered 4 on-path edges are used
+  --- registered (PREREG 5.2), once per group -- the only lines FINDINGS may quote
+  cooperative  neither H-B1 nor H-B2 holds as registered
+  cooperative  H-C1 cost is dominated by a fixed component (08-20 reproduces)  (F=0.92% of one core, m=123 us/sample)
+                 H-C2 condition 1 (share 0.0722 <= 0.2): True; condition 2: not evaluated (delta ratio 20.297, S ratio 51.802, rungs 1.0..110.0)
+  link         not decided: H-C2 condition 1 holds (share <= 0.2); condition 2 (delta ratio ~ S ratio) has no registered tolerance  (F=0.77% of one core, m=79 us/sample)
+                 H-C2 condition 1 (share 0.0623 <= 0.2): True; condition 2: not evaluated (delta ratio 31.505, S ratio 58.680, rungs 1.0..110.0)
+=== (3b) bmv2, cooperative/none at each rung, registered interval [0.90, 1.15]
+### plot on trunk
+plot rc=2
+stat: cannot statx '/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/figs-305b9938/fig1_pps_ceiling.png': No such file or directory
+  fig1_pps_ceiling.png DIFFERS (committed 49657 B, new  B)
+stat: cannot statx '/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/figs-305b9938/fig1_pps_ceiling.pdf': No such file or directory
+  fig1_pps_ceiling.pdf DIFFERS (committed 14983 B, new  B)
+stat: cannot statx '/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/figs-305b9938/fig2_sampling_error.png': No such file or directory
+  fig2_sampling_error.png DIFFERS (committed 50311 B, new  B)
+stat: cannot statx '/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/figs-305b9938/fig2_sampling_error.pdf': No such file or directory
+  fig2_sampling_error.pdf DIFFERS (committed 15701 B, new  B)
+stat: cannot statx '/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/figs-305b9938/fig3_cpu.png': No such file or directory
+  fig3_cpu.png DIFFERS (committed 114275 B, new  B)
+stat: cannot statx '/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/figs-305b9938/fig3_cpu.pdf': No such file or directory
+  fig3_cpu.pdf DIFFERS (committed 21475 B, new  B)
+### fill FINDINGS 3-4
+remaining placeholders: 0
+written doc/audit/2026-09-19_telemetry-three-groups/FINDINGS.md
+### placeholders left: 0
+### done 16:50:59

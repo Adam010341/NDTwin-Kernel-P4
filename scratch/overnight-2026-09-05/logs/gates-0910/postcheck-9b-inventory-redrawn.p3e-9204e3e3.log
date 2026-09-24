@@ -1,0 +1,19 @@
+### 37(9b) -- has the TRUTH side drifted? re-extract from raw and compare key by key
+# head:        9204e3e3
+# when:        2026-09-19 15:41:24 UTC
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+# committed:   tests/fixtures/real_run_inventory.json (sha256 3947dd7be4606f38)
+# raw:         /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T105759Z_full (read-only)
+# 🔴 the committed inventory is a dead file: no gate re-extracts it, so someone could
+#    edit it to make the structural test green and nobody would know. This is that
+#    check, done by hand this round; making it a gate is in the candidate list.
+###
+  directory_classes    6 entries compared, all equal
+  file_keys           10 entries compared, all equal
+  file_sizes           4 entries compared, all equal
+
+sections compared: directory_classes, file_keys, file_sizes
+entries: 6 + 10 + 4
+DIFFERENCES BETWEEN THE COMMITTED INVENTORY AND A FRESH EXTRACTION: 0
+
+### rc=0

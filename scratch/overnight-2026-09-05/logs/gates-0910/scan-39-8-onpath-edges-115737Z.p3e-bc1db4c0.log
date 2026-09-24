@@ -1,0 +1,58 @@
+### scan-39-8-onpath-edges-115737Z -- tests/scan_onpath_edges.py over the FIFTH campaign (read-only) -- the one FINDINGS reports
+# tree:        /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups
+# head:        bc1db4c0 (0 uncommitted path(s) under the round directory)
+# when:        2026-09-24 07:35:24 UTC
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+# why:         ruling 39(8), and ruling 37(0b): the final FINDINGS uses the fifth campaign
+# command:     /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python tests/scan_onpath_edges.py /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full
+###
+window                              group         Mbit  non-zero edges
+  G1/se_none_100M_p1                 none           100  0  
+  G1/se_none_100M_p2                 none           100  0  
+  G1/se_none_100M_p3                 none           100  0  
+  G1/se_none_20M_p1                  none            20  0  
+  G1/se_none_20M_p2                  none            20  0  
+  G1/se_none_20M_p3                  none            20  0  
+  G1/se_none_2M_p1                   none             2  0  
+  G1/se_none_2M_p2                   none             2  0  
+  G1/se_none_2M_p3                   none             2  0  
+  G2/se_cooperative_100M_p1          cooperative    100  4  s1-eth2 s10-eth4 s6-eth4 s8-eth2
+  G2/se_cooperative_100M_p2          cooperative    100  4  s1-eth2 s10-eth4 s6-eth4 s8-eth2
+  G2/se_cooperative_100M_p3          cooperative    100  4  s1-eth2 s10-eth4 s6-eth4 s8-eth2
+  G2/se_cooperative_20M_p1           cooperative     20  4  s1-eth2 s10-eth4 s6-eth4 s8-eth2
+  G2/se_cooperative_20M_p2           cooperative     20  4  s1-eth2 s10-eth4 s6-eth4 s8-eth2
+  G2/se_cooperative_20M_p3           cooperative     20  4  s1-eth2 s10-eth4 s6-eth4 s8-eth2
+  G2/se_cooperative_2M_p1            cooperative      2  4  s1-eth2 s10-eth4 s6-eth4 s8-eth2
+  G2/se_cooperative_2M_p2            cooperative      2  4  s1-eth2 s10-eth4 s6-eth4 s8-eth2
+  G2/se_cooperative_2M_p3            cooperative      2  4  s1-eth2 s10-eth4 s6-eth4 s8-eth2
+  G3/se_link_100M_p1                 link           100  5  s1-eth2 s10-eth4 s6-eth1 s6-eth4 s8-eth2
+  G3/se_link_100M_p2                 link           100  4  s1-eth2 s10-eth4 s6-eth4 s8-eth2
+  G3/se_link_100M_p3                 link           100  4  s1-eth2 s10-eth4 s6-eth4 s8-eth2
+  G3/se_link_20M_p1                  link            20  5  s1-eth2 s10-eth4 s5-eth4 s6-eth4 s8-eth2
+  G3/se_link_20M_p2                  link            20  4  s1-eth2 s10-eth4 s6-eth4 s8-eth2
+  G3/se_link_20M_p3                  link            20  4  s1-eth2 s10-eth4 s6-eth4 s8-eth2
+  G3/se_link_2M_p1                   link             2  4  s1-eth2 s10-eth4 s6-eth4 s8-eth2
+  G3/se_link_2M_p2                   link             2  4  s1-eth2 s10-eth4 s6-eth4 s8-eth2
+  G3/se_link_2M_p3                   link             2  4  s1-eth2 s10-eth4 s6-eth4 s8-eth2
+
+windows: 27
+distribution of non-zero edge counts, all windows: {"0": 9, "4": 16, "5": 2}
+  cooperative  {"4": 9}
+  link         {"4": 7, "5": 2}
+  none         {"0": 9}
+
+per cell: the N analyse.py uses (links_for_prediction on its FIRST window, members[0])
+          against the non-zero count of each of the cell's windows
+  cooperative      2 Mbit  used 4   windows [4, 4, 4]  agree
+  cooperative     20 Mbit  used 4   windows [4, 4, 4]  agree
+  cooperative    100 Mbit  used 4   windows [4, 4, 4]  agree
+  link             2 Mbit  used 4   windows [4, 4, 4]  agree
+  link            20 Mbit  used 5   windows [5, 4, 4]  DISAGREE -- the first wins
+  link           100 Mbit  used 5   windows [5, 4, 4]  DISAGREE -- the first wins
+  none             2 Mbit  used 4 (registered fallback: no edge read non-zero)   windows [0, 0, 0]  agree
+  none            20 Mbit  used 4 (registered fallback: no edge read non-zero)   windows [0, 0, 0]  agree
+  none           100 Mbit  used 4 (registered fallback: no edge read non-zero)   windows [0, 0, 0]  agree
+
+cells whose windows disagree on the edge count: 2 of 9
+
+### rc=0

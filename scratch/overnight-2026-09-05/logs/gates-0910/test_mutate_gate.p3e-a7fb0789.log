@@ -1,0 +1,32 @@
+### test_mutate_gate -- tests/test_mutate_gate.sh -- the gate refuses correctly when it CANNOT test
+# tree:        /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups
+# head:        a7fb0789 (0 uncommitted path(s) under the round directory)
+# when:        2026-09-24 08:19:14 UTC
+# why:         gate sha256 f0143ccd6b74; round 11 changed report_shell's wording and added mutations
+# command:     tests/test_mutate_gate.sh
+###
+=== the gate refuses a verdict when it could not mutate
+  ok    🔴 rc is 2 -- refused, not 0 (pass) and not 1 (a survivor)
+  ok    🔴 and it says so in words
+  ok      the drifted mutation is named as DRIFT, not as a survivor
+  ok      and the reason is on the line
+  ok      the counters carry it
+
+=== and exactly one verdict marker, which is the refusal
+  ok    🔴 the log ends in ### rc=2
+  ok    🔴 and there is no ### rc=0 anywhere in it
+  ok      nor a ### rc=1
+  ok      exactly one rc marker in the whole run
+
+=== a mutation whose cells are only PARTLY red is not caught
+  ok    🔴 report_shell says SURVIVED when one required cell stayed green
+  ok      and it names the cell that stayed green
+  ok      it is never reported as caught
+
+=== the gate checked itself and said which paths fired
+  ok      (a) the drift path
+  ok      (b) the partial-red path
+
+passed: 14   failed: 0
+
+### rc=0

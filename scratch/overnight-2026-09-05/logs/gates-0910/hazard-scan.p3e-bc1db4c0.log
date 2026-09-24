@@ -1,0 +1,11 @@
+### hazard-scan -- hazard_scan.py over the three round scripts and the mutation gate
+# tree:        /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups
+# head:        bc1db4c0 (0 uncommitted path(s) under the round directory)
+# when:        2026-09-24 07:32:19 UTC
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+# why:         the set -u local hazard; the gate is added this round because round 10 changed it (two new local lines)
+# command:     /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python tests/hazard_scan.py drive_e.sh run_group_arm.sh sample_error.sh tests/mutate_analyse.sh
+###
+# hazard_scan: 4 file(s) given, 4 scanned, 0 unreadable, 0 finding(s)
+
+### rc=0

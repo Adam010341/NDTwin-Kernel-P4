@@ -1,0 +1,163 @@
+### red_against.py -- RED RUN 38, reproduced at the final head: this head's tests against analyse.py from 56d83ee8 (the merge before any round-10 change)
+# head:        bc1db4c0 (the tree this script and its log belong to)
+# tree:        this working tree
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+# swapped:     analyse.py <- 56d83ee8 (sha256 84d78d3ceb76)
+# as run:      analyse.py             sha256 84d78d3ceb76
+# as run:      plot.py                sha256 8326a3b3174e
+# as run:      tests/test_analyse.py  sha256 a232540c77d2
+# as run:      tests/test_plot.py     sha256 dbe528a6b11b
+# as run:      tests/synthetic.py     sha256 2b6a138274af
+###
+test_H_B4_holds_when_all_three_rates_are_inside (test_analyse.RegisteredLevelTest.test_H_B4_holds_when_all_three_rates_are_inside) ... FAIL
+test_H_B4_needs_all_three_rates_and_each_rate_keeps_its_description (test_analyse.RegisteredLevelTest.test_H_B4_needs_all_three_rates_and_each_rate_keeps_its_description) ... FAIL
+test_a_same_sign_excess_at_2_Mbit_is_NOT_H_B2 (test_analyse.RegisteredLevelTest.test_a_same_sign_excess_at_2_Mbit_is_NOT_H_B2) ... FAIL
+test_all_three_rates_inside_IS_H_B1 (test_analyse.RegisteredLevelTest.test_all_three_rates_inside_IS_H_B1) ... FAIL
+test_no_cell_or_rate_row_carries_a_label_registered_at_the_group_level (test_analyse.RegisteredLevelTest.test_no_cell_or_rate_row_carries_a_label_registered_at_the_group_level) ... FAIL
+test_one_signed_excess_at_100_Mbit_IS_H_B2 (test_analyse.RegisteredLevelTest.test_one_signed_excess_at_100_Mbit_IS_H_B2) ... FAIL
+test_summary_json_carries_the_cell_descriptions_AND_the_group_verdicts (test_analyse.RegisteredLevelTest.test_summary_json_carries_the_cell_descriptions_AND_the_group_verdicts) ... FAIL
+test_the_fifth_campaigns_shape_outside_at_the_FIRST_rate_is_not_H_B1_either (test_analyse.RegisteredLevelTest.test_the_fifth_campaigns_shape_outside_at_the_FIRST_rate_is_not_H_B1_either) ... FAIL
+test_two_rates_inside_and_one_outside_is_NOT_H_B1_for_the_group (test_analyse.RegisteredLevelTest.test_two_rates_inside_and_one_outside_is_NOT_H_B1_for_the_group) ... FAIL
+test_N_counts_the_edges_that_carried_the_flow_not_every_edge_in_the_fabric (test_analyse.SamplingErrorTest.test_N_counts_the_edges_that_carried_the_flow_not_every_edge_in_the_fabric) ... ok
+test_a_fabric_where_more_edges_carried_the_flow_is_reported_not_hidden (test_analyse.SamplingErrorTest.test_a_fabric_where_more_edges_carried_the_flow_is_reported_not_hidden) ... ok
+test_a_group_with_no_twin_readings_falls_back_to_the_registered_four_and_says_so (test_analyse.SamplingErrorTest.test_a_group_with_no_twin_readings_falls_back_to_the_registered_four_and_says_so) ... ok
+test_an_error_at_the_prediction_is_described_as_inside_the_band (test_analyse.SamplingErrorTest.test_an_error_at_the_prediction_is_described_as_inside_the_band) ... FAIL
+test_an_error_far_above_the_band_with_one_sign_is_described_as_such (test_analyse.SamplingErrorTest.test_an_error_far_above_the_band_with_one_sign_is_described_as_such) ... FAIL
+test_the_none_group_is_n_a_and_is_NOT_zero (test_analyse.SamplingErrorTest.test_the_none_group_is_n_a_and_is_NOT_zero) ... ok
+test_the_shot_noise_prediction_is_the_registered_formula (test_analyse.SamplingErrorTest.test_the_shot_noise_prediction_is_the_registered_formula) ... ok
+
+======================================================================
+FAIL: test_H_B4_holds_when_all_three_rates_are_inside (test_analyse.RegisteredLevelTest.test_H_B4_holds_when_all_three_rates_are_inside)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/ndt-e-red-wy8ibwyk/round/tests/test_analyse.py", line 323, in test_H_B4_holds_when_all_three_rates_are_inside
+    self.assertIs(cross.get("holds"), True, cross)
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: None is not True : {}
+
+======================================================================
+FAIL: test_H_B4_needs_all_three_rates_and_each_rate_keeps_its_description (test_analyse.RegisteredLevelTest.test_H_B4_needs_all_three_rates_and_each_rate_keeps_its_description)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/ndt-e-red-wy8ibwyk/round/tests/test_analyse.py", line 314, in test_H_B4_needs_all_three_rates_and_each_rate_keeps_its_description
+    self.assertIs(cross.get("holds"), False, cross)
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: None is not False : {}
+
+======================================================================
+FAIL: test_a_same_sign_excess_at_2_Mbit_is_NOT_H_B2 (test_analyse.RegisteredLevelTest.test_a_same_sign_excess_at_2_Mbit_is_NOT_H_B2)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/ndt-e-red-wy8ibwyk/round/tests/test_analyse.py", line 295, in test_a_same_sign_excess_at_2_Mbit_is_NOT_H_B2
+    self.assertEqual(self.description(summary, "cooperative", 2),
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                     "above the shot-noise band, every window the same sign")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: None != 'above the shot-noise band, every window the same sign'
+
+======================================================================
+FAIL: test_all_three_rates_inside_IS_H_B1 (test_analyse.RegisteredLevelTest.test_all_three_rates_inside_IS_H_B1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/ndt-e-red-wy8ibwyk/round/tests/test_analyse.py", line 284, in test_all_three_rates_inside_IS_H_B1
+    group = self.group(summary, "cooperative")
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/ndt-e-red-wy8ibwyk/round/tests/test_analyse.py", line 245, in group
+    self.assertIn(name, registered,
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+                  "no registered H-B label at the group level at all -- PREREG 5.2 "
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                  "registers H-B1 over the three rates together")
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'cooperative' not found in {} : no registered H-B label at the group level at all -- PREREG 5.2 registers H-B1 over the three rates together
+
+======================================================================
+FAIL: test_no_cell_or_rate_row_carries_a_label_registered_at_the_group_level (test_analyse.RegisteredLevelTest.test_no_cell_or_rate_row_carries_a_label_registered_at_the_group_level)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/ndt-e-red-wy8ibwyk/round/tests/test_analyse.py", line 336, in test_no_cell_or_rate_row_carries_a_label_registered_at_the_group_level
+    self.assertNotIn(label, value, "%s=%r in %s" % (key, value, row))
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'H-B1' unexpectedly found in 'H-B1 shot-noise limited' : verdict='H-B1 shot-noise limited' in {'group': 'cooperative', 'offered_mbit': 20, 'windows': 3, 'median_abs_error': 0.045, 'median_signed_error': -0.045, 'predicted': {'n_samples': 223.21428571428572, 'median_abs': 0.045112708630717355}, 'verdict': 'H-B1 shot-noise limited', 'note': None, 'links_used': 4, 'keys_total': 32, 'links_note': None, 'nonzero_twin_readings': 360}
+
+======================================================================
+FAIL: test_one_signed_excess_at_100_Mbit_IS_H_B2 (test_analyse.RegisteredLevelTest.test_one_signed_excess_at_100_Mbit_IS_H_B2)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/ndt-e-red-wy8ibwyk/round/tests/test_analyse.py", line 303, in test_one_signed_excess_at_100_Mbit_IS_H_B2
+    group = self.group(summary, "cooperative")
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/ndt-e-red-wy8ibwyk/round/tests/test_analyse.py", line 245, in group
+    self.assertIn(name, registered,
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+                  "no registered H-B label at the group level at all -- PREREG 5.2 "
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                  "registers H-B1 over the three rates together")
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'cooperative' not found in {} : no registered H-B label at the group level at all -- PREREG 5.2 registers H-B1 over the three rates together
+
+======================================================================
+FAIL: test_summary_json_carries_the_cell_descriptions_AND_the_group_verdicts (test_analyse.RegisteredLevelTest.test_summary_json_carries_the_cell_descriptions_AND_the_group_verdicts)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/ndt-e-red-wy8ibwyk/round/tests/test_analyse.py", line 342, in test_summary_json_carries_the_cell_descriptions_AND_the_group_verdicts
+    self.assertTrue(all("description" in row for row in summary["sampling_error"]
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                        if row["group"] != "none"))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true
+
+======================================================================
+FAIL: test_the_fifth_campaigns_shape_outside_at_the_FIRST_rate_is_not_H_B1_either (test_analyse.RegisteredLevelTest.test_the_fifth_campaigns_shape_outside_at_the_FIRST_rate_is_not_H_B1_either)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/ndt-e-red-wy8ibwyk/round/tests/test_analyse.py", line 276, in test_the_fifth_campaigns_shape_outside_at_the_FIRST_rate_is_not_H_B1_either
+    group = self.group(summary, "cooperative")
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/ndt-e-red-wy8ibwyk/round/tests/test_analyse.py", line 245, in group
+    self.assertIn(name, registered,
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+                  "no registered H-B label at the group level at all -- PREREG 5.2 "
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                  "registers H-B1 over the three rates together")
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'cooperative' not found in {} : no registered H-B label at the group level at all -- PREREG 5.2 registers H-B1 over the three rates together
+
+======================================================================
+FAIL: test_two_rates_inside_and_one_outside_is_NOT_H_B1_for_the_group (test_analyse.RegisteredLevelTest.test_two_rates_inside_and_one_outside_is_NOT_H_B1_for_the_group)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/ndt-e-red-wy8ibwyk/round/tests/test_analyse.py", line 259, in test_two_rates_inside_and_one_outside_is_NOT_H_B1_for_the_group
+    group = self.group(summary, "cooperative")
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/ndt-e-red-wy8ibwyk/round/tests/test_analyse.py", line 245, in group
+    self.assertIn(name, registered,
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+                  "no registered H-B label at the group level at all -- PREREG 5.2 "
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                  "registers H-B1 over the three rates together")
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'cooperative' not found in {} : no registered H-B label at the group level at all -- PREREG 5.2 registers H-B1 over the three rates together
+
+======================================================================
+FAIL: test_an_error_at_the_prediction_is_described_as_inside_the_band (test_analyse.SamplingErrorTest.test_an_error_at_the_prediction_is_described_as_inside_the_band)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/ndt-e-red-wy8ibwyk/round/tests/test_analyse.py", line 202, in test_an_error_at_the_prediction_is_described_as_inside_the_band
+    self.assertEqual(row.get("description"), "inside the shot-noise band")
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: None != 'inside the shot-noise band'
+
+======================================================================
+FAIL: test_an_error_far_above_the_band_with_one_sign_is_described_as_such (test_analyse.SamplingErrorTest.test_an_error_far_above_the_band_with_one_sign_is_described_as_such)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/ndt-e-red-wy8ibwyk/round/tests/test_analyse.py", line 207, in test_an_error_far_above_the_band_with_one_sign_is_described_as_such
+    self.assertEqual(row.get("description"),
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+                     "above the shot-noise band, every window the same sign")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: None != 'above the shot-noise band, every window the same sign'
+
+----------------------------------------------------------------------
+Ran 16 tests in 0.354s
+
+FAILED (failures=11)
+
+### rc=1

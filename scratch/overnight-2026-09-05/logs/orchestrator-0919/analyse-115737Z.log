@@ -1,0 +1,95 @@
+=== arms
+  none_f1024_a                 none         1024   clean=30.0     external=0.056    
+  none_f64_a                   none         64     clean=30.0     external=0.0149   
+  cooperative_f1024_a          cooperative  1024   clean=12.0     external=0.0532   
+  cooperative_f64_a            cooperative  64     clean=12.0     external=0.1249   
+  link_f1024_a                 link         1024   clean=12.0     external=0.107    
+  link_f64_a                   link         64     clean=12.0     external=0.0797   
+  link_f1024_b                 link         1024   clean=20.0     external=0.0789   
+  link_f64_b                   link         64     clean=20.0     external=0.0415   
+  cooperative_f1024_b          cooperative  1024   clean=30.0     external=0.0207   
+  cooperative_f64_b            cooperative  64     clean=30.0     external=0.0302   
+  none_f1024_b                 none         1024   clean=30.0     external=0.0707   
+  none_f64_b                   none         64     clean=30.0     external=-0.0096  
+=== control arms (NOT in any cell, NOT in the gate, NOT in a fit)
+  c3a_noburn                   none         1024   clean=12.0     external=0.1066   
+  c3b_burn                     none         1024   clean=12.0     external=0.2805   
+
+=== (1) pps ceiling, against the none cell at the same frame
+  cooperative     64B  cell=21.0     none=30.0     ratio=None     H-A0 unresolved  (the arms of a cell are more than one rung apart (gap 2 / 0))
+  link            64B  cell=16.0     none=30.0     ratio=0.533    H-A2 telemetry costs data-plane pps
+  cooperative   1024B  cell=21.0     none=30.0     ratio=None     H-A0 unresolved  (the arms of a cell are more than one rung apart (gap 2 / 0))
+  link          1024B  cell=16.0     none=30.0     ratio=0.533    H-A2 telemetry costs data-plane pps
+
+=== (2) sampling error, |twin/truth - 1|
+  cooperative     2.0 Mbit/s  median|err|=0.2953   signed=-0.2953   predicted=0.1427   (N over 4 of 32 edges)  above the shot-noise band, signs mixed
+  cooperative    20.0 Mbit/s  median|err|=0.0274   signed=+0.0274   predicted=0.0451   (N over 4 of 32 edges)  H-B1 shot-noise limited
+  cooperative   100.0 Mbit/s  median|err|=0.0154   signed=+0.0154   predicted=0.0202   (N over 4 of 32 edges)  H-B1 shot-noise limited
+  link            2.0 Mbit/s  median|err|=0.0746   signed=+0.0746   predicted=0.1427   (N over 4 of 32 edges)  H-B1 shot-noise limited
+  link           20.0 Mbit/s  median|err|=0.0344   signed=+0.0119   predicted=0.0404   (N over 5 of 32 edges)  H-B1 shot-noise limited
+      🔴 5 edges carried the flow, not the 4 PREREG 5.2 registered: s1-eth2, s10-eth4, s5-eth4, s6-eth4, s8-eth2
+  link          100.0 Mbit/s  median|err|=0.0229   signed=-0.0131   predicted=0.0180   (N over 5 of 32 edges)  H-B1 shot-noise limited
+      🔴 5 edges carried the flow, not the 4 PREREG 5.2 registered: s1-eth2, s10-eth4, s6-eth1, s6-eth4, s8-eth2
+  none            2.0 Mbit/s  median|err|=n/a      signed=n/a       predicted=0.1427   (N over 4 of 32 edges)  n/a -- the none group has no twin readings; non-zero readings observed: 0 (must be 0)
+      🔴 no edge reported traffic (a group with no twin readings), so PREREG 5.2's registered 4 on-path edges are used
+  none           20.0 Mbit/s  median|err|=n/a      signed=n/a       predicted=0.0451   (N over 4 of 32 edges)  n/a -- the none group has no twin readings; non-zero readings observed: 0 (must be 0)
+      🔴 no edge reported traffic (a group with no twin readings), so PREREG 5.2's registered 4 on-path edges are used
+  none          100.0 Mbit/s  median|err|=n/a      signed=n/a       predicted=0.0202   (N over 4 of 32 edges)  n/a -- the none group has no twin readings; non-zero readings observed: 0 (must be 0)
+      🔴 no edge reported traffic (a group with no twin readings), so PREREG 5.2's registered 4 on-path edges are used
+  link/coop at    2.0 Mbit/s: 0.25     the two paths are NOT equally accurate
+  link/coop at   20.0 Mbit/s: 1.26     H-B4 the two paths are equally accurate
+  link/coop at  100.0 Mbit/s: 1.49     H-B4 the two paths are equally accurate
+
+=== (3) CPU, 1024 B ladder, kernel
+  cooperative     1.0 kpps  delta=0.67      spread=0.13      samples/s=18.6     resolved
+  cooperative     2.0 kpps  delta=1.07      spread=0.13      samples/s=39.4     resolved
+  cooperative     3.0 kpps  delta=1.33      spread=0.13      samples/s=58.7     resolved
+  cooperative     5.0 kpps  delta=1.40      spread=0.13      samples/s=96.5     resolved
+  cooperative     8.0 kpps  delta=2.25      spread=0.16      samples/s=153.2    resolved
+  cooperative    12.0 kpps  delta=4.15      spread=2.61      samples/s=132.0    resolved
+  cooperative    20.0 kpps  delta=4.44      spread=0.48      samples/s=359.2    resolved
+  cooperative    30.0 kpps  delta=7.84      spread=0.89      samples/s=367.0    resolved
+  cooperative    45.0 kpps  delta=10.40     spread=0.27      samples/s=823.6    resolved
+  cooperative    70.0 kpps  delta=11.76     spread=0.87      samples/s=947.8    resolved
+  cooperative   110.0 kpps  delta=13.53     spread=0.13      samples/s=965.2    resolved
+  link            1.0 kpps  delta=0.40      spread=0.40      samples/s=25.0     resolved
+  link            2.0 kpps  delta=0.70      spread=0.38      samples/s=47.5     resolved
+  link            3.0 kpps  delta=1.13      spread=0.80      samples/s=70.9     resolved
+  link            5.0 kpps  delta=1.33      spread=0.13      samples/s=120.5    resolved
+  link            8.0 kpps  delta=1.83      spread=0.71      samples/s=172.8    resolved
+  link           12.0 kpps  delta=3.13      spread=1.16      samples/s=161.4    resolved
+  link           20.0 kpps  delta=4.54      spread=3.16      samples/s=274.6    resolved
+  link           30.0 kpps  delta=5.28      spread=1.74      samples/s=655.1    resolved
+  link           45.0 kpps  delta=8.13      spread=1.33      samples/s=964.7    resolved
+  link           70.0 kpps  delta=10.33     spread=3.07      samples/s=1225.3   resolved
+  link          110.0 kpps  delta=12.60     spread=4.67      samples/s=1466.1   resolved
+  cooperative  H-C1 cost is dominated by a fixed component (08-20 reproduces)  (F=0.92% of one core, m=123 us/sample)
+  link         H-C2 cost is per sample (08-20's fixed component does not reproduce here)  (F=0.77% of one core, m=79 us/sample)
+
+=== load gate (within group, +0.15 absolute)
+  cooperative_f1024_a          cooperative  external=0.0532  group median=0.0417  softirq=0.0075  ok
+  cooperative_f64_a            cooperative  external=0.1249  group median=0.0417  softirq=0.0075  ok
+  cooperative_f1024_b          cooperative  external=0.0207  group median=0.0417  softirq=0.0099  ok
+  cooperative_f64_b            cooperative  external=0.0302  group median=0.0417  softirq=0.0088  ok
+  link_f1024_a                 link         external=0.1070  group median=0.0793  softirq=0.0129  ok
+  link_f64_a                   link         external=0.0797  group median=0.0793  softirq=0.0091  ok
+  link_f1024_b                 link         external=0.0789  group median=0.0793  softirq=0.0113  ok
+  link_f64_b                   link         external=0.0415  group median=0.0793  softirq=0.0085  ok
+  none_f1024_a                 none         external=0.0560  group median=0.0560  softirq=0.0106  ok
+  none_f64_a                   none         external=0.0149  group median=0.0560  softirq=0.0083  ok
+  none_f1024_b                 none         external=0.0707  group median=0.0560  softirq=0.0105  ok
+
+=== reconciliation
+  (a) none         OUTSIDE the interval
+  (a) cooperative  consistent
+  (b) cooperative  consistent
+  (b) link         OUTSIDE the interval
+  (c) side by side, NO cell divided by another:
+      08-15          fast 300 Mbit/s                    3 hops, 1400 B
+      1b (08-28)     fast 360 Mbit/s                    1 hop, 1400 B, control plane live
+      2 (08-28)      fast 16.0 kpps = 131.1 Mbit/s frame 3 hops, 1024 B frame, 128 hosts, cooperative sampling on
+      this round     30.0 kpps = 245.8 Mbit/s frame     4 inter-switch hops, 1024 B frame, 4 hosts, NO telemetry
+  C1  generator ceiling 733469.6 pps vs 5.0x the highest measured (150000.0): PASSES
+  C2  generator ceiling 727636.4 pps vs 5.0x the highest measured (150000.0): PASSES
+
+summary -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/summary.json

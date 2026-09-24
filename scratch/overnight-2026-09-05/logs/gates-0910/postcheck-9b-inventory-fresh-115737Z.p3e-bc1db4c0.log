@@ -1,0 +1,18 @@
+### postcheck-9b-inventory-fresh-115737Z -- tests/check_inventory_fresh.py against the FIFTH campaign -- not the raw the inventory came from
+# tree:        /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups
+# head:        bc1db4c0 (0 uncommitted path(s) under the round directory)
+# when:        2026-09-24 07:35:24 UTC
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+# why:         not a drift check (that is the 105759Z log); it asks whether the campaign FINDINGS reports has the shape the fixture was reconciled to
+# command:     /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python tests/check_inventory_fresh.py /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full
+###
+  directory_classes    6 entries compared, all equal
+  file_keys           10 entries compared, all equal
+  file_sizes           4 entries compared, 1 DIFFER
+      window.json
+        committed: {'excluded_host_facing': [4, 4], 'keys': [32, 32], 'per_edge_peak_bps': [0, 4], 'sflow_deltas': [6, 6], 'telemetry_sources': [10, 10]}
+        fresh:     {'excluded_host_facing': [4, 4], 'keys': [32, 32], 'per_edge_peak_bps': [0, 5], 'sflow_deltas': [6, 6], 'telemetry_sources': [10, 10]}
+
+DIFFERENCES BETWEEN THE COMMITTED INVENTORY AND A FRESH EXTRACTION: 1
+
+### rc=1

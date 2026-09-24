@@ -1,0 +1,35 @@
+### RED RUN 37(5) -- the headroom <= 0 branch, and what a caller can tell
+# head:        9204e3e3
+# when:        2026-09-19 15:39:42 UTC
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+# 🔴 the branch is unchanged by this round -- it is the COMMENT that was wrong and the
+#    case that was missing. So the red is against the dishonest version of the same
+#    code (M-E36: clamp every label under the axes top), which is what "silently
+#    returning a limit the labels do not fit under" looks like from outside.
+###
+--- what the branch does on the real panels: nothing, it has never been reached
+  the three real panels  height  206.5 pt,  3 labels -> tightest headroom   179.0 pt  never reaches the branch
+  this case              height   50.0 pt, 20 labels -> tightest headroom  -164.5 pt  REACHES IT
+  three labels need an axes under 27.5 pt to reach it.
+
+--- M-E36 applied (clamp the stack under the axes top)
+test_a_stack_taller_than_its_axes_is_not_reported_as_fitting (test_plot.Figure3LabelsStayInsideTest.test_a_stack_taller_than_its_axes_is_not_reported_as_fitting) ... FAIL
+test_no_label_is_drawn_above_the_top_of_its_own_axes (test_plot.Figure3LabelsStayInsideTest.test_no_label_is_drawn_above_the_top_of_its_own_axes) ... ok
+test_only_the_panel_that_needs_room_is_given_any (test_plot.Figure3LabelsStayInsideTest.test_only_the_panel_that_needs_room_is_given_any) ... ok
+test_the_computed_axes_match_the_ones_the_real_figure_drew (test_plot.Figure3LabelsStayInsideTest.test_the_computed_axes_match_the_ones_the_real_figure_drew) ... ok
+
+======================================================================
+FAIL: test_a_stack_taller_than_its_axes_is_not_reported_as_fitting (test_plot.Figure3LabelsStayInsideTest.test_a_stack_taller_than_its_axes_is_not_reported_as_fitting)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/r9red5/tests/test_plot.py", line 274, in test_a_stack_taller_than_its_axes_is_not_reported_as_fitting
+    self.assertGreaterEqual(upper - lower, plot.LABEL_HEIGHT_PT - 1e-9)
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 0.5 not greater than or equal to 10.999999999
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.002s
+
+FAILED (failures=1)
+
+### rc=1

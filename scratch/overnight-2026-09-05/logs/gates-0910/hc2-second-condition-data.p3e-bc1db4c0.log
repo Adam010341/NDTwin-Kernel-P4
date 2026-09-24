@@ -1,0 +1,48 @@
+### hc2-second-condition-data -- the numbers H-C2's second registered condition would be judged on, from this head's fifth-campaign summary
+# tree:        /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups
+# head:        bc1db4c0 (0 uncommitted path(s) under the round directory)
+# when:        2026-09-24 07:39:36 UTC
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+# why:         task C: the code evaluates one of H-C2's two conditions; this prints the other's inputs (lowest/highest rung, as PREREG 8(b) :357 names them) and draws NO verdict
+# command:     /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python -c import json, sys
+s = json.load(open(sys.argv[1]))
+cpu = s["cpu_kernel"]
+print("summary: %s\n" % sys.argv[1])
+for group in ("cooperative", "link"):
+    rows = sorted((r for r in cpu["rows"] if r["group"] == group), key=lambda r: r["kpps"])
+    fit = cpu["fits"][group]["fit"]
+    top = fit["fixed_percent"] + fit["marginal_percent_per_sample"] * fit["max_samples_per_s"]
+    low, high = rows[0], rows[-1]
+    print("%s: code verdict = %r" % (group, cpu["fits"][group]["verdict"]))
+    print("  F = %.4f %% of one core, m = %.2f us/sample, S_top (max S among fit points) = %.2f" % (
+        fit["fixed_percent"], fit["marginal_us_per_sample"], fit["max_samples_per_s"]))
+    print("  H-C1: m in [103, 618]? %s ; share F/(F+m*S_top) = %.4f >= 0.5? %s" % (
+        103 <= fit["marginal_us_per_sample"] <= 618, fit["fixed_percent"] / top, fit["fixed_percent"] / top >= 0.5))
+    print("  H-C2 condition 1: share <= 0.2? %s" % (fit["fixed_percent"] / top <= 0.2))
+    print("  H-C2 condition 2 (NOT evaluated by the code; PREREG 5.3 :271 gives '≈' no tolerance):")
+    print("    lowest rung %g kpps: delta %.4f, S %.2f   highest rung %g kpps: delta %.4f, S %.2f" % (
+        low["kpps"], low["delta_percent"], low["samples_per_s"], high["kpps"], high["delta_percent"], high["samples_per_s"]))
+    print("    delta(high)/delta(low) = %.3f    S(high)/S(low) = %.3f    ratio of the two = %.3f\n" % (
+        high["delta_percent"] / low["delta_percent"], high["samples_per_s"] / low["samples_per_s"],
+        (high["delta_percent"] / low["delta_percent"]) / (high["samples_per_s"] / low["samples_per_s"]))) /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/scratch/p3e-round10/summary.115737Z.bc1db4c0.json
+###
+summary: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/scratch/p3e-round10/summary.115737Z.bc1db4c0.json
+
+cooperative: code verdict = 'H-C1 cost is dominated by a fixed component (08-20 reproduces)'
+  F = 0.9234 % of one core, m = 122.89 us/sample, S_top (max S among fit points) = 965.24
+  H-C1: m in [103, 618]? True ; share F/(F+m*S_top) = 0.0722 >= 0.5? False
+  H-C2 condition 1: share <= 0.2? True
+  H-C2 condition 2 (NOT evaluated by the code; PREREG 5.3 :271 gives '≈' no tolerance):
+    lowest rung 1 kpps: delta 0.6666, S 18.63   highest rung 110 kpps: delta 13.5297, S 965.24
+    delta(high)/delta(low) = 20.297    S(high)/S(low) = 51.802    ratio of the two = 0.392
+
+link: code verdict = "H-C2 cost is per sample (08-20's fixed component does not reproduce here)"
+  F = 0.7692 % of one core, m = 79.00 us/sample, S_top (max S among fit points) = 1466.07
+  H-C1: m in [103, 618]? False ; share F/(F+m*S_top) = 0.0623 >= 0.5? False
+  H-C2 condition 1: share <= 0.2? True
+  H-C2 condition 2 (NOT evaluated by the code; PREREG 5.3 :271 gives '≈' no tolerance):
+    lowest rung 1 kpps: delta 0.3999, S 24.98   highest rung 110 kpps: delta 12.5977, S 1466.07
+    delta(high)/delta(low) = 31.505    S(high)/S(low) = 58.680    ratio of the two = 0.537
+
+
+### rc=0

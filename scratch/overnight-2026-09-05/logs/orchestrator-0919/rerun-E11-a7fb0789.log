@@ -1,0 +1,47 @@
+### tree a7fb0789  start 16:33:36  free=4.5G
+### unit_venv
+Ran 101 tests in 2.046s
+OK (skipped=1)
+rc=0
+### unit_conda
+Ran 101 tests in 2.397s
+OK
+rc=0
+### offline_round
+          # hazard_scan: 3 file(s) given, 3 scanned, 0 unreadable, 0 finding(s)
+  ok      an incomplete sweep outranks a finding (2, not 1)
+passed: 78   failed: 0
+rc=0
+### gate_selftest
+passed: 14   failed: 0
+rc=0
+### hazard_scan
+# hazard_scan: 4 file(s) given, 4 scanned, 0 unreadable, 0 finding(s)
+rc=0
+### anchor_sweep
+  --> 50 anchors, 0 that do not resolve exactly once
+  --> 13 entries, 0 that do not resolve as declared
+sections: (1) 50 gate anchors   (2) 13 external entries
+rc=0
+### check_gate_anchors
+mutate_check_gate_anchors.sh                   ok(14)        
+mutate_gate_anchors_root_files.sh              ok(11)        
+115/115 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+rc=0
+### mutate_analyse
+           also red: test_bmv2_gets_no_H_C0_either_when_no_rung_resolves
+  caught   M-E45: a bmv2 panel with no resolved rung is labelled H-C0 again         (test_bmv2_gets_no_H_C0_either_when_no_rung_resolves went red)
+mutations: 48   survivors: 0   drifted: 0
+rc=0
+### subject shas
+  analyse.py                 3d95ba4fa0351e15
+  plot.py                    8326a3b3174e5dea
+  drive_e.sh                 7d0184b8c81aa3a3
+  tests/synthetic.py         6f802de2654b995a
+  tests/mutate_analyse.sh    f0143ccd6b74eae0
+  tests/inventory.py         ffa1e5ef5936c712
+  tests/test_real_shape.py   5e17bfdf4ef7332c
+  tests/test_analyse.py      c9658a77b6e81e11
+  tests/anchor_sweep.py      2942885ab27f7ef3
+### worktree status lines: 0
+### done 16:50:29

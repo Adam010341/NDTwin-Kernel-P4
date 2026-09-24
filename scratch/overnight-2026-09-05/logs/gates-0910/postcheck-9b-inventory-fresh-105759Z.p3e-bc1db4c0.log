@@ -1,0 +1,15 @@
+### postcheck-9b-inventory-fresh-105759Z -- tests/check_inventory_fresh.py: the committed truth side against a fresh extraction of the raw it came from (fourth campaign)
+# tree:        /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups
+# head:        bc1db4c0 (0 uncommitted path(s) under the round directory)
+# when:        2026-09-24 07:35:24 UTC
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+# why:         ruling 37(9b) as a file (39(9b)); the committed inventory says it was taken from 105759Z
+# command:     /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python tests/check_inventory_fresh.py /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T105759Z_full
+###
+  directory_classes    6 entries compared, all equal
+  file_keys           10 entries compared, all equal
+  file_sizes           4 entries compared, all equal
+
+DIFFERENCES BETWEEN THE COMMITTED INVENTORY AND A FRESH EXTRACTION: 0
+
+### rc=0

@@ -1,0 +1,47 @@
+### tree bc1db4c0  start 15:50:01  free=7.6G
+### unit_venv
+Ran 94 tests in 1.199s
+OK (skipped=1)
+rc=0
+### unit_conda
+Ran 94 tests in 2.119s
+OK
+rc=0
+### offline_round
+          # hazard_scan: 3 file(s) given, 3 scanned, 0 unreadable, 0 finding(s)
+  ok      an incomplete sweep outranks a finding (2, not 1)
+passed: 78   failed: 0
+rc=0
+### gate_selftest
+passed: 14   failed: 0
+rc=0
+### hazard_scan
+# hazard_scan: 4 file(s) given, 4 scanned, 0 unreadable, 0 finding(s)
+rc=0
+### anchor_sweep
+  --> 45 anchors, 0 that do not resolve exactly once
+  --> 13 entries, 0 that do not resolve as declared
+sections: (1) 45 gate anchors   (2) 13 external entries
+rc=0
+### check_gate_anchors
+mutate_check_gate_anchors.sh                   ok(14)        
+mutate_gate_anchors_root_files.sh              ok(11)        
+115/115 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+rc=0
+### mutate_analyse
+  caught   M-E6: figure 1 labels an unresolved cell with a mean no arm measured     (test_an_unresolved_cell_is_marked_and_shows_BOTH_arm_values went red)
+           also red:   an incomplete sweep outranks a finding (2, not 1)
+mutations: 43   survivors: 0   drifted: 0
+rc=0
+### subject shas
+  analyse.py                 ee7d0f6421d2773e
+  plot.py                    8326a3b3174e5dea
+  drive_e.sh                 7d0184b8c81aa3a3
+  tests/synthetic.py         2b6a138274af7a2f
+  tests/mutate_analyse.sh    15328422b2bf1d40
+  tests/inventory.py         ffa1e5ef5936c712
+  tests/test_real_shape.py   5e17bfdf4ef7332c
+  tests/test_analyse.py      a232540c77d29052
+  tests/anchor_sweep.py      2942885ab27f7ef3
+### worktree status lines: 0
+### done 16:06:25

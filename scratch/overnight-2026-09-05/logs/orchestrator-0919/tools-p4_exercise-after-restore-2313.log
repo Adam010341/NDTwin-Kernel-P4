@@ -1,0 +1,14 @@
+### after the live 13/13 pass (f3b6d09c, ended 23:12:45) rewrote ~/tutorials/exercises/*/build
+### the drift test went red naming three files; restored from tools/p4_exercise/tests/fixtures/
+###   basic/build/basic.json  -> 7fefd0e1e6ae734dbc33823f6243de27a837cbd87ffe5574bf9ba8f90cc8ea78
+###   basic/build/basic.p4.p4info.txtpb  -> f71c1fb75f39c62dc1b9b5bc9963ba2925b6bc2c66c4cb59c3c455de814fbb08
+###   p4runtime/build/advanced_tunnel.json  -> a1e89cd9ec165a37073a8c97b0c146fb99bee5db7699b366b7e221ab37043073
+### live-written copies kept at scratchpad/tutorials-backup-2313/ (reversible)
+### 2026-09-19 23:38:43
+...................................................../home/adam/p4dev-python-venv/lib/python3.12/site-packages/google/protobuf/internal/well_known_types.py:91: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+  _EPOCH_DATETIME_NAIVE = datetime.datetime.utcfromtimestamp(0)
+.....................................................................................................
+----------------------------------------------------------------------
+Ran 154 tests in 3.292s
+
+OK

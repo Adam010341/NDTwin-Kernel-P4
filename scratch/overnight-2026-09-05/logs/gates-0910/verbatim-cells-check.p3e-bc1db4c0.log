@@ -1,0 +1,73 @@
+### verbatim-cells-check -- every backticked cell of the SUMMARY's evidence tables, looked up in the log its row names
+# tree:        /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups
+# head:        bc1db4c0 (0 uncommitted path(s) under the round directory)
+# when:        2026-09-24 07:36:46 UTC
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+# why:         ruling 39(4d) found three truncated 115/115 rows; this asks whether they are the only ones. Checks substring presence and whole-line equality; a cell that quotes a fragment on purpose shows up as TRUNCATED and is judged by reading it
+# command:     /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python -c import os, re, sys
+summary, logs = sys.argv[1], sys.argv[2]
+rows = 0
+for number, line in enumerate(open(summary).read().split("\n"), 1):
+    if not line.startswith("|") or ".p3e-" not in line:
+        continue
+    cells = [c.strip() for c in line.strip("|").split("|")]
+    names = re.findall(r"`([\w.\-]+\.p3e-[0-9a-f]+\.log)`", cells[-1])
+    if not names:
+        continue
+    log = os.path.join(logs, names[0])
+    if not os.path.exists(log):
+        print(":%d  %s  -- LOG NOT FOUND" % (number, names[0])); continue
+    text = open(log).read().split("\n")
+    rows += 1
+    for quoted in re.findall(r"`([^`]+)`", cells[-2]):
+        if quoted.endswith(".log"):
+            continue
+        hits = [l for l in text if quoted in l]
+        if not hits:
+            print(":%d  %-46s NOT IN LOG: %r" % (number, names[0], quoted))
+        elif not any(l.strip() == quoted.strip() for l in hits):
+            print(":%d  %-46s TRUNCATED   %r\n      full line: %r" % (number, names[0], quoted, hits[0].strip()))
+print("\ntable rows with a log checked: %d" % rows) /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/hunt-0911/fix/P3-E-SUMMARY.md /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910
+###
+:902  unit-venv.p3e-f51ee88f.log                     TRUNCATED   'Ran 63 tests'
+      full line: 'Ran 63 tests in 1.732s'
+:903  unit-py3.p3e-f51ee88f.log                      TRUNCATED   'Ran 63 tests'
+      full line: 'Ran 63 tests in 3.266s'
+:907  hazard-scan.p3e-f51ee88f.log                   TRUNCATED   '3 file(s) given, 3 scanned, 0 unreadable, 0 finding(s)'
+      full line: '# hazard_scan: 3 file(s) given, 3 scanned, 0 unreadable, 0 finding(s)'
+:908  anchor-sweep.p3e-f51ee88f.log                  TRUNCATED   '34 anchors, 0 that do not resolve exactly once'
+      full line: '--> 34 anchors, 0 that do not resolve exactly once'
+:908  anchor-sweep.p3e-f51ee88f.log                  TRUNCATED   '0 that do not resolve as declared'
+      full line: '--> 0 that do not resolve as declared'
+:909  check_gate_anchors.p3e-f51ee88f.log            TRUNCATED   '115/115 cells ok'
+      full line: '115/115 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)'
+:912  red-2-plot-prefix.p3e-f51ee88f.log             TRUNCATED   'AttributeError'
+      full line: "AttributeError: module 'plot' has no attribute 'end_label_offsets'"
+:916  question-a-label-headroom.p3e-f51ee88f.log     TRUNCATED   'coop'
+      full line: 'coop  y=764.86     natural  197.1 pt -> drawn  209.2 pt (offset +12.1) top of glyph  214.7 pt  🔴 8.2 pt ABOVE the axes top'
+:1133  unit-venv.p3e-e222176d.log                     TRUNCATED   'Ran 76 tests'
+      full line: 'Ran 76 tests in 1.222s'
+:1134  unit-py3.p3e-e222176d.log                      TRUNCATED   'Ran 76 tests'
+      full line: 'Ran 76 tests in 2.722s'
+:1135  hazard-scan.p3e-e222176d.log                   TRUNCATED   '3 file(s) given, 3 scanned, 0 unreadable, 0 finding(s)'
+      full line: '# hazard_scan: 3 file(s) given, 3 scanned, 0 unreadable, 0 finding(s)'
+:1136  anchor-sweep.p3e-e222176d.log                  TRUNCATED   '36 anchors, 0 that do not resolve exactly once'
+      full line: '--> 36 anchors, 0 that do not resolve exactly once'
+:1136  anchor-sweep.p3e-e222176d.log                  TRUNCATED   '0 that do not resolve as declared'
+      full line: '--> 0 that do not resolve as declared'
+:1137  check_gate_anchors.p3e-e222176d.log            TRUNCATED   '115/115 cells ok'
+      full line: '115/115 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)'
+:1329  unit-venv.p3e-9204e3e3.log                     TRUNCATED   'Ran 78 tests'
+      full line: 'Ran 78 tests in 1.186s'
+:1330  unit-py3.p3e-9204e3e3.log                      TRUNCATED   'Ran 78 tests'
+      full line: 'Ran 78 tests in 3.237s'
+:1331  hazard-scan.p3e-9204e3e3.log                   TRUNCATED   '3 file(s) given, 3 scanned, 0 unreadable, 0 finding(s)'
+      full line: '# hazard_scan: 3 file(s) given, 3 scanned, 0 unreadable, 0 finding(s)'
+:1332  anchor-sweep.p3e-9204e3e3.log                  TRUNCATED   '38 anchors, 0 that do not resolve exactly once'
+      full line: '--> 38 anchors, 0 that do not resolve exactly once'
+:1333  check_gate_anchors.p3e-9204e3e3.log            TRUNCATED   '115/115 cells ok'
+      full line: '115/115 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)'
+
+table rows with a log checked: 39
+
+### rc=0

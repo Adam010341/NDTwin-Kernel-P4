@@ -1,0 +1,67 @@
+### anchor-sweep-retro-9204e3e3 -- tests/anchor_sweep.py run over the round-9 tree (9204e3e3, git archive)
+# tree:        /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups
+# head:        06e47cae (0 uncommitted path(s) under the round directory)
+# when:        2026-09-24 07:26:59 UTC
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+# why:         ruling 39(2), measured instead of disclosed only: would the external anchors round 9 did not scan have resolved at its own head?
+# command:     /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python tests/anchor_sweep.py --tree /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/tree-9204e3e3/doc/audit/2026-09-19_telemetry-three-groups
+###
+--- (1) tests/mutate_analyse.sh: every mutation and control anchor
+  m1     analyse.py     hits=1  ok   RATIO_LO, RATIO_HI = 0.60, 1.67
+  m2     analyse.py     hits=1  ok                   entry["resolved"] = entry["rung_gap"] <= 1
+  m3     analyse.py     hits=1  ok               elif not cell["resolved"] or not base["resolved"
+  m4     analyse.py     hits=1  ok               row["note"] = ("n/a -- the none group has no twi
+  m5     plot.py        hits=1  ok                   bars.append({"tick": tick, "value": None, "l
+  m6     plot.py        hits=1  ok                   label = "%.1f*" % mean if not arms else "%.1
+  m7     analyse.py     hits=1  ok   MEDIAN_OVER_SD = 0.674
+  m8     analyse.py     hits=1  ok               if dropped > 0:
+  m9     analyse.py     hits=1  ok                   accumulated[name] = accumulated.get(name, 0)
+  m10    analyse.py     hits=1  ok       return (a - b) / elapsed
+  m11    analyse.py     hits=1  ok               if row["resolved"]:
+  m12    analyse.py     hits=1  ok       if share is not None and share <= FIXED_SHARE_PER_SAMPLE
+  m13    analyse.py     hits=1  ok       for group, members in sorted(by_group.items()):
+  m14    analyse.py     hits=1  ok       for group in ("none", "cooperative"):
+  m15    analyse.py     hits=1  ok   SENDER_CONTROL_FACTOR = 5.0
+  m16    analyse.py     hits=1  ok   OLD_MARGINAL_US_PER_SAMPLE = 206.0
+  m17    drive_e.sh     hits=1  ok       verify_generation "$group" "$gen"
+  m18    drive_e.sh     hits=1  ok       local id="$1"
+  m19    drive_e.sh     hits=1  ok       declare_measuring off || true
+  m20    drive_e.sh     hits=1  ok               FAILURES+=("$gen: 'ndt status --check' rc=1 -- s
+  m21    drive_e.sh     hits=1  ok           if (( knob_restored )); then
+  m22    drive_e.sh     hits=1  ok               FAILURES+=("final: 'ndt release' refused (rc $re
+  m23    drive_e.sh     hits=1  ok       local knob_restored=1
+  m24    drive_e.sh     hits=1  ok   FINAL_CLAIM_MINUTES="${FINAL_CLAIM_MINUTES:-10}"
+  m25    hazard_scan.py hits=1  ok       if could_not_read:
+  m26    manifest.py    hits=1  ok       if isinstance(argv, str):
+  m27    manifest.py    hits=1  ok       if previous is not None and previous.startswith("-"):
+  m28    analyse.py     hits=1  ok       cells = {}
+  m29    analyse.py     hits=1  ok       by_group = {}
+  m30    plot.py        hits=1  ok           final = natural if previous is None else max(natural
+  m31    drive_e.sh     hits=1  ok   trap finish EXIT
+  m32    drive_e.sh     hits=1  ok       if (( arms_seen != arms_expected )); then
+  m33    analyse.py     hits=1  ok       peaks = window.get("per_edge_peak_bps") or {}
+  m34    plot.py        hits=1  ok               needed = max(needed, (y - low) * height_points /
+  m35    analyse.py     hits=1  ok       return "bmv2" if name.startswith("bmv2") else name
+  m36    plot.py        hits=1  ok           final = natural if previous is None else max(natural
+  c1     analyse.py     hits=1  ok   GROUPS = ("none", "cooperative", "link")
+  c2     plot.py        hits=1  ok       bars = []
+  --> 38 anchors, 0 that do not resolve exactly once
+  (m30 and m36 share one anchor with different replacements; the gate applies each to its own copy)
+
+--- (2) everything else that names those lines by text
+  gate --self-test ST-1 (must NOT match, by design)                        hits=0 want=0 ok
+  gate --self-test ST-2 (the status --check FAILURES line)                 hits=1 want=1 ok
+  offline 7(a) sed anchor                                                  hits=1 want=1 ok
+  offline 7(b) the four split locals                                       hits=1 want=1 ok
+  offline 7(c) slice start                                                 hits=1 want=1 ok
+  offline 7(c) slice mid (unique; the search starts here)                  hits=1 want=1 ok
+  offline 7(c) slice end (2 in the file, asserted after the cut)           hits=2 want=2 ok
+  offline 7(c) grep: pre-fix release shape absent from the driver (its regex; positive control passed) hits=0 want=0 ok
+  red-run 35-2b restore anchor (identical to M-E34)                        hits=1 want=1 ok
+  red-run 32-2b restore anchor (identical to M-E30)                        hits=1 want=1 ok
+  red-run 35-1 takes analyse.py from f51ee88f by git show (no text anchor) hits=1 want=1 ok
+  --> 11 entries, 0 that do not resolve as declared
+
+sections: (1) 38 gate anchors   (2) 11 external entries
+
+### rc=0

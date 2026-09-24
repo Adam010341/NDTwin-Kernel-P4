@@ -1,0 +1,86 @@
+### red_against.py -- RED RUN C -- where PREREG 5.3 registers the CPU hypotheses, on the code before the fix (tests committed at 106a06bf, production unchanged)
+# head:        106a06bf (the tree this script and its log belong to)
+# tree:        this working tree
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+# as run:      analyse.py             sha256 84d78d3ceb76
+# as run:      plot.py                sha256 e0783102c12f
+# as run:      tests/test_analyse.py  sha256 939afc84323f
+# as run:      tests/test_plot.py     sha256 dbe528a6b11b
+# as run:      tests/synthetic.py     sha256 2b6a138274af
+###
+test_a_bmv2_ratio_outside_090_115_is_reported_outside (test_analyse.CpuTest.test_a_bmv2_ratio_outside_090_115_is_reported_outside) ... FAIL
+test_a_delta_smaller_than_its_spread_is_H_C0_and_no_line_is_fitted (test_analyse.CpuTest.test_a_delta_smaller_than_its_spread_is_H_C0_and_no_line_is_fitted) ... ok
+test_a_process_alive_before_the_window_is_not_charged_its_lifetime (test_analyse.CpuTest.test_a_process_alive_before_the_window_is_not_charged_its_lifetime) ... ok
+test_a_process_that_appears_inside_the_window_IS_charged_from_zero (test_analyse.CpuTest.test_a_process_that_appears_inside_the_window_IS_charged_from_zero) ... ok
+test_a_rung_one_group_does_not_have_is_in_NO_groups_fit (test_analyse.CpuTest.test_a_rung_one_group_does_not_have_is_in_NO_groups_fit) ... FAIL
+test_bmv2_carries_NO_H_C_label (test_analyse.CpuTest.test_bmv2_carries_NO_H_C_label) ... FAIL
+test_samples_per_second_comes_from_the_rung_pair_not_from_the_offered_rate (test_analyse.CpuTest.test_samples_per_second_comes_from_the_rung_pair_not_from_the_offered_rate) ... ok
+test_the_H_C_verdict_is_made_once_per_treated_group_over_every_common_rung (test_analyse.CpuTest.test_the_H_C_verdict_is_made_once_per_treated_group_over_every_common_rung) ... ok
+test_the_cpu_verdict_names_a_mixed_decomposition_as_a_result (test_analyse.CpuTest.test_the_cpu_verdict_names_a_mixed_decomposition_as_a_result) ... ok
+test_the_fit_recovers_the_fixed_and_marginal_costs_and_calls_it_H_C1 (test_analyse.CpuTest.test_the_fit_recovers_the_fixed_and_marginal_costs_and_calls_it_H_C1) ... ok
+test_the_registered_bmv2_comparison_is_coop_over_none_at_each_rung (test_analyse.CpuTest.test_the_registered_bmv2_comparison_is_coop_over_none_at_each_rung) ... FAIL
+test_the_ten_bmv2_processes_are_folded_into_one_class_and_SUMMED (test_analyse.CpuTest.test_the_ten_bmv2_processes_are_folded_into_one_class_and_SUMMED) ... ok
+test_with_no_rung_all_three_groups_share_there_is_no_fit_and_it_says_why (test_analyse.CpuTest.test_with_no_rung_all_three_groups_share_there_is_no_fit_and_it_says_why) ... FAIL
+
+======================================================================
+FAIL: test_a_bmv2_ratio_outside_090_115_is_reported_outside (test_analyse.CpuTest.test_a_bmv2_ratio_outside_090_115_is_reported_outside)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/ndt-e-red-9rbdhuhj/round/tests/test_analyse.py", line 577, in test_a_bmv2_ratio_outside_090_115_is_reported_outside
+    self.assertTrue(rows, "no registered bmv2 comparison at all")
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: [] is not true : no registered bmv2 comparison at all
+
+======================================================================
+FAIL: test_a_rung_one_group_does_not_have_is_in_NO_groups_fit (test_analyse.CpuTest.test_a_rung_one_group_does_not_have_is_in_NO_groups_fit)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/ndt-e-red-9rbdhuhj/round/tests/test_analyse.py", line 525, in test_a_rung_one_group_does_not_have_is_in_NO_groups_fit
+    self.assertEqual(rungs, [1.0, 8.0],
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+                     "the cooperative fit used rungs the link group never measured")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: [1.0, 8.0, 20.0] != [1.0, 8.0]
+
+First list contains 1 additional elements.
+First extra element 2:
+20.0
+
+- [1.0, 8.0, 20.0]
+?          ------
+
++ [1.0, 8.0] : the cooperative fit used rungs the link group never measured
+
+======================================================================
+FAIL: test_bmv2_carries_NO_H_C_label (test_analyse.CpuTest.test_bmv2_carries_NO_H_C_label)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/ndt-e-red-9rbdhuhj/round/tests/test_analyse.py", line 553, in test_bmv2_carries_NO_H_C_label
+    self.assertNotIn("H-C", entry.get("verdict") or "", group)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'H-C' unexpectedly found in 'H-C3 mixed -- the decomposition IS the result (PREREG 5.3)' : cooperative
+
+======================================================================
+FAIL: test_the_registered_bmv2_comparison_is_coop_over_none_at_each_rung (test_analyse.CpuTest.test_the_registered_bmv2_comparison_is_coop_over_none_at_each_rung)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/ndt-e-red-9rbdhuhj/round/tests/test_analyse.py", line 563, in test_the_registered_bmv2_comparison_is_coop_over_none_at_each_rung
+    self.assertEqual(block.get("interval"), [0.90, 1.15], block)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: None != [0.9, 1.15] : {}
+
+======================================================================
+FAIL: test_with_no_rung_all_three_groups_share_there_is_no_fit_and_it_says_why (test_analyse.CpuTest.test_with_no_rung_all_three_groups_share_there_is_no_fit_and_it_says_why)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/ndt-e-red-9rbdhuhj/round/tests/test_analyse.py", line 540, in test_with_no_rung_all_three_groups_share_there_is_no_fit_and_it_says_why
+    self.assertIsNone(entry["fit"], entry["verdict"])
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: {'fixed_percent': 4.9341717789982455, 'marginal_percent_per_sample': 0.02087352638218871, 'marginal_us_per_sample': 208.73526382188712, 'points': 3, 'max_samples_per_s': 392.625} is not None : H-C1 cost is dominated by a fixed component (08-20 reproduces)
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.285s
+
+FAILED (failures=5)
+
+### rc=1

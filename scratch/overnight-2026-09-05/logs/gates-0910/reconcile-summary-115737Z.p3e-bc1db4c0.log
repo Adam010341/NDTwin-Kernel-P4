@@ -1,0 +1,111 @@
+### reconcile-summary-115737Z -- the orchestrator's summary.json for 115737Z (older analyse.py) against this head's, leaf by leaf
+# tree:        /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups
+# head:        bc1db4c0 (0 uncommitted path(s) under the round directory)
+# when:        2026-09-24 07:35:53 UTC
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+# why:         every experiment reconciles against the old result: which numbers moved, which labels moved, what is new; the script is the command below
+# command:     /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python -c import json, sys
+old, new = (json.load(open(p)) for p in sys.argv[1:3])
+only_old, only_new, changed, same = [], [], [], 0
+def walk(a, b, path):
+    global same
+    if isinstance(a, dict) and isinstance(b, dict):
+        for k in sorted(set(a) | set(b)):
+            p = "%s.%s" % (path, k) if path else k
+            if k not in b: only_old.append((p, a[k]))
+            elif k not in a: only_new.append((p, b[k]))
+            else: walk(a[k], b[k], p)
+    elif isinstance(a, list) and isinstance(b, list) and len(a) == len(b):
+        for i, (x, y) in enumerate(zip(a, b)): walk(x, y, "%s[%d]" % (path, i))
+    elif a == b: same += 1
+    else: changed.append((path, a, b))
+walk(old, new, "")
+short = lambda v: (json.dumps(v, sort_keys=True)[:150])
+print("old: %s\nnew: %s\n" % tuple(sys.argv[1:3]))
+print("leaf values identical in both: %d" % same)
+print("\n--- CHANGED (%d)" % len(changed))
+for p, a, b in changed: print("  %s\n      old: %s\n      new: %s" % (p, short(a), short(b)))
+print("\n--- ONLY IN THE OLD summary (%d)" % len(only_old))
+for p, v in only_old: print("  %s = %s" % (p, short(v)))
+print("\n--- ONLY IN THE NEW summary (%d)" % len(only_new))
+for p, v in only_new: print("  %s = %s" % (p, short(v))) /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/summary.json /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/scratch/p3e-round10/summary.115737Z.bc1db4c0.json
+###
+old: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T115737Z_full/summary.json
+new: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/scratch/p3e-round10/summary.115737Z.bc1db4c0.json
+
+leaf values identical in both: 1424
+
+--- CHANGED (2)
+  cpu_bmv2.fits.cooperative.verdict
+      old: "H-C1 cost is dominated by a fixed component (08-20 reproduces)"
+      new: null
+  cpu_bmv2.fits.link.verdict
+      old: "H-C2 cost is per sample (08-20's fixed component does not reproduce here)"
+      new: null
+
+--- ONLY IN THE OLD summary (12)
+  sampling_error[0].verdict = "above the shot-noise band, signs mixed"
+  sampling_error[1].verdict = "H-B1 shot-noise limited"
+  sampling_error[2].verdict = "H-B1 shot-noise limited"
+  sampling_error[3].verdict = "H-B1 shot-noise limited"
+  sampling_error[4].verdict = "H-B1 shot-noise limited"
+  sampling_error[5].verdict = "H-B1 shot-noise limited"
+  sampling_error[6].verdict = null
+  sampling_error[7].verdict = null
+  sampling_error[8].verdict = null
+  sampling_error_cross_group[0].verdict = "the two paths are NOT equally accurate"
+  sampling_error_cross_group[1].verdict = "H-B4 the two paths are equally accurate"
+  sampling_error_cross_group[2].verdict = "H-B4 the two paths are equally accurate"
+
+--- ONLY IN THE NEW summary (49)
+  cpu_bmv2.common_rungs = [1.0, 2.0, 3.0, 5.0, 8.0, 12.0, 20.0, 30.0, 45.0, 70.0, 110.0]
+  cpu_bmv2.fits.cooperative.note = "a description, not a registered comparison: PREREG 5.3 registers H-C1/H-C2/H-C3 for the kernel only"
+  cpu_bmv2.fits.link.note = "a description, not a registered comparison: PREREG 5.3 registers H-C1/H-C2/H-C3 for the kernel only"
+  cpu_bmv2_ratio = {"interval": [0.9, 1.15], "registered": "PREREG 5.3: bmv2_total(cooperative)/bmv2_total(none) at the same rung", "rows": [{"cooperative": 29.796027022
+  cpu_kernel.common_rungs = [1.0, 2.0, 3.0, 5.0, 8.0, 12.0, 20.0, 30.0, 45.0, 70.0, 110.0]
+  sampling_error[0].band = [0.07132945534630136, 0.28531782138520545]
+  sampling_error[0].description = "above the shot-noise band, signs mixed"
+  sampling_error[0].position = "above"
+  sampling_error[0].same_sign = false
+  sampling_error[1].band = [0.022556354315358677, 0.09022541726143471]
+  sampling_error[1].description = "inside the shot-noise band"
+  sampling_error[1].position = "inside"
+  sampling_error[1].same_sign = false
+  sampling_error[2].band = [0.010087508314742547, 0.040350033258970186]
+  sampling_error[2].description = "inside the shot-noise band"
+  sampling_error[2].position = "inside"
+  sampling_error[2].same_sign = true
+  sampling_error[3].band = [0.07132945534630136, 0.28531782138520545]
+  sampling_error[3].description = "inside the shot-noise band"
+  sampling_error[3].position = "inside"
+  sampling_error[3].same_sign = true
+  sampling_error[4].band = [0.020175016629485093, 0.08070006651794037]
+  sampling_error[4].description = "inside the shot-noise band"
+  sampling_error[4].position = "inside"
+  sampling_error[4].same_sign = false
+  sampling_error[5].band = [0.00902254172614347, 0.03609016690457388]
+  sampling_error[5].description = "inside the shot-noise band"
+  sampling_error[5].position = "inside"
+  sampling_error[5].same_sign = false
+  sampling_error[6].band = null
+  sampling_error[6].description = null
+  sampling_error[6].position = null
+  sampling_error[6].same_sign = null
+  sampling_error[7].band = null
+  sampling_error[7].description = null
+  sampling_error[7].position = null
+  sampling_error[7].same_sign = null
+  sampling_error[8].band = null
+  sampling_error[8].description = null
+  sampling_error[8].position = null
+  sampling_error[8].same_sign = null
+  sampling_error_by_group = [{"H-B1": {"holds": false, "rates": [{"band": [0.07132945534630136, 0.28531782138520545], "median_abs_error": 0.2952785072592141, "offered_mbit": 2, "
+  sampling_error_cross_group[0].description = "link/cooperative outside [0.5, 2.0]"
+  sampling_error_cross_group[0].inside = false
+  sampling_error_cross_group[1].description = "link/cooperative inside [0.5, 2.0]"
+  sampling_error_cross_group[1].inside = true
+  sampling_error_cross_group[2].description = "link/cooperative inside [0.5, 2.0]"
+  sampling_error_cross_group[2].inside = true
+  sampling_error_cross_group_registered = {"holds": false, "hypothesis": "H-B4", "label": "not H-B4: link/cooperative is outside [0.5, 2.0] at 2 Mbit/s", "rates": [{"inside": false, "offered_m
+
+### rc=0

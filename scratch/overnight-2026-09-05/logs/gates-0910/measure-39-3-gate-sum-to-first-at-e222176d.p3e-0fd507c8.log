@@ -1,0 +1,63 @@
+### red_against.py -- MEASURE 39(3) -- round 8's tree (e222176d) with label_of's fold changed from SUM to the FIRST pid, through that tree's own mutation gate. (The first attempt, at ddcef442, died in git archive before any test ran -- harness error, fixed in 0fd507c8; its log was removed, not scored.)
+# head:        0fd507c8 (the tree this script and its log belong to)
+# tree:        round directory at e222176d (git archive)
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+# patched:     sum_to_first in analyse.py (from sum_to_first.json; now sha256 817f802a5102)
+# as run:      analyse.py             sha256 817f802a5102
+# as run:      plot.py                sha256 99fbdc7d546e
+# as run:      tests/test_analyse.py  sha256 05740e18ac9e
+# as run:      tests/test_plot.py     sha256 583344b47a06
+# as run:      tests/synthetic.py     sha256 747e9edfa69e
+###
+### mutation gate -- doc/audit/2026-09-19_telemetry-three-groups
+# tree:        /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/ndt-e-red-pxfm5mbo/round
+# head:        ?
+# when:        2026-09-24 07:25:24 UTC
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+###
+baseline (must be green before any mutation):
+Ran 76 tests in 0.926s
+OK (skipped=1)
+
+  caught   M-E1: the ceiling interval is the NOMINAL 1.5x ladder step, not the realised 1.667x (test_the_interval_boundaries_are_the_realised_step_not_the_nominal_one went red)
+  caught   M-E2: a cell is resolved however far apart its two arms landed           (test_a_cell_whose_arms_are_six_rungs_apart_is_NOT_resolved went red)
+  caught   M-E3: an unresolved cell still gets a ratio (1b section 4's missing branch, restored) (test_an_unresolved_cell_produces_NO_ratio_at_all went red)
+  caught   M-E4: the none group's missing sampling error is reported as 0.0         (test_the_none_group_is_n_a_and_is_NOT_zero went red)
+  caught   M-E5: figure 2 draws the none group as a zero bar instead of n/a         (test_the_none_group_is_drawn_as_n_a_and_NOT_as_a_zero_bar went red)
+  caught   M-E6: figure 1 labels an unresolved cell with a mean no arm measured     (test_an_unresolved_cell_is_marked_and_shows_BOTH_arm_values went red)
+  caught   M-E7: the shot-noise prediction uses the sd rather than the median of |X| (test_the_shot_noise_prediction_is_the_registered_formula went red)
+  caught   M-E8: sample loss is attributed with every drop counter at zero (the ROLE-5 failure) (test_sample_loss_is_NOT_attributed_when_every_drop_counter_is_zero went red)
+  caught   M-E9: a process alive before the window is charged its whole lifetime to that window (test_a_process_alive_before_the_window_is_not_charged_its_lifetime went red)
+  caught   M-E10: samples/s is assumed from the offered rate instead of read from the counter (test_samples_per_second_comes_from_the_rung_pair_not_from_the_offered_rate went red)
+  caught   M-E11: a line is fitted through deltas smaller than their own spread (H-C0 removed) (test_a_delta_smaller_than_its_spread_is_H_C0_and_no_line_is_fitted went red)
+  caught   M-E12: the mixed decomposition has no branch of its own (08-28 section 4's H3 lesson) (test_the_cpu_verdict_names_a_mixed_decomposition_as_a_result went red)
+  caught   M-E13: the foreign-CPU gate compares an arm to the median of ALL arms, across groups (test_the_gate_is_within_group_so_the_link_treatment_does_not_fire_it went red)
+  caught   M-E14: reconciliation (a) drops the condition-matched cooperative pairing (test_a_is_reported_for_BOTH_the_none_and_the_cooperative_cell went red)
+  caught   M-E15: the generator control passes at 1x instead of the registered 5x   (test_a_sender_control_below_five_times_FAILS went red)
+  caught   M-E16: reconciliation (b) compares against the wrong 08-20 figure        (test_b_compares_the_marginal_slope_against_08_20s_206_microseconds went red)
+  caught   M-E17: the generation check calls ndt verify_p4, which is not a subcommand (1 cell(s) went red)
+  caught   M-E18: the four locals of the sender control are re-joined onto one line (1 cell(s) went red)
+  caught   M-E19: the teardown stops retracting measuring= (ndt down then refuses, rc 5) (2 cell(s) went red)
+  caught   M-E20: a status --check rc 1 goes back to being a note, so PASS can coexist with it (1 cell(s) went red)
+  caught   M-E21: the final re-claim is dropped, so the release compares against a stale baseline (1 cell(s) went red)
+  caught   M-E22: a refused release is printed but never reaches the verdict        (1 cell(s) went red)
+  caught   M-E23: a failed knob restore goes back to being swallowed by || true     (1 cell(s) went red)
+  caught   M-E24: the final retraction renews by CLAIM_MINUTES again (a refused release locks the lab) (1 cell(s) went red)
+  caught   M-E25: an unreadable path is counted as a clean scan (rc 0)              (1 cell(s) went red)
+  caught   M-E26: a string argv is not split, so iterating it yields characters (ruling 27) (1 cell(s) went red)
+  caught   M-E27: a dot-less option VALUE (--log-dir /var/log/simple_switch_grpc) is taken for the binary (test_a_DOT_LESS_option_value_is_still_not_the_binary went red)
+  caught   M-E28: C3's throwaway ladders are pooled into the none|1024 cell again   (test_the_none_1024_cell_is_the_two_ladder_arms_only went red)
+  caught   M-E29: the load gate's own positive control is back in the group median it moves (test_the_none_group_gate_median_counts_the_ladder_arms_only went red)
+  caught   M-E30: figure 3 judges label collisions as 3% of the end values' spread again (test_three_ends_within_a_label_height_get_three_different_offsets went red)
+  caught   M-E31: the traps stop recording WHICH signal ended the round (the 18:54 shape) (1 cell(s) went red)
+  caught   M-E32: the arm count is no longer compared against the selection         (2 cell(s) went red)
+  caught   M-E33: N counts every edge in the fabric again, not the ones that carried the flow (test_N_counts_the_edges_that_carried_the_flow_not_every_edge_in_the_fabric went red)
+  caught   M-E34: the axes are not raised, so a staggered top label is drawn outside them (test_no_label_is_drawn_above_the_top_of_its_own_axes went red)
+  control  C-E1: a comment added above GROUPS (semantics unchanged)                 (stayed green, as a control must)
+  control  C-E2: a comprehension variable renamed in figure1_data (semantics unchanged) (stayed green, as a control must)
+
+mutations: 34   survivors: 0   drifted: 0
+
+### rc=0
+
+### rc=0

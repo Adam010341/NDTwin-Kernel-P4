@@ -1,0 +1,121 @@
+### offline-round -- offline whole-round suite (E_DRIVER unset)
+# tree:        /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups
+# head:        a7fb0789 (0 uncommitted path(s) under the round directory)
+# when:        2026-09-24 08:18:00 UTC
+# why:         driver sha256 7d0184b8c81a, suite sha256 42c38ebd339e; the driver is untouched by rounds 10-11
+# command:     env -u E_DRIVER tests/test_drive_e_offline.sh
+###
+=== 1. the copy under test IS the real drive_e.sh
+  ok      byte-identical to /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups/drive_e.sh
+
+=== 2. a whole round, offline
+  ok      the driver finished (not killed by timeout)
+  ok      it reached its own verdict, and it is a PASS
+  ok      six generations were brought up
+  ok      every generation was torn down, plus the final one
+  ok      the lab was released exactly once
+
+=== 3. ruling 21(1): no call to a word that is not an ndt subcommand
+  ok    🔴 every ndt call names a real subcommand
+  ok    🔴 verify_p4 is never invoked
+  ok      the standalone re-check that does exist is used
+  ok      and the bring-up's own telemetry assertion was read
+
+=== 4. ruling 21(2): the sender control is REACHED and does not abort the driver
+  ok    🔴 C1 ran (the set -u local hazard would have killed the shell here)
+  ok      C2 ran too
+  ok      and the gate's positive control ran after them
+
+=== 5. the third defect the same raw showed: down refuses while measuring= is declared
+  ok    🔴 every teardown is preceded by a claim that retracts measuring=
+  ok    🔴 and the guard is never overridden with --force
+  ok      the round re-declares it at the next bring-up
+
+=== 6. negative controls: the new checks can fail
+  ok    🔴 a bring-up asserting the wrong telemetry source is caught
+  ok    🔴 a down that still refuses after the retraction is a reported failure
+  ok      and it is still not forced
+
+=== 6b. ruling 22(1): `ndt status --check` rc 1 is a verdict and cannot coexist with PASS
+  ok    🔴 a generation whose status --check said rc 1 does NOT end in PASS
+  ok      the failure names the generation and the rc
+  ok      and it says the arms of that generation ran under it
+  ok      the arms still ran (12 of them, as in a clean round)
+  ok      and all six generations were still brought up
+  ok    🔴 rc 3 is recorded as NOTHING compared, and stays out of the verdict
+  ok      so the round can still pass on it
+
+=== 6c. ruling 22(2): the round baseline the release compares against
+  ok      the entry knob was 128 and is 128 again at the end
+  ok    🔴 the release is not refused, so the lab is actually given back
+  ok    🔴 and the round does not report a release refusal
+  ok      the round passes
+  ok      the final claim re-recorded the baseline from the RESTORED value
+  ok    🔴 a refused release means the round does NOT pass
+  ok      and it says the lab is still claimed
+  ok      in the failure list, not only on the way past
+
+=== 6g. ruling 32(3): a round that was CUT DOWN does not print PASS over what it never measured
+  ok    🔴 an interrupted round does NOT print PASS
+  ok    🔴 an interrupted round says it was interrupted, and by which signal
+  ok      and it says how many arms of the selection it had measured
+  ok      and it exits 1, not 0
+  ok      the teardown still ran (the lab is given back on the signal path too)
+
+=== 6h. ruling 32(3): fewer arms than the selection is not a PASS either
+  ok      the round really is one arm short (13 readings on disk, not 14)
+  ok    🔴 a round that measured fewer arms than it selected does NOT pass
+  ok    🔴 and the verdict says how many of how many
+  ok      and it exits 1, not 0
+
+=== 6d. ruling 24(3): a knob that did not go back cannot end in PASS
+  ok      the knob really did not go back (still what 'ndt up p4 4' wrote)
+  ok    🔴 a round whose knob did not go back does NOT pass
+  ok      and it says so in the failure list
+  ok      naming the value the next 'ndt up p4' would read
+  ok      hygiene: it does not re-claim over a knob it knows is wrong
+
+=== 6e. ruling 25(4): the last claim before the release is a SHORT one
+  ok      the final claim renews for FINAL_CLAIM_MINUTES, not CLAIM_MINUTES
+  ok      and it is the last ndt call before the release
+
+=== 6f. ruling 27: the arm script can name the binary the lab is actually running
+  ok      the fixture is the shape that broke it (argv is a string)
+  ok    🔴 the binary is found in a string argv
+  ok      and all ten switches give a pid and a device id
+  ok      the old iterate-the-argv reader finds nothing here (that was the bug)
+
+=== 7. THE PRE-FIX CONTROLS -- each defect put back, each check must go RED
+  ok      the pre-fix verify shape was re-introduced (code, not the comments about it)
+  ok    🔴 cell 3 goes RED on the pre-fix code
+  ok      the pre-fix local shape was re-introduced (code, not the comment quoting it)
+  ok    🔴 cell 4 goes RED on the pre-fix code (C1 never runs)
+  ok    🔴 and cell 2 goes RED with it (the round never passes)
+  ok      because the shell died of it
+  ok      the teardown still ran (the EXIT trap fires even on the dead shell)
+  ok      the pre-fix release shape was re-introduced
+  ok    🔴 the old code DID print the refusal (the `||` fired -- pipefail)
+  ok    🔴 ... and said PASS in the same breath, because bad() never touched FAILURES
+
+=== 7b. and the refusals still refuse: a leftover link-telemetry manifest starts nothing
+  ok    🔴 it refuses before anything is started
+  ok      and says which file decided it
+  ok      nothing was claimed
+
+=== 8. the hazard scanner over the three scripts, with both positive controls
+  ok    🔴 no cross-referencing `local` in any of the three scripts (scanner rc)
+          # hazard_scan: 3 file(s) given, 3 scanned, 0 unreadable, 0 finding(s)
+  ok      positive control: the $name form is found
+  ok      ... and the scanner exits non-zero for it
+  ok    🔴 positive control: the ARITHMETIC form is found (D's scanner misses this one)
+  ok      ... and the scanner exits non-zero for it too
+  ok      negative control: split declarations are not flagged (rc 0)
+  ok      and nothing to scan is rc 2, not a pass
+  ok    🔴 a path that cannot be read is rc 2, not rc 0
+  ok      and the name is printed
+  ok      and it is counted as unreadable, not as scanned
+  ok      an incomplete sweep outranks a finding (2, not 1)
+
+passed: 78   failed: 0
+
+### rc=0

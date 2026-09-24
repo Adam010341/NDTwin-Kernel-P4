@@ -1,0 +1,67 @@
+### reconcile-summary-115737Z-r10-r11 -- round 10's fifth-campaign summary.json (bc1db4c0) against this head's, leaf by leaf
+# tree:        /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups
+# head:        a7fb0789 (0 uncommitted path(s) under the round directory)
+# when:        2026-09-24 08:20:50 UTC
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+# why:         ruling 40: the H-C block and the H-B group labels must be unchanged except the H-C2 wording and the new fields
+# command:     /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python -c import json, sys
+old, new = (json.load(open(p)) for p in sys.argv[1:3])
+only_old, only_new, changed, same = [], [], [], 0
+def walk(a, b, path):
+    global same
+    if isinstance(a, dict) and isinstance(b, dict):
+        for k in sorted(set(a) | set(b)):
+            p = "%s.%s" % (path, k) if path else k
+            if k not in b: only_old.append((p, a[k]))
+            elif k not in a: only_new.append((p, b[k]))
+            else: walk(a[k], b[k], p)
+    elif isinstance(a, list) and isinstance(b, list) and len(a) == len(b):
+        for i, (x, y) in enumerate(zip(a, b)): walk(x, y, "%s[%d]" % (path, i))
+    elif a == b: same += 1
+    else: changed.append((path, a, b))
+walk(old, new, "")
+short = lambda v: json.dumps(v, sort_keys=True)[:200]
+print("old: %s\nnew: %s\n" % tuple(sys.argv[1:3]))
+print("leaf values identical in both: %d" % same)
+print("\n--- CHANGED (%d)" % len(changed))
+for p, a, b in changed: print("  %s\n      old: %s\n      new: %s" % (p, short(a), short(b)))
+print("\n--- ONLY IN THE OLD summary (%d)" % len(only_old))
+for p, v in only_old: print("  %s = %s" % (p, short(v)))
+print("\n--- ONLY IN THE NEW summary (%d)" % len(only_new))
+for p, v in only_new: print("  %s = %s" % (p, short(v))) /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/scratch/p3e-round10/summary.115737Z.bc1db4c0.json /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/scratch/p3e-round10/summary.115737Z.a7fb0789.json
+###
+old: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/scratch/p3e-round10/summary.115737Z.bc1db4c0.json
+new: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/scratch/p3e-round10/summary.115737Z.a7fb0789.json
+
+leaf values identical in both: 1612
+
+--- CHANGED (2)
+  cpu_kernel.fits.link.verdict
+      old: "H-C2 cost is per sample (08-20's fixed component does not reproduce here)"
+      new: "not decided: H-C2 condition 1 holds (share <= 0.2); condition 2 (delta ratio ~ S ratio) has no registered tolerance"
+  reconciliation[3].verdict
+      old: "H-C2 cost is per sample (08-20's fixed component does not reproduce here)"
+      new: "not decided: H-C2 condition 1 holds (share <= 0.2); condition 2 (delta ratio ~ S ratio) has no registered tolerance"
+
+--- ONLY IN THE OLD summary (0)
+
+--- ONLY IN THE NEW summary (17)
+  cpu_kernel.fits.cooperative.H-C2 = {"condition_1": true, "condition_2": null, "condition_2_why_null": "PREREG 5.3 :271 registers '\u2248' with no tolerance", "delta_ratio": 20.297293862356906, "high_kpps": 110.0, "low_kpps": 1.0, "s_ra
+  cpu_kernel.fits.link.H-C2 = {"condition_1": true, "condition_2": null, "condition_2_why_null": "PREREG 5.3 :271 registers '\u2248' with no tolerance", "delta_ratio": 31.50542051264726, "high_kpps": 110.0, "low_kpps": 1.0, "s_rat
+  reconciliation[2].H-C2 = {"condition_1": true, "condition_2": null, "condition_2_why_null": "PREREG 5.3 :271 registers '\u2248' with no tolerance", "delta_ratio": 20.297293862356906, "high_kpps": 110.0, "low_kpps": 1.0, "s_ra
+  reconciliation[3].H-C2 = {"condition_1": true, "condition_2": null, "condition_2_why_null": "PREREG 5.3 :271 registers '\u2248' with no tolerance", "delta_ratio": 31.50542051264726, "high_kpps": 110.0, "low_kpps": 1.0, "s_rat
+  sampling_error[0].signed_windows = 3
+  sampling_error[1].signed_windows = 3
+  sampling_error[2].signed_windows = 3
+  sampling_error[3].signed_windows = 3
+  sampling_error[4].signed_windows = 3
+  sampling_error[5].signed_windows = 3
+  sampling_error[6].signed_windows = null
+  sampling_error[7].signed_windows = null
+  sampling_error[8].signed_windows = null
+  sampling_error_by_group[0].H-B2.signed_windows = 3
+  sampling_error_by_group[0].H-B2.windows_registered = 3
+  sampling_error_by_group[1].H-B2.signed_windows = 3
+  sampling_error_by_group[1].H-B2.windows_registered = 3
+
+### rc=0
