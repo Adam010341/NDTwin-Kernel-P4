@@ -247,3 +247,12 @@ M-R12 外來 fabric `reroute: true`；M-R13 baseline 綁定任一名字改掉；
   (c) D7（external 不 seed）＝對 §2.3-1 的窄讀，**照准**：§2.2-4 定了 external 本刀不改，seed 會改變 external 下 kernel 看到的邊。
   (d) 判官 11 的 fail-open 預設是被「既有測試不改斷言」逼出的設計，可接受；照 ⑨ 記名揭露。`merged_checks.sh` 整支由 orchestrator 在合併樹跑（D12）。
 - 第二輪收件：同一個判官（`a8ed6d7da8b264752`）只審第二輪 diff 與 ①–⑨ 的逐項證據（範圍限定，同裁決 40⑩ 前例不另開判官）。
+
+### 裁決 6（09-24 23:1x）：R 第二輪 `3ff87a10` 判官（同一位、範圍限定）「MERGE AFTER FIXES」——①–⑨ 全 DONE，小修一項＋三項揭露
+
+- 判官全文：`scratch/overnight-2026-09-05/logs/orchestrator-0924/judge-R-r2-3ff87a10.md`。①–⑨ 逐項 DONE、證據屬實；總表的 RED 只是那兩列 FixtureProvenance 預期值過期（`advanced_tunnel.json` mtime 21:16:14＝orchestrator 的還原）。
+- orchestrator 開檔核過（OBSERVED）F1：`topology_manager.py:1053-1085` `_control_plane_port` 不看 `routes_to_attached_hosts_only`，`unroute_flow` 的 A-4d 還原（`:1142-1155`）用它 ⇒ 混合 fabric 上刪一條 app 規則，仍會「還原」一條穿過其他交換機的路由——① 同一類、另一個入口。
+- **R 第三輪（範圍只到這裡；紅先＋具名變異）：** F1 `_control_plane_port` 在旗標為真且下一跳不是目的主機時回 None，並改掉 `:659-662`「readopt's refill is the one writer left there」；
+  F2 `main.readopt_switch` 依 `_fabric["watchdog"]` 拿掉沒有 watchdog 時的 `routes_pending`／「watchdog 會補」（不動 M-B29 的錨點行）；F3 外來 owned 交換機的補路由被跳過時，`routes_note` 寫真正的原因；
+  F4 錄製 wrapper 放進 scripts 目錄、錄製腳本的 sha 在新 head 由閘門重算；F5（① 無 live、all-NDTwin LLDP 啟動失敗只剩 `reroute:false`）寫進 SUMMARY 的已知缺口。
+- 第三輪收件：orchestrator 逐 hunk 讀＋重跑 `mutate_roles_binding` 與 p4_proxy 全套（範圍限定，同裁決 40⑩ 前例不另開判官）。
