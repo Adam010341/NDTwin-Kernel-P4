@@ -1173,6 +1173,17 @@ m=$(mutant mn_refillowner "$MAIN" \
 report "R2-1i: a package-owned switch is refilled with NDTwin's routes" "$m" \
        "test_a_package_owned_switch_is_not_refilled_on_a_fabric_that_installs_routes"
 
+# Round 1's killer for this test was M-R9, inside routes_owned_by_ndtwin -- which readopt no
+# longer calls (item 1: the predicate is startup's recorded decision plus THIS switch's binding).
+m=$(mutant mn_refillunbound "$MAIN" \
+    '    if (_fabric_installs_routes() and binding is not None
+            and binding.owner == route_binding.OWNER_NDTWIN):' \
+    '    if (_fabric_installs_routes()
+            and getattr(binding, "owner", route_binding.OWNER_NDTWIN)
+            == route_binding.OWNER_NDTWIN):')
+report "R2-1j: a switch that came back unbound counts as owned and is refilled" "$m" \
+       "test_a_switch_that_came_back_unbound_is_not_refilled"
+
 # item 2 -- the literal gate over four names
 m=$(mutant fs_fieldliteral "$STATS" \
     '    route_binding.BASELINE.match_field: "nw_dst",' \
