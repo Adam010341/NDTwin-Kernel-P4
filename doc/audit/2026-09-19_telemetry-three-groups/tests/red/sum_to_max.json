@@ -1,0 +1,10 @@
+[
+  {
+    "anchor": "            name = label_of(key)\n            if key not in seen:\n                accumulated[name] = accumulated.get(name, 0) + (0 if key in present_at_start\n                                                                else value)\n            elif value < seen[key]:\n                accumulated[name] = accumulated.get(name, 0) + value       # pid reused mid-window\n            else:\n                accumulated[name] = accumulated.get(name, 0) + (value - seen[key])\n            seen[key] = value\n    out = {name: 100.0 * jiffies / clk_tck / elapsed for name, jiffies in accumulated.items()}\n",
+    "file": "analyse.py",
+    "marker": "[Co-developed with claude code -- Adam]",
+    "name": "sum_to_max",
+    "replacement": "            name = key       # accumulate per PID, fold the class below\n            if key not in seen:\n                accumulated[name] = accumulated.get(name, 0) + (0 if key in present_at_start\n                                                                else value)\n            elif value < seen[key]:\n                accumulated[name] = accumulated.get(name, 0) + value       # pid reused mid-window\n            else:\n                accumulated[name] = accumulated.get(name, 0) + (value - seen[key])\n            seen[key] = value\n    folded = {}\n    for key, jiffies in accumulated.items():\n        folded[label_of(key)] = max(0 if folded.get(label_of(key)) is None else folded.get(label_of(key)), jiffies)\n    out = {name: 100.0 * jiffies / clk_tck / elapsed for name, jiffies in folded.items()}\n",
+    "why": "ruling 39(3): label_of's class is folded by MAX over its pids instead of summed"
+  }
+]

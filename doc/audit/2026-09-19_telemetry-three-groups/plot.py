@@ -36,6 +36,11 @@ import os
 import sys
 
 GROUP_ORDER = ("none", "cooperative", "link")
+#: How much vertical room one end-of-line label needs before the next one touches it. The labels
+#: are drawn at fontsize 9 and matplotlib's line height is 1.2x the font size, so a label owns
+#: about 11 points of the axes. It is a display quantity and it is in display units, which is the
+#: whole of the correction below.
+LABEL_HEIGHT_PT = 11.0
 #: The short words that appear as tick labels. Deliberately shorter than the group names used in
 #: prose: a tick label is read at a glance and has no room for a sentence.
 GROUP_TICK = {"none": "none", "cooperative": "coop", "link": "link"}
@@ -149,6 +154,94 @@ def figure3_data(summary):
             "panels": panels}
 
 
+def end_label_offsets(ends, ylim, height_points, label_points=LABEL_HEIGHT_PT):
+    """[(y, x, name)] -> the same, in y order, each with the offset its label must be drawn at.
+
+    🔴 WHETHER TWO LABELS COLLIDE IS A QUESTION ABOUT THE DISPLAY, NOT ABOUT THE VALUES. This
+    used to ask whether two ends were closer than 3% of the SPREAD OF THE ENDS, which has no
+    relation to the picture: the ends can be spread over a hundredth of the axes (three lines
+    that converge) or over all of it, and 3% of their own spread says the same thing in both
+    cases. Figure 3's bmv2 panel in the fourth campaign is the second case: the three ends are
+    725.92, 725.92 and 764.86 on an axis running from about 27 to 765, so `coop` sits 38.9 units
+    -- about one label height -- above the other two, the old rule called that "far apart" (38.9
+    > 3% of 38.9) and gave it offset 0, while `none` had already been nudged 9 points up into
+    exactly that space. Two names were printed on top of each other and the figure showed one
+    illegible word.
+    So: convert each end to a position on THE AXES, in points, and require a label height
+    between consecutive labels. A label that has been displaced carries its displacement into
+    the next comparison -- the staggering is what created the collision the old rule could not
+    see. Nothing here moves the data; only the text beside it.
+
+    `ylim` is the axes' own (low, high) and `height_points` its height in points, both read from
+    the figure after the layout is fixed. The y axis is linear (only x is logarithmic here), so
+    the conversion is one ratio.
+    """
+    ordered = sorted(ends)
+    low, high = ylim
+    span = float(high) - float(low)
+    scale = (float(height_points) / span) if (span > 0 and height_points > 0) else 0.0
+    placed, previous = [], None
+    for index, (y, x, name) in enumerate(ordered):
+        natural = (y - low) * scale
+        final = natural if previous is None else max(natural, previous + label_points)
+        placed.append({"name": name, "x": x, "y": y, "natural_points": natural,
+                       "display_points": final, "offset": final - natural})
+        previous = final
+    return placed
+
+
+def place_end_labels(ends, ylim, height_points, label_points=LABEL_HEIGHT_PT):
+    """-> ((low, high), placed): the axes limits these labels need, and where each one goes.
+
+    🔴 STAGGERING CAN PUSH THE TOP LABEL OUT OF THE AXES, and on the fourth campaign's figure 3
+    it did: the bmv2 panel is 206.5 pt tall, matplotlib's 5% margin leaves 9.4 pt above the
+    highest line end -- less than one label height -- and `coop`, displaced 12.1 pt to clear
+    `none`, ended with its glyph top at 214.7 pt, 8.2 pt ABOVE the axes and on top of the panel
+    title (`annotate` does not clip). That is a defect this round's own fix introduced: the old
+    rule left that label at offset 0, inside the axes, and illegibly on top of another label.
+    Both are wrong, and they are not a trade-off.
+
+    So the labels are not pushed back down -- that is the overlap again -- the AXES ARE GIVEN
+    ROOM: the top limit is raised until the highest glyph fits under it. Raising the limit moves
+    no data point, adds no text, and changes only how much blank sky the panel has.
+
+    The needed limit is SOLVED, not approached. Stacking gives the i-th label (in y order)
+    f_i = max_{j<=i} (natural_j + (i-j) x label), so the top one sits at
+    max_j (natural_j + (n-1-j) x label) and has to satisfy `+ label/2 <= height`. Each j turns
+    into one lower bound on the span, and the largest of them is the answer. Raising by the
+    overflow instead, in a loop, only converges ON the answer from above -- it is still 1e-6 pt
+    over after eight passes, which is invisible but is not what the code claims to do.
+    """
+    low, high = float(ylim[0]), float(ylim[1])
+    ordered = sorted(ends)
+    if ordered and height_points > 0 and high > low:
+        count = len(ordered)
+        needed = high - low
+        for index, (y, _x, _name) in enumerate(ordered):
+            headroom = height_points - (count - 1 - index) * label_points - label_points / 2.0
+            if headroom <= 0:
+                # 🔴 NO ROOM ABOVE THIS LABEL, whatever the span is: it needs (count-1-index)
+                # label heights above it plus half its own, and that is the whole axes or more.
+                # Below zero no limit fixes it. AT zero it fits only by sitting exactly on the
+                # axes' bottom, where its bound (y-low)*H/headroom is a division by zero. Either
+                # way this label contributes no bound -- and at zero, skipping it is what keeps
+                # the function from dividing by zero (ruling 39(9c): test_plot's EXACTLY-zero
+                # case, M-E41; below zero the guard is an equivalent mutation, because the
+                # unguarded bound is negative and loses every max).
+                #
+                # What the caller gets in that case is EXACTLY the same 2-tuple as always: no
+                # flag, no exception, no third element. The overflow is visible -- the returned
+                # placement puts the top label's glyph above `height_points` and a caller can
+                # subtract -- but nothing forces it to look, and _line_panels does not.
+                # test_plot.py's `test_a_stack_taller_than_its_axes...` pins both halves of
+                # that: the overflow is in the return, and the return has no signal in it.
+                # (Ruling 37(5); the interface half is in the round 9 candidate list.)
+                continue
+            needed = max(needed, (y - low) * height_points / headroom)
+        high = low + needed
+    return (low, high), end_label_offsets(ends, (low, high), height_points, label_points)
+
+
 def figure_data(summary):
     return {"fig1_pps_ceiling": figure1_data(summary),
             "fig2_sampling_error": figure2_data(summary),
@@ -192,6 +285,7 @@ def _line_panels(plt, data, out_base):
     figure, axes_list = plt.subplots(1, len(panels), figsize=(4.2 * len(panels), 4.2), sharex=True)
     if len(panels) == 1:
         axes_list = [axes_list]
+    panel_ends = []
     for axes, panel in zip(axes_list, panels):
         ends = []
         for series in panel["series"]:
@@ -200,18 +294,7 @@ def _line_panels(plt, data, out_base):
             axes.plot(xs, ys, marker="o", markersize=3)
             if xs:
                 ends.append((ys[-1], xs[-1], series["name"]))
-        # The series name at the end of its own line, not in a legend block. Two lines that end
-        # at the same value would print their labels on top of each other and the reader would
-        # see one illegible word instead of two names, so colliding labels are staggered by a
-        # fixed offset in POINTS -- which does not move the data, only the text beside it.
-        span = (max(y for y, _x, _n in ends) - min(y for y, _x, _n in ends)) if ends else 0.0
-        previous = None
-        for index, (y, x, name) in enumerate(sorted(ends)):
-            collides = previous is not None and (span == 0 or abs(y - previous) < 0.03 * span)
-            axes.annotate(name, (x, y), textcoords="offset points",
-                          xytext=(5, 9 if collides and index % 2 else (-9 if collides else 0)),
-                          ha="left", va="center", fontsize=9)
-            previous = y
+        panel_ends.append((axes, ends))
         axes.set_title(panel["panel"])
         axes.set_xlabel(data["xlabel"])
         axes.set_xscale("log")
@@ -219,7 +302,23 @@ def _line_panels(plt, data, out_base):
         axes.margins(x=0.22)
     axes_list[0].set_ylabel(data["ylabel"])
     figure.suptitle(data["title"])
+    # 🔴 THE LAYOUT IS FIXED BEFORE THE LABELS ARE PLACED, because where a label goes is decided
+    # in points on the axes and the axes' height is not known until then. tight_layout() moves
+    # the axes; annotate() with an offset in points does not.
     figure.tight_layout()
+    inches = figure.get_size_inches()[1]
+    for axes, ends in panel_ends:
+        # The series name at the end of its own line, not in a legend block. Two lines whose ends
+        # land within a label height of each other on the DISPLAY would print their names on top
+        # of one another, so those labels are staggered -- which moves the text, never the data.
+        height_points = axes.get_position().height * inches * 72.0
+        ylim, labels = place_end_labels(ends, axes.get_ylim(), height_points)
+        # 🔴 the axes get the room, the labels keep their separation. set_ylim after
+        # tight_layout() changes the scale inside the box, not the box, so height_points holds.
+        axes.set_ylim(*ylim)
+        for label in labels:
+            axes.annotate(label["name"], (label["x"], label["y"]), textcoords="offset points",
+                          xytext=(5, label["offset"]), ha="left", va="center", fontsize=9)
     for extension in ("png", "pdf"):
         figure.savefig("%s.%s" % (out_base, extension), dpi=160)
     plt.close(figure)

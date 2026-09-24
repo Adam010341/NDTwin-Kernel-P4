@@ -71,6 +71,11 @@ BASE_DRIVER="$(sha256sum "$DRIVER" | cut -d' ' -f1)"
 BASE_SCANNER="$(sha256sum "$SCANNER" | cut -d' ' -f1)"
 BASE_TEST_OFF="$(sha256sum "$HERE/test_drive_e_offline.sh" | cut -d' ' -f1)"
 BASE_MANIFEST="$(sha256sum "$MANIFEST" | cut -d' ' -f1)"
+# ruling 35(3): the structural reconciliation and the shape extractor it uses are under the
+# gate too -- a change to either while it runs would make this verdict about a different tree.
+BASE_TEST_SHAPE="$(sha256sum "$HERE/test_real_shape.py" | cut -d' ' -f1)"
+BASE_INVENTORY="$(sha256sum "$HERE/inventory.py" | cut -d' ' -f1)"
+BASE_REAL_INV="$(sha256sum "$HERE/fixtures/real_run_inventory.json" | cut -d' ' -f1)"
 
 SURVIVORS=0
 MUTATIONS=0
@@ -153,6 +158,18 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = the test case that must
     fi
     if [[ "$rc" -ne 0 ]] && /usr/bin/grep -qE "^(FAIL|ERROR): $3 " <<<"$out"; then
         printf '  caught   %-72s (%s went red)\n' "$1" "$3"
+        # 🔴 AND WHAT ELSE WENT RED (ruling 39(9a)). "caught" only says the named case is red;
+        # it says nothing about whether the mutation also reddened cases that have no business
+        # seeing it, which is what "0 survivors" was being read as. Every run now says.
+        local others
+        others="$(/usr/bin/grep -oE '^(FAIL|ERROR): [A-Za-z0-9_]+' <<<"$out" \
+                  | sed -E 's/^(FAIL|ERROR): //' | /usr/bin/grep -vxF "$3" | sort -u \
+                  | paste -sd ' ' -)"
+        if [[ -z "$others" ]]; then
+            printf '           %-72s  (no other case went red)\n' ""
+        else
+            printf '           also red: %s\n' "$others"
+        fi
     else
         SURVIVORS=$((SURVIVORS + 1))
         printf '  SURVIVED %-72s (%s stayed green -- that case proves nothing)\n' "$1" "$3"
@@ -223,7 +240,23 @@ report_shell() {   # $1 = mutation name, $2 = mutant dir, $3.. = EVERY cell that
              still green: $cell"
     done
     if [[ "$rc" -ne 0 && -z "$missing" ]]; then
-        printf '  caught   %-72s (%d cell(s) went red)\n' "$name" "$#"
+        # the number is how many BOUND cells went red -- all of them, or it would not be
+        # "caught" -- not how many cells went red; those others are the "also red" lines below
+        # (ruling 40(e): the old wording "(N cell(s) went red)" read as the second)
+        printf '  caught   %-72s (%d bound cell(s) went red)\n' "$name" "$#"
+        # the same "what else" as report() (ruling 39(9a)): every FAIL cell the mutation was
+        # not bound to
+        local red_cells extra=0
+        red_cells="$(/usr/bin/grep -E '^  FAIL  ' <<<"$out" | sed -E 's/^  FAIL  //')"
+        while IFS= read -r line; do
+            [[ -n "$line" ]] || continue
+            local bound=0
+            for cell in "$@"; do [[ "$line" == "$cell" ]] && bound=1; done
+            if (( ! bound )); then
+                printf '           also red: %s\n' "$line"; extra=$((extra + 1))
+            fi
+        done <<<"$red_cells"
+        (( extra == 0 )) && printf '           %-72s  (no other cell went red)\n' ""
     else
         SURVIVORS=$((SURVIVORS + 1))
         printf '  SURVIVED %-72s%s\n' "$name" "$missing"
@@ -388,11 +421,13 @@ m=$(mutant m11 "$ANALYSE" \
 report "M-E11: a line is fitted through deltas smaller than their own spread (H-C0 removed)" "$m" \
        "test_a_delta_smaller_than_its_spread_is_H_C0_and_no_line_is_fitted"
 
+# (Ruling 40(a) replaced the "H-C2 ..." return this anchors on with HC2_NOT_DECIDED; the mutation
+# is the same one -- the mixed band loses its own branch -- on the new text.)
 m=$(mutant m12 "$ANALYSE" \
     '    if share is not None and share <= FIXED_SHARE_PER_SAMPLE:
-        return "H-C2 cost is per sample (08-20'"'"'s fixed component does not reproduce here)"
+        return HC2_NOT_DECIDED
     return "H-C3 mixed -- the decomposition IS the result (PREREG 5.3)"' \
-    '    return "H-C2 cost is per sample (08-20'"'"'s fixed component does not reproduce here)"')
+    '    return HC2_NOT_DECIDED')
 report "M-E12: the mixed decomposition has no branch of its own (08-28 section 4's H3 lesson)" "$m" \
        "test_the_cpu_verdict_names_a_mixed_decomposition_as_a_result"
 
@@ -540,6 +575,201 @@ m=$(mutant m27 "$MANIFEST" \
 report "M-E27: a dot-less option VALUE (--log-dir /var/log/simple_switch_grpc) is taken for the binary" "$m" \
        "test_a_DOT_LESS_option_value_is_still_not_the_binary"
 
+# --- ruling 32: the control arms, the label collision, and the verdict over an unfinished round ---
+# All five of these are defects the fourth campaign's own raw or log showed, not invented ones.
+
+m=$(mutant m28 "$ANALYSE" \
+    '    cells = {}
+    for arm in arms:
+        if arm.get("control"):
+            continue' \
+    '    cells = {}
+    for arm in arms:')
+report "M-E28: C3's throwaway ladders are pooled into the none|1024 cell again" "$m" \
+       "test_the_none_1024_cell_is_the_two_ladder_arms_only"
+
+m=$(mutant m29 "$ANALYSE" \
+    '    by_group = {}
+    for arm in arms:
+        if arm.get("control"):
+            continue
+        if arm["external"] is None or arm["external"] < 0:' \
+    '    by_group = {}
+    for arm in arms:
+        if arm["external"] is None or arm["external"] < 0:')
+report "M-E29: the load gate's own positive control is back in the group median it moves" "$m" \
+       "test_the_none_group_gate_median_counts_the_ladder_arms_only"
+
+# 🔴 THE PRE-FIX RULE, PUT BACK WHERE IT WAS. plot.py:207-213 judged a collision as "closer than
+# 3% of the spread of the end values" and staggered by a fixed +/-9 points. It is written out
+# here rather than approximated, so that what this mutation restores is the code that drew the
+# fourth campaign's figure 3 and not a caricature of it.
+m=$(mutant m30 "$PLOT" \
+    '        final = natural if previous is None else max(natural, previous + label_points)' \
+    '        _span = ordered[-1][0] - ordered[0][0]
+        _collides = index > 0 and (_span == 0 or abs(y - ordered[index - 1][0]) < 0.03 * _span)
+        final = natural + (9.0 if _collides and index % 2 else (-9.0 if _collides else 0.0))')
+report "M-E30: figure 3 judges label collisions as 3% of the end values' spread again" "$m" \
+       "test_three_ends_within_a_label_height_get_three_different_offsets"
+
+m=$(mutant m31 "$DRIVER" \
+    'trap finish EXIT
+trap '"'"'SIGNALLED=INT; finish'"'"' INT
+trap '"'"'SIGNALLED=TERM; finish'"'"' TERM' \
+    'trap finish EXIT INT TERM')
+report_shell "M-E31: the traps stop recording WHICH signal ended the round (the 18:54 shape)" "$m" \
+       "🔴 an interrupted round says it was interrupted, and by which signal"
+
+m=$(mutant m32 "$DRIVER" \
+    '    if (( arms_seen != arms_expected )); then' \
+    '    if false; then')
+report_shell "M-E32: the arm count is no longer compared against the selection" "$m" \
+       "🔴 a round that measured fewer arms than it selected does NOT pass" \
+       "🔴 and the verdict says how many of how many"
+
+# --- ruling 35: the sample count and the label that left the axes --------------------------------
+
+# 🔴 THE DEFECT EXACTLY AS IT WAS. `links=len(window["keys"])` counted all 32 inter-switch ports
+# of the fabric instead of the 4 the flow crossed, so N was eight times too large, the predicted
+# median 2.83x too tight, and five of the fourth campaign's six treated cells were reported
+# outside a band they were inside.
+m=$(mutant m33 "$ANALYSE" \
+    '    peaks = window.get("per_edge_peak_bps") or {}
+    carrying = sorted(key for key, value in peaks.items() if value)' \
+    '    peaks = window.get("per_edge_peak_bps") or {}
+    carrying = sorted(window.get("keys") or [])')
+report "M-E33: N counts every edge in the fabric again, not the ones that carried the flow" "$m" \
+       "test_N_counts_the_edges_that_carried_the_flow_not_every_edge_in_the_fabric"
+
+# The axes stop being given room, which is how this round's own label fix pushed the bmv2
+# panel's top label 8.2 pt above the frame and onto the panel title.
+m=$(mutant m34 "$PLOT" \
+    '            needed = max(needed, (y - low) * height_points / headroom)' \
+    '            needed = needed')
+report "M-E34: the axes are not raised, so a staggered top label is drawn outside them" "$m" \
+       "test_no_label_is_drawn_above_the_top_of_its_own_axes"
+
+# --- ruling 37: the fold that ran in production and never in a test ------------------------------
+# 🔴 THIS GATE HAD NO MUTATION ON label_of AT ALL. Ten switches' CPU is folded into one class by
+# it and summed; every bmv2 number in the round depends on that, and until now the sum could
+# have been a max, a first, or a mean and all 34 mutations would still have been caught. The
+# fixture's ten weights are unequal (42,30,20,16,12,10,8,6,4,2 = 150), so dropping bmv2-3 takes
+# exactly 20 off the folded total -- the expected value follows from the weights.
+m=$(mutant m35 "$ANALYSE" \
+    '    return "bmv2" if name.startswith("bmv2") else name' \
+    '    return "bmv2" if name.startswith("bmv2") and name != "bmv2-3" else name')
+report "M-E35: one switch falls out of the bmv2 class, so the fold stops being a sum of ten" "$m" \
+       "test_the_ten_bmv2_processes_are_folded_into_one_class_and_SUMMED"
+
+# 🔴 THE DISHONEST VERSION OF THE FIT. This clamps every label to sit under the axes top, which
+# is what "silently returning a limit the labels do not fit under" would look like from the
+# outside: the overflow disappears from the return and the caller cannot tell any more. The
+# characterisation case for the headroom <= 0 branch is what refuses it. (Ruling 37(5).)
+m=$(mutant m36 "$PLOT" \
+    '        final = natural if previous is None else max(natural, previous + label_points)' \
+    '        final = min(natural if previous is None else max(natural, previous + label_points),
+                    height_points - label_points / 2.0)')
+report "M-E36: the stack is clamped to the axes, so an overflow stops being visible to the caller" "$m" \
+       "test_a_stack_taller_than_its_axes_is_not_reported_as_fitting"
+
+# --- ruling 38 and round 10's H-C check: each registered label where PREREG registers it ---------
+
+# 🔴 THE ROLL-UP THAT LOOKS AT ONE CELL. Ruling 38 names this mutation: the group-level verdict
+# falls back to the first registered rate. The case it is bound to puts its one outside rate at
+# 100 Mbit/s precisely so that the first cell (2 Mbit/s, inside) would call the group H-B1.
+m=$(mutant m37 "$ANALYSE" \
+    '    registered = [values.get(rate) for rate in REGISTERED_RATES_MBIT]' \
+    '    registered = [values.get(rate) for rate in REGISTERED_RATES_MBIT][:1]')
+report "M-E37: the group-level H-B verdict falls back to the first cell (ruling 38)" "$m" \
+       "test_two_rates_inside_and_one_outside_is_NOT_H_B1_for_the_group"
+
+# The fourth campaign's pre-fix `link 2M: H-B2`, put back: H-B2 judged at a rate it was never
+# registered at.
+m=$(mutant m38 "$ANALYSE" \
+    'H_B2_RATE_MBIT = 100' \
+    'H_B2_RATE_MBIT = 2')
+report "M-E38: H-B2 is judged at 2 Mbit/s, where PREREG never registered it" "$m" \
+       "test_a_same_sign_excess_at_2_Mbit_is_NOT_H_B2"
+
+# PREREG 5.3's axis is the rungs ALL THREE groups share; this puts back the pairwise
+# (treated & none) intersection the code used before round 10.
+m=$(mutant m39 "$ANALYSE" \
+    '        for kpps in sorted(common):' \
+    '        for kpps in sorted(set(treated) & set(base)):')
+report "M-E39: the H-C fit uses rungs one group never measured (treated & none, not all three)" "$m" \
+       "test_a_rung_one_group_does_not_have_is_in_NO_groups_fit"
+
+# An H-C label on bmv2, for which PREREG registers none.
+m=$(mutant m40 "$ANALYSE" \
+    '    bmv2 = cpu_comparison(arms, frame=1024, label="bmv2", registered=False)' \
+    '    bmv2 = cpu_comparison(arms, frame=1024, label="bmv2", registered=True)')
+report "M-E40: bmv2's fit carries an H-C verdict again" "$m" \
+       "test_bmv2_carries_NO_H_C_label"
+
+# 🔴 THE ONE NON-EQUIVALENT FORM OF THE headroom GUARD (ruling 39(9c)). Below zero the unguarded
+# bound is negative and loses every max, so `< 0` differs from `<= 0` only AT zero -- where it
+# divides by it.
+m=$(mutant m41 "$PLOT" \
+    '            if headroom <= 0:' \
+    '            if headroom < 0:')
+report "M-E41: the headroom guard lets exactly-zero through, and divides by it" "$m" \
+       "test_a_label_with_EXACTLY_zero_headroom_is_handled_not_divided_by"
+
+# The level that already matched PREREG, pinned: one fit per group over every common rung, not
+# over the first few.
+m=$(mutant m42 "$ANALYSE" \
+    '        fit = fit_fixed_and_marginal(points)' \
+    '        fit = fit_fixed_and_marginal(points[:2])')
+report "M-E42: the H-C fit falls back to the first two rungs of the group" "$m" \
+       "test_the_H_C_verdict_is_made_once_per_treated_group_over_every_common_rung"
+
+m=$(mutant m43 "$ANALYSE" \
+    'BMV2_RATIO_LO, BMV2_RATIO_HI = 0.90, 1.15' \
+    'BMV2_RATIO_LO, BMV2_RATIO_HI = 0.50, 2.00')
+report "M-E43: the registered bmv2 interval is widened to [0.5, 2.0]" "$m" \
+       "test_a_bmv2_ratio_outside_090_115_is_reported_outside"
+
+# --- ruling 40: H-C2 undecided, no H-C0 on bmv2, H-B2 needs three windows ---------------------------
+
+# The round-10 label, put back: "H-C2" on the first of its two registered conditions.
+m=$(mutant m44 "$ANALYSE" \
+    '        return HC2_NOT_DECIDED' \
+    '        return "H-C2 cost is per sample (08-20'"'"'s fixed component does not reproduce here)"')
+report "M-E44: H-C2 is labelled on one of its two registered conditions again" "$m" \
+       "test_H_C2_is_NOT_DECIDED_while_its_second_condition_has_no_tolerance"
+
+# The judge's finding in 40(b): the H-C0 branch reached before the registered check.
+m=$(mutant m45 "$ANALYSE" \
+    '        if not registered:
+            out["fits"][group] = {"fit": None, "verdict": None,' \
+    '        if False:
+            out["fits"][group] = {"fit": None, "verdict": None,')
+report "M-E45: a bmv2 panel with no resolved rung is labelled H-C0 again" "$m" \
+       "test_bmv2_gets_no_H_C0_either_when_no_rung_resolves"
+
+m=$(mutant m46 "$ANALYSE" \
+    '                    and at_100.get("signed_windows") == H_B2_WINDOWS)' \
+    '                    )')
+report "M-E46: H-B2 is satisfied by fewer than the three registered windows" "$m" \
+       "test_a_100_Mbit_cell_with_only_two_valid_windows_cannot_be_H_B2"
+
+# Recommended in ruling 40: a registered rate with no reading counted as inside the band.
+m=$(mutant m47 "$ANALYSE" \
+    '    if any(value is None for value in registered):
+        return None' \
+    '    if False:
+        return None')
+report "M-E47: a registered rate with no reading is treated as inside the band" "$m" \
+       "test_a_registered_rate_with_no_reading_leaves_the_group_not_decided"
+
+# The other one-cell roll-up (M-E37 takes the first cell): the LAST one. It shares M-E37's anchor
+# with a different replacement; the case that sees it is the one whose outside rate is FIRST.
+m=$(mutant m48 "$ANALYSE" \
+    '    registered = [values.get(rate) for rate in REGISTERED_RATES_MBIT]' \
+    '    registered = [values.get(rate) for rate in REGISTERED_RATES_MBIT][-1:]')
+report "M-E48: the group-level H-B verdict falls back to the LAST cell" "$m" \
+       "test_the_fifth_campaigns_shape_outside_at_the_FIRST_rate_is_not_H_B1_either"
+
 # --- the controls: changes that must NOT be caught -------------------------------------------------
 # A suite that goes red on a comment is not sensitive, it is fragile, and a fragile suite gets
 # ignored -- which costs more than the mutations it catches.
@@ -565,7 +795,9 @@ for pair in "$ANALYSE:$BASE_ANALYSE" "$PLOT:$BASE_PLOT" \
             "$DRIVER:$BASE_DRIVER" "$SCANNER:$BASE_SCANNER" "$MANIFEST:$BASE_MANIFEST" \
             "$HERE/test_drive_e_offline.sh:$BASE_TEST_OFF" \
             "$HERE/test_analyse.py:$BASE_TEST_A" "$HERE/test_plot.py:$BASE_TEST_P" \
-            "$HERE/synthetic.py:$BASE_SYNTH"; do
+            "$HERE/synthetic.py:$BASE_SYNTH" \
+            "$HERE/test_real_shape.py:$BASE_TEST_SHAPE" "$HERE/inventory.py:$BASE_INVENTORY" \
+            "$HERE/fixtures/real_run_inventory.json:$BASE_REAL_INV"; do
     file="${pair%:*}"; want="${pair##*:}"
     now="$(sha256sum "$file" | cut -d' ' -f1)"
     [[ "$now" == "$want" ]] || {

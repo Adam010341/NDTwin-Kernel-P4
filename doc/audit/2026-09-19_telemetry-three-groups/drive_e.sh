@@ -43,7 +43,15 @@
 #   NDT_OWNER="..." ./drive_e.sh [--only G1..G6|C1|C2|C3] [--dry-run]
 #
 # Exit: 0 every arm produced a reading; 1 something was invalid or failed (the table at the end
-#       names it); 2 refused before anything was started.
+#       names it), or the round was interrupted, or it left behind fewer arms than the selection
+#       asked for; 2 refused before anything was started.
+#
+# 🔴 "NOTHING FAILED" IS NOT "IT FINISHED". FAILURES is filled by things that went wrong while
+# the round ran, so a round that never ran has an empty one -- and the third campaign start, cut
+# down by SIGTERM before a single arm existed, printed `PASS P3-E -- every selected arm produced
+# a reading` over zero arms (logs/orchestrator-0919/drive_e-1854.log:67). Two guards, below in
+# finish(): a signal the trap saw, and the number of arm directories that carry a reading against
+# the number the selection asks for.
 #
 # [Co-developed with claude code -- Adam]
 set -uo pipefail
@@ -61,7 +69,7 @@ while (( $# )); do
     case "$1" in
         --only) ONLY="${2:-}"; shift 2 ;;
         --dry-run) DRY=1; shift ;;
-        -h|--help) sed -n '1,52p' "$0"; exit 0 ;;
+        -h|--help) sed -n '1,56p' "$0"; exit 0 ;;
         *) echo "🔴 unknown argument: $1" >&2; exit 2 ;;
     esac
 done
@@ -96,6 +104,9 @@ CLAIMED=0
 HOST_KNOB_COPY=""
 FAILURES=()
 RESULTS=()
+#: set by the INT/TERM traps to the signal's name. A round that was cut down did not finish, and
+#: the verdict has to say so even when nothing it managed to do went wrong.
+SIGNALLED=""
 
 say()  { printf '\n== %s\n' "$*"; }
 note() { printf '   %s\n' "$*"; }
@@ -279,6 +290,36 @@ teardown_fabric() {   # teardown_fabric <log path> <label>
     return "$rc"
 }
 
+# --- how many arms this selection owes, and how many it produced -----------------------------
+# 🔴 COUNTED FROM THE PLAN, NOT FROM A NUMBER TYPED HERE. The generations table above is the one
+# statement of what a round contains; a literal 14 in this function would be a second one, and
+# the two would disagree the first time a generation changed.
+expected_arm_count() {
+    local row id group pass frames block f n=0
+    for row in "${GENERATIONS[@]}"; do
+        IFS='|' read -r id group pass frames block <<<"$row"
+        [[ -n "$ONLY" && "$ONLY" != "$id" ]] && continue
+        for f in $frames; do n=$((n + 1)); done
+    done
+    # C3's positive control is two more ladder arms, written by the same run_group_arm.sh into
+    # controls/C3/. They run when the whole round runs (inside G1) or when C3 is selected alone.
+    [[ -z "$ONLY" || "$ONLY" == C3 ]] && n=$((n + 2))
+    echo "$n"
+}
+
+arms_with_a_reading() {
+    # An arm that ran to the end wrote arm.meta with a highest_clean_kpps line -- `none` included,
+    # because "every rung was lossy" IS a reading and run_group_arm.sh says so in those words.
+    # What this counts is whether the arm ran at all, which is the thing an interrupted round
+    # gets wrong.
+    local meta n=0
+    while IFS= read -r meta; do
+        [[ -n "$meta" ]] || continue
+        /usr/bin/grep -qE '^highest_clean_kpps=.' "$meta" && n=$((n + 1))
+    done < <(find "$RUN" -type f -name arm.meta 2>/dev/null)
+    echo "$n"
+}
+
 finish() {
     local rc=$?
     trap - EXIT INT TERM
@@ -356,6 +397,23 @@ finish() {
             FAILURES+=("final: 'ndt release' refused (rc $release_rc) -- the lab is still claimed; see 95_release.txt")
         fi
     fi
+    # 🔴 THE TWO THINGS AN EMPTY FAILURES DOES NOT MEAN. FAILURES collects what went wrong while
+    # the round was running; it is silent about a round that stopped running and about a round
+    # that never started. The third campaign start proved both at once: SIGTERM at 18:54 with
+    # zero arms on disk, and the last line was `PASS P3-E -- every selected arm produced a
+    # reading` (logs/orchestrator-0919/drive_e-1854.log:67). Neither guard is about an arm's
+    # quality -- the arms' own verdicts already cover that. They are about arithmetic: was this
+    # verdict reached at the end of the round it claims to describe.
+    local arms_seen arms_expected
+    arms_expected="$(expected_arm_count)"
+    arms_seen="$(arms_with_a_reading)"
+    note "arms with a reading: $arms_seen of $arms_expected selected"
+    if [[ -n "$SIGNALLED" ]]; then
+        FAILURES+=("final: the round was INTERRUPTED (SIG$SIGNALLED) -- $arms_seen of $arms_expected arms produced a reading, and the rest were never measured")
+    fi
+    if (( arms_seen != arms_expected )); then
+        FAILURES+=("final: $arms_seen of $arms_expected arms produced a reading -- this round did not measure what it selected")
+    fi
     printf '\n'
     if (( ${#RESULTS[@]} )); then
         printf '%-28s %-12s %-10s %s\n' arm group clean_kpps verdict
@@ -373,7 +431,14 @@ finish() {
 }
 
 snapshot_host_knob
-trap finish EXIT INT TERM
+# 🔴 THE SIGNAL IS RECORDED BEFORE THE TEARDOWN RUNS. INT and TERM get their own trap so that
+# finish() can tell "the round ended" from "the round was ended": on the plain EXIT path
+# SIGNALLED stays empty, and on either signal it names the one that arrived. Without this the
+# teardown is identical in both worlds and so is the verdict -- which is how a round that had
+# measured nothing printed PASS.
+trap finish EXIT
+trap 'SIGNALLED=INT; finish' INT
+trap 'SIGNALLED=TERM; finish' TERM
 
 say "claiming the lab"
 NDT_MEASURING="$MEASURING_NOTE" \

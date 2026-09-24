@@ -149,6 +149,175 @@ class Figure3Test(unittest.TestCase):
         self.assertIn("kpps", self.figure["xlabel"])
 
 
+class Figure3EndLabelTest(unittest.TestCase):
+    """Figure 3's end-of-line labels, against the three values that overprinted.
+
+    🔴 REAL NUMBERS, NOT CHOSEN ONES. These are the bmv2 panel's three end values at 110 kpps in
+    raw/2026-09-19T105759Z_full/summary.json -- `cpu_bmv2.per_group.<group>.110.0.cpu` -- and the
+    panel's lowest plotted value, which is where its axis starts. On that axis `coop` sits 38.9
+    units above the other two: less than one label height, and 33 times more than 3% of the
+    spread of the ends. That is the whole gap between the two rules.
+    """
+    #: cpu_bmv2.per_group.{none,cooperative,link}.110.0.cpu
+    NONE_110 = 725.9226502651313
+    COOP_110 = 764.8565261656065
+    LINK_110 = 725.9201358978246
+    #: the lowest value the same panel plots (link at 1 kpps), i.e. where the axis begins
+    PANEL_LOW = 26.929742535323893
+
+    def ends(self):
+        return [(self.NONE_110, 110.0, "none"), (self.COOP_110, 110.0, "coop"),
+                (self.LINK_110, 110.0, "link")]
+
+    def test_three_ends_within_a_label_height_get_three_different_offsets(self):
+        # The axes height is only known at draw time and depends on the figure's layout, so the
+        # rule has to hold for any plausible height of a 4.2 inch panel rather than for one
+        # number. At every one of these the three labels are inside one label height of each
+        # other, and all three must be readable.
+        for height_points in (160.0, 200.0, 216.0, 260.0):
+            placed = plot.end_label_offsets(self.ends(), (self.PANEL_LOW, self.COOP_110),
+                                            height_points)
+            self.assertEqual([p["name"] for p in placed], ["link", "none", "coop"])
+            offsets = {round(p["offset"], 6) for p in placed}
+            self.assertEqual(len(offsets), 3,
+                             "height %.0f pt: offsets %s" % (height_points, offsets))
+            positions = [p["display_points"] for p in placed]
+            for lower, upper in zip(positions, positions[1:]):
+                self.assertGreaterEqual(
+                    upper - lower, plot.LABEL_HEIGHT_PT - 1e-9,
+                    "height %.0f pt: labels %.2f pt apart" % (height_points, upper - lower))
+
+    def test_ends_that_are_far_apart_on_the_display_are_not_moved_at_all(self):
+        # The control: a rule that staggered everything would be as wrong as one that staggered
+        # nothing. These are the same summary's proxy+emitter ends (2.53 / 19.60 / 50.05) on
+        # their own panel, tens of points apart.
+        ends = [(2.532826735438453, 110.0, "none"), (19.59605387800606, 110.0, "link"),
+                (50.045406725202014, 110.0, "coop")]
+        placed = plot.end_label_offsets(ends, (2.1997066910093843, 50.045406725202014), 216.0)
+        self.assertEqual([p["offset"] for p in placed], [0.0, 0.0, 0.0])
+
+
+class Figure3LabelsStayInsideTest(unittest.TestCase):
+    """Every end label must sit inside its own axes -- on all three real panels.
+
+    🔴 THESE ARE THE THREE PANELS OF THE FOURTH CAMPAIGN'S FIGURE 3, with their real data range
+    and their real ends (`cpu_bmv2` / `cpu_kernel` per_group at 110 kpps, and the lowest value
+    each panel plots). The axes height 206.5 pt is what the real figure measured
+    (question-a-label-headroom.p3e-f51ee88f.log). Ruling 35(2): staggering the labels apart
+    pushed the bmv2 panel's top label 8.2 pt out of the axes and onto the panel title.
+    """
+    HEIGHT_PT = 206.5
+    #: matplotlib's default autoscale margin, which is what produced the measured ylim below
+    MARGIN = 0.05
+    #: panel -> (lowest plotted value, [(y, x, name) at the right-hand end], measured ylim)
+    PANELS = {
+        "bmv2": (26.929742535323893,
+                 [(725.9201358978246, 110.0, "link"), (725.9226502651313, 110.0, "none"),
+                  (764.8565261656065, 110.0, "coop")], (-9.97, 801.75)),
+        "kernel": (0.5999161507799824,
+                   [(0.6665244667410422, 110.0, "none"), (14.250486351297475, 110.0, "coop"),
+                    (15.26358265135838, 110.0, "link")], (-0.13, 16.00)),
+        "proxy + emitter": (2.1997066910093843,
+                            [(2.532826735438453, 110.0, "none"),
+                             (19.59605387800606, 110.0, "link"),
+                             (50.045406725202014, 110.0, "coop")], (-0.19, 52.44)),
+    }
+
+    def autoscaled(self, low_value, ends):
+        """The ylim matplotlib gives a panel whose data runs from low_value to its highest end."""
+        high_value = max(y for y, _x, _n in ends)
+        span = high_value - low_value
+        return (low_value - self.MARGIN * span, high_value + self.MARGIN * span)
+
+    def test_the_computed_axes_match_the_ones_the_real_figure_drew(self):
+        # 🔴 The geometry this class reasons about is pinned to a measurement, not assumed: if
+        # matplotlib's autoscale ever stops producing these limits, this case says so before the
+        # containment cases below start testing a figure nobody draws.
+        for panel, (low_value, ends, measured) in self.PANELS.items():
+            computed = self.autoscaled(low_value, ends)
+            self.assertAlmostEqual(computed[0], measured[0], places=2, msg=panel)
+            self.assertAlmostEqual(computed[1], measured[1], places=2, msg=panel)
+
+    def test_no_label_is_drawn_above_the_top_of_its_own_axes(self):
+        for panel, (low_value, ends, _measured) in self.PANELS.items():
+            original = self.autoscaled(low_value, ends)
+            ylim, placed = plot.place_end_labels(ends, original, self.HEIGHT_PT)
+            for label in placed:
+                glyph_top = label["display_points"] + plot.LABEL_HEIGHT_PT / 2.0
+                # the tolerance is a millionth of a point: float noise in the solved limit, not
+                # a claim about anything a reader could see.
+                self.assertLessEqual(
+                    glyph_top, self.HEIGHT_PT + 1e-6,
+                    "%s: %s's label top is %.1f pt on a %.1f pt axes"
+                    % (panel, label["name"], glyph_top, self.HEIGHT_PT))
+            # and they are still a label height apart, which is what the room was made for
+            positions = [p["display_points"] for p in placed]
+            for lower, upper in zip(positions, positions[1:]):
+                self.assertGreaterEqual(upper - lower, plot.LABEL_HEIGHT_PT - 1e-9, panel)
+            # room is only ever ADDED at the top, and the bottom is never moved
+            self.assertGreaterEqual(ylim[1], original[1] - 1e-9, panel)
+            self.assertAlmostEqual(ylim[0], original[0], places=9, msg=panel)
+
+    def test_a_stack_taller_than_its_axes_is_not_reported_as_fitting(self):
+        # 🔴 THE headroom <= 0 BRANCH, WHICH NOTHING HAD EVER EXECUTED (ruling 37(5)). The three
+        # real panels are 206.5 pt with three labels, where the tightest headroom is 179 pt; to
+        # reach this branch an axes has to be under about 27.5 pt for three labels. Twenty
+        # labels in 50 pt cannot fit however far the limit is raised -- 20 x 11 pt of text into
+        # 50 pt of axes -- and the question this case answers is what the function does then.
+        ends = [(float(index), 110.0, "s%d" % index) for index in range(20)]
+        returned = plot.place_end_labels(ends, (0.0, 19.0), 50.0)
+        ylim, placed = returned
+        self.assertEqual(len(placed), 20)
+        # (i) the stagger stays honest: every neighbouring pair is still a label height apart
+        positions = [p["display_points"] for p in placed]
+        for lower, upper in zip(positions, positions[1:]):
+            self.assertGreaterEqual(upper - lower, plot.LABEL_HEIGHT_PT - 1e-9)
+        # (ii) it does NOT pretend to fit: the top label is placed above the axes top, and that
+        # is visible in what it returns -- a caller can subtract and find out.
+        glyph_top = positions[-1] + plot.LABEL_HEIGHT_PT / 2.0
+        self.assertGreater(glyph_top, 50.0)
+        self.assertGreater(glyph_top - 50.0, plot.LABEL_HEIGHT_PT)      # not a rounding sliver
+        # (iii) 🔴 AND THAT IS ALL THE CALLER GETS. No flag, no exception, no third element:
+        # the return is the same 2-tuple as a panel that fits, so a caller has to do the
+        # subtraction itself, and _line_panels does not do it -- it annotates whatever comes
+        # back. That is a finding about the interface, not only about this test, and it is
+        # asserted here so that adding a signal later has to come past this case deliberately.
+        self.assertEqual(len(returned), 2)
+        self.assertEqual(sorted(placed[0]),
+                         ["display_points", "name", "natural_points", "offset", "x", "y"])
+        self.assertGreaterEqual(ylim[1], 19.0)      # it still raised what it could
+
+    def test_a_label_with_EXACTLY_zero_headroom_is_handled_not_divided_by(self):
+        # 🔴 THE ONE INPUT THAT MAKES THE `headroom <= 0` GUARD MORE THAN AN EQUIVALENT
+        # MUTATION (ruling 39(9c)). Below zero, the unguarded bound (y-low)*H/headroom is
+        # negative and can never win the max, so `< 0` and `<= 0` and no guard at all behave the
+        # same; AT zero it is a division by zero. Three labels in 27.5 pt give the lowest one
+        # 27.5 - 2 x 11 - 11/2 = 0.0 exactly (every term is exact in binary). With that label
+        # at the axes' own bottom the stack fits with not a point to spare -- so the right
+        # answer exists, and a guard of `< 0` never reaches it (M-E41).
+        ends = [(0.0, 110.0, "a"), (1.0, 110.0, "b"), (3.0, 110.0, "c")]
+        height = 2 * plot.LABEL_HEIGHT_PT + plot.LABEL_HEIGHT_PT / 2.0
+        self.assertEqual(height - 2 * plot.LABEL_HEIGHT_PT - plot.LABEL_HEIGHT_PT / 2.0, 0.0)
+        ylim, placed = plot.place_end_labels(ends, (0.0, 3.0), height)
+        positions = [p["display_points"] for p in placed]
+        self.assertEqual(positions[0], 0.0)                     # the bottom label, at the bottom
+        for lower, upper in zip(positions, positions[1:]):
+            self.assertGreaterEqual(upper - lower, plot.LABEL_HEIGHT_PT - 1e-9)
+        self.assertLessEqual(positions[-1] + plot.LABEL_HEIGHT_PT / 2.0, height + 1e-9)
+        self.assertGreater(ylim[1], 3.0)                        # room was made, from the others
+
+    def test_only_the_panel_that_needs_room_is_given_any(self):
+        # The control: a rule that inflated every axis would be as wrong as one that inflated
+        # none. Only bmv2 has labels within a label height of each other at the top.
+        for panel, (low_value, ends, _measured) in self.PANELS.items():
+            original = self.autoscaled(low_value, ends)
+            ylim, _placed = plot.place_end_labels(ends, original, self.HEIGHT_PT)
+            if panel == "bmv2":
+                self.assertGreater(ylim[1], original[1], panel)
+            else:
+                self.assertAlmostEqual(ylim[1], original[1], places=9, msg=panel)
+
+
 class DescribeTest(unittest.TestCase):
     def test_check_mode_prints_every_figure_without_matplotlib(self):
         import io
