@@ -1,5 +1,10 @@
 # NDTwin-Kernel-P4
 
+![C++](https://img.shields.io/badge/kernel-C%2B%2B23-00599C?logo=cplusplus&logoColor=white)
+![Python](https://img.shields.io/badge/P4%20proxy-Python%20%2B%20P4Runtime-3776AB?logo=python&logoColor=white)
+![Data planes](https://img.shields.io/badge/data%20planes-OVS%20%2B%20Ryu%20%C2%B7%20P4%20%2B%20BMv2-555)
+![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue)
+
 > [!CAUTION]
 > **Still under active maintenance — this version is published for testing only.**
 > It is not a release. Expect defects, and treat anything you build on it as provisional:
