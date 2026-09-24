@@ -45,6 +45,7 @@ import urllib.parse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+import cells  # noqa: E402
 import jobs   # noqa: E402
 import verbs  # noqa: E402
 
@@ -327,7 +328,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             v = self.cfg.store.wait(job_id, wait) if wait else self.cfg.store.view(job_id)
         except KeyError:
             raise HttpError(404, "no such job")
-        self._send(200, {"job": v, "links": _links(job_id)})
+        self._send(200, {"job": self._job(job_id) if v["kind"] == "cells.run" else v, "links": _links(job_id)})
 
     def r_log(self, query, job_id, stream):
         offset = _int_param(query, "offset", 0, 0, 1 << 40)
@@ -363,16 +364,277 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self._start("apps." + action, _whitelisted(verbs.argv_app, name, action, body, self.cfg.apps), body)
 
     def _start(self, kind, argv_tail, body):
+        job_id = self._spawn(kind, [self.cfg.ndt] + argv_tail, body)
+        cfg = self.cfg
+        self._send(202, {"job": cfg.store.view(job_id), "links": _links(job_id)})
+
+    def _spawn(self, kind, argv, body, env=None, extra=None):
+        """Take the one slot and start a job, or 409. Every state-changing path comes here."""
         cfg = self.cfg
         with SLOT:
             busy = cfg.store.holding_the_slot()
             if busy is not None:
                 raise HttpError(409, "busy", note="one state-changing job at a time", job=busy)
-            job_id = cfg.store.start(kind, [cfg.ndt] + argv_tail, cfg.repo, cfg.env, {
-                "owner": cfg.owner, "ndt": cfg.ndt, "ndt_realpath": cfg.ndt_real,
-                "ndt_sha256": jobs.file_sha256(cfg.ndt_real), "request": body,
-                "requested_by": "%s:%s" % self.client_address[:2], "stripped_env": cfg.stripped})
-        self._send(202, {"job": cfg.store.view(job_id), "links": _links(job_id)})
+            meta = {"owner": cfg.owner, "ndt": cfg.ndt, "ndt_realpath": cfg.ndt_real,
+                    "ndt_sha256": jobs.file_sha256(cfg.ndt_real), "request": body,
+                    "requested_by": "%s:%s" % self.client_address[:2], "stripped_env": cfg.stripped}
+            meta.update(extra or {})
+            job_id = cfg.store.start(kind, argv, cfg.repo, env or cfg.env, meta)
+        return job_id
+
+    # --- live_cells (cells.py): the grid's own list, its red, its green, a run, a guided walk ---
+    def _cell(self, name):
+        try:
+            return self.cfg.grid.get(name)
+        except KeyError:
+            raise HttpError(404, "no such cell", note="the cells are what run_cells.sh --list prints")
+        except cells.CellError as e:
+            raise HttpError(503, "grid", note=str(e))
+
+    def r_cells(self, query):
+        try:
+            self._send(200, {"cells": self.cfg.grid.list(), "grid": self.cfg.grid.dir})
+        except cells.CellError as e:
+            raise HttpError(503, "grid", note=str(e))
+
+    def r_cell(self, query, name):
+        self._send(200, {"cell": self._cell(name)})
+
+    def r_cell_fixture(self, query, name, which):
+        self._cell(name)
+        try:
+            self._send(200, self.cfg.grid.judge_fixture(name, which))
+        except KeyError:
+            raise HttpError(404, "no %s/ fixture for this cell" % which)
+
+    def r_cell_fixture_raw(self, query, name, which, rel):
+        self._cell(name)
+        try:
+            p = cells.safe_file(self.cfg.grid.fixture_dir(name, which), rel)
+        except KeyError:
+            raise HttpError(404, "no such raw file")
+        with open(p, "rb") as f:
+            self._send(200, raw=f.read(), ctype="text/plain; charset=utf-8")
+
+    def w_cell_run(self, query, name):
+        body = self._check_write()
+        _whitelisted(verbs.no_fields, body)
+        job_id = self._spawn_cell_run(self._cell(name), body)
+        self._send(202, {"job": self._job(job_id), "links": _links(job_id)})
+
+    def _spawn_cell_run(self, cell, body):
+        cfg = self.cfg
+        raw_root = os.path.join(cfg.state_dir, "cells-raw", cell["name"] + "-" + secrets.token_hex(4))
+        os.makedirs(raw_root, mode=0o700)
+        return self._spawn("cells.run", cfg.grid.run_argv(cell["name"], raw_root), body,
+                           env=cfg.grid.env, extra={"cell": cell["name"], "raw_root": raw_root})
+
+    def _job(self, job_id):
+        """A job's view; a cell run also carries the CELL: line its own judge printed, and a
+        class read from it -- rc 0 from run_cells.sh is PASS *or SKIP*, and SKIP is not a pass."""
+        v = self.cfg.store.view(job_id)
+        if v["kind"] == "cells.run" and v.get("raw_root"):
+            res = self.cfg.grid.run_result(v["cell"], v["raw_root"])
+            v["cell_verdict"] = res["verdict"] if res else None
+            if v["state"] == "finished" and v["rc"] == 0 and res and res["verdict"]:
+                v["rc_class"] = {"PASS": "pass", "SKIP": "skip"}.get(res["verdict"]["state"], "unknown")
+        return v
+
+    def r_cell_run(self, query, name, job_id):
+        cell = self._cell(name)
+        try:
+            v = self._job(job_id)
+        except KeyError:
+            raise HttpError(404, "no such job")
+        if v["kind"] != "cells.run" or v.get("cell") != cell["name"]:
+            raise HttpError(404, "that job is not a run of this cell")
+        res = self.cfg.grid.run_result(cell["name"], v["raw_root"])
+        old = None
+        if cell.get("old"):
+            old = self.cfg.grid.judge_fixture(cell["name"], "old")
+        self._send(200, {"job": v, "result": res,
+                         "compare": cells.compare(old, res) if res else None,
+                         "expected": cell.get("expected")})
+
+    def r_job_raw(self, query, job_id, rel):
+        try:
+            v = self.cfg.store.view(job_id)
+        except KeyError:
+            raise HttpError(404, "no such job")
+        if not v.get("raw_root"):
+            raise HttpError(404, "this job keeps no raw directory")
+        try:
+            p = cells.safe_file(v["raw_root"], rel)
+        except KeyError:
+            raise HttpError(404, "no such raw file")
+        with open(p, "rb") as f:
+            self._send(200, raw=f.read(), ctype="text/plain; charset=utf-8")
+
+    # --- the guided walk: GET derives, POST acts ---
+    def _walk_view(self, walk):
+        """The walk with each step's state DERIVED from what it recorded and from its job --
+        nothing is written here, so a GET cannot move a walk."""
+        cur, blocked = None, None
+        for i, st in enumerate(walk["steps"]):
+            if st["step"] == "verdict":
+                st["state"] = "done" if walk.get("verdict") else "pending"
+            elif st["job"]:
+                try:
+                    v = self._job(st["job"])
+                except KeyError:
+                    v = {"state": "lost", "rc": None, "rc_class": "unknown", "meaning": "job record missing"}
+                st["result"] = {k: v.get(k) for k in ("id", "state", "rc", "rc_class", "meaning", "cell_verdict")}
+                if v["state"] in ("running", "orphaned"):
+                    st["state"] = "running"
+                else:
+                    st["state"] = "done" if _step_ok(st["step"], v) else "blocked"
+            elif st["result"] is not None:
+                st["state"] = "done" if st["result"].get("ok") else "blocked"
+            else:
+                st["state"] = "pending"
+            if cur is None and st["state"] != "done":
+                cur = i
+                if st["state"] == "blocked":
+                    blocked = _block_reason(st)
+        walk["current"] = cur
+        walk["blocked"] = blocked
+        walk["done"] = cur is None
+        return walk
+
+    def r_guided_list(self, query):
+        out = []
+        for name in sorted(os.listdir(self.cfg.guided.root), reverse=True)[:50]:
+            if name.endswith(".json"):
+                try:
+                    w = self._walk_view(self.cfg.guided.load(name[:-5]))
+                except KeyError:
+                    continue
+                out.append({k: w[k] for k in ("id", "cell", "current", "blocked", "done", "verdict")})
+        self._send(200, {"walks": out})
+
+    def r_guided(self, query, gid):
+        try:
+            self._send(200, {"walk": self._walk_view(self.cfg.guided.load(gid))})
+        except KeyError:
+            raise HttpError(404, "no such walk")
+
+    def w_guided_create(self, query, name):
+        body = self._check_write()
+        _whitelisted(verbs.no_fields, body)
+        cell = self._cell(name)
+        self._send(201, {"walk": self._walk_view(self.cfg.guided.create(cell))})
+
+    def w_guided_next(self, query, gid):
+        body = self._check_write()
+        _whitelisted(verbs.no_fields, body)
+        g = self.cfg.guided
+        with g.lock:
+            try:
+                walk = self._walk_view(g.load(gid))
+            except KeyError:
+                raise HttpError(404, "no such walk")
+            if walk.get("aborted"):
+                raise HttpError(409, "aborted", walk=walk)
+            if walk["done"]:
+                raise HttpError(409, "finished", walk=walk)
+            st = walk["steps"][walk["current"]]
+            if st["state"] == "running":
+                raise HttpError(409, "running", note="this step's job is still running", walk=walk)
+            if st["step"] == "verdict":
+                raise HttpError(409, "yours", note="this step is Adam's: POST %s/guided/%s/verdict" % (API, gid), walk=walk)
+            self._do_step(walk, st)
+            g.save(walk)
+            self._send(200, {"walk": self._walk_view(walk)})
+
+    def _do_step(self, walk, st):
+        """Do one step (again, if it is blocked). Read-only steps run here; the rest are jobs."""
+        cfg, name = self.cfg, walk["cell"]
+        cell = self._cell(name)
+        st["job"], st["result"] = None, None
+        if st["step"] in ("old", "new"):
+            r = cfg.grid.judge_fixture(name, st["step"])
+            state = (r["verdict"] or {}).get("state")
+            ok = state == ("FAIL" if st["step"] == "old" else "PASS")
+            st["result"] = {"ok": ok, "judge": r, "why": None if ok else (
+                "old/ no longer judges FAIL -- the red this cell was built on cannot be shown"
+                if st["step"] == "old" else "new/ does not judge PASS")}
+        elif st["step"] == "status":
+            r = run_read(cfg, "status", verbs.argv_status(False), cfg.read_timeout)
+            if r is None:
+                raise HttpError(503, "busy", note="two read-only ndt calls are already running")
+            st["result"] = dict(r, ok=r["rc"] == 0)
+        elif st["step"] == "claim":
+            st["job"] = self._spawn("claim", [cfg.ndt] + verbs.argv_claim(
+                {"minutes": 30, "note": "guided walk %s (%s)" % (walk["id"], name)}), {"guided": walk["id"]})
+        elif st["step"] == "run":
+            st["job"] = self._spawn_cell_run(cell, {"guided": walk["id"]})
+        elif st["step"] == "compare":
+            run = next(s for s in walk["steps"] if s["step"] == "run")
+            v = self._job(run["job"])
+            res = cfg.grid.run_result(name, v["raw_root"])
+            old = next((s for s in walk["steps"] if s["step"] == "old"), None)
+            rows = cells.compare(old["result"]["judge"] if old and old["result"] else None, res)
+            st["result"] = {"ok": True, "rows": rows,
+                            "red_to_green": [r["id"] for r in rows if r["red_to_green"]],
+                            "still_red": [r["id"] for r in rows if r["still_red"]],
+                            "verdict_line": (res or {}).get("verdict")}
+        elif st["step"] == "release":
+            st["job"] = self._spawn("release", [cfg.ndt] + verbs.argv_release({}), {"guided": walk["id"]})
+
+    def w_guided_verdict(self, query, gid):
+        body = self._check_write()
+        verdict, note = body.get("verdict"), body.get("note", "")
+        if set(body) - {"verdict", "note"} or verdict not in ("green", "red") or not isinstance(note, str) \
+                or len(note) > 2000 or re.search(r"[\x00-\x08\x0b-\x1f\x7f]", note):
+            raise HttpError(400, "refused", note='body is {"verdict": "green"|"red", "note": "<text>"}')
+        g = self.cfg.guided
+        with g.lock:
+            try:
+                walk = self._walk_view(g.load(gid))
+            except KeyError:
+                raise HttpError(404, "no such walk")
+            if walk["done"] or walk.get("aborted") or walk["steps"][walk["current"]]["step"] != "verdict":
+                raise HttpError(409, "not now", note="the verdict is asked for after the compare step", walk=walk)
+            walk["verdict"] = {"verdict": verdict, "note": note, "at": time.time(),
+                               "requested_by": "%s:%s" % self.client_address[:2]}
+            g.save(walk)
+            self._send(200, {"walk": self._walk_view(walk)})
+
+    def w_guided_abort(self, query, gid):
+        body = self._check_write()
+        _whitelisted(verbs.no_fields, body)
+        g = self.cfg.guided
+        with g.lock:
+            try:
+                walk = self._walk_view(g.load(gid))
+            except KeyError:
+                raise HttpError(404, "no such walk")
+            walk["aborted"] = time.time()
+            g.save(walk)
+            claimed = any(s["step"] == "claim" and s["state"] == "done" for s in walk["steps"])
+            released = any(s["step"] == "release" and s["state"] == "done" for s in walk["steps"])
+            self._send(200, {"walk": self._walk_view(walk), "note": (
+                "the claim this walk took is still held -- POST %s/release when the lab is as you want it" % API)
+                if claimed and not released else "nothing of the lab is held by this walk"})
+
+
+def _step_ok(step, v):
+    """Did a job step come out so that the walk may go on?"""
+    if v.get("state") != "finished":
+        return False
+    if step == "run":
+        # a red cell is a RESULT Adam should see -- the walk goes on to compare it. Only a
+        # harness that could not run it, or a restore that failed, stops the walk.
+        return v.get("rc") in (0, 1) and bool(v.get("cell_verdict"))
+    return v.get("rc") == 0
+
+
+def _block_reason(st):
+    r = st.get("result") or {}
+    if r.get("why"):
+        return r["why"]
+    return "%s: rc %s (%s) -- %s. POST next to retry this step, or abort." % (
+        st["step"], r.get("rc"), r.get("rc_class"), r.get("meaning"))
 
 
 def _whitelisted(fn, *args):
@@ -408,6 +670,19 @@ ROUTES = [
     ("POST", re.compile(r"/claim"), Handler.w_claim),
     ("POST", re.compile(r"/release"), Handler.w_release),
     ("POST", re.compile(r"/apps/([^/]+)/(start|stop)"), Handler.w_app),
+    ("GET", re.compile(r"/cells"), Handler.r_cells),
+    ("GET", re.compile(r"/cells/([^/]+)"), Handler.r_cell),
+    ("GET", re.compile(r"/cells/([^/]+)/(old|new)"), Handler.r_cell_fixture),
+    ("GET", re.compile(r"/cells/([^/]+)/(old|new)/raw/([^/]+)"), Handler.r_cell_fixture_raw),
+    ("POST", re.compile(r"/cells/([^/]+)/run"), Handler.w_cell_run),
+    ("GET", re.compile(r"/cells/([^/]+)/runs/([^/]+)"), Handler.r_cell_run),
+    ("GET", re.compile(r"/jobs/([^/]+)/raw/(.+)"), Handler.r_job_raw),
+    ("POST", re.compile(r"/cells/([^/]+)/guided"), Handler.w_guided_create),
+    ("GET", re.compile(r"/guided"), Handler.r_guided_list),
+    ("GET", re.compile(r"/guided/([^/]+)"), Handler.r_guided),
+    ("POST", re.compile(r"/guided/([^/]+)/next"), Handler.w_guided_next),
+    ("POST", re.compile(r"/guided/([^/]+)/verdict"), Handler.w_guided_verdict),
+    ("POST", re.compile(r"/guided/([^/]+)/abort"), Handler.w_guided_abort),
 ]
 
 
@@ -452,6 +727,8 @@ def main(argv=None):
     private_dir(os.path.dirname(cfg.token_file))
     locks = [hold_lock(os.path.join(cfg.state_dir, "serve.lock")), hold_lock(cfg.token_file + ".lock")]
     cfg.store = jobs.JobStore(cfg.state_dir, verbs.meaning)
+    cfg.grid = cells.Grid(cfg.repo, cfg.env)
+    cfg.guided = cells.Guided(cfg.state_dir)
     Handler.cfg = cfg
     try:
         httpd = Server((BIND, a.port), Handler)

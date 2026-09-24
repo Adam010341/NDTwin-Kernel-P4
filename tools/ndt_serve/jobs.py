@@ -148,6 +148,7 @@ class JobStore:
             "id": job_id, "kind": req["kind"], "argv": req["argv"], "state": state, "rc": rc,
             "owner": req.get("owner"), "ndt_sha256": req.get("ndt_sha256"),
             "request": req.get("request"), "requested_by": req.get("requested_by"),
+            "cell": req.get("cell"), "raw_root": req.get("raw_root"),
             "created_at": req.get("created_at"),
             "started_at": (ex or run).get("started_at"), "ended_at": (ex or {}).get("ended_at"),
             "ndt_pid": run.get("ndt_pid"), "ndt_pgid": run.get("ndt_pgid"),

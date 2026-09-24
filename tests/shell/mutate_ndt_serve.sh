@@ -31,12 +31,14 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
 TEST="$REPO/tests/python/test_ndt_serve.py"
+TEST_CELLS="$REPO/tests/python/test_ndt_serve_cells.py"
 SERVE_PY="$REPO/tools/ndt_serve/serve.py"
 VERBS_PY="$REPO/tools/ndt_serve/verbs.py"
 JOBS_PY="$REPO/tools/ndt_serve/jobs.py"
 RUNNER_PY="$REPO/tools/ndt_serve/runner.py"
+CELLS_PY="$REPO/tools/ndt_serve/cells.py"
 NDT="$REPO/tools/test_workflow/ndt"
-SUBJECTS=("$SERVE_PY" "$VERBS_PY" "$JOBS_PY" "$RUNNER_PY" "$NDT")
+SUBJECTS=("$SERVE_PY" "$VERBS_PY" "$JOBS_PY" "$RUNNER_PY" "$CELLS_PY" "$NDT")
 BK=$(mktemp -d "${TMPDIR:-/tmp}/ndt-serve-mutate-XXXXXX")
 trap 'rm -rf "$BK"' EXIT
 BASE_SHA=$(sha256sum "${SUBJECTS[@]}")
@@ -47,16 +49,16 @@ MUTATIONS=0
 layout() {   # $1 = dir -- a copy of the service and of ndt with what it sources
     local d="$1"
     mkdir -p "$d/tools/ndt_serve" "$d/tools/test_workflow"
-    cp "$SERVE_PY" "$VERBS_PY" "$JOBS_PY" "$RUNNER_PY" "$d/tools/ndt_serve/"
+    cp "$SERVE_PY" "$VERBS_PY" "$JOBS_PY" "$RUNNER_PY" "$CELLS_PY" "$d/tools/ndt_serve/"
     cp "$NDT" "$REPO/tools/test_workflow/ports.sh" "$REPO/tools/test_workflow/sudo_surface.sh" \
        "$REPO/tools/test_workflow/components.env" "$d/tools/test_workflow/"
     chmod +x "$d/tools/test_workflow/ndt"
 }
 
-run_against() {   # $1 = dir, $2... = unittest ids (none = the whole suite)
-    local d="$1"; shift
+run_against() {   # $1 = dir, $2 = test file, $3... = unittest ids (none = the whole file)
+    local d="$1" t="$2"; shift 2
     NDT_SERVE_UNDER_TEST="$d/tools/ndt_serve" NDT_UNDER_TEST="$d/tools/test_workflow/ndt" \
-        timeout 600 python3 "$TEST" "$@" 2>&1
+        timeout 600 python3 "$t" "$@" 2>&1
 }
 
 # The parameters are NAMED rather than used positionally so tests/shell/check_gate_anchors.py can
@@ -82,15 +84,17 @@ PY
     echo "$d"
 }
 
-report() {   # $1 = mutation name, $2 = mutant dir, $3 = Class.test_case that must fail
-    local out rc name="${3##*.}"
+report() {   # $1 = mutation name, $2 = mutant dir, $3 = [cells:]Class.test_case that must fail
+    local out rc id="$3" t="$TEST"
+    [[ "$id" == cells:* ]] && { t="$TEST_CELLS"; id="${id#cells:}"; }
+    local name="${id##*.}"
     MUTATIONS=$((MUTATIONS+1))
     if [[ "$2" == NOAPPLY ]]; then
         SURVIVORS=$((SURVIVORS+1))
         printf '  SURVIVED %-62s (the mutation did not apply -- the anchor moved)\n' "$1"
         return
     fi
-    out=$(run_against "$2" "$3"); rc=$?
+    out=$(run_against "$2" "$t" "$id"); rc=$?
     if [[ "$rc" -ne 0 ]] && grep -qE "^(FAIL|ERROR): $name \(" <<<"$out"; then
         printf '  caught   %-62s (%s went red)\n' "$1" "$name"
     else
@@ -102,8 +106,11 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = Class.test_case that mu
 
 echo "baseline (must be green before any mutation):"
 layout "$BK/base"
-run_against "$BK/base" | tail -1
-run_against "$BK/base" >/dev/null 2>&1 || { echo "  baseline is RED -- fix that first, mutations prove nothing on a red baseline"; exit 2; }
+for t in "$TEST" "$TEST_CELLS"; do
+    out=$(run_against "$BK/base" "$t"); brc=$?
+    printf '  %s: %s\n' "$(basename "$t")" "$(tail -1 <<<"$out")"
+    (( brc == 0 )) || { echo "  baseline is RED -- fix that first, mutations prove nothing on a red baseline"; exit 2; }
+done
 echo
 
 # --- 1. loopback only -------------------------------------------------------------------------
@@ -379,6 +386,112 @@ m=$(mutant m40 "$SERVE_PY" \
     '    locks = []')
 report "M40: two servers can share one state directory and token" "$m" \
        Entry.test_second_server_on_the_same_state_refuses
+
+
+# --- the live_cells entry and the guided walk (second ticket, Adam 09-24 21:4x) -------------
+
+m=$(mutant c1 "$CELLS_PY" \
+    '        for c in self.list():
+            if c["name"] == name:
+                return c
+        raise KeyError(name)' \
+    '        return {"name": name, "tag": "?", "requires": "ovs4"}')
+report "C1: a cell name the grid does not list is accepted" "$m" \
+       cells:CellsCatalog.test_unknown_cell_is_refused_and_runs_nothing
+
+m=$(mutant c2 "$CELLS_PY" \
+    '        argv = [os.path.join(self.dir, name + ".sh"), "judge", d]' \
+    '        argv = [os.path.join(self.dir, name + ".sh"), "observe", d]')
+report "C2: showing old/ drives the lab (observe, not judge)" "$m" \
+       cells:CellsCatalog.test_old_is_judged_read_only_and_shows_the_red
+
+m=$(mutant c3 "$CELLS_PY" \
+    '    p = os.path.realpath(os.path.join(root_real, rel))' \
+    '    p = os.path.normpath(os.path.join(root_real, rel))')
+report "C3: a raw file is read through a symlink out of its fixture" "$m" \
+       cells:CellsCatalog.test_fixture_raw_cannot_leave_the_fixture
+
+m=$(mutant c4 "$SERVE_PY" \
+    '        return self._spawn("cells.run", cfg.grid.run_argv(cell["name"], raw_root), body,' \
+    '        return cfg.store.start("cells.run", cfg.grid.run_argv(cell["name"], raw_root), cfg.repo, cfg.grid.env, {"cell": cell["name"], "raw_root": raw_root}) if True else self._spawn("cells.run", cfg.grid.run_argv(cell["name"], raw_root), body,')
+report "C4: a cell run bypasses the one slot" "$m" \
+       cells:CellsRun.test_cell_run_holds_the_slot
+
+m=$(mutant c5 "$SERVE_PY" \
+    '{"PASS": "pass", "SKIP": "skip"}' \
+    '{"PASS": "pass", "SKIP": "pass"}')
+report "C5: a SKIPPED cell is shown as a pass" "$m" \
+       cells:CellsRun.test_cell_run_skip_is_not_a_pass
+
+m=$(mutant c6 "$SERVE_PY" \
+    '        body = self._check_write()
+        _whitelisted(verbs.no_fields, body)
+        job_id = self._spawn_cell_run(' \
+    '        body = {}
+        _whitelisted(verbs.no_fields, body)
+        job_id = self._spawn_cell_run(')
+report "C6: a cell run needs no token" "$m" \
+       cells:CellsRun.test_cell_run_needs_the_token
+
+m=$(mutant c7 "$CELLS_PY" \
+    '        self.env["NDT_ROOT"] = repo' \
+    '        pass')
+report "C7: the grid is not told which checkout to drive (NDT_ROOT)" "$m" \
+       cells:CellsRun.test_cell_run_is_a_job_with_the_grids_own_argv
+
+m=$(mutant c8 "$VERBS_PY" \
+    '        2: ("harness", "the harness could not run the cell, or the RESTORE after it failed -- "' \
+    '        2: ("fail", "the harness could not run the cell, or the RESTORE after it failed -- "')
+report "C8: a failed restore is reported as a red cell" "$m" \
+       cells:CellsRun.test_cell_run_restore_failure_is_harness
+
+m=$(mutant c9 "$CELLS_PY" \
+    '"red_to_green": bool(o is not None and not o["ok"] and a["ok"]),' \
+    '"red_to_green": bool(a["ok"]),')
+report "C9: every green row is called red-to-green" "$m" \
+       cells:CellsRun.test_cell_run_marks_red_to_green
+
+m=$(mutant c10 "$SERVE_PY" \
+    '    return v.get("rc") == 0
+
+
+def _block_reason(st):' \
+    '    return True
+
+
+def _block_reason(st):')
+report "C10: the walk goes on after a refused claim" "$m" \
+       cells:GuidedWalk.test_refused_claim_blocks_the_run
+
+m=$(mutant c11 "$SERVE_PY" \
+    '        return v.get("rc") in (0, 1) and bool(v.get("cell_verdict"))' \
+    '        return True')
+report "C11: the walk releases after a failed restore" "$m" \
+       cells:GuidedWalk.test_failed_restore_blocks_and_never_releases
+
+m=$(mutant c12 "$SERVE_PY" \
+    '        return v.get("rc") in (0, 1) and bool(v.get("cell_verdict"))' \
+    '        return v.get("rc") in (0, 1)')
+report "C12: a run that printed no verdict counts as done" "$m" \
+       cells:GuidedWalk.test_a_run_with_no_verdict_line_blocks
+
+m=$(mutant c13 "$SERVE_PY" \
+    '                raise HttpError(409, "yours", note="this step is Adam'"'"'s: POST %s/guided/%s/verdict" % (API, gid), walk=walk)' \
+    '                walk["verdict"] = {"verdict": "green", "note": "auto"}; g.save(walk); return self._send(200, {"walk": self._walk_view(walk)})')
+report "C13: the service calls the verdict itself" "$m" \
+       cells:GuidedWalk.test_the_verdict_is_adams
+
+m=$(mutant c14 "$SERVE_PY" \
+    '            self._send(200, {"walk": self._walk_view(self.cfg.guided.load(gid))})' \
+    '            w = self._walk_view(self.cfg.guided.load(gid)); w["seen_at"] = time.time(); self.cfg.guided.save(w); self._send(200, {"walk": w})')
+report "C14: a GET writes the walk" "$m" \
+       cells:GuidedWalk.test_get_does_not_move_a_walk
+
+m=$(mutant c15 "$SERVE_PY" \
+    '            ok = state == ("FAIL" if st["step"] == "old" else "PASS")' \
+    '            ok = state in ("FAIL", "PASS")')
+report "C15: an old/ that no longer fails is shown as the red" "$m" \
+       cells:GuidedWalk.test_old_that_no_longer_fails_blocks_the_walk
 
 echo
 if [[ "$(sha256sum "${SUBJECTS[@]}")" != "$BASE_SHA" ]]; then

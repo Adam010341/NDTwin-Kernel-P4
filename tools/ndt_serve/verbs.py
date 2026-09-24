@@ -100,6 +100,12 @@ def app_dir(raw, app_roots):
         " or ".join(os.path.realpath(r) for r in app_roots) or "<no --app-root configured>", real))
 
 
+def no_fields(body):
+    """A POST whose body must be {} -- it names everything it does in its path."""
+    _no_extra_keys(body, ())
+    return []
+
+
 def argv_down(body):
     """POST /api/v1/down  {} -- never --deep, never --force (TICKET section 5)."""
     _no_extra_keys(body, ())
@@ -202,6 +208,14 @@ RC_TABLE = {
         0: ("ok", "it was running, and it is not now"),
         1: ("failed", "it could not be stopped, or its pidfile was poisoned"),
         2: ("nothing", "there was nothing to stop -- this is NOT a usage error for this verb"),
+    },
+    # run_cells.sh --cell <name>: 0 is PASS *or SKIP* -- the job view reads the CELL: line the
+    # cell's own judge printed to say which, and SKIP is not a pass.
+    "cells.run": {
+        0: ("see-verdict", "the cell PASSED or was SKIPPED -- read cell_verdict; SKIP is not a pass"),
+        1: ("fail", "the cell FAILED: its judge printed CELL: FAIL"),
+        2: ("harness", "the harness could not run the cell, or the RESTORE after it failed -- "
+                       "the lab is NOT restored; read the output"),
     },
     "apps.status": {
         0: ("ok", "the table was printed"),
