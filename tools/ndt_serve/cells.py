@@ -232,8 +232,12 @@ def _read_lines(p):
 
 # --- the guided walk ---------------------------------------------------------------------------
 #
-# One cell, seven steps, one at a time. The service does the step, says where to look and what
-# green looks like, and stops. Adam presses next. The fifth step is his: he calls it.
+# One cell, up to eight steps, one at a time. The service does the step, says where to look and
+# what green looks like, and stops. Adam presses next. The last step is his: he calls it.
+#
+# The lab is released right after the run, BEFORE the compare and the verdict: judging reads the
+# raw the run left, not the lab, and a walk waiting on Adam must not hold a shared lab while it
+# waits (the lab is shared with the orchestrator's acceptance rounds).
 #
 # A step that did not come out as it should BLOCKS the walk -- `next` then retries that step, and
 # nothing after it runs. In particular a claim that was refused never leads to a run, and a run
@@ -254,7 +258,7 @@ STEP_TITLES = {
 def guided_steps(cell):
     lab = cell["requires"] != "none"
     steps = ["old"] + (["new"] if cell.get("new") else []) + (["status", "claim"] if lab else []) \
-        + ["run", "compare", "verdict"] + (["release"] if lab else [])
+        + ["run"] + (["release"] if lab else []) + ["compare", "verdict"]
     return steps
 
 
@@ -271,7 +275,8 @@ def look_at(step, cell):
                 "。run_cells.sh 的 rc 2 代表還原失敗，lab 不乾淨；這種情況流程會停住，不會自動 release。"),
         "compare": "看 red_to_green 為 true 的那幾列：這幾條在 old/ 是 FAIL，現在是 ok。still_red 應該全部是 false。",
         "verdict": "由你決定。POST /api/v1/guided/<id>/verdict，body 為 {\"verdict\": \"green\" 或 \"red\", \"note\": \"...\"}。",
-        "release": "rc 0 就是還回去了。",
+        "release": ("rc 0 就是還回去了。lab 在對照和判定之前就先還，"
+                    "因為判定看的是這次 run 留下的 raw，不需要 lab；lab 是和 orchestrator 共用的。"),
     }[step]
 
 

@@ -492,6 +492,11 @@ m=$(mutant c15 "$SERVE_PY" \
     '            ok = state in ("FAIL", "PASS")')
 report "C15: an old/ that no longer fails is shown as the red" "$m" \
        cells:GuidedWalk.test_old_that_no_longer_fails_blocks_the_walk
+m=$(mutant c16 "$CELLS_PY" \
+    '        + ["run"] + (["release"] if lab else []) + ["compare", "verdict"]' \
+    '        + ["run", "compare", "verdict"] + (["release"] if lab else [])')
+report "C16: the walk holds the shared lab while it waits on Adam's verdict" "$m" \
+       cells:GuidedWalk.test_the_lab_is_released_before_the_verdict
 
 echo
 if [[ "$(sha256sum "${SUBJECTS[@]}")" != "$BASE_SHA" ]]; then

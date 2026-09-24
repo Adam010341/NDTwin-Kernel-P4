@@ -309,9 +309,15 @@ class GuidedWalk(GridCase):
     def steps(self, gid):
         return [s["step"] for s in self.s.get("/guided/" + gid)[1]["walk"]["steps"]]
 
+    def test_the_lab_is_released_before_the_verdict(self):
+        gid = self.walk()
+        steps = self.steps(gid)
+        self.assertLess(steps.index("release"), steps.index("verdict"))
+        self.assertEqual(steps.index("release"), steps.index("run") + 1)
+
     def test_walk_steps_for_a_lab_cell(self):
         gid = self.walk("lab_cell")
-        self.assertEqual(self.steps(gid), ["old", "new", "status", "claim", "run", "compare", "verdict", "release"])
+        self.assertEqual(self.steps(gid), ["old", "new", "status", "claim", "run", "release", "compare", "verdict"])
         w = self.s.get("/guided/" + gid)[1]["walk"]
         self.assertTrue(all(s["look_at"] for s in w["steps"]))
         self.assertIn("prints no boom", w["steps"][4]["look_at"])
@@ -330,17 +336,18 @@ class GuidedWalk(GridCase):
 
     def test_happy_walk_runs_exactly_the_expected_calls(self):
         gid = self.walk()
-        for step in ("old", "new", "status", "claim", "run", "compare"):
+        for step in ("old", "new", "status", "claim", "run", "release", "compare"):
             w = self.settle(gid)
             self.assertEqual(w["steps"][w["current"]]["step"], step)
             self.next(gid)
         w = self.settle(gid)
         self.assertEqual(w["steps"][w["current"]]["step"], "verdict")
+        # the lab is already given back while the walk waits on Adam
+        self.assertEqual([c["argv"][0] for c in self.s.calls()], ["status", "claim", "release"])
         cmp_ = [s for s in w["steps"] if s["step"] == "compare"][0]["result"]
         self.assertEqual(sorted(cmp_["red_to_green"]), ["a2_no_boom", "a3_record_written"])
         st, j, _, _ = self.s.post("/guided/%s/verdict" % gid, {"verdict": "green", "note": "saw a2 flip"})
         self.assertEqual(st, 200, j)
-        self.next(gid)
         w = self.settle(gid)
         self.assertTrue(w["done"])
         self.assertEqual(w["verdict"]["verdict"], "green")
@@ -382,13 +389,15 @@ class GuidedWalk(GridCase):
         self.s.grid["runs"]["lab_cell"] = {"rc": 1, "judge": RUN_FAIL}
         self.s.write_grid()
         gid = self.walk()
-        for _ in range(6):                       # old, new, status, claim, run, compare
+        for _ in range(7):                       # old, new, status, claim, run, release, compare
             self.settle(gid)
             self.next(gid)
         w = self.settle(gid)
         self.assertEqual(w["steps"][w["current"]]["step"], "verdict")
         cmp_ = [s for s in w["steps"] if s["step"] == "compare"][0]["result"]
         self.assertEqual(sorted(cmp_["still_red"]), ["a2_no_boom", "a3_record_written"])
+        self.assertEqual([c["argv"][0] for c in self.s.calls()], ["status", "claim", "release"],
+                         "a red cell whose restore passed still gives the lab back")
         self.assertEqual(cmp_["red_to_green"], [])
 
     def test_a_run_with_no_verdict_line_blocks(self):
