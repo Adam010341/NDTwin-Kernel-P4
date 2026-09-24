@@ -442,13 +442,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
         cfg = self.cfg
         self._send(202, {"job": cfg.store.view(job_id), "links": _links(job_id)})
 
-    def _spawn(self, kind, argv, body, env=None, extra=None):
-        """Take the one slot and start a job, or 409. Every state-changing path comes here."""
+    def _spawn(self, kind, argv, body, env=None, extra=None, precheck=None):
+        """Take the one slot and start a job, or 409. Every state-changing path comes here.
+        `precheck` runs INSIDE the slot, after the busy check and before the spawn, so what it
+        read is still true when the job starts -- no other job of this server can move it."""
         cfg = self.cfg
         with SLOT:
             busy = cfg.store.holding_the_slot()
             if busy is not None:
                 raise HttpError(409, "busy", note="one state-changing job at a time", job=busy)
+            if precheck is not None:
+                precheck()
             meta = {"owner": cfg.owner, "ndt": cfg.ndt, "ndt_realpath": cfg.ndt_real,
                     "ndt_sha256": jobs.file_sha256(cfg.ndt_real), "request": body,
                     "requested_by": "%s:%s" % self.client_address[:2], "stripped_env": cfg.stripped}
@@ -492,16 +496,38 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def w_cell_run(self, query, name):
         body = self._check_write()
-        _whitelisted(verbs.no_fields, body)
-        job_id = self._spawn_cell_run(self._cell(name), body)
+        confirmed = _whitelisted(verbs.cell_run_body, body)
+        job_id = self._spawn_cell_run(self._cell(name), body, confirmed)
         self._send(202, {"job": self._job(job_id), "links": _links(job_id)})
 
-    def _spawn_cell_run(self, cell, body):
+    def _need_confirmation(self, cell, confirmed):
+        if cell.get("writes_shared_state") and confirmed is not True:
+            raise HttpError(400, "confirm", note="this cell writes shared state -- " + cell["writes_shared_state"] +
+                            ' Send {"confirm_shared_state_write": true} to run it anyway.')
+
+    def _spawn_cell_run(self, cell, body, confirmed):
+        """A cell run. 🔴 A cell that needs the lab runs only under THIS owner's claim (judge r2
+        finding 1): ndt's OVS `up` does not refuse under a foreign claim, so a run without one can
+        build a fabric under somebody else's, and the restore's `down` is then refused (rc 5)."""
         cfg = self.cfg
+        self._need_confirmation(cell, confirmed)
         raw_root = os.path.join(cfg.state_dir, "cells-raw", cell["name"] + "-" + secrets.token_hex(4))
         os.makedirs(raw_root, mode=0o700)
         return self._spawn("cells.run", cfg.grid.run_argv(cell["name"], raw_root), body,
-                           env=cfg.grid.env, extra={"cell": cell["name"], "raw_root": raw_root})
+                           env=cfg.grid.env, extra={"cell": cell["name"], "raw_root": raw_root},
+                           precheck=self._require_own_claim if cell["requires"] != "none" else None)
+
+    def _require_own_claim(self):
+        """Read `ndt status`'s claim line (ndt:5216 claim_line) and go on only if it says `yours`.
+        This reads ndt's answer; it does not decide anything ndt decides."""
+        r = run_read(self.cfg, "status", verbs.argv_status(False), self.cfg.read_timeout)
+        if r is None or r["rc_class"] == "timeout":
+            raise HttpError(409, "claim", note="the claim could not be read (ndt status did not answer); "
+                            "a cell that needs the lab is not run on a guess")
+        line = claim_of(r["stdout"])
+        if not (line or "").startswith("yours"):
+            raise HttpError(409, "claim", note="a cell that needs the lab runs only under your own claim -- "
+                            "POST %s/claim first" % API, claim=line, read=r["read"]["id"])
 
     def _job(self, job_id):
         """A job's view; a cell run also carries the CELL: line its own judge printed, and a
@@ -594,9 +620,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def w_guided_create(self, query, name):
         body = self._check_write()
-        _whitelisted(verbs.no_fields, body)
+        confirmed = _whitelisted(verbs.cell_run_body, body)
         cell = self._cell(name)
-        self._send(201, {"walk": self._walk_view(self.cfg.guided.create(cell))})
+        self._need_confirmation(cell, confirmed)
+        self._send(201, {"walk": self._walk_view(self.cfg.guided.create(cell, confirmed))})
 
     def w_guided_next(self, query, gid):
         body = self._check_write()
@@ -629,9 +656,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
             r = cfg.grid.judge_fixture(name, st["step"])
             state = (r["verdict"] or {}).get("state")
             ok = state == ("FAIL" if st["step"] == "old" else "PASS")
-            st["result"] = {"ok": ok, "judge": r, "why": None if ok else (
-                "old/ no longer judges FAIL -- the red this cell was built on cannot be shown"
-                if st["step"] == "old" else "new/ does not judge PASS")}
+            why = None
+            if r.get("timed_out"):
+                why = "the judge did not answer within %d s and was stopped" % cfg.grid.timeout
+            elif not ok:
+                why = ("old/ no longer judges FAIL -- the red this cell was built on cannot be shown"
+                       if st["step"] == "old" else "new/ does not judge PASS")
+            st["result"] = {"ok": ok and not r.get("timed_out"), "judge": r, "why": why}
         elif st["step"] == "status":
             r = run_read(cfg, "status", verbs.argv_status(False), cfg.read_timeout)
             if r is None:
@@ -641,7 +672,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
             st["job"] = self._spawn("claim", [cfg.ndt_real] + verbs.argv_claim(
                 {"minutes": 30, "note": "guided walk %s (%s)" % (walk["id"], name)}), {"guided": walk["id"]})
         elif st["step"] == "run":
-            st["job"] = self._spawn_cell_run(cell, {"guided": walk["id"]})
+            # the claim is read again here, inside the slot: another tab's walk may have
+            # released it since this walk's claim step (judge r2 finding 3)
+            try:
+                st["job"] = self._spawn_cell_run(cell, {"guided": walk["id"]},
+                                                 walk.get("confirmed_shared_state_write") is True)
+            except HttpError as e:
+                if e.body.get("error") != "claim":
+                    raise
+                st["result"] = {"ok": False, "why": "claim: the run was not started -- %s (claim line: %s)" % (
+                    e.body.get("note"), e.body.get("claim"))}
         elif st["step"] == "compare":
             run = next(s for s in walk["steps"] if s["step"] == "run")
             v = self._job(run["job"])
@@ -690,6 +730,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._send(200, {"walk": self._walk_view(walk), "note": (
                 "the claim this walk took is still held -- POST %s/release when the lab is as you want it" % API)
                 if claimed and not released else "nothing of the lab is held by this walk"})
+
+
+CLAIM_LINE = re.compile(r"^  claim\s+(.*?)\s*$", re.M)
+
+
+def claim_of(status_stdout):
+    """The value of the `claim` row of `ndt status` (`  claim          yours -- 30m left ...`),
+    or None when there is no such row. `prev claim` is a different row and does not match."""
+    m = CLAIM_LINE.search(status_stdout or "")
+    return m.group(1) if m else None
 
 
 def _step_ok(step, v):
@@ -836,7 +886,7 @@ def main(argv=None):
     locks = [hold_lock(os.path.join(cfg.state_dir, "serve.lock")), hold_lock(cfg.token_file + ".lock")]
     cfg.store = jobs.JobStore(cfg.state_dir, verbs.meaning)
     cfg.reads = jobs.ReadLog(cfg.state_dir)
-    cfg.grid = cells.Grid(cfg.repo, cfg.env)
+    cfg.grid = cells.Grid(cfg.repo, cfg.env, timeout=cfg.read_timeout)
     cfg.guided = cells.Guided(cfg.state_dir)
     Handler.cfg = cfg
     try:

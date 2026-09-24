@@ -67,6 +67,9 @@ GRIDSTUB = textwrap.dedent('''\
         print("name=%s\\ntag=%s\\nrequires=%s" % (name, c["tag"], c["requires"])); sys.exit(0)
     if sub == "judge":
         d = argv[2]
+        if os.path.exists(os.path.join(d, "JUDGE_SLEEP")):
+            log({"role": "judge-sleeping", "pid": os.getpid(), "argv": argv})
+            time.sleep(float(open(os.path.join(d, "JUDGE_SLEEP")).read()))
         sys.stdout.write(open(os.path.join(d, "JUDGE")).read())
         sys.exit(int(open(os.path.join(d, "JUDGE_RC")).read()))
     sys.exit(2)
@@ -94,6 +97,12 @@ RUN_FAIL = OLD_LAB.replace("2026-09-11T02:55:10", "2026-09-24T23:00:00")
 RUN_SKIP = "SKIP: the lab is claimed by somebody else\nCELL: SKIP lab_cell tag=ndt kernel=x ndt=y at=z\n"
 RUN_OFF = ("ASSERT ok   b1_sentence_gone                       help.txt does not contain it\n"
            "CELL: PASS offline_cell tag=ndt kernel=unknown ndt=ffff at=2026-09-24T23:00:00+08:00\n")
+# the claim line as `ndt status` prints it (ndt:5216 claim_line), for each case the service must tell apart
+CLAIM_YOURS = "lab\n  claim          yours -- 30m left (until 23:59:00)\n  measuring      nothing\n"
+CLAIM_NONE = "lab\n  claim          none\n  prev claim     serve-test (until 23:00:00)\n"
+CLAIM_FOREIGN = "lab\n  claim          orch-0924 -- 12m left (until 23:40:00)\n"
+CLAIM_EXPIRED = "lab\n  claim          EXPIRED 3m ago (was serve-test) -- treated as free\n"
+H4 = "up_refuses_a_model_of_another_network"
 OLD_OFF = ("ASSERT FAIL b1_sentence_gone                       help.txt still contains [has run]\n"
            "CELL: FAIL offline_cell tag=ndt kernel=unknown ndt=eeee at=2026-09-11T01:00:00+08:00\n")
 
@@ -111,11 +120,14 @@ class GridServe(base.Serve):
         with open(os.path.join(self.grid_dir, "CELLS.md"), "w") as f:
             f.write(CELLS_MD)
         self.grid = {"cells": [{"name": "lab_cell", "tag": "ndt", "requires": "ovs4"},
-                               {"name": "offline_cell", "tag": "ndt", "requires": "none"}],
+                               {"name": "offline_cell", "tag": "ndt", "requires": "none"},
+                               {"name": H4, "tag": "ndt", "requires": "idle"}],
                      "runs": {"lab_cell": {"rc": 0, "judge": RUN_PASS},
-                              "offline_cell": {"rc": 0, "judge": RUN_OFF}}}
+                              "offline_cell": {"rc": 0, "judge": RUN_OFF},
+                              H4: {"rc": 0, "judge": RUN_OFF.replace("offline_cell", H4)}}}
         self.write_grid()
-        for script, role in [("run_cells.sh", "run_cells"), ("lab_cell.sh", "cell"), ("offline_cell.sh", "cell")]:
+        for script, role in [("run_cells.sh", "run_cells"), ("lab_cell.sh", "cell"), ("offline_cell.sh", "cell"),
+                             (H4 + ".sh", "cell")]:
             p = os.path.join(self.grid_dir, script)
             with open(p, "w") as f:
                 f.write('#!/usr/bin/env bash\nexec python3 "$(dirname "$0")/gridstub.py" %s %s"$@"\n' % (
@@ -125,6 +137,14 @@ class GridServe(base.Serve):
                      files={"up.log": "starting\nboom\n"})
         self.fixture("lab_cell", "new", NEW_LAB, 0, files={"up.log": "up. ready\n", "up.target": "topology=x.json\n"})
         self.fixture("offline_cell", "old", OLD_OFF, 1, expected="b1_sentence_gone\n")
+        self.fixture(H4, "old", OLD_OFF.replace("offline_cell", H4), 1, expected="b1_sentence_gone\n")
+        self.behave()
+
+    def behave(self, **verbs):
+        """The stub ndt's behaviour, with `status` saying the claim is this server's unless a case
+        says otherwise -- a lab cell's run reads that line before it starts."""
+        verbs.setdefault("status", {"stdout": CLAIM_YOURS})
+        super().behave(**verbs)
 
     def write_grid(self):
         with open(os.path.join(self.grid_dir, "grid.json"), "w") as f:
@@ -189,7 +209,7 @@ class CellsCatalog(GridCase):
         st, j, _, _ = self.s.get("/cells")
         self.assertEqual(st, 200, j)
         by = {c["name"]: c for c in j["cells"]}
-        self.assertEqual(sorted(by), ["lab_cell", "offline_cell"])
+        self.assertEqual(sorted(by), ["lab_cell", "offline_cell", H4])
         self.assertEqual((by["lab_cell"]["requires"], by["lab_cell"]["old"], by["lab_cell"]["new"]), ("ovs4", True, True))
         self.assertEqual((by["offline_cell"]["requires"], by["offline_cell"]["new"]), ("none", False))
         self.assertIn("prints no boom", by["lab_cell"]["expected"])
@@ -252,6 +272,61 @@ class CellsRun(GridCase):
         self.assertEqual((run["owner"], run["ndt_root"]), (base.OWNER, os.path.join(self.s.tmp, "repo")))
         self.assertEqual((job["rc"], job["rc_class"], job["cell_verdict"]["state"]), (0, "pass", "PASS"))
 
+    def test_lab_cell_run_needs_your_claim(self):
+        """Judge r2 finding 1: with ndt's OVS `up` ignoring a foreign claim, a lab cell run without a
+        claim of your own can build a fabric under somebody else's -- and its restore's `down` is
+        then refused (rc 5) and the fabric stays. The run reads `ndt status`'s claim line first."""
+        for text in (CLAIM_NONE, CLAIM_FOREIGN, CLAIM_EXPIRED, "lab\n  measuring nothing\n"):
+            self.s.behave(status={"stdout": text})
+            st, j, _, _ = self.s.post("/cells/lab_cell/run")
+            self.assertEqual((st, j["error"]), (409, "claim"), text)
+        self.assertEqual(self.s.runs(), [])
+        self.s.behave(status={"stdout": CLAIM_YOURS})
+        self.assertEqual(self.run_cell()["rc_class"], "pass")
+        self.assertEqual(len(self.s.runs()), 1)
+
+    def test_offline_cell_run_does_not_ask_for_the_claim(self):
+        self.s.behave(status={"stdout": CLAIM_NONE})
+        self.assertEqual(self.run_cell("offline_cell")["rc_class"], "pass")
+        self.assertEqual([c["argv"] for c in self.s.calls()], [], "a `requires none` cell read the claim")
+
+    def test_a_cell_that_writes_shared_state_needs_confirmation(self):
+        """Judge r2 finding 2: this cell parks host_count_override at 128 and writes it back; killed
+        in between (systemd-oomd does that here) it stays 128. Said, and confirmed, before it runs."""
+        st, j, _, _ = self.s.get("/cells")
+        by = {c["name"]: c for c in j["cells"]}
+        self.assertIn("host_count_override", by[H4]["writes_shared_state"] or "")
+        self.assertIsNone(by["lab_cell"].get("writes_shared_state", "absent"))
+        st, j, _, _ = self.s.post("/cells/%s/run" % H4)
+        self.assertEqual((st, j["error"]), (400, "confirm"))
+        self.assertIn("host_count_override", j["note"])
+        for bad in ({"confirm_shared_state_write": "yes"}, {"confirm_shared_state_write": 1}, {"confirm": True}):
+            st, _, _, _ = self.s.post("/cells/%s/run" % H4, bad)
+            self.assertEqual(st, 400, bad)
+        self.assertEqual(self.s.runs(), [])
+        st, j, _, _ = self.s.post("/cells/%s/run" % H4, {"confirm_shared_state_write": True})
+        self.assertEqual(st, 202, j)
+        self.s.wait(j["job"]["id"])
+        self.assertEqual(len(self.s.runs()), 1)
+
+    def test_a_judge_past_its_timeout_is_stopped(self):
+        """Judge r2 finding 4: the grid's calls had subprocess.run(timeout=60) -- a kill of the child
+        only, an unbounded wait for the pipe after it, and a 500 from TimeoutExpired."""
+        s = GridServe(extra=["--read-timeout", "1"]).start()
+        try:
+            with open(os.path.join(s.fix, "lab_cell", "old", "JUDGE_SLEEP"), "w") as f:
+                f.write("20")
+            t0 = time.monotonic()
+            st, j, _, _ = s.get("/cells/lab_cell/old")
+            self.assertLess(time.monotonic() - t0, 10)
+            self.assertEqual((st, j.get("timed_out"), j.get("verdict")), (200, True, None))
+            time.sleep(0.3)
+            pids = [c["pid"] for c in s.grid_calls("judge-sleeping")]
+            self.assertEqual(len(pids), 1)
+            self.assertFalse(base._pid_alive(pids[0]), "the timed-out judge is still running")
+        finally:
+            s.close()
+
     def test_cell_run_needs_the_token(self):
         st, j, _, _ = self.s.post("/cells/lab_cell/run", token=None)
         self.assertEqual((st, j["error"]), (403, "token"))
@@ -292,7 +367,8 @@ class CellsRun(GridCase):
             self.assertEqual((st, j["job"]["id"]), (409, first), p)
         self.s.wait(first)
         self.assertEqual(len(self.s.runs()), 1)
-        self.assertEqual(self.s.calls(), [])
+        # the one ndt call is the first run's claim read -- the refused writes ran nothing
+        self.assertEqual([c["argv"] for c in self.s.calls()], [["status"]])
 
     def test_job_raw_cannot_leave_the_raw_root(self):
         job = self.run_cell()
@@ -343,7 +419,7 @@ class GuidedWalk(GridCase):
         w = self.settle(gid)
         self.assertEqual(w["steps"][w["current"]]["step"], "verdict")
         # the lab is already given back while the walk waits on Adam
-        self.assertEqual([c["argv"][0] for c in self.s.calls()], ["status", "claim", "release"])
+        self.assertEqual([c["argv"][0] for c in self.s.calls()], ["status", "claim", "status", "release"])
         cmp_ = [s for s in w["steps"] if s["step"] == "compare"][0]["result"]
         self.assertEqual(sorted(cmp_["red_to_green"]), ["a2_no_boom", "a3_record_written"])
         st, j, _, _ = self.s.post("/guided/%s/verdict" % gid, {"verdict": "green", "note": "saw a2 flip"})
@@ -351,7 +427,7 @@ class GuidedWalk(GridCase):
         w = self.settle(gid)
         self.assertTrue(w["done"])
         self.assertEqual(w["verdict"]["verdict"], "green")
-        self.assertEqual([c["argv"][0] for c in self.s.calls()], ["status", "claim", "release"])
+        self.assertEqual([c["argv"][0] for c in self.s.calls()], ["status", "claim", "status", "release"])
         self.assertEqual(self.s.calls()[1]["argv"][:2], ["claim", "30"])
         self.assertEqual(len(self.s.runs()), 1)
         self.next(gid, want=409)
@@ -383,7 +459,7 @@ class GuidedWalk(GridCase):
         st, j, _, _ = self.s.post("/guided/%s/abort" % gid)
         self.assertIn("still held", j["note"])
         self.next(gid, want=409)
-        self.assertEqual([c["argv"][0] for c in self.s.calls()], ["status", "claim"])
+        self.assertEqual([c["argv"][0] for c in self.s.calls()], ["status", "claim", "status"])
 
     def test_red_cell_still_reaches_the_verdict(self):
         self.s.grid["runs"]["lab_cell"] = {"rc": 1, "judge": RUN_FAIL}
@@ -396,7 +472,7 @@ class GuidedWalk(GridCase):
         self.assertEqual(w["steps"][w["current"]]["step"], "verdict")
         cmp_ = [s for s in w["steps"] if s["step"] == "compare"][0]["result"]
         self.assertEqual(sorted(cmp_["still_red"]), ["a2_no_boom", "a3_record_written"])
-        self.assertEqual([c["argv"][0] for c in self.s.calls()], ["status", "claim", "release"],
+        self.assertEqual([c["argv"][0] for c in self.s.calls()], ["status", "claim", "status", "release"],
                          "a red cell whose restore passed still gives the lab back")
         self.assertEqual(cmp_["red_to_green"], [])
 
@@ -410,6 +486,35 @@ class GuidedWalk(GridCase):
         w = self.settle(gid)
         self.assertEqual(w["steps"][w["current"]]["step"], "run")
         self.assertTrue(w["blocked"])
+
+    def test_walk_run_rechecks_the_claim(self):
+        """Judge r2 finding 3, second half: the walk's claim step passed, and by its run step the
+        claim is gone (another tab's walk released it). The run is not started."""
+        gid = self.walk()
+        for _ in range(4):                       # old, new, status, claim
+            self.settle(gid)
+            self.next(gid)
+        self.settle(gid)
+        self.s.behave(status={"stdout": CLAIM_NONE})
+        self.next(gid)                           # run
+        w = self.settle(gid)
+        self.assertEqual(w["steps"][w["current"]]["step"], "run")
+        self.assertIn("claim", w["blocked"] or "")
+        self.assertEqual(self.s.runs(), [])
+
+    def test_walk_for_a_shared_state_cell_needs_confirmation(self):
+        st, j, _, _ = self.s.post("/cells/%s/guided" % H4)
+        self.assertEqual((st, j.get("error")), (400, "confirm"))
+        st, j, _, _ = self.s.post("/cells/%s/guided" % H4, {"confirm_shared_state_write": True})
+        self.assertEqual(st, 201, j)
+        run = [x for x in j["walk"]["steps"] if x["step"] == "run"][0]
+        self.assertIn("host_count_override", run["look_at"])
+        gid = j["walk"]["id"]
+        for _ in range(4):                       # old, status, claim, run
+            self.settle(gid)
+            self.next(gid)
+        self.settle(gid)
+        self.assertEqual(len(self.s.runs()), 1, "a confirmed walk still runs the cell")
 
     def test_the_verdict_is_adams(self):
         gid = self.walk("offline_cell")
@@ -463,6 +568,29 @@ class GuidedWalk(GridCase):
         w = self.settle(gid)
         self.assertEqual(w["steps"][w["current"]]["step"], "old")
         self.assertIn("no longer judges FAIL", w["blocked"])
+
+
+class SharedStateRegistry(unittest.TestCase):
+    """cells.WRITES_SHARED_STATE is this service's own list, so it is held to the real grid of
+    this tree: a cell that names one of the P4 knob files is on it, and nothing else is."""
+
+    def test_the_registry_matches_the_real_grid(self):
+        sys.path.insert(0, base.SERVE_DIR)
+        try:
+            import importlib
+            cells = importlib.reload(importlib.import_module("cells"))
+        finally:
+            sys.path.remove(base.SERVE_DIR)
+        grid = os.path.join(base.REPO, "tools", "test_workflow", "live_cells")
+        touching = set()
+        for f in sorted(os.listdir(grid)):
+            if not f.endswith(".sh") or f in ("run_cells.sh", "_cell_lib.sh"):
+                continue
+            text = base._read(os.path.join(grid, f))
+            if any(k in text for k in cells.SHARED_STATE_FILES):
+                touching.add(f[:-3])
+        self.assertEqual(touching, set(cells.WRITES_SHARED_STATE))
+        self.assertIn(H4, touching)
 
 
 if __name__ == "__main__":

@@ -27,6 +27,7 @@ import json
 import os
 import re
 import secrets
+import signal
 import subprocess
 import threading
 import time
@@ -38,6 +39,22 @@ VERDICT_RE = re.compile(r"^CELL: (PASS|FAIL|SKIP) (\S+) (.*)$")
 _FILE_IN_DETAIL = [re.compile(r"^no such raw file: (\S+)$"),
                    re.compile(r"^(\S+) (?:present|is missing or empty|contains it|does not contain|"
                               r"still contains|matches|does not match)")]
+PIPE_GRACE_S = 5
+
+# 🔴 Cells whose observe WRITES shared state beyond the lab verbs (judge r2 finding 2). ndt serve's
+# own list -- the grid has no such field -- so it is held to the real grid by
+# tests/python/test_ndt_serve_cells.py SharedStateRegistry: a cell script that names one of
+# SHARED_STATE_FILES is on it, and nothing else is. A run of one of these needs an explicit
+# confirmation field; its look_at names the write.
+SHARED_STATE_FILES = ("host_count_override", "app_package_override", "telemetry_override",
+                      "bmv2_binary_override")
+WRITES_SHARED_STATE = {
+    "up_refuses_a_model_of_another_network": (
+        "observe rewrites p4_proxy/mininet/host_count_override to 128 as its premise and writes the "
+        "tree's own bytes back at the end (up_refuses_a_model_of_another_network.sh, cell_observe). "
+        "Killed in between -- systemd-oomd does that on this laptop -- the knob stays at 128: the next "
+        "'ndt up p4' builds 128 hosts, and 'ndt release' refuses while the knob has moved."),
+}
 GAP_NOTE = ("A failing assertion on old/ is not automatically the finding: some old/ directories are "
             "thinner than the cell's raw layout, and an assertion that fails with 'no such raw file' "
             "may be a fixture gap, not evidence. PROVENANCE.md names the ones that carry the finding "
@@ -106,15 +123,41 @@ class Grid:
         return os.access(self.runner, os.X_OK)
 
     def _run(self, argv):
-        p = subprocess.run(argv, stdin=subprocess.DEVNULL, capture_output=True, env=self.env,
-                           cwd=self.repo, timeout=self.timeout, start_new_session=True)
-        return p.returncode, p.stdout.decode("utf-8", "replace"), p.stderr.decode("utf-8", "replace")
+        """(rc, stdout, stderr, timed_out). rc is None when it timed out.
+
+        The same shape as serve.run_read (judge r2 finding 4): its own session, killpg on the
+        group this call created -- by the pid it recorded -- and a bounded wait for the pipes after
+        it, so a stuck `meta` or `judge` cannot pin a handler, and a timeout is an answer rather
+        than a 500."""
+        p = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             env=self.env, cwd=self.repo, close_fds=True, start_new_session=True)
+        try:
+            out, err = p.communicate(timeout=self.timeout)
+            return p.returncode, out.decode("utf-8", "replace"), err.decode("utf-8", "replace"), False
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(p.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            try:
+                out, err = p.communicate(timeout=PIPE_GRACE_S)
+            except subprocess.TimeoutExpired:
+                out, err = b"", b""
+                for f in (p.stdout, p.stderr):
+                    try:
+                        f.close()
+                    except OSError:
+                        pass
+                p.wait(timeout=PIPE_GRACE_S)
+            return None, out.decode("utf-8", "replace"), err.decode("utf-8", "replace"), True
 
     def list(self):
         """The grid's own list (run_cells.sh --list), enriched with CELLS.md and the fixtures."""
         if not self.available():
             raise CellError("no live_cells grid at %s" % self.dir)
-        rc, out, err = self._run([self.runner, "--list"])
+        rc, out, err, timed_out = self._run([self.runner, "--list"])
+        if timed_out:
+            raise CellError("run_cells.sh --list did not answer within %d s and was stopped" % self.timeout)
         if rc != 0:
             raise CellError("run_cells.sh --list exited %d: %s" % (rc, err.strip()))
         md = parse_cells_md(os.path.join(self.dir, "CELLS.md"))
@@ -126,7 +169,8 @@ class Grid:
             name, tag, req = parts
             row = {"name": name, "tag": tag, "requires": req,
                    "old": os.path.isdir(os.path.join(self.fixtures, name, "old")),
-                   "new": os.path.isdir(os.path.join(self.fixtures, name, "new"))}
+                   "new": os.path.isdir(os.path.join(self.fixtures, name, "new")),
+                   "writes_shared_state": WRITES_SHARED_STATE.get(name)}
             row.update(md.get(name, {}))
             cells.append(row)
         return cells
@@ -153,9 +197,12 @@ class Grid:
         """`<cell>.sh judge <fixture>` -- read-only by the grid's contract -- and what it said."""
         d = self.fixture_dir(name, which)
         argv = [os.path.join(self.dir, name + ".sh"), "judge", d]
-        rc, out, err = self._run(argv)
+        rc, out, err, timed_out = self._run(argv)
         res = parse_judge(out)
+        if timed_out:
+            res["verdict"] = None
         res.update({"argv": argv, "rc": rc, "stdout": out, "stderr": err, "fixture": which,
+                    "timed_out": timed_out,
                     "dir": os.path.relpath(d, self.repo), "files": sorted(os.listdir(d))})
         failing = sorted(a["id"] for a in res["asserts"] if not a["ok"])
         res["failing"] = failing
@@ -264,6 +311,16 @@ def guided_steps(cell):
 
 def look_at(step, cell):
     exp = cell.get("expected") or "(CELLS.md has no row for this cell)"
+    text = _look_at(step, exp)
+    if step == "run" and cell.get("writes_shared_state"):
+        text += " ⚠️ 這一格會寫共用狀態：" + cell["writes_shared_state"] + \
+                " 跑完後請確認 git diff -- p4_proxy/mininet/host_count_override 跟跑之前一樣。"
+    if step == "run" and cell.get("requires") != "none":
+        text += " 開跑前服務會再讀一次 ndt status 的 claim 行，必須是 yours，否則不跑。"
+    return text
+
+
+def _look_at(step, exp):
     return {
         "old": ("看 FAIL 的那幾列：它們就是當時的缺陷。對照 expected_fails（人工審過的清單），"
                 "兩邊應該一致。再讀 provenance：只寫著 'no such raw file' 的紅，可能只是 fixture 缺檔，不是證據。"),
@@ -293,9 +350,10 @@ class Guided:
             raise KeyError(gid)
         return os.path.join(self.root, gid + ".json")
 
-    def create(self, cell):
+    def create(self, cell, confirmed=False):
         gid = "g" + time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()) + "-" + secrets.token_hex(3)
         walk = {"id": gid, "cell": cell["name"], "requires": cell["requires"], "created_at": time.time(),
+                "confirmed_shared_state_write": bool(confirmed and cell.get("writes_shared_state")),
                 "steps": [{"step": s, "title": STEP_TITLES[s], "look_at": look_at(s, cell),
                            "state": "pending", "result": None, "job": None}
                           for s in guided_steps(cell)],

@@ -904,10 +904,18 @@ class NoPatternKill(unittest.TestCase):
                  for kind, text, line in code_facts(p)
                  if kind == "call" and (text.startswith("os.kill") or text.endswith(".send_signal")
                                         or text.endswith(".terminate") or text.endswith(".kill"))]
-        self.assertEqual([t for _, t, _ in sends], ["os.killpg"], sends)
-        src = _read(os.path.join(SERVE_DIR, "serve.py"))
-        self.assertIn("os.killpg(p.pid, signal.SIGKILL)", src)
-        self.assertIn("start_new_session=True)\n        timed_out = False", src)
+        self.assertEqual({t for _, t, _ in sends}, {"os.killpg"}, sends)
+        for name in {f for f, _, _ in sends}:
+            src = _read(os.path.join(SERVE_DIR, name))
+            self.assertIn("os.killpg(p.pid, signal.SIGKILL)", src, name)
+            self.assertIn("start_new_session=True", src, name)
+        # 🔴 judge r2 finding 4: subprocess.run(timeout=...) kills its child implicitly -- a signal
+        # this scan cannot see, sent to the child and not to its group. None may remain.
+        implicit = [(os.path.basename(p), line) for p in glob.glob(os.path.join(SERVE_DIR, "*.py"))
+                    for kind, text, line in code_facts(p)
+                    if kind == "kw" and text.startswith("timeout=") and "subprocess.run" in
+                    _read(p).splitlines()[line - 1]]
+        self.assertEqual(implicit, [])
 
 
 # --- red line 7: identity ---------------------------------------------------------------------

@@ -112,6 +112,15 @@ def no_fields(body):
     return []
 
 
+def cell_run_body(body):
+    """POST /cells/<name>/run or /guided  {} or {"confirm_shared_state_write": true}"""
+    _no_extra_keys(body, ("confirm_shared_state_write",))
+    c = body.get("confirm_shared_state_write", False)
+    if not isinstance(c, bool):
+        raise Refused("confirm_shared_state_write must be true or false")
+    return c
+
+
 def argv_down(body):
     """POST /api/v1/down  {} -- never --deep, never --force (TICKET section 5)."""
     _no_extra_keys(body, ())

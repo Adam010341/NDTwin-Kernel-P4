@@ -625,6 +625,60 @@ m=$(mutant c16 "$CELLS_PY" \
 report "C16: the walk holds the shared lab while it waits on Adam's verdict" "$m" \
        cells:GuidedWalk.test_the_lab_is_released_before_the_verdict
 
+# --- the judge's second round (opus-judge on e4589399..e28bcfe4, 09-24; orchestrator's rulings) --
+
+m=$(mutant c17 "$SERVE_PY" \
+    '            if precheck is not None:
+                precheck()' \
+    '            pass')
+report "C17: a lab cell runs without reading the claim" "$m" \
+       cells:CellsRun.test_lab_cell_run_needs_your_claim
+
+m=$(mutant c18 "$SERVE_PY" \
+    '        if not (line or "").startswith("yours"):' \
+    '        if line is None:')
+report "C18: any claim line -- none, a foreign one, an expired one -- lets a lab cell run" "$m" \
+       cells:CellsRun.test_lab_cell_run_needs_your_claim
+
+m=$(mutant c19 "$SERVE_PY" \
+    '                st["result"] = {"ok": False, "why": "claim: the run was not started -- %s (claim line: %s)" % (' \
+    '                st["result"] = {"ok": True, "why": "claim: the run was not started -- %s (claim line: %s)" % (')
+report "C19: the walk goes past a run the claim re-check refused" "$m" \
+       cells:GuidedWalk.test_walk_run_rechecks_the_claim
+
+m=$(mutant c20 "$SERVE_PY" \
+    '        if cell.get("writes_shared_state") and confirmed is not True:' \
+    '        if False:')
+report "C20: a cell that writes host_count_override runs unconfirmed" "$m" \
+       cells:CellsRun.test_a_cell_that_writes_shared_state_needs_confirmation
+
+m=$(mutant c21 "$SERVE_PY" \
+    '        self._need_confirmation(cell, confirmed)
+        self._send(201, {"walk": self._walk_view(self.cfg.guided.create(cell, confirmed))})' \
+    '        self._send(201, {"walk": self._walk_view(self.cfg.guided.create(cell, confirmed))})')
+report "C21: a walk over a shared-state cell starts unconfirmed" "$m" \
+       cells:GuidedWalk.test_walk_for_a_shared_state_cell_needs_confirmation
+
+m=$(mutant c22 "$CELLS_PY" \
+    '    "up_refuses_a_model_of_another_network": (' \
+    '    "not_a_cell_of_this_grid": (')
+report "C22: the shared-state registry drifts from the real grid" "$m" \
+       cells:SharedStateRegistry.test_the_registry_matches_the_real_grid
+
+m=$(mutant c23 "$CELLS_PY" \
+    '                os.killpg(p.pid, signal.SIGKILL)' \
+    '                pass')
+report "C23: a timed-out judge is not stopped" "$m" \
+       cells:CellsRun.test_a_judge_past_its_timeout_is_stopped
+
+m=$(mutant c24 "$CELLS_PY" \
+    '        p = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,' \
+    '        subprocess.run(["true"], timeout=self.timeout)
+        p = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,')
+report "C24: an implicit child-only kill (subprocess.run timeout=) comes back" "$m" \
+       NoPatternKill.test_the_only_signal_sent_is_to_a_group_this_service_created
+
+
 echo
 if [[ "$(sha256sum "${SUBJECTS[@]}")" != "$BASE_SHA" ]]; then
     echo "a file under test CHANGED while this gate ran -- the results above are about two versions"
