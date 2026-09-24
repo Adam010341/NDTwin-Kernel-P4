@@ -363,6 +363,15 @@ INFERRED
 - `topology_manager.py`：`route_flow`、`unroute_flow`、`modify_flow`、`install_initial_routes`（:821-1208）透過上面那些方法間接寫死，另外假設 `/32`。
 - `ryu_flow_stats.py:46-60`（讀回）；`api_routes.py:370,401,462`（回應裡的 `"table"`）；`OpenflowCapacityReport.cpp:23-24`（kernel 端）。
 
+## 8. Adam 的裁決（2026-09-24 07:3x UTC，互動表單，四題全按建議）
+
+1. **所有權：** `owner: ndtwin` 時 NDTwin 獨佔該表；package 對這張表的 entries 在 preflight 就拒絕。繞路後的表必須能從宣告推算出來。
+2. **(c) 不要求使用者改 `.p4`：** 存活偵測以 root 的 veth 心跳為主（先做 spike，量偵測延遲與心跳幀進使用者 pipeline 的副作用），控制 shim 選配——作者自願 include 才走 LLDP。
+3. **GUI 允許讀一次能力旗標：** `get_graph_data` 的節點帶 `capabilities`，GUI 把不支援的操作變灰；要動 `~/Web-GUI`（一個 PR）與 kernel build（走 guard）。
+4. **第一刀範圍：** 7 支同形（basic／ecn／qos／mri／link_monitor／firewall／basic_tunnel 的 IP 部分）、單表 `roles`；load_balance 多表範本、tunnel 主機屬性、論文 app 的 ternary＋priority 都之後。
+
+⇒ 這四條是階段四工單的契約；工單另立，等 Adam 設 goal。
+
 ## 抽驗（orchestrator，2026-09-24，trunk `057a01f0` 的工作樹）
 
 建議所倚的三個 OBSERVED 事實與另外七條引用，逐條開檔對過（`sed -n`／`grep`，非轉述）：
