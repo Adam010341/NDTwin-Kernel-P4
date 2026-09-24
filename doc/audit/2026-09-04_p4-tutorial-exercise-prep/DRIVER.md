@@ -173,6 +173,19 @@ sudo、沒有 lab、沒有跑過任何一支（TICKET-P3 §0-2）；離線測試
 3. **`p4runtime`／`flowcache` 的控制器在兩個 fabric 上用兩個啟動方式。** tutorials 上它寫死的
    `127.0.0.1:5005N`／`device_id N-1` 就是真的；NDTwin 上不是，要走
    `tools/p4_exercise/run_external_controller.py`（TICKET-P1D 的 adapter，live-p1/03 用的同一支）。
+   🆕 **2026-09-24：tutorials 上的 solution 臂會多帶一個 `PYTHONPATH=<exdir>/../../utils`。**
+   orchestrator 17:53–18:00 那輪（trunk `6291db35`、driver blob `99c862a9`）兩支 solution 臂都在
+   import 就死了：`ModuleNotFoundError: No module named 'p4runtime_lib'`。原因是每支 `mycontroller.py`
+   都用 `sys.path.append(dirname(abspath(__file__)) + '../../utils/')` 找 `p4runtime_lib`——相對於
+   **檔案自己**、不是 cwd。骨架在 `<exdir>/` ⇒ 指到 `<tutorials>/utils` ✔；解答在 `<exdir>/solution/`
+   （tutorials 的本意是**複製蓋過**骨架那支）⇒ 原地跑就指到不存在的 `<tutorials>/exercises/utils`。
+   修法：只給**這一臂**把「檔案被放回原位時會 append 的那個目錄」放進子行程的 `PYTHONPATH`
+   （`tutorials_utils_of()`，由 exdir 推、不寫死；原本繼承到的 `PYTHONPATH` 排在後面）。
+   `~/tutorials` 裡不複製、不寫任何檔案；**骨架臂與 `--fabric ndtwin` 的指令和環境一個字都沒變**
+   （adapter 本來就自己找 utils 並插在 `sys.path[0]`）；報告裡 C1 那行記的指令帶著這個變數，
+   貼出來就能重跑。測試：`TheSolutionControllerFindsTheTutorialsLibrary`（會真的執行 driver 交出去的
+   那條指令）；mutation gate 98–106（105／106 是 round 2 補的：繼承到的 `PYTHONPATH` 在骨架／ndtwin 臂上不准丟，印出來的 `$ …` 那行要跟 C1 一致）。**這只修 driver 的啟動方式，兩支 solution 臂在 tutorials 上
+   仍然一次都沒跑成功過**——要等 orchestrator 重跑。
 
 ### 6.3 通用格（`--fabric ndtwin` 的**解答臂**最後一步）
 
