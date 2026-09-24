@@ -211,3 +211,13 @@ M-R12 外來 fabric `reroute: true`；M-R13 baseline 綁定任一名字改掉；
 - orchestrator 開檔核過的部分（OBSERVED）：第五次 raw 的 `rungs.tsv` 把梯頂確認 rep 記成 `c1`–`c3`、kpps＝最高乾淨階、時間在更高階之後；`analyse.py` `rung_windows`（`:693`）把同 kpps 的列聯集成一個窗，`cpu_for_window`（`:739-740`）與 `rung_samples_per_second`（`:708`）都用它 ⇒ 例 `G4/link_f64_b` 的 20 kpps 窗 ≈ 110 s、包住 30–110 kpps。
 - 對 FINDINGS 判決的影響是 INFERRED、未重算。派工單 C（`wt-p4-cpuwin-0924`，`analysis/cpu-window-recheck-0924`）：先確認 PREREG 註冊的每階窗是什麼（PREREG 沒說清楚就兩種讀法並列、不選）、紅先修碼、新舊對照表。
   **FINDINGS 要不要更正由 Adam 看過對照表再裁**；在那之前公開的 FINDINGS §4 維持原樣，報告裡明講「待驗證」。
+
+### 裁決 4（09-24 20:0x，Adam 互動表單）：FINDINGS §4＋fig3 更正、保留舊值勘誤表；主讀法＝「只算爬升」（Adam 裁定，非 PREREG 註冊）
+
+- C 交 `93033c44`，opus-judge **HOLDS WITH CORRECTIONS**。成立：`rung_windows` 的聯集窗確實包進確認 rep；修正後 H-C（兩組）與對帳 (b) 不變；
+  F 約 ÷3（coop 0.9234→0.3212、link 0.7692→0.2492）、share（coop 0.0722→0.0257）、m 小升（coop 122.89→126.19、link 79.00→82.41）；§1–§3 零變動（1560 葉同、99 葉變）。
+  **判官更正 C 與 orchestrator 的說法：註冊的 bmv2 每階判決有翻**（PREREG `:276-277`）——12 kpps 帶外→帶內、30 kpps 帶內→帶外，帶外總數仍 2／11。
+- 讀法：PREREG 沒決定確認 rep 屬不屬該階 CPU；兩種讀法在第五次的判決完全相同。Adam 選「只算爬升」，理由記錄：§5.3（`:263-266`）把 CPU(k) 與 S(k) 配對，而 S(k) 只涵蓋爬升（`:505-507`）⇒ 同窗；
+  08-28 規則（`2026-08-28_flow-count-capacity/PREREG.md:254-255`）把首讀與確認分開記。FINDINGS 與輸出要標「Adam 2026-09-24 裁定、非 PREREG 註冊」。
+- C 第二輪：判官各項＋下游（`cpu_bmv2_ratio`、對帳 (b)、render、fig3）標明讀法＋FINDINGS 以腳本重生＋勘誤表（舊值保留）＋重生 fig3（fig1／fig2 須逐位元不變）。
+  cooperative 仍貼 H-C1，但名稱「固定成分主導」與 share 0.026 字面不符 ⇒ FINDINGS 在標籤旁明寫「成立依據只有 m 落帶」（裁決 40④）。
