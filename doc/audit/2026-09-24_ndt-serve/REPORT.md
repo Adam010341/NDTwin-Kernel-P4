@@ -47,7 +47,7 @@
 | 變異閘門 | `tests/shell/mutate_ndt_serve.sh`：**42 個具名變異，42 個被抓到，0 個倖存**；原檔 sha 前後不變 | ✅ `LOGS/mutate_ndt_serve.d02689aa.log` |
 | 錨點 | `check_gate_anchors.py HEAD`：本閘門 ok；**其他 115 支既有閘門**在含本分支 `ndt` 改動的 HEAD 上也都 ok | ✅ |
 | 既有 ndt 測試 | `test_ndt_honesty.sh` 345／345、`test_manual_rc_table.sh` 26／26、`test_ndt_up_target.sh` 23／23 | ✅ 實跑 |
-| 既有 ndt 變異閘門 | 兩支會讀 `ndt help` 的閘門：`mutate_ndt_honesty.sh`（67 個變異）和 `mutate_manual_rc_table.sh`（9 個），在本分支 `d02689aa` 上實跑。22:10 開跑，基線 345／345 綠 | ⏳ 跑完後由後續 commit 補上結果（`LOGS/mutate_ndt_honesty.d02689aa.log`） |
+| 既有 ndt 變異閘門 | 兩支會讀 `ndt help` 的閘門，在本分支 `d02689aa` 上實跑：`mutate_ndt_honesty.sh` 67 個變異 0 倖存；`mutate_manual_rc_table.sh` 10 個變異 0 倖存，1 個對照組照規定保持綠。兩支都是 rc 0 | ✅ `LOGS/mutate_ndt_honesty.d02689aa.log`、`LOGS/mutate_manual_rc_table.d02689aa.log` |
 | 靜態 meta-gate | `check_process_by_name.py` 全樹 0 個命中；`check_test_tmpdirs.py` 0 | ✅ |
 | live demo | 全程走 API，owner `ndt-serve-0924`，OVS 4：11 步全部 rc 0；直打 `ndt` 的對照組 11 步也全部 rc 0，**逐步一致**（§5.2） | ✅ |
 | 文件 | `tools/ndt_serve/README.md`（API 一覽、curl、rc_class 表）；本報告 | ✅ |
