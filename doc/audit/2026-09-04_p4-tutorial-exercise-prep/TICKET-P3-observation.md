@@ -264,3 +264,48 @@ opus；worktree `scratch/overnight-2026-09-05/wt-p3-driver-0919`，分支 `feat/
 ⑨ **登記進候選（不擋本輪）**：(a) 變異閘的 `report()` 只驗「指名的那格有紅」（`mutate_analyse.sh:159-165`），**不驗其他格有沒有跟著紅** ⇒「0 survivors」不等於「只殺該殺的」；M-E36 有 `red-37-5…log:16-19` 的佐證（另三格照綠），M-E35 沒有 ⇒ 至少給 M-E35 補一次整套跑。(b) 本輪三件新儀器（red-37-1 的雙儀器比較、postcheck-9a、9b）**都只留 stdout、腳本沒存檔**——那正是他們自己 `:1369` 登記的候選，這輪把它做掉。(c) `headroom == 0` 的邊界沒被踩到（目前只有 <0），而 `==0` 正是唯一會讓那個守衛從等價變異變成非等價的輸入。
 
 ⑩ 程序照舊。**本輪與裁決 38 合併成第十輪一起做**；過了就併。🔴 這次我會等 worker 的最終通知到手才派判官。
+
+### 裁決 40（09-24）：E 第十輪 `bc1db4c0` 的裁定、第十一輪、與 PREREG 沒寫到可機械執行的那幾條怎麼報
+
+⓪ **交件與核對**。worker 交 `DELIVERED bc1db4c0`（併 trunk 的 `56d83ee8` 無衝突＋六個 commit）。我逐 hunk 讀完 15 檔（+1408/−44）：`analyse.py` 的
+`all_registered_rates`／`registered_sampling`／`registered_cross_group`／`cpu_comparison(registered=)`／`bmv2_ratio` 與 PREREG `:251-254`、`:262-277` 逐條對過；
+`plot.py` 只改註解。我在其 head 重跑（`orchestrator-0919/rerun-E10-bc1db4c0.log`）：unit 94×2（venv＋conda）、offline 78/0、self-test 14/0、hazard 4 檔 0、
+anchor sweep 45 gate＋13 external 全解析、`check_gate_anchors` 115/115、`mutate_analyse` 43／0 存活／0 drift＋2 對照綠。
+**判官（Opus 5.5 覆寫的 fable-judge）在 worker 的最終通知之後才派**（裁決 39⓪a 的規矩守住）：**MERGE AFTER FIXES**，三項要修（見 ⑩）。
+判官說不能用 git 查的幾條，我查了：`106a06bf` 只動 `tests/` 六檔（tests-only 成立）；`tests/test_analyse.py` 在其後的 `308cc6a5` 又動了 +2/−2（worker 未揭露，⑩d 要補）；
+七支儀器腳本在 `bc1db4c0` 都已追蹤；worker 的 summary.json sha256 `d48fa3ca6beefbe5` 與所引相同。
+worker 的 commit trailer 寫 `Claude Opus 5.5 (1M context)`——**採**：那是真正做事的模型；我指令裡要求的 Fable 5.1 是抄了自己的 trailer 規則，錯在我。
+
+① **組級判決採用**（唯一可進 FINDINGS 的層）：`cooperative`「neither H-B1 nor H-B2 holds as registered」（2 M 0.2953 > 帶上緣 0.2853、符號混；20 M、100 M 在帶內）；
+`link`「H-B1」（三速率都在帶內）；「not H-B4」（2 M link/coop 0.253 ∉ [0.5, 2.0]；20 M 1.255、100 M 1.489 在內）。逐格描述留作資料。
+數字與 09-19 的 summary 逐葉相同（1424 個；判官另抽 64 個數逐一比過），只有標籤層變。
+🔴 **更正裁決 38 的一句**：38 說「本輪兩個處理組三速率全在帶內，所以組級與逐格同結論、改不改都不影響結果」——那是對**第四次** campaign 說的；
+在第五次上它**不成立**：兩個逐格 H-B1（coop 20 M、100 M）與兩個逐速率 H-B4（20 M、100 M）在組級都掉了。判官抓到、我認。
+
+② **cooperative 的「neither」是 PREREG 沒註冊的結局**（`:249-255` 與 §9 的結局表都沒有這一支）。裁：FINDINGS §3 照實寫「H-B1 不成立（2 M 在帶上方）、H-B2 不成立（100 M 在帶內）；
+PREREG 沒為這個結局註冊分支 ⇒ **報數字、不貼標籤、不套用結局表的任何動作**」；登記為 PREREG 缺口（§6）與下一輪的修訂候選（加 H-B0「兩者皆不成立」分支，並註冊它的意義：
+低速率的誤差來源不是 shot-noise 也不是同號偏差）。
+
+③ **H-C2 的第二條件（`:271`「Δ(高階)/Δ(低階) ≈ S(高)/S(低)」）沒有註冊容差 ⇒ 本輪不可判。** link：第一條件成立（share 0.0623 ≤ 0.2）；第二條件 31.5 vs 58.7（0.537）。
+FINDINGS §4 對 link 寫「H-C2 as registered：**不可判**（第一條件成立、第二條件無註冊容差）」；**不准**事後挑容差把它判成立或不成立。碼不得再輸出以「H-C2」開頭的字串（⑩a）。
+候選（不套用於本資料）：下一輪 PREREG 補「≈」＝比值 ∈ [0.5, 2.0]。
+
+④ **H-C1 與 H-C2 的先後（cooperative）**：H-C1 成立（m 122.9 ∈ [103, 618]）、H-C2 的第一條件也成立（share 0.0722 ≤ 0.2）。PREREG 沒註冊先後，但 H-C2 需兩條件且第二條不可判 ⇒
+H-C2 本輪無法成立 ⇒ 沒有真正的衝突。裁：cooperative 報 **H-C1**，FINDINGS 同時寫「成立的依據只有 m 落帶；固定份額 0.072 那條不成立、H-C2 的第一條件反而成立」。
+
+⑤ **H-C0 的散佈量**：碼用兩臂原始 CPU 全距、PREREG `:273` 用同一格三窗／三 rep 的 Δkernel 散佈。**本輪不改碼、不重算**（事後換散佈定義＝換判準）；第五次 11 階 0 個 unresolved，
+差異沒改變任何判決。登記 §6；「部分格不可解時整組擬不擬合」與 `S_top` 的定義同樣登記（第五次不適用／相同）。
+
+⑥ **H-A2 跨 frame／跨遍**：PREREG `:220`「< 0.60 且兩個 frame 尺寸與兩遍都同向」，碼逐 (組, frame) 只驗 < 0.60。第五次 link/none 64 B 0.533、1024 B 0.533，兩遍 link 12／20 vs none 30／30
+都在下方 ⇒ 註冊條件成立（我從 summary.json 的 `cells` 抽的，不是碼判的）。FINDINGS §2 的 H-A2 只引**一次**（組級）並列四個值；碼的組級彙總＝候選。
+
+⑦ **`external_gate` 把負殘差跟 `-1` 哨兵一起丟**：`none_f64_b` external −0.0096 不在閘門也不在 `none` 中位數（3 臂 0.0560 vs 4 臂 0.0355）；兩種算法都無臂觸發。FINDINGS §1.2 註明；修法＝候選。
+
+⑧ **`members[0]` 的 N**：link 20 M／100 M 第一窗讀 5 條、另兩窗 4 ⇒ 帶用 N=5；改用註冊的 4 條同樣在帶內，判決不變。FINDINGS §3 逐格揭露；候選：每窗各自的 N 或註冊的 4。
+**H-B3「該視窗」計數來源**：碼加總梯子臂的 emitter 計數；第五次無 ratio > 2.0，不觸發；登記。
+
+⑨ **FINDINGS §6**：第 6 條改成第五次的 {0: 9, 4: 16, 5: 2}（已改）；第 7 條的前提「分析目前逐格貼標籤」在第十輪後為假，改寫成「已改；本輪起只引組級」；`:154` 那句「單一 bmv2 比值與判決」改成逐階（PREREG 沒註冊跨階彙總）。
+
+⑩ **第十一輪（已派給同一隻 worker，範圍限定）**：(a) 依 ③ 改 `cpu_verdict` 輸出「not decided: H-C2 condition 1 holds…」＋機器可讀欄位，render 與對帳 (b) 同步；(b) bmv2 的 H-C0 分支移到 `registered` 檢查之後
+（判官：`analyse.py:832-837` 在 `:839` 之前），紅先＋變異；(c) H-B2 要求三個有效視窗同號（`:252`），紅先＋變異；(d) SUMMARY 揭露 `test_analyse.py` 在 `106a06bf` 之後的 +2/−2；(e) 判官列的字面小錯。
+建議不擋：缺速率路徑的測試、`[-1:]` 變異。第十一輪交件後：我逐 hunk 讀、重跑閘門；改動若限於這五項且紅先齊全，**不再派判官**（比照 D 的文件層先例），直接 `--no-ff` 併入。
