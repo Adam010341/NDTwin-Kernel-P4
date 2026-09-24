@@ -326,6 +326,11 @@ class CellsRun(GridCase):
             self.assertEqual(len(pids), 1)
             self.assertFalse(base._pid_alive(pids[0]), "the timed-out judge is still running")
         finally:
+            # under a mutation that stops killing the group (C23) the stub sleeps on: stopped here
+            # by the pid it recorded, so a gate run leaves nothing behind
+            for c in s.grid_calls("judge-sleeping"):
+                if base._pid_alive(c["pid"]):
+                    os.kill(c["pid"], signal.SIGKILL)
             s.close()
 
     def test_cell_run_needs_the_token(self):

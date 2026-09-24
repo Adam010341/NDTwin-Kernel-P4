@@ -679,6 +679,12 @@ report "C24: an implicit child-only kill (subprocess.run timeout=) comes back" "
        NoPatternKill.test_the_only_signal_sent_is_to_a_group_this_service_created
 
 
+m=$(mutant m62 "$SERVE_PY" \
+    '    request_queue_size = 64' \
+    '    request_queue_size = 5')
+report "M62: the listen backlog is socketserver's 5 (a burst of 20 gets a reset)" "$m" \
+       Bounded.test_listen_backlog_holds_a_burst
+
 echo
 if [[ "$(sha256sum "${SUBJECTS[@]}")" != "$BASE_SHA" ]]; then
     echo "a file under test CHANGED while this gate ran -- the results above are about two versions"

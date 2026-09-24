@@ -816,6 +816,10 @@ class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
     flood of connections from a local page gets an immediate 503, not a thread each."""
     daemon_threads = True
     allow_reuse_address = True
+    # socketserver's default listen backlog is 5: a burst of 20 connections (a page that fetches
+    # in parallel does that) had one reset by the kernel before accept() ever saw it -- 1 in 10
+    # runs of the concurrency case, 09-24 23:3x. The cap on connections SERVED is conn_slots.
+    request_queue_size = 64
     conn_slots = None
     waiters = None
     _BUSY_BODY = b'{"error": "busy", "note": "too many connections"}\n'

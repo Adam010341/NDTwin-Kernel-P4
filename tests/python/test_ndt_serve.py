@@ -479,6 +479,18 @@ class Bounded(unittest.TestCase):
         finally:
             s.close()
 
+    def test_listen_backlog_holds_a_burst(self):
+        """Found by the final run of 09-24 23:3x: 20 concurrent POSTs, one reset by the kernel
+        (1/10 reproduced). socketserver's listen backlog is 5; a burst past it is dropped or reset
+        before the server ever sees it. The backlog is read off the listening socket (ss Send-Q)."""
+        s = Serve().start()
+        try:
+            out = subprocess.run(["ss", "-ltnH", "sport = :%d" % s.port], capture_output=True, text=True).stdout
+            backlog = int(out.split()[2])
+            self.assertGreaterEqual(backlog, 64, out)
+        finally:
+            s.close()
+
     def test_connections_are_bounded(self):
         import socket
         s = Serve(extra=["--max-connections", "4"]).start()
