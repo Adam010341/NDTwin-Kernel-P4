@@ -809,6 +809,28 @@ class RenamedRolesTest(RolesCase):
         self.assert_red("roles.ipv4_route resolves",
                         "out_port is 8 bits and the topology gives this switch port 300")
 
+    def test_the_owned_table_rows_speak_only_of_the_switches_whose_binding_resolved(self):
+        # s1 cannot bind (port 300 in an 8-bit field) and carries its own dest_routes entries
+        # again; the resolve row already fails for s1. The owned-table rows are about the three
+        # switches NDTwin would bind -- not a second verdict on the one it will not.
+        def widen(model):
+            for edge in model["edges"]:
+                if edge["src_dpid"] == 1 and edge["src_interface"] == 4:
+                    edge["src_interface"] = 300
+                if edge["dst_dpid"] == 1 and edge["dst_interface"] == 4:
+                    edge["dst_interface"] = 300
+        self.edit_model(widen)
+        original = common.load_json(os.path.join(RENAMED, "pod-topo/s1-runtime.json"))
+        with open(os.path.join(self.pkg, "pod-topo/s1-runtime.json"), "w",
+                  encoding="utf-8") as fh:
+            fh.write(common.dumps(original))
+        report = self.report()
+        self.assertEqual([d for status, _label, d in report.rows
+                          if status == preflight.FAIL and "s1 entry" in d], [], report.render())
+        status, _label, detail = self.row("owned table has no package entries")
+        self.assertEqual((status, detail),
+                         (preflight.PASS, "RouteIngress.dest_routes is NDTwin's on 3 switch(es)"))
+
 
 class TheSuggestionTest(RolesCase):
     """2.1-6: the heuristic, here and only here -- one INFO line, never fatal."""

@@ -1005,13 +1005,25 @@ m=$(mutant pf_guess "$PREFLIGHT" \
 report "PF10: when nothing fits, the heuristic suggests NDTwin's own names" "$m" \
        "test_calc_has_no_route_table_so_nothing_is_suggested"
 
+# PF11 and PF12 are two different claims. PF11: when NOTHING resolved there is no owned table
+# to vouch for (calc). PF12: when SOME switches resolved, the owned-table rows are about those
+# only. Gate run c21deca3 had one mutation for both, the loop's, and calc cannot see the loop --
+# nothing resolves there, so the guard returns before it; that mutation SURVIVED, correctly.
+m=$(mutant pf_noguard "$PREFLIGHT" \
+    '    if not bound:
+        # Nothing resolved' \
+    '    if False:
+        # Nothing resolved')
+report "PF11: with nothing resolved, pre-flight vouches for an owned table the program lacks" "$m" \
+       "test_no_owned_table_row_is_claimed_for_a_table_the_program_does_not_have"
+
 m=$(mutant pf_ownedall "$PREFLIGHT" \
     '    for dpid, _binding in bound:
         path = referenced.get(f"switches[{dpid}].entries")' \
     '    for dpid in own:
         path = referenced.get(f"switches[{dpid}].entries")')
-report "PF11: the owned-table rows are claimed for switches whose binding did not resolve" "$m" \
-       "test_no_owned_table_row_is_claimed_for_a_table_the_program_does_not_have"
+report "PF12: the owned-table rows also judge a switch whose binding did not resolve" "$m" \
+       "test_the_owned_table_rows_speak_only_of_the_switches_whose_binding_resolved"
 
 m=$(mutant mn_predict "$MAIN" \
     '    if ndtwin:
