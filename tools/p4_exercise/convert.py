@@ -4,7 +4,9 @@
 [Co-developed with claude code -- Adam]
 
     tools/p4_exercise/convert.py <exercise_dir> --topology pod-topo/topology.json \
-        [--p4 solution/basic.p4] --out <package_dir>
+        [--p4 solution/basic.p4] --out <package_dir> \
+        [--role-ipv4-route owner=ndtwin,table=MyIngress.ipv4_lpm,match_field=hdr.ipv4.dstAddr,\
+                           action=MyIngress.ipv4_forward,dst_mac=dstAddr,port=port]
 
 What comes out:
 
@@ -38,6 +40,7 @@ What it deliberately does NOT do:
     assumed /24 is exactly the silent default that makes a wrong fabric look built.
 """
 import argparse
+import json
 import os
 import shutil
 import sys
@@ -619,6 +622,124 @@ def _dedup_copies(copies):
     return sorted(out, key=lambda t: t[1])
 
 
+# --- `roles.ipv4_route` (TICKET-P4-roles section 2.1-7) --------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+#
+# 🔴 EVERY NAME IS WRITTEN OUT BY THE OPERATOR. The flag takes all six -- owner, table,
+# match_field, action, dst_mac, port -- and a missing one is refused rather than filled in from
+# the p4info: a table that merely LOOKS like a route table is a guess, and the guess is exactly
+# what the roles contract exists to replace (ANALYSIS section 5). preflight.py is the one place
+# that looks at a p4info and SUGGESTS a block; the author accepts it by typing it here.
+#
+# 🔴 WITHOUT THE FLAG NOTHING HERE RUNS, and the package is byte-for-byte what it was
+# (tests/test_convert.py compares every written file against a capture taken at 6291db35).
+# With it, and owner `ndtwin`, this is the first thing convert does that REWRITES a runtime file
+# instead of copying it: NDTwin owns that table exclusively (Adam's ruling 8-1), so the
+# exercise's match entries for it are taken out -- and counted, per switch, in convert's own
+# report. The table's default action stays; it is not a route, and pre-flight discloses it.
+
+ROLE_FLAG_KEYS = ("owner", "table", "match_field", "action", "dst_mac", "port")
+ROLE_OWNERS = ("ndtwin", "package")
+
+
+def parse_role_flag(text):
+    """`owner=...,table=...,...` -> the `roles.ipv4_route` object package.json carries.
+
+    All six keys, each once, none empty, nothing else; owner is `ndtwin` or `package`.
+    """
+    if not isinstance(text, str) or not text.strip():
+        raise ConversionError("--role-ipv4-route needs owner=,table=,match_field=,action=,"
+                              "dst_mac=,port=")
+    values = {}
+    for part in text.split(","):
+        if "=" not in part:
+            raise ConversionError(f"--role-ipv4-route: {part!r} is not key=value")
+        key, value = (x.strip() for x in part.split("=", 1))
+        if key not in ROLE_FLAG_KEYS:
+            raise ConversionError(f"--role-ipv4-route: unknown key {key!r}; the keys are "
+                                  f"{list(ROLE_FLAG_KEYS)}")
+        if key in values:
+            raise ConversionError(f"--role-ipv4-route: {key!r} is given twice")
+        if not value:
+            raise ConversionError(f"--role-ipv4-route: {key!r} is empty")
+        values[key] = value
+    missing = [k for k in ROLE_FLAG_KEYS if k not in values]
+    if missing:
+        raise ConversionError(
+            f"--role-ipv4-route: missing {missing}. Every name is written out -- nothing is "
+            f"guessed from the p4info")
+    if values["owner"] not in ROLE_OWNERS:
+        raise ConversionError(f"--role-ipv4-route: owner must be one of {list(ROLE_OWNERS)}, "
+                              f"got {values['owner']!r}")
+    return {"owner": values["owner"], "table": values["table"],
+            "match_field": values["match_field"], "action": values["action"],
+            "params": {"dst_mac": values["dst_mac"], "port": values["port"]}}
+
+
+def _table_names(p4info_path, table):
+    """{full name, alias} of `table` in this p4info, or {table} when it is not there.
+
+    An entry may spell the table either way (tutorials' helper accepts both), and "is this
+    entry for the owned table" has to answer yes to both spellings.
+    """
+    from p4_exercise import preflight  # local: protobuf is only needed with the flag
+
+    try:
+        found = preflight.P4InfoIndex.parse(p4info_path).table(table)
+    except Exception:  # noqa: BLE001 -- pre-flight reports an unreadable p4info by name
+        found = None
+    if found is None:
+        return {table}
+    return {found.preamble.name, found.preamble.alias} - {""}
+
+
+def apply_route_role(exercise_dir, package, copies, role):
+    """Put `roles.ipv4_route` in `package`; with owner ndtwin, take the owned table's match
+    entries out of every switch that runs the package's own program.
+
+    Returns (package, copies, rewrites, removed): `copies` without the rewritten runtime files,
+    `rewrites` {package-relative path: new text}, `removed` {dpid as string: entries taken out}.
+    """
+    if package["control_plane"]["mode"] == "external":
+        raise ConversionError(
+            "--role-ipv4-route on an external control plane: the exercise's own controller "
+            "owns every table and NDTwin writes none, so a route role would bind nothing")
+    own_program = {dpid: spec for dpid, spec in package["switches"].items()
+                   if spec.get("pipeline")}
+    if not own_program:
+        raise ConversionError(
+            "--role-ipv4-route binds a table of the package's OWN program, and this package "
+            "puts every switch on NDTwin's pipeline (no --p4, or --ndtwin-pipeline) -- the "
+            "role would apply to no switch. Pass --p4 <the exercise's program>")
+    package = dict(package)
+    package["roles"] = {"ipv4_route": role}
+    rewrites, removed = {}, {}
+    if role["owner"] != "ndtwin":
+        return package, copies, rewrites, removed
+    for dpid in sorted(own_program, key=int):
+        spec = own_program[dpid]
+        rel = spec.get("entries")
+        if not rel:
+            continue
+        doc = common.load_json(os.path.join(exercise_dir, rel))
+        names = _table_names(os.path.join(exercise_dir, spec["pipeline"]["p4info"]),
+                             role["table"])
+        kept, gone = [], 0
+        for entry in doc.get("table_entries") or []:
+            if (isinstance(entry, dict) and entry.get("table") in names
+                    and not entry.get("default_action")):
+                gone += 1
+                continue
+            kept.append(entry)
+        removed[str(dpid)] = gone
+        if gone:
+            doc["table_entries"] = kept
+            rewrites[rel] = json.dumps(doc, indent=2) + "\n"
+    copies = [(src, rel) for src, rel in copies if rel not in rewrites]
+    return package, copies, rewrites, removed
+
+
 def read_back(model):
     """Read the generated model with the proxy's own reader; raise if any of the four refuse.
 
@@ -639,8 +760,13 @@ def read_back(model):
             f"topo_from_json.py, which is the reader the fabric and the proxy use: {exc}") from exc
 
 
-def write(out_dir, package, model, copies):
-    """Write the package. Returns the list of files written, package-relative."""
+def write(out_dir, package, model, copies, rewrites=None):
+    """Write the package. Returns the list of files written, package-relative.
+
+    `rewrites` -- {package-relative path: text} for the runtime files `apply_route_role` took
+    owned-table entries out of. None (every caller without --role-ipv4-route) writes nothing
+    extra. [Co-developed with claude code -- Adam]
+    """
     out_dir = os.path.abspath(out_dir)
     os.makedirs(os.path.join(out_dir, "ndtwin"), exist_ok=True)
     written = []
@@ -648,6 +774,12 @@ def write(out_dir, package, model, copies):
         dest = os.path.join(out_dir, rel)
         os.makedirs(os.path.dirname(dest), exist_ok=True)
         shutil.copyfile(abs_src, dest)
+        written.append(rel)
+    for rel, text in sorted((rewrites or {}).items()):
+        dest = os.path.join(out_dir, rel)
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
+        with open(dest, "w", encoding="utf-8") as fh:
+            fh.write(text)
         written.append(rel)
     with open(os.path.join(out_dir, "ndtwin", "topology.json"), "w", encoding="utf-8") as fh:
         fh.write(common.dumps(model))
@@ -659,11 +791,20 @@ def write(out_dir, package, model, copies):
 
 
 def convert(exercise_dir, topology_rel, out_dir, p4_rel=None, name=None, mode="auto",
-            ndtwin_pipeline=False):
+            ndtwin_pipeline=False, role_ipv4_route=None, removed=None):
+    """Plan, read back, write. `role_ipv4_route` is `parse_role_flag`'s object (or None); when
+    given, `removed` (a dict, if passed) is filled with {dpid: owned-table entries taken out}.
+    [Co-developed with claude code -- Adam]"""
     package, model, copies = plan(exercise_dir, topology_rel, p4_rel=p4_rel, name=name,
                                   mode=mode, ndtwin_pipeline=ndtwin_pipeline)
+    rewrites = None
+    if role_ipv4_route is not None:
+        package, copies, rewrites, taken = apply_route_role(
+            os.path.abspath(exercise_dir), package, copies, role_ipv4_route)
+        if removed is not None:
+            removed.update(taken)
     read_back(model)
-    return package, model, write(out_dir, package, model, copies)
+    return package, model, write(out_dir, package, model, copies, rewrites)
 
 
 def main(argv=None):
@@ -680,12 +821,21 @@ def main(argv=None):
                     help="put every switch on NDTwin's own compiled pipeline instead of the "
                          "exercise's programs (the package still carries its topology, hosts "
                          "and entries). Overrides --p4 and any per-switch `program`.")
+    ap.add_argument("--role-ipv4-route", default=None, metavar="owner=,table=,match_field=,"
+                    "action=,dst_mac=,port=",
+                    help="declare roles.ipv4_route (TICKET-P4-roles 2.1): every name written "
+                         "out, none guessed. owner=ndtwin also takes the exercise's match "
+                         "entries for that table out of every runtime file (counted below).")
     args = ap.parse_args(argv)
 
+    removed = {}
     try:
+        role = (None if args.role_ipv4_route is None
+                else parse_role_flag(args.role_ipv4_route))
         package, model, written = convert(args.exercise_dir, args.topology, args.out,
                                           p4_rel=args.p4, name=args.name, mode=args.mode,
-                                          ndtwin_pipeline=args.ndtwin_pipeline)
+                                          ndtwin_pipeline=args.ndtwin_pipeline,
+                                          role_ipv4_route=role, removed=removed)
     except ConversionError as exc:
         print(f"REFUSED: {exc}", file=sys.stderr)
         return 1
@@ -704,6 +854,18 @@ def main(argv=None):
         for k in sorted(package["switches"], key=int)))
     print(f"  model         : {n_sw} switches, {n_h} hosts, {len(model['edges'])} edges "
           f"({len(model['edges']) // 2} links, both directions stored)")
+    if "roles" in package:
+        route = package["roles"]["ipv4_route"]
+        print(f"  roles         : ipv4_route owner={route['owner']} table={route['table']} "
+              f"match_field={route['match_field']} action={route['action']} "
+              f"dst_mac={route['params']['dst_mac']} port={route['params']['port']}")
+        if route["owner"] == "ndtwin":
+            per = ", ".join(f"s{d}: {n}" for d, n in sorted(removed.items(), key=lambda kv:
+                                                            int(kv[0])))
+            print(f"  owned table   : {sum(removed.values())} match entr"
+                  f"{'y' if sum(removed.values()) == 1 else 'ies'} for {route['table']} taken "
+                  f"out of the runtime files ({per or 'no switch had any'}); its default "
+                  f"action stays")
     print(f"  files         : {len(written)}")
     for rel in written:
         print(f"                  {rel}")

@@ -1,0 +1,79 @@
+{
+  "target": "bmv2",
+  "p4info": "build/renamed_route.p4.p4info.txtpb",
+  "bmv2_json": "build/renamed_route.json",
+  "table_entries": [
+    {
+      "table": "RouteIngress.dest_routes",
+      "default_action": true,
+      "action_name": "RouteIngress.discard",
+      "action_params": {}
+    },
+    {
+      "table": "RouteIngress.dest_routes",
+      "match": {
+        "hdr.ip4.dst": [
+          "10.0.1.1",
+          32
+        ]
+      },
+      "action_name": "RouteIngress.send_via",
+      "action_params": {
+        "out_port": 1,
+        "next_mac": "08:00:00:00:01:00"
+      }
+    },
+    {
+      "table": "RouteIngress.dest_routes",
+      "match": {
+        "hdr.ip4.dst": [
+          "10.0.2.2",
+          32
+        ]
+      },
+      "action_name": "RouteIngress.send_via",
+      "action_params": {
+        "out_port": 1,
+        "next_mac": "08:00:00:00:01:00"
+      }
+    },
+    {
+      "table": "RouteIngress.dest_routes",
+      "match": {
+        "hdr.ip4.dst": [
+          "10.0.3.3",
+          32
+        ]
+      },
+      "action_name": "RouteIngress.send_via",
+      "action_params": {
+        "out_port": 2,
+        "next_mac": "08:00:00:00:02:00"
+      }
+    },
+    {
+      "table": "RouteIngress.dest_routes",
+      "match": {
+        "hdr.ip4.dst": [
+          "10.0.4.4",
+          32
+        ]
+      },
+      "action_name": "RouteIngress.send_via",
+      "action_params": {
+        "out_port": 2,
+        "next_mac": "08:00:00:00:02:00"
+      }
+    },
+    {
+      "table": "RouteIngress.proto_tags",
+      "match": {
+        "hdr.ip4.proto": 17
+      },
+      "action_name": "RouteIngress.tag_proto",
+      "action_params": {
+        "tag": 4
+      }
+    }
+  ]
+}

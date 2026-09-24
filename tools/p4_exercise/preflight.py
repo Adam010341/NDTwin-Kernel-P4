@@ -319,11 +319,202 @@ def run(package_dir, report=None, compile_p4=True):
     pipeline_p4info = _check_pipelines(report, package_dir, package)
     used_p4info = _check_entries(report, package_dir, package, referenced)
     _check_entries_are_for_this_pipeline(report, used_p4info, pipeline_p4info)
+    _check_roles(report, package_dir, package, model, pipeline_p4info, referenced)
     _check_telemetry(report, package_dir, package, pipeline_p4info)
     _check_pre_entries(report, package_dir, package, model, referenced)
     _check_port_block(report, package)
     _check_compile(report, package_dir, package, compile_p4)
     return report
+
+
+# --- roles.ipv4_route (TICKET-P4-roles section 2.1) ---------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+#
+# 🔴 THE SAME TWO FUNCTIONS THE PROXY RUNS. The shape goes through `app_package.parse_roles` and
+# every p4info through `proxy_agent/route_binding.resolve` -- the loader's and the client
+# factory's own code, imported by path -- so a package this table passes is one the proxy starts
+# on, and one it fails is refused at bring-up with the same sentence (2.1-4).
+#
+# 🔴 THE HEURISTIC LIVES HERE AND NOWHERE ELSE (2.1-6). A foreign pipeline with no `roles` whose
+# p4info has a table that LOOKS like a destination route table gets one INFO line: the block an
+# author could paste. It is never applied, never fatal, and never consulted by the proxy -- a
+# name is not consent (ANALYSIS section 5).
+
+
+def _roles_max_port(model, dpid):
+    ports = _switch_ports(model).get(int(dpid)) if model else None
+    return max(ports) if ports else None
+
+
+def _suggest_route_role(route_binding, p4infos, model):
+    """A roles.ipv4_route every foreign p4info resolves, or None. The one heuristic."""
+    from p4.config.v1 import p4info_pb2
+
+    lpm = p4info_pb2.MatchField.LPM
+    shared = None
+    for dpid, p4info in p4infos.items():
+        found = set()
+        for table in p4info.tables:
+            fields = list(table.match_fields)
+            if len(fields) != 1 or fields[0].match_type != lpm or fields[0].bitwidth != 32:
+                continue
+            refs = {ref.id for ref in table.action_refs}
+            for action in p4info.actions:
+                params = list(action.params)
+                if action.preamble.id not in refs or len(params) != 2:
+                    continue
+                macs = [p for p in params if p.bitwidth == 48]
+                if len(macs) != 1:
+                    continue
+                port = [p for p in params if p is not macs[0]][0]
+                found.add((table.preamble.name, fields[0].name, action.preamble.name,
+                           macs[0].name, port.name))
+        shared = found if shared is None else shared & found
+    for table, field, action, mac, port in sorted(shared or ()):
+        role = {"owner": "ndtwin", "table": table, "match_field": field, "action": action,
+                "params": {"dst_mac": mac, "port": port}}
+        try:
+            for dpid, p4info in p4infos.items():
+                route_binding.resolve(role, p4info, max_port=_roles_max_port(model, dpid))
+        except route_binding.RouteBindingError:
+            continue
+        return role
+    return None
+
+
+def _check_roles(report, package_dir, package, model, pipeline_p4info, referenced):
+    """`roles`: its shape, every foreign switch's binding, and the owned table's entries."""
+    import json as _json
+
+    raw = package.get("roles")
+    route_binding = common.import_route_binding()
+    p4infos = {}
+    for dpid, path in pipeline_p4info.items():
+        try:
+            p4infos[dpid] = P4InfoIndex.parse(path).p4info
+        except Exception:  # noqa: BLE001 -- _check_pipelines already reported it
+            continue
+
+    if raw is None:
+        if not p4infos:
+            return
+        suggestion = _suggest_route_role(route_binding, p4infos, model)
+        if suggestion is not None:
+            report.note("roles suggestion",
+                        "no roles declared, so NDTwin writes none of this program's tables. "
+                        "Its p4info has a destination-route-shaped table on every switch; to let "
+                        "NDTwin route here, add to package.json: \"roles\": "
+                        + _json.dumps({"ipv4_route": suggestion}, sort_keys=False)
+                        + " (owner ndtwin: NDTwin writes that table and the package's own "
+                          "entries for it must go -- convert.py --role-ipv4-route takes them "
+                          "out; owner package: NDTwin only reads it)")
+        return
+
+    app_package = common.import_app_package()
+    try:
+        roles = app_package.parse_roles(raw, "package.json")
+    except app_package.AppPackageError as exc:
+        report.bad("roles", str(exc))
+        return
+    role = roles.ipv4_route if roles is not None else None
+    if role is None:
+        report.note("roles", "declares no ipv4_route")
+        return
+    if (package.get("control_plane") or {}).get("mode") == "external":
+        report.note("roles.ipv4_route",
+                    "carried, and bound to nothing: control_plane.mode is external, so the "
+                    "exercise's own controller owns every table and NDTwin writes none")
+    own = sorted((package.get("switches") or {}).items(), key=lambda kv: int(kv[0]))
+    own = [k for k, v in own if (v or {}).get("pipeline")]
+    if not own:
+        report.note("roles.ipv4_route",
+                    "applies to no switch: every switch runs NDTwin's own pipeline, which is "
+                    "always bound to NDTwin's own table")
+        return
+
+    problems, bound = [], []
+    for dpid in own:
+        p4info = p4infos.get(str(dpid))
+        if p4info is None:
+            problems.append(f"s{dpid}: its pipeline did not pass (see 'switches pipeline'), so "
+                            f"roles.ipv4_route cannot be checked against it")
+            continue
+        try:
+            binding = route_binding.resolve(role.as_manifest(), p4info,
+                                            max_port=_roles_max_port(model, dpid),
+                                            where=f"s{dpid}: roles.ipv4_route")
+        except route_binding.RouteBindingError as exc:
+            problems.append(str(exc))
+            continue
+        bound.append((dpid, binding))
+    if problems:
+        report.bad("roles.ipv4_route resolves", f"{len(problems)} switch(es); first: "
+                                                f"{problems[0]}")
+        for extra in problems[1:4]:
+            report.bad("", extra)
+        if len(problems) > 4:
+            report.bad("", f"... and {len(problems) - 4} more")
+    else:
+        first = bound[0][1]
+        report.ok("roles.ipv4_route resolves",
+                  f"{len(bound)} switch(es): {first.table} {first.match_field} -> "
+                  f"{first.action}({first.dst_mac_param}, {first.port_param} "
+                  f"bit<{first.port_bitwidth}>), owner {first.owner}")
+
+    if not bound:
+        # Nothing resolved, so there is no owned table to check entries against -- saying
+        # "the owned table has no package entries" about a table the program does not have
+        # would be a green row about nothing. [Co-developed with claude code -- Adam]
+        return
+    if role.owner != route_binding.OWNER_NDTWIN:
+        report.note("roles.ipv4_route owner",
+                    "package: the author owns the table; NDTwin reads and renders it and "
+                    "writes nothing, so NDTwin's route writes to these switches answer 501")
+        return
+    # 🔴 2.1-5 / Adam's ruling 8-1: NDTwin owns the table exclusively, so the package may not
+    # declare match entries for it -- each one named. A default action is not a route and stays.
+    owned, defaults = [], []
+    for dpid, _binding in bound:
+        path = referenced.get(f"switches[{dpid}].entries")
+        if path is None:
+            continue
+        try:
+            conf = common.load_json(path)
+        except ValueError:
+            continue              # already reported by 'entries match p4info'
+        names = {role.table}
+        index_path = pipeline_p4info.get(str(dpid))
+        if index_path:
+            try:
+                table = P4InfoIndex.parse(index_path).table(role.table)
+            except Exception:  # noqa: BLE001
+                table = None
+            if table is not None:
+                names = {table.preamble.name, table.preamble.alias} - {""}
+        for i, entry in enumerate(conf.get("table_entries") or []):
+            if not isinstance(entry, dict) or entry.get("table") not in names:
+                continue
+            if entry.get("default_action"):
+                defaults.append(f"s{dpid} entry {i}: default action "
+                                f"{entry.get('action_name')}")
+            else:
+                owned.append(f"s{dpid} entry {i}: {entry.get('table')} "
+                             f"{_json.dumps(entry.get('match'), sort_keys=True)} -> "
+                             f"{entry.get('action_name')}")
+    if owned:
+        report.bad("owned table has no package entries",
+                   f"{len(owned)} match entr{'y' if len(owned) == 1 else 'ies'} for "
+                   f"{role.table}, which roles.ipv4_route gives to NDTwin: {owned[0]}")
+        for extra in owned[1:]:
+            report.bad("", extra)
+    else:
+        report.ok("owned table has no package entries",
+                  f"{role.table} is NDTwin's on {len(bound)} switch(es)")
+    if defaults:
+        report.note("owned table default action",
+                    f"kept on {len(defaults)} switch(es) (a default is not a route): "
+                    f"{'; '.join(defaults[:4])}")
 
 
 # --- telemetry (TICKET-P3 2.1) ----------------------------------------------------------------

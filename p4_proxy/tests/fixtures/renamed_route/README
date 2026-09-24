@@ -1,0 +1,34 @@
+renamed_route -- TICKET-P4-roles section 2.2-6.
+[Co-developed with claude code -- Adam]
+
+A tutorials-shaped exercise (pod-topo, four switches, four hosts) whose destination-route table
+differs from ndtwin_switch.p4 in EVERY name the roles binding carries:
+
+                     ndtwin_switch.p4 / tutorials basic     renamed_route.p4
+  table              MyIngress.ipv4_lpm                      RouteIngress.dest_routes
+  match field        hdr.ipv4.dstAddr (lpm, 32)              hdr.ip4.dst (lpm, 32)
+  action             MyIngress.ipv4_forward                  RouteIngress.send_via
+  next-hop MAC       dstAddr (bit<48>, param id 1)           next_mac (bit<48>, param id 2)
+  output port        port (bit<9>, param id 2, 2 bytes)      out_port (bit<8>, param id 1, 1 byte)
+
+tutorials' basic spells NDTwin's five names character for character, so a test run only on
+basic cannot tell binding code from literal code. Everything here is chosen so that it can:
+the parameter ids are swapped and the port is one byte on the wire, not two.
+
+  renamed_route.p4                 the program (structurally basic.p4)
+  build/renamed_route.json         p4c-bm2-ss 1.2.5.15 (SHA 5b948b037a), compiled from inside
+  build/renamed_route.p4.p4info.txtpb   this directory:
+                                     p4c-bm2-ss --p4v 16 \
+                                       --p4runtime-files build/renamed_route.p4.p4info.txtpb \
+                                       -o build/renamed_route.json renamed_route.p4
+  pod-topo/topology.json           tutorials' basic pod-topo topology, byte-for-byte
+  pod-topo/sN-runtime.json         basic's pod-topo entries with the names renamed, plus one
+                                   RouteIngress.proto_tags row whose action (tag_proto) no
+                                   renderer recognises -- the flow-stats half of the ticket
+
+The package the tests build from it:
+
+  tools/p4_exercise/convert.py p4_proxy/tests/fixtures/renamed_route \
+      --topology pod-topo/topology.json --p4 renamed_route.p4 --out <pkg> \
+      --role-ipv4-route owner=ndtwin,table=RouteIngress.dest_routes,match_field=hdr.ip4.dst,\
+action=RouteIngress.send_via,dst_mac=next_mac,port=out_port

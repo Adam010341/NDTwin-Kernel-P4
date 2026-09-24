@@ -10,6 +10,7 @@ the value encodings, and the cases where emitting something would be worse than 
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 import unittest
@@ -374,6 +375,249 @@ class DurationComesFromTheProxysOwnRecordTest(unittest.TestCase):
         flow = self.flows([entry])[0]
 
         self.assertEqual((flow["duration_sec"], flow["duration_nsec"]), (0, 0))
+
+
+# --- NDTwin's own pipeline, rendered, frozen in bytes (TICKET-P4-roles section 2.5-1) ---------
+#
+# [Co-developed with claude code -- Adam]
+#
+# 🔴 CAPTURED AT THE BASE. The roles ticket makes this renderer read its names out of a binding
+# and stop listing actions it does not recognise -- and promises that the NDTwin pipeline's
+# /stats/flow body does not move by one byte. A table of every kind of row ndtwin_switch.p4 can
+# hold (both route tables, the l2 table, the four actions it declares plus one it does not, a
+# default row, a row with no usable match, a row with no action), rendered and serialised with
+# sorted keys, is what "does not move" is compared against. The string below was produced by
+# `ndtwin_pipeline_render()` against trunk 6291db35's proxy_agent/ in the commit that adds it,
+# which changes no production file.
+
+
+def ndtwin_pipeline_rows():
+    """Every row shape ndtwin_switch.p4's tables can return, as read_table_entries reports it."""
+    route_24 = an_lpm_route(dst=b"\x0a\x00\x01\x00", prefix=24, port=2)
+    to_cpu = an_lpm_route(dst=b"\x0a\x00\x00\x09", port=1)
+    to_cpu["action"] = {"name": "MyIngress.send_to_cpu", "params": {}}
+    dropped = an_lpm_route(dst=b"\x0a\x00\x00\x08", port=1)
+    dropped["action"] = {"name": "MyIngress.drop", "params": {}}
+    no_action = an_lpm_route(dst=b"\x0a\x00\x00\x07", port=1)
+    no_action["action"] = {"name": "NoAction", "params": {}}
+    future = an_lpm_route(dst=b"\x0a\x00\x00\x06", port=1)
+    future["action"] = {"name": "MyIngress.some_future_action", "params": {"port": b"\x05"}}
+    missing = an_lpm_route(dst=b"\x0a\x00\x00\x05", port=1)
+    missing["action"] = None
+    l2 = {"table": "MyIngress.l2_forward", "priority": 0, "is_default": False,
+          "match": {"hdr.ethernet.dstAddr": {"type": "exact",
+                                             "value": b"\x00\x00\x00\x00\x00\x04"}},
+          "action": {"name": "MyIngress.forward_l2", "params": {"port": b"\x03"}},
+          "counters": {"bytes": 1500, "packets": 3}}
+    unusable = {"table": "MyIngress.l2_forward", "priority": 0, "is_default": False,
+                "match": {"meta.nothing_ryu_knows": {"type": "exact", "value": b"\x01"}},
+                "action": {"name": "MyIngress.forward_l2", "params": {"port": b"\x03"}}}
+    return [an_lpm_route(), route_24, a_ternary_rule(priority=101, port=4),
+            a_ternary_rule(priority=-5, in_port_mask=b"\x00"), l2, to_cpu, dropped, no_action,
+            future, missing, an_lpm_route(default=True), unusable]
+
+
+def ndtwin_pipeline_render():
+    import json
+    return json.dumps(rf.render_flow_stats(1, ndtwin_pipeline_rows()), sort_keys=True)
+
+
+#: Produced by ndtwin_pipeline_render() at 6291db35's proxy_agent/ (see the block above).
+BASELINE_NDTWIN_RENDER = (
+    '{"1": [{"actions": ["OUTPUT:6"], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "durati'
+    'on_sec": 0, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 0, "match": {"dl_t'
+    'ype": 2048, "nw_dst": "10.0.0.4"}, "packet_count": 0, "priority": 0, "table_id": 0}, {"act'
+    'ions": ["OUTPUT:2"], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec": 0, '
+    '"flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 0, "match": {"dl_type": 2048, '
+    '"nw_dst": "10.0.1.0/24"}, "packet_count": 0, "priority": 0, "table_id": 0}, {"actions": ["'
+    'OUTPUT:4"], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec": 0, "flags": '
+    '0, "hard_timeout": 0, "idle_timeout": 0, "length": 0, "match": {"dl_type": 2048, "in_port"'
+    ': 3, "nw_dst": "10.0.0.4", "nw_proto": 6, "nw_src": "10.0.0.1"}, "packet_count": 0, "prior'
+    'ity": 101, "table_id": 0}, {"actions": ["OUTPUT:9"], "byte_count": 0, "cookie": 0, "durati'
+    'on_nsec": 0, "duration_sec": 0, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length"'
+    ': 0, "match": {"dl_type": 2048, "nw_dst": "10.0.0.4", "nw_proto": 6, "nw_src": "10.0.0.1"}'
+    ', "packet_count": 0, "priority": 0, "table_id": 0}, {"actions": ["OUTPUT:3"], "byte_count"'
+    ': 1500, "cookie": 0, "duration_nsec": 0, "duration_sec": 0, "flags": 0, "hard_timeout": 0,'
+    ' "idle_timeout": 0, "length": 0, "match": {"dl_dst": "00:00:00:00:00:04"}, "packet_count":'
+    ' 3, "priority": 0, "table_id": 0}, {"actions": ["OUTPUT:CONTROLLER"], "byte_count": 0, "co'
+    'okie": 0, "duration_nsec": 0, "duration_sec": 0, "flags": 0, "hard_timeout": 0, "idle_time'
+    'out": 0, "length": 0, "match": {"dl_type": 2048, "nw_dst": "10.0.0.9"}, "packet_count": 0,'
+    ' "priority": 0, "table_id": 0}, {"actions": [], "byte_count": 0, "cookie": 0, "duration_ns'
+    'ec": 0, "duration_sec": 0, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 0, '
+    '"match": {"dl_type": 2048, "nw_dst": "10.0.0.8"}, "packet_count": 0, "priority": 0, "table'
+    '_id": 0}, {"actions": [], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec"'
+    ': 0, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 0, "match": {"dl_type": 2'
+    '048, "nw_dst": "10.0.0.7"}, "packet_count": 0, "priority": 0, "table_id": 0}, {"actions": '
+    '[], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec": 0, "flags": 0, "hard'
+    '_timeout": 0, "idle_timeout": 0, "length": 0, "match": {"dl_type": 2048, "nw_dst": "10.0.0'
+    '.6"}, "packet_count": 0, "priority": 0, "table_id": 0}, {"actions": [], "byte_count": 0, "'
+    'cookie": 0, "duration_nsec": 0, "duration_sec": 0, "flags": 0, "hard_timeout": 0, "idle_ti'
+    'meout": 0, "length": 0, "match": {"dl_type": 2048, "nw_dst": "10.0.0.5"}, "packet_count": '
+    '0, "priority": 0, "table_id": 0}]}'
+)
+
+
+class TheNdtwinPipelinesFlowStatsAreByteIdenticalToTheBaseTest(unittest.TestCase):
+    """TICKET-P4-roles 2.5-1: NDTwin's own /stats/flow body does not move."""
+
+    def test_the_render_is_the_one_the_base_produced(self):
+        self.assertTrue(BASELINE_NDTWIN_RENDER, "the base capture is missing")
+        self.assertEqual(ndtwin_pipeline_render(), BASELINE_NDTWIN_RENDER)
+
+
+# --- a foreign pipeline: the binding's vocabulary, and unknown actions left out -----------------
+#
+# [Co-developed with claude code -- Adam] TICKET-P4-roles 2.5-1. fixtures/renamed_route's rows,
+# as read_table_entries reports them: its route table and action under THEIR names, plus the
+# second table whose action (tag_proto) nothing here knows.
+
+
+def a_renamed_binding(owner="ndtwin"):
+    from proxy_agent import route_binding
+
+    return route_binding.RouteBinding(
+        table="RouteIngress.dest_routes", match_field="hdr.ip4.dst",
+        action="RouteIngress.send_via", dst_mac_param="next_mac", port_param="out_port",
+        owner=owner, source=route_binding.SOURCE_PACKAGE, port_bitwidth=8)
+
+
+def a_renamed_route(dst=b"\x0a\x00\x03\x03", port=3):
+    return {"table": "RouteIngress.dest_routes", "priority": 0, "is_default": False,
+            "match": {"hdr.ip4.dst": {"type": "lpm", "value": dst, "prefix_len": 32}},
+            "action": {"name": "RouteIngress.send_via",
+                       "params": {"out_port": bytes([port]), "next_mac": b"\x08" + bytes(5)}}}
+
+
+def a_tag_row():
+    # fixtures/renamed_route/pod-topo/s1-runtime.json's last row, as read_table_entries reports
+    # it: proto_tags matches on the program's OWN field name, hdr.ip4.proto (p4info :41), not
+    # ndtwin_switch's hdr.ipv4.protocol -- round 1 used the latter, a row the fixture never
+    # produces (section 7 ruling 5, item 3). [Co-developed with claude code -- Adam]
+    return {"table": "RouteIngress.proto_tags", "priority": 0, "is_default": False,
+            "match": {"hdr.ip4.proto": {"type": "exact", "value": b"\x11"}},
+            "action": {"name": "RouteIngress.tag_proto", "params": {"tag": b"\x04"}}}
+
+
+RENAMED_S1_RUNTIME = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures",
+                                  "renamed_route", "pod-topo", "s1-runtime.json")
+
+
+def _canonical(value):
+    """An integer as P4Runtime's canonical bytestring (big-endian, no leading zeros)."""
+    return value.to_bytes(max(1, (value.bit_length() + 7) // 8), "big")
+
+
+def rows_as_read_back(runtime_json):
+    """A runtime file's table_entries in read_table_entries' shape -- the rows that switch would
+    hold after the package's entries went on. Section 7 ruling 5, item 3: the unrendered count
+    is tested on the fixture's REAL rows, not on a hand-made one. [Co-developed with claude
+    code -- Adam]"""
+    import socket
+
+    with open(runtime_json) as fh:
+        entries = json.load(fh)["table_entries"]
+    rows = []
+    for entry in entries:
+        match = {}
+        for field, value in (entry.get("match") or {}).items():
+            if isinstance(value, list):
+                match[field] = {"type": "lpm", "value": socket.inet_aton(value[0]),
+                                "prefix_len": value[1]}
+            else:
+                match[field] = {"type": "exact", "value": _canonical(value)}
+        params = {name: (bytes.fromhex(value.replace(":", "")) if isinstance(value, str)
+                         else _canonical(value))
+                  for name, value in (entry.get("action_params") or {}).items()}
+        rows.append({"table": entry["table"], "priority": 0,
+                     "is_default": bool(entry.get("default_action")), "match": match,
+                     "action": {"name": entry["action_name"], "params": params}})
+    return rows
+
+
+class ARenamedBindingIsReadBackThroughItsOwnNamesTest(unittest.TestCase):
+    """2.5-1: the reverse lookup is the binding's, so a renamed route renders as a route."""
+
+    def test_the_renamed_route_renders_as_its_destination_and_output_port(self):
+        flows = rf.render_flow_stats(1, [a_renamed_route(port=3)],
+                                     binding=a_renamed_binding())["1"]
+        self.assertEqual(len(flows), 1)
+        self.assertEqual(flows[0]["match"], {"nw_dst": "10.0.3.3", "dl_type": 0x0800})
+        self.assertEqual(flows[0]["actions"], ["OUTPUT:3"])
+
+    def test_owner_package_is_rendered_too_ndtwin_reads_what_it_does_not_write(self):
+        flows = rf.render_flow_stats(1, [a_renamed_route(port=2)],
+                                     binding=a_renamed_binding(owner="package"))["1"]
+        self.assertEqual(flows[0]["actions"], ["OUTPUT:2"])
+
+
+class OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTest(unittest.TestCase):
+    """2.5-1: not rendered as a drop -- not listed, and counted for switch_state."""
+
+    def test_an_unknown_action_on_a_bound_foreign_switch_is_not_listed(self):
+        body, left_out = rf.render_flow_stats_counted(
+            1, [a_renamed_route(), a_tag_row()], binding=a_renamed_binding())
+        self.assertEqual([f["actions"] for f in body["1"]], [["OUTPUT:3"]])
+        self.assertEqual(left_out, 1)
+
+    def test_an_unknown_action_on_an_unbound_foreign_switch_is_not_listed_either(self):
+        future = an_lpm_route()
+        future["action"] = {"name": "MyIngress.set_ecmp_select", "params": {"base": b"\x01"}}
+        body, left_out = rf.render_flow_stats_counted(1, [an_lpm_route(port=4), future],
+                                                      binding=None)
+        self.assertEqual([f["actions"] for f in body["1"]], [["OUTPUT:4"]])
+        self.assertEqual(left_out, 1)
+
+    def test_an_unbound_foreign_switch_keeps_the_vocabulary_it_had_before_roles(self):
+        # A package without roles keeps its /stats/flow body: the author's ipv4_forward rows
+        # still render as routes (and the live negative control has them to compare).
+        body, left_out = rf.render_flow_stats_counted(1, [an_lpm_route(port=4)], binding=None)
+        self.assertEqual(body, rf.render_flow_stats(1, [an_lpm_route(port=4)]))
+        self.assertEqual(left_out, 0)
+
+    def test_a_known_drop_is_still_a_drop_and_is_not_counted(self):
+        dropped = a_renamed_route()
+        dropped["action"] = {"name": "MyIngress.drop", "params": {}}
+        body, left_out = rf.render_flow_stats_counted(1, [dropped], binding=a_renamed_binding())
+        self.assertEqual(body["1"][0]["actions"], [])
+        self.assertEqual(left_out, 0)
+
+    def test_the_renamed_fixtures_own_rows_list_its_four_routes_and_count_its_tag_row(self):
+        # Section 7 ruling 5, item 3: `unrendered_entries` is every non-default row a foreign
+        # switch holds that /stats/flow does not list. The fixture's s1 holds a default, four
+        # routes and one proto_tags row whose action nothing here knows.
+        rows = rows_as_read_back(RENAMED_S1_RUNTIME)
+        self.assertEqual(len(rows), 6, "the fixture changed under this test")
+        body, left_out = rf.render_flow_stats_counted(1, rows, binding=a_renamed_binding())
+        self.assertEqual(sorted(f["actions"][0] for f in body["1"]),
+                         ["OUTPUT:1", "OUTPUT:2", "OUTPUT:3", "OUTPUT:4"])
+        self.assertEqual(left_out, 1)
+
+    def test_a_default_row_is_never_counted(self):
+        default = a_tag_row()
+        default["is_default"] = True
+        _body, left_out = rf.render_flow_stats_counted(1, [default],
+                                                       binding=a_renamed_binding())
+        self.assertEqual(left_out, 0)
+
+    def test_a_row_with_no_usable_match_is_counted_whatever_its_action(self):
+        # A route the renderer knows the action of, on a match field it cannot translate: not
+        # listed (it would read as match-everything), so counted. Round 1 counted only rows
+        # whose match it could translate -- which left the fixture's own tag row uncounted.
+        unusable = a_renamed_route()
+        unusable["match"] = {"meta.nothing_ryu_knows": {"type": "exact", "value": b"\x01"}}
+        body, left_out = rf.render_flow_stats_counted(1, [unusable, a_tag_row()],
+                                                      binding=a_renamed_binding())
+        self.assertEqual(body["1"], [])
+        self.assertEqual(left_out, 2)
+
+    def test_on_an_unbound_foreign_switch_the_same_rows_are_counted(self):
+        body, left_out = rf.render_flow_stats_counted(1, [a_tag_row()], binding=None)
+        self.assertEqual((body["1"], left_out), ([], 1))
+
+    def test_ndtwins_own_pipeline_leaves_nothing_out(self):
+        body, left_out = rf.render_flow_stats_counted(1, ndtwin_pipeline_rows())
+        self.assertEqual(left_out, 0)
+        self.assertEqual(json.dumps(body, sort_keys=True), BASELINE_NDTWIN_RENDER)
 
 
 if __name__ == "__main__":

@@ -1944,5 +1944,326 @@ class WriteTableEntryTest(unittest.TestCase):
         self.assertIn("external control plane", str(caught.exception))
 
 
+# --- the NDTwin pipeline's writes, frozen in bytes (TICKET-P4-roles section 2.2-5) ------------
+#
+# [Co-developed with claude code -- Adam]
+#
+# 🔴 CAPTURED AT THE BASE, NOT DESCRIBED. The roles ticket moves every name the ipv4_lpm writes
+# use out of literals and into a binding, and promises that for NDTwin's own pipeline nothing on
+# the wire changes. "Nothing changes" asserted field by field is only as strong as the list of
+# fields somebody remembered to check; asserted as the SERIALISED WriteRequest it covers every
+# field, including the ones nobody thought of (update order, the election id, the width of the
+# port parameter, the order of the two action parameters).
+#
+# The hex below was produced by `baseline_write_capture()` against the unmodified production
+# code of trunk 6291db35 (worktree head 0c85ad9c, whose p4_proxy/ is byte-identical to it), and
+# the commit that adds this block changes no production file -- so checking that commit out and
+# running this class is how the capture is re-verified. The capture function is the SAME one the
+# test calls; a second recorder would be a second opinion about a third thing.
+#
+# `SerializeToString(deterministic=True)`: WriteRequest carries no map fields, so this is the
+# encoding bmv2 receives, and `deterministic` only rules out a future map field making the
+# comparison flaky rather than wrong.
+
+
+def _serialised(messages):
+    return [m.SerializeToString(deterministic=True).hex() for m in messages]
+
+
+def baseline_write_capture():
+    """{case: [hex of every request the stub saw, in order]} for the ipv4_lpm write paths.
+
+    [Co-developed with claude code -- Adam]
+    Every case builds its own client (or fabric) so no case sees another's install stamps.
+    `install_initial_routes` runs over the square the property test uses, with two hosts on
+    opposite corners, so it writes every switch and exercises an equal-cost choice.
+    """
+    from proxy_agent.topology_manager import TopologyManager
+
+    out = {}
+
+    client = a_client()
+    client.insert_ipv4_route("10.0.0.4", 32, "00:00:00:00:00:04", 3)
+    out["insert"] = _serialised(client.stub.requests)
+
+    client = a_client(RecordingStub(write_error=FakeRpcError(grpc.StatusCode.ALREADY_EXISTS)))
+    client.insert_ipv4_route("10.0.0.4", 32, "00:00:00:00:00:04", 7)
+    out["insert_then_modify"] = _serialised(client.stub.requests)
+
+    client = a_client()
+    client.modify_ipv4_route("10.0.0.0", 24, "0a:0b:0c:0d:0e:0f", 257)
+    out["modify"] = _serialised(client.stub.requests)
+
+    client = a_client()
+    client.delete_ipv4_route("10.0.0.4", 32)
+    out["delete"] = _serialised(client.stub.requests)
+
+    client = a_client(RecordingStub(write_error=FakeRpcError(grpc.StatusCode.UNKNOWN),
+                                    always=True))
+    client.delete_ipv4_route("10.0.1.1", 32)
+    out["delete_unknown_writes"] = _serialised(client.stub.requests)
+    out["delete_unknown_reads"] = _serialised(client.stub.reads)
+
+    keys = {"hdr.ipv4.srcAddr": "10.0.0.1", "hdr.ipv4.dstAddr": "10.0.0.4",
+            "hdr.ipv4.protocol": 6, "meta.l4_dst_port": 80}
+    client = a_client()
+    client.insert_5tuple_rule(keys, 101, "00:00:00:00:00:04", 3)
+    client.modify_5tuple_rule(keys, 101, "00:00:00:00:00:04", 2)
+    client.delete_5tuple_rule(keys, 101)
+    out["five_tuple"] = _serialised(client.stub.requests)
+
+    topo = TopologyManager()
+    for dpid in (1, 2, 3, 4):
+        topo.add_switch(dpid, a_client(device_id=dpid))
+    for a, b, pa, pb in ((1, 2, 2, 1), (1, 3, 3, 1), (2, 4, 3, 2), (3, 4, 4, 3)):
+        topo.add_link(a, b, pa, pb)
+    topo.add_host("10.0.0.1", "00:00:00:00:00:01", 1, 9)
+    topo.add_host("10.0.0.2", "00:00:00:00:00:02", 4, 9)
+    topo.install_initial_routes()
+    for dpid in (1, 2, 3, 4):
+        out[f"install_initial_routes_s{dpid}"] = _serialised(topo.switches[dpid].stub.requests)
+    return out
+
+
+#: Produced by baseline_write_capture() at 6291db35's p4_proxy/ (see the block comment above).
+BASELINE_WRITE_REQUESTS = {
+    'delete': [
+        '08011a021001221908031215121308b499e911120c080122080a040a0000041020',
+    ],
+    'delete_unknown_reads': [
+        '0801120412023a00',
+    ],
+    'delete_unknown_writes': [
+        '08011a021001221908031215121308b499e911120c080122080a040a0001011020',
+    ],
+    'five_tuple': [
+        '08011a021001226808011264126208b5cef117121008031a0c0a040a0000041204ffffffff120a08041a060a'
+         '01061201ff121008021a0c0a040a0000011204ffffffff120c08061a080a0200501202ffff1a1b0a1908d5ac'
+         'dd0d220a10011a06000000000004220610021a0200032065',
+        '08011a021001226808021264126208b5cef117121008031a0c0a040a0000041204ffffffff120a08041a060a'
+         '01061201ff121008021a0c0a040a0000011204ffffffff120c08061a080a0200501202ffff1a1b0a1908d5ac'
+         'dd0d220a10011a06000000000004220610021a0200022065',
+        '08011a021001224b08031247124508b5cef117121008031a0c0a040a0000041204ffffffff120a08041a060a'
+         '01061201ff121008021a0c0a040a0000011204ffffffff120c08061a080a0200501202ffff2065',
+    ],
+    'insert': [
+        '08011a021001223608011232123008b499e911120c080122080a040a00000410201a1b0a1908d5acdd0d220a'
+         '10011a06000000000004220610021a020003',
+    ],
+    'insert_then_modify': [
+        '08011a021001223608011232123008b499e911120c080122080a040a00000410201a1b0a1908d5acdd0d220a'
+         '10011a06000000000004220610021a020007',
+        '08011a021001223608021232123008b499e911120c080122080a040a00000410201a1b0a1908d5acdd0d220a'
+         '10011a06000000000004220610021a020007',
+    ],
+    'install_initial_routes_s1': [
+        '08011a021001223608011232123008b499e911120c080122080a040a00000110201a1b0a1908d5acdd0d220a'
+         '10011a06000000000001220610021a020009',
+        '08011a021001223608011232123008b499e911120c080122080a040a00000210201a1b0a1908d5acdd0d220a'
+         '10011a06000000000002220610021a020002',
+    ],
+    'install_initial_routes_s2': [
+        '08021a021001223608011232123008b499e911120c080122080a040a00000110201a1b0a1908d5acdd0d220a'
+         '10011a06000000000001220610021a020001',
+        '08021a021001223608011232123008b499e911120c080122080a040a00000210201a1b0a1908d5acdd0d220a'
+         '10011a06000000000002220610021a020003',
+    ],
+    'install_initial_routes_s3': [
+        '08031a021001223608011232123008b499e911120c080122080a040a00000110201a1b0a1908d5acdd0d220a'
+         '10011a06000000000001220610021a020001',
+        '08031a021001223608011232123008b499e911120c080122080a040a00000210201a1b0a1908d5acdd0d220a'
+         '10011a06000000000002220610021a020004',
+    ],
+    'install_initial_routes_s4': [
+        '08041a021001223608011232123008b499e911120c080122080a040a00000110201a1b0a1908d5acdd0d220a'
+         '10011a06000000000001220610021a020003',
+        '08041a021001223608011232123008b499e911120c080122080a040a00000210201a1b0a1908d5acdd0d220a'
+         '10011a06000000000002220610021a020009',
+    ],
+    'modify': [
+        '08011a021001223608021232123008b499e911120c080122080a040a00000010181a1b0a1908d5acdd0d220a'
+         '10011a060a0b0c0d0e0f220610021a020101',
+    ],
+}
+
+
+@unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
+class TheNdtwinPipelinesWritesAreByteIdenticalToTheBaseTest(unittest.TestCase):
+    """TICKET-P4-roles 2.2-5: the binding refactor puts the same bytes on the wire."""
+
+    def setUp(self):
+        self.captured = baseline_write_capture()
+
+    def test_every_case_was_captured_and_none_is_empty(self):
+        self.assertEqual(sorted(self.captured), sorted(BASELINE_WRITE_REQUESTS))
+        for case, requests in BASELINE_WRITE_REQUESTS.items():
+            self.assertTrue(requests, f"{case}: the base capture recorded no request at all")
+
+    def test_every_request_is_byte_identical_to_the_one_the_base_sent(self):
+        for case in sorted(BASELINE_WRITE_REQUESTS):
+            with self.subTest(case=case):
+                self.assertEqual(self.captured.get(case), BASELINE_WRITE_REQUESTS[case])
+
+
+# --- a binding whose every name differs from NDTwin's (TICKET-P4-roles 2.2-3, 2.2-6) -----------
+#
+# [Co-developed with claude code -- Adam]
+#
+# 🔴 THE ONLY FIXTURE THAT CAN TELL BINDING CODE FROM LITERAL CODE. tutorials' basic declares
+# NDTwin's five names character for character, so every write above would pass unchanged if the
+# route methods still spelled the literals. fixtures/renamed_route/ renames the table, the match
+# field, the action and both parameters, declares the parameters in the other order (so their
+# ids are swapped relative to NDTwin's) and makes the port bit<8> (one byte on the wire, not
+# two). Every assertion here is a number that only the binding can produce.
+
+RENAMED_P4INFO_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures",
+                                   "renamed_route", "build", "renamed_route.p4.p4info.txtpb")
+RENAMED_TABLE_ID = 46408899
+RENAMED_ACTION_ID = 19229455
+RENAMED_OUT_PORT_PARAM_ID = 1
+RENAMED_NEXT_MAC_PARAM_ID = 2
+RENAMED_DST_FIELD_ID = 1
+RENAMED_ROUTE_ROLE = {"owner": "ndtwin", "table": "RouteIngress.dest_routes",
+                      "match_field": "hdr.ip4.dst", "action": "RouteIngress.send_via",
+                      "params": {"dst_mac": "next_mac", "port": "out_port"}}
+
+
+def a_renamed_client(owner="ndtwin", stub=None, unbound=False):
+    """A client on renamed_route's real p4info, bound through the production resolver."""
+    from proxy_agent import route_binding
+
+    client = a_client(stub=stub)
+    client.p4info = p4info_pb2.P4Info()
+    with open(RENAMED_P4INFO_PATH) as fh:
+        text_format.Merge(fh.read(), client.p4info)
+    role = dict(RENAMED_ROUTE_ROLE, owner=owner)
+    client.bind_routes(None if unbound else route_binding.resolve(role, client.p4info))
+    return client
+
+
+def params_of(request):
+    return {p.param_id: p.value
+            for p in only_update(request).entity.table_entry.action.action.params}
+
+
+@unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
+class ARenamedBindingIsWhatGoesOnTheWireTest(unittest.TestCase):
+    """The renamed binding's ids and widths, not NDTwin's, on every route write."""
+
+    def setUp(self):
+        self.client = a_renamed_client()
+
+    def test_a_renamed_insert_goes_into_the_renamed_table_through_the_renamed_action(self):
+        self.assertIs(self.client.insert_ipv4_route("10.0.1.1", 32, "08:00:00:00:01:11", 3),
+                      True)
+        entry = only_update(self.client.stub.requests[0]).entity.table_entry
+        self.assertEqual(entry.table_id, RENAMED_TABLE_ID)
+        self.assertEqual(entry.match[0].field_id, RENAMED_DST_FIELD_ID)
+        self.assertEqual(entry.action.action.action_id, RENAMED_ACTION_ID)
+
+    def test_the_parameters_go_by_name_to_their_own_ids_and_the_port_is_one_byte(self):
+        # NDTwin's order is MAC=1, port=2 on two bytes; here it is port=1 on ONE byte, MAC=2.
+        self.client.insert_ipv4_route("10.0.1.1", 32, "08:00:00:00:01:11", 3)
+        self.assertEqual(params_of(self.client.stub.requests[0]),
+                         {RENAMED_OUT_PORT_PARAM_ID: b"\x03",
+                          RENAMED_NEXT_MAC_PARAM_ID: bytes.fromhex("080000000111")})
+
+    def test_a_renamed_modify_and_delete_use_the_renamed_table_too(self):
+        self.client.modify_ipv4_route("10.0.1.1", 32, "08:00:00:00:01:11", 4)
+        self.client.delete_ipv4_route("10.0.1.1", 32)
+        modify, delete = self.client.stub.requests
+        self.assertEqual(only_update(modify).type, p4runtime_pb2.Update.MODIFY)
+        self.assertEqual(params_of(modify)[RENAMED_OUT_PORT_PARAM_ID], b"\x04")
+        self.assertEqual(only_update(delete).type, p4runtime_pb2.Update.DELETE)
+        self.assertEqual(only_update(delete).entity.table_entry.table_id, RENAMED_TABLE_ID)
+
+    def test_a_duplicate_insert_retries_as_a_modify_into_the_renamed_table(self):
+        client = a_renamed_client(stub=RecordingStub(
+            write_error=FakeRpcError(grpc.StatusCode.ALREADY_EXISTS)))
+        self.assertIs(client.insert_ipv4_route("10.0.1.1", 32, "08:00:00:00:01:11", 3), True)
+        retry = client.stub.requests[1]
+        self.assertEqual(only_update(retry).type, p4runtime_pb2.Update.MODIFY)
+        self.assertEqual(only_update(retry).entity.table_entry.table_id, RENAMED_TABLE_ID)
+
+    def test_the_delete_read_back_looks_in_the_renamed_table_under_the_renamed_field(self):
+        # bmv2's UNKNOWN for an absent entry: the read-back decides. It must look for the entry
+        # where the binding put it, or a renamed route that IS still there reads as gone.
+        still_there = p4runtime_pb2.ReadResponse()
+        entity = still_there.entities.add()
+        entity.table_entry.table_id = RENAMED_TABLE_ID
+        m = entity.table_entry.match.add()
+        m.field_id = RENAMED_DST_FIELD_ID
+        m.lpm.value = socket.inet_aton("10.0.1.1")
+        m.lpm.prefix_len = 32
+        client = a_renamed_client(stub=RecordingStub(
+            write_error=FakeRpcError(grpc.StatusCode.UNKNOWN), always=True,
+            read_responses=[still_there]))
+        self.assertIs(client.delete_ipv4_route("10.0.1.1", 32), False)
+
+    def test_a_renamed_route_is_dated_under_the_table_name_the_read_back_reports(self):
+        # KNOWN-ISSUES G-13's record keys by table name; keyed by NDTwin's, every renamed route
+        # would render duration 0/0 -- exactly the defect that record fixed.
+        clock = [100.0]
+        self.client.rule_install_times = RuleInstallTimes(monotonic=lambda: clock[0])
+        self.client.insert_ipv4_route("10.0.1.1", 32, "08:00:00:00:01:11", 3)
+        clock[0] += 7
+        age = self.client.rule_install_times.age_seconds(
+            1, "RouteIngress.dest_routes", 0,
+            {"hdr.ip4.dst": {"type": "lpm", "value": socket.inet_aton("10.0.1.1"),
+                             "prefix_len": 32}})
+        self.assertEqual(age, 7)
+
+
+@unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
+class NoBindingNoWriteTest(unittest.TestCase):
+    """2.2-3: unbound and owner `package` refuse every route write before anything is sent."""
+
+    def assert_refused(self, client, reason, call):
+        from proxy_agent.route_binding import RouteWriteUnsupported
+
+        with self.assertRaises(RouteWriteUnsupported) as caught:
+            call(client)
+        self.assertEqual(caught.exception.reason, reason)
+        self.assertEqual(client.stub.requests, [], "a refused route write reached the switch")
+
+    VERBS = (("insert", lambda c: c.insert_ipv4_route("10.0.1.1", 32, "08:00:00:00:01:11", 3)),
+             ("modify", lambda c: c.modify_ipv4_route("10.0.1.1", 32, "08:00:00:00:01:11", 3)),
+             ("delete", lambda c: c.delete_ipv4_route("10.0.1.1", 32)))
+
+    def test_an_unbound_switch_is_never_written_with_ndtwins_literals(self):
+        for verb, call in self.VERBS:
+            with self.subTest(verb=verb):
+                self.assert_refused(a_renamed_client(unbound=True), "unbound", call)
+
+    def test_unbound_on_basics_own_names_is_still_refused(self):
+        # The case that mattered live: basic.p4 HAS MyIngress.ipv4_lpm, so a literal write would
+        # have succeeded -- and MODIFY'd over the author's own /32.
+        client = a_client()
+        client.bind_routes(None)
+        for verb, call in self.VERBS:
+            with self.subTest(verb=verb):
+                self.assert_refused(client, "unbound", call)
+
+    def test_a_package_owned_table_is_read_by_ndtwin_and_never_written(self):
+        for verb, call in self.VERBS:
+            with self.subTest(verb=verb):
+                self.assert_refused(a_renamed_client(owner="package"), "owned_by_package", call)
+
+    def test_a_five_tuple_rule_on_any_foreign_binding_is_refused(self):
+        keys = {"hdr.ipv4.dstAddr": "10.0.0.4", "hdr.ipv4.protocol": 6}
+        for client in (a_renamed_client(), a_renamed_client(unbound=True)):
+            with self.subTest(bound=client.route_binding is not None):
+                self.assert_refused(client, "no_five_tuple_role",
+                                    lambda c: c.insert_5tuple_rule(keys, 101, "00:00:00:00:00:04",
+                                                                   3))
+
+    def test_an_external_control_plane_refuses_before_the_binding_is_consulted(self):
+        client = a_renamed_client(unbound=True)
+        client.arbitration = False
+        with self.assertRaises(p4_client_module.ControlPlaneReadOnly):
+            client.insert_ipv4_route("10.0.1.1", 32, "08:00:00:00:01:11", 3)
+        self.assertEqual(client.stub.requests, [])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

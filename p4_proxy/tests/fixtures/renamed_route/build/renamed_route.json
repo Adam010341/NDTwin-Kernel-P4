@@ -1,0 +1,648 @@
+{
+  "header_types" : [
+    {
+      "name" : "scalars_0",
+      "id" : 0,
+      "fields" : []
+    },
+    {
+      "name" : "standard_metadata",
+      "id" : 1,
+      "fields" : [
+        ["ingress_port", 9, false],
+        ["egress_spec", 9, false],
+        ["egress_port", 9, false],
+        ["instance_type", 32, false],
+        ["packet_length", 32, false],
+        ["enq_timestamp", 32, false],
+        ["enq_qdepth", 19, false],
+        ["deq_timedelta", 32, false],
+        ["deq_qdepth", 19, false],
+        ["ingress_global_timestamp", 48, false],
+        ["egress_global_timestamp", 48, false],
+        ["mcast_grp", 16, false],
+        ["egress_rid", 16, false],
+        ["checksum_error", 1, false],
+        ["parser_error", 32, false],
+        ["priority", 3, false],
+        ["_padding", 3, false]
+      ]
+    },
+    {
+      "name" : "eth_t",
+      "id" : 2,
+      "fields" : [
+        ["dst_mac", 48, false],
+        ["src_mac", 48, false],
+        ["ethertype", 16, false]
+      ]
+    },
+    {
+      "name" : "ip4_t",
+      "id" : 3,
+      "fields" : [
+        ["version", 4, false],
+        ["ihl", 4, false],
+        ["tos", 8, false],
+        ["total_len", 16, false],
+        ["ident", 16, false],
+        ["flags", 3, false],
+        ["frag", 13, false],
+        ["ttl", 8, false],
+        ["proto", 8, false],
+        ["csum", 16, false],
+        ["src", 32, false],
+        ["dst", 32, false]
+      ]
+    }
+  ],
+  "headers" : [
+    {
+      "name" : "scalars",
+      "id" : 0,
+      "header_type" : "scalars_0",
+      "metadata" : true,
+      "pi_omit" : true
+    },
+    {
+      "name" : "standard_metadata",
+      "id" : 1,
+      "header_type" : "standard_metadata",
+      "metadata" : true,
+      "pi_omit" : true
+    },
+    {
+      "name" : "eth",
+      "id" : 2,
+      "header_type" : "eth_t",
+      "metadata" : false,
+      "pi_omit" : true
+    },
+    {
+      "name" : "ip4",
+      "id" : 3,
+      "header_type" : "ip4_t",
+      "metadata" : false,
+      "pi_omit" : true
+    }
+  ],
+  "header_stacks" : [],
+  "header_union_types" : [],
+  "header_unions" : [],
+  "header_union_stacks" : [],
+  "field_lists" : [],
+  "errors" : [
+    ["NoError", 0],
+    ["PacketTooShort", 1],
+    ["NoMatch", 2],
+    ["StackOutOfBounds", 3],
+    ["HeaderTooShort", 4],
+    ["ParserTimeout", 5],
+    ["ParserInvalidArgument", 6]
+  ],
+  "enums" : [],
+  "parsers" : [
+    {
+      "name" : "parser",
+      "id" : 0,
+      "init_state" : "start",
+      "parse_states" : [
+        {
+          "name" : "start",
+          "id" : 0,
+          "parser_ops" : [
+            {
+              "parameters" : [
+                {
+                  "type" : "regular",
+                  "value" : "eth"
+                }
+              ],
+              "op" : "extract"
+            }
+          ],
+          "transitions" : [
+            {
+              "type" : "hexstr",
+              "value" : "0x0800",
+              "mask" : null,
+              "next_state" : "parse_ip4"
+            },
+            {
+              "type" : "default",
+              "value" : null,
+              "mask" : null,
+              "next_state" : null
+            }
+          ],
+          "transition_key" : [
+            {
+              "type" : "field",
+              "value" : ["eth", "ethertype"]
+            }
+          ]
+        },
+        {
+          "name" : "parse_ip4",
+          "id" : 1,
+          "parser_ops" : [
+            {
+              "parameters" : [
+                {
+                  "type" : "regular",
+                  "value" : "ip4"
+                }
+              ],
+              "op" : "extract"
+            }
+          ],
+          "transitions" : [
+            {
+              "type" : "default",
+              "value" : null,
+              "mask" : null,
+              "next_state" : null
+            }
+          ],
+          "transition_key" : []
+        }
+      ]
+    }
+  ],
+  "parse_vsets" : [],
+  "deparsers" : [
+    {
+      "name" : "deparser",
+      "id" : 0,
+      "source_info" : {
+        "filename" : "renamed_route.p4",
+        "line" : 137,
+        "column" : 8,
+        "source_fragment" : "RouteDeparser"
+      },
+      "order" : ["eth", "ip4"],
+      "primitives" : []
+    }
+  ],
+  "meter_arrays" : [],
+  "counter_arrays" : [],
+  "register_arrays" : [],
+  "calculations" : [
+    {
+      "name" : "calc",
+      "id" : 0,
+      "source_info" : {
+        "filename" : "renamed_route.p4",
+        "line" : 127,
+        "column" : 8,
+        "source_fragment" : "update_checksum( ..."
+      },
+      "algo" : "csum16",
+      "input" : [
+        {
+          "type" : "field",
+          "value" : ["ip4", "version"]
+        },
+        {
+          "type" : "field",
+          "value" : ["ip4", "ihl"]
+        },
+        {
+          "type" : "field",
+          "value" : ["ip4", "tos"]
+        },
+        {
+          "type" : "field",
+          "value" : ["ip4", "total_len"]
+        },
+        {
+          "type" : "field",
+          "value" : ["ip4", "ident"]
+        },
+        {
+          "type" : "field",
+          "value" : ["ip4", "flags"]
+        },
+        {
+          "type" : "field",
+          "value" : ["ip4", "frag"]
+        },
+        {
+          "type" : "field",
+          "value" : ["ip4", "ttl"]
+        },
+        {
+          "type" : "field",
+          "value" : ["ip4", "proto"]
+        },
+        {
+          "type" : "field",
+          "value" : ["ip4", "src"]
+        },
+        {
+          "type" : "field",
+          "value" : ["ip4", "dst"]
+        }
+      ]
+    }
+  ],
+  "learn_lists" : [],
+  "actions" : [
+    {
+      "name" : "NoAction",
+      "id" : 0,
+      "runtime_data" : [],
+      "primitives" : []
+    },
+    {
+      "name" : "NoAction",
+      "id" : 1,
+      "runtime_data" : [],
+      "primitives" : []
+    },
+    {
+      "name" : "RouteIngress.discard",
+      "id" : 2,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "mark_to_drop",
+          "parameters" : [
+            {
+              "type" : "header",
+              "value" : "standard_metadata"
+            }
+          ],
+          "source_info" : {
+            "filename" : "renamed_route.p4",
+            "line" : 73,
+            "column" : 8,
+            "source_fragment" : "mark_to_drop(standard_metadata)"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "RouteIngress.send_via",
+      "id" : 3,
+      "runtime_data" : [
+        {
+          "name" : "out_port",
+          "bitwidth" : 8
+        },
+        {
+          "name" : "next_mac",
+          "bitwidth" : 48
+        }
+      ],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["standard_metadata", "egress_spec"]
+            },
+            {
+              "type" : "expression",
+              "value" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "&",
+                  "left" : {
+                    "type" : "local",
+                    "value" : 0
+                  },
+                  "right" : {
+                    "type" : "hexstr",
+                    "value" : "0x01ff"
+                  }
+                }
+              }
+            }
+          ],
+          "source_info" : {
+            "filename" : "renamed_route.p4",
+            "line" : 77,
+            "column" : 8,
+            "source_fragment" : "standard_metadata.egress_spec = (bit<9>) out_port"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["eth", "src_mac"]
+            },
+            {
+              "type" : "field",
+              "value" : ["eth", "dst_mac"]
+            }
+          ],
+          "source_info" : {
+            "filename" : "renamed_route.p4",
+            "line" : 78,
+            "column" : 8,
+            "source_fragment" : "hdr.eth.src_mac = hdr.eth.dst_mac"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["eth", "dst_mac"]
+            },
+            {
+              "type" : "runtime_data",
+              "value" : 1
+            }
+          ],
+          "source_info" : {
+            "filename" : "renamed_route.p4",
+            "line" : 79,
+            "column" : 8,
+            "source_fragment" : "hdr.eth.dst_mac = next_mac"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["ip4", "ttl"]
+            },
+            {
+              "type" : "expression",
+              "value" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "&",
+                  "left" : {
+                    "type" : "expression",
+                    "value" : {
+                      "op" : "+",
+                      "left" : {
+                        "type" : "field",
+                        "value" : ["ip4", "ttl"]
+                      },
+                      "right" : {
+                        "type" : "hexstr",
+                        "value" : "0xff"
+                      }
+                    }
+                  },
+                  "right" : {
+                    "type" : "hexstr",
+                    "value" : "0xff"
+                  }
+                }
+              }
+            }
+          ],
+          "source_info" : {
+            "filename" : "renamed_route.p4",
+            "line" : 80,
+            "column" : 8,
+            "source_fragment" : "hdr.ip4.ttl = hdr.ip4.ttl - 1"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "RouteIngress.tag_proto",
+      "id" : 4,
+      "runtime_data" : [
+        {
+          "name" : "tag",
+          "bitwidth" : 8
+        }
+      ],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["ip4", "tos"]
+            },
+            {
+              "type" : "runtime_data",
+              "value" : 0
+            }
+          ],
+          "source_info" : {
+            "filename" : "renamed_route.p4",
+            "line" : 84,
+            "column" : 8,
+            "source_fragment" : "hdr.ip4.tos = tag"
+          }
+        }
+      ]
+    }
+  ],
+  "pipelines" : [
+    {
+      "name" : "ingress",
+      "id" : 0,
+      "source_info" : {
+        "filename" : "renamed_route.p4",
+        "line" : 70,
+        "column" : 8,
+        "source_fragment" : "RouteIngress"
+      },
+      "init_table" : "node_2",
+      "tables" : [
+        {
+          "name" : "RouteIngress.proto_tags",
+          "id" : 0,
+          "source_info" : {
+            "filename" : "renamed_route.p4",
+            "line" : 100,
+            "column" : 10,
+            "source_fragment" : "proto_tags"
+          },
+          "key" : [
+            {
+              "match_type" : "exact",
+              "name" : "hdr.ip4.proto",
+              "target" : ["ip4", "proto"],
+              "mask" : null
+            }
+          ],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 16,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [4, 1],
+          "actions" : ["RouteIngress.tag_proto", "NoAction"],
+          "base_default_next" : "RouteIngress.dest_routes",
+          "next_tables" : {
+            "RouteIngress.tag_proto" : "RouteIngress.dest_routes",
+            "NoAction" : "RouteIngress.dest_routes"
+          },
+          "default_entry" : {
+            "action_id" : 1,
+            "action_const" : false,
+            "action_data" : [],
+            "action_entry_const" : false
+          }
+        },
+        {
+          "name" : "RouteIngress.dest_routes",
+          "id" : 1,
+          "source_info" : {
+            "filename" : "renamed_route.p4",
+            "line" : 87,
+            "column" : 10,
+            "source_fragment" : "dest_routes"
+          },
+          "key" : [
+            {
+              "match_type" : "lpm",
+              "name" : "hdr.ip4.dst",
+              "target" : ["ip4", "dst"],
+              "mask" : null
+            }
+          ],
+          "match_type" : "lpm",
+          "type" : "simple",
+          "max_size" : 1024,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [3, 2, 0],
+          "actions" : ["RouteIngress.send_via", "RouteIngress.discard", "NoAction"],
+          "base_default_next" : null,
+          "next_tables" : {
+            "RouteIngress.send_via" : null,
+            "RouteIngress.discard" : null,
+            "NoAction" : null
+          },
+          "default_entry" : {
+            "action_id" : 2,
+            "action_const" : false,
+            "action_data" : [],
+            "action_entry_const" : false
+          }
+        }
+      ],
+      "action_profiles" : [],
+      "conditionals" : [
+        {
+          "name" : "node_2",
+          "id" : 0,
+          "source_info" : {
+            "filename" : "renamed_route.p4",
+            "line" : 113,
+            "column" : 12,
+            "source_fragment" : "hdr.ip4.isValid()"
+          },
+          "expression" : {
+            "type" : "expression",
+            "value" : {
+              "op" : "d2b",
+              "left" : null,
+              "right" : {
+                "type" : "field",
+                "value" : ["ip4", "$valid$"]
+              }
+            }
+          },
+          "false_next" : null,
+          "true_next" : "RouteIngress.proto_tags"
+        }
+      ]
+    },
+    {
+      "name" : "egress",
+      "id" : 1,
+      "source_info" : {
+        "filename" : "renamed_route.p4",
+        "line" : 120,
+        "column" : 8,
+        "source_fragment" : "RouteEgress"
+      },
+      "init_table" : null,
+      "tables" : [],
+      "action_profiles" : [],
+      "conditionals" : []
+    }
+  ],
+  "checksums" : [
+    {
+      "name" : "cksum",
+      "id" : 0,
+      "source_info" : {
+        "filename" : "renamed_route.p4",
+        "line" : 127,
+        "column" : 8,
+        "source_fragment" : "update_checksum( ..."
+      },
+      "target" : ["ip4", "csum"],
+      "type" : "generic",
+      "calculation" : "calc",
+      "verify" : false,
+      "update" : true,
+      "if_cond" : {
+        "type" : "expression",
+        "value" : {
+          "op" : "d2b",
+          "left" : null,
+          "right" : {
+            "type" : "field",
+            "value" : ["ip4", "$valid$"]
+          }
+        }
+      }
+    }
+  ],
+  "force_arith" : [],
+  "extern_instances" : [],
+  "field_aliases" : [
+    [
+      "queueing_metadata.enq_timestamp",
+      ["standard_metadata", "enq_timestamp"]
+    ],
+    [
+      "queueing_metadata.enq_qdepth",
+      ["standard_metadata", "enq_qdepth"]
+    ],
+    [
+      "queueing_metadata.deq_timedelta",
+      ["standard_metadata", "deq_timedelta"]
+    ],
+    [
+      "queueing_metadata.deq_qdepth",
+      ["standard_metadata", "deq_qdepth"]
+    ],
+    [
+      "intrinsic_metadata.ingress_global_timestamp",
+      ["standard_metadata", "ingress_global_timestamp"]
+    ],
+    [
+      "intrinsic_metadata.egress_global_timestamp",
+      ["standard_metadata", "egress_global_timestamp"]
+    ],
+    [
+      "intrinsic_metadata.mcast_grp",
+      ["standard_metadata", "mcast_grp"]
+    ],
+    [
+      "intrinsic_metadata.egress_rid",
+      ["standard_metadata", "egress_rid"]
+    ],
+    [
+      "intrinsic_metadata.priority",
+      ["standard_metadata", "priority"]
+    ]
+  ],
+  "program" : "renamed_route.p4",
+  "__meta__" : {
+    "version" : [2, 23],
+    "compiler" : "https://github.com/p4lang/p4c"
+  }
+}
