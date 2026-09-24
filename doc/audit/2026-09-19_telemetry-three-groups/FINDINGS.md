@@ -99,37 +99,35 @@
 
 ## 3. 二、取樣誤差
 
-🔴 **本節的 H-B 判決暫不填寫,依裁決 35⑥ 與 38。** 數字(圖 `fig2_sampling_error.png`)與
-逐格描述可以看,但**註冊過的 H-B 標籤要在 PREREG 註冊它的層級才算數**:
-H-B1／H-B4 對「一組的三個速率」判一次、H-B2 只在 100 Mbit/s 那格判且帶同號條件,
-而 `analyse.py` 目前是逐格貼(`:432`／`:435`／`:459`,整支碼沒有組級彙總)。
-⇒ 組級判決做出來之前,這一節填任何 H-B 標籤都會是「PREREG 沒有註冊過的結論」。
-**擋住的是標籤,不是數字**:圖、`median|err|`、預測值與 `links_used`/`keys_total` 都已就緒。
-
+本節的 H-B 判決是**組級**的（裁決 38／40）：H-B1／H-B4 對一組的三個速率判一次、H-B2 只在 100 Mbit/s 判且要三個視窗同號；逐格只留「在帶內／帶上／帶下」的描述當資料。數字由腳本從 `summary.json` 的 `sampling_error` 與 `sampling_error_by_group`／`sampling_error_cross_group_registered` 抽出。
 
 **圖：`fig2_sampling_error.png` / `.pdf`。**
 
 | 組 | 2 Mbit/s | 20 Mbit/s | 100 Mbit/s |
 |---|---|---|---|
 | `none` | **n/a** | **n/a** | **n/a** |
-| `cooperative` median abs err | `<>` | `<>` | `<>` |
-| `cooperative` 帶號中位數 | `<>` | `<>` | `<>` |
-| `link` median abs err | `<>` | `<>` | `<>` |
-| `link` 帶號中位數 | `<>` | `<>` | `<>` |
+| `cooperative` median abs err | 0.2953 | 0.0274 | 0.0154 |
+| `cooperative` 帶號中位數 | -0.2953 | +0.0274 | +0.0154 |
+| `link` median abs err | 0.0746 | 0.0344 | 0.0229 |
+| `link` 帶號中位數 | +0.0746 | +0.0119 | -0.0131 |
 | shot-noise 預測 0.674/sqrt(N) | 0.143 | 0.045 | 0.020 |
-| 量到的 N（`addressed_total` 增量） | `<>` | `<>` | `<>` |
+| 量到的 N（每視窗樣本數 4×pps×8/256，邊數＝twin 讀到非零的邊） | 22.3（4 條邊） | coop 223.2（4 條邊）／link 279.0（5 條邊） | coop 1116.1（4 條邊）／link 1395.1（5 條邊） |
 
 🔴 **`none` 是 n/a 不是 0**：它沒有 twin 讀數，寫 0 會把「沒有讀數」變成「誤差為零」。
 
 | 假設 | 判定 |
 |---|---|
-| H-B1 shot-noise 主導（落在 [0.5, 2.0]×預測） | `<>` |
-| H-B2 系統性偏差（大於 2×預測且三個視窗同號） | `<>` |
-| H-B3 `link` 的樣本掉了 | `<只有在 emitter 的 dropped_*／enobufs 大於 0 時才能寫；計數值：<>>` |
-| H-B4 兩條路一樣準（link/coop 落在 [0.5, 2.0]） | `<>` |
+| H-B1 shot-noise 主導（三個速率都落在 [0.5, 2.0]×預測） | `cooperative` **不成立**：2 M 上（0.2953，帶 [0.0713, 0.2853]）、20 M 內（0.0274，帶 [0.0226, 0.0902]）、100 M 內（0.0154，帶 [0.0101, 0.0404]）；`link` **成立**：2 M 內（0.0746，帶 [0.0713, 0.2853]）、20 M 內（0.0344，帶 [0.0202, 0.0807]）、100 M 內（0.0229，帶 [0.0090, 0.0361]） |
+| H-B2 系統性偏差（100 Mbit/s 那格大於 2×預測且三個視窗同號） | `cooperative` **不成立**（100 M 在帶內，3 個視窗同號）；`link` **不成立**（100 M 在帶內，3 個視窗不同號） |
+| H-B3 `link` 的樣本掉了（E(link)/E(coop) > 2 且 emitter 計數 > 0） | **不可寫**：沒有任何速率 link/coop > 2（2 M 0.253、20 M 1.255、100 M 1.489）；emitter `dropped_*`＋`enobufs`＝0 |
+| H-B4 兩條路一樣準（三個速率的 link/coop 都落在 [0.5, 2.0]） | **不成立**：2 M 0.253（外）、20 M 1.255（內）、100 M 1.489（內） |
+
+
+🔴 **`cooperative` 的結局「neither H-B1 nor H-B2 holds as registered」是 PREREG 沒有註冊的分支**（裁決 40②）：H-B1 不成立、H-B2 不成立，PREREG 5.2 與 §9 的結局表都沒有這一支 ⇒ 報數字、不貼標籤、不套用結局表的任何動作；登記為 PREREG 缺口（§6）。
+🔴 **`link` 20 M／100 M 的帶用 N＝5 條邊算**（第一個視窗讀到 5 條、另兩個 4 條，`sampling_summary` 取 `members[0]`；裁決 40⑧）：改用註冊的 4 條邊算帶，兩格同樣在帶內，判決不變。
 
 🔴 **計數器是 0 就不准寫「樣本掉了」**——那是 ROLE-5 的錯誤形狀（把沒觀測到的機制寫進判決）。
-emitter 統計行（每臂的 `emitter.log`）：`samples=<> emitted=<> dropped_*=<> enobufs=<>`。
+emitter 統計行（梯子臂 `emitter.log` 加總）：`samples=510829 emitted=510829 dropped_*=0 enobufs=0`。
 
 ⚠️ `ndt check` 的 `ok` 帶是 0.5–1.5，**那不是準確度陳述**（它是 double-count 的絆線）。
 本節報的是準確度，兩者不可混用。
@@ -138,32 +136,39 @@ emitter 統計行（每臂的 `emitter.log`）：`samples=<> emitted=<> dropped_
 
 ## 4. 三、CPU
 
-🔴 **本節的 H-C 判決暫不填寫,理由與 §3 同類但不同因**:我沒有驗過 PREREG 把 H-C 註冊在
-「逐格」還是「逐組」。裁決 38 是查 PREREG 之後才發現 H-B 的註冊層級與碼不一致的,
-**在對 H-C 做同一次查證之前,填上去的標籤沒有依據**。數字(`cpu_kernel`/`cpu_bmv2` 與
-`fits`)與圖 `fig3_cpu.png` 都在 summary.json 裡,擋住的一樣是標籤不是資料。
-(§5(b) 的 H-C1 是 `analyse.py` 自己輸出、照原樣轉錄的對帳結果,不是我在這裡下的判定。)
-
+本節的 H-C 判決是**每個處理組一次**（PREREG 5.3 為 kernel 的擬合註冊 H-C1／H-C2／H-C3／H-C0，擬合用三組共同的每一階；bmv2 只註冊逐階比值 ∈ [0.90, 1.15]、不帶 H-C 標籤——第十輪任務 C 查證、裁決 40）。H-C2 的第二條件沒有註冊容差 ⇒ 本輪**不可判**（裁決 40③），不准事後挑容差。數字由腳本從 `cpu_kernel`／`cpu_bmv2_ratio`／`external_gate` 抽出。
 
 **圖：`fig3_cpu.png` / `.pdf`（bmv2／kernel／proxy+emitter 三個面板）。**
 
 🔴 數字只取**梯子臂**：取樣誤差視窗自帶 4 Hz 的 `/ndt/get_graph_data` poll，而那個 HTTP 工作
 就是被量 CPU 的 kernel 行程在服務（08-20 的 `POLL=off` 為此存在）。
 
-| 階（offered kpps） | 量到的 samples/s | Δkernel(coop−none) | Δkernel(link−none) | 視窗間散佈 | 解析得出？ |
+| 階（offered kpps） | 量到的 samples/s | Δkernel(coop−none) | Δkernel(link−none) | 臂間散佈（兩世代原始 CPU 的全距；PREREG `:273` 註冊的是三窗 Δkernel 散佈——裁決 40⑤，本輪 11 階全解析、差異未改判決） | 解析得出？ |
 |---|---|---|---|---|---|
-| `<>` | `<>` | `<>` | `<>` | `<>` | `<>` |
+| 1 | 19 | +0.667 | +0.400 | coop 0.133／link 0.400 | 是 |
+| 2 | 39 | +1.067 | +0.704 | coop 0.133／link 0.375 | 是 |
+| 3 | 59 | +1.333 | +1.133 | coop 0.133／link 0.800 | 是 |
+| 5 | 97 | +1.400 | +1.333 | coop 0.133／link 0.133 | 是 |
+| 8 | 153 | +2.251 | +1.831 | coop 0.164／link 0.706 | 是 |
+| 12 | 132 | +4.149 | +3.131 | coop 2.612／link 1.157 | 是 |
+| 20 | 359 | +4.444 | +4.538 | coop 0.485／link 3.164 | 是 |
+| 30 | 367 | +7.836 | +5.281 | coop 0.895／link 1.741 | 是 |
+| 45 | 824 | +10.398 | +8.132 | coop 0.268／link 1.334 | 是 |
+| 70 | 948 | +11.764 | +10.331 | coop 0.868／link 3.066 | 是 |
+| 110 | 965 | +13.530 | +12.598 | coop 0.133／link 4.668 | 是 |
 
 ### 分解（PREREG 5.3）
 
 | 組 | F（% of one core） | m（us/sample） | 固定份額 F/(F+m·S_top) | 判定 |
 |---|---|---|---|---|
-| `cooperative` | `<>` | `<>` | `<>` | `<H-C1 / H-C2 / H-C3 / H-C0>` |
-| `link` | `<>` | `<>` | `<>` | `<>` |
+| `cooperative` | 0.9234 | 122.89 | 0.0722 | H-C1 cost is dominated by a fixed component (08-20 reproduces)（H-C2 條件一成立：share 0.072；條件二 Δ(高)/Δ(低) 20.297 vs S(高)/S(低) 51.802，PREREG 無註冊容差 ⇒ 不可判，裁決 40③） |
+| `link` | 0.7692 | 79.00 | 0.0623 | not decided: H-C2 condition 1 holds (share <= 0.2); condition 2 (delta ratio ~ S ratio) has no registered tolerance（H-C2 條件一成立：share 0.062；條件二 Δ(高)/Δ(低) 31.505 vs S(高)/S(低) 58.680，PREREG 無註冊容差 ⇒ 不可判，裁決 40③） |
 
-**bmv2 CPU**（08-20 預測不動）：`bmv2(cooperative)/bmv2(none)` ＝ `<>`，區間 [0.90, 1.15] ⇒ `<一致／不一致>`。
+🔴 **判定欄怎麼讀**（裁決 40③④）：`cooperative` 的 H-C1 **只靠 m 落帶**（122.89 ∈ [103, 618]）；固定份額 0.0722 < 0.5 那一條不成立，而 H-C2 的條件一（≤ 0.2）反而成立。`link` 的註冊結局是**不可判**：m 79.00 落帶外、固定份額 0.0623 ⇒ 不是 H-C1；H-C2 的第二條件沒有註冊容差；不是 H-C3（H-C3＝介於兩者，link 的份額落在 H-C2 那一側）。兩組的 Δ 比與 S 比只當資料列出，沒有任何東西拿它們下判決。
 
-**softirq**（`link` 的資料面成本歸屬不到任何 pid）：`<none / cooperative / link 的份額>` ⇒ `<預測成真／沒有>`。
+**bmv2 CPU**（08-20 預測不動；PREREG 5.3 逐階註冊、沒有跨階彙總）：`bmv2(cooperative)/bmv2(none)` 逐階＝1 kpps 0.991、2 kpps 0.988、3 kpps 1.105、5 kpps 1.038、8 kpps 0.943、12 kpps 1.513、20 kpps 1.084、30 kpps 1.099、45 kpps 1.164、70 kpps 1.067、110 kpps 1.022；區間 [0.90, 1.15] ⇒ **9 階一致、2 階不一致**（落外的階：12 kpps 1.513、45 kpps 1.164）。
+
+**softirq**（`link` 的資料面成本歸屬不到任何 pid；各組臂的 `softirq_share` 中位數）：`none` 0.0105／`cooperative` 0.0082／`link` 0.0102 ⇒ **沒有成真**（PREREG 5.3 只註冊「逐組報」與方向，沒有區間）。
 
 ---
 
