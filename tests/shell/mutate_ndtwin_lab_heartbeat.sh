@@ -24,6 +24,12 @@
 # 🔴 Touches no lab and needs no root. The suite runs as the operator against fixtures; the helper's
 # dispatch -- the only path to root -- is unreachable from it.
 #
+# 🔴 ONE MUTANT NEEDS THE MACHINE, NOT JUST THE REPO (judge #10, round 2): `ethertype-collides`
+# is caught by the scan of the tutorials parsers, which exist only where $HOME/tutorials/exercises
+# does (26 .p4 files on this laptop). Without that tree the suite prints "the collision half was
+# NOT checked", the mutant SURVIVES, and this gate exits 1 -- loudly, never a silent pass. On such
+# a machine that one survivor is the environment, and says so; every other mutant is repo-only.
+#
 # Usage:  JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh ./tests/shell/mutate_ndtwin_lab_heartbeat.sh
 #   TEST_TIMEOUT=180   seconds allowed per suite run
 #
@@ -334,6 +340,60 @@ write_case pidfile-path-drift "the helper's HB_RUN_DIR default is the program's 
     return tuple(os.path.join(run_dir, n) for n in ("heartbeat.pid", "heartbeat.lock", "heartbeat.json"))
 @@@TO@@@
     return tuple(os.path.join(run_dir, n) for n in ("heartbeat.pidfile", "heartbeat.lock", "heartbeat.json"))
+PAIR
+
+# --- round 2 (Adam's ruling (a), judge #6, #7, #9) ---------------------------------------------
+CASES+=(ndtwin-pipeline-accepted)
+write_case ndtwin-pipeline-accepted "a fabric running NDTwin's own pipeline is refused (one switch of four)" <<'PAIR'
+    if own:
+        raise Refusal(f"{', '.join(own)} run(s) NDTwin's own pipeline ({NDTWIN_PIPELINE}). That "
+@@@TO@@@
+    if False:
+        raise Refusal(f"{', '.join(own)} run(s) NDTwin's own pipeline ({NDTWIN_PIPELINE}). That "
+PAIR
+
+CASES+=(bmv2-uid-unchecked)
+write_case bmv2-uid-unchecked "bmv2 pids owned by another uid are not a fabric" <<'PAIR'
+    return uids == [str(expect_uid), str(expect_uid)]
+@@@TO@@@
+    return True
+PAIR
+
+CASES+=(race-branch-dropped)
+write_case race-branch-dropped "two starts race and this one's daemon loses the lock: start answers 0" <<'PAIR'
+            if (( rc == 2 )) && pid="$(hb_pid)"; then
+                echo "heartbeat already running (pid $pid) -- another start won the race; not starting a second one"
+                return 0
+            fi
+@@@TO@@@
+            :
+PAIR
+
+CASES+=(kill-fallback-dropped)
+write_case kill-fallback-dropped "a daemon that ignores TERM: stop falls back to KILL and answers 0" <<'PAIR'
+    if hb_is_daemon "$pid"; then
+        hb_signal KILL "$pid" || true
+        sleep 0.2
+    fi
+@@@TO@@@
+    :
+PAIR
+
+CASES+=(kill-path-leaves-pidfile)
+write_case kill-path-leaves-pidfile "and the KILL path removed the pidfile" <<'PAIR'
+    [[ "$(hb_read_pidfile 2>/dev/null)" == "$pid" ]] && rm -f "$HB_PIDFILE"
+@@@TO@@@
+    :
+PAIR
+
+# Arithmetic before validation: `(( pid > 1 ))` on 'a[$(cmd)]' runs cmd, as root.
+CASES+=(is-daemon-arithmetic-first)
+write_case is-daemon-arithmetic-first "hb_is_daemon refuses an arithmetic payload without evaluating it" <<'PAIR'
+    [[ "$pid" =~ ^[1-9][0-9]{0,9}$ ]] || return 1
+    (( pid > 1 )) || return 1
+@@@TO@@@
+    (( pid > 1 )) || return 1
+    [[ "$pid" =~ ^[1-9][0-9]{0,9}$ ]] || return 1
 PAIR
 
 CASES+=(control-comment-only)
