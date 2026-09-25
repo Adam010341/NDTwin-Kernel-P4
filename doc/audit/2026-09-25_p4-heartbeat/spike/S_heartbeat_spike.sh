@@ -638,7 +638,7 @@ open(sys.argv[1] + "/sniff_hA.json", "w").write(json.dumps({"host": "hA", "frame
         printf 'WATCH=%q\nRUN=%q\nHB_REPORT=%q\n' "$st_tmp/fake_watch.py" "$st_tmp/detect_run" "$st_tmp/no-report.json"
         cat <<'DRIVER'
 mkdir -p "$RUN"
-VERDICT_RC=0; VERDICT_WHY=""; BEACON_S=5; TIMEOUT_S=15; CYCLES=1
+VERDICT_RC=0; VERDICT_WHY=""; BEACON_S=5; TIMEOUT_S=15; CYCLES=1; CUT_DIRS="1:3>3:1,3:1>1:3"
 prepare() { echo "OK /nonexistent/pkg"; }
 nd_up() { : > "$2"; return 0; }
 sp_hb_start() { : > "$1"; return 0; }
@@ -650,9 +650,14 @@ echo "survived VERDICT_RC=$VERDICT_RC" > "$1"
 DRIVER
     } > "$st_tmp/detect_driver.sh"
     bash "$st_tmp/detect_driver.sh" "$st_tmp/detect_out" > "$st_tmp/detect_driver.out" 2>&1 && wrc=0 || wrc=$?
+    # 🔴 THE DRIVER MUST GET AS FAR AS THE CHECK IT IS ABOUT. Its first version died of `set -u` on a
+    # variable the stub environment lacked (CUT_DIRS) -- red, but for its own reason, not detect's
+    # (5c882c9f's red log). So the fake hb_watch must have been asked for `all-heard`, and the
+    # verdict must be the one that check records.
     [[ "$wrc" == 0 && "$(cat "$st_tmp/detect_out" 2>/dev/null)" == "survived VERDICT_RC=1" ]] \
+        && grep -q 'every direction heard once the heartbeat is up: 0/8 directions heard' "$st_tmp/detect_driver.out" \
         && ok "a detection part that fails its first check records FAIL and returns -- the run goes on (set -e process)" \
-        || red "a detection part that fails its first check ended the run under set -e: rc $wrc, '$(cat "$st_tmp/detect_out" 2>/dev/null || echo 'nothing written')'"
+        || red "a detection part that fails its first check ended the run under set -e: rc $wrc, '$(cat "$st_tmp/detect_out" 2>/dev/null || echo 'nothing written')'; driver said: $(tail -2 "$st_tmp/detect_driver.out" | tr '\n' ' ')"
 
     # R3-4, round 4 -- the census reads the new daemon's session from its report, which may not be
     # written the instant `start` returns. Bounded wait, and no abort under set -e either way.
