@@ -30,6 +30,14 @@
 # NOT checked", the mutant SURVIVES, and this gate exits 1 -- loudly, never a silent pass. On such
 # a machine that one survivor is the environment, and says so; every other mutant is repo-only.
 #
+# 🔴 ONE MUTANT IS OF THE SUITE, AND RUNS IN CI'S SHAPE (2026-09-26). From 377a1271 the pin in
+# section 7 was green wherever a proxy venv exists and red in GitHub CI, which has none: it never
+# tried the python3 that CI does have. `pin-no-path-fallback` takes that fallback back out
+# of the suite, and it and its baseline run with the venvs hidden (HB_PIN_VENVS names nothing
+# that exists, PYTHON empty) and PATH's first python3 a shim for an interpreter that CAN import
+# topology_manager. That baseline must be green AND say the shim answered -- otherwise the shape
+# is not CI's and the gate has no verdict. The suite is snapshotted and restored like the helper.
+#
 # Usage:  JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh ./tests/shell/mutate_ndtwin_lab_heartbeat.sh
 #   TEST_TIMEOUT=180   seconds allowed per suite run
 #
@@ -50,12 +58,14 @@ command -v timeout >/dev/null || { echo "🔴 GNU timeout is required" >&2; exit
 
 SNAP="$(mktemp /tmp/mutate-hb-XXXXXX.ndtwin-lab)"
 cp -p "$NDT" "$SNAP"
-restore() { cp -p "$SNAP" "$NDT"; }
-cleanup() { restore; rm -f "$SNAP"; }
+SUITE_SNAP="$(mktemp /tmp/mutate-hb-XXXXXX.suite)"
+cp -p "$SUITE" "$SUITE_SNAP"
+restore() { cp -p "$SNAP" "$NDT"; cp -p "$SUITE_SNAP" "$SUITE"; }
+cleanup() { restore; rm -f "$SNAP" "$SUITE_SNAP"; }
 trap cleanup EXIT INT TERM
 
 MUT_DIR="$(mktemp -d /tmp/mutate-hb-cases-XXXXXX)"
-cleanup() { restore; rm -f "$SNAP"; rm -rf "$MUT_DIR"; }
+cleanup() { restore; rm -f "$SNAP" "$SUITE_SNAP"; rm -rf "$MUT_DIR"; }
 
 write_case() {
     local name="$1" expect="$2"
@@ -420,6 +430,7 @@ PYAPPLY
 run_suite() {   # echo "<rc>|<comma separated FAILED check names>"
     local out rc
     out="$(timeout "$TEST_TIMEOUT" bash "$SUITE" 2>&1)"; rc=$?
+    printf '%s\n' "$out" > "$MUT_DIR/last.out"
     printf '%s|%s' "$rc" "$(printf '%s\n' "$out" | sed -n 's/^  FAILED  *//p' | paste -sd, -)"
 }
 
@@ -481,13 +492,81 @@ for name in "${CASES[@]}"; do
     fi
 done
 
+# --- 1b. the suite's own python3 fallback, in CI's shape ------------------------------------------
+echo
+echo "=== the pin's python3 fallback, in CI's shape (no venv; python3 on PATH can import the proxy) ==="
+restore
+# The interpreter the shim stands in for setup-python's python3 with: one that CAN import it.
+MAIN_WT="$(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2; exit}')"
+PIN_OK=""
+for c in "${PYTHON:-}" "$PWD/p4_proxy/venv/bin/python" "${MAIN_WT:-/nonexistent}/p4_proxy/venv/bin/python" \
+         "$(command -v python3)"; do
+    [[ -n "$c" && -x "$c" ]] || continue
+    "$c" -c 'import sys; sys.path.insert(0, "p4_proxy"); import proxy_agent.topology_manager' >/dev/null 2>&1 || continue
+    PIN_OK="$c"; break
+done
+SHIM="$MUT_DIR/ci-shim"
+mkdir -p "$SHIM"
+printf '#!/bin/bash\nexec %q "$@"\n' "$PIN_OK" > "$SHIM/python3"
+chmod +x "$SHIM/python3"
+ci_run_suite() { PYTHON= HB_PIN_VENVS=/nonexistent/p4_proxy/venv/bin/python PATH="$SHIM:$PATH" run_suite; }
+note="the pins' interpreter: $SHIM/python3 (python3 on PATH)"
+expect="PERIOD_S is the proxy's LLDP_BEACON_INTERVAL_S"
+if [[ -z "$PIN_OK" ]]; then
+    echo "  🔴 no interpreter here can import proxy_agent.topology_manager -- CI's shape cannot be built" >&2
+    verdict=2; invalid=$((invalid+1))
+else
+    b="$(ci_run_suite)"
+    shim_answered="$(grep -qF -- "$note" "$MUT_DIR/last.out" && echo yes || echo no)"
+    printf '  %-30s rc=%s red=%s; python3 on PATH (%s) answered the pin: %s\n' \
+        "ci-shape baseline" "${b%%|*}" "${b#*|}" "$PIN_OK" "$shim_answered"
+    if [[ "${b%%|*}" != 0 || "$shim_answered" != yes ]]; then
+        echo "  🔴 the unmutated suite is not green through the fallback in CI's shape -- no verdict" >&2
+        verdict=2; invalid=$((invalid+1))
+    else
+        python3 - "$SUITE" <<'PYSUITE'
+import sys, pathlib
+src = pathlib.Path(sys.argv[1])
+old = "    PIN_PYS+=(python3)\n"
+s = src.read_text()
+if s.count(old) != 1:
+    print(f"  anchor drift {s.count(old)} (must be exactly 1)")
+    sys.exit(3)
+src.write_text(s.replace(old, ""))
+PYSUITE
+        arc=$?
+        if (( arc != 0 )) || ! bash -n "$SUITE" 2>/dev/null; then
+            echo "  🔴 pin-no-path-fallback: not applied (rc $arc) or does not parse -- the suite moved under the gate" >&2
+            verdict=2; invalid=$((invalid+1))
+        else
+            r="$(ci_run_suite)"; rc="${r%%|*}"; red="${r#*|}"
+            if [[ "$rc" == 124 ]] || (( rc > 128 )); then
+                echo "  🔴 pin-no-path-fallback: suite hung or died (rc $rc) -- never a catch" >&2
+                verdict=2; invalid=$((invalid+1))
+            elif [[ "$rc" == 0 ]]; then
+                printf '  %-30s 🔴 SURVIVED -- CI would be green without the fallback?\n' pin-no-path-fallback >&2
+                (( verdict == 0 )) && verdict=1
+                survived=$((survived+1))
+            elif [[ ",$red," == *",$expect,"* ]]; then
+                printf '  %-30s caught by: %s\n' pin-no-path-fallback "$expect"
+                caught=$((caught+1))
+            else
+                printf '  %-30s 🔴 red, but NOT the named check\n  %-30s    wanted: %s\n  %-30s    got:    %s\n' \
+                    pin-no-path-fallback "" "$expect" "" "$red" >&2
+                (( verdict == 0 )) && verdict=1
+                survived=$((survived+1))
+            fi
+        fi
+    fi
+fi
+
 # --- 2. the baseline must be back, byte for byte ------------------------------------------------
 restore
 echo
-if cmp -s "$NDT" "$SNAP"; then
-    echo "restore: $NDT is byte-identical to the pre-gate snapshot"
+if cmp -s "$NDT" "$SNAP" && cmp -s "$SUITE" "$SUITE_SNAP"; then
+    echo "restore: $NDT and $SUITE are byte-identical to the pre-gate snapshots"
 else
-    echo "🔴 restore FAILED -- $NDT differs from the snapshot" >&2
+    echo "🔴 restore FAILED -- $NDT or $SUITE differs from its snapshot" >&2
     verdict=2
 fi
 after="$(run_suite)"
@@ -499,7 +578,7 @@ else
 fi
 
 echo
-echo "mutants: $(( ${#CASES[@]} - 1 )) named + 1 control; caught $caught, survived $survived, invalid $invalid"
+echo "mutants: $(( ${#CASES[@]} - 1 )) named + 1 control, and 1 of the suite in CI's shape; caught $caught, survived $survived, invalid $invalid"
 case "$verdict" in
     0) echo "VERDICT: every mutation was caught by the check named for it; the control survived" ;;
     1) echo "VERDICT: at least one mutation survived or was caught by the wrong check" >&2 ;;

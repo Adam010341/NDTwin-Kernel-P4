@@ -30,17 +30,23 @@
 # Run:  bash tests/shell/test_ndtwin_lab_heartbeat.sh
 #   HB_TEST_PY  the interpreter the program is loaded with (default /usr/bin/python3 -- the one
 #               root runs it with)
-#   PYTHON      the proxy's venv interpreter, for section 7's pin to topology_manager's constants
-#               (default: this checkout's p4_proxy/venv, else the main checkout's)
+#   PYTHON      the interpreter for section 7's pin to topology_manager's constants. Set, it is the
+#               only one tried. Unset, the first that can import topology_manager of: the venvs in
+#               HB_PIN_VENVS (':'-separated; default this checkout's p4_proxy/venv, then the main
+#               checkout's), then python3 on PATH -- CI has no venv, and its python3 is
+#               setup-python's with p4_proxy/requirements.txt installed. The output names the one
+#               used; the pin is red only when none can import it. CI's shape, here:
+#               HB_PIN_VENVS=/nonexistent PATH=<dir with a python3 that has networkx>:$PATH
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LAB="$HERE/../../tools/test_workflow/ndtwin-lab"
 REPO="$(cd "$HERE/../.." && pwd)"
 HB_TEST_PY="${HB_TEST_PY:-/usr/bin/python3}"
-if [[ -z "${PYTHON:-}" ]]; then
-    if [[ -x "$REPO/p4_proxy/venv/bin/python" ]]; then PYTHON="$REPO/p4_proxy/venv/bin/python"
-    else PYTHON=/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python; fi
+if [[ -n "${PYTHON:-}" ]]; then PIN_PYS=("$PYTHON")
+else
+    IFS=: read -ra PIN_PYS <<<"${HB_PIN_VENVS:-$REPO/p4_proxy/venv/bin/python:/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python}"
+    PIN_PYS+=(python3)
 fi
 
 PASS=0; FAIL=0
@@ -386,14 +392,15 @@ sys.exit(0 if {"run_daemon", "plan", "main"} <= {n.name for n in t.body if isins
 TUT_EXERCISES="${TUT_EXERCISES:-$HOME/tutorials/exercises}"
 
 PYOUT="$TMPROOT/py.out"
-"$HB_TEST_PY" -I - "$PROG" "$TMPROOT" "$REPO" "$TUT_EXERCISES" "$PYTHON" > "$PYOUT" 2>&1 <<'PYTEST'
-import errno, glob, json, os, re, stat, subprocess, sys, tempfile, time, traceback
+"$HB_TEST_PY" -I - "$PROG" "$TMPROOT" "$REPO" "$TUT_EXERCISES" "${PIN_PYS[@]}" > "$PYOUT" 2>&1 <<'PYTEST'
+import errno, glob, json, os, re, shutil, stat, subprocess, sys, tempfile, time, traceback
 sys.dont_write_bytecode = True
 # 🔴 This machine's login umask is 002: a directory made without an explicit mode is
 # group-writable, and the program REFUSES that -- every "refused" below would then be refused for
 # the wrong reason. The fixtures state their modes; this makes the ones that do not say 0755.
 os.umask(0o022)
-prog_path, tmp, repo, tut, venv_py = sys.argv[1:6]
+prog_path, tmp, repo, tut = sys.argv[1:5]
+pin_pys = sys.argv[5:]              # section 7's interpreters, in the order they are tried
 counts = {"ok": 0, "fail": 0}
 
 
@@ -807,14 +814,25 @@ def section_lifecycle():
     # see the constant's comment); it is held equal to the proxy's here, with the proxy's
     # experiment override removed from the environment so the DEFAULTS are what is compared.
     env = {k: v for k, v in os.environ.items() if k != "NDTWIN_P4_BEACON_S"}
-    if os.path.exists(venv_py):
-        r = subprocess.run([venv_py, "-c", "import sys; sys.path.insert(0, sys.argv[1]); "
+    # Asked of the first interpreter that can import it (the header's PYTHON): a venv, or -- where
+    # there is none, as in CI -- python3 on PATH. The one that answered is printed; red only if none can.
+    got, tried = None, []
+    for py in pin_pys:
+        exe = shutil.which(py)
+        if exe is None:
+            tried.append(f"{py}: not found")
+            continue
+        r = subprocess.run([exe, "-c", "import sys; sys.path.insert(0, sys.argv[1]); "
                             "from proxy_agent import topology_manager as t; "
                             "print(t.LLDP_BEACON_INTERVAL_S, t.LINK_BEACON_TIMEOUT_S)",
                             os.path.join(repo, "p4_proxy")], capture_output=True, text=True, env=env, timeout=60)
-        got = r.stdout.split() if r.returncode == 0 else ["import-failed", r.stderr[-300:]]
-    else:
-        got = ["no-venv", venv_py]
+        if r.returncode == 0:
+            got = r.stdout.split()
+            print(f"  --       the pins' interpreter: {exe}" + ("" if exe == py else f" ({py} on PATH)"))
+            break
+        tried.append(f"{exe}: import failed: {(r.stderr.strip().splitlines() or [f'rc {r.returncode}'])[-1]}")
+    if got is None:
+        got = ["no interpreter could import proxy_agent.topology_manager", " | ".join(tried)]
     check("PERIOD_S is the proxy's LLDP_BEACON_INTERVAL_S", str(hb.PERIOD_S), got[0])
     check("the proxy's LINK_BEACON_TIMEOUT_S is 3 heartbeat periods", str(3 * hb.PERIOD_S), got[1] if len(got) > 1 else None)
 
