@@ -1671,10 +1671,21 @@ check "  and the verdict line is 'clean'"            "1" "$(grep -cx 'clean' <<<
 
 # A registry entry is a subject on its own: .test_run/pids/ is what `ndt down` acts on, so a
 # machine that has one has something for this command to be about.
-reset_fix; rm -f "$DM" "$FIX/manifest.json"; ledger kernel 992261
+# [Co-developed with claude code -- Adam]
+# 🔴 A LIVE entry: a `sleep` this cell spawns (before the pidfile is written, so it is not a
+# recycled number either) and kills straight after. It was 992261 until 2026-09-25 -- a number
+# nothing on this machine holds, i.e. a STALE entry, which Adam's ruling that day (TICKET-ndt-
+# ovs-claim section 2 item 3) says is NOT something to judge; the stale half lives in
+# tests/shell/test_ndt_ovs_claim.sh section 10. Not this suite's own shell: if a regression ever
+# made this path signal what the registry names, it must hit a fixture and not the harness.
+( exec sleep 120 ) >/dev/null 2>&1 </dev/null &
+REG_LIVE=$!
+reset_fix; rm -f "$DM" "$FIX/manifest.json"; ledger kernel "$REG_LIVE"
 OUT="$(drive 'cmd_clean')"
 check "🔴 a pidfile in the registry is a subject: rc 0" "0" "$(rc_of_out "$OUT")"
 check "  and the verdict line is 'clean'"            "1" "$(grep -cx 'clean' <<<"$OUT")"
+[[ "$(cat "/proc/$REG_LIVE/comm" 2>/dev/null)" == sleep ]] && kill -KILL "$REG_LIVE" 2>/dev/null
+wait "$REG_LIVE" 2>/dev/null
 
 # 🔴 THE CONTROLS. "Answer 3 when nothing is running" would swallow every stray this command
 # exists to find -- the empty registry is exactly the state a stray nobody started leaves.

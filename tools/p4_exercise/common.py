@@ -62,6 +62,39 @@ def import_grpc_ports():
     return grpc_ports
 
 
+#: The proxy's root, for the one proxy module pre-flight shares. [Co-developed with claude code
+#: -- Adam]
+PROXY_DIR = os.path.join(REPO, "p4_proxy")
+
+
+def import_app_package():
+    """The proxy's package loader, imported by path -- for `parse_roles`, so pre-flight refuses a
+    `roles` shape with the loader's own sentence (TICKET-P4-roles 2.1-4).
+    [Co-developed with claude code -- Adam]"""
+    if MININET_DIR not in sys.path:
+        sys.path.insert(0, MININET_DIR)
+    import app_package  # noqa: E402
+
+    return app_package
+
+
+def import_route_binding():
+    """`p4_proxy/proxy_agent/route_binding`, imported by path.
+
+    [Co-developed with claude code -- Adam]
+    🔴 THE SAME FUNCTION THE PROXY RUNS (TICKET-P4-roles 2.1-4): `resolve()` is what the proxy
+    calls when it builds each client, and a pre-flight with a copy of it would be a second
+    opinion that is free to disagree -- and the disagreement would surface as a proxy that
+    refuses to start on a package this tool passed. The module imports nothing from the proxy
+    and no gRPC; only its match-type lookup touches protobuf.
+    """
+    if PROXY_DIR not in sys.path:
+        sys.path.insert(0, PROXY_DIR)
+    from proxy_agent import route_binding  # noqa: E402
+
+    return route_binding
+
+
 def agent_ip(dpid):
     """The management address a switch with this dpid gets in the generated model."""
     last = AGENT_IP_OFFSET + int(dpid)

@@ -288,6 +288,18 @@ lab_conf_gate() {
             # Locking it out would leave the rescue path as "already know the answer".
             printf '   (%s is read-only, so it runs anyway -- on the DEFAULTS, not on that file)\n' "$1" >&2
             return 0 ;;
+        heartbeat)
+            # [Co-developed with claude code -- Adam]
+            # Adam, 2026-09-25, ruling (b). `heartbeat stop` and `heartbeat status` touch only
+            # /run/ndtwin-lab and read nothing this file sets, so a broken config must not lock an
+            # operator out of stopping a root daemon. `heartbeat start` starts something and fails
+            # closed, like every other verb that does.
+            case "${2:-}" in
+                stop|status)
+                    printf '   (heartbeat %s touches only /run/ndtwin-lab, so it runs anyway)\n' "$2" >&2
+                    return 0 ;;
+            esac
+            die "refusing to run 'heartbeat ${2:-}' with a config file that cannot be trusted." ;;
         *)
             die "refusing to run '$1' with a config file that cannot be trusted." ;;
     esac
@@ -566,13 +578,1086 @@ ovs_topo_start() {
     echo "OVS topo session started from $script (attach: sudo tmux -L ndtwinlab attach -t topo)"
 }
 
+# -------------------------------------------------------------------------------------
+# THE veth HEARTBEAT.  TICKET-P4-heartbeat, segment H.
+#
+# [Co-developed with claude code -- Adam]
+#
+# What it is for. A foreign P4 pipeline carries no NDTwin LLDP, so on a foreign fabric nothing
+# tells the proxy that a link died (doc/audit/2026-09-24_p4-driven-api-shape/ANALYSIS.md
+# section 5). `heartbeat start` runs a small root daemon that sends one frame per period out of
+# every switch-side veth with a switch at its far end, reads it back at that far end, and writes
+# down WHEN each direction was last heard. `tc netem` sits on the same egress qdisc the frame
+# goes through, so a cut link cuts the heartbeat with it.
+#
+# 🔴 WHAT ROOT WILL NOT DO HERE. Each rule below has checks in tests/shell/test_ndtwin_lab_heartbeat.sh,
+#    and for each rule tests/shell/mutate_ndtwin_lab_heartbeat.sh has removed it and seen the check
+#    named for it go red. That is a claim about the POSITIVE check of each rule, not about every
+#    check: where a refusal is guarded twice (the pidfile's own regex, then hb_is_daemon's), the
+#    "nothing was signalled / nothing ran" checks stay green when one layer is removed, and are
+#    there as the last line, not as evidence that either layer is needed.
+#
+#   * take ANYTHING from the caller but the sub-verb. `heartbeat start|stop|status` and nothing
+#     after it -- no interface, no path, no ethertype, no period. The daemon's own argv is the
+#     single word `daemon`, and its program refuses any other shape too.
+#   * choose interfaces itself. They come from the running fabric's own declaration, the switch
+#     manifest the ROOT topology process writes (/tmp/ndtwin_p4_switches.json), believed only
+#     when it is a root-owned, not group/other-writable regular file -- read with O_NOFOLLOW |
+#     O_NONBLOCK, the rule tools/p4_power_helper.py already applies to the same file. up.target
+#     and the package's topology.json were the other candidates and both are adam-writable
+#     descriptions of what was ASKED FOR; this is the record of what RUNS. Every interface must
+#     be `<switch>-eth<port>` as bmv2 was launched with it, be a veth, and a link is two of them
+#     whose kernel iflinks name each other. Everything else is listened on and never sent on.
+#   * start without a fabric: no topo session, no manifest, or a manifest whose switches are not
+#     all live bmv2 processes owned by root -- refused before anything is launched.
+#   * run on NDTwin's OWN pipeline (Adam, 2026-09-25). ndtwin_switch.json carries LLDP and punts
+#     an unknown ethertype to the CPU, so every heartbeat frame would be a packet-in the proxy books
+#     as that switch's liveness. One such switch in the manifest refuses the whole fabric.
+#   * run twice. A live daemon (pidfile + cmdline + uid) makes `start` say so and launch nothing;
+#     two racing `start`s are settled by an exclusive flock the daemon takes before it does
+#     anything else.
+#   * signal a stranger. `stop` signals the pid in the pidfile only after /proc/<pid>/cmdline is
+#     EXACTLY the daemon's argv and /proc/<pid>/status says uid 0 -- never a pattern, never
+#     pkill/pgrep (G-9, above).
+#   * decide. The daemon reports "direction X last heard at t"; whether that is DOWN, and what to
+#     reroute, is the proxy's call with the proxy's constants (segment W).
+#
+# 🔑 THE PROGRAM IS INSIDE THIS FILE, not in KERNEL_DIR, and that is the point of it: this file is
+#    the root-owned, sha-pinned copy `ndt status` compares (FINDING #83), so what root runs for
+#    the heartbeat is exactly what was reviewed and installed. A daemon that lived in the
+#    adam-writable tree would make every check above a suggestion. It is written to
+#    $HB_RUN_DIR (root-only) at each start and executed from there, which is also what gives the
+#    process an argv `stop` can recognise.
+#
+# Where the report goes, and why a file: $HB_RUN_DIR/heartbeat.json, 0644 in a 0755 root directory
+# -- the proxy reads it (segment W). The other design, the daemon POSTing to the proxy, would put
+# a root process in the business of finding and trusting an adam-owned HTTP service, and would
+# open a route anything on localhost could post fake link states to.
+
+HB_RUN_DIR=/run/ndtwin-lab
+HB_PROGRAM=$HB_RUN_DIR/heartbeat.py
+HB_PIDFILE=$HB_RUN_DIR/heartbeat.pid
+HB_LOG=$HB_RUN_DIR/heartbeat.log
+# Absolute, root-owned, and part of the daemon's identity: `stop` compares argv[0] to it.
+HB_PYTHON=/usr/bin/python3
+# The uid the daemon must run as and the owner the run directory must have. A seam for the
+# non-root tests only: the dispatch below is unreachable from a sourced file.
+HB_EXPECT_UID=0
+# 0.1 s steps: how long `start` waits for the daemon to report, and `stop` for it to go.
+HB_START_STEPS=60
+HB_STOP_STEPS=50
+# `start`: the running fabric has no switch-to-switch link, so there is nothing to send.
+# `status`: no daemon is running. Neither is an error; both are answers.
+HB_RC_NO_LINKS=3
+HB_RC_NOT_RUNNING=3
+
+# hb_program -- the daemon, verbatim. Quoted heredoc: nothing in it is expanded by bash.
+hb_program() {
+    cat <<'NDTWIN_LAB_HEARTBEAT_PY'
+"""ndtwin-lab heartbeat -- the veth heartbeat of a foreign P4 fabric (TICKET-P4-heartbeat, segment H).
+
+[Co-developed with claude code -- Adam]
+
+WHAT THIS IS. `sudo ndtwin-lab heartbeat start` writes this program to /run/ndtwin-lab/heartbeat.py
+and runs it as root. Once per PERIOD_S it sends one small frame out of every switch-side veth that
+has a switch on its far end, and it listens on every switch-side veth of the running fabric. It
+writes down, per direction, WHEN it last heard that direction's frame arrive at the far end. That
+is all it does. It decides nothing: whether a direction is down, and what to do about it, is the
+proxy's business (segment W), with the proxy's own constants.
+
+WHY A veth HEARTBEAT (doc/audit/2026-09-24_p4-driven-api-shape/ANALYSIS.md section 5). A foreign
+pipeline carries no NDTwin LLDP, so nothing tells the proxy a link died. `tc netem` sits on the
+EGRESS qdisc of a switch-side veth, and a frame sent into that veth with AF_PACKET goes through the
+same qdisc -- so when a link is cut the heartbeat is cut with it, and when it is not the frame
+arrives on the peer veth, where this program reads it before (and independently of) the switch.
+
+🔴 WHAT IT WILL NOT TAKE FROM ANYBODY. It runs as root and it accepts exactly one word on its
+command line (plan | daemon | report). Interface names, paths and the ethertype are never read from
+argv or the environment:
+  * the interfaces come from the RUNNING FABRIC'S OWN DECLARATION -- /tmp/ndtwin_p4_switches.json,
+    written by the root topology process that built the fabric, and trusted only if it is a
+    regular root-owned file that nobody else can write, in a directory nobody else can replace it
+    in (the same rule tools/p4_power_helper.py applies before it executes that file's argv);
+  * each switch's interfaces are the `-i <port>@<ifname>` pairs bmv2 was launched with, and every
+    one must be named `<switch>-eth<port>`, exist, and be driven by `veth`;
+  * a LINK is two such interfaces that are each other's veth peer, read from the kernel (both
+    `iflink`s must point at each other). An interface whose peer is not in the fabric is
+    host-facing: it is listened on and NEVER sent on.
+
+WHAT "HEARD" MEANS, and the two ways it could lie, each closed here with a test:
+  * our frame leaving an interface is visible on that interface too (PACKET_OUTGOING). A daemon
+    that counted it would hear a direction whose far end has been cut. Only an INCOMING frame is
+    evidence, and only on the exact interface its direction names;
+  * a switch's pipeline may forward our frame on. Arriving somewhere else it is `misdelivered`;
+    leaving a switch port it is `forwarded` -- counted, disclosed, never heard.
+"""
+import ctypes
+import errno
+import fcntl
+import hashlib
+import json
+import os
+import re
+import select
+import signal
+import socket
+import stat
+import struct
+import sys
+import tempfile
+import time
+from collections import namedtuple
+
+# ------------------------------------------------------------------------------------ the frame
+#: IEEE Std 802 "Local Experimental Ethertype 1". None of the 13 tutorials parsers (skeleton or
+#: solution) nor ndtwin_switch.p4 selects on it -- they use 0x0800, 0x0806, 0x0812, 0x1212, 0x1234
+#: and 0x88CC; the table is in the segment H SUMMARY and the check is in the test.
+ETHERTYPE = 0x88B5
+#: 02:4e:44:54:48:42 -- "\x02NDTHB": locally administered, unicast, no host's address.
+DST_MAC = b"\x02NDTHB"
+MAGIC = b"NDHB"
+VERSION = 1
+HEAD = struct.Struct("!6s6sH")
+#: magic, version, flags, session, direction id, seq, tx dpid, tx port, rx dpid, rx port
+BODY = struct.Struct("!4sBB8sHIQHQH")
+FRAME_LEN = 60
+
+# --------------------------------------------------------------------------------- the cadence
+#: 🔴 NOT READ FROM THE PROXY, AND PINNED TO IT BY A TEST. This equals the proxy's
+#: LLDP_BEACON_INTERVAL_S (p4_proxy/proxy_agent/topology_manager.py), so a heartbeat is as frequent
+#: as the beacon it stands in for and the proxy's LINK_BEACON_TIMEOUT_S (3 of them) applies to it
+#: unchanged. It is not read at run time because this program runs as root from a sha-pinned
+#: helper: reading it from the adam-writable source would let that file steer a root sender, and
+#: would still not give the right answer -- the proxy's effective interval can be changed by
+#: NDTWIN_P4_BEACON_S, which sudo's env_reset keeps from ever reaching this process. The report
+#: carries `period_s` so the proxy can compare it with its own.
+PERIOD_S = 5
+
+# ------------------------------------------------------------------------------- where things are
+#: Fixed. Nothing below is taken from argv or the environment.
+RUN_DIR = "/run/ndtwin-lab"
+
+
+def paths(run_dir=RUN_DIR):
+    """(pidfile, lockfile, report) in `run_dir` -- one spelling, used by the constants below and by
+    run_daemon. The helper's HB_RUN_DIR/HB_PIDFILE are held equal to these by a test."""
+    return tuple(os.path.join(run_dir, n) for n in ("heartbeat.pid", "heartbeat.lock", "heartbeat.json"))
+
+
+PIDFILE, LOCKFILE, STATE = paths()
+MANIFEST = "/tmp/ndtwin_p4_switches.json"
+SYSFS = "/sys/class/net"
+PROC = "/proc"
+ROOT_UID = 0
+
+RC_OK, RC_REFUSED, RC_LOCKED, RC_NO_LINKS, RC_FABRIC_GONE = 0, 1, 2, 3, 4
+COMMANDS = ("plan", "daemon", "report")
+
+IFNAME_RE = re.compile(r"^[A-Za-z0-9_.-]{1,15}$")
+PORT_ARG_RE = re.compile(r"^([0-9]{1,3})@(\S+)$")
+SWITCH_BINARY = b"simple_switch_grpc"
+#: NDTwin's own compiled pipeline, as a switch's argv names it. The heartbeat refuses a fabric
+#: with any switch on it -- see plan().
+NDTWIN_PIPELINE = "ndtwin_switch.json"
+MAX_PORT = 511                     # bmv2 ports are nine bits
+MAX_MANIFEST_BYTES = 1 << 20
+#: A report is rewritten when something was heard, at most this often, and once per round anyway.
+REPORT_MIN_INTERVAL_S = 0.5
+
+ETH_P_ALL = 3
+SO_ATTACH_FILTER = 26
+PACKET_OUTGOING = 4
+SIOCETHTOOL = 0x8946
+ETHTOOL_GDRVINFO = 0x00000003
+
+
+class Refusal(Exception):
+    """A reason not to run, in a sentence an operator can act on."""
+
+
+Port = namedtuple("Port", "switch dpid port ifname")
+Switch = namedtuple("Switch", "name dpid pid program")
+Iface = namedtuple("Iface", "ifindex iflink mac")
+Direction = namedtuple("Direction", "id tx rx")
+Plan = namedtuple("Plan", "switches links directions watch manifest manifest_sha256 macs ifindex")
+Decoded = namedtuple("Decoded", "session dir_id seq tx_dpid tx_port rx_dpid rx_port")
+
+
+# ------------------------------------------------------------------- the fabric's own declaration
+def dir_trusted(path, expect_uid):
+    """The directory the manifest sits in must not let anybody else replace it.
+
+    Owned by root or by `expect_uid`, and either writable by nobody else or sticky -- /tmp is
+    1777, and the sticky bit is what stops a non-owner renaming a root-owned file away.
+    """
+    try:
+        st = os.lstat(path)
+    except OSError as exc:
+        raise Refusal(f"cannot stat {path}: {exc}")
+    if not stat.S_ISDIR(st.st_mode):
+        raise Refusal(f"{path} is not a directory (a symlink is not accepted)")
+    if st.st_uid not in (ROOT_UID, expect_uid):
+        raise Refusal(f"{path} is owned by uid {st.st_uid}; whoever owns it can replace the "
+                      f"fabric's manifest in it")
+    if st.st_mode & 0o022 and not st.st_mode & stat.S_ISVTX:
+        raise Refusal(f"{path} is mode {oct(st.st_mode & 0o7777)}: writable by others and not "
+                      f"sticky, so anybody could replace the fabric's manifest in it")
+
+
+def load_manifest(path=MANIFEST, expect_uid=ROOT_UID):
+    """(document, sha256) of the switch manifest, or a Refusal saying why it cannot be believed.
+
+    O_NOFOLLOW so a symlink is refused rather than read through; O_NONBLOCK so a FIFO planted at
+    the name cannot hang a root process at open(); fstat on the same descriptor, so the file that
+    was checked is the file that is read.
+    """
+    dir_trusted(os.path.dirname(path) or ".", expect_uid)
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except FileNotFoundError:
+        raise Refusal(f"no fabric is running: {path} does not exist (the topology writes it once "
+                      f"every switch is verified, and removes it at teardown)")
+    except OSError as exc:
+        if exc.errno == errno.ELOOP:
+            raise Refusal(f"{path} is a symlink; refusing to read through it")
+        raise Refusal(f"cannot open {path}: {exc}")
+    try:
+        st = os.fstat(fd)
+        if not stat.S_ISREG(st.st_mode):
+            raise Refusal(f"{path} is not a regular file")
+        if st.st_uid != expect_uid:
+            raise Refusal(f"{path} is owned by uid {st.st_uid}, not {expect_uid}: it is not the "
+                          f"file the root topology writes, and its interface list is not believed")
+        if st.st_mode & 0o022:
+            raise Refusal(f"{path} is mode {oct(st.st_mode & 0o777)}: writable by group or other, "
+                          f"so its interface list is not believed")
+        raw = os.read(fd, MAX_MANIFEST_BYTES + 1)
+    finally:
+        os.close(fd)
+    if len(raw) > MAX_MANIFEST_BYTES:
+        raise Refusal(f"{path} is larger than {MAX_MANIFEST_BYTES} bytes")
+    try:
+        doc = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise Refusal(f"{path} is not JSON: {exc}")
+    if not isinstance(doc, dict) or not doc:
+        raise Refusal(f"{path} names no switch")
+    return doc, hashlib.sha256(raw).hexdigest()
+
+
+def _argv_tokens(argv):
+    if isinstance(argv, str):
+        return argv.split()
+    if isinstance(argv, list) and all(isinstance(t, str) for t in argv):
+        return list(argv)
+    raise Refusal("a switch's argv is neither a string nor a list of strings")
+
+
+def switch_ports(doc):
+    """([Port], {name: Switch}) out of the manifest, every field checked.
+
+    🔴 The interface name is not only read, it is RECOMPUTED: bmv2 was handed `-i <port>@<ifname>`
+    and Mininet names a switch's port `<switch>-eth<port>`. An entry whose two do not agree is not
+    a fabric this program understands, and the whole manifest is refused rather than the odd
+    interface skipped.
+    """
+    ports, switches, seen_if, seen_dpid = [], {}, set(), {}
+    for name in sorted(doc):
+        entry = doc[name]
+        if not isinstance(entry, dict):
+            raise Refusal(f"manifest entry {name!r} is not an object")
+        dpid, pid = entry.get("device_id"), entry.get("pid")
+        if isinstance(dpid, bool) or not isinstance(dpid, int) or dpid < 0:
+            raise Refusal(f"manifest entry {name!r} has no usable device_id ({dpid!r})")
+        if dpid in seen_dpid:
+            raise Refusal(f"dpid {dpid} is claimed by {seen_dpid[dpid]!r} and {name!r}")
+        seen_dpid[dpid] = name
+        if isinstance(pid, bool) or not isinstance(pid, int) or pid <= 1:
+            raise Refusal(f"manifest entry {name!r} has no usable pid ({pid!r})")
+        tokens = _argv_tokens(entry.get("argv"))
+        program = None
+        mine = []
+        for i, tok in enumerate(tokens):
+            if tok == "--":
+                break
+            if tok.endswith(".json") and program is None:
+                program = os.path.basename(tok)
+            if tok != "-i":
+                continue
+            m = PORT_ARG_RE.match(tokens[i + 1] if i + 1 < len(tokens) else "")
+            if not m:
+                raise Refusal(f"{name}: `-i` is not followed by <port>@<ifname>")
+            port, ifname = int(m.group(1)), m.group(2)
+            if port > MAX_PORT:
+                raise Refusal(f"{name}: port {port} is out of bmv2's range")
+            if ifname != f"{name}-eth{port}" or not IFNAME_RE.match(ifname):
+                raise Refusal(f"{name}: bmv2 port {port} is bound to {ifname!r}, which is not "
+                              f"{name}-eth{port}; this manifest does not describe a Mininet "
+                              f"fabric and none of its interfaces is used")
+            if ifname in seen_if:
+                raise Refusal(f"{ifname} is bound twice")
+            seen_if.add(ifname)
+            mine.append(Port(name, dpid, port, ifname))
+        switches[name] = Switch(name, dpid, pid, program)
+        ports.extend(mine)
+    if not ports:
+        raise Refusal("the manifest binds no interface to any switch")
+    return ports, switches
+
+
+def bmv2_alive(pid, proc_root=PROC, expect_uid=ROOT_UID):
+    """Whether `pid` is a simple_switch_grpc NOW: an argv element whose basename is that, AND a
+    real and effective uid of `expect_uid` -- the switches the root topology started run as root,
+    and any process can name itself simple_switch_grpc (judge #6, round 2)."""
+    try:
+        base = os.path.join(proc_root, str(int(pid)))
+        with open(os.path.join(base, "cmdline"), "rb") as fh:
+            argv = fh.read().split(b"\0")
+        with open(os.path.join(base, "status")) as fh:
+            uids = next((line.split()[1:3] for line in fh if line.startswith("Uid:")), None)
+    except (OSError, ValueError):
+        return False
+    if not any(a and os.path.basename(a) == SWITCH_BINARY for a in argv):
+        return False
+    return uids == [str(expect_uid), str(expect_uid)]
+
+
+def read_iface(ifname, sysfs=SYSFS):
+    base = os.path.join(sysfs, ifname)
+    try:
+        with open(os.path.join(base, "ifindex")) as fh:
+            ifindex = int(fh.read().strip())
+        with open(os.path.join(base, "iflink")) as fh:
+            iflink = int(fh.read().strip())
+        with open(os.path.join(base, "address")) as fh:
+            mac = bytes.fromhex(fh.read().strip().replace(":", ""))
+    except (OSError, ValueError) as exc:
+        raise Refusal(f"{ifname} is not a usable interface on this machine: {exc}")
+    if len(mac) != 6:
+        raise Refusal(f"{ifname} has no Ethernet address")
+    return Iface(ifindex, iflink, mac)
+
+
+def ethtool_driver(ifname):
+    """The driver the kernel names for this interface (ETHTOOL_GDRVINFO; needs no privilege)."""
+    buf = ctypes.create_string_buffer(196)
+    struct.pack_into("I", buf, 0, ETHTOOL_GDRVINFO)
+    ifr = struct.pack("16sP", ifname.encode(), ctypes.addressof(buf)).ljust(40, b"\0")
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            fcntl.ioctl(s.fileno(), SIOCETHTOOL, ifr)
+    except OSError as exc:
+        return f"<unknown: {exc.strerror}>"
+    return buf.raw[4:36].split(b"\0")[0].decode("ascii", "replace")
+
+
+def plan(manifest=MANIFEST, expect_uid=ROOT_UID, proc_root=PROC, sysfs=SYSFS, driver_of=None):
+    """Which interfaces, which links, which directions -- decided from the fabric, or refused."""
+    driver_of = driver_of or ethtool_driver
+    doc, digest = load_manifest(manifest, expect_uid)
+    ports, switches = switch_ports(doc)
+    # Adam, 2026-09-25, ruling (a): not on NDTwin's own pipeline, and the helper -- the sha-pinned
+    # copy -- is where that is enforced, whatever version of `ndt` calls it.
+    own = sorted(n for n, s in switches.items() if s.program == NDTWIN_PIPELINE)
+    if own:
+        raise Refusal(f"{', '.join(own)} run(s) NDTwin's own pipeline ({NDTWIN_PIPELINE}). That "
+                      f"pipeline carries LLDP and punts an unknown ethertype to the CPU, so every "
+                      f"heartbeat frame would become a packet-in that the proxy counts as that "
+                      f"switch's liveness. The heartbeat is for foreign pipelines only")
+    dead = sorted(n for n, s in switches.items()
+                  if not bmv2_alive(s.pid, proc_root, expect_uid=expect_uid))
+    if len(dead) == len(switches):
+        raise Refusal(f"no fabric is running: {manifest} names {len(switches)} switch(es) and "
+                      f"not one of their pids is a live {SWITCH_BINARY.decode()} (stale manifest?)")
+    if dead:
+        raise Refusal(f"the fabric is not whole: {', '.join(dead)} named in {manifest} is not a "
+                      f"live {SWITCH_BINARY.decode()}; not heartbeating a fabric that is half there")
+    info = {}
+    for p in ports:
+        info[p.ifname] = read_iface(p.ifname, sysfs)
+        drv = driver_of(p.ifname)
+        if drv != "veth":
+            raise Refusal(f"{p.ifname} is driven by {drv!r}, not veth; this program sends only "
+                          f"into Mininet's veth pairs")
+    by_index = {}
+    for name, i in info.items():
+        if i.ifindex in by_index:
+            raise Refusal(f"{name} and {by_index[i.ifindex]} report the same ifindex {i.ifindex}")
+        by_index[i.ifindex] = name
+    port_of = {p.ifname: p for p in ports}
+    links, watch, paired = [], [], set()
+    for p in sorted(ports, key=lambda q: (q.dpid, q.port)):
+        me = info[p.ifname]
+        peer = by_index.get(me.iflink)
+        # 🔴 BOTH WAYS. An ifindex is only unique within a namespace: a host-facing veth's peer
+        # lives in the host's namespace and its number can coincide with one of ours. Only a
+        # pair whose iflinks name EACH OTHER is a cable between two switches.
+        if peer is not None and peer != p.ifname and info[peer].iflink == me.ifindex:
+            if p.ifname not in paired:
+                links.append((p, port_of[peer]))
+                paired.update((p.ifname, peer))
+        else:
+            watch.append(p)
+    directions = []
+    for a, b in links:
+        directions.extend([(a, b), (b, a)])
+    directions.sort(key=lambda d: (d[0].dpid, d[0].port))
+    directions = [Direction(i, tx, rx) for i, (tx, rx) in enumerate(directions)]
+    return Plan(switches, links, directions, watch, manifest, digest,
+                {n: i.mac for n, i in info.items()}, {n: i.ifindex for n, i in info.items()})
+
+
+def fabric_changed(p, sysfs=SYSFS, manifest_exists=None):
+    """Why the fabric this daemon was started on is no longer the one on the machine, or None."""
+    exists = manifest_exists or os.path.lexists
+    if not exists(p.manifest):
+        return f"{p.manifest} is gone (the fabric was torn down)"
+    for ifname, ifindex in sorted(p.ifindex.items()):
+        try:
+            with open(os.path.join(sysfs, ifname, "ifindex")) as fh:
+                now = int(fh.read().strip())
+        except (OSError, ValueError):
+            return f"{ifname} is gone (the fabric was torn down)"
+        if now != ifindex:
+            return f"{ifname} is ifindex {now}, was {ifindex} (the fabric was rebuilt)"
+    return None
+
+
+# ---------------------------------------------------------------------------------- frames
+def encode(d, session, seq, src_mac):
+    head = HEAD.pack(DST_MAC, src_mac, ETHERTYPE)
+    body = BODY.pack(MAGIC, VERSION, 0, session, d.id, seq & 0xFFFFFFFF,
+                     d.tx.dpid, d.tx.port, d.rx.dpid, d.rx.port)
+    return (head + body).ljust(FRAME_LEN, b"\0")
+
+
+def decode(frame):
+    if len(frame) < HEAD.size + BODY.size:
+        return None
+    _dst, _src, etype = HEAD.unpack_from(frame, 0)
+    if etype != ETHERTYPE:
+        return None
+    magic, version, _flags, session, dir_id, seq, txd, txp, rxd, rxp = \
+        BODY.unpack_from(frame, HEAD.size)
+    if magic != MAGIC or version != VERSION:
+        return None
+    return Decoded(session, dir_id, seq, txd, txp, rxd, rxp)
+
+
+def bpf_program():
+    """Classic BPF: accept a frame iff its ethertype is ours. (code, jt, jf, k) per instruction.
+
+    Attached before the socket is bound, so an ETH_P_ALL socket -- the only kind that also sees
+    frames LEAVING an interface -- never wakes this process for the fabric's own traffic.
+    """
+    return [(0x28, 0, 0, 12),              # ldh [12]
+            (0x15, 0, 1, ETHERTYPE),       # jeq #ETHERTYPE, accept, drop
+            (0x06, 0, 0, 0x40000),         # ret #262144
+            (0x06, 0, 0, 0)]               # ret #0
+
+
+# --------------------------------------------------------------------------- the observer
+class Heartbeat:
+    """What was sent and what was heard. Pure bookkeeping; the sockets live in `run_daemon`."""
+
+    def __init__(self, p, session, now_mono, now_wall, pid=None):
+        self.plan, self.session, self.pid = p, session, pid
+        self.started_mono, self.started_wall = now_mono, now_wall
+        self.by_id = {d.id: d for d in p.directions}
+        self.dirs = {d.id: {"sent": 0, "send_errors": 0, "last_send_error": None, "heard": 0,
+                            "last_heard_mono": None, "last_heard_wall": None, "last_seq": None}
+                     for d in p.directions}
+        self.seq = {d.id: 0 for d in p.directions}
+        linked = {x.ifname for a, b in p.links for x in (a, b)}
+        self.ifaces = {}
+        for port in [x for a, b in p.links for x in (a, b)] + list(p.watch):
+            self.ifaces[port.ifname] = {"dpid": port.dpid, "port": port.port,
+                                        "host_facing": port.ifname not in linked,
+                                        "misdelivered": 0, "forwarded": 0, "foreign": 0}
+
+    def frames(self):
+        """[(tx ifname, frame, direction)] for one round; each direction's seq moves on by one."""
+        out = []
+        for d in self.plan.directions:
+            self.seq[d.id] += 1
+            out.append((d.tx.ifname, encode(d, self.session, self.seq[d.id],
+                                            self.plan.macs[d.tx.ifname]), d))
+        return out
+
+    def sent(self, d, error=None):
+        rec = self.dirs[d.id]
+        if error is None:
+            rec["sent"] += 1
+        else:
+            rec["send_errors"] += 1
+            rec["last_send_error"] = str(error)
+
+    def on_frame(self, ifname, frame, pkttype, now_mono, now_wall):
+        """Book one frame seen on `ifname`. Returns what it was: heard, misdelivered, forwarded,
+        own or foreign."""
+        box = self.ifaces.get(ifname)
+        f = decode(frame)
+        d = self.by_id.get(f.dir_id) if f is not None and f.session == self.session else None
+        if d is not None and (f.tx_dpid, f.tx_port, f.rx_dpid, f.rx_port) != \
+                (d.tx.dpid, d.tx.port, d.rx.dpid, d.rx.port):
+            d = None
+        if d is None:
+            if box is not None and pkttype != PACKET_OUTGOING:
+                box["foreign"] += 1
+            return "foreign"
+        # 🔴 A FRAME LEAVING AN INTERFACE IS NEVER EVIDENCE THAT ANYTHING ARRIVED.
+        if pkttype == PACKET_OUTGOING:
+            if ifname == d.tx.ifname:
+                return "own"
+            if box is not None:
+                box["forwarded"] += 1
+            return "forwarded"
+        # 🔴 ...and an arriving frame is evidence only on the interface its direction names.
+        if ifname != d.rx.ifname:
+            if box is not None:
+                box["misdelivered"] += 1
+            return "misdelivered"
+        rec = self.dirs[d.id]
+        rec["heard"] += 1
+        rec["last_heard_mono"], rec["last_heard_wall"] = now_mono, now_wall
+        rec["last_seq"] = f.seq
+        return "heard"
+
+    def document(self, status, stop_reason, now_mono, now_wall):
+        """The report. Observations only -- no direction is called up or down here."""
+        p = self.plan
+        end = lambda port: {"dpid": port.dpid, "port": port.port, "ifname": port.ifname}
+        directions = []
+        for d in p.directions:
+            rec = dict(self.dirs[d.id])
+            rec.update({"id": d.id, "tx": end(d.tx), "rx": end(d.rx)})
+            directions.append(rec)
+        hosts = sum(v["forwarded"] for v in self.ifaces.values() if v["host_facing"])
+        between = sum(v["forwarded"] for v in self.ifaces.values() if not v["host_facing"])
+        return {
+            "format": 1,
+            "source": "heartbeat",
+            "status": status,
+            "stop_reason": stop_reason,
+            "pid": self.pid,
+            "session": self.session.hex(),
+            "ethertype": f"0x{ETHERTYPE:04x}",
+            "dst_mac": ":".join(f"{b:02x}" for b in DST_MAC),
+            "period_s": PERIOD_S,
+            "clock": "*_mono are CLOCK_MONOTONIC seconds (Python time.monotonic() on Linux, the "
+                     "proxy's own clock); *_wall are time.time()",
+            "started_mono": self.started_mono, "started_wall": self.started_wall,
+            "written_mono": now_mono, "written_wall": now_wall,
+            "fabric": {"manifest": p.manifest, "manifest_sha256": p.manifest_sha256,
+                       "switches": {n: {"dpid": s.dpid, "pid": s.pid, "program": s.program}
+                                    for n, s in sorted(p.switches.items())}},
+            "directions": directions,
+            "watch_only": [end(x) for x in p.watch],
+            "interfaces": {k: dict(v) for k, v in sorted(self.ifaces.items())},
+            "side_effects": {
+                "forwarded_to_hosts": hosts,
+                "forwarded_between_switches": between,
+                "misdelivered": sum(v["misdelivered"] for v in self.ifaces.values()),
+                "foreign_frames": sum(v["foreign"] for v in self.ifaces.values()),
+            },
+        }
+
+
+# ---------------------------------------------------------------------------- files
+def write_atomic(path, text):
+    """A new inode every time, 0644, never a truncate in place."""
+    d = os.path.dirname(path) or "."
+    fd, tmp = tempfile.mkstemp(dir=d, prefix=".heartbeat.")
+    try:
+        with os.fdopen(fd, "w") as fh:
+            fh.write(text)
+        os.chmod(tmp, 0o644)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def write_json_atomic(path, doc):
+    write_atomic(path, json.dumps(doc, indent=1, sort_keys=True) + "\n")
+
+
+def acquire_lock(path=LOCKFILE):
+    """An exclusive, non-blocking flock held for the daemon's life. None if somebody holds it.
+
+    This, not the pidfile, is what makes a second daemon impossible: two `start`s that both find
+    no pidfile both launch, and the second one stops here.
+    """
+    fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC, 0o644)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError as exc:
+        os.close(fd)
+        if exc.errno in (errno.EWOULDBLOCK, errno.EAGAIN):
+            return None
+        raise
+    return fd
+
+
+def render(doc, now_mono):
+    """`ndtwin-lab heartbeat status`'s account of a report: ages, counts, no verdict."""
+    lines = [f"report: status {doc.get('status')}"
+             + (f" ({doc.get('stop_reason')})" if doc.get("stop_reason") else "")
+             + f", pid {doc.get('pid')}, period {doc.get('period_s')} s, "
+             f"ethertype {doc.get('ethertype')}, session {doc.get('session')}"]
+    written = doc.get("written_mono")
+    if isinstance(written, (int, float)):
+        lines.append(f"  written {now_mono - written:.1f} s ago")
+    for d in doc.get("directions", []):
+        t, r = d.get("tx", {}), d.get("rx", {})
+        heard = d.get("last_heard_mono")
+        age = "never" if heard is None else f"{now_mono - heard:.1f} s ago"
+        lines.append(f"  {t.get('ifname')} -> {r.get('ifname')}  sent {d.get('sent')}  "
+                     f"heard {d.get('heard')}  last heard {age}"
+                     + (f"  send errors {d.get('send_errors')}" if d.get("send_errors") else ""))
+    se = doc.get("side_effects") or {}
+    lines.append("  side effects: " + ", ".join(f"{k} {v}" for k, v in sorted(se.items())))
+    return lines
+
+
+# ---------------------------------------------------------------------------- the daemon
+def _open_socket(ifname):
+    """ETH_P_ALL (so frames LEAVING the interface are seen too), filtered to our ethertype in the
+    kernel BEFORE the bind that starts reception. Never PACKET_QDISC_BYPASS: the frame has to go
+    through the egress qdisc, because that is where netem cuts a link."""
+    s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, 0)
+    try:
+        prog = bpf_program()
+        buf = ctypes.create_string_buffer(b"".join(struct.pack("HBBI", *i) for i in prog))
+        fprog = struct.pack("HL", len(prog), ctypes.addressof(buf))
+        s.setsockopt(socket.SOL_SOCKET, SO_ATTACH_FILTER, fprog)
+        s.bind((ifname, ETH_P_ALL))
+        s.setblocking(False)
+    except BaseException:
+        s.close()
+        raise
+    return s
+
+
+def run_daemon(run_dir=RUN_DIR, manifest=MANIFEST, expect_uid=ROOT_UID, proc_root=PROC,
+               sysfs=SYSFS, driver_of=None, open_socket=None):
+    """The root process. Returns its exit code.
+
+    `main` calls this with no arguments, and nothing on the command line or in the environment
+    can reach the keywords: they are the seams the offline test drives the whole loop through
+    (a fixture fabric and unix-socket stand-ins for the packet sockets), so that the loop that
+    runs as root is the loop that was tested, not a copy of it.
+    """
+    pidfile, lockfile, state = paths(run_dir)
+    open_socket = open_socket or _open_socket
+    try:
+        os.closerange(3, 1 << 16)
+    except OSError:
+        pass
+    try:
+        os.setsid()
+    except OSError:
+        pass
+    os.chdir("/")
+    os.umask(0o022)
+    signal.signal(signal.SIGHUP, signal.SIG_IGN)
+    stop = {"why": None}
+    wake_r, wake_w = os.pipe2(os.O_NONBLOCK | os.O_CLOEXEC)
+    signal.set_wakeup_fd(wake_w)
+
+    def on_signal(signum, _frame):
+        stop["why"] = signal.Signals(signum).name
+    signal.signal(signal.SIGTERM, on_signal)
+    signal.signal(signal.SIGINT, on_signal)
+
+    lock = acquire_lock(lockfile)
+    if lock is None:
+        print(f"heartbeat: another heartbeat daemon holds {lockfile}; not starting a second one",
+              file=sys.stderr)
+        return RC_LOCKED
+    me = os.getpid()
+    try:
+        p = plan(manifest, expect_uid=expect_uid, proc_root=proc_root, sysfs=sysfs,
+                 driver_of=driver_of)
+    except Refusal as exc:
+        print(f"heartbeat: refusing: {exc}", file=sys.stderr)
+        return RC_REFUSED
+    if not p.directions:
+        print("heartbeat: the running fabric has no switch-to-switch link; nothing to send",
+              file=sys.stderr)
+        return RC_NO_LINKS
+    socks = {}
+    try:
+        for ifname in sorted(p.macs):
+            socks[ifname] = open_socket(ifname)
+    except OSError as exc:
+        for s in socks.values():
+            s.close()
+        print(f"heartbeat: cannot open a packet socket: {exc}", file=sys.stderr)
+        return RC_REFUSED
+    hb = Heartbeat(p, os.urandom(8), time.monotonic(), time.time(), pid=me)
+    by_fd = {s.fileno(): name for name, s in socks.items()}
+    poller = select.poll()
+    for fd in by_fd:
+        poller.register(fd, select.POLLIN)
+    poller.register(wake_r, select.POLLIN)
+    write_atomic(pidfile, f"{me}\n")
+    print(f"heartbeat: pid {me} started: {len(p.links)} link(s), {len(p.directions)} "
+          f"direction(s), {len(p.watch)} host-facing interface(s), period {PERIOD_S} s, "
+          f"session {hb.session.hex()}", file=sys.stderr, flush=True)
+    write_json_atomic(state, hb.document("running", None, time.monotonic(), time.time()))
+    reason, rc = None, RC_OK
+    next_round = time.monotonic()
+    last_write = 0.0
+    dirty = False
+    try:
+        while stop["why"] is None:
+            now = time.monotonic()
+            sent_round = False
+            if now >= next_round:
+                reason = fabric_changed(p, sysfs=sysfs)
+                if reason:
+                    rc = RC_FABRIC_GONE
+                    break
+                for ifname, frame, d in hb.frames():
+                    try:
+                        socks[ifname].sendto(frame, (ifname, ETHERTYPE))
+                        hb.sent(d)
+                    except OSError as exc:
+                        hb.sent(d, error=exc.strerror or str(exc))
+                next_round += PERIOD_S
+                if next_round <= now:
+                    next_round = now + PERIOD_S
+                sent_round = True
+            # Once per round whatever happened (so `written_mono` is the daemon's own pulse), and
+            # soon after anything was heard, but not more often than REPORT_MIN_INTERVAL_S.
+            since = time.monotonic() - last_write
+            if sent_round or (dirty and since >= REPORT_MIN_INTERVAL_S):
+                write_json_atomic(state, hb.document("running", None, time.monotonic(),
+                                                     time.time()))
+                last_write, dirty = time.monotonic(), False
+            wait = max(0.0, next_round - time.monotonic())
+            if dirty:
+                wait = min(wait, max(0.0, REPORT_MIN_INTERVAL_S - (time.monotonic() - last_write)))
+            check_now = False
+            for fd, ev in poller.poll(wait * 1000.0):
+                if fd == wake_r:
+                    try:
+                        os.read(wake_r, 64)
+                    except OSError:
+                        pass
+                    continue
+                name = by_fd[fd]
+                # A socket whose interface was unregistered reports POLLERR (ENETDOWN). Read the
+                # error so it is cleared rather than reported again on every poll -- a busy loop
+                # as root -- and ask about the fabric now instead of at the next round.
+                if ev & (select.POLLERR | select.POLLHUP | select.POLLNVAL):
+                    try:
+                        socks[name].getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
+                    except OSError:
+                        pass
+                    if ev & select.POLLNVAL:
+                        poller.unregister(fd)
+                    check_now = True
+                if not ev & select.POLLIN:
+                    continue
+                while True:
+                    try:
+                        frame, addr = socks[name].recvfrom(2048)
+                    except (BlockingIOError, InterruptedError):
+                        break
+                    except OSError:
+                        check_now = True
+                        break
+                    if hb.on_frame(name, frame, addr[2], time.monotonic(),
+                                   time.time()) == "heard":
+                        dirty = True
+            if check_now:
+                reason = fabric_changed(p, sysfs=sysfs)
+                if reason:
+                    rc = RC_FABRIC_GONE
+                    break
+        if reason is None:
+            reason = f"stopped by {stop['why']}"
+    finally:
+        for s in socks.values():
+            s.close()
+        try:
+            write_json_atomic(state, hb.document("stopped", reason, time.monotonic(), time.time()))
+        except OSError:
+            pass
+        try:
+            with open(pidfile) as fh:
+                if fh.read().strip() == str(me):
+                    os.remove(pidfile)
+        except OSError:
+            pass
+        print(f"heartbeat: pid {me} {reason}", file=sys.stderr, flush=True)
+    return rc
+
+
+def cmd_plan():
+    try:
+        p = plan()
+    except Refusal as exc:
+        print(f"heartbeat: refusing: {exc}", file=sys.stderr)
+        return RC_REFUSED
+    print(f"heartbeat plan: {p.manifest} (sha256 {p.manifest_sha256[:12]}), "
+          f"{len(p.switches)} switch(es), every one a live bmv2")
+    for a, b in p.links:
+        print(f"  link {a.ifname} (dpid {a.dpid} port {a.port}) <-> "
+              f"{b.ifname} (dpid {b.dpid} port {b.port})")
+    print(f"  {len(p.links)} link(s) -> {len(p.directions)} direction(s); "
+          f"{len(p.watch)} host-facing interface(s) listened on, never sent on")
+    if not p.directions:
+        print("heartbeat: the running fabric has no switch-to-switch link; nothing to send",
+              file=sys.stderr)
+        return RC_NO_LINKS
+    return RC_OK
+
+
+def cmd_report(path=STATE, now_mono=None):
+    try:
+        with open(path) as fh:
+            doc = json.load(fh)
+    except FileNotFoundError:
+        print("report: none (no heartbeat has run since boot)")
+        return RC_OK
+    except (OSError, ValueError) as exc:
+        print(f"report: unreadable: {exc}")
+        return RC_REFUSED
+    for line in render(doc, time.monotonic() if now_mono is None else now_mono):
+        print(line)
+    return RC_OK
+
+
+def main(argv):
+    if len(argv) != 2 or argv[1] not in COMMANDS:
+        print("usage: heartbeat.py {plan|daemon|report}\n"
+              "  nothing else is accepted: every interface, path and ethertype this program uses "
+              "is fixed or read from the running fabric", file=sys.stderr)
+        return RC_REFUSED
+    return {"plan": cmd_plan, "daemon": run_daemon, "report": cmd_report}[argv[1]]()
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
+NDTWIN_LAB_HEARTBEAT_PY
+}
+
+hb_refuse() { echo "ndtwin-lab heartbeat: $*" >&2; return 1; }
+
+# hb_dir_trusted <dir> -- root's directory, and nobody else can write in it.
+hb_dir_trusted() {
+    local dir="$1" owner perms
+    [[ -L "$dir" ]] && { hb_refuse "$dir is a symlink; refusing to use it"; return 1; }
+    [[ -d "$dir" ]] || { hb_refuse "$dir is not a directory"; return 1; }
+    owner="$(stat -c '%u' "$dir" 2>/dev/null)" || owner=""
+    perms="$(stat -c '%a' "$dir" 2>/dev/null)" || perms=""
+    [[ "$perms" =~ ^[0-7]{3,4}$ ]] || { hb_refuse "cannot read the mode of $dir"; return 1; }
+    [[ "$owner" == "$HB_EXPECT_UID" ]] ||
+        { hb_refuse "$dir is owned by uid ${owner:-?}, not $HB_EXPECT_UID"; return 1; }
+    if (( (0$perms & 0022) != 0 )); then
+        hb_refuse "$dir is mode $perms; group- or other-writable would let a non-root user replace the program root runs"
+        return 1
+    fi
+    return 0
+}
+
+hb_prepare_run_dir() {
+    [[ -e "$HB_RUN_DIR" || -L "$HB_RUN_DIR" ]] || mkdir -m 0755 "$HB_RUN_DIR" 2>/dev/null ||
+        { hb_refuse "cannot create $HB_RUN_DIR"; return 1; }
+    hb_dir_trusted "$HB_RUN_DIR"
+}
+
+# hb_install_program -- write the embedded program where the daemon will be run from. A new
+# inode each time (mktemp + mv), so a program that was running keeps its own copy.
+hb_install_program() {
+    local tmp
+    tmp="$(mktemp "$HB_RUN_DIR/.heartbeat.py.XXXXXX")" || { hb_refuse "cannot write in $HB_RUN_DIR"; return 1; }
+    if ! hb_program > "$tmp" || ! chmod 0644 "$tmp" || ! mv -f "$tmp" "$HB_PROGRAM"; then
+        rm -f "$tmp"
+        hb_refuse "could not install the daemon program at $HB_PROGRAM"
+        return 1
+    fi
+}
+
+# hb_run <plan|report> -- the program's two foreground commands. Never `daemon`: see hb_launch.
+hb_run() { "$HB_PYTHON" -I "$HB_PROGRAM" "$1"; }
+
+# hb_is_daemon <pid> -- is that pid the heartbeat daemon, now?
+#
+# 🔴 THE WHOLE ARGV, ELEMENT BY ELEMENT, AND THE UID. A pid in a file is a number that was the
+#    daemon once; Linux recycles numbers, and this runs as root. Nothing weaker than "exactly the
+#    four words hb_launch execs, owned by the uid it runs as" is allowed to lead to a signal.
+hb_is_daemon() {
+    local pid="$1" uid
+    local -a argv=()
+    [[ "$pid" =~ ^[1-9][0-9]{0,9}$ ]] || return 1
+    (( pid > 1 )) || return 1
+    mapfile -d '' -t argv 2>/dev/null < "/proc/$pid/cmdline" || return 1
+    (( ${#argv[@]} == 4 )) || return 1
+    [[ "${argv[0]}" == "$HB_PYTHON" && "${argv[1]}" == "-I" && "${argv[2]}" == "$HB_PROGRAM" &&
+       "${argv[3]}" == daemon ]] || return 1
+    uid="$(awk '/^Uid:/{print $2, $3; exit}' "/proc/$pid/status" 2>/dev/null)" || return 1
+    [[ "$uid" == "$HB_EXPECT_UID $HB_EXPECT_UID" ]]
+}
+
+# hb_read_pidfile -- the pid the pidfile names. rc 1 no pidfile, 2 a symlink, 3 not a pid.
+hb_read_pidfile() {
+    local pid=""
+    [[ -L "$HB_PIDFILE" ]] && return 2
+    [[ -f "$HB_PIDFILE" ]] || return 1
+    IFS= read -r pid < "$HB_PIDFILE" || [[ -n "$pid" ]] || return 3
+    [[ "$pid" =~ ^[1-9][0-9]{0,9}$ ]] || return 3
+    echo "$pid"
+}
+
+# hb_pid -- the running daemon's pid, or rc 1.
+hb_pid() {
+    local pid
+    pid="$(hb_read_pidfile)" || return 1
+    hb_is_daemon "$pid" || return 1
+    echo "$pid"
+}
+
+# The one place a signal leaves this section. A seam, so a test can prove nothing was signalled.
+hb_signal() { kill "-$1" "$2" 2>/dev/null; }
+
+# hb_proc_gone <pid> -- exited: no /proc entry, or a zombie nobody has reaped yet.
+hb_proc_gone() {
+    local st
+    st="$(sed 's/.*) //' "/proc/$1/stat" 2>/dev/null | cut -d' ' -f1)" || st=""
+    [[ -z "$st" || "$st" == Z || "$st" == X ]]
+}
+
+# hb_launch -- start the daemon in the background; HB_LAUNCHED is its pid. Nothing of the
+# caller's reaches it: cwd /, stdin /dev/null, stdout and stderr to the log.
+hb_launch() {
+    ( cd / && exec "$HB_PYTHON" -I "$HB_PROGRAM" daemon ) </dev/null >>"$HB_LOG" 2>&1 &
+    HB_LAUNCHED=$!
+}
+
+hb_log_tail() { [[ -r "$HB_LOG" ]] && tail -n "${1:-5}" "$HB_LOG" | sed 's/^/  | /' >&2; return 0; }
+
+hb_start() {
+    local pid rc i
+    # A fabric first. The topo session is this helper's own record that it started one; the
+    # program then refuses anything short of a trusted manifest of live switches.
+    session_running topo ||
+        { hb_refuse "refusing to start: no fabric is running (there is no topo session; 'sudo ndtwin-lab topo-start' first)"; return 1; }
+    hb_prepare_run_dir || return 1
+    if pid="$(hb_pid)"; then
+        echo "heartbeat already running (pid $pid) -- not starting a second one"
+        return 0
+    fi
+    hb_install_program || return 1
+    # The plan in the FOREGROUND, so a refusal reaches the caller with its reason and nothing
+    # has been launched. The daemon plans again for itself; this is the answer the caller sees.
+    hb_run plan && rc=0 || rc=$?
+    (( rc == 0 )) || return "$rc"
+    hb_launch
+    for (( i = 0; i < HB_START_STEPS; i++ )); do
+        if pid="$(hb_pid)" && [[ "$pid" == "$HB_LAUNCHED" ]]; then
+            echo "heartbeat started (pid $pid; report: $HB_RUN_DIR/heartbeat.json, log: $HB_LOG)"
+            return 0
+        fi
+        if hb_proc_gone "$HB_LAUNCHED"; then
+            wait "$HB_LAUNCHED" 2>/dev/null && rc=0 || rc=$?
+            hb_log_tail 5
+            if (( rc == 2 )) && pid="$(hb_pid)"; then
+                echo "heartbeat already running (pid $pid) -- another start won the race; not starting a second one"
+                return 0
+            fi
+            (( rc == HB_RC_NO_LINKS )) && return "$HB_RC_NO_LINKS"
+            hb_refuse "the daemon exited at once (rc $rc); its log is above"
+            return 1
+        fi
+        sleep 0.1
+    done
+    hb_log_tail 5
+    if hb_is_daemon "$HB_LAUNCHED"; then hb_signal TERM "$HB_LAUNCHED" || true; fi
+    hb_refuse "the daemon (pid $HB_LAUNCHED) did not report within $(( HB_START_STEPS / 10 )) s; it was stopped"
+    return 1
+}
+
+hb_stop() {
+    local pid rc i
+    pid="$(hb_read_pidfile)" && rc=0 || rc=$?
+    case "$rc" in
+        0) ;;
+        1) echo "heartbeat not running (no pidfile)"; return 0 ;;
+        2) hb_refuse "$HB_PIDFILE is a symlink; refusing to read it or to signal anything"; return 1 ;;
+        *) echo "heartbeat: $HB_PIDFILE does not hold a pid -- nothing signalled; removing it"
+           rm -f "$HB_PIDFILE"; return 0 ;;
+    esac
+    if ! hb_is_daemon "$pid"; then
+        echo "heartbeat: stale pidfile -- pid $pid is not the heartbeat daemon (argv or uid differ); nothing signalled, pidfile removed"
+        rm -f "$HB_PIDFILE"
+        return 0
+    fi
+    hb_signal TERM "$pid" || true
+    for (( i = 0; i < HB_STOP_STEPS; i++ )); do
+        hb_is_daemon "$pid" || break
+        sleep 0.1
+    done
+    if hb_is_daemon "$pid"; then
+        hb_signal KILL "$pid" || true
+        sleep 0.2
+    fi
+    if hb_is_daemon "$pid"; then
+        hb_refuse "pid $pid is STILL the heartbeat daemon after TERM and KILL"
+        return 1
+    fi
+    # The daemon removes its own pidfile on a clean exit; this is for the KILL path.
+    [[ "$(hb_read_pidfile 2>/dev/null)" == "$pid" ]] && rm -f "$HB_PIDFILE"
+    echo "heartbeat stopped (pid $pid)"
+    return 0
+}
+
+hb_status() {
+    local pid rc
+    if pid="$(hb_pid)"; then
+        echo "heartbeat: running (pid $pid)"
+        rc=0
+    else
+        echo "heartbeat: not running"
+        rc=$HB_RC_NOT_RUNNING
+    fi
+    # The report is read by the program that wrote it, never by bash; from the embedded text,
+    # so `status` works before the first `start` too.
+    hb_program | "$HB_PYTHON" -I - report
+    return "$rc"
+}
+
+# heartbeat_main <sub-verb> -- the only way in.
+#
+# 🔴 ONE WORD, MATCHED LITERALLY, AND NOTHING AFTER IT. Whatever else is typed is refused before
+#    any of it is used -- so no interface, path or ethertype can reach root from the command
+#    line, and nothing the caller typed is ever expanded, sourced or executed.
+heartbeat_main() {
+    if (( $# != 1 )); then
+        hb_refuse "usage: ndtwin-lab heartbeat {start|stop|status} -- nothing else is accepted (got $# argument(s)); the interfaces come from the running fabric"
+        return 1
+    fi
+    case "$1" in
+        start)  hb_start ;;
+        stop)   hb_stop ;;
+        status) hb_status ;;
+        *)      hb_refuse "unknown heartbeat verb $(printf '%q' "$1") (want start, stop or status)"; return 1 ;;
+    esac
+}
+
 # Sourced rather than executed: define the functions and stop, exactly as ndt and stack.sh do.
 # Without this there is no way to test lab_config_load at all. sudo always execs, never sources.
 (( NDTWIN_LAB_SOURCED == 1 )) && return 0
 
 # Before any verb runs: a refused config file is announced here, once, and decides whether this
 # invocation may proceed. Read-only verbs continue on the defaults; anything that acts dies.
-lab_conf_gate "${1:-}"
+lab_conf_gate "${1:-}" "${2:-}"
 
 case "${1:-}" in
     topo-start)
@@ -732,6 +1817,11 @@ case "${1:-}" in
         printf 'ENERGY_DIR: %s\n' "$ENERGY_DIR"
         printf 'SIM_DIR:    %s\n' "$SIM_DIR"
         ;;
+    # TICKET-P4-heartbeat segment H. Everything after the verb goes to heartbeat_main, which
+    # accepts exactly one more word (see the section above hb_program). Called in an `||` list so
+    # its own rc is the exit code, whatever errexit would have made of a refusal.
+    # [Co-developed with claude code -- Adam]
+    heartbeat) shift; hb_rc=0; heartbeat_main "$@" || hb_rc=$?; exit "$hb_rc" ;;
     status)
         printf 'config: %s (KERNEL_DIR=%s)\n' "$LAB_CONF_SOURCE" "$KERNEL_DIR"
         $TMUX list-sessions 2>/dev/null || echo "no lab sessions"
@@ -740,6 +1830,6 @@ case "${1:-}" in
             "$(ps -eo args | awk '$NF ~ /^mininet:/{c++} END{print c+0}')"
         ;;
     *)
-        die "usage: ndtwin-lab {topo-start|ovs-topo-start|ovs-topo-4host|topo-cmd <text>|topo-out [n]|topo-stop|cleanup|energy-start|energy-stop|energy-out [n]|sim-start|sim-stop|sim-out [n]|status|config}"
+        die "usage: ndtwin-lab {topo-start|ovs-topo-start|ovs-topo-4host|topo-cmd <text>|topo-out [n]|topo-stop|cleanup|energy-start|energy-stop|energy-out [n]|sim-start|sim-stop|sim-out [n]|heartbeat {start|stop|status}|status|config}"
         ;;
 esac

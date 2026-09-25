@@ -254,6 +254,23 @@ check "cleanup does NOT"                         1 "$(gate_rc cleanup)"
 check "energy-start does NOT"                    1 "$(gate_rc energy-start)"
 check "sim-stop does NOT"                        1 "$(gate_rc sim-stop)"
 
+# Adam 2026-09-25, ruling (b) of the heartbeat round: `heartbeat stop` and `heartbeat status`
+# touch only /run/ndtwin-lab -- nothing in them reads KERNEL_DIR or this file -- so a broken
+# config must not lock an operator out of stopping a root daemon. `heartbeat start` stays
+# fail-closed, like every other verb that starts something.
+# [Co-developed with claude code -- Adam]
+gate2_rc() { ( LAB_CONF_ERROR="something is wrong"; lab_conf_gate "$1" "$2" >/dev/null 2>&1 ); echo $?; }
+gate2_err() { ( LAB_CONF_ERROR="something is wrong"; lab_conf_gate "$1" "$2" 2>&1 >/dev/null ); }
+check "heartbeat stop still runs"                0 "$(gate2_rc heartbeat stop)"
+check "heartbeat status still runs"              0 "$(gate2_rc heartbeat status)"
+check "heartbeat start does NOT"                 1 "$(gate2_rc heartbeat start)"
+check "heartbeat with no sub-verb does NOT"      1 "$(gate2_rc heartbeat '')"
+check "heartbeat with an unknown sub-verb does NOT" 1 "$(gate2_rc heartbeat restart)"
+check "  heartbeat stop still says the file was refused" yes "$(has "sudo rm /etc/ndtwin-lab.conf" "$(gate2_err heartbeat stop)")"
+# The dispatch is unreachable from a sourced file (sudo always execs), so that it HANDS the gate
+# the sub-verb is pinned by its text.
+check "the dispatch hands the gate the sub-verb" 1 "$(grep -c '^lab_conf_gate "${1:-}" "${2:-}"$' "$LAB")"
+
 check "the refusal is announced"                 yes "$(has "was REFUSED and is NOT in use" "$(gate_err status)")"
 check "  and says how to remove the file"        yes "$(has "sudo rm /etc/ndtwin-lab.conf" "$(gate_err status)")"
 check "  and says defaults are in use"           yes "$(has "built-in defaults" "$(gate_err status)")"

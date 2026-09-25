@@ -10,6 +10,8 @@ from p4.config.v1 import p4info_pb2
 from google.protobuf import text_format
 
 from proxy_agent import boot_identity
+from proxy_agent import route_binding as route_binding_module
+from proxy_agent.route_binding import RouteWriteUnsupported  # noqa: F401 -- re-exported
 from proxy_agent.rule_install_times import RuleInstallTimes
 from proxy_agent.sflow_emitter import (TelemetryHeaderMissing, packet_in_metadata_ids,
                                        packet_out_metadata_ids, sample_from_packet_in)
@@ -242,6 +244,21 @@ def pipeline_carries_telemetry(p4info_path):
 
 class P4RuntimeClient:
     """Encapsulates P4Runtime gRPC connection to a single BMv2 switch"""
+
+    #: Which table, match field, action and parameters this client writes a destination route
+    #: with -- `route_binding.BASELINE` (NDTwin's own pipeline), a binding resolved from the app
+    #: package's `roles.ipv4_route`, or None (a foreign pipeline with no roles: every route
+    #: write answers 501). TICKET-P4-roles section 2.2.
+    #:
+    #: [Co-developed with claude code -- Adam]
+    #: 🔴 A CLASS DEFAULT, deliberately, and against this file's own habit of making hand-built
+    #: doubles fail loudly on a missing attribute. Every client that existed before roles was an
+    #: NDTwin-pipeline client, and the ticket forbids editing an existing test's fixture -- so a
+    #: double built with __new__ must keep writing what it always wrote. The one production
+    #: construction site, main.build_p4_client (startup AND readopt), always calls bind_routes(),
+    #: and tests/test_route_binding.py asserts that it does for all three kinds of switch.
+    route_binding = route_binding_module.BASELINE
+
     def __init__(self, device_id, grpc_addr, p4info_path, json_path=None,
                  election_id=DEFAULT_ELECTION_ID, arbitration=True):
         self.device_id = device_id
@@ -406,6 +423,60 @@ class P4RuntimeClient:
         # None check rather than a silently skipped branch.
         self.packet_in_callback = None   # (device_id, ingress_port, payload) -> None
         self.sample_callback = None      # (device_id, SampledPacket) -> None
+
+        # NDTwin's own names until the factory says otherwise. See `route_binding` above and
+        # bind_routes() below. [Co-developed with claude code -- Adam]
+        self.bind_routes(route_binding_module.BASELINE)
+
+        #: (unrendered entries, monotonic) of the most recent /stats/flow render of this switch,
+        #: or None before the first. TICKET-P4-roles 2.5-1: `switch_state` serves the count as
+        #: `flow_stats.unrendered_entries`. [Co-developed with claude code -- Adam]
+        self.last_flow_render = None
+
+    # --- the route binding. TICKET-P4-roles section 2.2. [Co-developed with claude code -- Adam]
+
+    def bind_routes(self, binding):
+        """Set the binding this client writes destination routes through (None = unbound).
+
+        🔴 TWO ATTRIBUTES, SET TOGETHER. The install-time record keys a route by
+        `self.IPV4_LPM_TABLE` (KNOWN-ISSUES G-13; that record and its gate,
+        tests/shell/mutate_p4_rule_install_time.sh, predate roles and spell it that way), and
+        the key has to be the table name read_table_entries reports for THIS switch -- the
+        binding's -- or every renamed-table route renders `duration 0/0`, which reads exactly
+        like the defect G-13 fixed. So a package binding shadows the class constant on this
+        instance, and the baseline (or unbound) leaves the class constant in charge.
+        """
+        self.route_binding = binding
+        if binding is not None and binding.source != route_binding_module.SOURCE_BASELINE:
+            self.IPV4_LPM_TABLE = binding.table
+        else:
+            self.__dict__.pop("IPV4_LPM_TABLE", None)
+
+    def _writable_route_binding(self, what):
+        """The binding a destination-route write may use, or RouteWriteUnsupported (-> 501).
+
+        Called AFTER _refuse_write in every route write: an external control plane's refusal
+        comes first (TICKET-P4-roles 2.2-4), and then unbound and owner `package` (2.2-3).
+        """
+        binding = self.route_binding
+        if binding is None:
+            raise RouteWriteUnsupported(route_binding_module.REASON_UNBOUND, self.device_id, what)
+        if binding.owner != route_binding_module.OWNER_NDTWIN:
+            raise RouteWriteUnsupported(route_binding_module.REASON_OWNED_BY_PACKAGE,
+                                        self.device_id, what)
+        return binding
+
+    def _writable_five_tuple_binding(self, what):
+        """The 5-tuple writes' action names -- NDTwin's pipeline only (TICKET-P4-roles 2.2-3).
+
+        `flow_5tuple` exists in ndtwin_switch.p4 and in no exercise, and this cut has no 5-tuple
+        role, so a switch that is not bound to BASELINE cannot take one whatever its roles say.
+        """
+        binding = self.route_binding
+        if binding is None or binding.source != route_binding_module.SOURCE_BASELINE:
+            raise RouteWriteUnsupported(route_binding_module.REASON_NO_FIVE_TUPLE_ROLE,
+                                        self.device_id, what)
+        return binding
 
     # --- identity and permission. [Co-developed with claude code -- Adam] -------------------
 
@@ -1629,12 +1700,39 @@ class P4RuntimeClient:
     #: four call sites, so the write side and the read side cannot disagree by a typo.
     LPM_ENTRY_PRIORITY = 0
 
-    @staticmethod
-    def _lpm_match(dst_ip, prefix_len):
-        """An ipv4_lpm entry's match, in `read_table_entries`' shape."""
-        return {"hdr.ipv4.dstAddr": {"type": "lpm",
-                                     "value": socket.inet_aton(dst_ip),
-                                     "prefix_len": prefix_len}}
+    def _lpm_match(self, dst_ip, prefix_len):
+        """A destination route's match, in `read_table_entries`' shape, keyed by the binding's
+        match field -- the name read_table_entries reports for this switch's route table.
+        [Co-developed with claude code -- Adam]"""
+        return {self.route_binding.match_field: {"type": "lpm",
+                                                 "value": socket.inet_aton(dst_ip),
+                                                 "prefix_len": prefix_len}}
+
+    def _build_route_entry(self, entry, binding, dst_ip, prefix_len, next_hop_mac=None,
+                           port=None):
+        """Fill one destination-route TableEntry from `binding`. No action for a delete.
+
+        [Co-developed with claude code -- Adam] TICKET-P4-roles 2.2-3. The one place the three
+        route writes build their entry, in the order the literal code built it -- table, the
+        LPM match, then the action with the MAC first and the port second -- because that order
+        is what the serialised bytes are compared against. The port goes out in the width the
+        binding's p4info declares; BASELINE's bit<9> is the two bytes the literals always sent.
+        """
+        entry.table_id = self._get_table_id(binding.table)
+        match = entry.match.add()
+        match.field_id = self._get_match_field_id(binding.table, binding.match_field)
+        match.lpm.value = socket.inet_aton(dst_ip)
+        match.lpm.prefix_len = prefix_len
+        if next_hop_mac is None:
+            return
+        action = entry.action.action
+        action.action_id = self._get_action_id(binding.action)
+        param1 = action.params.add()
+        param1.param_id = self._get_action_param_id(binding.action, binding.dst_mac_param)
+        param1.value = bytes.fromhex(next_hop_mac.replace(':', ''))
+        param2 = action.params.add()
+        param2.param_id = self._get_action_param_id(binding.action, binding.port_param)
+        param2.value = port.to_bytes(binding.port_bytes, byteorder='big')
 
     def _five_tuple_match(self, keys):
         """
@@ -1674,6 +1772,7 @@ class P4RuntimeClient:
         applies flow_5tuple first and only falls through on NoAction.
         """
         self._refuse_write("a 5-tuple rule insert")
+        binding = self._writable_five_tuple_binding("a 5-tuple rule insert")
         req = p4runtime_pb2.WriteRequest()
         req.device_id = self.device_id
         self._bid(req)
@@ -1684,13 +1783,13 @@ class P4RuntimeClient:
         self._build_5tuple_entry(entry, keys, priority)
 
         action = entry.action.action
-        action.action_id = self._get_action_id("MyIngress.ipv4_forward")
+        action.action_id = self._get_action_id(binding.action)
         p1 = action.params.add()
-        p1.param_id = self._get_action_param_id("MyIngress.ipv4_forward", "dstAddr")
+        p1.param_id = self._get_action_param_id(binding.action, binding.dst_mac_param)
         p1.value = bytes.fromhex(next_hop_mac.replace(":", ""))
         p2 = action.params.add()
-        p2.param_id = self._get_action_param_id("MyIngress.ipv4_forward", "port")
-        p2.value = port.to_bytes(2, byteorder="big")
+        p2.param_id = self._get_action_param_id(binding.action, binding.port_param)
+        p2.value = port.to_bytes(binding.port_bytes, byteorder="big")
 
         try:
             self.stub.Write(req, timeout=RPC_TIMEOUT_S)
@@ -1712,6 +1811,7 @@ class P4RuntimeClient:
     def modify_5tuple_rule(self, keys, priority, next_hop_mac, port):
         """Modifies an existing MyIngress.flow_5tuple rule in place."""
         self._refuse_write("a 5-tuple rule modify")
+        binding = self._writable_five_tuple_binding("a 5-tuple rule modify")
         req = p4runtime_pb2.WriteRequest()
         req.device_id = self.device_id
         self._bid(req)
@@ -1722,13 +1822,13 @@ class P4RuntimeClient:
         self._build_5tuple_entry(entry, keys, priority)
 
         action = entry.action.action
-        action.action_id = self._get_action_id("MyIngress.ipv4_forward")
+        action.action_id = self._get_action_id(binding.action)
         p1 = action.params.add()
-        p1.param_id = self._get_action_param_id("MyIngress.ipv4_forward", "dstAddr")
+        p1.param_id = self._get_action_param_id(binding.action, binding.dst_mac_param)
         p1.value = bytes.fromhex(next_hop_mac.replace(":", ""))
         p2 = action.params.add()
-        p2.param_id = self._get_action_param_id("MyIngress.ipv4_forward", "port")
-        p2.value = port.to_bytes(2, byteorder="big")
+        p2.param_id = self._get_action_param_id(binding.action, binding.port_param)
+        p2.value = port.to_bytes(binding.port_bytes, byteorder="big")
 
         try:
             self.stub.Write(req, timeout=RPC_TIMEOUT_S)
@@ -1750,6 +1850,7 @@ class P4RuntimeClient:
         modify_flow_entry ignored priority and edited a different rule.
         """
         self._refuse_write("a 5-tuple rule delete")
+        self._writable_five_tuple_binding("a 5-tuple rule delete")
         req = p4runtime_pb2.WriteRequest()
         req.device_id = self.device_id
         self._bid(req)
@@ -1768,38 +1869,24 @@ class P4RuntimeClient:
             return False
 
     def insert_ipv4_route(self, dst_ip, prefix_len, next_hop_mac, port):
-        """Inserts a rule into MyIngress.ipv4_lpm"""
+        """Inserts a destination route into this switch's route table -- the binding's.
+
+        [Co-developed with claude code -- Adam] TICKET-P4-roles 2.2-3. Every name comes from
+        `self.route_binding`; on NDTwin's pipeline that is BASELINE, whose names are the
+        literals this method used to spell (MyIngress.ipv4_lpm / ipv4_forward(dstAddr, port)),
+        and the bytes on the wire are the same (test_p4_client_writes' base capture).
+        """
         self._refuse_write("an ipv4_lpm route insert")
+        binding = self._writable_route_binding("an ipv4_lpm route insert")
         req = p4runtime_pb2.WriteRequest()
         req.device_id = self.device_id
         self._bid(req)
-        
+
         update = req.updates.add()
         update.type = p4runtime_pb2.Update.INSERT
-        
-        entry = update.entity.table_entry
-        entry.table_id = self._get_table_id("MyIngress.ipv4_lpm")
-        
-        # Match: hdr.ipv4.dstAddr (LPM)
-        match = entry.match.add()
-        match.field_id = self._get_match_field_id("MyIngress.ipv4_lpm", "hdr.ipv4.dstAddr")
-        match.lpm.value = socket.inet_aton(dst_ip)
-        match.lpm.prefix_len = prefix_len
-        
-        # Action: MyIngress.ipv4_forward
-        action = entry.action.action
-        action.action_id = self._get_action_id("MyIngress.ipv4_forward")
-        
-        # Param: dstAddr (macAddr_t 48 bits)
-        param1 = action.params.add()
-        param1.param_id = self._get_action_param_id("MyIngress.ipv4_forward", "dstAddr")
-        param1.value = bytes.fromhex(next_hop_mac.replace(':', ''))
-        
-        # Param: port (bit<9>)
-        param2 = action.params.add()
-        param2.param_id = self._get_action_param_id("MyIngress.ipv4_forward", "port")
-        param2.value = port.to_bytes(2, byteorder='big')
-        
+        self._build_route_entry(update.entity.table_entry, binding, dst_ip, prefix_len,
+                                next_hop_mac, port)
+
         try:
             self.stub.Write(req, timeout=RPC_TIMEOUT_S)
             self.rule_install_times.record(
@@ -1841,10 +1928,11 @@ class P4RuntimeClient:
         match its own entry.
         """
         want = socket.inet_aton(dst_ip)
+        binding = self.route_binding
         for entry in self.read_table_entries():
-            if entry["is_default"] or entry["table"] != "MyIngress.ipv4_lpm":
+            if entry["is_default"] or entry["table"] != binding.table:
                 continue
-            match = entry["match"].get("hdr.ipv4.dstAddr")
+            match = entry["match"].get(binding.match_field)
             if not match or match.get("type") != "lpm":
                 continue
             if match["prefix_len"] == prefix_len and match["value"].rjust(4, b"\x00") == want:
@@ -1866,24 +1954,17 @@ class P4RuntimeClient:
                                        self._lpm_match(dst_ip, prefix_len))
 
     def delete_ipv4_route(self, dst_ip, prefix_len):
-        """Deletes a rule from MyIngress.ipv4_lpm"""
+        """Deletes a destination route from this switch's route table -- the binding's."""
         self._refuse_write("an ipv4_lpm route delete")
+        binding = self._writable_route_binding("an ipv4_lpm route delete")
         req = p4runtime_pb2.WriteRequest()
         req.device_id = self.device_id
         self._bid(req)
-        
+
         update = req.updates.add()
         update.type = p4runtime_pb2.Update.DELETE
-        
-        entry = update.entity.table_entry
-        entry.table_id = self._get_table_id("MyIngress.ipv4_lpm")
-        
-        # Match: hdr.ipv4.dstAddr (LPM)
-        match = entry.match.add()
-        match.field_id = self._get_match_field_id("MyIngress.ipv4_lpm", "hdr.ipv4.dstAddr")
-        match.lpm.value = socket.inet_aton(dst_ip)
-        match.lpm.prefix_len = prefix_len
-        
+        self._build_route_entry(update.entity.table_entry, binding, dst_ip, prefix_len)
+
         try:
             self.stub.Write(req, timeout=RPC_TIMEOUT_S)
             self._forget_route(dst_ip, prefix_len)
@@ -1919,38 +2000,18 @@ class P4RuntimeClient:
             return False
 
     def modify_ipv4_route(self, dst_ip, prefix_len, next_hop_mac, port):
-        """Modifies a rule in MyIngress.ipv4_lpm"""
+        """Modifies a destination route in this switch's route table -- the binding's."""
         self._refuse_write("an ipv4_lpm route modify")
+        binding = self._writable_route_binding("an ipv4_lpm route modify")
         req = p4runtime_pb2.WriteRequest()
         req.device_id = self.device_id
         self._bid(req)
-        
+
         update = req.updates.add()
         update.type = p4runtime_pb2.Update.MODIFY
-        
-        entry = update.entity.table_entry
-        entry.table_id = self._get_table_id("MyIngress.ipv4_lpm")
-        
-        # Match: hdr.ipv4.dstAddr (LPM)
-        match = entry.match.add()
-        match.field_id = self._get_match_field_id("MyIngress.ipv4_lpm", "hdr.ipv4.dstAddr")
-        match.lpm.value = socket.inet_aton(dst_ip)
-        match.lpm.prefix_len = prefix_len
-        
-        # Action: MyIngress.ipv4_forward
-        action = entry.action.action
-        action.action_id = self._get_action_id("MyIngress.ipv4_forward")
-        
-        # Param: dstAddr (macAddr_t 48 bits)
-        param1 = action.params.add()
-        param1.param_id = self._get_action_param_id("MyIngress.ipv4_forward", "dstAddr")
-        param1.value = bytes.fromhex(next_hop_mac.replace(':', ''))
-        
-        # Param: port (bit<9>)
-        param2 = action.params.add()
-        param2.param_id = self._get_action_param_id("MyIngress.ipv4_forward", "port")
-        param2.value = port.to_bytes(2, byteorder='big')
-        
+        self._build_route_entry(update.entity.table_entry, binding, dst_ip, prefix_len,
+                                next_hop_mac, port)
+
         # [Co-developed with claude code -- Adam]
         # The success path had no `return True`, so it fell off the end returning None.
         # topology_manager.modify_flow passed that straight through and api_routes raised

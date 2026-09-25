@@ -17,6 +17,9 @@ from proxy_agent.kernel_notifier import KernelNotifier
 from proxy_agent.rule_journal import RuleJournal
 from proxy_agent import api_routes
 from proxy_agent import kernel_notifier
+# TICKET-P4-roles: which table a destination route is written into, per switch.
+# [Co-developed with claude code -- Adam]
+from proxy_agent import route_binding
 # Decides, at import, which app package this process serves, and prints it. Imported before the
 # host table below because the host table is built from the package's topology model.
 # [Co-developed with claude code -- Adam]
@@ -239,7 +242,7 @@ def build_p4_client(dpid, port_base=DEFAULT_GRPC_PORT_BASE, package=None):
     package = profile.current() if package is None else package
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     p4info_path, json_path = package.pipeline_for(dpid, base_dir)
-    return P4RuntimeClient(
+    client = P4RuntimeClient(
         device_id=dpid,
         grpc_addr=f'localhost:{port_base + dpid}',
         p4info_path=p4info_path,
@@ -250,6 +253,64 @@ def build_p4_client(dpid, port_base=DEFAULT_GRPC_PORT_BASE, package=None):
         # what that switches off and where it is disclosed.
         arbitration=package.arbitration,
     )
+    # [Co-developed with claude code -- Adam]
+    # TICKET-P4-roles 2.2-2. Decided HERE, the one construction site -- startup builds every
+    # client through this, and readopt's factory is this same function, so a power-cycled switch
+    # is re-resolved against the p4info it now runs. A RouteBindingError out of this line is a
+    # refusal, not a fallback to unbound (2.1-4): build_p4_clients lets it through and startup
+    # dies with the same sentence pre-flight prints.
+    client.bind_routes(route_binding_for(package, dpid, client.p4info, base_dir))
+    return client
+
+
+def declared_route_role(package):
+    """The package's `roles.ipv4_route` (an app_package.RouteRole), or None.
+
+    [Co-developed with claude code -- Adam] getattr rather than the property: a Package built by
+    hand in a test, or any object standing in for one, may predate the field.
+    """
+    roles = getattr(package, "roles", None)
+    return None if roles is None else roles.ipv4_route
+
+
+def max_port_for(package, dpid):
+    """The largest port the package's topology model gives switch `dpid`, or None.
+
+    [Co-developed with claude code -- Adam] What `route_binding.resolve` checks the port
+    parameter's width against (TICKET-P4-roles 2.1-4). Host-facing and switch-facing ports
+    both count: a route's output port is either.
+    """
+    model = load_fabric_model(package)
+    ports = [port for _name, host_dpid, port in topo_from_json.host_links(model)
+             if host_dpid == int(dpid)]
+    for a, a_port, b, b_port in topo_from_json.switch_links(model):
+        if a == int(dpid):
+            ports.append(a_port)
+        if b == int(dpid):
+            ports.append(b_port)
+    return max(ports) if ports else None
+
+
+def route_binding_for(package, dpid, p4info, base_dir=None):
+    """The RouteBinding switch `dpid` writes destination routes through, or None (unbound).
+
+    [Co-developed with claude code -- Adam] TICKET-P4-roles 2.2-2, the whole rule:
+
+      * NDTwin's own pipeline                -> route_binding.BASELINE (roles do not apply);
+      * a foreign pipeline + roles.ipv4_route -> route_binding.resolve() on THIS p4info, which
+                                                 raises RouteBindingError rather than returning
+                                                 something that does not fit;
+      * a foreign pipeline without roles      -> None.
+    """
+    base_dir = proxy_root() if base_dir is None else base_dir
+    if _pipeline_is_ndtwin(package, dpid, base_dir):
+        return route_binding.BASELINE
+    role = declared_route_role(package)
+    if role is None:
+        return None
+    return route_binding.resolve(role.as_manifest(), p4info,
+                                 max_port=max_port_for(package, dpid),
+                                 where=f"s{dpid}: roles.ipv4_route")
 
 
 # --- what this proxy is not doing, and why. [Co-developed with claude code -- Adam] ---------
@@ -616,6 +677,14 @@ def build_p4_clients(dpids=DEFAULT_SWITCH_DPIDS, port_base=DEFAULT_GRPC_PORT_BAS
             client = build_p4_client(i, port_base)
             client.start(push_config=False)
             clients[i] = client
+        except route_binding.RouteBindingError as e:
+            # [Co-developed with claude code -- Adam] TICKET-P4-roles 2.1-4: a package whose
+            # roles do not fit a switch's p4info REFUSES startup -- the one exception this loop
+            # does not turn into "that switch is down". Swallowed here it would become a fabric
+            # with one switch missing and no word about why; raised, uvicorn stops on the same
+            # sentence tools/p4_exercise/preflight.py prints for the same package.
+            print(f"[Proxy Agent] REFUSING to start: {e}")
+            raise
         except Exception as e:
             print(f"[Proxy Agent] Failed to connect to Switch {i}: {e}")
     return clients
@@ -1007,6 +1076,233 @@ _telemetry.update(_telemetry_blank(profile.current(), DEFAULT_SWITCH_DPIDS))
 _pre_entries.update({str(dpid): _blank_pre_counts() for dpid in DEFAULT_SWITCH_DPIDS})
 
 
+# --- what each switch can be asked to do. TICKET-P4-roles section 2.5-2 -----------------------
+# [Co-developed with claude code -- Adam]
+#
+#   capabilities  {"ipv4_route": "ndtwin" | "package" | "unbound",
+#                  "five_tuple": bool,       true only for NDTwin's own pipeline
+#                  "reroute": bool,          true only where LLDP AND the watchdog run
+#                  "link_discovery": "lldp" | "declared" | "none",
+#                  "binding_source": "baseline" | "package" | null}
+#
+# 🔴 `reroute` IS A FABRIC FACT REPORTED PER SWITCH. The watchdog is skipped for the whole fabric
+# the moment one switch is foreign, so an NDTwin-pipeline switch on a mixed fabric says `false`
+# too -- it has five_tuple and a baseline binding, and a failed link next to it is still not
+# rerouted around. On a foreign fabric `is_up` for an inter-switch edge comes from the package's
+# DECLARED links, not from failure detection (section 2.3-4), which is what "declared" says.
+#
+# 🔴 "none" is not in the ticket's two-word list, on purpose and disclosed (P4-R-SUMMARY,
+# Dissent): under `control_plane.mode: external` nothing discovers links and nothing seeds them
+# (this cut leaves external exactly as it was, 2.2-4), and "lldp" or "declared" would each be a
+# claim about a mechanism that is not running. Appendix A carries it since section 7 ruling 5.
+#
+# 🔴 THE WORD IS THE FABRIC'S MODE, NOT WHAT HAPPENED TO IT (section 7 ruling 5, item 8). Round 1
+# said "none" when the seed entered nothing or raised, so a foreign fabric with a broken model
+# read exactly like an external one. Now: external -> "none", any other fabric with a foreign
+# switch -> "declared", every other fabric -> "lldp" -- whether LLDP started (`reroute` says
+# that) and whether the declaration reached the graph (the fabric-level `declared_links` on
+# switch_state says that) are separate facts, reported separately.
+
+#: What startup did to the fabric as a whole. None until it has run; the endpoint predicts from
+#: the package until then, like `_pipelines`.
+_fabric = {"lldp": None, "watchdog": None, "declared_links": None,
+           # {directions, error} once a foreign fabric's startup has tried the seed; None on
+           # every other fabric. Section 7 ruling 5, item 8. [Co-developed with claude code --
+           # Adam]
+           "declared_links_seed": None}
+
+#: {dpid as string: capabilities}, re-recorded by startup and readopt.
+_capabilities = {}
+
+
+def _binding_words(binding):
+    """(owner-or-unbound, source-or-None) for a RouteBinding or None."""
+    return route_binding.capability_word(binding), route_binding.source_word(binding)
+
+
+def capabilities_for(owner_word, source_word, ndtwin, external, fabric):
+    """One switch's `capabilities`. Pure, so the prediction and the record are one function."""
+    if external:
+        # The exercise's own controller owns every table and this proxy refuses every write
+        # (`_refuse_write`, 409 on /p4/table_entry) whatever the roles say.
+        owner_word = (route_binding.OWNER_PACKAGE if source_word is not None
+                      else route_binding.REASON_UNBOUND)
+    if external:
+        discovery = "none"
+    elif fabric.get("declared_links"):
+        discovery = "declared"
+    else:
+        discovery = "lldp"
+    return {
+        "ipv4_route": owner_word,
+        "five_tuple": bool(ndtwin and not external
+                           and source_word == route_binding.SOURCE_BASELINE),
+        "reroute": bool(fabric.get("lldp") and fabric.get("watchdog")),
+        "link_discovery": discovery,
+        "binding_source": source_word,
+    }
+
+
+def _predicted_binding_words(package, dpid, ndtwin):
+    """What build_p4_client WILL bind this switch to, in words, before any client exists."""
+    if ndtwin:
+        return _binding_words(route_binding.BASELINE)
+    role = declared_route_role(package)
+    if role is None:
+        return _binding_words(None)
+    return role.owner, route_binding.SOURCE_PACKAGE
+
+
+def _capabilities_blank(package, dpids):
+    """The prediction served before startup has run: from the package alone."""
+    ndtwin = {dpid: _pipeline_is_ndtwin(package, dpid) for dpid in dpids}
+    foreign = any(not v for v in ndtwin.values())
+    external = package.read_only
+    runs = not external and not foreign
+    fabric = {"lldp": runs, "watchdog": runs, "declared_links": foreign and not external}
+    return {str(dpid): capabilities_for(*_predicted_binding_words(package, dpid, ndtwin[dpid]),
+                                        ndtwin[dpid], external, fabric)
+            for dpid in dpids}
+
+
+def _record_capabilities(package, clients, foreign):
+    """Re-record every switch's capabilities from the clients startup actually built."""
+    _capabilities.clear()
+    for dpid, client in clients.items():
+        owner, source = _binding_words(getattr(client, "route_binding", None))
+        _capabilities[str(dpid)] = capabilities_for(owner, source, dpid not in foreign,
+                                                    package.read_only, _fabric)
+
+
+def capabilities_report():
+    """{dpid as string: capabilities}. A copy per switch."""
+    return {dpid: dict(caps) for dpid, caps in _capabilities.items()}
+
+
+def flow_stats_report():
+    """{dpid as string: {"unrendered_entries": n or None}} from each client's last render.
+
+    [Co-developed with claude code -- Adam] TICKET-P4-roles 2.5-1. The count is of the non-default
+    rows the most recent /stats/flow render of that switch did not list -- an action it does not
+    recognise, or a match it cannot translate (section 7 ruling 5, item 3) -- on a foreign
+    pipeline only; NDTwin's own is 0 once read. None before the first render: "nobody rendered
+    this switch" is not "nothing was left out".
+    """
+    out = {}
+    for dpid, client in list(topo.switches.items()):
+        seen = getattr(client, "last_flow_render", None)
+        binding = getattr(client, "route_binding", None)
+        if seen is not None:
+            count = seen[0]
+        elif (binding is not None and binding.source == route_binding.SOURCE_BASELINE
+              and callable(getattr(client, "last_table_read", None))
+              and client.last_table_read() is not None):
+            # NDTwin's own pipeline renders every row it reads (unknown actions still render,
+            # as the empty list), so after its first table read nothing has been left out.
+            count = 0
+        else:
+            count = None
+        out[str(dpid)] = {"unrendered_entries": count}
+    return out
+
+
+def routes_owned_by_ndtwin(clients, foreign):
+    """Whether EVERY foreign switch has a binding NDTwin owns (TICKET-P4-roles 2.3-3).
+
+    [Co-developed with claude code -- Adam] Asked of the clients startup built, not of the
+    package, because the client is what the route writes will go through. A client with no
+    `route_binding` at all counts as unbound -- the safe answer, which keeps the routes skipped.
+    """
+    if not foreign:
+        return False
+    for dpid in foreign:
+        binding = getattr(clients.get(dpid), "route_binding", None)
+        if binding is None or binding.owner != route_binding.OWNER_NDTWIN:
+            return False
+    return True
+
+
+def declared_links_report():
+    """{"directions": n, "error": "Type: message" or None} on a fabric whose links are declared,
+    None on one whose are not (or before startup). Section 7 ruling 5, item 8.
+    [Co-developed with claude code -- Adam]"""
+    seed = _fabric.get("declared_links_seed")
+    if not _fabric.get("declared_links") or seed is None:
+        return None
+    return dict(seed)
+
+
+def _fabric_installs_routes():
+    """Whether startup left install_initial_routes ON for this fabric. False before startup
+    has recorded anything: no decision is not a yes. Section 7 ruling 5, item 1.
+    [Co-developed with claude code -- Adam]"""
+    skipped = _control_plane.get("skipped")
+    return skipped is not None and SKIP_ROUTES not in skipped
+
+
+def _record_and_report_capabilities(package, clients, foreign):
+    _record_capabilities(package, clients, foreign)
+    return capabilities_report()
+
+
+def _declared_links_path(package):
+    """The model the declared links are read from: the package's own, else the default lookup.
+
+    [Co-developed with claude code -- Adam] The package's topology is the model this proxy built
+    its host table from (`load_fabric_model`), so it is the one whose cables are declared. For a
+    package with none, `load_switch_links` falls back to NDTWIN_TOPO_FILE / the default model --
+    the same lookup the watchdog's seeding has always used.
+    """
+    return getattr(package, "topology", None) or None
+
+
+def _seed_declared_links(topo, package):
+    """Enter the package topology's inter-switch links into the proxy's graph.
+
+    Returns `(directions entered, "Type: message" or None)`.
+
+    [Co-developed with claude code -- Adam] TICKET-P4-roles 2.3-1. Never raises: a fabric whose
+    links could not be declared still forwards on the package's own entries. What went wrong is
+    returned, and served as the fabric-level `declared_links.error` on switch_state (section 7
+    ruling 5, item 8) -- round 1 folded it into `link_discovery: "none"`, which is external's
+    word.
+    """
+    try:
+        seeded = topo.seed_declared_links(_declared_links_path(package))
+    except Exception as e:  # noqa: BLE001 -- disclosed below, never fatal
+        print(f"[Proxy Agent] could not enter the package's declared links "
+              f"({type(e).__name__}: {e}); the twin's inter-switch edges stay disabled")
+        return 0, f"{type(e).__name__}: {e}"
+    print(f"[Proxy Agent] {seeded} declared inter-switch link direction(s) entered from the "
+          f"package topology. Their is_up is the DECLARATION, not failure detection: this "
+          f"fabric runs no LLDP and no watchdog, so a cut link is not noticed and not "
+          f"rerouted around (capabilities.reroute is false).")
+    return seeded, None
+
+
+def _install_owned_routes(topo):
+    """install_initial_routes over the declared links, once. Returns (installed, attempted).
+
+    [Co-developed with claude code -- Adam] TICKET-P4-roles 2.3-3. Only called when every
+    foreign switch binds roles.ipv4_route with owner ndtwin, so every write goes through a
+    binding NDTwin may write. Once, at startup: there is no watchdog on this fabric to call it
+    again, which is what `reroute: false` means.
+    """
+    try:
+        installed, attempted = topo.install_initial_routes()
+    except Exception as e:  # noqa: BLE001 -- disclosed, the fabric keeps its own entries
+        print(f"[Proxy Agent] installing NDTwin's routes into the package's route tables "
+              f"failed: {type(e).__name__}: {e}")
+        return {"installed": 0, "attempted": None, "error": f"{type(e).__name__}: {e}"}
+    print(f"[Proxy Agent] every foreign switch binds roles.ipv4_route with owner ndtwin: "
+          f"{installed} of {attempted} initial routes written into the package's route tables "
+          f"(once: no watchdog runs on this fabric, so nothing reroutes around a failed link)")
+    return {"installed": installed, "attempted": attempted}
+
+
+_capabilities.update(_capabilities_blank(profile.current(), DEFAULT_SWITCH_DPIDS))
+
+
 def readopt_switch(topology, dpid, client_factory, sample_callback, package=None):
     """
     The package's half of `POST /p4/readopt/{dpid}`.
@@ -1076,6 +1372,15 @@ def readopt_switch(topology, dpid, client_factory, sample_callback, package=None
                                      install_routes=ndtwin)
 
     if result.get("status") == "success":
+        # The new client's binding was re-resolved by the factory against the program this
+        # switch now runs (TICKET-P4-roles 2.2-2); its capabilities follow it. [Co-developed
+        # with claude code -- Adam]
+        owner, source = _binding_words(getattr(topology.switches.get(dpid), "route_binding",
+                                               None))
+        _capabilities[str(dpid)] = capabilities_for(owner, source, ndtwin, package.read_only,
+                                                    _fabric)
+
+    if result.get("status") == "success":
         # The push inside readopt empties this switch's PRE along with its tables, so whatever
         # the package declared there goes back on -- on every pipeline, for the reason startup's
         # own PRE loop gives. Recorded, not added to: the counts describe what is on the switch
@@ -1106,6 +1411,28 @@ def readopt_switch(topology, dpid, client_factory, sample_callback, package=None
             f"this switch on purpose. Its samples come from somewhere else, and programming "
             f"one here would count every packet twice")
 
+    if (ndtwin and result.get("status") == "success"
+            and getattr(topology, "routes_to_attached_hosts_only", False)):
+        # Section 7 ruling 5, item 1. [Co-developed with claude code -- Adam]
+        result["routes_scope"] = "attached_hosts"
+        result["routes_note"] = (
+            f"this fabric skips {SKIP_ROUTES} (a switch on it runs a package pipeline whose "
+            f"route table NDTwin may not write), so the refill wrote only the routes to hosts "
+            f"attached to this switch; a route through another switch would be a path "
+            f"half-installed")
+
+    if (ndtwin and result.get("status") == "success" and result.get("routes_pending")
+            and not _fabric.get("watchdog")):
+        # Section 7 ruling 6, F2. TopologyManager.readopt_switch promises the link watchdog
+        # will install the routes when the beacons resume; on a fabric where no watchdog runs
+        # (one with a foreign switch, or one whose watchdog did not start) nothing ever will.
+        # Taken back here, not there: that line is another gate's anchor (M-B29).
+        # [Co-developed with claude code -- Adam]
+        result.pop("routes_pending")
+        result["note"] = ("adopted, but no route was installable: no path from this switch "
+                          "reaches a host it may write a route to, and no link watchdog runs "
+                          "on this fabric to install one later")
+
     if ndtwin or result.get("status") != "success":
         return result
 
@@ -1125,6 +1452,46 @@ def readopt_switch(topology, dpid, client_factory, sample_callback, package=None
     _record_table_entries(dpid, _table_entries.get(str(dpid), {}).get("recorded", 0),
                           counts["applied"], counts["failed"])
     result["table_entries"] = dict(counts)
+
+    # [Co-developed with claude code -- Adam]
+    # TICKET-P4-roles 2.3-3, on the power-on path. When every foreign switch of this fabric --
+    # this one's NEW client included, whose binding build_p4_client just re-resolved against
+    # the program it now runs -- binds roles.ipv4_route with owner ndtwin, startup put NDTwin's
+    # routes into those tables, and the push inside readopt has just emptied this one. Nothing
+    # else would put them back (no watchdog runs here), and a package with owner ndtwin carries
+    # no entries of its own for that table, so the switch would come back forwarding nothing.
+    # After the package's entries, so the table's default action is in place first.
+    #
+    # 🔴 THE SAME PREDICATE AS STARTUP (section 7 ruling 5, item 1): the FABRIC did not skip the
+    # routes, and THIS switch's new binding is owner ndtwin. Round 1 asked whether every client
+    # is owned now -- so a switch that was unbound or absent at startup (routes skipped for the
+    # whole fabric) and came back owned got NDTwin's routes while no other switch had any.
+    binding = getattr(topology.switches.get(dpid), "route_binding", None)
+    if (_fabric_installs_routes() and binding is not None
+            and binding.owner == route_binding.OWNER_NDTWIN):
+        routes, attempted = topology.install_initial_routes(only_dpid=dpid)
+        result.update({"routes": "installed", "routes_installed": routes,
+                       "routes_attempted": attempted,
+                       "routes_note": "every foreign switch binds roles.ipv4_route with owner "
+                                      "ndtwin, so NDTwin's routes went back into this switch's "
+                                      "own route table after the push emptied it"})
+        if attempted > 0 and routes == 0:
+            result.update({"status": "failed", "step": "routes",
+                           "error": f"the switch refused all {attempted} route writes into its "
+                                    f"bound route table after accepting the pipeline"})
+    elif binding is not None and binding.owner == route_binding.OWNER_NDTWIN:
+        # Section 7 ruling 6, F3: an OWNED table left empty on purpose says why -- not the
+        # pre-roles "the refill names NDTwin's own tables", which is not the reason here.
+        # [Co-developed with claude code -- Adam]
+        why = ("startup has not recorded yet whether this fabric installs routes"
+               if _control_plane.get("skipped") is None
+               else f"this fabric skipped {SKIP_ROUTES} at startup (a switch on it is unbound "
+                    f"or keeps its own route table)")
+        result["routes_note"] = (
+            f"this switch's route table is bound with owner ndtwin, but {why}, so no NDTwin "
+            f"route was written into it: a route here while the rest of the fabric carries none "
+            f"would be a path half-installed. The table keeps only its default action (a "
+            f"package declares no entries for a table NDTwin owns)")
     return result
 
 
@@ -1139,6 +1506,12 @@ api_routes.inject_package_reports(pipelines_report, table_entries_report,
                                   note_api_table_entry_write)
 api_routes.inject_telemetry_reports(telemetry_report, pre_entries_report,
                                     control_plane_telemetry)
+# TICKET-P4-roles 2.5: per-switch `capabilities` and `flow_stats`. [Co-developed with claude
+# code -- Adam]
+api_routes.inject_roles_reports(capabilities_report, flow_stats_report)
+# Section 7 ruling 5, item 8: the fabric-level outcome of the seed. [Co-developed with claude
+# code -- Adam]
+api_routes.inject_declared_links_report(declared_links_report)
 
 
 async def startup(clients_factory, sflow, kernel, topo,
@@ -1192,6 +1565,10 @@ async def startup(clients_factory, sflow, kernel, topo,
     package = profile.current() if package is None else package
     read_only = package.read_only
     skipped = list(EXTERNAL_SKIPS) if read_only else []
+    # What this startup does to the fabric as a whole, recorded as it happens (TICKET-P4-roles
+    # 2.5-2). Reset first: a module global that kept the last run's answer would describe a
+    # fabric that is not this one. [Co-developed with claude code -- Adam]
+    _fabric.update(lldp=False, watchdog=False, declared_links=False, declared_links_seed=None)
 
     clients = clients_factory()
     for dpid, client in clients.items():
@@ -1532,16 +1909,51 @@ async def startup(clients_factory, sflow, kernel, topo,
     # switch's `pipeline.ndtwin` says which switches. (The mechanical constraint is real too:
     # `tests/shell/mutate_app_package.sh` M18 anchors on those exact three lines, and that gate
     # belongs to another ticket's file.)
+    #: Whether this startup put NDTwin's routes into a foreign fabric's own route tables.
+    #: [Co-developed with claude code -- Adam] TICKET-P4-roles 2.3-3.
+    routes_owned = False
+    route_counts = None
     if foreign and not read_only:
         skipped.extend(FOREIGN_PIPELINE_FABRIC_SKIPS)
+        # [Co-developed with claude code -- Adam]
+        # 🔴 TICKET-P4-roles 2.3-3: the ONE of the three that can come back, and only when EVERY
+        # foreign switch binds roles.ipv4_route with owner `ndtwin`. One unbound switch, or one
+        # whose author kept the table (`owner: package`), and the routes stay skipped for the
+        # whole fabric exactly as before -- a shortest path that crosses a switch NDTwin may not
+        # write is a path half-installed. LLDP and the watchdog are NOT affected: they still
+        # ride a controller header these programs do not have.
+        routes_owned = routes_owned_by_ndtwin(clients, foreign)
+        if routes_owned and SKIP_ROUTES in skipped:
+            skipped.remove(SKIP_ROUTES)
+        steps = ("send LLDP beacons or watch links" if routes_owned
+                 else "send LLDP beacons, watch links or install routes")
         print(f"[Proxy Agent] {len(foreign)} of {len(clients)} switches "
               f"({sorted(foreign)}) run the app package's own pipeline, which carries no "
-              f"controller header: this proxy will not send LLDP beacons, watch links or "
-              f"install routes on ANY switch of this fabric. Skipped: "
-              f"{', '.join(sorted(set(skipped)))}. The per-switch skips (no clone session, no "
-              f"sFlow) are on each switch's own `pipeline.skipped`, because the switches "
-              f"beside these still have both. Reported on GET /p4/switch_state.")
+              f"controller header: this proxy will not {steps} on ANY switch of this fabric. "
+              f"Skipped: {', '.join(sorted(set(skipped)))}. The per-switch skips (no clone "
+              f"session, no sFlow) are on each switch's own `pipeline.skipped`, because the "
+              f"switches beside these still have both. Reported on GET /p4/switch_state.")
         read_only = True
+        # 🔴 TICKET-P4-roles 2.3-1/2: the links come from the package's topology instead of
+        # LLDP, through the same add_link LLDP uses -- and NOTHING is sent to the kernel's
+        # link_recovery_detected / link_failure_detected. A declaration says "this cable exists",
+        # not "this cable just came back"; see TopologyManager.seed_declared_links.
+        # 🔴 `declared_links` is the MODE, set whatever the seed managed (section 7 ruling 5,
+        # item 8); the seed's own outcome is `declared_links_seed`, served at fabric level.
+        seeded, seed_error = _seed_declared_links(topo, package)
+        _fabric.update(lldp=False, watchdog=False, declared_links=True,
+                       declared_links_seed={"directions": seeded, "error": seed_error})
+    elif read_only:
+        # `external`: nothing discovers links and nothing seeds them -- unchanged by this cut.
+        _fabric.update(lldp=False, watchdog=False, declared_links=False)
+
+    # [Co-developed with claude code -- Adam] Section 7 ruling 5, item 1: the fabric's route
+    # skip reaches the route writer itself, so every later writer (readopt's refill) obeys it --
+    # not only this startup. Set before the one install below, which only runs when the routes
+    # are NOT skipped.
+    topo.routes_to_attached_hosts_only = SKIP_ROUTES in skipped
+    if routes_owned:
+        route_counts = _install_owned_routes(topo)
 
     # Start LLDP dynamic topology discovery
     #
@@ -1554,8 +1966,10 @@ async def startup(clients_factory, sflow, kernel, topo,
         try:
             topo.start_lldp_discovery()
             print("[Proxy Agent] Started LLDP Discovery...")
+            _fabric["lldp"] = True
         except Exception as e:
             print(f"[Proxy Agent] Failed to start LLDP discovery: {e}")
+            _fabric["lldp"] = False
 
     # [Co-developed with claude code -- Adam]
     # The other half of LLDP: beacons that stop arriving are how a link failure is detected, and
@@ -1584,9 +1998,11 @@ async def startup(clients_factory, sflow, kernel, topo,
             # [Co-developed with claude code -- Adam]
             topo.start_link_watchdog(seed_expected=True)
             print("[Proxy Agent] Started LLDP link watchdog...")
+            _fabric["watchdog"] = True
         except Exception as e:
             print(f"[Proxy Agent] Failed to start link watchdog: {e}; link failures will not be "
                   f"reported and the graph will keep showing failed links as up")
+            _fabric["watchdog"] = False
 
     # [Co-developed with claude code -- Adam]
     # Feeds GET /p4/switch_state, which the kernel's pingWorker reads once a second. Without it
@@ -1627,6 +2043,12 @@ async def startup(clients_factory, sflow, kernel, topo,
         "telemetry_sources": {str(dpid): word for dpid, word in telemetry_sources.items()},
         "telemetry_report": telemetry_report(),
         "pre_entries": pre_entries_report(),
+        # [Co-developed with claude code -- Adam] TICKET-P4-roles 2.3/2.5. What each switch can
+        # be asked to do, and -- on a foreign fabric whose every switch binds its route table
+        # with owner ndtwin -- how many of NDTwin's routes went into those tables (None when
+        # none were attempted, which is every other fabric).
+        "capabilities": _record_and_report_capabilities(package, clients, foreign),
+        "owned_routes": route_counts,
     }
 
 

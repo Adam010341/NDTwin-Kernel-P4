@@ -1,0 +1,101 @@
+# proto-file: p4/config/v1/p4info.proto
+# proto-message: p4.config.v1.P4Info
+
+pkg_info {
+  arch: "v1model"
+}
+tables {
+  preamble {
+    id: 46408899
+    name: "RouteIngress.dest_routes"
+    alias: "dest_routes"
+  }
+  match_fields {
+    id: 1
+    name: "hdr.ip4.dst"
+    bitwidth: 32
+    match_type: LPM
+  }
+  action_refs {
+    id: 19229455
+  }
+  action_refs {
+    id: 27120966
+  }
+  action_refs {
+    id: 21257015
+  }
+  initial_default_action {
+    action_id: 27120966
+  }
+  size: 1024
+}
+tables {
+  preamble {
+    id: 33599324
+    name: "RouteIngress.proto_tags"
+    alias: "proto_tags"
+  }
+  match_fields {
+    id: 1
+    name: "hdr.ip4.proto"
+    bitwidth: 8
+    match_type: EXACT
+  }
+  action_refs {
+    id: 26822972
+  }
+  action_refs {
+    id: 21257015
+  }
+  initial_default_action {
+    action_id: 21257015
+  }
+  size: 16
+}
+actions {
+  preamble {
+    id: 21257015
+    name: "NoAction"
+    alias: "NoAction"
+    annotations: "@noWarn(\"unused\")"
+  }
+}
+actions {
+  preamble {
+    id: 27120966
+    name: "RouteIngress.discard"
+    alias: "discard"
+  }
+}
+actions {
+  preamble {
+    id: 19229455
+    name: "RouteIngress.send_via"
+    alias: "send_via"
+  }
+  params {
+    id: 1
+    name: "out_port"
+    bitwidth: 8
+  }
+  params {
+    id: 2
+    name: "next_mac"
+    bitwidth: 48
+  }
+}
+actions {
+  preamble {
+    id: 26822972
+    name: "RouteIngress.tag_proto"
+    alias: "tag_proto"
+  }
+  params {
+    id: 1
+    name: "tag"
+    bitwidth: 8
+  }
+}
+type_info {
+}

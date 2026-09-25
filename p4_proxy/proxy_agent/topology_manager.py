@@ -516,6 +516,13 @@ LIVENESS_PROBE_TIMEOUT_S = 1.5
 class TopologyManager:
     """Maintains the network state and computes shortest paths via BFS"""
 
+    #: Also a class attribute, with the same value __init__ gives it (see there): the A-4d
+    #: restore now reads it, and tests/test_delete_restores_route.py builds its manager with
+    #: `TopologyManager.__new__`, so an instance-only attribute would turn every existing
+    #: restore test into an AttributeError. False is the pre-roles behaviour, every host.
+    #: [Co-developed with claude code -- Adam] Section 7 ruling 6, F1.
+    routes_to_attached_hosts_only = False
+
     def __init__(self, kernel_notifier=None, clock=time.monotonic, journal=None):
         # [Co-developed with claude code -- Adam]
         # `kernel_notifier` is optional so the many tests that build a bare TopologyManager keep
@@ -650,6 +657,30 @@ class TopologyManager:
         self._link_ports = load_switch_link_ports()
         self._link_ports_warned = False
 
+        #: (src_dpid, src_port, dst_dpid, dst_port) directions entered from the package's
+        #: topology rather than discovered -- TICKET-P4-roles 2.3. Empty on every fabric that
+        #: runs LLDP. Guarded by _liveness_lock, like the beacon evidence it stands beside in
+        #: `link_liveness`. [Co-developed with claude code -- Adam]
+        self._declared_links = set()
+
+        #: TICKET-P4-roles section 7 ruling 5, item 1. True on a fabric that skips
+        #: install_initial_routes (startup sets it from `control_plane.skipped`): every route
+        #: the control plane writes after that stops at the hosts attached to the switch it is
+        #: written on. There are TWO writers left there, and both obey it: readopt's refill
+        #: (install_initial_routes) and the A-4d restore of a withdrawn application rule
+        #: (`_control_plane_port`) -- round 2 named only the first; section 7 ruling 6, F1.
+        #: Before the declared links existed,
+        #: `net` had no inter-switch edge on such a fabric and no other route was computable;
+        #: with them, a shortest path can cross a switch whose table NDTwin may not write, and
+        #: that is a path half-installed. False (every host, as before) everywhere else.
+        #: [Co-developed with claude code -- Adam]
+        self.routes_to_attached_hosts_only = False
+
+        #: TICKET-P4-roles 2.4 -- what `report_external_link_state` has been told, and what it
+        #: did with it. Guarded by _liveness_lock. [Co-developed with claude code -- Adam]
+        self._external_reports = {"received": 0, "routed_through_watchdog": 0,
+                                  "recorded_only": 0, "last": None}
+
         # Serialises readopt_switch. Power operations are operator-paced, so contention is
         # not expected; the lock exists so that two concurrent readopts of the same dpid
         # cannot interleave their build/swap/stop sequences and leave a stopped client in
@@ -675,6 +706,61 @@ class TopologyManager:
             self.net.add_node(ip, type='host', mac=mac)
             self.net.add_edge(switch_dpid, ip, port=port)
             self.net.add_edge(ip, switch_dpid, port=0)
+
+    def seed_declared_links(self, path=None):
+        """
+        Enter every inter-switch link the package topology declares into `net`. Returns how many
+        directions were entered.
+
+        [Co-developed with claude code -- Adam]
+        TICKET-P4-roles 2.3. On a fabric with a foreign switch there is no LLDP (the programs
+        carry no controller header), so `net` never learned a single inter-switch edge,
+        `render_links` served none, and the kernel's `updateLinks` never enabled one: live
+        `2026-09-19T062604Z_02_app_basic` has all eight of pod-topo's inter-switch directions at
+        `is_enabled: false, is_up: false`. The package already carries the topology -- it is the
+        model this proxy built its host table from -- so its cables are entered here, through
+        `add_link`, the one entry point LLDP uses, and served like any discovered link.
+
+        🔴 A DECLARATION, NOT A DETECTION. Three things this deliberately does NOT do:
+
+          * tell the kernel anything. No `link_recovery_detected`, no `link_failure_detected`:
+            a declared cable has not "just come back", and a recovery report for an edge the
+            kernel holds declared-down would fight the kernel's own resurrection guard
+            (`m_linkResurrectionDeclined`). The edges come up through the ordinary topology
+            poll, which is how every LLDP-discovered edge comes up too;
+          * enter `_link_beacons`. That map is beacon EVIDENCE, and the watchdog reads it; a
+            declared link has none, and nothing on this fabric would ever refresh it;
+          * claim failure detection. `is_up` on these edges means "the package says this cable
+            exists". A cut is not noticed and not rerouted around -- `capabilities.reroute` is
+            false on this fabric, and `link_liveness` marks every one `source: "declared"`.
+
+        A link whose far switch never connected (it is not a switch node in `net`) is skipped
+        and counted: LLDP would never have discovered it either, and entering it would give
+        `net` a node with no type, which path computation would route THROUGH.
+        """
+        links = load_switch_links(path)
+        entered, skipped = 0, []
+        for src, src_port, dst, dst_port in links:
+            if not (self.net.nodes.get(src, {}).get("type") == "switch"
+                    and self.net.nodes.get(dst, {}).get("type") == "switch"):
+                skipped.append((src, src_port, dst, dst_port))
+                continue
+            self.add_link(src, dst, src_port, dst_port)
+            with self._liveness_lock:
+                for direction in ((src, src_port, dst, dst_port), (dst, dst_port, src, src_port)):
+                    if direction not in self._declared_links:
+                        self._declared_links.add(direction)
+                        entered += 1
+        if skipped:
+            print(f"[TopologyManager] {len(skipped)} declared link direction(s) name a switch "
+                  f"this proxy is not connected to and were not entered: {sorted(skipped)[:4]}")
+        return entered
+
+    def declared_links(self):
+        """The directions `seed_declared_links` entered, sorted. [Co-developed with claude code
+        -- Adam]"""
+        with self._liveness_lock:
+            return sorted(self._declared_links)
 
     def reroutable_down_endpoints(self):
         """
@@ -1003,6 +1089,12 @@ class TopologyManager:
                 next_node = path[path.index(dpid) + 1]
             except (ValueError, IndexError):
                 return None
+            if self.routes_to_attached_hosts_only and next_node != ipv4_dst:
+                # The path crosses another switch on a fabric that skips its routes: the
+                # control plane would not write it (install_initial_routes skips it the same
+                # way), so there is nothing to hand the slot back to -- the withdrawal is a
+                # removal. Section 7 ruling 6, F1. [Co-developed with claude code -- Adam]
+                return None
             try:
                 return self.net.edges[dpid, next_node]["port"]
             except KeyError:
@@ -1191,6 +1283,12 @@ class TopologyManager:
                 path = path_info['path']
                 # The next node in the path
                 next_node = path[path.index(src) + 1]
+                if self.routes_to_attached_hosts_only and next_node != dst:
+                    # Crosses another switch on a fabric that skips its routes -- see
+                    # `routes_to_attached_hosts_only`. Not attempted, so not counted: the same
+                    # answer the graph gave before the declared links were in it.
+                    # [Co-developed with claude code -- Adam]
+                    continue
                 # The port connecting src to next_node
                 out_port = self.net.edges[src, next_node]['port']
 
@@ -1754,6 +1852,11 @@ class TopologyManager:
             # so the link watchdog's state can be seen without waiting for a POST to arrive at the
             # kernel. [Co-developed with claude code -- Adam]
             "links": self.link_liveness(),
+            # [Co-developed with claude code -- Adam] TICKET-P4-roles 2.4: how many link-state
+            # reports arrived from outside this proxy's LLDP, and whether they were acted on.
+            # All zero in this cut -- the entry has no caller yet -- and emitted anyway, so the
+            # day the second cut wires one up, "none arrived" and "not reported" stay distinct.
+            "external_link_reports": self.external_link_report(),
         }
 
     def start_lldp_discovery(self):
@@ -2095,7 +2198,7 @@ class TopologyManager:
         """
         now = self._clock()
         with self._liveness_lock:
-            return {
+            out = {
                 f"{s}:{sp}->{d}:{dp}": {
                     "last_beacon_age_s": None if not e.get("seen", True) else round(now - e["at"], 3),
                     "down": e["down"],
@@ -2103,3 +2206,79 @@ class TopologyManager:
                 }
                 for (s, sp, d, dp), e in sorted(self._link_beacons.items())
             }
+            # [Co-developed with claude code -- Adam] TICKET-P4-roles 2.3-1. A declared link has
+            # no beacon evidence and no down/up belief -- nothing on its fabric detects either --
+            # so it says what it is instead of borrowing the beacon fields' shape. `down: null`,
+            # not false: "nobody is checking" is not "checked and up". Only on a fabric that
+            # declared its links, so every LLDP fabric's report is exactly what it was.
+            for s, sp, d, dp in sorted(self._declared_links):
+                out.setdefault(f"{s}:{sp}->{d}:{dp}", {
+                    "source": "declared",
+                    "last_beacon_age_s": None,
+                    "down": None,
+                    "reported_to_kernel": False,
+                })
+            return out
+
+    # --- the external link-state entry. TICKET-P4-roles section 2.4 -------------------------
+    # [Co-developed with claude code -- Adam]
+    #
+    # 🔴 AN ENTRY WITH NO CALLER IN THIS CUT. The second cut's fabric root helper (a veth
+    # heartbeat running as root) will report link state from outside the pipeline; this is where
+    # it will land. There is no HTTP route to it and nothing calls it yet -- ON A FOREIGN FABRIC
+    # IT EXISTS AND IS NOT WIRED -- and the two branches below are what it does when it is.
+
+    def report_external_link_state(self, src_dpid, src_port, dst_dpid, dst_port, up, source):
+        """
+        One link direction's state, reported by something other than this proxy's LLDP.
+
+        Two branches, decided by whether the link watchdog is running:
+
+          * running (an all-NDTwin fabric): the report becomes beacon evidence, and the next
+            watchdog pass handles it exactly as it handles a beacon timeout or a returning
+            beacon -- `check_link_beacons` flips the belief, `_notify_link` tells the kernel,
+            `run_watchdog_pass` reroutes and pushes the paths. The SAME path, not a parallel
+            one: a down report is recorded as silence past the link's timeout, an up report as
+            a beacon heard now. LLDP stays authoritative there -- a link still beaconing comes
+            back up on the next beacon, as it would after any false timeout;
+          * not running (a foreign fabric, which is every fabric this entry is for in this
+            cut): RECORDED ONLY. No evidence is written, no route is touched, the kernel is not
+            told -- there is no watchdog to act on it and nothing that would ever take it back.
+            The count is served on `GET /p4/switch_state` as `external_link_reports`.
+
+        Returns {"applied": bool, "link": [...], "why": str}.
+        """
+        link = (int(src_dpid), int(src_port), int(dst_dpid), int(dst_port))
+        now = self._clock()
+        with self._liveness_lock:
+            self._external_reports["received"] += 1
+            self._external_reports["last"] = {"link": list(link), "up": bool(up),
+                                              "source": str(source)}
+            watchdog = self._link_watchdog_running
+            if not watchdog:
+                self._external_reports["recorded_only"] += 1
+            else:
+                entry = self._link_beacons.get(link)
+                if entry is None:
+                    entry = self._link_beacons[link] = {"at": now, "down": False,
+                                                        "acked": True, "seen": True}
+                entry["seen"] = True
+                # Silence past the timeout, or a beacon heard now: the two facts the watchdog
+                # already knows how to act on.
+                entry["at"] = now if up else now - self._link_timeout(entry) - 1.0
+                self._external_reports["routed_through_watchdog"] += 1
+        if not watchdog:
+            print(f"[TopologyManager] external link report {link} up={bool(up)} from {source}: "
+                  f"recorded only -- no link watchdog runs on this fabric, so nothing is "
+                  f"rerouted and the kernel is not told")
+            return {"applied": False, "link": list(link),
+                    "why": "no link watchdog on this fabric: recorded, not acted on"}
+        return {"applied": True, "link": list(link),
+                "why": "entered as beacon evidence; the next watchdog pass reports and reroutes"}
+
+    def external_link_report(self):
+        """What `report_external_link_state` was told and did, for `GET /p4/switch_state`."""
+        with self._liveness_lock:
+            out = dict(self._external_reports)
+            out["last"] = None if out["last"] is None else dict(out["last"])
+            return out

@@ -135,6 +135,24 @@ BASELINE_DEVICE_ID = "dpid"
 PACKAGE_DEFAULT_ELECTION_ID: Tuple[int, int] = (0, 65535)
 
 
+#: `roles` (TICKET-P4-roles section 2.1). Additive -- `format` stays 1 -- and absent from every
+#: package written before it, which then loads exactly as it did (tests/test_app_package.py
+#: compares the loaded object against a capture taken at 6291db35).
+#:
+#: [Co-developed with claude code -- Adam]
+#: 🔴 THIS FILE CHECKS THE SHAPE AND NOTHING ELSE. Whether the names exist in a switch's p4info,
+#: whether the match is a 32-bit LPM and the MAC 48 bits, whether the port fits the topology --
+#: all of that needs protobuf, which this module must not import (a Mininet script running as
+#: root imports it with the standard library only). It is `proxy_agent/route_binding.resolve`,
+#: called by pre-flight before the fabric exists and by the proxy when it builds each client.
+#: The three tuples below are that module's ROLE_KEYS / PARAM_KEYS / OWNERS, spelled again
+#: because of that import boundary; tests/test_route_binding.py asserts the two copies agree.
+ROLE_NAMES = ("ipv4_route",)
+ROLE_KEYS = ("owner", "table", "match_field", "action", "params")
+ROLE_PARAM_KEYS = ("dst_mac", "port")
+ROLE_OWNERS = ("ndtwin", "package")
+
+
 class AppPackageError(ValueError):
     """
     A package cannot be used as declared.
@@ -186,6 +204,35 @@ class SwitchSpec:
 
 
 @dataclass(frozen=True)
+class RouteRole:
+    """`roles.ipv4_route`, shape-checked. Which table a destination route goes into, and whose.
+
+    [Co-developed with claude code -- Adam]
+    Names only -- nothing here has been checked against a p4info (see ROLE_NAMES above). The
+    proxy resolves this per switch into a `proxy_agent.route_binding.RouteBinding`.
+    """
+
+    owner: str
+    table: str
+    match_field: str
+    action: str
+    dst_mac: str
+    port: str
+
+    def as_manifest(self):
+        """The package.json spelling, which is what `route_binding.resolve` takes."""
+        return {"owner": self.owner, "table": self.table, "match_field": self.match_field,
+                "action": self.action, "params": {"dst_mac": self.dst_mac, "port": self.port}}
+
+
+@dataclass(frozen=True)
+class Roles:
+    """Every role a package declares. This cut knows one (TICKET-P4-roles section 2.1-1)."""
+
+    ipv4_route: Optional[RouteRole] = None
+
+
+@dataclass(frozen=True)
 class Package:
     """Everything the fabric reads out of a package -- or, for `baseline()`, out of nowhere."""
 
@@ -220,8 +267,18 @@ class Package:
     #: what `ndt up p4 --telemetry <word>` writes and an operator who names a source on the
     #: command line has said something more recent than the package author did.
     telemetry_source: str = TELEMETRY_AUTO
+    #: `roles`, or None when the package declares none -- which is every package written before
+    #: TICKET-P4-roles, and the baseline. None, not an empty Roles: "declared no roles" is the
+    #: state the byte-identity capture pins, and a default object here would be a new value in
+    #: every loaded package. [Co-developed with claude code -- Adam]
+    roles: Optional[Roles] = None
 
     # --- what callers actually ask ------------------------------------------------------
+
+    @property
+    def ipv4_route_role(self) -> Optional[RouteRole]:
+        """`roles.ipv4_route`, or None. [Co-developed with claude code -- Adam]"""
+        return None if self.roles is None else self.roles.ipv4_route
 
     @property
     def is_baseline(self) -> bool:
@@ -814,6 +871,62 @@ def _hosts_agree_with_the_model(hosts, model_hosts, topology, where):
                 f"the other are a fabric that drops every frame for this host")
 
 
+def parse_roles(raw, where) -> Optional[Roles]:
+    """`roles` -> Roles, or None when the manifest declares none. Shape only; names every field.
+
+    [Co-developed with claude code -- Adam]
+    TICKET-P4-roles section 2.1-1: this cut knows ONE role, `ipv4_route`, with exactly the keys
+    `owner`, `table`, `match_field`, `action`, `params` and `params` exactly `dst_mac`, `port`.
+    Anything else -- another role name, a missing key, an extra key -- is refused naming it,
+    because a misspelled key would leave the real one missing and the fabric running a binding
+    nobody declared. `owner` is `ndtwin` or `package` and nothing else (2.1-2).
+
+    tools/p4_exercise/preflight.py calls this same function, so pre-flight refuses exactly the
+    shapes the loader refuses, with the same sentence.
+    """
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise AppPackageError(f"{where}: 'roles' must be an object, got {type(raw).__name__}")
+    unknown = sorted(set(raw) - set(ROLE_NAMES))
+    if unknown:
+        raise AppPackageError(
+            f"{where}: roles names {unknown}, and this format knows only {list(ROLE_NAMES)}. "
+            f"A role this reader does not understand would be silently ignored, and the fabric "
+            f"would run without the binding its author declared")
+    route = raw.get("ipv4_route")
+    if route is None:
+        return Roles(ipv4_route=None)
+    rw = f"{where}: roles.ipv4_route"
+    if not isinstance(route, dict):
+        raise AppPackageError(f"{rw} must be an object, got {type(route).__name__}")
+    missing = [k for k in ROLE_KEYS if k not in route]
+    extra = sorted(set(route) - set(ROLE_KEYS))
+    if missing or extra:
+        raise AppPackageError(
+            f"{rw} must carry exactly {list(ROLE_KEYS)}; missing {missing}, unknown {extra}. "
+            f"Every name is written out -- nothing here is guessed from the p4info")
+    params = route["params"]
+    if not isinstance(params, dict):
+        raise AppPackageError(f"{rw}.params must be an object, got {type(params).__name__}")
+    missing = [k for k in ROLE_PARAM_KEYS if k not in params]
+    extra = sorted(set(params) - set(ROLE_PARAM_KEYS))
+    if missing or extra:
+        raise AppPackageError(
+            f"{rw}.params must carry exactly {list(ROLE_PARAM_KEYS)}; missing {missing}, "
+            f"unknown {extra}")
+    values = {k: route[k] for k in ("owner", "table", "match_field", "action")}
+    values.update({"dst_mac": params["dst_mac"], "port": params["port"]})
+    for key, value in values.items():
+        if not isinstance(value, str) or not value:
+            spelled = key if key in ROLE_KEYS else f"params.{key}"
+            raise AppPackageError(f"{rw}.{spelled} must be a non-empty string, got {value!r}")
+    if values["owner"] not in ROLE_OWNERS:
+        raise AppPackageError(
+            f"{rw}.owner must be one of {list(ROLE_OWNERS)}, got {values['owner']!r}")
+    return Roles(ipv4_route=RouteRole(**values))
+
+
 def _count_entries(path, where):
     """
     How many table entries this runtime file declares. Not what they are -- that is preflight.
@@ -935,6 +1048,10 @@ def load(package_dir) -> Package:
             f"{where}: telemetry.source must be one of {list(TELEMETRY_SOURCES)}, got "
             f"{telemetry_source!r}")
 
+    # TICKET-P4-roles section 2.1: optional, additive, `format` stays 1. Absent means None, and
+    # a package without it loads into exactly the object it loaded into before the field existed.
+    roles = parse_roles(doc.get("roles"), where)
+
     return Package(
         dir=package_dir,
         name=name,
@@ -950,6 +1067,7 @@ def load(package_dir) -> Package:
         switches=switches,
         links=tuple(links),
         telemetry_source=telemetry_source,
+        roles=roles,
     )
 
 

@@ -202,6 +202,35 @@ write_case no-removal-instructions "  and says how to remove the file" <<'PAIR'
     printf '   running on built-in defaults.\n' >&2
 PAIR
 
+# --- heartbeat (Adam, 2026-09-25, ruling (b)): stop/status run on a refused config, start does not
+# [Co-developed with claude code -- Adam]
+CASES+=(heartbeat-gate-lets-start-run)
+write_case heartbeat-gate-lets-start-run "heartbeat start does NOT" <<'PAIR'
+                stop|status)
+                    printf '   (heartbeat %s touches only /run/ndtwin-lab, so it runs anyway)\n' "$2" >&2
+@@@TO@@@
+                stop|status|start)
+                    printf '   (heartbeat %s touches only /run/ndtwin-lab, so it runs anyway)\n' "$2" >&2
+PAIR
+
+CASES+=(heartbeat-gate-locks-out-stop)
+write_case heartbeat-gate-locks-out-stop "heartbeat stop still runs" <<'PAIR'
+            case "${2:-}" in
+                stop|status)
+                    printf '   (heartbeat %s touches only /run/ndtwin-lab, so it runs anyway)\n' "$2" >&2
+                    return 0 ;;
+            esac
+@@@TO@@@
+            :
+PAIR
+
+CASES+=(gate-not-given-the-sub-verb)
+write_case gate-not-given-the-sub-verb "the dispatch hands the gate the sub-verb" <<'PAIR'
+lab_conf_gate "${1:-}" "${2:-}"
+@@@TO@@@
+lab_conf_gate "${1:-}"
+PAIR
+
 CASES+=(control-comment-only)
 write_case control-comment-only "" <<'PAIR'
 # lab_conf_gate <verb> -- what a refused config costs this verb.
