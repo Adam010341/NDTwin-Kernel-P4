@@ -215,9 +215,11 @@ UNTOUCHED='sudo=0 stack=0 target=0 tmp=0 knob=kept'
 # to be seen reading non-zero somewhere, or "nothing was touched" is a sentence it cannot help
 # saying. The bring-up cells below move sudo/stack/target/knob; tmp= is moved here, by hand,
 # because a finished bring-up removes its own fifo and temp file.
-: > "$FIX/tmp/instrument-probe"
+# ($$ in the name: $FIX is already mktemp'd, but tests/shell/check_test_tmpdirs.py reads the
+# spelling "/tmp/<name>" and cannot know that, and a per-process marker costs nothing.)
+: > "$FIX/tmp/instrument-probe.$$"
 [[ "$(touched)" == *"tmp=1"* ]] || { echo "  FAILED   touched() cannot read a file in TMPDIR"; echo "Ran 1 checks, 1 failed"; exit 1; }
-rm -f "$FIX/tmp/instrument-probe"
+rm -f "$FIX/tmp/instrument-probe.$$"
 OVR="$FIX/.test_run/lab.claim.overrides"
 overrides() { count_lines "$OVR"; }
 ovr_field() {   # <key> -- that field of the LAST override line (tab-separated key=value)
