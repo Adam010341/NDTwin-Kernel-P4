@@ -77,8 +77,10 @@ PY_SELFTEST=/usr/bin/python3
 # whose grant this repo documents three different ways and which `sudo -n -l` cannot settle on this
 # machine (tools/test_workflow/sudo_surface.sh:37-49: a password-requiring ALL rule makes `-l` say
 # yes to everything). `sudo -n mnexec -a 1 tc` runs tc as uid 0 in pid 1's network namespace -- the
-# root netns, where the switch veths are -- under the mnexec grant `require_root` already checks and
-# ping_loss already uses with arbitrary arguments; faults.sh names it as its own escape. Set before
+# root netns, where the switch veths are -- under the mnexec grant `require_root` already checks.
+# ping_loss runs mnexec with arbitrary arguments (a fact, _common.sh:572-576); that the GRANT therefore
+# does not restrict its arguments is (INFERRED) -- sudoers was not read, and `tc qdisc add ... netem`
+# is first run at the first cut. faults.sh names this route as its own escape. Set before
 # faults.sh is sourced, so faults.sh's `${FAULTS_TC:-sudo -n tc}` keeps it; an explicit FAULTS_TC in
 # the environment still wins.
 FAULTS_TC_FROM_ENV="${FAULTS_TC:+yes}"
@@ -245,6 +247,20 @@ child_running() {
     [[ -n "$st" && "$st" != Z && "$st" != X ]]
 }
 
+# wait_session <report> <tries> -- the daemon's session (hex) out of its report, polled every 0.25 s
+# for up to <tries> reads; rc 1, printing nothing, if there is none by then (judge R3-4, round 4:
+# the report is written right after the pidfile `start` waits for, so it can lag by an instant,
+# and a bare read under `set -e` would end the run on that instant).
+wait_session() {
+    local i s
+    for (( i = 0; i < $2; i++ )); do
+        s="$(/usr/bin/python3 -I "$WATCH" session "$1" 2>/dev/null)" || s=""
+        [[ -n "$s" ]] && { echo "$s"; return 0; }
+        sleep 0.25
+    done
+    return 1
+}
+
 # watch_hit <dir> <stop-file> -- read first-hit once; on a hit: the stop file (every sniffer checks
 # it twice a second), the report snapshot, and the heartbeat stopped. rc 0 on a hit.
 watch_hit() {
@@ -270,8 +286,10 @@ watch_sniffers() {
         for p in "$@"; do child_running "$p" && running=1; done
         # R2-2, round 3: every sniffer has exited -- and the last one may have written its hit
         # AFTER the read above. Read once more before calling the window clean.
-        if (( ! running )); then watch_hit "$dir" "$stopf"; return 0; fi
-        if (( $(date +%s) >= end )); then : > "$stopf"; watch_hit "$dir" "$stopf"; return 0; fi
+        # 🔴 `|| true`, BOTH TIMES (judge R3-1, round 4): watch_hit answers 1 on no hit, which is
+        # the normal clean window; bare, under the run's `set -e`, that 1 ended the whole spike.
+        if (( ! running )); then watch_hit "$dir" "$stopf" || true; return 0; fi
+        if (( $(date +%s) >= end )); then : > "$stopf"; watch_hit "$dir" "$stopf" || true; return 0; fi
         sleep 0.2
     done
 }
@@ -315,7 +333,9 @@ detect() {
     cp "$HB_REPORT" "$RUN/12_report_first.json" 2>/dev/null || true
     v="$(/usr/bin/python3 -I "$WATCH" all-heard "$HB_REPORT" "$(python3 -c "print($t0 - 1)")")"
     judge "$v" "every direction heard once the heartbeat is up"
-    [[ "$v" == OK* ]] || return
+    # `return 0`, not a bare `return` (round-4 audit): detect is the last command of the run's
+    # `&& detect`, so the status of the failed test would end the run under set -e.
+    [[ "$v" == OK* ]] || return 0
     "$QDISC_TOOL" save "$RUN/13_qdisc.before" > /dev/null
     printf 'cycle\tdown_s\tup_s\tcut_tc_s\tcollateral\tnetem_left\n' > "$RUN/20_cycles.tsv"
     for (( i = 1; i <= CYCLES; i++ )); do
@@ -386,7 +406,13 @@ census() {
             nd_down "$dir/90_down.txt" || true
             continue
         fi
-        session="$(/usr/bin/python3 -I "$WATCH" session "$HB_REPORT")"
+        if ! session="$(wait_session "$HB_REPORT" 20)"; then
+            printf '%s\t%s\tyes\tno session in 5 s\t-\n' "$ex" "$which" >> "$RUN/40_census.tsv"
+            fail "census $ex/$which: the heartbeat started but its report carries no session after 5 s"
+            sp_hb_stop "$dir/31_hb_stop.txt"
+            nd_down "$dir/90_down.txt" || true
+            continue
+        fi
         stopf="$dir/stop"; rm -f "$stopf"
         # every host, at once, for up to SNIFF_S; each sniffer exits on its first heartbeat frame
         local -a pids=()
@@ -490,7 +516,7 @@ PYAGREE
     # tools/test_workflow/sudo_surface.sh:37-49 measured on this machine that `sudo -n -l <cmd>`
     # answers 0 for anything (a password-requiring ALL rule rides beside the NOPASSWD ones), so the
     # round-2 pre-check built on it had no discriminating power. The default route is mnexec in
-    # pid 1's namespaces, which the mnexec grant covers whatever its arguments.
+    # pid 1's namespaces; that the mnexec grant covers it whatever its arguments is (INFERRED).
     if [[ "${FAULTS_TC_FROM_ENV:-}" == yes ]]; then
         red "FAULTS_TC came from the environment ('$FAULTS_TC'); run the self-test without it so the DEFAULT is what is checked"
     elif [[ "$FAULTS_TC" == "sudo -n mnexec -a 1 tc" ]]; then
