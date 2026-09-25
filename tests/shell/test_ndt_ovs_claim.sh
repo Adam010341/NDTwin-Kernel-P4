@@ -211,6 +211,13 @@ touched() {
         "$([[ -e "$KNOB" ]] && echo kept || echo cleared)"
 }
 UNTOUCHED='sudo=0 stack=0 target=0 tmp=0 knob=kept'
+# [Co-developed with claude code -- Adam] judge's note 10 (round 2): every column of touched() has
+# to be seen reading non-zero somewhere, or "nothing was touched" is a sentence it cannot help
+# saying. The bring-up cells below move sudo/stack/target/knob; tmp= is moved here, by hand,
+# because a finished bring-up removes its own fifo and temp file.
+: > "$FIX/tmp/instrument-probe"
+[[ "$(touched)" == *"tmp=1"* ]] || { echo "  FAILED   touched() cannot read a file in TMPDIR"; echo "Ran 1 checks, 1 failed"; exit 1; }
+rm -f "$FIX/tmp/instrument-probe"
 OVR="$FIX/.test_run/lab.claim.overrides"
 overrides() { count_lines "$OVR"; }
 ovr_field() {   # <key> -- that field of the LAST override line (tab-separated key=value)
@@ -528,6 +535,12 @@ has   "  it says it removed it, and why"                     "removed stale .tes
 # mtime, and it is the only record of when viz ran (G-12, RESIDUE-1).
 check "🔴 the app's window was written down before the file went" "1789365600" \
       "$(sed -n 's/^start=//p' "$FIX/.test_run/apps/viz.window" 2>/dev/null)"
+# [Co-developed with claude code -- Adam]
+# 🔴 AND ITS RIGHT END (judge's F3, round 2). No app log here, so app_window_seal closes the window
+# at the pidfile's own mtime -- zero-length. Written as `now` instead, it would reopen RESIDUE-1's
+# twelve-hour window over every rule installed since.
+check "🔴 the window's right end is the sealed one, not now" "1789365600" \
+      "$(sed -n 's/^end=//p' "$FIX/.test_run/apps/viz.window" 2>/dev/null)"
 # Down twice: the second is an already-down lab with nothing stale left.
 OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
 check "🔴 down again: rc 3"                                  "3" "$(rc_of "$OUT")"
@@ -587,6 +600,197 @@ reset_fix; rm -f "$FIX/manifest.json"
 pidf kernel.pid "$$"
 OUT="$(drive 'cmd_clean')"
 check "  a LIVE registry entry is still a subject: rc 0"     "0" "$(rc_of "$OUT")"
+
+# =============================================================================================
+section "11. 🔴 F1: a zero-length window moved into a record by 'down' still says NO extent"
+# =============================================================================================
+# [Co-developed with claude code -- Adam]
+# Judge's F1 on 6b7fce83 (orchestrator round 2, 09-25). energy has no log channel on any machine,
+# so a dead energy pidfile's window is [mtime, mtime]. While the pidfile exists the report says
+# G-12's "NO extent ... NOT 'this app left nothing'"; once `down` moves that window into
+# .test_run/apps/energy.window the report reads it from the record -- and until round 2 that path
+# printed the window and `no flow entry arrived during that window` with no caveat at all.
+RESIDUE_STUBS='
+port_open() { return 0; }
+http_get_flow_entries() { cat "$REPO/entries.json"; }
+live_dataplane_kind() { echo ovs; }
+lock_probe() { echo free; }
+app_scan_pids() { :; }
+lab_kernel_dir() { echo "$REPO"; }
+'
+printf '%s\n' '[{"dpid": 1, "flows": {"1": [{"actions": ["OUTPUT:1"], "byte_count": 0, "cookie": 0, "duration_sec": 9000, "duration_nsec": 91000000, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 96, "match": {"in_port": 1}, "packet_count": 0, "priority": 10, "table_id": 0}]}}]' > "$FIX/entries.json"
+reset_fix; rm -f "$FIX/manifest.json"
+DEAD="$(dead_pid)"
+pidf app_energy.pid "$DEAD"
+touch -d '@1789365600' "$FIX/.test_run/pids/app_energy.pid"
+OUT="$(drive "$RESIDUE_STUBS"'
+residue_report energy')"
+has   "control: over the pidfile itself the report says NO extent" "has NO extent" "$OUT"
+OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
+check "  down on that lab: rc 3"                             "3" "$(rc_of "$OUT")"
+check "  the energy pidfile is gone"                         "absent" "$(present app_energy.pid)"
+check "  and its window is on record, zero wide"             "1789365600 1789365600" \
+      "$(sed -n 's/^start=//p' "$FIX/.test_run/apps/energy.window" 2>/dev/null) $(sed -n 's/^end=//p' "$FIX/.test_run/apps/energy.window" 2>/dev/null)"
+OUT="$(drive "$RESIDUE_STUBS"'
+residue_report energy')"
+has   "  the report now reads it from the record"            "energy.window" "$OUT"
+has   "🔴 F1: and still says the window has NO extent"       "has NO extent" "$OUT"
+has   "  and that it is NOT 'this app left nothing'"         "NOT 'this app left nothing'" "$OUT"
+
+# =============================================================================================
+section "12. 🔴 F2/F8: a recycled number that leads its own group is STALE (start time), not 'group'"
+# =============================================================================================
+# [Co-developed with claude code -- Adam]
+# Judge's F2 on 6b7fce83. POSIX does not reuse a number still in use as a process-group id, so
+# when an app pidfile's number is alive as a stranger the app's own group is gone -- and if the
+# stranger leads a group (a shell job, a daemon, anything setsid'd) the group question found its
+# own member and called the record "NOT stale". The real shape: a setsid-spawned stranger, the
+# .pgid naming it, the pidfile written BEFORE the stranger started.
+reset_fix; rm -f "$FIX/manifest.json"
+STR="$(spawn "stranger-group-leader" setsid)"
+pidf app_viz.pid "$STR"; pidf app_viz.pgid "$STR"
+touch -d "@$(( $(date +%s) - 600 ))" "$FIX/.test_run/pids/app_viz.pid"
+OUT="$(drive 'app_pidfile_stale_row')"
+has   "🔴 recycled into a group leader: STALE"               "STALE -- .test_run/pids/app_viz.pid" "$OUT"
+has   "  and it says the process started after the file"     "after this file was written" "$OUT"
+hasnt "  and never 'NOT stale'"                              "NOT stale" "$OUT"
+OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
+check "🔴 down removes it and a down lab answers 3"          "3 absent" "$(rc_of "$OUT") $(present app_viz.pid)"
+check "  and the stranger was not signalled"                 "alive" "$([[ -d /proc/$STR ]] && echo alive || echo gone)"
+# The control: the same stranger, and a pidfile written AFTER it started -- this is no longer
+# "a number recycled after the file", and the group it leads is still live: NOT stale.
+reset_fix; rm -f "$FIX/manifest.json"
+pidf app_viz.pid "$STR"; pidf app_viz.pgid "$STR"
+OUT="$(drive 'app_pidfile_stale_row')"
+hasnt "🔴 control: started BEFORE the file was written -> not stale" "STALE -- " "$OUT"
+has   "  it is the live-group case"                          "is NOT stale" "$OUT"
+kill_fixture "$STR"
+
+# F8: the stack's own files take the same test. They carry no argv to compare, so a live number
+# was always LIVE; one whose process started after the file was written is somebody else's.
+reset_fix; rm -f "$FIX/manifest.json"
+DAEMON="$(spawn "some-daemon")"
+pidf kernel.pid "$DAEMON"
+touch -d "@$(( $(date +%s) - 600 ))" "$FIX/.test_run/pids/kernel.pid"
+OUT="$(drive 'stack_pidfile_row')"
+has   "🔴 F8: a stack pidfile recycled into a stranger is stale" "kernel.pid: stale pidfile (pid $DAEMON is alive, but that process started" "$OUT"
+hasnt "  and is not printed as alive"                        "kernel.pid=$DAEMON alive" "$OUT"
+OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
+check "  down: not a subject (rc 3), and removed"            "3 absent" "$(rc_of "$OUT") $(present kernel.pid)"
+reset_fix; rm -f "$FIX/manifest.json"
+pidf kernel.pid "$DAEMON"
+OUT="$(drive 'stack_pidfile_row')"
+has   "  control: written after it started -> alive, as before" "kernel.pid=$DAEMON alive" "$OUT"
+OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
+check "  and down keeps it and counts it (rc 0)"             "0 present" "$(rc_of "$OUT") $(present kernel.pid)"
+kill_fixture "$DAEMON"
+
+# =============================================================================================
+section "13. 🔴 F3/F4: the window's right end is the app's log when there is one; no window, no removal"
+# =============================================================================================
+reset_fix; rm -f "$FIX/manifest.json"
+DEAD="$(dead_pid)"
+pidf app_viz.pid "$DEAD"
+touch -d '@1789365600' "$FIX/.test_run/pids/app_viz.pid"
+printf 'viz wrote this\n' > "$FIX/.test_run/logs/app_viz.log"
+touch -d '@1789366100' "$FIX/.test_run/logs/app_viz.log"
+OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
+check "🔴 a log newer than the pidfile closes the window at the log's mtime" "1789365600 1789366100" \
+      "$(sed -n 's/^start=//p' "$FIX/.test_run/apps/viz.window" 2>/dev/null) $(sed -n 's/^end=//p' "$FIX/.test_run/apps/viz.window" 2>/dev/null)"
+rm -f "$FIX/.test_run/logs/app_viz.log"
+
+# F4: the record cannot be written (its directory is a plain file) -> the pidfile is KEPT, down is
+# 1, and the claim note names it.
+reset_fix; rm -f "$FIX/manifest.json"
+write_claim "$US" "$FUTURE" "our own round" ""
+DEAD="$(dead_pid)"
+pidf app_viz.pid "$DEAD"
+: > "$FIX/.test_run/apps"
+OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
+check "🔴 F4: no window written -> the stale pidfile is KEPT" "present" "$(present app_viz.pid)"
+check "  and down is 1, not 3"                               "1" "$(rc_of "$OUT")"
+has   "  it says why it kept it"                             "kept stale .test_run/pids/app_viz.pid" "$OUT"
+has   "  and the claim note names it"                        "app_viz.pid kept" "$(sed -n 's/^note=//p' "$FIX/.test_run/lab.claim")"
+rm -f "$FIX/.test_run/apps"
+
+# =============================================================================================
+section "14. what 'down' may NOT delete: a symlink, and a group that is this shell's own"
+# =============================================================================================
+reset_fix; rm -f "$FIX/manifest.json"
+DEAD="$(dead_pid)"
+printf '%s\n' "$DEAD" > "$FIX/elsewhere.pid"
+ln -s "$FIX/elsewhere.pid" "$FIX/.test_run/pids/app_viz.pid"
+OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
+check "🔴 a symlinked pidfile is never removed"              "yes" "$([[ -L "$FIX/.test_run/pids/app_viz.pid" ]] && echo yes || echo no)"
+check "  nor what it points at"                              "present" "$([[ -e "$FIX/elsewhere.pid" ]] && echo present || echo absent)"
+rm -f "$FIX/.test_run/pids/app_viz.pid" "$FIX/elsewhere.pid"
+# This suite's own process group: the driven ndt is in it, so app_group_pids refuses to answer
+# (rc 2) and nothing may be proved dead.
+MYPG="$(awk '{ sub(/.*\) /, ""); print $3 }' "/proc/$$/stat")"
+reset_fix; rm -f "$FIX/manifest.json"
+DEAD="$(dead_pid)"
+pidf app_viz.pid "$DEAD"; pidf app_viz.pgid "$MYPG"
+OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
+check "🔴 a pidfile whose group is this shell's own is never removed" "present" "$(present app_viz.pid)"
+
+# =============================================================================================
+section "15. the guard's edges: our own claim's measuring=, the dispatch, the record's shape"
+# =============================================================================================
+# Our OWN claim declaring a measurement has never refused a bring-up (P4's semantics, kept).
+reset_fix; echo "0 14" > "$FIX/mn.seq"
+write_claim "$US" "$FUTURE" "our own round" "sampling matrix, cell 2/8"
+OUT="$(NDT_OWNER="$US" drive 'up_ovs 4')"
+check "🔴 our own claim with measuring= does not refuse 'up'" "no" "$([[ "$(rc_of "$OUT")" == 5 ]] && echo yes || echo no)"
+has   "  the bring-up ran"                                   "up ovs" "$(cat "$FIX/stack.log")"
+
+# The dispatch itself -- the `case` block at the end of ndt, run as written -- so NDT_UP_WORDS is
+# asserted the way an operator meets it: the retry line spells the command they typed.
+DISPATCH="$(sed -n '/^case "\${1:-}" in$/,$p' "$NDT")"
+[[ -n "$DISPATCH" ]] || { echo "  FAILED   no dispatch block in $NDT"; FAIL=$((FAIL+1)); }
+reset_fix
+write_claim "$THEM" "$FUTURE" "night round" ""
+OUT="$(NDT_OWNER="$US" drive 'set -- up 4
+'"$DISPATCH")"
+check "🔴 dispatch: 'ndt up 4' under a foreign claim is 5"   "5" "$(rc_of "$OUT")"
+has   "  its retry line is the command as typed"             "NDT_OWNER=$THEM ndt up 4" "$OUT"
+has   "  and its override line too"                          "    ndt up 4 --force" "$OUT"
+reset_fix; echo "0 14" > "$FIX/mn.seq"
+write_claim "$THEM" "$FUTURE" "night round" ""
+OUT="$(NDT_OWNER="$US" drive 'set -- up 4 --force
+'"$DISPATCH")"
+check "🔴 dispatch: 'ndt up 4 --force' builds"              "no" "$([[ "$(rc_of "$OUT")" == 5 ]] && echo yes || echo no)"
+has   "  the fabric verb ran"                                "ovs-topo-4host" "$(cat "$FIX/sudo.log")"
+check "  and the record carries the command as typed"        "ndt up 4 --force" "$(ovr_field command)"
+
+# The read-back: the append "succeeds" into /dev/null and the line is not there afterwards.
+reset_fix
+write_claim "$THEM" "$FUTURE" "night round" ""
+ln -s /dev/null "$OVR"
+OUT="$(NDT_OWNER="$US" drive 'NDT_UP_FORCE=1; up_ovs 4')"
+check "🔴 a record that does not read back is refused"      "5" "$(rc_of "$OUT")"
+check "  and reached nothing"                                "$UNTOUCHED" "$(touched)"
+rm -f "$OVR"
+
+# TAB and newline inside a value must not add a field or a line: ten fields, one line.
+reset_fix; echo "0 14" > "$FIX/mn.seq"
+printf 'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=no\nmeasuring=%s\n' \
+    "$THEM" "$FUTURE" $'a\tnote\twith tabs' $'x\ty' > "$FIX/.test_run/lab.claim"
+OUT="$(NDT_OWNER=$'us\twith a tab' FX_BUSY=$'iperf3 -c 10.0.0.2\tx\nmatrix.sh 2' drive 'NDT_UP_FORCE=1; up_ovs 4')"
+check "🔴 one override is one line"                          "1" "$(overrides)"
+check "  of exactly ten tab-separated fields"                "10" "$(awk -F'\t' '{print NF}' "$OVR" 2>/dev/null | head -1)"
+check "  the tab in the note became a space"                 "a note with tabs" "$(ovr_field claim_note)"
+check "  and the second process is counted, not a new line"  "iperf3 -c 10.0.0.2 x (+1 more)" "$(ovr_field running)"
+
+# =============================================================================================
+section "16. 'ndt help' says what the record means and every place the rules changed"
+# =============================================================================================
+HELP="$(bash "$NDT" help 2>&1)"
+FLAT="$(tr -s ' \n' '  ' <<<"$HELP")"
+has   "a --force with nothing to go past writes nothing"     "A --force with nothing to go past writes nothing" "$FLAT"
+has   "🔴 F6: the line means '--force was used', not 'it came up'" 'THE LINE MEANS "--force WAS USED", NOT "IT CAME UP"' "$FLAT"
+has   "down's rc 1 names the stale-entry failures"           "STALE registry entry could not be removed, or an app's window could not be written" "$FLAT"
+has   "identity is stated per kind of file"                  "for the stack's own files, which carry no argv to compare, the pid alone" "$FLAT"
+has   "clean's 3 says 'live'"                                "nothing in .test_run/pids/ naming a live process" "$FLAT"
 
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"
