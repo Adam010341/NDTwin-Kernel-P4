@@ -511,11 +511,16 @@ P4 那邊沒有這個問題，因為 **proxy 不用學、它直接從自己的�
   `the window has NO extent … NOT 'this app left nothing'`——**那是「沒有東西可以歸屬」，不是「乾淨」**。
   pid 活著的窗照舊開到 `now`。
   🆕 **09-25 起 `ndt down` 會清掉那個 pidfile**（Adam 09-25 裁，TICKET-ndt-ovs-claim）：pid 不在
-  （或活著但不是那個 app、或那個行程比 pidfile 晚啟動＝號碼被回收），**而且**記錄的 process group
-  也沒有程序 ⇒ **stale**。`down` 先把那個窗（起點＝pidfile 的 mtime、右端＝上面封住的那一端）寫進
+  （或活著但不是那個 app），**而且**記錄的 process group 也沒有程序 ⇒ **stale**；**號碼被回收**
+  （pid 活著、但那個行程比 pidfile 晚啟動）則**直接**判 stale，不問 group——app 與 stack 自己的
+  pidfile 都一樣（判官 r2 #5：手冊原本寫成要兩個條件都成立，跟程式不符）。`down` 先把那個窗（起點＝pidfile 的 mtime、右端＝上面封住的那一端）寫進
   `.test_run/apps/<app>.window` 再刪檔——**窗寫不進去就不刪、`down` 回 1**；之後的報告從那份紀錄讀
   同一個窗，零長的窗照樣印上面那句 `NO extent`。lab 已經 down、只剩 stale 檔時 `down` 回 **3**。
   `ndt status` 在 apps 區塊把它標成 `app pidfile  STALE -- …`（**只是標記，不讓 `--check` 變紅**）。
+  🔴 **stack 自己的 pidfile（kernel／p4_proxy／ryu）是回收的號碼時不一樣**：pidfiles 列標 stale，
+  **而且算 `--check` problem——有 baseline（`.test_run/up.target`）時 rc 1，沒有時照舊 3**。
+  （09-25 之前這種檔被當成活的，`--check` 回 0；上面 P4 那條「`ndt status --check` 回 rc=0 才算過」
+  的驗收碰到它會翻成 1，那是新規則，不是 lab 壞了——先看 problems 那一行是不是 `stale pidfile (… a recycled number …)`。）
   ⇒ **在下一次 `ndt down` 之前**，OVS 上 `--check` 會不會因為 rules-in-window 變紅，取決於
   `.test_run/pids/` 裡那個 stale `app_*.pid` 的 app 在窗內有沒有真的裝東西，跟 ovs4 這個尺寸無關。
   看到這條 problem，先去問 `.test_run/pids/app_*.pid` 指的行程還活不活（`ndt status` 的

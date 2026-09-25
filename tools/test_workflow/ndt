@@ -4846,7 +4846,7 @@ pidfile_judge() {
 # remove did not finish.
 REGISTRY_STALE_REMOVED=0
 registry_clear_stale() {
-    local f base name rc=0 start seal end said=0
+    local f base name rc=0 start seal end said=0 kept
     REGISTRY_STALE_REMOVED=0
     for f in "$REPO"/.test_run/pids/*.pid; do
         [[ -e "$f" ]] || continue
@@ -4861,13 +4861,26 @@ registry_clear_stale() {
             if ! app_window_record "$name" "$start" "$end"; then
                 err "kept stale ${f#$REPO/} ($PF_WHY): $name's window could not be written to"
                 err "  $(app_windowfile "$name" | sed "s|^$REPO/||"), and this file is the only record of when $name ran"
+                # [Co-developed with claude code -- Adam] judge r2 #4: this rc 1 repeats on every
+                # `down` until the cause is gone (run_cells.sh stops a grid on it), so say the cure.
+                err "  to recover: make $(dirname "$(app_windowfile "$name")" | sed "s|^$REPO/||") a directory this user can write, then run 'ndt down' again"
                 not_verified "${f#$REPO/} kept: $name's window could not be written"
                 rc=1
                 continue
             fi
         fi
+        # [Co-developed with claude code -- Adam] judge r2 #3: for the three components stack.sh
+        # stops, a recycled number is one stop_one has just REFUSED -- it printed at [1/3] that it
+        # was keeping this file and to remove it by hand. Removing it here is that advice taken,
+        # and the line says so, or the one teardown reads as contradicting itself.
+        kept=""
+        case "$base" in
+            kernel.pid|kernel.child.pid|p4_proxy.pid|p4_proxy.child.pid|ryu.pid|ryu.child.pid)
+                [[ "$PF_WHY" == *"a recycled number"* ]] &&
+                    kept="; stack.sh kept it above because the number is somebody else's" ;;
+        esac
         if rm -f "$f" 2>/dev/null && [[ ! -e "$f" ]]; then
-            ok "removed stale ${f#$REPO/} -- $PF_WHY"
+            ok "removed stale ${f#$REPO/} -- $PF_WHY$kept"
             REGISTRY_STALE_REMOVED=$(( REGISTRY_STALE_REMOVED + 1 ))
             [[ -n "$name" ]] && rm -f "$(app_pgidfile "$name")" 2>/dev/null
         else
@@ -10769,7 +10782,10 @@ usage: ndt <command>
                   a pidfile naming a process that is gone is marked STALE: the
                   pidfiles row for the stack's own files (a --check problem, as
                   since 09-11), the apps block for app_*.pid (a mark, NOT a --check
-                  problem). 'ndt down' removes both. The override row is the last
+                  problem). 'ndt down' removes both. A stack pidfile whose live pid
+                  STARTED after the file was written (a recycled number) is stale
+                  too, and a --check problem: rc 1 while a baseline exists; with none
+                  the answer is still 3. The override row is the last
                   'ndt up --force' and whose claim it went past. (Adam, 2026-09-25)
   clean         just the teardown assertion
                   exit 0 it had something to be about and none of it is residue; 1
