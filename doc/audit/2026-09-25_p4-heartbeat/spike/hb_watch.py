@@ -30,11 +30,14 @@ must accept and one it must reject), then the thin polling wrappers the spike ca
 
 <dirs> is "1:3>3:1,3:1>1:3" -- tx dpid:port > rx dpid:port, comma separated.
 """
+import contextlib
 import glob
+import io
 import json
 import os
 import statistics
 import sys
+import tempfile
 import time
 
 
@@ -243,6 +246,33 @@ def self_test():
            fh([{"host": "h1", "frames_hb": 0}, {"host": "h2", "frames_hb": 3}]) if fh else "missing")
     expect("first hit: nobody saw one is no hit", "True",
            (fh([{"host": "h1", "frames_hb": 0}, {"host": "h2", "error": "x"}]) == "") if fh else "missing")
+    # Round 5, judge R4-1: the census's session is the one of the daemon `start` just started.
+    so = globals().get("session_of")
+    live = {"status": "running", "pid": 4242, "session": "0102030405060708"}
+    expect("session: the running report of the pid start named", "0102030405060708",
+           so(live, 4242) if so else "missing")
+    expect("session: a stopped report is none, even of that pid", "True",
+           (so(dict(live, status="stopped"), 4242) == "") if so else "missing")
+    expect("session: a running report of another pid is none", "True",
+           (so(live, 1111) == "") if so else "missing")
+    sp = globals().get("started_pid")
+    expect("started pid: 'heartbeat started (pid N; ...)'", "4242",
+           sp("heartbeat started (pid 4242; report: /run/ndtwin-lab/heartbeat.json, log: x)\n")
+           if sp else "missing")
+    expect("started pid: 'already running' started nothing", "None",
+           sp("heartbeat already running (pid 4242) -- not starting a second one\n") if sp else "missing")
+    # Round 5, judge (d)(i): all-heard / others-up answer BAD, not a traceback, when the report
+    # cannot be read -- the way wait-* / first-hit / census-verdict already do.
+    with tempfile.TemporaryDirectory() as td:
+        absent = os.path.join(td, "absent.json")
+        for verb, args in (("all-heard", [absent, "0"]), ("others-up", [absent, "1:3>3:1", "15"])):
+            buf = io.StringIO()
+            try:
+                with contextlib.redirect_stdout(buf):
+                    got = f"rc {main(['hb_watch.py', verb] + args)}: {buf.getvalue().strip()}"
+            except Exception as exc:        # what the round-4 code did: the caller's `set -e` ends the run
+                got = f"raised {type(exc).__name__}"
+            expect(f"{verb} on a report that cannot be read: BAD, rc 0", "rc 0: BAD", got)
     print("SELF-TEST PASS" if rc == 0 else "SELF-TEST FAIL")
     return rc
 
