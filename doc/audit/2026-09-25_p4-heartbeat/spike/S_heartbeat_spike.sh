@@ -517,16 +517,22 @@ PYAGREE
     r="$( FAULTS_TC="false"; precheck_tc "$st_tmp/grant4.txt"; echo "$?" )"
     [[ "$r" == 1 ]] && ok "  a FAULTS_TC that cannot run tc is refused" \
                     || red "  a failing FAULTS_TC answered '$r'"
-    # THE ONE REAL sudo CALL of this self-test, harmless (`true` in pid 1's namespaces), made with
-    # absolute paths so no function or PATH shim can stand in for it. Its rc is the evidence that
-    # the default route's grant exists on the machine the self-test ran on; a refusal is reported
-    # as a red line, never passed.
-    local probe_out probe_rc
-    probe_out="$(/usr/bin/sudo -n /usr/bin/mnexec -a 1 /usr/bin/true 2>&1)" && probe_rc=0 || probe_rc=$?
-    echo "  --    evidence: '/usr/bin/sudo -n /usr/bin/mnexec -a 1 /usr/bin/true' -> rc $probe_rc${probe_out:+ ($probe_out)}"
-    (( probe_rc == 0 )) \
-        && ok "the mnexec grant the default route needs is there, without a password (one real call, rc 0)" \
-        || red "the mnexec grant is NOT usable without a password here (rc $probe_rc): the spike's default tc route would be refused -- grant mnexec, or pass FAULTS_TC"
+    # THE REAL sudo PROBE IS OPT-IN (Adam's ruling on judge R3-2, round 4): no --self-test -- a gate,
+    # another machine -- fires a sudo unless asked to with SELFTEST_PROBE_SUDO=1. The run itself
+    # does not depend on it: precheck_tc runs the route for real before the claim. When asked:
+    # one harmless command (`true` in pid 1's namespaces), absolute paths so no function or PATH
+    # shim can stand in for it, bounded by `timeout 15`; its rc is printed as evidence and a
+    # refusal is a red line, never a pass.
+    if [[ "${SELFTEST_PROBE_SUDO:-}" == 1 ]]; then
+        local probe_out probe_rc
+        probe_out="$(/usr/bin/timeout 15 /usr/bin/sudo -n /usr/bin/mnexec -a 1 /usr/bin/true 2>&1)" && probe_rc=0 || probe_rc=$?
+        echo "  --    evidence: '/usr/bin/timeout 15 /usr/bin/sudo -n /usr/bin/mnexec -a 1 /usr/bin/true' -> rc $probe_rc${probe_out:+ ($probe_out)}"
+        (( probe_rc == 0 )) \
+            && ok "the mnexec grant is usable without a password (probe: mnexec -a 1 true, rc 0)" \
+            || red "the mnexec grant is NOT usable without a password here (rc $probe_rc): the spike's default tc route would be refused -- grant mnexec, or pass FAULTS_TC"
+    else
+        echo "  --    the real sudo probe was NOT run (opt-in: SELFTEST_PROBE_SUDO=1) -- neither ok nor red; precheck_tc proves the route at run time, before the claim"
+    fi
     local pl cl
     pl="$(grep -n '^    precheck_tc "\$RUN/00_tc_grant.txt"' "${BASH_SOURCE[0]}" | head -1 | cut -d: -f1)"
     cl="$(grep -n '^take_claim ' "${BASH_SOURCE[0]}" | head -1 | cut -d: -f1)"
@@ -534,8 +540,31 @@ PYAGREE
         && ok "  the pre-check runs before the claim (source read: line $pl < $cl)" \
         || red "  the pre-check is not before the claim (precheck line '${pl:-none}', take_claim line '${cl:-none}')"
 
-    # 🔴 JUDGE #11, ROUND 2 -- the first hit stops everything, not the end of the window. Two stand-in
-    # sniffers: one reports a heartbeat frame after 0.3 s; the other would run 20 s unless told to stop.
+    # 🔴 JUDGE #11 (round 2), R2-2 (round 3), R3-1 (round 4) -- the sniffer watch, and every scenario
+    # of it run in a FRESH `bash -euo pipefail` process. This whole self-test runs inside
+    # `self_test && exit 0 || exit 1`, where bash ignores errexit in everything it calls -- so a
+    # bare call that returns 1 on a normal path passed here and would abort the real census arm
+    # (round 3 did exactly that: a clean window ended the whole spike). The driver carries the
+    # functions' own text (`declare -f`), so what runs is this file's code, under the run's options.
+    {
+        echo 'set -euo pipefail'
+        declare -f watch_sniffers watch_hit child_running
+        printf 'WATCH=%q\nHB_REPORT=%q\n' "$WATCH" "$st_tmp/no-report.json"
+        cat <<'DRIVER'
+sp_hb_stop() { echo stopped > "$1"; HB_STARTED=0; }
+d="$1"; shift
+if [[ "${RACE:-}" == 1 ]]; then
+    # The last sniffer writes its hit and exits BETWEEN the loop's first-hit read and its liveness
+    # check: child_running itself writes the hit and answers "exited".
+    child_running() { printf '{"host": "hZ", "frames_hb": 1}' > "$d/sniff_hZ.json"; return 1; }
+fi
+HB_STARTED=1; WATCH_HIT=""
+watch_sniffers "$d" "$d/stop" 30 "$@"
+printf '%s %s\n' "${WATCH_HIT:-none}" "$HB_STARTED" > "$d/result"
+DRIVER
+    } > "$st_tmp/watch_driver.sh"
+    # (1) two stand-in sniffers: one reports a heartbeat frame after 0.3 s; the other would run 20 s
+    # unless told to stop.
     d="$(mktemp -d "$st_tmp/watch-XXXXXX")"
     "$PY_SELFTEST" -I -c 'import json,sys,time
 time.sleep(0.3); open(sys.argv[1] + "/sniff_hA.json", "w").write(json.dumps({"host": "hA", "frames_hb": 1}))' "$d" &
@@ -544,38 +573,52 @@ time.sleep(0.3); open(sys.argv[1] + "/sniff_hA.json", "w").write(json.dumps({"ho
 end = time.monotonic() + 20
 while time.monotonic() < end and not os.path.exists(sys.argv[1] + "/stop"): time.sleep(0.1)
 open(sys.argv[1] + "/sniff_hB.json", "w").write(json.dumps({"host": "hB", "frames_hb": 0}))' "$d" &
-    local pb=$! t0 t1
+    local pb=$! t0 t1 wrc
     t0="$(date +%s)"
-    ( sp_hb_stop() { echo stopped > "$1"; HB_STARTED=0; }
-      HB_STARTED=1; watch_sniffers "$d" "$d/stop" 30 "$pa" "$pb"
-      printf '%s %s\n' "$WATCH_HIT" "$HB_STARTED" > "$d/result" )
+    bash "$st_tmp/watch_driver.sh" "$d" "$pa" "$pb" > "$d/driver.out" 2>&1 && wrc=0 || wrc=$?
     t1="$(date +%s)"
     wait "$pb" 2>/dev/null; wait "$pa" 2>/dev/null
-    [[ "$(cat "$d/result" 2>/dev/null)" == "hA 0" && -e "$d/stop" && "$(cat "$d/31_hb_stop.txt" 2>/dev/null)" == stopped ]] \
+    [[ "$wrc" == 0 && "$(cat "$d/result" 2>/dev/null)" == "hA 0" && -e "$d/stop" && "$(cat "$d/31_hb_stop.txt" 2>/dev/null)" == stopped ]] \
         && (( t1 - t0 < 6 )) \
-        && ok "the first host to see a heartbeat frame stops the heartbeat and every sniffer at once ($(( t1 - t0 )) s, not 20)" \
-        || red "the first hit did not stop everything: result '$(cat "$d/result" 2>/dev/null)', $(( t1 - t0 )) s, stop file $( [[ -e "$d/stop" ]] && echo yes || echo no)"
+        && ok "the first host to see a heartbeat frame stops the heartbeat and every sniffer at once ($(( t1 - t0 )) s, not 20; set -e process)" \
+        || red "the first hit did not stop everything: rc $wrc, result '$(cat "$d/result" 2>/dev/null)', $(( t1 - t0 )) s, stop file $( [[ -e "$d/stop" ]] && echo yes || echo no)"
+    # (2) the clean arm -- the one every §H.6 prediction expects, and the one round 3 broke.
     d="$(mktemp -d "$st_tmp/watch-XXXXXX")"
     "$PY_SELFTEST" -I -c 'import json,sys
 open(sys.argv[1] + "/sniff_hA.json", "w").write(json.dumps({"host": "hA", "frames_hb": 0}))' "$d" &
     pa=$!
-    ( sp_hb_stop() { echo stopped > "$1"; }
-      watch_sniffers "$d" "$d/stop" 30 "$pa"; printf '%s\n' "${WATCH_HIT:-none}" > "$d/result" )
     wait "$pa" 2>/dev/null
-    [[ "$(cat "$d/result")" == none && ! -e "$d/31_hb_stop.txt" ]] \
-        && ok "  no host sees one: no hit, and the heartbeat is left for the arm's own stop (the control)" \
-        || red "  a clean window was reported as a hit: $(cat "$d/result")"
-    # R2-2, ROUND 3: the last sniffer writes its hit and exits BETWEEN the loop's first-hit read
-    # and its liveness check. Stood in for deterministically: child_running itself writes the hit
-    # and answers "exited", so only a re-read after "all exited" can see it.
+    bash "$st_tmp/watch_driver.sh" "$d" "$pa" > "$d/driver.out" 2>&1 && wrc=0 || wrc=$?
+    [[ "$wrc" == 0 && "$(cat "$d/result" 2>/dev/null)" == "none 1" && ! -e "$d/31_hb_stop.txt" ]] \
+        && ok "  a clean window under set -e: no hit, the census goes on, the heartbeat is left for the arm's own stop" \
+        || red "  a clean window under set -e: rc $wrc, result '$(cat "$d/result" 2>/dev/null || echo 'none written -- the process died')'"
+    # (3) the last sniffer's race (R2-2), under set -e as well.
     d="$(mktemp -d "$st_tmp/watch-XXXXXX")"
-    ( sp_hb_stop() { echo stopped > "$1"; HB_STARTED=0; }
-      child_running() { printf '{"host": "hZ", "frames_hb": 1}' > "$d/sniff_hZ.json"; return 1; }
-      HB_STARTED=1; watch_sniffers "$d" "$d/stop" 30 99999
-      printf '%s %s\n' "${WATCH_HIT:-none}" "$HB_STARTED" > "$d/result" )
-    [[ "$(cat "$d/result")" == "hZ 0" && -e "$d/stop" && "$(cat "$d/31_hb_stop.txt" 2>/dev/null)" == stopped ]] \
-        && ok "  a hit written as the last sniffer exits is still caught, and the heartbeat stopped" \
-        || red "  a hit written as the last sniffer exits was missed: '$(cat "$d/result")'"
+    RACE=1 bash "$st_tmp/watch_driver.sh" "$d" 99999 > "$d/driver.out" 2>&1 && wrc=0 || wrc=$?
+    [[ "$wrc" == 0 && "$(cat "$d/result" 2>/dev/null)" == "hZ 0" && -e "$d/stop" && "$(cat "$d/31_hb_stop.txt" 2>/dev/null)" == stopped ]] \
+        && ok "  a hit written as the last sniffer exits is still caught, and the heartbeat stopped (set -e process)" \
+        || red "  the last sniffer's hit under set -e: rc $wrc, result '$(cat "$d/result" 2>/dev/null)'"
+
+    # R3-4, round 4 -- the census reads the new daemon's session from its report, which may not be
+    # written the instant `start` returns. Bounded wait, and no abort under set -e either way.
+    {
+        echo 'set -euo pipefail'
+        declare -f wait_session
+        printf 'WATCH=%q\n' "$WATCH"
+        cat <<'DRIVER'
+s="$(wait_session "$1" 4)" || s="NONE"
+echo "$s" > "$2"
+DRIVER
+    } > "$st_tmp/session_driver.sh"
+    printf '{"session": "0102030405060708"}' > "$st_tmp/report.json"
+    bash "$st_tmp/session_driver.sh" "$st_tmp/report.json" "$st_tmp/session1" >/dev/null 2>&1 && wrc=0 || wrc=$?
+    [[ "$wrc" == 0 && "$(cat "$st_tmp/session1" 2>/dev/null)" == 0102030405060708 ]] \
+        && ok "the census reads the daemon's session from its report (set -e process)" \
+        || red "reading the session from a written report: rc $wrc, got '$(cat "$st_tmp/session1" 2>/dev/null)'"
+    bash "$st_tmp/session_driver.sh" "$st_tmp/absent.json" "$st_tmp/session2" >/dev/null 2>&1 && wrc=0 || wrc=$?
+    [[ "$wrc" == 0 && "$(cat "$st_tmp/session2" 2>/dev/null)" == NONE ]] \
+        && ok "  no report yet: a bounded wait, then 'no session' for the caller to handle -- not an abort" \
+        || red "  no report: rc $wrc, got '$(cat "$st_tmp/session2" 2>/dev/null)'"
     rm -rf "$st_tmp"
     (( rc == 0 )) && echo "SPIKE SELF-TEST PASS" || echo "SPIKE SELF-TEST FAIL"
     return "$rc"
