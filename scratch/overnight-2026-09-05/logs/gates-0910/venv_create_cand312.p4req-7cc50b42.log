@@ -1,0 +1,59 @@
+# HEAD 7cc50b4284e89d8f2459d560633697656d49254d  interpreter /usr/bin/python3.12 (Python 3.12.3)  2026-09-25T05:15:25Z
+# why: CI (3.12) would run exactly this procedure under the candidate
+# $ /usr/bin/python3.12 -m venv /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand312
+# $ /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand312/bin/pip install -r p4_proxy/requirements.txt
+Successfully installed annotated-doc-0.0.5 annotated-types-0.8.0 anyio-4.15.1 certifi-2026.7.22 charset_normalizer-3.5.1 click-8.5.0 fastapi-0.139.2 googleapis-common-protos-1.75.0 grpcio-1.82.1 grpcio-tools-1.71.2 h11-0.16.0 hypothesis-6.165.5 idna-3.20 networkx-3.6.1 p4runtime-1.5.0 protobuf-5.29.6 pydantic-2.13.5 pydantic-core-2.46.5 requests-2.34.2 setuptools-84.0.0 sortedcontainers-2.4.0 starlette-1.7.0 thrift-0.24.0 typing-extensions-4.16.0 typing-inspection-0.4.4 urllib3-2.8.0 uvicorn-0.51.0
+# pip rc=0
+# $ /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand312/bin/python p4_proxy/regen_p4runtime_pb2.py
+checking the generated modules (default backend, scratch copy):
+  p4/config/v1/p4types.proto     descriptor identical (5273 bytes)
+  p4/config/v1/p4info.proto      descriptor identical (6019 bytes)
+  p4/v1/p4data.proto             descriptor identical (824 bytes)
+  p4/v1/p4runtime.proto          descriptor identical (8825 bytes)
+  backend upb, p4runtime_pb2_grpc imports
+replaced p4/config/v1/p4types_pb2.py        d436ed076b7ffb99 -> e91d6496f08e543e
+replaced p4/config/v1/p4types_pb2_grpc.py   d686e804f1716931 -> ef4a945f3fd81528
+replaced p4/config/v1/p4info_pb2.py         acc7feeb96762287 -> 355f066c05b89fdc
+replaced p4/config/v1/p4info_pb2_grpc.py    d686e804f1716931 -> badda8ba84ba9570
+replaced p4/v1/p4data_pb2.py                e12b7b17ab700f94 -> da869f059d708f8c
+replaced p4/v1/p4data_pb2_grpc.py           d686e804f1716931 -> 3dbf6a108642d3d5
+replaced p4/v1/p4runtime_pb2.py             3bd1a8991d852314 -> 0a28fb85ff369a5c
+replaced p4/v1/p4runtime_pb2_grpc.py        9c4d058515a16d2c -> 5e060258fdf6e465
+checking the installed package (default backend):
+  p4/config/v1/p4types.proto     descriptor identical (5273 bytes)
+  p4/config/v1/p4info.proto      descriptor identical (6019 bytes)
+  p4/v1/p4data.proto             descriptor identical (824 bytes)
+  p4/v1/p4runtime.proto          descriptor identical (8825 bytes)
+  backend upb, p4runtime_pb2_grpc imports
+ok: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand312/lib/python3.12/site-packages/p4 imports on the default backend with the shipped schema.
+# regen rc=0
+# pip check:
+No broken requirements found.
+# pip freeze:
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anyio==4.15.1
+certifi==2026.7.22
+charset-normalizer==3.5.1
+click==8.5.0
+fastapi==0.139.2
+googleapis-common-protos==1.75.0
+grpcio==1.82.1
+grpcio-tools==1.71.2
+h11==0.16.0
+hypothesis==6.165.5
+idna==3.20
+networkx==3.6.1
+p4runtime==1.5.0
+protobuf==5.29.6
+pydantic==2.13.5
+pydantic_core==2.46.5
+requests==2.34.2
+setuptools==84.0.0
+sortedcontainers==2.4.0
+starlette==1.7.0
+thrift==0.24.0
+typing-inspection==0.4.4
+typing_extensions==4.16.0
+urllib3==2.8.0
+uvicorn==0.51.0

@@ -1,0 +1,68 @@
+e1420df26d9d7a3703b814e40ea575402efd4f2e ndt tests (ovs claim): the tmp= instrument probe carries $$ in its name -- check_test_tmpdirs.py flagged '/tmp/instrument-probe' at 54d2518a (static_checks rc 1)
+$FIX is mktemp'd already; the checker reads the spelling, and a per-process
+marker costs nothing. No behaviour change: the suite is 156/0 either way.
+
+[Co-developed with claude code -- Adam]
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+54d2518a07a084d2b60811fa8f404f444e5a0c75 manual: the RESIDUE-1 source note no longer calls the stale-pidfile question pending -- Adam ruled it 09-25 ('ndt down' removes it)
+[Co-developed with claude code -- Adam]
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+8b6f51f243c7f9d48ebff9ec6c4f805cc497dc22 ndt round 2 (judge on 6b7fce83): a zero-width window read from a record keeps G-12's caveat, a recycled number is judged by start time on both kinds of pidfile, no window no removal, and help/manual say what --force records
+F1 (blocking): residue_report's record branch prints the same 'NO extent
+... NOT this app left nothing' caveat as the sealed-pidfile branch when
+the recorded window is zero wide -- the energy window 'down' writes when
+it removes a stale pidfile no longer loses it.
+F2/F8: proc_start_epoch + pidfile_outlived_by (stop_one's test, 2 s of
+slack): a live number whose process started after the pidfile was
+written is a recycled one and the file is STALE, before any group is
+asked -- app pidfiles (a setsid'd stranger no longer reads 'NOT stale')
+and the stack's own (pidfile_judge and the status pidfiles row).
+F4: registry_clear_stale keeps a stale app pidfile whose window could
+not be written, says why, rc 1, and names it via not_verified; the other
+removal failure names itself too.
+F5/F6: ndt help -- only a --force that went past something is recorded;
+the line means --force was USED, not that it came up; identity per kind
+of file; down's rc 1 names the new causes; clean's 3 says 'naming a live
+process'. The status override row says the same.
+Manual: the stale-pidfile passage (:512-516) and a claim-section
+paragraph for 'ndt up ... --force', .test_run/lab.claim.overrides and
+the override row.
+Gate: M21-M35 and C3 (one named mutant per change); M16 re-anchored on
+the restructured window write.
+
+[Co-developed with claude code -- Adam]
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+146e1024b655d93a5143abcc93329396edbe1b5c ndt tests (ovs claim, round 2): the judge's F1-F4, F8 and help cells, the edges it named, and robust section 21 on a spawned sleep -- red first (18 of 156 on the committed ndt)
+Judge report on 6b7fce83 (MERGE AFTER FIXES), orchestrator round 2:
+- F1: a dead energy pidfile's zero-length window, moved into
+  .test_run/apps/energy.window by 'down', must still print G-12's
+  'NO extent ... NOT this app left nothing' (red: the record branch is
+  silent).
+- F2: an app pidfile whose number is alive as a setsid'd stranger that
+  started after the file was written is STALE, not 'group' (red); the
+  control -- the same stranger, file written after it started -- stays
+  'NOT stale'. F8: the same start-time test for a stack pidfile (red).
+- F3: the window's right end (end=), and a log newer than the pidfile
+  closing it at the log's mtime (both green on the committed ndt:
+  guards, proved by M21 in the gate).
+- F4: a window that cannot be written keeps the pidfile, down rc 1,
+  claim note names it (red).
+- symlinked and own-group pidfiles are never removed; our own claim's
+  measuring= does not refuse 'up'; the dispatch 'case' block run as
+  written ('ndt up 4 [--force]': retry line and record carry the
+  command as typed); a record that does not read back is refused; TAB
+  and newline keep one line of ten fields (all green: guards).
+- help: five sentences for F5/F6 (red).
+- the tmp= column of touched() is shown to read non-zero.
+- robust section 21 plants a spawned sleep instead of this shell.
+
+[Co-developed with claude code -- Adam]
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+

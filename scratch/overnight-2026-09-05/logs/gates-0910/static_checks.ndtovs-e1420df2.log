@@ -1,0 +1,20 @@
+e1420df26d9d7a3703b814e40ea575402efd4f2e
+# gate    : check_process_by_name.py + check_test_tmpdirs.py over the tree
+# cmd     : (cwd worktree) JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash -c python3 tests/shell/check_process_by_name.py && python3 tests/shell/check_test_tmpdirs.py
+# worktree: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-ovs-claim-0925
+# branch  : fix/ndt-ovs-claim-0925
+# start   : 2026-09-25T18:24:32+08:00
+# ndt under test: the worktree file, git hash-object 9136db6d382242adca3ccbe071061c817f868c5b  (HEAD's blob: 9136db6d382242adca3ccbe071061c817f868c5b)
+# dirty tracked at start: 0
+# test/gate files under test are HEAD's: yes
+
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c python3 tests/shell/check_process_by_name.py && python3 tests/shell/check_test_tmpdirs.py
+check_process_by_name: 2 registered audit exceptions scanned (7 file(s) under them); doc/audit/** is not a scan surface otherwise
+check_process_by_name: 321 file(s) scanned, 0 site(s), 0 registered, 0 new, 0 stale
+check_test_tmpdirs: 354 file(s) scanned, 0 fixed temp paths
+guarded_build: exit 0
+
+# rc=0
+# end 2026-09-25T18:24:33+08:00  /tmp/ndt-ovs-claim-* after: 0
+# dirty tracked at end: 0

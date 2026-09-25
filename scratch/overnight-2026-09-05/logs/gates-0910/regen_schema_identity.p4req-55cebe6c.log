@@ -1,0 +1,10 @@
+# HEAD 55cebe6c2c67b8f5187c7b3d420ce7c4bb9a98cd  interpreter /home/adam/miniconda3/bin/python3.13 (/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-pb5regen), PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION unset  2026-09-25T05:07:42Z
+# regenerated modules on the DEFAULT backend: they import, and each FileDescriptorProto equals the one the old module embedded
+protobuf 5.29.6 backend upb
+p4/config/v1/p4types.proto     bytes_equal=True proto_equal=True len old=5273 new=5273
+p4/config/v1/p4info.proto      bytes_equal=True proto_equal=True len old=6019 new=6019
+p4/v1/p4data.proto             bytes_equal=True proto_equal=True len old=824 new=824
+p4/v1/p4runtime.proto          bytes_equal=True proto_equal=True len old=8825 new=8825
+p4runtime_pb2_grpc imports; stub: P4RuntimeStub
+RESULT IDENTICAL-SCHEMA
+# rc=0

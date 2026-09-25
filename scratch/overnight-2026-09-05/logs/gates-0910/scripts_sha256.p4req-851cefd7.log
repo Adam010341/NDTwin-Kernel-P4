@@ -1,0 +1,26 @@
+# HEAD 851cefd79e26ee2fb481e461a7bd77ebaeb5b329  venv n/a  2026-09-25T09:37:53Z
+# $ (cd scripts-p4req) sha256sum -c SHA256SUMS   (written at the end of round 1)
+compare_verbose.sh: FAILED
+compare_verbose.v1.sh: OK
+run_suites.sh: FAILED
+check_pins_vs_venv.py: OK
+regen_mutant.py: OK
+regen_p4runtime_pb2.py: OK
+verdicts.py: OK
+sha256sum: WARNING: 2 computed checksums did NOT match
+# rc=1
+# the round-1 (v2) texts of the two scripts changed in round 2 are kept as *.v2.*:
+  run_suites.v2.sh eafbbb6b2d6c545bad3cc7a50693cf587ef52e31e6ffd134ba3a9515ccdf02a8 ; SHA256SUMS says eafbbb6b2d6c545bad3cc7a50693cf587ef52e31e6ffd134ba3a9515ccdf02a8
+  compare_verbose.v2.sh 203a151bdde17213354ac2f6d77673cc08b2ab89e5210a6205fb964dd9cd4612 ; SHA256SUMS says 203a151bdde17213354ac2f6d77673cc08b2ab89e5210a6205fb964dd9cd4612
+# SHA256SUMS.r2 written:
+068412fc2380ffd8693cdac346ecc04aaf98d20a565a16f67125db7198a8cbd9  compare_verbose.sh
+e6a3b700d9cf7f69388cc6f03ac57a240cfa13d740feae63704e468213733203  compare_verbose.v1.sh
+203a151bdde17213354ac2f6d77673cc08b2ab89e5210a6205fb964dd9cd4612  compare_verbose.v2.sh
+2e523c0373a04621bf3a450abde32ab205394b81b5f6895d0f993bf8e39bfa8d  evidence_r2.sh
+039ebe73e3db507522ebd658647d5dd4f1c1fef4591e6f4a99cb6786d4cb8d21  run_suites.sh
+eafbbb6b2d6c545bad3cc7a50693cf587ef52e31e6ffd134ba3a9515ccdf02a8  run_suites.v2.sh
+0dc30f37f49d7d0856609285dc85e8cdc335451ef92cc48148d83ec567eaa3d7  check_imports_vs_requirements.py
+e89753615db74efc6302b21e562f1139b65585648ebe2dfdcc1cc12137f843f0  check_pins_vs_venv.py
+596e8f6e2425316b29b9c98cdec37becc60d369573c80b7f4365cb3cfbd21278  regen_mutant.py
+49301e8b3d43bea57f89862dd7e414ef13a68db4e104b18c9a368ac165a3d554  regen_p4runtime_pb2.py
+6974e98f9afe2faa455090b2a8c9af6fb8463ee6515861733c9431f819a20f94  verdicts.py

@@ -1,0 +1,4 @@
+spike_selftest: 0 red; SPIKE SELF-TEST PASS # rc=0 
+helper sha256 at head: 6a558fe452955de3
+tracked changes after: 0
+DONE

@@ -1,0 +1,15 @@
+# HEAD 7cc50b4284e89d8f2459d560633697656d49254d  interpreter /home/adam/miniconda3/bin/python3.13  (/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand/bin/python)  2026-09-25T05:15:12Z
+# protobuf 5.29.6 backend=upb
+# PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=<unset>
+# verdicts -> /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4_exercise_suite_verdicts_cand.p4req-7cc50b42.tsv
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand/bin/python /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4req/verdicts.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4_exercise_suite_verdicts_cand.p4req-7cc50b42.tsv discover tools/p4_exercise/tests tools/p4_exercise/tests
+...........................................................................................................................................................................................
+----------------------------------------------------------------------
+Ran 187 tests in 1.670s
+
+OK
+verdicts: 187 ids written to /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4_exercise_suite_verdicts_cand.p4req-7cc50b42.tsv
+guarded_build: exit 0
+# rc=0

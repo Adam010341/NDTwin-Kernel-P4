@@ -1,0 +1,207 @@
+# HEAD 68ace01702e5a04303ddbc3534fa999f851e22c1 (trunk after OVS merge) 2026-09-25T12:23:59Z
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/test_ndt_ovs_claim.sh
+
+1. 🔴 'ndt up ovs' under somebody else's claim: rc 5, and nothing is half-built
+  ok       🔴 a foreign claim refuses the OVS bring-up with 5
+  ok         it says it is refusing to build
+  ok       🔴 NOTHING was reached: no sudo, no stack.sh, no target, no temp, knob kept
+  ok         the claim file is byte-identical
+  ok         and no override was recorded -- none was asked for
+  ok         the bring-up banner never printed
+  ok         the retry line carries the BARE owner
+  ok         🔴 and not the parenthesised description
+  ok         and names the override, with where it is recorded
+  ok         saying where the override would be written
+  ok         a foreign claim with measuring= is still 5
+  ok         and quotes the declaration
+  ok         'ndt up' (OVS 128) is refused the same way
+  ok         and reached nothing
+  ok       🔴 NDT_OWNER unset: any live claim refuses
+  ok         and reached nothing
+
+2. 🔴 'ndt up ovs' with a measurement in flight: rc 5, P4's semantics
+  ok       🔴 a measurement in flight refuses the OVS bring-up
+  ok         it says a measurement is running
+  ok         naming what is running
+  ok         and reached nothing
+  ok         and names the override
+
+3. 🔴 the controls -- a guard that refuses everything guards nothing
+  ok       our own live claim is not a refusal
+  ok         the bring-up ran
+  ok       🔴 stack.sh WAS invoked -- the instrument can read non-zero
+  ok         and the fabric verb WAS run
+  ok         and the knob WAS cleared -- that column can move too
+  ok         and up.target WAS written
+  ok         and no override is recorded for a bring-up that needed none
+  ok       an EXPIRED claim is not a refusal
+  ok         the bring-up ran
+  ok       no claim and nothing running is not a refusal
+  ok         the bring-up ran
+
+4. 🔴 --force builds, and every use of it is written down
+  ok       --force is not refused
+  ok         the fabric was built
+  ok         it says out loud it is building over the claim
+  ok       🔴 exactly one override is recorded
+  ok         who: the NDT_OWNER that forced it
+  ok         🔴 whose claim was overridden
+  ok         that claim's expiry, as it was
+  ok         what that claim declared
+  ok         when: a timestamp with a date and an offset
+  ok         and the command it forced
+  ok         which login ran it
+  ok       🔴 --force over a measurement in flight is recorded too, and APPENDED
+  ok         the first record is untouched
+  ok         with no claim to name, 'over' says so
+  ok         and it names what was running
+  ok       --force over nothing records nothing
+  ok         and the bring-up still ran
+  ok       🔴 --force whose record cannot be written is refused
+  ok         and says why
+  ok         and reached nothing
+
+5. 🔴 P4 goes through the SAME guard, with the same flag and the same record
+  ok       🔴 a foreign claim still refuses the P4 bring-up with 5
+  ok         with the same sentence as OVS
+  ok         and reached nothing
+  ok         and names the same override
+  ok         a measurement in flight still refuses P4 with 5
+  ok       --force builds P4 over a foreign claim
+  ok         the fabric was started
+  ok         and the override is recorded
+  ok         naming whose claim
+  ok         and the P4 command
+  ok       🔴 neither bring-up calls foreign_claim itself
+  ok         and each calls the shared guard exactly once
+
+6. the flag is argv, parsed once for both planes, and an exported variable is not it
+  ok       --force is taken off argv and sets the flag
+  ok         and the words to retry with do not carry it
+  ok         in any position
+  ok       🔴 an exported NDT_UP_FORCE without the flag forces nothing
+  ok       🔴 an exported NDT_UP_FORCE=1 does not open the guard
+  ok         and nothing was recorded or reached
+
+7. 'ndt help' tells the truth about it
+  ok       the up block names the override
+  ok         and where it is recorded
+  ok         rc 5 still names a foreign claim among its causes
+  ok         and says it is BOTH planes now
+  ok       the down block says a stale entry is not a subject
+  ok       🔴 'ndt status' shows the last override
+  ok         naming who forced past whom
+
+8. 🔴 a stale pidfile: 'ndt status' marks it
+  ok       🔴 a dead app pidfile is marked STALE
+  ok         naming the file
+  ok         and the pid that is gone
+  ok         and what removes it
+  ok       🔴 and 'ndt status' itself prints that row (existence is not wiring)
+  ok       a dead stack pidfile is still marked stale
+  ok       🔴 a pidfile naming a LIVE viz is not stale
+  ok       🔴 pid gone but its process group alive: NOT stale
+  ok         and it says the group is still there
+  ok       🔴 a pid alive as somebody else is STALE (pid + argv, not the number)
+  ok         and it says the number was recycled
+
+9. 🔴 a stale pidfile: 'ndt down' removes it, and a down lab still answers 3
+  ok       🔴 an already-down lab with a stale pidfile is rc 3, not 0
+  ok         and the verdict line says what it measured
+  ok       🔴 the stale pidfile is GONE
+  ok         and its .pgid with it
+  ok         it says it removed it, and why
+  ok       🔴 the app's window was written down before the file went
+  ok       🔴 the window's right end is the sealed one, not now
+  ok       🔴 down again: rc 3
+  ok         and nothing left to remove
+  ok         a dead kernel.pid on a down lab: rc 3
+  ok         and it is removed
+  ok       🔴 a LIVE pidfile is kept
+  ok         and is a subject: rc 0, not 3
+  ok       🔴 pid gone, group alive: the pidfile is KEPT
+  ok         and it is still a subject: not 3
+  ok         an UNUSABLE pidfile is not called stale and not removed by the sweep
+  ok         under a foreign claim 'down' is still 5
+  ok         and leaves even the stale file where it is
+
+10. 'ndt clean' reads the registry the same way
+  ok       🔴 only a stale entry: nothing to judge, rc 3
+  ok         and it does not pretend the registry is empty
+  ok         clean does not remove it -- it is an assertion
+  ok         a LIVE registry entry is still a subject: rc 0
+
+11. 🔴 F1: a zero-length window moved into a record by 'down' still says NO extent
+  ok       control: over the pidfile itself the report says NO extent
+  ok         down on that lab: rc 3
+  ok         the energy pidfile is gone
+  ok         and its window is on record, zero wide
+  ok         the report now reads it from the record
+  ok       🔴 F1: and still says the window has NO extent
+  ok         and that it is NOT 'this app left nothing'
+
+12. 🔴 F2/F8: a recycled number that leads its own group is STALE (start time), not 'group'
+  ok       🔴 recycled into a group leader: STALE
+  ok         and it says the process started after the file
+  ok         and never 'NOT stale'
+  ok       🔴 down removes it and a down lab answers 3
+  ok         and the stranger was not signalled
+  ok       🔴 control: started BEFORE the file was written -> not stale
+  ok         it is the live-group case
+  ok       🔴 F8: a stack pidfile recycled into a stranger is stale
+  ok         and is not printed as alive
+  ok         down: not a subject (rc 3), and removed
+  ok         🔴 and says why stack.sh kept it
+  ok         control: written after it started -> alive, as before
+  ok         and down keeps it and counts it (rc 0)
+
+13. 🔴 F3/F4: the window's right end is the app's log when there is one; no window, no removal
+  ok       🔴 a log newer than the pidfile closes the window at the log's mtime
+  ok       🔴 F4: no window written -> the stale pidfile is KEPT
+  ok         and down is 1, not 3
+  ok         it says why it kept it
+  ok         🔴 and how to recover
+  ok         and the claim note names it
+
+14. what 'down' may NOT delete: a symlink, and a group that is this shell's own
+  ok       🔴 a symlinked pidfile is never removed
+  ok         nor what it points at
+  ok       🔴 a pidfile whose group is this shell's own is never removed
+
+15. the guard's edges: our own claim's measuring=, the dispatch, the record's shape
+  ok       🔴 our own claim with measuring= does not refuse 'up'
+  ok         the bring-up ran
+  ok       🔴 dispatch: 'ndt up 4' under a foreign claim is 5
+  ok         its retry line is the command as typed
+  ok         and its override line too
+  ok       🔴 dispatch: 'ndt up 4 --force' builds
+  ok         the fabric verb ran
+  ok         and the record carries the command as typed
+  ok       🔴 a record that does not read back is refused
+  ok         and reached nothing
+  ok       🔴 one override is one line
+  ok         of exactly ten tab-separated fields
+  ok         the tab in the note became a space
+  ok         and the second process is counted, not a new line
+
+16. 'ndt help' says what the record means and every place the rules changed
+  ok       a --force with nothing to go past writes nothing
+  ok       🔴 F6: the line means '--force was used', not 'it came up'
+  ok       down's rc 1 names the stale-entry failures
+  ok       identity is stated per kind of file
+  ok       clean's 3 says 'live'
+  ok       🔴 status: a recycled stack pidfile is a --check problem, rc 1 only with a baseline
+  ok       🔴 the manual says the same about --check
+  ok       🔴 the manual: a recycled number is stale without asking the group
+
+17. 🔴 a recycled stack number is a --check problem: rc 1 with a baseline, 3 without
+  ok       🔴 with a baseline, a recycled kernel.pid makes --check rc 1
+  ok         and it is named in the problem list
+  ok       🔴 control: the same pid written after it started leaves --check at 0
+  ok       🔴 without a baseline the answer is still 3
+  ok         the recycled pidfile is still listed, under 'everything else'
+
+Ran 166 checks, 0 failed
+guarded_build: exit 0
+# rc=0

@@ -1,0 +1,34 @@
+fb4243e28b4e643d8781fe11cd5219abe7895788
+# 2026-09-25T09:37:56Z worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-0925, branch feat/p4-heartbeat-0925
+# status: 
+# $ JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/hb/red_r2.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/hb/red_r2.sh
+### bash tests/shell/test_ndtwin_lab_heartbeat.sh
+  FAILED   bmv2 pids owned by another uid are not a fabric
+  FAILED   a fabric running NDTwin's own pipeline is refused (one switch of four)
+Ran 196 checks, 2 failed
+rc=1
+### bash tests/shell/test_ndtwin_lab_config.sh
+  FAILED   heartbeat stop still runs
+  FAILED   heartbeat status still runs
+  FAILED   the dispatch hands the gate the sub-verb
+Ran 66 checks, 3 failed
+rc=1
+### bash doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh --self-test
+  🔴    first hit: the first host that saw one                     missing
+  🔴    first hit: nobody saw one is no hit                        missing
+SELF-TEST FAIL
+  🔴    the first heartbeat frame ends the sniff at once        no seam: sniff() got an unexpected keyword argument 'sock' after 0.0 s
+  🔴    the stop file ends a quiet sniff at once                no seam: sniff() got an unexpected keyword argument 'stop_file' after 0.0 s
+SELF-TEST FAIL
+  🔴    a run whose fabric is already down ended: FAIL S_heartbeat -- 'ndt down' exited 3 -- see run/90_down.txt|down,release
+  🔴    no tc grant: the pre-check answered '127'
+  🔴      every grant there: the pre-check answered '127'
+  🔴      a failing FAULTS_TC override answered '127'
+  🔴      the pre-check is not before the claim (precheck line 'none', take_claim line '494')
+  🔴    the first hit did not stop everything: result ' 1', 0 s, stop file no
+SPIKE SELF-TEST FAIL
+rc=1
+guarded_build: exit 0
+# rc=0  2026-09-25T09:38:24Z

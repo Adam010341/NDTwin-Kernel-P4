@@ -1,0 +1,204 @@
+# HEAD 377a1271e93ff0f315689fc50e69b673fc3a9731 helper 6a558fe452955de358fd1a3b4e730fe2be55368a6c90b93675c5442c036fd4fb 2026-09-25T19:35:17+08:00
+
+## claim 20 (19:35:17)
+  recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+  ok  lab claimed by orch-0924 for 20m (helper post-install check 3: heartbeat start must refuse on NDTwin's fabric)
+# rc=0
+
+## up p4 4 (19:35:17)
+ndt up p4
+  hosts        4        (p4_proxy/mininet/host_count_override)
+  topology     setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+  app package  none (baseline fabric)
+  bmv2         /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate  1/256     (compiled into ndtwin_switch.json)
+
+  recorded this target in .test_run/up.target -- 'ndt status --check' compares against it
+  telemetry    auto   (p4_proxy/mininet/telemetry_override absent -- auto, then the package)
+  claim note now says the lab is in use (owner and expiry unchanged)
+[1/3] bmv2 fabric
+      topo session started from /home/adam/Desktop/NDTwin-Kernel (attach: sudo tmux -L ndtwinlab attach -t topo)
+  waiting for 10 switches and the manifest
+  ok  10 switches up after 5s, manifest written
+  ok  running binary: /usr/local/bmv2-fast/bin/simple_switch_grpc
+[2/3] proxy + kernel
+  stack.sh prompt is answered immediately: the fabric is already up
+        started p4_proxy (pid 2192043) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
+        waiting for P4 proxy agent on :8081 .. up
+        waiting for link discovery: want 12 destination paths
+          paths=6              paths=12                                                        converged after 4s
+        started kernel (pid 2194631) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+        waiting for kernel API on :8000 . up
+[3/3] verify
+  ok  proxy: 12/12 destination paths (stable)
+  ok  kernel: 10 switches, 10 up, 40 edges, 4 hosts
+  ok  model matches fabric: 4 hosts (kernel graph, topology file and 4 host namespaces all agree)
+  ok  telemetry: auto -- 10 cooperative, 0 link, 0 none; the proxy agrees switch by switch
+  ok  data plane: h1 -> 10.0.0.2 forwards
+
+up. ready
+  proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+# rc=0
+
+## check 3: heartbeat start on NDTwin's fabric (want rc 1, names ndtwin_switch.json) (19:35:33)
+heartbeat: refusing: s1, s10, s2, s3, s4, s5, s6, s7, s8, s9 run(s) NDTwin's own pipeline (ndtwin_switch.json). That pipeline carries LLDP and punts an unknown ethertype to the CPU, so every heartbeat frame would become a packet-in that the proxy counts as that switch's liveness. The heartbeat is for foreign pipelines only
+# rc=1
+
+## heartbeat status (want rc 3) (19:35:33)
+heartbeat: not running
+report: none (no heartbeat has run since boot)
+# rc=3
+
+## down (19:35:33)
+ndt down
+  this teardown is about:
+        10 bmv2 switch(es)
+        14 host/switch process(es)
+        a topo tmux session
+        the switch manifest /tmp/ndtwin_p4_switches.json
+        the registry entry .test_run/pids/kernel.child.pid
+        the registry entry .test_run/pids/kernel.pid
+        the registry entry .test_run/pids/p4_proxy.child.pid
+        the registry entry .test_run/pids/p4_proxy.pid
+        a held port in ports.sh's table
+[1/3] kernel + proxy/Ryu
+        stopped kernel
+        kernel exit status 143 (terminated by SIGTERM (15) -- or exit(143), which bash cannot distinguish)
+        stopped p4_proxy
+        p4_proxy exit status 143 (terminated by SIGTERM (15) -- or exit(143), which bash cannot distinguish)
+        -> an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+        :30051 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+        :30052 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+        :30053 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+        :30054 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+        :30055 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+        :30056 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+        :30057 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+        :30058 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+        :30059 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+        :30060 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+        :9091 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+        :9092 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+        :9093 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+        :9094 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+        :9095 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+        :9096 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+        :9097 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+        :9098 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+        :9099 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+        :9100 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        ryu exit status 143 (terminated by SIGTERM (15) -- or exit(143), which bash cannot distinguish)
+        find and stop it, or the next 'up' will report on it:
+          ss -ltnp   # tcp rows;  ss -lunp   # the udp one (:6343) -- see ports.sh
+          cat /home/adam/Desktop/NDTwin-Kernel/.test_run/pids/*.pid   # what this stack started; check each against /proc/<pid>
+  !!  stack.sh down exited 1, and the only thing behind that status is port(s)
+  !!    still listening at [1/3], held by processes it did not start:
+  !!      9091 9092 9093 9094 9095 9096 9097 9098 9099 9100 30051 30052 30053 30054 30055 30056 30057 30058 30059 30060 
+  !!    [1/3] runs BEFORE the data-plane sweep in [3/3], so on a live P4 fabric this
+  !!    is the fabric this teardown is about to remove, accusing itself. The verdict
+  !!    on these ports is taken AFTER 'verify clean' below, not here. (ROLE-12)
+[2/3] topology session
+      topo stopped
+[3/3] sweep
+        none           ntg_bmv2_topo
+        none           p4_testbed_topo
+        none           OVS testbed_topo
+        none           NTG testbed_topo
+        none           simple_switch_grpc
+      cleanup done
+  ok  this step ran the Mininet sweep (mn -c) for you
+    [3/3] is 'ndtwin-lab cleanup' and its sweep runs 'mn -c' before it sweeps
+    simple_switch_grpc, so the advice stack.sh prints at [1/3] about running that
+    command by hand is advice this teardown has already acted on -- which is why
+    [1/3] filters it out.
+  cleared the 'ndt up' target record (.test_run/up.target)
+
+verify clean
+  ok  bmv2 switches: 0
+  ok  host/switch processes: 0
+  ok  no topo session
+  ok  no switch manifest
+  ok  ports closed: 8000/8080/8081/6653/6633/6343/30051-30060/9091-9100/9000
+
+clean
+  ok  the 20 port(s) [1/3] called 'still listening' were closed by [3/3]: 9091 9092 9093 9094 9095 9096 9097 9098 9099 9100 30051 30052 30053 30054 30055 30056 30057 30058 30059 30060 
+    so stack.sh's exit 1 was a reading from the MIDDLE of this teardown, not
+    its ending, and it is not carried to the exit code. (ROLE-12, 2026-09-12)
+  claim note now says the lab is down and verified clean (owner and expiry unchanged)
+# rc=0
+
+## release (19:35:39)
+  the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+  this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+  ok  lab released
+# rc=0
+
+## status after (19:35:39)
+lab
+  claim          none
+  prev claim     orch-0924 (until 19:55:17), superseded 2026-09-25 19:35:39  (.test_run/lab.claim.prev)
+                 nothing holds the lab now: that claim was released or replaced
+                 it said: down at 2026-09-25 19:35:39; verified clean; claim kept
+  measuring      nothing
+  code           377a1271  +78 file(s) with uncommitted changes
+                 2 of them can change behaviour:
+DONE

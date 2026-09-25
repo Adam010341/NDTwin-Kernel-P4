@@ -1,0 +1,36 @@
+# HEAD 851cefd79e26ee2fb481e461a7bd77ebaeb5b329  venv /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-aligned2 (dry runs, --ignore-installed; nothing installed)  2026-09-25T09:37:42Z
+# requirements = HEAD's p4_proxy/requirements.txt minus its googleapis-common-protos line:
+#   54d53
+#   < googleapis-common-protos==1.73.0
+# $ pip install --dry-run --ignore-installed --report - -r req.nogapi.txt   (resolved set)
+# rc=0
+  resolved grpcio 1.82.1
+  resolved protobuf 3.20.3
+  resolved p4runtime 1.5.0
+  resolved fastapi 0.139.2
+  resolved starlette 1.3.1
+  resolved uvicorn 0.51.0
+  resolved networkx 3.6.1
+  resolved requests 2.34.2
+  resolved hypothesis 6.165.5
+  resolved thrift 0.24.0
+  resolved anyio 4.15.1
+  resolved charset-normalizer 3.5.1
+  resolved idna 3.20
+  resolved sortedcontainers 2.4.0
+  resolved typing_extensions 4.16.0
+  resolved urllib3 2.8.0
+  resolved annotated-doc 0.0.5
+  resolved certifi 2026.7.22
+  resolved click 8.5.0
+  resolved googleapis-common-protos 1.73.0
+  resolved h11 0.16.0
+  resolved pydantic 2.13.5
+  resolved pydantic_core 2.46.5
+  resolved annotated-types 0.8.0
+  resolved typing-inspection 0.4.4
+  declared googleapis-common-protos 1.73.0 ['protobuf!=4.21.1,!=4.21.2,!=4.21.3,!=4.21.4,!=4.21.5,<7.0.0,>=3.20.2']
+  declared googleapis-common-protos 1.73.1 ['protobuf<8.0.0,>=4.25.8']
+  declared googleapis-common-protos 1.74.0 ['protobuf<8.0.0,>=4.25.8']
+  declared googleapis-common-protos 1.75.0 ['protobuf<8.0.0,>=4.25.8']
+  declared googleapis-common-protos 1.75.4 ['protobuf<8.0.0,>=6.33.5']

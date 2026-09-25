@@ -1,0 +1,269 @@
+9b17f8f9f3f6b22d6deaaae8c0d14956cc0db631
+# 2026-09-25T05:27:32Z worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-0925, branch feat/p4-heartbeat-0925
+# status: ?? tests/shell/mutate_ndtwin_lab_heartbeat.sh;
+# $ JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash tests/shell/test_ndtwin_lab_heartbeat.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/test_ndtwin_lab_heartbeat.sh
+1. the command line: one sub-verb, nothing after it
+  FAILED   start reaches hb_start and only it
+             expected: 0|start
+             actual:   127|
+  FAILED   stop reaches hb_stop and only it
+             expected: 0|stop
+             actual:   127|
+  FAILED   status reaches hb_status and only it
+             expected: 0|status
+             actual:   127|
+  FAILED   no sub-verb is refused, nothing runs
+             expected: 1|
+             actual:   127|
+  FAILED   an unknown sub-verb is refused, nothing runs
+             expected: 1|
+             actual:   127|
+  FAILED   start with an interface name is refused
+             expected: 1|
+             actual:   127|
+  FAILED     and the refusal says only the sub-verb is accepted
+             expected: yes
+             actual:   no
+  FAILED   start --iface is refused, nothing runs
+             expected: 1|
+             actual:   127|
+  FAILED   start --ethertype is refused, nothing runs
+             expected: 1|
+             actual:   127|
+  FAILED   start --manifest is refused, nothing runs
+             expected: 1|
+             actual:   127|
+  FAILED   stop with a pid is refused, nothing runs
+             expected: 1|
+             actual:   127|
+  FAILED   a $(...) verb is refused
+             expected: 1
+             actual:   127
+  ok         and the $(...) verb did not run
+  FAILED   a $(...) argument after start is refused
+             expected: 1
+             actual:   127
+  ok         and the $(...) argument did not run
+  FAILED   'start;touch' is one unknown word
+             expected: 1
+             actual:   127
+  ok         and nothing was touched
+  FAILED   a '*' is refused
+             expected: 1
+             actual:   127
+  FAILED     and the refusal quotes it literally
+             expected: yes
+             actual:   no
+  ok         and was not globbed into file names
+  FAILED   the dispatch routes 'heartbeat' to heartbeat_main with the rest of argv
+             expected: 1
+             actual:   0
+  FAILED   the usage line names the heartbeat verbs
+             expected: yes
+             actual:   no
+2. start: a fabric first, one daemon only, the plan before the launch
+  FAILED   no topo session: refused
+             expected: 1
+             actual:   127
+  FAILED     and nothing was installed, planned or launched
+             expected: session topo
+             actual:   
+  FAILED     and it says there is no fabric
+             expected: yes
+             actual:   no
+  FAILED   a live daemon: start answers 0
+             expected: 0
+             actual:   127
+  FAILED     and says it is already running
+             expected: yes
+             actual:   no
+  ok         and launches nothing
+  FAILED   a refused plan: start fails with the plan's rc
+             expected: 1
+             actual:   127
+  FAILED     the plan ran, and nothing was launched
+             expected: session topo,install,run plan
+             actual:   
+  FAILED   a fabric with no switch-to-switch link: rc 3
+             expected: 3
+             actual:   127
+  ok         and nothing was launched
+  FAILED   a good plan launches exactly once, after the plan
+             expected: session topo,install,run plan,launch
+             actual:   
+  FAILED   a daemon that reports: start answers 0
+             expected: 0
+             actual:   127
+  FAILED     and names the pid it launched
+             expected: yes
+             actual:   no
+tests/shell/test_ndtwin_lab_heartbeat.sh: line 225: hb_is_daemon: command not found
+  FAILED     and that pid is the daemon by argv
+             expected: 0
+             actual:   127
+  ok       start again while it runs: no second launch
+  FAILED     and it says which pid is running
+             expected: yes
+             actual:   no
+  FAILED   and stop stops it
+             expected: yes
+             actual:   no
+  FAILED     and it is gone
+             expected: no
+             actual:   yes
+  FAILED   a daemon that finds no link exits 3, and start answers 3
+             expected: 3
+             actual:   127
+  FAILED   a daemon that refuses at once: start fails
+             expected: 1
+             actual:   127
+  FAILED     and shows the daemon's own reason from its log
+             expected: yes
+             actual:   no
+  FAILED   our 0755 run dir is trusted (the control)
+             expected: 0
+             actual:   127
+  FAILED   a group-writable run dir is refused
+             expected: 1
+             actual:   127
+  FAILED   a symlinked run dir is refused
+             expected: 1
+             actual:   127
+  FAILED   a run dir owned by another uid is refused
+             expected: 1
+             actual:   127
+tests/shell/test_ndtwin_lab_heartbeat.sh: line 254: hb_program: command not found
+  FAILED   hb_install_program writes the embedded program verbatim
+             expected: yes
+             actual:   no
+  FAILED     mode 0644
+             expected: 644
+             actual:   664
+3. stop: pid AND argv AND uid, or nothing is signalled
+  FAILED   no pidfile: stop is a clean no-op
+             expected: 0 yes
+             actual:   127 no
+  FAILED   a pidfile naming a live stranger: rc 0
+             expected: 0
+             actual:   127
+  FAILED     it says stale, nothing signalled
+             expected: yes
+             actual:   no
+  ok         and the stranger is still alive
+  FAILED     and the stale pidfile is gone
+             expected: no
+             actual:   yes
+tests/shell/test_ndtwin_lab_heartbeat.sh: line 279: hb_is_daemon: command not found
+  FAILED   the stand-in daemon is recognised by argv and uid
+             expected: 0
+             actual:   127
+tests/shell/test_ndtwin_lab_heartbeat.sh: line 280: hb_is_daemon: command not found
+  FAILED     but not when root's uid is required of it
+             expected: 1
+             actual:   127
+  ok       stop as if root: our-uid process is a stranger, not signalled
+  FAILED   the daemon itself: stop answers 0
+             expected: 0
+             actual:   127
+  FAILED     and says it stopped that pid
+             expected: yes
+             actual:   no
+  FAILED     and it is gone
+             expected: no
+             actual:   yes
+  FAILED     and the pidfile is gone
+             expected: no
+             actual:   yes
+tests/shell/test_ndtwin_lab_heartbeat.sh: line 294: hb_is_daemon: command not found
+  FAILED   one extra argv word is not the daemon
+             expected: 1
+             actual:   127
+tests/shell/test_ndtwin_lab_heartbeat.sh: line 297: hb_is_daemon: command not found
+  FAILED   another program path with the same shape is not the daemon
+             expected: 1
+             actual:   127
+  ok       stop leaves the one-word-off process alive
+  ok       pidfile '-1' (every process): nothing is signalled
+  FAILED   pidfile '-1' (every process): refused as not a pid
+             expected: yes
+             actual:   no
+  ok       pidfile '0' (the process group): nothing is signalled
+  FAILED   pidfile '0' (the process group): refused as not a pid
+             expected: yes
+             actual:   no
+  ok       pidfile two numbers: nothing is signalled
+  FAILED   pidfile two numbers: refused as not a pid
+             expected: yes
+             actual:   no
+  ok       pidfile a command substitution: nothing is signalled
+  FAILED   pidfile a command substitution: refused as not a pid
+             expected: yes
+             actual:   no
+  ok       pidfile a path: nothing is signalled
+  FAILED   pidfile a path: refused as not a pid
+             expected: yes
+             actual:   no
+  ok       pidfile an empty line: nothing is signalled
+  FAILED   pidfile an empty line: refused as not a pid
+             expected: yes
+             actual:   no
+  ok       pidfile a number with a tail: nothing is signalled
+  FAILED   pidfile a number with a tail: refused as not a pid
+             expected: yes
+             actual:   no
+  ok       pidfile '1' (init): nothing is signalled
+  FAILED   pidfile '1' (init): called stale, not signalled
+             expected: yes
+             actual:   no
+  ok         and no pidfile content was executed
+  FAILED   a symlinked pidfile is refused
+             expected: 1 yes
+             actual:   127 no
+  ok         and nothing is signalled
+4-7. the program root runs
+  FAILED   the embedded program is valid python for /usr/bin/python3, and is the daemon
+             expected: 0
+             actual:   1
+  -- 4. interfaces come only from the running fabric's own declaration
+  FAILED   section_interfaces ran without raising
+             Traceback (most recent call last):
+               File "<stdin>", line 585, in <module>
+               File "<stdin>", line 145, in section_interfaces
+             AttributeError: module 'hbprog' has no attribute 'plan'
+  -- 5. heard means arrived, at the far end, from this session
+  FAILED   section_heard ran without raising
+             Traceback (most recent call last):
+               File "<stdin>", line 585, in <module>
+               File "<stdin>", line 263, in section_heard
+             KeyError: 'P'
+  -- 6. the report is observations, never a verdict
+  FAILED   section_report ran without raising
+             Traceback (most recent call last):
+               File "<stdin>", line 585, in <module>
+               File "<stdin>", line 331, in section_report
+             KeyError: 'P'
+  -- 7. one daemon, a fabric that goes away, the command line, and the pins
+  FAILED   section_lifecycle ran without raising
+             Traceback (most recent call last):
+               File "<stdin>", line 585, in <module>
+               File "<stdin>", line 363, in section_lifecycle
+             KeyError: 'P'
+  -- 8. the daemon's loop, end to end, with stand-in sockets
+  FAILED   section_daemon ran without raising
+             Traceback (most recent call last):
+               File "<stdin>", line 585, in <module>
+               File "<stdin>", line 473, in section_daemon
+             KeyError: 'P'
+  ok       the program's checks ran to the end
+  FAILED   the helper's HB_PIDFILE default is the program's PIDFILE
+             expected: /run/ndtwin-lab/heartbeat.pid
+             actual:   /tmp/ndtwin-lab-heartbeat-X2vpjZ/run/heartbeat.pid
+  FAILED   the helper's HB_RUN_DIR default is the program's RUN_DIR
+             expected: 
+             actual:   /tmp/ndtwin-lab-heartbeat-X2vpjZ/run /tmp/ndtwin-lab-heartbeat-X2vpjZ/run/heartbeat.pid
+
+Ran 92 checks, 71 failed
+guarded_build: exit 1
+# rc=1  2026-09-25T05:29:37Z

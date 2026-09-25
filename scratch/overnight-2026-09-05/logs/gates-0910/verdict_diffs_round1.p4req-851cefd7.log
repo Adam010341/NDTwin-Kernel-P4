@@ -1,0 +1,166 @@
+# HEAD 851cefd79e26ee2fb481e461a7bd77ebaeb5b329 (this round); the TSVs diffed are round 1's, at the shas their names carry  2026-09-25T09:37:50Z
+== p4_proxy_suite @55cebe6c: main vs aligned
+# $ diff p4_proxy_suite_verdicts_main.p4req-55cebe6c.tsv p4_proxy_suite_verdicts_aligned.p4req-55cebe6c.tsv
+
+# diff lines (<,>): 0;  ids: 1557 vs 1557
+== p4_exercise_suite @55cebe6c: main vs aligned
+# $ diff p4_exercise_suite_verdicts_main.p4req-55cebe6c.tsv p4_exercise_suite_verdicts_aligned.p4req-55cebe6c.tsv
+
+# diff lines (<,>): 0;  ids: 187 vs 187
+== p4_proxy_suite @55cebe6c: main vs pb5_pyimpl
+# $ diff p4_proxy_suite_verdicts_main.p4req-55cebe6c.tsv p4_proxy_suite_verdicts_pb5_pyimpl.p4req-55cebe6c.tsv
+
+# diff lines (<,>): 0;  ids: 1557 vs 1557
+== p4_exercise_suite @55cebe6c: main vs pb5_pyimpl
+# $ diff p4_exercise_suite_verdicts_main.p4req-55cebe6c.tsv p4_exercise_suite_verdicts_pb5_pyimpl.p4req-55cebe6c.tsv
+
+# diff lines (<,>): 0;  ids: 187 vs 187
+== p4_proxy_suite @55cebe6c: main vs pb5_upb
+   NO VERDICT FILE: p4_proxy_suite_verdicts_pb5_upb.p4req-55cebe6c.tsv (the suite did not load)
+== p4_exercise_suite @55cebe6c: main vs pb5_upb
+# $ diff p4_exercise_suite_verdicts_main.p4req-55cebe6c.tsv p4_exercise_suite_verdicts_pb5_upb.p4req-55cebe6c.tsv
+66,67c66,67
+< test_preflight.BasicWithRolesTest.test_a_converted_owned_package_passes_every_check	ok
+< test_preflight.BasicWithRolesTest.test_a_dst_mac_that_is_not_48_bits_fails_here_before_the_proxy_refuses	ok
+---
+> test_preflight.BasicWithRolesTest.test_a_converted_owned_package_passes_every_check	FAIL
+> test_preflight.BasicWithRolesTest.test_a_dst_mac_that_is_not_48_bits_fails_here_before_the_proxy_refuses	FAIL
+69c69
+< test_preflight.BasicWithRolesTest.test_a_table_the_program_does_not_have_fails_and_names_the_switch	ok
+---
+> test_preflight.BasicWithRolesTest.test_a_table_the_program_does_not_have_fails_and_names_the_switch	FAIL
+71,74c71,74
+< test_preflight.BasicWithRolesTest.test_the_binding_row_names_what_every_switch_resolved_to	ok
+< test_preflight.BasicWithRolesTest.test_the_kept_default_action_is_disclosed_not_refused	ok
+< test_preflight.BasicWithRolesTest.test_the_message_is_the_one_the_proxy_raises	ok
+< test_preflight.BasicWithRolesTest.test_the_owned_tables_match_entries_fail_and_each_one_is_named	ok
+---
+> test_preflight.BasicWithRolesTest.test_the_binding_row_names_what_every_switch_resolved_to	FAIL
+> test_preflight.BasicWithRolesTest.test_the_kept_default_action_is_disclosed_not_refused	FAIL
+> test_preflight.BasicWithRolesTest.test_the_message_is_the_one_the_proxy_raises	ERROR
+> test_preflight.BasicWithRolesTest.test_the_owned_tables_match_entries_fail_and_each_one_is_named	FAIL
+76,88c76,88
+< test_preflight.CompileCheck.test_an_absent_compiler_is_neither_pass_nor_fail	ok
+< test_preflight.EntriesRedCells.test_a_bad_action_name_fails	ok
+< test_preflight.EntriesRedCells.test_a_bad_match_field_name_fails	ok
+< test_preflight.EntriesRedCells.test_a_bad_table_name_fails	ok
+< test_preflight.EntriesRedCells.test_a_default_action_entry_with_a_match_fails	ok
+< test_preflight.EntriesRedCells.test_a_negative_lpm_prefix_fails	ok
+< test_preflight.EntriesRedCells.test_a_ternary_match_fails_with_g5_not_done	ok
+< test_preflight.EntriesRedCells.test_a_value_too_wide_for_its_field_fails	ok
+< test_preflight.EntriesRedCells.test_an_lpm_prefix_longer_than_the_field_fails	ok
+< test_preflight.EntriesRedCells.test_an_lpm_value_that_is_not_a_pair_fails	ok
+< test_preflight.EntriesRedCells.test_an_unknown_action_parameter_fails	ok
+< test_preflight.EntriesRedCells.test_the_shipped_default_action_entry_is_accepted	ok
+< test_preflight.ExternalPackage.test_an_external_package_passes_and_says_it_has_no_entries	ok
+---
+> test_preflight.CompileCheck.test_an_absent_compiler_is_neither_pass_nor_fail	FAIL
+> test_preflight.EntriesRedCells.test_a_bad_action_name_fails	FAIL
+> test_preflight.EntriesRedCells.test_a_bad_match_field_name_fails	FAIL
+> test_preflight.EntriesRedCells.test_a_bad_table_name_fails	FAIL
+> test_preflight.EntriesRedCells.test_a_default_action_entry_with_a_match_fails	FAIL
+> test_preflight.EntriesRedCells.test_a_negative_lpm_prefix_fails	FAIL
+> test_preflight.EntriesRedCells.test_a_ternary_match_fails_with_g5_not_done	FAIL
+> test_preflight.EntriesRedCells.test_a_value_too_wide_for_its_field_fails	FAIL
+> test_preflight.EntriesRedCells.test_an_lpm_prefix_longer_than_the_field_fails	FAIL
+> test_preflight.EntriesRedCells.test_an_lpm_value_that_is_not_a_pair_fails	FAIL
+> test_preflight.EntriesRedCells.test_an_unknown_action_parameter_fails	FAIL
+> test_preflight.EntriesRedCells.test_the_shipped_default_action_entry_is_accepted	FAIL
+> test_preflight.ExternalPackage.test_an_external_package_passes_and_says_it_has_no_entries	FAIL
+90,92c90,92
+< test_preflight.FirewallWithRolesTest.test_one_block_resolves_on_both_programs	ok
+< test_preflight.GreenCells.test_a_freshly_converted_package_passes_every_check	ok
+< test_preflight.GreenCells.test_it_says_the_entries_are_recorded_and_not_applied	ok
+---
+> test_preflight.FirewallWithRolesTest.test_one_block_resolves_on_both_programs	FAIL
+> test_preflight.GreenCells.test_a_freshly_converted_package_passes_every_check	FAIL
+> test_preflight.GreenCells.test_it_says_the_entries_are_recorded_and_not_applied	FAIL
+94c94
+< test_preflight.NdtwinPipelinePackage.test_every_switch_is_null_and_the_row_says_so	ok
+---
+> test_preflight.NdtwinPipelinePackage.test_every_switch_is_null_and_the_row_says_so	FAIL
+98c98
+< test_preflight.OneSwitchPackage.test_a_single_switch_package_passes_every_check	ok
+---
+> test_preflight.OneSwitchPackage.test_a_single_switch_package_passes_every_check	FAIL
+112,113c112,113
+< test_preflight.PipelineCells.test_a_p4info_naming_a_table_the_bmv2_json_does_not_have_fails	ok
+< test_preflight.PipelineCells.test_a_p4info_naming_an_action_the_bmv2_json_does_not_have_fails	ok
+---
+> test_preflight.PipelineCells.test_a_p4info_naming_a_table_the_bmv2_json_does_not_have_fails	FAIL
+> test_preflight.PipelineCells.test_a_p4info_naming_an_action_the_bmv2_json_does_not_have_fails	FAIL
+118,119c118,119
+< test_preflight.PipelineCells.test_a_ternary_match_says_the_endpoint_answers_501	ok
+< test_preflight.PipelineCells.test_a_two_program_package_passes_every_check	ok
+---
+> test_preflight.PipelineCells.test_a_ternary_match_says_the_endpoint_answers_501	FAIL
+> test_preflight.PipelineCells.test_a_two_program_package_passes_every_check	FAIL
+121,129c121,129
+< test_preflight.PipelineCells.test_each_switch_gets_its_own_row_with_the_p4info_sha_and_the_source	ok
+< test_preflight.PipelineCells.test_entries_and_pipeline_agreeing_is_its_own_green_row	ok
+< test_preflight.PipelineCells.test_entries_written_for_another_program_fail	ok
+< test_preflight.PipelineCells.test_the_printed_sha_is_the_p4infos_own	ok
+< test_preflight.RenamedRolesTest.test_a_port_too_narrow_for_the_topology_fails_here	ok
+< test_preflight.RenamedRolesTest.test_the_owned_table_rows_speak_only_of_the_switches_whose_binding_resolved	ok
+< test_preflight.RenamedRolesTest.test_the_renamed_package_passes_and_binds_the_renamed_names	ok
+< test_preflight.ReverseControlsTest.test_calc_has_no_ipv4_lpm_and_says_so	ok
+< test_preflight.ReverseControlsTest.test_multicast_has_no_ipv4_lpm_and_says_so	ok
+---
+> test_preflight.PipelineCells.test_each_switch_gets_its_own_row_with_the_p4info_sha_and_the_source	ERROR
+> test_preflight.PipelineCells.test_entries_and_pipeline_agreeing_is_its_own_green_row	ERROR
+> test_preflight.PipelineCells.test_entries_written_for_another_program_fail	FAIL
+> test_preflight.PipelineCells.test_the_printed_sha_is_the_p4infos_own	ERROR
+> test_preflight.RenamedRolesTest.test_a_port_too_narrow_for_the_topology_fails_here	FAIL
+> test_preflight.RenamedRolesTest.test_the_owned_table_rows_speak_only_of_the_switches_whose_binding_resolved	FAIL
+> test_preflight.RenamedRolesTest.test_the_renamed_package_passes_and_binds_the_renamed_names	FAIL
+> test_preflight.ReverseControlsTest.test_calc_has_no_ipv4_lpm_and_says_so	FAIL
+> test_preflight.ReverseControlsTest.test_multicast_has_no_ipv4_lpm_and_says_so	FAIL
+132,136c132,136
+< test_preflight.TheCooperativeRefusal.test_auto_on_the_same_package_is_fine	ok
+< test_preflight.TheCooperativeRefusal.test_cooperative_on_a_program_with_no_controller_header_fails	ok
+< test_preflight.TheCooperativeRefusal.test_link_on_the_same_package_is_fine	ok
+< test_preflight.TheCooperativeRefusal.test_the_failure_names_the_way_out	ok
+< test_preflight.TheMulticastPackageIsGreen.test_a_clone_session_replica_may_name_the_cpu_port	ok
+---
+> test_preflight.TheCooperativeRefusal.test_auto_on_the_same_package_is_fine	FAIL
+> test_preflight.TheCooperativeRefusal.test_cooperative_on_a_program_with_no_controller_header_fails	FAIL
+> test_preflight.TheCooperativeRefusal.test_link_on_the_same_package_is_fine	FAIL
+> test_preflight.TheCooperativeRefusal.test_the_failure_names_the_way_out	FAIL
+> test_preflight.TheMulticastPackageIsGreen.test_a_clone_session_replica_may_name_the_cpu_port	FAIL
+141c141
+< test_preflight.TheMulticastPackageIsGreen.test_it_converts_and_passes_every_check	ok
+---
+> test_preflight.TheMulticastPackageIsGreen.test_it_converts_and_passes_every_check	FAIL
+144c144
+< test_preflight.TheMulticastPackageIsGreen.test_the_same_port_with_a_second_instance_is_accepted	ok
+---
+> test_preflight.TheMulticastPackageIsGreen.test_the_same_port_with_a_second_instance_is_accepted	FAIL
+146,148c146,148
+< test_preflight.TheSuggestionTest.test_a_foreign_route_shaped_table_without_roles_gets_one_pasteable_line	ok
+< test_preflight.TheSuggestionTest.test_the_suggestion_is_not_a_failure	ok
+< test_preflight.TheSuggestionTest.test_there_is_exactly_one_suggestion_row	ok
+---
+> test_preflight.TheSuggestionTest.test_a_foreign_route_shaped_table_without_roles_gets_one_pasteable_line	FAIL
+> test_preflight.TheSuggestionTest.test_the_suggestion_is_not_a_failure	FAIL
+> test_preflight.TheSuggestionTest.test_there_is_exactly_one_suggestion_row	FAIL
+157c157
+< test_preflight.ValueWidths.test_the_match_type_names_come_out_of_the_enum	ok
+---
+> test_preflight.ValueWidths.test_the_match_type_names_come_out_of_the_enum	ERROR
+# diff lines (<,>): 98;  ids: 187 vs 187
+== p4_proxy_suite @55cebe6c: main vs pb5_regen
+# $ diff p4_proxy_suite_verdicts_main.p4req-55cebe6c.tsv p4_proxy_suite_verdicts_pb5_regen.p4req-55cebe6c.tsv
+
+# diff lines (<,>): 0;  ids: 1557 vs 1557
+== p4_exercise_suite @55cebe6c: main vs pb5_regen
+# $ diff p4_exercise_suite_verdicts_main.p4req-55cebe6c.tsv p4_exercise_suite_verdicts_pb5_regen.p4req-55cebe6c.tsv
+
+# diff lines (<,>): 0;  ids: 187 vs 187
+== p4_proxy_suite @7cc50b42: main vs cand
+# $ diff p4_proxy_suite_verdicts_main.p4req-7cc50b42.tsv p4_proxy_suite_verdicts_cand.p4req-7cc50b42.tsv
+
+# diff lines (<,>): 0;  ids: 1557 vs 1557
+== p4_exercise_suite @7cc50b42: main vs cand
+# $ diff p4_exercise_suite_verdicts_main.p4req-7cc50b42.tsv p4_exercise_suite_verdicts_cand.p4req-7cc50b42.tsv
+
+# diff lines (<,>): 0;  ids: 187 vs 187

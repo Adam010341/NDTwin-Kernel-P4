@@ -1,0 +1,31 @@
+e1420df26d9d7a3703b814e40ea575402efd4f2e
+# gate    : existing mutation gate over code or text this change touched (judge F9 for app_package/ovs4_has_sflow)
+# cmd     : (cwd worktree) JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash tests/shell/mutate_ndt_down_claim_guard.sh
+# worktree: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-ovs-claim-0925
+# branch  : fix/ndt-ovs-claim-0925
+# start   : 2026-09-25T18:24:37+08:00
+# ndt under test: the worktree file, git hash-object 9136db6d382242adca3ccbe071061c817f868c5b  (HEAD's blob: 9136db6d382242adca3ccbe071061c817f868c5b)
+# dirty tracked at start: 0
+# test/gate files under test are HEAD's: yes
+
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_ndt_down_claim_guard.sh
+baseline (must be green before any mutation):
+  Ran 41 checks, 0 failed
+
+  caught   M1: the foreign-claim guard never fires                  (🔴 NOTHING on the machine was reached went red)
+  caught   M2: stack.sh is never invoked (the stack= number)        (🔴 and the machine WAS reached -- the instrument can read non-zero went red)
+  caught   M3: [2/3] stops calling sudo (the sudo= number)          (🔴 and the machine WAS reached -- the instrument can read non-zero went red)
+  caught   M4: the refusal sentence loses one word                  (  and it says it is refusing went red)
+  caught   M5: a DECLARED measurement stops guarding                (🔴 our OWN claim that DECLARES a measurement is refused went red)
+  caught   M6: the retry line carries the description again         (  🔴 and not the parenthesised description went red)
+  caught   M7 (widening): any claim file at all is a refusal        (an EXPIRED claim is not a refusal went red)
+  control  C1: the --force warning, written the long way            (stayed green, as it must)
+
+baseline byte-identical: yes  tools/test_workflow/ndt  sha256 d33dfd0c01fbaf1b2359561e2a4d0fff4ddf7cc8709f989a8b2c68b6c45c0d00
+mutation gate: 7 mutations, 0 survived; 1 control(s), 0 went red
+guarded_build: exit 0
+
+# rc=0
+# end 2026-09-25T18:24:45+08:00  /tmp/ndt-ovs-claim-* after: 0
+# dirty tracked at end: 0

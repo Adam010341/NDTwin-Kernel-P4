@@ -1,0 +1,39 @@
+98442add6ed344a4e60c4346147f35c120a31e06
+# gate    : read-only: the one red cell in ndt_lab_suite at 98442add -- installed /usr/local/sbin/ndtwin-lab vs this tree's copy, and the same suite on an exported e1420df2 tree
+# cmd     : (cwd worktree) JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-ndtovs/helper_env_evidence.sh
+# worktree: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-ovs-claim-0925
+# branch  : fix/ndt-ovs-claim-0925
+# start   : 2026-09-25T20:14:23+08:00
+# ndt under test: the worktree file, git hash-object b78db4a16f5f470ff6cd17b9869a20816fbc0c7e  (HEAD's blob: b78db4a16f5f470ff6cd17b9869a20816fbc0c7e)
+# dirty tracked at start: 0
+# test/gate files under test are HEAD's: yes
+
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-ndtovs/helper_env_evidence.sh
+== installed helper
+-rwxr-xr-x 1 root root 92477 2026-09-25 19:34:12.457027802 +0800 /usr/local/sbin/ndtwin-lab
+6a558fe452955de358fd1a3b4e730fe2be55368a6c90b93675c5442c036fd4fb  /usr/local/sbin/ndtwin-lab
+== this tree's copy, and where each sha lives
+62f76cf5   6685d3a90fd94884f8fa72916c4d03716fb62d86eae0a124750aa892d05f9e24
+e1420df2   6685d3a90fd94884f8fa72916c4d03716fb62d86eae0a124750aa892d05f9e24
+HEAD       6685d3a90fd94884f8fa72916c4d03716fb62d86eae0a124750aa892d05f9e24
+trunk      6a558fe452955de358fd1a3b4e730fe2be55368a6c90b93675c5442c036fd4fb
+   (this branch's diff to it since base: 0 line(s))
+   trunk last changed it: f139c800 2026-09-25 17:39:32 +0800 heartbeat round 2: refuse NDTwin's own pipeline, root-owned bmv2 only, stop/status past a broken co
+== test_ndt_helper_apps_window.sh on the e1420df2 tree (green in ndt_lab_suite.ndtovs-e1420df2.log before 19:34)
+rc=1
+  FAILED   🔴 the installed helper is the copy this suite read
+             expected: [6685d3a90fd94884f8fa72916c4d03716fb62d86eae0a124750aa892d05f9e24]  actual: [6a558fe452955de358fd1a3b4e730fe2be55368a6c90b93675c5442c036fd4fb]
+  ok       no config file at all -> the built-in default
+Ran 150 checks, 1 failed
+== the same suite at HEAD
+rc=1
+  FAILED   🔴 the installed helper is the copy this suite read
+             expected: [6685d3a90fd94884f8fa72916c4d03716fb62d86eae0a124750aa892d05f9e24]  actual: [6a558fe452955de358fd1a3b4e730fe2be55368a6c90b93675c5442c036fd4fb]
+  ok       no config file at all -> the built-in default
+Ran 150 checks, 1 failed
+guarded_build: exit 0
+
+# rc=0
+# end 2026-09-25T20:14:53+08:00  /tmp/ndt-ovs-claim-* after: 0
+# dirty tracked at end: 0

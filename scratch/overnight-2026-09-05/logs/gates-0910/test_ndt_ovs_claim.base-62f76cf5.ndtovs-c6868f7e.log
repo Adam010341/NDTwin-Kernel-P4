@@ -1,0 +1,331 @@
+c6868f7ea0f4296988b1682fc638ff3dc4df01a7
+# gate    : round-3 section 17 against the BASE ndt 62f76cf5 (blob 3273df8b): shows the --check rc change itself (base rc 0 where HEAD's is 1); everything else red here is round 1/2 behaviour
+# cmd     : (cwd worktree) JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash tests/shell/test_ndt_ovs_claim.sh
+# worktree: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-ovs-claim-0925
+# branch  : fix/ndt-ovs-claim-0925
+# start   : 2026-09-25T20:01:16+08:00
+# ndt under test: NDT_UNDER_TEST=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/basendt/ndt  git hash-object 3273df8b0751a777aa26e843752d97782868e771  (HEAD's blob: 9136db6d382242adca3ccbe071061c817f868c5b)
+# dirty tracked at start: 0
+# test/gate files under test are HEAD's: yes
+
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/test_ndt_ovs_claim.sh
+
+1. 🔴 'ndt up ovs' under somebody else's claim: rc 5, and nothing is half-built
+  FAILED   🔴 a foreign claim refuses the OVS bring-up with 5
+             expected: [5]  actual: [1]
+  FAILED     it says it is refusing to build
+             no match for 'refusing to build: the lab is claimed by other-session'
+  FAILED   🔴 NOTHING was reached: no sudo, no stack.sh, no target, no temp, knob kept
+             expected: [sudo=0 stack=0 target=0 tmp=0 knob=kept]  actual: [sudo=3 stack=2 target=1 tmp=0 knob=cleared]
+  ok         the claim file is byte-identical
+  ok         and no override was recorded -- none was asked for
+  FAILED     the bring-up banner never printed
+             unexpected '[1/4] control plane (Ryu)' in the output
+  FAILED     the retry line carries the BARE owner
+             no match for 'NDT_OWNER=other-session ndt up ovs 4'
+  ok         🔴 and not the parenthesised description
+  FAILED     and names the override, with where it is recorded
+             no match for 'ndt up ovs 4 --force'
+  FAILED     saying where the override would be written
+             no match for '.test_run/lab.claim.overrides'
+  FAILED     a foreign claim with measuring= is still 5
+             expected: [5]  actual: [1]
+  FAILED     and quotes the declaration
+             no match for 'measuring=sampling matrix, cell 3/8'
+  FAILED     'ndt up' (OVS 128) is refused the same way
+             expected: [5]  actual: [1]
+  FAILED     and reached nothing
+             expected: [sudo=0 stack=0 target=0 tmp=0 knob=kept]  actual: [sudo=3 stack=2 target=1 tmp=0 knob=cleared]
+  FAILED   🔴 NDT_OWNER unset: any live claim refuses
+             expected: [5]  actual: [1]
+  FAILED     and reached nothing
+             expected: [sudo=0 stack=0 target=0 tmp=0 knob=kept]  actual: [sudo=3 stack=2 target=1 tmp=0 knob=cleared]
+
+2. 🔴 'ndt up ovs' with a measurement in flight: rc 5, P4's semantics
+  FAILED   🔴 a measurement in flight refuses the OVS bring-up
+             expected: [5]  actual: [1]
+  FAILED     it says a measurement is running
+             no match for 'a measurement is running'
+  FAILED     naming what is running
+             no match for 'iperf3 -c 10.0.0.2 -t 200 -P 4'
+  FAILED     and reached nothing
+             expected: [sudo=0 stack=0 target=0 tmp=0 knob=kept]  actual: [sudo=3 stack=2 target=1 tmp=0 knob=cleared]
+  FAILED     and names the override
+             no match for 'ndt up ovs 4 --force'
+
+3. 🔴 the controls -- a guard that refuses everything guards nothing
+  ok       our own live claim is not a refusal
+  ok         the bring-up ran
+  ok       🔴 stack.sh WAS invoked -- the instrument can read non-zero
+  ok         and the fabric verb WAS run
+  ok         and the knob WAS cleared -- that column can move too
+  ok         and up.target WAS written
+  ok         and no override is recorded for a bring-up that needed none
+  ok       an EXPIRED claim is not a refusal
+  ok         the bring-up ran
+  ok       no claim and nothing running is not a refusal
+  ok         the bring-up ran
+
+4. 🔴 --force builds, and every use of it is written down
+  ok       --force is not refused
+  ok         the fabric was built
+  FAILED     it says out loud it is building over the claim
+             no match for '--force: building over the claim of other-session'
+  FAILED   🔴 exactly one override is recorded
+             expected: [1]  actual: [0]
+  FAILED     who: the NDT_OWNER that forced it
+             expected: [ovs-claim-worker]  actual: []
+  FAILED     🔴 whose claim was overridden
+             expected: [other-session]  actual: []
+  FAILED     that claim's expiry, as it was
+             expected: [1790339476]  actual: []
+  FAILED     what that claim declared
+             expected: [reader nsr]  actual: []
+  FAILED     when: a timestamp with a date and an offset
+             expected: [yes]  actual: [no]
+  FAILED     and the command it forced
+             no match for 'up ovs 4 --force'
+  FAILED     which login ran it
+             expected: [adam]  actual: []
+  FAILED   🔴 --force over a measurement in flight is recorded too, and APPENDED
+             expected: [2]  actual: [0]
+  ok         the first record is untouched
+  FAILED     with no claim to name, 'over' says so
+             expected: [none]  actual: []
+  FAILED     and it names what was running
+             no match for 'matrix.sh cell 4'
+  ok       --force over nothing records nothing
+  ok         and the bring-up still ran
+  FAILED   🔴 --force whose record cannot be written is refused
+             expected: [5]  actual: [1]
+  FAILED     and says why
+             no match for 'could not be recorded'
+  FAILED     and reached nothing
+             expected: [sudo=0 stack=0 target=0 tmp=0 knob=kept]  actual: [sudo=3 stack=2 target=1 tmp=0 knob=cleared]
+
+5. 🔴 P4 goes through the SAME guard, with the same flag and the same record
+  ok       🔴 a foreign claim still refuses the P4 bring-up with 5
+  FAILED     with the same sentence as OVS
+             no match for 'refusing to build: the lab is claimed by other-session'
+  ok         and reached nothing
+  FAILED     and names the same override
+             no match for 'ndt up p4 4 --force'
+  ok         a measurement in flight still refuses P4 with 5
+  FAILED   --force builds P4 over a foreign claim
+             expected: [no]  actual: [yes]
+  FAILED     the fabric was started
+             no match for 'topo-start'
+  FAILED     and the override is recorded
+             expected: [1]  actual: [0]
+  FAILED     naming whose claim
+             expected: [other-session]  actual: []
+  FAILED     and the P4 command
+             no match for 'up p4 4 --force'
+  FAILED   🔴 neither bring-up calls foreign_claim itself
+             expected: [0]  actual: [1]
+  FAILED     and each calls the shared guard exactly once
+             expected: [2]  actual: [0]
+
+6. the flag is argv, parsed once for both planes, and an exported variable is not it
+  FAILED   --force is taken off argv and sets the flag
+             no match for 'force=[1] argv=[ovs 4]'
+  FAILED     and the words to retry with do not carry it
+             no match for 'words=[ovs 4]'
+  FAILED     in any position
+             no match for 'force=[1] argv=[p4 4]'
+  FAILED   🔴 an exported NDT_UP_FORCE without the flag forces nothing
+             no match for 'force=[]'
+  FAILED   🔴 an exported NDT_UP_FORCE=1 does not open the guard
+             expected: [5]  actual: [1]
+  FAILED     and nothing was recorded or reached
+             expected: [0 sudo=0 stack=0 target=0 tmp=0 knob=kept]  actual: [0 sudo=3 stack=2 target=1 tmp=0 knob=cleared]
+
+7. 'ndt help' tells the truth about it
+  FAILED   the up block names the override
+             no match for 'ndt up <any of the above> --force'
+  FAILED     and where it is recorded
+             no match for '.test_run/lab.claim.overrides'
+  ok         rc 5 still names a foreign claim among its causes
+  FAILED     and says it is BOTH planes now
+             no match for 'on BOTH planes'
+  FAILED   the down block says a stale entry is not a subject
+             no match for 'STALE'
+  FAILED   🔴 'ndt status' shows the last override
+             no match for '--force'
+  FAILED     naming who forced past whom
+             no match for 'ovs-claim-worker over other-session'
+
+8. 🔴 a stale pidfile: 'ndt status' marks it
+  FAILED   🔴 a dead app pidfile is marked STALE
+             no match for 'STALE'
+  FAILED     naming the file
+             no match for '.test_run/pids/app_viz.pid'
+  FAILED     and the pid that is gone
+             no match for 'pid 2521440 gone'
+  FAILED     and what removes it
+             no match for ''ndt down' removes it'
+  FAILED   🔴 and 'ndt status' itself prints that row (existence is not wiring)
+             no match for 'STALE -- .test_run/pids/app_viz.pid'
+  ok       a dead stack pidfile is still marked stale
+  ok       🔴 a pidfile naming a LIVE viz is not stale
+  ok       🔴 pid gone but its process group alive: NOT stale
+  FAILED     and it says the group is still there
+             no match for 'process group 2521599 still has live member(s)'
+  FAILED   🔴 a pid alive as somebody else is STALE (pid + argv, not the number)
+             no match for 'STALE'
+  FAILED     and it says the number was recycled
+             no match for 'recycled'
+
+9. 🔴 a stale pidfile: 'ndt down' removes it, and a down lab still answers 3
+  FAILED   🔴 an already-down lab with a stale pidfile is rc 3, not 0
+             expected: [3]  actual: [0]
+  FAILED     and the verdict line says what it measured
+             expected: [1]  actual: [0]
+  FAILED   🔴 the stale pidfile is GONE
+             expected: [absent]  actual: [present]
+  FAILED     and its .pgid with it
+             expected: [absent]  actual: [present]
+  FAILED     it says it removed it, and why
+             no match for 'removed stale .test_run/pids/app_viz.pid -- pid 2521646 gone'
+  FAILED   🔴 the app's window was written down before the file went
+             expected: [1789365600]  actual: []
+  FAILED   🔴 the window's right end is the sealed one, not now
+             expected: [1789365600]  actual: []
+  FAILED   🔴 down again: rc 3
+             expected: [3]  actual: [0]
+  ok         and nothing left to remove
+  FAILED     a dead kernel.pid on a down lab: rc 3
+             expected: [3]  actual: [0]
+  FAILED     and it is removed
+             expected: [absent]  actual: [present]
+  ok       🔴 a LIVE pidfile is kept
+  ok         and is a subject: rc 0, not 3
+  ok       🔴 pid gone, group alive: the pidfile is KEPT
+  ok         and it is still a subject: not 3
+  ok         an UNUSABLE pidfile is not called stale and not removed by the sweep
+  ok         under a foreign claim 'down' is still 5
+  ok         and leaves even the stale file where it is
+
+10. 'ndt clean' reads the registry the same way
+  FAILED   🔴 only a stale entry: nothing to judge, rc 3
+             expected: [3]  actual: [0]
+  FAILED     and it does not pretend the registry is empty
+             no match for 'STALE'
+  ok         clean does not remove it -- it is an assertion
+  ok         a LIVE registry entry is still a subject: rc 0
+
+11. 🔴 F1: a zero-length window moved into a record by 'down' still says NO extent
+  ok       control: over the pidfile itself the report says NO extent
+  FAILED     down on that lab: rc 3
+             expected: [3]  actual: [0]
+  FAILED     the energy pidfile is gone
+             expected: [absent]  actual: [present]
+  FAILED     and its window is on record, zero wide
+             expected: [1789365600 1789365600]  actual: [ ]
+  FAILED     the report now reads it from the record
+             no match for 'energy.window'
+  ok       🔴 F1: and still says the window has NO extent
+  ok         and that it is NOT 'this app left nothing'
+
+12. 🔴 F2/F8: a recycled number that leads its own group is STALE (start time), not 'group'
+  FAILED   🔴 recycled into a group leader: STALE
+             no match for 'STALE -- .test_run/pids/app_viz.pid'
+  FAILED     and it says the process started after the file
+             no match for 'after this file was written'
+  ok         and never 'NOT stale'
+  FAILED   🔴 down removes it and a down lab answers 3
+             expected: [3 absent]  actual: [0 present]
+  ok         and the stranger was not signalled
+  ok       🔴 control: started BEFORE the file was written -> not stale
+  FAILED     it is the live-group case
+             no match for 'is NOT stale'
+  FAILED   🔴 F8: a stack pidfile recycled into a stranger is stale
+             no match for 'kernel.pid: stale pidfile (pid 2522678 is alive, but that process started'
+  FAILED     and is not printed as alive
+             unexpected 'kernel.pid=2522678 alive' in the output
+  FAILED     down: not a subject (rc 3), and removed
+             expected: [3 absent]  actual: [0 present]
+  FAILED     🔴 and says why stack.sh kept it
+             no match for 'stack.sh kept it above because the number is somebody else's'
+  ok         control: written after it started -> alive, as before
+  ok         and down keeps it and counts it (rc 0)
+
+13. 🔴 F3/F4: the window's right end is the app's log when there is one; no window, no removal
+  FAILED   🔴 a log newer than the pidfile closes the window at the log's mtime
+             expected: [1789365600 1789366100]  actual: [ ]
+  ok       🔴 F4: no window written -> the stale pidfile is KEPT
+  FAILED     and down is 1, not 3
+             expected: [1]  actual: [0]
+  FAILED     it says why it kept it
+             no match for 'kept stale .test_run/pids/app_viz.pid'
+  FAILED     🔴 and how to recover
+             no match for 'then run 'ndt down' again'
+  FAILED     and the claim note names it
+             no match for 'app_viz.pid kept'
+
+14. what 'down' may NOT delete: a symlink, and a group that is this shell's own
+  ok       🔴 a symlinked pidfile is never removed
+  ok         nor what it points at
+  ok       🔴 a pidfile whose group is this shell's own is never removed
+
+15. the guard's edges: our own claim's measuring=, the dispatch, the record's shape
+  ok       🔴 our own claim with measuring= does not refuse 'up'
+  ok         the bring-up ran
+  FAILED   🔴 dispatch: 'ndt up 4' under a foreign claim is 5
+             expected: [5]  actual: [1]
+  FAILED     its retry line is the command as typed
+             no match for 'NDT_OWNER=other-session ndt up 4'
+  FAILED     and its override line too
+             no match for '    ndt up 4 --force'
+  ok       🔴 dispatch: 'ndt up 4 --force' builds
+  ok         the fabric verb ran
+  FAILED     and the record carries the command as typed
+             expected: [ndt up 4 --force]  actual: []
+  FAILED   🔴 a record that does not read back is refused
+             expected: [5]  actual: [1]
+  FAILED     and reached nothing
+             expected: [sudo=0 stack=0 target=0 tmp=0 knob=kept]  actual: [sudo=3 stack=2 target=1 tmp=0 knob=cleared]
+  FAILED   🔴 one override is one line
+             expected: [1]  actual: [0]
+  FAILED     of exactly ten tab-separated fields
+             expected: [10]  actual: []
+  FAILED     the tab in the note became a space
+             expected: [a note with tabs]  actual: []
+  FAILED     and the second process is counted, not a new line
+             expected: [iperf3 -c 10.0.0.2 x (+1 more)]  actual: []
+
+16. 'ndt help' says what the record means and every place the rules changed
+  FAILED   a --force with nothing to go past writes nothing
+             no match for 'A --force with nothing to go past writes nothing'
+  FAILED   🔴 F6: the line means '--force was used', not 'it came up'
+             no match for 'THE LINE MEANS "--force WAS USED", NOT "IT CAME UP"'
+  FAILED   down's rc 1 names the stale-entry failures
+             no match for 'STALE registry entry could not be removed, or an app's window could not be written'
+  FAILED   identity is stated per kind of file
+             no match for 'for the stack's own files, which carry no argv to compare, the pid alone'
+  FAILED   clean's 3 says 'live'
+             no match for 'nothing in .test_run/pids/ naming a live process'
+  FAILED   🔴 status: a recycled stack pidfile is a --check problem, rc 1 only with a baseline
+             no match for '(a recycled number) is stale too, and a --check problem: rc 1 while a baseline exists; with none the answer is still 3'
+  FAILED   🔴 the manual says the same about --check
+             no match for '有 baseline（`.test_run/up.target`）時 rc 1，沒有時照舊 3'
+  FAILED   🔴 the manual: a recycled number is stale without asking the group
+             no match for '**直接**判 stale，不問 group'
+
+17. 🔴 a recycled stack number is a --check problem: rc 1 with a baseline, 3 without
+  FAILED   🔴 with a baseline, a recycled kernel.pid makes --check rc 1
+             expected: [1]  actual: [0]
+  FAILED     and it is named in the problem list
+             no match for '- .test_run/pids/kernel.pid: stale pidfile (pid 2523931 is alive, but that process started'
+  ok       🔴 control: the same pid written after it started leaves --check at 0
+  ok       🔴 without a baseline the answer is still 3
+  FAILED     the recycled pidfile is still listed, under 'everything else'
+             no match for 'kernel.pid: stale pidfile (pid 2523931 is alive'
+
+Ran 166 checks, 112 failed
+guarded_build: exit 1
+
+# rc=1
+# end 2026-09-25T20:01:24+08:00  /tmp/ndt-ovs-claim-* after: 0
+# dirty tracked at end: 0

@@ -1,0 +1,43 @@
+54d2518a07a084d2b60811fa8f404f444e5a0c75
+# gate    : tools/test_workflow/test_ndt_lab_session.sh (judge F9)
+# cmd     : (cwd worktree) JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash tools/test_workflow/test_ndt_lab_session.sh
+# worktree: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-ovs-claim-0925
+# branch  : fix/ndt-ovs-claim-0925
+# start   : 2026-09-25T18:00:34+08:00
+# ndt under test: the worktree file, git hash-object 9136db6d382242adca3ccbe071061c817f868c5b  (HEAD's blob: 9136db6d382242adca3ccbe071061c817f868c5b)
+# dirty tracked at start: 0
+# test/gate files under test are HEAD's: yes
+
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tools/test_workflow/test_ndt_lab_session.sh
+the shape every test before 2026-08-21 exercised
+  ok    topo alone                                   topo    -> TRUE
+  ok    topo alone                                   energy  -> FALSE
+the regression: an app session sorts ahead of topo
+  ok    energy + topo                                topo    -> TRUE
+  ok    energy + sim + topo                          topo    -> TRUE
+  ok    energy + sim + topo                          energy  -> TRUE
+  ok    energy + sim + topo                          sim     -> TRUE
+must still say absent when it genuinely is
+  ok    energy + sim, topo gone                      topo    -> FALSE
+  ok    no sessions at all                           topo    -> FALSE
+  ok    empty output (sudo -n failed)                topo    -> FALSE
+  ok    no sessions at all                           energy  -> FALSE
+must not be satisfied by a near miss
+  ok    a session named 'topology'                   topo    -> FALSE
+  ok    a session named 'simulator'                  sim     -> FALSE
+  ok    'topo:' only mid-line                        topo    -> FALSE
+the G-7 config line does not change any answer
+  ok    config line + topo                           topo    -> TRUE
+  ok    config line + topo                           energy  -> FALSE
+  ok    config line + no sessions                    topo    -> FALSE
+  ok    a KERNEL_DIR containing 'topo:'              topo    -> FALSE
+the implementation has not drifted from what is tested here
+  ok    expression still present verbatim in ndt    
+
+18 passed, 0 failed
+guarded_build: exit 0
+
+# rc=0
+# end 2026-09-25T18:00:34+08:00  /tmp/ndt-ovs-claim-* after: 0
+# dirty tracked at end: 0

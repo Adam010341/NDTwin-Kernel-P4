@@ -1,0 +1,19 @@
+b22e88ed1629bc0e28293ee6271d19e6bc0f9543
+# 2026-09-25T09:56:26Z worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-0925, branch feat/p4-heartbeat-0925
+# status: 
+# $ JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/hb/residue_rerun.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/hb/residue_rerun.sh
+### what test_apps_residue.sh reads, identical at base 62f76cf5 and HEAD?
+tests/shell/test_apps_residue.sh         identical
+tools/test_workflow/ndt                  identical
+tools/test_workflow/stack.sh             identical
+tools/test_workflow/ports.sh             identical
+run 1 rc=0  Ran 131 checks, 0 failed
+run 2 rc=0  Ran 131 checks, 0 failed
+run 3 rc=0  Ran 131 checks, 0 failed
+run 4 rc=0  Ran 131 checks, 0 failed
+run 5 rc=0  Ran 131 checks, 0 failed
+red runs: 0 of 5
+guarded_build: exit 0
+# rc=0  2026-09-25T10:00:28Z

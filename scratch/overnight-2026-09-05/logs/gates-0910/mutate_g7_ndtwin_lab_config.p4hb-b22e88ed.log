@@ -1,0 +1,34 @@
+b22e88ed1629bc0e28293ee6271d19e6bc0f9543
+# 2026-09-25T09:47:06Z worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-0925, branch feat/p4-heartbeat-0925
+# status: 
+# $ JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh ./tests/shell/mutate_g7_ndtwin_lab_config.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ ./tests/shell/mutate_g7_ndtwin_lab_config.sh
+=== baseline (the fix, unmutated) ===
+  rc=0  red=
+
+=== mutations ===
+  no-directory-check         caught by: but world-writable, so it is refused
+  directory-checked-second   caught by: a bad directory refuses before the file
+  no-owner-check             caught by: a file owned by this user is refused
+  symlink-allowed            caught by: and says it will not read the target
+  source-instead-of-parse    caught by: and was NOT executed
+  unknown-key-ignored        caught by: unknown-key is refused
+  no-bridge-validation       caught by: a KERNEL_DIR with no bridge script
+  environment-gets-a-vote    caught by: an exported KERNEL_DIR is ignored
+  default-tree-changed       caught by: KERNEL_DIR is the pre-G-7 default
+  gate-locks-out-status      caught by: status still runs
+  gate-lets-everything-run   caught by: topo-start does NOT
+  no-restore-on-refusal      caught by: a half-applied file leaves no residue
+  refusal-is-silent          caught by: the refusal is announced
+  no-removal-instructions    caught by: and says how to remove the file
+  heartbeat-gate-lets-start-run caught by: heartbeat start does NOT
+  heartbeat-gate-locks-out-stop caught by: heartbeat stop still runs
+  gate-not-given-the-sub-verb caught by: the dispatch hands the gate the sub-verb
+  control-comment-only       SURVIVED (control, as required)
+
+restore: tools/test_workflow/ndtwin-lab is byte-identical to the pre-gate snapshot
+
+VERDICT: every mutation was caught by the check named for it; the control survived
+guarded_build: exit 0
+# rc=0  2026-09-25T09:47:29Z

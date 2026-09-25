@@ -1,0 +1,61 @@
+98442add6ed344a4e60c4346147f35c120a31e06
+# gate    : read-only: merge-tree vs feat/ndt-serve-0924, RC_SOURCE code anchors old->new at HEAD, help/manual rc phrases
+# cmd     : (cwd worktree) JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-ndtovs/serve_evidence.sh
+# worktree: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-ovs-claim-0925
+# branch  : fix/ndt-ovs-claim-0925
+# start   : 2026-09-25T20:12:29+08:00
+# ndt under test: the worktree file, git hash-object b78db4a16f5f470ff6cd17b9869a20816fbc0c7e  (HEAD's blob: b78db4a16f5f470ff6cd17b9869a20816fbc0c7e)
+# dirty tracked at start: 0
+# test/gate files under test are HEAD's: yes
+
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-ndtovs/serve_evidence.sh
+== 1. merge-tree HEAD feat/ndt-serve-0924
+15b336b645d5a2f6d5198ce5d1b85ebae47d2f81
+merge-tree rc=0, conflicted paths after the tree id: 0
+== 2. RC_SOURCE code anchors
+status.check  rc 3  old  6486 ok -> new 6939 ok  (old line at HEAD holds it: no)  [return 3]
+status.check  rc 0  old  6491 ok -> new 6944 ok  (old line at HEAD holds it: no)  [return 0]
+status.check  rc 1  old  6495 ok -> new 6948 ok  (old line at HEAD holds it: no)  [return 1]
+status        rc 0  old  6497 ok -> new 6950 ok  (old line at HEAD holds it: no)  [return 0]
+claim         rc 2  old   748 ok -> new 753 ok  (old line at HEAD holds it: no)  [return 2]
+claim         rc 2  old   757 ok -> new 762 ok  (old line at HEAD holds it: no)  [return 2]
+claim         rc 1  old   782 ok -> new 787 ok  (old line at HEAD holds it: no)  [return 1]
+claim         rc 1  old   855 ok -> new 860 ok  (old line at HEAD holds it: no)  [return 1]
+claim         rc 0  old   857 ok -> new 862 ok  (old line at HEAD holds it: no)  [ok "lab claimed by]
+release       rc 0  old   861 ok -> new 866 ok  (old line at HEAD holds it: no)  [return 0]
+release       rc 1  old   866 ok -> new 871 ok  (old line at HEAD holds it: no)  [return 1]
+release       rc 1  old   894 ok -> new 899 ok  (old line at HEAD holds it: no)  [return 1]
+apps.start    rc 0  old  8311 ok -> new 8771 ok  (old line at HEAD holds it: no)  [return 0]
+apps.start    rc 1  old  8315 ok -> new 8775 ok  (old line at HEAD holds it: yes)  [return 1]
+apps.start    rc 1  old  8388 ok -> new 8848 ok  (old line at HEAD holds it: no)  [return 1]
+apps.stop     rc 1  old  9814 ok -> new 10289 ok  (old line at HEAD holds it: no)  [return 1]
+apps.stop     rc 2  old  9817 ok -> new 10292 ok  (old line at HEAD holds it: no)  [return 2]
+apps.stop     rc 0  old  9820 ok -> new 10295 ok  (old line at HEAD holds it: no)  [return 0]
+apps.status   rc 0  old  9747 ok -> new 10222 ok  (old line at HEAD holds it: no)  [return 0]
+anchors not mapped/holding: 0
+== 3. help phrases
+ok      exit 0 the fabric came up and verified
+ok      1 something was MEASURED and it was dirty
+ok      2 is a usage error
+ok      5 a GUARD REFUSED and nothing was built
+ok      exit 0 the teardown finished and the machine verified clean
+ok      1 any of: stack.sh's half exited non-zero
+ok      2 is a usage error
+ok      3 THERE WAS NOTHING TO TEAR DOWN
+ok      5 A GUARD REFUSED and nothing was torn down
+ok      exit 0 all compared fields match
+ok      1 one of them does not (the message names it)
+ok      3 nothing was compared, because there is no baseline RIGHT NOW
+ok      the teardown finished and the machine verified clean
+ok      something was MEASURED and is still there
+ok      THERE WAS NOTHING TO JUDGE
+ok      A GUARD REFUSED and nothing was torn down
+ok      is a usage error
+help phrases missing: 0
+== verdict: merge-tree rc=0 conflicted-paths=0 anchors-bad=0 phrases-missing=0
+guarded_build: exit 0
+
+# rc=0
+# end 2026-09-25T20:12:29+08:00  /tmp/ndt-ovs-claim-* after: 0
+# dirty tracked at end: 0

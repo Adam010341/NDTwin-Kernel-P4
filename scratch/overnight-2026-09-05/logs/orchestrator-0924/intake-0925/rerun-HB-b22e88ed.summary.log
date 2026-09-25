@@ -1,0 +1,6 @@
+test_heartbeat: Ran 196 checks, 0 failed guarded_build: exit 0 # rc=0 
+test_g7: Ran 66 checks, all passed guarded_build: exit 0 # rc=0 
+mutate_heartbeat: VERDICT: every mutation was caught by the check named for it; the control survived guarded_build: exit 0 # rc=0 
+mutate_g7: VERDICT: every mutation was caught by the check named for it; the control survived guarded_build: exit 0 # rc=0 
+tracked changes after: 0
+DONE

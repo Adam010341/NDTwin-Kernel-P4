@@ -1,0 +1,36 @@
+01ff83681d6878fc73c5741f7782ac5db92cd92f spike round 3: tc through mnexec by default, proven by running it; re-read the last sniffer's hit
+Makes 0849c0e2's three red self-test lines green (log spike_selftest.red.p4hb-0849c0e2.log).
+
+R2-1: `: "${FAULTS_TC:=sudo -n mnexec -a 1 tc}"` before faults.sh is sourced, so faults.sh's
+`${FAULTS_TC:-sudo -n tc}` keeps it and an explicit FAULTS_TC still overrides. precheck_tc no
+longer asks `sudo -n -l` (zero discriminating power here, sudo_surface.sh:37-49); it RUNS
+`tc qdisc show dev lo` through whatever route is in force -- harmless, cannot fail for a missing
+device, so a non-zero rc is the route refusing -- and for a non-default route says that `show`
+running proves only `show`. Still before the claim; refused -> rc 2.
+R2-2: watch_hit() factored out; when every sniffer has exited, watch_sniffers reads first-hit
+once more before calling the window clean (and once more after the cap).
+
+[Co-developed with claude code -- Adam]
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+0849c0e26fba8cb7890440357fe68b981b9cb59c spike round 3, tests first: the tc route is proven by running something; the last sniffer's hit
+Red against the spike as it stands (b22e88ed); the fix is the next commit.
+
+R2-1 (judge, scoped round 2): `sudo -n -l <cmd>` answers 0 for anything on this machine
+(tools/test_workflow/sudo_surface.sh:37-49), so round 2's pre-check could not discriminate.
+The self-test now requires:
+  * the spike's DEFAULT tc route to be `sudo -n mnexec -a 1 tc` (red: it is `sudo -n tc`);
+  * the pre-check to RUN `tc qdisc show dev lo` through the route (sudo stubbed, calls recorded);
+    a refused route to be refused; the plain `sudo -n tc` override to be asked by running tc,
+    never by `sudo -l` (red: it still uses -l); a FAULTS_TC that cannot run tc to be refused;
+  * ONE real, harmless call -- `/usr/bin/sudo -n /usr/bin/mnexec -a 1 /usr/bin/true`, absolute
+    paths so nothing can stand in for it -- whose rc is printed as evidence; not granted is a
+    red line, never a pass.
+R2-2: a hit written as the last sniffer exits, between watch_sniffers' first-hit read and its
+liveness check, must still be caught (red: it is missed until the arm's census-verdict).
+
+[Co-developed with claude code -- Adam]
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+

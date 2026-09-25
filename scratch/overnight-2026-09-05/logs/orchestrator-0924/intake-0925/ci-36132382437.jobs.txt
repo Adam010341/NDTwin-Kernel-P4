@@ -1,0 +1,4 @@
+failure	Build and unit tests (GCC)
+failure	clang can compile it
+failure	TSan
+success	ASan + UBSan

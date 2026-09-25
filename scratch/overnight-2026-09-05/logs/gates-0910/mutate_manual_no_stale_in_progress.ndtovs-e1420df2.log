@@ -1,0 +1,46 @@
+e1420df26d9d7a3703b814e40ea575402efd4f2e
+# gate    : existing mutation gate over code or text this change touched (judge F9 for app_package/ovs4_has_sflow)
+# cmd     : (cwd worktree) JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash tests/shell/mutate_manual_no_stale_in_progress.sh
+# worktree: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-ovs-claim-0925
+# branch  : fix/ndt-ovs-claim-0925
+# start   : 2026-09-25T19:10:27+08:00
+# ndt under test: the worktree file, git hash-object 9136db6d382242adca3ccbe071061c817f868c5b  (HEAD's blob: 9136db6d382242adca3ccbe071061c817f868c5b)
+# dirty tracked at start: 0
+# test/gate files under test are HEAD's: yes
+
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_manual_no_stale_in_progress.sh
+baseline (unmutated) must be green:
+  ok            baseline green
+
+mutations:
+  caught        M1: the clean caveat is written back as an open defect (case 5a caveat 'clean-calls-your-fabric-residue' is retracted and says what merged it went red)
+  caught        M2: the help caveat's BEGIN marker is deleted          (case 5b caveat 'help-deep-names-three-ports' is retracted and says what merged it went red)
+  caught        M3: a caveat names a merge that is not an ancestor     (case 5c caveat 'clean-advises-deep-on-your-own' is retracted and says what merged it went red)
+  caught        M4: a stale line loses the word that excuses it        (case 6  no line calls a ticket unfixed when its merge is already in the tree went red)
+  caught        M5: the test stops reading 'ndt help'                  (case 2  'ndt help' prints --deep's size out of ports.sh's table went red)
+  caught        M6: the measured record is dropped with the caveat     (case 9  the measured record inside the third caveat survived the sweep went red)
+  caught        M7: 'ndt' stops warning about a stranger at all        (case 4  'ndt' still has the stranger sentence (the fix was not 'never say it') went red; the witness stayed green)
+  caught        M8: the branch caveat says 未併入 again             (case 6b no line calls a branch unmerged when its merge is already in the tree went red)
+  caught        M9: the branch caveat's END marker is deleted          (case 5d caveat 'e21-contract-branch-only' is retracted and says what merged it went red)
+  caught        M10: a doc block drops the word that says the ticket landed (case 11  no doc page calls a ticket unfixed without naming the merge that landed it went red)
+  caught        M11: a doc block drops the word that says the branch landed (case 11b no doc page calls a branch unmerged without naming the merge that landed it went red)
+  caught        M12: the disclosed sha is an ancestor but not a merge  (case 11  no doc page calls a ticket unfixed without naming the merge that landed it went red)
+  caught        M13: the disclosed sha is not in this repository       (case 11  no doc page calls a ticket unfixed without naming the merge that landed it went red)
+  caught        M14: the sweep reads one line instead of the block     (case 11b no doc page calls a branch unmerged without naming the merge that landed it went red)
+  caught        M15: the sweep's page list comes back empty            (case 11c the sweep has a page list, all of it readable, with the manual and KNOWN-ISSUES in it went red)
+  caught        M16: the failure line stops naming the branch it matched (case 11d a violation line names the branch the lookup matched, not just the sha went red)
+
+  SURVIVED      C1 (control): a source comment is reworded             (control, as required)
+
+baseline byte-identical: yes  doc/2026-08-17_testing-manual.md
+baseline byte-identical: yes  tests/shell/test_manual_no_stale_in_progress.sh
+baseline byte-identical: yes  tools/test_workflow/ndt
+baseline byte-identical: yes  doc/KNOWN-ISSUES.md
+GATE-SUMMARY mutations=16 survived=0 unapplied=0 controls=1 red=0
+mutation gate: 16 mutations, 0 survived; 1 control(s), 0 went red
+guarded_build: exit 0
+
+# rc=0
+# end 2026-09-25T19:10:35+08:00  /tmp/ndt-ovs-claim-* after: 0
+# dirty tracked at end: 0

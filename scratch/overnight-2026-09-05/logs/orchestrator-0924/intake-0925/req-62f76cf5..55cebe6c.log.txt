@@ -1,0 +1,1 @@
+55cebe6c p4_proxy/requirements.txt describes the venv the tests and live runs actually use

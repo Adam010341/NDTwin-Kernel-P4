@@ -1,0 +1,2150 @@
+# HEAD 62f76cf58b042c93f6a5adb0aa3a499105e8bd66  interpreter /home/adam/miniconda3/bin/python3.13  (/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python)
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925  2026-09-25T04:56:25Z
+# python 3.13.13 | packaged by Anaconda, Inc. | (main, Apr 14 2026, 06:19:41) [GCC 14.3.0]
+# protobuf 3.20.3 backend=python
+# PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=<unset>
+# pip freeze:
+#   annotated-doc==0.0.4
+#   annotated-types==0.7.0
+#   anyio==4.14.2
+#   certifi==2026.6.17
+#   charset-normalizer==3.4.9
+#   click==8.4.2
+#   fastapi==0.139.2
+#   googleapis-common-protos==1.75.0
+#   grpcio==1.82.1
+#   h11==0.16.0
+#   hypothesis==6.165.5
+#   idna==3.18
+#   networkx==3.6.1
+#   p4runtime==1.5.0
+#   protobuf==3.20.3
+#   pydantic==2.13.4
+#   pydantic_core==2.46.4
+#   requests==2.34.2
+#   sortedcontainers==2.4.0
+#   starlette==1.3.1
+#   thrift==0.24.0
+#   typing-inspection==0.4.2
+#   typing_extensions==4.16.0
+#   urllib3==2.7.0
+#   uvicorn==0.51.0
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy
+# cmd env PYTHONPATH=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy PYTHONDONTWRITEBYTECODE=1 /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python -m unittest tests.test_app_package_proxy tests.test_app_package tests.test_bmv2_binary_override tests.test_clone_session tests.test_counter_route tests.test_declared_links tests.test_delete_restores_route tests.test_exact_one_element_list tests.test_fabric_bring_up tests.test_five_tuple_match tests.test_flowentry_endpoints tests.test_flow_stats_route tests.test_foreign_pipeline tests.test_journal_is_wired_in_main tests.test_journal_wiring tests.test_kernel_notifier tests.test_link_state_entry tests.test_link_telemetry tests.test_link_watchdog tests.test_lldp_beacon tests.test_multicast_group tests.test_p4_client tests.test_p4_client_writes tests.test_packet_in_by_name tests.test_path_determinism tests.test_port_guard tests.test_psample_sflow_emitter tests.test_readopt tests.test_route_binding tests.test_rule_install_times tests.test_rule_journal tests.test_ryu_flow_stats tests.test_ryu_topology tests.test_sflow_emitter tests.test_startup tests.test_switch_state tests.test_table_entry_route tests.test_table_generation tests.test_topo_log tests.test_topology_properties tests.test_unsupported_match
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env PYTHONPATH=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy PYTHONDONTWRITEBYTECODE=1 /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python -m unittest tests.test_app_package_proxy tests.test_app_package tests.test_bmv2_binary_override tests.test_clone_session tests.test_counter_route tests.test_declared_links tests.test_delete_restores_route tests.test_exact_one_element_list tests.test_fabric_bring_up tests.test_five_tuple_match tests.test_flowentry_endpoints tests.test_flow_stats_route tests.test_foreign_pipeline tests.test_journal_is_wired_in_main tests.test_journal_wiring tests.test_kernel_notifier tests.test_link_state_entry tests.test_link_telemetry tests.test_link_watchdog tests.test_lldp_beacon tests.test_multicast_group tests.test_p4_client tests.test_p4_client_writes tests.test_packet_in_by_name tests.test_path_determinism tests.test_port_guard tests.test_psample_sflow_emitter tests.test_readopt tests.test_route_binding tests.test_rule_install_times tests.test_rule_journal tests.test_ryu_flow_stats tests.test_ryu_topology tests.test_sflow_emitter tests.test_startup tests.test_switch_state tests.test_table_entry_route tests.test_table_generation tests.test_topo_log tests.test_topology_properties tests.test_unsupported_match
+....................................................................................................................................................................................................................WARNING:root:egress counter read failed for port 3: StatusCode.UNAVAILABLE -- reporting no sample, not zero
+..WARNING:root:egress counter read for port 7 returned no counter_entry -- reporting no sample, not zero
+...................[Proxy Agent] app package: baseline (mode ndtwin, election_id 0,1)
+[1] Clone session 300 -> port 64 installed
+[1] Clone session 250 -> port 255 installed
+[1] Clone session 250 could not be programmed: INSERT INTERNAL: fake / MODIFY INTERNAL: fake -- no telemetry samples will be produced by this switch
+[1] Clone session 250 -> port 255 installed
+[1] Clone session 250 settle failed (INTERNAL: fake) -- the session may hold stacked replicas and multiply every sample from this switch
+[1] Clone session 250 -> port 255 installed
+[1] Clone session 250 settle failed (INTERNAL: fake) -- the session may hold stacked replicas and multiply every sample from this switch
+[1] Clone session 250 already present, updated (INSERT said ALREADY_EXISTS)
+[1] Clone session 250 already present, updated (INSERT said INVALID_ARGUMENT)
+[1] Clone session 250 already present, updated (INSERT said UNKNOWN)
+[1] Clone session 250 already present, updated (INSERT said ALREADY_EXISTS)
+[1] Clone session 250 -> port 255 installed
+[1] Clone session 250 -> port 255 installed
+[1] Clone session 250 -> port 255 installed
+[1] Clone session 250 -> port 255 installed
+[1] Clone session 250 -> port 255 installed
+[1] Clone session 250 -> port 255 installed
+[1] Clone session 250 already present, updated (INSERT said UNKNOWN)
+[1] Clone session 250 -> port 255 installed
+[1] Clone session 250 -> port 255 installed
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] app package p4runtime declares an EXTERNAL control plane: this proxy will not push pipelines, program clone sessions, send LLDP beacons, watch links or install routes on any of the 1 switches it connected to. It reads only. Skipped: clone_session, install_initial_routes, link_watchdog, lldp_discovery, pipeline_push, sflow_telemetry. Reported on GET /p4/switch_state.
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] 1 of 1 switches ([1]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] 0 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION, not failure detection: this fabric runs no LLDP and no watchdog, so a cut link is not noticed and not rerouted around (capabilities.reroute is false).
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] 1 of 1 switches ([1]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] could not enter the package's declared links (OSError: no such model); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] 1 of 1 switches ([1]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION, not failure detection: this fabric runs no LLDP and no watchdog, so a cut link is not noticed and not rerouted around (capabilities.reroute is false).
+[Proxy Agent] Started liveness polling...
+[TopologyManager] 4 declared link direction(s) name a switch this proxy is not connected to and were not entered: [(1, 4, 4, 2), (2, 3, 4, 1), (4, 1, 2, 3), (4, 2, 1, 4)]
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION, not failure detection: this fabric runs no LLDP and no watchdog, so a cut link is not noticed and not rerouted around (capabilities.reroute is false).
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons or watch links on ANY switch of this fabric. Skipped: link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.........
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION, not failure detection: this fabric runs no LLDP and no watchdog, so a cut link is not noticed and not rerouted around (capabilities.reroute is false).
+[Proxy Agent] every foreign switch binds roles.ipv4_route with owner ndtwin: 12 of 12 initial routes written into the package's route tables (once: no watchdog runs on this fabric, so nothing reroutes around a failed link)
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION, not failure detection: this fabric runs no LLDP and no watchdog, so a cut link is not noticed and not rerouted around (capabilities.reroute is false).
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] 1 of 1 switches ([1]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Switch 2 sampling to sFlow as 192.168.123.12
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Switch 2 sampling to sFlow as 192.168.123.12
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] app package p4runtime declares an EXTERNAL control plane: this proxy will not push pipelines, program clone sessions, send LLDP beacons, watch links or install routes on any of the 1 switches it connected to. It reads only. Skipped: clone_session, install_initial_routes, link_watchdog, lldp_discovery, pipeline_push, sflow_telemetry. Reported on GET /p4/switch_state.
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons or watch links on ANY switch of this fabric. Skipped: link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION, not failure detection: this fabric runs no LLDP and no watchdog, so a cut link is not noticed and not rerouted around (capabilities.reroute is false).
+[Proxy Agent] every foreign switch binds roles.ipv4_route with owner ndtwin: 12 of 12 initial routes written into the package's route tables (once: no watchdog runs on this fabric, so nothing reroutes around a failed link)
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons or watch links on ANY switch of this fabric. Skipped: link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION, not failure detection: this fabric runs no LLDP and no watchdog, so a cut link is not noticed and not rerouted around (capabilities.reroute is false).
+[Proxy Agent] every foreign switch binds roles.ipv4_route with owner ndtwin: 12 of 12 initial routes written into the package's route tables (once: no watchdog runs on this fabric, so nothing reroutes around a failed link)
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused................................
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION, not failure detection: this fabric runs no LLDP and no watchdog, so a cut link is not noticed and not rerouted around (capabilities.reroute is false).
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION, not failure detection: this fabric runs no LLDP and no watchdog, so a cut link is not noticed and not rerouted around (capabilities.reroute is false).
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION, not failure detection: this fabric runs no LLDP and no watchdog, so a cut link is not noticed and not rerouted around (capabilities.reroute is false).
+[Proxy Agent] Started liveness polling...
+[TopologyManager] Deleting 5-tuple rule on DPID 1 prio=101 keys=['hdr.ipv4.dstAddr', 'hdr.ipv4.srcAddr']
+[TopologyManager] Withdrawing rule for 10.0.0.1 on DPID 1: restoring control-plane route -> port 2
+[TopologyManager] Pushing P4 rule to DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Withdrawing rule for 10.0.0.1 on DPID 1: restoring control-plane route -> port 2
+[TopologyManager] Withdrawing rule for 10.0.0.1 on DPID 1: restoring control-plane route -> port 2
+[TopologyManager] Withdrawing rule for 10.0.0.1 on DPID 1: restoring control-plane route -> port 2
+[1] table entry insert: Synthetic.mac_exact ['hdr.ethernet.dstAddr']
+[1] table entry insert: MyIngress.myTunnel_exact ['hdr.myTunnel.dst_id']
+[1] table entry insert: MyIngress.myTunnel_exact ['hdr.myTunnel.dst_id']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.myTunnel_exact ['hdr.myTunnel.dst_id']
+[1] table entry insert: MyIngress.myTunnel_exact ['hdr.myTunnel.dst_id']
+[1] table entry insert: MyIngress.myTunnel_exact ['hdr.myTunnel.dst_id']
+[1] table entry insert: MyIngress.myTunnel_exact ['hdr.myTunnel.dst_id']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.myTunnel_exact ['hdr.myTunnel.dst_id']
+[1] table entry insert: MyIngress.myTunnel_exact ['hdr.myTunnel.dst_id']
+[1] table entry insert: MyIngress.myTunnel_exact ['hdr.myTunnel.dst_id']
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: link (knob) -> 10 link
+bmv2 binary: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/prefix/bin/simple_switch_grpc
+
+======================================================================
+FATAL: link telemetry could not be brought up: s2-eth1 (ifindex 131073) and s1-eth1 collide in the low 16 bits psample reports (both 1); every sample from one would be attributed to the other's port
+======================================================================
+
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: link (knob) -> 10 link
+bmv2 binary: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/prefix/bin/simple_switch_grpc
+
+======================================================================
+FATAL: link telemetry could not be brought up: s2-eth1 (ifindex 131073) and s1-eth1 collide in the low 16 bits psample reports (both 1); every sample from one would be attributed to the other's port
+======================================================================
+
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: link (knob) -> 10 link
+bmv2 binary: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/prefix/bin/simple_switch_grpc
+
+======================================================================
+FATAL: link telemetry could not be brought up: s2-eth1 (ifindex 131073) and s1-eth1 collide in the low 16 bits psample reports (both 1); every sample from one would be attributed to the other's port
+======================================================================
+...................................................................
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: link (knob) -> 10 link
+bmv2 binary: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/prefix/bin/simple_switch_grpc
+link telemetry: 10 switch(es), 36 ingress + 4 egress filters, emitter pid 777
+
+======================================================================
+FATAL: the link-telemetry emitter exited with 9 within 0s of starting. 36 ingress and 4 egress sampling filters are attached and nothing is listening to them, so this fabric would report zero link usage while forwarding normally. Its stderr says why.
+======================================================================
+
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: link (knob) -> 10 link
+bmv2 binary: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/prefix/bin/simple_switch_grpc
+link telemetry: 10 switch(es), 36 ingress + 4 egress filters, emitter pid 4242
+
+======================================================================
+Multi-Switch Network Started.
+All 10 BMv2 switches verified listening on gRPC 30051 ~ 30060
+Switch manifest: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_case.fyci7wju/ndtwin_p4_switches.json
+======================================================================
+
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: link (knob) -> 10 link
+bmv2 binary: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/prefix/bin/simple_switch_grpc
+link telemetry: 10 switch(es), 36 ingress + 4 egress filters, emitter pid 4242
+
+======================================================================
+Multi-Switch Network Started.
+All 10 BMv2 switches verified listening on gRPC 30051 ~ 30060
+Switch manifest: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_case.pyqul2nh/ndtwin_p4_switches.json
+======================================================================
+
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: link (knob) -> 10 link
+bmv2 binary: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/prefix/bin/simple_switch_grpc
+link telemetry: 10 switch(es), 36 ingress + 4 egress filters, emitter pid 4242
+
+======================================================================
+All 10 BMv2 switches listening on gRPC 30051 ~ 30060.
+Switch manifest: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_case.opsod74e/ndtwin_p4_switches.json
+Start the P4 proxy + kernel now (stack.sh up p4 answers its Mininet prompt),
+then use the NTG prompt below. Low-rate template (the CLI needs the flag AND an
+absolute path -- the cwd moves to NTG's repo before the prompt appears):
+    flow --config /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/mininet/flow_bmv2_low.json
+NTG cannot interrupt an experiment -- let flows finish.
+======================================================================
+
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: link (knob) -> 10 link
+bmv2 binary: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/prefix/bin/simple_switch_grpc
+link telemetry: 10 switch(es), 36 ingress + 4 egress filters, emitter pid 4242
+
+======================================================================
+All 10 BMv2 switches listening on gRPC 30051 ~ 30060.
+Switch manifest: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_case.7w3plc_i/ndtwin_p4_switches.json
+Start the P4 proxy + kernel now (stack.sh up p4 answers its Mininet prompt),
+then use the NTG prompt below. Low-rate template (the CLI needs the flag AND an
+absolute path -- the cwd moves to NTG's repo before the prompt appears):
+    flow --config /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/mininet/flow_bmv2_low.json
+NTG cannot interrupt an experiment -- let flows finish.
+======================================================================
+
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: link (knob) -> 10 link
+bmv2 binary: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/prefix/bin/simple_switch_grpc
+link telemetry: 10 switch(es), 36 ingress + 4 egress filters, emitter pid 4242
+
+======================================================================
+Multi-Switch Network Started.
+All 10 BMv2 switches verified listening on gRPC 30051 ~ 30060
+Switch manifest: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_case.3k5x67ab/ndtwin_p4_switches.json
+======================================================================
+
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: link (knob) -> 10 link
+bmv2 binary: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/prefix/bin/simple_switch_grpc
+link telemetry: 10 switch(es), 36 ingress + 4 egress filters, emitter pid 4242
+
+======================================================================
+Multi-Switch Network Started.
+All 10 BMv2 switches verified listening on gRPC 30051 ~ 30060
+Switch manifest: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_case.9jwdk02j/ndtwin_p4_switches.json
+======================================================================
+
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+Error: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_case.b4qyhy8t/telemetry_override: telemetry source must be one of ['auto', 'none', 'cooperative', 'link'], got 'nonsense'
+app package: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/basic
+topology model: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/basic/ndtwin/topology.json
+telemetry: auto (no knob) -> 4 cooperative
+bmv2 binary: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/prefix/bin/simple_switch_grpc
+link telemetry: off (no switch is on the link path (4 cooperative))
+
+======================================================================
+All 4 BMv2 switches listening on gRPC 30051 ~ 30054.
+Switch manifest: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_case.zh2ft4d_/ndtwin_p4_switches.json...................
+Start the P4 proxy + kernel now (stack.sh up p4 answers its Mininet prompt),
+then use the NTG prompt below. Low-rate template (the CLI needs the flag AND an
+absolute path -- the cwd moves to NTG's repo before the prompt appears):
+    flow --config /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/mininet/flow_bmv2_low.json
+NTG cannot interrupt an experiment -- let flows finish.
+======================================================================
+
+app package: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/basic
+topology model: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/basic/ndtwin/topology.json
+telemetry: auto (no knob) -> 4 cooperative
+bmv2 binary: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/prefix/bin/simple_switch_grpc
+link telemetry: off (no switch is on the link path (4 cooperative))
+
+======================================================================
+Multi-Switch Network Started.
+All 4 BMv2 switches verified listening on gRPC 30051 ~ 30054
+Switch manifest: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_case.wa9htucc/ndtwin_p4_switches.json
+======================================================================
+
+app package: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/basic
+topology model: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/basic/ndtwin/topology.json
+telemetry: auto (no knob) -> 4 cooperative
+bmv2 binary: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/prefix/bin/simple_switch_grpc
+link telemetry: off (no switch is on the link path (4 cooperative))
+
+======================================================================
+All 4 BMv2 switches listening on gRPC 30051 ~ 30054.
+Switch manifest: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_case.bo95tjlj/ndtwin_p4_switches.json
+Start the P4 proxy + kernel now (stack.sh up p4 answers its Mininet prompt),
+then use the NTG prompt below. Low-rate template (the CLI needs the flag AND an
+absolute path -- the cwd moves to NTG's repo before the prompt appears):
+    flow --config /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/mininet/flow_bmv2_low.json
+NTG cannot interrupt an experiment -- let flows finish.
+======================================================================
+
+app package: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/basic
+topology model: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/basic/ndtwin/topology.json
+telemetry: auto (no knob) -> 4 cooperative
+bmv2 binary: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/prefix/bin/simple_switch_grpc
+link telemetry: off (no switch is on the link path (4 cooperative))
+
+======================================================================
+All 4 BMv2 switches listening on gRPC 30051 ~ 30054.
+Switch manifest: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_case.v6dnuxz8/ndtwin_p4_switches.json
+Start the P4 proxy + kernel now (stack.sh up p4 answers its Mininet prompt),
+then use the NTG prompt below. Low-rate template (the CLI needs the flag AND an
+absolute path -- the cwd moves to NTG's repo before the prompt appears):
+    flow --config /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/mininet/flow_bmv2_low.json
+NTG cannot interrupt an experiment -- let flows finish.
+======================================================================
+
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: link (knob) -> 10 link
+bmv2 binary: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/prefix/bin/simple_switch_grpc
+link telemetry: 10 switch(es), 36 ingress + 4 egress filters, emitter pid 4242
+
+======================================================================
+Multi-Switch Network Started.
+All 10 BMv2 switches verified listening on gRPC 30051 ~ 30060
+Switch manifest: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_case.h5gtaxa4/ndtwin_p4_switches.json
+======================================================================
+
+link telemetry: emitter pid 4242 absent, 36 of 36 clsact qdisc(s) removed
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: link (knob) -> 10 link
+bmv2 binary: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/prefix/bin/simple_switch_grpc
+link telemetry: 10 switch(es), 36 ingress + 4 egress filters, emitter pid 4242
+
+======================================================================
+All 10 BMv2 switches listening on gRPC 30051 ~ 30060.
+Switch manifest: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_case.h5gtaxa4/ndtwin_p4_switches.json
+Start the P4 proxy + kernel now (stack.sh up p4 answers its Mininet prompt),
+then use the NTG prompt below. Low-rate template (the CLI needs the flag AND an
+absolute path -- the cwd moves to NTG's repo before the prompt appears):
+    flow --config /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/mininet/flow_bmv2_low.json
+NTG cannot interrupt an experiment -- let flows finish.
+======================================================================
+
+link telemetry: emitter pid 4242 absent, 36 of 36 clsact qdisc(s) removed
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: auto (no knob) -> 10 cooperative
+bmv2 binary: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/prefix/bin/simple_switch_grpc
+link telemetry: off (no switch is on the link path (10 cooperative))
+
+======================================================================
+Multi-Switch Network Started.
+All 10 BMv2 switches verified listening on gRPC 30051 ~ 30060
+Switch manifest: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_case.batq41rm/ndtwin_p4_switches.json
+======================================================================
+
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: auto (no knob) -> 10 cooperative
+bmv2 binary: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/prefix/bin/simple_switch_grpc
+link telemetry: off (no switch is on the link path (10 cooperative))
+
+======================================================================
+All 10 BMv2 switches listening on gRPC 30051 ~ 30060.
+Switch manifest: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_case.batq41rm/ndtwin_p4_switches.json...........................................................................................
+Start the P4 proxy + kernel now (stack.sh up p4 answers its Mininet prompt),
+then use the NTG prompt below. Low-rate template (the CLI needs the flag AND an
+absolute path -- the cwd moves to NTG's repo before the prompt appears):
+    flow --config /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/mininet/flow_bmv2_low.json
+NTG cannot interrupt an experiment -- let flows finish.
+======================================================================
+
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: auto (no knob) -> 10 cooperative
+bmv2 binary: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/prefix/bin/simple_switch_grpc
+link telemetry: off (no switch is on the link path (10 cooperative))
+
+======================================================================
+Multi-Switch Network Started.
+All 10 BMv2 switches verified listening on gRPC 30051 ~ 30060
+Switch manifest: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_case.5uefever/ndtwin_p4_switches.json
+======================================================================
+
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: auto (no knob) -> 10 cooperative
+bmv2 binary: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/prefix/bin/simple_switch_grpc
+link telemetry: off (no switch is on the link path (10 cooperative))
+
+======================================================================
+All 10 BMv2 switches listening on gRPC 30051 ~ 30060.
+Switch manifest: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_case.5uefever/ndtwin_p4_switches.json
+Start the P4 proxy + kernel now (stack.sh up p4 answers its Mininet prompt),
+then use the NTG prompt below. Low-rate template (the CLI needs the flag AND an
+absolute path -- the cwd moves to NTG's repo before the prompt appears):
+    flow --config /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/mininet/flow_bmv2_low.json
+NTG cannot interrupt an experiment -- let flows finish.
+======================================================================
+
+app package: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/basic
+topology model: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/basic/ndtwin/topology.json
+telemetry: auto (no knob) -> 4 cooperative
+bmv2 binary: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/prefix/bin/simple_switch_grpc
+link telemetry: off (no switch is on the link path (4 cooperative))
+
+======================================================================
+Multi-Switch Network Started.
+All 4 BMv2 switches verified listening on gRPC 30051 ~ 30054
+Switch manifest: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_case.9050hmxx/ndtwin_p4_switches.json
+======================================================================
+
+app package: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/basic
+topology model: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/basic/ndtwin/topology.json
+telemetry: auto (no knob) -> 4 cooperative
+bmv2 binary: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_test.irml0ho2/prefix/bin/simple_switch_grpc
+link telemetry: off (no switch is on the link path (4 cooperative))
+
+======================================================================
+All 4 BMv2 switches listening on gRPC 30051 ~ 30054.
+Switch manifest: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/fabric_bring_up_case.9050hmxx/ndtwin_p4_switches.json
+Start the P4 proxy + kernel now (stack.sh up p4 answers its Mininet prompt),
+then use the NTG prompt below. Low-rate template (the CLI needs the flag AND an
+absolute path -- the cwd moves to NTG's repo before the prompt appears):
+    flow --config /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/mininet/flow_bmv2_low.json
+NTG cannot interrupt an experiment -- let flows finish.
+======================================================================
+
+[TopologyManager] Pushing P4 rule to DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:00)
+[TopologyManager] Pushing P4 rule to DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:00)
+[TopologyManager] Pushing 5-tuple rule to DPID 1 prio=6 keys=['hdr.ipv4.dstAddr', 'meta.l4_dst_port'] -> port 3
+[TopologyManager] Pushing 5-tuple rule to DPID 1 prio=6 keys=['hdr.ipv4.dstAddr', 'meta.l4_dst_port'] -> port 3
+[TopologyManager] Pushing 5-tuple rule to DPID 1 prio=101 keys=['hdr.ipv4.dstAddr', 'hdr.ipv4.protocol', 'meta.l4_dst_port'] -> port 3
+[TopologyManager] Refusing rule for DPID 1: neither table can honour ['vlan_vid']
+[TopologyManager] Refusing delete for DPID 1: neither table can honour ['vlan_vid']
+[TopologyManager] Refusing modify for DPID 1: neither table can honour ['vlan_vid']
+[TopologyManager] Deleting 5-tuple rule on DPID 1 prio=101 keys=['hdr.ipv4.dstAddr', 'meta.l4_dst_port']
+[Proxy Agent] Reading tables from switch 7 failed: DEADLINE_EXCEEDED: deadline
+[Proxy Agent] Reading tables from switch 7 failed: RuntimeError: stream broken
+[Proxy Agent] Reading tables from switch 7 failed: RuntimeError: stream broken
+[Proxy Agent] Reading tables from switch 7 failed: RuntimeError: stream broken
+[Proxy Agent] Reading tables from switch 7 failed: RuntimeError: stream broken
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Connected to Switch 3
+[Proxy Agent] Connected to Switch 4
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry modify: MyIngress.ipv4_lpm (default action)
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 1 runs the package's own pipeline: 13 of 13 declared table entries applied, 0 refused
+[2] table entry modify: MyIngress.ipv4_lpm (default action)
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']..
+[Proxy Agent] Switch 2 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[3] table entry modify: MyIngress.ipv4_lpm (default action)
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 3 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[4] table entry modify: MyIngress.ipv4_lpm (default action)
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 4 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 3 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 4 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 4 usable switches
+[Proxy Agent] 4 of 4 switches ([1, 2, 3, 4]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Connected to Switch 3
+[Proxy Agent] Connected to Switch 4
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry modify: MyIngress.ipv4_lpm (default action)
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 1 runs the package's own pipeline: 13 of 13 declared table entries applied, 0 refused
+[2] table entry modify: MyIngress.ipv4_lpm (default action)
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 2 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[3] table entry modify: MyIngress.ipv4_lpm (default action)
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 3 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[4] table entry modify: MyIngress.ipv4_lpm (default action)
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 4 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 3 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 4 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 4 usable switches
+[Proxy Agent] 4 of 4 switches ([1, 2, 3, 4]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Connected to Switch 3
+[Proxy Agent] Connected to Switch 4
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry modify: MyIngress.ipv4_lpm (default action)
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']..
+[Proxy Agent] Switch 1 runs the package's own pipeline: 13 of 13 declared table entries applied, 0 refused
+[2] table entry modify: MyIngress.ipv4_lpm (default action)
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 2 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[3] table entry modify: MyIngress.ipv4_lpm (default action)
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 3 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[4] table entry modify: MyIngress.ipv4_lpm (default action)
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 4 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 3 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 4 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 4 usable switches
+[Proxy Agent] 4 of 4 switches ([1, 2, 3, 4]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Connected to Switch 3
+[Proxy Agent] Connected to Switch 4
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry modify: MyIngress.ipv4_lpm (default action)
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 1 runs the package's own pipeline: 13 of 13 declared table entries applied, 0 refused
+[2] table entry modify: MyIngress.ipv4_lpm (default action)
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 2 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[3] table entry modify: MyIngress.ipv4_lpm (default action)
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 3 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[4] table entry modify: MyIngress.ipv4_lpm (default action)
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 4 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 3 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 4 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 4 usable switches
+[Proxy Agent] 4 of 4 switches ([1, 2, 3, 4]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Connected to Switch 3
+[Proxy Agent] Connected to Switch 4
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']...
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry modify: MyIngress.ipv4_lpm (default action)
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 1 runs the package's own pipeline: 13 of 13 declared table entries applied, 0 refused
+[2] table entry modify: MyIngress.ipv4_lpm (default action)
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 2 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[3] table entry modify: MyIngress.ipv4_lpm (default action)
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 3 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[4] table entry modify: MyIngress.ipv4_lpm (default action)
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 4 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 3 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 4 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 4 usable switches
+[Proxy Agent] 4 of 4 switches ([1, 2, 3, 4]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Connected to Switch 3
+[Proxy Agent] Connected to Switch 4
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry modify: MyIngress.ipv4_lpm (default action)
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 1 runs the package's own pipeline: 13 of 13 declared table entries applied, 0 refused
+[2] table entry modify: MyIngress.ipv4_lpm (default action)
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 2 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[3] table entry modify: MyIngress.ipv4_lpm (default action)
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 3 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[4] table entry modify: MyIngress.ipv4_lpm (default action)
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 4 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 3 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 4 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 4 usable switches
+[Proxy Agent] 4 of 4 switches ([1, 2, 3, 4]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Connected to Switch 3
+[Proxy Agent] Connected to Switch 4
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']../home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../tests/../tests/test_foreign_pipeline.py:108: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/tools/p4_exercise/tests/fixtures/firewall/build/basic.p4.p4info.txtpb' mode='r' encoding='UTF-8'>
+  text_format.Merge(open(path).read(), p4info)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../tests/../tests/test_foreign_pipeline.py:177: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt' mode='r' encoding='UTF-8'>
+  text_format.Merge(open(path).read(), p4info)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+../home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../tests/../tests/test_foreign_pipeline.py:108: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/tools/p4_exercise/tests/fixtures/calc/build/calc.p4.p4info.txtpb' mode='r' encoding='UTF-8'>
+  text_format.Merge(open(path).read(), p4info)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../tests/../tests/test_foreign_pipeline.py:108: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/tools/p4_exercise/tests/fixtures/firewall/build/firewall.p4.p4info.txtpb' mode='r' encoding='UTF-8'>
+  text_format.Merge(open(path).read(), p4info)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+..../home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../proxy_agent/main.py:2055: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/fastapi/applications.py:4675: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  return self.router.on_event(event_type)  # ty: ignore[deprecated]
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../proxy_agent/main.py:2060: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+./home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../proxy_agent/main.py:2055: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../proxy_agent/main.py:2060: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry modify: MyIngress.ipv4_lpm (default action)
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 1 runs the package's own pipeline: 13 of 13 declared table entries applied, 0 refused
+[2] table entry modify: MyIngress.ipv4_lpm (default action)
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 2 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[3] table entry modify: MyIngress.ipv4_lpm (default action)
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 3 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[4] table entry modify: MyIngress.ipv4_lpm (default action)
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 4 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 3 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 4 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 4 usable switches
+[Proxy Agent] 4 of 4 switches ([1, 2, 3, 4]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Connected to Switch 3
+[Proxy Agent] Connected to Switch 4
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry modify: MyIngress.ipv4_lpm (default action)
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 1 runs the package's own pipeline: 13 of 13 declared table entries applied, 0 refused
+[2] table entry modify: MyIngress.ipv4_lpm (default action)
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 2 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[3] table entry modify: MyIngress.ipv4_lpm (default action)
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 3 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[4] table entry modify: MyIngress.ipv4_lpm (default action)
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 4 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 3 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 4 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 4 usable switches
+[Proxy Agent] 4 of 4 switches ([1, 2, 3, 4]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[TopologyManager] Pushing 5-tuple rule to DPID 1 prio=43 keys=['hdr.ipv4.dstAddr', 'hdr.ipv4.srcAddr', 'meta.l4_dst_port'] -> port 3
+[TopologyManager] Pushing P4 rule to DPID 1: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)./home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../proxy_agent/main.py:2055: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../proxy_agent/main.py:2060: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+./home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../proxy_agent/main.py:2055: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../proxy_agent/main.py:2060: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+./home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../proxy_agent/main.py:2055: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../proxy_agent/main.py:2060: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+./home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../proxy_agent/main.py:2055: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../proxy_agent/main.py:2060: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+./home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../proxy_agent/main.py:2055: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../proxy_agent/main.py:2060: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../proxy_agent/main.py:2055: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../proxy_agent/main.py:2060: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+./home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../proxy_agent/main.py:2055: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../proxy_agent/main.py:2060: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../proxy_agent/main.py:2055: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../proxy_agent/main.py:2060: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+./home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../proxy_agent/main.py:2055: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../proxy_agent/main.py:2060: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+./home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../proxy_agent/main.py:2055: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../proxy_agent/main.py:2060: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+./home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../proxy_agent/main.py:2055: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../proxy_agent/main.py:2060: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+./home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../proxy_agent/main.py:2055: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../proxy_agent/main.py:2060: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+.................../home/adam/miniconda3/lib/python3.13/unittest/suite.py:107: ResourceWarning: unclosed <socket.socket fd=4, family=2, type=1, proto=0, laddr=('127.0.0.1', 38863)>
+  for index, test in enumerate(self):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./home/adam/miniconda3/lib/python3.13/unittest/suite.py:107: ResourceWarning: unclosed <socket.socket fd=4, family=2, type=1, proto=0, laddr=('127.0.0.1', 37581)>
+  for index, test in enumerate(self):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./home/adam/miniconda3/lib/python3.13/unittest/suite.py:107: ResourceWarning: unclosed <socket.socket fd=4, family=2, type=1, proto=0, laddr=('127.0.0.1', 41513)>
+  for index, test in enumerate(self):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./home/adam/miniconda3/lib/python3.13/unittest/suite.py:84: ResourceWarning: unclosed <socket.socket fd=4, family=2, type=1, proto=0, laddr=('127.0.0.1', 36061)>
+  return self.run(*args, **kwds)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./home/adam/miniconda3/lib/python3.13/unittest/suite.py:107: ResourceWarning: unclosed <socket.socket fd=4, family=2, type=1, proto=0, laddr=('127.0.0.1', 37255)>
+  for index, test in enumerate(self):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./home/adam/miniconda3/lib/python3.13/unittest/suite.py:107: ResourceWarning: unclosed <socket.socket fd=4, family=2, type=1, proto=0, laddr=('127.0.0.1', 43175)>
+  for index, test in enumerate(self):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./home/adam/miniconda3/lib/python3.13/unittest/suite.py:84: ResourceWarning: unclosed <socket.socket fd=4, family=2, type=1, proto=0, laddr=('127.0.0.1', 34667)>
+  return self.run(*args, **kwds)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+........./home/adam/miniconda3/lib/python3.13/unittest/suite.py:107: ResourceWarning: unclosed <socket.socket fd=4, family=2, type=1, proto=0, laddr=('127.0.0.1', 36723)>
+  for index, test in enumerate(self):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./home/adam/miniconda3/lib/python3.13/unittest/suite.py:107: ResourceWarning: unclosed <socket.socket fd=4, family=2, type=1, proto=0, laddr=('127.0.0.1', 33831)>
+  for index, test in enumerate(self):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./home/adam/miniconda3/lib/python3.13/unittest/suite.py:84: ResourceWarning: unclosed <socket.socket fd=4, family=2, type=1, proto=0, laddr=('127.0.0.1', 43921)>
+  return self.run(*args, **kwds)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+........................................................................................
+[TopologyManager] Pushing P4 rule to DPID 1: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Pushing P4 rule to DPID 1: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Pushing P4 rule to DPID 1: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Pushing P4 rule to DPID 1: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:00)
+[TopologyManager] Could not journal the install on DPID 1 (OSError: no space left on device); the rule IS installed but will not survive a proxy restart
+[TopologyManager] Deleting 5-tuple rule on DPID 1 prio=101 keys=['hdr.ipv4.dstAddr', 'hdr.ipv4.srcAddr', 'meta.l4_dst_port']
+[TopologyManager] Pushing 5-tuple rule to DPID 1 prio=101 keys=['hdr.ipv4.dstAddr', 'hdr.ipv4.srcAddr', 'meta.l4_dst_port'] -> port 3
+[TopologyManager] Pushing P4 rule to DPID 1: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:00)
+[TopologyManager] Pushing 5-tuple rule to DPID 1 prio=101 keys=['hdr.ipv4.dstAddr', 'hdr.ipv4.srcAddr', 'meta.l4_dst_port'] -> port 3
+[TopologyManager] Pushing P4 rule to DPID 1: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:00)
+[TopologyManager] Pushing 5-tuple rule to DPID 1 prio=43 keys=['hdr.ipv4.dstAddr', 'hdr.ipv4.srcAddr', 'meta.l4_dst_port'] -> port 3
+[TopologyManager] Pushing P4 rule to DPID 1: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:00)
+[Kernel] destination paths (1 paths): FAILED HTTP 400
+[Kernel] destination paths: FAILED refusing to push an empty snapshot
+[Kernel] destination paths (1 paths): ok
+[Kernel] destination paths (1 paths): ok
+[Kernel] link failure 1:1->2:1: ok
+[Kernel] link recovery 1:1->2:1: ok
+[Kernel] link failure 1:2->3:4: ok
+[Kernel] link recovery 5:6->7:8: ok
+[Kernel] switch 1 entered: FAILED ConnectionError: HTTPConnectionPool(host='no-such-host.invalid', port=80): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=1 (Caused by NameResolutionError("HTTPConnection(host='no-such-host.invalid', port=80): Failed to resolve 'no-such-host.invalid' ([Errno -2] Name or service not known)"))
+[Kernel] switch 1 entered: FAILED ConnectionError: HTTPConnectionPool(host='127.0.0.1', port=1): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=1 (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=1): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] link failure 1:1->2:1: FAILED ConnectionError: HTTPConnectionPool(host='127.0.0.1', port=1): Max retries exceeded with url: /ndt/link_failure_detected (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=1): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] link failure 1:1->2:1: FAILED ConnectionError: HTTPConnectionPool(host='127.0.0.1', port=1): Max retries exceeded with url: /ndt/link_failure_detected (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=1): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] link recovery 1:1->2:1: FAILED ConnectionError: HTTPConnectionPool(host='127.0.0.1', port=1): Max retries exceeded with url: /ndt/link_recovery_detected (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=1): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 1 entered: FAILED ConnectionError: HTTPConnectionPool(host='127.0.0.1', port=1): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=1 (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=1): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 1 entered: FAILED HTTP 404
+[Kernel] switch 1 entered: ok
+[Kernel] switch 2 entered: ok
+[Kernel] switch 3 entered: ok
+[Kernel] switch 7 entered: ok
+[TopologyManager] external link report (1, 2, 2, 1) up=False from heartbeat: recorded only -- no link watchdog runs on this fabric, so nothing is rerouted and the kernel is not told
+[TopologyManager] external link report (1, 2, 2, 1) up=False from heartbeat: recorded only -- no link watchdog runs on this fabric, so nothing is rerouted and the kernel is not told
+[TopologyManager] external link report (1, 2, 2, 1) up=True from heartbeat: recorded only -- no link watchdog runs on this fabric, so nothing is rerouted and the kernel is not told
+[TopologyManager] external link report (1, 2, 2, 1) up=False from heartbeat: recorded only -- no link watchdog runs on this fabric, so nothing is rerouted and the kernel is not told
+[TopologyManager] link down (no beacon for 15s): (1, 2, 2, 1)
+[TopologyManager] link down (no beacon for 15s): (1, 2, 2, 1)
+[TopologyManager] link back up: (1, 2, 2, 1)
+[TopologyManager] link down (no beacon for 15s): (1, 2, 2, 1)
+[TopologyManager] Discovered link: S1-p1 -> S5-p2
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S1-p1 -> S5-p2
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 1)
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 2 (MAC: 1)
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.2/32 -> Port 4 (MAC: 2)
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 1)
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 2 (MAC: 1)
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.1/32 -> Port 6 (MAC: 1)
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.2/32 -> Port 4 (MAC: 2)
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.2/32 -> Port 7 (MAC: 2)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 5 (MAC: 2)
+[TopologyManager] link down (no beacon for 15s): (1, 1, 5, 2)
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 1)
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 2 (MAC: 1)
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.1/32 -> Port 6 (MAC: 1)
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.2/32 -> Port 4 (MAC: 2)
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.2/32 -> Port 7 (MAC: 2)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 5 (MAC: 2)
+[TopologyManager] destination-path push failed: AttributeError: 'RecordingKernel' object has no attribute 'all_destination_paths'
+[TopologyManager] Discovered link: S1-p1 -> S5-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S1-p1 -> S5-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S1-p1 -> S5-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S1-p1 -> S5-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] link watchdog pass failed: RuntimeError: beacon check exploded
+[TopologyManager] destination-path push failed: RuntimeError: kernel exploded
+[TopologyManager] link down (no beacon for 15s): (1, 1, 5, 2)
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] reroute after transition failed: KeyError: 1
+[TopologyManager] link down (no beacon for 15s): (1, 1, 5, 2)
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] reroute after transition failed: KeyError: 1
+[TopologyManager] link back up: (1, 1, 5, 2)
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] reroute after transition failed: KeyError: 1
+[TopologyManager] Discovered link: S1-p1 -> S5-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S1-p1 -> S5-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S1-p1 -> S5-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S1-p1 -> S5-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S1-p1 -> S5-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S1-p1 -> S5-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] link report raised RuntimeError: kernel notifier broke its promise not to raise..........................................................................................................s.........................................................WARNING:root:egress counter read failed for port 1: StatusCode.UNAVAILABLE -- reporting no sample, not zero
+.WARNING:root:egress counter read for port 1 returned no counter_entry -- reporting no sample, not zero
+..................................................................................
+[TopologyManager] Discovered link: S1-p1 -> S5-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S1-p1 -> S5-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Pushing P4 rule to DPID 1: 10.0.0.5/32 -> Port 3 (MAC: 00:00:00:00:00:00)
+[TopologyManager] Pushing P4 rule to DPID 1: 10.0.0.5/32 -> Port 3 (MAC: 00:00:00:00:00:00)
+[TopologyManager] Pushing P4 rule to DPID 1: 10.0.0.5/32 -> Port 3 (MAC: 00:00:00:00:00:00)
+[TopologyManager] Pushing P4 rule to DPID 1: 10.0.0.5/32 -> Port 3 (MAC: 00:00:00:00:00:00)
+[TopologyManager] Pushing P4 rule to DPID 1: 10.0.0.5/32 -> Port 3 (MAC: 00:00:00:00:00:00)
+[TopologyManager] Pushing P4 rule to DPID 1: 10.0.0.5/32 -> Port 3 (MAC: 00:00:00:00:00:00)
+[TopologyManager] Discovered link: S1-p1 -> S5-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S1-p1 -> S5-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S1-p1 -> S5-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S1-p1 -> S5-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S1-p1 -> S5-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S1-p1 -> S5-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S1-p1 -> S5-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S1-p1 -> S5-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S3-p2 -> S9-p4
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S9-p1 -> S5-p3
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S2-p1 -> S5-p2
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S5-p4 -> S10-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S1-p1 -> S5-p2
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S1-p1 -> S5-p2
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S1-p1 -> S5-p2
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S2-p1 -> S6-p2
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S1-p1 -> S5-p2
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S1-p1 -> S5-p2
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S3-p4 -> S9-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S1-p1 -> S5-p2
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] no inter-switch ports in the topology file; beaconing on 1..6 on every switch, which sends to ports that may not exist
+[TopologyManager] no inter-switch ports in the topology file; beaconing on 1..6 on every switch, which sends to ports that may not exist
+[TopologyManager] could not read topology /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/tmpoout2rs2.json: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)
+[TopologyManager] could not read topology /nonexistent/topology.json: [Errno 2] No such file or directory: '/nonexistent/topology.json'
+[1] Clone session 57 -> port 510 installed
+[1] Clone session 250 -> port 255 installed
+[Proxy Agent] switch 1: multicast group entry 0 was NOT programmed -- TableEntryInvalid: nope
+[1] Multicast group 1 -> [1, 2, 3] installed
+[1] Multicast group 1 could not be programmed: INSERT INTERNAL: fake failure / MODIFY INTERNAL: fake failure -- packets sent to this group will be dropped by the PRE
+[1] Multicast group 1 -> [1, 2, 3] installed
+[1] Multicast group 1 deleted
+[1] Multicast group 1 -> [2, 2] installed
+[1] Multicast group 1 deleted
+[1] Multicast group 1 -> [1] installed
+[1] Multicast group 1 could not be programmed: INSERT INTERNAL: fake failure / MODIFY INTERNAL: fake failure -- packets sent to this group will be dropped by the PRE
+[1] Multicast group 1 -> [1, 2] installed
+[1] Multicast group 1 already present, updated (INSERT said UNKNOWN)
+[1] Multicast group 7 -> [4] installed
+[1] Multicast group 1 -> [1] installed
+[1] Multicast group 1 -> [1] installed
+[1] Added route: 10.0.0.5/32 -> port 4, mac 00:00:00:00:00:05
+[1] external control plane: no arbitration stream, no pipeline push, no writes. This client reads only.
+[1] external control plane: no arbitration stream, no pipeline push, no writes. This client reads only.
+[1] Modified route: 10.0.1.1/32 -> port 3, mac 08:00:00:00:01:11
+[1] Added route: 10.0.1.1/32 -> port 3, mac 08:00:00:00:01:11
+[1] Modified route: 10.0.1.1/32 -> port 4, mac 08:00:00:00:01:11
+[1] Deleted route: 10.0.1.1/32
+[1] Added route: 10.0.1.1/32 -> port 3, mac 08:00:00:00:01:11
+[1] Failed to delete route: StatusCode.UNKNOWN - fake failure
+[1] Added route: 10.0.1.1/32 -> port 3, mac 08:00:00:00:01:11
+[1] Failed to delete route: StatusCode.UNKNOWN - 
+[1] Failed to delete route: StatusCode.UNKNOWN - 
+[1] Failed to delete route: StatusCode.UNKNOWN - 
+[1] Failed to delete route: StatusCode.INTERNAL - fake failure
+[1] Failed to delete route: StatusCode.UNAVAILABLE - fake failure
+[1] Deleted route: 10.0.0.4/32
+[1] Deleted route: 10.0.0.4/32
+[1] Failed to add route: StatusCode.PERMISSION_DENIED - fake failure
+[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Failed to modify route: StatusCode.UNKNOWN - fake failure
+[1] Failed to add route: StatusCode.UNKNOWN - fake failure
+[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Added route: 10.0.0.4/32 -> port 3, mac de:ad:be:ef:00:04
+[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Added route: 10.0.0.0/24 -> port 3, mac 00:00:00:00:00:04
+[1] Modified route: 10.0.0.4/32 -> port 7, mac 00:00:00:00:00:04
+[1] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Failed to modify route: StatusCode.NOT_FOUND - fake failure
+[1] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Modified route: 10.0.0.4/32 -> port 9, mac de:ad:be:ef:00:04
+[1] Clone session 250 -> port 255 installed
+[1] Added 5-tuple rule prio=101 {'dstAddr': '10.0.0.5'} -> port 4
+[1] Setting Forwarding Pipeline Config...
+[1] Deleted route: 10.0.0.5/32
+[1] Added route: 10.0.0.5/32 -> port 4, mac 00:00:00:00:00:05
+[1] Modified route: 10.0.0.5/32 -> port 4, mac 00:00:00:00:00:05
+[1] Added route: 10.0.0.5/32 -> port 4, mac 00:00:00:00:00:05
+[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Modified route: 10.0.0.4/32 -> port 7, mac 00:00:00:00:00:04
+[1] Modified route: 10.0.0.0/24 -> port 257, mac 0a:0b:0c:0d:0e:0f
+[1] Deleted route: 10.0.0.4/32
+[1] Added 5-tuple rule prio=101 {'srcAddr': '10.0.0.1', 'dstAddr': '10.0.0.4', 'protocol': 6, 'l4_dst_port': 80} -> port 3
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 9 (MAC: 00:00:00:00:00:01)
+[1] Added route: 10.0.0.1/32 -> port 9, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[2] Added route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[3] Added route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[4] Added route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.2/32 -> Port 9 (MAC: 00:00:00:00:00:02)
+[4] Added route: 10.0.0.2/32 -> port 9, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[2] Added route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02...................................................../home/adam/miniconda3/lib/python3.13/unittest/case.py:606: ResourceWarning: unclosed file <_io.TextIOWrapper name=4 encoding='UTF-8'>
+  if method() is not None:
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+.............................................................................................................
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.2/32 -> Port 4 (MAC: 00:00:00:00:00:02)
+[3] Added route: 10.0.0.2/32 -> port 4, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[1] Added route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Modified route: 10.0.0.4/32 -> port 7, mac 00:00:00:00:00:04
+[1] Modified route: 10.0.0.0/24 -> port 257, mac 0a:0b:0c:0d:0e:0f
+[1] Deleted route: 10.0.0.4/32
+[1] Added 5-tuple rule prio=101 {'srcAddr': '10.0.0.1', 'dstAddr': '10.0.0.4', 'protocol': 6, 'l4_dst_port': 80} -> port 3
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 9 (MAC: 00:00:00:00:00:01)
+[1] Added route: 10.0.0.1/32 -> port 9, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[2] Added route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[3] Added route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[4] Added route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.2/32 -> Port 9 (MAC: 00:00:00:00:00:02)
+[4] Added route: 10.0.0.2/32 -> port 9, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[2] Added route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.2/32 -> Port 4 (MAC: 00:00:00:00:00:02)
+[3] Added route: 10.0.0.2/32 -> port 4, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[1] Added route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[1] Deleted route: 10.0.0.4/32
+[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Added route: 10.0.0.5/32 -> port 4, mac 00:00:00:00:00:05
+[1] table entry modify: MyIngress.ipv4_lpm (default action)
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry delete: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry delete: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry modify: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry delete: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.1/32 -> Port 1 (MAC: 00:00:00:00:50:01)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.50.2/32 -> Port 1 (MAC: 00:00:00:00:50:02)
+[TopologyManager] Withdrawing rule for 10.0.50.1 on DPID 1: restoring control-plane route -> port 1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.1/32 -> Port 1 (MAC: 00:00:00:00:50:01)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.50.1/32 -> Port 2 (MAC: 00:00:00:00:50:01)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.50.2/32 -> Port 1 (MAC: 00:00:00:00:50:02)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.2/32 -> Port 2 (MAC: 00:00:00:00:50:02)
+[TopologyManager] Withdrawing rule for 10.0.50.2 on DPID 1: restoring control-plane route -> port 2
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.1/32 -> Port 1 (MAC: 00:00:00:00:50:01)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.50.2/32 -> Port 1 (MAC: 00:00:00:00:50:02)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 0 of 0 routes installed (the route refill was not run: this switch is not running NDTwin's own pipeline)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 0 of 0 routes installed (the route refill was not run: this switch is not running NDTwin's own pipeline)
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.1/32 -> Port 1 (MAC: 00:00:00:00:50:01)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.2/32 -> Port 2 (MAC: 00:00:00:00:50:02)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 2 of 2 routes installed
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 0 of 0 routes installed (the route refill was not run: this switch is not running NDTwin's own pipeline)
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 0 of 0 routes installed
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.1/32 -> Port 1 (MAC: 00:00:00:00:50:01)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.50.2/32 -> Port 1 (MAC: 00:00:00:00:50:02)
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.1/32 -> Port 1 (MAC: 00:00:00:00:50:01)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.50.1/32 -> Port 2 (MAC: 00:00:00:00:50:01)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.50.2/32 -> Port 1 (MAC: 00:00:00:00:50:02)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.2/32 -> Port 2 (MAC: 00:00:00:00:50:02)
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.1/32 -> Port 1 (MAC: 00:00:00:00:50:01)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.2/32 -> Port 2 (MAC: 00:00:00:00:50:02)
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.1/32 -> Port 1 (MAC: 00:00:00:00:50:01)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.2/32 -> Port 2 (MAC: 00:00:00:00:50:02)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 2 of 2 routes installed
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 0 of 0 routes installed
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 0 of 0 routes installed
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.1/32 -> Port 1 (MAC: 00:00:00:00:50:01)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 1 of 1 routes installed
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.1/32 -> Port 1 (MAC: 00:00:00:00:50:01)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.2/32 -> Port 2 (MAC: 00:00:00:00:50:02)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 2 of 2 routes installed
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.1/32 -> Port 1 (MAC: 00:00:00:00:50:01)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 1 of 1 routes installed
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 0 of 0 routes installed
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 0 of 0 routes installed
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 0 of 0 routes installed (the route refill was not run: this switch is not running NDTwin's own pipeline)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 0 of 0 routes installed (the route refill was not run: this switch is not running NDTwin's own pipeline)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 0 of 0 routes installed (the route refill was not run: this switch is not running NDTwin's own pipeline)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 0 of 0 routes installed (the route refill was not run: this switch is not running NDTwin's own pipeline)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 0 of 0 routes installed (the route refill was not run: this switch is not running NDTwin's own pipeline)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 0 of 0 routes installed (the route refill was not run: this switch is not running NDTwin's own pipeline)..............................................................................................................................
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 0 of 0 routes installed (the route refill was not run: this switch is not running NDTwin's own pipeline)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 0 of 0 routes installed (the route refill was not run: this switch is not running NDTwin's own pipeline)
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.1/32 -> Port 1 (MAC: 00:00:00:00:50:01)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.2/32 -> Port 2 (MAC: 00:00:00:00:50:02)
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.1/32 -> Port 1 (MAC: 00:00:00:00:50:01)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.2/32 -> Port 2 (MAC: 00:00:00:00:50:02)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 2 of 2 routes installed
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.1/32 -> Port 1 (MAC: 00:00:00:00:50:01)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.2/32 -> Port 2 (MAC: 00:00:00:00:50:02)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 2 of 2 routes installed
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.1/32 -> Port 1 (MAC: 00:00:00:00:50:01)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.2/32 -> Port 2 (MAC: 00:00:00:00:50:02)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 2 of 2 routes installed
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.1/32 -> Port 1 (MAC: 00:00:00:00:50:01)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.2/32 -> Port 2 (MAC: 00:00:00:00:50:02)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 2 of 2 routes installed
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.1/32 -> Port 1 (MAC: 00:00:00:00:50:01)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.2/32 -> Port 2 (MAC: 00:00:00:00:50:02)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=False, 2 of 2 routes installed
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.1/32 -> Port 1 (MAC: 00:00:00:00:50:01)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.2/32 -> Port 2 (MAC: 00:00:00:00:50:02)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 2 of 2 routes installed
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.1/32 -> Port 1 (MAC: 00:00:00:00:50:01)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.2/32 -> Port 2 (MAC: 00:00:00:00:50:02)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 2 of 2 routes installed
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.1/32 -> Port 1 (MAC: 00:00:00:00:50:01)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.2/32 -> Port 2 (MAC: 00:00:00:00:50:02)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 2 of 2 routes installed
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.1/32 -> Port 1 (MAC: 00:00:00:00:50:01)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.2/32 -> Port 2 (MAC: 00:00:00:00:50:02)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 2 of 2 routes installed
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.1/32 -> Port 1 (MAC: 00:00:00:00:50:01)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.2/32 -> Port 2 (MAC: 00:00:00:00:50:02)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 2 of 2 routes installed
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.1/32 -> Port 1 (MAC: 00:00:00:00:50:01)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.2/32 -> Port 2 (MAC: 00:00:00:00:50:02)
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.1/32 -> Port 1 (MAC: 00:00:00:00:50:01)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.50.1/32 -> Port 2 (MAC: 00:00:00:00:50:01)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.50.2/32 -> Port 1 (MAC: 00:00:00:00:50:02)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.2/32 -> Port 2 (MAC: 00:00:00:00:50:02)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 0 of 0 routes installed (the route refill was not run: this switch is not running NDTwin's own pipeline)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 0 of 0 routes installed (the route refill was not run: this switch is not running NDTwin's own pipeline)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 0 of 0 routes installed (the route refill was not run: this switch is not running NDTwin's own pipeline)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 0 of 0 routes installed (the route refill was not run: this switch is not running NDTwin's own pipeline)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 0 of 0 routes installed (the route refill was not run: this switch is not running NDTwin's own pipeline)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 0 of 0 routes installed (the route refill was not run: this switch is not running NDTwin's own pipeline)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 0 of 0 routes installed (the route refill was not run: this switch is not running NDTwin's own pipeline)
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.1/32 -> Port 1 (MAC: 00:00:00:00:50:01)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.2/32 -> Port 2 (MAC: 00:00:00:00:50:02)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 2 of 2 routes installed
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 0 of 0 routes installed (the route refill was not run: this switch is not running NDTwin's own pipeline)
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.1/32 -> Port 1 (MAC: 00:00:00:00:50:01)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.50.2/32 -> Port 2 (MAC: 00:00:00:00:50:02)
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 2 of 2 routes installed
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 0 of 0 routes installed (the route refill was not run: this switch is not running NDTwin's own pipeline)
+[TopologyManager] Pushing P4 rule to DPID 1: 10.0.1.1/32 -> Port 1 (MAC: 08:00:00:00:01:11)
+[1] Added route: 10.0.1.1/32 -> port 1, mac 08:00:00:00:01:11
+[TopologyManager] Deleting 5-tuple rule on DPID 1 prio=102 keys=['hdr.ipv4.dstAddr', 'hdr.ipv4.protocol', 'hdr.ipv4.srcAddr']
+[TopologyManager] Pushing 5-tuple rule to DPID 1 prio=1 keys=['hdr.ipv4.dstAddr', 'hdr.ipv4.protocol', 'hdr.ipv4.srcAddr'] -> port 1
+[TopologyManager] Pushing P4 rule to DPID 1: 10.0.1.1/32 -> Port 1 (MAC: 08:00:00:00:01:11)
+[TopologyManager] Pushing P4 rule to DPID 1: 10.0.1.1/32 -> Port 1 (MAC: 08:00:00:00:01:11)
+[TopologyManager] Pushing P4 rule to DPID 1: 10.0.1.1/32 -> Port 1 (MAC: 08:00:00:00:01:11)
+[TopologyManager] Pushing P4 rule to DPID 1: 10.0.1.1/32 -> Port 1 (MAC: 08:00:00:00:01:11)
+[Proxy Agent] REFUSING to start: s1: roles.ipv4_route.action: 'Nope.a' is not an action of this pipeline
+[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Added 5-tuple rule prio=101 {'dstAddr': '10.0.0.4', 'protocol': 6} -> port 3
+[1] Added 5-tuple rule prio=101 {'dstAddr': '10.0.0.4'} -> port 3
+[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Failed to delete route: StatusCode.INTERNAL - fake failure
+[1] Failed to modify route: StatusCode.UNKNOWN - fake failure
+[1] Failed to add route: StatusCode.UNKNOWN - fake failure
+[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Deleted route: 10.0.0.4/32
+[1] Added 5-tuple rule prio=101 {'srcAddr': '10.0.0.1', 'dstAddr': '10.0.0.4', 'protocol': 6, 'l4_dst_port': 80} -> port 3......................................................................................................................................................................
+[1] Modified route: 10.0.0.4/32 -> port 9, mac 00:00:00:00:00:04
+[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Added route: 0.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Modified route: 10.0.0.4/32 -> port 9, mac 00:00:00:00:00:04
+[1] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Setting Forwarding Pipeline Config...
+[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Setting Forwarding Pipeline Config...
+[sflow] could not read topology /nonexistent/topology.json: [Errno 2] No such file or directory: '/nonexistent/topology.json'; no sFlow will be emitted
+[sflow] could not read topology /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/tmp/tmpa8au3fmo.json: Expecting property name enclosed in double quotes: line 1 column 2 (char 1); no sFlow will be emitted
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 runs the package's own pipeline: 2 of 2 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] 1 of 1 switches ([1]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 runs the package's own pipeline: 2 of 2 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] 1 of 1 switches ([1]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] switch 1: table entry 0 into MyIngress.ipv4_lpm was NOT applied -- RuntimeError: no such table
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 1 declared table entries applied, 1 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] 1 of 1 switches ([1]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Switch 1: pipeline push failed, continuing without it: RuntimeError: dead
+[Proxy Agent] 1 of 1 switches have no pipeline ([1]); they will report as down and will not be enabled in the graph
+[Proxy Agent] Kernel acknowledged all 0 usable switches
+[Proxy Agent] 1 of 1 switches ([1]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] app package basic declares an EXTERNAL control plane: this proxy will not push pipelines, program clone sessions, send LLDP beacons, watch links or install routes on any of the 1 switches it connected to. It reads only. Skipped: clone_session, install_initial_routes, link_watchdog, lldp_discovery, pipeline_push, sflow_telemetry. Reported on GET /p4/switch_state.
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] app package basic declares an EXTERNAL control plane: this proxy will not push pipelines, program clone sessions, send LLDP beacons, watch links or install routes on any of the 1 switches it connected to. It reads only. Skipped: clone_session, install_initial_routes, link_watchdog, lldp_discovery, pipeline_push, sflow_telemetry. Reported on GET /p4/switch_state.
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 sampling to sFlow as 192.168.123.12
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 1 of 2 switches ([1]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 sampling to sFlow as 192.168.123.12
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 1 of 2 switches ([1]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.........
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 runs the package's own pipeline: 2 of 2 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] 1 of 1 switches ([1]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 sampling to sFlow as 192.168.123.12
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 1 of 2 switches ([1]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] switch 1: table entry 0 into MyIngress.ipv4_lpm was NOT applied -- RuntimeError: table not in this pipeline
+[Proxy Agent] Switch 1 runs the package's own pipeline: 1 of 2 declared table entries applied, 1 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] 1 of 1 switches ([1]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 runs the package's own pipeline: 2 of 2 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] 1 of 1 switches ([1]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 runs the package's own pipeline: 2 of 2 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] 1 of 1 switches ([1]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 sampling to sFlow as 192.168.123.12
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 1 of 2 switches ([1]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 runs the package's own pipeline: 2 of 2 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] 1 of 1 switches ([1]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.......................
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] app package p4runtime declares an EXTERNAL control plane: this proxy will not push pipelines, program clone sessions, send LLDP beacons, watch links or install routes on any of the 1 switches it connected to. It reads only. Skipped: clone_session, install_initial_routes, link_watchdog, lldp_discovery, pipeline_push, sflow_telemetry. Reported on GET /p4/switch_state.
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] app package p4runtime declares an EXTERNAL control plane: this proxy will not push pipelines, program clone sessions, send LLDP beacons, watch links or install routes on any of the 2 switches it connected to. It reads only. Skipped: clone_session, install_initial_routes, link_watchdog, lldp_discovery, pipeline_push, sflow_telemetry. Reported on GET /p4/switch_state.
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] app package p4runtime declares an EXTERNAL control plane: this proxy will not push pipelines, program clone sessions, send LLDP beacons, watch links or install routes on any of the 1 switches it connected to. It reads only. Skipped: clone_session, install_initial_routes, link_watchdog, lldp_discovery, pipeline_push, sflow_telemetry. Reported on GET /p4/switch_state.
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] app package p4runtime declares an EXTERNAL control plane: this proxy will not push pipelines, program clone sessions, send LLDP beacons, watch links or install routes on any of the 1 switches it connected to. It reads only. Skipped: clone_session, install_initial_routes, link_watchdog, lldp_discovery, pipeline_push, sflow_telemetry. Reported on GET /p4/switch_state.
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] app package p4runtime declares an EXTERNAL control plane: this proxy will not push pipelines, program clone sessions, send LLDP beacons, watch links or install routes on any of the 2 switches it connected to. It reads only. Skipped: clone_session, install_initial_routes, link_watchdog, lldp_discovery, pipeline_push, sflow_telemetry. Reported on GET /p4/switch_state.
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] app package p4runtime declares an EXTERNAL control plane: this proxy will not push pipelines, program clone sessions, send LLDP beacons, watch links or install routes on any of the 1 switches it connected to. It reads only. Skipped: clone_session, install_initial_routes, link_watchdog, lldp_discovery, pipeline_push, sflow_telemetry. Reported on GET /p4/switch_state.
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] app package p4runtime declares an EXTERNAL control plane: this proxy will not push pipelines, program clone sessions, send LLDP beacons, watch links or install routes on any of the 1 switches it connected to. It reads only. Skipped: clone_session, install_initial_routes, link_watchdog, lldp_discovery, pipeline_push, sflow_telemetry. Reported on GET /p4/switch_state.
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Failed to start LLDP discovery: cannot start
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 2: pipeline push failed, continuing without it: RuntimeError: dead
+[Proxy Agent] 1 of 2 switches have no pipeline ([2]); they will report as down and will not be enabled in the graph
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Shutting down...
+[Proxy Agent] Shutting down...
+[Proxy Agent] Shutting down...
+[Proxy Agent] switch 1 refused to stop cleanly (RuntimeError: channel already dead); continuing shutdown
+[Proxy Agent] Shutting down...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 2: pipeline push failed, continuing without it: RuntimeError: dead
+[Proxy Agent] 1 of 2 switches have no pipeline ([2]); they will report as down and will not be enabled in the graph
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1: clone session failed, NO telemetry from it
+[Proxy Agent] Switch 2 sampling to sFlow as 192.168.123.12
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Switch 2 has no IP in the topology file; its samples would be attributed to nothing, so telemetry is off for it
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11......................
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1: clone session failed, NO telemetry from it
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11 (its own program carries the cooperative header)
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] 1 of 1 switches ([1]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] 1 of 1 switches ([1]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Switch 1: pipeline push failed, continuing without it: RuntimeError: switch is down
+[Proxy Agent] 1 of 1 switches have no pipeline ([1]); they will report as down and will not be enabled in the graph
+[Proxy Agent] Kernel acknowledged all 0 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 has no IP in the topology file; its samples would be attributed to nothing, so telemetry is off for it
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] app package p4runtime declares an EXTERNAL control plane: this proxy will not push pipelines, program clone sessions, send LLDP beacons, watch links or install routes on any of the 1 switches it connected to. It reads only. Skipped: clone_session, install_initial_routes, link_watchdog, lldp_discovery, pipeline_push, sflow_telemetry. Reported on GET /p4/switch_state.
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] 1 of 1 switches ([1]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1: telemetry source is 'link', so this proxy programs no clone session and registers no sFlow agent for it (clone_session, sflow_telemetry on GET /p4/switch_state). Its samples come from the link emitter.
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] 1 of 1 switches ([1]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1: telemetry source is 'none', so this proxy programs no clone session and registers no sFlow agent for it (clone_session, sflow_telemetry on GET /p4/switch_state). Nothing samples this switch.
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11 (its own program carries the cooperative header)
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] 1 of 1 switches ([1]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state........................
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11 (its own program carries the cooperative header)
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] 1 of 1 switches ([1]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] 1 of 1 switches ([1]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] 1 of 1 switches ([1]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1: 0/0 multicast group(s) and 1/1 clone session(s) from the package programmed, 0 refused
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1: 1/1 multicast group(s) and 0/0 clone session(s) from the package programmed, 0 refused
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1: 0/1 multicast group(s) and 0/0 clone session(s) from the package programmed, 1 refused
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Switch 1: pipeline push failed, continuing without it: RuntimeError: down
+[Proxy Agent] 1 of 1 switches have no pipeline ([1]); they will report as down and will not be enabled in the graph
+[Proxy Agent] Kernel acknowledged all 0 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] app package multicast declares an EXTERNAL control plane: this proxy will not push pipelines, program clone sessions, send LLDP beacons, watch links or install routes on any of the 1 switches it connected to. It reads only. Skipped: clone_session, install_initial_routes, link_watchdog, lldp_discovery, pipeline_push, sflow_telemetry. Reported on GET /p4/switch_state.
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1: 0/0 multicast group(s) and 1/1 clone session(s) from the package programmed, 0 refused
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Switch 2 sampling to sFlow as 192.168.123.12
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Switch 2 sampling to sFlow as 192.168.123.12
+[Proxy Agent] Kernel did not acknowledge 1/2 switches yet ([2]) -- normal when the kernel starts after the proxy. Its topology poll enables switches on its own; retrying the push in the background for up to 5 minutes.
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 2: pipeline push failed, continuing without it: RuntimeError: no switch
+[Proxy Agent] 1 of 2 switches have no pipeline ([2]); they will report as down and will not be enabled in the graph
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1...............................................................................................................
+[ntg_bmv2_topo] uncaught exception -- the fabric may be half built and the pane is about to go:
+a traceback with nowhere to go
+.
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Connected to Switch 3
+[Proxy Agent] Connected to Switch 4
+[Proxy Agent] Connected to Switch 5
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Switch 2 sampling to sFlow as 192.168.123.12
+[Proxy Agent] Switch 3 sampling to sFlow as 192.168.123.13
+[Proxy Agent] Switch 4 sampling to sFlow as 192.168.123.14
+[Proxy Agent] Switch 5 sampling to sFlow as 192.168.123.15
+[Proxy Agent] Kernel acknowledged all 5 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Switch 1: pipeline push failed, continuing without it: RuntimeError: dead
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Connected to Switch 3
+[Proxy Agent] 1 of 3 switches have no pipeline ([1]); they will report as down and will not be enabled in the graph
+[Proxy Agent] Switch 2 sampling to sFlow as 192.168.123.12
+[Proxy Agent] Switch 3 sampling to sFlow as 192.168.123.13
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 sampling to sFlow as 192.168.123.12
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 1 of 2 switches ([1]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION, not failure detection: this fabric runs no LLDP and no watchdog, so a cut link is not noticed and not rerouted around (capabilities.reroute is false).
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 sampling to sFlow as 192.168.123.12
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 1 of 2 switches ([1]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons or watch links on ANY switch of this fabric. Skipped: link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION, not failure detection: this fabric runs no LLDP and no watchdog, so a cut link is not noticed and not rerouted around (capabilities.reroute is false).
+[Proxy Agent] every foreign switch binds roles.ipv4_route with owner ndtwin: 12 of 12 initial routes written into the package's route tables (once: no watchdog runs on this fabric, so nothing reroutes around a failed link)
+[Proxy Agent] Started liveness polling...
+[TopologyManager] Discovered link: S1-p1 -> S2-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S1-p1 -> S2-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S1-p1 -> S2-p1
+[TopologyManager] Installing initial routes proactively...
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry modify: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry delete: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] Setting Forwarding Pipeline Config...
+[1] Setting Forwarding Pipeline Config...
+[1] Setting Forwarding Pipeline Config...
+[1] Setting Forwarding Pipeline Config...
+[1] Setting Forwarding Pipeline Config...
+[1] Setting Forwarding Pipeline Config...
+[1] Setting Forwarding Pipeline Config...
+[1] Setting Forwarding Pipeline Config...
+[2] Setting Forwarding Pipeline Config...
+
+[ntg_bmv2_topo] uncaught exception -- the fabric may be half built and the pane is about to go:
+TRACEBACK-WRITTEN-ONCE
+.
+[ntg_bmv2_topo] uncaught exception -- the fabric may be half built and the pane is about to go:
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../tests/test_topo_log.py", line 397, in test_a_traceback_is_written_while_the_tee_is_down
+    raise KeyError("s5")
+KeyError: 's5'
+.
+[ntg_bmv2_topo] uncaught exception -- the fabric may be half built and the pane is about to go:
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/../tests/test_topo_log.py", line 383, in test_a_traceback_is_written_while_the_tee_is_up
+    raise KeyError("s5")
+KeyError: 's5'
+.MARKER-print
+.MARKER-fd1-not-sys-stdout
+.MARKER-fd2
+.MARKER-before-stop
+MARKER-after-stop
+.MARKER-bring-up
+MARKER-teardown
+............................................................
+----------------------------------------------------------------------
+Ran 1557 tests in 18.554s
+
+OK (skipped=1)
+[TopologyManager] Pushing P4 rule to DPID 1: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:00)
+[TopologyManager] Refusing modify for DPID 1: neither table can honour ['dl_dst']
+[TopologyManager] Refusing rule for DPID 1: neither table can honour ['dl_dst']
+[TopologyManager] Pushing 5-tuple rule to DPID 1 prio=101 keys=['hdr.ipv4.dstAddr', 'hdr.ipv4.protocol', 'hdr.ipv4.srcAddr', 'meta.l4_dst_port', 'meta.l4_src_port'] -> port 1
+[TopologyManager] Refusing delete for DPID 1: neither table can honour ['dl_dst']
+<sys>:0: ResourceWarning: unclosed <socket.socket fd=3, family=2, type=2, proto=0, laddr=('0.0.0.0', 0)>
+guarded_build: exit 0
+# rc=0

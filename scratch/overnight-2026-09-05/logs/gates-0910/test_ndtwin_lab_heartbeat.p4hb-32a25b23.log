@@ -1,0 +1,205 @@
+32a25b232324272799837b179cb63b78c7007d14
+# 2026-09-25T05:35:59Z worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-0925, branch feat/p4-heartbeat-0925
+# status: 
+# $ JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash tests/shell/test_ndtwin_lab_heartbeat.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/test_ndtwin_lab_heartbeat.sh
+1. the command line: one sub-verb, nothing after it
+  ok       start reaches hb_start and only it
+  ok       stop reaches hb_stop and only it
+  ok       status reaches hb_status and only it
+  ok       no sub-verb is refused, nothing runs
+  ok       an unknown sub-verb is refused, nothing runs
+  ok       start with an interface name is refused
+  ok         and the refusal says only the sub-verb is accepted
+  ok       start --iface is refused, nothing runs
+  ok       start --ethertype is refused, nothing runs
+  ok       start --manifest is refused, nothing runs
+  ok       stop with a pid is refused, nothing runs
+  ok       a $(...) verb is refused
+  ok         and the $(...) verb did not run
+  ok       a $(...) argument after start is refused
+  ok         and the $(...) argument did not run
+  ok       'start;touch' is one unknown word
+  ok         and nothing was touched
+  ok       a '*' is refused
+  ok         and the refusal quotes it literally
+  ok         and was not globbed into file names
+  ok       the dispatch routes 'heartbeat' to heartbeat_main with the rest of argv
+  ok       the usage line names the heartbeat verbs
+2. start: a fabric first, one daemon only, the plan before the launch
+  ok       no topo session: refused
+  ok         and nothing was installed, planned or launched
+  ok         and it says there is no fabric
+  ok       a live daemon: start answers 0
+  ok         and says it is already running
+  ok         and launches nothing
+  ok       a refused plan: start fails with the plan's rc
+  ok         the plan ran, and nothing was launched
+  ok       a fabric with no switch-to-switch link: rc 3
+  ok         and nothing was launched
+  ok       a good plan launches exactly once, after the plan
+  ok       a daemon that reports: start answers 0
+  ok         and names the pid it launched
+  ok         and that pid is the daemon by argv
+  ok       start again while it runs: no second launch
+  ok         and it says which pid is running
+  ok       and stop stops it
+  ok         and it is gone
+  ok       a daemon that finds no link exits 3, and start answers 3
+  ok       a daemon that refuses at once: start fails
+  ok         and shows the daemon's own reason from its log
+  ok       our 0755 run dir is trusted (the control)
+  ok       a group-writable run dir is refused
+  ok       a symlinked run dir is refused
+  ok       a run dir owned by another uid is refused
+  ok       hb_install_program writes the embedded program verbatim
+  ok         mode 0644
+3. stop: pid AND argv AND uid, or nothing is signalled
+  ok       no pidfile: stop is a clean no-op
+  ok       a pidfile naming a live stranger: rc 0
+  ok         it says stale, nothing signalled
+  ok         and the stranger is still alive
+  ok         and the stale pidfile is gone
+  ok       the stand-in daemon is recognised by argv and uid
+  ok         but not when root's uid is required of it
+  ok       stop as if root: our-uid process is a stranger, not signalled
+  ok       the daemon itself: stop answers 0
+  ok         and says it stopped that pid
+  ok         and it is gone
+  ok         and the pidfile is gone
+  ok       one extra argv word is not the daemon
+  ok       another program path with the same shape is not the daemon
+  ok       stop leaves the one-word-off process alive
+  ok       pidfile '-1' (every process): nothing is signalled
+  ok       pidfile '-1' (every process): refused as not a pid
+  ok       pidfile '0' (the process group): nothing is signalled
+  ok       pidfile '0' (the process group): refused as not a pid
+  ok       pidfile two numbers: nothing is signalled
+  ok       pidfile two numbers: refused as not a pid
+  ok       pidfile a command substitution: nothing is signalled
+  ok       pidfile a command substitution: refused as not a pid
+  ok       pidfile a path: nothing is signalled
+  ok       pidfile a path: refused as not a pid
+  ok       pidfile an empty line: nothing is signalled
+  ok       pidfile an empty line: refused as not a pid
+  ok       pidfile a number with a tail: nothing is signalled
+  ok       pidfile a number with a tail: refused as not a pid
+  ok       pidfile '1' (init): nothing is signalled
+  ok       pidfile '1' (init): called stale, not signalled
+  ok         and no pidfile content was executed
+  ok       a symlinked pidfile is refused
+  ok         and nothing is signalled
+4-7. the program root runs
+  ok       the embedded program is valid python for /usr/bin/python3, and is the daemon
+  -- 4. interfaces come only from the running fabric's own declaration
+  ok       a whole pod-topo fabric: 4 links
+  ok         8 directions, exactly the cables both ways
+  ok         every direction sends on its own port's interface and reads at its peer's
+  ok         the 4 host-facing interfaces are listened on only
+  ok         no host-facing interface is ever a tx
+  ok         the interface set is exactly the manifest's -i bindings
+  ok       the manifest a real bring-up wrote parses, every -i as <switch>-eth<port>
+  ok       no manifest: refused as 'no fabric is running'
+  ok       a manifest this uid owns, in root's sticky /tmp, is refused when root's is required
+  ok       a manifest in a directory another uid owns is refused
+  ok       a group-writable manifest is refused
+  ok       a symlinked manifest is refused
+  ok       a FIFO planted at the name is refused without hanging the reader
+  ok       a manifest in a world-writable, non-sticky directory is refused
+  ok         the same directory made sticky (the /tmp shape) is accepted
+  ok       one switch not a live bmv2: refused as not whole
+  ok       no switch alive: refused as 'no fabric is running'
+  ok       pids whose argv is not simple_switch_grpc are not a fabric
+  ok       an -i binding not named <switch>-eth<port> refuses the whole manifest
+  ok       a non-veth interface is refused
+  ok       a one-way iflink is not a cable: s1-eth3/s3-eth1 are not a link
+  ok         and neither end is ever sent on
+  ok       an -i interface missing from /sys is refused
+  ok       a non-object manifest is refused
+  ok       an empty manifest is refused
+  ok       a port past bmv2's range is refused
+  ok       a boolean device_id is refused
+  ok       a duplicate dpid is refused
+  ok       the real ethtool lookup does not call lo a veth
+  ok         and does call a real veth on this machine (veth645ce65) a veth
+  -- 5. heard means arrived, at the far end, from this session
+  ok       one frame per direction per round
+  ok         each on its own direction's tx interface
+  ok       frames are 60 bytes
+  ok         to 02:4e:44:54:48:42, ethertype 0x88b5
+  ok         from the tx interface's own MAC
+  ok       decode(encode) round-trips
+  ok       decode refuses another ethertype
+  ok       decode refuses another magic
+  ok       decode refuses another version
+  ok       decode refuses a short frame
+  ok       the next round's seq moves on
+  ok       nothing is heard before anything arrives
+  ok       an OUTGOING copy on the rx interface is NOT heard
+  ok         heard is still 0 after the outgoing copy
+  ok       an INCOMING frame on another interface is NOT heard
+  ok         heard is still 0 after the misdelivery
+  ok       another session's frame is NOT heard
+  ok         heard is still 0 after the other session
+  ok       a frame whose endpoints disagree with its direction id is NOT heard
+  ok         heard is still 0 after the forgery
+  ok       the frame arriving at the direction's rx IS heard
+  ok         heard 1, at the time it arrived
+  ok       our own transmission seen on its tx interface is 'own', not heard
+  ok         heard is still 1 after our own copy
+  ok       the kernel filter accepts our frames
+  ok         and drops IPv4
+  ok         and drops LLDP
+  -- 6. the report is observations, never a verdict
+  ok       per direction: exactly these keys (no up/down/is_up/state)
+  ok       top level: exactly these keys
+  ok       a direction never heard reports last_heard_mono null
+  ok       a frame leaving a host-facing port counts as forwarded_to_hosts
+  ok         and one leaving a switch port as forwarded_between_switches
+  ok       the report says the ethertype, the period and the session
+  ok       the report is written 0644 and parses back
+  ok         and leaves no temp file behind
+  ok       status renders ages, not verdicts
+  -- 7. one daemon, a fabric that goes away, the command line, and the pins
+  ok       the first daemon takes the lock
+  ok         a second one cannot, while the first lives
+  ok         and can once the first is gone (the control)
+  ok       an unchanged fabric is not 'changed'
+  ok       a rebuilt fabric (new ifindex) is 'changed'
+  ok       a vanished interface is 'changed'
+  ok       a vanished manifest is 'changed'
+  ok       the program refuses no command
+  ok       the program refuses an unknown command
+  ok       the program refuses daemon with an interface
+  ok       the program refuses plan with a manifest path
+  ok       PERIOD_S is the proxy's LLDP_BEACON_INTERVAL_S
+  ok       the proxy's LINK_BEACON_TIMEOUT_S is 3 heartbeat periods
+  ok       the ethertype is IEEE 802 local experimental (0x88B5/0x88B6)
+  ok       ndtwin_switch.p4 does not use it (and the scan sees its 0x88CC)
+  ok       no tutorials parser uses it (26 .p4 files scanned)
+  ok         and the scan is not blind: it sees 0x0800, 0x0812, 0x1212 and 0x1234
+  -- 8. the daemon's loop, end to end, with stand-in sockets
+  ok       the daemon comes up: pidfile names it, report says running
+  ok         its report names the fabric's 8 directions
+  ok         the first round sent one frame on each tx interface, none on a host port
+  ok         60 bytes each
+  ok       a frame delivered to the peer is heard, and the report shows it within 3 s
+  ok         the OUTGOING copy delivered first was not heard, it was counted as forwarded
+  ok       a second daemon on the same run dir exits 2 (the lock)
+  ok         and the first still owns the pidfile
+  ok         and is still running
+  ok       SIGTERM stops it promptly with rc 0
+  ok         its last report says stopped, by SIGTERM
+  ok         and it removed its own pidfile
+  ok       a daemon whose fabric goes away stops itself at the next round, rc 4
+  ok         and says why in its last report
+  ok       a fabric with no switch-to-switch link: the daemon exits 3
+  ok       no fabric: the daemon refuses, rc 1, and says so
+  ok       the program's checks ran to the end
+  ok       the helper's HB_PIDFILE default is the program's PIDFILE
+  ok       the helper's HB_RUN_DIR default is the program's RUN_DIR
+
+Ran 186 checks, 0 failed
+guarded_build: exit 0
+# rc=0  2026-09-25T05:54:59Z

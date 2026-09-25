@@ -1,0 +1,3 @@
+aligned2: Ran 1557 tests in 18.411s OK (skipped=1) # p4_proxy rc=0 Ran 187 tests in 1.661s OK # p4_exercise rc=0 
+mainvenv: Ran 1557 tests in 18.681s OK (skipped=1) # p4_proxy rc=0 Ran 187 tests in 1.675s OK # p4_exercise rc=0 
+DONE

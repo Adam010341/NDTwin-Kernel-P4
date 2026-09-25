@@ -1,0 +1,90 @@
+# HEAD 55cebe6c2c67b8f5187c7b3d420ce7c4bb9a98cd  interpreter /home/adam/miniconda3/bin/python3.13  (/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-pb5/bin/python)
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925  2026-09-25T05:04:30Z
+# python 3.13.13 | packaged by Anaconda, Inc. | (main, Apr 14 2026, 06:19:41) [GCC 14.3.0]
+# protobuf 5.29.6 backend=upb
+# PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=<unset>
+# pip freeze:
+#   annotated-doc==0.0.5
+#   annotated-types==0.8.0
+#   anyio==4.15.1
+#   certifi==2026.7.22
+#   charset-normalizer==3.5.1
+#   click==8.5.0
+#   fastapi==0.139.2
+#   googleapis-common-protos==1.75.0
+#   grpcio==1.82.1
+#   h11==0.16.0
+#   hypothesis==6.165.5
+#   idna==3.20
+#   networkx==3.6.1
+#   p4runtime==1.5.0
+#   protobuf==5.29.6
+#   pydantic==2.13.5
+#   pydantic_core==2.46.5
+#   requests==2.34.2
+#   sortedcontainers==2.4.0
+#   starlette==1.7.0
+#   thrift==0.24.0
+#   typing-inspection==0.4.4
+#   typing_extensions==4.16.0
+#   urllib3==2.8.0
+#   uvicorn==0.51.0
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy
+# cmd env PYTHONPATH=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy PYTHONDONTWRITEBYTECODE=1 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-pb5/bin/python -m unittest tests.test_app_package_proxy tests.test_app_package tests.test_bmv2_binary_override tests.test_clone_session tests.test_counter_route tests.test_declared_links tests.test_delete_restores_route tests.test_exact_one_element_list tests.test_fabric_bring_up tests.test_five_tuple_match tests.test_flowentry_endpoints tests.test_flow_stats_route tests.test_foreign_pipeline tests.test_journal_is_wired_in_main tests.test_journal_wiring tests.test_kernel_notifier tests.test_link_state_entry tests.test_link_telemetry tests.test_link_watchdog tests.test_lldp_beacon tests.test_multicast_group tests.test_p4_client tests.test_p4_client_writes tests.test_packet_in_by_name tests.test_path_determinism tests.test_port_guard tests.test_psample_sflow_emitter tests.test_readopt tests.test_route_binding tests.test_rule_install_times tests.test_rule_journal tests.test_ryu_flow_stats tests.test_ryu_topology tests.test_sflow_emitter tests.test_startup tests.test_switch_state tests.test_table_entry_route tests.test_table_generation tests.test_topo_log tests.test_topology_properties tests.test_unsupported_match
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env PYTHONPATH=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy PYTHONDONTWRITEBYTECODE=1 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-pb5/bin/python -m unittest tests.test_app_package_proxy tests.test_app_package tests.test_bmv2_binary_override tests.test_clone_session tests.test_counter_route tests.test_declared_links tests.test_delete_restores_route tests.test_exact_one_element_list tests.test_fabric_bring_up tests.test_five_tuple_match tests.test_flowentry_endpoints tests.test_flow_stats_route tests.test_foreign_pipeline tests.test_journal_is_wired_in_main tests.test_journal_wiring tests.test_kernel_notifier tests.test_link_state_entry tests.test_link_telemetry tests.test_link_watchdog tests.test_lldp_beacon tests.test_multicast_group tests.test_p4_client tests.test_p4_client_writes tests.test_packet_in_by_name tests.test_path_determinism tests.test_port_guard tests.test_psample_sflow_emitter tests.test_readopt tests.test_route_binding tests.test_rule_install_times tests.test_rule_journal tests.test_ryu_flow_stats tests.test_ryu_topology tests.test_sflow_emitter tests.test_startup tests.test_switch_state tests.test_table_entry_route tests.test_table_generation tests.test_topo_log tests.test_topology_properties tests.test_unsupported_match
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/adam/miniconda3/lib/python3.13/unittest/__main__.py", line 18, in <module>
+    main(module=None)
+    ~~~~^^^^^^^^^^^^^
+  File "/home/adam/miniconda3/lib/python3.13/unittest/main.py", line 103, in __init__
+    self.parseArgs(argv)
+    ~~~~~~~~~~~~~~^^^^^^
+  File "/home/adam/miniconda3/lib/python3.13/unittest/main.py", line 142, in parseArgs
+    self.createTests()
+    ~~~~~~~~~~~~~~~~^^
+  File "/home/adam/miniconda3/lib/python3.13/unittest/main.py", line 153, in createTests
+    self.test = self.testLoader.loadTestsFromNames(self.testNames,
+                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+                                                   self.module)
+                                                   ^^^^^^^^^^^^
+  File "/home/adam/miniconda3/lib/python3.13/unittest/loader.py", line 207, in loadTestsFromNames
+    suites = [self.loadTestsFromName(name, module) for name in names]
+              ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "/home/adam/miniconda3/lib/python3.13/unittest/loader.py", line 137, in loadTestsFromName
+    module = __import__(module_name)
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/tests/test_app_package_proxy.py", line 48, in <module>
+    import proxy_agent.main as main
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/proxy_agent/main.py", line 11, in <module>
+    from proxy_agent.p4_client import P4RuntimeClient
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/proxy_agent/p4_client.py", line 7, in <module>
+    from p4.v1 import p4runtime_pb2
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-pb5/lib/python3.13/site-packages/p4/v1/p4runtime_pb2.py", line 17, in <module>
+    from p4.config.v1 import p4info_pb2 as p4_dot_config_dot_v1_dot_p4info__pb2
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-pb5/lib/python3.13/site-packages/p4/config/v1/p4info_pb2.py", line 15, in <module>
+    from p4.config.v1 import p4types_pb2 as p4_dot_config_dot_v1_dot_p4types__pb2
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-pb5/lib/python3.13/site-packages/p4/config/v1/p4types_pb2.py", line 36, in <module>
+    _descriptor.FieldDescriptor(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+      name='key', full_name='p4.config.v1.P4TypeInfo.StructsEntry.key', index=0,
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+      is_extension=False, extension_scope=None,
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-pb5/lib/python3.13/site-packages/google/protobuf/descriptor.py", line 626, in __new__
+    _message.Message._CheckCalledFromGeneratedFile()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+TypeError: Descriptors cannot be created directly.
+If this call came from a _pb2.py file, your generated code is out of date and must be regenerated with protoc >= 3.19.0.
+If you cannot immediately regenerate your protos, some other possible workarounds are:
+ 1. Downgrade the protobuf package to 3.20.x or lower.
+ 2. Set PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python (but this will use pure-Python parsing and will be much slower).
+
+More information: https://developers.google.com/protocol-buffers/docs/news/2022-05-06#python-updates
+guarded_build: exit 1
+# rc=1

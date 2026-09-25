@@ -1,0 +1,55 @@
+# HEAD e1245b400efa4529ac5749c173020e862ee84cb2 2026-09-25T11:47:35Z
+hb_watch --self-test (synthetic reports; no lab)
+  ok    all heard after 99                                         OK 8/8 directions heard
+  ok    not all heard after 101                                    BAD 0/8 directions heard since 101.0; not: s1-eth3->s3-eth1, s1-eth4->s4-eth2, s2-eth3->s4
+  ok    an empty report is not all heard                           BAD the report has no direction at all
+  ok    both cut directions silent 20 s > 15: not heard            True
+  ok    silent 10 s is still heard                                 False
+  ok    only one direction silent: not both down                   False
+  ok    never heard counts as silent                               True
+  ok    a heard-after answer needs a newer stamp                   True
+  ok    no collateral when only the cut is stale                   OK
+  ok    collateral when another direction is stale                 BAD collateral: s3-eth1->s1-eth3
+  ok    a direction the report lacks is an error                   KeyError
+  ok    summary: two detected cycles pass                          True
+  ok    summary: states min/median/max                               cut -> both directions not heard: min 12.10 s  median 13.05 s  max 14.00 s  (n=2)
+  ok    summary: an undetected cut fails                           False
+  ok    summary: no cycle is not a pass                            False
+  ok    census: nothing seen                                       OK no host saw a heartbeat frame (1 host(s) sniffed); switch side: forwarded_between_switc
+  ok    census: a host saw one                                     STOP heartbeat frames reached a host (ruling 4): h1 1; daemon forwarded_to_hosts=0
+  ok    census: the daemon saw one leave a host port               STOP heartbeat frames reached a host (ruling 4): ; daemon forwarded_to_hosts=1
+  ok    census: a sniffer that did not run is not a clean host     BAD a sniffer did not run: h1: mnexec refused
+  ok    census: no host sniffed is not clean                       BAD no host was sniffed
+  ok    first hit: the first host that saw one                     h2
+  ok    first hit: nobody saw one is no hit                        True
+SELF-TEST PASS
+hb_sniff --self-test
+  ok    a heartbeat by ethertype                                (True, 'ethertype')
+  ok    an IPv4 frame is not                                    (False, '')
+  ok    a rewritten one is found by its payload                 (True, 'payload')
+  ok    another session's payload under another type is not     (False, '')
+  ok    the first heartbeat frame ends the sniff at once        first heartbeat frame after 0.0 s
+  ok    the stop file ends a quiet sniff at once                stop file after 0.0 s
+SELF-TEST PASS
+S_heartbeat_spike --self-test
+  ok    every borrowed function exists (17)
+  ok    census_prepare.py parses
+  ok    the sniffer recognises the daemon's own frames, sent and re-wrapped
+  ok    a run whose fabric is already down: finish's 'ndt down' rc 3 does not fail it (PASS, down and release both ran)
+  ok      but a 3 while this run believes its fabric is up still fails it
+  ok      and a clean down of a fabric that is up passes (the control)
+  ok    the spike's default tc route is 'sudo -n mnexec -a 1 tc' (plain 'sudo -n tc' only as an override)
+  ok    the pre-check RUNS a harmless tc through the route (sudo stubbed: one call, 'qdisc show dev lo')
+  ok      a route sudo refuses: the pre-check refuses and says so
+  ok      the plain 'sudo -n tc' override is also asked by running tc, never by 'sudo -l'
+  ok      a FAULTS_TC that cannot run tc is refused
+  --    the real sudo probe was NOT run (opt-in: SELFTEST_PROBE_SUDO=1) -- neither ok nor red; precheck_tc proves the route at run time, before the claim
+  ok      the pre-check runs before the claim (source read: line 717 < 739)
+  ok    the first host to see a heartbeat frame stops the heartbeat and every sniffer at once (1 s, not 20; set -e process)
+  ok      a clean window under set -e: no hit, the census goes on, the heartbeat is left for the arm's own stop
+  ok      a hit written as the last sniffer exits is still caught, and the heartbeat stopped (set -e process)
+  ok    a detection part that fails its first check records FAIL and returns -- the run goes on (set -e process)
+  ok    the census reads the daemon's session from its report (set -e process)
+  ok      no report yet: a bounded wait, then 'no session' for the caller to handle -- not an abort
+SPIKE SELF-TEST PASS
+# rc=0

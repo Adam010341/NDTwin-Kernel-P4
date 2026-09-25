@@ -1,0 +1,23 @@
+# HEAD 7cc50b4284e89d8f2459d560633697656d49254d  interpreter n/a (bash)  2026-09-25T05:16:40Z
+# why: the only test that greps stack.sh's P4-interpreter message block (line 70, the line above the one this commit edits)
+# $ JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash tests/shell/test_up_ovs_wedge_guard.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/test_up_ovs_wedge_guard.sh
+live Mininet + 'up ovs' -> refused before touching Ryu
+  ok       returns 1
+  ok       says why
+  ok       names the wedge
+  ok       never reaches the Ryu step
+no Mininet + 'up ovs' -> guard passes (dies later at the missing ryu-manager, by design)
+  ok       guard silent
+  ok       reached the Ryu step
+live Mininet + 'up ovs --force' -> guard bypassed on explicit request
+  ok       guard silent
+  ok       reached the Ryu step
+live Mininet + 'up p4' -> the guard is ovs-only (P4 restarts under live Mininet are routine)
+  ok       guard silent
+  ok       reached the proxy step
+
+Ran 10 checks, all passed
+guarded_build: exit 0
+# rc=0

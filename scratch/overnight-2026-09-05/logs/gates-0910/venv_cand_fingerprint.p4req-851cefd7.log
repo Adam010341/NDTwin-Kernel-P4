@@ -1,0 +1,25 @@
+# HEAD 851cefd79e26ee2fb481e461a7bd77ebaeb5b329  venvs /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand , /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand312 (kept for the orchestrator's live trial; NOT modified in round 2)  2026-09-25T09:42:18Z
+# method: find <venv> -type f -printf '%P %s %T@\n' | sort | sha256sum ; newest mtime ; regenerated p4 modules' sha256
+== venv-cand
+fingerprint aa1d4c72a6c75cfa6bae4ab8eab06be9e0be74bd5b79f6867b32fa08b5525459
+newest mtime: 2026-09-25+13:13:09.8021877030 lib/python3.13/site-packages/p4/v1/p4runtime_pb2_grpc.py
+badda8ba84ba9570468e3fcb53d92ee274485b4fb0b2d40ba5efae3fb5b5e2d5  lib/python3.13/site-packages/p4/config/v1/p4info_pb2_grpc.py
+355f066c05b89fdca7c46d7e1f6bc250c836a47bff791697f80ddc2753eb74d7  lib/python3.13/site-packages/p4/config/v1/p4info_pb2.py
+ef4a945f3fd815289a6f0e02dac602b289436e3202b5b27451293c6a83bf1701  lib/python3.13/site-packages/p4/config/v1/p4types_pb2_grpc.py
+e91d6496f08e543ee87c96a2e68a49f51a006a1b7e37b364ac27ae5d41fce32a  lib/python3.13/site-packages/p4/config/v1/p4types_pb2.py
+3dbf6a108642d3d5e76974be7383c64b4dabb5f424ec0298650f767d4e7baf19  lib/python3.13/site-packages/p4/v1/p4data_pb2_grpc.py
+da869f059d708f8cc1792164d29360f2ecc85a8a16c469d6316958ee47304a9a  lib/python3.13/site-packages/p4/v1/p4data_pb2.py
+5e060258fdf6e465bf36880077bf802a1154c8d48fbc723c03e663962031d988  lib/python3.13/site-packages/p4/v1/p4runtime_pb2_grpc.py
+0a28fb85ff369a5c125e83c8f2cf482c4b9993e0ed7010ff87bc40de0c161471  lib/python3.13/site-packages/p4/v1/p4runtime_pb2.py
+== venv-cand312
+fingerprint 91dc97536da23bd530b825283283db83c409fe94bd60c80fdc8ce33ff13c572b
+newest mtime: 2026-09-25+13:15:37.5199074080 lib/python3.12/site-packages/p4/v1/p4runtime_pb2_grpc.py
+badda8ba84ba9570468e3fcb53d92ee274485b4fb0b2d40ba5efae3fb5b5e2d5  lib/python3.12/site-packages/p4/config/v1/p4info_pb2_grpc.py
+355f066c05b89fdca7c46d7e1f6bc250c836a47bff791697f80ddc2753eb74d7  lib/python3.12/site-packages/p4/config/v1/p4info_pb2.py
+ef4a945f3fd815289a6f0e02dac602b289436e3202b5b27451293c6a83bf1701  lib/python3.12/site-packages/p4/config/v1/p4types_pb2_grpc.py
+e91d6496f08e543ee87c96a2e68a49f51a006a1b7e37b364ac27ae5d41fce32a  lib/python3.12/site-packages/p4/config/v1/p4types_pb2.py
+3dbf6a108642d3d5e76974be7383c64b4dabb5f424ec0298650f767d4e7baf19  lib/python3.12/site-packages/p4/v1/p4data_pb2_grpc.py
+da869f059d708f8cc1792164d29360f2ecc85a8a16c469d6316958ee47304a9a  lib/python3.12/site-packages/p4/v1/p4data_pb2.py
+5e060258fdf6e465bf36880077bf802a1154c8d48fbc723c03e663962031d988  lib/python3.12/site-packages/p4/v1/p4runtime_pb2_grpc.py
+0a28fb85ff369a5c125e83c8f2cf482c4b9993e0ed7010ff87bc40de0c161471  lib/python3.12/site-packages/p4/v1/p4runtime_pb2.py
+# branch cand/p4proxy-protobuf5-0925 = 7cc50b4284e89d8f2459d560633697656d49254d

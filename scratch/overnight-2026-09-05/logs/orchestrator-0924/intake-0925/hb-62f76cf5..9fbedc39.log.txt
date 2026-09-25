@@ -1,0 +1,6 @@
+9fbedc39 heartbeat tests: the no-topo-session refusal is judged by its reason, not its rc alone
+32a25b23 heartbeat spike S, prepared offline and NOT run (TICKET-P4-heartbeat segment S)
+d6bafeae mutate_ndtwin_lab_heartbeat.sh: 32 named mutants + a control for the heartbeat's root rules
+8c930eb4 ndtwin-lab heartbeat: a root veth heartbeat for foreign P4 fabrics (TICKET-P4-heartbeat segment H)
+9b17f8f9 heartbeat tests: survive the red run they exist for (still no implementation)
+8be43e77 ndtwin-lab heartbeat tests (TICKET-P4-heartbeat segment H) -- red first

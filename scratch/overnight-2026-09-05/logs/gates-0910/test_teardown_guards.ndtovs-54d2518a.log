@@ -1,0 +1,37 @@
+54d2518a07a084d2b60811fa8f404f444e5a0c75
+# gate    : tools/test_workflow/test_teardown_guards.sh (judge F9)
+# cmd     : (cwd worktree) JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash tools/test_workflow/test_teardown_guards.sh
+# worktree: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-ovs-claim-0925
+# branch  : fix/ndt-ovs-claim-0925
+# start   : 2026-09-25T18:00:31+08:00
+# ndt under test: the worktree file, git hash-object 9136db6d382242adca3ccbe071061c817f868c5b  (HEAD's blob: 9136db6d382242adca3ccbe071061c817f868c5b)
+# dirty tracked at start: 0
+# test/gate files under test are HEAD's: yes
+
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tools/test_workflow/test_teardown_guards.sh
+stop_one: a pid that started after its pidfile is a different process
+  ok    the unrelated process survived
+  ok    the refusal is explained
+  ok    the stale pidfile is kept, not silently removed
+stop_one: a process the stack really started is still stopped
+  ok    legitimate process stopped
+  ok    pidfile cleared
+app_stop: a symlinked pidfile is refused
+  ok    the link target survived
+  ok    non-zero exit
+  ok    the refusal is explained
+in_flight: an idle iperf3 server is not a measurement; a client is
+  ok    iperf3 -s -> idle
+  ok    iperf3 -s -p 5299 -> idle
+  ok    iperf3 -c 10.0.0.2 -t 30 -> BUSY
+  ok    iperf3 --client 10.0.0.2 -> BUSY
+  ok    bash matrix.sh 5 -> BUSY
+  ok    sleep 60 -> idle
+
+14 passed, 0 failed
+guarded_build: exit 0
+
+# rc=0
+# end 2026-09-25T18:00:34+08:00  /tmp/ndt-ovs-claim-* after: 0
+# dirty tracked at end: 0

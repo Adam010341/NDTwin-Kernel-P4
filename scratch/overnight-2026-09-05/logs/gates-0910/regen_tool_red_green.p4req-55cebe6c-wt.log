@@ -1,0 +1,62 @@
+# venv /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand (/home/adam/miniconda3/bin/python3.13); tool = worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/regen_p4runtime_pb2.py (sha256 d7efa3f4748a7c8e, uncommitted on cand/p4proxy-protobuf5-0925 at 55cebe6c); 2026-09-25T05:13:09Z
+# mutant diff:
+#   69c69
+#   <     same = mod.DESCRIPTOR.serialized_pb == blob
+#   ---
+#   >     same = mod.DESCRIPTOR.serialized_pb == blob[:-1]  # MUTANT
+== 0. installed p4 package fingerprint: 0434cc2ce8894bf4
+== 1. import on default backend BEFORE regen (expect the TypeError):
+More information: https://developers.google.com/protocol-buffers/docs/news/2022-05-06#python-updates
+== 2. MUTANT tool (identity check compares against a truncated descriptor): expect refusal, rc 1, nothing replaced
+  p4/config/v1/p4types.proto     descriptor DIFFERS (5273 bytes)
+  p4/config/v1/p4info.proto      descriptor DIFFERS (6019 bytes)
+  p4/v1/p4data.proto             descriptor DIFFERS (824 bytes)
+  p4/v1/p4runtime.proto          descriptor DIFFERS (8825 bytes)
+  backend upb, p4runtime_pb2_grpc imports
+refusing: the generated modules do not reproduce the shipped schema; nothing was replaced.
+checking the generated modules (default backend, scratch copy):
+   rc=1
+   fingerprint after mutant: 0434cc2ce8894bf4
+== 3. real tool: expect replacements, rc 0
+  p4/config/v1/p4types.proto     descriptor identical (5273 bytes)
+  p4/config/v1/p4info.proto      descriptor identical (6019 bytes)
+  p4/v1/p4data.proto             descriptor identical (824 bytes)
+  p4/v1/p4runtime.proto          descriptor identical (8825 bytes)
+  backend upb, p4runtime_pb2_grpc imports
+  p4/config/v1/p4types.proto     descriptor identical (5273 bytes)
+  p4/config/v1/p4info.proto      descriptor identical (6019 bytes)
+  p4/v1/p4data.proto             descriptor identical (824 bytes)
+  p4/v1/p4runtime.proto          descriptor identical (8825 bytes)
+  backend upb, p4runtime_pb2_grpc imports
+checking the generated modules (default backend, scratch copy):
+replaced p4/config/v1/p4types_pb2.py        d436ed076b7ffb99 -> e91d6496f08e543e
+replaced p4/config/v1/p4types_pb2_grpc.py   d686e804f1716931 -> ef4a945f3fd81528
+replaced p4/config/v1/p4info_pb2.py         acc7feeb96762287 -> 355f066c05b89fdc
+replaced p4/config/v1/p4info_pb2_grpc.py    d686e804f1716931 -> badda8ba84ba9570
+replaced p4/v1/p4data_pb2.py                e12b7b17ab700f94 -> da869f059d708f8c
+replaced p4/v1/p4data_pb2_grpc.py           d686e804f1716931 -> 3dbf6a108642d3d5
+replaced p4/v1/p4runtime_pb2.py             3bd1a8991d852314 -> 0a28fb85ff369a5c
+replaced p4/v1/p4runtime_pb2_grpc.py        9c4d058515a16d2c -> 5e060258fdf6e465
+checking the installed package (default backend):
+ok: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand/lib/python3.13/site-packages/p4 imports on the default backend with the shipped schema.
+   rc=0
+   fingerprint after: bb1b2363238db362
+== 4. real tool again: expect 'already current', rc 0
+  p4/config/v1/p4types.proto     descriptor identical (5273 bytes)
+  p4/config/v1/p4info.proto      descriptor identical (6019 bytes)
+  p4/v1/p4data.proto             descriptor identical (824 bytes)
+  p4/v1/p4runtime.proto          descriptor identical (8825 bytes)
+  backend upb, p4runtime_pb2_grpc imports
+  p4/config/v1/p4types.proto     descriptor identical (5273 bytes)
+  p4/config/v1/p4info.proto      descriptor identical (6019 bytes)
+  p4/v1/p4data.proto             descriptor identical (824 bytes)
+  p4/v1/p4runtime.proto          descriptor identical (8825 bytes)
+  backend upb, p4runtime_pb2_grpc imports
+checking the generated modules (default backend, scratch copy):
+already current: every generated module matches what is installed.
+checking the installed package (default backend):
+ok: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand/lib/python3.13/site-packages/p4 imports on the default backend with the shipped schema.
+   rc=0
+   fingerprint after: bb1b2363238db362
+== 5. import on default backend AFTER regen:
+import OK

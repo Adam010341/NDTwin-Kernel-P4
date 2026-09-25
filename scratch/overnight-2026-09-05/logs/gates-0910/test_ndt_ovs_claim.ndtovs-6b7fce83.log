@@ -1,0 +1,147 @@
+6b7fce837d9445e711faeb1c1a98438cdf8815ef
+# gate    : new offline suite, GREEN at the fix
+# cmd     : (cwd worktree) JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash tests/shell/test_ndt_ovs_claim.sh
+# worktree: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-ovs-claim-0925
+# branch  : fix/ndt-ovs-claim-0925
+# start   : 2026-09-25T13:27:20+08:00
+# ndt under test: the worktree file, git hash-object 3a0e66c6e23a13264424ec1c6224e78e830c81ac  (HEAD's blob: 3a0e66c6e23a13264424ec1c6224e78e830c81ac)
+# dirty tracked at start: 0
+
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/test_ndt_ovs_claim.sh
+
+1. 🔴 'ndt up ovs' under somebody else's claim: rc 5, and nothing is half-built
+  ok       🔴 a foreign claim refuses the OVS bring-up with 5
+  ok         it says it is refusing to build
+  ok       🔴 NOTHING was reached: no sudo, no stack.sh, no target, no temp, knob kept
+  ok         the claim file is byte-identical
+  ok         and no override was recorded -- none was asked for
+  ok         the bring-up banner never printed
+  ok         the retry line carries the BARE owner
+  ok         🔴 and not the parenthesised description
+  ok         and names the override, with where it is recorded
+  ok         saying where the override would be written
+  ok         a foreign claim with measuring= is still 5
+  ok         and quotes the declaration
+  ok         'ndt up' (OVS 128) is refused the same way
+  ok         and reached nothing
+  ok       🔴 NDT_OWNER unset: any live claim refuses
+  ok         and reached nothing
+
+2. 🔴 'ndt up ovs' with a measurement in flight: rc 5, P4's semantics
+  ok       🔴 a measurement in flight refuses the OVS bring-up
+  ok         it says a measurement is running
+  ok         naming what is running
+  ok         and reached nothing
+  ok         and names the override
+
+3. 🔴 the controls -- a guard that refuses everything guards nothing
+  ok       our own live claim is not a refusal
+  ok         the bring-up ran
+  ok       🔴 stack.sh WAS invoked -- the instrument can read non-zero
+  ok         and the fabric verb WAS run
+  ok         and the knob WAS cleared -- that column can move too
+  ok         and up.target WAS written
+  ok         and no override is recorded for a bring-up that needed none
+  ok       an EXPIRED claim is not a refusal
+  ok         the bring-up ran
+  ok       no claim and nothing running is not a refusal
+  ok         the bring-up ran
+
+4. 🔴 --force builds, and every use of it is written down
+  ok       --force is not refused
+  ok         the fabric was built
+  ok         it says out loud it is building over the claim
+  ok       🔴 exactly one override is recorded
+  ok         who: the NDT_OWNER that forced it
+  ok         🔴 whose claim was overridden
+  ok         that claim's expiry, as it was
+  ok         what that claim declared
+  ok         when: a timestamp with a date and an offset
+  ok         and the command it forced
+  ok         which login ran it
+  ok       🔴 --force over a measurement in flight is recorded too, and APPENDED
+  ok         the first record is untouched
+  ok         with no claim to name, 'over' says so
+  ok         and it names what was running
+  ok       --force over nothing records nothing
+  ok         and the bring-up still ran
+  ok       🔴 --force whose record cannot be written is refused
+  ok         and says why
+  ok         and reached nothing
+
+5. 🔴 P4 goes through the SAME guard, with the same flag and the same record
+  ok       🔴 a foreign claim still refuses the P4 bring-up with 5
+  ok         with the same sentence as OVS
+  ok         and reached nothing
+  ok         and names the same override
+  ok         a measurement in flight still refuses P4 with 5
+  ok       --force builds P4 over a foreign claim
+  ok         the fabric was started
+  ok         and the override is recorded
+  ok         naming whose claim
+  ok         and the P4 command
+  ok       🔴 neither bring-up calls foreign_claim itself
+  ok         and each calls the shared guard exactly once
+
+6. the flag is argv, parsed once for both planes, and an exported variable is not it
+  ok       --force is taken off argv and sets the flag
+  ok         and the words to retry with do not carry it
+  ok         in any position
+  ok       🔴 an exported NDT_UP_FORCE without the flag forces nothing
+  ok       🔴 an exported NDT_UP_FORCE=1 does not open the guard
+  ok         and nothing was recorded or reached
+
+7. 'ndt help' tells the truth about it
+  ok       the up block names the override
+  ok         and where it is recorded
+  ok         rc 5 still names a foreign claim among its causes
+  ok         and says it is BOTH planes now
+  ok       the down block says a stale entry is not a subject
+  ok       🔴 'ndt status' shows the last override
+  ok         naming who forced past whom
+
+8. 🔴 a stale pidfile: 'ndt status' marks it
+  ok       🔴 a dead app pidfile is marked STALE
+  ok         naming the file
+  ok         and the pid that is gone
+  ok         and what removes it
+  ok       🔴 and 'ndt status' itself prints that row (existence is not wiring)
+  ok       a dead stack pidfile is still marked stale
+  ok       🔴 a pidfile naming a LIVE viz is not stale
+  ok       🔴 pid gone but its process group alive: NOT stale
+  ok         and it says the group is still there
+  ok       🔴 a pid alive as somebody else is STALE (pid + argv, not the number)
+  ok         and it says the number was recycled
+
+9. 🔴 a stale pidfile: 'ndt down' removes it, and a down lab still answers 3
+  ok       🔴 an already-down lab with a stale pidfile is rc 3, not 0
+  ok         and the verdict line says what it measured
+  ok       🔴 the stale pidfile is GONE
+  ok         and its .pgid with it
+  ok         it says it removed it, and why
+  ok       🔴 the app's window was written down before the file went
+  ok       🔴 down again: rc 3
+  ok         and nothing left to remove
+  ok         a dead kernel.pid on a down lab: rc 3
+  ok         and it is removed
+  ok       🔴 a LIVE pidfile is kept
+  ok         and is a subject: rc 0, not 3
+  ok       🔴 pid gone, group alive: the pidfile is KEPT
+  ok         and it is still a subject: not 3
+  ok         an UNUSABLE pidfile is not called stale and not removed by the sweep
+  ok         under a foreign claim 'down' is still 5
+  ok         and leaves even the stale file where it is
+
+10. 'ndt clean' reads the registry the same way
+  ok       🔴 only a stale entry: nothing to judge, rc 3
+  ok         and it does not pretend the registry is empty
+  ok         clean does not remove it -- it is an assertion
+  ok         a LIVE registry entry is still a subject: rc 0
+
+Ran 109 checks, 0 failed
+guarded_build: exit 0
+
+# rc=0
+# end 2026-09-25T13:27:24+08:00  /tmp/ndt-ovs-claim-* after: 0
+# dirty tracked at end: 0

@@ -1,0 +1,217 @@
+diff --git a/doc/2026-08-17_testing-manual.md b/doc/2026-08-17_testing-manual.md
+index 9eca6ffb..a3560a84 100644
+--- a/doc/2026-08-17_testing-manual.md
++++ b/doc/2026-08-17_testing-manual.md
+@@ -511,11 +511,16 @@ P4 那邊沒有這個問題，因為 **proxy 不用學、它直接從自己的
+   `the window has NO extent … NOT 'this app left nothing'`——**那是「沒有東西可以歸屬」，不是「乾淨」**。
+   pid 活著的窗照舊開到 `now`。
+   🆕 **09-25 起 `ndt down` 會清掉那個 pidfile**（Adam 09-25 裁，TICKET-ndt-ovs-claim）：pid 不在
+-  （或活著但不是那個 app、或那個行程比 pidfile 晚啟動＝號碼被回收），**而且**記錄的 process group
+-  也沒有程序 ⇒ **stale**。`down` 先把那個窗（起點＝pidfile 的 mtime、右端＝上面封住的那一端）寫進
++  （或活著但不是那個 app），**而且**記錄的 process group 也沒有程序 ⇒ **stale**；**號碼被回收**
++  （pid 活著、但那個行程比 pidfile 晚啟動）則**直接**判 stale，不問 group——app 與 stack 自己的
++  pidfile 都一樣（判官 r2 #5：手冊原本寫成要兩個條件都成立，跟程式不符）。`down` 先把那個窗（起點＝pidfile 的 mtime、右端＝上面封住的那一端）寫進
+   `.test_run/apps/<app>.window` 再刪檔——**窗寫不進去就不刪、`down` 回 1**；之後的報告從那份紀錄讀
+   同一個窗，零長的窗照樣印上面那句 `NO extent`。lab 已經 down、只剩 stale 檔時 `down` 回 **3**。
+   `ndt status` 在 apps 區塊把它標成 `app pidfile  STALE -- …`（**只是標記，不讓 `--check` 變紅**）。
++  🔴 **stack 自己的 pidfile（kernel／p4_proxy／ryu）是回收的號碼時不一樣**：pidfiles 列標 stale，
++  **而且算 `--check` problem——有 baseline（`.test_run/up.target`）時 rc 1，沒有時照舊 3**。
++  （09-25 之前這種檔被當成活的，`--check` 回 0；上面 P4 那條「`ndt status --check` 回 rc=0 才算過」
++  的驗收碰到它會翻成 1，那是新規則，不是 lab 壞了——先看 problems 那一行是不是 `stale pidfile (… a recycled number …)`。）
+   ⇒ **在下一次 `ndt down` 之前**，OVS 上 `--check` 會不會因為 rules-in-window 變紅，取決於
+   `.test_run/pids/` 裡那個 stale `app_*.pid` 的 app 在窗內有沒有真的裝東西，跟 ovs4 這個尺寸無關。
+   看到這條 problem，先去問 `.test_run/pids/app_*.pid` 指的行程還活不活（`ndt status` 的
+diff --git a/tests/shell/mutate_ndt_ovs_claim.sh b/tests/shell/mutate_ndt_ovs_claim.sh
+index 7c6f8974..a2c3060d 100644
+--- a/tests/shell/mutate_ndt_ovs_claim.sh
++++ b/tests/shell/mutate_ndt_ovs_claim.sh
+@@ -5,6 +5,9 @@
+ #
+ # [Co-developed with claude code -- Adam]
+ #
++# Round 3 (judge r2 on e1420df2) adds M36-M39: the new --check rc 1 (M36) and its help sentence
++# (M37), and the two down messages (M38, M39).
++#
+ # Round 2 (09-25, judge's report on 6b7fce83) adds M21-M35 and C3: one named mutant for each
+ # behaviour that round changed or pinned (F1 M24, F2 M25, F3 M21, F4 M22, F5 M35, F6 M34, F8
+ # M26/M27, the start-time widening M28, and the judge's edges M23 M29-M33).
+@@ -530,6 +533,49 @@ EOF
+ check_fires "M35 (F5): help claims argv identity for the stack's files" m35 \
+             "identity is stated per kind of file"
+ 
++
++# =============================================================================================
++# Round 3 (judge r2 on e1420df2, orchestrator 09-25)
++# =============================================================================================
++
++# --- M36 (#1): a recycled stack number is printed but is not a --check problem -------------------
++cat > "$A/m36.old" <<'EOF'
++            bad+=("$base: stale pidfile (pid $pid is alive, but that process started ${late}s after this file was written -- a recycled number, not $name)")
++EOF
++cat > "$A/m36.new" <<'EOF'
++            live+=("$base: stale pidfile (pid $pid is alive, but that process started ${late}s after this file was written -- a recycled number, not $name)")
++EOF
++check_fires "M36 (#1): printed, but --check stays 0 with a baseline" m36 \
++            "🔴 with a baseline, a recycled kernel.pid makes --check rc 1"
++
++# --- M37 (#1): the status help loses the sentence -------------------------------------------------
++cat > "$A/m37.old" <<'EOF'
++                  too, and a --check problem: rc 1 while a baseline exists; with none
++EOF
++cat > "$A/m37.new" <<'EOF'
++                  too, and a --check problem: always rc 1; with none
++EOF
++check_fires "M37 (#1): help drops the baseline qualifier" m37 \
++            "🔴 status: a recycled stack pidfile is a --check problem, rc 1 only with a baseline"
++
++# --- M38 (#3): the removal no longer says why stack.sh kept it -----------------------------------
++cat > "$A/m38.old" <<'EOF'
++                    kept="; stack.sh kept it above because the number is somebody else's" ;;
++EOF
++cat > "$A/m38.new" <<'EOF'
++                    kept="" ;;
++EOF
++check_fires "M38 (#3): the removal reads as contradicting stop_one" m38 \
++            "  🔴 and says why stack.sh kept it"
++
++# --- M39 (#4): the kept-pidfile error loses its cure -----------------------------------------------
++cat > "$A/m39.old" <<'EOF'
++                err "  to recover: make $(dirname "$(app_windowfile "$name")" | sed "s|^$REPO/||") a directory this user can write, then run 'ndt down' again"
++EOF
++cat > "$A/m39.new" <<'EOF'
++EOF
++check_fires "M39 (#4): the F4 error does not say how to recover" m39 "  🔴 and how to recover"
++
+ # =============================================================================================
+ # The controls
+ # =============================================================================================
+diff --git a/tests/shell/test_ndt_ovs_claim.sh b/tests/shell/test_ndt_ovs_claim.sh
+index 8a6128ae..947fb5a2 100644
+--- a/tests/shell/test_ndt_ovs_claim.sh
++++ b/tests/shell/test_ndt_ovs_claim.sh
+@@ -679,6 +679,9 @@ has   "🔴 F8: a stack pidfile recycled into a stranger is stale" "kernel.pid:
+ hasnt "  and is not printed as alive"                        "kernel.pid=$DAEMON alive" "$OUT"
+ OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
+ check "  down: not a subject (rc 3), and removed"            "3 absent" "$(rc_of "$OUT") $(present kernel.pid)"
++# [Co-developed with claude code -- Adam] judge r2 #3: the real stack.sh's stop_one printed, a few
++# lines up, that it was keeping this file; the removal has to say why that was not a contradiction.
++has   "  🔴 and says why stack.sh kept it"                   "stack.sh kept it above because the number is somebody else's" "$OUT"
+ reset_fix; rm -f "$FIX/manifest.json"
+ pidf kernel.pid "$DAEMON"
+ OUT="$(drive 'stack_pidfile_row')"
+@@ -712,6 +715,9 @@ OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
+ check "🔴 F4: no window written -> the stale pidfile is KEPT" "present" "$(present app_viz.pid)"
+ check "  and down is 1, not 3"                               "1" "$(rc_of "$OUT")"
+ has   "  it says why it kept it"                             "kept stale .test_run/pids/app_viz.pid" "$OUT"
++# [Co-developed with claude code -- Adam] judge r2 #4: rc 1 repeats on every `down` until the cause
++# is removed (run_cells.sh stops the grid on it), so the error says what to fix.
++has   "  🔴 and how to recover"                              "then run 'ndt down' again" "$OUT"
+ has   "  and the claim note names it"                        "app_viz.pid kept" "$(sed -n 's/^note=//p' "$FIX/.test_run/lab.claim")"
+ rm -f "$FIX/.test_run/apps"
+ 
+@@ -793,6 +799,52 @@ has   "🔴 F6: the line means '--force was used', not 'it came up'" 'THE LINE M
+ has   "down's rc 1 names the stale-entry failures"           "STALE registry entry could not be removed, or an app's window could not be written" "$FLAT"
+ has   "identity is stated per kind of file"                  "for the stack's own files, which carry no argv to compare, the pid alone" "$FLAT"
+ has   "clean's 3 says 'live'"                                "nothing in .test_run/pids/ naming a live process" "$FLAT"
++# [Co-developed with claude code -- Adam] judge r2 #1: the new --check rc 1, in the status section,
++# with its qualifier; and the manual saying the same, and saying what the code does about a
++# recycled number (judge r2 #5: stale BEFORE the group is asked).
++has   "🔴 status: a recycled stack pidfile is a --check problem, rc 1 only with a baseline" \
++      "(a recycled number) is stale too, and a --check problem: rc 1 while a baseline exists; with none the answer is still 3" "$FLAT"
++MANUAL="$HERE/../../doc/2026-08-17_testing-manual.md"
++has   "🔴 the manual says the same about --check"            "有 baseline（\`.test_run/up.target\`）時 rc 1，沒有時照舊 3" "$(cat "$MANUAL" 2>/dev/null)"
++has   "🔴 the manual: a recycled number is stale without asking the group" "**直接**判 stale，不問 group" "$(cat "$MANUAL" 2>/dev/null)"
++
++# =============================================================================================
++section "17. 🔴 a recycled stack number is a --check problem: rc 1 with a baseline, 3 without"
++# =============================================================================================
++# [Co-developed with claude code -- Adam]
++# Judge's #1 on e1420df2 (orchestrator round 3). F8 made a kernel.pid whose live pid started after
++# the file was written a `stale pidfile` in the pidfiles row, and that row feeds --check's problem
++# list -- so `status --check` went from 0 to 1 on such a lab. That is only true while a baseline
++# exists: with no .test_run/up.target the report is 3 whatever the problem list says. The baseline
++# comparison itself is test_ndt_status_check_baseline.sh's subject, so here check_up_target
++# answers only "is there a baseline" (0) or "none" (3), from the file, and everything else in
++# cmd_status runs for real.
++CHECK_STUB='check_up_target() { UP_TARGET_PROBLEMS=(); [[ -f "$REPO/.test_run/up.target" ]] || return 3; return 0; }'
++DAEMON="$(spawn "some-daemon")"
++reset_fix; rm -f "$KNOB"
++printf 'plane=ovs\n' > "$FIX/.test_run/up.target"
++pidf kernel.pid "$DAEMON"
++touch -d "@$(( $(date +%s) - 600 ))" "$FIX/.test_run/pids/kernel.pid"
++OUT="$(drive "$CHECK_STUB"'
++cmd_status --check')"
++check "🔴 with a baseline, a recycled kernel.pid makes --check rc 1" "1" "$(rc_of "$OUT")"
++has   "  and it is named in the problem list"                "- .test_run/pids/kernel.pid: stale pidfile (pid $DAEMON is alive, but that process started" "$OUT"
++# The control: the same live process, its pidfile written after it started -- the ordinary state.
++reset_fix; rm -f "$KNOB"
++printf 'plane=ovs\n' > "$FIX/.test_run/up.target"
++pidf kernel.pid "$DAEMON"
++OUT="$(drive "$CHECK_STUB"'
++cmd_status --check')"
++check "🔴 control: the same pid written after it started leaves --check at 0" "0" "$(rc_of "$OUT")"
++# No baseline: 3, whatever the problem list holds -- the qualifier.
++reset_fix; rm -f "$KNOB"
++pidf kernel.pid "$DAEMON"
++touch -d "@$(( $(date +%s) - 600 ))" "$FIX/.test_run/pids/kernel.pid"
++OUT="$(drive "$CHECK_STUB"'
++cmd_status --check')"
++check "🔴 without a baseline the answer is still 3"          "3" "$(rc_of "$OUT")"
++has   "  the recycled pidfile is still listed, under 'everything else'" "kernel.pid: stale pidfile (pid $DAEMON is alive" "$OUT"
++kill_fixture "$DAEMON"
+ 
+ printf '\n'
+ echo "Ran $((PASS+FAIL)) checks, $FAIL failed"
+diff --git a/tools/test_workflow/ndt b/tools/test_workflow/ndt
+index 9136db6d..b78db4a1 100755
+--- a/tools/test_workflow/ndt
++++ b/tools/test_workflow/ndt
+@@ -4846,7 +4846,7 @@ pidfile_judge() {
+ # remove did not finish.
+ REGISTRY_STALE_REMOVED=0
+ registry_clear_stale() {
+-    local f base name rc=0 start seal end said=0
++    local f base name rc=0 start seal end said=0 kept
+     REGISTRY_STALE_REMOVED=0
+     for f in "$REPO"/.test_run/pids/*.pid; do
+         [[ -e "$f" ]] || continue
+@@ -4861,13 +4861,26 @@ registry_clear_stale() {
+             if ! app_window_record "$name" "$start" "$end"; then
+                 err "kept stale ${f#$REPO/} ($PF_WHY): $name's window could not be written to"
+                 err "  $(app_windowfile "$name" | sed "s|^$REPO/||"), and this file is the only record of when $name ran"
++                # [Co-developed with claude code -- Adam] judge r2 #4: this rc 1 repeats on every
++                # `down` until the cause is gone (run_cells.sh stops a grid on it), so say the cure.
++                err "  to recover: make $(dirname "$(app_windowfile "$name")" | sed "s|^$REPO/||") a directory this user can write, then run 'ndt down' again"
+                 not_verified "${f#$REPO/} kept: $name's window could not be written"
+                 rc=1
+                 continue
+             fi
+         fi
++        # [Co-developed with claude code -- Adam] judge r2 #3: for the three components stack.sh
++        # stops, a recycled number is one stop_one has just REFUSED -- it printed at [1/3] that it
++        # was keeping this file and to remove it by hand. Removing it here is that advice taken,
++        # and the line says so, or the one teardown reads as contradicting itself.
++        kept=""
++        case "$base" in
++            kernel.pid|kernel.child.pid|p4_proxy.pid|p4_proxy.child.pid|ryu.pid|ryu.child.pid)
++                [[ "$PF_WHY" == *"a recycled number"* ]] &&
++                    kept="; stack.sh kept it above because the number is somebody else's" ;;
++        esac
+         if rm -f "$f" 2>/dev/null && [[ ! -e "$f" ]]; then
+-            ok "removed stale ${f#$REPO/} -- $PF_WHY"
++            ok "removed stale ${f#$REPO/} -- $PF_WHY$kept"
+             REGISTRY_STALE_REMOVED=$(( REGISTRY_STALE_REMOVED + 1 ))
+             [[ -n "$name" ]] && rm -f "$(app_pgidfile "$name")" 2>/dev/null
+         else
+@@ -10769,7 +10782,10 @@ usage: ndt <command>
+                   a pidfile naming a process that is gone is marked STALE: the
+                   pidfiles row for the stack's own files (a --check problem, as
+                   since 09-11), the apps block for app_*.pid (a mark, NOT a --check
+-                  problem). 'ndt down' removes both. The override row is the last
++                  problem). 'ndt down' removes both. A stack pidfile whose live pid
++                  STARTED after the file was written (a recycled number) is stale
++                  too, and a --check problem: rc 1 while a baseline exists; with none
++                  the answer is still 3. The override row is the last
+                   'ndt up --force' and whose claim it went past. (Adam, 2026-09-25)
+   clean         just the teardown assertion
+                   exit 0 it had something to be about and none of it is residue; 1

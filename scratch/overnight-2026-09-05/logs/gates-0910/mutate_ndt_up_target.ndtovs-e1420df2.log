@@ -1,0 +1,31 @@
+e1420df26d9d7a3703b814e40ea575402efd4f2e
+# gate    : existing mutation gate over code or text this change touched (judge F9 for app_package/ovs4_has_sflow)
+# cmd     : (cwd worktree) JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash tests/shell/mutate_ndt_up_target.sh
+# worktree: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-ovs-claim-0925
+# branch  : fix/ndt-ovs-claim-0925
+# start   : 2026-09-25T19:10:26+08:00
+# ndt under test: the worktree file, git hash-object 9136db6d382242adca3ccbe071061c817f868c5b  (HEAD's blob: 9136db6d382242adca3ccbe071061c817f868c5b)
+# dirty tracked at start: 0
+# test/gate files under test are HEAD's: yes
+
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_ndt_up_target.sh
+baseline (must be green before any mutation):
+  Ran 23 checks, 0 failed
+
+  caught   M1: the default plane goes back to p4                  (a bare 'ndt up' is OVS, not P4 went red)
+  caught   M2: the OVS default size changes to 4                  (and it is the 128-host fabric went red)
+  caught   M3: a bare 4 goes back to meaning P4                   ('ndt up 4' is OVS at 4 (it used to be P4) went red)
+  caught   M4: a size OVS cannot build is accepted anyway         (🔴 a size OVS cannot build is refused went red)
+  caught   M5: ovs4 stops meaning 4                               ('ndt up ovs4' is the 4-host layout went red)
+  caught   N1 (widening): everything answers OVS, P4 unreachable  ('ndt up p4' keeps the current host count went red)
+  caught   N2 (widening): P4 is refused rather than built         (P4 is rc 0, not a refusal went red)
+  caught   N3 (widening): ovs4 is refused, so the lab cannot start small ('ndt up ovs4' is rc 0 went red)
+
+baseline byte-identical: yes (tools/test_workflow/ndt)
+mutation gate: 8 mutations, 0 survived
+guarded_build: exit 0
+
+# rc=0
+# end 2026-09-25T19:10:27+08:00  /tmp/ndt-ovs-claim-* after: 0
+# dirty tracked at end: 0

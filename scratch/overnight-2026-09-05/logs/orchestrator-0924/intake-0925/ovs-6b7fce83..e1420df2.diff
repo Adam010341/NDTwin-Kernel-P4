@@ -1,0 +1,800 @@
+diff --git a/doc/2026-08-17_testing-manual.md b/doc/2026-08-17_testing-manual.md
+index 5b75eece..9eca6ffb 100644
+--- a/doc/2026-08-17_testing-manual.md
++++ b/doc/2026-08-17_testing-manual.md
+@@ -509,11 +509,17 @@ P4 那邊沒有這個問題，因為 **proxy 不用學、它直接從自己的
+   自己 log 的 mtime**（viz 這例＝`14:05:43`）⇒ 那 60 條落在窗外。沒有可用的 log（`energy` 在任何
+   機器上都沒有 log 管道；log 比 pidfile 還舊也算）⇒ **零長視窗**，報告會明說
+   `the window has NO extent … NOT 'this app left nothing'`——**那是「沒有東西可以歸屬」，不是「乾淨」**。
+-  pid 活著的窗照舊開到 `now`。**那個 pidfile 本身 `ndt` 還是不會清**（那是另一題）。
+-  ⇒ **OVS 上 `--check` 會不會因為 rules-in-window 變紅，取決於 `.test_run/pids/` 裡那個 stale
+-  `app_*.pid` 的 app 在窗內有沒有真的裝東西，跟 ovs4 這個尺寸無關。** 看到這條 problem，先去問
+-  `.test_run/pids/app_*.pid` 指的行程還活不活（`ndt apps orphans` 會把窗的起迄印出來），
+-  不要先去找誰在網路上留了東西。
++  pid 活著的窗照舊開到 `now`。
++  🆕 **09-25 起 `ndt down` 會清掉那個 pidfile**（Adam 09-25 裁，TICKET-ndt-ovs-claim）：pid 不在
++  （或活著但不是那個 app、或那個行程比 pidfile 晚啟動＝號碼被回收），**而且**記錄的 process group
++  也沒有程序 ⇒ **stale**。`down` 先把那個窗（起點＝pidfile 的 mtime、右端＝上面封住的那一端）寫進
++  `.test_run/apps/<app>.window` 再刪檔——**窗寫不進去就不刪、`down` 回 1**；之後的報告從那份紀錄讀
++  同一個窗，零長的窗照樣印上面那句 `NO extent`。lab 已經 down、只剩 stale 檔時 `down` 回 **3**。
++  `ndt status` 在 apps 區塊把它標成 `app pidfile  STALE -- …`（**只是標記，不讓 `--check` 變紅**）。
++  ⇒ **在下一次 `ndt down` 之前**，OVS 上 `--check` 會不會因為 rules-in-window 變紅，取決於
++  `.test_run/pids/` 裡那個 stale `app_*.pid` 的 app 在窗內有沒有真的裝東西，跟 ovs4 這個尺寸無關。
++  看到這條 problem，先去問 `.test_run/pids/app_*.pid` 指的行程還活不活（`ndt status` 的
++  `app pidfile` 列、`ndt apps orphans` 會把窗的起迄印出來），不要先去找誰在網路上留了東西。
+   本輪沒有在乾淨機器上觀測過 ovs4 的 `--check`，所以**不宣稱**它會回 rc 0：
+   ovs4 的 `--check` 要自己看 problems 那幾行，不要拿 128 台那條規則套。
+ <!-- 來源：links 那組數字＝ROLE-11 F4，log hunt-0911/logs/ROLE-11/05-check-after-up.log（ovs4，
+@@ -524,7 +530,8 @@ P4 那邊沒有這個問題，因為 **proxy 不用學、它直接從自己的
+      它把基線那一列的 `residue NOT CHECKED -- :8000 is closed` 讀成了「查過沒事」。反證＝R7 的
+      3 秒取樣器（第三方）量到 `list-br` 在 02:20:28 才 0→10，而 60 在 02:20:45 第一次被量到；
+      同型 ovs4 在 09-11 的三輪都是 0 條 dated。窗來自 app_viz.pid（mtime 09-11 14:04:25，
+-     pid 463161 已死）。修法三選項與「要不要清掉那個 pidfile」在 RESIDUE-1 §7，待 Adam。 -->
++     pid 463161 已死）。修法三選項在 RESIDUE-1 §7（09-12 裁＝上面的 FIX-NDT-9 ①，封右端）；
++     「要不要清掉那個 pidfile」09-25 裁＝`ndt down` 清（TICKET-ndt-ovs-claim，見上面 🆕 那段）。 -->
+ 
+ 🆕 **2026-09-07 起 `--check` 多一列 `rules-in-window`**（G-12／W16-2；**09-12 之前這一列叫
+ `residue`**，Adam 12:3x 改名——`residue` 這個字在 `ndt` 裡同時是 `ndt clean` 的
+@@ -1060,6 +1067,26 @@ NDT_OWNER=<你的名字> ndt release
+ （安全預設）——mainDev 08-21 就這樣被自己的 claim 擋在門外。被擋下來時訊息會先給你
+ `NDT_OWNER=<誰> ndt down`，`--force` 放在最後：照著 `--force` 打會拆掉真的有人在用的實驗室。
+ 
++🔴 **`ndt up` 在兩個平面都擋別人的 claim 與進行中的量測**（rc **5**，什麼都不建、什麼都不寫）。
++P4 從 09-12 起就這樣；**OVS 是 09-25 才開始**——在那之前 `ndt up ovs`／`ndt up 4` 會在別人的
++claim 底下照建、回 0（ndt serve 那一輪 09-24 22:49 實測）。被擋下來時一樣先給你
++`NDT_OWNER=<誰> ndt up …`，最後才給覆寫：
++
++```bash
++NDT_OWNER=<你的名字> ndt up 4 --force      # 兩個平面同一個旗標；放在 argv 任何位置都可以
++```
++
++- **每一次真的越過了什麼的 `--force`，都會在 `.test_run/lab.claim.overrides` 追加一行**（tab 分隔：
++  `at`／`by`＝你的 `NDT_OWNER`／`user`／`pid`／`command`／`over`＝被蓋過的 claim 的 owner、只因量測在跑
++  則是 `none`／`claim_expires`／`claim_note`／`measuring`／`running`）。沒東西要越過時不寫；
++  **那一行寫不進去就不建（rc 5）**。只 export `NDT_UP_FORCE=1` 沒有用，旗標必須打在指令上。
++- **那一行的意思是「用了 `--force`」，不是「建起來了」**：它在守衛那一步就寫下，後面的檢查
++  （另一個 `ndt down` 還在跑、port 被佔、Mininet 已在跑、H4）照樣可以拒絕；建沒建起來看那一次的 rc。
++- `ndt status` 在 `prev claim` 下面多一列 `override`，印最後一次 `--force`（何時、誰、蓋過誰、
++  指令、總筆數）——**被蓋過的那一方下一次看 `status` 就看得到**。它是歷史，不讓 `--check` 變紅。
++- 那個檔是獨立的，不寫進 `lab.claim`：被蓋的 claim 是別人的（不准非持有者改寫），`ndt claim`／
++  `ndt release` 會重寫或改名掉 claim，而只因量測在跑而覆寫時根本沒有 claim。只追加、不輪替。
++
+ 🔴 **claim 只擋 `ndt` 的動詞，擋不住裸指令。** 直接跑 `./bin/ndtwin_kernel` 或
+ `ndtwin-lab topo-start` 一樣會撞進去。**它是約定不是鎖。**
+ 
+diff --git a/tests/shell/mutate_ndt_ovs_claim.sh b/tests/shell/mutate_ndt_ovs_claim.sh
+index d9afbbca..7c6f8974 100644
+--- a/tests/shell/mutate_ndt_ovs_claim.sh
++++ b/tests/shell/mutate_ndt_ovs_claim.sh
+@@ -5,6 +5,10 @@
+ #
+ # [Co-developed with claude code -- Adam]
+ #
++# Round 2 (09-25, judge's report on 6b7fce83) adds M21-M35 and C3: one named mutant for each
++# behaviour that round changed or pinned (F1 M24, F2 M25, F3 M21, F4 M22, F5 M35, F6 M34, F8
++# M26/M27, the start-time widening M28, and the judge's edges M23 M29-M33).
++#
+ # The three mutants the ticket names are M1, M2 and M3:
+ #   M1  drop OVS's claim check           -- the 09-24 defect itself, put back
+ #   M2  the override flag is not recorded -- --force still works, and leaves no trace
+@@ -346,10 +350,10 @@ check_fires "M15: a stale entry is a subject again" m15 \
+ 
+ # --- M16: the file goes and the window does not get written ---------------------------------------
+ cat > "$A/m16.old" <<'EOF'
+-            app_window_record "$name" "$start" "$end" \
++            if ! app_window_record "$name" "$start" "$end"; then
+ EOF
+ cat > "$A/m16.new" <<'EOF'
+-            false \
++            if false; then
+ EOF
+ check_fires "M16: the app's window is lost with its pidfile" m16 \
+             "🔴 the app's window was written down before the file went"
+@@ -365,6 +369,167 @@ EOF
+ check_fires "M17: 'ndt status' never prints the stale-app row" m17 \
+             "🔴 and 'ndt status' itself prints that row (existence is not wiring)"
+ 
++
++# =============================================================================================
++# Round 2 (judge's report on 6b7fce83, orchestrator 09-25): one named mutant per behaviour change
++# =============================================================================================
++
++# --- M21 (F3): the window's right end written as now ------------------------------------------
++cat > "$A/m21.old" <<'EOF'
++            end=""; seal="$(app_window_seal "$name" 2>/dev/null)" && end="${seal%% *}"
++EOF
++cat > "$A/m21.new" <<'EOF'
++            end=""
++EOF
++check_fires "M21 (F3): the removed file's window runs to now" m21 \
++            "🔴 the window's right end is the sealed one, not now"
++
++# --- M22 (F4): the pidfile goes even when its window could not be written ----------------------
++cat > "$A/m22.old" <<'EOF'
++            if ! app_window_record "$name" "$start" "$end"; then
++EOF
++cat > "$A/m22.new" <<'EOF'
++            if ! app_window_record "$name" "$start" "$end" && false; then
++EOF
++check_fires "M22 (F4): no window written, the pidfile removed anyway" m22 \
++            "🔴 F4: no window written -> the stale pidfile is KEPT"
++
++# --- M24 (F1): the record branch loses G-12's NO-extent caveat ---------------------------------
++cat > "$A/m24.old" <<'EOF'
++            (( wend == started )) && {
++                warn "      the window below has NO extent: nothing on this machine can date when"
++                warn "      $a stopped, so NOTHING can be attributed to it. That is 'nobody could"
++                warn "      ask', NOT 'this app left nothing'. (G-12; this window is a record)"
++            }
++EOF
++cat > "$A/m24.new" <<'EOF'
++EOF
++check_fires "M24 (F1): a zero-width window from a record says nothing" m24 \
++            "🔴 F1: and still says the window has NO extent"
++
++# --- M25 (F2): an app's live stranger is not asked when it started -----------------------------
++cat > "$A/m25.old" <<'EOF'
++            if late="$(pidfile_outlived_by "$f" "$pid")"; then
++                PF_WHY="$PF_WHY (it started ${late}s after this file was written)"
++EOF
++cat > "$A/m25.new" <<'EOF'
++            if false; then
++                PF_WHY="$PF_WHY (it started ${late}s after this file was written)"
++EOF
++check_fires "M25 (F2): a recycled group leader reads as 'NOT stale'" m25 \
++            "🔴 recycled into a group leader: STALE"
++
++# --- M26 (F8): the stack's live numbers are not asked when they started ------------------------
++cat > "$A/m26.old" <<'EOF'
++            if late="$(pidfile_outlived_by "$f" "$pid")"; then
++                PF_WHY="pid $pid is alive but started ${late}s after this file was written -- a recycled number"
++EOF
++cat > "$A/m26.new" <<'EOF'
++            if false; then
++                PF_WHY="pid $pid is alive but started ${late}s after this file was written -- a recycled number"
++EOF
++check_fires "M26 (F8): a recycled stack pid is a subject again" m26 \
++            "  down: not a subject (rc 3), and removed"
++
++# --- M27 (F8): the status row prints a recycled stack pid as alive -----------------------------
++cat > "$A/m27.old" <<'EOF'
++        if pid_alive "$pid" && late="$(pidfile_outlived_by "$f" "$pid")"; then
++EOF
++cat > "$A/m27.new" <<'EOF'
++        if false; then
++EOF
++check_fires "M27 (F8): the pidfiles row calls a recycled number alive" m27 \
++            "🔴 F8: a stack pidfile recycled into a stranger is stale"
++
++# --- M28 (widening): every live number reads as recycled -----------------------------------------
++cat > "$A/m28.old" <<'EOF'
++    (( st > mt + 2 )) || return 1
++EOF
++cat > "$A/m28.new" <<'EOF'
++    :
++EOF
++check_fires "M28 (widening): any live pid counts as 'started after the file'" m28 \
++            "  control: written after it started -> alive, as before"
++
++# --- M23: our OWN claim's measuring= refuses 'up' ----------------------------------------------
++cat > "$A/m23.old" <<'EOF'
++    held="$(foreign_claim)"
++    busy="$(in_flight)"
++EOF
++cat > "$A/m23.new" <<'EOF'
++    held="$(foreign_claim)"
++    busy="$(in_flight; measuring_declared)"
++EOF
++check_fires "M23: a declared measurement on our own claim refuses 'up'" m23 \
++            "🔴 our own claim with measuring= does not refuse 'up'"
++
++# --- M29: the record is not read back ------------------------------------------------------------
++cat > "$A/m29.old" <<'EOF'
++    grep -qxF -- "$line" "$f" 2>/dev/null
++EOF
++cat > "$A/m29.new" <<'EOF'
++    true
++EOF
++check_fires "M29: an override that never landed builds anyway" m29 \
++            "🔴 a record that does not read back is refused"
++
++# --- M30: a TAB or newline inside a value becomes a field or a line ------------------------------
++cat > "$A/m30.old" <<'EOF'
++ovr_flat() { local v="${1//$'\t'/ }"; printf '%s' "${v//$'\n'/ }"; }
++EOF
++cat > "$A/m30.new" <<'EOF'
++ovr_flat() { printf '%s' "$1"; }
++EOF
++check_fires "M30: free text is not flattened in the record" m30 \
++            "  of exactly ten tab-separated fields"
++
++# --- M31: a symlinked pidfile is judged like a file ----------------------------------------------
++cat > "$A/m31.old" <<'EOF'
++    if [[ -L "$f" ]]; then PF_WHY="it is a symlink, and is not followed"; return 0; fi
++EOF
++cat > "$A/m31.new" <<'EOF'
++EOF
++check_fires "M31: 'down' removes a symlinked pidfile" m31 "🔴 a symlinked pidfile is never removed"
++
++# --- M32: a group this shell cannot ask about is called empty ------------------------------------
++cat > "$A/m32.old" <<'EOF'
++            PF_STATE=unjudged
++            PF_WHY="$PF_WHY, and its process group $g is this shell's own, which cannot be asked"
++EOF
++cat > "$A/m32.new" <<'EOF'
++            PF_STATE=stale
++EOF
++check_fires "M32: 'down' removes a pidfile it cannot judge" m32 \
++            "🔴 a pidfile whose group is this shell's own is never removed"
++
++# --- M33: the retry words are not kept -----------------------------------------------------------
++cat > "$A/m33.old" <<'EOF'
++    (( ${#words[@]} > 0 )) && NDT_UP_WORDS="$(printf '%q ' "${words[@]}")" && NDT_UP_WORDS="${NDT_UP_WORDS% }"
++EOF
++cat > "$A/m33.new" <<'EOF'
++    :
++EOF
++check_fires "M33: the refusal's retry line is not what was typed" m33 \
++            "  its retry line is the command as typed"
++
++# --- M34 (F6) / M35 (F5): the help loses the sentences that make it true ------------------------
++cat > "$A/m34.old" <<'EOF'
++                  🔴 THE LINE MEANS "--force WAS USED", NOT "IT CAME UP": it is
++EOF
++cat > "$A/m34.new" <<'EOF'
++                  🔴 THE LINE MEANS THE BRING-UP HAPPENED: it is
++EOF
++check_fires "M34 (F6): help says the record means it came up" m34 \
++            "🔴 F6: the line means '--force was used', not 'it came up'"
++cat > "$A/m35.old" <<'EOF'
++                  files, which carry no argv to compare, the pid alone. For both, a
++EOF
++cat > "$A/m35.new" <<'EOF'
++                  files, pid plus argv as well. For both, a
++EOF
++check_fires "M35 (F5): help claims argv identity for the stack's files" m35 \
++            "identity is stated per kind of file"
++
+ # =============================================================================================
+ # The controls
+ # =============================================================================================
+@@ -386,6 +551,14 @@ cat > "$A/c2.new" <<'EOF'
+ EOF
+ check_control "C2: the stale reason, built with printf -v" c2
+ 
++cat > "$A/c3.old" <<'EOF'
++    echo $(( st - mt ))
++EOF
++cat > "$A/c3.new" <<'EOF'
++    printf '%s\n' "$(( st - mt ))"
++EOF
++check_control "C3: how late a recycled number started, printed another way" c3
++
+ echo
+ NOW_SUM="$(sha256sum "$NDT" | cut -d' ' -f1)"
+ if [[ "$NOW_SUM" != "$BASE_SUM" ]]; then
+diff --git a/tests/shell/test_ndt_ovs_claim.sh b/tests/shell/test_ndt_ovs_claim.sh
+index 447da5ab..8a6128ae 100644
+--- a/tests/shell/test_ndt_ovs_claim.sh
++++ b/tests/shell/test_ndt_ovs_claim.sh
+@@ -211,6 +211,15 @@ touched() {
+         "$([[ -e "$KNOB" ]] && echo kept || echo cleared)"
+ }
+ UNTOUCHED='sudo=0 stack=0 target=0 tmp=0 knob=kept'
++# [Co-developed with claude code -- Adam] judge's note 10 (round 2): every column of touched() has
++# to be seen reading non-zero somewhere, or "nothing was touched" is a sentence it cannot help
++# saying. The bring-up cells below move sudo/stack/target/knob; tmp= is moved here, by hand,
++# because a finished bring-up removes its own fifo and temp file.
++# ($$ in the name: $FIX is already mktemp'd, but tests/shell/check_test_tmpdirs.py reads the
++# spelling "/tmp/<name>" and cannot know that, and a per-process marker costs nothing.)
++: > "$FIX/tmp/instrument-probe.$$"
++[[ "$(touched)" == *"tmp=1"* ]] || { echo "  FAILED   touched() cannot read a file in TMPDIR"; echo "Ran 1 checks, 1 failed"; exit 1; }
++rm -f "$FIX/tmp/instrument-probe.$$"
+ OVR="$FIX/.test_run/lab.claim.overrides"
+ overrides() { count_lines "$OVR"; }
+ ovr_field() {   # <key> -- that field of the LAST override line (tab-separated key=value)
+@@ -528,6 +537,12 @@ has   "  it says it removed it, and why"                     "removed stale .tes
+ # mtime, and it is the only record of when viz ran (G-12, RESIDUE-1).
+ check "🔴 the app's window was written down before the file went" "1789365600" \
+       "$(sed -n 's/^start=//p' "$FIX/.test_run/apps/viz.window" 2>/dev/null)"
++# [Co-developed with claude code -- Adam]
++# 🔴 AND ITS RIGHT END (judge's F3, round 2). No app log here, so app_window_seal closes the window
++# at the pidfile's own mtime -- zero-length. Written as `now` instead, it would reopen RESIDUE-1's
++# twelve-hour window over every rule installed since.
++check "🔴 the window's right end is the sealed one, not now" "1789365600" \
++      "$(sed -n 's/^end=//p' "$FIX/.test_run/apps/viz.window" 2>/dev/null)"
+ # Down twice: the second is an already-down lab with nothing stale left.
+ OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
+ check "🔴 down again: rc 3"                                  "3" "$(rc_of "$OUT")"
+@@ -588,6 +603,197 @@ pidf kernel.pid "$$"
+ OUT="$(drive 'cmd_clean')"
+ check "  a LIVE registry entry is still a subject: rc 0"     "0" "$(rc_of "$OUT")"
+ 
++# =============================================================================================
++section "11. 🔴 F1: a zero-length window moved into a record by 'down' still says NO extent"
++# =============================================================================================
++# [Co-developed with claude code -- Adam]
++# Judge's F1 on 6b7fce83 (orchestrator round 2, 09-25). energy has no log channel on any machine,
++# so a dead energy pidfile's window is [mtime, mtime]. While the pidfile exists the report says
++# G-12's "NO extent ... NOT 'this app left nothing'"; once `down` moves that window into
++# .test_run/apps/energy.window the report reads it from the record -- and until round 2 that path
++# printed the window and `no flow entry arrived during that window` with no caveat at all.
++RESIDUE_STUBS='
++port_open() { return 0; }
++http_get_flow_entries() { cat "$REPO/entries.json"; }
++live_dataplane_kind() { echo ovs; }
++lock_probe() { echo free; }
++app_scan_pids() { :; }
++lab_kernel_dir() { echo "$REPO"; }
++'
++printf '%s\n' '[{"dpid": 1, "flows": {"1": [{"actions": ["OUTPUT:1"], "byte_count": 0, "cookie": 0, "duration_sec": 9000, "duration_nsec": 91000000, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 96, "match": {"in_port": 1}, "packet_count": 0, "priority": 10, "table_id": 0}]}}]' > "$FIX/entries.json"
++reset_fix; rm -f "$FIX/manifest.json"
++DEAD="$(dead_pid)"
++pidf app_energy.pid "$DEAD"
++touch -d '@1789365600' "$FIX/.test_run/pids/app_energy.pid"
++OUT="$(drive "$RESIDUE_STUBS"'
++residue_report energy')"
++has   "control: over the pidfile itself the report says NO extent" "has NO extent" "$OUT"
++OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
++check "  down on that lab: rc 3"                             "3" "$(rc_of "$OUT")"
++check "  the energy pidfile is gone"                         "absent" "$(present app_energy.pid)"
++check "  and its window is on record, zero wide"             "1789365600 1789365600" \
++      "$(sed -n 's/^start=//p' "$FIX/.test_run/apps/energy.window" 2>/dev/null) $(sed -n 's/^end=//p' "$FIX/.test_run/apps/energy.window" 2>/dev/null)"
++OUT="$(drive "$RESIDUE_STUBS"'
++residue_report energy')"
++has   "  the report now reads it from the record"            "energy.window" "$OUT"
++has   "🔴 F1: and still says the window has NO extent"       "has NO extent" "$OUT"
++has   "  and that it is NOT 'this app left nothing'"         "NOT 'this app left nothing'" "$OUT"
++
++# =============================================================================================
++section "12. 🔴 F2/F8: a recycled number that leads its own group is STALE (start time), not 'group'"
++# =============================================================================================
++# [Co-developed with claude code -- Adam]
++# Judge's F2 on 6b7fce83. POSIX does not reuse a number still in use as a process-group id, so
++# when an app pidfile's number is alive as a stranger the app's own group is gone -- and if the
++# stranger leads a group (a shell job, a daemon, anything setsid'd) the group question found its
++# own member and called the record "NOT stale". The real shape: a setsid-spawned stranger, the
++# .pgid naming it, the pidfile written BEFORE the stranger started.
++reset_fix; rm -f "$FIX/manifest.json"
++STR="$(spawn "stranger-group-leader" setsid)"
++pidf app_viz.pid "$STR"; pidf app_viz.pgid "$STR"
++touch -d "@$(( $(date +%s) - 600 ))" "$FIX/.test_run/pids/app_viz.pid"
++OUT="$(drive 'app_pidfile_stale_row')"
++has   "🔴 recycled into a group leader: STALE"               "STALE -- .test_run/pids/app_viz.pid" "$OUT"
++has   "  and it says the process started after the file"     "after this file was written" "$OUT"
++hasnt "  and never 'NOT stale'"                              "NOT stale" "$OUT"
++OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
++check "🔴 down removes it and a down lab answers 3"          "3 absent" "$(rc_of "$OUT") $(present app_viz.pid)"
++check "  and the stranger was not signalled"                 "alive" "$([[ -d /proc/$STR ]] && echo alive || echo gone)"
++# The control: the same stranger, and a pidfile written AFTER it started -- this is no longer
++# "a number recycled after the file", and the group it leads is still live: NOT stale.
++reset_fix; rm -f "$FIX/manifest.json"
++pidf app_viz.pid "$STR"; pidf app_viz.pgid "$STR"
++OUT="$(drive 'app_pidfile_stale_row')"
++hasnt "🔴 control: started BEFORE the file was written -> not stale" "STALE -- " "$OUT"
++has   "  it is the live-group case"                          "is NOT stale" "$OUT"
++kill_fixture "$STR"
++
++# F8: the stack's own files take the same test. They carry no argv to compare, so a live number
++# was always LIVE; one whose process started after the file was written is somebody else's.
++reset_fix; rm -f "$FIX/manifest.json"
++DAEMON="$(spawn "some-daemon")"
++pidf kernel.pid "$DAEMON"
++touch -d "@$(( $(date +%s) - 600 ))" "$FIX/.test_run/pids/kernel.pid"
++OUT="$(drive 'stack_pidfile_row')"
++has   "🔴 F8: a stack pidfile recycled into a stranger is stale" "kernel.pid: stale pidfile (pid $DAEMON is alive, but that process started" "$OUT"
++hasnt "  and is not printed as alive"                        "kernel.pid=$DAEMON alive" "$OUT"
++OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
++check "  down: not a subject (rc 3), and removed"            "3 absent" "$(rc_of "$OUT") $(present kernel.pid)"
++reset_fix; rm -f "$FIX/manifest.json"
++pidf kernel.pid "$DAEMON"
++OUT="$(drive 'stack_pidfile_row')"
++has   "  control: written after it started -> alive, as before" "kernel.pid=$DAEMON alive" "$OUT"
++OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
++check "  and down keeps it and counts it (rc 0)"             "0 present" "$(rc_of "$OUT") $(present kernel.pid)"
++kill_fixture "$DAEMON"
++
++# =============================================================================================
++section "13. 🔴 F3/F4: the window's right end is the app's log when there is one; no window, no removal"
++# =============================================================================================
++reset_fix; rm -f "$FIX/manifest.json"
++DEAD="$(dead_pid)"
++pidf app_viz.pid "$DEAD"
++touch -d '@1789365600' "$FIX/.test_run/pids/app_viz.pid"
++printf 'viz wrote this\n' > "$FIX/.test_run/logs/app_viz.log"
++touch -d '@1789366100' "$FIX/.test_run/logs/app_viz.log"
++OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
++check "🔴 a log newer than the pidfile closes the window at the log's mtime" "1789365600 1789366100" \
++      "$(sed -n 's/^start=//p' "$FIX/.test_run/apps/viz.window" 2>/dev/null) $(sed -n 's/^end=//p' "$FIX/.test_run/apps/viz.window" 2>/dev/null)"
++rm -f "$FIX/.test_run/logs/app_viz.log"
++
++# F4: the record cannot be written (its directory is a plain file) -> the pidfile is KEPT, down is
++# 1, and the claim note names it.
++reset_fix; rm -f "$FIX/manifest.json"
++write_claim "$US" "$FUTURE" "our own round" ""
++DEAD="$(dead_pid)"
++pidf app_viz.pid "$DEAD"
++: > "$FIX/.test_run/apps"
++OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
++check "🔴 F4: no window written -> the stale pidfile is KEPT" "present" "$(present app_viz.pid)"
++check "  and down is 1, not 3"                               "1" "$(rc_of "$OUT")"
++has   "  it says why it kept it"                             "kept stale .test_run/pids/app_viz.pid" "$OUT"
++has   "  and the claim note names it"                        "app_viz.pid kept" "$(sed -n 's/^note=//p' "$FIX/.test_run/lab.claim")"
++rm -f "$FIX/.test_run/apps"
++
++# =============================================================================================
++section "14. what 'down' may NOT delete: a symlink, and a group that is this shell's own"
++# =============================================================================================
++reset_fix; rm -f "$FIX/manifest.json"
++DEAD="$(dead_pid)"
++printf '%s\n' "$DEAD" > "$FIX/elsewhere.pid"
++ln -s "$FIX/elsewhere.pid" "$FIX/.test_run/pids/app_viz.pid"
++OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
++check "🔴 a symlinked pidfile is never removed"              "yes" "$([[ -L "$FIX/.test_run/pids/app_viz.pid" ]] && echo yes || echo no)"
++check "  nor what it points at"                              "present" "$([[ -e "$FIX/elsewhere.pid" ]] && echo present || echo absent)"
++rm -f "$FIX/.test_run/pids/app_viz.pid" "$FIX/elsewhere.pid"
++# This suite's own process group: the driven ndt is in it, so app_group_pids refuses to answer
++# (rc 2) and nothing may be proved dead.
++MYPG="$(awk '{ sub(/.*\) /, ""); print $3 }' "/proc/$$/stat")"
++reset_fix; rm -f "$FIX/manifest.json"
++DEAD="$(dead_pid)"
++pidf app_viz.pid "$DEAD"; pidf app_viz.pgid "$MYPG"
++OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
++check "🔴 a pidfile whose group is this shell's own is never removed" "present" "$(present app_viz.pid)"
++
++# =============================================================================================
++section "15. the guard's edges: our own claim's measuring=, the dispatch, the record's shape"
++# =============================================================================================
++# Our OWN claim declaring a measurement has never refused a bring-up (P4's semantics, kept).
++reset_fix; echo "0 14" > "$FIX/mn.seq"
++write_claim "$US" "$FUTURE" "our own round" "sampling matrix, cell 2/8"
++OUT="$(NDT_OWNER="$US" drive 'up_ovs 4')"
++check "🔴 our own claim with measuring= does not refuse 'up'" "no" "$([[ "$(rc_of "$OUT")" == 5 ]] && echo yes || echo no)"
++has   "  the bring-up ran"                                   "up ovs" "$(cat "$FIX/stack.log")"
++
++# The dispatch itself -- the `case` block at the end of ndt, run as written -- so NDT_UP_WORDS is
++# asserted the way an operator meets it: the retry line spells the command they typed.
++DISPATCH="$(sed -n '/^case "\${1:-}" in$/,$p' "$NDT")"
++[[ -n "$DISPATCH" ]] || { echo "  FAILED   no dispatch block in $NDT"; FAIL=$((FAIL+1)); }
++reset_fix
++write_claim "$THEM" "$FUTURE" "night round" ""
++OUT="$(NDT_OWNER="$US" drive 'set -- up 4
++'"$DISPATCH")"
++check "🔴 dispatch: 'ndt up 4' under a foreign claim is 5"   "5" "$(rc_of "$OUT")"
++has   "  its retry line is the command as typed"             "NDT_OWNER=$THEM ndt up 4" "$OUT"
++has   "  and its override line too"                          "    ndt up 4 --force" "$OUT"
++reset_fix; echo "0 14" > "$FIX/mn.seq"
++write_claim "$THEM" "$FUTURE" "night round" ""
++OUT="$(NDT_OWNER="$US" drive 'set -- up 4 --force
++'"$DISPATCH")"
++check "🔴 dispatch: 'ndt up 4 --force' builds"              "no" "$([[ "$(rc_of "$OUT")" == 5 ]] && echo yes || echo no)"
++has   "  the fabric verb ran"                                "ovs-topo-4host" "$(cat "$FIX/sudo.log")"
++check "  and the record carries the command as typed"        "ndt up 4 --force" "$(ovr_field command)"
++
++# The read-back: the append "succeeds" into /dev/null and the line is not there afterwards.
++reset_fix
++write_claim "$THEM" "$FUTURE" "night round" ""
++ln -s /dev/null "$OVR"
++OUT="$(NDT_OWNER="$US" drive 'NDT_UP_FORCE=1; up_ovs 4')"
++check "🔴 a record that does not read back is refused"      "5" "$(rc_of "$OUT")"
++check "  and reached nothing"                                "$UNTOUCHED" "$(touched)"
++rm -f "$OVR"
++
++# TAB and newline inside a value must not add a field or a line: ten fields, one line.
++reset_fix; echo "0 14" > "$FIX/mn.seq"
++printf 'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=no\nmeasuring=%s\n' \
++    "$THEM" "$FUTURE" $'a\tnote\twith tabs' $'x\ty' > "$FIX/.test_run/lab.claim"
++OUT="$(NDT_OWNER=$'us\twith a tab' FX_BUSY=$'iperf3 -c 10.0.0.2\tx\nmatrix.sh 2' drive 'NDT_UP_FORCE=1; up_ovs 4')"
++check "🔴 one override is one line"                          "1" "$(overrides)"
++check "  of exactly ten tab-separated fields"                "10" "$(awk -F'\t' '{print NF}' "$OVR" 2>/dev/null | head -1)"
++check "  the tab in the note became a space"                 "a note with tabs" "$(ovr_field claim_note)"
++check "  and the second process is counted, not a new line"  "iperf3 -c 10.0.0.2 x (+1 more)" "$(ovr_field running)"
++
++# =============================================================================================
++section "16. 'ndt help' says what the record means and every place the rules changed"
++# =============================================================================================
++HELP="$(bash "$NDT" help 2>&1)"
++FLAT="$(tr -s ' \n' '  ' <<<"$HELP")"
++has   "a --force with nothing to go past writes nothing"     "A --force with nothing to go past writes nothing" "$FLAT"
++has   "🔴 F6: the line means '--force was used', not 'it came up'" 'THE LINE MEANS "--force WAS USED", NOT "IT CAME UP"' "$FLAT"
++has   "down's rc 1 names the stale-entry failures"           "STALE registry entry could not be removed, or an app's window could not be written" "$FLAT"
++has   "identity is stated per kind of file"                  "for the stack's own files, which carry no argv to compare, the pid alone" "$FLAT"
++has   "clean's 3 says 'live'"                                "nothing in .test_run/pids/ naming a live process" "$FLAT"
++
+ printf '\n'
+ echo "Ran $((PASS+FAIL)) checks, $FAIL failed"
+ (( FAIL == 0 ))
+diff --git a/tests/shell/test_ndt_up_down_robust.sh b/tests/shell/test_ndt_up_down_robust.sh
+index ca4eb7fd..8d4c4d21 100644
+--- a/tests/shell/test_ndt_up_down_robust.sh
++++ b/tests/shell/test_ndt_up_down_robust.sh
+@@ -1672,14 +1672,20 @@ check "  and the verdict line is 'clean'"            "1" "$(grep -cx 'clean' <<<
+ # A registry entry is a subject on its own: .test_run/pids/ is what `ndt down` acts on, so a
+ # machine that has one has something for this command to be about.
+ # [Co-developed with claude code -- Adam]
+-# 🔴 A LIVE entry: the pid is this suite's own shell. It was 992261 until 2026-09-25 -- a number
++# 🔴 A LIVE entry: a `sleep` this cell spawns (before the pidfile is written, so it is not a
++# recycled number either) and kills straight after. It was 992261 until 2026-09-25 -- a number
+ # nothing on this machine holds, i.e. a STALE entry, which Adam's ruling that day (TICKET-ndt-
+-# ovs-claim section 2 item 3) says is NOT something to judge. The stale half of this cell lives in
+-# tests/shell/test_ndt_ovs_claim.sh section 10; what this one pins is unchanged.
+-reset_fix; rm -f "$DM" "$FIX/manifest.json"; ledger kernel "$$"
++# ovs-claim section 2 item 3) says is NOT something to judge; the stale half lives in
++# tests/shell/test_ndt_ovs_claim.sh section 10. Not this suite's own shell: if a regression ever
++# made this path signal what the registry names, it must hit a fixture and not the harness.
++( exec sleep 120 ) >/dev/null 2>&1 </dev/null &
++REG_LIVE=$!
++reset_fix; rm -f "$DM" "$FIX/manifest.json"; ledger kernel "$REG_LIVE"
+ OUT="$(drive 'cmd_clean')"
+ check "🔴 a pidfile in the registry is a subject: rc 0" "0" "$(rc_of_out "$OUT")"
+ check "  and the verdict line is 'clean'"            "1" "$(grep -cx 'clean' <<<"$OUT")"
++[[ "$(cat "/proc/$REG_LIVE/comm" 2>/dev/null)" == sleep ]] && kill -KILL "$REG_LIVE" 2>/dev/null
++wait "$REG_LIVE" 2>/dev/null
+ 
+ # 🔴 THE CONTROLS. "Answer 3 when nothing is running" would swallow every stray this command
+ # exists to find -- the empty registry is exactly the state a stray nobody started leaves.
+diff --git a/tools/test_workflow/ndt b/tools/test_workflow/ndt
+index 3a0e66c6..9136db6d 100755
+--- a/tools/test_workflow/ndt
++++ b/tools/test_workflow/ndt
+@@ -1095,7 +1095,7 @@ claim_override_row() {
+     printf '  %-14s %s\n' "override" \
+         "last --force: $(ovr_field "$last" at) -- $(ovr_field "$last" by) over $(ovr_field "$last" over)"
+     printf '  %-14s %s\n' "" "$(ovr_field "$last" command)$( r="$(ovr_field "$last" running)"; [[ -n "$r" ]] && printf ' (running: %s)' "$(printf '%s' "$r" | cut -c1-48)")"
+-    printf '  %-14s %s\n' "" "$n override(s) on record in ${f#$REPO/}"
++    printf '  %-14s %s\n' "" "$n override(s) on record in ${f#$REPO/} -- each says --force was USED, not that the bring-up came up"
+ }
+ ovr_field() { printf '%s\n' "$1" | tr '\t' '\n' | sed -n "s/^$2=//p" | head -1; }
+ 
+@@ -4723,13 +4723,49 @@ pid_registry_stale() {
+ #
+ # 🔴 IDENTITY, and the asymmetry is deliberate. An app pidfile is checked against the app's argv
+ # signature (pid_is_app), so a live number that is not the app any more is stale. The stack's
+-# files carry no signature this script can check (pid_alive's header), so a live number there is
+-# LIVE even if it has been recycled -- the direction that can never delete a running stack's
+-# record. stack.sh's stop_one has the finer test (start time against the pidfile's mtime) and
+-# applies it before it signals anything.
++# files carry no signature this script can check (pid_alive's header), so for them a live number
++# is LIVE -- the direction that can never delete a running stack's record -- unless the next test
++# proves it is somebody else's.
++#
++# [Co-developed with claude code -- Adam]
++# 🔴 START TIME, for both kinds (judge's F2/F8 on 6b7fce83, orchestrator round 2, 09-25). A live
++# number whose process STARTED after this file was written cannot be the process the file was
++# written about: it is a recycled number, and the file is stale -- decided HERE, before any
++# group is asked. The group question would answer for the wrong group: POSIX does not hand out a
++# number still in use as a process-group id, so when the number is alive as a stranger the
++# app's own group is long gone, and if the stranger leads a group of its own (a shell job, a
++# daemon, anything setsid'd) the old code found "live members" -- its own -- and printed "NOT
++# stale" about a record of a dead app, kept it, and counted it as a subject: 09-14's rc 0 again.
++# The same test stack.sh's stop_one makes before it signals (proc_start_epoch vs the pidfile's
++# mtime, 2 s of slack for the write that follows the fork). A start time that cannot be read
++# proves nothing, and falls through to the tests below.
++# proc_start_epoch <pid> -- when that process started, in unix seconds, or rc 1. stack.sh's own
++# function, restated here because ndt does not source stack.sh (see port_owner_local's note);
++# read through proc_stat_rest, which parses past the comm field whatever the comm contains.
++proc_start_epoch() {
++    local rest btime hz ticks
++    rest="$(proc_stat_rest "$1")" || return 1
++    ticks="$(awk '{print $20}' <<<"$rest")"
++    btime="$(awk '/^btime /{print $2}' /proc/stat 2>/dev/null)"
++    hz="$(getconf CLK_TCK 2>/dev/null)"; [[ "$hz" =~ ^[0-9]+$ ]] || hz=100
++    [[ "$btime" =~ ^[0-9]+$ && "$ticks" =~ ^[0-9]+$ ]] || return 1
++    echo $(( btime + ticks / hz ))
++}
++
++# pidfile_outlived_by <pidfile> <pid> -- rc 0, printing how many seconds late, when that pid's
++# process started more than 2 s AFTER the pidfile was written; rc 1 otherwise, including when
++# either time cannot be read (proves nothing). stop_one's test, with stop_one's slack.
++pidfile_outlived_by() {
++    local mt st
++    mt="$(stat -c %Y "$1" 2>/dev/null)"; st="$(proc_start_epoch "$2")" || return 1
++    [[ "$mt" =~ ^[0-9]+$ && "$st" =~ ^[0-9]+$ ]] || return 1
++    (( st > mt + 2 )) || return 1
++    echo $(( st - mt ))
++}
++
+ PF_STATE=""; PF_PID=""; PF_GROUP=""; PF_WHY=""
+ pidfile_judge() {
+-    local f="$1" base name pid g="" members grc
++    local f="$1" base name pid g="" members grc late
+     PF_STATE=unjudged; PF_PID=""; PF_GROUP=""; PF_WHY=""
+     base="${f##*/}"
+     if [[ -L "$f" ]]; then PF_WHY="it is a symlink, and is not followed"; return 0; fi
+@@ -4745,12 +4781,24 @@ pidfile_judge() {
+         if pid_is_app "$pid" "$name"; then PF_STATE=live; return 0; fi
+         if pid_alive "$pid"; then
+             PF_WHY="pid $pid is alive but is not $name -- a recycled number"
++            if late="$(pidfile_outlived_by "$f" "$pid")"; then
++                PF_WHY="$PF_WHY (it started ${late}s after this file was written)"
++                PF_STATE=stale
++                return 0
++            fi
+         else
+             PF_WHY="pid $pid gone"
+         fi
+         g="$(cat "$(app_pgidfile "$name")" 2>/dev/null)"
+     else
+-        if pid_alive "$pid"; then PF_STATE=live; return 0; fi
++        if pid_alive "$pid"; then
++            if late="$(pidfile_outlived_by "$f" "$pid")"; then
++                PF_WHY="pid $pid is alive but started ${late}s after this file was written -- a recycled number"
++                PF_STATE=stale
++                return 0
++            fi
++            PF_STATE=live; return 0
++        fi
+         PF_WHY="pid $pid gone"
+         [[ "$base" == *.child.pid ]] || g="$pid"
+     fi
+@@ -4782,11 +4830,20 @@ pidfile_judge() {
+ # record of when that app ran here (G-12, RESIDUE-1), and app_stop's energy|sim branch keeps a
+ # dead pidfile for exactly that reason. The window [mtime, sealed end] goes to the F3 record
+ # (app_window_record) before the file does, which is where every later residue report looks once
+-# the pidfile is gone; the report then reads the same window it would have read from the file.
++# the pidfile is gone; the report then reads the same two numbers it would have read from the
++# file, and -- since 09-25 (judge's F1) -- says the same thing about a window with no extent.
+ #
+ # ONLY `stale`. `group` is a live group the record names, `unusable` is its own finding (stack.sh's
+ # stop_one removes an unusable stack pidfile itself, and says so), and `unjudged` is a file this
+ # command cannot prove anything about -- none of them is removed here.
++#
++# [Co-developed with claude code -- Adam]
++# 🔴 NO WINDOW, NO REMOVAL (judge's F4, orchestrator round 2, 09-25). A window that could not be
++# written leaves the pidfile where it is -- that file IS the record, and removing it after the
++# copy failed would be destroying the only record on the say-so of a write that did not happen:
++# the same rule a --force whose line cannot be written obeys. The teardown says so, exits 1, and
++# names it in the claim note (not_verified), because a teardown that left a record it meant to
++# remove did not finish.
+ REGISTRY_STALE_REMOVED=0
+ registry_clear_stale() {
+     local f base name rc=0 start seal end said=0
+@@ -4801,8 +4858,13 @@ registry_clear_stale() {
+             name="${base#app_}"; name="${name%.pid}"
+             start="$(stat -c %Y "$f" 2>/dev/null)"
+             end=""; seal="$(app_window_seal "$name" 2>/dev/null)" && end="${seal%% *}"
+-            app_window_record "$name" "$start" "$end" \
+-                || warn "  could not write $name's window down before removing its pidfile"
++            if ! app_window_record "$name" "$start" "$end"; then
++                err "kept stale ${f#$REPO/} ($PF_WHY): $name's window could not be written to"
++                err "  $(app_windowfile "$name" | sed "s|^$REPO/||"), and this file is the only record of when $name ran"
++                not_verified "${f#$REPO/} kept: $name's window could not be written"
++                rc=1
++                continue
++            fi
+         fi
+         if rm -f "$f" 2>/dev/null && [[ ! -e "$f" ]]; then
+             ok "removed stale ${f#$REPO/} -- $PF_WHY"
+@@ -4810,6 +4872,7 @@ registry_clear_stale() {
+             [[ -n "$name" ]] && rm -f "$(app_pgidfile "$name")" 2>/dev/null
+         else
+             err "could NOT remove stale ${f#$REPO/} ($PF_WHY) -- check its ownership"
++            not_verified "a stale ${f#$REPO/} could not be removed"
+             rc=1
+         fi
+     done
+@@ -5106,9 +5169,9 @@ cmd_down() {
+     # until the orchestrator deleted it by hand; every `ndt down` in between walked past it.
+     # Said only when there is one, so a teardown with nothing stale reads as it always has.
+     # Not a subject: DOWN_SUBJECT above was read through the same predicate and left it out.
++    # rc 1 names its own cause in the claim note (not_verified, inside), so this only carries it.
+     registry_clear_stale || {
+         down_rc=1
+-        not_verified "a stale pidfile in .test_run/pids/ could not be removed"
+     }
+ 
+     # The lab is no longer being asked for anything, so the baseline `status --check` compares
+@@ -5442,7 +5505,7 @@ cmd_clean() {
+ STACK_PIDFILE_PROBLEMS=()
+ stack_pidfile_row() {
+     STACK_PIDFILE_PROBLEMS=()
+-    local f base name pid ev_at ev_st line grouped=0
++    local f base name pid ev_at ev_st line grouped=0 late
+     local -a bad=() live=()
+     for f in "$REPO"/.test_run/pids/*.pid; do
+         [[ -f "$f" ]] || continue
+@@ -5456,6 +5519,14 @@ stack_pidfile_row() {
+             bad+=("$base: unusable -- it holds '${pid:-<empty>}', which is not a pid. 'ndt down' reads these files.")
+             continue
+         fi
++        # [Co-developed with claude code -- Adam]
++        # A live number that started AFTER this file was written is somebody else's (judge F8,
++        # 09-25): pidfile_judge's start-time test, the one stop_one makes before it signals.
++        # Asked first, because the line below would otherwise print it as `alive`.
++        if pid_alive "$pid" && late="$(pidfile_outlived_by "$f" "$pid")"; then
++            bad+=("$base: stale pidfile (pid $pid is alive, but that process started ${late}s after this file was written -- a recycled number, not $name)")
++            continue
++        fi
+         if pid_alive "$pid"; then
+             live+=("$base=$pid alive")
+             continue
+@@ -9743,6 +9814,21 @@ residue_report() {
+                 "$(date -d "@$wend" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "$wend")" \
+                 "$(( wend - started ))" "$wwhy"
+         elif [[ -n "$wend" ]]; then
++            # [Co-developed with claude code -- Adam]
++            # 🔴 THE SAME CAVEAT, FROM A RECORD (judge's F1 on 6b7fce83, orchestrator round 2,
++            # 09-25). Since 09-25 `ndt down` removes a stale app pidfile and writes the window it
++            # dated into the record this branch reads -- and for energy, which has no log channel
++            # on any machine, that window is [mtime, mtime]. Before this block the very same
++            # window printed E-7's warning while its pidfile existed (the branch above) and went
++            # silent the moment a teardown moved it into a record, leaving `no flow entry arrived
++            # during that window` under a window that could not contain one: the shape E-7 and
++            # the manual forbid. A zero-width window attributes nothing, whoever wrote it down.
++            # Above the window line, for the adjacency reason the branch above gives.
++            (( wend == started )) && {
++                warn "      the window below has NO extent: nothing on this machine can date when"
++                warn "      $a stopped, so NOTHING can be attributed to it. That is 'nobody could"
++                warn "      ask', NOT 'this app left nothing'. (G-12; this window is a record)"
++            }
+             # F3. A CLOSED window, and the line says so and says where it came from: a reader
+             # who sees a window for an app that is not running has to be able to tell a record
+             # from a live reading, and the record is the only one of the two that another
+@@ -10554,12 +10640,18 @@ usage: ndt <command>
+                   anything is written -- on OVS only since 2026-09-25: until then
+                   'ndt up ovs' built a fabric under somebody else's claim and exited
+                   0 (ndt serve round, 09-24 22:49). --force is the way past exactly
+-                  those two, on BOTH planes, and every use of it is one line in
+-                  .test_run/lab.claim.overrides -- who, when, whose claim, what was
+-                  running; 'ndt status' shows the last one as its override row. A
+-                  --force whose line cannot be written is refused, 5. It is not a
+-                  way past the other refusals: a teardown in flight is a wait, and
+-                  H4 and a failed --app pre-flight are about the files named.
++                  those two, on BOTH planes, and every use of it that went past one
++                  of them is one line in .test_run/lab.claim.overrides -- who, when,
++                  whose claim, what was running; 'ndt status' shows the last one as
++                  its override row. A --force with nothing to go past writes
++                  nothing. A --force whose line cannot be written is refused, 5.
++                  🔴 THE LINE MEANS "--force WAS USED", NOT "IT CAME UP": it is
++                  written before the checks that come after the guard, so the same
++                  bring-up can still be refused (a teardown in flight, a held port,
++                  a Mininet already running, H4) or fail -- read that run's own exit
++                  code for that. It is not a way past those other refusals: a
++                  teardown in flight is a wait, and H4 and a failed --app pre-flight
++                  are about the files named.
+                   🔴 1 AND 5 ARE DIFFERENT QUESTIONS. 1 says this command looked at the
+                   machine and did not like what it found; 5 says it never looked. When
+                   both are true at once -- a teardown in flight AND a port held -- the
+@@ -10584,7 +10676,10 @@ usage: ndt <command>
+                   corrected the same day. (ROLE-11 F7 / FIX-DOC-1, 2026-09-12)
+                   exit 0 the teardown finished and the machine verified clean; 1 any
+                   of: stack.sh's half exited non-zero, the sweep did not finish, or
+-                  the assertion found something still running. All four steps run
++                  the assertion found something still running -- or, since 09-25, a
++                  STALE registry entry could not be removed, or an app's window
++                  could not be written before its pidfile was (the file is then
++                  kept, and the claim note says which). All four steps run
+                   whatever the earlier ones did -- a first step that failed is what
+                   makes the rest matter -- so the rc is one verdict over all of them
+                   and the block above it says which.
+@@ -10601,10 +10696,16 @@ usage: ndt <command>
+                   process group, where one is recorded, has no process left -- is not
+                   something to tear down: this command REMOVES it (for an app, after
+                   writing the app's window to .test_run/apps/<app>.window), names it,
+-                  and still answers 3 when nothing else was up. Identity is pid plus
+-                  argv, read from /proc; a pid that is gone while its group is alive
+-                  is NOT stale and is kept. Until 09-25 one such file (app_viz.pid,
+-                  from 09-14) made every down of a down lab answer 0. (Adam, 09-25)
++                  and still answers 3 when nothing else was up. Identity is read
++                  from /proc: for an app_*.pid, pid plus argv (a live pid that does
++                  not carry the app's argv is not the app); for the stack's own
++                  files, which carry no argv to compare, the pid alone. For both, a
++                  live pid whose process STARTED after the file was written is a
++                  recycled number, and the file is stale. A pid that is gone while
++                  its group is alive is NOT stale and is kept, and so is a file this
++                  cannot judge (a symlink, a group that is this shell's own). Until
++                  09-25 one stale file (app_viz.pid, from 09-14) made every down of
++                  a down lab answer 0. (Adam, 09-25)
+                   5 A GUARD REFUSED and nothing was torn down: the lab is claimed by
+                   somebody else, the claim DECLARES a measurement in progress, a
+                   measurement is in flight, or another 'ndt down' from this checkout
+@@ -10676,7 +10777,8 @@ usage: ndt <command>
+                   switch process, the topo session, the manifest, a held port, or a
+                   port this user could not read, because unknown is never clean;
+                   3 THERE WAS NOTHING TO JUDGE: no fabric, nothing in
+-                  .test_run/pids/, and no port in ports.sh's table held.
++                  .test_run/pids/ naming a live process, and no port in ports.sh's
++                  table held.
+                   A STALE entry in .test_run/pids/ (see down) is nothing here as
+                   well: it is named under the verdict and left for 'ndt down' to
+                   remove, because this command is an assertion. (Adam, 2026-09-25)

@@ -1,0 +1,7 @@
+# HEAD 55cebe6c2c67b8f5187c7b3d420ce7c4bb9a98cd; compare_verbose.sh v2 over the EXISTING verdict files (all four logs exist, so nothing re-runs): v1 printed 'diff lines: 0' for the p4_proxy suite whose pb5_upb run never loaded
+p4_proxy_suite     RED: no verdicts (the suite did not load): p4_proxy_suite_verdicts_pb5_upb.p4req-55cebe6c.tsv
+p4_exercise_suite  main: 187 ids (0 skip, 0 not ok)  pb5_upb: 187 ids (0 skip, 49 not ok)  per-test diff lines: 98
+66,67c66,67
+< test_preflight.BasicWithRolesTest.test_a_converted_owned_package_passes_every_check	ok
+< test_preflight.BasicWithRolesTest.test_a_dst_mac_that_is_not_48_bits_fails_here_before_the_proxy_refuses	ok
+# rc=1

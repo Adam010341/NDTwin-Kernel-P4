@@ -1,0 +1,7 @@
+# HEAD 851cefd79e26ee2fb481e461a7bd77ebaeb5b329  venv /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv  (main checkout's p4_proxy/venv, READ-ONLY for this ticket)  2026-09-25T09:37:38Z
+# method: find <venv> -type f -printf '%P %s %T@\n' | sort | sha256sum   (path, size, mtime of every file)
+# BEFORE: file /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/mainvenv.before.sha, written 2026-09-25 12:54:57.512878818 +0800 -- before this worker's first use of the venv (first suite log: p4_proxy_suite_mainvenv.p4req-62f76cf5.log, 2026-09-25T04:55:05Z)
+BEFORE f30dfcae3c46ffee38fc98d1e963e30c9091089a9a5af449ec798c654e7dda46
+NOW    f30dfcae3c46ffee38fc98d1e963e30c9091089a9a5af449ec798c654e7dda46
+# files newer than the stamp written at the same moment as BEFORE (/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/mainvenv.stamp):
+# (end of list)

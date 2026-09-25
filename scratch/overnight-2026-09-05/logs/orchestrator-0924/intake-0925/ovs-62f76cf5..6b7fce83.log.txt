@@ -1,0 +1,4 @@
+6b7fce83 ndt: guard_up_lab_free keeps up_p4's refusal comment and return verbatim, so mutate_ndt_up_down_robust.sh M68 still has its one anchor
+e684990f ndt: 'up' on BOTH planes refuses a foreign claim or a measurement in flight through one guard, 'ndt up ... --force' goes past it and is recorded, and a stale pidfile is marked by status, removed by down and is not a subject
+f5b68399 ndt tests (ovs claim): the flag is set inside the driven shell, a 128-host OVS model for 'ndt up', and an exported NDT_UP_FORCE must not open the guard -- still red on the unchanged ndt (73 of 109)
+01cb5017 ndt tests: OVS 'up' refuses a foreign claim or a measurement in flight like P4 (one guard), --force is recorded, a stale pidfile is marked, removed by down and not a subject -- red first

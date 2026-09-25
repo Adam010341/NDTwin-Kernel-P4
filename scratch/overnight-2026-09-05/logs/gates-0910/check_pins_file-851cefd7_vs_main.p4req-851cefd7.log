@@ -1,0 +1,15 @@
+# HEAD 851cefd79e26ee2fb481e461a7bd77ebaeb5b329  venv /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv  file = 851cefd79e26ee2fb481e461a7bd77ebaeb5b329:p4_proxy/requirements.txt  2026-09-25T09:37:51Z
+# $ python3 check_pins_vs_venv.py <file> <pip freeze of /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv> --allow googleapis-common-protos
+MATCH                            grpcio                       file ==1.82.1         venv 1.82.1
+MATCH                            protobuf                     file ==3.20.3         venv 3.20.3
+MATCH                            p4runtime                    file ==1.5.0          venv 1.5.0
+DECLARED-MISMATCH                googleapis-common-protos     file ==1.73.0         venv 1.75.0
+MATCH                            fastapi                      file ==0.139.2        venv 0.139.2
+MATCH                            starlette                    file ==1.3.1          venv 1.3.1
+MATCH                            uvicorn                      file ==0.51.0         venv 0.51.0
+MATCH                            networkx                     file ==3.6.1          venv 3.6.1
+MATCH                            requests                     file ==2.34.2         venv 2.34.2
+MATCH                            hypothesis                   file ==6.165.5        venv 6.165.5
+MATCH                            thrift                       file ==0.24.0         venv 0.24.0
+RESULT: GREEN (0 line(s) do not describe the venv)
+# rc=0

@@ -1,0 +1,43 @@
+# HEAD 55cebe6c2c67b8f5187c7b3d420ce7c4bb9a98cd  interpreter /home/adam/miniconda3/bin/python3.13  (/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-pb5/bin/python)
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925  2026-09-25T05:04:56Z
+# python 3.13.13 | packaged by Anaconda, Inc. | (main, Apr 14 2026, 06:19:41) [GCC 14.3.0]
+# protobuf 5.29.6 backend=python
+# PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
+# pip freeze:
+#   annotated-doc==0.0.5
+#   annotated-types==0.8.0
+#   anyio==4.15.1
+#   certifi==2026.7.22
+#   charset-normalizer==3.5.1
+#   click==8.5.0
+#   fastapi==0.139.2
+#   googleapis-common-protos==1.75.0
+#   grpcio==1.82.1
+#   h11==0.16.0
+#   hypothesis==6.165.5
+#   idna==3.20
+#   networkx==3.6.1
+#   p4runtime==1.5.0
+#   protobuf==5.29.6
+#   pydantic==2.13.5
+#   pydantic_core==2.46.5
+#   requests==2.34.2
+#   sortedcontainers==2.4.0
+#   starlette==1.7.0
+#   thrift==0.24.0
+#   typing-inspection==0.4.4
+#   typing_extensions==4.16.0
+#   urllib3==2.8.0
+#   uvicorn==0.51.0
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925
+# cmd env HOME=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/emptyhome PYTHONDONTWRITEBYTECODE=1 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-pb5/bin/python -m unittest discover -s tools/p4_exercise/tests -t tools/p4_exercise/tests
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env HOME=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/emptyhome PYTHONDONTWRITEBYTECODE=1 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-pb5/bin/python -m unittest discover -s tools/p4_exercise/tests -t tools/p4_exercise/tests
+..........s................................................................................................................................................................................
+----------------------------------------------------------------------
+Ran 187 tests in 1.741s
+
+OK (skipped=1)
+guarded_build: exit 0
+# rc=0

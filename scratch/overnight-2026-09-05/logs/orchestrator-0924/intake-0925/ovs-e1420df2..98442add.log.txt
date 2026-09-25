@@ -1,0 +1,38 @@
+98442add6ed344a4e60c4346147f35c120a31e06 ndt round 3 (judge r2 on e1420df2): status help and the manual state the new --check rc 1 for a recycled stack pidfile (only with a baseline), the manual says a recycled number is stale before the group is asked, and down's two messages say why and how
+- #1 (blocking): ndt help, status section, and the manual near the
+  stale-pidfile passage: a stack pidfile whose live pid started after
+  the file was written is stale and a --check problem -- rc 1 while a
+  baseline exists, still 3 with none; the manual warns that P4's
+  'status --check rc 0' acceptance meets it as the new rule.
+- #5: the manual no longer says a recycled number needs an empty group
+  too; the code judges it stale before asking (both kinds of pidfile).
+- #3: removing a recycled kernel/p4_proxy/ryu pidfile says 'stack.sh
+  kept it above because the number is somebody else's'.
+- #4: the F4 error adds how to recover (make .test_run/apps writable,
+  run 'ndt down' again).
+- gate: M36 (printed but not a --check problem), M37 (help qualifier),
+  M38, M39.
+
+[Co-developed with claude code -- Adam]
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+c6868f7ea0f4296988b1682fc638ff3dc4df01a7 ndt tests (ovs claim, round 3): the new status --check rc 1 for a recycled stack pidfile (only with a baseline), the help/manual sentences, and the down messages -- red first (5 of 166 on e1420df2's ndt)
+Judge r2 on e1420df2 (MERGE AFTER FIXES), orchestrator round 3:
+- #1: section 17 -- on a fixture with a baseline, a kernel.pid whose
+  live pid started after the file was written makes 'status --check'
+  rc 1 and names it; the control (same pid, file written after it
+  started) is rc 0; with no baseline it is still 3. Green on e1420df2
+  (the rc comes from the pidfiles row's existing wiring) and red on the
+  base 62f76cf5 (rc 0), so the cell pins the change itself; M36 in the
+  gate proves it can go red here. Help sentence and manual sentence:
+  red.
+- #5: the manual must say a recycled number is stale without asking
+  the group (red).
+- #3: the removal of a recycled stack pidfile says why stack.sh kept it
+  (red). #4: the F4 error says how to recover (red).
+
+[Co-developed with claude code -- Adam]
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+

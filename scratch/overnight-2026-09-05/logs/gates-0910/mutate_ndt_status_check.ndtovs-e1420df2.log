@@ -1,0 +1,43 @@
+e1420df26d9d7a3703b814e40ea575402efd4f2e
+# gate    : existing mutation gate over code or text this change touched (judge F9 for app_package/ovs4_has_sflow)
+# cmd     : (cwd worktree) JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash tests/shell/mutate_ndt_status_check.sh
+# worktree: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-ovs-claim-0925
+# branch  : fix/ndt-ovs-claim-0925
+# start   : 2026-09-25T18:45:57+08:00
+# ndt under test: the worktree file, git hash-object 9136db6d382242adca3ccbe071061c817f868c5b  (HEAD's blob: 9136db6d382242adca3ccbe071061c817f868c5b)
+# dirty tracked at start: 0
+# test/gate files under test are HEAD's: yes
+
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_ndt_status_check.sh
+baseline (must be green before any mutation):
+Ran 104 checks, 0 failed
+
+  caught   M1: the host baseline comes from the P4 knob again         (a healthy ovs4 exits 0 went red)
+  caught   M2: the data plane is shown but not compared               (🔴 a P4 fabric under an ovs4 record is not ok went red)
+  caught   M3: no record is reported as a mismatch                    (🔴 no baseline exits 3, not 0 and not 1 went red)
+  caught   M4: a failed fabric reading becomes a host count of 0      (  named as not compared, not as agreement went red)
+  caught   M5: a model file edited since up is not reported           (the model file edited under a running kernel is red went red)
+  caught   M6: ndt up ovs stops recording its target                  ('ndt up ovs4' records its target went red)
+  caught   M7: ndt up p4 stops recording its target                   ('ndt up p4' records its target too went red)
+  caught   M8: ndt down leaves a stale baseline behind                ('ndt down' drops the record went red)
+  caught   M9: a refused ovs-vsctl becomes no OVS here                (🔴 a refused ovs-vsctl is 'unknown', not 'none' went red)
+  caught   N1 (control, always green): --check compares nothing       (🔴 a P4 fabric under an ovs4 record is not ok went red)
+  caught   N2 (widening, green): no baseline is a pass                (🔴 no baseline exits 3, not 0 and not 1 went red)
+  caught   N3 (widening, green): differences printed, never reported  (a 128-host graph under a 4-host record is red went red)
+  caught   M10: sim's evidence log is hard-coded to the main checkout (F9) (  🔴 sim's evidence log is inside the fixture went red)
+  caught   MI1: the row is defined and nothing calls it (existence is not wiring) (🔴 the row names the file and calls it stale went red)
+  caught   MI2: it is printed but is not a --check problem -- rc stays 0, as R7 measured (🔴 and --check goes red on it -- R7 measured rc 0 went red)
+  caught   MI3: liveness is not asked of /proc -- a number is taken for a process (🔴 the row names the file and calls it stale went red)
+  caught   MI4 (widening): every pidfile is stale, including a running stack's (a pidfile naming a live pid is NOT stale went red)
+  caught   MI5: the app pidfiles are claimed by this row as well as by the apps block (🔴 an app pidfile is not claimed by this row went red)
+  caught   MI6: the .exit record that already knew is not quoted      (🔴 quoting the .exit that already knew went red)
+  caught   MI7: a pidfile that is not a pid at all is passed over in silence (🔴 an unusable pidfile is named as unusable went red)
+
+baseline byte-identical: yes  tools/test_workflow/ndt  sha256 d33dfd0c01fbaf1b2359561e2a4d0fff4ddf7cc8709f989a8b2c68b6c45c0d00
+mutation gate: 20 mutations, 0 survived
+guarded_build: exit 0
+
+# rc=0
+# end 2026-09-25T18:50:13+08:00  /tmp/ndt-ovs-claim-* after: 0
+# dirty tracked at end: 0

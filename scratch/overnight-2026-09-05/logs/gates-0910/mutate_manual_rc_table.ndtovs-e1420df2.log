@@ -1,0 +1,39 @@
+e1420df26d9d7a3703b814e40ea575402efd4f2e
+# gate    : existing mutation gate over code or text this change touched (judge F9 for app_package/ovs4_has_sflow)
+# cmd     : (cwd worktree) JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash tests/shell/mutate_manual_rc_table.sh
+# worktree: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-ovs-claim-0925
+# branch  : fix/ndt-ovs-claim-0925
+# start   : 2026-09-25T19:10:24+08:00
+# ndt under test: the worktree file, git hash-object 9136db6d382242adca3ccbe071061c817f868c5b  (HEAD's blob: 9136db6d382242adca3ccbe071061c817f868c5b)
+# dirty tracked at start: 0
+# test/gate files under test are HEAD's: yes
+
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_manual_rc_table.sh
+baseline (unmutated) must be green:
+  ok            baseline green
+
+mutations:
+  caught        M1: the rc 3 row is written back as an rc 0 row        (case 6  the rc table has a row for rc 3 went red)
+  caught        M2: the rc 5 row is deleted                            (case 6  the rc table has a row for rc 5 went red)
+  caught        M3: the restore criterion demands rc 0 again           (case 12a the restore criterion accepts rc 3 from 'ndt clean' as restored went red)
+  caught        M4: a second rc table is added                         (case 5  the manual carries exactly one rc table (BEGIN/END) went red)
+  caught        M5: the table attributes an invented sentence to ndt help (case 7a every quote in the rc table is verbatim from 'ndt help' went red)
+  caught        M6: the criterion reads the orphans rc, not its VERDICT (case 13 the restore criterion reads orphans_verdict.sh's VERDICT, not a rc went red)
+  caught        M7: the test stops reading 'ndt help'                  (case 1  'ndt help' still prints a block for 'up' (>= 5 lines) went red)
+  caught        M8: a code-block comment glosses an rc on its own again (case 10 no 'ndt up/down/clean' command comment carries its own rc gloss went red)
+  caught        M9: the control's sentence is removed                  (case 14 CONTROL went red)
+  caught        M10: 'ndt help' loses the sentence the rc 3 row quotes (both went red; the witness stayed green)
+
+  SURVIVED      C1 (control): an HTML comment is reworded              (control, as required)
+
+baseline byte-identical: yes  doc/2026-08-17_testing-manual.md
+baseline byte-identical: yes  tests/shell/test_manual_rc_table.sh
+baseline byte-identical: yes  tools/test_workflow/ndt
+GATE-SUMMARY mutations=10 survived=0 unapplied=0 controls=1 red=0
+mutation gate: 10 mutations, 0 survived; 1 control(s), 0 went red
+guarded_build: exit 0
+
+# rc=0
+# end 2026-09-25T19:10:26+08:00  /tmp/ndt-ovs-claim-* after: 0
+# dirty tracked at end: 0

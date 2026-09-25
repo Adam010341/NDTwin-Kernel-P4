@@ -1,0 +1,14 @@
+# push trunk 68ace017 2026-09-25T20:24:35+08:00
+To github.com:Adam010341/NDTwin-Kernel-P4.git
+   680c5293..68ace017  trunk -> trunk
+remote: 
+remote: GitHub found 2 vulnerabilities on ndtwin-lab/NDTwin-Kernel-P4's default branch (2 high). To find out more, visit:        
+remote:      https://github.com/ndtwin-lab/NDTwin-Kernel-P4/security/dependabot        
+remote: 
+To github.com:ndtwin-lab/NDTwin-Kernel-P4.git
+   680c5293..68ace017  trunk -> trunk
+# push rc=0
+## unauthenticated https://github.com/Adam010341/NDTwin-Kernel-P4.git
+68ace01702e5a04303ddbc3534fa999f851e22c1	refs/heads/trunk
+## unauthenticated https://github.com/ndtwin-lab/NDTwin-Kernel-P4.git
+68ace01702e5a04303ddbc3534fa999f851e22c1	refs/heads/trunk

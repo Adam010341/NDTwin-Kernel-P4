@@ -1,0 +1,60 @@
+6b7fce837d9445e711faeb1c1a98438cdf8815ef
+# gate    : existing mutation gate over code this change touched
+# cmd     : (cwd worktree) JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash tests/shell/mutate_ndt_helper_apps_window.sh
+# worktree: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-ovs-claim-0925
+# branch  : fix/ndt-ovs-claim-0925
+# start   : 2026-09-25T14:08:53+08:00
+# ndt under test: the worktree file, git hash-object 3a0e66c6e23a13264424ec1c6224e78e830c81ac  (HEAD's blob: 3a0e66c6e23a13264424ec1c6224e78e830c81ac)
+# dirty tracked at start: 0
+
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_ndt_helper_apps_window.sh
+baseline (the suite must be green before any mutation):
+Ran 150 checks, 0 failed
+
+  caught   M1: the helper apps get no pidfile (the measured defect)   (🔴 the pidfile now exists went red)
+  caught   M2 (widening): the pidfile records the request, not the program (🔴 and writes NO pidfile went red)
+  caught   M3: app_started_at asks the pidfile and nothing else       (🔴 a live process with no pidfile still has a window went red)
+  caught   M4: the window opens at the youngest process, not the oldest (🔴 with two live pids the window opens at the OLDER one went red)
+  caught   M5: sim's log is looked for in this checkout               (🔴 sim's log is the helper's, not ours went red)
+  caught   M6 (widening): energy is given a log it does not have      (🔴 it says the question cannot be asked went red)
+  caught   M7: 'no live process' is printed without looking for one   (🔴 it does NOT say 'no pidfile and no live process' about a running app went red)
+  caught   M8: the stop reports after it has deleted the window       (🔴 and the residue report still has a window for it went red)
+  caught   M9: the captured window is never read                      (🔴 and the residue report still has a window for it went red)
+  caught   M10 (widening): a verified stop leaves the window open forever (🔴 and the pidfile is gone afterwards, so the window closes went red)
+  caught   M11 (widening): 'nobody can ask' is counted as a failure   (🔴 and it is NOT red (nobody can act on it) -- rc 0 went red)
+  caught   M12: --check goes back to 'asked, not assumed' over it     (🔴 the --check row says an app could not be asked went red)
+  caught   M13: any readable config file is trusted                   (🔴 a config this user owns is REFUSED (it is not root's) went red)
+  caught   M14: an unknown key is skipped instead of refusing the file (🔴 an unknown key sets NOTHING (the helper refuses the whole file) went red)
+  caught   M15: ndt's default drifts from the helper's                (🔴 ndt's default KERNEL_DIR is the helper's default went red)
+  caught   M17: orphans reports pids the probe already accounted for  (🔴 a tracked, running sim is NOT an orphan -- rc 0 went red)
+  caught   M18 (widening): orphans reports nothing at all             (🔴 control: untracked children still exit 1 went red)
+  caught   M19: the stop reports the state it produced, not the one it found (🔴 it says what the app WAS: running went red)
+  caught   M20: trim finds out it cannot truncate by trying it        (🔴 trim names the owner and the remedy went red)
+  caught   M21 (widening): trim refuses a log it can truncate         (🔴 control: a log this user CAN truncate is still trimmed -- rc 0 went red)
+  caught   M22 (widening): every unwritable log is called root's      (🔴 but it is NOT blamed on root went red)
+  caught   M23: the status row stops saying whose log it is           (🔴 apps status says the log is root's went red)
+  caught   M24: an fd channel that could not look reports as one that found nothing (🔴 app_survivors keeps it as blindness, not as an empty channel went red)
+  caught   M25 (widening): the fd channel calls every process unreadable (🔴 control: no blindness is invented for a process we can look inside went red)
+  caught   M26: orphans drops the blindness once it has found something (🔴 and prints the blindness instead of dropping it once it found something went red)
+  caught   M28: the stop deletes the pidfile and records no window    (🔴 the stop left a window record on disk went red)
+  caught   M29: the recorded window is never read back                (🔴 a later process still has a window for sim went red)
+  caught   M30 (widening): the closed window has no right edge        (🔴 a rule installed AFTER it closed is NOT this app's went red)
+  caught   M31 (widening): the window end never leaves the reader     (🔴 and reports it as closed, not open to now went red)
+  caught   M32: a start does not supersede the last stop's window     (🔴 and it cleared the window its last stop left went red)
+  caught   M33: a dead pidfile's window runs to now again (the measured defect) (🔴 the window has a right edge went red)
+  caught   M34 (widening): a running app's window is sealed too       (🔴 control: a LIVE pid still windows to now went red)
+  caught   M35 (widening): the edge is the pidfile's mtime, never the log's (🔴 control: a rule installed INSIDE the closed window is still listed went red)
+  caught   M36: the sealed edge is printed but never applied          (🔴 a rule installed after the app exited is not framed by it went red)
+  caught   M37: no log -> no seal, so the window is open again        (🔴 no log -> the window has no extent, and the report says so went red)
+  caught   M38 (widening): an end before the start is accepted        (🔴 a log older than the pidfile does not invert the window went red)
+  survived M16: a comment-only edit                                   (control, as required)
+  survived M27: a comment-only edit in the 3-51c block                (control, as required)
+
+baseline byte-identical: yes  tools/test_workflow/ndt  sha256 9033972eda3434a6f7fb18ee88570b6a7312d3ae205bfe84ea556fbb44aba094
+mutation gate: 38 mutations, 0 survived
+guarded_build: exit 0
+
+# rc=0
+# end 2026-09-25T14:20:48+08:00  /tmp/ndt-ovs-claim-* after: 0
+# dirty tracked at end: 0

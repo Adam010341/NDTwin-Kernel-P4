@@ -1,0 +1,69 @@
+e1245b400efa4529ac5749c173020e862ee84cb2 spike round 4: the detect test was red for its own reason -- give it the variable, and prove it
+5c882c9f's detect check went red, but not because of detect: the driver's stub environment lacked
+CUT_DIRS and died of `set -u` before reaching the check (found when 6f626473's fix left it red).
+The driver now sets it, and the check additionally requires that the fake hb_watch's `all-heard`
+verdict was recorded ("... 0/8 directions heard") -- so it can only pass by getting there.
+
+Its red on the old code is shown by a mutant run, not by history (5c882c9f's red is void for this
+check): spike_selftest.oldcode.p4hb-<this sha>.log runs this self-test against a copy of the spike
+with detect's `return 0` and both `watch_hit ... || true` put back to 01ff8368's form.
+
+[Co-developed with claude code -- Adam]
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+6f626473a19169c546c2cf7674412bac67667823 spike round 4: no normal path returns non-zero bare under set -e; the session read waits
+Makes 4861a458's and 5c882c9f's red lines green (spike_selftest.red.p4hb-4861a458.log,
+spike_selftest.red.p4hb-5c882c9f.log).
+
+R3-1: watch_sniffers' two re-reads are `watch_hit ... || true` -- a clean window is watch_hit's
+normal 1, and bare under the run's set -e it ended the whole spike on the first clean census arm.
+Audit of every bare call to a function that can return non-zero on a normal path (listed in the
+round-4 SUMMARY section): one more found and fixed -- detect's `[[ "$v" == OK* ]] || return`
+returned 1 as the LAST command of the run's `&& detect`, ending the run and skipping the census
+even with CENSUS_EVEN_IF_RED=1; it is `return 0` now (detect records failures with `fail`).
+R3-4: census reads the session through wait_session (20 x 0.25 s); none -> FAIL row, heartbeat
+stopped, fabric down, next arm -- not an abort.
+R3-3: "the mnexec grant does not restrict its arguments" is marked (INFERRED) in the header and in
+the self-test's comment; the probe's ok line says what it proves.
+
+[Co-developed with claude code -- Adam]
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+5c882c9f36d26d46320fac4c272b69bc228290e7 spike round 4, one more test first: a failing detection part must not end the run under set -e
+Found by the audit judge R3-1 asked for (every bare call to a function that can return non-zero
+on a normal path). The run calls `[[ $PART ... ]] && detect`; detect is the LAST command of that
+list, and `[[ "$v" == OK* ]] || return` returns 1 when not every direction is heard -- so under
+the run's set -e the whole script ends there, and CENSUS_EVEN_IF_RED=1 is silently ignored.
+detect records its failures with `fail` and must itself return 0.
+
+Driven like the watch scenarios: detect's own text (declare -f) in a fresh `bash -euo pipefail`
+process, with stubs for the lab steps and a fake hb_watch that says "BAD 0/8". Red on this code
+(rc 1, nothing written); the fix is the next commit, with R3-1's `|| true` and R3-4's wait.
+
+[Co-developed with claude code -- Adam]
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+4861a458a137caf22fc7fe49d7f036ae399e37c0 spike round 4, tests first: the sniffer watch under set -e; the sudo probe opt-in; the session read
+Red against 01ff8368 (the fix is the next commit).
+
+R3-1 (judge round 3, reproduced by the orchestrator): 01ff8368's re-read in watch_sniffers is a
+bare `watch_hit`, which returns 1 on a clean window; under the script's `set -euo pipefail` every
+clean census arm would abort the run. The self-test could not see it: it runs inside
+`self_test && exit 0 || exit 1`, where bash ignores errexit in everything it calls. The three
+watch scenarios (first hit, clean window, last sniffer's race) now run in a FRESH
+`bash -euo pipefail` process that carries the functions' own text via `declare -f`; the clean
+window must come back rc 0 with no hit -- red on 01ff8368.
+R3-4: the census's session read gets a bounded wait (wait_session), driven the same way: a
+written report yields the session, a missing one yields "no session" rc 0 to the caller -- red
+(the function does not exist yet).
+R3-2 (Adam's ruling): the real sudo probe is opt-in, SELFTEST_PROBE_SUDO=1, bounded by
+`/usr/bin/timeout 15`, absolute paths kept; by default a neutral "not run" line, neither ok nor
+red. So no --self-test fires a sudo unless asked.
+
+[Co-developed with claude code -- Adam]
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+

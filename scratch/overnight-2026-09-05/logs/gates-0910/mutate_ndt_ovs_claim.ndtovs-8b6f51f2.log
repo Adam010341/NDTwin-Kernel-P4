@@ -1,0 +1,19 @@
+8b6f51f243c7f9d48ebff9ec6c4f805cc497dc22
+# gate    : mutation gate for the new suite (20 named mutants, 2 controls)
+# cmd     : (cwd worktree) JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash tests/shell/mutate_ndt_ovs_claim.sh
+# worktree: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-ovs-claim-0925
+# branch  : fix/ndt-ovs-claim-0925
+# start   : 2026-09-25T17:47:36+08:00
+# ndt under test: the worktree file, git hash-object 9136db6d382242adca3ccbe071061c817f868c5b  (HEAD's blob: 9136db6d382242adca3ccbe071061c817f868c5b)
+# dirty tracked at start: 0
+# test/gate files under test are HEAD's: yes
+
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_ndt_ovs_claim.sh
+baseline (must be green before any mutation):
+  Ran 156 checks, 0 failed
+
+  caught   M1: up_ovs no longer calls the claim guard                   (🔴 a foreign claim refuses the OVS bring-up with 5 went red; 46 red in all)
+  caught   M2: --force builds and nothing is written down               (🔴 exactly one override is recorded went red; 24 red in all)
+
+# ABORTED 2026-09-25T17:48:17+08:00 by the worker (kill -TERM of its own process group): a manual source comment still said the pidfile question was pending; fixed in the next commit and every gate re-run there. No verdict here.

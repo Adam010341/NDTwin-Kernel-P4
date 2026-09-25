@@ -1,0 +1,62 @@
+e1420df26d9d7a3703b814e40ea575402efd4f2e
+# gate    : read-only: merge-tree vs feat/ndt-serve-0924, RC_SOURCE code anchors old->new at HEAD, help/manual rc phrases
+# cmd     : (cwd worktree) JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-ndtovs/serve_evidence.sh
+# worktree: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-ovs-claim-0925
+# branch  : fix/ndt-ovs-claim-0925
+# start   : 2026-09-25T19:39:08+08:00
+# ndt under test: the worktree file, git hash-object 9136db6d382242adca3ccbe071061c817f868c5b  (HEAD's blob: 9136db6d382242adca3ccbe071061c817f868c5b)
+# dirty tracked at start: 0
+# test/gate files under test are HEAD's: yes
+
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-ndtovs/serve_evidence.sh
+== 1. merge-tree HEAD feat/ndt-serve-0924
+148278f72b55019004d0a0832c1e8529b1561bcc
+merge-tree rc=0 (0 = clean; conflicted paths would follow the tree id)
+== 2. RC_SOURCE code anchors
+status.check  rc 3  old  6486 ok -> new 6926 ok  (old line at HEAD holds it: no)  [return 3]
+status.check  rc 0  old  6491 ok -> new 6931 ok  (old line at HEAD holds it: no)  [return 0]
+status.check  rc 1  old  6495 ok -> new 6935 ok  (old line at HEAD holds it: no)  [return 1]
+status        rc 0  old  6497 ok -> new 6937 ok  (old line at HEAD holds it: no)  [return 0]
+claim         rc 2  old   748 ok -> new 753 ok  (old line at HEAD holds it: no)  [return 2]
+claim         rc 2  old   757 ok -> new 762 ok  (old line at HEAD holds it: no)  [return 2]
+claim         rc 1  old   782 ok -> new 787 ok  (old line at HEAD holds it: no)  [return 1]
+claim         rc 1  old   855 ok -> new 860 ok  (old line at HEAD holds it: no)  [return 1]
+claim         rc 0  old   857 ok -> new 862 ok  (old line at HEAD holds it: no)  [ok "lab claimed by]
+release       rc 0  old   861 ok -> new 866 ok  (old line at HEAD holds it: no)  [return 0]
+release       rc 1  old   866 ok -> new 871 ok  (old line at HEAD holds it: no)  [return 1]
+release       rc 1  old   894 ok -> new 899 ok  (old line at HEAD holds it: no)  [return 1]
+apps.start    rc 0  old  8311 ok -> new 8758 ok  (old line at HEAD holds it: no)  [return 0]
+apps.start    rc 1  old  8315 ok -> new 8762 ok  (old line at HEAD holds it: no)  [return 1]
+apps.start    rc 1  old  8388 ok -> new 8835 ok  (old line at HEAD holds it: no)  [return 1]
+apps.stop     rc 1  old  9814 ok -> new 10276 ok  (old line at HEAD holds it: no)  [return 1]
+apps.stop     rc 2  old  9817 ok -> new 10279 ok  (old line at HEAD holds it: no)  [return 2]
+apps.stop     rc 0  old  9820 ok -> new 10282 ok  (old line at HEAD holds it: no)  [return 0]
+apps.status   rc 0  old  9747 ok -> new 10209 ok  (old line at HEAD holds it: no)  [return 0]
+anchors not mapped/holding: 0
+== 3. help phrases
+ok      exit 0 the fabric came up and verified
+ok      1 something was MEASURED and it was dirty
+ok      2 is a usage error
+ok      5 a GUARD REFUSED and nothing was built
+ok      exit 0 the teardown finished and the machine verified clean
+ok      1 any of: stack.sh's half exited non-zero
+ok      2 is a usage error
+ok      3 THERE WAS NOTHING TO TEAR DOWN
+ok      5 A GUARD REFUSED and nothing was torn down
+ok      exit 0 all compared fields match
+ok      1 one of them does not (the message names it)
+ok      3 nothing was compared, because there is no baseline RIGHT NOW
+ok      the teardown finished and the machine verified clean
+ok      something was MEASURED and is still there
+ok      THERE WAS NOTHING TO JUDGE
+ok      A GUARD REFUSED and nothing was torn down
+ok      is a usage error
+help phrases missing: 0
+guarded_build: exit 2
+
+# rc=2
+# end 2026-09-25T19:39:08+08:00  /tmp/ndt-ovs-claim-* after: 0
+# dirty tracked at end: 0
+
+# NOTE 2026-09-25T19:39:32+08:00 (worker): rc 2 is this script's own defect, not a finding -- `ndt help` always exits 2 and the script ended on that pipeline under pipefail. The script now computes its rc from the three counts; re-run as serve_evidence.ndtovs-e1420df2.log.

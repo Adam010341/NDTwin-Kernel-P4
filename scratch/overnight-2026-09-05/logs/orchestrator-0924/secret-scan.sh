@@ -21,4 +21,9 @@ echo "range     : $RANGE ($(git -C "$GD" diff --shortstat "$RANGE"))"
 echo "scan hits : $n"
 [[ -n "$hits" ]] && printf '%s\n' "$hits" | cut -c1-200
 echo "control   : $ctl (want 3)"
+# The control only proves the TEXT path works. A binary (a .gz above all) reaches grep as compressed
+# bytes, so it is never really read; list them so each one is scanned on its own (zcat + the control).
+bin=$(git -C "$GD" diff --numstat "$RANGE" | awk -F'\t' '$1=="-" {print $3}')
+echo "binary    : $(printf '%s' "$bin" | grep -c .) file(s) NOT read by this scan -- scan each separately"
+[[ -n "$bin" ]] && printf '            %s\n' $bin
 [[ "$ctl" == 3 && "$n" == 0 ]]

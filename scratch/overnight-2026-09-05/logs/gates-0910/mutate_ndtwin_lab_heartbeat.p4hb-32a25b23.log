@@ -1,0 +1,53 @@
+32a25b232324272799837b179cb63b78c7007d14
+# 2026-09-25T06:10:51Z worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-0925, branch feat/p4-heartbeat-0925
+# status: 
+# $ JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh ./tests/shell/mutate_ndtwin_lab_heartbeat.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ ./tests/shell/mutate_ndtwin_lab_heartbeat.sh
+=== baseline (the fix, unmutated) ===
+  rc=0  red=
+
+=== mutations ===
+  extra-args-accepted            caught by: start with an interface name is refused
+  program-accepts-extra-args     caught by: the program refuses daemon with an interface
+  no-topo-check                  🔴 red, but NOT the named check
+                                    wanted: no topo session: refused
+                                    got:    and nothing was installed, planned or launched,and it says there is no fabric,the plan ran, and nothing was launched,a good plan launches exactly once, after the plan
+  second-daemon-launched         caught by: a live daemon: start answers 0
+  plan-skipped                   caught by: the plan ran, and nothing was launched
+  run-dir-mode-unchecked         caught by: a group-writable run dir is refused
+  lock-shared                    caught by: a second one cannot, while the first lives
+  stop-by-pid-only               caught by: and the stranger is still alive
+  stop-no-uid-check              caught by: but not when root's uid is required of it
+  pidfile-not-validated          caught by: pidfile '-1' (every process): refused as not a pid
+  pidfile-symlink-followed       caught by: a symlinked pidfile is refused
+  manifest-owner-unchecked       caught by: a manifest this uid owns, in root's sticky /tmp, is refused when root's is required
+  manifest-mode-unchecked        caught by: a group-writable manifest is refused
+  manifest-symlink-followed      caught by: a symlinked manifest is refused
+  manifest-fifo-blocks           caught by: a FIFO planted at the name is refused without hanging the reader
+  manifest-dir-unchecked         caught by: a manifest in a world-writable, non-sticky directory is refused
+  dead-switch-accepted           caught by: one switch not a live bmv2: refused as not whole
+  ifname-not-tied-to-switch      caught by: an -i binding not named <switch>-eth<port> refuses the whole manifest
+  no-veth-check                  caught by: a non-veth interface is refused
+  one-way-peer-is-a-cable        caught by: a one-way iflink is not a cable: s1-eth3/s3-eth1 are not a link
+  outgoing-counted-as-heard      caught by: an OUTGOING copy on the rx interface is NOT heard
+  wrong-interface-heard          caught by: an INCOMING frame on another interface is NOT heard
+  session-unchecked              caught by: another session's frame is NOT heard
+  bpf-wrong-ethertype            caught by: the kernel filter accepts our frames
+  report-makes-a-verdict         caught by: per direction: exactly these keys (no up/down/is_up/state)
+  heard-not-reported             caught by: a frame delivered to the peer is heard, and the report shows it within 3 s
+  fabric-change-ignored          caught by: a rebuilt fabric (new ifindex) is 'changed'
+  loop-never-asks-the-fabric     caught by: a daemon whose fabric goes away stops itself at the next round, rc 4
+  sigterm-ignored                caught by: SIGTERM stops it promptly with rc 0
+  period-drift                   caught by: PERIOD_S is the proxy's LLDP_BEACON_INTERVAL_S
+  ethertype-collides             caught by: no tutorials parser uses it (26 .p4 files scanned)
+  pidfile-path-drift             caught by: the helper's HB_RUN_DIR default is the program's RUN_DIR
+  control-comment-only           SURVIVED (control, as required)
+
+restore: tools/test_workflow/ndtwin-lab is byte-identical to the pre-gate snapshot
+after restore: the suite is green again
+
+mutants: 32 named + 1 control; caught 31, survived 1, invalid 0
+VERDICT: at least one mutation survived or was caught by the wrong check
+guarded_build: exit 1
+# rc=1  2026-09-25T06:25:23Z

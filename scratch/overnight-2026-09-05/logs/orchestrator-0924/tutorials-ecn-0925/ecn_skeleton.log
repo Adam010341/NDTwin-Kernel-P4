@@ -1,0 +1,462 @@
+drive_exercise.py -- ecn / skeleton
+(non-interactive: no mininet CLI, no xterm; kills nothing)
+
+== pre-flight (read-only) ==============================================
+OK   ports 9090-9099 free
+OK   interpreter /home/adam/p4dev-python-venv/bin/python (3.12.3)
+OK   switch  /usr/local/bin/simple_switch_grpc  sha256[:16]=327fa7d172217397  --version=1.15.3-f0b7d201
+OK   p4c     /usr/local/bin/p4c-bm2-ss  sha256[:16]=226f3f66df515c9e  --version=Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release)
+OK   exercise dir /home/adam/tutorials/exercises/ecn
+
+== compile =============================================================
+$ /usr/local/bin/p4c-bm2-ss --p4v 16 --p4runtime-files /home/adam/tutorials/exercises/ecn/build/ecn.p4.p4info.txtpb -o /home/adam/tutorials/exercises/ecn/build/ecn.json /home/adam/tutorials/exercises/ecn/ecn.p4
+/home/adam/tutorials/exercises/ecn/ecn.p4(7): [--Wwarn=unused] warning: 'TCP_PROTOCOL' is unused
+const bit<8> TCP_PROTOCOL = 0x06;
+             ^^^^^^^^^^^^
+/home/adam/tutorials/exercises/ecn/ecn.p4(9): [--Wwarn=unused] warning: 'ECN_THRESHOLD' is unused
+const bit<19> ECN_THRESHOLD = 10;
+              ^^^^^^^^^^^^^
+-> /home/adam/tutorials/exercises/ecn/build/ecn.json  13672 B  sha256[:16]=ef76e113bf3027fa  warnings=2
+
+== plan ================================================================
+topology : topology.json
+hosts    : h1, h11, h2, h22, h3
+switches : s1, s2, s3
+links    : 8
+program  : /home/adam/tutorials/exercises/ecn/ecn.p4 -> build/ecn.json
+switch   : /usr/local/bin/simple_switch_grpc
+steps    : h22 iperf -s; h11 iperf -u -> h22 to fill the 0.5 Mbit/s queue; h1 send.py -> h2 receive.py; assert ipv4.tos
+equivalent to (cwd must be the exercise dir):
+  cd /home/adam/tutorials/exercises/ecn && \
+  sudo /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/utils/run_exercise.py -t topology.json -j build/ecn.json -b /usr/local/bin/simple_switch_grpc
+  ... except do_net_cli() is replaced by the scripted steps above.
+Reading topology file.
+Building mininet topology.
+/usr/local/bin/simple_switch_grpc -i 2@s1-eth2 -i 1@s1-eth1 -i 3@s1-eth3 -i 4@s1-eth4 --pcap /home/adam/tutorials/exercises/ecn/pcaps --nanolog ipc:///tmp/bm-0-log.ipc --device-id 0 build/ecn.json --log-console --thrift-port 9090 -- --grpc-server-addr 0.0.0.0:50051
+
+/usr/local/bin/simple_switch_grpc -i 2@s2-eth2 -i 1@s2-eth1 -i 3@s2-eth3 -i 4@s2-eth4 --pcap /home/adam/tutorials/exercises/ecn/pcaps --nanolog ipc:///tmp/bm-1-log.ipc --device-id 1 build/ecn.json --log-console --thrift-port 9091 -- --grpc-server-addr 0.0.0.0:50052
+
+/usr/local/bin/simple_switch_grpc -i 1@s3-eth1 -i 2@s3-eth2 -i 3@s3-eth3 --pcap /home/adam/tutorials/exercises/ecn/pcaps --nanolog ipc:///tmp/bm-2-log.ipc --device-id 2 build/ecn.json --log-console --thrift-port 9092 -- --grpc-server-addr 0.0.0.0:50053
+
+Configuring switch s1 using P4Runtime with file s1-runtime.json
+ - Using P4Info file build/ecn.p4.p4info.txtpb...
+ - Connecting to P4Runtime server on 127.0.0.1:50051 (bmv2)...
+ - Setting pipeline config (build/ecn.json)...
+ - Inserting 4 table entries...
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.1.1', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:01:01, port=2)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.1.11', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:01:11, port=1)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.2.0', 24] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:02:00, port=3)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.3.0', 24] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:03:00, port=4)
+Configuring switch s2 using P4Runtime with file s2-runtime.json
+ - Using P4Info file build/ecn.p4.p4info.txtpb...
+ - Connecting to P4Runtime server on 127.0.0.1:50052 (bmv2)...
+ - Setting pipeline config (build/ecn.json)...
+ - Inserting 4 table entries...
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.2.2', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:02:02, port=2)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.2.22', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:02:22, port=1)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.1.0', 24] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:01:00, port=3)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.3.0', 24] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:03:00, port=4)
+Configuring switch s3 using P4Runtime with file s3-runtime.json
+ - Using P4Info file build/ecn.p4.p4info.txtpb...
+ - Connecting to P4Runtime server on 127.0.0.1:50053 (bmv2)...
+ - Setting pipeline config (build/ecn.json)...
+ - Inserting 3 table entries...
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.3.3', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:03:03, port=1)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.1.0', 24] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:01:00, port=2)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.2.0', 24] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:02:00, port=3)
+
+== topology as brought up ==============================================
+s1 -> gRPC port: 50051
+s2 -> gRPC port: 50052
+s3 -> gRPC port: 50053
+**********
+h1
+default interface: eth0	10.0.1.1	08:00:00:00:01:01
+**********
+**********
+h2
+default interface: eth0	10.0.2.2	08:00:00:00:02:02
+**********
+**********
+h3
+default interface: eth0	10.0.3.3	08:00:00:00:03:03
+**********
+**********
+h11
+default interface: eth0	10.0.1.11	08:00:00:00:01:11
+**********
+**********
+h22
+default interface: eth0	10.0.2.22	08:00:00:00:02:22
+**********
+
+== scripted steps (no CLI, no xterm) ===================================
+$ h22: iperf -s -u   (> /home/adam/tutorials/exercises/ecn/logs/driver-bg-iperf-h11-to-h22.log)
+$ h11: iperf -c 10.0.2.22 -u -b 1M -t 91
+$ h2: /home/adam/p4dev-python-venv/bin/python -u /home/adam/tutorials/exercises/ecn/receive.py   (> /home/adam/tutorials/exercises/ecn/logs/driver-h2-receive.log)
+$ h1: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/ecn/send.py 10.0.2.2 P4 driver probe 60
+............................................................###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:01
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x1
+     len       = 43
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = udp
+     chksum    = 0x63be
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ UDP ]### 
+        sport     = 1234
+        dport     = 4321
+        len       = 23
+        chksum    = 0xc2ad
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+-- h2 receive.py output (/home/adam/tutorials/exercises/ecn/logs/driver-h2-receive.log) --
+sniffing on eth0
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x1
+     len       = 43
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = udp
+     chksum    = 0x65be
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ UDP ]### 
+        sport     = 1234
+        dport     = 4321
+        len       = 23
+        chksum    = 0xc2ad
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x1
+     len       = 43
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = udp
+     chksum    = 0x65be
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ UDP ]### 
+        sport     = 1234
+        dport     = 4321
+        len       = 23
+        chksum    = 0xc2ad
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x1
+     len       = 43
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = udp
+     chksum    = 0x65be
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ UDP ]### 
+        sport     = 1234
+        dport     = 4321
+        len       = 23
+        chksum    = 0xc2ad
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x1
+     len       = 43
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = udp
+     chksum    = 0x65be
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ UDP ]### 
+        sport     = 1234
+        dport     = 4321
+        len       = 23
+        chksum    = 0xc2ad
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x1
+     len       = 43
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = udp
+     chksum    = 0x65be
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ UDP ]### 
+        sport     = 1234
+        dport     = 4321
+        len       = 23
+        chksum    = 0xc2ad
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x1
+     len       = 43
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = udp
+     chksum    = 0x65be
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ UDP ]### 
+        sport     = 1234
+        dport     = 4321
+        len       = 23
+        chksum    = 0xc2ad
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x1
+     len       = 43
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = udp
+     chksum    = 0x65be
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ UDP ]### 
+        sport     = 1234
+        dport     = 4321
+        len       = 23
+        chksum    = 0xc2ad
+###[ Raw ]### 
+           load      
+... [trimmed; 21181 chars total]
+   37 of 60 probes reached h2 before the sniffer was stopped (3 s after the sender exited)
+   tos in arrival order: 0x1 0x1 0x1 0x1 0x1 0x1 0x1 0x1 0x1 0x1 0x1 0x1 0x1 0x1 0x1 0x1 0x1 0x1 0x1 0x1 0x1 0x1 0x1 0x1 0x1 0x1 0x1 0x1 0x1 0x1 0x1 0x1 0x1 0x1 0x1 0x1 0x1
+   PASS injection: packets reached h2                  want=>=1                    got=37
+   PASS injection: send.py showed the frame it built   want=1 show2                got=1
+   PASS RED ARM: every tos stays 0x1                   want=['0x1']                got=['0x1']
+
+-- switch logs --
+   /home/adam/tutorials/exercises/ecn/logs/driver-bg-iperf-h11-to-h22.log 539 B
+   /home/adam/tutorials/exercises/ecn/logs/driver-h2-receive.log 21181 B
+   /home/adam/tutorials/exercises/ecn/logs/s1-p4runtime-requests.txt 2388 B
+   /home/adam/tutorials/exercises/ecn/logs/s1.log       19081754 B
+   /home/adam/tutorials/exercises/ecn/logs/s2-p4runtime-requests.txt 2438 B
+   /home/adam/tutorials/exercises/ecn/logs/s2.log       10056764 B
+   /home/adam/tutorials/exercises/ecn/logs/s3-p4runtime-requests.txt 1862 B
+   /home/adam/tutorials/exercises/ecn/logs/s3.log       168119 B
+
+== net.stop() ==========================================================
+net.stop() returned cleanly
+
+== verdict =============================================================
+   PASS injection: packets reached h2                  want=>=1                    got=37   【源碼推導，未執行】
+   PASS injection: send.py showed the frame it built   want=1 show2                got=1   【源碼推導，未執行】
+   PASS RED ARM: every tos stays 0x1                   want=['0x1']                got=['0x1']   【README 宣稱】＋【源碼推導，未執行】
+
+>>> PASS (3/3)
+
+report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-25T045252Z_ecn_skeleton.md

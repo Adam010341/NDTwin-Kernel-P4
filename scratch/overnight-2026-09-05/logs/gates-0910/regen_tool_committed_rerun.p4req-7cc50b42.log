@@ -1,0 +1,19 @@
+# HEAD 7cc50b4284e89d8f2459d560633697656d49254d  interpreter /home/adam/miniconda3/bin/python3.13 (/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand)  2026-09-25T05:13:36Z
+# committed requirements.txt sha256 cdd80a9b0bdc4dbaa1e568fa8009b7c6b39615d0ca29947e3650128fdf5785df  (venv-cand was installed from the working-tree file logged in venv_create_cand.p4req-55cebe6c-wt.log)
+# committed tool sha256 66fb47b08155cd3a; only change since the red/green run: sys.stdout line buffering
+# $ /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand/bin/python p4_proxy/regen_p4runtime_pb2.py   (expect 'already current', rc 0)
+checking the generated modules (default backend, scratch copy):
+  p4/config/v1/p4types.proto     descriptor identical (5273 bytes)
+  p4/config/v1/p4info.proto      descriptor identical (6019 bytes)
+  p4/v1/p4data.proto             descriptor identical (824 bytes)
+  p4/v1/p4runtime.proto          descriptor identical (8825 bytes)
+  backend upb, p4runtime_pb2_grpc imports
+already current: every generated module matches what is installed.
+checking the installed package (default backend):
+  p4/config/v1/p4types.proto     descriptor identical (5273 bytes)
+  p4/config/v1/p4info.proto      descriptor identical (6019 bytes)
+  p4/v1/p4data.proto             descriptor identical (824 bytes)
+  p4/v1/p4runtime.proto          descriptor identical (8825 bytes)
+  backend upb, p4runtime_pb2_grpc imports
+ok: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand/lib/python3.13/site-packages/p4 imports on the default backend with the shipped schema.
+# rc=0

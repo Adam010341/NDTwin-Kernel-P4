@@ -1,0 +1,4 @@
+ecn           skeleton  rc=0  76s  >>> PASS (3/3)
+ecn           solution  rc=0  75s  >>> PASS (3/3)
+p4_exercise rc=0 OK
+DONE

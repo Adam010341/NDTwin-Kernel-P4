@@ -1,0 +1,1702 @@
+diff --git a/tests/shell/mutate_ndt_ovs_claim.sh b/tests/shell/mutate_ndt_ovs_claim.sh
+new file mode 100644
+index 00000000..d9afbbca
+--- /dev/null
++++ b/tests/shell/mutate_ndt_ovs_claim.sh
+@@ -0,0 +1,399 @@
++#!/usr/bin/env bash
++#
++# Mutation gate for tests/shell/test_ndt_ovs_claim.sh -- `ndt up`'s one claim guard on both
++# planes, the recorded --force, and the stale-pidfile rule (TICKET-ndt-ovs-claim, Adam 09-25).
++#
++# [Co-developed with claude code -- Adam]
++#
++# The three mutants the ticket names are M1, M2 and M3:
++#   M1  drop OVS's claim check           -- the 09-24 defect itself, put back
++#   M2  the override flag is not recorded -- --force still works, and leaves no trace
++#   M3  staleness judged only by file existence -- the 09-14 app_viz.pid shape, put back
++# and the rest are the ways each of those three could be half-undone: the P4 plane losing the
++# shared call (M6), the guard losing its second half (M7), the override being ignored (M8) or
++# honoured from the environment (M19), the guard moved below the first write (M12), the record
++# forgetting whose claim (M11), an unrecordable override building anyway (M10), staleness losing
++# the group (M4) or the argv (M5), the sweep never called (M14) or removing live files too (M13),
++# the subject counting stale entries again (M15), the window not written before the file goes
++# (M16), the status row defined and never called (M17), the flag not parsed (M18), and the help
++# no longer naming it (M20).
++#
++# 🔴 THE TWO DIRECTIONS. M9 and M13 WIDEN -- they refuse / remove too much, pass every refusal
++# and removal cell, and are caught only by the controls in sections 3 and 9.
++#
++# 🔴 A mutation that will not apply, a non-unique anchor, or the WRONG check going red counts as
++# SURVIVOR -- never as skipped. A control that goes red voids the round: a harness that reports
++# red for any edit says nothing when it reports red for a mutation.
++#
++# Bare, not wrapped: nothing here compiles anything. tools/test_workflow/ndt is never written --
++# mutants are whole copies in a temp dir, reached through NDT_UNDER_TEST -- and the sha256 line at
++# the end says so.
++#
++# Run:  bash tests/shell/mutate_ndt_ovs_claim.sh
++# Exit: 0 every mutation caught and every control green; 1 a mutation survived or a control went
++#       red; 2 refused (baseline red, or the harness could not set up); 3 ndt changed under it.
++set -uo pipefail
++HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
++REPO="$(cd "$HERE/../.." && pwd)"
++NDT="$REPO/tools/test_workflow/ndt"
++TEST="$HERE/test_ndt_ovs_claim.sh"
++[[ -r "$NDT" && -r "$TEST" ]] || { echo "refused: ndt or test missing"; exit 2; }
++
++BK="$(mktemp -d "${TMPDIR:-/tmp}/ndt-ovs-claim-mutate-XXXXXX")"
++trap 'rm -rf "$BK"' EXIT
++A="$BK/anchors"; mkdir -p "$A"
++BASE_SUM="$(sha256sum "$NDT" | cut -d' ' -f1)"
++
++# mutant <name> -- a copy of ndt with A/<name>.old replaced by A/<name>.new, and, when the mutant
++# moves something, A/<name>.b.old by A/<name>.b.new as well. Anchors travel as FILES so no shell
++# word has to survive two levels of quoting; every anchor must occur exactly once.
++#
++# 🔴 ndt sources ports.sh and sudo_surface.sh from BESIDE ITSELF, so a copy without them exits at
++# source time -- silently, because the suite sources it with output discarded.
++mutant() {
++    local name="$1" d="$BK/$name"
++    mkdir -p "$d"
++    cp "$NDT" "$d/ndt"
++    cp "$REPO/tools/test_workflow/ports.sh" "$REPO/tools/test_workflow/sudo_surface.sh" "$d/"
++    [[ -r "$REPO/tools/test_workflow/components.env" ]] &&
++        cp "$REPO/tools/test_workflow/components.env" "$d/"
++    python3 - "$d/ndt" "$A/$name.old" "$A/$name.new" "$A/$name.b.old" "$A/$name.b.new" <<'PY'
++import sys, io, os
++target = sys.argv[1]
++pairs = [(sys.argv[2], sys.argv[3])]
++if os.path.exists(sys.argv[4]):
++    pairs.append((sys.argv[4], sys.argv[5]))
++s = io.open(target, encoding='utf-8').read()
++for oldf, newf in pairs:
++    o = io.open(oldf, encoding='utf-8').read()
++    n = io.open(newf, encoding='utf-8').read()
++    c = s.count(o)
++    if c != 1:
++        print("ANCHOR:%d" % c); sys.exit(0)
++    s = s.replace(o, n, 1)
++io.open(target, 'w', encoding='utf-8').write(s)
++print(target)
++PY
++}
++
++run_test() { NDT_UNDER_TEST="$1" timeout 600 bash "$TEST" 2>&1; }
++
++echo "baseline (must be green before any mutation):"
++BASE_OUT="$(run_test "$NDT")"; BASE_RC=$?
++BASE_RAN="$(grep -oE 'Ran [0-9]+ checks' <<<"$BASE_OUT" | tail -1)"
++tail -1 <<<"$BASE_OUT" | sed 's/^/  /'
++[[ $BASE_RC -eq 0 ]] || { echo "refused: baseline is not green -- mutations would prove nothing"; exit 2; }
++echo
++
++CAUGHT=0; SURVIVED=0; CONTROLS=0; CONTROLS_RED=0
++
++check_fires() {   # <label> <name> <the check text that MUST go red>
++    local label="$1" name="$2" want="$3" d out rc ran
++    d="$(mutant "$name")"
++    if [[ "$d" == ANCHOR:* ]]; then
++        printf '  SURVIVED %-60s (anchor occurrences: %s, expected 1)\n' "$label" "${d#ANCHOR:}"
++        SURVIVED=$((SURVIVED+1)); return
++    fi
++    out="$(run_test "$d")"; rc=$?
++    # 🔴 The trailing count is the only evidence the run reached the end; a mutant that made the
++    # suite abort after the named check would otherwise look identical to one that failed it.
++    ran="$(grep -oE 'Ran [0-9]+ checks' <<<"$out" | tail -1)"
++    if [[ "$ran" != "$BASE_RAN" ]]; then
++        printf '  SURVIVED %-60s (the run did not finish: "%s" vs baseline "%s")\n' "$label" "$ran" "$BASE_RAN"
++        SURVIVED=$((SURVIVED+1)); return
++    fi
++    if [[ $rc -eq 0 ]]; then
++        printf '  SURVIVED %-60s (suite still green)\n' "$label"; SURVIVED=$((SURVIVED+1)); return
++    fi
++    if grep -qF "FAILED   $want" <<<"$out"; then
++        printf '  caught   %-60s (%s went red; %s red in all)\n' "$label" "$want" "$(grep -c 'FAILED' <<<"$out")"
++        CAUGHT=$((CAUGHT+1))
++    else
++        printf '  SURVIVED %-60s (red, but NOT on the named check)\n' "$label"
++        grep 'FAILED' <<<"$out" | head -3 | sed 's/^/             /'
++        SURVIVED=$((SURVIVED+1))
++    fi
++}
++
++check_control() {   # <label> <name> -- a behaviour-preserving edit; the suite must stay GREEN
++    local label="$1" name="$2" d out rc
++    CONTROLS=$((CONTROLS+1))
++    d="$(mutant "$name")"
++    if [[ "$d" == ANCHOR:* ]]; then
++        printf '  🔴 CONTROL %-57s (anchor occurrences: %s, expected 1)\n' "$label" "${d#ANCHOR:}"
++        CONTROLS_RED=$((CONTROLS_RED+1)); return
++    fi
++    out="$(run_test "$d")"; rc=$?
++    if [[ $rc -eq 0 ]]; then
++        printf '  control  %-60s (stayed green, as it must)\n' "$label"
++    else
++        printf '  🔴 CONTROL %-57s (went RED -- this harness reddens for any edit)\n' "$label"
++        grep 'FAILED' <<<"$out" | head -3 | sed 's/^/             /'
++        CONTROLS_RED=$((CONTROLS_RED+1))
++    fi
++}
++
++# =============================================================================================
++# The three the ticket names
++# =============================================================================================
++
++# --- M1: drop OVS's claim check -- the 09-24 defect, put back ---------------------------------
++cat > "$A/m1.old" <<'EOF'
++    guard_up_lab_free "ovs $ovs_hosts" || return $?
++EOF
++cat > "$A/m1.new" <<'EOF'
++    :
++EOF
++check_fires "M1: up_ovs no longer calls the claim guard" m1 \
++            "🔴 a foreign claim refuses the OVS bring-up with 5"
++
++# --- M2: the override is not recorded -- --force still works and leaves no trace --------------
++cat > "$A/m2.old" <<'EOF'
++claim_override_record() {
++    local cmd="$1" held="$2" busy="$3" f="$CLAIM.overrides" over=none exp=- note="" meas="" run="" n line
++EOF
++cat > "$A/m2.new" <<'EOF'
++claim_override_record() {
++    local cmd="$1" held="$2" busy="$3" f="$CLAIM.overrides" over=none exp=- note="" meas="" run="" n line
++    return 0
++EOF
++check_fires "M2: --force builds and nothing is written down" m2 \
++            "🔴 exactly one override is recorded"
++
++# --- M3: staleness judged only by the file existing -- the 09-14 app_viz.pid shape ------------
++cat > "$A/m3.old" <<'EOF'
++    PF_STATE=unjudged; PF_PID=""; PF_GROUP=""; PF_WHY=""
++    base="${f##*/}"
++EOF
++cat > "$A/m3.new" <<'EOF'
++    PF_STATE=unjudged; PF_PID=""; PF_GROUP=""; PF_WHY=""
++    [[ -e "$f" ]] && { PF_STATE=live; return 0; }
++    base="${f##*/}"
++EOF
++check_fires "M3: a pidfile that exists is never stale" m3 \
++            "🔴 an already-down lab with a stale pidfile is rc 3, not 0"
++
++# =============================================================================================
++# The guard, and the override
++# =============================================================================================
++
++# --- M6: P4 stops going through the shared guard ----------------------------------------------
++cat > "$A/m6.old" <<'EOF'
++    guard_up_lab_free "$up_what" || return $?
++EOF
++cat > "$A/m6.new" <<'EOF'
++    :
++EOF
++check_fires "M6: up_p4 no longer calls the claim guard" m6 \
++            "🔴 a foreign claim still refuses the P4 bring-up with 5"
++
++# --- M7: the guard loses its second half, the measurement in flight ---------------------------
++cat > "$A/m7.old" <<'EOF'
++    held="$(foreign_claim)"
++    busy="$(in_flight)"
++EOF
++cat > "$A/m7.new" <<'EOF'
++    held="$(foreign_claim)"
++    busy=""
++EOF
++check_fires "M7: a measurement in flight no longer refuses" m7 \
++            "🔴 a measurement in flight refuses the OVS bring-up"
++
++# --- M8: --force is ignored ----------------------------------------------------------------------
++cat > "$A/m8.old" <<'EOF'
++    if [[ "${NDT_UP_FORCE:-}" != 1 ]]; then
++EOF
++cat > "$A/m8.new" <<'EOF'
++    if true; then
++EOF
++check_fires "M8: --force no longer opens the guard" m8 "--force is not refused"
++
++# --- M9 (widening): our OWN claim refuses too ----------------------------------------------------
++cat > "$A/m9.old" <<'EOF'
++    held="$(foreign_claim)"
++    busy="$(in_flight)"
++EOF
++cat > "$A/m9.new" <<'EOF'
++    held="$(claim_field owner)"
++    busy="$(in_flight)"
++EOF
++check_fires "M9 (widening): any live claim file refuses, ours included" m9 \
++            "our own live claim is not a refusal"
++
++# --- M10: an override that could not be recorded builds anyway ---------------------------------
++cat > "$A/m10.old" <<'EOF'
++    if ! claim_override_record "$retry --force" "$held" "$busy"; then
++EOF
++cat > "$A/m10.new" <<'EOF'
++    if ! claim_override_record "$retry --force" "$held" "$busy" && false; then
++EOF
++check_fires "M10: an unrecordable --force builds anyway" m10 \
++            "🔴 --force whose record cannot be written is refused"
++
++# --- M11: the record forgets whose claim it went past ------------------------------------------
++cat > "$A/m11.old" <<'EOF'
++        "$(ovr_flat "${over:-<no owner field>}")" "$(ovr_flat "${exp:--}")" "$(ovr_flat "$note")" \
++EOF
++cat > "$A/m11.new" <<'EOF'
++        "none" "$(ovr_flat "${exp:--}")" "$(ovr_flat "$note")" \
++EOF
++check_fires "M11: the record does not say whose claim" m11 "  🔴 whose claim was overridden"
++
++# --- M12: the OVS guard moved below the first writes -- a refusal that has half-built -----------
++# Moved, not removed: it still refuses, still says so, still returns 5 and still cleans its own
++# fifo. What it no longer does is refuse BEFORE up.target is written and the app knob cleared.
++cat > "$A/m12.old" <<'EOF'
++    guard_up_lab_free "ovs $ovs_hosts" || return $?
++EOF
++cat > "$A/m12.new" <<'EOF'
++EOF
++cat > "$A/m12.b.old" <<'EOF'
++    claim_note_up "ovs $ovs_hosts"
++EOF
++cat > "$A/m12.b.new" <<'EOF'
++    claim_note_up "ovs $ovs_hosts"
++    guard_up_lab_free "ovs $ovs_hosts" || { rm -f "$fifo" "$out"; return 5; }
++EOF
++check_fires "M12: the OVS guard runs after up.target and the knob" m12 \
++            "🔴 NOTHING was reached: no sudo, no stack.sh, no target, no temp, knob kept"
++
++# --- M18: the flag is not parsed -------------------------------------------------------------------
++cat > "$A/m18.old" <<'EOF'
++        if (( ! want && ! twant )) && [[ "$a" == --force ]]; then NDT_UP_FORCE=1; continue; fi
++EOF
++cat > "$A/m18.new" <<'EOF'
++EOF
++check_fires "M18: 'ndt up ... --force' is not parsed" m18 \
++            "--force is taken off argv and sets the flag"
++
++# --- M19: an exported NDT_UP_FORCE forces -------------------------------------------------------
++cat > "$A/m19.old" <<'EOF'
++NDT_UP_FORCE=""
++NDT_UP_WORDS=""
++up_take_app_flag() {
++EOF
++cat > "$A/m19.new" <<'EOF'
++NDT_UP_WORDS=""
++up_take_app_flag() {
++EOF
++check_fires "M19: NDT_UP_FORCE from the environment opens the guard" m19 \
++            "🔴 an exported NDT_UP_FORCE=1 does not open the guard"
++
++# --- M20: the help stops naming the override --------------------------------------------------
++cat > "$A/m20.old" <<'EOF'
++                  ndt up <any of the above> --force
++EOF
++cat > "$A/m20.new" <<'EOF'
++                  ndt up <any of the above>
++EOF
++check_fires "M20: 'ndt help' no longer names --force for up" m20 "the up block names the override"
++
++# =============================================================================================
++# The stale-pidfile rule
++# =============================================================================================
++
++# --- M4: the process group is not asked -- pid only ---------------------------------------------
++cat > "$A/m4.old" <<'EOF'
++    if [[ "$g" =~ ^[0-9]+$ ]] && (( g > 1 )); then
++        PF_GROUP="$g"
++EOF
++cat > "$A/m4.new" <<'EOF'
++    if false; then
++        PF_GROUP="$g"
++EOF
++check_fires "M4: a dead pid is stale even while its group runs" m4 \
++            "🔴 pid gone but its process group alive: NOT stale"
++
++# --- M5: the number, not the process -- an app's argv is not asked -----------------------------
++cat > "$A/m5.old" <<'EOF'
++        if pid_is_app "$pid" "$name"; then PF_STATE=live; return 0; fi
++EOF
++cat > "$A/m5.new" <<'EOF'
++        if pid_alive "$pid"; then PF_STATE=live; return 0; fi
++EOF
++check_fires "M5: a recycled pid passes for the app" m5 \
++            "🔴 a pid alive as somebody else is STALE (pid + argv, not the number)"
++
++# --- M13 (widening): the sweep removes every pidfile, live ones too ------------------------------
++cat > "$A/m13.old" <<'EOF'
++        [[ "$PF_STATE" == stale ]] || continue
++        (( said == 0 )) && { say "stale registry entries"; said=1; }
++EOF
++cat > "$A/m13.new" <<'EOF'
++        (( said == 0 )) && { say "stale registry entries"; said=1; }
++EOF
++check_fires "M13 (widening): 'down' removes live pidfiles too" m13 "🔴 a LIVE pidfile is kept"
++
++# --- M14: 'down' never calls the sweep -----------------------------------------------------------
++cat > "$A/m14.old" <<'EOF'
++    registry_clear_stale || {
++EOF
++cat > "$A/m14.new" <<'EOF'
++    true || {
++EOF
++check_fires "M14: 'down' leaves the stale pidfile where it is" m14 "🔴 the stale pidfile is GONE"
++
++# --- M15: the subject counts stale entries again (the pre-09-25 registry) -----------------------
++cat > "$A/m15.old" <<'EOF'
++        [[ "$PF_STATE" == stale ]] && continue
++        printf '%s\n' "${f#$REPO/}"
++EOF
++cat > "$A/m15.new" <<'EOF'
++        printf '%s\n' "${f#$REPO/}"
++EOF
++check_fires "M15: a stale entry is a subject again" m15 \
++            "🔴 an already-down lab with a stale pidfile is rc 3, not 0"
++
++# --- M16: the file goes and the window does not get written ---------------------------------------
++cat > "$A/m16.old" <<'EOF'
++            app_window_record "$name" "$start" "$end" \
++EOF
++cat > "$A/m16.new" <<'EOF'
++            false \
++EOF
++check_fires "M16: the app's window is lost with its pidfile" m16 \
++            "🔴 the app's window was written down before the file went"
++
++# --- M17: the status row is defined and nothing calls it ----------------------------------------
++cat > "$A/m17.old" <<'EOF'
++    # [Co-developed with claude code -- Adam] Adam, 2026-09-25: a stale app pidfile is marked.
++    app_pidfile_stale_row
++EOF
++cat > "$A/m17.new" <<'EOF'
++    :
++EOF
++check_fires "M17: 'ndt status' never prints the stale-app row" m17 \
++            "🔴 and 'ndt status' itself prints that row (existence is not wiring)"
++
++# =============================================================================================
++# The controls
++# =============================================================================================
++cat > "$A/c1.old" <<'EOF'
++    [[ -n "$held" ]] && warn "--force: building over the claim of $held"
++EOF
++cat > "$A/c1.new" <<'EOF'
++    if [[ -n "$held" ]]; then
++        warn "--force: building over the claim of $held"
++    fi
++EOF
++check_control "C1: the --force warning, written the long way" c1
++
++cat > "$A/c2.old" <<'EOF'
++        PF_WHY="$PF_WHY; process group $g empty"
++EOF
++cat > "$A/c2.new" <<'EOF'
++        printf -v PF_WHY '%s; process group %s empty' "$PF_WHY" "$g"
++EOF
++check_control "C2: the stale reason, built with printf -v" c2
++
++echo
++NOW_SUM="$(sha256sum "$NDT" | cut -d' ' -f1)"
++if [[ "$NOW_SUM" != "$BASE_SUM" ]]; then
++    echo "🔴 baseline CHANGED during the gate -- tools/test_workflow/ndt was written"
++    echo "   before: $BASE_SUM"
++    echo "   after:  $NOW_SUM"
++    exit 3
++fi
++echo "baseline byte-identical: yes  tools/test_workflow/ndt  sha256 $BASE_SUM"
++echo "mutation gate: $((CAUGHT+SURVIVED)) mutations, $SURVIVED survived; $CONTROLS control(s), $CONTROLS_RED went red"
++(( SURVIVED == 0 && CONTROLS_RED == 0 ))
+diff --git a/tests/shell/test_ndt_ovs_claim.sh b/tests/shell/test_ndt_ovs_claim.sh
+new file mode 100644
+index 00000000..447da5ab
+--- /dev/null
++++ b/tests/shell/test_ndt_ovs_claim.sh
+@@ -0,0 +1,593 @@
++#!/usr/bin/env bash
++#
++# `ndt up` refuses over somebody else's lab on BOTH planes, `--force` is written down, and a
++# stale pidfile is marked by `status`, removed by `down`, and is not something to tear down.
++#
++# [Co-developed with claude code -- Adam]
++#
++# TICKET-ndt-ovs-claim (doc/audit/2026-09-25_ndt-ovs-claim/), Adam's ruling 2026-09-25:
++#
++#   1. up_p4 has refused over a foreign claim (and over a measurement in flight) with rc 5 since
++#      09-12. up_ovs had NEITHER check. Measured by the ndt serve round, 2026-09-24 22:49:45-46
++#      (feat/ndt-serve-0924, doc/audit/2026-09-24_ndt-serve/REPORT.md section 2): a foreign owner
++#      claimed the lab, `ndt up 4` built an OVS fabric under that claim in 8.5 s and exited 0,
++#      and `ndt help` said "5 ... the lab is claimed by somebody else" of both planes. The ruling:
++#      OVS refuses exactly as P4 does, through the SAME code, and nothing is half-built.
++#   2. an explicit override, the same flag on both planes, and every use of it recorded -- who,
++#      when, whose claim.
++#   3. a pidfile whose pid is gone (and whose process group, if recorded, is empty) is STALE:
++#      `status` marks it, `down` removes it, and an already-down lab answers 3 with one of them
++#      in .test_run/pids/. The measured case: `.test_run/pids/app_viz.pid`, written 09-14, naming
++#      a pid long gone, which made "down an already-down lab" answer 0 instead of 3; the
++#      orchestrator had to delete it by hand.
++#
++# 🔴 FROM A CLAIM FILE, not from a stubbed foreign_claim() -- for the reason
++# tests/shell/test_ndt_down_claim_guard.sh gives: the file on disk producing the answer and the
++# command acting on the answer have failed separately in this repo (ROLE-4 T1, T2). in_flight is
++# the one reading answered by the fixture (FX_BUSY): it reads the process table.
++#
++# 🔴 WHAT MUST NOT HAPPEN is half of every refusal cell: no sudo, no stack.sh, no up.target, no
++# temp file or fifo left in TMPDIR, the app knob untouched, the claim byte-identical, and no
++# override recorded. The proceeding controls read the SAME instruments non-zero, so "nothing was
++# touched" cannot be a sentence the harness always says.
++#
++# Offline, fixture-driven, the seam test_ndt_up_down_robust.sh uses: `ndt` is sourced, REPO/LAB/
++# STACK point into a temp dir, `sudo` and `sleep` are shell functions, stack.sh is a recording
++# fake. The only real processes are this suite's own `sleep` fixtures, spawned by it and killed by
++# pid when it ends. No lab, no root, no port.
++#
++# Run:  bash tests/shell/test_ndt_ovs_claim.sh
++# Env:  NDT_UNDER_TEST=<path>   (tests/shell/mutate_ndt_ovs_claim.sh points it at a copy)
++# Exit: 0 every check passed, 1 some check failed, 2 the harness could not start
++set -uo pipefail
++export NO_COLOR=1
++HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
++NDT="${NDT_UNDER_TEST:-$HERE/../../tools/test_workflow/ndt}"
++[[ -r "$NDT" ]] || { echo "no ndt at $NDT"; exit 2; }
++for sib in ports.sh sudo_surface.sh; do
++    [[ -r "$(dirname "$NDT")/$sib" ]] || { echo "ndt needs $sib beside it; not at $(dirname "$NDT")/$sib"; exit 2; }
++done
++
++PASS=0; FAIL=0
++t_ok()  { PASS=$((PASS+1)); printf '  ok       %s\n' "$1"; }
++t_bad() { FAIL=$((FAIL+1)); printf '  FAILED   %s\n             %s\n' "$1" "$2"; }
++check() { [[ "$2" == "$3" ]] && t_ok "$1" || t_bad "$1" "expected: [$2]  actual: [$3]"; }
++has()   { grep -qF -- "$2" <<<"$3" && t_ok "$1" || t_bad "$1" "no match for '$2'"; }
++hasnt() { grep -qF -- "$2" <<<"$3" && t_bad "$1" "unexpected '$2' in the output" || t_ok "$1"; }
++section() { printf '\n%s\n' "$1"; }
++
++FIX="$(mktemp -d "${TMPDIR:-/tmp}/ndt-ovs-claim-XXXXXX")"
++FIXTURES="$FIX/fixture.pids"
++: > "$FIXTURES"
++# Every process this suite starts is a `sleep` it spawned, recorded here, and killed BY PID --
++# never by name, never by pattern. Checked against /proc/<pid>/comm first, so a recycled number
++# is left alone.
++reap_fixtures() {
++    local pid
++    [[ -f "$FIXTURES" ]] || return 0
++    while read -r pid; do
++        [[ "$pid" =~ ^[0-9]+$ ]] || continue
++        [[ "$(cat "/proc/$pid/comm" 2>/dev/null)" == sleep ]] || continue
++        kill -KILL "$pid" 2>/dev/null
++    done < "$FIXTURES"
++    return 0
++}
++cleanup() { reap_fixtures; [[ -n "${FIX:-}" && -d "$FIX" ]] && rm -rf "$FIX"; return 0; }
++trap cleanup EXIT INT TERM
++export FIX
++mkdir -p "$FIX/.test_run/pids" "$FIX/.test_run/logs" "$FIX/setting" "$FIX/p4_proxy/mininet" \
++         "$FIX/p4_proxy/venv/bin" "$FIX/p4_proxy/p4_src/build" "$FIX/build/bin" \
++         "$FIX/tools/test_workflow" "$FIX/tmp" "$FIX/etc"
++
++# --- fixtures -------------------------------------------------------------------------------
++: > "$FIX/build/bin/ndtwin_kernel";            chmod +x "$FIX/build/bin/ndtwin_kernel"
++: > "$FIX/p4_proxy/venv/bin/python";           chmod +x "$FIX/p4_proxy/venv/bin/python"
++echo '{}' > "$FIX/p4_proxy/p4_src/build/ndtwin_switch.json"
++mk_topo() {   # <file> <hosts> <edges>
++    python3 - "$FIX/setting/$1" "$2" "$3" <<'PY'
++import json, sys
++p, h, e = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
++nodes = [{"vertex_type": 0, "id": i} for i in range(10)]
++nodes += [{"vertex_type": 1, "id": 1000 + i} for i in range(h)]
++edges = [{"src": i % 10, "dst": (i + 1) % 10} for i in range(e)]
++json.dump({"nodes": nodes, "edges": edges}, open(p, "w"))
++PY
++}
++mk_topo StaticNetworkTopologyOVS_10Switches_4Hosts.json  4 40
++mk_topo StaticNetworkTopologyP4_10Switches_4Hosts.json   4 40
++mk_topo StaticNetworkTopologyMininet_10Switches_128Hosts.json 128 40
++printf 'helper v2\n' > "$FIX/installed-ndtwin-lab"
++printf 'helper v2\n' > "$FIX/tools/test_workflow/ndtwin-lab"
++
++# The recording fake stack.sh, playing the FIFO protocol up_ovs depends on (print "[2/3]", block
++# on stdin), so the proceeding controls run the real bring-up sequencing.
++cat > "$FIX/stack.sh" <<'FAKE'
++#!/usr/bin/env bash
++printf '%s\n' "$*" >> "$FIX/stack.log"
++case "$1 ${2:-}" in
++    "up ovs")
++        echo "[1/3] control plane (Ryu)"
++        echo "[2/3] data plane (Mininet, needs sudo)"
++        read -r _ || true
++        echo "converged"
++        exit 0 ;;
++    "up p4")
++        echo "[1/3] data plane"; echo "started"; exit 0 ;;
++    "down"*)
++        echo "stopped kernel"; echo "stopped ryu"; exit 0 ;;
++esac
++exit 0
++FAKE
++chmod +x "$FIX/stack.sh"
++
++KNOB="$FIX/p4_proxy/mininet/app_package_override"
++reset_fix() {
++    rm -f "$FIX/sudo.log" "$FIX/stack.log" "$FIX/bmv2.seq" "$FIX/mn.seq" \
++          "$FIX/.test_run/up.target" "$FIX/.test_run/lab.claim" "$FIX/.test_run/lab.claim.prev" \
++          "$FIX/.test_run/down.inflight"
++    rm -rf "$FIX/.test_run/lab.claim.overrides" "$FIX/.test_run/apps"
++    rm -f "$FIX/.test_run/pids/"* "$FIX/tmp/"*
++    echo 4 > "$FIX/p4_proxy/mininet/host_count_override"
++    echo '{"switches":[]}' > "$FIX/manifest.json"
++    # A knob an OVS bring-up clears on its way up -- so a refusal that left it gone had
++    # already started acting (up_ovs's app_knob_clear sits after record_up_target).
++    printf '%s\n' "$FIX/some-app-package" > "$KNOB"
++    : > "$FIX/sudo.log"; : > "$FIX/stack.log"
++}
++
++# --- the seam -------------------------------------------------------------------------------
++# foreign_claim, claim_field, measuring_declared, up_ovs, up_p4, preflight, cmd_down, cmd_clean
++# and the pidfile predicates are left REAL -- they are the subject.
++STUBS='
++REPO="'"$FIX"'"
++HERE="'"$FIX"'/tools/test_workflow"
++LAB="'"$FIX"'/installed-ndtwin-lab"
++STACK="'"$FIX"'/stack.sh"
++MANIFEST="'"$FIX"'/manifest.json"
++CLAIM="$REPO/.test_run/lab.claim"; HANDOFF="$REPO/.test_run/lab.handoff"
++LAB_CONF="'"$FIX"'/etc/ndtwin-lab.conf"
++LAB_DEFAULT_KERNEL_DIR="'"$FIX"'"
++export TMPDIR="'"$FIX"'/tmp"
++sudo() {
++    local a args=()
++    for a in "$@"; do [[ "$a" == -n ]] && continue; args+=("$a"); done
++    local verb="${args[1]:-none}"
++    printf "%s %s\n" "${args[0]##*/}" "${args[*]:1}" >> "'"$FIX"'/sudo.log"
++    [[ "$verb" == cleanup ]] && rm -f "'"$FIX"'/manifest.json"
++    [[ "$verb" == topo-start ]] && echo "{\"switches\":[]}" > "'"$FIX"'/manifest.json"
++    return 0
++}
++sleep() { :; }
++seq_read() {
++    local f="$1" v rest
++    [[ -f "$f" ]] || { echo "$2"; return 0; }
++    read -r v rest < "$f"
++    [[ -n "${rest// /}" ]] && printf "%s\n" "$rest" > "$f"
++    echo "${v:-$2}"
++}
++bmv2_count() { seq_read "'"$FIX"'/bmv2.seq" "${FX_BMV2:-0}"; }
++mn_count()   { seq_read "'"$FIX"'/mn.seq"   "${FX_MN:-0}"; }
++fabric_host_count() { echo "${FX_FABRIC_HOSTS:-4}"; }
++topo_session() { [[ -n "${FX_TOPO_SESSION:-}" ]]; }
++in_flight() { [[ -n "${FX_BUSY:-}" ]] && printf "%s\n" "$FX_BUSY"; return 0; }
++guard_no_live_ovs() { return 0; }
++bmv2_binary() { echo fixture-bmv2; }
++sample_rate() { echo 256; }
++stale_pipeline() { return 1; }
++source_ahead_of_build() { return 1; }
++verify_p4() { return "${FX_VERIFY_RC:-0}"; }
++app_probe() { APP_STATE=not-running; APP_LIVE_PIDS=(); }
++check_up_target() { UP_TARGET_PROBLEMS=(); return 0; }
++ndt_sudo_report() { return 0; }
++ndt_sudo_rows() { echo one-row; }
++git_lines() { :; }
++ovs_bridge_count() { echo "${FX_BRIDGES:-0}"; }
++ovs_daemon_running() { [[ "${FX_BRIDGES:-0}" -gt 0 ]]; }
++netem_count() { echo 0; }
++port_open() { return 1; }
++http_get_graph() { :; }
++curl() { return 1; }
++wait_reaped() { return 0; }
++ndt_port_open() { return 1; }
++ndt_port_listener_pids() { return 0; }
++'
++
++drive() {   # drive <shell-code> -> its output plus a trailing RC=<n>
++    bash -c "source '$NDT' >/dev/null 2>&1
++$STUBS
++$1
++echo \"RC=\$?\"" 2>&1
++}
++rc_of() { sed -n 's/^RC=//p' <<<"$1" | tail -1; }
++
++count_lines() { local n; n="$(grep -c . "$1" 2>/dev/null)"; [[ "$n" =~ ^[0-9]+$ ]] || n=0; printf '%s' "$n"; }
++# How much of the machine and of the checkout a bring-up reached. Every refusal wants all of it
++# at zero; the proceeding controls read the same instrument and must see it move.
++touched() {
++    printf 'sudo=%s stack=%s target=%s tmp=%s knob=%s' \
++        "$(count_lines "$FIX/sudo.log")" "$(count_lines "$FIX/stack.log")" \
++        "$([[ -e "$FIX/.test_run/up.target" ]] && echo 1 || echo 0)" \
++        "$(find "$FIX/tmp" -mindepth 1 2>/dev/null | wc -l | tr -d ' ')" \
++        "$([[ -e "$KNOB" ]] && echo kept || echo cleared)"
++}
++UNTOUCHED='sudo=0 stack=0 target=0 tmp=0 knob=kept'
++OVR="$FIX/.test_run/lab.claim.overrides"
++overrides() { count_lines "$OVR"; }
++ovr_field() {   # <key> -- that field of the LAST override line (tab-separated key=value)
++    [[ -f "$OVR" ]] || return 0
++    tail -n 1 "$OVR" | tr '\t' '\n' | sed -n "s/^$1=//p" | head -1
++}
++claim_sum() { sha256sum "$FIX/.test_run/lab.claim" 2>/dev/null | cut -d' ' -f1; }
++
++write_claim() {   # <owner> <expires-epoch> <note> <measuring>
++    printf 'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=%s\nmeasuring=%s\n' \
++        "$1" "$2" "$3" no "$4" > "$FIX/.test_run/lab.claim"
++}
++THEM=other-session
++US=ovs-claim-worker
++FUTURE=$(( $(date +%s) + 1800 ))
++PAST=$(( $(date +%s) - 60 ))
++
++# A pid that certainly does not exist, and whose number is no process group's either: allocate
++# one, let it exit, and ask /proc. (The shape test_ndt_status_check_baseline.sh's dead_pid uses.)
++dead_pid() {
++    local p
++    ( exit 0 ) & p=$!
++    wait "$p" 2>/dev/null
++    [[ -d "/proc/$p" ]] && { echo 0; return 1; }
++    echo "$p"
++}
++# spawn <argv0> [setsid] -- a `sleep` wearing that argv0, in $FIX; echo its pid. With `setsid`
++# it leads a process group of its own, which is how a live group is planted.
++spawn() {
++    local want="$1" how="${2:-}" pid i
++    local -a argv=()
++    if [[ "$how" == setsid ]]; then
++        ( cd "$FIX" && exec setsid bash -c 'exec -a "$0" sleep 120' "$want" ) >/dev/null 2>&1 </dev/null &
++    else
++        ( cd "$FIX" && exec -a "$want" sleep 120 ) >/dev/null 2>&1 </dev/null &
++    fi
++    pid=$!
++    echo "$pid" >> "$FIXTURES"
++    for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
++        argv=()
++        mapfile -d '' -t argv < "/proc/$pid/cmdline" 2>/dev/null
++        [[ "${argv[0]:-}" == "$want" ]] && { echo "$pid"; return 0; }
++        command sleep 0.1
++    done
++    echo "  FAILED   fixture never took argv0=$want (pid $pid)" >&2
++    echo "Ran $((PASS + FAIL + 1)) checks, $((FAIL + 1)) failed"
++    exit 1
++}
++kill_fixture() {
++    local pid="$1" i
++    [[ "$(cat "/proc/$pid/comm" 2>/dev/null)" == sleep ]] || return 0
++    kill -KILL "$pid" 2>/dev/null
++    for i in 1 2 3 4 5 6 7 8 9 10; do [[ -e "/proc/$pid" ]] || return 0; command sleep 0.1; done
++}
++pidf() { printf '%s\n' "$2" > "$FIX/.test_run/pids/$1"; }   # pidf <file-name> <contents>
++present() { [[ -e "$FIX/.test_run/pids/$1" ]] && echo present || echo absent; }
++
++# =============================================================================================
++section "1. 🔴 'ndt up ovs' under somebody else's claim: rc 5, and nothing is half-built"
++# =============================================================================================
++reset_fix
++write_claim "$THEM" "$FUTURE" "ROLE-x reader running" ""
++BEFORE="$(claim_sum)"
++OUT="$(NDT_OWNER="$US" drive 'up_ovs 4')"
++check "🔴 a foreign claim refuses the OVS bring-up with 5"   "5" "$(rc_of "$OUT")"
++has   "  it says it is refusing to build"                    "refusing to build: the lab is claimed by $THEM" "$OUT"
++check "🔴 NOTHING was reached: no sudo, no stack.sh, no target, no temp, knob kept" \
++      "$UNTOUCHED" "$(touched)"
++check "  the claim file is byte-identical"                   "$BEFORE" "$(claim_sum)"
++check "  and no override was recorded -- none was asked for" "0" "$(overrides)"
++hasnt "  the bring-up banner never printed"                  "[1/4] control plane (Ryu)" "$OUT"
++has   "  the retry line carries the BARE owner"              "NDT_OWNER=$THEM ndt up ovs 4" "$OUT"
++hasnt "  🔴 and not the parenthesised description"           "NDT_OWNER=$THEM (until" "$OUT"
++has   "  and names the override, with where it is recorded"  "ndt up ovs 4 --force" "$OUT"
++has   "  saying where the override would be written"         ".test_run/lab.claim.overrides" "$OUT"
++
++# The holder's own declaration is quoted -- the one sentence they wrote for this moment.
++reset_fix
++write_claim "$THEM" "$FUTURE" "night round" "sampling matrix, cell 3/8"
++OUT="$(NDT_OWNER="$US" drive 'up_ovs 4')"
++check "  a foreign claim with measuring= is still 5"         "5" "$(rc_of "$OUT")"
++has   "  and quotes the declaration"                         "measuring=sampling matrix, cell 3/8" "$OUT"
++
++# The 128-host plane is the same function, and the default plane.
++reset_fix
++write_claim "$THEM" "$FUTURE" "night round" ""
++OUT="$(NDT_OWNER="$US" drive 'up_ovs 128')"
++check "  'ndt up' (OVS 128) is refused the same way"         "5" "$(rc_of "$OUT")"
++check "  and reached nothing"                                "$UNTOUCHED" "$(touched)"
++
++# An unnamed caller cannot prove any claim is its own, so every claim is foreign to it.
++reset_fix
++write_claim "$US" "$FUTURE" "our own round" ""
++OUT="$(drive 'unset NDT_OWNER; up_ovs 4')"
++check "🔴 NDT_OWNER unset: any live claim refuses"           "5" "$(rc_of "$OUT")"
++check "  and reached nothing"                                "$UNTOUCHED" "$(touched)"
++
++# =============================================================================================
++section "2. 🔴 'ndt up ovs' with a measurement in flight: rc 5, P4's semantics"
++# =============================================================================================
++reset_fix
++OUT="$(NDT_OWNER="$US" FX_BUSY="iperf3 -c 10.0.0.2 -t 200 -P 4" drive 'up_ovs 4')"
++check "🔴 a measurement in flight refuses the OVS bring-up" "5" "$(rc_of "$OUT")"
++has   "  it says a measurement is running"                   "a measurement is running" "$OUT"
++has   "  naming what is running"                             "iperf3 -c 10.0.0.2 -t 200 -P 4" "$OUT"
++check "  and reached nothing"                                "$UNTOUCHED" "$(touched)"
++has   "  and names the override"                             "ndt up ovs 4 --force" "$OUT"
++
++# =============================================================================================
++section "3. 🔴 the controls -- a guard that refuses everything guards nothing"
++# =============================================================================================
++# Our OWN claim: NDT_OWNER is set on every command, so this is the common case.
++reset_fix; echo "0 14" > "$FIX/mn.seq"
++write_claim "$US" "$FUTURE" "our own round" ""
++OUT="$(NDT_OWNER="$US" drive 'up_ovs 4')"
++check "our own live claim is not a refusal"                  "no" "$([[ "$(rc_of "$OUT")" == 5 ]] && echo yes || echo no)"
++has   "  the bring-up ran"                                   "[1/4] control plane (Ryu)" "$OUT"
++# 🔴 THE INSTRUMENT'S OWN CONTROL. Every refusal cell above rests on touched() reading all
++# zeros; this is the same instrument reading a bring-up that ran, and it must move.
++has   "🔴 stack.sh WAS invoked -- the instrument can read non-zero" "up ovs" "$(cat "$FIX/stack.log")"
++has   "  and the fabric verb WAS run"                        "ovs-topo-4host" "$(cat "$FIX/sudo.log")"
++check "  and the knob WAS cleared -- that column can move too" "cleared" "$([[ -e "$KNOB" ]] && echo kept || echo cleared)"
++check "  and up.target WAS written"                          "present" "$([[ -e "$FIX/.test_run/up.target" ]] && echo present || echo absent)"
++check "  and no override is recorded for a bring-up that needed none" "0" "$(overrides)"
++
++# An EXPIRED claim is stale, not a holder.
++reset_fix; echo "0 14" > "$FIX/mn.seq"
++write_claim "$THEM" "$PAST" "finished at 01:00" ""
++OUT="$(NDT_OWNER="$US" drive 'up_ovs 4')"
++check "an EXPIRED claim is not a refusal"                    "no" "$([[ "$(rc_of "$OUT")" == 5 ]] && echo yes || echo no)"
++has   "  the bring-up ran"                                   "up ovs" "$(cat "$FIX/stack.log")"
++
++# No claim at all, nothing running.
++reset_fix; echo "0 14" > "$FIX/mn.seq"
++OUT="$(drive 'unset NDT_OWNER; up_ovs 4')"
++check "no claim and nothing running is not a refusal"        "no" "$([[ "$(rc_of "$OUT")" == 5 ]] && echo yes || echo no)"
++has   "  the bring-up ran"                                   "up ovs" "$(cat "$FIX/stack.log")"
++
++# =============================================================================================
++section "4. 🔴 --force builds, and every use of it is written down"
++# =============================================================================================
++reset_fix; echo "0 14" > "$FIX/mn.seq"
++write_claim "$THEM" "$FUTURE" "ROLE-x reader running" "reader nsr"
++OUT="$(NDT_OWNER="$US" drive 'NDT_UP_FORCE=1; up_ovs 4')"
++check "--force is not refused"                               "no" "$([[ "$(rc_of "$OUT")" == 5 ]] && echo yes || echo no)"
++has   "  the fabric was built"                               "ovs-topo-4host" "$(cat "$FIX/sudo.log")"
++has   "  it says out loud it is building over the claim"     "--force: building over the claim of $THEM" "$OUT"
++check "🔴 exactly one override is recorded"                  "1" "$(overrides)"
++check "  who: the NDT_OWNER that forced it"                  "$US" "$(ovr_field by)"
++check "  🔴 whose claim was overridden"                      "$THEM" "$(ovr_field over)"
++check "  that claim's expiry, as it was"                     "$FUTURE" "$(ovr_field claim_expires)"
++check "  what that claim declared"                           "reader nsr" "$(ovr_field measuring)"
++check "  when: a timestamp with a date and an offset"        "yes" \
++      "$([[ "$(ovr_field at)" =~ ^20[0-9]{2}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[+-][0-9]{4}$ ]] && echo yes || echo no)"
++has   "  and the command it forced"                          "up ovs 4 --force" "$(ovr_field command)"
++check "  which login ran it"                                 "$(id -un)" "$(ovr_field user)"
++
++# A second override APPENDS: this file is history, and the first line is still the first line.
++FIRST="$(head -n 1 "$OVR" 2>/dev/null)"
++reset_keep_ovr() { local keep; keep="$(cat "$OVR" 2>/dev/null)"; reset_fix; [[ -n "$keep" ]] && printf '%s\n' "$keep" > "$OVR"; }
++reset_keep_ovr; echo "0 14" > "$FIX/mn.seq"
++OUT="$(NDT_OWNER="$US" FX_BUSY="matrix.sh cell 4" drive 'NDT_UP_FORCE=1; up_ovs 4')"
++check "🔴 --force over a measurement in flight is recorded too, and APPENDED" "2" "$(overrides)"
++check "  the first record is untouched"                      "$FIRST" "$(head -n 1 "$OVR" 2>/dev/null)"
++check "  with no claim to name, 'over' says so"              "none" "$(ovr_field over)"
++has   "  and it names what was running"                      "matrix.sh cell 4" "$(ovr_field running)"
++
++# --force with nothing to override is not an override, and writes nothing.
++reset_fix; echo "0 14" > "$FIX/mn.seq"
++OUT="$(NDT_OWNER="$US" drive 'NDT_UP_FORCE=1; up_ovs 4')"
++check "--force over nothing records nothing"                 "0" "$(overrides)"
++has   "  and the bring-up still ran"                         "up ovs" "$(cat "$FIX/stack.log")"
++
++# 🔴 An override that cannot be recorded is not taken. The record's path is a directory here, so
++# the append fails -- and the bring-up must not happen behind it.
++reset_fix
++write_claim "$THEM" "$FUTURE" "night round" ""
++mkdir -p "$OVR"
++OUT="$(NDT_OWNER="$US" drive 'NDT_UP_FORCE=1; up_ovs 4')"
++check "🔴 --force whose record cannot be written is refused" "5" "$(rc_of "$OUT")"
++has   "  and says why"                                       "could not be recorded" "$OUT"
++check "  and reached nothing"                                "$UNTOUCHED" "$(touched)"
++rm -rf "$OVR"
++
++# =============================================================================================
++section "5. 🔴 P4 goes through the SAME guard, with the same flag and the same record"
++# =============================================================================================
++reset_fix
++write_claim "$THEM" "$FUTURE" "night round" ""
++OUT="$(NDT_OWNER="$US" drive 'up_p4 4')"
++check "🔴 a foreign claim still refuses the P4 bring-up with 5" "5" "$(rc_of "$OUT")"
++has   "  with the same sentence as OVS"                      "refusing to build: the lab is claimed by $THEM" "$OUT"
++check "  and reached nothing"                                "$UNTOUCHED" "$(touched)"
++has   "  and names the same override"                        "ndt up p4 4 --force" "$OUT"
++reset_fix
++OUT="$(NDT_OWNER="$US" FX_BUSY="measure.sh run 2" drive 'up_p4 4')"
++check "  a measurement in flight still refuses P4 with 5"    "5" "$(rc_of "$OUT")"
++reset_fix; echo "0 10" > "$FIX/bmv2.seq"
++write_claim "$THEM" "$FUTURE" "night round" ""
++OUT="$(NDT_OWNER="$US" drive 'NDT_UP_FORCE=1; up_p4 4')"
++check "--force builds P4 over a foreign claim"               "no" "$([[ "$(rc_of "$OUT")" == 5 ]] && echo yes || echo no)"
++has   "  the fabric was started"                             "topo-start" "$(cat "$FIX/sudo.log")"
++check "  and the override is recorded"                       "1" "$(overrides)"
++check "  naming whose claim"                                 "$THEM" "$(ovr_field over)"
++has   "  and the P4 command"                                 "up p4 4 --force" "$(ovr_field command)"
++
++# 🔴 ONE guard, not two copies: neither bring-up reads the claim itself any more. The behaviour
++# above is the proof that both are guarded; this is the proof that they are guarded by the one
++# function the ticket asks for, so the next change to it cannot fix one plane and not the other.
++OUT="$(drive 'declare -f up_ovs; declare -f up_p4')"
++check "🔴 neither bring-up calls foreign_claim itself"       "0" "$(grep -c 'foreign_claim' <<<"$OUT")"
++check "  and each calls the shared guard exactly once"       "2" "$(grep -c 'guard_up_lab_free ' <<<"$OUT")"
++
++# =============================================================================================
++section "6. the flag is argv, parsed once for both planes, and an exported variable is not it"
++# =============================================================================================
++OUT="$(drive 'up_take_app_flag ovs 4 --force; echo "force=[$NDT_UP_FORCE] argv=[${NDT_UP_ARGV[*]}] words=[$NDT_UP_WORDS]"')"
++has   "--force is taken off argv and sets the flag"          "force=[1] argv=[ovs 4]" "$OUT"
++has   "  and the words to retry with do not carry it"        "words=[ovs 4]" "$OUT"
++OUT="$(drive 'up_take_app_flag --force p4 4; echo "force=[$NDT_UP_FORCE] argv=[${NDT_UP_ARGV[*]}]"')"
++has   "  in any position"                                    "force=[1] argv=[p4 4]" "$OUT"
++OUT="$(NDT_UP_FORCE=1 drive 'up_take_app_flag ovs 4; echo "force=[$NDT_UP_FORCE]"')"
++has   "🔴 an exported NDT_UP_FORCE without the flag forces nothing" "force=[]" "$OUT"
++# ...and not even when a bring-up is reached without the dispatch: loading ndt resets it.
++reset_fix
++write_claim "$THEM" "$FUTURE" "night round" ""
++OUT="$(NDT_OWNER="$US" NDT_UP_FORCE=1 drive 'up_ovs 4')"
++check "🔴 an exported NDT_UP_FORCE=1 does not open the guard" "5" "$(rc_of "$OUT")"
++check "  and nothing was recorded or reached"                "0 $UNTOUCHED" "$(overrides) $(touched)"
++
++# =============================================================================================
++section "7. 'ndt help' tells the truth about it"
++# =============================================================================================
++HELP="$(bash "$NDT" help 2>&1)"
++has   "the up block names the override"                      "ndt up <any of the above> --force" "$HELP"
++has   "  and where it is recorded"                           ".test_run/lab.claim.overrides" "$HELP"
++has   "  rc 5 still names a foreign claim among its causes"  "the lab is claimed by somebody else" "$HELP"
++has   "  and says it is BOTH planes now"                     "on BOTH planes" "$HELP"
++has   "the down block says a stale entry is not a subject"   "STALE" "$HELP"
++
++# The status row for the record, so the override is found by the next reader and not only by
++# someone who knows to cat a file (R7 I-2 condition 2: kept evidence no interface mentions).
++reset_fix
++write_claim "$THEM" "$FUTURE" "night round" ""
++printf 'at=2026-09-25T03:00:00+0800\tby=%s\tuser=u\tpid=1\tcommand=ndt up ovs 4 --force\tover=%s\tclaim_expires=%s\tclaim_note=n\tmeasuring=\trunning=\n' \
++    "$US" "$THEM" "$FUTURE" > "$OVR"
++OUT="$(NDT_OWNER="$US" drive 'cmd_status')"
++has   "🔴 'ndt status' shows the last override"              "--force" "$(grep -A1 -E '^  override ' <<<"$OUT")"
++has   "  naming who forced past whom"                        "$US over $THEM" "$OUT"
++
++# =============================================================================================
++section "8. 🔴 a stale pidfile: 'ndt status' marks it"
++# =============================================================================================
++reset_fix
++DEAD="$(dead_pid)"
++pidf app_viz.pid "$DEAD"
++OUT="$(drive 'app_pidfile_stale_row')"
++has   "🔴 a dead app pidfile is marked STALE"                "STALE" "$OUT"
++has   "  naming the file"                                    ".test_run/pids/app_viz.pid" "$OUT"
++has   "  and the pid that is gone"                           "pid $DEAD gone" "$OUT"
++has   "  and what removes it"                                "'ndt down' removes it" "$OUT"
++OUT="$(drive 'cmd_status')"
++has   "🔴 and 'ndt status' itself prints that row (existence is not wiring)" "STALE -- .test_run/pids/app_viz.pid" "$OUT"
++
++# The stack's own files were already marked (R7 I-3); still are.
++reset_fix
++DEAD="$(dead_pid)"
++pidf kernel.pid "$DEAD"
++OUT="$(drive 'stack_pidfile_row')"
++has   "a dead stack pidfile is still marked stale"          "kernel.pid: stale pidfile (pid $DEAD gone" "$OUT"
++
++# The controls, one per way "the file exists" differs from "the process is gone".
++reset_fix
++LIVE_VIZ="$(spawn "$FIX/network_traffic_visualizer.sh")"
++pidf app_viz.pid "$LIVE_VIZ"
++OUT="$(drive 'app_pidfile_stale_row')"
++hasnt "🔴 a pidfile naming a LIVE viz is not stale"          "STALE" "$OUT"
++kill_fixture "$LIVE_VIZ"
++
++# pid gone, but the process group the app was started in still has a member: the FINDINGS #6/#48
++# shape (viz's launcher dead, its JVMs running on). NOT stale.
++reset_fix
++GROUP="$(spawn "java-child-of-viz" setsid)"
++DEAD="$(dead_pid)"
++pidf app_viz.pid "$DEAD"; pidf app_viz.pgid "$GROUP"
++OUT="$(drive 'app_pidfile_stale_row')"
++hasnt "🔴 pid gone but its process group alive: NOT stale"   "STALE -- " "$OUT"
++has   "  and it says the group is still there"               "process group $GROUP still has live member(s)" "$OUT"
++kill_fixture "$GROUP"
++
++# pid alive, but it is not viz any more -- a recycled number. Identity is pid + argv.
++reset_fix
++STRANGER="$(spawn "some-unrelated-program")"
++pidf app_viz.pid "$STRANGER"
++OUT="$(drive 'app_pidfile_stale_row')"
++has   "🔴 a pid alive as somebody else is STALE (pid + argv, not the number)" "STALE" "$OUT"
++has   "  and it says the number was recycled"                "recycled" "$OUT"
++kill_fixture "$STRANGER"
++
++# =============================================================================================
++section "9. 🔴 a stale pidfile: 'ndt down' removes it, and a down lab still answers 3"
++# =============================================================================================
++reset_fix; rm -f "$FIX/manifest.json"
++DEAD="$(dead_pid)"
++pidf app_viz.pid "$DEAD"
++touch -d '@1789365600' "$FIX/.test_run/pids/app_viz.pid"      # 2026-09-14 14:00 +0800, like the real one
++pidf app_viz.pgid "$DEAD"
++OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
++check "🔴 an already-down lab with a stale pidfile is rc 3, not 0" "3" "$(rc_of "$OUT")"
++check "  and the verdict line says what it measured"          "1" "$(grep -cx 'nothing was up to tear down' <<<"$OUT")"
++check "🔴 the stale pidfile is GONE"                         "absent" "$(present app_viz.pid)"
++check "  and its .pgid with it"                              "absent" "$(present app_viz.pgid)"
++has   "  it says it removed it, and why"                     "removed stale .test_run/pids/app_viz.pid -- pid $DEAD gone" "$OUT"
++# 🔴 The window is kept before the file goes: app_started_at dates a dead app by this file's
++# mtime, and it is the only record of when viz ran (G-12, RESIDUE-1).
++check "🔴 the app's window was written down before the file went" "1789365600" \
++      "$(sed -n 's/^start=//p' "$FIX/.test_run/apps/viz.window" 2>/dev/null)"
++# Down twice: the second is an already-down lab with nothing stale left.
++OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
++check "🔴 down again: rc 3"                                  "3" "$(rc_of "$OUT")"
++hasnt "  and nothing left to remove"                         "removed stale" "$OUT"
++
++# The stack's own leftovers the same way: a dead kernel.pid the fake stack.sh never removes.
++reset_fix; rm -f "$FIX/manifest.json"
++DEAD="$(dead_pid)"
++pidf kernel.pid "$DEAD"
++OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
++check "  a dead kernel.pid on a down lab: rc 3"              "3" "$(rc_of "$OUT")"
++check "  and it is removed"                                  "absent" "$(present kernel.pid)"
++
++# 🔴 THE CONTROLS: the sweep removes only what is provably stale.
++reset_fix; rm -f "$FIX/manifest.json"
++LIVE_VIZ="$(spawn "$FIX/network_traffic_visualizer.sh")"
++pidf app_viz.pid "$LIVE_VIZ"
++OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
++check "🔴 a LIVE pidfile is kept"                            "present" "$(present app_viz.pid)"
++check "  and is a subject: rc 0, not 3"                      "0" "$(rc_of "$OUT")"
++kill_fixture "$LIVE_VIZ"
++
++reset_fix; rm -f "$FIX/manifest.json"
++GROUP="$(spawn "java-child-of-viz" setsid)"
++DEAD="$(dead_pid)"
++pidf app_viz.pid "$DEAD"; pidf app_viz.pgid "$GROUP"
++OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
++check "🔴 pid gone, group alive: the pidfile is KEPT"        "present" "$(present app_viz.pid)"
++check "  and it is still a subject: not 3"                   "no" "$([[ "$(rc_of "$OUT")" == 3 ]] && echo yes || echo no)"
++kill_fixture "$GROUP"
++
++reset_fix; rm -f "$FIX/manifest.json"
++printf 'not-a-pid\n' > "$FIX/.test_run/pids/app_viz.pid"
++OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
++check "  an UNUSABLE pidfile is not called stale and not removed by the sweep" "present" "$(present app_viz.pid)"
++
++# A refused teardown touches nothing, stale files included.
++reset_fix; rm -f "$FIX/manifest.json"
++DEAD="$(dead_pid)"
++pidf app_viz.pid "$DEAD"
++write_claim "$THEM" "$FUTURE" "night round" ""
++OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
++check "  under a foreign claim 'down' is still 5"            "5" "$(rc_of "$OUT")"
++check "  and leaves even the stale file where it is"         "present" "$(present app_viz.pid)"
++
++# =============================================================================================
++section "10. 'ndt clean' reads the registry the same way"
++# =============================================================================================
++reset_fix; rm -f "$FIX/manifest.json"
++DEAD="$(dead_pid)"
++pidf app_viz.pid "$DEAD"
++OUT="$(drive 'cmd_clean')"
++check "🔴 only a stale entry: nothing to judge, rc 3"        "3" "$(rc_of "$OUT")"
++has   "  and it does not pretend the registry is empty"      "STALE" "$OUT"
++check "  clean does not remove it -- it is an assertion"     "present" "$(present app_viz.pid)"
++reset_fix; rm -f "$FIX/manifest.json"
++pidf kernel.pid "$$"
++OUT="$(drive 'cmd_clean')"
++check "  a LIVE registry entry is still a subject: rc 0"     "0" "$(rc_of "$OUT")"
++
++printf '\n'
++echo "Ran $((PASS+FAIL)) checks, $FAIL failed"
++(( FAIL == 0 ))
+diff --git a/tests/shell/test_ndt_up_down_robust.sh b/tests/shell/test_ndt_up_down_robust.sh
+index b85626b4..ca4eb7fd 100644
+--- a/tests/shell/test_ndt_up_down_robust.sh
++++ b/tests/shell/test_ndt_up_down_robust.sh
+@@ -1671,7 +1671,12 @@ check "  and the verdict line is 'clean'"            "1" "$(grep -cx 'clean' <<<
+ 
+ # A registry entry is a subject on its own: .test_run/pids/ is what `ndt down` acts on, so a
+ # machine that has one has something for this command to be about.
+-reset_fix; rm -f "$DM" "$FIX/manifest.json"; ledger kernel 992261
++# [Co-developed with claude code -- Adam]
++# 🔴 A LIVE entry: the pid is this suite's own shell. It was 992261 until 2026-09-25 -- a number
++# nothing on this machine holds, i.e. a STALE entry, which Adam's ruling that day (TICKET-ndt-
++# ovs-claim section 2 item 3) says is NOT something to judge. The stale half of this cell lives in
++# tests/shell/test_ndt_ovs_claim.sh section 10; what this one pins is unchanged.
++reset_fix; rm -f "$DM" "$FIX/manifest.json"; ledger kernel "$$"
+ OUT="$(drive 'cmd_clean')"
+ check "🔴 a pidfile in the registry is a subject: rc 0" "0" "$(rc_of_out "$OUT")"
+ check "  and the verdict line is 'clean'"            "1" "$(grep -cx 'clean' <<<"$OUT")"
+diff --git a/tools/test_workflow/ndt b/tools/test_workflow/ndt
+index 3273df8b..3a0e66c6 100755
+--- a/tools/test_workflow/ndt
++++ b/tools/test_workflow/ndt
+@@ -316,7 +316,7 @@ deep_sweep() {
+ # any field a script of your own adds is carried through after them. Do not parse this by line
+ # number even so: until 2026-09-11 `note` migrated to the last line every time it was corrected.
+ #
+-# Two neighbours, both written by this script and neither of them state:
++# Three neighbours, all written by this script and none of them state:
+ #
+ #     .test_run/lab.claim.lock    flock target for the check-then-write in cmd_claim. Empty,
+ #                                 never read, and NOT the claim itself -- flock must open what
+@@ -330,6 +330,11 @@ deep_sweep() {
+ #                                 reads it (the "prev claim" row): R7's acceptance found the
+ #                                 evidence kept and no interface mentioning it, which is half a
+ #                                 fix -- the reader still had to know to cat the file.
++#     .test_run/lab.claim.overrides   one line per `ndt up --force` that went past somebody
++#                                 else's claim or a measurement in flight: who, when, whose
++#                                 claim, what was running. Append-only, never rotated here.
++#                                 `ndt status` reads the last line (the "override" row). See
++#                                 claim_override_record. [Co-developed with claude code -- Adam]
+ #
+ # Workspace-local, not /tmp, for the reason components.env already gives about predictable
+ # paths in world-writable directories.
+@@ -955,6 +960,145 @@ measuring_declared() {
+     claim_field measuring
+ }
+ 
++# --- the bring-up's claim guard: ONE copy, called by both planes ----------------------------
++#
++# [Co-developed with claude code -- Adam]
++# 🔴 Adam's ruling 2026-09-25 (doc/audit/2026-09-25_ndt-ovs-claim/TICKET-ndt-ovs-claim.md). This
++# refusal lived inline in up_p4 (rc 5 since 09-12) and up_ovs had no copy of it at all, so `ndt
++# help`'s "5 ... the lab is claimed by somebody else" was true of one plane. Measured on the ndt
++# serve branch, 2026-09-24 22:49:45-46 (feat/ndt-serve-0924, doc/audit/2026-09-24_ndt-serve/
++# REPORT.md section 2): a foreign owner claimed the lab, `ndt up 4` built an OVS fabric under that
++# claim in 8.5 s and exited 0, and after the claim was released the fabric stood for about 29 s
++# with nobody holding the lab. The bring-up SAW the claim -- claim_note_up warned that it could
++# not narrate somebody else's claim -- and built anyway.
++#
++# 🔴 ONE FUNCTION, CALLED FROM BOTH, and not a second copy pasted into up_ovs. Two copies of one
++# refusal is the shape this file already has scars from (the two topo_for_hosts unpackings, M9/M10
++# in tests/shell/mutate_ndt_honesty.sh): one plane fixed is not both.
++#
++# 🔴 WHERE it is called is half of the fix: before anything that changes the machine or a file --
++# no fifo, no temp file, no up.target, no knob, no claim note, no stack.sh, no sudo. A refusal
++# that has already written something is not a refusal.
++#
++# The semantics are P4's, unchanged: somebody else's live claim is 5 (foreign_claim -- and an
++# unnamed caller cannot prove any claim is its own), and a measurement driver in the process table
++# is 5 (in_flight). What a claim DECLARES in measuring= is quoted when the claim is somebody
++# else's; on your OWN claim it has never refused a bring-up, and still does not.
++#
++# 🔴 --force is the one way past both, with `ndt down --force`'s meaning -- you are signing for it
++# -- plus the thing `down --force` never did: it is WRITTEN DOWN. Every use appends one line to
++# $CLAIM.overrides (claim_override_record), and a --force whose line could not be written does
++# not build. An override nobody can find afterwards is the thing this refuses to be.
++#
++# guard_up_lab_free <what> -- rc 0 go on, rc 5 refused. <what> is the plane and size ("ovs 4",
++# "p4 4"), used only to spell the retry line when this was not reached through the dispatch
++# (NDT_UP_WORDS is what the operator typed, set by up_take_app_flag).
++guard_up_lab_free() {
++    local what="$1" held busy declared holder retry
++    held="$(foreign_claim)"
++    busy="$(in_flight)"
++    [[ -z "$held" && -z "$busy" ]] && return 0
++    retry="ndt up ${NDT_UP_WORDS:-$what}"
++    if [[ "${NDT_UP_FORCE:-}" != 1 ]]; then
++        if [[ -n "$held" ]]; then
++            holder="$(claim_field owner)"
++            err "refusing to build: the lab is claimed by $held"
++            err "  'ndt up' may restart the stack under them."
++            declared="$(measuring_declared)"
++            if [[ -n "$declared" ]]; then
++                err "  and they DECLARED what is running:"
++                err "    measuring=$declared"
++            fi
++        fi
++        if [[ -n "$busy" ]]; then
++            err "refusing to build: a measurement is running; 'ndt up' may restart the fabric under it:"
++            printf '%s\n' "$busy" | sed 's/^/        /' >&2
++        fi
++        err "  nothing was built and nothing was written: no fabric, no up.target, no knob, no note."
++        # ROLE-4 T2's lesson, the same as cmd_down's: the owner goes on the command line BARE and
++        # %q-quoted, never the parenthesised description $held is.
++        if [[ -n "$held" ]]; then
++            err "if that claim is YOURS, set the same owner and retry:"
++            err "$(printf '    NDT_OWNER=%q ' "$holder")$retry"
++        fi
++        err "if you know it is finished, override it -- and the override is recorded, in"
++        err "  ${CLAIM#$REPO/}.overrides (who, when, whose claim):"
++        err "    $retry --force"
++        # OVS as well since 2026-09-25, through this function -- the ruling below was P4's.
++        # 🔴 rc 5: refused. (Adam, 2026-09-12)
++        return 5
++    fi
++    if ! claim_override_record "$retry --force" "$held" "$busy"; then
++        err "refusing to build: --force was given, but the override could not be recorded in"
++        err "  ${CLAIM#$REPO/}.overrides. An override nobody can find afterwards is exactly what"
++        err "  --force must not be, so nothing was built and nothing was written."
++        return 5
++    fi
++    [[ -n "$held" ]] && warn "--force: building over the claim of $held"
++    [[ -n "$busy" ]] && warn "--force: building with a measurement in flight: $(printf '%s\n' "$busy" | head -1 | cut -c1-72)"
++    warn "  recorded in ${CLAIM#$REPO/}.overrides -- who, when, whose claim"
++    return 0
++}
++
++# claim_override_record <command> <foreign_claim's description> <in_flight's lines> -- append ONE
++# line to $CLAIM.overrides and read it back. rc 1 when it could not be written or is not there
++# afterwards; the caller refuses on that.
++#
++# [Co-developed with claude code -- Adam]
++# Its own file beside lab.claim and lab.claim.prev, and NOT a field in the claim, for three
++# reasons: the claim being overridden is somebody else's, and a session that does not hold the
++# lab may not narrate it (set_claim_note, ROLE-4 T5); `ndt claim` rewrites the claim and `ndt
++# release` renames it away, so a field in it would live exactly as long as the claim it describes
++# -- and "who forced past whom" is asked after the round, when that claim is gone; and an override
++# of a measurement in flight can happen with no claim at all.
++#
++# One line per override, tab-separated key=value, so free text (a note, a command line) cannot be
++# read as the next field; tabs and newlines inside a value become spaces:
++#   at=<local time, ISO 8601>  by=<NDT_OWNER or unset>  user=<login>  pid=<this ndt>
++#   command=<what was run>  over=<the overridden claim's owner, or none>  claim_expires=<epoch|->
++#   claim_note=<its note>  measuring=<its declaration>  running=<first in_flight line (+N more)>
++claim_override_record() {
++    local cmd="$1" held="$2" busy="$3" f="$CLAIM.overrides" over=none exp=- note="" meas="" run="" n line
++    if [[ -n "$held" ]]; then
++        over="$(claim_field owner)"; exp="$(claim_field expires)"
++        note="$(claim_field note)"; meas="$(claim_field measuring)"
++    fi
++    if [[ -n "$busy" ]]; then
++        n="$(printf '%s\n' "$busy" | wc -l)"
++        run="$(printf '%s\n' "$busy" | head -1)"
++        (( n > 1 )) && run="$run (+$(( n - 1 )) more)"
++    fi
++    line="$(printf 'at=%s\tby=%s\tuser=%s\tpid=%s\tcommand=%s\tover=%s\tclaim_expires=%s\tclaim_note=%s\tmeasuring=%s\trunning=%s' \
++        "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$(ovr_flat "${NDT_OWNER:-unset}")" \
++        "$(ovr_flat "$(id -un 2>/dev/null || echo "uid $(id -u)")")" "$$" "$(ovr_flat "$cmd")" \
++        "$(ovr_flat "${over:-<no owner field>}")" "$(ovr_flat "${exp:--}")" "$(ovr_flat "$note")" \
++        "$(ovr_flat "$meas")" "$(ovr_flat "$run")")"
++    mkdir -p "$(dirname "$f")" 2>/dev/null
++    { printf '%s\n' "$line" >> "$f"; } 2>/dev/null || return 1
++    # The readback, and why it is a match on the whole line and not `tail -1`: two sessions can
++    # append in the same second, and the other one's line landing after ours is not a failure.
++    grep -qxF -- "$line" "$f" 2>/dev/null
++}
++ovr_flat() { local v="${1//$'\t'/ }"; printf '%s' "${v//$'\n'/ }"; }
++
++# claim_override_row -- the last override, for `ndt status`. Prints nothing when none was ever
++# recorded. History, not state: never a `--check` problem, for the reason claim_prev_row gives --
++# a row that turned every later check red for something that already happened would be read once.
++# And printed at all for R7 I-2 condition 2's reason: evidence that is kept and that no interface
++# mentions is half a fix. [Co-developed with claude code -- Adam]
++claim_override_row() {
++    local f="$CLAIM.overrides" n last
++    [[ -f "$f" ]] || return 0
++    n="$(grep -c . "$f" 2>/dev/null)"; [[ "$n" =~ ^[0-9]+$ ]] || n=0
++    (( n > 0 )) || return 0
++    last="$(grep . "$f" | tail -n 1)"
++    printf '  %-14s %s\n' "override" \
++        "last --force: $(ovr_field "$last" at) -- $(ovr_field "$last" by) over $(ovr_field "$last" over)"
++    printf '  %-14s %s\n' "" "$(ovr_field "$last" command)$( r="$(ovr_field "$last" running)"; [[ -n "$r" ]] && printf ' (running: %s)' "$(printf '%s' "$r" | cut -c1-48)")"
++    printf '  %-14s %s\n' "" "$n override(s) on record in ${f#$REPO/}"
++}
++ovr_field() { printf '%s\n' "$1" | tr '\t' '\n' | sed -n "s/^$2=//p" | head -1; }
++
+ # --- the note, written by the command that changes the fact -------------------------------
+ #
+ # [Co-developed with claude code -- Adam]
+@@ -3054,19 +3198,13 @@ up_p4() {
+     fi
+     want_paths=$(( hosts * (hosts - 1) ))
+ 
+-    local held; held="$(foreign_claim)"
+-    if [[ -n "$held" ]]; then
+-        err "the lab is claimed by $held; 'ndt up' may restart the stack under them."
+-        # 🔴 rc 5: refused. (Adam, 2026-09-12)
+-        return 5
+-    fi
+-    local busy; busy="$(in_flight)"
+-    if [[ -n "$busy" ]]; then
+-        err "a measurement is running; 'ndt up' may restart the fabric under it:"
+-        printf '%s\n' "$busy" | sed 's/^/        /' >&2
+-        # 🔴 rc 5: refused, the same as the claim above it.
+-        return 5
+-    fi
++    # [Co-developed with claude code -- Adam]
++    # 🔴 Somebody else's claim, or a measurement in flight: rc 5 (Adam, 2026-09-12). This was two
++    # inline checks and the only copy of them in the file; since 2026-09-25 it is the ONE guard
++    # up_ovs calls too, and the one place `--force` is honoured and recorded.
++    local up_what="p4 $hosts"
++    [[ -n "$app_dir" ]] && up_what="p4 --app $(printf '%q' "$app_dir")"
++    guard_up_lab_free "$up_what" || return $?
+ 
+     say "ndt up p4"
+     info "hosts        $hosts        (p4_proxy/mininet/host_count_override)"
+@@ -4101,6 +4239,13 @@ up_ovs() {
+         err "no OVS topology model in setting/ has $ovs_hosts hosts"
+         return 1
+     fi
++    # [Co-developed with claude code -- Adam]
++    # 🔴 Somebody else's claim, or a measurement in flight: rc 5, through the SAME function up_p4
++    # calls (Adam, 2026-09-25). HERE, and not after the mktemp below: every line under this one
++    # either writes something (the fifo, the temp file, up.target, the app knob, the claim note)
++    # or starts something, and a refusal must leave none of it. Until this line existed an OVS
++    # bring-up under a foreign claim built the fabric and exited 0 (ndt serve round, 09-24 22:49).
++    guard_up_lab_free "ovs $ovs_hosts" || return $?
+     # Inverted order: Ryu must be listening before the switches dial out, so stack.sh has to
+     # start first and then block on its prompt while the fabric is built. The prompt cannot be
+     # waited for by reading stdout -- `read -p` writes to /dev/tty, and on a FIFO stdin the
+@@ -4515,17 +4660,162 @@ guard_no_teardown_in_flight() {
+ # lab. rc 3 is the answer for "there was nothing to measure", and it is not a bill of health.
+ #
+ # 🔴 ONE definition of the registry half, used by both readers. `.test_run/pids/` is the shared
+-# file `ndt down` acts on and port_owner_local attributes listeners with, so a checkout with an
+-# entry in it has something for either command to be about -- even a STALE entry, whose pid is
+-# gone: that is a fact about this checkout, and `ndt status`'s pidfiles row is what judges it.
++# file `ndt down` acts on and port_owner_local attributes listeners with, so a checkout with a
++# LIVE entry in it has something for either command to be about.
++#
++# [Co-developed with claude code -- Adam]
++# 🔴 AND NOT A STALE ONE -- Adam's ruling 2026-09-25 (TICKET-ndt-ovs-claim section 2 item 3),
++# which reverses the sentence this comment carried from 09-12 ("even a STALE entry ... is a fact
++# about this checkout"). Measured: `.test_run/pids/app_viz.pid`, written 09-14, naming a pid long
++# gone, made every `ndt down` of an already-down lab answer 0 instead of 3 -- and nothing ever
++# removed it: `down`'s [0/3] loop skips an app that is not running and stack.sh knows only its
++# own components, so the next teardown answered 0 again. The orchestrator deleted it by hand. A
++# file naming a process that is gone is not something to tear down or to judge; it is something
++# `ndt status` marks and `ndt down` removes (registry_clear_stale). What "stale" means is decided
++# in ONE place, pidfile_judge, for all three.
+ pid_registry_entries() {
+     local f
+     for f in "$REPO"/.test_run/pids/*.pid; do
+-        [[ -e "$f" ]] && printf '%s\n' "${f#$REPO/}"
++        [[ -e "$f" ]] || continue
++        pidfile_judge "$f"
++        [[ "$PF_STATE" == stale ]] && continue
++        printf '%s\n' "${f#$REPO/}"
++    done
++    return 0
++}
++
++# pid_registry_stale -- the complement: "<path>\t<why>" for every STALE *.pid, one per line.
++pid_registry_stale() {
++    local f
++    for f in "$REPO"/.test_run/pids/*.pid; do
++        [[ -e "$f" ]] || continue
++        pidfile_judge "$f"
++        [[ "$PF_STATE" == stale ]] && printf '%s\t%s\n' "${f#$REPO/}" "$PF_WHY"
+     done
+     return 0
+ }
+ 
++# --- is a pidfile stale? ONE answer, for `status`, for the subject of `down`/`clean`, and for
++# --- what `down` removes ----------------------------------------------------------------------
++#
++# [Co-developed with claude code -- Adam]
++# 🔴 Adam's ruling 2026-09-25: a pidfile whose pid does not exist -- and whose process group, if
++# one is recorded, has no process left -- is STALE. Identity is pid + argv, read from /proc: never
++# `kill -0` (EPERM on a root process reads as dead; a recycled number reads as alive -- pid_is_app's
++# header), never `pgrep -f`/`pkill -f` (a pattern matches whoever mentions it -- trap note 2).
++#
++# pidfile_judge <path> -- sets PF_STATE, PF_PID, PF_GROUP, PF_WHY. Globals, not stdout: there are
++# four answers, and a caller inside $(...) reads them in the same subshell it called from.
++#   live      the pid exists -- and, for app_<name>.pid, its argv carries that app's signature
++#   stale     the pid is gone (for an app: or is alive as somebody else -- a recycled number), and
++#             the recorded process group has no member left, or none is recorded
++#   group     the pid is gone but its process group still has live members. NOT stale: that is
++#             FINDINGS #6/#48's shape (viz's launcher dead, its two JVMs running two hours on),
++#             and a teardown that deleted this record would delete the only thing naming them
++#   unusable  not a pid (empty, non-numeric, < 2): its own finding, never "stale"
++#   unjudged  a symlink (never followed -- stop_one's and app_stop's rule), or the group to ask
++#             about is this shell's own (app_group_pids rc 2): nothing here can prove it dead
++#
++# 🔴 WHICH GROUP. app_<name>.pid: the one app_spawn recorded beside it, app_<name>.pgid. A stack
++# <name>.pid: its own number -- start_bg setsids, so the recorded pid IS the group's id, which is
++# the same assumption stop_one makes when it signals `-$pid`. A <name>.child.pid: no group of its
++# own to ask; its group is <name>.pid's, and that file is judged on its own line.
++#
++# 🔴 IDENTITY, and the asymmetry is deliberate. An app pidfile is checked against the app's argv
++# signature (pid_is_app), so a live number that is not the app any more is stale. The stack's
++# files carry no signature this script can check (pid_alive's header), so a live number there is
++# LIVE even if it has been recycled -- the direction that can never delete a running stack's
++# record. stack.sh's stop_one has the finer test (start time against the pidfile's mtime) and
++# applies it before it signals anything.
++PF_STATE=""; PF_PID=""; PF_GROUP=""; PF_WHY=""
++pidfile_judge() {
++    local f="$1" base name pid g="" members grc
++    PF_STATE=unjudged; PF_PID=""; PF_GROUP=""; PF_WHY=""
++    base="${f##*/}"
++    if [[ -L "$f" ]]; then PF_WHY="it is a symlink, and is not followed"; return 0; fi
++    [[ -f "$f" ]] || { PF_WHY="it is not a regular file"; return 0; }
++    pid="$(cat "$f" 2>/dev/null)"
++    PF_PID="$pid"
++    if [[ ! "$pid" =~ ^[0-9]+$ ]] || (( pid < 2 )); then
++        PF_STATE=unusable; PF_WHY="it holds '${pid:-<empty>}', which is not a pid"
++        return 0
++    fi
++    if [[ "$base" == app_*.pid ]]; then
++        name="${base#app_}"; name="${name%.pid}"
++        if pid_is_app "$pid" "$name"; then PF_STATE=live; return 0; fi
++        if pid_alive "$pid"; then
++            PF_WHY="pid $pid is alive but is not $name -- a recycled number"
++        else
++            PF_WHY="pid $pid gone"
++        fi
++        g="$(cat "$(app_pgidfile "$name")" 2>/dev/null)"
++    else
++        if pid_alive "$pid"; then PF_STATE=live; return 0; fi
++        PF_WHY="pid $pid gone"
++        [[ "$base" == *.child.pid ]] || g="$pid"
++    fi
++    if [[ "$g" =~ ^[0-9]+$ ]] && (( g > 1 )); then
++        PF_GROUP="$g"
++        members="$(app_group_pids "$g")"; grc=$?
++        if (( grc != 0 )); then
++            PF_STATE=unjudged
++            PF_WHY="$PF_WHY, and its process group $g is this shell's own, which cannot be asked"
++            return 0
++        fi
++        if [[ -n "$members" ]]; then
++            PF_STATE=group
++            PF_WHY="$PF_WHY, but its process group $g still has live member(s): $(printf '%s\n' "$members" | head -5 | tr '\n' ' ' | sed 's/ $//')"
++            return 0
++        fi
++        PF_WHY="$PF_WHY; process group $g empty"
++    fi
++    PF_STATE=stale
++    return 0
++}
++
++# registry_clear_stale -- `ndt down`'s removal of every STALE *.pid. Says what it removed and why;
++# rc 1 when something stale could not be removed. Sets REGISTRY_STALE_REMOVED (a count).
++#
++# [Co-developed with claude code -- Adam]
++# 🔴 AN APP'S WINDOW IS WRITTEN DOWN FIRST. app_started_at dates an app whose process is gone by
++# this very file's mtime, and app_window_seal closes that window -- so the file is the only
++# record of when that app ran here (G-12, RESIDUE-1), and app_stop's energy|sim branch keeps a
++# dead pidfile for exactly that reason. The window [mtime, sealed end] goes to the F3 record
++# (app_window_record) before the file does, which is where every later residue report looks once
++# the pidfile is gone; the report then reads the same window it would have read from the file.
++#
++# ONLY `stale`. `group` is a live group the record names, `unusable` is its own finding (stack.sh's
++# stop_one removes an unusable stack pidfile itself, and says so), and `unjudged` is a file this
++# command cannot prove anything about -- none of them is removed here.
++REGISTRY_STALE_REMOVED=0
++registry_clear_stale() {
++    local f base name rc=0 start seal end said=0
++    REGISTRY_STALE_REMOVED=0
++    for f in "$REPO"/.test_run/pids/*.pid; do
++        [[ -e "$f" ]] || continue
++        pidfile_judge "$f"
++        [[ "$PF_STATE" == stale ]] || continue
++        (( said == 0 )) && { say "stale registry entries"; said=1; }
++        base="${f##*/}"; name=""
++        if [[ "$base" == app_*.pid ]]; then
++            name="${base#app_}"; name="${name%.pid}"
++            start="$(stat -c %Y "$f" 2>/dev/null)"
++            end=""; seal="$(app_window_seal "$name" 2>/dev/null)" && end="${seal%% *}"
++            app_window_record "$name" "$start" "$end" \
++                || warn "  could not write $name's window down before removing its pidfile"
++        fi
++        if rm -f "$f" 2>/dev/null && [[ ! -e "$f" ]]; then
++            ok "removed stale ${f#$REPO/} -- $PF_WHY"
++            REGISTRY_STALE_REMOVED=$(( REGISTRY_STALE_REMOVED + 1 ))
++            [[ -n "$name" ]] && rm -f "$(app_pgidfile "$name")" 2>/dev/null
++        else
++            err "could NOT remove stale ${f#$REPO/} ($PF_WHY) -- check its ownership"
++            rc=1
++        fi
++    done
++    return $rc
++}
++
+ # lab_subject -- is there anything here for a teardown to take down or an assertion to be about?
+ # Prints what it found, one clause per line; rc 0 when there is something, 1 when there is not.
+ #
+@@ -4807,6 +5097,20 @@ cmd_down() {
+         deep_sweep
+     fi
+ 
++    # [Co-developed with claude code -- Adam]
++    # 🔴 THE STALE REGISTRY ENTRIES, removed HERE (Adam, 2026-09-25). After [1/3], so stack.sh has
++    # already cleared its own components' files the way it always has (stop_one, and
++    # sweep_orphan_exits beside the .exit it reports); what is left stale is what nothing else
++    # removes -- an app_*.pid whose app died by itself, which the [0/3] loop above rightly skips
++    # because the app is not running. .test_run/pids/app_viz.pid named a dead pid from 09-14
++    # until the orchestrator deleted it by hand; every `ndt down` in between walked past it.
++    # Said only when there is one, so a teardown with nothing stale reads as it always has.
++    # Not a subject: DOWN_SUBJECT above was read through the same predicate and left it out.
++    registry_clear_stale || {
++        down_rc=1
++        not_verified "a stale pidfile in .test_run/pids/ could not be removed"
++    }
++
+     # The lab is no longer being asked for anything, so the baseline `status --check` compares
+     # against goes with it. Left in place it would make every later --check red about a fabric
+     # nobody wants; removed, the honest answer after a `down` is "could not check". (#8)
+@@ -4923,12 +5227,15 @@ cmd_down() {
+     down_verdict="$down_rc"
+     if (( down_rc == 0 )) && [[ -z "$DOWN_SUBJECT" ]]; then
+         say "${Y}nothing was up to tear down${N}"
+-        info "  no fabric, no registry entry in .test_run/pids/, and no port in ports.sh's table"
+-        info "  was held when this command started, so it measured NOTHING -- rc 3, not 0."
++        info "  no fabric, no registry entry in .test_run/pids/ naming a live process, and no port in"
++        info "  ports.sh's table was held when this command started, so it measured NOTHING -- rc 3,"
++        info "  not 0."
+         info "  Every step above still ran: they are idempotent, and a teardown that skipped"
+         info "  them on a reading would be the reading deciding whether to act."
+         info "  'the lab was already down' and 'this round ended clean' are two statements, and"
+         info "  until 09-12 this command answered both with the same byte."
++        # [Co-developed with claude code -- Adam] Adam, 2026-09-25.
++        (( REGISTRY_STALE_REMOVED > 0 )) && info "  the $REGISTRY_STALE_REMOVED STALE registry entr$( (( REGISTRY_STALE_REMOVED == 1 )) && echo y || echo ies ) removed above did not count: a file naming a process that is gone is not something to tear down."
+         down_verdict=3
+     fi
+     claim_note_down "$down_rc" "$CLEAN_UNVERIFIED" "$DOWN_SUBJECT"
+@@ -5079,10 +5386,22 @@ cmd_clean() {
+     # above answer for the fabric, and the registry answers for this checkout.
+     if [[ -z "$subject_known" && -z "$(pid_registry_entries)" ]]; then
+         say "${Y}nothing to judge${N}"
+-        info "  no fabric, nothing in .test_run/pids/, and no port in ports.sh's table is held,"
++        info "  no fabric, nothing live in .test_run/pids/, and no port in ports.sh's table is held,"
+         info "  so this command measured NOTHING -- rc 3. That is not the same statement as"
+         info "  'clean', which is what it printed here until 09-12 on a machine with no lab on"
+         info "  it at all. A teardown that removed a fabric and proved it gone still says clean."
++        # [Co-developed with claude code -- Adam]
++        # 🔴 Adam, 2026-09-25: a STALE registry entry is not a subject, so this can be rc 3 with
++        # files in .test_run/pids/ -- and "nothing in .test_run/pids/" above would then be a
++        # sentence the directory contradicts. Named, not removed: this command is an assertion,
++        # and `ndt down` is what removes them.
++        local stale_here; stale_here="$(pid_registry_stale)"
++        if [[ -n "$stale_here" ]]; then
++            info "  .test_run/pids/ does hold STALE entries -- each names a process that is gone, with"
++            info "  no process left in its group -- and they are not something to judge ('ndt down'"
++            info "  removes them; 'ndt status' marks them):"
++            printf '%s\n' "$stale_here" | sed 's/\t/ -- /; s/^/          /'
++        fi
+         return 3
+     fi
+     say "${G}clean${N}"
+@@ -5123,7 +5442,7 @@ cmd_clean() {
+ STACK_PIDFILE_PROBLEMS=()
+ stack_pidfile_row() {
+     STACK_PIDFILE_PROBLEMS=()
+-    local f base name pid ev_at ev_st line
++    local f base name pid ev_at ev_st line grouped=0
+     local -a bad=() live=()
+     for f in "$REPO"/.test_run/pids/*.pid; do
+         [[ -f "$f" ]] || continue
+@@ -5141,6 +5460,17 @@ stack_pidfile_row() {
+             live+=("$base=$pid alive")
+             continue
+         fi
++        # [Co-developed with claude code -- Adam]
++        # A dead number is stale only if its process GROUP is empty too (Adam, 2026-09-25) --
++        # pidfile_judge, the one predicate `down` removes by and `clean` judges by. A group that
++        # outlived its leader is the opposite of stale: something this stack started is still
++        # running and this file is the only thing that names it.
++        pidfile_judge "$f"
++        if [[ "$PF_STATE" == group ]]; then
++            bad+=("$base: NOT stale -- $PF_WHY")
++            grouped=1
++            continue
++        fi
+         ev_at="$(exit_record_field "$name" at)"; ev_st="$(exit_record_field "$name" status)"
+         if [[ -n "$ev_at" || -n "$ev_st" ]]; then
+             bad+=("$base: stale pidfile (pid $pid gone; $name.exit says status=${ev_st:-?} at ${ev_at:-?} -- $(exit_record_field "$name" reason))")
+@@ -5161,10 +5491,44 @@ stack_pidfile_row() {
+     (( ${#live[@]} > 0 )) && printf '  %-14s %s\n' "" "$(IFS=', '; echo "${live[*]}")"
+     printf '  %-14s %s\n' "" "a dead number here is what 'ndt down' signals and what"
+     printf '  %-14s %s\n' "" "port_owner_local calls 'ours' -- delete it or run 'ndt down'"
++    # [Co-developed with claude code -- Adam] ...except the one entry that advice is wrong for.
++    (( grouped )) && printf '  %-14s %s\n' "" "but NOT a 'NOT stale' one: its group is running, and that file is what names it"
+     for line in "${bad[@]}"; do STACK_PIDFILE_PROBLEMS+=(".test_run/pids/$line"); done
+     return 0
+ }
+ 
++# app_pidfile_stale_row -- an app pidfile that names a process which is not there, marked.
++#
++# [Co-developed with claude code -- Adam]
++# 🔴 Adam's ruling 2026-09-25: `ndt status` marks a stale pidfile. The stack's own files already
++# were (stack_pidfile_row, R7 I-3); the app files were marked by NOTHING -- the apps row printed
++# `none running`, which is true, beside a .test_run/pids/app_viz.pid that had named a dead pid
++# since 09-14 and that no command would ever remove. Printed in the apps block and not in the
++# pidfiles row, because that row deliberately leaves app_*.pid to the apps block (MI5 in
++# tests/shell/mutate_ndt_status_check.sh: two instruments over one file disagree in public).
++#
++# 🔴 A MARK, NOT A `--check` PROBLEM, and that is a decision: the residue window a dead app
++# pidfile used to hold open (RESIDUE-1, 44180 s framing a fabric's own rules) is already sealed
++# by app_window_seal, and test_ndt_status_check_baseline.sh 10D pins that --check is not reddened
++# by one. What was missing is the sentence, and what removes it: `ndt down`.
++app_pidfile_stale_row() {
++    local a f
++    for a in $APP_NAMES; do
++        f="$(app_pidfile "$a")"
++        [[ -e "$f" ]] || continue
++        pidfile_judge "$f"
++        case "$PF_STATE" in
++            stale)
++                printf '  %-14s %s\n' "app pidfile" "${Y}STALE -- ${f#$REPO/}: $PF_WHY${N}"
++                printf '  %-14s %s\n' "" "'ndt down' removes it, after writing $a's window to ${D}$(app_windowfile "$a" | sed "s|^$REPO/||")${N}" ;;
++            group)
++                printf '  %-14s %s\n' "app pidfile" "${R}${f#$REPO/} is NOT stale -- $PF_WHY${N}"
++                printf '  %-14s %s\n' "" "the record is kept: it is what names that group" ;;
++        esac
++    done
++    return 0
++}
++
+ # claim_prev_row -- the claim that was replaced or released, and whether the lab changed hands.
+ # Prints nothing when there is no .prev. Never a `--check` problem: this is history, and a row
+ # that turned a teardown red for something that has already happened would be read once.
+@@ -6132,6 +6496,9 @@ cmd_status() {
+     # R7 I-2 condition 2: the claim's own history, beside the claim. Not behind --check and not
+     # behind "a claim is live" -- see claim_prev_row for whose question this is.
+     claim_prev_row
++    # [Co-developed with claude code -- Adam] ...and the other half of that history since
++    # 2026-09-25: the last `ndt up --force` that went past somebody's claim, and who it was.
++    claim_override_row
+ 
+     # [Co-developed with claude code -- Adam]
+     # Printed UNCONDITIONALLY while a claim is live, and never behind a flag. The whole point of
+@@ -6418,6 +6785,8 @@ cmd_status() {
+         done
+         printf '  %-14s %s\n' "elsewhere" "$ecol -- another checkout's; not counted, not stopped"
+     fi
++    # [Co-developed with claude code -- Adam] Adam, 2026-09-25: a stale app pidfile is marked.
++    app_pidfile_stale_row
+     # W16-2, Adam's decision 09-06 (grill §4D round 7, against the recommendation): --check
+     # prints residue and goes red on it. G-12 was measured with `ndt status --check` answering
+     # rc 0 over a rule and a lock that were still on the network -- the row above this one is
+@@ -7019,13 +7388,20 @@ app_pgidfile() { echo "$REPO/.test_run/pids/app_$1.pgid"; }
+ # teardown that reaped it would be O-4 in a new place.
+ app_windowfile() { echo "$REPO/.test_run/apps/$1.window"; }
+ 
+-# app_window_record <name> <start-epoch> -- the closed window [start, now], or rc 1.
++# app_window_record <name> <start-epoch> [end-epoch] -- the closed window [start, end], or rc 1.
++# end defaults to now, which is right for a stop that just verified the app gone. [Co-developed
++# with claude code -- Adam] The optional end is registry_clear_stale's: an app whose pidfile is
++# stale died by itself some time ago, and app_window_seal has already said when -- writing `now`
++# there would reopen RESIDUE-1's twelve-hour window that framed a fabric's own forwarding rules.
++# An end before the start is refused, for the reason app_window_read refuses one.
+ app_window_record() {
+-    local name="$1" start="$2" f
++    local name="$1" start="$2" end="${3:-}" f
+     [[ "$start" =~ ^[0-9]+$ ]] || return 1
++    [[ -n "$end" ]] || end="$(date +%s)"
++    [[ "$end" =~ ^[0-9]+$ ]] && (( end >= start )) || return 1
+     f="$(app_windowfile "$name")"
+     mkdir -p "$(dirname "$f")" 2>/dev/null || return 1
+-    printf 'start=%s\nend=%s\nby=%s\n' "$start" "$(date +%s)" "${NDT_OWNER:-unset}" >"$f" 2>/dev/null
++    printf 'start=%s\nend=%s\nby=%s\n' "$start" "$end" "${NDT_OWNER:-unset}" >"$f" 2>/dev/null
+ }
+ 
+ # app_window_read <name> -- "<start> <end>" from that record, or rc 1. Both fields are required:
+@@ -9947,10 +10323,21 @@ NDT_UP_ARGV=()
+ #: `ndt up p4 ... --telemetry <word>` (TICKET-P3 §2.1). Empty means the flag was not given,
+ #: which is NOT the same as `auto`: without it the bring-up writes what the package declares.
+ NDT_TELEMETRY=""
++#: [Co-developed with claude code -- Adam]
++#: `ndt up ... --force` (Adam, 2026-09-25): past somebody else's claim or a measurement in flight,
++#: on either plane, and recorded -- see guard_up_lab_free. Set HERE, from argv, and reset on every
++#: call, so an exported NDT_UP_FORCE in somebody's shell forces nothing: the override has to be
++#: on the command line an operator typed. NDT_UP_WORDS is that command line minus --force, %q-
++#: quoted, which is what the refusal prints as the line to retry with.
++NDT_UP_FORCE=""
++NDT_UP_WORDS=""
+ up_take_app_flag() {
+     NDT_APP_DIR=""
+     NDT_UP_ARGV=()
+     NDT_TELEMETRY=""
++    NDT_UP_FORCE=""
++    NDT_UP_WORDS=""
++    local -a words=()
+     # `seen` is tracked apart from the VALUE, and that is the whole point of it. `--app=` and
+     # `--app ""` both set NDT_APP_DIR to the empty string, and an emptiness test alone reads
+     # that as "no package was asked for" -- so the command would build the BASELINE fabric and
+@@ -9958,6 +10345,10 @@ up_take_app_flag() {
+     # A flag given with no value is a typo, not a request for the default.
+     local a want=0 seen=0 twant=0 tseen=0
+     for a in "$@"; do
++        # --force is lifted out before anything else reads the word, and is the ONE word not
++        # carried into NDT_UP_WORDS: the retry line a refusal prints must not force by itself.
++        if (( ! want && ! twant )) && [[ "$a" == --force ]]; then NDT_UP_FORCE=1; continue; fi
++        words+=("$a")
+         if (( want )); then NDT_APP_DIR="$a"; want=0; seen=1; continue; fi
+         if (( twant )); then NDT_TELEMETRY="$a"; twant=0; tseen=1; continue; fi
+         case "$a" in
+@@ -9968,6 +10359,7 @@ up_take_app_flag() {
+             *)       NDT_UP_ARGV+=("$a") ;;
+         esac
+     done
++    (( ${#words[@]} > 0 )) && NDT_UP_WORDS="$(printf '%q ' "${words[@]}")" && NDT_UP_WORDS="${NDT_UP_WORDS% }"
+     if (( want )); then
+         err "ndt up --app needs a package directory:  ndt up p4 --app <dir>"
+         return 2
+@@ -10057,7 +10449,7 @@ case "${1:-}" in
+         up_take_app_flag "$@" || exit 2
+         set -- ${NDT_UP_ARGV[@]+"${NDT_UP_ARGV[@]}"}
+         if ! plan="$(resolve_up_target "${1:-}" "${2:-}")"; then
+-            err "usage: ndt up [p4 [hosts] | p4 --app <dir> | ovs [128|4] | ovs4 | 128 | 4]"
++            err "usage: ndt up [p4 [hosts] | p4 --app <dir> | ovs [128|4] | ovs4 | 128 | 4] [--force]"
+             err "   the default plane is OVS: bare 'ndt up' is 'ndt up ovs' (128 hosts)."
+             err "   OVS builds only 128 or 4. For any other size, name the plane: ndt up p4 ${1:-N}"
+             exit 2
+@@ -10119,6 +10511,9 @@ usage: ndt <command>
+                   ndt up p4 4       p4 at 4 hosts   (rewrites host_count_override)
+                   ndt up p4 128     p4 at 128 hosts
+                   ndt up p4 --app <dir>   p4 on an APP PACKAGE
++                  ndt up <any of the above> --force
++                                    the same, past somebody else's claim or a
++                                    measurement in flight -- and written down
+                 OVS builds only 128 or 4 -- each is a different ndtwin-lab verb, not a
+                 parameter. For any other size, name the plane: 'ndt up p4 N'.
+                 NDT_TOPO=<file> forces a specific kernel model.
+@@ -10155,6 +10550,16 @@ usage: ndt <command>
+                   model of a different network (H4). An --app package that did not
+                   pass tools/p4_exercise/preflight.py is 5 for the same reason: the
+                   table is printed and nothing is built. 2 is a usage error.
++                  🔴 THE CLAIM AND THE MEASUREMENT ARE REFUSED BY ONE GUARD, before
++                  anything is written -- on OVS only since 2026-09-25: until then
++                  'ndt up ovs' built a fabric under somebody else's claim and exited
++                  0 (ndt serve round, 09-24 22:49). --force is the way past exactly
++                  those two, on BOTH planes, and every use of it is one line in
++                  .test_run/lab.claim.overrides -- who, when, whose claim, what was
++                  running; 'ndt status' shows the last one as its override row. A
++                  --force whose line cannot be written is refused, 5. It is not a
++                  way past the other refusals: a teardown in flight is a wait, and
++                  H4 and a failed --app pre-flight are about the files named.
+                   🔴 1 AND 5 ARE DIFFERENT QUESTIONS. 1 says this command looked at the
+                   machine and did not like what it found; 5 says it never looked. When
+                   both are true at once -- a teardown in flight AND a port held -- the
+@@ -10192,6 +10597,14 @@ usage: ndt <command>
+                   ROLE-12's own table carries the pair it separates: two live OVS
+                   teardowns and one already-down lab, rc 0 for all three, and only
+                   the log could tell the third from the other two.
++                  🔴 A STALE registry entry -- a pidfile whose pid is gone, and whose
++                  process group, where one is recorded, has no process left -- is not
++                  something to tear down: this command REMOVES it (for an app, after
++                  writing the app's window to .test_run/apps/<app>.window), names it,
++                  and still answers 3 when nothing else was up. Identity is pid plus
++                  argv, read from /proc; a pid that is gone while its group is alive
++                  is NOT stale and is kept. Until 09-25 one such file (app_viz.pid,
++                  from 09-14) made every down of a down lab answer 0. (Adam, 09-25)
+                   5 A GUARD REFUSED and nothing was torn down: the lab is claimed by
+                   somebody else, the claim DECLARES a measurement in progress, a
+                   measurement is in flight, or another 'ndt down' from this checkout
+@@ -10252,6 +10665,11 @@ usage: ndt <command>
+                   round -- exactly when a rule is most likely to be left on the wire
+                   with no process to attribute it to. Read the rules-in-window ROW, not the
+                   exit code, when the record row says none. (F2, 2026-09-11)
++                  a pidfile naming a process that is gone is marked STALE: the
++                  pidfiles row for the stack's own files (a --check problem, as
++                  since 09-11), the apps block for app_*.pid (a mark, NOT a --check
++                  problem). 'ndt down' removes both. The override row is the last
++                  'ndt up --force' and whose claim it went past. (Adam, 2026-09-25)
+   clean         just the teardown assertion
+                   exit 0 it had something to be about and none of it is residue; 1
+                   something was MEASURED and is still there -- a switch, a host or
+@@ -10259,6 +10677,9 @@ usage: ndt <command>
+                   port this user could not read, because unknown is never clean;
+                   3 THERE WAS NOTHING TO JUDGE: no fabric, nothing in
+                   .test_run/pids/, and no port in ports.sh's table held.
++                  A STALE entry in .test_run/pids/ (see down) is nothing here as
++                  well: it is named under the verdict and left for 'ndt down' to
++                  remove, because this command is an assertion. (Adam, 2026-09-25)
+                   🔴 3 IS NOT A CLEAN BILL OF HEALTH, and until 09-12 this command
+                   answered 0 in that state -- the same byte, to a script, as a
+                   teardown that removed ten switches and proved them gone, on a
+@@ -10337,6 +10758,8 @@ usage: ndt <command>
+   .test_run/pids/ is shared, so 'down' kills whoever is registered there.
+   Declare yourself before a long run -- any script can just write .test_run/lab.claim:
+       owner=<name>   expires=<unix seconds>   note=<optional>
++  'ndt up' refuses over somebody else's claim on both planes (rc 5); 'ndt up ... --force'
++  goes past it, and every use is appended to .test_run/lab.claim.overrides.
+ 
+   WHAT A CLAIM DOES NOT COVER, measured 2026-09-11 (ROLE-4 T4):
+     a claim only blocks the 'ndt' verbs. It is not the northbound API and it is not

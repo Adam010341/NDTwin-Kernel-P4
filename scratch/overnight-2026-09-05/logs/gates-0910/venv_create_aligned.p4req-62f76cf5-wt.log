@@ -1,0 +1,116 @@
+# venv-aligned creation; worktree HEAD 62f76cf58b042c93f6a5adb0aa3a499105e8bd66 + UNCOMMITTED p4_proxy/requirements.txt sha256 0d9c88d666ed7831763c7725716df057543794e55e98527142f4dee20f8d9d1e
+# interpreter /home/adam/miniconda3/bin/python3.13  2026-09-25T04:58:33Z
+# $ /home/adam/miniconda3/bin/python3 -m venv /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-aligned
+# $ /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-aligned/bin/pip install -r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/requirements.txt
+Collecting grpcio==1.82.1 (from -r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/requirements.txt (line 21))
+  Using cached grpcio-1.82.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (3.7 kB)
+Collecting protobuf==3.20.3 (from -r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/requirements.txt (line 35))
+  Using cached protobuf-3.20.3-py2.py3-none-any.whl.metadata (720 bytes)
+Collecting p4runtime==1.5.0 (from -r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/requirements.txt (line 36))
+  Using cached p4runtime-1.5.0-py3-none-any.whl.metadata (10 kB)
+Collecting googleapis-common-protos==1.73.0 (from -r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/requirements.txt (line 43))
+  Using cached googleapis_common_protos-1.73.0-py3-none-any.whl.metadata (9.4 kB)
+Collecting fastapi==0.139.2 (from -r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/requirements.txt (line 45))
+  Downloading fastapi-0.139.2-py3-none-any.whl.metadata (26 kB)
+Collecting uvicorn==0.51.0 (from -r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/requirements.txt (line 46))
+  Downloading uvicorn-0.51.0-py3-none-any.whl.metadata (6.6 kB)
+Collecting networkx==3.6.1 (from -r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/requirements.txt (line 47))
+  Downloading networkx-3.6.1-py3-none-any.whl.metadata (6.8 kB)
+Collecting requests==2.34.2 (from -r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/requirements.txt (line 51))
+  Downloading requests-2.34.2-py3-none-any.whl.metadata (4.8 kB)
+Collecting hypothesis==6.165.5 (from -r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/requirements.txt (line 56))
+  Downloading hypothesis-6.165.5-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (5.7 kB)
+Collecting thrift==0.24.0 (from -r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/requirements.txt (line 83))
+  Downloading thrift-0.24.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (2.7 kB)
+Collecting typing-extensions~=4.12 (from grpcio==1.82.1->-r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/requirements.txt (line 21))
+  Using cached typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+Collecting starlette>=0.46.0 (from fastapi==0.139.2->-r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/requirements.txt (line 45))
+  Downloading starlette-1.7.0-py3-none-any.whl.metadata (6.6 kB)
+Collecting pydantic>=2.9.0 (from fastapi==0.139.2->-r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/requirements.txt (line 45))
+  Downloading pydantic-2.13.5-py3-none-any.whl.metadata (110 kB)
+Collecting typing-inspection>=0.4.2 (from fastapi==0.139.2->-r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/requirements.txt (line 45))
+  Downloading typing_inspection-0.4.4-py3-none-any.whl.metadata (2.6 kB)
+Collecting annotated-doc>=0.0.2 (from fastapi==0.139.2->-r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/requirements.txt (line 45))
+  Downloading annotated_doc-0.0.5-py3-none-any.whl.metadata (6.5 kB)
+Collecting click>=7.0 (from uvicorn==0.51.0->-r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/requirements.txt (line 46))
+  Downloading click-8.5.0-py3-none-any.whl.metadata (2.6 kB)
+Collecting h11>=0.8 (from uvicorn==0.51.0->-r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/requirements.txt (line 46))
+  Downloading h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)
+Collecting charset_normalizer<4,>=2 (from requests==2.34.2->-r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/requirements.txt (line 51))
+  Downloading charset_normalizer-3.5.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (45 kB)
+Collecting idna<4,>=2.5 (from requests==2.34.2->-r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/requirements.txt (line 51))
+  Downloading idna-3.20-py3-none-any.whl.metadata (7.2 kB)
+Collecting urllib3<3,>=1.26 (from requests==2.34.2->-r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/requirements.txt (line 51))
+  Downloading urllib3-2.8.0-py3-none-any.whl.metadata (7.4 kB)
+Collecting certifi>=2023.5.7 (from requests==2.34.2->-r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/requirements.txt (line 51))
+  Downloading certifi-2026.7.22-py3-none-any.whl.metadata (2.5 kB)
+Collecting sortedcontainers<3.0.0,>=2.1.0 (from hypothesis==6.165.5->-r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/requirements.txt (line 56))
+  Downloading sortedcontainers-2.4.0-py2.py3-none-any.whl.metadata (10 kB)
+Collecting annotated-types>=0.6.0 (from pydantic>=2.9.0->fastapi==0.139.2->-r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/requirements.txt (line 45))
+  Downloading annotated_types-0.8.0-py3-none-any.whl.metadata (15 kB)
+Collecting pydantic-core==2.46.5 (from pydantic>=2.9.0->fastapi==0.139.2->-r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/requirements.txt (line 45))
+  Downloading pydantic_core-2.46.5-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (6.6 kB)
+Collecting anyio<5,>=4.0.0 (from starlette>=0.46.0->fastapi==0.139.2->-r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/p4_proxy/requirements.txt (line 45))
+  Downloading anyio-4.15.1-py3-none-any.whl.metadata (4.7 kB)
+Downloading grpcio-1.82.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (6.9 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.9/6.9 MB 5.5 MB/s  0:00:01
+Downloading protobuf-3.20.3-py2.py3-none-any.whl (162 kB)
+Downloading p4runtime-1.5.0-py3-none-any.whl (45 kB)
+Downloading googleapis_common_protos-1.73.0-py3-none-any.whl (297 kB)
+Downloading fastapi-0.139.2-py3-none-any.whl (130 kB)
+Downloading uvicorn-0.51.0-py3-none-any.whl (73 kB)
+Downloading networkx-3.6.1-py3-none-any.whl (2.1 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 7.6 MB/s  0:00:00
+Downloading requests-2.34.2-py3-none-any.whl (73 kB)
+Downloading hypothesis-6.165.5-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (1.2 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.2/1.2 MB 6.5 MB/s  0:00:00
+Downloading thrift-0.24.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (541 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 541.1/541.1 kB 2.2 MB/s  0:00:00
+Downloading charset_normalizer-3.5.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (250 kB)
+Downloading idna-3.20-py3-none-any.whl (69 kB)
+Downloading sortedcontainers-2.4.0-py2.py3-none-any.whl (29 kB)
+Downloading typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+Downloading urllib3-2.8.0-py3-none-any.whl (135 kB)
+Downloading annotated_doc-0.0.5-py3-none-any.whl (5.3 kB)
+Downloading certifi-2026.7.22-py3-none-any.whl (136 kB)
+Downloading click-8.5.0-py3-none-any.whl (125 kB)
+Downloading h11-0.16.0-py3-none-any.whl (37 kB)
+Downloading pydantic-2.13.5-py3-none-any.whl (472 kB)
+Downloading pydantic_core-2.46.5-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.1 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 7.1 MB/s  0:00:00
+Downloading annotated_types-0.8.0-py3-none-any.whl (13 kB)
+Downloading starlette-1.7.0-py3-none-any.whl (78 kB)
+Downloading anyio-4.15.1-py3-none-any.whl (132 kB)
+Downloading typing_inspection-0.4.4-py3-none-any.whl (14 kB)
+Installing collected packages: thrift, sortedcontainers, urllib3, typing-extensions, protobuf, networkx, idna, hypothesis, h11, click, charset_normalizer, certifi, annotated-types, annotated-doc, uvicorn, typing-inspection, requests, pydantic-core, grpcio, googleapis-common-protos, anyio, starlette, pydantic, p4runtime, fastapi
+
+Successfully installed annotated-doc-0.0.5 annotated-types-0.8.0 anyio-4.15.1 certifi-2026.7.22 charset_normalizer-3.5.1 click-8.5.0 fastapi-0.139.2 googleapis-common-protos-1.73.0 grpcio-1.82.1 h11-0.16.0 hypothesis-6.165.5 idna-3.20 networkx-3.6.1 p4runtime-1.5.0 protobuf-3.20.3 pydantic-2.13.5 pydantic-core-2.46.5 requests-2.34.2 sortedcontainers-2.4.0 starlette-1.7.0 thrift-0.24.0 typing-extensions-4.16.0 typing-inspection-0.4.4 urllib3-2.8.0 uvicorn-0.51.0
+# rc=0
+# pip check:
+No broken requirements found.
+# pip freeze:
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anyio==4.15.1
+certifi==2026.7.22
+charset-normalizer==3.5.1
+click==8.5.0
+fastapi==0.139.2
+googleapis-common-protos==1.73.0
+grpcio==1.82.1
+h11==0.16.0
+hypothesis==6.165.5
+idna==3.20
+networkx==3.6.1
+p4runtime==1.5.0
+protobuf==3.20.3
+pydantic==2.13.5
+pydantic_core==2.46.5
+requests==2.34.2
+sortedcontainers==2.4.0
+starlette==1.7.0
+thrift==0.24.0
+typing-inspection==0.4.4
+typing_extensions==4.16.0
+urllib3==2.8.0
+uvicorn==0.51.0

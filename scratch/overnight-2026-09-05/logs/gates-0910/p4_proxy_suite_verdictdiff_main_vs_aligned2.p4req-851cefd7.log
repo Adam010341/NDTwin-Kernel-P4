@@ -1,0 +1,4 @@
+# HEAD 851cefd79e26ee2fb481e461a7bd77ebaeb5b329  A=main venv /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv  B=aligned2 venv /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-aligned2  2026-09-25T09:36:10Z
+# $ diff /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4_proxy_suite_verdicts_main.p4req-851cefd7.tsv /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4_proxy_suite_verdicts_aligned2.p4req-851cefd7.tsv
+
+# diff lines (<,>): 0

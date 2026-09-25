@@ -1,0 +1,7 @@
+test_ovs_claim: Ran 156 checks, 0 failed guarded_build: exit 0 # rc=0 
+mutate_ovs_claim: mutation gate: 35 mutations, 0 survived; 3 control(s), 0 went red guarded_build: exit 0 # rc=0 
+test_robust: 424 passed, 0 failed guarded_build: exit 0 # rc=0 
+test_apps_window: Ran 150 checks, 1 failed guarded_build: exit 1 # rc=1 
+anchors: 117/117 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL) guarded_build: exit 0 # rc=0 
+tracked changes after: 0
+DONE

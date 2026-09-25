@@ -1,0 +1,1 @@
+7cc50b42 CANDIDATE, not for merge without a live run: protobuf 5.29.6 for the P4 proxy, with p4runtime's generated modules regenerated at install

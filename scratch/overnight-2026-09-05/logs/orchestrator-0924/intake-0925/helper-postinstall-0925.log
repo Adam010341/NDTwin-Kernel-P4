@@ -1,0 +1,12 @@
+# installed sha256 6a558fe452955de358fd1a3b4e730fe2be55368a6c90b93675c5442c036fd4fb trunk 377a1271e93ff0f315689fc50e69b673fc3a9731 2026-09-25T19:34:32+08:00
+## check 1: no fabric, heartbeat status (want rc 3)
+heartbeat: not running
+report: none (no heartbeat has run since boot)
+# rc=3
+## check 2: no fabric, heartbeat start (want rc 1, names the topo session)
+ndtwin-lab heartbeat: refusing to start: no fabric is running (there is no topo session; 'sudo ndtwin-lab topo-start' first)
+# rc=1
+## after: heartbeat status (want rc 3, nothing left running)
+heartbeat: not running
+report: none (no heartbeat has run since boot)
+# rc=3

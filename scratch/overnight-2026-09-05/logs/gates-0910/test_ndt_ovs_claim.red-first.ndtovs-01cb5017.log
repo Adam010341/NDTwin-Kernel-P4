@@ -1,0 +1,215 @@
+01cb501709136596509cf556dca616b32484a200
+# gate    : new offline suite, RED FIRST (tests committed, ndt unchanged)
+# cmd     : (cwd worktree) JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash tests/shell/test_ndt_ovs_claim.sh
+# worktree: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-ovs-claim-0925
+# branch  : fix/ndt-ovs-claim-0925
+# start   : 2026-09-25T13:07:43+08:00
+# ndt sha256: cb134ccc7af9577a  (blob 3273df8b0751a777aa26e843752d97782868e771)
+# dirty tracked at start: 0
+
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/test_ndt_ovs_claim.sh
+
+1. 🔴 'ndt up ovs' under somebody else's claim: rc 5, and nothing is half-built
+  FAILED   🔴 a foreign claim refuses the OVS bring-up with 5
+             expected: [5]  actual: [1]
+  FAILED     it says it is refusing to build
+             no match for 'refusing to build: the lab is claimed by other-session'
+  FAILED   🔴 NOTHING was reached: no sudo, no stack.sh, no target, no temp, knob kept
+             expected: [sudo=0 stack=0 target=0 tmp=0 knob=kept]  actual: [sudo=3 stack=2 target=1 tmp=0 knob=cleared]
+  ok         the claim file is byte-identical
+  ok         and no override was recorded -- none was asked for
+  FAILED     the bring-up banner never printed
+             unexpected '[1/4] control plane (Ryu)' in the output
+  FAILED     the retry line carries the BARE owner
+             no match for 'NDT_OWNER=other-session ndt up ovs 4'
+  ok         🔴 and not the parenthesised description
+  FAILED     and names the override, with where it is recorded
+             no match for 'ndt up ovs 4 --force'
+  FAILED     saying where the override would be written
+             no match for '.test_run/lab.claim.overrides'
+  FAILED     a foreign claim with measuring= is still 5
+             expected: [5]  actual: [1]
+  FAILED     and quotes the declaration
+             no match for 'measuring=sampling matrix, cell 3/8'
+  FAILED     'ndt up' (OVS 128) is refused the same way
+             expected: [5]  actual: [1]
+  ok         and reached nothing
+  FAILED   🔴 NDT_OWNER unset: any live claim refuses
+             expected: [5]  actual: [1]
+  FAILED     and reached nothing
+             expected: [sudo=0 stack=0 target=0 tmp=0 knob=kept]  actual: [sudo=3 stack=2 target=1 tmp=0 knob=cleared]
+
+2. 🔴 'ndt up ovs' with a measurement in flight: rc 5, P4's semantics
+  FAILED   🔴 a measurement in flight refuses the OVS bring-up
+             expected: [5]  actual: [1]
+  FAILED     it says a measurement is running
+             no match for 'a measurement is running'
+  FAILED     naming what is running
+             no match for 'iperf3 -c 10.0.0.2 -t 200 -P 4'
+  FAILED     and reached nothing
+             expected: [sudo=0 stack=0 target=0 tmp=0 knob=kept]  actual: [sudo=3 stack=2 target=1 tmp=0 knob=cleared]
+  FAILED     and names the override
+             no match for 'ndt up ovs 4 --force'
+
+3. 🔴 the controls -- a guard that refuses everything guards nothing
+  ok       our own live claim is not a refusal
+  ok         the bring-up ran
+  ok       🔴 stack.sh WAS invoked -- the instrument can read non-zero
+  ok         and the fabric verb WAS run
+  ok         and the knob WAS cleared -- that column can move too
+  ok         and up.target WAS written
+  ok         and no override is recorded for a bring-up that needed none
+  ok       an EXPIRED claim is not a refusal
+  ok         the bring-up ran
+  ok       no claim and nothing running is not a refusal
+  ok         the bring-up ran
+
+4. 🔴 --force builds, and every use of it is written down
+  ok       --force is not refused
+  ok         the fabric was built
+  FAILED     it says out loud it is building over the claim
+             no match for '--force: building over the claim of other-session'
+  FAILED   🔴 exactly one override is recorded
+             expected: [1]  actual: [0]
+  FAILED     who: the NDT_OWNER that forced it
+             expected: [ovs-claim-worker]  actual: []
+  FAILED     🔴 whose claim was overridden
+             expected: [other-session]  actual: []
+  FAILED     that claim's expiry, as it was
+             expected: [1790314663]  actual: []
+  FAILED     what that claim declared
+             expected: [reader nsr]  actual: []
+  FAILED     when: a timestamp with a date and an offset
+             expected: [yes]  actual: [no]
+  FAILED     and the command it forced
+             no match for 'up ovs 4 --force'
+  FAILED     which login ran it
+             expected: [adam]  actual: []
+  FAILED   🔴 --force over a measurement in flight is recorded too, and APPENDED
+             expected: [2]  actual: [0]
+  ok         the first record is untouched
+  FAILED     with no claim to name, 'over' says so
+             expected: [none]  actual: []
+  FAILED     and it names what was running
+             no match for 'matrix.sh cell 4'
+  ok       --force over nothing records nothing
+  ok         and the bring-up still ran
+  FAILED   🔴 --force whose record cannot be written is refused
+             expected: [5]  actual: [1]
+  FAILED     and says why
+             no match for 'could not be recorded'
+  FAILED     and reached nothing
+             expected: [sudo=0 stack=0 target=0 tmp=0 knob=kept]  actual: [sudo=3 stack=2 target=1 tmp=0 knob=cleared]
+
+5. 🔴 P4 goes through the SAME guard, with the same flag and the same record
+  ok       🔴 a foreign claim still refuses the P4 bring-up with 5
+  FAILED     with the same sentence as OVS
+             no match for 'refusing to build: the lab is claimed by other-session'
+  ok         and reached nothing
+  FAILED     and names the same override
+             no match for 'ndt up p4 4 --force'
+  ok         a measurement in flight still refuses P4 with 5
+  FAILED   --force builds P4 over a foreign claim
+             expected: [no]  actual: [yes]
+  FAILED     the fabric was started
+             no match for 'topo-start'
+  FAILED     and the override is recorded
+             expected: [1]  actual: [0]
+  FAILED     naming whose claim
+             expected: [other-session]  actual: []
+  FAILED     and the P4 command
+             no match for 'up p4 4 --force'
+  FAILED   🔴 neither bring-up calls foreign_claim itself
+             expected: [0]  actual: [1]
+  FAILED     and each calls the shared guard exactly once
+             expected: [2]  actual: [0]
+
+6. the flag is argv, parsed once for both planes, and an exported variable is not it
+  FAILED   --force is taken off argv and sets the flag
+             no match for 'force=[1] argv=[ovs 4]'
+  FAILED     and the words to retry with do not carry it
+             no match for 'words=[ovs 4]'
+  FAILED     in any position
+             no match for 'force=[1] argv=[p4 4]'
+  FAILED   🔴 an exported NDT_UP_FORCE without the flag forces nothing
+             no match for 'force=[]'
+
+7. 'ndt help' tells the truth about it
+  FAILED   the up block names the override
+             no match for 'ndt up <any of the above> --force'
+  FAILED     and where it is recorded
+             no match for '.test_run/lab.claim.overrides'
+  ok         rc 5 still names a foreign claim among its causes
+  FAILED     and says it is BOTH planes now
+             no match for 'on BOTH planes'
+  FAILED   the down block says a stale entry is not a subject
+             no match for 'STALE'
+  FAILED   🔴 'ndt status' shows the last override
+             no match for '--force'
+  FAILED     naming who forced past whom
+             no match for 'ovs-claim-worker over other-session'
+
+8. 🔴 a stale pidfile: 'ndt status' marks it
+  FAILED   🔴 a dead app pidfile is marked STALE
+             no match for 'STALE'
+  FAILED     naming the file
+             no match for '.test_run/pids/app_viz.pid'
+  FAILED     and the pid that is gone
+             no match for 'pid 107401 gone'
+  FAILED     and what removes it
+             no match for ''ndt down' removes it'
+  FAILED   🔴 and 'ndt status' itself prints that row (existence is not wiring)
+             no match for 'STALE -- .test_run/pids/app_viz.pid'
+  ok       a dead stack pidfile is still marked stale
+  ok       🔴 a pidfile naming a LIVE viz is not stale
+  ok       🔴 pid gone but its process group alive: NOT stale
+  FAILED     and it says the group is still there
+             no match for 'process group 107560 still has live member(s)'
+  FAILED   🔴 a pid alive as somebody else is STALE (pid + argv, not the number)
+             no match for 'STALE'
+  FAILED     and it says the number was recycled
+             no match for 'recycled'
+
+9. 🔴 a stale pidfile: 'ndt down' removes it, and a down lab still answers 3
+  FAILED   🔴 an already-down lab with a stale pidfile is rc 3, not 0
+             expected: [3]  actual: [0]
+  FAILED     and the verdict line says what it measured
+             expected: [1]  actual: [0]
+  FAILED   🔴 the stale pidfile is GONE
+             expected: [absent]  actual: [present]
+  FAILED     and its .pgid with it
+             expected: [absent]  actual: [present]
+  FAILED     it says it removed it, and why
+             no match for 'removed stale .test_run/pids/app_viz.pid -- pid 107607 gone'
+  FAILED   🔴 the app's window was written down before the file went
+             expected: [1789365600]  actual: []
+  FAILED   🔴 down again: rc 3
+             expected: [3]  actual: [0]
+  ok         and nothing left to remove
+  FAILED     a dead kernel.pid on a down lab: rc 3
+             expected: [3]  actual: [0]
+  FAILED     and it is removed
+             expected: [absent]  actual: [present]
+  ok       🔴 a LIVE pidfile is kept
+  ok         and is a subject: rc 0, not 3
+  ok       🔴 pid gone, group alive: the pidfile is KEPT
+  ok         and it is still a subject: not 3
+  ok         an UNUSABLE pidfile is not called stale and not removed by the sweep
+  ok         under a foreign claim 'down' is still 5
+  ok         and leaves even the stale file where it is
+
+10. 'ndt clean' reads the registry the same way
+  FAILED   🔴 only a stale entry: nothing to judge, rc 3
+             expected: [3]  actual: [0]
+  FAILED     and it does not pretend the registry is empty
+             no match for 'STALE'
+  ok         clean does not remove it -- it is an assertion
+  ok         a LIVE registry entry is still a subject: rc 0
+
+Ran 107 checks, 70 failed
+guarded_build: exit 1
+
+# rc=1
+# end 2026-09-25T13:07:47+08:00  /tmp/ndt-ovs-claim-* after: 0
+# dirty tracked at end: 0

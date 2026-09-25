@@ -1,0 +1,20 @@
+# HEAD 55cebe6c2c67b8f5187c7b3d420ce7c4bb9a98cd  interpreter /home/adam/miniconda3/bin/python3.13 (/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-pb5regen)  2026-09-25T05:07:30Z
+# grpcio-tools 1.71.2, protoc libprotoc 29.0
+# $ PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-pb5regen/bin/python regen_p4runtime_pb2.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/regen-work
+descriptor google/protobuf/any.proto        from /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-pb5regen/lib/python3.13/site-packages/google/protobuf/any_pb2.py
+descriptor google/rpc/status.proto          from /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-pb5regen/lib/python3.13/site-packages/google/rpc/status_pb2.py
+descriptor p4/config/v1/p4types.proto       from /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-pb5regen/lib/python3.13/site-packages/p4/config/v1/p4types_pb2.py
+descriptor p4/config/v1/p4info.proto        from /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-pb5regen/lib/python3.13/site-packages/p4/config/v1/p4info_pb2.py
+descriptor p4/v1/p4data.proto               from /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-pb5regen/lib/python3.13/site-packages/p4/v1/p4data_pb2.py
+descriptor p4/v1/p4runtime.proto            from /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-pb5regen/lib/python3.13/site-packages/p4/v1/p4runtime_pb2.py
+$ /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-pb5regen/bin/python -m grpc_tools.protoc --descriptor_set_in=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/regen-work/p4runtime.fds --python_out=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/regen-work/gen --grpc_python_out=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/regen-work/gen p4/config/v1/p4types.proto p4/config/v1/p4info.proto p4/v1/p4data.proto p4/v1/p4runtime.proto
+replaced config/v1/p4types_pb2.py         d436ed076b7ffb99 -> e91d6496f08e543e
+replaced config/v1/p4types_pb2_grpc.py    d686e804f1716931 -> ef4a945f3fd81528
+replaced config/v1/p4info_pb2.py          acc7feeb96762287 -> 355f066c05b89fdc
+replaced config/v1/p4info_pb2_grpc.py     d686e804f1716931 -> badda8ba84ba9570
+replaced v1/p4data_pb2.py                 e12b7b17ab700f94 -> da869f059d708f8c
+replaced v1/p4data_pb2_grpc.py            d686e804f1716931 -> 3dbf6a108642d3d5
+replaced v1/p4runtime_pb2.py              3bd1a8991d852314 -> 0a28fb85ff369a5c
+replaced v1/p4runtime_pb2_grpc.py         9c4d058515a16d2c -> 5e060258fdf6e465
+done
+# rc=0

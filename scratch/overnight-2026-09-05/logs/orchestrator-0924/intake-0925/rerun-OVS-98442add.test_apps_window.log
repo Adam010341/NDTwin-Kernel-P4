@@ -1,0 +1,188 @@
+# HEAD 98442add6ed344a4e60c4346147f35c120a31e06 2026-09-25T12:22:57Z
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/test_ndt_helper_apps_window.sh
+
+1. the helper's KERNEL_DIR, resolved read-only -- and pinned to the helper's own source
+  ok       🔴 ndt's default KERNEL_DIR is the helper's default
+  ok       🔴 ndt's config path is the helper's config path
+  ok         and neither is empty
+  ok       🔴 the helper writes sim's log under its own KERNEL_DIR
+  FAILED   🔴 the installed helper is the copy this suite read
+             expected: [6685d3a90fd94884f8fa72916c4d03716fb62d86eae0a124750aa892d05f9e24]  actual: [6a558fe452955de358fd1a3b4e730fe2be55368a6c90b93675c5442c036fd4fb]
+  ok       no config file at all -> the built-in default
+  ok         and it says so
+  ok       🔴 a config this user owns is REFUSED (it is not root's)
+  ok         and the refusal is named, not silent
+  ok         lab_conf_trusted says no to it
+  ok       🔴 a symlink is refused rather than followed
+  ok         a missing file is refused
+  ok       🔴 control: a real root-owned, non-writable path IS trusted
+
+2. the parser: what a TRUSTED file would set, and what it refuses to set
+  ok       a well-formed KERNEL_DIR is adopted
+  ok         other known keys do not disturb it
+  ok       🔴 an unknown key sets NOTHING (the helper refuses the whole file)
+  ok       🔴 a relative KERNEL_DIR sets nothing
+  ok       🔴 a path containing '..' sets nothing
+  ok       🔴 a KERNEL_DIR that is not a directory sets nothing
+  ok       🔴 a tree with no ntg_bmv2_topo.py sets nothing (the helper checks this too)
+
+3. app_evidence_log: which log answers 'did it ever run HERE'
+  ok       te's log is the one WE write
+  ok       nsr's too
+  ok       🔴 sim's log is the helper's, not ours
+  ok       🔴 and it is NOT under this checkout
+  ok         it follows a config file that moves the tree
+  ok       🔴 energy has NO log channel at all -> rc 1
+  ok         and prints nothing to be mistaken for a path
+
+4. app_start writes the pidfile it just verified (E-8 point 1)
+  ok       start of a helper app that comes up -> rc 0
+  ok         and it asked the lab to start it
+  ok       🔴 the pidfile now exists
+  ok       🔴 and it names the pid the scan verified
+  ok       🔴 which app_pidfile_pid accepts
+  ok       🔴 a start nothing came up for -> rc 1
+  ok       🔴 and writes NO pidfile
+  ok       a lab that refuses the request -> rc 1
+  ok         and no pidfile for it either
+
+5. app_started_at falls back to the live process (E-8 point 2)
+  ok       🔴 a live process with no pidfile still has a window
+  ok         and the window starts when the process did (within 30s of now)
+  ok       🔴 nothing running and no pidfile -> still no window, not a made-up one
+  ok       🔴 with two live pids the window opens at the OLDER one
+
+6. the sentence that was printed about a running app (E-8 point 4)
+  ok       🔴 it does NOT say 'no pidfile and no live process' about a running app
+  ok       🔴 it says the app is running and names the pid
+  ok         and that this is not 'left nothing'
+  ok       control: with nothing running it still says so
+
+7. energy: 'cannot be asked' must not look like 'never ran' (E-8 point 3/5)
+  ok       🔴 it says the question cannot be asked
+  ok         and why: the helper keeps no log for it
+  ok       🔴 and never says 'no sign it ever ran here'
+  ok         counted as unknowable, not as blind
+  ok       🔴 and it is NOT red (nobody can act on it) -- rc 0
+  ok       🔴 the --check row says an app could not be asked
+  ok         and names it
+  ok         while still reporting the clean part as clean
+
+8. sim: the window comes from the HELPER's tree, not from ours
+  ok       🔴 an empty log in the HELPER's tree reads as 'never ran here'
+  ok         and the report says which file it read
+  ok       🔴 a non-empty log in the helper's tree means it RAN here
+  ok         counted as blind
+  ok       🔴 and that is rc 5 -- not checked, not clean
+
+9. 'apps stop sim' reports on a window it can still see
+  ok       the app really was stopped -> rc 0
+  ok       🔴 and the residue report has a window for it
+  ok       🔴 not 'no window, so no rule can be dated'
+  ok         so the rules in that window were listed
+  ok       🔴 and the pidfile is gone afterwards, so the window closes
+  ok         a later run sees the window that stop recorded
+  ok       🔴 and reports it as closed, not open to now
+  ok         nothing windows a stopped app up to now
+
+9B. the window a stop that found NOTHING has to report -- and only RESIDUE_WINDOW has it
+  ok       a stop that found nothing -> rc 2
+  ok         and it says it discarded the pidfile
+  ok       🔴 and the residue report still has a window for it
+  ok         so the rule inside it was listed
+  ok       🔴 and NO record was written -- this stop verified nothing
+
+10. the shape lw351 found: a helper app is TWO processes, and it is tracked
+  ok       the fixture really is two processes
+  ok         in one process group led by the parent
+  ok         and BOTH answer to the app's signature
+  ok       app_probe calls a two-layer sim running
+  ok       🔴 the group channel really finds the wrapper
+  ok       🔴 a tracked, running sim is NOT an orphan -- rc 0
+  ok       🔴 and it is not called 'children with no pidfile'
+  ok         nor is the pidfile's own pid listed as untracked
+  ok         the verb still answers about processes
+  ok       🔴 control: untracked children still exit 1
+  ok         and are still called that
+  ok         naming the pid the group channel found
+  ok       stopping a running two-layer sim -> rc 0
+  ok       🔴 it says what the app WAS: running
+  ok       🔴 not 'was: not-running' about an app it stopped
+  ok         and both layers are gone
+
+11. 3-51c: reading a log, truncating it, and looking into a process are three permissions
+  ok       🔴 trim cannot truncate a root-owned log -> rc 1
+  ok       🔴 trim names the owner and the remedy
+  ok       🔴 and never reports a truncate it did not do
+  ok         the log is byte-for-byte untouched
+  ok       🔴 and no .tail was written before the refusal
+  ok       a log this user owns but cannot write -> rc 1 too
+  ok       🔴 but it is NOT blamed on root
+  ok         it says what is actually wrong
+  ok       🔴 control: a log this user CAN truncate is still trimmed -- rc 0
+  ok         and says so
+  ok         the log really is empty now
+  ok         and the tail was kept
+  ok       🔴 apps status says the log is root's
+  ok         while still printing the size it COULD read
+  ok       🔴 control: a writable log gets no such row
+  ok         and no refusal of any other kind
+  ok       the control process is ours and alive
+  ok       🔴 app_fd_readable is true for a process this user owns
+  ok       🔴 and false for a real root process on this machine
+  ok         whose uid /proc still tells us, because status is world-readable
+  ok       🔴 the fd channel reports that it could not look, and names the pid
+  ok       🔴 app_survivors keeps it as blindness, not as an empty channel
+  ok         'apps orphans' still exits 1 over an untracked process
+  ok       🔴 and prints the blindness instead of dropping it once it found something
+  ok         saying what that does to the number it just reported
+  ok       🔴 control: no blindness is invented for a process we can look inside
+  ok         and nothing is printed about it
+  ok       🔴 control: 'apps orphans' says nothing about fd blindness there
+
+12. F3: the window outlives the process that read it
+  ok       the app really was stopped -> rc 0
+  ok       🔴 the stop left a window record on disk
+  ok         it carries a start and an end, both epoch seconds
+  ok       🔴 the start is the window the stop read, not the moment it wrote the file
+  ok       🔴 a later process still has a window for sim
+  ok       🔴 not 'the window is LOST' any more
+  ok         and it names the file the window came from
+  ok         and says the window is closed, not open to now
+  ok         nothing was counted as blind over it
+  ok       🔴 a rule installed INSIDE the closed window is listed
+  ok         and that is residue -- rc 4
+  ok       🔴 a rule installed AFTER it closed is NOT this app's
+  ok         so the report says nothing arrived in that window
+  ok         and the verdict is clean -- rc 0
+  ok       a start of the same app -> rc 0
+  ok       🔴 and it cleared the window its last stop left
+  ok       control: no record for an app nobody stopped
+
+12C. RESIDUE-1: a pidfile whose process is gone does NOT window to now
+  ok       🔴 the window has a right edge
+  ok       🔴 and does not run to now
+  ok         and it says where that edge came from
+  ok       🔴 a rule installed after the app exited is not framed by it
+  ok         so the report says nothing arrived in that window
+  ok       🔴 and the verdict is clean -- rc 0, not 4
+  ok       🔴 control: a rule installed INSIDE the closed window is still listed
+  ok         and that is still residue -- rc 4
+  ok       🔴 --check raises no problem over a fabric it framed by accident
+  ok       🔴 control: a LIVE pid still windows to now
+  ok         and nothing closed it
+  ok       🔴 no log -> the window has no extent, and the report says so
+  ok         nothing is attributed to it
+  ok       🔴 and that is NOT read as 'it left nothing'
+  ok       🔴 the line after the window line is still the window's answer
+  ok       🔴 a log older than the pidfile does not invert the window
+  ok         and it is named as the same 'nothing can date the end' case
+
+13. this suite reaps its own fixtures
+  ok       no fixture survives this run
+  ok         and neither layer of the two-layer one does
+
+Ran 150 checks, 1 failed
+guarded_build: exit 1
+# rc=1

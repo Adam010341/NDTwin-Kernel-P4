@@ -1,0 +1,43 @@
+6b7fce837d9445e711faeb1c1a98438cdf8815ef
+# gate    : every tests/shell/test_*.sh that drives ndt (grep test_workflow/ndt or NDT_UNDER_TEST), one line each
+# cmd     : (cwd worktree) JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash -c fail=0; for t in $(grep -l "test_workflow/ndt\b\|test_workflow/ndt\"\|NDT_UNDER_TEST" tests/shell/test_*.sh); do out="$(timeout 900 bash "$t" 2>&1)"; rc=$?; printf "%-48s rc=%s  %s\n" "$(basename "$t")" "$rc" "$(grep -E "Ran [0-9]+ checks|[0-9]+ passed, [0-9]+ failed" <<<"$out" | tail -1)"; (( rc != 0 )) && fail=$((fail+1)); done; echo "suite: $fail file(s) red"; (( fail == 0 ))
+# worktree: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-ovs-claim-0925
+# branch  : fix/ndt-ovs-claim-0925
+# start   : 2026-09-25T13:29:07+08:00
+# ndt under test: the worktree file, git hash-object 3a0e66c6e23a13264424ec1c6224e78e830c81ac  (HEAD's blob: 3a0e66c6e23a13264424ec1c6224e78e830c81ac)
+# dirty tracked at start: 0
+
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c fail=0; for t in $(grep -l "test_workflow/ndt\b\|test_workflow/ndt\"\|NDT_UNDER_TEST" tests/shell/test_*.sh); do out="$(timeout 900 bash "$t" 2>&1)"; rc=$?; printf "%-48s rc=%s  %s\n" "$(basename "$t")" "$rc" "$(grep -E "Ran [0-9]+ checks|[0-9]+ passed, [0-9]+ failed" <<<"$out" | tail -1)"; (( rc != 0 )) && fail=$((fail+1)); done; echo "suite: $fail file(s) red"; (( fail == 0 ))
+test_apps_residue.sh                             rc=0  Ran 131 checks, 0 failed
+test_apps_stop_kills_the_group.sh                rc=0  Ran 71 checks, 0 failed
+test_lab_handoff.sh                              rc=0  Ran 18 checks, all passed
+test_log_suffix_idempotent.sh                    rc=0    30 passed, 0 failed
+test_manual_no_stale_in_progress.sh              rc=0  19 passed, 0 failed
+test_manual_rc_table.sh                          rc=0  26 passed, 0 failed
+test_ndt_app_orphans.sh                          rc=0  Ran 103 checks, all passed
+test_ndt_app_package.sh                          rc=0  Ran 395 checks, 0 failed
+test_ndt_apps_liveness.sh                        rc=0  Ran 51 checks, all passed
+test_ndt_check_sample_rate.sh                    rc=0  Ran 39 checks, 0 failed
+test_ndt_down_claim_guard.sh                     rc=0  Ran 41 checks, 0 failed
+test_ndt_down_stops_only_ours.sh                 rc=0  Ran 29 checks, 0 failed
+test_ndt_helper_apps_window.sh                   rc=0  Ran 150 checks, 0 failed
+test_ndt_honesty.sh                              rc=0  Ran 345 checks, 0 failed
+test_ndt_ovs_claim.sh                            rc=0  Ran 109 checks, 0 failed
+test_ndt_round_baseline.sh                       rc=0  Ran 117 checks, 0 failed
+test_ndt_sample_rate_reads_both_bounds.sh        rc=0  Ran 6 checks, 0 failed
+test_ndt_status_check_baseline.sh                rc=0  Ran 104 checks, 0 failed
+test_ndt_status_residue_row.sh                   rc=0  Ran 27 checks, 0 failed
+test_ndt_sudo_surface.sh                         rc=0  Ran 33 checks, 0 failed
+test_ndt_up_down_robust.sh                       rc=0  424 passed, 0 failed
+test_ndt_up_target.sh                            rc=0  Ran 23 checks, 0 failed
+test_orphans_verdict.sh                          rc=0  181 passed, 0 failed
+test_ovs4_sflow_verify.sh                        rc=0  Ran 48 checks, 0 failed
+test_ports_that_block_restart.sh                 rc=0  Ran 18 checks, 0 failed
+test_redirection_order.sh                        rc=0  Ran 48 checks, 0 failed
+suite: 0 file(s) red
+guarded_build: exit 0
+
+# rc=0
+# end 2026-09-25T13:33:04+08:00  /tmp/ndt-ovs-claim-* after: 0
+# dirty tracked at end: 0

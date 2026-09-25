@@ -1,0 +1,33 @@
+32a25b232324272799837b179cb63b78c7007d14
+# 2026-09-25T05:59:27Z worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-0925, branch feat/p4-heartbeat-0925
+# status: 
+# $ JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/hb/helper_suites.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1d79823a-41f9-4ae4-931e-5766b73d61e4/scratchpad/hb/helper_suites.sh
+test_ndtwin_lab_config.sh                            rc=0  Ran 59 checks, all passed
+test_ndtwin_lab_sweep.sh                             rc=0  Ran 29 checks, all passed
+test_ndt_ovs_topo_script.sh                          rc=0  Ran 41 checks, 0 failed
+test_ndt_helper_apps_window.sh                       rc=1  Ran 150 checks, 1 failed
+      FAILED   🔴 the installed helper is the copy this suite read
+test_apps_residue.sh                                 rc=0  Ran 131 checks, 0 failed
+test_ndt_status_check_baseline.sh                    rc=0  Ran 104 checks, 0 failed
+test_ndt_up_down_robust.sh                           rc=0  424 passed, 0 failed
+test_ndt_sudo_surface.sh                             rc=0  Ran 33 checks, 0 failed
+test_ndt_down_stops_only_ours.sh                     rc=0  Ran 29 checks, 0 failed
+test_ep4_gate_and_abort_evidence.sh                  rc=0    12 passed, 0 failed
+test_orphans_verdict.sh                              rc=0  181 passed, 0 failed
+test_supervise_exit_status.sh                        rc=0  Ran 62 checks, all passed
+test_harness_instruments.sh                          rc=0  ===== 34 check(s): 34 ok, 0 FAILED =====
+test_preflight_instrument_self_failures.sh           rc=0  Ran 15 checks, 0 failed
+test_ndt_app_orphans.sh                              rc=0  Ran 103 checks, all passed
+test_ndt_down_claim_guard.sh                         rc=0  Ran 41 checks, 0 failed
+test_ndt_status_residue_row.sh                       rc=0  Ran 27 checks, 0 failed
+test_ndt_apps_liveness.sh                            rc=0  Ran 51 checks, all passed
+test_ndt_honesty.sh                                  rc=0  Ran 345 checks, 0 failed
+test_ndt_app_package.sh                              rc=0  Ran 395 checks, 0 failed
+test_log_suffix_idempotent.sh                        rc=0    30 passed, 0 failed
+test_ndtwin_lab_heartbeat.sh                         rc=0  Ran 186 checks, 0 failed
+test_testbed_banner.py (unittest)                    rc=0  OK
+suites: 1 red
+guarded_build: exit 1
+# rc=1  2026-09-25T06:10:51Z

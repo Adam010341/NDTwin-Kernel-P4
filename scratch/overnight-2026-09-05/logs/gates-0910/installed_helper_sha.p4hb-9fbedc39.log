@@ -1,0 +1,6 @@
+9fbedc392ec02c1b4dc1bf1117ca0cfd64e9ec22
+# why test_ndt_helper_apps_window.sh's one red check ('the installed helper is the copy this suite read') is red on this branch and green on base
+installed /usr/local/sbin/ndtwin-lab       6685d3a90fd94884f8fa72916c4d03716fb62d86eae0a124750aa892d05f9e24
+base 62f76cf5 tools/test_workflow/ndtwin-lab 6685d3a90fd94884f8fa72916c4d03716fb62d86eae0a124750aa892d05f9e24
+HEAD tools/test_workflow/ndtwin-lab          d504af411e54079fb0d2cd184c5232787d4a2360a546b2d5c3ab9459ee88e71a
+worktree tools/test_workflow/ndtwin-lab      d504af411e54079fb0d2cd184c5232787d4a2360a546b2d5c3ab9459ee88e71a

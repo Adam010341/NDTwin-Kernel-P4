@@ -1,0 +1,30 @@
+e684990fd089db444b44b36ba459a0501c3e4491
+# gate    : existing mutation gate over code this change touched
+# cmd     : (cwd worktree) JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash tests/shell/mutate_ndt_down_claim_guard.sh
+# worktree: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-ovs-claim-0925
+# branch  : fix/ndt-ovs-claim-0925
+# start   : 2026-09-25T13:25:28+08:00
+# ndt under test: the worktree file, git hash-object 8d753f6aec2fe6f23d6afb91c47830d33dde2d24  (HEAD's blob: 8d753f6aec2fe6f23d6afb91c47830d33dde2d24)
+# dirty tracked at start: 0
+
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_ndt_down_claim_guard.sh
+baseline (must be green before any mutation):
+  Ran 41 checks, 0 failed
+
+  caught   M1: the foreign-claim guard never fires                  (🔴 NOTHING on the machine was reached went red)
+  caught   M2: stack.sh is never invoked (the stack= number)        (🔴 and the machine WAS reached -- the instrument can read non-zero went red)
+  caught   M3: [2/3] stops calling sudo (the sudo= number)          (🔴 and the machine WAS reached -- the instrument can read non-zero went red)
+  caught   M4: the refusal sentence loses one word                  (  and it says it is refusing went red)
+  caught   M5: a DECLARED measurement stops guarding                (🔴 our OWN claim that DECLARES a measurement is refused went red)
+  caught   M6: the retry line carries the description again         (  🔴 and not the parenthesised description went red)
+  caught   M7 (widening): any claim file at all is a refusal        (an EXPIRED claim is not a refusal went red)
+  control  C1: the --force warning, written the long way            (stayed green, as it must)
+
+baseline byte-identical: yes  tools/test_workflow/ndt  sha256 0a72193ebb1903ef55bb9f7dbb6f7dd5847e61473af171680aee53216d77bd33
+mutation gate: 7 mutations, 0 survived; 1 control(s), 0 went red
+guarded_build: exit 0
+
+# rc=0
+# end 2026-09-25T13:25:37+08:00  /tmp/ndt-ovs-claim-* after: 0
+# dirty tracked at end: 0

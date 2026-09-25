@@ -1,0 +1,54 @@
+# HEAD b22e88ed1629bc0e28293ee6271d19e6bc0f9543 2026-09-25T10:09:54Z
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_ndtwin_lab_heartbeat.sh
+=== baseline (the fix, unmutated) ===
+  rc=0  red=
+
+=== mutations ===
+  extra-args-accepted            caught by: start with an interface name is refused
+  program-accepts-extra-args     caught by: the program refuses daemon with an interface
+  no-topo-check                  caught by: no topo session: refused, and the refusal names the missing topo session
+  second-daemon-launched         caught by: a live daemon: start answers 0
+  plan-skipped                   caught by: the plan ran, and nothing was launched
+  run-dir-mode-unchecked         caught by: a group-writable run dir is refused
+  lock-shared                    caught by: a second one cannot, while the first lives
+  stop-by-pid-only               caught by: and the stranger is still alive
+  stop-no-uid-check              caught by: but not when root's uid is required of it
+  pidfile-not-validated          caught by: pidfile '-1' (every process): refused as not a pid
+  pidfile-symlink-followed       caught by: a symlinked pidfile is refused
+  manifest-owner-unchecked       caught by: a manifest this uid owns, in root's sticky /tmp, is refused when root's is required
+  manifest-mode-unchecked        caught by: a group-writable manifest is refused
+  manifest-symlink-followed      caught by: a symlinked manifest is refused
+  manifest-fifo-blocks           caught by: a FIFO planted at the name is refused without hanging the reader
+  manifest-dir-unchecked         caught by: a manifest in a world-writable, non-sticky directory is refused
+  dead-switch-accepted           caught by: one switch not a live bmv2: refused as not whole
+  ifname-not-tied-to-switch      caught by: an -i binding not named <switch>-eth<port> refuses the whole manifest
+  no-veth-check                  caught by: a non-veth interface is refused
+  one-way-peer-is-a-cable        caught by: a one-way iflink is not a cable: s1-eth3/s3-eth1 are not a link
+  outgoing-counted-as-heard      caught by: an OUTGOING copy on the rx interface is NOT heard
+  wrong-interface-heard          caught by: an INCOMING frame on another interface is NOT heard
+  session-unchecked              caught by: another session's frame is NOT heard
+  bpf-wrong-ethertype            caught by: the kernel filter accepts our frames
+  report-makes-a-verdict         caught by: per direction: exactly these keys (no up/down/is_up/state)
+  heard-not-reported             caught by: a frame delivered to the peer is heard, and the report shows it within 3 s
+  fabric-change-ignored          caught by: a rebuilt fabric (new ifindex) is 'changed'
+  loop-never-asks-the-fabric     caught by: a daemon whose fabric goes away stops itself at the next round, rc 4
+  sigterm-ignored                caught by: SIGTERM stops it promptly with rc 0
+  period-drift                   caught by: PERIOD_S is the proxy's LLDP_BEACON_INTERVAL_S
+  ethertype-collides             caught by: no tutorials parser uses it (26 .p4 files scanned)
+  pidfile-path-drift             caught by: the helper's HB_RUN_DIR default is the program's RUN_DIR
+  ndtwin-pipeline-accepted       caught by: a fabric running NDTwin's own pipeline is refused (one switch of four)
+  bmv2-uid-unchecked             caught by: bmv2 pids owned by another uid are not a fabric
+  race-branch-dropped            caught by: two starts race and this one's daemon loses the lock: start answers 0
+  kill-fallback-dropped          caught by: a daemon that ignores TERM: stop falls back to KILL and answers 0
+  kill-path-leaves-pidfile       caught by: and the KILL path removed the pidfile
+  is-daemon-arithmetic-first     caught by: hb_is_daemon refuses an arithmetic payload without evaluating it
+  control-comment-only           SURVIVED (control, as required)
+
+restore: tools/test_workflow/ndtwin-lab is byte-identical to the pre-gate snapshot
+after restore: the suite is green again
+
+mutants: 38 named + 1 control; caught 38, survived 0, invalid 0
+VERDICT: every mutation was caught by the check named for it; the control survived
+guarded_build: exit 0
+# rc=0
