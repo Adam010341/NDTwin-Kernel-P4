@@ -599,6 +599,35 @@ open(sys.argv[1] + "/sniff_hA.json", "w").write(json.dumps({"host": "hA", "frame
         && ok "  a hit written as the last sniffer exits is still caught, and the heartbeat stopped (set -e process)" \
         || red "  the last sniffer's hit under set -e: rc $wrc, result '$(cat "$d/result" 2>/dev/null)'"
 
+    # Found by the round-4 audit of bare calls (judge R3-1 asked for it): the run calls
+    # `[[ $PART ... ]] && detect`, and detect is the LAST command of that list, so a non-zero return
+    # from it ends the run under set -e -- skipping the census even with CENSUS_EVEN_IF_RED=1.
+    # detect records its failures with `fail`; it must itself return 0. Driven with stubs in a fresh
+    # `bash -euo pipefail` process: the heartbeat comes up but not every direction is heard.
+    printf 'import sys\nprint({"wait-heard": "TIMEOUT", "all-heard": "BAD 0/8 directions heard"}.get(sys.argv[1], "OK"))\n' \
+        > "$st_tmp/fake_watch.py"
+    {
+        echo 'set -euo pipefail'
+        declare -f detect judge note fail bad say
+        printf 'WATCH=%q\nRUN=%q\nHB_REPORT=%q\n' "$st_tmp/fake_watch.py" "$st_tmp/detect_run" "$st_tmp/no-report.json"
+        cat <<'DRIVER'
+mkdir -p "$RUN"
+VERDICT_RC=0; VERDICT_WHY=""; BEACON_S=5; TIMEOUT_S=15; CYCLES=1
+prepare() { echo "OK /nonexistent/pkg"; }
+nd_up() { : > "$2"; return 0; }
+sp_hb_start() { : > "$1"; return 0; }
+sp_hb_stop() { :; }
+nd_down() { return 0; }
+now() { echo 100.0; }
+[[ "all" == detect || "all" == all ]] && detect
+echo "survived VERDICT_RC=$VERDICT_RC" > "$1"
+DRIVER
+    } > "$st_tmp/detect_driver.sh"
+    bash "$st_tmp/detect_driver.sh" "$st_tmp/detect_out" > "$st_tmp/detect_driver.out" 2>&1 && wrc=0 || wrc=$?
+    [[ "$wrc" == 0 && "$(cat "$st_tmp/detect_out" 2>/dev/null)" == "survived VERDICT_RC=1" ]] \
+        && ok "a detection part that fails its first check records FAIL and returns -- the run goes on (set -e process)" \
+        || red "a detection part that fails its first check ended the run under set -e: rc $wrc, '$(cat "$st_tmp/detect_out" 2>/dev/null || echo 'nothing written')'"
+
     # R3-4, round 4 -- the census reads the new daemon's session from its report, which may not be
     # written the instant `start` returns. Bounded wait, and no abort under set -e either way.
     {
