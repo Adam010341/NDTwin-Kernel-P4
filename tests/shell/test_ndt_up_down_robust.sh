@@ -1671,7 +1671,12 @@ check "  and the verdict line is 'clean'"            "1" "$(grep -cx 'clean' <<<
 
 # A registry entry is a subject on its own: .test_run/pids/ is what `ndt down` acts on, so a
 # machine that has one has something for this command to be about.
-reset_fix; rm -f "$DM" "$FIX/manifest.json"; ledger kernel 992261
+# [Co-developed with claude code -- Adam]
+# 🔴 A LIVE entry: the pid is this suite's own shell. It was 992261 until 2026-09-25 -- a number
+# nothing on this machine holds, i.e. a STALE entry, which Adam's ruling that day (TICKET-ndt-
+# ovs-claim section 2 item 3) says is NOT something to judge. The stale half of this cell lives in
+# tests/shell/test_ndt_ovs_claim.sh section 10; what this one pins is unchanged.
+reset_fix; rm -f "$DM" "$FIX/manifest.json"; ledger kernel "$$"
 OUT="$(drive 'cmd_clean')"
 check "🔴 a pidfile in the registry is a subject: rc 0" "0" "$(rc_of_out "$OUT")"
 check "  and the verdict line is 'clean'"            "1" "$(grep -cx 'clean' <<<"$OUT")"
