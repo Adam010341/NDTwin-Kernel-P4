@@ -530,7 +530,8 @@ P4 那邊沒有這個問題，因為 **proxy 不用學、它直接從自己的�
      它把基線那一列的 `residue NOT CHECKED -- :8000 is closed` 讀成了「查過沒事」。反證＝R7 的
      3 秒取樣器（第三方）量到 `list-br` 在 02:20:28 才 0→10，而 60 在 02:20:45 第一次被量到；
      同型 ovs4 在 09-11 的三輪都是 0 條 dated。窗來自 app_viz.pid（mtime 09-11 14:04:25，
-     pid 463161 已死）。修法三選項與「要不要清掉那個 pidfile」在 RESIDUE-1 §7，待 Adam。 -->
+     pid 463161 已死）。修法三選項在 RESIDUE-1 §7（09-12 裁＝上面的 FIX-NDT-9 ①，封右端）；
+     「要不要清掉那個 pidfile」09-25 裁＝`ndt down` 清（TICKET-ndt-ovs-claim，見上面 🆕 那段）。 -->
 
 🆕 **2026-09-07 起 `--check` 多一列 `rules-in-window`**（G-12／W16-2；**09-12 之前這一列叫
 `residue`**，Adam 12:3x 改名——`residue` 這個字在 `ndt` 裡同時是 `ndt clean` 的
