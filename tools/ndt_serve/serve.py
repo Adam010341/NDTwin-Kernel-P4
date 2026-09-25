@@ -19,7 +19,7 @@ The design red lines (TICKET section 3), and where each one lives:
                        answers -- and an Origin header, when present, must be this server's; a POST
                        also needs a JSON body. 🔴 GETs are gated too (judge 09-24, finding 1): a
                        "read" is not side-effect free -- `ndt status --check` POSTs three lock
-                       probes to the kernel (ndt:8832-8847) -- so an <img> in any page must not be
+                       probes to the kernel (ndt:9292-9307) -- so an <img> in any page must not be
                        able to start one.
   3. whitelist         verbs.py builds every argv; there is no shell on any path.
   4. thin shell        ndt's rc is passed through untouched, with a sentence from ndt help beside
@@ -518,7 +518,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                            precheck=self._require_own_claim if cell["requires"] != "none" else None)
 
     def _require_own_claim(self):
-        """Read `ndt status`'s claim line (ndt:5216 claim_line) and go on only if it says `yours`.
+        """Read `ndt status`'s claim line (ndt:5664 claim_line) and go on only if it says `yours`.
         This reads ndt's answer; it does not decide anything ndt decides."""
         r = run_read(self.cfg, "status", verbs.argv_status(False), self.cfg.read_timeout)
         if r is None or r["rc_class"] == "timeout":

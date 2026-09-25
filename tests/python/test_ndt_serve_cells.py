@@ -98,7 +98,7 @@ RUN_FAIL = OLD_LAB.replace("2026-09-11T02:55:10", "2026-09-24T23:00:00")
 RUN_SKIP = "SKIP: the lab is claimed by somebody else\nCELL: SKIP lab_cell tag=ndt kernel=x ndt=y at=z\n"
 RUN_OFF = ("ASSERT ok   b1_sentence_gone                       help.txt does not contain it\n"
            "CELL: PASS offline_cell tag=ndt kernel=unknown ndt=ffff at=2026-09-24T23:00:00+08:00\n")
-# the claim line as `ndt status` prints it (ndt:5216 claim_line), for each case the service must tell apart
+# the claim line as `ndt status` prints it (ndt:5664 claim_line), for each case the service must tell apart
 CLAIM_YOURS = "lab\n  claim          yours -- 30m left (until 23:59:00)\n  measuring      nothing\n"
 CLAIM_NONE = "lab\n  claim          none\n  prev claim     serve-test (until 23:00:00)\n"
 CLAIM_FOREIGN = "lab\n  claim          orch-0924 -- 12m left (until 23:40:00)\n"

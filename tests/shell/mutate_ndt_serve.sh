@@ -509,7 +509,7 @@ report "M60: the demo's slot probe is a real POST /down with the token" "$m" \
        DemoProbes.test_demo_probes_cannot_touch_the_lab
 
 m=$(mutant m61 "$VERBS_PY" \
-    '    "apps.status": {"code": [(9747, 0, "return 0")]},' \
+    '    "apps.status": {"code": [(10222, 0, "return 0")]},' \
     '')
 report "M61: an rc table with no source" "$m" \
        RcProvenance.test_every_table_names_its_source

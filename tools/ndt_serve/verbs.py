@@ -204,8 +204,8 @@ RC_TABLE = {
     "status.check": {
         0: ("ok", "all compared fields match what the last 'ndt up' asked for"),
         # 🔴 ndt help says "1 one of them does not", but cmd_status answers 1 whenever its
-        # problems[] is not empty (ndt:6493-6495) -- a claim held by somebody else (6128), a
-        # declared measurement (6211), a netem qdisc (6355), a refused sudo grant (6368) are all
+        # problems[] is not empty (ndt:6946-6948) -- a claim held by somebody else (6576), a
+        # declared measurement (6662), a netem qdisc (6806), a refused sudo grant (6819) are all
         # problems. A GUI that printed "a field does not match" would name the wrong cause.
         1: ("dirty", "ndt reported at least one problem -- a compared field that does not match, a claim "
                      "held by somebody else, a measurement in progress, a netem qdisc, a refused sudo "
@@ -246,7 +246,7 @@ RC_TABLE = {
 
 # Where each table's codes come from. "help": the phrase `ndt help` prints for each rc (compared
 # whitespace-normalised). "code": (line, rc, text that line must contain) in tools/test_workflow/ndt
-# -- lines below 10097 are identical to trunk fd7382a3.
+# -- trunk 68ace017's line numbers: this branch's `serve)` dispatch lies below every anchor.
 RC_SOURCE = {
     "up": {"help": {0: "exit 0 the fabric came up and verified",
                     1: "1 something was MEASURED and it was dirty",
@@ -260,14 +260,14 @@ RC_SOURCE = {
     "status.check": {"help": {0: "exit 0 all compared fields match",
                               1: "1 one of them does not (the message names it)",
                               3: "3 nothing was compared, because there is no baseline RIGHT NOW"},
-                     "code": [(6486, 3, "return 3"), (6491, 0, "return 0"), (6495, 1, "return 1")]},
-    "status": {"code": [(6497, 0, "return 0")]},
-    "claim": {"code": [(748, 2, "return 2"), (757, 2, "return 2"), (782, 1, "return 1"),
-                       (855, 1, "return 1"), (857, 0, 'ok "lab claimed by')]},
-    "release": {"code": [(861, 0, "return 0"), (866, 1, "return 1"), (894, 1, "return 1")]},
-    "apps.start": {"code": [(8311, 0, "return 0"), (8315, 1, "return 1"), (8388, 1, "return 1")]},
-    "apps.stop": {"code": [(9814, 1, "return 1"), (9817, 2, "return 2"), (9820, 0, "return 0")]},
-    "apps.status": {"code": [(9747, 0, "return 0")]},
+                     "code": [(6939, 3, "return 3"), (6944, 0, "return 0"), (6948, 1, "return 1")]},
+    "status": {"code": [(6950, 0, "return 0")]},
+    "claim": {"code": [(753, 2, "return 2"), (762, 2, "return 2"), (787, 1, "return 1"),
+                       (860, 1, "return 1"), (862, 0, 'ok "lab claimed by')]},
+    "release": {"code": [(866, 0, "return 0"), (871, 1, "return 1"), (899, 1, "return 1")]},
+    "apps.start": {"code": [(8771, 0, "return 0"), (8775, 1, "return 1"), (8848, 1, "return 1")]},
+    "apps.stop": {"code": [(10289, 1, "return 1"), (10292, 2, "return 2"), (10295, 0, "return 0")]},
+    "apps.status": {"code": [(10222, 0, "return 0")]},
 }
 
 
