@@ -679,6 +679,8 @@ FAKETC
         printf 'WATCH=%q\nHB_REPORT=%q\nFAULTS_TC=%q\nLAB_HELPER=%q\n' \
             "$st_tmp/fake_watch.py" "$st_tmp/no-report.json" "$st_tmp/fake_tc" "$st_tmp/no-helper"
         printf 'CUT_A=%q\nCUT_B=%q\nCUT_DIRS=%q\n' "$CUT_A" "$CUT_B" "$CUT_DIRS"
+        # R4-5: every global detect reads past its first check is defined here -- QDISC_TOOL too.
+        printf 'QDISC_TOOL=%q\n' "$st_tmp/fake_qdisc_tool"
         cat <<'DRIVER'
 sudo() { echo "sudo $*" >> "$FAKE_TC_STATE/calls"; }
 out="$1"; RUN="$2"; export FAKE_TC_STATE="$3"
