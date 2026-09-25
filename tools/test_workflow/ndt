@@ -1024,7 +1024,8 @@ guard_up_lab_free() {
         err "if you know it is finished, override it -- and the override is recorded, in"
         err "  ${CLAIM#$REPO/}.overrides (who, when, whose claim):"
         err "    $retry --force"
-        # 🔴 rc 5: refused. (Adam, 2026-09-12 for P4; 2026-09-25 for OVS, through this function.)
+        # OVS as well since 2026-09-25, through this function -- the ruling below was P4's.
+        # 🔴 rc 5: refused. (Adam, 2026-09-12)
         return 5
     fi
     if ! claim_override_record "$retry --force" "$held" "$busy"; then
