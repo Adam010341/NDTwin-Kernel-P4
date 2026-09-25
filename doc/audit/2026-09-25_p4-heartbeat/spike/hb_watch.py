@@ -25,6 +25,7 @@ must accept and one it must reject), then the thin polling wrappers the spike ca
     hb_watch.py others-up  <report> <dirs> <timeout_s>
     hb_watch.py summary   <cycles.tsv> <timeout_s> <period_s>
     hb_watch.py census-verdict <sniff-dir> <report-snapshot>
+    hb_watch.py first-hit <sniff-dir>                        -> the first host that saw one, or ""
     hb_watch.py --self-test
 
 <dirs> is "1:3>3:1,3:1>1:3" -- tx dpid:port > rx dpid:port, comma separated.
@@ -136,6 +137,14 @@ def census_verdict(sniffs, report):
     return (f"OK no host saw a heartbeat frame ({len(sniffs)} host(s) sniffed); switch side: "
             f"forwarded_between_switches={se.get('forwarded_between_switches', 0)} "
             f"misdelivered={se.get('misdelivered', 0)} foreign={se.get('foreign_frames', 0)}")
+
+
+def first_hit(sniffs):
+    """The first host that saw a heartbeat frame, or "" -- the census's cue to stop everything."""
+    for s in sniffs:
+        if (s.get("frames_hb") or 0) > 0:
+            return s.get("host") or "?"
+    return ""
 
 
 # ------------------------------------------------------------------------------ polling wrappers
@@ -268,6 +277,14 @@ def main(argv):
         lines, ok = summary(rows, float(argv[3]), float(argv[4]))
         print("\n".join(lines))
         print("OK every cut and every restore detected" if ok else "BAD not every cycle was detected")
+    elif cmd == "first-hit":
+        sniffs = []
+        for p in sorted(glob.glob(os.path.join(argv[2], "sniff_*.json"))):
+            try:
+                sniffs.append(load(p))
+            except (OSError, ValueError):
+                pass                    # not written yet, or half written: not a hit yet
+        print(first_hit(sniffs))
     elif cmd == "census-verdict":
         sniffs = []
         for p in sorted(glob.glob(os.path.join(argv[2], "sniff_*.json"))):

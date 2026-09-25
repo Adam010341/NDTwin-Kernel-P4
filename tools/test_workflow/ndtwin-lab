@@ -288,6 +288,18 @@ lab_conf_gate() {
             # Locking it out would leave the rescue path as "already know the answer".
             printf '   (%s is read-only, so it runs anyway -- on the DEFAULTS, not on that file)\n' "$1" >&2
             return 0 ;;
+        heartbeat)
+            # [Co-developed with claude code -- Adam]
+            # Adam, 2026-09-25, ruling (b). `heartbeat stop` and `heartbeat status` touch only
+            # /run/ndtwin-lab and read nothing this file sets, so a broken config must not lock an
+            # operator out of stopping a root daemon. `heartbeat start` starts something and fails
+            # closed, like every other verb that does.
+            case "${2:-}" in
+                stop|status)
+                    printf '   (heartbeat %s touches only /run/ndtwin-lab, so it runs anyway)\n' "$2" >&2
+                    return 0 ;;
+            esac
+            die "refusing to run 'heartbeat ${2:-}' with a config file that cannot be trusted." ;;
         *)
             die "refusing to run '$1' with a config file that cannot be trusted." ;;
     esac
@@ -578,8 +590,12 @@ ovs_topo_start() {
 # down WHEN each direction was last heard. `tc netem` sits on the same egress qdisc the frame
 # goes through, so a cut link cuts the heartbeat with it.
 #
-# 🔴 WHAT ROOT WILL NOT DO HERE, each with a test in tests/shell/test_ndtwin_lab_heartbeat.sh
-#    that has been seen red (tests/shell/mutate_ndtwin_lab_heartbeat.sh):
+# 🔴 WHAT ROOT WILL NOT DO HERE. Each rule below has checks in tests/shell/test_ndtwin_lab_heartbeat.sh,
+#    and for each rule tests/shell/mutate_ndtwin_lab_heartbeat.sh has removed it and seen the check
+#    named for it go red. That is a claim about the POSITIVE check of each rule, not about every
+#    check: where a refusal is guarded twice (the pidfile's own regex, then hb_is_daemon's), the
+#    "nothing was signalled / nothing ran" checks stay green when one layer is removed, and are
+#    there as the last line, not as evidence that either layer is needed.
 #
 #   * take ANYTHING from the caller but the sub-verb. `heartbeat start|stop|status` and nothing
 #     after it -- no interface, no path, no ethertype, no period. The daemon's own argv is the
@@ -593,7 +609,10 @@ ovs_topo_start() {
 #     be `<switch>-eth<port>` as bmv2 was launched with it, be a veth, and a link is two of them
 #     whose kernel iflinks name each other. Everything else is listened on and never sent on.
 #   * start without a fabric: no topo session, no manifest, or a manifest whose switches are not
-#     all live bmv2 processes -- refused before anything is launched.
+#     all live bmv2 processes owned by root -- refused before anything is launched.
+#   * run on NDTwin's OWN pipeline (Adam, 2026-09-25). ndtwin_switch.json carries LLDP and punts
+#     an unknown ethertype to the CPU, so every heartbeat frame would be a packet-in the proxy books
+#     as that switch's liveness. One such switch in the manifest refuses the whole fabric.
 #   * run twice. A live daemon (pidfile + cmdline + uid) makes `start` say so and launch nothing;
 #     two racing `start`s are settled by an exclusive flock the daemon takes before it does
 #     anything else.
@@ -737,6 +756,9 @@ COMMANDS = ("plan", "daemon", "report")
 IFNAME_RE = re.compile(r"^[A-Za-z0-9_.-]{1,15}$")
 PORT_ARG_RE = re.compile(r"^([0-9]{1,3})@(\S+)$")
 SWITCH_BINARY = b"simple_switch_grpc"
+#: NDTwin's own compiled pipeline, as a switch's argv names it. The heartbeat refuses a fabric
+#: with any switch on it -- see plan().
+NDTWIN_PIPELINE = "ndtwin_switch.json"
 MAX_PORT = 511                     # bmv2 ports are nine bits
 MAX_MANIFEST_BYTES = 1 << 20
 #: A report is rewritten when something was heard, at most this often, and once per round anyway.
@@ -883,14 +905,21 @@ def switch_ports(doc):
     return ports, switches
 
 
-def bmv2_alive(pid, proc_root=PROC):
-    """Whether `pid` is a simple_switch_grpc NOW -- an argv element whose basename is that."""
+def bmv2_alive(pid, proc_root=PROC, expect_uid=ROOT_UID):
+    """Whether `pid` is a simple_switch_grpc NOW: an argv element whose basename is that, AND a
+    real and effective uid of `expect_uid` -- the switches the root topology started run as root,
+    and any process can name itself simple_switch_grpc (judge #6, round 2)."""
     try:
-        with open(os.path.join(proc_root, str(int(pid)), "cmdline"), "rb") as fh:
+        base = os.path.join(proc_root, str(int(pid)))
+        with open(os.path.join(base, "cmdline"), "rb") as fh:
             argv = fh.read().split(b"\0")
+        with open(os.path.join(base, "status")) as fh:
+            uids = next((line.split()[1:3] for line in fh if line.startswith("Uid:")), None)
     except (OSError, ValueError):
         return False
-    return any(a and os.path.basename(a) == SWITCH_BINARY for a in argv)
+    if not any(a and os.path.basename(a) == SWITCH_BINARY for a in argv):
+        return False
+    return uids == [str(expect_uid), str(expect_uid)]
 
 
 def read_iface(ifname, sysfs=SYSFS):
@@ -927,7 +956,16 @@ def plan(manifest=MANIFEST, expect_uid=ROOT_UID, proc_root=PROC, sysfs=SYSFS, dr
     driver_of = driver_of or ethtool_driver
     doc, digest = load_manifest(manifest, expect_uid)
     ports, switches = switch_ports(doc)
-    dead = sorted(n for n, s in switches.items() if not bmv2_alive(s.pid, proc_root))
+    # Adam, 2026-09-25, ruling (a): not on NDTwin's own pipeline, and the helper -- the sha-pinned
+    # copy -- is where that is enforced, whatever version of `ndt` calls it.
+    own = sorted(n for n, s in switches.items() if s.program == NDTWIN_PIPELINE)
+    if own:
+        raise Refusal(f"{', '.join(own)} run(s) NDTwin's own pipeline ({NDTWIN_PIPELINE}). That "
+                      f"pipeline carries LLDP and punts an unknown ethertype to the CPU, so every "
+                      f"heartbeat frame would become a packet-in that the proxy counts as that "
+                      f"switch's liveness. The heartbeat is for foreign pipelines only")
+    dead = sorted(n for n, s in switches.items()
+                  if not bmv2_alive(s.pid, proc_root, expect_uid=expect_uid))
     if len(dead) == len(switches):
         raise Refusal(f"no fabric is running: {manifest} names {len(switches)} switch(es) and "
                       f"not one of their pids is a live {SWITCH_BINARY.decode()} (stale manifest?)")
@@ -1619,7 +1657,7 @@ heartbeat_main() {
 
 # Before any verb runs: a refused config file is announced here, once, and decides whether this
 # invocation may proceed. Read-only verbs continue on the defaults; anything that acts dies.
-lab_conf_gate "${1:-}"
+lab_conf_gate "${1:-}" "${2:-}"
 
 case "${1:-}" in
     topo-start)

@@ -3,12 +3,13 @@
 
 [Co-developed with claude code -- Adam]
 
-    sudo -n mnexec -a <host pid> /usr/bin/python3 -I hb_sniff.py <host> <seconds> <session-hex>
+    sudo -n mnexec -a <host pid> /usr/bin/python3 -I hb_sniff.py <host> <seconds> <session-hex> [<stop-file>]
     python3 hb_sniff.py --self-test
 
 One ETH_P_ALL packet socket, NOT bound to an interface -- so every interface in this namespace
-(the host's hN-eth0 and anything else it has, lo excepted) -- for <seconds>, then one JSON line.
-It never sends and it never outlives its own timer.
+(the host's hN-eth0 and anything else it has, lo excepted) -- then one JSON line. It ends at the
+FIRST heartbeat frame, when <stop-file> appears, or after <seconds>, whichever is first; it never
+sends and it never outlives its own timer.
 
 A frame counts as a heartbeat when EITHER its ethertype is 0x88B5 OR its bytes carry the magic
 anywhere with this session six bytes after it (the daemon's body layout). The second test is the one that matters if a pipeline rewrote
@@ -51,24 +52,42 @@ def classify(frame, session):
     return False, ""
 
 
-def sniff(host, seconds, session):
+#: How often a sniffer that hears nothing looks for the stop file.
+STOP_POLL_S = 0.5
+
+
+def sniff(host, seconds, session, stop_file=None, sock=None):
+    """Count frames for at most `seconds`; return the JSON-able summary.
+
+    Ends at the FIRST heartbeat frame -- ruling 4 needs one, not a count, and every further round
+    the heartbeat sends into a pipeline that forwards it to hosts is another one delivered -- or
+    as soon as `stop_file` exists (the census writes it when any host has one), or at the
+    deadline. `sock` is the offline self-test's seam; the real run opens the packet socket.
+    """
     out = {"host": host, "seconds": seconds, "frames_total": 0, "frames_hb": 0,
-           "by_ethertype": 0, "by_payload": 0, "interfaces": {}, "first_hb_hex": None}
-    try:
-        s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(ETH_P_ALL))
-    except OSError as exc:
-        out["error"] = f"cannot open a packet socket: {exc}"
-        return out
+           "by_ethertype": 0, "by_payload": 0, "interfaces": {}, "first_hb_hex": None,
+           "stopped": "time"}
+    s = sock
+    if s is None:
+        try:
+            s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(ETH_P_ALL))
+        except OSError as exc:
+            out["error"] = f"cannot open a packet socket: {exc}"
+            return out
     s.setblocking(False)
     end = time.monotonic() + seconds
     try:
         while True:
+            if stop_file and os.path.exists(stop_file):
+                out["stopped"] = "stop file"
+                break
             left = end - time.monotonic()
             if left <= 0:
                 break
-            r, _, _ = select.select([s], [], [], left)
+            r, _, _ = select.select([s], [], [], min(left, STOP_POLL_S))
             if not r:
                 continue
+            hit = False
             while True:
                 try:
                     frame, addr = s.recvfrom(65535)
@@ -80,13 +99,17 @@ def sniff(host, seconds, session):
                 out["frames_total"] += 1
                 box = out["interfaces"].setdefault(ifname, {"frames": 0, "hb": 0})
                 box["frames"] += 1
-                hit, how = classify(frame, session)
-                if hit:
+                is_hb, how = classify(frame, session)
+                if is_hb:
                     out["frames_hb"] += 1
                     box["hb"] += 1
                     out["by_" + how] += 1
-                    if out["first_hb_hex"] is None:
-                        out["first_hb_hex"] = frame[:64].hex()
+                    out["first_hb_hex"] = frame[:64].hex()
+                    hit = True
+                    break
+            if hit:
+                out["stopped"] = "first heartbeat frame"
+                break
     finally:
         s.close()
     return out
@@ -158,15 +181,16 @@ def self_test():
 def main(argv):
     if len(argv) == 2 and argv[1] == "--self-test":
         return self_test()
-    if len(argv) != 4:
+    if len(argv) not in (4, 5):
         print(__doc__, file=sys.stderr)
         return 2
     host, seconds, session_hex = argv[1], float(argv[2]), argv[3]
+    stop_file = argv[4] if len(argv) == 5 else None
     if not 0 < seconds <= 600:
         print("seconds must be in (0, 600]", file=sys.stderr)
         return 2
     session = bytes.fromhex(session_hex) if session_hex else b""
-    print(json.dumps(sniff(host, seconds, session)), flush=True)
+    print(json.dumps(sniff(host, seconds, session, stop_file=stop_file)), flush=True)
     return 0
 
 
