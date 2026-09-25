@@ -679,6 +679,9 @@ has   "🔴 F8: a stack pidfile recycled into a stranger is stale" "kernel.pid: 
 hasnt "  and is not printed as alive"                        "kernel.pid=$DAEMON alive" "$OUT"
 OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
 check "  down: not a subject (rc 3), and removed"            "3 absent" "$(rc_of "$OUT") $(present kernel.pid)"
+# [Co-developed with claude code -- Adam] judge r2 #3: the real stack.sh's stop_one printed, a few
+# lines up, that it was keeping this file; the removal has to say why that was not a contradiction.
+has   "  🔴 and says why stack.sh kept it"                   "stack.sh kept it above because the number is somebody else's" "$OUT"
 reset_fix; rm -f "$FIX/manifest.json"
 pidf kernel.pid "$DAEMON"
 OUT="$(drive 'stack_pidfile_row')"
@@ -712,6 +715,9 @@ OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
 check "🔴 F4: no window written -> the stale pidfile is KEPT" "present" "$(present app_viz.pid)"
 check "  and down is 1, not 3"                               "1" "$(rc_of "$OUT")"
 has   "  it says why it kept it"                             "kept stale .test_run/pids/app_viz.pid" "$OUT"
+# [Co-developed with claude code -- Adam] judge r2 #4: rc 1 repeats on every `down` until the cause
+# is removed (run_cells.sh stops the grid on it), so the error says what to fix.
+has   "  🔴 and how to recover"                              "then run 'ndt down' again" "$OUT"
 has   "  and the claim note names it"                        "app_viz.pid kept" "$(sed -n 's/^note=//p' "$FIX/.test_run/lab.claim")"
 rm -f "$FIX/.test_run/apps"
 
@@ -793,6 +799,52 @@ has   "🔴 F6: the line means '--force was used', not 'it came up'" 'THE LINE M
 has   "down's rc 1 names the stale-entry failures"           "STALE registry entry could not be removed, or an app's window could not be written" "$FLAT"
 has   "identity is stated per kind of file"                  "for the stack's own files, which carry no argv to compare, the pid alone" "$FLAT"
 has   "clean's 3 says 'live'"                                "nothing in .test_run/pids/ naming a live process" "$FLAT"
+# [Co-developed with claude code -- Adam] judge r2 #1: the new --check rc 1, in the status section,
+# with its qualifier; and the manual saying the same, and saying what the code does about a
+# recycled number (judge r2 #5: stale BEFORE the group is asked).
+has   "🔴 status: a recycled stack pidfile is a --check problem, rc 1 only with a baseline" \
+      "(a recycled number) is stale too, and a --check problem: rc 1 while a baseline exists; with none the answer is still 3" "$FLAT"
+MANUAL="$HERE/../../doc/2026-08-17_testing-manual.md"
+has   "🔴 the manual says the same about --check"            "有 baseline（\`.test_run/up.target\`）時 rc 1，沒有時照舊 3" "$(cat "$MANUAL" 2>/dev/null)"
+has   "🔴 the manual: a recycled number is stale without asking the group" "**直接**判 stale，不問 group" "$(cat "$MANUAL" 2>/dev/null)"
+
+# =============================================================================================
+section "17. 🔴 a recycled stack number is a --check problem: rc 1 with a baseline, 3 without"
+# =============================================================================================
+# [Co-developed with claude code -- Adam]
+# Judge's #1 on e1420df2 (orchestrator round 3). F8 made a kernel.pid whose live pid started after
+# the file was written a `stale pidfile` in the pidfiles row, and that row feeds --check's problem
+# list -- so `status --check` went from 0 to 1 on such a lab. That is only true while a baseline
+# exists: with no .test_run/up.target the report is 3 whatever the problem list says. The baseline
+# comparison itself is test_ndt_status_check_baseline.sh's subject, so here check_up_target
+# answers only "is there a baseline" (0) or "none" (3), from the file, and everything else in
+# cmd_status runs for real.
+CHECK_STUB='check_up_target() { UP_TARGET_PROBLEMS=(); [[ -f "$REPO/.test_run/up.target" ]] || return 3; return 0; }'
+DAEMON="$(spawn "some-daemon")"
+reset_fix; rm -f "$KNOB"
+printf 'plane=ovs\n' > "$FIX/.test_run/up.target"
+pidf kernel.pid "$DAEMON"
+touch -d "@$(( $(date +%s) - 600 ))" "$FIX/.test_run/pids/kernel.pid"
+OUT="$(drive "$CHECK_STUB"'
+cmd_status --check')"
+check "🔴 with a baseline, a recycled kernel.pid makes --check rc 1" "1" "$(rc_of "$OUT")"
+has   "  and it is named in the problem list"                "- .test_run/pids/kernel.pid: stale pidfile (pid $DAEMON is alive, but that process started" "$OUT"
+# The control: the same live process, its pidfile written after it started -- the ordinary state.
+reset_fix; rm -f "$KNOB"
+printf 'plane=ovs\n' > "$FIX/.test_run/up.target"
+pidf kernel.pid "$DAEMON"
+OUT="$(drive "$CHECK_STUB"'
+cmd_status --check')"
+check "🔴 control: the same pid written after it started leaves --check at 0" "0" "$(rc_of "$OUT")"
+# No baseline: 3, whatever the problem list holds -- the qualifier.
+reset_fix; rm -f "$KNOB"
+pidf kernel.pid "$DAEMON"
+touch -d "@$(( $(date +%s) - 600 ))" "$FIX/.test_run/pids/kernel.pid"
+OUT="$(drive "$CHECK_STUB"'
+cmd_status --check')"
+check "🔴 without a baseline the answer is still 3"          "3" "$(rc_of "$OUT")"
+has   "  the recycled pidfile is still listed, under 'everything else'" "kernel.pid: stale pidfile (pid $DAEMON is alive" "$OUT"
+kill_fixture "$DAEMON"
 
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"
