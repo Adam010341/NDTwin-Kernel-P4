@@ -509,11 +509,17 @@ P4 那邊沒有這個問題，因為 **proxy 不用學、它直接從自己的�
   自己 log 的 mtime**（viz 這例＝`14:05:43`）⇒ 那 60 條落在窗外。沒有可用的 log（`energy` 在任何
   機器上都沒有 log 管道；log 比 pidfile 還舊也算）⇒ **零長視窗**，報告會明說
   `the window has NO extent … NOT 'this app left nothing'`——**那是「沒有東西可以歸屬」，不是「乾淨」**。
-  pid 活著的窗照舊開到 `now`。**那個 pidfile 本身 `ndt` 還是不會清**（那是另一題）。
-  ⇒ **OVS 上 `--check` 會不會因為 rules-in-window 變紅，取決於 `.test_run/pids/` 裡那個 stale
-  `app_*.pid` 的 app 在窗內有沒有真的裝東西，跟 ovs4 這個尺寸無關。** 看到這條 problem，先去問
-  `.test_run/pids/app_*.pid` 指的行程還活不活（`ndt apps orphans` 會把窗的起迄印出來），
-  不要先去找誰在網路上留了東西。
+  pid 活著的窗照舊開到 `now`。
+  🆕 **09-25 起 `ndt down` 會清掉那個 pidfile**（Adam 09-25 裁，TICKET-ndt-ovs-claim）：pid 不在
+  （或活著但不是那個 app、或那個行程比 pidfile 晚啟動＝號碼被回收），**而且**記錄的 process group
+  也沒有程序 ⇒ **stale**。`down` 先把那個窗（起點＝pidfile 的 mtime、右端＝上面封住的那一端）寫進
+  `.test_run/apps/<app>.window` 再刪檔——**窗寫不進去就不刪、`down` 回 1**；之後的報告從那份紀錄讀
+  同一個窗，零長的窗照樣印上面那句 `NO extent`。lab 已經 down、只剩 stale 檔時 `down` 回 **3**。
+  `ndt status` 在 apps 區塊把它標成 `app pidfile  STALE -- …`（**只是標記，不讓 `--check` 變紅**）。
+  ⇒ **在下一次 `ndt down` 之前**，OVS 上 `--check` 會不會因為 rules-in-window 變紅，取決於
+  `.test_run/pids/` 裡那個 stale `app_*.pid` 的 app 在窗內有沒有真的裝東西，跟 ovs4 這個尺寸無關。
+  看到這條 problem，先去問 `.test_run/pids/app_*.pid` 指的行程還活不活（`ndt status` 的
+  `app pidfile` 列、`ndt apps orphans` 會把窗的起迄印出來），不要先去找誰在網路上留了東西。
   本輪沒有在乾淨機器上觀測過 ovs4 的 `--check`，所以**不宣稱**它會回 rc 0：
   ovs4 的 `--check` 要自己看 problems 那幾行，不要拿 128 台那條規則套。
 <!-- 來源：links 那組數字＝ROLE-11 F4，log hunt-0911/logs/ROLE-11/05-check-after-up.log（ovs4，
@@ -1059,6 +1065,26 @@ NDT_OWNER=<你的名字> ndt release
 🔴 **`NDT_OWNER` 每一個指令都要帶，不只 `claim`。** 沒設的時候，**任何 claim 都算別人的**
 （安全預設）——mainDev 08-21 就這樣被自己的 claim 擋在門外。被擋下來時訊息會先給你
 `NDT_OWNER=<誰> ndt down`，`--force` 放在最後：照著 `--force` 打會拆掉真的有人在用的實驗室。
+
+🔴 **`ndt up` 在兩個平面都擋別人的 claim 與進行中的量測**（rc **5**，什麼都不建、什麼都不寫）。
+P4 從 09-12 起就這樣；**OVS 是 09-25 才開始**——在那之前 `ndt up ovs`／`ndt up 4` 會在別人的
+claim 底下照建、回 0（ndt serve 那一輪 09-24 22:49 實測）。被擋下來時一樣先給你
+`NDT_OWNER=<誰> ndt up …`，最後才給覆寫：
+
+```bash
+NDT_OWNER=<你的名字> ndt up 4 --force      # 兩個平面同一個旗標；放在 argv 任何位置都可以
+```
+
+- **每一次真的越過了什麼的 `--force`，都會在 `.test_run/lab.claim.overrides` 追加一行**（tab 分隔：
+  `at`／`by`＝你的 `NDT_OWNER`／`user`／`pid`／`command`／`over`＝被蓋過的 claim 的 owner、只因量測在跑
+  則是 `none`／`claim_expires`／`claim_note`／`measuring`／`running`）。沒東西要越過時不寫；
+  **那一行寫不進去就不建（rc 5）**。只 export `NDT_UP_FORCE=1` 沒有用，旗標必須打在指令上。
+- **那一行的意思是「用了 `--force`」，不是「建起來了」**：它在守衛那一步就寫下，後面的檢查
+  （另一個 `ndt down` 還在跑、port 被佔、Mininet 已在跑、H4）照樣可以拒絕；建沒建起來看那一次的 rc。
+- `ndt status` 在 `prev claim` 下面多一列 `override`，印最後一次 `--force`（何時、誰、蓋過誰、
+  指令、總筆數）——**被蓋過的那一方下一次看 `status` 就看得到**。它是歷史，不讓 `--check` 變紅。
+- 那個檔是獨立的，不寫進 `lab.claim`：被蓋的 claim 是別人的（不准非持有者改寫），`ndt claim`／
+  `ndt release` 會重寫或改名掉 claim，而只因量測在跑而覆寫時根本沒有 claim。只追加、不輪替。
 
 🔴 **claim 只擋 `ndt` 的動詞，擋不住裸指令。** 直接跑 `./bin/ndtwin_kernel` 或
 `ndtwin-lab topo-start` 一樣會撞進去。**它是約定不是鎖。**

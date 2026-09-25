@@ -5,6 +5,10 @@
 #
 # [Co-developed with claude code -- Adam]
 #
+# Round 2 (09-25, judge's report on 6b7fce83) adds M21-M35 and C3: one named mutant for each
+# behaviour that round changed or pinned (F1 M24, F2 M25, F3 M21, F4 M22, F5 M35, F6 M34, F8
+# M26/M27, the start-time widening M28, and the judge's edges M23 M29-M33).
+#
 # The three mutants the ticket names are M1, M2 and M3:
 #   M1  drop OVS's claim check           -- the 09-24 defect itself, put back
 #   M2  the override flag is not recorded -- --force still works, and leaves no trace
@@ -346,10 +350,10 @@ check_fires "M15: a stale entry is a subject again" m15 \
 
 # --- M16: the file goes and the window does not get written ---------------------------------------
 cat > "$A/m16.old" <<'EOF'
-            app_window_record "$name" "$start" "$end" \
+            if ! app_window_record "$name" "$start" "$end"; then
 EOF
 cat > "$A/m16.new" <<'EOF'
-            false \
+            if false; then
 EOF
 check_fires "M16: the app's window is lost with its pidfile" m16 \
             "🔴 the app's window was written down before the file went"
@@ -364,6 +368,167 @@ cat > "$A/m17.new" <<'EOF'
 EOF
 check_fires "M17: 'ndt status' never prints the stale-app row" m17 \
             "🔴 and 'ndt status' itself prints that row (existence is not wiring)"
+
+
+# =============================================================================================
+# Round 2 (judge's report on 6b7fce83, orchestrator 09-25): one named mutant per behaviour change
+# =============================================================================================
+
+# --- M21 (F3): the window's right end written as now ------------------------------------------
+cat > "$A/m21.old" <<'EOF'
+            end=""; seal="$(app_window_seal "$name" 2>/dev/null)" && end="${seal%% *}"
+EOF
+cat > "$A/m21.new" <<'EOF'
+            end=""
+EOF
+check_fires "M21 (F3): the removed file's window runs to now" m21 \
+            "🔴 the window's right end is the sealed one, not now"
+
+# --- M22 (F4): the pidfile goes even when its window could not be written ----------------------
+cat > "$A/m22.old" <<'EOF'
+            if ! app_window_record "$name" "$start" "$end"; then
+EOF
+cat > "$A/m22.new" <<'EOF'
+            if ! app_window_record "$name" "$start" "$end" && false; then
+EOF
+check_fires "M22 (F4): no window written, the pidfile removed anyway" m22 \
+            "🔴 F4: no window written -> the stale pidfile is KEPT"
+
+# --- M24 (F1): the record branch loses G-12's NO-extent caveat ---------------------------------
+cat > "$A/m24.old" <<'EOF'
+            (( wend == started )) && {
+                warn "      the window below has NO extent: nothing on this machine can date when"
+                warn "      $a stopped, so NOTHING can be attributed to it. That is 'nobody could"
+                warn "      ask', NOT 'this app left nothing'. (G-12; this window is a record)"
+            }
+EOF
+cat > "$A/m24.new" <<'EOF'
+EOF
+check_fires "M24 (F1): a zero-width window from a record says nothing" m24 \
+            "🔴 F1: and still says the window has NO extent"
+
+# --- M25 (F2): an app's live stranger is not asked when it started -----------------------------
+cat > "$A/m25.old" <<'EOF'
+            if late="$(pidfile_outlived_by "$f" "$pid")"; then
+                PF_WHY="$PF_WHY (it started ${late}s after this file was written)"
+EOF
+cat > "$A/m25.new" <<'EOF'
+            if false; then
+                PF_WHY="$PF_WHY (it started ${late}s after this file was written)"
+EOF
+check_fires "M25 (F2): a recycled group leader reads as 'NOT stale'" m25 \
+            "🔴 recycled into a group leader: STALE"
+
+# --- M26 (F8): the stack's live numbers are not asked when they started ------------------------
+cat > "$A/m26.old" <<'EOF'
+            if late="$(pidfile_outlived_by "$f" "$pid")"; then
+                PF_WHY="pid $pid is alive but started ${late}s after this file was written -- a recycled number"
+EOF
+cat > "$A/m26.new" <<'EOF'
+            if false; then
+                PF_WHY="pid $pid is alive but started ${late}s after this file was written -- a recycled number"
+EOF
+check_fires "M26 (F8): a recycled stack pid is a subject again" m26 \
+            "  down: not a subject (rc 3), and removed"
+
+# --- M27 (F8): the status row prints a recycled stack pid as alive -----------------------------
+cat > "$A/m27.old" <<'EOF'
+        if pid_alive "$pid" && late="$(pidfile_outlived_by "$f" "$pid")"; then
+EOF
+cat > "$A/m27.new" <<'EOF'
+        if false; then
+EOF
+check_fires "M27 (F8): the pidfiles row calls a recycled number alive" m27 \
+            "🔴 F8: a stack pidfile recycled into a stranger is stale"
+
+# --- M28 (widening): every live number reads as recycled -----------------------------------------
+cat > "$A/m28.old" <<'EOF'
+    (( st > mt + 2 )) || return 1
+EOF
+cat > "$A/m28.new" <<'EOF'
+    :
+EOF
+check_fires "M28 (widening): any live pid counts as 'started after the file'" m28 \
+            "  control: written after it started -> alive, as before"
+
+# --- M23: our OWN claim's measuring= refuses 'up' ----------------------------------------------
+cat > "$A/m23.old" <<'EOF'
+    held="$(foreign_claim)"
+    busy="$(in_flight)"
+EOF
+cat > "$A/m23.new" <<'EOF'
+    held="$(foreign_claim)"
+    busy="$(in_flight; measuring_declared)"
+EOF
+check_fires "M23: a declared measurement on our own claim refuses 'up'" m23 \
+            "🔴 our own claim with measuring= does not refuse 'up'"
+
+# --- M29: the record is not read back ------------------------------------------------------------
+cat > "$A/m29.old" <<'EOF'
+    grep -qxF -- "$line" "$f" 2>/dev/null
+EOF
+cat > "$A/m29.new" <<'EOF'
+    true
+EOF
+check_fires "M29: an override that never landed builds anyway" m29 \
+            "🔴 a record that does not read back is refused"
+
+# --- M30: a TAB or newline inside a value becomes a field or a line ------------------------------
+cat > "$A/m30.old" <<'EOF'
+ovr_flat() { local v="${1//$'\t'/ }"; printf '%s' "${v//$'\n'/ }"; }
+EOF
+cat > "$A/m30.new" <<'EOF'
+ovr_flat() { printf '%s' "$1"; }
+EOF
+check_fires "M30: free text is not flattened in the record" m30 \
+            "  of exactly ten tab-separated fields"
+
+# --- M31: a symlinked pidfile is judged like a file ----------------------------------------------
+cat > "$A/m31.old" <<'EOF'
+    if [[ -L "$f" ]]; then PF_WHY="it is a symlink, and is not followed"; return 0; fi
+EOF
+cat > "$A/m31.new" <<'EOF'
+EOF
+check_fires "M31: 'down' removes a symlinked pidfile" m31 "🔴 a symlinked pidfile is never removed"
+
+# --- M32: a group this shell cannot ask about is called empty ------------------------------------
+cat > "$A/m32.old" <<'EOF'
+            PF_STATE=unjudged
+            PF_WHY="$PF_WHY, and its process group $g is this shell's own, which cannot be asked"
+EOF
+cat > "$A/m32.new" <<'EOF'
+            PF_STATE=stale
+EOF
+check_fires "M32: 'down' removes a pidfile it cannot judge" m32 \
+            "🔴 a pidfile whose group is this shell's own is never removed"
+
+# --- M33: the retry words are not kept -----------------------------------------------------------
+cat > "$A/m33.old" <<'EOF'
+    (( ${#words[@]} > 0 )) && NDT_UP_WORDS="$(printf '%q ' "${words[@]}")" && NDT_UP_WORDS="${NDT_UP_WORDS% }"
+EOF
+cat > "$A/m33.new" <<'EOF'
+    :
+EOF
+check_fires "M33: the refusal's retry line is not what was typed" m33 \
+            "  its retry line is the command as typed"
+
+# --- M34 (F6) / M35 (F5): the help loses the sentences that make it true ------------------------
+cat > "$A/m34.old" <<'EOF'
+                  🔴 THE LINE MEANS "--force WAS USED", NOT "IT CAME UP": it is
+EOF
+cat > "$A/m34.new" <<'EOF'
+                  🔴 THE LINE MEANS THE BRING-UP HAPPENED: it is
+EOF
+check_fires "M34 (F6): help says the record means it came up" m34 \
+            "🔴 F6: the line means '--force was used', not 'it came up'"
+cat > "$A/m35.old" <<'EOF'
+                  files, which carry no argv to compare, the pid alone. For both, a
+EOF
+cat > "$A/m35.new" <<'EOF'
+                  files, pid plus argv as well. For both, a
+EOF
+check_fires "M35 (F5): help claims argv identity for the stack's files" m35 \
+            "identity is stated per kind of file"
 
 # =============================================================================================
 # The controls
@@ -385,6 +550,14 @@ cat > "$A/c2.new" <<'EOF'
         printf -v PF_WHY '%s; process group %s empty' "$PF_WHY" "$g"
 EOF
 check_control "C2: the stale reason, built with printf -v" c2
+
+cat > "$A/c3.old" <<'EOF'
+    echo $(( st - mt ))
+EOF
+cat > "$A/c3.new" <<'EOF'
+    printf '%s\n' "$(( st - mt ))"
+EOF
+check_control "C3: how late a recycled number started, printed another way" c3
 
 echo
 NOW_SUM="$(sha256sum "$NDT" | cut -d' ' -f1)"

@@ -1095,7 +1095,7 @@ claim_override_row() {
     printf '  %-14s %s\n' "override" \
         "last --force: $(ovr_field "$last" at) -- $(ovr_field "$last" by) over $(ovr_field "$last" over)"
     printf '  %-14s %s\n' "" "$(ovr_field "$last" command)$( r="$(ovr_field "$last" running)"; [[ -n "$r" ]] && printf ' (running: %s)' "$(printf '%s' "$r" | cut -c1-48)")"
-    printf '  %-14s %s\n' "" "$n override(s) on record in ${f#$REPO/}"
+    printf '  %-14s %s\n' "" "$n override(s) on record in ${f#$REPO/} -- each says --force was USED, not that the bring-up came up"
 }
 ovr_field() { printf '%s\n' "$1" | tr '\t' '\n' | sed -n "s/^$2=//p" | head -1; }
 
@@ -4723,13 +4723,49 @@ pid_registry_stale() {
 #
 # 🔴 IDENTITY, and the asymmetry is deliberate. An app pidfile is checked against the app's argv
 # signature (pid_is_app), so a live number that is not the app any more is stale. The stack's
-# files carry no signature this script can check (pid_alive's header), so a live number there is
-# LIVE even if it has been recycled -- the direction that can never delete a running stack's
-# record. stack.sh's stop_one has the finer test (start time against the pidfile's mtime) and
-# applies it before it signals anything.
+# files carry no signature this script can check (pid_alive's header), so for them a live number
+# is LIVE -- the direction that can never delete a running stack's record -- unless the next test
+# proves it is somebody else's.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 START TIME, for both kinds (judge's F2/F8 on 6b7fce83, orchestrator round 2, 09-25). A live
+# number whose process STARTED after this file was written cannot be the process the file was
+# written about: it is a recycled number, and the file is stale -- decided HERE, before any
+# group is asked. The group question would answer for the wrong group: POSIX does not hand out a
+# number still in use as a process-group id, so when the number is alive as a stranger the
+# app's own group is long gone, and if the stranger leads a group of its own (a shell job, a
+# daemon, anything setsid'd) the old code found "live members" -- its own -- and printed "NOT
+# stale" about a record of a dead app, kept it, and counted it as a subject: 09-14's rc 0 again.
+# The same test stack.sh's stop_one makes before it signals (proc_start_epoch vs the pidfile's
+# mtime, 2 s of slack for the write that follows the fork). A start time that cannot be read
+# proves nothing, and falls through to the tests below.
+# proc_start_epoch <pid> -- when that process started, in unix seconds, or rc 1. stack.sh's own
+# function, restated here because ndt does not source stack.sh (see port_owner_local's note);
+# read through proc_stat_rest, which parses past the comm field whatever the comm contains.
+proc_start_epoch() {
+    local rest btime hz ticks
+    rest="$(proc_stat_rest "$1")" || return 1
+    ticks="$(awk '{print $20}' <<<"$rest")"
+    btime="$(awk '/^btime /{print $2}' /proc/stat 2>/dev/null)"
+    hz="$(getconf CLK_TCK 2>/dev/null)"; [[ "$hz" =~ ^[0-9]+$ ]] || hz=100
+    [[ "$btime" =~ ^[0-9]+$ && "$ticks" =~ ^[0-9]+$ ]] || return 1
+    echo $(( btime + ticks / hz ))
+}
+
+# pidfile_outlived_by <pidfile> <pid> -- rc 0, printing how many seconds late, when that pid's
+# process started more than 2 s AFTER the pidfile was written; rc 1 otherwise, including when
+# either time cannot be read (proves nothing). stop_one's test, with stop_one's slack.
+pidfile_outlived_by() {
+    local mt st
+    mt="$(stat -c %Y "$1" 2>/dev/null)"; st="$(proc_start_epoch "$2")" || return 1
+    [[ "$mt" =~ ^[0-9]+$ && "$st" =~ ^[0-9]+$ ]] || return 1
+    (( st > mt + 2 )) || return 1
+    echo $(( st - mt ))
+}
+
 PF_STATE=""; PF_PID=""; PF_GROUP=""; PF_WHY=""
 pidfile_judge() {
-    local f="$1" base name pid g="" members grc
+    local f="$1" base name pid g="" members grc late
     PF_STATE=unjudged; PF_PID=""; PF_GROUP=""; PF_WHY=""
     base="${f##*/}"
     if [[ -L "$f" ]]; then PF_WHY="it is a symlink, and is not followed"; return 0; fi
@@ -4745,12 +4781,24 @@ pidfile_judge() {
         if pid_is_app "$pid" "$name"; then PF_STATE=live; return 0; fi
         if pid_alive "$pid"; then
             PF_WHY="pid $pid is alive but is not $name -- a recycled number"
+            if late="$(pidfile_outlived_by "$f" "$pid")"; then
+                PF_WHY="$PF_WHY (it started ${late}s after this file was written)"
+                PF_STATE=stale
+                return 0
+            fi
         else
             PF_WHY="pid $pid gone"
         fi
         g="$(cat "$(app_pgidfile "$name")" 2>/dev/null)"
     else
-        if pid_alive "$pid"; then PF_STATE=live; return 0; fi
+        if pid_alive "$pid"; then
+            if late="$(pidfile_outlived_by "$f" "$pid")"; then
+                PF_WHY="pid $pid is alive but started ${late}s after this file was written -- a recycled number"
+                PF_STATE=stale
+                return 0
+            fi
+            PF_STATE=live; return 0
+        fi
         PF_WHY="pid $pid gone"
         [[ "$base" == *.child.pid ]] || g="$pid"
     fi
@@ -4782,11 +4830,20 @@ pidfile_judge() {
 # record of when that app ran here (G-12, RESIDUE-1), and app_stop's energy|sim branch keeps a
 # dead pidfile for exactly that reason. The window [mtime, sealed end] goes to the F3 record
 # (app_window_record) before the file does, which is where every later residue report looks once
-# the pidfile is gone; the report then reads the same window it would have read from the file.
+# the pidfile is gone; the report then reads the same two numbers it would have read from the
+# file, and -- since 09-25 (judge's F1) -- says the same thing about a window with no extent.
 #
 # ONLY `stale`. `group` is a live group the record names, `unusable` is its own finding (stack.sh's
 # stop_one removes an unusable stack pidfile itself, and says so), and `unjudged` is a file this
 # command cannot prove anything about -- none of them is removed here.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 NO WINDOW, NO REMOVAL (judge's F4, orchestrator round 2, 09-25). A window that could not be
+# written leaves the pidfile where it is -- that file IS the record, and removing it after the
+# copy failed would be destroying the only record on the say-so of a write that did not happen:
+# the same rule a --force whose line cannot be written obeys. The teardown says so, exits 1, and
+# names it in the claim note (not_verified), because a teardown that left a record it meant to
+# remove did not finish.
 REGISTRY_STALE_REMOVED=0
 registry_clear_stale() {
     local f base name rc=0 start seal end said=0
@@ -4801,8 +4858,13 @@ registry_clear_stale() {
             name="${base#app_}"; name="${name%.pid}"
             start="$(stat -c %Y "$f" 2>/dev/null)"
             end=""; seal="$(app_window_seal "$name" 2>/dev/null)" && end="${seal%% *}"
-            app_window_record "$name" "$start" "$end" \
-                || warn "  could not write $name's window down before removing its pidfile"
+            if ! app_window_record "$name" "$start" "$end"; then
+                err "kept stale ${f#$REPO/} ($PF_WHY): $name's window could not be written to"
+                err "  $(app_windowfile "$name" | sed "s|^$REPO/||"), and this file is the only record of when $name ran"
+                not_verified "${f#$REPO/} kept: $name's window could not be written"
+                rc=1
+                continue
+            fi
         fi
         if rm -f "$f" 2>/dev/null && [[ ! -e "$f" ]]; then
             ok "removed stale ${f#$REPO/} -- $PF_WHY"
@@ -4810,6 +4872,7 @@ registry_clear_stale() {
             [[ -n "$name" ]] && rm -f "$(app_pgidfile "$name")" 2>/dev/null
         else
             err "could NOT remove stale ${f#$REPO/} ($PF_WHY) -- check its ownership"
+            not_verified "a stale ${f#$REPO/} could not be removed"
             rc=1
         fi
     done
@@ -5106,9 +5169,9 @@ cmd_down() {
     # until the orchestrator deleted it by hand; every `ndt down` in between walked past it.
     # Said only when there is one, so a teardown with nothing stale reads as it always has.
     # Not a subject: DOWN_SUBJECT above was read through the same predicate and left it out.
+    # rc 1 names its own cause in the claim note (not_verified, inside), so this only carries it.
     registry_clear_stale || {
         down_rc=1
-        not_verified "a stale pidfile in .test_run/pids/ could not be removed"
     }
 
     # The lab is no longer being asked for anything, so the baseline `status --check` compares
@@ -5442,7 +5505,7 @@ cmd_clean() {
 STACK_PIDFILE_PROBLEMS=()
 stack_pidfile_row() {
     STACK_PIDFILE_PROBLEMS=()
-    local f base name pid ev_at ev_st line grouped=0
+    local f base name pid ev_at ev_st line grouped=0 late
     local -a bad=() live=()
     for f in "$REPO"/.test_run/pids/*.pid; do
         [[ -f "$f" ]] || continue
@@ -5454,6 +5517,14 @@ stack_pidfile_row() {
         pid="$(cat "$f" 2>/dev/null)"
         if [[ ! "$pid" =~ ^[0-9]+$ ]] || (( pid < 2 )); then
             bad+=("$base: unusable -- it holds '${pid:-<empty>}', which is not a pid. 'ndt down' reads these files.")
+            continue
+        fi
+        # [Co-developed with claude code -- Adam]
+        # A live number that started AFTER this file was written is somebody else's (judge F8,
+        # 09-25): pidfile_judge's start-time test, the one stop_one makes before it signals.
+        # Asked first, because the line below would otherwise print it as `alive`.
+        if pid_alive "$pid" && late="$(pidfile_outlived_by "$f" "$pid")"; then
+            bad+=("$base: stale pidfile (pid $pid is alive, but that process started ${late}s after this file was written -- a recycled number, not $name)")
             continue
         fi
         if pid_alive "$pid"; then
@@ -9743,6 +9814,21 @@ residue_report() {
                 "$(date -d "@$wend" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "$wend")" \
                 "$(( wend - started ))" "$wwhy"
         elif [[ -n "$wend" ]]; then
+            # [Co-developed with claude code -- Adam]
+            # 🔴 THE SAME CAVEAT, FROM A RECORD (judge's F1 on 6b7fce83, orchestrator round 2,
+            # 09-25). Since 09-25 `ndt down` removes a stale app pidfile and writes the window it
+            # dated into the record this branch reads -- and for energy, which has no log channel
+            # on any machine, that window is [mtime, mtime]. Before this block the very same
+            # window printed E-7's warning while its pidfile existed (the branch above) and went
+            # silent the moment a teardown moved it into a record, leaving `no flow entry arrived
+            # during that window` under a window that could not contain one: the shape E-7 and
+            # the manual forbid. A zero-width window attributes nothing, whoever wrote it down.
+            # Above the window line, for the adjacency reason the branch above gives.
+            (( wend == started )) && {
+                warn "      the window below has NO extent: nothing on this machine can date when"
+                warn "      $a stopped, so NOTHING can be attributed to it. That is 'nobody could"
+                warn "      ask', NOT 'this app left nothing'. (G-12; this window is a record)"
+            }
             # F3. A CLOSED window, and the line says so and says where it came from: a reader
             # who sees a window for an app that is not running has to be able to tell a record
             # from a live reading, and the record is the only one of the two that another
@@ -10554,12 +10640,18 @@ usage: ndt <command>
                   anything is written -- on OVS only since 2026-09-25: until then
                   'ndt up ovs' built a fabric under somebody else's claim and exited
                   0 (ndt serve round, 09-24 22:49). --force is the way past exactly
-                  those two, on BOTH planes, and every use of it is one line in
-                  .test_run/lab.claim.overrides -- who, when, whose claim, what was
-                  running; 'ndt status' shows the last one as its override row. A
-                  --force whose line cannot be written is refused, 5. It is not a
-                  way past the other refusals: a teardown in flight is a wait, and
-                  H4 and a failed --app pre-flight are about the files named.
+                  those two, on BOTH planes, and every use of it that went past one
+                  of them is one line in .test_run/lab.claim.overrides -- who, when,
+                  whose claim, what was running; 'ndt status' shows the last one as
+                  its override row. A --force with nothing to go past writes
+                  nothing. A --force whose line cannot be written is refused, 5.
+                  🔴 THE LINE MEANS "--force WAS USED", NOT "IT CAME UP": it is
+                  written before the checks that come after the guard, so the same
+                  bring-up can still be refused (a teardown in flight, a held port,
+                  a Mininet already running, H4) or fail -- read that run's own exit
+                  code for that. It is not a way past those other refusals: a
+                  teardown in flight is a wait, and H4 and a failed --app pre-flight
+                  are about the files named.
                   🔴 1 AND 5 ARE DIFFERENT QUESTIONS. 1 says this command looked at the
                   machine and did not like what it found; 5 says it never looked. When
                   both are true at once -- a teardown in flight AND a port held -- the
@@ -10584,7 +10676,10 @@ usage: ndt <command>
                   corrected the same day. (ROLE-11 F7 / FIX-DOC-1, 2026-09-12)
                   exit 0 the teardown finished and the machine verified clean; 1 any
                   of: stack.sh's half exited non-zero, the sweep did not finish, or
-                  the assertion found something still running. All four steps run
+                  the assertion found something still running -- or, since 09-25, a
+                  STALE registry entry could not be removed, or an app's window
+                  could not be written before its pidfile was (the file is then
+                  kept, and the claim note says which). All four steps run
                   whatever the earlier ones did -- a first step that failed is what
                   makes the rest matter -- so the rc is one verdict over all of them
                   and the block above it says which.
@@ -10601,10 +10696,16 @@ usage: ndt <command>
                   process group, where one is recorded, has no process left -- is not
                   something to tear down: this command REMOVES it (for an app, after
                   writing the app's window to .test_run/apps/<app>.window), names it,
-                  and still answers 3 when nothing else was up. Identity is pid plus
-                  argv, read from /proc; a pid that is gone while its group is alive
-                  is NOT stale and is kept. Until 09-25 one such file (app_viz.pid,
-                  from 09-14) made every down of a down lab answer 0. (Adam, 09-25)
+                  and still answers 3 when nothing else was up. Identity is read
+                  from /proc: for an app_*.pid, pid plus argv (a live pid that does
+                  not carry the app's argv is not the app); for the stack's own
+                  files, which carry no argv to compare, the pid alone. For both, a
+                  live pid whose process STARTED after the file was written is a
+                  recycled number, and the file is stale. A pid that is gone while
+                  its group is alive is NOT stale and is kept, and so is a file this
+                  cannot judge (a symlink, a group that is this shell's own). Until
+                  09-25 one stale file (app_viz.pid, from 09-14) made every down of
+                  a down lab answer 0. (Adam, 09-25)
                   5 A GUARD REFUSED and nothing was torn down: the lab is claimed by
                   somebody else, the claim DECLARES a measurement in progress, a
                   measurement is in flight, or another 'ndt down' from this checkout
@@ -10676,7 +10777,8 @@ usage: ndt <command>
                   switch process, the topo session, the manifest, a held port, or a
                   port this user could not read, because unknown is never clean;
                   3 THERE WAS NOTHING TO JUDGE: no fabric, nothing in
-                  .test_run/pids/, and no port in ports.sh's table held.
+                  .test_run/pids/ naming a live process, and no port in ports.sh's
+                  table held.
                   A STALE entry in .test_run/pids/ (see down) is nothing here as
                   well: it is named under the verdict and left for 'ndt down' to
                   remove, because this command is an assertion. (Adam, 2026-09-25)
