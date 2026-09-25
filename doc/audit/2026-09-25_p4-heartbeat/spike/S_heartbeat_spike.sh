@@ -824,6 +824,54 @@ DRIVER
     [[ -n "$tpl" && "$r" == 4242 ]] \
         && ok "  the pid is read from the helper's own 'heartbeat started (pid N; ...)' answer (template taken from the helper)" \
         || red "  the pid in the helper's start answer is not what the census reads: template '${tpl:-not found in the helper}', read '$r'"
+    # R4-1 at the census's own call site: one arm, driven with stubs in a fresh `bash -euo pipefail`
+    # process -- census, wait_session and the sniffer watch are this file's code (`declare -f`),
+    # hb_watch.py is the real one; the lab (prepare, ndt, the heartbeat helper, the model's hosts,
+    # host_pid, sudo/mnexec) is stubbed, and the stub sniffer records the session it was given.
+    printf 'host_pid() { echo 4321; }\n' > "$st_tmp/fake_ndt"
+    {
+        echo 'set -euo pipefail'
+        declare -f census wait_session watch_sniffers watch_hit child_running note fail bad say
+        printf 'WATCH=%q\nSNIFF=%q\nREAL_NDT=%q\n' "$WATCH" "$SNIFF" "$st_tmp/fake_ndt"
+        cat <<'DRIVER'
+sudo() {
+    if [[ "${2:-}" == mnexec ]]; then echo "sniff ${10:-} ${12:-}" >> "$CALLS"; else echo "sudo $*" >> "$CALLS"; fi
+    printf '{"host": "%s", "frames_hb": 0}\n' "${10:-}"
+}
+out="$1"; RUN="$2"; HB_REPORT="$3"; START_ANSWER="$4"; CALLS="$2/calls"
+mkdir -p "$RUN"; : > "$CALLS"
+VERDICT_RC=0; VERDICT_WHY=""; HB_STARTED=0; WATCH_HIT=""; EXERCISES=basic; ARMS=solution; SNIFF_S=1
+prepare() { echo "OK /nonexistent/pkg"; }
+nd_up() { : > "$2"; return 0; }
+sp_hb_start() { printf '%s\n' "$START_ANSWER" > "$1"; HB_STARTED=1; return 0; }
+sp_hb_stop() { echo "hb stop" >> "$CALLS"; HB_STARTED=0; }
+nd_down() { echo "ndt down" >> "$CALLS"; return 0; }
+model_hosts() { echo "h1 10.0.0.1"; }
+census
+echo "survived VERDICT_RC=$VERDICT_RC WHY=$VERDICT_WHY" > "$out"
+DRIVER
+    } > "$st_tmp/census_arm_driver.sh"
+    st_arm() {   # st_arm <name> <report json> <start answer> -> "<driver's last word> | calls: a;b | row: <tsv row>"
+        local d="$st_tmp/arm_$1"
+        mkdir -p "$d"; printf '%s' "$2" > "$d/report.json"
+        bash "$st_tmp/census_arm_driver.sh" "$d/result" "$d/run" "$d/report.json" "$3" > "$d/out" 2>&1 || true
+        printf '%s | calls: %s | row: %s' "$(cat "$d/result" 2>/dev/null || echo "died: $(st_died "$d/out")")" \
+            "$(paste -sd';' "$d/run/calls" 2>/dev/null)" "$(sed -n 2p "$d/run/40_census.tsv" 2>/dev/null | tr '\t' '|')"
+    }
+    local started="heartbeat started (pid 4242; report: /run/ndtwin-lab/heartbeat.json, log: x)"
+    r="$(st_arm new '{"status": "running", "pid": 4242, "session": "0102030405060708"}' "$started")"
+    [[ "$r" == "survived VERDICT_RC=0 WHY= | calls: sniff h1 0102030405060708;hb stop;ndt down | row: basic|solution|yes|running|OK "* ]] \
+        && ok "  a census arm: the pid start named ties the session, and the sniffers get that one (census driven with stubs, set -e process)" \
+        || red "  a census arm with the new daemon's report: $r"
+    r="$(st_arm stale '{"status": "stopped", "pid": 1111, "session": "a1a1a1a1a1a1a1a1"}' "$started")"
+    [[ "$r" == "survived VERDICT_RC=1 WHY=census basic/solution: the heartbeat started (pid 4242) but no running report of that pid carries a session after 5 s | calls: hb stop;ndt down | row: basic|solution|yes|no session in 5 s|-" ]] \
+        && ok "  an arm whose report is still the previous arm's 'stopped' one: a FAIL row, no sniffer given that session" \
+        || red "  an arm whose report is still the previous arm's 'stopped' one: $r"
+    r="$(st_arm already '{"status": "running", "pid": 4242, "session": "d4d4d4d4d4d4d4d4"}' \
+        "heartbeat already running (pid 4242) -- not starting a second one")"
+    [[ "$r" == "survived VERDICT_RC=1 WHY=census basic/solution: 'heartbeat start' answered 0 without saying it started a daemon -- see 11_hb_start.txt | calls: hb stop;ndt down | row: basic|solution|yes|no session in 5 s|-" ]] \
+        && ok "  an arm whose start answered 'already running' (it started nothing): a FAIL row, nobody else's session sniffed" \
+        || red "  an arm whose start answered 'already running': $r"
 
     # R4-3 (round-4 verdict) -- the census table is a display; the raw is 40_census.tsv. The run
     # block's own display step (read out of this file, whatever it is) runs in a fresh
