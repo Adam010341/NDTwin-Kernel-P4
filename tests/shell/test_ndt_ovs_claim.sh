@@ -95,6 +95,7 @@ PY
 }
 mk_topo StaticNetworkTopologyOVS_10Switches_4Hosts.json  4 40
 mk_topo StaticNetworkTopologyP4_10Switches_4Hosts.json   4 40
+mk_topo StaticNetworkTopologyMininet_10Switches_128Hosts.json 128 40
 printf 'helper v2\n' > "$FIX/installed-ndtwin-lab"
 printf 'helper v2\n' > "$FIX/tools/test_workflow/ndtwin-lab"
 
@@ -353,7 +354,7 @@ section "4. 🔴 --force builds, and every use of it is written down"
 # =============================================================================================
 reset_fix; echo "0 14" > "$FIX/mn.seq"
 write_claim "$THEM" "$FUTURE" "ROLE-x reader running" "reader nsr"
-OUT="$(NDT_OWNER="$US" NDT_UP_FORCE=1 drive 'up_ovs 4')"
+OUT="$(NDT_OWNER="$US" drive 'NDT_UP_FORCE=1; up_ovs 4')"
 check "--force is not refused"                               "no" "$([[ "$(rc_of "$OUT")" == 5 ]] && echo yes || echo no)"
 has   "  the fabric was built"                               "ovs-topo-4host" "$(cat "$FIX/sudo.log")"
 has   "  it says out loud it is building over the claim"     "--force: building over the claim of $THEM" "$OUT"
@@ -371,7 +372,7 @@ check "  which login ran it"                                 "$(id -un)" "$(ovr_
 FIRST="$(head -n 1 "$OVR" 2>/dev/null)"
 reset_keep_ovr() { local keep; keep="$(cat "$OVR" 2>/dev/null)"; reset_fix; [[ -n "$keep" ]] && printf '%s\n' "$keep" > "$OVR"; }
 reset_keep_ovr; echo "0 14" > "$FIX/mn.seq"
-OUT="$(NDT_OWNER="$US" NDT_UP_FORCE=1 FX_BUSY="matrix.sh cell 4" drive 'up_ovs 4')"
+OUT="$(NDT_OWNER="$US" FX_BUSY="matrix.sh cell 4" drive 'NDT_UP_FORCE=1; up_ovs 4')"
 check "🔴 --force over a measurement in flight is recorded too, and APPENDED" "2" "$(overrides)"
 check "  the first record is untouched"                      "$FIRST" "$(head -n 1 "$OVR" 2>/dev/null)"
 check "  with no claim to name, 'over' says so"              "none" "$(ovr_field over)"
@@ -379,7 +380,7 @@ has   "  and it names what was running"                      "matrix.sh cell 4" 
 
 # --force with nothing to override is not an override, and writes nothing.
 reset_fix; echo "0 14" > "$FIX/mn.seq"
-OUT="$(NDT_OWNER="$US" NDT_UP_FORCE=1 drive 'up_ovs 4')"
+OUT="$(NDT_OWNER="$US" drive 'NDT_UP_FORCE=1; up_ovs 4')"
 check "--force over nothing records nothing"                 "0" "$(overrides)"
 has   "  and the bring-up still ran"                         "up ovs" "$(cat "$FIX/stack.log")"
 
@@ -388,7 +389,7 @@ has   "  and the bring-up still ran"                         "up ovs" "$(cat "$F
 reset_fix
 write_claim "$THEM" "$FUTURE" "night round" ""
 mkdir -p "$OVR"
-OUT="$(NDT_OWNER="$US" NDT_UP_FORCE=1 drive 'up_ovs 4')"
+OUT="$(NDT_OWNER="$US" drive 'NDT_UP_FORCE=1; up_ovs 4')"
 check "🔴 --force whose record cannot be written is refused" "5" "$(rc_of "$OUT")"
 has   "  and says why"                                       "could not be recorded" "$OUT"
 check "  and reached nothing"                                "$UNTOUCHED" "$(touched)"
@@ -409,7 +410,7 @@ OUT="$(NDT_OWNER="$US" FX_BUSY="measure.sh run 2" drive 'up_p4 4')"
 check "  a measurement in flight still refuses P4 with 5"    "5" "$(rc_of "$OUT")"
 reset_fix; echo "0 10" > "$FIX/bmv2.seq"
 write_claim "$THEM" "$FUTURE" "night round" ""
-OUT="$(NDT_OWNER="$US" NDT_UP_FORCE=1 drive 'up_p4 4')"
+OUT="$(NDT_OWNER="$US" drive 'NDT_UP_FORCE=1; up_p4 4')"
 check "--force builds P4 over a foreign claim"               "no" "$([[ "$(rc_of "$OUT")" == 5 ]] && echo yes || echo no)"
 has   "  the fabric was started"                             "topo-start" "$(cat "$FIX/sudo.log")"
 check "  and the override is recorded"                       "1" "$(overrides)"
@@ -433,6 +434,12 @@ OUT="$(drive 'up_take_app_flag --force p4 4; echo "force=[$NDT_UP_FORCE] argv=[$
 has   "  in any position"                                    "force=[1] argv=[p4 4]" "$OUT"
 OUT="$(NDT_UP_FORCE=1 drive 'up_take_app_flag ovs 4; echo "force=[$NDT_UP_FORCE]"')"
 has   "🔴 an exported NDT_UP_FORCE without the flag forces nothing" "force=[]" "$OUT"
+# ...and not even when a bring-up is reached without the dispatch: loading ndt resets it.
+reset_fix
+write_claim "$THEM" "$FUTURE" "night round" ""
+OUT="$(NDT_OWNER="$US" NDT_UP_FORCE=1 drive 'up_ovs 4')"
+check "🔴 an exported NDT_UP_FORCE=1 does not open the guard" "5" "$(rc_of "$OUT")"
+check "  and nothing was recorded or reached"                "0 $UNTOUCHED" "$(overrides) $(touched)"
 
 # =============================================================================================
 section "7. 'ndt help' tells the truth about it"
