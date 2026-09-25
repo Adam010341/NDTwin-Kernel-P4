@@ -9,9 +9,11 @@
 # /usr/local/sbin/ndtwin-lab (the one with `heartbeat`), which is not installed when this is
 # written, and it refuses -- rc 2, before any claim -- unless the installed helper is
 # byte-identical to this checkout's tools/test_workflow/ndtwin-lab. `--self-test` runs the judge
-# (hb_watch.py), the host sniffer (hb_sniff.py), and this script's own teardown, tc pre-check and
-# sniffer watch against stubs -- one input that must pass and one that must fail per verdict --
-# and touches nothing else.
+# (hb_watch.py), the host sniffer (hb_sniff.py), and this script's own teardown, tc pre-check,
+# sniffer watch, detection cycle (against a fake tc), one census arm and census table against
+# stubs -- one input that must pass and one that must fail per verdict -- and touches nothing
+# else. spike/oldcode_selftest.sh puts the set -e fixes of round 4 and each fix of round 5 back to
+# their old form in a copy and shows that exactly the checks written for them go red.
 #
 # PART=detect  (≈ 15 min)  pod-topo `--app basic` (the exercise's own solution pipeline, converted
 #   the way 06 converts it). The heartbeat runs; an OUT-OF-BAND `tc netem loss 100%` goes on BOTH
