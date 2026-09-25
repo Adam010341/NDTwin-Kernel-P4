@@ -247,14 +247,18 @@ child_running() {
     [[ -n "$st" && "$st" != Z && "$st" != X ]]
 }
 
-# wait_session <report> <tries> -- the daemon's session (hex) out of its report, polled every 0.25 s
-# for up to <tries> reads; rc 1, printing nothing, if there is none by then (judge R3-4, round 4:
-# the report is written right after the pidfile `start` waits for, so it can lag by an instant,
-# and a bare read under `set -e` would end the run on that instant).
+# wait_session <report> <tries> <pid> -- the session (hex) of daemon <pid> out of its report, polled
+# every 0.25 s for up to <tries> reads; rc 1, printing nothing, if there is none by then (judge
+# R3-4, round 4: the report is written right after the pidfile `start` waits for, so it can lag by
+# an instant, and a bare read under `set -e` would end the run on that instant).
+# 🔴 ONLY A REPORT THAT SAYS `running` AND NAMES <pid> (judge R4-1, round-4 verdict): in that same
+# instant the file can still hold the previous arm's final "stopped" report, and a daemon killed
+# before its clean exit leaves a "running" one with its own pid -- either session is not this arm's.
+# <pid> is the one `heartbeat start` answered with (hb_watch.py started-pid).
 wait_session() {
     local i s
     for (( i = 0; i < $2; i++ )); do
-        s="$(/usr/bin/python3 -I "$WATCH" session "$1" 2>/dev/null)" || s=""
+        s="$(/usr/bin/python3 -I "$WATCH" session "$1" "$3" 2>/dev/null)" || s=""
         [[ -n "$s" ]] && { echo "$s"; return 0; }
         sleep 0.25
     done
@@ -344,7 +348,10 @@ detect() {
         v="$(/usr/bin/python3 -I "$WATCH" wait-heard "$HB_REPORT" "$CUT_DIRS" "$(python3 -c "print($(now) - ${BEACON_S} - 1)")" "$(( ${BEACON_S%.*} * 3 ))")"
         [[ "$v" != TIMEOUT ]] || { fail "cycle $i: the cable was not heard before the cut"; break; }
         t0a="$(now)"
-        cut_link || break
+        # 🔴 A CUT REFUSED ON ITS SECOND END (judge R4-2, round-4 verdict) has already put netem on the
+        # first. It comes off HERE, while the veth exists: left to the EXIT trap, the revert runs
+        # after `nd_down` removed the veth, answers "cannot locate", and adds a misleading failure.
+        cut_link || { restore_link || fail "cycle $i: could not remove the netem a half-done cut left on $CUT_A"; break; }
         t0="$(now)"
         down="$(/usr/bin/python3 -I "$WATCH" wait-down "$HB_REPORT" "$CUT_DIRS" "$t0" "$TIMEOUT_S" "$(python3 -c "print($TIMEOUT_S + 2 * $BEACON_S + 10)")")"
         local coll; coll="$(/usr/bin/python3 -I "$WATCH" others-up "$HB_REPORT" "$CUT_DIRS" "$TIMEOUT_S")"
@@ -373,7 +380,7 @@ detect() {
 
 # --- PART census -----------------------------------------------------------------------------------
 census() {
-    local ex which prep pkg rc hs session h pid v dir stopf
+    local ex which prep pkg rc hs hb_pid session h pid v dir stopf
     printf 'exercise\tarm\tbuilt\theartbeat\tverdict\n' > "$RUN/40_census.tsv"
     for ex in $EXERCISES; do
       for which in $ARMS; do
@@ -406,9 +413,20 @@ census() {
             nd_down "$dir/90_down.txt" || true
             continue
         fi
-        if ! session="$(wait_session "$HB_REPORT" 20)"; then
+        # The daemon THIS start started (judge R4-1): its pid from start's own answer, and the
+        # session only from a running report of that pid. "already running" names no pid here.
+        hb_pid="$(/usr/bin/python3 -I "$WATCH" started-pid "$dir/11_hb_start.txt" 2>/dev/null)" || hb_pid=""
+        session=""
+        if [[ -n "$hb_pid" ]]; then
+            session="$(wait_session "$HB_REPORT" 20 "$hb_pid")" || session=""
+        fi
+        if [[ -z "$session" ]]; then
             printf '%s\t%s\tyes\tno session in 5 s\t-\n' "$ex" "$which" >> "$RUN/40_census.tsv"
-            fail "census $ex/$which: the heartbeat started but its report carries no session after 5 s"
+            if [[ -n "$hb_pid" ]]; then
+                fail "census $ex/$which: the heartbeat started (pid $hb_pid) but no running report of that pid carries a session after 5 s"
+            else
+                fail "census $ex/$which: 'heartbeat start' answered 0 without saying it started a daemon -- see 11_hb_start.txt"
+            fi
             sp_hb_stop "$dir/31_hb_stop.txt"
             nd_down "$dir/90_down.txt" || true
             continue
@@ -443,6 +461,18 @@ census() {
         esac
       done
     done
+}
+
+# show_census <tsv> -- the census table on the terminal. A DISPLAY: the raw is the tsv, so this never
+# decides the run (judge R4-3, round-4 verdict: under pipefail, a machine without `column` --
+# bsdextrautils -- turned a finished census into "exited 127 before its own verdict"). Without
+# `column`, the rows as they are.
+show_census() {
+    if command -v column >/dev/null 2>&1; then
+        column -t -s $'\t' "$1" | sed 's/^/   /' || true
+    else
+        sed 's/^/   /' "$1" || true
+    fi
 }
 
 # --- --self-test -------------------------------------------------------------------------------------
@@ -889,6 +919,6 @@ take_claim "heartbeat spike S ($PART): pod-topo basic, netem on $CUT_A/$CUT_B; 1
 [[ "$PART" == detect || "$PART" == all ]] && detect
 if [[ "$PART" == census || "$PART" == all ]] && (( VERDICT_RC == 0 || ${CENSUS_EVEN_IF_RED:-0} )); then
     census
-    column -t -s $'\t' "$RUN/40_census.tsv" | sed 's/^/   /'
+    show_census "$RUN/40_census.tsv"
 fi
 say "done -- teardown follows"

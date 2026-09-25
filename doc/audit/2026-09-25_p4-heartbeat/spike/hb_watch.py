@@ -18,7 +18,8 @@ Pure functions first (the --self-test drives every one of them against a synthet
 must accept and one it must reject), then the thin polling wrappers the spike calls.
 
     hb_watch.py now
-    hb_watch.py session   <report>
+    hb_watch.py session   <report> <pid>                     -> the session of daemon <pid> while running, or ""
+    hb_watch.py started-pid <start-output>                   -> the pid `heartbeat start` says it started, or ""
     hb_watch.py all-heard <report> <after_mono>              -> OK n/n | BAD ...
     hb_watch.py wait-heard <report> <dirs> <after_mono> <cap_s>
     hb_watch.py wait-down  <report> <dirs> <t0_mono> <timeout_s> <cap_s>
@@ -35,6 +36,7 @@ import glob
 import io
 import json
 import os
+import re
 import statistics
 import sys
 import tempfile
@@ -148,6 +150,35 @@ def first_hit(sniffs):
         if (s.get("frames_hb") or 0) > 0:
             return s.get("host") or "?"
     return ""
+
+
+def session_of(doc, pid):
+    """The session the census sniffs for: that of daemon `pid`, and only while its report says it
+    is running; "" otherwise.
+
+    Judge R4-1 (round-4 verdict): `start` can return while the report still holds the previous
+    arm's final "stopped" document (the daemon writes its pidfile, which is what `start` waits
+    for, an instant before its first report), and a daemon killed without its clean exit leaves a
+    "running" report with its own pid behind. Neither session is this arm's.
+    """
+    if doc.get("status") != "running":
+        return ""
+    if doc.get("pid") != pid:
+        return ""
+    return doc.get("session") or ""
+
+
+def started_pid(text):
+    """The pid in `ndtwin-lab heartbeat start`'s "heartbeat started (pid N; ...)" answer, or None.
+
+    Only that answer counts. "heartbeat already running (pid N)" also exits 0, but this call
+    started nothing: the daemon is somebody else's, or an earlier arm's that was not stopped.
+    """
+    for line in text.splitlines():
+        m = re.match(r"heartbeat started \(pid (\d+);", line)
+        if m:
+            return int(m.group(1))
+    return None
 
 
 # ------------------------------------------------------------------------------ polling wrappers
@@ -284,9 +315,18 @@ def main(argv):
     if cmd == "now":
         print(f"{time.monotonic():.3f}")
     elif cmd == "session":
-        print(load(argv[2]).get("session") or "")
+        print(session_of(load(argv[2]), int(argv[3])))
+    elif cmd == "started-pid":
+        with open(argv[2]) as fh:
+            pid = started_pid(fh.read())
+        print("" if pid is None else pid)
     elif cmd == "all-heard":
-        print(all_heard(load(argv[2]), float(argv[3])))
+        # BAD, not a traceback, when the report cannot be read (judge (d)(i), round-4 verdict): the
+        # spike's `set -e` would otherwise end the run on it, like wait-* / first-hit already avoid.
+        try:
+            print(all_heard(load(argv[2]), float(argv[3])))
+        except (OSError, ValueError, KeyError) as exc:
+            print(f"BAD the report could not be read: {exc!r}")
     elif cmd == "wait-heard":
         r = wait_heard(argv[2], parse_dirs(argv[3]), float(argv[4]), float(argv[5]))
         print("TIMEOUT" if r is None else f"{r:.3f}")
@@ -294,7 +334,10 @@ def main(argv):
         r = wait_down(argv[2], parse_dirs(argv[3]), float(argv[4]), float(argv[5]), float(argv[6]))
         print("TIMEOUT" if r is None else f"{r:.3f}")
     elif cmd == "others-up":
-        print(others_up(load(argv[2]), parse_dirs(argv[3]), time.monotonic(), float(argv[4])))
+        try:
+            print(others_up(load(argv[2]), parse_dirs(argv[3]), time.monotonic(), float(argv[4])))
+        except (OSError, ValueError, KeyError) as exc:
+            print(f"BAD the report could not be read: {exc!r}")
     elif cmd == "summary":
         rows = []
         with open(argv[2]) as fh:
