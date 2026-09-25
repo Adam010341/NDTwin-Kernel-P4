@@ -81,7 +81,7 @@ PAIR
 
 # --- start ----------------------------------------------------------------------------------
 CASES+=(no-topo-check)
-write_case no-topo-check "no topo session: refused" <<'PAIR'
+write_case no-topo-check "no topo session: refused, and the refusal names the missing topo session" <<'PAIR'
     session_running topo ||
         { hb_refuse "refusing to start: no fabric is running (there is no topo session; 'sudo ndtwin-lab topo-start' first)"; return 1; }
 @@@TO@@@

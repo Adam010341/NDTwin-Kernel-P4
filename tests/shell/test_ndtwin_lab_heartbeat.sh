@@ -180,7 +180,10 @@ start_with() {   # start_with <topo:0|1> <plan rc> <live pid or ""> -- "<rc>|<ac
     printf '%s|%s|%s' "$rc" "$(paste -sd, "$CALLS")" "$out"
 }
 r="$(TOPO=1 PLAN_RC=0 LIVE="" start_with)"
-check "no topo session: refused"                        1 "${r%%|*}"
+# rc AND the reason: rc 1 alone is also what a start that launched and whose daemon then died
+# returns -- the mutation gate's first run (no-topo-check, 32a25b23) passed an rc-only check.
+check "no topo session: refused, and the refusal names the missing topo session" \
+      "1 yes" "${r%%|*} $(has "there is no topo session" "$r")"
 check "  and nothing was installed, planned or launched" "session topo" "$(cut -d'|' -f2 <<<"$r")"
 check "  and it says there is no fabric"                yes "$(has "no fabric is running" "$r")"
 
