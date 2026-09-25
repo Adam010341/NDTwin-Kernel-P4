@@ -59,8 +59,15 @@ set +e
 
 TMPROOT="$(mktemp -d /tmp/ndtwin-lab-heartbeat-XXXXXX)"
 STARTED=()      # pids this suite started; cleanup stops only these
+MAIN_BASHPID=$BASHPID
 cleanup() {
     local p
+    # 🔴 THE MAIN SHELL ONLY. A background child that dies of `set -u` runs the EXIT trap it
+    # inherited -- measured on this suite's first red run (8be43e77, against the helper with no
+    # heartbeat): a stand-in launch hit an unbound variable, its child ran this function, and
+    # TMPROOT vanished under the rest of the suite. $$ is the main shell's pid in every subshell;
+    # $BASHPID is not.
+    [[ "$BASHPID" == "$MAIN_BASHPID" ]] || return 0
     for p in "${STARTED[@]}"; do
         # Only if /proc still says it is ours: a child of this shell whose argv names TMPROOT.
         if [[ -r "/proc/$p/cmdline" ]] && tr '\0' ' ' < "/proc/$p/cmdline" | grep -qF "$TMPROOT"; then
@@ -80,6 +87,9 @@ HB_PROGRAM="$HB_RUN_DIR/heartbeat.py"
 HB_PIDFILE="$HB_RUN_DIR/heartbeat.pid"
 HB_LOG="$HB_RUN_DIR/heartbeat.log"
 HB_EXPECT_UID="$(id -u)"
+# The interpreter the stand-ins are launched with. The helper sets it; a helper that does not
+# (the red run) must still leave this suite able to start its own processes.
+HB_PYTHON="${HB_PYTHON:-/usr/bin/python3}"
 HB_START_STEPS=40
 HB_STOP_STEPS=30
 CALLS="$TMPROOT/calls"
@@ -326,8 +336,10 @@ echo "4-7. the program root runs"
 
 PROG="$TMPROOT/program.py"
 hb_program > "$PROG" 2>/dev/null
-check "the embedded program is valid python for $HB_TEST_PY" 0 \
-    "$("$HB_TEST_PY" -I -c 'import ast,sys; ast.parse(open(sys.argv[1]).read())' "$PROG" >/dev/null 2>&1; echo $?)"
+check "the embedded program is valid python for $HB_TEST_PY, and is the daemon" 0 \
+    "$("$HB_TEST_PY" -I -c 'import ast,sys
+t = ast.parse(open(sys.argv[1]).read())
+sys.exit(0 if {"run_daemon", "plan", "main"} <= {n.name for n in t.body if isinstance(n, ast.FunctionDef)} else 1)' "$PROG" >/dev/null 2>&1; echo $?)"
 
 # The tutorials tree (section 7's collision check) is outside the repo; say so if it is absent.
 TUT_EXERCISES="${TUT_EXERCISES:-$HOME/tutorials/exercises}"
