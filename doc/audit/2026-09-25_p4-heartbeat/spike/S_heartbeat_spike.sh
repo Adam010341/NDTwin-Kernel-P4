@@ -463,17 +463,47 @@ PYAGREE
         && ok "  and a clean down of a fabric that is up passes (the control)" \
         || red "  a clean down of an up fabric ended: $r"
 
-    # 🔴 JUDGE #2, ROUND 2 -- the tc grant, asked before the claim.
-    r="$( sudo() { return 1; }; FAULTS_TC="sudo -n tc"; precheck_tc "$st_tmp/grant1.txt"; echo "$?" )"
-    [[ "$r" == 1 ]] && grep -q '^REFUSED   tc qdisc add dev s1-eth3 root netem loss 100%' "$st_tmp/grant1.txt" \
-        && ok "no tc grant: the pre-check refuses and names the command" \
-        || red "no tc grant: the pre-check answered '$r'"
-    r="$( sudo() { [[ "$1 $2" == "-n -l" ]]; }; FAULTS_TC="sudo -n tc"; precheck_tc "$st_tmp/grant2.txt"; echo "$?" )"
-    [[ "$r" == 0 ]] && ok "  every grant there: the pre-check passes (the control)" \
-                    || red "  every grant there: the pre-check answered '$r'"
-    r="$( FAULTS_TC="false"; precheck_tc "$st_tmp/grant3.txt"; echo "$?" )"
-    [[ "$r" == 1 ]] && ok "  a FAULTS_TC override that cannot run tc is refused too" \
-                    || red "  a failing FAULTS_TC override answered '$r'"
+    # 🔴 R2-1, ROUND 3 -- the tc route is proven by RUNNING something, never by asking sudo.
+    # tools/test_workflow/sudo_surface.sh:37-49 measured on this machine that `sudo -n -l <cmd>`
+    # answers 0 for anything (a password-requiring ALL rule rides beside the NOPASSWD ones), so the
+    # round-2 pre-check built on it had no discriminating power. The default route is mnexec in
+    # pid 1's namespaces, which the mnexec grant covers whatever its arguments.
+    if [[ "${FAULTS_TC_FROM_ENV:-}" == yes ]]; then
+        red "FAULTS_TC came from the environment ('$FAULTS_TC'); run the self-test without it so the DEFAULT is what is checked"
+    elif [[ "$FAULTS_TC" == "sudo -n mnexec -a 1 tc" ]]; then
+        ok "the spike's default tc route is 'sudo -n mnexec -a 1 tc' (plain 'sudo -n tc' only as an override)"
+    else
+        red "the spike's default tc route is '$FAULTS_TC', not 'sudo -n mnexec -a 1 tc'"
+    fi
+    : > "$st_tmp/sudo_calls"
+    r="$( sudo() { echo "$*" >> "$st_tmp/sudo_calls"; [[ "$*" == "-n mnexec -a 1 tc qdisc show dev lo" ]]; }
+          FAULTS_TC="sudo -n mnexec -a 1 tc"; precheck_tc "$st_tmp/grant1.txt"; echo "$?" )"
+    [[ "$r" == 0 && "$(cat "$st_tmp/sudo_calls")" == "-n mnexec -a 1 tc qdisc show dev lo" ]] \
+        && ok "the pre-check RUNS a harmless tc through the route (sudo stubbed: one call, 'qdisc show dev lo')" \
+        || red "the pre-check did not run tc through the route: rc '$r', sudo was called as: $(paste -sd';' "$st_tmp/sudo_calls")"
+    r="$( sudo() { return 1; }; FAULTS_TC="sudo -n mnexec -a 1 tc"; precheck_tc "$st_tmp/grant2.txt"; echo "$?" )"
+    [[ "$r" == 1 ]] && grep -q '^REFUSED ' "$st_tmp/grant2.txt" \
+        && ok "  a route sudo refuses: the pre-check refuses and says so" \
+        || red "  a refused route: the pre-check answered '$r'"
+    : > "$st_tmp/sudo_calls"
+    r="$( sudo() { echo "$*" >> "$st_tmp/sudo_calls"; return 0; }; FAULTS_TC="sudo -n tc"
+          precheck_tc "$st_tmp/grant3.txt"; echo "$?" )"
+    [[ "$r" == 0 ]] && ! grep -qE '(^| )-l( |$)' "$st_tmp/sudo_calls" && [[ -s "$st_tmp/sudo_calls" ]] \
+        && ok "  the plain 'sudo -n tc' override is also asked by running tc, never by 'sudo -l'" \
+        || red "  the 'sudo -n tc' override was asked as: $(paste -sd';' "$st_tmp/sudo_calls") (rc '$r')"
+    r="$( FAULTS_TC="false"; precheck_tc "$st_tmp/grant4.txt"; echo "$?" )"
+    [[ "$r" == 1 ]] && ok "  a FAULTS_TC that cannot run tc is refused" \
+                    || red "  a failing FAULTS_TC answered '$r'"
+    # THE ONE REAL sudo CALL of this self-test, harmless (`true` in pid 1's namespaces), made with
+    # absolute paths so no function or PATH shim can stand in for it. Its rc is the evidence that
+    # the default route's grant exists on the machine the self-test ran on; a refusal is reported
+    # as a red line, never passed.
+    local probe_out probe_rc
+    probe_out="$(/usr/bin/sudo -n /usr/bin/mnexec -a 1 /usr/bin/true 2>&1)" && probe_rc=0 || probe_rc=$?
+    echo "  --    evidence: '/usr/bin/sudo -n /usr/bin/mnexec -a 1 /usr/bin/true' -> rc $probe_rc${probe_out:+ ($probe_out)}"
+    (( probe_rc == 0 )) \
+        && ok "the mnexec grant the default route needs is there, without a password (one real call, rc 0)" \
+        || red "the mnexec grant is NOT usable without a password here (rc $probe_rc): the spike's default tc route would be refused -- grant mnexec, or pass FAULTS_TC"
     local pl cl
     pl="$(grep -n '^    precheck_tc "\$RUN/00_tc_grant.txt"' "${BASH_SOURCE[0]}" | head -1 | cut -d: -f1)"
     cl="$(grep -n '^take_claim ' "${BASH_SOURCE[0]}" | head -1 | cut -d: -f1)"
@@ -512,6 +542,17 @@ open(sys.argv[1] + "/sniff_hA.json", "w").write(json.dumps({"host": "hA", "frame
     [[ "$(cat "$d/result")" == none && ! -e "$d/31_hb_stop.txt" ]] \
         && ok "  no host sees one: no hit, and the heartbeat is left for the arm's own stop (the control)" \
         || red "  a clean window was reported as a hit: $(cat "$d/result")"
+    # R2-2, ROUND 3: the last sniffer writes its hit and exits BETWEEN the loop's first-hit read
+    # and its liveness check. Stood in for deterministically: child_running itself writes the hit
+    # and answers "exited", so only a re-read after "all exited" can see it.
+    d="$(mktemp -d "$st_tmp/watch-XXXXXX")"
+    ( sp_hb_stop() { echo stopped > "$1"; HB_STARTED=0; }
+      child_running() { printf '{"host": "hZ", "frames_hb": 1}' > "$d/sniff_hZ.json"; return 1; }
+      HB_STARTED=1; watch_sniffers "$d" "$d/stop" 30 99999
+      printf '%s %s\n' "${WATCH_HIT:-none}" "$HB_STARTED" > "$d/result" )
+    [[ "$(cat "$d/result")" == "hZ 0" && -e "$d/stop" && "$(cat "$d/31_hb_stop.txt" 2>/dev/null)" == stopped ]] \
+        && ok "  a hit written as the last sniffer exits is still caught, and the heartbeat stopped" \
+        || red "  a hit written as the last sniffer exits was missed: '$(cat "$d/result")'"
     rm -rf "$st_tmp"
     (( rc == 0 )) && echo "SPIKE SELF-TEST PASS" || echo "SPIKE SELF-TEST FAIL"
     return "$rc"
