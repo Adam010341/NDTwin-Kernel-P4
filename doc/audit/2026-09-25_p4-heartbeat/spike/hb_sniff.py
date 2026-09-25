@@ -20,9 +20,12 @@ LEAVING a host-facing switch port. That is the same event from the other end, an
 about what ARRIVES at a host -- so both are read, and the census stops on either.
 """
 import json
+import os
 import select
+import shutil
 import socket
 import sys
+import tempfile
 import time
 
 ETH_P_ALL = 3
@@ -104,6 +107,50 @@ def self_test():
         ok = got == want
         rc |= 0 if ok else 1
         print(f"  {'ok' if ok else '🔴'}    {label:55s} {got}")
+
+    # 🔴 THE FIRST HIT ENDS THE WINDOW (judge #11, round 2), and so does the stop file the census
+    # writes when ANY host has one. A socketpair stands in for the packet socket.
+    class Fake:
+        def __init__(self):
+            self.a, self.b = socket.socketpair(socket.AF_UNIX, socket.SOCK_DGRAM)
+        def fileno(self):
+            return self.a.fileno()
+        def setblocking(self, flag):
+            self.a.setblocking(flag)
+        def recvfrom(self, n):
+            return self.a.recv(n), ("h1-eth0", ETH_P_ALL, 0, 1, b"")
+        def close(self):
+            self.a.close()
+            self.b.close()
+    fake = Fake()
+    fake.b.send(ip)
+    fake.b.send(hb)
+    t0 = time.monotonic()
+    try:
+        out = sniff("h1", 10, sess, sock=fake)
+    except TypeError as exc:
+        out = {"error": f"no seam: {exc}"}
+    took = time.monotonic() - t0
+    ok = out.get("frames_hb") == 1 and out.get("stopped") == "first heartbeat frame" and took < 3
+    rc |= 0 if ok else 1
+    print(f"  {'ok' if ok else '🔴'}    {'the first heartbeat frame ends the sniff at once':55s} "
+          f"{out.get('stopped', out.get('error'))} after {took:.1f} s")
+    stopdir = tempfile.mkdtemp(prefix="hb-sniff-selftest-")
+    try:
+        stop = os.path.join(stopdir, "stop")
+        open(stop, "w").close()
+        t0 = time.monotonic()
+        try:
+            out = sniff("h1", 10, sess, stop_file=stop, sock=Fake())
+        except TypeError as exc:
+            out = {"error": f"no seam: {exc}"}
+        took = time.monotonic() - t0
+    finally:
+        shutil.rmtree(stopdir, ignore_errors=True)
+    ok = out.get("stopped") == "stop file" and out.get("frames_hb") == 0 and took < 3
+    rc |= 0 if ok else 1
+    print(f"  {'ok' if ok else '🔴'}    {'the stop file ends a quiet sniff at once':55s} "
+          f"{out.get('stopped', out.get('error'))} after {took:.1f} s")
     print("SELF-TEST PASS" if rc == 0 else "SELF-TEST FAIL")
     return rc
 

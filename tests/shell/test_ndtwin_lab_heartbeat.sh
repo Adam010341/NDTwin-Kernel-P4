@@ -246,6 +246,20 @@ sys.exit(1)")"
 check "a daemon that refuses at once: start fails"      1 "${r%%|*}"
 check "  and shows the daemon's own reason from its log" yes "$(has "stand-in reason" "$r")"
 
+# Two starts race (judge #9, round 2): this start found no daemon, launched one, and that daemon
+# lost the flock to the other start's (rc 2). By then hb_pid sees the WINNER. start must say so
+# and answer 0 -- one daemon is running, which is what `start` promises.
+CNT="$TMPROOT/hbpid.count"; rm -f "$CNT"
+r="$( ( session_running() { return 0; }
+        hb_install_program() { printf 'import sys\nsys.exit(2)\n' > "$HB_PROGRAM"; }
+        hb_run() { return 0; }
+        hb_pid() { local n; n="$(cat "$CNT" 2>/dev/null || echo 0)"; echo $((n + 1)) > "$CNT"
+                   (( n == 0 )) && return 1; echo 4343; }
+        hb_start ) 2>&1 )"; rc=$?
+check "two starts race and this one's daemon loses the lock: start answers 0" 0 "$rc"
+check "  and names the winner as the one running"       yes "$(has "already running (pid 4343) -- another start won the race" "$r")"
+cp "$TMPROOT/sleeper.py" "$HB_PROGRAM"
+
 # The run directory root writes the program into.
 check "our 0755 run dir is trusted (the control)"       0 "$(hb_dir_trusted "$HB_RUN_DIR" 2>/dev/null; echo $?)"
 mkdir -m 0775 "$TMPROOT/gw"
@@ -301,6 +315,29 @@ check "another program path with the same shape is not the daemon" 1 "$(hb_is_da
 r="$(hb_stop 2>&1)"
 check "stop leaves the one-word-off process alive"      yes "$(alive "$ONE_OFF")"
 
+# A daemon that ignores TERM (judge #9, round 2): stop falls back to KILL, and removes the pidfile
+# the killed daemon could not remove itself. The stand-in writes its own pid only AFTER ignoring
+# TERM, so the TERM that stop sends is certain to be ignored.
+rm -f "$HB_PIDFILE"
+printf 'import os, signal, time\nsignal.signal(signal.SIGTERM, signal.SIG_IGN)\nopen(%s, "w").write(str(os.getpid()) + "\\n")\ntime.sleep(30)\n' \
+    "'$HB_PIDFILE'" > "$HB_PROGRAM"
+fake_daemon "$HB_PROGRAM"
+STUBBORN=$FAKE
+for i in $(seq 1 50); do [[ "$(cat "$HB_PIDFILE" 2>/dev/null)" == "$STUBBORN" ]] && break; sleep 0.05; done
+r="$( HB_STOP_STEPS=5; hb_stop 2>&1 )"; rc=$?
+check "a daemon that ignores TERM: stop falls back to KILL and answers 0" "0 yes" "$rc $(has "heartbeat stopped (pid $STUBBORN)" "$r")"
+check "  and the stubborn daemon is gone"               no "$(alive "$STUBBORN")"
+check "  and the KILL path removed the pidfile"         no "$( [[ -e "$HB_PIDFILE" ]] && echo yes || echo no )"
+wait "$STUBBORN" 2>/dev/null
+cp "$TMPROOT/sleeper.py" "$HB_PROGRAM"
+
+# 🔴 ARITHMETIC IS CODE IN BASH (judge #7, round 2). `(( pid > 1 ))` on 'a[$(cmd)]' runs cmd --
+# measured on this machine before this check was written. hb_is_daemon validates BEFORE it does
+# arithmetic; asked directly, so the order inside it is what is tested, not the pidfile's guard.
+r="$(hb_is_daemon "a[\$(touch $TMPROOT/pwned6)]"; echo $?)"
+check "hb_is_daemon refuses an arithmetic payload without evaluating it" "1 no" \
+      "$r $( [[ -e "$TMPROOT/pwned6" ]] && echo yes || echo no )"
+
 # Garbage in the pidfile: a recording hb_signal, so nothing here can reach a real kill.
 # (label|content) -- the labels are fixed so the mutation gate can name the check that goes red.
 while IFS='|' read -r label bad; do
@@ -323,9 +360,10 @@ a command substitution|$(touch @TMP@/pwned4)
 a path|../../etc/passwd
 an empty line|
 a number with a tail|4242x
+an arithmetic subscript|a[$(touch @TMP@/pwned5)]
 '1' (init)|1
 BAD
-check "  and no pidfile content was executed"           no "$( [[ -e "$TMPROOT/pwned4" ]] && echo yes || echo no )"
+check "  and no pidfile content was executed"           no "$( [[ -e "$TMPROOT/pwned4" || -e "$TMPROOT/pwned5" ]] && echo yes || echo no )"
 rm -f "$HB_PIDFILE"
 ln -s "$TMPROOT/sleeper.py" "$HB_PIDFILE"
 : > "$CALLS"
@@ -471,12 +509,16 @@ def write_sys(root, index, peer):
             fh.write(f"02:00:00:00:{i >> 8:02x}:{i & 255:02x}\n")
 
 
-def write_proc(root, pids, argv0="/usr/local/bmv2-fast/bin/simple_switch_grpc"):
+def write_proc(root, pids, argv0="/usr/local/bmv2-fast/bin/simple_switch_grpc", owner=None):
+    """cmdline, and a status whose Uid line is `owner` (default: this uid, the expected one)."""
+    owner = os.getuid() if owner is None else owner
     os.makedirs(root, exist_ok=True)
     for pid in pids:
         os.makedirs(os.path.join(root, str(pid)), exist_ok=True)
         with open(os.path.join(root, str(pid), "cmdline"), "wb") as fh:
             fh.write(argv0.encode() + b"\0-i\0" + b"1@x\0")
+        with open(os.path.join(root, str(pid), "status"), "w") as fh:
+            fh.write(f"Name:\tsimple_switch_g\nUid:\t{owner}\t{owner}\t{owner}\t{owner}\n")
 
 
 SYS = os.path.join(tmp, "sys")
@@ -576,6 +618,21 @@ def section_interfaces():
     write_proc(impostor, PIDS.values(), argv0="/usr/bin/sleep")
     check("pids whose argv is not simple_switch_grpc are not a fabric", True,
           "no fabric is running" in refused(hb.plan, good, **dict(kw, proc_root=impostor)))
+    # Judge #6, round 2: the argv test alone is met by any process that names itself so; a
+    # switch the ROOT topology started runs as root. Same rule hb_is_daemon applies.
+    stranger = os.path.join(tmp, "proc-other-uid")
+    write_proc(stranger, PIDS.values(), owner=uid + 4242)
+    check("bmv2 pids owned by another uid are not a fabric", True,
+          "no fabric is running" in refused(hb.plan, good, **dict(kw, proc_root=stranger)))
+
+    # Adam 2026-09-25 ruling (a): the helper refuses NDTwin's OWN pipeline. It carries LLDP and
+    # punts unknown ethertypes to the CPU, so every heartbeat frame would be a packet-in that the
+    # proxy books as that switch's liveness. One switch of four is enough to refuse.
+    ndt = write_manifest(manifest_doc(s2=entry(2, argv=argv_of(2).replace(
+        "/x/build/basic.json", "/x/p4_proxy/p4_src/build/ndtwin_switch.json"))), "ndtwin")
+    msg = refused(hb.plan, ndt, **kw)
+    check("a fabric running NDTwin's own pipeline is refused (one switch of four)", True,
+          "ndtwin_switch.json" in msg and "packet-in" in msg and "LLDP" in msg)
 
     odd = write_manifest(manifest_doc(s1=entry(1, argv=argv_of(1).replace("-i 3@s1-eth3", "-i 3@wlp0s20f3"))), "odd")
     check("an -i binding not named <switch>-eth<port> refuses the whole manifest", True,

@@ -229,6 +229,11 @@ def self_test():
     expect("census: a sniffer that did not run is not a clean host", "BAD",
            census_verdict([{"host": "h1", "error": "mnexec refused"}], clean))
     expect("census: no host sniffed is not clean", "BAD", census_verdict([], clean))
+    fh = globals().get("first_hit")
+    expect("first hit: the first host that saw one", "h2",
+           fh([{"host": "h1", "frames_hb": 0}, {"host": "h2", "frames_hb": 3}]) if fh else "missing")
+    expect("first hit: nobody saw one is no hit", "True",
+           (fh([{"host": "h1", "frames_hb": 0}, {"host": "h2", "error": "x"}]) == "") if fh else "missing")
     print("SELF-TEST PASS" if rc == 0 else "SELF-TEST FAIL")
     return rc
 
