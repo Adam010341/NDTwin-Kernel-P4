@@ -1,0 +1,19 @@
+# 30-down-stderr  sent 2026-09-24T22:53:12+0800  answered 0.001 s later
+GET /api/v1/jobs/20260924T145257Z-548f26/log/stderr HTTP/1.1
+Host: 127.0.0.1:8765
+X-NDT-Token: <token>
+
+
+
+HTTP/1.0 200 OK
+Server: ndt-serve/1 
+Date: Thu, 24 Sep 2026 14:53:12 GMT
+Content-Type: text/plain; charset=utf-8
+Content-Length: 0
+Cache-Control: no-store
+X-Content-Type-Options: nosniff
+X-NDT-Log-Offset: 0
+X-NDT-Log-Size: 0
+X-NDT-Log-Next-Offset: 0
+X-NDT-Job-State: finished
+

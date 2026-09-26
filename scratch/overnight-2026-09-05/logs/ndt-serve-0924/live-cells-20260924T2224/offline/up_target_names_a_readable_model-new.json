@@ -1,0 +1,86 @@
+{
+ "asserts": [
+  {
+   "ok": true,
+   "id": "h4nl_up_log_present",
+   "detail": "up.log present",
+   "file": "up.log"
+  },
+  {
+   "ok": true,
+   "id": "h4nl_up_rc_is_0",
+   "detail": "= [0]",
+   "file": null
+  },
+  {
+   "ok": true,
+   "id": "h4nl_model_counts_were_readable",
+   "detail": "up.log does not contain it",
+   "file": "up.log"
+  },
+  {
+   "ok": true,
+   "id": "h4nl_no_incomplete_rollback",
+   "detail": "up.log does not contain it",
+   "file": "up.log"
+  },
+  {
+   "ok": true,
+   "id": "h4nl_kernel_did_not_die_starting",
+   "detail": "up.log does not contain it",
+   "file": "up.log"
+  },
+  {
+   "ok": true,
+   "id": "h4nl_target_record_written",
+   "detail": "up.target present",
+   "file": "up.target"
+  },
+  {
+   "ok": true,
+   "id": "h4nl_topology_sha_is_a_reading",
+   "detail": "up.target matches",
+   "file": "up.target"
+  },
+  {
+   "ok": true,
+   "id": "h4nl_model_hosts_were_counted",
+   "detail": "up.target matches",
+   "file": "up.target"
+  },
+  {
+   "ok": true,
+   "id": "h4nl_topology_path_is_one_line",
+   "detail": "up.target matches",
+   "file": "up.target"
+  }
+ ],
+ "verdict": {
+  "state": "PASS",
+  "name": "up_target_names_a_readable_model",
+  "rest": "tag=ndt kernel=048b842efa16178a ndt=516e28a0a98585eb1e6be548b72e10bd0360dd14 at=2026-09-11T13:34:05+08:00",
+  "line": "CELL: PASS up_target_names_a_readable_model tag=ndt kernel=048b842efa16178a ndt=516e28a0a98585eb1e6be548b72e10bd0360dd14 at=2026-09-11T13:34:05+08:00"
+ },
+ "skip": null,
+ "argv": [
+  "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/live_cells/up_target_names_a_readable_model.sh",
+  "judge",
+  "/home/adam/Desktop/NDTwin-Kernel/tests/fixtures/live_cells/up_target_names_a_readable_model/new"
+ ],
+ "rc": 0,
+ "stdout": "ASSERT ok   h4nl_up_log_present                    up.log present\nASSERT ok   h4nl_up_rc_is_0                        = [0]\nASSERT ok   h4nl_model_counts_were_readable        up.log does not contain it\nASSERT ok   h4nl_no_incomplete_rollback            up.log does not contain it\nASSERT ok   h4nl_kernel_did_not_die_starting       up.log does not contain it\nASSERT ok   h4nl_target_record_written             up.target present\nASSERT ok   h4nl_topology_sha_is_a_reading         up.target matches\nASSERT ok   h4nl_model_hosts_were_counted          up.target matches\nASSERT ok   h4nl_topology_path_is_one_line         up.target matches\nCELL: PASS up_target_names_a_readable_model tag=ndt kernel=048b842efa16178a ndt=516e28a0a98585eb1e6be548b72e10bd0360dd14 at=2026-09-11T13:34:05+08:00\n",
+ "stderr": "",
+ "fixture": "new",
+ "dir": "tests/fixtures/live_cells/up_target_names_a_readable_model/new",
+ "files": [
+  "PROVENANCE.md",
+  "ids.txt",
+  "observe.rc",
+  "observe.stdout",
+  "up.log",
+  "up.rc",
+  "up.secs",
+  "up.target"
+ ],
+ "failing": []
+}

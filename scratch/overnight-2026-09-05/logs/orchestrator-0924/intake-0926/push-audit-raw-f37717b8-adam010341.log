@@ -1,0 +1,10 @@
+# push audit-raw f37717b8 -> Adam010341/NDTwin-Kernel-P4 2026-09-26T04:47:28+08:00 (Adam 09-26 form: 補推到 Adam010341)
+f37717b8fe98543de1d124a3edd080de8a5081f3
+To github.com:Adam010341/NDTwin-Kernel-P4.git
+   9a0bc0ad..f37717b8  f37717b8fe98543de1d124a3edd080de8a5081f3 -> audit-raw
+# push rc=0
+# unauthenticated readback
+-- https://github.com/Adam010341/NDTwin-Kernel-P4.git
+f37717b8fe98543de1d124a3edd080de8a5081f3	refs/heads/audit-raw
+-- https://github.com/ndtwin-lab/NDTwin-Kernel-P4.git
+f37717b8fe98543de1d124a3edd080de8a5081f3	refs/heads/audit-raw

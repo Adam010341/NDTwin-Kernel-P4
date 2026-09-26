@@ -1,0 +1,19 @@
+# 18-nsr-start-stdout  sent 2026-09-24T22:01:48+0800  answered 0.001 s later
+GET /api/v1/jobs/20260924T140147Z-e383c4/log/stdout HTTP/1.1
+Host: 127.0.0.1:8765
+
+
+
+HTTP/1.0 200 OK
+Server: ndt-serve/1 
+Date: Thu, 24 Sep 2026 14:01:48 GMT
+Content-Type: text/plain; charset=utf-8
+Content-Length: 85
+Cache-Control: no-store
+X-Content-Type-Options: nosniff
+X-NDT-Log-Offset: 0
+X-NDT-Log-Size: 85
+X-NDT-Log-Next-Offset: 85
+X-NDT-Job-State: finished
+
+  ok  nsr started (pid 1616103, process group 1616103) -> .test_run/logs/app_nsr.log

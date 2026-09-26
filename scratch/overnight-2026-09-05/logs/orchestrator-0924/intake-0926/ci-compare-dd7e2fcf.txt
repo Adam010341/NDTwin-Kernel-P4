@@ -1,0 +1,17 @@
+# CI run 36189445756 on dd7e2fcf, GCC job 108250735289; failed lines via API raw log; compared 2026-09-26T05:22:33+08:00
+vs a4c951a8 (36120567778):
+IDENTICAL
+vs 68ace017 (36134766761):
+25d24
+<         FAILED   PERIOD_S is the proxy's LLDP_BEACON_INTERVAL_S
+36d34
+<         FAILED   the proxy's LINK_BEACON_TIMEOUT_S is 3 heartbeat periods
+43c41
+< L1 FAILED (15 problem group(s))   logs: /home/runner/work/NDTwin-Kernel-P4/NDTwin-Kernel-P4/.test_run/logs
+---
+> L1 FAILED (14 problem group(s))   logs: /home/runner/work/NDTwin-Kernel-P4/NDTwin-Kernel-P4/.test_run/logs
+jobs:
+failure	Build and unit tests (GCC)	108250735289
+failure	TSan	108250735505
+success	ASan + UBSan	108250735529
+failure	clang can compile it	108250735659

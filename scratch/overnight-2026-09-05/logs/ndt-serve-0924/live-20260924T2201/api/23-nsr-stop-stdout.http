@@ -1,0 +1,36 @@
+# 23-nsr-stop-stdout  sent 2026-09-24T22:02:00+0800  answered 0.001 s later
+GET /api/v1/jobs/20260924T140153Z-ac3ca6/log/stdout HTTP/1.1
+Host: 127.0.0.1:8765
+
+
+
+HTTP/1.0 200 OK
+Server: ndt-serve/1 
+Date: Thu, 24 Sep 2026 14:02:00 GMT
+Content-Type: text/plain; charset=utf-8
+Content-Length: 981
+Cache-Control: no-store
+X-Content-Type-Options: nosniff
+X-NDT-Log-Offset: 0
+X-NDT-Log-Size: 981
+X-NDT-Log-Next-Offset: 981
+X-NDT-Job-State: finished
+
+    process group 1616103: empty
+  ok  nsr stopped (was: running) -- no process group, log writer or listener left
+
+rules-in-window (nothing below is deleted)
+    lock  routing_lock free
+    lock  graph_lock free
+    lock  power_lock free
+          field (LockManager.hpp), and the kernel has no lock-status endpoint, so the
+          three lines above come from an acquire probe with ttl 0, which excludes nobody.
+  nsr    window 2026-09-24 22:01:47 -> now (13s)
+
+    NOT deleted, and nothing here deletes them.
+    a lock heals: it expires at its TTL and the next acquire is told it reclaimed it.
+    a rule does not: no TTL, no owner, no cleanup path. to remove one, by hand:
+      curl -s -X POST -H 'Content-Type: application/json' \
+        -d '{"dpid": <dpid>, "priority": <pri>, "match": <match>}' \
+        http://localhost:8000/ndt/delete_flow_entry
+    tally: 40 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 0 question(s) not answerable

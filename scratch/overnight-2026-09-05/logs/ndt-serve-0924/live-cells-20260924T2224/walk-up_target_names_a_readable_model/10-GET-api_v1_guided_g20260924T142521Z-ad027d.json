@@ -1,0 +1,297 @@
+# GET /api/v1/guided/g20260924T142521Z-ad027d -> 200 at 22:25:22
+{
+ "walk": {
+  "id": "g20260924T142521Z-ad027d",
+  "cell": "up_target_names_a_readable_model",
+  "requires": "ovs4",
+  "created_at": 1790259921.0615852,
+  "steps": [
+   {
+    "step": "old",
+    "title": "\u4fee\u597d\u4e4b\u524d\u7684\u7d05\uff08old/\uff0c\u552f\u8b80\uff0c\u4e0d\u78b0 lab\uff09",
+    "look_at": "\u770b FAIL \u7684\u90a3\u5e7e\u5217\uff1a\u5b83\u5011\u5c31\u662f\u7576\u6642\u7684\u7f3a\u9677\u3002\u5c0d\u7167 expected_fails\uff08\u4eba\u5de5\u5be9\u904e\u7684\u6e05\u55ae\uff09\uff0c\u5169\u908a\u61c9\u8a72\u4e00\u81f4\u3002\u518d\u8b80 provenance\uff1a\u53ea\u5beb\u8457 'no such raw file' \u7684\u7d05\uff0c\u53ef\u80fd\u53ea\u662f fixture \u7f3a\u6a94\uff0c\u4e0d\u662f\u8b49\u64da\u3002",
+    "state": "done",
+    "result": {
+     "ok": true,
+     "judge": {
+      "asserts": [
+       {
+        "ok": true,
+        "id": "h4nl_up_log_present",
+        "detail": "up.log present",
+        "file": "up.log"
+       },
+       {
+        "ok": false,
+        "id": "h4nl_up_rc_is_0",
+        "detail": "expected [0] actual [1]",
+        "file": null
+       },
+       {
+        "ok": false,
+        "id": "h4nl_model_counts_were_readable",
+        "detail": "up.log still contains [cannot read expected counts from]",
+        "file": "up.log"
+       },
+       {
+        "ok": false,
+        "id": "h4nl_no_incomplete_rollback",
+        "detail": "up.log still contains [rollback INCOMPLETE]",
+        "file": "up.log"
+       },
+       {
+        "ok": false,
+        "id": "h4nl_kernel_did_not_die_starting",
+        "detail": "up.log still contains [kernel exited while starting]",
+        "file": "up.log"
+       },
+       {
+        "ok": false,
+        "id": "h4nl_target_record_written",
+        "detail": "up.target is missing or empty",
+        "file": "up.target"
+       },
+       {
+        "ok": false,
+        "id": "h4nl_topology_sha_is_a_reading",
+        "detail": "no such raw file: up.target",
+        "file": "up.target"
+       },
+       {
+        "ok": false,
+        "id": "h4nl_model_hosts_were_counted",
+        "detail": "no such raw file: up.target",
+        "file": "up.target"
+       },
+       {
+        "ok": false,
+        "id": "h4nl_topology_path_is_one_line",
+        "detail": "no such raw file: up.target",
+        "file": "up.target"
+       }
+      ],
+      "verdict": {
+       "state": "FAIL",
+       "name": "up_target_names_a_readable_model",
+       "rest": "tag=ndt kernel=356803db69af3b1b ndt=53d3897a852491b71d0427649afe418a64ae2ceb at=2026-09-11T02:55:10+08:00",
+       "line": "CELL: FAIL up_target_names_a_readable_model tag=ndt kernel=356803db69af3b1b ndt=53d3897a852491b71d0427649afe418a64ae2ceb at=2026-09-11T02:55:10+08:00"
+      },
+      "skip": null,
+      "argv": [
+       "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/live_cells/up_target_names_a_readable_model.sh",
+       "judge",
+       "/home/adam/Desktop/NDTwin-Kernel/tests/fixtures/live_cells/up_target_names_a_readable_model/old"
+      ],
+      "rc": 1,
+      "stdout": "ASSERT ok   h4nl_up_log_present                    up.log present\nASSERT FAIL h4nl_up_rc_is_0                        expected [0] actual [1]\nASSERT FAIL h4nl_model_counts_were_readable        up.log still contains [cannot read expected counts from]\nASSERT FAIL h4nl_no_incomplete_rollback            up.log still contains [rollback INCOMPLETE]\nASSERT FAIL h4nl_kernel_did_not_die_starting       up.log still contains [kernel exited while starting]\nASSERT FAIL h4nl_target_record_written             up.target is missing or empty\nASSERT FAIL h4nl_topology_sha_is_a_reading         no such raw file: up.target\nASSERT FAIL h4nl_model_hosts_were_counted          no such raw file: up.target\nASSERT FAIL h4nl_topology_path_is_one_line         no such raw file: up.target\nCELL: FAIL up_target_names_a_readable_model tag=ndt kernel=356803db69af3b1b ndt=53d3897a852491b71d0427649afe418a64ae2ceb at=2026-09-11T02:55:10+08:00\n",
+      "stderr": "",
+      "fixture": "old",
+      "dir": "tests/fixtures/live_cells/up_target_names_a_readable_model/old",
+      "files": [
+       "EXPECTED-FAILS",
+       "PROVENANCE.md",
+       "ids.txt",
+       "up.log",
+       "up.rc",
+       "up.secs"
+      ],
+      "failing": [
+       "h4nl_kernel_did_not_die_starting",
+       "h4nl_model_counts_were_readable",
+       "h4nl_model_hosts_were_counted",
+       "h4nl_no_incomplete_rollback",
+       "h4nl_target_record_written",
+       "h4nl_topology_path_is_one_line",
+       "h4nl_topology_sha_is_a_reading",
+       "h4nl_up_rc_is_0"
+      ],
+      "expected_fails": [
+       "h4nl_kernel_did_not_die_starting",
+       "h4nl_model_counts_were_readable",
+       "h4nl_model_hosts_were_counted",
+       "h4nl_no_incomplete_rollback",
+       "h4nl_target_record_written",
+       "h4nl_topology_path_is_one_line",
+       "h4nl_topology_sha_is_a_reading",
+       "h4nl_up_rc_is_0"
+      ],
+      "failing_matches_expected": true,
+      "provenance": "# old/ -- up_target_names_a_readable_model\n\n[Co-developed with claude code -- Adam]\n\n**Kind: captured log.** ROLE-6's live run on the main checkout at trunk `954ab467`, which carried\nH4's fix and therefore the newline regression.\n\n| file | where it came from |\n|---|---|\n| `up.log` | `hunt-0911/logs/ROLE-6/51a-up-p4-A.log`, colour codes stripped (`sed 's/\\x1b\\[[0-9;]*m//g'`). `NDT_OWNER=overnight-0905 ndt up p4 4`, started 02:55:10 |\n| `up.rc` | `1` -- ROLE-6-SUCCESSOR2-REPORT \u00a7\u2460 |\n| `up.secs` | `318` -- same source |\n| `ids.txt` | kernel sha16 `356803db69af3b1b` (the binary ROLE-6 identified, `logs/ROLE-6/01-binaries.log`); `ndt` blob at `5e7a91c8^` |\n\n**The P4 arm, not the OVS arm, and the cell drives OVS.** The raw layout is plane-agnostic\n(`up.log`, `up.rc`, `up.target`), and ROLE-6 has no rc for the OVS arm at all: its `ndt up ovs 4`\nwas still running past 120 s when the role's own tool timeout killed the wrapper\n(`logs/ROLE-6/20-up-ovs4.log`). The defect was two copies of the same three lines, `ndt:1948`\n(p4) and `ndt:2287` (ovs), and ROLE-6 proved both offline; the P4 arm is the one with a number.\n\n**Assertions that carry the finding on this fixture** (the gate mutates only these):\n`h4nl_up_rc_is_0`, `h4nl_model_counts_were_readable`, `h4nl_no_incomplete_rollback`,\n`h4nl_kernel_did_not_die_starting`.\n\n**Fixture gap, recorded rather than papered over:** ROLE-6 did not keep that round's\n`.test_run/up.target`, so `h4nl_target_record_written`, `h4nl_topology_sha_is_a_reading`,\n`h4nl_model_hosts_were_counted` and `h4nl_topology_path_is_one_line` fail here with\n`no such raw file`. The report states what that file contained\n(`topology_sha256=unavailable`, an empty `model_hosts=`), and the offline half of the same\nfinding -- section 11 of `tests/shell/test_ndt_up_down_robust.sh` -- asserts exactly those four\nreadings against a fixture `up.target` it writes itself. They are kept in the judge because the\nlive round is where they are worth reading; they are not evidence on THIS fixture.\n",
+      "gap_note": "A failing assertion on old/ is not automatically the finding: some old/ directories are thinner than the cell's raw layout, and an assertion that fails with 'no such raw file' may be a fixture gap, not evidence. PROVENANCE.md names the ones that carry the finding (tests/fixtures/live_cells/README.md, rule 2)."
+     },
+     "why": null
+    },
+    "job": null
+   },
+   {
+    "step": "new",
+    "title": "\u7b2c\u4e00\u6b21\u4fee\u597d\u6642\u7684\u7da0\uff08new/\uff0c\u552f\u8b80\uff0c\u4e0d\u78b0 lab\uff09",
+    "look_at": "\u6bcf\u4e00\u5217\u90fd\u61c9\u8a72\u662f ok\uff0c\u6700\u5f8c\u4e00\u884c\u662f CELL: PASS\u3002\u9019\u662f\u4fee\u597d\u7576\u665a\u8dd1\u51fa\u4f86\u7684\uff0c\u4e0d\u662f\u73fe\u5728\u8dd1\u7684\u3002",
+    "state": "done",
+    "result": {
+     "ok": true,
+     "judge": {
+      "asserts": [
+       {
+        "ok": true,
+        "id": "h4nl_up_log_present",
+        "detail": "up.log present",
+        "file": "up.log"
+       },
+       {
+        "ok": true,
+        "id": "h4nl_up_rc_is_0",
+        "detail": "= [0]",
+        "file": null
+       },
+       {
+        "ok": true,
+        "id": "h4nl_model_counts_were_readable",
+        "detail": "up.log does not contain it",
+        "file": "up.log"
+       },
+       {
+        "ok": true,
+        "id": "h4nl_no_incomplete_rollback",
+        "detail": "up.log does not contain it",
+        "file": "up.log"
+       },
+       {
+        "ok": true,
+        "id": "h4nl_kernel_did_not_die_starting",
+        "detail": "up.log does not contain it",
+        "file": "up.log"
+       },
+       {
+        "ok": true,
+        "id": "h4nl_target_record_written",
+        "detail": "up.target present",
+        "file": "up.target"
+       },
+       {
+        "ok": true,
+        "id": "h4nl_topology_sha_is_a_reading",
+        "detail": "up.target matches",
+        "file": "up.target"
+       },
+       {
+        "ok": true,
+        "id": "h4nl_model_hosts_were_counted",
+        "detail": "up.target matches",
+        "file": "up.target"
+       },
+       {
+        "ok": true,
+        "id": "h4nl_topology_path_is_one_line",
+        "detail": "up.target matches",
+        "file": "up.target"
+       }
+      ],
+      "verdict": {
+       "state": "PASS",
+       "name": "up_target_names_a_readable_model",
+       "rest": "tag=ndt kernel=048b842efa16178a ndt=516e28a0a98585eb1e6be548b72e10bd0360dd14 at=2026-09-11T13:34:05+08:00",
+       "line": "CELL: PASS up_target_names_a_readable_model tag=ndt kernel=048b842efa16178a ndt=516e28a0a98585eb1e6be548b72e10bd0360dd14 at=2026-09-11T13:34:05+08:00"
+      },
+      "skip": null,
+      "argv": [
+       "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/live_cells/up_target_names_a_readable_model.sh",
+       "judge",
+       "/home/adam/Desktop/NDTwin-Kernel/tests/fixtures/live_cells/up_target_names_a_readable_model/new"
+      ],
+      "rc": 0,
+      "stdout": "ASSERT ok   h4nl_up_log_present                    up.log present\nASSERT ok   h4nl_up_rc_is_0                        = [0]\nASSERT ok   h4nl_model_counts_were_readable        up.log does not contain it\nASSERT ok   h4nl_no_incomplete_rollback            up.log does not contain it\nASSERT ok   h4nl_kernel_did_not_die_starting       up.log does not contain it\nASSERT ok   h4nl_target_record_written             up.target present\nASSERT ok   h4nl_topology_sha_is_a_reading         up.target matches\nASSERT ok   h4nl_model_hosts_were_counted          up.target matches\nASSERT ok   h4nl_topology_path_is_one_line         up.target matches\nCELL: PASS up_target_names_a_readable_model tag=ndt kernel=048b842efa16178a ndt=516e28a0a98585eb1e6be548b72e10bd0360dd14 at=2026-09-11T13:34:05+08:00\n",
+      "stderr": "",
+      "fixture": "new",
+      "dir": "tests/fixtures/live_cells/up_target_names_a_readable_model/new",
+      "files": [
+       "PROVENANCE.md",
+       "ids.txt",
+       "observe.rc",
+       "observe.stdout",
+       "up.log",
+       "up.rc",
+       "up.secs",
+       "up.target"
+      ],
+      "failing": []
+     },
+     "why": null
+    },
+    "job": null
+   },
+   {
+    "step": "status",
+    "title": "\u770b lab \u73fe\u5728\u80fd\u4e0d\u80fd\u7528\uff08ndt status\uff0c\u552f\u8b80\uff09",
+    "look_at": "\u770b claim \u90a3\u4e00\u884c\uff1a\u5fc5\u9808\u662f none \u6216 yours\u3002\u518d\u770b measuring\uff1a\u5fc5\u9808\u662f nothing\u3002\u5982\u679c\u6709\u5225\u4eba\u7684 claim\uff0c\u5c31\u505c\u5728\u9019\u88e1\uff0c\u4e0d\u8981\u6309\u4e0b\u4e00\u6b65\u3002",
+    "state": "done",
+    "result": {
+     "argv": [
+      "/home/adam/.local/bin/ndt",
+      "status"
+     ],
+     "rc": 0,
+     "rc_class": "report",
+     "meaning": "the report was printed; plain 'ndt status' judges nothing and answers 0 whatever it found -- read the report, or ask for a verdict with ?check=1",
+     "stdout": "lab\n  claim          none\n  prev claim     ndt-serve-0924 (until 22:32:46), superseded 2026-09-24 22:03:25  (.test_run/lab.claim.prev)\n                 nothing holds the lab now: that claim was released or replaced\n                 it said: down at 2026-09-24 22:03:25; verified clean; claim kept\n  measuring      nothing\n  code           fd7382a3  +60 file(s) with uncommitted changes\n                 2 of them can change behaviour:\n                 p4_proxy/mininet/host_count_override\n                 tools/remote-lab/dorm_lab/\n  knob baseline  4 (the default; no round baseline recorded -- 'ndt claim' writes one)\n  tree vs round  no baseline in .test_run/round.baseline -- nothing here can say what this round changed ('ndt claim' records one)\n  ok  helper: /usr/local/sbin/ndtwin-lab is tools/test_workflow/ndtwin-lab (sha256 6685d3a9)\n\nconfiguration\n  hosts          unknown (no up.target) -- nothing here records what the running fabric was asked for\n  topology       unknown (no up.target); last kernel.exit ran ovs\n  p4 host knob   4   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')\n  app package    none   (p4_proxy/mininet/app_package_override absent -- the baseline fabric)\n  bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc\n  telemetry      auto   (p4_proxy/mininet/telemetry_override absent -- auto, then the package)\n                 every switch: cooperative\n                 link emitter: none (/tmp/ndtwin_link_telemetry.json absent)\n  link shaping   off (no package link asks for one)\n  sample rate    1/256\n  rate source    no fabric running -- this is the COMPILED P4 pipeline, not a reading\n  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py\n\nrunning\n  bmv2 switches  0       topo session   absent\n  host/switch    0       manifest       absent\n  :8000 kernel   closed  :8081 proxy    closed  :8080 ryu closed\n  pidfiles       none recorded\n\nnetwork health\n  switches       kernel not answering; no graph\n  tc netem       none\n  sudo grants    all 3 granted\n  apps           none running\n\n\nup target\n  record         none -- the last 'ndt up' record was cleared by 'ndt down' at 2026-09-24T22:03:11+08:00; history is in .test_run/pids/*.exit  (.test_run/up.target)\n                 that run was ovs, per the --topology argument in .test_run/pids/kernel.exit -- NOT a baseline, just what ran\n                 there is no baseline, so --check did NOT check. this is not 'checked and matched'.\n                 bring the lab up from this checkout first:  ndt up <target>\n                 .test_run/ is per checkout, so another checkout's 'up' is invisible here (finding #79)\n",
+     "stderr": "",
+     "duration_s": 0.964,
+     "owner": "ndt-serve-0924",
+     "ok": true
+    },
+    "job": null
+   },
+   {
+    "step": "claim",
+    "title": "claim lab 30 \u5206\u9418",
+    "look_at": "rc 0 \u4e14 rc_class \u70ba ok\uff0cclaim \u624d\u662f\u4f60\u7684\u3002rc 1\uff08refused\uff09\u4ee3\u8868\u5225\u4eba\u62ff\u8d70\u4e86 lab\uff0c\u6574\u500b\u6d41\u7a0b\u6703\u505c\u5728\u9019\u88e1\u3002",
+    "state": "running",
+    "result": {
+     "id": "20260924T142522Z-e9ec6c",
+     "state": "running",
+     "rc": null,
+     "rc_class": null,
+     "meaning": "running",
+     "cell_verdict": null
+    },
+    "job": "20260924T142522Z-e9ec6c"
+   },
+   {
+    "step": "run",
+    "title": "\u73fe\u5728\u91cd\u8dd1\u9019\u4e00\u683c\uff1aobserve \u2192 judge \u2192 \u9084\u539f",
+    "look_at": "\u770b verdict\uff1aCELL: PASS \u5c31\u662f\u7da0\u3002\u7da0\u9577\u4ec0\u9ebc\u6a23\uff08CELLS.md\uff09\uff1a`ndt up ovs 4` reaches rc 0, prints no `cannot read expected counts from`, and `.test_run/up.target` carries a 64-hex `topology_sha256`, a counted `model_hosts` and a one-line `topology` path\u3002run_cells.sh \u7684 rc 2 \u4ee3\u8868\u9084\u539f\u5931\u6557\uff0clab \u4e0d\u4e7e\u6de8\uff1b\u9019\u7a2e\u60c5\u6cc1\u6d41\u7a0b\u6703\u505c\u4f4f\uff0c\u4e0d\u6703\u81ea\u52d5 release\u3002",
+    "state": "pending",
+    "result": null,
+    "job": null
+   },
+   {
+    "step": "release",
+    "title": "release lab",
+    "look_at": "rc 0 \u5c31\u662f\u9084\u56de\u53bb\u4e86\u3002lab \u5728\u5c0d\u7167\u548c\u5224\u5b9a\u4e4b\u524d\u5c31\u5148\u9084\uff0c\u56e0\u70ba\u5224\u5b9a\u770b\u7684\u662f\u9019\u6b21 run \u7559\u4e0b\u7684 raw\uff0c\u4e0d\u9700\u8981 lab\uff1blab \u662f\u548c orchestrator \u5171\u7528\u7684\u3002",
+    "state": "pending",
+    "result": null,
+    "job": null
+   },
+   {
+    "step": "compare",
+    "title": "\u4fee\u524d vs \u73fe\u5728\uff0c\u9010\u689d\u5c0d\u7167",
+    "look_at": "\u770b red_to_green \u70ba true \u7684\u90a3\u5e7e\u5217\uff1a\u9019\u5e7e\u689d\u5728 old/ \u662f FAIL\uff0c\u73fe\u5728\u662f ok\u3002still_red \u61c9\u8a72\u5168\u90e8\u662f false\u3002",
+    "state": "pending",
+    "result": null,
+    "job": null
+   },
+   {
+    "step": "verdict",
+    "title": "\u4f60\u7684\u5224\u5b9a\uff1a\u7d05\u9084\u662f\u7da0",
+    "look_at": "\u7531\u4f60\u6c7a\u5b9a\u3002POST /api/v1/guided/<id>/verdict\uff0cbody \u70ba {\"verdict\": \"green\" \u6216 \"red\", \"note\": \"...\"}\u3002",
+    "state": "pending",
+    "result": null,
+    "job": null
+   }
+  ],
+  "current": 3,
+  "blocked": null,
+  "verdict": null,
+  "done": false
+ }
+}

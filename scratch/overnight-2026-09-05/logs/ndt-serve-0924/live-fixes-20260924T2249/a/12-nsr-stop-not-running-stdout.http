@@ -1,0 +1,25 @@
+# 12-nsr-stop-not-running-stdout  sent 2026-09-24T22:49:45+0800  answered 0.001 s later
+GET /api/v1/jobs/20260924T144944Z-63ab51/log/stdout HTTP/1.1
+Host: 127.0.0.1:8765
+X-NDT-Token: <token>
+
+
+
+HTTP/1.0 200 OK
+Server: ndt-serve/1 
+Date: Thu, 24 Sep 2026 14:49:45 GMT
+Content-Type: text/plain; charset=utf-8
+Content-Length: 336
+Cache-Control: no-store
+X-Content-Type-Options: nosniff
+X-NDT-Log-Offset: 0
+X-NDT-Log-Size: 336
+X-NDT-Log-Next-Offset: 336
+X-NDT-Job-State: finished
+
+  nsr not running (nothing found by pid, by scan, by process group or by log)
+
+rules-in-window (nothing below is deleted)
+  !!  the kernel is not up (:8000 closed) -- rules and locks CANNOT be checked.
+  !!  this is not 'the lab is clean'. it is 'nobody asked'. (KNOWN-ISSUES G-12)
+  nothing to stop (1 app(s) were already not running)

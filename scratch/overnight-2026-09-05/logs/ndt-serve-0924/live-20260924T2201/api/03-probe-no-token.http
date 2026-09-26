@@ -1,0 +1,20 @@
+# 03-probe-no-token  sent 2026-09-24T22:01:35+0800  answered 0.001 s later
+POST /api/v1/down HTTP/1.1
+Host: 127.0.0.1:8765
+Content-Type: application/json
+Content-Length: 2
+
+{}
+
+HTTP/1.0 403 Forbidden
+Server: ndt-serve/1 
+Date: Thu, 24 Sep 2026 14:01:35 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 115
+Cache-Control: no-store
+X-Content-Type-Options: nosniff
+
+{
+ "error": "token",
+ "note": "send the token from /home/adam/.config/ndt-serve/token in the X-NDT-Token header"
+}

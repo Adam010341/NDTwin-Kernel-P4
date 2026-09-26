@@ -1,0 +1,232 @@
+[
+ {
+  "n": 1,
+  "step": "status-before",
+  "method": "GET",
+  "path": "/api/v1/status",
+  "http": 200
+ },
+ {
+  "n": 2,
+  "step": "claim",
+  "method": "POST",
+  "path": "/api/v1/claim",
+  "http": 202,
+  "job": "20260924T144941Z-33c546",
+  "argv": [
+   "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt",
+   "claim",
+   "15",
+   "ndt-serve-0924 judge re-checks: rc 3 / rc 2 / rc 5"
+  ],
+  "state": "finished",
+  "rc": 0,
+  "rc_class": "ok",
+  "meaning": "the claim is yours",
+  "seconds": 0.1
+ },
+ {
+  "n": 3,
+  "step": "claim-wait",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T144941Z-33c546?wait=300",
+  "http": 200
+ },
+ {
+  "n": 4,
+  "step": "claim-stdout",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T144941Z-33c546/log/stdout",
+  "http": 200
+ },
+ {
+  "n": 5,
+  "step": "claim-stderr",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T144941Z-33c546/log/stderr",
+  "http": 200
+ },
+ {
+  "n": 6,
+  "step": "down-on-a-down-lab",
+  "method": "POST",
+  "path": "/api/v1/down",
+  "http": 202,
+  "job": "20260924T144941Z-6e090e",
+  "argv": [
+   "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt",
+   "down"
+  ],
+  "state": "finished",
+  "rc": 0,
+  "rc_class": "ok",
+  "meaning": "the teardown finished and the machine verified clean",
+  "seconds": 2.7
+ },
+ {
+  "n": 7,
+  "step": "down-on-a-down-lab-wait",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T144941Z-6e090e?wait=300",
+  "http": 200
+ },
+ {
+  "n": 8,
+  "step": "down-on-a-down-lab-stdout",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T144941Z-6e090e/log/stdout",
+  "http": 200
+ },
+ {
+  "n": 9,
+  "step": "down-on-a-down-lab-stderr",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T144941Z-6e090e/log/stderr",
+  "http": 200
+ },
+ {
+  "n": 10,
+  "step": "nsr-stop-not-running",
+  "method": "POST",
+  "path": "/api/v1/apps/nsr/stop",
+  "http": 202,
+  "job": "20260924T144944Z-63ab51",
+  "argv": [
+   "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt",
+   "apps",
+   "stop",
+   "nsr"
+  ],
+  "state": "finished",
+  "rc": 2,
+  "rc_class": "nothing",
+  "meaning": "there was nothing to stop -- this is NOT a usage error for this verb",
+  "seconds": 0.2
+ },
+ {
+  "n": 11,
+  "step": "nsr-stop-not-running-wait",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T144944Z-63ab51?wait=300",
+  "http": 200
+ },
+ {
+  "n": 12,
+  "step": "nsr-stop-not-running-stdout",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T144944Z-63ab51/log/stdout",
+  "http": 200
+ },
+ {
+  "n": 13,
+  "step": "nsr-stop-not-running-stderr",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T144944Z-63ab51/log/stderr",
+  "http": 200
+ },
+ {
+  "n": 14,
+  "step": "release",
+  "method": "POST",
+  "path": "/api/v1/release",
+  "http": 202,
+  "job": "20260924T144945Z-525965",
+  "argv": [
+   "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt",
+   "release"
+  ],
+  "state": "finished",
+  "rc": 0,
+  "rc_class": "ok",
+  "meaning": "released, or there was no claim to release",
+  "seconds": 0.0
+ },
+ {
+  "n": 15,
+  "step": "release-wait",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T144945Z-525965?wait=300",
+  "http": 200
+ },
+ {
+  "n": 16,
+  "step": "release-stdout",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T144945Z-525965/log/stdout",
+  "http": 200
+ },
+ {
+  "n": 17,
+  "step": "release-stderr",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T144945Z-525965/log/stderr",
+  "http": 200
+ },
+ {
+  "n": 18,
+  "step": "status-under-the-foreign-claim",
+  "method": "GET",
+  "path": "/api/v1/status",
+  "http": 200
+ },
+ {
+  "n": 19,
+  "step": "up-under-a-foreign-claim",
+  "method": "POST",
+  "path": "/api/v1/up",
+  "http": 202,
+  "job": "20260924T144946Z-c3c7e1",
+  "argv": [
+   "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt",
+   "up",
+   "4"
+  ],
+  "state": "finished",
+  "rc": 0,
+  "rc_class": "ok",
+  "meaning": "the fabric came up and verified",
+  "seconds": 8.5
+ },
+ {
+  "n": 20,
+  "step": "up-under-a-foreign-claim-wait",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T144946Z-c3c7e1?wait=300",
+  "http": 200
+ },
+ {
+  "n": 21,
+  "step": "up-under-a-foreign-claim-stdout",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T144946Z-c3c7e1/log/stdout",
+  "http": 200
+ },
+ {
+  "n": 22,
+  "step": "up-under-a-foreign-claim-stderr",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T144946Z-c3c7e1/log/stderr",
+  "http": 200
+ },
+ {
+  "n": 23,
+  "step": "status-after-the-foreign-release",
+  "method": "GET",
+  "path": "/api/v1/status",
+  "http": 200
+ },
+ {
+  "n": 24,
+  "step": "status-after",
+  "method": "GET",
+  "path": "/api/v1/status",
+  "http": 200
+ },
+ {
+  "n": 25,
+  "step": "jobs",
+  "method": "GET",
+  "path": "/api/v1/jobs?limit=20",
+  "http": 200
+ }
+]

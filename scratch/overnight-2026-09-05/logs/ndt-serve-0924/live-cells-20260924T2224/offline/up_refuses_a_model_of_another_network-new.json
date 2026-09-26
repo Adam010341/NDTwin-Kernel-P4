@@ -1,0 +1,90 @@
+{
+ "asserts": [
+  {
+   "ok": true,
+   "id": "h4_up_log_present",
+   "detail": "up.log present",
+   "file": "up.log"
+  },
+  {
+   "ok": true,
+   "id": "h4_refusal_names_two_networks",
+   "detail": "up.log contains it",
+   "file": "up.log"
+  },
+  {
+   "ok": true,
+   "id": "h4_refusal_names_both_counts",
+   "detail": "up.log contains it",
+   "file": "up.log"
+  },
+  {
+   "ok": true,
+   "id": "h4_nothing_was_built",
+   "detail": "up.log does not contain it",
+   "file": "up.log"
+  },
+  {
+   "ok": true,
+   "id": "h4_no_target_was_recorded",
+   "detail": "up.log does not contain it",
+   "file": "up.log"
+  },
+  {
+   "ok": true,
+   "id": "h4_refusal_is_immediate",
+   "detail": "refused in 0s",
+   "file": null
+  },
+  {
+   "ok": true,
+   "id": "h4_knob_could_show_a_rewrite",
+   "detail": "knob [128], command asks for 4 -- a write-through would show",
+   "file": null
+  },
+  {
+   "ok": true,
+   "id": "h4_knob_unchanged",
+   "detail": "= [128]",
+   "file": null
+  },
+  {
+   "ok": true,
+   "id": "h4_knob_put_back",
+   "detail": "= [128]",
+   "file": null
+  }
+ ],
+ "verdict": {
+  "state": "PASS",
+  "name": "up_refuses_a_model_of_another_network",
+  "rest": "tag=ndt kernel=unknown ndt=b1d02994ff59b72866a3d15acdf2dbda7251e489 at=2026-09-12T04:49:39+08:00",
+  "line": "CELL: PASS up_refuses_a_model_of_another_network tag=ndt kernel=unknown ndt=b1d02994ff59b72866a3d15acdf2dbda7251e489 at=2026-09-12T04:49:39+08:00"
+ },
+ "skip": null,
+ "argv": [
+  "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/live_cells/up_refuses_a_model_of_another_network.sh",
+  "judge",
+  "/home/adam/Desktop/NDTwin-Kernel/tests/fixtures/live_cells/up_refuses_a_model_of_another_network/new"
+ ],
+ "rc": 0,
+ "stdout": "ASSERT ok   h4_up_log_present                      up.log present\nASSERT ok   h4_refusal_names_two_networks          up.log contains it\nASSERT ok   h4_refusal_names_both_counts           up.log contains it\nASSERT ok   h4_nothing_was_built                   up.log does not contain it\nASSERT ok   h4_no_target_was_recorded              up.log does not contain it\nASSERT ok   h4_refusal_is_immediate                refused in 0s\nASSERT ok   h4_knob_could_show_a_rewrite           knob [128], command asks for 4 -- a write-through would show\nASSERT ok   h4_knob_unchanged                      = [128]\nASSERT ok   h4_knob_put_back                       = [128]\nCELL: PASS up_refuses_a_model_of_another_network tag=ndt kernel=unknown ndt=b1d02994ff59b72866a3d15acdf2dbda7251e489 at=2026-09-12T04:49:39+08:00\n",
+ "stderr": "",
+ "fixture": "new",
+ "dir": "tests/fixtures/live_cells/up_refuses_a_model_of_another_network/new",
+ "files": [
+  "PROVENANCE.md",
+  "ids.txt",
+  "knob.after",
+  "knob.before",
+  "knob.entry",
+  "knob.restored",
+  "observe.rc",
+  "observe.stdout",
+  "up.log",
+  "up.rc",
+  "up.secs",
+  "up.target"
+ ],
+ "failing": []
+}

@@ -1,0 +1,20 @@
+# 2026-09-26T08:53:05+08:00 head f643b884753bae4013f68831d73fc6497287a9cc (WHY run: HEAD's cells test against HEAD's service with C27 / C28 applied, copies only)
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-ndt-serve-0926
+# bash /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/why_c27_c28.sh
+== c27 on HEAD f643b884753bae4013f68831d73fc6497287a9cc: CellsRun.test_no_read_slot_is_not_a_claim_and_says_so
+FAIL: test_no_read_slot_is_not_a_claim_and_says_so (__main__.CellsRun.test_no_read_slot_is_not_a_claim_and_says_so)
+AssertionError: Tuples differ: (500, 'internal') != (409, 'claim')
+- (500, 'internal')
++ (409, 'claim') : {'error': 'internal', 'note': 'TypeError("\'NoneType\' object is not subscriptable")'}
+Ran 1 test in 5.192s
+FAILED (failures=1)
+   case rc=1
+== c28 on HEAD f643b884753bae4013f68831d73fc6497287a9cc: CellsRun.test_a_status_past_its_timeout_is_not_a_claim
+FAIL: test_a_status_past_its_timeout_is_not_a_claim (__main__.CellsRun.test_a_status_past_its_timeout_is_not_a_claim)
+AssertionError: Tuples differ: (202, None) != (409, 'claim')
+- (202, None)
++ (409, 'claim') : {'job': {'id': '20260926T005313Z-29099c', 'kind': 'cells.run', 'argv': ['/tmp/ndt-serve-test-s9xzhuh8/repo/tools/test_workflow/live_cells/run_cells.sh', '--cell', 'lab_cell', '--raw-root', '/tmp/ndt-serve-test-s9xzhuh8/st
+Ran 1 test in 2.359s
+FAILED (failures=1)
+   case rc=1
+rc=1

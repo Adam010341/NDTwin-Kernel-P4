@@ -1,0 +1,33 @@
+# 06-status-after-the-foreign-release  sent 2026-09-24T22:52:17+0800  answered 0.952 s later
+GET /api/v1/status HTTP/1.1
+Host: 127.0.0.1:8765
+X-NDT-Token: <token>
+
+
+
+HTTP/1.0 200 OK
+Server: ndt-serve/1 
+Date: Thu, 24 Sep 2026 14:52:18 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 3259
+Cache-Control: no-store
+X-Content-Type-Options: nosniff
+
+{
+ "argv": [
+  "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt",
+  "status"
+ ],
+ "rc": 0,
+ "rc_class": "report",
+ "meaning": "the report was printed; plain 'ndt status' judges nothing and answers 0 whatever it found -- read the report, or ask for a verdict with ?check=1",
+ "stdout": "lab\n  claim          none\n  prev claim     ndt-serve-0924-foreign (until 22:57:16), superseded 2026-09-24 22:52:16  (.test_run/lab.claim.prev)\n                 nothing holds the lab now: that claim was released or replaced\n                 it said: ndt serve rc-5 probe on the P4 plane\n  measuring      nothing\n  code           fd7382a3  +60 file(s) with uncommitted changes\n                 2 of them can change behaviour:\n                 p4_proxy/mininet/host_count_override\n                 tools/remote-lab/dorm_lab/\n  knob baseline  4 (the default; no round baseline recorded -- 'ndt claim' writes one)\n  tree vs round  no baseline in .test_run/round.baseline -- nothing here can say what this round changed ('ndt claim' records one)\n  ok  helper: /usr/local/sbin/ndtwin-lab is tools/test_workflow/ndtwin-lab (sha256 6685d3a9)\n\nconfiguration\n  hosts          unknown (no up.target) -- nothing here records what the running fabric was asked for\n  topology       unknown (no up.target); last kernel.exit ran ovs\n  p4 host knob   4   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')\n  app package    none   (p4_proxy/mininet/app_package_override absent -- the baseline fabric)\n  bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc\n  telemetry      auto   (p4_proxy/mininet/telemetry_override absent -- auto, then the package)\n                 every switch: cooperative\n                 link emitter: none (/tmp/ndtwin_link_telemetry.json absent)\n  link shaping   off (no package link asks for one)\n  sample rate    1/256\n  rate source    no fabric running -- this is the COMPILED P4 pipeline, not a reading\n  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py\n\nrunning\n  bmv2 switches  0       topo session   absent\n  host/switch    0       manifest       absent\n  :8000 kernel   closed  :8081 proxy    closed  :8080 ryu closed\n  pidfiles       none recorded\n\nnetwork health\n  switches       kernel not answering; no graph\n  tc netem       none\n  sudo grants    all 3 granted\n  apps           none running\n\n\nup target\n  record         none -- the last 'ndt up' record was cleared by 'ndt down' at 2026-09-24T22:50:25+08:00; history is in .test_run/pids/*.exit  (.test_run/up.target)\n                 that run was ovs, per the --topology argument in .test_run/pids/kernel.exit -- NOT a baseline, just what ran\n                 there is no baseline, so --check did NOT check. this is not 'checked and matched'.\n                 bring the lab up from this checkout first:  ndt up <target>\n                 .test_run/ is per checkout, so another checkout's 'up' is invisible here (finding #79)\n",
+ "stderr": "",
+ "duration_s": 0.951,
+ "owner": "ndt-serve-0924",
+ "read": {
+  "id": "r20260924T145218Z-2da16e",
+  "stdout": "/api/v1/reads/r20260924T145218Z-2da16e/log/stdout",
+  "stderr": "/api/v1/reads/r20260924T145218Z-2da16e/log/stderr"
+ }
+}

@@ -1,0 +1,306 @@
+[
+ {
+  "n": 1,
+  "step": "health",
+  "method": "GET",
+  "path": "/api/v1/health",
+  "http": 200
+ },
+ {
+  "n": 2,
+  "step": "status-before",
+  "method": "GET",
+  "path": "/api/v1/status",
+  "http": 200
+ },
+ {
+  "n": 3,
+  "step": "probe-no-token",
+  "method": "POST",
+  "path": "/api/v1/down",
+  "http": 403
+ },
+ {
+  "n": 4,
+  "step": "probe-foreign-host",
+  "method": "GET",
+  "path": "/api/v1/status",
+  "http": 403
+ },
+ {
+  "n": 5,
+  "step": "claim",
+  "method": "POST",
+  "path": "/api/v1/claim",
+  "http": 202,
+  "job": "20260924T140135Z-becba4",
+  "argv": [
+   "/home/adam/.local/bin/ndt",
+   "claim",
+   "30",
+   "ndt-serve-0924 live demo over the API"
+  ],
+  "state": "finished",
+  "rc": 0,
+  "rc_class": "ok",
+  "meaning": "the claim is yours",
+  "seconds": 0.1
+ },
+ {
+  "n": 6,
+  "step": "claim-wait",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T140135Z-becba4?wait=600",
+  "http": 200
+ },
+ {
+  "n": 7,
+  "step": "claim-stdout",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T140135Z-becba4/log/stdout",
+  "http": 200
+ },
+ {
+  "n": 8,
+  "step": "claim-stderr",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T140135Z-becba4/log/stderr",
+  "http": 200
+ },
+ {
+  "n": 9,
+  "step": "up",
+  "method": "POST",
+  "path": "/api/v1/up",
+  "http": 202,
+  "job": "20260924T140135Z-6ec71d",
+  "argv": [
+   "/home/adam/.local/bin/ndt",
+   "up",
+   "4"
+  ],
+  "state": "finished",
+  "rc": 0,
+  "rc_class": "ok",
+  "meaning": "the fabric came up and verified",
+  "seconds": 9.5
+ },
+ {
+  "n": 10,
+  "step": "probe-busy-while-up",
+  "method": "POST",
+  "path": "/api/v1/down",
+  "http": 409
+ },
+ {
+  "n": 11,
+  "step": "up-wait",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T140135Z-6ec71d?wait=600",
+  "http": 200
+ },
+ {
+  "n": 12,
+  "step": "up-stdout",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T140135Z-6ec71d/log/stdout",
+  "http": 200
+ },
+ {
+  "n": 13,
+  "step": "up-stderr",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T140135Z-6ec71d/log/stderr",
+  "http": 200
+ },
+ {
+  "n": 14,
+  "step": "status-after-up",
+  "method": "GET",
+  "path": "/api/v1/status",
+  "http": 200
+ },
+ {
+  "n": 15,
+  "step": "apps-before",
+  "method": "GET",
+  "path": "/api/v1/apps",
+  "http": 200
+ },
+ {
+  "n": 16,
+  "step": "nsr-start",
+  "method": "POST",
+  "path": "/api/v1/apps/nsr/start",
+  "http": 202,
+  "job": "20260924T140147Z-e383c4",
+  "argv": [
+   "/home/adam/.local/bin/ndt",
+   "apps",
+   "nsr"
+  ],
+  "state": "finished",
+  "rc": 0,
+  "rc_class": "ok",
+  "meaning": "started, or it was already running",
+  "seconds": 1.1
+ },
+ {
+  "n": 17,
+  "step": "nsr-start-wait",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T140147Z-e383c4?wait=600",
+  "http": 200
+ },
+ {
+  "n": 18,
+  "step": "nsr-start-stdout",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T140147Z-e383c4/log/stdout",
+  "http": 200
+ },
+ {
+  "n": 19,
+  "step": "nsr-start-stderr",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T140147Z-e383c4/log/stderr",
+  "http": 200
+ },
+ {
+  "n": 20,
+  "step": "apps-while-nsr",
+  "method": "GET",
+  "path": "/api/v1/apps",
+  "http": 200
+ },
+ {
+  "n": 21,
+  "step": "nsr-stop",
+  "method": "POST",
+  "path": "/api/v1/apps/nsr/stop",
+  "http": 202,
+  "job": "20260924T140153Z-ac3ca6",
+  "argv": [
+   "/home/adam/.local/bin/ndt",
+   "apps",
+   "stop",
+   "nsr"
+  ],
+  "state": "finished",
+  "rc": 0,
+  "rc_class": "ok",
+  "meaning": "it was running, and it is not now",
+  "seconds": 6.9
+ },
+ {
+  "n": 22,
+  "step": "nsr-stop-wait",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T140153Z-ac3ca6?wait=600",
+  "http": 200
+ },
+ {
+  "n": 23,
+  "step": "nsr-stop-stdout",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T140153Z-ac3ca6/log/stdout",
+  "http": 200
+ },
+ {
+  "n": 24,
+  "step": "nsr-stop-stderr",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T140153Z-ac3ca6/log/stderr",
+  "http": 200
+ },
+ {
+  "n": 25,
+  "step": "down",
+  "method": "POST",
+  "path": "/api/v1/down",
+  "http": 202,
+  "job": "20260924T140200Z-e4e9d7",
+  "argv": [
+   "/home/adam/.local/bin/ndt",
+   "down"
+  ],
+  "state": "finished",
+  "rc": 0,
+  "rc_class": "ok",
+  "meaning": "the teardown finished and the machine verified clean",
+  "seconds": 15.0
+ },
+ {
+  "n": 26,
+  "step": "down-wait",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T140200Z-e4e9d7?wait=600",
+  "http": 200
+ },
+ {
+  "n": 27,
+  "step": "down-stdout",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T140200Z-e4e9d7/log/stdout",
+  "http": 200
+ },
+ {
+  "n": 28,
+  "step": "down-stderr",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T140200Z-e4e9d7/log/stderr",
+  "http": 200
+ },
+ {
+  "n": 29,
+  "step": "release",
+  "method": "POST",
+  "path": "/api/v1/release",
+  "http": 202,
+  "job": "20260924T140216Z-f94e05",
+  "argv": [
+   "/home/adam/.local/bin/ndt",
+   "release"
+  ],
+  "state": "finished",
+  "rc": 0,
+  "rc_class": "ok",
+  "meaning": "released, or there was no claim to release",
+  "seconds": 0.0
+ },
+ {
+  "n": 30,
+  "step": "release-wait",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T140216Z-f94e05?wait=600",
+  "http": 200
+ },
+ {
+  "n": 31,
+  "step": "release-stdout",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T140216Z-f94e05/log/stdout",
+  "http": 200
+ },
+ {
+  "n": 32,
+  "step": "release-stderr",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T140216Z-f94e05/log/stderr",
+  "http": 200
+ },
+ {
+  "n": 33,
+  "step": "status-after",
+  "method": "GET",
+  "path": "/api/v1/status",
+  "http": 200
+ },
+ {
+  "n": 34,
+  "step": "jobs",
+  "method": "GET",
+  "path": "/api/v1/jobs?limit=20",
+  "http": 200
+ }
+]

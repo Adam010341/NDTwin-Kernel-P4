@@ -1,0 +1,10 @@
+# push audit-raw f37717b8fe98543de1d124a3edd080de8a5081f3 2026-09-25T20:27:02+08:00
+remote: 
+remote: GitHub found 2 vulnerabilities on ndtwin-lab/NDTwin-Kernel-P4's default branch (2 high). To find out more, visit:        
+remote:      https://github.com/ndtwin-lab/NDTwin-Kernel-P4/security/dependabot        
+remote: 
+To github.com:ndtwin-lab/NDTwin-Kernel-P4.git
+   9a0bc0ad..f37717b8  audit-raw -> audit-raw
+# push rc=0
+## unauthenticated
+f37717b8fe98543de1d124a3edd080de8a5081f3	refs/heads/audit-raw

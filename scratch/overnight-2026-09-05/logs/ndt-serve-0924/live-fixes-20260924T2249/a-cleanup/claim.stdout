@@ -1,0 +1,2 @@
+  recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+  ok  lab claimed by ndt-serve-0924 for 10m (ndt-serve-0924: taking down the fabric the rc-5 probe built)

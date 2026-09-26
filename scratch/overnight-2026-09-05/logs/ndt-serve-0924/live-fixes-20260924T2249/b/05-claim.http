@@ -1,0 +1,55 @@
+# 05-claim  sent 2026-09-24T22:52:32+0800  answered 0.003 s later
+POST /api/v1/claim HTTP/1.1
+Host: 127.0.0.1:8765
+X-NDT-Token: <token>
+Content-Type: application/json
+Content-Length: 72
+
+{"minutes": 30, "note": "ndt-serve-0924 re-run after the judge's fixes"}
+
+HTTP/1.0 202 Accepted
+Server: ndt-serve/1 
+Date: Thu, 24 Sep 2026 14:52:32 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 999
+Cache-Control: no-store
+X-Content-Type-Options: nosniff
+
+{
+ "job": {
+  "id": "20260924T145232Z-2dfe35",
+  "kind": "claim",
+  "argv": [
+   "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt",
+   "claim",
+   "30",
+   "ndt-serve-0924 re-run after the judge's fixes"
+  ],
+  "state": "running",
+  "rc": null,
+  "owner": "ndt-serve-0924",
+  "ndt_sha256": "cb134ccc7af9577a3a4ef3e71e64e238817029ec50977e099b7477b95b870e89",
+  "request": {
+   "minutes": 30,
+   "note": "ndt-serve-0924 re-run after the judge's fixes"
+  },
+  "requested_by": "127.0.0.1:48152",
+  "cell": null,
+  "raw_root": null,
+  "created_at": 1790261552.0115774,
+  "started_at": null,
+  "ended_at": null,
+  "ndt_pid": null,
+  "ndt_pgid": null,
+  "stdout_bytes": null,
+  "stderr_bytes": null,
+  "rc_class": null,
+  "meaning": "running"
+ },
+ "links": {
+  "self": "/api/v1/jobs/20260924T145232Z-2dfe35",
+  "wait": "/api/v1/jobs/20260924T145232Z-2dfe35?wait=60",
+  "stdout": "/api/v1/jobs/20260924T145232Z-2dfe35/log/stdout",
+  "stderr": "/api/v1/jobs/20260924T145232Z-2dfe35/log/stderr"
+ }
+}

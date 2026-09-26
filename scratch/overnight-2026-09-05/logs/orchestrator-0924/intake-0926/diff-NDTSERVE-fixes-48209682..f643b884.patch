@@ -1,0 +1,433 @@
+diff --git a/doc/audit/2026-09-24_ndt-serve/REPORT.md b/doc/audit/2026-09-24_ndt-serve/REPORT.md
+index 85519d7a..5b4b95e5 100644
+--- a/doc/audit/2026-09-24_ndt-serve/REPORT.md
++++ b/doc/audit/2026-09-24_ndt-serve/REPORT.md
+@@ -3,6 +3,7 @@
+ [Co-developed with claude code -- Adam]
+ 
+ - 分支：`feat/ndt-serve-0924`（base trunk `fd7382a3`），worktree 在 `scratch/overnight-2026-09-05/wt-ndt-serve-0924`。**沒有併進 trunk，也沒有推任何遠端。**
++- **09-26 併入時補註（下文不改）**：本報告引用的 ndt 行號都是 09-24 那份 ndt（blob `3273df8b`＝base trunk `fd7382a3` 的版本），早於 trunk `68ace017`（OVS 平面的 claim 修正）；§1 第 7 題、§2、§4.3 第 4 列、§4.4、§4.5 第 4 項說的「OVS 的 `up` 不擋別人的 claim（也不擋進行中的量測）」自 `68ace017` 起已不成立——併入後的 ndt:4248，`up_ovs` 呼叫 `guard_up_lab_free`。
+ - **本報告對應的程式碼 head 是 `490513fe`**：判官第二輪的修正在 `8f2fbb5b`；`3638ebd3` 改了測試和閘門，`490513fe` 把 listen backlog 提高到 64（§2「第二輪修正時我自己的失誤」）。
+   - opus-judge 第一輪審的是 `e4589399`，裁定 READY AFTER FIXES（修完就能交）；修正輪的 commit 是 `c836cff0` 和 `5c07acf3`。
+   - 第二輪審的是 `e4589399..e28bcfe4`，同樣 READY AFTER FIXES：第一輪的 9 項全部 FIXED，擋下來的是 cells 新碼；修正在 `8f2fbb5b`。
+@@ -280,7 +281,7 @@ ndt serve --owner adam                                                 # 併進
+ 
+ `api/NN-*.http`（token 已遮蔽）、`api/<step>.stdout/.stderr`、`direct/`、`after-fix/`、`serve*.err`。
+ 
+-### 5.4 修正輪（22:49:21–22:53:40，程式碼 `c836cff0`；demo 那處改動之後 commit 成 `5c07acf3`）
++### 5.4 修正輪（22:49:18–22:53:40，程式碼 `c836cff0`；demo 那處改動之後 commit 成 `5c07acf3`）
+ 
+ - **條件**：
+   - 開跑前查了三次：22:48:57 只印在終端，22:49:18 存在 `00-before.txt`（檔頭時間），22:49:40 只印在終端；三次都是 claim none、measuring nothing；
+diff --git a/tests/python/test_ndt_serve.py b/tests/python/test_ndt_serve.py
+index cab96bfd..3e968fb2 100644
+--- a/tests/python/test_ndt_serve.py
++++ b/tests/python/test_ndt_serve.py
+@@ -73,6 +73,7 @@ STUB_PY = textwrap.dedent('''\
+                             b.get("stdout", "stub stdout: %s\\n" % key).encode())
+     sys.stderr.buffer.write(b.get("stderr", "stub stderr: %s\\n" % key).encode())
+     sys.stdout.flush(); sys.stderr.flush()
++    time.sleep(b.get("sleep_after", 0))   # printed, then hung: a timeout with output already read
+     log({"done": os.getpid(), "argv": argv, "t": time.time()})
+     sys.exit(b.get("rc", 0))
+     ''')
+@@ -928,8 +929,9 @@ class NoPatternKill(unittest.TestCase):
+         self.assertEqual((calls, names), ([], []))
+ 
+     def test_the_only_signal_sent_is_to_a_group_this_service_created(self):
+-        """run_read's timeout path is the one place a signal is sent; it must name the pid of the
+-        Popen it started with start_new_session, never a looked-up process."""
++        """The timeout paths of run_read (serve.py) and Grid._run (cells.py) are the two places a
++        signal is sent; each must name the pid of the Popen it started with start_new_session,
++        never a looked-up process."""
+         sends = [(os.path.basename(p), text, line) for p in glob.glob(os.path.join(SERVE_DIR, "*.py"))
+                  for kind, text, line in code_facts(p)
+                  if kind == "call" and (text.startswith("os.kill") or text.endswith(".send_signal")
+@@ -1047,14 +1049,48 @@ class RcProvenance(unittest.TestCase):
+             for rc, phrase in src["help"].items():
+                 self.assertIn(" ".join(phrase.split()), self.help, "%s rc %d" % (kind, rc))
+ 
++    FUNC_DEF = re.compile(r"^([A-Za-z_][A-Za-z0-9_:-]*)\s*\(\)\s*\{")
++
++    def enclosing_function(self, n):
++        """The function ndt line n lies in: the nearest `name() {` at column 0 above it, with no
++        column-0 `}` (a function's end) in between and not a one-line definition. None when the
++        line is at top level."""
++        for i in range(n - 2, -1, -1):
++            text = self.lines[i]
++            m = self.FUNC_DEF.match(text)
++            if m:
++                return None if text.rstrip().endswith("}") else m.group(1)
++            if text.startswith("}"):
++                return None
++        return None
++
+     def test_code_sourced_tables_are_in_ndt(self):
++        """Each anchor is its line, the text on it AND the function it lies in (intake judge 09-26,
++        finding 3): `return 1` is on a great many lines, and a line number pointed back at 09-24's
++        8315 -- proc_checkout's `return 1` today -- passed a check of the text alone. Every
++        anchor is checked and every broken one named, not only the first."""
++        bad = []
+         for kind, src in self.verbs.RC_SOURCE.items():
+             if "code" not in src:
+                 continue
+-            self.assertEqual(sorted({rc for _, rc, _ in src["code"]}), sorted(self.verbs.RC_TABLE[kind]), kind)
+-            for line, rc, needle in src["code"]:
+-                text = self.lines[line - 1]
+-                self.assertIn(needle, text, "%s rc %d: ndt:%d is %r" % (kind, rc, line, text.strip()))
++            self.assertEqual(sorted({a[1] for a in src["code"]}), sorted(self.verbs.RC_TABLE[kind]), kind)
++            for line, rc, needle, func in src["code"]:
++                text = self.lines[line - 1] if 0 < line <= len(self.lines) else "<past the end of ndt>"
++                where = self.enclosing_function(line) if 0 < line <= len(self.lines) else None
++                if needle not in text or where != func:
++                    bad.append("%s rc %d: ndt:%d is %r in %s, cited as %r in %s" % (
++                        kind, rc, line, text.strip(), where, needle, func))
++        self.assertEqual(bad, [])
++
++    def test_the_function_finder_reads_ndt(self):
++        """The finder above, on the real ndt's claim_line: a finder that answered the cited name
++        whatever the line, or None whatever the line, would make the check above decoration."""
++        starts = [i + 1 for i, t in enumerate(self.lines) if t.startswith("claim_line() {")]
++        self.assertEqual(len(starts), 1, "claim_line() is defined once")
++        start = starts[0]
++        end = next(i + 1 for i in range(start, len(self.lines)) if self.lines[i].startswith("}"))
++        self.assertEqual([self.enclosing_function(n) for n in (start, start + 1, end - 1, end + 1)],
++                         [None, "claim_line", "claim_line", None])
+ 
+     def test_status_check_rc1_names_any_problem(self):
+         c, m = self.verbs.meaning("status.check", 1)
+diff --git a/tests/python/test_ndt_serve_cells.py b/tests/python/test_ndt_serve_cells.py
+index 015dd833..d3bb167e 100644
+--- a/tests/python/test_ndt_serve_cells.py
++++ b/tests/python/test_ndt_serve_cells.py
+@@ -274,9 +274,10 @@ class CellsRun(GridCase):
+         self.assertEqual((job["rc"], job["rc_class"], job["cell_verdict"]["state"]), (0, "pass", "PASS"))
+ 
+     def test_lab_cell_run_needs_your_claim(self):
+-        """Judge r2 finding 1: with ndt's OVS `up` ignoring a foreign claim, a lab cell run without a
+-        claim of your own can build a fabric under somebody else's -- and its restore's `down` is
+-        then refused (rc 5) and the fabric stays. The run reads `ndt status`'s claim line first."""
++        """Judge r2 finding 1: a lab cell run without a claim of your own acts under somebody else's
++        -- its netem, kill or knob write asks no guard, and its restore's `down` is refused (rc 5), so
++        what it left stays. (Written 09-24, when ndt's OVS `up` also ignored a foreign claim; trunk
++        68ace017 made it refuse.) The run reads `ndt status`'s claim line first."""
+         for text in (CLAIM_NONE, CLAIM_FOREIGN, CLAIM_EXPIRED, "lab\n  measuring nothing\n"):
+             self.s.behave(status={"stdout": text})
+             st, j, _, _ = self.s.post("/cells/lab_cell/run")
+@@ -286,6 +287,77 @@ class CellsRun(GridCase):
+         self.assertEqual(self.run_cell()["rc_class"], "pass")
+         self.assertEqual(len(self.s.runs()), 1)
+ 
++    def test_only_ndts_own_claim_form_is_yours(self):
++        """Intake judge 09-26, finding 2: the check was a PREFIX match on "yours", so a foreign
++        owner whose name merely starts with it -- `yours-x` -- passed as this server's own claim.
++        ndt prints its own claim as exactly `yours -- <n>m left (until HH:MM:SS)` (ndt:5677,
++        claim_line). Every other value -- another owner's, one named to contain the own form,
++        EXPIRED, malformed -- is somebody else's or nobody's, and runs nothing."""
++        for value in ("yours-x -- 12m left (until 23:40:00)",
++                      "yoursx -- 12m left (until 23:40:00)",
++                      "yours -- 5m left (until 12:00:00) -- 12m left (until 23:40:00)",
++                      "yours -- 12m left",
++                      "EXPIRED 3m ago (was yours) -- treated as free",
++                      "malformed (no usable expires=) -- treated as free"):
++            self.s.behave(status={"stdout": "lab\n  claim          %s\n" % value})
++            st, j, _, _ = self.s.post("/cells/lab_cell/run")
++            self.assertEqual((st, j.get("error"), j.get("claim")), (409, "claim", value), value)
++        self.assertEqual(self.s.runs(), [])
++        # ...and the own form itself, whatever the minutes, is yours
++        self.s.behave(status={"stdout": "lab\n  claim          yours -- 240m left (until 03:59:00)\n"})
++        self.assertEqual(self.run_cell()["rc_class"], "pass")
++        self.assertEqual(len(self.s.runs()), 1)
++
++    def test_no_read_slot_is_not_a_claim_and_says_so(self):
++        """Intake judge 09-26, finding 5: with both read slots taken past --read-queue-wait, the
++        claim was never read at all -- ndt status did not run. The run is refused (409 claim, so a
++        walk records it as blocked), and the answer says THAT, not "ndt status did not answer"."""
++        import threading
++        s = GridServe(extra=["--read-queue-wait", "1"]).start()
++        try:
++            s.behave(status={"stdout": CLAIM_YOURS, "sleep": 5})
++            held = []
++            ts = [threading.Thread(target=lambda: held.append(s.get("/status")[0])) for _ in range(2)]
++            for t in ts:
++                t.start()
++            deadline = time.monotonic() + 10
++            while len(s.calls()) < 2 and time.monotonic() < deadline:
++                time.sleep(0.05)
++            self.assertEqual(len(s.calls()), 2, "the two reads that hold the slots did not start")
++            st, j, _, _ = s.post("/cells/lab_cell/run")
++            for t in ts:
++                t.join(30)
++            self.assertEqual((st, j.get("error")), (409, "claim"), j)
++            self.assertIn("no read slot", j["note"])
++            self.assertNotIn("did not answer", j["note"])
++            self.assertEqual(len(s.calls()), 2, "the claim read ran ndt without a read slot")
++            self.assertEqual(s.runs(), [])
++            self.assertEqual(held, [200, 200])
++        finally:
++            s.close()
++
++    def test_a_status_past_its_timeout_is_not_a_claim(self):
++        """Intake judge 09-26, finding 5: ndt status printed `yours` and then hung past
++        --read-timeout. A read that was stopped is not a reading: the run is refused, the answer
++        says it timed out, and what ndt printed before it was stopped is kept, by read id."""
++        s = GridServe(extra=["--read-timeout", "2"]).start()
++        try:
++            s.behave(status={"stdout": CLAIM_YOURS, "sleep_after": 30})
++            st, j, _, _ = s.post("/cells/lab_cell/run")
++            self.assertEqual((st, j.get("error")), (409, "claim"), j)
++            self.assertIn("did not answer within 2 s", j["note"])
++            self.assertEqual(s.runs(), [])
++            st, _, _, raw = s.get("/reads/%s/log/stdout" % j.get("read"))
++            self.assertEqual(st, 200)
++            self.assertIn(b"yours -- 30m left", raw, "the partial output was not kept")
++        finally:
++            # under a mutation that stops killing the group the stub sleeps on: stopped here by
++            # the pid it recorded
++            for c in s.calls():
++                if base._pid_alive(c["pid"]):
++                    os.kill(c["pid"], signal.SIGKILL)
++            s.close()
++
+     def test_offline_cell_run_does_not_ask_for_the_claim(self):
+         self.s.behave(status={"stdout": CLAIM_NONE})
+         self.assertEqual(self.run_cell("offline_cell")["rc_class"], "pass")
+diff --git a/tests/shell/mutate_ndt_serve.sh b/tests/shell/mutate_ndt_serve.sh
+index d308d347..a61a6a9f 100755
+--- a/tests/shell/mutate_ndt_serve.sh
++++ b/tests/shell/mutate_ndt_serve.sh
+@@ -509,7 +509,7 @@ report "M60: the demo's slot probe is a real POST /down with the token" "$m" \
+        DemoProbes.test_demo_probes_cannot_touch_the_lab
+ 
+ m=$(mutant m61 "$VERBS_PY" \
+-    '    "apps.status": {"code": [(10222, 0, "return 0")]},' \
++    '    "apps.status": {"code": [(10222, 0, "return 0", "cmd_apps")]},' \
+     '')
+ report "M61: an rc table with no source" "$m" \
+        RcProvenance.test_every_table_names_its_source
+@@ -635,7 +635,7 @@ report "C17: a lab cell runs without reading the claim" "$m" \
+        cells:CellsRun.test_lab_cell_run_needs_your_claim
+ 
+ m=$(mutant c18 "$SERVE_PY" \
+-    '        if not (line or "").startswith("yours"):' \
++    '        if not OWN_CLAIM.fullmatch(line or ""):' \
+     '        if line is None:')
+ report "C18: any claim line -- none, a foreign one, an expired one -- lets a lab cell run" "$m" \
+        cells:CellsRun.test_lab_cell_run_needs_your_claim
+@@ -679,6 +679,44 @@ report "C24: an implicit child-only kill (subprocess.run timeout=) comes back" "
+        NoPatternKill.test_the_only_signal_sent_is_to_a_group_this_service_created
+ 
+ 
++# --- the intake judge (opus-judge on the merge 48209682, 09-26; the orchestrator's selection) -----
++# [Co-developed with claude code -- Adam]
++
++m=$(mutant c25 "$SERVE_PY" \
++    '        if not OWN_CLAIM.fullmatch(line or ""):' \
++    '        if not (line or "").startswith("yours"):')
++report "C25: the claim check is a prefix again (a foreign owner yours-x is yours)" "$m" \
++       cells:CellsRun.test_only_ndts_own_claim_form_is_yours
++
++m=$(mutant c26 "$SERVE_PY" \
++    '        if not OWN_CLAIM.fullmatch(line or ""):' \
++    '        if not (line or "").startswith("yours -- "):')
++report "C26: the claim check is the own form's prefix (an owner named to contain it passes)" "$m" \
++       cells:CellsRun.test_only_ndts_own_claim_form_is_yours
++
++m=$(mutant c27 "$SERVE_PY" \
++    '        if r is None:
++            raise HttpError(409, "claim", note="the claim was not read: no read slot' \
++    '        if False:
++            raise HttpError(409, "claim", note="the claim was not read: no read slot')
++report "C27: no read slot for the claim read is not caught (a 500, not a 409 claim)" "$m" \
++       cells:CellsRun.test_no_read_slot_is_not_a_claim_and_says_so
++
++m=$(mutant c28 "$SERVE_PY" \
++    '        if r["rc_class"] == "timeout":
++            raise HttpError(409, "claim",' \
++    '        if False:
++            raise HttpError(409, "claim",')
++report "C28: a claim read stopped at its timeout is trusted (its partial yours runs the cell)" "$m" \
++       cells:CellsRun.test_a_status_past_its_timeout_is_not_a_claim
++
++m=$(mutant m63 "$VERBS_PY" \
++    '(8775, 1, "return 1", "app_start")' \
++    '(8315, 1, "return 1", "app_start")')
++report "M63: apps.start rc 1 cites 09-24's line 8315 -- proc_checkout's return 1 today" "$m" \
++       RcProvenance.test_code_sourced_tables_are_in_ndt
++
++
+ m=$(mutant m62 "$SERVE_PY" \
+     '    request_queue_size = 64' \
+     '    request_queue_size = 5')
+diff --git a/tools/ndt_serve/README.md b/tools/ndt_serve/README.md
+index 029a9c6d..f29447e0 100644
+--- a/tools/ndt_serve/README.md
++++ b/tools/ndt_serve/README.md
+@@ -57,7 +57,7 @@ keeps running if the server dies; a restarted server finds it again from disk.
+ an `Origin` -- this server's own origin; a POST also needs `Content-Type: application/json`.
+ The Host header must be `127.0.0.1:<port>` or `localhost:<port>`. No CORS header is ever sent.
+ Reads are gated too because a read is not side-effect free: `ndt status --check` POSTs three
+-lock probes to the kernel (ndt:8832-8847), and without the token any page in the browser could
++lock probes to the kernel (ndt:9292-9307), and without the token any page in the browser could
+ start one with an `<img>` (judge 09-24, finding 1).
+ 
+ Two read-only ndt calls run at a time; a third waits up to `--read-queue-wait` seconds and then
+@@ -93,7 +93,7 @@ server drives; the cells are what `run_cells.sh --list` prints.
+ | GET | `/cells/<name>/old` | `<cell>.sh judge tests/fixtures/live_cells/<name>/old` | the **pre-fix red**: ASSERT rows, the CELL: line, whether the failing set equals `EXPECTED-FAILS`, `PROVENANCE.md` |
+ | GET | `/cells/<name>/new` | the same over `new/` | the first **green**, as it was the night of the fix |
+ | GET | `/cells/<name>/old/raw/<file>` | nothing | a raw file of the fixture (cannot leave it) |
+-| POST | `/cells/<name>/run` `{}` | `run_cells.sh --cell <name> --raw-root <state>/cells-raw/…` | 202 + job, in the one slot. A cell that needs the lab runs **only under your own claim**: inside the slot, `ndt status`'s claim line must say `yours`, else 409 `claim`. A cell that writes shared state (`writes_shared_state` in `/cells`) needs `{"confirm_shared_state_write": true}`, else 400 |
++| POST | `/cells/<name>/run` `{}` | `run_cells.sh --cell <name> --raw-root <state>/cells-raw/…` | 202 + job, in the one slot. A cell that needs the lab runs **only under your own claim**: inside the slot, `ndt status`'s claim line must be ndt's own form, whole -- `yours -- <n>m left (until HH:MM:SS)` -- else 409 `claim` (a foreign owner named `yours-x` is foreign; one named exactly `yours` ndt itself prints as yours). A claim that could not be read -- no read slot within `--read-queue-wait`, or `ndt status` stopped at `--read-timeout` -- is also 409 `claim`, and the note says which. A cell that writes shared state (`writes_shared_state` in `/cells`) needs `{"confirm_shared_state_write": true}`, else 400 |
+ | GET | `/cells/<name>/runs/<job>` | nothing | that run's ASSERT rows, and per row: red on old/, and now |
+ | GET | `/jobs/<job>/raw/<path>` | nothing | a raw file of a run (cannot leave its raw root) |
+ | POST | `/cells/<name>/guided` `{}` | nothing | 201 + a walk (a shared-state cell needs the same confirmation field) |
+diff --git a/tools/ndt_serve/serve.py b/tools/ndt_serve/serve.py
+index d59ff1a6..5edbf3e2 100644
+--- a/tools/ndt_serve/serve.py
++++ b/tools/ndt_serve/serve.py
+@@ -26,8 +26,10 @@ The design red lines (TICKET section 3), and where each one lives:
+                        it; stdout and stderr are kept byte for byte.
+   5. long jobs         jobs.py / runner.py: async, one state-changing job at a time, detached with
+                        setsid, recorded on disk.
+-  6. no pkill -f       nothing here signals anything but the process group this process itself
+-                       created for a read-only `ndt status` that ran past its timeout.
++  6. no pkill -f       nothing here signals anything but a process group this process itself
++                       created, for a call that ran past its timeout: a read-only `ndt status` or
++                       `ndt apps` (run_read, below), or a grid call -- `run_cells.sh --list` or
++                       a cell's `judge` (cells.Grid._run). Two places, one shape.
+   7. identity          --owner (or $NDT_OWNER) is set once, and every ndt call carries it.
+ """
+ import argparse
+@@ -507,8 +509,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
+ 
+     def _spawn_cell_run(self, cell, body, confirmed):
+         """A cell run. 🔴 A cell that needs the lab runs only under THIS owner's claim (judge r2
+-        finding 1): ndt's OVS `up` does not refuse under a foreign claim, so a run without one can
+-        build a fabric under somebody else's, and the restore's `down` is then refused (rc 5)."""
++        finding 1). Written 09-24, when ndt's OVS `up` did not refuse under a foreign claim; since
++        trunk 68ace017 it does, on both planes (up_ovs calls guard_up_lab_free, ndt:4248). The check
++        stays because a cell is more than its `up`: some set netem, send kill -TERM or write the
++        host-count knob, and none of that asks ndt's guard -- and under a foreign claim the
++        restore's `down` is refused (rc 5), so what the cell left stays."""
+         cfg = self.cfg
+         self._need_confirmation(cell, confirmed)
+         raw_root = os.path.join(cfg.state_dir, "cells-raw", cell["name"] + "-" + secrets.token_hex(4))
+@@ -518,14 +523,26 @@ class Handler(http.server.BaseHTTPRequestHandler):
+                            precheck=self._require_own_claim if cell["requires"] != "none" else None)
+ 
+     def _require_own_claim(self):
+-        """Read `ndt status`'s claim line (ndt:5664 claim_line) and go on only if it says `yours`.
+-        This reads ndt's answer; it does not decide anything ndt decides."""
++        """Read `ndt status`'s claim line (ndt:5664 claim_line) and go on only if it is ndt's
++        own-claim form, exactly. This reads ndt's answer; it does not decide anything ndt decides.
++
++        🔴 Exact, not a prefix (intake judge 09-26, finding 2): claim_line prints somebody else's
++        claim as `<owner> -- ...`, and an owner is any string -- `yours-x`, or one that spells the
++        whole own form. What it cannot tell apart is an owner named exactly `yours`: ndt prints
++        that claim as it prints your own (and its own `--check` reads `yours*` the same way)."""
+         r = run_read(self.cfg, "status", verbs.argv_status(False), self.cfg.read_timeout)
+-        if r is None or r["rc_class"] == "timeout":
+-            raise HttpError(409, "claim", note="the claim could not be read (ndt status did not answer); "
+-                            "a cell that needs the lab is not run on a guess")
++        # [Co-developed with claude code -- Adam] two reasons the claim was not read, each named
++        # (intake judge 09-26, finding 5) -- neither is a claim, and neither runs the cell
++        if r is None:
++            raise HttpError(409, "claim", note="the claim was not read: no read slot came free within %d s "
++                            "(two read-only ndt calls held both), so ndt status never ran; a cell that needs "
++                            "the lab is not run on a guess -- try again" % self.cfg.read_queue_wait)
++        if r["rc_class"] == "timeout":
++            raise HttpError(409, "claim", note="the claim was not read: ndt status did not answer within %d s "
++                            "and was stopped, and a stopped read is not a reading; a cell that needs the lab "
++                            "is not run on a guess" % self.cfg.read_timeout, read=r["read"]["id"])
+         line = claim_of(r["stdout"])
+-        if not (line or "").startswith("yours"):
++        if not OWN_CLAIM.fullmatch(line or ""):
+             raise HttpError(409, "claim", note="a cell that needs the lab runs only under your own claim -- "
+                             "POST %s/claim first" % API, claim=line, read=r["read"]["id"])
+ 
+@@ -733,6 +750,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
+ 
+ 
+ CLAIM_LINE = re.compile(r"^  claim\s+(.*?)\s*$", re.M)
++# ndt's own-claim value, whole: `printf 'yours -- %dm left (until %s)\n'` (ndt:5677, claim_line),
++# the time from `date +%H:%M:%S`. [Co-developed with claude code -- Adam]
++OWN_CLAIM = re.compile(r"yours -- [0-9]+m left \(until [0-9]{2}:[0-9]{2}:[0-9]{2}\)")
+ 
+ 
+ def claim_of(status_stdout):
+diff --git a/tools/ndt_serve/verbs.py b/tools/ndt_serve/verbs.py
+index 19b1c97a..52ce6733 100644
+--- a/tools/ndt_serve/verbs.py
++++ b/tools/ndt_serve/verbs.py
+@@ -205,8 +205,10 @@ RC_TABLE = {
+         0: ("ok", "all compared fields match what the last 'ndt up' asked for"),
+         # 🔴 ndt help says "1 one of them does not", but cmd_status answers 1 whenever its
+         # problems[] is not empty (ndt:6946-6948) -- a claim held by somebody else (6576), a
+-        # declared measurement (6662), a netem qdisc (6806), a refused sudo grant (6819) are all
+-        # problems. A GUI that printed "a field does not match" would name the wrong cause.
++        # measurement process in flight (6662, in_flight's process scan -- a measuring= the claim
++        # only DECLARES, 6638-6640, is not a problem), a netem qdisc (6806), a refused sudo grant
++        # (6819) are all problems. A GUI that printed "a field does not match" would name the wrong
++        # cause.
+         1: ("dirty", "ndt reported at least one problem -- a compared field that does not match, a claim "
+                      "held by somebody else, a measurement in progress, a netem qdisc, a refused sudo "
+                      "grant, and more; the output names each one"),
+@@ -245,8 +247,11 @@ RC_TABLE = {
+ 
+ 
+ # Where each table's codes come from. "help": the phrase `ndt help` prints for each rc (compared
+-# whitespace-normalised). "code": (line, rc, text that line must contain) in tools/test_workflow/ndt
+-# -- trunk 68ace017's line numbers: this branch's `serve)` dispatch lies below every anchor.
++# whitespace-normalised). "code": (line, rc, text that line must contain, the function that line
++# lies in) in tools/test_workflow/ndt -- trunk 68ace017's line numbers: this branch's `serve)`
++# dispatch lies below every anchor. 🔴 The function is half the anchor (intake judge 09-26, finding
++# 3): `return 1` is on 187 lines of this tree's ndt, and 09-24's apps.start line 8315 is one of
++# them today -- in proc_checkout. [Co-developed with claude code -- Adam]
+ RC_SOURCE = {
+     "up": {"help": {0: "exit 0 the fabric came up and verified",
+                     1: "1 something was MEASURED and it was dirty",
+@@ -260,14 +265,19 @@ RC_SOURCE = {
+     "status.check": {"help": {0: "exit 0 all compared fields match",
+                               1: "1 one of them does not (the message names it)",
+                               3: "3 nothing was compared, because there is no baseline RIGHT NOW"},
+-                     "code": [(6939, 3, "return 3"), (6944, 0, "return 0"), (6948, 1, "return 1")]},
+-    "status": {"code": [(6950, 0, "return 0")]},
+-    "claim": {"code": [(753, 2, "return 2"), (762, 2, "return 2"), (787, 1, "return 1"),
+-                       (860, 1, "return 1"), (862, 0, 'ok "lab claimed by')]},
+-    "release": {"code": [(866, 0, "return 0"), (871, 1, "return 1"), (899, 1, "return 1")]},
+-    "apps.start": {"code": [(8771, 0, "return 0"), (8775, 1, "return 1"), (8848, 1, "return 1")]},
+-    "apps.stop": {"code": [(10289, 1, "return 1"), (10292, 2, "return 2"), (10295, 0, "return 0")]},
+-    "apps.status": {"code": [(10222, 0, "return 0")]},
++                     "code": [(6939, 3, "return 3", "cmd_status"), (6944, 0, "return 0", "cmd_status"),
++                              (6948, 1, "return 1", "cmd_status")]},
++    "status": {"code": [(6950, 0, "return 0", "cmd_status")]},
++    "claim": {"code": [(753, 2, "return 2", "cmd_claim"), (762, 2, "return 2", "cmd_claim"),
++                       (787, 1, "return 1", "claim_take"), (860, 1, "return 1", "claim_take"),
++                       (862, 0, 'ok "lab claimed by', "claim_take")]},
++    "release": {"code": [(866, 0, "return 0", "cmd_release"), (871, 1, "return 1", "cmd_release"),
++                         (899, 1, "return 1", "cmd_release")]},
++    "apps.start": {"code": [(8771, 0, "return 0", "app_start"), (8775, 1, "return 1", "app_start"),
++                            (8848, 1, "return 1", "app_start")]},
++    "apps.stop": {"code": [(10289, 1, "return 1", "cmd_apps"), (10292, 2, "return 2", "cmd_apps"),
++                           (10295, 0, "return 0", "cmd_apps")]},
++    "apps.status": {"code": [(10222, 0, "return 0", "cmd_apps")]},
+ }
+ 
+ 
+diff --git a/tools/test_workflow/ndt b/tools/test_workflow/ndt
+index 4ae1f913..13c11c10 100755
+--- a/tools/test_workflow/ndt
++++ b/tools/test_workflow/ndt
+@@ -10879,9 +10879,9 @@ usage: ndt <command>
+   claim [min] [note]   reserve the lab (default 30m); needs NDT_OWNER set
+   release              give it back
+   serve [--owner N] [--port P]   a local HTTP API over up/down/status/claim/release
+-                and apps, on 127.0.0.1 only, for one user. Every write carries the token
+-                the server writes to ~/.config/ndt-serve/token (0600); every call to ndt
+-                carries NDT_OWNER=N. 'ndt serve --help' for the options,
++                and apps, on 127.0.0.1 only, for one user. Every request but /health
++                carries the token the server writes to ~/.config/ndt-serve/token (0600);
++                every call to ndt carries NDT_OWNER=N. 'ndt serve --help' for the options,
+                 tools/ndt_serve/README.md for the API.
+ 
+   .test_run/pids/ is shared, so 'down' kills whoever is registered there.

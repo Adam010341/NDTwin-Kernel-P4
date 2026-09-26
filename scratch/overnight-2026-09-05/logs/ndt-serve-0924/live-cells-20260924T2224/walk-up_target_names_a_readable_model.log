@@ -1,0 +1,18 @@
+walk g20260924T142521Z-ad027d ['old', 'new', 'status', 'claim', 'run', 'release', 'compare', 'verdict']
+  old      -> HTTP 200  state=done  {"rc": null, "rc_class": null, "ok": true}
+  new      -> HTTP 200  state=done  {"rc": null, "rc_class": null, "ok": true}
+  status   -> HTTP 200  state=done  {"rc": 0, "rc_class": "report", "ok": true}
+  claim    -> HTTP 200  state=running  {"rc": null, "rc_class": null, "ok": null}
+  run      -> HTTP 200  state=running  {"rc": null, "rc_class": null, "ok": null}
+  release  -> HTTP 200  state=running  {"rc": null, "rc_class": null, "ok": null}
+  compare  -> HTTP 200  state=done  {"rc": null, "rc_class": null, "ok": true}
+stop at the verdict step -- it is Adam's
+  old      done     
+  new      done     
+  status   done     
+  claim    done     
+  run      done     cell_verdict=CELL: PASS up_target_names_a_readable_model tag=ndt kernel=be70b5dd32356847 ndt=3273df8b0751a777aa26e843752d97782868e771 at=2026-09-24T22:25:24+08:00
+  release  done     
+  compare  done     red_to_green=['h4nl_up_rc_is_0', 'h4nl_model_counts_were_readable', 'h4nl_no_incomplete_rollback', 'h4nl_kernel_did_not_die_starting', 'h4nl_target_record_written', 'h4nl_topology_sha_is_a_reading', 'h4nl_model_hosts_were_counted', 'h4nl_topology_path_is_one_line'] still_red=[]
+  verdict  pending  
+GID g20260924T142521Z-ad027d

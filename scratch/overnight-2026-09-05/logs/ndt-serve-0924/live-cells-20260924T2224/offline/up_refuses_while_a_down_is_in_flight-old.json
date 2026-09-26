@@ -1,0 +1,105 @@
+{
+ "asserts": [
+  {
+   "ok": true,
+   "id": "h3_up_log_present",
+   "detail": "up.log present",
+   "file": "up.log"
+  },
+  {
+   "ok": false,
+   "id": "h3_marker_was_in_place",
+   "detail": "down.inflight does not match /^pid=[0-9]+$/",
+   "file": "down.inflight"
+  },
+  {
+   "ok": false,
+   "id": "h3_refusal_names_the_teardown",
+   "detail": "up.log does not contain [refusing to build: an 'ndt down' from this checkout is still running]",
+   "file": "up.log"
+  },
+  {
+   "ok": false,
+   "id": "h3_refusal_quotes_the_marker",
+   "detail": "up.log does not contain [.test_run/down.inflight]",
+   "file": "up.log"
+  },
+  {
+   "ok": false,
+   "id": "h3_did_not_reuse_the_fabric",
+   "detail": "up.log still contains [ok  already up:]",
+   "file": "up.log"
+  },
+  {
+   "ok": false,
+   "id": "h3_did_not_verify_a_dying_fabric",
+   "detail": "up.log still contains [ok  model matches fabric:]",
+   "file": "up.log"
+  },
+  {
+   "ok": false,
+   "id": "h3_up_rc_is_5",
+   "detail": "expected [5] actual [1]",
+   "file": null
+  },
+  {
+   "ok": true,
+   "id": "h3_refusal_is_immediate",
+   "detail": "refused in 13s",
+   "file": null
+  },
+  {
+   "ok": true,
+   "id": "h3_marker_was_removed",
+   "detail": "down.inflight.after contains it",
+   "file": "down.inflight.after"
+  }
+ ],
+ "verdict": {
+  "state": "FAIL",
+  "name": "up_refuses_while_a_down_is_in_flight",
+  "rest": "tag=ndt kernel=unknown ndt=a447518651ee1cf5ab18eabd339cdda63fdc050f at=2026-09-11T01:26:xx+08:00",
+  "line": "CELL: FAIL up_refuses_while_a_down_is_in_flight tag=ndt kernel=unknown ndt=a447518651ee1cf5ab18eabd339cdda63fdc050f at=2026-09-11T01:26:xx+08:00"
+ },
+ "skip": null,
+ "argv": [
+  "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/live_cells/up_refuses_while_a_down_is_in_flight.sh",
+  "judge",
+  "/home/adam/Desktop/NDTwin-Kernel/tests/fixtures/live_cells/up_refuses_while_a_down_is_in_flight/old"
+ ],
+ "rc": 1,
+ "stdout": "ASSERT ok   h3_up_log_present                      up.log present\nASSERT FAIL h3_marker_was_in_place                 down.inflight does not match /^pid=[0-9]+$/\nASSERT FAIL h3_refusal_names_the_teardown          up.log does not contain [refusing to build: an 'ndt down' from this checkout is still running]\nASSERT FAIL h3_refusal_quotes_the_marker           up.log does not contain [.test_run/down.inflight]\nASSERT FAIL h3_did_not_reuse_the_fabric            up.log still contains [ok  already up:]\nASSERT FAIL h3_did_not_verify_a_dying_fabric       up.log still contains [ok  model matches fabric:]\nASSERT FAIL h3_up_rc_is_5                          expected [5] actual [1]\nASSERT ok   h3_refusal_is_immediate                refused in 13s\nASSERT ok   h3_marker_was_removed                  down.inflight.after contains it\nCELL: FAIL up_refuses_while_a_down_is_in_flight tag=ndt kernel=unknown ndt=a447518651ee1cf5ab18eabd339cdda63fdc050f at=2026-09-11T01:26:xx+08:00\n",
+ "stderr": "",
+ "fixture": "old",
+ "dir": "tests/fixtures/live_cells/up_refuses_while_a_down_is_in_flight/old",
+ "files": [
+  "EXPECTED-FAILS",
+  "PROVENANCE.md",
+  "down.inflight",
+  "down.inflight.after",
+  "down.rc",
+  "ids.txt",
+  "up.log",
+  "up.rc",
+  "up.secs"
+ ],
+ "failing": [
+  "h3_did_not_reuse_the_fabric",
+  "h3_did_not_verify_a_dying_fabric",
+  "h3_marker_was_in_place",
+  "h3_refusal_names_the_teardown",
+  "h3_refusal_quotes_the_marker",
+  "h3_up_rc_is_5"
+ ],
+ "expected_fails": [
+  "h3_did_not_reuse_the_fabric",
+  "h3_did_not_verify_a_dying_fabric",
+  "h3_marker_was_in_place",
+  "h3_refusal_names_the_teardown",
+  "h3_refusal_quotes_the_marker",
+  "h3_up_rc_is_5"
+ ],
+ "failing_matches_expected": true,
+ "provenance": "# old/ -- up_refuses_while_a_down_is_in_flight\n\n[Co-developed with claude code -- Adam]\n\n**Kind: captured log.** ROLE-2 cycle 13, live 2026-09-11 on the main checkout at `c81dabbb`,\ndriven by `logs/ROLE-2/overlap.sh` (background `ndt down`, then `ndt up p4` one second later).\n\n| file | where it came from |\n|---|---|\n| `up.log` | `hunt-0911/logs/ROLE-2/cycle-13-up-B.log`, colour codes stripped. The second `ndt up p4` |\n| `up.rc` | `1` -- ROLE-2-CYCLES-REPORT, cycle-13 paragraph |\n| `up.secs` | `13` -- the overlap delay the harness used; `overlap.sh` measures from the background down, so this is the elapsed figure that log's own trailer reports |\n| `down.rc` | `1` -- the background teardown, which reported the SECOND up's kernel and proxy as residue |\n| `down.inflight`, `down.inflight.after` | `(absent)`. **Not a gap: the marker is the fix.** `.test_run/down.inflight` did not exist at `019b125d^`, so \"absent\" is what any reader would have found |\n| `ids.txt` | `ndt` blob at `019b125d^` |\n\n**Assertions that carry the finding:** `h3_refusal_names_the_teardown`,\n`h3_refusal_quotes_the_marker`, `h3_did_not_reuse_the_fabric`,\n`h3_did_not_verify_a_dying_fabric`. `h3_marker_was_in_place` also fails, correctly, and for the\nreason above.\n\n`h3_up_rc_is_1`, `h3_refusal_is_immediate` and `h3_marker_was_removed` PASS on this fixture and\nare not evidence here -- the pre-fix run also ended rc 1, thirteen seconds in, with no marker to\nleave behind. They are in the judge for the live round, where a refusal that takes 300 s or\nleaves a marker standing is a different defect.\n",
+ "gap_note": "A failing assertion on old/ is not automatically the finding: some old/ directories are thinner than the cell's raw layout, and an assertion that fails with 'no such raw file' may be a fixture gap, not evidence. PROVENANCE.md names the ones that carry the finding (tests/fixtures/live_cells/README.md, rule 2)."
+}

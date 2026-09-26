@@ -1,0 +1,105 @@
+{
+ "asserts": [
+  {
+   "ok": false,
+   "id": "h2_whole_verdict_present",
+   "detail": "whole.verdict.txt is missing or empty",
+   "file": "whole.verdict.txt"
+  },
+  {
+   "ok": true,
+   "id": "h2_half_verdict_present",
+   "detail": "half.verdict.txt present",
+   "file": "half.verdict.txt"
+  },
+  {
+   "ok": false,
+   "id": "h2_whole_stack_is_clean",
+   "detail": "no such raw file: whole.verdict.txt",
+   "file": "whole.verdict.txt"
+  },
+  {
+   "ok": false,
+   "id": "h2_whole_stack_reads_whole_up",
+   "detail": "no such raw file: whole.orphans.txt",
+   "file": "whole.orphans.txt"
+  },
+  {
+   "ok": false,
+   "id": "h2_half_stack_is_not_clean",
+   "detail": "half.verdict.txt still contains [VERDICT: CLEAN]",
+   "file": "half.verdict.txt"
+  },
+  {
+   "ok": false,
+   "id": "h2_half_stack_says_not_clean",
+   "detail": "half.verdict.txt does not contain [VERDICT: NOT CLEAN]",
+   "file": "half.verdict.txt"
+  },
+  {
+   "ok": false,
+   "id": "h2_half_stack_names_the_half",
+   "detail": "half.verdict.txt does not contain [the stack is HALF up]",
+   "file": "half.verdict.txt"
+  },
+  {
+   "ok": false,
+   "id": "h2_half_verdict_rc_is_1",
+   "detail": "expected [1] actual []",
+   "file": null
+  },
+  {
+   "ok": false,
+   "id": "h2_report_names_the_half",
+   "detail": "no such raw file: half.orphans.txt",
+   "file": "half.orphans.txt"
+  }
+ ],
+ "verdict": {
+  "state": "FAIL",
+  "name": "half_stack_is_not_clean",
+  "rest": "tag=ndt kernel=unknown ndt=ee2f3b36668f8968f41a98711caae151471084b5 at=2026-09-11T01:21:14+08:00",
+  "line": "CELL: FAIL half_stack_is_not_clean tag=ndt kernel=unknown ndt=ee2f3b36668f8968f41a98711caae151471084b5 at=2026-09-11T01:21:14+08:00"
+ },
+ "skip": null,
+ "argv": [
+  "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/live_cells/half_stack_is_not_clean.sh",
+  "judge",
+  "/home/adam/Desktop/NDTwin-Kernel/tests/fixtures/live_cells/half_stack_is_not_clean/old"
+ ],
+ "rc": 1,
+ "stdout": "ASSERT FAIL h2_whole_verdict_present               whole.verdict.txt is missing or empty\nASSERT ok   h2_half_verdict_present                half.verdict.txt present\nASSERT FAIL h2_whole_stack_is_clean                no such raw file: whole.verdict.txt\nASSERT FAIL h2_whole_stack_reads_whole_up          no such raw file: whole.orphans.txt\nASSERT FAIL h2_half_stack_is_not_clean             half.verdict.txt still contains [VERDICT: CLEAN]\nASSERT FAIL h2_half_stack_says_not_clean           half.verdict.txt does not contain [VERDICT: NOT CLEAN]\nASSERT FAIL h2_half_stack_names_the_half           half.verdict.txt does not contain [the stack is HALF up]\nASSERT FAIL h2_half_verdict_rc_is_1                expected [1] actual []\nASSERT FAIL h2_report_names_the_half               no such raw file: half.orphans.txt\nCELL: FAIL half_stack_is_not_clean tag=ndt kernel=unknown ndt=ee2f3b36668f8968f41a98711caae151471084b5 at=2026-09-11T01:21:14+08:00\n",
+ "stderr": "",
+ "fixture": "old",
+ "dir": "tests/fixtures/live_cells/half_stack_is_not_clean/old",
+ "files": [
+  "EXPECTED-FAILS",
+  "PROVENANCE.md",
+  "half.orphans.rc",
+  "half.verdict.txt",
+  "ids.txt"
+ ],
+ "failing": [
+  "h2_half_stack_is_not_clean",
+  "h2_half_stack_names_the_half",
+  "h2_half_stack_says_not_clean",
+  "h2_half_verdict_rc_is_1",
+  "h2_report_names_the_half",
+  "h2_whole_stack_is_clean",
+  "h2_whole_stack_reads_whole_up",
+  "h2_whole_verdict_present"
+ ],
+ "expected_fails": [
+  "h2_half_stack_is_not_clean",
+  "h2_half_stack_names_the_half",
+  "h2_half_stack_says_not_clean",
+  "h2_half_verdict_rc_is_1",
+  "h2_report_names_the_half",
+  "h2_whole_stack_is_clean",
+  "h2_whole_stack_reads_whole_up",
+  "h2_whole_verdict_present"
+ ],
+ "failing_matches_expected": true,
+ "provenance": "# old/ -- half_stack_is_not_clean\n\n[Co-developed with claude code -- Adam]\n\n**Kind: captured log, and a thin one.** ROLE-2 cycle 07, 2026-09-11 01:21:14, read by\n`logs/ROLE-2/probe.sh`.\n\n| file | where it came from |\n|---|---|\n| `half.verdict.txt` | the `VERDICT:` line of `hunt-0911/logs/ROLE-2/cycle-07-probe-afterup.log`, verbatim. The machine at that moment: `bridges=0 ... bmv2=10 mininet=14`, a live `p4_proxy` on :8081, and **no kernel** |\n| `half.orphans.rc` | `5` -- the same log's `orphans_rc=5` |\n| `ids.txt` | `ndt` blob at `6d081d13^` |\n\n**\ud83d\udd34 The old evidence is thinner than the cell.** `probe.sh` piped the report into\n`orphans_verdict.sh`, grepped one line out of the result, and kept neither the report\n(`$SCRATCH/orphans.log`, overwritten every cycle) nor the helper's rc. So on this fixture:\n\n* **carrying the finding:** `h2_half_stack_is_not_clean`, `h2_half_stack_says_not_clean`,\n  `h2_half_stack_names_the_half` -- three content readings of the one file that exists, and the\n  `VERDICT: CLEAN` token is precisely what every restore gate in this repo greps for. The gate\n  mutates only these three.\n* **fixture gap:** `h2_whole_verdict_present`, `h2_whole_stack_is_clean`,\n  `h2_whole_stack_reads_whole_up`, `h2_half_verdict_rc_is_1`, `h2_report_names_the_half` fail\n  for want of a file. The whole-up control in particular has no pre-fix counterpart here; ROLE-2\n  recorded it separately (cycle 07 `AFTERUP` row of `cycles.tsv`, `CLEAN`) and ROLE-6 re-measured\n  it after the fix (`logs/ROLE-6/31-h2-control.log`).\n\nROLE-6 also recorded why `cycle-13-orphan-halfstack.log` -- the other, mirror-image half stack --\nis NOT usable here: it is that role's own probe output, not an `ndt apps orphans` report, so\nfeeding it to the helper yields `stack=not-reported` and proves nothing about either version.\n",
+ "gap_note": "A failing assertion on old/ is not automatically the finding: some old/ directories are thinner than the cell's raw layout, and an assertion that fails with 'no such raw file' may be a fixture gap, not evidence. PROVENANCE.md names the ones that carry the finding (tests/fixtures/live_cells/README.md, rule 2)."
+}

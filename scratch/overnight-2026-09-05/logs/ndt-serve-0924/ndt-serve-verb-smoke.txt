@@ -1,0 +1,7 @@
+2026-09-24T22:11:11+08:00
+ndt serve: listening on http://127.0.0.1:40485/api/v1/  owner=verb-smoke
+  ndt      /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-0924/tools/test_workflow/ndt -> /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-0924/tools/test_workflow/ndt (sha256 c98f8f26ae7e71ad)
+  token    /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4b9701b1-39f4-403b-859d-67977bec986b/scratchpad/verb/cfg/token (header X-NDT-Token)
+  jobs     /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4b9701b1-39f4-403b-859d-67977bec986b/scratchpad/verb/state/jobs
+{'owner': 'verb-smoke', 'ndt': '/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-0924/tools/test_workflow/ndt', 'ndt_realpath': '/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-0924/tools/test_workflow/ndt', 'ndt_sha256': 'c98f8f26ae7e71ad0434a8f2218782df0aa72f3cf0e85abc34f6ec86a917587d', 'apps': ['energy', 'sim', 'nsr', 'viz', 'te'], 'bind': '127.0.0.1'}
+stopped (1668350)

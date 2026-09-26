@@ -1,0 +1,55 @@
+# POST /api/v1/cells/help_drops_deleted_claims/guided -> 201 at 22:25:09
+{
+ "walk": {
+  "id": "g20260924T142509Z-dd4f41",
+  "cell": "help_drops_deleted_claims",
+  "requires": "none",
+  "created_at": 1790259909.8716443,
+  "steps": [
+   {
+    "step": "old",
+    "title": "\u4fee\u597d\u4e4b\u524d\u7684\u7d05\uff08old/\uff0c\u552f\u8b80\uff0c\u4e0d\u78b0 lab\uff09",
+    "look_at": "\u770b FAIL \u7684\u90a3\u5e7e\u5217\uff1a\u5b83\u5011\u5c31\u662f\u7576\u6642\u7684\u7f3a\u9677\u3002\u5c0d\u7167 expected_fails\uff08\u4eba\u5de5\u5be9\u904e\u7684\u6e05\u55ae\uff09\uff0c\u5169\u908a\u61c9\u8a72\u4e00\u81f4\u3002\u518d\u8b80 provenance\uff1a\u53ea\u5beb\u8457 'no such raw file' \u7684\u7d05\uff0c\u53ef\u80fd\u53ea\u662f fixture \u7f3a\u6a94\uff0c\u4e0d\u662f\u8b49\u64da\u3002",
+    "state": "pending",
+    "result": null,
+    "job": null
+   },
+   {
+    "step": "new",
+    "title": "\u7b2c\u4e00\u6b21\u4fee\u597d\u6642\u7684\u7da0\uff08new/\uff0c\u552f\u8b80\uff0c\u4e0d\u78b0 lab\uff09",
+    "look_at": "\u6bcf\u4e00\u5217\u90fd\u61c9\u8a72\u662f ok\uff0c\u6700\u5f8c\u4e00\u884c\u662f CELL: PASS\u3002\u9019\u662f\u4fee\u597d\u7576\u665a\u8dd1\u51fa\u4f86\u7684\uff0c\u4e0d\u662f\u73fe\u5728\u8dd1\u7684\u3002",
+    "state": "pending",
+    "result": null,
+    "job": null
+   },
+   {
+    "step": "run",
+    "title": "\u73fe\u5728\u91cd\u8dd1\u9019\u4e00\u683c\uff1aobserve \u2192 judge \u2192 \u9084\u539f",
+    "look_at": "\u770b verdict\uff1aCELL: PASS \u5c31\u662f\u7da0\u3002\u7da0\u9577\u4ec0\u9ebc\u6a23\uff08CELLS.md\uff09\uff1a`ndt help` no longer carries the `has run in THIS checkout` sentence nor the blanket environment-variable guarantee, and does carry the scoped replacements\u3002run_cells.sh \u7684 rc 2 \u4ee3\u8868\u9084\u539f\u5931\u6557\uff0clab \u4e0d\u4e7e\u6de8\uff1b\u9019\u7a2e\u60c5\u6cc1\u6d41\u7a0b\u6703\u505c\u4f4f\uff0c\u4e0d\u6703\u81ea\u52d5 release\u3002",
+    "state": "pending",
+    "result": null,
+    "job": null
+   },
+   {
+    "step": "compare",
+    "title": "\u4fee\u524d vs \u73fe\u5728\uff0c\u9010\u689d\u5c0d\u7167",
+    "look_at": "\u770b red_to_green \u70ba true \u7684\u90a3\u5e7e\u5217\uff1a\u9019\u5e7e\u689d\u5728 old/ \u662f FAIL\uff0c\u73fe\u5728\u662f ok\u3002still_red \u61c9\u8a72\u5168\u90e8\u662f false\u3002",
+    "state": "pending",
+    "result": null,
+    "job": null
+   },
+   {
+    "step": "verdict",
+    "title": "\u4f60\u7684\u5224\u5b9a\uff1a\u7d05\u9084\u662f\u7da0",
+    "look_at": "\u7531\u4f60\u6c7a\u5b9a\u3002POST /api/v1/guided/<id>/verdict\uff0cbody \u70ba {\"verdict\": \"green\" \u6216 \"red\", \"note\": \"...\"}\u3002",
+    "state": "pending",
+    "result": null,
+    "job": null
+   }
+  ],
+  "current": 0,
+  "blocked": null,
+  "verdict": null,
+  "done": false
+ }
+}

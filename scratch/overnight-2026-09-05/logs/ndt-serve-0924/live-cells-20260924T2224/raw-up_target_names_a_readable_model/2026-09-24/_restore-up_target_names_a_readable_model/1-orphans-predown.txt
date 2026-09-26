@@ -1,0 +1,50 @@
+  ok  no untracked app processes
+
+stack
+    stack: kernel=up dataplane=mininet bmv2=0 mininet=15 proxy=down verdict=whole-up
+    the stack is up. that is not residue -- 'apps orphans' is asked before a
+    teardown as well as after it.
+
+rules-in-window (nothing below is deleted)
+  !!    flow table read empty -- a window over an empty table frames nothing.
+  !!          the kernel answered and its answer is 0 entry(s) on the whole plane, so
+  !!          every 'no flow entry arrived during that window' below is true of an
+  !!          empty table whatever the window was: that line discriminates NOTHING
+  !!          here. NOT 'these apps left nothing'. (KNOWN-ISSUES G-55)
+  !!          a table read within ~10s of 'ndt up' can still be empty while the
+  !!          fabric is being programmed (measured 2026-09-12 15:00:47: +0s 0,
+  !!          +5s 0, +10s 61). Poll it to non-empty, or install a datable rule of
+  !!          your own, before reading a residue claim off this report.
+    lock  routing_lock free
+    lock  graph_lock free
+    lock  power_lock free
+          field (LockManager.hpp), and the kernel has no lock-status endpoint, so the
+          three lines above come from an acquire probe with ttl 0, which excludes nobody.
+    energy: no pidfile and no live process -- no window, so no rule can be dated
+        against it. NOT 'this app left nothing'. (G-12)
+  !!        and whether it ran here CANNOT BE ASKED: the helper keeps no log for energy
+  !!        ('/usr/local/sbin/ndtwin-lab energy-start' gives it no 'script -f', so its output only ever
+  !!        exists in a tmux pane). That is 'nobody could ask', not 'it never ran'.
+  sim    window 2026-09-12 04:09:14 -> 04:09:26 (window closed 1102567s ago; from /home/adam/Desktop/NDTwin-Kernel/.test_run/apps/sim.window)
+  ok        no flow entry arrived during that window
+  nsr    window 2026-09-24 22:02:57 -> 22:03:10 (window closed 1343s ago; from /home/adam/Desktop/NDTwin-Kernel/.test_run/apps/nsr.window)
+  ok        no flow entry arrived during that window
+  viz    window 2026-09-14 17:23:44 -> window closed at 2026-09-14 17:25:57 (133s wide; pid gone; app log mtime)
+  ok        no flow entry arrived during that window
+    te: no pidfile and no live process -- no window, so no rule can be dated
+        against it. NOT 'this app left nothing'. (G-12)
+  !!        and its log is NOT empty, so it did run here: the window is LOST,
+  !!        not absent. rules it installed cannot be found by this tool.
+        (log read: /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/app_te.log)
+
+    NOT deleted, and nothing here deletes them.
+    a lock heals: it expires at its TTL and the next acquire is told it reclaimed it.
+    a rule does not: no TTL, no owner, no cleanup path. to remove one, by hand:
+      curl -s -X POST -H 'Content-Type: application/json' \
+        -d '{"dpid": <dpid>, "priority": <pri>, "match": <match>}' \
+        http://localhost:8000/ndt/delete_flow_entry
+    tally: 0 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 1 question(s) not answerable
+    and 1 app(s) could not be asked whether they ran here at all: energy (no log channel exists for them -- see above)
+  !!  NOT CHECKED: the rules-in-window question could not be answered -- rc 5.
+  !!    this is not 'the network is clean'. see the lines above for which
+  !!    reading failed. (KNOWN-ISSUES G-12)

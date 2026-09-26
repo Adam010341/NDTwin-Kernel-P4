@@ -1,0 +1,33 @@
+# 16-status-after-up  sent 2026-09-24T22:52:42+0800  answered 1.171 s later
+GET /api/v1/status HTTP/1.1
+Host: 127.0.0.1:8765
+X-NDT-Token: <token>
+
+
+
+HTTP/1.0 200 OK
+Server: ndt-serve/1 
+Date: Thu, 24 Sep 2026 14:52:43 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 3600
+Cache-Control: no-store
+X-Content-Type-Options: nosniff
+
+{
+ "argv": [
+  "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt",
+  "status"
+ ],
+ "rc": 0,
+ "rc_class": "report",
+ "meaning": "the report was printed; plain 'ndt status' judges nothing and answers 0 whatever it found -- read the report, or ask for a verdict with ?check=1",
+ "stdout": "lab\n  claim          yours -- 30m left (until 23:22:32)\n  note           in use: ndt up ovs 4 at 2026-09-24 22:52:32 by ndt-serve-0924\n  prev claim     ndt-serve-0924-foreign (until 22:57:16), superseded 2026-09-24 22:52:16  (.test_run/lab.claim.prev)\n                 changed hands: ndt-serve-0924-foreign -> ndt-serve-0924\n                 it said: ndt serve rc-5 probe on the P4 plane\n  exclusive cpu  no (heavy local jobs may overlap this claim)\n  measuring      nothing\n  code           fd7382a3  +60 file(s) with uncommitted changes\n                 2 of them can change behaviour:\n                 p4_proxy/mininet/host_count_override\n                 tools/remote-lab/dorm_lab/\n  knob baseline  4 == the value this round started with (at 22:52:32)\n  tree vs round  same set of uncommitted files as when the round started\n  ok  helper: /usr/local/sbin/ndtwin-lab is tools/test_workflow/ndtwin-lab (sha256 6685d3a9)\n\nconfiguration\n  hosts          4   (what the last 'ndt up' asked for: ovs)\n  topology       setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json\n  p4 host knob   4   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')\n  app package    none   (p4_proxy/mininet/app_package_override absent -- the baseline fabric)\n  bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc\n  telemetry      auto   (p4_proxy/mininet/telemetry_override absent -- auto, then the package)\n                 every switch: cooperative\n                 link emitter: none (/tmp/ndtwin_link_telemetry.json absent)\n  link shaping   off (no package link asks for one)\n  sample rate    1/256\n  rate source    OVS: ovs-vsctl --columns=sampling list sflow\n  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py\n\nrunning\n  bmv2 switches  0       topo session   present\n  host/switch    15      manifest       absent\n  :8000 kernel   open    :8081 proxy    closed  :8080 ryu open\n  pidfiles       kernel.child.pid=2110161 alive,kernel.pid=2110156 alive,ryu.child.pid=2109764 alive,ryu.pid=2109759 alive\n\nnetwork health\n  switches       10 up, 10 enabled, 0 admin-disabled\n  links          40 total, 0 down, 0 admin-disabled\n  tc netem       none\n  sudo grants    all 3 granted\n  apps           none running\n\nkernel graph\n  10 switches (10 up, 10 enabled), 4 hosts, 40 edges\n\nup target\n  asked for      ovs, 4 hosts   (recorded 2026-09-24 22:52:32 by ndt-serve-0924)\n  topology       setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json   (declares 4 hosts / 40 edges)\n  dataplane      ovs                    == ovs   ok\n  fabric hosts   4                      == 4   ok\n  graph hosts    4                      == 4   ok\n  graph edges    40                     == 40   ok\n  topology file  sha256 2266c69cbcd3    == recorded   ok\n  device names   no overlay file at .test_run/nickname_overlay/StaticNetworkTopologyOVS_10Switches_4Hosts.names.json\n                 that is where this checkout's kernel writes them; not a claim that none are set\n",
+ "stderr": "",
+ "duration_s": 1.17,
+ "owner": "ndt-serve-0924",
+ "read": {
+  "id": "r20260924T145243Z-073972",
+  "stdout": "/api/v1/reads/r20260924T145243Z-073972/log/stdout",
+  "stderr": "/api/v1/reads/r20260924T145243Z-073972/log/stderr"
+ }
+}

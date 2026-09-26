@@ -1,0 +1,219 @@
+d6e649a4a1a71fd6fce714d20c266e06f64ff843
+# 2026-09-25T23:39:16Z worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r4-0926, branch fix/hb-spike-r4-0926
+# status (uncommitted): 
+# run under: env -u SELFTEST_PROBE_SUDO -u FAULTS_TC, cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r4-0926
+# $ bash doc/audit/2026-09-25_p4-heartbeat/spike/oldcode_selftest.sh
+
+### control: nothing -- the copying alone
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r4-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-90752-0-spike.sh
+@@ -65 +65 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-90752-0-hb_watch.py"
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 0
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST PASS
+### control: CLEAN
+
+### r3: round 4's two set -e fixes (judge R3-1: bare watch_hit; the round-4 audit: bare return)
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r4-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-90752-1-spike.sh
+@@ -65 +65 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-90752-1-hb_watch.py"
+@@ -295,2 +295,2 @@
+-        if (( ! running )); then watch_hit "$dir" "$stopf" || true; return 0; fi
+-        if (( $(date +%s) >= end )); then : > "$stopf"; watch_hit "$dir" "$stopf" || true; return 0; fi
++        if (( ! running )); then watch_hit "$dir" "$stopf"; return 0; fi
++        if (( $(date +%s) >= end )); then : > "$stopf"; watch_hit "$dir" "$stopf"; return 0; fi
+@@ -342 +342 @@
+-    [[ "$v" == OK* ]] || return 0
++    [[ "$v" == OK* ]] || return
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴      a clean window under set -e: rc 1, result 'none written -- the process died'
+  🔴    a detection part that fails its first check ended the run under set -e: rc 1, 'nothing written'; driver said: == heartbeat start    !! every direction heard once the heartbeat is up: 0/8 directions heard
+  🔴      a census arm with the new daemon's report: died:  | calls: sniff h1 0102030405060708 | row:
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### r3: DISCRIMINATES
+
+### R4-1: the whole R4-1 fix: census's old session block, wait_session's old call, hb_watch's old `session`
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r4-0926/doc/audit/2026-09-25_p4-heartbeat/spike/hb_watch.py
++++ .oldcode-90752-2-hb_watch.py
+@@ -318 +318 @@
+-        print(session_of(load(argv[2]), int(argv[3])))
++        print(load(argv[2]).get("session") or "")
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r4-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-90752-2-spike.sh
+@@ -65 +65 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-90752-2-hb_watch.py"
+@@ -261 +261 @@
+-        s="$(/usr/bin/python3 -I "$WATCH" session "$1" "$3" 2>/dev/null)" || s=""
++        s="$(/usr/bin/python3 -I "$WATCH" session "$1" 2>/dev/null)" || s=""
+@@ -416,8 +416 @@
+-        # The daemon THIS start started (judge R4-1): its pid from start's own answer, and the
+-        # session only from a running report of that pid. "already running" names no pid here.
+-        hb_pid="$(/usr/bin/python3 -I "$WATCH" started-pid "$dir/11_hb_start.txt" 2>/dev/null)" || hb_pid=""
+-        session=""
+-        if [[ -n "$hb_pid" ]]; then
+-            session="$(wait_session "$HB_REPORT" 20 "$hb_pid")" || session=""
+-        fi
+-        if [[ -z "$session" ]]; then
++        if ! session="$(wait_session "$HB_REPORT" 20)"; then
+@@ -425,5 +418 @@
+-            if [[ -n "$hb_pid" ]]; then
+-                fail "census $ex/$which: the heartbeat started (pid $hb_pid) but no running report of that pid carries a session after 5 s"
+-            else
+-                fail "census $ex/$which: 'heartbeat start' answered 0 without saying it started a daemon -- see 11_hb_start.txt"
+-            fi
++            fail "census $ex/$which: the heartbeat started but its report carries no session after 5 s"
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴      the previous arm's final 'stopped' report was taken for the new session: rc 0: a1a1a1a1a1a1a1a1
+  🔴      a 'stopped' report of the pid start named was taken for a session: rc 0: b2b2b2b2b2b2b2b2
+  🔴      a 'running' report of another pid was taken for the new session: rc 0: c3c3c3c3c3c3c3c3
+  🔴      an arm whose report is still the previous arm's 'stopped' one: survived VERDICT_RC=0 WHY= | calls: sniff h1 a1a1a1a1a1a1a1a1;hb stop;ndt down | row: basic|solution|yes|running|OK no host saw a heartbeat frame (1 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+  🔴      an arm whose start answered 'already running': survived VERDICT_RC=0 WHY= | calls: sniff h1 d4d4d4d4d4d4d4d4;hb stop;ndt down | row: basic|solution|yes|running|OK no host saw a heartbeat frame (1 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### R4-1: DISCRIMINATES
+
+### R4-1/status: half of R4-1: session_of without its `status == running` clause
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r4-0926/doc/audit/2026-09-25_p4-heartbeat/spike/hb_watch.py
++++ .oldcode-90752-3-hb_watch.py
+@@ -164,2 +163,0 @@
+-    if doc.get("status") != "running":
+-        return ""
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r4-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-90752-3-spike.sh
+@@ -65 +65 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-90752-3-hb_watch.py"
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴    session: a stopped report is none, even of that pid        False
+  🔴      a 'stopped' report of the pid start named was taken for a session: rc 0: b2b2b2b2b2b2b2b2
+SELF-TEST FAIL
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### R4-1/status: DISCRIMINATES
+
+### R4-1/pid: the other half of R4-1: session_of without its pid clause
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r4-0926/doc/audit/2026-09-25_p4-heartbeat/spike/hb_watch.py
++++ .oldcode-90752-4-hb_watch.py
+@@ -165,2 +164,0 @@
+-        return ""
+-    if doc.get("pid") != pid:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r4-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-90752-4-spike.sh
+@@ -65 +65 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-90752-4-hb_watch.py"
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴    session: a running report of another pid is none           False
+  🔴      a 'running' report of another pid was taken for the new session: rc 0: c3c3c3c3c3c3c3c3
+SELF-TEST FAIL
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### R4-1/pid: DISCRIMINATES
+
+### R4-2: R4-2: `cut_link || break` -- a half-done cut left to the EXIT trap
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r4-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-90752-5-spike.sh
+@@ -65 +65 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-90752-5-hb_watch.py"
+@@ -354 +354 @@
+-        cut_link || { restore_link || fail "cycle $i: could not remove the netem a half-done cut left on $CUT_A"; break; }
++        cut_link || break
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴      a half-done cut: rc 0, 'finish VERDICT_RC=1 WHY=tc refused to add netem on s3-eth1 (root)', calls: qdisc_tool save;tc qdisc add dev s1-eth3 root netem loss 100%;tc qdisc add dev s3-eth1 root netem loss 100%;qdisc_tool diff;ndt down; teardown said: cannot locate the netem (its veth was gone);
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### R4-2: DISCRIMINATES
+
+### R4-3: R4-3: the census table through a bare `column | sed` under pipefail
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r4-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-90752-6-spike.sh
+@@ -65 +65 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-90752-6-hb_watch.py"
+@@ -970 +970 @@
+-    show_census "$RUN/40_census.tsv"
++    column -t -s $'\t' "$RUN/40_census.tsv" | sed 's/^/   /'
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴    the census table without 'column' ended the run: rc 127, step '    column -t -s $'\t' "$RUN/40_census.tsv" | sed 's/^/   /''; it said: /tmp/hb-spike-selftest-UX4MI3/census_driver.sh: line 11: column: command not found
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### R4-3: DISCRIMINATES
+
+### R4-3/d-i: judge (d)(i): hb_watch all-heard / others-up with a bare load()
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r4-0926/doc/audit/2026-09-25_p4-heartbeat/spike/hb_watch.py
++++ .oldcode-90752-7-hb_watch.py
+@@ -326,4 +326 @@
+-        try:
+-            print(all_heard(load(argv[2]), float(argv[3])))
+-        except (OSError, ValueError, KeyError) as exc:
+-            print(f"BAD the report could not be read: {exc!r}")
++        print(all_heard(load(argv[2]), float(argv[3])))
+@@ -337,4 +334 @@
+-        try:
+-            print(others_up(load(argv[2]), parse_dirs(argv[3]), time.monotonic(), float(argv[4])))
+-        except (OSError, ValueError, KeyError) as exc:
+-            print(f"BAD the report could not be read: {exc!r}")
++        print(others_up(load(argv[2]), parse_dirs(argv[3]), time.monotonic(), float(argv[4])))
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r4-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-90752-7-spike.sh
+@@ -65 +65 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-90752-7-hb_watch.py"
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴    all-heard on a report that cannot be read: BAD, rc 0       raised FileNotFoundError
+  🔴    others-up on a report that cannot be read: BAD, rc 0       raised FileNotFoundError
+SELF-TEST FAIL
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### R4-3/d-i: DISCRIMINATES
+
+### R4-5: R4-5: the detect driver without QDISC_TOOL
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r4-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-90752-8-spike.sh
+@@ -65 +65 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-90752-8-hb_watch.py"
+@@ -713 +712,0 @@
+-        printf 'QDISC_TOOL=%q\n' "$st_tmp/fake_qdisc_tool"
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴    a detection cycle that goes as designed: rc 1, 'nothing written', calls: sudo -n /tmp/hb-spike-selftest-Ha5pu3/no-helper heartbeat stop; /tmp/hb-spike-selftest-Ha5pu3/detect_driver.sh: line 34: QDISC_TOOL: unbound variable
+  🔴      a half-done cut: rc 1, 'finish VERDICT_RC=0 WHY=', calls: sudo -n /tmp/hb-spike-selftest-Ha5pu3/no-helper heartbeat stop; /tmp/hb-spike-selftest-Ha5pu3/detect_driver.sh: line 34: QDISC_TOOL: unbound variable
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### R4-5: DISCRIMINATES
+
+### per revert: the copy's self-test rc, red lines, red lines written for it, verdict
+    revert        rc  red  want  verdict
+    control        0    0     0  ok
+    r3             1    3     3  ok
+    R4-1           1    5     5  ok
+    R4-1/status    1    2     2  ok
+    R4-1/pid       1    2     2  ok
+    R4-2           1    1     1  ok
+    R4-3           1    1     1  ok
+    R4-3/d-i       1    2     2  ok
+    R4-5           1    2     2  ok
+OLD CODE IS RED IN EXACTLY ITS OWN CHECKS, EVERY REVERT
+# rc=0  2026-09-25T23:41:19Z

@@ -1,0 +1,6 @@
+# 2026-09-24T22:49:21+08:00 ss -ltnpH 'sport = :8765'
+LISTEN 0      5      127.0.0.1:8765 0.0.0.0:* users:(("python3",pid=2099427,fd=5))
+# stat of the token, its directory, and the state directory
+700 adam directory /home/adam/.config/ndt-serve
+600 adam regular file /home/adam/.config/ndt-serve/token
+700 adam directory /home/adam/.local/state/ndt-serve

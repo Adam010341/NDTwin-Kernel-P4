@@ -1,0 +1,4 @@
+failure	clang can compile it	108294995332
+failure	Build and unit tests (GCC)	108294995499
+success	ASan + UBSan	108294995510
+failure	TSan	108294995590

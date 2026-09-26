@@ -1,0 +1,11 @@
+01-status-before	rc=0	1.1s	ndt status
+02-claim	rc=0	0.1s	ndt claim 30 ndt-serve-0924 control run: the same sequence straight to ndt
+03-up	rc=0	8.5s	ndt up 4
+04-status-after-up	rc=0	1.3s	ndt status
+05-apps-before	rc=0	0.4s	ndt apps status
+06-nsr-start	rc=0	1.1s	ndt apps nsr
+07-apps-while-nsr	rc=0	0.5s	ndt apps status
+08-nsr-stop	rc=0	6.9s	ndt apps stop nsr
+09-down	rc=0	15.0s	ndt down
+10-release	rc=0	0.0s	ndt release
+11-status-after	rc=0	1.0s	ndt status

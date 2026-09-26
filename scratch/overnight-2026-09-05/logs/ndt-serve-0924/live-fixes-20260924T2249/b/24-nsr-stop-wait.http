@@ -1,0 +1,50 @@
+# 24-nsr-stop-wait  sent 2026-09-24T22:52:50+0800  answered 7.020 s later
+GET /api/v1/jobs/20260924T145250Z-eb6e7b?wait=300 HTTP/1.1
+Host: 127.0.0.1:8765
+X-NDT-Token: <token>
+
+
+
+HTTP/1.0 200 OK
+Server: ndt-serve/1 
+Date: Thu, 24 Sep 2026 14:52:57 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 939
+Cache-Control: no-store
+X-Content-Type-Options: nosniff
+
+{
+ "job": {
+  "id": "20260924T145250Z-eb6e7b",
+  "kind": "apps.stop",
+  "argv": [
+   "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt",
+   "apps",
+   "stop",
+   "nsr"
+  ],
+  "state": "finished",
+  "rc": 0,
+  "owner": "ndt-serve-0924",
+  "ndt_sha256": "cb134ccc7af9577a3a4ef3e71e64e238817029ec50977e099b7477b95b870e89",
+  "request": {},
+  "requested_by": "127.0.0.1:54394",
+  "cell": null,
+  "raw_root": null,
+  "created_at": 1790261570.7279532,
+  "started_at": 1790261570.7443128,
+  "ended_at": 1790261577.6650763,
+  "ndt_pid": 2111943,
+  "ndt_pgid": 2111943,
+  "stdout_bytes": 981,
+  "stderr_bytes": 5378,
+  "rc_class": "ok",
+  "meaning": "it was running, and it is not now"
+ },
+ "links": {
+  "self": "/api/v1/jobs/20260924T145250Z-eb6e7b",
+  "wait": "/api/v1/jobs/20260924T145250Z-eb6e7b?wait=60",
+  "stdout": "/api/v1/jobs/20260924T145250Z-eb6e7b/log/stdout",
+  "stderr": "/api/v1/jobs/20260924T145250Z-eb6e7b/log/stderr"
+ }
+}

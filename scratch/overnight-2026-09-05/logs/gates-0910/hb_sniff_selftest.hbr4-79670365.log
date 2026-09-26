@@ -1,0 +1,13 @@
+796703653ad2dd9d9b96e4c74acc1bc928afc419
+# 2026-09-25T23:42:47Z worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r4-0926, branch fix/hb-spike-r4-0926
+# status (uncommitted): 
+# run under: env -u SELFTEST_PROBE_SUDO -u FAULTS_TC, cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r4-0926
+# $ /usr/bin/python3 -I doc/audit/2026-09-25_p4-heartbeat/spike/hb_sniff.py --self-test
+  ok    a heartbeat by ethertype                                (True, 'ethertype')
+  ok    an IPv4 frame is not                                    (False, '')
+  ok    a rewritten one is found by its payload                 (True, 'payload')
+  ok    another session's payload under another type is not     (False, '')
+  ok    the first heartbeat frame ends the sniff at once        first heartbeat frame after 0.0 s
+  ok    the stop file ends a quiet sniff at once                stop file after 0.0 s
+SELF-TEST PASS
+# rc=0  2026-09-25T23:42:47Z

@@ -1,0 +1,48 @@
+# 07-down-on-a-down-lab-wait  sent 2026-09-24T22:49:41+0800  answered 2.809 s later
+GET /api/v1/jobs/20260924T144941Z-6e090e?wait=300 HTTP/1.1
+Host: 127.0.0.1:8765
+X-NDT-Token: <token>
+
+
+
+HTTP/1.0 200 OK
+Server: ndt-serve/1 
+Date: Thu, 24 Sep 2026 14:49:44 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 930
+Cache-Control: no-store
+X-Content-Type-Options: nosniff
+
+{
+ "job": {
+  "id": "20260924T144941Z-6e090e",
+  "kind": "down",
+  "argv": [
+   "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt",
+   "down"
+  ],
+  "state": "finished",
+  "rc": 0,
+  "owner": "ndt-serve-0924",
+  "ndt_sha256": "cb134ccc7af9577a3a4ef3e71e64e238817029ec50977e099b7477b95b870e89",
+  "request": {},
+  "requested_by": "127.0.0.1:49170",
+  "cell": null,
+  "raw_root": null,
+  "created_at": 1790261381.8505132,
+  "started_at": 1790261381.8685162,
+  "ended_at": 1790261384.5436032,
+  "ndt_pid": 2101025,
+  "ndt_pgid": 2101025,
+  "stdout_bytes": 1325,
+  "stderr_bytes": 0,
+  "rc_class": "ok",
+  "meaning": "the teardown finished and the machine verified clean"
+ },
+ "links": {
+  "self": "/api/v1/jobs/20260924T144941Z-6e090e",
+  "wait": "/api/v1/jobs/20260924T144941Z-6e090e?wait=60",
+  "stdout": "/api/v1/jobs/20260924T144941Z-6e090e/log/stdout",
+  "stderr": "/api/v1/jobs/20260924T144941Z-6e090e/log/stderr"
+ }
+}

@@ -1,0 +1,9 @@
+anchors of each gate, counted in each rev's own files
+columns:
+  c0   HEAD
+
+                     c0            
+mutate_ndt_serve.sh  ok(40)        
+
+1/1 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+anchors rc=0

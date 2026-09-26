@@ -1,0 +1,851 @@
+diff --git a/tests/python/test_ndt_serve.py b/tests/python/test_ndt_serve.py
+index 58946740..cab96bfd 100644
+--- a/tests/python/test_ndt_serve.py
++++ b/tests/python/test_ndt_serve.py
+@@ -78,6 +78,23 @@ STUB_PY = textwrap.dedent('''\
+     ''')
+ 
+ 
++STARTED = []   # every server process a case started, by its Popen -- see tearDownModule
++
++
++def tearDownModule():
++    """A server a failing case forgot is still this suite's process. Found 09-24: every gate run
++    left the M40 mutant's second server running (the case closed only the first). Each is
++    stopped here by the Popen that started it -- never looked up by name -- and named on stderr."""
++    for p in STARTED:
++        if p.poll() is None:
++            sys.stderr.write("tearDownModule: a case left server pid %d running; stopping it\n" % p.pid)
++            try:
++                os.killpg(p.pid, signal.SIGKILL)
++            except ProcessLookupError:
++                pass
++            p.wait(10)
++
++
+ class Serve:
+     """One server process, its temp tree and its stub."""
+ 
+@@ -115,6 +132,7 @@ class Serve:
+             self.proc = subprocess.Popen(argv or self.argv(), stdout=o, stderr=e, stdin=subprocess.DEVNULL,
+                                          env=self.env, start_new_session=True,
+                                          preexec_fn=(lambda: os.umask(umask)) if umask is not None else None)
++        STARTED.append(self.proc)
+         deadline = time.monotonic() + 15
+         while time.monotonic() < deadline:
+             text = _read(out)
+@@ -397,7 +415,7 @@ class Csrf(ServeCase):
+ 
+     def test_reads_need_the_token_except_health(self):
+         """Judge 09-24 finding 1: GET /status?check=1 runs `ndt status --check`, whose lock probes
+-        POST /ndt/acquire_lock to the kernel (ndt:8832-8847). A read is not side-effect free, so
++        POST /ndt/acquire_lock to the kernel (ndt:9292-9307). A read is not side-effect free, so
+         every GET but /health is gated the way a write is."""
+         paths = ["/status", "/status?check=1", "/apps", "/jobs", "/jobs/20260101T000000Z-abcdef",
+                  "/jobs/20260101T000000Z-abcdef/log/stdout", "/cells", "/cells/x", "/cells/x/old",
+@@ -461,6 +479,18 @@ class Bounded(unittest.TestCase):
+         finally:
+             s.close()
+ 
++    def test_listen_backlog_holds_a_burst(self):
++        """Found by the final run of 09-24 23:3x: 20 concurrent POSTs, one reset by the kernel
++        (1/10 reproduced). socketserver's listen backlog is 5; a burst past it is dropped or reset
++        before the server ever sees it. The backlog is read off the listening socket (ss Send-Q)."""
++        s = Serve().start()
++        try:
++            out = subprocess.run(["ss", "-ltnH", "sport = :%d" % s.port], capture_output=True, text=True).stdout
++            backlog = int(out.split()[2])
++            self.assertGreaterEqual(backlog, 64, out)
++        finally:
++            s.close()
++
+     def test_connections_are_bounded(self):
+         import socket
+         s = Serve(extra=["--max-connections", "4"]).start()
+@@ -904,10 +934,18 @@ class NoPatternKill(unittest.TestCase):
+                  for kind, text, line in code_facts(p)
+                  if kind == "call" and (text.startswith("os.kill") or text.endswith(".send_signal")
+                                         or text.endswith(".terminate") or text.endswith(".kill"))]
+-        self.assertEqual([t for _, t, _ in sends], ["os.killpg"], sends)
+-        src = _read(os.path.join(SERVE_DIR, "serve.py"))
+-        self.assertIn("os.killpg(p.pid, signal.SIGKILL)", src)
+-        self.assertIn("start_new_session=True)\n        timed_out = False", src)
++        self.assertEqual({t for _, t, _ in sends}, {"os.killpg"}, sends)
++        for name in {f for f, _, _ in sends}:
++            src = _read(os.path.join(SERVE_DIR, name))
++            self.assertIn("os.killpg(p.pid, signal.SIGKILL)", src, name)
++            self.assertIn("start_new_session=True", src, name)
++        # 🔴 judge r2 finding 4: subprocess.run(timeout=...) kills its child implicitly -- a signal
++        # this scan cannot see, sent to the child and not to its group. None may remain.
++        implicit = [(os.path.basename(p), line) for p in glob.glob(os.path.join(SERVE_DIR, "*.py"))
++                    for kind, text, line in code_facts(p)
++                    if kind == "kw" and text.startswith("timeout=") and "subprocess.run" in
++                    _read(p).splitlines()[line - 1]]
++        self.assertEqual(implicit, [])
+ 
+ 
+ # --- red line 7: identity ---------------------------------------------------------------------
+@@ -1070,6 +1108,7 @@ class Entry(unittest.TestCase):
+ 
+     def test_second_server_on_the_same_state_refuses(self):
+         s = Serve().start()
++        other = None
+         try:
+             tok = s.token()
+             other = Serve(tmp=s.tmp)
+@@ -1080,6 +1119,8 @@ class Entry(unittest.TestCase):
+             st, _, _, _ = s.get("/health")
+             self.assertEqual(st, 200)
+         finally:
++            if other is not None:   # when it wrongly started (M40), it is still running
++                other.stop(signal.SIGKILL)
+             s.close()
+ 
+ 
+diff --git a/tests/python/test_ndt_serve_cells.py b/tests/python/test_ndt_serve_cells.py
+index bac2baf6..015dd833 100644
+--- a/tests/python/test_ndt_serve_cells.py
++++ b/tests/python/test_ndt_serve_cells.py
+@@ -31,6 +31,7 @@ import unittest
+ 
+ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+ import test_ndt_serve as base  # noqa: E402
++from test_ndt_serve import tearDownModule  # noqa: E402,F401 -- the same leftover-server sweep
+ 
+ GRIDSTUB = textwrap.dedent('''\
+     import json, os, sys, time
+@@ -67,6 +68,9 @@ GRIDSTUB = textwrap.dedent('''\
+         print("name=%s\\ntag=%s\\nrequires=%s" % (name, c["tag"], c["requires"])); sys.exit(0)
+     if sub == "judge":
+         d = argv[2]
++        if os.path.exists(os.path.join(d, "JUDGE_SLEEP")):
++            log({"role": "judge-sleeping", "pid": os.getpid(), "argv": argv})
++            time.sleep(float(open(os.path.join(d, "JUDGE_SLEEP")).read()))
+         sys.stdout.write(open(os.path.join(d, "JUDGE")).read())
+         sys.exit(int(open(os.path.join(d, "JUDGE_RC")).read()))
+     sys.exit(2)
+@@ -94,6 +98,12 @@ RUN_FAIL = OLD_LAB.replace("2026-09-11T02:55:10", "2026-09-24T23:00:00")
+ RUN_SKIP = "SKIP: the lab is claimed by somebody else\nCELL: SKIP lab_cell tag=ndt kernel=x ndt=y at=z\n"
+ RUN_OFF = ("ASSERT ok   b1_sentence_gone                       help.txt does not contain it\n"
+            "CELL: PASS offline_cell tag=ndt kernel=unknown ndt=ffff at=2026-09-24T23:00:00+08:00\n")
++# the claim line as `ndt status` prints it (ndt:5664 claim_line), for each case the service must tell apart
++CLAIM_YOURS = "lab\n  claim          yours -- 30m left (until 23:59:00)\n  measuring      nothing\n"
++CLAIM_NONE = "lab\n  claim          none\n  prev claim     serve-test (until 23:00:00)\n"
++CLAIM_FOREIGN = "lab\n  claim          orch-0924 -- 12m left (until 23:40:00)\n"
++CLAIM_EXPIRED = "lab\n  claim          EXPIRED 3m ago (was serve-test) -- treated as free\n"
++H4 = "up_refuses_a_model_of_another_network"
+ OLD_OFF = ("ASSERT FAIL b1_sentence_gone                       help.txt still contains [has run]\n"
+            "CELL: FAIL offline_cell tag=ndt kernel=unknown ndt=eeee at=2026-09-11T01:00:00+08:00\n")
+ 
+@@ -111,11 +121,14 @@ class GridServe(base.Serve):
+         with open(os.path.join(self.grid_dir, "CELLS.md"), "w") as f:
+             f.write(CELLS_MD)
+         self.grid = {"cells": [{"name": "lab_cell", "tag": "ndt", "requires": "ovs4"},
+-                               {"name": "offline_cell", "tag": "ndt", "requires": "none"}],
++                               {"name": "offline_cell", "tag": "ndt", "requires": "none"},
++                               {"name": H4, "tag": "ndt", "requires": "idle"}],
+                      "runs": {"lab_cell": {"rc": 0, "judge": RUN_PASS},
+-                              "offline_cell": {"rc": 0, "judge": RUN_OFF}}}
++                              "offline_cell": {"rc": 0, "judge": RUN_OFF},
++                              H4: {"rc": 0, "judge": RUN_OFF.replace("offline_cell", H4)}}}
+         self.write_grid()
+-        for script, role in [("run_cells.sh", "run_cells"), ("lab_cell.sh", "cell"), ("offline_cell.sh", "cell")]:
++        for script, role in [("run_cells.sh", "run_cells"), ("lab_cell.sh", "cell"), ("offline_cell.sh", "cell"),
++                             (H4 + ".sh", "cell")]:
+             p = os.path.join(self.grid_dir, script)
+             with open(p, "w") as f:
+                 f.write('#!/usr/bin/env bash\nexec python3 "$(dirname "$0")/gridstub.py" %s %s"$@"\n' % (
+@@ -125,6 +138,14 @@ class GridServe(base.Serve):
+                      files={"up.log": "starting\nboom\n"})
+         self.fixture("lab_cell", "new", NEW_LAB, 0, files={"up.log": "up. ready\n", "up.target": "topology=x.json\n"})
+         self.fixture("offline_cell", "old", OLD_OFF, 1, expected="b1_sentence_gone\n")
++        self.fixture(H4, "old", OLD_OFF.replace("offline_cell", H4), 1, expected="b1_sentence_gone\n")
++        self.behave()
++
++    def behave(self, **verbs):
++        """The stub ndt's behaviour, with `status` saying the claim is this server's unless a case
++        says otherwise -- a lab cell's run reads that line before it starts."""
++        verbs.setdefault("status", {"stdout": CLAIM_YOURS})
++        super().behave(**verbs)
+ 
+     def write_grid(self):
+         with open(os.path.join(self.grid_dir, "grid.json"), "w") as f:
+@@ -189,7 +210,7 @@ class CellsCatalog(GridCase):
+         st, j, _, _ = self.s.get("/cells")
+         self.assertEqual(st, 200, j)
+         by = {c["name"]: c for c in j["cells"]}
+-        self.assertEqual(sorted(by), ["lab_cell", "offline_cell"])
++        self.assertEqual(sorted(by), ["lab_cell", "offline_cell", H4])
+         self.assertEqual((by["lab_cell"]["requires"], by["lab_cell"]["old"], by["lab_cell"]["new"]), ("ovs4", True, True))
+         self.assertEqual((by["offline_cell"]["requires"], by["offline_cell"]["new"]), ("none", False))
+         self.assertIn("prints no boom", by["lab_cell"]["expected"])
+@@ -252,6 +273,66 @@ class CellsRun(GridCase):
+         self.assertEqual((run["owner"], run["ndt_root"]), (base.OWNER, os.path.join(self.s.tmp, "repo")))
+         self.assertEqual((job["rc"], job["rc_class"], job["cell_verdict"]["state"]), (0, "pass", "PASS"))
+ 
++    def test_lab_cell_run_needs_your_claim(self):
++        """Judge r2 finding 1: with ndt's OVS `up` ignoring a foreign claim, a lab cell run without a
++        claim of your own can build a fabric under somebody else's -- and its restore's `down` is
++        then refused (rc 5) and the fabric stays. The run reads `ndt status`'s claim line first."""
++        for text in (CLAIM_NONE, CLAIM_FOREIGN, CLAIM_EXPIRED, "lab\n  measuring nothing\n"):
++            self.s.behave(status={"stdout": text})
++            st, j, _, _ = self.s.post("/cells/lab_cell/run")
++            self.assertEqual((st, j["error"]), (409, "claim"), text)
++        self.assertEqual(self.s.runs(), [])
++        self.s.behave(status={"stdout": CLAIM_YOURS})
++        self.assertEqual(self.run_cell()["rc_class"], "pass")
++        self.assertEqual(len(self.s.runs()), 1)
++
++    def test_offline_cell_run_does_not_ask_for_the_claim(self):
++        self.s.behave(status={"stdout": CLAIM_NONE})
++        self.assertEqual(self.run_cell("offline_cell")["rc_class"], "pass")
++        self.assertEqual([c["argv"] for c in self.s.calls()], [], "a `requires none` cell read the claim")
++
++    def test_a_cell_that_writes_shared_state_needs_confirmation(self):
++        """Judge r2 finding 2: this cell parks host_count_override at 128 and writes it back; killed
++        in between (systemd-oomd does that here) it stays 128. Said, and confirmed, before it runs."""
++        st, j, _, _ = self.s.get("/cells")
++        by = {c["name"]: c for c in j["cells"]}
++        self.assertIn("host_count_override", by[H4]["writes_shared_state"] or "")
++        self.assertIsNone(by["lab_cell"].get("writes_shared_state", "absent"))
++        st, j, _, _ = self.s.post("/cells/%s/run" % H4)
++        self.assertEqual((st, j["error"]), (400, "confirm"))
++        self.assertIn("host_count_override", j["note"])
++        for bad in ({"confirm_shared_state_write": "yes"}, {"confirm_shared_state_write": 1}, {"confirm": True}):
++            st, _, _, _ = self.s.post("/cells/%s/run" % H4, bad)
++            self.assertEqual(st, 400, bad)
++        self.assertEqual(self.s.runs(), [])
++        st, j, _, _ = self.s.post("/cells/%s/run" % H4, {"confirm_shared_state_write": True})
++        self.assertEqual(st, 202, j)
++        self.s.wait(j["job"]["id"])
++        self.assertEqual(len(self.s.runs()), 1)
++
++    def test_a_judge_past_its_timeout_is_stopped(self):
++        """Judge r2 finding 4: the grid's calls had subprocess.run(timeout=60) -- a kill of the child
++        only, an unbounded wait for the pipe after it, and a 500 from TimeoutExpired."""
++        s = GridServe(extra=["--read-timeout", "1"]).start()
++        try:
++            with open(os.path.join(s.fix, "lab_cell", "old", "JUDGE_SLEEP"), "w") as f:
++                f.write("20")
++            t0 = time.monotonic()
++            st, j, _, _ = s.get("/cells/lab_cell/old")
++            self.assertLess(time.monotonic() - t0, 10)
++            self.assertEqual((st, j.get("timed_out"), j.get("verdict")), (200, True, None))
++            time.sleep(0.3)
++            pids = [c["pid"] for c in s.grid_calls("judge-sleeping")]
++            self.assertEqual(len(pids), 1)
++            self.assertFalse(base._pid_alive(pids[0]), "the timed-out judge is still running")
++        finally:
++            # under a mutation that stops killing the group (C23) the stub sleeps on: stopped here
++            # by the pid it recorded, so a gate run leaves nothing behind
++            for c in s.grid_calls("judge-sleeping"):
++                if base._pid_alive(c["pid"]):
++                    os.kill(c["pid"], signal.SIGKILL)
++            s.close()
++
+     def test_cell_run_needs_the_token(self):
+         st, j, _, _ = self.s.post("/cells/lab_cell/run", token=None)
+         self.assertEqual((st, j["error"]), (403, "token"))
+@@ -292,7 +373,8 @@ class CellsRun(GridCase):
+             self.assertEqual((st, j["job"]["id"]), (409, first), p)
+         self.s.wait(first)
+         self.assertEqual(len(self.s.runs()), 1)
+-        self.assertEqual(self.s.calls(), [])
++        # the one ndt call is the first run's claim read -- the refused writes ran nothing
++        self.assertEqual([c["argv"] for c in self.s.calls()], [["status"]])
+ 
+     def test_job_raw_cannot_leave_the_raw_root(self):
+         job = self.run_cell()
+@@ -343,7 +425,7 @@ class GuidedWalk(GridCase):
+         w = self.settle(gid)
+         self.assertEqual(w["steps"][w["current"]]["step"], "verdict")
+         # the lab is already given back while the walk waits on Adam
+-        self.assertEqual([c["argv"][0] for c in self.s.calls()], ["status", "claim", "release"])
++        self.assertEqual([c["argv"][0] for c in self.s.calls()], ["status", "claim", "status", "release"])
+         cmp_ = [s for s in w["steps"] if s["step"] == "compare"][0]["result"]
+         self.assertEqual(sorted(cmp_["red_to_green"]), ["a2_no_boom", "a3_record_written"])
+         st, j, _, _ = self.s.post("/guided/%s/verdict" % gid, {"verdict": "green", "note": "saw a2 flip"})
+@@ -351,7 +433,7 @@ class GuidedWalk(GridCase):
+         w = self.settle(gid)
+         self.assertTrue(w["done"])
+         self.assertEqual(w["verdict"]["verdict"], "green")
+-        self.assertEqual([c["argv"][0] for c in self.s.calls()], ["status", "claim", "release"])
++        self.assertEqual([c["argv"][0] for c in self.s.calls()], ["status", "claim", "status", "release"])
+         self.assertEqual(self.s.calls()[1]["argv"][:2], ["claim", "30"])
+         self.assertEqual(len(self.s.runs()), 1)
+         self.next(gid, want=409)
+@@ -383,7 +465,7 @@ class GuidedWalk(GridCase):
+         st, j, _, _ = self.s.post("/guided/%s/abort" % gid)
+         self.assertIn("still held", j["note"])
+         self.next(gid, want=409)
+-        self.assertEqual([c["argv"][0] for c in self.s.calls()], ["status", "claim"])
++        self.assertEqual([c["argv"][0] for c in self.s.calls()], ["status", "claim", "status"])
+ 
+     def test_red_cell_still_reaches_the_verdict(self):
+         self.s.grid["runs"]["lab_cell"] = {"rc": 1, "judge": RUN_FAIL}
+@@ -396,7 +478,7 @@ class GuidedWalk(GridCase):
+         self.assertEqual(w["steps"][w["current"]]["step"], "verdict")
+         cmp_ = [s for s in w["steps"] if s["step"] == "compare"][0]["result"]
+         self.assertEqual(sorted(cmp_["still_red"]), ["a2_no_boom", "a3_record_written"])
+-        self.assertEqual([c["argv"][0] for c in self.s.calls()], ["status", "claim", "release"],
++        self.assertEqual([c["argv"][0] for c in self.s.calls()], ["status", "claim", "status", "release"],
+                          "a red cell whose restore passed still gives the lab back")
+         self.assertEqual(cmp_["red_to_green"], [])
+ 
+@@ -411,6 +493,35 @@ class GuidedWalk(GridCase):
+         self.assertEqual(w["steps"][w["current"]]["step"], "run")
+         self.assertTrue(w["blocked"])
+ 
++    def test_walk_run_rechecks_the_claim(self):
++        """Judge r2 finding 3, second half: the walk's claim step passed, and by its run step the
++        claim is gone (another tab's walk released it). The run is not started."""
++        gid = self.walk()
++        for _ in range(4):                       # old, new, status, claim
++            self.settle(gid)
++            self.next(gid)
++        self.settle(gid)
++        self.s.behave(status={"stdout": CLAIM_NONE})
++        self.next(gid)                           # run
++        w = self.settle(gid)
++        self.assertEqual(w["steps"][w["current"]]["step"], "run")
++        self.assertIn("claim", w["blocked"] or "")
++        self.assertEqual(self.s.runs(), [])
++
++    def test_walk_for_a_shared_state_cell_needs_confirmation(self):
++        st, j, _, _ = self.s.post("/cells/%s/guided" % H4)
++        self.assertEqual((st, j.get("error")), (400, "confirm"))
++        st, j, _, _ = self.s.post("/cells/%s/guided" % H4, {"confirm_shared_state_write": True})
++        self.assertEqual(st, 201, j)
++        run = [x for x in j["walk"]["steps"] if x["step"] == "run"][0]
++        self.assertIn("host_count_override", run["look_at"])
++        gid = j["walk"]["id"]
++        for _ in range(4):                       # old, status, claim, run
++            self.settle(gid)
++            self.next(gid)
++        self.settle(gid)
++        self.assertEqual(len(self.s.runs()), 1, "a confirmed walk still runs the cell")
++
+     def test_the_verdict_is_adams(self):
+         gid = self.walk("offline_cell")
+         st, _, _, _ = self.s.post("/guided/%s/verdict" % gid, {"verdict": "green"})
+@@ -465,5 +576,28 @@ class GuidedWalk(GridCase):
+         self.assertIn("no longer judges FAIL", w["blocked"])
+ 
+ 
++class SharedStateRegistry(unittest.TestCase):
++    """cells.WRITES_SHARED_STATE is this service's own list, so it is held to the real grid of
++    this tree: a cell that names one of the P4 knob files is on it, and nothing else is."""
++
++    def test_the_registry_matches_the_real_grid(self):
++        sys.path.insert(0, base.SERVE_DIR)
++        try:
++            import importlib
++            cells = importlib.reload(importlib.import_module("cells"))
++        finally:
++            sys.path.remove(base.SERVE_DIR)
++        grid = os.path.join(base.REPO, "tools", "test_workflow", "live_cells")
++        touching = set()
++        for f in sorted(os.listdir(grid)):
++            if not f.endswith(".sh") or f in ("run_cells.sh", "_cell_lib.sh"):
++                continue
++            text = base._read(os.path.join(grid, f))
++            if any(k in text for k in cells.SHARED_STATE_FILES):
++                touching.add(f[:-3])
++        self.assertEqual(touching, set(cells.WRITES_SHARED_STATE))
++        self.assertIn(H4, touching)
++
++
+ if __name__ == "__main__":
+     unittest.main(verbosity=2)
+diff --git a/tests/shell/mutate_ndt_serve.sh b/tests/shell/mutate_ndt_serve.sh
+index b906a1fd..d308d347 100755
+--- a/tests/shell/mutate_ndt_serve.sh
++++ b/tests/shell/mutate_ndt_serve.sh
+@@ -509,7 +509,7 @@ report "M60: the demo's slot probe is a real POST /down with the token" "$m" \
+        DemoProbes.test_demo_probes_cannot_touch_the_lab
+ 
+ m=$(mutant m61 "$VERBS_PY" \
+-    '    "apps.status": {"code": [(9747, 0, "return 0")]},' \
++    '    "apps.status": {"code": [(10222, 0, "return 0")]},' \
+     '')
+ report "M61: an rc table with no source" "$m" \
+        RcProvenance.test_every_table_names_its_source
+@@ -552,10 +552,10 @@ report "C5: a SKIPPED cell is shown as a pass" "$m" \
+ 
+ m=$(mutant c6 "$SERVE_PY" \
+     '        body = self._check_write()
+-        _whitelisted(verbs.no_fields, body)
++        confirmed = _whitelisted(verbs.cell_run_body, body)
+         job_id = self._spawn_cell_run(' \
+     '        body = {}
+-        _whitelisted(verbs.no_fields, body)
++        confirmed = _whitelisted(verbs.cell_run_body, body)
+         job_id = self._spawn_cell_run(')
+ report "C6: a cell run needs no token" "$m" \
+        cells:CellsRun.test_cell_run_needs_the_token
+@@ -625,6 +625,66 @@ m=$(mutant c16 "$CELLS_PY" \
+ report "C16: the walk holds the shared lab while it waits on Adam's verdict" "$m" \
+        cells:GuidedWalk.test_the_lab_is_released_before_the_verdict
+ 
++# --- the judge's second round (opus-judge on e4589399..e28bcfe4, 09-24; orchestrator's rulings) --
++
++m=$(mutant c17 "$SERVE_PY" \
++    '            if precheck is not None:
++                precheck()' \
++    '            pass')
++report "C17: a lab cell runs without reading the claim" "$m" \
++       cells:CellsRun.test_lab_cell_run_needs_your_claim
++
++m=$(mutant c18 "$SERVE_PY" \
++    '        if not (line or "").startswith("yours"):' \
++    '        if line is None:')
++report "C18: any claim line -- none, a foreign one, an expired one -- lets a lab cell run" "$m" \
++       cells:CellsRun.test_lab_cell_run_needs_your_claim
++
++m=$(mutant c19 "$SERVE_PY" \
++    '                st["result"] = {"ok": False, "why": "claim: the run was not started -- %s (claim line: %s)" % (' \
++    '                st["result"] = {"ok": True, "why": "claim: the run was not started -- %s (claim line: %s)" % (')
++report "C19: the walk goes past a run the claim re-check refused" "$m" \
++       cells:GuidedWalk.test_walk_run_rechecks_the_claim
++
++m=$(mutant c20 "$SERVE_PY" \
++    '        if cell.get("writes_shared_state") and confirmed is not True:' \
++    '        if False:')
++report "C20: a cell that writes host_count_override runs unconfirmed" "$m" \
++       cells:CellsRun.test_a_cell_that_writes_shared_state_needs_confirmation
++
++m=$(mutant c21 "$SERVE_PY" \
++    '        self._need_confirmation(cell, confirmed)
++        self._send(201, {"walk": self._walk_view(self.cfg.guided.create(cell, confirmed))})' \
++    '        self._send(201, {"walk": self._walk_view(self.cfg.guided.create(cell, confirmed))})')
++report "C21: a walk over a shared-state cell starts unconfirmed" "$m" \
++       cells:GuidedWalk.test_walk_for_a_shared_state_cell_needs_confirmation
++
++m=$(mutant c22 "$CELLS_PY" \
++    '    "up_refuses_a_model_of_another_network": (' \
++    '    "not_a_cell_of_this_grid": (')
++report "C22: the shared-state registry drifts from the real grid" "$m" \
++       cells:SharedStateRegistry.test_the_registry_matches_the_real_grid
++
++m=$(mutant c23 "$CELLS_PY" \
++    '                os.killpg(p.pid, signal.SIGKILL)' \
++    '                pass')
++report "C23: a timed-out judge is not stopped" "$m" \
++       cells:CellsRun.test_a_judge_past_its_timeout_is_stopped
++
++m=$(mutant c24 "$CELLS_PY" \
++    '        p = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,' \
++    '        subprocess.run(["true"], timeout=self.timeout)
++        p = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,')
++report "C24: an implicit child-only kill (subprocess.run timeout=) comes back" "$m" \
++       NoPatternKill.test_the_only_signal_sent_is_to_a_group_this_service_created
++
++
++m=$(mutant m62 "$SERVE_PY" \
++    '    request_queue_size = 64' \
++    '    request_queue_size = 5')
++report "M62: the listen backlog is socketserver's 5 (a burst of 20 gets a reset)" "$m" \
++       Bounded.test_listen_backlog_holds_a_burst
++
+ echo
+ if [[ "$(sha256sum "${SUBJECTS[@]}")" != "$BASE_SHA" ]]; then
+     echo "a file under test CHANGED while this gate ran -- the results above are about two versions"
+diff --git a/tools/ndt_serve/README.md b/tools/ndt_serve/README.md
+index 45665995..029a9c6d 100644
+--- a/tools/ndt_serve/README.md
++++ b/tools/ndt_serve/README.md
+@@ -93,10 +93,10 @@ server drives; the cells are what `run_cells.sh --list` prints.
+ | GET | `/cells/<name>/old` | `<cell>.sh judge tests/fixtures/live_cells/<name>/old` | the **pre-fix red**: ASSERT rows, the CELL: line, whether the failing set equals `EXPECTED-FAILS`, `PROVENANCE.md` |
+ | GET | `/cells/<name>/new` | the same over `new/` | the first **green**, as it was the night of the fix |
+ | GET | `/cells/<name>/old/raw/<file>` | nothing | a raw file of the fixture (cannot leave it) |
+-| POST | `/cells/<name>/run` `{}` | `run_cells.sh --cell <name> --raw-root <state>/cells-raw/…` | 202 + job, in the one slot. **Claim first** for a cell that needs the lab |
++| POST | `/cells/<name>/run` `{}` | `run_cells.sh --cell <name> --raw-root <state>/cells-raw/…` | 202 + job, in the one slot. A cell that needs the lab runs **only under your own claim**: inside the slot, `ndt status`'s claim line must say `yours`, else 409 `claim`. A cell that writes shared state (`writes_shared_state` in `/cells`) needs `{"confirm_shared_state_write": true}`, else 400 |
+ | GET | `/cells/<name>/runs/<job>` | nothing | that run's ASSERT rows, and per row: red on old/, and now |
+ | GET | `/jobs/<job>/raw/<path>` | nothing | a raw file of a run (cannot leave its raw root) |
+-| POST | `/cells/<name>/guided` `{}` | nothing | 201 + a walk |
++| POST | `/cells/<name>/guided` `{}` | nothing | 201 + a walk (a shared-state cell needs the same confirmation field) |
+ | GET | `/guided`, `/guided/<id>` | nothing | the walks; a walk's state is derived, a GET writes nothing |
+ | POST | `/guided/<id>/next` `{}` | the current step | the walk, one step further (or the same step again, if it was blocked) |
+ | POST | `/guided/<id>/verdict` `{"verdict":"green"\|"red","note":"..."}` | nothing | Adam's call; `next` refuses to make it |
+@@ -108,8 +108,10 @@ could not run, or the restore after the cell failed and **the lab is not restore
+ 
+ A walk, for a cell that needs the lab: `old → new → status → claim → run → release → compare →
+ verdict` (no status/claim/release for a `requires none` cell; no `new` where there is no new/).
+-Every step says where to look and what green looks like. The lab is given back right after the
+-run -- judging reads the raw, not the lab. A step that did not come out **blocks** the walk: a
++Every step says where to look and what green looks like. The run step reads the claim again
++inside the slot (another tab's walk may have released it). The lab is given back right after the
++run -- judging reads the raw, not the lab. The walk's claim and release are the OWNER's: a walk
++opened while you already hold the lab re-claims it and releases it at the end (next cut). A step that did not come out **blocks** the walk: a
+ refused claim never leads to a run, a failed restore never leads to a release. The verdict is
+ Adam's.
+ 
+@@ -146,7 +148,7 @@ still holds the slot), `lost` (it ended and nobody recorded its rc).
+ ## Tests
+ 
+ ```bash
+-python3 tests/python/test_ndt_serve.py        # 71 cases against a stub ndt (RcProvenance reads the real ndt), no lab
+-python3 tests/python/test_ndt_serve_cells.py  # 25 cases against a stub grid, no lab
+-bash tests/shell/mutate_ndt_serve.sh          # 77 named mutations, each must redden its case
++python3 tests/python/test_ndt_serve.py        # 72 cases against a stub ndt (RcProvenance reads the real ndt), no lab
++python3 tests/python/test_ndt_serve_cells.py  # 32 cases against a stub grid, no lab
++bash tests/shell/mutate_ndt_serve.sh          # 86 named mutations, each must redden its case
+ ```
+diff --git a/tools/ndt_serve/cells.py b/tools/ndt_serve/cells.py
+index 147850bf..b539ea52 100644
+--- a/tools/ndt_serve/cells.py
++++ b/tools/ndt_serve/cells.py
+@@ -27,6 +27,7 @@ import json
+ import os
+ import re
+ import secrets
++import signal
+ import subprocess
+ import threading
+ import time
+@@ -38,6 +39,22 @@ VERDICT_RE = re.compile(r"^CELL: (PASS|FAIL|SKIP) (\S+) (.*)$")
+ _FILE_IN_DETAIL = [re.compile(r"^no such raw file: (\S+)$"),
+                    re.compile(r"^(\S+) (?:present|is missing or empty|contains it|does not contain|"
+                               r"still contains|matches|does not match)")]
++PIPE_GRACE_S = 5
++
++# 🔴 Cells whose observe WRITES shared state beyond the lab verbs (judge r2 finding 2). ndt serve's
++# own list -- the grid has no such field -- so it is held to the real grid by
++# tests/python/test_ndt_serve_cells.py SharedStateRegistry: a cell script that names one of
++# SHARED_STATE_FILES is on it, and nothing else is. A run of one of these needs an explicit
++# confirmation field; its look_at names the write.
++SHARED_STATE_FILES = ("host_count_override", "app_package_override", "telemetry_override",
++                      "bmv2_binary_override")
++WRITES_SHARED_STATE = {
++    "up_refuses_a_model_of_another_network": (
++        "observe rewrites p4_proxy/mininet/host_count_override to 128 as its premise and writes the "
++        "tree's own bytes back at the end (up_refuses_a_model_of_another_network.sh, cell_observe). "
++        "Killed in between -- systemd-oomd does that on this laptop -- the knob stays at 128: the next "
++        "'ndt up p4' builds 128 hosts, and 'ndt release' refuses while the knob has moved."),
++}
+ GAP_NOTE = ("A failing assertion on old/ is not automatically the finding: some old/ directories are "
+             "thinner than the cell's raw layout, and an assertion that fails with 'no such raw file' "
+             "may be a fixture gap, not evidence. PROVENANCE.md names the ones that carry the finding "
+@@ -106,15 +123,41 @@ class Grid:
+         return os.access(self.runner, os.X_OK)
+ 
+     def _run(self, argv):
+-        p = subprocess.run(argv, stdin=subprocess.DEVNULL, capture_output=True, env=self.env,
+-                           cwd=self.repo, timeout=self.timeout, start_new_session=True)
+-        return p.returncode, p.stdout.decode("utf-8", "replace"), p.stderr.decode("utf-8", "replace")
++        """(rc, stdout, stderr, timed_out). rc is None when it timed out.
++
++        The same shape as serve.run_read (judge r2 finding 4): its own session, killpg on the
++        group this call created -- by the pid it recorded -- and a bounded wait for the pipes after
++        it, so a stuck `meta` or `judge` cannot pin a handler, and a timeout is an answer rather
++        than a 500."""
++        p = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
++                             env=self.env, cwd=self.repo, close_fds=True, start_new_session=True)
++        try:
++            out, err = p.communicate(timeout=self.timeout)
++            return p.returncode, out.decode("utf-8", "replace"), err.decode("utf-8", "replace"), False
++        except subprocess.TimeoutExpired:
++            try:
++                os.killpg(p.pid, signal.SIGKILL)
++            except ProcessLookupError:
++                pass
++            try:
++                out, err = p.communicate(timeout=PIPE_GRACE_S)
++            except subprocess.TimeoutExpired:
++                out, err = b"", b""
++                for f in (p.stdout, p.stderr):
++                    try:
++                        f.close()
++                    except OSError:
++                        pass
++                p.wait(timeout=PIPE_GRACE_S)
++            return None, out.decode("utf-8", "replace"), err.decode("utf-8", "replace"), True
+ 
+     def list(self):
+         """The grid's own list (run_cells.sh --list), enriched with CELLS.md and the fixtures."""
+         if not self.available():
+             raise CellError("no live_cells grid at %s" % self.dir)
+-        rc, out, err = self._run([self.runner, "--list"])
++        rc, out, err, timed_out = self._run([self.runner, "--list"])
++        if timed_out:
++            raise CellError("run_cells.sh --list did not answer within %d s and was stopped" % self.timeout)
+         if rc != 0:
+             raise CellError("run_cells.sh --list exited %d: %s" % (rc, err.strip()))
+         md = parse_cells_md(os.path.join(self.dir, "CELLS.md"))
+@@ -126,7 +169,8 @@ class Grid:
+             name, tag, req = parts
+             row = {"name": name, "tag": tag, "requires": req,
+                    "old": os.path.isdir(os.path.join(self.fixtures, name, "old")),
+-                   "new": os.path.isdir(os.path.join(self.fixtures, name, "new"))}
++                   "new": os.path.isdir(os.path.join(self.fixtures, name, "new")),
++                   "writes_shared_state": WRITES_SHARED_STATE.get(name)}
+             row.update(md.get(name, {}))
+             cells.append(row)
+         return cells
+@@ -153,9 +197,12 @@ class Grid:
+         """`<cell>.sh judge <fixture>` -- read-only by the grid's contract -- and what it said."""
+         d = self.fixture_dir(name, which)
+         argv = [os.path.join(self.dir, name + ".sh"), "judge", d]
+-        rc, out, err = self._run(argv)
++        rc, out, err, timed_out = self._run(argv)
+         res = parse_judge(out)
++        if timed_out:
++            res["verdict"] = None
+         res.update({"argv": argv, "rc": rc, "stdout": out, "stderr": err, "fixture": which,
++                    "timed_out": timed_out,
+                     "dir": os.path.relpath(d, self.repo), "files": sorted(os.listdir(d))})
+         failing = sorted(a["id"] for a in res["asserts"] if not a["ok"])
+         res["failing"] = failing
+@@ -264,6 +311,16 @@ def guided_steps(cell):
+ 
+ def look_at(step, cell):
+     exp = cell.get("expected") or "(CELLS.md has no row for this cell)"
++    text = _look_at(step, exp)
++    if step == "run" and cell.get("writes_shared_state"):
++        text += " ⚠️ 這一格會寫共用狀態：" + cell["writes_shared_state"] + \
++                " 跑完後請確認 git diff -- p4_proxy/mininet/host_count_override 跟跑之前一樣。"
++    if step == "run" and cell.get("requires") != "none":
++        text += " 開跑前服務會再讀一次 ndt status 的 claim 行，必須是 yours，否則不跑。"
++    return text
++
++
++def _look_at(step, exp):
+     return {
+         "old": ("看 FAIL 的那幾列：它們就是當時的缺陷。對照 expected_fails（人工審過的清單），"
+                 "兩邊應該一致。再讀 provenance：只寫著 'no such raw file' 的紅，可能只是 fixture 缺檔，不是證據。"),
+@@ -293,9 +350,10 @@ class Guided:
+             raise KeyError(gid)
+         return os.path.join(self.root, gid + ".json")
+ 
+-    def create(self, cell):
++    def create(self, cell, confirmed=False):
+         gid = "g" + time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()) + "-" + secrets.token_hex(3)
+         walk = {"id": gid, "cell": cell["name"], "requires": cell["requires"], "created_at": time.time(),
++                "confirmed_shared_state_write": bool(confirmed and cell.get("writes_shared_state")),
+                 "steps": [{"step": s, "title": STEP_TITLES[s], "look_at": look_at(s, cell),
+                            "state": "pending", "result": None, "job": None}
+                           for s in guided_steps(cell)],
+diff --git a/tools/ndt_serve/serve.py b/tools/ndt_serve/serve.py
+index 49cb51f3..d59ff1a6 100644
+--- a/tools/ndt_serve/serve.py
++++ b/tools/ndt_serve/serve.py
+@@ -19,7 +19,7 @@ The design red lines (TICKET section 3), and where each one lives:
+                        answers -- and an Origin header, when present, must be this server's; a POST
+                        also needs a JSON body. 🔴 GETs are gated too (judge 09-24, finding 1): a
+                        "read" is not side-effect free -- `ndt status --check` POSTs three lock
+-                       probes to the kernel (ndt:8832-8847) -- so an <img> in any page must not be
++                       probes to the kernel (ndt:9292-9307) -- so an <img> in any page must not be
+                        able to start one.
+   3. whitelist         verbs.py builds every argv; there is no shell on any path.
+   4. thin shell        ndt's rc is passed through untouched, with a sentence from ndt help beside
+@@ -442,13 +442,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
+         cfg = self.cfg
+         self._send(202, {"job": cfg.store.view(job_id), "links": _links(job_id)})
+ 
+-    def _spawn(self, kind, argv, body, env=None, extra=None):
+-        """Take the one slot and start a job, or 409. Every state-changing path comes here."""
++    def _spawn(self, kind, argv, body, env=None, extra=None, precheck=None):
++        """Take the one slot and start a job, or 409. Every state-changing path comes here.
++        `precheck` runs INSIDE the slot, after the busy check and before the spawn, so what it
++        read is still true when the job starts -- no other job of this server can move it."""
+         cfg = self.cfg
+         with SLOT:
+             busy = cfg.store.holding_the_slot()
+             if busy is not None:
+                 raise HttpError(409, "busy", note="one state-changing job at a time", job=busy)
++            if precheck is not None:
++                precheck()
+             meta = {"owner": cfg.owner, "ndt": cfg.ndt, "ndt_realpath": cfg.ndt_real,
+                     "ndt_sha256": jobs.file_sha256(cfg.ndt_real), "request": body,
+                     "requested_by": "%s:%s" % self.client_address[:2], "stripped_env": cfg.stripped}
+@@ -492,16 +496,38 @@ class Handler(http.server.BaseHTTPRequestHandler):
+ 
+     def w_cell_run(self, query, name):
+         body = self._check_write()
+-        _whitelisted(verbs.no_fields, body)
+-        job_id = self._spawn_cell_run(self._cell(name), body)
++        confirmed = _whitelisted(verbs.cell_run_body, body)
++        job_id = self._spawn_cell_run(self._cell(name), body, confirmed)
+         self._send(202, {"job": self._job(job_id), "links": _links(job_id)})
+ 
+-    def _spawn_cell_run(self, cell, body):
++    def _need_confirmation(self, cell, confirmed):
++        if cell.get("writes_shared_state") and confirmed is not True:
++            raise HttpError(400, "confirm", note="this cell writes shared state -- " + cell["writes_shared_state"] +
++                            ' Send {"confirm_shared_state_write": true} to run it anyway.')
++
++    def _spawn_cell_run(self, cell, body, confirmed):
++        """A cell run. 🔴 A cell that needs the lab runs only under THIS owner's claim (judge r2
++        finding 1): ndt's OVS `up` does not refuse under a foreign claim, so a run without one can
++        build a fabric under somebody else's, and the restore's `down` is then refused (rc 5)."""
+         cfg = self.cfg
++        self._need_confirmation(cell, confirmed)
+         raw_root = os.path.join(cfg.state_dir, "cells-raw", cell["name"] + "-" + secrets.token_hex(4))
+         os.makedirs(raw_root, mode=0o700)
+         return self._spawn("cells.run", cfg.grid.run_argv(cell["name"], raw_root), body,
+-                           env=cfg.grid.env, extra={"cell": cell["name"], "raw_root": raw_root})
++                           env=cfg.grid.env, extra={"cell": cell["name"], "raw_root": raw_root},
++                           precheck=self._require_own_claim if cell["requires"] != "none" else None)
++
++    def _require_own_claim(self):
++        """Read `ndt status`'s claim line (ndt:5664 claim_line) and go on only if it says `yours`.
++        This reads ndt's answer; it does not decide anything ndt decides."""
++        r = run_read(self.cfg, "status", verbs.argv_status(False), self.cfg.read_timeout)
++        if r is None or r["rc_class"] == "timeout":
++            raise HttpError(409, "claim", note="the claim could not be read (ndt status did not answer); "
++                            "a cell that needs the lab is not run on a guess")
++        line = claim_of(r["stdout"])
++        if not (line or "").startswith("yours"):
++            raise HttpError(409, "claim", note="a cell that needs the lab runs only under your own claim -- "
++                            "POST %s/claim first" % API, claim=line, read=r["read"]["id"])
+ 
+     def _job(self, job_id):
+         """A job's view; a cell run also carries the CELL: line its own judge printed, and a
+@@ -594,9 +620,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
+ 
+     def w_guided_create(self, query, name):
+         body = self._check_write()
+-        _whitelisted(verbs.no_fields, body)
++        confirmed = _whitelisted(verbs.cell_run_body, body)
+         cell = self._cell(name)
+-        self._send(201, {"walk": self._walk_view(self.cfg.guided.create(cell))})
++        self._need_confirmation(cell, confirmed)
++        self._send(201, {"walk": self._walk_view(self.cfg.guided.create(cell, confirmed))})
+ 
+     def w_guided_next(self, query, gid):
+         body = self._check_write()
+@@ -629,9 +656,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
+             r = cfg.grid.judge_fixture(name, st["step"])
+             state = (r["verdict"] or {}).get("state")
+             ok = state == ("FAIL" if st["step"] == "old" else "PASS")
+-            st["result"] = {"ok": ok, "judge": r, "why": None if ok else (
+-                "old/ no longer judges FAIL -- the red this cell was built on cannot be shown"
+-                if st["step"] == "old" else "new/ does not judge PASS")}
++            why = None
++            if r.get("timed_out"):
++                why = "the judge did not answer within %d s and was stopped" % cfg.grid.timeout
++            elif not ok:
++                why = ("old/ no longer judges FAIL -- the red this cell was built on cannot be shown"
++                       if st["step"] == "old" else "new/ does not judge PASS")
++            st["result"] = {"ok": ok and not r.get("timed_out"), "judge": r, "why": why}
+         elif st["step"] == "status":
+             r = run_read(cfg, "status", verbs.argv_status(False), cfg.read_timeout)
+             if r is None:
+@@ -641,7 +672,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
+             st["job"] = self._spawn("claim", [cfg.ndt_real] + verbs.argv_claim(
+                 {"minutes": 30, "note": "guided walk %s (%s)" % (walk["id"], name)}), {"guided": walk["id"]})
+         elif st["step"] == "run":
+-            st["job"] = self._spawn_cell_run(cell, {"guided": walk["id"]})
++            # the claim is read again here, inside the slot: another tab's walk may have
++            # released it since this walk's claim step (judge r2 finding 3)
++            try:
++                st["job"] = self._spawn_cell_run(cell, {"guided": walk["id"]},
++                                                 walk.get("confirmed_shared_state_write") is True)
++            except HttpError as e:
++                if e.body.get("error") != "claim":
++                    raise
++                st["result"] = {"ok": False, "why": "claim: the run was not started -- %s (claim line: %s)" % (
++                    e.body.get("note"), e.body.get("claim"))}
+         elif st["step"] == "compare":
+             run = next(s for s in walk["steps"] if s["step"] == "run")
+             v = self._job(run["job"])
+@@ -692,6 +732,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
+                 if claimed and not released else "nothing of the lab is held by this walk"})
+ 
+ 
++CLAIM_LINE = re.compile(r"^  claim\s+(.*?)\s*$", re.M)
++
++
++def claim_of(status_stdout):
++    """The value of the `claim` row of `ndt status` (`  claim          yours -- 30m left ...`),
++    or None when there is no such row. `prev claim` is a different row and does not match."""
++    m = CLAIM_LINE.search(status_stdout or "")
++    return m.group(1) if m else None
++
++
+ def _step_ok(step, v):
+     """Did a job step come out so that the walk may go on?"""
+     if v.get("state") != "finished":
+@@ -766,6 +816,10 @@ class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
+     flood of connections from a local page gets an immediate 503, not a thread each."""
+     daemon_threads = True
+     allow_reuse_address = True
++    # socketserver's default listen backlog is 5: a burst of 20 connections (a page that fetches
++    # in parallel does that) had one reset by the kernel before accept() ever saw it -- 1 in 10
++    # runs of the concurrency case, 09-24 23:3x. The cap on connections SERVED is conn_slots.
++    request_queue_size = 64
+     conn_slots = None
+     waiters = None
+     _BUSY_BODY = b'{"error": "busy", "note": "too many connections"}\n'
+@@ -836,7 +890,7 @@ def main(argv=None):
+     locks = [hold_lock(os.path.join(cfg.state_dir, "serve.lock")), hold_lock(cfg.token_file + ".lock")]
+     cfg.store = jobs.JobStore(cfg.state_dir, verbs.meaning)
+     cfg.reads = jobs.ReadLog(cfg.state_dir)
+-    cfg.grid = cells.Grid(cfg.repo, cfg.env)
++    cfg.grid = cells.Grid(cfg.repo, cfg.env, timeout=cfg.read_timeout)
+     cfg.guided = cells.Guided(cfg.state_dir)
+     Handler.cfg = cfg
+     try:
+diff --git a/tools/ndt_serve/verbs.py b/tools/ndt_serve/verbs.py
+index e03b7b86..19b1c97a 100644
+--- a/tools/ndt_serve/verbs.py
++++ b/tools/ndt_serve/verbs.py
+@@ -112,6 +112,15 @@ def no_fields(body):
+     return []
+ 
+ 
++def cell_run_body(body):
++    """POST /cells/<name>/run or /guided  {} or {"confirm_shared_state_write": true}"""
++    _no_extra_keys(body, ("confirm_shared_state_write",))
++    c = body.get("confirm_shared_state_write", False)
++    if not isinstance(c, bool):
++        raise Refused("confirm_shared_state_write must be true or false")
++    return c
++
++
+ def argv_down(body):
+     """POST /api/v1/down  {} -- never --deep, never --force (TICKET section 5)."""
+     _no_extra_keys(body, ())
+@@ -195,8 +204,8 @@ RC_TABLE = {
+     "status.check": {
+         0: ("ok", "all compared fields match what the last 'ndt up' asked for"),
+         # 🔴 ndt help says "1 one of them does not", but cmd_status answers 1 whenever its
+-        # problems[] is not empty (ndt:6493-6495) -- a claim held by somebody else (6128), a
+-        # declared measurement (6211), a netem qdisc (6355), a refused sudo grant (6368) are all
++        # problems[] is not empty (ndt:6946-6948) -- a claim held by somebody else (6576), a
++        # declared measurement (6662), a netem qdisc (6806), a refused sudo grant (6819) are all
+         # problems. A GUI that printed "a field does not match" would name the wrong cause.
+         1: ("dirty", "ndt reported at least one problem -- a compared field that does not match, a claim "
+                      "held by somebody else, a measurement in progress, a netem qdisc, a refused sudo "
+@@ -237,7 +246,7 @@ RC_TABLE = {
+ 
+ # Where each table's codes come from. "help": the phrase `ndt help` prints for each rc (compared
+ # whitespace-normalised). "code": (line, rc, text that line must contain) in tools/test_workflow/ndt
+-# -- lines below 10097 are identical to trunk fd7382a3.
++# -- trunk 68ace017's line numbers: this branch's `serve)` dispatch lies below every anchor.
+ RC_SOURCE = {
+     "up": {"help": {0: "exit 0 the fabric came up and verified",
+                     1: "1 something was MEASURED and it was dirty",
+@@ -251,14 +260,14 @@ RC_SOURCE = {
+     "status.check": {"help": {0: "exit 0 all compared fields match",
+                               1: "1 one of them does not (the message names it)",
+                               3: "3 nothing was compared, because there is no baseline RIGHT NOW"},
+-                     "code": [(6486, 3, "return 3"), (6491, 0, "return 0"), (6495, 1, "return 1")]},
+-    "status": {"code": [(6497, 0, "return 0")]},
+-    "claim": {"code": [(748, 2, "return 2"), (757, 2, "return 2"), (782, 1, "return 1"),
+-                       (855, 1, "return 1"), (857, 0, 'ok "lab claimed by')]},
+-    "release": {"code": [(861, 0, "return 0"), (866, 1, "return 1"), (894, 1, "return 1")]},
+-    "apps.start": {"code": [(8311, 0, "return 0"), (8315, 1, "return 1"), (8388, 1, "return 1")]},
+-    "apps.stop": {"code": [(9814, 1, "return 1"), (9817, 2, "return 2"), (9820, 0, "return 0")]},
+-    "apps.status": {"code": [(9747, 0, "return 0")]},
++                     "code": [(6939, 3, "return 3"), (6944, 0, "return 0"), (6948, 1, "return 1")]},
++    "status": {"code": [(6950, 0, "return 0")]},
++    "claim": {"code": [(753, 2, "return 2"), (762, 2, "return 2"), (787, 1, "return 1"),
++                       (860, 1, "return 1"), (862, 0, 'ok "lab claimed by')]},
++    "release": {"code": [(866, 0, "return 0"), (871, 1, "return 1"), (899, 1, "return 1")]},
++    "apps.start": {"code": [(8771, 0, "return 0"), (8775, 1, "return 1"), (8848, 1, "return 1")]},
++    "apps.stop": {"code": [(10289, 1, "return 1"), (10292, 2, "return 2"), (10295, 0, "return 0")]},
++    "apps.status": {"code": [(10222, 0, "return 0")]},
+ }
+ 
+ 

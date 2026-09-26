@@ -1,0 +1,94 @@
+{
+ "asserts": [
+  {
+   "ok": true,
+   "id": "h2_whole_verdict_present",
+   "detail": "whole.verdict.txt present",
+   "file": "whole.verdict.txt"
+  },
+  {
+   "ok": true,
+   "id": "h2_half_verdict_present",
+   "detail": "half.verdict.txt present",
+   "file": "half.verdict.txt"
+  },
+  {
+   "ok": true,
+   "id": "h2_whole_stack_is_clean",
+   "detail": "whole.verdict.txt contains it",
+   "file": "whole.verdict.txt"
+  },
+  {
+   "ok": true,
+   "id": "h2_whole_stack_reads_whole_up",
+   "detail": "whole.orphans.txt contains it",
+   "file": "whole.orphans.txt"
+  },
+  {
+   "ok": true,
+   "id": "h2_half_stack_is_not_clean",
+   "detail": "half.verdict.txt does not contain it",
+   "file": "half.verdict.txt"
+  },
+  {
+   "ok": true,
+   "id": "h2_half_stack_says_not_clean",
+   "detail": "half.verdict.txt contains it",
+   "file": "half.verdict.txt"
+  },
+  {
+   "ok": true,
+   "id": "h2_half_stack_names_the_half",
+   "detail": "half.verdict.txt contains it",
+   "file": "half.verdict.txt"
+  },
+  {
+   "ok": true,
+   "id": "h2_half_verdict_rc_is_1",
+   "detail": "= [1]",
+   "file": null
+  },
+  {
+   "ok": true,
+   "id": "h2_report_names_the_half",
+   "detail": "half.orphans.txt contains it",
+   "file": "half.orphans.txt"
+  }
+ ],
+ "verdict": {
+  "state": "PASS",
+  "name": "half_stack_is_not_clean",
+  "rest": "tag=ndt kernel=048b842efa16178a ndt=516e28a0a98585eb1e6be548b72e10bd0360dd14 at=2026-09-11T13:32:37+08:00",
+  "line": "CELL: PASS half_stack_is_not_clean tag=ndt kernel=048b842efa16178a ndt=516e28a0a98585eb1e6be548b72e10bd0360dd14 at=2026-09-11T13:32:37+08:00"
+ },
+ "skip": null,
+ "argv": [
+  "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/live_cells/half_stack_is_not_clean.sh",
+  "judge",
+  "/home/adam/Desktop/NDTwin-Kernel/tests/fixtures/live_cells/half_stack_is_not_clean/new"
+ ],
+ "rc": 0,
+ "stdout": "ASSERT ok   h2_whole_verdict_present               whole.verdict.txt present\nASSERT ok   h2_half_verdict_present                half.verdict.txt present\nASSERT ok   h2_whole_stack_is_clean                whole.verdict.txt contains it\nASSERT ok   h2_whole_stack_reads_whole_up          whole.orphans.txt contains it\nASSERT ok   h2_half_stack_is_not_clean             half.verdict.txt does not contain it\nASSERT ok   h2_half_stack_says_not_clean           half.verdict.txt contains it\nASSERT ok   h2_half_stack_names_the_half           half.verdict.txt contains it\nASSERT ok   h2_half_verdict_rc_is_1                = [1]\nASSERT ok   h2_report_names_the_half               half.orphans.txt contains it\nCELL: PASS half_stack_is_not_clean tag=ndt kernel=048b842efa16178a ndt=516e28a0a98585eb1e6be548b72e10bd0360dd14 at=2026-09-11T13:32:37+08:00\n",
+ "stderr": "",
+ "fixture": "new",
+ "dir": "tests/fixtures/live_cells/half_stack_is_not_clean/new",
+ "files": [
+  "PROVENANCE.md",
+  "half.orphans.rc",
+  "half.orphans.txt",
+  "half.verdict.rc",
+  "half.verdict.txt",
+  "ids.txt",
+  "kernel.pid",
+  "kill.log",
+  "observe.rc",
+  "observe.stdout",
+  "up.log",
+  "up.rc",
+  "whole.orphans.rc",
+  "whole.orphans.txt",
+  "whole.verdict.rc",
+  "whole.verdict.txt"
+ ],
+ "failing": []
+}

@@ -1,0 +1,50 @@
+# 09-release  sent 2026-09-24T22:50:39+0800  answered 0.003 s later
+POST /api/v1/release HTTP/1.1
+Host: 127.0.0.1:8765
+X-NDT-Token: <token>
+Content-Type: application/json
+Content-Length: 2
+
+{}
+
+HTTP/1.0 202 Accepted
+Server: ndt-serve/1 
+Date: Thu, 24 Sep 2026 14:50:39 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 862
+Cache-Control: no-store
+X-Content-Type-Options: nosniff
+
+{
+ "job": {
+  "id": "20260924T145039Z-4369e1",
+  "kind": "release",
+  "argv": [
+   "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt",
+   "release"
+  ],
+  "state": "running",
+  "rc": null,
+  "owner": "ndt-serve-0924",
+  "ndt_sha256": "cb134ccc7af9577a3a4ef3e71e64e238817029ec50977e099b7477b95b870e89",
+  "request": {},
+  "requested_by": "127.0.0.1:46608",
+  "cell": null,
+  "raw_root": null,
+  "created_at": 1790261439.6568666,
+  "started_at": null,
+  "ended_at": null,
+  "ndt_pid": null,
+  "ndt_pgid": null,
+  "stdout_bytes": null,
+  "stderr_bytes": null,
+  "rc_class": null,
+  "meaning": "running"
+ },
+ "links": {
+  "self": "/api/v1/jobs/20260924T145039Z-4369e1",
+  "wait": "/api/v1/jobs/20260924T145039Z-4369e1?wait=60",
+  "stdout": "/api/v1/jobs/20260924T145039Z-4369e1/log/stdout",
+  "stderr": "/api/v1/jobs/20260924T145039Z-4369e1/log/stderr"
+ }
+}

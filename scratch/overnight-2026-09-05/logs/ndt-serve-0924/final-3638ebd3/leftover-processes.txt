@@ -1,0 +1,3 @@
+# 2026-09-24T23:31:14+08:00 processes whose argv names a /tmp/ndt-serve-(mutate|test)- path after the gate (expect none):
+2171454      11 python3 /tmp/ndt-serve-test-wmkyf8hg/repo/tools/test_workflow/live_cells/gridstub.py cell lab_cell judge /tmp/ndt-serve-test-wmkyf8hg/repo/tests/fixtures/live_cells/lab_cell/old
+count=1

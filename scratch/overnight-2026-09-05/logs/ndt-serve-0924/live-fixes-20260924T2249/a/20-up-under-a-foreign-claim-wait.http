@@ -1,0 +1,52 @@
+# 20-up-under-a-foreign-claim-wait  sent 2026-09-24T22:49:46+0800  answered 8.824 s later
+GET /api/v1/jobs/20260924T144946Z-c3c7e1?wait=300 HTTP/1.1
+Host: 127.0.0.1:8765
+X-NDT-Token: <token>
+
+
+
+HTTP/1.0 200 OK
+Server: ndt-serve/1 
+Date: Thu, 24 Sep 2026 14:49:55 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 948
+Cache-Control: no-store
+X-Content-Type-Options: nosniff
+
+{
+ "job": {
+  "id": "20260924T144946Z-c3c7e1",
+  "kind": "up",
+  "argv": [
+   "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt",
+   "up",
+   "4"
+  ],
+  "state": "finished",
+  "rc": 0,
+  "owner": "ndt-serve-0924",
+  "ndt_sha256": "cb134ccc7af9577a3a4ef3e71e64e238817029ec50977e099b7477b95b870e89",
+  "request": {
+   "hosts": 4,
+   "plane": "ovs"
+  },
+  "requested_by": "127.0.0.1:38496",
+  "cell": null,
+  "raw_root": null,
+  "created_at": 1790261386.3622594,
+  "started_at": 1790261386.382441,
+  "ended_at": 1790261394.8542728,
+  "ndt_pid": 2102229,
+  "ndt_pgid": 2102229,
+  "stdout_bytes": 1547,
+  "stderr_bytes": 0,
+  "rc_class": "ok",
+  "meaning": "the fabric came up and verified"
+ },
+ "links": {
+  "self": "/api/v1/jobs/20260924T144946Z-c3c7e1",
+  "wait": "/api/v1/jobs/20260924T144946Z-c3c7e1?wait=60",
+  "stdout": "/api/v1/jobs/20260924T144946Z-c3c7e1/log/stdout",
+  "stderr": "/api/v1/jobs/20260924T144946Z-c3c7e1/log/stderr"
+ }
+}

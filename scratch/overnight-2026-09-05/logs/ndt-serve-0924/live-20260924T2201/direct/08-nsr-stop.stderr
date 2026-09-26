@@ -1,0 +1,45 @@
+  XX        rule  dpid=1 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:3"]  installed 8s ago
+  XX        rule  dpid=1 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:2"]  installed 8s ago
+  XX        rule  dpid=1 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=1 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=10 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:1"]  installed 9s ago
+  XX        rule  dpid=10 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:2"]  installed 9s ago
+  XX        rule  dpid=10 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:4"]  installed 9s ago
+  XX        rule  dpid=10 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:3"]  installed 9s ago
+  XX        rule  dpid=2 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=2 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:3"]  installed 8s ago
+  XX        rule  dpid=2 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=2 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=3 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:2"]  installed 8s ago
+  XX        rule  dpid=3 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=3 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:3"]  installed 8s ago
+  XX        rule  dpid=3 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=4 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:2"]  installed 8s ago
+  XX        rule  dpid=4 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=4 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:2"]  installed 8s ago
+  XX        rule  dpid=4 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:3"]  installed 8s ago
+  XX        rule  dpid=5 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=5 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:2"]  installed 8s ago
+  XX        rule  dpid=5 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:3"]  installed 8s ago
+  XX        rule  dpid=5 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:4"]  installed 8s ago
+  XX        rule  dpid=6 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=6 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:2"]  installed 8s ago
+  XX        rule  dpid=6 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:3"]  installed 8s ago
+  XX        rule  dpid=6 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:4"]  installed 8s ago
+  XX        rule  dpid=7 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:4"]  installed 8s ago
+  XX        rule  dpid=7 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:4"]  installed 8s ago
+  XX        rule  dpid=7 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=7 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:2"]  installed 8s ago
+  XX        rule  dpid=8 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:4"]  installed 8s ago
+  XX        rule  dpid=8 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:4"]  installed 8s ago
+  XX        rule  dpid=8 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=8 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:2"]  installed 8s ago
+  XX        rule  dpid=9 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=9 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:2"]  installed 8s ago
+  XX        rule  dpid=9 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:4"]  installed 8s ago
+  XX        rule  dpid=9 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:3"]  installed 8s ago
+  XX        40 rule(s) listed: 40 dated inside the window,
+  XX        0 with age=UNKNOWN. the dated ones are SUSPECTED by time only -- a
+  XX        rule has no owner and its cookie is 0 everywhere, so anything installed
+  XX        in that window is listed, whoever installed it. an UNKNOWN one is not a
+  XX        finding at all: it is a rule this tool could not place.

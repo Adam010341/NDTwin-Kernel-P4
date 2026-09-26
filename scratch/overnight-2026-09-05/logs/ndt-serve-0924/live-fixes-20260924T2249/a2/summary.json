@@ -1,0 +1,55 @@
+[
+ {
+  "n": 1,
+  "step": "status-under-the-foreign-claim",
+  "method": "GET",
+  "path": "/api/v1/status",
+  "http": 200
+ },
+ {
+  "n": 2,
+  "step": "up-p4-under-a-foreign-claim",
+  "method": "POST",
+  "path": "/api/v1/up",
+  "http": 202,
+  "job": "20260924T145217Z-0d6fef",
+  "argv": [
+   "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt",
+   "up",
+   "p4"
+  ],
+  "state": "finished",
+  "rc": 5,
+  "rc_class": "refused",
+  "meaning": "a GUARD REFUSED and nothing was built (claimed by somebody else, a measurement in flight, a teardown still running, or a model of another network)",
+  "seconds": 0.1
+ },
+ {
+  "n": 3,
+  "step": "up-p4-under-a-foreign-claim-wait",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T145217Z-0d6fef?wait=300",
+  "http": 200
+ },
+ {
+  "n": 4,
+  "step": "up-p4-under-a-foreign-claim-stdout",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T145217Z-0d6fef/log/stdout",
+  "http": 200
+ },
+ {
+  "n": 5,
+  "step": "up-p4-under-a-foreign-claim-stderr",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T145217Z-0d6fef/log/stderr",
+  "http": 200
+ },
+ {
+  "n": 6,
+  "step": "status-after-the-foreign-release",
+  "method": "GET",
+  "path": "/api/v1/status",
+  "http": 200
+ }
+]

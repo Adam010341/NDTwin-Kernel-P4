@@ -1,0 +1,433 @@
+# 25-jobs  sent 2026-09-24T22:49:57+0800  answered 0.002 s later
+GET /api/v1/jobs?limit=20 HTTP/1.1
+Host: 127.0.0.1:8765
+X-NDT-Token: <token>
+
+
+
+HTTP/1.0 200 OK
+Server: ndt-serve/1 
+Date: Thu, 24 Sep 2026 14:49:57 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 11350
+Cache-Control: no-store
+X-Content-Type-Options: nosniff
+
+{
+ "jobs": [
+  {
+   "id": "20260924T144946Z-c3c7e1",
+   "kind": "up",
+   "argv": [
+    "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt",
+    "up",
+    "4"
+   ],
+   "state": "finished",
+   "rc": 0,
+   "owner": "ndt-serve-0924",
+   "ndt_sha256": "cb134ccc7af9577a3a4ef3e71e64e238817029ec50977e099b7477b95b870e89",
+   "request": {
+    "hosts": 4,
+    "plane": "ovs"
+   },
+   "requested_by": "127.0.0.1:38496",
+   "cell": null,
+   "raw_root": null,
+   "created_at": 1790261386.3622594,
+   "started_at": 1790261386.382441,
+   "ended_at": 1790261394.8542728,
+   "ndt_pid": 2102229,
+   "ndt_pgid": 2102229,
+   "stdout_bytes": 1547,
+   "stderr_bytes": 0,
+   "rc_class": "ok",
+   "meaning": "the fabric came up and verified"
+  },
+  {
+   "id": "20260924T144945Z-525965",
+   "kind": "release",
+   "argv": [
+    "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt",
+    "release"
+   ],
+   "state": "finished",
+   "rc": 0,
+   "owner": "ndt-serve-0924",
+   "ndt_sha256": "cb134ccc7af9577a3a4ef3e71e64e238817029ec50977e099b7477b95b870e89",
+   "request": {},
+   "requested_by": "127.0.0.1:38442",
+   "cell": null,
+   "raw_root": null,
+   "created_at": 1790261385.074954,
+   "started_at": 1790261385.0941603,
+   "ended_at": 1790261385.1354227,
+   "ndt_pid": 2101684,
+   "ndt_pgid": 2101684,
+   "stdout_bytes": 228,
+   "stderr_bytes": 0,
+   "rc_class": "ok",
+   "meaning": "released, or there was no claim to release"
+  },
+  {
+   "id": "20260924T144944Z-63ab51",
+   "kind": "apps.stop",
+   "argv": [
+    "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt",
+    "apps",
+    "stop",
+    "nsr"
+   ],
+   "state": "finished",
+   "rc": 2,
+   "owner": "ndt-serve-0924",
+   "ndt_sha256": "cb134ccc7af9577a3a4ef3e71e64e238817029ec50977e099b7477b95b870e89",
+   "request": {},
+   "requested_by": "127.0.0.1:38404",
+   "cell": null,
+   "raw_root": null,
+   "created_at": 1790261384.665723,
+   "started_at": 1790261384.6851234,
+   "ended_at": 1790261384.8706808,
+   "ndt_pid": 2101625,
+   "ndt_pgid": 2101625,
+   "stdout_bytes": 336,
+   "stderr_bytes": 0,
+   "rc_class": "nothing",
+   "meaning": "there was nothing to stop -- this is NOT a usage error for this verb"
+  },
+  {
+   "id": "20260924T144941Z-6e090e",
+   "kind": "down",
+   "argv": [
+    "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt",
+    "down"
+   ],
+   "state": "finished",
+   "rc": 0,
+   "owner": "ndt-serve-0924",
+   "ndt_sha256": "cb134ccc7af9577a3a4ef3e71e64e238817029ec50977e099b7477b95b870e89",
+   "request": {},
+   "requested_by": "127.0.0.1:49170",
+   "cell": null,
+   "raw_root": null,
+   "created_at": 1790261381.8505132,
+   "started_at": 1790261381.8685162,
+   "ended_at": 1790261384.5436032,
+   "ndt_pid": 2101025,
+   "ndt_pgid": 2101025,
+   "stdout_bytes": 1325,
+   "stderr_bytes": 0,
+   "rc_class": "ok",
+   "meaning": "the teardown finished and the machine verified clean"
+  },
+  {
+   "id": "20260924T144941Z-33c546",
+   "kind": "claim",
+   "argv": [
+    "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt",
+    "claim",
+    "15",
+    "ndt-serve-0924 judge re-checks: rc 3 / rc 2 / rc 5"
+   ],
+   "state": "finished",
+   "rc": 0,
+   "owner": "ndt-serve-0924",
+   "ndt_sha256": "cb134ccc7af9577a3a4ef3e71e64e238817029ec50977e099b7477b95b870e89",
+   "request": {
+    "minutes": 15,
+    "note": "ndt-serve-0924 judge re-checks: rc 3 / rc 2 / rc 5"
+   },
+   "requested_by": "127.0.0.1:49142",
+   "cell": null,
+   "raw_root": null,
+   "created_at": 1790261381.6407318,
+   "started_at": 1790261381.6661124,
+   "ended_at": 1790261381.7202692,
+   "ndt_pid": 2100966,
+   "ndt_pgid": 2100966,
+   "stdout_bytes": 200,
+   "stderr_bytes": 0,
+   "rc_class": "ok",
+   "meaning": "the claim is yours"
+  },
+  {
+   "id": "20260924T142551Z-40880f",
+   "kind": "release",
+   "argv": [
+    "/home/adam/.local/bin/ndt",
+    "release"
+   ],
+   "state": "finished",
+   "rc": 0,
+   "owner": "ndt-serve-0924",
+   "ndt_sha256": "cb134ccc7af9577a3a4ef3e71e64e238817029ec50977e099b7477b95b870e89",
+   "request": {
+    "guided": "g20260924T142521Z-ad027d"
+   },
+   "requested_by": "127.0.0.1:36772",
+   "cell": null,
+   "raw_root": null,
+   "created_at": 1790259951.170245,
+   "started_at": 1790259951.1916277,
+   "ended_at": 1790259951.2347631,
+   "ndt_pid": 2040133,
+   "ndt_pgid": 2040133,
+   "stdout_bytes": 228,
+   "stderr_bytes": 0,
+   "rc_class": "ok",
+   "meaning": "released, or there was no claim to release"
+  },
+  {
+   "id": "20260924T142523Z-a4c732",
+   "kind": "cells.run",
+   "argv": [
+    "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/live_cells/run_cells.sh",
+    "--cell",
+    "up_target_names_a_readable_model",
+    "--raw-root",
+    "/home/adam/.local/state/ndt-serve/cells-raw/up_target_names_a_readable_model-488bd102"
+   ],
+   "state": "finished",
+   "rc": 0,
+   "owner": "ndt-serve-0924",
+   "ndt_sha256": "cb134ccc7af9577a3a4ef3e71e64e238817029ec50977e099b7477b95b870e89",
+   "request": {
+    "guided": "g20260924T142521Z-ad027d"
+   },
+   "requested_by": "127.0.0.1:38354",
+   "cell": "up_target_names_a_readable_model",
+   "raw_root": "/home/adam/.local/state/ndt-serve/cells-raw/up_target_names_a_readable_model-488bd102",
+   "created_at": 1790259923.9644024,
+   "started_at": 1790259923.9824882,
+   "ended_at": 1790259949.9614387,
+   "ndt_pid": 2036600,
+   "ndt_pgid": 2036600,
+   "stdout_bytes": 1500,
+   "stderr_bytes": 0,
+   "rc_class": "see-verdict",
+   "meaning": "the cell PASSED or was SKIPPED -- read cell_verdict; SKIP is not a pass"
+  },
+  {
+   "id": "20260924T142522Z-e9ec6c",
+   "kind": "claim",
+   "argv": [
+    "/home/adam/.local/bin/ndt",
+    "claim",
+    "30",
+    "guided walk g20260924T142521Z-ad027d (up_target_names_a_readable_model)"
+   ],
+   "state": "finished",
+   "rc": 0,
+   "owner": "ndt-serve-0924",
+   "ndt_sha256": "cb134ccc7af9577a3a4ef3e71e64e238817029ec50977e099b7477b95b870e89",
+   "request": {
+    "guided": "g20260924T142521Z-ad027d"
+   },
+   "requested_by": "127.0.0.1:42692",
+   "cell": null,
+   "raw_root": null,
+   "created_at": 1790259922.7292833,
+   "started_at": 1790259922.7523057,
+   "ended_at": 1790259922.8318481,
+   "ndt_pid": 2036242,
+   "ndt_pgid": 2036242,
+   "stdout_bytes": 221,
+   "stderr_bytes": 0,
+   "rc_class": "ok",
+   "meaning": "the claim is yours"
+  },
+  {
+   "id": "20260924T142510Z-cf5bef",
+   "kind": "cells.run",
+   "argv": [
+    "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/live_cells/run_cells.sh",
+    "--cell",
+    "help_drops_deleted_claims",
+    "--raw-root",
+    "/home/adam/.local/state/ndt-serve/cells-raw/help_drops_deleted_claims-96a8709a"
+   ],
+   "state": "finished",
+   "rc": 0,
+   "owner": "ndt-serve-0924",
+   "ndt_sha256": "cb134ccc7af9577a3a4ef3e71e64e238817029ec50977e099b7477b95b870e89",
+   "request": {
+    "guided": "g20260924T142509Z-dd4f41"
+   },
+   "requested_by": "127.0.0.1:37466",
+   "cell": "help_drops_deleted_claims",
+   "raw_root": "/home/adam/.local/state/ndt-serve/cells-raw/help_drops_deleted_claims-96a8709a",
+   "created_at": 1790259910.551938,
+   "started_at": 1790259910.572562,
+   "ended_at": 1790259910.867223,
+   "ndt_pid": 2033827,
+   "ndt_pgid": 2033827,
+   "stdout_bytes": 1100,
+   "stderr_bytes": 0,
+   "rc_class": "see-verdict",
+   "meaning": "the cell PASSED or was SKIPPED -- read cell_verdict; SKIP is not a pass"
+  },
+  {
+   "id": "20260924T140216Z-f94e05",
+   "kind": "release",
+   "argv": [
+    "/home/adam/.local/bin/ndt",
+    "release"
+   ],
+   "state": "finished",
+   "rc": 0,
+   "owner": "ndt-serve-0924",
+   "ndt_sha256": "cb134ccc7af9577a3a4ef3e71e64e238817029ec50977e099b7477b95b870e89",
+   "request": {},
+   "requested_by": "127.0.0.1:50882",
+   "cell": null,
+   "raw_root": null,
+   "created_at": 1790258536.165685,
+   "started_at": 1790258536.183005,
+   "ended_at": 1790258536.221738,
+   "ndt_pid": 1618280,
+   "ndt_pgid": 1618280,
+   "stdout_bytes": 228,
+   "stderr_bytes": 0,
+   "rc_class": "ok",
+   "meaning": "released, or there was no claim to release"
+  },
+  {
+   "id": "20260924T140200Z-e4e9d7",
+   "kind": "down",
+   "argv": [
+    "/home/adam/.local/bin/ndt",
+    "down"
+   ],
+   "state": "finished",
+   "rc": 0,
+   "owner": "ndt-serve-0924",
+   "ndt_sha256": "cb134ccc7af9577a3a4ef3e71e64e238817029ec50977e099b7477b95b870e89",
+   "request": {},
+   "requested_by": "127.0.0.1:45300",
+   "cell": null,
+   "raw_root": null,
+   "created_at": 1790258520.9187536,
+   "started_at": 1790258520.9459162,
+   "ended_at": 1790258535.9816897,
+   "ndt_pid": 1616804,
+   "ndt_pgid": 1616804,
+   "stdout_bytes": 1745,
+   "stderr_bytes": 0,
+   "rc_class": "ok",
+   "meaning": "the teardown finished and the machine verified clean"
+  },
+  {
+   "id": "20260924T140153Z-ac3ca6",
+   "kind": "apps.stop",
+   "argv": [
+    "/home/adam/.local/bin/ndt",
+    "apps",
+    "stop",
+    "nsr"
+   ],
+   "state": "finished",
+   "rc": 0,
+   "owner": "ndt-serve-0924",
+   "ndt_sha256": "cb134ccc7af9577a3a4ef3e71e64e238817029ec50977e099b7477b95b870e89",
+   "request": {},
+   "requested_by": "127.0.0.1:45268",
+   "cell": null,
+   "raw_root": null,
+   "created_at": 1790258513.8919277,
+   "started_at": 1790258513.9085956,
+   "ended_at": 1790258520.8513243,
+   "ndt_pid": 1616535,
+   "ndt_pgid": 1616535,
+   "stdout_bytes": 981,
+   "stderr_bytes": 5378,
+   "rc_class": "ok",
+   "meaning": "it was running, and it is not now"
+  },
+  {
+   "id": "20260924T140147Z-e383c4",
+   "kind": "apps.start",
+   "argv": [
+    "/home/adam/.local/bin/ndt",
+    "apps",
+    "nsr"
+   ],
+   "state": "finished",
+   "rc": 0,
+   "owner": "ndt-serve-0924",
+   "ndt_sha256": "cb134ccc7af9577a3a4ef3e71e64e238817029ec50977e099b7477b95b870e89",
+   "request": {},
+   "requested_by": "127.0.0.1:43176",
+   "cell": null,
+   "raw_root": null,
+   "created_at": 1790258507.230002,
+   "started_at": 1790258507.2464542,
+   "ended_at": 1790258508.3241332,
+   "ndt_pid": 1616079,
+   "ndt_pgid": 1616079,
+   "stdout_bytes": 85,
+   "stderr_bytes": 0,
+   "rc_class": "ok",
+   "meaning": "started, or it was already running"
+  },
+  {
+   "id": "20260924T140135Z-6ec71d",
+   "kind": "up",
+   "argv": [
+    "/home/adam/.local/bin/ndt",
+    "up",
+    "4"
+   ],
+   "state": "finished",
+   "rc": 0,
+   "owner": "ndt-serve-0924",
+   "ndt_sha256": "cb134ccc7af9577a3a4ef3e71e64e238817029ec50977e099b7477b95b870e89",
+   "request": {
+    "hosts": 4,
+    "plane": "ovs"
+   },
+   "requested_by": "127.0.0.1:37480",
+   "cell": null,
+   "raw_root": null,
+   "created_at": 1790258495.9314532,
+   "started_at": 1790258495.9520924,
+   "ended_at": 1790258505.4535136,
+   "ndt_pid": 1614309,
+   "ndt_pgid": 1614309,
+   "stdout_bytes": 1245,
+   "stderr_bytes": 0,
+   "rc_class": "ok",
+   "meaning": "the fabric came up and verified"
+  },
+  {
+   "id": "20260924T140135Z-becba4",
+   "kind": "claim",
+   "argv": [
+    "/home/adam/.local/bin/ndt",
+    "claim",
+    "30",
+    "ndt-serve-0924 live demo over the API"
+   ],
+   "state": "finished",
+   "rc": 0,
+   "owner": "ndt-serve-0924",
+   "ndt_sha256": "cb134ccc7af9577a3a4ef3e71e64e238817029ec50977e099b7477b95b870e89",
+   "request": {
+    "minutes": 30,
+    "note": "ndt-serve-0924 live demo over the API"
+   },
+   "requested_by": "127.0.0.1:37442",
+   "cell": null,
+   "raw_root": null,
+   "created_at": 1790258495.7169554,
+   "started_at": 1790258495.743067,
+   "ended_at": 1790258495.8168216,
+   "ndt_pid": 1614264,
+   "ndt_pgid": 1614264,
+   "stdout_bytes": 187,
+   "stderr_bytes": 0,
+   "rc_class": "ok",
+   "meaning": "the claim is yours"
+  }
+ ]
+}

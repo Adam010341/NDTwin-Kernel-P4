@@ -1,0 +1,21 @@
+# 2026-09-26T08:45:00+08:00 head f643b884753bae4013f68831d73fc6497287a9cc (SURVIVOR run: the merge 48209682289a2263588673b823c5ec1a71440f74's own test, verbs.py and ndt, verbs.py mutated 8775->8315)
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-ndt-serve-0926
+# bash /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/red_8315_old.sh
+all files from 48209682289a2263588673b823c5ec1a71440f74 (git archive); mutation applied to verbs.py:
+  224:    "apps.start": {
+  268:    "apps.start": {"code": [(8771, 0, "return 0"), (8315, 1, "return 1"), (8848, 1, "return 1")]},
+ndt:8315 in that ndt is: return 1
+sha256:
+  847a2bbaaf248d5b7b1e8a9ef1414a8e4b786027f58b70c76230ee38a845ba15  tools/ndt_serve/verbs.py
+  7ecd2f1282b68e698f19ef2b18fb6421bc3a090a2e04b9142f4458744113012d  tools/test_workflow/ndt
+  e9963990cbe814c9f772f15dbedd17f3783ac2377d3cdd000c743ade9715169e  tests/python/test_ndt_serve.py
+
+test_code_sourced_tables_are_in_ndt (__main__.RcProvenance.test_code_sourced_tables_are_in_ndt) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.040s
+
+OK
+
+RESULT: the 8315 mutation SURVIVED the merged tree's RcProvenance (the case stayed green)
+rc=0

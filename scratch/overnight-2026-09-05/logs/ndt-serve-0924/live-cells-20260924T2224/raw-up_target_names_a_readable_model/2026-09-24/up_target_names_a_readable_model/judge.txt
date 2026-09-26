@@ -1,0 +1,10 @@
+ASSERT ok   h4nl_up_log_present                    up.log present
+ASSERT ok   h4nl_up_rc_is_0                        = [0]
+ASSERT ok   h4nl_model_counts_were_readable        up.log does not contain it
+ASSERT ok   h4nl_no_incomplete_rollback            up.log does not contain it
+ASSERT ok   h4nl_kernel_did_not_die_starting       up.log does not contain it
+ASSERT ok   h4nl_target_record_written             up.target present
+ASSERT ok   h4nl_topology_sha_is_a_reading         up.target matches
+ASSERT ok   h4nl_model_hosts_were_counted          up.target matches
+ASSERT ok   h4nl_topology_path_is_one_line         up.target matches
+CELL: PASS up_target_names_a_readable_model tag=ndt kernel=be70b5dd32356847 ndt=3273df8b0751a777aa26e843752d97782868e771 at=2026-09-24T22:25:24+08:00

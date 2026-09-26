@@ -1,0 +1,218 @@
+# 2026-09-24T23:18:33+08:00 new tests against e28bcfe4's service code
+test_cells_are_the_grids_own_list (__main__.CellsCatalog.test_cells_are_the_grids_own_list) ... FAIL
+test_fixture_raw_cannot_leave_the_fixture (__main__.CellsCatalog.test_fixture_raw_cannot_leave_the_fixture) ... ok
+test_new_is_judged_and_shows_the_green (__main__.CellsCatalog.test_new_is_judged_and_shows_the_green) ... ok
+test_old_is_judged_read_only_and_shows_the_red (__main__.CellsCatalog.test_old_is_judged_read_only_and_shows_the_red) ... ok
+test_unknown_cell_is_refused_and_runs_nothing (__main__.CellsCatalog.test_unknown_cell_is_refused_and_runs_nothing) ... ok
+test_a_cell_that_writes_shared_state_needs_confirmation (__main__.CellsRun.test_a_cell_that_writes_shared_state_needs_confirmation)
+Judge r2 finding 2: this cell parks host_count_override at 128 and writes it back; killed ... ERROR
+test_a_judge_past_its_timeout_is_stopped (__main__.CellsRun.test_a_judge_past_its_timeout_is_stopped)
+Judge r2 finding 4: the grid's calls had subprocess.run(timeout=60) -- a kill of the child ... FAIL
+test_cell_run_holds_the_slot (__main__.CellsRun.test_cell_run_holds_the_slot) ... ok
+test_cell_run_is_a_job_with_the_grids_own_argv (__main__.CellsRun.test_cell_run_is_a_job_with_the_grids_own_argv) ... ok
+test_cell_run_marks_red_to_green (__main__.CellsRun.test_cell_run_marks_red_to_green) ... ok
+test_cell_run_needs_the_token (__main__.CellsRun.test_cell_run_needs_the_token) ... ok
+test_cell_run_restore_failure_is_harness (__main__.CellsRun.test_cell_run_restore_failure_is_harness) ... ok
+test_cell_run_skip_is_not_a_pass (__main__.CellsRun.test_cell_run_skip_is_not_a_pass) ... ok
+test_job_raw_cannot_leave_the_raw_root (__main__.CellsRun.test_job_raw_cannot_leave_the_raw_root) ... ok
+test_lab_cell_run_needs_your_claim (__main__.CellsRun.test_lab_cell_run_needs_your_claim)
+Judge r2 finding 1: with ndt's OVS `up` ignoring a foreign claim, a lab cell run without a ... ERROR
+test_offline_cell_run_does_not_ask_for_the_claim (__main__.CellsRun.test_offline_cell_run_does_not_ask_for_the_claim) ... ok
+test_a_run_with_no_verdict_line_blocks (__main__.GuidedWalk.test_a_run_with_no_verdict_line_blocks) ... ok
+test_failed_restore_blocks_and_never_releases (__main__.GuidedWalk.test_failed_restore_blocks_and_never_releases) ... FAIL
+test_get_does_not_move_a_walk (__main__.GuidedWalk.test_get_does_not_move_a_walk) ... ok
+test_happy_walk_runs_exactly_the_expected_calls (__main__.GuidedWalk.test_happy_walk_runs_exactly_the_expected_calls) ... FAIL
+test_next_needs_the_token (__main__.GuidedWalk.test_next_needs_the_token) ... ok
+test_old_that_no_longer_fails_blocks_the_walk (__main__.GuidedWalk.test_old_that_no_longer_fails_blocks_the_walk) ... ok
+test_red_cell_still_reaches_the_verdict (__main__.GuidedWalk.test_red_cell_still_reaches_the_verdict) ... FAIL
+test_refused_claim_blocks_the_run (__main__.GuidedWalk.test_refused_claim_blocks_the_run) ... ok
+test_the_lab_is_released_before_the_verdict (__main__.GuidedWalk.test_the_lab_is_released_before_the_verdict) ... ok
+test_the_verdict_is_adams (__main__.GuidedWalk.test_the_verdict_is_adams) ... ok
+test_walk_for_a_shared_state_cell_needs_confirmation (__main__.GuidedWalk.test_walk_for_a_shared_state_cell_needs_confirmation) ... FAIL
+test_walk_run_rechecks_the_claim (__main__.GuidedWalk.test_walk_run_rechecks_the_claim)
+Judge r2 finding 3, second half: the walk's claim step passed, and by its run step the ... FAIL
+test_walk_steps_for_a_lab_cell (__main__.GuidedWalk.test_walk_steps_for_a_lab_cell) ... ok
+test_walk_steps_for_an_offline_cell (__main__.GuidedWalk.test_walk_steps_for_an_offline_cell) ... ok
+test_walk_survives_a_restart (__main__.GuidedWalk.test_walk_survives_a_restart) ... ok
+test_the_registry_matches_the_real_grid (__main__.SharedStateRegistry.test_the_registry_matches_the_real_grid) ... ERROR
+
+======================================================================
+ERROR: test_a_cell_that_writes_shared_state_needs_confirmation (__main__.CellsRun.test_a_cell_that_writes_shared_state_needs_confirmation)
+Judge r2 finding 2: this cell parks host_count_override at 128 and writes it back; killed
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-0924/tests/python/test_ndt_serve_cells.py", line 298, in test_a_cell_that_writes_shared_state_needs_confirmation
+    self.assertIn("host_count_override", by[H4]["writes_shared_state"] or "")
+                                         ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'writes_shared_state'
+
+======================================================================
+ERROR: test_lab_cell_run_needs_your_claim (__main__.CellsRun.test_lab_cell_run_needs_your_claim)
+Judge r2 finding 1: with ndt's OVS `up` ignoring a foreign claim, a lab cell run without a
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-0924/tests/python/test_ndt_serve_cells.py", line 282, in test_lab_cell_run_needs_your_claim
+    self.assertEqual((st, j["error"]), (409, "claim"), text)
+                          ~^^^^^^^^^
+KeyError: 'error'
+
+======================================================================
+ERROR: test_the_registry_matches_the_real_grid (__main__.SharedStateRegistry.test_the_registry_matches_the_real_grid)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-0924/tests/python/test_ndt_serve_cells.py", line 589, in test_the_registry_matches_the_real_grid
+    if any(k in text for k in cells.SHARED_STATE_FILES):
+                              ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'cells' has no attribute 'SHARED_STATE_FILES'
+
+======================================================================
+FAIL: test_cells_are_the_grids_own_list (__main__.CellsCatalog.test_cells_are_the_grids_own_list)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-0924/tests/python/test_ndt_serve_cells.py", line 212, in test_cells_are_the_grids_own_list
+    self.assertEqual(sorted(by), ["lab_cell", "offline_cell"])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: ['lab_cell', 'offline_cell', 'up_refuses_a_model_of_another_network'] != ['lab_cell', 'offline_cell']
+
+First list contains 1 additional elements.
+First extra element 2:
+'up_refuses_a_model_of_another_network'
+
+- ['lab_cell', 'offline_cell', 'up_refuses_a_model_of_another_network']
++ ['lab_cell', 'offline_cell']
+
+======================================================================
+FAIL: test_a_judge_past_its_timeout_is_stopped (__main__.CellsRun.test_a_judge_past_its_timeout_is_stopped)
+Judge r2 finding 4: the grid's calls had subprocess.run(timeout=60) -- a kill of the child
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-0924/tests/python/test_ndt_serve_cells.py", line 321, in test_a_judge_past_its_timeout_is_stopped
+    self.assertLess(time.monotonic() - t0, 10)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 20.085210882003594 not less than 10
+
+======================================================================
+FAIL: test_failed_restore_blocks_and_never_releases (__main__.GuidedWalk.test_failed_restore_blocks_and_never_releases)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-0924/tests/python/test_ndt_serve_cells.py", line 461, in test_failed_restore_blocks_and_never_releases
+    self.assertEqual([c["argv"][0] for c in self.s.calls()], ["status", "claim", "status"])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: ['status', 'claim'] != ['status', 'claim', 'status']
+
+Second list contains 1 additional elements.
+First extra element 2:
+'status'
+
+- ['status', 'claim']
++ ['status', 'claim', 'status']
+?                   ++++++++++
+
+
+======================================================================
+FAIL: test_happy_walk_runs_exactly_the_expected_calls (__main__.GuidedWalk.test_happy_walk_runs_exactly_the_expected_calls)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-0924/tests/python/test_ndt_serve_cells.py", line 421, in test_happy_walk_runs_exactly_the_expected_calls
+    self.assertEqual([c["argv"][0] for c in self.s.calls()], ["status", "claim", "status", "release"])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: ['status', 'claim', 'release'] != ['status', 'claim', 'status', 'release']
+
+First differing element 2:
+'release'
+'status'
+
+Second list contains 1 additional elements.
+First extra element 3:
+'release'
+
+- ['status', 'claim', 'release']
++ ['status', 'claim', 'status', 'release']
+?                    ++++++++++
+
+
+======================================================================
+FAIL: test_red_cell_still_reaches_the_verdict (__main__.GuidedWalk.test_red_cell_still_reaches_the_verdict)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-0924/tests/python/test_ndt_serve_cells.py", line 474, in test_red_cell_still_reaches_the_verdict
+    self.assertEqual([c["argv"][0] for c in self.s.calls()], ["status", "claim", "status", "release"],
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                     "a red cell whose restore passed still gives the lab back")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: ['status', 'claim', 'release'] != ['status', 'claim', 'status', 'release']
+
+First differing element 2:
+'release'
+'status'
+
+Second list contains 1 additional elements.
+First extra element 3:
+'release'
+
+- ['status', 'claim', 'release']
++ ['status', 'claim', 'status', 'release']
+?                    ++++++++++
+ : a red cell whose restore passed still gives the lab back
+
+======================================================================
+FAIL: test_walk_for_a_shared_state_cell_needs_confirmation (__main__.GuidedWalk.test_walk_for_a_shared_state_cell_needs_confirmation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-0924/tests/python/test_ndt_serve_cells.py", line 506, in test_walk_for_a_shared_state_cell_needs_confirmation
+    self.assertEqual((st, j.get("error")), (400, "confirm"))
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Tuples differ: (201, None) != (400, 'confirm')
+
+First differing element 0:
+201
+400
+
+- (201, None)
++ (400, 'confirm')
+
+======================================================================
+FAIL: test_walk_run_rechecks_the_claim (__main__.GuidedWalk.test_walk_run_rechecks_the_claim)
+Judge r2 finding 3, second half: the walk's claim step passed, and by its run step the
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-0924/tests/python/test_ndt_serve_cells.py", line 500, in test_walk_run_rechecks_the_claim
+    self.assertEqual(w["steps"][w["current"]]["step"], "run")
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'release' != 'run'
+- release
++ run
+
+
+----------------------------------------------------------------------
+Ran 32 tests in 33.295s
+
+FAILED (failures=7, errors=3)
+rc=1
+test_no_process_is_found_or_signalled_by_name (__main__.NoPatternKill.test_no_process_is_found_or_signalled_by_name)
+Through the tree's own instrument, not a word list of this file's: a word list here ... ok
+test_the_only_signal_sent_is_to_a_group_this_service_created (__main__.NoPatternKill.test_the_only_signal_sent_is_to_a_group_this_service_created)
+run_read's timeout path is the one place a signal is sent; it must name the pid of the ... FAIL
+
+======================================================================
+FAIL: test_the_only_signal_sent_is_to_a_group_this_service_created (__main__.NoPatternKill.test_the_only_signal_sent_is_to_a_group_this_service_created)
+run_read's timeout path is the one place a signal is sent; it must name the pid of the
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-0924/tests/python/test_ndt_serve.py", line 918, in test_the_only_signal_sent_is_to_a_group_this_service_created
+    self.assertEqual(implicit, [])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+AssertionError: Lists differ: [('cells.py', 109)] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+('cells.py', 109)
+
+- [('cells.py', 109)]
++ []
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.151s
+
+FAILED (failures=1)
+rc=1

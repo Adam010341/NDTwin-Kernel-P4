@@ -1,0 +1,4 @@
+# 2026-09-26T08:07:43+08:00 head 48209682289a2263588673b823c5ec1a71440f74 (merge of feat/ndt-serve-0924 1a1944ea into trunk 14554090)
+# python3 tests/shell/check_test_tmpdirs.py
+check_test_tmpdirs: 359 file(s) scanned, 0 fixed temp paths
+rc=0

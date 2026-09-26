@@ -1,0 +1,36 @@
+# 2026-09-25T20:27:32+08:00 branch HEAD 1027e53a81ebf1b2b6fa192f58d1a8a71f8c595e (merge of trunk 68ace017), working tree = the renumber edit
+kind         rc     old old fn             ->    new new fn             check
+status.check 3     6486 cmd_status         ->   6939 cmd_status         ok
+status.check 0     6491 cmd_status         ->   6944 cmd_status         ok
+status.check 1     6495 cmd_status         ->   6948 cmd_status         ok
+status       0     6497 cmd_status         ->   6950 cmd_status         ok
+claim        2      748 cmd_claim          ->    753 cmd_claim          ok
+claim        2      757 cmd_claim          ->    762 cmd_claim          ok
+claim        1      782 claim_take         ->    787 claim_take         ok
+claim        1      855 claim_take         ->    860 claim_take         ok
+claim        0      857 claim_take         ->    862 claim_take         ok
+release      0      861 cmd_release        ->    866 cmd_release        ok
+release      1      866 cmd_release        ->    871 cmd_release        ok
+release      1      894 cmd_release        ->    899 cmd_release        ok
+apps.start   0     8311 app_start          ->   8771 app_start          ok
+apps.start   1     8315 app_start          ->   8775 app_start          ok   (old line number at the new head also holds 'return 1', in proc_checkout -- the trap)
+apps.start   1     8388 app_start          ->   8848 app_start          ok
+apps.stop    1     9814 cmd_apps           ->  10289 cmd_apps           ok
+apps.stop    2     9817 cmd_apps           ->  10292 cmd_apps           ok
+apps.stop    0     9820 cmd_apps           ->  10295 cmd_apps           ok
+apps.status  0     9747 cmd_apps           ->  10222 cmd_apps           ok
+anchors checked: 19, mismatches: 0
+
+== 1. RED: verbs.py of 1027e53a (old anchors) against the merged ndt (sha256 7ecd2f1282b68e69)
+FAIL: test_code_sourced_tables_are_in_ndt (__main__.RcProvenance.test_code_sourced_tables_are_in_ndt)
+AssertionError: 'return 3' not found in '    read -r state pid nsw rate < <(link_emitter_row)' : status.check rc 3: ndt:6486 is 'read -r state pid nsw rate < <(link_emitter_row)'
+Ran 4 tests in 0.042s
+FAILED (failures=1)
+
+== 2. renumbered verbs.py against trunk 68ace017's own ndt (sha256 abf41db9b97a499a) -- RcProvenance only: trunk's ndt has no 'serve' verb
+Ran 4 tests in 0.039s
+OK
+
+== 3. renumbered verbs.py against this branch's merged ndt -- RcProvenance and Entry
+Ran 8 tests in 0.363s
+OK

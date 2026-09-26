@@ -1,0 +1,33 @@
+# 2026-09-24T23:23:53+08:00 head 8f2fbb5b39f3d14c035b42ae4c2620d2a213e25f
+# timeout 3600 bash tests/shell/mutate_ndt_serve.sh
+baseline (must be green before any mutation):
+  test_ndt_serve.py: OK
+  test_ndt_serve_cells.py: OK
+
+  caught   M1: the socket binds every interface                           (test_listens_on_127_0_0_1_only went red)
+  caught   M2: the Host header is not read (DNS rebinding)                (test_foreign_host_header_is_refused went red)
+  caught   M3: the Host header's port is not compared                     (test_host_with_another_port_is_refused went red)
+  caught   M4: a request with no Host header is served                    (test_missing_host_header_is_refused went red)
+  caught   M5: a CORS header is sent                                      (test_no_cors_header_anywhere went red)
+  caught   M6: a write needs no token                                     (test_write_without_token_runs_nothing went red)
+  caught   M7: the token is also taken from the query string              (test_token_in_query_is_not_accepted went red)
+  caught   M8: the token file is world-readable                           (test_token_file_is_private went red)
+  caught   M9: the token survives a restart                               (test_token_is_new_on_every_start went red)
+  caught   M10: a cross-origin write with the token is accepted           (test_cross_origin_write_is_refused_with_token went red)
+  caught   M11: a form-shaped (simple-request) write is accepted          (test_form_shaped_write_is_refused went red)
+  caught   M12: a GET route reaches a writer                              (test_get_runs_only_read_verbs went red)
+  caught   M13: --app is not confined to the root                         (test_app_dir_outside_the_root_is_refused went red)
+  caught   M14: abspath instead of realpath (a symlink escapes the root)  (test_app_dir_symlink_out_of_the_root_is_refused went red)
+  caught   M15: an app name ndt does not know is passed on                (test_app_name_must_be_one_of_ndts went red)
+  caught   M16: the app list is this file's, not ndt's                    (test_app_names_come_from_ndt_itself went red)
+  caught   M17: the argv goes through a shell                             (test_claim_note_reaches_ndt_as_one_argv_element went red)
+  caught   M18: a newline in a claim note is passed on                    (test_claim_note_with_a_newline_is_refused went red)
+  caught   M19: unknown fields (deep, force) are ignored instead of refused (test_up_refuses_unknown_fields went red)
+  caught   M20: the P4 host enum is widened                               (test_up_refuses_values_outside_the_enums went red)
+  caught   M21: claim minutes are not type-checked                        (test_claim_minutes_are_bounded went red)
+  caught   M22: rc 5 is folded into 'dirty'                               (test_rc5_is_refused_and_not_dirty went red)
+  caught   M23: one rc table for every verb                               (test_each_verb_reads_its_own_rc_table went red)
+  caught   M24: an rc the table does not know is called dirty             (test_unknown_rc_is_not_folded went red)
+  caught   M25: the log is decoded and re-encoded                         (test_output_is_kept_byte_for_byte went red)
+  caught   M41: plain status is read with --check's table (live, 09-24 22:01) (test_plain_status_is_not_a_verdict went red)
+  caught   M26: a write waits for its job                                 (test_write_returns_before_the_job_ends went red)

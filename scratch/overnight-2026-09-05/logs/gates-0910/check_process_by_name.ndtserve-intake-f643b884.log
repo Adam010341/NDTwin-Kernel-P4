@@ -1,0 +1,6 @@
+# 2026-09-26T08:46:42+08:00 head f643b884753bae4013f68831d73fc6497287a9cc (green gate at HEAD)
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-ndt-serve-0926
+# python3 tests/shell/check_process_by_name.py
+check_process_by_name: 2 registered audit exceptions scanned (7 file(s) under them); doc/audit/** is not a scan surface otherwise
+check_process_by_name: 326 file(s) scanned, 0 site(s), 0 registered, 0 new, 0 stale
+rc=0

@@ -1,0 +1,79 @@
+{
+ "asserts": [
+  {
+   "ok": true,
+   "id": "f5_report_present",
+   "detail": "orphans.txt present",
+   "file": "orphans.txt"
+  },
+  {
+   "ok": true,
+   "id": "f5_verdict_present",
+   "detail": "verdict.txt present",
+   "file": "verdict.txt"
+  },
+  {
+   "ok": false,
+   "id": "f5_verdict_rc_is_3",
+   "detail": "expected [3] actual [0]",
+   "file": null
+  },
+  {
+   "ok": false,
+   "id": "f5_says_not_checked",
+   "detail": "verdict.txt does not contain [VERDICT: NOT CHECKED]",
+   "file": "verdict.txt"
+  },
+  {
+   "ok": false,
+   "id": "f5_does_not_say_clean",
+   "detail": "verdict.txt still contains [VERDICT: CLEAN]",
+   "file": "verdict.txt"
+  },
+  {
+   "ok": true,
+   "id": "f5_quotes_ndts_own_sentence",
+   "detail": "verdict.txt contains it",
+   "file": "verdict.txt"
+  }
+ ],
+ "verdict": {
+  "state": "FAIL",
+  "name": "orphans_blind_probes_not_checked",
+  "rest": "tag=ndt kernel=unknown ndt=bf539b577ca6af1311d6f767d430fb8b0fd2c6ca at=2026-09-11T01:0x+08:00",
+  "line": "CELL: FAIL orphans_blind_probes_not_checked tag=ndt kernel=unknown ndt=bf539b577ca6af1311d6f767d430fb8b0fd2c6ca at=2026-09-11T01:0x+08:00"
+ },
+ "skip": null,
+ "argv": [
+  "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/live_cells/orphans_blind_probes_not_checked.sh",
+  "judge",
+  "/home/adam/Desktop/NDTwin-Kernel/tests/fixtures/live_cells/orphans_blind_probes_not_checked/old"
+ ],
+ "rc": 1,
+ "stdout": "ASSERT ok   f5_report_present                      orphans.txt present\nASSERT ok   f5_verdict_present                     verdict.txt present\nASSERT FAIL f5_verdict_rc_is_3                     expected [3] actual [0]\nASSERT FAIL f5_says_not_checked                    verdict.txt does not contain [VERDICT: NOT CHECKED]\nASSERT FAIL f5_does_not_say_clean                  verdict.txt still contains [VERDICT: CLEAN]\nASSERT ok   f5_quotes_ndts_own_sentence            verdict.txt contains it\nCELL: FAIL orphans_blind_probes_not_checked tag=ndt kernel=unknown ndt=bf539b577ca6af1311d6f767d430fb8b0fd2c6ca at=2026-09-11T01:0x+08:00\n",
+ "stderr": "",
+ "fixture": "old",
+ "dir": "tests/fixtures/live_cells/orphans_blind_probes_not_checked/old",
+ "files": [
+  "EXPECTED-FAILS",
+  "PROVENANCE.md",
+  "ids.txt",
+  "orphans.rc",
+  "orphans.txt",
+  "verdict.rc",
+  "verdict.txt"
+ ],
+ "failing": [
+  "f5_does_not_say_clean",
+  "f5_says_not_checked",
+  "f5_verdict_rc_is_3"
+ ],
+ "expected_fails": [
+  "f5_does_not_say_clean",
+  "f5_says_not_checked",
+  "f5_verdict_rc_is_3"
+ ],
+ "failing_matches_expected": true,
+ "provenance": "# old/ -- orphans_blind_probes_not_checked\n\n[Co-developed with claude code -- Adam]\n\n**Kind: replay of the pre-fix tool.** Not a captured log -- F-OFFLINE-1 \u00a71.11 measured this with\na report it had built from `ndt`'s own two print sites, and that same report is what the cell's\n`observe` writes today, so the input is identical on both sides and only the tool differs.\n\n| file | where it came from |\n|---|---|\n| `orphans.txt` | the cell's own `observe` (byte-identical to the `all_blind` fixture of `tests/shell/test_orphans_verdict.sh`, built from `ndt:5442` and `ndt:5561-5562`) |\n| `orphans.rc` | `5` -- what `ndt apps orphans` returns for this report (`residue_verdict`, `ndt:5349`) |\n| `verdict.txt`, `verdict.rc` | `bash <ded00d06^ orphans_verdict.sh> - 5 < orphans.txt`, run 2026-09-11 13:0x. Agrees line for line with the output quoted in `hunt-0911/F-OFFLINE-1-REPORT.md` \u00a71.11 |\n| `ids.txt` | the blob shas of `tools/test_workflow/{ndt,orphans_verdict.sh}` at `ded00d06^` |\n\n**The finding is carried by all three failing assertions.** `f5_verdict_rc_is_3` (0 against 3),\n`f5_says_not_checked` and `f5_does_not_say_clean` are content readings of a file this fixture has.\nThere is no fixture gap here.\n",
+ "gap_note": "A failing assertion on old/ is not automatically the finding: some old/ directories are thinner than the cell's raw layout, and an assertion that fails with 'no such raw file' may be a fixture gap, not evidence. PROVENANCE.md names the ones that carry the finding (tests/fixtures/live_cells/README.md, rule 2)."
+}

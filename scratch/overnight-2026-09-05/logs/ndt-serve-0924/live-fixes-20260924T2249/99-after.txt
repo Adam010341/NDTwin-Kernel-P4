@@ -1,0 +1,13 @@
+# 2026-09-24T22:53:40+08:00
+# host_count_override:
+-128
++4
+# ndt status:
+lab
+  claim          none
+  prev claim     ndt-serve-0924 (until 23:22:32), superseded 2026-09-24 22:53:12  (.test_run/lab.claim.prev)
+                 nothing holds the lab now: that claim was released or replaced
+                 it said: down at 2026-09-24 22:53:12; verified clean; claim kept
+  measuring      nothing
+# files under logs/ndt-serve-0924/ containing the current token (expect 0):
+0

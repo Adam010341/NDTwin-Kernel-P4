@@ -1,0 +1,14 @@
+# 2026-09-24T22:49:18+08:00
+branch HEAD c836cff081ac5e656f4137003384406036bbd315
+main checkout HEAD fd7382a308df63305d2dbd08f603cae494c2103a
+cb134ccc7af9577a3a4ef3e71e64e238817029ec50977e099b7477b95b870e89  /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt
+# host_count_override (main checkout, uncommitted):
+-128
++4
+# ndt status (claim/measuring):
+lab
+  claim          none
+  prev claim     ndt-serve-0924 (until 22:55:22), superseded 2026-09-24 22:25:48  (.test_run/lab.claim.prev)
+                 nothing holds the lab now: that claim was released or replaced
+                 it said: down at 2026-09-24 22:25:48; verified clean; claim kept
+  measuring      nothing

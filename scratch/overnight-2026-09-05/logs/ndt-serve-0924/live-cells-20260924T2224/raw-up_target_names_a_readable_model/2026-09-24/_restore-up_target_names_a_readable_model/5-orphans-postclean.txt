@@ -1,0 +1,12 @@
+  ok  no untracked app processes
+
+stack
+    stack: kernel=down dataplane=none bmv2=0 mininet=0 proxy=down verdict=whole-down
+    no kernel and no data plane: nothing of the stack is up.
+
+rules-in-window (nothing below is deleted)
+  !!  the kernel is not up (:8000 closed) -- rules and locks CANNOT be checked.
+  !!  this is not 'the lab is clean'. it is 'nobody asked'. (KNOWN-ISSUES G-12)
+  !!  NOT CHECKED: the rules-in-window question could not be answered -- rc 5.
+  !!    this is not 'the network is clean'. see the lines above for which
+  !!    reading failed. (KNOWN-ISSUES G-12)

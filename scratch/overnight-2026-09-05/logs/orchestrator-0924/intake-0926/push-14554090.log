@@ -1,0 +1,20 @@
+# push trunk + trunk:main 14554090 2026-09-26T08:05:17+08:00
+14554090df590c88c1d69dda01d9922b4616db1b
+To github.com:Adam010341/NDTwin-Kernel-P4.git
+   dd7e2fcf..14554090  trunk -> main
+   dd7e2fcf..14554090  trunk -> trunk
+remote: 
+remote: GitHub found 2 vulnerabilities on ndtwin-lab/NDTwin-Kernel-P4's default branch (2 high). To find out more, visit:        
+remote:      https://github.com/ndtwin-lab/NDTwin-Kernel-P4/security/dependabot        
+remote: 
+To github.com:ndtwin-lab/NDTwin-Kernel-P4.git
+   dd7e2fcf..14554090  trunk -> main
+   dd7e2fcf..14554090  trunk -> trunk
+# push rc=0
+# unauthenticated readback
+-- https://github.com/ndtwin-lab/NDTwin-Kernel-P4.git
+14554090df590c88c1d69dda01d9922b4616db1b	refs/heads/main
+14554090df590c88c1d69dda01d9922b4616db1b	refs/heads/trunk
+-- https://github.com/Adam010341/NDTwin-Kernel-P4.git
+14554090df590c88c1d69dda01d9922b4616db1b	refs/heads/main
+14554090df590c88c1d69dda01d9922b4616db1b	refs/heads/trunk

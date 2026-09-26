@@ -1,0 +1,94 @@
+{
+ "asserts": [
+  {
+   "ok": true,
+   "id": "a1r_injection_succeeded",
+   "detail": "tc_before.txt contains it",
+   "file": "tc_before.txt"
+  },
+  {
+   "ok": true,
+   "id": "a1r_http_is_409",
+   "detail": "= [409]",
+   "file": null
+  },
+  {
+   "ok": true,
+   "id": "a1r_body_names_foreign_netem",
+   "detail": "recovery.body contains it",
+   "file": "recovery.body"
+  },
+  {
+   "ok": true,
+   "id": "a1r_body_says_nothing_changed",
+   "detail": "recovery.body contains it",
+   "file": "recovery.body"
+  },
+  {
+   "ok": true,
+   "id": "a1r_no_qdisc_was_deleted",
+   "detail": "recovery.body does not contain it",
+   "file": "recovery.body"
+  },
+  {
+   "ok": true,
+   "id": "a1r_did_not_claim_a_recovery",
+   "detail": "recovery.body does not contain it",
+   "file": "recovery.body"
+  },
+  {
+   "ok": true,
+   "id": "a1r_foreign_netem_survived",
+   "detail": "tc_after.txt contains it",
+   "file": "tc_after.txt"
+  },
+  {
+   "ok": true,
+   "id": "a1r_far_end_untouched",
+   "detail": "tc_after_far.txt does not contain it",
+   "file": "tc_after_far.txt"
+  },
+  {
+   "ok": true,
+   "id": "a1r_cell_left_no_netem",
+   "detail": "netem_final.txt contains it",
+   "file": "netem_final.txt"
+  }
+ ],
+ "verdict": {
+  "state": "PASS",
+  "name": "recovery_refuses_foreign_netem",
+  "rest": "tag=kernel kernel=048b842efa16178a ndt=516e28a0a98585eb1e6be548b72e10bd0360dd14 at=2026-09-11T13:33:29+08:00",
+  "line": "CELL: PASS recovery_refuses_foreign_netem tag=kernel kernel=048b842efa16178a ndt=516e28a0a98585eb1e6be548b72e10bd0360dd14 at=2026-09-11T13:33:29+08:00"
+ },
+ "skip": null,
+ "argv": [
+  "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/live_cells/recovery_refuses_foreign_netem.sh",
+  "judge",
+  "/home/adam/Desktop/NDTwin-Kernel/tests/fixtures/live_cells/recovery_refuses_foreign_netem/new"
+ ],
+ "rc": 0,
+ "stdout": "ASSERT ok   a1r_injection_succeeded                tc_before.txt contains it\nASSERT ok   a1r_http_is_409                        = [409]\nASSERT ok   a1r_body_names_foreign_netem           recovery.body contains it\nASSERT ok   a1r_body_says_nothing_changed          recovery.body contains it\nASSERT ok   a1r_no_qdisc_was_deleted               recovery.body does not contain it\nASSERT ok   a1r_did_not_claim_a_recovery           recovery.body does not contain it\nASSERT ok   a1r_foreign_netem_survived             tc_after.txt contains it\nASSERT ok   a1r_far_end_untouched                  tc_after_far.txt does not contain it\nASSERT ok   a1r_cell_left_no_netem                 netem_final.txt contains it\nCELL: PASS recovery_refuses_foreign_netem tag=kernel kernel=048b842efa16178a ndt=516e28a0a98585eb1e6be548b72e10bd0360dd14 at=2026-09-11T13:33:29+08:00\n",
+ "stderr": "",
+ "fixture": "new",
+ "dir": "tests/fixtures/live_cells/recovery_refuses_foreign_netem/new",
+ "files": [
+  "PROVENANCE.md",
+  "attach.log",
+  "cleanup.log",
+  "ids.txt",
+  "netem_final.txt",
+  "observe.rc",
+  "observe.stdout",
+  "recovery.body",
+  "recovery.code",
+  "recovery.curlerr",
+  "tc_after.txt",
+  "tc_after_far.txt",
+  "tc_before.txt",
+  "tc_pre.txt",
+  "up.log",
+  "up.rc"
+ ],
+ "failing": []
+}

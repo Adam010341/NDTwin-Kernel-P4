@@ -1,0 +1,51 @@
+# 2026-09-26T08:46:09+08:00 head f643b884753bae4013f68831d73fc6497287a9cc (green gate at HEAD)
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-ndt-serve-0926
+# timeout 900 python3 tests/python/test_ndt_serve_cells.py -v
+test_cells_are_the_grids_own_list (__main__.CellsCatalog.test_cells_are_the_grids_own_list) ... ok
+test_fixture_raw_cannot_leave_the_fixture (__main__.CellsCatalog.test_fixture_raw_cannot_leave_the_fixture) ... ok
+test_new_is_judged_and_shows_the_green (__main__.CellsCatalog.test_new_is_judged_and_shows_the_green) ... ok
+test_old_is_judged_read_only_and_shows_the_red (__main__.CellsCatalog.test_old_is_judged_read_only_and_shows_the_red) ... ok
+test_unknown_cell_is_refused_and_runs_nothing (__main__.CellsCatalog.test_unknown_cell_is_refused_and_runs_nothing) ... ok
+test_a_cell_that_writes_shared_state_needs_confirmation (__main__.CellsRun.test_a_cell_that_writes_shared_state_needs_confirmation)
+Judge r2 finding 2: this cell parks host_count_override at 128 and writes it back; killed ... ok
+test_a_judge_past_its_timeout_is_stopped (__main__.CellsRun.test_a_judge_past_its_timeout_is_stopped)
+Judge r2 finding 4: the grid's calls had subprocess.run(timeout=60) -- a kill of the child ... ok
+test_a_status_past_its_timeout_is_not_a_claim (__main__.CellsRun.test_a_status_past_its_timeout_is_not_a_claim)
+Intake judge 09-26, finding 5: ndt status printed `yours` and then hung past ... ok
+test_cell_run_holds_the_slot (__main__.CellsRun.test_cell_run_holds_the_slot) ... ok
+test_cell_run_is_a_job_with_the_grids_own_argv (__main__.CellsRun.test_cell_run_is_a_job_with_the_grids_own_argv) ... ok
+test_cell_run_marks_red_to_green (__main__.CellsRun.test_cell_run_marks_red_to_green) ... ok
+test_cell_run_needs_the_token (__main__.CellsRun.test_cell_run_needs_the_token) ... ok
+test_cell_run_restore_failure_is_harness (__main__.CellsRun.test_cell_run_restore_failure_is_harness) ... ok
+test_cell_run_skip_is_not_a_pass (__main__.CellsRun.test_cell_run_skip_is_not_a_pass) ... ok
+test_job_raw_cannot_leave_the_raw_root (__main__.CellsRun.test_job_raw_cannot_leave_the_raw_root) ... ok
+test_lab_cell_run_needs_your_claim (__main__.CellsRun.test_lab_cell_run_needs_your_claim)
+Judge r2 finding 1: a lab cell run without a claim of your own acts under somebody else's ... ok
+test_no_read_slot_is_not_a_claim_and_says_so (__main__.CellsRun.test_no_read_slot_is_not_a_claim_and_says_so)
+Intake judge 09-26, finding 5: with both read slots taken past --read-queue-wait, the ... ok
+test_offline_cell_run_does_not_ask_for_the_claim (__main__.CellsRun.test_offline_cell_run_does_not_ask_for_the_claim) ... ok
+test_only_ndts_own_claim_form_is_yours (__main__.CellsRun.test_only_ndts_own_claim_form_is_yours)
+Intake judge 09-26, finding 2: the check was a PREFIX match on "yours", so a foreign ... ok
+test_a_run_with_no_verdict_line_blocks (__main__.GuidedWalk.test_a_run_with_no_verdict_line_blocks) ... ok
+test_failed_restore_blocks_and_never_releases (__main__.GuidedWalk.test_failed_restore_blocks_and_never_releases) ... ok
+test_get_does_not_move_a_walk (__main__.GuidedWalk.test_get_does_not_move_a_walk) ... ok
+test_happy_walk_runs_exactly_the_expected_calls (__main__.GuidedWalk.test_happy_walk_runs_exactly_the_expected_calls) ... ok
+test_next_needs_the_token (__main__.GuidedWalk.test_next_needs_the_token) ... ok
+test_old_that_no_longer_fails_blocks_the_walk (__main__.GuidedWalk.test_old_that_no_longer_fails_blocks_the_walk) ... ok
+test_red_cell_still_reaches_the_verdict (__main__.GuidedWalk.test_red_cell_still_reaches_the_verdict) ... ok
+test_refused_claim_blocks_the_run (__main__.GuidedWalk.test_refused_claim_blocks_the_run) ... ok
+test_the_lab_is_released_before_the_verdict (__main__.GuidedWalk.test_the_lab_is_released_before_the_verdict) ... ok
+test_the_verdict_is_adams (__main__.GuidedWalk.test_the_verdict_is_adams) ... ok
+test_walk_for_a_shared_state_cell_needs_confirmation (__main__.GuidedWalk.test_walk_for_a_shared_state_cell_needs_confirmation) ... ok
+test_walk_run_rechecks_the_claim (__main__.GuidedWalk.test_walk_run_rechecks_the_claim)
+Judge r2 finding 3, second half: the walk's claim step passed, and by its run step the ... ok
+test_walk_steps_for_a_lab_cell (__main__.GuidedWalk.test_walk_steps_for_a_lab_cell) ... ok
+test_walk_steps_for_an_offline_cell (__main__.GuidedWalk.test_walk_steps_for_an_offline_cell) ... ok
+test_walk_survives_a_restart (__main__.GuidedWalk.test_walk_survives_a_restart) ... ok
+test_the_registry_matches_the_real_grid (__main__.SharedStateRegistry.test_the_registry_matches_the_real_grid) ... ok
+
+----------------------------------------------------------------------
+Ran 35 tests in 22.263s
+
+OK
+rc=0

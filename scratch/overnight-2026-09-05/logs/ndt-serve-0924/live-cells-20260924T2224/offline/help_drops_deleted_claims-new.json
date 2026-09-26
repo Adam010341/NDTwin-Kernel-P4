@@ -1,0 +1,66 @@
+{
+ "asserts": [
+  {
+   "ok": true,
+   "id": "help_output_present",
+   "detail": "help.txt present",
+   "file": "help.txt"
+  },
+  {
+   "ok": true,
+   "id": "help_rc_is_2",
+   "detail": "= [2]",
+   "file": null
+  },
+  {
+   "ok": true,
+   "id": "help_drops_this_checkout_claim",
+   "detail": "help.txt does not contain it",
+   "file": "help.txt"
+  },
+  {
+   "ok": true,
+   "id": "help_scopes_the_residue_rc",
+   "detail": "help.txt contains it",
+   "file": "help.txt"
+  },
+  {
+   "ok": true,
+   "id": "help_drops_blanket_env_guarantee",
+   "detail": "help.txt does not contain it",
+   "file": "help.txt"
+  },
+  {
+   "ok": true,
+   "id": "help_keeps_the_scoped_knob_claim",
+   "detail": "help.txt contains it",
+   "file": "help.txt"
+  }
+ ],
+ "verdict": {
+  "state": "PASS",
+  "name": "help_drops_deleted_claims",
+  "rest": "tag=ndt kernel=048b842efa16178a ndt=516e28a0a98585eb1e6be548b72e10bd0360dd14 at=2026-09-11T13:33:03+08:00",
+  "line": "CELL: PASS help_drops_deleted_claims tag=ndt kernel=048b842efa16178a ndt=516e28a0a98585eb1e6be548b72e10bd0360dd14 at=2026-09-11T13:33:03+08:00"
+ },
+ "skip": null,
+ "argv": [
+  "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/live_cells/help_drops_deleted_claims.sh",
+  "judge",
+  "/home/adam/Desktop/NDTwin-Kernel/tests/fixtures/live_cells/help_drops_deleted_claims/new"
+ ],
+ "rc": 0,
+ "stdout": "ASSERT ok   help_output_present                    help.txt present\nASSERT ok   help_rc_is_2                           = [2]\nASSERT ok   help_drops_this_checkout_claim         help.txt does not contain it\nASSERT ok   help_scopes_the_residue_rc             help.txt contains it\nASSERT ok   help_drops_blanket_env_guarantee       help.txt does not contain it\nASSERT ok   help_keeps_the_scoped_knob_claim       help.txt contains it\nCELL: PASS help_drops_deleted_claims tag=ndt kernel=048b842efa16178a ndt=516e28a0a98585eb1e6be548b72e10bd0360dd14 at=2026-09-11T13:33:03+08:00\n",
+ "stderr": "",
+ "fixture": "new",
+ "dir": "tests/fixtures/live_cells/help_drops_deleted_claims/new",
+ "files": [
+  "PROVENANCE.md",
+  "help.rc",
+  "help.txt",
+  "ids.txt",
+  "observe.rc",
+  "observe.stdout"
+ ],
+ "failing": []
+}

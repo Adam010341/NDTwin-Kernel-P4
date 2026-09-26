@@ -1,0 +1,32 @@
+01-status-before  GET /api/v1/status -> 200
+02-claim  POST /api/v1/claim -> 202
+03-claim-wait  GET /api/v1/jobs/20260924T144941Z-33c546?wait=300 -> 200
+04-claim-stdout  GET /api/v1/jobs/20260924T144941Z-33c546/log/stdout -> 200
+05-claim-stderr  GET /api/v1/jobs/20260924T144941Z-33c546/log/stderr -> 200
+    job 20260924T144941Z-33c546  claim 15 ndt-serve-0924 judge re-checks: rc 3 / rc 2 / rc 5  rc=0 (ok)
+06-down-on-a-down-lab  POST /api/v1/down -> 202
+07-down-on-a-down-lab-wait  GET /api/v1/jobs/20260924T144941Z-6e090e?wait=300 -> 200
+08-down-on-a-down-lab-stdout  GET /api/v1/jobs/20260924T144941Z-6e090e/log/stdout -> 200
+09-down-on-a-down-lab-stderr  GET /api/v1/jobs/20260924T144941Z-6e090e/log/stderr -> 200
+    job 20260924T144941Z-6e090e  down  rc=0 (ok)
+10-nsr-stop-not-running  POST /api/v1/apps/nsr/stop -> 202
+11-nsr-stop-not-running-wait  GET /api/v1/jobs/20260924T144944Z-63ab51?wait=300 -> 200
+12-nsr-stop-not-running-stdout  GET /api/v1/jobs/20260924T144944Z-63ab51/log/stdout -> 200
+13-nsr-stop-not-running-stderr  GET /api/v1/jobs/20260924T144944Z-63ab51/log/stderr -> 200
+    job 20260924T144944Z-63ab51  apps stop nsr  rc=2 (nothing)
+14-release  POST /api/v1/release -> 202
+15-release-wait  GET /api/v1/jobs/20260924T144945Z-525965?wait=300 -> 200
+16-release-stdout  GET /api/v1/jobs/20260924T144945Z-525965/log/stdout -> 200
+17-release-stderr  GET /api/v1/jobs/20260924T144945Z-525965/log/stderr -> 200
+    job 20260924T144945Z-525965  release  rc=0 (ok)
+direct foreign-claim: ndt claim 5 ndt serve rc-5 probe: up must be refused (owner ndt-serve-0924-foreign) -> rc 0
+18-status-under-the-foreign-claim  GET /api/v1/status -> 200
+19-up-under-a-foreign-claim  POST /api/v1/up -> 202
+20-up-under-a-foreign-claim-wait  GET /api/v1/jobs/20260924T144946Z-c3c7e1?wait=300 -> 200
+21-up-under-a-foreign-claim-stdout  GET /api/v1/jobs/20260924T144946Z-c3c7e1/log/stdout -> 200
+22-up-under-a-foreign-claim-stderr  GET /api/v1/jobs/20260924T144946Z-c3c7e1/log/stderr -> 200
+    job 20260924T144946Z-c3c7e1  up 4  rc=0 (ok)
+direct foreign-release: ndt release (owner ndt-serve-0924-foreign) -> rc 0
+23-status-after-the-foreign-release  GET /api/v1/status -> 200
+24-status-after  GET /api/v1/status -> 200
+25-jobs  GET /api/v1/jobs?limit=20 -> 200

@@ -1,0 +1,3 @@
+  the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+  this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+  ok  lab released

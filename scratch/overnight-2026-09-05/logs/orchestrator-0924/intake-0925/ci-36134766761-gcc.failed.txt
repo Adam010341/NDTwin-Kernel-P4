@@ -1,0 +1,45 @@
+        FAILED   🔴 a graph with no switches in it is rc 1 too
+        FAILED     all three up
+        FAILED     and it is rc 0 -- 'nothing is up' is a reading
+        FAILED     and that file exists on disk
+        FAILED     and the parent shell acts on it
+        FAILED   🔴 and the refusal comes from the MUTATION loop
+        FAILED   🔴 an unreadable graph is rc 1, NOT an empty set
+        FAILED   case 0  git resolves a merged ticket (FIX-NDT-6 -> a merge reachable from HEAD)
+        FAILED   case 11d a violation line names the branch the lookup matched, not just the sha
+        FAILED   case 5a caveat 'clean-calls-your-fabric-residue' is retracted and says what merged it
+        FAILED   case 5b caveat 'help-deep-names-three-ports' is retracted and says what merged it
+        FAILED   case 5c caveat 'clean-advises-deep-on-your-own' is retracted and says what merged it
+        FAILED   case 5d caveat 'e21-contract-branch-only' is retracted and says what merged it
+        FAILED   C  test_apps_residue.sh's last line scores non-zero (it is 'something was logged')
+        FAILED   C  test_build_guard.sh ends in an echo this test can read
+        FAILED   C  test_check_logs_crash_patterns.sh's last line scores non-zero (it is '  (checker under test: $CHECK_LOGS)')
+        FAILED   C  test_guarded_build_reentrant.sh's last line scores non-zero (it is 'systemd-run $*')
+        FAILED   C  test_ndt_honesty.sh's last line scores non-zero (it is 'other-session (until 03:00:00, their round)')
+        FAILED   C  test_ndt_ovs_topo_script.sh's last line scores non-zero (it is 'the verbs are wired to what was tested')
+      FAILED (failures=2)
+        FAILED   it is still the 'topo' session
+        FAILED   🔴 it really launched something
+        FAILED   🔴 it waits until the up set becomes the expected one
+        FAILED     named as anchor_count's failure
+        FAILED   PERIOD_S is the proxy's LLDP_BEACON_INTERVAL_S
+        FAILED   .prev holds the previous era's content
+        FAILED   previous log rotated to .prev
+        FAILED   🔴 run from /tmp every anchor still resolves
+        FAILED   🔴 s10 is dpid 10, not dpid 1
+        FAILED   the interpreter is the lab's NTG_PY
+        FAILED   the launch succeeds
+        FAILED   the middle era is in .prev
+        FAILED   the older era survives in .prev
+        FAILED   the oldest era is now the one that was in .prev
+        FAILED   the oldest of three eras survives in .prev2
+        FAILED   the proxy's LINK_BEACON_TIMEOUT_S is 3 heartbeat periods
+        FAILED   the topology comes from the kernel tree
+        FAILED     the two switches this exercise programs
+        FAILED   tmux's working directory is the tree
+        FAILED     two of three up
+      FAIL: test_no_live_doc_or_tool_names_the_old_block (__main__.NoLiveDocumentStillNamesTheOldPortBlock.test_no_live_doc_or_tool_names_the_old_block)
+      FAIL: test_the_topology_takes_its_ports_from_the_module (__main__.TheFabricAndTheProxyAgreeOnThePortBlock.test_the_topology_takes_its_ports_from_the_module)
+L1 FAILED (15 problem group(s))   logs: /home/runner/work/NDTwin-Kernel-P4/NDTwin-Kernel-P4/.test_run/logs
+        ok       C  test_harness_instruments.sh's last line scores non-zero (it is '===== 9 check(s): 9 ok, 0 FAILED =====')
+        ok       Z5 '===== 0 check(s): 0 ok, 0 FAILED =====' -> 0 ran

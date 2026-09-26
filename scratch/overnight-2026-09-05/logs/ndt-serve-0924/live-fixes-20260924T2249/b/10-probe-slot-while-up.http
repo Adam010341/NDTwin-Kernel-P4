@@ -1,0 +1,43 @@
+# 10-probe-slot-while-up  sent 2026-09-24T22:52:32+0800  answered 0.003 s later
+GET /api/v1/health HTTP/1.1
+Host: 127.0.0.1:8765
+
+
+
+HTTP/1.0 200 OK
+Server: ndt-serve/1 
+Date: Thu, 24 Sep 2026 14:52:32 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 858
+Cache-Control: no-store
+X-Content-Type-Options: nosniff
+
+{
+ "service": "ndt-serve",
+ "api": "v1",
+ "owner": "ndt-serve-0924",
+ "bind": "127.0.0.1",
+ "port": 8765,
+ "ndt": "/home/adam/.local/bin/ndt",
+ "ndt_realpath": "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt",
+ "ndt_sha256": "cb134ccc7af9577a3a4ef3e71e64e238817029ec50977e099b7477b95b870e89",
+ "ndt_sha256_at_start": "cb134ccc7af9577a3a4ef3e71e64e238817029ec50977e099b7477b95b870e89",
+ "ndt_realpath_now": "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt",
+ "ndt_drift": false,
+ "repo": "/home/adam/Desktop/NDTwin-Kernel",
+ "apps": [
+  "energy",
+  "sim",
+  "nsr",
+  "viz",
+  "te"
+ ],
+ "app_roots": [
+  "/home/adam/Desktop/NDTwin-Kernel/.test_run/packages"
+ ],
+ "token_file": "/home/adam/.config/ndt-serve/token",
+ "state_dir": "/home/adam/.local/state/ndt-serve",
+ "stripped_env": [],
+ "busy": "20260924T145232Z-001c3d",
+ "pid": 2099427
+}

@@ -1,0 +1,21 @@
+# 07-claim-stdout  sent 2026-09-24T22:52:32+0800  answered 0.002 s later
+GET /api/v1/jobs/20260924T145232Z-2dfe35/log/stdout HTTP/1.1
+Host: 127.0.0.1:8765
+X-NDT-Token: <token>
+
+
+
+HTTP/1.0 200 OK
+Server: ndt-serve/1 
+Date: Thu, 24 Sep 2026 14:52:32 GMT
+Content-Type: text/plain; charset=utf-8
+Content-Length: 195
+Cache-Control: no-store
+X-Content-Type-Options: nosniff
+X-NDT-Log-Offset: 0
+X-NDT-Log-Size: 195
+X-NDT-Log-Next-Offset: 195
+X-NDT-Job-State: finished
+
+  recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+  ok  lab claimed by ndt-serve-0924 for 30m (ndt-serve-0924 re-run after the judge's fixes)

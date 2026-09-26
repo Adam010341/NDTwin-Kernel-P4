@@ -1,0 +1,33 @@
+# 2026-09-24T22:55:07+08:00 head 5c07acf371271b7421288610774c2a3b4dab4469
+# timeout 600 python3 tests/python/test_ndt_serve_cells.py
+test_cells_are_the_grids_own_list (__main__.CellsCatalog.test_cells_are_the_grids_own_list) ... ok
+test_fixture_raw_cannot_leave_the_fixture (__main__.CellsCatalog.test_fixture_raw_cannot_leave_the_fixture) ... ok
+test_new_is_judged_and_shows_the_green (__main__.CellsCatalog.test_new_is_judged_and_shows_the_green) ... ok
+test_old_is_judged_read_only_and_shows_the_red (__main__.CellsCatalog.test_old_is_judged_read_only_and_shows_the_red) ... ok
+test_unknown_cell_is_refused_and_runs_nothing (__main__.CellsCatalog.test_unknown_cell_is_refused_and_runs_nothing) ... ok
+test_cell_run_holds_the_slot (__main__.CellsRun.test_cell_run_holds_the_slot) ... ok
+test_cell_run_is_a_job_with_the_grids_own_argv (__main__.CellsRun.test_cell_run_is_a_job_with_the_grids_own_argv) ... ok
+test_cell_run_marks_red_to_green (__main__.CellsRun.test_cell_run_marks_red_to_green) ... ok
+test_cell_run_needs_the_token (__main__.CellsRun.test_cell_run_needs_the_token) ... ok
+test_cell_run_restore_failure_is_harness (__main__.CellsRun.test_cell_run_restore_failure_is_harness) ... ok
+test_cell_run_skip_is_not_a_pass (__main__.CellsRun.test_cell_run_skip_is_not_a_pass) ... ok
+test_job_raw_cannot_leave_the_raw_root (__main__.CellsRun.test_job_raw_cannot_leave_the_raw_root) ... ok
+test_a_run_with_no_verdict_line_blocks (__main__.GuidedWalk.test_a_run_with_no_verdict_line_blocks) ... ok
+test_failed_restore_blocks_and_never_releases (__main__.GuidedWalk.test_failed_restore_blocks_and_never_releases) ... ok
+test_get_does_not_move_a_walk (__main__.GuidedWalk.test_get_does_not_move_a_walk) ... ok
+test_happy_walk_runs_exactly_the_expected_calls (__main__.GuidedWalk.test_happy_walk_runs_exactly_the_expected_calls) ... ok
+test_next_needs_the_token (__main__.GuidedWalk.test_next_needs_the_token) ... ok
+test_old_that_no_longer_fails_blocks_the_walk (__main__.GuidedWalk.test_old_that_no_longer_fails_blocks_the_walk) ... ok
+test_red_cell_still_reaches_the_verdict (__main__.GuidedWalk.test_red_cell_still_reaches_the_verdict) ... ok
+test_refused_claim_blocks_the_run (__main__.GuidedWalk.test_refused_claim_blocks_the_run) ... ok
+test_the_lab_is_released_before_the_verdict (__main__.GuidedWalk.test_the_lab_is_released_before_the_verdict) ... ok
+test_the_verdict_is_adams (__main__.GuidedWalk.test_the_verdict_is_adams) ... ok
+test_walk_steps_for_a_lab_cell (__main__.GuidedWalk.test_walk_steps_for_a_lab_cell) ... ok
+test_walk_steps_for_an_offline_cell (__main__.GuidedWalk.test_walk_steps_for_an_offline_cell) ... ok
+test_walk_survives_a_restart (__main__.GuidedWalk.test_walk_survives_a_restart) ... ok
+
+----------------------------------------------------------------------
+Ran 25 tests in 10.668s
+
+OK
+rc=0

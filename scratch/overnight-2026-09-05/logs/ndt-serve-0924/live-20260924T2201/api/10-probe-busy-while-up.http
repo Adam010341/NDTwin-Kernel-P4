@@ -1,0 +1,48 @@
+# 10-probe-busy-while-up  sent 2026-09-24T22:01:35+0800  answered 0.002 s later
+POST /api/v1/down HTTP/1.1
+Host: 127.0.0.1:8765
+Content-Type: application/json
+X-NDT-Token: <token>
+Content-Length: 2
+
+{}
+
+HTTP/1.0 409 Conflict
+Server: ndt-serve/1 
+Date: Thu, 24 Sep 2026 14:01:35 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 643
+Cache-Control: no-store
+X-Content-Type-Options: nosniff
+
+{
+ "error": "busy",
+ "note": "one state-changing job at a time",
+ "job": {
+  "id": "20260924T140135Z-6ec71d",
+  "kind": "up",
+  "argv": [
+   "/home/adam/.local/bin/ndt",
+   "up",
+   "4"
+  ],
+  "state": "running",
+  "rc": null,
+  "owner": "ndt-serve-0924",
+  "ndt_sha256": "cb134ccc7af9577a3a4ef3e71e64e238817029ec50977e099b7477b95b870e89",
+  "request": {
+   "hosts": 4,
+   "plane": "ovs"
+  },
+  "requested_by": "127.0.0.1:37480",
+  "created_at": 1790258495.9314532,
+  "started_at": null,
+  "ended_at": null,
+  "ndt_pid": null,
+  "ndt_pgid": null,
+  "stdout_bytes": null,
+  "stderr_bytes": null,
+  "rc_class": null,
+  "meaning": "running"
+ }
+}

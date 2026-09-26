@@ -1,0 +1,11 @@
+apps
+  energy   -         Energy-Saving-App          (CHANGES the network: powers switches down)
+  sim      -         Simulation-Platform-Manager
+                     log 145 kB
+                     log is root's (/home/adam/Desktop/NDTwin-Kernel/.test_run/logs/app_sim.log); trim needs sudo
+  nsr      -         Network-State-Recorder     (records; reads the kernel API)
+                     log 0 B
+  viz      -         Network-Traffic-Visualizer (JavaFX GUI -- needs a display)
+                     log 170 MB
+  te       -         Traffic-Engineering-App    (CHANGES the network: installs flow rules)
+                     log 11 kB

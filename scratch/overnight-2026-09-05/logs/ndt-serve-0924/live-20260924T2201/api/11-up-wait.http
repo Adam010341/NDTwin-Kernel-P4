@@ -1,0 +1,49 @@
+# 11-up-wait  sent 2026-09-24T22:01:35+0800  answered 9.626 s later
+GET /api/v1/jobs/20260924T140135Z-6ec71d?wait=600 HTTP/1.1
+Host: 127.0.0.1:8765
+
+
+
+HTTP/1.0 200 OK
+Server: ndt-serve/1 
+Date: Thu, 24 Sep 2026 14:01:45 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 882
+Cache-Control: no-store
+X-Content-Type-Options: nosniff
+
+{
+ "job": {
+  "id": "20260924T140135Z-6ec71d",
+  "kind": "up",
+  "argv": [
+   "/home/adam/.local/bin/ndt",
+   "up",
+   "4"
+  ],
+  "state": "finished",
+  "rc": 0,
+  "owner": "ndt-serve-0924",
+  "ndt_sha256": "cb134ccc7af9577a3a4ef3e71e64e238817029ec50977e099b7477b95b870e89",
+  "request": {
+   "hosts": 4,
+   "plane": "ovs"
+  },
+  "requested_by": "127.0.0.1:37480",
+  "created_at": 1790258495.9314532,
+  "started_at": 1790258495.9520924,
+  "ended_at": 1790258505.4535136,
+  "ndt_pid": 1614309,
+  "ndt_pgid": 1614309,
+  "stdout_bytes": 1245,
+  "stderr_bytes": 0,
+  "rc_class": "ok",
+  "meaning": "the fabric came up and verified"
+ },
+ "links": {
+  "self": "/api/v1/jobs/20260924T140135Z-6ec71d",
+  "wait": "/api/v1/jobs/20260924T140135Z-6ec71d?wait=60",
+  "stdout": "/api/v1/jobs/20260924T140135Z-6ec71d/log/stdout",
+  "stderr": "/api/v1/jobs/20260924T140135Z-6ec71d/log/stderr"
+ }
+}

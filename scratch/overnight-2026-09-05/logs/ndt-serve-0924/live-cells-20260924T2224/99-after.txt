@@ -1,0 +1,9 @@
+2026-09-24T22:26:15+08:00
+-128
++4
+lab
+  claim          none
+  prev claim     ndt-serve-0924 (until 22:55:22), superseded 2026-09-24 22:25:48  (.test_run/lab.claim.prev)
+                 nothing holds the lab now: that claim was released or replaced
+                 it said: down at 2026-09-24 22:25:48; verified clean; claim kept
+  measuring      nothing

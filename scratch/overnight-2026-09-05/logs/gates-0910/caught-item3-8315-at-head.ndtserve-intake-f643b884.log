@@ -1,0 +1,38 @@
+# 2026-09-26T08:45:00+08:00 head f643b884753bae4013f68831d73fc6497287a9cc (CAUGHT run: HEAD's test and ndt, HEAD's verbs.py mutated 8775->8315)
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-ndt-serve-0926
+# bash /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/caught_8315_head.sh
+service from HEAD f643b884753bae4013f68831d73fc6497287a9cc (git archive); mutation applied:
+  226:    "apps.start": {
+  227-        0: ("ok", "started, or it was already running"),
+  --
+  276:    "apps.start": {"code": [(8771, 0, "return 0", "app_start"), (8315, 1, "return 1", "app_start"),
+  277-                            (8848, 1, "return 1", "app_start")]},
+
+test_code_sourced_tables_are_in_ndt (__main__.RcProvenance.test_code_sourced_tables_are_in_ndt)
+Each anchor is its line, the text on it AND the function it lies in (intake judge 09-26, ... FAIL
+
+======================================================================
+FAIL: test_code_sourced_tables_are_in_ndt (__main__.RcProvenance.test_code_sourced_tables_are_in_ndt)
+Each anchor is its line, the text on it AND the function it lies in (intake judge 09-26,
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-ndt-serve-0926/tests/python/test_ndt_serve.py", line 1083, in test_code_sourced_tables_are_in_ndt
+    self.assertEqual(bad, [])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: Lists differ: ["apps.start rc 1: ndt:8315 is 'return 1' [47 chars]art"] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+"apps.start rc 1: ndt:8315 is 'return 1' in proc_checkout, cited as 'return 1' in app_start"
+
++ []
+- ["apps.start rc 1: ndt:8315 is 'return 1' in proc_checkout, cited as 'return "
+-  "1' in app_start"]
+
+----------------------------------------------------------------------
+Ran 1 test in 0.041s
+
+FAILED (failures=1)
+
+RESULT: the 8315 mutation is CAUGHT at HEAD (the case went red, rc 1)
+rc=1

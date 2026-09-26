@@ -1,0 +1,6 @@
+  nsr not running (nothing found by pid, by scan, by process group or by log)
+
+rules-in-window (nothing below is deleted)
+  !!  the kernel is not up (:8000 closed) -- rules and locks CANNOT be checked.
+  !!  this is not 'the lab is clean'. it is 'nobody asked'. (KNOWN-ISSUES G-12)
+  nothing to stop (1 app(s) were already not running)

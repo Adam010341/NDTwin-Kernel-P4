@@ -1,0 +1,126 @@
+{
+ "cells": [
+  {
+   "name": "default_round_plane_is_classified",
+   "tag": "ndt",
+   "requires": "none",
+   "old": true,
+   "new": true,
+   "source": "09-11 F-OFFLINE-1 \u00a71.15, run for real offline with its own positive control",
+   "fix": "`ca9af4f1` (merged `954ab467`)",
+   "expected": "`last_kernel_plane` reads `Mininet_*` as ovs, `OVS_*` as ovs, `P4_*` as p4, and a physical-mode command as rc 1 / no plane",
+   "fixture": "replay of `ca9af4f1^`"
+  },
+  {
+   "name": "half_stack_is_not_clean",
+   "tag": "ndt",
+   "requires": "ovs4",
+   "old": true,
+   "new": true,
+   "source": "09-11 ROLE-2 cycle 07, live. `logs/ROLE-2/cycle-07-probe-afterup.log` (`VERDICT: CLEAN` over 10 bmv2 + 14 mininet and no kernel)",
+   "fix": "`6d081d13` (merged `954ab467`)",
+   "expected": "whole stack \u2192 `VERDICT: CLEAN` / `verdict=whole-up`; kernel stopped by its own pidfile \u2192 `VERDICT: NOT CLEAN`, `the stack is HALF up`, rc 1, `verdict=HALF` in the report",
+   "fixture": "captured log, **thin** (one `VERDICT:` line) -- see its PROVENANCE.md"
+  },
+  {
+   "name": "help_drops_deleted_claims",
+   "tag": "ndt",
+   "requires": "none",
+   "old": true,
+   "new": true,
+   "source": "09-11 F-OFFLINE-1 \u00a71.12 and \u00a71.24, run for real offline",
+   "fix": "`3259d296` (merged `954ab467`)",
+   "expected": "`ndt help` no longer carries the `has run in THIS checkout` sentence nor the blanket environment-variable guarantee, and does carry the scoped replacements",
+   "fixture": "replay of `3259d296^`"
+  },
+  {
+   "name": "link_failure_cuts_both_ends_or_neither",
+   "tag": "kernel",
+   "requires": "ovs4",
+   "old": true,
+   "new": true,
+   "source": "09-11 ROLE-1, live 2/2. `logs/ROLE-1/06-inject-failure.log` (`netem 801e` really on s5-eth1, status `link failure injected`)",
+   "fix": "`0b928fe6` (merged `6c4000eb`; B-16)",
+   "expected": "one end refused \u2192 **neither** end carries netem, the status line says `link failure declared; nothing was attached`, the body says which half happened, and the declaration stands",
+   "fixture": "captured log"
+  },
+  {
+   "name": "northbound_write_reply_names_the_lab_claim",
+   "tag": "kernel",
+   "requires": "ovs4",
+   "old": true,
+   "new": true,
+   "source": "09-11 ROLE-4 T4 (FIX-NDT-3-SUMMARY \u00a77-1): writes kept answering 200 across an expiry and across a change of owner. KNOWN-ISSUES G-32, Adam's option C",
+   "fix": "`ea517ed5` (merged `f313b1a4`)",
+   "expected": "both writes of an inject/recover pair and the 400 from an unparseable body carry a `lab_claim` whose `owner`/`expires_at` are `.test_run/lab.claim`'s; a POST outside the twelve and a GET do not",
+   "fixture": "ROLE-11's pre-fix reply bodies, **thin** -- see its PROVENANCE.md for which two ids are evidence"
+  },
+  {
+   "name": "orphans_blind_probes_not_checked",
+   "tag": "ndt",
+   "requires": "none",
+   "old": true,
+   "new": true,
+   "source": "09-11 F-OFFLINE-1 \u00a71.11, run for real offline. `hunt-0911/F-OFFLINE-1-REPORT.md`",
+   "fix": "`ded00d06` (merged `954ab467`)",
+   "expected": "a report with the kernel up and all three lock probes `NOT CHECKED (http 500)` \u2192 `VERDICT: NOT CHECKED` rc 3, and **not** the token `VERDICT: CLEAN`",
+   "fixture": "replay of `ded00d06^`"
+  },
+  {
+   "name": "recovery_refuses_foreign_netem",
+   "tag": "kernel",
+   "requires": "ovs4",
+   "old": true,
+   "new": true,
+   "source": "09-11 ROLE-1, live 3/3. `logs/ROLE-1/07-inject-recovery.log`, `08-tc-after-recovery.log`, premise in `04-tc-netem-on.log`",
+   "fix": "`0b928fe6` (merged `6c4000eb`; KNOWN-ISSUES B-16)",
+   "expected": "`POST /ndt/inject_link_recovery` on an undeclared link carrying a foreign netem \u2192 **409**, `netem_not_ours`, `Nothing was changed`, and the qdisc still on the wire",
+   "fixture": "captured log"
+  },
+  {
+   "name": "stale_app_pidfile_does_not_frame_the_fabric",
+   "tag": "ndt",
+   "requires": "ovs4",
+   "old": true,
+   "new": true,
+   "source": "09-12 RESIDUE-1 \u00a71 \u00a72 \u00a76, read-only investigation of `logs/ROLE-11/05-check-after-up.log` (`residue 60 rule(s) inside an app window` 22 s after a bring-up that installed them). This cell's own live run of 15:04 is the red",
+   "fix": "**not fixed at `af5efa4f`** -- FIX-NDT-9 \u2460",
+   "expected": "the app window opened by a pidfile whose process is dead has a right edge, frames no rule of a fabric built later, and `ndt status --check` is rc 0 with no `listed by:  ndt apps orphans`",
+   "fixture": "**this cell's own live run**, 2026-09-12 15:04, kernel `c4c8e50310d7e4a1`"
+  },
+  {
+   "name": "up_refuses_a_model_of_another_network",
+   "tag": "ndt",
+   "requires": "idle",
+   "old": true,
+   "new": true,
+   "source": "09-11 ROLE-2 cycle 07, live. `logs/ROLE-2/cycle-07-up.log` (rc 124 after 300 s, ten switches built); the knob half is 09-12 ROLE-9 \u00a72 and cells 4b/4c (`logs/ROLE-9/c4b-metrics.log`, `c4c-metrics.log`)",
+   "fix": "`76b5d434` (merged `954ab467`); knob half `fix/ndt-7-0912`",
+   "expected": "the cell **parks `host_count_override` at 128 itself**, then `NDT_TOPO=<128-host model> ndt up p4 4` refuses in 0 s naming both counts, builds nothing, records no target, and leaves the knob byte-identical **to the 128 the cell set** -- and the cell puts the tree's own bytes back and records that it did",
+   "fixture": "captured log; two ids added 09-12 -- one evidence, one fixture gap, see its PROVENANCE.md"
+  },
+  {
+   "name": "up_refuses_while_a_down_is_in_flight",
+   "tag": "ndt",
+   "requires": "idle",
+   "old": true,
+   "new": true,
+   "source": "09-11 ROLE-2 cycle 13, live. `logs/ROLE-2/cycle-13-up-B.log` (`already up: \u2026 reusing`, `model matches fabric` on a dying fabric)",
+   "fix": "`019b125d` (merged `cb5ab923`)",
+   "expected": "a bring-up overlapping an `ndt down` is refused rc 1 in 0 s, the refusal quotes `.test_run/down.inflight`, and the marker is gone afterwards",
+   "fixture": "captured log; the marker is `(absent)` because the marker IS the fix"
+  },
+  {
+   "name": "up_target_names_a_readable_model",
+   "tag": "ndt",
+   "requires": "ovs4",
+   "old": true,
+   "new": true,
+   "source": "09-11 ROLE-6 \u00a7\u2460, live both planes. `hunt-0911/logs/ROLE-6/51a-up-p4-A.log` (rc 1, 318 s), `20-up-ovs4.log`",
+   "fix": "`ce2ae2f9` \u2192 trunk `5e7a91c8`",
+   "expected": "`ndt up ovs 4` reaches rc 0, prints no `cannot read expected counts from`, and `.test_run/up.target` carries a 64-hex `topology_sha256`, a counted `model_hosts` and a one-line `topology` path",
+   "fixture": "captured log; **no `up.target` kept** -- see its PROVENANCE.md"
+  }
+ ],
+ "grid": "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/live_cells"
+}

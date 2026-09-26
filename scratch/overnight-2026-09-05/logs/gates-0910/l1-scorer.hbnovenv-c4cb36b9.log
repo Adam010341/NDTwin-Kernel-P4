@@ -1,0 +1,7 @@
+c4cb36b9c400bb0a3c305a8375ffd2ea59d5b748
+# L1's own scorer (tools/test_workflow/l1_unit_tests.sh shell_summary + l1_lane_verdict, sourced with NDTWIN_L1_LIB_ONLY=1 -- no build) over the suite logs; rc is the suite's exit code recorded in each log
+suite-cishape-copy.hbnovenv-pre-68ace017.log: rc=1 ran=196 failed=2 skipped=0 -> FAIL-RC
+suite-cishape-copy.hbnovenv-c4cb36b9.log: rc=0 ran=196 failed=0 skipped=0 -> PASS
+suite-cishape.hbnovenv-c4cb36b9.log: rc=0 ran=196 failed=0 skipped=0 -> PASS
+suite-nopy-usrbin.hbnovenv-c4cb36b9.log: rc=1 ran=196 failed=2 skipped=0 -> FAIL-RC
+suite-cishape-py312.hbnovenv-c4cb36b9.log: rc=0 ran=194 failed=0 skipped=0 -> PASS

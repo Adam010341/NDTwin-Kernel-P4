@@ -1,0 +1,5 @@
+# 2026-09-24T22:55:26+08:00 head 5c07acf371271b7421288610774c2a3b4dab4469
+# python3 tests/shell/check_process_by_name.py
+check_process_by_name: 2 registered audit exceptions scanned (7 file(s) under them); doc/audit/** is not a scan surface otherwise
+check_process_by_name: 316 file(s) scanned, 0 site(s), 0 registered, 0 new, 0 stale
+rc=0

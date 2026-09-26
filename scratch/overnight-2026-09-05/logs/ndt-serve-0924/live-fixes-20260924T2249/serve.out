@@ -1,0 +1,4 @@
+ndt serve: listening on http://127.0.0.1:8765/api/v1/  owner=ndt-serve-0924
+  ndt      /home/adam/.local/bin/ndt -> /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt (sha256 cb134ccc7af9577a)
+  token    /home/adam/.config/ndt-serve/token (header X-NDT-Token)
+  jobs     /home/adam/.local/state/ndt-serve/jobs

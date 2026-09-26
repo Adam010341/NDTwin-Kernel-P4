@@ -1,0 +1,55 @@
+baseline (must be green before any mutation):
+OK
+
+  caught   M1: the socket binds every interface                           (test_listens_on_127_0_0_1_only went red)
+  caught   M2: the Host header is not read (DNS rebinding)                (test_foreign_host_header_is_refused went red)
+  caught   M3: the Host header's port is not compared                     (test_host_with_another_port_is_refused went red)
+  caught   M4: a request with no Host header is served                    (test_missing_host_header_is_refused went red)
+  caught   M5: a CORS header is sent                                      (test_no_cors_header_anywhere went red)
+  caught   M6: a write needs no token                                     (test_write_without_token_runs_nothing went red)
+  caught   M7: the token is also taken from the query string              (test_token_in_query_is_not_accepted went red)
+  caught   M8: the token file is world-readable                           (test_token_file_is_private went red)
+  caught   M9: the token survives a restart                               (test_token_is_new_on_every_start went red)
+  caught   M10: a cross-origin write with the token is accepted           (test_cross_origin_write_is_refused_with_token went red)
+  caught   M11: a form-shaped (simple-request) write is accepted          (test_form_shaped_write_is_refused went red)
+  caught   M12: a GET route reaches a writer                              (test_get_runs_only_read_verbs went red)
+  caught   M13: --app is not confined to the root                         (test_app_dir_outside_the_root_is_refused went red)
+  caught   M14: abspath instead of realpath (a symlink escapes the root)  (test_app_dir_symlink_out_of_the_root_is_refused went red)
+  caught   M15: an app name ndt does not know is passed on                (test_app_name_must_be_one_of_ndts went red)
+  caught   M16: the app list is this file's, not ndt's                    (test_app_names_come_from_ndt_itself went red)
+  caught   M17: the argv goes through a shell                             (test_claim_note_reaches_ndt_as_one_argv_element went red)
+  caught   M18: a newline in a claim note is passed on                    (test_claim_note_with_a_newline_is_refused went red)
+  caught   M19: unknown fields (deep, force) are ignored instead of refused (test_up_refuses_unknown_fields went red)
+  caught   M20: the P4 host enum is widened                               (test_up_refuses_values_outside_the_enums went red)
+  caught   M21: claim minutes are not type-checked                        (test_claim_minutes_are_bounded went red)
+  caught   M22: rc 5 is folded into 'dirty'                               (test_rc5_is_refused_and_not_dirty went red)
+  caught   M23: one rc table for every verb                               (test_each_verb_reads_its_own_rc_table went red)
+  caught   M24: an rc the table does not know is called dirty             (test_unknown_rc_is_not_folded went red)
+  caught   M25: the log is decoded and re-encoded                         (test_output_is_kept_byte_for_byte went red)
+  caught   M41: plain status is read with --check's table (live, 09-24 22:01) (test_plain_status_is_not_a_verdict went red)
+  caught   M26: a write waits for its job                                 (test_write_returns_before_the_job_ends went red)
+  caught   M27: no mutation slot                                          (test_second_write_is_refused_while_one_runs went red)
+  caught   M28: the runner shares the server's process group              (test_job_outlives_the_server went red)
+  caught   M29: liveness is this process's memory, not /proc              (test_restarted_server_still_honours_a_running_job went red)
+  caught   M30: ndt shares the runner's session                           (test_ndt_runs_in_a_session_of_its_own went red)
+  caught   M31: an orphaned ndt frees the slot                            (test_an_orphaned_ndt_still_holds_the_slot went red)
+  caught   M32: a job with no recorded rc is called finished              (test_a_job_nobody_recorded_is_lost_not_finished went red)
+  caught   M42: jobs listed by id, not by when they were created (live, 09-24 22:01) (test_jobs_are_listed_newest_first_within_one_second went red)
+  caught   M33: the read timeout kills by name                            (test_no_process_is_found_or_signalled_by_name went red)
+  caught   M34: NDT_OWNER is not set                                      (test_every_ndt_call_carries_the_owner went red)
+  caught   M35: inherited NDT_* variables are passed on                   (test_inherited_ndt_variables_are_not_passed went red)
+  caught   M36: the server starts with no owner                           (test_server_refuses_to_start_without_an_owner went red)
+  caught   M37: 'ndt help' does not list serve                            (test_ndt_help_lists_serve went red)
+  caught   M38: 'ndt serve' is not wired to the server                    (test_ndt_serve_execs_this_server went red)
+  caught   M39: paths outside /api/ are not reserved                      (test_root_is_reserved_for_the_gui went red)
+  caught   M40: two servers can share one state directory and token       (test_second_server_on_the_same_state_refuses went red)
+
+files under test unchanged by this gate:
+  f897bc10406fb8d4b09504cf7e54eaa20adb61e58569460c13de8b548b40edf0  tools/ndt_serve/serve.py
+  a4c5984e5907e676b9afd281e54a07d63fae0778a9d692b4956e2c8ee935b67d  tools/ndt_serve/verbs.py
+  be6d354734be0a6d17bc51fbaed4992ff4fd4836664d117a9161facbff1b8156  tools/ndt_serve/jobs.py
+  8bf944cf7b72b84c45a0a9342504bb8e160fa01c91c7f8254255078e23157a6e  tools/ndt_serve/runner.py
+  c98f8f26ae7e71ad0434a8f2218782df0aa72f3cf0e85abc34f6ec86a917587d  tools/test_workflow/ndt
+
+42 mutation(s), 0 survivor(s)
+gate rc=0

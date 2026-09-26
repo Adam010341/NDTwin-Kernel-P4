@@ -1,0 +1,94 @@
+# 2026-09-26T08:06:30+08:00 head 48209682289a2263588673b823c5ec1a71440f74 (merge of feat/ndt-serve-0924 1a1944ea into trunk 14554090)
+# timeout 900 python3 tests/python/test_ndt_serve.py
+test_connections_are_bounded (__main__.Bounded.test_connections_are_bounded) ... ok
+test_listen_backlog_holds_a_burst (__main__.Bounded.test_listen_backlog_holds_a_burst)
+Found by the final run of 09-24 23:3x: 20 concurrent POSTs, one reset by the kernel ... ok
+test_waiters_are_bounded (__main__.Bounded.test_waiters_are_bounded) ... ok
+test_cross_origin_read_is_refused (__main__.Csrf.test_cross_origin_read_is_refused) ... ok
+test_cross_origin_write_is_refused_with_token (__main__.Csrf.test_cross_origin_write_is_refused_with_token) ... ok
+test_form_shaped_write_is_refused (__main__.Csrf.test_form_shaped_write_is_refused) ... ok
+test_get_runs_only_read_verbs (__main__.Csrf.test_get_runs_only_read_verbs) ... ok
+test_open_directories_left_by_someone_else_are_tightened (__main__.Csrf.test_open_directories_left_by_someone_else_are_tightened)
+Judge finding 8: a state or token directory that already exists 0777, an old 0644 ... ok
+test_reads_need_the_token_except_health (__main__.Csrf.test_reads_need_the_token_except_health)
+Judge 09-24 finding 1: GET /status?check=1 runs `ndt status --check`, whose lock probes ... ok
+test_same_origin_write_is_accepted (__main__.Csrf.test_same_origin_write_is_accepted) ... ok
+test_status_check_without_token_runs_nothing (__main__.Csrf.test_status_check_without_token_runs_nothing)
+The <img src=".../status?check=1"> of finding 1: no token, no Origin -- refused, and ... ok
+test_token_file_is_private (__main__.Csrf.test_token_file_is_private) ... ok
+test_token_in_query_is_not_accepted (__main__.Csrf.test_token_in_query_is_not_accepted) ... ok
+test_token_is_new_on_every_start (__main__.Csrf.test_token_is_new_on_every_start) ... ok
+test_wait_is_capped (__main__.Csrf.test_wait_is_capped) ... ok
+test_write_with_wrong_token_runs_nothing (__main__.Csrf.test_write_with_wrong_token_runs_nothing) ... ok
+test_write_without_token_runs_nothing (__main__.Csrf.test_write_without_token_runs_nothing) ... ok
+test_demo_probes_cannot_touch_the_lab (__main__.DemoProbes.test_demo_probes_cannot_touch_the_lab)
+Judge finding 3: a probe that carries the token and names a writer IS a writer the ... ok
+test_ndt_help_lists_serve (__main__.Entry.test_ndt_help_lists_serve) ... ok
+test_ndt_serve_execs_this_server (__main__.Entry.test_ndt_serve_execs_this_server) ... ok
+test_root_is_reserved_for_the_gui (__main__.Entry.test_root_is_reserved_for_the_gui) ... ok
+test_second_server_on_the_same_state_refuses (__main__.Entry.test_second_server_on_the_same_state_refuses) ... ok
+test_every_ndt_call_carries_the_owner (__main__.Identity.test_every_ndt_call_carries_the_owner) ... ok
+test_inherited_ndt_variables_are_not_passed (__main__.Identity.test_inherited_ndt_variables_are_not_passed) ... ok
+test_jobs_run_the_ndt_resolved_at_start (__main__.Identity.test_jobs_run_the_ndt_resolved_at_start)
+Judge finding 6: the record names the sha of the file that ran. Re-pointing the symlink ... ok
+test_server_refuses_to_start_without_an_owner (__main__.Identity.test_server_refuses_to_start_without_an_owner) ... ok
+test_a_job_nobody_recorded_is_lost_not_finished (__main__.Jobs.test_a_job_nobody_recorded_is_lost_not_finished) ... ok
+test_a_zombie_is_not_alive (__main__.Jobs.test_a_zombie_is_not_alive)
+Judge finding 8: a runner that has exited but not been reaped is still in /proc. ... ok
+test_an_orphaned_ndt_still_holds_the_slot (__main__.Jobs.test_an_orphaned_ndt_still_holds_the_slot)
+The runner is gone and ndt is still building: that is not a free slot. ... ok
+test_concurrent_writes_get_exactly_one_slot (__main__.Jobs.test_concurrent_writes_get_exactly_one_slot)
+Judge finding 8: without `with SLOT:` two requests can both see a free slot. ... ok
+test_job_outlives_the_server (__main__.Jobs.test_job_outlives_the_server) ... ok
+test_jobs_are_listed_newest_first_within_one_second (__main__.Jobs.test_jobs_are_listed_newest_first_within_one_second) ... ok
+test_ndt_runs_in_a_session_of_its_own (__main__.Jobs.test_ndt_runs_in_a_session_of_its_own) ... ok
+test_restarted_server_still_honours_a_running_job (__main__.Jobs.test_restarted_server_still_honours_a_running_job) ... ok
+test_second_write_is_refused_while_one_runs (__main__.Jobs.test_second_write_is_refused_while_one_runs) ... ok
+test_slot_is_free_again_after_the_job (__main__.Jobs.test_slot_is_free_again_after_the_job) ... ok
+test_write_returns_before_the_job_ends (__main__.Jobs.test_write_returns_before_the_job_ends) ... ok
+test_foreign_host_header_is_refused (__main__.LoopbackOnly.test_foreign_host_header_is_refused) ... ok
+test_host_with_another_port_is_refused (__main__.LoopbackOnly.test_host_with_another_port_is_refused) ... ok
+test_listens_on_127_0_0_1_only (__main__.LoopbackOnly.test_listens_on_127_0_0_1_only) ... ok
+test_localhost_and_ip_hosts_are_served (__main__.LoopbackOnly.test_localhost_and_ip_hosts_are_served) ... ok
+test_missing_host_header_is_refused (__main__.LoopbackOnly.test_missing_host_header_is_refused) ... ok
+test_no_cors_header_anywhere (__main__.LoopbackOnly.test_no_cors_header_anywhere) ... ok
+test_no_process_is_found_or_signalled_by_name (__main__.NoPatternKill.test_no_process_is_found_or_signalled_by_name)
+Through the tree's own instrument, not a word list of this file's: a word list here ... ok
+test_the_only_signal_sent_is_to_a_group_this_service_created (__main__.NoPatternKill.test_the_only_signal_sent_is_to_a_group_this_service_created)
+run_read's timeout path is the one place a signal is sent; it must name the pid of the ... ok
+test_code_sourced_tables_are_in_ndt (__main__.RcProvenance.test_code_sourced_tables_are_in_ndt) ... ok
+test_every_table_names_its_source (__main__.RcProvenance.test_every_table_names_its_source) ... ok
+test_help_sourced_tables_are_in_ndt_help (__main__.RcProvenance.test_help_sourced_tables_are_in_ndt_help) ... ok
+test_status_check_rc1_names_any_problem (__main__.RcProvenance.test_status_check_rc1_names_any_problem) ... ok
+test_a_pipe_held_outside_the_group_does_not_hang_the_read (__main__.ReadTimeout.test_a_pipe_held_outside_the_group_does_not_hang_the_read) ... ok
+test_a_read_past_its_timeout_is_stopped_and_frees_its_slot (__main__.ReadTimeout.test_a_read_past_its_timeout_is_stopped_and_frees_its_slot) ... ok
+test_reads_beyond_the_slots_wait_then_503 (__main__.ReadTimeout.test_reads_beyond_the_slots_wait_then_503) ... ok
+test_each_verb_reads_its_own_rc_table (__main__.ThinShell.test_each_verb_reads_its_own_rc_table) ... ok
+test_output_is_kept_byte_for_byte (__main__.ThinShell.test_output_is_kept_byte_for_byte) ... ok
+test_plain_status_is_not_a_verdict (__main__.ThinShell.test_plain_status_is_not_a_verdict)
+Plain `ndt status` answers 0 whatever it found (ndt: `return 0` after the report); only ... ok
+test_rc5_is_refused_and_not_dirty (__main__.ThinShell.test_rc5_is_refused_and_not_dirty) ... ok
+test_read_output_is_kept_byte_for_byte (__main__.ThinShell.test_read_output_is_kept_byte_for_byte)
+Judge finding 4: ndt cuts claim notes with `cut -c1-72`, which counts bytes, so a ... ok
+test_status_answers_with_rc_and_full_output (__main__.ThinShell.test_status_answers_with_rc_and_full_output) ... ok
+test_unknown_rc_is_not_folded (__main__.ThinShell.test_unknown_rc_is_not_folded) ... ok
+test_app_dir_inside_the_root_is_passed_resolved (__main__.Whitelist.test_app_dir_inside_the_root_is_passed_resolved) ... ok
+test_app_dir_outside_the_root_is_refused (__main__.Whitelist.test_app_dir_outside_the_root_is_refused) ... ok
+test_app_dir_symlink_out_of_the_root_is_refused (__main__.Whitelist.test_app_dir_symlink_out_of_the_root_is_refused) ... ok
+test_app_name_must_be_one_of_ndts (__main__.Whitelist.test_app_name_must_be_one_of_ndts) ... ok
+test_app_names_come_from_ndt_itself (__main__.Whitelist.test_app_names_come_from_ndt_itself) ... ok
+test_app_root_is_a_directory_not_a_prefix (__main__.Whitelist.test_app_root_is_a_directory_not_a_prefix)
+Judge finding 8: commonpath, not startswith -- <root>2/x shares the root's prefix. ... ok
+test_claim_minutes_are_bounded (__main__.Whitelist.test_claim_minutes_are_bounded) ... ok
+test_claim_note_reaches_ndt_as_one_argv_element (__main__.Whitelist.test_claim_note_reaches_ndt_as_one_argv_element) ... ok
+test_claim_note_with_a_newline_is_refused (__main__.Whitelist.test_claim_note_with_a_newline_is_refused) ... ok
+test_no_shell_anywhere_in_the_service (__main__.Whitelist.test_no_shell_anywhere_in_the_service) ... ok
+test_up_argv_is_one_of_the_fixed_forms (__main__.Whitelist.test_up_argv_is_one_of_the_fixed_forms) ... ok
+test_up_refuses_unknown_fields (__main__.Whitelist.test_up_refuses_unknown_fields) ... ok
+test_up_refuses_values_outside_the_enums (__main__.Whitelist.test_up_refuses_values_outside_the_enums) ... ok
+
+----------------------------------------------------------------------
+Ran 72 tests in 48.434s
+
+OK
+rc=0

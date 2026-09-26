@@ -1,0 +1,35 @@
+# 20-apps-while-nsr  sent 2026-09-24T22:01:53+0800  answered 0.449 s later
+GET /api/v1/apps HTTP/1.1
+Host: 127.0.0.1:8765
+
+
+
+HTTP/1.0 200 OK
+Server: ndt-serve/1 
+Date: Thu, 24 Sep 2026 14:01:53 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 923
+Cache-Control: no-store
+X-Content-Type-Options: nosniff
+
+{
+ "argv": [
+  "/home/adam/.local/bin/ndt",
+  "apps",
+  "status"
+ ],
+ "rc": 0,
+ "rc_class": "ok",
+ "meaning": "the table was printed",
+ "stdout": "apps\n  energy   -         Energy-Saving-App          (CHANGES the network: powers switches down)\n  sim      -         Simulation-Platform-Manager\n                     log 145 kB\n                     log is root's (/home/adam/Desktop/NDTwin-Kernel/.test_run/logs/app_sim.log); trim needs sudo\n  nsr      running   Network-State-Recorder     (records; reads the kernel API)\n                     log 0 B\n  viz      -         Network-Traffic-Visualizer (JavaFX GUI -- needs a display)\n                     log 170 MB\n  te       -         Traffic-Engineering-App    (CHANGES the network: installs flow rules)\n                     log 11 kB\n",
+ "stderr": "",
+ "duration_s": 0.448,
+ "owner": "ndt-serve-0924",
+ "apps": [
+  "energy",
+  "sim",
+  "nsr",
+  "viz",
+  "te"
+ ]
+}

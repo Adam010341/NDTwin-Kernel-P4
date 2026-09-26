@@ -1,0 +1,2 @@
+  recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+  ok  lab claimed by ndt-serve-0924-foreign for 5m (ndt serve rc-5 probe on the P4 plane)

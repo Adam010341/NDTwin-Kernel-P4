@@ -1,0 +1,59 @@
+{
+ "asserts": [
+  {
+   "ok": true,
+   "id": "f10_readings_present",
+   "detail": "planes.txt present",
+   "file": "planes.txt"
+  },
+  {
+   "ok": true,
+   "id": "f10_mininet_model_reads_as_ovs",
+   "detail": "planes.txt contains it",
+   "file": "planes.txt"
+  },
+  {
+   "ok": true,
+   "id": "f10_ovs_model_still_reads_as_ovs",
+   "detail": "planes.txt contains it",
+   "file": "planes.txt"
+  },
+  {
+   "ok": true,
+   "id": "f10_p4_is_not_swallowed",
+   "detail": "planes.txt contains it",
+   "file": "planes.txt"
+  },
+  {
+   "ok": true,
+   "id": "f10_physical_is_still_unknown",
+   "detail": "planes.txt contains it",
+   "file": "planes.txt"
+  }
+ ],
+ "verdict": {
+  "state": "PASS",
+  "name": "default_round_plane_is_classified",
+  "rest": "tag=ndt kernel=048b842efa16178a ndt=516e28a0a98585eb1e6be548b72e10bd0360dd14 at=2026-09-11T13:32:37+08:00",
+  "line": "CELL: PASS default_round_plane_is_classified tag=ndt kernel=048b842efa16178a ndt=516e28a0a98585eb1e6be548b72e10bd0360dd14 at=2026-09-11T13:32:37+08:00"
+ },
+ "skip": null,
+ "argv": [
+  "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/live_cells/default_round_plane_is_classified.sh",
+  "judge",
+  "/home/adam/Desktop/NDTwin-Kernel/tests/fixtures/live_cells/default_round_plane_is_classified/new"
+ ],
+ "rc": 0,
+ "stdout": "ASSERT ok   f10_readings_present                   planes.txt present\nASSERT ok   f10_mininet_model_reads_as_ovs         planes.txt contains it\nASSERT ok   f10_ovs_model_still_reads_as_ovs       planes.txt contains it\nASSERT ok   f10_p4_is_not_swallowed                planes.txt contains it\nASSERT ok   f10_physical_is_still_unknown          planes.txt contains it\nCELL: PASS default_round_plane_is_classified tag=ndt kernel=048b842efa16178a ndt=516e28a0a98585eb1e6be548b72e10bd0360dd14 at=2026-09-11T13:32:37+08:00\n",
+ "stderr": "",
+ "fixture": "new",
+ "dir": "tests/fixtures/live_cells/default_round_plane_is_classified/new",
+ "files": [
+  "PROVENANCE.md",
+  "ids.txt",
+  "observe.rc",
+  "observe.stdout",
+  "planes.txt"
+ ],
+ "failing": []
+}

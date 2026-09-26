@@ -1,0 +1,12 @@
+walk g20260924T142509Z-dd4f41 ['old', 'new', 'run', 'compare', 'verdict']
+  old      -> HTTP 200  state=done  {"rc": null, "rc_class": null, "ok": true}
+  new      -> HTTP 200  state=done  {"rc": null, "rc_class": null, "ok": true}
+  run      -> HTTP 200  state=running  {"rc": null, "rc_class": null, "ok": null}
+  compare  -> HTTP 200  state=done  {"rc": null, "rc_class": null, "ok": true}
+stop at the verdict step -- it is Adam's
+  old      done     
+  new      done     
+  run      done     cell_verdict=CELL: PASS help_drops_deleted_claims tag=ndt kernel=be70b5dd32356847 ndt=3273df8b0751a777aa26e843752d97782868e771 at=2026-09-24T22:25:10+08:00
+  compare  done     red_to_green=['help_drops_this_checkout_claim', 'help_scopes_the_residue_rc', 'help_drops_blanket_env_guarantee', 'help_keeps_the_scoped_knob_claim'] still_red=[]
+  verdict  pending  
+GID g20260924T142509Z-dd4f41

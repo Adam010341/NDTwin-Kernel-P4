@@ -1,0 +1,19 @@
+c4cb36b9c400bb0a3c305a8375ffd2ea59d5b748
+# META-CHECK of the gate's CI-shape assertion: the gate at HEAD, loop trimmed to the control only (sed: 'for name in "${CASES[@]}"' -> 'for name in control-comment-only'), run with the PRE-FIX suite (68ace017's) temporarily in the working tree. That suite ignores HB_PIN_VENVS and answers from the main checkout's venv, so the 'CI shape' is not CI's: the gate must say so and give no verdict (exit 2), not score the pair.
+# cmd: env -u PYTHON bash /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/gate-trim.sh   (cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-novenv-0926)
+=== baseline (the fix, unmutated) ===
+  rc=0  red=
+
+=== mutations ===
+  control-comment-only           SURVIVED (control, as required)
+
+=== the pin's python3 fallback, in CI's shape (no venv; python3 on PATH can import the proxy) ===
+  ci-shape baseline              rc=0 red=; python3 on PATH (/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python) answered the pin: no
+  🔴 the unmutated suite is not green through the fallback in CI's shape -- no verdict
+
+restore: tools/test_workflow/ndtwin-lab and tests/shell/test_ndtwin_lab_heartbeat.sh are byte-identical to the pre-gate snapshots
+after restore: the suite is green again
+
+mutants: 38 named + 1 control, and 1 of the suite in CI's shape; caught 0, survived 0, invalid 1
+VERDICT: no verdict -- the gate could not run cleanly
+# rc=2

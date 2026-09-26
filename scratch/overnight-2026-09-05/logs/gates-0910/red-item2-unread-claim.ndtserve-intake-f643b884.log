@@ -1,0 +1,42 @@
+# 2026-09-26T08:44:52+08:00 head f643b884753bae4013f68831d73fc6497287a9cc (RED run: HEAD's test_ndt_serve_cells.py against tools/ndt_serve of the merge 48209682289a2263588673b823c5ec1a71440f74)
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-ndt-serve-0926
+# bash /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/red_old_service.sh tests/python/test_ndt_serve_cells.py -v CellsRun.test_no_read_slot_is_not_a_claim_and_says_so CellsRun.test_a_status_past_its_timeout_is_not_a_claim
+service under test: tools/ndt_serve from 48209682289a2263588673b823c5ec1a71440f74 (git archive), sha256:
+  cf2d4c13d6a9ba51aa2334a3fd3b94ecd51675b9f624d24c087eaef778062017  tools/ndt_serve/cells.py
+  e417ef37f87a38790628a86b7ce9e8822a650b04dbd71e0c8cebe4883ea6a1d9  tools/ndt_serve/demo_sequence.py
+  04f19f11e9ea32591b322c5648bb85abe824280ebfebdd75b37c4a2cad2ec274  tools/ndt_serve/jobs.py
+  8bf944cf7b72b84c45a0a9342504bb8e160fa01c91c7f8254255078e23157a6e  tools/ndt_serve/runner.py
+  88155453cb7fef0ecaf73d29552333a59fb7703d55748765a27a50575befb7d7  tools/ndt_serve/serve.py
+  f13bafe41286738a36d2422dbe88d37012735bd683b9612a9105d869d2325b37  tools/ndt_serve/verbs.py
+test file: tests/python/test_ndt_serve_cells.py from HEAD f643b884753bae4013f68831d73fc6497287a9cc, sha256 9679b12cc73ba2e1e42fd59e75d09a441b1cbca5b816c9557416de8b96067958
+
+test_no_read_slot_is_not_a_claim_and_says_so (__main__.CellsRun.test_no_read_slot_is_not_a_claim_and_says_so)
+Intake judge 09-26, finding 5: with both read slots taken past --read-queue-wait, the ... FAIL
+test_a_status_past_its_timeout_is_not_a_claim (__main__.CellsRun.test_a_status_past_its_timeout_is_not_a_claim)
+Intake judge 09-26, finding 5: ndt status printed `yours` and then hung past ... FAIL
+
+======================================================================
+FAIL: test_no_read_slot_is_not_a_claim_and_says_so (__main__.CellsRun.test_no_read_slot_is_not_a_claim_and_says_so)
+Intake judge 09-26, finding 5: with both read slots taken past --read-queue-wait, the
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-ndt-serve-0926/tests/python/test_ndt_serve_cells.py", line 331, in test_no_read_slot_is_not_a_claim_and_says_so
+    self.assertIn("no read slot", j["note"])
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'no read slot' not found in 'the claim could not be read (ndt status did not answer); a cell that needs the lab is not run on a guess'
+
+======================================================================
+FAIL: test_a_status_past_its_timeout_is_not_a_claim (__main__.CellsRun.test_a_status_past_its_timeout_is_not_a_claim)
+Intake judge 09-26, finding 5: ndt status printed `yours` and then hung past
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-ndt-serve-0926/tests/python/test_ndt_serve_cells.py", line 348, in test_a_status_past_its_timeout_is_not_a_claim
+    self.assertIn("did not answer within 2 s", j["note"])
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'did not answer within 2 s' not found in 'the claim could not be read (ndt status did not answer); a cell that needs the lab is not run on a guess'
+
+----------------------------------------------------------------------
+Ran 2 tests in 7.502s
+
+FAILED (failures=2)
+rc=1

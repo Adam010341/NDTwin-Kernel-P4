@@ -1,0 +1,125 @@
+[
+ {
+  "n": 1,
+  "step": "claim",
+  "method": "POST",
+  "path": "/api/v1/claim",
+  "http": 202,
+  "job": "20260924T145024Z-764d11",
+  "argv": [
+   "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt",
+   "claim",
+   "10",
+   "ndt-serve-0924: taking down the fabric the rc-5 probe built"
+  ],
+  "state": "finished",
+  "rc": 0,
+  "rc_class": "ok",
+  "meaning": "the claim is yours",
+  "seconds": 0.1
+ },
+ {
+  "n": 2,
+  "step": "claim-wait",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T145024Z-764d11?wait=300",
+  "http": 200
+ },
+ {
+  "n": 3,
+  "step": "claim-stdout",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T145024Z-764d11/log/stdout",
+  "http": 200
+ },
+ {
+  "n": 4,
+  "step": "claim-stderr",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T145024Z-764d11/log/stderr",
+  "http": 200
+ },
+ {
+  "n": 5,
+  "step": "down",
+  "method": "POST",
+  "path": "/api/v1/down",
+  "http": 202,
+  "job": "20260924T145024Z-31e9e8",
+  "argv": [
+   "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt",
+   "down"
+  ],
+  "state": "finished",
+  "rc": 0,
+  "rc_class": "ok",
+  "meaning": "the teardown finished and the machine verified clean",
+  "seconds": 14.9
+ },
+ {
+  "n": 6,
+  "step": "down-wait",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T145024Z-31e9e8?wait=300",
+  "http": 200
+ },
+ {
+  "n": 7,
+  "step": "down-stdout",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T145024Z-31e9e8/log/stdout",
+  "http": 200
+ },
+ {
+  "n": 8,
+  "step": "down-stderr",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T145024Z-31e9e8/log/stderr",
+  "http": 200
+ },
+ {
+  "n": 9,
+  "step": "release",
+  "method": "POST",
+  "path": "/api/v1/release",
+  "http": 202,
+  "job": "20260924T145039Z-4369e1",
+  "argv": [
+   "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt",
+   "release"
+  ],
+  "state": "finished",
+  "rc": 0,
+  "rc_class": "ok",
+  "meaning": "released, or there was no claim to release",
+  "seconds": 0.0
+ },
+ {
+  "n": 10,
+  "step": "release-wait",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T145039Z-4369e1?wait=300",
+  "http": 200
+ },
+ {
+  "n": 11,
+  "step": "release-stdout",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T145039Z-4369e1/log/stdout",
+  "http": 200
+ },
+ {
+  "n": 12,
+  "step": "release-stderr",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T145039Z-4369e1/log/stderr",
+  "http": 200
+ },
+ {
+  "n": 13,
+  "step": "status-after",
+  "method": "GET",
+  "path": "/api/v1/status",
+  "http": 200
+ }
+]

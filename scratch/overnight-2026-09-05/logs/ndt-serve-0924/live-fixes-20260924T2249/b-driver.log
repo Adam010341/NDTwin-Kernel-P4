@@ -1,0 +1,42 @@
+01-health  GET /api/v1/health -> 200
+02-status-before  GET /api/v1/status -> 200
+03-probe-no-token  POST /api/v1/down -> 403
+04-probe-foreign-host  GET /api/v1/status -> 403
+05-claim  POST /api/v1/claim -> 202
+06-claim-wait  GET /api/v1/jobs/20260924T145232Z-2dfe35?wait=300 -> 200
+07-claim-stdout  GET /api/v1/jobs/20260924T145232Z-2dfe35/log/stdout -> 200
+08-claim-stderr  GET /api/v1/jobs/20260924T145232Z-2dfe35/log/stderr -> 200
+    job 20260924T145232Z-2dfe35  claim 30 ndt-serve-0924 re-run after the judge's fixes  rc=0 (ok)
+09-up  POST /api/v1/up -> 202
+10-probe-slot-while-up  GET /api/v1/health -> 200
+11-up-wait  GET /api/v1/jobs/20260924T145232Z-001c3d?wait=300 -> 200
+12-up-stdout  GET /api/v1/jobs/20260924T145232Z-001c3d/log/stdout -> 200
+13-up-stderr  GET /api/v1/jobs/20260924T145232Z-001c3d/log/stderr -> 200
+    job 20260924T145232Z-001c3d  up 4  rc=0 (ok)
+14-probe-check-no-token  GET /api/v1/status?check=1 -> 403
+15-status-check-after-up  GET /api/v1/status?check=1 -> 200
+16-status-after-up  GET /api/v1/status -> 200
+17-apps-before  GET /api/v1/apps -> 200
+18-nsr-start  POST /api/v1/apps/nsr/start -> 202
+19-nsr-start-wait  GET /api/v1/jobs/20260924T145244Z-207aec?wait=300 -> 200
+20-nsr-start-stdout  GET /api/v1/jobs/20260924T145244Z-207aec/log/stdout -> 200
+21-nsr-start-stderr  GET /api/v1/jobs/20260924T145244Z-207aec/log/stderr -> 200
+    job 20260924T145244Z-207aec  apps nsr  rc=0 (ok)
+22-apps-while-nsr  GET /api/v1/apps -> 200
+23-nsr-stop  POST /api/v1/apps/nsr/stop -> 202
+24-nsr-stop-wait  GET /api/v1/jobs/20260924T145250Z-eb6e7b?wait=300 -> 200
+25-nsr-stop-stdout  GET /api/v1/jobs/20260924T145250Z-eb6e7b/log/stdout -> 200
+26-nsr-stop-stderr  GET /api/v1/jobs/20260924T145250Z-eb6e7b/log/stderr -> 200
+    job 20260924T145250Z-eb6e7b  apps stop nsr  rc=0 (ok)
+27-down  POST /api/v1/down -> 202
+28-down-wait  GET /api/v1/jobs/20260924T145257Z-548f26?wait=300 -> 200
+29-down-stdout  GET /api/v1/jobs/20260924T145257Z-548f26/log/stdout -> 200
+30-down-stderr  GET /api/v1/jobs/20260924T145257Z-548f26/log/stderr -> 200
+    job 20260924T145257Z-548f26  down  rc=0 (ok)
+31-release  POST /api/v1/release -> 202
+32-release-wait  GET /api/v1/jobs/20260924T145312Z-76fa22?wait=300 -> 200
+33-release-stdout  GET /api/v1/jobs/20260924T145312Z-76fa22/log/stdout -> 200
+34-release-stderr  GET /api/v1/jobs/20260924T145312Z-76fa22/log/stderr -> 200
+    job 20260924T145312Z-76fa22  release  rc=0 (ok)
+35-status-after  GET /api/v1/status -> 200
+36-jobs  GET /api/v1/jobs?limit=20 -> 200

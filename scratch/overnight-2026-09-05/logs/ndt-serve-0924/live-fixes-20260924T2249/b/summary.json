@@ -1,0 +1,320 @@
+[
+ {
+  "n": 1,
+  "step": "health",
+  "method": "GET",
+  "path": "/api/v1/health",
+  "http": 200
+ },
+ {
+  "n": 2,
+  "step": "status-before",
+  "method": "GET",
+  "path": "/api/v1/status",
+  "http": 200
+ },
+ {
+  "n": 3,
+  "step": "probe-no-token",
+  "method": "POST",
+  "path": "/api/v1/down",
+  "http": 403
+ },
+ {
+  "n": 4,
+  "step": "probe-foreign-host",
+  "method": "GET",
+  "path": "/api/v1/status",
+  "http": 403
+ },
+ {
+  "n": 5,
+  "step": "claim",
+  "method": "POST",
+  "path": "/api/v1/claim",
+  "http": 202,
+  "job": "20260924T145232Z-2dfe35",
+  "argv": [
+   "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt",
+   "claim",
+   "30",
+   "ndt-serve-0924 re-run after the judge's fixes"
+  ],
+  "state": "finished",
+  "rc": 0,
+  "rc_class": "ok",
+  "meaning": "the claim is yours",
+  "seconds": 0.1
+ },
+ {
+  "n": 6,
+  "step": "claim-wait",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T145232Z-2dfe35?wait=300",
+  "http": 200
+ },
+ {
+  "n": 7,
+  "step": "claim-stdout",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T145232Z-2dfe35/log/stdout",
+  "http": 200
+ },
+ {
+  "n": 8,
+  "step": "claim-stderr",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T145232Z-2dfe35/log/stderr",
+  "http": 200
+ },
+ {
+  "n": 9,
+  "step": "up",
+  "method": "POST",
+  "path": "/api/v1/up",
+  "http": 202,
+  "job": "20260924T145232Z-001c3d",
+  "argv": [
+   "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt",
+   "up",
+   "4"
+  ],
+  "state": "finished",
+  "rc": 0,
+  "rc_class": "ok",
+  "meaning": "the fabric came up and verified",
+  "seconds": 8.5
+ },
+ {
+  "n": 10,
+  "step": "probe-slot-while-up",
+  "method": "GET",
+  "path": "/api/v1/health",
+  "http": 200
+ },
+ {
+  "n": 11,
+  "step": "up-wait",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T145232Z-001c3d?wait=300",
+  "http": 200
+ },
+ {
+  "n": 12,
+  "step": "up-stdout",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T145232Z-001c3d/log/stdout",
+  "http": 200
+ },
+ {
+  "n": 13,
+  "step": "up-stderr",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T145232Z-001c3d/log/stderr",
+  "http": 200
+ },
+ {
+  "n": 14,
+  "step": "probe-check-no-token",
+  "method": "GET",
+  "path": "/api/v1/status?check=1",
+  "http": 403
+ },
+ {
+  "n": 15,
+  "step": "status-check-after-up",
+  "method": "GET",
+  "path": "/api/v1/status?check=1",
+  "http": 200
+ },
+ {
+  "n": 16,
+  "step": "status-after-up",
+  "method": "GET",
+  "path": "/api/v1/status",
+  "http": 200
+ },
+ {
+  "n": 17,
+  "step": "apps-before",
+  "method": "GET",
+  "path": "/api/v1/apps",
+  "http": 200
+ },
+ {
+  "n": 18,
+  "step": "nsr-start",
+  "method": "POST",
+  "path": "/api/v1/apps/nsr/start",
+  "http": 202,
+  "job": "20260924T145244Z-207aec",
+  "argv": [
+   "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt",
+   "apps",
+   "nsr"
+  ],
+  "state": "finished",
+  "rc": 0,
+  "rc_class": "ok",
+  "meaning": "started, or it was already running",
+  "seconds": 1.1
+ },
+ {
+  "n": 19,
+  "step": "nsr-start-wait",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T145244Z-207aec?wait=300",
+  "http": 200
+ },
+ {
+  "n": 20,
+  "step": "nsr-start-stdout",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T145244Z-207aec/log/stdout",
+  "http": 200
+ },
+ {
+  "n": 21,
+  "step": "nsr-start-stderr",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T145244Z-207aec/log/stderr",
+  "http": 200
+ },
+ {
+  "n": 22,
+  "step": "apps-while-nsr",
+  "method": "GET",
+  "path": "/api/v1/apps",
+  "http": 200
+ },
+ {
+  "n": 23,
+  "step": "nsr-stop",
+  "method": "POST",
+  "path": "/api/v1/apps/nsr/stop",
+  "http": 202,
+  "job": "20260924T145250Z-eb6e7b",
+  "argv": [
+   "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt",
+   "apps",
+   "stop",
+   "nsr"
+  ],
+  "state": "finished",
+  "rc": 0,
+  "rc_class": "ok",
+  "meaning": "it was running, and it is not now",
+  "seconds": 6.9
+ },
+ {
+  "n": 24,
+  "step": "nsr-stop-wait",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T145250Z-eb6e7b?wait=300",
+  "http": 200
+ },
+ {
+  "n": 25,
+  "step": "nsr-stop-stdout",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T145250Z-eb6e7b/log/stdout",
+  "http": 200
+ },
+ {
+  "n": 26,
+  "step": "nsr-stop-stderr",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T145250Z-eb6e7b/log/stderr",
+  "http": 200
+ },
+ {
+  "n": 27,
+  "step": "down",
+  "method": "POST",
+  "path": "/api/v1/down",
+  "http": 202,
+  "job": "20260924T145257Z-548f26",
+  "argv": [
+   "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt",
+   "down"
+  ],
+  "state": "finished",
+  "rc": 0,
+  "rc_class": "ok",
+  "meaning": "the teardown finished and the machine verified clean",
+  "seconds": 14.8
+ },
+ {
+  "n": 28,
+  "step": "down-wait",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T145257Z-548f26?wait=300",
+  "http": 200
+ },
+ {
+  "n": 29,
+  "step": "down-stdout",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T145257Z-548f26/log/stdout",
+  "http": 200
+ },
+ {
+  "n": 30,
+  "step": "down-stderr",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T145257Z-548f26/log/stderr",
+  "http": 200
+ },
+ {
+  "n": 31,
+  "step": "release",
+  "method": "POST",
+  "path": "/api/v1/release",
+  "http": 202,
+  "job": "20260924T145312Z-76fa22",
+  "argv": [
+   "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt",
+   "release"
+  ],
+  "state": "finished",
+  "rc": 0,
+  "rc_class": "ok",
+  "meaning": "released, or there was no claim to release",
+  "seconds": 0.0
+ },
+ {
+  "n": 32,
+  "step": "release-wait",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T145312Z-76fa22?wait=300",
+  "http": 200
+ },
+ {
+  "n": 33,
+  "step": "release-stdout",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T145312Z-76fa22/log/stdout",
+  "http": 200
+ },
+ {
+  "n": 34,
+  "step": "release-stderr",
+  "method": "GET",
+  "path": "/api/v1/jobs/20260924T145312Z-76fa22/log/stderr",
+  "http": 200
+ },
+ {
+  "n": 35,
+  "step": "status-after",
+  "method": "GET",
+  "path": "/api/v1/status",
+  "http": 200
+ },
+ {
+  "n": 36,
+  "step": "jobs",
+  "method": "GET",
+  "path": "/api/v1/jobs?limit=20",
+  "http": 200
+ }
+]

@@ -1,0 +1,46 @@
+# 17-nsr-start-wait  sent 2026-09-24T22:01:47+0800  answered 1.205 s later
+GET /api/v1/jobs/20260924T140147Z-e383c4?wait=600 HTTP/1.1
+Host: 127.0.0.1:8765
+
+
+
+HTTP/1.0 200 OK
+Server: ndt-serve/1 
+Date: Thu, 24 Sep 2026 14:01:48 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 858
+Cache-Control: no-store
+X-Content-Type-Options: nosniff
+
+{
+ "job": {
+  "id": "20260924T140147Z-e383c4",
+  "kind": "apps.start",
+  "argv": [
+   "/home/adam/.local/bin/ndt",
+   "apps",
+   "nsr"
+  ],
+  "state": "finished",
+  "rc": 0,
+  "owner": "ndt-serve-0924",
+  "ndt_sha256": "cb134ccc7af9577a3a4ef3e71e64e238817029ec50977e099b7477b95b870e89",
+  "request": {},
+  "requested_by": "127.0.0.1:43176",
+  "created_at": 1790258507.230002,
+  "started_at": 1790258507.2464542,
+  "ended_at": 1790258508.3241332,
+  "ndt_pid": 1616079,
+  "ndt_pgid": 1616079,
+  "stdout_bytes": 85,
+  "stderr_bytes": 0,
+  "rc_class": "ok",
+  "meaning": "started, or it was already running"
+ },
+ "links": {
+  "self": "/api/v1/jobs/20260924T140147Z-e383c4",
+  "wait": "/api/v1/jobs/20260924T140147Z-e383c4?wait=60",
+  "stdout": "/api/v1/jobs/20260924T140147Z-e383c4/log/stdout",
+  "stderr": "/api/v1/jobs/20260924T140147Z-e383c4/log/stderr"
+ }
+}

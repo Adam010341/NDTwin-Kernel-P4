@@ -1,0 +1,106 @@
+{
+ "asserts": [
+  {
+   "ok": true,
+   "id": "h4nl_up_log_present",
+   "detail": "up.log present",
+   "file": "up.log"
+  },
+  {
+   "ok": false,
+   "id": "h4nl_up_rc_is_0",
+   "detail": "expected [0] actual [1]",
+   "file": null
+  },
+  {
+   "ok": false,
+   "id": "h4nl_model_counts_were_readable",
+   "detail": "up.log still contains [cannot read expected counts from]",
+   "file": "up.log"
+  },
+  {
+   "ok": false,
+   "id": "h4nl_no_incomplete_rollback",
+   "detail": "up.log still contains [rollback INCOMPLETE]",
+   "file": "up.log"
+  },
+  {
+   "ok": false,
+   "id": "h4nl_kernel_did_not_die_starting",
+   "detail": "up.log still contains [kernel exited while starting]",
+   "file": "up.log"
+  },
+  {
+   "ok": false,
+   "id": "h4nl_target_record_written",
+   "detail": "up.target is missing or empty",
+   "file": "up.target"
+  },
+  {
+   "ok": false,
+   "id": "h4nl_topology_sha_is_a_reading",
+   "detail": "no such raw file: up.target",
+   "file": "up.target"
+  },
+  {
+   "ok": false,
+   "id": "h4nl_model_hosts_were_counted",
+   "detail": "no such raw file: up.target",
+   "file": "up.target"
+  },
+  {
+   "ok": false,
+   "id": "h4nl_topology_path_is_one_line",
+   "detail": "no such raw file: up.target",
+   "file": "up.target"
+  }
+ ],
+ "verdict": {
+  "state": "FAIL",
+  "name": "up_target_names_a_readable_model",
+  "rest": "tag=ndt kernel=356803db69af3b1b ndt=53d3897a852491b71d0427649afe418a64ae2ceb at=2026-09-11T02:55:10+08:00",
+  "line": "CELL: FAIL up_target_names_a_readable_model tag=ndt kernel=356803db69af3b1b ndt=53d3897a852491b71d0427649afe418a64ae2ceb at=2026-09-11T02:55:10+08:00"
+ },
+ "skip": null,
+ "argv": [
+  "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/live_cells/up_target_names_a_readable_model.sh",
+  "judge",
+  "/home/adam/Desktop/NDTwin-Kernel/tests/fixtures/live_cells/up_target_names_a_readable_model/old"
+ ],
+ "rc": 1,
+ "stdout": "ASSERT ok   h4nl_up_log_present                    up.log present\nASSERT FAIL h4nl_up_rc_is_0                        expected [0] actual [1]\nASSERT FAIL h4nl_model_counts_were_readable        up.log still contains [cannot read expected counts from]\nASSERT FAIL h4nl_no_incomplete_rollback            up.log still contains [rollback INCOMPLETE]\nASSERT FAIL h4nl_kernel_did_not_die_starting       up.log still contains [kernel exited while starting]\nASSERT FAIL h4nl_target_record_written             up.target is missing or empty\nASSERT FAIL h4nl_topology_sha_is_a_reading         no such raw file: up.target\nASSERT FAIL h4nl_model_hosts_were_counted          no such raw file: up.target\nASSERT FAIL h4nl_topology_path_is_one_line         no such raw file: up.target\nCELL: FAIL up_target_names_a_readable_model tag=ndt kernel=356803db69af3b1b ndt=53d3897a852491b71d0427649afe418a64ae2ceb at=2026-09-11T02:55:10+08:00\n",
+ "stderr": "",
+ "fixture": "old",
+ "dir": "tests/fixtures/live_cells/up_target_names_a_readable_model/old",
+ "files": [
+  "EXPECTED-FAILS",
+  "PROVENANCE.md",
+  "ids.txt",
+  "up.log",
+  "up.rc",
+  "up.secs"
+ ],
+ "failing": [
+  "h4nl_kernel_did_not_die_starting",
+  "h4nl_model_counts_were_readable",
+  "h4nl_model_hosts_were_counted",
+  "h4nl_no_incomplete_rollback",
+  "h4nl_target_record_written",
+  "h4nl_topology_path_is_one_line",
+  "h4nl_topology_sha_is_a_reading",
+  "h4nl_up_rc_is_0"
+ ],
+ "expected_fails": [
+  "h4nl_kernel_did_not_die_starting",
+  "h4nl_model_counts_were_readable",
+  "h4nl_model_hosts_were_counted",
+  "h4nl_no_incomplete_rollback",
+  "h4nl_target_record_written",
+  "h4nl_topology_path_is_one_line",
+  "h4nl_topology_sha_is_a_reading",
+  "h4nl_up_rc_is_0"
+ ],
+ "failing_matches_expected": true,
+ "provenance": "# old/ -- up_target_names_a_readable_model\n\n[Co-developed with claude code -- Adam]\n\n**Kind: captured log.** ROLE-6's live run on the main checkout at trunk `954ab467`, which carried\nH4's fix and therefore the newline regression.\n\n| file | where it came from |\n|---|---|\n| `up.log` | `hunt-0911/logs/ROLE-6/51a-up-p4-A.log`, colour codes stripped (`sed 's/\\x1b\\[[0-9;]*m//g'`). `NDT_OWNER=overnight-0905 ndt up p4 4`, started 02:55:10 |\n| `up.rc` | `1` -- ROLE-6-SUCCESSOR2-REPORT \u00a7\u2460 |\n| `up.secs` | `318` -- same source |\n| `ids.txt` | kernel sha16 `356803db69af3b1b` (the binary ROLE-6 identified, `logs/ROLE-6/01-binaries.log`); `ndt` blob at `5e7a91c8^` |\n\n**The P4 arm, not the OVS arm, and the cell drives OVS.** The raw layout is plane-agnostic\n(`up.log`, `up.rc`, `up.target`), and ROLE-6 has no rc for the OVS arm at all: its `ndt up ovs 4`\nwas still running past 120 s when the role's own tool timeout killed the wrapper\n(`logs/ROLE-6/20-up-ovs4.log`). The defect was two copies of the same three lines, `ndt:1948`\n(p4) and `ndt:2287` (ovs), and ROLE-6 proved both offline; the P4 arm is the one with a number.\n\n**Assertions that carry the finding on this fixture** (the gate mutates only these):\n`h4nl_up_rc_is_0`, `h4nl_model_counts_were_readable`, `h4nl_no_incomplete_rollback`,\n`h4nl_kernel_did_not_die_starting`.\n\n**Fixture gap, recorded rather than papered over:** ROLE-6 did not keep that round's\n`.test_run/up.target`, so `h4nl_target_record_written`, `h4nl_topology_sha_is_a_reading`,\n`h4nl_model_hosts_were_counted` and `h4nl_topology_path_is_one_line` fail here with\n`no such raw file`. The report states what that file contained\n(`topology_sha256=unavailable`, an empty `model_hosts=`), and the offline half of the same\nfinding -- section 11 of `tests/shell/test_ndt_up_down_robust.sh` -- asserts exactly those four\nreadings against a fixture `up.target` it writes itself. They are kept in the judge because the\nlive round is where they are worth reading; they are not evidence on THIS fixture.\n",
+ "gap_note": "A failing assertion on old/ is not automatically the finding: some old/ directories are thinner than the cell's raw layout, and an assertion that fails with 'no such raw file' may be a fixture gap, not evidence. PROVENANCE.md names the ones that carry the finding (tests/fixtures/live_cells/README.md, rule 2)."
+}

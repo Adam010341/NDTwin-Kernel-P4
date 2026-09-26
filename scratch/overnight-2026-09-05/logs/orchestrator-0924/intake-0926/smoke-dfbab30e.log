@@ -1,0 +1,12 @@
+# smoke on trunk dfbab30e38ff41c027bc0f8ebe6722c90c5e9bf4
+  serve [--owner N] [--port P]   a local HTTP API over up/down/status/claim/release
+                and apps, on 127.0.0.1 only, for one user. Every request but /health
+                carries the token the server writes to ~/.config/ndt-serve/token (0600);
+                every call to ndt carries NDT_OWNER=N. 'ndt serve --help' for the options,
+                tools/ndt_serve/README.md for the API.
+usage: ndt serve [-h] [--owner OWNER] [--port PORT] [--ndt NDT]
+                 [--state-dir STATE_DIR] [--token-file TOKEN_FILE]
+                 [--app-root APP_ROOT] [--read-timeout READ_TIMEOUT]
+                 [--read-queue-wait READ_QUEUE_WAIT]
+                 [--max-connections MAX_CONNECTIONS]
+rc=0

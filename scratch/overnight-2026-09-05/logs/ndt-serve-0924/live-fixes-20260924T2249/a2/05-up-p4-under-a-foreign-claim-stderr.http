@@ -1,0 +1,20 @@
+# 05-up-p4-under-a-foreign-claim-stderr  sent 2026-09-24T22:52:17+0800  answered 0.001 s later
+GET /api/v1/jobs/20260924T145217Z-0d6fef/log/stderr HTTP/1.1
+Host: 127.0.0.1:8765
+X-NDT-Token: <token>
+
+
+
+HTTP/1.0 200 OK
+Server: ndt-serve/1 
+Date: Thu, 24 Sep 2026 14:52:17 GMT
+Content-Type: text/plain; charset=utf-8
+Content-Length: 150
+Cache-Control: no-store
+X-Content-Type-Options: nosniff
+X-NDT-Log-Offset: 0
+X-NDT-Log-Size: 150
+X-NDT-Log-Next-Offset: 150
+X-NDT-Job-State: finished
+
+  XX  the lab is claimed by ndt-serve-0924-foreign (until 22:57:16, ndt serve rc-5 probe on the P4 plane); 'ndt up' may restart the stack under them.

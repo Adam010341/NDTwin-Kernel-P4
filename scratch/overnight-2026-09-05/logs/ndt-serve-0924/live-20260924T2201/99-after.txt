@@ -1,0 +1,20 @@
+2026-09-24T22:06:07+08:00
+diff --git a/p4_proxy/mininet/host_count_override b/p4_proxy/mininet/host_count_override
+index a949a93d..b8626c4c 100644
+--- a/p4_proxy/mininet/host_count_override
++++ b/p4_proxy/mininet/host_count_override
+@@ -1 +1 @@
+-128
++4
+lab
+  claim          none
+  prev claim     ndt-serve-0924 (until 22:32:46), superseded 2026-09-24 22:03:25  (.test_run/lab.claim.prev)
+                 nothing holds the lab now: that claim was released or replaced
+                 it said: down at 2026-09-24 22:03:25; verified clean; claim kept
+  measuring      nothing
+  code           fd7382a3  +60 file(s) with uncommitted changes
+                 2 of them can change behaviour:
+                 p4_proxy/mininet/host_count_override
+                 tools/remote-lab/dorm_lab/
+  knob baseline  4 (the default; no round baseline recorded -- 'ndt claim' writes one)
+  tree vs round  no baseline in .test_run/round.baseline -- nothing here can say what this round changed ('ndt claim' records one)

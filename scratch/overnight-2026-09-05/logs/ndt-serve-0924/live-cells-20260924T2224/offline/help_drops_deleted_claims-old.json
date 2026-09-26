@@ -1,0 +1,79 @@
+{
+ "asserts": [
+  {
+   "ok": true,
+   "id": "help_output_present",
+   "detail": "help.txt present",
+   "file": "help.txt"
+  },
+  {
+   "ok": true,
+   "id": "help_rc_is_2",
+   "detail": "= [2]",
+   "file": null
+  },
+  {
+   "ok": false,
+   "id": "help_drops_this_checkout_claim",
+   "detail": "help.txt still contains [has run in THIS checkout. 3 is never]",
+   "file": "help.txt"
+  },
+  {
+   "ok": false,
+   "id": "help_scopes_the_residue_rc",
+   "detail": "help.txt does not contain [rc 1 ONLY while there is a]",
+   "file": "help.txt"
+  },
+  {
+   "ok": false,
+   "id": "help_drops_blanket_env_guarantee",
+   "detail": "help.txt still contains [mistake cannot be made by forgetting an]",
+   "file": "help.txt"
+  },
+  {
+   "ok": false,
+   "id": "help_keeps_the_scoped_knob_claim",
+   "detail": "help.txt does not contain [It does NOT make the 4-host-model-against-a-128-host-fabric]",
+   "file": "help.txt"
+  }
+ ],
+ "verdict": {
+  "state": "FAIL",
+  "name": "help_drops_deleted_claims",
+  "rest": "tag=ndt kernel=unknown ndt=bf539b577ca6af1311d6f767d430fb8b0fd2c6ca at=(replayed 2026-09-11)",
+  "line": "CELL: FAIL help_drops_deleted_claims tag=ndt kernel=unknown ndt=bf539b577ca6af1311d6f767d430fb8b0fd2c6ca at=(replayed 2026-09-11)"
+ },
+ "skip": null,
+ "argv": [
+  "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/live_cells/help_drops_deleted_claims.sh",
+  "judge",
+  "/home/adam/Desktop/NDTwin-Kernel/tests/fixtures/live_cells/help_drops_deleted_claims/old"
+ ],
+ "rc": 1,
+ "stdout": "ASSERT ok   help_output_present                    help.txt present\nASSERT ok   help_rc_is_2                           = [2]\nASSERT FAIL help_drops_this_checkout_claim         help.txt still contains [has run in THIS checkout. 3 is never]\nASSERT FAIL help_scopes_the_residue_rc             help.txt does not contain [rc 1 ONLY while there is a]\nASSERT FAIL help_drops_blanket_env_guarantee       help.txt still contains [mistake cannot be made by forgetting an]\nASSERT FAIL help_keeps_the_scoped_knob_claim       help.txt does not contain [It does NOT make the 4-host-model-against-a-128-host-fabric]\nCELL: FAIL help_drops_deleted_claims tag=ndt kernel=unknown ndt=bf539b577ca6af1311d6f767d430fb8b0fd2c6ca at=(replayed 2026-09-11)\n",
+ "stderr": "",
+ "fixture": "old",
+ "dir": "tests/fixtures/live_cells/help_drops_deleted_claims/old",
+ "files": [
+  "EXPECTED-FAILS",
+  "PROVENANCE.md",
+  "help.rc",
+  "help.txt",
+  "ids.txt"
+ ],
+ "failing": [
+  "help_drops_blanket_env_guarantee",
+  "help_drops_this_checkout_claim",
+  "help_keeps_the_scoped_knob_claim",
+  "help_scopes_the_residue_rc"
+ ],
+ "expected_fails": [
+  "help_drops_blanket_env_guarantee",
+  "help_drops_this_checkout_claim",
+  "help_keeps_the_scoped_knob_claim",
+  "help_scopes_the_residue_rc"
+ ],
+ "failing_matches_expected": true,
+ "provenance": "# old/ -- help_drops_deleted_claims\n\n[Co-developed with claude code -- Adam]\n\n**Kind: replay of the pre-fix tool.** `ndt help` reads no state, so replaying it at `3259d296^`\nreproduces exactly the text F-OFFLINE-1 \u00a71.12/\u00a71.24 read.\n\n| file | where it came from |\n|---|---|\n| `help.txt`, `help.rc` | `bash <3259d296^ ndt> help`, run 2026-09-11 13:0x in a temp tree carrying that rev's `ndt`, `ports.sh`, `sudo_surface.sh` and `components.env`. Line 62-64 is the B10 sentence; the F12 sentence is the `has run in THIS checkout. 3 is never` one |\n| `ids.txt` | the blob sha of `tools/test_workflow/ndt` at `3259d296^` |\n\nChecked before replaying: that rev's usage heredoc is the only unquoted one in the file and\ncontains **no** backtick and no `$(` (the 09-10 near-miss where an `ndt help` heredoc executed\n`ndt down` was introduced later in FIX-NDT-2 and fixed in `3f393bf2`). Running it was therefore\nsafe; a rev whose heredoc does carry one must not be replayed.\n\n**All four failing assertions carry the finding** -- two are the deleted sentences, two are the\nreplacements, and the fixture has the file all four read.\n",
+ "gap_note": "A failing assertion on old/ is not automatically the finding: some old/ directories are thinner than the cell's raw layout, and an assertion that fails with 'no such raw file' may be a fixture gap, not evidence. PROVENANCE.md names the ones that carry the finding (tests/fixtures/live_cells/README.md, rule 2)."
+}

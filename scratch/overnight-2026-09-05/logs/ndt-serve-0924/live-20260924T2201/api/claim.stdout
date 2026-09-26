@@ -1,0 +1,2 @@
+  recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+  ok  lab claimed by ndt-serve-0924 for 30m (ndt-serve-0924 live demo over the API)

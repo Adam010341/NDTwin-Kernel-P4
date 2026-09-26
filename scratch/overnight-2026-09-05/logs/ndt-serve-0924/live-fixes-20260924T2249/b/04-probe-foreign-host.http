@@ -1,0 +1,19 @@
+# 04-probe-foreign-host  sent 2026-09-24T22:52:32+0800  answered 0.001 s later
+GET /api/v1/status HTTP/1.1
+Host: rebind.attacker.test:8765
+X-NDT-Token: <token>
+
+
+
+HTTP/1.0 403 Forbidden
+Server: ndt-serve/1 
+Date: Thu, 24 Sep 2026 14:52:32 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 96
+Cache-Control: no-store
+X-Content-Type-Options: nosniff
+
+{
+ "error": "host",
+ "note": "the Host header must be one of: 127.0.0.1:8765, localhost:8765"
+}

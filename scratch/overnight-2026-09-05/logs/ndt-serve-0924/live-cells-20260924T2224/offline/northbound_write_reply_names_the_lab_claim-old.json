@@ -1,0 +1,152 @@
+{
+ "asserts": [
+  {
+   "ok": false,
+   "id": "lc_claim_file_copied",
+   "detail": "lab.claim is missing or empty",
+   "file": "lab.claim"
+  },
+  {
+   "ok": true,
+   "id": "lc_write_reply_present",
+   "detail": "failure.body present",
+   "file": "failure.body"
+  },
+  {
+   "ok": true,
+   "id": "lc_up_rc_is_0",
+   "detail": "= [0]",
+   "file": null
+  },
+  {
+   "ok": false,
+   "id": "lc_premise_a_claim_was_held",
+   "detail": "claim file owner [<none>] expires [<none>]: with no holder and no expiry the reply's lab_claim cannot be told from the empty one",
+   "file": null
+  },
+  {
+   "ok": false,
+   "id": "lc_write_reply_carries_the_claim",
+   "detail": "failure.body does not contain [\"lab_claim\":{]",
+   "file": "failure.body"
+  },
+  {
+   "ok": false,
+   "id": "lc_claim_owner_is_the_holder",
+   "detail": "failure.body does not contain [\"owner\":\"\"]",
+   "file": "failure.body"
+  },
+  {
+   "ok": false,
+   "id": "lc_claim_expiry_is_the_file_s",
+   "detail": "failure.body does not contain [\"expires_at\":]",
+   "file": "failure.body"
+  },
+  {
+   "ok": false,
+   "id": "lc_claim_state_is_active",
+   "detail": "failure.body does not contain [\"state\":\"active\"]",
+   "file": "failure.body"
+  },
+  {
+   "ok": false,
+   "id": "lc_recovery_reply_carries_it",
+   "detail": "recovery.body does not contain [\"lab_claim\":{]",
+   "file": "recovery.body"
+  },
+  {
+   "ok": false,
+   "id": "lc_badreq_is_a_refusal",
+   "detail": "expected [400] actual []",
+   "file": null
+  },
+  {
+   "ok": false,
+   "id": "lc_refusal_carries_it_too",
+   "detail": "no such raw file: badreq.body",
+   "file": "badreq.body"
+  },
+  {
+   "ok": false,
+   "id": "lc_a_post_outside_the_twelve_is_unmarked",
+   "detail": "no such raw file: notawrite.body",
+   "file": "notawrite.body"
+  },
+  {
+   "ok": false,
+   "id": "lc_a_read_is_unmarked",
+   "detail": "no such raw file: read.body",
+   "file": "read.body"
+  },
+  {
+   "ok": true,
+   "id": "lc_control_write_was_accepted",
+   "detail": "= [200]",
+   "file": null
+  },
+  {
+   "ok": false,
+   "id": "lc_control_cell_left_no_netem",
+   "detail": "no such raw file: netem_final.txt",
+   "file": "netem_final.txt"
+  }
+ ],
+ "verdict": {
+  "state": "FAIL",
+  "name": "northbound_write_reply_names_the_lab_claim",
+  "rest": "tag=kernel kernel=73c831b30bb49843 ndt=unknown at=2026-09-12T02:22:01+08:00",
+  "line": "CELL: FAIL northbound_write_reply_names_the_lab_claim tag=kernel kernel=73c831b30bb49843 ndt=unknown at=2026-09-12T02:22:01+08:00"
+ },
+ "skip": null,
+ "argv": [
+  "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/live_cells/northbound_write_reply_names_the_lab_claim.sh",
+  "judge",
+  "/home/adam/Desktop/NDTwin-Kernel/tests/fixtures/live_cells/northbound_write_reply_names_the_lab_claim/old"
+ ],
+ "rc": 1,
+ "stdout": "ASSERT FAIL lc_claim_file_copied                   lab.claim is missing or empty\nASSERT ok   lc_write_reply_present                 failure.body present\nASSERT ok   lc_up_rc_is_0                          = [0]\nASSERT FAIL lc_premise_a_claim_was_held            claim file owner [<none>] expires [<none>]: with no holder and no expiry the reply's lab_claim cannot be told from the empty one\nASSERT FAIL lc_write_reply_carries_the_claim       failure.body does not contain [\"lab_claim\":{]\nASSERT FAIL lc_claim_owner_is_the_holder           failure.body does not contain [\"owner\":\"\"]\nASSERT FAIL lc_claim_expiry_is_the_file_s          failure.body does not contain [\"expires_at\":]\nASSERT FAIL lc_claim_state_is_active               failure.body does not contain [\"state\":\"active\"]\nASSERT FAIL lc_recovery_reply_carries_it           recovery.body does not contain [\"lab_claim\":{]\nASSERT FAIL lc_badreq_is_a_refusal                 expected [400] actual []\nASSERT FAIL lc_refusal_carries_it_too              no such raw file: badreq.body\nASSERT FAIL lc_a_post_outside_the_twelve_is_unmarked no such raw file: notawrite.body\nASSERT FAIL lc_a_read_is_unmarked                  no such raw file: read.body\nASSERT ok   lc_control_write_was_accepted          = [200]\nASSERT FAIL lc_control_cell_left_no_netem          no such raw file: netem_final.txt\nCELL: FAIL northbound_write_reply_names_the_lab_claim tag=kernel kernel=73c831b30bb49843 ndt=unknown at=2026-09-12T02:22:01+08:00\n",
+ "stderr": "",
+ "fixture": "old",
+ "dir": "tests/fixtures/live_cells/northbound_write_reply_names_the_lab_claim/old",
+ "files": [
+  "EXPECTED-FAILS",
+  "PROVENANCE.md",
+  "failure.body",
+  "failure.code",
+  "ids.txt",
+  "recovery.body",
+  "recovery.code",
+  "up.rc"
+ ],
+ "failing": [
+  "lc_a_post_outside_the_twelve_is_unmarked",
+  "lc_a_read_is_unmarked",
+  "lc_badreq_is_a_refusal",
+  "lc_claim_expiry_is_the_file_s",
+  "lc_claim_file_copied",
+  "lc_claim_owner_is_the_holder",
+  "lc_claim_state_is_active",
+  "lc_control_cell_left_no_netem",
+  "lc_premise_a_claim_was_held",
+  "lc_recovery_reply_carries_it",
+  "lc_refusal_carries_it_too",
+  "lc_write_reply_carries_the_claim"
+ ],
+ "expected_fails": [
+  "lc_a_post_outside_the_twelve_is_unmarked",
+  "lc_a_read_is_unmarked",
+  "lc_badreq_is_a_refusal",
+  "lc_claim_expiry_is_the_file_s",
+  "lc_claim_file_copied",
+  "lc_claim_owner_is_the_holder",
+  "lc_claim_state_is_active",
+  "lc_control_cell_left_no_netem",
+  "lc_premise_a_claim_was_held",
+  "lc_recovery_reply_carries_it",
+  "lc_refusal_carries_it_too",
+  "lc_write_reply_carries_the_claim"
+ ],
+ "failing_matches_expected": true,
+ "provenance": "# old/ -- northbound_write_reply_names_the_lab_claim\n\n[Co-developed with claude code -- Adam]\n\n**Kind: last night's evidence, copied out of another role's logs.** ROLE-11 posted the two writes\nthis cell posts, against a kernel built before the fix, and kept the reply bodies verbatim. It is\nnot a replay: the pre-fix kernel is C++ and rebuilding it was out of this ticket's scope (no\nbuild), so the bodies ROLE-11 recorded are the only pre-fix evidence there is.\n\n| | |\n|---|---|\n| when | 2026-09-12 02:22:01 and 02:22:42 CST |\n| where | main checkout, trunk **`d7aa176e`**, OVS 4-host fabric ROLE-11 brought up at 02:20:23 |\n| kernel | sha256[0:16] **`73c831b30bb49843`**, named by ROLE-11 in the log's own second line |\n| the fix | `ea517ed5` (merged as `f313b1a4`, 2026-09-12 04:23) -- **not** an ancestor of `d7aa176e`, so this really is the pre-fix reply |\n\n| file here | copied from | which bytes |\n|---|---|---|\n| `failure.body` | `hunt-0911/logs/ROLE-11/08-inject-failure.log` | line 4, the whole JSON reply |\n| `failure.code` | same log | its `HTTP=200` line, value only |\n| `recovery.body` | `hunt-0911/logs/ROLE-11/11-inject-recovery.log` | line 3, the whole JSON reply |\n| `recovery.code` | same log | its `HTTP=200` line, value only |\n| `up.rc` | `hunt-0911/logs/ROLE-11/04-ndt-up-4.log` | its `RC=0` line, value only |\n| `ids.txt` | written here | `kernel=` is the sha ROLE-11 printed in `08-inject-failure.log`; `ndt=unknown` because ROLE-11 recorded no blob sha for `ndt`, and filling it in from this tree would be inventing provenance for somebody else's evidence |\n\n## \ud83d\udd34 Which of the twelve failing assertions are evidence, and which are a fixture gap\n\n**Evidence -- these two are the finding, and they are the only two `mutate_live_cells.sh` mutates:**\n\n| id | what it read here |\n|---|---|\n| `lc_write_reply_carries_the_claim` | the 200 from `/ndt/inject_link_failure` has no `lab_claim` key at all. Verbatim, it opens `{\"down_reason\":\"declared\",\"status\":\"link failure injected\",\"tc\":[...` -- after the fix `\"lab_claim\":{...}` sorts in between `down_reason` and `status` |\n| `lc_recovery_reply_carries_it` | the same of `/ndt/inject_link_recovery`: `{\"status\":\"link recovery injected\",\"tc\":[...` |\n\n**Fixture gap -- ROLE-11 was not running this cell and kept no such file. They fail honestly\n(`no such raw file`, or a needle built from a claim file that is not here) and they are NOT\nevidence of anything:**\n\n`lc_claim_file_copied`, `lc_premise_a_claim_was_held`, `lc_claim_owner_is_the_holder`,\n`lc_claim_expiry_is_the_file_s`, `lc_claim_state_is_active` -- ROLE-11 did not copy\n`.test_run/lab.claim`, and a claim file written by hand here would be a fixture that makes a\njudge go red on demand.\n`lc_badreq_is_a_refusal`, `lc_refusal_carries_it_too`, `lc_a_post_outside_the_twelve_is_unmarked`,\n`lc_a_read_is_unmarked` -- ROLE-11 made none of those three requests.\n`lc_control_cell_left_no_netem` -- ROLE-11's recovery log records `--- tc qdisc show | grep -c\nnetem ---` then `0`, which is the same reading, but writing that number into this cell's own\nsentence would be a reconstruction rather than a copy.\n\n**Passing here on purpose:** `lc_write_reply_present` and `lc_control_write_was_accepted` (200).\nThe pre-fix endpoint worked; what it did not do is say whose lab it had just written to.\n",
+ "gap_note": "A failing assertion on old/ is not automatically the finding: some old/ directories are thinner than the cell's raw layout, and an assertion that fails with 'no such raw file' may be a fixture gap, not evidence. PROVENANCE.md names the ones that carry the finding (tests/fixtures/live_cells/README.md, rule 2)."
+}

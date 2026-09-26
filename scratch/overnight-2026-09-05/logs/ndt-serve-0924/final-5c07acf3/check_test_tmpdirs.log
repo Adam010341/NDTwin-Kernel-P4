@@ -1,0 +1,4 @@
+# 2026-09-24T22:55:27+08:00 head 5c07acf371271b7421288610774c2a3b4dab4469
+# python3 tests/shell/check_test_tmpdirs.py
+check_test_tmpdirs: 350 file(s) scanned, 0 fixed temp paths
+rc=0

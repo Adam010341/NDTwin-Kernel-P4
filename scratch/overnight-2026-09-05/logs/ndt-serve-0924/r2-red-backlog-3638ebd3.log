@@ -1,0 +1,4 @@
+# 09-24 23:3x: before the fix, Jobs.test_concurrent_writes_get_exactly_one_slot failed 1/10 runs (ConnectionResetError, (1, 18) != (1, 19)); the case below is the deterministic red on 3638ebd3
+AssertionError: 5 not greater than or equal to 64 : LISTEN 0      5      127.0.0.1:44193 0.0.0.0:*
+FAILED (failures=1)
+concurrency failures after the fix: 0/20

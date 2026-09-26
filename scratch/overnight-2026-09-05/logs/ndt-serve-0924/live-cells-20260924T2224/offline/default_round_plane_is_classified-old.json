@@ -1,0 +1,66 @@
+{
+ "asserts": [
+  {
+   "ok": true,
+   "id": "f10_readings_present",
+   "detail": "planes.txt present",
+   "file": "planes.txt"
+  },
+  {
+   "ok": false,
+   "id": "f10_mininet_model_reads_as_ovs",
+   "detail": "planes.txt does not contain [mininet128: out=ovs rc=0]",
+   "file": "planes.txt"
+  },
+  {
+   "ok": true,
+   "id": "f10_ovs_model_still_reads_as_ovs",
+   "detail": "planes.txt contains it",
+   "file": "planes.txt"
+  },
+  {
+   "ok": true,
+   "id": "f10_p4_is_not_swallowed",
+   "detail": "planes.txt contains it",
+   "file": "planes.txt"
+  },
+  {
+   "ok": true,
+   "id": "f10_physical_is_still_unknown",
+   "detail": "planes.txt contains it",
+   "file": "planes.txt"
+  }
+ ],
+ "verdict": {
+  "state": "FAIL",
+  "name": "default_round_plane_is_classified",
+  "rest": "tag=ndt kernel=unknown ndt=4e605e6519500366e7ec83cd9e263b2de0bbcd63 at=(replayed 2026-09-11)",
+  "line": "CELL: FAIL default_round_plane_is_classified tag=ndt kernel=unknown ndt=4e605e6519500366e7ec83cd9e263b2de0bbcd63 at=(replayed 2026-09-11)"
+ },
+ "skip": null,
+ "argv": [
+  "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/live_cells/default_round_plane_is_classified.sh",
+  "judge",
+  "/home/adam/Desktop/NDTwin-Kernel/tests/fixtures/live_cells/default_round_plane_is_classified/old"
+ ],
+ "rc": 1,
+ "stdout": "ASSERT ok   f10_readings_present                   planes.txt present\nASSERT FAIL f10_mininet_model_reads_as_ovs         planes.txt does not contain [mininet128: out=ovs rc=0]\nASSERT ok   f10_ovs_model_still_reads_as_ovs       planes.txt contains it\nASSERT ok   f10_p4_is_not_swallowed                planes.txt contains it\nASSERT ok   f10_physical_is_still_unknown          planes.txt contains it\nCELL: FAIL default_round_plane_is_classified tag=ndt kernel=unknown ndt=4e605e6519500366e7ec83cd9e263b2de0bbcd63 at=(replayed 2026-09-11)\n",
+ "stderr": "",
+ "fixture": "old",
+ "dir": "tests/fixtures/live_cells/default_round_plane_is_classified/old",
+ "files": [
+  "EXPECTED-FAILS",
+  "PROVENANCE.md",
+  "ids.txt",
+  "planes.txt"
+ ],
+ "failing": [
+  "f10_mininet_model_reads_as_ovs"
+ ],
+ "expected_fails": [
+  "f10_mininet_model_reads_as_ovs"
+ ],
+ "failing_matches_expected": true,
+ "provenance": "# old/ -- default_round_plane_is_classified\n\n[Co-developed with claude code -- Adam]\n\n**Kind: replay of the pre-fix tool.** The cell's only input is a stubbed `kernel_exit_field`, so\nthe pre-fix reading is reproduced exactly by sourcing `ca9af4f1^`'s `ndt` through its\n`NDT_LIB_ONLY` seam.\n\n| file | where it came from |\n|---|---|\n| `planes.txt` | the cell's own `observe` with `NDT_ROOT` pointed at a temp tree carrying `ca9af4f1^`'s `ndt`. Reads `mininet128: out=<empty> rc=1` there, which is F-OFFLINE-1 \u00a71.15's measurement, and `ovs4: out=ovs rc=0` -- that report's own positive control |\n| `ids.txt` | the blob sha of `tools/test_workflow/ndt` at `ca9af4f1^` |\n\n**One failing assertion, and it is the finding**: `f10_mininet_model_reads_as_ovs`. The other\nthree pass on this fixture on purpose -- they are the controls that make \"classify everything as\novs\" a failing answer rather than a passing one, and a fixture on which they failed too would not\nbe able to show that.\n",
+ "gap_note": "A failing assertion on old/ is not automatically the finding: some old/ directories are thinner than the cell's raw layout, and an assertion that fails with 'no such raw file' may be a fixture gap, not evidence. PROVENANCE.md names the ones that carry the finding (tests/fixtures/live_cells/README.md, rule 2)."
+}

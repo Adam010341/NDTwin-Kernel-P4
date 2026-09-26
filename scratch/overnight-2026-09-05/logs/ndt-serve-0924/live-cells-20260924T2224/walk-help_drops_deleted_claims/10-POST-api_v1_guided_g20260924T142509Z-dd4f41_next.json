@@ -1,0 +1,295 @@
+# POST /api/v1/guided/g20260924T142509Z-dd4f41/next -> 200 at 22:25:11
+{
+ "walk": {
+  "id": "g20260924T142509Z-dd4f41",
+  "cell": "help_drops_deleted_claims",
+  "requires": "none",
+  "created_at": 1790259909.8716443,
+  "steps": [
+   {
+    "step": "old",
+    "title": "\u4fee\u597d\u4e4b\u524d\u7684\u7d05\uff08old/\uff0c\u552f\u8b80\uff0c\u4e0d\u78b0 lab\uff09",
+    "look_at": "\u770b FAIL \u7684\u90a3\u5e7e\u5217\uff1a\u5b83\u5011\u5c31\u662f\u7576\u6642\u7684\u7f3a\u9677\u3002\u5c0d\u7167 expected_fails\uff08\u4eba\u5de5\u5be9\u904e\u7684\u6e05\u55ae\uff09\uff0c\u5169\u908a\u61c9\u8a72\u4e00\u81f4\u3002\u518d\u8b80 provenance\uff1a\u53ea\u5beb\u8457 'no such raw file' \u7684\u7d05\uff0c\u53ef\u80fd\u53ea\u662f fixture \u7f3a\u6a94\uff0c\u4e0d\u662f\u8b49\u64da\u3002",
+    "state": "done",
+    "result": {
+     "ok": true,
+     "judge": {
+      "asserts": [
+       {
+        "ok": true,
+        "id": "help_output_present",
+        "detail": "help.txt present",
+        "file": "help.txt"
+       },
+       {
+        "ok": true,
+        "id": "help_rc_is_2",
+        "detail": "= [2]",
+        "file": null
+       },
+       {
+        "ok": false,
+        "id": "help_drops_this_checkout_claim",
+        "detail": "help.txt still contains [has run in THIS checkout. 3 is never]",
+        "file": "help.txt"
+       },
+       {
+        "ok": false,
+        "id": "help_scopes_the_residue_rc",
+        "detail": "help.txt does not contain [rc 1 ONLY while there is a]",
+        "file": "help.txt"
+       },
+       {
+        "ok": false,
+        "id": "help_drops_blanket_env_guarantee",
+        "detail": "help.txt still contains [mistake cannot be made by forgetting an]",
+        "file": "help.txt"
+       },
+       {
+        "ok": false,
+        "id": "help_keeps_the_scoped_knob_claim",
+        "detail": "help.txt does not contain [It does NOT make the 4-host-model-against-a-128-host-fabric]",
+        "file": "help.txt"
+       }
+      ],
+      "verdict": {
+       "state": "FAIL",
+       "name": "help_drops_deleted_claims",
+       "rest": "tag=ndt kernel=unknown ndt=bf539b577ca6af1311d6f767d430fb8b0fd2c6ca at=(replayed 2026-09-11)",
+       "line": "CELL: FAIL help_drops_deleted_claims tag=ndt kernel=unknown ndt=bf539b577ca6af1311d6f767d430fb8b0fd2c6ca at=(replayed 2026-09-11)"
+      },
+      "skip": null,
+      "argv": [
+       "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/live_cells/help_drops_deleted_claims.sh",
+       "judge",
+       "/home/adam/Desktop/NDTwin-Kernel/tests/fixtures/live_cells/help_drops_deleted_claims/old"
+      ],
+      "rc": 1,
+      "stdout": "ASSERT ok   help_output_present                    help.txt present\nASSERT ok   help_rc_is_2                           = [2]\nASSERT FAIL help_drops_this_checkout_claim         help.txt still contains [has run in THIS checkout. 3 is never]\nASSERT FAIL help_scopes_the_residue_rc             help.txt does not contain [rc 1 ONLY while there is a]\nASSERT FAIL help_drops_blanket_env_guarantee       help.txt still contains [mistake cannot be made by forgetting an]\nASSERT FAIL help_keeps_the_scoped_knob_claim       help.txt does not contain [It does NOT make the 4-host-model-against-a-128-host-fabric]\nCELL: FAIL help_drops_deleted_claims tag=ndt kernel=unknown ndt=bf539b577ca6af1311d6f767d430fb8b0fd2c6ca at=(replayed 2026-09-11)\n",
+      "stderr": "",
+      "fixture": "old",
+      "dir": "tests/fixtures/live_cells/help_drops_deleted_claims/old",
+      "files": [
+       "EXPECTED-FAILS",
+       "PROVENANCE.md",
+       "help.rc",
+       "help.txt",
+       "ids.txt"
+      ],
+      "failing": [
+       "help_drops_blanket_env_guarantee",
+       "help_drops_this_checkout_claim",
+       "help_keeps_the_scoped_knob_claim",
+       "help_scopes_the_residue_rc"
+      ],
+      "expected_fails": [
+       "help_drops_blanket_env_guarantee",
+       "help_drops_this_checkout_claim",
+       "help_keeps_the_scoped_knob_claim",
+       "help_scopes_the_residue_rc"
+      ],
+      "failing_matches_expected": true,
+      "provenance": "# old/ -- help_drops_deleted_claims\n\n[Co-developed with claude code -- Adam]\n\n**Kind: replay of the pre-fix tool.** `ndt help` reads no state, so replaying it at `3259d296^`\nreproduces exactly the text F-OFFLINE-1 \u00a71.12/\u00a71.24 read.\n\n| file | where it came from |\n|---|---|\n| `help.txt`, `help.rc` | `bash <3259d296^ ndt> help`, run 2026-09-11 13:0x in a temp tree carrying that rev's `ndt`, `ports.sh`, `sudo_surface.sh` and `components.env`. Line 62-64 is the B10 sentence; the F12 sentence is the `has run in THIS checkout. 3 is never` one |\n| `ids.txt` | the blob sha of `tools/test_workflow/ndt` at `3259d296^` |\n\nChecked before replaying: that rev's usage heredoc is the only unquoted one in the file and\ncontains **no** backtick and no `$(` (the 09-10 near-miss where an `ndt help` heredoc executed\n`ndt down` was introduced later in FIX-NDT-2 and fixed in `3f393bf2`). Running it was therefore\nsafe; a rev whose heredoc does carry one must not be replayed.\n\n**All four failing assertions carry the finding** -- two are the deleted sentences, two are the\nreplacements, and the fixture has the file all four read.\n",
+      "gap_note": "A failing assertion on old/ is not automatically the finding: some old/ directories are thinner than the cell's raw layout, and an assertion that fails with 'no such raw file' may be a fixture gap, not evidence. PROVENANCE.md names the ones that carry the finding (tests/fixtures/live_cells/README.md, rule 2)."
+     },
+     "why": null
+    },
+    "job": null
+   },
+   {
+    "step": "new",
+    "title": "\u7b2c\u4e00\u6b21\u4fee\u597d\u6642\u7684\u7da0\uff08new/\uff0c\u552f\u8b80\uff0c\u4e0d\u78b0 lab\uff09",
+    "look_at": "\u6bcf\u4e00\u5217\u90fd\u61c9\u8a72\u662f ok\uff0c\u6700\u5f8c\u4e00\u884c\u662f CELL: PASS\u3002\u9019\u662f\u4fee\u597d\u7576\u665a\u8dd1\u51fa\u4f86\u7684\uff0c\u4e0d\u662f\u73fe\u5728\u8dd1\u7684\u3002",
+    "state": "done",
+    "result": {
+     "ok": true,
+     "judge": {
+      "asserts": [
+       {
+        "ok": true,
+        "id": "help_output_present",
+        "detail": "help.txt present",
+        "file": "help.txt"
+       },
+       {
+        "ok": true,
+        "id": "help_rc_is_2",
+        "detail": "= [2]",
+        "file": null
+       },
+       {
+        "ok": true,
+        "id": "help_drops_this_checkout_claim",
+        "detail": "help.txt does not contain it",
+        "file": "help.txt"
+       },
+       {
+        "ok": true,
+        "id": "help_scopes_the_residue_rc",
+        "detail": "help.txt contains it",
+        "file": "help.txt"
+       },
+       {
+        "ok": true,
+        "id": "help_drops_blanket_env_guarantee",
+        "detail": "help.txt does not contain it",
+        "file": "help.txt"
+       },
+       {
+        "ok": true,
+        "id": "help_keeps_the_scoped_knob_claim",
+        "detail": "help.txt contains it",
+        "file": "help.txt"
+       }
+      ],
+      "verdict": {
+       "state": "PASS",
+       "name": "help_drops_deleted_claims",
+       "rest": "tag=ndt kernel=048b842efa16178a ndt=516e28a0a98585eb1e6be548b72e10bd0360dd14 at=2026-09-11T13:33:03+08:00",
+       "line": "CELL: PASS help_drops_deleted_claims tag=ndt kernel=048b842efa16178a ndt=516e28a0a98585eb1e6be548b72e10bd0360dd14 at=2026-09-11T13:33:03+08:00"
+      },
+      "skip": null,
+      "argv": [
+       "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/live_cells/help_drops_deleted_claims.sh",
+       "judge",
+       "/home/adam/Desktop/NDTwin-Kernel/tests/fixtures/live_cells/help_drops_deleted_claims/new"
+      ],
+      "rc": 0,
+      "stdout": "ASSERT ok   help_output_present                    help.txt present\nASSERT ok   help_rc_is_2                           = [2]\nASSERT ok   help_drops_this_checkout_claim         help.txt does not contain it\nASSERT ok   help_scopes_the_residue_rc             help.txt contains it\nASSERT ok   help_drops_blanket_env_guarantee       help.txt does not contain it\nASSERT ok   help_keeps_the_scoped_knob_claim       help.txt contains it\nCELL: PASS help_drops_deleted_claims tag=ndt kernel=048b842efa16178a ndt=516e28a0a98585eb1e6be548b72e10bd0360dd14 at=2026-09-11T13:33:03+08:00\n",
+      "stderr": "",
+      "fixture": "new",
+      "dir": "tests/fixtures/live_cells/help_drops_deleted_claims/new",
+      "files": [
+       "PROVENANCE.md",
+       "help.rc",
+       "help.txt",
+       "ids.txt",
+       "observe.rc",
+       "observe.stdout"
+      ],
+      "failing": []
+     },
+     "why": null
+    },
+    "job": null
+   },
+   {
+    "step": "run",
+    "title": "\u73fe\u5728\u91cd\u8dd1\u9019\u4e00\u683c\uff1aobserve \u2192 judge \u2192 \u9084\u539f",
+    "look_at": "\u770b verdict\uff1aCELL: PASS \u5c31\u662f\u7da0\u3002\u7da0\u9577\u4ec0\u9ebc\u6a23\uff08CELLS.md\uff09\uff1a`ndt help` no longer carries the `has run in THIS checkout` sentence nor the blanket environment-variable guarantee, and does carry the scoped replacements\u3002run_cells.sh \u7684 rc 2 \u4ee3\u8868\u9084\u539f\u5931\u6557\uff0clab \u4e0d\u4e7e\u6de8\uff1b\u9019\u7a2e\u60c5\u6cc1\u6d41\u7a0b\u6703\u505c\u4f4f\uff0c\u4e0d\u6703\u81ea\u52d5 release\u3002",
+    "state": "done",
+    "result": {
+     "id": "20260924T142510Z-cf5bef",
+     "state": "finished",
+     "rc": 0,
+     "rc_class": "pass",
+     "meaning": "the cell PASSED or was SKIPPED -- read cell_verdict; SKIP is not a pass",
+     "cell_verdict": {
+      "state": "PASS",
+      "name": "help_drops_deleted_claims",
+      "rest": "tag=ndt kernel=be70b5dd32356847 ndt=3273df8b0751a777aa26e843752d97782868e771 at=2026-09-24T22:25:10+08:00",
+      "line": "CELL: PASS help_drops_deleted_claims tag=ndt kernel=be70b5dd32356847 ndt=3273df8b0751a777aa26e843752d97782868e771 at=2026-09-24T22:25:10+08:00"
+     }
+    },
+    "job": "20260924T142510Z-cf5bef"
+   },
+   {
+    "step": "compare",
+    "title": "\u4fee\u524d vs \u73fe\u5728\uff0c\u9010\u689d\u5c0d\u7167",
+    "look_at": "\u770b red_to_green \u70ba true \u7684\u90a3\u5e7e\u5217\uff1a\u9019\u5e7e\u689d\u5728 old/ \u662f FAIL\uff0c\u73fe\u5728\u662f ok\u3002still_red \u61c9\u8a72\u5168\u90e8\u662f false\u3002",
+    "state": "done",
+    "result": {
+     "ok": true,
+     "rows": [
+      {
+       "id": "help_output_present",
+       "old": "ok",
+       "now": "ok",
+       "detail_now": "help.txt present",
+       "detail_old": "help.txt present",
+       "file": "help.txt",
+       "red_to_green": false,
+       "still_red": false
+      },
+      {
+       "id": "help_rc_is_2",
+       "old": "ok",
+       "now": "ok",
+       "detail_now": "= [2]",
+       "detail_old": "= [2]",
+       "file": null,
+       "red_to_green": false,
+       "still_red": false
+      },
+      {
+       "id": "help_drops_this_checkout_claim",
+       "old": "FAIL",
+       "now": "ok",
+       "detail_now": "help.txt does not contain it",
+       "detail_old": "help.txt still contains [has run in THIS checkout. 3 is never]",
+       "file": "help.txt",
+       "red_to_green": true,
+       "still_red": false
+      },
+      {
+       "id": "help_scopes_the_residue_rc",
+       "old": "FAIL",
+       "now": "ok",
+       "detail_now": "help.txt contains it",
+       "detail_old": "help.txt does not contain [rc 1 ONLY while there is a]",
+       "file": "help.txt",
+       "red_to_green": true,
+       "still_red": false
+      },
+      {
+       "id": "help_drops_blanket_env_guarantee",
+       "old": "FAIL",
+       "now": "ok",
+       "detail_now": "help.txt does not contain it",
+       "detail_old": "help.txt still contains [mistake cannot be made by forgetting an]",
+       "file": "help.txt",
+       "red_to_green": true,
+       "still_red": false
+      },
+      {
+       "id": "help_keeps_the_scoped_knob_claim",
+       "old": "FAIL",
+       "now": "ok",
+       "detail_now": "help.txt contains it",
+       "detail_old": "help.txt does not contain [It does NOT make the 4-host-model-against-a-128-host-fabric]",
+       "file": "help.txt",
+       "red_to_green": true,
+       "still_red": false
+      }
+     ],
+     "red_to_green": [
+      "help_drops_this_checkout_claim",
+      "help_scopes_the_residue_rc",
+      "help_drops_blanket_env_guarantee",
+      "help_keeps_the_scoped_knob_claim"
+     ],
+     "still_red": [],
+     "verdict_line": {
+      "state": "PASS",
+      "name": "help_drops_deleted_claims",
+      "rest": "tag=ndt kernel=be70b5dd32356847 ndt=3273df8b0751a777aa26e843752d97782868e771 at=2026-09-24T22:25:10+08:00",
+      "line": "CELL: PASS help_drops_deleted_claims tag=ndt kernel=be70b5dd32356847 ndt=3273df8b0751a777aa26e843752d97782868e771 at=2026-09-24T22:25:10+08:00"
+     }
+    },
+    "job": null
+   },
+   {
+    "step": "verdict",
+    "title": "\u4f60\u7684\u5224\u5b9a\uff1a\u7d05\u9084\u662f\u7da0",
+    "look_at": "\u7531\u4f60\u6c7a\u5b9a\u3002POST /api/v1/guided/<id>/verdict\uff0cbody \u70ba {\"verdict\": \"green\" \u6216 \"red\", \"note\": \"...\"}\u3002",
+    "state": "pending",
+    "result": null,
+    "job": null
+   }
+  ],
+  "current": 4,
+  "blocked": null,
+  "verdict": null,
+  "done": false
+ }
+}

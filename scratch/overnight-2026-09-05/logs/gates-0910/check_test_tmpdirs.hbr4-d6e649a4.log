@@ -1,0 +1,7 @@
+d6e649a4a1a71fd6fce714d20c266e06f64ff843
+# 2026-09-25T23:41:21Z worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r4-0926, branch fix/hb-spike-r4-0926
+# status (uncommitted): 
+# run under: env -u SELFTEST_PROBE_SUDO -u FAULTS_TC, cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r4-0926
+# $ python3 tests/shell/check_test_tmpdirs.py --repo .
+check_test_tmpdirs: 356 file(s) scanned, 0 fixed temp paths
+# rc=0  2026-09-25T23:41:22Z

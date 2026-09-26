@@ -1,0 +1,22 @@
+# 33-release-stdout  sent 2026-09-24T22:53:13+0800  answered 0.002 s later
+GET /api/v1/jobs/20260924T145312Z-76fa22/log/stdout HTTP/1.1
+Host: 127.0.0.1:8765
+X-NDT-Token: <token>
+
+
+
+HTTP/1.0 200 OK
+Server: ndt-serve/1 
+Date: Thu, 24 Sep 2026 14:53:13 GMT
+Content-Type: text/plain; charset=utf-8
+Content-Length: 228
+Cache-Control: no-store
+X-Content-Type-Options: nosniff
+X-NDT-Log-Offset: 0
+X-NDT-Log-Size: 228
+X-NDT-Log-Next-Offset: 228
+X-NDT-Job-State: finished
+
+  the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+  this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+  ok  lab released

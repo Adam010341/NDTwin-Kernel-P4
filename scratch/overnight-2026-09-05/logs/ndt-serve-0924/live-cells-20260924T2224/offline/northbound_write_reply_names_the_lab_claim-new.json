@@ -1,0 +1,133 @@
+{
+ "asserts": [
+  {
+   "ok": true,
+   "id": "lc_claim_file_copied",
+   "detail": "lab.claim present",
+   "file": "lab.claim"
+  },
+  {
+   "ok": true,
+   "id": "lc_write_reply_present",
+   "detail": "failure.body present",
+   "file": "failure.body"
+  },
+  {
+   "ok": true,
+   "id": "lc_up_rc_is_0",
+   "detail": "= [0]",
+   "file": null
+  },
+  {
+   "ok": true,
+   "id": "lc_premise_a_claim_was_held",
+   "detail": "claim file names owner [overnight-0905] expiring at 1789204584",
+   "file": null
+  },
+  {
+   "ok": true,
+   "id": "lc_write_reply_carries_the_claim",
+   "detail": "failure.body contains it",
+   "file": "failure.body"
+  },
+  {
+   "ok": true,
+   "id": "lc_claim_owner_is_the_holder",
+   "detail": "failure.body contains it",
+   "file": "failure.body"
+  },
+  {
+   "ok": true,
+   "id": "lc_claim_expiry_is_the_file_s",
+   "detail": "failure.body contains it",
+   "file": "failure.body"
+  },
+  {
+   "ok": true,
+   "id": "lc_claim_state_is_active",
+   "detail": "failure.body contains it",
+   "file": "failure.body"
+  },
+  {
+   "ok": true,
+   "id": "lc_recovery_reply_carries_it",
+   "detail": "recovery.body contains it",
+   "file": "recovery.body"
+  },
+  {
+   "ok": true,
+   "id": "lc_badreq_is_a_refusal",
+   "detail": "= [400]",
+   "file": null
+  },
+  {
+   "ok": true,
+   "id": "lc_refusal_carries_it_too",
+   "detail": "badreq.body contains it",
+   "file": "badreq.body"
+  },
+  {
+   "ok": true,
+   "id": "lc_a_post_outside_the_twelve_is_unmarked",
+   "detail": "notawrite.body does not contain it",
+   "file": "notawrite.body"
+  },
+  {
+   "ok": true,
+   "id": "lc_a_read_is_unmarked",
+   "detail": "read.body does not contain it",
+   "file": "read.body"
+  },
+  {
+   "ok": true,
+   "id": "lc_control_write_was_accepted",
+   "detail": "= [200]",
+   "file": null
+  },
+  {
+   "ok": true,
+   "id": "lc_control_cell_left_no_netem",
+   "detail": "netem_final.txt contains it",
+   "file": "netem_final.txt"
+  }
+ ],
+ "verdict": {
+  "state": "PASS",
+  "name": "northbound_write_reply_names_the_lab_claim",
+  "rest": "tag=kernel kernel=c4c8e50310d7e4a1 ndt=54fd094e2dff10ccbe69a5a3b9028ca8b22c36bc at=2026-09-12T15:00:09+08:00",
+  "line": "CELL: PASS northbound_write_reply_names_the_lab_claim tag=kernel kernel=c4c8e50310d7e4a1 ndt=54fd094e2dff10ccbe69a5a3b9028ca8b22c36bc at=2026-09-12T15:00:09+08:00"
+ },
+ "skip": null,
+ "argv": [
+  "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/live_cells/northbound_write_reply_names_the_lab_claim.sh",
+  "judge",
+  "/home/adam/Desktop/NDTwin-Kernel/tests/fixtures/live_cells/northbound_write_reply_names_the_lab_claim/new"
+ ],
+ "rc": 0,
+ "stdout": "ASSERT ok   lc_claim_file_copied                   lab.claim present\nASSERT ok   lc_write_reply_present                 failure.body present\nASSERT ok   lc_up_rc_is_0                          = [0]\nASSERT ok   lc_premise_a_claim_was_held            claim file names owner [overnight-0905] expiring at 1789204584\nASSERT ok   lc_write_reply_carries_the_claim       failure.body contains it\nASSERT ok   lc_claim_owner_is_the_holder           failure.body contains it\nASSERT ok   lc_claim_expiry_is_the_file_s          failure.body contains it\nASSERT ok   lc_claim_state_is_active               failure.body contains it\nASSERT ok   lc_recovery_reply_carries_it           recovery.body contains it\nASSERT ok   lc_badreq_is_a_refusal                 = [400]\nASSERT ok   lc_refusal_carries_it_too              badreq.body contains it\nASSERT ok   lc_a_post_outside_the_twelve_is_unmarked notawrite.body does not contain it\nASSERT ok   lc_a_read_is_unmarked                  read.body does not contain it\nASSERT ok   lc_control_write_was_accepted          = [200]\nASSERT ok   lc_control_cell_left_no_netem          netem_final.txt contains it\nCELL: PASS northbound_write_reply_names_the_lab_claim tag=kernel kernel=c4c8e50310d7e4a1 ndt=54fd094e2dff10ccbe69a5a3b9028ca8b22c36bc at=2026-09-12T15:00:09+08:00\n",
+ "stderr": "",
+ "fixture": "new",
+ "dir": "tests/fixtures/live_cells/northbound_write_reply_names_the_lab_claim/new",
+ "files": [
+  "PROVENANCE.md",
+  "badreq.body",
+  "badreq.code",
+  "failure.body",
+  "failure.code",
+  "ids.txt",
+  "lab.claim",
+  "netem_final.txt",
+  "notawrite.body",
+  "notawrite.code",
+  "read.body",
+  "read.code",
+  "recovery.body",
+  "recovery.code",
+  "tc_after.txt",
+  "tc_after_far.txt",
+  "tc_pre.txt",
+  "up.log",
+  "up.rc"
+ ],
+ "failing": []
+}

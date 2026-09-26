@@ -1,0 +1,91 @@
+{
+ "asserts": [
+  {
+   "ok": true,
+   "id": "h3_up_log_present",
+   "detail": "up.log present",
+   "file": "up.log"
+  },
+  {
+   "ok": true,
+   "id": "h3_marker_was_in_place",
+   "detail": "down.inflight matches",
+   "file": "down.inflight"
+  },
+  {
+   "ok": true,
+   "id": "h3_refusal_names_the_teardown",
+   "detail": "up.log contains it",
+   "file": "up.log"
+  },
+  {
+   "ok": true,
+   "id": "h3_refusal_quotes_the_marker",
+   "detail": "up.log contains it",
+   "file": "up.log"
+  },
+  {
+   "ok": true,
+   "id": "h3_did_not_reuse_the_fabric",
+   "detail": "up.log does not contain it",
+   "file": "up.log"
+  },
+  {
+   "ok": true,
+   "id": "h3_did_not_verify_a_dying_fabric",
+   "detail": "up.log does not contain it",
+   "file": "up.log"
+  },
+  {
+   "ok": true,
+   "id": "h3_up_rc_is_5",
+   "detail": "= [5]",
+   "file": null
+  },
+  {
+   "ok": true,
+   "id": "h3_refusal_is_immediate",
+   "detail": "refused in 0s",
+   "file": null
+  },
+  {
+   "ok": true,
+   "id": "h3_marker_was_removed",
+   "detail": "down.inflight.after contains it",
+   "file": "down.inflight.after"
+  }
+ ],
+ "verdict": {
+  "state": "PASS",
+  "name": "up_refuses_while_a_down_is_in_flight",
+  "rest": "tag=ndt kernel=c4c8e50310d7e4a1 ndt=54fd094e2dff10ccbe69a5a3b9028ca8b22c36bc at=2026-09-12T14:41:47+08:00",
+  "line": "CELL: PASS up_refuses_while_a_down_is_in_flight tag=ndt kernel=c4c8e50310d7e4a1 ndt=54fd094e2dff10ccbe69a5a3b9028ca8b22c36bc at=2026-09-12T14:41:47+08:00"
+ },
+ "skip": null,
+ "argv": [
+  "/home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/live_cells/up_refuses_while_a_down_is_in_flight.sh",
+  "judge",
+  "/home/adam/Desktop/NDTwin-Kernel/tests/fixtures/live_cells/up_refuses_while_a_down_is_in_flight/new"
+ ],
+ "rc": 0,
+ "stdout": "ASSERT ok   h3_up_log_present                      up.log present\nASSERT ok   h3_marker_was_in_place                 down.inflight matches\nASSERT ok   h3_refusal_names_the_teardown          up.log contains it\nASSERT ok   h3_refusal_quotes_the_marker           up.log contains it\nASSERT ok   h3_did_not_reuse_the_fabric            up.log does not contain it\nASSERT ok   h3_did_not_verify_a_dying_fabric       up.log does not contain it\nASSERT ok   h3_up_rc_is_5                          = [5]\nASSERT ok   h3_refusal_is_immediate                refused in 0s\nASSERT ok   h3_marker_was_removed                  down.inflight.after contains it\nCELL: PASS up_refuses_while_a_down_is_in_flight tag=ndt kernel=c4c8e50310d7e4a1 ndt=54fd094e2dff10ccbe69a5a3b9028ca8b22c36bc at=2026-09-12T14:41:47+08:00\n",
+ "stderr": "",
+ "fixture": "new",
+ "dir": "tests/fixtures/live_cells/up_refuses_while_a_down_is_in_flight/new",
+ "files": [
+  "PROVENANCE.md",
+  "down-bg.log",
+  "down.bgpid",
+  "down.inflight",
+  "down.inflight.after",
+  "down.rc",
+  "ids.txt",
+  "judge.txt",
+  "observe.rc",
+  "observe.stdout",
+  "up.log",
+  "up.rc",
+  "up.secs"
+ ],
+ "failing": []
+}
