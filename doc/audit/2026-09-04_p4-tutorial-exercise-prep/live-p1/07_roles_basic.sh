@@ -199,6 +199,12 @@ missing = [k for k in want if k not in links]
 extra = sorted(k for k in links if k not in want)
 unfed = [k for k in want if k in links and got(k, "source") != "heartbeat"]
 down = [k for k in want if k in links and got(k, "source") == "heartbeat" and got(k, "down") is not False]
+# [Co-developed with claude code -- Adam] The opus judge's N3-1: a direction the heartbeat has not
+# heard yet reads heartbeat / down false for the proxy's 30 s startup grace, with no age -- HEARD
+# means an age.
+number = lambda v: isinstance(v, (int, float)) and not isinstance(v, bool)
+unheard = [k for k in want if k in links and got(k, "source") == "heartbeat" and got(k, "down") is False
+           and not number(got(k, "last_beacon_age_s"))]
 bad = []
 if missing:
     bad.append(f"missing {missing}")
@@ -208,12 +214,14 @@ if unfed:
     bad.append(f"not fed by the heartbeat {[(k, got(k, 'source')) for k in unfed]}")
 if down:
     bad.append(f"reported down {[(k, got(k, 'down')) for k in down]}")
+if unheard:
+    bad.append(f"not heard yet (no last_beacon_age_s: the proxy's startup grace) {unheard}")
 if not want:
     print("BAD the model declares no inter-switch link")
 elif bad:
     print(f"BAD switch_state links against the {len(want)} declared directions: " + "; ".join(bad))
 else:
-    print(f"OK {len(want)}/{len(want)} declared directions, exactly, every one source: heartbeat, down: false")
+    print(f"OK {len(want)}/{len(want)} declared directions, exactly, every one source: heartbeat, down: false, heard")
 PY
 }
 
@@ -333,6 +341,54 @@ judge() {
         OK*)  note "$2: ${1#OK }" ;;
         *)    fail "$2: ${1#BAD }" ;;
     esac
+}
+
+# [Co-developed with claude code -- Adam] state_until and the L6/L1 calls live ABOVE the self-test
+# dispatch (they used to sit below it, with the rest of the live helpers -- which is why no self-test
+# could run them: the opus judge's N3-2).
+# state_until <seconds> <verdict function> <out-file> [args...] -- poll /p4/switch_state every 2 s
+# until the verdict reads OK or the time is up; the LAST capture is kept at <out-file> and every
+# attempt's verdict is appended to <out-file>.polls. [Co-developed with claude code -- Adam] The
+# heartbeat reaches switch_state's `links` at the proxy's first watchdog pass, up to one
+# interval after the proxy starts -- a single read right after `ndt up` could land before it.
+state_until() {
+    local limit="$1" fn="$2" out="$3" deadline v
+    shift 3
+    deadline=$(( $(date +%s) + limit ))
+    : > "$out.polls"
+    while :; do
+        get_json "$PROXY_URL/p4/switch_state" "$out" >/dev/null 2>&1 || true
+        v="$( [[ -s "$out" ]] && "$fn" "$out" "$@" || echo "BAD no switch_state capture" )"
+        printf '%s  %s\n' "$(date -u +%H:%M:%SZ)" "$v" >> "$out.polls"
+        [[ "$v" == OK* ]] && break
+        (( $(date +%s) >= deadline )) && break
+        sleep 2
+    done
+    printf '%s\n' "$v"
+}
+
+# l6_switch_state <out> <model> <caps> <skipped> <label suffix> <no-state message> -- L6's two
+# capability checks and L1 on switch_state, on the capture state_until's poll ends on.
+# l6_roles / l6_plain are the live path's two calls, arguments and all -- functions so that the
+# self-test executes them (the opus judge's N3-2). [Co-developed with claude code -- Adam]
+l6_switch_state() {
+    local out="$1" model="$2" caps="$3" skipped="$4" sfx="$5" none="$6" v
+    v="$(state_until "${L1_POLL_S:-30}" l1_links_verdict "$out" "$model")"
+    if [[ -s "$out" ]]; then
+        judge "$(caps_are "$out" "$caps")" "L6 capabilities$sfx"
+        judge "$(skipped_is "$out" "$skipped")" "L6 control_plane.skipped$sfx"
+        judge "$v" "L1 declared links on switch_state, fed by the heartbeat$sfx"
+    else
+        fail "$none"
+    fi
+}
+l6_roles() {
+    l6_switch_state "$RUN/30_switch_state_roles.json" "$PKG_ROLES/ndtwin/topology.json" \
+        "$CAPS_OWNED" "$SKIPPED_OWNED" "" "L6: no switch_state"
+}
+l6_plain() {
+    l6_switch_state "$RUN/71_switch_state_plain.json" "$PKG_PLAIN/ndtwin/topology.json" \
+        "$CAPS_UNBOUND" "$SKIPPED_UNBOUND" " (unbound)" "L6: no switch_state on the control fabric"
 }
 
 # --- --self-test: every verdict against a capture it must pass and one it must fail ------------
@@ -634,27 +690,6 @@ graph_until() {
     printf '%s\n' "$v"
 }
 
-# state_until <seconds> <verdict function> <out-file> [args...] -- poll /p4/switch_state every 2 s
-# until the verdict reads OK or the time is up; the LAST capture is kept at <out-file> and every
-# attempt's verdict is appended to <out-file>.polls. [Co-developed with claude code -- Adam] The
-# heartbeat reaches switch_state's `links` at the proxy's first watchdog pass, up to one
-# interval after the proxy starts -- a single read right after `ndt up` could land before it.
-state_until() {
-    local limit="$1" fn="$2" out="$3" deadline v
-    shift 3
-    deadline=$(( $(date +%s) + limit ))
-    : > "$out.polls"
-    while :; do
-        get_json "$PROXY_URL/p4/switch_state" "$out" >/dev/null 2>&1 || true
-        v="$( [[ -s "$out" ]] && "$fn" "$out" "$@" || echo "BAD no switch_state capture" )"
-        printf '%s  %s\n' "$(date -u +%H:%M:%SZ)" "$v" >> "$out.polls"
-        [[ "$v" == OK* ]] && break
-        (( $(date +%s) >= deadline )) && break
-        sleep 2
-    done
-    printf '%s\n' "$v"
-}
-
 # dispatch_until <request id> <out-file> -- poll get_flow_dispatch_status?request_id= until
 # `complete` (or 30 s).
 dispatch_until() {
@@ -761,17 +796,10 @@ else
 
     # --- L6 --------------------------------------------------------------------------------------
     say "L6 -- switch_state capabilities (roles package)"
-    SS="$RUN/30_switch_state_roles.json"
     # [Co-developed with claude code -- Adam] Polled: the links are the heartbeat's from the proxy's
-    # first watchdog pass on. Every check below reads the capture the poll ended on.
-    V="$(state_until 30 l1_links_verdict "$SS" "$PKG_ROLES/ndtwin/topology.json")"
-    if [[ -s "$SS" ]]; then
-        judge "$(caps_are "$SS" "$CAPS_OWNED")" "L6 capabilities"
-        judge "$(skipped_is "$SS" "$SKIPPED_OWNED")" "L6 control_plane.skipped"
-        judge "$V" "L1 declared links on switch_state, fed by the heartbeat"
-    else
-        fail "L6: no switch_state"
-    fi
+    # first watchdog pass on, and heard (an age) after its startup grace. Every check reads the
+    # capture the poll ended on (30_switch_state_roles.json). The self-test runs this call.
+    l6_roles
 
     # --- L1 --------------------------------------------------------------------------------------
     say "L1 -- the kernel's graph: 8 inter-switch directions enabled and up (poll up to 90 s)"
@@ -860,17 +888,9 @@ if (( DOWN_RC == 0 )); then
         fail "'ndt up p4 --app' (control package) exited $UP2_RC -- L5 is not measured"
     else
         say "L6 -- switch_state capabilities (no roles)"
-        SS2="$RUN/71_switch_state_plain.json"
         # [Co-developed with claude code -- Adam] The unbound package runs the heartbeat too
-        # (detect-only): the same links check, on its own model.
-        V2="$(state_until 30 l1_links_verdict "$SS2" "$PKG_PLAIN/ndtwin/topology.json")"
-        if [[ -s "$SS2" ]]; then
-            judge "$(caps_are "$SS2" "$CAPS_UNBOUND")" "L6 capabilities (unbound)"
-            judge "$(skipped_is "$SS2" "$SKIPPED_UNBOUND")" "L6 control_plane.skipped (unbound)"
-            judge "$V2" "L1 declared links on switch_state, fed by the heartbeat (unbound)"
-        else
-            fail "L6: no switch_state on the control fabric"
-        fi
+        # (detect-only): the same checks on its own model (71_switch_state_plain.json).
+        l6_plain
 
         say "L5 -- a write with no binding: 501, and the author's entries untouched"
         stats_flows "$RUN/72_before"
