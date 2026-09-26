@@ -207,8 +207,8 @@ thrift==0.24.0
 #    top of this file that say its venv is still the older set.
 #
 # ROLLBACK, at any point after step 1: the old venv comes back exactly as it was, since it was
-# only renamed. In a new shell, first set V, PARK and OLD (the name step 1 printed) and fp() as in
-# 1. The failed new venv is parked beside it, not deleted.
+# only renamed. In a new shell, first set V, PARK and OLD (the name step 1 printed) and define fp()
+# as step 1 does. The failed new venv is parked beside the old one, not deleted.
 #   $ test -d "$OLD" && { test ! -e "$V" || mv -T "$V" "$PARK/p4_proxy-venv.failed-$(date +%Y%m%d-%H%M%S)"; } && mv -T "$OLD" "$V"
 #   $ test "$(fp "$V")" = "$(cat "$OLD.fingerprint")" && echo "old venv restored unchanged"
 #
