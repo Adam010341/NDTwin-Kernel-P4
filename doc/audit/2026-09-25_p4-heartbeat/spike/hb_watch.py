@@ -27,15 +27,23 @@ must accept and one it must reject), then the thin polling wrappers the spike ca
     hb_watch.py summary   <cycles.tsv> <timeout_s> <period_s>
     hb_watch.py census-verdict <sniff-dir> <report-snapshot>
     hb_watch.py first-hit <sniff-dir>                        -> the first host that saw one, or ""
+    hb_watch.py sim-init <dir> [<json overrides>]           -> (self-test only) a simulated daemon
     hb_watch.py --self-test
 
 <dirs> is "1:3>3:1,3:1>1:3" -- tx dpid:port > rx dpid:port, comma separated.
+
+🔴 HB_WATCH_SIM=<dir>, when set, puts every verb that reads the heartbeat report onto the SELF-TEST'S
+simulated daemon (class Sim) at the fake time in <dir>/clock, and every wait moves that clock on
+instead of sleeping. It exists so the spike's --self-test can run its own detection loop against a
+known timeline.
 """
 import contextlib
 import glob
 import io
 import json
+import math
 import os
+import random
 import re
 import statistics
 import sys
@@ -46,6 +54,142 @@ import time
 def load(path):
     with open(path) as fh:
         return json.load(fh)
+
+
+# ------------------------------------------------------------ the clock and the report (round 8)
+#: 🔴 THE SELF-TEST'S TIMELINE, NEVER A LAB'S: set, it replaces the clock, every wait and the report.
+SIM_ENV = "HB_WATCH_SIM"
+
+
+def sim_dir():
+    return os.environ.get(SIM_ENV) or ""
+
+
+def clock():
+    """CLOCK_MONOTONIC -- the daemon's clock and the proxy's -- or the simulated one."""
+    d = sim_dir()
+    if not d:
+        return time.monotonic()
+    with open(os.path.join(d, "clock")) as fh:
+        return float(fh.read())
+
+
+def nap(seconds):
+    """Sleep -- or move the simulated clock on by that much."""
+    seconds = max(0.0, seconds)
+    d = sim_dir()
+    if not d:
+        time.sleep(seconds)
+        return
+    t = clock() + seconds
+    with open(os.path.join(d, "clock"), "w") as fh:
+        fh.write(f"{t:.6f}\n")
+
+
+def report(path):
+    """The heartbeat report at `path` -- or the simulated daemon's, as of the simulated clock."""
+    d = sim_dir()
+    if not d:
+        return load(path)
+    return Sim(d).report(clock())
+
+
+class Sim:
+    """🔴 THE SELF-TEST'S HEARTBEAT DAEMON, reduced to its timing (round 8). Never a lab's.
+
+    Modelled on run_daemon in tools/test_workflow/ndtwin-lab (READ, not run) and on the two live
+    runs' reports (09-26): round k sends one frame per direction at s_k = started + delta + k*period
+    (live: 1.7-7.0 ms after started_mono + 5k); the report is written at `started` (nothing sent),
+    once per round at s_k + w -- BEFORE that round's frames are heard -- and, when a frame was
+    heard in round k, once more at s_k + w + lag (REPORT_MIN_INTERVAL_S = 0.5 after the previous
+    write: live, last_heard and written_mono 0.5006 s apart). A direction's round-k frame is heard
+    at s_k + eps (eps > w; live 4.5-7 ms) unless a `loss 100%` netem sat on its tx interface at
+    s_k (scope "tx"; scope "cable": on either end of its cable), or k is a deaf round (sent, heard
+    by nobody). `sent` counts the rounds; `heard` is not simulated (None).
+
+    <dir>/sim.json: started, period, delta, w, eps, lag, scope, deaf_rounds, links
+      ([[a_if, a_dpid, a_port, b_if, b_dpid, b_port], ...], each cable once: both directions).
+    <dir>/netem.log: "<add|del> <dev> <t> [netem params]" -- at the fake time the self-test's fake tc
+      returned. <dir>/clock: the fake CLOCK_MONOTONIC.
+    """
+
+    DEFAULT = {"started": 1000.0, "period": 5.0, "delta": 0.003, "w": 0.004, "eps": 0.006,
+               "lag": 0.5, "scope": "tx", "deaf_rounds": [],
+               # pod-topo, as the live reports have it: s1-s3, s1-s4, s2-s4, s2-s3
+               "links": [["s1-eth3", 1, 3, "s3-eth1", 3, 1], ["s1-eth4", 1, 4, "s4-eth2", 4, 2],
+                         ["s2-eth3", 2, 3, "s4-eth1", 4, 1], ["s2-eth4", 2, 4, "s3-eth2", 3, 2]]}
+
+    def __init__(self, d):
+        with open(os.path.join(d, "sim.json")) as fh:
+            c = dict(self.DEFAULT, **json.load(fh))
+        self.S, self.P = float(c["started"]), float(c["period"])
+        self.delta, self.w, self.eps, self.lag = (float(c[k]) for k in ("delta", "w", "eps", "lag"))
+        self.scope, self.deaf = c["scope"], {int(k) for k in c["deaf_rounds"]}
+        self.dirs = []
+        for a_if, a_dp, a_pt, b_if, b_dp, b_pt in c["links"]:
+            self.dirs.append(((a_dp, a_pt, a_if), (b_dp, b_pt, b_if)))
+            self.dirs.append(((b_dp, b_pt, b_if), (a_dp, a_pt, a_if)))
+        self.netem = {}                     # dev -> [[added, removed or None]], loss 100% only
+        try:
+            with open(os.path.join(d, "netem.log")) as fh:
+                lines = fh.read().splitlines()
+        except OSError:
+            lines = []
+        for line in lines:
+            p = line.split()
+            if len(p) < 3:
+                continue
+            op, dev, t = p[0], p[1], float(p[2])
+            if op == "add" and "loss 100%" in " ".join(p[3:]):
+                self.netem.setdefault(dev, []).append([t, None])
+            elif op == "del":
+                for iv in self.netem.get(dev, []):
+                    if iv[1] is None:
+                        iv[1] = t
+
+    def send(self, k):
+        return self.S + self.delta + k * self.P
+
+    def last_round(self, t):
+        """The last round sent at or before t; -1 before the first."""
+        return math.floor((t - self.S - self.delta) / self.P) if t >= self.send(0) else -1
+
+    def blocked(self, d, t):
+        devs = (d[0][2],) if self.scope == "tx" else (d[0][2], d[1][2])
+        return any(a <= t and (b is None or t < b) for dev in devs for a, b in self.netem.get(dev, []))
+
+    def heard_in(self, d, k):
+        return k >= 0 and k not in self.deaf and not self.blocked(d, self.send(k))
+
+    def last_write(self, t):
+        if t < self.S:
+            return None
+        writes = [self.S]
+        k = self.last_round(t - self.w)
+        if k >= 0:
+            writes.append(self.send(k) + self.w)
+            if self.send(k) + self.w + self.lag <= t and any(self.heard_in(d, k) for d in self.dirs):
+                writes.append(self.send(k) + self.w + self.lag)
+        return max(writes)
+
+    def report(self, t):
+        written = self.last_write(t)
+        if written is None:
+            raise FileNotFoundError("the simulated daemon has written no report yet")
+        directions = []
+        for d in self.dirs:
+            (tdp, tpt, tif), (rdp, rpt, rif) = d
+            last = None
+            for j in range(self.last_round(written - self.eps), -1, -1):
+                if self.heard_in(d, j):
+                    last = self.send(j) + self.eps
+                    break
+            directions.append({"tx": {"dpid": tdp, "port": tpt, "ifname": tif},
+                               "rx": {"dpid": rdp, "port": rpt, "ifname": rif},
+                               "sent": self.last_round(written) + 1, "heard": None, "last_heard_mono": last})
+        return {"format": 1, "source": "heartbeat (SIMULATED -- hb_watch.py Sim)", "status": "running",
+                "pid": 4242, "session": "5a5a5a5a5a5a5a5a", "period_s": self.P, "started_mono": self.S,
+                "written_mono": written, "directions": directions}
 
 
 def parse_dirs(spec):
@@ -184,32 +328,32 @@ def started_pid(text):
 # ------------------------------------------------------------------------------ polling wrappers
 def wait_heard(path, dirs, after, cap):
     """Seconds (from `after`) until every one of `dirs` has been heard after `after`."""
-    end = time.monotonic() + cap
-    while time.monotonic() < end:
+    end = clock() + cap
+    while clock() < end:
         try:
-            doc = load(path)
+            doc = report(path)
             if running(doc) and all(heard_after(r, after) for r in find(doc, dirs)):
                 return max(r["last_heard_mono"] for r in find(doc, dirs)) - after
         except (OSError, ValueError, KeyError):
             pass
-        time.sleep(0.1)
+        nap(0.1)
     return None
 
 
 def wait_down(path, dirs, t0, timeout, cap):
     """Seconds after t0 until every one of `dirs` is not heard by the proxy's rule."""
     end = t0 + cap
-    while time.monotonic() < end:
-        now = time.monotonic()
+    while clock() < end:
+        now = clock()
         try:
-            doc = load(path)
+            doc = report(path)
             if not running(doc):
                 return None
             if all(not_heard(r, now, timeout) for r in find(doc, dirs)):
                 return now - t0
         except (OSError, ValueError, KeyError):
             pass
-        time.sleep(0.1)
+        nap(0.1)
     return None
 
 
@@ -256,13 +400,13 @@ def self_test():
         expect("a direction the report lacks is an error", "KeyError", "no error")
     except KeyError:
         expect("a direction the report lacks is an error", "KeyError", "KeyError")
-    lines, ok = summary([(1, 12.1, 3.0), (2, 14.0, 1.0)], 15, 5)
-    expect("summary: two detected cycles pass", "True", ok)
-    expect("summary: states min/median/max", "  cut", lines[1])
-    lines, ok = summary([(1, None, 3.0)], 15, 5)
-    expect("summary: an undetected cut fails", "False", ok)
-    lines, ok = summary([], 15, 5)
-    expect("summary: no cycle is not a pass", "False", ok)
+    res = summary([(1, 12.1, 3.0), (2, 14.0, 1.0)], 15, 5)
+    expect("summary: two detected cycles pass", "True", res[1])
+    expect("summary: states min/median/max", "  cut", res[0][1])
+    res = summary([(1, None, 3.0)], 15, 5)
+    expect("summary: an undetected cut fails", "False", res[1])
+    res = summary([], 15, 5)
+    expect("summary: no cycle is not a pass", "False", res[1])
     clean = {"side_effects": {"forwarded_to_hosts": 0, "forwarded_between_switches": 2}}
     leak = {"side_effects": {"forwarded_to_hosts": 1}}
     expect("census: nothing seen", "OK", census_verdict([{"host": "h1", "frames_hb": 0}], clean))
@@ -304,6 +448,202 @@ def self_test():
             except Exception as exc:        # what the round-4 code did: the caller's `set -e` ends the run
                 got = f"raised {type(exc).__name__}"
             expect(f"{verb} on a report that cannot be read: BAD, rc 0", "rc 0: BAD", got)
+
+    # ---------------------------------------------------------------------------------- round 8
+    # The new functions are looked up by name, so that this block reddens -- line by line, never
+    # a traceback -- on code that does not have them yet.
+    print("  -- round 8: the phase plan, coverage and the summary (pure)")
+    g = globals().get
+    pr = g("plan_rows")
+    if pr:
+        a = pr("random", 10, 7, 5.0)
+        expect("plan: random is the seed's (the same seed, the same plan)", "True", a == pr("random", 10, 7, 5.0))
+        expect("plan: every random wait in [0, period)", "True",
+               all(0 <= r[2] < 5 and 0 <= r[4] < 5 for r in a))
+        expect("plan: another seed, another plan", "True", pr("random", 10, 8, 5.0) != a)
+        sw = pr("sweep", 10, 0, 5.0)
+        expect("plan: the sweep starts 0.05 s after a frame heard, ends 0.15 s before the next round",
+               "0.05 4.85 10", f"{sw[0][2]:.2f} {sw[-1][2]:.2f} {len(sw)}")
+        expect("plan: the sweep's restores take the offsets the other way round", "True",
+               [r[4] for r in sw] == [r[2] for r in sw][::-1])
+        try:
+            pr("sweep", 3, 0, 5.0, [0.05, 5.0])
+            got = "accepted"
+        except ValueError:
+            got = "ValueError"
+        expect("plan: an offset outside (0, period) is refused", "ValueError", got)
+    else:
+        expect("plan: random is the seed's (the same seed, the same plan)", "True", "missing")
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
+        prc = main(["hb_watch.py", "plan", "sweep", "3", "0", "5", "0.05,5.5"])
+    expect("plan verb: a bad offset answers rc 2 and says why (asked before any claim)", "rc 2: BAD",
+           f"rc {prc}: {buf.getvalue().strip()}")
+    pt = g("phase_target")
+    expect("phase target: the first anchor + k*period + offset at or after now + margin", "1015.059",
+           f"{pt(1012.0, 1000.009, 5.0, 0.05, 0.05):.3f}" if pt else "missing")
+    cov = g("coverage")
+    locked = [0.62, 0.66, 0.70, 0.72, 0.75, 0.80, 0.64, 0.69, 0.71, 0.78]    # round 7's loop, cycles 2-10
+    spread = [0.1, 0.6, 1.1, 1.6, 2.1, 2.6, 3.1, 3.6, 4.1, 4.6]
+    expect("coverage: round 7's phases (0.62-0.80 s over 10 cycles) are PHASE-LOCKED", "False",
+           cov(locked, 5.0, "cut")[0] if cov else "missing")
+    expect("coverage: ten phases spread over the period cover it", "True",
+           cov(spread, 5.0, "cut")[0] if cov else "missing")
+    expect("coverage: fewer than 8 cycles are not judged", "None",
+           cov(spread[:7], 5.0, "cut")[0] if cov else "missing")
+
+    def summ(rows):     # a summary that cannot read round-8 rows reddens below instead of ending the self-test
+        try:
+            return summary(rows, 15, 5)
+        except Exception as exc:
+            return [f"raised {type(exc).__name__}"], f"raised {type(exc).__name__}", f"raised {type(exc).__name__}"
+
+    def r8(i, phi, rphi, mode="random"):
+        down, up = 15 - phi + 0.05, 5 - rphi
+        return {"cycle": str(i), "down_s": f"{down:.3f}", "up_s": f"{up:.3f}", "cut_tc_s": "0.070",
+                "phase_mode": mode, "cut_plan": f"{phi - 0.07:.3f}", "cut_phi_s": f"{phi:.3f}",
+                "down_rule_s": f"{15 - phi:.3f}", "restore_phi_s": f"{rphi:.3f}", "up_rpt_s": f"{up + 0.498:.3f}"}
+    res = summ([r8(i + 1, p, p) for i, p in enumerate(spread)])
+    expect("summary: round-8 rows get per-phase-bin statistics", "True",
+           any(l.startswith("  per cut phase") for l in res[0]) and any(l.startswith("  per restore phase") for l in res[0]))
+    expect("summary: ... and the report lag, measured from up_rpt_s - up_s", "0.498",
+           next((l.split("median ")[1][:5] for l in res[0] if "report lag" in l), "no report-lag line"))
+    expect("summary: a random run whose phases spread over the period passes", "True", res[1])
+    res = summ([r8(i + 1, p, 0.15) for i, p in enumerate(locked)])
+    expect("summary: a phase-locked run (round 7's loop) is BAD, and says PHASE-LOCKED", "False PHASE-LOCKED",
+           f"{res[1]} " + ("PHASE-LOCKED" if "PHASE-LOCKED" in (res[2] if len(res) > 2 else "") else
+                           f"-- its verdict: {res[2] if len(res) > 2 else 'none'}"))
+    res = summ([r8(i + 1, 0.4 + 0.45 * i, 0.4 + 0.45 * i, "sweep") for i in range(10)])
+    expect("summary: a sweep whose smallest cut phase is 0.4 s never sampled phi -> 0: BAD", "False", res[1])
+
+    # A simulated daemon (class Sim, set through HB_WATCH_SIM) on a fake clock: first the timeline
+    # itself, then every round-8 wrapper against it. The netem log is what the spike's fake tc writes.
+    print("  -- round 8: a simulated daemon on a fake clock")
+    with tempfile.TemporaryDirectory() as td:
+        saved = os.environ.get(SIM_ENV)
+        os.environ[SIM_ENV] = td
+
+        def init(**over):
+            with contextlib.redirect_stdout(io.StringIO()):
+                main(["hb_watch.py", "sim-init", td, json.dumps(over)])
+
+        def at(t):
+            with open(os.path.join(td, "clock"), "w") as fh:
+                fh.write(f"{t:.6f}\n")
+
+        def tc(op, dev, t):
+            with open(os.path.join(td, "netem.log"), "a") as fh:
+                fh.write(f"{op} {dev} {t:.6f}" + (" loss 100%\n" if op == "add" else "\n"))
+
+        def lh_of(doc):
+            return {f"{r['tx']['dpid']}:{r['tx']['port']}>{r['rx']['dpid']}:{r['rx']['port']}": r["last_heard_mono"]
+                    for r in doc["directions"]}
+        try:
+            init(lag=0.7)
+            at(999.9)
+            try:
+                report("x")
+                got = "a report"
+            except FileNotFoundError:
+                got = "none"
+            expect("sim: no report before the daemon's first write", "none", got)
+            at(1000.5)
+            expect("sim: a round's frames are not in its own send-round write", "1000.007 None",
+                   f"{report('x')['written_mono']:.3f} {lh_of(report('x'))['1:3>3:1']}")
+            at(1000.71)
+            expect("sim: ... they are in the write `lag` s after it (0.7 here)", "1000.707 1000.009",
+                   f"{report('x')['written_mono']:.3f} {lh_of(report('x'))['1:3>3:1']:.3f}")
+            tc("add", "s1-eth3", 1004.0)
+            at(1011.0)
+            h = lh_of(report("x"))
+            expect("sim: netem on s1-eth3 (scope tx) silences 1:3>3:1 only", "1000.009 1010.009 1010.009",
+                   f"{h['1:3>3:1']:.3f} {h['3:1>1:3']:.3f} {h['1:4>4:2']:.3f}")
+            tc("del", "s1-eth3", 1012.0)
+            at(1016.0)
+            expect("sim: the netem removed, the next round is heard", "1015.009",
+                   f"{lh_of(report('x'))['1:3>3:1']:.3f}")
+            init(scope="cable")
+            tc("add", "s1-eth3", 1004.0)
+            at(1011.0)
+            h = lh_of(report("x"))
+            expect("sim: scope cable -- a netem on one end silences both directions", "1000.009 1000.009",
+                   f"{h['1:3>3:1']:.3f} {h['3:1>1:3']:.3f}")
+            init(deaf_rounds=[1, 2])
+            at(1011.0)
+            d = report("x")
+            expect("sim: deaf rounds are sent and heard by nobody (no lag write after them)", "1010.007 3 1000.009",
+                   f"{d['written_mono']:.3f} {d['directions'][0]['sent']} {lh_of(d)['1:4>4:2']:.3f}")
+
+            wcd, wru, pw, wq, wse = (g(n) for n in ("wait_cut_down", "wait_restore_up", "phase_wait",
+                                                     "watch_quiet", "watch_single_end"))
+            cut = [(1, 3, 3, 1), (3, 1, 1, 3)]
+            init(lag=0.7)
+            at(1003.95)
+            tc("add", "s1-eth3", 1003.95)
+            tc("add", "s3-eth1", 1003.95)
+            trace = os.path.join(td, "trace.tsv")
+            d = wcd("x", cut, 1003.95, 15, 35, trace) if wcd else None
+            expect("cut-down (sim): phi = t0 - the last frame heard (1000.009), not the schedule", "3.941 heard 3.950",
+                   f"{d['phi']:.3f} {d['phi_src']} {d['phi_grid']:.3f}" if d else "missing")
+            expect("cut-down (sim): the rule true 15 s after that frame, the poll within 0.1 s after it", "11.059 True",
+                   f"{d['rule_s']:.3f} {0 <= d['down_s'] - d['rule_s'] < 0.1}" if d else "missing")
+            try:
+                with open(trace) as fh:
+                    tl = fh.read().splitlines()
+            except OSError:
+                tl = []
+            head = "part\tpoll_mono\twritten_mono"
+            expect("cut-down (sim): its trace has every poll's time and the report's written_mono", "True 112",
+                   f"{bool(tl) and tl[0].startswith(head)} {sum(1 for l in tl if l.startswith('cut'))}")
+            at(1017.0)
+            w = pw("x", "delay", 0.0, 5.0, 0.05) if pw else None
+            tc("del", "s1-eth3", 1017.0)
+            tc("del", "s3-eth1", 1017.0)
+            u = wru("x", cut, 1017.0, 20, w["anchor"]) if wru and w else None
+            expect("restore-up (sim): up_s at the daemon's receive, up_rpt_s at the first report showing it",
+                   "3.009 3.707", f"{u['up_s']:.3f} {u['rpt_s']:.3f}" if u else "missing")
+            expect("restore-up (sim): the report lag is MEASURED -- 0.698 = the sim's lag 0.7 + w - eps, not 0.5",
+                   "0.698", f"{u['rpt_s'] - u['up_s']:.3f}" if u else "missing")
+            expect("restore-up (sim): the restore's phase from the frame heard before it", "1.991 heard@plan",
+                   f"{u['phi']:.3f} {u['phi_src']}" if u else "missing")
+            at(1030.2)
+            w = pw("x", "delay", 1.25, 5.0, 0.05) if pw else None
+            expect("phase-wait (sim): a delay is waited on the clock", "1031.450 1.250",
+                   f"{w['wake']:.3f} {w['delay']:.3f}" if w else "missing")
+            w = pw("x", "phase", 0.05, 5.0, 0.05) if pw else None
+            expect("phase-wait (sim): a phase starts 0.05 s after the next frame heard", "1035.059 heard",
+                   f"{w['wake']:.3f} {w['src']}" if w else "missing")
+            init()
+            at(1000.8)
+            q = wq("x", 20, 15) if wq else ("", "missing")
+            expect("quiet (control a, sim): a heartbeat heard throughout, 20 s, no cut", "OK", q[1])
+            init(deaf_rounds=[1, 2, 3])
+            at(1000.8)
+            q = wq("x", 20, 15) if wq else ("", "missing")
+            expect("quiet (control a, sim): a heartbeat nobody hears for three rounds",
+                   "BAD the proxy's rule fired with NO cut", q[1])
+            init()
+            at(1003.95)
+            tc("add", "s1-eth3", 1003.95)
+            s = wse("x", cut[0], cut[1], 1003.95, 15, 35, 6) if wse else ("", "missing")
+            expect("single-end (control b, sim): netem on s1-eth3 only -> only 1:3>3:1 goes not-heard",
+                   "OK only 1:3>3:1 went not-heard", s[1])
+            init(scope="cable")
+            at(1003.95)
+            tc("add", "s1-eth3", 1003.95)
+            s = wse("x", cut[0], cut[1], 1003.95, 15, 35, 6) if wse else ("", "missing")
+            expect("single-end (control b, sim): a one-end netem that takes the whole cable",
+                   "BAD 3:1>1:3 went not-heard too", s[1])
+            init()
+            at(1003.95)
+            s = wse("x", cut[0], cut[1], 1003.95, 15, 20, 6) if wse else ("", "missing")
+            expect("single-end (control b, sim): no netem at all -> the cut was not seen", "BAD 1:3>3:1 was still heard",
+                   s[1])
+        finally:
+            if saved is None:
+                os.environ.pop(SIM_ENV, None)
+            else:
+                os.environ[SIM_ENV] = saved
     print("SELF-TEST PASS" if rc == 0 else "SELF-TEST FAIL")
     return rc
 
@@ -313,7 +653,7 @@ def main(argv):
         return self_test()
     cmd = argv[1] if len(argv) > 1 else ""
     if cmd == "now":
-        print(f"{time.monotonic():.3f}")
+        print(f"{clock():.3f}")
     elif cmd == "session":
         print(session_of(load(argv[2]), int(argv[3])))
     elif cmd == "started-pid":
@@ -324,7 +664,7 @@ def main(argv):
         # BAD, not a traceback, when the report cannot be read (judge (d)(i), round-4 verdict): the
         # spike's `set -e` would otherwise end the run on it, like wait-* / first-hit already avoid.
         try:
-            print(all_heard(load(argv[2]), float(argv[3])))
+            print(all_heard(report(argv[2]), float(argv[3])))
         except (OSError, ValueError, KeyError) as exc:
             print(f"BAD the report could not be read: {exc!r}")
     elif cmd == "wait-heard":
@@ -335,7 +675,7 @@ def main(argv):
         print("TIMEOUT" if r is None else f"{r:.3f}")
     elif cmd == "others-up":
         try:
-            print(others_up(load(argv[2]), parse_dirs(argv[3]), time.monotonic(), float(argv[4])))
+            print(others_up(report(argv[2]), parse_dirs(argv[3]), clock(), float(argv[4])))
         except (OSError, ValueError, KeyError) as exc:
             print(f"BAD the report could not be read: {exc!r}")
     elif cmd == "summary":
@@ -350,6 +690,15 @@ def main(argv):
         lines, ok = summary(rows, float(argv[3]), float(argv[4]))
         print("\n".join(lines))
         print("OK every cut and every restore detected" if ok else "BAD not every cycle was detected")
+    elif cmd == "sim-init":
+        # The self-test's simulated daemon (class Sim): sim.json (Sim.DEFAULT with the overrides),
+        # its clock half a second before the daemon starts, and an empty netem.log.
+        cfg = dict(Sim.DEFAULT, **(json.loads(argv[3]) if len(argv) > 3 else {}))
+        with open(os.path.join(argv[2], "sim.json"), "w") as fh:
+            json.dump(cfg, fh)
+        with open(os.path.join(argv[2], "clock"), "w") as fh:
+            fh.write(f"{cfg['started'] - 0.5:.6f}\n")
+        open(os.path.join(argv[2], "netem.log"), "w").close()
     elif cmd == "first-hit":
         sniffs = []
         for p in sorted(glob.glob(os.path.join(argv[2], "sniff_*.json"))):
@@ -366,10 +715,10 @@ def main(argv):
             except (OSError, ValueError) as exc:
                 sniffs.append({"host": os.path.basename(p), "error": f"unreadable: {exc}"})
         try:
-            report = load(argv[3])
+            snapshot = load(argv[3])
         except (OSError, ValueError):
-            report = None
-        print(census_verdict(sniffs, report))
+            snapshot = None
+        print(census_verdict(sniffs, snapshot))
     else:
         print(__doc__, file=sys.stderr)
         return 2
