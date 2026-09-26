@@ -73,6 +73,12 @@ has() { case "$2" in *"$1"*) echo yes ;; *) echo no ;; esac; }
 source "$NDT" || { echo "  FAILED   could not source $NDT"; echo "Ran 1 checks, 1 failed"; exit 1; }
 
 TMPROOT="$(mktemp -d /tmp/ndt-app-orphans-XXXXXX)"
+# [Co-developed with claude code -- Adam] 🔴 THIS SUITE'S OWN sudo (2026-09-27): every sudo it
+# makes is recorded and REFUSED rc 1 -- what CI and every gate answer today -- so a live lab on
+# this machine cannot change its path or its verdict, and nothing it runs reaches root. The
+# closing check fails on any call outside the allow-list (tests/shell/lib_probe_stub.sh).
+source "$HERE/lib_probe_stub.sh"
+probe_stub_install "$TMPROOT" -- 'sudo ndtwin-lab status'
 REPO="$TMPROOT"                       # every app_pidfile call now lands here, not in the workspace
 PIDDIR="$TMPROOT/.test_run/pids"
 mkdir -p "$PIDDIR"
@@ -536,6 +542,8 @@ rm -f "$PIDDIR"/app_*.pid
 echo "the suite reaps its own fixtures"
 check "no fixture survives this run"              0 "$(reap_fixtures)"
 
+# [Co-developed with claude code -- Adam] the stub's closing check (lib_probe_stub.sh)
+check "🔴 every sudo went to this suite's stub and was an allow-listed read-only probe" "" "$(probe_stub_outside | sort | uniq -c | sed 's/^ *//' | paste -sd';' -)"
 echo
 if (( FAIL > 0 )); then
     echo "Ran $((PASS + FAIL)) checks, $FAIL failed"

@@ -42,6 +42,12 @@ check() {
 # --- source the SHIPPED reader, never a copy of it ----------------------------------------------
 T=$(mktemp -d)
 trap 'rm -rf "$T"' EXIT
+# [Co-developed with claude code -- Adam] 🔴 THIS SUITE'S OWN sudo (2026-09-27): every sudo it
+# makes is recorded and REFUSED rc 1 -- what CI and every gate answer today -- so a live lab on
+# this machine cannot change its path or its verdict, and nothing it runs reaches root. The
+# closing check fails on any call outside the allow-list (tests/shell/lib_probe_stub.sh).
+source "$HERE/lib_probe_stub.sh"
+probe_stub_install "$T" -- 'sudo ndtwin-lab status' 'sudo ndtwin-lab topo-out *'
 export ROUND="$ROUND_DIR"
 export LOG="$T/test.log"
 export DRY_RUN=0
@@ -125,6 +131,8 @@ CELL_GATE_OUT="$T/c1.jsonl"
 ( FORCED_ABORT=1; cell_cpu_gate_finish c6 ) >/dev/null 2>&1
 check "case 6  the suspect line carries unattributed_cores" 1 "$(grep -c 'suspect: *true unattributed=3.635' "$LOG")"
 
+# [Co-developed with claude code -- Adam] the stub's closing check (lib_probe_stub.sh)
+check "🔴 every sudo went to this suite's stub and was an allow-listed read-only probe" "" "$(probe_stub_outside | sort | uniq -c | sed 's/^ *//' | paste -sd';' -)"
 echo
 echo "$PASS passed, $FAIL failed"
 [[ "$FAIL" -eq 0 ]]

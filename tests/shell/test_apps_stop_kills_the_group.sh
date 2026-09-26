@@ -69,6 +69,12 @@ has() { case "$2" in *"$1"*) echo yes ;; *) echo no ;; esac; }
 source "$NDT" || { echo "  FAILED   could not source $NDT"; echo "Ran 1 checks, 1 failed"; exit 1; }
 
 TMPROOT="$(mktemp -d /tmp/ndt-appsgroup-XXXXXX)"
+# [Co-developed with claude code -- Adam] 🔴 THIS SUITE'S OWN sudo (2026-09-27): every sudo it
+# makes is recorded and REFUSED rc 1 -- what CI and every gate answer today -- so a live lab on
+# this machine cannot change its path or its verdict, and nothing it runs reaches root. The
+# closing check fails on any call outside the allow-list (tests/shell/lib_probe_stub.sh).
+source "$HERE/lib_probe_stub.sh"
+probe_stub_install "$TMPROOT" -- 'sudo ndtwin-lab status'
 REPO="$TMPROOT"
 mkdir -p "$TMPROOT/.test_run/pids" "$TMPROOT/.test_run/logs"
 FIXDIR="$TMPROOT/fixture"
@@ -553,6 +559,8 @@ check "  and it says so"                           yes "$(has "no untracked app 
 LEAKED="$(printf '%s\n' "$(cat "$FIXTURE_REG")" | alive_count)"
 check "this suite leaked no fixtures"              0 "$LEAKED"
 
+# [Co-developed with claude code -- Adam] the stub's closing check (lib_probe_stub.sh)
+check "🔴 every sudo went to this suite's stub and was an allow-listed read-only probe" "" "$(probe_stub_outside | sort | uniq -c | sed 's/^ *//' | paste -sd';' -)"
 echo "Ran $((PASS + FAIL)) checks, $FAIL failed"
 [[ "$FAIL" -eq 0 ]] || exit 1
 exit 0
