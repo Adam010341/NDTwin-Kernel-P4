@@ -1,0 +1,18 @@
+# push trunk + trunk:main 094f417fd35be9b1a01f2772c84c0b9a9e10b360 (HB spike r8) 2026-09-26T16:49:42+08:00
+To github.com:Adam010341/NDTwin-Kernel-P4.git
+   318e6391..094f417f  trunk -> main
+   318e6391..094f417f  trunk -> trunk
+remote: 
+remote: GitHub found 2 vulnerabilities on ndtwin-lab/NDTwin-Kernel-P4's default branch (2 high). To find out more, visit:        
+remote:      https://github.com/ndtwin-lab/NDTwin-Kernel-P4/security/dependabot        
+remote: 
+To github.com:ndtwin-lab/NDTwin-Kernel-P4.git
+   318e6391..094f417f  trunk -> main
+   318e6391..094f417f  trunk -> trunk
+# push rc=0
+$ env -u GIT_ASKPASS -u SSH_ASKPASS GIT_TERMINAL_PROMPT=0 git -c credential.helper= -c core.askPass= ls-remote https://github.com/ndtwin-lab/NDTwin-Kernel-P4.git refs/heads/trunk refs/heads/main
+094f417fd35be9b1a01f2772c84c0b9a9e10b360	refs/heads/main
+094f417fd35be9b1a01f2772c84c0b9a9e10b360	refs/heads/trunk
+$ env -u GIT_ASKPASS -u SSH_ASKPASS GIT_TERMINAL_PROMPT=0 git -c credential.helper= -c core.askPass= ls-remote https://github.com/Adam010341/NDTwin-Kernel-P4.git refs/heads/trunk refs/heads/main
+094f417fd35be9b1a01f2772c84c0b9a9e10b360	refs/heads/main
+094f417fd35be9b1a01f2772c84c0b9a9e10b360	refs/heads/trunk

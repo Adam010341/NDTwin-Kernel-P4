@@ -1,0 +1,6 @@
+# CI run 36230955530 on 094f417f (HB spike r8), GCC job via API raw log; 2026-09-26T17:05:21+08:00
+vs 318e6391 (36224592516):
+IDENTICAL
+L1 FAILED (14 problem group(s))   logs: /home/runner/work/NDTwin-Kernel-P4/NDTwin-Kernel-P4/.test_run/logs
+jobs vs 318e6391:
+jobs identical

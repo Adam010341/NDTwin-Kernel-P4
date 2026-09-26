@@ -1,0 +1,117 @@
+/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/main.py:2055: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/main.py:2060: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+INFO:     Started server process [1106123]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+[Proxy Agent] app package: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/qos-skeleton (mode ndtwin, election_id 0,65535)
+[Proxy Agent] Starting up...
+[1] Received arbitration response: Mastership confirmed.
+[2] Received arbitration response: Mastership confirmed.
+[3] Received arbitration response: Mastership confirmed.
+[1] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 1
+[2] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 2
+[3] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 3
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 1 runs the package's own pipeline: 4 of 4 declared table entries applied, 0 refused
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 2 runs the package's own pipeline: 4 of 4 declared table entries applied, 0 refused
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 3 runs the package's own pipeline: 3 of 3 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 3 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Kernel] switch 1 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=1 (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 2 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=2 (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 3 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=3 (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Proxy Agent] Kernel did not acknowledge 3/3 switches yet ([1, 2, 3]) -- normal when the kernel starts after the proxy. Its topology poll enables switches on its own; retrying the push in the background for up to 5 minutes.
+[Proxy Agent] 3 of 3 switches ([1, 2, 3]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] 6 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION, not failure detection: this fabric runs no LLDP and no watchdog, so a cut link is not noticed and not rerouted around (capabilities.reroute is false).
+[Proxy Agent] Started liveness polling...
+INFO:     127.0.0.1:42836 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42842 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42848 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42858 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42868 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42882 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42890 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42892 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42908 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42926 - "GET /ryu_server/all_destination_paths HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42930 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51058 - "GET /ryu_server/all_destination_paths HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51066 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51072 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51082 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51088 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51098 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51106 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51116 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51130 - "GET /p4/switch_state HTTP/1.1" 200 OK
+[Kernel] switch 1 entered: ok
+[Kernel] switch 2 entered: ok
+[Kernel] switch 3 entered: ok
+[Proxy Agent] switch-entered acknowledged for all remaining switches on retry
+INFO:     127.0.0.1:51136 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51146 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51154 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51166 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51178 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51192 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51202 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51206 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51214 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51218 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51228 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46240 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46252 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46260 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46276 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46284 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46290 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46298 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46312 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46318 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46326 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46340 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46356 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46362 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46378 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46380 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46392 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46408 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46424 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46436 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47418 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47420 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47422 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47430 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47444 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47456 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47476 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1106123]

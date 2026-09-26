@@ -1,0 +1,21 @@
+# HEAD bc1860c8ee7ac2b9f64863f1184b0af9113d3ce2  procedure identity vs 08483aa5, gate anchors, wedge-guard test, publication scan
+# 2026-09-26T07:59:57Z  worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926
+== (a) procedure commands, 08483aa5 vs HEAD
+wrote /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/final_fwd.sh
+identical: 18 command lines
+non-comment lines changed 08483aa5..HEAD in tracked files:
+  0
+== (b) check_gate_anchors.py HEAD
+
+119/119 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+== (c) tests/shell/test_up_ovs_wedge_guard.sh (through the guard)
+
+Ran 10 checks, all passed
+guarded_build: exit 0
+== (d) added lines of 580767a83dea12e42755687d174af891b69deb97..HEAD: local paths, key/token shapes
+  added lines: 348
+  naming /home/: 1
+239:+# /home/adam/p4dev-python-venv, and later under p4_proxy/venv -- l1_unit_tests.sh tries
+  key/token-shaped: 0
+  IPv4-shaped: 0
+rc=0

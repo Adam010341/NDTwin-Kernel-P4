@@ -1,0 +1,12 @@
+test_installs_routes_and_the_clone_session (__main__.LiveSwitchTest.test_installs_routes_and_the_clone_session) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 2.015s
+
+OK
+[1] Received arbitration response: Mastership confirmed.
+[1] Setting Forwarding Pipeline Config...
+[1] Clone session 250 -> port 255 installed
+[1] Added route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[1] Added route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[1] Clone session 250 -> port 255 installed

@@ -1,0 +1,12 @@
+# HEAD 98e9f873e79855e9f30c39bc25e6a85c278bb650  main p4_proxy/venv fingerprint (path size mtime), read-only
+# 2026-09-26T06:45:18Z  worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926
+fingerprint 33b3465d10cdb24130fcce30422f62dc48747bba4e572f82042991c8b3ab596c
+newest: 2026-09-26+04:26:22.2034669220 lib/python3.13/site-packages/networkx/drawing/__pycache__/nx_pydot.cpython-312.pyc
+files: 3301
+pyvenv.cfg:
+  home = /home/adam/miniconda3/bin
+  include-system-site-packages = false
+  version = 3.13.13
+  executable = /home/adam/miniconda3/bin/python3.13
+  command = /home/adam/miniconda3/bin/python3 -m venv /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv
+rc=0

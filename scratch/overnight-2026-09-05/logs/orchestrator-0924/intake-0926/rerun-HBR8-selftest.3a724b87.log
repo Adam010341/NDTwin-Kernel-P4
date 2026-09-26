@@ -1,0 +1,154 @@
+3a724b8751f72d0f11bb3c507b59c858b49369cc
+# bash doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh --self-test  2026-09-26T16:05:43+08:00
+hb_watch --self-test (synthetic reports; no lab)
+  ok    all heard after 99                                         OK 8/8 directions heard
+  ok    not all heard after 101                                    BAD 0/8 directions heard since 101.0; not: s1-eth3->s3-eth1, s1-eth4->s4-eth2, s2-eth3->s4
+  ok    an empty report is not all heard                           BAD the report has no direction at all
+  ok    both cut directions silent 20 s > 15: not heard            True
+  ok    silent 10 s is still heard                                 False
+  ok    only one direction silent: not both down                   False
+  ok    never heard counts as silent                               True
+  ok    a heard-after answer needs a newer stamp                   True
+  ok    no collateral when only the cut is stale                   OK
+  ok    collateral when another direction is stale                 BAD collateral: s3-eth1->s1-eth3
+  ok    a direction the report lacks is an error                   KeyError
+  ok    summary: two detected cycles pass                          True
+  ok    summary: states min/median/max                               cut -> both directions not heard: min 12.10 s  median 13.05 s  max 14.00 s  (n=2)
+  ok    summary: an undetected cut fails                           False
+  ok    summary: no cycle is not a pass                            False
+  ok    census: nothing seen                                       OK no host saw a heartbeat frame (1 host(s) sniffed); switch side: forwarded_between_switc
+  ok    census: a host saw one                                     STOP heartbeat frames reached a host (ruling 4): h1 1; daemon forwarded_to_hosts=0
+  ok    census: the daemon saw one leave a host port               STOP heartbeat frames reached a host (ruling 4): ; daemon forwarded_to_hosts=1
+  ok    census: a sniffer that did not run is not a clean host     BAD a sniffer did not run: h1: mnexec refused
+  ok    census: no host sniffed is not clean                       BAD no host was sniffed
+  ok    first hit: the first host that saw one                     h2
+  ok    first hit: nobody saw one is no hit                        True
+  ok    session: the running report of the pid start named         0102030405060708
+  ok    session: a stopped report is none, even of that pid        True
+  ok    session: a running report of another pid is none           True
+  ok    started pid: 'heartbeat started (pid N; ...)'              4242
+  ok    started pid: 'already running' started nothing             None
+  ok    all-heard on a report that cannot be read: BAD, rc 0       rc 0: BAD the report could not be read: FileNotFoundError(2, 'No such file or directory')
+  ok    others-up on a report that cannot be read: BAD, rc 0       rc 0: BAD the report could not be read: FileNotFoundError(2, 'No such file or directory')
+  -- round 8: the phase plan, coverage and the summary (pure)
+  ok    plan: random is the seed's (the same seed, the same plan)  True
+  ok    plan: every random wait in [0, period)                     True
+  ok    plan: another seed, another plan                           True
+  ok    plan: the sweep starts 0.05 s after a frame heard, ends 0.15 s before the next round 0.05 4.85 10
+  ok    plan: the sweep's restores take the offsets the other way round True
+  ok    plan: an offset outside (0, period) is refused             ValueError
+  ok    plan verb: a bad offset answers rc 2 and says why (asked before any claim) rc 2: BAD sweep offsets must lie in (0, 5) s: [5.5]
+  ok    phase target: the first anchor + k*period + offset at or after now + margin 1015.059
+  ok    coverage: round 7's phases (0.62-0.80 s over 10 cycles) are PHASE-LOCKED False
+  ok    coverage: ten phases spread over the period cover it       True
+  ok    coverage: fewer than 8 cycles are not judged               None
+  ok    summary: round-8 rows get per-phase-bin statistics         True
+  ok    summary: ... and the report lag, measured from up_rpt_s - up_s 0.498
+  ok    summary: a random run whose phases spread over the period passes True
+  ok    summary: a phase-locked run (round 7's loop) is BAD, and says PHASE-LOCKED False PHASE-LOCKED
+  ok    summary: a sweep whose smallest cut phase is 0.4 s never sampled phi -> 0: BAD False
+  -- round 8: a simulated daemon on a fake clock
+  ok    sim: no report before the daemon's first write             none
+  ok    sim: a round's frames are not in its own send-round write  1000.007 None
+  ok    sim: ... they are in the write `lag` s after it (0.7 here) 1000.707 1000.009
+  ok    sim: netem on s1-eth3 (scope tx) silences 1:3>3:1 only     1000.009 1010.009 1010.009
+  ok    sim: the netem removed, the next round is heard            1015.009
+  ok    sim: scope cable -- a netem on one end silences both directions 1000.009 1000.009
+  ok    sim: deaf rounds are sent and heard by nobody (no lag write after them) 1010.007 3 1000.009
+  ok    cut-down (sim): phi = t0 - the last frame heard (1000.009), not the schedule 3.941 heard 3.950
+  ok    cut-down (sim): the rule true 15 s after that frame, the poll within 0.1 s after it 11.059 True
+  ok    cut-down (sim): its trace has every poll's time and the report's written_mono True 112
+  ok    restore-up (sim): up_s at the daemon's receive, up_rpt_s at the first report showing it 3.009 3.707
+  ok    restore-up (sim): the report lag is MEASURED -- 0.698 = the sim's lag 0.7 + w - eps, not 0.5 0.698
+  ok    restore-up (sim): the restore's phase from the frame heard before it 1.991 heard@plan
+  ok    phase-wait (sim): a delay is waited on the clock           1031.450 1.250
+  ok    phase-wait (sim): a phase starts 0.05 s after the next frame heard 1035.059 heard
+  ok    quiet (control a, sim): a heartbeat heard throughout, 20 s, no cut OK no direction went not-heard in 20.0 s with no cut (201 reads; the longest silence 5.49 
+  ok    quiet (control a, sim): a heartbeat nobody hears for three rounds BAD the proxy's rule fired with NO cut: s1-eth3->s3-eth1 silent 20.49 s > 15 s, s1-eth4->s
+  ok    single-end (control b, sim): netem on s1-eth3 only -> only 1:3>3:1 goes not-heard OK only 1:3>3:1 went not-heard, 11.10 s after the one-end cut; 3:1>1:3 stayed heard (longe
+  ok    single-end (control b, sim): a one-end netem that takes the whole cable BAD 3:1>1:3 went not-heard too (silent 20.94 s > 15 s) -- the one-end netem took both dire
+  ok    single-end (control b, sim): no netem at all -> the cut was not seen BAD 1:3>3:1 was still heard 20.0 s after netem went on its sending end -- the one-end cut 
+SELF-TEST PASS
+hb_sniff --self-test
+  ok    a heartbeat by ethertype                                (True, 'ethertype')
+  ok    an IPv4 frame is not                                    (False, '')
+  ok    a rewritten one is found by its payload                 (True, 'payload')
+  ok    another session's payload under another type is not     (False, '')
+  ok    the first heartbeat frame ends the sniff at once        first heartbeat frame after 0.0 s
+  ok    the stop file ends a quiet sniff at once                stop file after 0.0 s
+SELF-TEST PASS
+S_heartbeat_spike --self-test
+  ok    every borrowed function exists (17)
+  ok    census_prepare.py parses
+  ok    the sniffer recognises the daemon's own frames, sent and re-wrapped
+  ok    a run whose fabric is already down: finish's 'ndt down' rc 3 does not fail it (PASS, down and release both ran)
+  ok      but a 3 while this run believes its fabric is up still fails it
+  ok      and a clean down of a fabric that is up passes (the control)
+  ok    the spike's default tc route is 'sudo -n mnexec -a 1 tc' (plain 'sudo -n tc' only as an override)
+  ok    every default the spike sets above its functions is what a PART=all run gets -- none shadowed by _common.sh or faults.sh (FAULTS_TC=sudo -n mnexec -a 1 tc,CLAIM_MINUTES=180,PHASE=random,CONTROLS=1,NOCUT_S=20,PHASE_MARGIN_S=0.05)
+  ok      and a CLAIM_MINUTES the caller gives still wins (77 in, 77 claimed)
+  ok    the pre-check RUNS a harmless tc through the route (sudo stubbed: one call, 'qdisc show dev lo')
+  ok      a route sudo refuses: the pre-check refuses and says so
+  ok      the plain 'sudo -n tc' override is also asked by running tc, never by 'sudo -l'
+  ok      a FAULTS_TC that cannot run tc is refused
+  --    the real sudo probe was NOT run (opt-in: SELFTEST_PROBE_SUDO=1) -- neither ok nor red; precheck_tc proves the route at run time, before the claim
+  ok      the pre-check runs before the claim (source read: line 2100 < 2132)
+  ok    the first host to see a heartbeat frame stops the heartbeat and every sniffer at once (0 s, not 20; set -e process)
+  ok      a clean window under set -e: no hit, the census goes on, the heartbeat is left for the arm's own stop
+  ok      a hit written as the last sniffer exits is still caught, and the heartbeat stopped (set -e process)
+  ok    a detection part that fails its first check records FAIL and returns -- the run goes on (set -e process)
+  ok    a detection cycle that goes as designed: both ends cut, both restored, its row written, the run goes on (set -e process, fake tc)
+  ok      a half-done cut (the second end refused): the first end's netem comes off before 'ndt down'; no 'cannot locate' at teardown
+  ok      and when the first end's netem will not come off either: that end is a failure of its own (and the qdisc diff's), the refusal stays the reason, nothing retries it at teardown, the run goes on (set -e process)
+  ok      a cut refused on its FIRST end: no 'tc qdisc del' at all, the refusal the one failure about the cable (beside the summary's zero-cycle verdict), the run goes on (set -e process)
+  ok      a first end already carrying a netem (unsafe): nothing added, nothing deleted -- that netem is not this run's -- one failure about the cable, the run goes on (set -e process)
+  ok      a residue that drops every frame (loss 100%) ends the detection part at its first check: nothing snapshotted, added or deleted (set -e process)
+  ok    a run that DECLARED measuring=: re-claimed without it before 'ndt down', both downs go through, the lab released (set -e process, a fake ndt with ndt's measuring guard)
+  ok      and when the detection part stops before its own 'ndt down', the teardown takes the declaration back: its down goes through, the lab released (set -e process)
+  ok      a teardown 'ndt down' refused for another reason: NOT released -- the claim kept (an hour at least, its note saying the fabric is up), the commands printed, FAIL names it (set -e process)
+  ok      a knob the run found at 128 and 'ndt up' moved to 4: put back, re-claimed on it, released (set -e process)
+  ok      a knob that could not be put back: no re-claim over it, no release -- the lab stays claimed, FAIL (set -e process)
+  ok      a teardown 'ndt down' that did not verify clean (rc 1): NOT released, the claim kept saying so (set -e process)
+  ok      a lab another owner claimed mid-run: no re-claim takes, no down, their claim untouched, no release, and it says whose claim the fabric is under (set -e process)
+  ok      a claim that lapsed mid-run, nobody else's: re-claimed for 15 min before the down, down and release as designed (set -e process)
+  ok    round 8, PHASE=random against a simulated daemon (10 cycles, controls on, its report lag 0.7 s): the run goes as designed
+  ok      random: the cut phases the timeline saw (t0 - the last frame heard) cover the period
+  ok      random: the restore phases the timeline saw cover the period
+  ok      random: each row's cut_phi_s is t0 - the last frame heard as the timeline has it, with its stamps; down_rule_s is 15 s - it
+  ok      random: each row's up_s and restore_phi_s are the timeline's
+  ok      random: the report level is measured -- up_rpt_s - up_s is the simulated lag (0.698 s here), not the helper's 0.5
+  ok      random: every poll of every cycle traced, cut and restore (21_polls_<cycle>.tsv: its time, written_mono, the cable's last_heard_mono)
+  ok      random: the waits are the seeded plan's (19_phase_plan.tsv records the seed; that seed gives that plan)
+  ok      random: the two controls ran -- a row and an OK verdict each (18_controls.tsv), every poll traced, one one-end netem
+  ok      random: the summary gives per-phase-bin statistics, the measured report lag, and judges the coverage (22_summary.txt)
+  ok    round 8, PHASE=sweep against a simulated daemon (10 cycles, controls off): the run goes as designed
+  ok      sweep: the cut phases the timeline saw (t0 - the last frame heard) cover the period
+  ok      sweep: the restore phases the timeline saw cover the period
+  ok      sweep: each row's cut_phi_s is t0 - the last frame heard as the timeline has it, with its stamps; down_rule_s is 15 s - it
+  ok      sweep: each row's up_s and restore_phi_s are the timeline's
+  ok      sweep: the report level is measured -- up_rpt_s - up_s is the simulated lag (0.698 s here), not the helper's 0.5
+  ok      sweep: every poll of every cycle traced, cut and restore (21_polls_<cycle>.tsv: its time, written_mono, the cable's last_heard_mono)
+  ok      sweep: each cut starts at its planned offset after the last frame heard (cut_phi_s = cut_plan + cut_tc_s), the first 0.05 s after one
+  ok      sweep: each restore starts at its planned offset after a round
+  ok      sweep with CONTROLS=0: no control ran (no one-end netem, no 18_controls.tsv)
+  ok    control (a) against a daemon nobody hears for three rounds, no cut: BAD, and the run FAILs for it -- control (b) and the cycle as designed
+  ok    control (b) against a one-end netem that takes the whole cable: BAD, and the run FAILs for it -- control (a) and the cycle as designed
+  ok    the census reads the daemon's session from its report (set -e process)
+  ok      no report yet: a bounded wait, then 'no session' for the caller to handle -- not an abort
+  ok      the previous arm's final report ('stopped', its own pid) is not taken for the new daemon's session
+  ok      nor a 'stopped' report of the very pid start named (a daemon that has already exited)
+  ok      nor a 'running' report of another pid (a daemon killed before it could write 'stopped')
+  ok      the pid is read from the helper's own 'heartbeat started (pid N; ...)' answer (template taken from the helper)
+  ok      a census arm: the pid start named ties the session, and the sniffers get that one (census driven with stubs, set -e process)
+  ok      an arm whose report is still the previous arm's 'stopped' one: a FAIL row, no sniffer given that session
+  ok      an arm whose start answered 'already running' (it started nothing): a FAIL row saying start named no pid, nobody else's session sniffed
+  ok    a census of two arms whose downs go through: both built, both measured (set -e process, the fake ndt)
+  ok      an arm's 'ndt down' refused (measured arm): the census stops -- no further 'ndt up', the rest marked skipped, FAIL (set -e process)
+  ok      an arm's 'ndt down' refused (no link (rc 3)): the census stops -- no further 'ndt up', the rest marked skipped, FAIL (set -e process)
+  ok      an arm's 'ndt down' refused ('ndt up' failed): the census stops -- no further 'ndt up', the rest marked skipped, FAIL (set -e process)
+  ok      an arm's 'ndt down' refused (heartbeat start failed): the census stops -- no further 'ndt up', the rest marked skipped, FAIL (set -e process)
+  ok      an arm's 'ndt down' refused (start named no pid): the census stops -- no further 'ndt up', the rest marked skipped, FAIL (set -e process)
+  ok    the census table on a machine without 'column': the rows are printed and the run goes on to its verdict (set -e process)
+  ok      and where 'column' is installed it still lays the table out
+SPIKE SELF-TEST PASS
+# rc=0

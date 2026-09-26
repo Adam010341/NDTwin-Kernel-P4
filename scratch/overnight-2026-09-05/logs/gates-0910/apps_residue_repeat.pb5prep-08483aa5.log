@@ -1,0 +1,7 @@
+# HEAD 08483aa59ca598642af6b256acdbc787c3711b95  tests/shell/test_apps_residue.sh x3 at HEAD, no P4_PROXY_PY, through the guard
+# 2026-09-26T07:58:20Z  worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926
+run 1: rc=0 0 FAILED lines; 
+run 2: rc=0 0 FAILED lines; 
+run 3: rc=0 0 FAILED lines; 
+runs that failed: 0 of 3 (the last line is that count, not a pass/fail of this worker)
+rc=0

@@ -1,0 +1,178 @@
+# trunk 094f417fd35be9b1a01f2772c84c0b9a9e10b360; helper sha256 6a558fe452955de358fd1a3b4e730fe2be55368a6c90b93675c5442c036fd4fb; loadavg 1.35 1.62 1.66
+# env -u CLAIM_MINUTES -u CENSUS_EVEN_IF_RED -u FAULTS_TC -u NDT_MEASURING -u HB_WATCH_SIM -u PHASE_SEED NDT_OWNER=orch-0926 PART=detect PHASE=random CYCLES=20 setsid -w bash doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh   start 2026-09-26T16:55:06+08:00  (segment-S de-phased round, orchestrator decision after the report judge's Blocking 1; fable r8: may run live)
+== S_heartbeat
+   repo: /home/adam/Desktop/NDTwin-Kernel
+   raw : /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-25_p4-heartbeat/spike/runs/2026-09-26T085506Z_S_heartbeat
+   owner: orch-0926
+   part: detect
+   root is reachable for exactly what this needs: sudoers grants ndtwin-lab and mnexec without a prompt
+   proxy constants (imported): LLDP_BEACON_INTERVAL_S=5 LINK_BEACON_TIMEOUT_S=15 LINK_WATCHDOG_INTERVAL_S=5
+   repo HEAD  094f417fd35be9b1a01f2772c84c0b9a9e10b360
+   helper     6a558fe452955de358fd1a3b4e730fe2be55368a6c90b93675c5442c036fd4fb  (installed: 6a558fe452955de358fd1a3b4e730fe2be55368a6c90b93675c5442c036fd4fb)
+   spike      e5aa1a5d4d1bb5d9  doc/audit/2026-09-25_p4-heartbeat/spike/hb_watch.py
+   spike      9a14d80b3f9c11e4  doc/audit/2026-09-25_p4-heartbeat/spike/hb_sniff.py
+   spike      4c5c507219bc924c  doc/audit/2026-09-25_p4-heartbeat/spike/census_prepare.py
+   spike      14b0fe0587dc73a1  doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
+   constants  beacon=5 timeout=15 watchdog=5 sniff=20 cycles=20
+   phase      PHASE=random seed=1968294680 sweep=default controls=1 nocut=20 margin=0.05
+
+== lab state before this step
+   lab
+     claim          none
+     prev claim     orch-0926 (until 19:51:05), superseded 2026-09-26 16:55:05  (.test_run/lab.claim.prev)
+                    nothing holds the lab now: that claim was released or replaced
+                    it said: down at 2026-09-26 16:55:05; nothing was up to tear down; claim kept
+     measuring      nothing
+     code           094f417f  +84 file(s) with uncommitted changes
+                    2 of them can change behaviour:
+                    p4_proxy/mininet/host_count_override
+                    tools/remote-lab/dorm_lab/
+     knob baseline  4 (the default; no round baseline recorded -- 'ndt claim' writes one)
+     tree vs round  no baseline in .test_run/round.baseline -- nothing here can say what this round changed ('ndt claim' records one)
+     ok  helper: /usr/local/sbin/ndtwin-lab is tools/test_workflow/ndtwin-lab (sha256 6a558fe4)
+   
+   lab is free
+   host_count_override snapshot taken (4)
+   telemetry_override does not exist; it will be removed again at the end
+
+== claiming the lab
+     recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+     ok  lab claimed by orch-0926 for 180m (heartbeat spike S (detect): pod-topo basic, netem on s1-eth3/s3-eth1; 13-exercise census)
+
+== detection: prepare basic/solution (pod-topo), the way 06 builds it
+
+== ndt up p4 --app /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-basic-solution
+   rc=0
+       proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+       !!  package pipeline: NDTwin discovered no links and installed no routes on this
+       !!    fabric; forwarding is whatever the package's 20 entries on
+       !!    4 switch(es) make of it. ndt status quotes no sample rate for it.
+
+== heartbeat start
+   heartbeat plan: /tmp/ndtwin_p4_switches.json (sha256 34bcc61c2781), 4 switch(es), every one a live bmv2
+     link s1-eth3 (dpid 1 port 3) <-> s3-eth1 (dpid 3 port 1)
+     link s1-eth4 (dpid 1 port 4) <-> s4-eth2 (dpid 4 port 2)
+     link s2-eth3 (dpid 2 port 3) <-> s4-eth1 (dpid 4 port 1)
+     link s2-eth4 (dpid 2 port 4) <-> s3-eth2 (dpid 3 port 2)
+     4 link(s) -> 8 direction(s); 4 host-facing interface(s) listened on, never sent on
+   heartbeat started (pid 3285932; report: /run/ndtwin-lab/heartbeat.json, log: /run/ndtwin-lab/heartbeat.log)
+   every direction heard once the heartbeat is up: 8/8 directions heard
+   the heartbeat's round is the proxy's beacon interval: the heartbeat's period_s 5 is the proxy's LLDP_BEACON_INTERVAL_S 5
+   phase plan: # PHASE=random seed=1968294680 period_s=5 cycles=20 -- kind  ... (19_phase_plan.tsv)
+
+== control (a): no cut for 20 s -- the proxy's rule must fire on no direction
+   control (a), no cut for 20 s: no direction went not-heard in 20.1 s with no cut (201 reads; the longest silence 5.49 s, s3-eth1->s1-eth3; the rule needs > 15 s)
+
+== control (b): netem on s1-eth3 only -- only 1:3>3:1 may go not heard
+   control (b), netem on s1-eth3 only: only 1:3>3:1 went not-heard, 13.08 s after the one-end cut; 3:1>1:3 stayed heard (longest silence 5.46 s over 19.1 s, 6 s past the down)
+
+== cycle 1/20
+   down after 12.180s (cut 2.832s after the last frame heard), heard again after 0.206s (first report after 0.706s; restore 4.794s after a round), others: OK, netem left: no
+
+== cycle 2/20
+   down after 11.872s (cut 3.214s after the last frame heard), heard again after 1.923s (first report after 2.423s; restore 3.078s after a round), others: OK, netem left: no
+
+== cycle 3/20
+   down after 12.487s (cut 2.575s after the last frame heard), heard again after 3.163s (first report after 3.663s; restore 1.837s after a round), others: OK, netem left: no
+
+== cycle 4/20
+   down after 10.772s (cut 4.288s after the last frame heard), heard again after 0.070s (first report after 0.571s; restore 4.930s after a round), others: OK, netem left: no
+
+== cycle 5/20
+   down after 11.069s (cut 3.997s after the last frame heard), heard again after 1.790s (first report after 2.290s; restore 3.210s after a round), others: OK, netem left: no
+
+== cycle 6/20
+   down after 14.181s (cut 0.918s after the last frame heard), heard again after 0.143s (first report after 0.644s; restore 4.856s after a round), others: OK, netem left: no
+
+== cycle 7/20
+   down after 14.789s (cut 0.220s after the last frame heard), heard again after 1.194s (first report after 1.694s; restore 3.808s after a round), others: OK, netem left: no
+
+== cycle 8/20
+   down after 14.791s (cut 0.238s after the last frame heard), heard again after 4.988s (first report after 5.488s; restore 0.012s after a round), others: OK, netem left: no
+
+== cycle 9/20
+   down after 13.683s (cut 1.405s after the last frame heard), heard again after 4.416s (first report after 4.917s; restore 0.585s after a round), others: OK, netem left: no
+
+== cycle 10/20
+   down after 11.471s (cut 3.539s after the last frame heard), heard again after 0.958s (first report after 1.458s; restore 4.041s after a round), others: OK, netem left: no
+
+== cycle 11/20
+   down after 13.984s (cut 1.111s after the last frame heard), heard again after 4.573s (first report after 5.073s; restore 0.428s after a round), others: OK, netem left: no
+
+== cycle 12/20
+   down after 13.881s (cut 1.194s after the last frame heard), heard again after 1.040s (first report after 1.540s; restore 3.959s after a round), others: OK, netem left: no
+
+== cycle 13/20
+   down after 13.989s (cut 1.028s after the last frame heard), heard again after 0.212s (first report after 0.713s; restore 4.787s after a round), others: OK, netem left: no
+
+== cycle 14/20
+   down after 14.079s (cut 0.982s after the last frame heard), heard again after 3.892s (first report after 4.393s; restore 1.108s after a round), others: OK, netem left: no
+
+== cycle 15/20
+   down after 14.477s (cut 0.578s after the last frame heard), heard again after 4.613s (first report after 5.114s; restore 0.387s after a round), others: OK, netem left: no
+
+== cycle 16/20
+   down after 14.085s (cut 0.924s after the last frame heard), heard again after 0.601s (first report after 1.101s; restore 4.399s after a round), others: OK, netem left: no
+
+== cycle 17/20
+   down after 13.979s (cut 1.052s after the last frame heard), heard again after 3.683s (first report after 4.183s; restore 1.317s after a round), others: OK, netem left: no
+
+== cycle 18/20
+   down after 10.668s (cut 4.384s after the last frame heard), heard again after 0.192s (first report after 0.692s; restore 4.803s after a round), others: OK, netem left: no
+
+== cycle 19/20
+   down after 13.984s (cut 1.041s after the last frame heard), heard again after 4.127s (first report after 4.628s; restore 0.872s after a round), others: OK, netem left: no
+
+== cycle 20/20
+   down after 11.172s (cut 3.882s after the last frame heard), heard again after 4.002s (first report after 4.502s; restore 0.998s after a round), others: OK, netem left: no
+   cycles 20: down detected 20/20, recovery detected 20/20
+     cut -> both directions not heard: min 10.67 s  median 13.93 s  max 14.79 s  (n=20)
+     restore -> both heard again: min 0.07 s  median 1.86 s  max 4.99 s  (n=20)
+     -- round 8, PHASE=random: cut_phi_s = t0 - the last frame heard on the cable (the phase the proxy's rule sees); restore_phi_s = t1 - the last heartbeat round, mod 5 s --
+     cut_phi_s re-derived from the raw stamps (cut_t0_mono - cut_lh_mono): agrees on every row
+     cut -> the rule true (down_rule_s = last frame heard + 15 s - t0): min 10.616 s  median 13.848 s  max 14.780 s  (n=20)
+     poll lag (down_s - down_rule_s): min 0.009 s  median 0.054 s  max 0.099 s  (n=20)
+     restore -> the first REPORT showing both heard (up_rpt_s): min 0.571 s  median 2.357 s  max 5.488 s  (n=20)
+     report lag, measured (up_rpt_s - up_s): min 0.500 s  median 0.500 s  max 0.501 s  (n=20)
+     the round after the restore heard? (up_s + restore_phi_s - 5; ~0 when it was): min -0.005 s  median 0.000 s  max 0.002 s  (n=20)
+     per cut phase (cut_phi_s) (bins of 1 s; min/median/max):
+       [0.0, 1.0) s   n=6   down_s 14.08/14.33/14.79  down_rule_s 14.02/14.25/14.78
+       [1.0, 2.0) s   n=6   down_s 13.68/13.98/13.99  down_rule_s 13.60/13.92/13.97
+       [2.0, 3.0) s   n=2   down_s 12.18/12.33/12.49  down_rule_s 12.17/12.30/12.43
+       [3.0, 4.0) s   n=4   down_s 11.07/11.32/11.87  down_rule_s 11.00/11.29/11.79
+       [4.0, 5.0) s   n=2   down_s 10.67/10.72/10.77  down_rule_s 10.62/10.66/10.71
+     per restore phase (restore_phi_s) (bins of 1 s; min/median/max):
+       [0.0, 1.0) s   n=6   up_s 4.00/4.49/4.99  up_rpt_s 4.50/5.00/5.49
+       [1.0, 2.0) s   n=3   up_s 3.16/3.68/3.89  up_rpt_s 3.66/4.18/4.39
+       [2.0, 3.0) s   n=0   up_s -  up_rpt_s -
+       [3.0, 4.0) s   n=4   up_s 1.04/1.49/1.92  up_rpt_s 1.54/1.99/2.42
+       [4.0, 5.0) s   n=7   up_s 0.07/0.21/0.96  up_rpt_s 0.57/0.71/1.46
+     smallest cut phase sampled: 0.220 s (cycle 7) -> down_s 14.789 s, down_rule_s 14.780 s
+     cut phase coverage: n=20, largest gap 1.17 s of the 5 s period < 3.00 s -> covers it
+     restore phase coverage: n=20, largest gap 1.24 s of the 5 s period < 3.00 s -> covers it
+     expected from the constants alone (INFERRED): down = 15 - cut_phi_s plus one poll, in (10, 15] s; up = 5 - restore_phi_s at daemon receive, in (0, 5] s, plus the report lag at report level; segment W adds <= one watchdog pass
+   OK every cut and every restore detected; the cut and restore phases cover the period
+   detection (report level, the proxy's rule): every cut and every restore detected; the cut and restore phases cover the period
+   qdisc tree identical to the snapshot
+   this run's measurement is over: re-claiming WITHOUT measuring= (owner and note kept, the lease not renewed)
+       recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+       ok  lab claimed by orch-0926 for 172m (in use: ndt up p4 4 at 2026-09-26 16:55:08 by orch-0926)
+
+== done -- teardown follows
+
+== teardown
+   ndt down rc=0 -> 2026-09-26T085506Z_S_heartbeat/90_down.txt
+         until 09-12 this command answered both with the same byte.
+       claim note now says the lab was already down when this teardown ran
+     spike: 'ndt down' answered 3 (nothing was up) -- expected: this run had already taken its own fabric down
+   app_package_override is gone, as 'ndt down' should leave it
+   re-claiming on the knob as it is now, so the round baseline 'ndt release' compares with is what is there
+          recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+          ok  lab claimed by orch-0926 for 172m (down at 2026-09-26 17:03:16; nothing was up to tear down; claim kept)
+     the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+     this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+     ok  lab released
+
+raw: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-25_p4-heartbeat/spike/runs/2026-09-26T085506Z_S_heartbeat
+PASS S_heartbeat
+# spike rc=0  end 2026-09-26T17:03:16+08:00

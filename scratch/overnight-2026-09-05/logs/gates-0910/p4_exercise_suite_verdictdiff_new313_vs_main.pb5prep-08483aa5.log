@@ -1,0 +1,8 @@
+# HEAD 08483aa59ca598642af6b256acdbc787c3711b95  per-test-id verdicts, new313 vs main
+# 2026-09-26T07:36:55Z  worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926
+# new313: 187 ids,  1 FAIL; 186 ok;
+# main: 187 ids,  1 FAIL; 186 ok;
+# non-ok verdicts in new313:
+#   test_convert.FixtureProvenance.test_every_fixture_is_still_byte_identical_to_its_tutorials_original	FAIL
+# diff lines (<,>): 0
+rc=0

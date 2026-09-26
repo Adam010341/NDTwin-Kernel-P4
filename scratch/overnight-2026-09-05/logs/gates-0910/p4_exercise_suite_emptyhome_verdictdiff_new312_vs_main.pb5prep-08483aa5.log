@@ -1,0 +1,8 @@
+# HEAD 08483aa59ca598642af6b256acdbc787c3711b95  per-test-id verdicts, new312 vs main
+# 2026-09-26T07:36:55Z  worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926
+# new312: 187 ids,  186 ok; 1 skip: no p4lang-tutorials checkout at /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/emptyhome/tutorials/exercises, so the fixtures cannot be compared with the files they were copied from. This is NOT evidence that they match.;
+# main: 187 ids,  186 ok; 1 skip: no p4lang-tutorials checkout at /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/emptyhome/tutorials/exercises, so the fixtures cannot be compared with the files they were copied from. This is NOT evidence that they match.;
+# non-ok verdicts in new312:
+#   test_convert.FixtureProvenance.test_every_fixture_is_still_byte_identical_to_its_tutorials_original	skip: no p4lang-tutorials checkout at /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/emptyhome/tutorials/exercises, so the fixtures cannot be compared with the files they were copied from. This is NOT evidence that they match.
+# diff lines (<,>): 0
+rc=0

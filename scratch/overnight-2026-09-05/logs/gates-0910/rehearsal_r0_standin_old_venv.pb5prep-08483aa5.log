@@ -1,0 +1,54 @@
+# HEAD 08483aa59ca598642af6b256acdbc787c3711b95  stand-in for the development machine's venv: scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv from requirements.txt @ 580767a83dea12e42755687d174af891b69deb97, 2-command install, base /home/adam/miniconda3/bin/python3
+# 2026-09-26T07:05:17Z  worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926
+# requirements.txt @ trunk sha256 13b261ff81df441af72e860823bb426b67abb91365b5fefddf70437bc641b92b; pins:
+#   grpcio==1.82.1
+#   protobuf==3.20.3
+#   p4runtime==1.5.0
+#   googleapis-common-protos==1.73.0
+#   fastapi==0.139.2
+#   starlette==1.3.1
+#   uvicorn==0.51.0
+#   networkx==3.6.1
+#   requests==2.34.2
+#   hypothesis==6.165.5
+#   thrift==0.24.0
+# base Python 3.13.13 | packaged by Anaconda, Inc. | (main, Apr 14 2026, 06:19:41) [GCC 14.3.0] realpath /home/adam/miniconda3/bin/python3.13
+$ /home/adam/miniconda3/bin/python3 -m venv scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv
+rc=0
+$ scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv/bin/pip install -r <trunk requirements.txt>
+Installing collected packages: thrift, sortedcontainers, urllib3, typing-extensions, protobuf, networkx, idna, hypothesis, h11, click, charset_normalizer, certifi, annotated-types, annotated-doc, uvicorn, typing-inspection, requests, pydantic-core, grpcio, googleapis-common-protos, anyio, starlette, pydantic, p4runtime, fastapi
+
+Successfully installed annotated-doc-0.0.5 annotated-types-0.8.0 anyio-4.15.1 certifi-2026.7.22 charset_normalizer-3.5.1 click-8.5.0 fastapi-0.139.2 googleapis-common-protos-1.73.0 grpcio-1.82.1 h11-0.16.0 hypothesis-6.165.5 idna-3.20 networkx-3.6.1 p4runtime-1.5.0 protobuf-3.20.3 pydantic-2.13.5 pydantic-core-2.46.5 requests-2.34.2 sortedcontainers-2.4.0 starlette-1.3.1 thrift-0.24.0 typing-extensions-4.16.0 typing-inspection-0.4.4 urllib3-2.8.0 uvicorn-0.51.0
+pip install rc=0
+pip fetched: 0 Downloading, 50 Using cached
+--- identity (want protobuf 3.20.3 backend=python)
+venv /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv python 3.13.13 protobuf 3.20.3 backend=python
+l1 probe rc=0 (want 0)
+--- pip freeze --all
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anyio==4.15.1
+certifi==2026.7.22
+charset-normalizer==3.5.1
+click==8.5.0
+fastapi==0.139.2
+googleapis-common-protos==1.73.0
+grpcio==1.82.1
+h11==0.16.0
+hypothesis==6.165.5
+idna==3.20
+networkx==3.6.1
+p4runtime==1.5.0
+pip==26.0.1
+protobuf==3.20.3
+pydantic==2.13.5
+pydantic_core==2.46.5
+requests==2.34.2
+sortedcontainers==2.4.0
+starlette==1.3.1
+thrift==0.24.0
+typing-inspection==0.4.4
+typing_extensions==4.16.0
+urllib3==2.8.0
+uvicorn==0.51.0
+rc=0

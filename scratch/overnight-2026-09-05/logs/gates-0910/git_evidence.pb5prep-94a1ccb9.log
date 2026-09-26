@@ -1,0 +1,33 @@
+# HEAD 94a1ccb923005931034ac01d7b202736d2bd1eb9  git outputs the judge asked for (log, diff --stat, the regen tool vs the candidate)
+== git log --format='%H %an %ad %s' --date=iso 580767a8..HEAD
+94a1ccb923005931034ac01d7b202736d2bd1eb9 Adam010341 2026-09-26 17:03:34 +0800 p4_proxy venv procedure after review (judge READY AFTER FIXES on 6351be15): a window, a recorded origin, and a check before every command
+6351be151e452ee83c4f9de58c22cebe7348f7ec Adam010341 2026-09-26 16:05:41 +0800 p4_proxy/requirements.txt: the CI-shaped lane run was local, not on GitHub -- say so
+bc1860c8ee7ac2b9f64863f1184b0af9113d3ce2 Adam010341 2026-09-26 15:59:37 +0800 p4_proxy/requirements.txt: record the offline run of this file's exact set (2026-09-26)
+08483aa59ca598642af6b256acdbc787c3711b95 Adam010341 2026-09-26 15:03:54 +0800 ci.yml: say what the missing regen step actually does to the P4 lane
+8f10b203f278fec2544ad27f77a9d173f47239da Adam010341 2026-09-26 15:03:00 +0800 p4_proxy venv procedure, step 3: name the proxy tests as modules and give the exercise suite an empty HOME
+958bec1cb03551df3da7fbbb2ce8f5f1b58962e8 Adam010341 2026-09-26 14:53:33 +0800 p4_proxy/requirements.txt: a wrapped line in the rollback paragraph began '# 1.', which reads as step 1
+ac8f0f3fc8edf1a936b6af74431fa425ec0a5b4a Adam010341 2026-09-26 14:52:42 +0800 p4_proxy venv upgrade procedure: park the old venv outside the checkout, and make every step refuse to run on the wrong venv
+98e9f873e79855e9f30c39bc25e6a85c278bb650 Adam010341 2026-09-26 14:43:08 +0800 protobuf 5 for the P4 proxy after its live trial: say what was run and what was not, and how to move an existing venv over and back
+b5f146240ede11ec7c8c072a57dc6a29edbc3529 Adam010341 2026-09-26 14:36:22 +0800 CANDIDATE, not for merge without a live run: protobuf 5.29.6 for the P4 proxy, with p4runtime's generated modules regenerated at install
+== git show -s --format=%B b5f14624 | tail -4
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+(cherry picked from commit 7cc50b4284e89d8f2459d560633697656d49254d)
+
+== git diff --stat 580767a8 HEAD
+ .github/workflows/ci.yml                           |  16 +-
+ .../live-p1/_common.sh                             |   2 +-
+ p4_proxy/regen_p4runtime_pb2.py                    | 188 +++++++++++++++
+ p4_proxy/requirements.txt                          | 252 +++++++++++++++++----
+ tools/test_workflow/l1_unit_tests.sh               |   9 +-
+ tools/test_workflow/ndt                            |   2 +-
+ tools/test_workflow/stack.sh                       |   2 +-
+ 7 files changed, 426 insertions(+), 45 deletions(-)
+== git diff 7cc50b42 HEAD -- p4_proxy/regen_p4runtime_pb2.py (expected empty)
+diff lines: 0
+== sha256 of the tool at 7cc50b42 and HEAD
+66fb47b08155cd3a27fc5ac556629697e43851fa8d5b8e997f55a3fc5720ee75  -
+66fb47b08155cd3a27fc5ac556629697e43851fa8d5b8e997f55a3fc5720ee75  -
+== the three hint strings: git diff 7cc50b42 HEAD -- tools/test_workflow/stack.sh tools/test_workflow/ndt doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/_common.sh | grep regen_p4runtime
+3
+rc=0

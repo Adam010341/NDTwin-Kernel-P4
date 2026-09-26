@@ -1,0 +1,27 @@
+label      pid      package                    venv   upb   life_s  cpu_s    cpu/s   hwm_MB first seen
+01main-pre 1061982  baseline                   main   False   17.2   1.22    0.071     90.4 2026-09-26T05:49:18.367Z
+01cand     1066344  baseline                   cand   True    18.0   1.06    0.059     86.0 2026-09-26T05:50:08.504Z
+06cand     1070737  basic-skeleton             cand   True    91.5   1.54    0.017     84.9 2026-09-26T05:51:56.650Z
+06cand     1074435  basic-solution             cand   True    81.2   1.39    0.017     84.8 2026-09-26T05:53:38.283Z
+06cand     1078759  source_routing-skeleton    cand   True    14.3   0.51    0.036     84.7 2026-09-26T05:55:09.841Z
+06cand     1082012  source_routing-solution    cand   True    13.6   0.50    0.037     84.6 2026-09-26T05:55:34.941Z
+06cand     1084629  calc-skeleton              cand   True     8.9   0.40    0.045     83.6 2026-09-26T05:56:00.037Z
+06cand     1087020  calc-solution              cand   True     8.3   0.38    0.046     83.6 2026-09-26T05:56:19.101Z
+06cand     1089410  multicast-skeleton         cand   True    80.5   0.98    0.012     84.3 2026-09-26T05:56:38.159Z
+06cand     1093381  multicast-solution         cand   True    97.6   1.08    0.011     84.2 2026-09-26T05:58:09.711Z
+06cand     1097157  basic_tunnel-solution      cand   True    48.8   0.89    0.018     84.7 2026-09-26T05:59:58.377Z
+06cand     1100455  load_balance-skeleton      cand   True    22.2   0.63    0.028     84.6 2026-09-26T06:00:58.703Z
+06cand     1103255  load_balance-solution      cand   True    22.4   0.62    0.028     84.7 2026-09-26T06:01:30.858Z
+06cand     1106123  qos-skeleton               cand   True    30.6   0.70    0.023     84.7 2026-09-26T06:02:04.023Z
+06cand     1109180  qos-solution               cand   True    48.7   0.89    0.018     84.7 2026-09-26T06:02:45.242Z
+06cand     1113252  link_monitor-skeleton      cand   True    19.9   0.60    0.030     84.8 2026-09-26T06:03:45.575Z
+06cand     1116180  link_monitor-solution      cand   True    38.3   0.82    0.021     84.9 2026-09-26T06:04:16.709Z
+06cand     1119779  firewall-skeleton          cand   True    64.5   1.29    0.020     84.9 2026-09-26T06:05:05.967Z
+06cand     1123271  firewall-solution          cand   True   212.2   3.06    0.014     84.9 2026-09-26T06:06:21.445Z
+06cand     1130640  ecn-skeleton               cand   True    76.6   1.20    0.016     84.7 2026-09-26T06:10:05.011Z
+06cand     1134735  ecn-solution               cand   True   142.4   1.86    0.013     84.7 2026-09-26T06:11:31.527Z
+06cand     1141155  mri-skeleton               cand   True    21.3   0.58    0.027     84.6 2026-09-26T06:14:04.542Z
+06cand     1144367  mri-solution               cand   True    87.6   1.27    0.014     84.8 2026-09-26T06:14:37.701Z
+06cand     1160929  p4runtime-skeleton         cand   True    23.0   0.53    0.023     84.4 2026-09-26T06:16:16.277Z
+06cand     1171855  p4runtime-solution         cand   True    39.2   0.67    0.017     84.5 2026-09-26T06:16:50.451Z
+06cand     1185838  flowcache-solution         cand   True    43.9   0.73    0.017     84.5 2026-09-26T06:17:40.718Z

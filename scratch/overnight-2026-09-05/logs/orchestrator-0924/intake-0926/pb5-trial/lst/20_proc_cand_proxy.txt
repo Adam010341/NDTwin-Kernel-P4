@@ -1,0 +1,26 @@
+# 2026-09-26T06:20:01Z candidate proxy, read-only /proc
+supervisor pid 1230118: bash /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/supervise.sh /home/adam/Desktop/NDTwin-Kernel/.test_run/pids/p4_proxy env PYTHONPATH=/home/adam/Desktop/NDTwin-Kernel/p4_proxy NDTWIN_TOPO_FILE=/home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json bash -c cd '/home/adam/Desktop/NDTwin-Kernel/p4_proxy' && '/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand/bin/python' proxy_agent/main.py 
+python pid 1230123
+exe      /home/adam/miniconda3/bin/python3.13
+cmdline  /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand/bin/python proxy_agent/main.py 
+cwd      /home/adam/Desktop/NDTwin-Kernel/p4_proxy
+--- maps lines naming _upb / protobuf / grpc cython:
+7a780de00000-7a780ded8000 r--p 00000000 103:05 2513153                   /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand/lib/python3.13/site-packages/grpc/_cython/cygrpc.cpython-313-x86_64-linux-gnu.so
+7a780ded8000-7a780e9dc000 r-xp 000d8000 103:05 2513153                   /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand/lib/python3.13/site-packages/grpc/_cython/cygrpc.cpython-313-x86_64-linux-gnu.so
+7a780e9dc000-7a780ed0a000 r--p 00bdc000 103:05 2513153                   /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand/lib/python3.13/site-packages/grpc/_cython/cygrpc.cpython-313-x86_64-linux-gnu.so
+7a780ed0a000-7a780ed5d000 r--p 00f09000 103:05 2513153                   /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand/lib/python3.13/site-packages/grpc/_cython/cygrpc.cpython-313-x86_64-linux-gnu.so
+7a780ed5d000-7a780ed80000 rw-p 00f5c000 103:05 2513153                   /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand/lib/python3.13/site-packages/grpc/_cython/cygrpc.cpython-313-x86_64-linux-gnu.so
+7a78100bd000-7a78100c7000 r--p 00000000 103:05 2510566                   /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand/lib/python3.13/site-packages/google/_upb/_message.abi3.so
+7a78100c7000-7a78100f1000 r-xp 0000a000 103:05 2510566                   /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand/lib/python3.13/site-packages/google/_upb/_message.abi3.so
+7a78100f1000-7a7810105000 r--p 00034000 103:05 2510566                   /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand/lib/python3.13/site-packages/google/_upb/_message.abi3.so
+7a7810105000-7a7810106000 ---p 00048000 103:05 2510566                   /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand/lib/python3.13/site-packages/google/_upb/_message.abi3.so
+7a7810106000-7a7810107000 r--p 00048000 103:05 2510566                   /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand/lib/python3.13/site-packages/google/_upb/_message.abi3.so
+7a7810107000-7a781010b000 rw-p 00049000 103:05 2510566                   /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand/lib/python3.13/site-packages/google/_upb/_message.abi3.so
+--- environ: PROTOCOL_BUFFERS* / P4_PROXY_PY / PYTHON*:
+PYTHONPATH=/home/adam/Desktop/NDTwin-Kernel/p4_proxy
+P4_PROXY_PY=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand/bin/python
+PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION: absent
+--- status
+VmHWM:	   87444 kB
+VmRSS:	   87444 kB
+Threads:	51

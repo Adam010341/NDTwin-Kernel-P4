@@ -1,0 +1,44 @@
+baseline: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-26T062049Z_06_thirteen
+trial   : /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-26T055148Z_06_thirteen
+!! arm ORDER differs: [('basic', 'skeleton'), ('basic', 'solution'), ('p4runtime', 'skeleton'), ('p4runtime', 'solution')] [('basic', 'skeleton'), ('basic', 'solution'), ('source_routing', 'skeleton'), ('source_routing', 'solution'), ('calc', 'skeleton'), ('calc', 'solution'), ('multicast', 'skeleton'), ('multicast', 'solution'), ('basic_tunnel', 'skeleton'), ('basic_tunnel', 'solution'), ('load_balance', 'skeleton'), ('load_balance', 'solution'), ('qos', 'skeleton'), ('qos', 'solution'), ('link_monitor', 'skeleton'), ('link_monitor', 'solution'), ('firewall', 'skeleton'), ('firewall', 'solution'), ('ecn', 'skeleton'), ('ecn', 'solution'), ('mri', 'skeleton'), ('mri', 'solution'), ('p4runtime', 'skeleton'), ('p4runtime', 'solution'), ('flowcache', 'skeleton'), ('flowcache', 'solution')]
+
+=== basic / skeleton
+   SAME  rc       base='0' trial='0'
+   SAME  verdict  base='PASS (4/4)' trial='PASS (4/4)'
+   SAME     [PASS] injection: send.py emitted 1 TCP frame | want `1` | got base=`1` trial=`1`
+   SAME     [PASS] pingall loss (ping -c 5, every ordered pair) | want `100.0%` | got base=`100% (0/12 pairs at 0%, 12 lossy)` trial=`100% (0/12 pairs at 0%, 12 lossy)`
+   SAME     [PASS] h1 ping -c3 h2 received | want `0` | got base=`0` trial=`0`
+   SAME     [PASS] h2 got the send.py packet | want `0` | got base=`0` trial=`0`
+   SAME     section 3b switch_state disclosure (7 lines)
+
+=== basic / solution
+   SAME  rc       base='0' trial='0'
+   SAME  verdict  base='PASS (6/6)' trial='PASS (6/6)'
+   SAME     [PASS] injection: send.py emitted 1 TCP frame | want `1` | got base=`1` trial=`1`
+   SAME     [PASS] pingall loss (ping -c 5, every ordered pair) | want `0.0%` | got base=`0% (12/12 pairs at 0%, 0 lossy)` trial=`0% (12/12 pairs at 0%, 0 lossy)`
+   SAME     [PASS] h1 ping -c3 h2 received | want `3` | got base=`3` trial=`3`
+   SAME     [PASS] h2 got the send.py packet | want `>=1` | got base=`1` trial=`1`
+   SAME     [PASS] ttl at h2 (h1-s1-h2 is one hop) | want `[63]` | got base=`[63]` trial=`[63]`
+   SAME     [PASS] G1  link usage follows the iperf path | want `primary on-path > 0; minor rows printed | got base=`PASS` trial=`PASS`
+   SAME     section 3b switch_state disclosure (7 lines)
+
+=== p4runtime / skeleton
+   SAME  rc       base='0' trial='0'
+   SAME  verdict  base='PASS (4/4)' trial='PASS (4/4)'
+   SAME     [PASS] injection: the controller stayed up | want `alive after 12s` | got base=`alive` trial=`alive`
+   SAME     [PASS] switches the controller programmed | want `[1, 2]` | got base=`[1, 2]` trial=`[1, 2]`
+   SAME     [PASS] RED ARM: the transit rule is still the student's TODO | want `TODO Install transit tunnel rule` | got base=`still a TODO` trial=`still a TODO`
+   SAME     [PASS] RED ARM: h1 -> h2 does not forward | want `100% loss` | got base=`100% loss, 0/5 received` trial=`100% loss, 0/5 received`
+   SAME     section 3b switch_state disclosure (6 lines)
+
+=== p4runtime / solution
+   SAME  rc       base='0' trial='0'
+   SAME  verdict  base='PASS (5/5)' trial='PASS (5/5)'
+   SAME     [PASS] injection: the controller stayed up | want `alive after 12s` | got base=`alive` trial=`alive`
+   SAME     [PASS] switches the controller programmed | want `[1, 2]` | got base=`[1, 2]` trial=`[1, 2]`
+   SAME     [PASS] the transit rule went in | want `Installed transit tunnel rule` | got base=`installed` trial=`installed`
+   SAME     [PASS] h1 -> h2 forwards through the tunnel | want `0.0%` | got base=`0% loss, 5/5 received` trial=`0% loss, 5/5 received`
+   SAME     [PASS] G1  link usage follows the iperf path | want `primary on-path > 0; minor rows printed | got base=`PASS` trial=`PASS`
+   SAME     section 3b switch_state disclosure (6 lines)
+
+# items SAME=31 DIFF=0

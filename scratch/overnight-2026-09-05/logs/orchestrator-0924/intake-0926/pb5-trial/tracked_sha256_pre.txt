@@ -1,0 +1,12 @@
+# tracked files that the switch path reads (NOT edited by this trial); 2026-09-26T05:47:43Z HEAD 580767a83dea12e42755687d174af891b69deb97
+86aee2b28906c28b6a70074f64a8c6a979a7bb87fc8004dfed1b4c9ab682b1ba  tools/test_workflow/components.env
+02de11fca77d52aedc7ad9de707f43d7513e82618947215c6b789699b0f22c2f  tools/test_workflow/stack.sh
+6954755b7892a1f41509dd117c41ff02694fa674e0af609fd91e7221d72014e9  tools/test_workflow/ndt
+6d9ac732e78e4172f279642d06a82a3261169693ce760f749e765de5d98fac13  tools/test_workflow/supervise.sh
+36c3689b41bd000a5e2fdf69837ed1090ca4e5ed2c0f6ea17892b02a8fe35448  doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/_common.sh
+511ec2d676a955af13858788b1c44da786cb0dd42dff41defc4e596388f97551  doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/01_baseline.sh
+fc9d96bae33bd77b74c95ec8bc96060720977e24a29f41656f48ad377e5c9cce  doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/06_thirteen.sh
+5cb44094f336c659facf8bff5ebde664306665e3c91b549dd877d8292b6cadf2  doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py
+13b261ff81df441af72e860823bb426b67abb91365b5fefddf70437bc641b92b  p4_proxy/requirements.txt
+741cc0eae6706d28d188ea371e7f4dc9288489962c7de69155a765ffa7b84c22  p4_proxy/tests/test_p4_client.py
+# git status above: empty = those paths clean

@@ -1,0 +1,7 @@
+# HEAD 08483aa59ca598642af6b256acdbc787c3711b95  main p4_proxy/venv fingerprint (find -type f -printf '%P %s %T@' | sort | sha256sum), read-only
+# 2026-09-26T07:36:55Z  worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926
+fingerprint 33b3465d10cdb24130fcce30422f62dc48747bba4e572f82042991c8b3ab596c
+newest: 2026-09-26+04:26:22.2034669220 lib/python3.13/site-packages/networkx/drawing/__pycache__/nx_pydot.cpython-312.pyc
+files: 3301
+files newer than /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/mainvenv.marker-08483aa5: 0
+rc=0

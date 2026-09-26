@@ -1,0 +1,11 @@
+# HEAD 08483aa59ca598642af6b256acdbc787c3711b95  requirements.txt's bmv2 CLI recipe, import only: PYTHONPATH=p4dev site-packages, under the new venv and the main venv
+# 2026-09-26T07:36:49Z  worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926
+== venv /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv python 3.13.13 protobuf 5.29.6 backend=upb
+imports ok; thrift from /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv/lib/python3.13/site-packages/thrift/__init__.py
+google.protobuf loaded: no
+rc=0
+== venv /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv python 3.13.13 protobuf 3.20.3 backend=python
+imports ok; thrift from /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/thrift/__init__.py
+google.protobuf loaded: no
+rc=0
+rc=0

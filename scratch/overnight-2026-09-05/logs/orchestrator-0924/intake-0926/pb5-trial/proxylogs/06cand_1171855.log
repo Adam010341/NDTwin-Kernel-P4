@@ -1,0 +1,120 @@
+/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/main.py:2055: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/main.py:2060: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+INFO:     Started server process [1171855]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+[Proxy Agent] app package: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/p4runtime-solution (mode external, election_id 0,65535)
+[Proxy Agent] Starting up...
+[1] external control plane: no arbitration stream, no pipeline push, no writes. This client reads only.
+[2] external control plane: no arbitration stream, no pipeline push, no writes. This client reads only.
+[3] external control plane: no arbitration stream, no pipeline push, no writes. This client reads only.
+[Proxy Agent] app package p4runtime declares an EXTERNAL control plane: this proxy will not push pipelines, program clone sessions, send LLDP beacons, watch links or install routes on any of the 3 switches it connected to. It reads only. Skipped: clone_session, install_initial_routes, link_watchdog, lldp_discovery, pipeline_push, sflow_telemetry. Reported on GET /p4/switch_state.
+[Kernel] switch 1 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=1 (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 2 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=2 (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 3 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=3 (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Proxy Agent] Kernel did not acknowledge 3/3 switches yet ([1, 2, 3]) -- normal when the kernel starts after the proxy. Its topology poll enables switches on its own; retrying the push in the background for up to 5 minutes.
+[Proxy Agent] Started liveness polling...
+INFO:     127.0.0.1:36992 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37008 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37022 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37030 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37040 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37056 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37068 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37082 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37100 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37118 - "GET /ryu_server/all_destination_paths HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37134 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37140 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37152 - "GET /ryu_server/all_destination_paths HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37166 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37174 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37178 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37180 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37188 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37200 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37202 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52862 - "GET /p4/switch_state HTTP/1.1" 200 OK
+[Kernel] switch 1 entered: ok
+[Kernel] switch 2 entered: ok
+[Kernel] switch 3 entered: ok
+[Proxy Agent] switch-entered acknowledged for all remaining switches on retry
+INFO:     127.0.0.1:52884 - "GET /ryu_server/all_destination_paths HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52870 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52896 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+[Proxy Agent] Reading tables from switch 3 failed: FAILED_PRECONDITION: <_MultiThreadedRendezvous of RPC that terminated with:
+	status = StatusCode.FAILED_PRECONDITION
+	details = "No forwarding pipeline config set for this device"
+	debug_error_string = "FAILED_PRECONDITION:No forwarding pipeline config set for this device"
+>
+INFO:     127.0.0.1:52912 - "GET /stats/flow/3 HTTP/1.1" 503 Service Unavailable
+INFO:     127.0.0.1:52928 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52934 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52936 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52938 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52950 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52952 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52982 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52984 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52994 - "GET /ryu_server/all_destination_paths HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53008 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53018 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53034 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53036 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53042 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53050 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53064 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50876 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50884 - "GET /ryu_server/all_destination_paths HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50890 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50906 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50908 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50920 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50936 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50940 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50956 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50972 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50980 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50996 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51008 - "GET /ryu_server/all_destination_paths HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51016 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51030 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51036 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51038 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51054 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51056 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51062 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34442 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34454 - "GET /ryu_server/all_destination_paths HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34460 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34476 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34478 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34494 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34496 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34512 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34514 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34528 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34530 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34536 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34550 - "GET /ryu_server/all_destination_paths HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34554 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34566 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34574 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34584 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34594 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1171855]

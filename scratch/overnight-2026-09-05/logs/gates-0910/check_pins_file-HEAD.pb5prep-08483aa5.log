@@ -1,0 +1,38 @@
+# HEAD 08483aa59ca598642af6b256acdbc787c3711b95  HEAD's requirements.txt vs pip freeze of the new venv (want GREEN) and of the main venv (want RED on protobuf, grpcio-tools)
+# 2026-09-26T07:36:49Z  worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926
+== vs new venv (venv /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv python 3.13.13 protobuf 5.29.6 backend=upb)
+MATCH                            grpcio                       file ==1.82.1         venv 1.82.1
+MATCH                            protobuf                     file ==5.29.6         venv 5.29.6
+MATCH                            p4runtime                    file ==1.5.0          venv 1.5.0
+MATCH                            googleapis-common-protos     file ==1.75.0         venv 1.75.0
+MATCH                            grpcio-tools                 file ==1.71.2         venv 1.71.2
+MATCH                            fastapi                      file ==0.139.2        venv 0.139.2
+MATCH                            starlette                    file ==1.3.1          venv 1.3.1
+MATCH                            uvicorn                      file ==0.51.0         venv 0.51.0
+MATCH                            networkx                     file ==3.6.1          venv 3.6.1
+MATCH                            requests                     file ==2.34.2         venv 2.34.2
+MATCH                            hypothesis                   file ==6.165.5        venv 6.165.5
+MATCH                            thrift                       file ==0.24.0         venv 0.24.0
+RESULT: GREEN (0 line(s) do not describe the venv)
+rc=0
+== vs main venv (venv /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv python 3.13.13 protobuf 3.20.3 backend=python)
+MATCH                            grpcio                       file ==1.82.1         venv 1.82.1
+MISMATCH                         protobuf                     file ==5.29.6         venv 3.20.3
+MATCH                            p4runtime                    file ==1.5.0          venv 1.5.0
+MATCH                            googleapis-common-protos     file ==1.75.0         venv 1.75.0
+MISMATCH                         grpcio-tools                 file ==1.71.2         venv <absent>
+MATCH                            fastapi                      file ==0.139.2        venv 0.139.2
+MATCH                            starlette                    file ==1.3.1          venv 1.3.1
+MATCH                            uvicorn                      file ==0.51.0         venv 0.51.0
+MATCH                            networkx                     file ==3.6.1          venv 3.6.1
+MATCH                            requests                     file ==2.34.2         venv 2.34.2
+MATCH                            hypothesis                   file ==6.165.5        venv 6.165.5
+MATCH                            thrift                       file ==0.24.0         venv 0.24.0
+RESULT: RED (2 line(s) do not describe the venv)
+rc=1
+== main venv lines that do not MATCH:
+MISMATCH                         protobuf                     file ==5.29.6         venv 3.20.3
+MISMATCH                         grpcio-tools                 file ==1.71.2         venv <absent>
+RESULT: RED (2 line(s) do not describe the venv)
+main-venv mismatches: grpcio-tools protobuf  (want: grpcio-tools protobuf)
+rc=0

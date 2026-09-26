@@ -1,0 +1,28 @@
+pb5-trial (protobuf 5.29.6 candidate 7cc50b42, venv-cand) -- file index. Owner NDT_OWNER=pb5-trial-0926.
+Code under test: main checkout trunk 580767a8 (p4_proxy/proxy_agent, tools/p4_exercise, p4_src identical to 7cc50b42:
+`git diff --stat 7cc50b42 HEAD -- p4_proxy/proxy_agent tools/p4_exercise p4_proxy/p4_src` is empty).
+Switch mechanism: env var P4_PROXY_PY=<wt-p4proxy-reqs-0925>/scratch/venv-cand/bin/python as a prefix on each trial
+command only (components.env:45 `: "${P4_PROXY_PY:=...}"`, ndt:2057 p4_proxy_py). No file edited.
+
+JOURNAL.txt                     timestamps of every phase (UTC)
+fingerprint_pre.log             venv fingerprints before (main 33b3465d..., venv-cand aa1d4c72... = the REQ worker's delivery value)
+tracked_sha256_pre.txt          sha256 of the tracked files on the switch path, before; post_checks.txt re-verifies them (all OK)
+knobs_pre.txt, knobs_pre/       the three P4 knobs before; post_checks.txt: all SAME, host_count_override byte-identical
+venv_facts_pre.log              protobuf / backend / gencode header / key versions of both venvs (python -B, no pyc writes)
+dists_main.txt, dists_cand.txt, dists_diff.txt   installed distributions of both venvs (importlib.metadata) -- finding 9
+proxy_sampler.py, sampler.jsonl read-only /proc sampler: every proxy pid's cmdline, exe, environ subset, maps (_upb, cygrpc), RSS/HWM, CPU
+proxylogs/<label>_<pid>.log     full p4_proxy.log of every proxy the trial started (32 logs: 01 x3, 06 cand x24, 06 main control x4, LST bring-up x1)
+resource_summary.py             one row per proxy from sampler.jsonl; resource_summary_after06.txt is the table after 06
+01main-pre.out                  live 01, MAIN venv, same code, before the switch (control)      raw live-p1/runs/2026-09-26T054912Z_01_baseline
+01cand.out                      live 01, venv-cand                                               raw live-p1/runs/2026-09-26T055003Z_01_baseline
+06cand.out                      live 06 all 26 arms, venv-cand                                   raw live-p1/runs/2026-09-26T055148Z_06_thirteen
+06main-ctl.out                  live 06 ONLY=basic,p4runtime, MAIN venv (proxy-log control)     raw live-p1/runs/2026-09-26T062049Z_06_thirteen
+01main-post.out                 live 01, MAIN venv, after unsetting (the restore check)          raw live-p1/runs/2026-09-26T062558Z_01_baseline
+flatten_json.py, flat_*.txt     01 captures flattened with time/age/boot-id fields masked (B=09-24 baseline, P=main-pre, C=cand, Q=main-post)
+compare_06.py                   06 row-by-row comparer (table, section-5 verdict rows, section 3b)
+compare_06_toolcheck_0919_vs_0924.txt   comparer on two older MAIN-venv runs (noise reference: 5 got-count diffs)
+compare_06_baseline0924_vs_cand.txt     09-24T185505Z (main) vs today's cand: SAME=164 DIFF=6 (all got-counts, all PASS)
+compare_06_mainctl_vs_cand.txt          today's main control arms vs cand arms: SAME=31 DIFF=0
+lst_phase.sh, lst/              LiveSwitchTest + error_path_probe.py under main then cand, on one claimed fabric with only the proxy stopped
+error_path_probe.py             ad-hoc (not a repo test) error-path probe on switch 1
+post_checks.txt, ndt_status_final.txt   final state

@@ -1,0 +1,16 @@
+# HEAD 98e9f873e79855e9f30c39bc25e6a85c278bb650  git check-ignore on the parked-venv paths: .gitignore of 580767a83dea12e42755687d174af891b69deb97 (RED expected) vs HEAD (GREEN); v2 sample paths
+# 2026-09-26T06:45:34Z  worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926
+== .gitignore @ 580767a83dea12e42755687d174af891b69deb97
+  NOT IGNORED  p4_proxy/venv.protobuf3-20260926/pyvenv.cfg
+  NOT IGNORED  p4_proxy/venv.protobuf3-20260926/lib/python3.13/site-packages/google/protobuf/__init__.py
+  NOT IGNORED  p4_proxy/venv.protobuf3-20260926.freeze
+  NOT IGNORED  p4_proxy/venv.protobuf3-20260926.fingerprint
+  NOT IGNORED  p4_proxy/venv.failed-20260926120000/pyvenv.cfg
+== .gitignore @ 98e9f873e79855e9f30c39bc25e6a85c278bb650
+  IGNORED      p4_proxy/venv.protobuf3-20260926/pyvenv.cfg   (.gitignore:105:p4_proxy/venv.*	p4_proxy/venv.protobuf3-20260926/pyvenv.cfg)
+  IGNORED      p4_proxy/venv.protobuf3-20260926/lib/python3.13/site-packages/google/protobuf/__init__.py   (.gitignore:105:p4_proxy/venv.*	p4_proxy/venv.protobuf3-20260926/lib/python3.13/site-packages/google/protobuf/__init__.py)
+  IGNORED      p4_proxy/venv.protobuf3-20260926.freeze   (.gitignore:105:p4_proxy/venv.*	p4_proxy/venv.protobuf3-20260926.freeze)
+  IGNORED      p4_proxy/venv.protobuf3-20260926.fingerprint   (.gitignore:105:p4_proxy/venv.*	p4_proxy/venv.protobuf3-20260926.fingerprint)
+  IGNORED      p4_proxy/venv.failed-20260926120000/pyvenv.cfg   (.gitignore:105:p4_proxy/venv.*	p4_proxy/venv.failed-20260926120000/pyvenv.cfg)
+RESULT trunk: 0 of 5 ignored (want 0 = RED); HEAD: 5 of 5 (want 5 = GREEN); tracked files matching p4_proxy/venv.*: 0 (want 0)
+rc=0

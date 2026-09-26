@@ -1,0 +1,31 @@
+# post-trial checks 2026-09-26T06:26:56Z
+== knobs (pre sha / now)
+host_count_override pre=7de1555df0c2700329e815b93b32c571c3ea54dc967b89e81ab73b9972b72d1d now=7de1555df0c2700329e815b93b32c571c3ea54dc967b89e81ab73b9972b72d1d SAME
+app_package_override pre=ABSENT now=ABSENT SAME
+telemetry_override pre=ABSENT now=ABSENT SAME
+host_count_override cmp: byte-identical
+== tracked files (pre file vs now)
+tools/test_workflow/components.env: OK
+tools/test_workflow/stack.sh: OK
+tools/test_workflow/ndt: OK
+tools/test_workflow/supervise.sh: OK
+doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/_common.sh: OK
+doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/01_baseline.sh: OK
+doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/06_thirteen.sh: OK
+doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py: OK
+p4_proxy/requirements.txt: OK
+p4_proxy/tests/test_p4_client.py: OK
+(git status of those paths above; empty = clean)
+== venv fingerprints
+main venv now  33b3465d10cdb24130fcce30422f62dc48747bba4e572f82042991c8b3ab596c  (pre 33b3465d10cdb24130fcce30422f62dc48747bba4e572f82042991c8b3ab596c)
+main newest: 2026-09-26+04:26:22.2034669220 lib/python3.13/site-packages/networkx/drawing/__pycache__/nx_pydot.cpython-312.pyc
+venv-cand now abecbbe296735b5d3fd1a066ebcf547b9db596ec546d0592f9b8c173f5974b65  (pre aa1d4c72a6c75cfa6bae4ab8eab06be9e0be74bd5b79f6867b32fa08b5525459)
+venv-cand files newer than pre: 9; of them non-.pyc: 0
+lib/python3.13/site-packages/p4/v1/p4data_pb2_grpc.py: OK
+lib/python3.13/site-packages/p4/v1/p4data_pb2.py: OK
+lib/python3.13/site-packages/p4/v1/p4runtime_pb2_grpc.py: OK
+lib/python3.13/site-packages/p4/v1/p4runtime_pb2.py: OK
+lib/python3.13/site-packages/p4/config/v1/p4info_pb2_grpc.py: OK
+lib/python3.13/site-packages/p4/config/v1/p4info_pb2.py: OK
+lib/python3.13/site-packages/p4/config/v1/p4types_pb2_grpc.py: OK
+lib/python3.13/site-packages/p4/config/v1/p4types_pb2.py: OK

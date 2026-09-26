@@ -1,0 +1,5 @@
+exercise	which	rc	verdict	report
+basic	skeleton	0	PASS (4/4)	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-26T062049Z_basic_skeleton_ndtwin.md
+basic	solution	0	PASS (6/6)	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-26T062231Z_basic_solution_ndtwin.md
+p4runtime	skeleton	0	PASS (4/4)	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-26T062404Z_p4runtime_skeleton_ndtwin.md
+p4runtime	solution	0	PASS (5/5)	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-26T062438Z_p4runtime_solution_ndtwin.md

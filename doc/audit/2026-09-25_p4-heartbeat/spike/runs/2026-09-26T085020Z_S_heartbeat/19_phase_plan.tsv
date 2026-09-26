@@ -1,0 +1,12 @@
+# PHASE=sweep seed=2772311660 period_s=5 cycles=10 -- kind 'delay': seconds waited (from the pre-cut check seeing the cable heard / from the down being called); kind 'phase': the cut or restore STARTS this many seconds after the last frame heard (last_heard_mono)
+cycle	cut_kind	cut_value	restore_kind	restore_value
+1	phase	0.050	phase	4.850
+2	phase	0.583	phase	4.317
+3	phase	1.117	phase	3.783
+4	phase	1.650	phase	3.250
+5	phase	2.183	phase	2.717
+6	phase	2.717	phase	2.183
+7	phase	3.250	phase	1.650
+8	phase	3.783	phase	1.117
+9	phase	4.317	phase	0.583
+10	phase	4.850	phase	0.050

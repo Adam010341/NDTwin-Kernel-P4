@@ -1,0 +1,2 @@
+  recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+  ok  lab claimed by orch-0926 for 176m (in use: ndt up p4 4 at 2026-09-26 16:50:22 by orch-0926)

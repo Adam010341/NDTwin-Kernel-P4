@@ -1,0 +1,24 @@
+# HEAD 98e9f873e79855e9f30c39bc25e6a85c278bb650  copy of the main checkout's p4_proxy/p4_src/build (gitignored) into the worktree, cp -p
+# 2026-09-26T06:45:19Z  worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926
+0b19d789d74fc9963861a20ea168e72d99390841bc592a04c4b2881fddb29743  /home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/build/ndtwin_switch.json
+0b19d789d74fc9963861a20ea168e72d99390841bc592a04c4b2881fddb29743  /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/p4_proxy/p4_src/build/ndtwin_switch.json
+  cmp identical: ndtwin_switch.json
+d54ff55208340f3a6b4cf5434de6c278604a99c4fcab07f2e44b5b75e3f2ab67  /home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt
+d54ff55208340f3a6b4cf5434de6c278604a99c4fcab07f2e44b5b75e3f2ab67  /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt
+  cmp identical: ndtwin_switch.p4info.txt
+/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/build/:
+total 92
+drwxrwxr-x 2 adam adam  4096 2026-07-28 23:07:42.881458554 +0800 .
+drwxrwxr-x 3 adam adam  4096 2026-09-19 05:05:20.709938892 +0800 ..
+-rw-rw-r-- 1 adam adam 78855 2026-09-02 20:59:18.944543662 +0800 ndtwin_switch.json
+-rw-rw-r-- 1 adam adam  4051 2026-09-02 20:59:18.885543981 +0800 ndtwin_switch.p4info.txt
+
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/p4_proxy/p4_src/build/:
+total 92
+drwxrwxr-x 2 adam adam  4096 2026-09-26 14:45:19.070871925 +0800 .
+drwxrwxr-x 3 adam adam  4096 2026-09-26 14:45:19.066871991 +0800 ..
+-rw-rw-r-- 1 adam adam 78855 2026-09-02 20:59:18.944543662 +0800 ndtwin_switch.json
+-rw-rw-r-- 1 adam adam  4051 2026-09-02 20:59:18.885543981 +0800 ndtwin_switch.p4info.txt
+.gitignore:9:build/	p4_proxy/p4_src/build/ndtwin_switch.json
+p4 source last commit: f64897b7 2026-08-25T19:30:23+08:00
+rc=0

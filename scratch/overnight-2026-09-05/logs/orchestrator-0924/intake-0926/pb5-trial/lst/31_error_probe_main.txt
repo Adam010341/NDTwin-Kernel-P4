@@ -1,0 +1,14 @@
+interp /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv protobuf 3.20.3 backend python grpc 1.82.1
+env PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION present: False
+[1] Received arbitration response: Mastership confirmed.
+1 stream_alive True
+2 probe {'ok': True, 'detail': 'answered GetForwardingPipelineConfig'}
+[1] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+3 dup insert -> True
+4 delete absent -> True
+5 read_table_entries n=2
+    ('MyIngress.ipv4_lpm', "{'hdr.ipv4.dstAddr': {'type': 'lpm', 'value': b'\\n\\x00\\x00\\x01', 'prefix_len': 32}}", 'MyIngress.ipv4_forward', False)
+    ('MyIngress.ipv4_lpm', "{'hdr.ipv4.dstAddr': {'type': 'lpm', 'value': b'\\n\\x00\\x00\\x02', 'prefix_len': 32}}", 'MyIngress.ipv4_forward', False)
+6 read_egress_counter(1) -> (0, 0)
+7 bogus write -> RpcError code=UNKNOWN details=''
+done

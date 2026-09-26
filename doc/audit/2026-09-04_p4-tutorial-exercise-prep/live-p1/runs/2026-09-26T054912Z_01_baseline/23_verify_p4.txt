@@ -1,0 +1,8 @@
+  ok  proxy: 12/12 destination paths (stable)
+  ok  kernel: 10 switches, 10 up, 40 edges, 4 hosts
+  ok  model matches fabric: 4 hosts (kernel graph, topology file and 4 host namespaces all agree)
+  ok  telemetry: auto -- 10 cooperative, 0 link, 0 none; the proxy agrees switch by switch
+  ok  data plane: h1 -> 10.0.0.2 forwards
+
+up. ready
+  proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo

@@ -1,0 +1,2 @@
+FAULTS_TC=sudo -n mnexec -a 1 tc
+ran       sudo -n mnexec -a 1 tc qdisc show dev lo  (rc 0)

@@ -1,0 +1,8 @@
+repo HEAD  094f417fd35be9b1a01f2772c84c0b9a9e10b360
+helper     6a558fe452955de358fd1a3b4e730fe2be55368a6c90b93675c5442c036fd4fb  (installed: 6a558fe452955de358fd1a3b4e730fe2be55368a6c90b93675c5442c036fd4fb)
+spike      e5aa1a5d4d1bb5d9  doc/audit/2026-09-25_p4-heartbeat/spike/hb_watch.py
+spike      9a14d80b3f9c11e4  doc/audit/2026-09-25_p4-heartbeat/spike/hb_sniff.py
+spike      4c5c507219bc924c  doc/audit/2026-09-25_p4-heartbeat/spike/census_prepare.py
+spike      14b0fe0587dc73a1  doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
+constants  beacon=5 timeout=15 watchdog=5 sniff=20 cycles=20
+phase      PHASE=random seed=1968294680 sweep=default controls=1 nocut=20 margin=0.05

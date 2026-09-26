@@ -1,0 +1,30 @@
+== /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+sys.prefix /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv
+version 3.13.13
+protobuf 3.20.3 backend python /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/google/protobuf/__init__.py
+grpc 1.82.1
+p4runtime_pb2 /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/lib/python3.13/site-packages/p4/v1/p4runtime_pb2.py
+head []
+  p4runtime 1.5.0
+  googleapis-common-protos 1.75.0
+  grpcio-tools absent
+  starlette 1.3.1
+  fastapi 0.139.2
+  uvicorn 0.51.0
+  setuptools absent
+self maps protobuf .so: []
+== /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand/bin/python
+sys.prefix /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand
+version 3.13.13
+protobuf 5.29.6 backend upb /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand/lib/python3.13/site-packages/google/protobuf/__init__.py
+grpc 1.82.1
+p4runtime_pb2 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand/lib/python3.13/site-packages/p4/v1/p4runtime_pb2.py
+head ['# Protobuf Python Version: 5.29.0', 'from google.protobuf import runtime_version as _runtime_version', '_runtime_version.ValidateProtobufRuntimeVersion(']
+  p4runtime 1.5.0
+  googleapis-common-protos 1.75.0
+  grpcio-tools 1.71.2
+  starlette 1.7.0
+  fastapi 0.139.2
+  uvicorn 0.51.0
+  setuptools 84.0.0
+self maps protobuf .so: ['/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4proxy-reqs-0925/scratch/venv-cand/lib/python3.13/site-packages/google/_upb/_message.abi3.so']

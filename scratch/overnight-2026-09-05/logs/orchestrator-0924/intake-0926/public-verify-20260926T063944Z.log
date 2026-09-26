@@ -1,0 +1,17 @@
+# unauthenticated public-visibility check, 2026-09-26T14:39:44+08:00; commands are printed before each result
+$ env -u GIT_ASKPASS -u SSH_ASKPASS GIT_TERMINAL_PROMPT=0 git -c credential.helper= -c core.askPass= ls-remote https://github.com/ndtwin-lab/NDTwin-Kernel-P4.git refs/heads/trunk refs/heads/main refs/heads/audit-raw
+1fafa3a0f636dfd3390f79a2864c98ee783aeda0	refs/heads/audit-raw
+580767a83dea12e42755687d174af891b69deb97	refs/heads/main
+580767a83dea12e42755687d174af891b69deb97	refs/heads/trunk
+# rc=0
+$ curl -s -o /dev/null -w '%{http_code}' --netrc-file /dev/null -H 'Authorization:' https://github.com/ndtwin-lab/NDTwin-Kernel-P4/tree/audit-raw
+200
+# (HTTP 200 without credentials = public)
+$ env -u GIT_ASKPASS -u SSH_ASKPASS GIT_TERMINAL_PROMPT=0 git -c credential.helper= -c core.askPass= ls-remote https://github.com/Adam010341/NDTwin-Kernel-P4.git refs/heads/trunk refs/heads/main refs/heads/audit-raw
+1fafa3a0f636dfd3390f79a2864c98ee783aeda0	refs/heads/audit-raw
+580767a83dea12e42755687d174af891b69deb97	refs/heads/main
+580767a83dea12e42755687d174af891b69deb97	refs/heads/trunk
+# rc=0
+$ curl -s -o /dev/null -w '%{http_code}' --netrc-file /dev/null -H 'Authorization:' https://github.com/Adam010341/NDTwin-Kernel-P4/tree/audit-raw
+200
+# (HTTP 200 without credentials = public)

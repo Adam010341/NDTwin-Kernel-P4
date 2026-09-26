@@ -1,0 +1,77 @@
+== 01_baseline
+   repo: /home/adam/Desktop/NDTwin-Kernel
+   raw : /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-26T055003Z_01_baseline
+   owner: pb5-trial-0926
+   root is reachable for exactly what this needs: sudoers grants ndtwin-lab and mnexec without a prompt
+
+== lab state before this step
+   lab
+     claim          none
+     prev claim     pb5-trial-0926 (until 14:09:13), superseded 2026-09-26 13:49:39  (.test_run/lab.claim.prev)
+                    nothing holds the lab now: that claim was released or replaced
+                    it said: down at 2026-09-26 13:49:39; verified clean; claim kept
+     measuring      nothing
+     code           580767a8  +81 file(s) with uncommitted changes
+                    2 of them can change behaviour:
+                    p4_proxy/mininet/host_count_override
+                    tools/remote-lab/dorm_lab/
+     knob baseline  4 (the default; no round baseline recorded -- 'ndt claim' writes one)
+     tree vs round  no baseline in .test_run/round.baseline -- nothing here can say what this round changed ('ndt claim' records one)
+     ok  helper: /usr/local/sbin/ndtwin-lab is tools/test_workflow/ndtwin-lab (sha256 6a558fe4)
+   
+   lab is free
+   host_count_override snapshot taken (4)
+   telemetry_override does not exist; it will be removed again at the end
+
+== the app package knob must be absent
+   absent -- this is the baseline fabric
+
+== claiming the lab
+     recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+     ok  lab claimed by pb5-trial-0926 for 20m (P1 live acceptance 1: baseline p4 4, no app package)
+
+== ndt up p4 4
+   rc=0  -> 2026-09-26T055003Z_01_baseline/10_up.txt
+       ok  model matches fabric: 4 hosts (kernel graph, topology file and 4 host namespaces all agree)
+       ok  telemetry: auto -- 10 cooperative, 0 link, 0 none; the proxy agrees switch by switch
+       ok  data plane: h1 -> 10.0.0.2 forwards
+     
+     up. ready
+       proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+
+== proxy log, first 40 lines
+   [Proxy Agent] app package: baseline (mode ndtwin, election_id 0,1)
+
+== capturing the endpoints
+   verify_p4 rc=0 -> 2026-09-26T055003Z_01_baseline/23_verify_p4.txt
+       ok  data plane: h1 -> 10.0.0.2 forwards
+     
+     up. ready
+       proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+
+== reading the baseline capture
+   switches            10
+   control_plane.mode  ndtwin
+   control_plane.package None
+   control_plane.skipped []
+   entries_recorded    [0]   (distinct values across the switches)
+   probe_ok            [True]
+   graph               10 switches, 4 hosts, 40 edges, brand ['BMv2']
+   is_up / is_enabled  [True] / [True]   (distinct values across the switches)
+   the model declares  10 switches, 4 hosts, 40 edges
+   is_enabled is uniform across the switches ([True]); verify_p4 expects False here, the 09-06 128-host capture on disk has True -- recorded, not adjudicated
+
+== done -- teardown follows
+
+== teardown
+   ndt down rc=0 -> 2026-09-26T055003Z_01_baseline/90_down.txt
+         so stack.sh's exit 1 was a reading from the MIDDLE of this teardown, not
+         its ending, and it is not carried to the exit code. (ROLE-12, 2026-09-12)
+       claim note now says the lab is down and verified clean (owner and expiry unchanged)
+   app_package_override is gone, as 'ndt down' should leave it
+     the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+     this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+     ok  lab released
+
+raw: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-26T055003Z_01_baseline
+PASS 01_baseline

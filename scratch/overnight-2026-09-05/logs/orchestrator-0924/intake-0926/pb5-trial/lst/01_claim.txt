@@ -1,0 +1,2 @@
+  recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+  ok  lab claimed by pb5-trial-0926 for 40m (pb5 trial: LiveSwitchTest main+cand; the proxy is stopped by pid on purpose)

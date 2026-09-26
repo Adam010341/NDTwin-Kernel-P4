@@ -1,0 +1,75 @@
+3a724b8751f72d0f11bb3c507b59c858b49369cc
+# 2026-09-26T07:19:50Z worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r8-0926, branch fix/hb-spike-r8-0926
+# status (uncommitted): 
+# run under: env -u SELFTEST_PROBE_SUDO -u FAULTS_TC, cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r8-0926
+# $ /usr/bin/python3 -I doc/audit/2026-09-25_p4-heartbeat/spike/hb_watch.py --self-test
+hb_watch --self-test (synthetic reports; no lab)
+  ok    all heard after 99                                         OK 8/8 directions heard
+  ok    not all heard after 101                                    BAD 0/8 directions heard since 101.0; not: s1-eth3->s3-eth1, s1-eth4->s4-eth2, s2-eth3->s4
+  ok    an empty report is not all heard                           BAD the report has no direction at all
+  ok    both cut directions silent 20 s > 15: not heard            True
+  ok    silent 10 s is still heard                                 False
+  ok    only one direction silent: not both down                   False
+  ok    never heard counts as silent                               True
+  ok    a heard-after answer needs a newer stamp                   True
+  ok    no collateral when only the cut is stale                   OK
+  ok    collateral when another direction is stale                 BAD collateral: s3-eth1->s1-eth3
+  ok    a direction the report lacks is an error                   KeyError
+  ok    summary: two detected cycles pass                          True
+  ok    summary: states min/median/max                               cut -> both directions not heard: min 12.10 s  median 13.05 s  max 14.00 s  (n=2)
+  ok    summary: an undetected cut fails                           False
+  ok    summary: no cycle is not a pass                            False
+  ok    census: nothing seen                                       OK no host saw a heartbeat frame (1 host(s) sniffed); switch side: forwarded_between_switc
+  ok    census: a host saw one                                     STOP heartbeat frames reached a host (ruling 4): h1 1; daemon forwarded_to_hosts=0
+  ok    census: the daemon saw one leave a host port               STOP heartbeat frames reached a host (ruling 4): ; daemon forwarded_to_hosts=1
+  ok    census: a sniffer that did not run is not a clean host     BAD a sniffer did not run: h1: mnexec refused
+  ok    census: no host sniffed is not clean                       BAD no host was sniffed
+  ok    first hit: the first host that saw one                     h2
+  ok    first hit: nobody saw one is no hit                        True
+  ok    session: the running report of the pid start named         0102030405060708
+  ok    session: a stopped report is none, even of that pid        True
+  ok    session: a running report of another pid is none           True
+  ok    started pid: 'heartbeat started (pid N; ...)'              4242
+  ok    started pid: 'already running' started nothing             None
+  ok    all-heard on a report that cannot be read: BAD, rc 0       rc 0: BAD the report could not be read: FileNotFoundError(2, 'No such file or directory')
+  ok    others-up on a report that cannot be read: BAD, rc 0       rc 0: BAD the report could not be read: FileNotFoundError(2, 'No such file or directory')
+  -- round 8: the phase plan, coverage and the summary (pure)
+  ok    plan: random is the seed's (the same seed, the same plan)  True
+  ok    plan: every random wait in [0, period)                     True
+  ok    plan: another seed, another plan                           True
+  ok    plan: the sweep starts 0.05 s after a frame heard, ends 0.15 s before the next round 0.05 4.85 10
+  ok    plan: the sweep's restores take the offsets the other way round True
+  ok    plan: an offset outside (0, period) is refused             ValueError
+  ok    plan verb: a bad offset answers rc 2 and says why (asked before any claim) rc 2: BAD sweep offsets must lie in (0, 5) s: [5.5]
+  ok    phase target: the first anchor + k*period + offset at or after now + margin 1015.059
+  ok    coverage: round 7's phases (0.62-0.80 s over 10 cycles) are PHASE-LOCKED False
+  ok    coverage: ten phases spread over the period cover it       True
+  ok    coverage: fewer than 8 cycles are not judged               None
+  ok    summary: round-8 rows get per-phase-bin statistics         True
+  ok    summary: ... and the report lag, measured from up_rpt_s - up_s 0.498
+  ok    summary: a random run whose phases spread over the period passes True
+  ok    summary: a phase-locked run (round 7's loop) is BAD, and says PHASE-LOCKED False PHASE-LOCKED
+  ok    summary: a sweep whose smallest cut phase is 0.4 s never sampled phi -> 0: BAD False
+  -- round 8: a simulated daemon on a fake clock
+  ok    sim: no report before the daemon's first write             none
+  ok    sim: a round's frames are not in its own send-round write  1000.007 None
+  ok    sim: ... they are in the write `lag` s after it (0.7 here) 1000.707 1000.009
+  ok    sim: netem on s1-eth3 (scope tx) silences 1:3>3:1 only     1000.009 1010.009 1010.009
+  ok    sim: the netem removed, the next round is heard            1015.009
+  ok    sim: scope cable -- a netem on one end silences both directions 1000.009 1000.009
+  ok    sim: deaf rounds are sent and heard by nobody (no lag write after them) 1010.007 3 1000.009
+  ok    cut-down (sim): phi = t0 - the last frame heard (1000.009), not the schedule 3.941 heard 3.950
+  ok    cut-down (sim): the rule true 15 s after that frame, the poll within 0.1 s after it 11.059 True
+  ok    cut-down (sim): its trace has every poll's time and the report's written_mono True 112
+  ok    restore-up (sim): up_s at the daemon's receive, up_rpt_s at the first report showing it 3.009 3.707
+  ok    restore-up (sim): the report lag is MEASURED -- 0.698 = the sim's lag 0.7 + w - eps, not 0.5 0.698
+  ok    restore-up (sim): the restore's phase from the frame heard before it 1.991 heard@plan
+  ok    phase-wait (sim): a delay is waited on the clock           1031.450 1.250
+  ok    phase-wait (sim): a phase starts 0.05 s after the next frame heard 1035.059 heard
+  ok    quiet (control a, sim): a heartbeat heard throughout, 20 s, no cut OK no direction went not-heard in 20.0 s with no cut (201 reads; the longest silence 5.49 
+  ok    quiet (control a, sim): a heartbeat nobody hears for three rounds BAD the proxy's rule fired with NO cut: s1-eth3->s3-eth1 silent 20.49 s > 15 s, s1-eth4->s
+  ok    single-end (control b, sim): netem on s1-eth3 only -> only 1:3>3:1 goes not-heard OK only 1:3>3:1 went not-heard, 11.10 s after the one-end cut; 3:1>1:3 stayed heard (longe
+  ok    single-end (control b, sim): a one-end netem that takes the whole cable BAD 3:1>1:3 went not-heard too (silent 20.94 s > 15 s) -- the one-end netem took both dire
+  ok    single-end (control b, sim): no netem at all -> the cut was not seen BAD 1:3>3:1 was still heard 20.0 s after netem went on its sending end -- the one-end cut 
+SELF-TEST PASS
+# rc=0  2026-09-26T07:19:50Z

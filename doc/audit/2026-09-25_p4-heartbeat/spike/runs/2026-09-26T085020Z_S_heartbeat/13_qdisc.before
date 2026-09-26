@@ -1,0 +1,32 @@
+qdisc clsact ffff: dev s1-eth1 parent ffff:fff1 
+qdisc clsact ffff: dev s1-eth2 parent ffff:fff1 
+qdisc clsact ffff: dev s1-eth3 parent ffff:fff1 
+qdisc clsact ffff: dev s1-eth4 parent ffff:fff1 
+qdisc clsact ffff: dev s2-eth1 parent ffff:fff1 
+qdisc clsact ffff: dev s2-eth2 parent ffff:fff1 
+qdisc clsact ffff: dev s2-eth3 parent ffff:fff1 
+qdisc clsact ffff: dev s2-eth4 parent ffff:fff1 
+qdisc clsact ffff: dev s3-eth1 parent ffff:fff1 
+qdisc clsact ffff: dev s3-eth2 parent ffff:fff1 
+qdisc clsact ffff: dev s4-eth1 parent ffff:fff1 
+qdisc clsact ffff: dev s4-eth2 parent ffff:fff1 
+qdisc fq_codel 0: dev tailscale0 root refcnt 2 limit 10240p flows 1024 quantum 1280 target 5ms interval 100ms memory_limit 32Mb ecn drop_batch 64 
+qdisc noqueue 0: dev br-634fc31085ec root refcnt 2 
+qdisc noqueue 0: dev docker0 root refcnt 2 
+qdisc noqueue 0: dev lo root refcnt 2 
+qdisc noqueue 0: dev s1-eth1 root refcnt 2 
+qdisc noqueue 0: dev s1-eth2 root refcnt 2 
+qdisc noqueue 0: dev s1-eth3 root refcnt 2 
+qdisc noqueue 0: dev s1-eth4 root refcnt 2 
+qdisc noqueue 0: dev s2-eth1 root refcnt 2 
+qdisc noqueue 0: dev s2-eth2 root refcnt 2 
+qdisc noqueue 0: dev s2-eth3 root refcnt 2 
+qdisc noqueue 0: dev s2-eth4 root refcnt 2 
+qdisc noqueue 0: dev s3-eth1 root refcnt 2 
+qdisc noqueue 0: dev s3-eth2 root refcnt 2 
+qdisc noqueue 0: dev s4-eth1 root refcnt 2 
+qdisc noqueue 0: dev s4-eth2 root refcnt 2 
+qdisc noqueue 0: dev veth007f456 root refcnt 2 
+qdisc noqueue 0: dev veth32dd752 root refcnt 2 
+qdisc noqueue 0: dev veth7c85340 root refcnt 2 
+qdisc noqueue 0: dev wlp0s20f3 root refcnt 2 

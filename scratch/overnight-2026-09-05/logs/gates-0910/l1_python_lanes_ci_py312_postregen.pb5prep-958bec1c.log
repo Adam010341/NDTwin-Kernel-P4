@@ -1,0 +1,60 @@
+# HEAD 958bec1cb03551df3da7fbbb2ce8f5f1b58962e8  l1's sections 0,0b,3 (P4 lane), CI-shaped: P4_PROXY_PY=/nonexistent, p4dev path replaced, PATH=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/venv312-958bec1c/bin first; want rc=0
+# 2026-09-26T06:59:54Z  worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926
+# derived script /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/l1_ci_derived.sh sha256 147f063d27acf4e5b8a3d842d4d5a1373c6968436881878fec0a89435413c3f7, from l1_unit_tests.sh sha256 a3204cb641149c3f51a6f3cc043bb60cf1f07fd73c1ff727080c351b1265a10c
+# python3 on PATH -> /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/venv312-958bec1c/bin/python3   venv /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/venv312-958bec1c python 3.12.3 protobuf 5.29.6 backend=upb
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/l1_ci_derived.sh
+
+--- gate anchors (read-only, no build) ---
+gate anchors ok  (119/119 cells ok)
+
+--- test temp paths (read-only, no build) ---
+test temp paths ok  (check_test_tmpdirs: 359 file(s) scanned, 0 fixed temp paths)
+
+--- P4 proxy Python tests ---
+  test_app_package_proxy.py      PASS  36 ran and passed
+  test_app_package.py            PASS  131 ran and passed
+  test_bmv2_binary_override.py   PASS  13 ran and passed
+  test_clone_session.py          PASS  23 ran and passed
+  test_counter_route.py          PASS  16 ran and passed
+  test_declared_links.py         PASS  25 ran and passed
+  test_delete_restores_route.py  PASS  6 ran and passed
+  test_exact_one_element_list.py PASS  14 ran and passed
+  test_fabric_bring_up.py        PASS  112 ran and passed
+  test_five_tuple_match.py       PASS  31 ran and passed
+  test_flowentry_endpoints.py    PASS  27 ran and passed
+  test_flow_stats_route.py       PASS  16 ran and passed
+  test_foreign_pipeline.py       PASS  17 ran and passed
+  test_journal_is_wired_in_main.py PASS  12 ran and passed
+  test_journal_wiring.py         PASS  14 ran and passed
+  test_kernel_notifier.py        PASS  21 ran and passed
+  test_link_state_entry.py       PASS  10 ran and passed
+  test_link_telemetry.py         PASS  51 ran and passed
+  test_link_watchdog.py          PASS  74 ran and passed
+  test_lldp_beacon.py            PASS  16 ran and passed
+  test_multicast_group.py        PASS  43 ran and passed
+  test_p4_client.py              SKIPPED all 1 skipped; file declares it needs a live switch (NDTWIN_L1_OPT_IN)
+  test_p4_client_writes.py       PASS  160 ran and passed
+  test_packet_in_by_name.py      PASS  21 ran and passed
+  test_path_determinism.py       PASS  10 ran and passed
+  test_port_guard.py             PASS  3 ran and passed
+  test_psample_sflow_emitter.py  PASS  35 ran and passed
+  test_readopt.py                PASS  122 ran and passed
+  test_route_binding.py          PASS  46 ran and passed
+  test_rule_install_times.py     PASS  42 ran and passed
+  test_rule_journal.py           PASS  19 ran and passed
+  test_ryu_flow_stats.py         PASS  47 ran and passed
+  test_ryu_topology.py           PASS  32 ran and passed
+  test_sflow_emitter.py          PASS  49 ran and passed
+  test_startup.py                PASS  85 ran and passed
+  test_switch_state.py           PASS  66 ran and passed
+  test_table_entry_route.py      PASS  26 ran and passed
+  test_table_generation.py       PASS  11 ran and passed
+  test_topo_log.py               PASS  24 ran and passed
+  test_topology_properties.py    PASS  1 ran and passed
+  test_unsupported_match.py      PASS  49 ran and passed
+
+L1 PYTHON LANES (pb5prep copy): FAILURES=0
+guarded_build: exit 0
+rc=0

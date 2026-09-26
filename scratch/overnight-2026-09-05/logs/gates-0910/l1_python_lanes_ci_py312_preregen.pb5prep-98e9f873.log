@@ -1,0 +1,9 @@
+# HEAD 98e9f873e79855e9f30c39bc25e6a85c278bb650  l1's sections 0,0b,3 (P4 lane), CI-shaped: P4_PROXY_PY=/nonexistent, p4dev path replaced, PATH=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/venv312/bin first; want rc=1
+# 2026-09-26T06:46:54Z  worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926
+# derived script /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/l1_ci_derived.sh sha256 147f063d27acf4e5b8a3d842d4d5a1373c6968436881878fec0a89435413c3f7, from l1_unit_tests.sh sha256 a3204cb641149c3f51a6f3cc043bb60cf1f07fd73c1ff727080c351b1265a10c
+# python3 on PATH -> /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/venv312/bin/python3   venv /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/venv312 python 3.12.3 protobuf 5.29.6 backend=upb
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/l1_ci_derived.sh
+# 2026-09-26T06:52:24Z STOPPED by the worker (kill -TERM of its own process group) while guarded_build.sh was still waiting for /tmp/ndtwin-build.lock, held by another agent's gate (mutate_p4_heartbeat_w.sh). The lane never started. Reason: the procedure text was about to change (commit after 98e9f873), and the runs are redone on that commit.
+rc=143 (SIGTERM before the lane ran; no verdict)

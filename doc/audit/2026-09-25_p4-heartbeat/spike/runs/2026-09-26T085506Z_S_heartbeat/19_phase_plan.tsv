@@ -1,0 +1,22 @@
+# PHASE=random seed=1968294680 period_s=5 cycles=20 -- kind 'delay': seconds waited (from the pre-cut check seeing the cable heard / from the down being called); kind 'phase': the cut or restore STARTS this many seconds after the last frame heard (last_heard_mono)
+cycle	cut_kind	cut_value	restore_kind	restore_value
+1	delay	2.049	delay	4.628
+2	delay	2.365	delay	2.841
+3	delay	1.753	delay	1.585
+4	delay	3.411	delay	4.720
+5	delay	3.119	delay	2.992
+6	delay	0.038	delay	4.585
+7	delay	4.271	delay	3.634
+8	delay	4.381	delay	4.818
+9	delay	0.533	delay	0.340
+10	delay	2.701	delay	3.869
+11	delay	0.234	delay	0.169
+12	delay	0.309	delay	3.723
+13	delay	0.139	delay	4.600
+14	delay	0.162	delay	0.887
+15	delay	4.717	delay	0.174
+16	delay	0.091	delay	4.245
+17	delay	0.230	delay	1.142
+18	delay	3.533	delay	4.592
+19	delay	0.207	delay	0.706
+20	delay	3.071	delay	0.803

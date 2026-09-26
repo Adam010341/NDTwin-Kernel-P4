@@ -1,0 +1,226 @@
+baseline: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-24T185505Z_06_thirteen
+trial   : /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-26T055148Z_06_thirteen
+
+=== basic / skeleton
+   SAME  rc       base='0' trial='0'
+   SAME  verdict  base='PASS (4/4)' trial='PASS (4/4)'
+   SAME     [PASS] injection: send.py emitted 1 TCP frame | want `1` | got base=`1` trial=`1`
+   SAME     [PASS] pingall loss (ping -c 5, every ordered pair) | want `100.0%` | got base=`100% (0/12 pairs at 0%, 12 lossy)` trial=`100% (0/12 pairs at 0%, 12 lossy)`
+   SAME     [PASS] h1 ping -c3 h2 received | want `0` | got base=`0` trial=`0`
+   SAME     [PASS] h2 got the send.py packet | want `0` | got base=`0` trial=`0`
+   SAME     section 3b switch_state disclosure (7 lines)
+
+=== basic / solution
+   SAME  rc       base='0' trial='0'
+   SAME  verdict  base='PASS (6/6)' trial='PASS (6/6)'
+   SAME     [PASS] injection: send.py emitted 1 TCP frame | want `1` | got base=`1` trial=`1`
+   SAME     [PASS] pingall loss (ping -c 5, every ordered pair) | want `0.0%` | got base=`0% (12/12 pairs at 0%, 0 lossy)` trial=`0% (12/12 pairs at 0%, 0 lossy)`
+   SAME     [PASS] h1 ping -c3 h2 received | want `3` | got base=`3` trial=`3`
+   SAME     [PASS] h2 got the send.py packet | want `>=1` | got base=`1` trial=`1`
+   SAME     [PASS] ttl at h2 (h1-s1-h2 is one hop) | want `[63]` | got base=`[63]` trial=`[63]`
+   SAME     [PASS] G1  link usage follows the iperf path | want `primary on-path > 0; minor rows printed | got base=`PASS` trial=`PASS`
+   SAME     section 3b switch_state disclosure (7 lines)
+
+=== source_routing / skeleton
+   SAME  rc       base='0' trial='0'
+   SAME  verdict  base='PASS (2/2)' trial='PASS (2/2)'
+   SAME     [PASS] injection: send.py built 2 srcroute frames | want `2` | got base=`2` trial=`2`
+   SAME     [PASS] h2 received packet count | want `0` | got base=`0` trial=`0`
+   SAME     section 3b switch_state disclosure (6 lines)
+
+=== source_routing / solution
+   SAME  rc       base='0' trial='0'
+   SAME  verdict  base='PASS (5/5)' trial='PASS (5/5)'
+   SAME     [PASS] injection: send.py built 2 srcroute frames | want `2` | got base=`2` trial=`2`
+   SAME     [PASS] h2 received packet count | want `2` | got base=`2` trial=`2`
+   SAME     [PASS] ttl multiset {2 3 2 2 1 ; 2 1} | want `[59, 62]` | got base=`[59, 62]` trial=`[59, 62]`
+   SAME     [PASS] no SourceRoute layer left at h2 | want `0 blocks` | got base=`0 blocks` trial=`0 blocks`
+   SAME     [PASS] ethertype seen by h2 | want `IPv4 (0x800)` | got base=`['IPv4', 'IPv4']` trial=`['IPv4', 'IPv4']`
+   SAME     section 3b switch_state disclosure (6 lines)
+
+=== calc / skeleton
+   SAME  rc       base='0' trial='0'
+   SAME  verdict  base='PASS (2/2)' trial='PASS (2/2)'
+   SAME     [PASS] injection: calc.py read the expression | want `> 1+1` | got base=`yes` trial=`yes`
+   SAME     [PASS] RED ARM: the skeleton must not answer | want `Didn't receive response` | got base=`Didn't receive response` trial=`Didn't receive response`
+   SAME     section 3b switch_state disclosure (4 lines)
+
+=== calc / solution
+   SAME  rc       base='0' trial='0'
+   SAME  verdict  base='PASS (3/3)' trial='PASS (3/3)'
+   SAME     [PASS] injection: calc.py read the expression | want `> 1+1` | got base=`yes` trial=`yes`
+   SAME     [PASS] the switch answered 1+1 | want `2` | got base=`2` trial=`2`
+   SAME     [PASS] and it did not time out | want `no timeout` | got base=`answered` trial=`answered`
+   SAME     section 3b switch_state disclosure (4 lines)
+
+=== multicast / skeleton
+   SAME  rc       base='0' trial='0'
+   SAME  verdict  base='PASS (2/2)' trial='PASS (2/2)'
+   SAME     [PASS] injection: every ordered pair was tested | want `0 untested` | got base=`0 untested of 12` trial=`0 untested of 12`
+   SAME     [PASS] RED ARM: nothing pings at all | want `100.0%` | got base=`100% (0/12 pairs at 0%, 12 lossy)` trial=`100% (0/12 pairs at 0%, 12 lossy)`
+   SAME     section 3b switch_state disclosure (4 lines)
+
+=== multicast / solution
+   SAME  rc       base='0' trial='0'
+   SAME  verdict  base='PASS (6/6)' trial='PASS (6/6)'
+   SAME     [PASS] injection: every ordered pair was tested | want `0 untested` | got base=`0 untested of 12` trial=`0 untested of 12`
+   SAME     [PASS] h1/h2/h3 reach each other | want `0% on all 6 pairs` | got base=`0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5  trial=`0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 
+   SAME     [PASS] nobody reaches h4 | want `100% on the three hX -> h4 pairs` | got base=`100% loss, 0/5 received, 100% loss, 0/5 received, 100% loss trial=`100% loss, 0/5 received, 100% loss, 0/5 received, 100% loss
+   SAME     [PASS] but h4 reaches them | want `0% on the three h4 -> hX pairs` | got base=`0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5  trial=`0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 
+   SAME     [PASS] and h4 is unreachable from cold caches, not just from this ping order | want `100% on all three, after a second flush | got base=`h1->h4 100% loss, 0/5 received, h2->h4 100% loss, 0/5 recei trial=`h1->h4 100% loss, 0/5 received, h2->h4 100% loss, 0/5 recei
+   SAME     [PASS] G1  link usage follows the iperf path | want `primary on-path > 0; minor rows printed | got base=`PASS` trial=`PASS`
+   SAME     section 3b switch_state disclosure (4 lines)
+
+=== basic_tunnel / skeleton
+   SAME  rc       base='1' trial='1'
+   SAME  verdict  base='RED ARM (1/1): the skeleton does not get past the control plane, by design' trial='RED ARM (1/1): the skeleton does not get past the control plane, by design'
+   SAME     [PASS] RED ARM: the skeleton's runtime entries must NOT install | want `pre-flight refuses them` | got base=`pre-flight rc=1` trial=`pre-flight rc=1`
+   SAME     section 3b switch_state disclosure (0 lines)
+
+=== basic_tunnel / solution
+   SAME  rc       base='0' trial='0'
+   SAME  verdict  base='PASS (4/4)' trial='PASS (4/4)'
+   SAME     [PASS] injection: send.py built 2 tunnel frames | want `2` | got base=`2` trial=`2`
+   SAME     [PASS] --dst_id 2 lands on h2 | want `h2=1 h3=0` | got base=`h2=1 h3=0` trial=`h2=1 h3=0`
+   SAME     [PASS] --dst_id 3 lands on h3, same IP | want `h2=0 h3>=1` | got base=`h2=0 h3=1` trial=`h2=0 h3=1`
+   SAME     [PASS] G1  link usage follows the iperf path | want `primary on-path > 0; minor rows printed | got base=`PASS` trial=`PASS`
+   SAME     section 3b switch_state disclosure (6 lines)
+
+=== load_balance / skeleton
+   SAME  rc       base='0' trial='0'
+   SAME  verdict  base='PASS (2/2)' trial='PASS (2/2)'
+   SAME     [PASS] injection: send.py emitted 10 frames | want `10` | got base=`10` trial=`10`
+   SAME     [PASS] RED ARM: only h2 is used | want `h2>=1 and h3==0` | got base=`h2=10 h3=0` trial=`h2=10 h3=0`
+   SAME     section 3b switch_state disclosure (6 lines)
+
+=== load_balance / solution
+   SAME  rc       base='0' trial='0'
+   SAME  verdict  base='PASS (2/2)' trial='PASS (2/2)'
+   SAME     [PASS] injection: send.py emitted 10 frames | want `10` | got base=`10` trial=`10`
+   SAME     [PASS] both servers were used | want `h2>=1 and h3>=1` | got base=`h2=5 h3=5` trial=`h2=5 h3=5`
+   SAME     section 3b switch_state disclosure (6 lines)
+
+=== qos / skeleton
+   SAME  rc       base='0' trial='0'
+   SAME  verdict  base='PASS (3/3)' trial='PASS (3/3)'
+   SAME     [PASS] injection: h1's packets reached h2 in both rounds | want `>=1 each` | got base=`udp=6 tcp=6` trial=`udp=6 tcp=6`
+   SAME     [PASS] RED ARM: UDP tos stays 0x1 | want `['0x1']` | got base=`['0x1']` trial=`['0x1']`
+   SAME     [PASS] RED ARM: TCP tos stays 0x1 | want `['0x1']` | got base=`['0x1']` trial=`['0x1']`
+   SAME     section 3b switch_state disclosure (6 lines)
+
+=== qos / solution
+   SAME  rc       base='0' trial='0'
+   SAME  verdict  base='PASS (4/4)' trial='PASS (4/4)'
+   SAME     [PASS] injection: h1's packets reached h2 in both rounds | want `>=1 each` | got base=`udp=6 tcp=6` trial=`udp=6 tcp=6`
+   SAME     [PASS] UDP is expedited forwarding | want `0xb9 among the tos values` | got base=`['0xb9']` trial=`['0xb9']`
+   SAME     [PASS] TCP is voice admit | want `0xb1 among the tos values` | got base=`['0xb1']` trial=`['0xb1']`
+   SAME     [PASS] G1  link usage follows the iperf path | want `primary on-path > 0; minor rows printed | got base=`PASS` trial=`PASS`
+   SAME     section 3b switch_state disclosure (6 lines)
+
+=== link_monitor / skeleton
+   SAME  rc       base='0' trial='0'
+   SAME  verdict  base='PASS (4/4)' trial='PASS (4/4)'
+   SAME     [PASS] injection: probes reached h1 | want `>=1 report row` | got base=`72 rows` trial=`72 rows`
+   SAME     [PASS] switch ids seen | want `[1, 2, 3, 4]` | got base=`[1, 2, 3, 4]` trial=`[1, 2, 3, 4]`
+   SAME     [PASS] every reported port is 0 | want `[0]` | got base=`[0]` trial=`[0]`
+   SAME     [PASS] every reported utilization is 0 | want `['0']` | got base=`['0']` trial=`['0']`
+   SAME     section 3b switch_state disclosure (7 lines)
+
+=== link_monitor / solution
+   SAME  rc       base='0' trial='0'
+   SAME  verdict  base='PASS (4/4)' trial='PASS (4/4)'
+   SAME     [PASS] injection: probes reached h1 | want `>=1 report row` | got base=`72 rows` trial=`72 rows`
+   SAME     [PASS] switch ids seen | want `[1, 2, 3, 4]` | got base=`[1, 2, 3, 4]` trial=`[1, 2, 3, 4]`
+   SAME     [PASS] every reported port is non-zero | want `no 0 port` | got base=`[1, 2, 3, 4]` trial=`[1, 2, 3, 4]`
+   SAME     [PASS] G1  link usage follows the iperf path | want `primary on-path > 0; minor rows printed | got base=`PASS` trial=`PASS`
+   SAME     section 3b switch_state disclosure (7 lines)
+
+=== firewall / skeleton
+   SAME  rc       base='0' trial='0'
+   SAME  verdict  base='PASS (3/3)' trial='PASS (3/3)'
+   SAME     [PASS] iperf h1 -> h3 (internal -> external) | want `connects` | got base=`connects` trial=`connects`
+   SAME     [PASS] RED ARM: iperf h3 -> h1 must connect | want `connects` | got base=`connects` trial=`connects`
+   SAME     [PASS] the fabric forwards (pingall) | want `0.0%` | got base=`0% (12/12 pairs at 0%, 0 lossy)` trial=`0% (12/12 pairs at 0%, 0 lossy)`
+   SAME     section 3b switch_state disclosure (7 lines)
+
+=== firewall / solution
+   SAME  rc       base='0' trial='0'
+   SAME  verdict  base='PASS (4/4)' trial='PASS (4/4)'
+   SAME     [PASS] iperf h1 -> h3 (internal -> external) | want `connects` | got base=`connects` trial=`connects`
+   SAME     [PASS] iperf h3 -> h1 is blocked | want `no transfer` | got base=`no transfer` trial=`no transfer`
+   SAME     [PASS] the fabric still forwards (pingall) | want `0.0%` | got base=`0% (12/12 pairs at 0%, 0 lossy)` trial=`0% (12/12 pairs at 0%, 0 lossy)`
+   SAME     [PASS] G1  link usage follows the iperf path | want `primary on-path > 0; minor rows printed | got base=`PASS` trial=`PASS`
+   SAME     section 3b switch_state disclosure (7 lines)
+
+=== ecn / skeleton
+   SAME  rc       base='0' trial='0'
+   SAME  verdict  base='PASS (3/3)' trial='PASS (3/3)'
+   DIFF-got [PASS] injection: packets reached h2 | want `>=1` | got base=`33` trial=`23`
+   SAME     [PASS] injection: send.py showed the frame it built | want `1 show2` | got base=`1` trial=`1`
+   SAME     [PASS] RED ARM: every tos stays 0x1 | want `['0x1']` | got base=`['0x1']` trial=`['0x1']`
+   SAME     section 3b switch_state disclosure (6 lines)
+
+=== ecn / solution
+   SAME  rc       base='0' trial='0'
+   SAME  verdict  base='PASS (4/4)' trial='PASS (4/4)'
+   DIFF-got [PASS] injection: packets reached h2 | want `>=1` | got base=`29` trial=`31`
+   SAME     [PASS] injection: send.py showed the frame it built | want `1 show2` | got base=`1` trial=`1`
+   SAME     [PASS] h2 saw a congestion-marked packet | want `0x3 among the tos values` | got base=`['0x1', '0x3']` trial=`['0x1', '0x3']`
+   SAME     [PASS] G1  link usage follows the iperf path | want `primary on-path > 0; minor rows printed | got base=`PASS` trial=`PASS`
+   SAME     section 3b switch_state disclosure (6 lines)
+
+=== mri / skeleton
+   SAME  rc       base='0' trial='0'
+   SAME  verdict  base='PASS (4/4)' trial='PASS (4/4)'
+   DIFF-got [PASS] injection: packets reached h2 | want `>=1` | got base=`2` trial=`4`
+   DIFF-got [PASS] injection: the MRI option survived to h2 | want `>=1 count field` | got base=`2` trial=`4`
+   SAME     [PASS] RED ARM: the hop count stays 0 | want `[0]` | got base=`[0]` trial=`[0]`
+   SAME     [PASS] and no swid is ever stamped | want `[]` | got base=`[]` trial=`[]`
+   SAME     section 3b switch_state disclosure (6 lines)
+
+=== mri / solution
+   SAME  rc       base='0' trial='0'
+   SAME  verdict  base='PASS (5/5)' trial='PASS (5/5)'
+   DIFF-got [PASS] injection: packets reached h2 | want `>=1` | got base=`4` trial=`2`
+   DIFF-got [PASS] injection: the MRI option survived to h2 | want `>=1 count field` | got base=`4` trial=`2`
+   SAME     [PASS] hop count at h2 | want `2` | got base=`[2]` trial=`[2]`
+   SAME     [PASS] switch ids in the trace | want `[1, 2]` | got base=`[1, 2]` trial=`[1, 2]`
+   SAME     [PASS] G1  link usage follows the iperf path | want `primary on-path > 0; minor rows printed | got base=`PASS` trial=`PASS`
+   SAME     section 3b switch_state disclosure (6 lines)
+
+=== p4runtime / skeleton
+   SAME  rc       base='0' trial='0'
+   SAME  verdict  base='PASS (4/4)' trial='PASS (4/4)'
+   SAME     [PASS] injection: the controller stayed up | want `alive after 12s` | got base=`alive` trial=`alive`
+   SAME     [PASS] switches the controller programmed | want `[1, 2]` | got base=`[1, 2]` trial=`[1, 2]`
+   SAME     [PASS] RED ARM: the transit rule is still the student's TODO | want `TODO Install transit tunnel rule` | got base=`still a TODO` trial=`still a TODO`
+   SAME     [PASS] RED ARM: h1 -> h2 does not forward | want `100% loss` | got base=`100% loss, 0/5 received` trial=`100% loss, 0/5 received`
+   SAME     section 3b switch_state disclosure (6 lines)
+
+=== p4runtime / solution
+   SAME  rc       base='0' trial='0'
+   SAME  verdict  base='PASS (5/5)' trial='PASS (5/5)'
+   SAME     [PASS] injection: the controller stayed up | want `alive after 12s` | got base=`alive` trial=`alive`
+   SAME     [PASS] switches the controller programmed | want `[1, 2]` | got base=`[1, 2]` trial=`[1, 2]`
+   SAME     [PASS] the transit rule went in | want `Installed transit tunnel rule` | got base=`installed` trial=`installed`
+   SAME     [PASS] h1 -> h2 forwards through the tunnel | want `0.0%` | got base=`0% loss, 5/5 received` trial=`0% loss, 5/5 received`
+   SAME     [PASS] G1  link usage follows the iperf path | want `primary on-path > 0; minor rows printed | got base=`PASS` trial=`PASS`
+   SAME     section 3b switch_state disclosure (6 lines)
+
+=== flowcache / skeleton
+   SAME  rc       base='1' trial='1'
+   SAME  verdict  base='RED ARM (1/1): skeleton does not compile, by design' trial='RED ARM (1/1): skeleton does not compile, by design'
+   SAME     [PASS] RED ARM: the skeleton must NOT compile | want `p4c refuses it` | got base=`p4c rc=1` trial=`p4c rc=1`
+   SAME     section 3b switch_state disclosure (0 lines)
+
+=== flowcache / solution
+   SAME  rc       base='0' trial='0'
+   SAME  verdict  base='PASS (5/5)' trial='PASS (5/5)'
+   SAME     [PASS] injection: the controller stayed up | want `alive after 12s` | got base=`alive` trial=`alive`
+   SAME     [PASS] switches the controller programmed | want `[1, 2, 3]` | got base=`[1, 2, 3]` trial=`[1, 2, 3]`
+   SAME     [PASS] the controller cached the flow it was punted | want `a flow_cache entry` | got base=`cached` trial=`cached`
+   SAME     [PASS] h1 -> h2 forwards once the cache is warm | want `0.0%` | got base=`0% loss, 5/5 received` trial=`0% loss, 5/5 received`
+   SAME     [PASS] G1  link usage follows the iperf path | want `primary on-path > 0; minor rows printed | got base=`PASS` trial=`PASS`
+   SAME     section 3b switch_state disclosure (6 lines)
+
+# items SAME=164 DIFF=6

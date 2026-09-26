@@ -1,0 +1,90 @@
+# HEAD 958bec1cb03551df3da7fbbb2ce8f5f1b58962e8  command 3 of the install on /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/venv312-958bec1c, then the l1 probe, pip check, freeze
+# 2026-09-26T06:59:53Z  worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926
+$ /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/venv312-958bec1c/bin/python p4_proxy/regen_p4runtime_pb2.py
+checking the generated modules (default backend, scratch copy):
+  p4/config/v1/p4types.proto     descriptor identical (5273 bytes)
+  p4/config/v1/p4info.proto      descriptor identical (6019 bytes)
+  p4/v1/p4data.proto             descriptor identical (824 bytes)
+  p4/v1/p4runtime.proto          descriptor identical (8825 bytes)
+  backend upb, p4runtime_pb2_grpc imports
+replaced p4/config/v1/p4types_pb2.py        d436ed076b7ffb99 -> e91d6496f08e543e
+replaced p4/config/v1/p4types_pb2_grpc.py   d686e804f1716931 -> ef4a945f3fd81528
+replaced p4/config/v1/p4info_pb2.py         acc7feeb96762287 -> 355f066c05b89fdc
+replaced p4/config/v1/p4info_pb2_grpc.py    d686e804f1716931 -> badda8ba84ba9570
+replaced p4/v1/p4data_pb2.py                e12b7b17ab700f94 -> da869f059d708f8c
+replaced p4/v1/p4data_pb2_grpc.py           d686e804f1716931 -> 3dbf6a108642d3d5
+replaced p4/v1/p4runtime_pb2.py             3bd1a8991d852314 -> 0a28fb85ff369a5c
+replaced p4/v1/p4runtime_pb2_grpc.py        9c4d058515a16d2c -> 5e060258fdf6e465
+checking the installed package (default backend):
+  p4/config/v1/p4types.proto     descriptor identical (5273 bytes)
+  p4/config/v1/p4info.proto      descriptor identical (6019 bytes)
+  p4/v1/p4data.proto             descriptor identical (824 bytes)
+  p4/v1/p4runtime.proto          descriptor identical (8825 bytes)
+  backend upb, p4runtime_pb2_grpc imports
+ok: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/venv312-958bec1c/lib/python3.12/site-packages/p4 imports on the default backend with the shipped schema.
+regen rc=0
+--- l1 probe AFTER regen (must pass)
+probe rc=0
+--- identity
+venv /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/venv312-958bec1c python 3.12.3 protobuf 5.29.6 backend=upb
+# Protobuf Python Version: 5.29.0
+--- rerun (idempotence)
+checking the generated modules (default backend, scratch copy):
+  p4/config/v1/p4types.proto     descriptor identical (5273 bytes)
+  p4/config/v1/p4info.proto      descriptor identical (6019 bytes)
+  p4/v1/p4data.proto             descriptor identical (824 bytes)
+  p4/v1/p4runtime.proto          descriptor identical (8825 bytes)
+  backend upb, p4runtime_pb2_grpc imports
+already current: every generated module matches what is installed.
+checking the installed package (default backend):
+  p4/config/v1/p4types.proto     descriptor identical (5273 bytes)
+  p4/config/v1/p4info.proto      descriptor identical (6019 bytes)
+  p4/v1/p4data.proto             descriptor identical (824 bytes)
+  p4/v1/p4runtime.proto          descriptor identical (8825 bytes)
+  backend upb, p4runtime_pb2_grpc imports
+ok: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/venv312-958bec1c/lib/python3.12/site-packages/p4 imports on the default backend with the shipped schema.
+rerun rc=0
+--- pip check
+No broken requirements found.
+pip check rc=0
+--- grpcio-tools declares:
+['protobuf <6.0dev,>=5.26.1']
+--- pip freeze --all
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anyio==4.15.1
+certifi==2026.7.22
+charset-normalizer==3.5.1
+click==8.5.0
+fastapi==0.139.2
+googleapis-common-protos==1.75.0
+grpcio==1.82.1
+grpcio-tools==1.71.2
+h11==0.16.0
+hypothesis==6.165.5
+idna==3.20
+networkx==3.6.1
+p4runtime==1.5.0
+pip==24.0
+protobuf==5.29.6
+pydantic==2.13.5
+pydantic_core==2.46.5
+requests==2.34.2
+setuptools==84.0.0
+sortedcontainers==2.4.0
+starlette==1.3.1
+thrift==0.24.0
+typing-inspection==0.4.4
+typing_extensions==4.16.0
+urllib3==2.8.0
+uvicorn==0.51.0
+--- regenerated modules
+3dbf6a108642d3d5e76974be7383c64b4dabb5f424ec0298650f767d4e7baf19  p4/v1/p4data_pb2_grpc.py
+da869f059d708f8cc1792164d29360f2ecc85a8a16c469d6316958ee47304a9a  p4/v1/p4data_pb2.py
+5e060258fdf6e465bf36880077bf802a1154c8d48fbc723c03e663962031d988  p4/v1/p4runtime_pb2_grpc.py
+0a28fb85ff369a5c125e83c8f2cf482c4b9993e0ed7010ff87bc40de0c161471  p4/v1/p4runtime_pb2.py
+badda8ba84ba9570468e3fcb53d92ee274485b4fb0b2d40ba5efae3fb5b5e2d5  p4/config/v1/p4info_pb2_grpc.py
+355f066c05b89fdca7c46d7e1f6bc250c836a47bff791697f80ddc2753eb74d7  p4/config/v1/p4info_pb2.py
+ef4a945f3fd815289a6f0e02dac602b289436e3202b5b27451293c6a83bf1701  p4/config/v1/p4types_pb2_grpc.py
+e91d6496f08e543ee87c96a2e68a49f51a006a1b7e37b364ac27ae5d41fce32a  p4/config/v1/p4types_pb2.py
+rc=0

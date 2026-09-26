@@ -1,0 +1,27 @@
+cycles 20: down detected 20/20, recovery detected 20/20
+  cut -> both directions not heard: min 10.67 s  median 13.93 s  max 14.79 s  (n=20)
+  restore -> both heard again: min 0.07 s  median 1.86 s  max 4.99 s  (n=20)
+  -- round 8, PHASE=random: cut_phi_s = t0 - the last frame heard on the cable (the phase the proxy's rule sees); restore_phi_s = t1 - the last heartbeat round, mod 5 s --
+  cut_phi_s re-derived from the raw stamps (cut_t0_mono - cut_lh_mono): agrees on every row
+  cut -> the rule true (down_rule_s = last frame heard + 15 s - t0): min 10.616 s  median 13.848 s  max 14.780 s  (n=20)
+  poll lag (down_s - down_rule_s): min 0.009 s  median 0.054 s  max 0.099 s  (n=20)
+  restore -> the first REPORT showing both heard (up_rpt_s): min 0.571 s  median 2.357 s  max 5.488 s  (n=20)
+  report lag, measured (up_rpt_s - up_s): min 0.500 s  median 0.500 s  max 0.501 s  (n=20)
+  the round after the restore heard? (up_s + restore_phi_s - 5; ~0 when it was): min -0.005 s  median 0.000 s  max 0.002 s  (n=20)
+  per cut phase (cut_phi_s) (bins of 1 s; min/median/max):
+    [0.0, 1.0) s   n=6   down_s 14.08/14.33/14.79  down_rule_s 14.02/14.25/14.78
+    [1.0, 2.0) s   n=6   down_s 13.68/13.98/13.99  down_rule_s 13.60/13.92/13.97
+    [2.0, 3.0) s   n=2   down_s 12.18/12.33/12.49  down_rule_s 12.17/12.30/12.43
+    [3.0, 4.0) s   n=4   down_s 11.07/11.32/11.87  down_rule_s 11.00/11.29/11.79
+    [4.0, 5.0) s   n=2   down_s 10.67/10.72/10.77  down_rule_s 10.62/10.66/10.71
+  per restore phase (restore_phi_s) (bins of 1 s; min/median/max):
+    [0.0, 1.0) s   n=6   up_s 4.00/4.49/4.99  up_rpt_s 4.50/5.00/5.49
+    [1.0, 2.0) s   n=3   up_s 3.16/3.68/3.89  up_rpt_s 3.66/4.18/4.39
+    [2.0, 3.0) s   n=0   up_s -  up_rpt_s -
+    [3.0, 4.0) s   n=4   up_s 1.04/1.49/1.92  up_rpt_s 1.54/1.99/2.42
+    [4.0, 5.0) s   n=7   up_s 0.07/0.21/0.96  up_rpt_s 0.57/0.71/1.46
+  smallest cut phase sampled: 0.220 s (cycle 7) -> down_s 14.789 s, down_rule_s 14.780 s
+  cut phase coverage: n=20, largest gap 1.17 s of the 5 s period < 3.00 s -> covers it
+  restore phase coverage: n=20, largest gap 1.24 s of the 5 s period < 3.00 s -> covers it
+  expected from the constants alone (INFERRED): down = 15 - cut_phi_s plus one poll, in (10, 15] s; up = 5 - restore_phi_s at daemon receive, in (0, 5] s, plus the report lag at report level; segment W adds <= one watchdog pass
+OK every cut and every restore detected; the cut and restore phases cover the period

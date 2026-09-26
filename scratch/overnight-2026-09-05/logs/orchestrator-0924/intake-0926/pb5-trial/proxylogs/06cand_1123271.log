@@ -1,0 +1,447 @@
+/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/main.py:2055: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/main.py:2060: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+INFO:     Started server process [1123271]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+[Proxy Agent] app package: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/firewall-solution (mode ndtwin, election_id 0,65535)
+[Proxy Agent] Starting up...
+[1] Received arbitration response: Mastership confirmed.
+[3] Received arbitration response: Mastership confirmed.
+[2] Received arbitration response: Mastership confirmed.
+[4] Received arbitration response: Mastership confirmed.
+[1] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 1
+[2] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 2
+[3] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 3
+[4] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 4
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry modify: MyIngress.ipv4_lpm (default action)
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 1 runs the package's own pipeline: 13 of 13 declared table entries applied, 0 refused
+[2] table entry modify: MyIngress.ipv4_lpm (default action)
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 2 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[3] table entry modify: MyIngress.ipv4_lpm (default action)
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 3 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[4] table entry modify: MyIngress.ipv4_lpm (default action)
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 4 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 3 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 4 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Kernel] switch 1 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=1 (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 2 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=2 (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 3 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=3 (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 4 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=4 (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Proxy Agent] Kernel did not acknowledge 4/4 switches yet ([1, 2, 3, 4]) -- normal when the kernel starts after the proxy. Its topology poll enables switches on its own; retrying the push in the background for up to 5 minutes.
+[Proxy Agent] 4 of 4 switches ([1, 2, 3, 4]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION, not failure detection: this fabric runs no LLDP and no watchdog, so a cut link is not noticed and not rerouted around (capabilities.reroute is false).
+[Proxy Agent] Started liveness polling...
+INFO:     127.0.0.1:34100 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34116 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34126 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34130 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34138 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34148 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34158 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34168 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34196 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34220 - "GET /ryu_server/all_destination_paths HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34236 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34248 - "GET /ryu_server/all_destination_paths HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34262 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34276 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34290 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34294 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34298 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34314 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42672 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42684 - "GET /p4/switch_state HTTP/1.1" 200 OK
+[Kernel] switch 1 entered: ok
+[Kernel] switch 2 entered: ok
+[Kernel] switch 3 entered: ok
+[Kernel] switch 4 entered: ok
+[Proxy Agent] switch-entered acknowledged for all remaining switches on retry
+INFO:     127.0.0.1:42698 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42712 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42726 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42740 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42728 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42750 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42756 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42760 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42770 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42782 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42798 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42802 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42810 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42814 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42828 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42842 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42858 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42870 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55406 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55408 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55422 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55424 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55440 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55444 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55458 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55468 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55476 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55486 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55494 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55506 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55512 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55522 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55526 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55534 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55542 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55546 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55560 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55574 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57714 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57726 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57728 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57730 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57740 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57754 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57768 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57772 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57780 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57782 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57796 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57800 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57810 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57820 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57826 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57836 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57846 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57852 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57868 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42050 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42052 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42056 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42066 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42078 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42080 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42086 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42098 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42114 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42122 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42126 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42138 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42150 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42160 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42174 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42180 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42182 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42190 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42192 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42208 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53656 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53670 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53676 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53682 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53686 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53692 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53708 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53716 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53732 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53740 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53754 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53766 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53780 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53792 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53808 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53816 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53820 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53824 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53830 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53846 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53064 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53068 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53070 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53074 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53090 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53092 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53104 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53114 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53120 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53132 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53136 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53140 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53148 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53160 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53170 - "GET /ryu_server/all_destination_paths HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53172 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53174 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53176 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53190 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53192 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53194 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54206 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54222 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54232 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54240 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54244 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54248 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54252 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54260 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54266 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54276 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54278 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54288 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54296 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54310 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54320 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54334 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54342 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54350 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54354 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54370 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59786 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59802 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59806 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59820 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59826 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59838 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59848 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59858 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59860 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59876 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59878 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59890 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59892 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59900 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59916 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59926 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59928 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59940 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59952 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46354 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46364 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46376 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46384 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46398 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46400 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46406 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46418 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46426 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46434 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46450 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46464 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46470 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46486 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46498 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46506 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46508 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37880 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37894 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37906 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37914 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37928 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37932 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37948 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37962 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37966 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37982 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37988 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38004 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38008 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38010 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40906 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40916 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40926 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40930 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40944 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40954 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40966 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40972 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40976 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40978 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40988 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40998 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41012 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41020 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53660 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53666 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53668 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53670 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53680 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53686 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53688 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53704 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53716 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53730 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53744 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53760 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53770 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53772 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53784 - "GET /ryu_server/all_destination_paths HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53800 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53806 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53812 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55458 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55472 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55476 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55490 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55494 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55496 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55504 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55520 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55528 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55544 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55558 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55560 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55568 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48622 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48634 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48644 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48660 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48674 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48678 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48680 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48688 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48690 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48706 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48714 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48718 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48732 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48746 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49244 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49256 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49270 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49282 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49294 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49302 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49304 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49320 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49332 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49342 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49350 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49354 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49356 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49364 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49376 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49380 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49394 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52686 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52700 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52706 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52720 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52736 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52746 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52754 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52760 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52768 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52770 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52778 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52786 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52788 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52804 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49668 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49682 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49690 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49700 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49704 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49720 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49726 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49732 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49754 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49764 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49772 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49780 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49786 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49798 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57572 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57580 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57592 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57598 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57608 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57620 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57626 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57632 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57644 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57646 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57648 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57660 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57668 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57684 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57692 - "GET /ryu_server/all_destination_paths HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57698 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57700 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58328 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58332 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58346 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58360 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58372 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58380 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58388 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58400 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58412 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58422 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58432 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58446 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58450 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58454 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59564 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59574 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59582 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59592 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59608 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59616 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59624 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59628 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59630 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59632 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59644 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59652 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59658 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59670 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41296 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41310 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41332 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41344 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41352 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41368 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1123271]

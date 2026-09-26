@@ -1,0 +1,232 @@
+# HEAD 08483aa59ca598642af6b256acdbc787c3711b95  the procedure's ROLLBACK and ROLLBACK IN PLACE blocks run verbatim on the stand-in, through JOBS=1 LOCK_WAIT=10800 guarded_build.sh
+# 2026-09-26T07:36:49Z  worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926
+# vars: V=scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv PARK=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/park-08483aa5 OLD=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/park-08483aa5/p4_proxy-venv.protobuf3-20260926-150524 
+# requirements.txt @ HEAD sha256 53f2b1e8a3ed702e3c92b0820fa33b22b84ec19b3b64dd6bb10e7c706b7fbc4c
+# generated script /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/rehearsal_rollback.gen.sh sha256 ee3e56df1a08c7731fd5c751fba5409b8d98e0f2ff1713062baea2537c14cf3f; its text:
+#| set -u
+#| cd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926 || exit 2
+#| 
+#| echo '[rehearsal] a new shell: V, PARK and OLD from /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/rehearsal-08483aa5.vars, fp() from block 1'
+#| source /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/rehearsal-08483aa5.vars; echo "V=$V PARK=$PARK OLD=$OLD"
+#| printf '%s\n' '$ fp() { (cd "$1" && { find . -mindepth 1 -printf '"'"'%y %p %l\n'"'"'; find . -type f -exec sha256sum {} +; } | LC_ALL=C sort | sha256sum | cut -c1-64); }'
+#| fp() { (cd "$1" && { find . -mindepth 1 -printf '%y %p %l\n'; find . -type f -exec sha256sum {} +; } | LC_ALL=C sort | sha256sum | cut -c1-64); }
+#| echo "[rc=$?]"
+#| 
+#| echo '### ROLLBACK'
+#| printf '%s\n' '$ test -d "$OLD" && { test ! -e "$V" || mv -T "$V" "$PARK/p4_proxy-venv.failed-$(date +%Y%m%d-%H%M%S)"; } && mv -T "$OLD" "$V"'
+#| test -d "$OLD" && { test ! -e "$V" || mv -T "$V" "$PARK/p4_proxy-venv.failed-$(date +%Y%m%d-%H%M%S)"; } && mv -T "$OLD" "$V"
+#| echo "[rc=$?]"
+#| 
+#| printf '%s\n' '$ test "$(fp "$V")" = "$(cat "$OLD.fingerprint")" && echo "old venv restored unchanged"'
+#| test "$(fp "$V")" = "$(cat "$OLD.fingerprint")" && echo "old venv restored unchanged"
+#| echo "[rc=$?]"
+#| 
+#| echo '[rehearsal] identity after ROLLBACK'
+#| "$V/bin/python" -c 'import google.protobuf as g, p4.v1.p4runtime_pb2; from google.protobuf.internal import api_implementation as a; print(g.__version__, a.Type())' 2>&1 | grep -E 'Error|^[0-9]' | tail -3
+#| echo "[rehearsal probe rc=${PIPESTATUS[0]}] (want 0, prints 3.20.3 python)"
+#| 
+#| echo '[rehearsal] the restored venv is at its first path again; its pip names it:'; "$V/bin/pip" --version
+#| echo '### [rehearsal] in-place upgrade without regen, then the repair the header names'
+#| printf '%s\n' '$ "$V/bin/pip" install -r p4_proxy/requirements.txt'
+#| "$V/bin/pip" install -r p4_proxy/requirements.txt
+#| echo "[rc=$?]"
+#| 
+#| echo '[rehearsal] l1 probe after an in-place pip install -r'
+#| "$V/bin/python" -c 'import p4.v1.p4runtime_pb2' 2>&1 | grep -E 'Error|^[0-9]' | tail -3
+#| echo "[rehearsal probe rc=${PIPESTATUS[0]}] (want nonzero (TypeError))"
+#| 
+#| printf '%s\n' '$ "$V/bin/python" p4_proxy/regen_p4runtime_pb2.py'
+#| "$V/bin/python" p4_proxy/regen_p4runtime_pb2.py
+#| echo "[rc=$?]"
+#| 
+#| echo '[rehearsal] identity after the repair'
+#| "$V/bin/python" -c 'import google.protobuf as g, p4.v1.p4runtime_pb2; from google.protobuf.internal import api_implementation as a; print(g.__version__, a.Type())' 2>&1 | grep -E 'Error|^[0-9]' | tail -3
+#| echo "[rehearsal probe rc=${PIPESTATUS[0]}] (want 0, prints 5.29.6 upb)"
+#| 
+#| echo '### ROLLBACK IN PLACE'
+#| printf '%s\n' '$ "$V/bin/pip" uninstall -y grpcio-tools'
+#| "$V/bin/pip" uninstall -y grpcio-tools
+#| echo "[rc=$?]"
+#| 
+#| echo '[rehearsal] regen tool with protobuf 5 and no grpcio-tools (refusal path, want rc 2):'
+#| "$V/bin/python" p4_proxy/regen_p4runtime_pb2.py; echo "[rehearsal rc=$?] (want 2)"
+#| printf '%s\n' '$ "$V/bin/pip" install protobuf==3.20.3 googleapis-common-protos==1.73.0'
+#| "$V/bin/pip" install protobuf==3.20.3 googleapis-common-protos==1.73.0
+#| echo "[rc=$?]"
+#| 
+#| printf '%s\n' '$ "$V/bin/pip" install --force-reinstall --no-deps p4runtime==1.5.0'
+#| "$V/bin/pip" install --force-reinstall --no-deps p4runtime==1.5.0
+#| echo "[rc=$?]"
+#| 
+#| printf '%s\n' '$ "$V/bin/python" -c '"'"'import google.protobuf as g, p4.v1.p4runtime_pb2; from google.protobuf.internal import api_implementation as a; print(g.__version__, a.Type())'"'"'   # 3.20.3 python'
+#| "$V/bin/python" -c 'import google.protobuf as g, p4.v1.p4runtime_pb2; from google.protobuf.internal import api_implementation as a; print(g.__version__, a.Type())'   # 3.20.3 python
+#| echo "[rc=$?]"
+#| 
+#| echo '[rehearsal] regen tool on protobuf 3.x (no-op path, want rc 0):'
+#| "$V/bin/python" p4_proxy/regen_p4runtime_pb2.py; echo "[rehearsal rc=$?] (want 0)"
+#| echo "[rehearsal] pip check:"; "$V/bin/python" -m pip check; echo "[rehearsal rc=$?]"
+#| echo "[rehearsal] freeze now vs the old venv's freeze from block 1:"; diff <(PYTHONDONTWRITEBYTECODE=1 "$V/bin/python" -m pip freeze --all) "$OLD.freeze"; echo "[rehearsal diff rc=$?]"
+# ---- run ----
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/rehearsal_rollback.gen.sh
+[rehearsal] a new shell: V, PARK and OLD from /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/rehearsal-08483aa5.vars, fp() from block 1
+V=scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv PARK=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/park-08483aa5 OLD=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/park-08483aa5/p4_proxy-venv.protobuf3-20260926-150524
+$ fp() { (cd "$1" && { find . -mindepth 1 -printf '%y %p %l\n'; find . -type f -exec sha256sum {} +; } | LC_ALL=C sort | sha256sum | cut -c1-64); }
+[rc=0]
+### ROLLBACK
+$ test -d "$OLD" && { test ! -e "$V" || mv -T "$V" "$PARK/p4_proxy-venv.failed-$(date +%Y%m%d-%H%M%S)"; } && mv -T "$OLD" "$V"
+[rc=0]
+$ test "$(fp "$V")" = "$(cat "$OLD.fingerprint")" && echo "old venv restored unchanged"
+old venv restored unchanged
+[rc=0]
+[rehearsal] identity after ROLLBACK
+3.20.3 python
+[rehearsal probe rc=0] (want 0, prints 3.20.3 python)
+[rehearsal] the restored venv is at its first path again; its pip names it:
+pip 26.0.1 from /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv/lib/python3.13/site-packages/pip (python 3.13)
+### [rehearsal] in-place upgrade without regen, then the repair the header names
+$ "$V/bin/pip" install -r p4_proxy/requirements.txt
+Requirement already satisfied: grpcio==1.82.1 in ./scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv/lib/python3.13/site-packages (from -r p4_proxy/requirements.txt (line 65)) (1.82.1)
+Collecting protobuf==5.29.6 (from -r p4_proxy/requirements.txt (line 81))
+  Using cached protobuf-5.29.6-cp38-abi3-manylinux2014_x86_64.whl.metadata (592 bytes)
+Requirement already satisfied: p4runtime==1.5.0 in ./scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv/lib/python3.13/site-packages (from -r p4_proxy/requirements.txt (line 82)) (1.5.0)
+Collecting googleapis-common-protos==1.75.0 (from -r p4_proxy/requirements.txt (line 88))
+  Using cached googleapis_common_protos-1.75.0-py3-none-any.whl.metadata (8.6 kB)
+Collecting grpcio-tools==1.71.2 (from -r p4_proxy/requirements.txt (line 95))
+  Using cached grpcio_tools-1.71.2-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (5.3 kB)
+Requirement already satisfied: fastapi==0.139.2 in ./scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv/lib/python3.13/site-packages (from -r p4_proxy/requirements.txt (line 97)) (0.139.2)
+Requirement already satisfied: starlette==1.3.1 in ./scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv/lib/python3.13/site-packages (from -r p4_proxy/requirements.txt (line 102)) (1.3.1)
+Requirement already satisfied: uvicorn==0.51.0 in ./scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv/lib/python3.13/site-packages (from -r p4_proxy/requirements.txt (line 103)) (0.51.0)
+Requirement already satisfied: networkx==3.6.1 in ./scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv/lib/python3.13/site-packages (from -r p4_proxy/requirements.txt (line 104)) (3.6.1)
+Requirement already satisfied: requests==2.34.2 in ./scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv/lib/python3.13/site-packages (from -r p4_proxy/requirements.txt (line 108)) (2.34.2)
+Requirement already satisfied: hypothesis==6.165.5 in ./scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv/lib/python3.13/site-packages (from -r p4_proxy/requirements.txt (line 113)) (6.165.5)
+Requirement already satisfied: thrift==0.24.0 in ./scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv/lib/python3.13/site-packages (from -r p4_proxy/requirements.txt (line 140)) (0.24.0)
+Requirement already satisfied: typing-extensions~=4.12 in ./scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv/lib/python3.13/site-packages (from grpcio==1.82.1->-r p4_proxy/requirements.txt (line 65)) (4.16.0)
+Collecting setuptools (from grpcio-tools==1.71.2->-r p4_proxy/requirements.txt (line 95))
+  Using cached setuptools-84.0.0-py3-none-any.whl.metadata (6.6 kB)
+Requirement already satisfied: pydantic>=2.9.0 in ./scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv/lib/python3.13/site-packages (from fastapi==0.139.2->-r p4_proxy/requirements.txt (line 97)) (2.13.5)
+Requirement already satisfied: typing-inspection>=0.4.2 in ./scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv/lib/python3.13/site-packages (from fastapi==0.139.2->-r p4_proxy/requirements.txt (line 97)) (0.4.4)
+Requirement already satisfied: annotated-doc>=0.0.2 in ./scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv/lib/python3.13/site-packages (from fastapi==0.139.2->-r p4_proxy/requirements.txt (line 97)) (0.0.5)
+Requirement already satisfied: anyio<5,>=3.6.2 in ./scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv/lib/python3.13/site-packages (from starlette==1.3.1->-r p4_proxy/requirements.txt (line 102)) (4.15.1)
+Requirement already satisfied: click>=7.0 in ./scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv/lib/python3.13/site-packages (from uvicorn==0.51.0->-r p4_proxy/requirements.txt (line 103)) (8.5.0)
+Requirement already satisfied: h11>=0.8 in ./scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv/lib/python3.13/site-packages (from uvicorn==0.51.0->-r p4_proxy/requirements.txt (line 103)) (0.16.0)
+Requirement already satisfied: charset_normalizer<4,>=2 in ./scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv/lib/python3.13/site-packages (from requests==2.34.2->-r p4_proxy/requirements.txt (line 108)) (3.5.1)
+Requirement already satisfied: idna<4,>=2.5 in ./scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv/lib/python3.13/site-packages (from requests==2.34.2->-r p4_proxy/requirements.txt (line 108)) (3.20)
+Requirement already satisfied: urllib3<3,>=1.26 in ./scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv/lib/python3.13/site-packages (from requests==2.34.2->-r p4_proxy/requirements.txt (line 108)) (2.8.0)
+Requirement already satisfied: certifi>=2023.5.7 in ./scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv/lib/python3.13/site-packages (from requests==2.34.2->-r p4_proxy/requirements.txt (line 108)) (2026.7.22)
+Requirement already satisfied: sortedcontainers<3.0.0,>=2.1.0 in ./scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv/lib/python3.13/site-packages (from hypothesis==6.165.5->-r p4_proxy/requirements.txt (line 113)) (2.4.0)
+Requirement already satisfied: annotated-types>=0.6.0 in ./scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv/lib/python3.13/site-packages (from pydantic>=2.9.0->fastapi==0.139.2->-r p4_proxy/requirements.txt (line 97)) (0.8.0)
+Requirement already satisfied: pydantic-core==2.46.5 in ./scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv/lib/python3.13/site-packages (from pydantic>=2.9.0->fastapi==0.139.2->-r p4_proxy/requirements.txt (line 97)) (2.46.5)
+Using cached protobuf-5.29.6-cp38-abi3-manylinux2014_x86_64.whl (320 kB)
+Using cached googleapis_common_protos-1.75.0-py3-none-any.whl (300 kB)
+Using cached grpcio_tools-1.71.2-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.5 MB)
+Using cached setuptools-84.0.0-py3-none-any.whl (818 kB)
+Installing collected packages: setuptools, protobuf, grpcio-tools, googleapis-common-protos
+  Attempting uninstall: protobuf
+    Found existing installation: protobuf 3.20.3
+    Uninstalling protobuf-3.20.3:
+      Successfully uninstalled protobuf-3.20.3
+  Attempting uninstall: googleapis-common-protos
+    Found existing installation: googleapis-common-protos 1.73.0
+    Uninstalling googleapis-common-protos-1.73.0:
+      Successfully uninstalled googleapis-common-protos-1.73.0
+
+Successfully installed googleapis-common-protos-1.75.0 grpcio-tools-1.71.2 protobuf-5.29.6 setuptools-84.0.0
+[rc=0]
+[rehearsal] l1 probe after an in-place pip install -r
+TypeError: Descriptors cannot be created directly.
+[rehearsal probe rc=1] (want nonzero (TypeError))
+$ "$V/bin/python" p4_proxy/regen_p4runtime_pb2.py
+checking the generated modules (default backend, scratch copy):
+  p4/config/v1/p4types.proto     descriptor identical (5273 bytes)
+  p4/config/v1/p4info.proto      descriptor identical (6019 bytes)
+  p4/v1/p4data.proto             descriptor identical (824 bytes)
+  p4/v1/p4runtime.proto          descriptor identical (8825 bytes)
+  backend upb, p4runtime_pb2_grpc imports
+replaced p4/config/v1/p4types_pb2.py        d436ed076b7ffb99 -> e91d6496f08e543e
+replaced p4/config/v1/p4types_pb2_grpc.py   d686e804f1716931 -> ef4a945f3fd81528
+replaced p4/config/v1/p4info_pb2.py         acc7feeb96762287 -> 355f066c05b89fdc
+replaced p4/config/v1/p4info_pb2_grpc.py    d686e804f1716931 -> badda8ba84ba9570
+replaced p4/v1/p4data_pb2.py                e12b7b17ab700f94 -> da869f059d708f8c
+replaced p4/v1/p4data_pb2_grpc.py           d686e804f1716931 -> 3dbf6a108642d3d5
+replaced p4/v1/p4runtime_pb2.py             3bd1a8991d852314 -> 0a28fb85ff369a5c
+replaced p4/v1/p4runtime_pb2_grpc.py        9c4d058515a16d2c -> 5e060258fdf6e465
+checking the installed package (default backend):
+  p4/config/v1/p4types.proto     descriptor identical (5273 bytes)
+  p4/config/v1/p4info.proto      descriptor identical (6019 bytes)
+  p4/v1/p4data.proto             descriptor identical (824 bytes)
+  p4/v1/p4runtime.proto          descriptor identical (8825 bytes)
+  backend upb, p4runtime_pb2_grpc imports
+ok: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/rehearsal-08483aa5/p4_proxy/venv/lib/python3.13/site-packages/p4 imports on the default backend with the shipped schema.
+[rc=0]
+[rehearsal] identity after the repair
+5.29.6 upb
+[rehearsal probe rc=0] (want 0, prints 5.29.6 upb)
+### ROLLBACK IN PLACE
+$ "$V/bin/pip" uninstall -y grpcio-tools
+Found existing installation: grpcio-tools 1.71.2
+Uninstalling grpcio-tools-1.71.2:
+  Successfully uninstalled grpcio-tools-1.71.2
+[rc=0]
+[rehearsal] regen tool with protobuf 5 and no grpcio-tools (refusal path, want rc 2):
+grpcio-tools is not installed in this interpreter; it is in p4_proxy/requirements.txt -- install that file first.
+[rehearsal rc=2] (want 2)
+$ "$V/bin/pip" install protobuf==3.20.3 googleapis-common-protos==1.73.0
+Collecting protobuf==3.20.3
+  Using cached protobuf-3.20.3-py2.py3-none-any.whl.metadata (720 bytes)
+Collecting googleapis-common-protos==1.73.0
+  Using cached googleapis_common_protos-1.73.0-py3-none-any.whl.metadata (9.4 kB)
+Using cached protobuf-3.20.3-py2.py3-none-any.whl (162 kB)
+Using cached googleapis_common_protos-1.73.0-py3-none-any.whl (297 kB)
+Installing collected packages: protobuf, googleapis-common-protos
+  Attempting uninstall: protobuf
+    Found existing installation: protobuf 5.29.6
+    Uninstalling protobuf-5.29.6:
+      Successfully uninstalled protobuf-5.29.6
+  Attempting uninstall: googleapis-common-protos
+    Found existing installation: googleapis-common-protos 1.75.0
+    Uninstalling googleapis-common-protos-1.75.0:
+      Successfully uninstalled googleapis-common-protos-1.75.0
+
+Successfully installed googleapis-common-protos-1.73.0 protobuf-3.20.3
+[rc=0]
+$ "$V/bin/pip" install --force-reinstall --no-deps p4runtime==1.5.0
+Collecting p4runtime==1.5.0
+  Using cached p4runtime-1.5.0-py3-none-any.whl.metadata (10 kB)
+Using cached p4runtime-1.5.0-py3-none-any.whl (45 kB)
+Installing collected packages: p4runtime
+  Attempting uninstall: p4runtime
+    Found existing installation: p4runtime 1.5.0
+    Uninstalling p4runtime-1.5.0:
+      Successfully uninstalled p4runtime-1.5.0
+Successfully installed p4runtime-1.5.0
+[rc=0]
+$ "$V/bin/python" -c 'import google.protobuf as g, p4.v1.p4runtime_pb2; from google.protobuf.internal import api_implementation as a; print(g.__version__, a.Type())'   # 3.20.3 python
+3.20.3 python
+[rc=0]
+[rehearsal] regen tool on protobuf 3.x (no-op path, want rc 0):
+protobuf 3.20.3: p4runtime's shipped modules import as they are; nothing to regenerate.
+[rehearsal rc=0] (want 0)
+[rehearsal] pip check:
+No broken requirements found.
+[rehearsal rc=0]
+[rehearsal] freeze now vs the old venv's freeze from block 1:
+20d19
+< setuptools==84.0.0
+[rehearsal diff rc=1]
+guarded_build: exit 0
+CHECK ok   guard exit 0
+CHECK ok   fp() defined + ROLLBACK's 2 commands rc=0
+CHECK ok   old venv restored unchanged
+CHECK ok   restored venv is 3.20.3 python
+CHECK ok   restored venv's pip runs from V
+CHECK ok   in-place pip install -r and regen rc=0
+CHECK ok   in-place: probe failed before regen (TypeError)
+CHECK ok   in-place: 5.29.6 upb after regen
+CHECK ok   ROLLBACK IN PLACE's 4 commands rc=0
+CHECK ok   ROLLBACK IN PLACE ends on 3.20.3 python
+CHECK ok   regen with grpcio-tools gone: rc 2
+CHECK ok   regen on protobuf 3.x: rc 0, nothing to regenerate
+CHECK ok   pip check clean at the end
+RESULT GREEN
+rc=0

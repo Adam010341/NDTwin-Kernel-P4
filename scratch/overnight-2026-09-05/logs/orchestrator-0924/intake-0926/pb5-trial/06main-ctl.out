@@ -1,0 +1,35 @@
+== 06_thirteen
+   repo: /home/adam/Desktop/NDTwin-Kernel
+   raw : /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-26T062049Z_06_thirteen
+   owner: pb5-trial-0926
+
+== basic / skeleton
+   rc=0 (want 0)   PASS (4/4)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-26T062049Z_basic_skeleton_ndtwin.md
+
+== basic / solution
+   rc=0 (want 0)   PASS (6/6)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-26T062231Z_basic_solution_ndtwin.md
+
+== p4runtime / skeleton
+   rc=0 (want 0)   PASS (4/4)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-26T062404Z_p4runtime_skeleton_ndtwin.md
+
+== p4runtime / solution
+   rc=0 (want 0)   PASS (5/5)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-26T062438Z_p4runtime_solution_ndtwin.md
+
+== the table
+   exercise   which     rc  verdict     report
+   basic      skeleton  0   PASS (4/4)  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-26T062049Z_basic_skeleton_ndtwin.md
+   basic      solution  0   PASS (6/6)  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-26T062231Z_basic_solution_ndtwin.md
+   p4runtime  skeleton  0   PASS (4/4)  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-26T062404Z_p4runtime_skeleton_ndtwin.md
+   p4runtime  solution  0   PASS (5/5)  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-26T062438Z_p4runtime_solution_ndtwin.md
+
+== what the rounds left behind
+   p4_proxy/mininet/host_count_override: 4
+   p4_proxy/mininet/app_package_override: absent
+   p4_proxy/mininet/telemetry_override: absent
+
+raw: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-26T062049Z_06_thirteen
+PASS 06_thirteen -- 4 arm(s), every arm as the exercise says it should be
