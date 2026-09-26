@@ -1432,7 +1432,7 @@ print(f["ab"]["heard"], f["ba"]["heard"], f["ab"]["written"], f["ba"]["written"]
         graph_until() { echo 1020.33 > "$4.at_wall"; echo 20.3 > "$4.elapsed"; echo "OK stub"; }
         report_dirs() { echo "199.995 200.0"; }
         get_json() { cp "$t/$CC_STATE" "$2"; }
-        note() { :; }
+        note() { echo "N ${*:0:110}"; }
         judge() { echo "J $2: ${1:0:48}"; }
         CA=1; CAP=3; CB=3; CBP=1; TIMEOUT_S=15; WATCHDOG_S=5; DETECT_BOUND_S=20
         CC_STATE=state_late.json; cut_cycle "T" "$t/cc_graph.json" "$t/cc_state.json" 0.02 1
@@ -1440,11 +1440,16 @@ print(f["ab"]["heard"], f["ba"]["heard"], f["ab"]["written"], f["ba"]["written"]
         CC_STATE=state_nopass.json; cut_cycle "U" "$t/cc_graph2.json" "$t/cc_state2.json" 0.02 1
         echo "STRICT $CYCLE_STRICT FIELDS $(awk -F'\t' '{print NF}' <<<"$CYCLE_ROW")"
     )" || got="the subshell died (rc $?)"
-    if /usr/bin/grep -qF "J T detection time: OK detection 20.320 s -- OVER the strict 20" <<<"$got" \
+    # [Co-developed with claude code -- Adam] The judge's F1 (09-26, on 1a3ebd7f): the cycle's
+    # VERDICT is the strict bound -- 20.320 s is a BAD -- and "20 s + what was measured" is only a
+    # note beside it, which may say OK and must never make the cycle pass.
+    if /usr/bin/grep -qF "J T detection time: BAD detection 20.320 s is OVER the strict 20" <<<"$got" \
+       && /usr/bin/grep -qF "N T budget, 20 s + what was measured (a diagnostic, never the verdict): OK detection 20.320 s -- OVER" <<<"$got" \
+       && ! /usr/bin/grep -qF "J T detection time: OK" <<<"$got" \
        && /usr/bin/grep -qF "STRICT OVER+0.320 ROW 20.320 220.080" <<<"$got" \
        && /usr/bin/grep -qF "J U detection time: BAD both directions is_up:false (no phase" <<<"$got" \
        && /usr/bin/grep -qF "STRICT ? FIELDS 18" <<<"$got"; then
-        ok "cut_cycle: the row, its budget verdict and the strict answer (OVER+0.320); with no record, 18 '?' and the graph poll alone"
+        ok "cut_cycle: the row, the STRICT verdict (BAD at 20.320 s), the budget only as a note, OVER+0.320; with no record, 18 '?' and the graph poll alone"
     else
         red "cut_cycle gave: $(tr '\n' '|' <<<"$got")"
     fi
@@ -1466,6 +1471,60 @@ print(f["ab"]["heard"], f["ba"]["heard"], f["ab"]["written"], f["ba"]["written"]
         ok "restore_cycle: the recovery time is the record's (4.8 s from the first end's call), not the poll's 9.99 s from the last tc"
     else
         red "restore_cycle gave: $(tr '\n' '|' <<<"$got")"
+    fi
+    # --- H1's exit, read where Adam reads it: the run's LAST line (the judge's F1 and 8.2) ---------
+    # [Co-developed with claude code -- Adam] One stubbed cycle through the real cut_cycle, H1's
+    # strict conclusion and the real teardown (w_finish -> finish) with a fake ndt. An OVER cycle
+    # must END the run in FAIL and say how many cycles were over and why it is a FAIL; a cycle within
+    # 20 s must end in PASS (the control); an earlier failure must not push the count off the line,
+    # and a ruling-4 STOP must still lead it.
+    st_h1() {   # st_h1 <state fixture> <kernel-down wall> <earlier failure or -> <stop 0|1> -> the run's output
+        local d
+        d="$(mktemp -d "$t/h1-XXXXXX")"
+        printf '#!/usr/bin/env bash\nexit 0\n' > "$d/ndt"; chmod +x "$d/ndt"
+        ( STEP=08_heartbeat; RUN="$d/run"; mkdir -p "$RUN"; CLAIMED=1; VERDICT_RC=0; VERDICT_WHY=""; FABRIC_UP=1
+          INJECTED_IFACES=(); NDT="$d/ndt"; REAL_NDT="$d/ndt"; APP_KNOB="$d/none"
+          KNOB_ENTRY_COPY=""; TEL_ENTRY_COPY=""; CTRL_PID=""; TEARDOWN_DOWN_RC=""; SAMPLER_PID=""
+          mono_offset() { echo -800.0; }
+          cut_at_phase() { CUT_A_START=1000.01; CUT_A_END=1000.02; CUT_B_START=1000.03; CUT_B_END=1000.05; }
+          graph_until() { echo "$ST_DOWN" > "$4.at_wall"; echo 20.3 > "$4.elapsed"; echo "OK stub"; }
+          report_dirs() { echo "199.995 200.0"; }
+          get_json() { cp "$t/$ST_STATE" "$2"; }
+          CA=1; CAP=3; CB=3; CBP=1; TIMEOUT_S=15; WATCHDOG_S=5; DETECT_BOUND_S=20
+          ST_STATE="$1"; ST_DOWN="$2"
+          [[ "$3" == - ]] || fail "$3"
+          cut_cycle "H1 cycle 1" "$RUN/31_graph_cut_1.json" "$RUN/32_switch_state_cut_1.json" 0.02 1
+          strict_conclude H1
+          (( $4 == 1 )) && judge "STOP ruling 4: a stubbed host-port frame" "H1 ruling 4"
+          ( exit 0 ); w_finish ) 2>&1
+    }
+    out="$(st_h1 state_late.json 1020.33 - 0)" || true
+    got="$(tail -1 <<<"$out")"
+    if [[ "$got" == "FAIL 08_heartbeat -- H1: 1 of 1 cycle(s) OVER the strict 20 s"* \
+          && "$got" == *"H1 FAILS on the strict <= 20 s until Adam rules on the acceptance"* \
+          && "$out" == *"one run samples one psi"* ]]; then
+        ok "H1's last line: one cycle at 20.320 s ends the run FAIL, with the count and why (and the one-psi caveat above it)"
+    else
+        red "H1's last line with an OVER cycle was: '$got'"
+    fi
+    out="$(st_h1 state_passes.json 1015.9 - 0)" || true
+    got="$(tail -1 <<<"$out")"
+    if [[ "$got" == "PASS 08_heartbeat" && "$out" == *"H1: all 1 cycle(s) within the strict 20 s"*"one run samples one psi"* ]]; then
+        ok "  the control: a cycle within 20 s ends PASS, and says it is one psi's answer"
+    else
+        red "  H1's last line with a cycle within 20 s was: '$got'"
+    fi
+    got="$(st_h1 state_late.json 1020.33 "an earlier failure" 0 | tail -1)" || true
+    if [[ "$got" == "FAIL 08_heartbeat -- H1: 1 of 1 cycle(s) OVER"*"(first failure before it: an earlier failure"* ]]; then
+        ok "  an earlier failure does not push the OVER count off the last line (it is kept after it)"
+    else
+        red "  H1's last line after an earlier failure was: '$got'"
+    fi
+    got="$(st_h1 state_late.json 1020.33 - 1 | tail -1)" || true
+    if [[ "$got" == "FAIL 08_heartbeat -- STOP (ruling 4)"*"H1: 1 of 1 cycle(s) OVER"* ]]; then
+        ok "  a ruling-4 STOP still leads the last line, the OVER count after it"
+    else
+        red "  H1's last line with a STOP after an OVER cycle was: '$got'"
     fi
     # graph_until before any cut: no instant to count from, and no unbound T_CUT under set -u
     mkdir -p "$t/k/ndt"; cp "$t/graph_up.json" "$t/k/ndt/get_graph_data"
