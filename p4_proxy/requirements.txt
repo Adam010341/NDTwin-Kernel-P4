@@ -1,21 +1,26 @@
-# WHAT THIS FILE DESCRIBES: the environment the P4 proxy and its tests actually run in, i.e.
-# p4_proxy/venv on the development machine -- Python 3.13.13 (miniconda), protobuf backend
-# `python`. Verified 2026-09-25 by building a FRESH venv from this file and running both suites,
-# on one commit, under it and under p4_proxy/venv; the counts were identical:
+# CANDIDATE -- branch cand/p4proxy-protobuf5-0925, 2026-09-25, NOT merged. It moves protobuf from
+# 3.20.3 to 5.29.6 (CVE-2025-4565, CVE-2026-0994), and that needs a SECOND install step: with
+# `pip install -r` alone the proxy cannot import p4_client (p4runtime 1.5.0's generated modules are
+# pre-3.19 code, which protobuf >= 4.21 refuses on its default backend). The install is:
+#
+#     python3 -m venv p4_proxy/venv
+#     p4_proxy/venv/bin/pip install -r p4_proxy/requirements.txt
+#     p4_proxy/venv/bin/python p4_proxy/regen_p4runtime_pb2.py
+#
+# Verified offline 2026-09-25, Python 3.13.13 (miniconda): a fresh venv made by exactly those
+# commands ran both suites with the SAME VERDICT FOR EVERY TEST ID as p4_proxy/venv (protobuf
+# 3.20.3), on one commit:
 #   p4_proxy/tests, all 41 test_*.py files        1557 tests, OK, 1 skip (the test that
 #                                                 declares it needs a live switch)
 #   tools/p4_exercise/tests (unittest discover)   187 tests, OK
+# Without the regen step the p4_proxy suite does not load at all and tools/p4_exercise fails
+# 49 of 187. NOT yet run live (ndt 01/06).
 #
-# Every package that p4_proxy/, its tests or tools/p4_exercise/ imports is pinned to the version
-# p4_proxy/venv has, `==` and not `>=` -- starlette included, which is imported directly although
-# it arrives as fastapi's dependency (see its line). Until 2026-09-25 this file said
-# p4runtime==1.4.1, grpcio>=1.50.0 and "verified on Python 3.12" while the venv every test and live
-# run used had p4runtime 1.5.0 and grpcio 1.82.1 on 3.13: the floors let pip install whatever was
-# newest that day, so the file described no environment anyone had tested. Change a pin here only
-# together with a re-run of both suites. What those packages pull in is NOT pinned (the two
-# pinned lines nothing imports -- googleapis-common-protos and thrift -- say why they are): on
-# 2026-09-25 the fresh venv resolved newer patch/minor releases of eleven such packages (pydantic,
-# anyio, urllib3, ...) than p4_proxy/venv has, and the counts above were identical anyway.
+# Every other package that p4_proxy/, its tests or tools/p4_exercise/ imports is pinned to the
+# version p4_proxy/venv has, `==` and not `>=` -- starlette included, which is imported directly
+# although it arrives as fastapi's dependency (see its line). Why: see the history of this file --
+# until 2026-09-25 it named p4runtime 1.4.1 and floors while the venv had 1.5.0. Change a pin here
+# only together with a re-run of both suites. What those packages pull in is NOT pinned.
 #
 # CI installs this file on Python 3.12 (ci.yml), not 3.13, on purpose: 3.12 is what the user
 # manual's P4 path gave a tester on a fresh Ubuntu 24.04.4 VM -- its section 6.3,
@@ -40,18 +45,23 @@ grpcio==1.82.1
 #
 # Still true of p4runtime 1.5.0, the newest release on PyPI (checked 2026-09-25): its
 # p4/v1/p4runtime_pb2.py builds descriptors directly (`create_key=_descriptor._internal_create_key`),
-# the pre-3.19 generated-code shape. Known advisories against 3.20.3 -- CVE-2025-4565 (fixed in
-# 4.25.8) and CVE-2026-0994 (fixed in 5.29.6) -- are why this pin is on notice; see
-# doc/audit/2026-09-25_p4proxy-requirements/ before moving it.
-protobuf==3.20.3
+# the pre-3.19 generated-code shape. THIS CANDIDATE moves protobuf past it anyway and regenerates
+# that code instead: regen_p4runtime_pb2.py rebuilds the four p4runtime modules from the
+# descriptors they embed, checks each new module's FileDescriptorProto is byte-for-byte the old
+# one, and only then replaces them. 5.29.6 is the first release with both fixes (CVE-2025-4565,
+# fixed in 4.25.8; CVE-2026-0994, fixed in 5.29.6); the backend becomes the default (upb) instead
+# of the pure-Python one 3.20.3 ran on under Python 3.13.
+protobuf==5.29.6
 p4runtime==1.5.0
 
-# Not imported by the proxy: p4runtime's _pb2 modules import google.rpc.status_pb2 from it.
-# Pinned because the copy in p4_proxy/venv, 1.75.0, declares protobuf>=4.25.8 -- it contradicts
-# the protobuf pin above (`pip check` reports it) and pip will not install that pair from a file.
-# 1.73.0 is the newest release whose declared range admits 3.20.3 (pip's own resolution,
-# 2026-09-25), and the fresh venv's suite counts above were taken with it.
-googleapis-common-protos==1.73.0
+# Not imported by the proxy: p4runtime's _pb2 modules import google.rpc.status_pb2 from it. 1.75.0
+# is the version p4_proxy/venv has; it declares protobuf>=4.25.8, which 5.29.6 now satisfies.
+googleapis-common-protos==1.75.0
+
+# Used only by regen_p4runtime_pb2.py, for the protoc it bundles (libprotoc 29.0). 1.71.2 is the
+# newest release whose declared protobuf range admits 5.29.6 (pip's own resolution, 2026-09-25);
+# the code it generates requires a protobuf runtime >= 5.29.0.
+grpcio-tools==1.71.2
 
 fastapi==0.139.2
 # Imported directly -- proxy_agent/api_routes.py:3 (starlette.concurrency) and two tests

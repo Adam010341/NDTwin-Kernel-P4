@@ -90,8 +90,17 @@ jobs:
       # three more skipped themselves wholesale for want of the P4Runtime protobufs. 91 of the 312
       # tests never executed. The gap was not that the runner lacks anything exotic; it is that
       # nothing ever installed p4_proxy/requirements.txt.
+      #
+      # The third command is part of the install, not a test (CANDIDATE branch
+      # cand/p4proxy-protobuf5-0925): with protobuf 5.29.6, p4runtime 1.5.0's shipped modules do not
+      # import on the default backend until regen_p4runtime_pb2.py has regenerated them -- without
+      # it the P4 lane's interpreter probe (`import p4.v1.p4runtime_pb2`) fails and every P4 test
+      # file skips, which l1_unit_tests.sh reports as a failure.
       - name: Install Python test dependencies
-        run: python -m pip install --upgrade pip && pip install -r p4_proxy/requirements.txt
+        run: >-
+          python -m pip install --upgrade pip
+          && pip install -r p4_proxy/requirements.txt
+          && python p4_proxy/regen_p4runtime_pb2.py
 
       - name: Python unit tests
         run: bash tools/test_workflow/l1_unit_tests.sh
