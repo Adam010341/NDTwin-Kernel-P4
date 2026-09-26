@@ -642,10 +642,18 @@ class AWriteWithNoBindingIs501OnTheRenamedFixtureTest(unittest.TestCase):
         self.assertLess(wire.index(err.detail["remedy"]) + len(err.detail["remedy"]), 200)
 
     def test_an_external_control_plane_refuses_first_as_it_always_did(self):
-        # 2.2-4: _refuse_write keeps precedence over the binding -- same exception as before.
+        # 2.2-4: _refuse_write keeps precedence over the binding -- the external refusal, not
+        # the binding's 501. [Co-developed with claude code -- Adam] TICKET-P4-heartbeat
+        # ruling 5(a) changed what that refusal LOOKS LIKE over HTTP, not whether it comes
+        # first: it was the raw ControlPlaneReadOnly, i.e. FastAPI's 500, and is now the 409
+        # POST /p4/table_entry answers. This assertion was `assertRaises(ControlPlaneReadOnly)`
+        # until segment W; the precedence and the empty wire are asserted exactly as before.
         client = self.switch(None, arbitration=False)
-        with self.assertRaises(ControlPlaneReadOnly):
+        with self.assertRaises(HTTPException) as caught:
             asyncio.run(api_routes.add_flow_entry(FakeRequest(dict(self.ROUTE))))
+        self.assertEqual(caught.exception.status_code, 409)
+        self.assertEqual(caught.exception.detail["error"], "external control plane")
+        self.assertIsInstance(caught.exception.__context__, ControlPlaneReadOnly)
         self.assertEqual(client.stub.requests, [])
 
     def test_a_bound_ndtwin_owned_switch_is_written_through_its_binding(self):
