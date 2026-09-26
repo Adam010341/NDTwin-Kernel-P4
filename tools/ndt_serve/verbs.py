@@ -249,8 +249,9 @@ RC_TABLE = {
 # Where each table's codes come from. "help": the phrase `ndt help` prints for each rc (compared
 # whitespace-normalised). "code": (line, rc, text that line must contain, the function that line
 # lies in) in tools/test_workflow/ndt -- trunk cafd518a's line numbers (segment W of
-# TICKET-P4-heartbeat added 124 lines to ndt above cmd_status; the 11 rows below it moved by that
-# much, each located by its old line's text in the same function): the `serve)` dispatch lies
+# TICKET-P4-heartbeat added 124 lines to ndt above these rows -- 122 before cmd_status and 2 inside
+# it, the `heartbeat` row, before its verdict; the 11 rows below them moved by that much, each
+# located by its old line's text in the same function): the `serve)` dispatch lies
 # below every anchor. 🔴 The function is half the anchor (intake judge 09-26, finding 3): `return
 # 1` is on 187 lines of this tree's ndt, and 09-24's apps.start line 8315 was one of them --
 # proc_checkout's, 8439 since segment W. [Co-developed with claude code -- Adam]

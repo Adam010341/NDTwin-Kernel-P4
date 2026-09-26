@@ -1069,6 +1069,8 @@ lmutant() {   # $1 = label, $2 = file (08), $3 = the anchor, $4 = its replacemen
     cp "$REPO/$LIVE_DIR_REL/_common.sh" "$LIVE08" "$d/$LIVE_DIR_REL/"
     cp "$REPO/tools/test_workflow/faults.sh" "$REPO/tools/test_workflow/qdisc_snapshot.sh" "$d/tools/test_workflow/"
     cp "$REPO/doc/audit/2026-09-25_p4-heartbeat/spike/census_prepare.py" "$d/doc/audit/2026-09-25_p4-heartbeat/spike/"
+    # [Co-developed with claude code -- Adam] the proxy, READ by the self-test's consts (never written)
+    ln -s "$REPO/p4_proxy" "$d/p4_proxy"
     python3 - "$d/$LIVE_DIR_REL/$(basename "$file")" "$old" "$new" <<'PY'
 import sys
 p, a, b = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -1098,6 +1100,7 @@ mkdir -p "$lb/$LIVE_DIR_REL" "$lb/tools/test_workflow" "$lb/doc/audit/2026-09-25
 cp "$REPO/$LIVE_DIR_REL/_common.sh" "$LIVE08" "$lb/$LIVE_DIR_REL/"
 cp "$REPO/tools/test_workflow/faults.sh" "$REPO/tools/test_workflow/qdisc_snapshot.sh" "$lb/tools/test_workflow/"
 cp "$REPO/doc/audit/2026-09-25_p4-heartbeat/spike/census_prepare.py" "$lb/doc/audit/2026-09-25_p4-heartbeat/spike/"
+ln -s "$REPO/p4_proxy" "$lb/p4_proxy"
 if [[ "$(lrun "$lb" | tail -1)" == "SELF-TEST PASS" ]]; then
     echo "  08 self-test baseline: SELF-TEST PASS"
 else
@@ -1365,6 +1368,41 @@ m=$(lmutant l54 "$LIVE08" \
     'BEGIN{printf "%.2f\n", b-a}' \
     'BEGIN{printf "%.2f\n", a-b}')
 lreport "L54: graph_until's elapsed counts backwards" "$m" "graph_until after a cut gave"
+
+# [Co-developed with claude code -- Adam] Round 2b (the opus judge's N2-1 / N2-2 on f4f43a32): a
+# sampler that dies after a good start or complains ends the run FAIL; the verdicts need reads
+# throughout; consts runs in the self-test.
+m=$(lmutant l55 "$LIVE08" \
+    '    [[ -s "${SAMPLER_ERR:-}" ]] && fail "H5: the report sampler wrote to its stderr:' \
+    '    [[ -s "${SAMPLER_ERR:-}" ]] && bad "H5: the report sampler wrote to its stderr:')
+lreport "L55: a sampler's stderr only printed again (bad, not fail)" "$m" \
+        "  H5 sampler with a warning on its stderr"
+m=$(lmutant l56 "$LIVE08" \
+    '    if ! sampler_alive; then' \
+    '    if false; then')
+lreport "L56: a sampler that died after a good start goes unnoticed" "$m" \
+        "H5 sampler killed after a good start"
+m=$(lmutant l57 "$LIVE08" \
+    '    gaps = sample_gaps(ss, float(t0), float(t1))' \
+    '    gaps = []')
+lreport "L57: 01's window counts as clean with no sample in it" "$m" \
+        "H5 01 with no sample in its window"
+m=$(lmutant l58 "$LIVE08" \
+    '    gaps = sample_gaps(ss, windows[0][1], float(end)) if windows else []' \
+    '    gaps = []')
+lreport "L58: a stretch of 06 without reads counts as no session" "$m" \
+        "H5 a sampler that stopped reading for 500 s mid-06"
+m=$(lmutant l59 "$LIVE08" \
+    '        && tr '"'"'\0'"'"' '"'"' '"'"' < "/proc/$SAMPLER_PID/cmdline" 2>/dev/null | /usr/bin/grep -qF "$SAMPLER_STOP"
+}' \
+    '        && true
+}')
+lreport "L59: sampler_alive takes any live pid for the sampler" "$m" \
+        "  sampler_alive with a reused pid"
+m=$(lmutant l60 "$LIVE08" \
+    '        '"'"'from proxy_agent import topology_manager as t; print(t.LLDP_BEACON_INTERVAL_S, t.LINK_BEACON_TIMEOUT_S, t.LINK_WATCHDOG_INTERVAL_S)'"'"'' \
+    '        '"'"'from proxy_agent import topology_manager as t; print(t.LINK_BEACON_TIMEOUT_S, t.LLDP_BEACON_INTERVAL_S, t.LINK_WATCHDOG_INTERVAL_S)'"'"'')
+lreport "L60: consts reads the constants in the wrong order" "$m" "consts gave"
 
 # --- a control that must stay green ----------------------------------------------------------------
 m=$(mutant c1 "$HBMOD" \

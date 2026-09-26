@@ -57,7 +57,7 @@ keeps running if the server dies; a restarted server finds it again from disk.
 an `Origin` -- this server's own origin; a POST also needs `Content-Type: application/json`.
 The Host header must be `127.0.0.1:<port>` or `localhost:<port>`. No CORS header is ever sent.
 Reads are gated too because a read is not side-effect free: `ndt status --check` POSTs three
-lock probes to the kernel (ndt:9292-9307), and without the token any page in the browser could
+lock probes to the kernel (ndt:9416-9431), and without the token any page in the browser could
 start one with an `<img>` (judge 09-24, finding 1).
 
 Two read-only ndt calls run at a time; a third waits up to `--read-queue-wait` seconds and then

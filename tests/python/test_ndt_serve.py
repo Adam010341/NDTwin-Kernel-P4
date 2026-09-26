@@ -1092,6 +1092,37 @@ class RcProvenance(unittest.TestCase):
         self.assertEqual([self.enclosing_function(n) for n in (start, start + 1, end - 1, end + 1)],
                          [None, "claim_line", "claim_line", None])
 
+    # [Co-developed with claude code -- Adam]
+    CITE = re.compile(r"\(ndt:(\d+)-(\d+)\)")
+
+    def test_lock_probe_citations_are_lock_probe(self):
+        """The opus judge's N1-1 (09-27): the README still sent a reader to ndt lines 9292-9307 for
+        the lock probes after segment W had moved them 124 lines down, because nothing held the
+        prose to ndt. Every parenthesised ndt range cited beside the lock probes -- the README,
+        serve.py's docstring, this file's -- must start in lock_probe's own comment block and
+        cover its POST to /ndt/acquire_lock, inside lock_probe. Each place must cite at least once
+        (a check that finds nothing is not a pass)."""
+        head = [i + 1 for i, t in enumerate(self.lines) if t.startswith("# lock_probe <type>")]
+        post = [i + 1 for i, t in enumerate(self.lines) if "/ndt/acquire_lock" in t]
+        self.assertEqual((len(head), len(post)), (1, 1), "one lock_probe header, one acquire_lock POST")
+        self.assertEqual(self.enclosing_function(post[0]), "lock_probe")
+        end = next(i + 1 for i in range(post[0], len(self.lines)) if self.lines[i].startswith("}"))
+        bad = []
+        for path in (os.path.join(SERVE_DIR, "README.md"), os.path.join(SERVE_DIR, "serve.py"),
+                     os.path.abspath(__file__)):
+            with open(path) as f:
+                text = f.read()
+            found = [(text.count("\n", 0, m.start()) + 1, int(m.group(1)), int(m.group(2)))
+                     for m in self.CITE.finditer(text)
+                     if re.search(r"lock[\s_]+probe|acquire_lock", text[max(0, m.start() - 120):m.end()])]
+            if not found:
+                bad.append("%s cites no ndt range beside the lock probes" % os.path.basename(path))
+            for line, a, b in found:
+                if not (head[0] <= a <= post[0] <= b <= end):
+                    bad.append("%s:%d cites ndt:%d-%d; lock_probe's comment starts at %d, its POST is at %d, "
+                               "it ends at %d" % (os.path.basename(path), line, a, b, head[0], post[0], end))
+        self.assertEqual(bad, [])
+
     def test_status_check_rc1_names_any_problem(self):
         c, m = self.verbs.meaning("status.check", 1)
         self.assertEqual(c, "dirty")

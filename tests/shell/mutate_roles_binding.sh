@@ -1546,6 +1546,35 @@ m=$(l7_mutant l7_either 'unfed = [k for k in want if k in links and got(k, "sour
 l7_report "L7-22: \"declared or heartbeat\" (the looser rule) is accepted" "$m" \
           "L1 the heartbeat never fed the proxy (all declared)"
 
+# [Co-developed with claude code -- Adam] Round 2b (the opus judge's N3-1 / N3-2 on e012a5a7): HEARD
+# means an age, and L6/L1 on switch_state -- state_until and the live path's two calls -- run in
+# the self-test through file://.
+m=$(l7_mutant l7_unheard 'unheard = [k for k in want if k in links and got(k, "source") == "heartbeat" and got(k, "down") is False
+           and not number(got(k, "last_beacon_age_s"))]' 'unheard = []')
+l7_report "L7-23: a direction in the startup grace counts as heard" "$m" \
+          "L1 a direction never heard yet (the startup grace)"
+
+m=$(l7_mutant l7_until '        [[ "$v" == OK* ]] && break
+        (( $(date +%s) >= deadline )) && break
+        sleep 2' '        break')
+l7_report "L7-24: state_until stops after one read whatever it said" "$m" \
+          "  state_until through the startup grace"
+
+m=$(l7_mutant l7_plaincaps '        "$CAPS_UNBOUND" "$SKIPPED_UNBOUND" " (unbound)"' \
+    '        "$CAPS_OWNED" "$SKIPPED_UNBOUND" " (unbound)"')
+l7_report "L7-25: the unbound call site checks the owned capabilities" "$m" \
+          "L6/L1 on switch_state (unbound)"
+
+m=$(l7_mutant l7_judgev '        judge "$v" "L1 declared links on switch_state, fed by the heartbeat$sfx"' \
+    '        judge "OK stub" "L1 declared links on switch_state, fed by the heartbeat$sfx"')
+l7_report "L7-26: L1 on switch_state is judged OK whatever the poll ended on" "$m" \
+          "  never heard within the poll"
+
+m=$(l7_mutant l7_nostate '    if [[ -s "$out" ]]; then
+        judge "$(caps_are "$out" "$caps")"' '    if true; then
+        judge "$(caps_are "$out" "$caps")"')
+l7_report "L7-27: no switch_state at all is judged, not failed" "$m" "  no switch_state at all"
+
 # --- negative controls: edits no suite specifies, which must stay GREEN -------------------------
 
 control() {  # $1 = label, $2 = mutant dir

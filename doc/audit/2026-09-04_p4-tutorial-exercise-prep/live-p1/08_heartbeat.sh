@@ -156,6 +156,7 @@ INJECTED_IFACES=()
 SAMPLER_PID=""
 SAMPLER_STOP=""
 SAMPLER_ERR=""
+SAMPLER_OUT=""
 #: The last cut's and restore's instants: $EPOCHREALTIME just before and just after each end's tc
 #: call (end A is s<a>-eth<ap>, whose egress carries a->b; end B carries b->a).
 CUT_A_START=""; CUT_A_END=""; CUT_B_START=""; CUT_B_END=""
@@ -535,6 +536,17 @@ def samples(path):
             out.append({"t": float(f[0]), "status": f[1], "session": f[2], "hosts": f[4]})
     return out
 
+#: The longest stretch without a sample a sampler that reads every 1 s may leave (load, a slow
+#: read) before the stretch counts as NOT MEASURED. [Co-developed with claude code -- Adam]
+MAX_SAMPLE_GAP_S = 10.0
+
+def sample_gaps(ss, t0, t1):
+    """[(from, to)] of every stretch of [t0, t1) longer than MAX_SAMPLE_GAP_S without a sample --
+    the edges included (the opus judge's N2-1: a sampler that stopped reading part-way)."""
+    ts = sorted(s["t"] for s in ss if t0 <= s["t"] < t1)
+    marks = [t0] + ts + [t1]
+    return [(a, b) for a, b in zip(marks, marks[1:]) if b - a > MAX_SAMPLE_GAP_S]
+
 def v_h5_heartbeat(samples_path, tbl, end, expected):
     want = set(expected.split())
     ss = samples(samples_path)
@@ -555,15 +567,27 @@ def v_h5_heartbeat(samples_path, tbl, end, expected):
         return f"STOP ruling 4: a sample counted forwarded_to_hosts {leak[0]['hosts']} at {leak[0]['t']:.0f}"
     if not ss:
         return "BAD the sampler recorded nothing"
+    windows = arm_windows(tbl, end)
+    gaps = sample_gaps(ss, windows[0][1], float(end)) if windows else []
+    if gaps:
+        return (f"BAD the sampler did not read for {len(gaps)} stretch(es) of 06, e.g. {gaps[0][1] - gaps[0][0]:.0f} s "
+                f"from {gaps[0][0]:.0f}: a session there was not seen, so the arms there are not measured")
     if bad:
         return f"BAD {len(bad)} arm(s) not as expected: " + "; ".join(bad[:4])
     return f"OK a heartbeat ran on exactly the {had} expected arm(s); no host-port frame in {len(ss)} samples"
 
 def v_no_session(samples_path, t0, t1):
-    new = sorted({s["session"] for s in samples(samples_path)
-                  if s["status"] == "running" and float(t0) <= s["t"] < float(t1)})
-    return "OK no heartbeat session ran during 01 (NDTwin's own pipeline)" if not new \
-        else f"BAD a heartbeat ran during 01: {new}"
+    ss = samples(samples_path)
+    new = sorted({s["session"] for s in ss if s["status"] == "running" and float(t0) <= s["t"] < float(t1)})
+    if new:
+        return f"BAD a heartbeat ran during 01: {new}"
+    # [Co-developed with claude code -- Adam] "no session seen" is only a reading where the sampler
+    # was reading (the opus judge's N2-1): no sample, or a stretch without one, is not measured.
+    gaps = sample_gaps(ss, float(t0), float(t1))
+    if gaps:
+        return (f"BAD 01's window was not sampled throughout: {gaps[0][1] - gaps[0][0]:.0f} s without a read "
+                f"from {gaps[0][0]:.0f}" + (" (no sample at all)" if len(gaps) == 1 and gaps[0] == (float(t0), float(t1)) else ""))
+    return "OK no heartbeat session ran during 01 (NDTwin's own pipeline)"
 
 name, args = sys.argv[1], sys.argv[2:]
 try:
@@ -722,6 +746,7 @@ SAMPLER
 # `fail` with what it said (its stderr is $RUN/50_sampler.err) and 1: the caller must not go on.
 sampler_start() {
     local out="$1" i
+    SAMPLER_OUT="$out"
     SAMPLER_STOP="$RUN/.sampler.stop"
     SAMPLER_ERR="$RUN/50_sampler.err"
     rm -f "$SAMPLER_STOP"
@@ -740,8 +765,22 @@ sampler_start() {
     sampler_stop
     return 1
 }
+# [Co-developed with claude code -- Adam] The opus judge's N2-1 on f4f43a32: a sampler that died
+# after a good start ends the run FAIL -- checked BEFORE the stop file is written (a sampler
+# killed by a signal leaves no stderr), by pid AND argv (a reaped pid can be reused) -- and so
+# does a sampler that wrote to its stderr (`fail`, not `bad`: `bad` only prints).
+sampler_alive() {
+    [[ -n "$SAMPLER_PID" ]] && kill -0 "$SAMPLER_PID" 2>/dev/null \
+        && tr '\0' ' ' < "/proc/$SAMPLER_PID/cmdline" 2>/dev/null | /usr/bin/grep -qF "$SAMPLER_STOP"
+}
 sampler_stop() {
     [[ -n "$SAMPLER_PID" ]] || return 0
+    # (it also exits by itself after 5 h -- far longer than H5 -- which is still a run it did not sample to the end)
+    if ! sampler_alive; then
+        local said=""
+        [[ -s "${SAMPLER_ERR:-}" ]] && said="; its stderr: $(head -c 200 "$SAMPLER_ERR" | tr '\n' ' ')"
+        fail "H5: the report sampler (pid $SAMPLER_PID) was not running when the run came to stop it -- its samples end early (the last row of $(basename "${SAMPLER_OUT:-50_samples.tsv}") says when)$said"
+    fi
     : > "$SAMPLER_STOP"
     local i
     for i in 1 2 3 4 5 6 7 8 9 10; do kill -0 "$SAMPLER_PID" 2>/dev/null || break; sleep 0.5; done
@@ -749,7 +788,7 @@ sampler_stop() {
        && tr '\0' ' ' < "/proc/$SAMPLER_PID/cmdline" 2>/dev/null | /usr/bin/grep -qF "$SAMPLER_STOP"; then
         kill "$SAMPLER_PID" 2>/dev/null || true
     fi
-    [[ -s "${SAMPLER_ERR:-}" ]] && bad "the report sampler wrote to its stderr: $(head -c 300 "$SAMPLER_ERR" | tr '\n' ' ')"
+    [[ -s "${SAMPLER_ERR:-}" ]] && fail "H5: the report sampler wrote to its stderr: $(head -c 300 "$SAMPLER_ERR" | tr '\n' ' ')"
     SAMPLER_PID=""
 }
 
@@ -1245,20 +1284,27 @@ tbl(arms[:25], "table_short.tsv")
 expected = {"basic/skeleton","basic/solution","source_routing/skeleton","source_routing/solution","basic_tunnel/solution",
             "load_balance/skeleton","load_balance/solution","qos/skeleton","qos/solution","link_monitor/skeleton",
             "link_monitor/solution","firewall/skeleton","firewall/solution","ecn/skeleton","ecn/solution","mri/skeleton","mri/solution"}
-def sampled(name, hosts=0, drop=None, extra=None):
+# [Co-developed with claude code -- Adam] A read every 5 s through 06 AND on through 01 (100 s after
+# T_END), as a sampler that lived to be stopped writes; `hole` leaves a stretch out (one that died).
+def sampled(name, hosts=0, drop=None, extra=None, hole=None):
     with open(os.path.join(t, name), "w") as fh:
         fh.write("wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches\n")
         for i, (e, w, *_r) in enumerate(arms):
             arm = f"{e}/{w}"
             for k in range(0, 100, 5):
                 ts = T0 + 100 * i + k
+                if hole and hole[0] <= ts < hole[1]:
+                    continue
                 on = (arm in expected and arm != drop) or arm == extra
                 if on and 10 <= k < 90:
                     fh.write(f"{ts}\trunning\tsess{i:02d}\t{1000+i}\t{hosts if k == 50 else 0}\t0\n")
                 else:
                     fh.write(f"{ts}\tstopped\tsess{max(i-1,0):02d}\t-\t0\t0\n")
+        for k in range(0, 100, 5):
+            fh.write(f"{T0 + 100 * len(arms) + k}\tstopped\tsess{len(arms) - 1:02d}\t-\t0\t0\n")
 sampled("samples_ok.tsv"); sampled("samples_missing.tsv", drop="qos/solution")
 sampled("samples_extra.tsv", extra="calc/solution"); sampled("samples_leak.tsv", hosts=1)
+sampled("samples_gap.tsv", hole=(T0 + 400, T0 + 900))
 open(os.path.join(t, "T_END"), "w").write(str(T0 + 100 * len(arms)))
 PY
     local cut="1 3 3 1" tend; tend="$(cat "$t/T_END")"
@@ -1318,6 +1364,61 @@ PY
     expect STOP "H5 ruling 4 in a sample"                            "$(verdict h5_heartbeat "$t/samples_leak.tsv" "$t/table_same.tsv" "$tend" "$HB_ARMS")"
     expect OK   "H5 no session during 01"                            "$(verdict no_session "$t/samples_ok.tsv" "$tend" "$((tend + 100))")"
     expect BAD  "H5 a session during 01"                             "$(verdict no_session "$t/samples_ok.tsv" 0 "$tend")"
+    # --- H5's sampler dying AFTER a good start (the opus judge's N2-1 on f4f43a32) -------------------
+    # [Co-developed with claude code -- Adam] sampler_start's check only covers the start. A sampler
+    # killed later (a signal: no stderr at all) or one that complained on its stderr must still end
+    # the WHOLE run FAIL -- read on the run's last line, through the real sampler_start /
+    # sampler_stop and the real teardown (w_finish -> finish), as H5 runs them (no claim).
+    st_h5_dies() {   # st_h5_dies <kill|stderr|healthy> -> the run's output
+        local d
+        d="$(mktemp -d "$t/h5d-XXXXXX")"
+        printf '#!/usr/bin/env bash\nexit 0\n' > "$d/ndt"; chmod +x "$d/ndt"
+        ( STEP=08_heartbeat; RUN="$d/run"; mkdir -p "$RUN"; CLAIMED=0; VERDICT_RC=0; VERDICT_WHY=""; FABRIC_UP=0
+          INJECTED_IFACES=(); NDT="$d/ndt"; REAL_NDT="$d/ndt"; APP_KNOB="$d/none"
+          KNOB_ENTRY_COPY=""; TEL_ENTRY_COPY=""; CTRL_PID=""; TEARDOWN_DOWN_RC=""
+          SAMPLER_PID=""; SAMPLER_STOP=""; SAMPLER_ERR=""; SAMPLER_INTERVAL_S=0.1; HB_REPORT_FILE="$d/report.json"
+          if [[ "$1" == stderr ]]; then
+              SAMPLER_PY="import sys
+sys.stderr.write('a warning the sampler printed\n'); sys.stderr.flush()
+$SAMPLER_PY"
+          fi
+          sampler_start "$RUN/50_samples.tsv" || echo "sampler_start answered $?"
+          if [[ "$1" == kill ]]; then kill -9 "$SAMPLER_PID" 2>/dev/null; sleep 0.4; fi
+          sleep 0.3
+          sampler_stop
+          ( exit 0 ); w_finish ) 2>&1
+    }
+    out="$(st_h5_dies kill)" || true
+    got="$(tail -1 <<<"$out")"
+    [[ "$got" == "FAIL 08_heartbeat -- H5: the report sampler"*"was not running"* && "$out" != *"sampler_start answered"* ]] \
+        && ok "H5 sampler killed after a good start: sampler_start said 0, and the run's last line is FAIL" \
+        || red "H5 sampler killed after a good start: the run ended '$got'"
+    out="$(st_h5_dies stderr)" || true
+    got="$(tail -1 <<<"$out")"
+    [[ "$got" == "FAIL 08_heartbeat -- H5: the report sampler wrote to its stderr"*"a warning the sampler printed"* ]] \
+        && ok "  H5 sampler with a warning on its stderr: the run's last line is FAIL and quotes it" \
+        || red "  H5 sampler with a warning on its stderr: the run ended '$got'"
+    out="$(st_h5_dies healthy)" || true
+    got="$(tail -1 <<<"$out")"
+    [[ "$got" == "PASS 08_heartbeat" ]] && ok "  the control: a sampler that ran and stopped cleanly ends PASS" \
+                                         || red "  a healthy sampler's run ended '$got'"
+    # sampler_alive asks by argv too: a live pid that is not this sampler (a reaped pid, reused) is
+    # not the sampler. [Co-developed with claude code -- Adam]
+    got="$( sleep 20 & other=$!
+            SAMPLER_PID="$other"; SAMPLER_STOP="$t/.no-such-sampler.stop"
+            sampler_alive && echo "alive" || echo "not the sampler"
+            kill "$other" 2>/dev/null; wait "$other" 2>/dev/null )" || true
+    [[ "$got" == "not the sampler" ]] && ok "  sampler_alive: a live pid that is not the sampler (a reused pid) does not count" \
+                                      || red "  sampler_alive with a reused pid said '$got'"
+    # the verdicts read a sampler that stopped reading, not only one that recorded nothing
+    expect BAD  "H5 01 with no sample in its window"                  "$(verdict no_session "$t/samples_ok.tsv" "$((tend + 10000))" "$((tend + 10100))")"
+    expect BAD  "H5 a sampler that stopped reading for 500 s mid-06"  "$(verdict h5_heartbeat "$t/samples_gap.tsv" "$t/table_same.tsv" "$tend" "$HB_ARMS")"
+    expect BAD  "H5 01 where the sampler stopped half-way"            "$(verdict no_session "$t/samples_ok.tsv" "$((tend + 50))" "$((tend + 200))")"
+    # consts: the proxy's own constants, the one embedded program only the live path ran (the
+    # judge's N2-2)
+    got="$(consts)" || true
+    [[ "$got" == "5 15 5" ]] && ok "consts: the proxy's beacon interval, timeout and watchdog interval, imported (5 15 5)" \
+                             || red "consts gave '$got'"
     expect BAD  "an unreadable capture is BAD, not a traceback"      "$(verdict caps "$t/nonexistent.json" true heartbeat)"
     # --- the cut's phase: planned from the report, recorded from it ------------------------------
     printf '{"directions": [{"tx": {"dpid": 1, "port": 3}, "rx": {"dpid": 3, "port": 1}, "last_heard_mono": 100.25},
