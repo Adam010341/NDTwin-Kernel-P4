@@ -13,7 +13,8 @@
 # sniffer watch, detection cycle (against a fake tc), one census arm and census table against
 # stubs -- one input that must pass and one that must fail per verdict -- and touches nothing
 # else. spike/oldcode_selftest.sh puts the set -e fixes of round 4 and each fix of round 5 back to
-# their old form in a copy and shows that exactly the checks written for them go red.
+# their old form in a copy (and the round-6 checks' code to a wrong form) and shows that exactly the
+# checks written for them go red; its --self-check shows its own verdict going red on wrong input.
 #
 # PART=detect  (≈ 15 min)  pod-topo `--app basic` (the exercise's own solution pipeline, converted
 #   the way 06 converts it). The heartbeat runs; an OUT-OF-BAND `tc netem loss 100%` goes on BOTH
