@@ -353,10 +353,12 @@ class OneRuleOneConstantTest(unittest.TestCase):
     """The report path is the helper's; the period the proxy compares with is its own LLDP one."""
 
     def test_the_report_path_is_the_one_the_root_helper_writes(self):
+        # The daemon's own definition (the helper's embedded program): its RUN_DIR and the one
+        # tuple naming the files in it -- what it WRITES, not a sentence about it.
         with open(HELPER) as fh:
             text = fh.read()
-        run_dir = re.search(r"^HB_RUN_DIR=(\S+)$", text, re.M).group(1)
-        self.assertIn('$HB_RUN_DIR/heartbeat.json', text)
+        run_dir = re.search(r'^RUN_DIR = "([^"]+)"$', text, re.M).group(1)
+        self.assertRegex(text, r'\("heartbeat\.pid", "heartbeat\.lock", "heartbeat\.json"\)')
         self.assertEqual(hb.REPORT_PATH, f"{run_dir}/heartbeat.json")
 
     def test_the_owner_is_the_uid_the_helper_expects_of_its_daemon(self):

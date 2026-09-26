@@ -873,6 +873,7 @@ PY
     expect BAD  "H1 nothing down"                                    "$(verdict cut_down "$t/graph_up.json" $cut)"
     expect OK   "H1 back up both ways"                               "$(verdict cut_up "$t/graph_up.json" $cut)"
     expect BAD  "H1 still down"                                      "$(verdict cut_up "$t/graph_cut.json" $cut)"
+    expect BAD  "H1 only one direction back up"                      "$(verdict cut_up "$t/graph_half.json" $cut)"
     expect OK   "H1 the cable routes use is picked"                  "$(verdict pick_cut "$t/before" "$CABLES")"
     got="$(verdict pick_cut "$t/before" "$CABLES")"
     [[ "$got" == "OK 1 3 3 1" ]] && ok "  and it is s1-s3, the first used one" || red "  pick_cut chose: $got"

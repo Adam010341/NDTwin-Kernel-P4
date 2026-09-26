@@ -390,6 +390,10 @@ class ReportExternalLinkStateWithATimeTest(unittest.TestCase):
         return self.topo._link_beacons[self.LINK]
 
     def test_a_heard_report_enters_the_time_it_was_heard_not_now(self):
+        # Twice: the first report creates the entry, the second updates one -- the steady state,
+        # and the branch a second rule ("heard, so up as of now") would hide in.
+        self.topo.report_external_link_state(*self.LINK, up=True, source="heartbeat",
+                                             at=self.clock.now - 9.0)
         self.topo.report_external_link_state(*self.LINK, up=True, source="heartbeat",
                                              at=self.clock.now - 7.0)
         self.assertEqual(self.entry()["at"], self.clock.now - 7.0)

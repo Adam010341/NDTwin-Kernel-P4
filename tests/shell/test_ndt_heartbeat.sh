@@ -282,7 +282,7 @@ check "  and no rollback happened"                               "0" "$(count_of
 reset_fix
 OUT="$(drive "export HB_START_RC=3; NDT_APP_DIR=$(q "$PKG_FOREIGN"); up_p4")"
 check "  rc 3 (no inter-switch link): rc 0"                      "0" "$(rc_of "$OUT")"
-has   "  said as what it is"                                     "no inter-switch link" "$OUT"
+has   "  said as what it is, in ndt's own words"                 "nothing to watch -- this fabric has no inter-switch link" "$OUT"
 hasnt "🔴 and not as a failure"                                  "did NOT start" "$OUT"
 
 # =============================================================================================
@@ -386,13 +386,17 @@ has   "🔴 cmd_status prints the heartbeat row"                   "HEARTBEAT-RO
 # =============================================================================================
 section "7. the paths are the root helper's own"
 # =============================================================================================
-helper_dir="$(sed -n 's/^HB_RUN_DIR=//p' "$HELPER")"
+# The daemon's own definition: its RUN_DIR, and the one tuple naming the three files in it
+# (the helper's embedded program, `run_files`). The bash half's HB_RUN_DIR is the helper's own
+# business to keep equal; this pins what the daemon WRITES.
+helper_dir="$(sed -n 's/^RUN_DIR = "\(.*\)"$/\1/p' "$HELPER")"
+files_line="$(/usr/bin/grep -F '"heartbeat.lock"' "$HELPER" | head -1)"
 ndt_pid="$(sed -n 's/^HB_PIDFILE=//p' "$NDT")"
 ndt_rep="$(sed -n 's/^HB_REPORT=//p' "$NDT")"
 check "🔴 ndt's pidfile is the helper's HB_PIDFILE"              "$helper_dir/heartbeat.pid" "$ndt_pid"
-has   "  (which the helper spells that way)"                     'HB_PIDFILE=$HB_RUN_DIR/heartbeat.pid' "$(cat "$HELPER")"
+has   "  (which the helper spells that way)"                     '"heartbeat.pid"' "$files_line"
 check "🔴 ndt's report is the file the helper's daemon writes"   "$helper_dir/heartbeat.json" "$ndt_rep"
-has   "  (which the helper names that way)"                      '$HB_RUN_DIR/heartbeat.json' "$(cat "$HELPER")"
+has   "  (which the helper names that way)"                      '"heartbeat.json"' "$files_line"
 
 echo
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"
