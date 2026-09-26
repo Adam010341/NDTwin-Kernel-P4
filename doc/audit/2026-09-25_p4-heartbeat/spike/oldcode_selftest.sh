@@ -81,6 +81,8 @@ REVERTS = {
         ("a detection part that fails its first check ended the run under set -e: rc 1", ""),
         # added in round 5: the census arm's clean window is the same bare watch_hit, at its call site
         ("a census arm with the new daemon's report: died", ""),
+        # added in round 7: a `loss 100%` residue (firstlossy) ends detect at that same first check
+        ("a residue shaped loss 100%: rc 1", "6/8 directions heard"),
     ]),
     "R4-1": ("the whole R4-1 fix: census's old session block, wait_session's old call, hb_watch's old `session`", [
         ("watch", '        print(session_of(load(argv[2]), int(argv[3])))\n',
