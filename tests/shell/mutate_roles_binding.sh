@@ -1575,6 +1575,17 @@ m=$(l7_mutant l7_nostate '    if [[ -s "$out" ]]; then
         judge "$(caps_are "$out" "$caps")"')
 l7_report "L7-27: no switch_state at all is judged, not failed" "$m" "  no switch_state at all"
 
+# [Co-developed with claude code -- Adam] R-N2 (09-27): the live L1 poll is an argument, 30 s
+# when the live path passes none -- never read from the environment.
+m=$(l7_mutant l7_envpoll '    v="$(state_until "$poll" l1_links_verdict "$out" "$model")"' \
+    '    v="$(state_until "${L1_POLL_S:-$poll}" l1_links_verdict "$out" "$model")"')
+l7_report "L7-28: the caller's L1_POLL_S shortens the live poll again" "$m" \
+          "  an inherited L1_POLL_S does not shorten the live poll"
+m=$(l7_mutant l7_shortpoll '        "$CAPS_OWNED" "$SKIPPED_OWNED" "" "L6: no switch_state" "${1:-30}"' \
+    '        "$CAPS_OWNED" "$SKIPPED_OWNED" "" "L6: no switch_state" "${1:-2}"')
+l7_report "L7-29: the live path's own poll is 2 s, not 30" "$m" \
+          "  an inherited L1_POLL_S does not shorten the live poll"
+
 # --- negative controls: edits no suite specifies, which must stay GREEN -------------------------
 
 control() {  # $1 = label, $2 = mutant dir

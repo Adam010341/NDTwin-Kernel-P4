@@ -87,6 +87,50 @@ for f in "${SOURCES[@]}"; do BASE_SHA["$f"]=$(sha256sum "$f" | cut -d' ' -f1); d
 SURVIVORS=0
 MUTATIONS=0
 
+# === 08's mutant tree, and what it may reach (the opus judge's R-N1, 09-27) ========================
+# [Co-developed with claude code -- Adam] 08's self-test runs in a tree of COPIES (08, _common.sh,
+# faults.sh, ...) plus links to what it only READS: the proxy's constants (consts imports
+# proxy_agent) and the venv's interpreter. _common.sh names the lab-state knobs relative to that
+# tree -- $REPO/p4_proxy/mininet/{host_count_override,app_package_override,telemetry_override} --
+# so a link to the whole of p4_proxy puts the checkout's real knobs inside every mutant tree, and
+# a mutant that writes a knob writes the checkout's. ltree builds the tree; ltree_leaks names every
+# way out of it other than the two read-only links; the gate refuses before any mutation runs if
+# there is one, and checks that the leak check sees a whole-p4_proxy link (its control).
+ltree() {   # ltree <dir>
+    local d="$1"
+    mkdir -p "$d/$LIVE_DIR_REL" "$d/tools/test_workflow" "$d/doc/audit/2026-09-25_p4-heartbeat/spike" "$d/tmp"
+    cp "$REPO/$LIVE_DIR_REL/_common.sh" "$LIVE08" "$d/$LIVE_DIR_REL/"
+    cp "$REPO/tools/test_workflow/faults.sh" "$REPO/tools/test_workflow/qdisc_snapshot.sh" "$d/tools/test_workflow/"
+    cp "$REPO/doc/audit/2026-09-25_p4-heartbeat/spike/census_prepare.py" "$d/doc/audit/2026-09-25_p4-heartbeat/spike/"
+    mkdir -p "$d/p4_proxy"   # a real directory: its mininet/ (the knobs) is simply not there
+    ln -s "$REPO/p4_proxy/proxy_agent" "$d/p4_proxy/proxy_agent"
+    ln -s "$REPO/p4_proxy/venv" "$d/p4_proxy/venv"
+}
+ltree_leaks() {   # ltree_leaks <dir> -> one line per way out of the tree; nothing when sealed
+    local d="$1" k l
+    for k in host_count_override app_package_override telemetry_override; do
+        [[ -e "$d/p4_proxy/mininet/$k" ]] && echo "p4_proxy/mininet/$k resolves to $(readlink -f "$d/p4_proxy/mininet/$k")"
+    done
+    while IFS= read -r l; do
+        case "${l#"$d"/}" in
+            p4_proxy/proxy_agent|p4_proxy/venv) ;;
+            *) echo "${l#"$d"/} is a link to $(readlink -f "$l")" ;;
+        esac
+    done < <(find "$d" -type l)
+}
+lprobe="$BK/ltree-probe"; ltree "$lprobe"
+lleaks="$(ltree_leaks "$lprobe")"
+lctl="$BK/ltree-control"; mkdir -p "$lctl"; ln -s "$REPO/p4_proxy" "$lctl/p4_proxy"
+if [[ -z "$(ltree_leaks "$lctl")" ]]; then
+    echo "REFUSE: the leak check sees nothing in a tree that links all of p4_proxy -- it proves nothing"; exit 2
+fi
+if [[ -n "$lleaks" ]]; then
+    echo "REFUSE: 08's mutant tree reaches out of itself -- a mutant could write the checkout's lab state:"
+    sed 's/^/  /' <<<"$lleaks"; exit 2
+fi
+echo "08's mutant tree: only p4_proxy/proxy_agent and p4_proxy/venv lead out of it, and no lab-state knob is in it"
+rm -rf "$lprobe" "$lctl"
+
 # === the proxy ====================================================================================
 lay_out() {   # $1 = a directory to become a repo-shaped copy
     local d="$1"
@@ -1065,12 +1109,7 @@ echo "08_heartbeat.sh --self-test"
 lmutant() {   # $1 = label, $2 = file (08), $3 = the anchor, $4 = its replacement
     local label="$1" file="$2" old="$3" new="$4"
     local d="$BK/$label"
-    mkdir -p "$d/$LIVE_DIR_REL" "$d/tools/test_workflow" "$d/doc/audit/2026-09-25_p4-heartbeat/spike" "$d/tmp"
-    cp "$REPO/$LIVE_DIR_REL/_common.sh" "$LIVE08" "$d/$LIVE_DIR_REL/"
-    cp "$REPO/tools/test_workflow/faults.sh" "$REPO/tools/test_workflow/qdisc_snapshot.sh" "$d/tools/test_workflow/"
-    cp "$REPO/doc/audit/2026-09-25_p4-heartbeat/spike/census_prepare.py" "$d/doc/audit/2026-09-25_p4-heartbeat/spike/"
-    # [Co-developed with claude code -- Adam] the proxy, READ by the self-test's consts (never written)
-    ln -s "$REPO/p4_proxy" "$d/p4_proxy"
+    ltree "$d"   # [Co-developed with claude code -- Adam] (R-N1: the one builder, checked above)
     python3 - "$d/$LIVE_DIR_REL/$(basename "$file")" "$old" "$new" <<'PY'
 import sys
 p, a, b = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -1096,11 +1135,8 @@ lreport() {   # $1 = mutation name, $2 = mutant dir, $3 = the self-test case tha
     rm -rf "$2"
 }
 lb="$BK/lbase"
-mkdir -p "$lb/$LIVE_DIR_REL" "$lb/tools/test_workflow" "$lb/doc/audit/2026-09-25_p4-heartbeat/spike" "$lb/tmp"
-cp "$REPO/$LIVE_DIR_REL/_common.sh" "$LIVE08" "$lb/$LIVE_DIR_REL/"
-cp "$REPO/tools/test_workflow/faults.sh" "$REPO/tools/test_workflow/qdisc_snapshot.sh" "$lb/tools/test_workflow/"
-cp "$REPO/doc/audit/2026-09-25_p4-heartbeat/spike/census_prepare.py" "$lb/doc/audit/2026-09-25_p4-heartbeat/spike/"
-ln -s "$REPO/p4_proxy" "$lb/p4_proxy"
+ltree "$lb"
+[[ -z "$(ltree_leaks "$lb")" ]] || { echo "REFUSE: the baseline tree leaks: $(ltree_leaks "$lb" | paste -sd';' -)"; exit 2; }
 if [[ "$(lrun "$lb" | tail -1)" == "SELF-TEST PASS" ]]; then
     echo "  08 self-test baseline: SELF-TEST PASS"
 else

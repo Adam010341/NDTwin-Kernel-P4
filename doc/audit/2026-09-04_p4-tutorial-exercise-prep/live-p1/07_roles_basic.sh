@@ -367,13 +367,16 @@ state_until() {
     printf '%s\n' "$v"
 }
 
-# l6_switch_state <out> <model> <caps> <skipped> <label suffix> <no-state message> -- L6's two
-# capability checks and L1 on switch_state, on the capture state_until's poll ends on.
-# l6_roles / l6_plain are the live path's two calls, arguments and all -- functions so that the
-# self-test executes them (the opus judge's N3-2). [Co-developed with claude code -- Adam]
+# l6_switch_state <out> <model> <caps> <skipped> <label suffix> <no-state message> <poll s> -- L6's
+# two capability checks and L1 on switch_state, on the capture state_until's poll ends on.
+# l6_roles / l6_plain [poll s] are the live path's two calls, arguments and all -- functions so
+# that the self-test executes them (the opus judge's N3-2). [Co-developed with claude code -- Adam]
+# 🔴 THE POLL IS AN ARGUMENT, NEVER THE ENVIRONMENT (R-N2, 09-27): the live path calls them with
+# none and gets 30 s; only the self-test passes a shorter one. It used to be ${L1_POLL_S:-30}, and
+# any caller that exported L1_POLL_S cut the live wait for the first watchdog pass.
 l6_switch_state() {
-    local out="$1" model="$2" caps="$3" skipped="$4" sfx="$5" none="$6" v
-    v="$(state_until "${L1_POLL_S:-30}" l1_links_verdict "$out" "$model")"
+    local out="$1" model="$2" caps="$3" skipped="$4" sfx="$5" none="$6" poll="$7" v
+    v="$(state_until "$poll" l1_links_verdict "$out" "$model")"
     if [[ -s "$out" ]]; then
         judge "$(caps_are "$out" "$caps")" "L6 capabilities$sfx"
         judge "$(skipped_is "$out" "$skipped")" "L6 control_plane.skipped$sfx"
@@ -384,11 +387,11 @@ l6_switch_state() {
 }
 l6_roles() {
     l6_switch_state "$RUN/30_switch_state_roles.json" "$PKG_ROLES/ndtwin/topology.json" \
-        "$CAPS_OWNED" "$SKIPPED_OWNED" "" "L6: no switch_state"
+        "$CAPS_OWNED" "$SKIPPED_OWNED" "" "L6: no switch_state" "${1:-30}"
 }
 l6_plain() {
     l6_switch_state "$RUN/71_switch_state_plain.json" "$PKG_PLAIN/ndtwin/topology.json" \
-        "$CAPS_UNBOUND" "$SKIPPED_UNBOUND" " (unbound)" "L6: no switch_state on the control fabric"
+        "$CAPS_UNBOUND" "$SKIPPED_UNBOUND" " (unbound)" "L6: no switch_state on the control fabric" "${1:-30}"
 }
 
 # --- --self-test: every verdict against a capture it must pass and one it must fail ------------
@@ -566,12 +569,12 @@ PY
         local px d
         px="$(mktemp -d "$t/px-XXXXXX")"; mkdir -p "$px/p4"
         [[ "$2" == - ]] || cp "$t/$2" "$px/p4/switch_state"
-        ( RUN="$px"; PROXY_URL="file://$px"; PKG_ROLES="$t/pkg"; PKG_PLAIN="$t/pkg"; L1_POLL_S="$4"
+        ( RUN="$px"; PROXY_URL="file://$px"; PKG_ROLES="$t/pkg"; PKG_PLAIN="$t/pkg"
           note() { :; }; judge() { echo "J $2: ${1:0:70}"; }; fail() { echo "F $*"; }
           if [[ "$3" != - ]]; then
               ( sleep 2.5; cp "$t/$3" "$px/p4/switch_state.tmp"; mv "$px/p4/switch_state.tmp" "$px/p4/switch_state" ) &
           fi
-          "l6_$1"
+          "l6_$1" "$4"
           wait
           d="$(ls "$px"/*.polls 2>/dev/null | head -1)"
           echo "polls $( [[ -n "$d" ]] && wc -l < "$d" || echo 0)" ) 2>&1
@@ -599,6 +602,29 @@ PY
     got="$(st_l6 roles - - 2)" || true
     [[ "$got" == *"F L6: no switch_state"* ]] && ok "  no switch_state at all: a fail, not a pass" \
                                             || red "  no switch_state at all -- $(tr '\n' '|' <<<"$got")"
+    # [Co-developed with claude code -- Adam] R-N2 (the opus judge, 09-27): the live path's poll is
+    # 30 s whatever the environment says. The live call as the live path makes it -- l6_roles with
+    # no argument -- with L1_POLL_S=2 (and SELFTEST_L1_POLL_S=2) in its environment, on a
+    # switch_state that is never heard: 6.5 s in, it must still be polling (no judgement yet, more
+    # than one read). An inherited 2 s would have judged it BAD by then.
+    st_l6_inherited() {
+        local px pid
+        px="$(mktemp -d "$t/px-XXXXXX")"; mkdir -p "$px/p4"; cp "$t/state_grace.json" "$px/p4/switch_state"
+        ( export L1_POLL_S=2 SELFTEST_L1_POLL_S=2
+          RUN="$px"; PROXY_URL="file://$px"; PKG_ROLES="$t/pkg"
+          note() { :; }; judge() { echo "J $2: ${1:0:70}"; }; fail() { echo "F $*"; }
+          l6_roles ) > "$px/out" 2>&1 &
+        pid=$!
+        sleep 6.5
+        kill "$pid" 2>/dev/null; wait "$pid" 2>/dev/null
+        echo "judged $(/usr/bin/grep -c '^[JF] ' "$px/out") polls $(cat "$px"/*.polls 2>/dev/null | wc -l)"
+    }
+    got="$(st_l6_inherited)" || true
+    if [[ "$got" == "judged 0 polls "* && "${got##* }" -ge 2 ]]; then
+        ok "  an inherited L1_POLL_S=2 does not shorten the live poll: still polling at 6.5 s ($got)"
+    else
+        red "  an inherited L1_POLL_S does not shorten the live poll -- $got"
+    fi
     got="$(st_l6 plain state_plain.json - 4)" || true
     if [[ "$got" == *"J L6 capabilities (unbound): OK"* && "$got" == *"J L6 control_plane.skipped (unbound): OK"* \
           && "$got" == *"J L1 declared links on switch_state, fed by the heartbeat (unbound): OK"* ]]; then
