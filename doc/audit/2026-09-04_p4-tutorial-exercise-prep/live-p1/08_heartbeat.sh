@@ -1245,20 +1245,27 @@ tbl(arms[:25], "table_short.tsv")
 expected = {"basic/skeleton","basic/solution","source_routing/skeleton","source_routing/solution","basic_tunnel/solution",
             "load_balance/skeleton","load_balance/solution","qos/skeleton","qos/solution","link_monitor/skeleton",
             "link_monitor/solution","firewall/skeleton","firewall/solution","ecn/skeleton","ecn/solution","mri/skeleton","mri/solution"}
-def sampled(name, hosts=0, drop=None, extra=None):
+# [Co-developed with claude code -- Adam] A read every 5 s through 06 AND on through 01 (100 s after
+# T_END), as a sampler that lived to be stopped writes; `hole` leaves a stretch out (one that died).
+def sampled(name, hosts=0, drop=None, extra=None, hole=None):
     with open(os.path.join(t, name), "w") as fh:
         fh.write("wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches\n")
         for i, (e, w, *_r) in enumerate(arms):
             arm = f"{e}/{w}"
             for k in range(0, 100, 5):
                 ts = T0 + 100 * i + k
+                if hole and hole[0] <= ts < hole[1]:
+                    continue
                 on = (arm in expected and arm != drop) or arm == extra
                 if on and 10 <= k < 90:
                     fh.write(f"{ts}\trunning\tsess{i:02d}\t{1000+i}\t{hosts if k == 50 else 0}\t0\n")
                 else:
                     fh.write(f"{ts}\tstopped\tsess{max(i-1,0):02d}\t-\t0\t0\n")
+        for k in range(0, 100, 5):
+            fh.write(f"{T0 + 100 * len(arms) + k}\tstopped\tsess{len(arms) - 1:02d}\t-\t0\t0\n")
 sampled("samples_ok.tsv"); sampled("samples_missing.tsv", drop="qos/solution")
 sampled("samples_extra.tsv", extra="calc/solution"); sampled("samples_leak.tsv", hosts=1)
+sampled("samples_gap.tsv", hole=(T0 + 400, T0 + 900))
 open(os.path.join(t, "T_END"), "w").write(str(T0 + 100 * len(arms)))
 PY
     local cut="1 3 3 1" tend; tend="$(cat "$t/T_END")"
@@ -1318,6 +1325,53 @@ PY
     expect STOP "H5 ruling 4 in a sample"                            "$(verdict h5_heartbeat "$t/samples_leak.tsv" "$t/table_same.tsv" "$tend" "$HB_ARMS")"
     expect OK   "H5 no session during 01"                            "$(verdict no_session "$t/samples_ok.tsv" "$tend" "$((tend + 100))")"
     expect BAD  "H5 a session during 01"                             "$(verdict no_session "$t/samples_ok.tsv" 0 "$tend")"
+    # --- H5's sampler dying AFTER a good start (the opus judge's N2-1 on f4f43a32) -------------------
+    # [Co-developed with claude code -- Adam] sampler_start's check only covers the start. A sampler
+    # killed later (a signal: no stderr at all) or one that complained on its stderr must still end
+    # the WHOLE run FAIL -- read on the run's last line, through the real sampler_start /
+    # sampler_stop and the real teardown (w_finish -> finish), as H5 runs them (no claim).
+    st_h5_dies() {   # st_h5_dies <kill|stderr|healthy> -> the run's output
+        local d
+        d="$(mktemp -d "$t/h5d-XXXXXX")"
+        printf '#!/usr/bin/env bash\nexit 0\n' > "$d/ndt"; chmod +x "$d/ndt"
+        ( STEP=08_heartbeat; RUN="$d/run"; mkdir -p "$RUN"; CLAIMED=0; VERDICT_RC=0; VERDICT_WHY=""; FABRIC_UP=0
+          INJECTED_IFACES=(); NDT="$d/ndt"; REAL_NDT="$d/ndt"; APP_KNOB="$d/none"
+          KNOB_ENTRY_COPY=""; TEL_ENTRY_COPY=""; CTRL_PID=""; TEARDOWN_DOWN_RC=""
+          SAMPLER_PID=""; SAMPLER_STOP=""; SAMPLER_ERR=""; SAMPLER_INTERVAL_S=0.1; HB_REPORT_FILE="$d/report.json"
+          if [[ "$1" == stderr ]]; then
+              SAMPLER_PY="import sys
+sys.stderr.write('a warning the sampler printed\n'); sys.stderr.flush()
+$SAMPLER_PY"
+          fi
+          sampler_start "$RUN/50_samples.tsv" || echo "sampler_start answered $?"
+          if [[ "$1" == kill ]]; then kill -9 "$SAMPLER_PID" 2>/dev/null; sleep 0.4; fi
+          sleep 0.3
+          sampler_stop
+          ( exit 0 ); w_finish ) 2>&1
+    }
+    out="$(st_h5_dies kill)" || true
+    got="$(tail -1 <<<"$out")"
+    [[ "$got" == "FAIL 08_heartbeat -- H5: the report sampler"*"was not running"* && "$out" != *"sampler_start answered"* ]] \
+        && ok "H5 sampler killed after a good start: sampler_start said 0, and the run's last line is FAIL" \
+        || red "H5 sampler killed after a good start: the run ended '$got'"
+    out="$(st_h5_dies stderr)" || true
+    got="$(tail -1 <<<"$out")"
+    [[ "$got" == "FAIL 08_heartbeat -- H5: the report sampler wrote to its stderr"*"a warning the sampler printed"* ]] \
+        && ok "  H5 sampler with a warning on its stderr: the run's last line is FAIL and quotes it" \
+        || red "  H5 sampler with a warning on its stderr: the run ended '$got'"
+    out="$(st_h5_dies healthy)" || true
+    got="$(tail -1 <<<"$out")"
+    [[ "$got" == "PASS 08_heartbeat" ]] && ok "  the control: a sampler that ran and stopped cleanly ends PASS" \
+                                         || red "  a healthy sampler's run ended '$got'"
+    # the verdicts read a sampler that stopped reading, not only one that recorded nothing
+    expect BAD  "H5 01 with no sample in its window"                  "$(verdict no_session "$t/samples_ok.tsv" "$((tend + 10000))" "$((tend + 10100))")"
+    expect BAD  "H5 a sampler that stopped reading for 500 s mid-06"  "$(verdict h5_heartbeat "$t/samples_gap.tsv" "$t/table_same.tsv" "$tend" "$HB_ARMS")"
+    expect BAD  "H5 01 where the sampler stopped half-way"            "$(verdict no_session "$t/samples_ok.tsv" "$((tend + 50))" "$((tend + 200))")"
+    # consts: the proxy's own constants, the one embedded program only the live path ran (the
+    # judge's N2-2)
+    got="$(consts)" || true
+    [[ "$got" == "5 15 5" ]] && ok "consts: the proxy's beacon interval, timeout and watchdog interval, imported (5 15 5)" \
+                             || red "consts gave '$got'"
     expect BAD  "an unreadable capture is BAD, not a traceback"      "$(verdict caps "$t/nonexistent.json" true heartbeat)"
     # --- the cut's phase: planned from the report, recorded from it ------------------------------
     printf '{"directions": [{"tx": {"dpid": 1, "port": 3}, "rx": {"dpid": 3, "port": 1}, "last_heard_mono": 100.25},
