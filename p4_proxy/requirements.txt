@@ -19,36 +19,42 @@
 # The development machine's p4_proxy/venv is still the older set as this is written. (Whoever
 # migrates it deletes the previous sentence and this one in the commit that records that.)
 #
-# HOW THIS SET HAS BEEN RUN
-#   Offline, 2026-09-25: a fresh venv built by the three commands, on Python 3.13.13 (miniconda,
-#   the development machine's) and on 3.12.3, ran both suites; on 3.13.13 every test id got the
-#   same verdict as under the protobuf-3.20.3 venv, on one commit:
-#     p4_proxy/tests, all 41 test_*.py files        1557 tests, OK, 1 skip (the test that
-#                                                   declares it needs a live switch)
-#     tools/p4_exercise/tests (unittest discover)   187 tests, OK
-#   Without the third command the p4_proxy suite does not load at all and tools/p4_exercise fails
-#   49 of 187.
-#   Live, 2026-09-26, on trunk 580767a8, with such a venv (3.13.13) as the proxy's interpreter
-#   (P4_PROXY_PY): doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/01_baseline.sh passed
-#   with the same switch state and graph as on the 3.20.3 venv (time fields masked, every line
-#   equal); 06_thirteen.sh's 26 arms gave the verdicts of the 3.20.3 venv's run of 2026-09-24
-#   (the rows that differed were injected-packet counts, every one above its threshold, like the
-#   rows two 3.20.3 runs differ in); and the one test that drives a real bmv2,
-#   tests/test_p4_client.py with NDTWIN_LIVE_SWITCH_OPT_IN=1, passed.
-#   The proxy ran on the upb backend (google/_upb was mapped into it).
-#   What that trial did NOT cover: 128 hosts, long runs, telemetry under traffic, OVS; the
-#   exercise driver's own convert and preflight steps, which call p4_proxy/venv by path and so
-#   still ran on 3.20.3; regen_p4runtime_pb2.py's refusal paths; CI on GitHub. And it tried a SET,
-#   not protobuf alone. That venv differed from the 3.20.3 one in fifteen packages -- protobuf,
-#   grpcio-tools, setuptools, and twelve that were unpinned then, starlette 1.7.0 among them -- and
-#   in the backend (python -> upb). starlette has been pinned here to 1.3.1 since, the version the
-#   3.20.3 venv has, so the exact set this file resolves has not been run live.
-#   Offline, 2026-09-26, that exact set: fresh venvs by the three commands on 3.13.13 and 3.12.3
-#   gave every test id the verdict it gets under the 3.20.3 venv, in both suites; l1's P4 lane, run
-#   locally in CI's shape (3.12.3 and no other interpreter that has p4runtime; not on GitHub),
-#   failed 22 of its 41 files without the third command and passed with it; and the procedure at
-#   the end of this file ran verbatim, both rollbacks included, on a stand-in for the development
-#   machine's venv.
+# HOW THIS FILE HAS BEEN RUN. As three different sets: what pip resolves from this file depends on
+# the day, because what its packages pull in is not pinned (fifteen packages in set C).
+#   A. The candidate's set, 2026-09-25: this file before starlette was pinned, which resolved
+#      starlette 1.7.0. Offline, fresh venvs by the three commands on Python 3.13.13 (miniconda,
+#      the development machine's) and 3.12.3 ran both suites; on 3.13.13 every test id got the
+#      verdict it gets under the protobuf-3.20.3 venv, on one commit:
+#        p4_proxy/tests, all 41 test_*.py files        1557 tests, OK, 1 skip (the test that
+#                                                      declares it needs a live switch)
+#        tools/p4_exercise/tests (unittest discover)   187 tests, OK
+#      Without the third command the p4_proxy suite does not load at all and tools/p4_exercise
+#      fails 49 of 187.
+#   B. Set A again, LIVE, 2026-09-26, on trunk 580767a8, as the proxy's interpreter through
+#      P4_PROXY_PY (3.13.13): doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/01_baseline.sh
+#      passed with the same switch state and graph as on the 3.20.3 venv (time fields masked,
+#      every line equal); 06_thirteen.sh's 26 arms gave the verdicts of the 3.20.3 venv's run of
+#      2026-09-24 (the rows that differed were injected-packet counts, every one above its
+#      threshold, like the rows two 3.20.3 runs differ in); and the one test that drives a real
+#      bmv2, tests/test_p4_client.py with NDTWIN_LIVE_SWITCH_OPT_IN=1, passed. The proxy ran on the
+#      upb backend (google/_upb was mapped into it).
+#      NOT covered: 128 hosts, long runs, telemetry under traffic, OVS; the exercise driver's own
+#      convert and preflight steps, which call p4_proxy/venv by path and so still ran on 3.20.3; a
+#      switch REFUSING a table entry under 5.29.6 (the two exercises that would have sent one were
+#      stopped earlier by that 3.20.3 preflight); whether ndt's app pre-flight ran on the 5.29.6
+#      venv (it reads P4_PROXY_PY, so it should have, but its output does not name the
+#      interpreter: inferred, not observed); regen_p4runtime_pb2.py's refusal paths; CI on GitHub.
+#      And it tried a SET, not protobuf alone: set A differed from the 3.20.3 venv in fifteen
+#      packages -- protobuf, grpcio-tools, setuptools, and twelve unpinned then, starlette 1.7.0
+#      among them -- and in the backend (python -> upb).
+#   C. This file as pip resolved it on 2026-09-26: set A with starlette 1.3.1, the version the
+#      3.20.3 venv has. OFFLINE ONLY: fresh venvs by the three commands on 3.13.13 and 3.12.3 gave
+#      every test id the verdict it gets under the 3.20.3 venv, in both suites; l1's P4 lane, run
+#      locally in CI's shape (3.12.3 and no other interpreter with p4runtime; not on GitHub), had
+#      22 of its 41 files fail without the third command -- 21 dying at import, one whose proxy
+#      subprocess did -- and none with it; the procedure at the end of this file was rehearsed on
+#      stand-ins with every check made to fail in turn. Set C has not been run live, and an
+#      install on a later day may resolve neither A nor C.
 #
 # Every package that p4_proxy/, its tests or tools/p4_exercise/ imports is pinned `==`, not `>=`
 # -- starlette included, which is imported directly although it arrives as fastapi's dependency
@@ -64,7 +70,11 @@
 # doc/audit/2026-09-02_manual-usertest/run-06-opus/CHECKLIST.md:40 and :372, JOURNAL.md:3). That
 # is the record of one run of the manual, not the manual's text, which was not re-read for this.
 # The development machine's 3.13 is what the local gates run (tools/test_workflow/l1_unit_tests.sh
-# tries $P4_PROXY_PY first, and components.env defaults it to p4_proxy/venv).
+# tries $P4_PROXY_PY first, and components.env defaults it to p4_proxy/venv). CI on GitHub was red
+# before this file moved protobuf (run 36220555111 on trunk 580767a8: L1 FAILED, 14 problem
+# groups), so "CI is green" cannot be the test of this change: compare the P4 lane's verdict per
+# file with that run's -- no file newly red -- and check the "Install Python test dependencies"
+# step on its own.
 #
 # [Co-developed with claude code -- Adam]
 
@@ -145,11 +155,13 @@ hypothesis==6.165.5
 # PYTHONPATH, the CLI modules. No root; the CLI talks TCP to the thrift port.
 thrift==0.24.0
 
+
 # ================================================================================================
 # UPGRADING AN EXISTING VENV, AND ROLLING BACK
 #
-# For a p4_proxy/venv that predates a change here to protobuf, p4runtime or grpcio-tools -- such
-# as one with protobuf 3.20.3, the set before this file moved to 5.29.6.
+# For a p4_proxy/venv made before this file moved protobuf to 5.x, i.e. one with protobuf 3. Step 1
+# checks for exactly that; a later change here to protobuf, p4runtime or grpcio-tools needs this
+# text revisited, not just re-run.
 #
 # Not `pip install -r` into it. pip would move protobuf to 5.29.6 and leave p4runtime (1.5.0 is
 # already there) with its old generated modules, and the proxy then dies at import with
@@ -159,76 +171,103 @@ thrift==0.24.0
 # PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python.)
 #
 # Instead: move the old venv out of the way -- a rename, which writes nothing inside it -- build
-# the new one in its place, verify it there, and on any failure move the old one back. In its
-# place, because that is how everything that uses the venv finds it: components.env defaults
-# P4_PROXY_PY to p4_proxy/venv/bin/python (stack.sh starts the proxy with it; l1_unit_tests.sh
-# tries it first), ndt's p4_proxy_py() has the same default, and many scripts call
-# p4_proxy/venv/bin/python by path -- the tutorial exercise driver, live-p1/_common.sh, most
-# tests/shell/mutate_*.sh, some of them naming THIS checkout's venv from other checkouts. Pointing
-# P4_PROXY_PY at another venv reaches only stack.sh, ndt and l1: that is how the 2026-09-26 trial
-# ran, and why the exercise driver's own steps stayed on 3.20.3. It tries a venv; it does not
-# switch to one.
+# the new one in its place, verify it there, and on a failure move the old one back. In its place,
+# because that is how everything that uses the venv finds it: components.env defaults P4_PROXY_PY
+# to p4_proxy/venv/bin/python (stack.sh starts the proxy with it; l1_unit_tests.sh tries it
+# first), ndt's p4_proxy_py() has the same default, and many scripts call p4_proxy/venv/bin/python
+# by path -- the tutorial exercise driver, live-p1/_common.sh, most tests/shell/mutate_*.sh, some
+# of them naming the main checkout's venv from other checkouts. Pointing P4_PROXY_PY at another
+# venv reaches only stack.sh, ndt and l1: that is how the 2026-09-26 trial ran, and why the
+# exercise driver's own steps stayed on 3.20.3. It tries a venv; it does not switch to one.
+# Out of the way means outside the checkout ($HOME), on the same filesystem so the move is a
+# rename: parked inside p4_proxy/ it would not be covered by .gitignore, and tests that walk that
+# tree skipping only directories named exactly `venv` would read it
+# (tests/python/test_known_issues_references.py reads every text file under p4_proxy/).
 #
-# Out of the way means outside the checkout ($HOME below), on the same filesystem so the move is a
-# rename. Parked inside p4_proxy/ it would not be covered by .gitignore (only p4_proxy/venv/ is),
-# and the tests that walk that tree skipping only directories named exactly `venv` would read it:
-# tests/python/test_known_issues_references.py reads every text file under p4_proxy/.
+# HOW TO RUN IT. Paste one block at a time into the shell its heading names. Every command after
+# step 0 first checks that the one before it did its part: the first check that fails prints
+# "STOP at <step>: ..." with what to do, and every command after it prints "(skipped ...)" and
+# does nothing -- so a paste that runs on past a failure is harmless. Nothing rolls back by
+# itself: after a STOP, read it, then paste ROLLBACK, or fix the cause and do what the STOP says.
+# From step 1 on, every path is absolute and V is recorded beside the parked venv, so a rollback
+# works from any directory. Rehearsed 2026-09-26 on stand-ins, with every check made to fail in
+# turn (see the history near the top of this file).
 #
-# When: nothing may use p4_proxy/venv while it is moved. No fabric and nobody measuring
-# (`ndt status`); no proxy (`ps -eo pid,args | grep -F p4_proxy/venv/` lists only that grep); no
-# gate or test run, here or in another checkout. While the old venv is parked, run nothing from
-# it: its bin/pip and other scripts name p4_proxy/venv/bin/python, which is by then the new one.
+# 0. The window. TELL THE OTHER SESSIONS first, and again when it is over: the claim stops `ndt`
+#    verbs and the build lock stops the gates that go through tools/build_guard, but nothing stops
+#    a script that runs p4_proxy/venv outside the guard -- step 1 refuses while it can see one,
+#    and cannot see one that starts later. In your usual shell, at the root of the main checkout:
+#   $ export NDT_OWNER=p4-venv-migration NDT_MEASURING='p4_proxy venv migration: no runs, no gates'
+#   $ tools/test_workflow/ndt claim 90 'p4_proxy venv migration' && JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash -i
+#    That opens a shell holding the build lock (it waits while a gate has it). Paste everything
+#    below into THAT shell, up to step 5. Pasted into the first shell, it would run only after the
+#    guarded one exits, without the lock -- and every command below refuses there.
 #
-# From the repository root, in one bash shell. The lines that start with `$` are the commands.
-# Each command from step 1's third on first checks that the step before it did its part, so a
-# paste that runs on past a failure changes nothing it should not.
-#
-# 1. Record the old venv, then move it aside. Note the OLD this prints: a rollback from another
-#    shell needs it.
-#   $ V=p4_proxy/venv; PARK=$HOME; OLD=$PARK/p4_proxy-venv.protobuf3-$(date +%Y%m%d-%H%M%S); echo "OLD=$OLD"
+# HELPERS -- into the guarded shell first (and into any new shell a ROLLBACK is pasted into).
+#   $ unset PYTHONPATH PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION; export PYTHONDONTWRITEBYTECODE=1
+#   $ at() { [ "${STEP:-}" = "$1" ] || { echo "  (skipped $2: an earlier command stopped)"; return 1; }; }
 #   $ fp() { (cd "$1" && { find . -mindepth 1 -printf '%y %p %l\n'; find . -type f -exec sha256sum {} +; } | LC_ALL=C sort | sha256sum | cut -c1-64); }
-#   $ test -d "$V" && test ! -e "$OLD" && test "$(stat -c %d "$PARK")" = "$(stat -c %d "$V")" && PYTHONDONTWRITEBYTECODE=1 "$V/bin/python" -m pip freeze --all > "$OLD.freeze" && fp "$V" > "$OLD.fingerprint" && mv -T "$V" "$OLD" && echo "parked: $OLD"
+#   $ pbver() { "$1/bin/python" -c 'import google.protobuf as g; print(g.__version__)' 2>/dev/null; }
+#   $ inwin() { local e; e=$(sed -n 's/^expires=//p' "$R/.test_run/lab.claim" 2>/dev/null); [[ ":${NDTWIN_GUARD_HELD:-}:" == *":${LOCK:-/tmp/ndtwin-build.lock}:"* ]] && grep -qxF "owner=${NDT_OWNER:-}" "$R/.test_run/lab.claim" 2>/dev/null && [ "${e:-0}" -gt "$(date +%s)" ] || { echo "STOP: not inside step 0's window -- the shell guarded_build.sh opened, and ${NDT_OWNER:-NDT_OWNER}'s unexpired claim on $R"; return 1; }; }
+#   $ users() { local p a d; for p in /proc/[0-9]*; do [ "${p#/proc/}" = "$$" ] && continue; if grep -qF "$1/" "$p/maps" 2>/dev/null; then echo "${p#/proc/} maps it: $(tr '\0' ' ' < "$p/cmdline")"; continue; fi; d=$(readlink "$p/cwd" 2>/dev/null) || continue; while IFS= read -r -d '' a; do a=${a#./}; [[ "$a" == /* ]] || a=$d/$a; [[ "$a" == "$1"/* ]] && { echo "${p#/proc/} runs it: $(tr '\0' ' ' < "$p/cmdline")"; break; }; done < "$p/cmdline" 2>/dev/null; done; true; }
+#   $ suites() { (cd "$R/p4_proxy" && PYTHONPATH=. "$1/bin/python" -m unittest $(ls tests/test_*.py | sed 's#/#.#; s#\.py$##')) 2>&1 | grep -E '^(Ran [0-9]+ tests|OK|FAILED)' | sed 's/ in [0-9.]*s$//'; (cd "$R" && HOME=$(mktemp -d) "$1/bin/python" -m unittest discover -s tools/p4_exercise/tests -t tools/p4_exercise/tests) 2>&1 | grep -E '^(Ran [0-9]+ tests|OK|FAILED)' | sed 's/ in [0-9.]*s$//'; }
+#    users() lists every process that maps a file of the venv or names one in its argv (absolute,
+#    or relative to its cwd); processes of other users (root) cannot be read and are not listed.
+#    suites() runs the two suites the way step 3 compares them: the p4_proxy tests named as
+#    modules (named as files, tests/test_psample_sflow_emitter.py in the argv makes the test
+#    process pass for the sFlow emitter, and test_switch_state fails on it), tools/p4_exercise
+#    with an empty HOME (with the real one, a fixture check compares files with ~/tutorials,
+#    which live runs rebuild -- a check of files, not of the venv).
 #
-# 2. Build the new venv where the old one was -- the three commands at the top of this file, with
-#    the python3 the old venv was made from (its pyvenv.cfg says which). Until the old venv is
-#    parked, $V is still the old venv, so each command checks that first.
-#   $ test -d "$OLD" && test ! -e "$V" && "$(sed -n 's/^home = //p' "$OLD/pyvenv.cfg")/python3" -m venv "$V"
-#   $ test -d "$OLD" && "$V/bin/pip" install -r p4_proxy/requirements.txt
-#   $ test -d "$OLD" && "$V/bin/python" p4_proxy/regen_p4runtime_pb2.py
+# 1. Check the old venv, run the suites on it for a baseline, record it, move it aside. Nothing
+#    moves unless every check passes. From the main checkout's root, as the guarded shell starts.
+#   $ STEP=; OV=; R=$PWD; V=$R/p4_proxy/venv; PARK=$HOME; inwin && STEP=1b && echo "V=$V"
+#   $ at 1b "1b, the old venv" && { test -d "$V" && test ! -L "$V" && OV=$(pbver "$V") && [[ "$OV" == 3.* ]] && STEP=1c || { STEP=; echo "STOP at 1b: $V is not a real directory whose python has protobuf 3 (it has '${OV:-none}'); this is only for that venv"; }; }
+#   $ at 1c "1c, where to park" && { ! ls -d "$PARK"/p4_proxy-venv.protobuf*/ >/dev/null 2>&1 && [ "$(stat -c %d "$PARK")" = "$(stat -c %d "$V")" ] && STEP=1d || { STEP=; echo "STOP at 1c: $PARK already holds a parked p4_proxy venv (an earlier attempt: roll it back, or remove it once it is not needed), or is not on $V's filesystem"; }; }
+#   $ at 1d "1d, the base python" && { BASE=$(sed -n 's/^home = //p' "$V/pyvenv.cfg")/python3 && [ "$("$BASE" -c 'import sys; print(sys.version_info[:2])')" = "$("$V/bin/python" -c 'import sys; print(sys.version_info[:2])')" ] && STEP=1e || { STEP=; echo "STOP at 1d: $BASE (pyvenv.cfg's home) is not the Python minor version $V runs: the new venv would be another interpreter"; }; }
+#   $ at 1e "1e, who uses it" && { U=$(users "$V") && [ -z "$U" ] && STEP=1f || { STEP=; echo "STOP at 1e: in use, by:"; echo "$U"; }; }
+#   $ at 1f "1f, the baseline" && { OLD=$PARK/p4_proxy-venv.protobuf$OV-$(date +%Y%m%d-%H%M%S) && suites "$V" > "$OLD.baseline" && [ "$(grep -c '^OK' "$OLD.baseline")" = 2 ] && STEP=1g && cat "$OLD.baseline" || { STEP=; echo "STOP at 1f: the suites do not pass on the OLD venv ($OLD.baseline) -- fix that first (p4_proxy/p4_src/build? tools/test_workflow/l0_build_check.sh p4); nothing has moved"; }; }
+#   $ at 1g "1g, the move" && { echo "$V" > "$OLD.origin" && "$V/bin/python" -m pip freeze --all > "$OLD.freeze" && fp "$V" > "$OLD.fingerprint" && [ -z "$(users "$V")" ] && mv -T "$V" "$OLD" && STEP=1 && echo "parked: OLD=$OLD (it came from $V)" || { STEP=; if [ -d "$OLD" ]; then echo "STOP at 1g: $V WAS moved to $OLD -- paste ROLLBACK"; else echo "STOP at 1g: nothing moved"; fi; }; }
 #
-# 3. Verify it where it is. Any command failing, or printing other than its note, means: roll
-#    back. The two suites need p4_proxy/p4_src/build (tools/test_workflow/l0_build_check.sh p4).
-#   $ "$V/bin/python" -m pip check                         # No broken requirements found.
-#   $ "$V/bin/python" -c 'import google.protobuf as g, p4.v1.p4runtime_pb2, p4.v1.p4runtime_pb2_grpc; from google.protobuf.internal import api_implementation as a; print(g.__version__, a.Type())'   # 5.29.6 upb
-#   $ "$V/bin/python" p4_proxy/regen_p4runtime_pb2.py     # "already current", then "ok: ..."
-#   $ PY=$PWD/$V/bin/python
-#   $ (cd p4_proxy && PYTHONPATH=. "$PY" -m unittest $(ls tests/test_*.py | sed 's#/#.#; s#\.py$##'))   # OK (skipped=1)
-#   $ HOME=$(mktemp -d) "$PY" -m unittest discover -s tools/p4_exercise/tests -t tools/p4_exercise/tests   # OK (skipped=1)
-#    On 2026-09-26 that was 1557 tests with one skip, LiveSwitchTest (it needs a live switch), and
-#    187 with one skip. The counts grow as tests are added; the verdicts must not change. Two
-#    things in these commands are deliberate. The p4_proxy tests are named as modules, not as
-#    files: with tests/test_psample_sflow_emitter.py in its argv this process passes
-#    link_telemetry's "is this pid the emitter" check, and test_switch_state fails on it
-#    (observed 2026-09-26). And HOME is empty, so the one test that compares tools/p4_exercise's
-#    fixtures byte-for-byte with ~/tutorials skips: it tests files, not the venv, and it is red
-#    whenever a live run has rebuilt a tutorial's build/ (also observed 2026-09-26).
+# 2. Build the new venv where the old one was: the three commands at the top of this file, with
+#    the base python3 the old venv was made from. A STOP here: paste ROLLBACK.
+#   $ at 1 "2a, the new venv" && { inwin && test -d "$OLD" && test ! -e "$V" && "$BASE" -m venv "$V" && STEP=2b || { STEP=; echo "STOP at 2a: no new venv made; the old one is parked at $OLD -- paste ROLLBACK"; }; }
+#   $ at 2b "2b, pip install" && { "$V/bin/pip" install -r "$R/p4_proxy/requirements.txt" && STEP=2c || { STEP=; echo "STOP at 2b: the install did not finish; the old venv is parked at $OLD -- paste ROLLBACK"; }; }
+#   $ at 2c "2c, regen" && { "$V/bin/python" "$R/p4_proxy/regen_p4runtime_pb2.py" && STEP=2 || { STEP=; echo "STOP at 2c: the regeneration did not finish; the old venv is parked at $OLD -- paste ROLLBACK"; }; }
 #
-# 4. Keep "$OLD", "$OLD.freeze" and "$OLD.fingerprint" until the new venv has passed a live run
-#    (live-p1's 01_baseline.sh and 06_thirteen.sh); deleting them after that is the one step here
-#    that cannot be undone. On the development machine, also delete the two sentences near the
-#    top of this file that say its venv is still the older set.
+# 3. Verify it where it is. A STOP here leaves the new venv in place and the old one parked: paste
+#    ROLLBACK -- or fix the cause, type STEP=2 and paste step 3 again.
+#   $ at 2 "3a, pip check" && { "$V/bin/python" -m pip check && STEP=3b || { STEP=; echo "STOP at 3a: pip check -- ROLLBACK, or fix, STEP=2, step 3 again"; }; }
+#   $ at 3b "3b, the backend" && { [ "$("$V/bin/python" -c 'import google.protobuf as g, p4.v1.p4runtime_pb2, p4.v1.p4runtime_pb2_grpc; from google.protobuf.internal import api_implementation as a; print(g.__version__, a.Type())')" = "5.29.6 upb" ] && STEP=3c || { STEP=; echo "STOP at 3b: not protobuf 5.29.6 on upb with p4runtime importing -- ROLLBACK, or fix, STEP=2, step 3 again"; }; }
+#   $ at 3c "3c, the suites" && { suites "$V" > "$OLD.new" && diff "$OLD.baseline" "$OLD.new" && STEP=3 && echo "VERIFIED: $V passes what the old venv passed" || { STEP=; echo "STOP at 3c: the suites differ from the old venv's ($OLD.baseline vs $OLD.new) -- ROLLBACK, or fix, STEP=2, step 3 again"; }; }
+#    On 2026-09-26 both suites gave the same lines on both venvs: 1557 tests with one skip
+#    (LiveSwitchTest, which needs a live switch) and 187 with one skip.
 #
-# ROLLBACK, at any point after step 1: the old venv comes back exactly as it was, since it was
-# only renamed. In a new shell, first set V, PARK and OLD (the name step 1 printed) and define fp()
-# as step 1 does. The failed new venv is parked beside the old one, not deleted.
-#   $ test -d "$OLD" && { test ! -e "$V" || mv -T "$V" "$PARK/p4_proxy-venv.failed-$(date +%Y%m%d-%H%M%S)"; } && mv -T "$OLD" "$V"
-#   $ test "$(fp "$V")" = "$(cat "$OLD.fingerprint")" && echo "old venv restored unchanged"
+# 4. Leave the guarded shell, which gives the build lock back:
+#   $ at 3 "4, leaving" && echo "migrated. Keep $OLD and its .origin/.freeze/.fingerprint/.baseline/.new until a live 01 and 06 pass on the new venv; deleting them is the one step here that cannot be undone." && exit
 #
-# ROLLBACK IN PLACE, when there is no old venv left to rename back. Moving protobuf back alone is
+# 5. In the shell of step 0, after the guarded shell has exited -- after VERIFIED, or after a
+#    ROLLBACK that printed "old venv restored unchanged" -- give the lab back, and tell the others.
+#    On the development machine, also delete the two sentences near the top of this file that
+#    say its venv is still the older set.
+#   $ [ -z "${STEP+set}" ] && tools/test_workflow/ndt release || echo "STOP: this is the migration shell -- finish or roll back, exit it, then release from the shell of step 0"
+#
+# ROLLBACK, once step 1 has printed "parked:". In the migration shell as it is. From a new shell:
+# take the window again (step 0, at the main checkout's root), paste HELPERS, and type
+# OLD=<the name step 1 printed> (`ls -d ~/p4_proxy-venv.protobuf*/` shows it). V is read from
+# $OLD.origin, so the directory you paste this in does not matter.
+#   $ STEP=; test -n "${OLD:-}" && test -d "$OLD" && V=$(cat "$OLD.origin") && [[ "$V" == /*/p4_proxy/venv ]] && test ! -L "$V" && R=${V%/p4_proxy/venv} && inwin && STEP=rb1 && echo "rolling back: $OLD -> $V" || { STEP=; echo "STOP at rb1: OLD must name a parked venv with its .origin file, and this must run inside the window on the checkout it came from"; }
+#   $ at rb1 "rb2, the moves" && { [ -z "$(users "$V")" ] && { test ! -e "$V" || mv -T "$V" "$(dirname "$OLD")/p4_proxy-venv.failed-$(date +%Y%m%d-%H%M%S)"; } && mv -T "$OLD" "$V" && STEP=rb3 || { STEP=; echo "STOP at rb2: something runs from $V, or a move failed -- look at $V and $OLD before anything else"; }; }
+#   $ at rb3 "rb3, the check" && { if [ "$(fp "$V")" = "$(cat "$OLD.fingerprint")" ]; then STEP=rb; echo "old venv restored unchanged: $V -- exit this shell, then step 5"; else STEP=; echo "ERROR at rb3: $V is NOT byte-for-byte the venv step 1 parked (its fingerprint is not $OLD.fingerprint). Do not use it, do not delete anything, ask."; fi; }
+#    The new venv, if there was one, is parked beside the old one as p4_proxy-venv.failed-<time>.
+#
+# ROLLBACK IN PLACE, only when there is no parked venv to move back. Moving protobuf back alone is
 # not enough: the regenerated modules need protobuf >= 5.29 (they import runtime_version), so
-# p4runtime is reinstalled too, which puts its shipped modules back. This lands on the older set
-# except for what it pulled in (setuptools stays; transitive packages keep their versions).
-#   $ "$V/bin/pip" uninstall -y grpcio-tools
-#   $ "$V/bin/pip" install protobuf==3.20.3 googleapis-common-protos==1.73.0
-#   $ "$V/bin/pip" install --force-reinstall --no-deps p4runtime==1.5.0
-#   $ "$V/bin/python" -c 'import google.protobuf as g, p4.v1.p4runtime_pb2; from google.protobuf.internal import api_implementation as a; print(g.__version__, a.Type())'   # 3.20.3 python
+# p4runtime is reinstalled too, which puts its shipped modules back. It lands on the older pins
+# for protobuf, googleapis-common-protos and p4runtime; setuptools stays, and everything else
+# keeps the version it has. Inside the window, HELPERS pasted, from the main checkout's root:
+#   $ STEP=; R=$PWD; V=$R/p4_proxy/venv; test -d "$V" && test ! -L "$V" && inwin && [[ "$(pbver "$V")" == 5.* ]] && [ -z "$(users "$V")" ] && STEP=ip1 && echo "rolling back in place: $V" || { STEP=; echo "STOP at ip1: $V is not a real directory with protobuf 5 that nothing uses, or this is not inside the window"; }
+#   $ at ip1 "ip1" && { "$V/bin/pip" uninstall -y grpcio-tools && STEP=ip2 || { STEP=; echo "STOP at ip1: uninstalling grpcio-tools"; }; }
+#   $ at ip2 "ip2" && { "$V/bin/pip" install protobuf==3.20.3 googleapis-common-protos==1.73.0 && STEP=ip3 || { STEP=; echo "STOP at ip2: installing protobuf 3.20.3"; }; }
+#   $ at ip3 "ip3" && { "$V/bin/pip" install --force-reinstall --no-deps p4runtime==1.5.0 && STEP=ip4 || { STEP=; echo "STOP at ip3: reinstalling p4runtime"; }; }
+#   $ at ip4 "ip4" && { [ "$("$V/bin/python" -c 'import google.protobuf as g, p4.v1.p4runtime_pb2; from google.protobuf.internal import api_implementation as a; print(g.__version__, a.Type())')" = "3.20.3 python" ] && STEP=ip && echo "rolled back in place: $V is protobuf 3.20.3 again -- exit this shell, then step 5" || { STEP=; echo "STOP at ip4: $V does not import p4runtime on protobuf 3.20.3"; }; }
