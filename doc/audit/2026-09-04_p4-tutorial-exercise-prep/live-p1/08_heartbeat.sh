@@ -155,6 +155,7 @@ TEARDOWN_DOWN_RC=""
 INJECTED_IFACES=()
 SAMPLER_PID=""
 SAMPLER_STOP=""
+SAMPLER_ERR=""
 #: The last cut's and restore's instants: $EPOCHREALTIME just before and just after each end's tc
 #: call (end A is s<a>-eth<ap>, whose egress carries a->b; end B carries b->a).
 CUT_A_START=""; CUT_A_END=""; CUT_B_START=""; CUT_B_END=""
@@ -673,31 +674,71 @@ phase_down() {
 }
 
 # --- the heartbeat report sampler (H5) ---------------------------------------------------------
-# One line per second: wall, status, session, pid, forwarded_to_hosts, forwarded_between_switches.
-# It stops itself when SAMPLER_STOP appears (or after 5 h); sampler_stop waits for that, and only
-# then signals -- by the pid it started, after checking that pid is still this sampler.
-SAMPLER_PY='
+# One line per read: wall, status, session, pid, forwarded_to_hosts, forwarded_between_switches.
+# It stops itself when SAMPLER_STOP appears (or after 5 h), taking ONE LAST sample first -- so the
+# daemon's final `stopped` rewrite is on record however the timing falls; sampler_stop waits for
+# that, and only then signals -- by the pid it started, after checking that pid is still this
+# sampler.
+#
+# [Co-developed with claude code -- Adam] 🔴 LIVE H5 ON cafd518a (09-26 15:32Z) NEVER SAMPLED: the
+# program wrote f"...{d.get(\"status\")}..." -- a backslash inside an f-string's expression, a
+# SyntaxError on this machine's Python 3.13 -- its stderr went to /dev/null, and sampler_start
+# never looked whether it lived. So now: the program is a QUOTED HEREDOC (either quote may appear in
+# it, and nothing in it is expanded by bash), its rows are joined from plain values (no f-string
+# holds an expression with quotes in it, on any Python), its stderr is a file in $RUN, and
+# sampler_start waits for the header and a live pid or FAILS the run before 06 starts. The
+# self-test executes this text (st_sampler).
+SAMPLER_HEADER=$'wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches'
+SAMPLER_PY="$(cat <<'SAMPLER'
 import json, os, sys, time
 report, out, stop = sys.argv[1], sys.argv[2], sys.argv[3]
+interval = float(sys.argv[4]) if len(sys.argv) > 4 else 1.0
 end = time.time() + 5 * 3600
+HEADER = ("wall", "status", "session", "pid", "forwarded_to_hosts", "forwarded_between_switches")
+
+
+def row(fh):
+    wall = "%.1f" % time.time()
+    try:
+        with open(report) as rf:
+            d = json.load(rf)
+        se = d.get("side_effects") or {}
+        values = (wall, d.get("status"), d.get("session"), d.get("pid"),
+                  se.get("forwarded_to_hosts"), se.get("forwarded_between_switches"))
+    except (OSError, ValueError, AttributeError):
+        values = (wall, "absent", "-", "-", 0, 0)
+    fh.write("\t".join(str(v) for v in values) + "\n")
+
+
 with open(out, "a", buffering=1) as fh:
-    fh.write("wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches\n")
+    fh.write("\t".join(HEADER) + "\n")
     while time.time() < end and not os.path.exists(stop):
-        try:
-            d = json.load(open(report))
-            se = d.get("side_effects") or {}
-            fh.write(f"{time.time():.1f}\t{d.get(\"status\")}\t{d.get(\"session\")}\t{d.get(\"pid\")}\t"
-                     f"{se.get(\"forwarded_to_hosts\")}\t{se.get(\"forwarded_between_switches\")}\n")
-        except (OSError, ValueError):
-            fh.write(f"{time.time():.1f}\tabsent\t-\t-\t0\t0\n")
-        time.sleep(1.0)
-'
-sampler_start() {   # sampler_start <out.tsv>
+        row(fh)
+        time.sleep(interval)
+    row(fh)
+SAMPLER
+)"
+# sampler_start <out.tsv> -- 0 once the sampler has written its header and is alive; otherwise
+# `fail` with what it said (its stderr is $RUN/50_sampler.err) and 1: the caller must not go on.
+sampler_start() {
+    local out="$1" i
     SAMPLER_STOP="$RUN/.sampler.stop"
+    SAMPLER_ERR="$RUN/50_sampler.err"
     rm -f "$SAMPLER_STOP"
-    setsid "$VPY" -I -c "$SAMPLER_PY" "$HB_REPORT_FILE" "$1" "$SAMPLER_STOP" > /dev/null 2>&1 &
+    setsid "$VPY" -I -c "$SAMPLER_PY" "$HB_REPORT_FILE" "$out" "$SAMPLER_STOP" "${SAMPLER_INTERVAL_S:-1.0}" \
+        > /dev/null 2> "$SAMPLER_ERR" &
     SAMPLER_PID=$!
-    note "report sampler pid $SAMPLER_PID -> $(basename "$1")"
+    for (( i = 0; i < 50; i++ )); do
+        if [[ "$(head -1 "$out" 2>/dev/null)" == "$SAMPLER_HEADER" ]] && kill -0 "$SAMPLER_PID" 2>/dev/null; then
+            note "report sampler pid $SAMPLER_PID -> $(basename "$out") (header written, alive)"
+            return 0
+        fi
+        kill -0 "$SAMPLER_PID" 2>/dev/null || break
+        sleep 0.1
+    done
+    fail "H5: the report sampler did not start (pid $SAMPLER_PID $(kill -0 "$SAMPLER_PID" 2>/dev/null && echo 'alive, no header in 5 s' || echo 'exited')): $(head -c 300 "$SAMPLER_ERR" 2>/dev/null | tr '\n' ' ')"
+    sampler_stop
+    return 1
 }
 sampler_stop() {
     [[ -n "$SAMPLER_PID" ]] || return 0
@@ -708,6 +749,7 @@ sampler_stop() {
        && tr '\0' ' ' < "/proc/$SAMPLER_PID/cmdline" 2>/dev/null | /usr/bin/grep -qF "$SAMPLER_STOP"; then
         kill "$SAMPLER_PID" 2>/dev/null || true
     fi
+    [[ -s "${SAMPLER_ERR:-}" ]] && bad "the report sampler wrote to its stderr: $(head -c 300 "$SAMPLER_ERR" | tr '\n' ' ')"
     SAMPLER_PID=""
 }
 
@@ -1773,7 +1815,9 @@ if [[ "$PART" == h5 ]]; then
     # ============================== H5 (no claim: 06 and 01 claim per step) ======================
     say "H5 -- 06 once with the heartbeat wherever ndt up starts it, and a sampler of its report"
     [[ -s "$OLD_06/00_table.tsv" ]] || die "no reference table at $OLD_06/00_table.tsv (set OLD_06=)"
-    sampler_start "$RUN/50_samples.tsv"
+    # [Co-developed with claude code -- Adam] A sampler that did not start stops the run HERE,
+    # before 06 brings anything up: H5 without its samples is not H5 (live, cafd518a).
+    sampler_start "$RUN/50_samples.tsv" || exit 1
     set +e
     NDT_OWNER="$NDT_OWNER" bash "$LIVE_DIR/06_thirteen.sh" > "$RUN/51_06.txt" 2>&1
     R06=$?
