@@ -204,10 +204,10 @@ RC_TABLE = {
     "status.check": {
         0: ("ok", "all compared fields match what the last 'ndt up' asked for"),
         # 🔴 ndt help says "1 one of them does not", but cmd_status answers 1 whenever its
-        # problems[] is not empty (ndt:6946-6948) -- a claim held by somebody else (6576), a
-        # measurement process in flight (6662, in_flight's process scan -- a measuring= the claim
-        # only DECLARES, 6638-6640, is not a problem), a netem qdisc (6806), a refused sudo grant
-        # (6819) are all problems. A GUI that printed "a field does not match" would name the wrong
+        # problems[] is not empty (ndt:7070-7072) -- a claim held by somebody else (6698), a
+        # measurement process in flight (6784, in_flight's process scan -- a measuring= the claim
+        # only DECLARES, 6760-6762, is not a problem), a netem qdisc (6930), a refused sudo grant
+        # (6943) are all problems. A GUI that printed "a field does not match" would name the wrong
         # cause.
         1: ("dirty", "ndt reported at least one problem -- a compared field that does not match, a claim "
                      "held by somebody else, a measurement in progress, a netem qdisc, a refused sudo "
@@ -248,10 +248,12 @@ RC_TABLE = {
 
 # Where each table's codes come from. "help": the phrase `ndt help` prints for each rc (compared
 # whitespace-normalised). "code": (line, rc, text that line must contain, the function that line
-# lies in) in tools/test_workflow/ndt -- trunk 68ace017's line numbers: this branch's `serve)`
-# dispatch lies below every anchor. 🔴 The function is half the anchor (intake judge 09-26, finding
-# 3): `return 1` is on 187 lines of this tree's ndt, and 09-24's apps.start line 8315 is one of
-# them today -- in proc_checkout. [Co-developed with claude code -- Adam]
+# lies in) in tools/test_workflow/ndt -- trunk cafd518a's line numbers (segment W of
+# TICKET-P4-heartbeat added 124 lines to ndt above cmd_status; the 11 rows below it moved by that
+# much, each located by its old line's text in the same function): the `serve)` dispatch lies
+# below every anchor. 🔴 The function is half the anchor (intake judge 09-26, finding 3): `return
+# 1` is on 187 lines of this tree's ndt, and 09-24's apps.start line 8315 was one of them --
+# proc_checkout's, 8439 since segment W. [Co-developed with claude code -- Adam]
 RC_SOURCE = {
     "up": {"help": {0: "exit 0 the fabric came up and verified",
                     1: "1 something was MEASURED and it was dirty",
@@ -265,19 +267,19 @@ RC_SOURCE = {
     "status.check": {"help": {0: "exit 0 all compared fields match",
                               1: "1 one of them does not (the message names it)",
                               3: "3 nothing was compared, because there is no baseline RIGHT NOW"},
-                     "code": [(6939, 3, "return 3", "cmd_status"), (6944, 0, "return 0", "cmd_status"),
-                              (6948, 1, "return 1", "cmd_status")]},
-    "status": {"code": [(6950, 0, "return 0", "cmd_status")]},
+                     "code": [(7063, 3, "return 3", "cmd_status"), (7068, 0, "return 0", "cmd_status"),
+                              (7072, 1, "return 1", "cmd_status")]},
+    "status": {"code": [(7074, 0, "return 0", "cmd_status")]},
     "claim": {"code": [(753, 2, "return 2", "cmd_claim"), (762, 2, "return 2", "cmd_claim"),
                        (787, 1, "return 1", "claim_take"), (860, 1, "return 1", "claim_take"),
                        (862, 0, 'ok "lab claimed by', "claim_take")]},
     "release": {"code": [(866, 0, "return 0", "cmd_release"), (871, 1, "return 1", "cmd_release"),
                          (899, 1, "return 1", "cmd_release")]},
-    "apps.start": {"code": [(8771, 0, "return 0", "app_start"), (8775, 1, "return 1", "app_start"),
-                            (8848, 1, "return 1", "app_start")]},
-    "apps.stop": {"code": [(10289, 1, "return 1", "cmd_apps"), (10292, 2, "return 2", "cmd_apps"),
-                           (10295, 0, "return 0", "cmd_apps")]},
-    "apps.status": {"code": [(10222, 0, "return 0", "cmd_apps")]},
+    "apps.start": {"code": [(8895, 0, "return 0", "app_start"), (8899, 1, "return 1", "app_start"),
+                            (8972, 1, "return 1", "app_start")]},
+    "apps.stop": {"code": [(10413, 1, "return 1", "cmd_apps"), (10416, 2, "return 2", "cmd_apps"),
+                           (10419, 0, "return 0", "cmd_apps")]},
+    "apps.status": {"code": [(10346, 0, "return 0", "cmd_apps")]},
 }
 
 

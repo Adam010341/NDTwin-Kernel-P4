@@ -19,7 +19,7 @@ The design red lines (TICKET section 3), and where each one lives:
                        answers -- and an Origin header, when present, must be this server's; a POST
                        also needs a JSON body. 🔴 GETs are gated too (judge 09-24, finding 1): a
                        "read" is not side-effect free -- `ndt status --check` POSTs three lock
-                       probes to the kernel (ndt:9292-9307) -- so an <img> in any page must not be
+                       probes to the kernel (ndt:9416-9431) -- so an <img> in any page must not be
                        able to start one.
   3. whitelist         verbs.py builds every argv; there is no shell on any path.
   4. thin shell        ndt's rc is passed through untouched, with a sentence from ndt help beside
@@ -510,7 +510,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def _spawn_cell_run(self, cell, body, confirmed):
         """A cell run. 🔴 A cell that needs the lab runs only under THIS owner's claim (judge r2
         finding 1). Written 09-24, when ndt's OVS `up` did not refuse under a foreign claim; since
-        trunk 68ace017 it does, on both planes (up_ovs calls guard_up_lab_free, ndt:4248). The check
+        trunk 68ace017 it does, on both planes (up_ovs calls guard_up_lab_free, ndt:4362). The check
         stays because a cell is more than its `up`: some set netem, send kill -TERM or write the
         host-count knob, and none of that asks ndt's guard -- and under a foreign claim the
         restore's `down` is refused (rc 5), so what the cell left stays."""
@@ -523,7 +523,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                            precheck=self._require_own_claim if cell["requires"] != "none" else None)
 
     def _require_own_claim(self):
-        """Read `ndt status`'s claim line (ndt:5664 claim_line) and go on only if it is ndt's
+        """Read `ndt status`'s claim line (ndt:5786 claim_line) and go on only if it is ndt's
         own-claim form, exactly. This reads ndt's answer; it does not decide anything ndt decides.
 
         🔴 Exact, not a prefix (intake judge 09-26, finding 2): claim_line prints somebody else's
@@ -750,7 +750,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 
 CLAIM_LINE = re.compile(r"^  claim\s+(.*?)\s*$", re.M)
-# ndt's own-claim value, whole: `printf 'yours -- %dm left (until %s)\n'` (ndt:5677, claim_line),
+# ndt's own-claim value, whole: `printf 'yours -- %dm left (until %s)\n'` (ndt:5799, claim_line),
 # the time from `date +%H:%M:%S`. [Co-developed with claude code -- Adam]
 OWN_CLAIM = re.compile(r"yours -- [0-9]+m left \(until [0-9]{2}:[0-9]{2}:[0-9]{2}\)")
 
