@@ -1476,9 +1476,12 @@ m=$(l7_mutant l7_skipped 'if [[ "$got" == "$2" ]]; then echo "OK control_plane.s
     'if [[ -n "$got" ]]; then echo "OK control_plane.skipped is $got"')
 l7_report "L7-6: skipped_is accepts any skipped list" "$m" "L6 routes still skipped"
 
-m=$(l7_mutant l7_declared 'if len(declared) == n and len(links) == n:' \
-    'if len(declared) == len(links):')
-l7_report "L7-7: declared_links_marked stops counting the links" "$m" "L1 no link entries"
+# [Co-developed with claude code -- Adam] L7-7's anchor moved with the code it mutates: 07's
+# declared_links_marked (8 entries, all `source: declared`) became links_heard (the declared
+# directions exactly, all fed by the heartbeat) -- TICKET-P4-heartbeat, the fable judge's R2 note
+# on ebdf365e. Same killer; L7-18..L7-22 below are that change's own.
+m=$(l7_mutant l7_declared 'missing = [k for k in want if k not in links]' 'missing = []')
+l7_report "L7-7: links_heard stops asking for every declared direction" "$m" "L1 no link entries"
 
 m=$(l7_mutant l7_flowhas 'if any(r.get("actions") == [f"OUTPUT:{port}"] for r in rows):' \
     'if rows:')
@@ -1520,6 +1523,28 @@ l7_report "L7-16: rows_unchanged ignores the row diff" "$m" "L5 a row changed"
 
 m=$(l7_mutant l7_netem 'for f in "$@"; do' 'for f in "$1"; do')
 l7_report "L7-17: no_netem looks at one end only" "$m" "L4 netem left on one end"
+
+# [Co-developed with claude code -- Adam] 07's L1 on switch_state with the heartbeat running
+# (TICKET-P4-heartbeat, the fable judge's R2 note on ebdf365e).
+m=$(l7_mutant l7_extra 'extra = sorted(k for k in links if k not in want)' 'extra = []')
+l7_report "L7-18: links_heard accepts a link nobody declared" "$m" "L1 an extra link"
+
+m=$(l7_mutant l7_unfed 'unfed = [k for k in want if k in links and got(k, "source") != "heartbeat"]' 'unfed = []')
+l7_report "L7-19: links_heard stops asking whether the heartbeat fed each link" "$m" \
+          "L1 a declared link the heartbeat never fed"
+
+m=$(l7_mutant l7_hbdown 'down = [k for k in want if k in links and got(k, "source") == "heartbeat" and got(k, "down") is not False]' 'down = []')
+l7_report "L7-20: links_heard accepts a link the heartbeat reports down" "$m" \
+          "L1 a link the heartbeat reports down"
+
+m=$(l7_mutant l7_seam 'l1_links_verdict() { links_heard "$1" "$2"; }' 'l1_links_verdict() { echo "OK stub"; }')
+l7_report "L7-21: the live path's L1-on-switch_state check says OK to anything" "$m" \
+          "L1 the live path's check on the first cut's all-declared shape"
+
+m=$(l7_mutant l7_either 'unfed = [k for k in want if k in links and got(k, "source") != "heartbeat"]' \
+    'unfed = [k for k in want if k in links and got(k, "source") not in ("heartbeat", "declared")]')
+l7_report "L7-22: \"declared or heartbeat\" (the looser rule) is accepted" "$m" \
+          "L1 the heartbeat never fed the proxy (all declared)"
 
 # --- negative controls: edits no suite specifies, which must stay GREEN -------------------------
 
