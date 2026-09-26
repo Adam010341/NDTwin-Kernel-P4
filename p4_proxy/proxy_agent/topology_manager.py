@@ -1,3 +1,4 @@
+import collections
 import json
 import os
 import socket
@@ -520,6 +521,12 @@ LIVENESS_PROBE_TIMEOUT_S = 1.5
 #: nothing to judge and nothing judged yet to freeze at. [Co-developed with claude code -- Adam]
 _NOTHING_TO_JUDGE = object()
 
+#: How many watchdog passes `watchdog_passes` keeps: a minute at the 5 s interval, which covers
+#: one cut-and-restore cycle. [Co-developed with claude code -- Adam] TICKET-P4-heartbeat
+#: segment W, the orchestrator's 09-26 addendum: the pass times are what makes the watchdog's
+#: phase against a cut verifiable.
+WATCHDOG_PASS_LOG = 12
+
 
 class TopologyManager:
     """Maintains the network state and computes shortest paths via BFS"""
@@ -703,6 +710,9 @@ class TopologyManager:
         #: [Co-developed with claude code -- Adam]
         self._link_evidence = None
         self._evidence_judged_at = None
+        #: The last WATCHDOG_PASS_LOG passes: {start_mono, end_mono, down, up} on `self._clock`.
+        #: Appended by the one watchdog thread, read (copied) by the HTTP thread.
+        self._watchdog_passes = collections.deque(maxlen=WATCHDOG_PASS_LOG)
 
         # Serialises readopt_switch. Power operations are operator-paced, so contention is
         # not expected; the lock exists so that two concurrent readopts of the same dpid
@@ -2108,6 +2118,7 @@ class TopologyManager:
         `check_link_beacons`, so one rule and one set of constants decide for LLDP and for the
         heartbeat alike. See `_ingest_link_evidence` for the freeze.
         """
+        pass_start = self._clock()
         try:
             judge_at = self._ingest_link_evidence()
             if judge_at is _NOTHING_TO_JUDGE:
@@ -2152,7 +2163,20 @@ class TopologyManager:
                     print(f"[TopologyManager] reroute after transition failed: "
                           f"{type(e).__name__}: {e}")
             self.push_destination_paths()
+        # [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W: on record, so the
+        # pass that reported a cut can be placed against the cut (see WATCHDOG_PASS_LOG).
+        self._record_watchdog_pass(pass_start, len(result["down"]), len(result["up"]))
         return result
+
+    def _record_watchdog_pass(self, start, down, up):
+        passes = getattr(self, "_watchdog_passes", None)
+        if passes is not None:
+            passes.append({"start_mono": start, "end_mono": self._clock(), "down": down, "up": up})
+
+    def watchdog_passes(self):
+        """The last WATCHDOG_PASS_LOG watchdog passes, oldest first, as {start_mono, end_mono,
+        down, up} on this manager's monotonic clock. [Co-developed with claude code -- Adam]"""
+        return [dict(p) for p in list(getattr(self, "_watchdog_passes", None) or ())]
 
     def push_destination_paths(self):
         """

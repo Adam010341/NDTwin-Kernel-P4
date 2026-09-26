@@ -1124,7 +1124,7 @@ _fabric = {"lldp": None, "watchdog": None, "declared_links": None,
 
 #: The heartbeat evidence startup attached, for the reports below. [Co-developed with claude code
 #: -- Adam] TICKET-P4-heartbeat segment W.
-_heartbeat = {"evidence": None}
+_heartbeat = {"evidence": None, "passes": None}
 
 #: Where the root helper's daemon writes, and whose file it must be. Module constants so a test can
 #: point them at a directory of its own, the way TELEMETRY_KNOB_PATH is patched: a suite reading
@@ -1363,10 +1363,23 @@ def heartbeat_report():
         "frame": {"ethertype": "0x88B5", "bytes": 60,
                   "one_per_direction_every_s": getattr(reading, "period_s", None)},
         "census": HEARTBEAT_CENSUS,
+        # [Co-developed with claude code -- Adam] The orchestrator's 09-26 addendum: the last
+        # passes of the one watchdog, on the proxy's monotonic clock -- what places the pass that
+        # reported a cut against the cut and the heartbeat round before it.
+        "watchdog_passes": _heartbeat_passes(),
         "note": ("the heartbeat proves a veth carries frames, not that a switch is alive (a "
                  "switch powered off by P4PowerStrategy is still heard); its frames are also "
                  "what link telemetry samples, 1 in 256, on those veths"),
     }
+
+
+def _heartbeat_passes():
+    """The watchdog's recorded passes, from the topology startup started the heartbeat on."""
+    passes = _heartbeat.get("passes")
+    try:
+        return passes() if callable(passes) else []
+    except Exception:  # noqa: BLE001 -- a disclosure must not take switch_state down
+        return []
 
 
 def _start_heartbeat_watchdog(topo):
@@ -1374,6 +1387,7 @@ def _start_heartbeat_watchdog(topo):
     "Type: message" or None). A topology without the entry -- every pre-W test double -- is
     disclosed, not fatal. [Co-developed with claude code -- Adam]"""
     start = getattr(topo, "start_heartbeat_watchdog", None)
+    _heartbeat["passes"] = getattr(topo, "watchdog_passes", None)
     if start is None:
         return False, ("AttributeError: this topology has no start_heartbeat_watchdog, so no "
                        "heartbeat is read")
@@ -1799,7 +1813,7 @@ async def startup(clients_factory, sflow, kernel, topo,
     # TICKET-P4-heartbeat segment W, reset the same way. [Co-developed with claude code -- Adam]
     _fabric.update(external=read_only, heartbeat_watchdog=None, heartbeat_error=None,
                    routes_blocked=None)
-    _heartbeat["evidence"] = None
+    _heartbeat.update(evidence=None, passes=None)
 
     clients = clients_factory()
     for dpid, client in clients.items():
