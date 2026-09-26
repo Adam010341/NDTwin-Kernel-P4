@@ -60,6 +60,11 @@
 # p4_proxy/mininet/host_count_override and telemetry_override, stops the heartbeat and removes
 # any netem it added BEFORE `ndt down`, and releases last -- live-p1/_common.sh's finish(), with
 # the heartbeat and netem steps in front of it.
+# 🔴 Round 7 (the first live run, 09-26): every `ndt down` it runs is preceded by a re-claim
+# WITHOUT measuring= -- ndt refuses to tear down under a claim that declares one -- and it
+# releases ONLY after the teardown's `ndt down` answered 0 or 3. Any other answer KEEPS the claim
+# (its note saying a fabric may still be up), prints what is running and the commands to finish,
+# and ends FAIL with that at the head of the last line.
 # Raw goes to spike/runs/<UTC>_S_heartbeat/; the last line is PASS, FAIL <why> or REFUSED.
 # Exit: 0 PASS, 1 FAIL (incl. a ruling-4 STOP), 2 refused before anything was started.
 set -euo pipefail
@@ -128,6 +133,15 @@ FABRIC_UP=0
 #: The real ndt. spike_finish points $NDT at spike_ndt for finish(); everything else uses this.
 REAL_NDT="$NDT"
 WATCH_HIT=""
+#: The claim ndt keeps (tools/test_workflow/ndt: CLAIM="$REPO/.test_run/lab.claim"; _common.sh's
+#: require_free_lab reads the same file). READ here, never written: every change goes through `ndt claim`.
+CLAIM_FILE="$REPO/.test_run/lab.claim"
+#: 1 once this run has re-claimed after take_claim. Every `ndt claim` re-records the round baseline
+#: from the P4 host knob AS IT IS THEN (record_round_baseline), which `ndt release` compares the knob
+#: against -- so spike_release re-claims once more on the restored knob, or refuses when it is not back.
+RECLAIMED=0
+#: The rc the teardown's own `ndt down` (finish's) answered, as ndt answered it; empty until it has run.
+TEARDOWN_DOWN_RC=""
 
 # --- the proxy's constants, imported, never copied ----------------------------------------------
 consts() {
@@ -144,19 +158,183 @@ print(t.LLDP_BEACON_INTERVAL_S, t.LINK_BEACON_TIMEOUT_S, t.LINK_WATCHDOG_INTERVA
 # as a failed teardown: a clean run ended `FAIL ... 'ndt down' exited 3`. A 3 from `down` is
 # passed as 0 ONLY when this run's own bookkeeping says its fabric is already down; every other
 # rc, and a 3 while the spike believes something is up, goes through untouched -- a real surprise
-# still fails the run. Every other subcommand (release) is the real ndt, unchanged.
+# still fails the run.
+#
+# 🔴 ROUND 7: `down` also records the rc it got (TEARDOWN_DOWN_RC), and an answer other than 0 or 3
+# puts THE KEPT CLAIM at the head of the verdict; `release` is spike_release, which releases only
+# after such a down. Every other subcommand is the real ndt, unchanged.
 spike_ndt() {
     local rc
+    if [[ "${1:-}" == release ]]; then
+        # `return $?`, NEVER a bare `return`: this runs inside the EXIT trap, and there a bare
+        # `return` answers the status of the last command BEFORE the trap (bash's `return`
+        # builtin) -- scenario (d) of the self-test caught a refused release answering 0 that way.
+        spike_release
+        return $?
+    fi
     "$REAL_NDT" "$@" && rc=0 || rc=$?
-    if [[ "${1:-}" == down ]] && (( rc == 3 && FABRIC_UP == 0 )); then
-        echo "spike: 'ndt down' answered 3 (nothing was up) -- expected: this run had already taken its own fabric down"
-        return 0
+    if [[ "${1:-}" == down ]]; then
+        TEARDOWN_DOWN_RC="$rc"
+        if (( rc != 0 && rc != 3 )); then
+            # The last line is what gets read; a lab left claimed with a fabric maybe up is the one
+            # thing on it somebody has to act on, so it goes first whatever failed before it.
+            VERDICT_RC=1
+            VERDICT_WHY="NOT RELEASED -- THE LAB STAYS CLAIMED: the teardown's 'ndt down' exited $rc, so a fabric may still be up; see $(basename "$RUN")/90_down.txt and finish by hand with the commands printed above${VERDICT_WHY:+ (first failure before it: $VERDICT_WHY)}"
+        fi
+        if (( rc == 3 && FABRIC_UP == 0 )); then
+            echo "spike: 'ndt down' answered 3 (nothing was up) -- expected: this run had already taken its own fabric down"
+            return 0
+        fi
     fi
     return "$rc"
 }
 
-# spike_finish -- the heartbeat and any netem this run added go FIRST, then _common's finish()
-# (ndt down, knobs back, release, verdict), with the exit status it would have seen.
+# --- the claim: measuring= taken back, and never a release over a fabric that may be up ---------------
+#
+# 🔴 ROUND 7 -- THE FIRST LIVE RUN (09-26 10:30, runs/2026-09-26T023021Z_S_heartbeat/). The run
+# DECLARES its measurement (NDT_MEASURING, exported before take_claim), and `ndt down` refuses -- rc
+# 5, nothing torn down -- while the live claim declares one (tools/test_workflow/ndt cmd_down, the
+# T2d guard: "when that run is over: ndt claim <mins> to redeclare, or ndt down --force"). Nothing
+# took it back, so both downs of that run were refused (26_down.txt, 90_down.txt) -- and finish()
+# released the lab anyway: a 4-switch fabric up under NO claim, app_package_override behind it.
+#
+# The declaration is this run's own statement, and the run is the one thing that knows when its
+# measurement is over: when it tears its own fabric down. So every `ndt down` it runs (nd_down, and
+# finish's through spike_finish) is preceded by `ndt claim` WITHOUT NDT_MEASURING in THAT command's
+# environment -- claim_take writes measuring= from ${NDT_MEASURING:-}, so an exported one would
+# just be declared again. Not `--force`: that also skips in_flight, the reading that can still say
+# a real measurement is running (drive_e.sh's teardown_fabric makes the same retraction, 09-19).
+
+# lab_claim_field <field> -- one field of the claim file, or nothing (ndt's claim_field, read-only).
+lab_claim_field() {
+    [[ -f "$CLAIM_FILE" ]] || return 0
+    sed -n "s/^$1=//p" "$CLAIM_FILE" 2>/dev/null | head -1 || true
+}
+
+# claim_minutes <floor> -- what is left of the claim's lease, in whole minutes rounded up, and at
+# least <floor>. A re-claim keeps the lease this run already holds rather than renewing it for
+# CLAIM_MINUTES, and never leaves less than <floor> for what follows it.
+claim_minutes() {
+    local exp left=0
+    exp="$(lab_claim_field expires)"
+    [[ "$exp" =~ ^[0-9]+$ ]] && left=$(( (exp - $(date +%s) + 59) / 60 ))
+    if (( left > $1 )); then echo "$left"; else echo "$1"; fi
+}
+
+# reclaim <minutes> <note> <out> -- `ndt claim` by this run's owner, WITHOUT measuring=, read back:
+# rc 0 only when the claim then names this owner and declares nothing.
+reclaim() {
+    local rc
+    env -u NDT_MEASURING "$REAL_NDT" claim "$1" "$2" > "$3" 2>&1 && rc=0 || rc=$?
+    sed 's/^/     /' "$3"
+    if (( rc != 0 )); then
+        bad "'ndt claim' answered $rc -- see $(basename "$3")"
+        return 1
+    fi
+    # An `ndt claim` that answered 0 has re-recorded the round baseline, whatever the readback says.
+    RECLAIMED=1
+    if [[ "$(lab_claim_field owner)" != "$NDT_OWNER" || -n "$(lab_claim_field measuring)" ]]; then
+        bad "'ndt claim' answered 0, and the claim reads owner=$(lab_claim_field owner) measuring=$(lab_claim_field measuring)"
+        return 1
+    fi
+}
+
+# retract_measuring <out> -- this run's measuring= taken back, before one of its own teardowns. A
+# no-op when there is nothing to take back: never declared, already taken back, or no claim taken.
+retract_measuring() {
+    (( CLAIMED )) && [[ -n "${NDT_MEASURING:-}" ]] || return 0
+    note "this run's measurement is over: re-claiming WITHOUT measuring= (owner and note kept, the lease not renewed)"
+    if reclaim "$(claim_minutes 15)" "$(lab_claim_field note)" "$1"; then
+        unset NDT_MEASURING
+        return 0
+    fi
+    fail "could not take back this run's measuring= declaration -- see $(basename "$1"); 'ndt down' refuses while it stands"
+    return 1
+}
+
+# knob_back -- whether host_count_override holds the bytes this run found (restore_knob's own test).
+knob_back() {
+    case "$KNOB_ENTRY_COPY" in
+        "")         return 0 ;;
+        "(absent)") [[ ! -e "$KNOB" ]] ;;
+        *)          cmp -s "$KNOB_ENTRY_COPY" "$KNOB" ;;
+    esac
+}
+
+# spike_release -- what finish()'s `ndt release` runs. It runs inside finish's pipeline (a subshell),
+# so nothing it sets reaches the verdict; spike_ndt's `down` has already written that.
+spike_release() {
+    # 🔴 NEVER A RELEASE OVER A FABRIC THAT MAY STILL BE UP. `ndt help`'s rc table for down: 0 torn
+    # down and verified clean, 3 there was nothing to tear down -- both leave nothing of this run's
+    # up. 5 a guard refused and NOTHING was torn down, 1 the teardown did not verify clean, 2 a usage
+    # error: the claim is KEPT. (Released anyway on 09-26: a fabric up under no claim.)
+    if [[ "$TEARDOWN_DOWN_RC" != 0 && "$TEARDOWN_DOWN_RC" != 3 ]]; then
+        keep_claim
+        # rc 0 when the verdict already leads with this (spike_ndt's down wrote it): finish's own
+        # line for a failed release says "run it by hand", and `ndt release` is the one command that
+        # must NOT be run first. With no down on record, 1 -- that line is then the only FAIL there is.
+        [[ -n "$TEARDOWN_DOWN_RC" ]] && return 0 || return 1
+    fi
+    if (( RECLAIMED )); then
+        # 🔴 A re-claim after `ndt up` moved the knob made the moved value the round's recorded start;
+        # finish has put the entry bytes back since, and `ndt release` would refuse them (or, had the
+        # restore failed, ACCEPT the moved knob -- the one check the old claim gave this run). So: one
+        # more re-claim on the restored knob, and none at all when it is not back (drive_e.sh made
+        # the same two moves, its rulings 22(2) and 25(2)).
+        if ! knob_back; then
+            echo "!! NOT RELEASING: host_count_override is not back to the bytes this run found (said above)."
+            echo "!!   this run re-claimed after 'ndt up' moved it, so the round's recorded start is the moved"
+            echo "!!   value, and 'ndt release' would accept it. Put it back -- the bytes are in"
+            echo "!!   $(basename "$RUN")/00_host_count_override.entry -- then, to record that and release:"
+            printf '!!     NDT_OWNER=%q %q claim 15 && NDT_OWNER=%q %q release\n' "$NDT_OWNER" "$REAL_NDT" "$NDT_OWNER" "$REAL_NDT"
+            return 1
+        fi
+        echo "re-claiming on the knob as it is now, so the round baseline 'ndt release' compares with is what is there"
+        reclaim "$(claim_minutes 15)" "$(lab_claim_field note)" "$RUN/95_release.reclaim.txt" \
+            || echo "!! that re-claim did not take -- 'ndt release' may refuse; its answer is the verdict"
+    fi
+    "$REAL_NDT" release
+}
+
+# keep_claim -- the teardown's `ndt down` did not answer 0 or 3: the claim is KEPT (re-claimed for
+# at least an hour, measuring= gone, its note saying why), and what is running is printed with the
+# commands to finish. Everything goes to the terminal, through finish's release line.
+keep_claim() {
+    local why kept="$RUN/91_kept_claim.txt" st="$RUN/92_status_kept.txt"
+    local rule="!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    case "$TEARDOWN_DOWN_RC" in
+        5)  why="a guard refused and nothing was torn down" ;;
+        1)  why="the teardown ran and did not verify clean" ;;
+        "") why="no teardown ran" ;;
+        *)  why="an answer outside the rc table 'ndt help' gives for down" ;;
+    esac
+    echo "$rule"
+    echo "!! NOT RELEASED. The teardown's 'ndt down' exited ${TEARDOWN_DOWN_RC:-nothing} -- $why --"
+    echo "!! so a fabric may still be up ($(basename "$RUN")/90_down.txt says why). Releasing now would leave it"
+    echo "!! running under NO claim, which is what the 09-26 live run did. This run KEEPS its claim:"
+    if reclaim "$(claim_minutes 60)" "FABRIC STILL UP -- heartbeat spike S: its teardown's 'ndt down' exited ${TEARDOWN_DOWN_RC:-nothing} ($why) and it did NOT release; finish by hand: ndt down, then ndt release (raw $(basename "$RUN"))" "$kept"; then
+        echo "!! owner=$(lab_claim_field owner) until $(date -d "@$(lab_claim_field expires)" '+%H:%M:%S' 2>/dev/null), note=$(lab_claim_field note)"
+    else
+        echo "!! -- and could NOT rewrite it ($(basename "$kept")). It reads owner=$(lab_claim_field owner): if that is not"
+        echo "!!    $NDT_OWNER, the fabric is under THEIR claim now -- tell them, do not tear it down from here."
+    fi
+    "$REAL_NDT" status > "$st" 2>&1 || true
+    echo "!! what 'ndt status' says is running ($(basename "$st")):"
+    sed -n '/^running/,/^$/p' "$st" | sed '/^$/d; s/^/!!   /'
+    if [[ -e "$APP_KNOB" ]]; then
+        echo "!! p4_proxy/mininet/app_package_override is still there -- 'ndt down' removes it when it goes through:"
+        sed 's/^/!!   /' "$APP_KNOB"
+    fi
+    echo "!! finish it by hand, in this order, once you have read 90_down.txt:"
+    printf '!!     NDT_OWNER=%q %q down\n' "$NDT_OWNER" "$REAL_NDT"
+    printf '!!     NDT_OWNER=%q %q release\n' "$NDT_OWNER" "$REAL_NDT"
+    echo "!! if 'ndt down' refuses again, its message names the guard; --force is yours to decide, not this script's."
+    echo "$rule"
+}
+
+# spike_finish -- the heartbeat and any netem this run added go FIRST, then this run's measuring=
+# declaration is taken back (round 7), then _common's finish() (ndt down, knobs back, release,
+# verdict), with the exit status it would have seen.
 spike_finish() {
     local rc=$?
     set +e
@@ -168,6 +346,9 @@ spike_finish() {
     if (( HB_STARTED )); then
         sudo -n "$LAB_HELPER" heartbeat stop 2>&1 | sed 's/^/   /'
     fi
+    # Round 7: finish's `ndt down` is refused while the declaration stands -- on every path that
+    # left it standing (a detection part that stopped before its own down, an abort, a signal).
+    retract_measuring "$RUN/90_down.reclaim.txt"
     NDT=spike_ndt
     ( exit "$rc" )
     finish
@@ -224,6 +405,9 @@ nd_up() {
 }
 nd_down() {
     local rc
+    # Round 7: a teardown by this run ends the measurement this run declared -- taken back first,
+    # or ndt refuses the down (the claim block above). Its `ndt claim` answer goes beside <out>.
+    retract_measuring "${1%.txt}.reclaim.txt" || true
     set +e; "$REAL_NDT" down > "$1" 2>&1; rc=$?; set -e
     (( rc == 0 || rc == 3 )) && FABRIC_UP=0
     return "$rc"
@@ -530,7 +714,8 @@ PYAGREE
         chmod +x "$d/ndt"
         out="$( RUN="$d/run"; mkdir -p "$RUN"; CLAIMED=1; VERDICT_RC=0; VERDICT_WHY=""; FABRIC_UP="$1"
                 HB_STARTED=0; INJECTED_IFACES=(); NDT="$d/ndt"; REAL_NDT="$d/ndt"; APP_KNOB="$d/none"
-                KNOB_ENTRY_COPY=""; TEL_ENTRY_COPY=""; CTRL_PID=""
+                KNOB_ENTRY_COPY=""; TEL_ENTRY_COPY=""; CTRL_PID=""; CLAIM_FILE="$d/lab.claim"
+                TEARDOWN_DOWN_RC=""; RECLAIMED=0; unset NDT_MEASURING
                 ( exit 0 ); spike_finish 2>&1 )"
         printf '%s|%s' "$(tail -1 <<<"$out")" "$(paste -sd, "$d/calls" 2>/dev/null)"
     }
@@ -737,7 +922,8 @@ FAKEQDISC
     {
         echo 'set -euo pipefail'
         declare -f detect judge note fail bad say err cut_link restore_link no_netem_on_cut \
-            run_tc show_qdisc netem_attach_point netem_delete_point revert_link_loss spike_finish
+            run_tc show_qdisc netem_attach_point netem_delete_point revert_link_loss spike_finish \
+            retract_measuring
         declare -p R N
         printf 'WATCH=%q\nHB_REPORT=%q\nFAULTS_TC=%q\nLAB_HELPER=%q\n' \
             "$st_tmp/fake_watch.py" "$st_tmp/no-report.json" "$st_tmp/fake_tc" "$st_tmp/no-helper"
@@ -748,7 +934,7 @@ FAKEQDISC
 sudo() { echo "sudo $*" >> "$FAKE_TC_STATE/calls"; }
 out="$1"; RUN="$2"; export FAKE_TC_STATE="$3"
 mkdir -p "$RUN"
-VERDICT_RC=0; VERDICT_WHY=""; BEACON_S=5; TIMEOUT_S=15; CYCLES=1; HB_STARTED=0; INJECTED_IFACES=()
+VERDICT_RC=0; VERDICT_WHY=""; BEACON_S=5; TIMEOUT_S=15; CYCLES=1; HB_STARTED=0; INJECTED_IFACES=(); CLAIMED=0
 prepare() { echo "OK /nonexistent/pkg"; }
 nd_up() { : > "$2"; return 0; }
 sp_hb_start() { : > "$1"; HB_STARTED=1; return 0; }
@@ -1045,12 +1231,13 @@ DRIVER
         && ok "  and when the detection part stops before its own 'ndt down', the teardown takes the declaration back: its down goes through, the lab released (set -e process)" \
         || red "  a declared run whose detection part stopped at its first check: $(st_cs firstcheck)"
     # (b) a teardown `ndt down` refused for ANOTHER reason (in_flight's "a measurement is running"):
-    # the fabric is still up, so the lab is NOT released. The claim is kept, its note says why, the
-    # commands to finish are printed, and the verdict names it.
+    # the fabric is still up, so the lab is NOT released. The claim is kept (the last two calls are
+    # keep_claim's re-claim and status), its note says why, the commands to finish are printed, and
+    # the verdict names it. Nothing here depends on the retraction: this is the fail-closed half.
     st_claim refused healthy refuse-down
     local kept_exp; kept_exp="$(st_cf refused expires)"
-    [[ "$wrc" == 1 && "$(tail -1 "$st_tmp/claim_refused/out")" == "FAIL S_heartbeat -- THE FABRIC IS STILL UP AND THE LAB STAYS CLAIMED: 'ndt down' exited 5"* \
-       && "$(st_calls refused)" != *release* && "$(st_calls refused)" == *";down;claim;status" \
+    [[ "$wrc" == 1 && "$(tail -1 "$st_tmp/claim_refused/out")" == "FAIL S_heartbeat -- NOT RELEASED -- THE LAB STAYS CLAIMED: the teardown's 'ndt down' exited 5"* \
+       && "$(st_calls refused)" != *release* && "$(st_calls refused)" == *";claim;status" \
        && "$(st_cf refused owner)" == hb-selftest && -z "$(st_cf refused measuring)" \
        && "$(st_cf refused note)" == "FABRIC STILL UP"* \
        && "$kept_exp" =~ ^[0-9]+$ ]] && (( kept_exp - $(date +%s) >= 59 * 60 )) \
