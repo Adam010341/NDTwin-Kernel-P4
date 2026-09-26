@@ -331,8 +331,10 @@ def self_check(only):
         "extra-line": (case(f"R4-3's edit; its own red line, and {extra!r}", edits43, want43 + [(extra, "")]),
                        ["case"], 1, [(f"### PROBLEM: expected red once, got 0: {extra!r}", ""),
                                      ("### case: UNEXPECTED", "")]),
+        # The PROBLEM line carries the red line's repr(), and that line holds both kinds of quote, so
+        # its ' come out escaped: look for a part of R4-3's line with no quote in it.
         "unnamed-red": (case("R4-3's edit; no red line expected", edits43, []),
-                        ["case"], 1, [("### PROBLEM: red that no expectation names:", line43),
+                        ["case"], 1, [("### PROBLEM: red that no expectation names:", line43.rsplit("' ", 1)[-1]),
                                       ("### case: UNEXPECTED", "")]),
         "reddens-nothing": (case("an edit to a comment line, which no check can see",
                                  [("spike", "# --- helpers -", "# --- helpers (a self-check edit) -", 1)], []),
