@@ -791,6 +791,40 @@ check_fires "M41: an over-long window is measured instead of refused" m41 \
             "🔴 and the refusal names both numbers" \
             "🔴 the over-long window has its own rc, not 1"
 
+# --- M42 / M43 (09-27): the suite never reaches a lab, and says so --------------------------
+# [Co-developed with claude code -- Adam] test_live_p1_common.sh now runs under a fake fabric
+# (a ps listing Mininet hosts h1..h4) with a sudo / mnexec / iperf on PATH that record and refuse,
+# and section 14 fails on anything recorded -- by those or by the cells' shared stubs. M42 lets
+# link_usage_round go on without a namespace: the zz cells then reach the stubs. M43 also calls
+# the server's sudo past any stub (`command`): only the PATH guard can see that one.
+cat > "$A/m42.old" <<'EOF'
+    if [[ ! "$pid_s" =~ ^[0-9]+$ || ! "$pid_c" =~ ^[0-9]+$ ]]; then
+EOF
+cat > "$A/m42.new" <<'EOF'
+    if false; then
+EOF
+check_fires "M42: link_usage_round goes on without a namespace" m42 \
+            "  and, zz2 having no namespace, it stopped there (rc 2)" \
+            "🔴 and no cell reached the shared stubs either (no flow was attempted)"
+cat > "$A/m43.old" <<'EOF'
+    if [[ ! "$pid_s" =~ ^[0-9]+$ || ! "$pid_c" =~ ^[0-9]+$ ]]; then
+        fail "$label: no namespace for $src ($pid_c) or $dst ($pid_s) -- this is a permission/namespace answer, never a reading about link usage"
+        return 2
+    fi
+    netdev_tx "$dir/netdev.before"
+    sudo -n mnexec -a "$pid_s" iperf -s -u > "$dir/iperf_server.txt" 2>&1 &
+EOF
+cat > "$A/m43.new" <<'EOF'
+    if false; then
+        fail "$label: no namespace for $src ($pid_c) or $dst ($pid_s) -- this is a permission/namespace answer, never a reading about link usage"
+        return 2
+    fi
+    netdev_tx "$dir/netdev.before"
+    command sudo -n mnexec -a "$pid_s" iperf -s -u > "$dir/iperf_server.txt" 2>&1 &
+EOF
+check_fires "M43: the flow's sudo gets past every stub" m43 \
+            "🔴 NOTHING reached for sudo, mnexec or iperf past a stub"
+
 # --- the controls for this half --------------------------------------------------------------------------
 cat > "$A/c3.old" <<'EOF'
     (( rc == 0 )) && note "$label: link usage follows the iperf path (off-path under $floor bit)"
