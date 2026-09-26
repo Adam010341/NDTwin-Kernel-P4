@@ -196,10 +196,16 @@ thrift==0.24.0
 #   $ "$V/bin/python" -c 'import google.protobuf as g, p4.v1.p4runtime_pb2, p4.v1.p4runtime_pb2_grpc; from google.protobuf.internal import api_implementation as a; print(g.__version__, a.Type())'   # 5.29.6 upb
 #   $ "$V/bin/python" p4_proxy/regen_p4runtime_pb2.py     # "already current", then "ok: ..."
 #   $ PY=$PWD/$V/bin/python
-#   $ (cd p4_proxy && PYTHONPATH=. "$PY" -m unittest tests/test_*.py)                   # OK (skipped=1)
-#   $ "$PY" -m unittest discover -s tools/p4_exercise/tests -t tools/p4_exercise/tests   # OK
-#    On 2026-09-26 the two suites were 1557 tests with one skip -- LiveSwitchTest, which needs a
-#    live switch -- and 187 tests. The counts grow as tests are added; the verdicts must not change.
+#   $ (cd p4_proxy && PYTHONPATH=. "$PY" -m unittest $(ls tests/test_*.py | sed 's#/#.#; s#\.py$##'))   # OK (skipped=1)
+#   $ HOME=$(mktemp -d) "$PY" -m unittest discover -s tools/p4_exercise/tests -t tools/p4_exercise/tests   # OK (skipped=1)
+#    On 2026-09-26 that was 1557 tests with one skip, LiveSwitchTest (it needs a live switch), and
+#    187 with one skip. The counts grow as tests are added; the verdicts must not change. Two
+#    things in these commands are deliberate. The p4_proxy tests are named as modules, not as
+#    files: with tests/test_psample_sflow_emitter.py in its argv this process passes
+#    link_telemetry's "is this pid the emitter" check, and test_switch_state fails on it
+#    (observed 2026-09-26). And HOME is empty, so the one test that compares tools/p4_exercise's
+#    fixtures byte-for-byte with ~/tutorials skips: it tests files, not the venv, and it is red
+#    whenever a live run has rebuilt a tutorial's build/ (also observed 2026-09-26).
 #
 # 4. Keep "$OLD", "$OLD.freeze" and "$OLD.fingerprint" until the new venv has passed a live run
 #    (live-p1's 01_baseline.sh and 06_thirteen.sh); deleting them after that is the one step here
