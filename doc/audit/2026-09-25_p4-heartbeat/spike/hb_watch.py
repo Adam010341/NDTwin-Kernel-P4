@@ -14,6 +14,16 @@ What this measures is the REPORT-LEVEL detection: the moment the proxy COULD cal
 down if it read the report then. Segment W's end-to-end adds at most one watchdog pass
 (LINK_WATCHDOG_INTERVAL_S) on top, and the kernel's reaction after that.
 
+🔴 ROUND 8 (09-26, the segment-S report's judge, Blocking 1 and 2, and the re-review's notes): the
+two live runs cut the cable at ONE phase of the heartbeat's round -- right after the loop's
+previous wait returned, 0.62-0.80 s after the last frame heard, every cycle -- and restored it
+~0.15 s after a send; `up_s` is the daemon's receive stamp, and the report that shows it is
+written ~0.5 s later. The verbs under the round-8 line below give every cut and every restore a
+phase of its own (a seeded random wait, or a sweep of start offsets after the last frame heard),
+record that phase from the report's own last_heard_mono with the CLOCK_MONOTONIC stamps it is
+computed from, record the REPORT level (the first report whose content shows the transition)
+beside the daemon's receive stamp, and run the two discriminating controls (no cut; one end only).
+
 Pure functions first (the --self-test drives every one of them against a synthetic report it
 must accept and one it must reject), then the thin polling wrappers the spike calls.
 
@@ -27,7 +37,17 @@ must accept and one it must reject), then the thin polling wrappers the spike ca
     hb_watch.py summary   <cycles.tsv> <timeout_s> <period_s>
     hb_watch.py census-verdict <sniff-dir> <report-snapshot>
     hb_watch.py first-hit <sniff-dir>                        -> the first host that saw one, or ""
-    hb_watch.py sim-init <dir> [<json overrides>]           -> (self-test only) a simulated daemon
+  round 8:
+    hb_watch.py plan        <random|sweep> <cycles> <seed> <period_s> [<offsets: s,s,...>]  -> the phase plan (TSV)
+    hb_watch.py phase-wait  <report> <delay|phase> <value> <period_s> <margin_s>  -> wake, delay, anchor, source
+    hb_watch.py cut-down    <report> <dirs> <t0_mono> <timeout_s> <cap_s> [<trace>]  -> down_s rule_s rpt_s lh phi src grid
+    hb_watch.py restore-up  <report> <dirs> <t1_mono> <cap_s> <anchor_mono|-> [<trace>] -> up_s rpt_s poll_s lh phi src grid
+    hb_watch.py quiet       <report> <seconds> <timeout_s> [<trace>]            -> observed, verdict (control a)
+    hb_watch.py single-end  <report> <down_dir> <up_dir> <t0_mono> <timeout_s> <cap_s> <hold_s> [<trace>]
+                                                                                -> observed, verdict (control b)
+    hb_watch.py period-check <report> <period_s>                                -> OK | BAD
+    hb_watch.py sub <a> <b>                                                     -> a - b, or "-"
+    hb_watch.py sim-init <dir> [<json overrides>]                               -> (self-test only) a simulated daemon
     hb_watch.py --self-test
 
 <dirs> is "1:3>3:1,3:1>1:3" -- tx dpid:port > rx dpid:port, comma separated.
@@ -35,7 +55,7 @@ must accept and one it must reject), then the thin polling wrappers the spike ca
 🔴 HB_WATCH_SIM=<dir>, when set, puts every verb that reads the heartbeat report onto the SELF-TEST'S
 simulated daemon (class Sim) at the fake time in <dir>/clock, and every wait moves that clock on
 instead of sleeping. It exists so the spike's --self-test can run its own detection loop against a
-known timeline.
+known timeline; S_heartbeat_spike.sh refuses to run with it set.
 """
 import contextlib
 import glob
@@ -248,21 +268,171 @@ def others_up(doc, dirs, now, timeout):
     return "OK" if not bad else "BAD collateral: " + ", ".join(bad)
 
 
+#: 20_cycles.tsv's first six columns -- round 7's whole row. A file without a header row is read as these.
+OLD_COLS = ["cycle", "down_s", "up_s", "cut_tc_s", "collateral", "netem_left"]
+#: 🔴 PHASE COVERAGE (round 8). A run of PHASE=random or PHASE=sweep is judged to cover the period
+#: when, from COVER_MIN_N cycles on, the largest circular gap between its recorded phases is below
+#: COVER_GAP of the period. Round 7's loop put every cut 0.62-0.80 s after the last frame heard: a
+#: gap of 0.96 of the period. For n independent uniform phases, P(largest gap >= 0.6 P) is
+#: n * 0.4**(n-1) -- 1.3 % at n = 8, 0.26 % at n = 10 -- the false alarm a random run can meet.
+COVER_MIN_N = 8
+COVER_GAP = 0.6
+#: A sweep whose smallest recorded cut phase is above this never sampled the worst case (phi -> 0).
+SWEEP_WORST_MAX_S = 0.25
+
+
+def num(x):
+    try:
+        return float(x)
+    except (TypeError, ValueError):
+        return None
+
+
+def fmt(x, nd=3):
+    return "-" if x is None else f"{x:.{nd}f}"
+
+
+def read_cycles(path):
+    """20_cycles.tsv as [{column: cell}], by its header row (round 7's file: OLD_COLS)."""
+    rows, header = [], None
+    with open(path) as fh:
+        for line in fh:
+            line = line.rstrip("\n")
+            if not line.strip() or line.startswith("#"):
+                continue
+            cells = line.split("\t")
+            if cells[0] == "cycle":
+                header = cells
+                continue
+            rows.append(dict(zip(header or OLD_COLS, cells)))
+    return rows
+
+
+def mmm(xs, nd=2):
+    return (f"min {min(xs):.{nd}f} s  median {statistics.median(xs):.{nd}f} s  "
+            f"max {max(xs):.{nd}f} s  (n={len(xs)})")
+
+
+def largest_gap(phis, period):
+    """(the largest circular gap between the phases, the arc holding them all: first, last)."""
+    xs = sorted(x % period for x in phis)
+    if not xs:
+        return period, None, None
+    gaps = [(xs[i + 1] - xs[i], i + 1) for i in range(len(xs) - 1)] + [(xs[0] + period - xs[-1], 0)]
+    g, j = max(gaps)
+    return g, xs[j], xs[j - 1]
+
+
+def coverage(phis, period, what):
+    """(True | False | None, line) -- whether the phases cover the period; None: too few to judge."""
+    n = len(phis)
+    g, first, last = largest_gap(phis, period)
+    lim = COVER_GAP * period
+    head = f"  {what} phase coverage: n={n}, largest gap {g:.2f} s of the {period:g} s period"
+    if n < COVER_MIN_N:
+        return None, head + f" -- not judged (fewer than {COVER_MIN_N} cycles)"
+    if g < lim:
+        return True, head + f" < {lim:.2f} s -> covers it"
+    return False, (head + f" >= {lim:.2f} s -> PHASE-LOCKED: all {n} within an arc of {period - g:.2f} s "
+                   f"({first:.2f} .. {last:.2f} s)")
+
+
+def bin_lines(pairs, period, label, fields):
+    """pairs [(phase, row)] -> a line per fifth of the period (and one for a phase >= the period:
+    a round whose frame was not heard before the cut), each field's min/median/max."""
+    w = period / 5
+    groups = [(f"[{b * w:.1f}, {(b + 1) * w:.1f}) s", [r for p, r in pairs if b * w <= p < (b + 1) * w])
+              for b in range(5)]
+    over = [r for p, r in pairs if p >= period]
+    if over:
+        groups.append((f">= {period:.1f} s", over))
+    out = [f"  per {label} (bins of {w:g} s; min/median/max):"]
+    for name, rs in groups:
+        cells = []
+        for f in fields:
+            xs = [x for x in (num(r.get(f)) for r in rs) if x is not None]
+            cells.append(f"{f} " + (f"{min(xs):.2f}/{statistics.median(xs):.2f}/{max(xs):.2f}" if xs else "-"))
+        out.append(f"    {name:14s} n={len(rs):<3d} " + "  ".join(cells))
+    return out
+
+
 def summary(rows, timeout, period):
-    """rows: [(cycle, down_s or None, up_s or None)] -> lines, and whether every cycle detected."""
-    downs = [r[1] for r in rows if r[1] is not None]
-    ups = [r[2] for r in rows if r[2] is not None]
+    """rows: [{column: cell}] as read_cycles gives them, or round 7's [(cycle, down_s, up_s)].
+
+    -> (lines, ok, why): every cycle detected -- and, for a round-8 run, the cut and restore
+    phases covering the period and a sweep that sampled phi -> 0 -- and the verdict's reason.
+    """
+    rows = [r if isinstance(r, dict) else {"cycle": r[0], "down_s": r[1], "up_s": r[2]} for r in rows]
+    downs = [x for x in (num(r.get("down_s")) for r in rows) if x is not None]
+    ups = [x for x in (num(r.get("up_s")) for r in rows) if x is not None]
     lines = [f"cycles {len(rows)}: down detected {len(downs)}/{len(rows)}, recovery detected "
              f"{len(ups)}/{len(rows)}"]
     for label, xs in (("cut -> both directions not heard", downs), ("restore -> both heard again", ups)):
         if xs:
-            lines.append(f"  {label}: min {min(xs):.2f} s  median {statistics.median(xs):.2f} s  "
-                         f"max {max(xs):.2f} s  (n={len(xs)})")
-    lines.append(f"  expected from the constants alone (INFERRED): down in ({timeout - period:.0f}, "
-                 f"{timeout:.0f}] s after the cut plus one poll; up in (0, {period:.0f}] s; "
-                 f"segment W adds <= one watchdog pass")
+            lines.append(f"  {label}: {mmm(xs)}")
     ok = len(downs) == len(rows) == len(ups) and len(rows) > 0
-    return lines, ok
+    why = ["every cut and every restore detected" if ok else "not every cycle was detected"]
+    judged = []
+    if any("cut_phi_s" in r for r in rows):
+        mode = rows[0].get("phase_mode", "?")
+        lines.append(f"  -- round 8, PHASE={mode}: cut_phi_s = t0 - the last frame heard on the cable (the phase "
+                     f"the proxy's rule sees); restore_phi_s = t1 - the last heartbeat round, mod {period:g} s --")
+        cut = [(p, r) for p, r in ((num(r.get("cut_phi_s")), r) for r in rows) if p is not None]
+        rst = [(p, r) for p, r in ((num(r.get("restore_phi_s")), r) for r in rows) if p is not None]
+        # The phase re-derived from the raw CLOCK_MONOTONIC stamps (the re-review's note 1).
+        differs = [r["cycle"] for p, r in cut
+                   if num(r.get("cut_t0_mono")) is not None and num(r.get("cut_lh_mono")) is not None
+                   and abs(num(r["cut_t0_mono"]) - num(r["cut_lh_mono"]) - p) > 0.002]
+        lines.append("  cut_phi_s re-derived from the raw stamps (cut_t0_mono - cut_lh_mono): "
+                     + ("agrees on every row" if not differs else
+                        "DIFFERS on cycle(s) " + ",".join(str(c) for c in differs)))
+
+        def two(r, a, b, f):
+            x, y = num(r.get(a)), num(r.get(b))
+            return None if x is None or y is None else f(x, y)
+        derived = (
+            (f"cut -> the rule true (down_rule_s = last frame heard + {timeout:g} s - t0)",
+             lambda r: num(r.get("down_rule_s"))),
+            ("poll lag (down_s - down_rule_s)", lambda r: two(r, "down_s", "down_rule_s", lambda x, y: x - y)),
+            ("restore -> the first REPORT showing both heard (up_rpt_s)", lambda r: num(r.get("up_rpt_s"))),
+            ("report lag, measured (up_rpt_s - up_s)", lambda r: two(r, "up_rpt_s", "up_s", lambda x, y: x - y)),
+            (f"the round after the restore heard? (up_s + restore_phi_s - {period:g}; ~0 when it was)",
+             lambda r: two(r, "up_s", "restore_phi_s", lambda x, y: x + y - period)))
+        for label, get in derived:
+            xs = [x for x in (get(r) for r in rows) if x is not None]
+            if xs:
+                lines.append(f"  {label}: {mmm(xs, 3)}")
+        lines += bin_lines(cut, period, "cut phase (cut_phi_s)", ("down_s", "down_rule_s"))
+        lines += bin_lines(rst, period, "restore phase (restore_phi_s)", ("up_s", "up_rpt_s"))
+        if cut:
+            p, r = min(cut, key=lambda pr: pr[0])
+            lines.append(f"  smallest cut phase sampled: {p:.3f} s (cycle {r['cycle']}) -> down_s {r.get('down_s')} s, "
+                         f"down_rule_s {r.get('down_rule_s')} s")
+        for what, ps in (("cut", [p for p, _ in cut]), ("restore", [p for p, _ in rst])):
+            v, line = coverage(ps, period, what)
+            lines.append(line)
+            judged.append(v)
+            if v is False:
+                ok = False
+                why.append(f"the {what} phases do not cover the period --{line.split('->', 1)[1]}")
+        if mode == "sweep":
+            acc = [abs(p - num(r.get("cut_tc_s")) - num(r.get("cut_plan"))) for p, r in cut
+                   if num(r.get("cut_tc_s")) is not None and num(r.get("cut_plan")) is not None]
+            if acc:
+                lines.append(f"  sweep: each cut started cut_plan s after the last frame heard, to "
+                             f"|cut_phi_s - cut_tc_s - cut_plan| <= {max(acc):.3f} s")
+            if cut and min(p for p, _ in cut) > SWEEP_WORST_MAX_S:
+                ok = False
+                why.append(f"the sweep never cut within {SWEEP_WORST_MAX_S:g} s of a heard frame "
+                           f"(smallest cut_phi_s {min(p for p, _ in cut):.3f} s) -- phi -> 0 was not sampled")
+    lines.append(f"  expected from the constants alone (INFERRED): down = {timeout:g} - cut_phi_s plus one poll, in "
+                 f"({timeout - period:.0f}, {timeout:.0f}] s; up = {period:g} - restore_phi_s at daemon receive, in "
+                 f"(0, {period:.0f}] s, plus the report lag at report level; segment W adds <= one watchdog pass")
+    if ok and judged and all(v is True for v in judged):
+        why.append("the cut and restore phases cover the period")
+    elif ok and judged:
+        why.append(f"phase coverage not judged (fewer than {COVER_MIN_N} cycles)")
+    return lines, ok, "; ".join(why)
 
 
 def census_verdict(sniffs, report):
@@ -355,6 +525,309 @@ def wait_down(path, dirs, t0, timeout, cap):
             pass
         nap(0.1)
     return None
+
+
+# ------------------------------------------------------------------ round 8: phases, levels, controls
+#: The sweep's first start offset: the cut BEGINS this long after the last frame heard (the report's
+#: last_heard_mono, never the schedule: the re-review's note 1 -- the daemon's actual send is 1.7-7.0 ms
+#: after started_mono + k*period). Both ends' netem then go on after that round's frames were heard;
+#: a cut that ended before them would measure the best case (phi ~ one period), not the worst.
+SWEEP_FIRST_S = 0.05
+#: ... and its last one this long before the next round, so the cut (cut_tc_s, 0.06-0.1 s live)
+#: is over before that round's send.
+SWEEP_LAST_GAP_S = 0.15
+
+
+def dir_name(r):
+    return f"{r['tx']['dpid']}:{r['tx']['port']}>{r['rx']['dpid']}:{r['rx']['port']}"
+
+
+def if_name(r):
+    return f"{r['tx']['ifname']}->{r['rx']['ifname']}"
+
+
+def sweep_default(n, period):
+    """n start offsets from SWEEP_FIRST_S to period - SWEEP_LAST_GAP_S, evenly spaced."""
+    if n <= 1:
+        return [SWEEP_FIRST_S]
+    last = period - SWEEP_LAST_GAP_S
+    return [SWEEP_FIRST_S + j * (last - SWEEP_FIRST_S) / (n - 1) for j in range(n)]
+
+
+def plan_rows(mode, cycles, seed, period, sweep=None):
+    """[(cycle, cut kind, cut value, restore kind, restore value)] -- a run's phase plan.
+
+    random: the cut waits U[0, period) after the pre-cut check saw the cable heard, the restore
+    U[0, period) after the down was called -- random.Random(seed), so the recorded seed gives the
+    same plan back. sweep: the cut STARTS at the listed offsets after the last frame heard, one per
+    cycle (the list wraps round), the restore at the same offsets in reverse order.
+    ValueError on anything else, and on an offset outside (0, period).
+    """
+    if cycles < 1:
+        raise ValueError(f"cycles must be >= 1, not {cycles}")
+    if mode == "random":
+        rng = random.Random(seed)
+        return [(i, "delay", rng.random() * period, "delay", rng.random() * period)
+                for i in range(1, cycles + 1)]
+    if mode == "sweep":
+        offs = list(sweep) if sweep else sweep_default(cycles, period)
+        bad = [x for x in offs if not 0 < x < period]
+        if not offs or bad:
+            raise ValueError(f"sweep offsets must lie in (0, {period:g}) s: {bad or 'none given'}")
+        rev = offs[::-1]
+        return [(i, "phase", offs[(i - 1) % len(offs)], "phase", rev[(i - 1) % len(rev)])
+                for i in range(1, cycles + 1)]
+    raise ValueError(f"PHASE must be random or sweep, not {mode!r}")
+
+
+def phase_target(now, anchor, period, offset, margin):
+    """The first instant anchor + k*period + offset (k any integer) at or after now + margin."""
+    base = anchor + offset
+    return base + math.ceil((now + margin - base) / period) * period
+
+
+def latest_heard(doc, dirs=None):
+    """The newest last_heard_mono of `dirs` (every direction when None), or None."""
+    recs = find(doc, dirs) if dirs else doc.get("directions", [])
+    xs = [r["last_heard_mono"] for r in recs if r.get("last_heard_mono") is not None]
+    return max(xs) if xs else None
+
+
+def grid_phase(doc, t):
+    """(t - started_mono) mod period_s -- the schedule's phase (the actual send is a few ms later)."""
+    s, p = doc.get("started_mono"), doc.get("period_s")
+    return None if s is None or not p else (t - s) % p
+
+
+def down_detail(doc, dirs, now, t0, timeout):
+    """None while any of `dirs` is still heard by the rule at `now`. Once none is -- the cut as the
+    rule saw it: down_s (the reader's poll), rule_s (the instant the rule became true: the last frame
+    heard + timeout), rpt_s (written_mono of the report the reader applied it to; the report has no
+    down transition of its own -- the rule is the reader's clock against last_heard), lh (that last
+    frame, CLOCK_MONOTONIC), phi = t0 - lh (source heard) and the schedule's phase."""
+    if not all(not_heard(r, now, timeout) for r in find(doc, dirs)):
+        return None
+    lh, gp, w = latest_heard(doc, dirs), grid_phase(doc, t0), doc.get("written_mono")
+    d = {"down_s": now - t0, "rpt_s": None if w is None else w - t0, "lh": lh, "phi_grid": gp}
+    if lh is not None:
+        d.update(rule_s=lh + timeout - t0, phi=t0 - lh, phi_src="heard")
+    else:
+        d.update(rule_s=None, phi=gp, phi_src="grid" if gp is not None else "none")
+    return d
+
+
+def up_detail(doc, dirs, now, t1, anchor):
+    """None until every one of `dirs` was heard after t1. Then -- the restore as the report shows
+    it: up_s (the daemon's receive stamp, round 7's up_s), rpt_s (written_mono of this report, the
+    first the reader saw showing it: REPORT level), poll_s (the reader's poll), lh (the newest of
+    those frames), phi = (t1 - anchor) mod period -- anchor: a frame heard in the report read
+    before the restore (source heard@plan) -- and the schedule's phase."""
+    recs = find(doc, dirs)
+    if not all(heard_after(r, t1) for r in recs):
+        return None
+    lh, gp, w, p = max(r["last_heard_mono"] for r in recs), grid_phase(doc, t1), doc.get("written_mono"), doc.get("period_s")
+    d = {"up_s": lh - t1, "rpt_s": None if w is None else w - t1, "poll_s": now - t1, "lh": lh, "phi_grid": gp}
+    if anchor is not None and p:
+        d.update(phi=(t1 - anchor) % p, phi_src="heard@plan")
+    else:
+        d.update(phi=gp, phi_src="grid" if gp is not None else "none")
+    return d
+
+
+class Tracer:
+    """Every poll's CLOCK_MONOTONIC, the report's written_mono and the watched directions'
+    last_heard_mono, appended to a TSV (the re-review's note 4: the daemon's pulse, per poll)."""
+
+    def __init__(self, path, part):
+        self.path, self.part, self.fh = path, part, None
+
+    def poll(self, now, doc, recs):
+        if not self.path:
+            return
+        if self.fh is None:
+            self.fh = open(self.path, "a")
+            if self.fh.tell() == 0:
+                self.fh.write("part\tpoll_mono\twritten_mono\tstatus\tlast_heard_mono\n")
+        heard = ",".join(f"{dir_name(r)}={fmt(r.get('last_heard_mono'), 6)}" for r in recs) or "-"
+        self.fh.write(f"{self.part}\t{now:.6f}\t{fmt((doc or {}).get('written_mono'), 6)}\t"
+                      f"{(doc or {}).get('status', 'unreadable')}\t{heard}\n")
+
+    def close(self):
+        if self.fh is not None:
+            self.fh.close()
+
+
+def wait_cut_down(path, dirs, t0, timeout, cap, trace=None):
+    """down_detail once the rule holds for every one of `dirs`, polled every 0.1 s; None by t0 + cap."""
+    tr = Tracer(trace, "cut")
+    try:
+        while clock() < t0 + cap:
+            now = clock()
+            try:
+                doc = report(path)
+                tr.poll(now, doc, find(doc, dirs))
+                if not running(doc):
+                    return None
+                d = down_detail(doc, dirs, now, t0, timeout)
+                if d is not None:
+                    return d
+            except (OSError, ValueError, KeyError):
+                tr.poll(now, None, [])
+            nap(0.1)
+        return None
+    finally:
+        tr.close()
+
+
+def wait_restore_up(path, dirs, t1, cap, anchor, trace=None):
+    """up_detail at the first poll whose report shows every one of `dirs` heard after t1."""
+    tr = Tracer(trace, "restore")
+    try:
+        end = clock() + cap
+        while clock() < end:
+            now = clock()
+            try:
+                doc = report(path)
+                tr.poll(now, doc, find(doc, dirs))
+                if running(doc):
+                    d = up_detail(doc, dirs, now, t1, anchor)
+                    if d is not None:
+                        return d
+            except (OSError, ValueError, KeyError):
+                tr.poll(now, None, [])
+            nap(0.1)
+        return None
+    finally:
+        tr.close()
+
+
+def phase_wait(path, kind, value, period, margin):
+    """Wait before a cut or a restore, as the plan says. kind `delay`: `value` s from now. kind
+    `phase`: until `value` s after a heartbeat round -- the next anchor + k*period + value at or after
+    now + margin, where the anchor is the newest last_heard_mono in the report (source heard; its
+    started_mono when nothing was heard yet: grid; no report: none, and no wait).
+    -> {wake, delay, anchor, src}: wake is CLOCK_MONOTONIC as this returns -- the cut's t0a."""
+    entry = clock()
+    anchor, src, p = None, "none", period
+    try:
+        doc = report(path)
+        p = doc.get("period_s") or period
+        anchor = latest_heard(doc)
+        if anchor is not None:
+            src = "heard"
+        elif doc.get("started_mono") is not None:
+            anchor, src = doc["started_mono"], "grid"
+    except (OSError, ValueError, KeyError):
+        pass
+    if kind == "delay":
+        target = entry + value
+    elif kind == "phase":
+        target = entry if anchor is None else phase_target(entry, anchor, p, value, margin)
+    else:
+        raise ValueError(f"phase-wait: kind must be delay or phase, not {kind!r}")
+    nap(target - clock())
+    wake = clock()
+    return {"wake": wake, "delay": wake - entry, "anchor": anchor, "src": src}
+
+
+def watch_quiet(path, seconds, timeout, trace=None):
+    """CONTROL (a): no cut for `seconds` -- the proxy's rule must fire on NO direction of the report.
+    Its discriminating power: a heartbeat nobody hears is not-heard by the rule within `timeout` s,
+    so a window of more than timeout + one period sees it whichever the phase. -> (observed, verdict)."""
+    tr = Tracer(trace, "quiet")
+    start = now = clock()
+    reads = polls = 0
+    longest, fired, stopped = {}, {}, False
+    try:
+        while True:
+            now = clock()
+            polls += 1
+            try:
+                doc = report(path)
+                recs = doc.get("directions", [])
+                tr.poll(now, doc, recs)
+                if not running(doc):
+                    stopped = True
+                else:
+                    reads += 1
+                    for r in recs:
+                        lh = r.get("last_heard_mono")
+                        sil = math.inf if lh is None else now - lh
+                        longest[if_name(r)] = max(longest.get(if_name(r), 0.0), sil)
+                        if sil > timeout:
+                            fired[if_name(r)] = max(fired.get(if_name(r), 0.0), sil)
+            except (OSError, ValueError, KeyError):
+                tr.poll(now, None, [])
+            if now - start >= seconds:
+                break
+            nap(0.1)
+    finally:
+        tr.close()
+    worst = max(longest.items(), key=lambda kv: kv[1]) if longest else ("-", math.nan)
+    observed = (f"window_s={now - start:.1f} reads={reads}/{polls} "
+                f"longest_silence_s={worst[1]:.3f}@{worst[0]}")
+    if fired:
+        return observed, ("BAD the proxy's rule fired with NO cut: "
+                          + ", ".join(f"{n} silent {s:.2f} s > {timeout:g} s" for n, s in sorted(fired.items())))
+    if stopped:
+        return observed, "BAD the report stopped saying `running` inside the no-cut window"
+    if not longest or reads < polls / 2:
+        return observed, f"BAD the report was readable in only {reads} of {polls} polls"
+    return observed, (f"OK no direction went not-heard in {now - start:.1f} s with no cut ({reads} reads; the "
+                      f"longest silence {worst[1]:.2f} s, {worst[0]}; the rule needs > {timeout:g} s)")
+
+
+def watch_single_end(path, down_dir, up_dir, t0, timeout, cap, hold, trace=None):
+    """CONTROL (b): netem on ONE end of the cable since t0. Only `down_dir` -- the direction that end
+    sends -- may go not-heard; `up_dir` and every other direction must stay heard. Watched until
+    down_dir is not heard by the rule and `hold` s more (a period and a second: had the other
+    direction been cut too, it would be not-heard within that), or `cap` s after t0.
+    -> (observed, verdict)."""
+    tr = Tracer(trace, "single")
+    t_down, longest, up_fired, others = None, 0.0, None, {}
+    reads = polls = 0
+    now = clock()
+    names = (f"{down_dir[0]}:{down_dir[1]}>{down_dir[2]}:{down_dir[3]}",
+             f"{up_dir[0]}:{up_dir[1]}>{up_dir[2]}:{up_dir[3]}")
+    try:
+        while True:
+            now = clock()
+            if (t_down is not None and now >= t_down + hold) or now >= t0 + cap:
+                break
+            polls += 1
+            try:
+                doc = report(path)
+                rd, ru = find(doc, [down_dir, up_dir])
+                tr.poll(now, doc, [rd, ru])
+                if running(doc):
+                    reads += 1
+                    if t_down is None and not_heard(rd, now, timeout):
+                        t_down = now
+                    lu = ru.get("last_heard_mono")
+                    sil = math.inf if lu is None else now - lu
+                    longest = max(longest, sil)
+                    if sil > timeout:
+                        up_fired = max(up_fired or 0.0, sil)
+                    for r in doc.get("directions", []):
+                        if key(r) not in (down_dir, up_dir) and not_heard(r, now, timeout):
+                            others[if_name(r)] = True
+            except (OSError, ValueError, KeyError):
+                tr.poll(now, None, [])
+            nap(0.1)
+    finally:
+        tr.close()
+    observed = (f"down_s={fmt(None if t_down is None else t_down - t0)} "
+                f"other_longest_silence_s={longest:.3f} window_s={now - t0:.1f} reads={reads}/{polls}")
+    if t_down is None:
+        return observed, (f"BAD {names[0]} was still heard {now - t0:.1f} s after netem went on its sending end "
+                          f"-- the one-end cut was not seen")
+    if up_fired is not None:
+        return observed, (f"BAD {names[1]} went not-heard too (silent {up_fired:.2f} s > {timeout:g} s) -- "
+                          f"the one-end netem took both directions of the cable")
+    if others:
+        return observed, "BAD collateral with one end cut: " + ", ".join(sorted(others))
+    return observed, (f"OK only {names[0]} went not-heard, {t_down - t0:.2f} s after the one-end cut; {names[1]} "
+                      f"stayed heard (longest silence {longest:.2f} s over {now - t0:.1f} s, {hold:g} s past the down)")
 
 
 def self_test():
@@ -653,7 +1126,7 @@ def main(argv):
         return self_test()
     cmd = argv[1] if len(argv) > 1 else ""
     if cmd == "now":
-        print(f"{clock():.3f}")
+        print(f"{clock():.6f}")
     elif cmd == "session":
         print(session_of(load(argv[2]), int(argv[3])))
     elif cmd == "started-pid":
@@ -679,17 +1152,61 @@ def main(argv):
         except (OSError, ValueError, KeyError) as exc:
             print(f"BAD the report could not be read: {exc!r}")
     elif cmd == "summary":
-        rows = []
-        with open(argv[2]) as fh:
-            for line in fh:
-                if line.startswith("cycle") or not line.strip():
-                    continue
-                c, down, up = line.rstrip("\n").split("\t")[:3]
-                rows.append((int(c), None if down == "TIMEOUT" else float(down),
-                             None if up == "TIMEOUT" else float(up)))
-        lines, ok = summary(rows, float(argv[3]), float(argv[4]))
+        lines, ok, why = summary(read_cycles(argv[2]), float(argv[3]), float(argv[4]))
         print("\n".join(lines))
-        print("OK every cut and every restore detected" if ok else "BAD not every cycle was detected")
+        print(f"{'OK' if ok else 'BAD'} {why}")
+    # ---- round 8. Each prints one line and exits 0 whatever it found (the spike runs under set -e);
+    # `plan` alone answers 2 on a bad argument, because the spike asks it before anything is claimed.
+    elif cmd == "plan":
+        try:
+            period = float(argv[5])
+            offs = [float(x) for x in argv[6].split(",") if x.strip()] if len(argv) > 6 and argv[6] else None
+            rows = plan_rows(argv[2], int(argv[3]), int(argv[4]), period, offs)
+        except (ValueError, IndexError) as exc:
+            print(f"BAD {exc}")
+            return 2
+        print(f"# PHASE={argv[2]} seed={argv[4]} period_s={period:g} cycles={argv[3]} -- kind 'delay': seconds "
+              f"waited (from the pre-cut check seeing the cable heard / from the down being called); kind 'phase': "
+              f"the cut or restore STARTS this many seconds after the last frame heard (last_heard_mono)")
+        print("cycle\tcut_kind\tcut_value\trestore_kind\trestore_value")
+        for i, ck, cv, rk, rv in rows:
+            print(f"{i}\t{ck}\t{cv:.3f}\t{rk}\t{rv:.3f}")
+    elif cmd == "phase-wait":
+        w = phase_wait(argv[2], argv[3], float(argv[4]), float(argv[5]), float(argv[6]))
+        print(f"{w['wake']:.6f}\t{w['delay']:.3f}\t{fmt(w['anchor'], 6)}\t{w['src']}")
+    elif cmd == "cut-down":
+        d = wait_cut_down(argv[2], parse_dirs(argv[3]), float(argv[4]), float(argv[5]), float(argv[6]),
+                          argv[7] if len(argv) > 7 else None)
+        print("TIMEOUT" if d is None else "\t".join([
+            fmt(d["down_s"]), fmt(d["rule_s"]), fmt(d["rpt_s"]), fmt(d["lh"], 6), fmt(d["phi"]), d["phi_src"],
+            fmt(d["phi_grid"])]))
+    elif cmd == "restore-up":
+        anchor = num(argv[6]) if len(argv) > 6 else None
+        d = wait_restore_up(argv[2], parse_dirs(argv[3]), float(argv[4]), float(argv[5]), anchor,
+                            argv[7] if len(argv) > 7 else None)
+        print("TIMEOUT" if d is None else "\t".join([
+            fmt(d["up_s"]), fmt(d["rpt_s"]), fmt(d["poll_s"]), fmt(d["lh"], 6), fmt(d["phi"]), d["phi_src"],
+            fmt(d["phi_grid"])]))
+    elif cmd == "quiet":
+        print("\t".join(watch_quiet(argv[2], float(argv[3]), float(argv[4]), argv[5] if len(argv) > 5 else None)))
+    elif cmd == "single-end":
+        down_dir, = parse_dirs(argv[3])
+        up_dir, = parse_dirs(argv[4])
+        print("\t".join(watch_single_end(argv[2], down_dir, up_dir, float(argv[5]), float(argv[6]),
+                                         float(argv[7]), float(argv[8]), argv[9] if len(argv) > 9 else None)))
+    elif cmd == "period-check":
+        try:
+            p = report(argv[2]).get("period_s")
+        except (OSError, ValueError) as exc:
+            p = exc
+        if isinstance(p, (int, float)) and abs(p - float(argv[3])) < 1e-9:
+            print(f"OK the heartbeat's period_s {p:g} is the proxy's LLDP_BEACON_INTERVAL_S {float(argv[3]):g}")
+        else:
+            print(f"BAD the heartbeat's period_s is {p!r}, the proxy's LLDP_BEACON_INTERVAL_S {argv[3]} -- the "
+                  f"phases would be read against the wrong round")
+    elif cmd == "sub":
+        a, b = num(argv[2]), num(argv[3])
+        print(fmt(None if a is None or b is None else a - b))
     elif cmd == "sim-init":
         # The self-test's simulated daemon (class Sim): sim.json (Sim.DEFAULT with the overrides),
         # its clock half a second before the daemon starts, and an empty netem.log.
