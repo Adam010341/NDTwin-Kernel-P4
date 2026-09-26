@@ -398,6 +398,18 @@ links_variant("links_all_declared.json", lambda l: [l.__setitem__(k, declared_on
 links_variant("links_one_down.json", lambda l: l[key(3, 1, 1, 3)].__setitem__("down", True))
 links_variant("links_one_missing.json", lambda l: l.pop(key(2, 4, 3, 2)))
 links_variant("links_one_extra.json", lambda l: l.__setitem__(key(1, 3, 4, 1), heard()))
+# [Co-developed with claude code -- Adam] The opus judge's N3-1: a direction the heartbeat has not
+# heard yet is entered at the daemon's start and, for LINK_STARTUP_GRACE_S (30 s), served as
+# heartbeat / down false / age null -- not heard, and not yet down.
+grace = lambda: {"source": "heartbeat", "down": False, "last_beacon_age_s": None, "reported_to_kernel": True}
+links_variant("links_one_grace.json", lambda l: l.__setitem__(key(2, 4, 3, 2), grace()))
+links_variant("state_grace.json", lambda l: [l.__setitem__(k, grace()) for k in list(l)])
+state_plain = copy.deepcopy(state)
+state_plain["switches"] = {str(d): {"capabilities": unbound} for d in (1, 2, 3, 4)}
+state_plain["control_plane"]["skipped"] = ["install_initial_routes", "link_watchdog", "lldp_discovery"]
+dump("state_plain.json", state_plain)
+os.makedirs(os.path.join(t, "pkg", "ndtwin"))
+dump(os.path.join("pkg", "ndtwin", "topology.json"), model)
 wrong = copy.deepcopy(state)
 wrong["switches"]["3"]["capabilities"] = dict(owned, reroute=False)
 wrong["control_plane"]["skipped"].append("install_initial_routes")
@@ -486,6 +498,73 @@ PY
     expect BAD "L1 a link the heartbeat reports down" "$(links_heard "$t/links_one_down.json" "$t/model.json")"
     expect BAD "L1 a link missing"               "$(links_heard "$t/links_one_missing.json" "$t/model.json")"
     expect BAD "L1 an extra link"                "$(links_heard "$t/links_one_extra.json" "$t/model.json")"
+    expect BAD "L1 a direction never heard yet (the startup grace)" "$(links_heard "$t/links_one_grace.json" "$t/model.json")"
+    expect BAD "L1 every direction in the startup grace" "$(links_heard "$t/state_grace.json" "$t/model.json")"
+    ok()  { printf '  ok    %s
+' "$1"; }
+    red() { printf '  🔴    %s
+' "$1"; rc=1; }
+    # [Co-developed with claude code -- Adam] L6 and L1 on switch_state as the live path runs them --
+    # l6_roles / l6_plain, their own arguments, state_until's poll -- against a proxy served by
+    # file:// (08's precedent), with a switch_state that turns heard 2.5 s into the poll.
+    st_l6() {   # st_l6 <roles|plain> <first switch_state|-> <later one|-> <poll s> -> judge lines + polls
+        local px d
+        px="$(mktemp -d "$t/px-XXXXXX")"; mkdir -p "$px/p4"
+        [[ "$2" == - ]] || cp "$t/$2" "$px/p4/switch_state"
+        ( RUN="$px"; PROXY_URL="file://$px"; PKG_ROLES="$t/pkg"; PKG_PLAIN="$t/pkg"; L1_POLL_S="$4"
+          note() { :; }; judge() { echo "J $2: ${1:0:70}"; }; fail() { echo "F $*"; }
+          if [[ "$3" != - ]]; then
+              ( sleep 2.5; cp "$t/$3" "$px/p4/switch_state.tmp"; mv "$px/p4/switch_state.tmp" "$px/p4/switch_state" ) &
+          fi
+          "l6_$1"
+          wait
+          d="$(ls "$px"/*.polls 2>/dev/null | head -1)"
+          echo "polls $( [[ -n "$d" ]] && wc -l < "$d" || echo 0)" ) 2>&1
+    }
+    got="$(st_l6 roles state_owned.json - 4)" || true
+    if [[ "$got" == *"J L6 capabilities: OK"* && "$got" == *"J L6 control_plane.skipped: OK"* \
+          && "$got" == *"J L1 declared links on switch_state, fed by the heartbeat: OK"* && "$got" == *"polls 1"* ]]; then
+        ok "L6/L1 on switch_state (roles): all heard at once -- three OK judgements from one read"
+    else
+        red "L6/L1 on switch_state (roles), heard at once: $(tr '\n' '|' <<<"$got")"
+    fi
+    got="$(st_l6 roles state_grace.json state_owned.json 10)" || true
+    if [[ "$got" == *"J L1 declared links on switch_state, fed by the heartbeat: OK"* && "$got" == *"J L6 capabilities: OK"* \
+          && "$(sed -n 's/^polls //p' <<<"$got")" -ge 2 ]]; then
+        ok "  state_until waits: in the startup grace first, heard 2.5 s later -- OK on a later read"
+    else
+        red "  state_until through the startup grace: $(tr '\n' '|' <<<"$got")"
+    fi
+    got="$(st_l6 roles state_grace.json - 3)" || true
+    if [[ "$got" == *"J L1 declared links on switch_state, fed by the heartbeat: BAD"* && "$(sed -n 's/^polls //p' <<<"$got")" -ge 2 ]]; then
+        ok "  never heard within the poll: L1 on switch_state is judged BAD after more than one read"
+    else
+        red "  never heard within the poll: $(tr '\n' '|' <<<"$got")"
+    fi
+    got="$(st_l6 roles - - 2)" || true
+    [[ "$got" == *"F L6: no switch_state"* ]] && ok "  no switch_state at all: a fail, not a pass" \
+                                            || red "  no switch_state at all: $(tr '\n' '|' <<<"$got")"
+    got="$(st_l6 plain state_plain.json - 4)" || true
+    if [[ "$got" == *"J L6 capabilities (unbound): OK"* && "$got" == *"J L6 control_plane.skipped (unbound): OK"* \
+          && "$got" == *"J L1 declared links on switch_state, fed by the heartbeat (unbound): OK"* ]]; then
+        ok "L6/L1 on switch_state (unbound): its own capabilities, skipped list and labels"
+    else
+        red "L6/L1 on switch_state (unbound): $(tr '\n' '|' <<<"$got")"
+    fi
+    # 🔴 Against the REAL switch_states of 08's live run (2026-09-26T152605Z_08_heartbeat), where they
+    # exist on this machine (not committed; SELFTEST_HB_RUN / SELFTEST_HB_PKGS point elsewhere,
+    # read-only): right after `ndt up` (22 roles, 61 unbound) every link is still `declared` -- BAD;
+    # after a cut and restore (35, 67) all eight heard -- OK. (The opus judge's suggested check.)
+    local hbrun="${SELFTEST_HB_RUN:-$LIVE_DIR/runs/2026-09-26T152605Z_08_heartbeat}"
+    local hbpkgs="${SELFTEST_HB_PKGS:-$PKG_ROOT}"
+    if [[ -s "$hbrun/22_switch_state.json" && -s "$hbpkgs/hb_basic_roles/ndtwin/topology.json" ]]; then
+        expect BAD "L1 on the real 08 capture 22 (roles, right after up)" "$(links_heard "$hbrun/22_switch_state.json" "$hbpkgs/hb_basic_roles/ndtwin/topology.json")"
+        expect OK  "L1 on the real 08 capture 35 (roles, restored)" "$(links_heard "$hbrun/35_switch_state_restored_1.json" "$hbpkgs/hb_basic_roles/ndtwin/topology.json")"
+        expect BAD "L1 on the real 08 capture 61 (unbound, right after up)" "$(links_heard "$hbrun/61_switch_state.json" "$hbpkgs/hb_basic_noroles/ndtwin/topology.json")"
+        expect OK  "L1 on the real 08 capture 67 (unbound, restored)" "$(links_heard "$hbrun/67_switch_state_restored.json" "$hbpkgs/hb_basic_noroles/ndtwin/topology.json")"
+    else
+        echo "  --    08's live switch_states are not on this machine; not compared (NOT a pass)"
+    fi
     expect OK  "L2 read back"                    "$(flow_has "$t/flow_with.json" 1 10.0.9.9 3)"
     expect BAD "L2 not read back"                "$(flow_has "$t/flow_without.json" 1 10.0.9.9 3)"
     expect BAD "L2 read back on the wrong port"  "$(flow_has "$t/flow_with.json" 1 10.0.9.9 4)"
