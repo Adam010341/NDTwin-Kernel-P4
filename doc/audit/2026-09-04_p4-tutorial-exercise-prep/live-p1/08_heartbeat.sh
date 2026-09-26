@@ -336,6 +336,29 @@ def table(path):
             out[(f[0], f[1])] = (f[2], f[3])
     return out
 
+def v_cycle(state, cut_a_wall, cut_b_wall, off, last, down_wall, timeout, phi_target, worst):
+    """One H1 cycle on the monotonic clock (the daemon's and the proxy's): the two cut instants,
+    the last heard frame before the cut, the kernel's graph showing it down, and the watchdog
+    pass that reported it. OK carries the row; BAD when a piece is missing or a cycle meant for
+    the worst phase did not land there (it would be measuring a better one)."""
+    off = float(off)
+    if not last:
+        return "BAD no last_heard_mono for the cable in the report"
+    if not down_wall:
+        return "BAD the kernel's graph never showed the cut down"
+    a, b, l, t = float(cut_a_wall) + off, float(cut_b_wall) + off, float(last), float(timeout)
+    down = float(down_wall) + off
+    passes = ((load(state).get("heartbeat") or {}).get("watchdog_passes")) or []
+    rep = [p for p in passes if (p.get("down") or 0) > 0 and p.get("start_mono", 0) >= l]
+    if not rep:
+        return f"BAD no watchdog pass with a down transition after the last heard frame ({len(passes)} passes served)"
+    ps = rep[0]["start_mono"]
+    phi = b - l
+    if worst == "1" and phi > 1.0:
+        return (f"BAD meant for the worst phase ({phi_target} s after a round) and landed {phi:.3f} s after "
+                f"the last heard frame -- the cut came before that round's send, so this cycle measured a better phase")
+    return "OK " + "\t".join(f"{x:.3f}" for x in (a, b, l, phi, down, down - b, ps, ps - (l + t)))
+
 def v_same_06(new, old):
     a, b = table(new), table(old)
     if len(b) != 26:
@@ -635,11 +658,7 @@ phase_for() {
     if (( $1 <= H1_WORST )); then echo "$PHI_WORST"; return; fi
     awk -v r="$RANDOM" -v lo="$PHI_WORST" -v p="$HB_PERIOD_S" 'BEGIN{printf "%.2f\n", lo + (r / 32767) * (p - 2 * lo)}'
 }
-# phase_row <cut_mono> <last_heard> <detect_wall> <offset> <timeout> -> "phi psi"
-phase_row() {
-    awk -v c="$1" -v l="$2" -v w="$3" -v o="$4" -v t="$5" \
-        'BEGIN{ if (l == "" || w == "") { print "? ?"; exit } printf "%.2f %.2f\n", c - l, (w + o) - (l + t) }'
-}
+
 
 # state_until <seconds> <out> <verdict> [args...] -- switch_state every 2 s until the verdict is OK.
 state_until() {
@@ -680,6 +699,8 @@ cut_link() {
             return 1
         fi
         INJECTED_IFACES+=("$dev")
+        # The instant each end was cut (wall; the cycle converts with the monotonic offset).
+        [[ "$dev" == "s$1-eth$2" ]] && CUT_A_WALL="$(date +%s.%N)" || CUT_B_WALL="$(date +%s.%N)"
     done
     T_CUT="$(date +%s.%N)"
 }
@@ -913,9 +934,18 @@ PY
     else
         red "phase_for gave: $got"
     fi
-    got="$(phase_row 200.10 200.05 1000.0 -800.0 15)"
-    [[ "$got" == "0.05 -15.05" ]] && ok "phase_row: phase = cut - last heard; watchdog phase = detection - (last heard + timeout)" \
-                                  || red "phase_row gave '$got'"
+    printf '{"heartbeat": {"watchdog_passes": [{"start_mono": 200.5, "end_mono": 200.51, "down": 0, "up": 0},
+      {"start_mono": 205.5, "end_mono": 205.52, "down": 0, "up": 0},
+      {"start_mono": 215.6, "end_mono": 215.63, "down": 2, "up": 0}]}}' > "$t/state_passes.json"
+    printf '{"heartbeat": {"watchdog_passes": [{"start_mono": 200.5, "end_mono": 200.51, "down": 0, "up": 0}]}}' > "$t/state_nopass.json"
+    got="$(verdict cycle "$t/state_passes.json" 1000.02 1000.06 -800.0 200.0 1015.9 15 0.05 1)"
+    [[ "$got" == $'OK 200.020\t200.060\t200.000\t0.060\t215.900\t15.840\t215.600\t0.600' ]] \
+        && ok "cycle: the cut ends, the phase (0.06), the kernel's down, detection (15.84), the reporting pass and its phase (0.60)" \
+        || red "cycle gave '$got'"
+    expect BAD  "cycle: a worst-phase cut that landed before the round"  "$(verdict cycle "$t/state_passes.json" 1000.02 1004.96 -800.0 200.0 1020.9 15 0.05 1)"
+    expect OK   "cycle: the same landing on a random-phase cycle is fine" "$(verdict cycle "$t/state_passes.json" 1000.02 1004.96 -800.0 200.0 1020.9 15 3.1 0)"
+    expect BAD  "cycle: no reporting pass served"                     "$(verdict cycle "$t/state_nopass.json" 1000.02 1000.06 -800.0 200.0 1015.9 15 0.05 1)"
+    expect BAD  "cycle: the graph never showed it down"               "$(verdict cycle "$t/state_passes.json" 1000.02 1000.06 -800.0 200.0 "" 15 0.05 1)"
     local n_arms; n_arms="$(wc -w <<<"$HB_ARMS")"
     [[ "$n_arms" == 17 ]] && ok "HB_ARMS names 17 arms (segment S's 20 running arms less the 3 external ones)" \
                           || red "HB_ARMS names $n_arms arms, not 17"
@@ -1138,7 +1168,7 @@ note "the proxy's constants: beacon interval $HB_PERIOD_S s, timeout $TIMEOUT_S 
 note "the design's worst case at the kernel (INFERRED): timeout $TIMEOUT_S s + one watchdog interval $WATCHDOG_S s + report read, HTTP, kernel -- the ticket's bound is $DETECT_BOUND_S s"
 RANDOM="$H1_SEED"
 note "random phases: seed $H1_SEED (H1_SEED= to repeat)"
-printf 'cycle\tphi_target\tphi_actual\tdetect_s\twatchdog_phase_s\trestore_s\n' > "$RUN/30_cycles.tsv"
+printf 'cycle\tphi_target\tcut_a_mono\tcut_b_mono\tlast_heard_mono\tphi_s\tgraph_down_mono\tdetect_s\tpass_start_mono\twatchdog_phase_s\trestore_s\n' > "$RUN/30_cycles.tsv"
 for (( CYC = 1; CYC <= H1_CYCLES; CYC++ )); do
     PHI="$(phase_for "$CYC")"
     say "H1 cycle $CYC/$H1_CYCLES -- cut $PHI s after a heartbeat round; down in the kernel's graph within ${DETECT_BOUND_S} s"
@@ -1148,10 +1178,15 @@ for (( CYC = 1; CYC <= H1_CYCLES; CYC++ )); do
     judge "$V" "H1 cycle $CYC detection"
     DET="$(cat "$RUN/31_graph_cut_$CYC.json.elapsed")"
     LAST="$(report_last "$CA" "$CAP" "$CB" "$CBP")"
-    read -r PHIA PSI < <(phase_row "$CUT_MONO" "$LAST" "$(cat "$RUN/31_graph_cut_$CYC.json.at_wall")" "$OFF" "$TIMEOUT_S")
-    judge "$(verdict elapsed "$DET" "$DETECT_BOUND_S" "cycle $CYC (phase $PHIA s after the last heard frame, watchdog $PSI s after the timeout): both directions is_up:false")" "H1 detection time"
+    get_json "$PROXY_URL/p4/switch_state" "$RUN/32_switch_state_cut_$CYC.json" || true
+    ROW="$(verdict cycle "$RUN/32_switch_state_cut_$CYC.json" "$CUT_A_WALL" "$CUT_B_WALL" "$OFF" "$LAST" \
+           "$(cat "$RUN/31_graph_cut_$CYC.json.at_wall")" "$TIMEOUT_S" "$PHI" "$(( CYC <= H1_WORST ? 1 : 0 ))")"
+    judge "$ROW" "H1 cycle $CYC phase record"
+    # A cycle that could not be recorded still gets its row, with ? where the record is missing.
+    [[ "$ROW" == OK* ]] || ROW="OK $(printf '?\t?\t%s\t?\t?\t%s\t?\t?' "${LAST:-?}" "$DET")"
+    IFS=$'\t' read -r _A _B _L PHIA _D _DT _P PSI <<<"${ROW#OK }"
+    judge "$(verdict elapsed "$DET" "$DETECT_BOUND_S" "cycle $CYC (cut $PHIA s after the last heard frame, the reporting pass $PSI s after the timeout): both directions is_up:false")" "H1 detection time"
     if (( CYC == 1 )); then
-        get_json "$PROXY_URL/p4/switch_state" "$RUN/32_switch_state_cut.json" || true
         # The reroute runs in the same watchdog pass that told the kernel; give it a pass to
         # land, then read what the switches hold.
         sleep "$WATCHDOG_S"
@@ -1171,7 +1206,7 @@ for (( CYC = 1; CYC <= H1_CYCLES; CYC++ )); do
     judge "$(verdict elapsed "$RES" "$RESTORE_BOUND_S" "cycle $CYC: both directions is_up:true again")" "H1 recovery time"
     tc_ends "$RUN/36_tc_after_$CYC" "$CA" "$CAP" "$CB" "$CBP"
     judge "$(no_netem "$RUN/36_tc_after_${CYC}_s$CA-eth$CAP.txt" "$RUN/36_tc_after_${CYC}_s$CB-eth$CBP.txt")" "H1 cycle $CYC netem"
-    printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$CYC" "$PHI" "$PHIA" "$DET" "$PSI" "$RES" >> "$RUN/30_cycles.tsv"
+    printf '%s\t%s\t%s\t%s\n' "$CYC" "$PHI" "${ROW#OK }" "$RES" >> "$RUN/30_cycles.tsv"
 done
 column -t -s $'\t' "$RUN/30_cycles.tsv" 2>/dev/null | sed 's/^/   /' || sed 's/^/   /' "$RUN/30_cycles.tsv"
 set +e; pingall_loss "$PKG_ROLES" 3 "$RUN/37_ping_raw.txt" > "$RUN/37_pingall_after.txt" 2>&1; set -e
