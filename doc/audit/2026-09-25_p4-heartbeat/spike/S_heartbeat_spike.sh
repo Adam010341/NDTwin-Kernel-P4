@@ -749,6 +749,33 @@ PYAGREE
     else
         red "the spike's default tc route is '$FAULTS_TC', not 'sudo -n mnexec -a 1 tc'"
     fi
+    # 🔴 R7-1 (round-7 verdict, finding 1) -- A DEFAULT THE SPIKE SETS MUST BE THE ONE ITS RUN SEES.
+    # _common.sh runs `: "${CLAIM_MINUTES:=45}"` when it is sourced, so a spike default written
+    # after the `source` never took effect: the 09-26 live run claimed "for 45m", and PART=all
+    # (detection + 26 census arms) outlives that. So every `: "${VAR:=value}"` above self_test() is
+    # checked by RUNNING that part of this file -- the sources included, SPIKE_DIR pinned to this
+    # directory -- in a fresh bash with VAR unset and PART=all, and reading VAR back afterwards,
+    # which is what take_claim reads. And a CLAIM_MINUTES the caller gives must still win.
+    local prelude_f="$st_tmp/prelude.sh" dflt var want got bad_d=""
+    awk -v dir="$SPIKE_DIR" '/^self_test\(\) \{/ {exit} /^SPIKE_DIR=/ {printf "SPIKE_DIR=\"%s\"\n", dir; next} {print}' \
+        "${BASH_SOURCE[0]}" > "$prelude_f"
+    st_prelude() {   # st_prelude <var> [<VAR=value>...] -- <var> after the prelude, run with <var> unset
+        env -u "$1" -u SELFTEST_PROBE_SUDO "${@:2}" PART=all "$BASH" -c \
+            'source "$1" > /dev/null 2>&1 || exit 97; printf "%s" "${!2-<unset>}"' _ "$prelude_f" "$1"
+    }
+    dflt="$(sed -n 's/^: "\${\([A-Z_][A-Z_0-9]*\):=\(.*\)}"$/\1=\2/p' "$prelude_f")"
+    while IFS='=' read -r var want; do
+        [[ -n "$var" ]] || continue
+        got="$(st_prelude "$var")"
+        [[ "$got" == "$want" ]] || bad_d+="$var: the spike sets '$want', a PART=all run gets '${got:-nothing -- the prelude died}'; "
+    done <<< "$dflt"
+    [[ "$dflt" == *CLAIM_MINUTES=* && -z "$bad_d" ]] \
+        && ok "every default the spike sets above its functions is what a PART=all run gets -- none shadowed by _common.sh or faults.sh ($(paste -sd',' <<< "$dflt"))" \
+        || red "a default the spike sets is NOT what its run gets (source order): ${bad_d:-no CLAIM_MINUTES default above self_test()}"
+    got="$(st_prelude CLAIM_MINUTES CLAIM_MINUTES=77)"
+    [[ "$got" == 77 ]] \
+        && ok "  and a CLAIM_MINUTES the caller gives still wins (77 in, 77 claimed)" \
+        || red "  a caller's CLAIM_MINUTES=77 became '$got'"
     : > "$st_tmp/sudo_calls"
     r="$( sudo() { echo "$*" >> "$st_tmp/sudo_calls"; [[ "$*" == "-n mnexec -a 1 tc qdisc show dev lo" ]]; }
           FAULTS_TC="sudo -n mnexec -a 1 tc"; precheck_tc "$st_tmp/grant1.txt"; echo "$?" )"
@@ -1091,8 +1118,11 @@ DRIVER
 #   claim    another owner's live claim: rc 1. Else the claim is written, measuring= from NDT_MEASURING
 #            in THIS command's environment (claim_take), and the round baseline records the P4 host
 #            knob as it is now (record_round_baseline).
-#   up       p4 --app <pkg>: a fabric, app_package_override, the knob rewritten (to fake/up-hosts),
-#            and the note says the lab is in use (claim_note_up).
+#   up       p4 --app <pkg>: app_package_override and the knob rewritten (to fake/up-hosts), the
+#            note says the lab is in use (claim_note_up), and a fabric running <pkg> -- or, when a
+#            fabric is already up, "already up: ... reusing" and rc 0 with the OLD fabric left
+#            running (up_p4 :3293-3311 compares switch and host counts, not the package).
+#            fake/up-fails: a half-built fabric and rc 1.
 #   down     another owner's live claim: 5. A live claim that DECLARES measuring=: 5 (cmd_down, T2d).
 #            fake/refuse-down: 5 (in_flight's "a measurement is running"). Else the app knob goes and,
 #            with a fabric up, the fabric: 0 -- nothing up: 3; either way the note says so and
@@ -1100,6 +1130,7 @@ DRIVER
 #   release  another owner's live claim: 1. The knob differing from the round baseline: 1 (cmd_release,
 #            E-11b). Else the claim and the baseline become .prev.
 #   status   a `running` block.
+# `source`d (the census asks it for a host's pid that way) it only defines host_pid.
 # Every call is logged in fake/calls, with whether NDT_MEASURING was in its environment.
 r="$FAKE_REPO"; c="$r/.test_run/lab.claim"; b="$r/.test_run/round.baseline"; s="$r/.test_run/fake"
 knob="$r/p4_proxy/mininet/host_count_override"; app="$r/p4_proxy/mininet/app_package_override"
@@ -1107,6 +1138,8 @@ field() { [[ -f "$c" ]] && sed -n "s/^$1=//p" "$c" | head -1; }
 live()  { local e; e="$(field expires)"; [[ "$e" =~ ^[0-9]+$ ]] && (( e > $(date +%s) )); }
 ours()  { [[ -n "${NDT_OWNER:-}" && "$(field owner)" == "$NDT_OWNER" ]]; }
 write() { printf 'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=no\nmeasuring=%s\n' "$1" "$2" "$3" "$4" > "$c"; }
+host_pid() { echo 4321; }
+[[ "${BASH_SOURCE[0]}" == "$0" ]] || return 0
 echo "$1${NDT_MEASURING+ [NDT_MEASURING in env]}" >> "$s/calls"
 case "$1" in
     claim)
@@ -1116,8 +1149,11 @@ case "$1" in
         echo "host_count=$(cat "$knob" 2>/dev/null)" > "$b"
         echo "  ok  lab claimed by $NDT_OWNER for $2m" ;;
     up)
-        : > "$s/fabric"; printf '%s\n' "$4" > "$app"; cat "$s/up-hosts" > "$knob"
+        printf '%s\n' "$4" > "$app"; cat "$s/up-hosts" > "$knob"
         live && ours && write "$(field owner)" "$(field expires)" "in use: ndt $*" "$(field measuring)"
+        if [[ -e "$s/fabric" ]]; then echo "  ok  already up: 4 switches, 4 hosts, reusing"
+        else printf '%s\n' "$4" > "$s/fabric"; fi
+        if [[ -e "$s/up-fails" ]]; then echo "  XX  the fabric did not come up" >&2; exit 1; fi
         echo "  proxy :8081   kernel :8000" ;;
     down)
         if live && ! ours; then echo "  XX  refusing to tear down: the lab is claimed by $(field owner)" >&2; exit 5; fi
@@ -1333,7 +1369,7 @@ DRIVER
     printf 'host_pid() { echo 4321; }\n' > "$st_tmp/fake_ndt"
     {
         echo 'set -euo pipefail'
-        declare -f census wait_session watch_sniffers watch_hit child_running note fail bad say
+        declare -f census wait_session watch_sniffers watch_hit child_running note fail bad say census_down census_skip_rest
         printf 'WATCH=%q\nSNIFF=%q\nREAL_NDT=%q\n' "$WATCH" "$SNIFF" "$st_tmp/fake_ndt"
         cat <<'DRIVER'
 sudo() {
@@ -1376,6 +1412,72 @@ DRIVER
     [[ "$r" == "survived VERDICT_RC=1 WHY=census basic/solution: 'heartbeat start' answered 0 without saying it started a daemon -- see 11_hb_start.txt | calls: hb stop;ndt down | row: basic|solution|yes|start named no pid|-" ]] \
         && ok "  an arm whose start answered 'already running' (it started nothing): a FAIL row saying start named no pid, nobody else's session sniffed" \
         || red "  an arm whose start answered 'already running': $r"
+
+    # 🔴 R7-2 (round-7 verdict, finding 2) -- NO CENSUS ARM AFTER A REFUSED DOWN. When an arm's
+    # `ndt down` does not answer 0 or 3, that arm's fabric may still be up, and the next arm's
+    # `ndt up p4 --app` over an intact fabric of the same size answers "already up ... reusing", rc 0
+    # (up_p4 compares switch and host counts, not the package): every later row would measure the
+    # previous arm's pipeline under its own name. So the census stops there. The census, nd_up and
+    # nd_down are this file's code, `ndt` is the fake above (its `up` reuses a fabric that is up),
+    # hb_watch.py is the real one; each run is a fresh `bash -euo pipefail` process. One scenario
+    # per place the census takes an arm down, and a control whose downs go through.
+    {
+        echo 'set -euo pipefail'
+        declare -f census census_down census_skip_rest nd_up nd_down retract_measuring reclaim lab_claim_field \
+            claim_minutes wait_session watch_sniffers watch_hit child_running note fail bad say
+        printf 'WATCH=%q\nSNIFF=%q\nREAL_NDT=%q\n' "$WATCH" "$SNIFF" "$st_tmp/fake_ndt_lab"
+        cat <<'DRIVER'
+unset NDT_MEASURING
+RUN="$1"; HB_REPORT="$2"; export FAKE_REPO="$3" NDT_OWNER=hb-selftest; EXERCISES="$4"; ARMS=solution
+fk="$FAKE_REPO/.test_run/fake"; REPO="$FAKE_REPO"; CLAIM_FILE="$REPO/.test_run/lab.claim"
+mkdir -p "$RUN"
+VERDICT_RC=0; VERDICT_WHY=""; HB_STARTED=0; WATCH_HIT=""; SNIFF_S=1; FABRIC_UP=0; CLAIMED=0; RECLAIMED=0
+sudo() { if [[ "${2:-}" == mnexec ]]; then printf '{"host": "%s", "frames_hb": 0}\n' "${10:-}"; fi; }
+prepare() { echo "OK /nonexistent/$1-$2"; }
+sp_hb_start() {
+    if [[ -e "$fk/hb-no-link" ]]; then : > "$1"; return 3; fi
+    if [[ -e "$fk/hb-fails" ]]; then : > "$1"; return 2; fi
+    if [[ -e "$fk/hb-no-pid" ]]; then echo "heartbeat already running (pid 4242) -- not starting a second one" > "$1"; HB_STARTED=1; return 0; fi
+    echo "heartbeat started (pid 4242; report: x, log: y)" > "$1"; HB_STARTED=1; return 0
+}
+sp_hb_stop() { HB_STARTED=0; }
+model_hosts() { echo "h1 10.0.0.1"; }
+census
+echo "survived VERDICT_RC=$VERDICT_RC WHY=$VERDICT_WHY" > "$RUN/result"
+DRIVER
+    } > "$st_tmp/census_lab_driver.sh"
+    st_census() {   # st_census <name> <exercises> [<fake/ flag>...] -- sets wrc; files in $st_tmp/census_<name>/
+        local d="$st_tmp/census_$1" m
+        mkdir -p "$d/repo/.test_run/fake" "$d/repo/p4_proxy/mininet"
+        : > "$d/repo/.test_run/fake/calls"; echo 4 > "$d/repo/.test_run/fake/up-hosts"
+        printf '%s' '{"status": "running", "pid": 4242, "session": "0102030405060708"}' > "$d/report.json"
+        for m in "${@:3}"; do : > "$d/repo/.test_run/fake/$m"; done
+        bash "$st_tmp/census_lab_driver.sh" "$d/run" "$d/report.json" "$d/repo" "$2" > "$d/out" 2>&1 && wrc=0 || wrc=$?
+    }
+    st_crows() { tail -n +2 "$st_tmp/census_$1/run/40_census.tsv" 2>/dev/null | tr '\t' '|' | paste -sd';'; }
+    st_ccs() {   # st_ccs <name> -- what a red line below reports
+        printf "rc %s, '%s', ndt calls: %s, rows: %s" "$wrc" "$(cat "$st_tmp/census_$1/run/result" 2>/dev/null || echo 'no result -- the census died')" \
+            "$(paste -sd';' "$st_tmp/census_$1/repo/.test_run/fake/calls")" "$(st_crows "$1")"
+        printf '%s' "$(st_died "$st_tmp/census_$1/out" | sed 's/^/; /')"
+    }
+    st_census twoarms "basic load_balance"
+    [[ "$wrc" == 0 && "$(cat "$st_tmp/census_twoarms/run/result" 2>/dev/null)" == "survived VERDICT_RC=0 WHY=" \
+       && "$(paste -sd';' "$st_tmp/census_twoarms/repo/.test_run/fake/calls")" == "up;down;up;down" \
+       && "$(st_crows twoarms)" == "basic|solution|yes|running|OK"*";load_balance|solution|yes|running|OK"* ]] \
+        && ok "a census of two arms whose downs go through: both built, both measured (set -e process, the fake ndt)" \
+        || red "a census of two arms whose downs go through: $(st_ccs twoarms)"
+    local site flag skip="load_balance|solution|-|-|skipped: an earlier arm's down was refused"
+    for site in "measured arm:" "no link (rc 3):hb-no-link" "'ndt up' failed:up-fails" "heartbeat start failed:hb-fails" \
+                "start named no pid:hb-no-pid"; do
+        flag="${site##*:}"; site="${site%:*}"
+        st_census "stop${flag:+_$flag}" "basic load_balance" refuse-down ${flag:+"$flag"}
+        [[ "$wrc" == 0 && "$(head -c 26 "$st_tmp/census_stop${flag:+_$flag}/run/result" 2>/dev/null)" == "survived VERDICT_RC=1 WHY=" \
+           && "$(paste -sd';' "$st_tmp/census_stop${flag:+_$flag}/repo/.test_run/fake/calls")" == "up;down" \
+           && "$(st_crows "stop${flag:+_$flag}")" == "basic|solution|"*";$skip" ]] \
+           && grep -qF "census basic/solution: 'ndt down' exited 5 -- the census STOPS here" "$st_tmp/census_stop${flag:+_$flag}/out" \
+            && ok "  an arm's 'ndt down' refused ($site): the census stops -- no further 'ndt up', the rest marked skipped, FAIL (set -e process)" \
+            || red "  census, an arm's 'ndt down' refused ($site): $(st_ccs "stop${flag:+_$flag}")"
+    done
 
     # R4-3 (round-4 verdict) -- the census table is a display; the raw is 40_census.tsv. The run
     # block's own display step (read out of this file, whatever it is) runs in a fresh
