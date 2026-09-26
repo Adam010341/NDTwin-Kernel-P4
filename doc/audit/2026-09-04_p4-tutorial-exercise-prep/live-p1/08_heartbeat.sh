@@ -935,18 +935,226 @@ PY
     else
         red "phase_for gave: $got"
     fi
+    # --- one cut and one restore on the monotonic clock (orchestrator 09-26 addenda) --------------
+    # [Co-developed with claude code -- Adam] Wall instants are 1000 s + x with an offset of -800,
+    # so the monotonic ones read 200 + x; the report's frames and the proxy's passes are monotonic.
     printf '{"heartbeat": {"watchdog_passes": [{"start_mono": 200.5, "end_mono": 200.51, "down": 0, "up": 0},
       {"start_mono": 205.5, "end_mono": 205.52, "down": 0, "up": 0},
-      {"start_mono": 215.6, "end_mono": 215.63, "down": 2, "up": 0}]}}' > "$t/state_passes.json"
+      {"start_mono": 210.52, "end_mono": 210.54, "down": 0, "up": 0},
+      {"start_mono": 215.56, "end_mono": 215.59, "down": 2, "up": 0},
+      {"start_mono": 220.56, "end_mono": 220.58, "down": 0, "up": 0}]}}' > "$t/state_passes.json"
     printf '{"heartbeat": {"watchdog_passes": [{"start_mono": 200.5, "end_mono": 200.51, "down": 0, "up": 0}]}}' > "$t/state_nopass.json"
-    got="$(verdict cycle "$t/state_passes.json" 1000.02 1000.06 -800.0 200.0 1015.9 15 0.05 1)"
-    [[ "$got" == $'OK 200.020\t200.060\t200.000\t0.060\t215.900\t15.840\t215.600\t0.600' ]] \
-        && ok "cycle: the cut ends, the phase (0.06), the kernel's down, detection (15.84), the reporting pass and its phase (0.60)" \
+    printf '{"heartbeat": {"watchdog_passes": [{"start_mono": 205.0, "end_mono": 205.02, "down": 0, "up": 0},
+      {"start_mono": 210.02, "end_mono": 210.04, "down": 0, "up": 0},
+      {"start_mono": 215.0, "end_mono": 215.02, "down": 0, "up": 0},
+      {"start_mono": 220.08, "end_mono": 220.1, "down": 2, "up": 0}]}}' > "$t/state_late.json"
+    printf '{"heartbeat": {"watchdog_passes": [{"start_mono": 220.3, "end_mono": 220.32, "down": 2, "up": 0}]}}' > "$t/state_single.json"
+    printf '{"heartbeat": {"watchdog_passes": [{"start_mono": 210.0, "end_mono": 210.02, "down": 0, "up": 0},
+      {"start_mono": 215.2, "end_mono": 215.22, "down": 0, "up": 0},
+      {"start_mono": 220.2, "end_mono": 220.22, "down": 2, "up": 0}]}}' > "$t/state_missed.json"
+    printf '{"heartbeat": {"watchdog_passes": [{"start_mono": 210.0, "end_mono": 210.02, "down": 0, "up": 0},
+      {"start_mono": 214.99, "end_mono": 215.01, "down": 1, "up": 0},
+      {"start_mono": 219.99, "end_mono": 220.01, "down": 1, "up": 0},
+      {"start_mono": 224.99, "end_mono": 225.01, "down": 0, "up": 0}]}}' > "$t/state_twostep.json"
+    cyc() { verdict cycle "$1" "${@:2}"; }
+    got="$(cyc "$t/state_passes.json" 1000.02 1000.03 1000.04 1000.06 -800.0 -800.0 199.99 200.0 1015.9 15 5 0.02 1)"
+    [[ "$got" == $'OK 200.020\t200.030\t200.040\t200.060\t199.990\t200.000\t0.020\t215.900\t15.880\t210.520\t215.560\t215.590\t0.560\t0.040\t0.340\t0.000\t0.0\t-' ]] \
+        && ok "cycle: four tc instants, both last frames, phi 0.020, down, detection 15.880 from the FIRST end's call, the passes, psi 0.560, lateness 0.040, pass-to-graph 0.340" \
         || red "cycle gave '$got'"
-    expect BAD  "cycle: a worst-phase cut that landed before the round"  "$(verdict cycle "$t/state_passes.json" 1000.02 1004.96 -800.0 200.0 1020.9 15 0.05 1)"
-    expect OK   "cycle: the same landing on a random-phase cycle is fine" "$(verdict cycle "$t/state_passes.json" 1000.02 1004.96 -800.0 200.0 1020.9 15 3.1 0)"
-    expect BAD  "cycle: no reporting pass served"                     "$(verdict cycle "$t/state_nopass.json" 1000.02 1000.06 -800.0 200.0 1015.9 15 0.05 1)"
-    expect BAD  "cycle: the graph never showed it down"               "$(verdict cycle "$t/state_passes.json" 1000.02 1000.06 -800.0 200.0 "" 15 0.05 1)"
+    expect OK   "budget: 15.88 s is within the strict 20 s"            "$(verdict budget "${got#OK }" 20)"
+    got="$(cyc "$t/state_late.json" 1000.01 1000.02 1000.03 1000.05 -800.0 -800.0 199.995 200.0 1020.33 15 5 0.02 1)"
+    got="$(verdict budget "${got#OK }" 20)"
+    [[ "$got" == "OK detection 20.320 s -- OVER the strict 20 s by 0.320 s, all of it measured"* ]] \
+        && ok "budget: over the strict 20 s by what was measured is OK, and says OVER ($(cut -c1-60 <<<"$got")...)" \
+        || red "budget: over the strict 20 s by what was measured gave '$got'"
+    got="$(cyc "$t/state_single.json" 1000.02 1000.03 1000.04 1000.06 -800.0 -800.0 199.99 200.0 1020.5 15 5 0.02 1)"
+    [[ "$got" == OK*"no pass before the reporting one was served"* ]] \
+        && ok "cycle: a reporting pass with none served before it says its lateness is not measured" \
+        || red "cycle with no pass before the reporting one gave '$got'"
+    expect BAD  "budget: a pass 5.3 s after the timeout, none before it served, is over even the measured budget" \
+                "$(verdict budget "${got#OK }" 20)"
+    expect BAD  "cycle: a pass after the timeout that did not report the cut" \
+                "$(cyc "$t/state_missed.json" 1000.02 1000.03 1000.04 1000.06 -800.0 -800.0 199.99 200.0 1020.5 15 5 0.02 1)"
+    got="$(cyc "$t/state_passes.json" 1000.02 1000.03 1000.04 1000.06 -800.0 -800.0 199.99 200.045 1015.95 15 5 0.02 1)"
+    if [[ "$got" == OK* && "$got" == *"b->a heard inside its end's tc window, 5.0 ms after the call started"* \
+          && "$got" == *"25.0 ms after the first end's tc started (phi < 0)"* && "$(cut -f16 <<<"${got#OK }")" == 0.025 ]]; then
+        ok "cycle: a frame heard inside a cut window is flagged, and the cycle kept (window 0.025 s in the budget)"
+    else
+        red "cycle: a frame heard inside a cut window gave '$got'"
+    fi
+    got="$(cyc "$t/state_twostep.json" 1000.02 1000.03 1000.04 1000.06 -800.0 -800.0 199.98 200.0 1020.2 15 5 0.02 1)"
+    [[ "$got" == OK* && "$(cut -f11 <<<"${got#OK }")" == 219.990 && "$(cut -f10 <<<"${got#OK }")" == 214.990 ]] \
+        && ok "cycle: two directions timing out in two passes -- the one that made BOTH down (219.990) is the reporting pass" \
+        || red "cycle with two reporting passes gave '$got'"
+    got="$(cyc "$t/state_passes.json" 1000.02 1000.03 1000.04 1000.06 -800.0 -799.99 199.99 200.0 1015.9 15 5 0.02 1)"
+    [[ "$got" == OK*"the wall clock moved +10.0 ms against the monotonic one"* ]] \
+        && ok "cycle: the wall clock moving against the monotonic one during the cycle is flagged" \
+        || red "cycle with a 10 ms clock step gave '$got'"
+    expect BAD  "cycle: a worst-phase cut that landed before the round" \
+                "$(cyc "$t/state_passes.json" 1004.96 1004.97 1004.98 1005.0 -800.0 -800.0 199.99 200.0 1020.9 15 5 0.02 1)"
+    expect OK   "cycle: the same landing on a random-phase cycle is fine" \
+                "$(cyc "$t/state_passes.json" 1004.96 1004.97 1004.98 1005.0 -800.0 -800.0 199.99 200.0 1020.9 15 5 3.1 0)"
+    expect BAD  "cycle: no reporting pass served" \
+                "$(cyc "$t/state_nopass.json" 1000.02 1000.03 1000.04 1000.06 -800.0 -800.0 199.99 200.0 1015.9 15 5 0.02 1)"
+    expect BAD  "cycle: the graph never showed it down" \
+                "$(cyc "$t/state_passes.json" 1000.02 1000.03 1000.04 1000.06 -800.0 -800.0 199.99 200.0 "" 15 5 0.02 1)"
+    expect BAD  "cycle: a direction with no last frame in the report" \
+                "$(cyc "$t/state_passes.json" 1000.02 1000.03 1000.04 1000.06 -800.0 -800.0 "" 200.0 1015.9 15 5 0.02 1)"
+    # the restore
+    printf '{"heartbeat": {"watchdog_passes": [{"start_mono": 300.2, "end_mono": 300.22, "down": 0, "up": 0},
+      {"start_mono": 305.0, "end_mono": 305.02, "down": 0, "up": 2},
+      {"start_mono": 310.0, "end_mono": 310.02, "down": 0, "up": 0}]}}' > "$t/state_up.json"
+    printf '{"heartbeat": {"watchdog_passes": [{"start_mono": 305.0, "end_mono": 305.02, "down": 0, "up": 0}]}}' > "$t/state_noup.json"
+    rwatch() {   # rwatch <file> <ab heard> <ba heard> [timed_out]
+        printf '{"start_mono": 300.4, "initial": {"ab": 200.0, "ba": 200.0}, "timed_out": %s, "first": {"ab": {"heard": %s, "seen": 301.72, "written": 301.7}, "ba": {"heard": %s, "seen": 301.72, "written": 301.7}}}' \
+            "${4:-false}" "$2" "$3" > "$1"
+    }
+    rwatch "$t/watch_ok.json" 301.2 301.201
+    rwatch "$t/watch_inwin.json" 300.51 301.201
+    rwatch "$t/watch_leak.json" 300.2 301.201
+    rwatch "$t/watch_leak_ba.json" 301.2 300.525
+    rwatch "$t/watch_timeout.json" 301.2 301.201 true
+    rst() { verdict restore_cycle "$1" "$2" 1100.5 1100.52 1100.53 1100.56 -800.0 -800.0 "${3-1105.3}"; }
+    got="$(rst "$t/state_up.json" "$t/watch_ok.json")"
+    [[ "$got" == $'OK 300.500\t300.520\t300.530\t300.560\t301.200\t301.201\t0.701\t1.200\t305.000\t3.300\t305.300\t4.800\t0.300\t0.0\t-' ]] \
+        && ok "restore: four tc instants, both first frames, daemon 0.701 / report 1.200 / the up pass 3.300 later / graph 4.800 from the FIRST end's call" \
+        || red "restore gave '$got'"
+    got="$(rst "$t/state_up.json" "$t/watch_inwin.json")"
+    [[ "$got" == OK*"a->b heard inside its end's restore window, 10.0 ms after the call started"* ]] \
+        && ok "restore: a frame heard inside its end's restore window is flagged, and kept" \
+        || red "restore with a frame inside its window gave '$got'"
+    expect BAD  "restore: a frame heard before the restore started means the cut leaked" "$(rst "$t/state_up.json" "$t/watch_leak.json")"
+    expect BAD  "restore: b->a heard before ITS end's restore started is a leak too" "$(rst "$t/state_up.json" "$t/watch_leak_ba.json")"
+    expect BAD  "restore: the watcher timed out"                         "$(rst "$t/state_up.json" "$t/watch_timeout.json")"
+    expect BAD  "restore: no pass reported it up"                        "$(rst "$t/state_noup.json" "$t/watch_ok.json")"
+    expect BAD  "restore: the graph never showed it up"                  "$(rst "$t/state_up.json" "$t/watch_ok.json" "")"
+    # the watcher itself, on a report rewritten under it
+    got="$(
+        HB_REPORT_FILE="$t/rw_report.json"; RESTORE_WATCH_S=4
+        wr() { "$VPY" -I -c 'import json, os, sys
+p, ab, ba, wm = sys.argv[1], float(sys.argv[2]), float(sys.argv[3]), float(sys.argv[4])
+d = {"written_mono": wm, "directions": [
+  {"tx": {"dpid": 1, "port": 3}, "rx": {"dpid": 3, "port": 1}, "last_heard_mono": ab},
+  {"tx": {"dpid": 3, "port": 1}, "rx": {"dpid": 1, "port": 3}, "last_heard_mono": ba}]}
+open(p + ".tmp", "w").write(json.dumps(d)); os.replace(p + ".tmp", p)' "$HB_REPORT_FILE" "$@"; }
+        wr 100.0 100.0 100.1
+        restore_watch_start "$t/rw_out.json" 1 3 3 1 || { echo "the watcher never got ready"; exit 0; }
+        sleep 0.3; wr 105.0 100.0 105.1
+        sleep 0.3; wr 110.0 100.0 110.1
+        sleep 0.3; wr 110.0 110.0 110.2
+        restore_watch_wait
+        "$VPY" -I -c 'import json, sys
+d = json.load(open(sys.argv[1])); f = d["first"]
+print(f["ab"]["heard"], f["ba"]["heard"], f["ab"]["written"], f["ba"]["written"], d["timed_out"], f["ab"]["seen"] < f["ba"]["seen"])' "$t/rw_out.json"
+    )" || got="the subshell died (rc $?)"
+    [[ "$got" == "105.0 110.0 105.1 110.2 False True" ]] \
+        && ok "restore_watch: the FIRST new frame per direction (105.0, not the later 110.0), with the report's written_mono" \
+        || red "restore_watch gave '$got'"
+    got="$( HB_REPORT_FILE="$t/rw_report.json"; RESTORE_WATCH_S=0.5
+            restore_watch_start "$t/rw_out2.json" 1 3 3 1 || { echo "the watcher never got ready"; exit 0; }
+            restore_watch_wait
+            "$VPY" -I -c 'import json, sys; d = json.load(open(sys.argv[1])); print(d["timed_out"], sorted(d["first"]))' "$t/rw_out2.json" )" \
+        || got="the subshell died (rc $?)"
+    [[ "$got" == "True []" ]] && ok "restore_watch: nothing new within its limit is a time-out, not a hang" \
+                              || red "restore_watch with nothing new gave '$got'"
+    got="$( HB_REPORT_FILE="$t/nonexistent_report.json"; RESTORE_WATCH_S=2
+            restore_watch_start "$t/rw_out3.json" 1 3 3 1 && echo "ready?!" || echo "not ready"
+            restore_watch_wait
+            "$VPY" -I -c 'import json, sys; d = json.load(open(sys.argv[1])); print(d["timed_out"], d.get("error"))' "$t/rw_out3.json" )" \
+        || got="the subshell died (rc $?)"
+    [[ "$got" == $'not ready\nTrue the report did not name both directions' ]] \
+        && ok "restore_watch: a report without the cable is said at once, not waited on" \
+        || red "restore_watch without a report gave '$got'"
+    # the instants themselves: in this shell, around each tc call, the first call at the plan
+    got="$(
+        netem_attach_point() { echo root; }
+        run_tc() { sleep 0.02; }
+        revert_link_loss() { local d="${INJECTED_IFACES[0]}"; INJECTED_IFACES=(); sleep 0.01; [[ "$d" != s3-eth1 ]]; }
+        fail() { echo "FAIL $*" >&2; }
+        INJECTED_IFACES=()
+        target="$(awk -v m="$(mono)" 'BEGIN{printf "%.3f", m + 0.3}')"
+        off="$(mono_offset)"
+        cut_link 1 3 3 1 "$target" || echo "cut failed" >&2
+        cut_ifaces="${INJECTED_IFACES[*]}"
+        restore_link && rrc=0 || rrc=$?
+        printf '%s\n' "$CUT_A_START $CUT_A_END $CUT_B_START $CUT_B_END $RESTORE_A_START $RESTORE_A_END $RESTORE_B_START $RESTORE_B_END $T_CUT" \
+               "$cut_ifaces|${INJECTED_IFACES[*]}|$rrc" "$target $off"
+    )" || got="the subshell died (rc $?)"
+    stamps="$(sed -n 1p <<<"$got")"; ifaces="$(sed -n 2p <<<"$got")"; plan="$(sed -n 3p <<<"$got")"
+    if [[ "$(wc -w <<<"$stamps")" == 9 ]] && ! tr ' ' '\n' <<<"$stamps" | /usr/bin/grep -qvE '^[0-9]+\.[0-9]{6}$'; then
+        ok "cut_link/restore_link: every instant is \$EPOCHREALTIME (µs, read in this shell -- a forked date gives ns)"
+    else
+        red "cut_link/restore_link instants are not \$EPOCHREALTIME: '$stamps'"
+    fi
+    if awk -v s="$stamps" 'BEGIN{n = split(s, a, " "); for (i = 2; i <= n; i++) if (a[i] < a[i-1]) exit 1;
+                                 if (a[2] - a[1] < 0.02 || a[4] - a[3] < 0.02) exit 1}'; then
+        ok "cut_link/restore_link: A before B, each window holds its whole call, the restore after the cut"
+    else
+        red "cut_link/restore_link instants out of order or too narrow: '$stamps'"
+    fi
+    if awk -v s="$stamps" -v p="$plan" 'BEGIN{split(s, a, " "); split(p, q, " "); m = a[1] + q[2];
+                                          exit !(m >= q[1] - 0.002 && m <= q[1] + 0.25)}'; then
+        ok "cut_link: the first tc call starts at the planned instant, not before (the attach points were read first)"
+    else
+        red "cut_link: the first call started off the plan: stamps '$stamps', plan and offset '$plan'"
+    fi
+    [[ "$ifaces" == "s1-eth3 s3-eth1|s3-eth1|1" ]] \
+        && ok "restore_link: an end that could not be cleaned stays on record (rc 1, still in INJECTED_IFACES)" \
+        || red "restore_link left '$ifaces' (want 's1-eth3 s3-eth1|s3-eth1|1')"
+    # the glue: cut_cycle and restore_cycle on stubbed captures, the real verdicts
+    got="$(
+        mono_offset() { echo -800.0; }
+        cut_at_phase() { CUT_A_START=1000.01; CUT_A_END=1000.02; CUT_B_START=1000.03; CUT_B_END=1000.05; }
+        graph_until() { echo 1020.33 > "$4.at_wall"; echo 20.3 > "$4.elapsed"; echo "OK stub"; }
+        report_dirs() { echo "199.995 200.0"; }
+        get_json() { cp "$t/$CC_STATE" "$2"; }
+        note() { :; }
+        judge() { echo "J $2: ${1:0:48}"; }
+        CA=1; CAP=3; CB=3; CBP=1; TIMEOUT_S=15; WATCHDOG_S=5; DETECT_BOUND_S=20
+        CC_STATE=state_late.json; cut_cycle "T" "$t/cc_graph.json" "$t/cc_state.json" 0.02 1
+        echo "STRICT $CYCLE_STRICT ROW $(cut -f9,11 <<<"$CYCLE_ROW" | tr '\t' ' ')"
+        CC_STATE=state_nopass.json; cut_cycle "U" "$t/cc_graph2.json" "$t/cc_state2.json" 0.02 1
+        echo "STRICT $CYCLE_STRICT FIELDS $(awk -F'\t' '{print NF}' <<<"$CYCLE_ROW")"
+    )" || got="the subshell died (rc $?)"
+    if /usr/bin/grep -qF "J T detection time: OK detection 20.320 s -- OVER the strict 20" <<<"$got" \
+       && /usr/bin/grep -qF "STRICT OVER+0.320 ROW 20.320 220.080" <<<"$got" \
+       && /usr/bin/grep -qF "J U detection time: BAD both directions is_up:false (no phase" <<<"$got" \
+       && /usr/bin/grep -qF "STRICT ? FIELDS 18" <<<"$got"; then
+        ok "cut_cycle: the row, its budget verdict and the strict answer (OVER+0.320); with no record, 18 '?' and the graph poll alone"
+    else
+        red "cut_cycle gave: $(tr '\n' '|' <<<"$got")"
+    fi
+    got="$(
+        mono_offset() { echo -800.0; }
+        restore_watch_start() { cp "$t/watch_ok.json" "$1"; }
+        restore_watch_wait() { :; }
+        restore_link() { RESTORE_A_START=1100.5; RESTORE_A_END=1100.52; RESTORE_B_START=1100.53; RESTORE_B_END=1100.56; }
+        graph_until() { echo 1105.3 > "$4.at_wall"; echo 9.99 > "$4.elapsed"; echo "OK stub"; }
+        get_json() { cp "$t/state_up.json" "$2"; }
+        note() { :; }
+        judge() { echo "J $2: $1"; }
+        CA=1; CAP=3; CB=3; CBP=1; RESTORE_BOUND_S=20
+        restore_cycle "R" "$t/rc_graph.json" "$t/rc_state.json" "$t/rc_watch.json"
+        echo "RESTORE $(cut -f12 <<<"$RESTORE_ROW")"
+    )" || got="the subshell died (rc $?)"
+    if /usr/bin/grep -qF "J R recovery time: OK both directions is_up:true again after 4.8 s" <<<"$got" \
+       && /usr/bin/grep -qF "RESTORE 4.800" <<<"$got"; then
+        ok "restore_cycle: the recovery time is the record's (4.8 s from the first end's call), not the poll's 9.99 s from the last tc"
+    else
+        red "restore_cycle gave: $(tr '\n' '|' <<<"$got")"
+    fi
+    # graph_until before any cut: no instant to count from, and no unbound T_CUT under set -u
+    mkdir -p "$t/k/ndt"; cp "$t/graph_up.json" "$t/k/ndt/get_graph_data"
+    # (`|| got=`: under set -e a subshell that dies -- an unbound variable -- would take the whole
+    # self-test with it, silently; this way it is a red line.)
+    got="$( unset T_CUT; KERNEL_URL="file://$t/k"; graph_until 2 0.1 edges_up "$t/gu.json" "$t/model.json" )" \
+        || got="the subshell died (rc $?)"
+    if [[ "$got" == OK* && "$(cat "$t/gu.json.elapsed" 2>/dev/null)" == n/a \
+          && "$(cat "$t/gu.json.at_wall" 2>/dev/null)" =~ ^[0-9]+\.[0-9]{6}$ ]]; then
+        ok "graph_until before any cut: OK, 'n/a' to count from, and the poll's own µs stamp"
+    else
+        red "graph_until before any cut gave '$got' (elapsed '$(cat "$t/gu.json.elapsed" 2>/dev/null)')"
+    fi
     local n_arms; n_arms="$(wc -w <<<"$HB_ARMS")"
     [[ "$n_arms" == 17 ]] && ok "HB_ARMS names 17 arms (segment S's 20 running arms less the 3 external ones)" \
                           || red "HB_ARMS names $n_arms arms, not 17"
