@@ -1153,18 +1153,22 @@ DRIVER
         printf '#!%s\n' "$BASH"
         cat <<'FAKENDT'
 # A fake tools/test_workflow/ndt over files under $FAKE_REPO, with what the real one does (read-only):
-#   claim    another owner's live claim: rc 1. Else the claim is written, measuring= from NDT_MEASURING
+#   claim    minutes that are not a whole number: rc 2 (cmd_claim's usage check).
+#            another owner's live claim: rc 1. Else the claim is written, measuring= from NDT_MEASURING
 #            in THIS command's environment (claim_take), and the round baseline records the P4 host
 #            knob as it is now (record_round_baseline).
 #   up       p4 --app <pkg>: app_package_override and the knob rewritten (to fake/up-hosts), the
 #            note says the lab is in use (claim_note_up), and a fabric running <pkg> -- or, when a
 #            fabric is already up, "already up: ... reusing" and rc 0 with the OLD fabric left
 #            running (up_p4 :3293-3311 compares switch and host counts, not the package).
-#            fake/up-fails: a half-built fabric and rc 1.
+#            fake/up-fails: a half-built fabric and rc 1. fake/stolen-after-up: right after it,
+#            another owner holds the lab (a live claim of theirs); fake/expire-after-up: this
+#            run's claim has lapsed and nobody took it.
 #   down     another owner's live claim: 5. A live claim that DECLARES measuring=: 5 (cmd_down, T2d).
 #            fake/refuse-down: 5 (in_flight's "a measurement is running"). Else the app knob goes and,
 #            with a fabric up, the fabric: 0 -- nothing up: 3; either way the note says so and
-#            measuring= is cleared (claim_note_down).
+#            measuring= is cleared (claim_note_down). fake/verify-fails: it tears down, and
+#            `verify clean` finds something still running: 1, whatever was up.
 #   release  another owner's live claim: 1. The knob differing from the round baseline: 1 (cmd_release,
 #            E-11b). Else the claim and the baseline become .prev.
 #   status   a `running` block.
@@ -1181,6 +1185,7 @@ host_pid() { echo 4321; }
 echo "$1${NDT_MEASURING+ [NDT_MEASURING in env]}" >> "$s/calls"
 case "$1" in
     claim)
+        [[ "${2:-}" =~ ^[0-9]+$ ]] || { echo "usage: ndt claim [minutes] [note]" >&2; exit 2; }
         if live && ! ours; then echo "the lab is already claimed by $(field owner)" >&2; exit 1; fi
         [[ -f "$c" ]] && cp -f "$c" "$c.prev"
         write "$NDT_OWNER" "$(( $(date +%s) + $2 * 60 ))" "${3:-}" "${NDT_MEASURING:-}"
@@ -1191,6 +1196,8 @@ case "$1" in
         live && ours && write "$(field owner)" "$(field expires)" "in use: ndt $*" "$(field measuring)"
         if [[ -e "$s/fabric" ]]; then echo "  ok  already up: 4 switches, 4 hosts, reusing"
         else printf '%s\n' "$4" > "$s/fabric"; fi
+        [[ ! -e "$s/stolen-after-up" ]] || write someone-else "$(( $(date +%s) + 3600 ))" "their round" "their measurement"
+        [[ ! -e "$s/expire-after-up" ]] || write "$(field owner)" "$(( $(date +%s) - 60 ))" "$(field note)" "$(field measuring)"
         if [[ -e "$s/up-fails" ]]; then echo "  XX  the fabric did not come up" >&2; exit 1; fi
         echo "  proxy :8081   kernel :8000" ;;
     down)
@@ -1202,6 +1209,11 @@ case "$1" in
         fi
         if [[ -e "$s/refuse-down" ]]; then echo "  XX  refusing to tear down: a measurement is running." >&2; exit 5; fi
         rm -f "$app"
+        if [[ -e "$s/verify-fails" ]]; then
+            rm -f "$s/fabric"
+            live && ours && write "$(field owner)" "$(field expires)" "down did NOT verify clean -- the residue check; claim kept" ""
+            echo "  XX  still running: 1 host/switch process"; exit 1
+        fi
         if [[ -e "$s/fabric" ]]; then
             rm -f "$s/fabric"
             live && ours && write "$(field owner)" "$(field expires)" "down; verified clean; claim kept" ""
@@ -1350,6 +1362,37 @@ DRIVER
        && grep -q 'NOT RELEASING: host_count_override' "$st_tmp/claim_knobstuck/out" \
         && ok "  a knob that could not be put back: no re-claim over it, no release -- the lab stays claimed, FAIL (set -e process)" \
         || red "  a knob that could not be put back after a re-claim: $(st_cs knobstuck)"
+    # Round 7b (round-7 verdict, findings 3 and 4) -- the keep path's other doors.
+    # (f) a teardown `ndt down` that tears down and does NOT verify clean (rc 1): not released.
+    st_claim notclean healthy verify-fails
+    [[ "$wrc" == 1 && "$(tail -1 "$st_tmp/claim_notclean/out")" == "FAIL S_heartbeat -- NOT RELEASED -- THE LAB STAYS CLAIMED: the teardown's 'ndt down' exited 1"* \
+       && "$(st_calls notclean)" != *release* && "$(st_calls notclean)" == *";claim;status" \
+       && "$(st_cf notclean owner)" == hb-selftest && "$(st_cf notclean note)" == "FABRIC STILL UP"*"did not verify clean"* ]] \
+       && grep -q "exited 1 -- the teardown ran and did not verify clean --" "$st_tmp/claim_notclean/out" \
+        && ok "  a teardown 'ndt down' that did not verify clean (rc 1): NOT released, the claim kept saying so (set -e process)" \
+        || red "  a teardown whose 'ndt down' did not verify clean (rc 1): $(st_cs notclean)"
+    # (g) another owner took the lab while the run held its fabric: every re-claim is refused, so
+    # the declaration cannot be taken back and every down is refused -- and their claim is theirs:
+    # not rewritten, not released, and the output says whose claim the fabric is under now.
+    st_claim theirs healthy stolen-after-up
+    [[ "$wrc" == 1 && "$(tail -1 "$st_tmp/claim_theirs/out")" == "FAIL S_heartbeat -- NOT RELEASED -- THE LAB STAYS CLAIMED: the teardown's 'ndt down' exited 5"* \
+       && "$(st_calls theirs)" != *release* \
+       && "$(st_cf theirs owner)" == someone-else && "$(st_cf theirs note)" == "their round" \
+       && "$(st_cf theirs measuring)" == "their measurement" ]] \
+       && grep -q 'It reads owner=someone-else' "$st_tmp/claim_theirs/out" \
+       && grep -q 'the fabric is under THEIR claim now' "$st_tmp/claim_theirs/out" \
+        && ok "  a lab another owner claimed mid-run: no re-claim takes, no down, their claim untouched, no release, and it says whose claim the fabric is under (set -e process)" \
+        || red "  a lab another owner claimed mid-run: $(st_cs theirs)"
+    # (h) this run's claim lapsed and nobody took it: the re-claim before the down takes the lab
+    # again -- for the 15-minute floor, not for what is left of a lease that is gone -- the down
+    # goes through, and the release goes as designed.
+    st_claim expired healthy expire-after-up
+    [[ "$wrc" == 0 && "$(tail -1 "$st_tmp/claim_expired/out")" == "PASS S_heartbeat" \
+       && "$(st_calls expired)" == "status;claim $m_in;up $m_in;claim;down;down;claim;release" \
+       && ! -e "$st_tmp/claim_expired/repo/.test_run/lab.claim" ]] \
+       && grep -q 'lab claimed by hb-selftest for 15m' "$st_tmp/claim_expired/run/26_down.reclaim.txt" \
+        && ok "  a claim that lapsed mid-run, nobody else's: re-claimed for 15 min before the down, down and release as designed (set -e process)" \
+        || red "  a claim that lapsed mid-run: $(st_cs expired); 26_down.reclaim.txt: $(tr '\n' ' ' < "$st_tmp/claim_expired/run/26_down.reclaim.txt" 2>/dev/null)"
 
     # R3-4, round 4 -- the census reads the new daemon's session from its report, which may not be
     # written the instant `start` returns. Bounded wait, and no abort under set -e either way.
