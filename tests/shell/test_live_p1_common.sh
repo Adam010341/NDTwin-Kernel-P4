@@ -64,8 +64,9 @@ trap 'rm -rf "$FIX"' EXIT INT TERM
 # drive() -- a 2 Mbit/s iperf ran between them and landed in that arm's G1 counters (+375 kB).
 # "Offline" had meant "offline as long as nobody else has a fabric up".
 # So this suite now ALWAYS runs as if a fabric were up, and can never reach one:
-#   * a `ps` on PATH that lists, after the real process table, four Mininet host shells h1..h4
-#     (pids above pid_max -- no process can have them, a signal aimed at one reaches nobody);
+#   * a `ps` on PATH that lists four Mininet host shells h1..h4 BEFORE the real process table
+#     (pids above pid_max -- no process can have them, a signal aimed at one reaches nobody; first,
+#     because host_pid takes the first match and a live fabric's hosts must never be it -- F1);
 #     host_pid reads nothing else, so any path that would drive a live fabric's hosts is taken
 #     here on every run, not only on the night somebody's lab is up;
 #   * `sudo`, `mnexec`, `iperf` and `iperf3` on PATH that record the call and refuse it.
@@ -83,15 +84,21 @@ SHIM
 done
 cat > "$NOLAB/bin/ps" <<'PSEOF'
 #!/bin/bash
-/usr/bin/ps "$@"; rc=$?
+# [Co-developed with claude code -- Adam] 🔴 THE FAKE ROWS COME FIRST (the judge's F1, 09-27):
+# host_pid takes the FIRST row whose argv ends mininet:hN, so with the real table first a real
+# fabric's h2 won over the fake one -- the control below went red and the guard handed a live
+# host's pid to its sudo. A header-less listing (every column named `x=`, which is what host_pid
+# asks for) gets the fake rows and then the real table; one with a header keeps it on top.
 spec=""; prev=""
 for a in "$@"; do
     [[ "$prev" == -o || "$prev" == -eo || "$prev" == -axo || "$prev" == -Ao ]] && spec="$spec,$a"
     [[ "$a" == -o?* ]] && spec="$spec,${a#-o}"
     prev="$a"
 done
-if [[ "$spec" == *args* || "$spec" == *cmd* || "$spec" == *command* ]]; then
-    IFS=, read -r -a cols <<<"${spec#,}"
+[[ "$spec" == *args* || "$spec" == *cmd* || "$spec" == *command* ]] || exec /usr/bin/ps "$@"
+IFS=, read -r -a cols <<<"${spec#,}"
+fake() {
+    local h c line
     for h in 1 2 3 4; do
         line=""
         for c in "${cols[@]}"; do
@@ -104,7 +111,17 @@ if [[ "$spec" == *args* || "$spec" == *cmd* || "$spec" == *command* ]]; then
         done
         printf '%s\n' "${line% }"
     done
+}
+headerless=1
+for c in "${cols[@]}"; do [[ "$c" == *=* ]] || headerless=0; done
+if (( headerless )); then
+    fake
+    exec /usr/bin/ps "$@"
 fi
+real="$(/usr/bin/ps "$@")"; rc=$?
+printf '%s\n' "$real" | head -1
+fake
+printf '%s\n' "$real" | tail -n +2
 exit $rc
 PSEOF
 chmod +x "$NOLAB/bin"/*
