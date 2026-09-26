@@ -227,7 +227,7 @@ thrift==0.24.0
 #   $ at 1d "1d, the base python" && { BASE=$(sed -n 's/^home = //p' "$V/pyvenv.cfg")/python3 && [ "$("$BASE" -c 'import sys; print(sys.version_info[:2])')" = "$("$V/bin/python" -c 'import sys; print(sys.version_info[:2])')" ] && STEP=1e || { STEP=; echo "STOP at 1d: $BASE (pyvenv.cfg's home) is not the Python minor version $V runs: the new venv would be another interpreter"; }; }
 #   $ at 1e "1e, who uses it" && { U=$(users "$V") && [ -z "$U" ] && STEP=1f || { STEP=; echo "STOP at 1e: in use, by:"; echo "$U"; }; }
 #   $ at 1f "1f, the baseline" && { OLD=$PARK/p4_proxy-venv.protobuf$OV-$(date +%Y%m%d-%H%M%S) && suites "$V" > "$OLD.baseline" && [ "$(grep -c '^OK' "$OLD.baseline")" = 2 ] && STEP=1g && cat "$OLD.baseline" || { STEP=; echo "STOP at 1f: the suites do not pass on the OLD venv ($OLD.baseline) -- fix that first (p4_proxy/p4_src/build? tools/test_workflow/l0_build_check.sh p4); nothing has moved"; }; }
-#   $ at 1g "1g, the move" && { echo "$V" > "$OLD.origin" && "$V/bin/python" -m pip freeze --all > "$OLD.freeze" && fp "$V" > "$OLD.fingerprint" && [ -z "$(users "$V")" ] && mv -T "$V" "$OLD" && STEP=1 && echo "parked: OLD=$OLD (it came from $V)" || { STEP=; if [ -d "$OLD" ]; then echo "STOP at 1g: $V WAS moved to $OLD -- paste ROLLBACK"; else echo "STOP at 1g: nothing moved"; fi; }; }
+#   $ at 1g "1g, the move" && { echo "$V" > "$OLD.origin" && "$V/bin/python" -m pip freeze --all > "$OLD.freeze" && fp "$V" > "$OLD.fingerprint" && [ -z "$(users "$V")" ] && mv -T "$V" "$OLD" && STEP=1 && echo "parked: OLD=$OLD (it came from $V)" || { STEP=; if [ -e "$V" ]; then echo "STOP at 1g: nothing moved, $V is in place${OLD:+ (if $OLD exists, it is not this venv: remove it before trying again)}"; else echo "STOP at 1g: $V WAS moved to $OLD -- paste ROLLBACK"; fi; }; }
 #
 # 2. Build the new venv where the old one was: the three commands at the top of this file, with
 #    the base python3 the old venv was made from. A STOP here: paste ROLLBACK.
@@ -256,16 +256,19 @@ thrift==0.24.0
 # take the window again (step 0, at the main checkout's root), paste HELPERS, and type
 # OLD=<the name step 1 printed> (`ls -d ~/p4_proxy-venv.protobuf*/` shows it). V is read from
 # $OLD.origin, so the directory you paste this in does not matter.
-#   $ STEP=; test -n "${OLD:-}" && test -d "$OLD" && V=$(cat "$OLD.origin") && [[ "$V" == /*/p4_proxy/venv ]] && test ! -L "$V" && R=${V%/p4_proxy/venv} && inwin && STEP=rb1 && echo "rolling back: $OLD -> $V" || { STEP=; echo "STOP at rb1: OLD must name a parked venv with its .origin file, and this must run inside the window on the checkout it came from"; }
-#   $ at rb1 "rb2, the moves" && { [ -z "$(users "$V")" ] && { test ! -e "$V" || mv -T "$V" "$(dirname "$OLD")/p4_proxy-venv.failed-$(date +%Y%m%d-%H%M%S)"; } && mv -T "$OLD" "$V" && STEP=rb3 || { STEP=; echo "STOP at rb2: something runs from $V, or a move failed -- look at $V and $OLD before anything else"; }; }
-#   $ at rb3 "rb3, the check" && { if [ "$(fp "$V")" = "$(cat "$OLD.fingerprint")" ]; then STEP=rb; echo "old venv restored unchanged: $V -- exit this shell, then step 5"; else STEP=; echo "ERROR at rb3: $V is NOT byte-for-byte the venv step 1 parked (its fingerprint is not $OLD.fingerprint). Do not use it, do not delete anything, ask."; fi; }
+#   $ STEP=; test -n "${OLD:-}" && test -d "$OLD" && V=$(cat "$OLD.origin") && [[ "$V" == /*/p4_proxy/venv ]] && test ! -L "$V" && R=${V%/p4_proxy/venv} && inwin && STEP=rb1 || { STEP=; echo "STOP at rb1: OLD must name a parked venv with its .origin file, and this must run inside the window on the checkout it came from"; }
+#   $ at rb1 "rb1, the parked venv" && { [ "$(fp "$OLD")" = "$(cat "$OLD.fingerprint")" ] && STEP=rb2 && echo "rolling back: $OLD -> $V" || { STEP=; echo "ERROR at rb1: $OLD is NOT byte-for-byte what step 1 parked (its fingerprint is not $OLD.fingerprint). Nothing was moved. Do not use it, do not delete anything, ask."; }; }
+#   $ at rb2 "rb2, the moves" && { [ -z "$(users "$V")" ] && { test ! -e "$V" || mv -T "$V" "$(dirname "$OLD")/p4_proxy-venv.failed-$(date +%Y%m%d-%H%M%S)"; } && mv -T "$OLD" "$V" && STEP=rb3 || { STEP=; echo "STOP at rb2: something runs from $V, or a move failed -- look at $V and $OLD before anything else"; }; }
+#   $ at rb3 "rb3, the check" && { if [ "$(fp "$V")" = "$(cat "$OLD.fingerprint")" ]; then STEP=rb; echo "old venv restored unchanged: $V -- exit this shell, then step 5"; else STEP=; echo "ERROR at rb3: $V is NOT byte-for-byte the venv step 1 parked (its fingerprint is not $OLD.fingerprint), although it was before the move. Do not use it, do not delete anything, ask."; fi; }
 #    The new venv, if there was one, is parked beside the old one as p4_proxy-venv.failed-<time>.
 #
 # ROLLBACK IN PLACE, only when there is no parked venv to move back. Moving protobuf back alone is
 # not enough: the regenerated modules need protobuf >= 5.29 (they import runtime_version), so
-# p4runtime is reinstalled too, which puts its shipped modules back. It lands on the older pins
-# for protobuf, googleapis-common-protos and p4runtime; setuptools stays, and everything else
-# keeps the version it has. Inside the window, HELPERS pasted, from the main checkout's root:
+# p4runtime is reinstalled too, which puts its shipped modules back. It lands on the older file's
+# pins for protobuf, googleapis-common-protos and p4runtime; setuptools stays, and everything else
+# keeps the version it has. That is not the development machine's old venv byte for byte: that one
+# has googleapis-common-protos 1.75.0 (against its declared range) and older transitive packages.
+# Inside the window, HELPERS pasted, from the main checkout's root:
 #   $ STEP=; R=$PWD; V=$R/p4_proxy/venv; test -d "$V" && test ! -L "$V" && inwin && [[ "$(pbver "$V")" == 5.* ]] && [ -z "$(users "$V")" ] && STEP=ip1 && echo "rolling back in place: $V" || { STEP=; echo "STOP at ip1: $V is not a real directory with protobuf 5 that nothing uses, or this is not inside the window"; }
 #   $ at ip1 "ip1" && { "$V/bin/pip" uninstall -y grpcio-tools && STEP=ip2 || { STEP=; echo "STOP at ip1: uninstalling grpcio-tools"; }; }
 #   $ at ip2 "ip2" && { "$V/bin/pip" install protobuf==3.20.3 googleapis-common-protos==1.73.0 && STEP=ip3 || { STEP=; echo "STOP at ip2: installing protobuf 3.20.3"; }; }
