@@ -10588,6 +10588,12 @@ case "${1:-}" in
     release) cmd_release "${2:-}" ;;
     apps)    shift; cmd_apps "$@" ;;
     ntg)     cmd_ntg "${2:-}" ;;
+    # [Co-developed with claude code -- Adam]
+    # A local HTTP API over the verbs above (TICKET-ndt-serve, 09-24). exec, so the server IS this
+    # command; --ndt names this same file, because 'sudo ndtwin-lab' acts in one tree and the
+    # server must drive the ndt of the tree it was started from. A later --ndt on the command line
+    # overrides it (argparse keeps the last).
+    serve)   shift; exec python3 "$HERE/../ndt_serve/serve.py" --ndt "$HERE/ndt" "$@" ;;
     *)
         # 🔴 Computed HERE, above the heredoc, and never inside it. `cat <<EOF` is UNQUOTED, and
         # tests/shell/test_ndt_up_target.sh's "the usage text must not EXECUTE anything" section
@@ -10872,6 +10878,11 @@ usage: ndt <command>
   ntg [cli|prompt]     which prompt the topology hands control to
   claim [min] [note]   reserve the lab (default 30m); needs NDT_OWNER set
   release              give it back
+  serve [--owner N] [--port P]   a local HTTP API over up/down/status/claim/release
+                and apps, on 127.0.0.1 only, for one user. Every write carries the token
+                the server writes to ~/.config/ndt-serve/token (0600); every call to ndt
+                carries NDT_OWNER=N. 'ndt serve --help' for the options,
+                tools/ndt_serve/README.md for the API.
 
   .test_run/pids/ is shared, so 'down' kills whoever is registered there.
   Declare yourself before a long run -- any script can just write .test_run/lab.claim:
