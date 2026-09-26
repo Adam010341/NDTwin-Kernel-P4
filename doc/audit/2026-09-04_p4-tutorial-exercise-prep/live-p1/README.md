@@ -247,6 +247,19 @@ M 不斷言的理由要說清楚：取樣器**可能**抽到、**可能**抽不�
 unbound 的 L6。L4 **不斷言改路**（第一刀 (c) 不成立，`capabilities.reroute: false`），斷鏈期間的流量照實記在
 `54_pingall_during_cut.txt`。外來 fabric 上邊的 `is_up` 來自**宣告**的鏈路，不是斷線偵測。
 
+**段 W（TICKET-P4-heartbeat）之後**：`ndt up p4 --app` 會在這兩個 package 上啟動心跳。
+
+- **L6 的預期已改**（fable judge 2.4）：
+  - owned 是 `reroute: true, link_discovery: "heartbeat"`；
+  - unbound 是 `reroute: false, link_discovery: "heartbeat"`。
+  - 兩者都需要心跳真的有在跑；`ndt up` 沒能啟動心跳的那次 run，會讀到 `declared`／`false`，L6 就會紅。
+- **L4 記下的流量數字可能會變**（INFERRED，沒跑過）：
+  - L4 的 `inject_link_failure` 會在兩端下 netem，心跳幀也會一起被擋住；
+  - 所以在 owned 那個 package 上，proxy 現在會自己偵測到斷線並**改路**；
+  - 因此 `54_pingall_during_cut.txt` 的遺失可能比第一刀記錄的少。
+  - L4 本身仍然不斷言改路；改路由 ⑧ 的 H1 驗。
+  - recovery 之後，proxy 要等到心跳重新聽到那條鏈路（最多約 10 s）才會回報 up。這和 kernel 的 recovery 之間有沒有互相打架，也還沒在真機上看過。
+
 [Co-developed with claude code -- Adam]
 
 ---
