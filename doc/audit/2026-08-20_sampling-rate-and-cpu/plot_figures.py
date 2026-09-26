@@ -43,7 +43,10 @@ def _open(path):
     return gzip.open(path + ".gz", "rt")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-RAW = os.path.join(HERE, "raw")
+# [Co-developed with claude code -- Adam] NDT_SAMPLING_RAW_DIR (2026-09-27): a hermetic caller --
+# tests/shell/test_gate_exit_code_not_tee.sh with its synthetic fixture -- points every reader of
+# this module at another directory. Unset, it is raw/ beside this file, as it always was.
+RAW = os.environ.get("NDT_SAMPLING_RAW_DIR") or os.path.join(HERE, "raw")
 OUT = sys.argv[1] if len(sys.argv) > 1 else "."
 
 INK, BODY, MUTED = "#1A1A1A", "#2E2E2E", "#4F4F4F"
