@@ -3,8 +3,159 @@
 [Co-developed with claude code -- Adam]
 
 - worker：pb5prep；worktree `scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926`；分支 `fix/p4proxy-protobuf5-0926`，從 trunk `580767a8` 開出。
-- **head：`6351be151e452ee83c4f9de58c22cebe7348f7ec`**。**沒 push、沒 merge、沒碰 lab、沒切換任何 venv**；主 checkout 的 `p4_proxy/venv` 與 `wt-p4proxy-reqs-0925/scratch/venv-cand` 都沒寫過（前者指紋前後相同，見 §3；後者本輪完全沒用到）。
+- **head：`5bb5f1fa8591151faea71217f6df8de81ce22e9d`**（第三輪，judge 複審 d2e4708a 判 READY FOR ADAM'S DECISION 之後的 N1–N8；第二輪交件 `d2e4708a`、第一輪 `6351be15`，見下方 R3、R2 與原 §0–§6）。**沒 push、沒 merge、沒碰 lab、沒切換任何 venv**；主 checkout 的 `p4_proxy/venv` 與 `wt-p4proxy-reqs-0925/scratch/venv-cand` 都沒寫過（前者指紋前後相同，見 §3；後者本輪完全沒用到）。
 - 所有 log：`scratch/overnight-2026-09-05/logs/gates-0910/*.pb5prep-<sha8>.log`，第一行 `# HEAD <完整 sha>`，最後一行 `rc=<n>`。腳本、README 與 `SHA256SUMS` 在 `logs/gates-0910/scripts-pb5prep/`。
+
+## R3. 第三輪（judge 複審 d2e4708a：READY FOR ADAM'S DECISION，N1–N8）
+
+新增一個 commit：`5bb5f1fa`，只改 `p4_proxy/requirements.txt`，而且只動遷移程序和檔頭一句話。pin 與 08483aa5 相同。
+
+- **N1（最重要）**
+  - 第 1 步的第一條指令會在 guard shell 裡**再 claim 一次**（同一個 owner），所以 90 分鐘從等完 build lock 之後才開始算。
+  - `at()` 對**每一條**指令都呼叫 `inwin()`：自己的 claim 必須還剩 ≥30 分鐘，不然印 `STOP at <步驟>: renew the claim … then paste again from this command`，STEP 不變，續 claim 後可以從那條接著貼。
+  - 演練：
+    - S20：2a 之後把 claim 改成只剩 60 秒，結果 STOP at 2b；pip install 沒跑；續 claim 後從 2b 重貼，VERIFIED、release。
+    - S21：2b 之後 claim 被別的 owner 拿走，結果 STOP at 2c；續 claim 被拒；regen 沒跑；舊 venv 仍停放且指紋不變；第 5 步在遷移 shell 裡被拒絕。
+- **N4**
+  - 文字不再說「每個檢查都注入過失敗」，改成列出實際注入過的：window、claim 過期或被拿走、步驟 1–3 的每個檢查、rb1–rb3、ip1–ip4、失敗後重貼 1–3。沒注入失敗的是第 4、5 步和 ip5（只跑過）。
+  - 新演練：
+    - S22：有行程在跑新 venv 時，STOP at rb2；停掉它再貼 ROLLBACK，還原成功。
+    - S23：搬完後才被改動，ERROR at rb3，並提示續 claim 當 handoff。
+    - S24：ip1（site-packages 唯讀）、ip2 和 ip3（index 不通）、ip4（protobuf 被換回 5）各失敗一次，每次照 STOP 的指示打 `STEP=ipN` 接著貼，最後 rolled back in place。
+  - ROLLBACK IN PLACE：`$PARK` 有停放的 venv 就拒絕（該用 ROLLBACK）；最後多一條 ip5 跑兩套 suite，兩套都要 OK；gate 改名為 ip0。
+- **N5**
+  - 重新寫明：貼的時候要去掉開頭的 `#   $ `。
+  - ROLLBACK 會先 `OLD=${OLD%/}`，去掉結尾斜線。
+  - 第 0 步：`LOCK`／`TIMEOUT` 有設就印 WARNING。
+  - 第 5 步被拒絕時，訊息說明：若這其實是第 0 步的 shell（貼錯了），打 `unset STEP` 再貼一次。
+- **N6**：ERROR at rb1／rb3 時要「用同一個 owner 續 claim，把狀況寫進 claim note 當 handoff，通知其他人，再詢問」。
+- **N2／N3／N8（文字）**
+  - `users()` 看不到的列出來：root 的行程、只靠 PYTHONPATH／VIRTUAL_ENV 用到 venv 的純 Python 行程、含 `..` 或經 symlink 的相對路徑。
+  - 在髒的 checkout 跑，1f 的 STOP 是 checkout 的問題，不是 venv 的。
+  - 遷移後才回滾：要把檔頭那兩句放回去，或 revert 那次 merge。
+- **N7**：本報告與程序文字都寫明演練和真實操作的差異：HOME 指向 scratch、經 pipe 而不是終端機、`ndt` 是 stub、替身 venv 版本相同但檔案不同。
+- **演練結果：25／25 GREEN @5bb5f1fa**（`fi_<情境>.pb5prep-5bb5f1fa.log`、`fi_summary-*.pb5prep-5bb5f1fa.log`）。因為 `at()` 的行為改了，S01–S19 全部重跑，不只跑受影響的幾個。S02 另外確認：貼錯 shell 時不會拿 claim。
+- 最終閘門：`final_gates_r3.pb5prep-5bb5f1fa.log`。主 venv 指紋：`mainvenv_fingerprint_after-round3.pb5prep-5bb5f1fa.log`。
+
+## R2. 第二輪（judge `judge-PB5PREP-6351be15.md` 之後，2026-09-26 17–18 時 CST）
+
+新增 3 個 commit（`git log 6351be15..d2e4708a`）：
+- `94a1ccb9`：B1–B3，以及 notes 1–3、5、7、11。
+- `dc2dc80a`：`suites()` 用完的空 HOME 會刪掉。
+- `d2e4708a`：失敗注入找到的缺陷，已修（見 R2.2）。
+
+protobuf 5 本體沒動：pin 從 08483aa5 起逐行相同，regen 工具與 7cc50b42 逐位元組相同（`git_evidence.pb5prep-94a1ccb9.log`）。
+
+### R2.1 各項改了什麼（全部在 `p4_proxy/requirements.txt`，另有 ci.yml 與 l1 各一處）
+
+- **B1**
+  - 第 1 步把絕對路徑的 V 印出來，並存成 `"$OLD.origin"`。
+  - ROLLBACK 從 `.origin` 讀 V，並且：
+    - 要求 V 是 `/…/p4_proxy/venv`，而且 `test ! -L "$V"`；
+    - 要求在「該 checkout」上持有 window（`inwin` 讀 `$R/.test_run/lab.claim`，R 由 V 推回）；
+    - 搬動之前先比對停放 venv 的指紋（rb1，這一條是 R2.2 新增的），不符就印 `ERROR at rb1 … Nothing was moved` 並停下；
+    - 搬完之後再比一次（rb3），不符就印 `ERROR at rb3`。
+- **B2**
+  - 停放前的檢查：
+    - 從 venv 自己的 python 讀 protobuf 版本，只接受 3.x（1b）；
+    - `$PARK` 裡已經有 `p4_proxy-venv.protobuf*/` 就拒絕，而且必須和 V 在同一個檔案系統（1c）；
+    - pyvenv.cfg 的 home python 必須和 venv 同一個 minor 版本（1d）；
+    - `users()` 掃 `/proc/*/maps`，也看 cmdline（絕對路徑，或相對於該行程 cwd 的路徑），有人在用就拒絕（1e），搬之前再掃一次。
+  - 停放前先在舊 venv 上跑兩套 suite 當基準（1f）。
+  - 每條指令都經過 `at()`：只有前一條指令把 STEP 設成它預期的值才會執行；第一個失敗印 `STOP at <步驟>` 和下一步該貼什麼，後面的指令全部印 `(skipped …)`。**第 3 步也照這個規則**。
+  - 第 3 步沒過時：可以貼 ROLLBACK，或修好後打 `STEP=2` 再貼一次第 3 步；不會自動回滾。
+  - 停放名稱是 `protobuf<讀到的版本>-<時間戳>`。
+- **B3**
+  - 第 0 步是指令：
+    - `export NDT_OWNER=p4-venv-migration NDT_MEASURING='p4_proxy venv migration: no runs, no gates'`；
+    - `ndt claim 90 …` 成功後，接 `JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash -i`。
+  - `inwin()` 要求目前在持有 build lock 的那個 shell 裡（看 `NDTWIN_GUARD_HELD`），而且 NDT_OWNER 的 claim 還沒過期。這兩個條件都滿足，每一步才會執行。
+  - 文字要求先通知其他 session。第 5 步只能在外層 shell `ndt release`；在遷移 shell 裡打會被拒絕。
+- **note 7**
+  - HELPERS 先 `unset PYTHONPATH PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION`，並 `export PYTHONDONTWRITEBYTECODE=1`（跑舊 venv 的基準不會寫 .pyc）。
+  - 其餘四項已併入 B2：舊 venv 基準、停放名不寫死、檢查 home 的 minor 版本、失敗不自動回滾。
+- **notes 1–3**：run history 改成三組：
+  - A：候選那組，09-25 離線；
+  - B：A 組，09-26 live；
+  - C：這個檔案 09-26 解出的組合，只跑過離線。
+  - "that exact set" 只用在 C。
+  - live 未涵蓋清單補上兩項：5.29.6 下 switch 拒絕 entry 的路徑；ndt app pre-flight 在 5.29.6 下跑（是推論，沒觀察到）。
+  - 沒 pin 的套件：C 組實數 15 個。
+- **note 5**：檔頭和 ci.yml 都改寫驗收條件。CI 本來就紅（run 36220555111 @580767a8：L1 FAILED，14 組，依 `ci-compare-580767a8.txt`），所以驗收改成：P4 lane 逐檔和那次 run 對照，沒有新紅；Install 步驟單獨看。
+- **note 11**：
+  - 22 個紅改寫成「21 個 import 時死掉＋1 個是它起的 proxy 子行程死掉」（檔頭、ci.yml）。
+  - l1 的 "will skip themselves" 提示加上「或是 import 時就 FAIL」這種情況（`l1_unit_tests.sh`：1 行訊息加一段註解）。CI 形狀的 lane 重跑時看到了新訊息。
+- **note 9**：主 venv 指紋在 phase 7／8 之後（@6351be15）與 R2 之後（@d2e4708a）都是 `33b3465d…`，比 marker 新的檔案 0 個（`mainvenv_fingerprint_after-phase7-8.pb5prep-6351be15.log`、`mainvenv_fingerprint_after-review-fixes.pb5prep-d2e4708a.log`）。
+- **note 10**：`git_evidence.pb5prep-94a1ccb9.log` 存了 log、`diff --stat`、`git diff 7cc50b42 HEAD -- p4_proxy/regen_p4runtime_pb2.py`（0 行）、兩邊 sha256 都是 `66fb47b0…`。
+
+### R2.2 失敗注入演練（`scripts-pb5prep/fi_rehearsal.py`；log `fi_<情境>.pb5prep-d2e4708a.log`、`fi_summary-175840.pb5prep-d2e4708a.log`）
+
+做法：
+- 每個情境都用一份一次性的 repo 副本：`git archive HEAD p4_proxy tools tests setting`，加上 p4 build 檔，`ndt` 換成 stub（只做 claim／release，欄位與真的相同）。
+- 替身 venv 用主 venv 自己的 `pip freeze --all` 加 `--no-deps` 全新建立，**不用 `cp -a`**。freeze 和主 venv 逐行相同，`pip check` 的缺陷（googleapis 1.75.0 對 3.20.3）也重現了。建它時從 PyPI 下載了 11 個舊版的 transitive 套件，快取裡沒有。
+- `$HOME` 指向 scratch。
+- 程序的指令**逐字**取自 HEAD，整段經 pipe 貼進 `bash -i`。bash 讀 pipe 是一個位元組一個位元組讀的，所以 guard 開出來的那個 shell 會吃到後面的行，`exit` 之後的行回到外層 shell，和真的貼上一樣。
+- 非程序的行都有標記：`[inject]` 是注入的失敗，`[type]` 是操作者會打的東西。
+- 只有 S01 持有**真的** `/tmp/ndtwin-build.lock`；其他情境用私有的 LOCK。**沒有對真的 lab 跑過任何 `ndt`**。
+
+**20／20 GREEN @d2e4708a**：
+
+| 情境 | 注入 | 結果 |
+|---|---|---|
+| S01 | 無，整段流程 | 真 lock；parked、VERIFIED、外層 release；舊 venv 停放後指紋不變 |
+| S01（接續） | 從 `$HOME` 開的新 shell 回滾 | STOP at rb1，沒搬任何東西 |
+| S01（接續） | 從另一個 checkout 回滾（它有自己的 claim 和 guard shell） | 拒絕；沒有把 venv 搬進那個 checkout |
+| S01（接續） | 正確做法：在 checkout 做第 0 步，再 `cd $HOME` 回滾 | restored unchanged；指紋等於最初；新 venv 改名成 failed-* |
+| S02 | 不在 window 裡（「貼進第一個 shell」這種錯） | STOP，其餘全部 skipped |
+| S03 | 別人已持有 claim | 沒開 guard shell，STOP |
+| S04 | V 已經是 protobuf 5 | STOP at 1b |
+| S05 | V 是 symlink | STOP at 1b |
+| S06 | `$PARK` 已有停放的 venv | STOP at 1c |
+| S07 | `$PARK` 在 tmpfs | STOP at 1c |
+| S08 | home 的 python 是 3.12，venv 是 3.13 | STOP at 1d |
+| S09 | 行程 map 了 venv 的 .so | STOP at 1e |
+| S09b | 行程用相對路徑跑 venv 的 python | STOP at 1e |
+| S10 | 舊 venv 上 suite 失敗 | STOP at 1f，沒搬任何東西 |
+| S11 | `$OLD` 已被佔 | STOP at 1g「nothing moved」；照樣貼 ROLLBACK 也在 rb1 ERROR，沒搬任何東西 |
+| S12 | V 在停放後又出現 | STOP at 2a；ROLLBACK 還原 |
+| S13 | 2b pip 失敗後，原樣重貼 1–3 | 重貼時 STOP at 1b，不會再停放一次；ROLLBACK 還原 |
+| S14 | regen 失敗 | STOP at 2c；ROLLBACK 還原 |
+| S15 | pip check 失敗（3a） | 修好、`STEP=2`、再貼第 3 步 → VERIFIED |
+| S16 | backend 被設成 python | STOP at 3b；ROLLBACK 還原 |
+| S17 | 新 venv 少了 hypothesis | STOP at 3c；ROLLBACK 還原 |
+| S18 | 停放期間舊 venv 被改動 | ERROR at rb1，什麼都沒搬 |
+| S19 | ROLLBACK IN PLACE，起點是剛由三道指令建好的新 venv | 回到 3.20.3；freeze 和主 venv 不同（googleapis 1.73.0 vs 1.75.0、transitive 較新、多了 setuptools），pip check 乾淨；檔內已寫明 |
+
+**找到並修掉的缺陷**（@dc2dc80a 的 S11 是 RED，修正在 `d2e4708a`）：
+- 1g 用 `[ -d "$OLD" ]` 判斷「搬了沒有」。`$OLD` 被佔時，它會謊報「V WAS moved — paste ROLLBACK」。照做的話，真的舊 venv 會被改名成 failed-*，佔位的東西反而被放回 V。
+- 修法：1g 改成看 V 還在不在；ROLLBACK 在搬任何東西之前先比對停放 venv 的指紋（rb1）。
+
+演練記錄：
+- 另外兩輪留作紀錄：`*.trial1/trial2.pb5prep-94a1ccb9.log`。那兩輪紅是 harness 的錯：副本少了 `setting/`；檢查字串會命中 bash 自己 echo 出來的指令行，後來改成只比對行首。
+- S09 注入的 sleeper 在 harness 被中止時留了下來，我已經用 pid 確認身分後 kill。
+
+### R2.3 最終閘門 @d2e4708a（`final_gates_r2.pb5prep-d2e4708a.log`，rc=1 的原因見下）
+
+- pin 與 08483aa5 相同。
+- gate anchors 119/119。
+- `test_up_ovs_wedge_guard.sh` 10/10。
+- fi 20／20 GREEN。
+- 新增 401 行：0 個 key、0 個 IP；只有 1 行含 `/home/`，是 trunk 原句重新折行。
+- **`test_l1_shell_scoring.sh` 95 個 check 紅 12 個**，讓整份 log 的 rc=1。這 12 行 FAILED 和 trunk 580767a8 上（phase 7 A/B）**完全相同**（`l1_shell_scoring_vs_trunk.pb5prep-d2e4708a.log`，rc=0），**不是本分支造成的**。
+- phase 1 @d2e4708a：
+  - CI 形狀的 lane：regen 前 22 紅，regen 後 0 紅；
+  - 新的提示訊息出現了；
+  - prefix 拒絕 rc=2。
+
+### R2.4 仍然只有 Adam 能決定
+
+- 併不併、怎麼併：judge 給了兩條路。(a) 另建這一組的 venv 再跑一次 live；(b) 改寫主旨，拿遷移後的 live 01／06 當驗收。
+- 何時遷移：要在 window 裡做（claim、build lock、和 HB spike 協調）。
+- 推分支讓 CI 跑，就等於公開這套流程。
+- repo 外的手冊要同步更新。
+- dependabot。
+- process_is_the_emitter 那張 chip。
+- fixture 和 `~/tutorials` 哪一邊才對（judge note 14）。
 
 ## 0. 結論
 

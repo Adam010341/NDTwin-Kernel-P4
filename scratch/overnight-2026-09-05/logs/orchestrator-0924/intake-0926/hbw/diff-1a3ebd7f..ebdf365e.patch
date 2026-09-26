@@ -1,0 +1,860 @@
+diff --git a/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh
+index 9a6e914e..a6bde4bf 100755
+--- a/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh
++++ b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh
+@@ -25,9 +25,12 @@
+ #       own ipv4_lpm (the package declares none: convert took them out) really forward.
+ #   L4  `inject_link_failure` on s1-p3<->s3-p1 -> both directions `is_up: false`, STILL false
+ #       after >= 35 s (at least one `updateLinks` poll), then `inject_link_recovery` -> back to
+-#       true, and no netem left on either end. 🔴 REROUTING IS NOT ASSERTED: (c) does not hold
+-#       in this cut (no watchdog on a foreign fabric, `capabilities.reroute: false`); the traffic
+-#       across the cut link is recorded as it is, loss and all.
++#       true, and no netem left on either end. 🔴 REROUTING IS NOT ASSERTED here (08_heartbeat.sh
++#       H1 asserts it); the traffic across the cut link is recorded as it is, loss and all.
++#       [Co-developed with claude code -- Adam] Since TICKET-P4-heartbeat segment W `ndt up p4
++#       --app` starts the heartbeat on this package, and the cut's netem stops its frames too: on
++#       the OWNED package the proxy now detects the cut itself and reroutes, so L4's recorded
++#       traffic numbers may differ from the first cut's (INFERRED, not run).
+ #   L5  negative control, the same exercise WITHOUT roles: a kernel write answers 501
+ #       `unsupported_on_p4` (reason `unbound`) and lands in the dispatch failures, and the
+ #       author's own ipv4_lpm entries are row-for-row what they were before the write.
+@@ -36,9 +39,12 @@
+ #       cut exists to close: before it, the INSERT failed on the existing /32 and the proxy
+ #       fell back to a MODIFY that silently rewrote the author's entry. It must answer 501, and
+ #       s1 must still send 10.0.1.1 out of port 1 afterwards.
+-#   L6  `GET /p4/switch_state` -- every switch's `capabilities` is section 2.5's
+-#       {ipv4_route: ndtwin, five_tuple: false, reroute: false, link_discovery: declared,
+-#        binding_source: package}; and on the control, {unbound, false, false, declared, null}.
++#   L6  `GET /p4/switch_state` -- every switch's `capabilities` is section 2.5's shape, with the
++#       two keys the heartbeat decides (segment W; the fable judge's 2.4 on 1a3ebd7f):
++#       {ipv4_route: ndtwin, five_tuple: false, reroute: true, link_discovery: heartbeat,
++#        binding_source: package}; and on the control, {unbound, false, false, heartbeat, null}
++#       -- detected there, not rerouted (reroute.reason `unbound`). Both need the heartbeat
++#       running: a run whose `ndt up` could not start it reads declared / false.
+ #
+ # Run:        NDT_OWNER=<you> bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh
+ # Self-test:  bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh --self-test
+@@ -65,8 +71,10 @@ PROBE_DST="10.0.9.9"
+ #: and the port L5 tries to move it to.
+ AUTHOR_DST="10.0.1.1"; AUTHOR_PORT=1; AUTHOR_MOVED_TO=2
+ #: What section 2.5-2 says each switch of each fabric must report.
+-CAPS_OWNED='{"ipv4_route":"ndtwin","five_tuple":false,"reroute":false,"link_discovery":"declared","binding_source":"package"}'
+-CAPS_UNBOUND='{"ipv4_route":"unbound","five_tuple":false,"reroute":false,"link_discovery":"declared","binding_source":null}'
++#: [Co-developed with claude code -- Adam] reroute / link_discovery as the heartbeat decides them
++#: (TICKET-P4-heartbeat segment W): owned -> true / heartbeat, unbound -> false / heartbeat.
++CAPS_OWNED='{"ipv4_route":"ndtwin","five_tuple":false,"reroute":true,"link_discovery":"heartbeat","binding_source":"package"}'
++CAPS_UNBOUND='{"ipv4_route":"unbound","five_tuple":false,"reroute":false,"link_discovery":"heartbeat","binding_source":null}'
+ #: control_plane.skipped with every table owned: LLDP and the watchdog still off, routes back on.
+ SKIPPED_OWNED="['link_watchdog', 'lldp_discovery']"
+ SKIPPED_UNBOUND="['install_initial_routes', 'link_watchdog', 'lldp_discovery']"
+@@ -323,18 +331,28 @@ dump("graph_cut.json", cut)
+ half = copy.deepcopy(up)
+ half["edges"][0]["is_up"] = False     # (1,3,3,1) only
+ dump("graph_half_cut.json", half)
+-owned = {"ipv4_route": "ndtwin", "five_tuple": False, "reroute": False,
+-         "link_discovery": "declared", "binding_source": "package"}
++# [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W (the fable judge's 2.4 on
++# 1a3ebd7f): `ndt up p4 --app` now starts the root helper's heartbeat on these packages, so an
++# owned fabric reroutes and both fabrics discover their links by the heartbeat.
++owned = {"ipv4_route": "ndtwin", "five_tuple": False, "reroute": True,
++         "link_discovery": "heartbeat", "binding_source": "package"}
++unbound = {"ipv4_route": "unbound", "five_tuple": False, "reroute": False,
++           "link_discovery": "heartbeat", "binding_source": None}
+ state = {"control_plane": {"skipped": ["lldp_discovery", "link_watchdog"]},
+          "switches": {str(d): {"capabilities": owned} for d in (1, 2, 3, 4)},
+          "links": {f"{s}:{sp}->{d}:{dp}": {"source": "declared", "down": None}
+                    for s, sp, d, dp in directions}}
+ dump("state_owned.json", state)
+ wrong = copy.deepcopy(state)
+-wrong["switches"]["3"]["capabilities"] = dict(owned, reroute=True)
++wrong["switches"]["3"]["capabilities"] = dict(owned, reroute=False)
+ wrong["control_plane"]["skipped"].append("install_initial_routes")
+ wrong["links"] = {}
+ dump("state_wrong.json", wrong)
++state_unbound = copy.deepcopy(state)
++state_unbound["switches"] = {str(d): {"capabilities": unbound} for d in (1, 2, 3, 4)}
++dump("state_unbound.json", state_unbound)
++state_unbound["switches"]["3"]["capabilities"] = dict(unbound, reroute=True)
++dump("state_unbound_wrong.json", state_unbound)
+ row = lambda dst, port: {"priority": 0, "match": {"dl_type": 2048, "nw_dst": dst},
+                          "actions": [f"OUTPUT:{port}"], "byte_count": 0}
+ dump("flow_with.json", {"1": [row("10.0.1.1", 1), row("10.0.9.9", 3)]})
+@@ -392,8 +410,10 @@ PY
+     expect OK  "L4 no netem left"                "$(no_netem "$t/tc_clean" "$t/tc_clean")"
+     expect BAD "L4 netem left on one end"        "$(no_netem "$t/tc_clean" "$t/tc_netem")"
+     expect OK  "L6 capabilities owned"           "$(caps_are "$t/state_owned.json" "$CAPS_OWNED")"
+-    expect BAD "L6 one switch says reroute:true" "$(caps_are "$t/state_wrong.json" "$CAPS_OWNED")"
++    expect BAD "L6 one owned switch says reroute:false" "$(caps_are "$t/state_wrong.json" "$CAPS_OWNED")"
+     expect BAD "L6 owned is not unbound"         "$(caps_are "$t/state_owned.json" "$CAPS_UNBOUND")"
++    expect OK  "L6 capabilities unbound"         "$(caps_are "$t/state_unbound.json" "$CAPS_UNBOUND")"
++    expect BAD "L6 one switch says reroute:true" "$(caps_are "$t/state_unbound_wrong.json" "$CAPS_UNBOUND")"
+     expect OK  "L6 skipped with every table owned" "$(skipped_is "$t/state_owned.json" "$SKIPPED_OWNED")"
+     expect BAD "L6 routes still skipped"         "$(skipped_is "$t/state_wrong.json" "$SKIPPED_OWNED")"
+     expect OK  "L1 eight declared link entries"  "$(declared_links_marked "$t/state_owned.json" 8)"
+@@ -586,7 +606,9 @@ else
+     say "L1 -- the kernel's graph: 8 inter-switch directions enabled and up (poll up to 90 s)"
+     V="$(graph_until 90 edges_all_up "$RUN/31_graph_roles.json" "$PKG_ROLES/ndtwin/topology.json")"
+     judge "$V" "L1 (reconciled against 062604Z_02_app_basic: 0/8 there)"
+-    note "the edges are up by DECLARATION, not by failure detection (capabilities.reroute false)"
++    # [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W: detection comes from the
++    # heartbeat now (switch_state `heartbeat`, `reroute`); the edges came up by the declaration.
++    note "the edges came up by DECLARATION; a cut is detected by the heartbeat (switch_state heartbeat/reroute), not by LLDP"
+ 
+     # --- L3 --------------------------------------------------------------------------------------
+     say "L3 -- pingall, every ordered pair, ping -c 5 (NDTwin's routes in the exercise's table)"
+diff --git a/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh
+index 7e586c43..afab4609 100644
+--- a/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh
++++ b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh
+@@ -40,15 +40,18 @@
+ #       which arms had one running (and that no arm's daemon counted a frame leaving a host
+ #       port); then 01 (NDTwin's own fabric) PASS, with no heartbeat session started under it.
+ #
+-# 🔴 HOW H1 JUDGES "WITHIN 20 s" (orchestrator, 09-26 addenda; segment W's SUMMARY section 2).
++# 🔴 HOW H1 JUDGES "WITHIN 20 s" (the fable judge's F1 on 1a3ebd7f, 09-26; SUMMARY section 2).
+ # Detection is (timeout - phi) + psi + the pass's read, _notify_link's HTTP and the kernel's graph
+ # update: at phi -> 0 the report-level part alone is ~15 s and psi can be a whole watchdog
+-# interval, so a strict 20 s has NO budget left for the rest. Every cycle therefore gets two
+-# answers, both recorded: the STRICT one (<= 20 s, "OVER+x" otherwise, never hidden) and the
+-# verdict, which is "<= 20 s + the time MEASURED on top of the design": the reporting pass's
+-# lateness beyond one interval, the pass-to-graph time (read, HTTP, kernel, this script's poll),
+-# and a cut window the test itself opened (a frame heard after the first end's tc started). A
+-# cycle over THAT is a failure of the design, not of the clock. The instants are bash's own
++# interval, so a strict 20 s has NO budget left for the rest. THE VERDICT IS THE STRICT BOUND: a
++# cycle over 20 s is a FAIL of that cycle, and H1's conclusion puts "N of M cycle(s) OVER" at the
++# head of the run's last line -- until Adam rules on the acceptance. "20 s + the time measured on
++# top of the design" (the reporting pass's lateness beyond one interval, pass-to-graph, the cut
++# window) is kept as a DIAGNOSTIC column and note, never as the verdict: the judge showed it is OK
++# whenever the design works as designed (it restates the design's upper bound). What it checked for
++# real -- a pass after the timeout that did not report the cut -- is v_cycle's own BAD. And one
++# run samples ONE psi (the watchdog's phase drifts by a pass's duration per pass): a PASS says
++# "within 20 s at the psi this run had", not "at the worst psi". The instants are bash's own
+ # $EPOCHREALTIME around each tc call (no forked `date`/`now`: the spike's forked t1 landed 12.7 ms
+ # after a heard frame and a whole round was discarded, a false +5 s); frames heard inside a cut
+ # or restore window are FLAGGED in the row, never dropped.
+@@ -162,6 +165,8 @@ RESTORE_WATCH_PID=""; RESTORE_WATCH_OUT=""
+ RESTORE_WATCH_S=$(( RESTORE_BOUND_S + 5 ))
+ #: What cut_cycle / restore_cycle leave for the caller's row.
+ CYCLE_ROW=""; CYCLE_STRICT=""; RESTORE_ROW=""
++#: cut_cycle's tally for strict_conclude: cycles recorded, and how many of them were over the bound.
++STRICT_CYCLES=0; STRICT_OVER=0
+ 
+ # --- the verdicts. One stdlib-only program, one entry per check; each prints `OK ...` or
+ # `BAD ...` (`STOP ...` for ruling 4). The live path and --self-test call the same entries. ------
+@@ -424,11 +429,24 @@ def v_cycle(state, a_s, a_e, b_s, b_e, off_pre, off_post, l_ab, l_ba, down_wall,
+            fnum(down - ps), fnum(max(0.0, -phi)), f"{drift:.1f}", "; ".join(flags) or "-"]
+     return "OK " + "\t".join(row)
+ 
++def v_strict(row, bound):
++    """A cycle row (v_cycle) against the STRICT bound -- the verdict (the judge's F1). Detection runs
++    from the FIRST end's tc call to the poll that saw both directions down: the longest it can be."""
++    f = row.split("\t")
++    if len(f) != 18:
++        return f"BAD the cycle row has {len(f)} fields, not 18"
++    d, b = float(f[8]), float(bound)
++    if d <= b:
++        return f"OK detection {d:.3f} s, within the strict {b:g} s"
++    return (f"BAD detection {d:.3f} s is OVER the strict {b:g} s by {d - b:.3f} s (from the first end's "
++            f"tc call to the graph poll that saw both directions down)")
++
+ def v_budget(row, bound):
+     """A cycle row (v_cycle) against the bound: OK within `bound`; OK but "OVER the strict" when
+     over it by no more than what was measured on top of the design -- the reporting pass's
+     lateness beyond one interval, the pass-to-graph time (read, HTTP, kernel, this script's poll)
+-    and the test's own cut window; BAD beyond that."""
++    and the test's own cut window; BAD beyond that. 🔴 A DIAGNOSTIC, NEVER THE VERDICT (the
++    judge's F1 and 4.6): it is OK whenever the design works as designed; v_strict decides."""
+     f = row.split("\t")
+     if len(f) != 18:
+         return f"BAD the cycle row has {len(f)} fields, not 18"
+@@ -985,8 +1003,13 @@ cut_cycle() {
+     det="$(cat "$gout.elapsed")"
+     if [[ "$row" == OK* ]]; then
+         CYCLE_ROW="${row#OK }"
+-        judge "$(verdict budget "$CYCLE_ROW" "$DETECT_BOUND_S")" "$label detection time"
++        # [Co-developed with claude code -- Adam] The judge's F1: the strict bound is the verdict;
++        # the budget is printed beside it and decides nothing.
++        judge "$(verdict strict "$CYCLE_ROW" "$DETECT_BOUND_S")" "$label detection time"
++        note "$label budget, $DETECT_BOUND_S s + what was measured (a diagnostic, never the verdict): $(verdict budget "$CYCLE_ROW" "$DETECT_BOUND_S")"
+         CYCLE_STRICT="$(awk -F'\t' -v b="$DETECT_BOUND_S" '{ if ($9 <= b) print "yes"; else printf "OVER+%.3f\n", $9 - b }' <<<"$CYCLE_ROW")"
++        STRICT_CYCLES=$(( STRICT_CYCLES + 1 ))
++        [[ "$CYCLE_STRICT" == OVER* ]] && STRICT_OVER=$(( STRICT_OVER + 1 ))
+         [[ "$(cut -f18 <<<"$CYCLE_ROW")" == - ]] || note "$label flags: $(cut -f18 <<<"$CYCLE_ROW")"
+     else
+         CYCLE_ROW="$(printf '?\t%.0s' $(seq 17))?"
+@@ -996,6 +1019,26 @@ cut_cycle() {
+     return 0
+ }
+ 
++# strict_conclude <what> -- the verdict on the strict bound over the cycles cut_cycle recorded since
++# the last conclusion (the judge's F1, 09-26). Any cycle OVER makes <what> FAIL, and the count goes
++# to the HEAD of the run's last line: an earlier failure is kept after it, and a ruling-4 STOP that
++# comes later still leads (judge prepends it). The tally is reset. [Co-developed with claude code --
++# Adam]
++strict_conclude() {
++    local what="$1" n="$STRICT_CYCLES" over="$STRICT_OVER" msg
++    local psi="one run samples one psi (watchdog_phase_s in 30_cycles.tsv): the worst psi is not guaranteed to have been sampled"
++    STRICT_CYCLES=0; STRICT_OVER=0
++    if (( over > 0 )); then
++        msg="$what: $over of $n cycle(s) OVER the strict ${DETECT_BOUND_S} s (strict_${DETECT_BOUND_S}s in 30_cycles.tsv) -- $what FAILS on the strict <= ${DETECT_BOUND_S} s until Adam rules on the acceptance; '${DETECT_BOUND_S} s + what was measured' is a diagnostic column, not the verdict"
++        VERDICT_RC=1
++        VERDICT_WHY="$msg${VERDICT_WHY:+ (first failure before it: $VERDICT_WHY)}"
++        bad "$msg"
++        bad "$psi"
++    else
++        note "$what: all $n cycle(s) within the strict ${DETECT_BOUND_S} s -- $psi"
++    fi
++}
++
+ # restore_cycle <label> <graph-out> <state-out> <watch-out> -- the netem off with the report watcher
+ # running from just before, until the kernel's graph shows both directions up; then the restore is
+ # recorded (v_restore_cycle) and judged against RESTORE_BOUND_S. Leaves the 15-field row in
+@@ -1432,7 +1475,7 @@ print(f["ab"]["heard"], f["ba"]["heard"], f["ab"]["written"], f["ba"]["written"]
+         graph_until() { echo 1020.33 > "$4.at_wall"; echo 20.3 > "$4.elapsed"; echo "OK stub"; }
+         report_dirs() { echo "199.995 200.0"; }
+         get_json() { cp "$t/$CC_STATE" "$2"; }
+-        note() { :; }
++        note() { local m="$*"; echo "N ${m:0:110}"; }
+         judge() { echo "J $2: ${1:0:48}"; }
+         CA=1; CAP=3; CB=3; CBP=1; TIMEOUT_S=15; WATCHDOG_S=5; DETECT_BOUND_S=20
+         CC_STATE=state_late.json; cut_cycle "T" "$t/cc_graph.json" "$t/cc_state.json" 0.02 1
+@@ -1440,11 +1483,16 @@ print(f["ab"]["heard"], f["ba"]["heard"], f["ab"]["written"], f["ba"]["written"]
+         CC_STATE=state_nopass.json; cut_cycle "U" "$t/cc_graph2.json" "$t/cc_state2.json" 0.02 1
+         echo "STRICT $CYCLE_STRICT FIELDS $(awk -F'\t' '{print NF}' <<<"$CYCLE_ROW")"
+     )" || got="the subshell died (rc $?)"
+-    if /usr/bin/grep -qF "J T detection time: OK detection 20.320 s -- OVER the strict 20" <<<"$got" \
++    # [Co-developed with claude code -- Adam] The judge's F1 (09-26, on 1a3ebd7f): the cycle's
++    # VERDICT is the strict bound -- 20.320 s is a BAD -- and "20 s + what was measured" is only a
++    # note beside it, which may say OK and must never make the cycle pass.
++    if /usr/bin/grep -qF "J T detection time: BAD detection 20.320 s is OVER the strict 20" <<<"$got" \
++       && /usr/bin/grep -qF "N T budget, 20 s + what was measured (a diagnostic, never the verdict): OK detection 20.320 s -- OVER" <<<"$got" \
++       && ! /usr/bin/grep -qF "J T detection time: OK" <<<"$got" \
+        && /usr/bin/grep -qF "STRICT OVER+0.320 ROW 20.320 220.080" <<<"$got" \
+        && /usr/bin/grep -qF "J U detection time: BAD both directions is_up:false (no phase" <<<"$got" \
+        && /usr/bin/grep -qF "STRICT ? FIELDS 18" <<<"$got"; then
+-        ok "cut_cycle: the row, its budget verdict and the strict answer (OVER+0.320); with no record, 18 '?' and the graph poll alone"
++        ok "cut_cycle: the row, the STRICT verdict (BAD at 20.320 s), the budget only as a note, OVER+0.320; with no record, 18 '?' and the graph poll alone"
+     else
+         red "cut_cycle gave: $(tr '\n' '|' <<<"$got")"
+     fi
+@@ -1467,6 +1515,60 @@ print(f["ab"]["heard"], f["ba"]["heard"], f["ab"]["written"], f["ba"]["written"]
+     else
+         red "restore_cycle gave: $(tr '\n' '|' <<<"$got")"
+     fi
++    # --- H1's exit, read where Adam reads it: the run's LAST line (the judge's F1 and 8.2) ---------
++    # [Co-developed with claude code -- Adam] One stubbed cycle through the real cut_cycle, H1's
++    # strict conclusion and the real teardown (w_finish -> finish) with a fake ndt. An OVER cycle
++    # must END the run in FAIL and say how many cycles were over and why it is a FAIL; a cycle within
++    # 20 s must end in PASS (the control); an earlier failure must not push the count off the line,
++    # and a ruling-4 STOP must still lead it.
++    st_h1() {   # st_h1 <state fixture> <kernel-down wall> <earlier failure or -> <stop 0|1> -> the run's output
++        local d
++        d="$(mktemp -d "$t/h1-XXXXXX")"
++        printf '#!/usr/bin/env bash\nexit 0\n' > "$d/ndt"; chmod +x "$d/ndt"
++        ( STEP=08_heartbeat; RUN="$d/run"; mkdir -p "$RUN"; CLAIMED=1; VERDICT_RC=0; VERDICT_WHY=""; FABRIC_UP=1
++          INJECTED_IFACES=(); NDT="$d/ndt"; REAL_NDT="$d/ndt"; APP_KNOB="$d/none"
++          KNOB_ENTRY_COPY=""; TEL_ENTRY_COPY=""; CTRL_PID=""; TEARDOWN_DOWN_RC=""; SAMPLER_PID=""
++          mono_offset() { echo -800.0; }
++          cut_at_phase() { CUT_A_START=1000.01; CUT_A_END=1000.02; CUT_B_START=1000.03; CUT_B_END=1000.05; }
++          graph_until() { echo "$ST_DOWN" > "$4.at_wall"; echo 20.3 > "$4.elapsed"; echo "OK stub"; }
++          report_dirs() { echo "199.995 200.0"; }
++          get_json() { cp "$t/$ST_STATE" "$2"; }
++          CA=1; CAP=3; CB=3; CBP=1; TIMEOUT_S=15; WATCHDOG_S=5; DETECT_BOUND_S=20
++          ST_STATE="$1"; ST_DOWN="$2"
++          [[ "$3" == - ]] || fail "$3"
++          cut_cycle "H1 cycle 1" "$RUN/31_graph_cut_1.json" "$RUN/32_switch_state_cut_1.json" 0.02 1
++          strict_conclude H1
++          (( $4 == 1 )) && judge "STOP ruling 4: a stubbed host-port frame" "H1 ruling 4"
++          ( exit 0 ); w_finish ) 2>&1
++    }
++    out="$(st_h1 state_late.json 1020.33 - 0)" || true
++    got="$(tail -1 <<<"$out")"
++    if [[ "$got" == "FAIL 08_heartbeat -- H1: 1 of 1 cycle(s) OVER the strict 20 s"* \
++          && "$got" == *"H1 FAILS on the strict <= 20 s until Adam rules on the acceptance"* \
++          && "$out" == *"one run samples one psi"* ]]; then
++        ok "H1's last line: one cycle at 20.320 s ends the run FAIL, with the count and why (and the one-psi caveat above it)"
++    else
++        red "H1's last line with an OVER cycle was: '$got'"
++    fi
++    out="$(st_h1 state_passes.json 1015.9 - 0)" || true
++    got="$(tail -1 <<<"$out")"
++    if [[ "$got" == "PASS 08_heartbeat" && "$out" == *"H1: all 1 cycle(s) within the strict 20 s"*"one run samples one psi"* ]]; then
++        ok "  the control: a cycle within 20 s ends PASS, and says it is one psi's answer"
++    else
++        red "  H1's last line with a cycle within 20 s was: '$got'"
++    fi
++    got="$(st_h1 state_late.json 1020.33 "an earlier failure" 0 | tail -1)" || true
++    if [[ "$got" == "FAIL 08_heartbeat -- H1: 1 of 1 cycle(s) OVER"*"(first failure before it: an earlier failure"* ]]; then
++        ok "  an earlier failure does not push the OVER count off the last line (it is kept after it)"
++    else
++        red "  H1's last line after an earlier failure was: '$got'"
++    fi
++    got="$(st_h1 state_late.json 1020.33 - 1 | tail -1)" || true
++    if [[ "$got" == "FAIL 08_heartbeat -- STOP (ruling 4)"*"H1: 1 of 1 cycle(s) OVER"* ]]; then
++        ok "  a ruling-4 STOP still leads the last line, the OVER count after it"
++    else
++        red "  H1's last line with a STOP after an OVER cycle was: '$got'"
++    fi
+     # graph_until before any cut: no instant to count from, and no unbound T_CUT under set -u
+     mkdir -p "$t/k/ndt"; cp "$t/graph_up.json" "$t/k/ndt/get_graph_data"
+     # (`|| got=`: under set -e a subshell that dies -- an unbound variable -- would take the whole
+@@ -1698,19 +1800,18 @@ note "the cut: s$CA-eth$CAP <-> s$CB-eth$CBP (an installed route uses it)"
+ tc_ends "$RUN/26_tc_before" "$CA" "$CAP" "$CB" "$CBP"
+ 
+ note "the proxy's constants: beacon interval $HB_PERIOD_S s, timeout $TIMEOUT_S s, watchdog every $WATCHDOG_S s"
+-note "the design's worst case at the kernel (INFERRED): (timeout $TIMEOUT_S s - phi) + up to one watchdog interval $WATCHDOG_S s + pass time + report read, HTTP, kernel -- at phi -> 0 that is the ticket's $DETECT_BOUND_S s with nothing to spare, so each cycle is judged against $DETECT_BOUND_S s + the time measured on top, and its strict answer is recorded beside it"
++note "the design's worst case at the kernel (INFERRED): (timeout $TIMEOUT_S s - phi) + up to one watchdog interval $WATCHDOG_S s + pass time + report read, HTTP, kernel -- at phi -> 0 that is the ticket's $DETECT_BOUND_S s with nothing to spare. Each cycle is judged on the STRICT $DETECT_BOUND_S s; '$DETECT_BOUND_S s + what was measured' is recorded beside it as a diagnostic"
+ RANDOM="$H1_SEED"
+ note "random phases: seed $H1_SEED (H1_SEED= to repeat); worst-phase cycles at PHI_WORST=$PHI_WORST s"
+ CYCLE_COLS="cut_a_start_mono\tcut_a_end_mono\tcut_b_start_mono\tcut_b_end_mono\tlast_heard_ab_mono\tlast_heard_ba_mono\tphi_s\tgraph_down_mono\tdetect_s\tpass_prev_start_mono\tpass_start_mono\tpass_end_mono\twatchdog_phase_s\tpass_lateness_s\tpass_to_graph_s\tcut_window_s\tclock_drift_ms\tcut_flags"
+ RESTORE_COLS="restore_a_start_mono\trestore_a_end_mono\trestore_b_start_mono\trestore_b_end_mono\tfirst_heard_ab_mono\tfirst_heard_ba_mono\trestore_daemon_s\trestore_report_s\tpass_up_start_mono\tpass_up_after_report_s\tgraph_up_mono\trestore_s\tpass_to_graph_up_s\trestore_drift_ms\trestore_flags"
+ printf "cycle\tphi_target\t$CYCLE_COLS\tstrict_${DETECT_BOUND_S}s\t$RESTORE_COLS\n" > "$RUN/30_cycles.tsv"
+-OVER_STRICT=0
++STRICT_CYCLES=0; STRICT_OVER=0
+ for (( CYC = 1; CYC <= H1_CYCLES; CYC++ )); do
+     PHI="$(phase_for "$CYC")"
+     say "H1 cycle $CYC/$H1_CYCLES -- cut $PHI s after a heartbeat round; down in the kernel's graph within ${DETECT_BOUND_S} s"
+     cut_cycle "H1 cycle $CYC" "$RUN/31_graph_cut_$CYC.json" "$RUN/32_switch_state_cut_$CYC.json" \
+         "$PHI" "$(( CYC <= H1_WORST ? 1 : 0 ))" || exit 1
+-    [[ "$CYCLE_STRICT" == OVER* ]] && OVER_STRICT=$(( OVER_STRICT + 1 ))
+     if (( CYC == 1 )); then
+         # The reroute runs in the same watchdog pass that told the kernel; give it a pass to
+         # land, then read what the switches hold.
+@@ -1730,11 +1831,8 @@ for (( CYC = 1; CYC <= H1_CYCLES; CYC++ )); do
+     judge "$(no_netem "$RUN/36_tc_after_${CYC}_s$CA-eth$CAP.txt" "$RUN/36_tc_after_${CYC}_s$CB-eth$CBP.txt")" "H1 cycle $CYC netem"
+     printf '%s\t%s\t%s\t%s\t%s\n' "$CYC" "$PHI" "$CYCLE_ROW" "$CYCLE_STRICT" "$RESTORE_ROW" >> "$RUN/30_cycles.tsv"
+ done
+-if (( OVER_STRICT > 0 )); then
+-    note "🔴 H1: $OVER_STRICT of $H1_CYCLES cycle(s) OVER the strict ${DETECT_BOUND_S} s (each within ${DETECT_BOUND_S} s + its measured time, or it failed above) -- the strict bound is NOT met at those phases; see 30_cycles.tsv"
+-else
+-    note "H1: every cycle within the strict ${DETECT_BOUND_S} s"
+-fi
++# 🔴 The judge's F1: the strict bound decides H1, and its count leads the run's last line.
++strict_conclude H1
+ column -t -s $'\t' "$RUN/30_cycles.tsv" 2>/dev/null | sed 's/^/   /' || sed 's/^/   /' "$RUN/30_cycles.tsv"
+ set +e; pingall_loss "$PKG_ROLES" 3 "$RUN/37_ping_raw.txt" > "$RUN/37_pingall_after.txt" 2>&1; set -e
+ note "after the last restore (recorded): $(tail -1 "$RUN/37_pingall_after.txt")"
+diff --git a/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/README.md b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/README.md
+index d9dd93fc..a273fd1b 100644
+--- a/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/README.md
++++ b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/README.md
+@@ -247,6 +247,19 @@ M 不斷言的理由要說清楚：取樣器**可能**抽到、**可能**抽不
+ unbound 的 L6。L4 **不斷言改路**（第一刀 (c) 不成立，`capabilities.reroute: false`），斷鏈期間的流量照實記在
+ `54_pingall_during_cut.txt`。外來 fabric 上邊的 `is_up` 來自**宣告**的鏈路，不是斷線偵測。
+ 
++**段 W（TICKET-P4-heartbeat）之後**：`ndt up p4 --app` 會在這兩個 package 上啟動心跳。
++
++- **L6 的預期已改**（fable judge 2.4）：
++  - owned 是 `reroute: true, link_discovery: "heartbeat"`；
++  - unbound 是 `reroute: false, link_discovery: "heartbeat"`。
++  - 兩者都需要心跳真的有在跑；`ndt up` 沒能啟動心跳的那次 run，會讀到 `declared`／`false`，L6 就會紅。
++- **L4 記下的流量數字可能會變**（INFERRED，沒跑過）：
++  - L4 的 `inject_link_failure` 會在兩端下 netem，心跳幀也會一起被擋住；
++  - 所以在 owned 那個 package 上，proxy 現在會自己偵測到斷線並**改路**；
++  - 因此 `54_pingall_during_cut.txt` 的遺失可能比第一刀記錄的少。
++  - L4 本身仍然不斷言改路；改路由 ⑧ 的 H1 驗。
++  - recovery 之後，proxy 要等到心跳重新聽到那條鏈路（最多約 10 s）才會回報 up。這和 kernel 的 recovery 之間有沒有互相打架，也還沒在真機上看過。
++
+ [Co-developed with claude code -- Adam]
+ 
+ ---
+@@ -272,10 +285,12 @@ unbound 的 L6。L4 **不斷言改路**（第一刀 (c) 不成立，`capabilitie
+     - graph 的 down／up 時刻；
+     - 報告這次變化的那個 watchdog pass、它晚了多少、pass 到 graph 花了多久。
+   - 落在剪線或復原窗口內的幀**標出來，不丟掉**。
+-- **偵測時間有兩個答案，兩個都記**：
+-  - 嚴格的 20 s：超過就寫 `OVER+x`，不隱藏；
+-  - 判定用的「20 s ＋ 實際量到、疊在設計之上的時間」：pass 晚到的部分、讀檔／HTTP／kernel／本腳本輪詢，以及剪線本身開的窗口。
+-  - 設計的最壞情況是 (15 s − φ) ＋ 最多一個 watchdog 間隔 5 s ＋ 上述那些，**在 φ→0 時嚴格 20 s 沒有任何餘裕**。最壞相位那幾次超過嚴格值是設計如此，會照實記在 log 裡。
++- **H1 以嚴格的 20 s 判**（fable judge 的 F1，09-26）：
++  - 任何一個 cycle 超過 20 s，就寫 `OVER+x`，而且那個 cycle 判 FAIL；
++  - 最後一行以「`H1: N of M cycle(s) OVER the strict 20 s … until Adam rules on the acceptance`」開頭。
++  - 「20 s ＋ 實際量到的時間」只是**診斷欄**，永遠不是判定：它包含 pass 晚到的部分、讀檔／HTTP／kernel／本腳本輪詢，以及剪線本身開的窗口。judge 證明了這個數字在設計照常運作時恆為 OK。
++  - 設計的最壞情況是 (15 s − φ) ＋ 最多一個 watchdog 間隔 5 s ＋ 上述那些，**在 φ→0 時嚴格 20 s 沒有任何餘裕**。最壞相位那幾次超過嚴格值是設計如此，這輪照實判 FAIL，等 Adam 裁。
++  - **一次 run 只取樣到一個 ψ**：watchdog 的相位每個 pass 只漂一個 pass 的耗時，所以最壞的 ψ 不保證被取樣到。H1 PASS 只表示「在這次的 ψ 下 ≤20 s」。
+ - H5 不自己 claim（06、01 每步自己 claim），跑 06 一次時旁邊有一個讀心跳報告的 sampler，逐臂對
+   `2026-09-24T185505Z_06_thirteen`，並確認心跳只在 17 個外來、非 external、多交換機的臂上跑過；接著跑 01。
+ - 任何 `forwarded_to_hosts > 0`（心跳幀離開 host 埠）＝裁決 4，最後一行以 `STOP` 開頭。
+diff --git a/p4_proxy/proxy_agent/main.py b/p4_proxy/proxy_agent/main.py
+index 60778101..30875e97 100644
+--- a/p4_proxy/proxy_agent/main.py
++++ b/p4_proxy/proxy_agent/main.py
+@@ -1322,7 +1322,12 @@ HEARTBEAT_CENSUS = {
+                "ran, no host received a heartbeat frame, and the daemon counted none leaving a "
+                "host-facing port and none forwarded to another switch. calc and multicast are "
+                "one switch (no inter-switch link, nothing sent); basic_tunnel and flowcache "
+-               "skeletons do not build.",
++               "skeletons do not build. Segment S's census started the heartbeat by hand (the "
++               "helper, not ndt) on all 20; `ndt up p4 --app` starts it on 17 of them -- the other "
++               "3 (p4runtime skeleton and solution, flowcache solution) are external control "
++               "planes, where `ndt up` does not start it.",
++    # [Co-developed with claude code -- Adam] The last sentence: the fable judge's 2.1 on 1a3ebd7f
++    # -- the 20 is segment S's, not ndt's.
+ }
+ 
+ 
+diff --git a/p4_proxy/tests/test_heartbeat_contract.py b/p4_proxy/tests/test_heartbeat_contract.py
+new file mode 100644
+index 00000000..da3cad28
+--- /dev/null
++++ b/p4_proxy/tests/test_heartbeat_contract.py
+@@ -0,0 +1,197 @@
++"""
++The contract between the heartbeat's two writers -- TICKET-P4-heartbeat segment W.
++
++[Co-developed with claude code -- Adam]
++
++The root helper's daemon WRITES /run/ndtwin-lab/heartbeat.json (tools/test_workflow/ndtwin-lab,
++its embedded program: `Heartbeat.document()` and `write_json_atomic`); the proxy READS it
++(proxy_agent/link_heartbeat.py: `read_report`, `HeartbeatEvidence`). Until now the key names
++between the two were checked by eye only (the fable judge's 8.1 on 1a3ebd7f): every proxy test
++builds its report by hand, in the shape its author believed the daemon writes, so a rename on
++either side would leave both suites green and the live proxy reading `heartbeat_report_unreadable`
++-- or, worse, reading a renamed `forwarded_to_hosts` as zero.
++
++Here the report is produced by the helper's OWN code: the program is cut out of the helper exactly
++as `hb_program` prints it (the text between its quoted heredoc markers), loaded as a module, fed a
++pod-topo plan and real encoded frames, and its `document()` written with its own
++`write_json_atomic` -- then read by the proxy's reader. Nothing is run as root and nothing touches
++/run: the plan is built in memory (the daemon's `plan()`, which reads the fabric, is not called),
++and the file goes into a temporary directory owned by whoever runs the test. The helper is read,
++never changed (it is sha-pinned and installed; segment W does not touch it).
++
++unittest rather than pytest because tools/test_workflow/l1_unit_tests.sh executes each of these
++files directly and parses "Ran N tests".
++"""
++
++from __future__ import annotations
++
++import json
++import os
++import shutil
++import sys
++import tempfile
++import types
++import unittest
++
++HERE = os.path.dirname(os.path.abspath(__file__))
++PROXY_DIR = os.path.dirname(HERE)
++REPO = os.path.dirname(PROXY_DIR)
++sys.path.insert(0, PROXY_DIR)
++
++# link_heartbeat is standard library only: no third-party skip here.
++from proxy_agent import link_heartbeat  # noqa: E402
++
++HELPER = os.path.join(REPO, "tools", "test_workflow", "ndtwin-lab")
++START_MARK = "cat <<'NDTWIN_LAB_HEARTBEAT_PY'\n"
++END_MARK = "\nNDTWIN_LAB_HEARTBEAT_PY\n"
++
++
++def load_daemon():
++    """The helper's embedded program, as a module -- the same text `hb_program` prints."""
++    with open(HELPER) as fh:
++        text = fh.read()
++    start = text.index(START_MARK) + len(START_MARK)
++    end = text.index(END_MARK, start)
++    module = types.ModuleType("ndtwin_lab_heartbeat_under_test")
++    module.__file__ = HELPER
++    exec(compile(text[start:end + 1], HELPER + " (hb_program)", "exec"), module.__dict__)
++    return module
++
++
++DAEMON = load_daemon()
++
++#: exercises/basic/pod-topo: four cables between the two leaves (s1, s2) and the two spines
++#: (s3, s4); hosts h1, h2 on s1 ports 1-2 and h3, h4 on s2 ports 1-2.
++POD_CABLES = ((1, 3, 3, 1), (1, 4, 4, 2), (2, 3, 4, 1), (2, 4, 3, 2))
++HOST_PORTS = ((1, 1), (1, 2), (2, 1), (2, 2))
++SESSION = bytes.fromhex("0102030405060708")
++STARTED = 1000.0
++WALL0 = 1_790_400_000.0
++
++
++def port(dpid, number):
++    return DAEMON.Port(f"s{dpid}", dpid, number, f"s{dpid}-eth{number}")
++
++
++def pod_plan():
++    """A plan of the shape the daemon's own plan() returns, for pod-topo, built in memory."""
++    links = [(port(a, ap), port(b, bp)) for a, ap, b, bp in POD_CABLES]
++    directions = []
++    for x, y in links:
++        directions.append(DAEMON.Direction(len(directions), x, y))
++        directions.append(DAEMON.Direction(len(directions), y, x))
++    watch = [port(d, p) for d, p in HOST_PORTS]
++    ifnames = [p.ifname for pair in links for p in pair] + [p.ifname for p in watch]
++    macs = {name: bytes([0x02, 0, 0, 0, i // 256, i % 256]) for i, name in enumerate(ifnames)}
++    switches = {f"s{d}": DAEMON.Switch(f"s{d}", d, 4000 + d, "build/basic.json") for d in (1, 2, 3, 4)}
++    return DAEMON.Plan(switches, links, directions, watch, "/tmp/ndtwin_p4_switches.json",
++                       "0" * 64, macs, {})
++
++
++def declared():
++    """The proxy's declared directions for pod-topo: (tx dpid, tx port, rx dpid, rx port)."""
++    return tuple(sorted(POD_CABLES + tuple((b, bp, a, ap) for a, ap, b, bp in POD_CABLES)))
++
++
++class ReportDir:
++    """A directory shaped like /run/ndtwin-lab (0755), owned by whoever runs the test."""
++
++    def __init__(self, testcase):
++        self.dir = tempfile.mkdtemp(prefix="ndtwin_hb_contract_")
++        testcase.addCleanup(shutil.rmtree, self.dir, True)
++        os.chmod(self.dir, 0o755)
++        self.path = os.path.join(self.dir, "heartbeat.json")
++        self.uid = os.getuid()
++
++
++def a_round(hb, now, silent=()):
++    """One round: every direction's frame is sent, and arrives at its far end unless its
++    (tx dpid, tx port, rx dpid, rx port) is in `silent`. Returns {direction key: heard at}."""
++    heard = {}
++    for ifname, frame, d in hb.frames():
++        key = (d.tx.dpid, d.tx.port, d.rx.dpid, d.rx.port)
++        hb.sent(d)
++        if key in silent:
++            continue
++        # the frame leaving its own tx interface is seen there too; it is never evidence
++        hb.on_frame(ifname, frame, DAEMON.PACKET_OUTGOING, now, WALL0 + now)
++        hb.on_frame(d.rx.ifname, frame, 0, now + 0.001, WALL0 + now + 0.001)
++        heard[key] = now + 0.001
++    return heard
++
++
++class TheHelpersOwnReportIsWhatTheProxyReadsTest(unittest.TestCase):
++    """The daemon's document(), written by its own writer, read by the proxy's read_report."""
++
++    def setUp(self):
++        self.dir = ReportDir(self)
++        self.hb = DAEMON.Heartbeat(pod_plan(), SESSION, STARTED, WALL0 + STARTED, pid=4242)
++
++    def write(self, status="running", reason=None, now=STARTED + 5.2):
++        DAEMON.write_json_atomic(self.dir.path, self.hb.document(status, reason, now, WALL0 + now))
++        return now
++
++    def read(self, now):
++        return link_heartbeat.read_report(declared(), now=now, period_expected=DAEMON.PERIOD_S,
++                                          path=self.dir.path, owner_uid=self.dir.uid)
++
++    def test_a_running_daemon_that_heard_every_direction_is_usable_evidence(self):
++        heard = a_round(self.hb, STARTED + 5.0)
++        written = self.write()
++        reading = self.read(written + 0.3)
++        self.assertTrue(reading.usable, reading.detail)
++        self.assertEqual((reading.status, reading.session, reading.pid, reading.period_s),
++                         ("running", SESSION.hex(), 4242, float(DAEMON.PERIOD_S)))
++        self.assertEqual((reading.started_mono, reading.written_mono), (STARTED, written))
++        self.assertEqual(reading.heard, heard)
++        self.assertEqual((reading.missing, reading.undeclared), ((), ()))
++
++    def test_a_direction_the_daemon_never_heard_is_silent_since_the_daemons_start(self):
++        cut = (1, 3, 3, 1)
++        a_round(self.hb, STARTED + 5.0, silent={cut})
++        written = self.write()
++        reading = self.read(written + 0.3)
++        self.assertTrue(reading.usable, reading.detail)
++        self.assertIsNone(reading.heard[cut])
++        clock = lambda: written + 0.3  # noqa: E731
++        evidence = link_heartbeat.HeartbeatEvidence(declared(), period_s=DAEMON.PERIOD_S,
++                                                    clock=clock, path=self.dir.path,
++                                                    owner_uid=self.dir.uid)
++        _reading, items = evidence.poll()
++        by_link = {link: (was_heard, at) for link, was_heard, at in items}
++        self.assertEqual(by_link[cut], (False, STARTED))
++        self.assertEqual(by_link[(3, 1, 1, 3)], (True, STARTED + 5.001))
++
++    def test_a_stopped_daemons_last_report_is_not_evidence_and_says_why(self):
++        a_round(self.hb, STARTED + 5.0)
++        written = self.write(status="stopped", reason="stopped by SIGTERM")
++        reading = self.read(written + 0.3)
++        self.assertFalse(reading.usable)
++        self.assertEqual(reading.reason, link_heartbeat.REASON_NOT_RUNNING)
++        self.assertIn("stopped by SIGTERM", reading.detail)
++
++    def test_a_frame_leaving_a_host_port_reaches_the_proxy_as_forwarded_to_hosts(self):
++        # Ruling 4's stop condition travels through the daemon's own key into the proxy's
++        # frames_reached_hosts: a rename on either side must not read as zero.
++        a_round(self.hb, STARTED + 5.0)
++        ifname, frame, _d = self.hb.frames()[0]
++        host = port(1, 1).ifname
++        self.hb.on_frame(host, frame, DAEMON.PACKET_OUTGOING, STARTED + 5.1, WALL0 + STARTED + 5.1)
++        written = self.write()
++        reading = self.read(written + 0.3)
++        self.assertTrue(reading.usable, reading.detail)
++        self.assertEqual(reading.side_effects["forwarded_to_hosts"], 1)
++        self.assertEqual(reading.side_effects["forwarded_between_switches"], 0)
++
++    def test_the_file_the_daemons_writer_leaves_is_one_the_proxy_trusts(self):
++        a_round(self.hb, STARTED + 5.0)
++        self.write()
++        mode = os.stat(self.dir.path).st_mode & 0o777
++        self.assertEqual(mode, 0o644)
++        with open(self.dir.path) as fh:
++            self.assertEqual(json.load(fh)["source"], link_heartbeat.REPORT_SOURCE)
++        self.assertEqual(link_heartbeat.read_trusted(self.dir.path, self.dir.uid)[:1], b"{")
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/p4_proxy/tests/test_heartbeat_fabric.py b/p4_proxy/tests/test_heartbeat_fabric.py
+index 6ba86bb1..ab937f6e 100644
+--- a/p4_proxy/tests/test_heartbeat_fabric.py
++++ b/p4_proxy/tests/test_heartbeat_fabric.py
+@@ -292,6 +292,19 @@ class TheHeartbeatIsDisclosedOnSwitchStateTest(unittest.TestCase):
+         self.assertIn("2026-09-26T052148Z_S_heartbeat", census["raw"])
+         self.assertEqual(report["frame"]["ethertype"], "0x88B5")
+ 
++    def test_the_census_says_which_of_its_arms_ndt_up_starts_the_heartbeat_on(self):
++        # [Co-developed with claude code -- Adam] The fable judge's 2.1 on 1a3ebd7f: the census
++        # counts 20 arms with the heartbeat, but `ndt up p4 --app` starts it on 17 -- the other 3
++        # (p4runtime x2, flowcache solution) are external control planes, where segment S started
++        # it by hand and `ndt up` does not. Said in the text, so the 20 is not read as ndt's.
++        self.start()
++        census = main.heartbeat_report()["census"]
++        text = census["summary"]
++        self.assertIn("by hand", text)
++        self.assertIn("external control plane", text)
++        self.assertIn("17", text)
++        self.assertIn("ndt up", text)
++
+     def test_the_watchdogs_passes_are_served(self):
+         topo = self.start()
+         topo.passes = [{"start_mono": 10.0, "end_mono": 10.01, "down": 0, "up": 0}]
+diff --git a/tests/shell/mutate_p4_heartbeat_w.sh b/tests/shell/mutate_p4_heartbeat_w.sh
+index 70ab6251..09dfea22 100644
+--- a/tests/shell/mutate_p4_heartbeat_w.sh
++++ b/tests/shell/mutate_p4_heartbeat_w.sh
+@@ -20,7 +20,9 @@
+ # 🔴 EVERY MUTANT IS A COPY. p4_proxy/ (proxy_agent, tests, mininet, p4_src) and tools/p4_exercise
+ # are copied under a temp dir laid out like the repo; ndt is copied beside its siblings; 08 is
+ # copied with _common.sh, faults.sh and census_prepare.py; the root helper, which this ticket
+-# does NOT change, is only ever COPIED (for section 7's pins). Every source is re-hashed at the end.
++# does NOT change, is only ever COPIED (for section 7's pins) -- and round 2's K mutants change
++# that COPY's embedded daemon, to show test_heartbeat_contract sees a rename in the writer. Every
++# source is re-hashed at the end, the helper among them. [Co-developed with claude code -- Adam]
+ #
+ # Usage:  tests/shell/mutate_p4_heartbeat_w.sh           PROXY_PY=/path/to/python to choose one
+ # Exit:   0 every mutation caught, every control green, every new test seen red;
+@@ -42,11 +44,11 @@ SOURCES=("$HBMOD" "$TOPOMGR" "$MAIN" "$ROUTES" "$NDT" "$HELPER" "$LIVE08" "$NDT_
+ TICKET_BASE=580767a8
+ 
+ MODULES="tests.test_link_heartbeat tests.test_heartbeat_watchdog tests.test_heartbeat_fabric \
+-tests.test_flowentry_read_only tests.test_link_state_entry tests.test_route_binding \
++tests.test_heartbeat_contract tests.test_flowentry_read_only tests.test_link_state_entry tests.test_route_binding \
+ tests.test_link_watchdog tests.test_declared_links tests.test_switch_state tests.test_startup"
+ 
+ NEW_CLASSES="tests.test_link_heartbeat:* tests.test_heartbeat_watchdog:* \
+-tests.test_heartbeat_fabric:* tests.test_flowentry_read_only:*"
++tests.test_heartbeat_fabric:* tests.test_heartbeat_contract:* tests.test_flowentry_read_only:*"
+ #: Two first-cut tests the ticket changed on purpose (6e246f2d), asserted as they are now.
+ NEW_TESTS="tests.test_route_binding.AWriteWithNoBindingIs501OnTheRenamedFixtureTest.test_an_external_control_plane_refuses_first_as_it_always_did
+ tests.test_link_state_entry.TheEntryIsNotWiredInThisCutTest.test_its_one_caller_is_the_watchdog_pass_ingesting_the_heartbeat"
+@@ -174,11 +176,12 @@ echo "  new proxy tests to be seen red: $(wc -l < "$NEW_IDS")"
+ # would go red on trunk the first time somebody else adds a proxy test -- which is exactly what
+ # the first cut's mutate_roles_binding.sh does at this segment's head (its NEW_CLASSES check,
+ # pinned to 6291db35, lists the 18 classes added here and counts them as its survivor).
+-# CLASSES_AT is the last commit of this segment that added a test class. A later round of this
+-# ticket that adds one moves it, or runs with CLASSES_AT=worktree while it is uncommitted. It
++# CLASSES_AT is the last commit of this segment that added a test class (round 2 moved it from
++# d57531d9 to f8309d02, test_heartbeat_contract). A later round of this ticket that adds one
++# moves it, or runs with CLASSES_AT=worktree while it is uncommitted. It
+ # must be an ancestor of HEAD: a history that lost it (a squash-merge) is refused, not scanned
+ # as "no classes, none missing".
+-CLASSES_AT="${CLASSES_AT:-d57531d9cf53b65ffaa8d904a7f7ff3689093860}"
++CLASSES_AT="${CLASSES_AT:-f8309d022bfce242af330976df0e292b98f2fc85}"
+ if [[ "$CLASSES_AT" != worktree ]] && ! git -C "$REPO" merge-base --is-ancestor "$CLASSES_AT" HEAD 2>/dev/null; then
+     echo "REFUSE: CLASSES_AT $CLASSES_AT is not an ancestor of HEAD -- which classes this segment added cannot be read"
+     exit 2
+@@ -733,6 +736,56 @@ m=$(mutant a07 "$ROUTES" \
+     '@router.post("/stats/flowentry/delete_strict_x")')
+ report "A07: delete_strict is not the delete handler" "$m" "test_both_delete_routes_are_that_handler"
+ 
++# [Co-developed with claude code -- Adam] Round 2 (the fable judge on 1a3ebd7f): the census text
++# (its 2.1) and the contract between the two writers (its 8.1). The K mutants change the ROOT
++# HELPER's embedded daemon -- in the mutant's copy only; the helper itself is never written, and
++# the gate checks it byte-identical at the end -- because the contract test is what stands between
++# a rename in the writer and a proxy reading `heartbeat_report_unreadable` (or zero hosts) live.
++echo "round 2: the census, and the helper's report as the proxy reads it"
++m=$(mutant m28 "$MAIN" \
++    '               "skeletons do not build. Segment S'"'"'s census started the heartbeat by hand (the "
++               "helper, not ndt) on all 20; `ndt up p4 --app` starts it on 17 of them -- the other "
++               "3 (p4runtime skeleton and solution, flowcache solution) are external control "
++               "planes, where `ndt up` does not start it.",' \
++    '               "skeletons do not build.",')
++report "M28: the census does not say which 17 arms ndt up starts it on" "$m" \
++       "test_the_census_says_which_of_its_arms_ndt_up_starts_the_heartbeat_on"
++m=$(mutant k01 "$HELPER" \
++    '        end = lambda port: {"dpid": port.dpid, "port": port.port, "ifname": port.ifname}' \
++    '        end = lambda port: {"switch_dpid": port.dpid, "port": port.port, "ifname": port.ifname}')
++report "K01: the writer renames an endpoint's dpid" "$m" \
++       "test_a_running_daemon_that_heard_every_direction_is_usable_evidence"
++m=$(mutant k02 "$HELPER" \
++    '            "written_mono": now_mono, "written_wall": now_wall,' \
++    '            "written_at": now_mono, "written_wall": now_wall,')
++report "K02: the writer renames written_mono" "$m" \
++       "test_a_running_daemon_that_heard_every_direction_is_usable_evidence"
++m=$(mutant k03 "$HELPER" \
++    '            "period_s": PERIOD_S,' \
++    '            "period": PERIOD_S,')
++report "K03: the writer renames period_s" "$m" \
++       "test_a_running_daemon_that_heard_every_direction_is_usable_evidence"
++m=$(mutant k04 "$HELPER" \
++    '                "forwarded_to_hosts": hosts,' \
++    '                "to_hosts": hosts,')
++report "K04: the writer renames forwarded_to_hosts (ruling 4 would read zero)" "$m" \
++       "test_a_frame_leaving_a_host_port_reaches_the_proxy_as_forwarded_to_hosts"
++m=$(mutant k05 "$HELPER" \
++    '            "stop_reason": stop_reason,' \
++    '            "reason": stop_reason,')
++report "K05: the writer renames stop_reason" "$m" \
++       "test_a_stopped_daemons_last_report_is_not_evidence_and_says_why"
++m=$(mutant k06 "$HELPER" \
++    '        os.chmod(tmp, 0o644)' \
++    '        os.chmod(tmp, 0o664)')
++report "K06: the writer leaves a group-writable report" "$m" \
++       "test_the_file_the_daemons_writer_leaves_is_one_the_proxy_trusts"
++m=$(mutant k07 "$HELPER" \
++    '        rec["last_heard_mono"], rec["last_heard_wall"] = now_mono, now_wall' \
++    '        rec["heard_mono"], rec["last_heard_wall"] = now_mono, now_wall')
++report "K07: the writer records a heard frame under another key" "$m" \
++       "test_a_running_daemon_that_heard_every_direction_is_usable_evidence"
++
+ # === ndt ===========================================================================================
+ echo
+ echo "ndt"
+@@ -1250,6 +1303,40 @@ m=$(lmutant l42 "$LIVE08" \
+     '        res="$(cat "$gout.elapsed")"')
+ lreport "L42: the recovery time is the poll's, not the record's" "$m" "restore_cycle gave"
+ 
++# [Co-developed with claude code -- Adam] Round 2, the fable judge's F1 on 1a3ebd7f: H1 is judged
++# on the strict 20 s, and the count of cycles over it leads the run's last line.
++m=$(lmutant l43 "$LIVE08" \
++    '        VERDICT_RC=1
++        VERDICT_WHY="$msg${VERDICT_WHY:+ (first failure before it: $VERDICT_WHY)}"
++        bad "$msg"' \
++    '        note "$msg"')
++lreport "L43: an OVER cycle is only noted (the F1 defect: the run ends PASS)" "$m" \
++        "H1's last line with an OVER cycle was"
++m=$(lmutant l44 "$LIVE08" \
++    '        judge "$(verdict strict "$CYCLE_ROW" "$DETECT_BOUND_S")" "$label detection time"' \
++    '        judge "$(verdict budget "$CYCLE_ROW" "$DETECT_BOUND_S")" "$label detection time"')
++lreport "L44: the cycle's verdict is the budget again" "$m" "cut_cycle gave"
++m=$(lmutant l45 "$LIVE08" \
++    '        [[ "$CYCLE_STRICT" == OVER* ]] && STRICT_OVER=$(( STRICT_OVER + 1 ))' \
++    '        :')
++lreport "L45: an OVER cycle is not counted" "$m" "H1's last line with an OVER cycle was"
++m=$(lmutant l46 "$LIVE08" \
++    '        VERDICT_RC=1
++        VERDICT_WHY="$msg${VERDICT_WHY:+ (first failure before it: $VERDICT_WHY)}"' \
++    '        fail "$msg"')
++lreport "L46: an earlier failure pushes the OVER count off the last line" "$m" \
++        "  H1's last line after an earlier failure was"
++m=$(lmutant l47 "$LIVE08" \
++    '    if d <= b:
++        return f"OK detection {d:.3f} s, within the strict {b:g} s"' \
++    '    if d <= b + 1.0:
++        return f"OK detection {d:.3f} s, within the strict {b:g} s"')
++lreport "L47: the strict bound has a second of slack" "$m" "cut_cycle gave"
++m=$(lmutant l48 "$LIVE08" \
++    '    local psi="one run samples one psi (watchdog_phase_s in 30_cycles.tsv): the worst psi is not guaranteed to have been sampled"' \
++    '    local psi="see 30_cycles.tsv"')
++lreport "L48: the one-psi caveat is not printed" "$m" "H1's last line with an OVER cycle was"
++
+ # --- a control that must stay green ----------------------------------------------------------------
+ m=$(mutant c1 "$HBMOD" \
+     '#: The daemon'"'"'s report is a few KiB; anything past this is not one.' \
+diff --git a/tests/shell/mutate_roles_binding.sh b/tests/shell/mutate_roles_binding.sh
+index fda82e2a..7e328d18 100755
+--- a/tests/shell/mutate_roles_binding.sh
++++ b/tests/shell/mutate_roles_binding.sh
+@@ -256,9 +256,28 @@ echo "  new tests to be seen red: $(wc -l < "$NEW_IDS")"
+ # 🔴 NEW_CLASSES IS TYPED; THIS IS WHAT KEEPS IT HONEST (round 2, the judge's finding 9). Every
+ # TestCase class in the modules this gate runs that is not in the base's version of its file must
+ # be in NEW_CLASSES -- read by `git show <base>:<file>`, not remembered.
+-missing=$("$PY" - "$REPO" "$TICKET_BASE" "$NEW_CLASSES" <<'PY'
++#
++# [Co-developed with claude code -- Adam] 🔴 READ AT THIS TICKET'S OWN HEAD, NOT THE WORKING TREE
++# (TICKET-P4-heartbeat segment W, the fable judge's F3 on 1a3ebd7f; the orchestrator authorized
++# this change to this file, and only this one). Read from the working tree, "every class added
++# since 6291db35" is also every class any LATER ticket adds: at segment W's head this check listed
++# the 18 classes W added and counted them as its survivor, so on trunk this gate would be rc 1 for
++# good. CLASSES_AT is TICKET-P4-roles' last commit, 177b9f03 (round 3, the branch head merged as
++# 572d9462); a later round of THIS ticket that adds a class moves it, or runs with
++# CLASSES_AT=worktree while uncommitted. It must be an ancestor of HEAD -- a history that lost it
++# (a squash-merge) is refused, not scanned as "no classes, none missing" -- and the scan carries
++# its own control: with one module left off the list it must name that module's classes.
++CLASSES_AT="${CLASSES_AT:-177b9f03}"
++if [[ "$CLASSES_AT" != worktree ]] && ! git -C "$REPO" merge-base --is-ancestor "$CLASSES_AT" HEAD 2>/dev/null; then
++    echo "REFUSE: CLASSES_AT $CLASSES_AT is not an ancestor of HEAD -- which classes this ticket added cannot be read"
++    exit 2
++fi
++# scan_classes <NEW_CLASSES> -- every module:class added between TICKET_BASE and CLASSES_AT that
++# the given list does not cover, one per line.
++scan_classes() {
++    "$PY" - "$REPO" "$TICKET_BASE" "$CLASSES_AT" "$1" <<'PY'
+ import ast, glob, os, subprocess, sys
+-repo, base, listed = sys.argv[1], sys.argv[2], sys.argv[3].split()
++repo, base, at, listed = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4].split()
+ wild = {s.split(":")[0] for s in listed if s.endswith(":*")}
+ named = {tuple(s.split(":")) for s in listed if not s.endswith(":*")}
+ def classes(src):
+@@ -266,27 +285,47 @@ def classes(src):
+     return {n.name for n in ast.parse(src).body if isinstance(n, ast.ClassDef)
+             and any(isinstance(f, ast.FunctionDef) and f.name.startswith("test")
+                     for f in n.body)}
+-files = ([("tests." + os.path.basename(p)[:-3], os.path.relpath(p, repo))
+-          for p in sorted(glob.glob(f"{repo}/p4_proxy/tests/test_*.py"))]
+-         + [(os.path.basename(p)[:-3], os.path.relpath(p, repo))
+-            for p in sorted(glob.glob(f"{repo}/tools/p4_exercise/tests/test_*.py"))])
++def show(rev, rel):
++    r = subprocess.run(["git", "-C", repo, "show", f"{rev}:{rel}"], capture_output=True, text=True)
++    return r.stdout if r.returncode == 0 else None
++files = []
++for d, prefix in (("p4_proxy/tests", "tests."), ("tools/p4_exercise/tests", "")):
++    if at == "worktree":
++        rels = sorted(os.path.relpath(p, repo) for p in glob.glob(f"{repo}/{d}/test_*.py"))
++    else:
++        names = subprocess.run(["git", "-C", repo, "ls-tree", "--name-only", at, d + "/"],
++                               capture_output=True, text=True, check=True).stdout.split()
++        rels = sorted(r for r in names if os.path.basename(r).startswith("test_") and r.endswith(".py"))
++    files += [(prefix + os.path.basename(rel)[:-3], rel) for rel in rels]
++if not files:
++    sys.exit("no test modules at " + at)
+ for module, rel in files:
+-    now = classes(open(f"{repo}/{rel}").read())
+-    shown = subprocess.run(["git", "-C", repo, "show", f"{base}:{rel}"], capture_output=True,
+-                           text=True)
+-    then = classes(shown.stdout) if shown.returncode == 0 else set()
++    now = classes(open(f"{repo}/{rel}").read() if at == "worktree" else show(at, rel))
++    then_src = show(base, rel)
++    then = classes(then_src) if then_src is not None else set()
+     for cls in sorted(now - then):
+         if module not in wild and (module, cls) not in named:
+             print(f"{module}:{cls}")
+ PY
+-) || { echo "REFUSE: could not compare the test classes with $TICKET_BASE"; exit 2; }
++}
++missing=$(scan_classes "$NEW_CLASSES") \
++    || { echo "REFUSE: could not compare the test classes with $TICKET_BASE"; exit 2; }
++# The scan's own control: with test_declared_links (a module wholly this ticket's) left off the
++# list it must name its classes. A scan that read nothing would otherwise pass as "none missing".
++probe=$(scan_classes "${NEW_CLASSES/tests.test_declared_links:\*/}") \
++    || { echo "REFUSE: the class scan's control could not run"; exit 2; }
++if ! /usr/bin/grep -q '^tests\.test_declared_links:' <<<"$probe"; then
++    echo "REFUSE: the class scan cannot see an omission (its control named: ${probe:-nothing})"
++    exit 2
++fi
+ if [[ -n "$missing" ]]; then
+-    echo "  🔴 NEW_CLASSES omits class(es) added since $TICKET_BASE -- their tests would never be"
+-    echo "     required to go red:"
++    echo "  🔴 NEW_CLASSES omits class(es) added between $TICKET_BASE and $CLASSES_AT -- their tests"
++    echo "     would never be required to go red:"
+     sed 's/^/       /' <<<"$missing"
+     SURVIVORS=$((SURVIVORS+1))
+ else
+-    echo "  NEW_CLASSES names every TestCase class added since $TICKET_BASE"
++    echo "  NEW_CLASSES names every TestCase class added between $TICKET_BASE and $CLASSES_AT" \
++         "(the scan's control, one module left off, named its classes)"
+ fi
+ rm -rf "$base"
+ echo

@@ -1,0 +1,452 @@
+# HEAD 5bb5f1fa8591151faea71217f6df8de81ce22e9d  fi rehearsal scenario S24_inplace_failures: ROLLBACK IN PLACE on a freshly migrated venv, with ip1, ip2, ip3 and ip4 each made to fail once and resumed the way each STOP says
+# 2026-09-26T10:42:51Z  root /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures
+# stand-in (old) /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/venv: build+freeze-diff rc=0  
+== paste: into `bash -i` in /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo, HOME=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/home, lock=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/private.lock
+   [doc 0] export NDT_OWNER=p4-venv-migration NDT_MEASURING='p4_proxy venv migration: no runs, no gates'; [ -z "${LOCK:-}${TIMEOUT:-}" ] || echo "WARNING: LOCK='${LOCK:-}' TIMEOUT='${TIMEOUT:-}' are set: the guard uses them (another lock file locks nothing; TIMEOUT kills the shell) -- unset them unless you mean it"
+   [doc 0] tools/test_workflow/ndt claim 90 'p4_proxy venv migration' && JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash -i
+   [doc H] unset PYTHONPATH PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION; export PYTHONDONTWRITEBYTECODE=1
+   [doc H] at() { [ "${STEP:-}" = "$1" ] || { echo "  (skipped $2: an earlier command stopped)"; return 1; }; inwin || { echo "STOP at $2: renew the claim in this shell -- \"$R/tools/test_workflow/ndt\" claim 90 'p4_proxy venv migration' (same NDT_OWNER) -- then paste again from this command"; return 1; }; }
+   [doc H] fp() { (cd "$1" && { find . -mindepth 1 -printf '%y %p %l\n'; find . -type f -exec sha256sum {} +; } | LC_ALL=C sort | sha256sum | cut -c1-64); }
+   [doc H] pbver() { "$1/bin/python" -c 'import google.protobuf as g; print(g.__version__)' 2>/dev/null; }
+   [doc H] inguard() { [[ ":${NDTWIN_GUARD_HELD:-}:" == *":${LOCK:-/tmp/ndtwin-build.lock}:"* ]]; }
+   [doc H] inwin() { local e; e=$(sed -n 's/^expires=//p' "$R/.test_run/lab.claim" 2>/dev/null); inguard && grep -qxF "owner=${NDT_OWNER:-}" "$R/.test_run/lab.claim" 2>/dev/null && [ "${e:-0}" -gt "$(( $(date +%s) + 1800 ))" ] || { echo "STOP: not inside step 0's window -- the shell guarded_build.sh opened, and ${NDT_OWNER:-NDT_OWNER}'s claim on $R with 30 minutes or more left"; return 1; }; }
+   [doc H] users() { local p a d; for p in /proc/[0-9]*; do [ "${p#/proc/}" = "$$" ] && continue; if grep -qF "$1/" "$p/maps" 2>/dev/null; then echo "${p#/proc/} maps it: $(tr '\0' ' ' < "$p/cmdline")"; continue; fi; d=$(readlink "$p/cwd" 2>/dev/null) || continue; while IFS= read -r -d '' a; do a=${a#./}; [[ "$a" == /* ]] || a=$d/$a; [[ "$a" == "$1"/* ]] && { echo "${p#/proc/} runs it: $(tr '\0' ' ' < "$p/cmdline")"; break; }; done < "$p/cmdline" 2>/dev/null; done; true; }
+   [doc H] suites() { (cd "$R/p4_proxy" && PYTHONPATH=. "$1/bin/python" -m unittest $(ls tests/test_*.py | sed 's#/#.#; s#\.py$##')) 2>&1 | grep -E '^(Ran [0-9]+ tests|OK|FAILED)' | sed 's/ in [0-9.]*s$//'; (h=$(mktemp -d) && cd "$R" && HOME=$h "$1/bin/python" -m unittest discover -s tools/p4_exercise/tests -t tools/p4_exercise/tests; rm -rf "$h") 2>&1 | grep -E '^(Ran [0-9]+ tests|OK|FAILED)' | sed 's/ in [0-9.]*s$//'; }
+   [doc 1] STEP=; OV=; R=$PWD; V=$R/p4_proxy/venv; PARK=$HOME; inguard && "$R/tools/test_workflow/ndt" claim 90 'p4_proxy venv migration'; inwin && STEP=1b && echo "V=$V"
+   [doc 1] at 1b "1b, the old venv" && { test -d "$V" && test ! -L "$V" && OV=$(pbver "$V") && [[ "$OV" == 3.* ]] && STEP=1c || { STEP=; echo "STOP at 1b: $V is not a real directory whose python has protobuf 3 (it has '${OV:-none}'); this is only for that venv"; }; }
+   [doc 1] at 1c "1c, where to park" && { ! ls -d "$PARK"/p4_proxy-venv.protobuf*/ >/dev/null 2>&1 && [ "$(stat -c %d "$PARK")" = "$(stat -c %d "$V")" ] && STEP=1d || { STEP=; echo "STOP at 1c: $PARK already holds a parked p4_proxy venv (an earlier attempt: roll it back, or remove it once it is not needed), or is not on $V's filesystem"; }; }
+   [doc 1] at 1d "1d, the base python" && { BASE=$(sed -n 's/^home = //p' "$V/pyvenv.cfg")/python3 && [ "$("$BASE" -c 'import sys; print(sys.version_info[:2])')" = "$("$V/bin/python" -c 'import sys; print(sys.version_info[:2])')" ] && STEP=1e || { STEP=; echo "STOP at 1d: $BASE (pyvenv.cfg's home) is not the Python minor version $V runs: the new venv would be another interpreter"; }; }
+   [doc 1] at 1e "1e, who uses it" && { U=$(users "$V") && [ -z "$U" ] && STEP=1f || { STEP=; echo "STOP at 1e: in use, by:"; echo "$U"; }; }
+   [doc 1] at 1f "1f, the baseline" && { OLD=$PARK/p4_proxy-venv.protobuf$OV-$(date +%Y%m%d-%H%M%S) && suites "$V" > "$OLD.baseline" && [ "$(grep -c '^OK' "$OLD.baseline")" = 2 ] && STEP=1g && cat "$OLD.baseline" || { STEP=; echo "STOP at 1f: the suites do not pass on the OLD venv ($OLD.baseline) -- fix that first (p4_proxy/p4_src/build? tools/test_workflow/l0_build_check.sh p4); nothing has moved"; }; }
+   [doc 1] at 1g "1g, the move" && { echo "$V" > "$OLD.origin" && "$V/bin/python" -m pip freeze --all > "$OLD.freeze" && fp "$V" > "$OLD.fingerprint" && [ -z "$(users "$V")" ] && mv -T "$V" "$OLD" && STEP=1 && echo "parked: OLD=$OLD (it came from $V)" || { STEP=; if [ -e "$V" ]; then echo "STOP at 1g: nothing moved, $V is in place${OLD:+ (if $OLD exists, it is not this venv: remove it before trying again)}"; else echo "STOP at 1g: $V WAS moved to $OLD -- paste ROLLBACK"; fi; }; }
+   [doc 2] at 1 "2a, the new venv" && { test -d "$OLD" && test ! -e "$V" && "$BASE" -m venv "$V" && STEP=2b || { STEP=; echo "STOP at 2a: no new venv made; the old one is parked at $OLD -- paste ROLLBACK"; }; }
+   [doc 2] at 2b "2b, pip install" && { "$V/bin/pip" install -r "$R/p4_proxy/requirements.txt" && STEP=2c || { STEP=; echo "STOP at 2b: the install did not finish; the old venv is parked at $OLD -- paste ROLLBACK"; }; }
+   [doc 2] at 2c "2c, regen" && { "$V/bin/python" "$R/p4_proxy/regen_p4runtime_pb2.py" && STEP=2 || { STEP=; echo "STOP at 2c: the regeneration did not finish; the old venv is parked at $OLD -- paste ROLLBACK"; }; }
+   [doc 3] at 2 "3a, pip check" && { "$V/bin/python" -m pip check && STEP=3b || { STEP=; echo "STOP at 3a: pip check -- ROLLBACK, or fix, STEP=2, step 3 again"; }; }
+   [doc 3] at 3b "3b, the backend" && { [ "$("$V/bin/python" -c 'import google.protobuf as g, p4.v1.p4runtime_pb2, p4.v1.p4runtime_pb2_grpc; from google.protobuf.internal import api_implementation as a; print(g.__version__, a.Type())')" = "5.29.6 upb" ] && STEP=3c || { STEP=; echo "STOP at 3b: not protobuf 5.29.6 on upb with p4runtime importing -- ROLLBACK, or fix, STEP=2, step 3 again"; }; }
+   [doc 3] at 3c "3c, the suites" && { suites "$V" > "$OLD.new" && diff "$OLD.baseline" "$OLD.new" && STEP=3 && echo "VERIFIED: $V passes what the old venv passed" || { STEP=; echo "STOP at 3c: the suites differ from the old venv's ($OLD.baseline vs $OLD.new) -- ROLLBACK, or fix, STEP=2, step 3 again"; }; }
+   [type] rm -rf "$OLD"   # no parked venv left
+   [inject] chmod a-w "$V/lib/python3.13/site-packages"
+   [doc IP] STEP=; R=$PWD; V=$R/p4_proxy/venv; PARK=$HOME; test -d "$V" && test ! -L "$V" && inwin && [[ "$(pbver "$V")" == 5.* ]] && ! ls -d "$PARK"/p4_proxy-venv.protobuf*/ >/dev/null 2>&1 && [ -z "$(users "$V")" ] && STEP=ip1 && echo "rolling back in place: $V" || { STEP=; echo "STOP at ip0: $V is not a real directory with protobuf 5 that nothing uses, or $PARK holds a parked venv (paste ROLLBACK instead), or this is not inside the window"; }
+   [doc IP] at ip1 "ip1" && { "$V/bin/pip" uninstall -y grpcio-tools && STEP=ip2 || { STEP=; echo "STOP at ip1: uninstalling grpcio-tools -- fix the cause, type STEP=ip1, paste again from ip1"; }; }
+   [doc IP] at ip2 "ip2" && { "$V/bin/pip" install protobuf==3.20.3 googleapis-common-protos==1.73.0 && STEP=ip3 || { STEP=; echo "STOP at ip2: installing protobuf 3.20.3 -- fix the cause, type STEP=ip2, paste again from ip2"; }; }
+   [doc IP] at ip3 "ip3" && { "$V/bin/pip" install --force-reinstall --no-deps p4runtime==1.5.0 && STEP=ip4 || { STEP=; echo "STOP at ip3: reinstalling p4runtime -- fix the cause, type STEP=ip3, paste again from ip3"; }; }
+   [doc IP] at ip4 "ip4" && { [ "$("$V/bin/python" -c 'import google.protobuf as g, p4.v1.p4runtime_pb2; from google.protobuf.internal import api_implementation as a; print(g.__version__, a.Type())')" = "3.20.3 python" ] && STEP=ip5 || { STEP=; echo "STOP at ip4: $V does not import p4runtime on protobuf 3.20.3 -- fix the cause, type STEP=ip4, paste again from ip4"; }; }
+   [doc IP] at ip5 "ip5, the suites" && { SU=$(suites "$V") && echo "$SU" && [ "$(grep -c '^OK' <<<"$SU")" = 2 ] && STEP=ip && echo "rolled back in place: $V is protobuf 3.20.3 again and passes both suites -- exit this shell, then step 5" || { STEP=; echo "STOP at ip5: the suites do not both pass on $V -- it is protobuf 3.20.3, but look before using it"; }; }
+   [type] chmod u+w "$V/lib/python3.13/site-packages"; STEP=ip1
+   [doc, one command] at ip1 "ip1" && { "$V/bin/pip" uninstall -y grpcio-tools && STEP=ip2 || { STEP=; echo "STOP at ip1: uninstalling grpcio-tools -- fix the cause, type STEP=ip1, paste again from ip1"; }; }
+   [inject] export PIP_INDEX_URL=http://127.0.0.1:9/simple PIP_NO_CACHE_DIR=1 PIP_RETRIES=0 PIP_TIMEOUT=2
+   [doc, one command] at ip2 "ip2" && { "$V/bin/pip" install protobuf==3.20.3 googleapis-common-protos==1.73.0 && STEP=ip3 || { STEP=; echo "STOP at ip2: installing protobuf 3.20.3 -- fix the cause, type STEP=ip2, paste again from ip2"; }; }
+   [doc, one command] at ip3 "ip3" && { "$V/bin/pip" install --force-reinstall --no-deps p4runtime==1.5.0 && STEP=ip4 || { STEP=; echo "STOP at ip3: reinstalling p4runtime -- fix the cause, type STEP=ip3, paste again from ip3"; }; }
+   [doc, one command] at ip4 "ip4" && { [ "$("$V/bin/python" -c 'import google.protobuf as g, p4.v1.p4runtime_pb2; from google.protobuf.internal import api_implementation as a; print(g.__version__, a.Type())')" = "3.20.3 python" ] && STEP=ip5 || { STEP=; echo "STOP at ip4: $V does not import p4runtime on protobuf 3.20.3 -- fix the cause, type STEP=ip4, paste again from ip4"; }; }
+   [doc, one command] at ip5 "ip5, the suites" && { SU=$(suites "$V") && echo "$SU" && [ "$(grep -c '^OK' <<<"$SU")" = 2 ] && STEP=ip && echo "rolled back in place: $V is protobuf 3.20.3 again and passes both suites -- exit this shell, then step 5" || { STEP=; echo "STOP at ip5: the suites do not both pass on $V -- it is protobuf 3.20.3, but look before using it"; }; }
+   [type] unset PIP_INDEX_URL PIP_NO_CACHE_DIR PIP_RETRIES PIP_TIMEOUT; STEP=ip2
+   [doc, one command] at ip2 "ip2" && { "$V/bin/pip" install protobuf==3.20.3 googleapis-common-protos==1.73.0 && STEP=ip3 || { STEP=; echo "STOP at ip2: installing protobuf 3.20.3 -- fix the cause, type STEP=ip2, paste again from ip2"; }; }
+   [inject] export PIP_INDEX_URL=http://127.0.0.1:9/simple PIP_NO_CACHE_DIR=1 PIP_RETRIES=0 PIP_TIMEOUT=2
+   [doc, one command] at ip3 "ip3" && { "$V/bin/pip" install --force-reinstall --no-deps p4runtime==1.5.0 && STEP=ip4 || { STEP=; echo "STOP at ip3: reinstalling p4runtime -- fix the cause, type STEP=ip3, paste again from ip3"; }; }
+   [doc, one command] at ip4 "ip4" && { [ "$("$V/bin/python" -c 'import google.protobuf as g, p4.v1.p4runtime_pb2; from google.protobuf.internal import api_implementation as a; print(g.__version__, a.Type())')" = "3.20.3 python" ] && STEP=ip5 || { STEP=; echo "STOP at ip4: $V does not import p4runtime on protobuf 3.20.3 -- fix the cause, type STEP=ip4, paste again from ip4"; }; }
+   [doc, one command] at ip5 "ip5, the suites" && { SU=$(suites "$V") && echo "$SU" && [ "$(grep -c '^OK' <<<"$SU")" = 2 ] && STEP=ip && echo "rolled back in place: $V is protobuf 3.20.3 again and passes both suites -- exit this shell, then step 5" || { STEP=; echo "STOP at ip5: the suites do not both pass on $V -- it is protobuf 3.20.3, but look before using it"; }; }
+   [type] unset PIP_INDEX_URL PIP_NO_CACHE_DIR PIP_RETRIES PIP_TIMEOUT; STEP=ip3
+   [doc, one command] at ip3 "ip3" && { "$V/bin/pip" install --force-reinstall --no-deps p4runtime==1.5.0 && STEP=ip4 || { STEP=; echo "STOP at ip3: reinstalling p4runtime -- fix the cause, type STEP=ip3, paste again from ip3"; }; }
+   [inject] "$V/bin/pip" install -q --no-deps protobuf==5.29.6
+   [doc, one command] at ip4 "ip4" && { [ "$("$V/bin/python" -c 'import google.protobuf as g, p4.v1.p4runtime_pb2; from google.protobuf.internal import api_implementation as a; print(g.__version__, a.Type())')" = "3.20.3 python" ] && STEP=ip5 || { STEP=; echo "STOP at ip4: $V does not import p4runtime on protobuf 3.20.3 -- fix the cause, type STEP=ip4, paste again from ip4"; }; }
+   [doc, one command] at ip5 "ip5, the suites" && { SU=$(suites "$V") && echo "$SU" && [ "$(grep -c '^OK' <<<"$SU")" = 2 ] && STEP=ip && echo "rolled back in place: $V is protobuf 3.20.3 again and passes both suites -- exit this shell, then step 5" || { STEP=; echo "STOP at ip5: the suites do not both pass on $V -- it is protobuf 3.20.3, but look before using it"; }; }
+   [type] "$V/bin/pip" install -q --no-deps protobuf==3.20.3; STEP=ip4
+   [doc, one command] at ip4 "ip4" && { [ "$("$V/bin/python" -c 'import google.protobuf as g, p4.v1.p4runtime_pb2; from google.protobuf.internal import api_implementation as a; print(g.__version__, a.Type())')" = "3.20.3 python" ] && STEP=ip5 || { STEP=; echo "STOP at ip4: $V does not import p4runtime on protobuf 3.20.3 -- fix the cause, type STEP=ip4, paste again from ip4"; }; }
+   [doc, one command] at ip5 "ip5, the suites" && { SU=$(suites "$V") && echo "$SU" && [ "$(grep -c '^OK' <<<"$SU")" = 2 ] && STEP=ip && echo "rolled back in place: $V is protobuf 3.20.3 again and passes both suites -- exit this shell, then step 5" || { STEP=; echo "STOP at ip5: the suites do not both pass on $V -- it is protobuf 3.20.3, but look before using it"; }; }
+   [type] exit
+   [doc 5] [ -z "${STEP+set}" ] && tools/test_workflow/ndt release || echo "STOP: STEP is set in this shell. If this IS the shell of step 0 (a block was pasted here by mistake), type unset STEP and paste step 5 again; if it is the migration shell, finish or roll back, exit it, then release from the shell of step 0"
+-- output (rc 0, 79s); prompts and bash's no-tty warnings dropped:
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | < kills the shell) -- unset them unless you mean it"
+   | WARNING: LOCK='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/private.lock' TIMEOUT='' are set: the guard uses them (another lock file locks nothing; TIMEOUT kills the shell) -- unset them unless you mean it
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <IT=10800 tools/build_guard/guarded_build.sh bash -i
+   | claimed (stub): owner=p4-venv-migration expires=1790424779 note=p4_proxy venv migration exclusive_cpu=no measuring=p4_proxy venv migration: no runs, no gates 
+   | guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/private.lock
+   | guarded_build: $ bash -i
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <ON_IMPLEMENTATION; export PYTHONDONTWRITEBYTECODE=1
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <then paste again from this command"; return 1; }; }
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <} +; } | LC_ALL=C sort | sha256sum | cut -c1-64); }
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <protobuf as g; print(g.__version__)' 2>/dev/null; }
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <-}:" == *":${LOCK:-/tmp/ndtwin-build.lock}:"* ]]; }
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <on $R with 30 minutes or more left"; return 1; }; }
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <; }; done < "$p/cmdline" 2>/dev/null; done; true; }
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <-9]+ tests|OK|FAILED)' | sed 's/ in [0-9.]*s$//'; }
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <xy venv migration'; inwin && STEP=1b && echo "V=$V"
+   | claimed (stub): owner=p4-venv-migration expires=1790424779 note=p4_proxy venv migration exclusive_cpu=no measuring=p4_proxy venv migration: no runs, no gates 
+   | V=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/venv
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <s '${OV:-none}'); this is only for that venv"; }; }
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <is not needed), or is not on $V's filesystem"; }; }
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <s: the new venv would be another interpreter"; }; }
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <P=; echo "STOP at 1e: in use, by:"; echo "$U"; }; }
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <low/l0_build_check.sh p4); nothing has moved"; }; }
+   | Ran 1557 tests
+   | OK (skipped=1)
+   | Ran 187 tests
+   | OK (skipped=1)
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <: $V WAS moved to $OLD -- paste ROLLBACK"; fi; }; }
+   | parked: OLD=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/home/p4_proxy-venv.protobuf3.20.3-20260926-184300 (it came from /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/venv)
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | < old one is parked at $OLD -- paste ROLLBACK"; }; }
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <old venv is parked at $OLD -- paste ROLLBACK"; }; }
+   | Collecting grpcio==1.82.1 (from -r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/requirements.txt (line 81))
+   |   Using cached grpcio-1.82.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (3.7 kB)
+   | Collecting protobuf==5.29.6 (from -r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/requirements.txt (line 97))
+   |   Using cached protobuf-5.29.6-cp38-abi3-manylinux2014_x86_64.whl.metadata (592 bytes)
+   | Collecting p4runtime==1.5.0 (from -r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/requirements.txt (line 98))
+   |   Using cached p4runtime-1.5.0-py3-none-any.whl.metadata (10 kB)
+   | Collecting googleapis-common-protos==1.75.0 (from -r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/requirements.txt (line 104))
+   |   Using cached googleapis_common_protos-1.75.0-py3-none-any.whl.metadata (8.6 kB)
+   | Collecting grpcio-tools==1.71.2 (from -r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/requirements.txt (line 111))
+   |   Using cached grpcio_tools-1.71.2-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (5.3 kB)
+   | Collecting fastapi==0.139.2 (from -r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/requirements.txt (line 113))
+   |   Using cached fastapi-0.139.2-py3-none-any.whl.metadata (26 kB)
+   | Collecting starlette==1.3.1 (from -r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/requirements.txt (line 118))
+   |   Using cached starlette-1.3.1-py3-none-any.whl.metadata (6.4 kB)
+   | Collecting uvicorn==0.51.0 (from -r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/requirements.txt (line 119))
+   |   Using cached uvicorn-0.51.0-py3-none-any.whl.metadata (6.6 kB)
+   | Collecting networkx==3.6.1 (from -r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/requirements.txt (line 120))
+   |   Using cached networkx-3.6.1-py3-none-any.whl.metadata (6.8 kB)
+   | Collecting requests==2.34.2 (from -r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/requirements.txt (line 124))
+   |   Using cached requests-2.34.2-py3-none-any.whl.metadata (4.8 kB)
+   | Collecting hypothesis==6.165.5 (from -r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/requirements.txt (line 129))
+   |   Using cached hypothesis-6.165.5-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (5.7 kB)
+   | Collecting thrift==0.24.0 (from -r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/requirements.txt (line 156))
+   |   Using cached thrift-0.24.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (2.7 kB)
+   | Collecting typing-extensions~=4.12 (from grpcio==1.82.1->-r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/requirements.txt (line 81))
+   |   Using cached typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+   | Collecting setuptools (from grpcio-tools==1.71.2->-r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/requirements.txt (line 111))
+   |   Using cached setuptools-84.0.0-py3-none-any.whl.metadata (6.6 kB)
+   | Collecting pydantic>=2.9.0 (from fastapi==0.139.2->-r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/requirements.txt (line 113))
+   |   Using cached pydantic-2.13.5-py3-none-any.whl.metadata (110 kB)
+   | Collecting typing-inspection>=0.4.2 (from fastapi==0.139.2->-r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/requirements.txt (line 113))
+   |   Using cached typing_inspection-0.4.4-py3-none-any.whl.metadata (2.6 kB)
+   | Collecting annotated-doc>=0.0.2 (from fastapi==0.139.2->-r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/requirements.txt (line 113))
+   |   Using cached annotated_doc-0.0.5-py3-none-any.whl.metadata (6.5 kB)
+   | Collecting anyio<5,>=3.6.2 (from starlette==1.3.1->-r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/requirements.txt (line 118))
+   |   Using cached anyio-4.15.1-py3-none-any.whl.metadata (4.7 kB)
+   | Collecting click>=7.0 (from uvicorn==0.51.0->-r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/requirements.txt (line 119))
+   |   Using cached click-8.5.0-py3-none-any.whl.metadata (2.6 kB)
+   | Collecting h11>=0.8 (from uvicorn==0.51.0->-r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/requirements.txt (line 119))
+   |   Using cached h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)
+   | Collecting charset_normalizer<4,>=2 (from requests==2.34.2->-r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/requirements.txt (line 124))
+   |   Using cached charset_normalizer-3.5.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (45 kB)
+   | Collecting idna<4,>=2.5 (from requests==2.34.2->-r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/requirements.txt (line 124))
+   |   Using cached idna-3.20-py3-none-any.whl.metadata (7.2 kB)
+   | Collecting urllib3<3,>=1.26 (from requests==2.34.2->-r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/requirements.txt (line 124))
+   |   Using cached urllib3-2.8.0-py3-none-any.whl.metadata (7.4 kB)
+   | Collecting certifi>=2023.5.7 (from requests==2.34.2->-r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/requirements.txt (line 124))
+   |   Using cached certifi-2026.7.22-py3-none-any.whl.metadata (2.5 kB)
+   | Collecting sortedcontainers<3.0.0,>=2.1.0 (from hypothesis==6.165.5->-r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/requirements.txt (line 129))
+   |   Using cached sortedcontainers-2.4.0-py2.py3-none-any.whl.metadata (10 kB)
+   | Collecting annotated-types>=0.6.0 (from pydantic>=2.9.0->fastapi==0.139.2->-r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/requirements.txt (line 113))
+   |   Using cached annotated_types-0.8.0-py3-none-any.whl.metadata (15 kB)
+   | Collecting pydantic-core==2.46.5 (from pydantic>=2.9.0->fastapi==0.139.2->-r /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/requirements.txt (line 113))
+   |   Using cached pydantic_core-2.46.5-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (6.6 kB)
+   | Using cached grpcio-1.82.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (6.9 MB)
+   | Using cached protobuf-5.29.6-cp38-abi3-manylinux2014_x86_64.whl (320 kB)
+   | Using cached p4runtime-1.5.0-py3-none-any.whl (45 kB)
+   | Using cached googleapis_common_protos-1.75.0-py3-none-any.whl (300 kB)
+   | Using cached grpcio_tools-1.71.2-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.5 MB)
+   | Using cached fastapi-0.139.2-py3-none-any.whl (130 kB)
+   | Using cached starlette-1.3.1-py3-none-any.whl (73 kB)
+   | Using cached uvicorn-0.51.0-py3-none-any.whl (73 kB)
+   | Using cached networkx-3.6.1-py3-none-any.whl (2.1 MB)
+   | Using cached requests-2.34.2-py3-none-any.whl (73 kB)
+   | Using cached hypothesis-6.165.5-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (1.2 MB)
+   | Using cached thrift-0.24.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (541 kB)
+   | Using cached anyio-4.15.1-py3-none-any.whl (132 kB)
+   | Using cached charset_normalizer-3.5.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (250 kB)
+   | Using cached idna-3.20-py3-none-any.whl (69 kB)
+   | Using cached sortedcontainers-2.4.0-py2.py3-none-any.whl (29 kB)
+   | Using cached typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+   | Using cached urllib3-2.8.0-py3-none-any.whl (135 kB)
+   | Using cached annotated_doc-0.0.5-py3-none-any.whl (5.3 kB)
+   | Using cached certifi-2026.7.22-py3-none-any.whl (136 kB)
+   | Using cached click-8.5.0-py3-none-any.whl (125 kB)
+   | Using cached h11-0.16.0-py3-none-any.whl (37 kB)
+   | Using cached pydantic-2.13.5-py3-none-any.whl (472 kB)
+   | Using cached pydantic_core-2.46.5-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.1 MB)
+   | Using cached annotated_types-0.8.0-py3-none-any.whl (13 kB)
+   | Using cached typing_inspection-0.4.4-py3-none-any.whl (14 kB)
+   | Using cached setuptools-84.0.0-py3-none-any.whl (818 kB)
+   | Installing collected packages: thrift, sortedcontainers, urllib3, typing-extensions, setuptools, protobuf, networkx, idna, hypothesis, h11, click, charset_normalizer, certifi, annotated-types, annotated-doc, uvicorn, typing-inspection, requests, pydantic-core, grpcio, googleapis-common-protos, anyio, starlette, pydantic, p4runtime, grpcio-tools, fastapi
+   | Successfully installed annotated-doc-0.0.5 annotated-types-0.8.0 anyio-4.15.1 certifi-2026.7.22 charset_normalizer-3.5.1 click-8.5.0 fastapi-0.139.2 googleapis-common-protos-1.75.0 grpcio-1.82.1 grpcio-tools-1.71.2 h11-0.16.0 hypothesis-6.165.5 idna-3.20 networkx-3.6.1 p4runtime-1.5.0 protobuf-5.29.6 pydantic-2.13.5 pydantic-core-2.46.5 requests-2.34.2 setuptools-84.0.0 sortedcontainers-2.4.0 starlette-1.3.1 thrift-0.24.0 typing-extensions-4.16.0 typing-inspection-0.4.4 urllib3-2.8.0 uvicorn-0.51.0
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <old venv is parked at $OLD -- paste ROLLBACK"; }; }
+   | checking the generated modules (default backend, scratch copy):
+   |   p4/config/v1/p4types.proto     descriptor identical (5273 bytes)
+   |   p4/config/v1/p4info.proto      descriptor identical (6019 bytes)
+   |   p4/v1/p4data.proto             descriptor identical (824 bytes)
+   |   p4/v1/p4runtime.proto          descriptor identical (8825 bytes)
+   |   backend upb, p4runtime_pb2_grpc imports
+   | replaced p4/config/v1/p4types_pb2.py        d436ed076b7ffb99 -> e91d6496f08e543e
+   | replaced p4/config/v1/p4types_pb2_grpc.py   d686e804f1716931 -> ef4a945f3fd81528
+   | replaced p4/config/v1/p4info_pb2.py         acc7feeb96762287 -> 355f066c05b89fdc
+   | replaced p4/config/v1/p4info_pb2_grpc.py    d686e804f1716931 -> badda8ba84ba9570
+   | replaced p4/v1/p4data_pb2.py                e12b7b17ab700f94 -> da869f059d708f8c
+   | replaced p4/v1/p4data_pb2_grpc.py           d686e804f1716931 -> 3dbf6a108642d3d5
+   | replaced p4/v1/p4runtime_pb2.py             3bd1a8991d852314 -> 0a28fb85ff369a5c
+   | replaced p4/v1/p4runtime_pb2_grpc.py        9c4d058515a16d2c -> 5e060258fdf6e465
+   | checking the installed package (default backend):
+   |   p4/config/v1/p4types.proto     descriptor identical (5273 bytes)
+   |   p4/config/v1/p4info.proto      descriptor identical (6019 bytes)
+   |   p4/v1/p4data.proto             descriptor identical (824 bytes)
+   |   p4/v1/p4runtime.proto          descriptor identical (8825 bytes)
+   |   backend upb, p4runtime_pb2_grpc imports
+   | ok: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/venv/lib/python3.13/site-packages/p4 imports on the default backend with the shipped schema.
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <ck -- ROLLBACK, or fix, STEP=2, step 3 again"; }; }
+   | No broken requirements found.
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <ng -- ROLLBACK, or fix, STEP=2, step 3 again"; }; }
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <w) -- ROLLBACK, or fix, STEP=2, step 3 again"; }; }
+   | VERIFIED: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/venv passes what the old venv passed
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <ho "[type] "'rm -rf "$OLD"   # no parked venv left'
+   | [type] rm -rf "$OLD"   # no parked venv left
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <ailures/repo$ rm -rf "$OLD"   # no parked venv left
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <ect] "'chmod a-w "$V/lib/python3.13/site-packages"'
+   | [inject] chmod a-w "$V/lib/python3.13/site-packages"
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <s/repo$ chmod a-w "$V/lib/python3.13/site-packages"
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <BACK instead), or this is not inside the window"; }
+   | rolling back in place: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/venv
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <e cause, type STEP=ip1, paste again from ip1"; }; }
+   | Found existing installation: grpcio-tools 1.71.2
+   | Uninstalling grpcio-tools-1.71.2:
+   | ERROR: Exception:
+   | Traceback (most recent call last):
+   |   File "/home/adam/miniconda3/lib/python3.13/shutil.py", line 856, in move
+   |     os.rename(src, real_dst)
+   |     ~~~~~~~~~^^^^^^^^^^^^^^^
+   | PermissionError: [Errno 13] Permission denied: '/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/venv/lib/python3.13/site-packages/grpc_tools/' -> '/tmp/pip-uninstall-ob8y3tn7'
+   | During handling of the above exception, another exception occurred:
+   | Traceback (most recent call last):
+   |   File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/venv/lib/python3.13/site-packages/pip/_internal/cli/base_command.py", line 107, in _run_wrapper
+   |     status = _inner_run()
+   |   File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/venv/lib/python3.13/site-packages/pip/_internal/cli/base_command.py", line 98, in _inner_run
+   |     return self.run(options, args)
+   |            ~~~~~~~~^^^^^^^^^^^^^^^
+   |   File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/venv/lib/python3.13/site-packages/pip/_internal/commands/uninstall.py", line 105, in run
+   |     uninstall_pathset = req.uninstall(
+   |         auto_confirm=options.yes,
+   |         verbose=self.verbosity > 0,
+   |     )
+   |   File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/venv/lib/python3.13/site-packages/pip/_internal/req/req_install.py", line 675, in uninstall
+   |     uninstalled_pathset.remove(auto_confirm, verbose)
+   |     ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+   |   File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/venv/lib/python3.13/site-packages/pip/_internal/req/req_uninstall.py", line 373, in remove
+   |     moved.stash(path)
+   |     ~~~~~~~~~~~^^^^^^
+   |   File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/venv/lib/python3.13/site-packages/pip/_internal/req/req_uninstall.py", line 264, in stash
+   |     renames(path, new_path)
+   |     ~~~~~~~^^^^^^^^^^^^^^^^
+   |   File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/venv/lib/python3.13/site-packages/pip/_internal/utils/misc.py", line 344, in renames
+   |     shutil.move(old, new)
+   |     ~~~~~~~~~~~^^^^^^^^^^
+   |   File "/home/adam/miniconda3/lib/python3.13/shutil.py", line 874, in move
+   |     rmtree(src)
+   |     ~~~~~~^^^^^
+   |   File "/home/adam/miniconda3/lib/python3.13/shutil.py", line 763, in rmtree
+   |     _rmtree_safe_fd(stack, onexc)
+   |     ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+   |   File "/home/adam/miniconda3/lib/python3.13/shutil.py", line 707, in _rmtree_safe_fd
+   |     onexc(func, path, err)
+   |     ~~~~~^^^^^^^^^^^^^^^^^
+   |   File "/home/adam/miniconda3/lib/python3.13/shutil.py", line 658, in _rmtree_safe_fd
+   |     os.rmdir(name, dir_fd=dirfd)
+   |     ~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+   | PermissionError: [Errno 13] Permission denied: '/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/venv/lib/python3.13/site-packages/grpc_tools/'
+   | STOP at ip1: uninstalling grpcio-tools -- fix the cause, type STEP=ip1, paste again from ip1
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <e cause, type STEP=ip2, paste again from ip2"; }; }
+   |   (skipped ip2: an earlier command stopped)
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <e cause, type STEP=ip3, paste again from ip3"; }; }
+   |   (skipped ip3: an earlier command stopped)
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <e cause, type STEP=ip4, paste again from ip4"; }; }
+   |   (skipped ip4: an earlier command stopped)
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <is protobuf 3.20.3, but look before using it"; }; }
+   |   (skipped ip5, the suites: an earlier command stopped)
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <od u+w "$V/lib/python3.13/site-packages"; STEP=ip1'
+   | [type] chmod u+w "$V/lib/python3.13/site-packages"; STEP=ip1
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <mod u+w "$V/lib/python3.13/site-packages"; STEP=ip1
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <e cause, type STEP=ip1, paste again from ip1"; }; }
+   | Found existing installation: grpcio-tools 1.71.2
+   | Uninstalling grpcio-tools-1.71.2:
+   |   Successfully uninstalled grpcio-tools-1.71.2
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <ple PIP_NO_CACHE_DIR=1 PIP_RETRIES=0 PIP_TIMEOUT=2'
+   | [inject] export PIP_INDEX_URL=http://127.0.0.1:9/simple PIP_NO_CACHE_DIR=1 PIP_RETRIES=0 PIP_TIMEOUT=2
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <mple PIP_NO_CACHE_DIR=1 PIP_RETRIES=0 PIP_TIMEOUT=2
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <e cause, type STEP=ip2, paste again from ip2"; }; }
+   | Looking in indexes: http://127.0.0.1:9/simple
+   | ERROR: Could not find a version that satisfies the requirement protobuf==3.20.3 (from versions: none)
+   | ERROR: No matching distribution found for protobuf==3.20.3
+   | STOP at ip2: installing protobuf 3.20.3 -- fix the cause, type STEP=ip2, paste again from ip2
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <e cause, type STEP=ip3, paste again from ip3"; }; }
+   |   (skipped ip3: an earlier command stopped)
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <e cause, type STEP=ip4, paste again from ip4"; }; }
+   |   (skipped ip4: an earlier command stopped)
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <is protobuf 3.20.3, but look before using it"; }; }
+   |   (skipped ip5, the suites: an earlier command stopped)
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <PIP_NO_CACHE_DIR PIP_RETRIES PIP_TIMEOUT; STEP=ip2'
+   | [type] unset PIP_INDEX_URL PIP_NO_CACHE_DIR PIP_RETRIES PIP_TIMEOUT; STEP=ip2
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | < PIP_NO_CACHE_DIR PIP_RETRIES PIP_TIMEOUT; STEP=ip2
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <e cause, type STEP=ip2, paste again from ip2"; }; }
+   | Collecting protobuf==3.20.3
+   |   Using cached protobuf-3.20.3-py2.py3-none-any.whl.metadata (720 bytes)
+   | Collecting googleapis-common-protos==1.73.0
+   |   Using cached googleapis_common_protos-1.73.0-py3-none-any.whl.metadata (9.4 kB)
+   | Using cached protobuf-3.20.3-py2.py3-none-any.whl (162 kB)
+   | Using cached googleapis_common_protos-1.73.0-py3-none-any.whl (297 kB)
+   | Installing collected packages: protobuf, googleapis-common-protos
+   |   Attempting uninstall: protobuf
+   |     Found existing installation: protobuf 5.29.6
+   |     Uninstalling protobuf-5.29.6:
+   |       Successfully uninstalled protobuf-5.29.6
+   |   Attempting uninstall: googleapis-common-protos
+   |     Found existing installation: googleapis-common-protos 1.75.0
+   |     Uninstalling googleapis-common-protos-1.75.0:
+   |       Successfully uninstalled googleapis-common-protos-1.75.0
+   | Successfully installed googleapis-common-protos-1.73.0 protobuf-3.20.3
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <ple PIP_NO_CACHE_DIR=1 PIP_RETRIES=0 PIP_TIMEOUT=2'
+   | [inject] export PIP_INDEX_URL=http://127.0.0.1:9/simple PIP_NO_CACHE_DIR=1 PIP_RETRIES=0 PIP_TIMEOUT=2
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <mple PIP_NO_CACHE_DIR=1 PIP_RETRIES=0 PIP_TIMEOUT=2
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <e cause, type STEP=ip3, paste again from ip3"; }; }
+   | Looking in indexes: http://127.0.0.1:9/simple
+   | ERROR: Could not find a version that satisfies the requirement p4runtime==1.5.0 (from versions: none)
+   | ERROR: No matching distribution found for p4runtime==1.5.0
+   | STOP at ip3: reinstalling p4runtime -- fix the cause, type STEP=ip3, paste again from ip3
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <e cause, type STEP=ip4, paste again from ip4"; }; }
+   |   (skipped ip4: an earlier command stopped)
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <is protobuf 3.20.3, but look before using it"; }; }
+   |   (skipped ip5, the suites: an earlier command stopped)
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <PIP_NO_CACHE_DIR PIP_RETRIES PIP_TIMEOUT; STEP=ip3'
+   | [type] unset PIP_INDEX_URL PIP_NO_CACHE_DIR PIP_RETRIES PIP_TIMEOUT; STEP=ip3
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | < PIP_NO_CACHE_DIR PIP_RETRIES PIP_TIMEOUT; STEP=ip3
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <e cause, type STEP=ip3, paste again from ip3"; }; }
+   | Collecting p4runtime==1.5.0
+   |   Using cached p4runtime-1.5.0-py3-none-any.whl.metadata (10 kB)
+   | Using cached p4runtime-1.5.0-py3-none-any.whl (45 kB)
+   | Installing collected packages: p4runtime
+   |   Attempting uninstall: p4runtime
+   |     Found existing installation: p4runtime 1.5.0
+   |     Uninstalling p4runtime-1.5.0:
+   |       Successfully uninstalled p4runtime-1.5.0
+   | Successfully installed p4runtime-1.5.0
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <"$V/bin/pip" install -q --no-deps protobuf==5.29.6'
+   | [inject] "$V/bin/pip" install -q --no-deps protobuf==5.29.6
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | < "$V/bin/pip" install -q --no-deps protobuf==5.29.6
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <e cause, type STEP=ip4, paste again from ip4"; }; }
+   | Traceback (most recent call last):
+   |   File "<string>", line 1, in <module>
+   |     import google.protobuf as g, p4.v1.p4runtime_pb2; from google.protobuf.internal import api_implementation as a; print(g.__version__, a.Type())
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |   File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/venv/lib/python3.13/site-packages/p4/v1/p4runtime_pb2.py", line 17, in <module>
+   |     from p4.config.v1 import p4info_pb2 as p4_dot_config_dot_v1_dot_p4info__pb2
+   |   File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/venv/lib/python3.13/site-packages/p4/config/v1/p4info_pb2.py", line 15, in <module>
+   |     from p4.config.v1 import p4types_pb2 as p4_dot_config_dot_v1_dot_p4types__pb2
+   |   File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/venv/lib/python3.13/site-packages/p4/config/v1/p4types_pb2.py", line 36, in <module>
+   |     _descriptor.FieldDescriptor(
+   |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+   |       name='key', full_name='p4.config.v1.P4TypeInfo.StructsEntry.key', index=0,
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |     ...<3 lines>...
+   |       is_extension=False, extension_scope=None,
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |   File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/venv/lib/python3.13/site-packages/google/protobuf/descriptor.py", line 626, in __new__
+   |     _message.Message._CheckCalledFromGeneratedFile()
+   |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+   | TypeError: Descriptors cannot be created directly.
+   | If this call came from a _pb2.py file, your generated code is out of date and must be regenerated with protoc >= 3.19.0.
+   | If you cannot immediately regenerate your protos, some other possible workarounds are:
+   |  1. Downgrade the protobuf package to 3.20.x or lower.
+   |  2. Set PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python (but this will use pure-Python parsing and will be much slower).
+   | More information: https://developers.google.com/protocol-buffers/docs/news/2022-05-06#python-updates
+   | STOP at ip4: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/venv does not import p4runtime on protobuf 3.20.3 -- fix the cause, type STEP=ip4, paste again from ip4
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <is protobuf 3.20.3, but look before using it"; }; }
+   |   (skipped ip5, the suites: an earlier command stopped)
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <p" install -q --no-deps protobuf==3.20.3; STEP=ip4'
+   | [type] "$V/bin/pip" install -q --no-deps protobuf==3.20.3; STEP=ip4
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <ip" install -q --no-deps protobuf==3.20.3; STEP=ip4
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <e cause, type STEP=ip4, paste again from ip4"; }; }
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <is protobuf 3.20.3, but look before using it"; }; }
+   | Ran 1557 tests
+   | OK (skipped=1)
+   | Ran 187 tests
+   | OK (skipped=1)
+   | rolled back in place: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo/p4_proxy/venv is protobuf 3.20.3 again and passes both suites -- exit this shell, then step 5
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ echo "[type] "'exit'
+   | [type] exit
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ exit
+   | exit
+   | guarded_build: exit 0
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ 
+   | <ck, exit it, then release from the shell of step 0"
+   | released (stub)
+   | <tch/pb5prep/fi-5bb5f1fa/S24_inplace_failures/repo$ exit
+== checks
+CHECK ok   STOP at ip1 once
+CHECK ok   STOP at ip2 once
+CHECK ok   STOP at ip3 once
+CHECK ok   STOP at ip4 once
+CHECK ok   then rolled back in place (ip5 ran both suites)
+CHECK ok   V is 3.20.3 python
+CHECK ok   released
+RESULT GREEN
+rc=0

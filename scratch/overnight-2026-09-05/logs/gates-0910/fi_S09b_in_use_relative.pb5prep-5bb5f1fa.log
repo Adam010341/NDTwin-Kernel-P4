@@ -1,0 +1,112 @@
+# HEAD 5bb5f1fa8591151faea71217f6df8de81ce22e9d  fi rehearsal scenario S09b_in_use_relative: a process runs the venv's python by a relative path
+# 2026-09-26T10:31:38Z  root /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative
+# stand-in (old) /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/repo/p4_proxy/venv: build+freeze-diff rc=0  
+# [inject] pid 3936660: `p4_proxy/venv/bin/python` by a RELATIVE path from the repo copy (pure python; nothing of the venv is mapped)
+# before: V fp f0cefcc71b68a04b502c5d3a0e8f528e5bf44e2b776716c94ee71fbb62ac8148; 3.20.3 python
+== paste: into `bash -i` in /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/repo, HOME=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/home, lock=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/private.lock
+   [doc 0] export NDT_OWNER=p4-venv-migration NDT_MEASURING='p4_proxy venv migration: no runs, no gates'; [ -z "${LOCK:-}${TIMEOUT:-}" ] || echo "WARNING: LOCK='${LOCK:-}' TIMEOUT='${TIMEOUT:-}' are set: the guard uses them (another lock file locks nothing; TIMEOUT kills the shell) -- unset them unless you mean it"
+   [doc 0] tools/test_workflow/ndt claim 90 'p4_proxy venv migration' && JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash -i
+   [doc H] unset PYTHONPATH PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION; export PYTHONDONTWRITEBYTECODE=1
+   [doc H] at() { [ "${STEP:-}" = "$1" ] || { echo "  (skipped $2: an earlier command stopped)"; return 1; }; inwin || { echo "STOP at $2: renew the claim in this shell -- \"$R/tools/test_workflow/ndt\" claim 90 'p4_proxy venv migration' (same NDT_OWNER) -- then paste again from this command"; return 1; }; }
+   [doc H] fp() { (cd "$1" && { find . -mindepth 1 -printf '%y %p %l\n'; find . -type f -exec sha256sum {} +; } | LC_ALL=C sort | sha256sum | cut -c1-64); }
+   [doc H] pbver() { "$1/bin/python" -c 'import google.protobuf as g; print(g.__version__)' 2>/dev/null; }
+   [doc H] inguard() { [[ ":${NDTWIN_GUARD_HELD:-}:" == *":${LOCK:-/tmp/ndtwin-build.lock}:"* ]]; }
+   [doc H] inwin() { local e; e=$(sed -n 's/^expires=//p' "$R/.test_run/lab.claim" 2>/dev/null); inguard && grep -qxF "owner=${NDT_OWNER:-}" "$R/.test_run/lab.claim" 2>/dev/null && [ "${e:-0}" -gt "$(( $(date +%s) + 1800 ))" ] || { echo "STOP: not inside step 0's window -- the shell guarded_build.sh opened, and ${NDT_OWNER:-NDT_OWNER}'s claim on $R with 30 minutes or more left"; return 1; }; }
+   [doc H] users() { local p a d; for p in /proc/[0-9]*; do [ "${p#/proc/}" = "$$" ] && continue; if grep -qF "$1/" "$p/maps" 2>/dev/null; then echo "${p#/proc/} maps it: $(tr '\0' ' ' < "$p/cmdline")"; continue; fi; d=$(readlink "$p/cwd" 2>/dev/null) || continue; while IFS= read -r -d '' a; do a=${a#./}; [[ "$a" == /* ]] || a=$d/$a; [[ "$a" == "$1"/* ]] && { echo "${p#/proc/} runs it: $(tr '\0' ' ' < "$p/cmdline")"; break; }; done < "$p/cmdline" 2>/dev/null; done; true; }
+   [doc H] suites() { (cd "$R/p4_proxy" && PYTHONPATH=. "$1/bin/python" -m unittest $(ls tests/test_*.py | sed 's#/#.#; s#\.py$##')) 2>&1 | grep -E '^(Ran [0-9]+ tests|OK|FAILED)' | sed 's/ in [0-9.]*s$//'; (h=$(mktemp -d) && cd "$R" && HOME=$h "$1/bin/python" -m unittest discover -s tools/p4_exercise/tests -t tools/p4_exercise/tests; rm -rf "$h") 2>&1 | grep -E '^(Ran [0-9]+ tests|OK|FAILED)' | sed 's/ in [0-9.]*s$//'; }
+   [doc 1] STEP=; OV=; R=$PWD; V=$R/p4_proxy/venv; PARK=$HOME; inguard && "$R/tools/test_workflow/ndt" claim 90 'p4_proxy venv migration'; inwin && STEP=1b && echo "V=$V"
+   [doc 1] at 1b "1b, the old venv" && { test -d "$V" && test ! -L "$V" && OV=$(pbver "$V") && [[ "$OV" == 3.* ]] && STEP=1c || { STEP=; echo "STOP at 1b: $V is not a real directory whose python has protobuf 3 (it has '${OV:-none}'); this is only for that venv"; }; }
+   [doc 1] at 1c "1c, where to park" && { ! ls -d "$PARK"/p4_proxy-venv.protobuf*/ >/dev/null 2>&1 && [ "$(stat -c %d "$PARK")" = "$(stat -c %d "$V")" ] && STEP=1d || { STEP=; echo "STOP at 1c: $PARK already holds a parked p4_proxy venv (an earlier attempt: roll it back, or remove it once it is not needed), or is not on $V's filesystem"; }; }
+   [doc 1] at 1d "1d, the base python" && { BASE=$(sed -n 's/^home = //p' "$V/pyvenv.cfg")/python3 && [ "$("$BASE" -c 'import sys; print(sys.version_info[:2])')" = "$("$V/bin/python" -c 'import sys; print(sys.version_info[:2])')" ] && STEP=1e || { STEP=; echo "STOP at 1d: $BASE (pyvenv.cfg's home) is not the Python minor version $V runs: the new venv would be another interpreter"; }; }
+   [doc 1] at 1e "1e, who uses it" && { U=$(users "$V") && [ -z "$U" ] && STEP=1f || { STEP=; echo "STOP at 1e: in use, by:"; echo "$U"; }; }
+   [doc 1] at 1f "1f, the baseline" && { OLD=$PARK/p4_proxy-venv.protobuf$OV-$(date +%Y%m%d-%H%M%S) && suites "$V" > "$OLD.baseline" && [ "$(grep -c '^OK' "$OLD.baseline")" = 2 ] && STEP=1g && cat "$OLD.baseline" || { STEP=; echo "STOP at 1f: the suites do not pass on the OLD venv ($OLD.baseline) -- fix that first (p4_proxy/p4_src/build? tools/test_workflow/l0_build_check.sh p4); nothing has moved"; }; }
+   [doc 1] at 1g "1g, the move" && { echo "$V" > "$OLD.origin" && "$V/bin/python" -m pip freeze --all > "$OLD.freeze" && fp "$V" > "$OLD.fingerprint" && [ -z "$(users "$V")" ] && mv -T "$V" "$OLD" && STEP=1 && echo "parked: OLD=$OLD (it came from $V)" || { STEP=; if [ -e "$V" ]; then echo "STOP at 1g: nothing moved, $V is in place${OLD:+ (if $OLD exists, it is not this venv: remove it before trying again)}"; else echo "STOP at 1g: $V WAS moved to $OLD -- paste ROLLBACK"; fi; }; }
+   [doc 2] at 1 "2a, the new venv" && { test -d "$OLD" && test ! -e "$V" && "$BASE" -m venv "$V" && STEP=2b || { STEP=; echo "STOP at 2a: no new venv made; the old one is parked at $OLD -- paste ROLLBACK"; }; }
+   [doc 2] at 2b "2b, pip install" && { "$V/bin/pip" install -r "$R/p4_proxy/requirements.txt" && STEP=2c || { STEP=; echo "STOP at 2b: the install did not finish; the old venv is parked at $OLD -- paste ROLLBACK"; }; }
+   [doc 2] at 2c "2c, regen" && { "$V/bin/python" "$R/p4_proxy/regen_p4runtime_pb2.py" && STEP=2 || { STEP=; echo "STOP at 2c: the regeneration did not finish; the old venv is parked at $OLD -- paste ROLLBACK"; }; }
+   [doc 3] at 2 "3a, pip check" && { "$V/bin/python" -m pip check && STEP=3b || { STEP=; echo "STOP at 3a: pip check -- ROLLBACK, or fix, STEP=2, step 3 again"; }; }
+   [doc 3] at 3b "3b, the backend" && { [ "$("$V/bin/python" -c 'import google.protobuf as g, p4.v1.p4runtime_pb2, p4.v1.p4runtime_pb2_grpc; from google.protobuf.internal import api_implementation as a; print(g.__version__, a.Type())')" = "5.29.6 upb" ] && STEP=3c || { STEP=; echo "STOP at 3b: not protobuf 5.29.6 on upb with p4runtime importing -- ROLLBACK, or fix, STEP=2, step 3 again"; }; }
+   [doc 3] at 3c "3c, the suites" && { suites "$V" > "$OLD.new" && diff "$OLD.baseline" "$OLD.new" && STEP=3 && echo "VERIFIED: $V passes what the old venv passed" || { STEP=; echo "STOP at 3c: the suites differ from the old venv's ($OLD.baseline vs $OLD.new) -- ROLLBACK, or fix, STEP=2, step 3 again"; }; }
+   [doc 4] at 3 "4, leaving" && echo "migrated. Keep $OLD and its .origin/.freeze/.fingerprint/.baseline/.new until a live 01 and 06 pass on the new venv; deleting them is the one step here that cannot be undone." && exit
+   [doc 5] [ -z "${STEP+set}" ] && tools/test_workflow/ndt release || echo "STOP: STEP is set in this shell. If this IS the shell of step 0 (a block was pasted here by mistake), type unset STEP and paste step 5 again; if it is the migration shell, finish or roll back, exit it, then release from the shell of step 0"
+-- output (rc 0, 1s); prompts and bash's no-tty warnings dropped:
+   | <tch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/repo$ 
+   | < kills the shell) -- unset them unless you mean it"
+   | WARNING: LOCK='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/private.lock' TIMEOUT='' are set: the guard uses them (another lock file locks nothing; TIMEOUT kills the shell) -- unset them unless you mean it
+   | <tch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/repo$ 
+   | <IT=10800 tools/build_guard/guarded_build.sh bash -i
+   | claimed (stub): owner=p4-venv-migration expires=1790424107 note=p4_proxy venv migration exclusive_cpu=no measuring=p4_proxy venv migration: no runs, no gates 
+   | guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/private.lock
+   | guarded_build: $ bash -i
+   | <tch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/repo$ 
+   | <ON_IMPLEMENTATION; export PYTHONDONTWRITEBYTECODE=1
+   | <tch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/repo$ 
+   | <then paste again from this command"; return 1; }; }
+   | <tch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/repo$ 
+   | <} +; } | LC_ALL=C sort | sha256sum | cut -c1-64); }
+   | <tch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/repo$ 
+   | <protobuf as g; print(g.__version__)' 2>/dev/null; }
+   | <tch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/repo$ 
+   | <-}:" == *":${LOCK:-/tmp/ndtwin-build.lock}:"* ]]; }
+   | <tch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/repo$ 
+   | <on $R with 30 minutes or more left"; return 1; }; }
+   | <tch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/repo$ 
+   | <; }; done < "$p/cmdline" 2>/dev/null; done; true; }
+   | <tch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/repo$ 
+   | <-9]+ tests|OK|FAILED)' | sed 's/ in [0-9.]*s$//'; }
+   | <tch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/repo$ 
+   | <xy venv migration'; inwin && STEP=1b && echo "V=$V"
+   | claimed (stub): owner=p4-venv-migration expires=1790424107 note=p4_proxy venv migration exclusive_cpu=no measuring=p4_proxy venv migration: no runs, no gates 
+   | V=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926/scratch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/repo/p4_proxy/venv
+   | <tch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/repo$ 
+   | <s '${OV:-none}'); this is only for that venv"; }; }
+   | <tch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/repo$ 
+   | <is not needed), or is not on $V's filesystem"; }; }
+   | <tch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/repo$ 
+   | <s: the new venv would be another interpreter"; }; }
+   | <tch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/repo$ 
+   | <P=; echo "STOP at 1e: in use, by:"; echo "$U"; }; }
+   | STOP at 1e: in use, by:
+   | 3936660 runs it: p4_proxy/venv/bin/python -c import time; time.sleep(600) 
+   | <tch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/repo$ 
+   | <low/l0_build_check.sh p4); nothing has moved"; }; }
+   |   (skipped 1f, the baseline: an earlier command stopped)
+   | <tch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/repo$ 
+   | <: $V WAS moved to $OLD -- paste ROLLBACK"; fi; }; }
+   |   (skipped 1g, the move: an earlier command stopped)
+   | <tch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/repo$ 
+   | < old one is parked at $OLD -- paste ROLLBACK"; }; }
+   |   (skipped 2a, the new venv: an earlier command stopped)
+   | <tch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/repo$ 
+   | <old venv is parked at $OLD -- paste ROLLBACK"; }; }
+   |   (skipped 2b, pip install: an earlier command stopped)
+   | <tch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/repo$ 
+   | <old venv is parked at $OLD -- paste ROLLBACK"; }; }
+   |   (skipped 2c, regen: an earlier command stopped)
+   | <tch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/repo$ 
+   | <ck -- ROLLBACK, or fix, STEP=2, step 3 again"; }; }
+   |   (skipped 3a, pip check: an earlier command stopped)
+   | <tch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/repo$ 
+   | <ng -- ROLLBACK, or fix, STEP=2, step 3 again"; }; }
+   |   (skipped 3b, the backend: an earlier command stopped)
+   | <tch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/repo$ 
+   | <w) -- ROLLBACK, or fix, STEP=2, step 3 again"; }; }
+   |   (skipped 3c, the suites: an earlier command stopped)
+   | <tch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/repo$ 
+   | <s the one step here that cannot be undone." && exit
+   |   (skipped 4, leaving: an earlier command stopped)
+   | <tch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/repo$ 
+   | <ck, exit it, then release from the shell of step 0"
+   | STOP: STEP is set in this shell. If this IS the shell of step 0 (a block was pasted here by mistake), type unset STEP and paste step 5 again; if it is the migration shell, finish or roll back, exit it, then release from the shell of step 0
+   | <tch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/repo$ exit
+   | guarded_build: exit 0
+   | <tch/pb5prep/fi-5bb5f1fa/S09b_in_use_relative/repo$ exit
+# killed the injected pid 3936660 by its process group (never by name)
+== checks
+CHECK ok   prints 'STOP at 1e'
+CHECK ok   only one STOP, and every later command skipped
+CHECK ok   V untouched (same fp)
+CHECK ok   nothing parked in $HOME
+CHECK ok   no VERIFIED, no 'parked:'
+RESULT GREEN
+rc=0

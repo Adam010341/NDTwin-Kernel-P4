@@ -1,0 +1,84 @@
+app package pre-flight
+  package      /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hb_basic_roles
+pre-flight: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hb_basic_roles
+  PASS  format                              1
+  INFO  name                                basic
+  PASS  control_plane.mode                  ndtwin
+  PASS  control_plane.grpc_base             30050
+  PASS  control_plane.device_id             dpid
+  PASS  control_plane.election_id           [0, 65535]
+  PASS  bmv2.cpu_port                       255
+  PASS  switches keys                       4 dpids: [1, 2, 3, 4]
+  PASS  switches name                       every sN has dpid N
+  PASS  referenced files                    9 present
+  PASS  topo_from_json.switches             4 entries
+  PASS  topo_from_json.hosts                4 entries
+  PASS  topo_from_json.switch_links         4 entries
+  PASS  topo_from_json.host_links           4 entries
+  PASS  switches agree                      model and package.json both say [1, 2, 3, 4]
+  PASS  links agree                         8 links in both
+  PASS  hosts named h<last octet>           4 hosts
+  PASS  hosts agree                         model and package.json both say ['h1', 'h2', 'h3', 'h4']
+  PASS  switches pipeline                   4 of 4 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
+  INFO  s1 pipeline                         build/basic.json  p4info sha256:9213871cee36bd93  program=solution/basic.p4
+  INFO  s2 pipeline                         build/basic.json  p4info sha256:9213871cee36bd93  program=solution/basic.p4
+  INFO  s3 pipeline                         build/basic.json  p4info sha256:9213871cee36bd93  program=solution/basic.p4
+  INFO  s4 pipeline                         build/basic.json  p4info sha256:9213871cee36bd93  program=solution/basic.p4
+  PASS  p4info parses                       google.protobuf.text_format into p4.config.v1.P4Info
+  PASS  entries match p4info                4 entries across 4 switch(es); recorded, NOT applied in stage one
+  PASS  entries p4info is the pipeline's    4 switch(es); entries and pipeline name the same p4info
+  PASS  roles.ipv4_route resolves           4 switch(es): MyIngress.ipv4_lpm hdr.ipv4.dstAddr -> MyIngress.ipv4_forward(dstAddr, port bit<9>), owner ndtwin
+  PASS  owned table has no package entries  MyIngress.ipv4_lpm is NDTwin's on 4 switch(es)
+  INFO  owned table default action          kept on 4 switch(es) (a default is not a route): s1 entry 0: default action MyIngress.drop; s2 entry 0: default action MyIngress.drop; s3 entry 0: default action MyIngress.drop; s4 entry 0: default action MyIngress.drop
+  INFO  telemetry.source                    not declared (auto: NDTwin's pipeline gets the cooperative path, anybody else's gets link telemetry)
+  INFO  PRE entries                         none declared (no multicast group, no clone session)
+  PASS  gRPC port block                     30051-30054 safe on this machine
+  PASS  p4c-bm2-ss                          rc=0  basic.json sha256:1e8431b96cbe6732  basic.p4.p4info.txtpb sha256:9213871cee36bd93
+
+PASS -- every check passed
+
+ndt up p4
+  hosts        4        (p4_proxy/mininet/host_count_override)
+  topology     .test_run/packages/hb_basic_roles/ndtwin/topology.json
+  app package  /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hb_basic_roles (mode ndtwin, 4 switch(es))
+  bmv2         /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate  1/256     (compiled into ndtwin_switch.json)
+
+  recorded this target in .test_run/up.target -- 'ndt status --check' compares against it
+  app package set: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hb_basic_roles   (p4_proxy/mininet/app_package_override)
+  telemetry    auto   (p4_proxy/mininet/telemetry_override absent -- auto, then the package)
+  claim note now says the lab is in use (owner and expiry unchanged)
+[1/3] bmv2 fabric
+      topo session started from /home/adam/Desktop/NDTwin-Kernel (attach: sudo tmux -L ndtwinlab attach -t topo)
+  waiting for 4 switches and the manifest
+  ok  4 switches up after 6s, manifest written
+  ok  running binary: /usr/local/bmv2-fast/bin/simple_switch_grpc
+      heartbeat plan: /tmp/ndtwin_p4_switches.json (sha256 32919e1fa9f0), 4 switch(es), every one a live bmv2
+        link s1-eth3 (dpid 1 port 3) <-> s3-eth1 (dpid 3 port 1)
+        link s1-eth4 (dpid 1 port 4) <-> s4-eth2 (dpid 4 port 2)
+        link s2-eth3 (dpid 2 port 3) <-> s4-eth1 (dpid 4 port 1)
+        link s2-eth4 (dpid 2 port 4) <-> s3-eth2 (dpid 3 port 2)
+        4 link(s) -> 8 direction(s); 4 host-facing interface(s) listened on, never sent on
+      heartbeat started (pid 3802041; report: /run/ndtwin-lab/heartbeat.json, log: /run/ndtwin-lab/heartbeat.log)
+  ok  heartbeat running on the inter-switch veths: a cut link is detected, and routed around where NDTwin owns the route tables (switch_state: reroute, heartbeat)
+[2/3] proxy + kernel
+  stack.sh prompt is answered immediately: the fabric is already up
+        started p4_proxy (pid 3802081) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
+        waiting for P4 proxy agent on :8081 . up
+        started kernel (pid 3802180) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+        waiting for kernel API on :8000 . up
+[3/3] verify
+  !!  proxy: destination paths NOT CHECKED -- the package's own program runs on dpid
+  !!    1,2,3,4; the proxy says it sent no LLDP and installed no routes on this
+  !!    fabric (control_plane.skipped: link_watchdog, lldp_discovery)
+  ok  table entries: 1/1 applied on 4 switch(es), 0 failed
+  ok  kernel: 4 switches, 4 up, 16 edges, 4 hosts
+  ok  model matches fabric: 4 hosts (kernel graph, topology file and 4 host namespaces all agree)
+  ok  telemetry: auto -- 0 cooperative, 4 link, 0 none; the proxy agrees switch by switch
+  ok  data plane: h1 -> 10.0.2.2 forwards
+
+up. ready
+  proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+  !!  package pipeline: NDTwin discovered no links and installed no routes on this
+  !!    fabric; forwarding is whatever the package's 4 entries on
+  !!    4 switch(es) make of it. ndt status quotes no sample rate for it.

@@ -1,0 +1,20 @@
+1a3ebd7f9ffb14ab922e844fb3f7ace7abdf405f
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926  2026-09-26T10:45:27Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbw-1a3ebd7f/rerun_suite.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926 tests/shell/test_apps_residue.sh 3
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbw-1a3ebd7f/rerun_suite.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926 tests/shell/test_apps_residue.sh 3
+HEAD 1a3ebd7f9ffb14ab922e844fb3f7ace7abdf405f; ndt diff 5f9316a7..HEAD: []
+=== run 1/3  2026-09-26T10:59:54Z
+--- other processes naming test_apps_residue.sh right now:
+--- rc 0: Ran 131 checks, 0 failed
+=== run 2/3  2026-09-26T11:00:04Z
+--- other processes naming test_apps_residue.sh right now:
+--- rc 0: Ran 131 checks, 0 failed
+=== run 3/3  2026-09-26T11:00:14Z
+--- other processes naming test_apps_residue.sh right now:
+--- rc 0: Ran 131 checks, 0 failed
+RERUN test_apps_residue.sh: 0 of 3 run(s) red
+guarded_build: exit 0
+# rc=0

@@ -1,0 +1,59 @@
+== 08_heartbeat
+   repo: /home/adam/Desktop/NDTwin-Kernel
+   raw : /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-26T172912Z_08_heartbeat
+   owner: orch-0926
+   root is reachable for exactly what this needs: sudoers grants ndtwin-lab and mnexec without a prompt
+
+== lab state before this step
+   lab
+     claim          none
+     prev claim     orch-0926 (until 00:45:01), superseded 2026-09-27 00:00:27  (.test_run/lab.claim.prev)
+                    nothing holds the lab now: that claim was released or replaced
+                    it said: down at 2026-09-27 00:00:27; verified clean; claim kept
+     measuring      nothing
+     code           3f8c2abf  +89 file(s) with uncommitted changes
+                    2 of them can change behaviour:
+                    p4_proxy/mininet/host_count_override
+                    tools/remote-lab/dorm_lab/
+     knob baseline  4 (the default; no round baseline recorded -- 'ndt claim' writes one)
+     tree vs round  no baseline in .test_run/round.baseline -- nothing here can say what this round changed ('ndt claim' records one)
+     ok  helper: /usr/local/sbin/ndtwin-lab is tools/test_workflow/ndtwin-lab (sha256 6a558fe4)
+   
+   lab is free
+   host_count_override snapshot taken (4)
+   telemetry_override does not exist; it will be removed again at the end
+
+== which code this run is about
+   repo HEAD  3f8c2abfb108bfcc5e49e93b82898080f723dce2
+   kernel     be70b5dd32356847  build/bin/ndtwin_kernel
+   helper     6a558fe452955de3  /usr/local/sbin/ndtwin-lab (installed)
+   helper     6a558fe452955de3  tools/test_workflow/ndtwin-lab (this checkout)
+   source     e9142f0825f42164  p4_proxy/proxy_agent/link_heartbeat.py
+   source     dae3c3ca279bf78b  p4_proxy/proxy_agent/topology_manager.py
+   source     54c9bd96c181b0dd  p4_proxy/proxy_agent/main.py
+   source     308e8a5e0da854eb  p4_proxy/proxy_agent/api_routes.py
+   source     6e8bcf96307efd1c  tools/test_workflow/ndt
+   heartbeat: not running
+   report: status stopped (stopped by SIGTERM), pid 3911398, period 5 s, ethertype 0x88b5, session 1c60aaa7560143b3
+     written 5496.4 s ago
+   no heartbeat is running (rc 3)
+
+== H5 -- 06 once with the heartbeat wherever ndt up starts it, and a sampler of its report
+   report sampler pid 14914 -> 50_samples.tsv (header written, alive)
+   06 rc 0, raw /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-26T172913Z_06_thirteen
+     
+     raw: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-26T172913Z_06_thirteen
+     PASS 06_thirteen -- 26 arm(s), every arm as the exercise says it should be
+   H5 06 against 2026-09-24T185505Z_06_thirteen: all 26 arms: rc and verdict identical to the reference
+   H5 where the heartbeat ran: a heartbeat ran on exactly the 17 expected arm(s); no host-port frame in 1617 samples
+
+== H5 -- 01 (NDTwin's own fabric) PASS, with no heartbeat under it
+   H5 01: PASS
+   H5 01 ran no heartbeat: no heartbeat session ran during 01 (NDTwin's own pipeline)
+
+== done -- nothing of this run's own to tear down
+
+== teardown
+
+raw: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-26T172912Z_08_heartbeat
+PASS 08_heartbeat

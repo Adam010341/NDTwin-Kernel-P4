@@ -1,0 +1,833 @@
+{
+  "boot_at": 1790438405.5998385,
+  "boot_id": "c72b49254b144ff7b087d05cb501c06f",
+  "control_plane": {
+    "mode": "ndtwin",
+    "package": null,
+    "skipped": [],
+    "telemetry": {
+      "knob": "absent",
+      "link_emitter": null,
+      "package": "auto"
+    }
+  },
+  "declared_links": null,
+  "external_link_reports": {
+    "last": null,
+    "received": 0,
+    "recorded_only": 0,
+    "routed_through_watchdog": 0
+  },
+  "heartbeat": null,
+  "links": {
+    "10:1->5:4": {
+      "down": false,
+      "last_beacon_age_s": 3.967,
+      "reported_to_kernel": true
+    },
+    "10:2->6:4": {
+      "down": false,
+      "last_beacon_age_s": 3.967,
+      "reported_to_kernel": true
+    },
+    "10:3->7:4": {
+      "down": false,
+      "last_beacon_age_s": 3.966,
+      "reported_to_kernel": true
+    },
+    "10:4->8:4": {
+      "down": false,
+      "last_beacon_age_s": 3.967,
+      "reported_to_kernel": true
+    },
+    "1:1->5:1": {
+      "down": false,
+      "last_beacon_age_s": 3.973,
+      "reported_to_kernel": true
+    },
+    "1:2->6:1": {
+      "down": false,
+      "last_beacon_age_s": 3.967,
+      "reported_to_kernel": true
+    },
+    "2:1->5:2": {
+      "down": false,
+      "last_beacon_age_s": 3.969,
+      "reported_to_kernel": true
+    },
+    "2:2->6:2": {
+      "down": false,
+      "last_beacon_age_s": 3.971,
+      "reported_to_kernel": true
+    },
+    "3:1->7:1": {
+      "down": false,
+      "last_beacon_age_s": 3.971,
+      "reported_to_kernel": true
+    },
+    "3:2->8:1": {
+      "down": false,
+      "last_beacon_age_s": 3.972,
+      "reported_to_kernel": true
+    },
+    "4:1->7:2": {
+      "down": false,
+      "last_beacon_age_s": 3.967,
+      "reported_to_kernel": true
+    },
+    "4:2->8:2": {
+      "down": false,
+      "last_beacon_age_s": 3.97,
+      "reported_to_kernel": true
+    },
+    "5:1->1:1": {
+      "down": false,
+      "last_beacon_age_s": 3.97,
+      "reported_to_kernel": true
+    },
+    "5:2->2:1": {
+      "down": false,
+      "last_beacon_age_s": 3.968,
+      "reported_to_kernel": true
+    },
+    "5:3->9:1": {
+      "down": false,
+      "last_beacon_age_s": 3.967,
+      "reported_to_kernel": true
+    },
+    "5:4->10:1": {
+      "down": false,
+      "last_beacon_age_s": 3.966,
+      "reported_to_kernel": true
+    },
+    "6:1->1:2": {
+      "down": false,
+      "last_beacon_age_s": 3.969,
+      "reported_to_kernel": true
+    },
+    "6:2->2:2": {
+      "down": false,
+      "last_beacon_age_s": 3.969,
+      "reported_to_kernel": true
+    },
+    "6:3->9:2": {
+      "down": false,
+      "last_beacon_age_s": 3.967,
+      "reported_to_kernel": true
+    },
+    "6:4->10:2": {
+      "down": false,
+      "last_beacon_age_s": 3.966,
+      "reported_to_kernel": true
+    },
+    "7:1->3:1": {
+      "down": false,
+      "last_beacon_age_s": 3.972,
+      "reported_to_kernel": true
+    },
+    "7:2->4:1": {
+      "down": false,
+      "last_beacon_age_s": 3.969,
+      "reported_to_kernel": true
+    },
+    "7:3->9:3": {
+      "down": false,
+      "last_beacon_age_s": 3.966,
+      "reported_to_kernel": true
+    },
+    "7:4->10:3": {
+      "down": false,
+      "last_beacon_age_s": 3.966,
+      "reported_to_kernel": true
+    },
+    "8:1->3:2": {
+      "down": false,
+      "last_beacon_age_s": 3.97,
+      "reported_to_kernel": true
+    },
+    "8:2->4:2": {
+      "down": false,
+      "last_beacon_age_s": 3.97,
+      "reported_to_kernel": true
+    },
+    "8:3->9:4": {
+      "down": false,
+      "last_beacon_age_s": 3.969,
+      "reported_to_kernel": true
+    },
+    "8:4->10:4": {
+      "down": false,
+      "last_beacon_age_s": 3.967,
+      "reported_to_kernel": true
+    },
+    "9:1->5:3": {
+      "down": false,
+      "last_beacon_age_s": 3.967,
+      "reported_to_kernel": true
+    },
+    "9:2->6:3": {
+      "down": false,
+      "last_beacon_age_s": 3.969,
+      "reported_to_kernel": true
+    },
+    "9:3->7:3": {
+      "down": false,
+      "last_beacon_age_s": 3.966,
+      "reported_to_kernel": true
+    },
+    "9:4->8:3": {
+      "down": false,
+      "last_beacon_age_s": 3.969,
+      "reported_to_kernel": true
+    }
+  },
+  "probe_interval_s": 2.0,
+  "reroute": {
+    "available": true,
+    "detail": "LLDP and its link watchdog run on this fabric",
+    "reason": null
+  },
+  "status": "success",
+  "switches": {
+    "1": {
+      "capabilities": {
+        "binding_source": "baseline",
+        "five_tuple": true,
+        "ipv4_route": "ndtwin",
+        "link_discovery": "lldp",
+        "reroute": true
+      },
+      "entries_recorded": 0,
+      "flow_stats": {
+        "unrendered_entries": null
+      },
+      "grpc_addr": "localhost:30051",
+      "last_lldp_age_s": 3.967,
+      "last_packet_in_age_s": 2.573,
+      "oldest_rule_installed_at": 1790438406.815809,
+      "pipeline": {
+        "ndtwin": true,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt",
+        "p4info_sha256": "d54ff55208340f3a",
+        "skipped": []
+      },
+      "pipeline_commits": 1,
+      "pre_entries": {
+        "clone": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        },
+        "multicast": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        }
+      },
+      "probe_age_s": 0.923,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 4,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": true,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 0,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 0
+      },
+      "table_generation": "a96a56f5f5234f4c9efe4d625316013a",
+      "telemetry": {
+        "clone_session": true,
+        "packet_in_ids": {
+          "egress_port": 3,
+          "frame_length": 4,
+          "ingress_port": 2,
+          "reason": 1,
+          "sampling_rate": 5
+        },
+        "reason": "cooperative telemetry: the pipeline clones 1-in-N to the CPU port and this proxy emits sFlow as 192.168.123.11",
+        "sflow_registered": true,
+        "source": "cooperative"
+      }
+    },
+    "10": {
+      "capabilities": {
+        "binding_source": "baseline",
+        "five_tuple": true,
+        "ipv4_route": "ndtwin",
+        "link_discovery": "lldp",
+        "reroute": true
+      },
+      "entries_recorded": 0,
+      "flow_stats": {
+        "unrendered_entries": null
+      },
+      "grpc_addr": "localhost:30060",
+      "last_lldp_age_s": 3.966,
+      "last_packet_in_age_s": 2.827,
+      "oldest_rule_installed_at": 1790438406.868749,
+      "pipeline": {
+        "ndtwin": true,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt",
+        "p4info_sha256": "d54ff55208340f3a",
+        "skipped": []
+      },
+      "pipeline_commits": 1,
+      "pre_entries": {
+        "clone": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        },
+        "multicast": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        }
+      },
+      "probe_age_s": 0.919,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 4,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": true,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 0,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 0
+      },
+      "table_generation": "6bca820c344a48e49cc92ee6ef11eba4",
+      "telemetry": {
+        "clone_session": true,
+        "packet_in_ids": {
+          "egress_port": 3,
+          "frame_length": 4,
+          "ingress_port": 2,
+          "reason": 1,
+          "sampling_rate": 5
+        },
+        "reason": "cooperative telemetry: the pipeline clones 1-in-N to the CPU port and this proxy emits sFlow as 192.168.123.20",
+        "sflow_registered": true,
+        "source": "cooperative"
+      }
+    },
+    "2": {
+      "capabilities": {
+        "binding_source": "baseline",
+        "five_tuple": true,
+        "ipv4_route": "ndtwin",
+        "link_discovery": "lldp",
+        "reroute": true
+      },
+      "entries_recorded": 0,
+      "flow_stats": {
+        "unrendered_entries": null
+      },
+      "grpc_addr": "localhost:30052",
+      "last_lldp_age_s": 3.969,
+      "last_packet_in_age_s": 2.699,
+      "oldest_rule_installed_at": 1790438406.8169353,
+      "pipeline": {
+        "ndtwin": true,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt",
+        "p4info_sha256": "d54ff55208340f3a",
+        "skipped": []
+      },
+      "pipeline_commits": 1,
+      "pre_entries": {
+        "clone": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        },
+        "multicast": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        }
+      },
+      "probe_age_s": 0.922,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 4,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": true,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 0,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 0
+      },
+      "table_generation": "1865bbd10fda49bd9a743e9095ad4b9c",
+      "telemetry": {
+        "clone_session": true,
+        "packet_in_ids": {
+          "egress_port": 3,
+          "frame_length": 4,
+          "ingress_port": 2,
+          "reason": 1,
+          "sampling_rate": 5
+        },
+        "reason": "cooperative telemetry: the pipeline clones 1-in-N to the CPU port and this proxy emits sFlow as 192.168.123.12",
+        "sflow_registered": true,
+        "source": "cooperative"
+      }
+    },
+    "3": {
+      "capabilities": {
+        "binding_source": "baseline",
+        "five_tuple": true,
+        "ipv4_route": "ndtwin",
+        "link_discovery": "lldp",
+        "reroute": true
+      },
+      "entries_recorded": 0,
+      "flow_stats": {
+        "unrendered_entries": null
+      },
+      "grpc_addr": "localhost:30053",
+      "last_lldp_age_s": 3.971,
+      "last_packet_in_age_s": 2.7,
+      "oldest_rule_installed_at": 1790438406.8221097,
+      "pipeline": {
+        "ndtwin": true,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt",
+        "p4info_sha256": "d54ff55208340f3a",
+        "skipped": []
+      },
+      "pipeline_commits": 1,
+      "pre_entries": {
+        "clone": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        },
+        "multicast": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        }
+      },
+      "probe_age_s": 0.922,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 4,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": true,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 0,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 0
+      },
+      "table_generation": "614e54ebf59041f8a4e4c32ad1686f71",
+      "telemetry": {
+        "clone_session": true,
+        "packet_in_ids": {
+          "egress_port": 3,
+          "frame_length": 4,
+          "ingress_port": 2,
+          "reason": 1,
+          "sampling_rate": 5
+        },
+        "reason": "cooperative telemetry: the pipeline clones 1-in-N to the CPU port and this proxy emits sFlow as 192.168.123.13",
+        "sflow_registered": true,
+        "source": "cooperative"
+      }
+    },
+    "4": {
+      "capabilities": {
+        "binding_source": "baseline",
+        "five_tuple": true,
+        "ipv4_route": "ndtwin",
+        "link_discovery": "lldp",
+        "reroute": true
+      },
+      "entries_recorded": 0,
+      "flow_stats": {
+        "unrendered_entries": null
+      },
+      "grpc_addr": "localhost:30054",
+      "last_lldp_age_s": 3.967,
+      "last_packet_in_age_s": 2.636,
+      "oldest_rule_installed_at": 1790438406.8258317,
+      "pipeline": {
+        "ndtwin": true,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt",
+        "p4info_sha256": "d54ff55208340f3a",
+        "skipped": []
+      },
+      "pipeline_commits": 1,
+      "pre_entries": {
+        "clone": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        },
+        "multicast": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        }
+      },
+      "probe_age_s": 0.921,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 4,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": true,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 0,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 0
+      },
+      "table_generation": "0e6faff2d89f4dd09e5e175768d0ced8",
+      "telemetry": {
+        "clone_session": true,
+        "packet_in_ids": {
+          "egress_port": 3,
+          "frame_length": 4,
+          "ingress_port": 2,
+          "reason": 1,
+          "sampling_rate": 5
+        },
+        "reason": "cooperative telemetry: the pipeline clones 1-in-N to the CPU port and this proxy emits sFlow as 192.168.123.14",
+        "sflow_registered": true,
+        "source": "cooperative"
+      }
+    },
+    "5": {
+      "capabilities": {
+        "binding_source": "baseline",
+        "five_tuple": true,
+        "ipv4_route": "ndtwin",
+        "link_discovery": "lldp",
+        "reroute": true
+      },
+      "entries_recorded": 0,
+      "flow_stats": {
+        "unrendered_entries": null
+      },
+      "grpc_addr": "localhost:30055",
+      "last_lldp_age_s": 3.966,
+      "last_packet_in_age_s": 2.764,
+      "oldest_rule_installed_at": 1790438406.8324983,
+      "pipeline": {
+        "ndtwin": true,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt",
+        "p4info_sha256": "d54ff55208340f3a",
+        "skipped": []
+      },
+      "pipeline_commits": 1,
+      "pre_entries": {
+        "clone": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        },
+        "multicast": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        }
+      },
+      "probe_age_s": 0.921,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 4,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": true,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 0,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 0
+      },
+      "table_generation": "94f3ed83c1d34cd2b850e2723e6783d5",
+      "telemetry": {
+        "clone_session": true,
+        "packet_in_ids": {
+          "egress_port": 3,
+          "frame_length": 4,
+          "ingress_port": 2,
+          "reason": 1,
+          "sampling_rate": 5
+        },
+        "reason": "cooperative telemetry: the pipeline clones 1-in-N to the CPU port and this proxy emits sFlow as 192.168.123.15",
+        "sflow_registered": true,
+        "source": "cooperative"
+      }
+    },
+    "6": {
+      "capabilities": {
+        "binding_source": "baseline",
+        "five_tuple": true,
+        "ipv4_route": "ndtwin",
+        "link_discovery": "lldp",
+        "reroute": true
+      },
+      "entries_recorded": 0,
+      "flow_stats": {
+        "unrendered_entries": null
+      },
+      "grpc_addr": "localhost:30056",
+      "last_lldp_age_s": 3.966,
+      "last_packet_in_age_s": 2.572,
+      "oldest_rule_installed_at": 1790438406.8452902,
+      "pipeline": {
+        "ndtwin": true,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt",
+        "p4info_sha256": "d54ff55208340f3a",
+        "skipped": []
+      },
+      "pipeline_commits": 1,
+      "pre_entries": {
+        "clone": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        },
+        "multicast": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        }
+      },
+      "probe_age_s": 0.921,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 4,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": true,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 0,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 0
+      },
+      "table_generation": "f30a47b9ad854b37a0cd4d4f37252f1f",
+      "telemetry": {
+        "clone_session": true,
+        "packet_in_ids": {
+          "egress_port": 3,
+          "frame_length": 4,
+          "ingress_port": 2,
+          "reason": 1,
+          "sampling_rate": 5
+        },
+        "reason": "cooperative telemetry: the pipeline clones 1-in-N to the CPU port and this proxy emits sFlow as 192.168.123.16",
+        "sflow_registered": true,
+        "source": "cooperative"
+      }
+    },
+    "7": {
+      "capabilities": {
+        "binding_source": "baseline",
+        "five_tuple": true,
+        "ipv4_route": "ndtwin",
+        "link_discovery": "lldp",
+        "reroute": true
+      },
+      "entries_recorded": 0,
+      "flow_stats": {
+        "unrendered_entries": null
+      },
+      "grpc_addr": "localhost:30057",
+      "last_lldp_age_s": 3.966,
+      "last_packet_in_age_s": 2.442,
+      "oldest_rule_installed_at": 1790438406.8365564,
+      "pipeline": {
+        "ndtwin": true,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt",
+        "p4info_sha256": "d54ff55208340f3a",
+        "skipped": []
+      },
+      "pipeline_commits": 1,
+      "pre_entries": {
+        "clone": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        },
+        "multicast": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        }
+      },
+      "probe_age_s": 0.92,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 4,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": true,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 0,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 0
+      },
+      "table_generation": "1fd02ee44abe49ba9e6f695ca1cf5da1",
+      "telemetry": {
+        "clone_session": true,
+        "packet_in_ids": {
+          "egress_port": 3,
+          "frame_length": 4,
+          "ingress_port": 2,
+          "reason": 1,
+          "sampling_rate": 5
+        },
+        "reason": "cooperative telemetry: the pipeline clones 1-in-N to the CPU port and this proxy emits sFlow as 192.168.123.17",
+        "sflow_registered": true,
+        "source": "cooperative"
+      }
+    },
+    "8": {
+      "capabilities": {
+        "binding_source": "baseline",
+        "five_tuple": true,
+        "ipv4_route": "ndtwin",
+        "link_discovery": "lldp",
+        "reroute": true
+      },
+      "entries_recorded": 0,
+      "flow_stats": {
+        "unrendered_entries": null
+      },
+      "grpc_addr": "localhost:30058",
+      "last_lldp_age_s": 3.967,
+      "last_packet_in_age_s": 2.636,
+      "oldest_rule_installed_at": 1790438406.825029,
+      "pipeline": {
+        "ndtwin": true,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt",
+        "p4info_sha256": "d54ff55208340f3a",
+        "skipped": []
+      },
+      "pipeline_commits": 1,
+      "pre_entries": {
+        "clone": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        },
+        "multicast": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        }
+      },
+      "probe_age_s": 0.92,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 4,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": true,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 0,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 0
+      },
+      "table_generation": "7d8fc028b4a1400187ae3de0acf856a1",
+      "telemetry": {
+        "clone_session": true,
+        "packet_in_ids": {
+          "egress_port": 3,
+          "frame_length": 4,
+          "ingress_port": 2,
+          "reason": 1,
+          "sampling_rate": 5
+        },
+        "reason": "cooperative telemetry: the pipeline clones 1-in-N to the CPU port and this proxy emits sFlow as 192.168.123.18",
+        "sflow_registered": true,
+        "source": "cooperative"
+      }
+    },
+    "9": {
+      "capabilities": {
+        "binding_source": "baseline",
+        "five_tuple": true,
+        "ipv4_route": "ndtwin",
+        "link_discovery": "lldp",
+        "reroute": true
+      },
+      "entries_recorded": 0,
+      "flow_stats": {
+        "unrendered_entries": null
+      },
+      "grpc_addr": "localhost:30059",
+      "last_lldp_age_s": 3.966,
+      "last_packet_in_age_s": 2.442,
+      "oldest_rule_installed_at": 1790438406.8355215,
+      "pipeline": {
+        "ndtwin": true,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt",
+        "p4info_sha256": "d54ff55208340f3a",
+        "skipped": []
+      },
+      "pipeline_commits": 1,
+      "pre_entries": {
+        "clone": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        },
+        "multicast": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        }
+      },
+      "probe_age_s": 0.919,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 4,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": true,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 0,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 0
+      },
+      "table_generation": "f77ce53d742c4c7e9e05949dfe902284",
+      "telemetry": {
+        "clone_session": true,
+        "packet_in_ids": {
+          "egress_port": 3,
+          "frame_length": 4,
+          "ingress_port": 2,
+          "reason": 1,
+          "sampling_rate": 5
+        },
+        "reason": "cooperative telemetry: the pipeline clones 1-in-N to the CPU port and this proxy emits sFlow as 192.168.123.19",
+        "sflow_registered": true,
+        "source": "cooperative"
+      }
+    }
+  }
+}

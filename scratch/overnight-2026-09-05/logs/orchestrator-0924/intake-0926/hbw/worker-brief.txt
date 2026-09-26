@@ -1,0 +1,20 @@
+===== 2026-09-26T05:41:20.641Z
+You are an opus worker on NDTwin-Kernel doing **segment W of TICKET-P4-heartbeat** (the second cut: veth heartbeat on a foreign P4 fabric — detection + automatic reroute). Read /home/adam/Desktop/NDTwin-Kernel/CLAUDE.md first and follow it strictly.
+
+## Read first
+- The ticket: `doc/audit/2026-09-25_p4-heartbeat/TICKET-P4-heartbeat.md` — Adam's rulings (top), §1 段 W (your scope), §2 驗收 (offline is yours; live H1–H5 is the orchestrator's, you prepare `live-p1/08_heartbeat.sh`), §3 紀律 (violations = rejected).
+- Segment H summary incl. H.7 (the proxy-side contract proposal) and H.1 design (report file `/run/ndtwin-lab/heartbeat.json`, ethertype 0x88B5, the helper's `heartbeat start|stop|status`): `/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/hunt-0911/fix/P4-HB-SUMMARY.md`.
+- The first cut's design and the reserved hook `TopologyManager.report_external_link_state`: `doc/audit/2026-09-24_p4-driven-api-shape/TICKET-P4-roles.md` §2.4 and `ANALYSIS.md` §5.
+- Segment S results (just finished, PASS): detection report-level cut→not-heard median 14.30 s (max 14.38 s over two runs), restore 4.87 s; census 26 arms: 20 OK (no heartbeat frame at any host), 4 single-switch no-link, 2 designed not-built; no ruling-4 stop. Raw: `doc/audit/2026-09-25_p4-heartbeat/spike/runs/2026-09-26T052148Z_S_heartbeat/` (in the main checkout, read-only). The spike's `hb_watch.py` shows how the report is read and how "not heard" is judged with the proxy's constants — reuse the rule, do not invent a second one.
+
+## Where you work
+Worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926, branch `feat/p4-heartbeat-w-0926`, from trunk `580767a8`. Commit only there (`git commit -m ... -- <files>`, new files `git add -N`); no push/merge; do not touch the main checkout or other worktrees. The worktree has no `p4_proxy/venv` ⇒ use `PYTHON=/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python` for proxy tests. Any C++ build or gate goes through `env JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh <cmd>` (this laptop gets OOM-killed otherwise; never raw `ninja -j$(nproc)`). **No lab** in this assignment: no `ndt up/down/claim`, no live runs — the orchestrator runs H1–H5 after merging. Never `pkill -f`/`pgrep -f`. Do not leave background processes when you finish.
+
+## Hard constraints
+- **Do not change `tools/test_workflow/ndtwin-lab`** (the root helper; its sha is pinned and installed; changing it needs Adam to reinstall). If W truly cannot be done without a helper change, STOP and report exactly what and why — do not change it.
+- The proxy does not get root (ruling 3): it reads what the root helper reports.
+- NDTwin's own pipeline (LLDP) must not start the heartbeat (the helper refuses too); its behaviour must stay byte-identical — reuse the first cut's baseline-unchanged evidence chain (`/stats/flow` fixture etc.).
+- If anything you find suggests the heartbeat changes a user's forwarding results, stop and report (ruling 4).
+
+## Deliverable
+Per the ticket: red-first tests in separate commits, named mutations with 0 survivors, `check_gate_anchors` ok, p4_proxy full suite + p4_exercise + drive_exercise green, logs `logs/gates-0910/*.p4hbw-*.log` (first line full sha, last line real rc), the live script `live-p1/08_heartbeat.sh` (claims/releases itself, snapshots/restores knobs like 07; learn from the spike's teardown lessons: retract `measuring=` before any `ndt down`, never release when a down was refused, CLAIM_MINUTES must not be shadowed by `_common.sh`, always require an explicit NDT_OWNER), self-tested offline. Write your SUMMARY section into `/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/hunt-0911/fix/P4-HBW-SUMMARY.md` (Chinese; OBSERVED/INFERRED separated; head sha and every gate's last line at the end) — if you cannot write there, put the full SUMMARY in your final reply. Final reply: head sha, commits, what H1–H5 need from the orchestrator (lab time, anything Adam must do), and `DELIVERED <sha>`. Stop after delivering; do not start the next segment.

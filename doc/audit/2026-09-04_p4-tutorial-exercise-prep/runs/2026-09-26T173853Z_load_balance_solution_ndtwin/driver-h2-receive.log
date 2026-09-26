@@ -1,0 +1,239 @@
+sniffing on eth0
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = tcp
+     chksum    = 0x65bc
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ TCP ]### 
+        sport     = 60796
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x4704
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 1'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = tcp
+     chksum    = 0x65bc
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ TCP ]### 
+        sport     = 60858
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x45c6
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 2'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = tcp
+     chksum    = 0x65bc
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ TCP ]### 
+        sport     = 54778
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x5c86
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 3'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = tcp
+     chksum    = 0x65bc
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ TCP ]### 
+        sport     = 61585
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x40ef
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 4'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = tcp
+     chksum    = 0x65bc
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ TCP ]### 
+        sport     = 49802
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x6cf6
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 6'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = tcp
+     chksum    = 0x65bc
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ TCP ]### 
+        sport     = 63597
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x3613
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 7'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = tcp
+     chksum    = 0x65bc
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ TCP ]### 
+        sport     = 64590
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x3132
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 8'
+

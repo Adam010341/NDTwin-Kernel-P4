@@ -38,3 +38,12 @@
 3. §2.4「orchestrator 已決定」需附出處。
 小瑕疵：§1.2「不是心跳比較快或比較慢」只對剪線方向成立；§2.3 最壞相位列漏「pass 耗時」；§1.1「≤15 s」嚴格是「≤15 s＋輪詢」；§2.2 中位數精度混用（14.2935、4.8675、0.0715）；§3.2「取自 bmv2 的 argv」出處是 READ（manifest 啟動指令）。
 公開性：舊的 push log 沒記錄讀回指令，證明不了「未認證」⇒ orchestrator 其後補了 `public-verify-20260926T063944Z.log`（指令逐行印出：`GIT_TERMINAL_PROMPT=0 git -c credential.helper= -c core.askPass= ls-remote https://…` 兩 repo 皆讀回 `1fafa3a0`；無憑證 `curl` 兩 repo `/tree/audit-raw` 皆 HTTP 200）。
+
+---
+
+# 第三版（`c708f558`，去相位結果補節）：**MERGE AFTER FIXES**
+
+（同一位 opus-judge；要點。新增數字全部從 raw 重算吻合：R3/R4 各 31 欄、逐列 CLOCK_MONOTONIC 重算 0.001 s 內、§2.4.2 13 列×2、§2.4.3 分箱、覆蓋、對照、報告檔。）
+- **Blocking 1：run 4 cycle 8 的復原是量測假象。** t1a＝48770.853069、t1＝48770.934670；被剪兩向在 48770.92199 已被聽到（t1a 後 69 ms、t1 前 12.7 ms——netem 已拿掉，幀通過）；t1 是 tc 返回後另起 `now` 行程量的，晚於實際復原；`up_detail` 要求「在 t1 之後聽到」（`hb_watch.py:626`）⇒ 丟掉這一輪、改等下一輪 ⇒ up_s 4.988、up_rpt_s 5.488 是假的；第一份顯示兩向 heard 的報告其實距 t1 0.488 s。只有 c8 受影響。排除後：合併 up_s 0.070–4.864、up_rpt_s 0.571–5.364（最大值 run 3 c10）；W 層級實測最壞 10.364 s（常數 ≤10.5 s 不變）；run 4（n=19）up_s 0.070／1.790／4.613、up_rpt_s 0.571／2.290／5.114。§4.4 補 spike 缺陷：復原視窗 (t1a, t1] 內聽到的幀被丟；t0、t1 用另一行程量，比 tc 實際生效晚。§5.1 說 H1 可沿用這套工具 ⇒ 缺陷會被帶進 H1，必須寫明。
+- **Blocking 2：** 「run 3–4 raw 只在主 checkout」已過時 ⇒ 引 `push-audit-raw-e812cf9c.log:12-15`（未認證讀回 e812cf9c）；對 e812cf9c 重做 CHECKED sha256，log3/log4 是否在內照實寫。
+- Notes：3「現行兩步剪法達不到 φ→0」寫太滿——這次是 sweep 設計刻意避開（`SWEEP_FIRST_S=0.05`、`SWEEP_LAST_GAP_S=0.15`），真實故障 φ→0 可達；4 t0／t1 比 tc 實際生效晚約 20–40 ms，從「兩端都斷」算起實測最壞 φ 約 0.10 s、W 層級約 19.90 s；「A 端／B 端」不是 cut_tc_s 的分解；5 H1 判準：φ→0 時預算是 0 s，應以「20 s＋實測 pass／讀檔／HTTP／kernel 耗時」判，並在 tc 實際生效處打時戳、標出剪線與復原視窗內被聽到的幀；6 sweep 精度檢查只驗 t0a 準到 1 ms；7 決定出處應引 log3:2、log4:2；8 小處（run 4 c15 不是 run 1–2 的同一相位、§4.1 行號要標 commit、§5.1 對照不是兩端都剪）。

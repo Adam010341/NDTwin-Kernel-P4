@@ -1,0 +1,48 @@
+# HEAD 5bb5f1fa8591151faea71217f6df8de81ce22e9d  pins unchanged since 08483aa5, gate anchors, the two shell tests, rehearsal logs at this sha, publication scan
+# 2026-09-26T10:44:46Z  worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-pb5-merge-prep-0926
+== (a) requirement lines (non-comment) 08483aa5 vs HEAD
+identical
+== (b) check_gate_anchors.py HEAD
+119/119 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+== (c) tests/shell/test_up_ovs_wedge_guard.sh (through the guard)
+Ran 10 checks, all passed
+rc=0
+== (c) tests/shell/test_l1_shell_scoring.sh (through the guard)
+Ran 95 checks, 12 failed
+rc=1
+== (d) failure-injection logs at this sha
+fi_S01_happy.pb5prep-5bb5f1fa.log
+fi_S02_no_window.pb5prep-5bb5f1fa.log
+fi_S03_foreign_claim.pb5prep-5bb5f1fa.log
+fi_S04_already_protobuf5.pb5prep-5bb5f1fa.log
+fi_S05_symlink.pb5prep-5bb5f1fa.log
+fi_S06_park_occupied.pb5prep-5bb5f1fa.log
+fi_S07_park_other_fs.pb5prep-5bb5f1fa.log
+fi_S08_base_minor.pb5prep-5bb5f1fa.log
+fi_S09b_in_use_relative.pb5prep-5bb5f1fa.log
+fi_S09_in_use_maps.pb5prep-5bb5f1fa.log
+fi_S10_baseline_fails.pb5prep-5bb5f1fa.log
+fi_S11_move_fails.pb5prep-5bb5f1fa.log
+fi_S12_V_reappears.pb5prep-5bb5f1fa.log
+fi_S13_pip_fails_then_repaste.pb5prep-5bb5f1fa.log
+fi_S14_regen_fails.pb5prep-5bb5f1fa.log
+fi_S15_pipcheck_then_fix.pb5prep-5bb5f1fa.log
+fi_S16_backend.pb5prep-5bb5f1fa.log
+fi_S17_suites_differ.pb5prep-5bb5f1fa.log
+fi_S18_fingerprint_mismatch.pb5prep-5bb5f1fa.log
+fi_S19_rollback_in_place.pb5prep-5bb5f1fa.log
+fi_S20_claim_expires.pb5prep-5bb5f1fa.log
+fi_S21_claim_taken.pb5prep-5bb5f1fa.log
+fi_S22_rb2_in_use.pb5prep-5bb5f1fa.log
+fi_S23_rb3_after_move.pb5prep-5bb5f1fa.log
+fi_S24_inplace_failures.pb5prep-5bb5f1fa.log
+fi_summary-184418.pb5prep-5bb5f1fa.log
+25 of 25 GREEN
+rc=0
+== (e) added lines of 580767a83dea12e42755687d174af891b69deb97..HEAD
+  added lines: 421
+  naming /home/: 1
+254:+# /home/adam/p4dev-python-venv, and later under p4_proxy/venv -- l1_unit_tests.sh tries
+  key/token-shaped: 0
+  IPv4-shaped: 0
+rc=1

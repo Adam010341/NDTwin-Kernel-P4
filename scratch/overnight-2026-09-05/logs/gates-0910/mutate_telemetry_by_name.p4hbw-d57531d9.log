@@ -1,0 +1,113 @@
+d57531d9cf53b65ffaa8d904a7f7ff3689093860
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926  2026-09-26T08:31:04Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926
+# cmd bash tests/shell/mutate_telemetry_by_name.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_telemetry_by_name.sh
+interpreter: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926/p4_proxy/venv/bin/python
+baseline (must be green before any mutation):
+Ran 425 tests in 7.262s
+OK
+
+  caught   M-C1: the ids are the constants again, so another program's samples decode swapped (test_a_reordered_header_gives_reordered_ids went red)
+             also red: tests.test_packet_in_by_name.TheClientResolvesItsOwnIdsTest.test_a_foreign_pipeline_client_is_built_rather_than_refused
+             also red: tests.test_packet_in_by_name.TheDecoderUsesTheIdsItIsGivenTest.test_the_old_positional_numbering_can_also_drop_every_sample
+             also red: tests.test_packet_in_by_name.TheDecoderUsesTheIdsItIsGivenTest.test_the_old_positional_numbering_swaps_the_two_ports_without_complaining
+             also red: tests.test_packet_in_by_name.TheIdsComeFromTheP4InfoTest.test_a_missing_field_raises_and_names_it
+             also red: tests.test_packet_in_by_name.TheIdsComeFromTheP4InfoTest.test_an_offset_header_is_followed_rather_than_assumed
+             also red: tests.test_packet_in_by_name.TheIdsComeFromTheP4InfoTest.test_a_pipeline_with_no_controller_header_names_all_five
+             also red: tests.test_packet_in_by_name.TheIdsComeFromTheP4InfoTest.test_a_reordered_header_gives_reordered_ids
+             also red: tests.test_packet_in_by_name.TheIdsComeFromTheP4InfoTest.test_the_id_is_the_compilers_number_and_not_the_fields_position
+             also red: tests.test_readopt.ThePackageHalfOfReadoptTest.test_a_readopted_foreign_switch_without_the_header_still_gets_none
+             also red: tests.test_startup.TelemetrySourceTest.test_the_endpoint_answers_the_same_before_startup_has_run
+  caught   M-C2: a pipeline with no controller header resolves to something instead of raising (test_a_pipeline_with_no_controller_header_names_all_five went red)
+             also red: tests.test_packet_in_by_name.TheClientResolvesItsOwnIdsTest.test_a_foreign_pipeline_client_is_built_rather_than_refused
+             also red: tests.test_packet_in_by_name.TheClientResolvesItsOwnIdsTest.test_a_packet_in_on_a_foreign_pipeline_reaches_the_discovery_path
+             also red: tests.test_packet_in_by_name.TheIdsComeFromTheP4InfoTest.test_a_missing_field_raises_and_names_it
+             also red: tests.test_packet_in_by_name.TheIdsComeFromTheP4InfoTest.test_a_pipeline_with_no_controller_header_names_all_five
+  caught   M-C11: the id is the field POSITION rather than the number the compiler assigned (test_the_id_is_the_compilers_number_and_not_the_fields_position went red)
+             also red: tests.test_packet_in_by_name.TheIdsComeFromTheP4InfoTest.test_the_id_is_the_compilers_number_and_not_the_fields_position
+  caught   M-C12: an LLDP beacon puts its egress port in whatever field is numbered 1 (test_a_reordered_packet_out_header_is_followed went red)
+             also red: tests.test_packet_in_by_name.ThePacketOutIsByteIdenticalOnNdtwinsPipelineTest.test_a_pipeline_with_no_packet_out_header_refuses_rather_than_inventing_an_id
+             also red: tests.test_packet_in_by_name.ThePacketOutIsByteIdenticalOnNdtwinsPipelineTest.test_a_reordered_packet_out_header_is_followed
+  caught   M-C3: a clone session goes in under link telemetry, and every rate reads double (test_link_on_ndtwins_pipeline_programs_no_clone_and_registers_nothing went red)
+             also red: tests.test_startup.TelemetrySourceTest.test_link_on_ndtwins_pipeline_programs_no_clone_and_registers_nothing
+             also red: tests.test_startup.TelemetrySourceTest.test_none_on_ndtwins_pipeline_samples_nothing_at_all
+  caught   M-C4: a switch that samples nothing is registered with the emitter anyway  (test_none_on_ndtwins_pipeline_samples_nothing_at_all went red)
+             also red: tests.test_startup.AForeignPipelineTest.test_a_foreign_pipeline_gets_no_clone_session_and_no_sflow_registration
+             also red: tests.test_startup.AForeignPipelineTest.test_an_ndtwin_switch_beside_a_foreign_one_keeps_its_clone_session
+             also red: tests.test_startup.AnExternalControlPlaneTest.test_an_external_control_plane_programs_no_clone_session
+             also red: tests.test_startup.TelemetryIsIndependentOfBeingClaimedTest.test_a_switch_with_no_agent_ip_gets_no_telemetry_but_is_still_claimed
+             also red: tests.test_startup.TelemetrySourceTest.test_an_external_control_plane_still_writes_nothing_whatever_the_source_says
+             also red: tests.test_startup.TelemetrySourceTest.test_link_on_a_foreign_pipeline_is_still_link_and_still_writes_nothing
+             also red: tests.test_startup.TelemetrySourceTest.test_link_on_ndtwins_pipeline_programs_no_clone_and_registers_nothing
+             also red: tests.test_startup.TelemetrySourceTest.test_none_on_ndtwins_pipeline_samples_nothing_at_all
+             also red: tests.test_startup.TelemetrySourceTest.test_the_same_program_under_auto_is_still_link
+  caught   M-C5: cooperative on a pipeline that cannot carry it is accepted, and reports zero (test_cooperative_on_a_foreign_pipeline_refuses_to_start went red)
+             also red: tests.test_startup.AForeignPipelineTest.test_a_foreign_pipeline_that_cannot_carry_the_header_still_gets_nothing
+             also red: tests.test_startup.TelemetrySourceTest.test_cooperative_on_a_foreign_pipeline_refuses_to_start
+             also red: tests.test_startup.TelemetrySourceTest.test_the_refusal_happens_before_the_pipeline_push
+  caught   M-C13: the knob path a caller names is dropped, so --telemetry reaches nothing (test_the_knob_beats_the_package went red)
+             also red: tests.test_startup.TelemetrySourceTest.test_a_refusal_from_the_package_reader_arrives_as_a_telemetry_refusal
+             also red: tests.test_startup.TelemetrySourceTest.test_the_knob_beats_the_package
+             also red: tests.test_startup.TheOneImplementationTest.test_every_cell_of_the_grid_agrees
+  caught   M-C14: a knob word app_package refused is swallowed into a silent default  (test_a_refusal_from_the_package_reader_arrives_as_a_telemetry_refusal went red)
+             also red: tests.test_startup.TelemetrySourceTest.test_a_refusal_from_the_package_reader_arrives_as_a_telemetry_refusal
+  caught   M-C6: a counter this pipeline does not have reads as a measurement of zero (test_a_counter_this_pipeline_does_not_have_is_404 went red)
+             also red: tests.test_counter_route.TheRefusalsTest.test_a_counter_this_pipeline_does_not_have_is_404
+  caught   M-C15: a failed read answers 200 with zeroes, which is the instrument's own finding (test_a_failed_read_is_503_rather_than_a_zero went red)
+             also red: tests.test_counter_route.TheRefusalsTest.test_a_failed_read_is_503_rather_than_a_zero
+             also red: tests.test_counter_route.TheRefusalsTest.test_an_index_with_no_entry_is_503_and_says_it_is_not_a_zero
+  caught   M-C7: a replica goes out with no instance, so two of them collapse into one (test_instance_defaults_to_one_rather_than_zero went red)
+             also red: tests.test_multicast_group.TheRouteTest.test_a_good_group_is_200_and_reaches_the_switch
+             also red: tests.test_multicast_group.TheWriterTest.test_an_insert_carries_the_group_and_every_replica
+             also red: tests.test_multicast_group.TheWriterTest.test_instance_defaults_to_one_rather_than_zero
+  caught   M-C16: a group declaring one replica twice is accepted and is quietly smaller (test_the_same_port_and_instance_twice_is_refused_and_names_the_pair went red)
+             also red: tests.test_multicast_group.TheRouteTest.test_a_duplicated_replica_is_400_and_writes_nothing
+             also red: tests.test_multicast_group.TheWriterRefusesTest.test_the_same_port_and_instance_twice_is_refused_and_names_the_pair
+  caught   M-C8: a group the switch refused is counted as applied, so failed==0 says nothing (test_a_refused_group_is_counted_as_failed_not_applied went red)
+             also red: tests.test_multicast_group.ThePackagesPreEntriesTest.test_a_raising_writer_is_counted_as_failed_and_does_not_escape
+             also red: tests.test_multicast_group.ThePackagesPreEntriesTest.test_a_refused_group_is_counted_as_failed_not_applied
+             also red: tests.test_startup.ThePackagesPreEntriesAtStartupTest.test_a_refused_group_is_counted_as_failed
+  caught   M-C17: a package's multicast group is never programmed, so its hosts never receive (test_a_declared_group_is_programmed_on_ndtwins_own_pipeline_too went red)
+             also red: tests.test_startup.ThePackagesPreEntriesAtStartupTest.test_a_declared_clone_session_is_programmed_with_its_own_id
+             also red: tests.test_startup.ThePackagesPreEntriesAtStartupTest.test_a_declared_group_is_programmed_on_ndtwins_own_pipeline_too
+             also red: tests.test_startup.ThePackagesPreEntriesAtStartupTest.test_a_refused_group_is_counted_as_failed
+  caught   M-C18: the baseline clone session's replica changes instance, so a warm PRE stacks (test_no_replicas_argument_writes_one_replica_to_the_cpu_port went red)
+             also red: tests.test_clone_session.CloneSessionRequestTest.test_the_replica_targets_the_cpu_port
+             also red: tests.test_multicast_group.TheDefaultCloneSessionIsUnchangedTest.test_no_replicas_argument_writes_one_replica_to_the_cpu_port
+  caught   M-C10: a dead link emitter is reported alive, and link telemetry samples into nothing (test_a_pid_that_is_not_the_emitter_reads_dead went red)
+             also red: tests.test_switch_state.TheLinkEmitterSummaryTest.test_a_manifest_with_no_pid_is_not_alive
+             also red: tests.test_switch_state.TheLinkEmitterSummaryTest.test_a_pid_that_is_not_the_emitter_reads_dead
+  caught   M-C21: the emitter's switches come back as text nobody can match to a dpid (test_the_switches_come_back_as_dpids_and_not_as_stringified_objects went red)
+             also red: tests.test_switch_state.TheLinkEmitterSummaryTest.test_the_switches_come_back_as_dpids_and_not_as_stringified_objects
+  caught   M-C22: a switch that got a clone session is reported as having skipped it  (test_that_switch_says_it_skipped_nothing went red)
+             also red: tests.test_readopt.ThePackageHalfOfReadoptTest.test_a_readopted_foreign_switch_with_the_header_keeps_its_clone_session
+             also red: tests.test_startup.TelemetrySourceTest.test_that_switch_says_it_skipped_nothing
+             also red: tests.test_startup.TelemetrySourceTest.test_the_endpoint_answers_the_same_before_startup_has_run
+  caught   M-C23: readopt withholds the clone session from a program that can carry it (test_a_readopted_foreign_switch_with_the_header_keeps_its_clone_session went red)
+             also red: tests.test_readopt.ThePackageHalfOfReadoptTest.test_a_readopted_foreign_switch_with_the_header_keeps_its_clone_session
+  caught   M-C19: switch_state stops saying where each switch's samples come from     (test_each_switch_carries_its_own_telemetry_object went red)
+             also red: tests.test_switch_state.TheTelemetryDisclosureTest.test_a_switch_the_report_does_not_mention_gets_null_rather_than_no_key
+             also red: tests.test_switch_state.TheTelemetryDisclosureTest.test_each_switch_carries_its_own_telemetry_object
+             also red: tests.test_switch_state.TheTelemetryDisclosureTest.test_the_five_ids_are_disclosed_by_name
+  caught   M-C20: every switch is reported cooperative whatever it was configured for (test_link_on_ndtwins_pipeline_programs_no_clone_and_registers_nothing went red)
+             also red: tests.test_startup.AForeignPipelineTest.test_a_foreign_pipeline_gets_no_clone_session_and_no_sflow_registration
+             also red: tests.test_startup.AForeignPipelineTest.test_an_ndtwin_switch_beside_a_foreign_one_keeps_its_clone_session
+             also red: tests.test_startup.AForeignPipelineTest.test_the_entries_go_on_after_the_pipeline_that_defines_their_tables
+             also red: tests.test_startup.AForeignPipelineTest.test_the_per_switch_skips_are_not_in_the_fabric_wide_list
+             also red: tests.test_startup.TelemetrySourceTest.test_a_plain_foreign_program_still_says_both_were_skipped
+             also red: tests.test_startup.TelemetrySourceTest.test_link_on_a_foreign_pipeline_is_still_link_and_still_writes_nothing
+             also red: tests.test_startup.TelemetrySourceTest.test_link_on_ndtwins_pipeline_programs_no_clone_and_registers_nothing
+             also red: tests.test_startup.TelemetrySourceTest.test_none_on_a_foreign_pipeline_writes_nothing
+             also red: tests.test_startup.TelemetrySourceTest.test_none_on_ndtwins_pipeline_samples_nothing_at_all
+             also red: tests.test_startup.TelemetrySourceTest.test_the_same_program_under_auto_is_still_link
+             also red: tests.test_startup.TelemetrySourceTest.test_the_same_program_under_link_gets_nothing_and_says_both_were_skipped
+  green    N1 (control): a comment-only edit beside the by-name lookup                (the whole suite stays green)
+  green    N2 (control): the same empty dict written the long way                     (the whole suite stays green)
+
+baseline byte-identical: yes (4 sources, 8 test files)
+mutation gate: 22 mutations, 0 survived
+guarded_build: exit 0
+# rc=0

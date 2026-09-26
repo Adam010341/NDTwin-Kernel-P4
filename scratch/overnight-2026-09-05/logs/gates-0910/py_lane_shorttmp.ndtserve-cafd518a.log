@@ -1,0 +1,40 @@
+cafd518ad654740f46341b389ea8ffcbeaddf810
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-anchors-0926  2026-09-26T16:04:51Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-anchors-0926
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-ndtserve-cafd518a-base2/py_lane.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-anchors-0926 /tmp/claude-1000/ns/py_lane_cafd518a
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-anchors-0926/tools/build_guard/guarded_build.sh
+# EXPECTED rc=1: this machine's L1 interpreter (ryu env, Python 3.8): files that are not PASS on it at the base too -- the differential is the point
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-ndtserve-cafd518a-base2/py_lane.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-anchors-0926 /tmp/claude-1000/ns/py_lane_cafd518a
+HEAD cafd518ad654740f46341b389ea8ffcbeaddf810   interpreter /home/adam/miniconda3/envs/ryu-env/bin/python (Python 3.8.20)
+  test_app_residue_rules.py                PASS 41 ran and passed
+  test_chaos_c07_control.py                FAIL (exit 1, ran=0)
+  test_chaos_invariants_method.py          FAIL (exit 1, ran=0)
+  test_chaos_link_blackhole_attach.py      FAIL (exit 1, ran=0)
+  test_chaos_opt_in_all_actions.py         FAIL (exit 1, ran=0)
+  test_chaos_runner_wiring.py              FAIL (exit 1, ran=0)
+  test_check_gate_anchors.py               FAIL 2 skip(s)
+  test_check_logs_powered_off.py           PASS 22 ran and passed
+  test_check_logs_startup_warnings.py      PASS 5 ran and passed
+  test_check_test_tmpdirs.py               PASS 58 ran and passed
+  test_contract_spec.py                    PASS 256 ran and passed
+  test_cpu_gate_lifetime.py                PASS 22 ran and passed
+  test_find_host_by_ip.py                  PASS 5 ran and passed
+  test_grpc_port_block.py                  FAIL (exit 1, ran=31)
+        FAIL: test_no_live_doc_or_tool_names_the_old_block (__main__.NoLiveDocumentStillNamesTheOldPortBlock)
+        FAIL: test_the_topology_takes_its_ports_from_the_module (__main__.TheFabricAndTheProxyAgreeOnThePortBlock)
+  test_host_discovery_gate.py              PASS 14 ran and passed
+  test_known_issues_references.py          PASS 44 ran and passed
+  test_l3_dispatch_drift.py                FAIL (exit 1, ran=12)
+        ERROR: test_a_deleted_route_in_a_fixture_still_drifts (__main__.ItCanStillSayNo)
+        ERROR: test_a_pathis_route_missing_from_the_table_still_drifts (__main__.ItCanStillSayNo)
+        ERROR: test_a_wrong_verb_still_drifts (__main__.ItCanStillSayNo)
+        ERROR: test_an_unregistered_name_in_the_table_still_drifts (__main__.ItCanStillSayNo)
+  test_lldp_backoff.py                     PASS 5 ran and passed
+  test_make_topology.py                    PASS 29 ran and passed
+  test_ndt_serve_cells.py                  FAIL (exit 1, ran=35)
+        FAIL: test_cells_are_the_grids_own_list (__main__.CellsCatalog)
+        FAIL: test_cell_run_is_a_job_with_the_grids_own_argv (__main__.CellsRun)
+Terminated
+guarded_build: exit 143
+# ABORTED by the worker at 2026-09-26T16:05:43Z: TMPDIR here was a SYMLINK into the scratchpad, which fails test_ndt_serve's Identity.test_jobs_run_the_ndt_resolved_at_start (the service resolves the ndt's real path); superseded by *_tmpshort with a real short directory

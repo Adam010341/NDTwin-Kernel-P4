@@ -1,0 +1,41 @@
+1a3ebd7f9ffb14ab922e844fb3f7ace7abdf405f
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926  2026-09-26T12:16:37Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926
+# cmd bash tests/shell/mutate_ndt_round_baseline.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_ndt_round_baseline.sh
+baseline (the suite must be green before any mutation):
+Ran 117 checks, 0 failed
+
+  caught   N1: the alarm goes back to asking git                    (🔴 the alarm fires anyway went red)
+  caught   N2: git_lines returns early on a clean tree              (🔴 and the knob is still checked went red)
+  caught   N3 (widening): the round baseline is never consulted     (it says the value matches what the round started with went red)
+  caught   N4: the row stops saying git calls the file clean        (🔴 and saying the thing that made this invisible went red)
+  caught   N5: the restore advice becomes the one that gives 128    (  it hands over the restore command went red)
+  caught   N5b: the 'not git checkout --' warning is dropped        (🔴 and warns against the one that gives 128 went red)
+  caught   N6: a path that LEFT the uncommitted set is not named    (🔴 the set difference names the path that LEFT went red)
+  caught   N7: a path that JOINED the set is not named              (🔴 a path that JOINED the set is named too went red)
+  caught   N8: the baseline stores no file list                     (  and both dirty paths went red)
+  caught   N9 (widening): no baseline is reported as a match        (it says there is nothing to compare against went red)
+  caught   N10: git_lines stops running the knob check              (git_lines runs the knob check went red)
+  caught   N11: 'ndt claim' stops recording the round               (🔴 and it wrote the baseline went red)
+  caught   N12: NOT RESTORED prints red and raises nothing          (🔴 and it is listed as a problem went red)
+  caught   N13: cmd_status stops merging the knob problems          (🔴 --check exits 1 (it exited 0 over this at 04:36) went red)
+  caught   N14 (widening): the no-baseline value is a problem too   (🔴 but it is not a problem went red)
+  caught   N15: 'ndt release' leaves the round baseline behind      (🔴 the round baseline is gone went red)
+  caught   N16: the baseline is retired under a different name      (🔴 and kept as .prev, not deleted went red)
+  caught   N17 (widening): 'no claim to release' retires it anyway  (🔴 and leaves the baseline where it is went red)
+  caught   N18: 'ndt up p4' leaves no note that it wrote the knob   (🔴 the baseline records that ndt wrote it went red)
+  caught   N19: the value 'ndt up' wrote is a --check problem again (🔴 --check is green (rc 1 for the whole round before E-9b) went red)
+  caught   N20 (widening): a hand edit is excused too               (🔴 and still a problem went red)
+  caught   N21 (widening): no note is read as 'ndt wrote it'        (🔴 no note means NOT RESTORED, exactly as before went red)
+  caught   N22: 'ndt release' does not look at the knob             (🔴 release refuses went red)
+  caught   N23: '--force' does not release either                   (🔴 --force releases anyway went red)
+  caught   N24 (widening): release refuses even with the knob back  (release succeeds went red)
+  caught   N25 (widening): what 'ndt up' wrote is released without a word (🔴 but release still refuses went red)
+
+baseline byte-identical: yes  tools/test_workflow/ndt  sha256 6e8bcf96307efd1c2fbe770a5bb64099f99925303e7187bcfda9995afede5410
+mutation gate: 26 mutations, 0 survived
+guarded_build: exit 0
+# rc=0

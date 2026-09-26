@@ -1,0 +1,28 @@
+# HEAD 5bb5f1fa8591151faea71217f6df8de81ce22e9d  failure-injection rehearsal summary (fi_<scenario>.pb5prep-5bb5f1fa.log)
+GREEN S01_happy
+GREEN S02_no_window
+GREEN S03_foreign_claim
+GREEN S04_already_protobuf5
+GREEN S05_symlink
+GREEN S06_park_occupied
+GREEN S07_park_other_fs
+GREEN S08_base_minor
+GREEN S09_in_use_maps
+GREEN S09b_in_use_relative
+GREEN S10_baseline_fails
+GREEN S11_move_fails
+GREEN S12_V_reappears
+GREEN S13_pip_fails_then_repaste
+GREEN S14_regen_fails
+GREEN S15_pipcheck_then_fix
+GREEN S16_backend
+GREEN S17_suites_differ
+GREEN S18_fingerprint_mismatch
+GREEN S19_rollback_in_place
+GREEN S20_claim_expires
+GREEN S21_claim_taken
+GREEN S22_rb2_in_use
+GREEN S23_rb3_after_move
+GREEN S24_inplace_failures
+25 of 25 GREEN
+rc=0

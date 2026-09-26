@@ -1,0 +1,16 @@
+d57531d9cf53b65ffaa8d904a7f7ff3689093860
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926  2026-09-26T07:58:59Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926
+# cmd env HOME=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/emptyhome PYTHONDONTWRITEBYTECODE=1 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926/p4_proxy/venv/bin/python -m unittest discover -s tools/p4_exercise/tests -t tools/p4_exercise/tests
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env HOME=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/emptyhome PYTHONDONTWRITEBYTECODE=1 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926/p4_proxy/venv/bin/python -m unittest discover -s tools/p4_exercise/tests -t tools/p4_exercise/tests
+..../home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926/p4_proxy/venv/lib/python3.13/site-packages/google/protobuf/internal/well_known_types.py:91: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+  _EPOCH_DATETIME_NAIVE = datetime.datetime.utcfromtimestamp(0)
+......s................................................................................................................................................................................
+----------------------------------------------------------------------
+Ran 187 tests in 1.722s
+
+OK (skipped=1)
+guarded_build: exit 0
+# rc=0

@@ -1,0 +1,146 @@
+diff --git a/p4_proxy/requirements.txt b/p4_proxy/requirements.txt
+index 87e64950..dc797ea5 100644
+--- a/p4_proxy/requirements.txt
++++ b/p4_proxy/requirements.txt
+@@ -53,8 +53,8 @@
+ #      locally in CI's shape (3.12.3 and no other interpreter with p4runtime; not on GitHub), had
+ #      22 of its 41 files fail without the third command -- 21 dying at import, one whose proxy
+ #      subprocess did -- and none with it; the procedure at the end of this file was rehearsed on
+-#      stand-ins with every check made to fail in turn. Set C has not been run live, and an
+-#      install on a later day may resolve neither A nor C.
++#      stand-ins, its checks made to fail one at a time (which ones: HOW TO RUN IT, below). Set C
++#      has not been run live, and an install on a later day may resolve neither A nor C.
+ #
+ # Every package that p4_proxy/, its tests or tools/p4_exercise/ imports is pinned `==`, not `>=`
+ # -- starlette included, which is imported directly although it arrives as fastapi's dependency
+@@ -184,44 +184,57 @@ thrift==0.24.0
+ # tree skipping only directories named exactly `venv` would read it
+ # (tests/python/test_known_issues_references.py reads every text file under p4_proxy/).
+ #
+-# HOW TO RUN IT. Paste one block at a time into the shell its heading names. Every command after
+-# step 0 first checks that the one before it did its part: the first check that fails prints
+-# "STOP at <step>: ..." with what to do, and every command after it prints "(skipped ...)" and
+-# does nothing -- so a paste that runs on past a failure is harmless. Nothing rolls back by
+-# itself: after a STOP, read it, then paste ROLLBACK, or fix the cause and do what the STOP says.
+-# From step 1 on, every path is absolute and V is recorded beside the parked venv, so a rollback
+-# works from any directory. Rehearsed 2026-09-26 on stand-ins, with every check made to fail in
+-# turn (see the history near the top of this file).
++# HOW TO RUN IT. The commands are the lines below that start with `#   $ `: paste them WITHOUT that
++# prefix, one block at a time, into the shell the block's heading names. Every command after step
++# 0 first checks that the one before it did its part and that the window (step 0) still holds,
++# with at least 30 minutes left on the claim: the first check that fails prints "STOP at <step>:"
++# with what to do, and every command after it prints "(skipped ...)" and does nothing -- so a
++# paste that runs on past a failure is harmless. Nothing rolls back by itself: after a STOP, read
++# it, then paste ROLLBACK, or fix the cause and do what the STOP says. From step 1 on, every path
++# is absolute and V is recorded beside the parked venv, so a rollback works from any directory.
++# Rehearsed 2026-09-26 on stand-ins (a throwaway copy of the repo with a stub `ndt`, $HOME in a
++# scratch directory, the blocks fed to `bash -i` through a pipe rather than a terminal, a venv with
++# the development machine's versions but not its files). Made to fail there, one at a time: the
++# window, the claim running out or being taken mid-way, each check of steps 1-3, rb1-rb3, ip1-ip4
++# and a re-paste of steps 1-3 after a failure; step 4, step 5 and ip5 were run but not made to fail.
+ #
+ # 0. The window. TELL THE OTHER SESSIONS first, and again when it is over: the claim stops `ndt`
+ #    verbs and the build lock stops the gates that go through tools/build_guard, but nothing stops
+ #    a script that runs p4_proxy/venv outside the guard -- step 1 refuses while it can see one,
+ #    and cannot see one that starts later. In your usual shell, at the root of the main checkout:
+-#   $ export NDT_OWNER=p4-venv-migration NDT_MEASURING='p4_proxy venv migration: no runs, no gates'
++#   $ export NDT_OWNER=p4-venv-migration NDT_MEASURING='p4_proxy venv migration: no runs, no gates'; [ -z "${LOCK:-}${TIMEOUT:-}" ] || echo "WARNING: LOCK='${LOCK:-}' TIMEOUT='${TIMEOUT:-}' are set: the guard uses them (another lock file locks nothing; TIMEOUT kills the shell) -- unset them unless you mean it"
+ #   $ tools/test_workflow/ndt claim 90 'p4_proxy venv migration' && JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash -i
+-#    That opens a shell holding the build lock (it waits while a gate has it). Paste everything
+-#    below into THAT shell, up to step 5. Pasted into the first shell, it would run only after the
+-#    guarded one exits, without the lock -- and every command below refuses there.
++#    That claim tells everyone while you wait; the guard opens a shell holding the build lock
++#    once no gate has it, and step 1 takes the claim again there, so its 90 minutes start after
++#    the wait. Paste everything below into THAT shell, up to step 5. Pasted into the first shell,
++#    it would run only after the guarded one exits, without the lock -- and every command below
++#    refuses there.
+ #
+ # HELPERS -- into the guarded shell first (and into any new shell a ROLLBACK is pasted into).
+ #   $ unset PYTHONPATH PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION; export PYTHONDONTWRITEBYTECODE=1
+-#   $ at() { [ "${STEP:-}" = "$1" ] || { echo "  (skipped $2: an earlier command stopped)"; return 1; }; }
++#   $ at() { [ "${STEP:-}" = "$1" ] || { echo "  (skipped $2: an earlier command stopped)"; return 1; }; inwin || { echo "STOP at $2: renew the claim in this shell -- \"$R/tools/test_workflow/ndt\" claim 90 'p4_proxy venv migration' (same NDT_OWNER) -- then paste again from this command"; return 1; }; }
+ #   $ fp() { (cd "$1" && { find . -mindepth 1 -printf '%y %p %l\n'; find . -type f -exec sha256sum {} +; } | LC_ALL=C sort | sha256sum | cut -c1-64); }
+ #   $ pbver() { "$1/bin/python" -c 'import google.protobuf as g; print(g.__version__)' 2>/dev/null; }
+-#   $ inwin() { local e; e=$(sed -n 's/^expires=//p' "$R/.test_run/lab.claim" 2>/dev/null); [[ ":${NDTWIN_GUARD_HELD:-}:" == *":${LOCK:-/tmp/ndtwin-build.lock}:"* ]] && grep -qxF "owner=${NDT_OWNER:-}" "$R/.test_run/lab.claim" 2>/dev/null && [ "${e:-0}" -gt "$(date +%s)" ] || { echo "STOP: not inside step 0's window -- the shell guarded_build.sh opened, and ${NDT_OWNER:-NDT_OWNER}'s unexpired claim on $R"; return 1; }; }
++#   $ inguard() { [[ ":${NDTWIN_GUARD_HELD:-}:" == *":${LOCK:-/tmp/ndtwin-build.lock}:"* ]]; }
++#   $ inwin() { local e; e=$(sed -n 's/^expires=//p' "$R/.test_run/lab.claim" 2>/dev/null); inguard && grep -qxF "owner=${NDT_OWNER:-}" "$R/.test_run/lab.claim" 2>/dev/null && [ "${e:-0}" -gt "$(( $(date +%s) + 1800 ))" ] || { echo "STOP: not inside step 0's window -- the shell guarded_build.sh opened, and ${NDT_OWNER:-NDT_OWNER}'s claim on $R with 30 minutes or more left"; return 1; }; }
+ #   $ users() { local p a d; for p in /proc/[0-9]*; do [ "${p#/proc/}" = "$$" ] && continue; if grep -qF "$1/" "$p/maps" 2>/dev/null; then echo "${p#/proc/} maps it: $(tr '\0' ' ' < "$p/cmdline")"; continue; fi; d=$(readlink "$p/cwd" 2>/dev/null) || continue; while IFS= read -r -d '' a; do a=${a#./}; [[ "$a" == /* ]] || a=$d/$a; [[ "$a" == "$1"/* ]] && { echo "${p#/proc/} runs it: $(tr '\0' ' ' < "$p/cmdline")"; break; }; done < "$p/cmdline" 2>/dev/null; done; true; }
+ #   $ suites() { (cd "$R/p4_proxy" && PYTHONPATH=. "$1/bin/python" -m unittest $(ls tests/test_*.py | sed 's#/#.#; s#\.py$##')) 2>&1 | grep -E '^(Ran [0-9]+ tests|OK|FAILED)' | sed 's/ in [0-9.]*s$//'; (h=$(mktemp -d) && cd "$R" && HOME=$h "$1/bin/python" -m unittest discover -s tools/p4_exercise/tests -t tools/p4_exercise/tests; rm -rf "$h") 2>&1 | grep -E '^(Ran [0-9]+ tests|OK|FAILED)' | sed 's/ in [0-9.]*s$//'; }
+ #    users() lists every process that maps a file of the venv or names one in its argv (absolute,
+-#    or relative to its cwd); processes of other users (root) cannot be read and are not listed.
++#    or relative to its cwd). It does NOT see: processes of other users (root), whose files it
++#    cannot read; a pure-Python process that reaches the venv only through PYTHONPATH or
++#    VIRTUAL_ENV; a relative path with `..` in it, or one through a symlink. Hence "tell the others".
+ #    suites() runs the two suites the way step 3 compares them: the p4_proxy tests named as
+ #    modules (named as files, tests/test_psample_sflow_emitter.py in the argv makes the test
+ #    process pass for the sFlow emitter, and test_switch_state fails on it), tools/p4_exercise
+ #    with an empty HOME (with the real one, a fixture check compares files with ~/tutorials,
+ #    which live runs rebuild -- a check of files, not of the venv).
+ #
+-# 1. Check the old venv, run the suites on it for a baseline, record it, move it aside. Nothing
+-#    moves unless every check passes. From the main checkout's root, as the guarded shell starts.
+-#   $ STEP=; OV=; R=$PWD; V=$R/p4_proxy/venv; PARK=$HOME; inwin && STEP=1b && echo "V=$V"
++# 1. Take the claim again (its 90 minutes start now), check the old venv, run the suites on it for
++#    a baseline, record it, move it aside. Nothing moves unless every check passes. From the main
++#    checkout's root, as the guarded shell starts. The baseline runs the checkout's tests as they
++#    are: uncommitted changes in it can make them fail, and a STOP at 1f is then about the
++#    checkout, not the venv.
++#   $ STEP=; OV=; R=$PWD; V=$R/p4_proxy/venv; PARK=$HOME; inguard && "$R/tools/test_workflow/ndt" claim 90 'p4_proxy venv migration'; inwin && STEP=1b && echo "V=$V"
+ #   $ at 1b "1b, the old venv" && { test -d "$V" && test ! -L "$V" && OV=$(pbver "$V") && [[ "$OV" == 3.* ]] && STEP=1c || { STEP=; echo "STOP at 1b: $V is not a real directory whose python has protobuf 3 (it has '${OV:-none}'); this is only for that venv"; }; }
+ #   $ at 1c "1c, where to park" && { ! ls -d "$PARK"/p4_proxy-venv.protobuf*/ >/dev/null 2>&1 && [ "$(stat -c %d "$PARK")" = "$(stat -c %d "$V")" ] && STEP=1d || { STEP=; echo "STOP at 1c: $PARK already holds a parked p4_proxy venv (an earlier attempt: roll it back, or remove it once it is not needed), or is not on $V's filesystem"; }; }
+ #   $ at 1d "1d, the base python" && { BASE=$(sed -n 's/^home = //p' "$V/pyvenv.cfg")/python3 && [ "$("$BASE" -c 'import sys; print(sys.version_info[:2])')" = "$("$V/bin/python" -c 'import sys; print(sys.version_info[:2])')" ] && STEP=1e || { STEP=; echo "STOP at 1d: $BASE (pyvenv.cfg's home) is not the Python minor version $V runs: the new venv would be another interpreter"; }; }
+@@ -231,7 +244,7 @@ thrift==0.24.0
+ #
+ # 2. Build the new venv where the old one was: the three commands at the top of this file, with
+ #    the base python3 the old venv was made from. A STOP here: paste ROLLBACK.
+-#   $ at 1 "2a, the new venv" && { inwin && test -d "$OLD" && test ! -e "$V" && "$BASE" -m venv "$V" && STEP=2b || { STEP=; echo "STOP at 2a: no new venv made; the old one is parked at $OLD -- paste ROLLBACK"; }; }
++#   $ at 1 "2a, the new venv" && { test -d "$OLD" && test ! -e "$V" && "$BASE" -m venv "$V" && STEP=2b || { STEP=; echo "STOP at 2a: no new venv made; the old one is parked at $OLD -- paste ROLLBACK"; }; }
+ #   $ at 2b "2b, pip install" && { "$V/bin/pip" install -r "$R/p4_proxy/requirements.txt" && STEP=2c || { STEP=; echo "STOP at 2b: the install did not finish; the old venv is parked at $OLD -- paste ROLLBACK"; }; }
+ #   $ at 2c "2c, regen" && { "$V/bin/python" "$R/p4_proxy/regen_p4runtime_pb2.py" && STEP=2 || { STEP=; echo "STOP at 2c: the regeneration did not finish; the old venv is parked at $OLD -- paste ROLLBACK"; }; }
+ #
+@@ -250,16 +263,19 @@ thrift==0.24.0
+ #    ROLLBACK that printed "old venv restored unchanged" -- give the lab back, and tell the others.
+ #    On the development machine, also delete the two sentences near the top of this file that
+ #    say its venv is still the older set.
+-#   $ [ -z "${STEP+set}" ] && tools/test_workflow/ndt release || echo "STOP: this is the migration shell -- finish or roll back, exit it, then release from the shell of step 0"
++#   $ [ -z "${STEP+set}" ] && tools/test_workflow/ndt release || echo "STOP: STEP is set in this shell. If this IS the shell of step 0 (a block was pasted here by mistake), type unset STEP and paste step 5 again; if it is the migration shell, finish or roll back, exit it, then release from the shell of step 0"
+ #
+ # ROLLBACK, once step 1 has printed "parked:". In the migration shell as it is. From a new shell:
+ # take the window again (step 0, at the main checkout's root), paste HELPERS, and type
+-# OLD=<the name step 1 printed> (`ls -d ~/p4_proxy-venv.protobuf*/` shows it). V is read from
+-# $OLD.origin, so the directory you paste this in does not matter.
+-#   $ STEP=; test -n "${OLD:-}" && test -d "$OLD" && V=$(cat "$OLD.origin") && [[ "$V" == /*/p4_proxy/venv ]] && test ! -L "$V" && R=${V%/p4_proxy/venv} && inwin && STEP=rb1 || { STEP=; echo "STOP at rb1: OLD must name a parked venv with its .origin file, and this must run inside the window on the checkout it came from"; }
+-#   $ at rb1 "rb1, the parked venv" && { [ "$(fp "$OLD")" = "$(cat "$OLD.fingerprint")" ] && STEP=rb2 && echo "rolling back: $OLD -> $V" || { STEP=; echo "ERROR at rb1: $OLD is NOT byte-for-byte what step 1 parked (its fingerprint is not $OLD.fingerprint). Nothing was moved. Do not use it, do not delete anything, ask."; }; }
++# OLD=<the name step 1 printed> (`ls -d ~/p4_proxy-venv.protobuf*/` shows it; a trailing slash is
++# fine). V is read from $OLD.origin, so the directory you paste this in does not matter. If this
++# rolls back a migration already recorded here (step 5 deleted the two sentences near the top),
++# put them back in the same session, or revert the merge: this file must not describe a venv the
++# development machine does not have.
++#   $ STEP=; OLD=${OLD%/}; test -n "${OLD:-}" && test -d "$OLD" && V=$(cat "$OLD.origin") && [[ "$V" == /*/p4_proxy/venv ]] && test ! -L "$V" && R=${V%/p4_proxy/venv} && inwin && STEP=rb1 || { STEP=; echo "STOP at rb1: OLD must name a parked venv with its .origin file, and this must run inside the window on the checkout it came from"; }
++#   $ at rb1 "rb1, the parked venv" && { [ "$(fp "$OLD")" = "$(cat "$OLD.fingerprint")" ] && STEP=rb2 && echo "rolling back: $OLD -> $V" || { STEP=; echo "ERROR at rb1: $OLD is NOT byte-for-byte what step 1 parked (its fingerprint is not $OLD.fingerprint). Nothing was moved. Do not use it, do not delete anything. Renew the claim with the same owner, as a handoff note -- \"$R/tools/test_workflow/ndt\" claim 90 'p4_proxy venv migration STOPPED at rb1, see $OLD' -- tell the others, then ask."; }; }
+ #   $ at rb2 "rb2, the moves" && { [ -z "$(users "$V")" ] && { test ! -e "$V" || mv -T "$V" "$(dirname "$OLD")/p4_proxy-venv.failed-$(date +%Y%m%d-%H%M%S)"; } && mv -T "$OLD" "$V" && STEP=rb3 || { STEP=; echo "STOP at rb2: something runs from $V, or a move failed -- look at $V and $OLD before anything else"; }; }
+-#   $ at rb3 "rb3, the check" && { if [ "$(fp "$V")" = "$(cat "$OLD.fingerprint")" ]; then STEP=rb; echo "old venv restored unchanged: $V -- exit this shell, then step 5"; else STEP=; echo "ERROR at rb3: $V is NOT byte-for-byte the venv step 1 parked (its fingerprint is not $OLD.fingerprint), although it was before the move. Do not use it, do not delete anything, ask."; fi; }
++#   $ at rb3 "rb3, the check" && { if [ "$(fp "$V")" = "$(cat "$OLD.fingerprint")" ]; then STEP=rb; echo "old venv restored unchanged: $V -- exit this shell, then step 5"; else STEP=; echo "ERROR at rb3: $V is NOT byte-for-byte the venv step 1 parked (its fingerprint is not $OLD.fingerprint), although it was before the move. Do not use it, do not delete anything. Renew the claim with the same owner, as a handoff note -- \"$R/tools/test_workflow/ndt\" claim 90 'p4_proxy venv migration STOPPED at rb3, see $V' -- tell the others, then ask."; fi; }
+ #    The new venv, if there was one, is parked beside the old one as p4_proxy-venv.failed-<time>.
+ #
+ # ROLLBACK IN PLACE, only when there is no parked venv to move back. Moving protobuf back alone is
+@@ -268,9 +284,13 @@ thrift==0.24.0
+ # pins for protobuf, googleapis-common-protos and p4runtime; setuptools stays, and everything else
+ # keeps the version it has. That is not the development machine's old venv byte for byte: that one
+ # has googleapis-common-protos 1.75.0 (against its declared range) and older transitive packages.
+-# Inside the window, HELPERS pasted, from the main checkout's root:
+-#   $ STEP=; R=$PWD; V=$R/p4_proxy/venv; test -d "$V" && test ! -L "$V" && inwin && [[ "$(pbver "$V")" == 5.* ]] && [ -z "$(users "$V")" ] && STEP=ip1 && echo "rolling back in place: $V" || { STEP=; echo "STOP at ip1: $V is not a real directory with protobuf 5 that nothing uses, or this is not inside the window"; }
+-#   $ at ip1 "ip1" && { "$V/bin/pip" uninstall -y grpcio-tools && STEP=ip2 || { STEP=; echo "STOP at ip1: uninstalling grpcio-tools"; }; }
+-#   $ at ip2 "ip2" && { "$V/bin/pip" install protobuf==3.20.3 googleapis-common-protos==1.73.0 && STEP=ip3 || { STEP=; echo "STOP at ip2: installing protobuf 3.20.3"; }; }
+-#   $ at ip3 "ip3" && { "$V/bin/pip" install --force-reinstall --no-deps p4runtime==1.5.0 && STEP=ip4 || { STEP=; echo "STOP at ip3: reinstalling p4runtime"; }; }
+-#   $ at ip4 "ip4" && { [ "$("$V/bin/python" -c 'import google.protobuf as g, p4.v1.p4runtime_pb2; from google.protobuf.internal import api_implementation as a; print(g.__version__, a.Type())')" = "3.20.3 python" ] && STEP=ip && echo "rolled back in place: $V is protobuf 3.20.3 again -- exit this shell, then step 5" || { STEP=; echo "STOP at ip4: $V does not import p4runtime on protobuf 3.20.3"; }; }
++# It refuses while a parked venv exists (use ROLLBACK then), and ends by running the two suites,
++# which must both pass -- against no baseline: there is none left to compare with. A STOP after
++# the first command names the command to resume from. Inside the window, HELPERS pasted, from the
++# main checkout's root:
++#   $ STEP=; R=$PWD; V=$R/p4_proxy/venv; PARK=$HOME; test -d "$V" && test ! -L "$V" && inwin && [[ "$(pbver "$V")" == 5.* ]] && ! ls -d "$PARK"/p4_proxy-venv.protobuf*/ >/dev/null 2>&1 && [ -z "$(users "$V")" ] && STEP=ip1 && echo "rolling back in place: $V" || { STEP=; echo "STOP at ip0: $V is not a real directory with protobuf 5 that nothing uses, or $PARK holds a parked venv (paste ROLLBACK instead), or this is not inside the window"; }
++#   $ at ip1 "ip1" && { "$V/bin/pip" uninstall -y grpcio-tools && STEP=ip2 || { STEP=; echo "STOP at ip1: uninstalling grpcio-tools -- fix the cause, type STEP=ip1, paste again from ip1"; }; }
++#   $ at ip2 "ip2" && { "$V/bin/pip" install protobuf==3.20.3 googleapis-common-protos==1.73.0 && STEP=ip3 || { STEP=; echo "STOP at ip2: installing protobuf 3.20.3 -- fix the cause, type STEP=ip2, paste again from ip2"; }; }
++#   $ at ip3 "ip3" && { "$V/bin/pip" install --force-reinstall --no-deps p4runtime==1.5.0 && STEP=ip4 || { STEP=; echo "STOP at ip3: reinstalling p4runtime -- fix the cause, type STEP=ip3, paste again from ip3"; }; }
++#   $ at ip4 "ip4" && { [ "$("$V/bin/python" -c 'import google.protobuf as g, p4.v1.p4runtime_pb2; from google.protobuf.internal import api_implementation as a; print(g.__version__, a.Type())')" = "3.20.3 python" ] && STEP=ip5 || { STEP=; echo "STOP at ip4: $V does not import p4runtime on protobuf 3.20.3 -- fix the cause, type STEP=ip4, paste again from ip4"; }; }
++#   $ at ip5 "ip5, the suites" && { SU=$(suites "$V") && echo "$SU" && [ "$(grep -c '^OK' <<<"$SU")" = 2 ] && STEP=ip && echo "rolled back in place: $V is protobuf 3.20.3 again and passes both suites -- exit this shell, then step 5" || { STEP=; echo "STOP at ip5: the suites do not both pass on $V -- it is protobuf 3.20.3, but look before using it"; }; }

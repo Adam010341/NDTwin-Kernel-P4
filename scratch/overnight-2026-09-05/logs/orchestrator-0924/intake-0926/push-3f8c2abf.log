@@ -1,0 +1,22 @@
+# push trunk + trunk:main 3f8c2abfb108bfcc5e49e93b82898080f723dce2 (three follow-ups: ndt-serve anchors, H5 sampler, 07 links) 2026-09-27T01:28:50+08:00
+To github.com:Adam010341/NDTwin-Kernel-P4.git
+   cafd518a..3f8c2abf  trunk -> main
+   cafd518a..3f8c2abf  trunk -> trunk
+remote: 
+remote: GitHub found 2 vulnerabilities on ndtwin-lab/NDTwin-Kernel-P4's default branch (2 high). To find out more, visit:        
+remote:      https://github.com/ndtwin-lab/NDTwin-Kernel-P4/security/dependabot        
+remote: 
+To github.com:ndtwin-lab/NDTwin-Kernel-P4.git
+   cafd518a..3f8c2abf  trunk -> main
+   cafd518a..3f8c2abf  trunk -> trunk
+# push rc=0
+$ env -u GIT_ASKPASS -u SSH_ASKPASS GIT_TERMINAL_PROMPT=0 git -c credential.helper= -c core.askPass= ls-remote https://github.com/ndtwin-lab/NDTwin-Kernel-P4.git refs/heads/trunk refs/heads/main
+3f8c2abfb108bfcc5e49e93b82898080f723dce2	refs/heads/main
+3f8c2abfb108bfcc5e49e93b82898080f723dce2	refs/heads/trunk
+$ env -u GIT_ASKPASS -u SSH_ASKPASS GIT_TERMINAL_PROMPT=0 git -c credential.helper= -c core.askPass= ls-remote https://github.com/Adam010341/NDTwin-Kernel-P4.git refs/heads/trunk refs/heads/main
+3f8c2abfb108bfcc5e49e93b82898080f723dce2	refs/heads/main
+3f8c2abfb108bfcc5e49e93b82898080f723dce2	refs/heads/trunk
+$ env -u GITHUB_TOKEN -u GH_TOKEN curl -s -o /dev/null -w '%{http_code}' https://github.com/ndtwin-lab/NDTwin-Kernel-P4/tree/3f8c2abf
+200
+$ env -u GITHUB_TOKEN -u GH_TOKEN curl -s -o /dev/null -w '%{http_code}' https://github.com/Adam010341/NDTwin-Kernel-P4/tree/3f8c2abf
+200

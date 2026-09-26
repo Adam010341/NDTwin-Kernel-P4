@@ -1,0 +1,12 @@
+heartbeat: running (pid 3802041)
+report: status running, pid 3802041, period 5 s, ethertype 0x88b5, session 9f735bb69ddd69f4
+  written 3.0 s ago
+  s1-eth3 -> s3-eth1  sent 1  heard 1  last heard 3.5 s ago
+  s1-eth4 -> s4-eth2  sent 1  heard 1  last heard 3.5 s ago
+  s2-eth3 -> s4-eth1  sent 1  heard 1  last heard 3.5 s ago
+  s2-eth4 -> s3-eth2  sent 1  heard 1  last heard 3.5 s ago
+  s3-eth1 -> s1-eth3  sent 1  heard 1  last heard 3.5 s ago
+  s3-eth2 -> s2-eth4  sent 1  heard 1  last heard 3.5 s ago
+  s4-eth1 -> s2-eth3  sent 1  heard 1  last heard 3.5 s ago
+  s4-eth2 -> s1-eth4  sent 1  heard 1  last heard 3.5 s ago
+  side effects: foreign_frames 0, forwarded_between_switches 0, forwarded_to_hosts 0, misdelivered 0

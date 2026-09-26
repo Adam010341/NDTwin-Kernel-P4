@@ -1,0 +1,267 @@
+diff --git a/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh
+index afab4609..3755499e 100644
+--- a/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh
++++ b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh
+@@ -155,6 +155,7 @@ TEARDOWN_DOWN_RC=""
+ INJECTED_IFACES=()
+ SAMPLER_PID=""
+ SAMPLER_STOP=""
++SAMPLER_ERR=""
+ #: The last cut's and restore's instants: $EPOCHREALTIME just before and just after each end's tc
+ #: call (end A is s<a>-eth<ap>, whose egress carries a->b; end B carries b->a).
+ CUT_A_START=""; CUT_A_END=""; CUT_B_START=""; CUT_B_END=""
+@@ -673,31 +674,71 @@ phase_down() {
+ }
+ 
+ # --- the heartbeat report sampler (H5) ---------------------------------------------------------
+-# One line per second: wall, status, session, pid, forwarded_to_hosts, forwarded_between_switches.
+-# It stops itself when SAMPLER_STOP appears (or after 5 h); sampler_stop waits for that, and only
+-# then signals -- by the pid it started, after checking that pid is still this sampler.
+-SAMPLER_PY='
++# One line per read: wall, status, session, pid, forwarded_to_hosts, forwarded_between_switches.
++# It stops itself when SAMPLER_STOP appears (or after 5 h), taking ONE LAST sample first -- so the
++# daemon's final `stopped` rewrite is on record however the timing falls; sampler_stop waits for
++# that, and only then signals -- by the pid it started, after checking that pid is still this
++# sampler.
++#
++# [Co-developed with claude code -- Adam] 🔴 LIVE H5 ON cafd518a (09-26 15:32Z) NEVER SAMPLED: the
++# program wrote f"...{d.get(\"status\")}..." -- a backslash inside an f-string's expression, a
++# SyntaxError on this machine's Python 3.13 -- its stderr went to /dev/null, and sampler_start
++# never looked whether it lived. So now: the program is a QUOTED HEREDOC (either quote may appear in
++# it, and nothing in it is expanded by bash), its rows are joined from plain values (no f-string
++# holds an expression with quotes in it, on any Python), its stderr is a file in $RUN, and
++# sampler_start waits for the header and a live pid or FAILS the run before 06 starts. The
++# self-test executes this text (st_sampler).
++SAMPLER_HEADER=$'wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches'
++SAMPLER_PY="$(cat <<'SAMPLER'
+ import json, os, sys, time
+ report, out, stop = sys.argv[1], sys.argv[2], sys.argv[3]
++interval = float(sys.argv[4]) if len(sys.argv) > 4 else 1.0
+ end = time.time() + 5 * 3600
++HEADER = ("wall", "status", "session", "pid", "forwarded_to_hosts", "forwarded_between_switches")
++
++
++def row(fh):
++    wall = "%.1f" % time.time()
++    try:
++        with open(report) as rf:
++            d = json.load(rf)
++        se = d.get("side_effects") or {}
++        values = (wall, d.get("status"), d.get("session"), d.get("pid"),
++                  se.get("forwarded_to_hosts"), se.get("forwarded_between_switches"))
++    except (OSError, ValueError, AttributeError):
++        values = (wall, "absent", "-", "-", 0, 0)
++    fh.write("\t".join(str(v) for v in values) + "\n")
++
++
+ with open(out, "a", buffering=1) as fh:
+-    fh.write("wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches\n")
++    fh.write("\t".join(HEADER) + "\n")
+     while time.time() < end and not os.path.exists(stop):
+-        try:
+-            d = json.load(open(report))
+-            se = d.get("side_effects") or {}
+-            fh.write(f"{time.time():.1f}\t{d.get(\"status\")}\t{d.get(\"session\")}\t{d.get(\"pid\")}\t"
+-                     f"{se.get(\"forwarded_to_hosts\")}\t{se.get(\"forwarded_between_switches\")}\n")
+-        except (OSError, ValueError):
+-            fh.write(f"{time.time():.1f}\tabsent\t-\t-\t0\t0\n")
+-        time.sleep(1.0)
+-'
+-sampler_start() {   # sampler_start <out.tsv>
++        row(fh)
++        time.sleep(interval)
++    row(fh)
++SAMPLER
++)"
++# sampler_start <out.tsv> -- 0 once the sampler has written its header and is alive; otherwise
++# `fail` with what it said (its stderr is $RUN/50_sampler.err) and 1: the caller must not go on.
++sampler_start() {
++    local out="$1" i
+     SAMPLER_STOP="$RUN/.sampler.stop"
++    SAMPLER_ERR="$RUN/50_sampler.err"
+     rm -f "$SAMPLER_STOP"
+-    setsid "$VPY" -I -c "$SAMPLER_PY" "$HB_REPORT_FILE" "$1" "$SAMPLER_STOP" > /dev/null 2>&1 &
++    setsid "$VPY" -I -c "$SAMPLER_PY" "$HB_REPORT_FILE" "$out" "$SAMPLER_STOP" "${SAMPLER_INTERVAL_S:-1.0}" \
++        > /dev/null 2> "$SAMPLER_ERR" &
+     SAMPLER_PID=$!
+-    note "report sampler pid $SAMPLER_PID -> $(basename "$1")"
++    for (( i = 0; i < 50; i++ )); do
++        if [[ "$(head -1 "$out" 2>/dev/null)" == "$SAMPLER_HEADER" ]] && kill -0 "$SAMPLER_PID" 2>/dev/null; then
++            note "report sampler pid $SAMPLER_PID -> $(basename "$out") (header written, alive)"
++            return 0
++        fi
++        kill -0 "$SAMPLER_PID" 2>/dev/null || break
++        sleep 0.1
++    done
++    fail "H5: the report sampler did not start (pid $SAMPLER_PID $(kill -0 "$SAMPLER_PID" 2>/dev/null && echo 'alive, no header in 5 s' || echo 'exited')): $(head -c 300 "$SAMPLER_ERR" 2>/dev/null | tr '\n' ' ')"
++    sampler_stop
++    return 1
+ }
+ sampler_stop() {
+     [[ -n "$SAMPLER_PID" ]] || return 0
+@@ -708,6 +749,7 @@ sampler_stop() {
+        && tr '\0' ' ' < "/proc/$SAMPLER_PID/cmdline" 2>/dev/null | /usr/bin/grep -qF "$SAMPLER_STOP"; then
+         kill "$SAMPLER_PID" 2>/dev/null || true
+     fi
++    [[ -s "${SAMPLER_ERR:-}" ]] && bad "the report sampler wrote to its stderr: $(head -c 300 "$SAMPLER_ERR" | tr '\n' ' ')"
+     SAMPLER_PID=""
+ }
+ 
+@@ -1515,6 +1557,106 @@ print(f["ab"]["heard"], f["ba"]["heard"], f["ab"]["written"], f["ba"]["written"]
+     else
+         red "restore_cycle gave: $(tr '\n' '|' <<<"$got")"
+     fi
++    # --- H5's report sampler, EXECUTED (live H5 on cafd518a, 09-26 15:32Z) --------------------------
++    # [Co-developed with claude code -- Adam] The sampler died at compile time on the live run (a
++    # backslash inside an f-string expression, a SyntaxError on the machine's Python 3.13) with its
++    # stderr on /dev/null, and 50_samples.tsv was never written; no test had ever run its text.
++    # Here the REAL SAMPLER_PY -- this script's own variable -- runs through the real sampler_start /
++    # sampler_stop against a fake report rewritten atomically the way the daemon rewrites it: missing,
++    # running, running with a counter moved, stopped with final counters, missing again, a second
++    # session. The rows must say so, in order, under the header; the stopped row's final counters
++    # must reach the ruling-4 check; the stop path must take one last sample.
++    st_sampler() {   # st_sampler -> the samples file's path on stdout (and the helpers' notes on 3)
++        local d="$t/h5s" rep i
++        mkdir -p "$d/run"
++        rep="$d/report.json"
++        wr() {   # wr <status> <session> <hosts> <between> -- one atomic rewrite, as the daemon does
++            "$VPY" -I -c 'import json, os, sys
++p, st, se, h, b = sys.argv[1:6]
++doc = {"format": 1, "source": "heartbeat", "status": st, "session": se, "pid": 4242,
++       "side_effects": {"forwarded_to_hosts": int(h), "forwarded_between_switches": int(b)}}
++open(p + ".tmp", "w").write(json.dumps(doc)); os.replace(p + ".tmp", p)' "$rep" "$@"
++        }
++        (   RUN="$d/run"; HB_REPORT_FILE="$rep"; SAMPLER_PID=""; SAMPLER_STOP=""; SAMPLER_INTERVAL_S=0.1
++            VERDICT_RC=0; VERDICT_WHY=""
++            note() { echo "note: $*" >&3; }; fail() { echo "fail: $*" >&3; }; bad() { echo "bad: $*" >&3; }
++            sampler_start "$d/samples.tsv" && echo "started rc 0" >&3 || echo "started rc $?" >&3
++            sleep 0.5
++            wr running aaaa 0 0; sleep 0.5
++            wr running aaaa 0 1; sleep 0.5
++            wr stopped aaaa 2 3; sleep 0.5
++            rm -f "$rep"; sleep 0.5
++            wr running bbbb 0 0; sleep 0.3
++            sampler_stop
++            echo "stopped; pid now '${SAMPLER_PID}'" >&3 ) 3> "$d/notes.txt"
++        echo "$d"
++    }
++    # (every read below ends `|| true`: under this script's set -e a failing $( ) in an assignment
++    # would end the self-test silently instead of printing its red line)
++    d="$(st_sampler)" || true
++    got="$(awk -F'\t' 'NR == 1 {next} {k = $2 " " $3 " " $5 " " $6; if (k != last) {printf "%s|", k; last = k}}' "$d/samples.tsv" 2>/dev/null)" || true
++    want="absent - 0 0|running aaaa 0 0|running aaaa 0 1|stopped aaaa 2 3|absent - 0 0|running bbbb 0 0|"
++    local hdr=$'wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches'
++    if [[ "$(head -1 "$d/samples.tsv" 2>/dev/null)" == "$hdr" && "$got" == "$want" ]] \
++       && awk -F'\t' 'NR > 1 && (NF != 6 || $1 !~ /^[0-9]+\.[0-9]$/) {bad = 1} END {exit bad}' "$d/samples.tsv"; then
++        ok "H5 sampler: the real SAMPLER_PY writes its header and one 6-field row per read, through missing, running, stopped (final counters) and a second session"
++    else
++        red "H5 sampler rows: header '$(head -1 "$d/samples.tsv" 2>/dev/null)', rows '$got' (want '$want'); $(tr '\n' ' ' < "$d/notes.txt" 2>/dev/null)"
++    fi
++    got="$(tail -1 "$d/samples.tsv" 2>/dev/null | cut -f2,3)" || true
++    [[ "$got" == $'running\tbbbb' ]] && /usr/bin/grep -q '^started rc 0$' "$d/notes.txt" \
++        && ok "  sampler_start said it had started, and the stop path took a last sample of the report as it stood" \
++        || red "  sampler start/stop: last row '$got', notes: $(tr '\n' ' ' < "$d/notes.txt" 2>/dev/null)"
++    printf 'exercise\twhich\trc\tverdict\treport\n' > "$d/table_none.tsv"
++    expect STOP "H5 sampler: a stopped session's final forwarded_to_hosts reaches ruling 4" \
++        "$(verdict h5_heartbeat "$d/samples.tsv" "$d/table_none.tsv" "$(date +%s)" "")"
++    # a sampler that cannot start: sampler_start must say so and answer 1, its stderr kept
++    got="$( d2="$t/h5s_broken"; mkdir -p "$d2"
++            RUN="$d2"; HB_REPORT_FILE="$d2/none.json"; SAMPLER_PID=""; SAMPLER_STOP=""
++            SAMPLER_PY='print(f"{d.get(\"status\")}")'
++            fail() { echo "fail: $*"; }; note() { :; }; bad() { :; }
++            sampler_start "$d2/samples.tsv"; echo "rc=$? pid='$SAMPLER_PID'"
++            [[ -s "$d2/50_sampler.err" ]] && echo "err kept: $(grep -c SyntaxError "$d2/50_sampler.err")" )" || true
++    if [[ "$got" == *"fail: H5: the report sampler did not start"* && "$got" == *"rc=1 pid=''"* && "$got" == *"err kept: 1"* ]]; then
++        ok "  a sampler that dies at compile time: sampler_start fails the run (rc 1), its SyntaxError kept in 50_sampler.err"
++    else
++        red "  a sampler that cannot start: $(tr '\n' ' ' <<<"$got")"
++    fi
++    # the stop path's last read, made deterministic: at 1 s reads, a `stopped` rewrite and the
++    # stop asked for in the same breath are on record only because the sampler reads once more
++    # when it sees the stop file (the daemon's final counters, however the timing falls)
++    got="$( d3="$t/h5s_final"; mkdir -p "$d3"
++            RUN="$d3"; HB_REPORT_FILE="$d3/report.json"; SAMPLER_PID=""; SAMPLER_STOP=""; SAMPLER_INTERVAL_S=1.0
++            note() { :; }; fail() { echo "fail: $*"; }; bad() { :; }
++            wr3() { "$VPY" -I -c 'import json, os, sys
++p = sys.argv[1]
++doc = {"status": sys.argv[2], "session": "cccc", "pid": 1,
++       "side_effects": {"forwarded_to_hosts": int(sys.argv[3]), "forwarded_between_switches": int(sys.argv[4])}}
++open(p + ".t", "w").write(json.dumps(doc)); os.replace(p + ".t", p)' "$HB_REPORT_FILE" "$@"; }
++            wr3 running 0 0
++            sampler_start "$d3/samples.tsv" >/dev/null
++            sleep 1.3
++            wr3 stopped 5 6
++            sampler_stop
++            tail -1 "$d3/samples.tsv" | cut -f2,3,5,6 )" || true
++    [[ "$got" == $'stopped\tcccc\t5\t6' ]] \
++        && ok "  the stop path reads once more: a 'stopped' rewrite just before sampler_stop is on record (final counters 5, 6)" \
++        || red "  the stop path's last read: last row '$got'"
++    # report_dirs and graph_until's elapsed branch: the live path runs both on every cut, and
++    # nothing else in this self-test did (the embedded-program sweep of 09-27)
++    got="$(HB_REPORT_FILE="$t/report_phase.json" report_dirs 1 3 3 1)" || true
++    [[ "$got" == "100.250000 100.500000" ]] && ok "report_dirs: each direction's last_heard_mono, a->b then b->a (100.25, 100.5)" \
++                                            || red "report_dirs gave '$got'"
++    got="$(HB_REPORT_FILE="$t/report_phase.json" report_dirs 1 4 4 2)" || true
++    [[ -z "$got" ]] && ok "  report_dirs with one direction missing: no answer" || red "  report_dirs with one direction missing gave '$got'"
++    mkdir -p "$t/k2/ndt"; cp "$t/graph_up.json" "$t/k2/ndt/get_graph_data"
++    got="$( T_CUT="$(awk -v n="$EPOCHREALTIME" 'BEGIN{printf "%.6f", n - 1.5}')"; KERNEL_URL="file://$t/k2"
++            graph_until 2 0.1 edges_up "$t/gu2.json" "$t/model.json" >/dev/null; cat "$t/gu2.json.elapsed" )" || true
++    if [[ "$got" =~ ^[0-9]+\.[0-9]{2}$ ]] && awk -v e="$got" 'BEGIN{exit !(e >= 1.5 && e < 3.5)}'; then
++        ok "graph_until after a cut: the elapsed time from T_CUT to the poll that said OK ($got s after a cut 1.5 s back)"
++    else
++        red "graph_until after a cut gave elapsed '$got'"
++    fi
+     # --- H1's exit, read where Adam reads it: the run's LAST line (the judge's F1 and 8.2) ---------
+     # [Co-developed with claude code -- Adam] One stubbed cycle through the real cut_cycle, H1's
+     # strict conclusion and the real teardown (w_finish -> finish) with a fake ndt. An OVER cycle
+@@ -1708,7 +1850,9 @@ if [[ "$PART" == h5 ]]; then
+     # ============================== H5 (no claim: 06 and 01 claim per step) ======================
+     say "H5 -- 06 once with the heartbeat wherever ndt up starts it, and a sampler of its report"
+     [[ -s "$OLD_06/00_table.tsv" ]] || die "no reference table at $OLD_06/00_table.tsv (set OLD_06=)"
+-    sampler_start "$RUN/50_samples.tsv"
++    # [Co-developed with claude code -- Adam] A sampler that did not start stops the run HERE,
++    # before 06 brings anything up: H5 without its samples is not H5 (live, cafd518a).
++    sampler_start "$RUN/50_samples.tsv" || exit 1
+     set +e
+     NDT_OWNER="$NDT_OWNER" bash "$LIVE_DIR/06_thirteen.sh" > "$RUN/51_06.txt" 2>&1
+     R06=$?
+diff --git a/tests/shell/mutate_p4_heartbeat_w.sh b/tests/shell/mutate_p4_heartbeat_w.sh
+index 09dfea22..02c2fe72 100644
+--- a/tests/shell/mutate_p4_heartbeat_w.sh
++++ b/tests/shell/mutate_p4_heartbeat_w.sh
+@@ -1337,6 +1337,35 @@ m=$(lmutant l48 "$LIVE08" \
+     '    local psi="see 30_cycles.tsv"')
+ lreport "L48: the one-psi caveat is not printed" "$m" "H1's last line with an OVER cycle was"
+ 
++# [Co-developed with claude code -- Adam] H5's report sampler (live H5 on cafd518a never sampled:
++# a compile error nobody saw) and the two live-path programs the embedded-program sweep found no
++# self-test running (report_dirs, graph_until's elapsed).
++m=$(lmutant l49 "$LIVE08" \
++    '        values = (wall, d.get("status"), d.get("session"), d.get("pid"),' \
++    '        values = (wall, f"{d.get(\"status\")}", d.get("session"), d.get("pid"),')
++lreport "L49: SAMPLER_PY does not compile again (the live H5 defect)" "$m" "H5 sampler rows"
++m=$(lmutant l50 "$LIVE08" \
++    '        if [[ "$(head -1 "$out" 2>/dev/null)" == "$SAMPLER_HEADER" ]] && kill -0 "$SAMPLER_PID" 2>/dev/null; then' \
++    '        if true; then')
++lreport "L50: sampler_start believes a sampler it never saw" "$m" "  a sampler that cannot start"
++m=$(lmutant l51 "$LIVE08" \
++    '        time.sleep(interval)
++    row(fh)' \
++    '        time.sleep(interval)')
++lreport "L51: the stop path takes no last read" "$m" "  the stop path's last read"
++m=$(lmutant l52 "$LIVE08" \
++    '> /dev/null 2> "$SAMPLER_ERR" &' \
++    '> /dev/null 2>&1 &')
++lreport "L52: the sampler's stderr goes to /dev/null again" "$m" "  a sampler that cannot start"
++m=$(lmutant l53 "$LIVE08" \
++    'ab, ba = got.get((a, ap, b, bp)), got.get((b, bp, a, ap))' \
++    'ab, ba = got.get((b, bp, a, ap)), got.get((a, ap, b, bp))')
++lreport "L53: report_dirs swaps the two directions" "$m" "report_dirs gave"
++m=$(lmutant l54 "$LIVE08" \
++    'BEGIN{printf "%.2f\n", b-a}' \
++    'BEGIN{printf "%.2f\n", a-b}')
++lreport "L54: graph_until's elapsed counts backwards" "$m" "graph_until after a cut gave"
++
+ # --- a control that must stay green ----------------------------------------------------------------
+ m=$(mutant c1 "$HBMOD" \
+     '#: The daemon'"'"'s report is a few KiB; anything past this is not one.' \

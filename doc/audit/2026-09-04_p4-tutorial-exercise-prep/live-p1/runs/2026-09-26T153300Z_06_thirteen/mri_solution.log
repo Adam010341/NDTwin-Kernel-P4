@@ -1,0 +1,460 @@
+drive_exercise.py -- mri / solution
+(non-interactive: no mininet CLI, no xterm; kills nothing)
+fabric   : ndtwin -- the package fabric `ndt up p4 --app` builds; no root needed
+
+== pre-flight (read-only) ==============================================
+OK   lab is free (claim: owner=- expires=- measuring=nothing)
+OK   host scripts will run under /home/adam/p4dev-python-venv/bin/python
+OK   ndt /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt, converter /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/convert.py, pre-flight /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/preflight.py
+--   switch  n/a: `ndt up p4` chooses the bmv2 binary -- see the `ndt status` capture
+OK   p4c     /usr/local/bin/p4c-bm2-ss  sha256[:16]=226f3f66df515c9e  --version=Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release)
+OK   exercise dir /home/adam/tutorials/exercises/mri
+
+== compile =============================================================
+$ /usr/local/bin/p4c-bm2-ss --p4v 16 --p4runtime-files /home/adam/tutorials/exercises/mri/build/mri.p4.p4info.txtpb -o /home/adam/tutorials/exercises/mri/build/mri.json /home/adam/tutorials/exercises/mri/solution/mri.p4
+/home/adam/tutorials/exercises/mri/solution/mri.p4(7): [--Wwarn=unused] warning: 'UDP_PROTOCOL' is unused
+const bit<8> UDP_PROTOCOL = 0x11;
+             ^^^^^^^^^^^^
+-> /home/adam/tutorials/exercises/mri/build/mri.json  32030 B  sha256[:16]=c11d6a0786c525b8  warnings=1
+
+== plan ================================================================
+topology : topology.json
+hosts    : h1, h11, h2, h22, h3
+switches : s1, s2, s3
+links    : 8
+program  : /home/adam/tutorials/exercises/mri/solution/mri.p4 -> build/mri.json
+switch   : /usr/local/bin/simple_switch_grpc
+steps    : h11 iperf -u -> h22 beside it; h1 send.py -> h2 receive.py; assert the MRI count and swids
+package  : /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/mri-solution
+equivalent to (from the repo root, as the operator -- no sudo):
+  /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/convert.py /home/adam/tutorials/exercises/mri --topology topology.json --p4 mri.p4 --out /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/mri-solution
+  /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/mri-solution
+  NDT_OWNER=orch-0926 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt claim 45 '...' && NDT_OWNER=orch-0926 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt up p4 --app /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/mri-solution
+  ... the scripted steps above, then `ndt down` and `ndt release`.
+telemetry: whatever the package declares (no --telemetry given)
+
+== convert the exercise into an app package ============================
+$ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/convert.py /home/adam/tutorials/exercises/mri --topology topology.json --p4 solution/mri.p4 --out /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/mri-solution
+package 'mri' -> /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/mri-solution
+  control plane : ndtwin
+  pipelines     : s1=build/mri.json, s2=build/mri.json, s3=build/mri.json
+  model         : 3 switches, 5 hosts, 16 edges (8 links, both directions stored)
+  files         : 9
+                  build/mri.json
+                  build/mri.p4.p4info.txtpb
+                  ndtwin/topology.json
+                  package.json
+                  s1-runtime.json
+                  s2-runtime.json
+                  s3-runtime.json
+                  solution/mri.p4
+                  topology.json
+  read back through p4_proxy/mininet/topo_from_json.py: ok
+  next: tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/mri-solution
+
+== pre-flight the package ==============================================
+$ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/mri-solution
+pre-flight: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/mri-solution
+  PASS  format                            1
+  INFO  name                              mri
+  PASS  control_plane.mode                ndtwin
+  PASS  control_plane.grpc_base           30050
+  PASS  control_plane.device_id           dpid
+  PASS  control_plane.election_id         [0, 65535]
+  PASS  bmv2.cpu_port                     255
+  PASS  switches keys                     3 dpids: [1, 2, 3]
+  PASS  switches name                     every sN has dpid N
+  PASS  referenced files                  8 present
+  PASS  topo_from_json.switches           3 entries
+  PASS  topo_from_json.hosts              5 entries
+  PASS  topo_from_json.switch_links       3 entries
+  PASS  topo_from_json.host_links         5 entries
+  PASS  switches agree                    model and package.json both say [1, 2, 3]
+  PASS  links agree                       8 links in both
+  PASS  hosts named h<last octet>         5 hosts
+  PASS  hosts agree                       model and package.json both say ['h1', 'h11', 'h2', 'h22', 'h3']
+  PASS  switches pipeline                 3 of 3 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
+  INFO  s1 pipeline                       build/mri.json  p4info sha256:a45ba3e35a0dbec3  program=/home/adam/tutorials/exercises/mri/solution/mri.p4
+  INFO  s2 pipeline                       build/mri.json  p4info sha256:a45ba3e35a0dbec3  program=/home/adam/tutorials/exercises/mri/solution/mri.p4
+  INFO  s3 pipeline                       build/mri.json  p4info sha256:a45ba3e35a0dbec3  program=/home/adam/tutorials/exercises/mri/solution/mri.p4
+  PASS  p4info parses                     google.protobuf.text_format into p4.config.v1.P4Info
+  PASS  entries match p4info              14 entries across 3 switch(es); recorded, NOT applied in stage one
+  PASS  entries p4info is the pipeline's  3 switch(es); entries and pipeline name the same p4info
+  INFO  roles suggestion                  no roles declared, so NDTwin writes none of this program's tables. Its p4info has a destination-route-shaped table on every switch; to let NDTwin route here, add to package.json: "roles": {"ipv4_route": {"owner": "ndtwin", "table": "MyIngress.ipv4_lpm", "match_field": "hdr.ipv4.dstAddr", "action": "MyIngress.ipv4_forward", "params": {"dst_mac": "dstAddr", "port": "port"}}} (owner ndtwin: NDTwin writes that table and the package's own entries for it must go -- convert.py --role-ipv4-route takes them out; owner package: NDTwin only reads it)
+  INFO  telemetry.source                  not declared (auto: NDTwin's pipeline gets the cooperative path, anybody else's gets link telemetry)
+  INFO  PRE entries                       none declared (no multicast group, no clone session)
+  PASS  gRPC port block                   30051-30053 safe on this machine
+  PASS  p4c-bm2-ss                        rc=0  mri.json sha256:ba5d0f759ba8b296  mri.p4.p4info.txtpb sha256:a45ba3e35a0dbec3
+
+PASS -- every check passed
+host_count_override snapshot: 2 bytes (b'4\n')
+telemetry_override snapshot: absent
+
+== claim the lab =======================================================
+$ NDT_OWNER=orch-0926 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt claim 45 drive_exercise mri/solution on the ndtwin fabric
+  recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+  ok  lab claimed by orch-0926 for 45m (drive_exercise mri/solution on the ndtwin fabric)
+
+== ndt up p4 --app =====================================================
+$ NDT_OWNER=orch-0926 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt up p4 --app /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/mri-solution
+app package pre-flight
+  package      /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/mri-solution
+pre-flight: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/mri-solution
+  PASS  format                            1
+  INFO  name                              mri
+  PASS  control_plane.mode                ndtwin
+  PASS  control_plane.grpc_base           30050
+  PASS  control_plane.device_id           dpid
+  PASS  control_plane.election_id         [0, 65535]
+  PASS  bmv2.cpu_port                     255
+  PASS  switches keys                     3 dpids: [1, 2, 3]
+  PASS  switches name                     every sN has dpid N
+  PASS  referenced files                  8 present
+  PASS  topo_from_json.switches           3 entries
+  PASS  topo_from_json.hosts              5 entries
+  PASS  topo_from_json.switch_links       3 entries
+  PASS  topo_from_json.host_links         5 entries
+  PASS  switches agree                    model and package.json both say [1, 2, 3]
+  PASS  links agree                       8 links in both
+  PASS  hosts named h<last octet>         5 hosts
+  PASS  hosts agree                       model and package.json both say ['h1', 'h11', 'h2', 'h22', 'h3']
+  PASS  switches pipeline                 3 of 3 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
+  INFO  s1 pipeline                       build/mri.json  p4info sha256:a45ba3e35a0dbec3  program=/home/adam/tutorials/exercises/mri/solution/mri.p4
+  INFO  s2 pipeline                       build/mri.json  p4info sha256:a45ba3e35a0dbec3  program=/home/adam/tutorials/exercises/mri/solution/mri.p4
+  INFO  s3 pipeline                       build/mri.json  p4info sha256:a45ba3e35a0dbec3  program=/home/adam/tutorials/exercises/mri/solution/mri.p4
+  PASS  p4info parses                     google.protobuf.text_format into p4.config.v1.P4Info
+  PASS  entries match p4info              14 entries across 3 switch(es); recorded, NOT applied in stage one
+  PASS  entries p4info is the pipeline's  3 switch(es); entries and pipeline name the same p4info
+  INFO  roles suggestion                  no roles declared, so NDTwin writes none of this program's tables. Its p4info has a destination-route-shaped table on every switch; to let NDTwin route here, add to package.json: "roles": {"ipv4_route": {"owner": "ndtwin", "table": "MyIngress.ipv4_lpm", "match_field": "hdr.ipv4.dstAddr", "action": "MyIngress.ipv4_forward", "params": {"dst_mac": "dstAddr", "port": "port"}}} (owner ndtwin: NDTwin writes that table and the package's own entries for it must go -- convert.py --role-ipv4-route takes them out; owner package: NDTwin only reads it)
+  INFO  telemetry.source                  not declared (auto: NDTwin's pipeline gets the cooperative path, anybody else's gets link telemetry)
+  INFO  PRE entries                       none declared (no multicast group, no clone session)
+  PASS  gRPC port block                   30051-30053 safe on this machine
+  PASS  p4c-bm2-ss 
+... [trimmed; 6270 chars total]
+
+== GET /p4/switch_state ================================================
+   control_plane.mode    ndtwin
+   control_plane.package /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/mri-solution
+   control_plane.skipped ['install_initial_routes', 'link_watchdog', 'lldp_discovery']
+   s1  ndtwin=False p4info_sha256=a45ba3e35a0dbec3  entries recorded=5 applied=5 failed=0 api_writes=0  (entries_recorded=5)
+   s2  ndtwin=False p4info_sha256=a45ba3e35a0dbec3  entries recorded=5 applied=5 failed=0 api_writes=0  (entries_recorded=5)
+   s3  ndtwin=False p4info_sha256=a45ba3e35a0dbec3  entries recorded=4 applied=4 failed=0 api_writes=0  (entries_recorded=4)
+
+== ndt status (raw; and the bmv2 binary it names) ======================
+$ NDT_OWNER=orch-0926 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt status
+lab
+  claim          yours -- 45m left (until 00:41:00)
+  note           in use: ndt up p4 5 at 2026-09-26 23:56:00 by orch-0926
+  prev claim     orch-0926 (until 00:40:27), superseded 2026-09-26 23:55:59  (.test_run/lab.claim.prev)
+                 the same owner re-claimed it -- a rewrite, not a handover
+                 it said: down at 2026-09-26 23:55:59; verified clean; claim kept
+  exclusive cpu  no (heavy local jobs may overlap this claim)
+  measuring      nothing
+  code           cafd518a  +88 file(s) with uncommitted changes
+                 3 of them can change behaviour:
+                 p4_proxy/mininet/host_count_override
+                 p4_proxy/mininet/app_package_override
+                 tools/remote-lab/dorm_lab/
+  knob baseline  5, written by 'ndt up p4 5' at 23:56:00 this round; the round started at 4 -- write 4 back before 'ndt release'
+                   echo 4 > p4_proxy/mininet/host_count_override      # write it back; 'git checkout --' would give you HEAD
+                 'ndt release' refuses while these differ; 'ndt release --force' releases anyway
+  tree vs round  0 file(s) LEFT the uncommitted set, 1 joined it
+                 + p4_proxy/mininet/app_package_override
+  ok  helper: /usr/local/sbin/ndtwin-lab is tools/test_workflow/ndtwin-lab (sha256 6a558fe4)
+
+configuration
+  hosts          5   (what the last 'ndt up' asked for: p4)
+  topology       .test_run/packages/mri-solution/ndtwin/topology.json
+  p4 host knob   5   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')
+  app package    /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/mri-solution (mode ndtwin)
+                 mri -- p4_proxy/mininet/app_package_override; it decides the next 'ndt up p4' and the next proxy
+  bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc
+  telemetry      auto   (p4_proxy/mininet/telemetry_override absent -- auto, then the package)
+                 every switch: link
+                 link emitter: alive pid 3911304, 3 switch(es), rate 256
+  link shaping   on
+                 s1:3<->s2:3 0.5 Mbit/s
+  sample rate    n/a (package pipeline)
+  rate source    the app package runs a foreign pipeline on dpid 1,2,3 -- p4_proxy/p4_src/build/ndtwin_switch.json is NOT what those switches loaded, and stale_pipeline is not judged
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  3       topo session   present
+  host/switch    8       manifest       present
+  :8000 kernel   open    :8081 proxy    open    :8080 ryu closed
+  binary         /usr/local/bmv2-fast/bin/simple_switch_grpc
+  heartbeat      running (pid 3911398, session 1c60aaa7560143b3) -- 6 direction(s), report 3.7 s old
+  pidfiles       kernel.child.pid=3911526 alive,kernel.pid=3911520 alive,p4_proxy.child.pid=3911443 alive,p4_proxy.pid=3911438 alive
+
+network health
+  switches       3 up, 3 enabled, 0 admin-disabled
+  links          16 total, 0 down, 0 admin-disabled
+  tc netem   
+... [trimmed; 3883 chars total]
+   bmv2 sha256[:16]=3ff54b5c1901c9d3  1.15.3-f0b7d201   (ndt status: /usr/local/bmv2-fast/bin/simple_switch_grpc)
+
+== scripted steps (no CLI, no xterm) ===================================
+   hosts: h1=10.0.1.1, h2=10.0.2.2, h3=10.0.3.3, h11=10.0.1.11, h22=10.0.2.22
+$ h22: iperf -s -u   (> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-26T155559Z_mri_solution_ndtwin/driver-bg-iperf-h11-to-h22.log)
+$ h11: iperf -c 10.0.2.22 -u -b 1M -t 20
+$ h2: /home/adam/p4dev-python-venv/bin/python -u /home/adam/tutorials/exercises/mri/receive.py   (> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-26T155559Z_mri_solution_ndtwin/driver-h2-receive.log)
+$ h1: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/mri/send.py 10.0.2.2 P4 driver probe 6
+......###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:01
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 6
+     tos       = 0x0
+     len       = 47
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = udp
+     chksum    = 0x43b7
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+      |###[ MRI ]### 
+      |  copy_flag = 0
+      |  optclass  = control
+      |  option    = 31
+      |  length    = 4
+      |  count     = 0
+      |  \swtraces  \
+###[ UDP ]### 
+        sport     = 1234
+        dport     = 4321
+        len       = 23
+        chksum    = 0xc2ad
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+-- h2 receive.py output (/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-26T155559Z_mri_solution_ndtwin/driver-h2-receive.log) --
+sniffing on eth0
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 10
+     tos       = 0x0
+     len       = 63
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = udp
+     chksum    = 0x60ab
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+      |###[ MRI ]### 
+      |  copy_flag = 0
+      |  optclass  = control
+      |  option    = 31
+      |  length    = 20
+      |  count     = 2
+      |  \swtraces  \
+      |   |###[ SwitchTrace ]### 
+      |   |  swid      = 2
+      |   |  qdepth    = 0
+      |   |###[ SwitchTrace ]### 
+      |   |  swid      = 1
+      |   |  qdepth    = 0
+###[ UDP ]### 
+        sport     = 1234
+        dport     = 4321
+        len       = 23
+        chksum    = 0xc2ad
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 10
+     tos       = 0x0
+     len       = 63
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = udp
+     chksum    = 0x60ab
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+      |###[ MRI ]### 
+      |  copy_flag = 0
+      |  optclass  = control
+      |  option    = 31
+      |  length    = 20
+      |  count     = 2
+      |  \swtraces  \
+      |   |###[ SwitchTrace ]### 
+      |   |  swid      = 2
+      |   |  qdepth    = 0
+      |   |###[ SwitchTrace ]### 
+      |   |  swid      = 1
+      |   |  qdepth    = 0
+###[ UDP ]### 
+        sport     = 1234
+        dport     = 4321
+        len       = 23
+        chksum    = 0xc2ad
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 10
+     tos       = 0x0
+     len       = 63
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = udp
+     chksum    = 0x60ab
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+      |###[ MRI ]### 
+      |  copy_flag = 0
+      |  optclass  = control
+      |  option    = 31
+      |  length    = 20
+      |  count     = 2
+      |  \swtraces  \
+      |   |###[ SwitchTrace ]### 
+      |   |  swid      = 2
+      |   |  qdepth    = 0
+      |   |###[ SwitchTrace ]### 
+      |   |  swid      = 1
+      |   |  qdepth    = 30
+###[ UDP ]### 
+        sport     = 1234
+        dport     = 4321
+        len       = 23
+        chksum    = 0xc2ad
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+
+
+   PASS injection: packets reached h2                  want=>=1                    got=3
+   PASS injection: the MRI option survived to h2       want=>=1 count field        got=3
+   PASS hop count at h2                                want=2                      got=[2]
+   PASS switch ids in the trace                        want=[1, 2]                 got=[1, 2]
+
+-- switch logs --
+   /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-26T155559Z_mri_solution_ndtwin/driver-bg-iperf-h11-to-h22.log 537 B
+   /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-26T155559Z_mri_solution_ndtwin/driver-h2-receive.log 2766 B
+
+== G1  link usage follows the iperf path (program-independent) =========
+   mri/solution: slowest declared link = 500000 bit/s; iperf offers 2000000 bit/s; a link therefore carries at most 500000 bit/s
+   mri/solution: at 8s that is only 1.30 expected samples per primary link
+   mri/solution: window = max(8, ceil(10 x 256 x 1500 x 8 / 500000)) = 62s
+   mri/solution: h1 -> h22 (10.0.2.22), iperf -u -b 2M -t 62 -l 1200
+   mri/solution: primary=s1-eth3 s2-eth1   minor=
+   mri/solution: on-path  s1-eth3  7375000.000 bit  (switch)  [primary, 4169358 B]
+   mri/solution: on-path  s2-eth1  17469002.250 bit  (host)  [primary, 4168518 B]
+   mri/solution: off-path floor 3072000.000 bit   = max(ONE SAMPLE = 256 x 1500 x 8 = 3072000 bit, 0.02 x the smallest PRIMARY on-path integral)
+   mri/solution: off-path s1-eth1  0.000 bit  (host)
+   mri/solution: off-path s1-eth2  0.000 bit  (host)
+   mri/solution: off-path s1-eth4  0.000 bit  (switch)
+   mri/solution: off-path s2-eth2  0.000 bit  (host)
+   mri/solution: off-path s2-eth3  122851.000 bit  (switch)
+   mri/solution: off-path s2-eth4  122850.000 bit  (switch)
+   mri/solution: off-path s3-eth1  0.000 bit  (host)
+   mri/solution: off-path s3-eth2  0.000 bit  (switch)
+   mri/solution: off-path s3-eth3  0.000 bit  (switch)
+   mri/solution: link usage follows the iperf path (off-path under 3072000.000 bit)
+LINK_USAGE mri/solution expect=follows primary=2 minor=0 rc=0
+
+== teardown: ndt down, the two knobs, then ndt release =================
+$ NDT_OWNER=orch-0926 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt down
+ndt down
+  this teardown is about:
+        3 bmv2 switch(es)
+        8 host/switch process(es)
+        a topo tmux session
+        the switch manifest /tmp/ndtwin_p4_switches.json
+        the registry entry .test_run/pids/kernel.child.pid
+        the registry entry .test_run/pids/kernel.pid
+        the registry entry .test_run/pids/p4_proxy.child.pid
+        the registry entry .test_run/pids/p4_proxy.pid
+        a held port in ports.sh's table
+[1/3] kernel + proxy/Ryu
+        stopped kernel
+        kernel exit status 143 (terminated by SIGTERM (15) -- or exit(143), which bash cannot distinguish)
+        stopped p4_proxy
+        p4_proxy exit status 143 (terminated by SIGTERM (15) -- or exit(143), which bash cannot distinguish)
+        -> an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+        :30051 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+        :30052 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+        :30053 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+        :9091 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+        :9092 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+        :9093 is still lis
+... [trimmed; 5481 chars total]
+   ndt down rc=0
+   host_count_override: put back to the 2 bytes this round found
+   telemetry_override: unchanged (absent)
+$ NDT_OWNER=orch-0926 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+  the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+  this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+  ok  lab released
+   ndt release rc=0
+
+== verdict =============================================================
+   PASS injection: packets reached h2                  want=>=1                    got=3   【源碼推導，未執行】
+   PASS injection: the MRI option survived to h2       want=>=1 count field        got=3   【源碼推導，未執行】
+   PASS hop count at h2                                want=2                      got=[2]   【README 宣稱】＋【源碼推導，未執行】
+   PASS switch ids in the trace                        want=[1, 2]                 got=[1, 2]   【README 宣稱】＋【源碼推導，未執行】
+   PASS G1  link usage follows the iperf path          want=primary on-path > 0; minor rows printed, not asserted; off-path under one sample's worth (256 x MTU x 8 bit) or 2% of the smallest PRIMARY on-path, whichever is larger got=PASS   【源碼推導，未執行】
+
+>>> PASS (5/5)
+
+report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-26T155559Z_mri_solution_ndtwin.md

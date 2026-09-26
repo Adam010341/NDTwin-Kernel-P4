@@ -1,0 +1,2 @@
+qdisc noqueue 0: root refcnt 2 
+qdisc clsact ffff: parent ffff:fff1 

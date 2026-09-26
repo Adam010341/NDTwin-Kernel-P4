@@ -1,0 +1,34 @@
+5f9316a7054f74b4c11466c71f168499a696cb79
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926  2026-09-26T09:19:38Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbw-5f9316a7/ndt_suites.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbw-5f9316a7/ndt_suites.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926
+tests/shell/test_ndt_app_orphans.sh                        rc=0  Ran 103 checks, all passed
+tests/shell/test_ndt_app_package.sh                        rc=0  Ran 395 checks, 0 failed
+tests/shell/test_ndt_apps_liveness.sh                      rc=0  Ran 51 checks, all passed
+tests/shell/test_ndt_check_sample_rate.sh                  rc=0  Ran 39 checks, 0 failed
+tests/shell/test_ndt_down_claim_guard.sh                   rc=0  Ran 41 checks, 0 failed
+tests/shell/test_ndt_down_stops_only_ours.sh               rc=0  Ran 29 checks, 0 failed
+tests/shell/test_ndt_heartbeat.sh                          rc=0  Ran 57 checks, 0 failed
+tests/shell/test_ndt_helper_apps_window.sh                 rc=0  Ran 150 checks, 0 failed
+tests/shell/test_ndt_honesty.sh                            rc=0  Ran 345 checks, 0 failed
+tests/shell/test_ndt_ovs_claim.sh                          rc=0  Ran 166 checks, 0 failed
+tests/shell/test_ndt_ovs_topo_script.sh                    rc=0  Ran 41 checks, 0 failed
+tests/shell/test_ndt_round_baseline.sh                     rc=0  Ran 117 checks, 0 failed
+tests/shell/test_ndt_sample_rate_reads_both_bounds.sh      rc=0  Ran 6 checks, 0 failed
+tests/shell/test_ndt_status_check_baseline.sh              rc=0  Ran 104 checks, 0 failed
+tests/shell/test_ndt_status_residue_row.sh                 rc=0  Ran 27 checks, 0 failed
+tests/shell/test_ndt_sudo_surface.sh                       rc=0  Ran 33 checks, 0 failed
+tests/shell/test_ndt_up_down_robust.sh                     rc=0  424 passed, 0 failed
+tests/shell/test_ndt_up_target.sh                          rc=0  Ran 23 checks, 0 failed
+tests/shell/test_apps_residue.sh                           rc=0  Ran 131 checks, 0 failed
+tests/shell/test_apps_stop_kills_the_group.sh              rc=0  Ran 71 checks, 0 failed
+tests/shell/test_stop_one_targets_its_argument.sh          rc=0  Ran 5 checks, all passed
+tests/shell/test_supervise_exit_status.sh                  rc=0  Ran 62 checks, all passed
+tests/shell/test_mutate_gate_dead_mutant.sh                rc=0  Ran 43 checks, 0 failed
+tests/shell/test_lab_handoff.sh                            rc=0  Ran 18 checks, all passed
+suites red: 0
+guarded_build: exit 0
+# rc=0

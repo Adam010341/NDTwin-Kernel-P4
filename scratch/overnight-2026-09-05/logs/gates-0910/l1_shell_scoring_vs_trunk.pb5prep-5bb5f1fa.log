@@ -1,0 +1,17 @@
+# HEAD 5bb5f1fa8591151faea71217f6df8de81ce22e9d  tests/shell/test_l1_shell_scoring.sh at HEAD (final_gates_r3) vs at trunk 580767a8 (phase-7 A/B lane), FAILED lines compared
+HEAD : Ran 95 checks, 12 failed
+trunk: Ran 95 checks, 12 failed
+    FAILED   C  test_apps_residue.sh's last line scores non-zero (it is 'something was logged')
+    FAILED   C  test_build_guard.sh ends in an echo this test can read
+    FAILED   C  test_check_logs_crash_patterns.sh's last line scores non-zero (it is '  (checker under test: $CHECK_LOGS)')
+    FAILED   C  test_guarded_build_reentrant.sh's last line scores non-zero (it is 'systemd-run $*')
+    FAILED   C  test_ndt_honesty.sh's last line scores non-zero (it is 'other-session (until 03:00:00, their round)')
+    FAILED   C  test_ndt_ovs_topo_script.sh's last line scores non-zero (it is 'the verbs are wired to what was tested')
+    FAILED   C  test_ndt_status_check_baseline.sh's last line scores non-zero (it is '$p')
+    FAILED   C  test_ndt_up_down_robust.sh's last line scores non-zero (it is 'MARKER=$([[ -f ')
+    FAILED   C  test_ndt_up_target.sh's last line scores non-zero (it is 'resolve_up_target is not defined after sourcing $NDT')
+    FAILED   C  test_orphans_verdict.sh ends in an echo this test can read
+    FAILED   C  test_stack_log_rotation.sh ends in an echo this test can read
+    FAILED   C  test_stop_one_targets_its_argument.sh's last line scores non-zero (it is '  (stack.sh under test: $STACK)')
+RESULT: the same 12 FAILED lines as on trunk 580767a8 -- not this branch's
+rc=0

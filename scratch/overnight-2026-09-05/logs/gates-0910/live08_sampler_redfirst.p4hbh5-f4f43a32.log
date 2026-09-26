@@ -1,0 +1,18 @@
+f4f43a3264a1dacc8c5a12e002204e5a08866fca
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-08-h5-sampler-0926  2026-09-26T16:33:18Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-08-h5-sampler-0926
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbh5-f4f43a32/live08_sampler_redfirst.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-08-h5-sampler-0926
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-08-h5-sampler-0926/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbh5-f4f43a32/live08_sampler_redfirst.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-08-h5-sampler-0926
+HEAD f4f43a3264a1dacc8c5a12e002204e5a08866fca; red-first c6c492150fb10dfc62e47d48ede16ae8d93e11f2
+      🔴    H5 sampler rows: header '', rows '' (want 'absent - 0 0|running aaaa 0 0|running aaaa 0 1|stopped aaaa 2 3|absent - 0 0|running bbbb 0 0|'); note: report sample
+      🔴      sampler start/stop: last row '', notes: note: report sampler pid 4078254 -> samples.tsv started rc 0 stopped; pid now '' 
+      🔴    H5 sampler: a stopped session's final forwarded_to_hosts reaches ruling 4 wanted STOP, got: BAD h5_heartbeat could not read its input: FileNotFoundError: [Errno
+      🔴      a sampler that cannot start: rc=0 pid='4078293' 
+  ok    08 at c6c49215: SELF-TEST FAIL
+  ok    there, the real sampler wrote nothing (the live defect, offline)
+  ok    08 at HEAD: SELF-TEST PASS (117 ok)
+LIVE08-SAMPLER-RED-FIRST: red at the red-first commit, green at HEAD
+guarded_build: exit 0
+# rc=0

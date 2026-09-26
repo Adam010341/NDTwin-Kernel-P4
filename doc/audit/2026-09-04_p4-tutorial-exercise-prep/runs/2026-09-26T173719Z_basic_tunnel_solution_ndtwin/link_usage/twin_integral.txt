@@ -1,0 +1,10 @@
+s1-eth1 0.000 host
+s1-eth2 0.000 switch
+s1-eth3 31785711.500 switch
+s2-eth1 0.000 host
+s2-eth2 0.000 switch
+s2-eth3 0.000 switch
+s3-eth1 31787591.500 host
+s3-eth2 0.000 switch
+s3-eth3 0.000 switch
+# samples=64 span=17s

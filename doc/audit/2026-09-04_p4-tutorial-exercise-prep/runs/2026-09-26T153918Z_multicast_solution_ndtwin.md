@@ -1,0 +1,921 @@
+# 執行報告 — `multicast` / solution
+
+由 `drive_exercise.py` 自動產生，**非互動**（沒有進 mininet CLI、沒有開 xterm）。
+每一條期望的來源等級沿用 `M7-source_routing.md` 的三級標記。
+
+[Co-developed with claude code -- Adam]
+
+| 欄位 | 值 |
+|---|---|
+| UTC | 2026-09-26T153918Z |
+| exercise | `multicast` |
+| which | `solution` |
+| fabric | `ndtwin` |
+| package | `/home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution` |
+| cwd | `/home/adam/tutorials/exercises/multicast` |
+| 直譯器 | `/home/adam/p4dev-python-venv/bin/python` (3.12.3) |
+| euid | 1000 |
+| 判定 | **PASS (6/6)** (exit 0) |
+
+## 1. 工具鏈身分
+
+| 執行檔 | sha256[:16] | --version |
+|---|---|---|
+| `the bmv2 `ndt status` names` | `3ff54b5c1901c9d3` | 1.15.3-f0b7d201   (ndt status: /usr/local/bmv2-fast/bin/simple_switch_grpc) |
+| `/usr/local/bin/p4c-bm2-ss` | `226f3f66df515c9e` | Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release) |
+
+> 版本字串分不出這台機器上的兩顆 `simple_switch_grpc`；只有 sha 分得出。此處用的是 `/usr/local/bin` 那顆，**不是** `bmv2-fast`。
+
+## 2. 編譯
+
+```
+$ /usr/local/bin/p4c-bm2-ss --p4v 16 --p4runtime-files /home/adam/tutorials/exercises/multicast/build/multicast.p4.p4info.txtpb -o /home/adam/tutorials/exercises/multicast/build/multicast.json /home/adam/tutorials/exercises/multicast/solution/multicast.p4
+rc=0  warnings=1
+/home/adam/tutorials/exercises/multicast/solution/multicast.p4(13): [--Wwarn=unused] warning: 'ip4Addr_t' is unused
+typedef bit<32> ip4Addr_t;
+                ^^^^^^^^^
+```
+
+| 產物 | bytes | sha256[:16] |
+|---|---|---|
+| `/home/adam/tutorials/exercises/multicast/build/multicast.json` | 11287 | `350746c489bec11e` |
+| `/home/adam/tutorials/exercises/multicast/build/multicast.p4.p4info.txtpb` | 971 | `6880b47c0fdda525` |
+
+來源 `.p4`：`/home/adam/tutorials/exercises/multicast/solution/multicast.p4`（編到骨架的輸出檔名，`.p4` 原始檔一個字沒動）
+
+## 3. 拓樸
+
+```
+topology : sig-topo/topology.json
+hosts    : h1, h2, h3, h4
+switches : s1
+links    : 4
+```
+
+### 3b. `GET /p4/switch_state`（揭露，不是結果）
+
+```
+control_plane.mode    ndtwin
+control_plane.package /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution
+control_plane.skipped ['install_initial_routes', 'link_watchdog', 'lldp_discovery']
+s1  ndtwin=False p4info_sha256=6880b47c0fdda525  entries recorded=4 applied=4 failed=0 api_writes=0  (entries_recorded=4)
+```
+
+## 4. 每一步的指令與原始輸出
+
+### 1. N1  convert.py
+
+```
+$ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/convert.py /home/adam/tutorials/exercises/multicast --topology sig-topo/topology.json --p4 solution/multicast.p4 --out /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution
+```
+
+```
+package 'multicast' -> /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution
+  control plane : ndtwin
+  pipelines     : s1=build/multicast.json
+  model         : 1 switches, 4 hosts, 8 edges (4 links, both directions stored)
+  files         : 7
+                  build/multicast.json
+                  build/multicast.p4.p4info.txtpb
+                  ndtwin/topology.json
+                  package.json
+                  sig-topo/s1-runtime.json
+                  sig-topo/topology.json
+                  solution/multicast.p4
+  read back through p4_proxy/mininet/topo_from_json.py: ok
+  next: tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution
+```
+
+### 2. N2  preflight.py
+
+```
+$ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution
+```
+
+```
+pre-flight: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution
+  PASS  format                            1
+  INFO  name                              multicast
+  PASS  control_plane.mode                ndtwin
+  PASS  control_plane.grpc_base           30050
+  PASS  control_plane.device_id           dpid
+  PASS  control_plane.election_id         [0, 65535]
+  PASS  bmv2.cpu_port                     255
+  PASS  switches keys                     1 dpids: [1]
+  PASS  switches name                     every sN has dpid N
+  PASS  referenced files                  6 present
+  PASS  topo_from_json.switches           1 entries
+  PASS  topo_from_json.hosts              4 entries
+  PASS  topo_from_json.switch_links       0 entries
+  PASS  topo_from_json.host_links         4 entries
+  PASS  switches agree                    model and package.json both say [1]
+  PASS  links agree                       4 links in both
+  PASS  hosts named h<last octet>         4 hosts
+  PASS  hosts agree                       model and package.json both say ['h1', 'h2', 'h3', 'h4']
+  PASS  switches pipeline                 1 of 1 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
+  INFO  s1 pipeline                       build/multicast.json  p4info sha256:6880b47c0fdda525  program=/home/adam/tutorials/exercises/multicast/solution/multicast.p4
+  PASS  p4info parses                     google.protobuf.text_format into p4.config.v1.P4Info
+  PASS  entries match p4info              4 entries across 1 switch(es); recorded, NOT applied in stage one
+  PASS  entries p4info is the pipeline's  1 switch(es); entries and pipeline name the same p4info
+  INFO  telemetry.source                  not declared (auto: NDTwin's pipeline gets the cooperative path, anybody else's gets link telemetry)
+  PASS  PRE entries                       1 multicast group(s) and 0 clone session(s); every replica names a port the model builds
+  PASS  gRPC port block                   30051-30051 safe on this machine
+  PASS  p4c-bm2-ss                        rc=0  multicast.json sha256:784b3d947dff091c  multicast.p4.p4info.txtpb sha256:6880b47c0fdda525
+
+PASS -- every check passed
+```
+
+### 3. N3  ndt up p4 --app
+
+```
+$ ndt up p4 --app /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution
+```
+
+```
+app package pre-flight
+  package      /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution
+pre-flight: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution
+  PASS  format                            1
+  INFO  name                              multicast
+  PASS  control_plane.mode                ndtwin
+  PASS  control_plane.grpc_base           30050
+  PASS  control_plane.device_id           dpid
+  PASS  control_plane.election_id         [0, 65535]
+  PASS  bmv2.cpu_port                     255
+  PASS  switches keys                     1 dpids: [1]
+  PASS  switches name                     every sN has dpid N
+  PASS  referenced files                  6 present
+  PASS  topo_from_json.switches           1 entries
+  PASS  topo_from_json.hosts              4 entries
+  PASS  topo_from_json.switch_links       0 entries
+  PASS  topo_from_json.host_links         4 entries
+  PASS  switches agree                    model and package.json both say [1]
+  PASS  links agree                       4 links in both
+  PASS  hosts named h<last octet>         4 hosts
+  PASS  hosts agree                       model and package.json both say ['h1', 'h2', 'h3', 'h4']
+  PASS  switches pipeline                 1 of 1 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
+  INFO  s1 pipeline                       build/multicast.json  p4info sha256:6880b47c0fdda525  program=/home/adam/tutorials/exercises/multicast/solution/multicast.p4
+  PASS  p4info parses                     google.protobuf.text_format into p4.config.v1.P4Info
+  PASS  entries match p4info              4 entries across 1 switch(es); recorded, NOT applied in stage one
+  PASS  entries p4info is the pipeline's  1 switch(es); entries and pipeline name the same p4info
+  INFO  telemetry.source                  not declared (auto: NDTwin's pipeline gets the cooperative path, anybody else's gets link telemetry)
+  PASS  PRE entries                       1 multicast group(s) and 0 clone session(s); every replica names a port the model builds
+  PASS  gRPC port block                   30051-30051 safe on this machine
+  PASS  p4c-bm2-ss                        rc=0  multicast.json sha256:784b3d947dff091c  multicast.p4.p4info.txtpb sha256:6880b47c0fdda525
+
+PASS -- every check passed
+
+ndt up p4
+  hosts        4        (p4_proxy/mininet/host_count_override)
+  topology     .test_run/packages/multicast-solution/ndtwin/topology.json
+  app package  /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution (mode ndtwin, 1 switch(es))
+  bmv2         /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate  1/256     (compiled into ndtwin_switch.json)
+
+  recorded this target in .test_run/up.target -- 'ndt status --check' compares against it
+  app package set: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution   (p4_proxy/mininet/app_package_override)
+  telemetry    auto   (p4_proxy/mininet/telemetry_override absent -- auto, then the package)
+  claim note now says the lab is in use (owner and expiry unchanged)
+[1/3] bmv2 fabric
+      topo session started from /home/adam/Desktop/NDTwin-Kernel (attach: sudo tmux -L ndtwinlab attach -t topo)
+  waiting for 1 switches and the manifest
+  ok  1 switches up after 6s, manifest written
+  ok  running binary: /usr/local/bmv2-fast/bin/simple_switch_grpc
+      heartbeat: the running fabric has no switch-to-switch link; nothing to send
+      heartbeat plan: /tmp/ndtwin_p4_switches.json (sha256 a9775f714f20), 1 switch(es), every one a live bmv2
+        0 link(s) -> 0 direction(s); 4 host-facing interface(s) listened on, never sent on
+  heartbeat: nothing to watch -- this fabric has no inter-switch link (rc 3)
+[2/3] proxy + kernel
+  stack.sh prompt is answered immediately: the fabric is already up
+        started p4_proxy (pid 3845769) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
+        waiting for P4 proxy agent on :8081 . up
+        started kernel (pid 3845991) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+        waiting for kernel API on :8000 . up
+[3/3] verify
+  !!  proxy: destination paths NOT CHECKED -- the package's own program runs on dpid
+  !!    1; the proxy says it sent no LLDP and installed no routes on this
+  !!    fabric (control_plane.skipped: install_initial_routes, link_watchdog, lldp_discovery)
+  ok  table entries: 4/4 applied on 1 switch(es), 0 failed
+  ok  kernel: 1 switches, 1 up, 8 edges, 4 hosts
+  ok  model matches fabric: 4 hosts (kernel graph, topology file and 4 host namespaces all agree)
+  ok  telemetry: auto -- 0 cooperative, 1 link, 0 none; the proxy agrees switch by switch
+  ok  data plane: h1 -> 10.0.0.2 forwards
+
+up. ready
+  proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+  !!  package pipeline: NDTwin discovered no links and installed no routes on this
+  !!    fabric; forwarding is whatever the package's 4 entries on
+  !!    1 switch(es) make of it. ndt status quotes no sample rate for it.
+```
+
+### 4. N4  GET /p4/switch_state
+
+```
+$ http://localhost:8081/p4/switch_state
+```
+
+```
+{
+  "boot_at": 1790437165.525938,
+  "boot_id": "a18a05f7c7eb4d6ca0d7dd9be7b5686e",
+  "control_plane": {
+    "mode": "ndtwin",
+    "package": "/home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution",
+    "skipped": [
+      "install_initial_routes",
+      "link_watchdog",
+      "lldp_discovery"
+    ],
+    "telemetry": {
+      "knob": "absent",
+      "link_emitter": {
+        "alive": true,
+        "manifest": "/tmp/ndtwin_link_telemetry.json",
+        "pid": 3845598,
+        "rate": 256,
+        "switches": [
+          1
+        ]
+      },
+      "package": "auto"
+    }
+  },
+  "declared_links": {
+    "directions": 0,
+    "error": null
+  },
+  "external_link_reports": {
+    "last": null,
+    "received": 0,
+    "recorded_only": 0,
+    "routed_through_watchdog": 0
+  },
+  "heartbeat": {
+    "census": {
+      "arms": 26,
+      "arms_where_a_host_saw_a_frame": 0,
+      "heartbeat_ran": 20,
+      "measured": "2026-09-26, TICKET-P4-heartbeat segment S (census part)",
+      "no_inter_switch_link": 4,
+      "not_built": 2,
+      "raw": "doc/audit/2026-09-25_p4-heartbeat/spike/runs/2026-09-26T052148Z_S_heartbeat/40_census.tsv",
+      "summary": "13 tutorials exercises x skeleton/solution. On the 20 arms where the heartbeat ran, no host received a heartbeat frame, and the daemon counted none leaving a host-facing port and none forwarded to another switch. calc and multicast are one switch (no inter-switch link, nothing sent); basic_tunnel and flowcache skeletons do not build. Segment S's census started the heartbeat by hand (the helper, not ndt) on all 20; `ndt up p4 --app` starts it on 17 of them -- the other 3 (p4runtime skeleton and solution, flowcache solution) are external control planes, where `ndt up` does not start it."
+    },
+    "detail": "the report says status 'stopped' (stopped by SIGTERM)",
+    "directions": 0,
+    "error": null,
+    "frame": {
+      "bytes": 60,
+      "ethertype": "0x88B5",
+      "one_per_direction_every_s": null
+    },
+    "frames_reached_hosts": false,
+    "missing_directions": [],
+    "note": "the heartbeat proves a veth carries frames, not that a switch is alive (a switch powered off by P4PowerStrategy is still heard); its frames are also what link telemetry samples, 1 in 256, on those veths",
+    "period_s": null,
+    "pid": 3832164,
+    "report": "/run/ndtwin-lab/heartbeat.json",
+    "report_age_s": null,
+    "session": "277e9f2c18fdc239",
+    "side_effects": {
+      "foreign_frames": 0,
+      "forwarded_between_switches": 0,
+      "forwarded_to_hosts": 0,
+      "misdelivered": 0
+    },
+    "state": "heartbeat_not_running",
+    "undeclared_directions": [],
+    "watchdog": "running",
+    "watchdog_passes": []
+  },
+  "links": {},
+  "probe_interval_s": 2.0,
+  "reroute": {
+    "available": false,
+    "detail": "a foreign switch's route table is not NDTwin's (unbound): a cut link is detected and told to the kernel, and no route is rewritten",
+    "reason": "unbound"
+  },
+  "status": "success",
+  "switches": {
+    "1": {
+      "capabilities": {
+        "binding_source": null,
+        "five_tuple": false,
+        "ipv4_route": "unbound",
+        "link_discovery": "declared",
+        "reroute": false
+      },
+      "entries_recorded": 4,
+      "flow_stats": {
+        "unrendered_entries": null
+      },
+      "grpc_addr": "localhost:30051",
+      "last_lldp_age_s": null,
+      "last_packet_in_age_s": null,
+      "oldest_rule_installed_at": 1790437166.6283908,
+      "pipeline": {
+        "ndtwin": false,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution/build/multicast.p4.p4info.txtpb",
+        "p4info_sha256": "6880b47c0fdda525",
+        "skipped": [
+          "clone_session",
+          "sflow_telemetry"
+        ]
+      },
+      "pipeline_commits": 1,
+      "pre_entries": {
+        "clone": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        },
+        "multicast": {
+          "applied": 1,
+          "failed": 0,
+          "recorded": 1
+        }
+      },
+      "probe_age_s": 2.0,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 4,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": true,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 4,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 4
+      },
+      "table_generation": "291a688f38e84f95bdada02c902ce24e",
+      "telemetry": {
+        "clone_session": false,
+        "packet_in_ids": null,
+        "reason": "this switch runs the app package's own pipeline, which does not clone to the CPU port; its samples come from 'link'",
+        "sflow_registered": false,
+        "source": "link"
+      }
+    }
+  }
+}
+```
+
+### 5. N5  ndt status
+
+```
+$ ndt status (rc=0)
+```
+
+```
+lab
+  claim          yours -- 45m left (until 00:24:18)
+  note           in use: ndt up p4 4 at 2026-09-26 23:39:19 by orch-0926
+  prev claim     orch-0926 (until 00:22:46), superseded 2026-09-26 23:39:18  (.test_run/lab.claim.prev)
+                 the same owner re-claimed it -- a rewrite, not a handover
+                 it said: down at 2026-09-26 23:39:18; verified clean; claim kept
+  exclusive cpu  no (heavy local jobs may overlap this claim)
+  measuring      nothing
+  code           cafd518a  +88 file(s) with uncommitted changes
+                 3 of them can change behaviour:
+                 p4_proxy/mininet/host_count_override
+                 p4_proxy/mininet/app_package_override
+                 tools/remote-lab/dorm_lab/
+  knob baseline  4 == the value this round started with (at 23:39:18)
+  tree vs round  0 file(s) LEFT the uncommitted set, 1 joined it
+                 + p4_proxy/mininet/app_package_override
+  ok  helper: /usr/local/sbin/ndtwin-lab is tools/test_workflow/ndtwin-lab (sha256 6a558fe4)
+
+configuration
+  hosts          4   (what the last 'ndt up' asked for: p4)
+  topology       .test_run/packages/multicast-solution/ndtwin/topology.json
+  p4 host knob   4   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')
+  app package    /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution (mode ndtwin)
+                 multicast -- p4_proxy/mininet/app_package_override; it decides the next 'ndt up p4' and the next proxy
+  bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc
+  telemetry      auto   (p4_proxy/mininet/telemetry_override absent -- auto, then the package)
+                 every switch: link
+                 link emitter: alive pid 3845598, 1 switch(es), rate 256
+  link shaping   off (no package link asks for one)
+  sample rate    n/a (package pipeline)
+  rate source    the app package runs a foreign pipeline on dpid 1 -- p4_proxy/p4_src/build/ndtwin_switch.json is NOT what those switches loaded, and stale_pipeline is not judged
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  1       topo session   present
+  host/switch    5       manifest       present
+  :8000 kernel   open    :8081 proxy    open    :8080 ryu closed
+  binary         /usr/local/bmv2-fast/bin/simple_switch_grpc
+  heartbeat      stopped (stopped by SIGTERM), 145 s ago
+  pidfiles       kernel.child.pid=3845996 alive,kernel.pid=3845991 alive,p4_proxy.child.pid=3845774 alive,p4_proxy.pid=3845769 alive
+
+network health
+  switches       1 up, 1 enabled, 0 admin-disabled
+  links          8 total, 0 down, 0 admin-disabled
+  tc netem       none
+  sudo grants    all 3 granted
+  apps           none running
+
+kernel graph
+  1 switches (1 up, 1 enabled), 4 hosts, 8 edges
+proxy
+  12 destination paths reported; none expected -- the package's program on dpid 1, proxy skipped lldp_discovery
+
+up target
+  asked for      p4, 4 hosts   (recorded 2026-09-26 23:39:19 by orch-0926)
+  topology       .test_run/packages/multicast-solution/ndtwin/topology.json   (declares 4 hosts / 8 edges)
+  dataplane      p4                     == p4   ok
+  fabric hosts   4                      == 4   ok
+  graph hosts    4                      == 4   ok
+  graph edges    8                      == 8   ok
+  topology file  sha256 4699c79d955a    == recorded   ok
+  device names   no overlay file at .test_run/nickname_overlay/topology.names.json
+                 that is where this checkout's kernel writes them; not a claim that none are set
+```
+
+### 6. U1  IPv6 off in every host namespace
+
+```
+$ sysctl -w net.ipv6.conf.{all,default}.disable_ipv6=1 in each host
+```
+
+```
+exercises/multicast/disable_ipv6.sh's two lines, per namespace
+```
+
+### 7. ARP caches emptied before the measurement
+
+```
+$ ip neigh flush all (each host)
+```
+
+```
+h1, h2, h3, h4
+```
+
+### 8. pingall -- every ordered pair, ping -c 5 -W 2
+
+```
+$ ping -c 5 -W 2 <each ordered pair>
+```
+
+```
+25% (9/12 pairs at 0%, 3 lossy)
+h1 -> h4 (10.0.0.4): 100% loss, 0/5 received
+h2 -> h4 (10.0.0.4): 100% loss, 0/5 received
+h3 -> h4 (10.0.0.4): 100% loss, 0/5 received
+```
+
+### 9. hX -> h4 re-measured from cold ARP caches
+
+```
+$ ip neigh flush all; ping -c 5 -W 2 h4
+```
+
+```
+h1->h4 100% loss, 0/5 received, h2->h4 100% loss, 0/5 received, h3->h4 100% loss, 0/5 received
+```
+
+### 10. N8  G1 link usage follows the iperf path
+
+```
+$ live-p1/_common.sh link_usage_round /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution (to h3)
+```
+
+```
+   multicast/solution: slowest declared link = 1000000000 bit/s; iperf offers 2000000 bit/s; a link therefore carries at most 2000000 bit/s
+   multicast/solution: at 8s that is only 5.21 expected samples per primary link
+   multicast/solution: window = max(8, ceil(10 x 256 x 1500 x 8 / 2000000)) = 16s
+   multicast/solution: h1 -> h3 (10.0.0.3), iperf -u -b 2M -t 16 -l 1200
+   multicast/solution: primary=s1-eth3   minor=
+   multicast/solution: on-path  s1-eth3  38783934.250 bit  (host)  [primary, 4345800 B]
+   multicast/solution: off-path floor 3072000.000 bit   = max(ONE SAMPLE = 256 x 1500 x 8 = 3072000 bit, 0.02 x the smallest PRIMARY on-path integral)
+   multicast/solution: off-path s1-eth1  0.000 bit  (host)
+   multicast/solution: off-path s1-eth2  0.000 bit  (host)
+   multicast/solution: off-path s1-eth4  0.000 bit  (host)
+   multicast/solution: link usage follows the iperf path (off-path under 3072000.000 bit)
+LINK_USAGE multicast/solution expect=follows primary=1 minor=0 rc=0
+```
+
+### 11. N9  ndt down
+
+```
+$ ndt down
+```
+
+```
+ndt down
+  this teardown is about:
+        1 bmv2 switch(es)
+        5 host/switch process(es)
+        a topo tmux session
+        the switch manifest /tmp/ndtwin_p4_switches.json
+        the registry entry .test_run/pids/kernel.child.pid
+        the registry entry .test_run/pids/kernel.pid
+        the registry entry .test_run/pids/p4_proxy.child.pid
+        the registry entry .test_run/pids/p4_proxy.pid
+        a held port in ports.sh's table
+[1/3] kernel + proxy/Ryu
+        stopped kernel
+        kernel exit status 143 (terminated by SIGTERM (15) -- or exit(143), which bash cannot distinguish)
+        stopped p4_proxy
+        p4_proxy exit status 143 (terminated by SIGTERM (15) -- or exit(143), which bash cannot distinguish)
+        -> an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+        :30051 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+        :9091 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        ryu exit status 143 (terminated by SIGTERM (15) -- or exit(143), which bash cannot distinguish)
+        find and stop it, or the next 'up' will report on it:
+          ss -ltnp   # tcp rows;  ss -lunp   # the udp one (:6343) -- see ports.sh
+          cat /home/adam/Desktop/NDTwin-Kernel/.test_run/pids/*.pid   # what this stack started; check each against /proc/<pid>
+  !!  stack.sh down exited 1, and the only thing behind that status is port(s)
+  !!    still listening at [1/3], held by processes it did not start:
+  !!      9091 30051 
+  !!    [1/3] runs BEFORE the data-plane sweep in [3/3], so on a live P4 fabric this
+  !!    is the fabric this teardown is about to remove, accusing itself. The verdict
+  !!    on these ports is taken AFTER 'verify clean' below, not here. (ROLE-12)
+[2/3] topology session
+      topo stopped
+[3/3] sweep
+        none           ntg_bmv2_topo
+        none           p4_testbed_topo
+        none           OVS testbed_topo
+        none           NTG testbed_topo
+        none           simple_switch_grpc
+      cleanup done
+  ok  this step ran the Mininet sweep (mn -c) for you
+    [3/3] is 'ndtwin-lab cleanup' and its sweep runs 'mn -c' before it sweeps
+    simple_switch_grpc, so the advice stack.sh prints at [1/3] about running that
+    command by hand is advice this teardown has already acted on -- which is why
+    [1/3] filters it out.
+  cleared the 'ndt up' target record (.test_run/up.target)
+
+verify clean
+  app package cleared: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution -- this checkout is being put back
+  ok  bmv2 switches: 0
+  ok  host/switch processes: 0
+  ok  no topo session
+  ok  no switch manifest
+  ok  ports closed: 8000/8080/8081/6653/6633/6343/30051-30060/9091-9100/9000
+
+clean
+  ok  the 2 port(s) [1/3] called 'still listening' were closed by [3/3]: 9091 30051 
+    so stack.sh's exit 1 was a reading from the MIDDLE of this teardown, not
+    its ending, and it is not carried to the exit code. (ROLE-12, 2026-09-12)
+  claim note now says the lab is down and verified clean (owner and expiry unchanged)
+```
+
+### 12. N10 ndt release
+
+```
+$ ndt release
+```
+
+```
+  the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+  this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+  ok  lab released
+```
+
+## 5. 判定表
+
+| 結果 | 期望 | 來源等級 | want | got | 依據 |
+|---|---|---|---|---|---|
+| PASS | injection: every ordered pair was tested | 【源碼推導，未執行】 | `0 untested` | `0 untested of 12` | an untested pair is not a blocked one; without this 'h4 is unreachable' would also describe a host whose namespace could not be entered |
+| PASS | h1/h2/h3 reach each other | 【README 宣稱】＋【源碼推導，未執行】 | `0% on all 6 pairs` | `0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 received` | README step 3; solution/multicast.p4:74-76 floods to mcast_grp 1 and :113-114 prunes the ingress copy |
+| PASS | nobody reaches h4 | 【README 宣稱】＋【源碼推導，未執行】 | `100% on the three hX -> h4 pairs` | `100% loss, 0/5 received, 100% loss, 0/5 received, 100% loss, 0/5 received` | sig-topo/s1-runtime.json:47-65 replicates ports 1,2,3 only -- port 4 is README:122's TODO and this driver does not edit the exercise; an ARP request for h4 floods to 1,2,3 and h4 never sees it |
+| PASS | but h4 reaches them | 【源碼推導，未執行】 | `0% on the three h4 -> hX pairs` | `0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 received` | sig-topo/s1-runtime.json:36-45 DOES give h4's MAC a mac_forward entry to port 4; only the group leaves 4 out. h4's own ARP floods to 1,2,3, is answered, and the unicast reply hits that entry. |
+| PASS | and h4 is unreachable from cold caches, not just from this ping order | 【源碼推導，未執行】 | `100% on all three, after a second flush` | `h1->h4 100% loss, 0/5 received, h2->h4 100% loss, 0/5 received, h3->h4 100% loss, 0/5 received` | the first pass measured hX -> h4 before h4 had ever ARPed, which this walk guarantees only because h4 sorts last as a source; this repeats it from a state that does not depend on the order at all |
+| PASS | G1  link usage follows the iperf path | 【源碼推導，未執行】 | `primary on-path > 0; minor rows printed, not asserted; off-path under one sample's worth (256 x MTU x 8 bit) or 2% of the smallest PRIMARY on-path, whichever is larger` | `PASS` | TICKET-P3 §2.7's program-independent cell, through live-p1/_common.sh's link_usage_round -- the same function live-p1/05 runs. The floor and every off-path edge's raw integral are in that transcript. |
+
+## 6. 交換機 log / pcap
+
+- `/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-26T153918Z_multicast_solution_ndtwin/link_usage`
+
+## 8. 完整 transcript
+
+### stdout
+
+```
+drive_exercise.py -- multicast / solution
+(non-interactive: no mininet CLI, no xterm; kills nothing)
+fabric   : ndtwin -- the package fabric `ndt up p4 --app` builds; no root needed
+
+== pre-flight (read-only) ==============================================
+OK   lab is free (claim: owner=- expires=- measuring=nothing)
+OK   host scripts will run under /home/adam/p4dev-python-venv/bin/python
+OK   ndt /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt, converter /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/convert.py, pre-flight /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/preflight.py
+--   switch  n/a: `ndt up p4` chooses the bmv2 binary -- see the `ndt status` capture
+OK   p4c     /usr/local/bin/p4c-bm2-ss  sha256[:16]=226f3f66df515c9e  --version=Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release)
+OK   exercise dir /home/adam/tutorials/exercises/multicast
+
+== compile =============================================================
+$ /usr/local/bin/p4c-bm2-ss --p4v 16 --p4runtime-files /home/adam/tutorials/exercises/multicast/build/multicast.p4.p4info.txtpb -o /home/adam/tutorials/exercises/multicast/build/multicast.json /home/adam/tutorials/exercises/multicast/solution/multicast.p4
+/home/adam/tutorials/exercises/multicast/solution/multicast.p4(13): [--Wwarn=unused] warning: 'ip4Addr_t' is unused
+typedef bit<32> ip4Addr_t;
+                ^^^^^^^^^
+-> /home/adam/tutorials/exercises/multicast/build/multicast.json  11287 B  sha256[:16]=350746c489bec11e  warnings=1
+
+== plan ================================================================
+topology : sig-topo/topology.json
+hosts    : h1, h2, h3, h4
+switches : s1
+links    : 4
+program  : /home/adam/tutorials/exercises/multicast/solution/multicast.p4 -> build/multicast.json
+switch   : /usr/local/bin/simple_switch_grpc
+steps    : disable IPv6 in each host; pingall; assert h1/h2/h3 reach each other and nobody reaches h4 (sig-topo's group is ports 1,2,3)
+package  : /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution
+equivalent to (from the repo root, as the operator -- no sudo):
+  /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/convert.py /home/adam/tutorials/exercises/multicast --topology sig-topo/topology.json --p4 multicast.p4 --out /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution
+  /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution
+  NDT_OWNER=orch-0926 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt claim 45 '...' && NDT_OWNER=orch-0926 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt up p4 --app /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution
+  ... the scripted steps above, then `ndt down` and `ndt release`.
+telemetry: whatever the package declares (no --telemetry given)
+
+== convert the exercise into an app package ============================
+$ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/convert.py /home/adam/tutorials/exercises/multicast --topology sig-topo/topology.json --p4 solution/multicast.p4 --out /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution
+package 'multicast' -> /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution
+  control plane : ndtwin
+  pipelines     : s1=build/multicast.json
+  model         : 1 switches, 4 hosts, 8 edges (4 links, both directions stored)
+  files         : 7
+                  build/multicast.json
+                  build/multicast.p4.p4info.txtpb
+                  ndtwin/topology.json
+                  package.json
+                  sig-topo/s1-runtime.json
+                  sig-topo/topology.json
+                  solution/multicast.p4
+  read back through p4_proxy/mininet/topo_from_json.py: ok
+  next: tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution
+
+== pre-flight the package ==============================================
+$ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution
+pre-flight: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution
+  PASS  format                            1
+  INFO  name                              multicast
+  PASS  control_plane.mode                ndtwin
+  PASS  control_plane.grpc_base           30050
+  PASS  control_plane.device_id           dpid
+  PASS  control_plane.election_id         [0, 65535]
+  PASS  bmv2.cpu_port                     255
+  PASS  switches keys                     1 dpids: [1]
+  PASS  switches name                     every sN has dpid N
+  PASS  referenced files                  6 present
+  PASS  topo_from_json.switches           1 entries
+  PASS  topo_from_json.hosts              4 entries
+  PASS  topo_from_json.switch_links       0 entries
+  PASS  topo_from_json.host_links         4 entries
+  PASS  switches agree                    model and package.json both say [1]
+  PASS  links agree                       4 links in both
+  PASS  hosts named h<last octet>         4 hosts
+  PASS  hosts agree                       model and package.json both say ['h1', 'h2', 'h3', 'h4']
+  PASS  switches pipeline                 1 of 1 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
+  INFO  s1 pipeline                       build/multicast.json  p4info sha256:6880b47c0fdda525  program=/home/adam/tutorials/exercises/multicast/solution/multicast.p4
+  PASS  p4info parses                     google.protobuf.text_format into p4.config.v1.P4Info
+  PASS  entries match p4info              4 entries across 1 switch(es); recorded, NOT applied in stage one
+  PASS  entries p4info is the pipeline's  1 switch(es); entries and pipeline name the same p4info
+  INFO  telemetry.source                  not declared (auto: NDTwin's pipeline gets the cooperative path, anybody else's gets link telemetry)
+  PASS  PRE entries                       1 multicast group(s) and 0 clone session(s); every replica names a port the model builds
+  PASS  gRPC port block                   30051-30051 safe on this machine
+  PASS  p4c-bm2-ss                        rc=0  multicast.json sha256:784b3d947dff091c  multicast.p4.p4info.txtpb sha256:6880b47c0fdda525
+
+PASS -- every check passed
+host_count_override snapshot: 2 bytes (b'4\n')
+telemetry_override snapshot: absent
+
+== claim the lab =======================================================
+$ NDT_OWNER=orch-0926 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt claim 45 drive_exercise multicast/solution on the ndtwin fabric
+  recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+  ok  lab claimed by orch-0926 for 45m (drive_exercise multicast/solution on the ndtwin fabric)
+
+== ndt up p4 --app =====================================================
+$ NDT_OWNER=orch-0926 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt up p4 --app /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution
+app package pre-flight
+  package      /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution
+pre-flight: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution
+  PASS  format                            1
+  INFO  name                              multicast
+  PASS  control_plane.mode                ndtwin
+  PASS  control_plane.grpc_base           30050
+  PASS  control_plane.device_id           dpid
+  PASS  control_plane.election_id         [0, 65535]
+  PASS  bmv2.cpu_port                     255
+  PASS  switches keys                     1 dpids: [1]
+  PASS  switches name                     every sN has dpid N
+  PASS  referenced files                  6 present
+  PASS  topo_from_json.switches           1 entries
+  PASS  topo_from_json.hosts              4 entries
+  PASS  topo_from_json.switch_links       0 entries
+  PASS  topo_from_json.host_links         4 entries
+  PASS  switches agree                    model and package.json both say [1]
+  PASS  links agree                       4 links in both
+  PASS  hosts named h<last octet>         4 hosts
+  PASS  hosts agree                       model and package.json both say ['h1', 'h2', 'h3', 'h4']
+  PASS  switches pipeline                 1 of 1 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
+  INFO  s1 pipeline                       build/multicast.json  p4info sha256:6880b47c0fdda525  program=/home/adam/tutorials/exercises/multicast/solution/multicast.p4
+  PASS  p4info parses                     google.protobuf.text_format into p4.config.v1.P4Info
+  PASS  entries match p4info              4 entries across 1 switch(es); recorded, NOT applied in stage one
+  PASS  entries p4info is the pipeline's  1 switch(es); entries and pipeline name the same p4info
+  INFO  telemetry.source                  not declared (auto: NDTwin's pipeline gets the cooperative path, anybody else's gets link telemetry)
+  PASS  PRE entries                       1 multicast group(s) and 0 clone session(s); every replica names a port the model builds
+  PASS  gRPC port block                   30051-30051 safe on this machine
+  PASS  p4c-bm2-ss                        rc=0  multicast.json sha256:784b3d947dff091c  multicast.p4.p4info.txtpb sha256:6880b47c0fdda525
+
+PASS -- every check passed
+
+ndt up p4
+  hosts        4        (p4_proxy/mininet/host_count_override)
+  topology     .test_run/packages/multicast-solution/ndtwin/topology.json
+  app package  /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution (mode ndtwin, 1 switch(es))
+  bmv2         /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate  1/256     (compiled into ndtwin_switch.json)
+
+  recorded this target in .test_run/up.target -- 'ndt status --check' compares against it
+  app package set: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution   (p4_proxy/mininet/app_package_override)
+  telemetry    auto   (p4_proxy/mininet/telemetry_override absent -- auto, then the 
+... [trimmed; 5029 chars total]
+
+== GET /p4/switch_state ================================================
+   control_plane.mode    ndtwin
+   control_plane.package /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution
+   control_plane.skipped ['install_initial_routes', 'link_watchdog', 'lldp_discovery']
+   s1  ndtwin=False p4info_sha256=6880b47c0fdda525  entries recorded=4 applied=4 failed=0 api_writes=0  (entries_recorded=4)
+
+== ndt status (raw; and the bmv2 binary it names) ======================
+$ NDT_OWNER=orch-0926 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt status
+lab
+  claim          yours -- 45m left (until 00:24:18)
+  note           in use: ndt up p4 4 at 2026-09-26 23:39:19 by orch-0926
+  prev claim     orch-0926 (until 00:22:46), superseded 2026-09-26 23:39:18  (.test_run/lab.claim.prev)
+                 the same owner re-claimed it -- a rewrite, not a handover
+                 it said: down at 2026-09-26 23:39:18; verified clean; claim kept
+  exclusive cpu  no (heavy local jobs may overlap this claim)
+  measuring      nothing
+  code           cafd518a  +88 file(s) with uncommitted changes
+                 3 of them can change behaviour:
+                 p4_proxy/mininet/host_count_override
+                 p4_proxy/mininet/app_package_override
+                 tools/remote-lab/dorm_lab/
+  knob baseline  4 == the value this round started with (at 23:39:18)
+  tree vs round  0 file(s) LEFT the uncommitted set, 1 joined it
+                 + p4_proxy/mininet/app_package_override
+  ok  helper: /usr/local/sbin/ndtwin-lab is tools/test_workflow/ndtwin-lab (sha256 6a558fe4)
+
+configuration
+  hosts          4   (what the last 'ndt up' asked for: p4)
+  topology       .test_run/packages/multicast-solution/ndtwin/topology.json
+  p4 host knob   4   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')
+  app package    /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/multicast-solution (mode ndtwin)
+                 multicast -- p4_proxy/mininet/app_package_override; it decides the next 'ndt up p4' and the next proxy
+  bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc
+  telemetry      auto   (p4_proxy/mininet/telemetry_override absent -- auto, then the package)
+                 every switch: link
+                 link emitter: alive pid 3845598, 1 switch(es), rate 256
+  link shaping   off (no package link asks for one)
+  sample rate    n/a (package pipeline)
+  rate source    the app package runs a foreign pipeline on dpid 1 -- p4_proxy/p4_src/build/ndtwin_switch.json is NOT what those switches loaded, and stale_pipeline is not judged
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  1       topo session   present
+  host/switch    5       manifest       present
+  :8000 kernel   open    :8081 proxy    open    :8080 ryu closed
+  binary         /usr/local/bmv2-fast/bin/simple_switch_grpc
+  heartbeat      stopped (stopped by SIGTERM), 145 s ago
+  pidfiles       kernel.child.pid=3845996 alive,kernel.pid=3845991 alive,p4_proxy.child.pid=3845774 alive,p4_proxy.pid=3845769 alive
+
+network health
+  switches       1 up, 1 enabled, 0 admin-disabled
+  links          8 total, 0 down, 0 admin-disabled
+  tc netem       none
+  sudo grants    all 3 granted
+  apps           none running
+
+kernel graph
+  1 switches (1 up, 1 enabled), 4 hosts, 8 edges
+proxy
+  12 destination paths reported; none expected -- the package's program on dpid 1, proxy skipped lldp_discovery
+
+up target
+  asked for      p4, 4 hosts   (recorded 2026-09-26 23:39:
+... [trimmed; 3562 chars total]
+   bmv2 sha256[:16]=3ff54b5c1901c9d3  1.15.3-f0b7d201   (ndt status: /usr/local/bmv2-fast/bin/simple_switch_grpc)
+
+== scripted steps (no CLI, no xterm) ===================================
+   hosts: h1=10.0.0.1, h2=10.0.0.2, h3=10.0.0.3, h4=10.0.0.4
+$ h1: disable_ipv6 -> net.ipv6.conf.all.disable_ipv6 = 1 | net.ipv6.conf.default.disable_ipv6 = 1
+$ h2: disable_ipv6 -> net.ipv6.conf.all.disable_ipv6 = 1 | net.ipv6.conf.default.disable_ipv6 = 1
+$ h3: disable_ipv6 -> net.ipv6.conf.all.disable_ipv6 = 1 | net.ipv6.conf.default.disable_ipv6 = 1
+$ h4: disable_ipv6 -> net.ipv6.conf.all.disable_ipv6 = 1 | net.ipv6.conf.default.disable_ipv6 = 1
+$ ip neigh flush all, in each host namespace -> h1, h2, h3, h4
+$ every ordered host pair: ping -c 5 -W 2, loss parsed from ping's summary
+   h1 -> h4 (10.0.0.4): 100% loss, 0/5 received
+   h2 -> h4 (10.0.0.4): 100% loss, 0/5 received
+   h3 -> h4 (10.0.0.4): 100% loss, 0/5 received
+-> pingall 25% (9/12 pairs at 0%, 3 lossy)
+   PASS injection: every ordered pair was tested       want=0 untested             got=0 untested of 12
+   PASS h1/h2/h3 reach each other                      want=0% on all 6 pairs      got=0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 received
+   PASS nobody reaches h4                              want=100% on the three hX -> h4 pairs got=100% loss, 0/5 received, 100% loss, 0/5 received, 100% loss, 0/5 received
+   PASS but h4 reaches them                            want=0% on the three h4 -> hX pairs got=0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 received
+$ ip neigh flush all again -> h1, h2, h3, h4; re-measuring the three hX -> h4 pairs
+   PASS and h4 is unreachable from cold caches, not just from this ping order want=100% on all three, after a second flush got=h1->h4 100% loss, 0/5 received, h2->h4 100% loss, 0/5 received, h3->h4 100% loss, 0/5 received
+
+-- switch logs --
+
+== G1  link usage follows the iperf path (program-independent) =========
+   multicast/solution: slowest declared link = 1000000000 bit/s; iperf offers 2000000 bit/s; a link therefore carries at most 2000000 bit/s
+   multicast/solution: at 8s that is only 5.21 expected samples per primary link
+   multicast/solution: window = max(8, ceil(10 x 256 x 1500 x 8 / 2000000)) = 16s
+   multicast/solution: h1 -> h3 (10.0.0.3), iperf -u -b 2M -t 16 -l 1200
+   multicast/solution: primary=s1-eth3   minor=
+   multicast/solution: on-path  s1-eth3  38783934.250 bit  (host)  [primary, 4345800 B]
+   multicast/solution: off-path floor 3072000.000 bit   = max(ONE SAMPLE = 256 x 1500 x 8 = 3072000 bit, 0.02 x the smallest PRIMARY on-path integral)
+   multicast/solution: off-path s1-eth1  0.000 bit  (host)
+   multicast/solution: off-path s1-eth2  0.000 bit  (host)
+   multicast/solution: off-path s1-eth4  0.000 bit  (host)
+   multicast/solution: link usage follows the iperf path (off-path under 3072000.000 bit)
+LINK_USAGE multicast/solution expect=follows primary=1 minor=0 rc=0
+
+== teardown: ndt down, the two knobs, then ndt release =================
+$ NDT_OWNER=orch-0926 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt down
+ndt down
+  this teardown is about:
+        1 bmv2 switch(es)
+        5 host/switch process(es)
+        a topo tmux session
+        the switch manifest /tmp/ndtwin_p4_switches.json
+        the registry entry .test_run/pids/kernel.child.pid
+        the registry entry .test_run/pids/kernel.pid
+        the registry entry .test_run/pids/p4_proxy.child.pid
+        the registry entry .test_run/pids/p4_proxy.pid
+        a held port in ports.sh's table
+[1/3] kernel + proxy/Ryu
+        stopped kernel
+        kernel exit status 143 (terminated by SIGTERM (15) -- or exit(143), which bash cannot distinguish)
+        stopped p4_proxy
+        p4_proxy exit status 143 (terminated by SIGTERM (15) -- or exit(143), which bash cannot distinguish)
+        -> an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+        :30051 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+        :9091 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        ryu exit status 143 (terminated by SIGTERM (15) -- or exit(143), which bash cannot distinguish)
+        find and stop it, or the next 'up' will report on it:
+          ss -ltnp   # tcp rows;  ss -lunp   # the udp one (:6343) -- see ports.sh
+          cat /home/adam/Desktop/NDTwin-Kernel/.test_run/pids/*.pid   # what this stack started; check each against /proc/<pid>
+  !!  stack.sh down exited 1, and the only thing behind that status is port(s)
+  !!    still listening at [1/3], held by processes it did not start:
+  !!      9091 30051 
+  !!    [1/3] runs BEFORE the data-plane sweep in [3/3], so on a live P4 fabric this
+  !!    is the fabric this teardown is about to remove, accusing itself. The verdict
+  !!    on these ports is taken AFTER 'verify clean' below, not here. (ROLE-12)
+[2/3] topology session
+      topo stopped
+[3/3] sweep
+        none           ntg_bmv2_topo
+        none           p4_testbed_topo
+        none           OVS testbed_topo
+        none           NTG testbed_topo
+        none           simple_switch_grpc
+      cleanup done
+  ok  this step ran the Mininet sweep (mn -c) for you
+    [3/3] is 'ndtwin-lab cleanup' and its sweep runs 'mn -c' before it sweeps
+    simple_switch_grpc, so the advice stack.sh prints at [1/3] about running that
+    command by hand is advice this teardown has already acted on -- which is why
+    [1/3] filters it out.
+  cleared the 'ndt up' target record (.tes
+... [trimmed; 3671 chars total]
+   ndt down rc=0
+   host_count_override: unchanged (2 bytes)
+   telemetry_override: unchanged (absent)
+$ NDT_OWNER=orch-0926 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+  the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+  this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+  ok  lab released
+   ndt release rc=0
+
+== verdict =============================================================
+   PASS injection: every ordered pair was tested       want=0 untested             got=0 untested of 12   【源碼推導，未執行】
+   PASS h1/h2/h3 reach each other                      want=0% on all 6 pairs      got=0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 received   【README 宣稱】＋【源碼推導，未執行】
+   PASS nobody reaches h4                              want=100% on the three hX -> h4 pairs got=100% loss, 0/5 received, 100% loss, 0/5 received, 100% loss, 0/5 received   【README 宣稱】＋【源碼推導，未執行】
+   PASS but h4 reaches them                            want=0% on the three h4 -> hX pairs got=0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 received   【源碼推導，未執行】
+   PASS and h4 is unreachable from cold caches, not just from this ping order want=100% on all three, after a second flush got=h1->h4 100% loss, 0/5 received, h2->h4 100% loss, 0/5 received, h3->h4 100% loss, 0/5 received   【源碼推導，未執行】
+   PASS G1  link usage follows the iperf path          want=primary on-path > 0; minor rows printed, not asserted; off-path under one sample's worth (256 x MTU x 8 bit) or 2% of the smallest PRIMARY on-path, whichever is larger got=PASS   【源碼推導，未執行】
+
+>>> PASS (6/6)
+```
+
+### stderr（mininet 的 logger 走這裡）
+
+```
+
+```

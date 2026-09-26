@@ -1,0 +1,82 @@
+ebdf365e2ee7f4ad720991e096a5ac606ddd892e
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926  2026-09-26T13:31:59Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926
+# cmd bash tests/shell/test_ndt_heartbeat.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/test_ndt_heartbeat.sh
+
+1. a foreign package fabric starts the heartbeat -- after the fabric, before the proxy
+  ok       🔴 the bring-up succeeds
+  ok       🔴 exactly one 'heartbeat start'
+  ok       🔴 after topo-start
+  ok       🔴 before stack.sh starts the proxy
+  ok         the helper's answer is printed
+  ok         and ndt says what it is for
+  ok         nothing was stopped on the way up
+  ok         a reused fabric: rc 0
+  ok         (it did take the reuse branch)
+  ok       🔴 a reused foreign fabric asks for the heartbeat too
+
+2. 🔴 NOT on NDTwin's own pipeline, NOT on the baseline, NOT on an external plane
+  ok         a package on NDTwin's pipeline comes up
+  ok         (the pipeline kind was read as ndtwin)
+  ok       🔴 and never asks for a heartbeat (it has LLDP)
+  ok         the baseline fabric comes up
+  ok       🔴 and never asks for a heartbeat
+  ok         an external package comes up
+  ok         (the pipeline kind was read as foreign)
+  ok       🔴 and does not start one: the proxy reads only there
+
+3. 🔴 a heartbeat that does not start does not fail the bring-up
+  ok       🔴 rc 0 -- the fabric IS up
+  ok         the proxy and kernel were still started
+  ok       🔴 and it says detection is off
+  ok         with the helper's reason
+  ok         and no rollback happened
+  ok         rc 3 (no inter-switch link): rc 0
+  ok         said as what it is, in ndt's own words
+  ok       🔴 and not as a failure
+
+4. 🔴 'ndt down' stops it before the topology, and a stop that fails is a failed teardown
+  ok         the teardown succeeds
+  ok       🔴 one 'heartbeat stop'
+  ok       🔴 before topo-stop
+  ok         after stack.sh down (the proxy reading it is gone first)
+  ok         the helper's stop answer is printed
+  ok       🔴 no pidfile: the helper is not asked at all
+  ok         and the teardown's own two sudo calls are the only ones
+  ok       🔴 a stop that failed: rc 1
+  ok         it says so
+  ok       🔴 and the claim note says what was not verified
+  ok         and the teardown still went on to the topology
+
+5. 🔴 a rollback stops it, and so does replacing a running topology
+  ok         a proxy that never came up: rc 1
+  ok       🔴 the rollback stopped the heartbeat
+  ok       🔴 before it stopped the topology
+  ok         and after the stack
+  ok         the replacement comes up
+  ok       🔴 the old heartbeat was stopped before the old topology
+  ok         and a new one started after the new topology
+
+6. 'ndt status' shows it, from the report file (no sudo)
+  ok         no report at all
+  ok       🔴 a fresh running report reads running, with its pid
+  ok         and its directions
+  ok       🔴 a running report nobody rewrote reads STALE
+  ok         a stopped report reads stopped, with why
+  ok       🔴 a frame that reached a host is named
+  ok         an unreadable report says so
+  ok       🔴 reading it needs no sudo
+  ok       🔴 cmd_status prints the heartbeat row
+
+7. the paths are the root helper's own
+  ok       🔴 ndt's pidfile is the helper's HB_PIDFILE
+  ok         (which the helper spells that way)
+  ok       🔴 ndt's report is the file the helper's daemon writes
+  ok         (which the helper names that way)
+
+Ran 57 checks, 0 failed
+guarded_build: exit 0
+# rc=0

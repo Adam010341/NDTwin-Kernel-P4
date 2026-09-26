@@ -1,0 +1,232 @@
+{
+  "boot_at": 1790436722.217879,
+  "boot_id": "3b2e111670584d6f9601a39a7abca23c",
+  "control_plane": {
+    "mode": "external",
+    "package": "/home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hb_p4runtime_solution",
+    "skipped": [
+      "clone_session",
+      "install_initial_routes",
+      "link_watchdog",
+      "lldp_discovery",
+      "pipeline_push",
+      "sflow_telemetry"
+    ],
+    "telemetry": {
+      "knob": "absent",
+      "link_emitter": {
+        "alive": true,
+        "manifest": "/tmp/ndtwin_link_telemetry.json",
+        "pid": 3814833,
+        "rate": 256,
+        "switches": [
+          1,
+          2,
+          3
+        ]
+      },
+      "package": "auto"
+    }
+  },
+  "declared_links": null,
+  "external_link_reports": {
+    "last": null,
+    "received": 0,
+    "recorded_only": 0,
+    "routed_through_watchdog": 0
+  },
+  "heartbeat": null,
+  "links": {},
+  "probe_interval_s": 2.0,
+  "reroute": {
+    "available": false,
+    "detail": "the package declares an external control plane: its own controller owns every table and this proxy writes nothing",
+    "reason": "external_control_plane"
+  },
+  "status": "success",
+  "switches": {
+    "1": {
+      "capabilities": {
+        "binding_source": null,
+        "five_tuple": false,
+        "ipv4_route": "unbound",
+        "link_discovery": "none",
+        "reroute": false
+      },
+      "entries_recorded": 0,
+      "flow_stats": {
+        "unrendered_entries": null
+      },
+      "grpc_addr": "localhost:30051",
+      "last_lldp_age_s": null,
+      "last_packet_in_age_s": null,
+      "oldest_rule_installed_at": null,
+      "pipeline": {
+        "ndtwin": false,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hb_p4runtime_solution/build/advanced_tunnel.p4.p4info.txtpb",
+        "p4info_sha256": "4d986039017abeef",
+        "skipped": [
+          "clone_session",
+          "sflow_telemetry"
+        ]
+      },
+      "pipeline_commits": 0,
+      "pre_entries": {
+        "clone": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        },
+        "multicast": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        }
+      },
+      "probe_age_s": 1.038,
+      "probe_detail": "FAILED_PRECONDITION: No forwarding pipeline config set for this device",
+      "probe_ok": false,
+      "rules_timed": 0,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": false,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 0,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 0
+      },
+      "table_generation": null,
+      "telemetry": {
+        "clone_session": false,
+        "packet_in_ids": null,
+        "reason": "the app package declares an external control plane: this proxy writes nothing, so no clone session was programmed whatever the telemetry source says",
+        "sflow_registered": false,
+        "source": "link"
+      }
+    },
+    "2": {
+      "capabilities": {
+        "binding_source": null,
+        "five_tuple": false,
+        "ipv4_route": "unbound",
+        "link_discovery": "none",
+        "reroute": false
+      },
+      "entries_recorded": 0,
+      "flow_stats": {
+        "unrendered_entries": null
+      },
+      "grpc_addr": "localhost:30052",
+      "last_lldp_age_s": null,
+      "last_packet_in_age_s": null,
+      "oldest_rule_installed_at": null,
+      "pipeline": {
+        "ndtwin": false,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hb_p4runtime_solution/build/advanced_tunnel.p4.p4info.txtpb",
+        "p4info_sha256": "4d986039017abeef",
+        "skipped": [
+          "clone_session",
+          "sflow_telemetry"
+        ]
+      },
+      "pipeline_commits": 0,
+      "pre_entries": {
+        "clone": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        },
+        "multicast": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        }
+      },
+      "probe_age_s": 1.036,
+      "probe_detail": "FAILED_PRECONDITION: No forwarding pipeline config set for this device",
+      "probe_ok": false,
+      "rules_timed": 0,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": false,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 0,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 0
+      },
+      "table_generation": null,
+      "telemetry": {
+        "clone_session": false,
+        "packet_in_ids": null,
+        "reason": "the app package declares an external control plane: this proxy writes nothing, so no clone session was programmed whatever the telemetry source says",
+        "sflow_registered": false,
+        "source": "link"
+      }
+    },
+    "3": {
+      "capabilities": {
+        "binding_source": null,
+        "five_tuple": false,
+        "ipv4_route": "unbound",
+        "link_discovery": "none",
+        "reroute": false
+      },
+      "entries_recorded": 0,
+      "flow_stats": {
+        "unrendered_entries": null
+      },
+      "grpc_addr": "localhost:30053",
+      "last_lldp_age_s": null,
+      "last_packet_in_age_s": null,
+      "oldest_rule_installed_at": null,
+      "pipeline": {
+        "ndtwin": false,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hb_p4runtime_solution/build/advanced_tunnel.p4.p4info.txtpb",
+        "p4info_sha256": "4d986039017abeef",
+        "skipped": [
+          "clone_session",
+          "sflow_telemetry"
+        ]
+      },
+      "pipeline_commits": 0,
+      "pre_entries": {
+        "clone": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        },
+        "multicast": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        }
+      },
+      "probe_age_s": 1.034,
+      "probe_detail": "FAILED_PRECONDITION: No forwarding pipeline config set for this device",
+      "probe_ok": false,
+      "rules_timed": 0,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": false,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 0,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 0
+      },
+      "table_generation": null,
+      "telemetry": {
+        "clone_session": false,
+        "packet_in_ids": null,
+        "reason": "the app package declares an external control plane: this proxy writes nothing, so no clone session was programmed whatever the telemetry source says",
+        "sflow_registered": false,
+        "source": "link"
+      }
+    }
+  }
+}

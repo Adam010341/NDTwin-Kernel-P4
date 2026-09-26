@@ -1,0 +1,84 @@
+{
+  "2": [
+    {
+      "actions": [
+        "OUTPUT:4"
+      ],
+      "byte_count": 0,
+      "cookie": 0,
+      "duration_nsec": 398497240,
+      "duration_sec": 25,
+      "flags": 0,
+      "hard_timeout": 0,
+      "idle_timeout": 0,
+      "length": 0,
+      "match": {
+        "dl_type": 2048,
+        "nw_dst": "10.0.1.1"
+      },
+      "packet_count": 0,
+      "priority": 0,
+      "table_id": 0
+    },
+    {
+      "actions": [
+        "OUTPUT:3"
+      ],
+      "byte_count": 0,
+      "cookie": 0,
+      "duration_nsec": 398170120,
+      "duration_sec": 25,
+      "flags": 0,
+      "hard_timeout": 0,
+      "idle_timeout": 0,
+      "length": 0,
+      "match": {
+        "dl_type": 2048,
+        "nw_dst": "10.0.2.2"
+      },
+      "packet_count": 0,
+      "priority": 0,
+      "table_id": 0
+    },
+    {
+      "actions": [
+        "OUTPUT:1"
+      ],
+      "byte_count": 0,
+      "cookie": 0,
+      "duration_nsec": 396459292,
+      "duration_sec": 25,
+      "flags": 0,
+      "hard_timeout": 0,
+      "idle_timeout": 0,
+      "length": 0,
+      "match": {
+        "dl_type": 2048,
+        "nw_dst": "10.0.3.3"
+      },
+      "packet_count": 0,
+      "priority": 0,
+      "table_id": 0
+    },
+    {
+      "actions": [
+        "OUTPUT:2"
+      ],
+      "byte_count": 0,
+      "cookie": 0,
+      "duration_nsec": 396124009,
+      "duration_sec": 25,
+      "flags": 0,
+      "hard_timeout": 0,
+      "idle_timeout": 0,
+      "length": 0,
+      "match": {
+        "dl_type": 2048,
+        "nw_dst": "10.0.4.4"
+      },
+      "packet_count": 0,
+      "priority": 0,
+      "table_id": 0
+    }
+  ]
+}

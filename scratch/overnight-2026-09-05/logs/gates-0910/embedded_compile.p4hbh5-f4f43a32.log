@@ -1,0 +1,105 @@
+f4f43a3264a1dacc8c5a12e002204e5a08866fca
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-08-h5-sampler-0926  2026-09-26T16:58:49Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-08-h5-sampler-0926
+# cmd python3 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbh5-f4f43a32/embedded_sweep.py --strict --py /usr/bin/python3 --py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-08-h5-sampler-0926/p4_proxy/venv/bin/python doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/_common.sh doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh doc/audit/2026-09-25_p4-heartbeat/spike/oldcode_selftest.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-08-h5-sampler-0926/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ python3 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbh5-f4f43a32/embedded_sweep.py --strict --py /usr/bin/python3 --py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-08-h5-sampler-0926/p4_proxy/venv/bin/python doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/_common.sh doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh doc/audit/2026-09-25_p4-heartbeat/spike/oldcode_selftest.sh
+== doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh: 31 embedded program(s)
+    175-573   py-heredoc NOT  compile=ok       | import glob, json, os, re, sys
+    692-719   py-var     NOT  compile=ok       | import json, os, sys, time
+    728-728   py-c-var   NOT  compile=dynamic  | SAMPLER_PY
+    782-782   awk        NOT  compile=ok       | BEGIN{print b-a}
+    788-788   awk        NOT  compile=ok       | BEGIN{printf "%.2f\n", b-a}
+    817-817   py-c       NOT  compile=ok       | import time; print(f"{time.monotonic():.3f}")
+    818-818   py-c       NOT  compile=ok       | import time; print(f"{time.monotonic() - time.time():.6f}")
+    819-819   py-c       NOT  compile=ok       | import sys, time; time.sleep(max(0.0, float(sys.argv[1]) - t
+    822-834   py-heredoc NOT  compile=ok       | import json, sys
+    838-850   py-heredoc NOT  compile=ok       | import json, sys
+    855-859   py-c       NOT  compile=ok       | import math, sys, time
+    874-874   awk        NOT  compile=ok       | BEGIN{printf "%.2f\n", lo + (r / 32767) * (p - 2 * lo)}
+    962-1003  py-heredoc NOT  compile=ok       | import json, sys, time
+   1052-1052  awk        NOT  compile=ok       | { if ($9 <= b) print "yes"; else printf "OVER+%.3f\n", $9 - 
+   1147-1263  py-heredoc NOT  compile=ok       | import copy, json, os, sys
+   1341-1341  awk        NOT  compile=ok       | BEGIN{exit !(a > 0.05 && a < 4.95 && b > 0.05 && b < 4.95)}
+   1443-1448  py-c       NOT  compile=ok       | import json, os, sys
+   1455-1457  py-c       NOT  compile=ok       | import json, sys
+   1465-1465  py-c       NOT  compile=ok       | import json, sys; d = json.load(open(sys.argv[1])); print(d[
+   1472-1472  py-c       NOT  compile=ok       | import json, sys; d = json.load(open(sys.argv[1])); print(d[
+   1484-1484  awk        NOT  compile=ok       | BEGIN{printf "%.3f", m + 0.3}
+   1498-1499  awk        NOT  compile=ok       | BEGIN{n = split(s, a, " "); for (i = 2; i <= n; i++) if (a[i
+   1504-1505  awk        NOT  compile=ok       | BEGIN{split(s, a, " "); split(p, q, " "); m = a[1] + q[2];
+   1526-1526  awk        NOT  compile=ok       | {print NF}
+   1574-1578  py-c       NOT  compile=ok       | import json, os, sys
+   1597-1597  awk        NOT  compile=ok       | NR == 1 {next} {k = $2 " " $3 " " $5 " " $6; if (k != last) 
+   1601-1601  awk        NOT  compile=ok       | NR > 1 && (NF != 6 || $1 !~ /^[0-9]+\.[0-9]$/) {bad = 1} END
+   1631-1635  py-c       NOT  compile=ok       | import json, os, sys
+   1653-1653  awk        NOT  compile=ok       | BEGIN{printf "%.6f", n - 1.5}
+   1655-1655  awk        NOT  compile=ok       | BEGIN{exit !(e >= 1.5 && e < 3.5)}
+   1775-1775  awk        NOT  compile=ok       | /^# --- end of prelude/ {exit} /^LIVE_DIR_08=/ {printf "LIVE
+   -> 0/31 executed by the traced self-tests; 0 do not compile
+== doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh: 15 embedded program(s)
+     88-104   py-heredoc NOT  compile=ok       | import json, sys
+    109-119   py-heredoc NOT  compile=ok       | import json, sys
+    146-158   py-heredoc NOT  compile=ok       | import json, sys
+    164-164   py-jqp     NOT  compile=ok       | sorted((d.get('control_plane') or {}).get('skipped') or [])
+    171-180   py-heredoc NOT  compile=ok       | import json, sys
+    185-193   py-heredoc NOT  compile=ok       | import json, sys
+    198-204   py-heredoc NOT  compile=ok       | import json, sys
+    211-231   py-heredoc NOT  compile=ok       | import glob, json, os, sys
+    236-247   py-heredoc NOT  compile=ok       | import json, sys
+    253-262   py-heredoc NOT  compile=ok       | import json, sys
+    268-279   py-heredoc NOT  compile=ok       | import json, sys
+    307-394   py-heredoc NOT  compile=ok       | import copy, json, os, sys
+    496-496   py-jqp     NOT  compile=ok       | d.get('complete')
+    506-506   py-jqp     NOT  compile=ok       | d.get('request_id') or ''
+    549-554   py-c-dq    NOT  compile=ok       | import json,sys,os
+   -> 0/15 executed by the traced self-tests; 0 do not compile
+== doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/_common.sh: 22 embedded program(s)
+    315-319   py-c-dq    NOT  compile=ok       | import json,sys
+    328-331   py-c-dq    NOT  compile=ok       | import json,sys
+    335-340   py-c-dq    NOT  compile=ok       | import json,sys
+    347-350   py-c-dq    NOT  compile=ok       | import json,sys
+    374-381   py-c-dq    NOT  compile=ok       | import re, sys
+    390-396   py-c-dq    NOT  compile=ok       | import json, sys
+    401-406   py-c-dq    NOT  compile=ok       | import json, sys
+    480-480   py-jqp     NOT  compile=dynamic  | ((d.get('switches') or {}).get('$d') or {}).get('probe_ok')
+    701-712   py-c       NOT  compile=ok       | import re, sys
+    805-831   py-c       NOT  compile=ok       | import sys
+    839-839   awk        NOT  compile=ok       | $2 == "P" {print $1}
+    858-858   awk-dq     NOT  compile=dynamic  | BEGIN{print 1/$hz}
+    861-893   py-c       NOT  compile=ok       | import json, sys
+    923-954   py-c       NOT  compile=ok       | import sys
+    993-993   awk-dq     NOT  compile=dynamic  | BEGIN{printf \"%.3f\", $delta / ($LINK_USAGE_MTU_BYTES * $LI
+    997-997   awk-dq     NOT  compile=dynamic  | BEGIN{print ($bits > 0) ? 1 : 0}
+   1010-1010  awk        NOT  compile=ok       | $1 == k {found=1} END{exit !found}
+   1016-1016  awk-dq     NOT  compile=dynamic  | BEGIN{print ($bits >= $floor) ? 1 : 0}
+   1049-1049  awk-dq     NOT  compile=dynamic  | BEGIN{print ($bits != 0) ? 1 : 0}
+   1160-1160  awk        NOT  compile=ok       | $2=="M"{printf "%s ", $1}
+   1168-1168  awk        NOT  compile=ok       | $2=="P"{n++} END{print n+0}
+   1169-1169  awk        NOT  compile=ok       | $2=="M"{n++} END{print n+0}
+   -> 0/22 executed by the traced self-tests; 0 do not compile
+== doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh: 10 embedded program(s)
+    200-202   py-c       NOT  compile=ok       | import sys; sys.path.insert(0, sys.argv[1])
+    634-634   awk        NOT  compile=ok       | $1 == i { print $2, $3, $4, $5; exit }
+    686-686   py-c-dq    NOT  compile=dynamic  | print($t0 - 1)
+    714-714   py-c-dq    NOT  compile=dynamic  | print($(now) - ${BEACON_S} - 1)
+    991-991   awk        NOT  compile=ok       | /^self_test\(\) \{/ {exit} /^SPIKE_DIR=/ {printf "SPIKE_DIR=
+   1175-1175  awk-dq     NOT  compile=dynamic  | $HB_WATCH_SIM/clock
+   1301-1301  awk        NOT  compile=ok       | /^   !! / { sub(/^   !! /, ""); printf "%s%s", (n++ ? "; " :
+   1465-1465  awk        NOT  compile=ok       | /^require_free_lab$/ {go = 1} go
+   1841-1841  awk        NOT  compile=ok       | $1 == c { print $6 }
+   2029-2029  awk        NOT  compile=ok       | /^# --- the run/ {run = 1} run && /^    census$/ {grab = 1; 
+   -> 0/10 executed by the traced self-tests; 0 do not compile
+== doc/audit/2026-09-25_p4-heartbeat/spike/oldcode_selftest.sh: 1 embedded program(s)
+     67-807   py-heredoc NOT  compile=ok       | import contextlib
+   -> 0/1 executed by the traced self-tests; 0 do not compile
+SUMMARY
+  08_heartbeat.sh: 31 programs, 0 do not compile
+  07_roles_basic.sh: 15 programs, 0 do not compile
+  _common.sh: 22 programs, 0 do not compile
+  S_heartbeat_spike.sh: 10 programs, 0 do not compile
+  oldcode_selftest.sh: 1 programs, 0 do not compile
+EMBEDDED-COMPILE: 79 programs, 0 do not compile
+guarded_build: exit 0
+# rc=0

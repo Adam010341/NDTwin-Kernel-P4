@@ -1,0 +1,12 @@
+# CI run 36251857977 on cafd518a (segment W merge), GCC job via API raw log; 2026-09-26T23:40:36+08:00
+vs 9c2e59e4 (36233414349):
+19a20
+>       FAILED (failures=1)
+38a40
+>       FAIL: test_code_sourced_tables_are_in_ndt (__main__.RcProvenance.test_code_sourced_tables_are_in_ndt)
+41c43
+< L1 FAILED (14 problem group(s))   logs: /home/runner/work/NDTwin-Kernel-P4/NDTwin-Kernel-P4/.test_run/logs
+---
+> L1 FAILED (15 problem group(s))   logs: /home/runner/work/NDTwin-Kernel-P4/NDTwin-Kernel-P4/.test_run/logs
+NEW RED: tests/python/test_ndt_serve.py RcProvenance.test_code_sourced_tables_are_in_ndt -- 11 RC_SOURCE line anchors in tools/ndt_serve moved by W's +126 lines in tools/test_workflow/ndt; reproduced locally; fix dispatched (fix/ndt-serve-anchors-0926)
+jobs vs 9c2e59e4: identical conclusions (GCC failure, clang failure, TSan failure, ASan+UBSan success) -- checked with gh run view --json jobs; clang/TSan logs not re-diffed

@@ -1,0 +1,36 @@
+1a3ebd7f9ffb14ab922e844fb3f7ace7abdf405f
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926  2026-09-26T10:12:51Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbw-1a3ebd7f/live08_redfirst.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbw-1a3ebd7f/live08_redfirst.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926
+HEAD 1a3ebd7f9ffb14ab922e844fb3f7ace7abdf405f; red-first 0b9af42f4f5f393f3416a62417f4cb8f4ffa56dd
+at 0b9af42f: rc 1, last line 'SELF-TEST FAIL', 19 red line(s):
+      🔴    cycle gave 'BAD cycle could not read its input: TypeError: v_cycle() takes 9 positional arguments but 14 were given'
+      🔴    budget: 15.88 s is within the strict 20 s                    wanted OK, got: BAD budget could not read its input: KeyError: 'v_bud
+      🔴    budget: over the strict 20 s by what was measured gave 'BAD budget could not read its input: KeyError: 'v_budget''
+      🔴    cycle with no pass before the reporting one gave 'BAD cycle could not read its input: TypeError: v_cycle() takes 9 positional argu
+      🔴    cycle: a frame heard inside a cut window gave 'BAD cycle could not read its input: TypeError: v_cycle() takes 9 positional argumen
+      🔴    cycle with two reporting passes gave 'BAD cycle could not read its input: TypeError: v_cycle() takes 9 positional arguments but 14
+      🔴    cycle with a 10 ms clock step gave 'BAD cycle could not read its input: TypeError: v_cycle() takes 9 positional arguments but 14 w
+      🔴    cycle: the same landing on a random-phase cycle is fine      wanted OK, got: BAD cycle could not read its input: TypeError: v_cycl
+      🔴    restore gave 'BAD restore_cycle could not read its input: KeyError: 'v_restore_cycle''
+      🔴    restore with a frame inside its window gave 'BAD restore_cycle could not read its input: KeyError: 'v_restore_cycle''
+      🔴    restore_watch gave 'the watcher never got ready'
+      🔴    restore_watch with nothing new gave 'the watcher never got ready'
+      🔴    restore_watch without a report gave 'the subshell died (rc 1)'
+      🔴    cut_link/restore_link instants are not $EPOCHREALTIME: 'the subshell died (rc 1)'
+      🔴    cut_link/restore_link instants out of order or too narrow: 'the subshell died (rc 1)'
+      🔴    restore_link left '' (want 's1-eth3 s3-eth1|s3-eth1|1')
+      🔴    cut_cycle gave: the subshell died (rc 1)|
+      🔴    restore_cycle gave: RESTORE |
+      🔴    graph_until before any cut gave 'the subshell died (rc 1)' (elapsed 'never')
+    stderr: 92:doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh: line 1107: CUT_A_START: unbound variable
+    stderr: 98:doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh: line 1153: CYCLE_STRICT: unbound variable
+    stderr: 101:doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh: line 1178: RESTORE_ROW: unbound variable
+    stderr: 103:doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh: line 591: T_CUT: unbound variable
+at HEAD: rc 0, last line 'SELF-TEST PASS', 105 ok
+LIVE08-RED-FIRST: red at the red-first commit, green at HEAD
+guarded_build: exit 0
+# rc=0

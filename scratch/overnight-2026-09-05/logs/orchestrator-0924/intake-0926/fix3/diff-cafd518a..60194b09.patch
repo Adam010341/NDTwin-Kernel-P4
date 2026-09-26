@@ -1,0 +1,165 @@
+diff --git a/tests/python/test_ndt_serve.py b/tests/python/test_ndt_serve.py
+index 3e968fb2..ace38f5d 100644
+--- a/tests/python/test_ndt_serve.py
++++ b/tests/python/test_ndt_serve.py
+@@ -416,7 +416,7 @@ class Csrf(ServeCase):
+ 
+     def test_reads_need_the_token_except_health(self):
+         """Judge 09-24 finding 1: GET /status?check=1 runs `ndt status --check`, whose lock probes
+-        POST /ndt/acquire_lock to the kernel (ndt:9292-9307). A read is not side-effect free, so
++        POST /ndt/acquire_lock to the kernel (ndt:9416-9431). A read is not side-effect free, so
+         every GET but /health is gated the way a write is."""
+         paths = ["/status", "/status?check=1", "/apps", "/jobs", "/jobs/20260101T000000Z-abcdef",
+                  "/jobs/20260101T000000Z-abcdef/log/stdout", "/cells", "/cells/x", "/cells/x/old",
+diff --git a/tests/python/test_ndt_serve_cells.py b/tests/python/test_ndt_serve_cells.py
+index d3bb167e..b91cbb93 100644
+--- a/tests/python/test_ndt_serve_cells.py
++++ b/tests/python/test_ndt_serve_cells.py
+@@ -98,7 +98,7 @@ RUN_FAIL = OLD_LAB.replace("2026-09-11T02:55:10", "2026-09-24T23:00:00")
+ RUN_SKIP = "SKIP: the lab is claimed by somebody else\nCELL: SKIP lab_cell tag=ndt kernel=x ndt=y at=z\n"
+ RUN_OFF = ("ASSERT ok   b1_sentence_gone                       help.txt does not contain it\n"
+            "CELL: PASS offline_cell tag=ndt kernel=unknown ndt=ffff at=2026-09-24T23:00:00+08:00\n")
+-# the claim line as `ndt status` prints it (ndt:5664 claim_line), for each case the service must tell apart
++# the claim line as `ndt status` prints it (ndt:5786 claim_line), for each case the service must tell apart
+ CLAIM_YOURS = "lab\n  claim          yours -- 30m left (until 23:59:00)\n  measuring      nothing\n"
+ CLAIM_NONE = "lab\n  claim          none\n  prev claim     serve-test (until 23:00:00)\n"
+ CLAIM_FOREIGN = "lab\n  claim          orch-0924 -- 12m left (until 23:40:00)\n"
+@@ -290,7 +290,7 @@ class CellsRun(GridCase):
+     def test_only_ndts_own_claim_form_is_yours(self):
+         """Intake judge 09-26, finding 2: the check was a PREFIX match on "yours", so a foreign
+         owner whose name merely starts with it -- `yours-x` -- passed as this server's own claim.
+-        ndt prints its own claim as exactly `yours -- <n>m left (until HH:MM:SS)` (ndt:5677,
++        ndt prints its own claim as exactly `yours -- <n>m left (until HH:MM:SS)` (ndt:5799,
+         claim_line). Every other value -- another owner's, one named to contain the own form,
+         EXPIRED, malformed -- is somebody else's or nobody's, and runs nothing."""
+         for value in ("yours-x -- 12m left (until 23:40:00)",
+diff --git a/tests/shell/mutate_ndt_serve.sh b/tests/shell/mutate_ndt_serve.sh
+index a61a6a9f..5e395242 100755
+--- a/tests/shell/mutate_ndt_serve.sh
++++ b/tests/shell/mutate_ndt_serve.sh
+@@ -509,7 +509,7 @@ report "M60: the demo's slot probe is a real POST /down with the token" "$m" \
+        DemoProbes.test_demo_probes_cannot_touch_the_lab
+ 
+ m=$(mutant m61 "$VERBS_PY" \
+-    '    "apps.status": {"code": [(10222, 0, "return 0", "cmd_apps")]},' \
++    '    "apps.status": {"code": [(10346, 0, "return 0", "cmd_apps")]},' \
+     '')
+ report "M61: an rc table with no source" "$m" \
+        RcProvenance.test_every_table_names_its_source
+@@ -711,9 +711,9 @@ report "C28: a claim read stopped at its timeout is trusted (its partial yours r
+        cells:CellsRun.test_a_status_past_its_timeout_is_not_a_claim
+ 
+ m=$(mutant m63 "$VERBS_PY" \
+-    '(8775, 1, "return 1", "app_start")' \
+-    '(8315, 1, "return 1", "app_start")')
+-report "M63: apps.start rc 1 cites 09-24's line 8315 -- proc_checkout's return 1 today" "$m" \
++    '(8899, 1, "return 1", "app_start")' \
++    '(8439, 1, "return 1", "app_start")')
++report "M63: apps.start rc 1 cites proc_checkout's return 1 (09-24's line 8315, 8439 since segment W)" "$m" \
+        RcProvenance.test_code_sourced_tables_are_in_ndt
+ 
+ 
+diff --git a/tools/ndt_serve/serve.py b/tools/ndt_serve/serve.py
+index 5edbf3e2..cd7da570 100644
+--- a/tools/ndt_serve/serve.py
++++ b/tools/ndt_serve/serve.py
+@@ -19,7 +19,7 @@ The design red lines (TICKET section 3), and where each one lives:
+                        answers -- and an Origin header, when present, must be this server's; a POST
+                        also needs a JSON body. 🔴 GETs are gated too (judge 09-24, finding 1): a
+                        "read" is not side-effect free -- `ndt status --check` POSTs three lock
+-                       probes to the kernel (ndt:9292-9307) -- so an <img> in any page must not be
++                       probes to the kernel (ndt:9416-9431) -- so an <img> in any page must not be
+                        able to start one.
+   3. whitelist         verbs.py builds every argv; there is no shell on any path.
+   4. thin shell        ndt's rc is passed through untouched, with a sentence from ndt help beside
+@@ -510,7 +510,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
+     def _spawn_cell_run(self, cell, body, confirmed):
+         """A cell run. 🔴 A cell that needs the lab runs only under THIS owner's claim (judge r2
+         finding 1). Written 09-24, when ndt's OVS `up` did not refuse under a foreign claim; since
+-        trunk 68ace017 it does, on both planes (up_ovs calls guard_up_lab_free, ndt:4248). The check
++        trunk 68ace017 it does, on both planes (up_ovs calls guard_up_lab_free, ndt:4362). The check
+         stays because a cell is more than its `up`: some set netem, send kill -TERM or write the
+         host-count knob, and none of that asks ndt's guard -- and under a foreign claim the
+         restore's `down` is refused (rc 5), so what the cell left stays."""
+@@ -523,7 +523,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
+                            precheck=self._require_own_claim if cell["requires"] != "none" else None)
+ 
+     def _require_own_claim(self):
+-        """Read `ndt status`'s claim line (ndt:5664 claim_line) and go on only if it is ndt's
++        """Read `ndt status`'s claim line (ndt:5786 claim_line) and go on only if it is ndt's
+         own-claim form, exactly. This reads ndt's answer; it does not decide anything ndt decides.
+ 
+         🔴 Exact, not a prefix (intake judge 09-26, finding 2): claim_line prints somebody else's
+@@ -750,7 +750,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
+ 
+ 
+ CLAIM_LINE = re.compile(r"^  claim\s+(.*?)\s*$", re.M)
+-# ndt's own-claim value, whole: `printf 'yours -- %dm left (until %s)\n'` (ndt:5677, claim_line),
++# ndt's own-claim value, whole: `printf 'yours -- %dm left (until %s)\n'` (ndt:5799, claim_line),
+ # the time from `date +%H:%M:%S`. [Co-developed with claude code -- Adam]
+ OWN_CLAIM = re.compile(r"yours -- [0-9]+m left \(until [0-9]{2}:[0-9]{2}:[0-9]{2}\)")
+ 
+diff --git a/tools/ndt_serve/verbs.py b/tools/ndt_serve/verbs.py
+index 52ce6733..391461ee 100644
+--- a/tools/ndt_serve/verbs.py
++++ b/tools/ndt_serve/verbs.py
+@@ -204,10 +204,10 @@ RC_TABLE = {
+     "status.check": {
+         0: ("ok", "all compared fields match what the last 'ndt up' asked for"),
+         # 🔴 ndt help says "1 one of them does not", but cmd_status answers 1 whenever its
+-        # problems[] is not empty (ndt:6946-6948) -- a claim held by somebody else (6576), a
+-        # measurement process in flight (6662, in_flight's process scan -- a measuring= the claim
+-        # only DECLARES, 6638-6640, is not a problem), a netem qdisc (6806), a refused sudo grant
+-        # (6819) are all problems. A GUI that printed "a field does not match" would name the wrong
++        # problems[] is not empty (ndt:7070-7072) -- a claim held by somebody else (6698), a
++        # measurement process in flight (6784, in_flight's process scan -- a measuring= the claim
++        # only DECLARES, 6760-6762, is not a problem), a netem qdisc (6930), a refused sudo grant
++        # (6943) are all problems. A GUI that printed "a field does not match" would name the wrong
+         # cause.
+         1: ("dirty", "ndt reported at least one problem -- a compared field that does not match, a claim "
+                      "held by somebody else, a measurement in progress, a netem qdisc, a refused sudo "
+@@ -248,10 +248,12 @@ RC_TABLE = {
+ 
+ # Where each table's codes come from. "help": the phrase `ndt help` prints for each rc (compared
+ # whitespace-normalised). "code": (line, rc, text that line must contain, the function that line
+-# lies in) in tools/test_workflow/ndt -- trunk 68ace017's line numbers: this branch's `serve)`
+-# dispatch lies below every anchor. 🔴 The function is half the anchor (intake judge 09-26, finding
+-# 3): `return 1` is on 187 lines of this tree's ndt, and 09-24's apps.start line 8315 is one of
+-# them today -- in proc_checkout. [Co-developed with claude code -- Adam]
++# lies in) in tools/test_workflow/ndt -- trunk cafd518a's line numbers (segment W of
++# TICKET-P4-heartbeat added 124 lines to ndt above cmd_status; the 11 rows below it moved by that
++# much, each located by its old line's text in the same function): the `serve)` dispatch lies
++# below every anchor. 🔴 The function is half the anchor (intake judge 09-26, finding 3): `return
++# 1` is on 187 lines of this tree's ndt, and 09-24's apps.start line 8315 was one of them --
++# proc_checkout's, 8439 since segment W. [Co-developed with claude code -- Adam]
+ RC_SOURCE = {
+     "up": {"help": {0: "exit 0 the fabric came up and verified",
+                     1: "1 something was MEASURED and it was dirty",
+@@ -265,19 +267,19 @@ RC_SOURCE = {
+     "status.check": {"help": {0: "exit 0 all compared fields match",
+                               1: "1 one of them does not (the message names it)",
+                               3: "3 nothing was compared, because there is no baseline RIGHT NOW"},
+-                     "code": [(6939, 3, "return 3", "cmd_status"), (6944, 0, "return 0", "cmd_status"),
+-                              (6948, 1, "return 1", "cmd_status")]},
+-    "status": {"code": [(6950, 0, "return 0", "cmd_status")]},
++                     "code": [(7063, 3, "return 3", "cmd_status"), (7068, 0, "return 0", "cmd_status"),
++                              (7072, 1, "return 1", "cmd_status")]},
++    "status": {"code": [(7074, 0, "return 0", "cmd_status")]},
+     "claim": {"code": [(753, 2, "return 2", "cmd_claim"), (762, 2, "return 2", "cmd_claim"),
+                        (787, 1, "return 1", "claim_take"), (860, 1, "return 1", "claim_take"),
+                        (862, 0, 'ok "lab claimed by', "claim_take")]},
+     "release": {"code": [(866, 0, "return 0", "cmd_release"), (871, 1, "return 1", "cmd_release"),
+                          (899, 1, "return 1", "cmd_release")]},
+-    "apps.start": {"code": [(8771, 0, "return 0", "app_start"), (8775, 1, "return 1", "app_start"),
+-                            (8848, 1, "return 1", "app_start")]},
+-    "apps.stop": {"code": [(10289, 1, "return 1", "cmd_apps"), (10292, 2, "return 2", "cmd_apps"),
+-                           (10295, 0, "return 0", "cmd_apps")]},
+-    "apps.status": {"code": [(10222, 0, "return 0", "cmd_apps")]},
++    "apps.start": {"code": [(8895, 0, "return 0", "app_start"), (8899, 1, "return 1", "app_start"),
++                            (8972, 1, "return 1", "app_start")]},
++    "apps.stop": {"code": [(10413, 1, "return 1", "cmd_apps"), (10416, 2, "return 2", "cmd_apps"),
++                           (10419, 0, "return 0", "cmd_apps")]},
++    "apps.status": {"code": [(10346, 0, "return 0", "cmd_apps")]},
+ }
+ 
+ 

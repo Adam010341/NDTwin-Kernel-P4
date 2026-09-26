@@ -1,0 +1,6 @@
+# CI run 36233414349 on 9c2e59e4 (P4-HB-SPIKE de-phased addendum), GCC job via API raw log; 2026-09-26T17:55:59+08:00
+vs 094f417f (36230955530):
+IDENTICAL
+L1 FAILED (14 problem group(s))   logs: /home/runner/work/NDTwin-Kernel-P4/NDTwin-Kernel-P4/.test_run/logs
+jobs vs 094f417f:
+jobs identical

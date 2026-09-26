@@ -1,0 +1,497 @@
+sniffing on eth0
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0xb1
+     len       = 55
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = tcp
+     chksum    = 0x650d
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ TCP ]### 
+        sport     = ftp_data
+        dport     = http
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x6810
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:00
+  src       = 08:00:00:00:02:02
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0xb0
+     len       = 40
+     id        = 0
+     flags     = DF
+     frag      = 0
+     ttl       = 64
+     proto     = tcp
+     chksum    = 0x231e
+     src       = 10.0.2.2
+     dst       = 10.0.1.1
+     \options   \
+###[ TCP ]### 
+        sport     = http
+        dport     = ftp_data
+        seq       = 0
+        ack       = 16
+        dataofs   = 5
+        reserved  = 0
+        flags     = RA
+        window    = 0
+        chksum    = 0x985a
+        urgptr    = 0
+        options   = ''
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0xb1
+     len       = 55
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = tcp
+     chksum    = 0x650d
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ TCP ]### 
+        sport     = ftp_data
+        dport     = http
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x6810
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:00
+  src       = 08:00:00:00:02:02
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0xb0
+     len       = 40
+     id        = 0
+     flags     = DF
+     frag      = 0
+     ttl       = 64
+     proto     = tcp
+     chksum    = 0x231e
+     src       = 10.0.2.2
+     dst       = 10.0.1.1
+     \options   \
+###[ TCP ]### 
+        sport     = http
+        dport     = ftp_data
+        seq       = 0
+        ack       = 16
+        dataofs   = 5
+        reserved  = 0
+        flags     = RA
+        window    = 0
+        chksum    = 0x985a
+        urgptr    = 0
+        options   = ''
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0xb1
+     len       = 55
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = tcp
+     chksum    = 0x650d
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ TCP ]### 
+        sport     = ftp_data
+        dport     = http
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x6810
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:00
+  src       = 08:00:00:00:02:02
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0xb0
+     len       = 40
+     id        = 0
+     flags     = DF
+     frag      = 0
+     ttl       = 64
+     proto     = tcp
+     chksum    = 0x231e
+     src       = 10.0.2.2
+     dst       = 10.0.1.1
+     \options   \
+###[ TCP ]### 
+        sport     = http
+        dport     = ftp_data
+        seq       = 0
+        ack       = 16
+        dataofs   = 5
+        reserved  = 0
+        flags     = RA
+        window    = 0
+        chksum    = 0x985a
+        urgptr    = 0
+        options   = ''
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0xb1
+     len       = 55
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = tcp
+     chksum    = 0x650d
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ TCP ]### 
+        sport     = ftp_data
+        dport     = http
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x6810
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:00
+  src       = 08:00:00:00:02:02
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0xb0
+     len       = 40
+     id        = 0
+     flags     = DF
+     frag      = 0
+     ttl       = 64
+     proto     = tcp
+     chksum    = 0x231e
+     src       = 10.0.2.2
+     dst       = 10.0.1.1
+     \options   \
+###[ TCP ]### 
+        sport     = http
+        dport     = ftp_data
+        seq       = 0
+        ack       = 16
+        dataofs   = 5
+        reserved  = 0
+        flags     = RA
+        window    = 0
+        chksum    = 0x985a
+        urgptr    = 0
+        options   = ''
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0xb1
+     len       = 55
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = tcp
+     chksum    = 0x650d
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ TCP ]### 
+        sport     = ftp_data
+        dport     = http
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x6810
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:00
+  src       = 08:00:00:00:02:02
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0xb0
+     len       = 40
+     id        = 0
+     flags     = DF
+     frag      = 0
+     ttl       = 64
+     proto     = tcp
+     chksum    = 0x231e
+     src       = 10.0.2.2
+     dst       = 10.0.1.1
+     \options   \
+###[ TCP ]### 
+        sport     = http
+        dport     = ftp_data
+        seq       = 0
+        ack       = 16
+        dataofs   = 5
+        reserved  = 0
+        flags     = RA
+        window    = 0
+        chksum    = 0x985a
+        urgptr    = 0
+        options   = ''
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0xb1
+     len       = 55
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = tcp
+     chksum    = 0x650d
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ TCP ]### 
+        sport     = ftp_data
+        dport     = http
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x6810
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:00
+  src       = 08:00:00:00:02:02
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0xb0
+     len       = 40
+     id        = 0
+     flags     = DF
+     frag      = 0
+     ttl       = 64
+     proto     = tcp
+     chksum    = 0x231e
+     src       = 10.0.2.2
+     dst       = 10.0.1.1
+     \options   \
+###[ TCP ]### 
+        sport     = http
+        dport     = ftp_data
+        seq       = 0
+        ack       = 16
+        dataofs   = 5
+        reserved  = 0
+        flags     = RA
+        window    = 0
+        chksum    = 0x985a
+        urgptr    = 0
+        options   = ''
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 33:33:00:00:00:02
+  src       = 56:a0:78:56:cd:0c
+  type      = IPv6
+###[ IPv6 ]### 
+     version   = 6
+     tc        = 0
+     fl        = 0
+     plen      = 16
+     nh        = ICMPv6
+     hlim      = 255
+     src       = fe80::54a0:78ff:fe56:cd0c
+     dst       = ff02::2
+###[ ICMPv6 Neighbor Discovery - Router Solicitation ]### 
+        type      = Router Solicitation
+        code      = 0
+        cksum     = 0x4727
+        res       = 0
+###[ ICMPv6 Neighbor Discovery Option - Source Link-Layer Address ]### 
+           type      = 1
+           len       = 1
+           lladdr    = 56:a0:78:56:cd:0c
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 33:33:00:00:00:fb
+  src       = 56:a0:78:56:cd:0c
+  type      = IPv6
+###[ IPv6 ]### 
+     version   = 6
+     tc        = 0
+     fl        = 620366
+     plen      = 149
+     nh        = UDP
+     hlim      = 255
+     src       = fe80::54a0:78ff:fe56:cd0c
+     dst       = ff02::fb
+###[ UDP ]### 
+        sport     = mdns
+        dport     = mdns
+        len       = 149
+        chksum    = 0x9828
+###[ DNS ]### 
+           id        = 0
+           qr        = 0
+           opcode    = QUERY
+           aa        = 0
+           tc        = 0
+           rd        = 0
+           ra        = 0
+           z         = 0
+           ad        = 0
+           cd        = 0
+           rcode     = ok
+           qdcount   = 9
+           ancount   = 0
+           nscount   = 0
+           arcount   = 0
+           \qd        \
+            |###[ DNS Question Record ]### 
+            |  qname     = '_nfs._tcp.local.'
+            |  qtype     = PTR
+            |  qclass    = IN
+            |###[ DNS Question Record ]### 
+            |  qname     = '_ipp._tcp.local.'
+            |  qtype     = PTR
+            |  qclass    = IN
+            |###[ DNS Question Record ]### 
+            |  qname     = '_ipps._tcp.local.'
+            |  qtype     = PTR
+            |  qclass    = IN
+            |###[ DNS Question Record ]### 
+            |  qname     = '_ftp._tcp.local.'
+            |  qtype     = PTR
+            |  qclass    = IN
+            |###[ DNS Question Record ]### 
+            |  qname     = '_webdav._tcp.local.'
+            |  qtype     = PTR
+            |  qclass    = IN
+            |###[ DNS Question Record ]### 
+            |  qname     = '_webdavs._tcp.local.'
+            |  qtype     = PTR
+            |  qclass    = IN
+            |###[ DNS Question Record ]### 
+            |  qname     = '_sftp-ssh._tcp.local.'
+            |  qtype     = PTR
+            |  qclass    = IN
+            |###[ DNS Question Record ]### 
+            |  qname     = '_smb._tcp.local.'
+            |  qtype     = PTR
+            |  qclass    = IN
+            |###[ DNS Question Record ]### 
+            |  qname     = '_afpovertcp._tcp.local.'
+            |  qtype     = PTR
+            |  qclass    = IN
+           an        = None
+           ns        = None
+           ar        = None
+

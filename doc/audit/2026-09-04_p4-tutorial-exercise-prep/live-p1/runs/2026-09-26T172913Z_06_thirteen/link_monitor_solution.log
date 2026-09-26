@@ -1,0 +1,375 @@
+drive_exercise.py -- link_monitor / solution
+(non-interactive: no mininet CLI, no xterm; kills nothing)
+fabric   : ndtwin -- the package fabric `ndt up p4 --app` builds; no root needed
+
+== pre-flight (read-only) ==============================================
+OK   lab is free (claim: owner=- expires=- measuring=nothing)
+OK   host scripts will run under /home/adam/p4dev-python-venv/bin/python
+OK   ndt /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt, converter /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/convert.py, pre-flight /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/preflight.py
+--   switch  n/a: `ndt up p4` chooses the bmv2 binary -- see the `ndt status` capture
+OK   p4c     /usr/local/bin/p4c-bm2-ss  sha256[:16]=226f3f66df515c9e  --version=Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release)
+OK   exercise dir /home/adam/tutorials/exercises/link_monitor
+
+== compile =============================================================
+$ /usr/local/bin/p4c-bm2-ss --p4v 16 --p4runtime-files /home/adam/tutorials/exercises/link_monitor/build/link_monitor.p4.p4info.txtpb -o /home/adam/tutorials/exercises/link_monitor/build/link_monitor.json /home/adam/tutorials/exercises/link_monitor/solution/link_monitor.p4
+-> /home/adam/tutorials/exercises/link_monitor/build/link_monitor.json  56155 B  sha256[:16]=b4a2d84b5e5c547b  warnings=0
+
+== plan ================================================================
+topology : pod-topo/topology.json
+hosts    : h1, h2, h3, h4
+switches : s1, s2, s3, s4
+links    : 8
+program  : /home/adam/tutorials/exercises/link_monitor/solution/link_monitor.p4 -> build/link_monitor.json
+switch   : /usr/local/bin/simple_switch_grpc
+steps    : h1 receive.py + h1 send.py probes; assert swid and port fields
+package  : /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/link_monitor-solution
+equivalent to (from the repo root, as the operator -- no sudo):
+  /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/convert.py /home/adam/tutorials/exercises/link_monitor --topology pod-topo/topology.json --p4 link_monitor.p4 --out /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/link_monitor-solution
+  /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/link_monitor-solution
+  NDT_OWNER=orch-0926 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt claim 45 '...' && NDT_OWNER=orch-0926 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt up p4 --app /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/link_monitor-solution
+  ... the scripted steps above, then `ndt down` and `ndt release`.
+telemetry: whatever the package declares (no --telemetry given)
+
+== convert the exercise into an app package ============================
+$ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/convert.py /home/adam/tutorials/exercises/link_monitor --topology pod-topo/topology.json --p4 solution/link_monitor.p4 --out /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/link_monitor-solution
+package 'link_monitor' -> /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/link_monitor-solution
+  control plane : ndtwin
+  pipelines     : s1=build/link_monitor.json, s2=build/link_monitor.json, s3=build/link_monitor.json, s4=build/link_monitor.json
+  model         : 4 switches, 4 hosts, 16 edges (8 links, both directions stored)
+  files         : 10
+                  build/link_monitor.json
+                  build/link_monitor.p4.p4info.txtpb
+                  ndtwin/topology.json
+                  package.json
+                  pod-topo/s1-runtime.json
+                  pod-topo/s2-runtime.json
+                  pod-topo/s3-runtime.json
+                  pod-topo/s4-runtime.json
+                  pod-topo/topology.json
+                  solution/link_monitor.p4
+  read back through p4_proxy/mininet/topo_from_json.py: ok
+  next: tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/link_monitor-solution
+
+== pre-flight the package ==============================================
+$ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/link_monitor-solution
+pre-flight: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/link_monitor-solution
+  PASS  format                            1
+  INFO  name                              link_monitor
+  PASS  control_plane.mode                ndtwin
+  PASS  control_plane.grpc_base           30050
+  PASS  control_plane.device_id           dpid
+  PASS  control_plane.election_id         [0, 65535]
+  PASS  bmv2.cpu_port                     255
+  PASS  switches keys                     4 dpids: [1, 2, 3, 4]
+  PASS  switches name                     every sN has dpid N
+  PASS  referenced files                  9 present
+  PASS  topo_from_json.switches           4 entries
+  PASS  topo_from_json.hosts              4 entries
+  PASS  topo_from_json.switch_links       4 entries
+  PASS  topo_from_json.host_links         4 entries
+  PASS  switches agree                    model and package.json both say [1, 2, 3, 4]
+  PASS  links agree                       8 links in both
+  PASS  hosts named h<last octet>         4 hosts
+  PASS  hosts agree                       model and package.json both say ['h1', 'h2', 'h3', 'h4']
+  PASS  switches pipeline                 4 of 4 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
+  INFO  s1 pipeline                       build/link_monitor.json  p4info sha256:7303ccb1dc2c61bf  program=/home/adam/tutorials/exercises/link_monitor/solution/link_monitor.p4
+  INFO  s2 pipeline                       build/link_monitor.json  p4info sha256:7303ccb1dc2c61bf  program=/home/adam/tutorials/exercises/link_monitor/solution/link_monitor.p4
+  INFO  s3 pipeline                       build/link_monitor.json  p4info sha256:7303ccb1dc2c61bf  program=/home/adam/tutorials/exercises/link_monitor/solution/link_monitor.p4
+  INFO  s4 pipeline                       build/link_monitor.json  p4info sha256:7303ccb1dc2c61bf  program=/home/adam/tutorials/exercises/link_monitor/solution/link_monitor.p4
+  PASS  p4info parses                     google.protobuf.text_format into p4.config.v1.P4Info
+  PASS  entries match p4info              24 entries across 4 switch(es); recorded, NOT applied in stage one
+  PASS  entries p4info is the pipeline's  4 switch(es); entries and pipeline name the same p4info
+  INFO  roles suggestion                  no roles declared, so NDTwin writes none of this program's tables. Its p4info has a destination-route-shaped table on every switch; to let NDTwin route here, add to package.json: "roles": {"ipv4_route": {"owner": "ndtwin", "table": "MyIngress.ipv4_lpm", "match_field": "hdr.ipv4.dstAddr", "action": "MyIngress.ipv4_forward", "params": {"dst_mac": "dstAddr", "port": "port"}}} (owner ndtwin: NDTwin writes that table and the package's own entries for it must go -- convert.py --role-ipv4-route takes them out; owner package: NDTwin only reads it)
+  INFO  telemetry.source                  not declared (auto: NDTwin's pipeline gets the cooperative path, anybody else's gets link telemetry)
+  INFO  PRE entries                       none declared (no multicast group, no clone session)
+  PASS  gRPC port block                   30051-30054 safe on this machine
+  PASS  p4c-bm2-ss                        rc=0  link_monitor.json sha256:6cf0c5e39ed18161  link_monitor.p4.p4info.txtpb sha256:7303ccb1dc2c61bf
+
+PASS -- every check passed
+host_count_override snapshot: 2 bytes (b'4\n')
+telemetry_override snapshot: absent
+
+== claim the lab =======================================================
+$ NDT_OWNER=orch-0926 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt claim 45 drive_exercise link_monitor/solution on the ndtwin fabric
+  recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+  ok  lab claimed by orch-0926 for 45m (drive_exercise link_monitor/solution on the ndtwin fabric)
+
+== ndt up p4 --app =====================================================
+$ NDT_OWNER=orch-0926 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt up p4 --app /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/link_monitor-solution
+app package pre-flight
+  package      /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/link_monitor-solution
+pre-flight: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/link_monitor-solution
+  PASS  format                            1
+  INFO  name                              link_monitor
+  PASS  control_plane.mode                ndtwin
+  PASS  control_plane.grpc_base           30050
+  PASS  control_plane.device_id           dpid
+  PASS  control_plane.election_id         [0, 65535]
+  PASS  bmv2.cpu_port                     255
+  PASS  switches keys                     4 dpids: [1, 2, 3, 4]
+  PASS  switches name                     every sN has dpid N
+  PASS  referenced files                  9 present
+  PASS  topo_from_json.switches           4 entries
+  PASS  topo_from_json.hosts              4 entries
+  PASS  topo_from_json.switch_links       4 entries
+  PASS  topo_from_json.host_links         4 entries
+  PASS  switches agree                    model and package.json both say [1, 2, 3, 4]
+  PASS  links agree                       8 links in both
+  PASS  hosts named h<last octet>         4 hosts
+  PASS  hosts agree                       model and package.json both say ['h1', 'h2', 'h3', 'h4']
+  PASS  switches pipeline                 4 of 4 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
+  INFO  s1 pipeline                       build/link_monitor.json  p4info sha256:7303ccb1dc2c61bf  program=/home/adam/tutorials/exercises/link_monitor/solution/link_monitor.p4
+  INFO  s2 pipeline                       build/link_monitor.json  p4info sha256:7303ccb1dc2c61bf  program=/home/adam/tutorials/exercises/link_monitor/solution/link_monitor.p4
+  INFO  s3 pipeline                       build/link_monitor.json  p4info sha256:7303ccb1dc2c61bf  program=/home/adam/tutorials/exercises/link_monitor/solution/link_monitor.p4
+  INFO  s4 pipeline                       build/link_monitor.json  p4info sha256:7303ccb1dc2c61bf  program=/home/adam/tutorials/exercises/link_monitor/solution/link_monitor.p4
+  PASS  p4info parses                     google.protobuf.text_format into p4.config.v1.P4Info
+  PASS  entries match p4info              24 entries across 4 switch(es); recorded, NOT applied in stage one
+  PASS  entries p4info is the pipeline's  4 switch(es); entries and pipeline name the same p4info
+  INFO  roles suggestion                  no roles declared, so NDTwin writes none of this program's tables. Its p4info has a destination-route-shaped table on every switch; to let NDTwin route here, add to package.json: "roles": {"ipv4_route": {"owner": "ndtwin", "table": "MyIngress.ipv4_lpm", "match_field": "hdr.ipv4.dstAddr", "action": "MyIngress.ipv4_forward", "params": {"dst_mac": "dstAddr", "port": "port"}}} (owner ndtwin: NDTwin writes that table and the package's own entries for it must go -- convert.py --role-ipv4-route takes them out; owner package: NDTwin only reads it)
+  INFO  telemetry.source                  not decl
+... [trimmed; 6541 chars total]
+
+== GET /p4/switch_state ================================================
+   control_plane.mode    ndtwin
+   control_plane.package /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/link_monitor-solution
+   control_plane.skipped ['install_initial_routes', 'link_watchdog', 'lldp_discovery']
+   s1  ndtwin=False p4info_sha256=7303ccb1dc2c61bf  entries recorded=6 applied=6 failed=0 api_writes=0  (entries_recorded=6)
+   s2  ndtwin=False p4info_sha256=7303ccb1dc2c61bf  entries recorded=6 applied=6 failed=0 api_writes=0  (entries_recorded=6)
+   s3  ndtwin=False p4info_sha256=7303ccb1dc2c61bf  entries recorded=6 applied=6 failed=0 api_writes=0  (entries_recorded=6)
+   s4  ndtwin=False p4info_sha256=7303ccb1dc2c61bf  entries recorded=6 applied=6 failed=0 api_writes=0  (entries_recorded=6)
+
+== ndt status (raw; and the bmv2 binary it names) ======================
+$ NDT_OWNER=orch-0926 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt status
+lab
+  claim          yours -- 45m left (until 02:26:42)
+  note           in use: ndt up p4 4 at 2026-09-27 01:41:42 by orch-0926
+  prev claim     orch-0926 (until 02:26:10), superseded 2026-09-27 01:41:41  (.test_run/lab.claim.prev)
+                 the same owner re-claimed it -- a rewrite, not a handover
+                 it said: down at 2026-09-27 01:41:41; verified clean; claim kept
+  exclusive cpu  no (heavy local jobs may overlap this claim)
+  measuring      nothing
+  code           3f8c2abf  +91 file(s) with uncommitted changes
+                 3 of them can change behaviour:
+                 p4_proxy/mininet/host_count_override
+                 p4_proxy/mininet/app_package_override
+                 tools/remote-lab/dorm_lab/
+  knob baseline  4 == the value this round started with (at 01:41:42)
+  tree vs round  0 file(s) LEFT the uncommitted set, 1 joined it
+                 + p4_proxy/mininet/app_package_override
+  ok  helper: /usr/local/sbin/ndtwin-lab is tools/test_workflow/ndtwin-lab (sha256 6a558fe4)
+
+configuration
+  hosts          4   (what the last 'ndt up' asked for: p4)
+  topology       .test_run/packages/link_monitor-solution/ndtwin/topology.json
+  p4 host knob   4   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')
+  app package    /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/link_monitor-solution (mode ndtwin)
+                 link_monitor -- p4_proxy/mininet/app_package_override; it decides the next 'ndt up p4' and the next proxy
+  bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc
+  telemetry      auto   (p4_proxy/mininet/telemetry_override absent -- auto, then the package)
+                 every switch: link
+                 link emitter: alive pid 65570, 4 switch(es), rate 256
+  link shaping   off (no package link asks for one)
+  sample rate    n/a (package pipeline)
+  rate source    the app package runs a foreign pipeline on dpid 1,2,3,4 -- p4_proxy/p4_src/build/ndtwin_switch.json is NOT what those switches loaded, and stale_pipeline is not judged
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  4       topo session   present
+  host/switch    8       manifest       present
+  :8000 kernel   open    :8081 proxy    open    :8080 ryu closed
+  binary         /usr/local/bmv2-fast/bin/simple_switch_grpc
+  heartbeat      running (pid 65700, session 0cf5671876762945) -- 8 direction(s), report 3.7 s old
+  pidfiles       kernel.child.pid=65839 alive,kernel.pid=65833 alive,p4_proxy.child.pid=65745 alive,p4_proxy.pid=65741 alive
+
+network health
+  switches       4 up, 4 enabled, 0 admin-disabled
+  links          16 total, 0 down, 0 admin-disabled
+  tc netem       none
+  sudo grants    all 3 granted
+  apps           none running
+
+kernel graph
+  4 switches (4 up, 4 enabled), 4 hosts, 16 edges
+proxy
+  12 destination paths reported; none expected -- the package's program on dpid 1,2,3,4, proxy skipped lldp_discovery
+
+up target
+  a
+... [trimmed; 3622 chars total]
+   bmv2 sha256[:16]=3ff54b5c1901c9d3  1.15.3-f0b7d201   (ndt status: /usr/local/bmv2-fast/bin/simple_switch_grpc)
+
+== scripted steps (no CLI, no xterm) ===================================
+   hosts: h1=10.0.1.1, h2=10.0.2.2, h3=10.0.3.3, h4=10.0.4.4
+$ h1: /home/adam/p4dev-python-venv/bin/python -u /home/adam/tutorials/exercises/link_monitor/receive.py   (> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-26T174141Z_link_monitor_solution_ndtwin/driver-h1-receive.log)
+$ h1: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/link_monitor/send.py   (one probe per second, for 8s)
+-- h1 receive.py output (/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-26T174141Z_link_monitor_solution_ndtwin/driver-h1-receive.log) --
+sniffing on eth0
+
+Switch 1 - Port 1: 0.0002548234214577247 Mbps
+Switch 4 - Port 2: 0.00010501046035448206 Mbps
+Switch 2 - Port 3: 9.241084672313413e-05 Mbps
+Switch 3 - Port 2: 7.980973080142797e-05 Mbps
+Switch 1 - Port 3: 6.720887661237858e-05 Mbps
+Switch 3 - Port 1: 5.4608038985939215e-05 Mbps
+Switch 2 - Port 4: 4.2007154343474124e-05 Mbps
+Switch 4 - Port 1: 2.9405520151270397e-05 Mbps
+Switch 1 - Port 4: 1.6803530841918157e-05 Mbps
+
+Switch 1 - Port 1: 0.0013162005286347063 Mbps
+Switch 4 - Port 2: 0.0011755094364020006 Mbps
+Switch 2 - Port 3: 0.0010346530385094725 Mbps
+Switch 3 - Port 2: 0.0008937872962640279 Mbps
+Switch 1 - Port 3: 0.0007528489155740718 Mbps
+Switch 3 - Port 1: 0.000611890083360218 Mbps
+Switch 2 - Port 4: 0.0004707414570232664 Mbps
+Switch 4 - Port 1: 0.0003295729969857803 Mbps
+Switch 1 - Port 4: 0.00018836197678046216 Mbps
+
+Switch 1 - Port 1: 0.0013250347772334576 Mbps
+Switch 4 - Port 2: 0.0011830434383974494 Mbps
+Switch 2 - Port 3: 0.0010410474356813094 Mbps
+Switch 3 - Port 2: 0.0008990598318403222 Mbps
+Switch 1 - Port 3: 0.0007570888356998931 Mbps
+Switch 3 - Port 1: 0.0006150152423248759 Mbps
+Switch 2 - Port 4: 0.00047309144561961676 Mbps
+Switch 4 - Port 1: 0.0003311679287515856 Mbps
+Switch 1 - Port 4: 0.0001892160640496377 Mbps
+
+Switch 1 - Port 1: 0.0013152821299741446 Mbps
+Switch 4 - Port 2: 0.0011742154039447767 Mbps
+Switch 2 - Port 3: 0.0010330416816666406 Mbps
+Switch 3 - Port 2: 0.0008920466994272121 Mbps
+Switch 1 - Port 3: 0.0007510547037734631 Mbps
+Switch 3 - Port 1: 0.0006102188182095554 Mbps
+Switch 2 - Port 4: 0.0004693623712186994 Mbps
+Switch 4 - Port 1: 0.00032847817819745646 Mbps
+Switch 1 - Port 4: 0.00018770016462868607 Mbps
+
+Switch 1 - Port 1: 0.001311874809661021 Mbps
+Switch 4 - Port 2: 0.001171492891966878 Mbps
+Switch 2 - Port 3: 0.0010311835369985918 Mbps
+Switch 3 - Port 2: 0.0008907580917851983 Mbps
+Switch 1 - Port 3: 0.0007503018792717382 Mbps
+Switch 3 - Port 1: 0.0006097549058886298 Mbps
+Switch 2 - Port 4: 0.000469155471281332 Mbps
+Switch 4 - Port 1: 0.000328510293811394 Mbps
+Switch 1 - Port 4: 0.00018772806026070736 Mbps
+
+Switch 1 - Port 1: 0.0013231498053670264 Mbps
+Switch 4 - Port 2: 0.0011813407232758577 Mbps
+Switch 2 - Port 3: 0.001039668881213892 Mbps
+Switch 3 - Port 2: 0.0008979347500748278 Mbps
+Switch 1 - Port 3: 0.0007561272893033587 Mbps
+Switch 3 - Port 1: 0.0006143334629603194 Mbps
+Switch 2 - Port 4: 0.0004725646675212211 Mbps
+Switch 4 - Port 1: 0.00033078028707003487 Mbps
+Switch 1 - Port 4: 0.00018903145010751163 Mbps
+
+Switch 1 - Port 1: 0.0013225001156203597 Mbps
+Switch 4 - Port 2: 0.0011806898180261817 Mbps
+Switch 2 - Port 3: 0.0010388128415367741 Mbps
+Switch 3 - Port 2: 0.0008970047712391944 Mbps
+Switch 1 - Port 3: 0.000755285523497444 Mbps
+Switch 3 - Port 1: 0.0006135626851626973 Mbps
+Switch 2 - Port 4: 0.0004719021589523772 Mbps
+Switch 4 - Port 1: 0.0003302798827113226 Mbps
+Switch 1 - Port 4: 0.00018871726320652255 Mbps
+
+Switch 1 - Port 1: 0.0013087361056337 Mbps
+Switch 4 - Port 2: 0.0011683027773477775 Mbps
+Switch 2 - Port 3: 0.0010280403856319674 Mbps
+Switch 3 - Port 2: 0.000887688865052799 Mbps
+Switch 1 - Port 3: 0.0007473928834183882 Mbps
+Switch 3 - Port 1: 0.0006071745850730409 Mbps
+Switch 2 - Port 4: 0.0004669601381423742 Mbps
+Switch 4 - Port 1: 0.00032683139877029687 Mbps
+Switch 1 - Port 4: 0.0001867409999591504 Mbps
+
+   PASS injection: probes reached h1                   want=>=1 report row         got=72 rows
+   PASS switch ids seen                                want=[1, 2, 3, 4]           got=[1, 2, 3, 4]
+   PASS every reported port is non-zero                want=no 0 port              got=[1, 2, 3, 4]
+
+-- switch logs --
+   /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-26T174141Z_link_monitor_solution_ndtwin/driver-h1-receive.log 3340 B
+
+== G1  link usage follows the iperf path (program-independent) =========
+   link_monitor/solution: slowest declared link = 1000000000 bit/s; iperf offers 2000000 bit/s; a link therefore carries at most 2000000 bit/s
+   link_monitor/solution: at 8s that is only 5.21 expected samples per primary link
+   link_monitor/solution: window = max(8, ceil(10 x 256 x 1500 x 8 / 2000000)) = 16s
+   link_monitor/solution: h1 -> h4 (10.0.4.4), iperf -u -b 2M -t 16 -l 1200
+   link_monitor/solution: primary=s1-eth4 s2-eth2 s4-eth1   minor=
+   link_monitor/solution: on-path  s1-eth4  34966608.250 bit  (switch)  [primary, 4346068 B]
+   link_monitor/solution: on-path  s2-eth2  21616111.500 bit  (host)  [primary, 4346031 B]
+   link_monitor/solution: on-path  s4-eth1  27972704.250 bit  (switch)  [primary, 4346271 B]
+   link_monitor/solution: off-path floor 3072000.000 bit   = max(ONE SAMPLE = 256 x 1500 x 8 = 3072000 bit, 0.02 x the smallest PRIMARY on-path integral)
+   link_monitor/solution: off-path s1-eth1  0.000 bit  (host)
+   link_monitor/solution: off-path s1-eth2  0.000 bit  (host)
+   link_monitor/solution: off-path s1-eth3  0.000 bit  (switch)
+   link_monitor/solution: off-path s2-eth1  0.000 bit  (host)
+   link_monitor/solution: off-path s2-eth3  0.000 bit  (switch)
+   link_monitor/solution: off-path s2-eth4  0.000 bit  (switch)
+   link_monitor/solution: off-path s3-eth1  0.000 bit  (switch)
+   link_monitor/solution: off-path s3-eth2  0.000 bit  (switch)
+   link_monitor/solution: off-path s4-eth2  0.000 bit  (switch)
+   link_monitor/solution: link usage follows the iperf path (off-path under 3072000.000 bit)
+LINK_USAGE link_monitor/solution expect=follows primary=3 minor=0 rc=0
+
+== teardown: ndt down, the two knobs, then ndt release =================
+$ NDT_OWNER=orch-0926 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt down
+ndt down
+  this teardown is about:
+        4 bmv2 switch(es)
+        8 host/switch process(es)
+        a topo tmux session
+        the switch manifest /tmp/ndtwin_p4_switches.json
+        the registry entry .test_run/pids/kernel.child.pid
+        the registry entry .test_run/pids/kernel.pid
+        the registry entry .test_run/pids/p4_proxy.child.pid
+        the registry entry .test_run/pids/p4_proxy.pid
+        a held port in ports.sh's table
+[1/3] kernel + proxy/Ryu
+        stopped kernel
+        kernel exit status 143 (terminated by SIGTERM (15) -- or exit(143), which bash cannot distinguish)
+        stopped p4_proxy
+        p4_proxy exit status 143 (terminated by SIGTERM (15) -- or exit(143), which bash cannot distinguish)
+        -> an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+        :30051 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+        :30052 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+        :30053 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+        :30054 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+        :9091 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+        :9092 is still listening, held 
+... [trimmed; 6341 chars total]
+   ndt down rc=0
+   host_count_override: unchanged (2 bytes)
+   telemetry_override: unchanged (absent)
+$ NDT_OWNER=orch-0926 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+  the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+  this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+  ok  lab released
+   ndt release rc=0
+
+== verdict =============================================================
+   PASS injection: probes reached h1                   want=>=1 report row         got=72 rows   【README 宣稱】
+   PASS switch ids seen                                want=[1, 2, 3, 4]           got=[1, 2, 3, 4]   【源碼推導，未執行】
+   PASS every reported port is non-zero                want=no 0 port              got=[1, 2, 3, 4]   【源碼推導，未執行】
+   PASS G1  link usage follows the iperf path          want=primary on-path > 0; minor rows printed, not asserted; off-path under one sample's worth (256 x MTU x 8 bit) or 2% of the smallest PRIMARY on-path, whichever is larger got=PASS   【源碼推導，未執行】
+
+>>> PASS (4/4)
+
+report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-26T174141Z_link_monitor_solution_ndtwin.md

@@ -1,0 +1,61 @@
+1a3ebd7f9ffb14ab922e844fb3f7ace7abdf405f
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926  2026-09-26T11:03:04Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926
+# cmd bash tests/shell/mutate_p4_priority_refusal.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_p4_priority_refusal.sh
+=== baseline (must be green before any mutation) ===
+  ✅ green
+
+=== 1. the refusal never fires, as before the fix ===
+  anchor occurrences: 1 in p4_proxy/proxy_agent/api_routes.py
+  ✅ caught by test_a_delete_naming_a_priority_ipv4_lpm_cannot_honour_is_501
+     all red: test_a_delete_naming_a_priority_ipv4_lpm_cannot_honour_is_501 test_a_modify_naming_a_priority_ipv4_lpm_cannot_honour_is_501 test_the_full_explanation_is_still_there_for_whoever_reads_the_body test_the_outcome_and_the_requested_priority_are_still_inside_it test_the_refused_write_never_reaches_the_switch test_the_remedy_is_inside_the_window_the_kernel_keeps test_the_remedy_names_both_ways_out_and_neither_is_the_priority 
+
+=== 2. the delete is refused only after the switch has been written ===
+  anchor occurrences: 1 in p4_proxy/proxy_agent/api_routes.py
+  ✅ caught by test_the_refused_write_never_reaches_the_switch
+     all red: test_a_delete_naming_a_priority_ipv4_lpm_cannot_honour_is_501 test_the_full_explanation_is_still_there_for_whoever_reads_the_body test_the_outcome_and_the_requested_priority_are_still_inside_it test_the_refused_write_never_reaches_the_switch test_the_remedy_is_inside_the_window_the_kernel_keeps test_the_remedy_names_both_ways_out_and_neither_is_the_priority 
+
+=== 3. the modify is refused only after the switch has been written ===
+  anchor occurrences: 1 in p4_proxy/proxy_agent/api_routes.py
+  ✅ caught by test_a_modify_naming_a_priority_ipv4_lpm_cannot_honour_is_501
+     all red: test_a_modify_naming_a_priority_ipv4_lpm_cannot_honour_is_501 test_the_refused_write_never_reaches_the_switch test_the_remedy_is_inside_the_window_the_kernel_keeps 
+
+=== 4. an absent priority counts as a named one, so the control plane's deletes 501 ===
+  anchor occurrences: 1 in p4_proxy/proxy_agent/api_routes.py
+  ✅ caught by test_the_kernels_own_priority_less_delete_still_works
+     all red: test_a_delete_that_is_honoured_says_which_table_it_reached test_a_failed_delete_is_still_reported_as_an_error test_it_answers_400_on_every_write_endpoint test_the_kernels_own_priority_less_delete_still_works 
+
+=== 5. 0 and -1 stop being the absent-priority sentinels ===
+  anchor occurrences: 1 in p4_proxy/proxy_agent/api_routes.py
+  ✅ caught by test_the_kernels_own_modify_at_the_absent_priority_default_still_works
+     all red: test_the_kernels_own_modify_at_the_absent_priority_default_still_works test_the_non_strict_delete_sentinel_is_not_a_named_priority 
+
+=== 6. the table is not consulted, so honourable priorities are refused too ===
+  anchor occurrences: 1 in p4_proxy/proxy_agent/api_routes.py
+  ✅ caught by test_a_five_tuple_match_at_the_same_priority_is_not_refused
+     all red: test_a_five_tuple_match_at_the_same_priority_is_not_refused test_the_delete_handler_still_reports_the_real_outcome 
+
+=== 7. the refusal is widened to the install path, overturning the standing ruling ===
+  anchor occurrences: 1 in p4_proxy/proxy_agent/api_routes.py
+  ✅ caught by test_an_install_is_still_disclosed_rather_than_refused
+     all red: test_a_destination_only_rule_says_its_priority_was_not_honoured test_a_failed_write_is_still_reported_as_an_error test_an_install_is_still_disclosed_rather_than_refused test_the_priority_still_reaches_the_topology_unchanged 
+
+=== 8. the remedy field is dropped, so the window carries only the diagnosis ===
+  anchor occurrences: 1 in p4_proxy/proxy_agent/api_routes.py
+  ✅ caught by test_the_remedy_is_inside_the_window_the_kernel_keeps
+     all red: test_the_remedy_is_inside_the_window_the_kernel_keeps test_the_remedy_names_both_ways_out_and_neither_is_the_priority 
+
+=== 9. a longer error string pushes the remedy out of the kernel window ===
+  anchor occurrences: 1 in p4_proxy/proxy_agent/api_routes.py
+  ✅ caught by test_the_remedy_is_inside_the_window_the_kernel_keeps
+     all red: test_the_outcome_and_the_requested_priority_are_still_inside_it test_the_remedy_is_inside_the_window_the_kernel_keeps 
+
+=== baseline restored? ===
+  ✅ p4_proxy/proxy_agent/api_routes.py byte-identical
+
+9 mutations, 0 survived
+guarded_build: exit 0
+# rc=0

@@ -1,0 +1,23 @@
+f4f43a3264a1dacc8c5a12e002204e5a08866fca
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-08-h5-sampler-0926  2026-09-26T16:59:58Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-08-h5-sampler-0926
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbh5-f4f43a32/runtime_check.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-08-h5-sampler-0926
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-08-h5-sampler-0926/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbh5-f4f43a32/runtime_check.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-08-h5-sampler-0926
+HEAD f4f43a3264a1dacc8c5a12e002204e5a08866fca
+  ok    _common get_json (315): file:// JSON re-written sorted  (rc 0 {"a":[2],"b":1})
+  ok    _common netdev_tx (701): every line 'sN-ethP <bytes>'  (rc 0 bad 0)
+  ok    _common minor list (1160)  (s1-eth2 s4-eth2 )
+  ok    _common P/M counts (1168, 1169)  (nP=2 nM=2)
+  ok    07 jqp complete / request_id (496, 506)  (complete=True rid=r-7)
+  ok    the text run above is _common.sh's: /usr/bin/awk '$2=="M"{printf "%s ", $1}'
+  ok    the text run above is _common.sh's: /usr/bin/awk '$2=="P"{n++} END{print n+0}'
+  ok    the text run above is _common.sh's: /usr/bin/awk '$2=="M"{n++} END{print n+0}'
+  ok    the text run above is 07_roles_basic.sh's: jqp "$out" "d.get('complete')"
+  ok    the text run above is 07_roles_basic.sh's: jqp "$2.json" "d.get('request_id') or ''"
+  ok    07 ENTRY_TABLES (549)  ([('MyIngress.ipv4_lpm', True)])
+  ok    spike consts (200)  (5 15 5)
+RUNTIME-CHECK: every never-executed program ran and answered as written
+guarded_build: exit 0
+# rc=0

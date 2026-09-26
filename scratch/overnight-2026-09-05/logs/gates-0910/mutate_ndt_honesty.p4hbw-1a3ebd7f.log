@@ -1,0 +1,82 @@
+1a3ebd7f9ffb14ab922e844fb3f7ace7abdf405f
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926  2026-09-26T12:06:31Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926
+# cmd bash tests/shell/mutate_ndt_honesty.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_ndt_honesty.sh
+baseline (must be green before any mutation):
+Ran 345 checks, 0 failed
+
+  caught   M1: the exit record is no longer read                      (🔴 the record line names the clearing, and when went red)
+  caught   M2: 'no ndt up has run in this checkout' comes back        (🔴 the sentence that was false is gone went red)
+  caught   M3: the P4 model is printed as the topology again          (🔴 no P4 model file is printed -- that path was the carrier went red)
+  caught   M4: the plane is a constant, not a reading                 ('last kernel.exit ran p4' after a P4 run went red)
+  caught   M5: an unclassifiable command becomes a plane              (  rather than picking one went red)
+  caught   M6: the note is corrected by re-claiming, moving the lease (🔴 expires is byte-identical -- not pushed out went red)
+  caught   M7: any session may rewrite anyone's note                  (someone else's claim is refused went red)
+  caught   M8: an expired claim is still narrated                     (an expired claim is refused went red)
+  caught   M9: ndt up ovs stops writing the note                      (the note says the lab is in use went red)
+  caught   M10: ndt up p4 stops writing the note                      (the note names the P4 target went red)
+  caught   M11: ndt down leaves 'in use' standing over an empty lab   (🔴 it no longer says the lab is in use went red)
+  caught   M12: a teardown that did not verify is reported as clean   (🔴 a teardown that did not verify says so went red)
+  caught   M13: 'ndt clean' tidies away the rotated kernel logs       (🔴 every rotated generation is still there went red)
+  caught   M14: 'ndt check' refuses on observed traffic again         (🔴 iperf3 clients with nothing declared: rc 0 went red)
+  caught   M15 (widening): 'ndt check' never refuses at all           (a declared measurement is refused, rc 1 went red)
+  caught   M16: the claim stops carrying the declaration              (NDT_MEASURING lands in the claim file went red)
+  caught   M17: an expired claim still declares a measurement         (🔴 an expired claim declares nothing went red)
+  caught   M18: 'ndt status' renders declarations instead of processes (🔴 undeclared traffic is still reported by status went red)
+  caught   M19 (wrong fix): the ok band narrowed to catch R4-5        (🔴 the band did not move: 0.85 is still ok went red)
+  caught   M20: the ratio and its two sides are not printed           (R4-5's own numbers: the ratio is printed as a value went red)
+  caught   M21: under-reporting is reported as over-reporting         (🔴 and the size of the gap in words went red)
+  caught   M40: the verdict names a mechanism it did not observe      (🔴 but it does NOT name clone replicas as the finding went red)
+  caught   M41: the two causes are never printed at all               (🔴 it names the twin lagging the truth as a cause went red)
+  caught   M42: the window shape never reaches the verdict            (🔴 and the window shape really reaches it went red)
+  caught   M43 (widening): a constant factor is called a transient too (🔴 a constant factor over a steady truth IS the stack shape went red)
+  caught   M44 (widening): every window is called steady and hot      (🔴 with the evidence that separates them went red)
+  caught   M45: the block stops carrying the verdict out              (🔴 the block exits 4 when the ratio is over the band went red)
+  caught   M46: the command swallows the rc the block produced        (🔴 a DOUBLE-COUNTING verdict reaches the caller as rc 4 went red)
+  caught   N1 (widening, green): a teardown is announced unconditionally (🔴 no 'cleared by ndt down' without a record of one went red)
+  caught   N2 (control, never checks): every lab has no baseline      (  and --check checks: rc 0, not 3 went red)
+  caught   M22: help defines rc 3 by history again (F12)              (  🔴 the sentence W12 removed from the output is gone from the help too went red)
+  caught   M23: help names only one of rc 3's two causes              (  🔴 and 'unreadable' as the other -- rc 3 has two return sites went red)
+  caught   M24: the blanket host_count_override claim comes back (B10) (  🔴 the blanket 'cannot be made' claim is gone went red)
+  caught   M25: B10 loses its 09-05 counter-example                   (  with the 09-05 counter-example went red)
+  caught   M26: sim's evidence log is hard-coded to the main checkout (F9) (  🔴 sim's evidence log is inside the fixture went red)
+  caught   M27: the default round's Mininet_* model is unclassifiable again (F10) (  🔴 a Mininet_* model reads as ovs went red)
+  caught   M28 (widening): every command is read as ovs               (  🔴 a physical-mode command is still rc 1 went red)
+  caught   M29: help says residue found is always rc 1 (F2)           (  🔴 rc 1 is scoped to 'while there is a baseline' went red)
+  caught   M30: help calls the orphans rc table disjoint again (F4)   (  🔴 the rc table says it is not disjoint went red)
+  caught   MC1: the claim is written without taking the lock          (🔴 it gives up rather than writing went red)
+  caught   MC2: the reading inside the lock is not taken -- only the one before it (🔴 the loser is refused went red)
+  caught   MC3 (widening): every refusal says somebody just beat you to it (🔴 not 'beaten to it' -- that points the reader at the wrong minute went red)
+  caught   MC4: the claim being replaced is overwritten with no copy kept (R7 I-2) (🔴 and the claim it replaced is still readable went red)
+  caught   MC5: the write is not read back, so a direct writer wins silently (a claim that is not ours after the write is refused went red)
+  caught   MC6: the teardown stops reading measuring= (T2d verbatim)  (a declared measurement refuses the teardown, rc 5 went red)
+  caught   MC7 (widening): --deep turns the guard off as well as --force (🔴 --deep does not override a declaration went red)
+  caught   MC8: the rescue line interpolates the description again (T2 verbatim) (🔴 that line parses as shell -- it is printed to be pasted went red)
+  caught   MC9: the foreign refusal stops quoting what they declared  (🔴 and the foreign refusal quotes the declaration went red)
+  caught   MC10: the failed note write is swallowed again (T5 verbatim) (🔴 a live claim we do not hold: warned, not swallowed went red)
+  caught   MC11 (widening): it warns even when there is no claim to narrate (🔴 no claim at all: silent, there is nothing to narrate went red)
+  caught   MC12: the teardown leaves the declaration it just falsified (🔴 measuring= is empty afterwards went red)
+  caught   MC13: the note is appended again, so it migrates to the last line (🔴 and note did not migrate to the last line went red)
+  caught   MC14: a field another script wrote is dropped by the rewrite (  a field another script wrote is carried through went red)
+  caught   MC15: status says untracked apps survive a teardown again (T3) (🔴 the sentence that round's teardown disproved is gone went red)
+  caught   MC16: the help stops saying what a claim does not cover (T4) (  the help scopes the claim to this tool's own verbs went red)
+  caught   MD1: the down table drops the port-at-[1/3] paragraph (ROLE-12) (  🔴 the paragraph says its claim in its own heading went red)
+  caught   MD2: the clean table drops the refusal (ROLE-12 cell 3)    (  🔴 the refusal is documented at all went red)
+  caught   MD3: the --deep size is typed rather than computed (ROLE-11 F7) (  the size in the help is computed, not typed went red)
+  caught   MD4: the up table is removed again                         (  🔴 up has an rc table at all went red)
+  caught   MD5: the up table stops saying what 1 and 5 separate       (  🔴 and 1 is scoped to a reading, not to failure in general went red)
+  caught   MD6: the precedence between a refusal and a dirty reading is unwritten (  🔴 with the precedence when both are true went red)
+  caught   MD7: the clean table drops rc 3 (FIX-NDT-8)                (  🔴 3 is in the clean table went red)
+  caught   MD8: the clean table says 3 is a clean bill of health      (  🔴 and 3 is not read as a clean bill went red)
+  caught   MD9: the down table drops rc 3 (FIX-NDT-8)                 (  🔴 3 is in the down table went red)
+  caught   MD10: the --check row is called residue again              (  all four --check row branches carry the new label went red)
+  caught   MD11 (widening): the process half is renamed as well       (🔴 and 'clean' still calls a held port residue went red)
+  caught   MD12: the help drops what the old word covered             (  the help says which two things the word meant went red)
+
+baseline byte-identical: yes  tools/test_workflow/ndt  sha256 6e8bcf96307efd1c2fbe770a5bb64099f99925303e7187bcfda9995afede5410
+mutation gate: 67 mutations, 0 survived
+guarded_build: exit 0
+# rc=0

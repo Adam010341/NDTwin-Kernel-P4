@@ -1,0 +1,14 @@
+# CI run 36259179041 on 3f8c2abf (three follow-ups), GCC job via API raw log; 2026-09-27T01:48:39+08:00
+vs 9c2e59e4 (36233414349):
+IDENTICAL
+vs cafd518a (36251857977):
+20d19
+<       FAILED (failures=1)
+40d38
+<       FAIL: test_code_sourced_tables_are_in_ndt (__main__.RcProvenance.test_code_sourced_tables_are_in_ndt)
+43c41
+< L1 FAILED (15 problem group(s))   logs: /home/runner/work/NDTwin-Kernel-P4/NDTwin-Kernel-P4/.test_run/logs
+---
+> L1 FAILED (14 problem group(s))   logs: /home/runner/work/NDTwin-Kernel-P4/NDTwin-Kernel-P4/.test_run/logs
+L1/error lines: 2
+jobs: ASan + UBSan=success, clang can compile it=failure, Build and unit tests (GCC)=failure, TSan=failure

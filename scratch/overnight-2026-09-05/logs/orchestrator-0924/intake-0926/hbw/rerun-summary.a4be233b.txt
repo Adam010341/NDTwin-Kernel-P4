@@ -1,0 +1,6 @@
+p4_proxy_suite # rc=1 | [TopologyManager] Refusing delete for DPID 1: neither table can honour ['dl_dst']
+test_ndt_heartbeat # rc=0 | Ran 57 checks, 0 failed
+live08_selftest # rc=0 | SELF-TEST PASS
+test_ndtwin_lab_heartbeat # rc=0 | Ran 196 checks, 0 failed
+spike_selfcheck # rc=0 | SPIKE SELF-TEST PASS
+RERUN-DONE

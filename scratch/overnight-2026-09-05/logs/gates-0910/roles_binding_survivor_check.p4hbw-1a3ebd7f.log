@@ -1,0 +1,17 @@
+1a3ebd7f9ffb14ab922e844fb3f7ace7abdf405f
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926  2026-09-26T10:59:54Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbw-1a3ebd7f/roles_binding_survivor_check.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/mutate_roles_binding.p4hbw-1a3ebd7f.log
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbw-1a3ebd7f/roles_binding_survivor_check.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/mutate_roles_binding.p4hbw-1a3ebd7f.log
+HEAD 1a3ebd7f9ffb14ab922e844fb3f7ace7abdf405f   log /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/mutate_roles_binding.p4hbw-1a3ebd7f.log
+gate summary: mutation gate: 162 mutations, 1 survived; caught lines: 162
+  ok    every one of the 162 mutants caught
+  ok    every new test seen red: 196 of 196
+  ok    baseline byte-identical: yes (12 sources)
+  the gate's omitted list: 18 class(es); this branch added since 580767a8: 18
+  ok    identical: the survivor is the first cut's class scan counting this segment's classes
+ROLES-BINDING-SURVIVOR: the one survivor is the class scan, and only this segment's classes
+guarded_build: exit 0
+# rc=0

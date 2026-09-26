@@ -1,0 +1,99 @@
+f4f43a3264a1dacc8c5a12e002204e5a08866fca
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-08-h5-sampler-0926  2026-09-26T16:58:50Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-08-h5-sampler-0926
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbh5-f4f43a32/cover_run.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-08-h5-sampler-0926 /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp/cover_f4f43a32 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbh5-f4f43a32/embedded_cover.py
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-08-h5-sampler-0926/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbh5-f4f43a32/cover_run.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-08-h5-sampler-0926 /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp/cover_f4f43a32 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbh5-f4f43a32/embedded_cover.py
+HEAD f4f43a3264a1dacc8c5a12e002204e5a08866fca
+  08_selftest rc 0 -- SELF-TEST PASS
+  07_selftest rc 0 -- SELF-TEST PASS
+  live_p1_common rc 0 -- Ran 163 checks, 0 failed
+  live_p1_thirteen rc 0 -- Ran 36 checks, 0 failed
+  spike_selftest rc 0 -- SPIKE SELF-TEST PASS
+  07_roles_basic.sh         88 py-heredoc RAN  | import json, sys
+  07_roles_basic.sh        109 py-heredoc RAN  | import json, sys
+  07_roles_basic.sh        146 py-heredoc RAN  | import json, sys
+  07_roles_basic.sh        164 py-jqp     RAN  | sorted((d.get('control_plane') or {}).get('skipped') or [])
+  07_roles_basic.sh        171 py-heredoc RAN  | import json, sys
+  07_roles_basic.sh        185 py-heredoc RAN  | import json, sys
+  07_roles_basic.sh        198 py-heredoc RAN  | import json, sys
+  07_roles_basic.sh        211 py-heredoc RAN  | import glob, json, os, sys
+  07_roles_basic.sh        236 py-heredoc RAN  | import json, sys
+  07_roles_basic.sh        253 py-heredoc RAN  | import json, sys
+  07_roles_basic.sh        268 py-heredoc RAN  | import json, sys
+  07_roles_basic.sh        307 py-heredoc RAN  | import copy, json, os, sys
+  07_roles_basic.sh        496 py-jqp     NOT  | d.get('complete')
+  07_roles_basic.sh        506 py-jqp     NOT  | d.get('request_id') or ''
+  07_roles_basic.sh        549 py-c-dq    NOT  | import json,sys,os
+  08_heartbeat.sh          175 py-heredoc RAN  | import glob, json, os, re, sys
+  08_heartbeat.sh          692 py-var     RAN  | import json, os, sys, time
+  08_heartbeat.sh          782 awk        RAN  | BEGIN{print b-a}
+  08_heartbeat.sh          788 awk        RAN  | BEGIN{printf "%.2f\n", b-a}
+  08_heartbeat.sh          817 py-c       RAN  | import time; print(f"{time.monotonic():.3f}")
+  08_heartbeat.sh          818 py-c       RAN  | import time; print(f"{time.monotonic() - time.time():.6f}")
+  08_heartbeat.sh          819 py-c       RAN  | import sys, time; time.sleep(max(0.0, float(sys.argv[1]) - time.monoto
+  08_heartbeat.sh          822 py-heredoc RAN  | import json, sys
+  08_heartbeat.sh          838 py-heredoc RAN  | import json, sys
+  08_heartbeat.sh          855 py-c       RAN  | import math, sys, time
+  08_heartbeat.sh          874 awk        RAN  | BEGIN{printf "%.2f\n", lo + (r / 32767) * (p - 2 * lo)}
+  08_heartbeat.sh          962 py-heredoc RAN  | import json, sys, time
+  08_heartbeat.sh         1052 awk        RAN  | { if ($9 <= b) print "yes"; else printf "OVER+%.3f\n", $9 - b }
+  08_heartbeat.sh         1147 py-heredoc RAN  | import copy, json, os, sys
+  08_heartbeat.sh         1341 awk        RAN  | BEGIN{exit !(a > 0.05 && a < 4.95 && b > 0.05 && b < 4.95)}
+  08_heartbeat.sh         1443 py-c       RAN  | import json, os, sys
+  08_heartbeat.sh         1455 py-c       RAN  | import json, sys
+  08_heartbeat.sh         1465 py-c       RAN  | import json, sys; d = json.load(open(sys.argv[1])); print(d["timed_out
+  08_heartbeat.sh         1472 py-c       RAN  | import json, sys; d = json.load(open(sys.argv[1])); print(d["timed_out
+  08_heartbeat.sh         1484 awk        RAN  | BEGIN{printf "%.3f", m + 0.3}
+  08_heartbeat.sh         1498 awk        RAN  | BEGIN{n = split(s, a, " "); for (i = 2; i <= n; i++) if (a[i] < a[i-1]
+  08_heartbeat.sh         1504 awk        RAN  | BEGIN{split(s, a, " "); split(p, q, " "); m = a[1] + q[2];
+  08_heartbeat.sh         1526 awk        RAN  | {print NF}
+  08_heartbeat.sh         1574 py-c       RAN  | import json, os, sys
+  08_heartbeat.sh         1597 awk        RAN  | NR == 1 {next} {k = $2 " " $3 " " $5 " " $6; if (k != last) {printf "%
+  08_heartbeat.sh         1601 awk        RAN  | NR > 1 && (NF != 6 || $1 !~ /^[0-9]+\.[0-9]$/) {bad = 1} END {exit bad
+  08_heartbeat.sh         1631 py-c       RAN  | import json, os, sys
+  08_heartbeat.sh         1653 awk        RAN  | BEGIN{printf "%.6f", n - 1.5}
+  08_heartbeat.sh         1655 awk        RAN  | BEGIN{exit !(e >= 1.5 && e < 3.5)}
+  08_heartbeat.sh         1775 awk        RAN  | /^# --- end of prelude/ {exit} /^LIVE_DIR_08=/ {printf "LIVE_DIR_08=\"
+  _common.sh               315 py-c-dq    NOT  | import json,sys
+  _common.sh               328 py-c-dq    RAN  | import json,sys
+  _common.sh               335 py-c-dq    RAN  | import json,sys
+  _common.sh               347 py-c-dq    RAN  | import json,sys
+  _common.sh               374 py-c-dq    RAN  | import re, sys
+  _common.sh               390 py-c-dq    RAN  | import json, sys
+  _common.sh               401 py-c-dq    RAN  | import json, sys
+  _common.sh               480 py-jqp     RAN  | ((d.get('switches') or {}).get('$d') or {}).get('probe_ok')
+  _common.sh               701 py-c       NOT  | import re, sys
+  _common.sh               805 py-c       RAN  | import sys
+  _common.sh               839 awk        RAN  | $2 == "P" {print $1}
+  _common.sh               858 awk-dq     RAN  | BEGIN{print 1/$hz}
+  _common.sh               861 py-c       RAN  | import json, sys
+  _common.sh               923 py-c       RAN  | import sys
+  _common.sh               993 awk-dq     RAN  | BEGIN{printf \"%.3f\", $delta / ($LINK_USAGE_MTU_BYTES * $LINK_USAGE_S
+  _common.sh               997 awk-dq     RAN  | BEGIN{print ($bits > 0) ? 1 : 0}
+  _common.sh              1010 awk        RAN  | $1 == k {found=1} END{exit !found}
+  _common.sh              1016 awk-dq     RAN  | BEGIN{print ($bits >= $floor) ? 1 : 0}
+  _common.sh              1049 awk-dq     RAN  | BEGIN{print ($bits != 0) ? 1 : 0}
+  _common.sh              1160 awk        NOT  | $2=="M"{printf "%s ", $1}
+  _common.sh              1168 awk        NOT  | $2=="P"{n++} END{print n+0}
+  _common.sh              1169 awk        NOT  | $2=="M"{n++} END{print n+0}
+  S_heartbeat_spike.sh     200 py-c       NOT  | import sys; sys.path.insert(0, sys.argv[1])
+  S_heartbeat_spike.sh     634 awk        RAN  | $1 == i { print $2, $3, $4, $5; exit }
+  S_heartbeat_spike.sh     686 py-c-dq    RAN  | print($t0 - 1)
+  S_heartbeat_spike.sh     714 py-c-dq    RAN  | print($(now) - ${BEACON_S} - 1)
+  S_heartbeat_spike.sh     991 awk        RAN  | /^self_test\(\) \{/ {exit} /^SPIKE_DIR=/ {printf "SPIKE_DIR=\"%s\"\n",
+  S_heartbeat_spike.sh    1301 awk        RAN  | /^   !! / { sub(/^   !! /, ""); printf "%s%s", (n++ ? "; " : ""), $0 }
+  S_heartbeat_spike.sh    1465 awk        RAN  | /^require_free_lab$/ {go = 1} go
+  S_heartbeat_spike.sh    1841 awk        RAN  | $1 == c { print $6 }
+  S_heartbeat_spike.sh    2029 awk        RAN  | /^# --- the run/ {run = 1} run && /^    census$/ {grab = 1; next} grab
+  oldcode_selftest.sh       67 py-heredoc NOT  | import contextlib
+SUMMARY
+  07_roles_basic.sh: 15 marked, 12 executed, 3 NOT executed
+  08_heartbeat.sh: 30 marked, 30 executed, 0 NOT executed
+  _common.sh: 22 marked, 17 executed, 5 NOT executed
+  S_heartbeat_spike.sh: 9 marked, 8 executed, 1 NOT executed
+  oldcode_selftest.sh: 1 marked, 0 executed, 1 NOT executed
+files restored from git
+guarded_build: exit 0
+# rc=0

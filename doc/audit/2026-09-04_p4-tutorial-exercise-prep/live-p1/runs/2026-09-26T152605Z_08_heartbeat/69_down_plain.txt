@@ -1,0 +1,89 @@
+ndt down
+  this teardown is about:
+        4 bmv2 switch(es)
+        8 host/switch process(es)
+        a topo tmux session
+        the switch manifest /tmp/ndtwin_p4_switches.json
+        the registry entry .test_run/pids/kernel.child.pid
+        the registry entry .test_run/pids/kernel.pid
+        the registry entry .test_run/pids/p4_proxy.child.pid
+        the registry entry .test_run/pids/p4_proxy.pid
+        a held port in ports.sh's table
+[1/3] kernel + proxy/Ryu
+        stopped kernel
+        kernel exit status 143 (terminated by SIGTERM (15) -- or exit(143), which bash cannot distinguish)
+        stopped p4_proxy
+        p4_proxy exit status 143 (terminated by SIGTERM (15) -- or exit(143), which bash cannot distinguish)
+        -> an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+        :30051 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+        :30052 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+        :30053 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+        :30054 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+        :9091 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+        :9092 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+        :9093 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+        :9094 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        ryu exit status 143 (terminated by SIGTERM (15) -- or exit(143), which bash cannot distinguish)
+        find and stop it, or the next 'up' will report on it:
+          ss -ltnp   # tcp rows;  ss -lunp   # the udp one (:6343) -- see ports.sh
+          cat /home/adam/Desktop/NDTwin-Kernel/.test_run/pids/*.pid   # what this stack started; check each against /proc/<pid>
+  !!  stack.sh down exited 1, and the only thing behind that status is port(s)
+  !!    still listening at [1/3], held by processes it did not start:
+  !!      9091 9092 9093 9094 30051 30052 30053 30054 
+  !!    [1/3] runs BEFORE the data-plane sweep in [3/3], so on a live P4 fabric this
+  !!    is the fabric this teardown is about to remove, accusing itself. The verdict
+  !!    on these ports is taken AFTER 'verify clean' below, not here. (ROLE-12)
+  stopping the heartbeat (before the topology it watches is taken down)
+      heartbeat stopped (pid 3812227)
+[2/3] topology session
+      topo stopped
+[3/3] sweep
+        none           ntg_bmv2_topo
+        none           p4_testbed_topo
+        none           OVS testbed_topo
+        none           NTG testbed_topo
+        none           simple_switch_grpc
+      cleanup done
+  ok  this step ran the Mininet sweep (mn -c) for you
+    [3/3] is 'ndtwin-lab cleanup' and its sweep runs 'mn -c' before it sweeps
+    simple_switch_grpc, so the advice stack.sh prints at [1/3] about running that
+    command by hand is advice this teardown has already acted on -- which is why
+    [1/3] filters it out.
+  cleared the 'ndt up' target record (.test_run/up.target)
+
+verify clean
+  app package cleared: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hb_basic_noroles -- this checkout is being put back
+  ok  bmv2 switches: 0
+  ok  host/switch processes: 0
+  ok  no topo session
+  ok  no switch manifest
+  ok  ports closed: 8000/8080/8081/6653/6633/6343/30051-30060/9091-9100/9000
+
+clean
+  ok  the 8 port(s) [1/3] called 'still listening' were closed by [3/3]: 9091 9092 9093 9094 30051 30052 30053 30054 
+    so stack.sh's exit 1 was a reading from the MIDDLE of this teardown, not
+    its ending, and it is not carried to the exit code. (ROLE-12, 2026-09-12)
+  claim note now says the lab is down and verified clean (owner and expiry unchanged)

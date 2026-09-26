@@ -1,0 +1,59 @@
+cafd518ad654740f46341b389ea8ffcbeaddf810
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-anchors-0926  2026-09-26T16:06:43Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-anchors-0926
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-ndtserve-cafd518a-base2/py_lane.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-anchors-0926 /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp/py_lane_base2_cafd518a
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-anchors-0926/tools/build_guard/guarded_build.sh
+# EXPECTED rc=1: this machine's L1 interpreter (ryu env, Python 3.8): files that are not PASS on it at the base too -- the differential is the point
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-ndtserve-cafd518a-base2/py_lane.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-anchors-0926 /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp/py_lane_base2_cafd518a
+HEAD cafd518ad654740f46341b389ea8ffcbeaddf810   interpreter /home/adam/miniconda3/envs/ryu-env/bin/python (Python 3.8.20)
+  test_app_residue_rules.py                PASS 41 ran and passed
+  test_chaos_c07_control.py                FAIL (exit 1, ran=0)
+  test_chaos_invariants_method.py          FAIL (exit 1, ran=0)
+  test_chaos_link_blackhole_attach.py      FAIL (exit 1, ran=0)
+  test_chaos_opt_in_all_actions.py         FAIL (exit 1, ran=0)
+  test_chaos_runner_wiring.py              FAIL (exit 1, ran=0)
+  test_check_gate_anchors.py               FAIL 2 skip(s)
+  test_check_logs_powered_off.py           PASS 22 ran and passed
+  test_check_logs_startup_warnings.py      PASS 5 ran and passed
+  test_check_test_tmpdirs.py               PASS 58 ran and passed
+  test_contract_spec.py                    PASS 256 ran and passed
+  test_cpu_gate_lifetime.py                PASS 22 ran and passed
+  test_find_host_by_ip.py                  PASS 5 ran and passed
+  test_grpc_port_block.py                  FAIL (exit 1, ran=31)
+        FAIL: test_no_live_doc_or_tool_names_the_old_block (__main__.NoLiveDocumentStillNamesTheOldPortBlock)
+        FAIL: test_the_topology_takes_its_ports_from_the_module (__main__.TheFabricAndTheProxyAgreeOnThePortBlock)
+  test_host_discovery_gate.py              PASS 14 ran and passed
+  test_known_issues_references.py          PASS 44 ran and passed
+  test_l3_dispatch_drift.py                FAIL (exit 1, ran=12)
+        ERROR: test_a_deleted_route_in_a_fixture_still_drifts (__main__.ItCanStillSayNo)
+        ERROR: test_a_pathis_route_missing_from_the_table_still_drifts (__main__.ItCanStillSayNo)
+        ERROR: test_a_wrong_verb_still_drifts (__main__.ItCanStillSayNo)
+        ERROR: test_an_unregistered_name_in_the_table_still_drifts (__main__.ItCanStillSayNo)
+  test_lldp_backoff.py                     PASS 5 ran and passed
+  test_make_topology.py                    PASS 29 ran and passed
+  test_ndt_serve_cells.py                  PASS 35 ran and passed
+  test_ndt_serve.py                        FAIL (exit 1, ran=73)
+        FAIL: test_code_sourced_tables_are_in_ndt (__main__.RcProvenance)
+  test_ovs4_sflow.py                       FAIL (exit 1, ran=21)
+        ERROR: test_the_default_runner_checks_the_exit_status (__main__.FailuresAreNotSwallowed)
+  test_p4_power_helper.py                  PASS 23 ran and passed
+  test_route_install_gate.py               PASS 14 ran and passed
+  test_route_reinstall.py                  PASS 11 ran and passed
+  test_ryu_rest_topology_bounded.py        PASS 7 ran and passed
+  test_sflow_emitter_batching.py           PASS 8 ran and passed
+  test_sflow_stats_endpoint.py             FAIL (exit 1, ran=0)
+  test_shell_command_construction.py       PASS 7 ran and passed
+  test_t11_filter_is_wired.py              PASS 16 ran and passed
+  test_testbed_banner.py                   PASS 45 ran and passed
+  test_topology_read_timeouts.py           PASS 5 ran and passed
+  test_topology_worker_coalescing.py       PASS 7 ran and passed
+  test_twin_audit_criteria.py              PASS 63 ran and passed
+  test_twin_audit.py                       PASS 39 ran and passed
+  test_unavailable_metric_sentinel.py      PASS 10 ran and passed
+  test_unidirectional_link_loss.py         PASS 6 ran and passed
+  test_walk_instrumentation.py             PASS 10 ran and passed
+  test_warning_allowlist_entries.py        PASS 9 ran and passed
+PY-LANE: 11 file(s) not PASS: test_chaos_c07_control.py test_chaos_invariants_method.py test_chaos_link_blackhole_attach.py test_chaos_opt_in_all_actions.py test_chaos_runner_wiring.py test_check_gate_anchors.py test_grpc_port_block.py test_l3_dispatch_drift.py test_ndt_serve.py test_ovs4_sflow.py test_sflow_stats_endpoint.py
+guarded_build: exit 1
+# rc=1

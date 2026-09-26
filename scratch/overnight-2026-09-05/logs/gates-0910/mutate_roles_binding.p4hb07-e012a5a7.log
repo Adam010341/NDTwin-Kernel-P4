@@ -1,0 +1,609 @@
+e012a5a7cb7ab9344e01809f1ae9a3a7d09819c3
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-07-hb-links-0926  2026-09-26T15:35:22Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-07-hb-links-0926
+# cmd bash tests/shell/mutate_roles_binding.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-07-hb-links-0926/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_roles_binding.sh
+interpreter: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-07-hb-links-0926/p4_proxy/venv/bin/python
+baseline (must be green before any mutation):
+  Ran 708 tests in 7.103s
+  OK
+  Ran 187 tests in 1.772s
+  OK (skipped=1)
+  new tests to be seen red: 196
+  NEW_CLASSES names every TestCase class added between 6291db35 and 177b9f03 (the scan's control, one module left off, named its classes)
+
+  caught   M-R1: the binding ignores the roles and falls back to the literals (test_the_renamed_role_resolves_to_the_renamed_names went red)
+             renamed-only: every one of the 13 red test(s) is a renamed_route test
+             also red: test_preflight.RenamedRolesTest.test_the_renamed_package_passes_and_binds_the_renamed_names
+             also red: tests.test_p4_client_writes.ARenamedBindingIsWhatGoesOnTheWireTest.test_a_duplicate_insert_retries_as_a_modify_into_the_renamed_table
+             also red: tests.test_p4_client_writes.ARenamedBindingIsWhatGoesOnTheWireTest.test_a_renamed_insert_goes_into_the_renamed_table_through_the_renamed_action
+             also red: tests.test_p4_client_writes.ARenamedBindingIsWhatGoesOnTheWireTest.test_a_renamed_modify_and_delete_use_the_renamed_table_too
+             also red: tests.test_p4_client_writes.ARenamedBindingIsWhatGoesOnTheWireTest.test_a_renamed_route_is_dated_under_the_table_name_the_read_back_reports
+             also red: tests.test_p4_client_writes.ARenamedBindingIsWhatGoesOnTheWireTest.test_the_delete_read_back_looks_in_the_renamed_table_under_the_renamed_field
+             also red: tests.test_p4_client_writes.ARenamedBindingIsWhatGoesOnTheWireTest.test_the_parameters_go_by_name_to_their_own_ids_and_the_port_is_one_byte
+             also red: tests.test_route_binding.AWriteWithNoBindingIs501OnTheRenamedFixtureTest.test_a_bound_ndtwin_owned_switch_is_written_through_its_binding
+             also red: tests.test_route_binding.ResolveRefusesOnTheRenamedFixtureTest.test_a_port_that_fits_is_not_refused
+             also red: tests.test_route_binding.ResolvingTheRenamedFixtureTest.test_an_alias_resolves_to_the_full_name_read_table_entries_reports
+             also red: tests.test_route_binding.TheFactoryBindsEveryClientTest.test_a_renamed_foreign_pipeline_with_roles_is_bound_to_the_renamed_names
+             also red: tests.test_route_binding.TheFactoryBindsEveryClientTest.test_the_install_time_record_keys_by_the_renamed_table
+  caught   M-R2: an unbound foreign switch is written with the literals, not refused 501 (test_unbound_on_basics_own_names_is_still_refused went red)
+             also red: tests.test_p4_client_writes.NoBindingNoWriteTest.test_an_unbound_switch_is_never_written_with_ndtwins_literals
+             also red: tests.test_route_binding.AWriteWithNoBindingIs501OnTheRenamedFixtureTest.test_an_unbound_switch_answers_501_unbound_on_all_three_verbs
+             also red: tests.test_route_binding.AWriteWithNoBindingIs501OnTheRenamedFixtureTest.test_the_body_keeps_the_shape_the_other_501s_use_and_the_remedy_fits_the_window
+  caught   M-R3: a table the package owns is written anyway                   (test_a_package_owned_table_is_read_by_ndtwin_and_never_written went red)
+             also red: tests.test_route_binding.AWriteWithNoBindingIs501OnTheRenamedFixtureTest.test_an_owner_package_switch_answers_501_owned_by_package
+  caught   M-R4: pre-flight lets the package keep match entries in a table NDTwin owns (test_the_owned_tables_match_entries_fail_and_each_one_is_named went red)
+  caught   M-R5: the MAC parameter's width is not checked (pre-flight passes a 9-bit MAC) (test_a_dst_mac_that_is_not_48_bits_fails_here_before_the_proxy_refuses went red)
+             also red: tests.test_route_binding.ResolveRefusesOnTheRenamedFixtureTest.test_a_dst_mac_that_is_not_48_bits
+  caught   M-R5b: pre-flight does not size the port against the topology      (test_a_port_too_narrow_for_the_topology_fails_here went red)
+             also red: test_preflight.RenamedRolesTest.test_the_owned_table_rows_speak_only_of_the_switches_whose_binding_resolved
+  caught   M-R6: a foreign fabric's declared links are never seeded           (test_a_foreign_fabric_seeds_its_declared_links went red)
+             also red: tests.test_declared_links.LinkDiscoveryIsTheModeNotTheSeedCountTest.test_a_seed_that_raises_says_declared_and_names_the_error
+             also red: tests.test_declared_links.LinkDiscoveryIsTheModeNotTheSeedCountTest.test_a_seed_that_worked_reports_its_count_and_no_error
+             also red: tests.test_declared_links.WhichFabricsSeedAndWhenRoutesComeBackTest.test_a_topology_double_without_the_seeding_call_does_not_stop_startup
+  caught   M-R6b: seeding records the links but never enters them into net    (test_all_eight_directions_are_served_to_the_kernels_topology_poll went red)
+             also red: tests.test_declared_links.SeedingTheGraphTest.test_the_routes_over_declared_links_are_computable
+  caught   M-R7: seeding sends link_recovery_detected to the kernel           (test_the_kernel_is_told_nothing_by_a_declaration went red)
+             also red: tests.test_declared_links.SeedingTheGraphTest.test_a_watchdog_pass_after_seeding_still_tells_the_kernel_nothing
+  caught   M-R8: every table owned by ndtwin and the routes are still skipped (test_every_foreign_switch_owned_by_ndtwin_brings_the_routes_back went red)
+             also red: tests.test_declared_links.WhichFabricsSeedAndWhenRoutesComeBackTest.test_a_fabric_whose_routes_ndtwin_owns_does_not_restrict_the_writer
+  caught   M-R9: one unbound switch and the routes are installed anyway       (test_one_unbound_switch_keeps_the_routes_skipped_for_the_whole_fabric went red)
+             also red: tests.test_declared_links.WhichFabricsSeedAndWhenRoutesComeBackTest.test_a_fabric_that_skips_its_routes_tells_the_route_writer
+             also red: tests.test_declared_links.WhichFabricsSeedAndWhenRoutesComeBackTest.test_no_roles_at_all_keeps_all_three_skipped_exactly_as_before
+             also red: tests.test_declared_links.WhichFabricsSeedAndWhenRoutesComeBackTest.test_one_package_owned_table_keeps_the_routes_skipped_for_the_whole_fabric
+             also red: tests.test_startup.AForeignPipelineTest.test_a_foreign_pipeline_names_every_fabric_wide_step_it_switched_off
+             also red: tests.test_startup.TelemetrySourceTest.test_the_fabric_level_skips_are_unchanged_for_it
+  caught   M-R10: a foreign fabric starts LLDP and the watchdog               (test_lldp_and_the_watchdog_stay_off_on_a_foreign_fabric_even_when_every_table_is_owned went red)
+             also red: tests.test_startup.AForeignPipelineTest.test_no_lldp_and_no_watchdog_run_on_a_fabric_with_a_foreign_pipeline
+             also red: tests.test_startup.AForeignPipelineTest.test_one_foreign_switch_switches_the_whole_fabrics_discovery_off
+  caught   M-R11: a foreign switch is rendered as the base did -- unknown rows as drops, none counted (test_the_renamed_fixtures_own_rows_list_its_four_routes_and_count_its_tag_row went red)
+             also red: tests.test_flow_stats_route.AForeignSwitchIsRenderedThroughItsBindingTest.test_the_unknown_row_is_left_out_and_the_count_is_kept_on_the_client
+             also red: tests.test_ryu_flow_stats.OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTest.test_an_unknown_action_on_a_bound_foreign_switch_is_not_listed
+             also red: tests.test_ryu_flow_stats.OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTest.test_an_unknown_action_on_an_unbound_foreign_switch_is_not_listed_either
+             also red: tests.test_ryu_flow_stats.OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTest.test_a_row_with_no_usable_match_is_counted_whatever_its_action
+             also red: tests.test_ryu_flow_stats.OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTest.test_on_an_unbound_foreign_switch_the_same_rows_are_counted
+  caught   M-R11b: an unknown action whose match translates is listed as a drop again (test_an_unknown_action_on_an_unbound_foreign_switch_is_not_listed_either went red)
+             also red: tests.test_flow_stats_route.AForeignSwitchIsRenderedThroughItsBindingTest.test_the_unknown_row_is_left_out_and_the_count_is_kept_on_the_client
+  caught   M-R12: a foreign fabric says reroute: true                         (test_a_foreign_switch_whose_roles_ndtwin_owns went red)
+             also red: tests.test_declared_links.LinkDiscoveryIsTheModeNotTheSeedCountTest.test_none_is_for_an_external_control_plane_only
+             also red: tests.test_switch_state.CapabilitiesFromStartupTest.test_the_prediction_before_startup_says_the_same_about_a_foreign_owned_package
+             also red: tests.test_switch_state.CapabilitiesShapeTest.test_a_foreign_switch_with_no_roles
+             also red: tests.test_switch_state.CapabilitiesShapeTest.test_an_ndtwin_switch_on_a_mixed_fabric_cannot_reroute_either
+             also red: tests.test_switch_state.CapabilitiesShapeTest.test_on_an_external_fabric_nothing_is_ndtwins_and_nothing_discovers_links
+  caught   M-R13: one of BASELINE's five names is changed                     (test_the_baseline_binding_is_ndtwin_switchs_own_five_names went red)
+             also red: tests.test_flow_stats_route.AForeignSwitchIsRenderedThroughItsBindingTest.test_the_unknown_row_is_left_out_and_the_count_is_kept_on_the_client
+             also red: tests.test_flow_stats_route.TheNdtwinClientsHttpBodyIsByteIdenticalToTheBaseTest.test_a_client_bound_to_the_baseline_answers_the_same_bytes
+             also red: tests.test_flow_stats_route.TheNdtwinClientsHttpBodyIsByteIdenticalToTheBaseTest.test_the_body_is_the_one_the_base_answered_byte_for_byte
+             also red: tests.test_p4_client_writes.AReadOnlyClientTest.test_a_writing_client_is_unaffected
+             also red: tests.test_p4_client_writes.InsertRouteTest.test_an_already_exists_insert_is_retried_as_a_modify
+             also red: tests.test_p4_client_writes.InsertRouteTest.test_an_error_that_is_not_a_grpc_error_is_not_caught_and_reported_as_a_write_failure
+             also red: tests.test_p4_client_writes.InsertRouteTest.test_an_insert_and_modify_that_both_fail_is_reported_as_failure
+             also red: tests.test_p4_client_writes.InsertRouteTest.test_a_status_that_cannot_mean_duplicate_is_not_retried
+             also red: tests.test_p4_client_writes.InsertRouteTest.test_a_successful_insert_reports_true_rather_than_none
+             also red: tests.test_p4_client_writes.InsertRouteTest.test_the_entry_is_an_insert_into_ipv4_lpm_addressed_to_this_device
+             also red: tests.test_p4_client_writes.InsertRouteTest.test_the_next_hop_mac_goes_in_the_dstAddr_parameter_as_six_raw_bytes
+             also red: tests.test_p4_client_writes.InsertRouteTest.test_the_output_port_is_two_bytes_big_endian
+             also red: tests.test_p4_client_writes.InsertRouteTest.test_the_prefix_length_the_caller_asked_for_is_the_one_sent
+             also red: tests.test_p4_client_writes.InsertRouteTest.test_the_retry_carries_the_new_port_so_a_better_path_actually_takes_effect
+             also red: tests.test_p4_client_writes.InsertRouteTest.test_the_unknown_status_bmv2_actually_returns_is_also_retried_as_a_modify
+             also red: tests.test_p4_client_writes.ModifyRouteTest.test_a_failed_modify_is_reported_as_failure
+             also red: tests.test_p4_client_writes.ModifyRouteTest.test_a_successful_modify_reports_true_rather_than_none
+             also red: tests.test_p4_client_writes.ModifyRouteTest.test_it_is_a_modify_update_and_not_an_insert
+             also red: tests.test_p4_client_writes.ModifyRouteTest.test_the_modify_carries_the_new_port_and_mac
+             also red: tests.test_p4_client_writes.TheElectionIdOnEveryRequestTest.test_a_five_tuple_insert_carries_this_clients_election_id
+             also red: tests.test_p4_client_writes.TheElectionIdOnEveryRequestTest.test_a_five_tuple_modify_carries_this_clients_election_id
+             also red: tests.test_p4_client_writes.TheElectionIdOnEveryRequestTest.test_an_ipv4_route_insert_carries_this_clients_election_id
+             also red: tests.test_p4_client_writes.TheElectionIdOnEveryRequestTest.test_an_ipv4_route_modify_carries_this_clients_election_id
+             also red: tests.test_p4_client_writes.TheElectionIdOnEveryRequestTest.test_the_default_is_still_the_literal_zero_one_the_fabric_has_always_bid
+             also red: tests.test_p4_client_writes.TheNdtwinPipelinesWritesAreByteIdenticalToTheBaseTest.test_every_case_was_captured_and_none_is_empty
+             also red: tests.test_p4_client_writes.TheNdtwinPipelinesWritesAreByteIdenticalToTheBaseTest.test_every_request_is_byte_identical_to_the_one_the_base_sent
+             also red: tests.test_p4_client_writes.WriteDeadlineTest.test_an_insert_carries_a_deadline
+             also red: tests.test_p4_client_writes.WriteDeadlineTest.test_the_deadline_is_not_so_short_that_a_slow_table_write_is_reported_as_failed
+             also red: tests.test_route_binding.ResolvingBasicTest.test_basics_role_resolves_to_the_baseline_names_but_is_the_packages
+             also red: tests.test_ryu_flow_stats.ActionTranslationTest.test_forwarding_becomes_a_string_output_action
+             also red: tests.test_ryu_flow_stats.OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTest.test_an_unbound_foreign_switch_keeps_the_vocabulary_it_had_before_roles
+             also red: tests.test_ryu_flow_stats.OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTest.test_an_unknown_action_on_an_unbound_foreign_switch_is_not_listed_either
+             also red: tests.test_ryu_flow_stats.OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTest.test_ndtwins_own_pipeline_leaves_nothing_out
+             also red: tests.test_ryu_flow_stats.TheNdtwinPipelinesFlowStatsAreByteIdenticalToTheBaseTest.test_the_render_is_the_one_the_base_produced
+  caught   M-R14: an external report reroutes on a fabric with no watchdog    (test_a_down_report_changes_no_route_and_tells_the_kernel_nothing went red)
+  caught   M-R15: convert without the flag writes a different package.json    (test_every_file_of_every_conversion_is_the_one_the_base_wrote went red)
+             also red: test_preflight.TheSuggestionTest.test_a_foreign_route_shaped_table_without_roles_gets_one_pasteable_line
+             also red: test_preflight.TheSuggestionTest.test_there_is_exactly_one_suggestion_row
+             also red: tests.test_app_package.APackageWithoutRolesLoadsByteIdenticallyTest.test_the_fields_that_existed_at_the_base_hash_to_what_they_hashed_to_there
+  caught   RB1: a table the pipeline lacks falls back to NDTwin's (the guess the contract forbids) (test_a_table_the_pipeline_does_not_have went red)
+             also red: test_preflight.BasicWithRolesTest.test_a_table_the_program_does_not_have_fails_and_names_the_switch
+             also red: test_preflight.ReverseControlsTest.test_calc_has_no_ipv4_lpm_and_says_so
+             also red: test_preflight.ReverseControlsTest.test_multicast_has_no_ipv4_lpm_and_says_so
+             also red: test_preflight.ReverseControlsTest.test_no_owned_table_row_is_claimed_for_a_table_the_program_does_not_have
+             also red: tests.test_route_binding.ResolveRefusesOnTheRenamedFixtureTest.test_the_message_names_the_switch_it_is_about
+             also red: tests.test_route_binding.TheFactoryBindsEveryClientTest.test_a_role_that_does_not_fit_refuses_rather_than_falling_back_to_unbound
+  caught   RB2: a match field the table lacks is not reported                 (test_a_match_field_the_table_does_not_have went red)
+             also red: tests.test_route_binding.ResolveRefusesOnTheRenamedFixtureTest.test_every_problem_is_reported_not_just_the_first
+  caught   RB3: a match type other than LPM is accepted                       (test_a_match_that_is_not_lpm went red)
+  caught   RB4: a match that is not 32 bits is accepted                       (test_a_match_that_is_not_32_bits went red)
+  caught   RB5: an action the pipeline lacks is not reported                  (test_an_action_the_pipeline_does_not_have went red)
+             also red: test_preflight.BasicWithRolesTest.test_the_message_is_the_one_the_proxy_raises
+             also red: tests.test_route_binding.ResolveRefusesOnTheRenamedFixtureTest.test_every_problem_is_reported_not_just_the_first
+             also red: tests.test_route_binding.TheFactoryBindsEveryClientTest.test_the_startup_loop_does_not_swallow_the_refusal_as_a_down_switch
+  caught   RB6: an action the table does not list is accepted                 (test_an_action_the_table_does_not_list went red)
+  caught   RB7: a missing dst_mac parameter is not reported                   (test_a_dst_mac_parameter_the_action_does_not_take went red)
+  caught   RB8: a missing port parameter is not reported                      (test_a_port_parameter_the_action_does_not_take went red)
+  caught   RB9: a port too narrow for the topology is accepted                (test_a_port_too_narrow_for_the_topologys_largest_port went red)
+             also red: test_preflight.RenamedRolesTest.test_a_port_too_narrow_for_the_topology_fails_here
+             also red: test_preflight.RenamedRolesTest.test_the_owned_table_rows_speak_only_of_the_switches_whose_binding_resolved
+  caught   RB10: an action with a third parameter is accepted (it would be written as zero) (test_an_action_with_a_third_parameter went red)
+  caught   RB11: resolve accepts an owner outside the two words               (test_an_owner_outside_the_two_words went red)
+  caught   RB12: only the first problem is reported                           (test_every_problem_is_reported_not_just_the_first went red)
+             also red: tests.test_route_binding.ResolveRefusesOnTheRenamedFixtureTest.test_a_match_that_is_not_32_bits
+  caught   RB13: a resolved binding claims to be the baseline                 (test_a_resolved_binding_says_where_it_came_from_and_who_owns_it went red)
+             also red: tests.test_p4_client_writes.ARenamedBindingIsWhatGoesOnTheWireTest.test_a_renamed_route_is_dated_under_the_table_name_the_read_back_reports
+             also red: tests.test_p4_client_writes.NoBindingNoWriteTest.test_a_five_tuple_rule_on_any_foreign_binding_is_refused
+             also red: tests.test_route_binding.AWriteWithNoBindingIs501OnTheRenamedFixtureTest.test_a_five_tuple_delete_on_a_foreign_switch_answers_501
+             also red: tests.test_route_binding.AWriteWithNoBindingIs501OnTheRenamedFixtureTest.test_a_five_tuple_modify_on_a_foreign_switch_answers_501
+             also red: tests.test_route_binding.AWriteWithNoBindingIs501OnTheRenamedFixtureTest.test_a_five_tuple_write_on_a_foreign_switch_answers_501
+             also red: tests.test_route_binding.ResolvingBasicTest.test_basics_role_resolves_to_the_baseline_names_but_is_the_packages
+             also red: tests.test_route_binding.TheFactoryBindsEveryClientTest.test_an_owner_package_role_is_bound_but_owned_by_the_package
+             also red: tests.test_route_binding.TheFactoryBindsEveryClientTest.test_a_renamed_foreign_pipeline_with_roles_is_bound_to_the_renamed_names
+             also red: tests.test_route_binding.TheFactoryBindsEveryClientTest.test_the_install_time_record_keys_by_the_renamed_table
+  caught   RB14: owner package is resolved as owner ndtwin                    (test_an_owner_package_role_is_bound_but_owned_by_the_package went red)
+             also red: tests.test_p4_client_writes.NoBindingNoWriteTest.test_a_package_owned_table_is_read_by_ndtwin_and_never_written
+             also red: tests.test_route_binding.AWriteWithNoBindingIs501OnTheRenamedFixtureTest.test_an_owner_package_switch_answers_501_owned_by_package
+             also red: tests.test_route_binding.ResolvingTheRenamedFixtureTest.test_a_resolved_binding_says_where_it_came_from_and_who_owns_it
+  caught   RB15: the port width is NDTwin's bit<9>, not the p4info's          (test_the_renamed_port_width_comes_from_the_p4info went red)
+             also red: test_preflight.RenamedRolesTest.test_the_renamed_package_passes_and_binds_the_renamed_names
+             also red: tests.test_p4_client_writes.ARenamedBindingIsWhatGoesOnTheWireTest.test_a_renamed_modify_and_delete_use_the_renamed_table_too
+             also red: tests.test_p4_client_writes.ARenamedBindingIsWhatGoesOnTheWireTest.test_the_parameters_go_by_name_to_their_own_ids_and_the_port_is_one_byte
+  caught   RB16: BASELINE's port width is not bit<9>                          (test_the_baseline_is_ndtwin_owned_from_the_baseline_and_two_bytes_of_port went red)
+             also red: tests.test_route_binding.ResolvingBasicTest.test_basics_role_resolves_to_the_baseline_names_but_is_the_packages
+  caught   PC1: a client nobody bound is unbound, so every pre-roles double stops writing (test_every_client_that_was_never_bound_writes_through_the_baseline went red)
+             also red: tests.test_p4_client_writes.AReadOnlyClientTest.test_a_writing_client_is_unaffected
+             also red: tests.test_p4_client_writes.DeleteDisambiguatesBmv2UnknownTest.test_a_canonicalized_readback_still_matches_its_own_entry
+             also red: tests.test_p4_client_writes.DeleteDisambiguatesBmv2UnknownTest.test_an_entry_with_another_prefix_length_does_not_block_the_success
+             also red: tests.test_p4_client_writes.DeleteDisambiguatesBmv2UnknownTest.test_not_found_is_answered_without_a_read
+             also red: tests.test_p4_client_writes.DeleteDisambiguatesBmv2UnknownTest.test_unknown_with_an_unreadable_table_stays_a_failure
+             also red: tests.test_p4_client_writes.DeleteDisambiguatesBmv2UnknownTest.test_unknown_with_the_entry_gone_counts_as_success
+             also red: tests.test_p4_client_writes.DeleteDisambiguatesBmv2UnknownTest.test_unknown_with_the_entry_still_present_stays_a_failure
+             also red: tests.test_p4_client_writes.DeleteRouteTest.test_a_delete_is_not_retried_as_anything_else
+             also red: tests.test_p4_client_writes.DeleteRouteTest.test_a_real_delete_failure_is_reported_instead_of_answering_success
+             also red: tests.test_p4_client_writes.DeleteRouteTest.test_a_successful_delete_reports_true_rather_than_none
+             also red: tests.test_p4_client_writes.DeleteRouteTest.test_deleting_something_already_gone_counts_as_success
+             also red: tests.test_p4_client_writes.DeleteRouteTest.test_it_is_a_delete_update_matching_only_the_named_prefix
+             also red: tests.test_p4_client_writes.InsertRouteTest.test_an_already_exists_insert_is_retried_as_a_modify
+             also red: tests.test_p4_client_writes.InsertRouteTest.test_an_error_that_is_not_a_grpc_error_is_not_caught_and_reported_as_a_write_failure
+             also red: tests.test_p4_client_writes.InsertRouteTest.test_an_insert_and_modify_that_both_fail_is_reported_as_failure
+             also red: tests.test_p4_client_writes.InsertRouteTest.test_a_status_that_cannot_mean_duplicate_is_not_retried
+             also red: tests.test_p4_client_writes.InsertRouteTest.test_a_successful_insert_reports_true_rather_than_none
+             also red: tests.test_p4_client_writes.InsertRouteTest.test_the_entry_is_an_insert_into_ipv4_lpm_addressed_to_this_device
+             also red: tests.test_p4_client_writes.InsertRouteTest.test_the_next_hop_mac_goes_in_the_dstAddr_parameter_as_six_raw_bytes
+             also red: tests.test_p4_client_writes.InsertRouteTest.test_the_output_port_is_two_bytes_big_endian
+             also red: tests.test_p4_client_writes.InsertRouteTest.test_the_prefix_length_the_caller_asked_for_is_the_one_sent
+             also red: tests.test_p4_client_writes.InsertRouteTest.test_the_retry_carries_the_new_port_so_a_better_path_actually_takes_effect
+             also red: tests.test_p4_client_writes.InsertRouteTest.test_the_unknown_status_bmv2_actually_returns_is_also_retried_as_a_modify
+             also red: tests.test_p4_client_writes.ModifyRouteTest.test_a_failed_modify_is_reported_as_failure
+             also red: tests.test_p4_client_writes.ModifyRouteTest.test_a_successful_modify_reports_true_rather_than_none
+             also red: tests.test_p4_client_writes.ModifyRouteTest.test_it_is_a_modify_update_and_not_an_insert
+             also red: tests.test_p4_client_writes.ModifyRouteTest.test_the_modify_carries_the_new_port_and_mac
+             also red: tests.test_p4_client_writes.TheElectionIdOnEveryRequestTest.test_a_five_tuple_delete_carries_this_clients_election_id
+             also red: tests.test_p4_client_writes.TheElectionIdOnEveryRequestTest.test_a_five_tuple_insert_carries_this_clients_election_id
+             also red: tests.test_p4_client_writes.TheElectionIdOnEveryRequestTest.test_a_five_tuple_modify_carries_this_clients_election_id
+             also red: tests.test_p4_client_writes.TheElectionIdOnEveryRequestTest.test_an_ipv4_route_delete_carries_this_clients_election_id
+             also red: tests.test_p4_client_writes.TheElectionIdOnEveryRequestTest.test_an_ipv4_route_insert_carries_this_clients_election_id
+             also red: tests.test_p4_client_writes.TheElectionIdOnEveryRequestTest.test_an_ipv4_route_modify_carries_this_clients_election_id
+             also red: tests.test_p4_client_writes.TheElectionIdOnEveryRequestTest.test_the_default_is_still_the_literal_zero_one_the_fabric_has_always_bid
+             also red: tests.test_p4_client_writes.TheNdtwinPipelinesWritesAreByteIdenticalToTheBaseTest.test_every_case_was_captured_and_none_is_empty
+             also red: tests.test_p4_client_writes.TheNdtwinPipelinesWritesAreByteIdenticalToTheBaseTest.test_every_request_is_byte_identical_to_the_one_the_base_sent
+             also red: tests.test_p4_client_writes.WriteDeadlineTest.test_a_delete_carries_a_deadline
+             also red: tests.test_p4_client_writes.WriteDeadlineTest.test_an_insert_carries_a_deadline
+             also red: tests.test_p4_client_writes.WriteDeadlineTest.test_the_deadline_is_not_so_short_that_a_slow_table_write_is_reported_as_failed
+  caught   PC2: a route write spells the table again instead of reading the binding (test_no_route_write_spells_any_of_the_five_names went red)
+             also red: tests.test_p4_client_writes.ARenamedBindingIsWhatGoesOnTheWireTest.test_a_duplicate_insert_retries_as_a_modify_into_the_renamed_table
+             also red: tests.test_p4_client_writes.ARenamedBindingIsWhatGoesOnTheWireTest.test_a_renamed_insert_goes_into_the_renamed_table_through_the_renamed_action
+             also red: tests.test_p4_client_writes.ARenamedBindingIsWhatGoesOnTheWireTest.test_a_renamed_modify_and_delete_use_the_renamed_table_too
+             also red: tests.test_p4_client_writes.ARenamedBindingIsWhatGoesOnTheWireTest.test_a_renamed_route_is_dated_under_the_table_name_the_read_back_reports
+             also red: tests.test_p4_client_writes.ARenamedBindingIsWhatGoesOnTheWireTest.test_the_delete_read_back_looks_in_the_renamed_table_under_the_renamed_field
+             also red: tests.test_p4_client_writes.ARenamedBindingIsWhatGoesOnTheWireTest.test_the_parameters_go_by_name_to_their_own_ids_and_the_port_is_one_byte
+             also red: tests.test_route_binding.AWriteWithNoBindingIs501OnTheRenamedFixtureTest.test_a_bound_ndtwin_owned_switch_is_written_through_its_binding
+             also red: tests.test_route_binding.TheLiteralsLiveOnlyInTheBaselineTest.test_no_module_spells_the_four_route_names_outside_baseline_and_the_named_exceptions
+  caught   PC3: the disclosed exception stops being the baseline's own table name (test_the_one_disclosed_exception_is_the_baselines_own_table_name went red)
+             also red: tests.test_route_binding.TheFactoryBindsEveryClientTest.test_the_install_time_record_keys_by_the_renamed_table
+             also red: tests.test_route_binding.TheLiteralsLiveOnlyInTheBaselineTest.test_no_module_spells_the_four_route_names_outside_baseline_and_the_named_exceptions
+  caught   PC4: the binding is consulted before the external control plane's refusal (test_an_external_control_plane_refuses_before_the_binding_is_consulted went red)
+             also red: tests.test_route_binding.AWriteWithNoBindingIs501OnTheRenamedFixtureTest.test_an_external_control_plane_refuses_first_as_it_always_did
+  caught   PC5: a 5-tuple rule goes to a foreign switch                       (test_a_five_tuple_rule_on_any_foreign_binding_is_refused went red)
+             also red: tests.test_route_binding.AWriteWithNoBindingIs501OnTheRenamedFixtureTest.test_a_five_tuple_delete_on_a_foreign_switch_answers_501
+             also red: tests.test_route_binding.AWriteWithNoBindingIs501OnTheRenamedFixtureTest.test_a_five_tuple_modify_on_a_foreign_switch_answers_501
+             also red: tests.test_route_binding.AWriteWithNoBindingIs501OnTheRenamedFixtureTest.test_a_five_tuple_write_on_a_foreign_switch_answers_501
+  caught   MN1: the factory binds a foreign switch without roles to NDTwin's names (test_a_foreign_pipeline_without_roles_is_unbound went red)
+             also red: tests.test_route_binding.TheFactoryBindsEveryClientTest.test_a_second_build_of_the_same_switch_is_resolved_again_not_remembered
+  caught   MN2: NDTwin's own pipeline is left unbound                         (test_ndtwins_own_pipeline_is_bound_to_the_baseline went red)
+  caught   MN3: a switch's first binding is remembered, so readopt never re-resolves (test_a_second_build_of_the_same_switch_is_resolved_again_not_remembered went red)
+             also red: tests.test_route_binding.TheFactoryBindsEveryClientTest.test_an_owner_package_role_is_bound_but_owned_by_the_package
+             also red: tests.test_route_binding.TheFactoryBindsEveryClientTest.test_a_renamed_foreign_pipeline_with_roles_is_bound_to_the_renamed_names
+             also red: tests.test_route_binding.TheFactoryBindsEveryClientTest.test_ndtwins_own_pipeline_is_bound_to_the_baseline
+             also red: tests.test_route_binding.TheFactoryBindsEveryClientTest.test_the_install_time_record_keys_by_the_renamed_table
+  caught   MN4: readopt builds its client with a factory that binds nothing   (test_readopt_builds_its_client_through_the_same_factory went red)
+  caught   MN5: a role that does not fit becomes one missing switch instead of a refusal (test_the_startup_loop_does_not_swallow_the_refusal_as_a_down_switch went red)
+  caught   MN6: an all-NDTwin fabric reports it cannot reroute                (test_an_all_ndtwin_fabric_reroutes went red)
+  caught   MN7: NDTwin's own pipeline reports no 5-tuple                      (test_an_ndtwin_switch_on_an_ndtwin_fabric_can_do_everything went red)
+             also red: tests.test_switch_state.CapabilitiesFromStartupTest.test_a_mixed_fabric
+             also red: tests.test_switch_state.CapabilitiesShapeTest.test_an_ndtwin_switch_on_a_mixed_fabric_cannot_reroute_either
+  caught   MN8: a package-owned table is reported as ndtwin's                 (test_a_package_owned_table went red)
+             also red: tests.test_switch_state.CapabilitiesShapeTest.test_on_an_external_fabric_nothing_is_ndtwins_and_nothing_discovers_links
+  caught   MN9: the proxy never wires the flow-stats count to the endpoint    (test_the_proxy_wires_both_reporters_at_import went red)
+  caught   MN10: the count a foreign render left is reported as zero          (test_a_foreign_switchs_count_is_its_last_renders went red)
+  caught   MN11: a switch nobody rendered reports zero left out               (test_before_any_render_it_is_null_not_zero went red)
+             also red: tests.test_switch_state.TheUnrenderedCountTest.test_ndtwins_own_pipeline_leaves_nothing_out_once_its_table_was_read
+  caught   MN12: NDTwin's own pipeline never says it left nothing out         (test_ndtwins_own_pipeline_leaves_nothing_out_once_its_table_was_read went red)
+  caught   MN13: a power-cycled owned switch comes back with its route table empty (test_the_routes_go_back_into_the_bound_table went red)
+  caught   MN14: readopt leaves the old client's capabilities in place        (test_its_capabilities_follow_the_new_clients_binding went red)
+  caught   MN15: an external fabric seeds declared links too                  (test_an_external_fabric_seeds_nothing_this_cut_leaves_it_as_it_was went red)
+  caught   MN16: an all-NDTwin fabric seeds declared links beside LLDP        (test_an_all_ndtwin_fabric_seeds_nothing_and_runs_lldp_as_before went red)
+             also red: tests.test_declared_links.WhichFabricsSeedAndWhenRoutesComeBackTest.test_an_external_fabric_seeds_nothing_this_cut_leaves_it_as_it_was
+  caught   TM1: a cable to a switch that never connected is entered (an untyped node in net) (test_a_link_to_a_switch_that_never_connected_is_not_entered went red)
+  caught   TM2: seeding twice counts every direction twice                    (test_seeding_twice_enters_each_direction_once went red)
+             also red: tests.test_declared_links.SeedingTheGraphTest.test_a_link_to_a_switch_that_never_connected_is_not_entered
+             also red: tests.test_declared_links.SeedingTheGraphTest.test_all_eight_directions_are_served_to_the_kernels_topology_poll
+  caught   TM3: a declared link is entered as beacon evidence the watchdog then times out (test_the_beacon_evidence_the_watchdog_reads_is_untouched went red)
+             also red: tests.test_declared_links.SeedingTheGraphTest.test_every_declared_link_says_it_is_declared_and_that_nobody_checks_it
+  caught   TM4: a declared link claims it was checked and found up            (test_every_declared_link_says_it_is_declared_and_that_nobody_checks_it went red)
+  caught   TM5: switch_state stops serving the external-report count          (test_before_any_report_the_count_is_zero_and_present went red)
+             also red: tests.test_link_state_entry.WhereTheWatchdogIsSkippedTheReportIsOnlyRecordedTest.test_it_is_counted_where_switch_state_serves_it
+  caught   TM6: a recorded-only report is not counted                         (test_it_is_counted_where_switch_state_serves_it went red)
+  caught   TM7: a foreign fabric's report is written as beacon evidence anyway (test_no_beacon_evidence_is_written_so_nothing_can_act_on_it_later went red)
+             also red: tests.test_link_state_entry.WhereTheWatchdogIsSkippedTheReportIsOnlyRecordedTest.test_a_down_report_changes_no_route_and_tells_the_kernel_nothing
+             also red: tests.test_link_state_entry.WhereTheWatchdogIsSkippedTheReportIsOnlyRecordedTest.test_it_is_counted_where_switch_state_serves_it
+  caught   TM8: a down report on a watched fabric is heard as a beacon, not a silence (test_a_down_report_is_reported_to_the_kernel_and_rerouted_on_the_next_pass went red)
+             also red: tests.test_link_state_entry.WhereTheWatchdogRunsTheReportTakesTheBeaconsPathTest.test_an_up_report_brings_a_down_link_back_the_way_a_beacon_does
+             also red: tests.test_link_state_entry.WhereTheWatchdogRunsTheReportTakesTheBeaconsPathTest.test_the_withheld_direction_leaves_the_topology_reply_like_a_timed_out_one
+  caught   TM9: a report routed through the watchdog is not counted           (test_it_is_counted_as_routed_through_the_watchdog went red)
+  caught   TM10: an HTTP route wires the entry this cut must leave unwired    (test_no_proxy_route_reaches_it went red)
+             also red: tests.test_link_state_entry.TheEntryIsNotWiredInThisCutTest.test_its_one_caller_is_the_watchdog_pass_ingesting_the_heartbeat
+  caught   AR1: an uninjected capabilities reporter still adds a key full of nulls (test_an_uninjected_reporter_adds_no_key went red)
+  caught   AR2: switch_state never carries flow_stats                         (test_each_switch_carries_its_capabilities_and_its_flow_stats went red)
+  caught   AR3: NDTwin's own pipeline is sent down the foreign render path    (test_a_client_on_ndtwins_pipeline_takes_the_unchanged_path went red)
+  caught   AR4: a render is recorded before the read that may fail            (test_a_failed_read_records_no_render went red)
+  caught   FS1: the renderer ignores a package binding's names                (test_the_renamed_route_renders_as_its_destination_and_output_port went red)
+             also red: tests.test_ryu_flow_stats.ARenamedBindingIsReadBackThroughItsOwnNamesTest.test_owner_package_is_rendered_too_ndtwin_reads_what_it_does_not_write
+             also red: tests.test_ryu_flow_stats.OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTest.test_a_known_drop_is_still_a_drop_and_is_not_counted
+             also red: tests.test_ryu_flow_stats.OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTest.test_an_unknown_action_on_a_bound_foreign_switch_is_not_listed
+             also red: tests.test_ryu_flow_stats.OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTest.test_the_renamed_fixtures_own_rows_list_its_four_routes_and_count_its_tag_row
+  caught   FS2: a known drop on a foreign switch is left out as unknown       (test_a_known_drop_is_still_a_drop_and_is_not_counted went red)
+  caught   FS3: a foreign row with no usable match is left out and not counted (round 1's rule) (test_a_row_with_no_usable_match_is_counted_whatever_its_action went red)
+  caught   FS3b: a default row is counted as left out                         (test_a_default_row_is_never_counted went red)
+             also red: tests.test_ryu_flow_stats.OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTest.test_the_renamed_fixtures_own_rows_list_its_four_routes_and_count_its_tag_row
+  caught   FS3c: NDTwin's own pipeline starts leaving rows out and counting them (test_ndtwins_own_pipeline_leaves_nothing_out went red)
+             also red: tests.test_flow_stats_route.TheNdtwinClientsHttpBodyIsByteIdenticalToTheBaseTest.test_a_client_bound_to_the_baseline_answers_the_same_bytes
+             also red: tests.test_flow_stats_route.TheNdtwinClientsHttpBodyIsByteIdenticalToTheBaseTest.test_the_body_is_the_one_the_base_answered_byte_for_byte
+             also red: tests.test_ryu_flow_stats.ActionTranslationTest.test_a_missing_action_does_not_raise
+             also red: tests.test_ryu_flow_stats.ActionTranslationTest.test_an_unknown_action_yields_no_port_rather_than_a_guess
+             also red: tests.test_ryu_flow_stats.TheNdtwinPipelinesFlowStatsAreByteIdenticalToTheBaseTest.test_the_render_is_the_one_the_base_produced
+  caught   FS4: the renderer spells the route action again                    (test_no_module_spells_the_four_route_names_outside_baseline_and_the_named_exceptions went red)
+  caught   FS5: the renderer loses NDTwin's own route action                  (test_the_renderer_takes_the_route_action_from_the_baseline went red)
+             also red: tests.test_flow_stats_route.AForeignSwitchIsRenderedThroughItsBindingTest.test_the_unknown_row_is_left_out_and_the_count_is_kept_on_the_client
+             also red: tests.test_flow_stats_route.TheNdtwinClientsHttpBodyIsByteIdenticalToTheBaseTest.test_a_client_bound_to_the_baseline_answers_the_same_bytes
+             also red: tests.test_flow_stats_route.TheNdtwinClientsHttpBodyIsByteIdenticalToTheBaseTest.test_the_body_is_the_one_the_base_answered_byte_for_byte
+             also red: tests.test_ryu_flow_stats.ActionTranslationTest.test_forwarding_becomes_a_string_output_action
+             also red: tests.test_ryu_flow_stats.OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTest.test_an_unbound_foreign_switch_keeps_the_vocabulary_it_had_before_roles
+             also red: tests.test_ryu_flow_stats.OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTest.test_an_unknown_action_on_an_unbound_foreign_switch_is_not_listed_either
+             also red: tests.test_ryu_flow_stats.OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTest.test_ndtwins_own_pipeline_leaves_nothing_out
+             also red: tests.test_ryu_flow_stats.TheNdtwinPipelinesFlowStatsAreByteIdenticalToTheBaseTest.test_the_render_is_the_one_the_base_produced
+  caught   AP1: roles becomes required, so every package written before it stops loading (test_every_case_was_captured went red)
+             also red: tests.test_app_package.AnExternalPackageTest.test_it_reads_only
+             also red: tests.test_app_package.AnExternalPackageTest.test_it_still_gets_an_election_id_even_though_it_will_not_bid_one
+             also red: tests.test_app_package.AOneSwitchFabricHasNoInterSwitchLinksTest.test_a_one_switch_package_loads_with_its_two_hosts
+             also red: tests.test_app_package.APackageWithoutRolesLoadsByteIdenticallyTest.test_the_fields_that_existed_at_the_base_hash_to_what_they_hashed_to_there
+             also red: tests.test_app_package.AValidPackageTest.test_a_host_that_declares_no_mac_takes_the_models
+             also red: tests.test_app_package.AValidPackageTest.test_an_ndtwin_mode_package_still_arbitrates
+             also red: tests.test_app_package.AValidPackageTest.test_a_package_whose_switches_name_no_pipeline_runs_ndtwins_own
+             also red: tests.test_app_package.AValidPackageTest.test_its_election_id_is_the_packages_not_the_baselines
+             also red: tests.test_app_package.AValidPackageTest.test_its_entries_are_counted_and_reported_as_recorded_not_applied
+             also red: tests.test_app_package.AValidPackageTest.test_its_host_commands_are_a_dict_even_when_one_host_asked_for_none
+             also red: tests.test_app_package.AValidPackageTest.test_its_topology_is_an_absolute_path_inside_the_package
+             also red: tests.test_app_package.AValidPackageTest.test_its_topology_wins_over_the_host_count_rule
+             also red: tests.test_app_package.AValidPackageTest.test_links_are_recorded_verbatim_and_applied_by_nobody
+             also red: tests.test_app_package.AValidPackageTest.test_switch_names_come_from_the_package
+             also red: tests.test_app_package.OptionalFormatFieldsTest.test_a_link_delay_is_carried_verbatim_and_applied_by_nobody
+             also red: tests.test_app_package.OptionalFormatFieldsTest.test_a_package_that_names_no_election_id_gets_the_documented_default
+             also red: tests.test_app_package.PerSwitchPipelineTest.test_a_per_switch_pipeline_ignores_the_base_dir_because_it_is_already_absolute
+             also red: tests.test_app_package.PerSwitchPipelineTest.test_a_switch_that_names_no_pipeline_still_gets_ndtwins
+             also red: tests.test_app_package.PerSwitchPipelineTest.test_pipeline_for_answers_per_switch_not_fabric_wide
+             also red: tests.test_app_package.PerSwitchPipelineTest.test_pipeline_is_ndtwin_is_false_for_a_package_that_brought_its_own
+             also red: tests.test_app_package.PerSwitchPipelineTest.test_pipeline_is_ndtwin_is_true_for_the_baseline_and_for_a_null_switch
+             also red: tests.test_app_package.PerSwitchPipelineTest.test_the_loader_resolves_each_switchs_pipeline_to_two_absolute_paths
+             also red: tests.test_app_package.RolesShapeTest.test_a_package_without_roles_has_none_not_an_empty_object
+             also red: tests.test_app_package.ShapedLinksTest.test_a_bottleneck_is_reported_in_megabit_with_its_endpoints
+             also red: tests.test_app_package.ShapedLinksTest.test_a_declared_zero_delay_is_not_shaping
+             also red: tests.test_app_package.ShapedLinksTest.test_a_delay_alone_is_shaping
+             also red: tests.test_app_package.ShapedLinksTest.test_an_unshaped_cable_gets_no_keyword_at_all
+             also red: tests.test_app_package.ShapedLinksTest.test_a_package_that_shaped_nothing_shapes_nothing
+             also red: tests.test_app_package.ShapedLinksTest.test_both_together
+             also red: tests.test_app_package.ShapedLinksTest.test_delay_is_spelled_the_way_mininet_hands_it_to_netem
+             also red: tests.test_app_package.ShapedLinksTest.test_the_index_is_unordered_so_either_end_may_be_asked_first
+             also red: tests.test_app_package.ShapedLinksTest.test_the_status_line_names_both_ends_and_what_was_asked_for
+             also red: tests.test_app_package.TelemetrySourceTest.test_an_auto_knob_defers_to_the_package
+             also red: tests.test_app_package.TelemetrySourceTest.test_a_package_that_says_nothing_means_auto
+             also red: tests.test_app_package.TelemetrySourceTest.test_a_resolved_answer_is_never_auto_whatever_the_inputs
+             also red: tests.test_app_package.TelemetrySourceTest.test_auto_sends_a_foreign_pipeline_down_the_link_path
+             also red: tests.test_app_package.TelemetrySourceTest.test_each_word_of_the_domain_is_carried_verbatim
+             also red: tests.test_app_package.TelemetrySourceTest.test_the_field_is_additive_and_the_format_number_does_not_move
+             also red: tests.test_app_package.TelemetrySourceTest.test_the_knob_outranks_the_packages_own_declaration
+             also red: tests.test_app_package.TelemetrySourceTest.test_with_neither_saying_anything_the_rule_decides_per_switch
+             also red: tests.test_app_package.TheKnobTest.test_a_knob_naming_a_package_is_the_package_not_the_baseline
+             also red: tests.test_app_package.TheManifestAndTheModelMustDescribeOneFabricTest.test_a_manifest_that_declares_no_hosts_at_all_is_not_second_guessed
+             also red: tests.test_app_package.TopologyPathDisagreementTest.test_an_env_override_naming_the_same_model_is_fine
+             also red: tests.test_app_package.TopologyPathDisagreementTest.test_an_env_override_that_disagrees_with_the_package_is_refused
+             also red: tests.test_app_package.TopologyPathDisagreementTest.test_without_a_package_the_env_override_behaves_exactly_as_it_did
+             also red: tests.test_app_package.WhatTheConverterActuallyWritesTest.test_a_switch_with_no_entries_records_zero_rather_than_failing
+             also red: tests.test_app_package.WhatTheConverterActuallyWritesTest.test_every_host_of_both_packages_carries_two_commands
+             also red: tests.test_app_package.WhatTheConverterActuallyWritesTest.test_every_referenced_path_resolves_inside_the_package_not_against_tutorials
+             also red: tests.test_app_package.WhatTheConverterActuallyWritesTest.test_neither_real_package_declares_a_link_delay
+             also red: tests.test_app_package.WhatTheConverterActuallyWritesTest.test_pod_topos_four_hosts_satisfy_the_last_octet_naming_rule
+             also red: tests.test_app_package.WhatTheConverterActuallyWritesTest.test_source_keys_this_reader_does_not_consume_are_neither_resolved_nor_refused
+             also red: tests.test_app_package.WhatTheConverterActuallyWritesTest.test_the_basic_package_loads_unchanged
+             also red: tests.test_app_package.WhatTheConverterActuallyWritesTest.test_the_entries_the_converter_copied_in_are_counted
+             also red: tests.test_app_package.WhatTheConverterActuallyWritesTest.test_the_external_package_reads_only
+             also red: tests.test_app_package.WhatTheConverterActuallyWritesTest.test_the_fixture_models_are_the_size_the_real_artefacts_are
+             also red: tests.test_app_package.WhatTheConverterActuallyWritesTest.test_the_fixture_models_pass_all_four_topo_from_json_readers
+             also red: tests.test_app_package.WhatTheConverterActuallyWritesTest.test_the_host_commands_replace_the_fabrics_all_pairs_arp
+             also red: tests.test_route_binding.TheFactoryBindsEveryClientTest
+  caught   AP2: a package without roles gets an empty Roles, not None         (test_a_package_without_roles_has_none_not_an_empty_object went red)
+             also red: tests.test_app_package.APackageWithoutRolesLoadsByteIdenticallyTest.test_the_fields_that_existed_at_the_base_hash_to_what_they_hashed_to_there
+  caught   AP3: roles that is not an object is not refused                    (test_roles_that_is_not_an_object_is_refused went red)
+  caught   AP4: a role this cut does not know is silently ignored             (test_a_role_this_cut_does_not_know_is_refused_by_name went red)
+  caught   AP5: a missing or extra key in ipv4_route is not refused           (test_a_missing_key_is_refused_by_name went red)
+             also red: test_preflight.BasicWithRolesTest.test_a_shape_the_loader_refuses_is_refused_here_with_the_loaders_sentence
+             also red: tests.test_app_package.RolesShapeTest.test_an_extra_key_is_refused_by_name
+  caught   AP6: an extra key in ipv4_route is accepted                        (test_an_extra_key_is_refused_by_name went red)
+             also red: test_preflight.BasicWithRolesTest.test_a_shape_the_loader_refuses_is_refused_here_with_the_loaders_sentence
+  caught   AP7: a missing or extra parameter is not refused                   (test_a_missing_or_extra_parameter_is_refused_by_name went red)
+  caught   AP8: an empty name is accepted                                     (test_an_empty_name_is_refused_rather_than_guessed went red)
+  caught   AP9: the loader accepts an owner outside the two words             (test_an_owner_outside_the_two_words_is_refused went red)
+  caught   AP10: owner package stops being a legal word (and the two copies disagree) (test_both_owners_are_accepted went red)
+             also red: tests.test_route_binding.TheBaselineIsTheLiteralsTest.test_the_loader_and_the_resolver_agree_on_the_shape
+             also red: tests.test_route_binding.TheFactoryBindsEveryClientTest
+  caught   AP11: the loader carries the two parameter names swapped           (test_a_declared_route_role_is_carried_name_for_name went red)
+             also red: test_preflight.BasicWithRolesTest.test_a_converted_owned_package_passes_every_check
+             also red: test_preflight.BasicWithRolesTest.test_a_dst_mac_that_is_not_48_bits_fails_here_before_the_proxy_refuses
+             also red: test_preflight.BasicWithRolesTest.test_the_binding_row_names_what_every_switch_resolved_to
+             also red: test_preflight.BasicWithRolesTest.test_the_kept_default_action_is_disclosed_not_refused
+             also red: test_preflight.BasicWithRolesTest.test_the_owned_tables_match_entries_fail_and_each_one_is_named
+             also red: test_preflight.FirewallWithRolesTest.test_one_block_resolves_on_both_programs
+             also red: test_preflight.RenamedRolesTest.test_a_port_too_narrow_for_the_topology_fails_here
+             also red: test_preflight.RenamedRolesTest.test_the_owned_table_rows_speak_only_of_the_switches_whose_binding_resolved
+             also red: test_preflight.RenamedRolesTest.test_the_renamed_package_passes_and_binds_the_renamed_names
+             also red: tests.test_route_binding.TheFactoryBindsEveryClientTest.test_an_owner_package_role_is_bound_but_owned_by_the_package
+             also red: tests.test_route_binding.TheFactoryBindsEveryClientTest.test_a_renamed_foreign_pipeline_with_roles_is_bound_to_the_renamed_names
+             also red: tests.test_route_binding.TheFactoryBindsEveryClientTest.test_a_second_build_of_the_same_switch_is_resolved_again_not_remembered
+             also red: tests.test_route_binding.TheFactoryBindsEveryClientTest.test_the_install_time_record_keys_by_the_renamed_table
+  caught   CV1: a missing name in the flag is not refused                     (test_a_missing_name_is_refused_and_named went red)
+  caught   CV2: a name given twice is taken                                   (test_an_unknown_duplicated_or_empty_key_is_refused went red)
+  caught   CV3: the flag writes the two parameter names swapped               (test_the_six_names_become_the_roles_object_package_json_carries went red)
+             also red: test_convert.ConvertingWithTheRoleFlagTest.test_the_package_carries_the_roles_block
+             also red: test_preflight.BasicWithRolesTest.test_a_converted_owned_package_passes_every_check
+             also red: test_preflight.BasicWithRolesTest.test_the_binding_row_names_what_every_switch_resolved_to
+             also red: test_preflight.BasicWithRolesTest.test_the_kept_default_action_is_disclosed_not_refused
+             also red: test_preflight.BasicWithRolesTest.test_the_owned_tables_match_entries_fail_and_each_one_is_named
+             also red: test_preflight.FirewallWithRolesTest.test_one_block_resolves_on_both_programs
+             also red: test_preflight.RenamedRolesTest.test_a_port_too_narrow_for_the_topology_fails_here
+             also red: test_preflight.RenamedRolesTest.test_the_owned_table_rows_speak_only_of_the_switches_whose_binding_resolved
+             also red: test_preflight.RenamedRolesTest.test_the_renamed_package_passes_and_binds_the_renamed_names
+             also red: tests.test_route_binding.TheFactoryBindsEveryClientTest.test_an_owner_package_role_is_bound_but_owned_by_the_package
+             also red: tests.test_route_binding.TheFactoryBindsEveryClientTest.test_a_renamed_foreign_pipeline_with_roles_is_bound_to_the_renamed_names
+             also red: tests.test_route_binding.TheFactoryBindsEveryClientTest.test_a_second_build_of_the_same_switch_is_resolved_again_not_remembered
+             also red: tests.test_route_binding.TheFactoryBindsEveryClientTest.test_the_install_time_record_keys_by_the_renamed_table
+  caught   CV4: a role is written into an external package                    (test_a_role_on_an_external_control_plane_is_refused went red)
+  caught   CV5: a role is written into a package where it applies to no switch (test_a_role_on_a_package_whose_every_switch_runs_ndtwins_pipeline_is_refused went red)
+  caught   CV6: owner ndtwin empties every table, not only the owned one      (test_every_other_table_keeps_its_entries went red)
+  caught   CV7: the entries taken out are not counted                         (test_owner_ndtwin_takes_the_owned_tables_match_entries_out_and_counts_them went red)
+             also red: test_convert.ConvertingWithTheRoleFlagTest.test_every_other_table_keeps_its_entries
+             also red: test_convert.ConvertingWithTheRoleFlagTest.test_the_command_line_reports_the_count
+  caught   CV8: owner package still takes the author's entries out            (test_owner_package_keeps_the_authors_entries_byte_for_byte went red)
+  caught   CV9: the flag's roles never reach package.json                     (test_the_package_carries_the_roles_block went red)
+             also red: test_convert.ConvertingWithTheRoleFlagTest.test_the_command_line_reports_the_count
+             also red: test_preflight.BasicWithRolesTest.test_a_dst_mac_that_is_not_48_bits_fails_here_before_the_proxy_refuses
+             also red: test_preflight.BasicWithRolesTest.test_a_shape_the_loader_refuses_is_refused_here_with_the_loaders_sentence
+             also red: test_preflight.BasicWithRolesTest.test_a_table_the_program_does_not_have_fails_and_names_the_switch
+             also red: test_preflight.BasicWithRolesTest.test_no_suggestion_is_printed_for_a_package_that_declared_its_roles
+             also red: test_preflight.BasicWithRolesTest.test_the_binding_row_names_what_every_switch_resolved_to
+             also red: test_preflight.BasicWithRolesTest.test_the_kept_default_action_is_disclosed_not_refused
+             also red: test_preflight.BasicWithRolesTest.test_the_message_is_the_one_the_proxy_raises
+             also red: test_preflight.BasicWithRolesTest.test_the_owned_tables_match_entries_fail_and_each_one_is_named
+             also red: test_preflight.FirewallWithRolesTest.test_one_block_resolves_on_both_programs
+             also red: test_preflight.RenamedRolesTest.test_a_port_too_narrow_for_the_topology_fails_here
+             also red: test_preflight.RenamedRolesTest.test_the_owned_table_rows_speak_only_of_the_switches_whose_binding_resolved
+             also red: test_preflight.RenamedRolesTest.test_the_renamed_package_passes_and_binds_the_renamed_names
+             also red: tests.test_route_binding.TheFactoryBindsEveryClientTest.test_an_owner_package_role_is_bound_but_owned_by_the_package
+             also red: tests.test_route_binding.TheFactoryBindsEveryClientTest.test_a_renamed_foreign_pipeline_with_roles_is_bound_to_the_renamed_names
+             also red: tests.test_route_binding.TheFactoryBindsEveryClientTest.test_a_role_that_does_not_fit_refuses_rather_than_falling_back_to_unbound
+             also red: tests.test_route_binding.TheFactoryBindsEveryClientTest.test_a_second_build_of_the_same_switch_is_resolved_again_not_remembered
+             also red: tests.test_route_binding.TheFactoryBindsEveryClientTest.test_the_install_time_record_keys_by_the_renamed_table
+             also red: tests.test_route_binding.TheFactoryBindsEveryClientTest.test_the_startup_loop_does_not_swallow_the_refusal_as_a_down_switch
+  caught   CV10: with the flag, files it had no reason to touch go missing    (test_everything_but_the_runtime_files_and_package_json_is_as_without_the_flag went red)
+             also red: test_preflight.BasicWithRolesTest.test_a_converted_owned_package_passes_every_check
+             also red: test_preflight.BasicWithRolesTest.test_a_dst_mac_that_is_not_48_bits_fails_here_before_the_proxy_refuses
+             also red: test_preflight.BasicWithRolesTest.test_a_table_the_program_does_not_have_fails_and_names_the_switch
+             also red: test_preflight.BasicWithRolesTest.test_the_binding_row_names_what_every_switch_resolved_to
+             also red: test_preflight.BasicWithRolesTest.test_the_kept_default_action_is_disclosed_not_refused
+             also red: test_preflight.BasicWithRolesTest.test_the_message_is_the_one_the_proxy_raises
+             also red: test_preflight.BasicWithRolesTest.test_the_owned_tables_match_entries_fail_and_each_one_is_named
+             also red: test_preflight.FirewallWithRolesTest.test_one_block_resolves_on_both_programs
+             also red: test_preflight.RenamedRolesTest.test_a_port_too_narrow_for_the_topology_fails_here
+             also red: test_preflight.RenamedRolesTest.test_the_owned_table_rows_speak_only_of_the_switches_whose_binding_resolved
+             also red: test_preflight.RenamedRolesTest.test_the_renamed_package_passes_and_binds_the_renamed_names
+             also red: tests.test_route_binding.TheFactoryBindsEveryClientTest
+  caught   CV11: the convert report does not say how many entries it took out (test_the_command_line_reports_the_count went red)
+  caught   PF1: an owned table with no package entries is reported as a failure (test_a_converted_owned_package_passes_every_check went red)
+             also red: test_preflight.FirewallWithRolesTest.test_one_block_resolves_on_both_programs
+             also red: test_preflight.RenamedRolesTest.test_the_owned_table_rows_speak_only_of_the_switches_whose_binding_resolved
+             also red: test_preflight.RenamedRolesTest.test_the_renamed_package_passes_and_binds_the_renamed_names
+  caught   PF2: a roles shape the loader refuses passes pre-flight            (test_a_shape_the_loader_refuses_is_refused_here_with_the_loaders_sentence went red)
+  caught   PF3: a package that declared its roles is still given a suggestion (and not checked) (test_no_suggestion_is_printed_for_a_package_that_declared_its_roles went red)
+             also red: test_preflight.BasicWithRolesTest.test_a_dst_mac_that_is_not_48_bits_fails_here_before_the_proxy_refuses
+             also red: test_preflight.BasicWithRolesTest.test_a_shape_the_loader_refuses_is_refused_here_with_the_loaders_sentence
+             also red: test_preflight.BasicWithRolesTest.test_a_table_the_program_does_not_have_fails_and_names_the_switch
+             also red: test_preflight.BasicWithRolesTest.test_the_binding_row_names_what_every_switch_resolved_to
+             also red: test_preflight.BasicWithRolesTest.test_the_kept_default_action_is_disclosed_not_refused
+             also red: test_preflight.BasicWithRolesTest.test_the_message_is_the_one_the_proxy_raises
+             also red: test_preflight.BasicWithRolesTest.test_the_owned_tables_match_entries_fail_and_each_one_is_named
+             also red: test_preflight.FirewallWithRolesTest.test_one_block_resolves_on_both_programs
+             also red: test_preflight.RenamedRolesTest.test_a_port_too_narrow_for_the_topology_fails_here
+             also red: test_preflight.RenamedRolesTest.test_the_owned_table_rows_speak_only_of_the_switches_whose_binding_resolved
+             also red: test_preflight.RenamedRolesTest.test_the_renamed_package_passes_and_binds_the_renamed_names
+             also red: test_preflight.ReverseControlsTest.test_calc_has_no_ipv4_lpm_and_says_so
+             also red: test_preflight.ReverseControlsTest.test_multicast_has_no_ipv4_lpm_and_says_so
+  caught   PF4: one switch's binding stands for the whole fabric              (test_one_block_resolves_on_both_programs went red)
+             also red: test_preflight.BasicWithRolesTest.test_the_binding_row_names_what_every_switch_resolved_to
+             also red: test_preflight.BasicWithRolesTest.test_the_owned_tables_match_entries_fail_and_each_one_is_named
+             also red: test_preflight.RenamedRolesTest.test_the_owned_table_rows_speak_only_of_the_switches_whose_binding_resolved
+  caught   PF5: the kept default action is not disclosed                      (test_the_kept_default_action_is_disclosed_not_refused went red)
+  caught   PF6: pre-flight rewords the proxy's refusal instead of printing it (test_the_message_is_the_one_the_proxy_raises went red)
+             also red: test_preflight.BasicWithRolesTest.test_a_dst_mac_that_is_not_48_bits_fails_here_before_the_proxy_refuses
+             also red: test_preflight.BasicWithRolesTest.test_a_table_the_program_does_not_have_fails_and_names_the_switch
+             also red: test_preflight.RenamedRolesTest.test_a_port_too_narrow_for_the_topology_fails_here
+             also red: test_preflight.ReverseControlsTest.test_calc_has_no_ipv4_lpm_and_says_so
+             also red: test_preflight.ReverseControlsTest.test_multicast_has_no_ipv4_lpm_and_says_so
+  caught   PF7: the binding row stops naming the match field it bound         (test_the_binding_row_names_what_every_switch_resolved_to went red)
+             also red: test_preflight.RenamedRolesTest.test_the_renamed_package_passes_and_binds_the_renamed_names
+  caught   PF8: the suggestion is a failure                                   (test_the_suggestion_is_not_a_failure went red)
+             also red: test_preflight.CompileCheck.test_an_absent_compiler_is_neither_pass_nor_fail
+             also red: test_preflight.ExternalPackage.test_an_external_package_passes_and_says_it_has_no_entries
+             also red: test_preflight.PipelineCells.test_a_two_program_package_passes_every_check
+             also red: test_preflight.TheCooperativeRefusal.test_auto_on_the_same_package_is_fine
+             also red: test_preflight.TheCooperativeRefusal.test_link_on_the_same_package_is_fine
+             also red: test_preflight.TheSuggestionTest.test_a_foreign_route_shaped_table_without_roles_gets_one_pasteable_line
+  caught   PF9: the heuristic reads the entries' p4info, so NDTwin's own pipeline gets a suggestion (test_an_all_null_package_gets_no_suggestion went red)
+  caught   PF10: when nothing fits, the heuristic suggests NDTwin's own names (test_calc_has_no_route_table_so_nothing_is_suggested went red)
+  caught   PF11: with nothing resolved, pre-flight vouches for an owned table the program lacks (test_no_owned_table_row_is_claimed_for_a_table_the_program_does_not_have went red)
+  caught   PF12: the owned-table rows also judge a switch whose binding did not resolve (test_the_owned_table_rows_speak_only_of_the_switches_whose_binding_resolved went red)
+  caught   MN17: the prediction applies a package's roles to an NDTwin-pipeline switch (test_roles_do_not_apply_to_an_ndtwin_switch_beside_a_foreign_one went red)
+  caught   R2-1a: on a fabric that skips its routes, a route through another switch is written (test_restricted_each_switch_routes_only_to_its_own_hosts_and_counts_only_those went red)
+             also red: tests.test_readopt.ReadoptOnAFabricThatSkipsItsRoutesTest.test_readopting_the_ndtwin_switch_writes_no_route_through_the_unbound_one
+             also red: tests.test_readopt.ReadoptOnAFabricThatSkipsItsRoutesTest.test_with_no_host_of_its_own_it_promises_no_watchdog_that_does_not_run
+  caught   R2-1b: every fabric's route writer starts restricted               (test_the_default_is_every_host_as_before went red)
+             also red: tests.test_link_state_entry.WhereTheWatchdogRunsTheReportTakesTheBeaconsPathTest.test_a_down_report_is_reported_to_the_kernel_and_rerouted_on_the_next_pass
+             also red: tests.test_link_state_entry.WhereTheWatchdogRunsTheReportTakesTheBeaconsPathTest.test_an_up_report_brings_a_down_link_back_the_way_a_beacon_does
+             also red: tests.test_p4_client_writes.TheNdtwinPipelinesWritesAreByteIdenticalToTheBaseTest.test_every_request_is_byte_identical_to_the_one_the_base_sent
+             also red: tests.test_readopt.InstallRoutesIsAParameterTest.test_the_default_is_the_behaviour_every_caller_had_before_the_parameter
+             also red: tests.test_readopt.ReadoptMastershipGateTest.test_all_route_writes_refused_is_a_failure_not_a_success
+             also red: tests.test_readopt.ReadoptMastershipGateTest.test_installed_routes_are_not_reported_as_pending
+             also red: tests.test_readopt.ReadoptOnAFabricWhoseRouteTablesNdtwinOwnsTest.test_the_routes_go_back_into_the_bound_table
+             also red: tests.test_readopt.ReadoptSuccessTest.test_readopt_reinstalls_routes_on_that_switch_only
+             also red: tests.test_readopt.ReadoptSuccessTest.test_success_reports_status_clone_and_route_count
+             also red: tests.test_readopt.RouteReinstallTest.test_only_dpid_writes_to_that_switch_and_no_other
+             also red: tests.test_readopt.RouteReinstallTest.test_the_count_is_rules_the_switches_accepted_not_rules_attempted
+             also red: tests.test_readopt.ThePackageHalfOfReadoptTest.test_the_ndtwin_path_still_installs_its_routes
+  caught   R2-1c: startup never tells the route writer that the fabric skips its routes (test_a_fabric_that_skips_its_routes_tells_the_route_writer went red)
+  caught   R2-1d: startup restricts the route writer on a fabric whose routes NDTwin owns (test_a_fabric_whose_routes_ndtwin_owns_does_not_restrict_the_writer went red)
+             also red: tests.test_declared_links.WhichFabricsSeedAndWhenRoutesComeBackTest.test_an_all_ndtwin_fabric_does_not_restrict_the_writer
+  caught   R2-1e: a restricted refill is reported as if it were the whole one (test_it_says_the_refill_stopped_at_the_attached_hosts_and_why went red)
+  caught   R2-1f: every NDTwin readopt claims its refill was restricted       (test_on_a_fabric_that_installs_routes_the_same_readopt_refills_every_host went red)
+  caught   R2-1g: a foreign readopt refills on a fabric that skipped its routes at startup (test_a_fabric_that_skipped_its_routes_at_startup_is_not_refilled_now went red)
+             also red: tests.test_readopt.ReadoptOnAFabricWhoseRouteTablesNdtwinOwnsTest.test_a_skipped_refill_on_an_owned_switch_says_the_fabric_skipped_its_routes
+             also red: tests.test_readopt.ReadoptOnAFabricWhoseRouteTablesNdtwinOwnsTest.test_before_startup_an_owned_switch_says_startup_has_not_decided
+             also red: tests.test_readopt.ReadoptOnAFabricWhoseRouteTablesNdtwinOwnsTest.test_before_startup_has_run_a_foreign_switch_is_not_refilled
+  caught   R2-1h: before startup has decided, a foreign readopt refills       (test_before_startup_has_run_a_foreign_switch_is_not_refilled went red)
+             also red: tests.test_readopt.ReadoptOnAFabricWhoseRouteTablesNdtwinOwnsTest.test_before_startup_an_owned_switch_says_startup_has_not_decided
+  caught   R2-1i: a package-owned switch is refilled with NDTwin's routes     (test_a_package_owned_switch_is_not_refilled_on_a_fabric_that_installs_routes went red)
+  caught   R2-1j: a switch that came back unbound counts as owned and is refilled (test_a_switch_that_came_back_unbound_is_not_refilled went red)
+             also red: tests.test_readopt.ThePackageHalfOfReadoptTest.test_a_foreign_pipeline_gets_no_ndtwin_routes
+             also red: tests.test_readopt.ThePackageHalfOfReadoptTest.test_a_readopted_foreign_switch_with_the_header_keeps_its_clone_session
+             also red: tests.test_readopt.ThePackageHalfOfReadoptTest.test_it_says_the_routes_were_skipped_rather_than_reporting_a_bare_zero
+  caught   R2-2a: the renderer spells the route match field again             (test_no_module_spells_the_four_route_names_outside_baseline_and_the_named_exceptions went red)
+  caught   R2-2b: the renderer loses NDTwin's own route match field           (test_the_renderer_reads_the_route_match_field_back_as_nw_dst went red)
+             also red: tests.test_flow_stats_route.AForeignSwitchIsRenderedThroughItsBindingTest.test_the_unknown_row_is_left_out_and_the_count_is_kept_on_the_client
+             also red: tests.test_flow_stats_route.TheNdtwinClientsHttpBodyIsByteIdenticalToTheBaseTest.test_a_client_bound_to_the_baseline_answers_the_same_bytes
+             also red: tests.test_flow_stats_route.TheNdtwinClientsHttpBodyIsByteIdenticalToTheBaseTest.test_the_body_is_the_one_the_base_answered_byte_for_byte
+             also red: tests.test_ryu_flow_stats.ActionTranslationTest.test_a_missing_action_does_not_raise
+             also red: tests.test_ryu_flow_stats.ActionTranslationTest.test_an_unknown_action_yields_no_port_rather_than_a_guess
+             also red: tests.test_ryu_flow_stats.ActionTranslationTest.test_drop_becomes_an_empty_action_list
+             also red: tests.test_ryu_flow_stats.ActionTranslationTest.test_forwarding_becomes_a_string_output_action
+             also red: tests.test_ryu_flow_stats.ActionTranslationTest.test_send_to_cpu_becomes_output_controller
+             also red: tests.test_ryu_flow_stats.CounterPassthroughTest.test_absent_counters_still_render_zero_rather_than_missing
+             also red: tests.test_ryu_flow_stats.CounterPassthroughTest.test_a_null_counters_field_does_not_raise
+             also red: tests.test_ryu_flow_stats.CounterPassthroughTest.test_real_counters_reach_the_payload
+             also red: tests.test_ryu_flow_stats.DurationComesFromTheProxysOwnRecordTest.test_a_negative_age_can_never_reach_the_payload
+             also red: tests.test_ryu_flow_stats.DurationComesFromTheProxysOwnRecordTest.test_a_rule_installed_this_instant_is_indistinguishable_from_an_undated_one
+             also red: tests.test_ryu_flow_stats.DurationComesFromTheProxysOwnRecordTest.test_a_rule_on_another_switch_does_not_borrow_this_ones_age
+             also red: tests.test_ryu_flow_stats.DurationComesFromTheProxysOwnRecordTest.test_a_rule_this_proxy_installed_reports_how_long_ago
+             also red: tests.test_ryu_flow_stats.DurationComesFromTheProxysOwnRecordTest.test_a_rule_with_no_record_stays_zero_which_is_what_unknown_looks_like
+             also red: tests.test_ryu_flow_stats.DurationComesFromTheProxysOwnRecordTest.test_bmv2_stripping_leading_zero_bytes_does_not_lose_the_rule_its_age
+             also red: tests.test_ryu_flow_stats.DurationComesFromTheProxysOwnRecordTest.test_the_sub_second_remainder_goes_into_duration_nsec
+             also red: tests.test_ryu_flow_stats.DurationComesFromTheProxysOwnRecordTest.test_two_rules_in_one_table_at_one_priority_do_not_share_an_age
+             also red: tests.test_ryu_flow_stats.DurationComesFromTheProxysOwnRecordTest.test_with_no_record_at_all_every_rule_reports_zero
+             also red: tests.test_ryu_flow_stats.MatchTranslationTest.test_a_short_address_value_is_left_padded
+             also red: tests.test_ryu_flow_stats.MatchTranslationTest.test_five_tuple_fields_use_ryu_names
+             also red: tests.test_ryu_flow_stats.MatchTranslationTest.test_ipv4_rules_always_declare_dl_type
+             also red: tests.test_ryu_flow_stats.MatchTranslationTest.test_lpm_host_route_has_no_netmask_suffix
+             also red: tests.test_ryu_flow_stats.MatchTranslationTest.test_lpm_prefix_route_carries_the_suffix
+             also red: tests.test_ryu_flow_stats.MatchTranslationTest.test_unknown_p4_fields_are_dropped_rather_than_passed_through
+             also red: tests.test_ryu_flow_stats.OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTest.test_an_unbound_foreign_switch_keeps_the_vocabulary_it_had_before_roles
+             also red: tests.test_ryu_flow_stats.OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTest.test_an_unknown_action_on_an_unbound_foreign_switch_is_not_listed_either
+             also red: tests.test_ryu_flow_stats.OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTest.test_ndtwins_own_pipeline_leaves_nothing_out
+             also red: tests.test_ryu_flow_stats.RuleSelectionTest.test_a_negative_priority_is_clamped_to_zero
+             also red: tests.test_ryu_flow_stats.RuleSelectionTest.test_counter_fields_are_present_so_the_shape_matches_ovs
+             also red: tests.test_ryu_flow_stats.TheNdtwinPipelinesFlowStatsAreByteIdenticalToTheBaseTest.test_the_render_is_the_one_the_base_produced
+  caught   R2-2c: a named exception stops matching anything and stays on the list (test_no_module_spells_the_four_route_names_outside_baseline_and_the_named_exceptions went red)
+  caught   R2-4a: two keys of every flow swap places in the body the kernel parses (test_the_body_is_the_one_the_base_answered_byte_for_byte went red)
+             also red: tests.test_flow_stats_route.TheNdtwinClientsHttpBodyIsByteIdenticalToTheBaseTest.test_a_client_bound_to_the_baseline_answers_the_same_bytes
+  caught   R2-4b: the pinned bytes and the recording they claim to be part ways (test_the_constant_is_the_recording went red)
+  caught   R2-5a: a 5-tuple delete reaches a foreign switch                   (test_a_five_tuple_delete_on_a_foreign_switch_answers_501 went red)
+  caught   R2-5b: a 5-tuple modify reaches a foreign switch                   (test_a_five_tuple_modify_on_a_foreign_switch_answers_501 went red)
+  caught   R2-8a: link_discovery follows the seed count again                 (test_a_foreign_fabric_that_declares_no_link_still_says_declared went red)
+             also red: tests.test_declared_links.LinkDiscoveryIsTheModeNotTheSeedCountTest.test_a_seed_that_raises_says_declared_and_names_the_error
+             also red: tests.test_declared_links.WhichFabricsSeedAndWhenRoutesComeBackTest.test_a_topology_double_without_the_seeding_call_does_not_stop_startup
+  caught   R2-8b: "none" means "nothing started" again, not "external"        (test_none_is_for_an_external_control_plane_only went red)
+  caught   R2-8c: a seed that raised is reported as one that entered nothing  (test_a_seed_that_raises_says_declared_and_names_the_error went red)
+             also red: tests.test_declared_links.WhichFabricsSeedAndWhenRoutesComeBackTest.test_a_topology_double_without_the_seeding_call_does_not_stop_startup
+  caught   R2-8d: the seed's outcome is never reported                        (test_a_seed_that_worked_reports_its_count_and_no_error went red)
+             also red: tests.test_declared_links.LinkDiscoveryIsTheModeNotTheSeedCountTest.test_a_foreign_fabric_that_declares_no_link_still_says_declared
+             also red: tests.test_declared_links.LinkDiscoveryIsTheModeNotTheSeedCountTest.test_a_seed_that_raises_says_declared_and_names_the_error
+             also red: tests.test_declared_links.WhichFabricsSeedAndWhenRoutesComeBackTest.test_a_topology_double_without_the_seeding_call_does_not_stop_startup
+  caught   R2-8e: an external fabric reports a declaration it never made      (test_a_fabric_that_declares_nothing_reports_null went red)
+  caught   R2-8f: switch_state never carries the seed's outcome               (test_the_seed_outcome_is_a_top_level_key_not_a_per_switch_one went red)
+             also red: tests.test_switch_state.TheDeclaredLinksReportOnTheEndpointTest.test_a_fabric_that_declares_nothing_serves_null_rather_than_no_key
+  caught   R2-8g: a fabric that declares nothing serves no key instead of null (test_a_fabric_that_declares_nothing_serves_null_rather_than_no_key went red)
+  caught   R2-8h: an uninjected reporter still adds the key                   (test_an_uninjected_seed_reporter_adds_no_key went red)
+  caught   R2-8i: the proxy never wires the seed reporter                     (test_the_proxy_wires_the_reporter_at_import went red)
+  caught   R3-F1a: withdrawing a rule restores a route through another switch (test_withdrawing_a_rule_for_a_host_behind_another_switch_restores_nothing_through_it went red)
+  caught   R3-F1b: on a fabric that skips its routes nothing is restored, attached hosts included (test_an_attached_host_is_still_restored_in_place went red)
+  caught   R3-F1c: every fabric stops restoring routes that cross another switch (test_on_a_fabric_that_installs_routes_the_remote_host_is_restored_as_before went red)
+  caught   R3-F2a: a fabric with no watchdog is still promised the watchdog will refill (test_with_no_host_of_its_own_it_promises_no_watchdog_that_does_not_run went red)
+  caught   R3-F2b: the pending note is taken back where the watchdog does run (test_where_the_watchdog_runs_the_pending_note_stays went red)
+  caught   R3-F3a: an owned switch left empty keeps the pre-roles reason      (test_a_skipped_refill_on_an_owned_switch_says_the_fabric_skipped_its_routes went red)
+             also red: tests.test_readopt.ReadoptOnAFabricWhoseRouteTablesNdtwinOwnsTest.test_before_startup_an_owned_switch_says_startup_has_not_decided
+  caught   R3-F3b: before startup, an owned switch blames a skip that was never decided (test_before_startup_an_owned_switch_says_startup_has_not_decided went red)
+  caught   R3-F4: the recorder is edited after it produced the pinned bytes   (test_the_recorder_in_the_repo_is_the_one_that_recorded went red)
+  07 self-test baseline: SELF-TEST PASS
+  caught   L7-1: edges_all_up accepts a direction that is present but down    (self-test case "L1 one direction down" went red)
+  caught   L7-2: edges_all_up stops asking whether the kernel ENABLED the edge (self-test case "L1 up but not enabled" went red)
+  caught   L7-3: cut_is_down accepts one direction down                       (self-test case "L4 only one direction down" went red)
+  caught   L7-4: cut_is_up accepts one direction back up                      (self-test case "L4 only one direction back up" went red)
+  caught   L7-5: caps_are only checks that capabilities exist                 (self-test case "L6 one switch says reroute:true" went red)
+  caught   L7-6: skipped_is accepts any skipped list                          (self-test case "L6 routes still skipped" went red)
+  caught   L7-7: links_heard stops asking for every declared direction        (self-test case "L1 no link entries" went red)
+  caught   L7-8: flow_has accepts the destination on any port                 (self-test case "L2 read back on the wrong port" went red)
+  caught   L7-9: flow_lacks never fails                                       (self-test case "L2 delete left it" went red)
+  caught   L7-10: dispatch_clean only asks whether the request completed      (self-test case "L2 dispatch failed" went red)
+  caught   L7-11: refused_501 accepts a 500                                   (self-test case "L5 a 500 is not the 501" went red)
+  caught   L7-12: refused_501 stops checking the reason                       (self-test case "L5 a 501 for another reason" went red)
+  caught   L7-13: refused_501 stops checking the outcome                      (self-test case "L5 a 501 that is not unsupported_on_p4" went red)
+  caught   L7-14: dispatch_refused_unbound stops asking whether the write failed (self-test case "L5 a clean dispatch is not the refusal" went red)
+  caught   L7-15: dispatch_refused_unbound accepts a refusal for any reason   (self-test case "L5 a refusal for another reason" went red)
+  caught   L7-16: rows_unchanged ignores the row diff                         (self-test case "L5 a row changed" went red)
+  caught   L7-17: no_netem looks at one end only                              (self-test case "L4 netem left on one end" went red)
+  caught   L7-18: links_heard accepts a link nobody declared                  (self-test case "L1 an extra link" went red)
+  caught   L7-19: links_heard stops asking whether the heartbeat fed each link (self-test case "L1 a declared link the heartbeat never fed" went red)
+  caught   L7-20: links_heard accepts a link the heartbeat reports down       (self-test case "L1 a link the heartbeat reports down" went red)
+  caught   L7-21: the live path's L1-on-switch_state check says OK to anything (self-test case "L1 the live path's check on the first cut's all-declared shape" went red)
+  caught   L7-22: "declared or heartbeat" (the looser rule) is accepted       (self-test case "L1 the heartbeat never fed the proxy (all declared)" went red)
+  green    C1 (control): a comment-only edit in route_binding.py              (the whole suite stays green)
+  green    C2 (control): a comment-only edit inside pre-flight's roles check  (the whole suite stays green)
+
+every new test seen red: 196 of 196
+
+baseline byte-identical: yes (12 sources)
+mutation gate: 167 mutations, 0 survived
+guarded_build: exit 0
+# rc=0

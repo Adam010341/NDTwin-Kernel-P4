@@ -1,0 +1,4 @@
+failure	Build and unit tests (GCC)	108380717668
+failure	clang can compile it	108380717675
+failure	TSan	108380717723
+success	ASan + UBSan	108380717727

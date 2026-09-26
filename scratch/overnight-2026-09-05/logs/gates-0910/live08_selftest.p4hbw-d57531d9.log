@@ -1,0 +1,90 @@
+d57531d9cf53b65ffaa8d904a7f7ff3689093860
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926  2026-09-26T07:36:51Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926
+# cmd bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh --self-test
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-heartbeat-w-0926/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh --self-test
+08_heartbeat --self-test (synthetic captures in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp/live-p1-08-selftest-1obLRm; no lab, no claim, nothing started)
+  ok    H1 capabilities: reroute true, heartbeat                     OK all 4 switches: reroute true, link_discovery heartbeat
+  ok    H1 one switch says reroute false                             BAD 1 of 4 switch(es) are not reroute true / link_discovery heartbeat:
+  ok    H1 declared is not heartbeat                                 BAD 4 of 4 switch(es) are not reroute true / link_discovery heartbeat:
+  ok    H1 reroute available, no reason                              OK reroute.available True, reason None
+  ok    H1 unavailable is not available                              BAD reroute is available False reason 'unbound', want True None (x)
+  ok    H1 a proxy with no reroute block                             BAD switch_state has no top-level reroute (a proxy from before segment
+  ok    H1 heartbeat usable                                          OK heartbeat.state usable (watchdog running, session ab)
+  ok    H1 a stopped heartbeat is not usable                         BAD heartbeat.state 'heartbeat_not_running', want 'usable' (None)
+  ok    ruling 4: no frame left a host port (report)                 OK forwarded_to_hosts 0 (forwarded_between_switches 3, misdelivered 0,
+  ok    ruling 4: the daemon counted one (report)                    STOP ruling 4: the heartbeat daemon counted 2 frame(s) leaving a host-
+  ok    ruling 4: switch_state says it too                           STOP ruling 4: the heartbeat daemon counted 1 frame(s) leaving a host-
+  ok    H1 eight directions up                                       OK 8/8 inter-switch directions is_enabled:true is_up:true
+  ok    H1 one direction down is not all up                          BAD 7/8 inter-switch directions enabled+up; not: (1, 3, 3, 1)=(True, F
+  ok    H1 up but not enabled                                        BAD 7/8 inter-switch directions enabled+up; not: (1, 4, 4, 2)=(False, 
+  ok    H1 the cut is down both ways                                 OK both directions of s1:3<->s3:1 is_up:false
+  ok    H1 only one direction down                                   BAD the cut is not down both ways: s1:3->s3:1 (True, False), s3:1->s1:
+  ok    H1 nothing down                                              BAD the cut is not down both ways: s1:3->s3:1 (True, True), s3:1->s1:3
+  ok    H1 back up both ways                                         OK both directions of s1:3<->s3:1 enabled and up
+  ok    H1 still down                                                BAD the cut is not up both ways: s1:3->s3:1 (True, False), s3:1->s1:3 
+  ok    H1 only one direction back up                                BAD the cut is not up both ways: s1:3->s3:1 (True, False), s3:1->s1:3 
+  ok    H1 the cable routes use is picked                            OK 1 3 3 1
+  ok      and it is s1-s3, the first used one
+  ok      an unused s1-s3 is skipped for the next used cable
+  ok    H1 rerouted: nothing into the cut, nothing lost              OK no installed route points into s1:3<->s3:1 (4 did before), every de
+  ok    H1 s3 still routes into the cut                              BAD s3 still sends ['10.0.1.1', '10.0.2.2'] out of port 1
+  ok    H1 a destination lost its route                              BAD s1 lost its route to ['10.0.4.4']
+  ok    H1 a cut nothing routed over proves nothing                  BAD before the cut no route used s1:3<->s3:1: nothing to reroute, noth
+  ok    H1 within 20 s                                               OK detection after 14.3 s (bound 20 s)
+  ok    H1 over 20 s                                                 BAD detection after 20.4 s, over the 20 s bound
+  ok    H1 never                                                     BAD detection: never happened (never)
+  ok    H2 held up in every poll                                     OK up in all 12 polls
+  ok    H2 went down once                                            BAD the cut went down with the heartbeat stopped (1 of 7 polls):    7.
+  ok    H2 too few polls                                             BAD only 12 poll(s), want at least 20
+  ok    H3 capabilities: no reroute, heartbeat                       OK all 4 switches: reroute false, link_discovery heartbeat
+  ok    H3 reason unbound                                            OK reroute.available False, reason unbound
+  ok    H3 a stopped heartbeat's reason is not unbound               BAD reroute is available False reason 'heartbeat_not_running', want Fa
+  ok    H3 author's rows unchanged                                   OK 16 rows across 4 switch(es), identical before and after
+  ok    H3 a row moved                                               BAD the author's rows changed: stats_flow_1.json: before 4 rows, after
+  ok    H3 501 unbound                                               OK 501 unsupported_on_p4, reason unbound
+  ok    H3 501 for another reason                                    BAD HTTP 501, outcome 'unsupported_on_p4', reason 'owned_by_package'
+  ok    H3 a 500                                                     BAD HTTP 500, outcome None, reason None
+  ok    H4 409 external control plane                                OK 409 external control plane
+  ok    H4 the 500 of before                                         BAD HTTP 500, error None (ruling 5(a) wants 409)
+  ok    H4 a 409 for something else                                  BAD HTTP 409, error 'something else' (ruling 5(a) wants 409)
+  ok    H5 26 arms identical                                         OK all 26 arms: rc and verdict identical to the reference
+  ok    H5 one arm differs                                           BAD 1 arm(s) differ from the reference: source_routing/solution: ('1',
+  ok    H5 an arm missing                                            BAD 1 arm(s) differ from the reference: flowcache/solution: None vs ('
+  ok    H5 heartbeat on exactly the expected arms                    OK a heartbeat ran on exactly the 17 expected arm(s); no host-port fra
+  ok    H5 an expected arm had none                                  BAD 1 arm(s) not as expected: qos/solution: no heartbeat session start
+  ok    H5 an arm that should have none had one                      BAD 1 arm(s) not as expected: calc/solution: a heartbeat session start
+  ok    H5 ruling 4 in a sample                                      STOP ruling 4: a sample counted forwarded_to_hosts 1 at 1790470850
+  ok    H5 no session during 01                                      OK no heartbeat session ran during 01 (NDTwin's own pipeline)
+  ok    H5 a session during 01                                       BAD a heartbeat ran during 01: ['sess00', 'sess01', 'sess02', 'sess03'
+  ok    an unreadable capture is BAD, not a traceback                BAD caps could not read its input: FileNotFoundError: [Errno 2] No suc
+  ok    report_last: the LATER of the cable's two directions (100.25, 100.5 -> 100.500)
+  ok      one direction missing: no answer, not a guess
+  ok    next_phase_target: 0.05 s after the next round at least 0.3 s ahead (last 100, now 101 -> 105.050)
+  ok      a round too close to catch is skipped for the next (now 104.9 -> 110.050)
+  ok    phase_for: the first H1_WORST cycles at the worst phase, the rest random inside the period (0.05 0.05 0.05 2.17 4.65 2.26 0.07 4.43 2.04 3.27)
+  ok    cycle: the cut ends, the phase (0.06), the kernel's down, detection (15.84), the reporting pass and its phase (0.60)
+  ok    cycle: a worst-phase cut that landed before the round        BAD meant for the worst phase (0.05 s after a round) and landed 4.960 
+  ok    cycle: the same landing on a random-phase cycle is fine      OK 200.020	204.960	200.000	4.960	220.900	15.940	215.600	0.600
+  ok    cycle: no reporting pass served                              BAD no watchdog pass with a down transition after the last heard frame
+  ok    cycle: the graph never showed it down                        BAD the kernel's graph never showed the cut down
+  ok    HB_ARMS names 17 arms (segment S's 20 running arms less the 3 external ones)
+  ok    a run that took its own fabric down: finish's rc 3 is not a failure, then release
+  ok      a clean down of a fabric that is up: PASS, released (the control)
+  ok    🔴 a REFUSED down (rc 5): the claim is KEPT (re-claimed), never released, and the verdict says so first
+  ok    🔴 a down that did not verify clean (rc 1): kept, not released
+  ok      a 3 while this run believes its fabric is up still fails it
+  ok    🔴 a phase's 'ndt down' runs without measuring= even when the caller exported one
+  ok    🔴 no NDT_OWNER: refused (rc 2) before _common.sh could default it
+  ok      an unknown PART is refused
+  ok    🔴 CLAIM_MINUTES defaults to 120 and _common.sh's 45 does not shadow it
+  ok      a caller's CLAIM_MINUTES still wins
+  ok    🔴 a caller's NDT_MEASURING is gone after the prelude
+  ok    the tc route is mnexec by default (segment S's)
+  ok    this script parses
+  ok    census_prepare.py is where H4 finds it
+SELF-TEST PASS
+guarded_build: exit 0
+# rc=0

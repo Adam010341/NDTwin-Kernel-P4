@@ -1,0 +1,22 @@
+e012a5a7cb7ab9344e01809f1ae9a3a7d09819c3
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-07-hb-links-0926  2026-09-26T15:35:19Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-07-hb-links-0926
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hb07-e012a5a7/live07_redfirst.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-07-hb-links-0926
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-07-hb-links-0926/tools/build_guard/guarded_build.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hb07-e012a5a7/live07_redfirst.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-07-hb-links-0926
+HEAD e012a5a7cb7ab9344e01809f1ae9a3a7d09819c3; red-first 7de09bac467ebf49303597103a3ae6794fb01ba7
+      🔴    L1 the live path's switch_state check on a heartbeat-fed fabric wanted OK, got: BAD 0 of 8 link entries are declared, want 8 of 8
+      🔴    L1 the eight declared directions, heard                    wanted OK, got: 
+      🔴    L1 no link entries                                         wanted BAD, got: 
+      🔴    L1 a declared link the heartbeat never fed                 wanted BAD, got: 
+      🔴    L1 the heartbeat never fed the proxy (all declared)        wanted BAD, got: 
+      🔴    L1 a link the heartbeat reports down                       wanted BAD, got: 
+      🔴    L1 a link missing                                          wanted BAD, got: 
+      🔴    L1 an extra link                                           wanted BAD, got: 
+  ok    07 at 7de09bac: SELF-TEST FAIL
+  ok    there, the live path's check on a heartbeat-fed switch_state: 'BAD 0 of 8 link entries are declared' (the finding)
+  ok    07 at HEAD: SELF-TEST PASS (45 ok)
+LIVE07-RED-FIRST: red at the red-first commit, green at HEAD
+guarded_build: exit 0
+# rc=0

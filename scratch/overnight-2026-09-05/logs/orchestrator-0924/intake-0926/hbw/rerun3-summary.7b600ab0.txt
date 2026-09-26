@@ -1,0 +1,7 @@
+p4_proxy_suite # rc=0 | Ran 1658 tests in 17.081s OK (skipped=1) 
+test_ndt_heartbeat # rc=0 | Ran 57 checks, 0 failed 
+live08_selftest # rc=0 | SELF-TEST PASS 
+live07_selftest # rc=0 | SELF-TEST PASS 
+mutate_roles_binding # rc=0 | every new test seen red: 196 of 196 mutation gate: 162 mutations, 0 survived 
+tracked tree clean after the gates
+RERUN3-DONE
