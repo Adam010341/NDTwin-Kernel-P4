@@ -1515,6 +1515,71 @@ print(f["ab"]["heard"], f["ba"]["heard"], f["ab"]["written"], f["ba"]["written"]
     else
         red "restore_cycle gave: $(tr '\n' '|' <<<"$got")"
     fi
+    # --- H5's report sampler, EXECUTED (live H5 on cafd518a, 09-26 15:32Z) --------------------------
+    # [Co-developed with claude code -- Adam] The sampler died at compile time on the live run (a
+    # backslash inside an f-string expression, a SyntaxError on the machine's Python 3.13) with its
+    # stderr on /dev/null, and 50_samples.tsv was never written; no test had ever run its text.
+    # Here the REAL SAMPLER_PY -- this script's own variable -- runs through the real sampler_start /
+    # sampler_stop against a fake report rewritten atomically the way the daemon rewrites it: missing,
+    # running, running with a counter moved, stopped with final counters, missing again, a second
+    # session. The rows must say so, in order, under the header; the stopped row's final counters
+    # must reach the ruling-4 check; the stop path must take one last sample.
+    st_sampler() {   # st_sampler -> the samples file's path on stdout (and the helpers' notes on 3)
+        local d="$t/h5s" rep i
+        mkdir -p "$d/run"
+        rep="$d/report.json"
+        wr() {   # wr <status> <session> <hosts> <between> -- one atomic rewrite, as the daemon does
+            "$VPY" -I -c 'import json, os, sys
+p, st, se, h, b = sys.argv[1:6]
+doc = {"format": 1, "source": "heartbeat", "status": st, "session": se, "pid": 4242,
+       "side_effects": {"forwarded_to_hosts": int(h), "forwarded_between_switches": int(b)}}
+open(p + ".tmp", "w").write(json.dumps(doc)); os.replace(p + ".tmp", p)' "$rep" "$@"
+        }
+        (   RUN="$d/run"; HB_REPORT_FILE="$rep"; SAMPLER_PID=""; SAMPLER_STOP=""; SAMPLER_INTERVAL_S=0.1
+            VERDICT_RC=0; VERDICT_WHY=""
+            note() { echo "note: $*" >&3; }; fail() { echo "fail: $*" >&3; }; bad() { echo "bad: $*" >&3; }
+            sampler_start "$d/samples.tsv" && echo "started rc 0" >&3 || echo "started rc $?" >&3
+            sleep 0.5
+            wr running aaaa 0 0; sleep 0.5
+            wr running aaaa 0 1; sleep 0.5
+            wr stopped aaaa 2 3; sleep 0.5
+            rm -f "$rep"; sleep 0.5
+            wr running bbbb 0 0; sleep 0.3
+            sampler_stop
+            echo "stopped; pid now '${SAMPLER_PID}'" >&3 ) 3> "$d/notes.txt"
+        echo "$d"
+    }
+    # (every read below ends `|| true`: under this script's set -e a failing $( ) in an assignment
+    # would end the self-test silently instead of printing its red line)
+    d="$(st_sampler)" || true
+    got="$(awk -F'\t' 'NR == 1 {next} {k = $2 " " $3 " " $5 " " $6; if (k != last) {printf "%s|", k; last = k}}' "$d/samples.tsv" 2>/dev/null)" || true
+    want="absent - 0 0|running aaaa 0 0|running aaaa 0 1|stopped aaaa 2 3|absent - 0 0|running bbbb 0 0|"
+    local hdr=$'wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches'
+    if [[ "$(head -1 "$d/samples.tsv" 2>/dev/null)" == "$hdr" && "$got" == "$want" ]] \
+       && awk -F'\t' 'NR > 1 && (NF != 6 || $1 !~ /^[0-9]+\.[0-9]$/) {bad = 1} END {exit bad}' "$d/samples.tsv"; then
+        ok "H5 sampler: the real SAMPLER_PY writes its header and one 6-field row per read, through missing, running, stopped (final counters) and a second session"
+    else
+        red "H5 sampler rows: header '$(head -1 "$d/samples.tsv" 2>/dev/null)', rows '$got' (want '$want'); $(tr '\n' ' ' < "$d/notes.txt" 2>/dev/null)"
+    fi
+    got="$(tail -1 "$d/samples.tsv" 2>/dev/null | cut -f2,3)" || true
+    [[ "$got" == $'running\tbbbb' ]] && /usr/bin/grep -q '^started rc 0$' "$d/notes.txt" \
+        && ok "  sampler_start said it had started, and the stop path took a last sample of the report as it stood" \
+        || red "  sampler start/stop: last row '$got', notes: $(tr '\n' ' ' < "$d/notes.txt" 2>/dev/null)"
+    printf 'exercise\twhich\trc\tverdict\treport\n' > "$d/table_none.tsv"
+    expect STOP "H5 sampler: a stopped session's final forwarded_to_hosts reaches ruling 4" \
+        "$(verdict h5_heartbeat "$d/samples.tsv" "$d/table_none.tsv" "$(date +%s)" "")"
+    # a sampler that cannot start: sampler_start must say so and answer 1, its stderr kept
+    got="$( d2="$t/h5s_broken"; mkdir -p "$d2"
+            RUN="$d2"; HB_REPORT_FILE="$d2/none.json"; SAMPLER_PID=""; SAMPLER_STOP=""
+            SAMPLER_PY='print(f"{d.get(\"status\")}")'
+            fail() { echo "fail: $*"; }; note() { :; }; bad() { :; }
+            sampler_start "$d2/samples.tsv"; echo "rc=$? pid='$SAMPLER_PID'"
+            [[ -s "$d2/50_sampler.err" ]] && echo "err kept: $(grep -c SyntaxError "$d2/50_sampler.err")" )" || true
+    if [[ "$got" == *"fail: H5: the report sampler did not start"* && "$got" == *"rc=1 pid=''"* && "$got" == *"err kept: 1"* ]]; then
+        ok "  a sampler that dies at compile time: sampler_start fails the run (rc 1), its SyntaxError kept in 50_sampler.err"
+    else
+        red "  a sampler that cannot start: $(tr '\n' ' ' <<<"$got")"
+    fi
     # --- H1's exit, read where Adam reads it: the run's LAST line (the judge's F1 and 8.2) ---------
     # [Co-developed with claude code -- Adam] One stubbed cycle through the real cut_cycle, H1's
     # strict conclusion and the real teardown (w_finish -> finish) with a fake ndt. An OVER cycle
