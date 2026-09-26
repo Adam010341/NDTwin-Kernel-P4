@@ -1402,6 +1402,14 @@ $SAMPLER_PY"
     got="$(tail -1 <<<"$out")"
     [[ "$got" == "PASS 08_heartbeat" ]] && ok "  the control: a sampler that ran and stopped cleanly ends PASS" \
                                          || red "  a healthy sampler's run ended '$got'"
+    # sampler_alive asks by argv too: a live pid that is not this sampler (a reaped pid, reused) is
+    # not the sampler. [Co-developed with claude code -- Adam]
+    got="$( sleep 20 & other=$!
+            SAMPLER_PID="$other"; SAMPLER_STOP="$t/.no-such-sampler.stop"
+            sampler_alive && echo "alive" || echo "not the sampler"
+            kill "$other" 2>/dev/null; wait "$other" 2>/dev/null )" || true
+    [[ "$got" == "not the sampler" ]] && ok "  sampler_alive: a live pid that is not the sampler (a reused pid) does not count" \
+                                      || red "  sampler_alive with a reused pid said '$got'"
     # the verdicts read a sampler that stopped reading, not only one that recorded nothing
     expect BAD  "H5 01 with no sample in its window"                  "$(verdict no_session "$t/samples_ok.tsv" "$((tend + 10000))" "$((tend + 10100))")"
     expect BAD  "H5 a sampler that stopped reading for 500 s mid-06"  "$(verdict h5_heartbeat "$t/samples_gap.tsv" "$t/table_same.tsv" "$tend" "$HB_ARMS")"
