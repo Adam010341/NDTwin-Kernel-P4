@@ -335,6 +335,46 @@ class ADeadHeartbeatIsNotADeadNetworkTest(unittest.TestCase):
         self.assertEqual(f.kernel.calls, [])
 
 
+#: A heartbeat frame as segment H's daemon builds it: dst 02:4e:44:54:48:42, ethertype 0x88B5,
+#: magic NDHB, padded to 60 bytes. Only its shape matters here -- it is not LLDP.
+HEARTBEAT_FRAME = (bytes.fromhex("024e44544842") + bytes.fromhex("0200000003e1") + b"\x88\xb5"
+                   + b"NDHB" + bytes(42))
+
+
+@unittest.skipUnless(HAVE_PROXY, "proxy dependencies not available in this interpreter")
+class AHeartbeatFramePuntedToTheControllerIsNotLinkEvidenceTest(unittest.TestCase):
+    """
+    [Co-developed with claude code -- Adam] The orchestrator's 09-26 note on segment S's judge
+    report: the census's `mode ndtwin` arms had the proxy's StreamChannel up, and nobody checked
+    whether a heartbeat frame a pipeline punts to its CPU port reaches `handle_packet_in` as
+    liveness. Whatever such a packet-in proves about the SWITCH (its stream works:
+    `_last_packet_in`), it must not be LINK evidence: on this fabric the only link evidence is the
+    report, so a cut stays a cut however many heartbeat frames a switch punts meanwhile.
+    """
+
+    def test_punted_heartbeat_frames_do_not_keep_a_cut_link_alive(self):
+        f = Fabric(self)
+        f.run()
+        before = dict(f.topo._link_beacons[CUT[0]])
+        for _ in range(int(TIMEOUT) + 2):
+            f.tick(1.0, silent=CUT)
+            for dpid, port in ((3, 1), (1, 3)):      # the cut cable's own two ports
+                f.topo.handle_packet_in(dpid, port, HEARTBEAT_FRAME)
+            f.run()
+        self.assertEqual(f.kernel.of("link_failure"), sorted(CUT))
+        self.assertEqual(f.topo._link_beacons[CUT[0]]["at"], before["at"],
+                         "a punted heartbeat frame moved the cut direction's evidence")
+
+    def test_they_are_switch_liveness_and_nothing_more(self):
+        f = Fabric(self)
+        f.run()
+        links = dict((k, dict(v)) for k, v in f.topo._link_beacons.items())
+        f.topo.handle_packet_in(3, 1, HEARTBEAT_FRAME)
+        self.assertEqual(f.topo._last_packet_in[3], f.clock.now)
+        self.assertEqual(f.topo._link_beacons, links)
+        self.assertNotIn(3, f.topo._last_lldp_from)
+
+
 @unittest.skipUnless(HAVE_PROXY, "proxy dependencies not available in this interpreter")
 class ReportExternalLinkStateWithATimeTest(unittest.TestCase):
     """The `at` the first cut's entry grew -- evidence as of a time, not as of now."""
