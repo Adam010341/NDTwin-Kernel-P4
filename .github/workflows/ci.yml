@@ -93,9 +93,11 @@ jobs:
       #
       # The third command is part of the install, not a test (p4_proxy/requirements.txt, top): with
       # protobuf 5.29.6, p4runtime 1.5.0's shipped modules do not import on the default backend
-      # until regen_p4runtime_pb2.py has regenerated them -- without it the P4 lane's interpreter
-      # probe (`import p4.v1.p4runtime_pb2`) fails and every P4 test file skips, which
-      # l1_unit_tests.sh reports as a failure.
+      # until regen_p4runtime_pb2.py has regenerated them. Without it the P4 lane's interpreter
+      # probe (`import p4.v1.p4runtime_pb2`) finds nothing, the lane falls back to the same python3,
+      # and every P4 test file that imports the proxy dies at import: 22 of the 41 failed in a
+      # CI-shaped local run on 2026-09-26 (Python 3.12.3, this step without its third command;
+      # with it, all 41 passed but the one opt-in live-switch file). Not yet run on GitHub.
       - name: Install Python test dependencies
         run: >-
           python -m pip install --upgrade pip
