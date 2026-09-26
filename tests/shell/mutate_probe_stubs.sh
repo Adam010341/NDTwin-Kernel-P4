@@ -4,7 +4,8 @@
 # own sudo records every call and refuses it, and its closing check fails on a call outside the
 # suite's allow-list. A closing check that cannot fail would make the allow-list decoration, so
 # each mutation takes ONE entry out of one suite's allow-list -- a call the suite really makes --
-# and that suite's closing check must go red.
+# and that suite's closing check must go red. P8 removes a stub altogether: the closing check must
+# say the stub is not there, never read an empty call list as clean.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -88,6 +89,13 @@ report "P6: sample_rate no longer allows 'ovs-vsctl list-br'" "$m"
 m=$(mutant p7 "$LAB_HANDOFF" "'sudo ndtwin-lab status' 'sudo ovs-vsctl list-br' 'sudo mnexec -a 1 true' 'tc qdisc show'" \
     "'sudo ndtwin-lab status' 'sudo ovs-vsctl list-br' 'sudo mnexec -a 1 true'")
 report "P7: lab_handoff no longer allows the unprivileged 'tc qdisc show'" "$m"
+
+# P8: the stub never installed -- the shape of the first version's defect in the three suites that
+# source ndt first (their HERE became ndt's, the lib was not found): the closing check must say so,
+# not read an empty list as clean.
+m=$(mutant p8 "$SAMPLE_RATE" "probe_stub_install \"\$TMPROOT\" --ovs-refuse -- 'sudo ovs-vsctl list-br'" \
+    ": the stub is not installed")
+report "P8: sample_rate's stub is never installed" "$m"
 
 echo
 echo "$MUTATIONS mutation(s), $SURVIVORS survivor(s)"

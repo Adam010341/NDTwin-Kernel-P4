@@ -46,7 +46,10 @@ trap 'rm -rf "$T"' EXIT
 # makes is recorded and REFUSED rc 1 -- what CI and every gate answer today -- so a live lab on
 # this machine cannot change its path or its verdict, and nothing it runs reaches root. The
 # closing check fails on any call outside the allow-list (tests/shell/lib_probe_stub.sh).
-source "$HERE/lib_probe_stub.sh"
+# (from this file's own directory: a suite that sources ndt first has had its HERE replaced by
+# ndt's -- the first version of this line found no lib there and the stub never ran)
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_probe_stub.sh" \
+    || { echo "  FAILED   no tests/shell/lib_probe_stub.sh beside this suite"; exit 1; }
 probe_stub_install "$T" -- 'sudo ndtwin-lab status' 'sudo ndtwin-lab topo-out *'
 export ROUND="$ROUND_DIR"
 export LOG="$T/test.log"
@@ -132,7 +135,7 @@ CELL_GATE_OUT="$T/c1.jsonl"
 check "case 6  the suspect line carries unattributed_cores" 1 "$(grep -c 'suspect: *true unattributed=3.635' "$LOG")"
 
 # [Co-developed with claude code -- Adam] the stub's closing check (lib_probe_stub.sh)
-check "🔴 every sudo went to this suite's stub and was an allow-listed read-only probe" "" "$(probe_stub_outside | sort | uniq -c | sed 's/^ *//' | paste -sd';' -)"
+check "🔴 every sudo went to this suite's stub and was an allow-listed read-only probe" "" "$(probe_stub_outside 2>&1 | sort | uniq -c | sed 's/^ *//' | paste -sd';' -)"
 echo
 echo "$PASS passed, $FAIL failed"
 [[ "$FAIL" -eq 0 ]]

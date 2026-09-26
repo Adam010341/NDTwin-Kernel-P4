@@ -19,8 +19,9 @@
 #       --tc-empty    an unprivileged `tc` that records and prints nothing (rc 0): no qdisc, as on a
 #                     machine with no lab -- CI's answer, not this machine's
 #       --ovs-refuse  an unprivileged `ovs-vsctl` that records and refuses (rc 1)
-#   probe_stub_outside  -> one line per recorded call that no allowed call matches; nothing at all
-#                          when every call was allowed
+#   probe_stub_outside  -> one line per recorded call that no allowed call matches, plus one if the
+#                          stub is not installed or not the sudo on PATH; nothing at all only when
+#                          the stub took every call and every call was allowed
 #   probe_stub_calls    -> every recorded call, normalised, counted
 probe_stub_install() {
     local dir="$1" tc=0 ovs=0 d
@@ -30,6 +31,7 @@ probe_stub_install() {
         shift
     done
     d="$dir/probe-stub"; mkdir -p "$d"
+    PROBE_STUB_DIR="$d"
     PROBE_STUB_LOG="$d/calls"; : > "$PROBE_STUB_LOG"
     PROBE_STUB_ALLOW=("$@")
     # sudo's own refusal, word for word (sudo 1.9.15p5 with no NOPASSWD rule): ndt words its
@@ -69,6 +71,14 @@ _probe_stub_norm() {   # a recorded line -> `sudo <basename> <args>` (sudo's -n 
 }
 probe_stub_outside() {
     local line n a hit
+    # 🔴 never vacuous: a stub that was never installed, or is not the sudo on PATH, is itself a
+    # line here -- "no call outside the allow-list" must not be true of a suite whose sudo went
+    # somewhere else (found 09-27: a suite that sourced ndt first lost its HERE, the lib was not
+    # found, and the closing check read an empty list as clean)
+    if [[ -z "${PROBE_STUB_LOG:-}" || ! -f "$PROBE_STUB_LOG" ]]; then
+        echo "NO STUB: probe_stub_install never ran"; return
+    fi
+    [[ "$(type -P sudo)" == "$PROBE_STUB_DIR/sudo" ]] || echo "the sudo on PATH is $(type -P sudo), not this suite's stub"
     while IFS= read -r line; do
         [[ -n "$line" ]] || continue
         n="$(_probe_stub_norm "$line")"; hit=0

@@ -35,7 +35,10 @@ trap cleanup EXIT
 # makes is recorded and REFUSED rc 1 -- what CI and every gate answer today -- so a live lab on
 # this machine cannot change its path or its verdict, and nothing it runs reaches root. The
 # closing check fails on any call outside the allow-list (tests/shell/lib_probe_stub.sh).
-source "$HERE/lib_probe_stub.sh"
+# (from this file's own directory: a suite that sources ndt first has had its HERE replaced by
+# ndt's -- the first version of this line found no lib there and the stub never ran)
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_probe_stub.sh" \
+    || { echo "  FAILED   no tests/shell/lib_probe_stub.sh beside this suite"; exit 1; }
 probe_stub_install "$TMPROOT" --ovs-refuse -- 'sudo ovs-vsctl list-br'
 mkdir -p "$TMPROOT/p4_proxy/p4_src/build"
 REPO="$TMPROOT"   # sample_rate() and source_ahead_of_build() read this at call time
@@ -92,7 +95,7 @@ else
 fi
 
 # [Co-developed with claude code -- Adam] the stub's closing check (lib_probe_stub.sh)
-outside="$(probe_stub_outside | sort | uniq -c | sed 's/^ *//' | paste -sd';' -)"
+outside="$(probe_stub_outside 2>&1 | sort | uniq -c | sed 's/^ *//' | paste -sd';' -)"
 [[ -z "$outside" ]] && t_ok "🔴 every sudo went to this suite's stub and was an allow-listed read-only probe" || t_bad "🔴 every sudo went to this suite's stub and was an allow-listed read-only probe" "outside the allow-list: $outside"
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"
 [[ "$FAIL" -eq 0 ]]
