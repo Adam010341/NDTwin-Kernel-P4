@@ -334,6 +334,20 @@ class ADeadHeartbeatIsNotADeadNetworkTest(unittest.TestCase):
         self.assertEqual(f.topo._link_beacons, {})
         self.assertEqual(f.kernel.calls, [])
 
+    def test_evidence_attached_anew_judges_nothing_until_it_is_usable(self):
+        # A manager that already holds evidence (heard a minute ago) and is handed a heartbeat
+        # whose report does not exist yet: nothing it holds may time out on the clock before the
+        # new evidence has said anything -- judged now, the minute-old entry would read as a cut.
+        f = Fabric(self)
+        f.topo.report_external_link_state(*CUT[0], up=True, source="heartbeat",
+                                          at=f.clock.now - 60.0)
+        f.topo.attach_link_evidence(f.evidence)
+        for _ in range(3):
+            f.tick(5.0, heard=False)
+            f.topo.run_watchdog_pass()
+        self.assertEqual(f.kernel.of("link_failure"), [])
+        self.assertIs(f.topo._link_beacons[CUT[0]]["down"], False)
+
 
 #: A heartbeat frame as segment H's daemon builds it: dst 02:4e:44:54:48:42, ethertype 0x88B5,
 #: magic NDHB, padded to 60 bytes. Only its shape matters here -- it is not LLDP.

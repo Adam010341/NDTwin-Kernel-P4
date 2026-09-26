@@ -295,6 +295,13 @@ m=$(mutant p18 "$HBMOD" \
                 return reading, []')
 report "P18: an unusable report is empty evidence, not none" "$m" \
        "test_an_unusable_report_is_no_evidence_at_all"
+m=$(mutant p18b "$HBMOD" \
+    '                self._was_usable = False
+                return reading, None' \
+    '                self._was_usable = False
+                return reading, [(link, False, self._clock()) for link in self.declared]')
+report "P18b: no report reads as every direction silent (the network-wide false alarm)" "$m" \
+       "test_a_heartbeat_that_never_ran_judges_nothing"
 m=$(mutant p19 "$HBMOD" \
     '    period = _number(doc.get("period_s"))' \
     '    period = _number(doc.get("period"))')
@@ -384,6 +391,13 @@ m=$(mutant t08 "$TOPOMGR" \
             return None')
 report "T08: a dead heartbeat is judged at the clock (no freeze)" "$m" \
        "test_a_stale_report_freezes_every_link_where_it_was"
+m=$(mutant t08b "$TOPOMGR" \
+    '                return _NOTHING_TO_JUDGE
+            return self._evidence_judged_at' \
+    '                return None
+            return self._evidence_judged_at')
+report "T08b: evidence never usable yet is judged at the clock" "$m" \
+       "test_evidence_attached_anew_judges_nothing_until_it_is_usable"
 m=$(mutant t09 "$TOPOMGR" \
     '            self.report_external_link_state(*link, up=heard, source="heartbeat", at=at)' \
     '            self.report_external_link_state(*link, up=heard, source="heartbeat", at=at - 1.0)')
@@ -1102,7 +1116,7 @@ lreport "L23: a run that took its own fabric down fails on finish's rc 3" "$m" \
 m=$(lmutant l24 "$LIVE08" \
     'k = max(1, math.ceil((now + 0.3 - last - phi) / p))' \
     'k = 1')
-lreport "L24: the cut is planned for a round already past" "$m" "  a round too close to catch is skipped for the next (now 104.9 -> 110.050)"
+lreport "L24: the cut is planned for a round already past" "$m" "  too close gave"
 m=$(lmutant l25 "$LIVE08" \
     '    if (( $1 <= H1_WORST )); then echo "$PHI_WORST"; return; fi' \
     '    :')
