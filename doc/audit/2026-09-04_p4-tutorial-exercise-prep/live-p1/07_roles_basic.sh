@@ -166,6 +166,10 @@ skipped_is() {
     else echo "BAD control_plane.skipped is $got, want $2"; fi
 }
 
+# l1_links_verdict <switch_state.json> <model> -- THE check the live path's L1-on-switch_state
+# runs, one name for the live path and the self-test. [Co-developed with claude code -- Adam]
+l1_links_verdict() { declared_links_marked "$1" 8; }
+
 # declared_links_marked <switch_state.json> <n> -- n link entries, every one `source: declared`.
 declared_links_marked() {
     "$PY" - "$1" "$2" <<'PY'
@@ -338,11 +342,29 @@ owned = {"ipv4_route": "ndtwin", "five_tuple": False, "reroute": True,
          "link_discovery": "heartbeat", "binding_source": "package"}
 unbound = {"ipv4_route": "unbound", "five_tuple": False, "reroute": False,
            "link_discovery": "heartbeat", "binding_source": None}
+# [Co-developed with claude code -- Adam] `links` as switch_state serves it once the heartbeat
+# has fed the proxy (the fable judge's R2 note on ebdf365e): the first watchdog pass enters every
+# declared direction as heartbeat evidence, and link_liveness reports it with `source: heartbeat`
+# (a declared entry is only the setdefault behind it). Before that pass, or with no heartbeat,
+# every entry is `source: declared, down: null` -- the first cut's shape, kept below as a BAD.
+heard = lambda: {"source": "heartbeat", "down": False, "last_beacon_age_s": 1.2,
+                 "reported_to_kernel": True}
+declared_only = lambda: {"source": "declared", "down": None, "last_beacon_age_s": None,
+                         "reported_to_kernel": False}
+key = lambda s, sp, d, dp: f"{s}:{sp}->{d}:{dp}"
 state = {"control_plane": {"skipped": ["lldp_discovery", "link_watchdog"]},
          "switches": {str(d): {"capabilities": owned} for d in (1, 2, 3, 4)},
-         "links": {f"{s}:{sp}->{d}:{dp}": {"source": "declared", "down": None}
-                   for s, sp, d, dp in directions}}
+         "links": {key(*x): heard() for x in directions}}
 dump("state_owned.json", state)
+def links_variant(name, change):
+    v = copy.deepcopy(state)
+    change(v["links"])
+    dump(name, v)
+links_variant("links_one_declared.json", lambda l: l.__setitem__(key(1, 3, 3, 1), declared_only()))
+links_variant("links_all_declared.json", lambda l: [l.__setitem__(k, declared_only()) for k in list(l)])
+links_variant("links_one_down.json", lambda l: l[key(3, 1, 1, 3)].__setitem__("down", True))
+links_variant("links_one_missing.json", lambda l: l.pop(key(2, 4, 3, 2)))
+links_variant("links_one_extra.json", lambda l: l.__setitem__(key(1, 3, 4, 1), heard()))
 wrong = copy.deepcopy(state)
 wrong["switches"]["3"]["capabilities"] = dict(owned, reroute=False)
 wrong["control_plane"]["skipped"].append("install_initial_routes")
@@ -416,8 +438,18 @@ PY
     expect BAD "L6 one switch says reroute:true" "$(caps_are "$t/state_unbound_wrong.json" "$CAPS_UNBOUND")"
     expect OK  "L6 skipped with every table owned" "$(skipped_is "$t/state_owned.json" "$SKIPPED_OWNED")"
     expect BAD "L6 routes still skipped"         "$(skipped_is "$t/state_wrong.json" "$SKIPPED_OWNED")"
-    expect OK  "L1 eight declared link entries"  "$(declared_links_marked "$t/state_owned.json" 8)"
-    expect BAD "L1 no link entries"              "$(declared_links_marked "$t/state_wrong.json" 8)"
+    # [Co-developed with claude code -- Adam] L1 on switch_state with the heartbeat running: the
+    # package's 8 declared directions, exactly, every one fed by the heartbeat and none down.
+    # The live path's L1-on-switch_state check as it stands (declared_links_marked "$SS" 8), on a
+    # heartbeat-fed switch_state: the judge's finding, made visible here.
+    expect OK  "L1 the live path's switch_state check on a heartbeat-fed fabric" "$(l1_links_verdict "$t/state_owned.json" "$t/model.json")"
+    expect OK  "L1 the eight declared directions, heard" "$(links_heard "$t/state_owned.json" "$t/model.json")"
+    expect BAD "L1 no link entries"              "$(links_heard "$t/state_wrong.json" "$t/model.json")"
+    expect BAD "L1 a declared link the heartbeat never fed" "$(links_heard "$t/links_one_declared.json" "$t/model.json")"
+    expect BAD "L1 the heartbeat never fed the proxy (all declared)" "$(links_heard "$t/links_all_declared.json" "$t/model.json")"
+    expect BAD "L1 a link the heartbeat reports down" "$(links_heard "$t/links_one_down.json" "$t/model.json")"
+    expect BAD "L1 a link missing"               "$(links_heard "$t/links_one_missing.json" "$t/model.json")"
+    expect BAD "L1 an extra link"                "$(links_heard "$t/links_one_extra.json" "$t/model.json")"
     expect OK  "L2 read back"                    "$(flow_has "$t/flow_with.json" 1 10.0.9.9 3)"
     expect BAD "L2 not read back"                "$(flow_has "$t/flow_without.json" 1 10.0.9.9 3)"
     expect BAD "L2 read back on the wrong port"  "$(flow_has "$t/flow_with.json" 1 10.0.9.9 4)"
@@ -597,7 +629,7 @@ else
     if get_json "$PROXY_URL/p4/switch_state" "$SS"; then
         judge "$(caps_are "$SS" "$CAPS_OWNED")" "L6 capabilities"
         judge "$(skipped_is "$SS" "$SKIPPED_OWNED")" "L6 control_plane.skipped"
-        judge "$(declared_links_marked "$SS" 8)" "L1 declared links on switch_state"
+        judge "$(l1_links_verdict "$SS" "$PKG_ROLES/ndtwin/topology.json")" "L1 declared links on switch_state"
     else
         fail "L6: no switch_state"
     fi
