@@ -150,7 +150,7 @@ export NDT_TOPO_LOG="'"$FIX"'/.test_run/logs/topo.log"
 sudo() {
     printf "sudo %s\n" "$*" >> "$EVENTS"
     case "$*" in
-        *topo-start*) echo 4 > "'"$FIX"'/bmv2_count" ;;
+        *topo-start*) echo 99 > "'"$FIX"'/bmv2_count" ;;
         *"heartbeat start"*)
             case "${HB_START_RC:-0}" in
                 0) echo 4242 > "'"$HB_PID"'"
@@ -214,6 +214,10 @@ reset_fix() {
     printf '4\n' > "$FIX/p4_proxy/mininet/host_count_override"
 }
 events() { cat "$EVENTS"; }
+# 🔴 THE HELPER'S VERB, not the word: this fixture's own directory is named ndt-heartbeat-*, so
+# every sudo line carries "heartbeat" in its path. (The first draft counted the word, and every
+# negative cell read the fixture's name.)
+hb_calls() { count_of 'ndtwin-lab heartbeat'; }
 count_of() { local n; n="$(/usr/bin/grep -cF -- "$1" "$EVENTS" 2>/dev/null)"; [[ "$n" =~ ^[0-9]+$ ]] || n=0; printf '%s' "$n"; }
 # line_of <text> -- the line number of its first occurrence in the event log, or 0.
 line_of() { local n; n="$(/usr/bin/grep -nF -- "$1" "$EVENTS" | head -1 | cut -d: -f1)"; printf '%s' "${n:-0}"; }
@@ -225,12 +229,12 @@ section "1. a foreign package fabric starts the heartbeat -- after the fabric, b
 reset_fix
 OUT="$(drive "NDT_APP_DIR=$(q "$PKG_FOREIGN"); up_p4")"
 check "🔴 the bring-up succeeds"                                 "0" "$(rc_of "$OUT")"
-check "🔴 exactly one 'heartbeat start'"                         "1" "$(count_of 'heartbeat start')"
-check "🔴 after topo-start"                                      "yes" "$(before 'topo-start' 'heartbeat start')"
-check "🔴 before stack.sh starts the proxy"                      "yes" "$(before 'heartbeat start' 'stack up p4')"
+check "🔴 exactly one 'heartbeat start'"                         "1" "$(count_of 'ndtwin-lab heartbeat start')"
+check "🔴 after topo-start"                                      "yes" "$(before 'topo-start' 'ndtwin-lab heartbeat start')"
+check "🔴 before stack.sh starts the proxy"                      "yes" "$(before 'ndtwin-lab heartbeat start' 'stack up p4')"
 has   "  the helper's answer is printed"                         "heartbeat started (pid 4242" "$OUT"
 has   "  and ndt says what it is for"                            "heartbeat running" "$OUT"
-check "  nothing was stopped on the way up"                      "0" "$(count_of 'heartbeat stop')"
+check "  nothing was stopped on the way up"                      "0" "$(count_of 'ndtwin-lab heartbeat stop')"
 
 # The same fabric already up (the reuse branch): start is asked again, and the helper's own
 # "already running" is what makes that harmless -- ndt does not keep a second copy of that rule.
@@ -239,7 +243,7 @@ echo 4 > "$FIX/bmv2_count"; echo 4 > "$FIX/fabric_hosts"; : > "$FIX/topo_session
 OUT="$(drive "NDT_APP_DIR=$(q "$PKG_FOREIGN"); up_p4")"
 check "  a reused fabric: rc 0"                                  "0" "$(rc_of "$OUT")"
 has   "  (it did take the reuse branch)"                         "already up" "$OUT"
-check "🔴 a reused foreign fabric asks for the heartbeat too"    "1" "$(count_of 'heartbeat start')"
+check "🔴 a reused foreign fabric asks for the heartbeat too"    "1" "$(count_of 'ndtwin-lab heartbeat start')"
 
 # =============================================================================================
 section "2. 🔴 NOT on NDTwin's own pipeline, NOT on the baseline, NOT on an external plane"
@@ -248,18 +252,18 @@ reset_fix
 OUT="$(drive "NDT_APP_DIR=$(q "$PKG_NDTWIN"); up_p4")"
 check "  a package on NDTwin's pipeline comes up"                "0" "$(rc_of "$OUT")"
 has   "  (the pipeline kind was read as ndtwin)"                 "VERIFY_P4 pipe=ndtwin" "$OUT"
-check "🔴 and never asks for a heartbeat (it has LLDP)"          "0" "$(count_of 'heartbeat')"
+check "🔴 and never asks for a heartbeat (it has LLDP)"          "0" "$(hb_calls)"
 
 reset_fix
 OUT="$(drive 'up_p4 4')"
 check "  the baseline fabric comes up"                           "0" "$(rc_of "$OUT")"
-check "🔴 and never asks for a heartbeat"                        "0" "$(count_of 'heartbeat')"
+check "🔴 and never asks for a heartbeat"                        "0" "$(hb_calls)"
 
 reset_fix
 OUT="$(drive "NDT_APP_DIR=$(q "$PKG_EXTERNAL"); up_p4")"
 check "  an external package comes up"                           "0" "$(rc_of "$OUT")"
 has   "  (the pipeline kind was read as foreign)"                "VERIFY_P4 pipe=foreign:" "$OUT"
-check "🔴 and does not start one: the proxy reads only there"    "0" "$(count_of 'heartbeat')"
+check "🔴 and does not start one: the proxy reads only there"    "0" "$(hb_calls)"
 
 # =============================================================================================
 section "3. 🔴 a heartbeat that does not start does not fail the bring-up"
@@ -285,14 +289,14 @@ reset_fix
 echo 4242 > "$HB_PID"
 OUT="$(NDT_OWNER=t drive 'cmd_down')"
 check "  the teardown succeeds"                                  "0" "$(rc_of "$OUT")"
-check "🔴 one 'heartbeat stop'"                                  "1" "$(count_of 'heartbeat stop')"
-check "🔴 before topo-stop"                                      "yes" "$(before 'heartbeat stop' 'topo-stop')"
-check "  after stack.sh down (the proxy reading it is gone first)" "yes" "$(before 'stack down' 'heartbeat stop')"
+check "🔴 one 'heartbeat stop'"                                  "1" "$(count_of 'ndtwin-lab heartbeat stop')"
+check "🔴 before topo-stop"                                      "yes" "$(before 'ndtwin-lab heartbeat stop' 'topo-stop')"
+check "  after stack.sh down (the proxy reading it is gone first)" "yes" "$(before 'stack down' 'ndtwin-lab heartbeat stop')"
 has   "  the helper's answer is printed"                         "heartbeat stopped (pid 4242)" "$OUT"
 
 reset_fix
 OUT="$(NDT_OWNER=t drive 'cmd_down')"
-check "🔴 no pidfile: the helper is not asked at all"            "0" "$(count_of 'heartbeat')"
+check "🔴 no pidfile: the helper is not asked at all"            "0" "$(hb_calls)"
 check "  and the teardown's own two sudo calls are the only ones" "2" "$(count_of 'sudo ')"
 
 reset_fix
@@ -310,9 +314,9 @@ reset_fix
 : > "$STACK_FAIL"
 OUT="$(drive "NDT_APP_DIR=$(q "$PKG_FOREIGN"); up_p4")"
 check "  a proxy that never came up: rc 1"                       "1" "$(rc_of "$OUT")"
-check "🔴 the rollback stopped the heartbeat"                    "1" "$(count_of 'heartbeat stop')"
-check "🔴 before it stopped the topology"                        "yes" "$(before 'heartbeat stop' 'topo-stop')"
-check "  and after the stack"                                    "yes" "$(before 'stack down' 'heartbeat stop')"
+check "🔴 the rollback stopped the heartbeat"                    "1" "$(count_of 'ndtwin-lab heartbeat stop')"
+check "🔴 before it stopped the topology"                        "yes" "$(before 'ndtwin-lab heartbeat stop' 'topo-stop')"
+check "  and after the stack"                                    "yes" "$(before 'stack down' 'ndtwin-lab heartbeat stop')"
 
 # A running topology of the wrong size is replaced: its heartbeat goes first, or the new
 # bring-up's `start` answers "already running" for the OLD fabric's daemon, which then exits
@@ -322,8 +326,8 @@ echo 4 > "$FIX/bmv2_count"; echo 2 > "$FIX/fabric_hosts"; : > "$FIX/topo_session
 echo 4242 > "$HB_PID"
 OUT="$(drive "NDT_APP_DIR=$(q "$PKG_FOREIGN"); up_p4")"
 check "  the replacement comes up"                               "0" "$(rc_of "$OUT")"
-check "🔴 the old heartbeat was stopped before the old topology" "yes" "$(before 'heartbeat stop' 'topo-stop')"
-check "  and a new one started after the new topology"           "yes" "$(before 'topo-start' 'heartbeat start')"
+check "🔴 the old heartbeat was stopped before the old topology" "yes" "$(before 'ndtwin-lab heartbeat stop' 'topo-stop')"
+check "  and a new one started after the new topology"           "yes" "$(before 'topo-start' 'ndtwin-lab heartbeat start')"
 
 # =============================================================================================
 section "6. 'ndt status' shows it, from the report file (no sudo)"
