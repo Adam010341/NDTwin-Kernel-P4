@@ -274,9 +274,10 @@ class CellsRun(GridCase):
         self.assertEqual((job["rc"], job["rc_class"], job["cell_verdict"]["state"]), (0, "pass", "PASS"))
 
     def test_lab_cell_run_needs_your_claim(self):
-        """Judge r2 finding 1: with ndt's OVS `up` ignoring a foreign claim, a lab cell run without a
-        claim of your own can build a fabric under somebody else's -- and its restore's `down` is
-        then refused (rc 5) and the fabric stays. The run reads `ndt status`'s claim line first."""
+        """Judge r2 finding 1: a lab cell run without a claim of your own acts under somebody else's
+        -- its netem, kill or knob write asks no guard, and its restore's `down` is refused (rc 5), so
+        what it left stays. (Written 09-24, when ndt's OVS `up` also ignored a foreign claim; trunk
+        68ace017 made it refuse.) The run reads `ndt status`'s claim line first."""
         for text in (CLAIM_NONE, CLAIM_FOREIGN, CLAIM_EXPIRED, "lab\n  measuring nothing\n"):
             self.s.behave(status={"stdout": text})
             st, j, _, _ = self.s.post("/cells/lab_cell/run")

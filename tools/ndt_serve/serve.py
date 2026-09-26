@@ -26,8 +26,10 @@ The design red lines (TICKET section 3), and where each one lives:
                        it; stdout and stderr are kept byte for byte.
   5. long jobs         jobs.py / runner.py: async, one state-changing job at a time, detached with
                        setsid, recorded on disk.
-  6. no pkill -f       nothing here signals anything but the process group this process itself
-                       created for a read-only `ndt status` that ran past its timeout.
+  6. no pkill -f       nothing here signals anything but a process group this process itself
+                       created, for a call that ran past its timeout: a read-only `ndt status` or
+                       `ndt apps` (run_read, below), or a grid call -- `run_cells.sh --list` or
+                       a cell's `judge` (cells.Grid._run). Two places, one shape.
   7. identity          --owner (or $NDT_OWNER) is set once, and every ndt call carries it.
 """
 import argparse
@@ -507,8 +509,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def _spawn_cell_run(self, cell, body, confirmed):
         """A cell run. 🔴 A cell that needs the lab runs only under THIS owner's claim (judge r2
-        finding 1): ndt's OVS `up` does not refuse under a foreign claim, so a run without one can
-        build a fabric under somebody else's, and the restore's `down` is then refused (rc 5)."""
+        finding 1). Written 09-24, when ndt's OVS `up` did not refuse under a foreign claim; since
+        trunk 68ace017 it does, on both planes (up_ovs calls guard_up_lab_free, ndt:4248). The check
+        stays because a cell is more than its `up`: some set netem, send kill -TERM or write the
+        host-count knob, and none of that asks ndt's guard -- and under a foreign claim the
+        restore's `down` is refused (rc 5), so what the cell left stays."""
         cfg = self.cfg
         self._need_confirmation(cell, confirmed)
         raw_root = os.path.join(cfg.state_dir, "cells-raw", cell["name"] + "-" + secrets.token_hex(4))

@@ -205,8 +205,10 @@ RC_TABLE = {
         0: ("ok", "all compared fields match what the last 'ndt up' asked for"),
         # 🔴 ndt help says "1 one of them does not", but cmd_status answers 1 whenever its
         # problems[] is not empty (ndt:6946-6948) -- a claim held by somebody else (6576), a
-        # declared measurement (6662), a netem qdisc (6806), a refused sudo grant (6819) are all
-        # problems. A GUI that printed "a field does not match" would name the wrong cause.
+        # measurement process in flight (6662, in_flight's process scan -- a measuring= the claim
+        # only DECLARES, 6638-6640, is not a problem), a netem qdisc (6806), a refused sudo grant
+        # (6819) are all problems. A GUI that printed "a field does not match" would name the wrong
+        # cause.
         1: ("dirty", "ndt reported at least one problem -- a compared field that does not match, a claim "
                      "held by somebody else, a measurement in progress, a netem qdisc, a refused sudo "
                      "grant, and more; the output names each one"),

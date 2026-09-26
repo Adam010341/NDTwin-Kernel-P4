@@ -3,6 +3,7 @@
 [Co-developed with claude code -- Adam]
 
 - 分支：`feat/ndt-serve-0924`（base trunk `fd7382a3`），worktree 在 `scratch/overnight-2026-09-05/wt-ndt-serve-0924`。**沒有併進 trunk，也沒有推任何遠端。**
+- **09-26 併入時補註（下文不改）**：本報告引用的 ndt 行號都是 09-24 那份 ndt（blob `3273df8b`＝base trunk `fd7382a3` 的版本），早於 trunk `68ace017`（OVS 平面的 claim 修正）；§1 第 7 題、§2、§4.3 第 4 列、§4.4、§4.5 第 4 項說的「OVS 的 `up` 不擋別人的 claim（也不擋進行中的量測）」自 `68ace017` 起已不成立——併入後的 ndt:4248，`up_ovs` 呼叫 `guard_up_lab_free`。
 - **本報告對應的程式碼 head 是 `490513fe`**：判官第二輪的修正在 `8f2fbb5b`；`3638ebd3` 改了測試和閘門，`490513fe` 把 listen backlog 提高到 64（§2「第二輪修正時我自己的失誤」）。
   - opus-judge 第一輪審的是 `e4589399`，裁定 READY AFTER FIXES（修完就能交）；修正輪的 commit 是 `c836cff0` 和 `5c07acf3`。
   - 第二輪審的是 `e4589399..e28bcfe4`，同樣 READY AFTER FIXES：第一輪的 9 項全部 FIXED，擋下來的是 cells 新碼；修正在 `8f2fbb5b`。
@@ -280,7 +281,7 @@ ndt serve --owner adam                                                 # 併進 
 
 `api/NN-*.http`（token 已遮蔽）、`api/<step>.stdout/.stderr`、`direct/`、`after-fix/`、`serve*.err`。
 
-### 5.4 修正輪（22:49:21–22:53:40，程式碼 `c836cff0`；demo 那處改動之後 commit 成 `5c07acf3`）
+### 5.4 修正輪（22:49:18–22:53:40，程式碼 `c836cff0`；demo 那處改動之後 commit 成 `5c07acf3`）
 
 - **條件**：
   - 開跑前查了三次：22:48:57 只印在終端，22:49:18 存在 `00-before.txt`（檔頭時間），22:49:40 只印在終端；三次都是 claim none、measuring nothing；

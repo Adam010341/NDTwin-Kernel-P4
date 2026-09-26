@@ -929,8 +929,9 @@ class NoPatternKill(unittest.TestCase):
         self.assertEqual((calls, names), ([], []))
 
     def test_the_only_signal_sent_is_to_a_group_this_service_created(self):
-        """run_read's timeout path is the one place a signal is sent; it must name the pid of the
-        Popen it started with start_new_session, never a looked-up process."""
+        """The timeout paths of run_read (serve.py) and Grid._run (cells.py) are the two places a
+        signal is sent; each must name the pid of the Popen it started with start_new_session,
+        never a looked-up process."""
         sends = [(os.path.basename(p), text, line) for p in glob.glob(os.path.join(SERVE_DIR, "*.py"))
                  for kind, text, line in code_facts(p)
                  if kind == "call" and (text.startswith("os.kill") or text.endswith(".send_signal")
