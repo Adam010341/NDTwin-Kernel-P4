@@ -245,8 +245,11 @@ RC_TABLE = {
 
 
 # Where each table's codes come from. "help": the phrase `ndt help` prints for each rc (compared
-# whitespace-normalised). "code": (line, rc, text that line must contain) in tools/test_workflow/ndt
-# -- trunk 68ace017's line numbers: this branch's `serve)` dispatch lies below every anchor.
+# whitespace-normalised). "code": (line, rc, text that line must contain, the function that line
+# lies in) in tools/test_workflow/ndt -- trunk 68ace017's line numbers: this branch's `serve)`
+# dispatch lies below every anchor. 🔴 The function is half the anchor (intake judge 09-26, finding
+# 3): `return 1` is on 187 lines of this tree's ndt, and 09-24's apps.start line 8315 is one of
+# them today -- in proc_checkout. [Co-developed with claude code -- Adam]
 RC_SOURCE = {
     "up": {"help": {0: "exit 0 the fabric came up and verified",
                     1: "1 something was MEASURED and it was dirty",
@@ -260,14 +263,19 @@ RC_SOURCE = {
     "status.check": {"help": {0: "exit 0 all compared fields match",
                               1: "1 one of them does not (the message names it)",
                               3: "3 nothing was compared, because there is no baseline RIGHT NOW"},
-                     "code": [(6939, 3, "return 3"), (6944, 0, "return 0"), (6948, 1, "return 1")]},
-    "status": {"code": [(6950, 0, "return 0")]},
-    "claim": {"code": [(753, 2, "return 2"), (762, 2, "return 2"), (787, 1, "return 1"),
-                       (860, 1, "return 1"), (862, 0, 'ok "lab claimed by')]},
-    "release": {"code": [(866, 0, "return 0"), (871, 1, "return 1"), (899, 1, "return 1")]},
-    "apps.start": {"code": [(8771, 0, "return 0"), (8775, 1, "return 1"), (8848, 1, "return 1")]},
-    "apps.stop": {"code": [(10289, 1, "return 1"), (10292, 2, "return 2"), (10295, 0, "return 0")]},
-    "apps.status": {"code": [(10222, 0, "return 0")]},
+                     "code": [(6939, 3, "return 3", "cmd_status"), (6944, 0, "return 0", "cmd_status"),
+                              (6948, 1, "return 1", "cmd_status")]},
+    "status": {"code": [(6950, 0, "return 0", "cmd_status")]},
+    "claim": {"code": [(753, 2, "return 2", "cmd_claim"), (762, 2, "return 2", "cmd_claim"),
+                       (787, 1, "return 1", "claim_take"), (860, 1, "return 1", "claim_take"),
+                       (862, 0, 'ok "lab claimed by', "claim_take")]},
+    "release": {"code": [(866, 0, "return 0", "cmd_release"), (871, 1, "return 1", "cmd_release"),
+                         (899, 1, "return 1", "cmd_release")]},
+    "apps.start": {"code": [(8771, 0, "return 0", "app_start"), (8775, 1, "return 1", "app_start"),
+                            (8848, 1, "return 1", "app_start")]},
+    "apps.stop": {"code": [(10289, 1, "return 1", "cmd_apps"), (10292, 2, "return 2", "cmd_apps"),
+                           (10295, 0, "return 0", "cmd_apps")]},
+    "apps.status": {"code": [(10222, 0, "return 0", "cmd_apps")]},
 }
 
 

@@ -518,14 +518,26 @@ class Handler(http.server.BaseHTTPRequestHandler):
                            precheck=self._require_own_claim if cell["requires"] != "none" else None)
 
     def _require_own_claim(self):
-        """Read `ndt status`'s claim line (ndt:5664 claim_line) and go on only if it says `yours`.
-        This reads ndt's answer; it does not decide anything ndt decides."""
+        """Read `ndt status`'s claim line (ndt:5664 claim_line) and go on only if it is ndt's
+        own-claim form, exactly. This reads ndt's answer; it does not decide anything ndt decides.
+
+        🔴 Exact, not a prefix (intake judge 09-26, finding 2): claim_line prints somebody else's
+        claim as `<owner> -- ...`, and an owner is any string -- `yours-x`, or one that spells the
+        whole own form. What it cannot tell apart is an owner named exactly `yours`: ndt prints
+        that claim as it prints your own (and its own `--check` reads `yours*` the same way)."""
         r = run_read(self.cfg, "status", verbs.argv_status(False), self.cfg.read_timeout)
-        if r is None or r["rc_class"] == "timeout":
-            raise HttpError(409, "claim", note="the claim could not be read (ndt status did not answer); "
-                            "a cell that needs the lab is not run on a guess")
+        # [Co-developed with claude code -- Adam] two reasons the claim was not read, each named
+        # (intake judge 09-26, finding 5) -- neither is a claim, and neither runs the cell
+        if r is None:
+            raise HttpError(409, "claim", note="the claim was not read: no read slot came free within %d s "
+                            "(two read-only ndt calls held both), so ndt status never ran; a cell that needs "
+                            "the lab is not run on a guess -- try again" % self.cfg.read_queue_wait)
+        if r["rc_class"] == "timeout":
+            raise HttpError(409, "claim", note="the claim was not read: ndt status did not answer within %d s "
+                            "and was stopped, and a stopped read is not a reading; a cell that needs the lab "
+                            "is not run on a guess" % self.cfg.read_timeout, read=r["read"]["id"])
         line = claim_of(r["stdout"])
-        if not (line or "").startswith("yours"):
+        if not OWN_CLAIM.fullmatch(line or ""):
             raise HttpError(409, "claim", note="a cell that needs the lab runs only under your own claim -- "
                             "POST %s/claim first" % API, claim=line, read=r["read"]["id"])
 
@@ -733,6 +745,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 
 CLAIM_LINE = re.compile(r"^  claim\s+(.*?)\s*$", re.M)
+# ndt's own-claim value, whole: `printf 'yours -- %dm left (until %s)\n'` (ndt:5677, claim_line),
+# the time from `date +%H:%M:%S`. [Co-developed with claude code -- Adam]
+OWN_CLAIM = re.compile(r"yours -- [0-9]+m left \(until [0-9]{2}:[0-9]{2}:[0-9]{2}\)")
 
 
 def claim_of(status_stdout):

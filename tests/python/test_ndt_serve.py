@@ -73,6 +73,7 @@ STUB_PY = textwrap.dedent('''\
                             b.get("stdout", "stub stdout: %s\\n" % key).encode())
     sys.stderr.buffer.write(b.get("stderr", "stub stderr: %s\\n" % key).encode())
     sys.stdout.flush(); sys.stderr.flush()
+    time.sleep(b.get("sleep_after", 0))   # printed, then hung: a timeout with output already read
     log({"done": os.getpid(), "argv": argv, "t": time.time()})
     sys.exit(b.get("rc", 0))
     ''')
@@ -1047,14 +1048,48 @@ class RcProvenance(unittest.TestCase):
             for rc, phrase in src["help"].items():
                 self.assertIn(" ".join(phrase.split()), self.help, "%s rc %d" % (kind, rc))
 
+    FUNC_DEF = re.compile(r"^([A-Za-z_][A-Za-z0-9_:-]*)\s*\(\)\s*\{")
+
+    def enclosing_function(self, n):
+        """The function ndt line n lies in: the nearest `name() {` at column 0 above it, with no
+        column-0 `}` (a function's end) in between and not a one-line definition. None when the
+        line is at top level."""
+        for i in range(n - 2, -1, -1):
+            text = self.lines[i]
+            m = self.FUNC_DEF.match(text)
+            if m:
+                return None if text.rstrip().endswith("}") else m.group(1)
+            if text.startswith("}"):
+                return None
+        return None
+
     def test_code_sourced_tables_are_in_ndt(self):
+        """Each anchor is its line, the text on it AND the function it lies in (intake judge 09-26,
+        finding 3): `return 1` is on a great many lines, and a line number pointed back at 09-24's
+        8315 -- proc_checkout's `return 1` today -- passed a check of the text alone. Every
+        anchor is checked and every broken one named, not only the first."""
+        bad = []
         for kind, src in self.verbs.RC_SOURCE.items():
             if "code" not in src:
                 continue
-            self.assertEqual(sorted({rc for _, rc, _ in src["code"]}), sorted(self.verbs.RC_TABLE[kind]), kind)
-            for line, rc, needle in src["code"]:
-                text = self.lines[line - 1]
-                self.assertIn(needle, text, "%s rc %d: ndt:%d is %r" % (kind, rc, line, text.strip()))
+            self.assertEqual(sorted({a[1] for a in src["code"]}), sorted(self.verbs.RC_TABLE[kind]), kind)
+            for line, rc, needle, func in src["code"]:
+                text = self.lines[line - 1] if 0 < line <= len(self.lines) else "<past the end of ndt>"
+                where = self.enclosing_function(line) if 0 < line <= len(self.lines) else None
+                if needle not in text or where != func:
+                    bad.append("%s rc %d: ndt:%d is %r in %s, cited as %r in %s" % (
+                        kind, rc, line, text.strip(), where, needle, func))
+        self.assertEqual(bad, [])
+
+    def test_the_function_finder_reads_ndt(self):
+        """The finder above, on the real ndt's claim_line: a finder that answered the cited name
+        whatever the line, or None whatever the line, would make the check above decoration."""
+        starts = [i + 1 for i, t in enumerate(self.lines) if t.startswith("claim_line() {")]
+        self.assertEqual(len(starts), 1, "claim_line() is defined once")
+        start = starts[0]
+        end = next(i + 1 for i in range(start, len(self.lines)) if self.lines[i].startswith("}"))
+        self.assertEqual([self.enclosing_function(n) for n in (start, start + 1, end - 1, end + 1)],
+                         [None, "claim_line", "claim_line", None])
 
     def test_status_check_rc1_names_any_problem(self):
         c, m = self.verbs.meaning("status.check", 1)

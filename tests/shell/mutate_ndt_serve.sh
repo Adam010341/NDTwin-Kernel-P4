@@ -509,7 +509,7 @@ report "M60: the demo's slot probe is a real POST /down with the token" "$m" \
        DemoProbes.test_demo_probes_cannot_touch_the_lab
 
 m=$(mutant m61 "$VERBS_PY" \
-    '    "apps.status": {"code": [(10222, 0, "return 0")]},' \
+    '    "apps.status": {"code": [(10222, 0, "return 0", "cmd_apps")]},' \
     '')
 report "M61: an rc table with no source" "$m" \
        RcProvenance.test_every_table_names_its_source
@@ -635,7 +635,7 @@ report "C17: a lab cell runs without reading the claim" "$m" \
        cells:CellsRun.test_lab_cell_run_needs_your_claim
 
 m=$(mutant c18 "$SERVE_PY" \
-    '        if not (line or "").startswith("yours"):' \
+    '        if not OWN_CLAIM.fullmatch(line or ""):' \
     '        if line is None:')
 report "C18: any claim line -- none, a foreign one, an expired one -- lets a lab cell run" "$m" \
        cells:CellsRun.test_lab_cell_run_needs_your_claim
@@ -677,6 +677,44 @@ m=$(mutant c24 "$CELLS_PY" \
         p = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,')
 report "C24: an implicit child-only kill (subprocess.run timeout=) comes back" "$m" \
        NoPatternKill.test_the_only_signal_sent_is_to_a_group_this_service_created
+
+
+# --- the intake judge (opus-judge on the merge 48209682, 09-26; the orchestrator's selection) -----
+# [Co-developed with claude code -- Adam]
+
+m=$(mutant c25 "$SERVE_PY" \
+    '        if not OWN_CLAIM.fullmatch(line or ""):' \
+    '        if not (line or "").startswith("yours"):')
+report "C25: the claim check is a prefix again (a foreign owner yours-x is yours)" "$m" \
+       cells:CellsRun.test_only_ndts_own_claim_form_is_yours
+
+m=$(mutant c26 "$SERVE_PY" \
+    '        if not OWN_CLAIM.fullmatch(line or ""):' \
+    '        if not (line or "").startswith("yours -- "):')
+report "C26: the claim check is the own form's prefix (an owner named to contain it passes)" "$m" \
+       cells:CellsRun.test_only_ndts_own_claim_form_is_yours
+
+m=$(mutant c27 "$SERVE_PY" \
+    '        if r is None:
+            raise HttpError(409, "claim", note="the claim was not read: no read slot' \
+    '        if False:
+            raise HttpError(409, "claim", note="the claim was not read: no read slot')
+report "C27: no read slot for the claim read is not caught (a 500, not a 409 claim)" "$m" \
+       cells:CellsRun.test_no_read_slot_is_not_a_claim_and_says_so
+
+m=$(mutant c28 "$SERVE_PY" \
+    '        if r["rc_class"] == "timeout":
+            raise HttpError(409, "claim",' \
+    '        if False:
+            raise HttpError(409, "claim",')
+report "C28: a claim read stopped at its timeout is trusted (its partial yours runs the cell)" "$m" \
+       cells:CellsRun.test_a_status_past_its_timeout_is_not_a_claim
+
+m=$(mutant m63 "$VERBS_PY" \
+    '(8775, 1, "return 1", "app_start")' \
+    '(8315, 1, "return 1", "app_start")')
+report "M63: apps.start rc 1 cites 09-24's line 8315 -- proc_checkout's return 1 today" "$m" \
+       RcProvenance.test_code_sourced_tables_are_in_ndt
 
 
 m=$(mutant m62 "$SERVE_PY" \

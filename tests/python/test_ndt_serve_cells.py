@@ -286,6 +286,77 @@ class CellsRun(GridCase):
         self.assertEqual(self.run_cell()["rc_class"], "pass")
         self.assertEqual(len(self.s.runs()), 1)
 
+    def test_only_ndts_own_claim_form_is_yours(self):
+        """Intake judge 09-26, finding 2: the check was a PREFIX match on "yours", so a foreign
+        owner whose name merely starts with it -- `yours-x` -- passed as this server's own claim.
+        ndt prints its own claim as exactly `yours -- <n>m left (until HH:MM:SS)` (ndt:5677,
+        claim_line). Every other value -- another owner's, one named to contain the own form,
+        EXPIRED, malformed -- is somebody else's or nobody's, and runs nothing."""
+        for value in ("yours-x -- 12m left (until 23:40:00)",
+                      "yoursx -- 12m left (until 23:40:00)",
+                      "yours -- 5m left (until 12:00:00) -- 12m left (until 23:40:00)",
+                      "yours -- 12m left",
+                      "EXPIRED 3m ago (was yours) -- treated as free",
+                      "malformed (no usable expires=) -- treated as free"):
+            self.s.behave(status={"stdout": "lab\n  claim          %s\n" % value})
+            st, j, _, _ = self.s.post("/cells/lab_cell/run")
+            self.assertEqual((st, j.get("error"), j.get("claim")), (409, "claim", value), value)
+        self.assertEqual(self.s.runs(), [])
+        # ...and the own form itself, whatever the minutes, is yours
+        self.s.behave(status={"stdout": "lab\n  claim          yours -- 240m left (until 03:59:00)\n"})
+        self.assertEqual(self.run_cell()["rc_class"], "pass")
+        self.assertEqual(len(self.s.runs()), 1)
+
+    def test_no_read_slot_is_not_a_claim_and_says_so(self):
+        """Intake judge 09-26, finding 5: with both read slots taken past --read-queue-wait, the
+        claim was never read at all -- ndt status did not run. The run is refused (409 claim, so a
+        walk records it as blocked), and the answer says THAT, not "ndt status did not answer"."""
+        import threading
+        s = GridServe(extra=["--read-queue-wait", "1"]).start()
+        try:
+            s.behave(status={"stdout": CLAIM_YOURS, "sleep": 5})
+            held = []
+            ts = [threading.Thread(target=lambda: held.append(s.get("/status")[0])) for _ in range(2)]
+            for t in ts:
+                t.start()
+            deadline = time.monotonic() + 10
+            while len(s.calls()) < 2 and time.monotonic() < deadline:
+                time.sleep(0.05)
+            self.assertEqual(len(s.calls()), 2, "the two reads that hold the slots did not start")
+            st, j, _, _ = s.post("/cells/lab_cell/run")
+            for t in ts:
+                t.join(30)
+            self.assertEqual((st, j.get("error")), (409, "claim"), j)
+            self.assertIn("no read slot", j["note"])
+            self.assertNotIn("did not answer", j["note"])
+            self.assertEqual(len(s.calls()), 2, "the claim read ran ndt without a read slot")
+            self.assertEqual(s.runs(), [])
+            self.assertEqual(held, [200, 200])
+        finally:
+            s.close()
+
+    def test_a_status_past_its_timeout_is_not_a_claim(self):
+        """Intake judge 09-26, finding 5: ndt status printed `yours` and then hung past
+        --read-timeout. A read that was stopped is not a reading: the run is refused, the answer
+        says it timed out, and what ndt printed before it was stopped is kept, by read id."""
+        s = GridServe(extra=["--read-timeout", "2"]).start()
+        try:
+            s.behave(status={"stdout": CLAIM_YOURS, "sleep_after": 30})
+            st, j, _, _ = s.post("/cells/lab_cell/run")
+            self.assertEqual((st, j.get("error")), (409, "claim"), j)
+            self.assertIn("did not answer within 2 s", j["note"])
+            self.assertEqual(s.runs(), [])
+            st, _, _, raw = s.get("/reads/%s/log/stdout" % j.get("read"))
+            self.assertEqual(st, 200)
+            self.assertIn(b"yours -- 30m left", raw, "the partial output was not kept")
+        finally:
+            # under a mutation that stops killing the group the stub sleeps on: stopped here by
+            # the pid it recorded
+            for c in s.calls():
+                if base._pid_alive(c["pid"]):
+                    os.kill(c["pid"], signal.SIGKILL)
+            s.close()
+
     def test_offline_cell_run_does_not_ask_for_the_claim(self):
         self.s.behave(status={"stdout": CLAIM_NONE})
         self.assertEqual(self.run_cell("offline_cell")["rc_class"], "pass")
