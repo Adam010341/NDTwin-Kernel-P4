@@ -14,6 +14,12 @@
 # rows that put back one piece of the round-7 fix each (the ones marked MUTANT guard new code).
 # Round 7b adds R7-1 / R7-2 (the round-7 verdict's findings: the CLAIM_MINUTES default below the
 # sources, and the census building an arm after a refused down) and mutants for notes 3 and 4.
+# Round 8 adds R8-1 / R8-2 -- round 7's detection loop, which cut and restored right after its
+# previous wait returned (one phase of the heartbeat's round every cycle; the segment-S report's
+# judge, Blocking 1) -- and mutants R8-3 .. R8-9 of round 8's new code: the report level written down
+# rather than read (Blocking 2), phases from the schedule rather than the frame heard (the
+# re-review's note 1), controls that cannot fail, CONTROLS ignored, a summary that never judges
+# coverage. Their checks run the spike's detect loop against hb_watch.py's simulated daemon.
 #
 # For each REVERT below: a copy of S_heartbeat_spike.sh and a copy of hb_watch.py are written
 # BESIDE the real ones (same directory, so SPIKE_DIR / LIVE_P1 / REPO resolve exactly as for the
@@ -149,18 +155,19 @@ REVERTS = {
     ], [
         ("the census table without 'column' ended the run: rc 127", "column: command not found"),
     ]),
-    "R4-3/d-i": ("judge (d)(i): hb_watch all-heard / others-up with a bare load()", [
+    # Round 8: the report is read through report() (load() unless HB_WATCH_SIM), and `now` through clock().
+    "R4-3/d-i": ("judge (d)(i): hb_watch all-heard / others-up with a bare report() (round 4's bare load())", [
         ("watch", '''        try:
-            print(all_heard(load(argv[2]), float(argv[3])))
+            print(all_heard(report(argv[2]), float(argv[3])))
         except (OSError, ValueError, KeyError) as exc:
             print(f"BAD the report could not be read: {exc!r}")
-''', '''        print(all_heard(load(argv[2]), float(argv[3])))
+''', '''        print(all_heard(report(argv[2]), float(argv[3])))
 ''', 1),
         ("watch", '''        try:
-            print(others_up(load(argv[2]), parse_dirs(argv[3]), time.monotonic(), float(argv[4])))
+            print(others_up(report(argv[2]), parse_dirs(argv[3]), clock(), float(argv[4])))
         except (OSError, ValueError, KeyError) as exc:
             print(f"BAD the report could not be read: {exc!r}")
-''', '''        print(others_up(load(argv[2]), parse_dirs(argv[3]), time.monotonic(), float(argv[4])))
+''', '''        print(others_up(report(argv[2]), parse_dirs(argv[3]), clock(), float(argv[4])))
 ''', 1),
     ], [
         ("all-heard on a report that cannot be read: BAD, rc 0", "raised FileNotFoundError"),
@@ -191,8 +198,9 @@ REVERTS = {
     # an end it never touched: a misleading second failure, or a netem that is not this run's deleted.
     "R5-2": ("round-5 finding 2 (a MUTANT): cut_link books each end before tc has accepted it", [
         ("spike", '        INJECTED_IFACES+=("$dev")\n    done\n', '    done\n', 1),
-        ("spike", '    for dev in "$CUT_A" "$CUT_B"; do\n        where="$(netem_attach_point "$dev")" || true\n',
-                  '    for dev in "$CUT_A" "$CUT_B"; do\n        INJECTED_IFACES+=("$dev")\n'
+        # round 8: cut_link takes the ends it cuts ("$@"; both ends of the cable by default)
+        ("spike", '    for dev in "$@"; do\n        where="$(netem_attach_point "$dev")" || true\n',
+                  '    for dev in "$@"; do\n        INJECTED_IFACES+=("$dev")\n'
                   '        where="$(netem_attach_point "$dev")" || true\n', 1),
     ], [
         ("a cut refused on its first end: rc 0", "could not remove the netem a half-done cut left on s1-eth3"),
@@ -471,6 +479,122 @@ REVERTS = {
 ''', 1),
     ], [
         ("a claim that lapsed mid-run", "lab claimed by hb-selftest for 0m"),
+    ]),
+    # Round 8 (the segment-S report's judge, Blocking 1 and 2; the re-review's notes 1-4): R8-1 and
+    # R8-2 are PAST FORMS -- round 7's loop, which cut and restored right after its previous wait
+    # returned; the others are MUTANTS of code new in round 8.
+    "R8-1": ("round 7's cut: no wait before it -- the cut right after the pre-cut check, one phase every cycle", [
+        ("spike", """        pw="$(/usr/bin/python3 -I "$WATCH" phase-wait "$HB_REPORT" "$ck" "$cv" "$BEACON_S" "$PHASE_MARGIN_S")" || pw=""
+        IFS=$'\\t' read -r t0a cdelay _ _ <<< "$pw" || true
+""", """        t0a="$(now)"; cdelay=""
+""", 1),
+    ], [
+        # the loop cuts where round 7's did -- 0.77-0.86 s after the last frame heard, every cycle
+        ("round 8, PHASE=random against a simulated daemon", "the cut phases do not cover the period -- PHASE-LOCKED"),
+        ("random: the cut phases the timeline saw", "PHASE-LOCKED"),
+        ("random: the waits are the seeded plan's", "cut_delay_s '-'"),
+        ("random: the summary gives per-phase-bin statistics", "last line 'BAD every cut and every restore detected; the cut phases do not cover the period"),
+        ("round 8, PHASE=sweep against a simulated daemon", "the cut phases do not cover the period -- PHASE-LOCKED"),
+        ("sweep: the cut phases the timeline saw", "PHASE-LOCKED"),
+        ("sweep: each cut starts at its planned offset", "planned 0.050 + cut_tc_s 0.070"),
+    ]),
+    "R8-2": ("round 7's restore: no wait before it -- the restore right after the down was called", [
+        ("spike", """        pw="$(/usr/bin/python3 -I "$WATCH" phase-wait "$HB_REPORT" "$rk" "$rv" "$BEACON_S" "$PHASE_MARGIN_S")" || pw=""
+        IFS=$'\\t' read -r t1a rdelay ranchor _ <<< "$pw" || true
+        if [[ ! "${t1a:-}" =~ ^[0-9]+\\.[0-9]+$ ]]; then
+            fail "cycle $i: the pre-restore wait answered '$pw' -- restoring at once"
+            t1a="$(now)"; rdelay=""; ranchor=""
+        fi
+""", """        t1a="$(now)"; rdelay=""; ranchor=""
+""", 1),
+    ], [
+        # the restores land where round 7's did -- 0.09-0.17 s after a round -- and with no report
+        # read before them, their phase falls back to the schedule's
+        ("round 8, PHASE=random against a simulated daemon", "the restore phases do not cover the period -- PHASE-LOCKED"),
+        ("random: the restore phases the timeline saw", "PHASE-LOCKED"),
+        ("random: each row's up_s and restore_phi_s are the timeline's", "restore_phi_s '"),
+        ("random: the waits are the seeded plan's", "restore_delay_s '-'"),
+        ("random: the summary gives per-phase-bin statistics", "the restore phases do not cover the period"),
+        ("round 8, PHASE=sweep against a simulated daemon", "the restore phases do not cover the period -- PHASE-LOCKED"),
+        ("sweep: the restore phases the timeline saw", "PHASE-LOCKED"),
+        ("sweep: each row's up_s and restore_phi_s are the timeline's", "restore_phi_s '"),
+        ("sweep: each restore starts at its planned offset", "planned 4.850 + 0.070"),
+    ]),
+    "R8-3": ("a MUTANT (Blocking 2): the report level written down as the daemon's stamp + 0.5 s, not read off the report", [
+        ("watch", """    d = {"up_s": lh - t1, "rpt_s": None if w is None else w - t1, "poll_s": now - t1, "lh": lh, "phi_grid": gp}
+""", """    d = {"up_s": lh - t1, "rpt_s": lh - t1 + 0.5, "poll_s": now - t1, "lh": lh, "phi_grid": gp}
+""", 1),
+    ], [
+        # the simulated daemon's lag is 0.7 s: a 0.5 written down shows
+        ("restore-up (sim): up_s at the daemon's receive, up_rpt_s at the first report showing it", "3.009 3.509"),
+        ("restore-up (sim): the report lag is MEASURED", "not 0.5 0.500"),
+        ("random: the report level is measured", "up_rpt_s '5.255', the timeline's 5.4530"),
+        ("sweep: the report level is measured", "up_rpt_s '0.580', the timeline's 0.7780"),
+    ]),
+    "R8-4": ("a MUTANT (re-review note 1): the cut's phase from the schedule (started_mono + k*period), not the frame heard", [
+        ("watch", """        d.update(rule_s=lh + timeout - t0, phi=t0 - lh, phi_src="heard")
+""", """        d.update(rule_s=lh + timeout - t0, phi=gp, phi_src="heard")
+""", 1),
+    ], [
+        # the schedule's phase is the frame's + delta + eps (9 ms in the simulated daemon)
+        ("cut-down (sim): phi = t0 - the last frame heard (1000.009), not the schedule", "3.950 heard 3.950"),
+        ("random: each row's cut_phi_s is t0 - the last frame heard", "cut_phi_s '1.205', the timeline's 1.1960"),
+        ("sweep: each row's cut_phi_s is t0 - the last frame heard", "cut_phi_s '0.129', the timeline's 0.1200"),
+    ]),
+    "R8-5": ("a MUTANT: control (a) that cannot fail -- the no-cut window never records the rule firing", [
+        ("watch", """                        if sil > timeout:
+                            fired[if_name(r)] = max(fired.get(if_name(r), 0.0), sil)
+""", "", 1),
+    ], [
+        ("quiet (control a, sim): a heartbeat nobody hears for three rounds", "OK no direction went not-heard"),
+        ("control (a) against a daemon nobody hears for three rounds", "survived VERDICT_RC=0"),
+    ]),
+    "R8-6": ("a MUTANT: control (b) blind to the other direction -- a one-end netem that takes the whole cable passes", [
+        ("watch", """                    if sil > timeout:
+                        up_fired = max(up_fired or 0.0, sil)
+""", "", 1),
+    ], [
+        ("single-end (control b, sim): a one-end netem that takes the whole cable", "OK only 1:3>3:1 went not-heard"),
+        ("control (b) against a one-end netem that takes the whole cable", "survived VERDICT_RC=0"),
+    ]),
+    "R8-7": ("a MUTANT: CONTROLS=0 ignored -- the controls always run", [
+        ("spike", """    if (( CONTROLS )); then
+        detect_controls || go=0
+""", """    if true; then
+        detect_controls || go=0
+""", 1),
+    ], [
+        # the stub scenarios run with CONTROLS=0: control (b)'s add/del of s1-eth3 comes first
+        ("a detection cycle that goes as designed: rc 0", "tc qdisc add dev s1-eth3 root netem loss 100%;tc qdisc del dev s1-eth3 root;tc qdisc add dev s1-eth3"),
+        ("a half-done cut: rc 0", "tc qdisc del dev s1-eth3 root;tc qdisc add dev s1-eth3 root"),
+        ("a half-done cut whose restore is refused too: rc 0", "control (b): could not remove the netem on s1-eth3"),
+        ("sweep with CONTROLS=0: no control ran", "one-end netem 1"),
+    ]),
+    "R8-8": ("a MUTANT: the summary never fails a run on its phase coverage", [
+        ("watch", """            if v is False:
+                ok = False
+""", """            if False:
+                ok = False
+""", 1),
+    ], [
+        ("summary: a phase-locked run (round 7's loop) is BAD, and says PHASE-LOCKED", "True -- its verdict"),
+    ]),
+    "R8-9": ("a MUTANT (re-review note 1): phase-wait anchored on the schedule (started_mono), never on a frame heard", [
+        ("watch", """        anchor = latest_heard(doc)
+        if anchor is not None:
+            src = "heard"
+""", """        anchor = None
+        if anchor is not None:
+            src = "heard"
+""", 1),
+    ], [
+        # the simulated daemon's schedule is 9 ms before its frames heard: every anchored wait lands 9 ms early
+        ("restore-up (sim): the restore's phase from the frame heard before it", "2.000 heard@plan"),
+        ("phase-wait (sim): a phase starts 0.05 s after the next frame heard", "1035.050 grid"),
+        ("random: each row's up_s and restore_phi_s are the timeline's", "restore_phi_s '0.254', the timeline's 0.2450"),
+        ("sweep: each row's up_s and restore_phi_s are the timeline's", "restore_phi_s '4.920', the timeline's 4.9110"),
+        ("sweep: each cut starts at its planned offset", "cycle 1: cut at 0.111 s after a frame"),
+        ("sweep: each restore starts at its planned offset", "cycle 1: restore at 4.911 s"),
     ]),
 }
 RED = "\U0001f534"

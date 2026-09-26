@@ -18,10 +18,13 @@
 # the round-6/7 checks' code to a wrong form) and shows that exactly the checks written for them
 # go red; its --self-check shows its own verdict going red on wrong input.
 # The FIRST LIVE RUN (PART=detect, 09-26 10:30, run by the orchestrator at trunk 4bc1201b) detected
-# 10/10 cuts and restores and ended FAIL on its teardown -- the round-7 fix below; that fix has
-# not run against a lab.
+# 10/10 cuts and restores and ended FAIL on its teardown -- the round-7 fix below. The second
+# (PART=all, 09-26 13:21, trunk 580767a8) ran that teardown clean, and showed the detection part
+# measuring ONE phase of the heartbeat's round (every cut 0.62-0.80 s after the last frame heard):
+# round 8's phases, report level and controls below were written and self-tested against a
+# SIMULATED daemon (hb_watch.py's Sim) and have not run against a lab.
 #
-# PART=detect  (≈ 15 min)  pod-topo `--app basic` (the exercise's own solution pipeline, converted
+# PART=detect  (≈ 5 min at CYCLES=10: ~45 s of controls, ~20 s a cycle)  pod-topo `--app basic` (the exercise's own solution pipeline, converted
 #   the way 06 converts it). The heartbeat runs; an OUT-OF-BAND `tc netem loss 100%` goes on BOTH
 #   ends of the spine cable s1-eth3 <-> s3-eth1 -- the same cable 07's L4 cuts, and NOT through
 #   the kernel's inject_link_failure, which knows it cut the link. CYCLES times (default 10):
@@ -30,6 +33,13 @@
 #     * restore: from the moment tc returned until both directions are heard again;
 #     * the other six directions must stay heard throughout (the cut took one cable, not more);
 #     * no netem on either end afterwards, and the whole qdisc tree identical to the snapshot.
+#   Round 8: every cut and every restore waits first, so each lands at its own phase of the
+#   heartbeat's round -- PHASE=random (a seeded U[0, period) wait, the default) or PHASE=sweep
+#   (planned start offsets after the last frame heard, from 0.05 s) -- and the phase is recorded
+#   from the report's own last_heard_mono with the CLOCK_MONOTONIC stamps it comes from; both the
+#   daemon's receive stamp and the first report showing the transition are recorded; two controls
+#   run first (CONTROLS=1): no cut for NOCUT_S s, and netem on one end only. "PART detect" below
+#   documents every column of 20_cycles.tsv and every file.
 #   This is REPORT-LEVEL detection: when the proxy COULD call it, reading the report then.
 #   Segment W adds at most one watchdog pass (LINK_WATCHDOG_INTERVAL_S) and the kernel's reaction.
 #   The tc runs through `sudo -n mnexec -a 1 tc` by default (FAULTS_TC overrides it); the route is
@@ -60,7 +70,10 @@
 #
 # Run (from a checkout with p4_proxy/venv, as the operator -- NOT under sudo):
 #   NDT_OWNER=<you> PART=all bash doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
-#   NDT_OWNER=<you> PART=detect CYCLES=10 bash .../S_heartbeat_spike.sh
+#   NDT_OWNER=<you> PART=detect CYCLES=10 bash .../S_heartbeat_spike.sh              # PHASE=random
+#   NDT_OWNER=<you> PART=detect PHASE=sweep CYCLES=10 bash .../S_heartbeat_spike.sh
+#   (PHASE_SEED=<n> repeats a random run's plan; SWEEP_PHASES=0.05,1.2,... sets a sweep's offsets;
+#    CONTROLS=0 skips the controls; NOCUT_S sets control (a)'s window, at least timeout + period)
 #   NDT_OWNER=<you> PART=census ARMS=solution ONLY=basic,load_balance bash .../S_heartbeat_spike.sh
 # Self-test:  bash .../S_heartbeat_spike.sh --self-test
 #
@@ -133,9 +146,35 @@ CYCLES="${CYCLES:-10}"
 ARMS="${ARMS:-solution skeleton}"
 ALL_EXERCISES="basic source_routing calc multicast basic_tunnel load_balance qos link_monitor firewall ecn mri p4runtime flowcache"
 EXERCISES="${ONLY:-$ALL_EXERCISES}"; EXERCISES="${EXERCISES//,/ }"
+#: 🔴 ROUND 8 -- THE PHASE OF EVERY CUT AND RESTORE (see "PART detect" below). PHASE=random: each cut
+#: waits a U[0, period) delay after the pre-cut check saw the cable heard, each restore one after the
+#: down was called, from a seeded RNG (PHASE_SEED; drawn from /dev/urandom and recorded when not
+#: given). PHASE=sweep: each cut STARTS at a planned offset after the last frame heard (the report's
+#: last_heard_mono), the restores at the same offsets in reverse; SWEEP_PHASES="s,s,..." overrides
+#: the default CYCLES offsets 0.05 .. period-0.15 s (the list wraps round when shorter than CYCLES).
+: "${PHASE:=random}"
+PHASE_SEED="${PHASE_SEED:-}"
+SWEEP_PHASES="${SWEEP_PHASES:-}"
+#: The two discriminating controls, run before the cycles (CONTROLS=0 skips both): (a) no cut for
+#: NOCUT_S s (at least the proxy's timeout + one period); (b) netem on one end only.
+: "${CONTROLS:=1}"
+: "${NOCUT_S:=20}"
+#: A sweep's start is scheduled at least this far ahead of the moment it is computed.
+: "${PHASE_MARGIN_S:=0.05}"
 #: The cable, both ends, and its two directions in hb_watch's notation.
 CUT_A=s1-eth3; CUT_B=s3-eth1
 CUT_DIRS="1:3>3:1,3:1>1:3"
+#: Control (b)'s one end is CUT_A, and the direction it silences is the one CUT_A SENDS: netem sits on
+#: the egress qdisc, the daemon sends each direction's frame out of that direction's tx veth and never
+#: bypasses the qdisc (READ: ndtwin-lab _open_socket, "Never PACKET_QDISC_BYPASS"), and the frame
+#: arriving on CUT_A (the other direction) meets no egress qdisc there (INFERRED; first live in round 8).
+SINGLE_DOWN="1:3>3:1"; SINGLE_UP="3:1>1:3"
+#: 20_cycles.tsv's columns: round 7's six first and unchanged, then round 8's -- each one is
+#: documented in the "PART detect" header below.
+CYCLE_COLS="cycle down_s up_s cut_tc_s collateral netem_left phase_mode cut_plan cut_delay_s cut_t0a_mono
+cut_t0_mono cut_lh_mono cut_phi_s cut_phi_src cut_phi_grid_s cut_tc_a_s cut_tc_b_s down_rule_s down_rpt_s
+restore_plan restore_delay_s restore_t1a_mono restore_t1_mono restore_anchor_mono restore_tc_s restore_phi_s
+restore_phi_src restore_phi_grid_s up_lh_mono up_rpt_s up_poll_s"
 QDISC_TOOL="$REPO/tools/test_workflow/qdisc_snapshot.sh"
 STEP="S_heartbeat"
 HB_STARTED=0
@@ -498,17 +537,27 @@ watch_sniffers() {
     done
 }
 
-# cut / restore -- faults.sh's htb-safe attach point; INJECTED_IFACES is what spike_finish reverts.
+# cut_link [<dev>...] -- netem loss 100% on each <dev>, in that order (no <dev>: both ends of the
+# cable), at faults.sh's htb-safe attach point; INJECTED_IFACES is what spike_finish reverts.
+# CUT_END_US: per end, the microseconds from the call to that end's netem being in place -- bash's
+# EPOCHREALTIME, no fork (the re-review's note 3: the smallest phase at which BOTH ends are
+# effective is about cut_tc_s, so each end's share is recorded). Wall clock, used for durations only.
 cut_link() {
-    local dev where
-    for dev in "$CUT_A" "$CUT_B"; do
+    local dev where t_call="${EPOCHREALTIME/[.,]/}"
+    (( $# )) || set -- "$CUT_A" "$CUT_B"
+    CUT_END_US=()
+    for dev in "$@"; do
         where="$(netem_attach_point "$dev")" || true
         [[ "$where" != unsafe ]] || { fail "no safe netem attach point on $dev (netem already there, or the tree is unreadable)"; return 1; }
         # shellcheck disable=SC2086
         run_tc qdisc add dev "$dev" $where netem loss 100% || { fail "tc refused to add netem on $dev ($where)"; return 1; }
+        CUT_END_US+=("$(( ${EPOCHREALTIME/[.,]/} - t_call ))")
         INJECTED_IFACES+=("$dev")
     done
 }
+CUT_END_US=()
+# us_s <microseconds> -- as seconds, three decimals ("-" for nothing).
+us_s() { [[ "${1:-}" =~ ^[0-9]+$ ]] && printf '%d.%03d' "$(( $1 / 1000000 ))" "$(( $1 % 1000000 / 1000 ))" || printf -- -; }
 restore_link() { revert_link_loss; }
 no_netem_on_cut() {
     local dev n=0
@@ -517,6 +566,105 @@ no_netem_on_cut() {
 }
 
 # --- PART detect -----------------------------------------------------------------------------------
+#
+# 🔴 ROUND 8 -- ONE PHASE IS NOT A DISTRIBUTION (the segment-S report's judge, Blocking 1 and 2, and
+# the re-review's notes 1-4). Round 7's loop cut right after its previous wait returned: every cut
+# landed 0.62-0.80 s after the last frame heard (runs/2026-09-26T0{23021,52148}Z_S_heartbeat,
+# down_s 14.20-14.38 s in cycles 2-10) and every restore ~0.15 s after a send, so ten cycles
+# measured one point of (0, period] ten times; and its up_s is the daemon's receive stamp, while
+# the report that shows it is written ~0.5 s later (REPORT_MIN_INTERVAL_S). So, per cycle:
+#   * the cut waits first, as 19_phase_plan.tsv says (PHASE above), and so does the restore;
+#   * its phase is recorded from the report itself -- t0 minus the last frame heard on the cable,
+#     the phase the proxy's rule sees -- with the CLOCK_MONOTONIC stamps it is computed from;
+#   * both levels are recorded: the daemon's receive stamp and the first report showing it;
+#   * every poll of the report (its written_mono, the cable's last_heard_mono) goes to
+#     21_polls_<cycle>.tsv, the controls' to 18_polls_{a,b}.tsv.
+# Before the cycles, two controls (CONTROLS=1), each a row of 18_controls.tsv and a verdict:
+#   (a) NO CUT for NOCUT_S s: the proxy's rule must fire on no direction -- a heartbeat nobody hears
+#       would be not-heard within the timeout, so the window can fail;
+#   (b) netem on ONE END (CUT_A): only SINGLE_DOWN may go not-heard, watched a period and a second
+#       past its down so SINGLE_UP would have gone too were the whole cable cut.
+# The summary (22_summary.txt) adds per-phase-bin statistics, the measured report lag, and FAILS a
+# run whose recorded phases do not cover the period (from 8 cycles on) or a sweep that never cut
+# within 0.25 s of a heard frame.
+#
+# 20_cycles.tsv, a row per cycle -- round 7's six columns first, unchanged:
+#   cycle, down_s (t0 -> the reader's poll that found both directions not heard), up_s (t1 -> the
+#   daemon's receive stamp of the frames that ended the silence: DAEMON level), cut_tc_s (t0 - t0a),
+#   collateral (the other six directions), netem_left;
+# then round 8's (every *_mono is CLOCK_MONOTONIC, the daemon's clock and the proxy's):
+#   phase_mode        random | sweep
+#   cut_plan          random: the planned wait (s) after the pre-cut check; sweep: the planned start
+#                     offset (s) after the last frame heard (19_phase_plan.tsv)
+#   cut_delay_s       the wait actually waited before the cut
+#   cut_t0a_mono      the cut starts (tc on end A is run)       cut_t0_mono  both ends' tc returned (t0)
+#   cut_lh_mono       the last frame heard on the cable before the cut (from the report the rule fired
+#                     on; nothing is heard on it after the cut)
+#   cut_phi_s         t0 - cut_lh_mono: the phase the rule sees; cut_phi_src heard (or grid: never heard)
+#   cut_phi_grid_s    (t0 - started_mono) mod period_s: the schedule's phase (the send is 1.7-7 ms later)
+#   cut_tc_a_s        the cut's start -> netem on CUT_A in place;  cut_tc_b_s  CUT_A -> CUT_B in place
+#                     (wall clock, EPOCHREALTIME)
+#   down_rule_s       cut_lh_mono + timeout - t0: the instant the proxy's rule became true
+#   down_rpt_s        written_mono - t0 of the report the rule was applied to (the report carries no
+#                     down transition: the rule is the reader's clock against last_heard)
+#   restore_plan, restore_delay_s, restore_t1a_mono, restore_t1_mono (t1): the same for the restore
+#   restore_anchor_mono  the newest frame heard (any direction) in the report read before the restore
+#   restore_tc_s      t1 - t1a
+#   restore_phi_s     (t1 - restore_anchor_mono) mod period_s: how long after a round the restore
+#                     came; restore_phi_src heard@plan (or grid)
+#   restore_phi_grid_s  (t1 - started_mono) mod period_s
+#   up_lh_mono        the newest of the frames that ended the silence (up_s = up_lh_mono - t1)
+#   up_rpt_s          written_mono - t1 of the FIRST report showing both directions heard: REPORT level
+#   up_poll_s         the reader's poll that saw that report, - t1
+# Absent values are "-"; a detection that never came is TIMEOUT in down_s / up_s.
+# The other round-8 files: 19_phase_plan.tsv (the plan, its seed on the first line); 18_controls.tsv
+# (control, window_s -- (a)'s no-cut window, (b)'s cap --, cut, expected, observed, verdict);
+# 18_polls_{a,b}.tsv and 21_polls_<cycle>.tsv (every poll: part, poll_mono, the report's
+# written_mono and status, the watched directions' last_heard_mono); 17_report_single_end.json.
+
+# tsv_row <cell>... -- one tab-separated line, an empty cell written "-".
+tsv_row() {
+    local c out=()
+    for c in "$@"; do out+=("${c:--}"); done
+    local IFS=$'\t'
+    printf '%s\n' "${out[*]}"
+}
+
+# plan_row <plan.tsv> <cycle> -- "<cut kind> <cut value> <restore kind> <restore value>", or nothing.
+plan_row() { awk -F'\t' -v i="$2" '$1 == i { print $2, $3, $4, $5; exit }' "$1" 2>/dev/null || true; }
+
+# detect_controls -- controls (a) and (b), before the cycles. rc 1 only when the cycles must not
+# run: control (b)'s netem could not be put on or taken off.
+detect_controls() {
+    local v obs verdict t0 t1 left cap
+    tsv_row control window_s cut expected observed verdict > "$RUN/18_controls.tsv"
+    say "control (a): no cut for ${NOCUT_S} s -- the proxy's rule must fire on no direction"
+    v="$(/usr/bin/python3 -I "$WATCH" quiet "$HB_REPORT" "$NOCUT_S" "$TIMEOUT_S" "$RUN/18_polls_a.tsv")" || v=""
+    IFS=$'\t' read -r obs verdict <<< "$v" || true
+    [[ -n "${verdict:-}" ]] || verdict="BAD hb_watch quiet answered '${v}'"
+    tsv_row a_no_cut "$NOCUT_S" none "the rule fires on no direction" "$obs" "$verdict" >> "$RUN/18_controls.tsv"
+    judge "$verdict" "control (a), no cut for ${NOCUT_S} s"
+    say "control (b): netem on $CUT_A only -- only $SINGLE_DOWN may go not heard"
+    v="$(/usr/bin/python3 -I "$WATCH" wait-heard "$HB_REPORT" "$CUT_DIRS" "$(/usr/bin/python3 -I "$WATCH" sub "$(now)" "$(( ${BEACON_S%.*} + 1 ))")" "$(( ${BEACON_S%.*} * 3 ))")" || v=TIMEOUT
+    [[ "$v" != TIMEOUT ]] || { fail "control (b): the cable was not heard before its one-end cut"; return 0; }
+    cut_link "$CUT_A" || { restore_link || fail "control (b): could not remove the netem it put on $CUT_A"; return 1; }
+    t0="$(now)"
+    cap=$(( ${TIMEOUT_S%.*} + 2 * ${BEACON_S%.*} + 10 ))
+    v="$(/usr/bin/python3 -I "$WATCH" single-end "$HB_REPORT" "$SINGLE_DOWN" "$SINGLE_UP" "$t0" "$TIMEOUT_S" "$cap" "$(( ${BEACON_S%.*} + 1 ))" "$RUN/18_polls_b.tsv")" || v=""
+    cp "$HB_REPORT" "$RUN/17_report_single_end.json" 2>/dev/null || true
+    IFS=$'\t' read -r obs verdict <<< "$v" || true
+    [[ -n "${verdict:-}" ]] || verdict="BAD hb_watch single-end answered '${v}'"
+    restore_link || { fail "control (b): could not remove the netem on $CUT_A"; return 1; }
+    t1="$(now)"
+    v="$(/usr/bin/python3 -I "$WATCH" wait-heard "$HB_REPORT" "$CUT_DIRS" "$t1" "$(( 2 * ${BEACON_S%.*} + 10 ))")" || v=TIMEOUT
+    left=no; no_netem_on_cut || left=yes
+    tsv_row b_single_end "$cap" "$CUT_A only" "only $SINGLE_DOWN not heard" "$obs cut_tc_s=$(us_s "${CUT_END_US[0]:-}") heard_again_s=$v" "$verdict" >> "$RUN/18_controls.tsv"
+    judge "$verdict" "control (b), netem on $CUT_A only"
+    [[ "$v" != TIMEOUT ]] || fail "control (b): the cable was not heard again after the one-end restore"
+    [[ "$left" == no ]] || { fail "control (b): netem is still on $CUT_A after its restore"; return 1; }
+    return 0
+}
+
 detect() {
     say "detection: prepare basic/solution (pod-topo), the way 06 builds it"
     local prep pkg t0a t0 t1 down up v i up_rc hs d
@@ -540,28 +688,70 @@ detect() {
     # `return 0`, not a bare `return` (round-4 audit): detect is the last command of the run's
     # `&& detect`, so the status of the failed test would end the run under set -e.
     [[ "$v" == OK* ]] || return 0
+    # Round 8: every phase is read against the heartbeat's own round, so its period must be the proxy's.
+    local pc
+    pc="$(/usr/bin/python3 -I "$WATCH" period-check "$HB_REPORT" "$BEACON_S")" || pc="BAD hb_watch period-check did not answer"
+    judge "$pc" "the heartbeat's round is the proxy's beacon interval"
+    [[ "$pc" == OK* ]] || return 0
+    # The phase plan: the arguments the run checked before its claim, so the very plan it checked.
+    /usr/bin/python3 -I "$WATCH" plan "$PHASE" "$CYCLES" "$PHASE_SEED" "$BEACON_S" "$SWEEP_PHASES" \
+        > "$RUN/19_phase_plan.tsv" 2>&1 || { fail "detect: no phase plan -- $(head -1 "$RUN/19_phase_plan.tsv")"; return 0; }
+    note "phase plan: $(head -1 "$RUN/19_phase_plan.tsv" | cut -c1-60) ... (19_phase_plan.tsv)"
     "$QDISC_TOOL" save "$RUN/13_qdisc.before" > /dev/null
-    printf 'cycle\tdown_s\tup_s\tcut_tc_s\tcollateral\tnetem_left\n' > "$RUN/20_cycles.tsv"
-    for (( i = 1; i <= CYCLES; i++ )); do
+    local go=1
+    if (( CONTROLS )); then
+        detect_controls || go=0
+    else
+        note "controls off (CONTROLS=0): no no-cut window, no one-end cut"
+    fi
+    local prow ck cv rk rv pw cdelay rdelay ranchor t1a cd rd coll left cut_tc rest_tc tca tcb
+    local down_rule down_rpt cut_lh cphi cphi_src cphi_grid up_rpt up_poll up_lh rphi rphi_src rphi_grid
+    # shellcheck disable=SC2086
+    tsv_row $CYCLE_COLS > "$RUN/20_cycles.tsv"
+    for (( i = 1; go && i <= CYCLES; i++ )); do
         say "cycle $i/$CYCLES"
         # healthy first: both directions heard within the last period + 1 s
         v="$(/usr/bin/python3 -I "$WATCH" wait-heard "$HB_REPORT" "$CUT_DIRS" "$(python3 -c "print($(now) - ${BEACON_S} - 1)")" "$(( ${BEACON_S%.*} * 3 ))")"
         [[ "$v" != TIMEOUT ]] || { fail "cycle $i: the cable was not heard before the cut"; break; }
-        t0a="$(now)"
+        # 🔴 ROUND 8: THE CUT WAITS AS THE PLAN SAYS. Round 7 cut right here, and so at one phase of
+        # the heartbeat's round every cycle. phase-wait's wake is the cut's start, t0a.
+        prow="$(plan_row "$RUN/19_phase_plan.tsv" "$i")"
+        read -r ck cv rk rv <<< "$prow" || true
+        [[ -n "${rv:-}" ]] || { fail "cycle $i: 19_phase_plan.tsv has no row for it"; break; }
+        pw="$(/usr/bin/python3 -I "$WATCH" phase-wait "$HB_REPORT" "$ck" "$cv" "$BEACON_S" "$PHASE_MARGIN_S")" || pw=""
+        IFS=$'\t' read -r t0a cdelay _ _ <<< "$pw" || true
+        [[ "${t0a:-}" =~ ^[0-9]+\.[0-9]+$ ]] || { fail "cycle $i: the pre-cut wait answered '$pw'"; break; }
         # 🔴 A CUT REFUSED ON ITS SECOND END (judge R4-2, round-4 verdict) has already put netem on the
         # first. It comes off HERE, while the veth exists: left to the EXIT trap, the revert runs
         # after `nd_down` removed the veth, answers "cannot locate", and adds a misleading failure.
         cut_link || { restore_link || fail "cycle $i: could not remove the netem a half-done cut left on $CUT_A"; break; }
         t0="$(now)"
-        down="$(/usr/bin/python3 -I "$WATCH" wait-down "$HB_REPORT" "$CUT_DIRS" "$t0" "$TIMEOUT_S" "$(python3 -c "print($TIMEOUT_S + 2 * $BEACON_S + 10)")")"
-        local coll; coll="$(/usr/bin/python3 -I "$WATCH" others-up "$HB_REPORT" "$CUT_DIRS" "$TIMEOUT_S")"
+        cd="$(/usr/bin/python3 -I "$WATCH" cut-down "$HB_REPORT" "$CUT_DIRS" "$t0" "$TIMEOUT_S" "$(( ${TIMEOUT_S%.*} + 2 * ${BEACON_S%.*} + 10 ))" "$RUN/21_polls_$i.tsv")" || cd=TIMEOUT
+        IFS=$'\t' read -r down down_rule down_rpt cut_lh cphi cphi_src cphi_grid <<< "$cd" || true
+        coll="$(/usr/bin/python3 -I "$WATCH" others-up "$HB_REPORT" "$CUT_DIRS" "$TIMEOUT_S")"
         cp "$HB_REPORT" "$RUN/21_report_cut_$i.json" 2>/dev/null || true
+        # 🔴 ROUND 8: ... AND SO DOES THE RESTORE (round 7: ~0.15 s after a send, every cycle). A wait
+        # that did not answer does not keep the netem on: the restore goes ahead at once, and FAILs.
+        pw="$(/usr/bin/python3 -I "$WATCH" phase-wait "$HB_REPORT" "$rk" "$rv" "$BEACON_S" "$PHASE_MARGIN_S")" || pw=""
+        IFS=$'\t' read -r t1a rdelay ranchor _ <<< "$pw" || true
+        if [[ ! "${t1a:-}" =~ ^[0-9]+\.[0-9]+$ ]]; then
+            fail "cycle $i: the pre-restore wait answered '$pw' -- restoring at once"
+            t1a="$(now)"; rdelay=""; ranchor=""
+        fi
         restore_link || { fail "cycle $i: could not remove the netem"; break; }
         t1="$(now)"
-        up="$(/usr/bin/python3 -I "$WATCH" wait-heard "$HB_REPORT" "$CUT_DIRS" "$t1" "$(python3 -c "print(2 * $BEACON_S + 10)")")"
-        local left=no; no_netem_on_cut || left=yes
-        printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$i" "$down" "$up" "$(python3 -c "print(f'{$t0 - $t0a:.3f}')")" "$coll" "$left" >> "$RUN/20_cycles.tsv"
-        note "down after ${down}s, heard again after ${up}s, others: $coll, netem left: $left"
+        rd="$(/usr/bin/python3 -I "$WATCH" restore-up "$HB_REPORT" "$CUT_DIRS" "$t1" "$(( 2 * ${BEACON_S%.*} + 10 ))" "${ranchor:--}" "$RUN/21_polls_$i.tsv")" || rd=TIMEOUT
+        IFS=$'\t' read -r up up_rpt up_poll up_lh rphi rphi_src rphi_grid <<< "$rd" || true
+        left=no; no_netem_on_cut || left=yes
+        cut_tc="$(/usr/bin/python3 -I "$WATCH" sub "$t0" "$t0a")" || cut_tc=""
+        rest_tc="$(/usr/bin/python3 -I "$WATCH" sub "$t1" "$t1a")" || rest_tc=""
+        tca=""; tcb=""
+        if (( ${#CUT_END_US[@]} >= 1 )); then tca="$(us_s "${CUT_END_US[0]}")"; fi
+        if (( ${#CUT_END_US[@]} >= 2 )); then tcb="$(us_s "$(( CUT_END_US[1] - CUT_END_US[0] ))")"; fi
+        tsv_row "$i" "$down" "$up" "$cut_tc" "$coll" "$left" "$PHASE" "$cv" "$cdelay" "$t0a" "$t0" "$cut_lh" \
+            "$cphi" "$cphi_src" "$cphi_grid" "$tca" "$tcb" "$down_rule" "$down_rpt" "$rv" "$rdelay" "$t1a" "$t1" \
+            "$ranchor" "$rest_tc" "$rphi" "$rphi_src" "$rphi_grid" "$up_lh" "$up_rpt" "$up_poll" >> "$RUN/20_cycles.tsv"
+        note "down after ${down}s (cut ${cphi:--}s after the last frame heard), heard again after ${up}s (first report after ${up_rpt:--}s; restore ${rphi:--}s after a round), others: $coll, netem left: $left"
         [[ "$coll" == OK* ]] || fail "cycle $i: $coll"
         [[ "$left" == no ]] || { fail "cycle $i: netem is still on the cable after the restore"; break; }
     done
@@ -949,6 +1139,22 @@ if os.environ.get("FAKE_WATCH") == "healthy":
         print("TIMEOUT" if lossy else "1.000")
     elif cmd == "all-heard":
         print("BAD 6/8 directions heard" if lossy else "OK 8/8 directions heard")
+    # round 8's verbs, with fixed answers of their real shape (the phases themselves are tested
+    # against a simulated daemon and the REAL hb_watch.py further down)
+    elif cmd == "plan":
+        print("# stub plan\ncycle\tcut_kind\tcut_value\trestore_kind\trestore_value")
+        for i in range(1, int(sys.argv[3]) + 1):
+            print(f"{i}\tdelay\t0.000\tdelay\t0.000")
+    elif cmd == "phase-wait":
+        print("100.000000\t0.000\t-\tnone")
+    elif cmd == "cut-down":
+        print("12.345\t12.300\t10.000\t88.000000\t2.700\theard\t2.705")
+    elif cmd == "restore-up":
+        print("TIMEOUT" if lossy else "1.000\t1.500\t1.550\t101.000000\t4.000\theard@plan\t4.005")
+    elif cmd == "sub":
+        print(f"{float(sys.argv[2]) - float(sys.argv[3]):.3f}")
+    elif cmd in ("quiet", "single-end"):
+        print("stub\tOK the stub's control")
     else:
         print({"wait-down": "12.345"}.get(cmd, "OK"))
 else:
@@ -963,6 +1169,12 @@ PYFAKE
 s="$FAKE_TC_STATE"; dev=""
 for (( i = 1; i < $#; i++ )); do [[ "${!i}" == dev ]] && { j=$(( i + 1 )); dev="${!j}"; }; done
 [[ "$2" == show ]] || echo "tc $*" >> "$s/calls"
+# Round 8: with a simulated daemon attached (HB_WATCH_SIM), an add or a del takes tc_cost s of its
+# clock, and is logged in its netem.log at the moment it returned -- the daemon's record of the cable.
+if [[ -n "${HB_WATCH_SIM:-}" && "$2" != show ]]; then
+    t="$(awk -v c="$(cat "$HB_WATCH_SIM/clock")" -v d="$(cat "$HB_WATCH_SIM/tc_cost" 2>/dev/null || echo 0)" 'BEGIN { printf "%.6f", c + d }')"
+    printf '%s\n' "$t" > "$HB_WATCH_SIM/clock"
+fi
 [[ -e "$s/up.$dev" ]] || { echo "Cannot find device \"$dev\"" >&2; exit 1; }
 case "$2" in
     show) if [[ -e "$s/netem.$dev" ]]; then echo "qdisc netem 8001: root refcnt 2 limit 1000 $(cat "$s/netem.$dev")"
@@ -972,6 +1184,9 @@ case "$2" in
     del)  [[ ! -e "$s/refuse-del.$dev" ]] || { echo "RTNETLINK answers: Operation not permitted" >&2; exit 2; }
           rm -f "$s/netem.$dev" ;;
 esac
+if [[ -n "${HB_WATCH_SIM:-}" && "$2" != show ]]; then
+    printf '%s %s %s %s\n' "$2" "$dev" "$t" "$(cat "$s/netem.$dev" 2>/dev/null)" >> "$HB_WATCH_SIM/netem.log"
+fi
 FAKETC
     } > "$st_tmp/fake_tc"
     # Round 7 (round-6 verdict, finding 1): the fake qdisc_snapshot.sh compares what the fake tc
@@ -996,18 +1211,23 @@ FAKEQDISC
         echo 'set -euo pipefail'
         declare -f detect judge note fail bad say err cut_link restore_link no_netem_on_cut \
             run_tc show_qdisc netem_attach_point netem_delete_point revert_link_loss spike_finish \
-            retract_measuring
+            retract_measuring detect_controls tsv_row plan_row us_s
         declare -p R N
         printf 'WATCH=%q\nHB_REPORT=%q\nFAULTS_TC=%q\nLAB_HELPER=%q\n' \
             "$st_tmp/fake_watch.py" "$st_tmp/no-report.json" "$st_tmp/fake_tc" "$st_tmp/no-helper"
         printf 'CUT_A=%q\nCUT_B=%q\nCUT_DIRS=%q\n' "$CUT_A" "$CUT_B" "$CUT_DIRS"
         # R4-5: every global detect reads past its first check is defined here -- QDISC_TOOL too.
         printf 'QDISC_TOOL=%q\n' "$st_tmp/fake_qdisc_tool"
+        # Round 8's globals. These scenarios are about the cycle's cut and its teardown, so the
+        # controls are off (CONTROLS=0) and the tc calls listed below are the cycle's alone; the
+        # controls run with the stub in the teardown scenarios, and for real in the round-8 block.
+        printf 'SINGLE_DOWN=%q\nSINGLE_UP=%q\nCYCLE_COLS=%q\n' "$SINGLE_DOWN" "$SINGLE_UP" "$CYCLE_COLS"
         cat <<'DRIVER'
 sudo() { echo "sudo $*" >> "$FAKE_TC_STATE/calls"; }
 out="$1"; RUN="$2"; export FAKE_TC_STATE="$3"
 mkdir -p "$RUN"
 VERDICT_RC=0; VERDICT_WHY=""; BEACON_S=5; TIMEOUT_S=15; CYCLES=1; HB_STARTED=0; INJECTED_IFACES=(); CLAIMED=0
+PHASE=random; PHASE_SEED=1; SWEEP_PHASES=""; CONTROLS=0; NOCUT_S=20; PHASE_MARGIN_S=0.05; CUT_END_US=()
 prepare() { echo "OK /nonexistent/pkg"; }
 nd_up() { : > "$2"; return 0; }
 sp_hb_start() { : > "$1"; HB_STARTED=1; return 0; }
@@ -1058,7 +1278,7 @@ DRIVER
     [[ "$wrc" == 0 && "$(cat "$st_tmp/detect_healthy.result" 2>/dev/null)" == "survived VERDICT_RC=0" \
        && "$(cat "$st_tmp/detect_healthy.result.finish" 2>/dev/null)" == "finish VERDICT_RC=0 WHY=" \
        && "$(cat "$st_tmp/detect_healthy.tc/calls")" == "$want" \
-       && "$(sed -n 2p "$st_tmp/detect_healthy.run/20_cycles.tsv" 2>/dev/null)" == $'1\t12.345\t1.000\t0.000\tOK\tno' ]] \
+       && "$(sed -n 2p "$st_tmp/detect_healthy.run/20_cycles.tsv" 2>/dev/null | cut -f1-6)" == $'1\t12.345\t1.000\t0.000\tOK\tno' ]] \
         && ok "a detection cycle that goes as designed: both ends cut, both restored, its row written, the run goes on (set -e process, fake tc)" \
         || red "a detection cycle that goes as designed: rc $wrc, '$(cat "$st_tmp/detect_healthy.result" 2>/dev/null || echo 'nothing written')', calls: $(paste -sd';' "$st_tmp/detect_healthy.tc/calls"); $(st_died "$st_tmp/detect_healthy.out")"
     # R4-2 -- the cut is refused on its SECOND end. The first end's netem has to come off while its
@@ -1248,10 +1468,12 @@ FAKENDT
         declare -f detect judge note fail bad say err die cut_link restore_link no_netem_on_cut run_tc show_qdisc \
             netem_attach_point netem_delete_point revert_link_loss spike_finish spike_ndt nd_up nd_down finish \
             restore_knob restore_telemetry_knob take_claim require_free_lab snapshot_knob snapshot_telemetry_knob \
-            lab_claim_field claim_minutes reclaim retract_measuring spike_release keep_claim knob_back
+            lab_claim_field claim_minutes reclaim retract_measuring spike_release keep_claim knob_back \
+            detect_controls tsv_row plan_row us_s
         printf 'WATCH=%q\nHB_REPORT=%q\nFAULTS_TC=%q\nLAB_HELPER=%q\nCUT_A=%q\nCUT_B=%q\nCUT_DIRS=%q\n' \
             "$st_tmp/fake_watch.py" "$st_tmp/no-report.json" "$st_tmp/fake_tc" "$st_tmp/no-helper" "$CUT_A" "$CUT_B" "$CUT_DIRS"
         printf 'QDISC_TOOL=%q\nREAL_NDT=%q\nNDT=%q\n' "$st_tmp/fake_qdisc_tool" "$st_tmp/fake_ndt_lab" "$st_tmp/fake_ndt_lab"
+        printf 'SINGLE_DOWN=%q\nSINGLE_UP=%q\nCYCLE_COLS=%q\n' "$SINGLE_DOWN" "$SINGLE_UP" "$CYCLE_COLS"
         cat <<'DRIVER'
 unset NDT_MEASURING
 RUN="$1"; export FAKE_TC_STATE="$2" FAKE_REPO="$3" NDT_OWNER=hb-selftest
@@ -1262,6 +1484,8 @@ mkdir -p "$RUN"
 STEP=S_heartbeat; PART=detect; CLAIM_MINUTES=180; VERDICT_RC=0; VERDICT_WHY=""; CLAIMED=0; CTRL_PID=""
 KNOB_ENTRY_COPY=""; TEL_ENTRY_COPY=""; BEACON_S=5; TIMEOUT_S=15; CYCLES=1; HB_STARTED=0; INJECTED_IFACES=()
 FABRIC_UP=0; RECLAIMED=0; TEARDOWN_DOWN_RC=""
+# Round 8: the run's own defaults -- the controls ON -- so the teardown is walked with them in the run.
+PHASE=random; PHASE_SEED=1; SWEEP_PHASES=""; CONTROLS=1; NOCUT_S=20; PHASE_MARGIN_S=0.05; CUT_END_US=()
 sudo() { echo "sudo $*" >> "$FAKE_TC_STATE/calls"; }
 prepare() { echo "OK /nonexistent/pkg"; }
 sp_hb_start() { : > "$1"; HB_STARTED=1; return 0; }
@@ -1396,6 +1620,240 @@ DRIVER
        && grep -q 'lab claimed by hb-selftest for 15m' "$st_tmp/claim_expired/run/26_down.reclaim.txt" \
         && ok "  a claim that lapsed mid-run, nobody else's: re-claimed for 15 min before the down, down and release as designed (set -e process)" \
         || red "  a claim that lapsed mid-run: $(st_cs expired); 26_down.reclaim.txt: $(tr '\n' ' ' < "$st_tmp/claim_expired/run/26_down.reclaim.txt" 2>/dev/null)"
+
+    # 🔴 ROUND 8 -- ONE PHASE IS NOT A DISTRIBUTION (the segment-S report's judge, Blocking 1 and 2;
+    # its re-review's notes 1-4). The detection loop -- this file's detect, detect_controls, cut_link
+    # and faults.sh's netem (`declare -f`) -- runs against the REAL hb_watch.py reading a SIMULATED
+    # daemon (hb_watch.py's Sim, through HB_WATCH_SIM) on a fake CLOCK_MONOTONIC: every wait of
+    # hb_watch moves that clock on, and the fake tc takes 35 ms of it per add or del and logs, at the
+    # moment it returned, what went on and off the cable. Then a checker that shares no code with
+    # the loop or with hb_watch.py re-derives, from the simulated daemon's parameters and that log
+    # alone, the phase each cut and restore really had, and compares: (i) whether those phases cover
+    # the period -- round 7's loop, cutting right after its previous wait, puts all ten within a few
+    # tenths of a second of each other: PHASE-LOCKED -- and (ii) every recorded column against them.
+    # The simulated daemon's report lag is 0.7 s, not the helper's 0.5, so a lag written down rather
+    # than measured shows. Each run is a fresh `bash -euo pipefail` process, spike_finish its EXIT trap.
+    {
+        echo 'set -euo pipefail'
+        declare -f detect detect_controls tsv_row plan_row us_s judge note fail bad say err cut_link restore_link \
+            no_netem_on_cut run_tc show_qdisc netem_attach_point netem_delete_point revert_link_loss spike_finish \
+            retract_measuring now
+        printf 'WATCH=%q\nHB_REPORT=%q\nFAULTS_TC=%q\nLAB_HELPER=%q\nQDISC_TOOL=%q\n' \
+            "$WATCH" "$st_tmp/sim-no-report.json" "$st_tmp/fake_tc" "$st_tmp/no-helper" "$st_tmp/fake_qdisc_tool"
+        printf 'CUT_A=%q\nCUT_B=%q\nCUT_DIRS=%q\nSINGLE_DOWN=%q\nSINGLE_UP=%q\nCYCLE_COLS=%q\n' \
+            "$CUT_A" "$CUT_B" "$CUT_DIRS" "$SINGLE_DOWN" "$SINGLE_UP" "$CYCLE_COLS"
+        cat <<'DRIVER'
+sudo() { echo "sudo $*" >> "$FAKE_TC_STATE/calls"; }
+out="$1"; RUN="$2"; export FAKE_TC_STATE="$3" HB_WATCH_SIM="$4"
+mkdir -p "$RUN"
+VERDICT_RC=0; VERDICT_WHY=""; BEACON_S=5; TIMEOUT_S=15; HB_STARTED=0; INJECTED_IFACES=(); CLAIMED=0; CUT_END_US=()
+CYCLES="${ST_CYCLES:-10}"; PHASE="${ST_PHASE:-random}"; PHASE_SEED="${ST_SEED:-1}"; SWEEP_PHASES=""
+CONTROLS="${ST_CONTROLS:-1}"; NOCUT_S=20; PHASE_MARGIN_S=0.05
+prepare() { echo "OK /nonexistent/pkg"; }
+nd_up() { : > "$2"; return 0; }
+sp_hb_start() { : > "$1"; HB_STARTED=1; return 0; }
+sp_hb_stop() { HB_STARTED=0; }
+nd_down() { echo "ndt down" >> "$FAKE_TC_STATE/calls"; rm -f "$FAKE_TC_STATE"/up.*; return 0; }
+finish() { echo "finish VERDICT_RC=$VERDICT_RC WHY=$VERDICT_WHY" > "$out.finish"; }
+trap spike_finish EXIT INT TERM
+detect
+echo "survived VERDICT_RC=$VERDICT_RC" > "$out"
+DRIVER
+    } > "$st_tmp/sim_driver.sh"
+    cat > "$st_tmp/sim_check.py" <<'PYCHECK'
+# The checker: the simulated daemon's parameters (sim.json) and what the fake tc logged (netem.log),
+# nothing else -- no code of the loop's, none of hb_watch.py's. PASS <label> | FAIL <label>: <why>.
+import csv, json, math, os, subprocess, sys
+kind, simd, rund, watch = sys.argv[1:5]
+c = json.load(open(os.path.join(simd, "sim.json")))
+S, P, D, W, E, L = (float(c[k]) for k in ("started", "period", "delta", "w", "eps", "lag"))
+deaf = set(c.get("deaf_rounds", []))
+A, B, TIMEOUT = "s1-eth3", "s3-eth1", 15.0
+out = []
+def check(label, ok, why=""):
+    out.append(f"PASS {label}" if ok else f"FAIL {label}: {why}")
+def send(k): return S + D + k * P
+def heard_before(t):            # the newest frame of a direction sent before its netem went on at t
+    k = math.ceil((t - S - D) / P) - 1
+    while k >= 0 and k in deaf: k -= 1
+    return send(k) + E if k >= 0 else None
+def first_after(t):             # the first round sent at or after t, and heard
+    k = max(0, math.ceil((t - S - D) / P))
+    while k in deaf: k += 1
+    return k
+def gap(ph):
+    xs = sorted(x % P for x in ph)
+    if not xs: return P, 0.0, 0.0
+    g, j = max([(xs[i + 1] - xs[i], i + 1) for i in range(len(xs) - 1)] + [(xs[0] + P - xs[-1], 0)])
+    return g, xs[j], xs[j - 1]
+def num(x):
+    try: return float(x)
+    except (TypeError, ValueError): return None
+ev = [l.split()[:3] for l in open(os.path.join(simd, "netem.log")) if l.strip()]
+ev = [(o, d, float(t)) for o, d, t in ev]
+cuts, restores, singles, i = [], [], [], 0
+while i < len(ev):
+    o, d, t = ev[i]
+    nxt = ev[i + 1] if i + 1 < len(ev) else ("", "", 0.0)
+    if (o, d) == ("add", A) and nxt[:2] == ("add", B): cuts.append((t, nxt[2])); i += 2; continue
+    if (o, d) == ("del", A) and nxt[:2] == ("del", B): restores.append((t, nxt[2])); i += 2; continue
+    if (o, d) == ("add", A): singles.append(t)
+    i += 1
+truth_cut = []
+for ta, tb in cuts:
+    lh = max(x for x in (heard_before(ta), heard_before(tb)) if x is not None)
+    truth_cut.append({"t0": tb, "lh": lh, "phi": tb - lh})
+truth_rst = []
+for da, db in restores:
+    k = first_after(db)
+    truth_rst.append({"t1": db, "up": send(k) + E - db, "rpt": send(k) + W + L - db, "lh": send(k) + E,
+                      "phi": (db - (S + D + E)) % P})
+try:
+    rows = list(csv.DictReader(open(os.path.join(rund, "20_cycles.tsv")), delimiter="\t"))
+except OSError:
+    rows = []
+def near(r, col, want, tol):
+    x = num(r.get(col))
+    return None if x is not None and abs(x - want) <= tol else f"cycle {r.get('cycle')}: {col} {r.get(col)!r}, the timeline's {want:.4f}"
+def pairs(truth):
+    bad = [] if len(rows) == len(truth) and rows else [f"{len(rows)} rows for {len(truth)} in the timeline"]
+    return bad, list(zip(truth, rows))
+def lockline(ph, what):
+    g, lo, hi = gap(ph)
+    return (len(ph) == 10 and g < 0.6 * P,
+            f"{len(ph)} {what}s, all within an arc of {P - g:.2f} s ({lo:.2f} .. {hi:.2f} s), largest gap {g:.2f} s -- PHASE-LOCKED")
+if kind in ("random", "sweep"):
+    ok, why = lockline([t["phi"] for t in truth_cut], "cut")
+    check(f"{kind}: the cut phases the timeline saw (t0 - the last frame heard) cover the period", ok, why)
+    ok, why = lockline([t["phi"] for t in truth_rst], "restore")
+    check(f"{kind}: the restore phases the timeline saw cover the period", ok, why)
+    bad, zs = pairs(truth_cut)
+    for t, r in zs:
+        bad += [x for x in (near(r, "cut_t0_mono", t["t0"], 1e-5), near(r, "cut_lh_mono", t["lh"], 1e-5),
+                            near(r, "cut_phi_s", t["phi"], 0.0015), near(r, "down_rule_s", TIMEOUT - t["phi"], 0.0015)) if x]
+        dl = num(r.get("down_s")), num(r.get("down_rule_s"))
+        if None in dl or not 0 <= dl[0] - dl[1] < 0.11: bad.append(f"cycle {r.get('cycle')}: down_s - down_rule_s is not one poll")
+        if r.get("cut_phi_src") != "heard": bad.append(f"cycle {r.get('cycle')}: cut_phi_src {r.get('cut_phi_src')!r}")
+        if any(num(r.get(k)) is None for k in ("cut_tc_a_s", "cut_tc_b_s", "cut_t0a_mono")): bad.append(f"cycle {r.get('cycle')}: no cut_t0a_mono / per-end cut times")
+    check(f"{kind}: each row's cut_phi_s is t0 - the last frame heard as the timeline has it, with its stamps; down_rule_s is 15 s - it",
+          not bad, "; ".join(bad[:3]))
+    bad, zs = pairs(truth_rst)
+    for t, r in zs:
+        bad += [x for x in (near(r, "restore_t1_mono", t["t1"], 1e-5), near(r, "up_s", t["up"], 0.0015),
+                            near(r, "up_lh_mono", t["lh"], 1e-5), near(r, "restore_phi_s", t["phi"], 0.0015)) if x]
+    check(f"{kind}: each row's up_s and restore_phi_s are the timeline's", not bad, "; ".join(bad[:3]))
+    bad, zs = pairs(truth_rst)
+    for t, r in zs:
+        bad += [x for x in (near(r, "up_rpt_s", t["rpt"], 0.0015),) if x]
+        rp, pp = num(r.get("up_rpt_s")), num(r.get("up_poll_s"))
+        if rp is None or pp is None or not 0 <= pp - rp < 0.11: bad.append(f"cycle {r.get('cycle')}: up_poll_s is not the poll after up_rpt_s")
+    check(f"{kind}: the report level is measured -- up_rpt_s - up_s is the simulated lag ({L + W - E:.3f} s here), not the helper's 0.5",
+          not bad, "; ".join(bad[:3]))
+    polls = [os.path.join(rund, f"21_polls_{r.get('cycle')}.tsv") for r in rows]
+    bad = [os.path.basename(p) for p in polls if not os.path.exists(p) or
+           not {"cut", "restore"} <= {l.split("\t")[0] for l in open(p) if not l.startswith("part")}]
+    check(f"{kind}: every poll of every cycle traced, cut and restore (21_polls_<cycle>.tsv: its time, written_mono, the cable's last_heard_mono)",
+          bool(rows) and not bad, f"missing or incomplete: {', '.join(bad) or 'no rows at all'}")
+    try:
+        plan = open(os.path.join(rund, "19_phase_plan.tsv")).read()
+    except OSError:
+        plan = ""
+    prows = {l.split("\t")[0]: l.split("\t") for l in plan.splitlines() if l[:1].isdigit()}
+    if kind == "random":
+        seed = os.environ.get("ST_SEED", "")
+        again = subprocess.run(["/usr/bin/python3", "-I", watch, "plan", "random", "10", seed, "5"],
+                               capture_output=True, text=True, env={}).stdout
+        bad = [] if plan and f"seed={seed} " in plan.splitlines()[0] and again == plan else [f"19_phase_plan.tsv is {'missing' if not plan else 'not the seed ' + seed + chr(39) + 's plan'}"]
+        for r in rows:
+            p = prows.get(r.get("cycle"), [None] * 5)
+            bad += [x for x in (near(r, "cut_delay_s", num(p[2]) or -1, 0.002), near(r, "restore_delay_s", num(p[4]) or -1, 0.002)) if x]
+        check("random: the waits are the seeded plan's (19_phase_plan.tsv records the seed; that seed gives that plan)", not bad, "; ".join(bad[:3]))
+        try:
+            ctl = list(csv.DictReader(open(os.path.join(rund, "18_controls.tsv")), delimiter="\t"))
+        except OSError:
+            ctl = []
+        v = {r.get("control"): r.get("verdict", "") for r in ctl}
+        lines = [sum(1 for _ in open(os.path.join(rund, f))) if os.path.exists(os.path.join(rund, f)) else 0
+                 for f in ("18_polls_a.tsv", "18_polls_b.tsv")]
+        check("random: the two controls ran -- a row and an OK verdict each (18_controls.tsv), every poll traced, one one-end netem",
+              v.get("a_no_cut", "").startswith("OK") and v.get("b_single_end", "").startswith("OK") and min(lines) > 100 and len(singles) == 1,
+              f"verdicts {v or 'none'}, polls traced {lines}, one-end netem {len(singles)}")
+        try:
+            summ = open(os.path.join(rund, "22_summary.txt")).read().splitlines()
+        except OSError:
+            summ = []
+        want = ("  per cut phase", "  per restore phase", "  report lag, measured", "  cut phase coverage: n=10", "  restore phase coverage: n=10")
+        miss = [w for w in want if not any(l.startswith(w) for l in summ)]
+        check("random: the summary gives per-phase-bin statistics, the measured report lag, and judges the coverage (22_summary.txt)",
+              not miss and summ[-1].startswith("OK") and "cover the period" in summ[-1], f"missing {miss}; last line {summ[-1] if summ else 'none'!r}")
+    else:
+        bad = [] if plan.startswith("# PHASE=sweep") else ["19_phase_plan.tsv is not a sweep's plan"]
+        for t, r in zip(truth_cut, rows):
+            p, tc = num(r.get("cut_plan")), num(r.get("cut_tc_s"))
+            if p is None or tc is None or abs(t["phi"] - p - tc) > 0.005: bad.append(f"cycle {r.get('cycle')}: cut at {t['phi']:.3f} s after a frame, planned {r.get('cut_plan')} + cut_tc_s {r.get('cut_tc_s')}")
+        first = truth_cut[0]["phi"] if truth_cut else 9.0
+        check("sweep: each cut starts at its planned offset after the last frame heard (cut_phi_s = cut_plan + cut_tc_s), the first 0.05 s after one",
+              not bad and first < 0.13, "; ".join(bad[:3]) + f"; the first cut {first:.3f} s after a frame heard")
+        bad = []
+        for t, r in zip(truth_rst, rows):
+            p, tc = num(r.get("restore_plan")), num(r.get("restore_tc_s"))
+            if p is None or tc is None or abs((t["phi"] - p - tc + P / 2) % P - P / 2) > 0.005: bad.append(f"cycle {r.get('cycle')}: restore at {t['phi']:.3f} s, planned {r.get('restore_plan')} + {r.get('restore_tc_s')}")
+        check("sweep: each restore starts at its planned offset after a round", bool(rows) and not bad, "; ".join(bad[:3]) or "no rows")
+        check("sweep with CONTROLS=0: no control ran (no one-end netem, no 18_controls.tsv)",
+              not singles and not os.path.exists(os.path.join(rund, "18_controls.tsv")), f"one-end netem {len(singles)}")
+print("\n".join(out))
+PYCHECK
+    st_sim() {   # st_sim <name> <Sim overrides, JSON> [VAR=value...] -- one driver run on a fresh simulated daemon; sets wrc
+        local s="$st_tmp/sim_$1"
+        mkdir -p "$s/state" "$s/sim"; : > "$s/state/calls"; : > "$s/state/up.$CUT_A"; : > "$s/state/up.$CUT_B"
+        /usr/bin/python3 -I "$WATCH" sim-init "$s/sim" "$2"
+        echo 0.035 > "$s/sim/tc_cost"
+        env "${@:3}" bash "$st_tmp/sim_driver.sh" "$s/result" "$s/run" "$s/state" "$s/sim" > "$s/out" 2>&1 && wrc=0 || wrc=$?
+    }
+    st_simcheck() {   # st_simcheck <name> <kind> -- the checker's lines as ok / red
+        local l
+        while IFS= read -r l; do
+            case "$l" in
+                "PASS "*) ok "  ${l#PASS }" ;;
+                "FAIL "*) red "  ${l#FAIL }" ;;
+                *)        red "  the checker said: $l" ;;
+            esac
+        done < <(ST_SEED="${3:-}" /usr/bin/python3 -I "$st_tmp/sim_check.py" "$2" "$st_tmp/sim_$1/sim" "$st_tmp/sim_$1/run" "$WATCH" 2>&1)
+    }
+    st_simres() { printf "rc %s, '%s', '%s'%s" "$wrc" "$(cat "$st_tmp/sim_$1/result" 2>/dev/null || echo 'nothing written')" \
+        "$(cat "$st_tmp/sim_$1/result.finish" 2>/dev/null || echo 'finish never ran')" "$(st_died "$st_tmp/sim_$1/out" | sed 's/^/; /')"; }
+    # (1) PHASE=random, seeded, ten cycles, the controls on, the simulated lag 0.7 s.
+    st_sim random '{"lag": 0.7}' ST_PHASE=random ST_SEED=20260926 ST_CYCLES=10 ST_CONTROLS=1
+    [[ "$wrc" == 0 && "$(cat "$st_tmp/sim_random/result" 2>/dev/null)" == "survived VERDICT_RC=0" \
+       && "$(cat "$st_tmp/sim_random/result.finish" 2>/dev/null)" == "finish VERDICT_RC=0 WHY=" ]] \
+        && ok "round 8, PHASE=random against a simulated daemon (10 cycles, controls on, its report lag 0.7 s): the run goes as designed" \
+        || red "round 8, PHASE=random against a simulated daemon: $(st_simres random)"
+    st_simcheck random random 20260926
+    # (2) PHASE=sweep, ten cycles, the controls off.
+    st_sim sweep '{"lag": 0.7}' ST_PHASE=sweep ST_CYCLES=10 ST_CONTROLS=0
+    [[ "$wrc" == 0 && "$(cat "$st_tmp/sim_sweep/result" 2>/dev/null)" == "survived VERDICT_RC=0" \
+       && "$(cat "$st_tmp/sim_sweep/result.finish" 2>/dev/null)" == "finish VERDICT_RC=0 WHY=" ]] \
+        && ok "round 8, PHASE=sweep against a simulated daemon (10 cycles, controls off): the run goes as designed" \
+        || red "round 8, PHASE=sweep against a simulated daemon: $(st_simres sweep)"
+    st_simcheck sweep sweep
+    # (3) CONTROL (a) MUST BE ABLE TO FAIL: a daemon whose rounds 1-3 nobody hears -- no cut at all --
+    # is not-heard by the rule 15 s after round 0, inside the 20 s window. One cycle after it.
+    st_ctl() { awk -F'\t' -v c="$2" '$1 == c { print $6 }' "$st_tmp/sim_$1/run/18_controls.tsv" 2>/dev/null; }
+    st_sim deaf '{"deaf_rounds": [1, 2, 3]}' ST_PHASE=random ST_SEED=1 ST_CYCLES=1 ST_CONTROLS=1
+    [[ "$wrc" == 0 && "$(cat "$st_tmp/sim_deaf/result" 2>/dev/null)" == "survived VERDICT_RC=1" \
+       && "$(cat "$st_tmp/sim_deaf/result.finish" 2>/dev/null)" == "finish VERDICT_RC=1 WHY=control (a), no cut for 20 s: the proxy's rule fired with NO cut: "* \
+       && "$(st_ctl deaf a_no_cut)" == "BAD the proxy's rule fired with NO cut: "* \
+       && "$(st_ctl deaf b_single_end)" == "OK only 1:3>3:1 went not-heard"* ]] \
+        && ok "control (a) against a daemon nobody hears for three rounds, no cut: BAD, and the run FAILs for it -- control (b) and the cycle as designed" \
+        || red "control (a) against a daemon nobody hears for three rounds: $(st_simres deaf); control (a) '$(st_ctl deaf a_no_cut)', (b) '$(st_ctl deaf b_single_end)'"
+    # (4) CONTROL (b) MUST BE ABLE TO FAIL: a one-end netem that silences the whole cable.
+    st_sim cable '{"scope": "cable"}' ST_PHASE=random ST_SEED=1 ST_CYCLES=1 ST_CONTROLS=1
+    [[ "$wrc" == 0 && "$(cat "$st_tmp/sim_cable/result" 2>/dev/null)" == "survived VERDICT_RC=1" \
+       && "$(cat "$st_tmp/sim_cable/result.finish" 2>/dev/null)" == "finish VERDICT_RC=1 WHY=control (b), netem on $CUT_A only: 3:1>1:3 went not-heard too"* \
+       && "$(st_ctl cable a_no_cut)" == "OK no direction went not-heard"* \
+       && "$(st_ctl cable b_single_end)" == "BAD 3:1>1:3 went not-heard too"* ]] \
+        && ok "control (b) against a one-end netem that takes the whole cable: BAD, and the run FAILs for it -- control (a) and the cycle as designed" \
+        || red "control (b) against a one-end netem that takes the whole cable: $(st_simres cable); control (a) '$(st_ctl cable a_no_cut)', (b) '$(st_ctl cable b_single_end)'"
 
     # R3-4, round 4 -- the census reads the new daemon's session from its report, which may not be
     # written the instant `start` returns. Bounded wait, and no abort under set -e either way.
@@ -1608,6 +2066,14 @@ fi
 # --- the run -----------------------------------------------------------------------------------------
 case "$PART" in detect|census|all) ;; *) echo "PART must be detect, census or all" >&2; exit 2 ;; esac
 [[ "$CYCLES" =~ ^[1-9][0-9]*$ ]] || { echo "CYCLES must be a positive integer" >&2; exit 2; }
+case "$PHASE" in random|sweep) ;; *) echo "PHASE must be random or sweep" >&2; exit 2 ;; esac
+[[ "$CONTROLS" == 0 || "$CONTROLS" == 1 ]] || { echo "CONTROLS must be 0 or 1" >&2; exit 2; }
+[[ "$NOCUT_S" =~ ^[1-9][0-9]*$ ]] || { echo "NOCUT_S must be a whole number of seconds" >&2; exit 2; }
+[[ "$PHASE_MARGIN_S" =~ ^[0-9]+(\.[0-9]+)?$ ]] || { echo "PHASE_MARGIN_S must be a number of seconds" >&2; exit 2; }
+[[ -n "$PHASE_SEED" ]] || PHASE_SEED="$(od -An -N4 -tu4 /dev/urandom | tr -d ' ')"
+[[ "$PHASE_SEED" =~ ^[0-9]+$ ]] || { echo "PHASE_SEED must be a whole number" >&2; exit 2; }
+# 🔴 ROUND 8: hb_watch.py reads the SELF-TEST'S simulated heartbeat while this is set, not the lab's.
+[[ -z "${HB_WATCH_SIM:-}" ]] || { echo "refusing: HB_WATCH_SIM is set -- hb_watch.py would read the self-test's simulated heartbeat, not this lab's" >&2; exit 2; }
 RUN="$SPIKE_DIR/runs/$(date -u '+%Y-%m-%dT%H%M%SZ')_$STEP"
 mkdir -p "$RUN" || { echo "could not create $RUN" >&2; exit 2; }
 trap spike_finish EXIT INT TERM
@@ -1639,11 +2105,21 @@ fi
 read -r BEACON_S TIMEOUT_S WATCHDOG_S < <(consts) || die "cannot import the proxy's constants with $PY"
 note "proxy constants (imported): LLDP_BEACON_INTERVAL_S=$BEACON_S LINK_BEACON_TIMEOUT_S=$TIMEOUT_S LINK_WATCHDOG_INTERVAL_S=$WATCHDOG_S"
 : "${SNIFF_S:=$(( ${BEACON_S%.*} * 3 + 5 ))}"
+# Round 8: the detection part's plan and controls, refused here -- before anything is claimed -- when
+# they cannot be what they say: a no-cut window the rule could not fail in, a plan that would not parse.
+if [[ "$PART" != census ]]; then
+    if (( CONTROLS )) && (( NOCUT_S < ${TIMEOUT_S%.*} + ${BEACON_S%.*} )); then
+        die "refusing: NOCUT_S=$NOCUT_S is shorter than the proxy's timeout + one period ($TIMEOUT_S + $BEACON_S s) -- control (a) could not fail"
+    fi
+    plan_check="$(/usr/bin/python3 -I "$WATCH" plan "$PHASE" "$CYCLES" "$PHASE_SEED" "$BEACON_S" "$SWEEP_PHASES" 2>&1)" \
+        || die "refusing: no phase plan for PHASE=$PHASE -- $(head -1 <<< "$plan_check")"
+fi
 {
     echo "repo HEAD  $(git -C "$REPO" rev-parse HEAD 2>/dev/null || echo unknown)"
     echo "helper     $repo_sha  (installed: $inst)"
     for f in "$WATCH" "$SNIFF" "$PREP" "${BASH_SOURCE[0]}"; do echo "spike      $(sha256sum "$f" | cut -c1-16)  ${f#$REPO/}"; done
     echo "constants  beacon=$BEACON_S timeout=$TIMEOUT_S watchdog=$WATCHDOG_S sniff=$SNIFF_S cycles=$CYCLES"
+    echo "phase      PHASE=$PHASE seed=$PHASE_SEED sweep=${SWEEP_PHASES:-default} controls=$CONTROLS nocut=$NOCUT_S margin=$PHASE_MARGIN_S"
 } | tee "$RUN/01_binaries.txt" | sed 's/^/   /'
 
 require_free_lab
