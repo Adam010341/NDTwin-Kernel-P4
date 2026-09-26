@@ -673,40 +673,66 @@ open(sys.argv[1] + "/sniff_hA.json", "w").write(json.dumps({"host": "hA", "frame
     # directory -- and spike_finish as the EXIT trap, installed the way the run installs it. Only
     # the lab is stubbed: prepare, nd_up, nd_down (which removes the veths, as `ndt down` does), the
     # heartbeat, the clock, sudo and _common's finish.
+    # Round 7 (round-6 verdict, finding 2): a healthy heartbeat is NOT heard across a netem that
+    # drops every frame -- the fake tc's state is read, so both of detect's "heard" checks (the
+    # first check's all-heard, the cycle's pre-cut wait-heard) see a `loss 100%` residue, as they
+    # would live, and only a netem that lets frames through (`delay 1ms`) reaches cut_link.
     cat > "$st_tmp/fake_watch.py" <<'PYFAKE'
-import os, sys
+import glob, os, sys
 cmd = sys.argv[1]
+state = os.environ.get("FAKE_TC_STATE", "")
+lossy = bool(state) and any("loss 100%" in open(p).read() for p in glob.glob(os.path.join(state, "netem.*")))
 if os.environ.get("FAKE_WATCH") == "healthy":
     if cmd == "summary":
         with open(sys.argv[2]) as fh:
             rows = [l for l in fh if l.strip() and not l.startswith("cycle")]
         print("OK every cut and every restore detected" if rows else "BAD not every cycle was detected")
+    elif cmd == "wait-heard":
+        print("TIMEOUT" if lossy else "1.000")
+    elif cmd == "all-heard":
+        print("BAD 6/8 directions heard" if lossy else "OK 8/8 directions heard")
     else:
-        print({"wait-heard": "1.000", "wait-down": "12.345", "all-heard": "OK 8/8 directions heard"}.get(cmd, "OK"))
+        print({"wait-down": "12.345"}.get(cmd, "OK"))
 else:
     print({"wait-heard": "TIMEOUT", "all-heard": "BAD 0/8 directions heard"}.get(cmd, "OK"))
 PYFAKE
     {
         printf '#!%s\n' "$BASH"
         cat <<'FAKETC'
-# tc against a state directory: up.<dev> = the veth exists, netem.<dev> = netem at its root,
-# refuse.<dev> = `qdisc add` on it is refused, refuse-del.<dev> = `qdisc del` on it is refused.
-# Every call but `show` is logged, in order.
+# tc against a state directory: up.<dev> = the veth exists, netem.<dev> = netem at its root (the
+# file holds its parameters, e.g. `loss 100%`), refuse.<dev> = `qdisc add` on it is refused,
+# refuse-del.<dev> = `qdisc del` on it is refused. Every call but `show` is logged, in order.
 s="$FAKE_TC_STATE"; dev=""
 for (( i = 1; i < $#; i++ )); do [[ "${!i}" == dev ]] && { j=$(( i + 1 )); dev="${!j}"; }; done
 [[ "$2" == show ]] || echo "tc $*" >> "$s/calls"
 [[ -e "$s/up.$dev" ]] || { echo "Cannot find device \"$dev\"" >&2; exit 1; }
 case "$2" in
-    show) if [[ -e "$s/netem.$dev" ]]; then echo "qdisc netem 8001: root refcnt 2 limit 1000 loss 100%"
+    show) if [[ -e "$s/netem.$dev" ]]; then echo "qdisc netem 8001: root refcnt 2 limit 1000 $(cat "$s/netem.$dev")"
           else echo "qdisc noqueue 0: root refcnt 2"; fi ;;
     add)  [[ ! -e "$s/refuse.$dev" ]] || { echo "RTNETLINK answers: Operation not permitted" >&2; exit 2; }
-          : > "$s/netem.$dev" ;;
+          a="$*"; printf '%s\n' "${a#* netem }" > "$s/netem.$dev" ;;
     del)  [[ ! -e "$s/refuse-del.$dev" ]] || { echo "RTNETLINK answers: Operation not permitted" >&2; exit 2; }
           rm -f "$s/netem.$dev" ;;
 esac
 FAKETC
     } > "$st_tmp/fake_tc"
-    printf '#!%s\necho "qdisc_tool $1" >> "$FAKE_TC_STATE/calls"\n' "$BASH" > "$st_tmp/fake_qdisc_tool"
+    # Round 7 (round-6 verdict, finding 1): the fake qdisc_snapshot.sh compares what the fake tc
+    # holds -- every netem.<dev> and its parameters -- against its own `save`, and `diff` answers 1
+    # when they differ, as the real one does over `tc qdisc show`. A netem the cycles left behind
+    # is then the live failure list's `the qdisc tree differs ...` line; one that was already
+    # there at the snapshot is not.
+    {
+        printf '#!%s\n' "$BASH"
+        cat <<'FAKEQDISC'
+echo "qdisc_tool $1" >> "$FAKE_TC_STATE/calls"
+tree() { local f; for f in "$FAKE_TC_STATE"/netem.*; do [[ -e "$f" ]] && printf '%s %s\n' "${f##*/}" "$(cat "$f")"; done; return 0; }
+case "$1" in
+    save) tree > "$2" ;;
+    diff) if [[ "$(tree)" == "$(cat "$2")" ]]; then echo "qdisc state unchanged"
+          else diff "$2" <(tree); echo "QDISC STATE CHANGED since the snapshot" >&2; exit 1; fi ;;
+esac
+FAKEQDISC
+    } > "$st_tmp/fake_qdisc_tool"
     chmod +x "$st_tmp/fake_tc" "$st_tmp/fake_qdisc_tool"
     {
         echo 'set -euo pipefail'
@@ -737,13 +763,19 @@ DRIVER
     } > "$st_tmp/detect_driver.sh"
     # st_detect <name> <FAKE_WATCH mode> [<fake tc state file>...] -- one run of the driver, the fake
     # tc's state directory holding up.<CUT_A>, up.<CUT_B> and each state file named (refuse.<dev>,
-    # refuse-del.<dev>, netem.<dev>: see the fake tc; "" names none); its files are
+    # refuse-del.<dev>, netem.<dev>=<its parameters>: see the fake tc; "" names none); its files are
     # $st_tmp/detect_<name>.{result,result.finish,out,run/} and $st_tmp/detect_<name>.tc/calls.
     # Sets wrc.
     st_detect() {
         local s="$st_tmp/detect_$1.tc" m
         mkdir -p "$s"; : > "$s/calls"; : > "$s/up.$CUT_A"; : > "$s/up.$CUT_B"
-        for m in "${@:3}"; do [[ -z "$m" ]] || : > "$s/$m"; done
+        for m in "${@:3}"; do
+            case "$m" in
+                "")  ;;
+                *=*) printf '%s\n' "${m#*=}" > "$s/${m%%=*}" ;;
+                *)   : > "$s/$m" ;;
+            esac
+        done
         FAKE_WATCH="$2" bash "$st_tmp/detect_driver.sh" "$st_tmp/detect_$1.result" "$st_tmp/detect_$1.run" "$s" \
             > "$st_tmp/detect_$1.out" 2>&1 && wrc=0 || wrc=$?
     }
@@ -798,6 +830,9 @@ DRIVER
     # netem refusing to come off. revert_link_loss empties INJECTED_IFACES even when it fails
     # (faults.sh), so spike_finish has nothing left to retry: the end left with netem is named here,
     # in the loop, or by no failure at all. The refusal stays the verdict's reason; the run goes on.
+    # Round 7 (round-6 verdict, finding 1): the netem left on that end is also in the qdisc diff,
+    # so the list has the fourth line a live run would print -- the fake qdisc_tool reads the fake
+    # tc's state now, where it used to answer "identical" whatever was left.
     st_detect halfdel healthy "refuse.$CUT_B" "refuse-del.$CUT_A"
     want="$(printf '%s\n' "qdisc_tool save" "tc qdisc add dev $CUT_A root netem loss 100%" \
         "tc qdisc add dev $CUT_B root netem loss 100%" "tc qdisc del dev $CUT_A root" \
@@ -805,9 +840,9 @@ DRIVER
     [[ "$wrc" == 0 && "$(cat "$st_tmp/detect_halfdel.result" 2>/dev/null)" == "survived VERDICT_RC=1" \
        && "$(cat "$st_tmp/detect_halfdel.result.finish" 2>/dev/null)" == "finish VERDICT_RC=1 WHY=tc refused to add netem on $CUT_B (root)" \
        && "$(cat "$st_tmp/detect_halfdel.tc/calls")" == "$want" \
-       && "$(st_fails "$st_tmp/detect_halfdel.out")" == "tc refused to add netem on $CUT_B (root); cycle 1: could not remove the netem a half-done cut left on $CUT_A; $nocycle" \
+       && "$(st_fails "$st_tmp/detect_halfdel.out")" == "tc refused to add netem on $CUT_B (root); cycle 1: could not remove the netem a half-done cut left on $CUT_A; $nocycle; the qdisc tree differs from before the cycles -- see 23_qdisc.diff" \
        && -z "$(st_why "$st_tmp/detect_halfdel.out")" ]] \
-        && ok "  and when the first end's netem will not come off either: that end is a failure of its own, the refusal stays the reason, nothing retries it at teardown, the run goes on (set -e process)" \
+        && ok "  and when the first end's netem will not come off either: that end is a failure of its own (and the qdisc diff's), the refusal stays the reason, nothing retries it at teardown, the run goes on (set -e process)" \
         || red "  a half-done cut whose restore is refused too: rc $wrc, '$(cat "$st_tmp/detect_halfdel.result.finish" 2>/dev/null || echo 'finish never ran')', failures recorded: [$(st_fails "$st_tmp/detect_halfdel.out")], calls: $(paste -sd';' "$st_tmp/detect_halfdel.tc/calls")$(st_why "$st_tmp/detect_halfdel.out"); $(st_died "$st_tmp/detect_halfdel.out")"
     # R5-2 -- the cut refused on its FIRST end: nothing went onto the cable, so nothing comes off it
     # -- no `tc qdisc del` at all -- and the refusal is the one failure about the cable, with no
@@ -823,7 +858,11 @@ DRIVER
         || red "  a cut refused on its first end: rc $wrc, '$(cat "$st_tmp/detect_firstref.result.finish" 2>/dev/null || echo 'finish never ran')', failures recorded: [$(st_fails "$st_tmp/detect_firstref.out")], calls: $(paste -sd';' "$st_tmp/detect_firstref.tc/calls")$(st_why "$st_tmp/detect_firstref.out"); $(st_died "$st_tmp/detect_firstref.out")"
     # ... and a first end that already carries a netem (an earlier round's, not this run's):
     # netem_attach_point answers `unsafe`, nothing is added -- and that netem is NOT deleted.
-    st_detect firstunsafe healthy "netem.$CUT_A"
+    # Round 7 (round-6 verdict, finding 2): a netem that lets the heartbeat through (`delay 1ms`),
+    # the only residue with which a live run reaches cut_link -- `loss 100%` stops it earlier, at
+    # the detection part's first check (firstlossy below; the fake hb_watch reads the fake tc's
+    # state). It is in the snapshot too, so the qdisc diff has nothing to say about it.
+    st_detect firstunsafe healthy "netem.$CUT_A=delay 1ms"
     [[ "$wrc" == 0 && "$(cat "$st_tmp/detect_firstunsafe.result" 2>/dev/null)" == "survived VERDICT_RC=1" \
        && "$(cat "$st_tmp/detect_firstunsafe.result.finish" 2>/dev/null)" == "finish VERDICT_RC=1 WHY=no safe netem attach point on $CUT_A (netem already there, or the tree is unreadable)" \
        && "$(paste -sd';' "$st_tmp/detect_firstunsafe.tc/calls")" == "qdisc_tool save;qdisc_tool diff;ndt down" \
@@ -831,6 +870,17 @@ DRIVER
        && -z "$(st_why "$st_tmp/detect_firstunsafe.out")" ]] \
         && ok "  a first end already carrying a netem (unsafe): nothing added, nothing deleted -- that netem is not this run's -- one failure about the cable, the run goes on (set -e process)" \
         || red "  a first end that already carries a netem: rc $wrc, '$(cat "$st_tmp/detect_firstunsafe.result.finish" 2>/dev/null || echo 'finish never ran')', failures recorded: [$(st_fails "$st_tmp/detect_firstunsafe.out")], calls: $(paste -sd';' "$st_tmp/detect_firstunsafe.tc/calls")$(st_why "$st_tmp/detect_firstunsafe.out"); $(st_died "$st_tmp/detect_firstunsafe.out")"
+    # ... and the round-6 shape of that residue, `loss 100%`: the cable is silent from the start, so
+    # the detection part stops at its FIRST check (6 of 8 directions heard) -- no snapshot, no cut,
+    # no cycle. That is why firstunsafe above uses a netem that lets frames through (finding 2 of
+    # the round-6 verdict): with this one, cut_link is unreachable live. The one call is the
+    # teardown stopping the heartbeat detect left running when it returned.
+    st_detect firstlossy healthy "netem.$CUT_A=loss 100%"
+    [[ "$wrc" == 0 && "$(cat "$st_tmp/detect_firstlossy.result" 2>/dev/null)" == "survived VERDICT_RC=1" \
+       && "$(paste -sd';' "$st_tmp/detect_firstlossy.tc/calls")" == "sudo -n $st_tmp/no-helper heartbeat stop" \
+       && "$(st_fails "$st_tmp/detect_firstlossy.out")" == "every direction heard once the heartbeat is up: 6/8 directions heard" ]] \
+        && ok "  a residue that drops every frame (loss 100%) ends the detection part at its first check: nothing snapshotted, added or deleted (set -e process)" \
+        || red "  a residue shaped loss 100%: rc $wrc, failures recorded: [$(st_fails "$st_tmp/detect_firstlossy.out")], calls: $(paste -sd';' "$st_tmp/detect_firstlossy.tc/calls"); $(st_died "$st_tmp/detect_firstlossy.out")"
 
     # R3-4, round 4 -- the census reads the new daemon's session from its report, which may not be
     # written the instant `start` returns. Bounded wait, and no abort under set -e either way.
