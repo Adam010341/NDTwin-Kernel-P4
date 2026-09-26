@@ -174,6 +174,10 @@ curl() {
     cat "${seq[i]:-${seq[$(( ${#seq[@]} - 1 ))]}}"
 }
 sleep() { printf "sleep %s\n" "$*" >> "'"$FIX"'/sleep.log"; }
+sudo()   { printf "sudo %s\n" "$*" >> "'"$FIX"'/stub_lab.log"; return 1; }
+mnexec() { printf "mnexec %s\n" "$*" >> "'"$FIX"'/stub_lab.log"; return 1; }
+iperf()  { printf "iperf %s\n" "$*" >> "'"$FIX"'/stub_lab.log"; return 1; }
+iperf3() { printf "iperf3 %s\n" "$*" >> "'"$FIX"'/stub_lab.log"; return 1; }
 '
 drive() {   # drive <shell code> -> its output plus a trailing RC=<n>
     : > "$FIX/curl.log"; : > "$FIX/sleep.log"; rm -f "$FIX/g.n"
@@ -269,18 +273,23 @@ section "4. model_switch_dpids / assert_probe_ok_follows_set -- the proxy's side
 # and "s3 is computed, not typed" was only half true. A four-switch package would have had its
 # fourth switch silently unchecked, which is the quietest green there is.
 
-mkpkg() {   # mkpkg <dir> <n-switches>
+mkpkg() {   # mkpkg <dir> <n-switches> [host prefix: h (10.0.N.N) | zz (10.9.9.N)]
     mkdir -p "$1/ndtwin"
-    python3 - "$1/ndtwin/topology.json" "$2" <<'PYP'
+    python3 - "$1/ndtwin/topology.json" "$2" "${3:-h}" <<'PYP'
 import json, sys
-ns = int(sys.argv[2])
+ns, hp = int(sys.argv[2]), sys.argv[3]
 nodes = [{"device_name": "s%d" % d, "dpid": d, "vertex_type": 0} for d in range(1, ns + 1)]
-nodes += [{"device_name": "h%d" % h, "dpid": 0, "vertex_type": 1, "ip": ["10.0.%d.%d" % (h, h)]}
+nodes += [{"device_name": "%s%d" % (hp, h), "dpid": 0, "vertex_type": 1,
+           "ip": ["10.0.%d.%d" % (h, h) if hp == "h" else "10.9.9.%d" % h]}
           for h in (1, 2, 3)]
 json.dump({"nodes": nodes, "edges": [], "links": []}, open(sys.argv[1], "w"))
 PYP
 }
 PKG3="$FIX/pkg3"; mkpkg "$PKG3" 3
+# [Co-developed with claude code -- Adam] 🔴 PKGZ IS FOR EVERY CELL THAT REACHES host_pid: its hosts
+# are zz1..zz3, names no fabric has (the no-ns cell's rule, 5e). PKG3's h1..h3 are the names a
+# live fabric uses -- the 09-26 17:55Z iperf went through them.
+PKGZ="$FIX/pkgz"; mkpkg "$PKGZ" 3 zz
 PKG4="$FIX/pkg4"; mkpkg "$PKG4" 4
 PKG_BAD="$FIX/pkg-bad"; mkdir -p "$PKG_BAD/ndtwin"; printf 'not json\n' > "$PKG_BAD/ndtwin/topology.json"
 
@@ -589,13 +598,20 @@ has   "  named as the permission answer it is"           "never a reading about 
 # exercise deliberately cannot reach -- sig-topo replicates ports 1,2,3 and p4runtime's
 # controller wires h1<->h2 and never touches s3. Measuring to those produces an EMPTY on-path
 # set, which this cell refuses: correctly, and about the wrong thing.
-OUT="$(drive "link_usage_round '$PKG3' 'to-h2' '$FIX/lur3' follows h2")"
-has   "  a named destination is the one the flow runs to" "h1 -> h2 (10.0.2.2)" "$OUT"
-OUT="$(drive "link_usage_round '$PKG3' 'default' '$FIX/lur4'")"
-has   "  and with none named it is the model's LAST host" "h1 -> h3 (10.0.3.3)" "$OUT"
-OUT="$(drive "link_usage_round '$PKG3' 'to-h9' '$FIX/lur5' follows h9")"
+# [Co-developed with claude code -- Adam] 🔴 AND THEY RUN ON PKGZ (09-27). These two cells used
+# $PKG3's h1..h3, whose names a live fabric has: on 09-26 at 17:55Z, with the orchestrator's 06
+# up, host_pid found its h1/h2 and a real iperf ran into that arm's counters. The destination
+# rule does not care what the hosts are called; the cells now also pin that each stopped at the
+# namespace refusal (rc 2) -- before any flow -- and section 14 checks that nothing got further.
+OUT="$(drive "link_usage_round '$PKGZ' 'to-zz2' '$FIX/lur3' follows zz2")"
+has   "  a named destination is the one the flow runs to" "zz1 -> zz2 (10.9.9.2)" "$OUT"
+check "  and, zz2 having no namespace, it stopped there (rc 2)" "2" "$(rc_of "$OUT")"
+OUT="$(drive "link_usage_round '$PKGZ' 'default' '$FIX/lur4'")"
+has   "  and with none named it is the model's LAST host" "zz1 -> zz3 (10.9.9.3)" "$OUT"
+check "  stopping at the same refusal (rc 2)"             "2" "$(rc_of "$OUT")"
+OUT="$(drive "link_usage_round '$PKGZ' 'to-zz9' '$FIX/lur5' follows zz9")"
 check "🔴 a destination the model does not declare is refused" "1" "$(rc_of "$OUT")"
-has   "  rather than silently falling back to another host" "declares no host 'h9'" "$OUT"
+has   "  rather than silently falling back to another host" "declares no host 'zz9'" "$OUT"
 
 # =============================================================================================
 section "9. 🔴 no live-p1 script reintroduces the \`set -u\` \`local\` hazard"
@@ -1022,14 +1038,17 @@ has   "🔴 and NAMING the datagram size it chose"         "iperf -l 1200" "$OUT
 # CTRL_PID unconditionally at source time threw the pid away and the branch was unreachable.
 # Setting it after the source (as an earlier version of this cell did) tests the branch but
 # NOT the reachability, and that is exactly how the defect survived.
+# [Co-developed with claude code -- Adam] The dead pid is one ABOVE pid_max (4194304), and the
+# package is PKGZ (09-27): 999999 can be a live process, and then this cell went on to host_pid
+# with PKG3's h1..h3 -- the names of a live fabric.
 OUT="$(bash -c "set -u
-CTRL_PID=999999
+CTRL_PID=4194399
 source '$COMMON'
 $STUBS
-link_usage_round '$PKG3' 'noctrl' '$FIX/lur3'
+link_usage_round '$PKGZ' 'noctrl' '$FIX/lur3'
 echo \"RC=\$?\"" 2>&1)"
 has   "🔴 a dead exercise controller makes G1 NOT RUN"   "G1 NOT RUN" "$OUT"
-has   "  naming the pid it checked"                      "pid 999999" "$OUT"
+has   "  naming the pid it checked"                      "pid 4194399" "$OUT"
 has   "  and the summary line says NOT-RUN"              "rc=NOT-RUN" "$OUT"
 # 🔴 AND THE rc IS THE THING (§9 ruling 28④). `primary=s...` can never appear -- the
 # LINK_USAGE line prints COUNTS -- so that cell asserted nothing. NOT RUN has its own code,
@@ -1046,6 +1065,8 @@ check "  the guard's sudo is the one on PATH"            "$NOLAB/bin/sudo" "$(ty
 check "  and the fake fabric is what host_pid sees"      "4194392" \
       "$( set +eu; source "$REAL_REPO/tools/test_workflow/ndt" >/dev/null 2>&1; host_pid h2 )"
 check "🔴 NOTHING reached for sudo, mnexec or iperf past a stub" "" "$(sort "$NOLAB/calls" | uniq -c | sed 's/^ *//' | paste -sd';' -)"
+check "🔴 and no cell reached the shared stubs either (no flow was attempted)" "" \
+      "$(sort "$FIX/stub_lab.log" 2>/dev/null | uniq -c | sed 's/^ *//' | paste -sd';' -)"
 
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"
