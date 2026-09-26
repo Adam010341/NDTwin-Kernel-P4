@@ -9,9 +9,11 @@
 # /usr/local/sbin/ndtwin-lab (the one with `heartbeat`), which is not installed when this is
 # written, and it refuses -- rc 2, before any claim -- unless the installed helper is
 # byte-identical to this checkout's tools/test_workflow/ndtwin-lab. `--self-test` runs the judge
-# (hb_watch.py), the host sniffer (hb_sniff.py), and this script's own teardown, tc pre-check and
-# sniffer watch against stubs -- one input that must pass and one that must fail per verdict --
-# and touches nothing else.
+# (hb_watch.py), the host sniffer (hb_sniff.py), and this script's own teardown, tc pre-check,
+# sniffer watch, detection cycle (against a fake tc), one census arm and census table against
+# stubs -- one input that must pass and one that must fail per verdict -- and touches nothing
+# else. spike/oldcode_selftest.sh puts the set -e fixes of round 4 and each fix of round 5 back to
+# their old form in a copy and shows that exactly the checks written for them go red.
 #
 # PART=detect  (≈ 15 min)  pod-topo `--app basic` (the exercise's own solution pipeline, converted
 #   the way 06 converts it). The heartbeat runs; an OUT-OF-BAND `tc netem loss 100%` goes on BOTH
@@ -247,14 +249,18 @@ child_running() {
     [[ -n "$st" && "$st" != Z && "$st" != X ]]
 }
 
-# wait_session <report> <tries> -- the daemon's session (hex) out of its report, polled every 0.25 s
-# for up to <tries> reads; rc 1, printing nothing, if there is none by then (judge R3-4, round 4:
-# the report is written right after the pidfile `start` waits for, so it can lag by an instant,
-# and a bare read under `set -e` would end the run on that instant).
+# wait_session <report> <tries> <pid> -- the session (hex) of daemon <pid> out of its report, polled
+# every 0.25 s for up to <tries> reads; rc 1, printing nothing, if there is none by then (judge
+# R3-4, round 4: the report is written right after the pidfile `start` waits for, so it can lag by
+# an instant, and a bare read under `set -e` would end the run on that instant).
+# 🔴 ONLY A REPORT THAT SAYS `running` AND NAMES <pid> (judge R4-1, round-4 verdict): in that same
+# instant the file can still hold the previous arm's final "stopped" report, and a daemon killed
+# before its clean exit leaves a "running" one with its own pid -- either session is not this arm's.
+# <pid> is the one `heartbeat start` answered with (hb_watch.py started-pid).
 wait_session() {
     local i s
     for (( i = 0; i < $2; i++ )); do
-        s="$(/usr/bin/python3 -I "$WATCH" session "$1" 2>/dev/null)" || s=""
+        s="$(/usr/bin/python3 -I "$WATCH" session "$1" "$3" 2>/dev/null)" || s=""
         [[ -n "$s" ]] && { echo "$s"; return 0; }
         sleep 0.25
     done
@@ -344,7 +350,10 @@ detect() {
         v="$(/usr/bin/python3 -I "$WATCH" wait-heard "$HB_REPORT" "$CUT_DIRS" "$(python3 -c "print($(now) - ${BEACON_S} - 1)")" "$(( ${BEACON_S%.*} * 3 ))")"
         [[ "$v" != TIMEOUT ]] || { fail "cycle $i: the cable was not heard before the cut"; break; }
         t0a="$(now)"
-        cut_link || break
+        # 🔴 A CUT REFUSED ON ITS SECOND END (judge R4-2, round-4 verdict) has already put netem on the
+        # first. It comes off HERE, while the veth exists: left to the EXIT trap, the revert runs
+        # after `nd_down` removed the veth, answers "cannot locate", and adds a misleading failure.
+        cut_link || { restore_link || fail "cycle $i: could not remove the netem a half-done cut left on $CUT_A"; break; }
         t0="$(now)"
         down="$(/usr/bin/python3 -I "$WATCH" wait-down "$HB_REPORT" "$CUT_DIRS" "$t0" "$TIMEOUT_S" "$(python3 -c "print($TIMEOUT_S + 2 * $BEACON_S + 10)")")"
         local coll; coll="$(/usr/bin/python3 -I "$WATCH" others-up "$HB_REPORT" "$CUT_DIRS" "$TIMEOUT_S")"
@@ -373,7 +382,7 @@ detect() {
 
 # --- PART census -----------------------------------------------------------------------------------
 census() {
-    local ex which prep pkg rc hs session h pid v dir stopf
+    local ex which prep pkg rc hs hb_pid session h pid v dir stopf
     printf 'exercise\tarm\tbuilt\theartbeat\tverdict\n' > "$RUN/40_census.tsv"
     for ex in $EXERCISES; do
       for which in $ARMS; do
@@ -406,9 +415,20 @@ census() {
             nd_down "$dir/90_down.txt" || true
             continue
         fi
-        if ! session="$(wait_session "$HB_REPORT" 20)"; then
+        # The daemon THIS start started (judge R4-1): its pid from start's own answer, and the
+        # session only from a running report of that pid. "already running" names no pid here.
+        hb_pid="$(/usr/bin/python3 -I "$WATCH" started-pid "$dir/11_hb_start.txt" 2>/dev/null)" || hb_pid=""
+        session=""
+        if [[ -n "$hb_pid" ]]; then
+            session="$(wait_session "$HB_REPORT" 20 "$hb_pid")" || session=""
+        fi
+        if [[ -z "$session" ]]; then
             printf '%s\t%s\tyes\tno session in 5 s\t-\n' "$ex" "$which" >> "$RUN/40_census.tsv"
-            fail "census $ex/$which: the heartbeat started but its report carries no session after 5 s"
+            if [[ -n "$hb_pid" ]]; then
+                fail "census $ex/$which: the heartbeat started (pid $hb_pid) but no running report of that pid carries a session after 5 s"
+            else
+                fail "census $ex/$which: 'heartbeat start' answered 0 without saying it started a daemon -- see 11_hb_start.txt"
+            fi
             sp_hb_stop "$dir/31_hb_stop.txt"
             nd_down "$dir/90_down.txt" || true
             continue
@@ -443,6 +463,18 @@ census() {
         esac
       done
     done
+}
+
+# show_census <tsv> -- the census table on the terminal. A DISPLAY: the raw is the tsv, so this never
+# decides the run (judge R4-3, round-4 verdict: under pipefail, a machine without `column` --
+# bsdextrautils -- turned a finished census into "exited 127 before its own verdict"). Without
+# `column`, the rows as they are.
+show_census() {
+    if command -v column >/dev/null 2>&1; then
+        column -t -s $'\t' "$1" | sed 's/^/   /' || true
+    else
+        sed 's/^/   /' "$1" || true
+    fi
 }
 
 # --- --self-test -------------------------------------------------------------------------------------
@@ -630,55 +662,252 @@ open(sys.argv[1] + "/sniff_hA.json", "w").write(json.dumps({"host": "hA", "frame
     # from it ends the run under set -e -- skipping the census even with CENSUS_EVEN_IF_RED=1.
     # detect records its failures with `fail`; it must itself return 0. Driven with stubs in a fresh
     # `bash -euo pipefail` process: the heartbeat comes up but not every direction is heard.
-    printf 'import sys\nprint({"wait-heard": "TIMEOUT", "all-heard": "BAD 0/8 directions heard"}.get(sys.argv[1], "OK"))\n' \
-        > "$st_tmp/fake_watch.py"
+    #
+    # Round 5 (judge R4-2, R4-5 of the round-4 verdict): the same driver now carries everything
+    # detect touches PAST its first check -- cut_link, restore_link, no_netem_on_cut and faults.sh's
+    # own netem functions (run_tc, show_qdisc, netem_attach_point, netem_delete_point,
+    # revert_link_loss, err), run against a fake tc that keeps each veth's qdisc in a state
+    # directory -- and spike_finish as the EXIT trap, installed the way the run installs it. Only
+    # the lab is stubbed: prepare, nd_up, nd_down (which removes the veths, as `ndt down` does), the
+    # heartbeat, the clock, sudo and _common's finish.
+    cat > "$st_tmp/fake_watch.py" <<'PYFAKE'
+import os, sys
+cmd = sys.argv[1]
+if os.environ.get("FAKE_WATCH") == "healthy":
+    if cmd == "summary":
+        with open(sys.argv[2]) as fh:
+            rows = [l for l in fh if l.strip() and not l.startswith("cycle")]
+        print("OK every cut and every restore detected" if rows else "BAD not every cycle was detected")
+    else:
+        print({"wait-heard": "1.000", "wait-down": "12.345", "all-heard": "OK 8/8 directions heard"}.get(cmd, "OK"))
+else:
+    print({"wait-heard": "TIMEOUT", "all-heard": "BAD 0/8 directions heard"}.get(cmd, "OK"))
+PYFAKE
+    {
+        printf '#!%s\n' "$BASH"
+        cat <<'FAKETC'
+# tc against a state directory: up.<dev> = the veth exists, netem.<dev> = netem at its root,
+# refuse.<dev> = `qdisc add` on it is refused. Every call but `show` is logged, in order.
+s="$FAKE_TC_STATE"; dev=""
+for (( i = 1; i < $#; i++ )); do [[ "${!i}" == dev ]] && { j=$(( i + 1 )); dev="${!j}"; }; done
+[[ "$2" == show ]] || echo "tc $*" >> "$s/calls"
+[[ -e "$s/up.$dev" ]] || { echo "Cannot find device \"$dev\"" >&2; exit 1; }
+case "$2" in
+    show) if [[ -e "$s/netem.$dev" ]]; then echo "qdisc netem 8001: root refcnt 2 limit 1000 loss 100%"
+          else echo "qdisc noqueue 0: root refcnt 2"; fi ;;
+    add)  [[ ! -e "$s/refuse.$dev" ]] || { echo "RTNETLINK answers: Operation not permitted" >&2; exit 2; }
+          : > "$s/netem.$dev" ;;
+    del)  rm -f "$s/netem.$dev" ;;
+esac
+FAKETC
+    } > "$st_tmp/fake_tc"
+    printf '#!%s\necho "qdisc_tool $1" >> "$FAKE_TC_STATE/calls"\n' "$BASH" > "$st_tmp/fake_qdisc_tool"
+    chmod +x "$st_tmp/fake_tc" "$st_tmp/fake_qdisc_tool"
     {
         echo 'set -euo pipefail'
-        declare -f detect judge note fail bad say
-        printf 'WATCH=%q\nRUN=%q\nHB_REPORT=%q\n' "$st_tmp/fake_watch.py" "$st_tmp/detect_run" "$st_tmp/no-report.json"
+        declare -f detect judge note fail bad say err cut_link restore_link no_netem_on_cut \
+            run_tc show_qdisc netem_attach_point netem_delete_point revert_link_loss spike_finish
+        declare -p R N
+        printf 'WATCH=%q\nHB_REPORT=%q\nFAULTS_TC=%q\nLAB_HELPER=%q\n' \
+            "$st_tmp/fake_watch.py" "$st_tmp/no-report.json" "$st_tmp/fake_tc" "$st_tmp/no-helper"
+        printf 'CUT_A=%q\nCUT_B=%q\nCUT_DIRS=%q\n' "$CUT_A" "$CUT_B" "$CUT_DIRS"
+        # R4-5: every global detect reads past its first check is defined here -- QDISC_TOOL too.
+        printf 'QDISC_TOOL=%q\n' "$st_tmp/fake_qdisc_tool"
         cat <<'DRIVER'
+sudo() { echo "sudo $*" >> "$FAKE_TC_STATE/calls"; }
+out="$1"; RUN="$2"; export FAKE_TC_STATE="$3"
 mkdir -p "$RUN"
-VERDICT_RC=0; VERDICT_WHY=""; BEACON_S=5; TIMEOUT_S=15; CYCLES=1; CUT_DIRS="1:3>3:1,3:1>1:3"
+VERDICT_RC=0; VERDICT_WHY=""; BEACON_S=5; TIMEOUT_S=15; CYCLES=1; HB_STARTED=0; INJECTED_IFACES=()
 prepare() { echo "OK /nonexistent/pkg"; }
 nd_up() { : > "$2"; return 0; }
-sp_hb_start() { : > "$1"; return 0; }
-sp_hb_stop() { :; }
-nd_down() { return 0; }
+sp_hb_start() { : > "$1"; HB_STARTED=1; return 0; }
+sp_hb_stop() { HB_STARTED=0; }
+nd_down() { echo "ndt down" >> "$FAKE_TC_STATE/calls"; rm -f "$FAKE_TC_STATE"/up.*; return 0; }
 now() { echo 100.0; }
+finish() { echo "finish VERDICT_RC=$VERDICT_RC WHY=$VERDICT_WHY" > "$out.finish"; }
+trap spike_finish EXIT INT TERM
 [[ "all" == detect || "all" == all ]] && detect
-echo "survived VERDICT_RC=$VERDICT_RC" > "$1"
+echo "survived VERDICT_RC=$VERDICT_RC" > "$out"
 DRIVER
     } > "$st_tmp/detect_driver.sh"
-    bash "$st_tmp/detect_driver.sh" "$st_tmp/detect_out" > "$st_tmp/detect_driver.out" 2>&1 && wrc=0 || wrc=$?
+    # st_detect <name> <FAKE_WATCH mode> <device whose `tc qdisc add` is refused, or ""> -- one run
+    # of the driver; its files are $st_tmp/detect_<name>.{result,result.finish,out,run/} and
+    # $st_tmp/detect_<name>.tc/calls. Sets wrc.
+    st_detect() {
+        local s="$st_tmp/detect_$1.tc"
+        mkdir -p "$s"; : > "$s/calls"; : > "$s/up.$CUT_A"; : > "$s/up.$CUT_B"
+        [[ -z "$3" ]] || : > "$s/refuse.$3"
+        FAKE_WATCH="$2" bash "$st_tmp/detect_driver.sh" "$st_tmp/detect_$1.result" "$st_tmp/detect_$1.run" "$s" \
+            > "$st_tmp/detect_$1.out" 2>&1 && wrc=0 || wrc=$?
+    }
+    st_died() { grep -m1 -E 'unbound variable|command not found|syntax error' "$1" 2>/dev/null | tr '\n' ' '; }
+    st_detect first "" ""
     # 🔴 THE DRIVER MUST GET AS FAR AS THE CHECK IT IS ABOUT. Its first version died of `set -u` on a
     # variable the stub environment lacked (CUT_DIRS) -- red, but for its own reason, not detect's
     # (5c882c9f's red log). So the fake hb_watch must have been asked for `all-heard`, and the
     # verdict must be the one that check records.
-    [[ "$wrc" == 0 && "$(cat "$st_tmp/detect_out" 2>/dev/null)" == "survived VERDICT_RC=1" ]] \
-        && grep -q 'every direction heard once the heartbeat is up: 0/8 directions heard' "$st_tmp/detect_driver.out" \
+    [[ "$wrc" == 0 && "$(cat "$st_tmp/detect_first.result" 2>/dev/null)" == "survived VERDICT_RC=1" ]] \
+        && grep -q 'every direction heard once the heartbeat is up: 0/8 directions heard' "$st_tmp/detect_first.out" \
         && ok "a detection part that fails its first check records FAIL and returns -- the run goes on (set -e process)" \
-        || red "a detection part that fails its first check ended the run under set -e: rc $wrc, '$(cat "$st_tmp/detect_out" 2>/dev/null || echo 'nothing written')'; driver said: $(tail -2 "$st_tmp/detect_driver.out" | tr '\n' ' ')"
+        || red "a detection part that fails its first check ended the run under set -e: rc $wrc, '$(cat "$st_tmp/detect_first.result" 2>/dev/null || echo 'nothing written')'; driver said: $(tail -2 "$st_tmp/detect_first.out" | tr '\n' ' ')"
+    # R4-5 -- a cycle that goes as designed. The round-4 driver had no QDISC_TOOL: any scenario that
+    # got past the first check died of the driver's own `set -u` there, as 5c882c9f's did on CUT_DIRS.
+    local want
+    st_detect healthy healthy ""
+    want="$(printf '%s\n' "qdisc_tool save" "tc qdisc add dev $CUT_A root netem loss 100%" \
+        "tc qdisc add dev $CUT_B root netem loss 100%" "tc qdisc del dev $CUT_A root" \
+        "tc qdisc del dev $CUT_B root" "qdisc_tool diff" "ndt down")"
+    [[ "$wrc" == 0 && "$(cat "$st_tmp/detect_healthy.result" 2>/dev/null)" == "survived VERDICT_RC=0" \
+       && "$(cat "$st_tmp/detect_healthy.result.finish" 2>/dev/null)" == "finish VERDICT_RC=0 WHY=" \
+       && "$(cat "$st_tmp/detect_healthy.tc/calls")" == "$want" \
+       && "$(sed -n 2p "$st_tmp/detect_healthy.run/20_cycles.tsv" 2>/dev/null)" == $'1\t12.345\t1.000\t0.000\tOK\tno' ]] \
+        && ok "a detection cycle that goes as designed: both ends cut, both restored, its row written, the run goes on (set -e process, fake tc)" \
+        || red "a detection cycle that goes as designed: rc $wrc, '$(cat "$st_tmp/detect_healthy.result" 2>/dev/null || echo 'nothing written')', calls: $(paste -sd';' "$st_tmp/detect_healthy.tc/calls"); $(st_died "$st_tmp/detect_healthy.out")"
+    # R4-2 -- the cut is refused on its SECOND end. The first end's netem has to come off while its
+    # veth still exists; left to the EXIT trap, it runs after `ndt down` removed the veth, answers
+    # "cannot locate", and adds a second, misleading failure.
+    st_detect halfcut healthy "$CUT_B"
+    want="$(printf '%s\n' "qdisc_tool save" "tc qdisc add dev $CUT_A root netem loss 100%" \
+        "tc qdisc add dev $CUT_B root netem loss 100%" "tc qdisc del dev $CUT_A root" \
+        "qdisc_tool diff" "ndt down")"
+    [[ "$wrc" == 0 && "$(cat "$st_tmp/detect_halfcut.result" 2>/dev/null)" == "survived VERDICT_RC=1" \
+       && "$(cat "$st_tmp/detect_halfcut.result.finish" 2>/dev/null)" == "finish VERDICT_RC=1 WHY=tc refused to add netem on $CUT_B (root)" \
+       && "$(cat "$st_tmp/detect_halfcut.tc/calls")" == "$want" ]] \
+       && ! grep -qE 'cannot locate|could NOT remove' "$st_tmp/detect_halfcut.out" \
+        && ok "  a half-done cut (the second end refused): the first end's netem comes off before 'ndt down'; no 'cannot locate' at teardown" \
+        || red "  a half-done cut: rc $wrc, '$(cat "$st_tmp/detect_halfcut.result.finish" 2>/dev/null || echo 'finish never ran')', calls: $(paste -sd';' "$st_tmp/detect_halfcut.tc/calls")$(grep -q 'cannot locate' "$st_tmp/detect_halfcut.out" && echo '; teardown said: cannot locate the netem (its veth was gone)'); $(st_died "$st_tmp/detect_halfcut.out")"
 
     # R3-4, round 4 -- the census reads the new daemon's session from its report, which may not be
     # written the instant `start` returns. Bounded wait, and no abort under set -e either way.
+    # R4-1 (round-4 verdict) -- and only from a report that says `running` and names the pid `start`
+    # answered with: `start` can return while the file still holds the previous arm's final report.
     {
         echo 'set -euo pipefail'
         declare -f wait_session
         printf 'WATCH=%q\n' "$WATCH"
         cat <<'DRIVER'
-s="$(wait_session "$1" 4)" || s="NONE"
+s="$(wait_session "$1" 4 "$3")" || s="NONE"
 echo "$s" > "$2"
 DRIVER
     } > "$st_tmp/session_driver.sh"
-    printf '{"session": "0102030405060708"}' > "$st_tmp/report.json"
-    bash "$st_tmp/session_driver.sh" "$st_tmp/report.json" "$st_tmp/session1" >/dev/null 2>&1 && wrc=0 || wrc=$?
-    [[ "$wrc" == 0 && "$(cat "$st_tmp/session1" 2>/dev/null)" == 0102030405060708 ]] \
+    st_session() {   # st_session <report json, or "" for no report> <the pid start named> -> "rc N: <session|NONE>"
+        local f src
+        f="$(mktemp "$st_tmp/report-XXXXXX")"
+        if [[ -n "$1" ]]; then printf '%s' "$1" > "$f.json"; fi
+        bash "$st_tmp/session_driver.sh" "$f.json" "$f.got" "$2" >/dev/null 2>&1 && src=0 || src=$?
+        printf 'rc %s: %s' "$src" "$(cat "$f.got" 2>/dev/null)"
+    }
+    r="$(st_session '{"status": "running", "pid": 4242, "session": "0102030405060708"}' 4242)"
+    [[ "$r" == "rc 0: 0102030405060708" ]] \
         && ok "the census reads the daemon's session from its report (set -e process)" \
-        || red "reading the session from a written report: rc $wrc, got '$(cat "$st_tmp/session1" 2>/dev/null)'"
-    bash "$st_tmp/session_driver.sh" "$st_tmp/absent.json" "$st_tmp/session2" >/dev/null 2>&1 && wrc=0 || wrc=$?
-    [[ "$wrc" == 0 && "$(cat "$st_tmp/session2" 2>/dev/null)" == NONE ]] \
+        || red "reading the session from the running daemon's report: $r"
+    r="$(st_session "" 4242)"
+    [[ "$r" == "rc 0: NONE" ]] \
         && ok "  no report yet: a bounded wait, then 'no session' for the caller to handle -- not an abort" \
-        || red "  no report: rc $wrc, got '$(cat "$st_tmp/session2" 2>/dev/null)'"
+        || red "  no report: $r"
+    r="$(st_session '{"status": "stopped", "pid": 1111, "session": "a1a1a1a1a1a1a1a1"}' 4242)"
+    [[ "$r" == "rc 0: NONE" ]] \
+        && ok "  the previous arm's final report ('stopped', its own pid) is not taken for the new daemon's session" \
+        || red "  the previous arm's final 'stopped' report was taken for the new session: $r"
+    r="$(st_session '{"status": "stopped", "pid": 4242, "session": "b2b2b2b2b2b2b2b2"}' 4242)"
+    [[ "$r" == "rc 0: NONE" ]] \
+        && ok "  nor a 'stopped' report of the very pid start named (a daemon that has already exited)" \
+        || red "  a 'stopped' report of the pid start named was taken for a session: $r"
+    r="$(st_session '{"status": "running", "pid": 1111, "session": "c3c3c3c3c3c3c3c3"}' 4242)"
+    [[ "$r" == "rc 0: NONE" ]] \
+        && ok "  nor a 'running' report of another pid (a daemon killed before it could write 'stopped')" \
+        || red "  a 'running' report of another pid was taken for the new session: $r"
+    # The pid is the one in the helper's own answer: the template is read out of the helper this
+    # checkout installs, filled in, and handed to what the census calls.
+    local tpl
+    tpl="$(sed -n 's/^ *echo "\(heartbeat started (pid \$pid;[^"]*\)"$/\1/p' "$REPO/tools/test_workflow/ndtwin-lab" | head -1)"
+    printf '%s\n' "${tpl//\$pid/4242}" > "$st_tmp/start_answer.txt"
+    r="$(/usr/bin/python3 -I "$WATCH" started-pid "$st_tmp/start_answer.txt" 2>&1 | tail -1)"
+    [[ -n "$tpl" && "$r" == 4242 ]] \
+        && ok "  the pid is read from the helper's own 'heartbeat started (pid N; ...)' answer (template taken from the helper)" \
+        || red "  the pid in the helper's start answer is not what the census reads: template '${tpl:-not found in the helper}', read '$r'"
+    # R4-1 at the census's own call site: one arm, driven with stubs in a fresh `bash -euo pipefail`
+    # process -- census, wait_session and the sniffer watch are this file's code (`declare -f`),
+    # hb_watch.py is the real one; the lab (prepare, ndt, the heartbeat helper, the model's hosts,
+    # host_pid, sudo/mnexec) is stubbed, and the stub sniffer records the session it was given.
+    printf 'host_pid() { echo 4321; }\n' > "$st_tmp/fake_ndt"
+    {
+        echo 'set -euo pipefail'
+        declare -f census wait_session watch_sniffers watch_hit child_running note fail bad say
+        printf 'WATCH=%q\nSNIFF=%q\nREAL_NDT=%q\n' "$WATCH" "$SNIFF" "$st_tmp/fake_ndt"
+        cat <<'DRIVER'
+sudo() {
+    if [[ "${2:-}" == mnexec ]]; then echo "sniff ${10:-} ${12:-}" >> "$CALLS"; else echo "sudo $*" >> "$CALLS"; fi
+    printf '{"host": "%s", "frames_hb": 0}\n' "${10:-}"
+}
+out="$1"; RUN="$2"; HB_REPORT="$3"; START_ANSWER="$4"; CALLS="$2/calls"
+mkdir -p "$RUN"; : > "$CALLS"
+VERDICT_RC=0; VERDICT_WHY=""; HB_STARTED=0; WATCH_HIT=""; EXERCISES=basic; ARMS=solution; SNIFF_S=1
+prepare() { echo "OK /nonexistent/pkg"; }
+nd_up() { : > "$2"; return 0; }
+sp_hb_start() { printf '%s\n' "$START_ANSWER" > "$1"; HB_STARTED=1; return 0; }
+sp_hb_stop() { echo "hb stop" >> "$CALLS"; HB_STARTED=0; }
+nd_down() { echo "ndt down" >> "$CALLS"; return 0; }
+model_hosts() { echo "h1 10.0.0.1"; }
+census
+echo "survived VERDICT_RC=$VERDICT_RC WHY=$VERDICT_WHY" > "$out"
+DRIVER
+    } > "$st_tmp/census_arm_driver.sh"
+    st_arm() {   # st_arm <name> <report json> <start answer> -> "<driver's last word> | calls: a;b | row: <tsv row>"
+        local d="$st_tmp/arm_$1"
+        mkdir -p "$d"; printf '%s' "$2" > "$d/report.json"
+        bash "$st_tmp/census_arm_driver.sh" "$d/result" "$d/run" "$d/report.json" "$3" > "$d/out" 2>&1 || true
+        printf '%s | calls: %s | row: %s' "$(cat "$d/result" 2>/dev/null || echo "died: $(st_died "$d/out")")" \
+            "$(paste -sd';' "$d/run/calls" 2>/dev/null)" "$(sed -n 2p "$d/run/40_census.tsv" 2>/dev/null | tr '\t' '|')"
+    }
+    local started="heartbeat started (pid 4242; report: /run/ndtwin-lab/heartbeat.json, log: x)"
+    r="$(st_arm new '{"status": "running", "pid": 4242, "session": "0102030405060708"}' "$started")"
+    [[ "$r" == "survived VERDICT_RC=0 WHY= | calls: sniff h1 0102030405060708;hb stop;ndt down | row: basic|solution|yes|running|OK "* ]] \
+        && ok "  a census arm: the pid start named ties the session, and the sniffers get that one (census driven with stubs, set -e process)" \
+        || red "  a census arm with the new daemon's report: $r"
+    r="$(st_arm stale '{"status": "stopped", "pid": 1111, "session": "a1a1a1a1a1a1a1a1"}' "$started")"
+    [[ "$r" == "survived VERDICT_RC=1 WHY=census basic/solution: the heartbeat started (pid 4242) but no running report of that pid carries a session after 5 s | calls: hb stop;ndt down | row: basic|solution|yes|no session in 5 s|-" ]] \
+        && ok "  an arm whose report is still the previous arm's 'stopped' one: a FAIL row, no sniffer given that session" \
+        || red "  an arm whose report is still the previous arm's 'stopped' one: $r"
+    r="$(st_arm already '{"status": "running", "pid": 4242, "session": "d4d4d4d4d4d4d4d4"}' \
+        "heartbeat already running (pid 4242) -- not starting a second one")"
+    [[ "$r" == "survived VERDICT_RC=1 WHY=census basic/solution: 'heartbeat start' answered 0 without saying it started a daemon -- see 11_hb_start.txt | calls: hb stop;ndt down | row: basic|solution|yes|no session in 5 s|-" ]] \
+        && ok "  an arm whose start answered 'already running' (it started nothing): a FAIL row, nobody else's session sniffed" \
+        || red "  an arm whose start answered 'already running': $r"
+
+    # R4-3 (round-4 verdict) -- the census table is a display; the raw is 40_census.tsv. The run
+    # block's own display step (read out of this file, whatever it is) runs in a fresh
+    # `bash -euo pipefail` process on a PATH with no `column` (bsdextrautils): it must print the rows
+    # and let the run go on to its verdict. And where `column` is there, it is still used.
+    local step
+    step="$(awk '/^# --- the run/ {run = 1} run && /^    census$/ {grab = 1; next} grab && /^fi$/ {exit} grab' "${BASH_SOURCE[0]}")"
+    mkdir -p "$st_tmp/census_run" "$st_tmp/bin_nocolumn" "$st_tmp/bin_column"
+    printf 'exercise\tarm\tbuilt\theartbeat\tverdict\nbasic\tsolution\tyes\trunning\tOK no host saw a heartbeat frame\n' \
+        > "$st_tmp/census_run/40_census.tsv"
+    {
+        echo 'set -euo pipefail'
+        if declare -F show_census >/dev/null; then declare -f show_census; fi
+        printf 'RUN=%q\n' "$st_tmp/census_run"
+        printf '%s\n' "$step"
+        echo 'echo survived > "$1"'
+    } > "$st_tmp/census_driver.sh"
+    ln -s "$(command -v sed)" "$st_tmp/bin_nocolumn/sed"
+    ln -s "$(command -v sed)" "$st_tmp/bin_column/sed"
+    { printf '#!%s\n' "$BASH"; echo 'echo column-ran; while IFS= read -r l; do printf "%s\n" "$l"; done < "${!#}"'; } \
+        > "$st_tmp/bin_column/column"
+    chmod +x "$st_tmp/bin_column/column"
+    PATH="$st_tmp/bin_nocolumn" "$BASH" "$st_tmp/census_driver.sh" "$st_tmp/census_nocolumn.result" \
+        > "$st_tmp/census_nocolumn.out" 2>&1 && wrc=0 || wrc=$?
+    [[ -n "$step" && "$wrc" == 0 && "$(cat "$st_tmp/census_nocolumn.result" 2>/dev/null)" == survived ]] \
+        && grep -q '^   basic' "$st_tmp/census_nocolumn.out" \
+        && ok "the census table on a machine without 'column': the rows are printed and the run goes on to its verdict (set -e process)" \
+        || red "the census table without 'column' ended the run: rc $wrc, step '${step:-not found in the run block}'; it said: $(head -2 "$st_tmp/census_nocolumn.out" | tr '\n' ' ')"
+    PATH="$st_tmp/bin_column" "$BASH" "$st_tmp/census_driver.sh" "$st_tmp/census_column.result" \
+        > "$st_tmp/census_column.out" 2>&1 && wrc=0 || wrc=$?
+    [[ "$wrc" == 0 && "$(cat "$st_tmp/census_column.result" 2>/dev/null)" == survived ]] \
+        && grep -q '^   column-ran' "$st_tmp/census_column.out" && grep -q '^   basic' "$st_tmp/census_column.out" \
+        && ok "  and where 'column' is installed it still lays the table out" \
+        || red "  the census table with 'column' installed: rc $wrc; it said: $(head -2 "$st_tmp/census_column.out" | tr '\n' ' ')"
     rm -rf "$st_tmp"
     (( rc == 0 )) && echo "SPIKE SELF-TEST PASS" || echo "SPIKE SELF-TEST FAIL"
     return "$rc"
@@ -740,6 +969,6 @@ take_claim "heartbeat spike S ($PART): pod-topo basic, netem on $CUT_A/$CUT_B; 1
 [[ "$PART" == detect || "$PART" == all ]] && detect
 if [[ "$PART" == census || "$PART" == all ]] && (( VERDICT_RC == 0 || ${CENSUS_EVEN_IF_RED:-0} )); then
     census
-    column -t -s $'\t' "$RUN/40_census.tsv" | sed 's/^/   /'
+    show_census "$RUN/40_census.tsv"
 fi
 say "done -- teardown follows"
