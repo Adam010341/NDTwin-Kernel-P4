@@ -556,10 +556,9 @@ PY
     expect BAD "L1 an extra link"                "$(links_heard "$t/links_one_extra.json" "$t/model.json")"
     expect BAD "L1 a direction never heard yet (the startup grace)" "$(links_heard "$t/links_one_grace.json" "$t/model.json")"
     expect BAD "L1 every direction in the startup grace" "$(links_heard "$t/state_grace.json" "$t/model.json")"
-    ok()  { printf '  ok    %s
-' "$1"; }
-    red() { printf '  🔴    %s
-' "$1"; rc=1; }
+    # (a red line is "<case> -- <what it saw>": the first cut's gate finds a case by its name and a space)
+    ok()  { printf '  ok    %s\n' "$1"; }
+    red() { printf '  🔴    %s\n' "$1"; rc=1; }
     # [Co-developed with claude code -- Adam] L6 and L1 on switch_state as the live path runs them --
     # l6_roles / l6_plain, their own arguments, state_until's poll -- against a proxy served by
     # file:// (08's precedent), with a switch_state that turns heard 2.5 s into the poll.
@@ -582,30 +581,30 @@ PY
           && "$got" == *"J L1 declared links on switch_state, fed by the heartbeat: OK"* && "$got" == *"polls 1"* ]]; then
         ok "L6/L1 on switch_state (roles): all heard at once -- three OK judgements from one read"
     else
-        red "L6/L1 on switch_state (roles), heard at once: $(tr '\n' '|' <<<"$got")"
+        red "L6/L1 on switch_state (roles), heard at once -- $(tr '\n' '|' <<<"$got")"
     fi
     got="$(st_l6 roles state_grace.json state_owned.json 10)" || true
     if [[ "$got" == *"J L1 declared links on switch_state, fed by the heartbeat: OK"* && "$got" == *"J L6 capabilities: OK"* \
           && "$(sed -n 's/^polls //p' <<<"$got")" -ge 2 ]]; then
         ok "  state_until waits: in the startup grace first, heard 2.5 s later -- OK on a later read"
     else
-        red "  state_until through the startup grace: $(tr '\n' '|' <<<"$got")"
+        red "  state_until through the startup grace -- $(tr '\n' '|' <<<"$got")"
     fi
     got="$(st_l6 roles state_grace.json - 3)" || true
     if [[ "$got" == *"J L1 declared links on switch_state, fed by the heartbeat: BAD"* && "$(sed -n 's/^polls //p' <<<"$got")" -ge 2 ]]; then
         ok "  never heard within the poll: L1 on switch_state is judged BAD after more than one read"
     else
-        red "  never heard within the poll: $(tr '\n' '|' <<<"$got")"
+        red "  never heard within the poll -- $(tr '\n' '|' <<<"$got")"
     fi
     got="$(st_l6 roles - - 2)" || true
     [[ "$got" == *"F L6: no switch_state"* ]] && ok "  no switch_state at all: a fail, not a pass" \
-                                            || red "  no switch_state at all: $(tr '\n' '|' <<<"$got")"
+                                            || red "  no switch_state at all -- $(tr '\n' '|' <<<"$got")"
     got="$(st_l6 plain state_plain.json - 4)" || true
     if [[ "$got" == *"J L6 capabilities (unbound): OK"* && "$got" == *"J L6 control_plane.skipped (unbound): OK"* \
           && "$got" == *"J L1 declared links on switch_state, fed by the heartbeat (unbound): OK"* ]]; then
         ok "L6/L1 on switch_state (unbound): its own capabilities, skipped list and labels"
     else
-        red "L6/L1 on switch_state (unbound): $(tr '\n' '|' <<<"$got")"
+        red "L6/L1 on switch_state (unbound) -- $(tr '\n' '|' <<<"$got")"
     fi
     # 🔴 Against the REAL switch_states of 08's live run (2026-09-26T152605Z_08_heartbeat), where they
     # exist on this machine (not committed; SELFTEST_HB_RUN / SELFTEST_HB_PKGS point elsewhere,
