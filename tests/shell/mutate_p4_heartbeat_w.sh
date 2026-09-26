@@ -1337,6 +1337,35 @@ m=$(lmutant l48 "$LIVE08" \
     '    local psi="see 30_cycles.tsv"')
 lreport "L48: the one-psi caveat is not printed" "$m" "H1's last line with an OVER cycle was"
 
+# [Co-developed with claude code -- Adam] H5's report sampler (live H5 on cafd518a never sampled:
+# a compile error nobody saw) and the two live-path programs the embedded-program sweep found no
+# self-test running (report_dirs, graph_until's elapsed).
+m=$(lmutant l49 "$LIVE08" \
+    '        values = (wall, d.get("status"), d.get("session"), d.get("pid"),' \
+    '        values = (wall, f"{d.get(\"status\")}", d.get("session"), d.get("pid"),')
+lreport "L49: SAMPLER_PY does not compile again (the live H5 defect)" "$m" "H5 sampler rows"
+m=$(lmutant l50 "$LIVE08" \
+    '        if [[ "$(head -1 "$out" 2>/dev/null)" == "$SAMPLER_HEADER" ]] && kill -0 "$SAMPLER_PID" 2>/dev/null; then' \
+    '        if true; then')
+lreport "L50: sampler_start believes a sampler it never saw" "$m" "  a sampler that cannot start"
+m=$(lmutant l51 "$LIVE08" \
+    '        time.sleep(interval)
+    row(fh)' \
+    '        time.sleep(interval)')
+lreport "L51: the stop path takes no last read" "$m" "  the stop path's last read"
+m=$(lmutant l52 "$LIVE08" \
+    '> /dev/null 2> "$SAMPLER_ERR" &' \
+    '> /dev/null 2>&1 &')
+lreport "L52: the sampler's stderr goes to /dev/null again" "$m" "  a sampler that cannot start"
+m=$(lmutant l53 "$LIVE08" \
+    'ab, ba = got.get((a, ap, b, bp)), got.get((b, bp, a, ap))' \
+    'ab, ba = got.get((b, bp, a, ap)), got.get((a, ap, b, bp))')
+lreport "L53: report_dirs swaps the two directions" "$m" "report_dirs gave"
+m=$(lmutant l54 "$LIVE08" \
+    'BEGIN{printf "%.2f\n", b-a}' \
+    'BEGIN{printf "%.2f\n", a-b}')
+lreport "L54: graph_until's elapsed counts backwards" "$m" "graph_until after a cut gave"
+
 # --- a control that must stay green ----------------------------------------------------------------
 m=$(mutant c1 "$HBMOD" \
     '#: The daemon'"'"'s report is a few KiB; anything past this is not one.' \
