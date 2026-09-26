@@ -423,10 +423,12 @@ census() {
             session="$(wait_session "$HB_REPORT" 20 "$hb_pid")" || session=""
         fi
         if [[ -z "$session" ]]; then
-            printf '%s\t%s\tyes\tno session in 5 s\t-\n' "$ex" "$which" >> "$RUN/40_census.tsv"
             if [[ -n "$hb_pid" ]]; then
+                printf '%s\t%s\tyes\tno session in 5 s\t-\n' "$ex" "$which" >> "$RUN/40_census.tsv"
                 fail "census $ex/$which: the heartbeat started (pid $hb_pid) but no running report of that pid carries a session after 5 s"
             else
+                # Nothing was waited for on this path (finding 5, round-5 verdict): the row says what happened.
+                printf '%s\t%s\tyes\tstart named no pid\t-\n' "$ex" "$which" >> "$RUN/40_census.tsv"
                 fail "census $ex/$which: 'heartbeat start' answered 0 without saying it started a daemon -- see 11_hb_start.txt"
             fi
             sp_hb_stop "$dir/31_hb_stop.txt"
