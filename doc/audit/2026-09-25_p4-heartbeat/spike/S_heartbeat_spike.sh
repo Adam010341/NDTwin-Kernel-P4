@@ -882,6 +882,206 @@ DRIVER
         && ok "  a residue that drops every frame (loss 100%) ends the detection part at its first check: nothing snapshotted, added or deleted (set -e process)" \
         || red "  a residue shaped loss 100%: rc $wrc, failures recorded: [$(st_fails "$st_tmp/detect_firstlossy.out")], calls: $(paste -sd';' "$st_tmp/detect_firstlossy.tc/calls"); $(st_died "$st_tmp/detect_firstlossy.out")"
 
+    # 🔴 ROUND 7 -- THE FIRST LIVE RUN'S TEARDOWN (09-26 10:30, runs/2026-09-26T023021Z_S_heartbeat/).
+    # The run exports NDT_MEASURING before take_claim, so its claim DECLARES a measurement, and
+    # `ndt down` refuses (rc 5) under such a claim until it is re-claimed without one
+    # (tools/test_workflow/ndt cmd_down, the T2d guard). Both downs of that run were refused
+    # (26_down.txt, 90_down.txt) -- and finish() released the lab anyway, leaving a 4-switch fabric
+    # up under no claim. The self-test never saw it: its nd_down was a stub that answered 0.
+    # So here the lowest layer the spike calls, `ndt` itself, is a fake with ndt's semantics for
+    # the five verbs the run uses (read out of the real one, which is not run): take_claim, detect,
+    # nd_up, nd_down, spike_finish and _common.sh's finish are this file's code (`declare -f`), the
+    # run block from `require_free_lab` on is read out of this file, and each scenario runs in a
+    # fresh `bash -euo pipefail` process with spike_finish as its EXIT trap.
+    {
+        printf '#!%s\n' "$BASH"
+        cat <<'FAKENDT'
+# A fake tools/test_workflow/ndt over files under $FAKE_REPO, with what the real one does (read-only):
+#   claim    another owner's live claim: rc 1. Else the claim is written, measuring= from NDT_MEASURING
+#            in THIS command's environment (claim_take), and the round baseline records the P4 host
+#            knob as it is now (record_round_baseline).
+#   up       p4 --app <pkg>: a fabric, app_package_override, the knob rewritten (to fake/up-hosts),
+#            and the note says the lab is in use (claim_note_up).
+#   down     another owner's live claim: 5. A live claim that DECLARES measuring=: 5 (cmd_down, T2d).
+#            fake/refuse-down: 5 (in_flight's "a measurement is running"). Else the app knob goes and,
+#            with a fabric up, the fabric: 0 -- nothing up: 3; either way the note says so and
+#            measuring= is cleared (claim_note_down).
+#   release  another owner's live claim: 1. The knob differing from the round baseline: 1 (cmd_release,
+#            E-11b). Else the claim and the baseline become .prev.
+#   status   a `running` block.
+# Every call is logged in fake/calls, with whether NDT_MEASURING was in its environment.
+r="$FAKE_REPO"; c="$r/.test_run/lab.claim"; b="$r/.test_run/round.baseline"; s="$r/.test_run/fake"
+knob="$r/p4_proxy/mininet/host_count_override"; app="$r/p4_proxy/mininet/app_package_override"
+field() { [[ -f "$c" ]] && sed -n "s/^$1=//p" "$c" | head -1; }
+live()  { local e; e="$(field expires)"; [[ "$e" =~ ^[0-9]+$ ]] && (( e > $(date +%s) )); }
+ours()  { [[ -n "${NDT_OWNER:-}" && "$(field owner)" == "$NDT_OWNER" ]]; }
+write() { printf 'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=no\nmeasuring=%s\n' "$1" "$2" "$3" "$4" > "$c"; }
+echo "$1${NDT_MEASURING+ [NDT_MEASURING in env]}" >> "$s/calls"
+case "$1" in
+    claim)
+        if live && ! ours; then echo "the lab is already claimed by $(field owner)" >&2; exit 1; fi
+        [[ -f "$c" ]] && cp -f "$c" "$c.prev"
+        write "$NDT_OWNER" "$(( $(date +%s) + $2 * 60 ))" "${3:-}" "${NDT_MEASURING:-}"
+        echo "host_count=$(cat "$knob" 2>/dev/null)" > "$b"
+        echo "  ok  lab claimed by $NDT_OWNER for $2m" ;;
+    up)
+        : > "$s/fabric"; printf '%s\n' "$4" > "$app"; cat "$s/up-hosts" > "$knob"
+        live && ours && write "$(field owner)" "$(field expires)" "in use: ndt $*" "$(field measuring)"
+        echo "  proxy :8081   kernel :8000" ;;
+    down)
+        if live && ! ours; then echo "  XX  refusing to tear down: the lab is claimed by $(field owner)" >&2; exit 5; fi
+        if live && [[ -n "$(field measuring)" ]]; then
+            echo "  XX  refusing to tear down: this claim DECLARES a measurement in progress." >&2
+            echo "  XX  when that run is over:  ndt claim <mins> to redeclare, or  ndt down --force" >&2
+            exit 5
+        fi
+        if [[ -e "$s/refuse-down" ]]; then echo "  XX  refusing to tear down: a measurement is running." >&2; exit 5; fi
+        rm -f "$app"
+        if [[ -e "$s/fabric" ]]; then
+            rm -f "$s/fabric"
+            live && ours && write "$(field owner)" "$(field expires)" "down; verified clean; claim kept" ""
+            echo "clean"; exit 0
+        fi
+        live && ours && write "$(field owner)" "$(field expires)" "down; nothing was up to tear down; claim kept" ""
+        echo "nothing was up -- this command measured nothing"; exit 3 ;;
+    release)
+        [[ -f "$c" ]] || { echo "  ok  no claim to release"; exit 0; }
+        if live && ! ours; then echo "refusing: the claim belongs to $(field owner)" >&2; exit 1; fi
+        base="$(sed -n 's/^host_count=//p' "$b" 2>/dev/null)"; cur="$(cat "$knob" 2>/dev/null)"
+        if [[ -n "$base" && "$base" != "$cur" ]]; then
+            echo "refusing: the P4 host knob is $cur -- this round started at $base" >&2; exit 1
+        fi
+        mv -f "$c" "$c.prev"; [[ ! -f "$b" ]] || mv -f "$b" "$b.prev"
+        echo "  ok  lab released" ;;
+    status)
+        if [[ -e "$s/fabric" ]]; then printf 'running\n  bmv2 switches  4       topo session   present\n\n'
+        else printf 'running\n  bmv2 switches  0       topo session   absent\n\n'; fi ;;
+    *) echo "fake ndt: no verb '$1'" >&2; exit 2 ;;
+esac
+FAKENDT
+    } > "$st_tmp/fake_ndt_lab"
+    chmod +x "$st_tmp/fake_ndt_lab"
+    local runblock
+    runblock="$(awk '/^require_free_lab$/ {go = 1} go' "${BASH_SOURCE[0]}")"
+    {
+        echo 'set -euo pipefail'
+        declare -f detect judge note fail bad say err die cut_link restore_link no_netem_on_cut run_tc show_qdisc \
+            netem_attach_point netem_delete_point revert_link_loss spike_finish spike_ndt nd_up nd_down finish \
+            restore_knob restore_telemetry_knob take_claim require_free_lab snapshot_knob snapshot_telemetry_knob \
+            lab_claim_field claim_minutes reclaim retract_measuring spike_release keep_claim knob_back
+        printf 'WATCH=%q\nHB_REPORT=%q\nFAULTS_TC=%q\nLAB_HELPER=%q\nCUT_A=%q\nCUT_B=%q\nCUT_DIRS=%q\n' \
+            "$st_tmp/fake_watch.py" "$st_tmp/no-report.json" "$st_tmp/fake_tc" "$st_tmp/no-helper" "$CUT_A" "$CUT_B" "$CUT_DIRS"
+        printf 'QDISC_TOOL=%q\nREAL_NDT=%q\nNDT=%q\n' "$st_tmp/fake_qdisc_tool" "$st_tmp/fake_ndt_lab" "$st_tmp/fake_ndt_lab"
+        cat <<'DRIVER'
+unset NDT_MEASURING
+RUN="$1"; export FAKE_TC_STATE="$2" FAKE_REPO="$3" NDT_OWNER=hb-selftest
+REPO="$FAKE_REPO"; CLAIM_FILE="$REPO/.test_run/lab.claim"
+KNOB="$REPO/p4_proxy/mininet/host_count_override"; APP_KNOB="$REPO/p4_proxy/mininet/app_package_override"
+TEL_KNOB="$REPO/p4_proxy/mininet/telemetry_override"
+mkdir -p "$RUN"
+STEP=S_heartbeat; PART=detect; CLAIM_MINUTES=180; VERDICT_RC=0; VERDICT_WHY=""; CLAIMED=0; CTRL_PID=""
+KNOB_ENTRY_COPY=""; TEL_ENTRY_COPY=""; BEACON_S=5; TIMEOUT_S=15; CYCLES=1; HB_STARTED=0; INJECTED_IFACES=()
+FABRIC_UP=0; RECLAIMED=0; TEARDOWN_DOWN_RC=""
+sudo() { echo "sudo $*" >> "$FAKE_TC_STATE/calls"; }
+prepare() { echo "OK /nonexistent/pkg"; }
+sp_hb_start() { : > "$1"; HB_STARTED=1; return 0; }
+sp_hb_stop() { HB_STARTED=0; }
+now() { echo 100.0; }
+if [[ -e "$FAKE_REPO/.test_run/fake/restore-fails" ]]; then
+    restore_knob() { bad "could NOT put host_count_override back (the self-test's stand-in for a failed cp)"; return 1; }
+fi
+trap spike_finish EXIT INT TERM
+DRIVER
+        printf '%s\n' "$runblock"
+    } > "$st_tmp/claim_driver.sh"
+    # st_claim <name> <FAKE_WATCH mode> [<fake/ flag> | <repo path>=<content>]... -- one run: the P4
+    # host knob and fake/up-hosts (what `up` writes into it) are 4 unless named; its files are under
+    # $st_tmp/claim_<name>/ (out, run/, repo/). Sets wrc.
+    st_claim() {
+        local d="$st_tmp/claim_$1" m
+        mkdir -p "$d/tc" "$d/repo/.test_run/fake" "$d/repo/p4_proxy/mininet"
+        : > "$d/tc/calls"; : > "$d/tc/up.$CUT_A"; : > "$d/tc/up.$CUT_B"; : > "$d/repo/.test_run/fake/calls"
+        echo 4 > "$d/repo/p4_proxy/mininet/host_count_override"; echo 4 > "$d/repo/.test_run/fake/up-hosts"
+        for m in "${@:3}"; do
+            case "$m" in
+                *=*) printf '%s\n' "${m#*=}" > "$d/repo/${m%%=*}" ;;
+                *)   : > "$d/repo/.test_run/fake/$m" ;;
+            esac
+        done
+        FAKE_WATCH="$2" bash "$st_tmp/claim_driver.sh" "$d/run" "$d/tc" "$d/repo" > "$d/out" 2>&1 && wrc=0 || wrc=$?
+    }
+    st_calls() { paste -sd';' "$st_tmp/claim_$1/repo/.test_run/fake/calls" 2>/dev/null; }
+    st_cf() {   # st_cf <name> <field> [prev] -- one field of the scenario's lab.claim (or lab.claim.prev)
+        sed -n "s/^$2=//p" "$st_tmp/claim_$1/repo/.test_run/lab.claim${3:+.$3}" 2>/dev/null | head -1
+    }
+    st_cs() {   # st_cs <name> -- what a red line below reports
+        local c="$st_tmp/claim_$1/repo/.test_run/lab.claim"
+        printf "rc %s, last line '%s', ndt calls: %s, lab.claim: %s" "$wrc" "$(tail -1 "$st_tmp/claim_$1/out" 2>/dev/null)" \
+            "$(st_calls "$1")" \
+            "$( if [[ -f "$c" ]]; then grep -E '^(owner|measuring|note)=' "$c" | paste -sd' '; else echo 'none (released)'; fi )"
+        printf '%s' "$(st_died "$st_tmp/claim_$1/out" | sed 's/^/; /')"
+    }
+    local m_in="[NDT_MEASURING in env]" fake_ndt="$st_tmp/fake_ndt_lab"
+    if [[ "$runblock" != *take_claim* || "$runblock" != *"&& detect"* ]]; then
+        red "the run block (from 'require_free_lab' on) was not found in this file -- the teardown scenarios below drive nothing"
+    fi
+    # (a) the detection part as designed, measuring= declared: each `ndt down` is preceded by a
+    # re-claim WITHOUT NDT_MEASURING in its environment, both downs go through, and the lab is
+    # released -- after one more re-claim, whose round baseline is the knob as the run leaves it.
+    st_claim measured healthy
+    [[ "$wrc" == 0 && "$(tail -1 "$st_tmp/claim_measured/out")" == "PASS S_heartbeat" \
+       && "$(st_calls measured)" == "status;claim $m_in;up $m_in;claim;down;down;claim;release" \
+       && "$(head -1 "$st_tmp/claim_measured/run/26_down.txt" 2>/dev/null)" == clean \
+       && ! -e "$st_tmp/claim_measured/repo/.test_run/lab.claim" && -z "$(st_cf measured measuring prev)" ]] \
+        && ok "a run that DECLARED measuring=: re-claimed without it before 'ndt down', both downs go through, the lab released (set -e process, a fake ndt with ndt's measuring guard)" \
+        || red "a run that declared measuring= (the 09-26 live run's shape): $(st_cs measured)"
+    # (e) the same declaration, and a detection part that stops at its first check -- it never
+    # reaches its own `ndt down`, so the teardown is what takes the declaration back.
+    st_claim firstcheck ""
+    [[ "$wrc" == 1 && "$(tail -1 "$st_tmp/claim_firstcheck/out")" == "FAIL S_heartbeat -- every direction heard once the heartbeat is up: 0/8 directions heard" \
+       && "$(st_calls firstcheck)" == "status;claim $m_in;up $m_in;claim;down;claim;release" \
+       && "$(head -1 "$st_tmp/claim_firstcheck/run/90_down.txt" 2>/dev/null)" == clean \
+       && ! -e "$st_tmp/claim_firstcheck/repo/.test_run/lab.claim" ]] \
+        && ok "  and when the detection part stops before its own 'ndt down', the teardown takes the declaration back: its down goes through, the lab released (set -e process)" \
+        || red "  a declared run whose detection part stopped at its first check: $(st_cs firstcheck)"
+    # (b) a teardown `ndt down` refused for ANOTHER reason (in_flight's "a measurement is running"):
+    # the fabric is still up, so the lab is NOT released. The claim is kept, its note says why, the
+    # commands to finish are printed, and the verdict names it.
+    st_claim refused healthy refuse-down
+    local kept_exp; kept_exp="$(st_cf refused expires)"
+    [[ "$wrc" == 1 && "$(tail -1 "$st_tmp/claim_refused/out")" == "FAIL S_heartbeat -- THE FABRIC IS STILL UP AND THE LAB STAYS CLAIMED: 'ndt down' exited 5"* \
+       && "$(st_calls refused)" != *release* && "$(st_calls refused)" == *";down;claim;status" \
+       && "$(st_cf refused owner)" == hb-selftest && -z "$(st_cf refused measuring)" \
+       && "$(st_cf refused note)" == "FABRIC STILL UP"* \
+       && "$kept_exp" =~ ^[0-9]+$ ]] && (( kept_exp - $(date +%s) >= 59 * 60 )) \
+       && grep -qF "NDT_OWNER=hb-selftest $fake_ndt down" "$st_tmp/claim_refused/out" \
+       && grep -qF "NDT_OWNER=hb-selftest $fake_ndt release" "$st_tmp/claim_refused/out" \
+       && grep -q 'NOT RELEASED' "$st_tmp/claim_refused/out" \
+       && grep -q 'app_package_override is still there' "$st_tmp/claim_refused/out" \
+        && ok "  a teardown 'ndt down' refused for another reason: NOT released -- the claim kept (an hour at least, its note saying the fabric is up), the commands printed, FAIL names it (set -e process)" \
+        || red "  a teardown whose 'ndt down' is refused anyway: $(st_cs refused)"
+    # (c) the knob the run found (128) is not the one `ndt up --app` writes (4). Every re-claim
+    # records the knob as it is THEN as the round's start, so the one before `ndt down` records
+    # 4; finish puts 128 back, and `ndt release` would compare 128 with 4 and refuse. The re-claim
+    # just before the release records what is really there (drive_e.sh's ruling 22(2)/25(2)).
+    st_claim knob128 healthy "p4_proxy/mininet/host_count_override=128"
+    [[ "$wrc" == 0 && "$(tail -1 "$st_tmp/claim_knob128/out")" == "PASS S_heartbeat" \
+       && "$(st_calls knob128)" == "status;claim $m_in;up $m_in;claim;down;down;claim;release" \
+       && "$(cat "$st_tmp/claim_knob128/repo/p4_proxy/mininet/host_count_override")" == 128 \
+       && ! -e "$st_tmp/claim_knob128/repo/.test_run/lab.claim" ]] \
+        && ok "  a knob the run found at 128 and 'ndt up' moved to 4: put back, re-claimed on it, released (set -e process)" \
+        || red "  a knob found at 128 that 'ndt up' moved to 4: $(st_cs knob128)"
+    # (d) ... and when it could NOT be put back: a re-claim now would record 4 as the round's start
+    # and `ndt release` would accept the moved knob -- the check a re-claim takes away. So no
+    # re-claim and no release; the lab stays claimed and the verdict is FAIL.
+    st_claim knobstuck healthy "p4_proxy/mininet/host_count_override=128" restore-fails
+    [[ "$wrc" == 1 && "$(tail -1 "$st_tmp/claim_knobstuck/out")" == "FAIL S_heartbeat -- 'ndt release' did not take -- THE LAB IS STILL CLAIMED; run it by hand" \
+       && "$(st_calls knobstuck)" == "status;claim $m_in;up $m_in;claim;down;down" \
+       && "$(st_cf knobstuck owner)" == hb-selftest ]] \
+       && grep -q 'NOT RELEASING: host_count_override' "$st_tmp/claim_knobstuck/out" \
+        && ok "  a knob that could not be put back: no re-claim over it, no release -- the lab stays claimed, FAIL (set -e process)" \
+        || red "  a knob that could not be put back after a re-claim: $(st_cs knobstuck)"
+
     # R3-4, round 4 -- the census reads the new daemon's session from its report, which may not be
     # written the instant `start` returns. Bounded wait, and no abort under set -e either way.
     # R4-1 (round-4 verdict) -- and only from a report that says `running` and names the pid `start`
