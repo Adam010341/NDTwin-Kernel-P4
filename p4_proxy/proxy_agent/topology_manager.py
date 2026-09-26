@@ -9,6 +9,9 @@ import networkx as nx
 # Shared so the two loaders cannot disagree about which topology file is authoritative.
 from proxy_agent import boot_identity  # no cycle: boot_identity imports only the stdlib
 from proxy_agent import ryu_topology  # no cycle: ryu_topology imports nothing from here
+# TICKET-P4-heartbeat segment W. No cycle: link_heartbeat imports only the stdlib, and is handed
+# this module's beacon interval rather than importing it. [Co-developed with claude code -- Adam]
+from proxy_agent import link_heartbeat
 from proxy_agent.sflow_emitter import DEFAULT_TOPO_FILE
 
 # [Co-developed with claude code -- Adam]
@@ -513,6 +516,11 @@ LIVENESS_PROBE_INTERVAL_S = 2.0
 LIVENESS_PROBE_TIMEOUT_S = 1.5
 
 
+#: `_ingest_link_evidence`'s answer when evidence is attached and has never been usable: there is
+#: nothing to judge and nothing judged yet to freeze at. [Co-developed with claude code -- Adam]
+_NOTHING_TO_JUDGE = object()
+
+
 class TopologyManager:
     """Maintains the network state and computes shortest paths via BFS"""
 
@@ -522,6 +530,16 @@ class TopologyManager:
     #: restore test into an AttributeError. False is the pre-roles behaviour, every host.
     #: [Co-developed with claude code -- Adam] Section 7 ruling 6, F1.
     routes_to_attached_hosts_only = False
+
+    #: TICKET-P4-heartbeat segment W: link evidence from outside this proxy's LLDP -- the veth
+    #: heartbeat's report on a foreign fabric (link_heartbeat.HeartbeatEvidence) -- and the clock
+    #: reading of the last pass that had usable evidence, which is where a dead heartbeat freezes
+    #: the judgement. Class attributes too, with the values __init__ gives them, for the reason
+    #: `routes_to_attached_hosts_only` is one: managers built with `__new__` must not turn every
+    #: watchdog pass into an AttributeError. None / None is "no such evidence here", which is
+    #: every fabric that runs LLDP. [Co-developed with claude code -- Adam]
+    _link_evidence = None
+    _evidence_judged_at = None
 
     def __init__(self, kernel_notifier=None, clock=time.monotonic, journal=None):
         # [Co-developed with claude code -- Adam]
@@ -681,6 +699,11 @@ class TopologyManager:
         self._external_reports = {"received": 0, "routed_through_watchdog": 0,
                                   "recorded_only": 0, "last": None}
 
+        #: TICKET-P4-heartbeat segment W -- see the class attributes of the same names.
+        #: [Co-developed with claude code -- Adam]
+        self._link_evidence = None
+        self._evidence_judged_at = None
+
         # Serialises readopt_switch. Power operations are operator-paced, so contention is
         # not expected; the lock exists so that two concurrent readopts of the same dpid
         # cannot interleave their build/swap/stop sequences and leave a stopped client in
@@ -733,6 +756,9 @@ class TopologyManager:
           * claim failure detection. `is_up` on these edges means "the package says this cable
             exists". A cut is not noticed and not rerouted around -- `capabilities.reroute` is
             false on this fabric, and `link_liveness` marks every one `source: "declared"`.
+            [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W: that holds
+            until the root helper's heartbeat runs. Then `start_heartbeat_watchdog` judges these
+            same directions, and an entry it has evidence for says `source: "heartbeat"`.
 
         A link whose far switch never connected (it is not a switch node in `net`) is skipped
         and counted: LLDP would never have discovered it either, and entering it would give
@@ -2074,9 +2100,20 @@ class TopologyManager:
         directly and nothing asserted the loop calls it.
 
         Returns the `check_link_beacons` result, or None when the pass raised.
+
+        [Co-developed with claude code -- Adam]
+        TICKET-P4-heartbeat segment W: on a fabric with link evidence attached (the veth
+        heartbeat on a foreign fabric), the pass first enters that evidence through
+        `report_external_link_state(..., at=)` and then judges it with the SAME
+        `check_link_beacons`, so one rule and one set of constants decide for LLDP and for the
+        heartbeat alike. See `_ingest_link_evidence` for the freeze.
         """
         try:
-            result = self.check_link_beacons()
+            judge_at = self._ingest_link_evidence()
+            if judge_at is _NOTHING_TO_JUDGE:
+                result = {"down": [], "up": [], "unacked": []}
+            else:
+                result = self.check_link_beacons(now=judge_at)
         except Exception as e:  # noqa: BLE001
             # A pass that raises must not kill the watchdog, or link failures stop being reported
             # with no signal that they have.
@@ -2093,12 +2130,27 @@ class TopologyManager:
             # the corrected one would not arrive until the next transition. Installing is
             # idempotent -- insert_ipv4_route falls back to MODIFY -- so a pass whose links did not
             # actually move rewrites the same rules rather than doing damage.
-            try:
-                self.install_initial_routes()
-            except Exception as e:  # noqa: BLE001
-                # A failed reinstall must not cost the kernel its failure notification, which is
-                # the part that worked before failover existed.
-                print(f"[TopologyManager] reroute after transition failed: {type(e).__name__}: {e}")
+            #
+            # 🔴 DETECTION IS NOT REROUTING (TICKET-P4-heartbeat segment W). A fabric that skips
+            # install_initial_routes -- a foreign switch on it is unbound, or keeps its own route
+            # table (`owner: package`) -- has had the transition told to the kernel above and
+            # has its paths re-pushed below, and NOTHING is written into a switch: a shortest
+            # path through a table NDTwin may not write is a path half-installed, and the
+            # author's entries stay exactly what they were. `routes_to_attached_hosts_only` is
+            # that fabric's one flag (startup sets it from `control_plane.skipped`); every fabric
+            # that runs LLDP has it False, so its pass is the pass it was.
+            if self.routes_to_attached_hosts_only:
+                print("[TopologyManager] link transition reported to the kernel and NOT rerouted: "
+                      "this fabric skips install_initial_routes (a switch on it is unbound or "
+                      "keeps its own route table)")
+            else:
+                try:
+                    self.install_initial_routes()
+                except Exception as e:  # noqa: BLE001
+                    # A failed reinstall must not cost the kernel its failure notification,
+                    # which is the part that worked before failover existed.
+                    print(f"[TopologyManager] reroute after transition failed: "
+                          f"{type(e).__name__}: {e}")
             self.push_destination_paths()
         return result
 
@@ -2203,6 +2255,10 @@ class TopologyManager:
                     "last_beacon_age_s": None if not e.get("seen", True) else round(now - e["at"], 3),
                     "down": e["down"],
                     "reported_to_kernel": e["acked"],
+                    # [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W: the
+                    # evidence's source, where it came from outside LLDP (`heartbeat`). Absent on
+                    # an LLDP entry, so every LLDP fabric's report is exactly what it was.
+                    **({"source": e["source"]} if "source" in e else {}),
                 }
                 for (s, sp, d, dp), e in sorted(self._link_beacons.items())
             }
@@ -2227,8 +2283,14 @@ class TopologyManager:
     # heartbeat running as root) will report link state from outside the pipeline; this is where
     # it will land. There is no HTTP route to it and nothing calls it yet -- ON A FOREIGN FABRIC
     # IT EXISTS AND IS NOT WIRED -- and the two branches below are what it does when it is.
+    #
+    # [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W: wired now, from ONE
+    # place -- the watchdog pass's `_ingest_link_evidence`, which reads the root helper's report
+    # file and reports every declared direction here with `at`. Still no HTTP route: nothing can
+    # POST link state at this proxy (tests/test_link_state_entry.py says both).
 
-    def report_external_link_state(self, src_dpid, src_port, dst_dpid, dst_port, up, source):
+    def report_external_link_state(self, src_dpid, src_port, dst_dpid, dst_port, up, source,
+                                   at=None):
         """
         One link direction's state, reported by something other than this proxy's LLDP.
 
@@ -2246,6 +2308,11 @@ class TopologyManager:
             told -- there is no watchdog to act on it and nothing that would ever take it back.
             The count is served on `GET /p4/switch_state` as `external_link_reports`.
 
+        `at` (TICKET-P4-heartbeat segment W) makes the report evidence AS OF A TIME rather than
+        as of now -- what a heartbeat report is: "last heard at t" (`up=True, at=t`), or "not
+        heard since t" (`up=False, at=t`, t being the evidence's epoch). See `_enter_evidence`.
+        Without `at` the report means what it meant in the first cut.
+
         Returns {"applied": bool, "link": [...], "why": str}.
         """
         link = (int(src_dpid), int(src_port), int(dst_dpid), int(dst_port))
@@ -2257,6 +2324,8 @@ class TopologyManager:
             watchdog = self._link_watchdog_running
             if not watchdog:
                 self._external_reports["recorded_only"] += 1
+            elif at is not None:
+                self._enter_evidence(link, bool(up), float(at), str(source))
             else:
                 entry = self._link_beacons.get(link)
                 if entry is None:
@@ -2282,3 +2351,102 @@ class TopologyManager:
             out = dict(self._external_reports)
             out["last"] = None if out["last"] is None else dict(out["last"])
             return out
+
+    # --- the veth heartbeat. TICKET-P4-heartbeat segment W ---------------------------------------
+    # [Co-developed with claude code -- Adam]
+    #
+    # On a foreign fabric the programs carry no controller header, so LLDP cannot run and the
+    # beacon watchdog has nothing to judge (TICKET-P2 2.2; it stays named in
+    # `control_plane.skipped`). The root helper's heartbeat sends frames over the veths instead
+    # and reports what it heard; the watchdog thread below is the SAME thread, the pass the SAME
+    # pass, and the evidence enters through the entry the first cut reserved for it.
+
+    def _enter_evidence(self, link, heard, at, source):
+        """`report_external_link_state`'s `at` branch. Caller holds `_liveness_lock`.
+
+        heard: this direction was last heard at `at`. Entered as the beacon's `at`, only ever
+        forward -- evidence does not get older by being reported twice.
+
+        not heard: silent since `at` (the evidence's epoch). A direction the watchdog has never
+        seen gets `at` with `seen: False`, i.e. the startup grace from that epoch -- the same
+        treatment `seed_expected_links` gives a declared link. One it already believes UP moves
+        its silence clock forward to the epoch: whatever it did before the epoch nobody was
+        listening. One it believes DOWN is not touched: silence is not evidence of recovery, so
+        a restarted heartbeat that has not heard a dead link yet does not bring it back.
+        """
+        entry = self._link_beacons.get(link)
+        if entry is None:
+            entry = self._link_beacons[link] = {"at": at, "down": False, "acked": True,
+                                                "seen": heard}
+        elif heard:
+            entry["seen"] = True
+            entry["at"] = max(entry["at"], at)
+        elif not entry["down"]:
+            entry["at"] = max(entry["at"], at)
+        entry["source"] = source
+        self._external_reports["routed_through_watchdog"] += 1
+
+    def attach_link_evidence(self, evidence):
+        """Feed every watchdog pass from `evidence` (a `link_heartbeat.HeartbeatEvidence`, or
+        anything with its `poll()`) before it judges. Idempotent; see start_heartbeat_watchdog."""
+        self._link_evidence = evidence
+        self._evidence_judged_at = None
+
+    def heartbeat_evidence(self):
+        """The attached evidence, or None on a fabric that has none (every LLDP fabric)."""
+        return self._link_evidence
+
+    def start_heartbeat_watchdog(self, path=link_heartbeat.REPORT_PATH,
+                                 owner_uid=link_heartbeat.REPORT_OWNER_UID):
+        """
+        Watch this fabric's DECLARED links with the root helper's heartbeat report, on the one
+        watchdog thread. Returns the evidence object.
+
+        The directions are the ones `seed_declared_links` entered -- the package's cables -- so
+        the heartbeat judges exactly the edges the kernel was given. The period it is compared
+        with is LLDP_BEACON_INTERVAL_S: one constant, not a second copy (段 W). Nothing is
+        seeded into the evidence map: an entry appears when the report first says something
+        about that direction, so before the heartbeat has ever been usable `link_liveness` still
+        says `source: declared, down: null` -- nobody has checked.
+
+        One read now, so the fabric's state is known before the first pass; that read judges
+        nothing (the first pass, one interval later, does).
+        """
+        evidence = link_heartbeat.HeartbeatEvidence(
+            self.declared_links(), period_s=LLDP_BEACON_INTERVAL_S, clock=self._clock,
+            path=path, owner_uid=owner_uid)
+        self.attach_link_evidence(evidence)
+        evidence.poll()
+        self.start_link_watchdog(seed_expected=False)
+        return evidence
+
+    def _ingest_link_evidence(self):
+        """
+        Enter the attached evidence for this pass, and say when to judge it.
+
+        Returns None where no evidence is attached -- the pass then judges at the clock, which is
+        every LLDP fabric's pass, unchanged. Otherwise:
+
+          * usable evidence: every declared direction is reported through
+            `report_external_link_state(..., at=)`, and the pass judges NOW;
+          * no usable evidence (not running, stale, untrusted, another fabric, another period):
+            🔴 FROZEN. Nothing is entered, and the pass judges at the clock reading of the last
+            pass that had usable evidence -- where every belief already was, so nothing
+            transitions, while a report the kernel did not accept is still retried. The
+            heartbeat's death is not the network's (H.7 item 2): judged at the clock, every
+            link it stopped hearing would time out together;
+          * never usable yet: `_NOTHING_TO_JUDGE`.
+        """
+        evidence = self._link_evidence
+        if evidence is None:
+            return None
+        _reading, items = evidence.poll()
+        if items is None:
+            if self._evidence_judged_at is None:
+                return _NOTHING_TO_JUDGE
+            return self._evidence_judged_at
+        now = self._clock()
+        for link, heard, at in items:
+            self.report_external_link_state(*link, up=heard, source="heartbeat", at=at)
+        self._evidence_judged_at = now
+        return now
