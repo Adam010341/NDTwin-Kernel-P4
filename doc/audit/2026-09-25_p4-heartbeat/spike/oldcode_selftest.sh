@@ -85,6 +85,9 @@ REVERTS = {
         ("a census arm with the new daemon's report: died", ""),
         # added in round 7: a `loss 100%` residue (firstlossy) ends detect at that same first check
         ("a residue shaped loss 100%: rc 1", "6/8 directions heard"),
+        # added in round 7b: the round-7 verdict's scenarios go red under this old form too
+        ("a census of two arms whose downs go through: rc 1", "the census died"),
+        ("census, an arm's 'ndt down' refused (measured arm): rc 1", "the census died"),
     ]),
     "R4-1": ("the whole R4-1 fix: census's old session block, wait_session's old call, hb_watch's old `session`", [
         ("watch", '        print(session_of(load(argv[2]), int(argv[3])))\n',
@@ -244,6 +247,9 @@ REVERTS = {
          "up [NDT_MEASURING in env];down [NDT_MEASURING in env];claim;status"),
         ("a knob found at 128 that 'ndt up' moved to 4", "NOT RELEASED -- THE LAB STAYS CLAIMED"),
         ("a knob that could not be put back after a re-claim", "NOT RELEASED -- THE LAB STAYS CLAIMED"),
+        # added in round 7b: the round-7 verdict's scenarios go red under this old form too
+        ("a teardown whose 'ndt down' did not verify clean (rc 1)", "the teardown's 'ndt down' exited 5"),
+        ("a claim that lapsed mid-run", "up [NDT_MEASURING in env];down [NDT_MEASURING in env];down [NDT_MEASURING in env];release"),
     ]),
     "L1/detect": ("half of L1: no re-claim before nd_down (detect's and census's downs)", [
         ("spike", '''    retract_measuring "${1%.txt}.reclaim.txt" || true
@@ -252,6 +258,8 @@ REVERTS = {
         ("a run that declared measuring= (the 09-26 live run's shape)", "'ndt down' after the detection part exited 5"),
         ("a knob found at 128 that 'ndt up' moved to 4", "'ndt down' after the detection part exited 5"),
         ("a knob that could not be put back after a re-claim", "'ndt down' after the detection part exited 5"),
+        # added in round 7b: the round-7 verdict's scenarios go red under this old form too
+        ("a claim that lapsed mid-run", "up [NDT_MEASURING in env];down [NDT_MEASURING in env];claim;down"),
     ]),
     "L1/teardown": ("the other half of L1: no re-claim in spike_finish, before finish's down", [
         ("spike", '''    retract_measuring "$RUN/90_down.reclaim.txt"
@@ -302,6 +310,10 @@ REVERTS = {
         ("a teardown whose 'ndt down' is refused anyway", "lab.claim: none (released)"),
         ("a knob found at 128 that 'ndt up' moved to 4", "'ndt release' did not take"),
         ("a knob that could not be put back after a re-claim", "last line 'PASS S_heartbeat'"),
+        # added in round 7b: the round-7 verdict's scenarios go red under this old form too
+        ("a teardown whose 'ndt down' did not verify clean (rc 1)", "lab.claim: none (released)"),
+        ("a lab another owner claimed mid-run", "it never said whose claim the fabric is under"),
+        ("a claim that lapsed mid-run", "claim;down;down;release, lab.claim: none (released)"),
     ]),
     "L2/keep": ("the heart of L2 alone: spike_release releases whatever the teardown's down answered", [
         ("spike", '''    if [[ "$TEARDOWN_DOWN_RC" != 0 && "$TEARDOWN_DOWN_RC" != 3 ]]; then
@@ -314,6 +326,9 @@ REVERTS = {
 ''', '', 1),
     ], [
         ("a teardown whose 'ndt down' is refused anyway", "lab.claim: none (released)"),
+        # added in round 7b: the round-7 verdict's scenarios go red under this old form too
+        ("a teardown whose 'ndt down' did not verify clean (rc 1)", "lab.claim: none (released)"),
+        ("a lab another owner claimed mid-run", "release [NDT_MEASURING in env]"),
     ]),
     "L2/verdict": ("a MUTANT: the verdict does not lead with the kept claim", [
         ("spike", '''        if (( rc != 0 && rc != 3 )); then
@@ -325,6 +340,9 @@ REVERTS = {
 ''', '', 1),
     ], [
         ("a teardown whose 'ndt down' is refused anyway", "last line 'FAIL S_heartbeat -- 'ndt down' after the detection part exited 5'"),
+        # added in round 7b: the round-7 verdict's scenarios go red under this old form too
+        ("a teardown whose 'ndt down' did not verify clean (rc 1)", "last line 'FAIL S_heartbeat -- 'ndt down' after the detection part exited 1'"),
+        ("a lab another owner claimed mid-run", "last line 'FAIL S_heartbeat -- could not take back"),
     ]),
     "L2/hygiene": ("a MUTANT: no re-claim on the restored knob before the release", [
         ("spike", '''        echo "re-claiming on the knob as it is now, so the round baseline 'ndt release' compares with is what is there"
@@ -336,6 +354,8 @@ REVERTS = {
         ("a declared run whose detection part stopped at its first check", "claim;down;release, lab.claim: none (released)"),
         # the release the re-claim exists for: 128 put back, the baseline still 4
         ("a knob found at 128 that 'ndt up' moved to 4", "'ndt release' did not take"),
+        # added in round 7b: the round-7 verdict's scenarios go red under this old form too
+        ("a claim that lapsed mid-run", "claim;down;down;release, lab.claim: none (released)"),
     ]),
     "L2/knob": ("a MUTANT: a re-claim and a release over a knob that is not back", [
         ("spike", '''        if ! knob_back; then
