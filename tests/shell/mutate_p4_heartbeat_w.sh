@@ -1180,6 +1180,76 @@ m=$(lmutant l28 "$LIVE08" \
     '    rep = passes or [{"start_mono": 0.0}]')
 lreport "L28: any pass is taken as the one that reported" "$m" "cycle: no reporting pass served"
 
+# [Co-developed with claude code -- Adam] The orchestrator's 09-26 addenda: the in-process instants,
+# frames inside a window flagged not dropped, "20 s + what was measured", the restore's record.
+m=$(lmutant l29 "$LIVE08" \
+    '    budget = b + extra + overhead + window' \
+    '    budget = b')
+lreport "L29: the budget is the bare 20 s (nothing measured counts)" "$m" \
+        "budget: over the strict 20 s by what was measured gave"
+m=$(lmutant l30 "$LIVE08" \
+    '        elif heard > cs:' \
+    '        elif False:')
+lreport "L30: a frame heard inside a cut window is not flagged" "$m" "cycle: a frame heard inside a cut window gave"
+m=$(lmutant l31 "$LIVE08" \
+    '        if h < rs:' \
+    '        if h <= re_:')
+lreport "L31: a frame inside the restore window is dropped as a leak (the spike's artefact)" "$m" \
+        "restore with a frame inside its window gave"
+m=$(lmutant l32 "$LIVE08" \
+    '        t0="$EPOCHREALTIME"
+        # shellcheck disable=SC2086 -- "parent H:D" is two words on purpose' \
+    '        t0="$(date +%s.%N)"
+        # shellcheck disable=SC2086 -- "parent H:D" is two words on purpose')
+lreport "L32: the cut's instant comes from a forked date" "$m" \
+        'cut_link/restore_link instants are not $EPOCHREALTIME'
+m=$(lmutant l33 "$LIVE08" \
+    '    if prev is not None and prev > l + t + 0.001:' \
+    '    if False:')
+lreport "L33: a pass after the timeout that missed the cut passes" "$m" \
+        "cycle: a pass after the timeout that did not report the cut"
+m=$(lmutant l34 "$LIVE08" \
+    '        if name not in result["first"] and isinstance(h, (int, float)) and h != init.get(name):' \
+    '        if isinstance(h, (int, float)) and h != init.get(name):')
+lreport "L34: the watcher keeps the LATEST frame, not the first" "$m" "restore_watch gave"
+m=$(lmutant l35 "$LIVE08" \
+    '    INJECTED_IFACES=("${left[@]}")' \
+    '    INJECTED_IFACES=()')
+lreport "L35: an end the restore could not clean is forgotten" "$m" "restore_link left"
+m=$(lmutant l36 "$LIVE08" \
+    'fnum(down - A_s), fnum(prev),' \
+    'fnum(down - B_e), fnum(prev),')
+lreport "L36: detection counted from the second end's return (the shortest)" "$m" "cycle gave"
+m=$(lmutant l37 "$LIVE08" \
+    '    ps, pe = rep[-1]["start_mono"], rep[-1].get("end_mono")
+    i = passes.index(rep[-1])' \
+    '    ps, pe = rep[0]["start_mono"], rep[0].get("end_mono")
+    i = passes.index(rep[0])')
+lreport "L37: the first pass with a down is taken, not the one that made both down" "$m" \
+        "cycle with two reporting passes gave"
+m=$(lmutant l38 "$LIVE08" \
+    '            if [[ -n "${T_CUT:-}" ]]; then' \
+    '            if true; then')
+lreport "L38: graph_until reads T_CUT before any cut (unbound under set -u)" "$m" \
+        "graph_until before any cut gave"
+m=$(lmutant l39 "$LIVE08" \
+    '    [[ -z "${5:-}" ]] || sleep_until_mono "$5"' \
+    '    :')
+lreport "L39: the cut does not wait for its planned instant" "$m" "cut_link: the first call started off the plan"
+m=$(lmutant l40 "$LIVE08" \
+    '    for name, key, rs, re_ in (("a->b", "ab", RA_s, RA_e), ("b->a", "ba", RB_s, RB_e)):' \
+    '    for name, key, rs, re_ in (("a->b", "ab", RA_s, RA_e), ("b->a", "ba", RA_s, RA_e)):')
+lreport "L40: both directions judged against end A's restore window" "$m" \
+        "restore: b->a heard before ITS end's restore started is a leak too"
+m=$(lmutant l41 "$LIVE08" \
+    '{ if ($9 <= b) print "yes"; else' \
+    '{ if (1) print "yes"; else')
+lreport "L41: the strict answer is always yes" "$m" "cut_cycle gave"
+m=$(lmutant l42 "$LIVE08" \
+    '        res="$(cut -f12 <<<"$RESTORE_ROW")"' \
+    '        res="$(cat "$gout.elapsed")"')
+lreport "L42: the recovery time is the poll's, not the record's" "$m" "restore_cycle gave"
+
 # --- a control that must stay green ----------------------------------------------------------------
 m=$(mutant c1 "$HBMOD" \
     '#: The daemon'"'"'s report is a few KiB; anything past this is not one.' \

@@ -30,6 +30,7 @@
 #   H3  the same exercise WITHOUT roles (unbound): the heartbeat runs, the cut is detected
 #       (both directions down within 20 s), `reroute: false` with reason `unbound`, the
 #       author's entries row-for-row what they were before the cut, and a write still 501.
+#       (H3 is cut at the worst phase too and recorded like an H1 cycle.)
 #   H4  exercises/p4runtime (external control plane): /stats/flowentry/add, delete,
 #       delete_strict and modify answer 409 `external control plane`; `reroute.reason`
 #       external_control_plane, and `ndt up` started no heartbeat there.
@@ -38,6 +39,19 @@
 #       what `2026-09-24T185505Z_06_thirteen` recorded; a sampler of the heartbeat report proves
 #       which arms had one running (and that no arm's daemon counted a frame leaving a host
 #       port); then 01 (NDTwin's own fabric) PASS, with no heartbeat session started under it.
+#
+# 🔴 HOW H1 JUDGES "WITHIN 20 s" (orchestrator, 09-26 addenda; segment W's SUMMARY section 2).
+# Detection is (timeout - phi) + psi + the pass's read, _notify_link's HTTP and the kernel's graph
+# update: at phi -> 0 the report-level part alone is ~15 s and psi can be a whole watchdog
+# interval, so a strict 20 s has NO budget left for the rest. Every cycle therefore gets two
+# answers, both recorded: the STRICT one (<= 20 s, "OVER+x" otherwise, never hidden) and the
+# verdict, which is "<= 20 s + the time MEASURED on top of the design": the reporting pass's
+# lateness beyond one interval, the pass-to-graph time (read, HTTP, kernel, this script's poll),
+# and a cut window the test itself opened (a frame heard after the first end's tc started). A
+# cycle over THAT is a failure of the design, not of the clock. The instants are bash's own
+# $EPOCHREALTIME around each tc call (no forked `date`/`now`: the spike's forked t1 landed 12.7 ms
+# after a heard frame and a whole round was discarded, a false +5 s); frames heard inside a cut
+# or restore window are FLAGGED in the row, never dropped.
 #
 # 🔴 RULING 4 IS A STOP CONDITION HERE TOO: the daemon counting a heartbeat frame leaving a
 # host-facing port (`forwarded_to_hosts > 0`) fails the run with STOP at the head of the reason.
@@ -110,7 +124,10 @@ H2_HOLD_S=30
 #: H1's cuts: how many, how many of them at the worst phase, that phase, and the random seed.
 H1_CYCLES="${H1_CYCLES:-6}"
 H1_WORST="${H1_WORST:-3}"
-PHI_WORST="${PHI_WORST:-0.05}"
+#: 20 ms after the predicted send: tc's own start-up (sudo, mnexec) puts the netem 10-30 ms after
+#: the call starts, i.e. 20-50 ms after the ACTUAL send (orchestrator 09-26); the attach points
+#: are read before the sleep, so nothing else sits between the planned instant and the call.
+PHI_WORST="${PHI_WORST:-0.02}"
 H1_SEED="${H1_SEED:-$(( $(date +%s) % 32768 ))}"
 #: Filled from the proxy by consts() before the claim; empty until then (never retyped here).
 HB_PERIOD_S=""; TIMEOUT_S=""; WATCHDOG_S=""
@@ -135,6 +152,16 @@ TEARDOWN_DOWN_RC=""
 INJECTED_IFACES=()
 SAMPLER_PID=""
 SAMPLER_STOP=""
+#: The last cut's and restore's instants: $EPOCHREALTIME just before and just after each end's tc
+#: call (end A is s<a>-eth<ap>, whose egress carries a->b; end B carries b->a).
+CUT_A_START=""; CUT_A_END=""; CUT_B_START=""; CUT_B_END=""
+RESTORE_A_START=""; RESTORE_A_END=""; RESTORE_B_START=""; RESTORE_B_END=""
+T_CUT=""
+#: The restore's report watcher (restore_watch_start), and how long it waits for both directions.
+RESTORE_WATCH_PID=""; RESTORE_WATCH_OUT=""
+RESTORE_WATCH_S=$(( RESTORE_BOUND_S + 5 ))
+#: What cut_cycle / restore_cycle leave for the caller's row.
+CYCLE_ROW=""; CYCLE_STRICT=""; RESTORE_ROW=""
 
 # --- the verdicts. One stdlib-only program, one entry per check; each prints `OK ...` or
 # `BAD ...` (`STOP ...` for ruling 4). The live path and --self-test call the same entries. ------
@@ -336,28 +363,127 @@ def table(path):
             out[(f[0], f[1])] = (f[2], f[3])
     return out
 
-def v_cycle(state, cut_a_wall, cut_b_wall, off, last, down_wall, timeout, phi_target, worst):
-    """One H1 cycle on the monotonic clock (the daemon's and the proxy's): the two cut instants,
-    the last heard frame before the cut, the kernel's graph showing it down, and the watchdog
-    pass that reported it. OK carries the row; BAD when a piece is missing or a cycle meant for
-    the worst phase did not land there (it would be measuring a better one)."""
-    off = float(off)
-    if not last:
-        return "BAD no last_heard_mono for the cable in the report"
+def fnum(x, nd=3):
+    return "?" if x is None else f"{x:.{nd}f}"
+
+def v_cycle(state, a_s, a_e, b_s, b_e, off_pre, off_post, l_ab, l_ba, down_wall, timeout, watchdog,
+            phi_target, worst):
+    """One cut on the monotonic clock (the daemon's and the proxy's). The four tc instants are the
+    shell's $EPOCHREALTIME around each end's call, converted with the offset read before the cut;
+    the kernel's down is the poll that saw it, converted with the offset read after. The cut
+    instant is the FIRST end's call start -- the earliest the cut can have taken effect -- so every
+    duration below is the longest it can be. OK carries the row (18 fields, `budget` judges it).
+    BAD when a piece is missing, when a pass after the timeout did not report the cut, or when a
+    cycle meant for the worst phase did not land there. A frame heard inside a cut window is
+    FLAGGED in the row, never dropped."""
+    off, off2 = float(off_pre), float(off_post)
+    if not (l_ab and l_ba):
+        return "BAD no last_heard_mono for both directions of the cable in the report"
     if not down_wall:
         return "BAD the kernel's graph never showed the cut down"
-    a, b, l, t = float(cut_a_wall) + off, float(cut_b_wall) + off, float(last), float(timeout)
-    down = float(down_wall) + off
+    A_s, A_e, B_s, B_e = (float(x) + off for x in (a_s, a_e, b_s, b_e))
+    lab, lba = float(l_ab), float(l_ba)
+    l, t, w = max(lab, lba), float(timeout), float(watchdog)
+    down = float(down_wall) + off2
     passes = ((load(state).get("heartbeat") or {}).get("watchdog_passes")) or []
     rep = [p for p in passes if (p.get("down") or 0) > 0 and p.get("start_mono", 0) >= l]
+    # The pass that made BOTH directions down is the LAST such pass before the graph showed it:
+    # when the two directions' last frames are ms apart, a pass between their timeouts reports
+    # one and the next pass the other.
+    rep = [p for p in rep if p.get("start_mono", 0) <= down]
     if not rep:
         return f"BAD no watchdog pass with a down transition after the last heard frame ({len(passes)} passes served)"
-    ps = rep[0]["start_mono"]
-    phi = b - l
+    ps, pe = rep[-1]["start_mono"], rep[-1].get("end_mono")
+    i = passes.index(rep[-1])
+    prev = passes[i - 1]["start_mono"] if i > 0 else None
+    phi = A_s - l
     if worst == "1" and phi > 1.0:
         return (f"BAD meant for the worst phase ({phi_target} s after a round) and landed {phi:.3f} s after "
                 f"the last heard frame -- the cut came before that round's send, so this cycle measured a better phase")
-    return "OK " + "\t".join(f"{x:.3f}" for x in (a, b, l, phi, down, down - b, ps, ps - (l + t)))
+    # A pass that started after the timeout judged a silence longer than it (its clock is read
+    # after its start) and had to report the cut. 1 ms for the stamps' own rounding.
+    if prev is not None and prev > l + t + 0.001:
+        return (f"BAD the pass at {prev:.3f} came {prev - (l + t):.3f} s after the timeout and did not report "
+                f"the cut; the one at {ps:.3f} did")
+    flags = []
+    for name, heard, cs, ce in (("a->b", lab, A_s, A_e), ("b->a", lba, B_s, B_e)):
+        if heard > ce:
+            flags.append(f"{name} heard {1000 * (heard - ce):.1f} ms after its end's tc returned")
+        elif heard > cs:
+            flags.append(f"{name} heard inside its end's tc window, {1000 * (heard - cs):.1f} ms after the call started")
+    if phi < 0:
+        flags.append(f"the last frame was heard {-1000 * phi:.1f} ms after the first end's tc started (phi < 0)")
+    if prev is None:
+        flags.append("no pass before the reporting one was served: its lateness is not measured")
+    drift = 1000.0 * (off2 - off)
+    if abs(drift) > 2.0:
+        flags.append(f"the wall clock moved {drift:+.1f} ms against the monotonic one during the cycle")
+    extra = max(0.0, ps - prev - w) if prev is not None else None
+    row = [fnum(A_s), fnum(A_e), fnum(B_s), fnum(B_e), fnum(lab), fnum(lba), fnum(phi), fnum(down),
+           fnum(down - A_s), fnum(prev), fnum(ps), fnum(pe), fnum(ps - (l + t)), fnum(extra),
+           fnum(down - ps), fnum(max(0.0, -phi)), f"{drift:.1f}", "; ".join(flags) or "-"]
+    return "OK " + "\t".join(row)
+
+def v_budget(row, bound):
+    """A cycle row (v_cycle) against the bound: OK within `bound`; OK but "OVER the strict" when
+    over it by no more than what was measured on top of the design -- the reporting pass's
+    lateness beyond one interval, the pass-to-graph time (read, HTTP, kernel, this script's poll)
+    and the test's own cut window; BAD beyond that."""
+    f = row.split("\t")
+    if len(f) != 18:
+        return f"BAD the cycle row has {len(f)} fields, not 18"
+    detect, overhead, window = float(f[8]), float(f[14]), float(f[15])
+    extra = 0.0 if f[13] == "?" else float(f[13])
+    b = float(bound)
+    budget = b + extra + overhead + window
+    parts = (f"pass lateness +{extra:.3f}{' (not measured)' if f[13] == '?' else ''}, "
+             f"read/HTTP/kernel/poll +{overhead:.3f}, cut window +{window:.3f}")
+    if detect <= b:
+        return f"OK detection {detect:.3f} s, within the strict {b:g} s ({parts})"
+    if detect <= budget:
+        return (f"OK detection {detect:.3f} s -- OVER the strict {b:g} s by {detect - b:.3f} s, all of it "
+                f"measured on top of the design ({parts}; {b:g} s + that = {budget:.3f} s)")
+    return (f"BAD detection {detect:.3f} s -- {detect - budget:.3f} s over {b:g} s + the measured "
+            f"{parts} ({budget:.3f} s)")
+
+def v_restore_cycle(state, watch, ra_s, ra_e, rb_s, rb_e, off_pre, off_post, up_wall):
+    """One restore on the monotonic clock. The watcher's FIRST new frame per direction is kept
+    wherever it falls: inside its own end's restore window it is FLAGGED (the segment-S judge's
+    artefact: a frame heard 12.7 ms before a forked t1 was dropped and the next round's taken, a
+    false +5 s); before its own end's restore started it is BAD (the cut leaked). Durations run
+    from the FIRST end's call start, the longest they can be. OK carries the row (15 fields)."""
+    off, off2 = float(off_pre), float(off_post)
+    if not up_wall:
+        return "BAD the kernel's graph never showed the cable up again"
+    W = load(watch)
+    first = W.get("first") or {}
+    missing = sorted({"ab", "ba"} - set(first))
+    if W.get("timed_out") or missing:
+        return f"BAD the report watcher saw no new frame for {missing or 'a direction'} within its limit"
+    RA_s, RA_e, RB_s, RB_e = (float(x) + off for x in (ra_s, ra_e, rb_s, rb_e))
+    up = float(up_wall) + off2
+    flags = []
+    for name, key, rs, re_ in (("a->b", "ab", RA_s, RA_e), ("b->a", "ba", RB_s, RB_e)):
+        h = first[key]["heard"]
+        if h < rs:
+            return (f"BAD {name} was heard at {h:.3f}, {rs - h:.3f} s before its end's restore started: "
+                    f"the cut leaked")
+        if h <= re_:
+            flags.append(f"{name} heard inside its end's restore window, {1000 * (h - rs):.1f} ms after the call started")
+    heard = max(first["ab"]["heard"], first["ba"]["heard"])
+    shown = max((first[k].get("written") or first[k]["seen"]) for k in ("ab", "ba"))
+    passes = ((load(state).get("heartbeat") or {}).get("watchdog_passes")) or []
+    ups = [p for p in passes if (p.get("up") or 0) > 0 and p.get("start_mono", 0) >= shown]
+    if not ups:
+        return f"BAD no watchdog pass with an up transition after the report showed both directions ({len(passes)} passes served)"
+    ps = ups[0]["start_mono"]
+    drift = 1000.0 * (off2 - off)
+    if abs(drift) > 2.0:
+        flags.append(f"the wall clock moved {drift:+.1f} ms against the monotonic one during the restore")
+    row = [fnum(RA_s), fnum(RA_e), fnum(RB_s), fnum(RB_e), fnum(first["ab"]["heard"]), fnum(first["ba"]["heard"]),
+           fnum(heard - RA_s), fnum(shown - RA_s), fnum(ps), fnum(ps - shown), fnum(up), fnum(up - RA_s),
+           fnum(up - ps), f"{drift:.1f}", "; ".join(flags) or "-"]
+    return "OK " + "\t".join(row)
 
 def v_same_06(new, old):
     a, b = table(new), table(old)
@@ -492,9 +618,13 @@ w_finish() {
     set +e
     trap - EXIT INT TERM
     if (( ${#INJECTED_IFACES[@]} > 0 )); then
-        note "removing the netem this run added: ${INJECTED_IFACES[*]}"
-        revert_link_loss || fail "could NOT remove the netem on ${INJECTED_IFACES[*]} -- remove it by hand before anything else runs"
+        # Read before the revert: faults.sh's revert empties the list whatever happened, and the
+        # failure line below used to name nothing (the spike's round-7 note).
+        local left="${INJECTED_IFACES[*]}"
+        note "removing the netem this run added: $left"
+        revert_link_loss || fail "could NOT remove the netem on $left -- remove it by hand before anything else runs"
     fi
+    restore_watch_stop
     sampler_stop
     NDT=w_ndt
     ( exit "$rc" )
@@ -575,21 +705,32 @@ post_json() {   # post_json <url> <body> <out-prefix> -- body to .json, code to 
 # <out>.polls. Prints the last verdict. 🔴 The TIMING goes to files, not to variables: callers run
 # this inside `$(...)`, a subshell, and a variable set in one never reaches the caller (the
 # TOPO_REFUSAL lesson in ndt's up_p4). <out>.elapsed is the seconds from T_CUT (the last cut or
-# restore) to the first OK poll, or "never"; <out>.at_wall is that poll's wall clock.
+# restore) to the first OK poll, or "never"; <out>.at_wall is that poll's wall clock when its
+# reply was in, <out>.at_wall_start when it was asked -- the graph changed before the first.
+# [Co-developed with claude code -- Adam] $EPOCHREALTIME, read in this shell: no forked `date`.
 graph_until() {
-    local limit="$1" every="$2" fn="$3" out="$4" t0 v now
+    local limit="$1" every="$2" fn="$3" out="$4" t0 v now asked
     shift 4
-    t0="$(date +%s.%N)"
+    t0="$EPOCHREALTIME"
     : > "$out.polls"
-    echo never > "$out.elapsed"; : > "$out.at_wall"
+    echo never > "$out.elapsed"; : > "$out.at_wall"; : > "$out.at_wall_start"
     while :; do
+        asked="$EPOCHREALTIME"
         curl -s --max-time 5 "$KERNEL_URL/ndt/get_graph_data" > "$out" 2> /dev/null || true
-        now="$(date +%s.%N)"
+        now="$EPOCHREALTIME"
         v="$( [[ -s "$out" ]] && verdict "$fn" "$out" "$@" || echo "BAD no get_graph_data capture" )"
         printf '%7.2f  %s\n' "$(awk -v a="$t0" -v b="$now" 'BEGIN{print b-a}')" "$v" >> "$out.polls"
         if [[ "$v" == OK* ]]; then
-            awk -v a="$T_CUT" -v b="$now" 'BEGIN{printf "%.2f\n", b-a}' > "$out.elapsed"
+            # ${T_CUT:-}: a poll before any cut (edges_up) has no instant to count from. Under
+            # set -u a bare $T_CUT killed this subshell there, and the caller judged an empty
+            # verdict -- H1's very first check would have failed on a healthy fabric.
+            if [[ -n "${T_CUT:-}" ]]; then
+                awk -v a="$T_CUT" -v b="$now" 'BEGIN{printf "%.2f\n", b-a}' > "$out.elapsed"
+            else
+                echo "n/a" > "$out.elapsed"
+            fi
             echo "$now" > "$out.at_wall"
+            echo "$asked" > "$out.at_wall_start"
             break
         fi
         (( ${now%.*} - ${t0%.*} >= limit )) && break
@@ -632,6 +773,22 @@ if len(ts) == 2 and all(isinstance(t, (int, float)) for t in ts):
     print(f"{max(ts):.3f}")
 PY
 }
+# report_dirs <a> <ap> <b> <bp> -- "<last_heard a->b> <last_heard b->a>" (6 decimals), or "".
+report_dirs() {
+    "$VPY" -I - "$HB_REPORT_FILE" "$@" <<'PY'
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+except (OSError, ValueError):
+    sys.exit(0)
+a, ap, b, bp = (int(x) for x in sys.argv[2:6])
+got = {(r["tx"]["dpid"], r["tx"]["port"], r["rx"]["dpid"], r["rx"]["port"]): r.get("last_heard_mono")
+       for r in d.get("directions", [])}
+ab, ba = got.get((a, ap, b, bp)), got.get((b, bp, a, ap))
+if all(isinstance(t, (int, float)) for t in (ab, ba)):
+    print(f"{ab:.6f} {ba:.6f}")
+PY
+}
 # next_phase_target <last> <phi> <period> [now] -- the first `last + k*period + phi` at least 0.3 s
 # from now (k >= 1).
 next_phase_target() {
@@ -642,16 +799,14 @@ k = max(1, math.ceil((now + 0.3 - last - phi) / p))
 print(f"{last + k * p + phi:.3f}")' "$@"
 }
 # cut_at_phase <phi> <a> <ap> <b> <bp> -- cut <phi> s after one of the heartbeat's rounds.
-# Leaves CUT_TARGET (the planned instant) and CUT_MONO (both ends cut) in this shell.
+# Leaves CUT_TARGET (the planned instant) and cut_link's CUT_A_*/CUT_B_* in this shell.
 cut_at_phase() {
     local phi="$1" last
     shift
     last="$(report_last "$@")"
     [[ -n "$last" ]] || { fail "the report has no last_heard for s$1:$2<->s$3:$4 -- cannot place the cut"; return 1; }
     CUT_TARGET="$(next_phase_target "$last" "$phi" "$HB_PERIOD_S")"
-    sleep_until_mono "$CUT_TARGET"
-    cut_link "$@" || return 1
-    CUT_MONO="$(mono)"
+    cut_link "$@" "$CUT_TARGET"
 }
 # phase_for <cycle> -- PHI_WORST for the first H1_WORST cycles, then uniform in (PHI_WORST, period).
 phase_for() {
@@ -681,30 +836,199 @@ stats_flows() {   # stats_flows <dir> -- /stats/flow/<dpid> for s1-s4
     for d in 1 2 3 4; do get_json "$PROXY_URL/stats/flow/$d" "$1/stats_flow_$d.json" || true; done
 }
 
-# cut_link <a> <ap> <b> <bp> -- netem loss 100% on both ends (faults.sh's htb-safe attach point).
+# cut_link <a> <ap> <b> <bp> [<target mono>] -- netem loss 100% on both ends (faults.sh's htb-safe
+# attach point), end A first. Both attach points are read BEFORE the optional sleep until <target>,
+# so the first tc call starts at the planned instant with nothing in between. Each end's instants
+# are $EPOCHREALTIME just before and just after its call -- read in THIS shell, not by a forked
+# `date` that lands after tc has returned (orchestrator 09-26): tc took effect inside that window.
 # A cut refused on its second end comes off the first HERE, while the veth still exists.
+# [Co-developed with claude code -- Adam]
 cut_link() {
-    local dev where
-    for dev in "s$1-eth$2" "s$3-eth$4"; do
-        where="$(netem_attach_point "$dev")" || true
-        if [[ "$where" == unsafe ]]; then
-            fail "no safe netem attach point on $dev (netem already there, or the tree is unreadable)"
-            revert_link_loss || true
+    local devs=("s$1-eth$2" "s$3-eth$4") where=() i t0 t1
+    CUT_A_START=""; CUT_A_END=""; CUT_B_START=""; CUT_B_END=""
+    for i in 0 1; do
+        where[i]="$(netem_attach_point "${devs[i]}")" || true
+        if [[ "${where[i]}" == unsafe ]]; then
+            fail "no safe netem attach point on ${devs[i]} (netem already there, or the tree is unreadable)"
             return 1
         fi
-        # shellcheck disable=SC2086 -- "parent H:D" is two words on purpose
-        if ! run_tc qdisc add dev "$dev" $where netem loss 100%; then
-            fail "tc refused to add netem on $dev ($where)"
-            revert_link_loss || true
-            return 1
-        fi
-        INJECTED_IFACES+=("$dev")
-        # The instant each end was cut (wall; the cycle converts with the monotonic offset).
-        [[ "$dev" == "s$1-eth$2" ]] && CUT_A_WALL="$(date +%s.%N)" || CUT_B_WALL="$(date +%s.%N)"
     done
-    T_CUT="$(date +%s.%N)"
+    [[ -z "${5:-}" ]] || sleep_until_mono "$5"
+    for i in 0 1; do
+        t0="$EPOCHREALTIME"
+        # shellcheck disable=SC2086 -- "parent H:D" is two words on purpose
+        if ! run_tc qdisc add dev "${devs[i]}" ${where[i]} netem loss 100%; then
+            fail "tc refused to add netem on ${devs[i]} (${where[i]})"
+            restore_link || true
+            return 1
+        fi
+        t1="$EPOCHREALTIME"
+        INJECTED_IFACES+=("${devs[i]}")
+        if (( i == 0 )); then CUT_A_START="$t0"; CUT_A_END="$t1"; else CUT_B_START="$t0"; CUT_B_END="$t1"; fi
+    done
+    T_CUT="$EPOCHREALTIME"
 }
-restore_link() { revert_link_loss; T_CUT="$(date +%s.%N)"; }
+# restore_link -- the netem off, one end at a time in the order it went on, each end's instants
+# $EPOCHREALTIME around its own revert (RESTORE_A_*, RESTORE_B_*). An end that could not be cleaned
+# STAYS in INJECTED_IFACES for w_finish -- faults.sh's revert empties the list whatever happened.
+restore_link() {
+    local all=("${INJECTED_IFACES[@]}") left=() dev rc=0 i=0 t0 t1
+    RESTORE_A_START=""; RESTORE_A_END=""; RESTORE_B_START=""; RESTORE_B_END=""
+    for dev in "${all[@]}"; do
+        [[ -n "$dev" ]] || continue
+        INJECTED_IFACES=("$dev")
+        t0="$EPOCHREALTIME"
+        revert_link_loss || { rc=1; left+=("$dev"); }
+        t1="$EPOCHREALTIME"
+        if (( i == 0 )); then RESTORE_A_START="$t0"; RESTORE_A_END="$t1"; else RESTORE_B_START="$t0"; RESTORE_B_END="$t1"; fi
+        i=$(( i + 1 ))
+    done
+    INJECTED_IFACES=("${left[@]}")
+    T_CUT="$EPOCHREALTIME"
+    return "$rc"
+}
+
+# restore_watch_start <out> <a> <ap> <b> <bp> -- a watcher of the report, in the background, that
+# records for each direction of the cable the FIRST new frame after it started (last_heard_mono
+# moving): its last_heard_mono, when the watcher saw it (CLOCK_MONOTONIC) and the report's
+# written_mono. It keeps every frame -- where it falls against the restore windows is the
+# verdict's to flag -- and exits by itself after RESTORE_WATCH_S. Returns once it has read the
+# report the first time (1 if it never did).
+restore_watch_start() {
+    local out="$1" i
+    shift
+    rm -f "$out" "$out.ready"
+    RESTORE_WATCH_OUT="$out"
+    "$VPY" -I - "$HB_REPORT_FILE" "$out" "$RESTORE_WATCH_S" "$@" <<'PY' &
+import json, sys, time
+path, out, limit = sys.argv[1], sys.argv[2], float(sys.argv[3])
+a, ap, b, bp = (int(x) for x in sys.argv[4:8])
+keys = {"ab": (a, ap, b, bp), "ba": (b, bp, a, ap)}
+def read():
+    try:
+        d = json.load(open(path))
+    except (OSError, ValueError):
+        return None, None
+    got = {}
+    for r in d.get("directions", []):
+        k = (r["tx"]["dpid"], r["tx"]["port"], r["rx"]["dpid"], r["rx"]["port"])
+        for name, want in keys.items():
+            if k == want:
+                got[name] = r.get("last_heard_mono")
+    return got, d.get("written_mono")
+start = time.monotonic()
+init = None
+while time.monotonic() - start < 1.0:
+    init, _ = read()
+    if init is not None and len(init) == 2:
+        break
+    time.sleep(0.02)
+result = {"start_mono": start, "initial": init, "first": {}, "timed_out": False}
+if init is None or len(init) != 2:
+    result.update(timed_out=True, error="the report did not name both directions")
+    json.dump(result, open(out, "w"))
+    sys.exit(0)
+open(out + ".ready", "w").close()
+while time.monotonic() - start < limit and len(result["first"]) < 2:
+    got, written = read()
+    now = time.monotonic()
+    for name in ("ab", "ba"):
+        h = (got or {}).get(name)
+        if name not in result["first"] and isinstance(h, (int, float)) and h != init.get(name):
+            result["first"][name] = {"heard": h, "seen": now, "written": written}
+    time.sleep(0.02)
+result["timed_out"] = len(result["first"]) < 2
+result["end_mono"] = time.monotonic()
+json.dump(result, open(out, "w"))
+PY
+    RESTORE_WATCH_PID=$!
+    for (( i = 0; i < 40; i++ )); do
+        [[ -e "$out.ready" ]] && return 0
+        [[ -s "$out" ]] && return 1
+        sleep 0.05
+    done
+    return 1
+}
+# restore_watch_wait -- until the watcher has written its answer (bounded by its own limit).
+restore_watch_wait() {
+    [[ -n "$RESTORE_WATCH_PID" ]] || return 0
+    wait "$RESTORE_WATCH_PID" 2>/dev/null || true
+    RESTORE_WATCH_PID=""
+}
+# restore_watch_stop -- w_finish's: a watcher still running is ours only if its argv names its file.
+restore_watch_stop() {
+    [[ -n "$RESTORE_WATCH_PID" ]] || return 0
+    if kill -0 "$RESTORE_WATCH_PID" 2>/dev/null \
+       && tr '\0' ' ' < "/proc/$RESTORE_WATCH_PID/cmdline" 2>/dev/null | /usr/bin/grep -qF "$RESTORE_WATCH_OUT"; then
+        kill "$RESTORE_WATCH_PID" 2>/dev/null || true
+    fi
+    RESTORE_WATCH_PID=""
+}
+
+# cut_cycle <label> <graph-out> <state-out> <phi> <worst 0|1> -- cut the chosen cable <phi> s after
+# a heartbeat round, wait for the kernel's graph to show both directions down, then record the cut
+# on the monotonic clock (v_cycle) and judge it (v_budget). Leaves the 18-field row in CYCLE_ROW
+# ("?" where it could not be recorded) and "yes" / "OVER+<s>" / "?" in CYCLE_STRICT. Returns 1
+# only when the cut could not be made (the caller stops: the fabric may be half cut).
+cut_cycle() {
+    local label="$1" gout="$2" sout="$3" phi="$4" worst="$5" off_pre off_post v row lab="" lba="" det
+    off_pre="$(mono_offset)"
+    cut_at_phase "$phi" "$CA" "$CAP" "$CB" "$CBP" || return 1
+    v="$(graph_until $(( DETECT_BOUND_S + 15 )) 0.2 cut_down "$gout" "$CA" "$CAP" "$CB" "$CBP")"
+    off_post="$(mono_offset)"
+    judge "$v" "$label detection"
+    read -r lab lba <<<"$(report_dirs "$CA" "$CAP" "$CB" "$CBP")" || true
+    get_json "$PROXY_URL/p4/switch_state" "$sout" > /dev/null 2>&1 || true
+    row="$(verdict cycle "$sout" "$CUT_A_START" "$CUT_A_END" "$CUT_B_START" "$CUT_B_END" "$off_pre" "$off_post" \
+           "$lab" "$lba" "$(cat "$gout.at_wall")" "$TIMEOUT_S" "$WATCHDOG_S" "$phi" "$worst")"
+    judge "$row" "$label phase record"
+    det="$(cat "$gout.elapsed")"
+    if [[ "$row" == OK* ]]; then
+        CYCLE_ROW="${row#OK }"
+        judge "$(verdict budget "$CYCLE_ROW" "$DETECT_BOUND_S")" "$label detection time"
+        CYCLE_STRICT="$(awk -F'\t' -v b="$DETECT_BOUND_S" '{ if ($9 <= b) print "yes"; else printf "OVER+%.3f\n", $9 - b }' <<<"$CYCLE_ROW")"
+        [[ "$(cut -f18 <<<"$CYCLE_ROW")" == - ]] || note "$label flags: $(cut -f18 <<<"$CYCLE_ROW")"
+    else
+        CYCLE_ROW="$(printf '?\t%.0s' $(seq 17))?"
+        CYCLE_STRICT="?"
+        judge "$(verdict elapsed "$det" "$DETECT_BOUND_S" "both directions is_up:false (no phase record: the graph poll alone, from the last tc's return)")" "$label detection time"
+    fi
+    return 0
+}
+
+# restore_cycle <label> <graph-out> <state-out> <watch-out> -- the netem off with the report watcher
+# running from just before, until the kernel's graph shows both directions up; then the restore is
+# recorded (v_restore_cycle) and judged against RESTORE_BOUND_S. Leaves the 15-field row in
+# RESTORE_ROW. Returns 1 only when the netem could not be removed.
+restore_cycle() {
+    local label="$1" gout="$2" sout="$3" wout="$4" off_pre off_post v row res
+    restore_watch_start "$wout" "$CA" "$CAP" "$CB" "$CBP" \
+        || note "$label: the report watcher did not read the report (its restore record will say so)"
+    off_pre="$(mono_offset)"
+    if ! restore_link; then
+        restore_watch_wait
+        return 1
+    fi
+    v="$(graph_until $(( RESTORE_BOUND_S + 15 )) 0.2 cut_up "$gout" "$CA" "$CAP" "$CB" "$CBP")"
+    off_post="$(mono_offset)"
+    judge "$v" "$label recovery"
+    restore_watch_wait
+    get_json "$PROXY_URL/p4/switch_state" "$sout" > /dev/null 2>&1 || true
+    row="$( [[ -s "$wout" ]] && verdict restore_cycle "$sout" "$wout" "$RESTORE_A_START" "$RESTORE_A_END" \
+            "$RESTORE_B_START" "$RESTORE_B_END" "$off_pre" "$off_post" "$(cat "$gout.at_wall")" \
+            || echo "BAD the report watcher wrote nothing" )"
+    judge "$row" "$label restore record"
+    if [[ "$row" == OK* ]]; then
+        RESTORE_ROW="${row#OK }"
+        res="$(cut -f12 <<<"$RESTORE_ROW")"
+        [[ "$(cut -f15 <<<"$RESTORE_ROW")" == - ]] || note "$label restore flags: $(cut -f15 <<<"$RESTORE_ROW")"
+    else
+        RESTORE_ROW="$(printf '?\t%.0s' $(seq 14))?"
+        res="$(cat "$gout.elapsed")"
+    fi
+    judge "$(verdict elapsed "$res" "$RESTORE_BOUND_S" "both directions is_up:true again")" "$label recovery time"
+    return 0
+}
 tc_ends() {   # tc_ends <prefix> <a> <ap> <b> <bp>
     show_qdisc "s$2-eth$3" > "$1_s$2-eth$3.txt" 2>&1 || true
     show_qdisc "s$4-eth$5" > "$1_s$4-eth$5.txt" 2>&1 || true
@@ -1374,27 +1698,19 @@ note "the cut: s$CA-eth$CAP <-> s$CB-eth$CBP (an installed route uses it)"
 tc_ends "$RUN/26_tc_before" "$CA" "$CAP" "$CB" "$CBP"
 
 note "the proxy's constants: beacon interval $HB_PERIOD_S s, timeout $TIMEOUT_S s, watchdog every $WATCHDOG_S s"
-note "the design's worst case at the kernel (INFERRED): timeout $TIMEOUT_S s + one watchdog interval $WATCHDOG_S s + report read, HTTP, kernel -- the ticket's bound is $DETECT_BOUND_S s"
+note "the design's worst case at the kernel (INFERRED): (timeout $TIMEOUT_S s - phi) + up to one watchdog interval $WATCHDOG_S s + pass time + report read, HTTP, kernel -- at phi -> 0 that is the ticket's $DETECT_BOUND_S s with nothing to spare, so each cycle is judged against $DETECT_BOUND_S s + the time measured on top, and its strict answer is recorded beside it"
 RANDOM="$H1_SEED"
-note "random phases: seed $H1_SEED (H1_SEED= to repeat)"
-printf 'cycle\tphi_target\tcut_a_mono\tcut_b_mono\tlast_heard_mono\tphi_s\tgraph_down_mono\tdetect_s\tpass_start_mono\twatchdog_phase_s\trestore_s\n' > "$RUN/30_cycles.tsv"
+note "random phases: seed $H1_SEED (H1_SEED= to repeat); worst-phase cycles at PHI_WORST=$PHI_WORST s"
+CYCLE_COLS="cut_a_start_mono\tcut_a_end_mono\tcut_b_start_mono\tcut_b_end_mono\tlast_heard_ab_mono\tlast_heard_ba_mono\tphi_s\tgraph_down_mono\tdetect_s\tpass_prev_start_mono\tpass_start_mono\tpass_end_mono\twatchdog_phase_s\tpass_lateness_s\tpass_to_graph_s\tcut_window_s\tclock_drift_ms\tcut_flags"
+RESTORE_COLS="restore_a_start_mono\trestore_a_end_mono\trestore_b_start_mono\trestore_b_end_mono\tfirst_heard_ab_mono\tfirst_heard_ba_mono\trestore_daemon_s\trestore_report_s\tpass_up_start_mono\tpass_up_after_report_s\tgraph_up_mono\trestore_s\tpass_to_graph_up_s\trestore_drift_ms\trestore_flags"
+printf "cycle\tphi_target\t$CYCLE_COLS\tstrict_${DETECT_BOUND_S}s\t$RESTORE_COLS\n" > "$RUN/30_cycles.tsv"
+OVER_STRICT=0
 for (( CYC = 1; CYC <= H1_CYCLES; CYC++ )); do
     PHI="$(phase_for "$CYC")"
     say "H1 cycle $CYC/$H1_CYCLES -- cut $PHI s after a heartbeat round; down in the kernel's graph within ${DETECT_BOUND_S} s"
-    OFF="$(mono_offset)"
-    cut_at_phase "$PHI" "$CA" "$CAP" "$CB" "$CBP" || exit 1
-    V="$(graph_until $(( DETECT_BOUND_S + 15 )) 0.2 cut_down "$RUN/31_graph_cut_$CYC.json" "$CA" "$CAP" "$CB" "$CBP")"
-    judge "$V" "H1 cycle $CYC detection"
-    DET="$(cat "$RUN/31_graph_cut_$CYC.json.elapsed")"
-    LAST="$(report_last "$CA" "$CAP" "$CB" "$CBP")"
-    get_json "$PROXY_URL/p4/switch_state" "$RUN/32_switch_state_cut_$CYC.json" || true
-    ROW="$(verdict cycle "$RUN/32_switch_state_cut_$CYC.json" "$CUT_A_WALL" "$CUT_B_WALL" "$OFF" "$LAST" \
-           "$(cat "$RUN/31_graph_cut_$CYC.json.at_wall")" "$TIMEOUT_S" "$PHI" "$(( CYC <= H1_WORST ? 1 : 0 ))")"
-    judge "$ROW" "H1 cycle $CYC phase record"
-    # A cycle that could not be recorded still gets its row, with ? where the record is missing.
-    [[ "$ROW" == OK* ]] || ROW="OK $(printf '?\t?\t%s\t?\t?\t%s\t?\t?' "${LAST:-?}" "$DET")"
-    IFS=$'\t' read -r _A _B _L PHIA _D _DT _P PSI <<<"${ROW#OK }"
-    judge "$(verdict elapsed "$DET" "$DETECT_BOUND_S" "cycle $CYC (cut $PHIA s after the last heard frame, the reporting pass $PSI s after the timeout): both directions is_up:false")" "H1 detection time"
+    cut_cycle "H1 cycle $CYC" "$RUN/31_graph_cut_$CYC.json" "$RUN/32_switch_state_cut_$CYC.json" \
+        "$PHI" "$(( CYC <= H1_WORST ? 1 : 0 ))" || exit 1
+    [[ "$CYCLE_STRICT" == OVER* ]] && OVER_STRICT=$(( OVER_STRICT + 1 ))
     if (( CYC == 1 )); then
         # The reroute runs in the same watchdog pass that told the kernel; give it a pass to
         # land, then read what the switches hold.
@@ -1408,15 +1724,17 @@ for (( CYC = 1; CYC <= H1_CYCLES; CYC++ )); do
             *) fail "H1 ping around the cut: $(tail -1 "$RUN/34_pingall_cut.txt")" ;;
         esac
     fi
-    restore_link || { fail "H1 cycle $CYC: could not remove the netem"; exit 1; }
-    V="$(graph_until $(( RESTORE_BOUND_S + 15 )) 0.2 cut_up "$RUN/35_graph_restored_$CYC.json" "$CA" "$CAP" "$CB" "$CBP")"
-    judge "$V" "H1 cycle $CYC recovery"
-    RES="$(cat "$RUN/35_graph_restored_$CYC.json.elapsed")"
-    judge "$(verdict elapsed "$RES" "$RESTORE_BOUND_S" "cycle $CYC: both directions is_up:true again")" "H1 recovery time"
+    restore_cycle "H1 cycle $CYC" "$RUN/35_graph_restored_$CYC.json" "$RUN/35_switch_state_restored_$CYC.json" \
+        "$RUN/35_restore_watch_$CYC.json" || { fail "H1 cycle $CYC: could not remove the netem"; exit 1; }
     tc_ends "$RUN/36_tc_after_$CYC" "$CA" "$CAP" "$CB" "$CBP"
     judge "$(no_netem "$RUN/36_tc_after_${CYC}_s$CA-eth$CAP.txt" "$RUN/36_tc_after_${CYC}_s$CB-eth$CBP.txt")" "H1 cycle $CYC netem"
-    printf '%s\t%s\t%s\t%s\n' "$CYC" "$PHI" "${ROW#OK }" "$RES" >> "$RUN/30_cycles.tsv"
+    printf '%s\t%s\t%s\t%s\t%s\n' "$CYC" "$PHI" "$CYCLE_ROW" "$CYCLE_STRICT" "$RESTORE_ROW" >> "$RUN/30_cycles.tsv"
 done
+if (( OVER_STRICT > 0 )); then
+    note "🔴 H1: $OVER_STRICT of $H1_CYCLES cycle(s) OVER the strict ${DETECT_BOUND_S} s (each within ${DETECT_BOUND_S} s + its measured time, or it failed above) -- the strict bound is NOT met at those phases; see 30_cycles.tsv"
+else
+    note "H1: every cycle within the strict ${DETECT_BOUND_S} s"
+fi
 column -t -s $'\t' "$RUN/30_cycles.tsv" 2>/dev/null | sed 's/^/   /' || sed 's/^/   /' "$RUN/30_cycles.tsv"
 set +e; pingall_loss "$PKG_ROLES" 3 "$RUN/37_ping_raw.txt" > "$RUN/37_pingall_after.txt" 2>&1; set -e
 note "after the last restore (recorded): $(tail -1 "$RUN/37_pingall_after.txt")"
@@ -1452,18 +1770,17 @@ judge "$(verdict caps "$RUN/61_switch_state.json" false heartbeat)" "H3 capabili
 judge "$(verdict reroute "$RUN/61_switch_state.json" false unbound)" "H3 reroute and why not"
 judge "$(graph_until 90 1 edges_up "$RUN/62_graph.json" "$PKG_PLAIN/ndtwin/topology.json")" "H3 all eight directions up before the cut"
 stats_flows "$RUN/63_before"
-cut_at_phase "$PHI_WORST" "$CA" "$CAP" "$CB" "$CBP" || exit 1
-V="$(graph_until $(( DETECT_BOUND_S + 15 )) 0.2 cut_down "$RUN/64_graph_cut.json" "$CA" "$CAP" "$CB" "$CBP")"
-judge "$V" "H3 detection"
-judge "$(verdict elapsed "$(cat "$RUN/64_graph_cut.json.elapsed")" "$DETECT_BOUND_S" "both directions is_up:false (cut $PHI_WORST s after a round)")" "H3 detection time"
+cut_cycle "H3" "$RUN/64_graph_cut.json" "$RUN/64_switch_state_cut.json" "$PHI_WORST" 1 || exit 1
+printf "phi_target\t$CYCLE_COLS\tstrict_${DETECT_BOUND_S}s\n%s\t%s\t%s\n" "$PHI_WORST" "$CYCLE_ROW" "$CYCLE_STRICT" > "$RUN/64_cycle.tsv"
 sleep "$WATCHDOG_S"
 stats_flows "$RUN/65_after"
 judge "$(verdict rows_unchanged "$RUN/63_before" "$RUN/65_after")" "H3 the author's entries"
 post_json "$PROXY_URL/stats/flowentry/add" \
     '{"dpid":1,"match":{"dl_type":2048,"nw_dst":"10.0.9.9"},"actions":[{"type":"OUTPUT","port":3}]}' "$RUN/66_proxy_add"
 judge "$(verdict refused_501 "$RUN/66_proxy_add.code" "$RUN/66_proxy_add.json")" "H3 a write is still 501"
-restore_link || fail "H3: could not remove the netem"
-judge "$(graph_until $(( RESTORE_BOUND_S + 15 )) 0.2 cut_up "$RUN/67_graph_restored.json" "$CA" "$CAP" "$CB" "$CBP")" "H3 recovery"
+restore_cycle "H3" "$RUN/67_graph_restored.json" "$RUN/67_switch_state_restored.json" "$RUN/67_restore_watch.json" \
+    || fail "H3: could not remove the netem"
+printf "$RESTORE_COLS\n%s\n" "$RESTORE_ROW" >> "$RUN/64_cycle.tsv"
 tc_ends "$RUN/68_tc_after" "$CA" "$CAP" "$CB" "$CBP"
 judge "$(no_netem "$RUN/68_tc_after_s$CA-eth$CAP.txt" "$RUN/68_tc_after_s$CB-eth$CBP.txt")" "H3 netem"
 cp "$HB_REPORT_FILE" "$RUN/69a_report.json" 2>/dev/null || true

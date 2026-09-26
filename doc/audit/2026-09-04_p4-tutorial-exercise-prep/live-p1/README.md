@@ -264,9 +264,18 @@ unbound 的 L6。L4 **不斷言改路**（第一刀 (c) 不成立，`capabilitie
 
 - **必須明給 `NDT_OWNER`**（沒給就 rc 2、什麼都沒做）；**從不宣告 `measuring=`**，所以自己的 `ndt down` 不會被
   T2d 擋；最後一次 `ndt down` 不是 0／3 就**不 release**（段 S 第 7 輪的教訓）。
-- H1 的剪線**控制相位**：前 `H1_WORST`（預設 3）次在心跳一輪送出後 `PHI_WORST`（0.05 s）剪（最壞相位），其餘隨機
-  （種子記在 log，`H1_SEED=` 重現）；每次記下實際相位與 watchdog 相位（`30_cycles.tsv`）。**設計的最壞情況是
-  timeout 15 s ＋ 一個 watchdog 間隔 5 s ＋ 讀檔／HTTP／kernel，貼著 20 s**——最壞相位那幾次可能超過，照實判。
+- H1 的剪線**控制相位**：
+  - 前 `H1_WORST`（預設 3）次在心跳一輪送出後 `PHI_WORST`（0.02 s）剪，也就是最壞相位；其餘隨機，種子記在 log，`H1_SEED=` 可重現。
+  - 每次剪線和復原都記在 CLOCK_MONOTONIC 上（`30_cycles.tsv`）：
+    - 兩端 tc 呼叫的前後時刻，是 **shell 自己的 `$EPOCHREALTIME`，不是 fork 出去的 `date`**；
+    - 兩個方向最後／最先聽到的幀；
+    - graph 的 down／up 時刻；
+    - 報告這次變化的那個 watchdog pass、它晚了多少、pass 到 graph 花了多久。
+  - 落在剪線或復原窗口內的幀**標出來，不丟掉**。
+- **偵測時間有兩個答案，兩個都記**：
+  - 嚴格的 20 s：超過就寫 `OVER+x`，不隱藏；
+  - 判定用的「20 s ＋ 實際量到、疊在設計之上的時間」：pass 晚到的部分、讀檔／HTTP／kernel／本腳本輪詢，以及剪線本身開的窗口。
+  - 設計的最壞情況是 (15 s − φ) ＋ 最多一個 watchdog 間隔 5 s ＋ 上述那些，**在 φ→0 時嚴格 20 s 沒有任何餘裕**。最壞相位那幾次超過嚴格值是設計如此，會照實記在 log 裡。
 - H5 不自己 claim（06、01 每步自己 claim），跑 06 一次時旁邊有一個讀心跳報告的 sampler，逐臂對
   `2026-09-24T185505Z_06_thirteen`，並確認心跳只在 17 個外來、非 external、多交換機的臂上跑過；接著跑 01。
 - 任何 `forwarded_to_hosts > 0`（心跳幀離開 host 埠）＝裁決 4，最後一行以 `STOP` 開頭。
