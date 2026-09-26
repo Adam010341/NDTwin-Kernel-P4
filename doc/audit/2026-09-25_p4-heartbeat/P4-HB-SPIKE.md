@@ -5,7 +5,7 @@
 - 工單：`doc/audit/2026-09-25_p4-heartbeat/TICKET-P4-heartbeat.md` §1 段 S。本文件是段 S 的報告，也是段 W 與 Adam 日後決定對外怎麼講的輸入。**內部稽核文件，不是對外宣稱。**
 - 撰寫：opus worker，2026-09-26。本文件作者沒有碰 lab，只讀 raw。
   - 第一、二版（分支 `docs/p4-hb-spike-0926`，最後 `005dc698`，併入 trunk `318e6391`）報告 run 1–2，第二版依 opus 判官對 `4820862b` 的裁決修訂（`judge/judge-HBSPIKEDOC-4820862b.md`）。
-  - **第三版（本版，分支 `docs/p4-hb-spike-dephase-0926`，base trunk `094f417f`）加入去相位鎖的 run 3–4**：§2.4、§2.5 是新的；§1、§5 依它們改寫。run 1–2 的數字一個都沒改，留作相位鎖住的歷史紀錄。
+  - **第三版（本版，分支 `docs/p4-hb-spike-dephase-0926`，base trunk `094f417f`）加入去相位鎖的 run 3–4**：§2.4、§2.5 是新的；§1、§5 依它們改寫。run 1–2 的數字一個都沒改，留作相位鎖住的歷史紀錄。第三版的修訂依 opus 判官對 `c708f558` 的裁決（`judge/judge-HBSPIKEDOC-4820862b.md` 末段）：run 4 cycle 8 的復原排除在統計外（§2.4.8）。
 - 標記：
   - **OBSERVED**＝四次 live run 的 raw 裡讀得到的值與字句，附路徑；也包括我直接從 raw 算出的彙總（min／median／max、合計、差值），算法寫在旁邊。
   - **CHECKED**＝本文件作者在 worktree 離線跑過的核對（sha256 比對、`git diff`、重算）。是「跑過」，但不是 lab 上的量測。
@@ -16,7 +16,8 @@
 - **行號**：`spike/S_heartbeat_spike.sh` 與 `spike/hb_watch.py` 在 run 2 與 run 3 之間改過。§2.1–2.3、§3、§4 的行號指 `580767a8`（run 1–2 跑的版本）；§2.4 的行號指 `094f417f`（run 3–4 跑的版本）。其他被引用的檔在兩個 commit 之間沒變（CHECKED：`git diff 580767a8 094f417f` 只動 spike 的三支檔與本文件）。
 - **raw 的存檔**：
   - run 1–2 的 raw 已提交到 `audit-raw` 分支 commit `1fafa3a0`，而且是公開的：orchestrator 做過未認證的 https 檢查（`judge/public-verify-20260926T063944Z.log`：兩個 P4 repo 以不帶憑證的 `git ls-remote` 都讀回 `audit-raw` `1fafa3a0`，不帶憑證的 `curl` `/tree/audit-raw` 都回 HTTP 200）。CHECKED：352 個 run 檔與下列 log 的 sha256 與工作副本相同。
-  - run 3–4 的 raw 目前只在主 checkout。CHECKED：本機看得到的 `audit-raw` ref（`1fafa3a0`）還沒有這兩個目錄與它們的 log。歸檔由 orchestrator 做。
+  - run 3–4 的 raw 已提交到 `audit-raw` commit `e812cf9c`，而且是公開的：push 在 `judge/push-audit-raw-e812cf9c.log:6-11`，同一份 log 的 :12-15 是兩個 P4 repo 以不帶憑證的 `git ls-remote` 讀回 `audit-raw` `e812cf9c`（完整指令印在 log 裡）。
+  - CHECKED（對 `audit-raw` worktree `scratch/overnight-2026-09-05/wt-audit-raw`，HEAD `e812cf9c`）：R3／R4 共 110 個檔的 sha256 與主 checkout 相同；`log3`、`log4`、`judge/judge-HBR8-3a724b87.md` 都在 `e812cf9c` 的 `scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/` 底下，內容相同；`HBR8` 也在。push log 本身不在（它記錄的就是這次 push）。
 - 路徑縮寫（全部 repo-relative）：
   - `R1/`＝`doc/audit/2026-09-25_p4-heartbeat/spike/runs/2026-09-26T023021Z_S_heartbeat/`
   - `R2/`＝`doc/audit/2026-09-25_p4-heartbeat/spike/runs/2026-09-26T052148Z_S_heartbeat/`
@@ -35,7 +36,7 @@
 | trunk | `4bc1201b` | `580767a8` | `094f417f` | `094f417f` |
 | 參數 | `PART=detect CYCLES=10` | `PART=all`（detect 10＋census 26 臂） | `PART=detect PHASE=sweep CYCLES=10`，controls on | `PART=detect PHASE=random CYCLES=20`，seed 1968294680，controls on |
 | 剪線相位 | 被迴圈鎖在 φ≈0.6–0.8 s | 同左 | sweep：剪線在最後一幀之後 0.050–4.850 s 開始 | random：剪前等 U[0, 5) |
-| 偵測 | 10/10、10/10 | 10/10、10/10 | 10/10、10/10，相位覆蓋 | 20/20、20/20，相位覆蓋 |
+| 偵測 | 10/10、10/10 | 10/10、10/10 | 10/10、10/10，相位覆蓋 | 20/20、20/20，相位覆蓋；cycle 8 的復原時間是量測假象（§2.4.8） |
 | 結果 | **FAIL**：teardown（§4.1），量測本身過了（`log1:114`） | **PASS**（`log2:222`） | **PASS**（`log3:148`） | **PASS**（`log4:177`） |
 
 - 四次都是 `NDT_OWNER=orch-0926`（`log*:2`）。run 2–4 帶 `env -u CLAIM_MINUTES -u CENSUS_EVEN_IF_RED -u FAULTS_TC -u NDT_MEASURING`，run 3–4 另帶 `-u HB_WATCH_SIM -u PHASE_SEED`；run 1 沒有 `env -u`。
@@ -45,24 +46,28 @@
 ## 1. 結論
 
 1. **偵測延遲，相位覆蓋整個 period（OBSERVED，run 3–4，共 30 cycles）**
-   - **覆蓋**：30 次剪線、30 次復原全部判到。
+   - **覆蓋**：30 次剪線、30 次復原全部判到。但 run 4 cycle 8 的復原時間是量測假象（§2.4.8），**復原的統計排除它（n=29）**；剪線的統計不受影響（n=30）。
      - 剪線相位 φ（t0 − 這條線最後一幀被聽到）：run 3 是 0.131–4.934 s，run 4 是 0.220–4.384 s。圓周上最大間隙 0.551／1.170 s。
-     - 復原相位：0.135–4.924／0.012–4.930 s，最大間隙 0.548／1.241 s。
+     - 復原相位：0.135–4.924 s／排除 c8 後 0.387–4.930 s，最大間隙 0.548／1.241 s（run 4 排除 c8 前後都是 1.241 s）。
      - 兩次 run 的覆蓋判定都是 covers。
    - **報告層級判不通**：規則成立的瞬間 `down_rule_s` 是 10.066–14.869 s。spike 的讀者輪詢再加 0.009–0.099 s（`down_s` 10.077–14.904 s）。
-   - **最壞相位實測**：φ＝0.131 s（run 3 cycle 1）→ `down_rule_s` 14.869 s、`down_s` 14.904 s。現行剪法兩端依序下 tc，`cut_tc_s` 0.078–0.108 s，所以 φ 再小就不是「兩端都斷」；15 s 只是極限（INFERRED）。
-   - **復原**：daemon 接收層級 `up_s` 0.070–4.988 s；報告層級 `up_rpt_s` 0.571–5.488 s。
-   - **報告延遲實測**：`up_rpt_s − up_s` 在 30 個 cycle 裡都是 0.500–0.501 s，取代第二版推得的「約 0.5 s」。
+   - **這一輪取樣到的最壞相位**：φ＝0.131 s（run 3 cycle 1）→ `down_rule_s` 14.869 s、`down_s` 14.904 s。這些都從 t0 起算；t0 是 tc 返回之後另起的 `now` 行程量的，比 tc 實際生效晚（§2.4.4）。改從別的時刻起算（INFERRED）：
+     - 從剪線開始（t0a）：14.951 s。
+     - 從兩端都斷：14.869–14.904 s（φ 介於 0.096 與 0.131 s）。
+   - **φ→0 可達**：這一輪的 sweep 刻意從「最後一幀之後 0.05 s 才開始剪」（`SWEEP_FIRST_S`），random 每個 cycle 只有約 1.6% 的機會落到 φ 約 0.08 s 以下，所以沒取樣到 φ→0。真實的故障可以發生在任何時刻，φ→0 時報告層級趨近 15 s。
+   - **復原（n=29）**：daemon 接收層級 `up_s` 0.070–4.864 s；報告層級 `up_rpt_s` 0.571–5.364 s（最大值是 run 3 cycle 10）。
+   - **報告延遲實測**：`up_rpt_s − up_s` 在 30 列裡都是 0.500–0.501 s，取代第二版推得的「約 0.5 s」。c8 這個差值本身沒錯（它量的是下一輪），而 c8 真正第一次聽到的那一幀，到報告寫出也是 0.5006 s。
 2. **對工單 ≤20 s（INFERRED）：仍然不是保證。**
    - W 層級＝報告層級＋最多一次 watchdog 等待（≤5 s）＋pass 耗時＋讀檔、`_notify_link` 的 HTTP、kernel 更新圖。
-   - 實測最壞相位下，前兩項是 14.869＋5＝**19.869 s**，只剩 0.131 s 給後面那些沒量過的時間。這個餘裕恰好等於 φ（因為 `down_rule_s`＝15−φ），所以 φ 能小到多少，就決定最壞情況。φ→0 的極限是 20 s。
-   - 復原：5.488＋5＝10.488 s，再加 pass 耗時與 kernel；只看常數 ≤10.5 s。
+   - 這一輪取樣到的最壞相位下，前兩項從 t0 起算是 14.869＋5＝**19.869 s**；從兩端都斷起算約 19.87–19.90 s；從剪線開始起算 19.951 s。
+   - 剩給後面那些沒量過的時間的餘裕恰好等於 φ（因為 `down_rule_s`＝15−φ）。**真實故障的 φ 可以趨近 0，那時常數本身就用完 20 s，後面那些時間的預算是 0 s。**
+   - 復原：實測最壞 5.364＋5＝**10.364 s**（n=29），再加 pass 耗時、讀檔與 kernel；只看常數 ≤10.5 s。
    - 自家 fabric 用同一條規則、同一組常數（`topology_manager.py:411` 只寫「15 to 20 s」；「從最後一次 beacon 起算」是我的讀法），所以**剪線方向**兩邊是同一性質。復原方向不同：心跳的「聽到」要經過報告，晚 0.500–0.501 s（OBSERVED）才讓 proxy 看得到。
 3. **兩個對照（OBSERVED，run 3–4 各一次）**
    - (a) 不剪線 20.1 s：201 次讀取裡沒有任何方向判不通；讀者看到的最長沉默 5.494／5.490 s，規則要 >15 s。
    - (b) 只在 s1-eth3 一端下 netem：只有 `1:3>3:1`（從 s1-eth3 送出的方向）判不通，13.085／13.081 s；反方向 `3:1>1:3` 一直被聽到，最長沉默 5.470／5.458 s。
    - 所以**單端 egress netem 只斷一個方向**。第 8 輪把這點列為 INFERRED（`HBR8:117`；`judge/judge-HBR8-3a724b87.md:12`），現在是 OBSERVED。
-4. **run 1–2 是相位鎖住的歷史紀錄**（§2.2–2.3）：它們只量到 φ≈0.6–0.8 s 這一點。run 3–4 在同一相位的值與它們一致（run 3 cycle 2，φ 0.666 s → `down_s` 14.383 s；run 4 cycle 15，φ 0.578 s → 14.477 s；run 1–2 的 cycle 2–10 是 14.197–14.382 s）。所以 run 1–2 沒有被推翻，而是被涵蓋。
+4. **run 1–2 是相位鎖住的歷史紀錄**（§2.2–2.3）：它們只量到 φ≈0.6–0.8 s 這一點。run 3–4 在同一相位的值與它們一致：run 3 cycle 2（φ 0.666 s，在 0.62–0.80 s 之內）→ `down_s` 14.383 s；run 1–2 的 cycle 2–10 是 14.197–14.382 s。run 4 沒有 cycle 落在 0.62–0.80 s 之內，最近的是 cycle 15（φ 0.578 s，略小）→ 14.477 s。所以 run 1–2 沒有被推翻，而是被涵蓋。
 5. **副作用普查（OBSERVED，run 2）**：26 臂裡有 20 臂真的送了心跳，一共 78 次主機 sniff、每次 20 s。
    - **沒有任何主機收到心跳幀**（依 ethertype 或 payload 都沒有）。daemon 計數 `forwarded_to_hosts`／`forwarded_between_switches`／`misdelivered`／`foreign_frames` 在 20 臂全部是 0。
    - 所以**沒有觸發段 S 對裁決 4 的操作化停止條件**（心跳幀到了主機，或 `forwarded_to_hosts>0`）。
@@ -76,7 +81,7 @@
    - 普查期間沒有流量。
    - 兩個副作用偵測器（主機 sniff、daemon 計數）都沒有 live 陽性對照。
    - 06 各臂判定會不會變，留給 H5。
-7. **spike 本身的缺陷**：run 1 的 teardown 被 ndt 自己的 measuring 守衛拒絕，spike 仍然 release，fabric 在無人 claim 下約 34 s（至少 33 s）。第 7／7b 輪已修，run 2–4 在 live 上走過修好的路（§4）。
+7. **spike 本身的缺陷**：run 1 的 teardown 被 ndt 自己的 measuring 守衛拒絕，spike 仍然 release，fabric 在無人 claim 下約 34 s（至少 33 s）。第 7／7b 輪已修，run 2–4 在 live 上走過修好的路（§4）。另外 run 3–4 暴露一個量測缺陷（§4.4）：t0／t1 由另起的行程量、比 tc 實際生效晚，而且復原視窗 (t1a, t1] 內聽到的幀會被丟掉。這次只打到 run 4 cycle 8。
 
 ## 2. 偵測延遲
 
@@ -173,7 +178,7 @@ min／median／max 是我用 python `statistics` 從上面兩個 tsv 重算的�
 
 ### 2.4 run 3–4：去相位鎖（OBSERVED，除非另標）
 
-orchestrator 在第二版的裁決之後決定補這一輪（`judge/judge-HBSPIKEDOC-4820862b.md` :28-29、:33-40）。spike 第 8 輪（`fix/hb-spike-r8-0926`，併入 trunk `094f417f`）實作，判官 MERGE（`judge/judge-HBR8-3a724b87.md:6`），orchestrator 在 09-26 16:50 起跑兩次 live。
+orchestrator 在第二版的裁決之後決定補這一輪：起跑指令的註記就是「segment-S de-phased round, orchestrator decision after the report judge's Blocking 1」（`log3:2`、`log4:2`）。判官的補跑建議在 `judge/judge-HBSPIKEDOC-4820862b.md:28-29`。spike 第 8 輪（`fix/hb-spike-r8-0926`，併入 trunk `094f417f`）實作，判官 MERGE（`judge/judge-HBR8-3a724b87.md:6`），orchestrator 在 09-26 16:50 起跑兩次 live。
 
 #### 2.4.1 量法的改變（READ：`094f417f` 的 `spike/S_heartbeat_spike.sh` :568-624、:638-666、:668-769；`spike/hb_watch.py`）
 
@@ -181,6 +186,7 @@ orchestrator 在第二版的裁決之後決定補這一輪（`judge/judge-HBSPIK
 - **剪線與復原前都先等**（`hb_watch.py:704` `phase_wait`），照 `19_phase_plan.tsv`：
   - `PHASE=sweep`：剪線**開始**的時刻落在報告裡最新一幀 heard 之後的預定偏移；預設 10 個點，0.050、0.583、…、4.850 s；復原的偏移反序（`R3/19_phase_plan.tsv`）。
   - `PHASE=random`：從剪前檢查看到兩向 heard 起，等 U[0, 5)；復原前也一樣（`R4/19_phase_plan.tsv`，seed 1968294680）。
+- **t0／t1 怎麼取**：`cut_link` 或 `restore_link` 返回之後，另起一個 `now` 行程取 CLOCK_MONOTONIC（`094f417f` 的 spike :727-728、:741-742）。所以 t0／t1 比 tc 實際生效晚（§2.4.4、§4.4）。
 - **相位從報告實量**：`cut_phi_s = t0 − cut_lh_mono`，也就是規則看到的相位；`restore_phi_s = (t1 − 復原前最新的 heard) mod 5`。t0a、t0、t1a、t1、`cut_lh_mono` 等都以 CLOCK_MONOTONIC 絕對值寫進 `20_cycles.tsv`。這就是第二版 §2.4 要求的做法。
 - **兩個層級都記**：
   - 剪線：`down_rule_s`＝最後一幀 heard＋15 − t0，規則成立的瞬間；`down_s` 是 spike 輪詢到的時刻。
@@ -196,25 +202,27 @@ orchestrator 在第二版的裁決之後決定補這一輪（`judge/judge-HBSPIK
 
 CHECKED：每一列都用 raw 的絕對時戳重算 `cut_phi_s`（t0 − `cut_lh_mono`）、`down_rule_s`（`cut_lh_mono`＋15 − t0）、`cut_tc_s`（t0 − t0a）、`up_s`（`up_lh_mono` − t1）、`restore_phi_s`、`restore_tc_s`，30 列全部在 0.0015 s 內吻合。
 
-| 量（min／median／max，s） | run 3 sweep（n=10） | run 4 random（n=20） |
+| 量（min／median／max，s） | run 3 sweep（n=10） | run 4 random（剪線 n=20；復原 n=19，排除 c8） |
 |---|---|---|
 | 剪線相位 `cut_phi_s` | 0.131／2.5390／4.934 | 0.220／1.1525／4.384 |
 | 規則成立 `down_rule_s`（報告層級） | 10.066／12.4610／14.869 | 10.616／13.8475／14.780 |
 | spike 輪詢到 `down_s` | 10.077／12.5260／14.904 | 10.668／13.9300／14.791 |
 | 輪詢延遲 `down_s − down_rule_s` | 0.009／0.0420／0.084 | 0.009／0.0545／0.099 |
-| 復原相位 `restore_phi_s` | 0.135／2.5275／4.924 | 0.012／3.1440／4.930 |
-| daemon 接收 `up_s` | 0.075／2.4725／4.864 | 0.070／1.8565／4.988 |
-| 報告層級 `up_rpt_s` | 0.575／2.9730／5.364 | 0.571／2.3565／5.488 |
+| 復原相位 `restore_phi_s` | 0.135／2.5275／4.924 | 0.387／3.2100／4.930 |
+| daemon 接收 `up_s` | 0.075／2.4725／4.864 | 0.070／1.7900／4.613 |
+| 報告層級 `up_rpt_s` | 0.575／2.9730／5.364 | 0.571／2.2900／5.114 |
 | **報告延遲實測** `up_rpt_s − up_s` | 0.500／0.5000／0.501 | 0.500／0.5000／0.501 |
-| 讀者看到那份報告 `up_poll_s − up_rpt_s` | 0.002／0.0415／0.100 | 0.017／0.0540／0.099 |
-| 復原後下一輪有被聽到 `up_s＋restore_phi_s−5` | −0.001／0.0000／0.001 | −0.005／0.0000／0.002 |
+| 讀者看到那份報告 `up_poll_s − up_rpt_s` | 0.002／0.0415／0.100 | 0.017／0.0510／0.099 |
+| `up_s＋restore_phi_s−5` | −0.001／0.0000／0.001 | −0.005／0.0000／0.002 |
 | 剪線耗時 `cut_tc_s` | 0.082／0.0870／0.108 | 0.078／0.0860／0.096 |
-| 其中 A 端／B 端（範圍） | 0.022–0.027／0.021–0.028 | 0.022–0.029／0.019–0.028 |
+| `cut_tc_a_s`／`cut_tc_b_s`（範圍） | 0.022–0.027／0.021–0.028 | 0.022–0.029／0.019–0.028 |
+| `cut_tc_s −（a＋b）` | 0.035／0.0385／0.059 | 0.033／0.0380／0.046 |
 | 復原耗時 `restore_tc_s` | 0.074／0.0840／0.092 | 0.072／0.0790／0.092 |
 
 說明：
 - 每個 cycle 的 φ 都 <5 s，而且判不通的那份報告裡，兩向的最後一幀就是剪線前那一幀：剪線之後沒有任何一幀被聽到。所以 `down_rule_s`＝15−φ 在 30 列都成立。這是定義上的恆等式，前提是剪線有效，**不是另一個發現**。
-- `up_s＋restore_phi_s−5` 接近 0 表示復原之後的下一輪就被聽到了：復原在下一次送出前生效，30 列都是。
+- `cut_tc_a_s`、`cut_tc_b_s` 是 bash 牆鐘（`EPOCHREALTIME`）：從 bash 呼叫 `cut_link` 到 A 端 netem 生效、再到 B 端生效。它們**不是** `cut_tc_s`（CLOCK_MONOTONIC 的 t0 − t0a）的分解。兩者的差 `cut_tc_s −（a＋b）` 包含 phase_wait 醒來到 bash 呼叫之間、以及 B 端生效到 `now` 取 t0 之間的時間。所以 t0 比兩端都斷的時刻最多晚 0.033–0.059 s（INFERRED，兩把尺混用）。
+- `up_s＋restore_phi_s−5` 接近 0，表示 spike 算到的第一幀是 t1 之後的下一輪。29 列都是，c8 也是 0.000。**但這個檢查看不到 c8 那種情況**：t1 本身晚了，比 t1 早到的那一幀被丟掉，而檢查只拿 t1 之後的第一幀來比。
 - 輪詢延遲只屬於 spike 的讀法（每 0.1 s 讀一次）。proxy 的 watchdog 有自己的節奏（§2.5）。
 
 #### 2.4.3 分箱（1 s 一箱；min／median／max，s；我重算，兩位小數與 `R*/22_summary.txt` 一致）
@@ -243,32 +251,37 @@ CHECKED：每一列都用 raw 的絕對時戳重算 `cut_phi_s`（t0 − `cut_lh
 | 3 | [2, 3) | 2 | 2.203／2.4725／2.742 | 2.703／2.9730／3.243 |
 | 3 | [3, 4) | 2 | 1.130／1.3965／1.663 | 1.630／1.8965／2.163 |
 | 3 | [4, 5) | 2 | 0.075／0.3375／0.600 | 0.575／0.8375／1.100 |
-| 4 | [0, 1) | 6 | 4.002／4.4945／4.988 | 4.502／4.9950／5.488 |
+| 4 | [0, 1) | 5 | 4.002／4.4160／4.613 | 4.502／4.9170／5.114 |
 | 4 | [1, 2) | 3 | 3.163／3.6830／3.892 | 3.663／4.1830／4.393 |
 | 4 | [2, 3) | 0 | — | — |
 | 4 | [3, 4) | 4 | 1.040／1.4920／1.923 | 1.540／1.9920／2.423 |
 | 4 | [4, 5) | 7 | 0.070／0.2060／0.958 | 0.571／0.7060／1.458 |
 
-run 4 的復原在 [2, 3) 箱沒有樣本；它的覆蓋判定看的是最大間隙（1.241 s），不是每箱都要有。
+run 4 的復原排除 c8（§2.4.8）；c8 原本記在 [0, 1) 箱，復原相位 0.012 s。run 4 的復原在 [2, 3) 箱沒有樣本；它的覆蓋判定看的是最大間隙（排除 c8 前後都是 1.241 s），不是每箱都要有。
 
 #### 2.4.4 最壞相位、覆蓋判定、sweep 精度
 
-- **最小剪線相位**：run 3 是 0.131 s（cycle 1）→ `down_rule_s` 14.869 s、`down_s` 14.904 s。run 4 是 0.220 s（cycle 7）→ 14.780／14.789 s。run 4 的 `down_s` 最大值是 cycle 8（φ 0.238 s，14.791 s），比 cycle 7 大，差在輪詢延遲。
-- **報告層級復原最大值**：5.488 s（run 4 cycle 8，復原相位 0.012 s，`up_s` 4.988 s）。
+- **最小剪線相位**（從 t0 起算）：run 3 是 0.131 s（cycle 1）→ `down_rule_s` 14.869 s、`down_s` 14.904 s。run 4 是 0.220 s（cycle 7）→ 14.780／14.789 s。run 4 的 `down_s` 最大值是 cycle 8（φ 0.238 s，14.791 s），比 cycle 7 大，差在輪詢延遲。
+- **報告層級復原最大值**（排除 run 4 c8）：5.364 s（run 3 cycle 10，復原相位 0.135 s，`up_s` 4.864 s）。run 4 排除 c8 後最大是 5.114 s（cycle 15）。
 - **覆蓋**（`R*/22_summary.txt`；CHECKED：我從 tsv 重算最大圓周間隙，數字相同）：
   - run 3：剪線 0.551 s、復原 0.548 s。
-  - run 4：剪線 1.170 s、復原 1.241 s。
+  - run 4：剪線 1.170 s、復原 1.241 s（排除 c8 後重算仍是 1.241 s）。
   - 都小於 3.00 s ⇒ covers。
-- **sweep 精度**：`cut_phi_s − cut_tc_s − cut_plan` 在 −0.001 到 0.000 s 之間（CHECKED）。第一個偏移 0.050 s 加上 `cut_tc_s` 0.082 s，就是 φ 0.131 s。第 8 輪判官原本預期 live 會有 0.02–0.06 s 的系統性偏差（`judge/judge-HBR8-3a724b87.md:11`），實際沒有。
-- **為什麼到不了 φ→0（INFERRED）**：兩端依序下 tc，第二端最晚在 `cut_tc_s` 之後才生效。φ 比 `cut_tc_s` 小時，剪線開始時的那一輪可能已經送出、或還有一端沒斷。run 3 的 sweep 從 0.050 s 開始，所以量到的最小 φ 是 0.131 s。
+- **sweep 精度**：`cut_phi_s − cut_tc_s − cut_plan` 在 −0.001 到 0.000 s 之間（CHECKED）。這個量就是 t0a − `cut_lh_mono` − 計畫值，所以它只證明 **t0a（phase_wait 醒來、剪線開始）準到 1 ms**，不涉及 tc 何時生效。第一個偏移 0.050 s 加上 `cut_tc_s` 0.082 s，就是 φ 0.131 s。第 8 輪判官原本預期 live 會有 0.02–0.06 s 的系統性偏差（`judge/judge-HBR8-3a724b87.md:11`）；t0a 沒有這個偏差。
+- **起算時刻**（INFERRED）：
+  - 規則看的是 t0 − 最後一幀。t0 在 B 端生效之後、再經過一次 `now` 行程才取，所以 φ 從 t0 起算會偏大。
+  - 以 run 3 cycle 1 為例：從兩端都斷起算的 φ 介於 0.096 s（t0a＋a＋b − 最後一幀；bash 呼叫不早於 t0a）與 0.131 s（t0）之間，報告層級 14.869–14.904 s。
+  - 從剪線開始（t0a）起算是 14.869＋0.082＝14.951 s。
+- **為什麼沒取樣到 φ→0**：這是這一輪 sweep 的設計，不是剪法的物理限制。`SWEEP_FIRST_S = 0.05` 讓剪線在最後一幀之後 0.05 s 才開始，`SWEEP_LAST_GAP_S = 0.15` 讓最後一個點在下一輪送出前 0.15 s 結束（READ：`094f417f` 的 `hb_watch.py:529-536`），目的是讓兩端都在那一輪的幀被聽到之後才斷。random 每個 cycle 落到 φ 約 0.08 s 以下的機會約 1.6%（判官估；0.08/5）。真實故障沒有這個限制，φ→0 可達。
 
 #### 2.4.5 兩個對照（`R3/18_controls.tsv`、`R4/18_controls.tsv`；CHECKED：我從 `18_polls_{a,b}.tsv` 重算沉默長度，數字相同）
 
 | 對照 | run 3 | run 4 | 判定 |
 |---|---|---|---|
 | (a) 不剪線 | 視窗 20.1 s、201/201 次讀取、沒有方向判不通；8 個方向的最長沉默都是 5.494 s | 20.1 s、201/201、5.490 s | 兩次都 OK |
-| (b) 只剪 `s1-eth3` | 只有 `1:3>3:1` 判不通，13.085 s；`3:1>1:3` 最長沉默 5.470 s（19.1 s 視窗、判不通後再看 6 s）；`cut_tc_s` 0.023 s；復原後 3.865 s 重新聽到 | 13.081 s；5.458 s；0.025 s；3.883 s | 兩次都 OK |
+| (b) 只剪 `s1-eth3` | 只有 `1:3>3:1` 判不通，13.085 s；`3:1>1:3` 最長沉默 5.470 s（19.1 s 視窗、判不通後再看 6 s）；A 端生效耗時 0.023 s；復原後 3.865 s 重新聽到 | 13.081 s；5.458 s；0.025 s；3.883 s | 兩次都 OK |
 
+- (b) 列裡 `18_controls.tsv` 記作 `cut_tc_s` 的 0.023／0.025 s，是 `CUT_END_US[0]`：bash 牆鐘，從呼叫到 A 端生效（`094f417f` 的 spike :661）。它和 cycles 的 `cut_tc_s`（t0 − t0a）不是同一個量。
 - (b) 當下的報告（`R*/17_report_single_end.json`）：`1:3>3:1` 送 10 聽 6，`3:1>1:3` 送 10 聽 10。視窗結束時，`1:3>3:1` 的沉默已到 20.973／20.959 s（`18_polls_b.tsv`）。
 - **這兩個對照補上了什麼**：
   - (a) 是偵測的陰性對照：不剪線時，讀者看到的最長沉默是 period＋報告延遲（約 5.5 s），離 15 s 很遠。
@@ -289,20 +302,33 @@ run 4 的復原在 [2, 3) 箱沒有樣本；它的覆蓋判定看的是最大間
 
 #### 2.4.7 與 run 1–2 對帳
 
-- **可比對、不推翻**：run 1–2 只量到 φ≈0.6–0.8 s。run 3–4 在同一相位的值落在同一處（run 3 cycle 2，φ 0.666 s → `down_s` 14.383 s；run 4 cycle 15，φ 0.578 s → 14.477 s）。run 1–2 的復原在送出後約 0.1–0.2 s，`up_s` 4.813–4.910 s；run 3 cycle 10（復原相位 0.135 s）是 4.864 s。
+- **可比對、不推翻**：run 1–2 只量到 φ≈0.62–0.80 s。run 3 cycle 2（φ 0.666 s，在這個範圍內）→ `down_s` 14.383 s，與 run 1–2 的 14.197–14.382 s 一致。run 4 沒有 cycle 落在這個範圍內，最近的是 cycle 15（φ 0.578 s）→ 14.477 s。run 1–2 的復原在送出後約 0.1–0.2 s，`up_s` 4.813–4.910 s；run 3 cycle 10（復原相位 0.135 s）是 4.864 s。
 - **更新**：
   - 第二版推得的報告延遲「約 0.5 s」，現在逐 cycle 實測是 0.500–0.501 s。
-  - 第二版的「最壞相位報告層級趨近 15 s」，現在實測到 φ＝0.131 s 時 14.869 s（規則）／14.904 s（spike 輪詢）。
+  - 第二版的「最壞相位報告層級趨近 15 s」：這一輪取樣到的最小 φ＝0.131 s（從 t0 起算）時是 14.869 s（規則）／14.904 s（spike 輪詢）。φ→0 仍可達（§2.4.4）。
   - 第二版的「≤20 s 不是保證」維持不變（§2.5）。
+
+#### 2.4.8 run 4 cycle 8 的復原是量測假象（OBSERVED；判官先指出，我從 raw 重新驗過）
+
+- **時間軸**（`R4/20_cycles.tsv` 第 8 列、`R4/21_polls_8.tsv`）：
+  - `restore_t1a_mono`＝48770.853069：開始拿掉 netem。
+  - 兩向都在 48770.921989／48770.921948 被聽到：t1a 之後 0.069 s、t1 之前 0.013 s。netem 那時已經拿掉，這一輪（送出時刻 48770.92）的幀通過了。
+  - `restore_t1_mono`＝48770.934670：`restore_link` 返回後，另起的 `now` 行程取的 t1。
+  - `21_polls_8.tsv:155`：第一份顯示兩向都被聽到的報告，`written_mono` 48771.422575，就是 t1 之後 0.488 s、t1a 之後 0.570 s、那一幀之後 0.5006 s。
+  - `up_detail` 要求「在 t1 **之後**被聽到」（`094f417f` 的 `hb_watch.py:626`），所以這一輪被丟掉。讀者一直等到 `21_polls_8.tsv:205`：報告 48776.423078，最後一幀 48775.922970。
+  - 所以 20_cycles.tsv 記下的 `up_s` 4.988 s、`up_rpt_s` 5.488 s、`restore_phi_s` 0.012 s 是假的。
+- **實際的復原**：從 t1a 起算，daemon 接收 0.069 s、報告層級 0.570 s。復原生效時刻落在最後一輪之後 4.930–4.999 s，也就是下一次送出之前。
+- **只有 c8**：CHECKED，我掃了 run 3–4 全部 30 個 cycle 的 `21_polls_*.tsv`。只有 run 4 c8 有幀落在 (t1a, t1]；沒有任何 cycle 有幀落在 (t0a, t0]，也沒有任何幀在剪線期間 (t0, t1a] 被聽到。
+- **處理**：c8 的剪線統計照用。復原統計排除它：§1、§2.4.2–2.4.4、§2.5、§5 的復原數字都是 n=29（run 4 n=19）。缺陷本身列在 §4.4。
 
 ### 2.5 推得的 W 層級（INFERRED；報告層級數字取自 §2.4）
 
 | 項目 | 值 | 怎麼來的 |
 |---|---|---|
-| 剪線 → proxy 判定，實測最壞相位 | ≤ 14.869＋5＝**19.869 s**，另加 pass 耗時、讀檔、`_notify_link` 的 HTTP、kernel 更新圖（都沒量） | proxy 的 watchdog 自己讀報告，不經 spike 的 0.1 s 輪詢，所以用 `down_rule_s`；watchdog 最多再等一整個間隔 5 s |
-| 同上，φ→0 的極限 | 20 s＋同上 | 現行兩步剪法達不到（§2.4.4） |
+| 剪線 → proxy 判定，這一輪取樣到的最壞相位 | 從 t0 起算 ≤ 14.869＋5＝**19.869 s**；從兩端都斷起算約 19.87–19.90 s；從剪線開始起算 19.951 s。都另加 pass 耗時、讀檔、`_notify_link` 的 HTTP、kernel 更新圖（都沒量） | proxy 的 watchdog 自己讀報告，不經 spike 的 0.1 s 輪詢，所以用 `down_rule_s`；watchdog 最多再等一整個間隔 5 s |
+| 同上，φ→0 | **20 s**＋同上，也就是同上各項的預算是 0 s | 真實故障可達；這一輪是 sweep 設計避開了（§2.4.4） |
 | 同上，run 4 的均勻相位 | 報告層級 10.616–14.780 s，再加 (0, 5] 的 watchdog 等待與同上各項 | 分布見 §2.4.3 |
-| 復原 → proxy 判定 | ≤ 5.488＋5＝**10.488 s**，另加 pass 耗時、讀檔、kernel；只看常數 ≤ 5.5＋5＝10.5 s | 報告層級 `up_rpt_s`＋一次 watchdog |
+| 復原 → proxy 判定 | 實測最壞 ≤ 5.364＋5＝**10.364 s**（n=29，排除 run 4 c8），另加 pass 耗時、讀檔、kernel；只看常數 ≤ 5.5＋5＝10.5 s | 報告層級 `up_rpt_s`＋一次 watchdog |
 | 單端故障 | 只有一個方向判不通（對照 (b)，OBSERVED）⇒ W 會收到單向的 down | H1 要求的「兩向 `is_up:false`」只在兩端都斷時成立 |
 | 心跳證明的是什麼 | 那條 veth，不是交換機 | daemon 在對端 veth 上、在交換機之前就讀到幀（READ：`tools/test_workflow/ndtwin-lab` :657-693；`P4-HB-SUMMARY.md` §H.7 第 9 點） |
 
@@ -311,7 +337,8 @@ run 4 的復原在 [2, 3) 箱沒有樣本；它的覆蓋判定看的是最大間
 - daemon 的送出排程是 `next_round += PERIOD_S`，從啟動時刻起算、不漂移（`ndtwin-lab:1313`、:1331）；只有某輪遲到時才從當下重設（:1332-1333）。
 - 所以兩者的相對相位每次 pass 漂移一個 pass 耗時，累積漂移就是各次 pass 耗時的總和。pass 耗時沒有量過；有轉態的 pass 還要跑 `_notify_link` 的 HTTP（在 `check_link_beacons` 裡）、`install_initial_routes` 與 `push_destination_paths`（READ：`topology_manager.py:2065-2102`）。
 - **如果** pass 耗時很小，同一個 run 裡的 n 個 cycle 看到的 watchdog 附加量就大致固定，不會均勻取樣 (0, 5]；如果轉態 pass 很慢，漂移就會變大。兩種情況都要靠記錄 watchdog 相位才看得出來。
-- 所以最壞組合是：剪線 φ 很小，**而且** watchdog pass 剛好在規則成立前一刻跑過。這時只剩約 0.13 s（20 − 19.869）給 pass 耗時、HTTP 與 kernel。它們夠不夠，只有 H1 量得出來。
+- 所以最壞組合是：剪線 φ 很小，**而且** watchdog pass 剛好在規則成立前一刻跑過。這一輪取樣到的最壞相位下，只剩約 0.13 s（20 − 19.869，從 t0 起算）給 pass 耗時、讀檔、HTTP 與 kernel；φ→0 時是 0 s。
+- 所以判 H1 時，最壞預期應寫成「20 s＋實測的 pass／讀檔／HTTP／kernel 耗時」。工單寫的驗收是 ≤20 s，這個落差要不要接受是 Adam 的裁決。
 
 ## 3. 副作用普查（run 2）
 
@@ -467,7 +494,7 @@ run 4 的復原在 [2, 3) 箱沒有樣本；它的覆蓋判定看的是最大間
 ### 4.1 run 1 的 teardown：自己的 `measuring=` 讓 ndt 拒絕 down，spike 仍然 release
 
 **發生了什麼（OBSERVED，除非另標）：**
-- detect 階段 export 了 `NDT_MEASURING`（READ：現行 spike :1654）。兩份拒絕訊息引的正是它：「measuring=heartbeat spike S: detection latency, out-of-band netem on s1-eth3/s3-eth1」。
+- detect 階段 export 了 `NDT_MEASURING`（READ：`580767a8` 的 spike :1654；`094f417f` 是 :2130）。兩份拒絕訊息引的正是它：「measuring=heartbeat spike S: detection latency, out-of-band netem on s1-eth3/s3-eth1」。
 - 之後兩次 `ndt down` 都回 rc 5，訊息是「refusing to tear down: this claim DECLARES a measurement in progress」（`R1/26_down.txt`、`R1/90_down.txt`；`log1:96`、`:101-105`）。
 - `finish()` 照樣 release：`app_package_override SURVIVED`、`ok lab released`（`log1:106-111`）。
 - 在這之前，心跳已經停了（`R1/25_hb_stop.txt`），netem 已經拿掉、qdisc 與快照相同（`log1:95`）。
@@ -506,6 +533,13 @@ run 4 的復原在 [2, 3) 箱沒有樣本；它的覆蓋判定看的是最大間
 
 ### 4.4 仍然開著（run 1–4 都沒觸發，除非另標）
 
+- **t0／t1 取得太晚，復原視窗內聽到的幀被丟掉（run 4 cycle 8 觸發，§2.4.8）**
+  - READ（`094f417f`）：t0／t1 是 `cut_link`／`restore_link` 返回後另起 `now` 行程取的（spike :727-728、:741-742），比 tc 實際生效晚；`cut_tc_s −（a＋b）` 顯示最多晚 0.033–0.059 s（§2.4.2）。
+  - `up_detail` 只算 t1 之後聽到的幀（`hb_watch.py:626`），所以在 (t1a, t1] 內就已經通過的那一輪會被丟掉，改等下一輪，up 多算約一個 period。
+  - `up_s＋restore_phi_s−5` 那個檢查看不到這種情況（§2.4.2）。
+  - run 3–4 只有 c8 觸發（CHECKED，§2.4.8）。剪線這一側沒有對應的丟幀：規則用的是最後一幀，但 φ 從 t0 起算會偏大。
+  - H1 若沿用這套工具，會繼承這個缺陷（§5.1）。
+
 - **census 期間 claim 沒有宣告 `measuring=`（這次 live 就是如此）**
   - OBSERVED：detect 收尾時已撤回（`log2:96-98`，claim note 變成「in use: ndt up p4 4 …」）。
   - READ：`NDT_MEASURING` 只在 take_claim 之前 export 一次（spike :1653-1655），撤回後 `unset`（:261），census 不會再宣告。
@@ -526,19 +560,19 @@ run 4 的復原在 [2, 3) 箱沒有樣本；它的覆蓋判定看的是最大間
 ### 5.1 W 可以依賴的（O＝OBSERVED，I＝INFERRED，R＝READ）
 
 - **（O）daemon 報告在真 veth、真 netem 上的語意是對的**
-  - 兩端都剪：被剪兩向不再被聽到，其他 6 向照常（50 個 cycle 都是如此：run 1–2 各 10、run 3–4 共 30；另加 run 3–4 各兩個對照）。
+  - 兩端都剪：被剪兩向不再被聽到，其他 6 向照常（50 個 cycle 都是如此：run 1–2 各 10、run 3–4 共 30）。
   - 只剪一端：只有從那一端送出的方向不再被聽到（對照 (b)）。
-  - 復原後的下一輪一定被聽到（run 3–4 的 30 列）。
+  - 復原後，第一個送出的幀就被聽到。run 3–4 的 29 列是這樣；run 4 c8 則是那一幀在 t1 之前就被聽到，spike 丟掉了它（§2.4.8）。
   - `send_errors` 0。
   - 報告的 `period_s` 是 5，等於 proxy 的 `LLDP_BEACON_INTERVAL_S`；run 3–4 起跑時也核對過（`log3:60`、`log4:60`）。
 - **（O）報告層級延遲，相位覆蓋整個 period（run 3–4，§2.4）**：
-  - 剪線 → 規則成立：10.066–14.869 s；最壞實測在 φ＝0.131 s。
-  - 復原 → 報告顯示：0.571–5.488 s。
-  - 報告延遲：0.500–0.501 s，30 個 cycle 每一個都是。
+  - 剪線 → 規則成立：10.066–14.869 s（從 t0 起算）；這一輪取樣到的最壞在 φ＝0.131 s，φ→0 可達。
+  - 復原 → 報告顯示：0.571–5.364 s（n=29，排除 run 4 c8）。
+  - 報告延遲：0.500–0.501 s，30 列每一列都是。
   - 不剪線的 20.1 s 裡，讀者看到的最長沉默是 5.494 s。
 - **（I）W 層級**（§2.5）：
-  - 剪線：≤ 19.869 s，另加 pass 耗時、讀檔、HTTP、kernel；φ→0 的極限是 20 s。
-  - 復原：≤ 10.488 s，另加 pass 耗時、讀檔、kernel。
+  - 剪線：這一輪取樣到的最壞相位 ≤ 19.869 s（從 t0 起算），另加 pass 耗時、讀檔、HTTP、kernel；φ→0 時是 20 s，那些時間的預算是 0 s。
+  - 復原：實測最壞 ≤ 10.364 s，另加 pass 耗時、讀檔、kernel；常數上 ≤ 10.5 s。
 - **（O）報告的寫入節奏**：
   - 每輪送出時寫一次：run 1–2 的剪線快照寫在第 20·i s；basic 兩臂的普查快照寫在最後一次聽到之後 5.000–5.001 s。
   - 聽到東西之後再寫一次：0.500–0.501 s（run 3–4 逐 cycle 實測；run 1–4 的 `12_report_first.json` 是 0.50033–0.50057 s）。
@@ -548,18 +582,24 @@ run 4 的復原在 [2, 3) 箱沒有樣本；它的覆蓋判定看的是最大間
 - **（R）常數與送出排程**：
   - daemon 的 `PERIOD_S=5` 寫死（`ndtwin-lab:734`），送出排程從 `started_mono` 起每 5 s 一次、不漂移（:1313、:1331；某輪遲到時才重設，:1332-1333）。
   - proxy 的 period 可以被 `NDTWIN_P4_BEACON_S` 改。兩者不一致時怎麼處理見 H.7 第 6 點；這四次 run 都是一致的。
-- **（R）去相位的工具已經有了**：spike 的 `phase_wait`（`094f417f` 的 `hb_watch.py:704`）與 `19_phase_plan.tsv` 的 sweep／random。H1 可以沿用；是否沿用由 W 決定。
+- **（R）去相位的工具已經有了**：spike 的 `phase_wait`（`094f417f` 的 `hb_watch.py:704`）與 `19_phase_plan.tsv` 的 sweep／random。
+  - **但它帶著 §4.4 的缺陷**：t0／t1 由 tc 返回後另起的行程取得，比 tc 實際生效晚；復原視窗 (t1a, t1] 內聽到的幀會被丟掉。H1 若沿用，會把這兩點一起帶進去。要嘛先修，要嘛至少標出落在剪線、復原視窗內的幀。
+  - 是否沿用由 W 決定。
 
 ### 5.2 W 仍須在 live 上證明的（工單 §2）
 
 - **H1**：外來 fabric 剪一條 spine 線 ⇒ ≤20 s kernel 圖兩向 `is_up:false` ⇒ 路由改寫 ⇒ 12 對主機 ping 全恢復；拿掉 netem ⇒ ≤20 s 恢復 `is_up:true`；沒有殘留 netem。
-  - **剪線方向的 ≤20 s 不是保證（INFERRED，§2.5）**：實測最壞剪線相位下，常數本身已用到 19.869 s，只剩約 0.13 s 給 watchdog pass、`_notify_link` 的 HTTP、kernel 更新圖。這與自家 fabric 同一性質。**算數的是 H1 實際量到的數字。**
+  - **剪線方向的 ≤20 s 不是保證（INFERRED，§2.5）**：
+    - 這一輪取樣到的最壞剪線相位下，常數本身已用到 19.869 s（從 t0 起算），只剩約 0.13 s 給 watchdog pass、讀檔、`_notify_link` 的 HTTP、kernel 更新圖。
+    - 真實故障的 φ 可以趨近 0，那時常數本身就用完 20 s，這些時間的預算是 0 s。
+    - 所以 H1 的最壞預期應以「20 s＋實測的 pass／讀檔／HTTP／kernel 耗時」來判讀，是否接受由 Adam 裁。這與自家 fabric 同一性質。**算數的是 H1 實際量到的數字。**
   - H1 要量出 kernel 層級的時間，而且至少要做到：
-    - 剪線相位涵蓋整個 period，包括 φ≈0.13 s 這一端（用 sweep，或 n 夠大的 random），並記錄每個 cycle 的 t0a／t0／`cut_lh_mono` 絕對值。
+    - 剪線相位涵蓋整個 period，包括 φ→0 那一端（這一輪取樣到的最小是 0.131 s），並記錄每個 cycle 的 t0a／t0／`cut_lh_mono` 絕對值。
+    - 時戳打在 tc 實際生效的時刻，不要用 tc 返回之後另起的行程。並標出落在剪線、復原視窗內被聽到的幀（§4.4）。
     - 記錄 watchdog 每次 pass 的時刻，才知道每個 cycle 多等了多久。同一 run 裡它漂多少，取決於沒量過的 pass 耗時（§2.5）。
     - 記錄 `_notify_link` 送出與 kernel `is_up` 轉態的時刻，把 pass、HTTP、kernel 各自的耗時分開。
   - 只用相位鎖迴圈（聽到之後才剪）量出來的 H1，結果只能寫成「φ≈0.7 s 時」（§2.3）。
-  - **復原方向**：W 層級 ≤ 10.488 s＋pass＋kernel，離 20 s 有約 9.5 s 的餘裕（INFERRED）。
+  - **復原方向**：W 層級實測最壞 ≤ 10.364 s＋pass＋讀檔＋kernel，常數上 ≤ 10.5 s，離 20 s 有約 9.5 s 的餘裕（INFERRED）。
 - **H2**：陰性對照，心跳不跑 ⇒ `is_up` 保持 true。
   - spike 的對照 (a) 只證明了報告層級：不剪線時規則不會誤判（OBSERVED）。
   - H2 要的是另一件事：kernel 層級，而且心跳關掉時不會有別的路把 `is_up` 改掉。這仍須在 live 上做。
@@ -592,6 +632,7 @@ run 4 的復原在 [2, 3) 箱沒有樣本；它的覆蓋判定看的是最大間
 | tutorials | `/home/adam/tutorials`，在 repo 外、執行期才編譯；**checkout 的 commit 未記錄** | 同左 | 同左 | 同左 |
 
 - CHECKED：我在 worktree 對 `4bc1201b`、`580767a8`、`094f417f` 的 blob 重新雜湊過，spike 四支檔與 helper 的 sha256 和上表相同。
+- raw 的存檔：run 1–2 在 `audit-raw` `1fafa3a0`，run 3–4 在 `e812cf9c`，兩者都是公開的（標頭）。
 - 四次 run 都在主 checkout 上跑，都有未提交檔，其中 2 個會影響行為：`p4_proxy/mininet/host_count_override`（快照為 4、已還原）與 `tools/remote-lab/dorm_lab/`。
   - run 1–2：79 個未提交檔（`log1:25-28`、`log2:25-28`）。
   - run 3–4：84 個（`log3:26-29`、`log4:26-29`）。
@@ -613,6 +654,8 @@ run 4 的復原在 [2, 3) 箱沒有樣本；它的覆蓋判定看的是最大間
 | `R3/18_controls.tsv`、`R4/18_controls.tsv`、`R*/18_polls_{a,b}.tsv`、`R*/17_report_single_end.json` | 兩個對照 | §2.4.5 |
 | `R3/`、`R4/` 的 `21_polls_<cycle>.tsv`、`21_report_cut_<cycle>.json`、`12_report_first.json`、`24_report_last.json` | 每次輪詢、剪線當下、起跑、結束時的報告 | §2.4 |
 | `R4/00_heartbeat_status_before.txt` | run 3 daemon 的最終報告 | §2.4.6 |
+| `R4/20_cycles.tsv` 第 8 列、`R4/21_polls_8.tsv`（:150、:155、:200、:205） | run 4 cycle 8 的復原假象 | §2.4.8 |
+| `judge/push-audit-raw-e812cf9c.log`（:6-11、:12-15） | run 3–4 raw 的 push 與未認證讀回 | 標頭、§6.1 |
 | `R2/40_census.tsv` | 普查表 | §3.2 |
 | `R2/census_<練習>_<臂>/{10_up.txt,11_hb_start.txt,30_report.json,31_hb_stop.txt,sniff_*.json,sniff_*.err,90_down.txt}` | 每臂的 raw | §3.2 |
 | `R2/prep_*.txt` | 各臂的建置輸出（p4c 指令與輸出 sha）；沒建成的原因 | §3.2、§6.1 |
@@ -621,13 +664,13 @@ run 4 的復原在 [2, 3) 箱沒有樣本；它的覆蓋判定看的是最大間
 | `log1`–`log4`、`log1c` | 四次 run 與收尾的終端輸出 | §0、§2.4、§4 |
 | `judge/judge-HBR7-a77b8fe2.md`、`judge/judge-HBR7b-96abb9b0.md`、`judge/judge-HBR6-3d297c34.md` | 第 7／7b／6 輪裁決 | §4 |
 | `judge/judge-HBR8-3a724b87.md` | 第 8 輪（去相位）裁決 | §1、§2.4 |
-| `judge/judge-HBSPIKEDOC-4820862b.md` | 本文件第一版的裁決、補跑建議（:28-29）、複審附錄（:33-40） | 標頭、§2.4 |
+| `judge/judge-HBSPIKEDOC-4820862b.md` | 本文件第一版的裁決、補跑建議（:28-29）、複審附錄（:33-40）、第三版的裁決（末段） | 標頭、§2.4、§2.4.8 |
 | `judge/public-verify-20260926T063944Z.log` | orchestrator 的未認證公開性檢查 | 標頭 |
 | `scratch/overnight-2026-09-05/hunt-0911/fix/P4-HBR7-SUMMARY.md` | 第 7／7b 輪 worker 交件 | §4 |
 | `HBR8`（`scratch/overnight-2026-09-05/hunt-0911/fix/P4-HBR8-SUMMARY.md`）:47、:113、:117 | 第 8 輪 worker 交件：拒跑條件、`PACKET_QDISC_BYPASS`、對照 (b) 當時是 INFERRED | §1、§2.4 |
 | `scratch/overnight-2026-09-05/hunt-0911/fix/P4-HB-SUMMARY.md` §H.3、§H.5–H.7、:212 | 測試、碰撞表、預測、proxy 端契約、表／計數器觀測不到的原因 | §3.3、§5 |
 | `580767a8` 的 `spike/S_heartbeat_spike.sh`（:24、:39、:261、:520-579、:536、:547-561、:611-699、:633、:651、:674、:1653-1655）、`spike/hb_watch.py`、`spike/hb_sniff.py`、`spike/census_prepare.py` | run 1–2 的量法與迴圈結構（READ） | §2.1–2.3、§3.1、§3.3、§4 |
-| `094f417f` 的 `spike/S_heartbeat_spike.sh`（:568-624、:638-666、:668-769）、`spike/hb_watch.py`（:273-281、:326、:704） | run 3–4 的量法、對照、覆蓋判定、`phase_wait`（READ） | §2.4.1、§5.1 |
+| `094f417f` 的 `spike/S_heartbeat_spike.sh`（:568-624、:638-666、:661、:668-769、:727-728、:741-742、:2130）、`spike/hb_watch.py`（:273-281、:326、:529-536、:619-626、:704） | run 3–4 的量法、對照、t0／t1 的取法、覆蓋判定、sweep 常數、`up_detail`、`phase_wait`（READ） | §2.4、§4.4、§5.1 |
 | `tools/test_workflow/ndtwin-lab` :657-693、:734、:764-765、:877-884、:1047-1048、:1095-1161、:1229、:1313、:1331-1333、:1335-1344 | 心跳 daemon 的語意、週期、送出排程、寫入節奏、BPF、`PACKET_QDISC_BYPASS`、計數 | §2、§3、§5 |
 | `p4_proxy/proxy_agent/topology_manager.py` :369、:411-418、:1951-1953、:2050-2053、:2065-2102 | 常數、`_link_timeout`、watchdog 迴圈 | §1、§2.5 |
 | `p4_proxy/proxy_agent/p4_client.py` :318、:634、:645-650 | external 不開 stream；ndtwin 開 `StreamChannel` | §3.3 |
