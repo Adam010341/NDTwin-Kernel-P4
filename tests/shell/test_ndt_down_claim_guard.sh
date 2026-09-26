@@ -81,6 +81,10 @@ MANIFEST="'"$FIX"'/manifest.json"
 CLAIM="$REPO/.test_run/lab.claim"; HANDOFF="$REPO/.test_run/lab.handoff"
 LAB_CONF="'"$FIX"'/etc/ndtwin-lab.conf"
 LAB_DEFAULT_KERNEL_DIR="'"$FIX"'"
+# [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W: the heartbeat pidfile and
+# report are fixture paths (never present), so a heartbeat running on this machine cannot add a
+# `heartbeat stop` to a teardown cell or a row to a status cell.
+HB_PIDFILE="'"$FIX"'/run/heartbeat.pid"; HB_REPORT="'"$FIX"'/run/heartbeat.json"
 export STACK_LOG="'"$FIX"'/stack.log"
 sudo() { printf "sudo %s\n" "$*" >> "'"$FIX"'/sudo.log"; return 0; }
 sleep() { :; }
