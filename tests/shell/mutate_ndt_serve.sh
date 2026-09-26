@@ -509,7 +509,7 @@ report "M60: the demo's slot probe is a real POST /down with the token" "$m" \
        DemoProbes.test_demo_probes_cannot_touch_the_lab
 
 m=$(mutant m61 "$VERBS_PY" \
-    '    "apps.status": {"code": [(10222, 0, "return 0", "cmd_apps")]},' \
+    '    "apps.status": {"code": [(10346, 0, "return 0", "cmd_apps")]},' \
     '')
 report "M61: an rc table with no source" "$m" \
        RcProvenance.test_every_table_names_its_source
@@ -711,9 +711,9 @@ report "C28: a claim read stopped at its timeout is trusted (its partial yours r
        cells:CellsRun.test_a_status_past_its_timeout_is_not_a_claim
 
 m=$(mutant m63 "$VERBS_PY" \
-    '(8775, 1, "return 1", "app_start")' \
-    '(8315, 1, "return 1", "app_start")')
-report "M63: apps.start rc 1 cites 09-24's line 8315 -- proc_checkout's return 1 today" "$m" \
+    '(8899, 1, "return 1", "app_start")' \
+    '(8439, 1, "return 1", "app_start")')
+report "M63: apps.start rc 1 cites proc_checkout's return 1 (09-24's line 8315, 8439 since segment W)" "$m" \
        RcProvenance.test_code_sourced_tables_are_in_ndt
 
 

@@ -98,7 +98,7 @@ RUN_FAIL = OLD_LAB.replace("2026-09-11T02:55:10", "2026-09-24T23:00:00")
 RUN_SKIP = "SKIP: the lab is claimed by somebody else\nCELL: SKIP lab_cell tag=ndt kernel=x ndt=y at=z\n"
 RUN_OFF = ("ASSERT ok   b1_sentence_gone                       help.txt does not contain it\n"
            "CELL: PASS offline_cell tag=ndt kernel=unknown ndt=ffff at=2026-09-24T23:00:00+08:00\n")
-# the claim line as `ndt status` prints it (ndt:5664 claim_line), for each case the service must tell apart
+# the claim line as `ndt status` prints it (ndt:5786 claim_line), for each case the service must tell apart
 CLAIM_YOURS = "lab\n  claim          yours -- 30m left (until 23:59:00)\n  measuring      nothing\n"
 CLAIM_NONE = "lab\n  claim          none\n  prev claim     serve-test (until 23:00:00)\n"
 CLAIM_FOREIGN = "lab\n  claim          orch-0924 -- 12m left (until 23:40:00)\n"
@@ -290,7 +290,7 @@ class CellsRun(GridCase):
     def test_only_ndts_own_claim_form_is_yours(self):
         """Intake judge 09-26, finding 2: the check was a PREFIX match on "yours", so a foreign
         owner whose name merely starts with it -- `yours-x` -- passed as this server's own claim.
-        ndt prints its own claim as exactly `yours -- <n>m left (until HH:MM:SS)` (ndt:5677,
+        ndt prints its own claim as exactly `yours -- <n>m left (until HH:MM:SS)` (ndt:5799,
         claim_line). Every other value -- another owner's, one named to contain the own form,
         EXPIRED, malformed -- is somebody else's or nobody's, and runs nothing."""
         for value in ("yours-x -- 12m left (until 23:40:00)",

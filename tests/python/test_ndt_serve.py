@@ -416,7 +416,7 @@ class Csrf(ServeCase):
 
     def test_reads_need_the_token_except_health(self):
         """Judge 09-24 finding 1: GET /status?check=1 runs `ndt status --check`, whose lock probes
-        POST /ndt/acquire_lock to the kernel (ndt:9292-9307). A read is not side-effect free, so
+        POST /ndt/acquire_lock to the kernel (ndt:9416-9431). A read is not side-effect free, so
         every GET but /health is gated the way a write is."""
         paths = ["/status", "/status?check=1", "/apps", "/jobs", "/jobs/20260101T000000Z-abcdef",
                  "/jobs/20260101T000000Z-abcdef/log/stdout", "/cells", "/cells/x", "/cells/x/old",
