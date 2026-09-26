@@ -253,6 +253,11 @@ unbound 的 L6。L4 **不斷言改路**（第一刀 (c) 不成立，`capabilitie
   - owned 是 `reroute: true, link_discovery: "heartbeat"`；
   - unbound 是 `reroute: false, link_discovery: "heartbeat"`。
   - 兩者都需要心跳真的有在跑；`ndt up` 沒能啟動心跳的那次 run，會讀到 `declared`／`false`，L6 就會紅。
+- **switch_state 上的 L1 也已改**（fable judge 對 ebdf365e 的 R2 附註）：
+  - 要求 `links` 正好是那 8 個宣告的方向，每一個都是 `source: heartbeat, down: false`；
+  - 會輪詢最多 30 s，因為 proxy 的第一個 watchdog pass 才會把心跳餵進 `links`；
+  - owned 和 unbound 兩個 package 都檢查。
+  - 原本要求的是 8 筆 `source: declared`，心跳一跑就一定紅。
 - **L4 記下的流量數字可能會變**（INFERRED，沒跑過）：
   - L4 的 `inject_link_failure` 會在兩端下 netem，心跳幀也會一起被擋住；
   - 所以在 owned 那個 package 上，proxy 現在會自己偵測到斷線並**改路**；
