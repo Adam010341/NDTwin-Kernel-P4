@@ -92,6 +92,9 @@ class HeartbeatTopo(SeedingTopo if HAVE_PROXY else object):
         self.raises = raises
         self.evidence = None
 
+    def watchdog_passes(self):
+        return list(getattr(self, "passes", []))
+
     def start_heartbeat_watchdog(self, path=None, owner_uid=None):
         self.heartbeat_calls.append((path, owner_uid))
         self.started.append("heartbeat-watchdog")
@@ -288,6 +291,11 @@ class TheHeartbeatIsDisclosedOnSwitchStateTest(unittest.TestCase):
                          (26, 20, 4, 2, 0))
         self.assertIn("2026-09-26T052148Z_S_heartbeat", census["raw"])
         self.assertEqual(report["frame"]["ethertype"], "0x88B5")
+
+    def test_the_watchdogs_passes_are_served(self):
+        topo = self.start()
+        topo.passes = [{"start_mono": 10.0, "end_mono": 10.01, "down": 0, "up": 0}]
+        self.assertEqual(main.heartbeat_report()["watchdog_passes"], topo.passes)
 
     def test_a_frame_that_reached_a_host_is_named(self):
         self.start(a_reading(side_effects={"foreign_frames": 0, "forwarded_between_switches": 0,

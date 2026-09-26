@@ -450,6 +450,45 @@ class AnLldpFabricsPassIsThePassItWasTest(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_PROXY, "proxy dependencies not available in this interpreter")
+class TheWatchdogsPassesAreOnRecordTest(unittest.TestCase):
+    """
+    [Co-developed with claude code -- Adam] The orchestrator's 09-26 addendum: H1 at the worst
+    phase can only be verified if the watchdog's pass times are observable -- its phase relative
+    to the heartbeat's rounds drifts by the passes' own durations, which nothing measured. So every
+    pass is recorded (its start and end on the proxy's monotonic clock, and how many directions it
+    turned down and up), a bounded log served in switch_state's heartbeat block.
+    """
+
+    def test_every_pass_is_recorded_with_its_times_and_its_transitions(self):
+        f = Fabric(self)
+        f.run()
+        f.clock.now = f.last_heard[CUT[0]] + TIMEOUT + 0.1
+        for d in POD_DIRECTIONS:
+            if d not in CUT:
+                f.last_heard[d] = f.clock.now - 0.2
+        f.run()
+        passes = f.topo.watchdog_passes()
+        self.assertEqual(len(passes), 2)
+        self.assertEqual((passes[1]["start_mono"], passes[1]["down"], passes[1]["up"]),
+                         (f.clock.now, 2, 0))
+        self.assertEqual((passes[0]["down"], passes[0]["up"]), (0, 0))
+        self.assertLessEqual(passes[1]["start_mono"], passes[1]["end_mono"])
+
+    def test_the_log_is_bounded(self):
+        f = Fabric(self)
+        for _ in range(tm.WATCHDOG_PASS_LOG + 5):
+            f.tick(1.0)
+            f.run()
+        self.assertEqual(len(f.topo.watchdog_passes()), tm.WATCHDOG_PASS_LOG)
+
+    def test_a_frozen_pass_is_recorded_too(self):
+        f = Fabric(self)
+        f.status = "stopped"
+        f.run()
+        self.assertEqual(len(f.topo.watchdog_passes()), 1)
+
+
+@unittest.skipUnless(HAVE_PROXY, "proxy dependencies not available in this interpreter")
 class StartingTheHeartbeatWatchdogTest(unittest.TestCase):
 
     def test_it_watches_the_declared_links_and_runs_the_one_watchdog_thread(self):
