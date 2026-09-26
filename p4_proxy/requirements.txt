@@ -152,36 +152,43 @@ thrift==0.24.0
 # it. Do not follow the advice printed with that TypeError, to downgrade protobuf or to set
 # PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python.)
 #
-# Instead: rename the old venv aside -- a rename writes nothing inside it -- build the new one in
-# its place, verify it there, and on any failure rename the old one back. In its place, because
-# that is how everything that uses the venv finds it: components.env defaults P4_PROXY_PY to
-# p4_proxy/venv/bin/python (stack.sh starts the proxy with it; l1_unit_tests.sh tries it first),
-# ndt's p4_proxy_py() has the same default, and many scripts call p4_proxy/venv/bin/python by path
-# -- the tutorial exercise driver, live-p1/_common.sh, most tests/shell/mutate_*.sh, some of them
-# naming THIS checkout's venv from other checkouts. Pointing P4_PROXY_PY at another venv reaches
-# only stack.sh, ndt and l1: that is how the 2026-09-26 trial ran, and why the exercise driver's
-# own steps stayed on 3.20.3. It tries a venv; it does not switch to one.
+# Instead: move the old venv out of the way -- a rename, which writes nothing inside it -- build
+# the new one in its place, verify it there, and on any failure move the old one back. In its
+# place, because that is how everything that uses the venv finds it: components.env defaults
+# P4_PROXY_PY to p4_proxy/venv/bin/python (stack.sh starts the proxy with it; l1_unit_tests.sh
+# tries it first), ndt's p4_proxy_py() has the same default, and many scripts call
+# p4_proxy/venv/bin/python by path -- the tutorial exercise driver, live-p1/_common.sh, most
+# tests/shell/mutate_*.sh, some of them naming THIS checkout's venv from other checkouts. Pointing
+# P4_PROXY_PY at another venv reaches only stack.sh, ndt and l1: that is how the 2026-09-26 trial
+# ran, and why the exercise driver's own steps stayed on 3.20.3. It tries a venv; it does not
+# switch to one.
 #
-# When: nothing may use p4_proxy/venv while it is renamed. No fabric and nobody measuring
+# Out of the way means outside the checkout ($HOME below), on the same filesystem so the move is a
+# rename. Parked inside p4_proxy/ it would not be covered by .gitignore (only p4_proxy/venv/ is),
+# and the tests that walk that tree skipping only directories named exactly `venv` would read it:
+# tests/python/test_known_issues_references.py reads every text file under p4_proxy/.
+#
+# When: nothing may use p4_proxy/venv while it is moved. No fabric and nobody measuring
 # (`ndt status`); no proxy (`ps -eo pid,args | grep -F p4_proxy/venv/` lists only that grep); no
-# gate or test run, here or in another checkout. While the old venv is renamed, run nothing from
+# gate or test run, here or in another checkout. While the old venv is parked, run nothing from
 # it: its bin/pip and other scripts name p4_proxy/venv/bin/python, which is by then the new one.
 #
 # From the repository root, in one bash shell. The lines that start with `$` are the commands.
+# Each command from step 1's third on first checks that the step before it did its part, so a
+# paste that runs on past a failure changes nothing it should not.
 #
-# 1. Record the old venv, then rename it aside. .gitignore ignores p4_proxy/venv.* so neither
-#    the renamed venv nor these two files can be committed by accident.
-#   $ V=p4_proxy/venv; OLD=$V.protobuf3-$(date +%Y%m%d)
+# 1. Record the old venv, then move it aside. Note the OLD this prints: a rollback from another
+#    shell needs it.
+#   $ V=p4_proxy/venv; PARK=$HOME; OLD=$PARK/p4_proxy-venv.protobuf3-$(date +%Y%m%d-%H%M%S); echo "OLD=$OLD"
 #   $ fp() { (cd "$1" && { find . -mindepth 1 -printf '%y %p %l\n'; find . -type f -exec sha256sum {} +; } | LC_ALL=C sort | sha256sum | cut -c1-64); }
-#   $ PYTHONDONTWRITEBYTECODE=1 "$V/bin/python" -m pip freeze --all > "$OLD.freeze"
-#   $ fp "$V" > "$OLD.fingerprint"
-#   $ mv "$V" "$OLD"
+#   $ test -d "$V" && test ! -e "$OLD" && test "$(stat -c %d "$PARK")" = "$(stat -c %d "$V")" && PYTHONDONTWRITEBYTECODE=1 "$V/bin/python" -m pip freeze --all > "$OLD.freeze" && fp "$V" > "$OLD.fingerprint" && mv -T "$V" "$OLD" && echo "parked: $OLD"
 #
 # 2. Build the new venv where the old one was -- the three commands at the top of this file, with
-#    the python3 the old venv was made from (its pyvenv.cfg says which).
-#   $ "$(sed -n 's/^home = //p' "$OLD/pyvenv.cfg")/python3" -m venv "$V"
-#   $ "$V/bin/pip" install -r p4_proxy/requirements.txt
-#   $ "$V/bin/python" p4_proxy/regen_p4runtime_pb2.py
+#    the python3 the old venv was made from (its pyvenv.cfg says which). Until the old venv is
+#    parked, $V is still the old venv, so each command checks that first.
+#   $ test -d "$OLD" && test ! -e "$V" && "$(sed -n 's/^home = //p' "$OLD/pyvenv.cfg")/python3" -m venv "$V"
+#   $ test -d "$OLD" && "$V/bin/pip" install -r p4_proxy/requirements.txt
+#   $ test -d "$OLD" && "$V/bin/python" p4_proxy/regen_p4runtime_pb2.py
 #
 # 3. Verify it where it is. Any command failing, or printing other than its note, means: roll
 #    back. The two suites need p4_proxy/p4_src/build (tools/test_workflow/l0_build_check.sh p4).
@@ -194,15 +201,15 @@ thrift==0.24.0
 #    On 2026-09-26 the two suites were 1557 tests with one skip -- LiveSwitchTest, which needs a
 #    live switch -- and 187 tests. The counts grow as tests are added; the verdicts must not change.
 #
-# 4. Keep "$OLD" and its two files until the new venv has passed a live run (live-p1's
-#    01_baseline.sh and 06_thirteen.sh); after that, removing them is the only step that cannot
-#    be undone. On the development machine, also delete the two sentences near the top of this
-#    file that say its venv is still the older set.
+# 4. Keep "$OLD", "$OLD.freeze" and "$OLD.fingerprint" until the new venv has passed a live run
+#    (live-p1's 01_baseline.sh and 06_thirteen.sh); deleting them after that is the one step here
+#    that cannot be undone. On the development machine, also delete the two sentences near the
+#    top of this file that say its venv is still the older set.
 #
 # ROLLBACK, at any point after step 1: the old venv comes back exactly as it was, since it was
-# only renamed. In a new shell, first set V, OLD (with the date it was renamed) and fp() as in 1.
-#   $ mv "$V" "$V.failed-$(date +%Y%m%d%H%M%S)"
-#   $ mv "$OLD" "$V"
+# only renamed. In a new shell, first set V, PARK and OLD (the name step 1 printed) and fp() as in
+# 1. The failed new venv is parked beside it, not deleted.
+#   $ test -d "$OLD" && { test ! -e "$V" || mv -T "$V" "$PARK/p4_proxy-venv.failed-$(date +%Y%m%d-%H%M%S)"; } && mv -T "$OLD" "$V"
 #   $ test "$(fp "$V")" = "$(cat "$OLD.fingerprint")" && echo "old venv restored unchanged"
 #
 # ROLLBACK IN PLACE, when there is no old venv left to rename back. Moving protobuf back alone is

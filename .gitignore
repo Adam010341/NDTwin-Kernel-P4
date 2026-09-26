@@ -97,9 +97,3 @@ doc/audit/2026-08-25_sampling-rounds/ladder_ext.out
 doc/audit/2026-08-25_sampling-rounds/gil_g.log
 doc/audit/2026-08-25_sampling-rounds/h_probe.log
 doc/audit/2026-08-25_sampling-rounds/*.log
-
-# [Co-developed with claude code -- Adam]
-# Where p4_proxy/requirements.txt ("UPGRADING AN EXISTING VENV") parks the old proxy venv, and its
-# .freeze/.fingerprint records, while a new one is built and verified in its place. A rename, so
-# the old one can be renamed back; ignored so that neither can be committed by accident.
-p4_proxy/venv.*
