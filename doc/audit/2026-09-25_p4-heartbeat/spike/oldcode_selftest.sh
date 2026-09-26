@@ -8,6 +8,12 @@
 # only in a session scratchpad; the logs kept its effect, not its method. This is that tool, in the
 # repo, extended to the round-5 fixes and to the round-6 checks (findings 1, 2 and 5 of the round-5
 # verdict; R5-2 is a MUTANT, not a past form -- the code it guards never had an older shape).
+# Round 7 adds R6-1 / R6-2 (the round-6 verdict's two fidelity notes: the self-test's own fakes put
+# back to their round-6 form) and L1 / L2 -- the teardown of the FIRST LIVE RUN (09-26 10:30): no
+# re-claim without measuring= before `ndt down`, and a release whatever `ndt down` answered -- with
+# rows that put back one piece of the round-7 fix each (the ones marked MUTANT guard new code).
+# Round 7b adds R7-1 / R7-2 (the round-7 verdict's findings: the CLAIM_MINUTES default below the
+# sources, and the census building an arm after a refused down) and mutants for notes 3 and 4.
 #
 # For each REVERT below: a copy of S_heartbeat_spike.sh and a copy of hb_watch.py are written
 # BESIDE the real ones (same directory, so SPIKE_DIR / LIVE_P1 / REPO resolve exactly as for the
@@ -77,6 +83,11 @@ REVERTS = {
         ("a detection part that fails its first check ended the run under set -e: rc 1", ""),
         # added in round 5: the census arm's clean window is the same bare watch_hit, at its call site
         ("a census arm with the new daemon's report: died", ""),
+        # added in round 7: a `loss 100%` residue (firstlossy) ends detect at that same first check
+        ("a residue shaped loss 100%: rc 1", "6/8 directions heard"),
+        # added in round 7b: the round-7 verdict's scenarios go red under this old form too
+        ("a census of two arms whose downs go through: rc 1", "the census died"),
+        ("census, an arm's 'ndt down' refused (measured arm): rc 1", "the census died"),
     ]),
     "R4-1": ("the whole R4-1 fix: census's old session block, wait_session's old call, hb_watch's old `session`", [
         ("watch", '        print(session_of(load(argv[2]), int(argv[3])))\n',
@@ -194,6 +205,272 @@ REVERTS = {
         ("spike", r"printf '%s\t%s\tyes\tstart named no pid\t-\n'", r"printf '%s\t%s\tyes\tno session in 5 s\t-\n'", 1),
     ], [
         ("an arm whose start answered 'already running'", "row: basic|solution|yes|no session in 5 s|-"),
+    ]),
+    # Round 6's verdict, findings 1 and 2 (notes): the self-test's own fakes put back to their round-6
+    # form -- rows about the TEST's fidelity, as R4-5 is.
+    "R6-1": ("round-6 note 1: the fake qdisc_tool's `diff` answers 'identical' whatever the fake tc holds", [
+        ("spike", '''    diff) if [[ "$(tree)" == "$(cat "$2")" ]]; then echo "qdisc state unchanged"
+          else diff "$2" <(tree); echo "QDISC STATE CHANGED since the snapshot" >&2; exit 1; fi ;;
+''', '''    diff) echo "qdisc state unchanged" ;;
+''', 1),
+    ], [
+        # the fourth failure a live run lists (the netem left on s1-eth3 is in the qdisc diff) is missing
+        ("a half-done cut whose restore is refused too: rc 0", "not every cycle was detected], calls"),
+    ]),
+    "R6-2": ("round-6 note 2: firstunsafe's residue back to `loss 100%`", [
+        ("spike", '''    st_detect firstunsafe healthy "netem.$CUT_A=delay 1ms"''',
+                  '''    st_detect firstunsafe healthy "netem.$CUT_A=loss 100%"''', 1),
+    ], [
+        # it never reaches cut_link: the heartbeat is not heard across it, so the first check ends detect
+        ("a first end that already carries a netem: rc 0", "6/8 directions heard"),
+    ]),
+    "R6-2/watch": ("half of round-6 note 2: the fake hb_watch never reads the fake tc (a lossy netem is heard)", [
+        ("spike", '''lossy = bool(state) and any("loss 100%" in open(p).read() for p in glob.glob(os.path.join(state, "netem.*")))''',
+                  '''lossy = False''', 1),
+    ], [
+        ("a residue shaped loss 100%: rc 0", "no safe netem attach point on s1-eth3"),
+    ]),
+    # L = the first LIVE run of segment S (09-26 10:30, runs/2026-09-26T023021Z_S_heartbeat/): L1 its
+    # claim kept declaring measuring=, so both `ndt down`s were refused rc 5; L2 finish() released
+    # the lab anyway. L1 and L2 are that run's code (past forms); the rows with a `/` put back one
+    # piece of the round-7 fix (L2/verdict, L2/hygiene, L2/knob and L2/return are MUTANTS: the code
+    # they guard is new in round 7). The checks are scenarios (a)-(e) of the self-test's teardown block.
+    "L1": ("the first live run's teardown: no re-claim without measuring= before either `ndt down`", [
+        ("spike", '''    retract_measuring "$RUN/90_down.reclaim.txt"
+''', '', 1),
+        ("spike", '''    retract_measuring "${1%.txt}.reclaim.txt" || true
+''', '', 1),
+    ], [
+        ("a run that declared measuring= (the 09-26 live run's shape)",
+         "down [NDT_MEASURING in env];down [NDT_MEASURING in env];claim;status"),
+        ("a declared run whose detection part stopped at its first check",
+         "up [NDT_MEASURING in env];down [NDT_MEASURING in env];claim;status"),
+        ("a knob found at 128 that 'ndt up' moved to 4", "NOT RELEASED -- THE LAB STAYS CLAIMED"),
+        ("a knob that could not be put back after a re-claim", "NOT RELEASED -- THE LAB STAYS CLAIMED"),
+        # added in round 7b: the round-7 verdict's scenarios go red under this old form too
+        ("a teardown whose 'ndt down' did not verify clean (rc 1)", "the teardown's 'ndt down' exited 5"),
+        ("a claim that lapsed mid-run", "up [NDT_MEASURING in env];down [NDT_MEASURING in env];down [NDT_MEASURING in env];release"),
+    ]),
+    "L1/detect": ("half of L1: no re-claim before nd_down (detect's and census's downs)", [
+        ("spike", '''    retract_measuring "${1%.txt}.reclaim.txt" || true
+''', '', 1),
+    ], [
+        ("a run that declared measuring= (the 09-26 live run's shape)", "'ndt down' after the detection part exited 5"),
+        ("a knob found at 128 that 'ndt up' moved to 4", "'ndt down' after the detection part exited 5"),
+        ("a knob that could not be put back after a re-claim", "'ndt down' after the detection part exited 5"),
+        # added in round 7b: the round-7 verdict's scenarios go red under this old form too
+        ("a claim that lapsed mid-run", "up [NDT_MEASURING in env];down [NDT_MEASURING in env];claim;down"),
+    ]),
+    "L1/teardown": ("the other half of L1: no re-claim in spike_finish, before finish's down", [
+        ("spike", '''    retract_measuring "$RUN/90_down.reclaim.txt"
+''', '', 1),
+    ], [
+        ("a declared run whose detection part stopped at its first check", "NOT RELEASED -- THE LAB STAYS CLAIMED"),
+    ]),
+    "L2": ("the first live run's spike_ndt: `release` is the real ndt's, whatever the down answered", [
+        ("spike", '''spike_ndt() {
+    local rc
+    if [[ "${1:-}" == release ]]; then
+        # `return $?`, NEVER a bare `return`: this runs inside the EXIT trap, and there a bare
+        # `return` answers the status of the last command BEFORE the trap (bash's `return`
+        # builtin) -- scenario (d) of the self-test caught a refused release answering 0 that way.
+        spike_release
+        return $?
+    fi
+    "$REAL_NDT" "$@" && rc=0 || rc=$?
+    if [[ "${1:-}" == down ]]; then
+        TEARDOWN_DOWN_RC="$rc"
+        if (( rc != 0 && rc != 3 )); then
+            # The last line is what gets read; a lab left claimed with a fabric maybe up is the one
+            # thing on it somebody has to act on, so it goes first whatever failed before it.
+            VERDICT_RC=1
+            VERDICT_WHY="NOT RELEASED -- THE LAB STAYS CLAIMED: the teardown's 'ndt down' exited $rc, so a fabric may still be up; see $(basename "$RUN")/90_down.txt and finish by hand with the commands printed above${VERDICT_WHY:+ (first failure before it: $VERDICT_WHY)}"
+        fi
+        if (( rc == 3 && FABRIC_UP == 0 )); then
+            echo "spike: 'ndt down' answered 3 (nothing was up) -- expected: this run had already taken its own fabric down"
+            return 0
+        fi
+    fi
+    return "$rc"
+}
+''', '''spike_ndt() {
+    local rc
+    "$REAL_NDT" "$@" && rc=0 || rc=$?
+    if [[ "${1:-}" == down ]] && (( rc == 3 && FABRIC_UP == 0 )); then
+        echo "spike: 'ndt down' answered 3 (nothing was up) -- expected: this run had already taken its own fabric down"
+        return 0
+    fi
+    return "$rc"
+}
+''', 1),
+    ], [
+        # every scenario: none of them ends as designed without spike_release
+        ("a run that declared measuring= (the 09-26 live run's shape)", "claim;down;down;release, lab.claim: none (released)"),
+        ("a declared run whose detection part stopped at its first check", "claim;down;release, lab.claim: none (released)"),
+        ("a teardown whose 'ndt down' is refused anyway", "lab.claim: none (released)"),
+        ("a knob found at 128 that 'ndt up' moved to 4", "'ndt release' did not take"),
+        ("a knob that could not be put back after a re-claim", "last line 'PASS S_heartbeat'"),
+        # added in round 7b: the round-7 verdict's scenarios go red under this old form too
+        ("a teardown whose 'ndt down' did not verify clean (rc 1)", "lab.claim: none (released)"),
+        ("a lab another owner claimed mid-run", "it never said whose claim the fabric is under"),
+        ("a claim that lapsed mid-run", "claim;down;down;release, lab.claim: none (released)"),
+    ]),
+    "L2/keep": ("the heart of L2 alone: spike_release releases whatever the teardown's down answered", [
+        ("spike", '''    if [[ "$TEARDOWN_DOWN_RC" != 0 && "$TEARDOWN_DOWN_RC" != 3 ]]; then
+        keep_claim
+        # rc 0 when the verdict already leads with this (spike_ndt's down wrote it): finish's own
+        # line for a failed release says "run it by hand", and `ndt release` is the one command that
+        # must NOT be run first. With no down on record, 1 -- that line is then the only FAIL there is.
+        [[ -n "$TEARDOWN_DOWN_RC" ]] && return 0 || return 1
+    fi
+''', '', 1),
+    ], [
+        ("a teardown whose 'ndt down' is refused anyway", "lab.claim: none (released)"),
+        # added in round 7b: the round-7 verdict's scenarios go red under this old form too
+        ("a teardown whose 'ndt down' did not verify clean (rc 1)", "lab.claim: none (released)"),
+        ("a lab another owner claimed mid-run", "release [NDT_MEASURING in env]"),
+    ]),
+    "L2/verdict": ("a MUTANT: the verdict does not lead with the kept claim", [
+        ("spike", '''        if (( rc != 0 && rc != 3 )); then
+            # The last line is what gets read; a lab left claimed with a fabric maybe up is the one
+            # thing on it somebody has to act on, so it goes first whatever failed before it.
+            VERDICT_RC=1
+            VERDICT_WHY="NOT RELEASED -- THE LAB STAYS CLAIMED: the teardown's 'ndt down' exited $rc, so a fabric may still be up; see $(basename "$RUN")/90_down.txt and finish by hand with the commands printed above${VERDICT_WHY:+ (first failure before it: $VERDICT_WHY)}"
+        fi
+''', '', 1),
+    ], [
+        ("a teardown whose 'ndt down' is refused anyway", "last line 'FAIL S_heartbeat -- 'ndt down' after the detection part exited 5'"),
+        # added in round 7b: the round-7 verdict's scenarios go red under this old form too
+        ("a teardown whose 'ndt down' did not verify clean (rc 1)", "last line 'FAIL S_heartbeat -- 'ndt down' after the detection part exited 1'"),
+        ("a lab another owner claimed mid-run", "last line 'FAIL S_heartbeat -- could not take back"),
+    ]),
+    "L2/hygiene": ("a MUTANT: no re-claim on the restored knob before the release", [
+        ("spike", '''        echo "re-claiming on the knob as it is now, so the round baseline 'ndt release' compares with is what is there"
+        reclaim "$(claim_minutes 15)" "$(lab_claim_field note)" "$RUN/95_release.reclaim.txt" \\
+            || echo "!! that re-claim did not take -- 'ndt release' may refuse; its answer is the verdict"
+''', '', 1),
+    ], [
+        ("a run that declared measuring= (the 09-26 live run's shape)", "claim;down;down;release, lab.claim: none (released)"),
+        ("a declared run whose detection part stopped at its first check", "claim;down;release, lab.claim: none (released)"),
+        # the release the re-claim exists for: 128 put back, the baseline still 4
+        ("a knob found at 128 that 'ndt up' moved to 4", "'ndt release' did not take"),
+        # added in round 7b: the round-7 verdict's scenarios go red under this old form too
+        ("a claim that lapsed mid-run", "claim;down;down;release, lab.claim: none (released)"),
+    ]),
+    "L2/knob": ("a MUTANT: a re-claim and a release over a knob that is not back", [
+        ("spike", '''        if ! knob_back; then
+            echo "!! NOT RELEASING: host_count_override is not back to the bytes this run found (said above)."
+            echo "!!   this run re-claimed after 'ndt up' moved it, so the round's recorded start is the moved"
+            echo "!!   value, and 'ndt release' would accept it. Put it back -- the bytes are in"
+            echo "!!   $(basename "$RUN")/00_host_count_override.entry -- then, to record that and release:"
+            printf '!!     NDT_OWNER=%q %q claim 15 && NDT_OWNER=%q %q release\\n' "$NDT_OWNER" "$REAL_NDT" "$NDT_OWNER" "$REAL_NDT"
+            return 1
+        fi
+''', '', 1),
+    ], [
+        ("a knob that could not be put back after a re-claim", "last line 'PASS S_heartbeat'"),
+    ]),
+    "L2/return": ("a MUTANT, the one scenario (d) found: a bare `return` after spike_release, inside the EXIT trap", [
+        ("spike", '''        spike_release
+        return $?
+''', '''        spike_release
+        return
+''', 1),
+    ], [
+        ("a knob that could not be put back after a re-claim", "last line 'PASS S_heartbeat'"),
+    ]),
+    # Round 7's verdict (fable, on a77b8fe2): R7-1 and R7-2 are past forms -- the a77b8fe2 code; the
+    # rows with a `/` and R7-3 / R7-4/* are MUTANTS of code that had no older wrong shape (notes 3-4
+    # added scenarios, not code).
+    "R7-1": ("round-7 finding 1: the spike's CLAIM_MINUTES default below the sources, where _common.sh's 45 wins", [
+        ("spike", '''# 🔴 AND THE CLAIM'S MINUTES, FOR THE SAME REASON (round-7 verdict, finding 1). _common.sh runs
+# `: "${CLAIM_MINUTES:=45}"` when it is sourced; written below the `source`, this default never took
+# effect -- the 09-26 live run claimed "for 45m", which PART=all (detection + 26 census arms, over
+# an hour) outlives. A CLAIM_MINUTES from the caller still wins. The self-test runs everything above
+# self_test() and reads back every such default.
+: "${CLAIM_MINUTES:=180}"
+''', '', 1),
+        ("spike", '''EXERCISES="${ONLY:-$ALL_EXERCISES}"; EXERCISES="${EXERCISES//,/ }"
+''', '''EXERCISES="${ONLY:-$ALL_EXERCISES}"; EXERCISES="${EXERCISES//,/ }"
+: "${CLAIM_MINUTES:=180}"
+''', 1),
+    ], [
+        ("a default the spike sets is NOT what its run gets (source order)",
+         "CLAIM_MINUTES: the spike sets '180', a PART=all run gets '45'"),
+    ]),
+    "R7-2": ("round-7 finding 2: the a77b8fe2 census -- after a refused arm down, the next arm is built", [
+        ("spike", '''            note "no switch-to-switch link: no heartbeat frame enters this fabric"
+            census_down "$dir/90_down.txt" "$ex" "$which" || { census_skip_rest "$ex" "$which"; return 0; }
+            (( ARM_DOWN_RC == 0 )) || fail "census $ex/$which: 'ndt down' exited $ARM_DOWN_RC"
+''', '''            note "no switch-to-switch link: no heartbeat frame enters this fabric"
+            nd_down "$dir/90_down.txt" || fail "census $ex/$which: 'ndt down' failed"
+''', 1),
+        ("spike", '''            census_down "$dir/90_down.txt" "$ex" "$which" || { census_skip_rest "$ex" "$which"; return 0; }
+''', '''            nd_down "$dir/90_down.txt" || true
+''', 3),
+        ("spike", '''        census_down "$dir/90_down.txt" "$ex" "$which" && rc=0 || rc=1
+''', '''        nd_down "$dir/90_down.txt" && rc=0 || rc=$?
+        (( rc == 0 )) || fail "census $ex/$which: 'ndt down' exited $rc"
+''', 1),
+        ("spike", '''        # This arm's reading stands -- it was taken on its own fabric, and judged above -- and
+        # nothing is built after a refused down.
+        (( rc == 0 )) || { census_skip_rest "$ex" "$which"; return 0; }
+        (( ARM_DOWN_RC == 0 )) || fail "census $ex/$which: 'ndt down' exited $ARM_DOWN_RC"
+''', '', 1),
+    ], [
+        ("census, an arm's 'ndt down' refused (measured arm)", "ndt calls: up;down;up;down"),
+        ("census, an arm's 'ndt down' refused (no link (rc 3))", "ndt calls: up;down;up;down"),
+        ("census, an arm's 'ndt down' refused ('ndt up' failed)", "ndt calls: up;down;up;down"),
+        ("census, an arm's 'ndt down' refused (heartbeat start failed)", "ndt calls: up;down;up;down"),
+        ("census, an arm's 'ndt down' refused (start named no pid)", "ndt calls: up;down;up;down"),
+    ]),
+    "R7-2/stop": ("a MUTANT: census_down records a refused down and lets the census go on", [
+        ("spike", '''    fail "census $2/$3: 'ndt down' exited $ARM_DOWN_RC -- the census STOPS here: that fabric may still be up, and the next arm's 'ndt up p4 --app' would reuse it ('already up ... reusing') and measure this arm's pipeline under its own name"
+    return 1
+''', '''    fail "census $2/$3: 'ndt down' exited $ARM_DOWN_RC -- the census STOPS here: that fabric may still be up, and the next arm's 'ndt up p4 --app' would reuse it ('already up ... reusing') and measure this arm's pipeline under its own name"
+    return 0
+''', 1),
+    ], [
+        ("census, an arm's 'ndt down' refused (measured arm)", "ndt calls: up;down;up;down"),
+        ("census, an arm's 'ndt down' refused (no link (rc 3))", "ndt calls: up;down;up;down"),
+        ("census, an arm's 'ndt down' refused ('ndt up' failed)", "ndt calls: up;down;up;down"),
+        ("census, an arm's 'ndt down' refused (heartbeat start failed)", "ndt calls: up;down;up;down"),
+        ("census, an arm's 'ndt down' refused (start named no pid)", "ndt calls: up;down;up;down"),
+    ]),
+    "R7-2/always": ("a MUTANT: census_down stops the census after every down, refused or not", [
+        ("spike", '''    (( ARM_DOWN_RC == 0 || ARM_DOWN_RC == 3 )) && return 0
+''', '', 1),
+    ], [
+        # the control: two arms whose downs go through must both be built
+        ("a census of two arms whose downs go through", "ndt calls: up;down,"),
+        # and the stubbed census arm, whose down answers 0
+        ("a census arm with the new daemon's report", "the census STOPS here"),
+    ]),
+    "R7-3": ("a MUTANT (note 3): a teardown down that did not verify clean (rc 1) counts as down, and is released", [
+        ("spike", '''    if [[ "$TEARDOWN_DOWN_RC" != 0 && "$TEARDOWN_DOWN_RC" != 3 ]]; then
+        keep_claim
+''', '''    if [[ "$TEARDOWN_DOWN_RC" != 0 && "$TEARDOWN_DOWN_RC" != 3 && "$TEARDOWN_DOWN_RC" != 1 ]]; then
+        keep_claim
+''', 1),
+    ], [
+        ("a teardown whose 'ndt down' did not verify clean (rc 1)", "lab.claim: none (released)"),
+    ]),
+    "R7-4/theirs": ("a MUTANT (note 4): keep_claim says nothing when the claim it cannot rewrite is another owner's", [
+        ("spike", '''    else
+        echo "!! -- and could NOT rewrite it ($(basename "$kept")). It reads owner=$(lab_claim_field owner): if that is not"
+        echo "!!    $NDT_OWNER, the fabric is under THEIR claim now -- tell them, do not tear it down from here."
+    fi
+''', '''    fi
+''', 1),
+    ], [
+        ("a lab another owner claimed mid-run", "it never said whose claim the fabric is under"),
+    ]),
+    "R7-4/floor": ("a MUTANT (note 4): a re-claim of a lapsed claim keeps 'what is left' -- nothing", [
+        ("spike", '''    if (( left > $1 )); then echo "$left"; else echo "$1"; fi
+''', '''    echo "$left"
+''', 1),
+    ], [
+        ("a claim that lapsed mid-run", "lab claimed by hb-selftest for 0m"),
     ]),
 }
 RED = "\U0001f534"
