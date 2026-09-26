@@ -248,3 +248,27 @@ unbound 的 L6。L4 **不斷言改路**（第一刀 (c) 不成立，`capabilitie
 `54_pingall_during_cut.txt`。外來 fabric 上邊的 `is_up` 來自**宣告**的鏈路，不是斷線偵測。
 
 [Co-developed with claude code -- Adam]
+
+---
+
+## 階段四第二刀新增的一支（TICKET-P4-heartbeat §2 live，段 W）
+
+| 步 | 貼這一行 | 最後一行應該是 |
+|---|---|---|
+| ⑧ H1–H4 | `NDT_OWNER=adam bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh` | `PASS 08_heartbeat` |
+| ⑧ H5 | `NDT_OWNER=adam PART=h5 bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh` | `PASS 08_heartbeat` |
+
+**寫的人沒跑過它**（沒有 lab）。離線自測：`bash .../08_heartbeat.sh --self-test`——每個判定各餵一份該綠、
+一份該紅的合成 capture，teardown 用假 ndt 走一遍（down 回 5／1 時**不 release、保留 claim**），前導段單獨跑、
+讀回預設值。只證明判定分得出兩種答案，**不證明任何 fabric 的事**。
+
+- **必須明給 `NDT_OWNER`**（沒給就 rc 2、什麼都沒做）；**從不宣告 `measuring=`**，所以自己的 `ndt down` 不會被
+  T2d 擋；最後一次 `ndt down` 不是 0／3 就**不 release**（段 S 第 7 輪的教訓）。
+- H1 的剪線**控制相位**：前 `H1_WORST`（預設 3）次在心跳一輪送出後 `PHI_WORST`（0.05 s）剪（最壞相位），其餘隨機
+  （種子記在 log，`H1_SEED=` 重現）；每次記下實際相位與 watchdog 相位（`30_cycles.tsv`）。**設計的最壞情況是
+  timeout 15 s ＋ 一個 watchdog 間隔 5 s ＋ 讀檔／HTTP／kernel，貼著 20 s**——最壞相位那幾次可能超過，照實判。
+- H5 不自己 claim（06、01 每步自己 claim），跑 06 一次時旁邊有一個讀心跳報告的 sampler，逐臂對
+  `2026-09-24T185505Z_06_thirteen`，並確認心跳只在 17 個外來、非 external、多交換機的臂上跑過；接著跑 01。
+- 任何 `forwarded_to_hosts > 0`（心跳幀離開 host 埠）＝裁決 4，最後一行以 `STOP` 開頭。
+
+[Co-developed with claude code -- Adam]
