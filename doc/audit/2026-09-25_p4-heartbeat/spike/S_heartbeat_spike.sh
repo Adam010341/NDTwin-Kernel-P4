@@ -11,10 +11,15 @@
 # byte-identical to this checkout's tools/test_workflow/ndtwin-lab. `--self-test` runs the judge
 # (hb_watch.py), the host sniffer (hb_sniff.py), and this script's own teardown, tc pre-check,
 # sniffer watch, detection cycle (against a fake tc), one census arm and census table against
-# stubs -- one input that must pass and one that must fail per verdict -- and touches nothing
-# else. spike/oldcode_selftest.sh puts the set -e fixes of round 4 and each fix of round 5 back to
-# their old form in a copy (and the round-6 checks' code to a wrong form) and shows that exactly the
-# checks written for them go red; its --self-check shows its own verdict going red on wrong input.
+# stubs -- one input that must pass and one that must fail per verdict -- and the whole detection
+# part with its claim and teardown against a fake `ndt` that has ndt's claim/down/release
+# semantics; it touches nothing else. spike/oldcode_selftest.sh puts the set -e fixes of round 4,
+# each fix of round 5 and the teardown of the first live run back to their old form in a copy (and
+# the round-6/7 checks' code to a wrong form) and shows that exactly the checks written for them
+# go red; its --self-check shows its own verdict going red on wrong input.
+# The FIRST LIVE RUN (PART=detect, 09-26 10:30, run by the orchestrator at trunk 4bc1201b) detected
+# 10/10 cuts and restores and ended FAIL on its teardown -- the round-7 fix below; that fix has
+# not run against a lab.
 #
 # PART=detect  (≈ 15 min)  pod-topo `--app basic` (the exercise's own solution pipeline, converted
 #   the way 06 converts it). The heartbeat runs; an OUT-OF-BAND `tc netem loss 100%` goes on BOTH
@@ -1234,10 +1239,13 @@ DRIVER
     # the fabric is still up, so the lab is NOT released. The claim is kept (the last two calls are
     # keep_claim's re-claim and status), its note says why, the commands to finish are printed, and
     # the verdict names it. Nothing here depends on the retraction: this is the fail-closed half.
+    # (`status` may carry the marker: whether the declaration was taken back is (a)'s business, and
+    # keep_claim's own re-claim must not carry it -- so the `claim` before it never does.)
     st_claim refused healthy refuse-down
-    local kept_exp; kept_exp="$(st_cf refused expires)"
+    local kept_exp keep_re=';claim;status( \[NDT_MEASURING in env\])?$'
+    kept_exp="$(st_cf refused expires)"
     [[ "$wrc" == 1 && "$(tail -1 "$st_tmp/claim_refused/out")" == "FAIL S_heartbeat -- NOT RELEASED -- THE LAB STAYS CLAIMED: the teardown's 'ndt down' exited 5"* \
-       && "$(st_calls refused)" != *release* && "$(st_calls refused)" == *";claim;status" \
+       && "$(st_calls refused)" != *release* && "$(st_calls refused)" =~ $keep_re \
        && "$(st_cf refused owner)" == hb-selftest && -z "$(st_cf refused measuring)" \
        && "$(st_cf refused note)" == "FABRIC STILL UP"* \
        && "$kept_exp" =~ ^[0-9]+$ ]] && (( kept_exp - $(date +%s) >= 59 * 60 )) \
