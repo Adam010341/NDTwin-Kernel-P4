@@ -256,9 +256,28 @@ echo "  new tests to be seen red: $(wc -l < "$NEW_IDS")"
 # 🔴 NEW_CLASSES IS TYPED; THIS IS WHAT KEEPS IT HONEST (round 2, the judge's finding 9). Every
 # TestCase class in the modules this gate runs that is not in the base's version of its file must
 # be in NEW_CLASSES -- read by `git show <base>:<file>`, not remembered.
-missing=$("$PY" - "$REPO" "$TICKET_BASE" "$NEW_CLASSES" <<'PY'
+#
+# [Co-developed with claude code -- Adam] 🔴 READ AT THIS TICKET'S OWN HEAD, NOT THE WORKING TREE
+# (TICKET-P4-heartbeat segment W, the fable judge's F3 on 1a3ebd7f; the orchestrator authorized
+# this change to this file, and only this one). Read from the working tree, "every class added
+# since 6291db35" is also every class any LATER ticket adds: at segment W's head this check listed
+# the 18 classes W added and counted them as its survivor, so on trunk this gate would be rc 1 for
+# good. CLASSES_AT is TICKET-P4-roles' last commit, 177b9f03 (round 3, the branch head merged as
+# 572d9462); a later round of THIS ticket that adds a class moves it, or runs with
+# CLASSES_AT=worktree while uncommitted. It must be an ancestor of HEAD -- a history that lost it
+# (a squash-merge) is refused, not scanned as "no classes, none missing" -- and the scan carries
+# its own control: with one module left off the list it must name that module's classes.
+CLASSES_AT="${CLASSES_AT:-177b9f03}"
+if [[ "$CLASSES_AT" != worktree ]] && ! git -C "$REPO" merge-base --is-ancestor "$CLASSES_AT" HEAD 2>/dev/null; then
+    echo "REFUSE: CLASSES_AT $CLASSES_AT is not an ancestor of HEAD -- which classes this ticket added cannot be read"
+    exit 2
+fi
+# scan_classes <NEW_CLASSES> -- every module:class added between TICKET_BASE and CLASSES_AT that
+# the given list does not cover, one per line.
+scan_classes() {
+    "$PY" - "$REPO" "$TICKET_BASE" "$CLASSES_AT" "$1" <<'PY'
 import ast, glob, os, subprocess, sys
-repo, base, listed = sys.argv[1], sys.argv[2], sys.argv[3].split()
+repo, base, at, listed = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4].split()
 wild = {s.split(":")[0] for s in listed if s.endswith(":*")}
 named = {tuple(s.split(":")) for s in listed if not s.endswith(":*")}
 def classes(src):
@@ -266,27 +285,47 @@ def classes(src):
     return {n.name for n in ast.parse(src).body if isinstance(n, ast.ClassDef)
             and any(isinstance(f, ast.FunctionDef) and f.name.startswith("test")
                     for f in n.body)}
-files = ([("tests." + os.path.basename(p)[:-3], os.path.relpath(p, repo))
-          for p in sorted(glob.glob(f"{repo}/p4_proxy/tests/test_*.py"))]
-         + [(os.path.basename(p)[:-3], os.path.relpath(p, repo))
-            for p in sorted(glob.glob(f"{repo}/tools/p4_exercise/tests/test_*.py"))])
+def show(rev, rel):
+    r = subprocess.run(["git", "-C", repo, "show", f"{rev}:{rel}"], capture_output=True, text=True)
+    return r.stdout if r.returncode == 0 else None
+files = []
+for d, prefix in (("p4_proxy/tests", "tests."), ("tools/p4_exercise/tests", "")):
+    if at == "worktree":
+        rels = sorted(os.path.relpath(p, repo) for p in glob.glob(f"{repo}/{d}/test_*.py"))
+    else:
+        names = subprocess.run(["git", "-C", repo, "ls-tree", "--name-only", at, d + "/"],
+                               capture_output=True, text=True, check=True).stdout.split()
+        rels = sorted(r for r in names if os.path.basename(r).startswith("test_") and r.endswith(".py"))
+    files += [(prefix + os.path.basename(rel)[:-3], rel) for rel in rels]
+if not files:
+    sys.exit("no test modules at " + at)
 for module, rel in files:
-    now = classes(open(f"{repo}/{rel}").read())
-    shown = subprocess.run(["git", "-C", repo, "show", f"{base}:{rel}"], capture_output=True,
-                           text=True)
-    then = classes(shown.stdout) if shown.returncode == 0 else set()
+    now = classes(open(f"{repo}/{rel}").read() if at == "worktree" else show(at, rel))
+    then_src = show(base, rel)
+    then = classes(then_src) if then_src is not None else set()
     for cls in sorted(now - then):
         if module not in wild and (module, cls) not in named:
             print(f"{module}:{cls}")
 PY
-) || { echo "REFUSE: could not compare the test classes with $TICKET_BASE"; exit 2; }
+}
+missing=$(scan_classes "$NEW_CLASSES") \
+    || { echo "REFUSE: could not compare the test classes with $TICKET_BASE"; exit 2; }
+# The scan's own control: with test_declared_links (a module wholly this ticket's) left off the
+# list it must name its classes. A scan that read nothing would otherwise pass as "none missing".
+probe=$(scan_classes "${NEW_CLASSES/tests.test_declared_links:\*/}") \
+    || { echo "REFUSE: the class scan's control could not run"; exit 2; }
+if ! /usr/bin/grep -q '^tests\.test_declared_links:' <<<"$probe"; then
+    echo "REFUSE: the class scan cannot see an omission (its control named: ${probe:-nothing})"
+    exit 2
+fi
 if [[ -n "$missing" ]]; then
-    echo "  🔴 NEW_CLASSES omits class(es) added since $TICKET_BASE -- their tests would never be"
-    echo "     required to go red:"
+    echo "  🔴 NEW_CLASSES omits class(es) added between $TICKET_BASE and $CLASSES_AT -- their tests"
+    echo "     would never be required to go red:"
     sed 's/^/       /' <<<"$missing"
     SURVIVORS=$((SURVIVORS+1))
 else
-    echo "  NEW_CLASSES names every TestCase class added since $TICKET_BASE"
+    echo "  NEW_CLASSES names every TestCase class added between $TICKET_BASE and $CLASSES_AT" \
+         "(the scan's control, one module left off, named its classes)"
 fi
 rm -rf "$base"
 echo

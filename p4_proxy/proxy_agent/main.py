@@ -20,6 +20,9 @@ from proxy_agent import kernel_notifier
 # TICKET-P4-roles: which table a destination route is written into, per switch.
 # [Co-developed with claude code -- Adam]
 from proxy_agent import route_binding
+# TICKET-P4-heartbeat segment W: the root helper's heartbeat report on a foreign fabric.
+# [Co-developed with claude code -- Adam]
+from proxy_agent import link_heartbeat
 # Decides, at import, which app package this process serves, and prints it. Imported before the
 # host table below because the host table is built from the package's topology model.
 # [Co-developed with claude code -- Adam]
@@ -1109,7 +1112,32 @@ _fabric = {"lldp": None, "watchdog": None, "declared_links": None,
            # {directions, error} once a foreign fabric's startup has tried the seed; None on
            # every other fabric. Section 7 ruling 5, item 8. [Co-developed with claude code --
            # Adam]
-           "declared_links_seed": None}
+           "declared_links_seed": None,
+           # TICKET-P4-heartbeat segment W. [Co-developed with claude code -- Adam]
+           #   external            the package declares an external control plane
+           #   heartbeat_watchdog  the heartbeat-fed watchdog was started on this (foreign) fabric
+           #   heartbeat_error     why it was not, as "Type: message"
+           #   routes_blocked      None when every foreign switch's route table is NDTwin's, else
+           #                       the first cut's 501 word for why not: unbound / owned_by_package
+           "external": None, "heartbeat_watchdog": None, "heartbeat_error": None,
+           "routes_blocked": None}
+
+#: The heartbeat evidence startup attached, for the reports below. [Co-developed with claude code
+#: -- Adam] TICKET-P4-heartbeat segment W.
+_heartbeat = {"evidence": None, "passes": None}
+
+#: Where the root helper's daemon writes, and whose file it must be. Module constants so a test can
+#: point them at a directory of its own, the way TELEMETRY_KNOB_PATH is patched: a suite reading
+#: the real /run/ndtwin-lab would be green or red depending on whether a heartbeat ran on the
+#: machine that day. [Co-developed with claude code -- Adam]
+HEARTBEAT_REPORT_PATH = link_heartbeat.REPORT_PATH
+HEARTBEAT_REPORT_UID = link_heartbeat.REPORT_OWNER_UID
+
+#: `reroute.reason` words beside the first cut's (route_binding's `unbound` / `owned_by_package`)
+#: and link_heartbeat's `heartbeat_*`. [Co-developed with claude code -- Adam]
+REROUTE_EXTERNAL = "external_control_plane"
+REROUTE_NO_LLDP_WATCHDOG = "link_watchdog_not_running"
+REROUTE_NO_HEARTBEAT_WATCHDOG = "heartbeat_watchdog_not_started"
 
 #: {dpid as string: capabilities}, re-recorded by startup and readopt.
 _capabilities = {}
@@ -1175,8 +1203,213 @@ def _record_capabilities(package, clients, foreign):
 
 
 def capabilities_report():
-    """{dpid as string: capabilities}. A copy per switch."""
-    return {dpid: dict(caps) for dpid, caps in _capabilities.items()}
+    """{dpid as string: capabilities}. A copy per switch.
+
+    [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W: on a fabric whose
+    links are declared, `reroute` and `link_discovery` follow the heartbeat AS IT IS NOW, so
+    they are recomputed per request from what the watchdog last read -- a heartbeat that stops
+    turns `reroute` false within one read, rather than keeping the answer startup recorded.
+    The five keys stay five: the reason is a fabric fact, served as the top-level `reroute`.
+    """
+    out = {dpid: dict(caps) for dpid, caps in _capabilities.items()}
+    live = _heartbeat_capabilities()
+    if live is not None:
+        for caps in out.values():
+            caps.update(live)
+    return out
+
+
+def _routes_blocked_word(clients, foreign):
+    """None when every foreign switch binds its route table with owner ndtwin; else the first
+    cut's 501 reason word -- `unbound` if any foreign switch has no binding (the more basic of
+    the two), `owned_by_package` otherwise. [Co-developed with claude code -- Adam]"""
+    words = set()
+    for dpid in foreign:
+        binding = getattr(clients.get(dpid), "route_binding", None)
+        if binding is None:
+            words.add(route_binding.REASON_UNBOUND)
+        elif binding.owner != route_binding.OWNER_NDTWIN:
+            words.add(route_binding.REASON_OWNED_BY_PACKAGE)
+    if route_binding.REASON_UNBOUND in words:
+        return route_binding.REASON_UNBOUND
+    return route_binding.REASON_OWNED_BY_PACKAGE if words else None
+
+
+def _heartbeat_reading():
+    """The evidence's last reading, or None where there is no evidence or no read yet."""
+    evidence = _heartbeat.get("evidence")
+    return evidence.last() if evidence is not None else None
+
+
+def _fabric_reroute():
+    """
+    (available, reason word or None, detail) for the fabric as it stands -- or None before
+    startup has recorded one. ONE function for `capabilities.reroute` and the top-level
+    `reroute`, so the two cannot disagree. [Co-developed with claude code -- Adam]
+    TICKET-P4-heartbeat segment W:
+
+      * external: never -- the exercise's controller owns every table;
+      * declared links (a foreign fabric): only with the heartbeat watchdog running on a USABLE
+        report AND every foreign route table NDTwin's. The tables are named first when both are
+        wrong: fixing the heartbeat alone would not make this fabric reroute;
+      * every other fabric (NDTwin's own pipeline): LLDP and its watchdog, as in the first cut.
+    """
+    if _fabric.get("lldp") is None:
+        return None
+    if _fabric.get("external"):
+        return (False, REROUTE_EXTERNAL,
+                "the package declares an external control plane: its own controller owns every "
+                "table and this proxy writes nothing")
+    if _fabric.get("declared_links"):
+        blocked = _fabric.get("routes_blocked")
+        if blocked is not None:
+            return (False, blocked,
+                    f"a foreign switch's route table is not NDTwin's ({blocked}): a cut link is "
+                    f"detected and told to the kernel, and no route is rewritten")
+        if not _fabric.get("heartbeat_watchdog"):
+            return (False, REROUTE_NO_HEARTBEAT_WATCHDOG,
+                    f"the heartbeat watchdog did not start: {_fabric.get('heartbeat_error')}")
+        reading = _heartbeat_reading()
+        if reading is None or not reading.usable:
+            return (False, reading.reason if reading is not None else link_heartbeat.REASON_NOT_RUNNING,
+                    reading.detail if reading is not None else "the report has not been read yet")
+        return (True, None, "the heartbeat is usable and every foreign route table is NDTwin's: "
+                            "a cut link is detected and routed around")
+    if _fabric.get("lldp") and _fabric.get("watchdog"):
+        return (True, None, "LLDP and its link watchdog run on this fabric")
+    return (False, REROUTE_NO_LLDP_WATCHDOG,
+            "LLDP or its link watchdog did not start on this fabric (the proxy log says why)")
+
+
+def _heartbeat_capabilities():
+    """The two capability keys the heartbeat decides, on a fabric whose links are declared;
+    None on every other fabric (their capabilities are what startup recorded)."""
+    if not _fabric.get("declared_links") or _fabric.get("heartbeat_watchdog") is None:
+        return None
+    available, _reason, _detail = _fabric_reroute()
+    reading = _heartbeat_reading() if _fabric.get("heartbeat_watchdog") else None
+    usable = reading is not None and reading.usable
+    return {"reroute": bool(available),
+            "link_discovery": "heartbeat" if usable else "declared"}
+
+
+def reroute_report():
+    """`GET /p4/switch_state`'s top-level `reroute`: {available, reason, detail}, or None
+    before startup has recorded the fabric. [Co-developed with claude code -- Adam]"""
+    answer = _fabric_reroute()
+    if answer is None:
+        return None
+    available, reason, detail = answer
+    return {"available": available, "reason": reason, "detail": detail}
+
+
+#: Segment S's side-effect census (OBSERVED, doc/audit/2026-09-25_p4-heartbeat/spike/runs/
+#: 2026-09-26T052148Z_S_heartbeat/40_census.tsv): every exercise of live-p1/06, skeleton and
+#: solution, brought up with the heartbeat running where it could, every host sniffed for 20 s.
+#: Served verbatim on switch_state (段 W bullet 6: "心跳副作用（段 S 的普查結果）寫進 switch_state
+#: 能看得到的地方"). Measured numbers, not a claim about any other program: a pipeline outside
+#: these 26 arms has not been looked at. [Co-developed with claude code -- Adam]
+HEARTBEAT_CENSUS = {
+    "measured": "2026-09-26, TICKET-P4-heartbeat segment S (census part)",
+    "raw": "doc/audit/2026-09-25_p4-heartbeat/spike/runs/2026-09-26T052148Z_S_heartbeat/"
+           "40_census.tsv",
+    "arms": 26,
+    "heartbeat_ran": 20,
+    "no_inter_switch_link": 4,
+    "not_built": 2,
+    "arms_where_a_host_saw_a_frame": 0,
+    "summary": "13 tutorials exercises x skeleton/solution. On the 20 arms where the heartbeat "
+               "ran, no host received a heartbeat frame, and the daemon counted none leaving a "
+               "host-facing port and none forwarded to another switch. calc and multicast are "
+               "one switch (no inter-switch link, nothing sent); basic_tunnel and flowcache "
+               "skeletons do not build. Segment S's census started the heartbeat by hand (the "
+               "helper, not ndt) on all 20; `ndt up p4 --app` starts it on 17 of them -- the other "
+               "3 (p4runtime skeleton and solution, flowcache solution) are external control "
+               "planes, where `ndt up` does not start it.",
+    # [Co-developed with claude code -- Adam] The last sentence: the fable judge's 2.1 on 1a3ebd7f
+    # -- the 20 is segment S's, not ndt's.
+}
+
+
+def heartbeat_report():
+    """
+    `GET /p4/switch_state`'s top-level `heartbeat`: what the heartbeat is doing to and for this
+    fabric. None on a fabric that runs none -- NDTwin's own pipeline (LLDP) and an external
+    control plane. [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W.
+
+    🔴 THE SIDE EFFECTS ARE HERE, NOT IN A DOCUMENT. The frames enter the package's own pipeline
+    (bmv2 reads the veth), which is the price of a liveness signal that needs no change to the
+    author's program; ruling 4 made it acceptable on condition that it is disclosed, and that
+    a frame reaching a host stops everything. `side_effects` is the daemon's own count, live;
+    `frames_reached_hosts` is that stop condition named rather than left in a number.
+    """
+    if not _fabric.get("declared_links") or _fabric.get("heartbeat_watchdog") is None:
+        return None
+    reading = _heartbeat_reading()
+    side = reading.side_effects if reading is not None else None
+    fmt = lambda links: [f"{s}:{sp}->{d}:{dp}" for s, sp, d, dp in links]  # noqa: E731
+    return {
+        "watchdog": "running" if _fabric.get("heartbeat_watchdog") else "not_started",
+        "error": _fabric.get("heartbeat_error"),
+        "report": getattr(_heartbeat.get("evidence"), "path", HEARTBEAT_REPORT_PATH),
+        "state": ("usable" if reading is not None and reading.usable
+                  else (reading.reason if reading is not None else "not_read")),
+        "detail": reading.detail if reading is not None else None,
+        "session": getattr(reading, "session", None),
+        "pid": getattr(reading, "pid", None),
+        "period_s": getattr(reading, "period_s", None),
+        "report_age_s": getattr(reading, "age_s", None),
+        "directions": len(reading.heard) if reading is not None else 0,
+        "missing_directions": fmt(reading.missing) if reading is not None else [],
+        "undeclared_directions": fmt(reading.undeclared) if reading is not None else [],
+        "side_effects": side,
+        "frames_reached_hosts": (None if side is None
+                                 else bool(side.get("forwarded_to_hosts", 0))),
+        "frame": {"ethertype": "0x88B5", "bytes": 60,
+                  "one_per_direction_every_s": getattr(reading, "period_s", None)},
+        "census": HEARTBEAT_CENSUS,
+        # [Co-developed with claude code -- Adam] The orchestrator's 09-26 addendum: the last
+        # passes of the one watchdog, on the proxy's monotonic clock -- what places the pass that
+        # reported a cut against the cut and the heartbeat round before it.
+        "watchdog_passes": _heartbeat_passes(),
+        "note": ("the heartbeat proves a veth carries frames, not that a switch is alive (a "
+                 "switch powered off by P4PowerStrategy is still heard); its frames are also "
+                 "what link telemetry samples, 1 in 256, on those veths"),
+    }
+
+
+def _heartbeat_passes():
+    """The watchdog's recorded passes, from the topology startup started the heartbeat on."""
+    passes = _heartbeat.get("passes")
+    try:
+        return passes() if callable(passes) else []
+    except Exception:  # noqa: BLE001 -- a disclosure must not take switch_state down
+        return []
+
+
+def _start_heartbeat_watchdog(topo):
+    """Start the heartbeat-fed watchdog on a foreign fabric. Never raises: returns (started,
+    "Type: message" or None). A topology without the entry -- every pre-W test double -- is
+    disclosed, not fatal. [Co-developed with claude code -- Adam]"""
+    start = getattr(topo, "start_heartbeat_watchdog", None)
+    _heartbeat["passes"] = getattr(topo, "watchdog_passes", None)
+    if start is None:
+        return False, ("AttributeError: this topology has no start_heartbeat_watchdog, so no "
+                       "heartbeat is read")
+    try:
+        _heartbeat["evidence"] = start(path=HEARTBEAT_REPORT_PATH, owner_uid=HEARTBEAT_REPORT_UID)
+    except Exception as e:  # noqa: BLE001 -- disclosed below, never fatal
+        _heartbeat["evidence"] = None
+        print(f"[Proxy Agent] the heartbeat watchdog did not start ({type(e).__name__}: {e}); "
+              f"a cut link on this fabric is not detected")
+        return False, f"{type(e).__name__}: {e}"
+    reading = _heartbeat_reading()
+    state = ("usable" if reading is not None and reading.usable
+             else getattr(reading, "reason", "not read"))
+    print(f"[Proxy Agent] heartbeat watchdog started on the declared links, reading "
+          f"{HEARTBEAT_REPORT_PATH} ({state}); judged with the LLDP beacon rule and constants. "
+          f"The LLDP beacon watchdog itself stays skipped.")
+    return True, None
 
 
 def flow_stats_report():
@@ -1273,10 +1506,13 @@ def _seed_declared_links(topo, package):
         print(f"[Proxy Agent] could not enter the package's declared links "
               f"({type(e).__name__}: {e}); the twin's inter-switch edges stay disabled")
         return 0, f"{type(e).__name__}: {e}"
+    # [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W: the second sentence
+    # used to end "so a cut link is not noticed and not rerouted around". Detection now comes
+    # from the heartbeat when it runs, and switch_state says whether it does.
     print(f"[Proxy Agent] {seeded} declared inter-switch link direction(s) entered from the "
-          f"package topology. Their is_up is the DECLARATION, not failure detection: this "
-          f"fabric runs no LLDP and no watchdog, so a cut link is not noticed and not "
-          f"rerouted around (capabilities.reroute is false).")
+          f"package topology. Their is_up is the DECLARATION until the root helper's heartbeat "
+          f"says otherwise: this fabric runs no LLDP, and a cut link is detected only while "
+          f"the heartbeat runs (switch_state `heartbeat`, `reroute`).")
     return seeded, None
 
 
@@ -1287,6 +1523,11 @@ def _install_owned_routes(topo):
     foreign switch binds roles.ipv4_route with owner ndtwin, so every write goes through a
     binding NDTwin may write. Once, at startup: there is no watchdog on this fabric to call it
     again, which is what `reroute: false` means.
+
+    [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W: while the root
+    helper's heartbeat runs, the heartbeat-fed watchdog calls install_initial_routes again on
+    every link transition it reports, and `reroute` is then true. Without it, the sentence above
+    stands.
     """
     try:
         installed, attempted = topo.install_initial_routes()
@@ -1294,9 +1535,11 @@ def _install_owned_routes(topo):
         print(f"[Proxy Agent] installing NDTwin's routes into the package's route tables "
               f"failed: {type(e).__name__}: {e}")
         return {"installed": 0, "attempted": None, "error": f"{type(e).__name__}: {e}"}
+    # [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W: the parenthesis
+    # used to say no watchdog runs here; the heartbeat-fed one reinstalls on a link transition.
     print(f"[Proxy Agent] every foreign switch binds roles.ipv4_route with owner ndtwin: "
           f"{installed} of {attempted} initial routes written into the package's route tables "
-          f"(once: no watchdog runs on this fabric, so nothing reroutes around a failed link)")
+          f"(again on every link transition the heartbeat watchdog reports, while it runs)")
     return {"installed": installed, "attempted": attempted}
 
 
@@ -1512,6 +1755,9 @@ api_routes.inject_roles_reports(capabilities_report, flow_stats_report)
 # Section 7 ruling 5, item 8: the fabric-level outcome of the seed. [Co-developed with claude
 # code -- Adam]
 api_routes.inject_declared_links_report(declared_links_report)
+# TICKET-P4-heartbeat segment W: the fabric's reroute fact with its reason, and the heartbeat's
+# disclosure. [Co-developed with claude code -- Adam]
+api_routes.inject_heartbeat_reports(reroute_report, heartbeat_report)
 
 
 async def startup(clients_factory, sflow, kernel, topo,
@@ -1569,6 +1815,10 @@ async def startup(clients_factory, sflow, kernel, topo,
     # 2.5-2). Reset first: a module global that kept the last run's answer would describe a
     # fabric that is not this one. [Co-developed with claude code -- Adam]
     _fabric.update(lldp=False, watchdog=False, declared_links=False, declared_links_seed=None)
+    # TICKET-P4-heartbeat segment W, reset the same way. [Co-developed with claude code -- Adam]
+    _fabric.update(external=read_only, heartbeat_watchdog=None, heartbeat_error=None,
+                   routes_blocked=None)
+    _heartbeat.update(evidence=None, passes=None)
 
     clients = clients_factory()
     for dpid, client in clients.items():
@@ -1925,8 +2175,11 @@ async def startup(clients_factory, sflow, kernel, topo,
         routes_owned = routes_owned_by_ndtwin(clients, foreign)
         if routes_owned and SKIP_ROUTES in skipped:
             skipped.remove(SKIP_ROUTES)
-        steps = ("send LLDP beacons or watch links" if routes_owned
-                 else "send LLDP beacons, watch links or install routes")
+        # [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W: "watch links"
+        # became "run the LLDP beacon watchdog" -- links on this fabric ARE watched now, by the
+        # root helper's heartbeat, and the sentence has to stop saying otherwise.
+        steps = ("send LLDP beacons or run the LLDP beacon watchdog" if routes_owned
+                 else "send LLDP beacons, run the LLDP beacon watchdog or install routes")
         print(f"[Proxy Agent] {len(foreign)} of {len(clients)} switches "
               f"({sorted(foreign)}) run the app package's own pipeline, which carries no "
               f"controller header: this proxy will not {steps} on ANY switch of this fabric. "
@@ -1954,6 +2207,19 @@ async def startup(clients_factory, sflow, kernel, topo,
     topo.routes_to_attached_hosts_only = SKIP_ROUTES in skipped
     if routes_owned:
         route_counts = _install_owned_routes(topo)
+
+    # [Co-developed with claude code -- Adam]
+    # 🔴 TICKET-P4-heartbeat segment W: THE HEARTBEAT WATCHDOG, ON A FOREIGN FABRIC ONLY. The
+    # links were declared above; the root helper's heartbeat (started by `ndt up p4 --app` on a
+    # foreign fabric, never on NDTwin's own pipeline) says which of them still carry frames, and
+    # the ONE watchdog pass judges that with the beacon rule. After the route decision, because
+    # the pass reads `routes_to_attached_hosts_only` to decide between rerouting and detecting
+    # only. The LLDP beacon watchdog stays off and stays in `control_plane.skipped`: it rides a
+    # controller header these programs do not have. External is untouched (it reads only).
+    if _fabric.get("declared_links"):
+        _fabric["routes_blocked"] = _routes_blocked_word(clients, foreign)
+        started, error = _start_heartbeat_watchdog(topo)
+        _fabric.update(heartbeat_watchdog=started, heartbeat_error=error)
 
     # Start LLDP dynamic topology discovery
     #

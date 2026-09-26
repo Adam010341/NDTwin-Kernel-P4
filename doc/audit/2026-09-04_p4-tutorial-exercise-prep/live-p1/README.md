@@ -247,4 +247,52 @@ M 不斷言的理由要說清楚：取樣器**可能**抽到、**可能**抽不�
 unbound 的 L6。L4 **不斷言改路**（第一刀 (c) 不成立，`capabilities.reroute: false`），斷鏈期間的流量照實記在
 `54_pingall_during_cut.txt`。外來 fabric 上邊的 `is_up` 來自**宣告**的鏈路，不是斷線偵測。
 
+**段 W（TICKET-P4-heartbeat）之後**：`ndt up p4 --app` 會在這兩個 package 上啟動心跳。
+
+- **L6 的預期已改**（fable judge 2.4）：
+  - owned 是 `reroute: true, link_discovery: "heartbeat"`；
+  - unbound 是 `reroute: false, link_discovery: "heartbeat"`。
+  - 兩者都需要心跳真的有在跑；`ndt up` 沒能啟動心跳的那次 run，會讀到 `declared`／`false`，L6 就會紅。
+- **L4 記下的流量數字可能會變**（INFERRED，沒跑過）：
+  - L4 的 `inject_link_failure` 會在兩端下 netem，心跳幀也會一起被擋住；
+  - 所以在 owned 那個 package 上，proxy 現在會自己偵測到斷線並**改路**；
+  - 因此 `54_pingall_during_cut.txt` 的遺失可能比第一刀記錄的少。
+  - L4 本身仍然不斷言改路；改路由 ⑧ 的 H1 驗。
+  - recovery 之後，proxy 要等到心跳重新聽到那條鏈路（最多約 10 s）才會回報 up。這和 kernel 的 recovery 之間有沒有互相打架，也還沒在真機上看過。
+
+[Co-developed with claude code -- Adam]
+
+---
+
+## 階段四第二刀新增的一支（TICKET-P4-heartbeat §2 live，段 W）
+
+| 步 | 貼這一行 | 最後一行應該是 |
+|---|---|---|
+| ⑧ H1–H4 | `NDT_OWNER=adam bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh` | `PASS 08_heartbeat` |
+| ⑧ H5 | `NDT_OWNER=adam PART=h5 bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh` | `PASS 08_heartbeat` |
+
+**寫的人沒跑過它**（沒有 lab）。離線自測：`bash .../08_heartbeat.sh --self-test`——每個判定各餵一份該綠、
+一份該紅的合成 capture，teardown 用假 ndt 走一遍（down 回 5／1 時**不 release、保留 claim**），前導段單獨跑、
+讀回預設值。只證明判定分得出兩種答案，**不證明任何 fabric 的事**。
+
+- **必須明給 `NDT_OWNER`**（沒給就 rc 2、什麼都沒做）；**從不宣告 `measuring=`**，所以自己的 `ndt down` 不會被
+  T2d 擋；最後一次 `ndt down` 不是 0／3 就**不 release**（段 S 第 7 輪的教訓）。
+- H1 的剪線**控制相位**：
+  - 前 `H1_WORST`（預設 3）次在心跳一輪送出後 `PHI_WORST`（0.02 s）剪，也就是最壞相位；其餘隨機，種子記在 log，`H1_SEED=` 可重現。
+  - 每次剪線和復原都記在 CLOCK_MONOTONIC 上（`30_cycles.tsv`）：
+    - 兩端 tc 呼叫的前後時刻，是 **shell 自己的 `$EPOCHREALTIME`，不是 fork 出去的 `date`**；
+    - 兩個方向最後／最先聽到的幀；
+    - graph 的 down／up 時刻；
+    - 報告這次變化的那個 watchdog pass、它晚了多少、pass 到 graph 花了多久。
+  - 落在剪線或復原窗口內的幀**標出來，不丟掉**。
+- **H1 以嚴格的 20 s 判**（fable judge 的 F1，09-26）：
+  - 任何一個 cycle 超過 20 s，就寫 `OVER+x`，而且那個 cycle 判 FAIL；
+  - 最後一行以「`H1: N of M cycle(s) OVER the strict 20 s … until Adam rules on the acceptance`」開頭。
+  - 「20 s ＋ 實際量到的時間」只是**診斷欄**，永遠不是判定：它包含 pass 晚到的部分、讀檔／HTTP／kernel／本腳本輪詢，以及剪線本身開的窗口。judge 證明了這個數字在設計照常運作時恆為 OK。
+  - 設計的最壞情況是 (15 s − φ) ＋ 最多一個 watchdog 間隔 5 s ＋ 上述那些，**在 φ→0 時嚴格 20 s 沒有任何餘裕**。最壞相位那幾次超過嚴格值是設計如此，這輪照實判 FAIL，等 Adam 裁。
+  - **一次 run 只取樣到一個 ψ**：watchdog 的相位每個 pass 只漂一個 pass 的耗時，所以最壞的 ψ 不保證被取樣到。H1 PASS 只表示「在這次的 ψ 下 ≤20 s」。
+- H5 不自己 claim（06、01 每步自己 claim），跑 06 一次時旁邊有一個讀心跳報告的 sampler，逐臂對
+  `2026-09-24T185505Z_06_thirteen`，並確認心跳只在 17 個外來、非 external、多交換機的臂上跑過；接著跑 01。
+- 任何 `forwarded_to_hosts > 0`（心跳幀離開 host 埠）＝裁決 4，最後一行以 `STOP` 開頭。
+
 [Co-developed with claude code -- Adam]

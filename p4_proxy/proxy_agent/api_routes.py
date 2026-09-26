@@ -155,6 +155,37 @@ def inject_roles_reports(capabilities, flow_stats):
     flow_stats_report = flow_stats
 
 
+#: TICKET-P4-heartbeat segment W: the fabric's `reroute` -- {available, reason, detail} -- and the
+#: heartbeat's disclosure, both TOP-LEVEL because both are facts about the fabric, like
+#: `declared_links`. Their own injector, for the same reason: not injected, no key.
+#: [Co-developed with claude code -- Adam]
+reroute_report = None
+heartbeat_report = None
+
+
+def inject_heartbeat_reports(reroute, heartbeat):
+    global reroute_report, heartbeat_report
+    reroute_report = reroute
+    heartbeat_report = heartbeat
+
+
+def _read_only_conflict(err, dpid):
+    """
+    A write refused because this fabric's control plane is somebody else's, as a 409.
+
+    [Co-developed with claude code -- Adam]
+    TICKET-P4-heartbeat ruling 5(a) (the first cut's section 7 ruling 5 (a)): under
+    `control_plane.mode: external` every write is refused by `P4RuntimeClient._refuse_write`,
+    which RAISES `ControlPlaneReadOnly` so that no retry loop can spin on it. `POST
+    /p4/table_entry` turned that into a 409; the three flowentry endpoints did not catch it, and
+    FastAPI answered 500 -- the proxy looking broken over a request it had refused on purpose,
+    before anything reached the switch. The body is `/p4/table_entry`'s 409, word for word.
+    """
+    return HTTPException(
+        status_code=409,
+        detail={"error": "external control plane", "dpid": dpid, "message": str(err)})
+
+
 def _route_write_unsupported(err, dpid):
     """
     A route write this switch has no binding for, as the 501 the other unsupported writes use.
@@ -504,6 +535,9 @@ async def add_flow_entry(request: Request):
     except RouteWriteUnsupported as err:
         # TICKET-P4-roles 2.2-3. [Co-developed with claude code -- Adam]
         raise _route_write_unsupported(err, dpid)
+    except ControlPlaneReadOnly as err:
+        # TICKET-P4-heartbeat ruling 5(a). [Co-developed with claude code -- Adam]
+        raise _read_only_conflict(err, dpid)
 
     if not success:
         return {"status": "error", "message": "Failed to add route"}
@@ -574,6 +608,9 @@ async def delete_flow_entry(request: Request):
     except RouteWriteUnsupported as err:
         # TICKET-P4-roles 2.2-3. [Co-developed with claude code -- Adam]
         raise _route_write_unsupported(err, dpid)
+    except ControlPlaneReadOnly as err:
+        # TICKET-P4-heartbeat ruling 5(a). [Co-developed with claude code -- Adam]
+        raise _read_only_conflict(err, dpid)
     if success:
         return {"status": "success", **_priority_disclosure(match)}
     else:
@@ -604,6 +641,9 @@ async def modify_flow_entry(request: Request):
     except RouteWriteUnsupported as err:
         # TICKET-P4-roles 2.2-3. [Co-developed with claude code -- Adam]
         raise _route_write_unsupported(err, dpid)
+    except ControlPlaneReadOnly as err:
+        # TICKET-P4-heartbeat ruling 5(a). [Co-developed with claude code -- Adam]
+        raise _read_only_conflict(err, dpid)
     if not success:
         raise HTTPException(status_code=400, detail="Failed to modify flow entry in P4 switch")
     return {"status": "success", **_priority_disclosure(match)}
@@ -772,6 +812,15 @@ async def switch_state():
     # DECLARED; this says whether the declaration actually reached the graph.
     if declared_links_report is not None:
         state["declared_links"] = declared_links_report()
+    # [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W. `reroute` says
+    # whether a cut link is routed around on this fabric and, when not, why -- `capabilities`
+    # carries the boolean per switch and keeps its five keys (the GUI contract); `heartbeat` is
+    # what the root helper's heartbeat is doing here, its side effects included (null on a
+    # fabric that runs none).
+    if reroute_report is not None:
+        state["reroute"] = reroute_report()
+    if heartbeat_report is not None:
+        state["heartbeat"] = heartbeat_report()
     return state
 
 

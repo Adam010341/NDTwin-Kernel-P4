@@ -169,6 +169,10 @@ CLAIM="$REPO/.test_run/lab.claim"; HANDOFF="$REPO/.test_run/lab.handoff"
 # the state every other section assumes; FX_LAB_KERNEL_DIR is how section 6 moves it away.
 LAB_CONF="'"$FIX"'/etc/ndtwin-lab.conf"
 LAB_DEFAULT_KERNEL_DIR="${FX_LAB_KERNEL_DIR:-'"$FIX"'}"
+# [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W: the heartbeat pidfile and
+# report are fixture paths (never present), so a heartbeat running on this machine cannot add a
+# `heartbeat stop` to a teardown cell or a row to a status cell.
+HB_PIDFILE="'"$FIX"'/run/heartbeat.pid"; HB_REPORT="'"$FIX"'/run/heartbeat.json"
 # `sudo` and `sleep` are shell functions here, which shadow the commands for every caller in
 # this shell -- including the ones inside ndt. No production seam, and no root.
 sudo() {

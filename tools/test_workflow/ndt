@@ -2926,6 +2926,107 @@ ndt_port_proto() {
     return 1
 }
 
+# --- the veth heartbeat (TICKET-P4-heartbeat segment W) ----------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# On a FOREIGN fabric -- a package running its own program, which carries no controller header --
+# LLDP cannot run, so nothing in the twin notices a cut link. The root helper's heartbeat
+# (`sudo ndtwin-lab heartbeat start|stop|status`, segment H) sends frames over the inter-switch
+# veths and writes what it heard to $HB_REPORT; the proxy judges that with its own beacon rule.
+# This file's part is the lifecycle, and only that (ticket, 段 W: "`ndt up p4 --app`（外來
+# fabric）啟動心跳、`ndt down` 停；`ndt status` 顯示心跳狀態"):
+#
+#   * started by `ndt up p4 --app` on a foreign pipeline, after the fabric and before the proxy,
+#     so the proxy's first watchdog pass has a report to read. NEVER on NDTwin's own pipeline
+#     (it has LLDP; the helper refuses it too), and not under an external control plane: the
+#     proxy reads only there and runs no watchdog, so the frames would go into somebody's
+#     pipeline for nobody to read;
+#   * a heartbeat that does not start does NOT fail the bring-up. The fabric is up; what is
+#     missing is detection, and the proxy says so on /p4/switch_state (`reroute`);
+#   * stopped before the topology it watches, by `ndt down`, by a rollback, and by a bring-up
+#     that replaces a running topology -- gated on the helper's pidfile, so a machine with no
+#     heartbeat is not asked anything (and the helper's own stop verifies pid, argv and uid:
+#     nothing here signals a process);
+#   * shown by `ndt status` from the report file, which is world-readable: no sudo on a page
+#     sessions read dozens of times an hour.
+#
+# 🔴 The two paths are the helper's, pinned by tests/shell/test_ndt_heartbeat.sh section 7. The
+# helper itself is NOT changed by this ticket (its sha is installed and pinned).
+HB_PIDFILE=/run/ndtwin-lab/heartbeat.pid
+HB_REPORT=/run/ndtwin-lab/heartbeat.json
+
+# heartbeat_wanted <app_pipe> <app_mode> -- does this bring-up start the heartbeat?
+heartbeat_wanted() {
+    [[ "$1" == foreign:* && "$2" != external ]]
+}
+
+# heartbeat_up_step <app_pipe> <app_mode> -- start it where it is wanted. Always rc 0.
+heartbeat_up_step() {
+    heartbeat_wanted "$1" "$2" || return 0
+    local out rc
+    # Recorded before the call, like every stage: a start that fails part way has still changed
+    # the machine, and a stop of nothing is harmless (it is pidfile-gated).
+    up_started heartbeat
+    out="$(sudo -n "$LAB" heartbeat start 2>&1)"; rc=$?
+    [[ -n "$out" ]] && printf '%s\n' "$out" | sed 's/^/      /'
+    case "$rc" in
+        0) ok "heartbeat running on the inter-switch veths: a cut link is detected, and routed around where NDTwin owns the route tables (switch_state: reroute, heartbeat)" ;;
+        3) info "heartbeat: nothing to watch -- this fabric has no inter-switch link (rc 3)" ;;
+        *) warn "heartbeat did NOT start (rc $rc): a cut link on this fabric will not be detected."
+           warn "  the fabric itself is up; the proxy reports reroute.reason heartbeat_not_running." ;;
+    esac
+    return 0
+}
+
+# heartbeat_stop_step <why> -- stop a running heartbeat before <why>. rc 0 stopped, or there was
+# no pidfile (nothing asked); rc 1 the helper's stop failed -- the daemon may still be running.
+heartbeat_stop_step() {
+    [[ -e "$HB_PIDFILE" || -L "$HB_PIDFILE" ]] || return 0
+    local out rc
+    info "stopping the heartbeat ($1)"
+    out="$(sudo -n "$LAB" heartbeat stop 2>&1)"; rc=$?
+    [[ -n "$out" ]] && printf '%s\n' "$out" | sed 's/^/      /'
+    if (( rc != 0 )); then
+        err "heartbeat stop exited $rc -- the heartbeat daemon may still be running (its own line is above)"
+        return 1
+    fi
+    return 0
+}
+
+# heartbeat_row -- `ndt status`'s `heartbeat` row, read from the report file. No sudo.
+# Wall-clock ages: a display, not the proxy's judgement (which uses the monotonic stamps).
+heartbeat_row() {
+    local line
+    line="$(python3 - "$HB_REPORT" 2>&1 <<'HBROW'
+import json, os, sys, time
+path = sys.argv[1]
+if not os.path.exists(path):
+    print(f"none -- no report at {path} (no heartbeat has run since boot)")
+    sys.exit(0)
+try:
+    d = json.load(open(path))
+    status, period = d.get("status"), float(d.get("period_s") or 0)
+    age = time.time() - float(d.get("written_wall") or 0)
+    n = len(d.get("directions") or [])
+    hosts = (d.get("side_effects") or {}).get("forwarded_to_hosts", 0) or 0
+except Exception as exc:  # noqa: BLE001 -- a display: say it, do not crash the page
+    print(f"report unreadable ({type(exc).__name__}: {exc})")
+    sys.exit(0)
+if status == "running" and period > 0 and age <= 2 * period:
+    out = (f"running (pid {d.get('pid')}, session {d.get('session')}) -- {n} direction(s), "
+           f"report {age:.1f} s old")
+elif status == "running":
+    out = f"STALE -- the report says running but was written {age:.0f} s ago (daemon gone or hung)"
+else:
+    out = f"{status} ({d.get('stop_reason')}), {age:.0f} s ago"
+if hosts:
+    out += f"  !! {hosts} heartbeat frame(s) reached a host (ruling 4: stop and report)"
+print(out)
+HBROW
+)"
+    printf '  %-14s %s\n' "heartbeat" "$line"
+}
+
 # rollback_up <why> -- undo the recorded stages, newest first, then say what is left.
 rollback_up() {
     local why="$1" i stage rc=0 out src crc left=0
@@ -2961,6 +3062,11 @@ rollback_up() {
     for (( i = ${#UP_STARTED[@]} - 1; i >= 0; i-- )); do
         stage="${UP_STARTED[$i]}"
         case "$stage" in
+            # [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W: started
+            # after the fabric, so unwound before it -- the daemon watches that topology.
+            heartbeat)
+                heartbeat_stop_step "this bring-up is being rolled back" || rc=1
+                ;;
             stack)
                 info "stopping what stack.sh started (kernel, proxy, Ryu)"
                 out="$(NO_COLOR=1 bash "$STACK" down 2>&1)"; src=$?
@@ -3351,7 +3457,10 @@ up_p4() {
         # can call it on its own. Inline, it sat behind topo_session and a bmv2 count that had
         # already returned in every branch a test could reach.
         guard_no_live_ovs || { knob_restore "this bring-up was refused before it changed anything"; return 1; }
-        topo_session && { info "stopping the existing topo session"; sudo -n "$LAB" topo-stop >/dev/null 2>&1; }
+        # [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W: its heartbeat
+        # first. Left running, the `heartbeat start` below answers "already running" for the
+        # OLD fabric's daemon, which then exits when its fabric goes and leaves this one with none.
+        topo_session && { info "stopping the existing topo session"; heartbeat_stop_step "before the running topology is replaced" || true; sudo -n "$LAB" topo-stop >/dev/null 2>&1; }
         # Recorded before the call, not after: a topo-start that fails part way through has
         # still changed the machine, and topo-stop/cleanup are idempotent. See rollback_up.
         up_started fabric
@@ -3412,6 +3521,11 @@ up_p4() {
     local running
     running="$(ps -eo args= 2>/dev/null | grep -o '/[^ ]*simple_switch_grpc' | sort -u | head -1)"
     [[ -n "$running" ]] && ok "running binary: $running"
+
+    # [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W: on a foreign
+    # fabric, the heartbeat -- here, after the fabric in both branches above and before the
+    # proxy, whose first watchdog pass then has a report to read. Never fails the bring-up.
+    heartbeat_up_step "$app_pipe" "$app_mode"
 
     # -- 2 + 3. proxy and kernel, via stack.sh --
     say "[2/3] proxy + kernel"
@@ -5132,6 +5246,14 @@ cmd_down() {
         fi
     fi
 
+    # [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W: the heartbeat goes
+    # before the topology it watches, after the proxy that reads it. Its own lines only when a
+    # pidfile says one runs. A stop that failed is a teardown that did not finish.
+    heartbeat_stop_step "before the topology it watches is taken down" || {
+        down_rc=1
+        not_verified "the heartbeat daemon (its stop failed; sudo ndtwin-lab heartbeat status says whether it runs)"
+    }
+
     say "[2/3] topology session"
     sudo -n "$LAB" topo-stop 2>&1 | sed 's/^/      /'
 
@@ -6755,6 +6877,8 @@ cmd_status() {
     local running
     running="$(ps -eo args= 2>/dev/null | grep -o '/[^ ]*simple_switch_grpc' | sort -u | head -1)"
     [[ -n "$running" ]] && printf '  %-14s %s\n' "binary" "$running"
+    # [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W.
+    heartbeat_row
     # R7 I-3. Printed unconditionally rather than under --check, for the same reason the
     # exclusive_cpu row is: the ports above are read from the machine and these files are read
     # from disk, and "the ports are shut" plus "the registry still names two live processes" is

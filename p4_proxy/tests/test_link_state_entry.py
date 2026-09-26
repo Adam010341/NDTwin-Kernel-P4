@@ -160,7 +160,16 @@ class WhereTheWatchdogRunsTheReportTakesTheBeaconsPathTest(unittest.TestCase):
 
 @unittest.skipUnless(HAVE_PROXY, "proxy dependencies not available in this interpreter")
 class TheEntryIsNotWiredInThisCutTest(unittest.TestCase):
-    """Section 2.4: no HTTP route, no caller. Said by a test so it cannot quietly change."""
+    """Section 2.4: no HTTP route, no caller. Said by a test so it cannot quietly change.
+
+    [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W changed it on purpose
+    ("心跳報告接到第一刀預留的 report_external_link_state"), and this is where that shows: the
+    entry now has exactly ONE caller, the watchdog pass's own ingest of the heartbeat report
+    (TopologyManager._ingest_link_evidence), and still no HTTP route -- the proxy reads the root
+    helper's report file; nothing can POST link state at it. The class keeps its name so the
+    first cut's gate (TM10's killer below) still finds it; `test_nothing_in_the_proxy_calls_it`
+    was this second test until segment W, asserting no caller outside topology_manager.py.
+    """
 
     def test_no_proxy_route_reaches_it(self):
         from proxy_agent import api_routes
@@ -168,15 +177,27 @@ class TheEntryIsNotWiredInThisCutTest(unittest.TestCase):
         with open(api_routes.__file__) as fh:
             self.assertNotIn("report_external_link_state", fh.read())
 
-    def test_nothing_in_the_proxy_calls_it(self):
+    def test_its_one_caller_is_the_watchdog_pass_ingesting_the_heartbeat(self):
+        import ast
+        import re
+
         here = os.path.dirname(tm.__file__)
-        callers = []
+        calls = []
         for filename in sorted(os.listdir(here)):
-            if filename.endswith(".py") and filename != "topology_manager.py":
-                with open(os.path.join(here, filename)) as fh:
-                    if "report_external_link_state" in fh.read():
-                        callers.append(filename)
-        self.assertEqual(callers, [])
+            if not filename.endswith(".py"):
+                continue
+            with open(os.path.join(here, filename)) as fh:
+                tree = ast.parse(fh.read())
+            for func in ast.walk(tree):
+                if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                for node in ast.walk(func):
+                    if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                            and node.func.attr == "report_external_link_state"):
+                        calls.append((filename, func.name))
+        self.assertEqual(calls, [("topology_manager.py", "_ingest_link_evidence")])
+        self.assertTrue(re.search(r"source=\"heartbeat\"",
+                                  open(os.path.join(here, "topology_manager.py")).read()))
 
 
 if __name__ == "__main__":
