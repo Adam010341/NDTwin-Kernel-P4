@@ -43,6 +43,11 @@
 #   grpcio-tools, setuptools, and twelve that were unpinned then, starlette 1.7.0 among them -- and
 #   in the backend (python -> upb). starlette has been pinned here to 1.3.1 since, the version the
 #   3.20.3 venv has, so the exact set this file resolves has not been run live.
+#   Offline, 2026-09-26, that exact set: fresh venvs by the three commands on 3.13.13 and 3.12.3
+#   gave every test id the verdict it gets under the 3.20.3 venv, in both suites; l1's P4 lane, run
+#   the way CI runs it on 3.12.3, failed 22 of its 41 files without the third command and passed
+#   with it; and the procedure at the end of this file ran verbatim, both rollbacks included, on a
+#   stand-in for the development machine's venv.
 #
 # Every package that p4_proxy/, its tests or tools/p4_exercise/ imports is pinned `==`, not `>=`
 # -- starlette included, which is imported directly although it arrives as fastapi's dependency
