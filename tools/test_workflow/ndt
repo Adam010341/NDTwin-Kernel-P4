@@ -10879,9 +10879,9 @@ usage: ndt <command>
   claim [min] [note]   reserve the lab (default 30m); needs NDT_OWNER set
   release              give it back
   serve [--owner N] [--port P]   a local HTTP API over up/down/status/claim/release
-                and apps, on 127.0.0.1 only, for one user. Every write carries the token
-                the server writes to ~/.config/ndt-serve/token (0600); every call to ndt
-                carries NDT_OWNER=N. 'ndt serve --help' for the options,
+                and apps, on 127.0.0.1 only, for one user. Every request but /health
+                carries the token the server writes to ~/.config/ndt-serve/token (0600);
+                every call to ndt carries NDT_OWNER=N. 'ndt serve --help' for the options,
                 tools/ndt_serve/README.md for the API.
 
   .test_run/pids/ is shared, so 'down' kills whoever is registered there.
