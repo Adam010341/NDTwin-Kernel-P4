@@ -365,11 +365,16 @@ class OneRuleOneConstantTest(unittest.TestCase):
         self.assertEqual(hb.REPORT_OWNER_UID, int(expect))
 
     def test_the_topology_manager_reads_its_period_from_the_lldp_constant(self):
+        # Moved off its default, so a copy of the number (5) cannot pass for reading the constant
+        # -- what NDTWIN_P4_BEACON_S does to a real proxy.
+        from unittest import mock
+
         topo = tm.TopologyManager()
         rd = ReportDir(self)
-        evidence = topo.start_heartbeat_watchdog(path=rd.path, owner_uid=rd.uid)
+        with mock.patch.object(tm, "LLDP_BEACON_INTERVAL_S", 2.5):
+            evidence = topo.start_heartbeat_watchdog(path=rd.path, owner_uid=rd.uid)
         self.addCleanup(topo.stop_link_watchdog)
-        self.assertEqual(evidence.period_s, tm.LLDP_BEACON_INTERVAL_S)
+        self.assertEqual(evidence.period_s, 2.5)
 
 
 if __name__ == "__main__":
