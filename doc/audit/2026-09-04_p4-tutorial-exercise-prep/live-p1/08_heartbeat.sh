@@ -1622,6 +1622,41 @@ open(p + ".tmp", "w").write(json.dumps(doc)); os.replace(p + ".tmp", p)' "$rep" 
     else
         red "  a sampler that cannot start: $(tr '\n' ' ' <<<"$got")"
     fi
+    # the stop path's last read, made deterministic: at 1 s reads, a `stopped` rewrite and the
+    # stop asked for in the same breath are on record only because the sampler reads once more
+    # when it sees the stop file (the daemon's final counters, however the timing falls)
+    got="$( d3="$t/h5s_final"; mkdir -p "$d3"
+            RUN="$d3"; HB_REPORT_FILE="$d3/report.json"; SAMPLER_PID=""; SAMPLER_STOP=""; SAMPLER_INTERVAL_S=1.0
+            note() { :; }; fail() { echo "fail: $*"; }; bad() { :; }
+            wr3() { "$VPY" -I -c 'import json, os, sys
+p = sys.argv[1]
+doc = {"status": sys.argv[2], "session": "cccc", "pid": 1,
+       "side_effects": {"forwarded_to_hosts": int(sys.argv[3]), "forwarded_between_switches": int(sys.argv[4])}}
+open(p + ".t", "w").write(json.dumps(doc)); os.replace(p + ".t", p)' "$HB_REPORT_FILE" "$@"; }
+            wr3 running 0 0
+            sampler_start "$d3/samples.tsv" >/dev/null
+            sleep 1.3
+            wr3 stopped 5 6
+            sampler_stop
+            tail -1 "$d3/samples.tsv" | cut -f2,3,5,6 )" || true
+    [[ "$got" == $'stopped\tcccc\t5\t6' ]] \
+        && ok "  the stop path reads once more: a 'stopped' rewrite just before sampler_stop is on record (final counters 5, 6)" \
+        || red "  the stop path's last read: last row '$got'"
+    # report_dirs and graph_until's elapsed branch: the live path runs both on every cut, and
+    # nothing else in this self-test did (the embedded-program sweep of 09-27)
+    got="$(HB_REPORT_FILE="$t/report_phase.json" report_dirs 1 3 3 1)" || true
+    [[ "$got" == "100.250000 100.500000" ]] && ok "report_dirs: each direction's last_heard_mono, a->b then b->a (100.25, 100.5)" \
+                                            || red "report_dirs gave '$got'"
+    got="$(HB_REPORT_FILE="$t/report_phase.json" report_dirs 1 4 4 2)" || true
+    [[ -z "$got" ]] && ok "  report_dirs with one direction missing: no answer" || red "  report_dirs with one direction missing gave '$got'"
+    mkdir -p "$t/k2/ndt"; cp "$t/graph_up.json" "$t/k2/ndt/get_graph_data"
+    got="$( T_CUT="$(awk -v n="$EPOCHREALTIME" 'BEGIN{printf "%.6f", n - 1.5}')"; KERNEL_URL="file://$t/k2"
+            graph_until 2 0.1 edges_up "$t/gu2.json" "$t/model.json" >/dev/null; cat "$t/gu2.json.elapsed" )" || true
+    if [[ "$got" =~ ^[0-9]+\.[0-9]{2}$ ]] && awk -v e="$got" 'BEGIN{exit !(e >= 1.5 && e < 3.5)}'; then
+        ok "graph_until after a cut: the elapsed time from T_CUT to the poll that said OK ($got s after a cut 1.5 s back)"
+    else
+        red "graph_until after a cut gave elapsed '$got'"
+    fi
     # --- H1's exit, read where Adam reads it: the run's LAST line (the judge's F1 and 8.2) ---------
     # [Co-developed with claude code -- Adam] One stubbed cycle through the real cut_cycle, H1's
     # strict conclusion and the real teardown (w_finish -> finish) with a fake ndt. An OVER cycle
