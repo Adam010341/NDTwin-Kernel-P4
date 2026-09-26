@@ -12,6 +12,8 @@
 # back to their round-6 form) and L1 / L2 -- the teardown of the FIRST LIVE RUN (09-26 10:30): no
 # re-claim without measuring= before `ndt down`, and a release whatever `ndt down` answered -- with
 # rows that put back one piece of the round-7 fix each (the ones marked MUTANT guard new code).
+# Round 7b adds R7-1 / R7-2 (the round-7 verdict's findings: the CLAIM_MINUTES default below the
+# sources, and the census building an arm after a refused down) and mutants for notes 3 and 4.
 #
 # For each REVERT below: a copy of S_heartbeat_spike.sh and a copy of hb_watch.py are written
 # BESIDE the real ones (same directory, so SPIKE_DIR / LIVE_P1 / REPO resolve exactly as for the
@@ -356,6 +358,99 @@ REVERTS = {
 ''', 1),
     ], [
         ("a knob that could not be put back after a re-claim", "last line 'PASS S_heartbeat'"),
+    ]),
+    # Round 7's verdict (fable, on a77b8fe2): R7-1 and R7-2 are past forms -- the a77b8fe2 code; the
+    # rows with a `/` and R7-3 / R7-4/* are MUTANTS of code that had no older wrong shape (notes 3-4
+    # added scenarios, not code).
+    "R7-1": ("round-7 finding 1: the spike's CLAIM_MINUTES default below the sources, where _common.sh's 45 wins", [
+        ("spike", '''# 🔴 AND THE CLAIM'S MINUTES, FOR THE SAME REASON (round-7 verdict, finding 1). _common.sh runs
+# `: "${CLAIM_MINUTES:=45}"` when it is sourced; written below the `source`, this default never took
+# effect -- the 09-26 live run claimed "for 45m", which PART=all (detection + 26 census arms, over
+# an hour) outlives. A CLAIM_MINUTES from the caller still wins. The self-test runs everything above
+# self_test() and reads back every such default.
+: "${CLAIM_MINUTES:=180}"
+''', '', 1),
+        ("spike", '''EXERCISES="${ONLY:-$ALL_EXERCISES}"; EXERCISES="${EXERCISES//,/ }"
+''', '''EXERCISES="${ONLY:-$ALL_EXERCISES}"; EXERCISES="${EXERCISES//,/ }"
+: "${CLAIM_MINUTES:=180}"
+''', 1),
+    ], [
+        ("a default the spike sets is NOT what its run gets (source order)",
+         "CLAIM_MINUTES: the spike sets '180', a PART=all run gets '45'"),
+    ]),
+    "R7-2": ("round-7 finding 2: the a77b8fe2 census -- after a refused arm down, the next arm is built", [
+        ("spike", '''            note "no switch-to-switch link: no heartbeat frame enters this fabric"
+            census_down "$dir/90_down.txt" "$ex" "$which" || { census_skip_rest "$ex" "$which"; return 0; }
+            (( ARM_DOWN_RC == 0 )) || fail "census $ex/$which: 'ndt down' exited $ARM_DOWN_RC"
+''', '''            note "no switch-to-switch link: no heartbeat frame enters this fabric"
+            nd_down "$dir/90_down.txt" || fail "census $ex/$which: 'ndt down' failed"
+''', 1),
+        ("spike", '''            census_down "$dir/90_down.txt" "$ex" "$which" || { census_skip_rest "$ex" "$which"; return 0; }
+''', '''            nd_down "$dir/90_down.txt" || true
+''', 3),
+        ("spike", '''        census_down "$dir/90_down.txt" "$ex" "$which" && rc=0 || rc=1
+''', '''        nd_down "$dir/90_down.txt" && rc=0 || rc=$?
+        (( rc == 0 )) || fail "census $ex/$which: 'ndt down' exited $rc"
+''', 1),
+        ("spike", '''        # This arm's reading stands -- it was taken on its own fabric, and judged above -- and
+        # nothing is built after a refused down.
+        (( rc == 0 )) || { census_skip_rest "$ex" "$which"; return 0; }
+        (( ARM_DOWN_RC == 0 )) || fail "census $ex/$which: 'ndt down' exited $ARM_DOWN_RC"
+''', '', 1),
+    ], [
+        ("census, an arm's 'ndt down' refused (measured arm)", "ndt calls: up;down;up;down"),
+        ("census, an arm's 'ndt down' refused (no link (rc 3))", "ndt calls: up;down;up;down"),
+        ("census, an arm's 'ndt down' refused ('ndt up' failed)", "ndt calls: up;down;up;down"),
+        ("census, an arm's 'ndt down' refused (heartbeat start failed)", "ndt calls: up;down;up;down"),
+        ("census, an arm's 'ndt down' refused (start named no pid)", "ndt calls: up;down;up;down"),
+    ]),
+    "R7-2/stop": ("a MUTANT: census_down records a refused down and lets the census go on", [
+        ("spike", '''    fail "census $2/$3: 'ndt down' exited $ARM_DOWN_RC -- the census STOPS here: that fabric may still be up, and the next arm's 'ndt up p4 --app' would reuse it ('already up ... reusing') and measure this arm's pipeline under its own name"
+    return 1
+''', '''    fail "census $2/$3: 'ndt down' exited $ARM_DOWN_RC -- the census STOPS here: that fabric may still be up, and the next arm's 'ndt up p4 --app' would reuse it ('already up ... reusing') and measure this arm's pipeline under its own name"
+    return 0
+''', 1),
+    ], [
+        ("census, an arm's 'ndt down' refused (measured arm)", "ndt calls: up;down;up;down"),
+        ("census, an arm's 'ndt down' refused (no link (rc 3))", "ndt calls: up;down;up;down"),
+        ("census, an arm's 'ndt down' refused ('ndt up' failed)", "ndt calls: up;down;up;down"),
+        ("census, an arm's 'ndt down' refused (heartbeat start failed)", "ndt calls: up;down;up;down"),
+        ("census, an arm's 'ndt down' refused (start named no pid)", "ndt calls: up;down;up;down"),
+    ]),
+    "R7-2/always": ("a MUTANT: census_down stops the census after every down, refused or not", [
+        ("spike", '''    (( ARM_DOWN_RC == 0 || ARM_DOWN_RC == 3 )) && return 0
+''', '', 1),
+    ], [
+        # the control: two arms whose downs go through must both be built
+        ("a census of two arms whose downs go through", "ndt calls: up;down,"),
+        # and the stubbed census arm, whose down answers 0
+        ("a census arm with the new daemon's report", "the census STOPS here"),
+    ]),
+    "R7-3": ("a MUTANT (note 3): a teardown down that did not verify clean (rc 1) counts as down, and is released", [
+        ("spike", '''    if [[ "$TEARDOWN_DOWN_RC" != 0 && "$TEARDOWN_DOWN_RC" != 3 ]]; then
+        keep_claim
+''', '''    if [[ "$TEARDOWN_DOWN_RC" != 0 && "$TEARDOWN_DOWN_RC" != 3 && "$TEARDOWN_DOWN_RC" != 1 ]]; then
+        keep_claim
+''', 1),
+    ], [
+        ("a teardown whose 'ndt down' did not verify clean (rc 1)", "lab.claim: none (released)"),
+    ]),
+    "R7-4/theirs": ("a MUTANT (note 4): keep_claim says nothing when the claim it cannot rewrite is another owner's", [
+        ("spike", '''    else
+        echo "!! -- and could NOT rewrite it ($(basename "$kept")). It reads owner=$(lab_claim_field owner): if that is not"
+        echo "!!    $NDT_OWNER, the fabric is under THEIR claim now -- tell them, do not tear it down from here."
+    fi
+''', '''    fi
+''', 1),
+    ], [
+        ("a lab another owner claimed mid-run", "it never said whose claim the fabric is under"),
+    ]),
+    "R7-4/floor": ("a MUTANT (note 4): a re-claim of a lapsed claim keeps 'what is left' -- nothing", [
+        ("spike", '''    if (( left > $1 )); then echo "$left"; else echo "$1"; fi
+''', '''    echo "$left"
+''', 1),
+    ], [
+        ("a claim that lapsed mid-run", "lab claimed by hb-selftest for 0m"),
     ]),
 }
 RED = "\U0001f534"

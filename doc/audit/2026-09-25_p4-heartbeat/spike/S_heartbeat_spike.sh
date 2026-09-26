@@ -47,6 +47,9 @@
 #   exercise, nothing retried, no workaround. The first sniffer that sees one exits at once; the
 #   watch loop then stops the heartbeat and tells every other sniffer to stop (a stop file) --
 #   not at the end of the window (judge #11, round 2).
+#   An arm whose `ndt down` answers anything but 0 or 3 stops the census too: the next arm's
+#   `ndt up p4 --app` would reuse that fabric ("already up ... reusing"). The arms not reached get
+#   a `skipped` row; the run is FAIL (round-7 verdict, finding 2).
 #   p4runtime and flowcache are exercises whose own controller fills the tables; the census does
 #   NOT start those controllers, so their pipelines meet the heartbeat with the package's entries
 #   only. H5 (segment W) is where 06 runs in full, controllers and all, with the heartbeat on.
@@ -1382,7 +1385,7 @@ DRIVER
        && grep -q 'It reads owner=someone-else' "$st_tmp/claim_theirs/out" \
        && grep -q 'the fabric is under THEIR claim now' "$st_tmp/claim_theirs/out" \
         && ok "  a lab another owner claimed mid-run: no re-claim takes, no down, their claim untouched, no release, and it says whose claim the fabric is under (set -e process)" \
-        || red "  a lab another owner claimed mid-run: $(st_cs theirs)"
+        || red "  a lab another owner claimed mid-run: $(st_cs theirs)$(grep -q 'the fabric is under THEIR claim now' "$st_tmp/claim_theirs/out" || echo '; it never said whose claim the fabric is under')"
     # (h) this run's claim lapsed and nobody took it: the re-claim before the down takes the lab
     # again -- for the 15-minute floor, not for what is left of a lease that is gone -- the down
     # goes through, and the release goes as designed.
