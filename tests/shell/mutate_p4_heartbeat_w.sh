@@ -168,27 +168,70 @@ PY
 ) || { echo "REFUSE: could not enumerate the new tests"; exit 2; }
 { sed -n 's/^ID //p' "$NEW_IDS.raw"; printf '%s\n' "$NEW_TESTS"; } | sort -u > "$NEW_IDS"
 echo "  new proxy tests to be seen red: $(wc -l < "$NEW_IDS")"
-missing=$("$PY" - "$REPO" "$TICKET_BASE" "$NEW_CLASSES" <<'PY'
+# [Co-developed with claude code -- Adam]
+# 🔴 THE SCAN READS THIS SEGMENT'S OWN HEAD, NOT THE WORKING TREE. Read from the working tree,
+# "every class added since TICKET_BASE" is also every class any LATER ticket adds, so this gate
+# would go red on trunk the first time somebody else adds a proxy test -- which is exactly what
+# the first cut's mutate_roles_binding.sh does at this segment's head (its NEW_CLASSES check,
+# pinned to 6291db35, lists the 18 classes added here and counts them as its survivor).
+# CLASSES_AT is the last commit of this segment that added a test class. A later round of this
+# ticket that adds one moves it, or runs with CLASSES_AT=worktree while it is uncommitted. It
+# must be an ancestor of HEAD: a history that lost it (a squash-merge) is refused, not scanned
+# as "no classes, none missing".
+CLASSES_AT="${CLASSES_AT:-d57531d9cf53b65ffaa8d904a7f7ff3689093860}"
+if [[ "$CLASSES_AT" != worktree ]] && ! git -C "$REPO" merge-base --is-ancestor "$CLASSES_AT" HEAD 2>/dev/null; then
+    echo "REFUSE: CLASSES_AT $CLASSES_AT is not an ancestor of HEAD -- which classes this segment added cannot be read"
+    exit 2
+fi
+# scan_classes <NEW_CLASSES> -- every module:class added between TICKET_BASE and CLASSES_AT that
+# the given list does not cover, one per line.
+scan_classes() {
+    "$PY" - "$REPO" "$TICKET_BASE" "$CLASSES_AT" "$1" <<'PY'
 import ast, glob, os, subprocess, sys
-repo, base, listed = sys.argv[1], sys.argv[2], sys.argv[3].split()
+repo, base, at, listed = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4].split()
 wild = {s.split(":")[0] for s in listed if s.endswith(":*")}
 def classes(src):
     return {n.name for n in ast.parse(src).body if isinstance(n, ast.ClassDef)
             and any(isinstance(f, ast.FunctionDef) and f.name.startswith("test") for f in n.body)}
-for p in sorted(glob.glob(f"{repo}/p4_proxy/tests/test_*.py")):
-    rel, module = os.path.relpath(p, repo), "tests." + os.path.basename(p)[:-3]
-    shown = subprocess.run(["git", "-C", repo, "show", f"{base}:{rel}"], capture_output=True, text=True)
-    then = classes(shown.stdout) if shown.returncode == 0 else set()
-    for cls in sorted(classes(open(p).read()) - then):
+def show(rev, rel):
+    r = subprocess.run(["git", "-C", repo, "show", f"{rev}:{rel}"], capture_output=True, text=True)
+    return r.stdout if r.returncode == 0 else None
+if at == "worktree":
+    rels = sorted(os.path.relpath(p, repo) for p in glob.glob(f"{repo}/p4_proxy/tests/test_*.py"))
+    read = lambda rel: open(f"{repo}/{rel}").read()
+else:
+    names = subprocess.run(["git", "-C", repo, "ls-tree", "--name-only", at, "p4_proxy/tests/"],
+                           capture_output=True, text=True, check=True).stdout.split()
+    rels = sorted(r for r in names if os.path.basename(r).startswith("test_") and r.endswith(".py"))
+    read = lambda rel: show(at, rel)
+if not rels:
+    sys.exit("no test modules at " + at)
+for rel in rels:
+    module = "tests." + os.path.basename(rel)[:-3]
+    then_src = show(base, rel)
+    then = classes(then_src) if then_src is not None else set()
+    for cls in sorted(classes(read(rel)) - then):
         if module not in wild:
             print(f"{module}:{cls}")
 PY
-) || { echo "REFUSE: could not compare the test classes with $TICKET_BASE"; exit 2; }
+}
+missing=$(scan_classes "$NEW_CLASSES") \
+    || { echo "REFUSE: could not compare the test classes with $TICKET_BASE"; exit 2; }
+# The scan's own control: with one module left off the list it must name that module's classes. A
+# scan that read nothing (a wrong pin, an empty listing) would otherwise pass as "none missing".
+probe=$(scan_classes "${NEW_CLASSES/tests.test_flowentry_read_only:\*/}") \
+    || { echo "REFUSE: the class scan's control could not run"; exit 2; }
+if ! /usr/bin/grep -qx 'tests.test_flowentry_read_only:ARefusedWriteIsA409Test' <<<"$probe"; then
+    echo "REFUSE: the class scan cannot see an omission (its control named: ${probe:-nothing})"
+    exit 2
+fi
 if [[ -n "$missing" ]]; then
-    echo "  🔴 NEW_CLASSES omits class(es) added since $TICKET_BASE:"; sed 's/^/       /' <<<"$missing"
+    echo "  🔴 NEW_CLASSES omits class(es) added between $TICKET_BASE and ${CLASSES_AT:0:8}:"
+    sed 's/^/       /' <<<"$missing"
     SURVIVORS=$((SURVIVORS+1))
 else
-    echo "  NEW_CLASSES names every TestCase class added since $TICKET_BASE"
+    echo "  NEW_CLASSES names every TestCase class added between $TICKET_BASE and ${CLASSES_AT:0:8}" \
+         "(the scan's control, one module left off, named its classes)"
 fi
 rm -rf "$base"
 echo
