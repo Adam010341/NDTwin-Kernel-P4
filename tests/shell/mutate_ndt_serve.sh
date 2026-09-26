@@ -38,8 +38,11 @@ JOBS_PY="$REPO/tools/ndt_serve/jobs.py"
 RUNNER_PY="$REPO/tools/ndt_serve/runner.py"
 CELLS_PY="$REPO/tools/ndt_serve/cells.py"
 DEMO_PY="$REPO/tools/ndt_serve/demo_sequence.py"
+# [Co-developed with claude code -- Adam] the README is prose the suite now holds to ndt (its lock
+# probe citation, RcProvenance), so a mutant tree carries it and the gate watches it too
+README_MD="$REPO/tools/ndt_serve/README.md"
 NDT="$REPO/tools/test_workflow/ndt"
-SUBJECTS=("$SERVE_PY" "$VERBS_PY" "$JOBS_PY" "$RUNNER_PY" "$CELLS_PY" "$DEMO_PY" "$NDT")
+SUBJECTS=("$SERVE_PY" "$VERBS_PY" "$JOBS_PY" "$RUNNER_PY" "$CELLS_PY" "$DEMO_PY" "$README_MD" "$NDT")
 BK=$(mktemp -d "${TMPDIR:-/tmp}/ndt-serve-mutate-XXXXXX")
 trap 'rm -rf "$BK"' EXIT
 BASE_SHA=$(sha256sum "${SUBJECTS[@]}")
@@ -50,7 +53,7 @@ MUTATIONS=0
 layout() {   # $1 = dir -- a copy of the service and of ndt with what it sources
     local d="$1"
     mkdir -p "$d/tools/ndt_serve" "$d/tools/test_workflow"
-    cp "$SERVE_PY" "$VERBS_PY" "$JOBS_PY" "$RUNNER_PY" "$CELLS_PY" "$DEMO_PY" "$d/tools/ndt_serve/"
+    cp "$SERVE_PY" "$VERBS_PY" "$JOBS_PY" "$RUNNER_PY" "$CELLS_PY" "$DEMO_PY" "$README_MD" "$d/tools/ndt_serve/"
     cp "$NDT" "$REPO/tools/test_workflow/ports.sh" "$REPO/tools/test_workflow/sudo_surface.sh" \
        "$REPO/tools/test_workflow/components.env" "$d/tools/test_workflow/"
     chmod +x "$d/tools/test_workflow/ndt"
@@ -716,6 +719,19 @@ m=$(mutant m63 "$VERBS_PY" \
 report "M63: apps.start rc 1 cites proc_checkout's return 1 (09-24's line 8315, 8439 since segment W)" "$m" \
        RcProvenance.test_code_sourced_tables_are_in_ndt
 
+
+# [Co-developed with claude code -- Adam] The opus judge's N1-1 (09-27): the README's lock probe
+# citation was left at its pre-segment-W lines; the suite now holds every such citation to ndt.
+m=$(mutant m64 "$README_MD" \
+    'lock probes to the kernel (ndt:9416-9431)' \
+    'lock probes to the kernel (ndt:9292-9307)')
+report "M64: the README cites the lock probes where they were before segment W (ndt:9292-9307)" "$m" \
+       RcProvenance.test_lock_probe_citations_are_lock_probe
+m=$(mutant m65 "$SERVE_PY" \
+    'probes to the kernel (ndt:9416-9431)' \
+    'probes to the kernel (ndt:9416-9420)')
+report "M65: serve.py's docstring cites lock_probe's comment but not its POST" "$m" \
+       RcProvenance.test_lock_probe_citations_are_lock_probe
 
 m=$(mutant m62 "$SERVE_PY" \
     '    request_queue_size = 64' \
