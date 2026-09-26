@@ -20,7 +20,9 @@
 # 🔴 EVERY MUTANT IS A COPY. p4_proxy/ (proxy_agent, tests, mininet, p4_src) and tools/p4_exercise
 # are copied under a temp dir laid out like the repo; ndt is copied beside its siblings; 08 is
 # copied with _common.sh, faults.sh and census_prepare.py; the root helper, which this ticket
-# does NOT change, is only ever COPIED (for section 7's pins). Every source is re-hashed at the end.
+# does NOT change, is only ever COPIED (for section 7's pins) -- and round 2's K mutants change
+# that COPY's embedded daemon, to show test_heartbeat_contract sees a rename in the writer. Every
+# source is re-hashed at the end, the helper among them. [Co-developed with claude code -- Adam]
 #
 # Usage:  tests/shell/mutate_p4_heartbeat_w.sh           PROXY_PY=/path/to/python to choose one
 # Exit:   0 every mutation caught, every control green, every new test seen red;
@@ -42,11 +44,11 @@ SOURCES=("$HBMOD" "$TOPOMGR" "$MAIN" "$ROUTES" "$NDT" "$HELPER" "$LIVE08" "$NDT_
 TICKET_BASE=580767a8
 
 MODULES="tests.test_link_heartbeat tests.test_heartbeat_watchdog tests.test_heartbeat_fabric \
-tests.test_flowentry_read_only tests.test_link_state_entry tests.test_route_binding \
+tests.test_heartbeat_contract tests.test_flowentry_read_only tests.test_link_state_entry tests.test_route_binding \
 tests.test_link_watchdog tests.test_declared_links tests.test_switch_state tests.test_startup"
 
 NEW_CLASSES="tests.test_link_heartbeat:* tests.test_heartbeat_watchdog:* \
-tests.test_heartbeat_fabric:* tests.test_flowentry_read_only:*"
+tests.test_heartbeat_fabric:* tests.test_heartbeat_contract:* tests.test_flowentry_read_only:*"
 #: Two first-cut tests the ticket changed on purpose (6e246f2d), asserted as they are now.
 NEW_TESTS="tests.test_route_binding.AWriteWithNoBindingIs501OnTheRenamedFixtureTest.test_an_external_control_plane_refuses_first_as_it_always_did
 tests.test_link_state_entry.TheEntryIsNotWiredInThisCutTest.test_its_one_caller_is_the_watchdog_pass_ingesting_the_heartbeat"
@@ -174,11 +176,12 @@ echo "  new proxy tests to be seen red: $(wc -l < "$NEW_IDS")"
 # would go red on trunk the first time somebody else adds a proxy test -- which is exactly what
 # the first cut's mutate_roles_binding.sh does at this segment's head (its NEW_CLASSES check,
 # pinned to 6291db35, lists the 18 classes added here and counts them as its survivor).
-# CLASSES_AT is the last commit of this segment that added a test class. A later round of this
-# ticket that adds one moves it, or runs with CLASSES_AT=worktree while it is uncommitted. It
+# CLASSES_AT is the last commit of this segment that added a test class (round 2 moved it from
+# d57531d9 to f8309d02, test_heartbeat_contract). A later round of this ticket that adds one
+# moves it, or runs with CLASSES_AT=worktree while it is uncommitted. It
 # must be an ancestor of HEAD: a history that lost it (a squash-merge) is refused, not scanned
 # as "no classes, none missing".
-CLASSES_AT="${CLASSES_AT:-d57531d9cf53b65ffaa8d904a7f7ff3689093860}"
+CLASSES_AT="${CLASSES_AT:-f8309d022bfce242af330976df0e292b98f2fc85}"
 if [[ "$CLASSES_AT" != worktree ]] && ! git -C "$REPO" merge-base --is-ancestor "$CLASSES_AT" HEAD 2>/dev/null; then
     echo "REFUSE: CLASSES_AT $CLASSES_AT is not an ancestor of HEAD -- which classes this segment added cannot be read"
     exit 2
@@ -733,6 +736,56 @@ m=$(mutant a07 "$ROUTES" \
     '@router.post("/stats/flowentry/delete_strict_x")')
 report "A07: delete_strict is not the delete handler" "$m" "test_both_delete_routes_are_that_handler"
 
+# [Co-developed with claude code -- Adam] Round 2 (the fable judge on 1a3ebd7f): the census text
+# (its 2.1) and the contract between the two writers (its 8.1). The K mutants change the ROOT
+# HELPER's embedded daemon -- in the mutant's copy only; the helper itself is never written, and
+# the gate checks it byte-identical at the end -- because the contract test is what stands between
+# a rename in the writer and a proxy reading `heartbeat_report_unreadable` (or zero hosts) live.
+echo "round 2: the census, and the helper's report as the proxy reads it"
+m=$(mutant m28 "$MAIN" \
+    '               "skeletons do not build. Segment S'"'"'s census started the heartbeat by hand (the "
+               "helper, not ndt) on all 20; `ndt up p4 --app` starts it on 17 of them -- the other "
+               "3 (p4runtime skeleton and solution, flowcache solution) are external control "
+               "planes, where `ndt up` does not start it.",' \
+    '               "skeletons do not build.",')
+report "M28: the census does not say which 17 arms ndt up starts it on" "$m" \
+       "test_the_census_says_which_of_its_arms_ndt_up_starts_the_heartbeat_on"
+m=$(mutant k01 "$HELPER" \
+    '        end = lambda port: {"dpid": port.dpid, "port": port.port, "ifname": port.ifname}' \
+    '        end = lambda port: {"switch_dpid": port.dpid, "port": port.port, "ifname": port.ifname}')
+report "K01: the writer renames an endpoint's dpid" "$m" \
+       "test_a_running_daemon_that_heard_every_direction_is_usable_evidence"
+m=$(mutant k02 "$HELPER" \
+    '            "written_mono": now_mono, "written_wall": now_wall,' \
+    '            "written_at": now_mono, "written_wall": now_wall,')
+report "K02: the writer renames written_mono" "$m" \
+       "test_a_running_daemon_that_heard_every_direction_is_usable_evidence"
+m=$(mutant k03 "$HELPER" \
+    '            "period_s": PERIOD_S,' \
+    '            "period": PERIOD_S,')
+report "K03: the writer renames period_s" "$m" \
+       "test_a_running_daemon_that_heard_every_direction_is_usable_evidence"
+m=$(mutant k04 "$HELPER" \
+    '                "forwarded_to_hosts": hosts,' \
+    '                "to_hosts": hosts,')
+report "K04: the writer renames forwarded_to_hosts (ruling 4 would read zero)" "$m" \
+       "test_a_frame_leaving_a_host_port_reaches_the_proxy_as_forwarded_to_hosts"
+m=$(mutant k05 "$HELPER" \
+    '            "stop_reason": stop_reason,' \
+    '            "reason": stop_reason,')
+report "K05: the writer renames stop_reason" "$m" \
+       "test_a_stopped_daemons_last_report_is_not_evidence_and_says_why"
+m=$(mutant k06 "$HELPER" \
+    '        os.chmod(tmp, 0o644)' \
+    '        os.chmod(tmp, 0o664)')
+report "K06: the writer leaves a group-writable report" "$m" \
+       "test_the_file_the_daemons_writer_leaves_is_one_the_proxy_trusts"
+m=$(mutant k07 "$HELPER" \
+    '        rec["last_heard_mono"], rec["last_heard_wall"] = now_mono, now_wall' \
+    '        rec["heard_mono"], rec["last_heard_wall"] = now_mono, now_wall')
+report "K07: the writer records a heard frame under another key" "$m" \
+       "test_a_running_daemon_that_heard_every_direction_is_usable_evidence"
+
 # === ndt ===========================================================================================
 echo
 echo "ndt"
@@ -1249,6 +1302,40 @@ m=$(lmutant l42 "$LIVE08" \
     '        res="$(cut -f12 <<<"$RESTORE_ROW")"' \
     '        res="$(cat "$gout.elapsed")"')
 lreport "L42: the recovery time is the poll's, not the record's" "$m" "restore_cycle gave"
+
+# [Co-developed with claude code -- Adam] Round 2, the fable judge's F1 on 1a3ebd7f: H1 is judged
+# on the strict 20 s, and the count of cycles over it leads the run's last line.
+m=$(lmutant l43 "$LIVE08" \
+    '        VERDICT_RC=1
+        VERDICT_WHY="$msg${VERDICT_WHY:+ (first failure before it: $VERDICT_WHY)}"
+        bad "$msg"' \
+    '        note "$msg"')
+lreport "L43: an OVER cycle is only noted (the F1 defect: the run ends PASS)" "$m" \
+        "H1's last line with an OVER cycle was"
+m=$(lmutant l44 "$LIVE08" \
+    '        judge "$(verdict strict "$CYCLE_ROW" "$DETECT_BOUND_S")" "$label detection time"' \
+    '        judge "$(verdict budget "$CYCLE_ROW" "$DETECT_BOUND_S")" "$label detection time"')
+lreport "L44: the cycle's verdict is the budget again" "$m" "cut_cycle gave"
+m=$(lmutant l45 "$LIVE08" \
+    '        [[ "$CYCLE_STRICT" == OVER* ]] && STRICT_OVER=$(( STRICT_OVER + 1 ))' \
+    '        :')
+lreport "L45: an OVER cycle is not counted" "$m" "H1's last line with an OVER cycle was"
+m=$(lmutant l46 "$LIVE08" \
+    '        VERDICT_RC=1
+        VERDICT_WHY="$msg${VERDICT_WHY:+ (first failure before it: $VERDICT_WHY)}"' \
+    '        fail "$msg"')
+lreport "L46: an earlier failure pushes the OVER count off the last line" "$m" \
+        "  H1's last line after an earlier failure was"
+m=$(lmutant l47 "$LIVE08" \
+    '    if d <= b:
+        return f"OK detection {d:.3f} s, within the strict {b:g} s"' \
+    '    if d <= b + 1.0:
+        return f"OK detection {d:.3f} s, within the strict {b:g} s"')
+lreport "L47: the strict bound has a second of slack" "$m" "cut_cycle gave"
+m=$(lmutant l48 "$LIVE08" \
+    '    local psi="one run samples one psi (watchdog_phase_s in 30_cycles.tsv): the worst psi is not guaranteed to have been sampled"' \
+    '    local psi="see 30_cycles.tsv"')
+lreport "L48: the one-psi caveat is not printed" "$m" "H1's last line with an OVER cycle was"
 
 # --- a control that must stay green ----------------------------------------------------------------
 m=$(mutant c1 "$HBMOD" \
