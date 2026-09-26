@@ -10,7 +10,7 @@
   - **INFERRED**＝由常數、讀碼或對 OBSERVED 數字做算術推得，**沒有執行過**。
   - **READ**＝讀程式或先前文件所得，這兩次 run 沒有驗證。
   - 跑過的與讀過未執行的分表，不混。
-- raw 已提交到 `audit-raw` 分支 commit `1fafa3a0`。CHECKED：352 個 run 檔與下列 log 的 sha256 與工作副本相同。公開與否本文件沒有用未認證 URL 查證。
+- raw 已提交到 `audit-raw` 分支 commit `1fafa3a0`，而且是公開的：orchestrator 做過未認證的 https 檢查（`judge/public-verify-20260926T063944Z.log`：兩個 P4 repo 以不帶憑證的 `git ls-remote` 都讀回 `audit-raw` `1fafa3a0`，不帶憑證的 `curl` `/tree/audit-raw` 都回 HTTP 200）。CHECKED：352 個 run 檔與下列 log 的 sha256 與工作副本相同。
 - 路徑縮寫（全部 repo-relative）：
   - `R1/`＝`doc/audit/2026-09-25_p4-heartbeat/spike/runs/2026-09-26T023021Z_S_heartbeat/`
   - `R2/`＝`doc/audit/2026-09-25_p4-heartbeat/spike/runs/2026-09-26T052148Z_S_heartbeat/`
@@ -31,15 +31,15 @@
 ## 1. 結論
 
 1. **偵測（OBSERVED），全部是單一相位下的值**：兩次共 20 次剪線、20 次復原全部判到。
-   - 剪線 → 報告層級兩向判不通：13.275／14.293／14.382 s（min／median／max）。
-   - 拿掉 netem → daemon 兩向重新聽到：4.813／4.864／4.910 s。這是 **daemon 接收層級**，不是報告層級。報告在聽到之後約 0.5 s 才重寫，所以報告層級約 5.31–5.41 s（INFERRED，§2.3）。
+   - 剪線 → 報告層級兩向判不通：13.275／14.2935／14.382 s（min／median／max）。
+   - 拿掉 netem → daemon 兩向重新聽到：4.813／4.8635／4.910 s。這是 **daemon 接收層級**，不是報告層級。報告在聽到之後約 0.5 s 才重寫，所以報告層級約 5.31–5.41 s（INFERRED，§2.3）。
    - 這些數字是**一個被量測迴圈鎖住的相位**下量到的：cycle 2–10 的剪線落在最後一次送出之後 φ≈0.6–0.8 s（cycle 1 約 1.7 s），復原落在某次送出之後約 0.1–0.2 s（§2.3）。**不是分布，也不是最壞情況。**
-   - down 每一次都 ≤ 15 s 是量法本身保證的，不是發現：規則在最後一次被聽到之後 15 s 成立，而最後一次被聽到一定在剪線之前。
+   - down 每一次都 ≤ 15 s＋輪詢（spike 每 0.1 s 讀一次報告）是量法本身保證的，不是發現：規則在最後一次被聽到之後 15 s 成立，而最後一次被聽到一定在剪線之前。
 2. **對工單 ≤20 s（INFERRED）：不是保證。**
    - 最壞相位（剪線緊接在一次送出之後，φ→0）下，報告層級約 15 s。段 W 再加最多一次 watchdog pass（`LINK_WATCHDOG_INTERVAL_S=5`），常數本身就用完 20 s；讀檔、`_notify_link` 的 HTTP、kernel 更新圖會使它**超過 20 s**。
    - 這次相位下的 14.382＋5＝19.382 s 是相位鎖住的值，不是上界。
-   - 自家 fabric 用同一條規則、同一組常數（`topology_manager.py:411` 自述從最後一次 beacon 起算「15 to 20 s」），所以兩邊是同一性質，不是心跳比較快或比較慢。
-3. **工單要的「分布」這次只以單一相位交付。** orchestrator 已決定補一輪去相位鎖的 detect：改 spike，再跑一次 live。**本文件寫作時還沒有結果**（§2.4）。
+   - 自家 fabric 用同一條規則、同一組常數（`topology_manager.py:411` 只寫「15 to 20 s」；「從最後一次 beacon 起算」是我的讀法），所以**剪線方向**兩邊是同一性質，不是心跳比較快或比較慢。復原方向不同：心跳的「聽到」要經過報告，約晚 0.5 s 才讓 proxy 看得到（INFERRED，§2.1）。
+3. **工單要的「分布」這次只以單一相位交付。** orchestrator 已決定補一輪去相位鎖的 detect：改 spike，再跑一次 live（出處見 §2.4）。**本文件寫作時還沒有結果**。
 4. **副作用普查（OBSERVED）**：26 臂裡有 20 臂真的送了心跳，一共 78 次主機 sniff、每次 20 s。
    - **沒有任何主機收到心跳幀**（依 ethertype 或 payload 都沒有）。daemon 計數 `forwarded_to_hosts`／`forwarded_between_switches`／`misdelivered`／`foreign_frames` 在 20 臂全部是 0。
    - 所以**沒有觸發段 S 對裁決 4 的操作化停止條件**（心跳幀到了主機，或 `forwarded_to_hosts>0`）。
@@ -97,14 +97,14 @@
 | 9 | 14.197 | 4.862 | 0.104 | 14.310 | 4.865 | 0.067 |
 | 10 | 14.293 | 4.826 | 0.071 | 14.219 | 4.907 | 0.076 |
 
-min／median／max 是我用 python `statistics` 從上面兩個 tsv 重算的，兩位小數與 `R*/22_summary.txt` 一致。**全部是同一個相位鎖下的值（§2.3），不是分布。**
+min／median／max 是我用 python `statistics` 從上面兩個 tsv 重算的，兩位小數與 `R*/22_summary.txt` 一致。min／max 是 raw 值（三位小數）；median 一律寫精確值（四位小數）。**全部是同一個相位鎖下的值（§2.3），不是分布。**
 
 | | run 1（n=10） | run 2（n=10） | 合併（n=20） |
 |---|---|---|---|
-| down_s（報告層級） | 13.275／14.290／14.382 | 13.298／14.303／14.311 | 13.275／14.293／14.382 |
-| down_s，只看 cycle 2–10 | 14.197／14.291／14.382 | 14.219／14.303／14.311 | 14.197／14.2965／14.382（n=18） |
-| up_s（daemon 接收層級） | 4.819／4.853／4.910 | 4.813／4.867／4.909 | 4.813／4.864／4.910 |
-| cut_tc_s | 0.070／0.071／0.104 | 0.063／0.073／0.080 | 0.063／0.071／0.104 |
+| down_s（報告層級） | 13.275／14.2905／14.382 | 13.298／14.3025／14.311 | 13.275／14.2935／14.382 |
+| down_s，只看 cycle 2–10 | 14.197／14.2910／14.382 | 14.219／14.3030／14.311 | 14.197／14.2965／14.382（n=18） |
+| up_s（daemon 接收層級） | 4.819／4.8525／4.910 | 4.813／4.8675／4.909 | 4.813／4.8635／4.910 |
+| cut_tc_s | 0.070／0.0715／0.104 | 0.063／0.0730／0.080 | 0.063／0.0715／0.104 |
 
 同一批 raw 的其他 OBSERVED：
 - **qdisc 全樹**：兩次 run 都是 `qdisc state unchanged (32 lines)`（`R*/23_qdisc.diff`）。
@@ -133,24 +133,25 @@ min／median／max 是我用 python `statistics` 從上面兩個 tsv 重算的�
 
 | 項目 | 值 | 怎麼來的 |
 |---|---|---|
-| 報告層級、剪線後判不通，只看常數 | (10, 15] s，外加 spike ≤0.1 s 輪詢；φ→0 時趨近 15 s | 最後一次被聽到在剪線之前 φ∈[0, 5) s，再過 15 s 規則成立。`R*/22_summary.txt` 自己也把這行標成 INFERRED |
+| 報告層級、剪線後判不通，只看常數 | (10, 15] s，外加 spike ≤0.1 s 輪詢；φ→0 時趨近 15 s，但這是極限值：以現行剪法（兩端依序下 tc），兩端都生效的最小 φ 約等於 `cut_tc_s`（0.063–0.104 s） | 最後一次被聽到在剪線之前 φ∈[0, 5) s，再過 15 s 規則成立。`R*/22_summary.txt` 自己也把這行標成 INFERRED |
 | daemon 接收層級、復原後重新聽到，只看常數 | (0, 5] s | 下一輪送出就會被聽到 |
 | 報告層級、復原後，只看常數 | (0.5, 5.5] s | 上一列加上報告寫出的約 0.5 s（§2.1） |
 | 報告層級、復原後，這次相位 | 約 5.313–5.410 s | OBSERVED `up_s` 4.813–4.910 加 0.5。這 0.5 s 是其他快照觀測到的寫入落後，**不是逐 cycle 量到的** |
 | 這次的剪線相位 φ | cycle 2–10：0.62–0.80 s；cycle 1：約 1.7 s | 15−`down_s`，另加 ≤0.1 s 輪詢 |
 | 這次的復原相位 | 送出後約 0.1–0.2 s | 5−`up_s` |
 | 從第一次呼叫 tc 起算的上界，這次相位 | 每個 cycle `down_s＋cut_tc_s` ≤ 14.453 s（run 1 cycle 3） | 第一端的 netem 生效時刻落在 `(t0a, t0)` 之間 |
-| 段 W：剪線到 proxy 判定，**最壞相位** | 常數本身 15＋5＝**20 s**；再加讀檔、`_notify_link` 的 HTTP、kernel 更新圖（都沒量）⇒ **可能超過 20 s** | φ→0，加上 watchdog 最多一整個間隔 |
+| 段 W：剪線到 proxy 判定，**最壞相位** | 常數本身 15＋5＝**20 s**；再加 pass 耗時、讀檔、`_notify_link` 的 HTTP、kernel 更新圖（都沒量）⇒ **可能超過 20 s** | φ→0，加上 watchdog 最多一整個間隔 |
 | 段 W：剪線到 proxy 判定，**這次相位** | 14.382＋(0, 5] ⇒ 最多 19.382 s（從 `t0a` 起算 19.453 s）＋讀檔／HTTP／kernel。**相位鎖住的值，不是上界** | 同上，只是 φ≈0.7 s |
-| watchdog 的附加量怎麼取樣 | 同一個 run 裡，n 個 cycle **不會**均勻取樣 (0, 5] | 見下方 |
+| watchdog 的附加量怎麼取樣 | 同一個 run 裡，n 個 cycle **可能不會**均勻取樣 (0, 5]（條件見下方） | 見下方 |
 | 段 W：復原到 proxy 判定 | 只看常數 ≤ 5.5＋5＝**10.5 s**；這次相位 4.910＋0.5＋5＝10.41 s。兩者都另加 pass 耗時與 kernel | 報告層級復原＋一次 watchdog |
 | H1 若沿用相位鎖迴圈 | 通過只代表「φ≈0.7 s 時通過」，**不代表最壞相位通過** | H1 必須刻意取樣 φ→0，或讓剪線前的延遲在 [0, 5) 均勻隨機並記錄 watchdog 的相對相位（§5.2） |
 | 心跳證明的是什麼 | 那條 veth，不是交換機 | daemon 在對端 veth 上、在交換機之前就讀到幀（READ：`tools/test_workflow/ndtwin-lab` :657-693；`P4-HB-SUMMARY.md` §H.7 第 9 點） |
 
-**watchdog 的附加量為什麼不均勻（READ）：**
+**watchdog 的附加量可能不均勻（前兩點 READ，結論 INFERRED）：**
 - proxy 的 watchdog 是先 `wait(5)` 再跑一次 pass（`topology_manager.py:2050-2053`），所以它的週期是 5 s 加上 pass 耗時。
 - daemon 的送出排程是 `next_round += PERIOD_S`，從啟動時刻起算、不漂移（`ndtwin-lab:1313`、:1331）；只有某輪遲到時才從當下重設（:1332-1333）。
-- 兩者的相對相位只會隨 pass 耗時慢慢漂，所以同一個 run 裡的 n 個 cycle，看到的 watchdog 附加量大致固定。
+- 所以兩者的相對相位每次 pass 漂移一個 pass 耗時，累積漂移就是各次 pass 耗時的總和。pass 耗時沒有量過；有轉態的 pass 還要跑 `_notify_link` 的 HTTP（在 `check_link_beacons` 裡）、`install_initial_routes` 與 `push_destination_paths`（READ：`topology_manager.py:2065-2102`）。
+- **如果** pass 耗時很小，同一個 run 裡的 n 個 cycle 看到的 watchdog 附加量就大致固定，不會均勻取樣 (0, 5]；如果轉態 pass 很慢，漂移就會變大。兩種情況都要靠記錄 watchdog 相位才看得出來。
 
 **run 1 對 run 2 的對帳（OBSERVED 差值）**：
 - 量測碼相同（§2.1）。
@@ -161,10 +162,14 @@ min／median／max 是我用 python `statistics` 從上面兩個 tsv 重算的�
 ### 2.4 計畫：去相位鎖的 detect（尚無結果）
 
 - **orchestrator 已決定**：改 spike、補一次 live run，去掉相位鎖。本文件寫作時還沒有這輪的結果，下面沒有任何數字屬於它。
+  - 出處：orchestrator 09-26 給本文件作者的修訂指示；判官報告 `judge/judge-HBSPIKEDOC-4820862b.md` 的補跑建議（:28-29）與複審附錄（:33-40）；spike 第 8 輪分支 `fix/hb-spike-r8-0926`（進行中；我只確認了這個分支存在，沒有讀它的內容）。
 - 判官建議這一輪涵蓋的內容（`judge/judge-HBSPIKEDOC-4820862b.md:29`）：
   - 剪線前加 U[0, 5) 的隨機延遲，或做 φ 掃描，而且要含 φ≈0.05 s。
   - 復原前也隨機。
   - 量真正的報告層級 up。
+  - 判官複審補充（`judge/judge-HBSPIKEDOC-4820862b.md:36`）：
+    - 要取樣 φ→0 時，剪線要落在**實際送出**之後至少 20–50 ms，並逐 cycle 用 `t0 − last_heard_mono` 驗證 φ。實際送出（以對端的 `last_heard_mono` 為準）比 `started_mono + 5k` 晚 1.7–7.0 ms（OBSERVED：`R1/21_report_cut_*.json` 是 5.0017–5.0068＋20(i−1) s，`R2/` 是 5.0022–5.0070＋20(i−1) s）。
+    - 把 `t0a`／`t0`／`t1` 的 CLOCK_MONOTONIC 絕對值寫進 raw。現行 `20_cycles.tsv` 只有差值，所以本文件的 φ 只能用 15−`down_s` 倒推。
   - 最後怎麼改由 orchestrator 決定。
 - 在那一輪結果出來之前，§2.2 的延遲數字只代表「剪在送出後 φ≈0.6–0.8 s、復原在送出後約 0.1–0.2 s」這一個相位。
 
@@ -252,7 +257,8 @@ min／median／max 是我用 python `statistics` 從上面兩個 tsv 重算的�
     - 「no pipeline loaded on any of them, by design」（proxy 的 liveness probe）
     - kernel liveness 0/3 up（「probe FAILED_PRECONDITION」）
     - preflight 的「entries none (control plane 'external' brings its own)」
-  - OBSERVED：同一臂的心跳報告 `fabric.switches.*.program` 是 `advanced_tunnel.json`／`flowcache.json`，取自 bmv2 的 argv。
+  - OBSERVED：同一臂的心跳報告 `fabric.switches.*.program` 是 `advanced_tunnel.json`／`flowcache.json`。
+  - READ：這個欄位取自 manifest 記下的 bmv2 啟動指令（`p4_testbed_topo.py:229` 存下 `launch_argv`、:511 寫進 manifest 的 `argv`；`ndtwin-lab:877-884` 取第一個 `.json` token）。
   - READ：`p4_proxy/mininet/p4_testbed_topo.py:217-220` 有 JSON 就把它放上 bmv2 的 argv，沒有才用 `--no-p4`。
   - INFERRED（沒驗證）：
     - bmv2 啟動時已把那支 JSON 載進 data plane。「no pipeline loaded」是 P4Runtime 那一側的說法：沒有經 `SetForwardingPipelineConfig` 設過 P4Info，所以 probe 回 FAILED_PRECONDITION。
@@ -403,9 +409,11 @@ min／median／max 是我用 python `statistics` 從上面兩個 tsv 重算的�
 - **H1**：外來 fabric 剪一條 spine 線 ⇒ ≤20 s kernel 圖兩向 `is_up:false` ⇒ 路由改寫 ⇒ 12 對主機 ping 全恢復；拿掉 netem ⇒ ≤20 s 恢復 `is_up:true`；沒有殘留 netem。
   - **最壞相位下，常數本身就用完 20 s**（報告層級約 15 s＋最多一次 watchdog 5 s）。讀檔、`_notify_link` 的 HTTP、kernel 更新圖會使它超過 20 s。**≤20 s 不是保證**，自家 fabric 也一樣（§2.3，INFERRED）。
   - **H1 若沿用本 spike 的相位鎖迴圈（聽到之後才剪），通過只代表「φ≈0.7 s 時通過」**，不代表最壞相位通過。所以 H1 必須二選一：
-    - 刻意取樣 φ→0：用 `started_mono + 5k` 推算下一次送出，緊接在它之後剪。
+    - 刻意取樣 φ→0：用 `started_mono + 5k` 推算下一次送出。實際送出比它晚 1.7–7.0 ms（§2.4），所以剪線要落在實際送出之後至少 20–50 ms，並逐 cycle 用 `t0 − last_heard_mono` 驗證 φ。以現行剪法，兩端都生效的最小 φ 約等於 `cut_tc_s`（0.06–0.1 s），所以「趨近 15 s」只是極限。
     - 讓剪線前的延遲在 [0, 5) 均勻隨機。
-  - 不論哪一種，都要記錄 watchdog 相對於 daemon 送出的相位；watchdog 同一 run 內幾乎不漂（§2.3）。
+  - 不論哪一種，都要：
+    - 把 `t0a`／`t0`／`t1` 的 CLOCK_MONOTONIC 絕對值寫進 raw（現行 `20_cycles.tsv` 只有差值）；
+    - 記錄 watchdog 相對於 daemon 送出的相位。同一 run 內它漂多少取決於沒量過的 pass 耗時（§2.3，INFERRED）。
   - 沒做到的話，H1 的結果只能寫成「φ≈0.7 s 時」。
   - 復原端的最壞情況：常數 ≤ 10.5 s＋pass＋kernel，離 20 s 有餘裕（INFERRED）。
 - **H2**：陰性對照，心跳不跑 ⇒ `is_up` 保持 true。本 spike 沒有這個對照：proxy 沒有讀報告，也沒有記錄 kernel 的 `is_up`。
@@ -456,12 +464,13 @@ min／median／max 是我用 python `statistics` 從上面兩個 tsv 重算的�
 | `R2/26_down.reclaim.txt`、`R2/26_down.txt`、`R2/90_down.txt`、`R2/95_release.reclaim.txt` | run 2 走過重宣告與 release 的路 | §4.1 |
 | `log1`、`log1c`、`log2` | 兩次 run 與收尾的終端輸出 | §0、§4 |
 | `judge/judge-HBR7-a77b8fe2.md`、`judge/judge-HBR7b-96abb9b0.md`、`judge/judge-HBR6-3d297c34.md` | 第 7／7b／6 輪裁決 | §4 |
-| `judge/judge-HBSPIKEDOC-4820862b.md` | 本文件第一版的裁決；補跑建議 | 標頭、§2.4 |
+| `judge/judge-HBSPIKEDOC-4820862b.md` | 本文件第一版的裁決、補跑建議（:28-29）、複審附錄（:33-40） | 標頭、§2.4 |
+| `judge/public-verify-20260926T063944Z.log` | orchestrator 的未認證公開性檢查 | 標頭 |
 | `scratch/overnight-2026-09-05/hunt-0911/fix/P4-HBR7-SUMMARY.md` | 第 7／7b 輪 worker 交件 | §4 |
 | `scratch/overnight-2026-09-05/hunt-0911/fix/P4-HB-SUMMARY.md` §H.3、§H.5–H.7、:212 | 測試、碰撞表、預測、proxy 端契約、表／計數器觀測不到的原因 | §3.3、§5 |
 | `spike/S_heartbeat_spike.sh`（:24、:39、:261、:520-579、:536、:547-561、:611-699、:633、:651、:674、:1653-1655）、`spike/hb_watch.py`、`spike/hb_sniff.py`、`spike/census_prepare.py` | 量法與迴圈結構（READ） | §2、§3.1、§3.3、§4 |
-| `tools/test_workflow/ndtwin-lab` :657-693、:734、:764-765、:1047-1048、:1095-1161、:1313、:1331、:1335-1344 | 心跳 daemon 的語意、週期、送出排程、寫入節奏、BPF、計數 | §2、§3、§5 |
-| `p4_proxy/proxy_agent/topology_manager.py` :369、:411-418、:1951-1953、:2050-2053 | 常數、`_link_timeout`、watchdog 迴圈 | §1、§2.3 |
+| `tools/test_workflow/ndtwin-lab` :657-693、:734、:764-765、:877-884、:1047-1048、:1095-1161、:1313、:1331-1333、:1335-1344 | 心跳 daemon 的語意、週期、送出排程、寫入節奏、BPF、計數 | §2、§3、§5 |
+| `p4_proxy/proxy_agent/topology_manager.py` :369、:411-418、:1951-1953、:2050-2053、:2065-2102 | 常數、`_link_timeout`、watchdog 迴圈 | §1、§2.3 |
 | `p4_proxy/proxy_agent/p4_client.py` :318、:634、:645-650 | external 不開 stream；ndtwin 開 `StreamChannel` | §3.3 |
-| `p4_proxy/mininet/p4_testbed_topo.py:217-220`（READ） | bmv2 argv 放 JSON 或 `--no-p4` | §3.2 |
+| `p4_proxy/mininet/p4_testbed_topo.py` :217-220、:229、:511（READ） | bmv2 argv 放 JSON 或 `--no-p4`；`launch_argv` 寫進 manifest | §3.2 |
 | `doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/_common.sh:35`、`:37` | `NDT_OWNER`／`CLAIM_MINUTES` 的預設 | §4.2、§4.4 |
