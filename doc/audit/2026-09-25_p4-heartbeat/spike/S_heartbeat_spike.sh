@@ -98,6 +98,12 @@ PY_SELFTEST=/usr/bin/python3
 # the environment still wins.
 FAULTS_TC_FROM_ENV="${FAULTS_TC:+yes}"
 : "${FAULTS_TC:=sudo -n mnexec -a 1 tc}"
+# 🔴 AND THE CLAIM'S MINUTES, FOR THE SAME REASON (round-7 verdict, finding 1). _common.sh runs
+# `: "${CLAIM_MINUTES:=45}"` when it is sourced; written below the `source`, this default never took
+# effect -- the 09-26 live run claimed "for 45m", which PART=all (detection + 26 census arms, over
+# an hour) outlives. A CLAIM_MINUTES from the caller still wins. The self-test runs everything above
+# self_test() and reads back every such default.
+: "${CLAIM_MINUTES:=180}"
 # shellcheck source=/dev/null
 source "$LIVE_P1/../../../../tools/test_workflow/faults.sh"
 # shellcheck source=/dev/null
@@ -124,7 +130,6 @@ CYCLES="${CYCLES:-10}"
 ARMS="${ARMS:-solution skeleton}"
 ALL_EXERCISES="basic source_routing calc multicast basic_tunnel load_balance qos link_monitor firewall ecn mri p4runtime flowcache"
 EXERCISES="${ONLY:-$ALL_EXERCISES}"; EXERCISES="${EXERCISES//,/ }"
-: "${CLAIM_MINUTES:=180}"
 #: The cable, both ends, and its two directions in hb_watch's notation.
 CUT_A=s1-eth3; CUT_B=s3-eth1
 CUT_DIRS="1:3>3:1,3:1>1:3"
@@ -571,6 +576,35 @@ detect() {
 }
 
 # --- PART census -----------------------------------------------------------------------------------
+#
+# 🔴 NO ARM AFTER A REFUSED DOWN (round-7 verdict, finding 2). An arm's `ndt down` that answers
+# anything but 0 (down) or 3 (nothing was up) may have left that arm's fabric up, and the next arm's
+# `ndt up p4 --app` over an intact fabric of the same size answers "already up ... reusing", rc 0 --
+# up_p4 compares switch and host counts, not the package (tools/test_workflow/ndt :3293-3311). Every
+# row after it would be the previous arm's pipeline under its own name. So the census stops there:
+# the arms it did not reach get a `skipped` row, and the run is FAIL.
+
+# census_down <out> <exercise> <arm> -- an arm's `ndt down`. rc 0: the census may go on; rc 1: it must
+# stop (the failure is recorded here). ARM_DOWN_RC is what ndt answered.
+census_down() {
+    nd_down "$1" && ARM_DOWN_RC=0 || ARM_DOWN_RC=$?
+    (( ARM_DOWN_RC == 0 || ARM_DOWN_RC == 3 )) && return 0
+    fail "census $2/$3: 'ndt down' exited $ARM_DOWN_RC -- the census STOPS here: that fabric may still be up, and the next arm's 'ndt up p4 --app' would reuse it ('already up ... reusing') and measure this arm's pipeline under its own name"
+    return 1
+}
+
+# census_skip_rest <exercise> <arm> -- a `skipped` row for every arm after <exercise>/<arm>.
+census_skip_rest() {
+    local e w past=0
+    for e in $EXERCISES; do
+        for w in $ARMS; do
+            (( past )) && printf '%s\t%s\t-\t-\t%s\n' "$e" "$w" "skipped: an earlier arm's down was refused" >> "$RUN/40_census.tsv"
+            [[ "$e/$w" == "$1/$2" ]] && past=1
+        done
+    done
+    return 0
+}
+
 census() {
     local ex which prep pkg rc hs hb_pid session h pid v dir stopf
     printf 'exercise\tarm\tbuilt\theartbeat\tverdict\n' > "$RUN/40_census.tsv"
@@ -590,19 +624,20 @@ census() {
         if (( rc != 0 )); then
             printf '%s\t%s\tup rc=%s\t-\t-\n' "$ex" "$which" "$rc" >> "$RUN/40_census.tsv"
             fail "census $ex/$which: 'ndt up p4 --app' exited $rc"
-            nd_down "$dir/90_down.txt" || true
+            census_down "$dir/90_down.txt" "$ex" "$which" || { census_skip_rest "$ex" "$which"; return 0; }
             continue
         fi
         sp_hb_start "$dir/11_hb_start.txt" && hs=0 || hs=$?
         if (( hs == 3 )); then
             printf '%s\t%s\tyes\tno link (rc 3)\tno frame sent\n' "$ex" "$which" >> "$RUN/40_census.tsv"
             note "no switch-to-switch link: no heartbeat frame enters this fabric"
-            nd_down "$dir/90_down.txt" || fail "census $ex/$which: 'ndt down' failed"
+            census_down "$dir/90_down.txt" "$ex" "$which" || { census_skip_rest "$ex" "$which"; return 0; }
+            (( ARM_DOWN_RC == 0 )) || fail "census $ex/$which: 'ndt down' exited $ARM_DOWN_RC"
             continue
         elif (( hs != 0 )); then
             printf '%s\t%s\tyes\tstart rc=%s\t-\n' "$ex" "$which" "$hs" >> "$RUN/40_census.tsv"
             fail "census $ex/$which: heartbeat start answered $hs"
-            nd_down "$dir/90_down.txt" || true
+            census_down "$dir/90_down.txt" "$ex" "$which" || { census_skip_rest "$ex" "$which"; return 0; }
             continue
         fi
         # The daemon THIS start started (judge R4-1): its pid from start's own answer, and the
@@ -622,7 +657,7 @@ census() {
                 fail "census $ex/$which: 'heartbeat start' answered 0 without saying it started a daemon -- see 11_hb_start.txt"
             fi
             sp_hb_stop "$dir/31_hb_stop.txt"
-            nd_down "$dir/90_down.txt" || true
+            census_down "$dir/90_down.txt" "$ex" "$which" || { census_skip_rest "$ex" "$which"; return 0; }
             continue
         fi
         stopf="$dir/stop"; rm -f "$stopf"
@@ -644,8 +679,7 @@ census() {
         [[ -s "$dir/30_report.json" ]] || cp "$HB_REPORT" "$dir/30_report.json" 2>/dev/null || true
         v="$(/usr/bin/python3 -I "$WATCH" census-verdict "$dir" "$dir/30_report.json")"
         (( HB_STARTED )) && sp_hb_stop "$dir/31_hb_stop.txt"
-        nd_down "$dir/90_down.txt" && rc=0 || rc=$?
-        (( rc == 0 )) || fail "census $ex/$which: 'ndt down' exited $rc"
+        census_down "$dir/90_down.txt" "$ex" "$which" && rc=0 || rc=1
         printf '%s\t%s\tyes\trunning\t%s\n' "$ex" "$which" "$v" >> "$RUN/40_census.tsv"
         note "$v"
         case "$v" in
@@ -653,6 +687,10 @@ census() {
             STOP*) fail "RULING 4 STOP at $ex/$which: $v"; return ;;
             *)     fail "census $ex/$which: $v" ;;
         esac
+        # This arm's reading stands -- it was taken on its own fabric, and judged above -- and
+        # nothing is built after a refused down.
+        (( rc == 0 )) || { census_skip_rest "$ex" "$which"; return 0; }
+        (( ARM_DOWN_RC == 0 )) || fail "census $ex/$which: 'ndt down' exited $ARM_DOWN_RC"
       done
     done
 }
