@@ -1,0 +1,10 @@
+# [Co-developed with claude code -- Adam]
+# oldcode_selftest.sh writes its copies HERE, beside the real files (so SPIKE_DIR / LIVE_P1 / REPO
+# resolve exactly as for the real script): .oldcode-<pid>-<n>-spike.sh and -hb_watch.py. It removes
+# them after each revert and on EXIT / INT / TERM; a SIGKILLed run leaves them, and a directory
+# pathspec (`git add spike/`, `git commit -- spike/`) would then carry them into a commit
+# (finding 4, round-5 verdict). `oldcode_selftest.sh --self-check copies-ignored` asks git.
+/.oldcode-*
+# The root .gitignore ignores every file named .gitignore (its `.gitignore` line); this one is
+# meant to be tracked, as the doc/audit/*/raw*/.gitignore files are.
+!/.gitignore

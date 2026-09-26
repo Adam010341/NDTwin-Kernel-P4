@@ -13,7 +13,8 @@
 # sniffer watch, detection cycle (against a fake tc), one census arm and census table against
 # stubs -- one input that must pass and one that must fail per verdict -- and touches nothing
 # else. spike/oldcode_selftest.sh puts the set -e fixes of round 4 and each fix of round 5 back to
-# their old form in a copy and shows that exactly the checks written for them go red.
+# their old form in a copy (and the round-6 checks' code to a wrong form) and shows that exactly the
+# checks written for them go red; its --self-check shows its own verdict going red on wrong input.
 #
 # PART=detect  (≈ 15 min)  pod-topo `--app basic` (the exercise's own solution pipeline, converted
 #   the way 06 converts it). The heartbeat runs; an OUT-OF-BAND `tc netem loss 100%` goes on BOTH
@@ -423,10 +424,12 @@ census() {
             session="$(wait_session "$HB_REPORT" 20 "$hb_pid")" || session=""
         fi
         if [[ -z "$session" ]]; then
-            printf '%s\t%s\tyes\tno session in 5 s\t-\n' "$ex" "$which" >> "$RUN/40_census.tsv"
             if [[ -n "$hb_pid" ]]; then
+                printf '%s\t%s\tyes\tno session in 5 s\t-\n' "$ex" "$which" >> "$RUN/40_census.tsv"
                 fail "census $ex/$which: the heartbeat started (pid $hb_pid) but no running report of that pid carries a session after 5 s"
             else
+                # Nothing was waited for on this path (finding 5, round-5 verdict): the row says what happened.
+                printf '%s\t%s\tyes\tstart named no pid\t-\n' "$ex" "$which" >> "$RUN/40_census.tsv"
                 fail "census $ex/$which: 'heartbeat start' answered 0 without saying it started a daemon -- see 11_hb_start.txt"
             fi
             sp_hb_stop "$dir/31_hb_stop.txt"
@@ -687,7 +690,8 @@ PYFAKE
         printf '#!%s\n' "$BASH"
         cat <<'FAKETC'
 # tc against a state directory: up.<dev> = the veth exists, netem.<dev> = netem at its root,
-# refuse.<dev> = `qdisc add` on it is refused. Every call but `show` is logged, in order.
+# refuse.<dev> = `qdisc add` on it is refused, refuse-del.<dev> = `qdisc del` on it is refused.
+# Every call but `show` is logged, in order.
 s="$FAKE_TC_STATE"; dev=""
 for (( i = 1; i < $#; i++ )); do [[ "${!i}" == dev ]] && { j=$(( i + 1 )); dev="${!j}"; }; done
 [[ "$2" == show ]] || echo "tc $*" >> "$s/calls"
@@ -697,7 +701,8 @@ case "$2" in
           else echo "qdisc noqueue 0: root refcnt 2"; fi ;;
     add)  [[ ! -e "$s/refuse.$dev" ]] || { echo "RTNETLINK answers: Operation not permitted" >&2; exit 2; }
           : > "$s/netem.$dev" ;;
-    del)  rm -f "$s/netem.$dev" ;;
+    del)  [[ ! -e "$s/refuse-del.$dev" ]] || { echo "RTNETLINK answers: Operation not permitted" >&2; exit 2; }
+          rm -f "$s/netem.$dev" ;;
 esac
 FAKETC
     } > "$st_tmp/fake_tc"
@@ -730,13 +735,15 @@ trap spike_finish EXIT INT TERM
 echo "survived VERDICT_RC=$VERDICT_RC" > "$out"
 DRIVER
     } > "$st_tmp/detect_driver.sh"
-    # st_detect <name> <FAKE_WATCH mode> <device whose `tc qdisc add` is refused, or ""> -- one run
-    # of the driver; its files are $st_tmp/detect_<name>.{result,result.finish,out,run/} and
-    # $st_tmp/detect_<name>.tc/calls. Sets wrc.
+    # st_detect <name> <FAKE_WATCH mode> [<fake tc state file>...] -- one run of the driver, the fake
+    # tc's state directory holding up.<CUT_A>, up.<CUT_B> and each state file named (refuse.<dev>,
+    # refuse-del.<dev>, netem.<dev>: see the fake tc; "" names none); its files are
+    # $st_tmp/detect_<name>.{result,result.finish,out,run/} and $st_tmp/detect_<name>.tc/calls.
+    # Sets wrc.
     st_detect() {
-        local s="$st_tmp/detect_$1.tc"
+        local s="$st_tmp/detect_$1.tc" m
         mkdir -p "$s"; : > "$s/calls"; : > "$s/up.$CUT_A"; : > "$s/up.$CUT_B"
-        [[ -z "$3" ]] || : > "$s/refuse.$3"
+        for m in "${@:3}"; do [[ -z "$m" ]] || : > "$s/$m"; done
         FAKE_WATCH="$2" bash "$st_tmp/detect_driver.sh" "$st_tmp/detect_$1.result" "$st_tmp/detect_$1.run" "$s" \
             > "$st_tmp/detect_$1.out" 2>&1 && wrc=0 || wrc=$?
     }
@@ -766,7 +773,7 @@ DRIVER
     # R4-2 -- the cut is refused on its SECOND end. The first end's netem has to come off while its
     # veth still exists; left to the EXIT trap, it runs after `ndt down` removed the veth, answers
     # "cannot locate", and adds a second, misleading failure.
-    st_detect halfcut healthy "$CUT_B"
+    st_detect halfcut healthy "refuse.$CUT_B"
     want="$(printf '%s\n' "qdisc_tool save" "tc qdisc add dev $CUT_A root netem loss 100%" \
         "tc qdisc add dev $CUT_B root netem loss 100%" "tc qdisc del dev $CUT_A root" \
         "qdisc_tool diff" "ndt down")"
@@ -776,6 +783,54 @@ DRIVER
        && ! grep -qE 'cannot locate|could NOT remove' "$st_tmp/detect_halfcut.out" \
         && ok "  a half-done cut (the second end refused): the first end's netem comes off before 'ndt down'; no 'cannot locate' at teardown" \
         || red "  a half-done cut: rc $wrc, '$(cat "$st_tmp/detect_halfcut.result.finish" 2>/dev/null || echo 'finish never ran')', calls: $(paste -sd';' "$st_tmp/detect_halfcut.tc/calls")$(grep -q 'cannot locate' "$st_tmp/detect_halfcut.out" && echo '; teardown said: cannot locate the netem (its veth was gone)'); $(st_died "$st_tmp/detect_halfcut.out")"
+    # Round 6 (findings 1 and 2 of the round-5 verdict) -- a refused cut, and what detect records
+    # about it. st_fails is EVERY failure the driver's run recorded (`fail` prints each one as
+    # "   !! <why>"), in order, none filtered out: when no cycle completed, the detection summary's
+    # own verdict on zero measured cycles ($nocycle) is one of them, and is listed as such.
+    st_fails() { awk '/^   !! / { sub(/^   !! /, ""); printf "%s%s", (n++ ? "; " : ""), $0 }' "$1"; }
+    st_why() {   # st_why <driver output> -- what a red line below says beyond its numbers
+        grep -q 'removing the netem this run added' "$1" && printf '; spike_finish tried the revert again'
+        grep -q 'cannot locate the netem' "$1" && printf '; faults.sh said: cannot locate the netem to remove'
+        return 0
+    }
+    local nocycle="detection (report level, the proxy's rule): not every cycle was detected"
+    # R5-1 -- the case `restore_link || fail` exists for: the second end refused AND the first end's
+    # netem refusing to come off. revert_link_loss empties INJECTED_IFACES even when it fails
+    # (faults.sh), so spike_finish has nothing left to retry: the end left with netem is named here,
+    # in the loop, or by no failure at all. The refusal stays the verdict's reason; the run goes on.
+    st_detect halfdel healthy "refuse.$CUT_B" "refuse-del.$CUT_A"
+    want="$(printf '%s\n' "qdisc_tool save" "tc qdisc add dev $CUT_A root netem loss 100%" \
+        "tc qdisc add dev $CUT_B root netem loss 100%" "tc qdisc del dev $CUT_A root" \
+        "qdisc_tool diff" "ndt down")"
+    [[ "$wrc" == 0 && "$(cat "$st_tmp/detect_halfdel.result" 2>/dev/null)" == "survived VERDICT_RC=1" \
+       && "$(cat "$st_tmp/detect_halfdel.result.finish" 2>/dev/null)" == "finish VERDICT_RC=1 WHY=tc refused to add netem on $CUT_B (root)" \
+       && "$(cat "$st_tmp/detect_halfdel.tc/calls")" == "$want" \
+       && "$(st_fails "$st_tmp/detect_halfdel.out")" == "tc refused to add netem on $CUT_B (root); cycle 1: could not remove the netem a half-done cut left on $CUT_A; $nocycle" \
+       && -z "$(st_why "$st_tmp/detect_halfdel.out")" ]] \
+        && ok "  and when the first end's netem will not come off either: that end is a failure of its own, the refusal stays the reason, nothing retries it at teardown, the run goes on (set -e process)" \
+        || red "  a half-done cut whose restore is refused too: rc $wrc, '$(cat "$st_tmp/detect_halfdel.result.finish" 2>/dev/null || echo 'finish never ran')', failures recorded: [$(st_fails "$st_tmp/detect_halfdel.out")], calls: $(paste -sd';' "$st_tmp/detect_halfdel.tc/calls")$(st_why "$st_tmp/detect_halfdel.out"); $(st_died "$st_tmp/detect_halfdel.out")"
+    # R5-2 -- the cut refused on its FIRST end: nothing went onto the cable, so nothing comes off it
+    # -- no `tc qdisc del` at all -- and the refusal is the one failure about the cable, with no
+    # second one about a "half-done cut" that never happened. restore_link is then handed an empty
+    # INJECTED_IFACES, a call shape round 5 introduced.
+    st_detect firstref healthy "refuse.$CUT_A"
+    [[ "$wrc" == 0 && "$(cat "$st_tmp/detect_firstref.result" 2>/dev/null)" == "survived VERDICT_RC=1" \
+       && "$(cat "$st_tmp/detect_firstref.result.finish" 2>/dev/null)" == "finish VERDICT_RC=1 WHY=tc refused to add netem on $CUT_A (root)" \
+       && "$(paste -sd';' "$st_tmp/detect_firstref.tc/calls")" == "qdisc_tool save;tc qdisc add dev $CUT_A root netem loss 100%;qdisc_tool diff;ndt down" \
+       && "$(st_fails "$st_tmp/detect_firstref.out")" == "tc refused to add netem on $CUT_A (root); $nocycle" \
+       && -z "$(st_why "$st_tmp/detect_firstref.out")" ]] \
+        && ok "  a cut refused on its FIRST end: no 'tc qdisc del' at all, the refusal the one failure about the cable (beside the summary's zero-cycle verdict), the run goes on (set -e process)" \
+        || red "  a cut refused on its first end: rc $wrc, '$(cat "$st_tmp/detect_firstref.result.finish" 2>/dev/null || echo 'finish never ran')', failures recorded: [$(st_fails "$st_tmp/detect_firstref.out")], calls: $(paste -sd';' "$st_tmp/detect_firstref.tc/calls")$(st_why "$st_tmp/detect_firstref.out"); $(st_died "$st_tmp/detect_firstref.out")"
+    # ... and a first end that already carries a netem (an earlier round's, not this run's):
+    # netem_attach_point answers `unsafe`, nothing is added -- and that netem is NOT deleted.
+    st_detect firstunsafe healthy "netem.$CUT_A"
+    [[ "$wrc" == 0 && "$(cat "$st_tmp/detect_firstunsafe.result" 2>/dev/null)" == "survived VERDICT_RC=1" \
+       && "$(cat "$st_tmp/detect_firstunsafe.result.finish" 2>/dev/null)" == "finish VERDICT_RC=1 WHY=no safe netem attach point on $CUT_A (netem already there, or the tree is unreadable)" \
+       && "$(paste -sd';' "$st_tmp/detect_firstunsafe.tc/calls")" == "qdisc_tool save;qdisc_tool diff;ndt down" \
+       && "$(st_fails "$st_tmp/detect_firstunsafe.out")" == "no safe netem attach point on $CUT_A (netem already there, or the tree is unreadable); $nocycle" \
+       && -z "$(st_why "$st_tmp/detect_firstunsafe.out")" ]] \
+        && ok "  a first end already carrying a netem (unsafe): nothing added, nothing deleted -- that netem is not this run's -- one failure about the cable, the run goes on (set -e process)" \
+        || red "  a first end that already carries a netem: rc $wrc, '$(cat "$st_tmp/detect_firstunsafe.result.finish" 2>/dev/null || echo 'finish never ran')', failures recorded: [$(st_fails "$st_tmp/detect_firstunsafe.out")], calls: $(paste -sd';' "$st_tmp/detect_firstunsafe.tc/calls")$(st_why "$st_tmp/detect_firstunsafe.out"); $(st_died "$st_tmp/detect_firstunsafe.out")"
 
     # R3-4, round 4 -- the census reads the new daemon's session from its report, which may not be
     # written the instant `start` returns. Bounded wait, and no abort under set -e either way.
@@ -871,8 +926,10 @@ DRIVER
         || red "  an arm whose report is still the previous arm's 'stopped' one: $r"
     r="$(st_arm already '{"status": "running", "pid": 4242, "session": "d4d4d4d4d4d4d4d4"}' \
         "heartbeat already running (pid 4242) -- not starting a second one")"
-    [[ "$r" == "survived VERDICT_RC=1 WHY=census basic/solution: 'heartbeat start' answered 0 without saying it started a daemon -- see 11_hb_start.txt | calls: hb stop;ndt down | row: basic|solution|yes|no session in 5 s|-" ]] \
-        && ok "  an arm whose start answered 'already running' (it started nothing): a FAIL row, nobody else's session sniffed" \
+    # R5-5 (round-5 verdict, finding 5): nothing was waited for on this path, so its row says what
+    # happened -- start named no pid -- not "no session in 5 s".
+    [[ "$r" == "survived VERDICT_RC=1 WHY=census basic/solution: 'heartbeat start' answered 0 without saying it started a daemon -- see 11_hb_start.txt | calls: hb stop;ndt down | row: basic|solution|yes|start named no pid|-" ]] \
+        && ok "  an arm whose start answered 'already running' (it started nothing): a FAIL row saying start named no pid, nobody else's session sniffed" \
         || red "  an arm whose start answered 'already running': $r"
 
     # R4-3 (round-4 verdict) -- the census table is a display; the raw is 40_census.tsv. The run
