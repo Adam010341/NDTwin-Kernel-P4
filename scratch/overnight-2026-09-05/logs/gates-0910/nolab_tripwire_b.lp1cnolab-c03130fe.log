@@ -1,0 +1,23 @@
+c03130fea5c2c08018c918c65b223cac4582cd8f
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-live-p1-common-nolab-0927  2026-09-26T19:51:42Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-live-p1-common-nolab-0927  TMPDIR /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp
+# cmd bash -c 
+echo "lab commands the gates above made past their own stubs (the sweep logs its own, per suite):"
+/usr/bin/grep -E " (sudo|mnexec|iperf|iperf3|ping|cmake|ninja|make|gcc|g\+\+|c\+\+|cc|clang|clang\+\+) |localhost:80[08][01]|127\.0\.0\.1:80[08][01]" "$1" | sed "s/^/  /"
+n=$(/usr/bin/grep -cE " (sudo|mnexec|iperf|iperf3|ping|cmake|ninja|make|gcc|g\+\+|c\+\+|cc|clang|clang\+\+) |localhost:80[08][01]|127\.0\.0\.1:80[08][01]" "$1")
+echo "  ($(/usr/bin/grep -c "" "$1") line(s) in the shims log in all)"
+echo "NOLAB-TRIPWIRE: $n lab call(s) (all refused)"; (( n == 0 )) _ /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-lp1cnolab-c03130fe-b/tripwire.log
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-live-p1-common-nolab-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-lp1cnolab-c03130fe-b/shims (nolab)
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c 
+echo "lab commands the gates above made past their own stubs (the sweep logs its own, per suite):"
+/usr/bin/grep -E " (sudo|mnexec|iperf|iperf3|ping|cmake|ninja|make|gcc|g\+\+|c\+\+|cc|clang|clang\+\+) |localhost:80[08][01]|127\.0\.0\.1:80[08][01]" "$1" | sed "s/^/  /"
+n=$(/usr/bin/grep -cE " (sudo|mnexec|iperf|iperf3|ping|cmake|ninja|make|gcc|g\+\+|c\+\+|cc|clang|clang\+\+) |localhost:80[08][01]|127\.0\.0\.1:80[08][01]" "$1")
+echo "  ($(/usr/bin/grep -c "" "$1") line(s) in the shims log in all)"
+echo "NOLAB-TRIPWIRE: $n lab call(s) (all refused)"; (( n == 0 )) _ /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-lp1cnolab-c03130fe-b/tripwire.log
+lab commands the gates above made past their own stubs (the sweep logs its own, per suite):
+  (0 line(s) in the shims log in all)
+NOLAB-TRIPWIRE: 0 lab call(s) (all refused)
+guarded_build: exit 0
+# rc=0

@@ -1,0 +1,9 @@
+== 2026-09-27 04:20:54 +0800 trunk b2eeb71df30fe9cdd0086f281062517ba3e86815; 07 sha256 7010f3825e06c078; _common 36c3689b41bd000a; helper 6a558fe452955de3; disk 7.1G
+== 2026-09-27 04:20:55 +0800 start 07
+== 2026-09-27 04:24:07 +0800 end 07 rc=0  last: PASS 07_roles_basic
+  claim          none
+  prev claim     orch-0927 (until 05:05:57), superseded 2026-09-27 04:24:07  (.test_run/lab.claim.prev)
+                 nothing holds the lab now: that claim was released or replaced
+== 2026-09-27 04:24:08 +0800 knob unchanged (4)
+== 2026-09-27 04:24:08 +0800 run dir: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-26T202055Z_07_roles_basic
+== 2026-09-27 04:24:08 +0800 DONE rc=0

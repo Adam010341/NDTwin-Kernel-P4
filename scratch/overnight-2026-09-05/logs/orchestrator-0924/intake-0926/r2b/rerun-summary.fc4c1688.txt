@@ -1,0 +1,6 @@
+test_ndt_serve # rc=0 | Ran 74 tests in 51.149s OK 
+live08_selftest # rc=0 | SELF-TEST PASS 
+live07_selftest # rc=0 | SELF-TEST PASS 
+tripwire lines: 0
+tracked tree clean after the gates
+RERUN-R2B-DONE

@@ -1,0 +1,662 @@
+diff --git a/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh
+index 4d9517ac..5c4d0683 100755
+--- a/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh
++++ b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh
+@@ -199,6 +199,12 @@ missing = [k for k in want if k not in links]
+ extra = sorted(k for k in links if k not in want)
+ unfed = [k for k in want if k in links and got(k, "source") != "heartbeat"]
+ down = [k for k in want if k in links and got(k, "source") == "heartbeat" and got(k, "down") is not False]
++# [Co-developed with claude code -- Adam] The opus judge's N3-1: a direction the heartbeat has not
++# heard yet reads heartbeat / down false for the proxy's 30 s startup grace, with no age -- HEARD
++# means an age.
++number = lambda v: isinstance(v, (int, float)) and not isinstance(v, bool)
++unheard = [k for k in want if k in links and got(k, "source") == "heartbeat" and got(k, "down") is False
++           and not number(got(k, "last_beacon_age_s"))]
+ bad = []
+ if missing:
+     bad.append(f"missing {missing}")
+@@ -208,12 +214,14 @@ if unfed:
+     bad.append(f"not fed by the heartbeat {[(k, got(k, 'source')) for k in unfed]}")
+ if down:
+     bad.append(f"reported down {[(k, got(k, 'down')) for k in down]}")
++if unheard:
++    bad.append(f"not heard yet (no last_beacon_age_s: the proxy's startup grace) {unheard}")
+ if not want:
+     print("BAD the model declares no inter-switch link")
+ elif bad:
+     print(f"BAD switch_state links against the {len(want)} declared directions: " + "; ".join(bad))
+ else:
+-    print(f"OK {len(want)}/{len(want)} declared directions, exactly, every one source: heartbeat, down: false")
++    print(f"OK {len(want)}/{len(want)} declared directions, exactly, every one source: heartbeat, down: false, heard")
+ PY
+ }
+ 
+@@ -335,6 +343,54 @@ judge() {
+     esac
+ }
+ 
++# [Co-developed with claude code -- Adam] state_until and the L6/L1 calls live ABOVE the self-test
++# dispatch (they used to sit below it, with the rest of the live helpers -- which is why no self-test
++# could run them: the opus judge's N3-2).
++# state_until <seconds> <verdict function> <out-file> [args...] -- poll /p4/switch_state every 2 s
++# until the verdict reads OK or the time is up; the LAST capture is kept at <out-file> and every
++# attempt's verdict is appended to <out-file>.polls. [Co-developed with claude code -- Adam] The
++# heartbeat reaches switch_state's `links` at the proxy's first watchdog pass, up to one
++# interval after the proxy starts -- a single read right after `ndt up` could land before it.
++state_until() {
++    local limit="$1" fn="$2" out="$3" deadline v
++    shift 3
++    deadline=$(( $(date +%s) + limit ))
++    : > "$out.polls"
++    while :; do
++        get_json "$PROXY_URL/p4/switch_state" "$out" >/dev/null 2>&1 || true
++        v="$( [[ -s "$out" ]] && "$fn" "$out" "$@" || echo "BAD no switch_state capture" )"
++        printf '%s  %s\n' "$(date -u +%H:%M:%SZ)" "$v" >> "$out.polls"
++        [[ "$v" == OK* ]] && break
++        (( $(date +%s) >= deadline )) && break
++        sleep 2
++    done
++    printf '%s\n' "$v"
++}
++
++# l6_switch_state <out> <model> <caps> <skipped> <label suffix> <no-state message> -- L6's two
++# capability checks and L1 on switch_state, on the capture state_until's poll ends on.
++# l6_roles / l6_plain are the live path's two calls, arguments and all -- functions so that the
++# self-test executes them (the opus judge's N3-2). [Co-developed with claude code -- Adam]
++l6_switch_state() {
++    local out="$1" model="$2" caps="$3" skipped="$4" sfx="$5" none="$6" v
++    v="$(state_until "${L1_POLL_S:-30}" l1_links_verdict "$out" "$model")"
++    if [[ -s "$out" ]]; then
++        judge "$(caps_are "$out" "$caps")" "L6 capabilities$sfx"
++        judge "$(skipped_is "$out" "$skipped")" "L6 control_plane.skipped$sfx"
++        judge "$v" "L1 declared links on switch_state, fed by the heartbeat$sfx"
++    else
++        fail "$none"
++    fi
++}
++l6_roles() {
++    l6_switch_state "$RUN/30_switch_state_roles.json" "$PKG_ROLES/ndtwin/topology.json" \
++        "$CAPS_OWNED" "$SKIPPED_OWNED" "" "L6: no switch_state"
++}
++l6_plain() {
++    l6_switch_state "$RUN/71_switch_state_plain.json" "$PKG_PLAIN/ndtwin/topology.json" \
++        "$CAPS_UNBOUND" "$SKIPPED_UNBOUND" " (unbound)" "L6: no switch_state on the control fabric"
++}
++
+ # --- --self-test: every verdict against a capture it must pass and one it must fail ------------
+ 
+ self_test() {
+@@ -398,6 +454,18 @@ links_variant("links_all_declared.json", lambda l: [l.__setitem__(k, declared_on
+ links_variant("links_one_down.json", lambda l: l[key(3, 1, 1, 3)].__setitem__("down", True))
+ links_variant("links_one_missing.json", lambda l: l.pop(key(2, 4, 3, 2)))
+ links_variant("links_one_extra.json", lambda l: l.__setitem__(key(1, 3, 4, 1), heard()))
++# [Co-developed with claude code -- Adam] The opus judge's N3-1: a direction the heartbeat has not
++# heard yet is entered at the daemon's start and, for LINK_STARTUP_GRACE_S (30 s), served as
++# heartbeat / down false / age null -- not heard, and not yet down.
++grace = lambda: {"source": "heartbeat", "down": False, "last_beacon_age_s": None, "reported_to_kernel": True}
++links_variant("links_one_grace.json", lambda l: l.__setitem__(key(2, 4, 3, 2), grace()))
++links_variant("state_grace.json", lambda l: [l.__setitem__(k, grace()) for k in list(l)])
++state_plain = copy.deepcopy(state)
++state_plain["switches"] = {str(d): {"capabilities": unbound} for d in (1, 2, 3, 4)}
++state_plain["control_plane"]["skipped"] = ["install_initial_routes", "link_watchdog", "lldp_discovery"]
++dump("state_plain.json", state_plain)
++os.makedirs(os.path.join(t, "pkg", "ndtwin"))
++dump(os.path.join("pkg", "ndtwin", "topology.json"), model)
+ wrong = copy.deepcopy(state)
+ wrong["switches"]["3"]["capabilities"] = dict(owned, reroute=False)
+ wrong["control_plane"]["skipped"].append("install_initial_routes")
+@@ -486,6 +554,72 @@ PY
+     expect BAD "L1 a link the heartbeat reports down" "$(links_heard "$t/links_one_down.json" "$t/model.json")"
+     expect BAD "L1 a link missing"               "$(links_heard "$t/links_one_missing.json" "$t/model.json")"
+     expect BAD "L1 an extra link"                "$(links_heard "$t/links_one_extra.json" "$t/model.json")"
++    expect BAD "L1 a direction never heard yet (the startup grace)" "$(links_heard "$t/links_one_grace.json" "$t/model.json")"
++    expect BAD "L1 every direction in the startup grace" "$(links_heard "$t/state_grace.json" "$t/model.json")"
++    # (a red line is "<case> -- <what it saw>": the first cut's gate finds a case by its name and a space)
++    ok()  { printf '  ok    %s\n' "$1"; }
++    red() { printf '  🔴    %s\n' "$1"; rc=1; }
++    # [Co-developed with claude code -- Adam] L6 and L1 on switch_state as the live path runs them --
++    # l6_roles / l6_plain, their own arguments, state_until's poll -- against a proxy served by
++    # file:// (08's precedent), with a switch_state that turns heard 2.5 s into the poll.
++    st_l6() {   # st_l6 <roles|plain> <first switch_state|-> <later one|-> <poll s> -> judge lines + polls
++        local px d
++        px="$(mktemp -d "$t/px-XXXXXX")"; mkdir -p "$px/p4"
++        [[ "$2" == - ]] || cp "$t/$2" "$px/p4/switch_state"
++        ( RUN="$px"; PROXY_URL="file://$px"; PKG_ROLES="$t/pkg"; PKG_PLAIN="$t/pkg"; L1_POLL_S="$4"
++          note() { :; }; judge() { echo "J $2: ${1:0:70}"; }; fail() { echo "F $*"; }
++          if [[ "$3" != - ]]; then
++              ( sleep 2.5; cp "$t/$3" "$px/p4/switch_state.tmp"; mv "$px/p4/switch_state.tmp" "$px/p4/switch_state" ) &
++          fi
++          "l6_$1"
++          wait
++          d="$(ls "$px"/*.polls 2>/dev/null | head -1)"
++          echo "polls $( [[ -n "$d" ]] && wc -l < "$d" || echo 0)" ) 2>&1
++    }
++    got="$(st_l6 roles state_owned.json - 4)" || true
++    if [[ "$got" == *"J L6 capabilities: OK"* && "$got" == *"J L6 control_plane.skipped: OK"* \
++          && "$got" == *"J L1 declared links on switch_state, fed by the heartbeat: OK"* && "$got" == *"polls 1"* ]]; then
++        ok "L6/L1 on switch_state (roles): all heard at once -- three OK judgements from one read"
++    else
++        red "L6/L1 on switch_state (roles), heard at once -- $(tr '\n' '|' <<<"$got")"
++    fi
++    got="$(st_l6 roles state_grace.json state_owned.json 10)" || true
++    if [[ "$got" == *"J L1 declared links on switch_state, fed by the heartbeat: OK"* && "$got" == *"J L6 capabilities: OK"* \
++          && "$(sed -n 's/^polls //p' <<<"$got")" -ge 2 ]]; then
++        ok "  state_until waits: in the startup grace first, heard 2.5 s later -- OK on a later read"
++    else
++        red "  state_until through the startup grace -- $(tr '\n' '|' <<<"$got")"
++    fi
++    got="$(st_l6 roles state_grace.json - 3)" || true
++    if [[ "$got" == *"J L1 declared links on switch_state, fed by the heartbeat: BAD"* && "$(sed -n 's/^polls //p' <<<"$got")" -ge 2 ]]; then
++        ok "  never heard within the poll: L1 on switch_state is judged BAD after more than one read"
++    else
++        red "  never heard within the poll -- $(tr '\n' '|' <<<"$got")"
++    fi
++    got="$(st_l6 roles - - 2)" || true
++    [[ "$got" == *"F L6: no switch_state"* ]] && ok "  no switch_state at all: a fail, not a pass" \
++                                            || red "  no switch_state at all -- $(tr '\n' '|' <<<"$got")"
++    got="$(st_l6 plain state_plain.json - 4)" || true
++    if [[ "$got" == *"J L6 capabilities (unbound): OK"* && "$got" == *"J L6 control_plane.skipped (unbound): OK"* \
++          && "$got" == *"J L1 declared links on switch_state, fed by the heartbeat (unbound): OK"* ]]; then
++        ok "L6/L1 on switch_state (unbound): its own capabilities, skipped list and labels"
++    else
++        red "L6/L1 on switch_state (unbound) -- $(tr '\n' '|' <<<"$got")"
++    fi
++    # 🔴 Against the REAL switch_states of 08's live run (2026-09-26T152605Z_08_heartbeat), where they
++    # exist on this machine (not committed; SELFTEST_HB_RUN / SELFTEST_HB_PKGS point elsewhere,
++    # read-only): right after `ndt up` (22 roles, 61 unbound) every link is still `declared` -- BAD;
++    # after a cut and restore (35, 67) all eight heard -- OK. (The opus judge's suggested check.)
++    local hbrun="${SELFTEST_HB_RUN:-$LIVE_DIR/runs/2026-09-26T152605Z_08_heartbeat}"
++    local hbpkgs="${SELFTEST_HB_PKGS:-$PKG_ROOT}"
++    if [[ -s "$hbrun/22_switch_state.json" && -s "$hbpkgs/hb_basic_roles/ndtwin/topology.json" ]]; then
++        expect BAD "L1 on the real 08 capture 22 (roles, right after up)" "$(links_heard "$hbrun/22_switch_state.json" "$hbpkgs/hb_basic_roles/ndtwin/topology.json")"
++        expect OK  "L1 on the real 08 capture 35 (roles, restored)" "$(links_heard "$hbrun/35_switch_state_restored_1.json" "$hbpkgs/hb_basic_roles/ndtwin/topology.json")"
++        expect BAD "L1 on the real 08 capture 61 (unbound, right after up)" "$(links_heard "$hbrun/61_switch_state.json" "$hbpkgs/hb_basic_noroles/ndtwin/topology.json")"
++        expect OK  "L1 on the real 08 capture 67 (unbound, restored)" "$(links_heard "$hbrun/67_switch_state_restored.json" "$hbpkgs/hb_basic_noroles/ndtwin/topology.json")"
++    else
++        echo "  --    08's live switch_states are not on this machine; not compared (NOT a pass)"
++    fi
+     expect OK  "L2 read back"                    "$(flow_has "$t/flow_with.json" 1 10.0.9.9 3)"
+     expect BAD "L2 not read back"                "$(flow_has "$t/flow_without.json" 1 10.0.9.9 3)"
+     expect BAD "L2 read back on the wrong port"  "$(flow_has "$t/flow_with.json" 1 10.0.9.9 4)"
+@@ -555,27 +689,6 @@ graph_until() {
+     printf '%s\n' "$v"
+ }
+ 
+-# state_until <seconds> <verdict function> <out-file> [args...] -- poll /p4/switch_state every 2 s
+-# until the verdict reads OK or the time is up; the LAST capture is kept at <out-file> and every
+-# attempt's verdict is appended to <out-file>.polls. [Co-developed with claude code -- Adam] The
+-# heartbeat reaches switch_state's `links` at the proxy's first watchdog pass, up to one
+-# interval after the proxy starts -- a single read right after `ndt up` could land before it.
+-state_until() {
+-    local limit="$1" fn="$2" out="$3" deadline v
+-    shift 3
+-    deadline=$(( $(date +%s) + limit ))
+-    : > "$out.polls"
+-    while :; do
+-        get_json "$PROXY_URL/p4/switch_state" "$out" >/dev/null 2>&1 || true
+-        v="$( [[ -s "$out" ]] && "$fn" "$out" "$@" || echo "BAD no switch_state capture" )"
+-        printf '%s  %s\n' "$(date -u +%H:%M:%SZ)" "$v" >> "$out.polls"
+-        [[ "$v" == OK* ]] && break
+-        (( $(date +%s) >= deadline )) && break
+-        sleep 2
+-    done
+-    printf '%s\n' "$v"
+-}
+-
+ # dispatch_until <request id> <out-file> -- poll get_flow_dispatch_status?request_id= until
+ # `complete` (or 30 s).
+ dispatch_until() {
+@@ -682,17 +795,10 @@ else
+ 
+     # --- L6 --------------------------------------------------------------------------------------
+     say "L6 -- switch_state capabilities (roles package)"
+-    SS="$RUN/30_switch_state_roles.json"
+     # [Co-developed with claude code -- Adam] Polled: the links are the heartbeat's from the proxy's
+-    # first watchdog pass on. Every check below reads the capture the poll ended on.
+-    V="$(state_until 30 l1_links_verdict "$SS" "$PKG_ROLES/ndtwin/topology.json")"
+-    if [[ -s "$SS" ]]; then
+-        judge "$(caps_are "$SS" "$CAPS_OWNED")" "L6 capabilities"
+-        judge "$(skipped_is "$SS" "$SKIPPED_OWNED")" "L6 control_plane.skipped"
+-        judge "$V" "L1 declared links on switch_state, fed by the heartbeat"
+-    else
+-        fail "L6: no switch_state"
+-    fi
++    # first watchdog pass on, and heard (an age) after its startup grace. Every check reads the
++    # capture the poll ended on (30_switch_state_roles.json). The self-test runs this call.
++    l6_roles
+ 
+     # --- L1 --------------------------------------------------------------------------------------
+     say "L1 -- the kernel's graph: 8 inter-switch directions enabled and up (poll up to 90 s)"
+@@ -781,17 +887,9 @@ if (( DOWN_RC == 0 )); then
+         fail "'ndt up p4 --app' (control package) exited $UP2_RC -- L5 is not measured"
+     else
+         say "L6 -- switch_state capabilities (no roles)"
+-        SS2="$RUN/71_switch_state_plain.json"
+         # [Co-developed with claude code -- Adam] The unbound package runs the heartbeat too
+-        # (detect-only): the same links check, on its own model.
+-        V2="$(state_until 30 l1_links_verdict "$SS2" "$PKG_PLAIN/ndtwin/topology.json")"
+-        if [[ -s "$SS2" ]]; then
+-            judge "$(caps_are "$SS2" "$CAPS_UNBOUND")" "L6 capabilities (unbound)"
+-            judge "$(skipped_is "$SS2" "$SKIPPED_UNBOUND")" "L6 control_plane.skipped (unbound)"
+-            judge "$V2" "L1 declared links on switch_state, fed by the heartbeat (unbound)"
+-        else
+-            fail "L6: no switch_state on the control fabric"
+-        fi
++        # (detect-only): the same checks on its own model (71_switch_state_plain.json).
++        l6_plain
+ 
+         say "L5 -- a write with no binding: 501, and the author's entries untouched"
+         stats_flows "$RUN/72_before"
+diff --git a/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh
+index 3755499e..ca5589cb 100644
+--- a/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh
++++ b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh
+@@ -156,6 +156,7 @@ INJECTED_IFACES=()
+ SAMPLER_PID=""
+ SAMPLER_STOP=""
+ SAMPLER_ERR=""
++SAMPLER_OUT=""
+ #: The last cut's and restore's instants: $EPOCHREALTIME just before and just after each end's tc
+ #: call (end A is s<a>-eth<ap>, whose egress carries a->b; end B carries b->a).
+ CUT_A_START=""; CUT_A_END=""; CUT_B_START=""; CUT_B_END=""
+@@ -535,6 +536,17 @@ def samples(path):
+             out.append({"t": float(f[0]), "status": f[1], "session": f[2], "hosts": f[4]})
+     return out
+ 
++#: The longest stretch without a sample a sampler that reads every 1 s may leave (load, a slow
++#: read) before the stretch counts as NOT MEASURED. [Co-developed with claude code -- Adam]
++MAX_SAMPLE_GAP_S = 10.0
++
++def sample_gaps(ss, t0, t1):
++    """[(from, to)] of every stretch of [t0, t1) longer than MAX_SAMPLE_GAP_S without a sample --
++    the edges included (the opus judge's N2-1: a sampler that stopped reading part-way)."""
++    ts = sorted(s["t"] for s in ss if t0 <= s["t"] < t1)
++    marks = [t0] + ts + [t1]
++    return [(a, b) for a, b in zip(marks, marks[1:]) if b - a > MAX_SAMPLE_GAP_S]
++
+ def v_h5_heartbeat(samples_path, tbl, end, expected):
+     want = set(expected.split())
+     ss = samples(samples_path)
+@@ -555,15 +567,27 @@ def v_h5_heartbeat(samples_path, tbl, end, expected):
+         return f"STOP ruling 4: a sample counted forwarded_to_hosts {leak[0]['hosts']} at {leak[0]['t']:.0f}"
+     if not ss:
+         return "BAD the sampler recorded nothing"
++    windows = arm_windows(tbl, end)
++    gaps = sample_gaps(ss, windows[0][1], float(end)) if windows else []
++    if gaps:
++        return (f"BAD the sampler did not read for {len(gaps)} stretch(es) of 06, e.g. {gaps[0][1] - gaps[0][0]:.0f} s "
++                f"from {gaps[0][0]:.0f}: a session there was not seen, so the arms there are not measured")
+     if bad:
+         return f"BAD {len(bad)} arm(s) not as expected: " + "; ".join(bad[:4])
+     return f"OK a heartbeat ran on exactly the {had} expected arm(s); no host-port frame in {len(ss)} samples"
+ 
+ def v_no_session(samples_path, t0, t1):
+-    new = sorted({s["session"] for s in samples(samples_path)
+-                  if s["status"] == "running" and float(t0) <= s["t"] < float(t1)})
+-    return "OK no heartbeat session ran during 01 (NDTwin's own pipeline)" if not new \
+-        else f"BAD a heartbeat ran during 01: {new}"
++    ss = samples(samples_path)
++    new = sorted({s["session"] for s in ss if s["status"] == "running" and float(t0) <= s["t"] < float(t1)})
++    if new:
++        return f"BAD a heartbeat ran during 01: {new}"
++    # [Co-developed with claude code -- Adam] "no session seen" is only a reading where the sampler
++    # was reading (the opus judge's N2-1): no sample, or a stretch without one, is not measured.
++    gaps = sample_gaps(ss, float(t0), float(t1))
++    if gaps:
++        return (f"BAD 01's window was not sampled throughout: {gaps[0][1] - gaps[0][0]:.0f} s without a read "
++                f"from {gaps[0][0]:.0f}" + (" (no sample at all)" if len(gaps) == 1 and gaps[0] == (float(t0), float(t1)) else ""))
++    return "OK no heartbeat session ran during 01 (NDTwin's own pipeline)"
+ 
+ name, args = sys.argv[1], sys.argv[2:]
+ try:
+@@ -722,6 +746,7 @@ SAMPLER
+ # `fail` with what it said (its stderr is $RUN/50_sampler.err) and 1: the caller must not go on.
+ sampler_start() {
+     local out="$1" i
++    SAMPLER_OUT="$out"
+     SAMPLER_STOP="$RUN/.sampler.stop"
+     SAMPLER_ERR="$RUN/50_sampler.err"
+     rm -f "$SAMPLER_STOP"
+@@ -740,8 +765,22 @@ sampler_start() {
+     sampler_stop
+     return 1
+ }
++# [Co-developed with claude code -- Adam] The opus judge's N2-1 on f4f43a32: a sampler that died
++# after a good start ends the run FAIL -- checked BEFORE the stop file is written (a sampler
++# killed by a signal leaves no stderr), by pid AND argv (a reaped pid can be reused) -- and so
++# does a sampler that wrote to its stderr (`fail`, not `bad`: `bad` only prints).
++sampler_alive() {
++    [[ -n "$SAMPLER_PID" ]] && kill -0 "$SAMPLER_PID" 2>/dev/null \
++        && tr '\0' ' ' < "/proc/$SAMPLER_PID/cmdline" 2>/dev/null | /usr/bin/grep -qF "$SAMPLER_STOP"
++}
+ sampler_stop() {
+     [[ -n "$SAMPLER_PID" ]] || return 0
++    # (it also exits by itself after 5 h -- far longer than H5 -- which is still a run it did not sample to the end)
++    if ! sampler_alive; then
++        local said=""
++        [[ -s "${SAMPLER_ERR:-}" ]] && said="; its stderr: $(head -c 200 "$SAMPLER_ERR" | tr '\n' ' ')"
++        fail "H5: the report sampler (pid $SAMPLER_PID) was not running when the run came to stop it -- its samples end early (the last row of $(basename "${SAMPLER_OUT:-50_samples.tsv}") says when)$said"
++    fi
+     : > "$SAMPLER_STOP"
+     local i
+     for i in 1 2 3 4 5 6 7 8 9 10; do kill -0 "$SAMPLER_PID" 2>/dev/null || break; sleep 0.5; done
+@@ -749,7 +788,7 @@ sampler_stop() {
+        && tr '\0' ' ' < "/proc/$SAMPLER_PID/cmdline" 2>/dev/null | /usr/bin/grep -qF "$SAMPLER_STOP"; then
+         kill "$SAMPLER_PID" 2>/dev/null || true
+     fi
+-    [[ -s "${SAMPLER_ERR:-}" ]] && bad "the report sampler wrote to its stderr: $(head -c 300 "$SAMPLER_ERR" | tr '\n' ' ')"
++    [[ -s "${SAMPLER_ERR:-}" ]] && fail "H5: the report sampler wrote to its stderr: $(head -c 300 "$SAMPLER_ERR" | tr '\n' ' ')"
+     SAMPLER_PID=""
+ }
+ 
+@@ -1245,20 +1284,27 @@ tbl(arms[:25], "table_short.tsv")
+ expected = {"basic/skeleton","basic/solution","source_routing/skeleton","source_routing/solution","basic_tunnel/solution",
+             "load_balance/skeleton","load_balance/solution","qos/skeleton","qos/solution","link_monitor/skeleton",
+             "link_monitor/solution","firewall/skeleton","firewall/solution","ecn/skeleton","ecn/solution","mri/skeleton","mri/solution"}
+-def sampled(name, hosts=0, drop=None, extra=None):
++# [Co-developed with claude code -- Adam] A read every 5 s through 06 AND on through 01 (100 s after
++# T_END), as a sampler that lived to be stopped writes; `hole` leaves a stretch out (one that died).
++def sampled(name, hosts=0, drop=None, extra=None, hole=None):
+     with open(os.path.join(t, name), "w") as fh:
+         fh.write("wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches\n")
+         for i, (e, w, *_r) in enumerate(arms):
+             arm = f"{e}/{w}"
+             for k in range(0, 100, 5):
+                 ts = T0 + 100 * i + k
++                if hole and hole[0] <= ts < hole[1]:
++                    continue
+                 on = (arm in expected and arm != drop) or arm == extra
+                 if on and 10 <= k < 90:
+                     fh.write(f"{ts}\trunning\tsess{i:02d}\t{1000+i}\t{hosts if k == 50 else 0}\t0\n")
+                 else:
+                     fh.write(f"{ts}\tstopped\tsess{max(i-1,0):02d}\t-\t0\t0\n")
++        for k in range(0, 100, 5):
++            fh.write(f"{T0 + 100 * len(arms) + k}\tstopped\tsess{len(arms) - 1:02d}\t-\t0\t0\n")
+ sampled("samples_ok.tsv"); sampled("samples_missing.tsv", drop="qos/solution")
+ sampled("samples_extra.tsv", extra="calc/solution"); sampled("samples_leak.tsv", hosts=1)
++sampled("samples_gap.tsv", hole=(T0 + 400, T0 + 900))
+ open(os.path.join(t, "T_END"), "w").write(str(T0 + 100 * len(arms)))
+ PY
+     local cut="1 3 3 1" tend; tend="$(cat "$t/T_END")"
+@@ -1318,6 +1364,61 @@ PY
+     expect STOP "H5 ruling 4 in a sample"                            "$(verdict h5_heartbeat "$t/samples_leak.tsv" "$t/table_same.tsv" "$tend" "$HB_ARMS")"
+     expect OK   "H5 no session during 01"                            "$(verdict no_session "$t/samples_ok.tsv" "$tend" "$((tend + 100))")"
+     expect BAD  "H5 a session during 01"                             "$(verdict no_session "$t/samples_ok.tsv" 0 "$tend")"
++    # --- H5's sampler dying AFTER a good start (the opus judge's N2-1 on f4f43a32) -------------------
++    # [Co-developed with claude code -- Adam] sampler_start's check only covers the start. A sampler
++    # killed later (a signal: no stderr at all) or one that complained on its stderr must still end
++    # the WHOLE run FAIL -- read on the run's last line, through the real sampler_start /
++    # sampler_stop and the real teardown (w_finish -> finish), as H5 runs them (no claim).
++    st_h5_dies() {   # st_h5_dies <kill|stderr|healthy> -> the run's output
++        local d
++        d="$(mktemp -d "$t/h5d-XXXXXX")"
++        printf '#!/usr/bin/env bash\nexit 0\n' > "$d/ndt"; chmod +x "$d/ndt"
++        ( STEP=08_heartbeat; RUN="$d/run"; mkdir -p "$RUN"; CLAIMED=0; VERDICT_RC=0; VERDICT_WHY=""; FABRIC_UP=0
++          INJECTED_IFACES=(); NDT="$d/ndt"; REAL_NDT="$d/ndt"; APP_KNOB="$d/none"
++          KNOB_ENTRY_COPY=""; TEL_ENTRY_COPY=""; CTRL_PID=""; TEARDOWN_DOWN_RC=""
++          SAMPLER_PID=""; SAMPLER_STOP=""; SAMPLER_ERR=""; SAMPLER_INTERVAL_S=0.1; HB_REPORT_FILE="$d/report.json"
++          if [[ "$1" == stderr ]]; then
++              SAMPLER_PY="import sys
++sys.stderr.write('a warning the sampler printed\n'); sys.stderr.flush()
++$SAMPLER_PY"
++          fi
++          sampler_start "$RUN/50_samples.tsv" || echo "sampler_start answered $?"
++          if [[ "$1" == kill ]]; then kill -9 "$SAMPLER_PID" 2>/dev/null; sleep 0.4; fi
++          sleep 0.3
++          sampler_stop
++          ( exit 0 ); w_finish ) 2>&1
++    }
++    out="$(st_h5_dies kill)" || true
++    got="$(tail -1 <<<"$out")"
++    [[ "$got" == "FAIL 08_heartbeat -- H5: the report sampler"*"was not running"* && "$out" != *"sampler_start answered"* ]] \
++        && ok "H5 sampler killed after a good start: sampler_start said 0, and the run's last line is FAIL" \
++        || red "H5 sampler killed after a good start: the run ended '$got'"
++    out="$(st_h5_dies stderr)" || true
++    got="$(tail -1 <<<"$out")"
++    [[ "$got" == "FAIL 08_heartbeat -- H5: the report sampler wrote to its stderr"*"a warning the sampler printed"* ]] \
++        && ok "  H5 sampler with a warning on its stderr: the run's last line is FAIL and quotes it" \
++        || red "  H5 sampler with a warning on its stderr: the run ended '$got'"
++    out="$(st_h5_dies healthy)" || true
++    got="$(tail -1 <<<"$out")"
++    [[ "$got" == "PASS 08_heartbeat" ]] && ok "  the control: a sampler that ran and stopped cleanly ends PASS" \
++                                         || red "  a healthy sampler's run ended '$got'"
++    # sampler_alive asks by argv too: a live pid that is not this sampler (a reaped pid, reused) is
++    # not the sampler. [Co-developed with claude code -- Adam]
++    got="$( sleep 20 & other=$!
++            SAMPLER_PID="$other"; SAMPLER_STOP="$t/.no-such-sampler.stop"
++            sampler_alive && echo "alive" || echo "not the sampler"
++            kill "$other" 2>/dev/null; wait "$other" 2>/dev/null )" || true
++    [[ "$got" == "not the sampler" ]] && ok "  sampler_alive: a live pid that is not the sampler (a reused pid) does not count" \
++                                      || red "  sampler_alive with a reused pid said '$got'"
++    # the verdicts read a sampler that stopped reading, not only one that recorded nothing
++    expect BAD  "H5 01 with no sample in its window"                  "$(verdict no_session "$t/samples_ok.tsv" "$((tend + 10000))" "$((tend + 10100))")"
++    expect BAD  "H5 a sampler that stopped reading for 500 s mid-06"  "$(verdict h5_heartbeat "$t/samples_gap.tsv" "$t/table_same.tsv" "$tend" "$HB_ARMS")"
++    expect BAD  "H5 01 where the sampler stopped half-way"            "$(verdict no_session "$t/samples_ok.tsv" "$((tend + 50))" "$((tend + 200))")"
++    # consts: the proxy's own constants, the one embedded program only the live path ran (the
++    # judge's N2-2)
++    got="$(consts)" || true
++    [[ "$got" == "5 15 5" ]] && ok "consts: the proxy's beacon interval, timeout and watchdog interval, imported (5 15 5)" \
++                             || red "consts gave '$got'"
+     expect BAD  "an unreadable capture is BAD, not a traceback"      "$(verdict caps "$t/nonexistent.json" true heartbeat)"
+     # --- the cut's phase: planned from the report, recorded from it ------------------------------
+     printf '{"directions": [{"tx": {"dpid": 1, "port": 3}, "rx": {"dpid": 3, "port": 1}, "last_heard_mono": 100.25},
+diff --git a/tests/python/test_ndt_serve.py b/tests/python/test_ndt_serve.py
+index ace38f5d..447446c0 100644
+--- a/tests/python/test_ndt_serve.py
++++ b/tests/python/test_ndt_serve.py
+@@ -1092,6 +1092,37 @@ class RcProvenance(unittest.TestCase):
+         self.assertEqual([self.enclosing_function(n) for n in (start, start + 1, end - 1, end + 1)],
+                          [None, "claim_line", "claim_line", None])
+ 
++    # [Co-developed with claude code -- Adam]
++    CITE = re.compile(r"\(ndt:(\d+)-(\d+)\)")
++
++    def test_lock_probe_citations_are_lock_probe(self):
++        """The opus judge's N1-1 (09-27): the README still sent a reader to ndt lines 9292-9307 for
++        the lock probes after segment W had moved them 124 lines down, because nothing held the
++        prose to ndt. Every parenthesised ndt range cited beside the lock probes -- the README,
++        serve.py's docstring, this file's -- must start in lock_probe's own comment block and
++        cover its POST to /ndt/acquire_lock, inside lock_probe. Each place must cite at least once
++        (a check that finds nothing is not a pass)."""
++        head = [i + 1 for i, t in enumerate(self.lines) if t.startswith("# lock_probe <type>")]
++        post = [i + 1 for i, t in enumerate(self.lines) if "/ndt/acquire_lock" in t]
++        self.assertEqual((len(head), len(post)), (1, 1), "one lock_probe header, one acquire_lock POST")
++        self.assertEqual(self.enclosing_function(post[0]), "lock_probe")
++        end = next(i + 1 for i in range(post[0], len(self.lines)) if self.lines[i].startswith("}"))
++        bad = []
++        for path in (os.path.join(SERVE_DIR, "README.md"), os.path.join(SERVE_DIR, "serve.py"),
++                     os.path.abspath(__file__)):
++            with open(path) as f:
++                text = f.read()
++            found = [(text.count("\n", 0, m.start()) + 1, int(m.group(1)), int(m.group(2)))
++                     for m in self.CITE.finditer(text)
++                     if re.search(r"lock[\s_]+probe|acquire_lock", text[max(0, m.start() - 120):m.end()])]
++            if not found:
++                bad.append("%s cites no ndt range beside the lock probes" % os.path.basename(path))
++            for line, a, b in found:
++                if not (head[0] <= a <= post[0] <= b <= end):
++                    bad.append("%s:%d cites ndt:%d-%d; lock_probe's comment starts at %d, its POST is at %d, "
++                               "it ends at %d" % (os.path.basename(path), line, a, b, head[0], post[0], end))
++        self.assertEqual(bad, [])
++
+     def test_status_check_rc1_names_any_problem(self):
+         c, m = self.verbs.meaning("status.check", 1)
+         self.assertEqual(c, "dirty")
+diff --git a/tests/shell/mutate_ndt_serve.sh b/tests/shell/mutate_ndt_serve.sh
+index 5e395242..54d46891 100755
+--- a/tests/shell/mutate_ndt_serve.sh
++++ b/tests/shell/mutate_ndt_serve.sh
+@@ -38,8 +38,11 @@ JOBS_PY="$REPO/tools/ndt_serve/jobs.py"
+ RUNNER_PY="$REPO/tools/ndt_serve/runner.py"
+ CELLS_PY="$REPO/tools/ndt_serve/cells.py"
+ DEMO_PY="$REPO/tools/ndt_serve/demo_sequence.py"
++# [Co-developed with claude code -- Adam] the README is prose the suite now holds to ndt (its lock
++# probe citation, RcProvenance), so a mutant tree carries it and the gate watches it too
++README_MD="$REPO/tools/ndt_serve/README.md"
+ NDT="$REPO/tools/test_workflow/ndt"
+-SUBJECTS=("$SERVE_PY" "$VERBS_PY" "$JOBS_PY" "$RUNNER_PY" "$CELLS_PY" "$DEMO_PY" "$NDT")
++SUBJECTS=("$SERVE_PY" "$VERBS_PY" "$JOBS_PY" "$RUNNER_PY" "$CELLS_PY" "$DEMO_PY" "$README_MD" "$NDT")
+ BK=$(mktemp -d "${TMPDIR:-/tmp}/ndt-serve-mutate-XXXXXX")
+ trap 'rm -rf "$BK"' EXIT
+ BASE_SHA=$(sha256sum "${SUBJECTS[@]}")
+@@ -50,7 +53,7 @@ MUTATIONS=0
+ layout() {   # $1 = dir -- a copy of the service and of ndt with what it sources
+     local d="$1"
+     mkdir -p "$d/tools/ndt_serve" "$d/tools/test_workflow"
+-    cp "$SERVE_PY" "$VERBS_PY" "$JOBS_PY" "$RUNNER_PY" "$CELLS_PY" "$DEMO_PY" "$d/tools/ndt_serve/"
++    cp "$SERVE_PY" "$VERBS_PY" "$JOBS_PY" "$RUNNER_PY" "$CELLS_PY" "$DEMO_PY" "$README_MD" "$d/tools/ndt_serve/"
+     cp "$NDT" "$REPO/tools/test_workflow/ports.sh" "$REPO/tools/test_workflow/sudo_surface.sh" \
+        "$REPO/tools/test_workflow/components.env" "$d/tools/test_workflow/"
+     chmod +x "$d/tools/test_workflow/ndt"
+@@ -717,6 +720,19 @@ report "M63: apps.start rc 1 cites proc_checkout's return 1 (09-24's line 8315,
+        RcProvenance.test_code_sourced_tables_are_in_ndt
+ 
+ 
++# [Co-developed with claude code -- Adam] The opus judge's N1-1 (09-27): the README's lock probe
++# citation was left at its pre-segment-W lines; the suite now holds every such citation to ndt.
++m=$(mutant m64 "$README_MD" \
++    'lock probes to the kernel (ndt:9416-9431)' \
++    'lock probes to the kernel (ndt:9292-9307)')
++report "M64: the README cites the lock probes where they were before segment W (ndt:9292-9307)" "$m" \
++       RcProvenance.test_lock_probe_citations_are_lock_probe
++m=$(mutant m65 "$SERVE_PY" \
++    'probes to the kernel (ndt:9416-9431)' \
++    'probes to the kernel (ndt:9416-9420)')
++report "M65: serve.py's docstring cites lock_probe's comment but not its POST" "$m" \
++       RcProvenance.test_lock_probe_citations_are_lock_probe
++
+ m=$(mutant m62 "$SERVE_PY" \
+     '    request_queue_size = 64' \
+     '    request_queue_size = 5')
+diff --git a/tests/shell/mutate_p4_heartbeat_w.sh b/tests/shell/mutate_p4_heartbeat_w.sh
+index 02c2fe72..ef83a6f7 100644
+--- a/tests/shell/mutate_p4_heartbeat_w.sh
++++ b/tests/shell/mutate_p4_heartbeat_w.sh
+@@ -1069,6 +1069,8 @@ lmutant() {   # $1 = label, $2 = file (08), $3 = the anchor, $4 = its replacemen
+     cp "$REPO/$LIVE_DIR_REL/_common.sh" "$LIVE08" "$d/$LIVE_DIR_REL/"
+     cp "$REPO/tools/test_workflow/faults.sh" "$REPO/tools/test_workflow/qdisc_snapshot.sh" "$d/tools/test_workflow/"
+     cp "$REPO/doc/audit/2026-09-25_p4-heartbeat/spike/census_prepare.py" "$d/doc/audit/2026-09-25_p4-heartbeat/spike/"
++    # [Co-developed with claude code -- Adam] the proxy, READ by the self-test's consts (never written)
++    ln -s "$REPO/p4_proxy" "$d/p4_proxy"
+     python3 - "$d/$LIVE_DIR_REL/$(basename "$file")" "$old" "$new" <<'PY'
+ import sys
+ p, a, b = sys.argv[1], sys.argv[2], sys.argv[3]
+@@ -1098,6 +1100,7 @@ mkdir -p "$lb/$LIVE_DIR_REL" "$lb/tools/test_workflow" "$lb/doc/audit/2026-09-25
+ cp "$REPO/$LIVE_DIR_REL/_common.sh" "$LIVE08" "$lb/$LIVE_DIR_REL/"
+ cp "$REPO/tools/test_workflow/faults.sh" "$REPO/tools/test_workflow/qdisc_snapshot.sh" "$lb/tools/test_workflow/"
+ cp "$REPO/doc/audit/2026-09-25_p4-heartbeat/spike/census_prepare.py" "$lb/doc/audit/2026-09-25_p4-heartbeat/spike/"
++ln -s "$REPO/p4_proxy" "$lb/p4_proxy"
+ if [[ "$(lrun "$lb" | tail -1)" == "SELF-TEST PASS" ]]; then
+     echo "  08 self-test baseline: SELF-TEST PASS"
+ else
+@@ -1366,6 +1369,41 @@ m=$(lmutant l54 "$LIVE08" \
+     'BEGIN{printf "%.2f\n", a-b}')
+ lreport "L54: graph_until's elapsed counts backwards" "$m" "graph_until after a cut gave"
+ 
++# [Co-developed with claude code -- Adam] Round 2b (the opus judge's N2-1 / N2-2 on f4f43a32): a
++# sampler that dies after a good start or complains ends the run FAIL; the verdicts need reads
++# throughout; consts runs in the self-test.
++m=$(lmutant l55 "$LIVE08" \
++    '    [[ -s "${SAMPLER_ERR:-}" ]] && fail "H5: the report sampler wrote to its stderr:' \
++    '    [[ -s "${SAMPLER_ERR:-}" ]] && bad "H5: the report sampler wrote to its stderr:')
++lreport "L55: a sampler's stderr only printed again (bad, not fail)" "$m" \
++        "  H5 sampler with a warning on its stderr"
++m=$(lmutant l56 "$LIVE08" \
++    '    if ! sampler_alive; then' \
++    '    if false; then')
++lreport "L56: a sampler that died after a good start goes unnoticed" "$m" \
++        "H5 sampler killed after a good start"
++m=$(lmutant l57 "$LIVE08" \
++    '    gaps = sample_gaps(ss, float(t0), float(t1))' \
++    '    gaps = []')
++lreport "L57: 01's window counts as clean with no sample in it" "$m" \
++        "H5 01 with no sample in its window"
++m=$(lmutant l58 "$LIVE08" \
++    '    gaps = sample_gaps(ss, windows[0][1], float(end)) if windows else []' \
++    '    gaps = []')
++lreport "L58: a stretch of 06 without reads counts as no session" "$m" \
++        "H5 a sampler that stopped reading for 500 s mid-06"
++m=$(lmutant l59 "$LIVE08" \
++    '        && tr '"'"'\0'"'"' '"'"' '"'"' < "/proc/$SAMPLER_PID/cmdline" 2>/dev/null | /usr/bin/grep -qF "$SAMPLER_STOP"
++}' \
++    '        && true
++}')
++lreport "L59: sampler_alive takes any live pid for the sampler" "$m" \
++        "  sampler_alive with a reused pid"
++m=$(lmutant l60 "$LIVE08" \
++    '        '"'"'from proxy_agent import topology_manager as t; print(t.LLDP_BEACON_INTERVAL_S, t.LINK_BEACON_TIMEOUT_S, t.LINK_WATCHDOG_INTERVAL_S)'"'"'' \
++    '        '"'"'from proxy_agent import topology_manager as t; print(t.LINK_BEACON_TIMEOUT_S, t.LLDP_BEACON_INTERVAL_S, t.LINK_WATCHDOG_INTERVAL_S)'"'"'')
++lreport "L60: consts reads the constants in the wrong order" "$m" "consts gave"
++
+ # --- a control that must stay green ----------------------------------------------------------------
+ m=$(mutant c1 "$HBMOD" \
+     '#: The daemon'"'"'s report is a few KiB; anything past this is not one.' \
+diff --git a/tests/shell/mutate_roles_binding.sh b/tests/shell/mutate_roles_binding.sh
+index f63fff74..b3aaa3e1 100755
+--- a/tests/shell/mutate_roles_binding.sh
++++ b/tests/shell/mutate_roles_binding.sh
+@@ -1546,6 +1546,35 @@ m=$(l7_mutant l7_either 'unfed = [k for k in want if k in links and got(k, "sour
+ l7_report "L7-22: \"declared or heartbeat\" (the looser rule) is accepted" "$m" \
+           "L1 the heartbeat never fed the proxy (all declared)"
+ 
++# [Co-developed with claude code -- Adam] Round 2b (the opus judge's N3-1 / N3-2 on e012a5a7): HEARD
++# means an age, and L6/L1 on switch_state -- state_until and the live path's two calls -- run in
++# the self-test through file://.
++m=$(l7_mutant l7_unheard 'unheard = [k for k in want if k in links and got(k, "source") == "heartbeat" and got(k, "down") is False
++           and not number(got(k, "last_beacon_age_s"))]' 'unheard = []')
++l7_report "L7-23: a direction in the startup grace counts as heard" "$m" \
++          "L1 a direction never heard yet (the startup grace)"
++
++m=$(l7_mutant l7_until '        [[ "$v" == OK* ]] && break
++        (( $(date +%s) >= deadline )) && break
++        sleep 2' '        break')
++l7_report "L7-24: state_until stops after one read whatever it said" "$m" \
++          "  state_until through the startup grace"
++
++m=$(l7_mutant l7_plaincaps '        "$CAPS_UNBOUND" "$SKIPPED_UNBOUND" " (unbound)"' \
++    '        "$CAPS_OWNED" "$SKIPPED_UNBOUND" " (unbound)"')
++l7_report "L7-25: the unbound call site checks the owned capabilities" "$m" \
++          "L6/L1 on switch_state (unbound)"
++
++m=$(l7_mutant l7_judgev '        judge "$v" "L1 declared links on switch_state, fed by the heartbeat$sfx"' \
++    '        judge "OK stub" "L1 declared links on switch_state, fed by the heartbeat$sfx"')
++l7_report "L7-26: L1 on switch_state is judged OK whatever the poll ended on" "$m" \
++          "  never heard within the poll"
++
++m=$(l7_mutant l7_nostate '    if [[ -s "$out" ]]; then
++        judge "$(caps_are "$out" "$caps")"' '    if true; then
++        judge "$(caps_are "$out" "$caps")"')
++l7_report "L7-27: no switch_state at all is judged, not failed" "$m" "  no switch_state at all"
++
+ # --- negative controls: edits no suite specifies, which must stay GREEN -------------------------
+ 
+ control() {  # $1 = label, $2 = mutant dir
+diff --git a/tools/ndt_serve/README.md b/tools/ndt_serve/README.md
+index a7db7fa8..6a9aabd1 100644
+--- a/tools/ndt_serve/README.md
++++ b/tools/ndt_serve/README.md
+@@ -57,7 +57,7 @@ keeps running if the server dies; a restarted server finds it again from disk.
+ an `Origin` -- this server's own origin; a POST also needs `Content-Type: application/json`.
+ The Host header must be `127.0.0.1:<port>` or `localhost:<port>`. No CORS header is ever sent.
+ Reads are gated too because a read is not side-effect free: `ndt status --check` POSTs three
+-lock probes to the kernel (ndt:9292-9307), and without the token any page in the browser could
++lock probes to the kernel (ndt:9416-9431), and without the token any page in the browser could
+ start one with an `<img>` (judge 09-24, finding 1).
+ 
+ Two read-only ndt calls run at a time; a third waits up to `--read-queue-wait` seconds and then
+diff --git a/tools/ndt_serve/verbs.py b/tools/ndt_serve/verbs.py
+index 391461ee..bed2f2fe 100644
+--- a/tools/ndt_serve/verbs.py
++++ b/tools/ndt_serve/verbs.py
+@@ -249,8 +249,9 @@ RC_TABLE = {
+ # Where each table's codes come from. "help": the phrase `ndt help` prints for each rc (compared
+ # whitespace-normalised). "code": (line, rc, text that line must contain, the function that line
+ # lies in) in tools/test_workflow/ndt -- trunk cafd518a's line numbers (segment W of
+-# TICKET-P4-heartbeat added 124 lines to ndt above cmd_status; the 11 rows below it moved by that
+-# much, each located by its old line's text in the same function): the `serve)` dispatch lies
++# TICKET-P4-heartbeat added 124 lines to ndt above these rows -- 122 before cmd_status and 2 inside
++# it, the `heartbeat` row, before its verdict; the 11 rows below them moved by that much, each
++# located by its old line's text in the same function): the `serve)` dispatch lies
+ # below every anchor. 🔴 The function is half the anchor (intake judge 09-26, finding 3): `return
+ # 1` is on 187 lines of this tree's ndt, and 09-24's apps.start line 8315 was one of them --
+ # proc_checkout's, 8439 since segment W. [Co-developed with claude code -- Adam]

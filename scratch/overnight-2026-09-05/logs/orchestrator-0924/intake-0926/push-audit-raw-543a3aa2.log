@@ -1,0 +1,19 @@
+# push audit-raw 543a3aa2031972457b54d68bb1c62e9457ada9f1 to both P4 repos 2026-09-27T01:58:58+08:00
+remote: 
+remote: GitHub found 2 vulnerabilities on ndtwin-lab/NDTwin-Kernel-P4's default branch (2 high). To find out more, visit:        
+remote:      https://github.com/ndtwin-lab/NDTwin-Kernel-P4/security/dependabot        
+remote: 
+To github.com:ndtwin-lab/NDTwin-Kernel-P4.git
+   e812cf9c..543a3aa2  543a3aa2031972457b54d68bb1c62e9457ada9f1 -> audit-raw
+# push git@github.com:ndtwin-lab/NDTwin-Kernel-P4.git rc=0
+To github.com:Adam010341/NDTwin-Kernel-P4.git
+   e812cf9c..543a3aa2  543a3aa2031972457b54d68bb1c62e9457ada9f1 -> audit-raw
+# push git@github.com:Adam010341/NDTwin-Kernel-P4.git rc=0
+$ env -u GIT_ASKPASS -u SSH_ASKPASS GIT_TERMINAL_PROMPT=0 git -c credential.helper= -c core.askPass= ls-remote https://github.com/ndtwin-lab/NDTwin-Kernel-P4.git refs/heads/audit-raw
+543a3aa2031972457b54d68bb1c62e9457ada9f1	refs/heads/audit-raw
+$ env -u GIT_ASKPASS -u SSH_ASKPASS GIT_TERMINAL_PROMPT=0 git -c credential.helper= -c core.askPass= ls-remote https://github.com/Adam010341/NDTwin-Kernel-P4.git refs/heads/audit-raw
+543a3aa2031972457b54d68bb1c62e9457ada9f1	refs/heads/audit-raw
+$ env -u GITHUB_TOKEN -u GH_TOKEN curl -s -o /dev/null -w '%{http_code}' https://github.com/ndtwin-lab/NDTwin-Kernel-P4/tree/543a3aa2
+200
+$ env -u GITHUB_TOKEN -u GH_TOKEN curl -s -o /dev/null -w '%{http_code}' https://github.com/Adam010341/NDTwin-Kernel-P4/tree/543a3aa2
+200

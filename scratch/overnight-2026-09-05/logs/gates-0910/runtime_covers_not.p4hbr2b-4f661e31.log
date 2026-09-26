@@ -1,0 +1,31 @@
+4f661e31baf999b729691b27b27391b5d59bfd4f
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r2-0927  2026-09-26T19:21:29Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r2-0927  TMPDIR /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp
+# cmd python3 -c 
+import re, sys
+cover, rt = open(sys.argv[1]).read(), open(sys.argv[2]).read()
+nots = {f"{m.group(1)}:{m.group(2)}" for m in re.finditer(r"^  (\S+)\s+(\d+) \S+\s+NOT ", cover, re.M)}
+covered = set(re.search(r"^COVERED: (.*)$", rt, re.M).group(1).split())
+print("NOT executed by a self-test:", " ".join(sorted(nots)))
+print("run by runtime_check:       ", " ".join(sorted(covered)))
+left = sorted(nots - covered)
+print("RUNTIME-COVERS-NOT:", "every NOT row ran in runtime_check" if not left else "NOT RUN ANYWHERE: " + " ".join(left))
+sys.exit(1 if left or not nots <= covered else 0) /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/embedded_cover.p4hbr2b-4f661e31.log /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/runtime_check.p4hbr2b-4f661e31.log
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r2-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbr2b-4f661e31/nolab (sudo refused, lab curl refused)
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ python3 -c 
+import re, sys
+cover, rt = open(sys.argv[1]).read(), open(sys.argv[2]).read()
+nots = {f"{m.group(1)}:{m.group(2)}" for m in re.finditer(r"^  (\S+)\s+(\d+) \S+\s+NOT ", cover, re.M)}
+covered = set(re.search(r"^COVERED: (.*)$", rt, re.M).group(1).split())
+print("NOT executed by a self-test:", " ".join(sorted(nots)))
+print("run by runtime_check:       ", " ".join(sorted(covered)))
+left = sorted(nots - covered)
+print("RUNTIME-COVERS-NOT:", "every NOT row ran in runtime_check" if not left else "NOT RUN ANYWHERE: " + " ".join(left))
+sys.exit(1 if left or not nots <= covered else 0) /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/embedded_cover.p4hbr2b-4f661e31.log /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/runtime_check.p4hbr2b-4f661e31.log
+NOT executed by a self-test: 07_roles_basic.sh:698 07_roles_basic.sh:708 07_roles_basic.sh:751 S_heartbeat_spike.sh:200 _common.sh:1160 _common.sh:1168 _common.sh:1169 _common.sh:701 oldcode_selftest.sh:67
+run by runtime_check:        07_roles_basic.sh:698 07_roles_basic.sh:708 07_roles_basic.sh:751 S_heartbeat_spike.sh:200 _common.sh:1160 _common.sh:1168 _common.sh:1169 _common.sh:315 _common.sh:701 oldcode_selftest.sh:67
+RUNTIME-COVERS-NOT: every NOT row ran in runtime_check
+guarded_build: exit 0
+# rc=0

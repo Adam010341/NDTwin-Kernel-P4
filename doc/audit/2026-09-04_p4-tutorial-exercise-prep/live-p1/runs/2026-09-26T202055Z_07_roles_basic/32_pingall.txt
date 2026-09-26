@@ -1,0 +1,1 @@
+PINGALL_LOSS pairs=12 zero_loss=12 lossy=0 untested=0

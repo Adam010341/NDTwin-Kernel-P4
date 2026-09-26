@@ -1,0 +1,126 @@
+4f661e31baf999b729691b27b27391b5d59bfd4f
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r2-0927  2026-09-26T19:20:06Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r2-0927  TMPDIR /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp
+# cmd env SELFTEST_HB_RUN=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp/hbsnap/run SELFTEST_HB_PKGS=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp/hbsnap/pkgs bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbr2b-4f661e31/cover_run2.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r2-0927 /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp/cover_4f661e31 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbr2b-4f661e31/embedded_cover2.py
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r2-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbr2b-4f661e31/nolab (sudo refused, lab curl refused)
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env SELFTEST_HB_RUN=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp/hbsnap/run SELFTEST_HB_PKGS=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp/hbsnap/pkgs bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbr2b-4f661e31/cover_run2.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r2-0927 /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp/cover_4f661e31 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbr2b-4f661e31/embedded_cover2.py
+HEAD 4f661e31baf999b729691b27b27391b5d59bfd4f
+  08_selftest rc 0 -- SELF-TEST PASS
+  07_selftest rc 0 -- SELF-TEST PASS
+  live_p1_common rc 0 -- Ran 163 checks, 0 failed
+  (mininet hosts after it: 0)
+  live_p1_thirteen rc 0 -- Ran 36 checks, 0 failed
+  spike_selftest rc 0 -- SPIKE SELF-TEST PASS
+  07_roles_basic.sh         94 py-heredoc RAN  07_selftest                              | import json, sys
+  07_roles_basic.sh        115 py-heredoc RAN  07_selftest                              | import json, sys
+  07_roles_basic.sh        152 py-heredoc RAN  07_selftest                              | import json, sys
+  07_roles_basic.sh        170 py-jqp     RAN  07_selftest                              | sorted((d.get('control_plane') or {}).get('skipped') or [])
+  07_roles_basic.sh        190 py-heredoc RAN  07_selftest                              | import json, sys
+  07_roles_basic.sh        230 py-heredoc RAN  07_selftest                              | import json, sys
+  07_roles_basic.sh        243 py-heredoc RAN  07_selftest                              | import json, sys
+  07_roles_basic.sh        256 py-heredoc RAN  07_selftest                              | import glob, json, os, sys
+  07_roles_basic.sh        281 py-heredoc RAN  07_selftest                              | import json, sys
+  07_roles_basic.sh        298 py-heredoc RAN  07_selftest                              | import json, sys
+  07_roles_basic.sh        313 py-heredoc RAN  07_selftest                              | import json, sys
+  07_roles_basic.sh        400 py-heredoc RAN  07_selftest                              | import copy, json, os, sys
+  07_roles_basic.sh        698 py-jqp     NOT                                           | d.get('complete')
+  07_roles_basic.sh        708 py-jqp     NOT                                           | d.get('request_id') or ''
+  07_roles_basic.sh        751 py-c-dq    NOT                                           | import json,sys,os
+  08_heartbeat.sh          140 py-c       RAN  08_selftest                              | from proxy_agent import topology_manager as t; print(t.LLDP_
+  08_heartbeat.sh          176 py-heredoc RAN  08_selftest                              | import glob, json, os, re, sys
+  08_heartbeat.sh          716 py-var     RAN  08_selftest                              | import json, os, sys, time
+  08_heartbeat.sh          821 awk        RAN  08_selftest                              | BEGIN{print b-a}
+  08_heartbeat.sh          827 awk        RAN  08_selftest                              | BEGIN{printf "%.2f\n", b-a}
+  08_heartbeat.sh          856 py-c       RAN  08_selftest                              | import time; print(f"{time.monotonic():.3f}")
+  08_heartbeat.sh          857 py-c       RAN  08_selftest                              | import time; print(f"{time.monotonic() - time.time():.6f}")
+  08_heartbeat.sh          858 py-c       RAN  08_selftest                              | import sys, time; time.sleep(max(0.0, float(sys.argv[1]) - t
+  08_heartbeat.sh          861 py-heredoc RAN  08_selftest                              | import json, sys
+  08_heartbeat.sh          877 py-heredoc RAN  08_selftest                              | import json, sys
+  08_heartbeat.sh          894 py-c       RAN  08_selftest                              | import math, sys, time
+  08_heartbeat.sh          913 awk        RAN  08_selftest                              | BEGIN{printf "%.2f\n", lo + (r / 32767) * (p - 2 * lo)}
+  08_heartbeat.sh         1001 py-heredoc RAN  08_selftest                              | import json, sys, time
+  08_heartbeat.sh         1091 awk        RAN  08_selftest                              | { if ($9 <= b) print "yes"; else printf "OVER+%.3f\n", $9 - 
+  08_heartbeat.sh         1186 py-heredoc RAN  08_selftest                              | import copy, json, os, sys
+  08_heartbeat.sh         1442 awk        RAN  08_selftest                              | BEGIN{exit !(a > 0.05 && a < 4.95 && b > 0.05 && b < 4.95)}
+  08_heartbeat.sh         1544 py-c       RAN  08_selftest                              | import json, os, sys
+  08_heartbeat.sh         1556 py-c       RAN  08_selftest                              | import json, sys
+  08_heartbeat.sh         1566 py-c       RAN  08_selftest                              | import json, sys; d = json.load(open(sys.argv[1])); print(d[
+  08_heartbeat.sh         1573 py-c       RAN  08_selftest                              | import json, sys; d = json.load(open(sys.argv[1])); print(d[
+  08_heartbeat.sh         1585 awk        RAN  08_selftest                              | BEGIN{printf "%.3f", m + 0.3}
+  08_heartbeat.sh         1599 awk        RAN  08_selftest                              | BEGIN{n = split(s, a, " "); for (i = 2; i <= n; i++) if (a[i
+  08_heartbeat.sh         1605 awk        RAN  08_selftest                              | BEGIN{split(s, a, " "); split(p, q, " "); m = a[1] + q[2];
+  08_heartbeat.sh         1627 awk        RAN  08_selftest                              | {print NF}
+  08_heartbeat.sh         1675 py-c       RAN  08_selftest                              | import json, os, sys
+  08_heartbeat.sh         1698 awk        RAN  08_selftest                              | NR == 1 {next} {k = $2 " " $3 " " $5 " " $6; if (k != last) 
+  08_heartbeat.sh         1702 awk        RAN  08_selftest                              | NR > 1 && (NF != 6 || $1 !~ /^[0-9]+\.[0-9]$/) {bad = 1} END
+  08_heartbeat.sh         1732 py-c       RAN  08_selftest                              | import json, os, sys
+  08_heartbeat.sh         1754 awk        RAN  08_selftest                              | BEGIN{printf "%.6f", n - 1.5}
+  08_heartbeat.sh         1756 awk        RAN  08_selftest                              | BEGIN{exit !(e >= 1.5 && e < 3.5)}
+  08_heartbeat.sh         1876 awk        RAN  08_selftest                              | /^# --- end of prelude/ {exit} /^LIVE_DIR_08=/ {printf "LIVE
+  _common.sh               315 py-c-dq    RAN  07_selftest                              | import json,sys
+  _common.sh               328 py-c-dq    RAN  07_selftest,live_p1_common               | import json,sys
+  _common.sh               335 py-c-dq    RAN  live_p1_common                           | import json,sys
+  _common.sh               347 py-c-dq    RAN  live_p1_common                           | import json,sys
+  _common.sh               374 py-c-dq    RAN  live_p1_common                           | import re, sys
+  _common.sh               390 py-c-dq    RAN  live_p1_common                           | import json, sys
+  _common.sh               401 py-c-dq    RAN  live_p1_common                           | import json, sys
+  _common.sh               480 py-jqp     RAN  live_p1_common                           | ((d.get('switches') or {}).get('$d') or {}).get('probe_ok')
+  _common.sh               701 py-c       NOT                                           | import re, sys
+  _common.sh               748 py-heredoc RAN  live_p1_common                           | import json, math, os, sys
+  _common.sh               805 py-c       RAN  live_p1_common                           | import sys
+  _common.sh               839 awk        RAN  live_p1_common                           | $2 == "P" {print $1}
+  _common.sh               858 awk-dq     RAN  live_p1_common                           | BEGIN{print 1/$hz}
+  _common.sh               861 py-c       RAN  live_p1_common                           | import json, sys
+  _common.sh               923 py-c       RAN  live_p1_common                           | import sys
+  _common.sh               993 awk-dq     RAN  live_p1_common                           | BEGIN{printf \"%.3f\", $delta / ($LINK_USAGE_MTU_BYTES * $LI
+  _common.sh               997 awk-dq     RAN  live_p1_common                           | BEGIN{print ($bits > 0) ? 1 : 0}
+  _common.sh              1010 awk        RAN  live_p1_common                           | $1 == k {found=1} END{exit !found}
+  _common.sh              1016 awk-dq     RAN  live_p1_common                           | BEGIN{print ($bits >= $floor) ? 1 : 0}
+  _common.sh              1049 awk-dq     RAN  live_p1_common                           | BEGIN{print ($bits != 0) ? 1 : 0}
+  _common.sh              1160 awk        NOT                                           | $2=="M"{printf "%s ", $1}
+  _common.sh              1168 awk        NOT                                           | $2=="P"{n++} END{print n+0}
+  _common.sh              1169 awk        NOT                                           | $2=="M"{n++} END{print n+0}
+  S_heartbeat_spike.sh     200 py-c       NOT                                           | import sys; sys.path.insert(0, sys.argv[1])
+  S_heartbeat_spike.sh     634 awk        RAN  spike_selftest                           | $1 == i { print $2, $3, $4, $5; exit }
+  S_heartbeat_spike.sh     686 py-c-dq    RAN  spike_selftest                           | print($t0 - 1)
+  S_heartbeat_spike.sh     714 py-c-dq    RAN  spike_selftest                           | print($(now) - ${BEACON_S} - 1)
+  S_heartbeat_spike.sh     916 py-c       RAN  spike_selftest                           | import ast,sys; ast.parse(open(sys.argv[1]).read())
+  S_heartbeat_spike.sh     924 py-heredoc RAN  spike_selftest                           | import importlib.util, sys
+  S_heartbeat_spike.sh     991 awk        RAN  spike_selftest                           | /^self_test\(\) \{/ {exit} /^SPIKE_DIR=/ {printf "SPIKE_DIR=
+  S_heartbeat_spike.sh    1062 sh-heredoc RAN  spike_selftest                           | sp_hb_stop() { echo stopped > "$1"; HB_STARTED=0; }
+  S_heartbeat_spike.sh    1078 py-c       RAN  spike_selftest                           | import json,sys,time
+  S_heartbeat_spike.sh    1081 py-c       RAN  spike_selftest                           | import json,os,sys,time
+  S_heartbeat_spike.sh    1096 py-c       RAN  spike_selftest                           | import json,sys
+  S_heartbeat_spike.sh    1128 py-file    RAN  spike_selftest                           | import glob, os, sys
+  S_heartbeat_spike.sh    1165 sh-heredoc RAN  spike_selftest                           | # tc against a state directory: up.<dev> = the veth exists, 
+  S_heartbeat_spike.sh    1175 awk        RAN  spike_selftest                           | BEGIN { printf "%.6f", c + d }
+  S_heartbeat_spike.sh    1199 sh-heredoc RAN  spike_selftest                           | echo "qdisc_tool $1" >> "$FAKE_TC_STATE/calls"
+  S_heartbeat_spike.sh    1225 sh-heredoc RAN  spike_selftest                           | sudo() { echo "sudo $*" >> "$FAKE_TC_STATE/calls"; }
+  S_heartbeat_spike.sh    1301 awk        RAN  spike_selftest                           | /^   !! / { sub(/^   !! /, ""); printf "%s%s", (n++ ? "; " :
+  S_heartbeat_spike.sh    1377 sh-heredoc RAN  spike_selftest                           | # A fake tools/test_workflow/ndt over files under $FAKE_REPO
+  S_heartbeat_spike.sh    1465 awk        RAN  spike_selftest                           | /^require_free_lab$/ {go = 1} go
+  S_heartbeat_spike.sh    1477 sh-heredoc RAN  spike_selftest                           | unset NDT_MEASURING
+  S_heartbeat_spike.sh    1645 sh-heredoc RAN  spike_selftest                           | sudo() { echo "sudo $*" >> "$FAKE_TC_STATE/calls"; }
+  S_heartbeat_spike.sh    1663 py-file    RAN  spike_selftest                           | # The checker: the simulated daemon's parameters (sim.json) 
+  S_heartbeat_spike.sh    1841 awk        RAN  spike_selftest                           | $1 == c { print $6 }
+  S_heartbeat_spike.sh    1866 sh-heredoc RAN  spike_selftest                           | s="$(wait_session "$1" 4 "$3")" || s="NONE"
+  S_heartbeat_spike.sh    1916 sh-heredoc RAN  spike_selftest                           | sudo() {
+  S_heartbeat_spike.sh    1971 sh-heredoc RAN  spike_selftest                           | unset NDT_MEASURING
+  S_heartbeat_spike.sh    2029 awk        RAN  spike_selftest                           | /^# --- the run/ {run = 1} run && /^    census$/ {grab = 1; 
+  oldcode_selftest.sh       67 py-heredoc NOT                                           | import contextlib
+SUMMARY
+  07_roles_basic.sh: 15 marked, 12 executed, 3 NOT executed
+  08_heartbeat.sh: 31 marked, 31 executed, 0 NOT executed
+  _common.sh: 23 marked, 19 executed, 4 NOT executed
+  S_heartbeat_spike.sh: 27 marked, 26 executed, 1 NOT executed
+  oldcode_selftest.sh: 1 marked, 0 executed, 1 NOT executed
+UNMARKED (1, no literal text to mark): 08_heartbeat.sh:753 py-c-var (SAMPLER_PY)
+EMBEDDED-COVER: 97 marked, 88 executed by a self-test, 9 not
+  oldcode_list_the_tool_itself rc 0 -- R8-9         a MUTANT (re-review note 1): phase-wait anchored on the schedule (started_mono), never 
+MARKERS LEFT BY oldcode_selftest.sh --list: oldcode_selftest.sh-67-py-heredoc 
+COVER-RUN: every run under the markers exited 0
+files restored from git
+guarded_build: exit 0
+# rc=0

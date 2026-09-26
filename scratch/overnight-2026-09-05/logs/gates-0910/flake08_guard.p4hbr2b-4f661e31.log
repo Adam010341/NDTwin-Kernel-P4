@@ -1,0 +1,32 @@
+4f661e31baf999b729691b27b27391b5d59bfd4f
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r2-0927  2026-09-26T18:19:30Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r2-0927  TMPDIR /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbr2b-4f661e31-extra/flake08.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r2-0927 20 /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp/flake08_guard_4f661e31
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r2-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbr2b-4f661e31-extra/nolab (sudo refused, lab curl refused)
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbr2b-4f661e31-extra/flake08.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r2-0927 20 /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp/flake08_guard_4f661e31
+HEAD 4f661e31baf999b729691b27b27391b5d59bfd4f; 20 runs
+run 1 rc 0 SELF-TEST PASS reds=0 load=0.91 0.68 0.68
+run 2 rc 0 SELF-TEST PASS reds=0 load=0.71 0.65 0.67
+run 3 rc 0 SELF-TEST PASS reds=0 load=0.63 0.63 0.66
+run 4 rc 0 SELF-TEST PASS reds=0 load=0.63 0.63 0.66
+run 5 rc 0 SELF-TEST PASS reds=0 load=0.49 0.60 0.65
+run 6 rc 0 SELF-TEST PASS reds=0 load=0.45 0.59 0.65
+run 7 rc 0 SELF-TEST PASS reds=0 load=0.42 0.58 0.64
+run 8 rc 0 SELF-TEST PASS reds=0 load=0.47 0.58 0.64
+run 9 rc 0 SELF-TEST PASS reds=0 load=0.43 0.57 0.63
+run 10 rc 0 SELF-TEST PASS reds=0 load=0.55 0.59 0.64
+run 11 rc 0 SELF-TEST PASS reds=0 load=0.56 0.59 0.64
+run 12 rc 0 SELF-TEST PASS reds=0 load=0.87 0.66 0.66
+run 13 rc 0 SELF-TEST PASS reds=0 load=0.74 0.64 0.66
+run 14 rc 0 SELF-TEST PASS reds=0 load=0.65 0.63 0.65
+run 15 rc 0 SELF-TEST PASS reds=0 load=0.67 0.64 0.65
+run 16 rc 0 SELF-TEST PASS reds=0 load=0.82 0.67 0.66
+run 17 rc 0 SELF-TEST PASS reds=0 load=1.00 0.72 0.68
+run 18 rc 0 SELF-TEST PASS reds=0 load=1.00 0.73 0.68
+run 19 rc 0 SELF-TEST PASS reds=0 load=0.93 0.73 0.68
+run 20 rc 0 SELF-TEST PASS reds=0 load=0.79 0.71 0.68
+FLAKE08: 0 of 20 runs not a clean PASS
+guarded_build: exit 0
+# rc=0

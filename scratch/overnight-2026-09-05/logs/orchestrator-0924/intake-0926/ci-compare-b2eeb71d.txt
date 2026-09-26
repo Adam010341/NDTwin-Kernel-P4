@@ -1,0 +1,5 @@
+# CI run 36267068730 on b2eeb71d (r2 follow-ups), GCC job via API raw log; 2026-09-27T04:03:05+08:00
+vs 3f8c2abf (36259179041):
+IDENTICAL
+L1 FAILED (14 problem group(s))   logs: /home/runner/work/NDTwin-Kernel-P4/NDTwin-Kernel-P4/.test_run/logs
+jobs:  Build and unit tests (GCC) failure, TSan failure, clang can compile it failure, ASan + UBSan success

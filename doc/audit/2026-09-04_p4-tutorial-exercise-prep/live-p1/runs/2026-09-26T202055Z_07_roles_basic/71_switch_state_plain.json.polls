@@ -1,0 +1,3 @@
+20:23:57Z  BAD switch_state links against the 8 declared directions: not fed by the heartbeat [('1:3->3:1', 'declared'), ('1:4->4:2', 'declared'), ('2:3->4:1', 'declared'), ('2:4->3:2', 'declared'), ('3:1->1:3', 'declared'), ('3:2->2:4', 'declared'), ('4:1->2:3', 'declared'), ('4:2->1:4', 'declared')]
+20:23:59Z  BAD switch_state links against the 8 declared directions: not fed by the heartbeat [('1:3->3:1', 'declared'), ('1:4->4:2', 'declared'), ('2:3->4:1', 'declared'), ('2:4->3:2', 'declared'), ('3:1->1:3', 'declared'), ('3:2->2:4', 'declared'), ('4:1->2:3', 'declared'), ('4:2->1:4', 'declared')]
+20:24:01Z  OK 8/8 declared directions, exactly, every one source: heartbeat, down: false, heard

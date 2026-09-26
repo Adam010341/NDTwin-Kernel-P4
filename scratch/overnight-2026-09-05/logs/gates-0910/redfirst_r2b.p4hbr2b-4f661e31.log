@@ -1,0 +1,55 @@
+4f661e31baf999b729691b27b27391b5d59bfd4f
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r2-0927  2026-09-26T18:11:15Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r2-0927  TMPDIR /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbr2b-4f661e31/redfirst_r2b.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r2-0927 /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp/hbsnap /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbr2b-4f661e31/hbsnap.sha256
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r2-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbr2b-4f661e31/nolab (sudo refused, lab curl refused)
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbr2b-4f661e31/redfirst_r2b.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r2-0927 /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp/hbsnap /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbr2b-4f661e31/hbsnap.sha256
+HEAD 4f661e31baf999b729691b27b27391b5d59bfd4f
+08 red-first 7403eb79e3ddb8d404ddbe5f9d93bb8c3f28fce8; 07 red-first 691d46dac361d2720996d191d47ece372027d482; ndt serve base 3f8c2abfb108bfcc5e49e93b82898080f723dce2
+  ok    the snapshot of 08's real captures matches its recorded sha256
+== 08
+      🔴    H5 sampler killed after a good start: the run ended 'PASS 08_heartbeat'
+      🔴      H5 sampler with a warning on its stderr: the run ended 'PASS 08_heartbeat'
+      🔴    H5 01 with no sample in its window                           wanted BAD, got: OK no heartbeat session ran during 01 (NDTwin's own pipeline)
+      🔴    H5 a sampler that stopped reading for 500 s mid-06           wanted BAD, got: OK a heartbeat ran on exactly the 17 expected arm(s); no host-port frame in 440 samples
+      🔴    H5 01 where the sampler stopped half-way                     wanted BAD, got: OK no heartbeat session ran during 01 (NDTwin's own pipeline)
+  ok    08 at 7403eb79: 5 red line(s), as many as expected
+  ok    08 at 7403eb79: red once -- H5 sampler killed after a good start
+  ok    08 at 7403eb79: red once -- H5 sampler with a warning on its stderr
+  ok    08 at 7403eb79: red once -- H5 01 with no sample in its window
+  ok    08 at 7403eb79: red once -- H5 a sampler that stopped reading for 500 s mid-06
+  ok    08 at 7403eb79: red once -- H5 01 where the sampler stopped half-way
+  ok    08 at 7403eb79: SELF-TEST FAIL
+  BAD   08 at HEAD: not a clean PASS
+  ok    08 at HEAD runs: H5 sampler killed after a good start
+  ok    08 at HEAD runs: H5 sampler with a warning on its stderr
+  ok    08 at HEAD runs: sampler_alive: a live pid that is not the sampler
+  ok    08 at HEAD runs: consts: the proxy's beacon interval
+== 07
+      🔴    L1 a direction never heard yet (the startup grace)         wanted BAD, got: OK 8/8 declared directions, exactly, every one source: heartbeat, down: false
+      🔴    L1 every direction in the startup grace                    wanted BAD, got: OK 8/8 declared directions, exactly, every one source: heartbeat, down: false
+      🔴    L6/L1 on switch_state (roles), heard at once: doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh: line 519: l6_roles: command not found|polls 0|
+      🔴      state_until through the startup grace: doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh: line 519: l6_roles: command not found|polls 0|
+      🔴      never heard within the poll: doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh: line 519: l6_roles: command not found|polls 0|
+      🔴      no switch_state at all: doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh: line 519: l6_roles: command not found|polls 0|
+      🔴    L6/L1 on switch_state (unbound): doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh: line 519: l6_plain: command not found|polls 0|
+  ok    07 at 691d46da: 7 red line(s), as many as expected
+  ok    07 at 691d46da: red once -- L1 a direction never heard yet (the startup grace)
+  ok    07 at 691d46da: red once -- L1 every direction in the startup grace
+  ok    07 at 691d46da: red once -- L6/L1 on switch_state (roles), heard at once
+  ok    07 at 691d46da: red once -- state_until through the startup grace
+  ok    07 at 691d46da: red once -- never heard within the poll
+  ok    07 at 691d46da: red once -- no switch_state at all
+  ok    07 at 691d46da: red once -- L6/L1 on switch_state (unbound)
+  ok    07 at 691d46da: SELF-TEST FAIL
+  --    of those, 5 red because the live path's L6/L1 code was not yet a function the self-test could call (their discrimination is L7-24..L7-27's)
+  ok    07 at HEAD: SELF-TEST PASS (56 ok, 0 red)
+  ok    07 at HEAD judged all four real captures (22, 61 BAD; 35, 67 OK)
+== ndt serve lock-probe citations
+  ok    on 3f8c2abf's tools/ndt_serve: red, README.md:60 cites ndt:9292-9307
+  ok    at HEAD: green
+R2B-RED-FIRST: BROKEN
+guarded_build: exit 1
+# rc=1

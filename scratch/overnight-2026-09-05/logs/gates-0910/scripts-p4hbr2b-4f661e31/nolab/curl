@@ -1,0 +1,12 @@
+#!/bin/bash
+# nolab shim [Co-developed with claude code -- Adam]: record every curl a gate makes, and refuse the
+# lab's own two endpoints (_common.sh: the proxy on :8081, the kernel on :8000) -- a gate that reaches
+# them is lab contact. Everything else (file://, a test's own server) goes to the real curl.
+printf '%s pid=%s curl %s\n' "$(date -u +%FT%T.%NZ)" "$$" "$*" >> "${NOLAB_LOG:-/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/nolab/tripwire.log}"
+for a in "$@"; do
+    case "$a" in
+        *localhost:8000*|*localhost:8081*|*127.0.0.1:8000*|*127.0.0.1:8081*|*\[::1\]:8000*|*\[::1\]:8081*)
+            echo "curl: refused by the worker's nolab shim (a lab endpoint): $a" >&2; exit 7 ;;
+    esac
+done
+exec /usr/bin/curl "$@"

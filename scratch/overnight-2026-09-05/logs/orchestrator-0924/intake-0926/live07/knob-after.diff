@@ -1,0 +1,7 @@
+diff --git a/p4_proxy/mininet/host_count_override b/p4_proxy/mininet/host_count_override
+index a949a93d..b8626c4c 100644
+--- a/p4_proxy/mininet/host_count_override
++++ b/p4_proxy/mininet/host_count_override
+@@ -1 +1 @@
+-128
++4

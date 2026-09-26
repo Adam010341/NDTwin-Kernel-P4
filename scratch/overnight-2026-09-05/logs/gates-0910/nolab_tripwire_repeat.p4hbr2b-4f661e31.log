@@ -1,0 +1,20 @@
+4f661e31baf999b729691b27b27391b5d59bfd4f
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r2-0927  2026-09-26T19:29:55Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r2-0927  TMPDIR /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp
+# cmd bash -c 
+n_sudo=$(/usr/bin/grep -c " sudo " "$1"); n_lab=$(/usr/bin/grep -cE "localhost:(8000|8081)|127\.0\.0\.1:(8000|8081)" "$1")
+echo "  ($(/usr/bin/grep -c "curl .* file://" "$1") file:// curls; nothing else recorded: $(/usr/bin/grep -vc "curl .* file://" "$1") other line(s))"
+echo "NOLAB-TRIPWIRE: $n_sudo sudo call(s), $n_lab curl(s) at the lab endpoints (all refused)"
+(( n_sudo == 0 && n_lab == 0 )) _ /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbr2b-4f661e31-repeat/nolab/tripwire.log
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r2-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbr2b-4f661e31-repeat/nolab (sudo refused, lab curl refused)
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c 
+n_sudo=$(/usr/bin/grep -c " sudo " "$1"); n_lab=$(/usr/bin/grep -cE "localhost:(8000|8081)|127\.0\.0\.1:(8000|8081)" "$1")
+echo "  ($(/usr/bin/grep -c "curl .* file://" "$1") file:// curls; nothing else recorded: $(/usr/bin/grep -vc "curl .* file://" "$1") other line(s))"
+echo "NOLAB-TRIPWIRE: $n_sudo sudo call(s), $n_lab curl(s) at the lab endpoints (all refused)"
+(( n_sudo == 0 && n_lab == 0 )) _ /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbr2b-4f661e31-repeat/nolab/tripwire.log
+  (140 file:// curls; nothing else recorded: 0 other line(s))
+NOLAB-TRIPWIRE: 0 sudo call(s), 0 curl(s) at the lab endpoints (all refused)
+guarded_build: exit 0
+# rc=0

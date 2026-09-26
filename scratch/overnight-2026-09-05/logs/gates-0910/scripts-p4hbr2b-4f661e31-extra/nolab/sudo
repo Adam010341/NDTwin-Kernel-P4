@@ -1,0 +1,6 @@
+#!/bin/bash
+# nolab shim [Co-developed with claude code -- Adam]: this worker may not use sudo, and a gate that
+# reaches for it must not reach the lab. Record the call and refuse it (sudo -n's own refusal rc).
+printf '%s pid=%s ppid=%s sudo %s\n' "$(date -u +%FT%T.%NZ)" "$$" "$PPID" "$*" >> "${NOLAB_LOG:-/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/nolab/tripwire.log}"
+echo "sudo: refused by the worker's nolab shim (no lab contact from gates)" >&2
+exit 1
