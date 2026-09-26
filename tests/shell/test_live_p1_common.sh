@@ -57,6 +57,59 @@ section() { printf '\n%s\n' "$1"; }
 FIX="$(mktemp -d "${TMPDIR:-/tmp}/live-p1-common-XXXXXX")"
 trap 'rm -rf "$FIX"' EXIT INT TERM
 
+# --- 🔴 NO LAB, EVEN WHILE ONE IS UP (2026-09-27) -------------------------------------------------
+# [Co-developed with claude code -- Adam] On 09-26 at 17:55Z a worker ran this suite while the
+# orchestrator's live 06 had a fabric up: section 5e's cells gave link_usage_round a package whose
+# hosts are h1..h3, host_pid found the live fabric's h1/h2, and -- sudo and iperf being real in
+# drive() -- a 2 Mbit/s iperf ran between them and landed in that arm's G1 counters (+375 kB).
+# "Offline" had meant "offline as long as nobody else has a fabric up".
+# So this suite now ALWAYS runs as if a fabric were up, and can never reach one:
+#   * a `ps` on PATH that lists, after the real process table, four Mininet host shells h1..h4
+#     (pids above pid_max -- no process can have them, a signal aimed at one reaches nobody);
+#     host_pid reads nothing else, so any path that would drive a live fabric's hosts is taken
+#     here on every run, not only on the night somebody's lab is up;
+#   * `sudo`, `mnexec`, `iperf` and `iperf3` on PATH that record the call and refuse it.
+# A stub in a cell (a shell function) still answers first; what reaches these files is a call
+# no stub caught, and section 14 fails the suite for each one. No process's argv carries the
+# host-shell marker: the lines are printed by bash builtins inside the ps file.
+NOLAB="$FIX/nolab"; mkdir -p "$NOLAB/bin"; : > "$NOLAB/calls"
+for c in sudo mnexec iperf iperf3; do
+    cat > "$NOLAB/bin/$c" <<SHIM
+#!/bin/bash
+printf '%s %s\\n' "$c" "\$*" >> "$NOLAB/calls"
+echo "$c: refused -- this suite never reaches a lab" >&2
+exit 1
+SHIM
+done
+cat > "$NOLAB/bin/ps" <<'PSEOF'
+#!/bin/bash
+/usr/bin/ps "$@"; rc=$?
+spec=""; prev=""
+for a in "$@"; do
+    [[ "$prev" == -o || "$prev" == -eo || "$prev" == -axo || "$prev" == -Ao ]] && spec="$spec,$a"
+    [[ "$a" == -o?* ]] && spec="$spec,${a#-o}"
+    prev="$a"
+done
+if [[ "$spec" == *args* || "$spec" == *cmd* || "$spec" == *command* ]]; then
+    IFS=, read -r -a cols <<<"${spec#,}"
+    for h in 1 2 3 4; do
+        line=""
+        for c in "${cols[@]}"; do
+            case "${c%%=*}" in
+                pid|ppid|pgid|sid) line+="$((4194390 + h)) " ;;
+                comm) line+="bash " ;;
+                args|cmd|command) line+="bash --norc -is mininet:h$h " ;;
+                *) line+="- " ;;
+            esac
+        done
+        printf '%s\n' "${line% }"
+    done
+fi
+exit $rc
+PSEOF
+chmod +x "$NOLAB/bin"/*
+export PATH="$NOLAB/bin:$PATH"
+
 # mkgraph <file> <up-dpid,...> -- a /ndt/get_graph_data body for three switches and three hosts.
 # Every switch is is_enabled, which is what an external fabric really looks like after the
 # proxy's inform_switch_entered retry has landed; only is_up varies.
@@ -982,6 +1035,17 @@ has   "  and the summary line says NOT-RUN"              "rc=NOT-RUN" "$OUT"
 # LINK_USAGE line prints COUNTS -- so that cell asserted nothing. NOT RUN has its own code,
 # which is what keeps `link_usage_cell` from reading it as a pass.
 check "🔴 NOT RUN has its own rc, not 0 and not 2"       "3" "$(rc_of "$OUT")"
+
+# =============================================================================================
+section "14. 🔴 no lab command left this suite (the fake fabric was up throughout)"
+# =============================================================================================
+# [Co-developed with claude code -- Adam] The guard at the top, and its controls: without them a
+# clean calls file would be as true of a guard that was never on PATH, or of a fake fabric
+# host_pid could not see, as of a suite that never reached for a host.
+check "  the guard's sudo is the one on PATH"            "$NOLAB/bin/sudo" "$(type -P sudo)"
+check "  and the fake fabric is what host_pid sees"      "4194392" \
+      "$( set +eu; source "$REAL_REPO/tools/test_workflow/ndt" >/dev/null 2>&1; host_pid h2 )"
+check "🔴 NOTHING reached for sudo, mnexec or iperf past a stub" "" "$(sort "$NOLAB/calls" | uniq -c | sed 's/^ *//' | paste -sd';' -)"
 
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"
