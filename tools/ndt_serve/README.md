@@ -148,7 +148,7 @@ still holds the slot), `lost` (it ended and nobody recorded its rc).
 ## Tests
 
 ```bash
-python3 tests/python/test_ndt_serve.py        # 72 cases against a stub ndt (RcProvenance reads the real ndt), no lab
-python3 tests/python/test_ndt_serve_cells.py  # 32 cases against a stub grid, no lab
-bash tests/shell/mutate_ndt_serve.sh          # 86 named mutations, each must redden its case
+python3 tests/python/test_ndt_serve.py        # 73 cases against a stub ndt (RcProvenance reads the real ndt), no lab
+python3 tests/python/test_ndt_serve_cells.py  # 35 cases against a stub grid, no lab
+bash tests/shell/mutate_ndt_serve.sh          # 91 named mutations, each must redden its case
 ```
