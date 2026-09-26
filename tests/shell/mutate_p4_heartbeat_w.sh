@@ -739,32 +739,36 @@ m=$(nmutant n03 "$NDT" \
 nreport "N03: an external control plane gets one" "$m" "🔴 and does not start one: the proxy reads only there"
 m=$(nmutant n04 "$NDT" \
     '    heartbeat_up_step "$app_pipe" "$app_mode"' \
-    '    heartbeat_up_step "$app_pipe" "$app_mode" || { rollback_up "the heartbeat did not start"; return 1; }')
-m2=$m
-python3 - "$m2/ndt" <<'PY'
-import sys
-p = sys.argv[1]; s = open(p).read()
-a = '''           warn "  the fabric itself is up; the proxy reports reroute.reason heartbeat_not_running." ;;
-    esac
-    return 0'''
-assert s.count(a) == 1
-open(p, "w").write(s.replace(a, a[:-len("return 0")] + 'return "$rc"'))
-PY
+    '    heartbeat_up_step "$app_pipe" "$app_mode"; [[ -e "$HB_PIDFILE" ]] || { rollback_up "the heartbeat did not start"; return 1; }')
 nreport "N04: a heartbeat that does not start fails the bring-up" "$m" "🔴 rc 0 -- the fabric IS up"
 m=$(nmutant n05 "$NDT" \
     '        3) info "heartbeat: nothing to watch -- this fabric has no inter-switch link (rc 3)" ;;' \
     '        9) info "heartbeat: nothing to watch -- this fabric has no inter-switch link (rc 3)" ;;')
 nreport "N05: rc 3 is warned about as a failure" "$m" "🔴 and not as a failure"
 m=$(nmutant n06 "$NDT" \
-    '    heartbeat_up_step "$app_pipe" "$app_mode"' \
-    '    :')
-python3 - "$m/ndt" <<'PY'
-import sys
-p = sys.argv[1]; s = open(p).read()
-a = """    printf '%s\\n' "$out" | grep -E 'started|converged|up$|waiting for|already running|DIFFERENT command' | sed 's/^/      /'"""
-assert s.count(a) == 1, "N06 second anchor"
-open(p, "w").write(s.replace(a, a + '\n    heartbeat_up_step "$app_pipe" "$app_mode"'))
-PY
+    '    heartbeat_up_step "$app_pipe" "$app_mode"
+
+    # -- 2 + 3. proxy and kernel, via stack.sh --
+    say "[2/3] proxy + kernel"
+    info "stack.sh prompt is answered immediately: the fabric is already up"
+    # CONVERGE_WAIT is an upper bound, not a sleep. 128 hosts means 16256 destination paths.
+    local out rc
+    up_started stack
+    out="$(printf '"'"'\n'"'"' \
+           | TOPO_P4="$topo" CONVERGE_WAIT="${CONVERGE_WAIT:-300}" NO_COLOR=1 \
+             bash "$STACK" up p4 2>&1)"
+    rc=$?' \
+    '    # -- 2 + 3. proxy and kernel, via stack.sh --
+    say "[2/3] proxy + kernel"
+    info "stack.sh prompt is answered immediately: the fabric is already up"
+    # CONVERGE_WAIT is an upper bound, not a sleep. 128 hosts means 16256 destination paths.
+    local out rc
+    up_started stack
+    out="$(printf '"'"'\n'"'"' \
+           | TOPO_P4="$topo" CONVERGE_WAIT="${CONVERGE_WAIT:-300}" NO_COLOR=1 \
+             bash "$STACK" up p4 2>&1)"
+    rc=$?
+    heartbeat_up_step "$app_pipe" "$app_mode"')
 nreport "N06: the heartbeat starts after the proxy" "$m" "🔴 before stack.sh starts the proxy"
 m=$(nmutant n07 "$NDT" \
     '    heartbeat_stop_step "before the topology it watches is taken down" || {' \
@@ -930,25 +934,8 @@ m=$(nmutant n37 "$NDT" \
                 info "stopping what stack.sh started (kernel, proxy, Ryu)"')
 nreport "N37: a rollback does not stop the stack first" "$m" "  and after the stack"
 m=$(nmutant n38 "$NDT" \
-    '        # [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W: its heartbeat' \
-    '        up_started heartbeat_first
-        # [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W: its heartbeat')
-m3=$m
-python3 - "$m3/ndt" <<'PY'
-import sys
-p = sys.argv[1]; s = open(p).read()
-a = '''    # [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W: on a foreign
-    # fabric, the heartbeat -- here, after the fabric in both branches above and before the
-    # proxy, whose first watchdog pass then has a report to read. Never fails the bring-up.
-    heartbeat_up_step "$app_pipe" "$app_mode"'''
-assert s.count(a) == 1
-b = a.replace('    heartbeat_up_step "$app_pipe" "$app_mode"', '    :')
-s = s.replace(a, b)
-a2 = '''        tsout="$(sudo -n "$LAB" topo-start 2>&1)"; tsrc=$?'''
-assert s.count(a2) == 1
-s = s.replace(a2, '        heartbeat_up_step "$app_pipe" "$app_mode"\n' + a2)
-open(p, "w").write(s)
-PY
+    '|| true; sudo -n "$LAB" topo-stop >/dev/null 2>&1; }' \
+    '|| true; sudo -n "$LAB" topo-stop >/dev/null 2>&1; heartbeat_up_step "$app_pipe" "$app_mode"; }')
 nreport "N38: the heartbeat starts before the new fabric is up" "$m" "  and a new one started after the new topology"
 # --- every ndt check, seen red ---------------------------------------------------------------------
 never=$(sort -u "$NDT_RED_LOG" | comm -23 "$NDT_CHECKS" - | /usr/bin/grep -vxF -f <(printf '%s\n' "$NDT_CONTROLS") || true)
