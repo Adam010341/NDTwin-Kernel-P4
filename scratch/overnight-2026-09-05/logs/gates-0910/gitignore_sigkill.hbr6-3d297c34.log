@@ -1,0 +1,27 @@
+3d297c34f3ea5406736916b94652673302574c5f
+# 2026-09-26T02:04:32Z worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r6-0926, branch fix/hb-spike-r6-0926
+# status (uncommitted): 
+# run under: env -u SELFTEST_PROBE_SUDO -u FAULTS_TC, cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r6-0926
+# $ bash /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/sigkill_leftovers.sh
+started the tool: pid 189127 (its own session and process group via setsid; TMPDIR=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/killtest)
+process group 189127 before the kill:
+     189127  189127 bash doc/audit/2026-09-25_p4-heartbeat/spike/oldcode_selftest.sh R4-3
+     189131  189127 /usr/bin/python3 -I - /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r6-0926/doc/audit/2026-09-25_p4-heartbeat/spike oldcode-189127 R4-3
+     189132  189127 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r6-0926/doc/audit/2026-09-25_p4-heartbeat/spike/.oldcode-189127-0-spike.sh --self-test
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/sigkill_leftovers.sh: line 14: 189127 Killed                  TMPDIR="$K" setsid bash "$D/oldcode_selftest.sh" R4-3 > "$K/tool.out" 2>&1
+after kill -9 -- -189127: processes left in group 189127: 0
+leftover copies in the spike dir:
+    -rw-rw-r-- 1 adam adam 17743 Sep 26 10:04 .oldcode-189127-0-hb_watch.py
+    -rw-rw-r-- 1 adam adam 67034 Sep 26 10:04 .oldcode-189127-0-spike.sh
+--- git status --porcelain --untracked-files=all (must not list them):
+--- git status --porcelain --ignored -- doc/audit/2026-09-25_p4-heartbeat/spike:
+    !! doc/audit/2026-09-25_p4-heartbeat/spike/.oldcode-189127-0-hb_watch.py
+    !! doc/audit/2026-09-25_p4-heartbeat/spike/.oldcode-189127-0-spike.sh
+--- git add --dry-run -- doc/audit/2026-09-25_p4-heartbeat/spike/ (a directory pathspec; must add nothing):
+    
+--- git check-ignore -v:
+    doc/audit/2026-09-25_p4-heartbeat/spike/.gitignore:7:/.oldcode-*	doc/audit/2026-09-25_p4-heartbeat/spike/.oldcode-189127-0-hb_watch.py
+    doc/audit/2026-09-25_p4-heartbeat/spike/.gitignore:7:/.oldcode-*	doc/audit/2026-09-25_p4-heartbeat/spike/.oldcode-189127-0-spike.sh
+removed the leftovers by name; left: 0; scratch TMPDIR removed
+LEFTOVERS OF A SIGKILLED RUN (2) ARE IGNORED: not untracked, not added by a directory pathspec
+# rc=0  2026-09-26T02:04:33Z

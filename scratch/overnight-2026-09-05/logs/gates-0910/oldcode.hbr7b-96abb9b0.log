@@ -1,0 +1,722 @@
+96abb9b08c7d628f129c4b9a16ed7a4d5ae94093
+# 2026-09-26T04:42:11Z worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926, branch fix/hb-spike-r7-0926
+# status (uncommitted): 
+# run under: env -u SELFTEST_PROBE_SUDO -u FAULTS_TC, cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926
+# $ bash doc/audit/2026-09-25_p4-heartbeat/spike/oldcode_selftest.sh
+
+### control: nothing -- the copying alone
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-0-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-0-hb_watch.py"
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 0
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST PASS
+### control: CLEAN
+
+### r3: round 4's two set -e fixes (judge R3-1: bare watch_hit; the round-4 audit: bare return)
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-1-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-1-hb_watch.py"
+@@ -495,2 +495,2 @@
+-        if (( ! running )); then watch_hit "$dir" "$stopf" || true; return 0; fi
+-        if (( $(date +%s) >= end )); then : > "$stopf"; watch_hit "$dir" "$stopf" || true; return 0; fi
++        if (( ! running )); then watch_hit "$dir" "$stopf"; return 0; fi
++        if (( $(date +%s) >= end )); then : > "$stopf"; watch_hit "$dir" "$stopf"; return 0; fi
+@@ -542 +542 @@
+-    [[ "$v" == OK* ]] || return 0
++    [[ "$v" == OK* ]] || return
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴      a clean window under set -e: rc 1, result 'none written -- the process died'
+  🔴    a detection part that fails its first check ended the run under set -e: rc 1, 'nothing written'; driver said: == heartbeat start    !! every direction heard once the heartbeat is up: 0/8 directions heard
+  🔴      a residue shaped loss 100%: rc 1, failures recorded: [every direction heard once the heartbeat is up: 6/8 directions heard], calls: sudo -n /tmp/hb-spike-selftest-N9RLAo/no-helper heartbeat stop;
+  🔴      a census arm with the new daemon's report: died:  | calls: sniff h1 0102030405060708 | row:
+  🔴    a census of two arms whose downs go through: rc 1, 'no result -- the census died', ndt calls: up, rows:
+  🔴      census, an arm's 'ndt down' refused (measured arm): rc 1, 'no result -- the census died', ndt calls: up, rows:
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### r3: DISCRIMINATES
+
+### R4-1: the whole R4-1 fix: census's old session block, wait_session's old call, hb_watch's old `session`
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/hb_watch.py
++++ .oldcode-711383-2-hb_watch.py
+@@ -318 +318 @@
+-        print(session_of(load(argv[2]), int(argv[3])))
++        print(load(argv[2]).get("session") or "")
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-2-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-2-hb_watch.py"
+@@ -461 +461 @@
+-        s="$(/usr/bin/python3 -I "$WATCH" session "$1" "$3" 2>/dev/null)" || s=""
++        s="$(/usr/bin/python3 -I "$WATCH" session "$1" 2>/dev/null)" || s=""
+@@ -646,16 +646,3 @@
+-        # The daemon THIS start started (judge R4-1): its pid from start's own answer, and the
+-        # session only from a running report of that pid. "already running" names no pid here.
+-        hb_pid="$(/usr/bin/python3 -I "$WATCH" started-pid "$dir/11_hb_start.txt" 2>/dev/null)" || hb_pid=""
+-        session=""
+-        if [[ -n "$hb_pid" ]]; then
+-            session="$(wait_session "$HB_REPORT" 20 "$hb_pid")" || session=""
+-        fi
+-        if [[ -z "$session" ]]; then
+-            if [[ -n "$hb_pid" ]]; then
+-                printf '%s\t%s\tyes\tno session in 5 s\t-\n' "$ex" "$which" >> "$RUN/40_census.tsv"
+-                fail "census $ex/$which: the heartbeat started (pid $hb_pid) but no running report of that pid carries a session after 5 s"
+-            else
+-                # Nothing was waited for on this path (finding 5, round-5 verdict): the row says what happened.
+-                printf '%s\t%s\tyes\tstart named no pid\t-\n' "$ex" "$which" >> "$RUN/40_census.tsv"
+-                fail "census $ex/$which: 'heartbeat start' answered 0 without saying it started a daemon -- see 11_hb_start.txt"
+-            fi
++        if ! session="$(wait_session "$HB_REPORT" 20)"; then
++            printf '%s\t%s\tyes\tno session in 5 s\t-\n' "$ex" "$which" >> "$RUN/40_census.tsv"
++            fail "census $ex/$which: the heartbeat started but its report carries no session after 5 s"
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴      the previous arm's final 'stopped' report was taken for the new session: rc 0: a1a1a1a1a1a1a1a1
+  🔴      a 'stopped' report of the pid start named was taken for a session: rc 0: b2b2b2b2b2b2b2b2
+  🔴      a 'running' report of another pid was taken for the new session: rc 0: c3c3c3c3c3c3c3c3
+  🔴      an arm whose report is still the previous arm's 'stopped' one: survived VERDICT_RC=0 WHY= | calls: sniff h1 a1a1a1a1a1a1a1a1;hb stop;ndt down | row: basic|solution|yes|running|OK no host saw a heartbeat frame (1 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+  🔴      an arm whose start answered 'already running': survived VERDICT_RC=0 WHY= | calls: sniff h1 d4d4d4d4d4d4d4d4;hb stop;ndt down | row: basic|solution|yes|running|OK no host saw a heartbeat frame (1 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### R4-1: DISCRIMINATES
+
+### R4-1/status: half of R4-1: session_of without its `status == running` clause
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/hb_watch.py
++++ .oldcode-711383-3-hb_watch.py
+@@ -164,2 +163,0 @@
+-    if doc.get("status") != "running":
+-        return ""
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-3-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-3-hb_watch.py"
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴    session: a stopped report is none, even of that pid        False
+  🔴      a 'stopped' report of the pid start named was taken for a session: rc 0: b2b2b2b2b2b2b2b2
+SELF-TEST FAIL
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### R4-1/status: DISCRIMINATES
+
+### R4-1/pid: the other half of R4-1: session_of without its pid clause
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/hb_watch.py
++++ .oldcode-711383-4-hb_watch.py
+@@ -165,2 +164,0 @@
+-        return ""
+-    if doc.get("pid") != pid:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-4-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-4-hb_watch.py"
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴    session: a running report of another pid is none           False
+  🔴      a 'running' report of another pid was taken for the new session: rc 0: c3c3c3c3c3c3c3c3
+SELF-TEST FAIL
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### R4-1/pid: DISCRIMINATES
+
+### R4-2: R4-2: `cut_link || break` -- a half-done cut left to the EXIT trap
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-5-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-5-hb_watch.py"
+@@ -554 +554 @@
+-        cut_link || { restore_link || fail "cycle $i: could not remove the netem a half-done cut left on $CUT_A"; break; }
++        cut_link || break
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴      a half-done cut: rc 0, 'finish VERDICT_RC=1 WHY=tc refused to add netem on s3-eth1 (root)', calls: qdisc_tool save;tc qdisc add dev s1-eth3 root netem loss 100%;tc qdisc add dev s3-eth1 root netem loss 100%;qdisc_tool diff;ndt down; teardown said: cannot locate the netem (its veth was gone);
+  🔴      a half-done cut whose restore is refused too: rc 0, 'finish VERDICT_RC=1 WHY=tc refused to add netem on s3-eth1 (root)', failures recorded: [tc refused to add netem on s3-eth1 (root); detection (report level, the proxy's rule): not every cycle was detected; the qdisc tree differs from before the cycles -- see 23_qdisc.diff; could NOT remove the netem on  -- remove it by hand before anything else runs], calls: qdisc_tool save;tc qdisc add dev s1-eth3 root netem loss 100%;tc qdisc add dev s3-eth1 root netem loss 100%;qdisc_tool diff;ndt down; spike_finish tried the revert again; faults.sh said: cannot locate the netem to remove;
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### R4-2: DISCRIMINATES
+
+### R4-3: R4-3: the census table through a bare `column | sed` under pipefail
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-6-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-6-hb_watch.py"
+@@ -1660 +1660 @@
+-    show_census "$RUN/40_census.tsv"
++    column -t -s $'\t' "$RUN/40_census.tsv" | sed 's/^/   /'
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴    the census table without 'column' ended the run: rc 127, step '    column -t -s $'\t' "$RUN/40_census.tsv" | sed 's/^/   /''; it said: /tmp/hb-spike-selftest-toDCju/census_driver.sh: line 11: column: command not found
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### R4-3: DISCRIMINATES
+
+### R4-3/d-i: judge (d)(i): hb_watch all-heard / others-up with a bare load()
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/hb_watch.py
++++ .oldcode-711383-7-hb_watch.py
+@@ -326,4 +326 @@
+-        try:
+-            print(all_heard(load(argv[2]), float(argv[3])))
+-        except (OSError, ValueError, KeyError) as exc:
+-            print(f"BAD the report could not be read: {exc!r}")
++        print(all_heard(load(argv[2]), float(argv[3])))
+@@ -337,4 +334 @@
+-        try:
+-            print(others_up(load(argv[2]), parse_dirs(argv[3]), time.monotonic(), float(argv[4])))
+-        except (OSError, ValueError, KeyError) as exc:
+-            print(f"BAD the report could not be read: {exc!r}")
++        print(others_up(load(argv[2]), parse_dirs(argv[3]), time.monotonic(), float(argv[4])))
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-7-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-7-hb_watch.py"
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴    all-heard on a report that cannot be read: BAD, rc 0       raised FileNotFoundError
+  🔴    others-up on a report that cannot be read: BAD, rc 0       raised FileNotFoundError
+SELF-TEST FAIL
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### R4-3/d-i: DISCRIMINATES
+
+### R4-5: R4-5: the detect driver without QDISC_TOOL
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-8-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-8-hb_watch.py"
+@@ -1005 +1004,0 @@
+-        printf 'QDISC_TOOL=%q\n' "$st_tmp/fake_qdisc_tool"
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴    a detection cycle that goes as designed: rc 1, 'nothing written', calls: sudo -n /tmp/hb-spike-selftest-f0BGFS/no-helper heartbeat stop; /tmp/hb-spike-selftest-f0BGFS/detect_driver.sh: line 34: QDISC_TOOL: unbound variable
+  🔴      a half-done cut: rc 1, 'finish VERDICT_RC=0 WHY=', calls: sudo -n /tmp/hb-spike-selftest-f0BGFS/no-helper heartbeat stop; /tmp/hb-spike-selftest-f0BGFS/detect_driver.sh: line 34: QDISC_TOOL: unbound variable
+  🔴      a half-done cut whose restore is refused too: rc 1, 'finish VERDICT_RC=0 WHY=', failures recorded: [], calls: sudo -n /tmp/hb-spike-selftest-f0BGFS/no-helper heartbeat stop; /tmp/hb-spike-selftest-f0BGFS/detect_driver.sh: line 34: QDISC_TOOL: unbound variable
+  🔴      a cut refused on its first end: rc 1, 'finish VERDICT_RC=0 WHY=', failures recorded: [], calls: sudo -n /tmp/hb-spike-selftest-f0BGFS/no-helper heartbeat stop; /tmp/hb-spike-selftest-f0BGFS/detect_driver.sh: line 34: QDISC_TOOL: unbound variable
+  🔴      a first end that already carries a netem: rc 1, 'finish VERDICT_RC=0 WHY=', failures recorded: [], calls: sudo -n /tmp/hb-spike-selftest-f0BGFS/no-helper heartbeat stop; /tmp/hb-spike-selftest-f0BGFS/detect_driver.sh: line 34: QDISC_TOOL: unbound variable
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### R4-5: DISCRIMINATES
+
+### R5-1: round-5 finding 1: `restore_link || true` -- a half-done cut whose restore fails
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-9-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-9-hb_watch.py"
+@@ -554 +554 @@
+-        cut_link || { restore_link || fail "cycle $i: could not remove the netem a half-done cut left on $CUT_A"; break; }
++        cut_link || { restore_link || true; break; }
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴      a half-done cut whose restore is refused too: rc 0, 'finish VERDICT_RC=1 WHY=tc refused to add netem on s3-eth1 (root)', failures recorded: [tc refused to add netem on s3-eth1 (root); detection (report level, the proxy's rule): not every cycle was detected; the qdisc tree differs from before the cycles -- see 23_qdisc.diff], calls: qdisc_tool save;tc qdisc add dev s1-eth3 root netem loss 100%;tc qdisc add dev s3-eth1 root netem loss 100%;tc qdisc del dev s1-eth3 root;qdisc_tool diff;ndt down;
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### R5-1: DISCRIMINATES
+
+### R5-2: round-5 finding 2 (a MUTANT): cut_link books each end before tc has accepted it
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-10-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-10-hb_watch.py"
+@@ -504,0 +505 @@
++        INJECTED_IFACES+=("$dev")
+@@ -509 +509,0 @@
+-        INJECTED_IFACES+=("$dev")
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴      a half-done cut: rc 0, 'finish VERDICT_RC=1 WHY=tc refused to add netem on s3-eth1 (root)', calls: qdisc_tool save;tc qdisc add dev s1-eth3 root netem loss 100%;tc qdisc add dev s3-eth1 root netem loss 100%;tc qdisc del dev s1-eth3 root;qdisc_tool diff;ndt down; teardown said: cannot locate the netem (its veth was gone);
+  🔴      a half-done cut whose restore is refused too: rc 0, 'finish VERDICT_RC=1 WHY=tc refused to add netem on s3-eth1 (root)', failures recorded: [tc refused to add netem on s3-eth1 (root); cycle 1: could not remove the netem a half-done cut left on s1-eth3; detection (report level, the proxy's rule): not every cycle was detected; the qdisc tree differs from before the cycles -- see 23_qdisc.diff], calls: qdisc_tool save;tc qdisc add dev s1-eth3 root netem loss 100%;tc qdisc add dev s3-eth1 root netem loss 100%;tc qdisc del dev s1-eth3 root;qdisc_tool diff;ndt down; faults.sh said: cannot locate the netem to remove;
+  🔴      a cut refused on its first end: rc 0, 'finish VERDICT_RC=1 WHY=tc refused to add netem on s1-eth3 (root)', failures recorded: [tc refused to add netem on s1-eth3 (root); cycle 1: could not remove the netem a half-done cut left on s1-eth3; detection (report level, the proxy's rule): not every cycle was detected], calls: qdisc_tool save;tc qdisc add dev s1-eth3 root netem loss 100%;qdisc_tool diff;ndt down; faults.sh said: cannot locate the netem to remove;
+  🔴      a first end that already carries a netem: rc 0, 'finish VERDICT_RC=1 WHY=no safe netem attach point on s1-eth3 (netem already there, or the tree is unreadable)', failures recorded: [no safe netem attach point on s1-eth3 (netem already there, or the tree is unreadable); detection (report level, the proxy's rule): not every cycle was detected; the qdisc tree differs from before the cycles -- see 23_qdisc.diff], calls: qdisc_tool save;tc qdisc del dev s1-eth3 root;qdisc_tool diff;ndt down;
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### R5-2: DISCRIMINATES
+
+### R5-5: round-5 finding 5: the census row for a start that named no pid reads 'no session in 5 s'
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-11-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-11-hb_watch.py"
+@@ -659 +659 @@
+-                printf '%s\t%s\tyes\tstart named no pid\t-\n' "$ex" "$which" >> "$RUN/40_census.tsv"
++                printf '%s\t%s\tyes\tno session in 5 s\t-\n' "$ex" "$which" >> "$RUN/40_census.tsv"
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴      an arm whose start answered 'already running': survived VERDICT_RC=1 WHY=census basic/solution: 'heartbeat start' answered 0 without saying it started a daemon -- see 11_hb_start.txt | calls: hb stop;ndt down | row: basic|solution|yes|no session in 5 s|-
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### R5-5: DISCRIMINATES
+
+### R6-1: round-6 note 1: the fake qdisc_tool's `diff` answers 'identical' whatever the fake tc holds
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-12-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-12-hb_watch.py"
+@@ -989,2 +989 @@
+-    diff) if [[ "$(tree)" == "$(cat "$2")" ]]; then echo "qdisc state unchanged"
+-          else diff "$2" <(tree); echo "QDISC STATE CHANGED since the snapshot" >&2; exit 1; fi ;;
++    diff) echo "qdisc state unchanged" ;;
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴      a half-done cut whose restore is refused too: rc 0, 'finish VERDICT_RC=1 WHY=tc refused to add netem on s3-eth1 (root)', failures recorded: [tc refused to add netem on s3-eth1 (root); cycle 1: could not remove the netem a half-done cut left on s1-eth3; detection (report level, the proxy's rule): not every cycle was detected], calls: qdisc_tool save;tc qdisc add dev s1-eth3 root netem loss 100%;tc qdisc add dev s3-eth1 root netem loss 100%;tc qdisc del dev s1-eth3 root;qdisc_tool diff;ndt down;
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### R6-1: DISCRIMINATES
+
+### R6-2: round-6 note 2: firstunsafe's residue back to `loss 100%`
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-13-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-13-hb_watch.py"
+@@ -1124 +1124 @@
+-    st_detect firstunsafe healthy "netem.$CUT_A=delay 1ms"
++    st_detect firstunsafe healthy "netem.$CUT_A=loss 100%"
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴      a first end that already carries a netem: rc 0, 'finish VERDICT_RC=1 WHY=every direction heard once the heartbeat is up: 6/8 directions heard', failures recorded: [every direction heard once the heartbeat is up: 6/8 directions heard], calls: sudo -n /tmp/hb-spike-selftest-OSsWMQ/no-helper heartbeat stop;
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### R6-2: DISCRIMINATES
+
+### R6-2/watch: half of round-6 note 2: the fake hb_watch never reads the fake tc (a lossy netem is heard)
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-14-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-14-hb_watch.py"
+@@ -942 +942 @@
+-lossy = bool(state) and any("loss 100%" in open(p).read() for p in glob.glob(os.path.join(state, "netem.*")))
++lossy = False
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴      a residue shaped loss 100%: rc 0, failures recorded: [no safe netem attach point on s1-eth3 (netem already there, or the tree is unreadable); detection (report level, the proxy's rule): not every cycle was detected], calls: qdisc_tool save;qdisc_tool diff;ndt down;
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### R6-2/watch: DISCRIMINATES
+
+### L1: the first live run's teardown: no re-claim without measuring= before either `ndt down`
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-15-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-15-hb_watch.py"
+@@ -364 +363,0 @@
+-    retract_measuring "$RUN/90_down.reclaim.txt"
+@@ -423 +421,0 @@
+-    retract_measuring "${1%.txt}.reclaim.txt" || true
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴    a run that declared measuring= (the 09-26 live run's shape): rc 1, last line 'FAIL S_heartbeat -- NOT RELEASED -- THE LAB STAYS CLAIMED: the teardown's 'ndt down' exited 5, so a fabric may still be up; see run/90_down.txt and finish by hand with the commands printed above (first failure before it: 'ndt down' after the detection part exited 5)', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];down [NDT_MEASURING in env];down [NDT_MEASURING in env];claim;status [NDT_MEASURING in env], lab.claim: owner=hb-selftest note=FABRIC STILL UP -- heartbeat spike S: its teardown's 'ndt down' exited 5 (a guard refused and nothing was torn down) and it did NOT release; finish by hand: ndt down, then ndt release (raw run) measuring=
+  🔴      a declared run whose detection part stopped at its first check: rc 1, last line 'FAIL S_heartbeat -- NOT RELEASED -- THE LAB STAYS CLAIMED: the teardown's 'ndt down' exited 5, so a fabric may still be up; see run/90_down.txt and finish by hand with the commands printed above (first failure before it: every direction heard once the heartbeat is up: 0/8 directions heard)', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];down [NDT_MEASURING in env];claim;status [NDT_MEASURING in env], lab.claim: owner=hb-selftest note=FABRIC STILL UP -- heartbeat spike S: its teardown's 'ndt down' exited 5 (a guard refused and nothing was torn down) and it did NOT release; finish by hand: ndt down, then ndt release (raw run) measuring=
+  🔴      a knob found at 128 that 'ndt up' moved to 4: rc 1, last line 'FAIL S_heartbeat -- NOT RELEASED -- THE LAB STAYS CLAIMED: the teardown's 'ndt down' exited 5, so a fabric may still be up; see run/90_down.txt and finish by hand with the commands printed above (first failure before it: 'ndt down' after the detection part exited 5)', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];down [NDT_MEASURING in env];down [NDT_MEASURING in env];claim;status [NDT_MEASURING in env], lab.claim: owner=hb-selftest note=FABRIC STILL UP -- heartbeat spike S: its teardown's 'ndt down' exited 5 (a guard refused and nothing was torn down) and it did NOT release; finish by hand: ndt down, then ndt release (raw run) measuring=
+  🔴      a knob that could not be put back after a re-claim: rc 1, last line 'FAIL S_heartbeat -- NOT RELEASED -- THE LAB STAYS CLAIMED: the teardown's 'ndt down' exited 5, so a fabric may still be up; see run/90_down.txt and finish by hand with the commands printed above (first failure before it: 'ndt down' after the detection part exited 5)', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];down [NDT_MEASURING in env];down [NDT_MEASURING in env];claim;status [NDT_MEASURING in env], lab.claim: owner=hb-selftest note=FABRIC STILL UP -- heartbeat spike S: its teardown's 'ndt down' exited 5 (a guard refused and nothing was torn down) and it did NOT release; finish by hand: ndt down, then ndt release (raw run) measuring=
+  🔴      a teardown whose 'ndt down' did not verify clean (rc 1): rc 1, last line 'FAIL S_heartbeat -- NOT RELEASED -- THE LAB STAYS CLAIMED: the teardown's 'ndt down' exited 5, so a fabric may still be up; see run/90_down.txt and finish by hand with the commands printed above (first failure before it: 'ndt down' after the detection part exited 5)', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];down [NDT_MEASURING in env];down [NDT_MEASURING in env];claim;status [NDT_MEASURING in env], lab.claim: owner=hb-selftest note=FABRIC STILL UP -- heartbeat spike S: its teardown's 'ndt down' exited 5 (a guard refused and nothing was torn down) and it did NOT release; finish by hand: ndt down, then ndt release (raw run) measuring=
+  🔴      a claim that lapsed mid-run: rc 0, last line 'PASS S_heartbeat', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];down [NDT_MEASURING in env];down [NDT_MEASURING in env];release [NDT_MEASURING in env], lab.claim: none (released); 26_down.reclaim.txt:
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### L1: DISCRIMINATES
+
+### L1/detect: half of L1: no re-claim before nd_down (detect's and census's downs)
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-16-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-16-hb_watch.py"
+@@ -423 +422,0 @@
+-    retract_measuring "${1%.txt}.reclaim.txt" || true
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴    a run that declared measuring= (the 09-26 live run's shape): rc 1, last line 'FAIL S_heartbeat -- 'ndt down' after the detection part exited 5', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];down [NDT_MEASURING in env];claim;down;claim;release, lab.claim: none (released)
+  🔴      a knob found at 128 that 'ndt up' moved to 4: rc 1, last line 'FAIL S_heartbeat -- 'ndt down' after the detection part exited 5', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];down [NDT_MEASURING in env];claim;down;claim;release, lab.claim: none (released)
+  🔴      a knob that could not be put back after a re-claim: rc 1, last line 'FAIL S_heartbeat -- 'ndt down' after the detection part exited 5', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];down [NDT_MEASURING in env];claim;down, lab.claim: owner=hb-selftest note=down; verified clean; claim kept measuring=
+  🔴      a claim that lapsed mid-run: rc 0, last line 'PASS S_heartbeat', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];down [NDT_MEASURING in env];claim;down;claim;release, lab.claim: none (released); 26_down.reclaim.txt:
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### L1/detect: DISCRIMINATES
+
+### L1/teardown: the other half of L1: no re-claim in spike_finish, before finish's down
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-17-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-17-hb_watch.py"
+@@ -364 +363,0 @@
+-    retract_measuring "$RUN/90_down.reclaim.txt"
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴      a declared run whose detection part stopped at its first check: rc 1, last line 'FAIL S_heartbeat -- NOT RELEASED -- THE LAB STAYS CLAIMED: the teardown's 'ndt down' exited 5, so a fabric may still be up; see run/90_down.txt and finish by hand with the commands printed above (first failure before it: every direction heard once the heartbeat is up: 0/8 directions heard)', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];down [NDT_MEASURING in env];claim;status [NDT_MEASURING in env], lab.claim: owner=hb-selftest note=FABRIC STILL UP -- heartbeat spike S: its teardown's 'ndt down' exited 5 (a guard refused and nothing was torn down) and it did NOT release; finish by hand: ndt down, then ndt release (raw run) measuring=
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### L1/teardown: DISCRIMINATES
+
+### L2: the first live run's spike_ndt: `release` is the real ndt's, whatever the down answered
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-18-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-18-hb_watch.py"
+@@ -181,7 +180,0 @@
+-    if [[ "${1:-}" == release ]]; then
+-        # `return $?`, NEVER a bare `return`: this runs inside the EXIT trap, and there a bare
+-        # `return` answers the status of the last command BEFORE the trap (bash's `return`
+-        # builtin) -- scenario (d) of the self-test caught a refused release answering 0 that way.
+-        spike_release
+-        return $?
+-    fi
+@@ -189,12 +182,3 @@
+-    if [[ "${1:-}" == down ]]; then
+-        TEARDOWN_DOWN_RC="$rc"
+-        if (( rc != 0 && rc != 3 )); then
+-            # The last line is what gets read; a lab left claimed with a fabric maybe up is the one
+-            # thing on it somebody has to act on, so it goes first whatever failed before it.
+-            VERDICT_RC=1
+-            VERDICT_WHY="NOT RELEASED -- THE LAB STAYS CLAIMED: the teardown's 'ndt down' exited $rc, so a fabric may still be up; see $(basename "$RUN")/90_down.txt and finish by hand with the commands printed above${VERDICT_WHY:+ (first failure before it: $VERDICT_WHY)}"
+-        fi
+-        if (( rc == 3 && FABRIC_UP == 0 )); then
+-            echo "spike: 'ndt down' answered 3 (nothing was up) -- expected: this run had already taken its own fabric down"
+-            return 0
+-        fi
++    if [[ "${1:-}" == down ]] && (( rc == 3 && FABRIC_UP == 0 )); then
++        echo "spike: 'ndt down' answered 3 (nothing was up) -- expected: this run had already taken its own fabric down"
++        return 0
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴    a run that declared measuring= (the 09-26 live run's shape): rc 0, last line 'PASS S_heartbeat', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];claim;down;down;release, lab.claim: none (released)
+  🔴      a declared run whose detection part stopped at its first check: rc 1, last line 'FAIL S_heartbeat -- every direction heard once the heartbeat is up: 0/8 directions heard', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];claim;down;release, lab.claim: none (released)
+  🔴      a teardown whose 'ndt down' is refused anyway: rc 1, last line 'FAIL S_heartbeat -- 'ndt down' after the detection part exited 5', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];claim;down;down;release, lab.claim: none (released)
+  🔴      a knob found at 128 that 'ndt up' moved to 4: rc 1, last line 'FAIL S_heartbeat -- 'ndt release' did not take -- THE LAB IS STILL CLAIMED; run it by hand', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];claim;down;down;release, lab.claim: owner=hb-selftest note=down; nothing was up to tear down; claim kept measuring=
+  🔴      a knob that could not be put back after a re-claim: rc 0, last line 'PASS S_heartbeat', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];claim;down;down;release, lab.claim: none (released)
+  🔴      a teardown whose 'ndt down' did not verify clean (rc 1): rc 1, last line 'FAIL S_heartbeat -- 'ndt down' after the detection part exited 1', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];claim;down;down;release, lab.claim: none (released)
+  🔴      a lab another owner claimed mid-run: rc 1, last line 'FAIL S_heartbeat -- could not take back this run's measuring= declaration -- see 26_down.reclaim.txt; 'ndt down' refuses while it stands', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];claim;down [NDT_MEASURING in env];claim;down [NDT_MEASURING in env];release [NDT_MEASURING in env], lab.claim: owner=someone-else note=their round measuring=their measurement; it never said whose claim the fabric is under
+  🔴      a claim that lapsed mid-run: rc 0, last line 'PASS S_heartbeat', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];claim;down;down;release, lab.claim: none (released); 26_down.reclaim.txt:   ok  lab claimed by hb-selftest for 15m
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### L2: DISCRIMINATES
+
+### L2/keep: the heart of L2 alone: spike_release releases whatever the teardown's down answered
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-19-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-19-hb_watch.py"
+@@ -284,7 +283,0 @@
+-    if [[ "$TEARDOWN_DOWN_RC" != 0 && "$TEARDOWN_DOWN_RC" != 3 ]]; then
+-        keep_claim
+-        # rc 0 when the verdict already leads with this (spike_ndt's down wrote it): finish's own
+-        # line for a failed release says "run it by hand", and `ndt release` is the one command that
+-        # must NOT be run first. With no down on record, 1 -- that line is then the only FAIL there is.
+-        [[ -n "$TEARDOWN_DOWN_RC" ]] && return 0 || return 1
+-    fi
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴      a teardown whose 'ndt down' is refused anyway: rc 1, last line 'FAIL S_heartbeat -- NOT RELEASED -- THE LAB STAYS CLAIMED: the teardown's 'ndt down' exited 5, so a fabric may still be up; see run/90_down.txt and finish by hand with the commands printed above (first failure before it: 'ndt down' after the detection part exited 5)', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];claim;down;down;claim;release, lab.claim: none (released)
+  🔴      a teardown whose 'ndt down' did not verify clean (rc 1): rc 1, last line 'FAIL S_heartbeat -- NOT RELEASED -- THE LAB STAYS CLAIMED: the teardown's 'ndt down' exited 1, so a fabric may still be up; see run/90_down.txt and finish by hand with the commands printed above (first failure before it: 'ndt down' after the detection part exited 1)', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];claim;down;down;claim;release, lab.claim: none (released)
+  🔴      a lab another owner claimed mid-run: rc 1, last line 'FAIL S_heartbeat -- NOT RELEASED -- THE LAB STAYS CLAIMED: the teardown's 'ndt down' exited 5, so a fabric may still be up; see run/90_down.txt and finish by hand with the commands printed above (first failure before it: could not take back this run's measuring= declaration -- see 26_down.reclaim.txt; 'ndt down' refuses while it stands)', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];claim;down [NDT_MEASURING in env];claim;down [NDT_MEASURING in env];release [NDT_MEASURING in env], lab.claim: owner=someone-else note=their round measuring=their measurement; it never said whose claim the fabric is under
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### L2/keep: DISCRIMINATES
+
+### L2/verdict: a MUTANT: the verdict does not lead with the kept claim
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-20-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-20-hb_watch.py"
+@@ -191,6 +190,0 @@
+-        if (( rc != 0 && rc != 3 )); then
+-            # The last line is what gets read; a lab left claimed with a fabric maybe up is the one
+-            # thing on it somebody has to act on, so it goes first whatever failed before it.
+-            VERDICT_RC=1
+-            VERDICT_WHY="NOT RELEASED -- THE LAB STAYS CLAIMED: the teardown's 'ndt down' exited $rc, so a fabric may still be up; see $(basename "$RUN")/90_down.txt and finish by hand with the commands printed above${VERDICT_WHY:+ (first failure before it: $VERDICT_WHY)}"
+-        fi
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴      a teardown whose 'ndt down' is refused anyway: rc 1, last line 'FAIL S_heartbeat -- 'ndt down' after the detection part exited 5', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];claim;down;down;claim;status, lab.claim: owner=hb-selftest note=FABRIC STILL UP -- heartbeat spike S: its teardown's 'ndt down' exited 5 (a guard refused and nothing was torn down) and it did NOT release; finish by hand: ndt down, then ndt release (raw run) measuring=
+  🔴      a teardown whose 'ndt down' did not verify clean (rc 1): rc 1, last line 'FAIL S_heartbeat -- 'ndt down' after the detection part exited 1', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];claim;down;down;claim;status, lab.claim: owner=hb-selftest note=FABRIC STILL UP -- heartbeat spike S: its teardown's 'ndt down' exited 1 (the teardown ran and did not verify clean) and it did NOT release; finish by hand: ndt down, then ndt release (raw run) measuring=
+  🔴      a lab another owner claimed mid-run: rc 1, last line 'FAIL S_heartbeat -- could not take back this run's measuring= declaration -- see 26_down.reclaim.txt; 'ndt down' refuses while it stands', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];claim;down [NDT_MEASURING in env];claim;down [NDT_MEASURING in env];claim;status [NDT_MEASURING in env], lab.claim: owner=someone-else note=their round measuring=their measurement
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### L2/verdict: DISCRIMINATES
+
+### L2/hygiene: a MUTANT: no re-claim on the restored knob before the release
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-21-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-21-hb_watch.py"
+@@ -305,3 +304,0 @@
+-        echo "re-claiming on the knob as it is now, so the round baseline 'ndt release' compares with is what is there"
+-        reclaim "$(claim_minutes 15)" "$(lab_claim_field note)" "$RUN/95_release.reclaim.txt" \
+-            || echo "!! that re-claim did not take -- 'ndt release' may refuse; its answer is the verdict"
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴    a run that declared measuring= (the 09-26 live run's shape): rc 0, last line 'PASS S_heartbeat', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];claim;down;down;release, lab.claim: none (released)
+  🔴      a declared run whose detection part stopped at its first check: rc 1, last line 'FAIL S_heartbeat -- every direction heard once the heartbeat is up: 0/8 directions heard', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];claim;down;release, lab.claim: none (released)
+  🔴      a knob found at 128 that 'ndt up' moved to 4: rc 1, last line 'FAIL S_heartbeat -- 'ndt release' did not take -- THE LAB IS STILL CLAIMED; run it by hand', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];claim;down;down;release, lab.claim: owner=hb-selftest note=down; nothing was up to tear down; claim kept measuring=
+  🔴      a claim that lapsed mid-run: rc 0, last line 'PASS S_heartbeat', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];claim;down;down;release, lab.claim: none (released); 26_down.reclaim.txt:   ok  lab claimed by hb-selftest for 15m
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### L2/hygiene: DISCRIMINATES
+
+### L2/knob: a MUTANT: a re-claim and a release over a knob that is not back
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-22-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-22-hb_watch.py"
+@@ -297,8 +296,0 @@
+-        if ! knob_back; then
+-            echo "!! NOT RELEASING: host_count_override is not back to the bytes this run found (said above)."
+-            echo "!!   this run re-claimed after 'ndt up' moved it, so the round's recorded start is the moved"
+-            echo "!!   value, and 'ndt release' would accept it. Put it back -- the bytes are in"
+-            echo "!!   $(basename "$RUN")/00_host_count_override.entry -- then, to record that and release:"
+-            printf '!!     NDT_OWNER=%q %q claim 15 && NDT_OWNER=%q %q release\n' "$NDT_OWNER" "$REAL_NDT" "$NDT_OWNER" "$REAL_NDT"
+-            return 1
+-        fi
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴      a knob that could not be put back after a re-claim: rc 0, last line 'PASS S_heartbeat', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];claim;down;down;claim;release, lab.claim: none (released)
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### L2/knob: DISCRIMINATES
+
+### L2/return: a MUTANT, the one scenario (d) found: a bare `return` after spike_release, inside the EXIT trap
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-23-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-23-hb_watch.py"
+@@ -186 +186 @@
+-        return $?
++        return
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴      a knob that could not be put back after a re-claim: rc 0, last line 'PASS S_heartbeat', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];claim;down;down, lab.claim: owner=hb-selftest note=down; nothing was up to tear down; claim kept measuring=
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### L2/return: DISCRIMINATES
+
+### R7-1: round-7 finding 1: the spike's CLAIM_MINUTES default below the sources, where _common.sh's 45 wins
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-24-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-24-hb_watch.py"
+@@ -104,6 +103,0 @@
+-# 🔴 AND THE CLAIM'S MINUTES, FOR THE SAME REASON (round-7 verdict, finding 1). _common.sh runs
+-# `: "${CLAIM_MINUTES:=45}"` when it is sourced; written below the `source`, this default never took
+-# effect -- the 09-26 live run claimed "for 45m", which PART=all (detection + 26 census arms, over
+-# an hour) outlives. A CLAIM_MINUTES from the caller still wins. The self-test runs everything above
+-# self_test() and reads back every such default.
+-: "${CLAIM_MINUTES:=180}"
+@@ -135,0 +130 @@
++: "${CLAIM_MINUTES:=180}"
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴    a default the spike sets is NOT what its run gets (source order): CLAIM_MINUTES: the spike sets '180', a PART=all run gets '45';
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### R7-1: DISCRIMINATES
+
+### R7-2: round-7 finding 2: the a77b8fe2 census -- after a refused arm down, the next arm is built
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-25-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-25-hb_watch.py"
+@@ -630 +630 @@
+-            census_down "$dir/90_down.txt" "$ex" "$which" || { census_skip_rest "$ex" "$which"; return 0; }
++            nd_down "$dir/90_down.txt" || true
+@@ -637,2 +637 @@
+-            census_down "$dir/90_down.txt" "$ex" "$which" || { census_skip_rest "$ex" "$which"; return 0; }
+-            (( ARM_DOWN_RC == 0 )) || fail "census $ex/$which: 'ndt down' exited $ARM_DOWN_RC"
++            nd_down "$dir/90_down.txt" || fail "census $ex/$which: 'ndt down' failed"
+@@ -643 +642 @@
+-            census_down "$dir/90_down.txt" "$ex" "$which" || { census_skip_rest "$ex" "$which"; return 0; }
++            nd_down "$dir/90_down.txt" || true
+@@ -663 +662 @@
+-            census_down "$dir/90_down.txt" "$ex" "$which" || { census_skip_rest "$ex" "$which"; return 0; }
++            nd_down "$dir/90_down.txt" || true
+@@ -685 +684,2 @@
+-        census_down "$dir/90_down.txt" "$ex" "$which" && rc=0 || rc=1
++        nd_down "$dir/90_down.txt" && rc=0 || rc=$?
++        (( rc == 0 )) || fail "census $ex/$which: 'ndt down' exited $rc"
+@@ -693,4 +692,0 @@
+-        # This arm's reading stands -- it was taken on its own fabric, and judged above -- and
+-        # nothing is built after a refused down.
+-        (( rc == 0 )) || { census_skip_rest "$ex" "$which"; return 0; }
+-        (( ARM_DOWN_RC == 0 )) || fail "census $ex/$which: 'ndt down' exited $ARM_DOWN_RC"
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴      census, an arm's 'ndt down' refused (measured arm): rc 0, 'survived VERDICT_RC=1 WHY=census basic/solution: 'ndt down' exited 5', ndt calls: up;down;up;down, rows: basic|solution|yes|running|OK no host saw a heartbeat frame (1 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0;load_balance|solution|yes|running|OK no host saw a heartbeat frame (1 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+  🔴      census, an arm's 'ndt down' refused (no link (rc 3)): rc 0, 'survived VERDICT_RC=1 WHY=census basic/solution: 'ndt down' failed', ndt calls: up;down;up;down, rows: basic|solution|yes|no link (rc 3)|no frame sent;load_balance|solution|yes|no link (rc 3)|no frame sent
+  🔴      census, an arm's 'ndt down' refused ('ndt up' failed): rc 0, 'survived VERDICT_RC=1 WHY=census basic/solution: 'ndt up p4 --app' exited 1', ndt calls: up;down;up;down, rows: basic|solution|up rc=1|-|-;load_balance|solution|up rc=1|-|-
+  🔴      census, an arm's 'ndt down' refused (heartbeat start failed): rc 0, 'survived VERDICT_RC=1 WHY=census basic/solution: heartbeat start answered 2', ndt calls: up;down;up;down, rows: basic|solution|yes|start rc=2|-;load_balance|solution|yes|start rc=2|-
+  🔴      census, an arm's 'ndt down' refused (start named no pid): rc 0, 'survived VERDICT_RC=1 WHY=census basic/solution: 'heartbeat start' answered 0 without saying it started a daemon -- see 11_hb_start.txt', ndt calls: up;down;up;down, rows: basic|solution|yes|start named no pid|-;load_balance|solution|yes|start named no pid|-
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### R7-2: DISCRIMINATES
+
+### R7-2/stop: a MUTANT: census_down records a refused down and lets the census go on
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-26-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-26-hb_watch.py"
+@@ -596 +596 @@
+-    return 1
++    return 0
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴      census, an arm's 'ndt down' refused (measured arm): rc 0, 'survived VERDICT_RC=1 WHY=census basic/solution: 'ndt down' exited 5 -- the census STOPS here: that fabric may still be up, and the next arm's 'ndt up p4 --app' would reuse it ('already up ... reusing') and measure this arm's pipeline under its own name', ndt calls: up;down;up;down, rows: basic|solution|yes|running|OK no host saw a heartbeat frame (1 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0;load_balance|solution|yes|running|OK no host saw a heartbeat frame (1 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+  🔴      census, an arm's 'ndt down' refused (no link (rc 3)): rc 0, 'survived VERDICT_RC=1 WHY=census basic/solution: 'ndt down' exited 5 -- the census STOPS here: that fabric may still be up, and the next arm's 'ndt up p4 --app' would reuse it ('already up ... reusing') and measure this arm's pipeline under its own name', ndt calls: up;down;up;down, rows: basic|solution|yes|no link (rc 3)|no frame sent;load_balance|solution|yes|no link (rc 3)|no frame sent
+  🔴      census, an arm's 'ndt down' refused ('ndt up' failed): rc 0, 'survived VERDICT_RC=1 WHY=census basic/solution: 'ndt up p4 --app' exited 1', ndt calls: up;down;up;down, rows: basic|solution|up rc=1|-|-;load_balance|solution|up rc=1|-|-
+  🔴      census, an arm's 'ndt down' refused (heartbeat start failed): rc 0, 'survived VERDICT_RC=1 WHY=census basic/solution: heartbeat start answered 2', ndt calls: up;down;up;down, rows: basic|solution|yes|start rc=2|-;load_balance|solution|yes|start rc=2|-
+  🔴      census, an arm's 'ndt down' refused (start named no pid): rc 0, 'survived VERDICT_RC=1 WHY=census basic/solution: 'heartbeat start' answered 0 without saying it started a daemon -- see 11_hb_start.txt', ndt calls: up;down;up;down, rows: basic|solution|yes|start named no pid|-;load_balance|solution|yes|start named no pid|-
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### R7-2/stop: DISCRIMINATES
+
+### R7-2/always: a MUTANT: census_down stops the census after every down, refused or not
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-27-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-27-hb_watch.py"
+@@ -594 +593,0 @@
+-    (( ARM_DOWN_RC == 0 || ARM_DOWN_RC == 3 )) && return 0
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴      a census arm with the new daemon's report: survived VERDICT_RC=1 WHY=census basic/solution: 'ndt down' exited 0 -- the census STOPS here: that fabric may still be up, and the next arm's 'ndt up p4 --app' would reuse it ('already up ... reusing') and measure this arm's pipeline under its own name | calls: sniff h1 0102030405060708;hb stop;ndt down | row: basic|solution|yes|running|OK no host saw a heartbeat frame (1 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+  🔴    a census of two arms whose downs go through: rc 0, 'survived VERDICT_RC=1 WHY=census basic/solution: 'ndt down' exited 0 -- the census STOPS here: that fabric may still be up, and the next arm's 'ndt up p4 --app' would reuse it ('already up ... reusing') and measure this arm's pipeline under its own name', ndt calls: up;down, rows: basic|solution|yes|running|OK no host saw a heartbeat frame (1 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0;load_balance|solution|-|-|skipped: an earlier arm's down was refused
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### R7-2/always: DISCRIMINATES
+
+### R7-3: a MUTANT (note 3): a teardown down that did not verify clean (rc 1) counts as down, and is released
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-28-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-28-hb_watch.py"
+@@ -284 +284 @@
+-    if [[ "$TEARDOWN_DOWN_RC" != 0 && "$TEARDOWN_DOWN_RC" != 3 ]]; then
++    if [[ "$TEARDOWN_DOWN_RC" != 0 && "$TEARDOWN_DOWN_RC" != 3 && "$TEARDOWN_DOWN_RC" != 1 ]]; then
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴      a teardown whose 'ndt down' did not verify clean (rc 1): rc 1, last line 'FAIL S_heartbeat -- NOT RELEASED -- THE LAB STAYS CLAIMED: the teardown's 'ndt down' exited 1, so a fabric may still be up; see run/90_down.txt and finish by hand with the commands printed above (first failure before it: 'ndt down' after the detection part exited 1)', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];claim;down;down;claim;release, lab.claim: none (released)
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### R7-3: DISCRIMINATES
+
+### R7-4/theirs: a MUTANT (note 4): keep_claim says nothing when the claim it cannot rewrite is another owner's
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-29-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-29-hb_watch.py"
+@@ -330,3 +329,0 @@
+-    else
+-        echo "!! -- and could NOT rewrite it ($(basename "$kept")). It reads owner=$(lab_claim_field owner): if that is not"
+-        echo "!!    $NDT_OWNER, the fabric is under THEIR claim now -- tell them, do not tear it down from here."
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴      a lab another owner claimed mid-run: rc 1, last line 'FAIL S_heartbeat -- NOT RELEASED -- THE LAB STAYS CLAIMED: the teardown's 'ndt down' exited 5, so a fabric may still be up; see run/90_down.txt and finish by hand with the commands printed above (first failure before it: could not take back this run's measuring= declaration -- see 26_down.reclaim.txt; 'ndt down' refuses while it stands)', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];claim;down [NDT_MEASURING in env];claim;down [NDT_MEASURING in env];claim;status [NDT_MEASURING in env], lab.claim: owner=someone-else note=their round measuring=their measurement; it never said whose claim the fabric is under
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### R7-4/theirs: DISCRIMINATES
+
+### R7-4/floor: a MUTANT (note 4): a re-claim of a lapsed claim keeps 'what is left' -- nothing
+### the copies differ from this checkout's files exactly by:
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
++++ .oldcode-711383-30-spike.sh
+@@ -81 +81 @@
+-WATCH="$SPIKE_DIR/hb_watch.py"
++WATCH="$SPIKE_DIR/.oldcode-711383-30-hb_watch.py"
+@@ -234 +234 @@
+-    if (( left > $1 )); then echo "$left"; else echo "$1"; fi
++    echo "$left"
+### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+  🔴      a claim that lapsed mid-run: rc 0, last line 'PASS S_heartbeat', ndt calls: status;claim [NDT_MEASURING in env];up [NDT_MEASURING in env];claim;down;down;claim;release, lab.claim: none (released); 26_down.reclaim.txt:   ok  lab claimed by hb-selftest for 0m
+SELF-TEST PASS
+SELF-TEST PASS
+SPIKE SELF-TEST FAIL
+### R7-4/floor: DISCRIMINATES
+
+### per revert: the copy's self-test rc, red lines, red lines written for it, verdict
+    revert        rc  red  want  verdict
+    control        0    0     0  ok
+    r3             1    6     6  ok
+    R4-1           1    5     5  ok
+    R4-1/status    1    2     2  ok
+    R4-1/pid       1    2     2  ok
+    R4-2           1    2     2  ok
+    R4-3           1    1     1  ok
+    R4-3/d-i       1    2     2  ok
+    R4-5           1    5     5  ok
+    R5-1           1    1     1  ok
+    R5-2           1    4     4  ok
+    R5-5           1    1     1  ok
+    R6-1           1    1     1  ok
+    R6-2           1    1     1  ok
+    R6-2/watch     1    1     1  ok
+    L1             1    6     6  ok
+    L1/detect      1    4     4  ok
+    L1/teardown    1    1     1  ok
+    L2             1    8     8  ok
+    L2/keep        1    3     3  ok
+    L2/verdict     1    3     3  ok
+    L2/hygiene     1    4     4  ok
+    L2/knob        1    1     1  ok
+    L2/return      1    1     1  ok
+    R7-1           1    1     1  ok
+    R7-2           1    5     5  ok
+    R7-2/stop      1    5     5  ok
+    R7-2/always    1    2     2  ok
+    R7-3           1    1     1  ok
+    R7-4/theirs    1    1     1  ok
+    R7-4/floor     1    1     1  ok
+OLD CODE IS RED IN EXACTLY ITS OWN CHECKS, EVERY REVERT
+# rc=0  2026-09-26T04:57:46Z

@@ -1,0 +1,115 @@
+# trunk 4bc1201b091ae692119a7c76ac17dd7b5c42e0be; helper sha256 6a558fe452955de358fd1a3b4e730fe2be55368a6c90b93675c5442c036fd4fb
+# NDT_OWNER=orch-0926 PART=detect CYCLES=10 setsid -w bash doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh   start 2026-09-26T10:30:21+08:00  (Adam 09-26 form: run detect now)
+== S_heartbeat
+   repo: /home/adam/Desktop/NDTwin-Kernel
+   raw : /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-25_p4-heartbeat/spike/runs/2026-09-26T023021Z_S_heartbeat
+   owner: orch-0926
+   part: detect
+   root is reachable for exactly what this needs: sudoers grants ndtwin-lab and mnexec without a prompt
+   proxy constants (imported): LLDP_BEACON_INTERVAL_S=5 LINK_BEACON_TIMEOUT_S=15 LINK_WATCHDOG_INTERVAL_S=5
+   repo HEAD  4bc1201b091ae692119a7c76ac17dd7b5c42e0be
+   helper     6a558fe452955de358fd1a3b4e730fe2be55368a6c90b93675c5442c036fd4fb  (installed: 6a558fe452955de358fd1a3b4e730fe2be55368a6c90b93675c5442c036fd4fb)
+   spike      326b76ecc6d85c73  doc/audit/2026-09-25_p4-heartbeat/spike/hb_watch.py
+   spike      9a14d80b3f9c11e4  doc/audit/2026-09-25_p4-heartbeat/spike/hb_sniff.py
+   spike      4c5c507219bc924c  doc/audit/2026-09-25_p4-heartbeat/spike/census_prepare.py
+   spike      db20f12e8191d2bd  doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
+   constants  beacon=5 timeout=15 watchdog=5 sniff=20 cycles=10
+
+== lab state before this step
+   lab
+     claim          none
+     prev claim     orch-0924 (until 19:55:17), superseded 2026-09-25 19:35:39  (.test_run/lab.claim.prev)
+                    nothing holds the lab now: that claim was released or replaced
+                    it said: down at 2026-09-25 19:35:39; verified clean; claim kept
+     measuring      nothing
+     code           4bc1201b  +79 file(s) with uncommitted changes
+                    2 of them can change behaviour:
+                    p4_proxy/mininet/host_count_override
+                    tools/remote-lab/dorm_lab/
+     knob baseline  4 (the default; no round baseline recorded -- 'ndt claim' writes one)
+     tree vs round  no baseline in .test_run/round.baseline -- nothing here can say what this round changed ('ndt claim' records one)
+     ok  helper: /usr/local/sbin/ndtwin-lab is tools/test_workflow/ndtwin-lab (sha256 6a558fe4)
+   
+   lab is free
+   host_count_override snapshot taken (4)
+   telemetry_override does not exist; it will be removed again at the end
+
+== claiming the lab
+     recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+     ok  lab claimed by orch-0926 for 45m (heartbeat spike S (detect): pod-topo basic, netem on s1-eth3/s3-eth1; 13-exercise census)
+
+== detection: prepare basic/solution (pod-topo), the way 06 builds it
+
+== ndt up p4 --app /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-basic-solution
+   rc=0
+       proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+       !!  package pipeline: NDTwin discovered no links and installed no routes on this
+       !!    fabric; forwarding is whatever the package's 20 entries on
+       !!    4 switch(es) make of it. ndt status quotes no sample rate for it.
+
+== heartbeat start
+   heartbeat plan: /tmp/ndtwin_p4_switches.json (sha256 28e7684fb473), 4 switch(es), every one a live bmv2
+     link s1-eth3 (dpid 1 port 3) <-> s3-eth1 (dpid 3 port 1)
+     link s1-eth4 (dpid 1 port 4) <-> s4-eth2 (dpid 4 port 2)
+     link s2-eth3 (dpid 2 port 3) <-> s4-eth1 (dpid 4 port 1)
+     link s2-eth4 (dpid 2 port 4) <-> s3-eth2 (dpid 3 port 2)
+     4 link(s) -> 8 direction(s); 4 host-facing interface(s) listened on, never sent on
+   heartbeat started (pid 244126; report: /run/ndtwin-lab/heartbeat.json, log: /run/ndtwin-lab/heartbeat.log)
+   every direction heard once the heartbeat is up: 8/8 directions heard
+
+== cycle 1/10
+   down after 13.275s, heard again after 4.873s, others: OK, netem left: no
+
+== cycle 2/10
+   down after 14.282s, heard again after 4.843s, others: OK, netem left: no
+
+== cycle 3/10
+   down after 14.382s, heard again after 4.819s, others: OK, netem left: no
+
+== cycle 4/10
+   down after 14.281s, heard again after 4.910s, others: OK, netem left: no
+
+== cycle 5/10
+   down after 14.290s, heard again after 4.878s, others: OK, netem left: no
+
+== cycle 6/10
+   down after 14.291s, heard again after 4.832s, others: OK, netem left: no
+
+== cycle 7/10
+   down after 14.375s, heard again after 4.820s, others: OK, netem left: no
+
+== cycle 8/10
+   down after 14.292s, heard again after 4.887s, others: OK, netem left: no
+
+== cycle 9/10
+   down after 14.197s, heard again after 4.862s, others: OK, netem left: no
+
+== cycle 10/10
+   down after 14.293s, heard again after 4.826s, others: OK, netem left: no
+   cycles 10: down detected 10/10, recovery detected 10/10
+     cut -> both directions not heard: min 13.28 s  median 14.29 s  max 14.38 s  (n=10)
+     restore -> both heard again: min 4.82 s  median 4.85 s  max 4.91 s  (n=10)
+     expected from the constants alone (INFERRED): down in (10, 15] s after the cut plus one poll; up in (0, 5] s; segment W adds <= one watchdog pass
+   OK every cut and every restore detected
+   detection (report level, the proxy's rule): every cut and every restore detected
+   qdisc tree identical to the snapshot
+   !! 'ndt down' after the detection part exited 5
+
+== done -- teardown follows
+
+== teardown
+   ndt down rc=5 -> 2026-09-26T023021Z_S_heartbeat/90_down.txt
+       XX  here can see whether it is still running -- only you can. Tearing the fabric out
+       XX  from under it loses the run (measured 09-11 01:57: it did, silently, rc 0).
+       XX  when that run is over:  ndt claim <mins> to redeclare, or  ndt down --force
+   !! 'ndt down' exited 5 -- see 2026-09-26T023021Z_S_heartbeat/90_down.txt
+       # written by ndt up p4 --app at 2026-09-26T02:30:23Z
+       /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-basic-solution
+   !! p4_proxy/mininet/app_package_override SURVIVED the teardown (printed above) -- the next 'ndt up p4' and the next proxy read it; remove it by hand
+     the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+     this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+     ok  lab released
+
+raw: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-25_p4-heartbeat/spike/runs/2026-09-26T023021Z_S_heartbeat
+FAIL S_heartbeat -- 'ndt down' after the detection part exited 5
+# spike rc=1  end 2026-09-26T10:34:00+08:00

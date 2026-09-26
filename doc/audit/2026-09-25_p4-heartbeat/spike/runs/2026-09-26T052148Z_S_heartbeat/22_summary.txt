@@ -1,0 +1,5 @@
+cycles 10: down detected 10/10, recovery detected 10/10
+  cut -> both directions not heard: min 13.30 s  median 14.30 s  max 14.31 s  (n=10)
+  restore -> both heard again: min 4.81 s  median 4.87 s  max 4.91 s  (n=10)
+  expected from the constants alone (INFERRED): down in (10, 15] s after the cut plus one poll; up in (0, 5] s; segment W adds <= one watchdog pass
+OK every cut and every restore detected

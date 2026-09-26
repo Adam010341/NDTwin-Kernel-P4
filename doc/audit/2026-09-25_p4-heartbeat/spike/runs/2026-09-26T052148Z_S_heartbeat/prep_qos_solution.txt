@@ -1,0 +1,131 @@
+
+== compile =============================================================
+$ /usr/local/bin/p4c-bm2-ss --p4v 16 --p4runtime-files /home/adam/tutorials/exercises/qos/build/qos.p4.p4info.txtpb -o /home/adam/tutorials/exercises/qos/build/qos.json /home/adam/tutorials/exercises/qos/solution/qos.p4
+/home/adam/tutorials/exercises/qos/solution/qos.p4(10): [--Wwarn=unused] warning: 'IP_PROTOCOLS_ICMP' is unused
+const bit<8> IP_PROTOCOLS_ICMP = 1;
+             ^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(11): [--Wwarn=unused] warning: 'IP_PROTOCOLS_IGMP' is unused
+const bit<8> IP_PROTOCOLS_IGMP = 2;
+             ^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(12): [--Wwarn=unused] warning: 'IP_PROTOCOLS_IPV4' is unused
+const bit<8> IP_PROTOCOLS_IPV4 = 4;
+             ^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(15): [--Wwarn=unused] warning: 'IP_PROTOCOLS_IPV6' is unused
+const bit<8> IP_PROTOCOLS_IPV6 = 41;
+             ^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(16): [--Wwarn=unused] warning: 'IP_PROTOCOLS_GRE' is unused
+const bit<8> IP_PROTOCOLS_GRE = 47;
+             ^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(17): [--Wwarn=unused] warning: 'IP_PROTOCOLS_IPSEC_ESP' is unused
+const bit<8> IP_PROTOCOLS_IPSEC_ESP = 50;
+             ^^^^^^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(18): [--Wwarn=unused] warning: 'IP_PROTOCOLS_IPSEC_AH' is unused
+const bit<8> IP_PROTOCOLS_IPSEC_AH = 51;
+             ^^^^^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(19): [--Wwarn=unused] warning: 'IP_PROTOCOLS_ICMPV6' is unused
+const bit<8> IP_PROTOCOLS_ICMPV6 = 58;
+             ^^^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(20): [--Wwarn=unused] warning: 'IP_PROTOCOLS_EIGRP' is unused
+const bit<8> IP_PROTOCOLS_EIGRP = 88;
+             ^^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(21): [--Wwarn=unused] warning: 'IP_PROTOCOLS_OSPF' is unused
+const bit<8> IP_PROTOCOLS_OSPF = 89;
+             ^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(22): [--Wwarn=unused] warning: 'IP_PROTOCOLS_PIM' is unused
+const bit<8> IP_PROTOCOLS_PIM = 103;
+             ^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(23): [--Wwarn=unused] warning: 'IP_PROTOCOLS_VRRP' is unused
+const bit<8> IP_PROTOCOLS_VRRP = 112;
+             ^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(120): [--Wwarn=unused] warning: 'default_forwarding' is unused
+    action default_forwarding() {
+           ^^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(136): [--Wwarn=unused] warning: 'af_11' is unused
+    action af_11() {
+           ^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(141): [--Wwarn=unused] warning: 'af_12' is unused
+    action af_12() {
+           ^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(146): [--Wwarn=unused] warning: 'af_13' is unused
+    action af_13() {
+           ^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(151): [--Wwarn=unused] warning: 'af_21' is unused
+    action af_21() {
+           ^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(156): [--Wwarn=unused] warning: 'af_22' is unused
+    action af_22() {
+           ^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(161): [--Wwarn=unused] warning: 'af_23' is unused
+    action af_23() {
+           ^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(166): [--Wwarn=unused] warning: 'af_31' is unused
+    action af_31() {
+           ^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(171): [--Wwarn=unused] warning: 'af_32' is unused
+    action af_32() {
+           ^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(176): [--Wwarn=unused] warning: 'af_33' is unused
+    action af_33() {
+           ^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(181): [--Wwarn=unused] warning: 'af_41' is unused
+    action af_41() {
+           ^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(186): [--Wwarn=unused] warning: 'af_42' is unused
+    action af_42() {
+           ^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(191): [--Wwarn=unused] warning: 'af_43' is unused
+    action af_43() {
+           ^^^^^
+-> /home/adam/tutorials/exercises/qos/build/qos.json  18792 B  sha256[:16]=3524971786058dec  warnings=25
+$ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/convert.py /home/adam/tutorials/exercises/qos --topology topology.json --p4 solution/qos.p4 --out /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-qos-solution
+package 'qos' -> /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-qos-solution
+  control plane : ndtwin
+  pipelines     : s1=build/qos.json, s2=build/qos.json, s3=build/qos.json
+  model         : 3 switches, 5 hosts, 16 edges (8 links, both directions stored)
+  files         : 9
+                  build/qos.json
+                  build/qos.p4.p4info.txtpb
+                  ndtwin/topology.json
+                  package.json
+                  s1-runtime.json
+                  s2-runtime.json
+                  s3-runtime.json
+                  solution/qos.p4
+                  topology.json
+  read back through p4_proxy/mininet/topo_from_json.py: ok
+  next: tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-qos-solution
+$ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-qos-solution
+rnel/.test_run/packages/hbspike-qos-solution
+  PASS  format                            1
+  INFO  name                              qos
+  PASS  control_plane.mode                ndtwin
+  PASS  control_plane.grpc_base           30050
+  PASS  control_plane.device_id           dpid
+  PASS  control_plane.election_id         [0, 65535]
+  PASS  bmv2.cpu_port                     255
+  PASS  switches keys                     3 dpids: [1, 2, 3]
+  PASS  switches name                     every sN has dpid N
+  PASS  referenced files                  8 present
+  PASS  topo_from_json.switches           3 entries
+  PASS  topo_from_json.hosts              5 entries
+  PASS  topo_from_json.switch_links       3 entries
+  PASS  topo_from_json.host_links         5 entries
+  PASS  switches agree                    model and package.json both say [1, 2, 3]
+  PASS  links agree                       8 links in both
+  PASS  hosts named h<last octet>         5 hosts
+  PASS  hosts agree                       model and package.json both say ['h1', 'h11', 'h2', 'h22', 'h3']
+  PASS  switches pipeline                 3 of 3 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
+  INFO  s1 pipeline                       build/qos.json  p4info sha256:1401149d01f125d1  program=/home/adam/tutorials/exercises/qos/solution/qos.p4
+  INFO  s2 pipeline                       build/qos.json  p4info sha256:1401149d01f125d1  program=/home/adam/tutorials/exercises/qos/solution/qos.p4
+  INFO  s3 pipeline                       build/qos.json  p4info sha256:1401149d01f125d1  program=/home/adam/tutorials/exercises/qos/solution/qos.p4
+  PASS  p4info parses                     google.protobuf.text_format into p4.config.v1.P4Info
+  PASS  entries match p4info              11 entries across 3 switch(es); recorded, NOT applied in stage one
+  PASS  entries p4info is the pipeline's  3 switch(es); entries and pipeline name the same p4info
+  INFO  roles suggestion                  no roles declared, so NDTwin writes none of this program's tables. Its p4info has a destination-route-shaped table on every switch; to let NDTwin route here, add to package.json: "roles": {"ipv4_route": {"owner": "ndtwin", "table": "MyIngress.ipv4_lpm", "match_field": "hdr.ipv4.dstAddr", "action": "MyIngress.ipv4_forward", "params": {"dst_mac": "dstAddr", "port": "port"}}} (owner ndtwin: NDTwin writes that table and the package's own entries for it must go -- convert.py --role-ipv4-route takes them out; owner package: NDTwin only reads it)
+  INFO  telemetry.source                  not declared (auto: NDTwin's pipeline gets the cooperative path, anybody else's gets link telemetry)
+  INFO  PRE entries                       none declared (no multicast group, no clone session)
+  PASS  gRPC port block                   30051-30053 safe on this machine
+  PASS  p4c-bm2-ss                        rc=0  qos.json sha256:4b939c4f209bf5c8  qos.p4.p4info.txtpb sha256:1401149d01f125d1
+
+PASS -- every check passed
+PREP OK /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-qos-solution

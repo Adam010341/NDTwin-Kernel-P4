@@ -1,0 +1,111 @@
+3d297c34f3ea5406736916b94652673302574c5f
+# 2026-09-26T02:12:03Z worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r6-0926, branch fix/hb-spike-r6-0926
+# status (uncommitted): 
+# run under: env -u SELFTEST_PROBE_SUDO -u FAULTS_TC, cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r6-0926
+# $ /usr/bin/python3 -I /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/oldcode_selfcheck_mutants.hbr6.py doc/audit/2026-09-25_p4-heartbeat/spike
+
+### mutant reason-check-gone: 'if reason and reason not in reds[hits[0]]:' -> 'if False:'; self-check case wrong-reason must now fail
+### self-check wrong-reason: R4-3's edit; its red line expected with 'a reason this red line does not carry' -- must answer rc 1
+    | ### control: nothing -- the copying alone
+    | ### control: CLEAN
+    | ### case: R4-3's edit; its red line expected with 'a reason this red line does not carry'
+    | ### case: DISCRIMINATES
+### self-check wrong-reason: rc 0 (must be 1); MISSING: ### PROBLEM: red, but not for its reason ('a reason this red line does not carry' missing) ... the census table without 'column' ended the run: rc 127 | ### case: UNEXPECTED
+### self-check wrong-reason: NOT AS IT MUST
+SELF-CHECK FAIL -- see NOT AS IT MUST
+### mutant reason-check-gone: the self-check answered rc 1 -- CAUGHT
+
+### mutant count-check-silent: 'problems.append(f"expected red once, got {len(hits)}: {text_!r}")' -> 'pass'; self-check case extra-line must now fail
+### self-check extra-line: R4-3's edit; its own red line, and 'a check this self-test does not have' -- must answer rc 1
+    | ### control: nothing -- the copying alone
+    | ### control: CLEAN
+    | ### case: R4-3's edit; its own red line, and 'a check this self-test does not have'
+    | ### case: DISCRIMINATES
+### self-check extra-line: rc 0 (must be 1); MISSING: ### PROBLEM: expected red once, got 0: 'a check this self-test does not have' | ### case: UNEXPECTED
+### self-check extra-line: NOT AS IT MUST
+SELF-CHECK FAIL -- see NOT AS IT MUST
+### mutant count-check-silent: the self-check answered rc 1 -- CAUGHT
+
+### mutant unnamed-check-gone: 'if i not in matched:' -> 'if False:'; self-check case unnamed-red must now fail
+### self-check unnamed-red: R4-3's edit; no red line expected -- must answer rc 1
+    | ### control: nothing -- the copying alone
+    | ### control: CLEAN
+    | ### case: R4-3's edit; no red line expected
+    | ### case: DISCRIMINATES
+### self-check unnamed-red: rc 0 (must be 1); MISSING: ### PROBLEM: red that no expectation names: ... ended the run: rc 127 | ### case: UNEXPECTED
+### self-check unnamed-red: NOT AS IT MUST
+SELF-CHECK FAIL -- see NOT AS IT MUST
+### mutant unnamed-check-gone: the self-check answered rc 1 -- CAUGHT
+
+### mutant exit0-check-gone: 'elif p.returncode == 0:' -> 'elif False:'; self-check case reddens-nothing must now fail
+### self-check reddens-nothing: an edit to a comment line, which no check can see -- must answer rc 1
+    | ### control: nothing -- the copying alone
+    | ### control: CLEAN
+    | ### case: an edit to a comment line, which no check can see
+    | ### case: DISCRIMINATES
+### self-check reddens-nothing: rc 0 (must be 1); MISSING: ### PROBLEM: the self-test exited 0 with the old code in place | ### case: UNEXPECTED
+### self-check reddens-nothing: NOT AS IT MUST
+SELF-CHECK FAIL -- see NOT AS IT MUST
+### mutant exit0-check-gone: the self-check answered rc 1 -- CAUGHT
+
+### mutant control-rc-check-gone: 'if p.returncode != 0:\n                problems.append(f"the control\'s' -> 'if False:\n                problems.append(f"the control\'s'; self-check case dirty-control must now fail
+### self-check dirty-control: the copying plus R4-3's edit: a control that is not clean -- must answer rc 1
+    | ### control: the copying plus R4-3's edit: a control that is not clean
+    | ### PROBLEM: red that no expectation names: '🔴    the census table without \'column\' ended the run: rc 127, step \'    column -t -s $\'\\t\' "$RUN/40_census.tsv" | sed \'s/^/   /\'\'; it said: /tmp/hb-spike-selfte'
+    | ### control: UNEXPECTED
+### self-check dirty-control: rc 1 (must be 1); MISSING: ### PROBLEM: the control's self-test exited 1
+### self-check dirty-control: NOT AS IT MUST
+SELF-CHECK FAIL -- see NOT AS IT MUST
+### mutant control-rc-check-gone: the self-check answered rc 1 -- CAUGHT
+
+### mutant anchor-check-gone: 'if found != count:' -> 'if False:'; self-check case anchor-absent must now fail
+### self-check anchor-absent: an edit whose text the spike does not have -- must answer rc 2
+    | ### control: nothing -- the copying alone
+    | ### control: CLEAN
+    | ### case: an edit whose text the spike does not have
+    | ### PROBLEM: the self-test exited 0 with the old code in place
+    | ### case: UNEXPECTED
+### self-check anchor-absent: rc 1 (must be 2); MISSING: ### case: the edit on spike applies 0 time(s), written for 1
+### self-check anchor-absent: NOT AS IT MUST
+SELF-CHECK FAIL -- see NOT AS IT MUST
+### mutant anchor-check-gone: the self-check answered rc 1 -- CAUGHT
+
+### mutant repoint-check-gone: 'if text["spike"].count(REPOINT) != 1:' -> 'if False:'; self-check case watch-line must now fail
+### self-check watch-line: an edit that moves the spike's WATCH line -- must answer rc 2
+    | ### control: nothing -- the copying alone
+    | ### control: CLEAN
+    | ### case: an edit that moves the spike's WATCH line
+    | ### PROBLEM: red that no expectation names: "🔴    the first hit did not stop everything: rc 0, result 'none 1', 20 s, stop file no"
+    | ### PROBLEM: red that no expectation names: "🔴      the last sniffer's hit under set -e: rc 0, result 'none 1'"
+    | ### PROBLEM: red that no expectation names: "🔴    reading the session from the running daemon's report: rc 0: NONE"
+    | ### PROBLEM: red that no expectation names: "🔴      the pid in the helper's start answer is not what the census reads: template 'heartbeat started (pid $pid; report: $HB_RUN_DIR/heartbeat.json, log: $HB_LO"
+    | ### PROBLEM: red that no expectation names: "🔴      a census arm with the new daemon's report: survived VERDICT_RC=1 WHY=census basic/solution: 'heartbeat start' answered 0 without saying it started a daem"
+    | ### PROBLEM: red that no expectation names: "🔴      an arm whose report is still the previous arm's 'stopped' one: survived VERDICT_RC=1 WHY=census basic/solution: 'heartbeat start' answered 0 without sayi"
+    | ### case: UNEXPECTED
+### self-check watch-line: rc 1 (must be 2); MISSING: ### case: the spike no longer sets WATCH as
+### self-check watch-line: NOT AS IT MUST
+SELF-CHECK FAIL -- see NOT AS IT MUST
+### mutant repoint-check-gone: the self-check answered rc 1 -- CAUGHT
+
+### mutant always-unexpected: 'ok = not problems' -> 'ok = False'; self-check case real-row must now fail
+### self-check real-row: R4-3: the census table through a bare `column | sed` under pipefail -- must answer rc 0
+    | ### control: nothing -- the copying alone
+    | ### control: UNEXPECTED
+    | ### R4-3: R4-3: the census table through a bare `column | sed` under pipefail
+    | ### R4-3: UNEXPECTED
+### self-check real-row: rc 1 (must be 0); MISSING: ### R4-3: DISCRIMINATES
+### self-check real-row: NOT AS IT MUST
+SELF-CHECK FAIL -- see NOT AS IT MUST
+### mutant always-unexpected: the self-check answered rc 1 -- CAUGHT
+
+### per mutant of the tool: the self-check case written for it, its rc, verdict
+    reason-check-gone      wrong-reason       1  caught
+    count-check-silent     extra-line         1  caught
+    unnamed-check-gone     unnamed-red        1  caught
+    exit0-check-gone       reddens-nothing    1  caught
+    control-rc-check-gone  dirty-control      1  caught
+    anchor-check-gone      anchor-absent      1  caught
+    repoint-check-gone     watch-line         1  caught
+    always-unexpected      real-row           1  caught
+THE SELF-CHECK CATCHES EVERY MUTANT OF THE TOOL'S VERDICT CODE
+# rc=0  2026-09-26T02:16:52Z

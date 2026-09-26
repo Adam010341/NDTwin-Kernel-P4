@@ -1,0 +1,223 @@
+# trunk 580767a83dea12e42755687d174af891b69deb97; helper sha256 6a558fe452955de358fd1a3b4e730fe2be55368a6c90b93675c5442c036fd4fb
+# env -u CLAIM_MINUTES -u CENSUS_EVEN_IF_RED -u FAULTS_TC -u NDT_MEASURING NDT_OWNER=orch-0926 PART=all setsid -w bash doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh   start 2026-09-26T13:21:48+08:00  (Adam 09-26: fix the teardown, then run; fable r7b: PART=all may run live)
+== S_heartbeat
+   repo: /home/adam/Desktop/NDTwin-Kernel
+   raw : /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-25_p4-heartbeat/spike/runs/2026-09-26T052148Z_S_heartbeat
+   owner: orch-0926
+   part: all
+   root is reachable for exactly what this needs: sudoers grants ndtwin-lab and mnexec without a prompt
+   proxy constants (imported): LLDP_BEACON_INTERVAL_S=5 LINK_BEACON_TIMEOUT_S=15 LINK_WATCHDOG_INTERVAL_S=5
+   repo HEAD  580767a83dea12e42755687d174af891b69deb97
+   helper     6a558fe452955de358fd1a3b4e730fe2be55368a6c90b93675c5442c036fd4fb  (installed: 6a558fe452955de358fd1a3b4e730fe2be55368a6c90b93675c5442c036fd4fb)
+   spike      326b76ecc6d85c73  doc/audit/2026-09-25_p4-heartbeat/spike/hb_watch.py
+   spike      9a14d80b3f9c11e4  doc/audit/2026-09-25_p4-heartbeat/spike/hb_sniff.py
+   spike      4c5c507219bc924c  doc/audit/2026-09-25_p4-heartbeat/spike/census_prepare.py
+   spike      6b4e98316d20b95a  doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
+   constants  beacon=5 timeout=15 watchdog=5 sniff=20 cycles=10
+
+== lab state before this step
+   lab
+     claim          none
+     prev claim     orch-0926 (until 10:49:34), superseded 2026-09-26 10:34:39  (.test_run/lab.claim.prev)
+                    nothing holds the lab now: that claim was released or replaced
+                    it said: down at 2026-09-26 10:34:39; verified clean; claim kept
+     measuring      nothing
+     code           580767a8  +79 file(s) with uncommitted changes
+                    2 of them can change behaviour:
+                    p4_proxy/mininet/host_count_override
+                    tools/remote-lab/dorm_lab/
+     knob baseline  4 (the default; no round baseline recorded -- 'ndt claim' writes one)
+     tree vs round  no baseline in .test_run/round.baseline -- nothing here can say what this round changed ('ndt claim' records one)
+     ok  helper: /usr/local/sbin/ndtwin-lab is tools/test_workflow/ndtwin-lab (sha256 6a558fe4)
+   
+   lab is free
+   host_count_override snapshot taken (4)
+   telemetry_override does not exist; it will be removed again at the end
+
+== claiming the lab
+     recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+     ok  lab claimed by orch-0926 for 180m (heartbeat spike S (all): pod-topo basic, netem on s1-eth3/s3-eth1; 13-exercise census)
+
+== detection: prepare basic/solution (pod-topo), the way 06 builds it
+
+== ndt up p4 --app /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-basic-solution
+   rc=0
+       proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+       !!  package pipeline: NDTwin discovered no links and installed no routes on this
+       !!    fabric; forwarding is whatever the package's 20 entries on
+       !!    4 switch(es) make of it. ndt status quotes no sample rate for it.
+
+== heartbeat start
+   heartbeat plan: /tmp/ndtwin_p4_switches.json (sha256 caefa665f496), 4 switch(es), every one a live bmv2
+     link s1-eth3 (dpid 1 port 3) <-> s3-eth1 (dpid 3 port 1)
+     link s1-eth4 (dpid 1 port 4) <-> s4-eth2 (dpid 4 port 2)
+     link s2-eth3 (dpid 2 port 3) <-> s4-eth1 (dpid 4 port 1)
+     link s2-eth4 (dpid 2 port 4) <-> s3-eth2 (dpid 3 port 2)
+     4 link(s) -> 8 direction(s); 4 host-facing interface(s) listened on, never sent on
+   heartbeat started (pid 969939; report: /run/ndtwin-lab/heartbeat.json, log: /run/ndtwin-lab/heartbeat.log)
+   every direction heard once the heartbeat is up: 8/8 directions heard
+
+== cycle 1/10
+   down after 13.298s, heard again after 4.855s, others: OK, netem left: no
+
+== cycle 2/10
+   down after 14.302s, heard again after 4.883s, others: OK, netem left: no
+
+== cycle 3/10
+   down after 14.311s, heard again after 4.827s, others: OK, netem left: no
+
+== cycle 4/10
+   down after 14.306s, heard again after 4.881s, others: OK, netem left: no
+
+== cycle 5/10
+   down after 14.294s, heard again after 4.870s, others: OK, netem left: no
+
+== cycle 6/10
+   down after 14.305s, heard again after 4.813s, others: OK, netem left: no
+
+== cycle 7/10
+   down after 14.299s, heard again after 4.858s, others: OK, netem left: no
+
+== cycle 8/10
+   down after 14.303s, heard again after 4.909s, others: OK, netem left: no
+
+== cycle 9/10
+   down after 14.310s, heard again after 4.865s, others: OK, netem left: no
+
+== cycle 10/10
+   down after 14.219s, heard again after 4.907s, others: OK, netem left: no
+   cycles 10: down detected 10/10, recovery detected 10/10
+     cut -> both directions not heard: min 13.30 s  median 14.30 s  max 14.31 s  (n=10)
+     restore -> both heard again: min 4.81 s  median 4.87 s  max 4.91 s  (n=10)
+     expected from the constants alone (INFERRED): down in (10, 15] s after the cut plus one poll; up in (0, 5] s; segment W adds <= one watchdog pass
+   OK every cut and every restore detected
+   detection (report level, the proxy's rule): every cut and every restore detected
+   qdisc tree identical to the snapshot
+   this run's measurement is over: re-claiming WITHOUT measuring= (owner and note kept, the lease not renewed)
+       recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+       ok  lab claimed by orch-0926 for 177m (in use: ndt up p4 4 at 2026-09-26 13:21:51 by orch-0926)
+
+== census basic/solution
+   OK no host saw a heartbeat frame (4 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+
+== census basic/skeleton
+   OK no host saw a heartbeat frame (4 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+
+== census source_routing/solution
+   OK no host saw a heartbeat frame (3 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+
+== census source_routing/skeleton
+   OK no host saw a heartbeat frame (3 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+
+== census calc/solution
+   no switch-to-switch link: no heartbeat frame enters this fabric
+
+== census calc/skeleton
+   no switch-to-switch link: no heartbeat frame enters this fabric
+
+== census multicast/solution
+   no switch-to-switch link: no heartbeat frame enters this fabric
+
+== census multicast/skeleton
+   no switch-to-switch link: no heartbeat frame enters this fabric
+
+== census basic_tunnel/solution
+   OK no host saw a heartbeat frame (3 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+
+== census basic_tunnel/skeleton
+   not built: NOT-BUILT preflight rc=1 (the arm's designed red)
+
+== census load_balance/solution
+   OK no host saw a heartbeat frame (3 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+
+== census load_balance/skeleton
+   OK no host saw a heartbeat frame (3 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+
+== census qos/solution
+   OK no host saw a heartbeat frame (5 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+
+== census qos/skeleton
+   OK no host saw a heartbeat frame (5 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+
+== census link_monitor/solution
+   OK no host saw a heartbeat frame (4 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+
+== census link_monitor/skeleton
+   OK no host saw a heartbeat frame (4 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+
+== census firewall/solution
+   OK no host saw a heartbeat frame (4 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+
+== census firewall/skeleton
+   OK no host saw a heartbeat frame (4 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+
+== census ecn/solution
+   OK no host saw a heartbeat frame (5 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+
+== census ecn/skeleton
+   OK no host saw a heartbeat frame (5 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+
+== census mri/solution
+   OK no host saw a heartbeat frame (5 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+
+== census mri/skeleton
+   OK no host saw a heartbeat frame (5 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+
+== census p4runtime/solution
+   OK no host saw a heartbeat frame (3 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+
+== census p4runtime/skeleton
+   OK no host saw a heartbeat frame (3 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+
+== census flowcache/solution
+   OK no host saw a heartbeat frame (3 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+
+== census flowcache/skeleton
+   not built: NOT-BUILT compile rc=1 (the arm's designed red)
+   exercise        arm       built                                              heartbeat       verdict
+   basic           solution  yes                                                running         OK no host saw a heartbeat frame (4 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+   basic           skeleton  yes                                                running         OK no host saw a heartbeat frame (4 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+   source_routing  solution  yes                                                running         OK no host saw a heartbeat frame (3 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+   source_routing  skeleton  yes                                                running         OK no host saw a heartbeat frame (3 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+   calc            solution  yes                                                no link (rc 3)  no frame sent
+   calc            skeleton  yes                                                no link (rc 3)  no frame sent
+   multicast       solution  yes                                                no link (rc 3)  no frame sent
+   multicast       skeleton  yes                                                no link (rc 3)  no frame sent
+   basic_tunnel    solution  yes                                                running         OK no host saw a heartbeat frame (3 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+   basic_tunnel    skeleton  NOT-BUILT preflight rc=1 (the arm's designed red)  -               -
+   load_balance    solution  yes                                                running         OK no host saw a heartbeat frame (3 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+   load_balance    skeleton  yes                                                running         OK no host saw a heartbeat frame (3 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+   qos             solution  yes                                                running         OK no host saw a heartbeat frame (5 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+   qos             skeleton  yes                                                running         OK no host saw a heartbeat frame (5 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+   link_monitor    solution  yes                                                running         OK no host saw a heartbeat frame (4 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+   link_monitor    skeleton  yes                                                running         OK no host saw a heartbeat frame (4 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+   firewall        solution  yes                                                running         OK no host saw a heartbeat frame (4 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+   firewall        skeleton  yes                                                running         OK no host saw a heartbeat frame (4 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+   ecn             solution  yes                                                running         OK no host saw a heartbeat frame (5 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+   ecn             skeleton  yes                                                running         OK no host saw a heartbeat frame (5 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+   mri             solution  yes                                                running         OK no host saw a heartbeat frame (5 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+   mri             skeleton  yes                                                running         OK no host saw a heartbeat frame (5 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+   p4runtime       solution  yes                                                running         OK no host saw a heartbeat frame (3 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+   p4runtime       skeleton  yes                                                running         OK no host saw a heartbeat frame (3 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+   flowcache       solution  yes                                                running         OK no host saw a heartbeat frame (3 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+   flowcache       skeleton  NOT-BUILT compile rc=1 (the arm's designed red)    -               -
+
+== done -- teardown follows
+
+== teardown
+   ndt down rc=0 -> 2026-09-26T052148Z_S_heartbeat/90_down.txt
+         until 09-12 this command answered both with the same byte.
+       claim note now says the lab was already down when this teardown ran
+     spike: 'ndt down' answered 3 (nothing was up) -- expected: this run had already taken its own fabric down
+   app_package_override is gone, as 'ndt down' should leave it
+   host_count_override put back to what this step found
+   re-claiming on the knob as it is now, so the round baseline 'ndt release' compares with is what is there
+          recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+          ok  lab claimed by orch-0926 for 164m (down at 2026-09-26 13:38:41; nothing was up to tear down; claim kept)
+     the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+     this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+     ok  lab released
+
+raw: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-25_p4-heartbeat/spike/runs/2026-09-26T052148Z_S_heartbeat
+PASS S_heartbeat
+# spike rc=0  end 2026-09-26T13:38:41+08:00

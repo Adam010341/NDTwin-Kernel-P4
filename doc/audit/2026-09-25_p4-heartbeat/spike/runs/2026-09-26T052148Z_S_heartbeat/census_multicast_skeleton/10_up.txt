@@ -1,0 +1,73 @@
+app package pre-flight
+  package      /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-multicast-skeleton
+pre-flight: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-multicast-skeleton
+  PASS  format                            1
+  INFO  name                              multicast
+  PASS  control_plane.mode                ndtwin
+  PASS  control_plane.grpc_base           30050
+  PASS  control_plane.device_id           dpid
+  PASS  control_plane.election_id         [0, 65535]
+  PASS  bmv2.cpu_port                     255
+  PASS  switches keys                     1 dpids: [1]
+  PASS  switches name                     every sN has dpid N
+  PASS  referenced files                  6 present
+  PASS  topo_from_json.switches           1 entries
+  PASS  topo_from_json.hosts              4 entries
+  PASS  topo_from_json.switch_links       0 entries
+  PASS  topo_from_json.host_links         4 entries
+  PASS  switches agree                    model and package.json both say [1]
+  PASS  links agree                       4 links in both
+  PASS  hosts named h<last octet>         4 hosts
+  PASS  hosts agree                       model and package.json both say ['h1', 'h2', 'h3', 'h4']
+  PASS  switches pipeline                 1 of 1 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
+  INFO  s1 pipeline                       build/multicast.json  p4info sha256:54ec81d7c604860a  program=/home/adam/tutorials/exercises/multicast/multicast.p4
+  PASS  p4info parses                     google.protobuf.text_format into p4.config.v1.P4Info
+  PASS  entries match p4info              4 entries across 1 switch(es); recorded, NOT applied in stage one
+  PASS  entries p4info is the pipeline's  1 switch(es); entries and pipeline name the same p4info
+  INFO  telemetry.source                  not declared (auto: NDTwin's pipeline gets the cooperative path, anybody else's gets link telemetry)
+  PASS  PRE entries                       1 multicast group(s) and 0 clone session(s); every replica names a port the model builds
+  PASS  gRPC port block                   30051-30051 safe on this machine
+  PASS  p4c-bm2-ss                        rc=0  multicast.json sha256:82927697f67204ef  multicast.p4.p4info.txtpb sha256:54ec81d7c604860a
+
+PASS -- every check passed
+
+ndt up p4
+  hosts        4        (p4_proxy/mininet/host_count_override)
+  topology     .test_run/packages/hbspike-multicast-skeleton/ndtwin/topology.json
+  app package  /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-multicast-skeleton (mode ndtwin, 1 switch(es))
+  bmv2         /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate  1/256     (compiled into ndtwin_switch.json)
+
+  recorded this target in .test_run/up.target -- 'ndt status --check' compares against it
+  app package set: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-multicast-skeleton   (p4_proxy/mininet/app_package_override)
+  telemetry    auto   (p4_proxy/mininet/telemetry_override absent -- auto, then the package)
+  claim note now says the lab is in use (owner and expiry unchanged)
+[1/3] bmv2 fabric
+      topo session started from /home/adam/Desktop/NDTwin-Kernel (attach: sudo tmux -L ndtwinlab attach -t topo)
+  waiting for 1 switches and the manifest
+  ok  1 switches up after 6s, manifest written
+  ok  running binary: /usr/local/bmv2-fast/bin/simple_switch_grpc
+[2/3] proxy + kernel
+  stack.sh prompt is answered immediately: the fabric is already up
+        started p4_proxy (pid 993033) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
+        waiting for P4 proxy agent on :8081 . up
+        started kernel (pid 993094) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+        waiting for kernel API on :8000 . up
+[3/3] verify
+  !!  proxy: destination paths NOT CHECKED -- the package's own program runs on dpid
+  !!    1; the proxy says it sent no LLDP and installed no routes on this
+  !!    fabric (control_plane.skipped: install_initial_routes, link_watchdog, lldp_discovery)
+  ok  table entries: 4/4 applied on 1 switch(es), 0 failed
+  ok  kernel: 1 switches, 1 up, 8 edges, 4 hosts
+  ok  model matches fabric: 4 hosts (kernel graph, topology file and 4 host namespaces all agree)
+  ok  telemetry: auto -- 0 cooperative, 1 link, 0 none; the proxy agrees switch by switch
+  !!  data plane: h1 cannot reach 10.0.0.2 -- a READING, not a verdict: under the package's
+  !!    own program (54ec81d7c604860a) whether plain IPv4 forwards is the package's claim, not
+  !!    NDTwin's (a skeleton does not forward; source_routing needs its header).
+  !!    The exercise's driver judges it.
+
+up. ready
+  proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+  !!  package pipeline: NDTwin discovered no links and installed no routes on this
+  !!    fabric; forwarding is whatever the package's 4 entries on
+  !!    1 switch(es) make of it. ndt status quotes no sample rate for it.

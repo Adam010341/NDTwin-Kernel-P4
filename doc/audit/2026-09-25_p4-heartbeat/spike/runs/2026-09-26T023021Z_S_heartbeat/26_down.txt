@@ -1,0 +1,6 @@
+  XX  refusing to tear down: this claim DECLARES a measurement in progress.
+  XX      measuring=heartbeat spike S: detection latency, out-of-band netem on s1-eth3/s3-eth1
+  XX  it was declared in .test_run/lab.claim, not guessed from the process table, so nothing
+  XX  here can see whether it is still running -- only you can. Tearing the fabric out
+  XX  from under it loses the run (measured 09-11 01:57: it did, silently, rc 0).
+  XX  when that run is over:  ndt claim <mins> to redeclare, or  ndt down --force

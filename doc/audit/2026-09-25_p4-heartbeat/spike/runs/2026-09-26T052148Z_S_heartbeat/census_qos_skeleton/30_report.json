@@ -1,0 +1,282 @@
+{
+ "clock": "*_mono are CLOCK_MONOTONIC seconds (Python time.monotonic() on Linux, the proxy's own clock); *_wall are time.time()",
+ "directions": [
+  {
+   "heard": 5,
+   "id": 0,
+   "last_heard_mono": 36354.772226181,
+   "last_heard_wall": 1790400721.853966,
+   "last_send_error": null,
+   "last_seq": 5,
+   "rx": {
+    "dpid": 2,
+    "ifname": "s2-eth3",
+    "port": 3
+   },
+   "send_errors": 0,
+   "sent": 5,
+   "tx": {
+    "dpid": 1,
+    "ifname": "s1-eth3",
+    "port": 3
+   }
+  },
+  {
+   "heard": 5,
+   "id": 1,
+   "last_heard_mono": 36354.772244982,
+   "last_heard_wall": 1790400721.8539848,
+   "last_send_error": null,
+   "last_seq": 5,
+   "rx": {
+    "dpid": 3,
+    "ifname": "s3-eth2",
+    "port": 2
+   },
+   "send_errors": 0,
+   "sent": 5,
+   "tx": {
+    "dpid": 1,
+    "ifname": "s1-eth4",
+    "port": 4
+   }
+  },
+  {
+   "heard": 5,
+   "id": 2,
+   "last_heard_mono": 36354.772186364,
+   "last_heard_wall": 1790400721.8539264,
+   "last_send_error": null,
+   "last_seq": 5,
+   "rx": {
+    "dpid": 1,
+    "ifname": "s1-eth3",
+    "port": 3
+   },
+   "send_errors": 0,
+   "sent": 5,
+   "tx": {
+    "dpid": 2,
+    "ifname": "s2-eth3",
+    "port": 3
+   }
+  },
+  {
+   "heard": 5,
+   "id": 3,
+   "last_heard_mono": 36354.77225234,
+   "last_heard_wall": 1790400721.8539922,
+   "last_send_error": null,
+   "last_seq": 5,
+   "rx": {
+    "dpid": 3,
+    "ifname": "s3-eth3",
+    "port": 3
+   },
+   "send_errors": 0,
+   "sent": 5,
+   "tx": {
+    "dpid": 2,
+    "ifname": "s2-eth4",
+    "port": 4
+   }
+  },
+  {
+   "heard": 5,
+   "id": 4,
+   "last_heard_mono": 36354.772214971,
+   "last_heard_wall": 1790400721.8539548,
+   "last_send_error": null,
+   "last_seq": 5,
+   "rx": {
+    "dpid": 1,
+    "ifname": "s1-eth4",
+    "port": 4
+   },
+   "send_errors": 0,
+   "sent": 5,
+   "tx": {
+    "dpid": 3,
+    "ifname": "s3-eth2",
+    "port": 2
+   }
+  },
+  {
+   "heard": 5,
+   "id": 5,
+   "last_heard_mono": 36354.772236834,
+   "last_heard_wall": 1790400721.8539765,
+   "last_send_error": null,
+   "last_seq": 5,
+   "rx": {
+    "dpid": 2,
+    "ifname": "s2-eth4",
+    "port": 4
+   },
+   "send_errors": 0,
+   "sent": 5,
+   "tx": {
+    "dpid": 3,
+    "ifname": "s3-eth3",
+    "port": 3
+   }
+  }
+ ],
+ "dst_mac": "02:4e:44:54:48:42",
+ "ethertype": "0x88b5",
+ "fabric": {
+  "manifest": "/tmp/ndtwin_p4_switches.json",
+  "manifest_sha256": "0336a21b91ace79f127e41fabd119af7db0ab95152a6191ebe5299d96b503470",
+  "switches": {
+   "s1": {
+    "dpid": 1,
+    "pid": 1008331,
+    "program": "qos.json"
+   },
+   "s2": {
+    "dpid": 2,
+    "pid": 1008332,
+    "program": "qos.json"
+   },
+   "s3": {
+    "dpid": 3,
+    "pid": 1008333,
+    "program": "qos.json"
+   }
+  }
+ },
+ "format": 1,
+ "interfaces": {
+  "s1-eth1": {
+   "dpid": 1,
+   "foreign": 0,
+   "forwarded": 0,
+   "host_facing": true,
+   "misdelivered": 0,
+   "port": 1
+  },
+  "s1-eth2": {
+   "dpid": 1,
+   "foreign": 0,
+   "forwarded": 0,
+   "host_facing": true,
+   "misdelivered": 0,
+   "port": 2
+  },
+  "s1-eth3": {
+   "dpid": 1,
+   "foreign": 0,
+   "forwarded": 0,
+   "host_facing": false,
+   "misdelivered": 0,
+   "port": 3
+  },
+  "s1-eth4": {
+   "dpid": 1,
+   "foreign": 0,
+   "forwarded": 0,
+   "host_facing": false,
+   "misdelivered": 0,
+   "port": 4
+  },
+  "s2-eth1": {
+   "dpid": 2,
+   "foreign": 0,
+   "forwarded": 0,
+   "host_facing": true,
+   "misdelivered": 0,
+   "port": 1
+  },
+  "s2-eth2": {
+   "dpid": 2,
+   "foreign": 0,
+   "forwarded": 0,
+   "host_facing": true,
+   "misdelivered": 0,
+   "port": 2
+  },
+  "s2-eth3": {
+   "dpid": 2,
+   "foreign": 0,
+   "forwarded": 0,
+   "host_facing": false,
+   "misdelivered": 0,
+   "port": 3
+  },
+  "s2-eth4": {
+   "dpid": 2,
+   "foreign": 0,
+   "forwarded": 0,
+   "host_facing": false,
+   "misdelivered": 0,
+   "port": 4
+  },
+  "s3-eth1": {
+   "dpid": 3,
+   "foreign": 0,
+   "forwarded": 0,
+   "host_facing": true,
+   "misdelivered": 0,
+   "port": 1
+  },
+  "s3-eth2": {
+   "dpid": 3,
+   "foreign": 0,
+   "forwarded": 0,
+   "host_facing": false,
+   "misdelivered": 0,
+   "port": 2
+  },
+  "s3-eth3": {
+   "dpid": 3,
+   "foreign": 0,
+   "forwarded": 0,
+   "host_facing": false,
+   "misdelivered": 0,
+   "port": 3
+  }
+ },
+ "period_s": 5,
+ "pid": 1008768,
+ "session": "fe43768d007ee4b7",
+ "side_effects": {
+  "foreign_frames": 0,
+  "forwarded_between_switches": 0,
+  "forwarded_to_hosts": 0,
+  "misdelivered": 0
+ },
+ "source": "heartbeat",
+ "started_mono": 36334.767785152,
+ "started_wall": 1790400701.8495255,
+ "status": "running",
+ "stop_reason": null,
+ "watch_only": [
+  {
+   "dpid": 1,
+   "ifname": "s1-eth1",
+   "port": 1
+  },
+  {
+   "dpid": 1,
+   "ifname": "s1-eth2",
+   "port": 2
+  },
+  {
+   "dpid": 2,
+   "ifname": "s2-eth1",
+   "port": 1
+  },
+  {
+   "dpid": 2,
+   "ifname": "s2-eth2",
+   "port": 2
+  },
+  {
+   "dpid": 3,
+   "ifname": "s3-eth1",
+   "port": 1
+  }
+ ],
+ "written_mono": 36355.272803733,
+ "written_wall": 1790400722.3545444
+}

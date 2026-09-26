@@ -1,0 +1,94 @@
+96abb9b08c7d628f129c4b9a16ed7a4d5ae94093
+# bash doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh --self-test  2026-09-26T12:59:18+08:00
+hb_watch --self-test (synthetic reports; no lab)
+  ok    all heard after 99                                         OK 8/8 directions heard
+  ok    not all heard after 101                                    BAD 0/8 directions heard since 101.0; not: s1-eth3->s3-eth1, s1-eth4->s4-eth2, s2-eth3->s4
+  ok    an empty report is not all heard                           BAD the report has no direction at all
+  ok    both cut directions silent 20 s > 15: not heard            True
+  ok    silent 10 s is still heard                                 False
+  ok    only one direction silent: not both down                   False
+  ok    never heard counts as silent                               True
+  ok    a heard-after answer needs a newer stamp                   True
+  ok    no collateral when only the cut is stale                   OK
+  ok    collateral when another direction is stale                 BAD collateral: s3-eth1->s1-eth3
+  ok    a direction the report lacks is an error                   KeyError
+  ok    summary: two detected cycles pass                          True
+  ok    summary: states min/median/max                               cut -> both directions not heard: min 12.10 s  median 13.05 s  max 14.00 s  (n=2)
+  ok    summary: an undetected cut fails                           False
+  ok    summary: no cycle is not a pass                            False
+  ok    census: nothing seen                                       OK no host saw a heartbeat frame (1 host(s) sniffed); switch side: forwarded_between_switc
+  ok    census: a host saw one                                     STOP heartbeat frames reached a host (ruling 4): h1 1; daemon forwarded_to_hosts=0
+  ok    census: the daemon saw one leave a host port               STOP heartbeat frames reached a host (ruling 4): ; daemon forwarded_to_hosts=1
+  ok    census: a sniffer that did not run is not a clean host     BAD a sniffer did not run: h1: mnexec refused
+  ok    census: no host sniffed is not clean                       BAD no host was sniffed
+  ok    first hit: the first host that saw one                     h2
+  ok    first hit: nobody saw one is no hit                        True
+  ok    session: the running report of the pid start named         0102030405060708
+  ok    session: a stopped report is none, even of that pid        True
+  ok    session: a running report of another pid is none           True
+  ok    started pid: 'heartbeat started (pid N; ...)'              4242
+  ok    started pid: 'already running' started nothing             None
+  ok    all-heard on a report that cannot be read: BAD, rc 0       rc 0: BAD the report could not be read: FileNotFoundError(2, 'No such file or directory')
+  ok    others-up on a report that cannot be read: BAD, rc 0       rc 0: BAD the report could not be read: FileNotFoundError(2, 'No such file or directory')
+SELF-TEST PASS
+hb_sniff --self-test
+  ok    a heartbeat by ethertype                                (True, 'ethertype')
+  ok    an IPv4 frame is not                                    (False, '')
+  ok    a rewritten one is found by its payload                 (True, 'payload')
+  ok    another session's payload under another type is not     (False, '')
+  ok    the first heartbeat frame ends the sniff at once        first heartbeat frame after 0.0 s
+  ok    the stop file ends a quiet sniff at once                stop file after 0.0 s
+SELF-TEST PASS
+S_heartbeat_spike --self-test
+  ok    every borrowed function exists (17)
+  ok    census_prepare.py parses
+  ok    the sniffer recognises the daemon's own frames, sent and re-wrapped
+  ok    a run whose fabric is already down: finish's 'ndt down' rc 3 does not fail it (PASS, down and release both ran)
+  ok      but a 3 while this run believes its fabric is up still fails it
+  ok      and a clean down of a fabric that is up passes (the control)
+  ok    the spike's default tc route is 'sudo -n mnexec -a 1 tc' (plain 'sudo -n tc' only as an override)
+  ok    every default the spike sets above its functions is what a PART=all run gets -- none shadowed by _common.sh or faults.sh (FAULTS_TC=sudo -n mnexec -a 1 tc,CLAIM_MINUTES=180)
+  ok      and a CLAIM_MINUTES the caller gives still wins (77 in, 77 claimed)
+  ok    the pre-check RUNS a harmless tc through the route (sudo stubbed: one call, 'qdisc show dev lo')
+  ok      a route sudo refuses: the pre-check refuses and says so
+  ok      the plain 'sudo -n tc' override is also asked by running tc, never by 'sudo -l'
+  ok      a FAULTS_TC that cannot run tc is refused
+  --    the real sudo probe was NOT run (opt-in: SELFTEST_PROBE_SUDO=1) -- neither ok nor red; precheck_tc proves the route at run time, before the claim
+  ok      the pre-check runs before the claim (source read: line 1634 < 1656)
+  ok    the first host to see a heartbeat frame stops the heartbeat and every sniffer at once (0 s, not 20; set -e process)
+  ok      a clean window under set -e: no hit, the census goes on, the heartbeat is left for the arm's own stop
+  ok      a hit written as the last sniffer exits is still caught, and the heartbeat stopped (set -e process)
+  ok    a detection part that fails its first check records FAIL and returns -- the run goes on (set -e process)
+  ok    a detection cycle that goes as designed: both ends cut, both restored, its row written, the run goes on (set -e process, fake tc)
+  ok      a half-done cut (the second end refused): the first end's netem comes off before 'ndt down'; no 'cannot locate' at teardown
+  ok      and when the first end's netem will not come off either: that end is a failure of its own (and the qdisc diff's), the refusal stays the reason, nothing retries it at teardown, the run goes on (set -e process)
+  ok      a cut refused on its FIRST end: no 'tc qdisc del' at all, the refusal the one failure about the cable (beside the summary's zero-cycle verdict), the run goes on (set -e process)
+  ok      a first end already carrying a netem (unsafe): nothing added, nothing deleted -- that netem is not this run's -- one failure about the cable, the run goes on (set -e process)
+  ok      a residue that drops every frame (loss 100%) ends the detection part at its first check: nothing snapshotted, added or deleted (set -e process)
+  ok    a run that DECLARED measuring=: re-claimed without it before 'ndt down', both downs go through, the lab released (set -e process, a fake ndt with ndt's measuring guard)
+  ok      and when the detection part stops before its own 'ndt down', the teardown takes the declaration back: its down goes through, the lab released (set -e process)
+  ok      a teardown 'ndt down' refused for another reason: NOT released -- the claim kept (an hour at least, its note saying the fabric is up), the commands printed, FAIL names it (set -e process)
+  ok      a knob the run found at 128 and 'ndt up' moved to 4: put back, re-claimed on it, released (set -e process)
+  ok      a knob that could not be put back: no re-claim over it, no release -- the lab stays claimed, FAIL (set -e process)
+  ok      a teardown 'ndt down' that did not verify clean (rc 1): NOT released, the claim kept saying so (set -e process)
+  ok      a lab another owner claimed mid-run: no re-claim takes, no down, their claim untouched, no release, and it says whose claim the fabric is under (set -e process)
+  ok      a claim that lapsed mid-run, nobody else's: re-claimed for 15 min before the down, down and release as designed (set -e process)
+  ok    the census reads the daemon's session from its report (set -e process)
+  ok      no report yet: a bounded wait, then 'no session' for the caller to handle -- not an abort
+  ok      the previous arm's final report ('stopped', its own pid) is not taken for the new daemon's session
+  ok      nor a 'stopped' report of the very pid start named (a daemon that has already exited)
+  ok      nor a 'running' report of another pid (a daemon killed before it could write 'stopped')
+  ok      the pid is read from the helper's own 'heartbeat started (pid N; ...)' answer (template taken from the helper)
+  ok      a census arm: the pid start named ties the session, and the sniffers get that one (census driven with stubs, set -e process)
+  ok      an arm whose report is still the previous arm's 'stopped' one: a FAIL row, no sniffer given that session
+  ok      an arm whose start answered 'already running' (it started nothing): a FAIL row saying start named no pid, nobody else's session sniffed
+  ok    a census of two arms whose downs go through: both built, both measured (set -e process, the fake ndt)
+  ok      an arm's 'ndt down' refused (measured arm): the census stops -- no further 'ndt up', the rest marked skipped, FAIL (set -e process)
+  ok      an arm's 'ndt down' refused (no link (rc 3)): the census stops -- no further 'ndt up', the rest marked skipped, FAIL (set -e process)
+  ok      an arm's 'ndt down' refused ('ndt up' failed): the census stops -- no further 'ndt up', the rest marked skipped, FAIL (set -e process)
+  ok      an arm's 'ndt down' refused (heartbeat start failed): the census stops -- no further 'ndt up', the rest marked skipped, FAIL (set -e process)
+  ok      an arm's 'ndt down' refused (start named no pid): the census stops -- no further 'ndt up', the rest marked skipped, FAIL (set -e process)
+  ok    the census table on a machine without 'column': the rows are printed and the run goes on to its verdict (set -e process)
+  ok      and where 'column' is installed it still lays the table out
+SPIKE SELF-TEST PASS
+# rc=0

@@ -1,0 +1,44 @@
+
+== compile =============================================================
+$ /usr/local/bin/p4c-bm2-ss --p4v 16 --p4runtime-files /home/adam/tutorials/exercises/flowcache/build/flowcache.p4.p4info.txtpb -o /home/adam/tutorials/exercises/flowcache/build/flowcache.json /home/adam/tutorials/exercises/flowcache/flowcache.p4
+/home/adam/tutorials/exercises/flowcache/flowcache.p4(9): [--Wwarn=unused] warning: 'egressSpec_t' is unused
+typedef bit<9> egressSpec_t;
+               ^^^^^^^^^^^^
+/home/adam/tutorials/exercises/flowcache/flowcache.p4(232): [--Werror=type-error] error: Field opcode is not a member of header packet_out_header_h
+            switch (hdr.packet_out.opcode) {
+                                   ^^^^^^
+/home/adam/tutorials/exercises/flowcache/flowcache.p4(84)
+header packet_out_header_h {
+       ^^^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/flowcache/flowcache.p4(234): [--Werror=type-error] error: Field operand0 is not a member of header packet_out_header_h
+                    standard_metadata.egress_spec = (PortId_t) hdr.packet_out.operand0;
+                                                                              ^^^^^^^^
+/home/adam/tutorials/exercises/flowcache/flowcache.p4(84)
+header packet_out_header_h {
+       ^^^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/flowcache/flowcache.p4(240): [--Werror=type-error] error: Field opcode is not a member of header packet_out_header_h
+                        hdr.packet_out.opcode);
+                                       ^^^^^^
+/home/adam/tutorials/exercises/flowcache/flowcache.p4(84)
+header packet_out_header_h {
+       ^^^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/flowcache/flowcache.p4(269): [--Werror=type-error] error: Field input_port is not a member of header packet_in_header_h
+        hdr.packet_in.input_port = (PortIdToController_t) ingress_port;
+                      ^^^^^^^^^^
+/home/adam/tutorials/exercises/flowcache/flowcache.p4(89)
+header packet_in_header_h {
+       ^^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/flowcache/flowcache.p4(270): [--Werror=type-error] error: Field punt_reason is not a member of header packet_in_header_h
+        hdr.packet_in.punt_reason = punt_reason;
+                      ^^^^^^^^^^^
+/home/adam/tutorials/exercises/flowcache/flowcache.p4(89)
+header packet_in_header_h {
+       ^^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/flowcache/flowcache.p4(271): [--Werror=type-error] error: Field opcode is not a member of header packet_in_header_h
+        hdr.packet_in.opcode = ControllerOpcode_t.NO_OP;
+                      ^^^^^^
+/home/adam/tutorials/exercises/flowcache/flowcache.p4(89)
+header packet_in_header_h {
+       ^^^^^^^^^^^^^^^^^^
+!! compile FAILED rc=1
+PREP NOT-BUILT compile rc=1 (the arm's designed red)

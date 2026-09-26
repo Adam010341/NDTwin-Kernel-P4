@@ -1,0 +1,54 @@
+
+== compile =============================================================
+$ /usr/local/bin/p4c-bm2-ss --p4v 16 --p4runtime-files /home/adam/tutorials/exercises/flowcache/build/flowcache.p4.p4info.txtpb -o /home/adam/tutorials/exercises/flowcache/build/flowcache.json /home/adam/tutorials/exercises/flowcache/solution/flowcache.p4
+/home/adam/tutorials/exercises/flowcache/solution/flowcache.p4(9): [--Wwarn=unused] warning: 'egressSpec_t' is unused
+typedef bit<9> egressSpec_t;
+               ^^^^^^^^^^^^
+-> /home/adam/tutorials/exercises/flowcache/build/flowcache.json  50620 B  sha256[:16]=6156e996ba5c3ec4  warnings=1
+$ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/convert.py /home/adam/tutorials/exercises/flowcache --topology topology.json --p4 solution/flowcache.p4 --out /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-flowcache-solution
+package 'flowcache' -> /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-flowcache-solution
+  control plane : external
+  pipelines     : s1=build/flowcache.json, s2=build/flowcache.json, s3=build/flowcache.json
+  model         : 3 switches, 3 hosts, 12 edges (6 links, both directions stored)
+  files         : 6
+                  build/flowcache.json
+                  build/flowcache.p4.p4info.txtpb
+                  ndtwin/topology.json
+                  package.json
+                  solution/flowcache.p4
+                  topology.json
+  read back through p4_proxy/mininet/topo_from_json.py: ok
+  next: tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-flowcache-solution
+$ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-flowcache-solution
+pre-flight: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-flowcache-solution
+  PASS  format                       1
+  INFO  name                         flowcache
+  PASS  control_plane.mode           external
+  PASS  control_plane.grpc_base      30050
+  PASS  control_plane.device_id      dpid
+  PASS  control_plane.election_id    [0, 65535]
+  PASS  bmv2.cpu_port                510
+  PASS  switches keys                3 dpids: [1, 2, 3]
+  PASS  switches name                every sN has dpid N
+  PASS  referenced files             5 present
+  PASS  topo_from_json.switches      3 entries
+  PASS  topo_from_json.hosts         3 entries
+  PASS  topo_from_json.switch_links  3 entries
+  PASS  topo_from_json.host_links    3 entries
+  PASS  switches agree               model and package.json both say [1, 2, 3]
+  PASS  links agree                  6 links in both
+  PASS  hosts named h<last octet>    3 hosts
+  PASS  hosts agree                  model and package.json both say ['h1', 'h2', 'h3']
+  PASS  switches pipeline            3 of 3 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
+  INFO  s1 pipeline                  build/flowcache.json  p4info sha256:59d7a680cdc74010  program=/home/adam/tutorials/exercises/flowcache/solution/flowcache.p4
+  INFO  s2 pipeline                  build/flowcache.json  p4info sha256:59d7a680cdc74010  program=/home/adam/tutorials/exercises/flowcache/solution/flowcache.p4
+  INFO  s3 pipeline                  build/flowcache.json  p4info sha256:59d7a680cdc74010  program=/home/adam/tutorials/exercises/flowcache/solution/flowcache.p4
+  INFO  entries                      none (control plane 'external' brings its own)
+  PASS  p4info parses                build/flowcache.p4.p4info.txtpb: 1 table(s)
+  INFO  telemetry.source             not declared (auto: NDTwin's pipeline gets the cooperative path, anybody else's gets link telemetry)
+  INFO  PRE entries                  none declared (no multicast group, no clone session)
+  PASS  gRPC port block              30051-30053 safe on this machine
+  PASS  p4c-bm2-ss                   rc=0  flowcache.json sha256:d1291e3f469b711e  flowcache.p4.p4info.txtpb sha256:59d7a680cdc74010
+
+PASS -- every check passed
+PREP OK /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-flowcache-solution

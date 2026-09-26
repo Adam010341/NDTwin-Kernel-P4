@@ -1,0 +1,16 @@
+7f4ab9dc9cba2172a5e1066e68f60bfe4a41a6a3
+# 2026-09-26T02:03:39Z worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r6-0926, branch fix/hb-spike-r6-0926
+# status (uncommitted): 
+# run under: env -u SELFTEST_PROBE_SUDO -u FAULTS_TC, cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r6-0926
+# $ bash doc/audit/2026-09-25_p4-heartbeat/spike/oldcode_selftest.sh --self-check copies-ignored
+
+### self-check copies-ignored
+### self-check copies-ignored: git check-ignore -v on .oldcode-188847-0-spike.sh .oldcode-188847-0-hb_watch.py .oldcode-188847-11-spike.sh .oldcode-188847-11-hb_watch.py -- each must be ignored
+### self-check copies-ignored: git rc 1; NOT ignored: .oldcode-188847-0-spike.sh .oldcode-188847-0-hb_watch.py .oldcode-188847-11-spike.sh .oldcode-188847-11-hb_watch.py
+### self-check copies-ignored: NOT AS IT MUST
+
+### per case: the rc it must answer, the rc it answered, verdict
+    case             must  got  verdict
+    copies-ignored      0    1  NOT AS IT MUST
+SELF-CHECK FAIL -- see NOT AS IT MUST
+# rc=1  2026-09-26T02:03:39Z

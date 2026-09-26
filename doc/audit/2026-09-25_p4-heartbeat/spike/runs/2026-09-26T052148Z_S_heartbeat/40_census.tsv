@@ -1,0 +1,27 @@
+exercise	arm	built	heartbeat	verdict
+basic	solution	yes	running	OK no host saw a heartbeat frame (4 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+basic	skeleton	yes	running	OK no host saw a heartbeat frame (4 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+source_routing	solution	yes	running	OK no host saw a heartbeat frame (3 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+source_routing	skeleton	yes	running	OK no host saw a heartbeat frame (3 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+calc	solution	yes	no link (rc 3)	no frame sent
+calc	skeleton	yes	no link (rc 3)	no frame sent
+multicast	solution	yes	no link (rc 3)	no frame sent
+multicast	skeleton	yes	no link (rc 3)	no frame sent
+basic_tunnel	solution	yes	running	OK no host saw a heartbeat frame (3 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+basic_tunnel	skeleton	NOT-BUILT preflight rc=1 (the arm's designed red)	-	-
+load_balance	solution	yes	running	OK no host saw a heartbeat frame (3 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+load_balance	skeleton	yes	running	OK no host saw a heartbeat frame (3 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+qos	solution	yes	running	OK no host saw a heartbeat frame (5 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+qos	skeleton	yes	running	OK no host saw a heartbeat frame (5 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+link_monitor	solution	yes	running	OK no host saw a heartbeat frame (4 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+link_monitor	skeleton	yes	running	OK no host saw a heartbeat frame (4 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+firewall	solution	yes	running	OK no host saw a heartbeat frame (4 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+firewall	skeleton	yes	running	OK no host saw a heartbeat frame (4 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+ecn	solution	yes	running	OK no host saw a heartbeat frame (5 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+ecn	skeleton	yes	running	OK no host saw a heartbeat frame (5 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+mri	solution	yes	running	OK no host saw a heartbeat frame (5 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+mri	skeleton	yes	running	OK no host saw a heartbeat frame (5 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+p4runtime	solution	yes	running	OK no host saw a heartbeat frame (3 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+p4runtime	skeleton	yes	running	OK no host saw a heartbeat frame (3 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+flowcache	solution	yes	running	OK no host saw a heartbeat frame (3 host(s) sniffed); switch side: forwarded_between_switches=0 misdelivered=0 foreign=0
+flowcache	skeleton	NOT-BUILT compile rc=1 (the arm's designed red)	-	-

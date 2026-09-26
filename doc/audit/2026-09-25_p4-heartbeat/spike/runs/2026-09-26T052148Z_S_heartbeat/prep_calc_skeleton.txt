@@ -1,0 +1,70 @@
+
+== compile =============================================================
+$ /usr/local/bin/p4c-bm2-ss --p4v 16 --p4runtime-files /home/adam/tutorials/exercises/calc/build/calc.p4.p4info.txtpb -o /home/adam/tutorials/exercises/calc/build/calc.json /home/adam/tutorials/exercises/calc/calc.p4
+/home/adam/tutorials/exercises/calc/calc.p4(116): [--Wwarn=parser-transition] warning: check_p4calc: implicit transition to `reject'
+    state check_p4calc {
+          ^^^^^^^^^^^^
+/home/adam/tutorials/exercises/calc/calc.p4(63): [--Wwarn=unused] warning: 'P4CALC_P' is unused
+const bit<8> P4CALC_P = 0x50; // 'P'
+             ^^^^^^^^
+/home/adam/tutorials/exercises/calc/calc.p4(64): [--Wwarn=unused] warning: 'P4CALC_4' is unused
+const bit<8> P4CALC_4 = 0x34; // '4'
+             ^^^^^^^^
+/home/adam/tutorials/exercises/calc/calc.p4(65): [--Wwarn=unused] warning: 'P4CALC_VER' is unused
+const bit<8> P4CALC_VER = 0x01; // v0.1
+             ^^^^^^^^^^
+/home/adam/tutorials/exercises/calc/calc.p4(148): [--Wwarn=unused] warning: 'send_back' is unused
+    action send_back(bit<32> result) {
+           ^^^^^^^^^
+/home/adam/tutorials/exercises/calc/calc.p4(148): [--Wwarn=unused] warning: 'result' is unused
+    action send_back(bit<32> result) {
+                             ^^^^^^
+[--Wwarn=unsupported] warning: Explicit transition to reject not supported on this target
+-> /home/adam/tutorials/exercises/calc/build/calc.json  13480 B  sha256[:16]=b70e4ffd6c14d9b2  warnings=7
+$ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/convert.py /home/adam/tutorials/exercises/calc --topology topology.json --p4 calc.p4 --out /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-calc-skeleton
+package 'calc' -> /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-calc-skeleton
+  control plane : ndtwin
+  pipelines     : s1=build/calc.json
+  model         : 1 switches, 2 hosts, 4 edges (2 links, both directions stored)
+  files         : 7
+                  build/calc.json
+                  build/calc.p4.p4info.txtpb
+                  calc.p4
+                  ndtwin/topology.json
+                  package.json
+                  s1-runtime.json
+                  topology.json
+  read back through p4_proxy/mininet/topo_from_json.py: ok
+  next: tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-calc-skeleton
+$ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-calc-skeleton
+pre-flight: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-calc-skeleton
+  PASS  format                            1
+  INFO  name                              calc
+  PASS  control_plane.mode                ndtwin
+  PASS  control_plane.grpc_base           30050
+  PASS  control_plane.device_id           dpid
+  PASS  control_plane.election_id         [0, 65535]
+  PASS  bmv2.cpu_port                     255
+  PASS  switches keys                     1 dpids: [1]
+  PASS  switches name                     every sN has dpid N
+  PASS  referenced files                  6 present
+  PASS  topo_from_json.switches           1 entries
+  PASS  topo_from_json.hosts              2 entries
+  PASS  topo_from_json.switch_links       0 entries
+  PASS  topo_from_json.host_links         2 entries
+  PASS  switches agree                    model and package.json both say [1]
+  PASS  links agree                       2 links in both
+  PASS  hosts named h<last octet>         2 hosts
+  PASS  hosts agree                       model and package.json both say ['h1', 'h2']
+  PASS  switches pipeline                 1 of 1 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
+  INFO  s1 pipeline                       build/calc.json  p4info sha256:728f02730b0a09b3  program=/home/adam/tutorials/exercises/calc/calc.p4
+  PASS  p4info parses                     google.protobuf.text_format into p4.config.v1.P4Info
+  PASS  entries match p4info              0 entries across 1 switch(es); recorded, NOT applied in stage one
+  PASS  entries p4info is the pipeline's  1 switch(es); entries and pipeline name the same p4info
+  INFO  telemetry.source                  not declared (auto: NDTwin's pipeline gets the cooperative path, anybody else's gets link telemetry)
+  INFO  PRE entries                       none declared (no multicast group, no clone session)
+  PASS  gRPC port block                   30051-30051 safe on this machine
+  PASS  p4c-bm2-ss                        rc=0  calc.json sha256:8183c8c5c6cf5218  calc.p4.p4info.txtpb sha256:728f02730b0a09b3
+
+PASS -- every check passed
+PREP OK /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-calc-skeleton

@@ -1,0 +1,54 @@
+
+== compile =============================================================
+$ /usr/local/bin/p4c-bm2-ss --p4v 16 --p4runtime-files /home/adam/tutorials/exercises/multicast/build/multicast.p4.p4info.txtpb -o /home/adam/tutorials/exercises/multicast/build/multicast.json /home/adam/tutorials/exercises/multicast/multicast.p4
+/home/adam/tutorials/exercises/multicast/multicast.p4(13): [--Wwarn=unused] warning: 'ip4Addr_t' is unused
+typedef bit<32> ip4Addr_t;
+                ^^^^^^^^^
+-> /home/adam/tutorials/exercises/multicast/build/multicast.json  10446 B  sha256[:16]=f04fc49f882921bc  warnings=1
+$ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/convert.py /home/adam/tutorials/exercises/multicast --topology sig-topo/topology.json --p4 multicast.p4 --out /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-multicast-skeleton
+package 'multicast' -> /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-multicast-skeleton
+  control plane : ndtwin
+  pipelines     : s1=build/multicast.json
+  model         : 1 switches, 4 hosts, 8 edges (4 links, both directions stored)
+  files         : 7
+                  build/multicast.json
+                  build/multicast.p4.p4info.txtpb
+                  multicast.p4
+                  ndtwin/topology.json
+                  package.json
+                  sig-topo/s1-runtime.json
+                  sig-topo/topology.json
+  read back through p4_proxy/mininet/topo_from_json.py: ok
+  next: tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-multicast-skeleton
+$ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-multicast-skeleton
+pre-flight: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-multicast-skeleton
+  PASS  format                            1
+  INFO  name                              multicast
+  PASS  control_plane.mode                ndtwin
+  PASS  control_plane.grpc_base           30050
+  PASS  control_plane.device_id           dpid
+  PASS  control_plane.election_id         [0, 65535]
+  PASS  bmv2.cpu_port                     255
+  PASS  switches keys                     1 dpids: [1]
+  PASS  switches name                     every sN has dpid N
+  PASS  referenced files                  6 present
+  PASS  topo_from_json.switches           1 entries
+  PASS  topo_from_json.hosts              4 entries
+  PASS  topo_from_json.switch_links       0 entries
+  PASS  topo_from_json.host_links         4 entries
+  PASS  switches agree                    model and package.json both say [1]
+  PASS  links agree                       4 links in both
+  PASS  hosts named h<last octet>         4 hosts
+  PASS  hosts agree                       model and package.json both say ['h1', 'h2', 'h3', 'h4']
+  PASS  switches pipeline                 1 of 1 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
+  INFO  s1 pipeline                       build/multicast.json  p4info sha256:54ec81d7c604860a  program=/home/adam/tutorials/exercises/multicast/multicast.p4
+  PASS  p4info parses                     google.protobuf.text_format into p4.config.v1.P4Info
+  PASS  entries match p4info              4 entries across 1 switch(es); recorded, NOT applied in stage one
+  PASS  entries p4info is the pipeline's  1 switch(es); entries and pipeline name the same p4info
+  INFO  telemetry.source                  not declared (auto: NDTwin's pipeline gets the cooperative path, anybody else's gets link telemetry)
+  PASS  PRE entries                       1 multicast group(s) and 0 clone session(s); every replica names a port the model builds
+  PASS  gRPC port block                   30051-30051 safe on this machine
+  PASS  p4c-bm2-ss                        rc=0  multicast.json sha256:82927697f67204ef  multicast.p4.p4info.txtpb sha256:54ec81d7c604860a
+
+PASS -- every check passed
+PREP OK /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-multicast-skeleton

@@ -1,0 +1,6 @@
+heartbeat plan: /tmp/ndtwin_p4_switches.json (sha256 d1e81f07ea90), 3 switch(es), every one a live bmv2
+  link s1-eth2 (dpid 1 port 2) <-> s2-eth2 (dpid 2 port 2)
+  link s1-eth3 (dpid 1 port 3) <-> s3-eth2 (dpid 3 port 2)
+  link s2-eth3 (dpid 2 port 3) <-> s3-eth3 (dpid 3 port 3)
+  3 link(s) -> 6 direction(s); 3 host-facing interface(s) listened on, never sent on
+heartbeat started (pid 1042912; report: /run/ndtwin-lab/heartbeat.json, log: /run/ndtwin-lab/heartbeat.log)

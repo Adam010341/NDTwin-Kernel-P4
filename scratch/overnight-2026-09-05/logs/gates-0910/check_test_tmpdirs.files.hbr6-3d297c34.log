@@ -1,0 +1,7 @@
+3d297c34f3ea5406736916b94652673302574c5f
+# 2026-09-26T02:05:13Z worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r6-0926, branch fix/hb-spike-r6-0926
+# status (uncommitted): 
+# run under: env -u SELFTEST_PROBE_SUDO -u FAULTS_TC, cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r6-0926
+# $ python3 tests/shell/check_test_tmpdirs.py doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh doc/audit/2026-09-25_p4-heartbeat/spike/oldcode_selftest.sh doc/audit/2026-09-25_p4-heartbeat/spike/hb_watch.py
+check_test_tmpdirs: 3 file(s) scanned, 0 fixed temp paths
+# rc=0  2026-09-26T02:05:13Z

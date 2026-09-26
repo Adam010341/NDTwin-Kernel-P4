@@ -1,0 +1,286 @@
+a77b8fe2e0cabdb30a48a833940fa31717e48560
+# 2026-09-26T03:31:06Z worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926, branch fix/hb-spike-r7-0926
+# status (uncommitted): 
+# run under: env -u SELFTEST_PROBE_SUDO -u FAULTS_TC, cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926
+# $ bash doc/audit/2026-09-25_p4-heartbeat/spike/oldcode_selftest.sh --self-check
+
+### self-check wrong-reason
+### self-check wrong-reason: R4-3's edit; its red line expected with 'a reason this red line does not carry' -- must answer rc 1
+    | 
+    | ### control: nothing -- the copying alone
+    | ### the copies differ from this checkout's files exactly by:
+    | --- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
+    | +++ .oldcode-377151-0-spike.sh
+    | @@ -78 +78 @@
+    | -WATCH="$SPIKE_DIR/hb_watch.py"
+    | +WATCH="$SPIKE_DIR/.oldcode-377151-0-hb_watch.py"
+    | ### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 0
+    | SELF-TEST PASS
+    | SELF-TEST PASS
+    | SPIKE SELF-TEST PASS
+    | ### control: CLEAN
+    | 
+    | ### case: R4-3's edit; its red line expected with 'a reason this red line does not carry'
+    | ### the copies differ from this checkout's files exactly by:
+    | --- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
+    | +++ .oldcode-377151-1-spike.sh
+    | @@ -78 +78 @@
+    | -WATCH="$SPIKE_DIR/hb_watch.py"
+    | +WATCH="$SPIKE_DIR/.oldcode-377151-1-hb_watch.py"
+    | @@ -1474 +1474 @@
+    | -    show_census "$RUN/40_census.tsv"
+    | +    column -t -s $'\t' "$RUN/40_census.tsv" | sed 's/^/   /'
+    | ### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+    |   🔴    the census table without 'column' ended the run: rc 127, step '    column -t -s $'\t' "$RUN/40_census.tsv" | sed 's/^/   /''; it said: /tmp/hb-spike-selftest-kMDFcI/census_driver.sh: line 11: column: command not found
+    | SELF-TEST PASS
+    | SELF-TEST PASS
+    | SPIKE SELF-TEST FAIL
+    | ### PROBLEM: red, but not for its reason ('a reason this red line does not carry' missing): "the census table without 'column' ended the run: rc 127"
+    | ### case: UNEXPECTED
+    | 
+    | ### per revert: the copy's self-test rc, red lines, red lines written for it, verdict
+    |     revert        rc  red  want  verdict
+    |     control        0    0     0  ok
+    |     case           1    1     1  UNEXPECTED
+    | UNEXPECTED -- see PROBLEM lines
+### self-check wrong-reason: rc 1 (must be 1); its own line(s) are there
+### self-check wrong-reason: AS IT MUST
+
+### self-check extra-line
+### self-check extra-line: R4-3's edit; its own red line, and 'a check this self-test does not have' -- must answer rc 1
+    | 
+    | ### control: nothing -- the copying alone
+    | ### the copies differ from this checkout's files exactly by:
+    | --- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
+    | +++ .oldcode-377151-0-spike.sh
+    | @@ -78 +78 @@
+    | -WATCH="$SPIKE_DIR/hb_watch.py"
+    | +WATCH="$SPIKE_DIR/.oldcode-377151-0-hb_watch.py"
+    | ### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 0
+    | SELF-TEST PASS
+    | SELF-TEST PASS
+    | SPIKE SELF-TEST PASS
+    | ### control: CLEAN
+    | 
+    | ### case: R4-3's edit; its own red line, and 'a check this self-test does not have'
+    | ### the copies differ from this checkout's files exactly by:
+    | --- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
+    | +++ .oldcode-377151-1-spike.sh
+    | @@ -78 +78 @@
+    | -WATCH="$SPIKE_DIR/hb_watch.py"
+    | +WATCH="$SPIKE_DIR/.oldcode-377151-1-hb_watch.py"
+    | @@ -1474 +1474 @@
+    | -    show_census "$RUN/40_census.tsv"
+    | +    column -t -s $'\t' "$RUN/40_census.tsv" | sed 's/^/   /'
+    | ### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+    |   🔴    the census table without 'column' ended the run: rc 127, step '    column -t -s $'\t' "$RUN/40_census.tsv" | sed 's/^/   /''; it said: /tmp/hb-spike-selftest-31g0Y3/census_driver.sh: line 11: column: command not found
+    | SELF-TEST PASS
+    | SELF-TEST PASS
+    | SPIKE SELF-TEST FAIL
+    | ### PROBLEM: expected red once, got 0: 'a check this self-test does not have'
+    | ### case: UNEXPECTED
+    | 
+    | ### per revert: the copy's self-test rc, red lines, red lines written for it, verdict
+    |     revert        rc  red  want  verdict
+    |     control        0    0     0  ok
+    |     case           1    1     2  UNEXPECTED
+    | UNEXPECTED -- see PROBLEM lines
+### self-check extra-line: rc 1 (must be 1); its own line(s) are there
+### self-check extra-line: AS IT MUST
+
+### self-check unnamed-red
+### self-check unnamed-red: R4-3's edit; no red line expected -- must answer rc 1
+    | 
+    | ### control: nothing -- the copying alone
+    | ### the copies differ from this checkout's files exactly by:
+    | --- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
+    | +++ .oldcode-377151-0-spike.sh
+    | @@ -78 +78 @@
+    | -WATCH="$SPIKE_DIR/hb_watch.py"
+    | +WATCH="$SPIKE_DIR/.oldcode-377151-0-hb_watch.py"
+    | ### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 0
+    | SELF-TEST PASS
+    | SELF-TEST PASS
+    | SPIKE SELF-TEST PASS
+    | ### control: CLEAN
+    | 
+    | ### case: R4-3's edit; no red line expected
+    | ### the copies differ from this checkout's files exactly by:
+    | --- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
+    | +++ .oldcode-377151-1-spike.sh
+    | @@ -78 +78 @@
+    | -WATCH="$SPIKE_DIR/hb_watch.py"
+    | +WATCH="$SPIKE_DIR/.oldcode-377151-1-hb_watch.py"
+    | @@ -1474 +1474 @@
+    | -    show_census "$RUN/40_census.tsv"
+    | +    column -t -s $'\t' "$RUN/40_census.tsv" | sed 's/^/   /'
+    | ### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+    |   🔴    the census table without 'column' ended the run: rc 127, step '    column -t -s $'\t' "$RUN/40_census.tsv" | sed 's/^/   /''; it said: /tmp/hb-spike-selftest-QFI5A5/census_driver.sh: line 11: column: command not found
+    | SELF-TEST PASS
+    | SELF-TEST PASS
+    | SPIKE SELF-TEST FAIL
+    | ### PROBLEM: red that no expectation names: '🔴    the census table without \'column\' ended the run: rc 127, step \'    column -t -s $\'\\t\' "$RUN/40_census.tsv" | sed \'s/^/   /\'\'; it said: /tmp/hb-spike-selfte'
+    | ### case: UNEXPECTED
+    | 
+    | ### per revert: the copy's self-test rc, red lines, red lines written for it, verdict
+    |     revert        rc  red  want  verdict
+    |     control        0    0     0  ok
+    |     case           1    1     0  UNEXPECTED
+    | UNEXPECTED -- see PROBLEM lines
+### self-check unnamed-red: rc 1 (must be 1); its own line(s) are there
+### self-check unnamed-red: AS IT MUST
+
+### self-check reddens-nothing
+### self-check reddens-nothing: an edit to a comment line, which no check can see -- must answer rc 1
+    | 
+    | ### control: nothing -- the copying alone
+    | ### the copies differ from this checkout's files exactly by:
+    | --- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
+    | +++ .oldcode-377151-0-spike.sh
+    | @@ -78 +78 @@
+    | -WATCH="$SPIKE_DIR/hb_watch.py"
+    | +WATCH="$SPIKE_DIR/.oldcode-377151-0-hb_watch.py"
+    | ### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 0
+    | SELF-TEST PASS
+    | SELF-TEST PASS
+    | SPIKE SELF-TEST PASS
+    | ### control: CLEAN
+    | 
+    | ### case: an edit to a comment line, which no check can see
+    | ### the copies differ from this checkout's files exactly by:
+    | --- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
+    | +++ .oldcode-377151-1-spike.sh
+    | @@ -78 +78 @@
+    | -WATCH="$SPIKE_DIR/hb_watch.py"
+    | +WATCH="$SPIKE_DIR/.oldcode-377151-1-hb_watch.py"
+    | @@ -391 +391 @@
+    | -# --- helpers ---------------------------------------------------------------------------------------
+    | +# --- helpers (a self-check edit) ---------------------------------------------------------------------------------------
+    | ### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 0
+    | SELF-TEST PASS
+    | SELF-TEST PASS
+    | SPIKE SELF-TEST PASS
+    | ### PROBLEM: the self-test exited 0 with the old code in place
+    | ### case: UNEXPECTED
+    | 
+    | ### per revert: the copy's self-test rc, red lines, red lines written for it, verdict
+    |     revert        rc  red  want  verdict
+    |     control        0    0     0  ok
+    |     case           0    0     0  UNEXPECTED
+    | UNEXPECTED -- see PROBLEM lines
+### self-check reddens-nothing: rc 1 (must be 1); its own line(s) are there
+### self-check reddens-nothing: AS IT MUST
+
+### self-check dirty-control
+### self-check dirty-control: the copying plus R4-3's edit: a control that is not clean -- must answer rc 1
+    | 
+    | ### control: the copying plus R4-3's edit: a control that is not clean
+    | ### the copies differ from this checkout's files exactly by:
+    | --- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
+    | +++ .oldcode-377151-0-spike.sh
+    | @@ -78 +78 @@
+    | -WATCH="$SPIKE_DIR/hb_watch.py"
+    | +WATCH="$SPIKE_DIR/.oldcode-377151-0-hb_watch.py"
+    | @@ -1474 +1474 @@
+    | -    show_census "$RUN/40_census.tsv"
+    | +    column -t -s $'\t' "$RUN/40_census.tsv" | sed 's/^/   /'
+    | ### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+    |   🔴    the census table without 'column' ended the run: rc 127, step '    column -t -s $'\t' "$RUN/40_census.tsv" | sed 's/^/   /''; it said: /tmp/hb-spike-selftest-svvJCS/census_driver.sh: line 11: column: command not found
+    | SELF-TEST PASS
+    | SELF-TEST PASS
+    | SPIKE SELF-TEST FAIL
+    | ### PROBLEM: red that no expectation names: '🔴    the census table without \'column\' ended the run: rc 127, step \'    column -t -s $\'\\t\' "$RUN/40_census.tsv" | sed \'s/^/   /\'\'; it said: /tmp/hb-spike-selfte'
+    | ### PROBLEM: the control's self-test exited 1
+    | ### control: UNEXPECTED
+    | 
+    | ### per revert: the copy's self-test rc, red lines, red lines written for it, verdict
+    |     revert        rc  red  want  verdict
+    |     control        1    1     0  UNEXPECTED
+    | UNEXPECTED -- see PROBLEM lines
+### self-check dirty-control: rc 1 (must be 1); its own line(s) are there
+### self-check dirty-control: AS IT MUST
+
+### self-check anchor-absent
+### self-check anchor-absent: an edit whose text the spike does not have -- must answer rc 2
+    | ### case: the edit on spike applies 0 time(s), written for 1 -- the tool no longer matches the spike; nothing was run
+    |     looked for: 'a line this spike does not have\n'
+### self-check anchor-absent: rc 2 (must be 2); its own line(s) are there
+### self-check anchor-absent: AS IT MUST
+
+### self-check anchor-count
+### self-check anchor-count: R4-3's edit, written for two places -- must answer rc 2
+    | ### case: the edit on spike applies 1 time(s), written for 2 -- the tool no longer matches the spike; nothing was run
+    |     looked for: '    show_census "$RUN/40_census.tsv"\n'
+### self-check anchor-count: rc 2 (must be 2); its own line(s) are there
+### self-check anchor-count: AS IT MUST
+
+### self-check watch-line
+### self-check watch-line: an edit that moves the spike's WATCH line -- must answer rc 2
+    | ### case: the spike no longer sets WATCH as 'WATCH="$SPIKE_DIR/hb_watch.py"\n'; nothing was run
+### self-check watch-line: rc 2 (must be 2); its own line(s) are there
+### self-check watch-line: AS IT MUST
+
+### self-check real-row
+### self-check real-row: R4-3: the census table through a bare `column | sed` under pipefail -- must answer rc 0
+    | 
+    | ### control: nothing -- the copying alone
+    | ### the copies differ from this checkout's files exactly by:
+    | --- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
+    | +++ .oldcode-377151-0-spike.sh
+    | @@ -78 +78 @@
+    | -WATCH="$SPIKE_DIR/hb_watch.py"
+    | +WATCH="$SPIKE_DIR/.oldcode-377151-0-hb_watch.py"
+    | ### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 0
+    | SELF-TEST PASS
+    | SELF-TEST PASS
+    | SPIKE SELF-TEST PASS
+    | ### control: CLEAN
+    | 
+    | ### R4-3: R4-3: the census table through a bare `column | sed` under pipefail
+    | ### the copies differ from this checkout's files exactly by:
+    | --- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-spike-r7-0926/doc/audit/2026-09-25_p4-heartbeat/spike/S_heartbeat_spike.sh
+    | +++ .oldcode-377151-1-spike.sh
+    | @@ -78 +78 @@
+    | -WATCH="$SPIKE_DIR/hb_watch.py"
+    | +WATCH="$SPIKE_DIR/.oldcode-377151-1-hb_watch.py"
+    | @@ -1474 +1474 @@
+    | -    show_census "$RUN/40_census.tsv"
+    | +    column -t -s $'\t' "$RUN/40_census.tsv" | sed 's/^/   /'
+    | ### its --self-test (SELFTEST_PROBE_SUDO and FAULTS_TC unset): rc 1
+    |   🔴    the census table without 'column' ended the run: rc 127, step '    column -t -s $'\t' "$RUN/40_census.tsv" | sed 's/^/   /''; it said: /tmp/hb-spike-selftest-OhcXXt/census_driver.sh: line 11: column: command not found
+    | SELF-TEST PASS
+    | SELF-TEST PASS
+    | SPIKE SELF-TEST FAIL
+    | ### R4-3: DISCRIMINATES
+    | 
+    | ### per revert: the copy's self-test rc, red lines, red lines written for it, verdict
+    |     revert        rc  red  want  verdict
+    |     control        0    0     0  ok
+    |     R4-3           1    1     1  ok
+    | OLD CODE IS RED IN EXACTLY ITS OWN CHECKS, EVERY REVERT
+### self-check real-row: rc 0 (must be 0); its own line(s) are there
+### self-check real-row: AS IT MUST
+
+### self-check copies-ignored
+### self-check copies-ignored: git check-ignore -v on .oldcode-377151-0-spike.sh .oldcode-377151-0-hb_watch.py .oldcode-377151-23-spike.sh .oldcode-377151-23-hb_watch.py -- each must be ignored
+    | doc/audit/2026-09-25_p4-heartbeat/spike/.gitignore:7:/.oldcode-*	.oldcode-377151-0-spike.sh
+    | doc/audit/2026-09-25_p4-heartbeat/spike/.gitignore:7:/.oldcode-*	.oldcode-377151-0-hb_watch.py
+    | doc/audit/2026-09-25_p4-heartbeat/spike/.gitignore:7:/.oldcode-*	.oldcode-377151-23-spike.sh
+    | doc/audit/2026-09-25_p4-heartbeat/spike/.gitignore:7:/.oldcode-*	.oldcode-377151-23-hb_watch.py
+### self-check copies-ignored: git rc 0; every copy name is ignored
+### self-check copies-ignored: AS IT MUST
+
+### per case: the rc it must answer, the rc it answered, verdict
+    case             must  got  verdict
+    wrong-reason        1    1  ok
+    extra-line          1    1  ok
+    unnamed-red         1    1  ok
+    reddens-nothing     1    1  ok
+    dirty-control       1    1  ok
+    anchor-absent       2    2  ok
+    anchor-count        2    2  ok
+    watch-line          2    2  ok
+    real-row            0    0  ok
+    copies-ignored      0    0  ok
+EVERY VERDICT PATH OF THE TOOL ANSWERS AS IT MUST
+# rc=0  2026-09-26T03:35:51Z

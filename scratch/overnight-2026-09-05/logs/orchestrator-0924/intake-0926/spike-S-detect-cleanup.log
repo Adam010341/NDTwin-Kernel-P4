@@ -1,0 +1,61 @@
+# cleanup after spike S detect (ndt down refused rc 5 under the spike's own measuring= claim, then the spike released) 2026-09-26T10:34:34+08:00
+# before:
+4
+ls: cannot access 'p4_proxy/mininet/telemetry_override': No such file or directory
+p4_proxy/mininet/app_package_override
+## ndt claim 15
+  recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+  ok  lab claimed by orch-0926 for 15m (restore after spike S detect: its teardown was refused (measuring declared), fabric left up)
+rc=0
+## ndt down
+        none           p4_testbed_topo
+        none           OVS testbed_topo
+        none           NTG testbed_topo
+        none           simple_switch_grpc
+      cleanup done
+  ok  this step ran the Mininet sweep (mn -c) for you
+    [3/3] is 'ndtwin-lab cleanup' and its sweep runs 'mn -c' before it sweeps
+    simple_switch_grpc, so the advice stack.sh prints at [1/3] about running that
+    command by hand is advice this teardown has already acted on -- which is why
+    [1/3] filters it out.
+  cleared the 'ndt up' target record (.test_run/up.target)
+
+verify clean
+  app package cleared: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hbspike-basic-solution -- this checkout is being put back
+  ok  bmv2 switches: 0
+  ok  host/switch processes: 0
+  ok  no topo session
+  ok  no switch manifest
+  ok  ports closed: 8000/8080/8081/6653/6633/6343/30051-30060/9091-9100/9000
+
+clean
+  ok  the 8 port(s) [1/3] called 'still listening' were closed by [3/3]: 9091 9092 9093 9094 30051 30052 30053 30054 
+    so stack.sh's exit 1 was a reading from the MIDDLE of this teardown, not
+    its ending, and it is not carried to the exit code. (ROLE-12, 2026-09-12)
+  claim note now says the lab is down and verified clean (owner and expiry unchanged)
+rc=0
+## knobs after down
+host_count_override=4
+ls: cannot access 'p4_proxy/mininet/app_package_override': No such file or directory
+ls: cannot access 'p4_proxy/mininet/telemetry_override': No such file or directory
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+## ndt release
+  the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+  this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+  ok  lab released
+rc=0
+## ndt status after
+  claim          none
+  prev claim     orch-0926 (until 10:49:34), superseded 2026-09-26 10:34:39  (.test_run/lab.claim.prev)
+  measuring      nothing
+  p4 host knob   4   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')
+  app package    none   (p4_proxy/mininet/app_package_override absent -- the baseline fabric)
+  telemetry      auto   (p4_proxy/mininet/telemetry_override absent -- auto, then the package)
+  bmv2 switches  0       topo session   absent
+  :8000 kernel   closed  :8081 proxy    closed  :8080 ryu closed
+  pidfiles       none recorded
+  tc netem       none
+  apps           none running
+## heartbeat
+heartbeat: not running
+# done 2026-09-26T10:34:49+08:00

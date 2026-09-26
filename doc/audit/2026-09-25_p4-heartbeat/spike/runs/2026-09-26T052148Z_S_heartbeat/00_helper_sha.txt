@@ -1,0 +1,2 @@
+installed /usr/local/sbin/ndtwin-lab sha256 6a558fe452955de358fd1a3b4e730fe2be55368a6c90b93675c5442c036fd4fb
+checkout  tools/test_workflow/ndtwin-lab sha256 6a558fe452955de358fd1a3b4e730fe2be55368a6c90b93675c5442c036fd4fb

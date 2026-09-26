@@ -1,0 +1,11 @@
+# CI run 36211755454 on 4bc1201b (HB round 6), GCC job via API raw log; 2026-09-26T10:46:08+08:00
+vs dfbab30e (36207272058):
+IDENTICAL
+L1 FAILED (14 problem group(s))   logs: /home/runner/work/NDTwin-Kernel-P4/NDTwin-Kernel-P4/.test_run/logs
+jobs:
+failure	Build and unit tests (GCC)	108319592440
+failure	TSan	108319592558
+success	ASan + UBSan	108319592575
+failure	clang can compile it	108319592588
+jobs vs dfbab30e:
+jobs identical

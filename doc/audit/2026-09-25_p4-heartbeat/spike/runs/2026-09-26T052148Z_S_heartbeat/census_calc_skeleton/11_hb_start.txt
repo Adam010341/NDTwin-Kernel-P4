@@ -1,0 +1,3 @@
+heartbeat: the running fabric has no switch-to-switch link; nothing to send
+heartbeat plan: /tmp/ndtwin_p4_switches.json (sha256 594cc47a30f6), 1 switch(es), every one a live bmv2
+  0 link(s) -> 0 direction(s); 2 host-facing interface(s) listened on, never sent on

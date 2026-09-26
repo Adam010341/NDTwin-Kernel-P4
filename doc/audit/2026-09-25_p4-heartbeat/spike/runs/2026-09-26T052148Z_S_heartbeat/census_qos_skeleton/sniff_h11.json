@@ -1,0 +1,1 @@
+{"host": "h11", "seconds": 20.0, "frames_total": 5, "frames_hb": 0, "by_ethertype": 0, "by_payload": 0, "interfaces": {"eth0": {"frames": 5, "hb": 0}}, "first_hb_hex": null, "stopped": "time"}
