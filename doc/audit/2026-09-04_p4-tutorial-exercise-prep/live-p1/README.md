@@ -272,10 +272,12 @@ unbound 的 L6。L4 **不斷言改路**（第一刀 (c) 不成立，`capabilitie
     - graph 的 down／up 時刻；
     - 報告這次變化的那個 watchdog pass、它晚了多少、pass 到 graph 花了多久。
   - 落在剪線或復原窗口內的幀**標出來，不丟掉**。
-- **偵測時間有兩個答案，兩個都記**：
-  - 嚴格的 20 s：超過就寫 `OVER+x`，不隱藏；
-  - 判定用的「20 s ＋ 實際量到、疊在設計之上的時間」：pass 晚到的部分、讀檔／HTTP／kernel／本腳本輪詢，以及剪線本身開的窗口。
-  - 設計的最壞情況是 (15 s − φ) ＋ 最多一個 watchdog 間隔 5 s ＋ 上述那些，**在 φ→0 時嚴格 20 s 沒有任何餘裕**。最壞相位那幾次超過嚴格值是設計如此，會照實記在 log 裡。
+- **H1 以嚴格的 20 s 判**（fable judge 的 F1，09-26）：
+  - 任何一個 cycle 超過 20 s，就寫 `OVER+x`，而且那個 cycle 判 FAIL；
+  - 最後一行以「`H1: N of M cycle(s) OVER the strict 20 s … until Adam rules on the acceptance`」開頭。
+  - 「20 s ＋ 實際量到的時間」只是**診斷欄**，永遠不是判定：它包含 pass 晚到的部分、讀檔／HTTP／kernel／本腳本輪詢，以及剪線本身開的窗口。judge 證明了這個數字在設計照常運作時恆為 OK。
+  - 設計的最壞情況是 (15 s − φ) ＋ 最多一個 watchdog 間隔 5 s ＋ 上述那些，**在 φ→0 時嚴格 20 s 沒有任何餘裕**。最壞相位那幾次超過嚴格值是設計如此，這輪照實判 FAIL，等 Adam 裁。
+  - **一次 run 只取樣到一個 ψ**：watchdog 的相位每個 pass 只漂一個 pass 的耗時，所以最壞的 ψ 不保證被取樣到。H1 PASS 只表示「在這次的 ψ 下 ≤20 s」。
 - H5 不自己 claim（06、01 每步自己 claim），跑 06 一次時旁邊有一個讀心跳報告的 sampler，逐臂對
   `2026-09-24T185505Z_06_thirteen`，並確認心跳只在 17 個外來、非 external、多交換機的臂上跑過；接著跑 01。
 - 任何 `forwarded_to_hosts > 0`（心跳幀離開 host 埠）＝裁決 4，最後一行以 `STOP` 開頭。

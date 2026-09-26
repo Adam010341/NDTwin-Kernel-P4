@@ -40,15 +40,18 @@
 #       which arms had one running (and that no arm's daemon counted a frame leaving a host
 #       port); then 01 (NDTwin's own fabric) PASS, with no heartbeat session started under it.
 #
-# 🔴 HOW H1 JUDGES "WITHIN 20 s" (orchestrator, 09-26 addenda; segment W's SUMMARY section 2).
+# 🔴 HOW H1 JUDGES "WITHIN 20 s" (the fable judge's F1 on 1a3ebd7f, 09-26; SUMMARY section 2).
 # Detection is (timeout - phi) + psi + the pass's read, _notify_link's HTTP and the kernel's graph
 # update: at phi -> 0 the report-level part alone is ~15 s and psi can be a whole watchdog
-# interval, so a strict 20 s has NO budget left for the rest. Every cycle therefore gets two
-# answers, both recorded: the STRICT one (<= 20 s, "OVER+x" otherwise, never hidden) and the
-# verdict, which is "<= 20 s + the time MEASURED on top of the design": the reporting pass's
-# lateness beyond one interval, the pass-to-graph time (read, HTTP, kernel, this script's poll),
-# and a cut window the test itself opened (a frame heard after the first end's tc started). A
-# cycle over THAT is a failure of the design, not of the clock. The instants are bash's own
+# interval, so a strict 20 s has NO budget left for the rest. THE VERDICT IS THE STRICT BOUND: a
+# cycle over 20 s is a FAIL of that cycle, and H1's conclusion puts "N of M cycle(s) OVER" at the
+# head of the run's last line -- until Adam rules on the acceptance. "20 s + the time measured on
+# top of the design" (the reporting pass's lateness beyond one interval, pass-to-graph, the cut
+# window) is kept as a DIAGNOSTIC column and note, never as the verdict: the judge showed it is OK
+# whenever the design works as designed (it restates the design's upper bound). What it checked for
+# real -- a pass after the timeout that did not report the cut -- is v_cycle's own BAD. And one
+# run samples ONE psi (the watchdog's phase drifts by a pass's duration per pass): a PASS says
+# "within 20 s at the psi this run had", not "at the worst psi". The instants are bash's own
 # $EPOCHREALTIME around each tc call (no forked `date`/`now`: the spike's forked t1 landed 12.7 ms
 # after a heard frame and a whole round was discarded, a false +5 s); frames heard inside a cut
 # or restore window are FLAGGED in the row, never dropped.
@@ -162,6 +165,8 @@ RESTORE_WATCH_PID=""; RESTORE_WATCH_OUT=""
 RESTORE_WATCH_S=$(( RESTORE_BOUND_S + 5 ))
 #: What cut_cycle / restore_cycle leave for the caller's row.
 CYCLE_ROW=""; CYCLE_STRICT=""; RESTORE_ROW=""
+#: cut_cycle's tally for strict_conclude: cycles recorded, and how many of them were over the bound.
+STRICT_CYCLES=0; STRICT_OVER=0
 
 # --- the verdicts. One stdlib-only program, one entry per check; each prints `OK ...` or
 # `BAD ...` (`STOP ...` for ruling 4). The live path and --self-test call the same entries. ------
@@ -424,11 +429,24 @@ def v_cycle(state, a_s, a_e, b_s, b_e, off_pre, off_post, l_ab, l_ba, down_wall,
            fnum(down - ps), fnum(max(0.0, -phi)), f"{drift:.1f}", "; ".join(flags) or "-"]
     return "OK " + "\t".join(row)
 
+def v_strict(row, bound):
+    """A cycle row (v_cycle) against the STRICT bound -- the verdict (the judge's F1). Detection runs
+    from the FIRST end's tc call to the poll that saw both directions down: the longest it can be."""
+    f = row.split("\t")
+    if len(f) != 18:
+        return f"BAD the cycle row has {len(f)} fields, not 18"
+    d, b = float(f[8]), float(bound)
+    if d <= b:
+        return f"OK detection {d:.3f} s, within the strict {b:g} s"
+    return (f"BAD detection {d:.3f} s is OVER the strict {b:g} s by {d - b:.3f} s (from the first end's "
+            f"tc call to the graph poll that saw both directions down)")
+
 def v_budget(row, bound):
     """A cycle row (v_cycle) against the bound: OK within `bound`; OK but "OVER the strict" when
     over it by no more than what was measured on top of the design -- the reporting pass's
     lateness beyond one interval, the pass-to-graph time (read, HTTP, kernel, this script's poll)
-    and the test's own cut window; BAD beyond that."""
+    and the test's own cut window; BAD beyond that. 🔴 A DIAGNOSTIC, NEVER THE VERDICT (the
+    judge's F1 and 4.6): it is OK whenever the design works as designed; v_strict decides."""
     f = row.split("\t")
     if len(f) != 18:
         return f"BAD the cycle row has {len(f)} fields, not 18"
@@ -985,8 +1003,13 @@ cut_cycle() {
     det="$(cat "$gout.elapsed")"
     if [[ "$row" == OK* ]]; then
         CYCLE_ROW="${row#OK }"
-        judge "$(verdict budget "$CYCLE_ROW" "$DETECT_BOUND_S")" "$label detection time"
+        # [Co-developed with claude code -- Adam] The judge's F1: the strict bound is the verdict;
+        # the budget is printed beside it and decides nothing.
+        judge "$(verdict strict "$CYCLE_ROW" "$DETECT_BOUND_S")" "$label detection time"
+        note "$label budget, $DETECT_BOUND_S s + what was measured (a diagnostic, never the verdict): $(verdict budget "$CYCLE_ROW" "$DETECT_BOUND_S")"
         CYCLE_STRICT="$(awk -F'\t' -v b="$DETECT_BOUND_S" '{ if ($9 <= b) print "yes"; else printf "OVER+%.3f\n", $9 - b }' <<<"$CYCLE_ROW")"
+        STRICT_CYCLES=$(( STRICT_CYCLES + 1 ))
+        [[ "$CYCLE_STRICT" == OVER* ]] && STRICT_OVER=$(( STRICT_OVER + 1 ))
         [[ "$(cut -f18 <<<"$CYCLE_ROW")" == - ]] || note "$label flags: $(cut -f18 <<<"$CYCLE_ROW")"
     else
         CYCLE_ROW="$(printf '?\t%.0s' $(seq 17))?"
@@ -994,6 +1017,26 @@ cut_cycle() {
         judge "$(verdict elapsed "$det" "$DETECT_BOUND_S" "both directions is_up:false (no phase record: the graph poll alone, from the last tc's return)")" "$label detection time"
     fi
     return 0
+}
+
+# strict_conclude <what> -- the verdict on the strict bound over the cycles cut_cycle recorded since
+# the last conclusion (the judge's F1, 09-26). Any cycle OVER makes <what> FAIL, and the count goes
+# to the HEAD of the run's last line: an earlier failure is kept after it, and a ruling-4 STOP that
+# comes later still leads (judge prepends it). The tally is reset. [Co-developed with claude code --
+# Adam]
+strict_conclude() {
+    local what="$1" n="$STRICT_CYCLES" over="$STRICT_OVER" msg
+    local psi="one run samples one psi (watchdog_phase_s in 30_cycles.tsv): the worst psi is not guaranteed to have been sampled"
+    STRICT_CYCLES=0; STRICT_OVER=0
+    if (( over > 0 )); then
+        msg="$what: $over of $n cycle(s) OVER the strict ${DETECT_BOUND_S} s (strict_${DETECT_BOUND_S}s in 30_cycles.tsv) -- $what FAILS on the strict <= ${DETECT_BOUND_S} s until Adam rules on the acceptance; '${DETECT_BOUND_S} s + what was measured' is a diagnostic column, not the verdict"
+        VERDICT_RC=1
+        VERDICT_WHY="$msg${VERDICT_WHY:+ (first failure before it: $VERDICT_WHY)}"
+        bad "$msg"
+        bad "$psi"
+    else
+        note "$what: all $n cycle(s) within the strict ${DETECT_BOUND_S} s -- $psi"
+    fi
 }
 
 # restore_cycle <label> <graph-out> <state-out> <watch-out> -- the netem off with the report watcher
@@ -1432,7 +1475,7 @@ print(f["ab"]["heard"], f["ba"]["heard"], f["ab"]["written"], f["ba"]["written"]
         graph_until() { echo 1020.33 > "$4.at_wall"; echo 20.3 > "$4.elapsed"; echo "OK stub"; }
         report_dirs() { echo "199.995 200.0"; }
         get_json() { cp "$t/$CC_STATE" "$2"; }
-        note() { echo "N ${*:0:110}"; }
+        note() { local m="$*"; echo "N ${m:0:110}"; }
         judge() { echo "J $2: ${1:0:48}"; }
         CA=1; CAP=3; CB=3; CBP=1; TIMEOUT_S=15; WATCHDOG_S=5; DETECT_BOUND_S=20
         CC_STATE=state_late.json; cut_cycle "T" "$t/cc_graph.json" "$t/cc_state.json" 0.02 1
@@ -1757,19 +1800,18 @@ note "the cut: s$CA-eth$CAP <-> s$CB-eth$CBP (an installed route uses it)"
 tc_ends "$RUN/26_tc_before" "$CA" "$CAP" "$CB" "$CBP"
 
 note "the proxy's constants: beacon interval $HB_PERIOD_S s, timeout $TIMEOUT_S s, watchdog every $WATCHDOG_S s"
-note "the design's worst case at the kernel (INFERRED): (timeout $TIMEOUT_S s - phi) + up to one watchdog interval $WATCHDOG_S s + pass time + report read, HTTP, kernel -- at phi -> 0 that is the ticket's $DETECT_BOUND_S s with nothing to spare, so each cycle is judged against $DETECT_BOUND_S s + the time measured on top, and its strict answer is recorded beside it"
+note "the design's worst case at the kernel (INFERRED): (timeout $TIMEOUT_S s - phi) + up to one watchdog interval $WATCHDOG_S s + pass time + report read, HTTP, kernel -- at phi -> 0 that is the ticket's $DETECT_BOUND_S s with nothing to spare. Each cycle is judged on the STRICT $DETECT_BOUND_S s; '$DETECT_BOUND_S s + what was measured' is recorded beside it as a diagnostic"
 RANDOM="$H1_SEED"
 note "random phases: seed $H1_SEED (H1_SEED= to repeat); worst-phase cycles at PHI_WORST=$PHI_WORST s"
 CYCLE_COLS="cut_a_start_mono\tcut_a_end_mono\tcut_b_start_mono\tcut_b_end_mono\tlast_heard_ab_mono\tlast_heard_ba_mono\tphi_s\tgraph_down_mono\tdetect_s\tpass_prev_start_mono\tpass_start_mono\tpass_end_mono\twatchdog_phase_s\tpass_lateness_s\tpass_to_graph_s\tcut_window_s\tclock_drift_ms\tcut_flags"
 RESTORE_COLS="restore_a_start_mono\trestore_a_end_mono\trestore_b_start_mono\trestore_b_end_mono\tfirst_heard_ab_mono\tfirst_heard_ba_mono\trestore_daemon_s\trestore_report_s\tpass_up_start_mono\tpass_up_after_report_s\tgraph_up_mono\trestore_s\tpass_to_graph_up_s\trestore_drift_ms\trestore_flags"
 printf "cycle\tphi_target\t$CYCLE_COLS\tstrict_${DETECT_BOUND_S}s\t$RESTORE_COLS\n" > "$RUN/30_cycles.tsv"
-OVER_STRICT=0
+STRICT_CYCLES=0; STRICT_OVER=0
 for (( CYC = 1; CYC <= H1_CYCLES; CYC++ )); do
     PHI="$(phase_for "$CYC")"
     say "H1 cycle $CYC/$H1_CYCLES -- cut $PHI s after a heartbeat round; down in the kernel's graph within ${DETECT_BOUND_S} s"
     cut_cycle "H1 cycle $CYC" "$RUN/31_graph_cut_$CYC.json" "$RUN/32_switch_state_cut_$CYC.json" \
         "$PHI" "$(( CYC <= H1_WORST ? 1 : 0 ))" || exit 1
-    [[ "$CYCLE_STRICT" == OVER* ]] && OVER_STRICT=$(( OVER_STRICT + 1 ))
     if (( CYC == 1 )); then
         # The reroute runs in the same watchdog pass that told the kernel; give it a pass to
         # land, then read what the switches hold.
@@ -1789,11 +1831,8 @@ for (( CYC = 1; CYC <= H1_CYCLES; CYC++ )); do
     judge "$(no_netem "$RUN/36_tc_after_${CYC}_s$CA-eth$CAP.txt" "$RUN/36_tc_after_${CYC}_s$CB-eth$CBP.txt")" "H1 cycle $CYC netem"
     printf '%s\t%s\t%s\t%s\t%s\n' "$CYC" "$PHI" "$CYCLE_ROW" "$CYCLE_STRICT" "$RESTORE_ROW" >> "$RUN/30_cycles.tsv"
 done
-if (( OVER_STRICT > 0 )); then
-    note "🔴 H1: $OVER_STRICT of $H1_CYCLES cycle(s) OVER the strict ${DETECT_BOUND_S} s (each within ${DETECT_BOUND_S} s + its measured time, or it failed above) -- the strict bound is NOT met at those phases; see 30_cycles.tsv"
-else
-    note "H1: every cycle within the strict ${DETECT_BOUND_S} s"
-fi
+# 🔴 The judge's F1: the strict bound decides H1, and its count leads the run's last line.
+strict_conclude H1
 column -t -s $'\t' "$RUN/30_cycles.tsv" 2>/dev/null | sed 's/^/   /' || sed 's/^/   /' "$RUN/30_cycles.tsv"
 set +e; pingall_loss "$PKG_ROLES" 3 "$RUN/37_ping_raw.txt" > "$RUN/37_pingall_after.txt" 2>&1; set -e
 note "after the last restore (recorded): $(tail -1 "$RUN/37_pingall_after.txt")"
