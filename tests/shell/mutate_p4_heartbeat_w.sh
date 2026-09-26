@@ -102,7 +102,9 @@ ltree() {   # ltree <dir>
     cp "$REPO/$LIVE_DIR_REL/_common.sh" "$LIVE08" "$d/$LIVE_DIR_REL/"
     cp "$REPO/tools/test_workflow/faults.sh" "$REPO/tools/test_workflow/qdisc_snapshot.sh" "$d/tools/test_workflow/"
     cp "$REPO/doc/audit/2026-09-25_p4-heartbeat/spike/census_prepare.py" "$d/doc/audit/2026-09-25_p4-heartbeat/spike/"
-    ln -s "$REPO/p4_proxy" "$d/p4_proxy"
+    mkdir -p "$d/p4_proxy"   # a real directory: its mininet/ (the knobs) is simply not there
+    ln -s "$REPO/p4_proxy/proxy_agent" "$d/p4_proxy/proxy_agent"
+    ln -s "$REPO/p4_proxy/venv" "$d/p4_proxy/venv"
 }
 ltree_leaks() {   # ltree_leaks <dir> -> one line per way out of the tree; nothing when sealed
     local d="$1" k l
