@@ -30,14 +30,17 @@
 # report: they are fixture paths, never /run/ndtwin-lab.
 #
 # Run:  bash tests/shell/test_ndt_heartbeat.sh
-# Env:  NDT_UNDER_TEST=<path>   (tests/shell/mutate_p4_heartbeat_w.sh points it at a copy)
+# Env:  NDT_UNDER_TEST=<path>, HELPER_UNDER_TEST=<path>   (tests/shell/mutate_p4_heartbeat_w.sh
+#       points them at copies)
 # Exit: 0 every check passed, 1 some check failed
 set -uo pipefail
 export NO_COLOR=1
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NDT="${NDT_UNDER_TEST:-$HERE/../../tools/test_workflow/ndt}"
 REAL_REPO="$(cd "$HERE/../.." && pwd)"
-HELPER="$REAL_REPO/tools/test_workflow/ndtwin-lab"
+#: The root helper whose paths section 7 pins; HELPER_UNDER_TEST points it at a mutated copy (the
+#: helper itself is never written).
+HELPER="${HELPER_UNDER_TEST:-$REAL_REPO/tools/test_workflow/ndtwin-lab}"
 [[ -r "$NDT" ]] || { echo "  FAILED   no ndt at $NDT"; echo "Ran 1 checks, 1 failed"; exit 1; }
 
 PASS=0; FAIL=0
@@ -292,7 +295,7 @@ check "  the teardown succeeds"                                  "0" "$(rc_of "$
 check "🔴 one 'heartbeat stop'"                                  "1" "$(count_of 'ndtwin-lab heartbeat stop')"
 check "🔴 before topo-stop"                                      "yes" "$(before 'ndtwin-lab heartbeat stop' 'topo-stop')"
 check "  after stack.sh down (the proxy reading it is gone first)" "yes" "$(before 'stack down' 'ndtwin-lab heartbeat stop')"
-has   "  the helper's answer is printed"                         "heartbeat stopped (pid 4242)" "$OUT"
+has   "  the helper's stop answer is printed"                    "heartbeat stopped (pid 4242)" "$OUT"
 
 reset_fix
 OUT="$(NDT_OWNER=t drive 'cmd_down')"
