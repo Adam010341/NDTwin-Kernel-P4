@@ -5282,6 +5282,22 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 > 同一輪順手撞到的第二個（`inject_link_failure` 在一端已有別人的 netem 時**半成功而回 200
 > `link failure injected`**）在 `hunt-0911/ROLE-1-A1-REPORT.md` ②，**建議另開單**。
 
+### G-59 🟠 `ndt status` 的 sudo grants：沒有 `sudo:` 那一行的拒絕，仍被讀成 granted
+
+- **狀態**：🟠 **已知限制**（2026-09-28，`fix/sudo-probe-unknown-0927`）。
+- **位置**：`tools/test_workflow/sudo_surface.sh` 的 `ndt_sudo_probe`／`ndt_sudo_unread`。
+- **規則**：探針 rc≠0 時，分成三種情況：
+  - 認得的拒絕字句 ⇒ refused；
+  - 一行以 `sudo:` 開頭、不在非致命警告清單裡、又認不得的字句 ⇒ could not tell；
+  - **完全沒有 `sudo:` 行** ⇒ 當作「程式自己跑了、自己失敗」，也就是 **granted**。例如 sudo 已放行，但 ovsdb 沒起來。
+- **因此仍會被讀成 granted 的有兩種**：
+  - 什麼都不印就 exit 非零的拒絕，例如某些測試 shim；
+  - 前綴不是 `sudo:` 的實作，例如 sudo-rs。sudo-rs 的實際前綴與字句**未驗證**。
+- 從 stderr 分不出這兩種和程式自己的失敗。
+- **測試**：`tests/shell/test_ndt_sudo_surface.sh` 用兩條 control 把這個限制釘住：
+  - `a refusal that prints nothing is read as granted`；
+  - `a refusal worded without a 'sudo:' prefix (sudo-rs) is read as granted`。
+
 ## 證據索引
 
 | 輪次 | 位置 | 內容 |
