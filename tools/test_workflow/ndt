@@ -1995,12 +1995,9 @@ LINK_TELEMETRY_MANIFEST="${LINK_TELEMETRY_MANIFEST:-/tmp/ndtwin_link_telemetry.j
 # on all thirteen driver arms. read_manifest and process_is_the_emitter are B's, so the shape of
 # that file is now asked of the module that writes it.
 #
-# 🔴 AND `alive` IS process_is_the_emitter, NOT os.path.isdir("/proc/<pid>"). A pid recorded at
-# bring-up is not evidence that the same process holds it now -- Linux recycles them -- and the
-# difference decides whether `ndt down` reports residue and tells an operator to kill it.
-# 🔴 THROUGH emitter_is_running(d), WITH THE argv AND start_time THE BRING-UP RECORDED (Adam
-# 2026-09-27, ruling K), so this row can never call "alive" -- and print `kill <pid>` for -- a
-# process the root teardown itself would refuse to signal. [Co-developed with claude code -- Adam]
+# 🔴 AND `alive` IS emitter_is_running(d): the pid WITH the argv and start_time the bring-up
+# recorded (ruling K, 2026-09-27), never "/proc/<pid> exists" -- pids are recycled, and this row
+# decides whether `ndt down` reports residue and tells an operator to kill a pid it names.
 link_emitter_row() {
     [[ -e "$LINK_TELEMETRY_MANIFEST" ]] || { echo "none - - -"; return 0; }
     python3 -c '
