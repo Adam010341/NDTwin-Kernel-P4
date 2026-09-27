@@ -378,9 +378,13 @@ m=$(mutant r5b "$PREFLIGHT" \
 report "M-R5b: pre-flight does not size the port against the topology" "$m" \
        "test_a_port_too_narrow_for_the_topology_fails_here"
 
+# [Co-developed with claude code -- Adam] 09-27: the external branch seeds with the same line, so the
+# anchor carries the foreign branch's comment line above it (R6, R2-8a).
 m=$(mutant r6 "$MAIN" \
-    '        seeded, seed_error = _seed_declared_links(topo, package)' \
-    '        seeded, seed_error = 0, None')
+    '        # item 8); the seed'"'"'s own outcome is `declared_links_seed`, served at fabric level.
+        seeded, seed_error = _seed_declared_links(topo, package)' \
+    '        # item 8); the seed'"'"'s own outcome is `declared_links_seed`, served at fabric level.
+        seeded, seed_error = 0, None')
 report "M-R6: a foreign fabric's declared links are never seeded" "$m" \
        "test_a_foreign_fabric_seeds_its_declared_links"
 
@@ -729,13 +733,15 @@ m=$(mutant mn_readoptcaps "$MAIN" \
 report "MN14: readopt leaves the old client's capabilities in place" "$m" \
        "test_its_capabilities_follow_the_new_clients_binding"
 
+# [Co-developed with claude code -- Adam] 09-27: an external control plane on its OWN pipeline seeds
+# now (detect only); the one that still must not is external on NDTwin's pipeline.
 m=$(mutant mn_seedall "$MAIN" \
     '    elif read_only:
-        # `external`: nothing discovers links and nothing seeds them -- unchanged by this cut.' \
+        # `external` on NDTwin'"'"'s own pipeline: nothing discovers links and nothing seeds them. The' \
     '    elif read_only:
         _seed_declared_links(topo, package)
-        # `external`: nothing discovers links and nothing seeds them -- unchanged by this cut.')
-report "MN15: an external fabric seeds declared links too" "$m" \
+        # `external` on NDTwin'"'"'s own pipeline: nothing discovers links and nothing seeds them. The')
+report "MN15: an external fabric on NDTwin's pipeline seeds declared links too" "$m" \
        "test_an_external_fabric_seeds_nothing_this_cut_leaves_it_as_it_was"
 
 m=$(mutant mn_seedndtwin "$MAIN" \
@@ -1280,15 +1286,19 @@ report "R2-5b: a 5-tuple modify reaches a foreign switch" "$m" \
 
 # item 8 -- link_discovery is the mode; the seed's outcome is its own fabric-level key
 m=$(mutant mn_seedcount "$MAIN" \
-    '        _fabric.update(lldp=False, watchdog=False, declared_links=True,' \
-    '        _fabric.update(lldp=False, watchdog=False, declared_links=seeded > 0,')
+    '        # item 8); the seed'"'"'s own outcome is `declared_links_seed`, served at fabric level.
+        seeded, seed_error = _seed_declared_links(topo, package)
+        _fabric.update(lldp=False, watchdog=False, declared_links=True,' \
+    '        # item 8); the seed'"'"'s own outcome is `declared_links_seed`, served at fabric level.
+        seeded, seed_error = _seed_declared_links(topo, package)
+        _fabric.update(lldp=False, watchdog=False, declared_links=seeded > 0,')
 report "R2-8a: link_discovery follows the seed count again" "$m" \
        "test_a_foreign_fabric_that_declares_no_link_still_says_declared"
 
 m=$(mutant mn_nonewhen "$MAIN" \
-    '    if external:
+    '    elif external:
         discovery = "none"' \
-    '    if not fabric.get("lldp") and not fabric.get("declared_links"):
+    '    elif not fabric.get("lldp") and not fabric.get("declared_links"):
         discovery = "none"')
 report "R2-8b: \"none\" means \"nothing started\" again, not \"external\"" "$m" \
        "test_none_is_for_an_external_control_plane_only"

@@ -34,8 +34,10 @@ tail -1 <<<"$BASE_OUT" | sed 's/^/  /'
 echo
 
 CAUGHT=0; SURVIVED=0
-mutate() {   # mutate <label> <old> <new> <check that must go red>...
-    local label="$1" old="$2" new="$3" d want out missing=()
+mutate() {   # mutate <old> <new> <label> <check that must go red>...
+    # (the anchor first: tests/shell/check_gate_anchors.py reads a mutate()'s first argument as
+    # its anchor, in the file the function body names)
+    local old="$1" new="$2" label="$3" d want out missing=()
     shift 3
     d="$BK/$(printf '%s' "$label" | cut -d: -f1)"; mkdir -p "$d"
     if ! python3 - "$TOOL" "$d/external_evidence.py" "$old" "$new" <<'PY'
@@ -63,48 +65,48 @@ PY
     fi
 }
 
-mutate "E1: the counters' last values are not compared" \
-    '            "heartbeat_packet_ins", "grpc_errors")' \
+mutate '            "heartbeat_packet_ins", "grpc_errors")' \
     '            "heartbeat_packet_ins", "grpc_errors")
 COMPARED = tuple(k for k in COMPARED if k != "counters_final")' \
+    "E1: the counters' last values are not compared" \
     "🔴 a tunnel counter that ended elsewhere: rc 1"
-mutate "E2: how often the counters were read is compared" \
-    '            "heartbeat_packet_ins", "grpc_errors")' \
+mutate '            "heartbeat_packet_ins", "grpc_errors")' \
     '            "heartbeat_packet_ins", "grpc_errors", "counter_reads")' \
+    "E2: how often the counters were read is compared" \
     "🔴 one read more, same last values: rc 0"
-mutate "E3: the heartbeat's ethertype is IPv4's" \
-    'HEARTBEAT_ETHERTYPE = 0x88B5' \
+mutate 'HEARTBEAT_ETHERTYPE = 0x88B5' \
     'HEARTBEAT_ETHERTYPE = 0x0800' \
+    "E3: the heartbeat's ethertype is IPv4's" \
     "🔴 named as heartbeat_packet_ins" "  and NOT as the heartbeat's"
-mutate "E4: a round with no controller log reads as an empty one" \
-    '    if len(logs) != 1:
+mutate '    if len(logs) != 1:
         raise Unreadable' \
     '    if len(logs) != 1:
         return "/dev/null"
         raise Unreadable' \
+    "E4: a round with no controller log reads as an empty one" \
     "🔴 an arm with no controller log: rc 2" "  and does not print a conclusion either way"
-mutate "E5: the FIRST counter read is compared, not the last" \
-    '        "counters_final": blocks[-1] if blocks else {},' \
+mutate '        "counters_final": blocks[-1] if blocks else {},' \
     '        "counters_final": blocks[0] if blocks else {},' \
+    "E5: the FIRST counter read is compared, not the last" \
     "🔴 a tunnel counter that ended elsewhere: rc 1"
-mutate "E6: a heartbeat frame at the controller is not said in words" \
-    '        if b[arm]["heartbeat_packet_ins"]:' \
+mutate '        if b[arm]["heartbeat_packet_ins"]:' \
     '        if False:' \
+    "E6: a heartbeat frame at the controller is not said in words" \
     "🔴 and said in words"
-mutate "E7: the venv fingerprint is not printed" \
-    '        elif line.startswith(("protobuf ", "distributions ", "NOT RECORDED")):' \
+mutate '        elif line.startswith(("protobuf ", "distributions ", "NOT RECORDED")):' \
     '        elif False:' \
+    "E7: the venv fingerprint is not printed" \
     "🔴 the new run's protobuf is printed"
-mutate "E8: the installed rules are not compared" \
-    'COMPARED = ("rc", "verdict", "rules_installed", "counters_final",' \
+mutate 'COMPARED = ("rc", "verdict", "rules_installed", "counters_final",' \
     'COMPARED = ("rc", "verdict", "counters_final",' \
+    "E8: the installed rules are not compared" \
     "🔴 a rule the controller did not install: rc 1"
-mutate "E9: an arm missing from the table is skipped" \
-    '        if row is None:
+mutate '        if row is None:
             raise Unreadable' \
     '        if row is None:
             continue
             raise Unreadable' \
+    "E9: an arm missing from the table is skipped" \
     "🔴 a run without the flowcache/solution row: rc 2"
 
 echo
