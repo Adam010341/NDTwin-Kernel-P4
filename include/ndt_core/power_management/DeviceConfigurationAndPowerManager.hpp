@@ -350,6 +350,11 @@ class DeviceConfigurationAndPowerManager
      * deliberate: "the kernel cannot read it, so the field is absent" is the rule the GUI's
      * reading is built on, and an answer kept from an earlier read would describe a proxy the
      * kernel can no longer see. It is replaced whole on every 1 Hz tick.
+     *
+     * ⚠️ "Every tick" is only as good as the tick. The record carries no timestamp: if pingWorker
+     * stalls -- the `sudo ovs-vsctl list-br` it runs first on every MININET tick, bmv2 fabrics
+     * included, has no deadline -- the last answer is served unchanged until the loop moves again.
+     * bmv2 liveness has the same exposure, since it reads the same payload on the same tick.
      */
     p4caps::CapabilitiesByDpid p4CapabilitiesSnapshot() const;
 

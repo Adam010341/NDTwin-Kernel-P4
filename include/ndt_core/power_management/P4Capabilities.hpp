@@ -13,6 +13,10 @@
 // operation is supported", which is what the kernel served before this key existed. So nothing
 // here ever manufactures an object -- not `{}`, not `null`, not a default -- for a switch the
 // proxy did not describe.
+//
+// "Verbatim" is equality of JSON values, not of bytes: nlohmann stores objects with sorted keys,
+// so the node's copy is re-serialised in key order. And the record is only as fresh as the
+// power manager's 1 Hz loop -- see DeviceConfigurationAndPowerManager::p4CapabilitiesSnapshot.
 #pragma once
 
 #include <nlohmann/json.hpp>
