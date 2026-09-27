@@ -1066,6 +1066,45 @@ m=$(mutant g29b "$INDEX_HTML" \
 report "G29b: an inline script in the markup" "$m" \
        gui:PageLint.test_the_markup_has_no_inline_script_style_or_handler
 
+# the log re-read of an opened job stops when the view closes and while the page is hidden (the
+# orchestrator's condition, 09-27 15:4x) [Co-developed with claude code -- Adam]
+m=$(mutant g37 "$APP_JS" \
+    '    watching = null;   // the loop above returns at its next look' \
+    '    // the loop is left running')
+report "G37: closing the job view does not stop its log loop" "$m" \
+       gui:PageLint.test_the_job_view_can_be_closed_and_its_log_stops
+
+m=$(mutant g37b "$INDEX_HTML" \
+    '<code id="job-id"></code> <button id="job-close" type="button">Close</button></h3>' \
+    '<code id="job-id"></code></h3>')
+report "G37b: the job view has no Close button" "$m" \
+       gui:PageLint.test_the_job_view_can_be_closed_and_its_log_stops
+
+m=$(mutant g37c "$APP_JS" \
+    '    $("job-close").addEventListener("click", closeJob);' \
+    '')
+report "G37c: the Close button is wired to nothing" "$m" \
+       gui:PageLint.test_the_job_view_can_be_closed_and_its_log_stops
+
+m=$(mutant g38 "$APP_JS" \
+    '      await sleep(2000);
+      await whileHidden();' \
+    '      await sleep(2000);')
+report "G38: the log loop reads on while the page is hidden" "$m" \
+       gui:PageLint.test_a_hidden_page_does_not_poll_a_jobs_log
+
+m=$(mutant g38b "$APP_JS" \
+    '    if (document.visibilityState !== "hidden") return Promise.resolve();' \
+    '    return Promise.resolve();')
+report "G38b: whileHidden() never waits" "$m" \
+       gui:PageLint.test_a_hidden_page_does_not_poll_a_jobs_log
+
+m=$(mutant g39 "$APP_JS" \
+    '    const mine = {};   // this opening: closing the view, or opening a job again, replaces it' \
+    '    const mine = id;')
+report "G39: the loop is keyed by job id (close and reopen leaves two loops)" "$m" \
+       gui:PageLint.test_a_hidden_page_does_not_poll_a_jobs_log
+
 echo
 if [[ "$(sha256sum "${SUBJECTS[@]}")" != "$BASE_SHA" ]]; then
     echo "a file under test CHANGED while this gate ran -- the results above are about two versions"

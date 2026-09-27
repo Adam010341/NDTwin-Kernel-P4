@@ -722,6 +722,43 @@ class PageLint(unittest.TestCase):
         self.assertEqual({o for o, _ in posts}, {"confirmThen"}, posts)
         self.assertLessEqual({o for o, _ in sites(self.code, r"[\"']POST[\"']")}, {"post", "openSession"})
 
+    # [Co-developed with claude code -- Adam] the orchestrator's condition on the log re-read (09-27
+    # 15:4x): a job's log is re-read every 2 s only while its view is open and the page is shown
+    def test_the_job_view_can_be_closed_and_its_log_stops(self):
+        html = page_file("index.html").decode()
+        self.assertEqual(len(re.findall(r'<button id="job-close" type="button">', html)), 1,
+                         "the job view has no Close button")
+        spans = function_spans(self.code)
+        self.assertIn("closeJob", spans, "no closeJob()")
+        a, b = spans["closeJob"]
+        body = self.code[a:b]
+        self.assertRegex(body, r"\bwatching = null;", "closing the view does not stop the log loop")
+        self.assertRegex(body, r'\$\("job"\)\.hidden = true;', "closing the view does not hide it")
+        self.assertRegex(self.code, r'\$\("job-close"\)\.addEventListener\("click", closeJob\)',
+                         "the Close button is not wired to closeJob")
+
+    def test_a_hidden_page_does_not_poll_a_jobs_log(self):
+        spans = function_spans(self.code)
+        self.assertIn("whileHidden", spans, "no whileHidden()")
+        a, b = spans["whileHidden"]
+        wait = self.code[a:b]
+        # it waits: the one early return is for a page that is shown, and a hidden one resolves only
+        # from the visibilitychange listener
+        self.assertIn('if (document.visibilityState !== "hidden") return Promise.resolve();', wait)
+        self.assertEqual(wait.count("Promise.resolve()"), 1, wait)
+        self.assertIn('document.visibilityState === "hidden"', wait)
+        self.assertIn('"visibilitychange"', wait)
+        a, b = spans["openJob"]
+        loop = self.code[a:b]
+        # the wait sits after the sleep and before the next read, and the loop asks again after it
+        # whether this is still the job being watched
+        self.assertRegex(loop, r"await sleep\(2000\);\s*await whileHidden\(\);\s*if \(watching !== mine\) return;",
+                         "the log loop reads on while the page is hidden")
+        # watching holds this OPENING, not the job id: a view closed and opened again on the same
+        # job within one sleep would otherwise leave the old loop running beside the new one
+        self.assertRegex(loop, r"const mine = \{\};[^\n]*\n\s*watching = mine;")
+        self.assertNotIn("watching !== id", loop)
+
     def test_the_markup_has_no_inline_script_style_or_handler(self):
         html = page_file("index.html").decode()
         scripts = re.findall(r"<script\b[^>]*>(.*?)</script>", html, re.S)

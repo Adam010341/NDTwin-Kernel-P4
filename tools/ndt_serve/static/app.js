@@ -16,14 +16,16 @@
 //     There is no rc table here and no argv is built here.
 //   * Refresh is manual: every refresh runs one plain `ndt status`, and a periodic one would be an
 //     invisible load source during a measurement (orchestrator's ruling 6, 09-27). The one thing
-//     that repeats is the log of a job Adam opened, while it runs -- file reads, no ndt.
+//     that repeats is the log of a job Adam opened, while it runs -- file reads, no ndt -- and it
+//     stops when the job ends, when its view is closed, and while the page is hidden (the
+//     orchestrator's condition on that, 09-27 15:4x).
 "use strict";
 (function () {
   const API = "/api/v1";
   let token = null;        // the only copy the page has
   let meta = null;
   let dialogGen = 0;
-  let watching = null;     // the job whose log is being followed
+  let watching = null;     // the opening of the job view whose log is being followed
   let walkOpen = null;     // the walk shown in section E
 
   const $ = (id) => document.getElementById(id);
@@ -119,6 +121,19 @@
   }
 
   const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
+
+  function whileHidden() {
+    // resolves at once on a shown page; on a hidden one, when it is shown again
+    if (document.visibilityState !== "hidden") return Promise.resolve();
+    return new Promise((ok) => {
+      const shown = () => {
+        if (document.visibilityState === "hidden") return;
+        document.removeEventListener("visibilitychange", shown);
+        ok();
+      };
+      document.addEventListener("visibilitychange", shown);
+    });
+  }
 
   // --- the session (SCOPE section 3) ---------------------------------------------------------
   async function openSession() {
@@ -387,7 +402,8 @@
   }
 
   async function openJob(id) {
-    watching = id;
+    const mine = {};   // this opening: closing the view, or opening a job again, replaces it
+    watching = mine;
     $("job").hidden = false;
     setText("job-id", id);
     setText("job-stdout", "");
@@ -395,7 +411,7 @@
     const off = {stdout: 0, stderr: 0};
     for (;;) {
       const r = await get(API + "/jobs/" + encodeURIComponent(id));
-      if (watching !== id) return;
+      if (watching !== mine) return;
       if (r.status !== 200) {
         setText("job-stderr", errText(r));
         return;
@@ -403,7 +419,7 @@
       renderJob(r.json.job);
       for (const s of ["stdout", "stderr"]) {
         const lr = await get(API + "/jobs/" + encodeURIComponent(id) + "/log/" + s + "?offset=" + off[s]);
-        if (watching !== id) return;
+        if (watching !== mine) return;
         if (lr.status === 200) {
           $("job-" + s).append(document.createTextNode(lr.text));
           off[s] = Number(lr.headers.get("X-NDT-Log-Next-Offset") || off[s]);
@@ -415,7 +431,14 @@
         return;
       }
       await sleep(2000);
+      await whileHidden();
+      if (watching !== mine) return;
     }
+  }
+
+  function closeJob() {
+    watching = null;   // the loop above returns at its next look
+    $("job").hidden = true;
   }
 
   // --- E. cells and walks --------------------------------------------------------------------
@@ -603,6 +626,7 @@
     $("refresh").addEventListener("click", refreshAll);
     $("apps-load").addEventListener("click", loadApps);
     $("jobs-load").addEventListener("click", loadJobs);
+    $("job-close").addEventListener("click", closeJob);
     $("cells-load").addEventListener("click", loadCells);
     $("walks-load").addEventListener("click", loadWalks);
     await refreshAll();

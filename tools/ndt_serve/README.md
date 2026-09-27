@@ -157,7 +157,9 @@ the pid `serve.json` names is the process listening on its port.
 
 **What it shows**: A. the lab (`/lab`, the claim and measuring rows verbatim, the whole
 `ndt status`, the `ndt_drift` warning); B. claim / release / up / down; C. the apps; D. the jobs,
-with a live log while one you opened runs; E. the cells, old/ and new/, runs and walks.
+with a live log while one you opened runs -- re-read every 2 s from its file, never by running
+ndt, and stopped when the job ends, when you close the view, and while the page is hidden; E. the
+cells, old/ and new/, runs and walks.
 **Refresh is manual**: every refresh runs one plain `ndt status`, and a periodic one would be an
 invisible load during a measurement.
 
@@ -196,8 +198,8 @@ still holds the slot), `lost` (it ended and nobody recorded its rc).
 ```bash
 python3 tests/python/test_ndt_serve.py        # 74 cases against a stub ndt (RcProvenance reads the real ndt), no lab
 python3 tests/python/test_ndt_serve_cells.py  # 35 cases against a stub grid, no lab
-python3 tests/python/test_ndt_serve_gui.py    # 35 cases: the page's server side, and a lint of app.js / index.html
-bash tests/shell/mutate_ndt_serve.sh          # 138 named mutations (the G series is the GUI cut), each must redden its case
+python3 tests/python/test_ndt_serve_gui.py    # 37 cases: the page's server side, and a lint of app.js / index.html
+bash tests/shell/mutate_ndt_serve.sh          # 144 named mutations (the G series is the GUI cut), each must redden its case
 # the page in a real browser: headless Chrome, only under the build guard (it skips elsewhere)
 JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh python3 tests/browser/test_ndt_serve_page.py
 JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash tests/shell/mutate_ndt_serve_page.sh
