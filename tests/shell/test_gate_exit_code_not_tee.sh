@@ -31,6 +31,7 @@
 # MINIMAL SYNTHETIC t008_poll (tests/shell/fixtures/gate_exit_code_not_tee/, README there: the real
 # trace's shape, made-up readings, ratio 1.000) and points plot_figures.RAW at a copy of it; and
 # case 2 asserts the gate's verdict line as well as its rc, so an UNRUNNABLE can never pass it.
+# Case 1b asserts the gate read that fixture (its ratio, 1.0000), not a real trace left on disk.
 
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -86,6 +87,14 @@ GATE=(env PYTHONDONTWRITEBYTECODE=1 "$PY_PLOT" "$ROUND_DIR/ratio_gate.py")
 # --- case 1: the accept path.  A green cell asked to be green passes. --------------------------
 run_gate "${GATE[@]}" --check "$GOODCELL" --expect green >/dev/null 2>&1
 check "case 1  --expect green on a green cell -> caller sees success" 0 "$?"
+# [Co-developed with claude code -- Adam] N2 (the opus judge on d2a9d641, 09-27): the gate read THIS
+# fixture -- not whatever raw/ the tree has on disk. The real t008_poll is GREEN too (ratio 0.9656),
+# so with a broken override every case here passed on a checkout that still has the real trace;
+# only the fixture's ratio, exactly 1.0000, tells the two apart.
+out1b="$("${GATE[@]}" --check "$GOODCELL" --expect green 2>&1)"
+check "case 1b the gate read the synthetic fixture (ratio 1.0000), not a raw/ on disk" \
+      "GATE ratio cell=$GOODCELL ratio=1.0000" \
+      "$(/usr/bin/grep -m1 -oE '^GATE ratio cell=[^ ]+ ratio=[0-9.]+' <<<"$out1b")"
 
 # --- case 2: THE DEFECT.  A green cell asked to be RED must reach the caller as a failure. -----
 # Before the fix this returned 0, and gates_e.sh recorded PASS.
