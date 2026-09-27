@@ -905,6 +905,11 @@ def link_emitter_report(path=None):
     used `os.path.exists(f"/proc/{pid}")`, which cannot tell the two apart; section 9 ruling 5.)
     It is a read of ONE pid we were given, never a scan for a pattern -- `pkill -f` / `pgrep -f`
     are forbidden in this repo and this is the shape that makes them unnecessary.
+
+    🔴 AND IT IS B'S `emitter_is_running(document)`, which compares the argv and start time the
+    bring-up recorded (Adam 2026-09-27, ruling K) -- the same test the root teardown applies
+    before it signals, so this field cannot call a process "alive" that the teardown would not
+    stop. [Co-developed with claude code -- Adam]
     """
     document = link_telemetry.read_manifest(path or LINK_TELEMETRY_MANIFEST)
     if document is None:
@@ -918,7 +923,7 @@ def link_emitter_report(path=None):
                 dpids.append(entry["dpid"])
     return {"manifest": path or LINK_TELEMETRY_MANIFEST,
             "pid": pid,
-            "alive": bool(pid) and link_telemetry.process_is_the_emitter(pid),
+            "alive": link_telemetry.emitter_is_running(document),
             # ints, sorted, because `switch_state`'s own switch map is keyed by dpid and a
             # reader comparing the two should not have to parse a name out of a string.
             "switches": sorted(dpids),

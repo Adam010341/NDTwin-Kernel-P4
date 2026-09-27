@@ -399,10 +399,19 @@ def detach(plan_or_interfaces, run=None, report=None):
     return removed
 
 
-def manifest_document(plan, emitter_pid, log_path=None):
-    """What `write_manifest` writes. Separated so a test can read it without a filesystem."""
+def manifest_document(plan, emitter_pid, log_path=None, identity=None):
+    """What `write_manifest` writes. Separated so a test can read it without a filesystem.
+
+    [Co-developed with claude code -- Adam]
+    `argv` and `start_time` are `emitter_identity`'s, and are what makes `pid` mean ONE process
+    rather than whichever holds that number (`process_is_the_emitter`). Always present, null
+    when not known, so the document has one shape for every reader.
+    """
+    identity = identity or {}
     return {
         "pid": emitter_pid,
+        "argv": identity.get("argv"),
+        "start_time": identity.get("start_time"),
         "log": log_path or LINK_TELEMETRY_LOG,
         "rate": plan.rate,
         "trunc": plan.trunc,
@@ -427,8 +436,8 @@ def manifest_document(plan, emitter_pid, log_path=None):
     }
 
 
-def write_manifest(plan, emitter_pid, path=None, log_path=None):
-    """Record the emitter's pid and the port map where every other reader can find them.
+def write_manifest(plan, emitter_pid, path=None, log_path=None, identity=None):
+    """Record the emitter's pid, its identity and the port map where every reader can find them.
 
     Replace the inode, never truncate in place -- the same reasoning as the switch manifest
     next door: /tmp is sticky, anyone can create this NAME before we run, and `open(path, "w")`
@@ -436,7 +445,7 @@ def write_manifest(plan, emitter_pid, path=None, log_path=None):
     fabric's teardown then signals.
     """
     path = path or LINK_TELEMETRY_MANIFEST
-    document = manifest_document(plan, emitter_pid, log_path=log_path)
+    document = manifest_document(plan, emitter_pid, log_path=log_path, identity=identity)
     try:
         fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path) or ".",
                                    prefix=".ndtwin_link_telemetry.")
@@ -464,34 +473,159 @@ def read_manifest(path=None):
     return document if isinstance(document, dict) else None
 
 
-def process_is_the_emitter(pid, proc_root="/proc"):
-    """Whether `pid` is still this emitter, rather than whatever inherited that number.
+def _read_cmdline(pid, proc_root):
+    """`/proc/<pid>/cmdline` as the list of words it is, or None when it cannot be read.
 
-    🔴 THE SAME RULE `process_is_a_switch` STATES, and for the same reason: a pid recorded at
-    bring-up is not evidence that the same process holds it at teardown -- Linux recycles pids,
-    and this teardown runs as root. Reading one `/proc/<pid>/cmdline` turns "this number was
-    the emitter once" into "this number is the emitter now". It is a read of ONE pid we wrote
-    down, never a scan for a pattern: `pkill -f`/`pgrep -f` are forbidden in this repo and this
-    is the shape that makes them unnecessary.
+    The kernel writes each argv word followed by one NUL, so the last split element is the
+    empty remainder after the final NUL and is dropped -- a word that is itself empty stays.
     """
     try:
         with open(os.path.join(proc_root, str(int(pid)), "cmdline"), "rb") as fh:
-            cmdline = fh.read()
+            raw = fh.read()
     except (OSError, ValueError, TypeError):
+        return None
+    if not raw:
+        return []
+    return [os.fsdecode(word) for word in raw.split(b"\0")[:-1]]
+
+
+def process_start_time(pid, proc_root="/proc"):
+    """When `pid` started: field 22 of `/proc/<pid>/stat`, in clock ticks since boot.
+
+    [Co-developed with claude code -- Adam]
+    The one property a process cannot change and a recycled pid cannot inherit. `comm` (field
+    2) is in parentheses and may itself contain spaces and ')', so the fields are counted from
+    after the LAST ')': there, field 3 is index 0 and field 22 is index 19. None when the pid
+    is gone or the file does not parse.
+    """
+    try:
+        with open(os.path.join(proc_root, str(int(pid)), "stat"), "rb") as fh:
+            raw = fh.read()
+    except (OSError, ValueError, TypeError):
+        return None
+    _comm, closing, rest = raw.rpartition(b")")
+    if not closing:
+        return None
+    try:
+        return int(rest.split()[19])
+    except (IndexError, ValueError):
+        return None
+
+
+def _is_an_argv(value):
+    return isinstance(value, (list, tuple)) and all(isinstance(w, str) for w in value)
+
+
+def _is_an_int(value):
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _is_the_launchers_shape(cmdline):
+    """Whether `cmdline` is exactly what `emitter_argv` builds, whoever built it.
+
+    `<python> <.../psample_sflow_emitter.py> --manifest <path>`: four words, a python first,
+    this module's emitter by file name second, the flag the launcher itself writes third. The
+    fallback for a manifest that recorded no argv -- every one written before 2026-09-27.
+    """
+    return (len(cmdline) == 4
+            and os.path.basename(cmdline[0]).startswith("python")
+            and os.path.basename(cmdline[1]) == os.path.basename(EMITTER_PATH)
+            and cmdline[2] == "--manifest")
+
+
+def process_is_the_emitter(pid, proc_root="/proc", argv=None, start_time=None):
+    """Whether `pid` is still the emitter that was recorded, rather than whatever holds it now.
+
+    🔴 THE SAME RULE `process_is_a_switch` STATES, and for the same reason: a pid recorded at
+    bring-up is not evidence that the same process holds it at teardown -- Linux recycles pids,
+    and this teardown runs as root. It is a read of ONE pid we wrote down, never a scan for a
+    pattern: `pkill -f`/`pgrep -f` are forbidden in this repo and this is the shape that makes
+    them unnecessary.
+
+    [Co-developed with claude code -- Adam]
+    🔴 AND IT IS AN IDENTITY, NOT A RESEMBLANCE (Adam 2026-09-27, ruling K). Until then this
+    answered `b"psample_sflow_emitter.py" in <the whole cmdline>` -- so `vim` with that file
+    open, a `grep` or `tail` naming it, or a test runner with it among its arguments, holding a
+    recycled pid, was "the emitter", and `stop_emitter` would SIGTERM and then SIGKILL it as
+    root. Now:
+
+      * `argv` given (what the launcher recorded -- see `emitter_identity`): the cmdline must be
+        that list, word for word. A file of the same NAME run from another path is not it.
+      * `start_time` given: `/proc/<pid>/stat` field 22 must be that number. This is the check
+        that defeats pid reuse outright: a process that took the number later started later,
+        whatever its argv says.
+      * neither (a manifest written before this ruling): the cmdline must be exactly the
+        launcher's four-word shape (`_is_the_launchers_shape`), which is still strict enough
+        that no editor, grep, tail or test runner passes -- and loose enough that a fabric
+        brought up by the old code is not orphaned by the new teardown.
+
+    A recorded field of the wrong type is a document nobody here wrote, and is never a match.
+    """
+    cmdline = _read_cmdline(pid, proc_root)
+    if not cmdline:
+        # Gone, not ours to read, or a zombie -- which is what a SIGTERMed emitter is until its
+        # parent reaps it. In every case there is nothing here to signal.
         return False
-    return os.path.basename(EMITTER_PATH).encode() in cmdline
+    if argv is not None:
+        if not _is_an_argv(argv) or cmdline != list(argv):
+            return False
+    elif not _is_the_launchers_shape(cmdline):
+        return False
+    if start_time is not None:
+        if not _is_an_int(start_time):
+            return False
+        return process_start_time(pid, proc_root) == start_time
+    return True
 
 
-def stop_emitter(pid, kill=None, is_emitter=None, sleep=None, grace_s=EMITTER_STOP_GRACE_S):
+def emitter_identity(proc, proc_root="/proc"):
+    """What the manifest records about the emitter besides its pid: {"argv", "start_time"}.
+
+    [Co-developed with claude code -- Adam]
+    `argv` is the list the launcher handed to Popen (`Popen.args`), not a reading of /proc: it
+    is what the process was TOLD to be, and a later reading of /proc is compared against it.
+    `start_time` is read from /proc HERE, and this is the one moment it can be read without a
+    race: until `proc` is waited on, it is this process's unreaped child, so its pid cannot
+    have been handed to anything else -- even if it has already exited, a zombie keeps its
+    number and its stat. Either field is None when it cannot be known, and the check then
+    does what `process_is_the_emitter` says it does without it.
+    """
+    args = getattr(proc, "args", None)
+    pid = getattr(proc, "pid", None)
+    return {"argv": list(args) if _is_an_argv(args) else None,
+            "start_time": (process_start_time(pid, proc_root)
+                           if _is_an_int(pid) and pid > 0 else None)}
+
+
+def emitter_is_running(document, proc_root="/proc"):
+    """Whether the emitter a manifest document names is running NOW, by everything it recorded.
+
+    [Co-developed with claude code -- Adam]
+    The one reading of the manifest's pid that `shut_down`, `ndt status`/`ndt down` and the
+    proxy's `switch_state` disclosure all make, so none of them can compare less than the
+    teardown that signals it: a reader calling the process "alive" on a looser test than the
+    teardown's is how an operator gets told to `kill` a pid the teardown would not touch.
+    """
+    pid = document.get("pid") if isinstance(document, dict) else None
+    if not _is_an_int(pid) or pid <= 0:
+        return False
+    return process_is_the_emitter(pid, proc_root=proc_root, argv=document.get("argv"),
+                                  start_time=document.get("start_time"))
+
+
+def stop_emitter(pid, kill=None, is_emitter=None, sleep=None, grace_s=EMITTER_STOP_GRACE_S,
+                 argv=None, start_time=None):
     """SIGTERM, wait up to `grace_s`, then SIGKILL. Returns what it ended up doing.
 
     One of "absent" (that pid is not the emitter any more -- nothing is signalled), "term"
-    (it went on the SIGTERM) or "kill".
+    (it went on the SIGTERM) or "kill". `argv` and `start_time` are what the manifest recorded
+    (`emitter_identity`), and every question put to `is_emitter` carries them.
     """
     kill = kill or os.kill
     is_emitter = is_emitter or process_is_the_emitter
     sleep = sleep or time.sleep
-    if not pid or not is_emitter(pid):
+    identity = {"argv": argv, "start_time": start_time}
+    if not pid or not is_emitter(pid, **identity):
         return "absent"
     try:
         kill(int(pid), signal.SIGTERM)
@@ -503,7 +637,7 @@ def stop_emitter(pid, kill=None, is_emitter=None, sleep=None, grace_s=EMITTER_ST
     # grace loop. A loop whose trip count nobody can state is one whose test has to be
     # written from its own behaviour.
     for _step in range(int(math.ceil(grace_s / EMITTER_POLL_INTERVAL_S))):
-        if not is_emitter(pid):
+        if not is_emitter(pid, **identity):
             return "term"
         sleep(EMITTER_POLL_INTERVAL_S)
     try:
@@ -530,7 +664,10 @@ def shut_down(path=None, run=None, kill=None, is_emitter=None, sleep=None, repor
     document = read_manifest(path)
     if document is None:
         return None, [], None
-    fate = stop_emitter(document.get("pid"), kill=kill, is_emitter=is_emitter, sleep=sleep)
+    # The identity it recorded goes with the pid: `stop_emitter` asks `is_emitter` with it on
+    # every step, so the process signalled is the one the bring-up launched and no other.
+    fate = stop_emitter(document.get("pid"), kill=kill, is_emitter=is_emitter, sleep=sleep,
+                        argv=document.get("argv"), start_time=document.get("start_time"))
     interfaces = [port["ifname"]
                   for switch in document.get("switches", [])
                   for port in (switch.get("ports") or {}).values()

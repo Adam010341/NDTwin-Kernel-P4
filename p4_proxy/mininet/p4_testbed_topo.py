@@ -1133,7 +1133,13 @@ def _start_link_telemetry(package, model, switches, manifest_path=None, report=p
     try:
         link_telemetry.attach(plan, run=tc_run)
         proc = link_telemetry.start_emitter(manifest_path, popen=emitter_popen)
-        link_telemetry.write_manifest(plan, getattr(proc, "pid", None), path=manifest_path)
+        # 🔴 THE IDENTITY IS TAKEN HERE, BEFORE ANYTHING POLLS `proc` (Adam 2026-09-27, ruling
+        # K). Until it is waited on, the emitter is an unreaped child of this process, so its
+        # pid cannot belong to anything else -- and this is the one read of its start time no
+        # pid reuse can race. Every later reader compares against what is recorded here.
+        # [Co-developed with claude code -- Adam]
+        link_telemetry.write_manifest(plan, getattr(proc, "pid", None), path=manifest_path,
+                                      identity=link_telemetry.emitter_identity(proc))
     except Exception:
         # 🔴 A HALF-BUILT LINK PATH LEAVES QDISCS BEHIND WHERE NO TEARDOWN RUNS. Until
         # `write_manifest` returns there is nothing on disk for `tear_down` to read, so both

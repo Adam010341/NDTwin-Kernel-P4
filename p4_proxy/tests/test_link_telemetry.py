@@ -32,8 +32,10 @@ import json
 import os
 import shutil
 import signal
+import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -439,6 +441,21 @@ class StoppingTheEmitterTest(unittest.TestCase):
         self.assertEqual(len(slept), 5)
         self.assertEqual(set(slept), {link_telemetry.EMITTER_POLL_INTERVAL_S})
 
+    def test_every_question_it_asks_carries_the_recorded_identity(self):
+        # 🔴 Adam 2026-09-27, ruling K. The grace loop asks again on every step, and a step that
+        # asked without the argv and start time would be judging a different process than the
+        # first question did -- the one that decided to send SIGTERM at all.
+        # [Co-developed with claude code -- Adam]
+        asked = []
+
+        def is_emitter(pid, **identity):
+            asked.append(identity)
+            return len(asked) < 3
+        link_telemetry.stop_emitter(42, kill=lambda p, s: None, is_emitter=is_emitter,
+                                    sleep=lambda _s: None, argv=["a", "b"], start_time=9)
+        self.assertEqual(len(asked), 3)
+        self.assertEqual(asked, [{"argv": ["a", "b"], "start_time": 9}] * 3)
+
     def test_the_process_check_reads_one_cmdline_and_never_scans(self):
         tmp = tempfile.mkdtemp(prefix="ndtwin_proc_")
         self.addCleanup(shutil.rmtree, tmp, True)
@@ -496,6 +513,310 @@ class ShuttingDownFromTheManifestTest(PlanFixture):
             self.path, run=run, is_emitter=lambda pid, **kw: False)
         self.assertEqual(fate, "absent")
         self.assertFalse(os.path.exists(self.path))
+
+
+# --- which process the manifest's pid is, now (Adam 2026-09-27, ruling K) -------------------
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 THE TEARDOWN THAT READS THIS RUNS AS ROOT AND SENDS SIGTERM, THEN SIGKILL. Until this ruling
+# "is pid N the emitter" was answered by `b"psample_sflow_emitter.py" in <the whole cmdline>` --
+# so an editor with that file open, a `grep` or `tail` naming it, or a test runner with it on
+# its command line, holding a recycled pid, was the emitter as far as `stop_emitter` knew. The
+# cases below are REAL processes, started unprivileged by this file and reaped by this file
+# through their own Popen (never by pattern): a check against a fake /proc can agree with
+# itself about a cmdline no kernel would write, and these ones cannot. Nothing here is
+# signalled for real except, in the one positive case, this file's own child, by its own pid,
+# through a kill that refuses any other number.
+
+
+def observed_start_time(pid):
+    """Field 22 of /proc/<pid>/stat, read HERE rather than by the module under test.
+
+    The oracle the identity cases compare against, so that a wrong parse in `link_telemetry`
+    cannot agree with itself. `comm` (field 2) is parenthesised and may itself contain spaces
+    and parentheses, which is why the split starts after the LAST ')'.
+    """
+    with open(f"/proc/{int(pid)}/stat", "rb") as fh:
+        raw = fh.read()
+    return int(raw[raw.rindex(b")") + 1:].split()[19])
+
+
+def observed_cmdline(pid):
+    with open(f"/proc/{int(pid)}/cmdline", "rb") as fh:
+        raw = fh.read()
+    return [os.fsdecode(part) for part in raw.split(b"\0")[:-1]]
+
+
+def wait_until_exec_has_finished(proc, timeout_s=10.0):
+    """Block until the kernel has published `proc`'s new argv, and return it.
+
+    🔴 POPEN CAN RETURN BEFORE /proc/<pid>/cmdline SAYS ANYTHING. It returns when the exec
+    closes its close-on-exec error pipe (and, under vfork, when the exec releases the parent),
+    and both happen in `begin_new_exec` -- BEFORE the ELF loader sets the new mm's arg_start
+    and arg_end. A read in that window gets an EMPTY cmdline: this file's first gate run saw it
+    as a flaky red in 2 of 4 decoy cases. Nothing in production reads the cmdline that soon (the
+    bring-up waits out a three-second grace on `poll()` first, and the start time is fixed at
+    fork, not at exec), so the wait belongs here and not in the module.
+    """
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        argv = observed_cmdline(proc.pid)
+        if argv:
+            return argv
+        if proc.poll() is not None:
+            raise AssertionError(f"pid {proc.pid} exited ({proc.returncode}) before exec was seen")
+        time.sleep(0.005)
+    raise AssertionError(f"pid {proc.pid} published no cmdline within {timeout_s}s")
+
+
+class LiveProcessFixture(unittest.TestCase):
+    """A stand-in emitter file, a manifest path, and children that are always reaped."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ndtwin_emitter_identity_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.manifest = os.path.join(self.tmp, "ndtwin_link_telemetry.json")
+        # A file with the emitter's own name that only sleeps -- somewhere other than beside
+        # link_telemetry.py, which is the point of two of the cases below.
+        stub_dir = os.path.join(self.tmp, "elsewhere")
+        os.makedirs(stub_dir)
+        self.stub = os.path.join(stub_dir, os.path.basename(link_telemetry.EMITTER_PATH))
+        with open(self.stub, "w") as fh:
+            fh.write("import time\ntime.sleep(120)\n")
+
+    def spawn(self, argv):
+        """Start `argv` unprivileged; reaped by its own Popen whatever the case does."""
+        env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
+        proc = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL, env=env)
+        self.addCleanup(self.reap, proc)
+        self.assertEqual(wait_until_exec_has_finished(proc), list(argv))
+        return proc
+
+    @staticmethod
+    def reap(proc):
+        if proc.poll() is None:
+            proc.kill()                  # Popen.kill: os.kill(proc.pid, SIGKILL), our own child
+        proc.wait(timeout=30)
+
+    def write_document(self, **fields):
+        """A manifest written by hand, so a case can name what a bring-up would have recorded."""
+        document = link_telemetry.manifest_document(link_telemetry.LinkTelemetryPlan(), None)
+        document.update(fields)
+        with open(self.manifest, "w") as fh:
+            json.dump(document, fh)
+
+    def tear_down_recording(self):
+        """`shut_down` with a kill that only RECORDS. Returns (fate, [(pid, signal), ...])."""
+        kills = []
+        fate, _removed, _doc = link_telemetry.shut_down(
+            self.manifest, run=FakeRun(), kill=lambda pid, sig: kills.append((pid, sig)),
+            sleep=lambda _s: None)
+        return fate, kills
+
+
+class ADecoyIsNeverTheEmitterTest(LiveProcessFixture):
+    """Red at b005bf50, where a substring of the cmdline decided; green once identity is exact."""
+
+    def decoy(self):
+        # Its command line CONTAINS the emitter's full path -- as a plain argument python never
+        # opens -- and it is not the emitter by any definition.
+        proc = self.spawn([sys.executable, "-c", "import time; time.sleep(120)",
+                           link_telemetry.EMITTER_PATH])
+        self.assertIn(link_telemetry.EMITTER_PATH, observed_cmdline(proc.pid),
+                      "the decoy does not carry the emitter's name, so it proves nothing")
+        return proc
+
+    def test_a_process_that_only_mentions_the_emitter_is_not_the_emitter(self):
+        decoy = self.decoy()
+        self.assertFalse(link_telemetry.process_is_the_emitter(decoy.pid),
+                         "a process whose argv merely mentions psample_sflow_emitter.py was "
+                         "taken for the emitter")
+
+    def test_teardown_does_not_signal_a_decoy_the_manifest_names(self):
+        # A manifest with only a pid in it -- what every bring-up before this ruling wrote --
+        # whose pid a decoy now holds.
+        decoy = self.decoy()
+        link_telemetry.write_manifest(link_telemetry.LinkTelemetryPlan(), decoy.pid,
+                                      path=self.manifest)
+        fate, kills = self.tear_down_recording()
+        self.assertEqual(kills, [], "the root teardown would have signalled the decoy")
+        self.assertEqual(fate, "absent")
+        self.assertIsNone(decoy.poll())
+
+    def test_a_pid_now_held_by_a_process_that_started_later_is_not_signalled(self):
+        # 🔴 PID REUSE ITSELF. The process holding the recorded pid has EXACTLY the emitter's
+        # argv -- the launcher's own shape -- but it is not the process the bring-up recorded:
+        # that one started at a different instant. Only the start time can tell them apart.
+        argv = link_telemetry.emitter_argv(self.manifest, python=sys.executable,
+                                           emitter=self.stub)
+        holder = self.spawn(argv)
+        self.write_document(pid=holder.pid, argv=argv,
+                            start_time=observed_start_time(holder.pid) - 1)
+        fate, kills = self.tear_down_recording()
+        self.assertEqual(kills, [], "a process that started after the recorded emitter was "
+                                    "signalled because its pid and argv matched")
+        self.assertEqual(fate, "absent")
+
+    def test_the_same_file_name_at_another_path_is_not_the_recorded_emitter(self):
+        # The recorded argv names the emitter beside link_telemetry.py; the process holding the
+        # pid runs a file of the same NAME from somewhere else. Same pid, same start time --
+        # only the argv differs, so only an exact argv comparison can refuse it.
+        holder = self.spawn(link_telemetry.emitter_argv(self.manifest, python=sys.executable,
+                                                        emitter=self.stub))
+        recorded = link_telemetry.emitter_argv(self.manifest, python=sys.executable)
+        self.assertNotEqual(recorded, observed_cmdline(holder.pid))
+        self.write_document(pid=holder.pid, argv=recorded,
+                            start_time=observed_start_time(holder.pid))
+        fate, kills = self.tear_down_recording()
+        self.assertEqual(kills, [])
+        self.assertEqual(fate, "absent")
+
+
+class TheEmitterItselfIsStillTheEmitterTest(LiveProcessFixture):
+    """The positive half: what `start_emitter` launches, and what `shut_down` then stops."""
+
+    def launch(self):
+        proc = link_telemetry.start_emitter(self.manifest, python=sys.executable,
+                                            emitter=self.stub, stderr=subprocess.DEVNULL)
+        self.addCleanup(self.reap, proc)
+        wait_until_exec_has_finished(proc)
+        return proc
+
+    def test_the_launch_records_the_argv_it_ran_and_the_start_time_proc_gives_it(self):
+        proc = self.launch()
+        identity = link_telemetry.emitter_identity(proc)
+        self.assertEqual(identity, {
+            "argv": link_telemetry.emitter_argv(self.manifest, python=sys.executable,
+                                                emitter=self.stub),
+            "start_time": observed_start_time(proc.pid)})
+        self.assertEqual(identity["argv"], observed_cmdline(proc.pid))
+        self.assertTrue(link_telemetry.process_is_the_emitter(proc.pid, **identity))
+
+    def test_teardown_stops_the_emitter_the_manifest_recorded(self):
+        proc = self.launch()
+        link_telemetry.write_manifest(link_telemetry.LinkTelemetryPlan(), proc.pid,
+                                      path=self.manifest,
+                                      identity=link_telemetry.emitter_identity(proc))
+        sent = []
+
+        def kill(pid, sig):
+            # 🔴 THIS FILE'S OWN CHILD, BY ITS OWN PID, AND NOTHING ELSE.
+            self.assertEqual(pid, proc.pid)
+            sent.append(sig)
+            os.kill(pid, sig)
+        fate, _removed, _doc = link_telemetry.shut_down(self.manifest, run=FakeRun(),
+                                                        kill=kill, sleep=time.sleep)
+        self.assertEqual(sent, [signal.SIGTERM])
+        self.assertEqual(fate, "term")
+        self.assertEqual(proc.wait(timeout=30), -signal.SIGTERM)
+
+    def test_a_manifest_that_records_no_identity_still_stops_an_emitter_of_the_launchers_shape(self):
+        # A manifest written before this ruling carries a pid and nothing else. Its emitter was
+        # launched as `<python> <.../psample_sflow_emitter.py> --manifest <path>`, and that
+        # exact shape -- four words, the flag in third place -- is still recognised, so a
+        # fabric brought up by the old code is not orphaned by the new teardown.
+        proc = self.launch()
+        self.write_document(pid=proc.pid)
+        fate, kills = self.tear_down_recording()
+        self.assertEqual(kills[0], (proc.pid, signal.SIGTERM))
+        self.assertEqual(fate, "kill")      # the recording kill never really stopped it
+
+
+class TheIdentityCheckTest(unittest.TestCase):
+    """The check itself, against a /proc written here: exact argv, start time, and refusals."""
+
+    ARGV = ["/usr/bin/python3", "/opt/ndtwin/p4_proxy/mininet/psample_sflow_emitter.py",
+            "--manifest", "/tmp/ndtwin_link_telemetry.json"]
+
+    def setUp(self):
+        self.proc = tempfile.mkdtemp(prefix="ndtwin_proc_identity_")
+        self.addCleanup(shutil.rmtree, self.proc, True)
+
+    def process(self, pid, argv, start_time=7777, comm="python3"):
+        d = os.path.join(self.proc, str(pid))
+        os.makedirs(d, exist_ok=True)
+        with open(os.path.join(d, "cmdline"), "wb") as fh:
+            fh.write(b"".join(os.fsencode(a) + b"\0" for a in argv))
+        # Fields 3..21 are placeholders; 22 is the start time.
+        rest = ["S"] + ["0"] * 18 + [str(start_time)] + ["0"] * 30
+        with open(os.path.join(d, "stat"), "w") as fh:
+            fh.write(f"{pid} ({comm}) " + " ".join(rest) + "\n")
+
+    def is_emitter(self, pid, **identity):
+        return link_telemetry.process_is_the_emitter(pid, proc_root=self.proc, **identity)
+
+    def test_the_start_time_is_field_twenty_two_even_after_a_comm_with_parentheses(self):
+        self.process(5, self.ARGV, start_time=424242, comm="a) b (c")
+        self.assertEqual(link_telemetry.process_start_time(5, proc_root=self.proc), 424242)
+        self.assertIsNone(link_telemetry.process_start_time(6, proc_root=self.proc))
+
+    def test_the_recorded_argv_must_match_word_for_word(self):
+        self.process(5, self.ARGV)
+        self.assertTrue(self.is_emitter(5, argv=list(self.ARGV), start_time=7777))
+        for i in range(len(self.ARGV)):
+            other = list(self.ARGV)
+            other[i] += "x"
+            with self.subTest(word=i):
+                self.assertFalse(self.is_emitter(5, argv=other, start_time=7777))
+        self.assertFalse(self.is_emitter(5, argv=self.ARGV + ["--extra"], start_time=7777))
+        self.assertFalse(self.is_emitter(5, argv=self.ARGV[:-1], start_time=7777))
+
+    def test_the_recorded_start_time_must_match(self):
+        self.process(5, self.ARGV, start_time=7777)
+        self.assertTrue(self.is_emitter(5, argv=list(self.ARGV), start_time=7777))
+        self.assertFalse(self.is_emitter(5, argv=list(self.ARGV), start_time=7778))
+
+    def test_an_identity_that_is_not_the_right_shape_is_never_a_match(self):
+        # Fail closed: the manifest is JSON on a sticky /tmp, and a field of the wrong type is
+        # a document nobody here wrote -- not a reason to fall back to something looser.
+        self.process(5, self.ARGV, start_time=7777)
+        self.assertFalse(self.is_emitter(5, argv=" ".join(self.ARGV), start_time=7777))
+        self.assertFalse(self.is_emitter(5, argv=[1, 2, 3, 4], start_time=7777))
+        self.assertFalse(self.is_emitter(5, argv=list(self.ARGV), start_time=True))
+        self.assertFalse(self.is_emitter(5, argv=list(self.ARGV), start_time="7777"))
+
+    def test_a_process_with_no_command_line_is_not_the_emitter(self):
+        # A zombie -- which is what a SIGTERMed emitter is until its parent reaps it -- has an
+        # empty cmdline. That is "gone", and it is what makes stop_emitter's loop end in "term".
+        self.process(5, [])
+        self.assertFalse(self.is_emitter(5))
+        self.assertFalse(self.is_emitter(5, argv=[], start_time=7777))
+        self.assertFalse(self.is_emitter(9))
+
+    def test_without_a_recorded_identity_only_the_launchers_exact_shape_is_recognised(self):
+        self.process(5, self.ARGV)
+        self.assertTrue(self.is_emitter(5))
+        refused = {
+            "a fifth word": self.ARGV + ["x"],
+            "three words": self.ARGV[:3],
+            "not python": ["/usr/bin/vim"] + self.ARGV[1:],
+            "not the flag": self.ARGV[:2] + ["--manifesto", self.ARGV[3]],
+            "another file": [self.ARGV[0], "/x/psample_sflow_emitter.py.bak"] + self.ARGV[2:],
+            "the name as a substring": [self.ARGV[0], "-c", "psample_sflow_emitter.py",
+                                        self.ARGV[3]],
+            "the name inside one word": ["/usr/bin/grep", "psample_sflow_emitter.py --manifest",
+                                         "--manifest", "/tmp/x"],
+        }
+        for label, argv in refused.items():
+            self.process(6, argv)
+            with self.subTest(label):
+                self.assertFalse(self.is_emitter(6))
+
+    def test_the_document_reader_passes_the_recorded_identity(self):
+        # `emitter_is_running` is what `ndt`, the proxy and `shut_down` all read the manifest
+        # through, so a reader cannot quietly compare less than the teardown does.
+        self.process(5, ["/usr/bin/python3", "not-the-launchers-shape"], start_time=11)
+        document = {"pid": 5, "argv": ["/usr/bin/python3", "not-the-launchers-shape"],
+                    "start_time": 11}
+        self.assertTrue(link_telemetry.emitter_is_running(document, proc_root=self.proc))
+        self.assertFalse(link_telemetry.emitter_is_running(dict(document, start_time=12),
+                                                           proc_root=self.proc))
+        self.assertFalse(link_telemetry.emitter_is_running({"pid": 5}, proc_root=self.proc))
+        for pid in (None, 0, -1, True, "5", 5.0):
+            with self.subTest(pid=pid):
+                self.assertFalse(link_telemetry.emitter_is_running(dict(document, pid=pid),
+                                                                   proc_root=self.proc))
 
 
 # --- a package's own fabric, which is neither ten switches nor all of one source --------------

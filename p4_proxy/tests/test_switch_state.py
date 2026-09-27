@@ -836,8 +836,30 @@ class TheLinkEmitterSummaryTest(unittest.TestCase):
 
         path = self.manifest(4242)
         with mock.patch.object(link_telemetry, "process_is_the_emitter",
-                               lambda pid: pid == 4242):
+                               lambda pid, **identity: pid == 4242):
             self.assertTrue(main.link_emitter_report(path)["alive"])
+
+    def test_alive_is_judged_by_the_identity_the_bring_up_recorded(self):
+        # 🔴 Adam 2026-09-27, ruling K. The manifest records the emitter's argv and start time,
+        # and `alive` must be answered WITH them -- the test the root teardown applies before it
+        # signals -- or this field calls a process alive that the teardown would refuse to stop.
+        # This test's own process is the subject: its argv is not the launcher's shape, so ONLY
+        # a reader that passes the recorded identity can answer True for it.
+        # [Co-developed with claude code -- Adam]
+        pid = os.getpid()
+        with open(f"/proc/{pid}/cmdline", "rb") as fh:
+            argv = [os.fsdecode(w) for w in fh.read().split(b"\0")[:-1]]
+        with open(f"/proc/{pid}/stat", "rb") as fh:
+            raw = fh.read()
+        started = int(raw[raw.rindex(b")") + 1:].split()[19])
+        path = os.path.join(self.tmp, "ndtwin_link_telemetry.json")
+        for start_time, alive in ((started, True), (started + 1, False)):
+            document = link_telemetry.manifest_document(
+                self.plan(), pid, identity={"argv": argv, "start_time": start_time})
+            with open(path, "w") as fh:
+                json.dump(document, fh)
+            with self.subTest(start_time=start_time):
+                self.assertIs(main.link_emitter_report(path)["alive"], alive)
 
     def test_a_manifest_that_does_not_parse_is_none_rather_than_a_crash(self):
         path = os.path.join(self.tmp, "broken.json")

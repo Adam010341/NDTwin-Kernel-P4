@@ -1612,7 +1612,19 @@ class _Plan:
     switches = [_Switch(i) for i in range(1, nsw + 1)]
 
 
-json.dump(lt.manifest_document(_Plan(), None if pid == "-" else int(pid)),
+# 🔴 AND THE IDENTITY THE BRING-UP RECORDS BESIDE THE PID (Adam 2026-09-27, ruling K): the
+# argv the emitter was started with and its start time, which `ndt` now reads the pid WITH
+# (link_telemetry.emitter_is_running). Read off the live pid the way the launcher would have
+# recorded it; a pid that is not there gets none, as a manifest older than the ruling has none.
+# The fixture emitter below is started as `python3 <file>` -- two words, NOT the launcher's
+# four-word shape -- so only a reader that passes this identity can call it alive.
+# [Co-developed with claude code -- Adam]
+identity = None
+if pid != "-" and os.path.isdir("/proc/%d" % int(pid)):
+    with open("/proc/%d/cmdline" % int(pid), "rb") as fh:
+        argv = [os.fsdecode(w) for w in fh.read().split(b"\0")[:-1]]
+    identity = {"argv": argv, "start_time": lt.process_start_time(int(pid))}
+json.dump(lt.manifest_document(_Plan(), None if pid == "-" else int(pid), identity=identity),
           open(f, "w"), indent=2)
 PYM
 }
@@ -1643,6 +1655,13 @@ EMIT_DIR="$FIX/emitter"; mkdir -p "$EMIT_DIR"
 printf 'import time\ntime.sleep(600)\n' > "$EMIT_DIR/psample_sflow_emitter.py"
 python3 "$EMIT_DIR/psample_sflow_emitter.py" & EMIT_PID=$!
 trap 'kill "$EMIT_PID" 2>/dev/null; rm -rf "$FIX"' EXIT INT TERM
+# 🔴 UNTIL ITS exec LANDS, THE CHILD IS A COPY OF THIS SHELL, with this shell's cmdline -- and
+# mkmanifest now records the cmdline it reads (ruling K, 2026-09-27). Wait for the emitter's own,
+# bounded, so the identity recorded is the python's and not bash's. [Co-developed with claude code -- Adam]
+for _ in $(seq 1 200); do
+    tr '\0' ' ' < "/proc/$EMIT_PID/cmdline" 2>/dev/null | /usr/bin/grep -q 'psample_sflow_emitter\.py' && break
+    sleep 0.05
+done
 mkmanifest "$EMIT_PID" 3 256
 OUT="$(run_status --check)"
 has   "  an emitter that is running is named with its pid" "link emitter: alive pid $EMIT_PID, 3 switch(es), rate 256" "$OUT"

@@ -418,6 +418,9 @@ class FakeProcess:
 
     def __init__(self, pid=4242, exits=None):
         self.pid = pid
+        #: What `Popen.args` is: the argv it was started with. Set by FakeSubprocess.Popen,
+        #: because `link_telemetry.emitter_identity` records it in the manifest.
+        self.args = None
         #: None means "still running". A list is consumed one poll at a time, which is how the
         #: "it died during the grace period" case is written without a real process.
         self._exits = list(exits) if isinstance(exits, list) else exits
@@ -482,6 +485,7 @@ class FakeSubprocess:
     def Popen(self, argv, **kwargs):          # noqa: N802 -- subprocess spells it this way
         self.events.append(("popen", list(argv)))
         self.process = self.process or FakeProcess()
+        self.process.args = list(argv)
         return self.process
 
     # --- what the assertions read ------------------------------------------------------
@@ -512,6 +516,12 @@ class FakeSubprocess:
             else:
                 out.append(" ".join(argv))
         return out
+
+
+#: The start time the fake emitter (pid 4242) is recorded with -- see FabricFixture, which is
+#: what keeps the bring-up from reading the host's /proc/4242/stat.
+#: [Co-developed with claude code -- Adam]
+FAKE_EMITTER_START_TIME = 31415926
 
 
 #: ifindexes for the offline suites: `sN-ethM` -> a number nothing on this machine owns.
@@ -578,6 +588,12 @@ class FabricFixture(unittest.TestCase):
         self.patch(link_telemetry, "read_ifindex", fake_ifindex)
         self.sub = FakeSubprocess()
         self.patch(link_telemetry, "subprocess", self.sub)
+        # 🔴 AND NOT /proc/<pid>/stat EITHER. The bring-up records the emitter's start time
+        # (`link_telemetry.emitter_identity`, Adam 2026-09-27 ruling K) by reading its pid's
+        # stat -- and the fake emitter's pid, 4242, is whatever process holds that number on
+        # the machine running this suite. [Co-developed with claude code -- Adam]
+        self.patch(link_telemetry, "process_start_time",
+                   lambda pid, proc_root="/proc": FAKE_EMITTER_START_TIME if pid == 4242 else None)
         # The three-second liveness grace is real time in production and dead time here. The
         # loop that spends it has its own case (StartingTheEmitterTest), which is where it is
         # allowed to cost something.
@@ -1624,9 +1640,9 @@ class LinkTelemetryUnderTheKnobTest(FabricFixture):
         order = []
         real = link_telemetry.write_manifest
 
-        def write_manifest(plan, emitter_pid, path=None, log_path=None):
+        def write_manifest(plan, emitter_pid, path=None, log_path=None, identity=None):
             order.append(("write_manifest", emitter_pid))
-            return real(plan, emitter_pid, path=path, log_path=log_path)
+            return real(plan, emitter_pid, path=path, log_path=log_path, identity=identity)
         self.patch(link_telemetry, "write_manifest", write_manifest)
         original_popen = self.sub.Popen
 
@@ -1639,6 +1655,19 @@ class LinkTelemetryUnderTheKnobTest(FabricFixture):
         self.assertEqual([step for step, _pid in order], ["popen", "write_manifest"])
         self.assertEqual(order[0][1], order[1][1])
         self.assertEqual(self.link_manifest_contents()["pid"], order[0][1])
+
+    def test_the_manifest_records_the_emitters_argv_and_its_start_time(self):
+        # 🔴 Adam 2026-09-27, ruling K. The pid alone names whichever process holds that number
+        # when it is read; the root teardown SIGTERMs and SIGKILLs what it names. What the
+        # bring-up launched (the argv, exactly) and when (/proc/<pid>/stat field 22, read while
+        # the emitter is still this process's unreaped child) are what make it ONE process.
+        # [Co-developed with claude code -- Adam]
+        self.bring_up()
+        document = self.link_manifest_contents()
+        self.assertEqual(len(self.sub.started), 1)
+        self.assertEqual(document["argv"], self.sub.started[0])
+        self.assertEqual(document["argv"], link_telemetry.emitter_argv(self.link_manifest))
+        self.assertEqual(document["start_time"], FAKE_EMITTER_START_TIME)
 
     def test_the_manifest_names_the_pid_the_rate_and_every_port(self):
         self.bring_up()
