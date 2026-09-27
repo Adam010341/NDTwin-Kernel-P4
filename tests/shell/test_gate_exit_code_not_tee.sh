@@ -36,12 +36,12 @@
 # under the old construct -- it used to be green whatever the gate did (the judge's N2 on d2a9d641) --
 # and case 6 holds lib_e.sh's `unset NDT_SAMPLING_RAW_DIR` (NOTE C on 1d5180ce).
 #
-# 🔴 KNOWN, not fixed here (the opus judge's N7 on d2a9d641): this suite sources round.env, as
-# gates_e.sh does, and round.env hardcodes KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel (round.env:13)
-# and runs `mkdir -p "$OUT" "$KBIN_STAGE"` (round.env:73). From any worktree or clone it therefore
-# touches the MAIN checkout's paths: a no-op where both exist (this laptop, 09-27), a new empty
-# directory where they do not, and a suppressed error on a machine with no /home/adam. The fix
-# belongs in round.env, which this suite sources because the round does.
+# N7 (the opus judge's, on d2a9d641) is fixed in round.env itself: it hardcoded
+# KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel, so this suite -- which sources round.env, as
+# gates_e.sh does -- read and mkdir'ed the MAIN checkout's paths from any worktree or clone. It
+# now derives KERNEL_DIR from its own location (an exported KERNEL_DIR still overrides), so the
+# tree under test is the tree this suite runs in. tests/shell/test_round_env_kernel_dir.sh holds
+# that property; its gate is tests/shell/mutate_round_env_kernel_dir.sh.
 
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
