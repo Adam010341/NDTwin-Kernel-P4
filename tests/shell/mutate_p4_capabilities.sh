@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 #
 # Mutation gate for the per-switch `capabilities` on /ndt/get_graph_data (third cut of the
-# P4-driven API; the contract is TICKET-P4-roles.md Appendix A). Suite: tests/test_P4Capabilities.cpp.
+# P4-driven API; the contract is doc/2026-01-02_ndt_api.md section 3, `capabilities`).
+# Suite: tests/test_P4Capabilities.cpp.
 #
 # [Co-developed with claude code -- Adam]
 #
 #   M1   the proxy's answer is never recorded                                        (red)
 #   M2   WIDENING: `capabilities: null` (or any non-object) becomes an entry          (red)
-#   M3   the object is rebuilt from the five keys Appendix A names                   (red)
+#   M3   the object is rebuilt from the five keys the API doc lists                   (red)
 #   M4   null-valued keys are "tidied" away                                          (red)
 #   M5   a dpid key is read leniently -- sign, junk, 0x prefix                       (red)
 #   M6   a dpid key that overflows 64 bits wraps instead of being refused            (red)
@@ -20,7 +21,15 @@
 #   M13  each answer is merged into the last instead of replacing it                 (red)
 #   M14  the 1 Hz step no longer hands the answer on to the liveness verdicts        (red)
 #   M15  get_graph_data never puts the object on the node                            (red)
+#   M16  the record is looked up by the switch's mac instead of its dpid             (red)
+#   M17  only switches whose last probe succeeded are copied                         (red)
+#   M18  a 200 with no `switches` leaves the previous answer standing                (red)
 #   C1   control: a comment added beside the write                                   (must stay green)
+#
+# NOT IN THIS GATE: removing either lock around the record (the write in pollP4SwitchState, the
+# read in p4CapabilitiesSnapshot). Every case is single-threaded, so such a mutant would survive;
+# a two-thread race test would be timing-dependent and flaky rather than red, so none is forced.
+# The locks are covered by reading, and by nothing that runs offline.
 #
 # 🔴 THE WIDENINGS (M2, M7, M9) ARE THE ONES THAT MATTER MOST. Absence is the contract's baseline:
 # a node without `capabilities` tells the GUI "every operation is supported". Anything that makes
@@ -99,7 +108,7 @@ add "M1: the proxy's answer is never recorded" \
     "$CAPS" \
     '        out.emplace(*dpid, *capsIt);' \
     '        // MUTANT: nothing is recorded' \
-    'P4Capabilities.TheAppendixAFixturesAreCopiedVerbatim'
+    'P4Capabilities.TheFourFixturesAreCopiedVerbatim'
 
 add "M2: WIDENING -- capabilities: null (or a non-object) becomes an entry" \
     "$CAPS" \
@@ -107,7 +116,7 @@ add "M2: WIDENING -- capabilities: null (or a non-object) becomes an entry" \
     '        if (capsIt == entry.end())' \
     'P4Capabilities.ASwitchTheProxyDoesNotDescribeGetsNoEntry'
 
-add "M3: the object is rebuilt from the five keys Appendix A names" \
+add "M3: the object is rebuilt from the five keys the API doc lists" \
     "$CAPS" \
     '        out.emplace(*dpid, *capsIt);' \
     '        nlohmann::json known = nlohmann::json::object();
@@ -138,7 +147,7 @@ add "M4: null-valued keys are tidied away" \
             }
         }
         out.emplace(*dpid, tidy);' \
-    'P4Capabilities.TheAppendixAFixturesAreCopiedVerbatim'
+    'P4Capabilities.TheFourFixturesAreCopiedVerbatim'
 
 add "M5: a dpid key is read leniently (sign, junk, 0x prefix)" \
     "$CAPS" \
@@ -246,6 +255,28 @@ add "M15: get_graph_data never puts the object on the node" \
     '        p4caps::attachToNode(node, graph[vd], p4Capabilities);' \
     '        // MUTANT: capabilities never attached' \
     'P4CapabilitiesWire.EachSwitchNodeCarriesItsOwnCapabilitiesVerbatim'
+
+add "M16: the record is looked up by the switch's mac instead of its dpid" \
+    "$CAPS" \
+    '    const auto it = caps.find(vertex.dpid);' \
+    '    const auto it = caps.find(vertex.mac);' \
+    'P4Capabilities.AttachPutsTheObjectOnItsSwitchAndChangesNothingElse'
+
+add "M17: only switches whose last probe succeeded are copied" \
+    "$CAPS" \
+    '        if (!dpid.has_value() || !entry.is_object())' \
+    '        if (!dpid.has_value() || !entry.is_object() ||
+            entry.value("probe_ok", nlohmann::json(false)) != true)' \
+    'P4Capabilities.ASwitchWhoseProbeFailedStillCarriesWhatTheProxySaysOfIt'
+
+add "M18: a 200 with no switches leaves the previous answer standing" \
+    "$DCPM" \
+    '    p4caps::CapabilitiesByDpid capabilities = p4caps::fromSwitchState(payload);
+    {' \
+    '    p4caps::CapabilitiesByDpid capabilities = p4caps::fromSwitchState(payload);
+    if (!payload.has_value() || payload->contains("switches"))
+    {' \
+    'P4CapabilitiesPoll.AnAnswerWithNoSwitchesClearsTheRecord'
 
 add "C1: control -- a comment beside the write (must stay green)" \
     "$CAPS" \

@@ -4,8 +4,8 @@
  *
  * [Co-developed with claude code -- Adam]
  *
- * THE CONTRACT (doc/audit/2026-09-24_p4-driven-api-shape/TICKET-P4-roles.md, Appendix A, with
- * section 7 ruling 5(b)):
+ * THE CONTRACT (doc/2026-01-02_ndt_api.md section 3, "`capabilities` -- what a P4 switch may be
+ * asked to do"):
  *
  *   - a switch node MAY carry `capabilities`, and when it does the object is the proxy's
  *     per-switch `capabilities` from GET /p4/switch_state, copied verbatim;
@@ -14,7 +14,10 @@
  *   - no `capabilities` means every operation is supported. A consumer must never read the
  *     missing key as "unsupported", so the kernel must never manufacture one.
  *
- * THE FIXTURES are Appendix A's, and each one is also what a live proxy served
+ * "Verbatim" means equal as JSON values: nlohmann re-serialises the object with its keys sorted,
+ * so the bytes on the wire need not match the proxy's.
+ *
+ * THE FIXTURES are the four cases the API doc names, and each one is also what a live proxy served
  * (doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/):
  *
  *   (1) no `capabilities`    -- OVS, an old kernel, a proxy that does not report
@@ -30,11 +33,20 @@
  *                         when the next read fails.
  *   P4CapabilitiesWire.*  GET /ndt/get_graph_data itself, through HttpSession::buildResponse.
  *
- * Nothing here shells out. The power manager is never start()ed -- its ping loop runs `sudo
- * ovs-vsctl` -- and the proxy is a virtual override. The monitor IS started and stopped at once,
- * because only start() marks a topology as loaded and the bmv2 verdict refuses to answer before
- * that (D15); its one poll round talks to a control plane that is not there and changes nothing
- * these cases read.
+ * The power manager is never start()ed -- its ping loop runs `sudo ovs-vsctl` -- and the proxy
+ * is a virtual override. The monitor IS started and stopped at once, because only start() marks
+ * a topology as loaded and the bmv2 verdict refuses to answer before that (D15); that start does
+ * launch its poll thread, whose one round curls a control plane that is not there and changes
+ * nothing these cases read.
+ *
+ * NOT COVERED OFFLINE: the mutex around the record. Every case here is single-threaded, so
+ * removing either lock (the write in pollP4SwitchState, the read in p4CapabilitiesSnapshot) goes
+ * unnoticed; a poll-versus-snapshot race would need a sanitizer run with two threads, which is
+ * not attempted because a timing-dependent test would be flaky rather than red. The locks are
+ * checked by reading them.
+ *
+ * The wiring pingWorker -> pollP4SwitchState -> fetchP4SwitchState cannot be reached without
+ * start(); tests/shell/test_p4_capabilities_wired.sh checks it statically.
  */
 
 #include <unistd.h> // getpid, for per-process fixture paths
@@ -112,7 +124,7 @@ class HttpSessionP4CapabilitiesTestPeer
 namespace
 {
 
-// --- Appendix A's samples ----------------------------------------------------------------------
+// --- the four documented cases ----------------------------------------------------------------
 
 /// (2) A switch running NDTwin's own pipeline on an all-NDTwin fabric.
 const json kNdtwinPipeline = {{"ipv4_route", "ndtwin"},
@@ -168,7 +180,7 @@ switchState(const json& switches)
                 {"switches", switches}};
 }
 
-/// Appendix A's four cases on one fabric, keyed as the proxy keys them. dpid 10 is in the set
+/// The four cases on one fabric, keyed as the proxy keys them. dpid 10 is in the set
 /// because the proxy writes decimal and "10" is where a hex reading would first go wrong.
 /// (The kernel copies; it does not judge whether (2) beside (3) is a fabric that can exist.)
 json
@@ -186,7 +198,8 @@ switchVertex(std::uint64_t dpid)
     VertexProperties v;
     v.vertexType = VertexType::SWITCH;
     v.dpid = dpid;
-    v.mac = dpid;
+    // Not equal to the dpid, so an attach that looked the record up by mac would miss.
+    v.mac = 0x020000000000ULL + dpid;
     v.ip = {0x0B7BA8C0u + static_cast<std::uint32_t>(dpid)};
     v.deviceName = "s" + std::to_string(dpid);
     v.nickName = v.deviceName;
@@ -222,7 +235,7 @@ onlySwitch3()
 
 // === 1. the two pure functions ==================================================================
 
-TEST(P4Capabilities, TheAppendixAFixturesAreCopiedVerbatim)
+TEST(P4Capabilities, TheFourFixturesAreCopiedVerbatim)
 {
     const p4caps::CapabilitiesByDpid got = p4caps::fromSwitchState(fourCaseSwitchState());
 
@@ -263,7 +276,7 @@ TEST(P4Capabilities, ASwitchTheProxyDoesNotDescribeGetsNoEntry)
 
 TEST(P4Capabilities, KeysAndValuesTheKernelHasNeverHeardOfPassThrough)
 {
-    // Verbatim is the contract. The proxy's vocabulary has already grown once since Appendix A
+    // Verbatim is the contract. The proxy's vocabulary has already grown once since the first cut
     // (`link_discovery: "heartbeat"`, the second cut), and a kernel that rebuilt the object from
     // the keys it knows, or checked the words against a list, would silently drop the next one.
     const json grown = {{"ipv4_route", "ndtwin"},
@@ -275,6 +288,20 @@ TEST(P4Capabilities, KeysAndValuesTheKernelHasNeverHeardOfPassThrough)
     const auto got = p4caps::fromSwitchState(switchState({{"7", entryWith(grown)}}));
     ASSERT_EQ(got.count(7), 1u);
     EXPECT_EQ(got.at(7), grown);
+}
+
+TEST(P4Capabilities, ASwitchWhoseProbeFailedStillCarriesWhatTheProxySaysOfIt)
+{
+    // `capabilities` is configuration -- which pipeline and binding the switch was started with --
+    // not liveness. A switch whose last probe failed is still that switch; whether it is up is
+    // the node's `reachable`, decided elsewhere from the same body. Copying only answering
+    // switches would make the key blink with every missed probe.
+    json down = entryWith(kForeignOwned);
+    down["probe_ok"] = false;
+    down["probe_detail"] = "UNAVAILABLE: failed to connect";
+    const auto got = p4caps::fromSwitchState(switchState({{"4", down}}));
+    ASSERT_EQ(got.count(4), 1u) << "a switch with a failed probe lost its capabilities";
+    EXPECT_EQ(got.at(4), kForeignOwned);
 }
 
 TEST(P4Capabilities, AKeyThatIsNotAPlainDecimalDpidIsSkipped)
@@ -486,6 +513,24 @@ TEST_F(P4CapabilitiesPoll, AnUnreadableProxyWithdrawsTheLastAnswer)
     EXPECT_EQ(m_manager->asked, 2);
     EXPECT_TRUE(m_manager->p4CapabilitiesSnapshot().empty())
         << "kept an answer from a proxy the kernel can no longer read";
+}
+
+TEST_F(P4CapabilitiesPoll, AnAnswerWithNoSwitchesClearsTheRecord)
+{
+    // A 200 whose body has no `switches` map (a proxy mid-restart, or a different service on the
+    // port) describes no switch. It must clear the record exactly as an unreadable answer does,
+    // not be skipped as "nothing new" while the previous answer goes on being served.
+    ASSERT_NO_FATAL_FAILURE(load("BMv2"));
+    m_manager->answer = fourCaseSwitchState();
+    m_manager->pollP4SwitchState();
+    ASSERT_EQ(m_manager->p4CapabilitiesSnapshot().size(), 3u);
+
+    m_manager->answer = json{{"status", "success"}};
+    m_manager->pollP4SwitchState();
+
+    EXPECT_EQ(m_manager->asked, 2);
+    EXPECT_TRUE(m_manager->p4CapabilitiesSnapshot().empty())
+        << "a body with no switches left the previous answer standing";
 }
 
 TEST_F(P4CapabilitiesPoll, EachAnswerReplacesThePreviousOneWhole)
