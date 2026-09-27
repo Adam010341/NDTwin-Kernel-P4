@@ -75,7 +75,7 @@ mutate "E2: how often the counters were read is compared" \
 mutate "E3: the heartbeat's ethertype is IPv4's" \
     'HEARTBEAT_ETHERTYPE = 0x88B5' \
     'HEARTBEAT_ETHERTYPE = 0x0800' \
-    "🔴 named as heartbeat_packet_ins"
+    "🔴 named as heartbeat_packet_ins" "  and NOT as the heartbeat's"
 mutate "E4: a round with no controller log reads as an empty one" \
     '    if len(logs) != 1:
         raise Unreadable' \
