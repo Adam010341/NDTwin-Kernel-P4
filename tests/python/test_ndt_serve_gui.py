@@ -60,6 +60,33 @@ _spec = importlib.util.spec_from_file_location("verbs_under_test", os.path.join(
 verbs = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(verbs)
 
+# A process that listens on 127.0.0.1, then forks: the child accepts one connection and writes
+# what it received to argv[1]; the parent only holds the socket. Prints "<port> <child pid>".
+FORK_ACCEPTER = r"""
+import os, socket, sys, time
+s = socket.socket()
+s.bind(("127.0.0.1", 0))
+s.listen(4)
+child = os.fork()
+if child == 0:
+    s.settimeout(20)
+    data = b""
+    try:
+        c, _ = s.accept()
+        c.settimeout(3)
+        try:
+            data = c.recv(65536)
+        except OSError:
+            pass
+        c.close()
+    except OSError:
+        pass
+    open(sys.argv[1], "wb").write(data)
+    os._exit(0)
+print(s.getsockname()[1], child, flush=True)
+time.sleep(30)
+"""
+
 STATUS_FULL = ("lab\n"
                "  claim          yours -- 30m left (until 23:59:00)\n"
                "  prev claim     orch-0924 (until 20:00:00)\n"
@@ -430,6 +457,31 @@ class UrlCommand(unittest.TestCase):
             stop()
             s.close()
 
+    def test_url_sends_the_token_only_over_a_connection_the_pid_accepted(self):
+        # [Co-developed with claude code -- Adam] the check-then-connect gap: the pid serve.json
+        # names holds the LISTEN socket, but the connection is accepted by somebody else -- here a
+        # child it forked, which inherited the socket. The token must go only over a connection
+        # whose server end is one of that pid's own fds.
+        s = GuiServe().start()
+        got = os.path.join(s.tmp, "child-got")
+        helper = subprocess.Popen([sys.executable, "-c", FORK_ACCEPTER, got], stdout=subprocess.PIPE,
+                                  text=True, start_new_session=True)
+        try:
+            port = int(helper.stdout.readline().split()[0])
+            r = self.url_against(s, port, helper.pid)
+            self.assertNotEqual(r.returncode, 0, r.stdout)
+            self.assertIn("the token was not sent", r.stderr.lower())
+            deadline = time.monotonic() + 5
+            while not os.path.exists(got) and time.monotonic() < deadline:
+                time.sleep(0.05)
+            sent = open(got, "rb").read() if os.path.exists(got) else b""
+            self.assertNotIn(s.token().encode(), sent, "the token went to a process that only shares the socket")
+            self.assertEqual(sent, b"", "anything at all was sent to the child")
+        finally:
+            os.killpg(helper.pid, signal.SIGKILL)   # the group this case created: parent and child
+            helper.wait(10)
+            s.close()
+
     def test_url_with_no_server_says_so(self):
         s = GuiServe()
         try:
@@ -578,6 +630,35 @@ class AppsNeedYourClaim(unittest.TestCase):
             st, j, _, _ = self.s.post(path)
             self.assertEqual(st, 202, j)
             self.assertEqual(self.s.wait(j["job"]["id"])["argv"][1:], tail)
+
+
+# --- the page's "open Web-GUI" button --------------------------------------------------------
+
+class WebGuiUrl(unittest.TestCase):
+    """The button's address comes from the server (`--webgui-url`, handed over in /meta); the
+    browser stores nothing. Only an http(s) URL with a host is taken: it becomes an <a href>.
+    [Co-developed with claude code -- Adam]"""
+
+    def test_meta_names_the_web_gui_url(self):
+        for extra, want in (([], "http://localhost:3000"),
+                            (["--webgui-url", "http://10.0.0.5:3000/topology"], "http://10.0.0.5:3000/topology")):
+            s = GuiServe(extra=extra).start()
+            try:
+                st, j, _, _ = s.get("/meta")
+                self.assertEqual((st, j.get("webgui_url")), (200, want), extra)
+            finally:
+                s.close()
+
+    def test_a_web_gui_url_that_is_not_http_is_refused_at_start(self):
+        for bad in ("javascript:alert(1)", "file:///etc/passwd", "http://", "localhost:3000",
+                    "http://host name:3000", "http://h\t:1"):
+            s = GuiServe(extra=["--webgui-url", bad])
+            try:
+                s.start(expect_ok=False)
+                self.assertNotEqual(s.proc.wait(10), 0, bad)
+                self.assertIn("--webgui-url", base._read(s.out + ".err"), bad)
+            finally:
+                s.close()
 
 
 # --- dry_run -----------------------------------------------------------------------------------

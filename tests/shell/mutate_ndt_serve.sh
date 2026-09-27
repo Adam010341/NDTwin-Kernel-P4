@@ -1151,6 +1151,39 @@ m=$(mutant g46 "$SERVE_PY" \
 report "G46: a missing serve.json is guessed at, port 8765 (G-N8)" "$m" \
        gui:UrlCommand.test_url_with_no_server_says_so
 
+# --- GUI v2: the server side (the Web-GUI button, the url command's connection, the claim form) ---
+# [Co-developed with claude code -- Adam]
+
+m=$(mutant g47 "$SERVE_PY" \
+    '    if u.scheme not in ("http", "https") or not u.hostname or re.search(r"[\x00-\x20\x7f]", raw):' \
+    '    if False:')
+report "G47: any --webgui-url is taken, javascript: included (it becomes an <a href>)" "$m" \
+       gui:WebGuiUrl.test_a_web_gui_url_that_is_not_http_is_refused_at_start
+
+m=$(mutant g48 "$SERVE_PY" \
+    '    if not peer_owned_by(pid, port, sock.getsockname()[1]):' \
+    '    if False:')
+report "G48: url sends the token over a connection another process accepted" "$m" \
+       gui:UrlCommand.test_url_sends_the_token_only_over_a_connection_the_pid_accepted
+
+m=$(mutant g49 "$NDT" \
+    "        printf 'yours -- %dm left (until %s)\n' \"\$left\"" \
+    "        printf 'yours -- %d min left (until %s)\n' \"\$left\"")
+report "G49: ndt's own-claim form changes and OWN_CLAIM no longer reads it" "$m" \
+       ClaimFormProvenance.test_own_claim_is_what_claim_line_prints_for_yours_and_nothing_else
+
+m=$(mutant g50 "$SERVE_PY" \
+    'OWN_CLAIM = re.compile(r"yours -- [0-9]+m left \(until [0-9]{2}:[0-9]{2}:[0-9]{2}\)")' \
+    'OWN_CLAIM = re.compile(r"yours -- [0-9]{1,2}m left \(until [0-9]{2}:[0-9]{2}:[0-9]{2}\)")')
+report "G50: OWN_CLAIM is narrower than claim_line (a 240-minute claim is not yours)" "$m" \
+       ClaimFormProvenance.test_own_claim_is_what_claim_line_prints_for_yours_and_nothing_else
+
+m=$(mutant g50b "$SERVE_PY" \
+    'OWN_CLAIM = re.compile(r"yours -- [0-9]+m left \(until [0-9]{2}:[0-9]{2}:[0-9]{2}\)")' \
+    'OWN_CLAIM = re.compile(r"yours -- [0-9]+m left \(until .*\)")')
+report "G50b: OWN_CLAIM is wider than claim_line (an owner that spells the own form is yours)" "$m" \
+       ClaimFormProvenance.test_own_claim_is_what_claim_line_prints_for_yours_and_nothing_else
+
 echo
 if [[ "$(sha256sum "${SUBJECTS[@]}")" != "$BASE_SHA" ]]; then
     echo "a file under test CHANGED while this gate ran -- the results above are about two versions"

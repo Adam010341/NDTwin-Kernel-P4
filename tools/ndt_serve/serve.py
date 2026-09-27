@@ -54,6 +54,7 @@ import os
 import re
 import secrets
 import signal
+import socket
 import socketserver
 import stat
 import subprocess
@@ -92,6 +93,7 @@ SECURITY_HEADERS = (
     ("Referrer-Policy", "no-referrer"),
 )
 NONCE_TTL_S = 600          # a one-time page URL is good for this long, and for one use
+WEBGUI_URL = "http://localhost:3000"   # the page's "open Web-GUI" button: Web-GUI's Docker port here
 MAX_NONCES = 8             # outstanding at once; minting another forgets the oldest
 NONCE_RE = re.compile(r"[A-Za-z0-9_-]{16,64}")
 
@@ -184,6 +186,16 @@ def load_static():
     return out
 
 
+def web_gui_url(ap, raw):
+    """The Web-GUI address the page links to. It becomes an <a href>, so only an http(s) URL with
+    a host is taken -- never a javascript: or file: one -- and the browser keeps no copy of it.
+    [Co-developed with claude code -- Adam]"""
+    u = urllib.parse.urlsplit(raw)
+    if u.scheme not in ("http", "https") or not u.hostname or re.search(r"[\x00-\x20\x7f]", raw):
+        ap.error("--webgui-url must be an http:// or https:// URL with a host: %r" % raw)
+    return raw
+
+
 def page_url(port, nonce):
     return "http://%s:%d/#k=%s" % (BIND, port, nonce)
 
@@ -242,6 +254,47 @@ def listener_owned_by(pid, port):
     return False
 
 
+def fd_links(pid):
+    """What each of pid's fds points at (`socket:[inode]` for a socket). Unreadable -> empty."""
+    out = set()
+    try:
+        fds = os.listdir("/proc/%d/fd" % pid)
+    except OSError:
+        return out
+    for fd in fds:
+        try:
+            out.add(os.readlink("/proc/%d/fd/%s" % (pid, fd)))
+        except OSError:
+            continue
+    return out
+
+
+def peer_owned_by(pid, port, lport, wait_s=3.0):
+    """Connected from 127.0.0.1:<lport> to 127.0.0.1:<port>: is the server end of THIS connection
+    one of pid's own fds? The listener check alone leaves a gap -- the socket can be held by pid and
+    accepted by another process (a forked child, or whoever bound the port between the check and
+    the connect). The accepted socket is the /proc/net/tcp row with local :port and remote :lport;
+    its inode stays 0 until the server accept()s it, so this waits for that, briefly.
+    [Co-developed with claude code -- Adam]"""
+    local, remote = "0100007F:%04X" % port, "0100007F:%04X" % lport
+    deadline = time.monotonic() + wait_s
+    while True:
+        inode = None
+        try:
+            with open("/proc/net/tcp") as f:
+                for line in list(f)[1:]:
+                    cols = line.split()
+                    if len(cols) > 9 and cols[1] == local and cols[2] == remote and cols[9] != "0":
+                        inode = "socket:[%s]" % cols[9]
+        except OSError:
+            return False
+        if inode is not None and inode in fd_links(pid):
+            return True
+        if time.monotonic() > deadline:
+            return False
+        time.sleep(0.05)
+
+
 def url_command(token_file):
     """`ndt serve url`: a new one-time page URL from the RUNNING server, which alone can mint
     one. It reads the token file and serve.json beside it, checks that serve.json's pid really
@@ -260,7 +313,17 @@ def url_command(token_file):
     if not listener_owned_by(pid, port):
         raise SystemExit("ndt serve url: pid %d (serve.json) is not the process listening on %s:%d -- "
                          "is ndt serve running? The token was not sent." % (pid, BIND, port))
+    # connect first, then check who accepted THIS connection, and only then send the token
+    try:
+        sock = socket.create_connection((BIND, port), timeout=10)
+    except OSError as e:
+        raise SystemExit("ndt serve url: %s:%d did not answer: %s" % (BIND, port, e))
+    if not peer_owned_by(pid, port, sock.getsockname()[1]):
+        sock.close()
+        raise SystemExit("ndt serve url: the connection to %s:%d was not accepted by pid %d (serve.json) -- "
+                         "the token was not sent." % (BIND, port, pid))
     conn = http.client.HTTPConnection(BIND, port, timeout=10)
+    conn.sock = sock
     try:
         conn.request("POST", API + "/session/new", body=b"{}", headers={
             "Host": "%s:%d" % (BIND, port), TOKEN_HEADER: token, "Content-Type": "application/json"})
@@ -595,7 +658,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                          "up_hosts": {k: list(v) for k, v in verbs.UP_HOSTS.items()},
                          "max_claim_minutes": verbs.MAX_CLAIM_MINUTES,
                          "default_claim_minutes": verbs.DEFAULT_CLAIM_MINUTES,
-                         "max_note_chars": verbs.MAX_NOTE_CHARS})
+                         "max_note_chars": verbs.MAX_NOTE_CHARS, "webgui_url": self.cfg.webgui_url})
 
     # --- the page's way in (SCOPE section 3) ---
     def w_session(self, query):
@@ -1175,6 +1238,8 @@ def main(argv=None):
     ap.add_argument("--max-waiters", type=int, default=4, help="?wait= long-polls at once")
     ap.add_argument("--nonce-ttl", type=int, default=NONCE_TTL_S,
                     help="seconds a one-time page URL stays good (default %d)" % NONCE_TTL_S)
+    ap.add_argument("--webgui-url", default=WEBGUI_URL,
+                    help="where the page's 'open Web-GUI' button goes (default %s); http(s) only" % WEBGUI_URL)
     ap.add_argument("command", nargs="?", choices=["url"],
                     help="url: print a new one-time URL of the running server's page (it reads "
                          "--token-file and serve.json beside it)")
@@ -1201,6 +1266,7 @@ def main(argv=None):
     cfg.token_file = os.path.abspath(a.token_file)
     cfg.static = load_static()
     cfg.nonces = Nonces(a.nonce_ttl)
+    cfg.webgui_url = web_gui_url(ap, a.webgui_url)
 
     private_dir(cfg.state_dir)
     private_dir(os.path.dirname(cfg.token_file))

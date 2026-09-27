@@ -18,6 +18,7 @@ tests/shell/mutate_ndt_serve.sh is this file's mutation gate: each named mutatio
 case it names red.
 """
 import glob
+import importlib.util
 import http.client
 import json
 import os
@@ -1033,6 +1034,42 @@ class Identity(unittest.TestCase):
                 self.assertFalse(os.path.exists(s.token_file))
         finally:
             s.close()
+
+
+class ClaimFormProvenance(unittest.TestCase):
+    """serve.OWN_CLAIM is read against what ndt prints, not against a copy of it. A lab cell's run
+    and an app start/stop go on only when `ndt status`'s claim row fullmatches OWN_CLAIM; the row
+    comes from claim_line(). Found by the function it lies in and the text it holds -- never by line
+    number, which is how RC_SOURCE's 8315 once cited the wrong `return 1` -- and printed through
+    bash's own printf. [Co-developed with claude code -- Adam]"""
+
+    def printf(self, fmt, *args):
+        r = subprocess.run(["bash", "-c", 'f=$1; shift; printf "$f" "$@"', "_", fmt] + list(args),
+                           capture_output=True, text=True, timeout=10)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return r.stdout[:-1] if r.stdout.endswith("\n") else r.stdout
+
+    def test_own_claim_is_what_claim_line_prints_for_yours_and_nothing_else(self):
+        spec = importlib.util.spec_from_file_location("serve_under_test", os.path.join(SERVE_DIR, "serve.py"))
+        serve = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(serve)
+        lines = _read(NDT).splitlines()
+        start = [i for i, l in enumerate(lines) if l.startswith("claim_line() {")]
+        self.assertEqual(len(start), 1, "claim_line() is defined %d times" % len(start))
+        end = next(i for i in range(start[0], len(lines)) if lines[i] == "}")
+        formats = [re.search(r"printf '([^']*)'", l).group(1) for l in lines[start[0]:end] if "printf '" in l]
+        own = [f for f in formats if f.startswith("yours -- ")]
+        foreign = [f for f in formats if f.startswith("%s -- ")]
+        self.assertEqual((len(own), len(foreign)), (1, 1), formats)
+        for left, until in (("30", "23:59:00"), ("1", "00:00:01"), ("240", "12:34:56")):
+            mine = self.printf(own[0], left, until)
+            self.assertTrue(serve.OWN_CLAIM.fullmatch(mine), "OWN_CLAIM does not take what ndt prints: %r" % mine)
+            for owner in ("yours-x", "orch-0924", "yours -- 30m left (until 23:59:00)"):
+                theirs = self.printf(foreign[0], owner, left, until)
+                self.assertIsNone(serve.OWN_CLAIM.fullmatch(theirs), "a foreign claim reads as yours: %r" % theirs)
+        for other in formats:   # the rest of claim_line's answers (EXPIRED ...): none reads as yours
+            if other not in own and other not in foreign:
+                self.assertIsNone(serve.OWN_CLAIM.fullmatch(self.printf(other, "3", "serve-test")), other)
 
 
 class RcProvenance(unittest.TestCase):
