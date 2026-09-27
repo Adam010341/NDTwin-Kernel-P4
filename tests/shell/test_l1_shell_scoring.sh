@@ -200,23 +200,100 @@ check "X4 the shell arm binds both numbers the verdict needs" "yes" \
 echo
 echo "=== group C: the corpus -- every suite in tests/shell prints a form this scorer reads ==="
 
-# The check that would have caught the defect on the day it landed. Every suite in this
-# directory ends the same way -- print the summary, then let `[[ $FAIL -eq 0 ]]` be the exit
-# status -- so the LAST echo in the file is the green-path summary. Render it with plausible
-# numbers and require a non-zero recognised count. Reading source, not running it: this file is
-# in the corpus and running the corpus would run itself.
+# [Co-developed with claude code -- Adam] 🔴 REWRITTEN 2026-09-27. The first version took the LAST
+# `echo "..."` in each suite's source as its summary. That is not what the lane reads: shell_summary
+# reads the whole LOG, and the last summary in it wins -- so an echo placed after the summary in the
+# source (a trailer, a heredoc line, a message in a function defined below), or a summary written
+# with printf, made that heuristic red on suites the lane scores correctly. 12 suites, red since
+# they changed shape; every one of the 12 was run for real (inside the guard, 09-27) and the lane's
+# own shell_summary + l1_lane_verdict read each run exactly: this side was the wrong one.
+#
+# What the lane needs of a suite is that its GREEN run prints a summary shell_summary reads. So:
+#   (1) every `echo` and `printf` in the source is rendered -- a printf's %d/%s filled from its own
+#       arguments, a counter whose name says fail/bad as 0 and every other as 9 ($((PASS + FAIL))
+#       is 9 + 0) -- and scored by
+#       the lane's own shell_summary; at least one must score a non-zero count. Where it sits no
+#       longer matters: a printf summary, or an echo that comes after it in the source, is fine.
+#   (2) the LAST one that scores (in source order; a print inside a function counts at that
+#       function's last call) must be on the path that runs to the end: no bare
+#       `exit <non-zero>` after it. That keeps what the old check caught -- a suite that
+#       still prints its failure-path summary (`...; exit 1`) but lost its green one would read
+#       NO-TESTS-RAN at run time -- without its false alarms.
+# mutate_l1_shell_scoring.sh's corpus mutants hold both halves. Reading source, not running it:
+# this file is in the corpus.
+render_prints() {   # render_prints <suite> -> "<effective line><TAB><rendered text>" per printable line
+    python3 - "$1" <<'PYR'
+import re, shlex, sys
+lines = open(sys.argv[1], errors="replace").read().split("\n")
+# A print inside a function body happens where the function is CALLED, not where it is written:
+# `done_() { echo "Ran ..."; ...; exit $?; }` near the top, `done_` as the file's last line
+# (test_run_layers_*). Its effective line is the function's last call at the start of a line.
+owner, depth, func_of = None, 0, {}
+for n, line in enumerate(lines, 1):
+    m = re.match(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*\(\)\s*\{", line)
+    if owner is None and m:
+        owner, depth = m.group(1), 0
+    if owner is not None:
+        func_of[n] = owner
+        depth += line.count("{") - line.count("}")
+        if depth <= 0:
+            owner = None
+def effective(n):
+    f = func_of.get(n)
+    if f is None:
+        return n
+    calls = [i for i, l in enumerate(lines, 1)
+             if i not in func_of and re.match(r"^\s*" + re.escape(f) + r"(\s|;|$)", l)]
+    return calls[-1] if calls else n
+def val(expr):
+    return "0" if re.search(r"fail|bad", expr, re.I) else "9"
+def arith(expr):   # $(( PASS + FAIL )) -> each counter by its name, then the sum: 9 + 0 = 9
+    e = re.sub(r"\$?\{?([A-Za-z_][A-Za-z0-9_]*)\}?", lambda m: val(m.group(1)), expr)
+    return str(eval(e, {"__builtins__": {}})) if re.fullmatch(r"[0-9+\-* ()]+", e) else "9"
+def expand(text):
+    text = re.sub(r"\$\(\(([^)]*)\)\)", lambda m: arith(m.group(1)), text)
+    text = re.sub(r"\$\{([A-Za-z_][A-Za-z0-9_]*)[^}]*\}", lambda m: val(m.group(1)), text)
+    return re.sub(r"\$([A-Za-z_][A-Za-z0-9_]*)", lambda m: val(m.group(1)), text)
+for n, line in enumerate(lines, 1):
+    for m in re.finditer(r"(?:^|[;&|{(]|\bthen|\belse|\bdo)\s*(echo|printf)\s+(.*)$", line):
+        rest = m.group(2)
+        try:   # the words of this one command: up to the first unquoted ; & | or redirection
+            lx = shlex.shlex(rest, posix=True, punctuation_chars=";&|<>")
+            lx.whitespace_split = True
+            words = []
+            for w in lx:
+                if w and set(w) <= set(";&|<>"):
+                    break
+                words.append(w)
+        except ValueError:
+            continue
+        words = [w for w in words if not (m.group(1) == "echo" and w in ("-e", "-n"))]
+        if not words:
+            continue
+        if m.group(1) == "echo":
+            outs = [expand(" ".join(words))]
+        else:
+            it = iter([expand(a) for a in words[1:]])
+            fmt = words[0].replace("%%", "%")
+            outs = re.sub(r"%[-0-9.]*[dsi]", lambda _m: next(it, "9"), fmt).replace("\\n", "\n").split("\n")
+        for o in outs:
+            if o.strip():
+                print(f"{effective(n)}\t{o}")
+PYR
+}
 for suite in "$SHELL_TESTS_DIR"/test_*.sh; do
     name="$(basename "$suite")"
-    line="$(grep -hoE '^ *echo "[^"]*"' "$suite" | tail -1 \
-            | sed -e 's/^ *echo "//' -e 's/"$//' \
-                  -e 's/\$((PASS *+ *FAIL))/9/g' -e 's/\$((PASS+FAIL))/9/g' \
-                  -e 's/\$PASS/9/g' -e 's/\$FAIL/0/g')"
-    if [[ -z "$line" ]]; then
-        check "C  $name ends in an echo this test can read" "found" "not found"
-        continue
+    last=0; lastline=""
+    while IFS=$'\t' read -r n line; do
+        [[ "$(summary_of "$line" | cut -d' ' -f1)" -gt 0 ]] && (( n >= last )) && { last="$n"; lastline="$line"; }
+    done < <(render_prints "$suite")
+    if (( last == 0 )); then
+        why="zero: no echo or printf in it renders to a summary"
+    else
+        bare="$(awk -v n="$last" 'NR > n && /^[[:space:]]*exit[[:space:]]+[1-9]/ {print NR; exit}' "$suite")"
+        why="$([[ -z "$bare" ]] && echo nonzero || echo "only on a failure path: its last summary (line $last) is followed by a bare exit at line $bare")"
     fi
-    check "C  $name's last line scores non-zero (it is '$line')" "nonzero" \
-          "$( [[ "$(summary_of "$line" | cut -d' ' -f1)" -gt 0 ]] && echo nonzero || echo zero )"
+    check "C  $name prints a summary this scorer reads on its green path" "nonzero" "$why"
 done
 
 echo
