@@ -61,13 +61,14 @@ fi
 echo "  $(tail -1 "$sb0/out.log")"
 rm -rf "$sb0"
 
-# mutate <name> <file-relative-to-sandbox-root> <python-mutation-expression> [<check that must go red>]
+# mutate <name> <file-relative-to-sandbox-root> <python-mutation-expression> [<check that must go red>
+#        [<text its "actual:" line must hold -- WHICH rule caught it>]]
 #
 # The mutation is a python snippet given the file text as `s` and expected to rebind `s`. It MUST
 # change the text: a no-op mutation would report KILLED or SURVIVED about nothing, which is the
 # failure mode this repo calls "the instrument looking like its own finding".
 mutate() {
-    local name="$1" rel="$2" expr="$3" want="${4:-}"
+    local name="$1" rel="$2" expr="$3" want="${4:-}" because="${5:-}"
     local sb; sb="$(build_sandbox)"
     local target="$sb/$rel"
 
@@ -93,12 +94,18 @@ PY
 
     local rc=0
     bash "$sb/$SUITE_REL" > "$sb/out.log" 2>&1 || rc=$?
+    local why=""
+    [[ -n "$because" ]] && why="$(awk -v w="  FAILED   $want" 'index($0, w) == 1 {f = 1; next}
+                                     f && /^ +actual:/ {print; exit}' "$sb/out.log")"
     if [[ "$rc" -ne 0 && -n "$want" ]] && ! grep -qF "  FAILED   $want" "$sb/out.log"; then
         echo "  SURVIVED $name   -- red, but not on '$want'"
         grep '^  FAILED' "$sb/out.log" | head -3 | sed 's/^/             /'
         SURVIVED=$((SURVIVED + 1))
+    elif [[ "$rc" -ne 0 && -n "$because" && "$why" != *"$because"* ]]; then
+        echo "  SURVIVED $name   -- '$want' red, but not because '$because' (${why:-no actual: line})"
+        SURVIVED=$((SURVIVED + 1))
     elif [[ "$rc" -ne 0 ]]; then
-        echo "  KILLED   $name   (suite rc=$rc, $(grep -c '^  FAILED' "$sb/out.log") check(s) red${want:+, '$want' among them})"
+        echo "  KILLED   $name   (suite rc=$rc, $(grep -c '^  FAILED' "$sb/out.log") check(s) red${want:+, '$want' among them}${because:+, because '$because'})"
         KILLED=$((KILLED + 1))
     else
         echo "  SURVIVED $name   -- the suite stayed GREEN with this defect present"
@@ -182,21 +189,30 @@ s = s.replace("elif [[ \"$failed\"  -gt 0 ]]; then echo FAIL-CHECKS",
 echo
 echo "=== mutations: the corpus check (group C) actually reads the corpus ==="
 
-mutate "a suite stops printing its GREEN-path summary (the failure one is still there)" "$CORPUS_REL" '
+# [Co-developed with claude code -- Adam] (09-27) each corpus mutant names the check that must go
+# red AND the rule that must be the reason: "zero" is rule (1), no summary at all; "followed by a
+# bare exit" is rule (2), a summary left only on the failure path. The first is the defect the
+# old last-echo check was written for; with rule (2) gone it survives (its failure-path summary
+# still scores).
+mutate "a suite stops printing its GREEN-path summary (its failure one, followed by a bare exit, is left)" "$CORPUS_REL" '
 s = s.replace("echo \"Ran $((PASS + FAIL)) checks, all passed\"",
               "echo \"everything is fine\"")
-' "C  test_faults.sh"
+' "C  test_faults.sh prints" "followed by a bare exit at line"
 mutate "a suite stops printing any summary the lane understands" "$CORPUS_REL" '
 s = s.replace("echo \"Ran $((PASS + FAIL)) checks, all passed\"",
               "echo \"everything is fine\"")
 s = s.replace("echo \"Ran $((PASS + FAIL)) checks, $FAIL failed\"",
               "echo \"something failed\"")
-' "C  test_faults.sh"
-# [Co-developed with claude code -- Adam] (09-27) the same for a suite that prints its summary with
-# printf -- the form the old last-echo heuristic could not read at all
+' "C  test_faults.sh prints" "zero:"
+# the same two for a suite that prints its summary with printf -- the form the old last-echo
+# heuristic could not read at all (it was red on this suite before any mutation)
 mutate "a printf-summary suite stops printing a summary the lane understands" "$CORPUS_PRINTF_REL" '
 s = s.replace("printf \x27\\nRan %d checks, %d failed\\n\x27", "printf \x27\\nDone: %d, %d\\n\x27")
-' "C  test_stack_log_rotation.sh"
+' "C  test_stack_log_rotation.sh prints" "zero:"
+mutate "a printf-summary suite prints it only on the failure path, followed by a bare exit" "$CORPUS_PRINTF_REL" '
+s = s.replace("printf \x27\\nRan %d checks, %d failed\\n\x27 \"$((PASS+FAIL))\" \"$FAIL\"\n[[ \"$FAIL\" -eq 0 ]] || exit 1\n",
+              "if [[ \"$FAIL\" -ne 0 ]]; then\n    printf \x27\\nRan %d checks, %d failed\\n\x27 \"$((PASS+FAIL))\" \"$FAIL\"\n    exit 1\nfi\n")
+' "C  test_stack_log_rotation.sh prints" "followed by a bare exit at line"
 
 echo
 echo "===== $((KILLED + SURVIVED)) mutation(s): $KILLED killed, $SURVIVED survived ====="
