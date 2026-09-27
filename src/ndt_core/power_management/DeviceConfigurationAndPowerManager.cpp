@@ -794,7 +794,14 @@ DeviceConfigurationAndPowerManager::pollP4SwitchState()
         payload = fetchP4SwitchState();
     }
 
-    // RED-FIRST STUB: nothing is recorded yet.
+    // Replaced on every tick, including the ones that asked nothing or got nothing back: an empty
+    // record is what makes get_graph_data omit the key, and omitting it is the only answer the
+    // kernel has when it cannot read the proxy (P4Capabilities.hpp).
+    p4caps::CapabilitiesByDpid capabilities = p4caps::fromSwitchState(payload);
+    {
+        std::lock_guard<std::mutex> lock(m_p4CapabilitiesMutex);
+        m_p4Capabilities = std::move(capabilities);
+    }
     return payload;
 }
 

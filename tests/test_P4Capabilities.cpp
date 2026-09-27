@@ -518,6 +518,9 @@ TEST_F(P4CapabilitiesWire, EachSwitchNodeCarriesItsOwnCapabilitiesVerbatim)
 
     HttpSessionP4CapabilitiesTestPeer peer{m_monitor, m_manager};
     const json body = peer.getGraphData();
+    // The served body, for a consumer's fixture: --gtest_output=xml records it as a property. The
+    // Web-GUI's src/utils/p4Capabilities.kernel-graph.json is this value. It asserts nothing.
+    RecordProperty("graph_data_body", body.dump());
 
     std::map<std::uint64_t, json> switches;
     int hosts = 0;
