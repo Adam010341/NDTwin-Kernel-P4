@@ -26,7 +26,7 @@
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOOL="${EVIDENCE_UNDER_TEST:-$HERE/../../doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_evidence.py}"
-PY="${PY:-/usr/bin/python3}"
+EVIDENCE_PY="${EVIDENCE_PY:-/usr/bin/python3}"
 
 PASS=0; FAIL=0
 check() {   # <name> <expected> <actual>
@@ -85,7 +85,7 @@ mkrun() {
         echo "gRPC error occurred: <_InactiveRpcError of RPC that terminated with:"
     } > "$rounds/fc_sol/driver-controller-flowcache.log"
 }
-ev() { "$PY" "$TOOL" "$@" 2>&1; echo "RC=$?"; }
+ev() { "$EVIDENCE_PY" "$TOOL" "$@" 2>&1; echo "RC=$?"; }
 rc_of() { sed -n 's/^RC=//p' <<<"$1" | tail -1; }
 line_of() { /usr/bin/grep -F -- "$2" <<<"$1" | head -1 | sed 's/^ *//'; }
 

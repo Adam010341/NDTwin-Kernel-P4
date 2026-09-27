@@ -367,7 +367,9 @@ open(sys.argv[2],'a').write('\n')" "$out.raw" "$out" 2>/dev/null; then
 
 # jqp <file> <python-expr over d> -- one value out of a saved capture, printed.
 # heartbeat_skips_verdict <switch_state.json> <want: the sorted list, as Python prints it> -- a
-# foreign, non-external fabric's fabric-level answer, one line, OK ... or BAD ....
+# foreign fabric's fabric-level answer, one line, OK ... or BAD .... [Co-developed with claude code
+# -- Adam] 02 asks it with its two names; 03/04, on an external control plane that runs the
+# heartbeat detect-only since 09-27, with their five.
 # [Co-developed with claude code -- Adam] The opus judge's N1 (09-27): the expectation is NOT picked
 # from the proxy's own `heartbeat.watchdog`. `ndt up p4 --app` starts the heartbeat on such a
 # fabric, so the watchdog MUST run -- anything else is the failure, named with the proxy's own
@@ -387,8 +389,9 @@ if not isinstance(hb, dict):
           "does not call this fabric foreign) -- the heartbeat watchdog is not running")
 elif hb.get("watchdog") != "running":
     print(f"BAD heartbeat.watchdog is {hb.get('watchdog')!r}, not 'running' (heartbeat.error: "
-          f"{hb.get('error')}) -- `ndt up p4 --app` starts the heartbeat on a foreign, non-external "
-          f"fabric, and the proxy's watchdog must run on it")
+          f"{hb.get('error')}) -- `ndt up p4 --app` starts the heartbeat on a foreign pipeline "
+          f"(an external control plane's included, detect only, since 09-27), and the proxy's "
+          f"watchdog must run on it")
 elif skipped != sys.argv[2]:
     print(f"BAD control_plane.skipped is {skipped}, want {sys.argv[2]} -- no LLDP on a pipeline "
           f"without a controller header, and the watchdog runs, fed by the heartbeat")

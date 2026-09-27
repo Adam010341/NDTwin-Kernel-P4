@@ -43,6 +43,8 @@ mutant() {
     local name="$1" d="$BK/$name"
     mkdir -p "$d"
     cp "$STEP" "$d/06_thirteen.sh"
+    # [Co-developed with claude code -- Adam] 06 runs its fingerprint script from beside itself (09-27).
+    cp "$(dirname "$STEP")/venv_fingerprint.sh" "$d/venv_fingerprint.sh"
     python3 - "$d/06_thirteen.sh" "$A/$name.old" "$A/$name.new" <<'PY'
 import sys, io
 target, oldf, newf = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -340,6 +342,16 @@ cat > "$A/c1.new" <<'EOF'
 # which rc this arm should end on
 expected_rc() {   # expected_rc <exercise> <which>
 EOF
+# [Co-developed with claude code -- Adam] M12 (09-27): 06 records no venv fingerprint.
+cat > "$A/m12.old" <<'EOF'
+if bash "$HERE/venv_fingerprint.sh" "$RUN/00_venv.txt" "$REPO/p4_proxy/venv/bin/python" "$VENV_PY"; then
+EOF
+cat > "$A/m12.new" <<'EOF'
+if true; then
+EOF
+check_fires "M12: 06 records no venv fingerprint" m12 \
+            "🔴 the raw records the venv fingerprint of both interpreters"
+
 check_control "C1: a comment above expected_rc" c1
 
 echo

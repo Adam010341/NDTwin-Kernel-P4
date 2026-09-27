@@ -52,6 +52,9 @@ mutant() {
     local name="$1" d="$BK/$name"
     mkdir -p "$d"
     cp "$COMMON" "$d/_common.sh"
+    # [Co-developed with claude code -- Adam] _common.sh names its fingerprint script beside itself
+    # (VENV_FINGERPRINT, 09-27); a copy without it would disclose a failed fingerprint in every mutant.
+    cp "$(dirname "$COMMON")/venv_fingerprint.sh" "$d/venv_fingerprint.sh"
     python3 - "$d/_common.sh" "$A/$name.old" "$A/$name.new" <<'PY'
 import sys, io
 target, oldf, newf = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -1033,6 +1036,26 @@ elif False:
 EOF
 check_fires "M53: the skipped list is not compared" m53 \
             "🔴 running with link_watchdog still named: BAD"
+
+# --- M54-M55 (09-27): every run records the venv fingerprint ------------------------------------
+# [Co-developed with claude code -- Adam] M54 never takes it; M55 takes it and says nothing when it
+# could not.
+cat > "$A/m54.old" <<'EOF'
+    record_venvs "$RUN/00_venv.txt"
+EOF
+cat > "$A/m54.new" <<'EOF'
+    :
+EOF
+check_fires "M54: start_step records no venv fingerprint" m54 \
+            "🔴 the raw has 00_venv.txt" "🔴 a missing interpreter is written down as such"
+cat > "$A/m55.old" <<'EOF'
+        disclose "the venv fingerprint was not fully recorded ($(basename "$1") says which interpreter did not answer)"
+EOF
+cat > "$A/m55.new" <<'EOF'
+        note "the venv fingerprint was not fully recorded ($(basename "$1") says which interpreter did not answer)"
+EOF
+check_fires "M55: a fingerprint that could not be taken is not disclosed" m55 \
+            "🔴 and disclosed above the last line"
 
 # --- T1 (the judge, 09-27): the suite's 5e back on $PKG3 -- a TEST-side mutant --------------------
 # [Co-developed with claude code -- Adam] The cells as they were before b2e656e5: h1..h3, the names

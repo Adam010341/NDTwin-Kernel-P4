@@ -108,8 +108,7 @@ if [[ -s "$SS0" ]]; then
     N_SW="$(jqp "$SS0" "len(d.get('switches') or [])")"
     note "control_plane.mode  $MODE"
     note "control_plane.skipped $SKIPPED"
-    HB_WD="$(jqp "$SS0" "(d.get('heartbeat') or {}).get('watchdog')")"
-    note "heartbeat.watchdog  $HB_WD"
+    note "heartbeat.watchdog  $(jqp "$SS0" "(d.get('heartbeat') or {}).get('watchdog')")"
     note "entries_recorded    $ENTRIES"
     note "switches            $N_SW"
     [[ "$MODE" == external ]] || fail "control_plane.mode is '$MODE', want external"
@@ -120,18 +119,11 @@ if [[ -s "$SS0" ]]; then
     # The names the proxy actually emits (P1-A's startup(); live 2026-09-18:
     # clone_session, install_initial_routes, link_watchdog, lldp_discovery, pipeline_push, sflow_telemetry).
     # [Co-developed with claude code -- Adam] 09-27: `ndt up p4 --app` starts the heartbeat on this
-    # fabric too (an external control plane on its own pipeline, detect only), and while it drives
-    # the watchdog `link_watchdog` is NOT skipped (Adam's ruling E) -- so it is asked for only when
-    # switch_state's own heartbeat.watchdog says the heartbeat watchdog is not running, the way
-    # 02 asks. The other five are skipped either way.
-    WANT_SKIPPED="pipeline_push clone_session lldp_discovery install_initial_routes sflow_telemetry"
-    [[ "$HB_WD" == running ]] || WANT_SKIPPED="$WANT_SKIPPED link_watchdog"
-    for s in $WANT_SKIPPED; do
-        /usr/bin/grep -qF "'$s'" <<<"$SKIPPED" || fail "control_plane.skipped does not name '$s': $SKIPPED (heartbeat.watchdog $HB_WD)"
-    done
-    if [[ "$HB_WD" == running ]] && /usr/bin/grep -qF "'link_watchdog'" <<<"$SKIPPED"; then
-        fail "control_plane.skipped names 'link_watchdog' while heartbeat.watchdog is running: $SKIPPED"
-    fi
+    # fabric too (an external control plane on its own pipeline, detect only), so the heartbeat
+    # watchdog must RUN -- asserted, not read to choose a list (the opus judge's N1 on 02) -- and
+    # while it does `link_watchdog` is not skipped (Adam's ruling E); the other five are.
+    V="$(heartbeat_skips_verdict "$SS0" "['clone_session', 'install_initial_routes', 'lldp_discovery', 'pipeline_push', 'sflow_telemetry']")"
+    [[ "$V" == OK* ]] || fail "${V#BAD }"
 fi
 
 # --- TICKET-P2-F: the twin's liveness BEFORE any controller has run. RECORDED, NOT ASSERTED ---

@@ -1897,11 +1897,14 @@ async def startup(clients_factory, sflow, kernel, topo,
         # foreign pipeline the declared links ARE watched now, by the heartbeat, detect only.
         watched = (" Its declared links are watched by the root helper's heartbeat, detect only: "
                    "a cut is told to the kernel and no route is rewritten." if foreign else "")
+        # The Skipped list is printed once the heartbeat decision below has settled it (the
+        # foreign fabric's line learned that from the opus judge's F2, 09-27): on a foreign
+        # pipeline `link_watchdog` leaves it when the heartbeat drives the watchdog.
         print(f"[Proxy Agent] app package {package.name} declares an EXTERNAL control plane: "
               f"this proxy will not push pipelines, program clone sessions, send LLDP beacons "
               f"or install routes on any of the {len(clients)} switches it "
-              f"connected to. It reads only.{watched} Skipped: {', '.join(sorted(skipped))}. "
-              f"Reported on GET /p4/switch_state.")
+              f"connected to. It reads only.{watched} What it skipped follows once startup has "
+              f"decided it. Reported on GET /p4/switch_state.")
 
     # Wait ONCE for mastership to be confirmed on all switches.
     # asyncio.sleep, not time.sleep: this coroutine runs on the event loop, and a blocking sleep
@@ -2277,6 +2280,9 @@ async def startup(clients_factory, sflow, kernel, topo,
         _fabric.update(heartbeat_watchdog=started, heartbeat_error=error)
         if started and SKIP_WATCHDOG in skipped:
             skipped.remove(SKIP_WATCHDOG)
+    if _fabric.get("external"):
+        print(f"[Proxy Agent] external control plane, skipped: {', '.join(sorted(set(skipped)))}. "
+              f"Reported on GET /p4/switch_state.")
     if foreign_note is not None:
         print(foreign_note + f"Skipped: {', '.join(sorted(set(skipped)))}. The per-switch skips (no "
                              f"clone session, no sFlow) are on each switch's own `pipeline.skipped`, "

@@ -420,6 +420,26 @@ class AnExternalControlPlaneOnItsOwnPipelineDetectsOnlyTest(unittest.TestCase):
         self.assertEqual(main.reroute_report()["reason"], "external_control_plane")
         self.assertEqual(main.heartbeat_report()["watchdog"], "not_started")
 
+    def test_the_startup_log_names_the_skipped_list_switch_state_serves(self):
+        # The external line's Skipped list, printed after the heartbeat decision (as the foreign
+        # line's is): no link_watchdog while the heartbeat drives the watchdog, and named when the
+        # heartbeat watchdog did not start.
+        import contextlib
+        import io
+        for topo, named in ((HeartbeatTopo(), False),
+                            (HeartbeatTopo(raises=OSError("the report cannot be read")), True)):
+            with self.subTest(named=named):
+                out = io.StringIO()
+                with contextlib.redirect_stdout(out):
+                    summary, _ = run_startup({1: FakeClient(1)}, topo=topo,
+                                             package=EXTERNAL_FOREIGN)
+                line = [x for x in out.getvalue().splitlines()
+                        if x.startswith("[Proxy Agent] external control plane, skipped: ")]
+                self.assertEqual(len(line), 1, out.getvalue())
+                listed = line[0].split("skipped: ", 1)[1].split(". ", 1)[0].split(", ")
+                self.assertEqual(sorted(listed), sorted(summary["control_plane"]["skipped"]))
+                self.assertEqual(main.SKIP_WATCHDOG in listed, named)
+
     def test_the_prediction_before_startup_says_declared(self):
         caps = main._capabilities_blank(EXTERNAL_FOREIGN, [1, 2])
         self.assertEqual((caps["1"]["reroute"], caps["1"]["link_discovery"]), (False, "declared"))

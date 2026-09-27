@@ -86,8 +86,9 @@ proxy log 那 40 行裡要有 `[Proxy Agent] app package: baseline (mode ndtwin,
 stream、不推 pipeline、不寫任何東西、不發 LLDP、不裝路由；`skipped` 要含
 `pipeline_push`／`clone_session`／`lldp`／`link_watchdog`／`initial_routes` 五個）。
 （09-27 起 `ndt up` 在這個 fabric 上也啟動心跳，**只偵測**：`heartbeat.watchdog` 是 `running` 時
-`link_watchdog` **不在** `skipped` 裡——watchdog 在跑，由心跳餵；其餘五個照樣在。03／04 依 switch_state 自己的
-`heartbeat.watchdog` 決定要不要 `link_watchdog`，跟 02 一樣。）
+`link_watchdog` **不在** `skipped` 裡——watchdog 在跑，由心跳餵；其餘五個照樣在。03／04 **斷言** `heartbeat.watchdog`
+是 `running`（不是讀它來挑清單；opus judge 09-27 對 02 的 N1），再要求那五個，跟 02 共用 `_common.sh` 的
+`heartbeat_skips_verdict`。）
 `ndt up` 的 [3/3] 會把「路徑數」與「轉發」兩格印成 **NOT CHECKED／NOT TESTED 並說原因**，
 而不是判紅或判綠——這一步看到那兩行是**預期**，不是故障。
 

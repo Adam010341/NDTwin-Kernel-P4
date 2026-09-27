@@ -1214,6 +1214,18 @@ check "  02 asks this verdict, with the two-name list"      "1" \
       "$(/usr/bin/grep -c '^    V="$(heartbeat_skips_verdict "$SS" "$FABRIC_SKIPS_HB")"$' "$LIVE/02_app_basic.sh")"
 check "🔴 and 02 no longer picks its list from heartbeat.watchdog" "0" \
       "$(/usr/bin/grep -c 'HB_WD" == running' "$LIVE/02_app_basic.sh")"
+# [Co-developed with claude code -- Adam] 09-27, external detect-only: 03/04 ask the same verdict
+# with the five names an external control plane skips while the heartbeat drives its watchdog.
+W5="['clone_session', 'install_initial_routes', 'lldp_discovery', 'pipeline_push', 'sflow_telemetry']"
+st18 ext_running.json running - "['pipeline_push', 'clone_session', 'lldp_discovery', 'install_initial_routes', 'sflow_telemetry']"
+st18 ext_six.json running - "['pipeline_push', 'clone_session', 'lldp_discovery', 'link_watchdog', 'install_initial_routes', 'sflow_telemetry']"
+V5() { ( source "$COMMON" >/dev/null 2>&1; PY="$REAL_PY"; heartbeat_skips_verdict "$FIX18/$1" "$W5" ); }
+check "🔴 external, running, the five names: OK"            "OK heartbeat.watchdog running, control_plane.skipped $W5" "$(V5 ext_running.json)"
+has   "🔴 external, running, link_watchdog still named: BAD" "BAD control_plane.skipped is" "$(V5 ext_six.json)"
+for step in 03_app_p4runtime 04_diag_p4runtime; do
+    check "  $step asks this verdict, with the five names"  "1" \
+          "$(/usr/bin/grep -cF "V=\"\$(heartbeat_skips_verdict \"\$SS0\" \"$W5\")\"" "$LIVE/$step.sh")"
+done
 rm -rf "$FIX18"
 
 # =============================================================================================

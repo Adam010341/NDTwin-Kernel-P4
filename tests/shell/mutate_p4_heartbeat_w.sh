@@ -603,7 +603,8 @@ m=$(mutant m01b "$MAIN" \
         _fabric["routes_blocked"] = _routes_blocked_word(clients, foreign)' \
     '    if _fabric.get("declared_links") or read_only:
         _fabric["routes_blocked"] = _routes_blocked_word(clients, foreign)')
-report "M01b: an external control plane starts it" "$m" "test_an_external_fabric_does_not_start_it"
+report "M01b: an external control plane on NDTwin's own pipeline starts it" "$m" \
+       "test_an_external_fabric_on_ndtwins_own_pipeline_does_not_start_it"
 m=$(mutant m02 "$MAIN" \
     '        started, error = _start_heartbeat_watchdog(topo)' \
     '        started, error = False, "mutant"')
@@ -709,6 +710,75 @@ m=$(mutant f2 "$MAIN" \
     '        print(foreign_note + f"Skipped: {'"'"', '"'"'.join(sorted(set(skipped) | {SKIP_WATCHDOG}))}. The per-switch skips (no "')
 report "F2: the startup log names link_watchdog skipped while the heartbeat drives it" "$m" \
        "test_the_startup_log_names_the_same_skipped_list_switch_state_serves"
+# [Co-developed with claude code -- Adam] 09-27, external detect-only. X1 declares nothing on an
+# external control plane (the branch as it was); X2 lets its watchdog pass reroute; X3 asks the
+# heartbeat before `external`; X5 predicts its links `none` again; X6/X7 the
+# reroute detail; X8 a pipeline push on it (the write the tests count); X9 the external line's list.
+m=$(mutant x1 "$MAIN" \
+    '    elif read_only and foreign:' \
+    '    elif False:')
+report "X1: an external control plane on its own pipeline declares nothing" "$m" \
+       "test_it_declares_its_links_and_starts_the_heartbeat_watchdog"
+m=$(mutant x2 "$MAIN" \
+    '    topo.routes_to_attached_hosts_only = SKIP_ROUTES in skipped' \
+    '    topo.routes_to_attached_hosts_only = SKIP_ROUTES in skipped and not _fabric.get("external")')
+report "X2: the external fabric's watchdog pass may reroute" "$m" \
+       "test_the_route_writer_is_left_skipping_so_a_cut_rewrites_nothing"
+m=$(mutant x2b "$MAIN" \
+    '    topo.routes_to_attached_hosts_only = SKIP_ROUTES in skipped' \
+    '    topo.routes_to_attached_hosts_only = SKIP_ROUTES in skipped and not _fabric.get("external")')
+report "X2b: (the same, end to end: a real TopologyManager's cut)" "$m" \
+       "test_the_cut_is_told_to_the_kernel_and_no_route_is_rewritten"
+m=$(mutant x3 "$MAIN" \
+    '    if _fabric.get("external"):
+        # [Co-developed with claude code -- Adam] The detail says what the heartbeat does for this' \
+    '    if _fabric.get("external") and not _fabric.get("declared_links"):
+        # [Co-developed with claude code -- Adam] The detail says what the heartbeat does for this')
+report "X3: the heartbeat is asked before external" "$m" \
+       "test_even_with_every_table_bound_to_ndtwin_it_does_not_reroute"
+m=$(mutant x3b "$MAIN" \
+    '    if _fabric.get("external"):
+        # [Co-developed with claude code -- Adam] The detail says what the heartbeat does for this' \
+    '    if _fabric.get("external") and not _fabric.get("declared_links"):
+        # [Co-developed with claude code -- Adam] The detail says what the heartbeat does for this')
+report "X3b: (the same, seen as the reason on a usable heartbeat)" "$m" \
+       "test_reroute_is_false_for_the_external_reason_even_when_the_heartbeat_is_usable"
+m=$(mutant x5 "$MAIN" \
+    '    fabric = {"lldp": runs, "watchdog": runs, "declared_links": foreign}' \
+    '    fabric = {"lldp": runs, "watchdog": runs, "declared_links": foreign and not external}')
+report "X5: the prediction says an external fabric declares nothing" "$m" \
+       "test_the_prediction_before_startup_says_declared"
+m=$(mutant x6 "$MAIN" \
+    '                       "route is rewritten." if reading is not None and reading.usable else' \
+    '                       "route is rewritten." if True else')
+report "X6: the detail says cuts are detected when the heartbeat is not usable" "$m" \
+       "test_an_unusable_heartbeat_is_declared_and_still_external"
+m=$(mutant x7 "$MAIN" \
+    '        if _fabric.get("heartbeat_watchdog"):
+            reading = _heartbeat_reading()' \
+    '        if False:
+            reading = _heartbeat_reading()')
+report "X7: the external detail never mentions the heartbeat" "$m" \
+       "test_reroute_is_false_for_the_external_reason_even_when_the_heartbeat_is_usable"
+m=$(mutant x8 "$MAIN" \
+    '        if read_only or not client.json_path:
+            continue' \
+    '        if not client.json_path:
+            continue')
+report "X8: a pipeline is pushed on an external control plane" "$m" \
+       "test_no_client_is_asked_to_write_anything"
+m=$(mutant x9 "$MAIN" \
+    '        print(f"[Proxy Agent] external control plane, skipped: {'"'"', '"'"'.join(sorted(set(skipped)))}. "' \
+    '        print(f"[Proxy Agent] external control plane, skipped: {'"'"', '"'"'.join(sorted(set(skipped) | {SKIP_WATCHDOG}))}. "')
+report "X9: the external line names link_watchdog skipped while the heartbeat drives it" "$m" \
+       "test_the_startup_log_names_the_skipped_list_switch_state_serves"
+m=$(mutant x10 "$MAIN" \
+    '        if started and SKIP_WATCHDOG in skipped:
+            skipped.remove(SKIP_WATCHDOG)' \
+    '        if started and SKIP_WATCHDOG in skipped and not _fabric.get("external"):
+            skipped.remove(SKIP_WATCHDOG)')
+report "X10: link_watchdog stays named skipped on an external fabric the heartbeat watches" "$m" \
+       "test_link_watchdog_leaves_the_list_while_the_heartbeat_drives_it"
 m=$(mutant e2 "$MAIN" \
     '        if started and SKIP_WATCHDOG in skipped:' \
     '        if SKIP_WATCHDOG in skipped:')
@@ -834,11 +904,12 @@ report "A07: delete_strict is not the delete handler" "$m" "test_both_delete_rou
 echo "round 2: the census, and the helper's report as the proxy reads it"
 m=$(mutant m28 "$MAIN" \
     '               "skeletons do not build. Segment S'"'"'s census started the heartbeat by hand (the "
-               "helper, not ndt) on all 20; `ndt up p4 --app` starts it on 17 of them -- the other "
-               "3 (p4runtime skeleton and solution, flowcache solution) are external control "
-               "planes, where `ndt up` does not start it.",' \
+               "helper, not ndt) on all 20; `ndt up p4 --app` starts it on all 20 too since "
+               "2026-09-27 -- on the 3 external control planes among them (p4runtime skeleton and "
+               "solution, flowcache solution) detect only: a cut is told to the twin and no route "
+               "is rewritten.",' \
     '               "skeletons do not build.",')
-report "M28: the census does not say which 17 arms ndt up starts it on" "$m" \
+report "M28: the census does not say which arms ndt up starts it on" "$m" \
        "test_the_census_says_which_of_its_arms_ndt_up_starts_the_heartbeat_on"
 m=$(mutant k01 "$HELPER" \
     '        end = lambda port: {"dpid": port.dpid, "port": port.port, "ifname": port.ifname}' \
@@ -930,13 +1001,24 @@ m=$(nmutant n01 "$NDT" \
     '    :')
 nreport "N01: ndt up never starts the heartbeat" "$m" "🔴 exactly one 'heartbeat start'"
 m=$(nmutant n02 "$NDT" \
-    '    [[ "$1" == foreign:* && "$2" != external ]]' \
+    '    [[ "$1" == foreign:* ]]' \
     '    true')
 nreport "N02: every bring-up starts it (NDTwin's pipeline too)" "$m" "🔴 and never asks for a heartbeat (it has LLDP)"
+# [Co-developed with claude code -- Adam] 09-27, external detect-only: N03 is now the condition as it
+# was before (no heartbeat on an external control plane); N03b drops the detect-only sentence, N03c
+# says it on every foreign fabric.
 m=$(nmutant n03 "$NDT" \
-    '    [[ "$1" == foreign:* && "$2" != external ]]' \
-    '    [[ "$1" == foreign:* ]]')
-nreport "N03: an external control plane gets one" "$m" "🔴 and does not start one: the proxy reads only there"
+    '    [[ "$1" == foreign:* ]]' \
+    '    [[ "$1" == foreign:* && "$2" != external ]]')
+nreport "N03: an external control plane gets none again" "$m" "🔴 exactly one 'heartbeat start' on an external plane"
+m=$(nmutant n03b "$NDT" \
+    '        0) if [[ "$2" == external ]]; then' \
+    '        0) if false; then')
+nreport "N03b: an external fabric is told its cuts are routed around" "$m" "🔴 and ndt says it detects only"
+m=$(nmutant n03c "$NDT" \
+    '        0) if [[ "$2" == external ]]; then' \
+    '        0) if true; then')
+nreport "N03c: every foreign fabric is called detect-only" "$m" "🔴 a non-external foreign fabric is not called detect-only"
 m=$(nmutant n04 "$NDT" \
     '    heartbeat_up_step "$app_pipe" "$app_mode"' \
     '    heartbeat_up_step "$app_pipe" "$app_mode"; [[ -e "$HB_PIDFILE" ]] || { rollback_up "the heartbeat did not start"; return 1; }')
@@ -1440,6 +1522,26 @@ m=$(lmutant l63 "$LIVE08" \
     '    :')
 lreport "L63: an early exit drops the over-cycles measured before it" "$m" \
         "  H1's last lines after an early exit following an OVER cycle were"
+# [Co-developed with claude code -- Adam] 09-27, external detect-only: H4's two new verdicts and the
+# arm list. L64 reads only the source, L65 only one direction, L66 accepts any cable, L67 is the
+# 17-arm list as it was.
+m=$(lmutant l64 "$LIVE08" \
+    '           if not isinstance(v, dict) or v.get("down") is not (want == "down") or v.get("source") != "heartbeat"]' \
+    '           if not isinstance(v, dict) or v.get("source") != "heartbeat"]')
+lreport "L64: the proxy's cut is read without its down flag" "$m" "H4 one direction still up"
+m=$(lmutant l65 "$LIVE08" \
+    '    got = {k: links.get(k) for k in (f"{a}:{ap}->{b}:{bp}", f"{b}:{bp}->{a}:{ap}")}' \
+    '    got = {k: links.get(k) for k in (f"{a}:{ap}->{b}:{bp}",)}')
+lreport "L65: only one direction of the cut is read" "$m" "H4 one direction still up"
+m=$(lmutant l66 "$LIVE08" \
+    '    if (a, ap, b, bp) in pairs and (b, bp, a, ap) in pairs:' \
+    '    if True:')
+lreport "L66: any cable is one the package declares" "$m" "H4 a cable the package does not declare"
+m=$(lmutant l67 "$LIVE08" \
+    'ecn/solution mri/skeleton mri/solution p4runtime/skeleton p4runtime/solution flowcache/solution"' \
+    'ecn/solution mri/skeleton mri/solution"')
+lreport "L67: HB_ARMS without the external arms (17, as before)" "$m" \
+        "HB_ARMS names 17 arms, not 20"
 m=$(lmutant l47 "$LIVE08" \
     '    if d <= b:
         return f"OK detection {d:.3f} s, within the strict {b:g} s"' \
