@@ -70,6 +70,16 @@ BASIC_P4INFO = os.path.join(REPO, "tools", "p4_exercise", "tests", "fixtures", "
                             "basic.p4.p4info.txtpb")
 PROXY_AGENT = os.path.join(PROXY_DIR, "proxy_agent")
 
+# [Co-developed with claude code -- Adam] NDTwin's own compiled p4info, which the baseline's client
+# parses when it is built. It is compiled output (l0_build_check.sh p4, gitignored), so a fresh
+# checkout -- a CI runner -- has none: the two cases that build a baseline client skip there, and
+# l1_unit_tests.sh reports that as PROVED LESS only when it sees for itself that the file is
+# missing (its HAVE_P4INFO). Where the file exists, a skip here is a failure.
+NDTWIN_P4INFO = os.path.join(PROXY_DIR, "p4_src", "build", "ndtwin_switch.p4info.txt")
+needs_compiled_p4info = unittest.skipUnless(
+    os.path.exists(NDTWIN_P4INFO),
+    "p4info not built; run tools/test_workflow/l0_build_check.sh p4")
+
 #: renamed_route.p4's route table, as package.json spells it.
 RENAMED_ROLE = {"owner": "ndtwin", "table": "RouteIngress.dest_routes",
                 "match_field": "hdr.ip4.dst", "action": "RouteIngress.send_via",
@@ -485,6 +495,7 @@ class TheFactoryBindsEveryClientTest(unittest.TestCase):
         self.addCleanup(client.channel.close)
         return client
 
+    @needs_compiled_p4info
     def test_ndtwins_own_pipeline_is_bound_to_the_baseline(self):
         self.assertIs(self.build(app_package.baseline()).route_binding, BASELINE)
 
@@ -500,6 +511,7 @@ class TheFactoryBindsEveryClientTest(unittest.TestCase):
         binding = self.build(self.basic_owned).route_binding
         self.assertEqual((binding.owner, binding.source), ("package", "package"))
 
+    @needs_compiled_p4info
     def test_the_install_time_record_keys_by_the_renamed_table(self):
         # The record's key is the table name read_table_entries will report for this switch.
         self.assertEqual(self.build(self.renamed).IPV4_LPM_TABLE, "RouteIngress.dest_routes")

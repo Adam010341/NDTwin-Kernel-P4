@@ -356,6 +356,18 @@ with open(BINARY_OVERRIDE, "w") as _fh:
 #: argv today and therefore what has to land in it after this change.
 BASELINE_JSON = os.path.join(MININET_DIR, "..", "p4_src", "build", "ndtwin_switch.json")
 
+# [Co-developed with claude code -- Adam] (2026-09-28) That file is compiled output
+# (tools/test_workflow/l0_build_check.sh p4; gitignored), and the pre-flight refuses a fabric whose
+# program is not on disk -- correctly. A fresh checkout (a CI runner) has none, so every case below
+# that plans or brings up a switch running NDTwin's own pipeline skips there: the ones marked
+# @needs_compiled_baseline, which are exactly the cases that fail without the file (82 of 112,
+# measured 2026-09-27). l1_unit_tests.sh reports those skips as PROVED LESS only when it sees for
+# itself that the compiled artefacts are missing (its HAVE_P4INFO); where they exist, a skip here
+# is a failure, so the lab still runs every case.
+needs_compiled_baseline = unittest.skipUnless(
+    os.path.exists(BASELINE_JSON),
+    "NDTwin's compiled program is not built; run tools/test_workflow/l0_build_check.sh p4")
+
 
 def load_two_program_package_fixture(only_s1_is_foreign=False, name="two-programs"):
     """A/P1's `basic` package with exercises/firewall's per-switch pipeline shape laid on it.
@@ -657,6 +669,7 @@ class FabricFixture(unittest.TestCase):
 # --- 1. the baseline is what it was ------------------------------------------------------------
 
 
+@needs_compiled_baseline
 class BaselineIsWhatItWasTest(FabricFixture):
     """No knob: the argv, the ARP and the manifest, each against the literal it comes from."""
 
@@ -768,6 +781,7 @@ class BaselineIsWhatItWasTest(FabricFixture):
         self.assertEqual(self.manifest_contents(), {})
 
 
+@needs_compiled_baseline
 class TheBaselineAt128HostsTest(FabricFixture):
     """The one place the two old copies DISAGREED, and the disagreement had been measured."""
 
@@ -802,6 +816,7 @@ class TheBaselineAt128HostsTest(FabricFixture):
 # --- 2. one bring-up, two entry points ----------------------------------------------------------
 
 
+@needs_compiled_baseline
 class TheTwoEntryPointsDoTheSameThingTest(FabricFixture):
     """Both mains driven to completion against an identical recorder, then compared.
 
@@ -881,16 +896,19 @@ class UnderAPackageTest(FabricFixture):
         self.pkg = load_package_fixture()
         self.use_package(self.pkg)
 
+    @needs_compiled_baseline
     def test_the_switches_are_the_packages_four_and_nothing_asks_for_more(self):
         _plan, net, (_n, switches, _fatal, _report, _setup) = self.bring_up()
         self.assertEqual([s.name for s in switches], ["s1", "s2", "s3", "s4"])
 
+    @needs_compiled_baseline
     def test_the_hosts_are_the_packages_four_with_its_addresses(self):
         _plan, net, _result = self.bring_up()
         self.assertEqual(sorted(net.hosts), ["h1", "h2", "h3", "h4"])
         self.assertEqual(net.hosts["h1"].IP(), "10.0.1.1")
         self.assertEqual(net.hosts["h4"].IP(), "10.0.4.4")
 
+    @needs_compiled_baseline
     def test_each_host_runs_the_packages_own_commands_in_order(self):
         _plan, net, _result = self.bring_up()
         self.assertEqual(net.hosts["h1"].host_setup,
@@ -900,6 +918,7 @@ class UnderAPackageTest(FabricFixture):
                          ["route add default gw 10.0.3.30 dev eth0",
                           "arp -i eth0 -s 10.0.3.30 08:00:00:00:03:00"])
 
+    @needs_compiled_baseline
     def test_the_all_pairs_arp_does_not_run_under_a_package(self):
         # 🔴 The half that makes the package worth having. pod-topo's four hosts are in four
         # different /24s and reach each other through the exercise's forwarding tables; an
@@ -913,6 +932,7 @@ class UnderAPackageTest(FabricFixture):
                                  "the fabric ran its own all-pairs ARP over the package's "
                                  "host commands")
 
+    @needs_compiled_baseline
     def test_every_host_gets_its_interface_renamed_to_eth0(self):
         # 🔴 THE 2026-09-18 DATA-PLANE RED. The package's commands are p4lang/tutorials'
         # commands -- `route add default gw 10.0.1.10 dev eth0` -- and a tutorials host IS
@@ -925,6 +945,7 @@ class UnderAPackageTest(FabricFixture):
             with self.subTest(host=name):
                 self.assertEqual(host.intf_name, "eth0")
 
+    @needs_compiled_baseline
     def test_the_rename_happens_before_the_first_command(self):
         # Order is the whole content of the fix: renaming after the commands have run leaves
         # exactly the failure it is meant to remove.
@@ -952,6 +973,7 @@ class UnderAPackageTest(FabricFixture):
         self.assertEqual(setup.renamed, (("h1", "h1-eth0"),))
         self.assertEqual(hosts[0].host_setup, [])
 
+    @needs_compiled_baseline
     def test_the_offload_commands_name_the_renamed_interface(self):
         # disable_host_offloads walks intfList() and uses intf.name, so it follows the rename
         # rather than fighting it. Read rather than assumed: a helper that had cached the old
@@ -961,6 +983,7 @@ class UnderAPackageTest(FabricFixture):
         self.assertEqual(net.hosts["h1"].offload_commands,
                          ["ethtool -K eth0 tx off rx off gso off tso off gro off"])
 
+    @needs_compiled_baseline
     def test_what_a_host_command_printed_is_reported_and_counted(self):
         # 🔴 THE OTHER HALF OF THE SAME LIVE RED: `host.cmd(command)` threw its answer away, so
         # the kernel's own five-word diagnosis existed nowhere on the machine and the fabric
@@ -992,16 +1015,19 @@ class UnderAPackageTest(FabricFixture):
                         joined.index("***   h1: SIOCADDRT"),
                         "the output is printed somewhere other than under its own command")
 
+    @needs_compiled_baseline
     def test_a_silent_host_command_is_not_reported_as_a_problem(self):
         # The control. `route`, `arp` and `ifconfig` say nothing when they work, and a fabric
         # that warned about every one of them would be a warning nobody reads.
         _plan, _net, (_n, _sw, _fatal, _report, setup) = self.bring_up()
         self.assertEqual(setup.noisy, ())
 
+    @needs_compiled_baseline
     def test_the_manifest_holds_the_packages_four_switches(self):
         self.bring_up()
         self.assertEqual(sorted(self.manifest_contents()), ["s1", "s2", "s3", "s4"])
 
+    @needs_compiled_baseline
     def test_the_port_block_is_the_models_dpids_not_a_block_of_ten(self):
         # The bridge pre-flighted `grpc_port_block(range(1, 11))` regardless of the model, so a
         # four-switch package refused over six ports it never wanted and checked nothing about
@@ -1010,6 +1036,7 @@ class UnderAPackageTest(FabricFixture):
         self.assertEqual(plan.dpids, [1, 2, 3, 4])
         self.assertEqual(plan.ports, [30051, 30052, 30053, 30054])
 
+    @needs_compiled_baseline
     def test_a_package_whose_switches_name_no_pipeline_still_runs_ndtwins_own(self):
         # A/P1's `basic` package leaves every `pipeline` null, so all four switches keep
         # NDTwin's own artefact -- and the plan says so per switch rather than once.
@@ -1086,6 +1113,7 @@ class EachSwitchRunsTheProgramItsPackageNamedTest(FabricFixture):
         self.assertIn("4 of 4", lines[0])
         self.assertIn("s1=firewall.json", lines[0])
 
+    @needs_compiled_baseline
     def test_the_baseline_says_nothing_of_the_kind(self):
         # The control. No package, no line -- a fabric on NDTwin's own pipeline must not start
         # explaining itself, or the line stops meaning anything when it does appear.
@@ -1116,6 +1144,7 @@ class AMixedFabricNamesOnlyTheSwitchesThatAreForeignTest(FabricFixture):
             with self.subTest(dpid=dpid):
                 self.assertTrue(self.pkg.pipeline_is_ndtwin(dpid, os.path.join(MININET_DIR, "..")))
 
+    @needs_compiled_baseline
     def test_the_plan_counts_one_of_four_and_lists_only_s1(self):
         _plan, said = self.plan()
         lines = [line for line in said if line.startswith("package pipelines: ")]
@@ -1126,6 +1155,7 @@ class AMixedFabricNamesOnlyTheSwitchesThatAreForeignTest(FabricFixture):
             with self.subTest(switch=switch):
                 self.assertNotIn(switch, lines[0])
 
+    @needs_compiled_baseline
     def test_the_other_three_are_launched_with_ndtwins_own_json(self):
         _plan, net, _result = self.bring_up()
         argv = net.argv()
@@ -1135,6 +1165,7 @@ class AMixedFabricNamesOnlyTheSwitchesThatAreForeignTest(FabricFixture):
                 self.assertIn(BASELINE_JSON, argv[name])
                 self.assertNotIn("firewall.json", argv[name])
 
+    @needs_compiled_baseline
     def test_the_plans_json_paths_are_one_foreign_and_three_baseline(self):
         plan, _said = self.plan()
         self.assertTrue(plan.json_paths[1].endswith(os.path.join("build", "firewall.json")),
@@ -1144,6 +1175,7 @@ class AMixedFabricNamesOnlyTheSwitchesThatAreForeignTest(FabricFixture):
                 self.assertEqual(plan.json_paths[dpid], BASELINE_JSON)
 
 
+@needs_compiled_baseline
 class TheBridgeNeverAsksForASwitchTheModelDoesNotDeclareTest(FabricFixture):
     """🔴 THE LIVE RED OF 2026-09-18, as a unit test.
 
@@ -1297,6 +1329,7 @@ class TheBridgeRecordsWhatKilledItTest(FabricFixture):
             ntg.run(tee=tee, main_=refuse)
         self.assertEqual(tee.calls, ["start", "close"])
 
+    @needs_compiled_baseline
     def test_the_tee_comes_off_for_the_prompt_and_goes_back_on_for_teardown(self):
         # 🔴 prompt_toolkit's create_output returns a PlainTextOutput the moment
         # sys.stdout.isatty() is false, so NTG's prompt needs the real descriptor back. What is
@@ -1310,6 +1343,7 @@ class TheBridgeRecordsWhatKilledItTest(FabricFixture):
         ntg.main(tee=tee, enter_cli=lambda net: tee.calls.append("NTG prompt"))
         self.assertEqual(tee.calls, ["note", "stop", "NTG prompt", "start"])
 
+    @needs_compiled_baseline
     def test_the_fabric_is_torn_down_even_when_the_prompt_raises(self):
         self.use_package(load_package_fixture())
         tee = FakeTee()
@@ -1344,6 +1378,7 @@ class PlanFabricRefusesBeforeAnythingIsTornDownTest(FabricFixture):
         self.assertIn("nope.json", str(ctx.exception))
         self.assertIn("p4c-bm2-ss", str(ctx.exception))
 
+    @needs_compiled_baseline
     def test_a_broken_binary_override_is_refused(self):
         broken = os.path.join(self.tmp, "override")
         with open(broken, "w") as fh:
@@ -1353,6 +1388,7 @@ class PlanFabricRefusesBeforeAnythingIsTornDownTest(FabricFixture):
             testbed.plan_fabric(report=lambda _line: None)
         self.assertIn("no directive line", str(ctx.exception))
 
+    @needs_compiled_baseline
     def test_a_telemetry_knob_outside_the_domain_is_refused_in_the_pre_flight(self):
         # 🔴 F2. TICKET-P3 §2.1: a word outside the domain is "refuse to start". Read for the
         # first time inside `bring_up`, that refusal lands AFTER `reset_for_bring_up` has
@@ -1376,6 +1412,7 @@ class PlanFabricRefusesBeforeAnythingIsTornDownTest(FabricFixture):
             testbed.main()
         self.assertEqual(reset, [], "the running fabric was destroyed before the knob was read")
 
+    @needs_compiled_baseline
     def test_the_plan_resolves_and_reports_the_source_of_every_switch(self):
         # The same argument the foreign-pipeline line above is here for: by the time the proxy
         # discloses this in `switch_state` the fabric is already up.
@@ -1385,11 +1422,13 @@ class PlanFabricRefusesBeforeAnythingIsTornDownTest(FabricFixture):
         self.assertEqual(plan.telemetry_sources, {dpid: "link" for dpid in range(1, 11)})
         self.assertIn("telemetry: link (knob) -> 10 link", said)
 
+    @needs_compiled_baseline
     def test_with_no_knob_the_plan_reports_the_rule_that_was_applied(self):
         plan, said = self.plan()
         self.assertIsNone(plan.telemetry_knob)
         self.assertIn("telemetry: auto (no knob) -> 10 cooperative", said)
 
+    @needs_compiled_baseline
     def test_the_plan_says_which_package_and_which_model_it_chose(self):
         # FINDING-01: a round that ran the wrong tree's topology for hours with no line of
         # output that could have caught it. Both mains print these two now; the bridge did not.
@@ -1439,6 +1478,7 @@ class TheMininetConstructorTest(FabricFixture):
             model = topo_from_json.load(package.topology)
         return testbed.build_net(package, model).kwargs
 
+    @needs_compiled_baseline
     def test_the_baseline_is_the_constructor_call_this_fabric_has_always_made(self):
         # 🔴 EQUAL, not "contains". The claim G2-C has to keep is that a fabric nobody asked to
         # shape is built exactly as before, and `assertIn` would pass with `link=TCLink` beside
@@ -1518,6 +1558,7 @@ class OnlyTheShapedCablesCarryShapingTest(FabricFixture):
 # --- 7. link telemetry (TICKET-P3 sections 2.1, 2.2, 2.5) ------------------------------------
 
 
+@needs_compiled_baseline
 class LinkTelemetryIsOffUnlessSomethingAsksForItTest(FabricFixture):
     """The baseline, and the byte-identical claim that goes with it."""
 
@@ -1550,6 +1591,7 @@ class LinkTelemetryUnderTheKnobTest(FabricFixture):
         super().setUp()
         self.set_telemetry_knob("link")
 
+    @needs_compiled_baseline
     def test_every_port_gets_an_ingress_filter_and_only_host_ports_an_egress_one(self):
         self.bring_up()
         ingress = [c for c in self.sub.tc() if " ingress " in c]
@@ -1563,6 +1605,7 @@ class LinkTelemetryUnderTheKnobTest(FabricFixture):
         self.assertEqual(sorted(c.split()[4] for c in egress),
                          ["s1-eth3", "s2-eth3", "s3-eth3", "s4-eth3"])
 
+    @needs_compiled_baseline
     def test_s1s_commands_are_the_ones_the_spike_measured(self):
         # 🔴 TRANSCRIBED from spike-tc-sample/spike.sh, which was run live on 2026-09-17 --
         # not read back from link_telemetry's own composer. s1 carries switch ports 1 and 2 and
@@ -1589,6 +1632,7 @@ class LinkTelemetryUnderTheKnobTest(FabricFixture):
         self.assertEqual(link_telemetry.LINK_SAMPLE_RATE, 256)
         self.assertEqual(link_telemetry.LINK_SAMPLE_TRUNC, 128)
 
+    @needs_compiled_baseline
     def test_the_emitter_is_started_with_the_manifest_it_has_to_read(self):
         self.bring_up()
         self.assertEqual(len(self.sub.started), 1)
@@ -1596,6 +1640,7 @@ class LinkTelemetryUnderTheKnobTest(FabricFixture):
         self.assertEqual(argv[1:], [link_telemetry.EMITTER_PATH,
                                     "--manifest", self.link_manifest])
 
+    @needs_compiled_baseline
     def test_the_filters_are_on_before_the_emitter_is_started(self):
         # 🔴 ORDER, WHICH IS WHAT THIS CELL IS NAMED FOR -- it used to assert only that both
         # lists were non-empty, which the opposite order satisfies just as well.
@@ -1616,6 +1661,7 @@ class LinkTelemetryUnderTheKnobTest(FabricFixture):
         self.assertEqual(kinds[kinds.index("popen") + 1:], [],
                          "a tc command ran after the emitter was started")
 
+    @needs_compiled_baseline
     def test_the_manifest_is_written_after_the_emitter_so_it_can_carry_its_pid(self):
         # The manifest is the only handle anything downstream gets on that process, and it is
         # written with `proc.pid` -- so writing it first would record None and every later
@@ -1640,6 +1686,7 @@ class LinkTelemetryUnderTheKnobTest(FabricFixture):
         self.assertEqual(order[0][1], order[1][1])
         self.assertEqual(self.link_manifest_contents()["pid"], order[0][1])
 
+    @needs_compiled_baseline
     def test_the_manifest_names_the_pid_the_rate_and_every_port(self):
         self.bring_up()
         document = self.link_manifest_contents()
@@ -1659,6 +1706,7 @@ class LinkTelemetryUnderTheKnobTest(FabricFixture):
                           "ingress": True, "egress": True})
         self.assertEqual(s1["ports"]["1"]["egress"], False)
 
+    @needs_compiled_baseline
     def test_the_agent_address_is_the_one_the_kernel_looks_samples_up_by(self):
         # AgentKey{agentIP, port}: an address the kernel's topology does not hold produces
         # telemetry attributed to nothing -- no error, an empty twin.
@@ -1667,12 +1715,14 @@ class LinkTelemetryUnderTheKnobTest(FabricFixture):
         self.assertEqual([s["agent_ip"] for s in document["switches"]],
                          [f"192.168.123.{10 + d}" for d in range(1, 11)])
 
+    @needs_compiled_baseline
     def test_the_bring_up_line_counts_the_switches_and_the_filters(self):
         said = []
         self.bring_up(report=said.append)
         self.assertIn("link telemetry: 10 switch(es), 36 ingress + 4 egress filters, "
                       "emitter pid 4242", said)
 
+    @needs_compiled_baseline
     def test_the_emitter_gets_its_own_log_and_not_the_topologys_descriptors(self):
         # 🔴 `topo_log.Tee` is an FD-level tee whose `stop()` ends the pump by letting the LAST
         # write end of its pipe go -- and its own comment states the invariant: this process
@@ -1685,6 +1735,7 @@ class LinkTelemetryUnderTheKnobTest(FabricFixture):
                         "the emitter was not given a log file of its own")
         self.assertEqual(self.link_manifest_contents()["log"], self.link_log)
 
+    @needs_compiled_baseline
     def test_the_manifest_records_the_tc_commands_that_were_run(self):
         self.bring_up()
         recorded = [" ".join(argv) for argv in self.link_manifest_contents()["tc_commands"]]
@@ -1728,12 +1779,14 @@ class TearingLinkTelemetryDownTest(FabricFixture):
                           report=lambda _line: None)
         return net
 
+    @needs_compiled_baseline
     def test_the_emitter_is_signalled_by_the_pid_the_manifest_named(self):
         self.patch(link_telemetry, "stop_emitter",
                    lambda pid, **kw: self.events.append(("stop", pid)) or "term")
         self.tear_down()
         self.assertIn(("stop", 4242), self.events)
 
+    @needs_compiled_baseline
     def test_the_qdiscs_come_off_before_the_net_is_stopped(self):
         # 🔴 ORDER. `net.stop()` deletes the veths; a `tc qdisc del` after it is addressed to
         # devices that are gone, so the filters would come off only by accident.
@@ -1745,6 +1798,7 @@ class TearingLinkTelemetryDownTest(FabricFixture):
                         if e[0] == "tc" and "qdisc del" in e[1])
         self.assertLess(first_del, kinds.index("net.stop"))
 
+    @needs_compiled_baseline
     def test_every_interface_that_was_given_a_qdisc_gets_it_taken_away(self):
         self.patch(link_telemetry, "stop_emitter", lambda pid, **kw: "term")
         self.tear_down()
@@ -1754,12 +1808,14 @@ class TearingLinkTelemetryDownTest(FabricFixture):
         self.assertEqual(sorted(set(removed)), sorted(removed),
                          "an interface was detached twice")
 
+    @needs_compiled_baseline
     def test_the_emitter_is_sigtermed_and_then_left_alone_when_it_goes(self):
         self.patch(link_telemetry, "os", _OsWithKill(self.kill))
         self.tear_down()
         self.assertEqual([e for e in self.events if e[0] == "kill"],
                          [("kill", 4242, signal.SIGTERM)])
 
+    @needs_compiled_baseline
     def test_the_manifest_is_gone_afterwards(self):
         self.patch(link_telemetry, "stop_emitter", lambda pid, **kw: "term")
         self.tear_down()
@@ -1782,6 +1838,7 @@ class _OsWithKill:
         return getattr(os, name)
 
 
+@needs_compiled_baseline
 class AnEmitterThatDiedIsFatalTest(FabricFixture):
     """Section 2.5: not a warning. The filters are on and nothing is listening."""
 
@@ -1810,6 +1867,7 @@ class AnEmitterThatDiedIsFatalTest(FabricFixture):
         self.assertIn("link-telemetry emitter", verdict)
 
 
+@needs_compiled_baseline
 class StartingTheEmitterTest(FabricFixture):
     """The grace period itself, which every other case patches to zero."""
 
@@ -1862,6 +1920,7 @@ class NothingIsLeftAttachedOnAPathNoTeardownRunsTest(FabricFixture):
             return original(argv, **kwargs)
         self.sub.run = run
 
+    @needs_compiled_baseline
     def test_an_attach_that_failed_takes_off_what_it_had_already_put_on(self):
         # 🔴 The manifest is not written until the emitter exists, so `tear_down` -- which reads
         # it -- would find nothing to undo. Without this recovery both mains would leave
@@ -1872,6 +1931,7 @@ class NothingIsLeftAttachedOnAPathNoTeardownRunsTest(FabricFixture):
         deletes = [c for c in self.sub.ran if c[1:3] == ["qdisc", "del"]]
         self.assertTrue(deletes, "a failed attach left every qdisc it had installed behind")
 
+    @needs_compiled_baseline
     def test_an_attach_that_failed_started_no_emitter_to_be_orphaned(self):
         # The other half of why attach comes first: there is no process to stop, and no pid
         # written down that anything could stop it BY.
@@ -1910,6 +1970,7 @@ class NothingIsLeftAttachedOnAPathNoTeardownRunsTest(FabricFixture):
         self.assertIn("link telemetry: emitter pid 4242 term", said.getvalue())
 
 
+@needs_compiled_baseline
 class ARefusalInsideTheBringUpIsAVerdictAndNotATracebackTest(FabricFixture):
     """🔴 F1. `bring_up` is not inside either main's `except ValueError` -- only `plan_fabric` is.
 
@@ -2094,6 +2155,7 @@ class TheShutdownSignalReachesTheTeardownTest(FabricFixture):
             pass
 
 
+@needs_compiled_baseline
 class BothMainsTearDownWhateverEndsTheCliTest(FabricFixture):
     """The `finally`, driven through each main with a CLI that ends the way a signal ends it."""
 
@@ -2223,6 +2285,7 @@ class TheTwoEntryPointsBringLinkTelemetryUpTheSameWayTest(FabricFixture):
         return {"tc": self.sub.tc(), "started": self.sub.started,
                 "manifest": recorded.get("manifest")}
 
+    @needs_compiled_baseline
     def test_both_mains_attach_the_same_filters_and_start_the_same_emitter(self):
         # 🔴 `ndtwin-lab topo-start` launches the BRIDGE. For as long as the two files carried
         # two copies of the bring-up, a feature landing in the other one was a feature that
