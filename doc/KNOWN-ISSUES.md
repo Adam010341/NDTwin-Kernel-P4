@@ -4702,8 +4702,8 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 
 - **狀態**：**OPEN**（2026-09-11 ROLE-8 實測兩格；2026-09-12 FIX-NDT-5 寫進
   `tools/test_workflow/README.md`，merge `d7aa176e`）。**這是安全觀察，不是產品缺陷**——`ndt` 自己沒有拿
-  `mnexec` 繞過任何東西（它只有 `dataplane_ok` 兩處呼叫，`ndt:3394`／`ndt:3403`，
-  而且在 `sudo_surface.sh:88` 的表裡宣告著）。
+  `mnexec` 繞過任何東西（它只有 `dataplane_ok` 裡的兩處呼叫，
+  而且在 `sudo_surface.sh` 的 `NDT_SUDO_TABLE` 裡有 `mnexec` 那一列宣告著）。
    (numbered by KI-FOLLOWUP-2；`fix/FIX-NDT-5-SUMMARY.md` §6 自己建議的 `G-39` 與 FIX-PROXY-2 撞號)
 - **會發生什麼**：sudoers 給的 `tc` NOPASSWD 白名單只涵蓋 netem 形
   （`tc qdisc add|del|show … netem`），`htb`／`class`／`tc qdisc replace` 都不在裡面；

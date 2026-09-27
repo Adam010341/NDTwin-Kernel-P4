@@ -23,22 +23,26 @@
 #     test_ndt_sample_rate_reads_both_bounds takes ndt's p4 branch with a live bmv2 (0 sudo calls),
 #     the unknown branch with ovs-vswitchd running (4 calls), and the none branch in CI (0 calls).
 #     The gates on this laptop run the unknown branch; the other two are read from ndt, not run.
-#   - The WORDING is not neutral either. ndt_sudo_probe decides granted / refused BY it
-#     (sudo_surface.sh:179-182 -- ndt_sudo_refused knows five wordings). A DEVIATION from the
+#   - The WORDING is not neutral either. ndt_sudo_probe (sudo_surface.sh) decides granted /
+#     refused / could not tell BY it: ndt_sudo_refused knows six refusal wordings, and a "sudo:"
+#     line it does not know (ndt_sudo_unread) is "could not tell". A DEVIATION from the
 #     orchestrator's ruling ("answering like today's R pass"), which the orchestrator RATIFIED on
-#     09-27: the R pass's shim said `sudo: refused by the nolab shim (a lab command)`, which is not
-#     one of the five, so ndt read every probe as GRANTED -- an artifact of the gate. This stub says
-#     what a real sudo without NOPASSWD says, and ndt reads it as refused. test_lab_handoff's
+#     09-27: the R pass's shim said `sudo: refused by the nolab shim (a lab command)`, which is none
+#     of the known wordings, so ndt read every probe as GRANTED -- an artifact of the gate (it reads
+#     as could not tell since sudo_surface.sh learned ndt_sudo_unread, the same day). This stub
+#     says what a real sudo without NOPASSWD says, and ndt reads it as refused. test_lab_handoff's
 #     `ndt status` shows the three branches (its "sudo grants" line; the verdict is unchanged only
 #     because that suite reads the `lab` section and the rc of a plain `ndt status`, which without
 #     --check is 0 whatever the grants -- the judge's NOTE f on f9c59a44):
 #         where                           sudo -n answers                        ndt reads
-#         gates before this stub (R pass) "refused by the nolab shim", rc 1      granted
+#         gates before this stub (R pass) "refused by the nolab shim", rc 1      granted (could not
+#                                                                                be tested, since
+#                                                                                ndt_sudo_unread)
 #         this stub                       "a password is required", rc 1         refused (+ how to grant)
 #         CI (ubuntu-24.04: no mnexec,    not asked -- `command -v` of the       could not be tested
 #             no ndtwin-lab, no OVS)      probe's program fails first
 #     The first two rows are run (the stub fix round's red first, 09-27); the CI row is read from
-#     .github/workflows/ci.yml and sudo_surface.sh:176-177, not run.
+#     .github/workflows/ci.yml and the `command -v` checks at the top of ndt_sudo_probe, not run.
 #
 #   probe_stub_install <dir> [--tc-empty] [--ovs-refuse] -- <allowed call>...
 #       puts <dir>/probe-stub first on PATH (the suite's own temp dir: its trap removes it). An
@@ -75,7 +79,7 @@ probe_stub_install() {
     PROBE_STUB_TC="$tc"; PROBE_STUB_OVS="$ovs"
     PROBE_STUB_ALLOW=("$@")
     # sudo's own refusal, word for word (sudo 1.9.15p5 with no NOPASSWD rule). ndt DECIDES by it,
-    # not only words its messages: ndt_sudo_probe reads it as "refused" (sudo_surface.sh:179-182,
+    # not only words its messages: ndt_sudo_probe reads it as "refused" (sudo_surface.sh,
     # ndt_sudo_refused). See "WHAT THE STUB FIXES" above -- a ratified deviation from the R pass.
     cat > "$d/sudo" <<EOF
 #!/bin/bash
