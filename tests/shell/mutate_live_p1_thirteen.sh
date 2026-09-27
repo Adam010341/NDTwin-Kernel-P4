@@ -330,7 +330,7 @@ cat > "$A/m11.new" <<'EOF'
 EOF
 check_fires "M11: 06 defaults NDT_OWNER to live-p1 again" m11 \
             "🔴 no NDT_OWNER is rc 2" "  refused, saying what to set" "🔴 no round ran as a default owner" \
-            "🔴 and no run directory was made"
+            "  and no verdict was reached" "🔴 and no run directory was made"
 
 # --- the control -----------------------------------------------------------------------------------------
 cat > "$A/c1.old" <<'EOF'

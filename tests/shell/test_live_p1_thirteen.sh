@@ -200,7 +200,11 @@ OUT="$(env -i PATH="/usr/bin:/bin" HOME="$FIX" TMPDIR="$FIX" NO_COLOR=1 \
 check "🔴 no NDT_OWNER is rc 2"                          "2" "$RC"
 has   "  refused, saying what to set"                    "refusing: NDT_OWNER is not set" "$OUT"
 has   "  and that nothing was started"                   "REFUSED 06_thirteen -- nothing was started" "$OUT"
-hasnt "🔴 no round ran as a default owner"               ">>> " "$OUT"
+# (06 prints its owner on its first line, and a round it ran leaves its verdict line at the end; a
+# `>>> ` from the stub driver never reaches 06's own output -- the first cut of this cell looked for
+# that and was green whatever happened, found by mutate_live_p1_thirteen's M11.)
+hasnt "🔴 no round ran as a default owner"               "owner: live-p1" "$OUT"
+hasnt "  and no verdict was reached"                     "PASS 06_thirteen" "$OUT"
 check "🔴 and no run directory was made"                 "0" "$(ls -d "$FIX/runs-noowner"/*_06_thirteen 2>/dev/null | wc -l)"
 
 # =============================================================================================

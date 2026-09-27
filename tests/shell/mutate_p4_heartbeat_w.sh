@@ -1384,8 +1384,8 @@ lreport "L42: the recovery time is the poll's, not the record's" "$m" "restore_c
 # against the strict 20 s. 🔴 Adam's ruling A (09-27): at most ABOUT 20 s -- a cycle over it is
 # DISCLOSED, verbatim, above the run's last line, and the run PASSes. L43 is the pre-ruling F1 path
 # put back (an OVER cycle fails H1); L44 judges the cycle's strict line again; L45 stops counting it;
-# L46 carries the cycle's name but not its own line; L50 discloses only when nothing failed; L51
-# drops H3's conclusion.
+# L46 carries the cycle's name but not its own line; L61 discloses only when nothing failed; L62
+# drops H3's conclusion. (L50/L51 are H5's sampler mutants.)
 m=$(lmutant l43 "$LIVE08" \
     '        disclose "$what: $over of $n cycle(s) over the strict ${DETECT_BOUND_S} s -- disclosed, not a failure (Adam, 09-27: at most about ${DETECT_BOUND_S} s, the class of NDTwin'"'"'s own LLDP; strict_${DETECT_BOUND_S}s in 30_cycles.tsv) -- $list"' \
     '        VERDICT_RC=1
@@ -1406,19 +1406,19 @@ m=$(lmutant l46 "$LIVE08" \
     '            STRICT_OVER_LIST="${STRICT_OVER_LIST:+$STRICT_OVER_LIST; }$label"')
 lreport "L46: the disclosure names the cycle but not its own line (not verbatim)" "$m" \
         "H1's last line with an OVER cycle was"
-m=$(lmutant l50 "$LIVE08" \
+m=$(lmutant l61 "$LIVE08" \
     '    if (( over > 0 )); then
         disclose' \
     '    if (( over > 0 && VERDICT_RC == 0 )); then
         disclose')
-lreport "L50: an over-cycle is disclosed only when nothing else failed" "$m" \
+lreport "L61: an over-cycle is disclosed only when nothing else failed" "$m" \
         "  H1's last line after an earlier failure was"
-m=$(lmutant l51 "$LIVE08" \
+m=$(lmutant l62 "$LIVE08" \
     '# before the ruling its OVER was a per-cycle FAIL; now it is repeated above the last line.
 strict_conclude H3' \
     '# before the ruling its OVER was a per-cycle FAIL; now it is repeated above the last line.
 :')
-lreport "L51: H3's one cycle is never concluded (its OVER never reaches the last lines)" "$m" \
+lreport "L62: H3's one cycle is never concluded (its OVER never reaches the last lines)" "$m" \
         "  a live cut_cycle with no strict_conclude after it"
 m=$(lmutant l47 "$LIVE08" \
     '    if d <= b:
