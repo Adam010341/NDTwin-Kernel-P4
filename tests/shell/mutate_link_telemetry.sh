@@ -13,6 +13,10 @@
 # written beside it. M-B11 is split: M-B11a is the coarse "the whole teardown call goes" and
 # M-B11b is the ticket's literal "it does not detach".
 #
+# Nine more for Adam's ruling K (2026-09-27), M-B29 .. M-B37: the pid the manifest names is ONE
+# process -- the argv the launcher recorded, word for word, and the start time /proc gave it --
+# not any process whose cmdline contains the emitter's file name. [Co-developed with claude code -- Adam]
+#
 # [Co-developed with claude code -- Adam]
 #
 # A test that has never been seen to fail is a decoration. The claims below are all of the shape
@@ -317,9 +321,17 @@ report "M-B17: the emitter is started before the filters, so a failed attach orp
 # next bring-up all have nothing to address.
 m=$(mutant m_b22 "$TESTBED" \
     '        proc = link_telemetry.start_emitter(manifest_path, popen=emitter_popen)
-        link_telemetry.write_manifest(plan, getattr(proc, "pid", None), path=manifest_path)' \
+        # 🔴 THE IDENTITY IS TAKEN HERE, BEFORE ANYTHING POLLS `proc` (Adam 2026-09-27, ruling
+        # K). Until it is waited on, the emitter is an unreaped child of this process, so its
+        # pid cannot belong to anything else -- and this is the one read of its start time no
+        # pid reuse can race. Every later reader compares against what is recorded here.
+        # [Co-developed with claude code -- Adam]
+        link_telemetry.write_manifest(plan, getattr(proc, "pid", None), path=manifest_path,
+                                      identity=link_telemetry.emitter_identity(proc))' \
     '        link_telemetry.write_manifest(plan, None, path=manifest_path)  # MUTANT: first
         proc = link_telemetry.start_emitter(manifest_path, popen=emitter_popen)')
+# (Re-anchored 2026-09-27: ruling K put the identity, and the comment saying why, between the
+# two lines this mutant swaps. The mutant is the same one as before.)
 report "M-B22: the manifest is written before the emitter exists, so it records no pid" "$m" \
        "test_the_manifest_is_written_after_the_emitter_so_it_can_carry_its_pid"
 
@@ -336,11 +348,11 @@ report "M-B20: a previous run's emitter is killed without a word" "$m" \
 # loop: 0.5 s in 0.1 s steps is six iterations, not five, so the wait is longer than it says.
 m=$(mutant m_b21 "$LINKTEL" \
     '    for _step in range(int(math.ceil(grace_s / EMITTER_POLL_INTERVAL_S))):
-        if not is_emitter(pid):' \
+        if not is_emitter(pid, **identity):' \
     '    _deadline = grace_s  # MUTANT: float subtraction, whose trip count nobody can state
     while _deadline > 0:
         _deadline -= EMITTER_POLL_INTERVAL_S
-        if not is_emitter(pid):')
+        if not is_emitter(pid, **identity):')
 report "M-B21: the SIGTERM grace loop counts by subtracting floats" "$m" \
        "test_one_that_will_not_go_is_killed_after_the_grace_period"
 
@@ -413,7 +425,7 @@ report "M-B28: the emitter does not handle the signal that actually kills it" "$
 # bare `os.kill` on a number recorded minutes ago is no better -- it is the same mistake with a
 # smaller blast radius only by luck.
 m=$(mutant m_b13 "$LINKTEL" \
-    '    if not pid or not is_emitter(pid):' \
+    '    if not pid or not is_emitter(pid, **identity):' \
     '    if not pid:  # MUTANT: signal the number, whatever holds it now')
 report "M-B13: the emitter pid is signalled without checking it is still the emitter" "$m" \
        "test_a_pid_that_is_no_longer_the_emitter_is_not_signalled"
@@ -445,6 +457,83 @@ m=$(mutant m_b16 "$LINKTEL" \
     handle = (opener or open)(log_path or LINK_TELEMETRY_LOG, "wb")')
 report "M-B16: the emitter inherits fds 1 and 2, so it holds the tee's pipe open" "$m" \
        "test_it_is_launched_onto_its_own_file_and_this_process_keeps_no_descriptor"
+
+# --- ruling K (Adam 2026-09-27): the pid the manifest names is ONE process, not a resemblance ----
+#
+# [Co-developed with claude code -- Adam]
+# `stop_emitter` SIGTERMs and then SIGKILLs, as root, whatever `process_is_the_emitter` says yes
+# to. It used to say yes to any process whose cmdline CONTAINED "psample_sflow_emitter.py" -- an
+# editor, a grep, a tail, a test runner -- holding a recycled pid. The cells that kill these run
+# REAL unprivileged processes this suite starts and reaps by their own Popen, with a kill that
+# only records; the one real signal goes to the suite's own child, through a kill that refuses
+# any other number.
+#
+# Two mutations NOT here, as equivalent: accepting a bool or a str as a recorded start time, and
+# a str as a recorded argv. Either is compared with == against what /proc says, which a bool, a
+# str or a string of characters can never equal -- so "fail closed on the wrong type" and "fall
+# through to the comparison" answer the same everywhere, and the type cells are documentation.
+
+m=$(mutant m_b29 "$LINKTEL" \
+    '    elif not _is_the_launchers_shape(cmdline):
+        return False' \
+    '    elif not any(os.path.basename(EMITTER_PATH) in word for word in cmdline):  # MUTANT
+        return False')
+report "M-B29 (K): the pre-ruling substring check is back, so a decoy is the emitter" "$m" \
+       "test_a_process_that_only_mentions_the_emitter_is_not_the_emitter"
+
+m=$(mutant m_b30 "$LINKTEL" \
+    '        if not _is_an_argv(argv) or cmdline != list(argv):' \
+    '        if not _is_an_argv(argv):  # MUTANT: any argv is the one the launcher recorded')
+report "M-B30 (K): the recorded argv is never compared, so a same-named file elsewhere passes" "$m" \
+       "test_the_same_file_name_at_another_path_is_not_the_recorded_emitter"
+
+m=$(mutant m_b31 "$LINKTEL" \
+    '        return process_start_time(pid, proc_root) == start_time' \
+    '        return True  # MUTANT: whenever it started, it is the one we launched')
+report "M-B31 (K): the start time is never compared, so a reused pid is the emitter" "$m" \
+       "test_a_pid_now_held_by_a_process_that_started_later_is_not_signalled"
+
+m=$(mutant m_b32 "$LINKTEL" \
+    '    fate = stop_emitter(document.get("pid"), kill=kill, is_emitter=is_emitter, sleep=sleep,
+                        argv=document.get("argv"), start_time=document.get("start_time"))' \
+    '    fate = stop_emitter(document.get("pid"), kill=kill, is_emitter=is_emitter, sleep=sleep)')
+report "M-B32 (K): the teardown reads the pid and drops the identity recorded beside it" "$m" \
+       "test_a_pid_now_held_by_a_process_that_started_later_is_not_signalled"
+
+m=$(mutant m_b33 "$LINKTEL" \
+    '        if not is_emitter(pid, **identity):
+            return "term"' \
+    '        if not is_emitter(pid):  # MUTANT: the grace loop judges some other process
+            return "term"')
+report "M-B33 (K): the grace loop asks without the identity the first question carried" "$m" \
+       "test_every_question_it_asks_carries_the_recorded_identity"
+
+m=$(mutant m_b34 "$TESTBED" \
+    '                                      identity=link_telemetry.emitter_identity(proc))' \
+    '                                      identity=None)  # MUTANT: a pid and nothing else')
+report "M-B34 (K): the bring-up records a pid and no identity, so nothing can check it" "$m" \
+       "test_the_manifest_records_the_emitters_argv_and_its_start_time"
+
+m=$(mutant m_b35 "$LINKTEL" \
+    '    _comm, closing, rest = raw.rpartition(b")")' \
+    '    _comm, closing, rest = raw.partition(b")")  # MUTANT: the first ")", which may be in comm')
+report "M-B35 (K): the start time is counted from a ')' inside the process name" "$m" \
+       "test_the_start_time_is_field_twenty_two_even_after_a_comm_with_parentheses"
+
+m=$(mutant m_b36 "$LINKTEL" \
+    '    return process_is_the_emitter(pid, proc_root=proc_root, argv=document.get("argv"),
+                                  start_time=document.get("start_time"))' \
+    '    return process_is_the_emitter(pid, proc_root=proc_root)  # MUTANT: the pid alone')
+report "M-B36 (K): ndt's and the proxy's reader compare less than the teardown does" "$m" \
+       "test_the_document_reader_passes_the_recorded_identity"
+
+m=$(mutant m_b37 "$LINKTEL" \
+    '    elif not _is_the_launchers_shape(cmdline):
+        return False' \
+    '    else:  # MUTANT: no recorded identity, no emitter
+        return False')
+report "M-B37 (K): a manifest written before the ruling orphans the emitter it names" "$m" \
+       "test_a_manifest_that_records_no_identity_still_stops_an_emitter_of_the_launchers_shape"
 
 # --- negative controls -----------------------------------------------------------------------
 #
