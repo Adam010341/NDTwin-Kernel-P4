@@ -153,7 +153,7 @@ apply_exact "$LIB" \
   '    if [[ -n "$mine" && -n "$theirs" && "$mine" != "$theirs" ]]; then' "$d/lib_e.sh"
 report "M7: E inverts the comparison" "$d" \
        "🔴 E: a live preflight from another tree is refused with rc 2" \
-       "  E: the lab's own tree passes the check"
+       "E: the lab's own tree passes the check"
 
 d="$(fresh m8)"
 apply_exact "$F5" \
