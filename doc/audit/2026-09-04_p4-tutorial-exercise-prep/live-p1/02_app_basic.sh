@@ -20,12 +20,14 @@
 #     basic.p4 that is the exercise's own program doing it: `install_initial_routes` is one of
 #     the things the proxy SKIPS on a foreign pipeline, so nothing NDTwin wrote is carrying
 #     these packets -- the sX-runtime.json entries are.
-#   * `control_plane.skipped` naming exactly lldp_discovery, link_watchdog and
-#     install_initial_routes (link_watchdog only when the heartbeat watchdog is NOT running --
-#     Adam's ruling E, 09-27) is the disclosure that goes with that: those three ride on
-#     packet-in/packet-out, and a tutorials p4info declares no controller_packet_metadata at
-#     all (ndtwin_switch declares two, basic declares zero). A short list here would be a proxy
-#     that did half the work of a control plane while reporting that it did none.
+#   * `control_plane.skipped` naming exactly lldp_discovery and install_initial_routes is the
+#     disclosure that goes with that: LLDP rides on packet-in/packet-out, and a tutorials p4info
+#     declares no controller_packet_metadata at all (ndtwin_switch declares two, basic declares
+#     zero). [Co-developed with claude code -- Adam] `link_watchdog` is NOT in it: `ndt up p4
+#     --app` starts the heartbeat on this fabric and the watchdog runs, fed by it (Adam's ruling
+#     E, 09-27) -- so `heartbeat.watchdog` must be `running`, asserted outright (the opus judge's
+#     N1: the expectation is not picked from the proxy's own report). A short list here would be
+#     a proxy that did half the work of a control plane while reporting that it did none.
 #   * The per-switch skips (clone_session, sflow_telemetry) are on each switch's own row and
 #     NOT in the fabric-wide list -- TICKET-P2 §7-7: in a mixed fabric a neighbouring NDTwin
 #     switch still has its clone session, and a fabric-wide `clone_session` would be saying
@@ -58,12 +60,11 @@ P4C="${P4C:-/usr/local/bin/p4c-bm2-ss}"
 #                                 = clone_session, sflow_telemetry   (per switch, not here)
 # Written out rather than read from that file: a check that derives its expectation from the
 # code under test agrees with it by construction.
-FABRIC_SKIPS="['install_initial_routes', 'link_watchdog', 'lldp_discovery']"   # sorted
-# [Co-developed with claude code -- Adam] Adam's ruling E (09-27): where the heartbeat drives the
-# watchdog (`ndt up p4 --app` starts it on a foreign, non-external fabric -- this one), the proxy
-# runs the watchdog and does NOT name `link_watchdog` skipped; only with the heartbeat watchdog not
-# started does the three-name list above stand. Which one applies is switch_state's own
-# `heartbeat.watchdog`, printed beside it.
+# [Co-developed with claude code -- Adam] Adam's ruling E (09-27): the heartbeat drives the watchdog
+# here (`ndt up p4 --app` starts it on a foreign, non-external fabric -- this one), so the proxy runs
+# the watchdog and does NOT name `link_watchdog` skipped. The opus judge's N1 (09-27): that the
+# heartbeat watchdog runs is ASSERTED (heartbeat_skips_verdict in _common.sh), not read off the
+# proxy to choose between this list and the three-name one it had before the ruling.
 FABRIC_SKIPS_HB="['install_initial_routes', 'lldp_discovery']"                # sorted
 SWITCH_SKIPS="[\"('clone_session', 'sflow_telemetry')\"]"                      # per switch
 
@@ -182,9 +183,8 @@ if [[ -s "$SS" ]]; then
     [[ "$N_SW" == 4 ]]        || fail "switch_state names $N_SW switches, pod-topo declares 4"
     # 🔴 THE FABRIC-WIDE LIST IS THE THREE THAT RIDE ON THE CPU PORT, and nothing else
     # (TICKET-P2 §2.2, §7-7). Sorted on both sides so the assertion is about the SET.
-    WANT_SKIPS="$([[ "$HB_WD" == running ]] && echo "$FABRIC_SKIPS_HB" || echo "$FABRIC_SKIPS")"
-    [[ "$SKIPPED" == "$WANT_SKIPS" ]] \
-        || fail "control_plane.skipped is $SKIPPED, want $WANT_SKIPS (heartbeat.watchdog $HB_WD) -- a foreign pipeline has no controller header, so LLDP and the initial routes cannot run, and the watchdog runs only when the heartbeat drives it"
+    V="$(heartbeat_skips_verdict "$SS" "$FABRIC_SKIPS_HB")"
+    [[ "$V" == OK* ]] || fail "${V#BAD }"
     # Every switch is on the exercise's program, and says so with a stable identifier.
     [[ "$NDTWIN" == "['False']" ]] \
         || fail "pipeline.ndtwin is $NDTWIN, want ['False'] on every switch -- the package named build/basic.* for all four"
