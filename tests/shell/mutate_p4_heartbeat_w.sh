@@ -685,7 +685,9 @@ m=$(mutant m16 "$MAIN" \
 report "M16: the capabilities grow a sixth key" "$m" "test_the_capabilities_keep_their_five_keys"
 # [Co-developed with claude code -- Adam] Adam's ruling E (09-27): link_watchdog leaves
 # control_plane.skipped exactly when the heartbeat drives the watchdog. E1 is the list as it was
-# before the ruling; E2 takes it out whether or not the heartbeat watchdog started.
+# before the ruling; E2 takes it out whether or not the heartbeat watchdog started. E1b (the opus
+# judge's N4, 09-27: it used to be E1's own change again) takes it out only where the routes are
+# NDTwin's, so the owned fabric stays green and only the unbound one can catch it.
 m=$(mutant e1 "$MAIN" \
     '        if started and SKIP_WATCHDOG in skipped:
             skipped.remove(SKIP_WATCHDOG)' \
@@ -695,9 +697,18 @@ report "E1: link_watchdog stays named skipped while the heartbeat drives it" "$m
 m=$(mutant e1b "$MAIN" \
     '        if started and SKIP_WATCHDOG in skipped:
             skipped.remove(SKIP_WATCHDOG)' \
-    '        pass')
-report "E1b: (the same, seen on the unbound fabric)" "$m" \
+    '        if started and SKIP_WATCHDOG in skipped and routes_owned:
+            skipped.remove(SKIP_WATCHDOG)')
+report "E1b: link_watchdog leaves the list only where the routes are NDTwin's" "$m" \
        "test_an_unbound_fabric_reports_its_watchdog_running_too"
+# [Co-developed with claude code -- Adam] The opus judge's F2 (09-27): the startup line's Skipped
+# list is the served one. F2 prints link_watchdog in it whatever the heartbeat decided -- what the
+# line said when it was printed before the decision.
+m=$(mutant f2 "$MAIN" \
+    '        print(foreign_note + f"Skipped: {'"'"', '"'"'.join(sorted(set(skipped)))}. The per-switch skips (no "' \
+    '        print(foreign_note + f"Skipped: {'"'"', '"'"'.join(sorted(set(skipped) | {SKIP_WATCHDOG}))}. The per-switch skips (no "')
+report "F2: the startup log names link_watchdog skipped while the heartbeat drives it" "$m" \
+       "test_the_startup_log_names_the_same_skipped_list_switch_state_serves"
 m=$(mutant e2 "$MAIN" \
     '        if started and SKIP_WATCHDOG in skipped:' \
     '        if SKIP_WATCHDOG in skipped:')
@@ -1420,6 +1431,15 @@ strict_conclude H3' \
 :')
 lreport "L62: H3's one cycle is never concluded (its OVER never reaches the last lines)" "$m" \
         "  a live cut_cycle with no strict_conclude after it"
+# [Co-developed with claude code -- Adam] The opus judge's F1 (09-27): an exit before the phase's own
+# conclusion (H1's loop, H3) is concluded by w_finish. L63 takes that away.
+m=$(lmutant l63 "$LIVE08" \
+    '    if (( ${STRICT_CYCLES:-0} > 0 )); then
+        strict_conclude "${STRICT_PHASE:-H1}, cut short"
+    fi' \
+    '    :')
+lreport "L63: an early exit drops the over-cycles measured before it" "$m" \
+        "  H1's last lines after an early exit following an OVER cycle were"
 m=$(lmutant l47 "$LIVE08" \
     '    if d <= b:
         return f"OK detection {d:.3f} s, within the strict {b:g} s"' \

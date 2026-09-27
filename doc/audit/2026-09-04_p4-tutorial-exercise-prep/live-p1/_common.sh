@@ -366,6 +366,37 @@ open(sys.argv[2],'a').write('\n')" "$out.raw" "$out" 2>/dev/null; then
 }
 
 # jqp <file> <python-expr over d> -- one value out of a saved capture, printed.
+# heartbeat_skips_verdict <switch_state.json> <want: the sorted list, as Python prints it> -- a
+# foreign, non-external fabric's fabric-level answer, one line, OK ... or BAD ....
+# [Co-developed with claude code -- Adam] The opus judge's N1 (09-27): the expectation is NOT picked
+# from the proxy's own `heartbeat.watchdog`. `ndt up p4 --app` starts the heartbeat on such a
+# fabric, so the watchdog MUST run -- anything else is the failure, named with the proxy's own
+# heartbeat.error -- and with it running, control_plane.skipped is exactly <want>.
+heartbeat_skips_verdict() {
+    "$PY" - "$1" "$2" <<'HBSKIPS' 2>&1 || echo "BAD the verdict could not run on $1"
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+except (OSError, ValueError) as exc:
+    print(f"BAD switch_state unreadable: {type(exc).__name__}: {exc}")
+    sys.exit(0)
+hb = d.get("heartbeat")
+skipped = str(sorted((d.get("control_plane") or {}).get("skipped") or []))
+if not isinstance(hb, dict):
+    print("BAD switch_state has no heartbeat block (a proxy from before the heartbeat, or one that "
+          "does not call this fabric foreign) -- the heartbeat watchdog is not running")
+elif hb.get("watchdog") != "running":
+    print(f"BAD heartbeat.watchdog is {hb.get('watchdog')!r}, not 'running' (heartbeat.error: "
+          f"{hb.get('error')}) -- `ndt up p4 --app` starts the heartbeat on a foreign, non-external "
+          f"fabric, and the proxy's watchdog must run on it")
+elif skipped != sys.argv[2]:
+    print(f"BAD control_plane.skipped is {skipped}, want {sys.argv[2]} -- no LLDP on a pipeline "
+          f"without a controller header, and the watchdog runs, fed by the heartbeat")
+else:
+    print(f"OK heartbeat.watchdog running, control_plane.skipped {skipped}")
+HBSKIPS
+}
+
 jqp() { "$PY" -c "
 import json,sys
 d=json.load(open(sys.argv[1]))

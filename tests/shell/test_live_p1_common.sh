@@ -1180,6 +1180,43 @@ check "  and the run still passes"                         "PASS 17_venv" "$(tai
 rm -rf "$FIX17"
 
 # =============================================================================================
+section "18. 🔴 02's fabric list: the heartbeat watchdog must RUN, not be read to pick a list (the opus judge's N1)"
+# =============================================================================================
+# [Co-developed with claude code -- Adam] 09-27. 02 brings up a foreign, non-external fabric, where
+# `ndt up p4 --app` starts the heartbeat; heartbeat_skips_verdict asserts the watchdog runs (naming
+# the proxy's heartbeat.error when it does not) and then the two-name list. Three proxy answers:
+# running, not_started, and no heartbeat block at all.
+FIX18="$(mktemp -d "${TMPDIR:-/tmp}/common-hbskips-XXXXXX")"
+REAL_PY=/usr/bin/python3   # the verdict is stdlib only; the venv is not needed to judge a file
+W18="['install_initial_routes', 'lldp_discovery']"
+st18() {   # st18 <file> <watchdog or -> <error> <skipped python list>
+    "$REAL_PY" - "$FIX18/$1" "$2" "$3" "$4" <<'MK'
+import ast, json, sys
+out, wd, err, sk = sys.argv[1:5]
+d = {"control_plane": {"mode": "ndtwin", "skipped": ast.literal_eval(sk)}}
+if wd != "-":
+    d["heartbeat"] = {"watchdog": wd, "error": None if err == "-" else err}
+json.dump(d, open(out, "w"))
+MK
+}
+st18 running.json running - "['lldp_discovery', 'install_initial_routes']"
+st18 not_started.json not_started "OSError: no /run" "['lldp_discovery', 'link_watchdog', 'install_initial_routes']"
+st18 absent.json - - "['lldp_discovery', 'link_watchdog', 'install_initial_routes']"
+st18 running_three.json running - "['lldp_discovery', 'link_watchdog', 'install_initial_routes']"
+V18() { ( source "$COMMON" >/dev/null 2>&1; PY="$REAL_PY"; heartbeat_skips_verdict "$FIX18/$1" "$W18" ); }
+check "🔴 running, the two names: OK"                        "OK heartbeat.watchdog running, control_plane.skipped $W18" "$(V18 running.json)"
+OUT18="$(V18 not_started.json)"
+has   "🔴 not_started is a failure, not the other list"      "BAD heartbeat.watchdog is 'not_started', not 'running'" "$OUT18"
+has   "  and it names the proxy's own heartbeat.error"      "(heartbeat.error: OSError: no /run)" "$OUT18"
+has   "🔴 no heartbeat block is a failure too"               "BAD switch_state has no heartbeat block" "$(V18 absent.json)"
+has   "🔴 running with link_watchdog still named: BAD"       "BAD control_plane.skipped is ['install_initial_routes', 'link_watchdog', 'lldp_discovery'], want $W18" "$(V18 running_three.json)"
+check "  02 asks this verdict, with the two-name list"      "1" \
+      "$(/usr/bin/grep -c '^    V="$(heartbeat_skips_verdict "$SS" "$FABRIC_SKIPS_HB")"$' "$LIVE/02_app_basic.sh")"
+check "🔴 and 02 no longer picks its list from heartbeat.watchdog" "0" \
+      "$(/usr/bin/grep -c 'HB_WD" == running' "$LIVE/02_app_basic.sh")"
+rm -rf "$FIX18"
+
+# =============================================================================================
 section "14. 🔴 no lab command left this suite (the fake fabric was up throughout)"
 # =============================================================================================
 # [Co-developed with claude code -- Adam] The guard at the top, and its controls: without them a

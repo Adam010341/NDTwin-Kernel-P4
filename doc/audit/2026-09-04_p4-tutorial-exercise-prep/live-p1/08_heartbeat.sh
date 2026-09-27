@@ -60,8 +60,15 @@
 # own LLDP, which runs the same rule on the same constants. The strict bound is still measured and
 # kept (`strict_20s` in 30_cycles.tsv and the cycle's own line), but a cycle over it is a DISCLOSED
 # NOTE, not a FAIL: every such cycle's strict line is repeated verbatim, just above the run's last
-# line, and the run can PASS with it. (Before the ruling: a FAIL of that cycle, with "N of M
-# cycle(s) OVER" at the head of the last line -- the fable judge's F1.) "20 s + the time measured on
+# line, and the run can PASS with it -- also when the run stops early: an exit before H1's (or H3's)
+# own conclusion has w_finish conclude the cycles measured so far, so their NOTE still stands above
+# the FAIL. (Before the ruling: a FAIL of that cycle, with "N of M cycle(s) OVER" at the head of the
+# last line -- the fable judge's F1.) [Co-developed with claude code -- Adam] Two limits the word
+# "about" does NOT stretch (the opus judge's N2, 09-27): detection still has a HARD CEILING of
+# DETECT_BOUND_S + 15 = 35 s -- graph_until gives up there and the cycle is a FAIL, not a note --
+# and the RESTORE is still judged against the strict 20 s (RESTORE_BOUND_S, a FAIL over it): Adam's
+# ruling names detection only, and whether restore becomes "about 20 s" too is his to say. "20 s +
+# the time measured on
 # top of the design" (the reporting pass's lateness beyond one interval, pass-to-graph, the cut
 # window) is kept as a DIAGNOSTIC column and note, never as the verdict: the judge showed it is OK
 # whenever the design works as designed (it restates the design's upper bound). What it checked for
@@ -194,7 +201,9 @@ RESTORE_WATCH_S=$(( RESTORE_BOUND_S + 5 ))
 CYCLE_ROW=""; CYCLE_STRICT=""; RESTORE_ROW=""
 #: cut_cycle's tally for strict_conclude: cycles recorded, how many were over the bound, and each
 #: over-cycle's own strict line, verbatim ("<label>: detection ... OVER ...", "; "-separated).
-STRICT_CYCLES=0; STRICT_OVER=0; STRICT_OVER_LIST=""
+#: [Co-developed with claude code -- Adam] STRICT_PHASE is the phase those cycles belong to (H1,
+#: H3), for w_finish to conclude them under when the run stops before the phase did.
+STRICT_CYCLES=0; STRICT_OVER=0; STRICT_OVER_LIST=""; STRICT_PHASE=""
 
 # --- the verdicts. One stdlib-only program, one entry per check; each prints `OK ...` or
 # `BAD ...` (`STOP ...` for ruling 4). The live path and --self-test call the same entries. ------
@@ -710,6 +719,13 @@ w_finish() {
     local rc=$?
     set +e
     trap - EXIT INT TERM
+    # [Co-developed with claude code -- Adam] The opus judge's F1 (09-27): an exit inside H1's loop
+    # or H3 (a cut_cycle or restore_cycle that stopped the run, INT, TERM) comes here before that
+    # phase's strict_conclude ran, and finish() prints only what is already disclosed -- so an
+    # over-cycle measured before the exit would have stayed in the body. Conclude it first.
+    if (( ${STRICT_CYCLES:-0} > 0 )); then
+        strict_conclude "${STRICT_PHASE:-H1}, cut short"
+    fi
     if (( ${#INJECTED_IFACES[@]} > 0 )); then
         # Read before the revert: faults.sh's revert empties the list whatever happened, and the
         # failure line below used to name nothing (the spike's round-7 note).
@@ -1148,6 +1164,7 @@ cut_cycle() {
         note "$label budget, $DETECT_BOUND_S s + what was measured (a diagnostic, never the verdict): $(verdict budget "$CYCLE_ROW" "$DETECT_BOUND_S")"
         CYCLE_STRICT="$(awk -F'\t' -v b="$DETECT_BOUND_S" '{ if ($9 <= b) print "yes"; else printf "OVER+%.3f\n", $9 - b }' <<<"$CYCLE_ROW")"
         STRICT_CYCLES=$(( STRICT_CYCLES + 1 ))
+        STRICT_PHASE="${label%% *}"
         [[ "$CYCLE_STRICT" == OVER* ]] && STRICT_OVER=$(( STRICT_OVER + 1 ))
         [[ "$(cut -f18 <<<"$CYCLE_ROW")" == - ]] || note "$label flags: $(cut -f18 <<<"$CYCLE_ROW")"
     else
@@ -1168,7 +1185,7 @@ cut_cycle() {
 strict_conclude() {
     local what="$1" n="$STRICT_CYCLES" over="$STRICT_OVER" list="$STRICT_OVER_LIST"
     local psi="one run samples one psi (watchdog_phase_s in 30_cycles.tsv): the worst psi is not guaranteed to have been sampled"
-    STRICT_CYCLES=0; STRICT_OVER=0; STRICT_OVER_LIST=""
+    STRICT_CYCLES=0; STRICT_OVER=0; STRICT_OVER_LIST=""; STRICT_PHASE=""
     if (( over > 0 )); then
         disclose "$what: $over of $n cycle(s) over the strict ${DETECT_BOUND_S} s -- disclosed, not a failure (Adam, 09-27: at most about ${DETECT_BOUND_S} s, the class of NDTwin's own LLDP; strict_${DETECT_BOUND_S}s in 30_cycles.tsv) -- $list"
         note "$psi"
@@ -1913,6 +1930,34 @@ open(p + ".t", "w").write(json.dumps(doc)); os.replace(p + ".t", p)' "$HB_REPORT
     else
         red "  H1's last line with a STOP after an OVER cycle was: '$got' (above it: '$above')"
     fi
+    # [Co-developed with claude code -- Adam] The opus judge's F1 (09-27): the H1 loop's own early
+    # exit -- an OVER cycle, then a restore that could not remove the netem (`|| { fail ...; exit 1; }`)
+    # -- through the real EXIT trap, before strict_conclude H1 ran.
+    st_h1_exit() {   # -> the run's output
+        local d
+        d="$(mktemp -d "$t/h1x-XXXXXX")"
+        printf '#!/usr/bin/env bash\nexit 0\n' > "$d/ndt"; chmod +x "$d/ndt"
+        ( STEP=08_heartbeat; RUN="$d/run"; mkdir -p "$RUN"; CLAIMED=1; VERDICT_RC=0; VERDICT_WHY=""; FABRIC_UP=1
+          INJECTED_IFACES=(); NDT="$d/ndt"; REAL_NDT="$d/ndt"; APP_KNOB="$d/none"
+          KNOB_ENTRY_COPY=""; TEL_ENTRY_COPY=""; CTRL_PID=""; TEARDOWN_DOWN_RC=""; SAMPLER_PID=""
+          mono_offset() { echo -800.0; }
+          cut_at_phase() { CUT_A_START=1000.01; CUT_A_END=1000.02; CUT_B_START=1000.03; CUT_B_END=1000.05; }
+          graph_until() { echo 1020.33 > "$4.at_wall"; echo 20.3 > "$4.elapsed"; echo "OK stub"; }
+          report_dirs() { echo "199.995 200.0"; }
+          get_json() { cp "$t/state_late.json" "$2"; }
+          CA=1; CAP=3; CB=3; CBP=1; TIMEOUT_S=15; WATCHDOG_S=5; DETECT_BOUND_S=20
+          trap w_finish EXIT
+          cut_cycle "H1 cycle 1" "$RUN/31_graph_cut_1.json" "$RUN/32_switch_state_cut_1.json" 0.02 1
+          fail "H1 cycle 1: could not remove the netem"; exit 1 ) 2>&1
+    }
+    out="$(st_h1_exit)" || true
+    got="$(tail -1 <<<"$out")"; above="$(tail -2 <<<"$out" | head -1)"
+    if [[ "$got" == "FAIL 08_heartbeat -- H1 cycle 1: could not remove the netem" \
+          && "$above" == "NOTE 08_heartbeat -- H1, cut short: 1 of 1 cycle(s) over the strict 20 s"*" -- H1 cycle 1: detection 20.320 s is OVER"* ]]; then
+        ok "  an early exit after an OVER cycle: the FAIL is the last line, the over-cycle disclosed right above it (w_finish concludes)"
+    else
+        red "  H1's last lines after an early exit following an OVER cycle were: '$got' (above it: '$above')"
+    fi
     # graph_until before any cut: no instant to count from, and no unbound T_CUT under set -u
     mkdir -p "$t/k/ndt"; cp "$t/graph_up.json" "$t/k/ndt/get_graph_data"
     # (`|| got=`: under set -e a subshell that dies -- an unbound variable -- would take the whole
@@ -1943,7 +1988,7 @@ open(p + ".t", "w").write(json.dumps(doc)); os.replace(p + ".t", p)' "$HB_REPORT
         live && (/^# === phase / || /^say "done/) {if (open) out = out " " open; open = 0}
         END {if (open) out = out " " open; print out}' "$LIVE_DIR_08/08_heartbeat.sh")"
     if [[ -z "${unconcluded// /}" ]] && /usr/bin/grep -q '^strict_conclude H3$' "$LIVE_DIR_08/08_heartbeat.sh"; then
-        ok "every live cut_cycle is concluded before the next phase (H1, H3): an OVER cycle anywhere reaches the last lines"
+        ok "every live cut_cycle is concluded before the next phase (H1, H3), and an early exit is concluded by w_finish (the cell above): an OVER cycle anywhere reaches the last lines"
     else
         red "  a live cut_cycle with no strict_conclude after it (line(s)${unconcluded:- none; no strict_conclude H3})"
     fi
@@ -2165,7 +2210,7 @@ note "the cut: s$CA-eth$CAP <-> s$CB-eth$CBP (an installed route uses it)"
 tc_ends "$RUN/26_tc_before" "$CA" "$CAP" "$CB" "$CBP"
 
 note "the proxy's constants: beacon interval $HB_PERIOD_S s, timeout $TIMEOUT_S s, watchdog every $WATCHDOG_S s"
-note "the design's worst case at the kernel (INFERRED): (timeout $TIMEOUT_S s - phi) + up to one watchdog interval $WATCHDOG_S s + pass time + report read, HTTP, kernel -- at phi -> 0 that is the ticket's $DETECT_BOUND_S s with nothing to spare. Each cycle is judged on the STRICT $DETECT_BOUND_S s; '$DETECT_BOUND_S s + what was measured' is recorded beside it as a diagnostic"
+note "the design's worst case at the kernel (INFERRED): (timeout $TIMEOUT_S s - phi) + up to one watchdog interval $WATCHDOG_S s + pass time + report read, HTTP, kernel -- at phi -> 0 that is the ticket's $DETECT_BOUND_S s with nothing to spare. Each cycle is measured against the strict $DETECT_BOUND_S s and one over it is DISCLOSED, not failed (Adam, 09-27: at most about $DETECT_BOUND_S s); a detection not seen within $(( DETECT_BOUND_S + 15 )) s is a FAIL; '$DETECT_BOUND_S s + what was measured' is recorded beside it as a diagnostic"
 RANDOM="$H1_SEED"
 note "random phases: seed $H1_SEED (H1_SEED= to repeat); worst-phase cycles at PHI_WORST=$PHI_WORST s"
 CYCLE_COLS="cut_a_start_mono\tcut_a_end_mono\tcut_b_start_mono\tcut_b_end_mono\tlast_heard_ab_mono\tlast_heard_ba_mono\tphi_s\tgraph_down_mono\tdetect_s\tpass_prev_start_mono\tpass_start_mono\tpass_end_mono\twatchdog_phase_s\tpass_lateness_s\tpass_to_graph_s\tcut_window_s\tclock_drift_ms\tcut_flags"
@@ -2196,7 +2241,8 @@ for (( CYC = 1; CYC <= H1_CYCLES; CYC++ )); do
     judge "$(no_netem "$RUN/36_tc_after_${CYC}_s$CA-eth$CAP.txt" "$RUN/36_tc_after_${CYC}_s$CB-eth$CBP.txt")" "H1 cycle $CYC netem"
     printf '%s\t%s\t%s\t%s\t%s\n' "$CYC" "$PHI" "$CYCLE_ROW" "$CYCLE_STRICT" "$RESTORE_ROW" >> "$RUN/30_cycles.tsv"
 done
-# 🔴 The judge's F1: the strict bound decides H1, and its count leads the run's last line.
+# 🔴 Adam's ruling A (09-27): the strict bound is measured, and every cycle over it is disclosed
+# right above the run's last line -- here, or by w_finish when the loop above exited early.
 strict_conclude H1
 column -t -s $'\t' "$RUN/30_cycles.tsv" 2>/dev/null | sed 's/^/   /' || sed 's/^/   /' "$RUN/30_cycles.tsv"
 set +e; pingall_loss "$PKG_ROLES" 3 "$RUN/37_ping_raw.txt" > "$RUN/37_pingall_after.txt" 2>&1; set -e
