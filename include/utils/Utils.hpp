@@ -21,6 +21,8 @@
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
+// [Co-developed with claude code -- Adam] <ctime> for formatTime's localtime_r; the localtime
+// @warning in the header comment below was updated in the same change.
 #include <ctime>
 #include <iomanip>
 #include <iostream>
@@ -990,7 +992,14 @@ getCurrentTimeMillisSteadyClock()
  * caller's buffer, and neither report appears with it. tests/test_IpToString.cpp pins that the
  * shared struct is left alone.
  *
- * Returns an empty string if localtime_r reports failure (the time does not fit a struct tm).
+ * On glibc, localtime_r does not re-run tzset after its first call, so a TZ or /etc/localtime
+ * change made while the process runs is no longer picked up (localtime() re-checked every call).
+ * Harmless here: nothing in this codebase sets TZ or calls tzset, and a host zone change takes
+ * effect at the next restart.
+ *
+ * The empty-string return is defensive only. On glibc with a 64-bit time_t no int64 millisecond
+ * value reaches it: localtime_r fails only when the year overflows an int, and INT64_MAX ms is the
+ * year 292278994. It is kept because POSIX allows localtime_r to fail.
  */
 inline std::string
 formatTime(int64_t timestamp_ms)
