@@ -16,8 +16,6 @@
 # brought up to date by `pip install -r`. Build a new one and swap it in: the procedure and its
 # rollback are at the end of this file, "UPGRADING AN EXISTING VENV". Until that is done on a
 # machine, that machine's p4_proxy/venv is the older set and this file does not describe it.
-# The development machine's p4_proxy/venv is still the older set as this is written. (Whoever
-# migrates it deletes the previous sentence and this one in the commit that records that.)
 #
 # HOW THIS FILE HAS BEEN RUN. As three different sets: what pip resolves from this file depends on
 # the day, because what its packages pull in is not pinned (fifteen packages in set C).
