@@ -367,9 +367,10 @@ report "M-C10: a dead link emitter is reported alive, and link telemetry samples
 
 # Adam 2026-09-27, ruling K. The manifest records the emitter's argv and start time, and the root
 # teardown refuses to signal a pid that does not match them. A disclosure that asked with the pid
-# alone would call "alive" a process the teardown will never stop -- and the pid alone falls back
-# to the launcher's four-word shape, which this test's own process does not have, so ONLY a
-# reader passing the recorded identity can answer True for it.
+# alone would call "alive" a process the teardown will never stop. The cell's subject is a child in
+# the launcher's four-word shape (judge KJL B2: nothing else may ever read alive), so the pid and
+# the shape alone say alive to BOTH of its documents; only a reader passing the recorded start
+# time reads the one with a start the child never had as dead.
 # [Co-developed with claude code -- Adam]
 m=$(mutant c24 "$MAIN" \
     '            "alive": link_telemetry.emitter_is_running(document),' \
