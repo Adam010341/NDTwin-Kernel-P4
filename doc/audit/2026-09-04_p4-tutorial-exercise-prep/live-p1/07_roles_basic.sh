@@ -613,27 +613,50 @@ PY
     [[ "$got" == *"F L6: no switch_state"* ]] && ok "  no switch_state at all: a fail, not a pass" \
                                             || red "  no switch_state at all -- $(tr '\n' '|' <<<"$got")"
     # [Co-developed with claude code -- Adam] R-N2 (the opus judge, 09-27): the live path's poll is
-    # 30 s whatever the environment says. The live call as the live path makes it -- l6_roles with
-    # no argument -- with L1_POLL_S=2 (and SELFTEST_L1_POLL_S=2) in its environment, on a
-    # switch_state that is never heard: 6.5 s in, it must still be polling (no judgement yet, more
-    # than one read). An inherited 2 s would have judged it BAD by then.
-    st_l6_inherited() {
-        local px pid
-        px="$(mktemp -d "$t/px-XXXXXX")"; mkdir -p "$px/p4"; cp "$t/state_grace.json" "$px/p4/switch_state"
-        ( export L1_POLL_S=2 SELFTEST_L1_POLL_S=2
-          RUN="$px"; PROXY_URL="file://$px"; PKG_ROLES="$t/pkg"
+    # 30 s whatever the environment says. R3-N3 / R3-N4 (the r3 opus judge, 09-27): it is now run to
+    # its END, on a clock this cell owns. state_until reads the time only through `date +%s` and
+    # waits only through `sleep`; st_l6_default puts a `date` and a `sleep` first on PATH that keep
+    # a virtual clock (`sleep N` adds N; `date +%s` reads it; every other `date` is the real one),
+    # calls l6_roles / l6_plain with NO argument -- as the live path does (phase B's l6_plain too) --
+    # on a switch_state that is never heard, and reports the reads the poll made and how long it
+    # ran by that clock. A 30 s poll, one read every 2 s, is exactly 16 reads over 30 s: the length
+    # is pinned, not only "longer than 6.5 s" (R3-N4: a 2 s or a 40 s default is red here, and
+    # before this cell nothing ran l6_plain's default at all). Nothing runs in the background, so
+    # nothing is left behind: the first version ran l6_roles in a background subshell for 6.5 real
+    # seconds and killed that subshell -- the poll loop runs in state_until's own $( ) child, which
+    # the kill never reached, and it went on polling after the self-test was done (R3-N3).
+    st_l6_default() {   # st_l6_default <roles|plain> [VAR=value...] -> "judged J reads R after S s"
+        local which="$1" px realdate; shift
+        px="$(mktemp -d "$t/px-XXXXXX")"; mkdir -p "$px/p4" "$px/bin"; cp "$t/state_grace.json" "$px/p4/switch_state"
+        realdate="$(type -P date)"; echo 1000000000 > "$px/clock"
+        # (a runaway -- a mutant's 3000 s -- ends 600 virtual seconds in: date then jumps far ahead)
+        printf '#!/bin/bash\nif [[ "$*" == "+%%s" ]]; then c=$(< %q); (( c > 1000000600 )) && c=9999999999; echo "$c"; exit 0; fi\nexec %q "$@"\n' \
+            "$px/clock" "$realdate" > "$px/bin/date"
+        printf '#!/bin/bash\nc=$(< %q); echo $(( c + ${1%%%%.*} )) > %q\n' "$px/clock" "$px/clock" > "$px/bin/sleep"
+        chmod +x "$px/bin/date" "$px/bin/sleep"
+        ( (( $# )) && export "$@"
+          PATH="$px/bin:$PATH"; RUN="$px"; PROXY_URL="file://$px"; PKG_ROLES="$t/pkg"; PKG_PLAIN="$t/pkg"
           note() { :; }; judge() { echo "J $2: ${1:0:70}"; }; fail() { echo "F $*"; }
-          l6_roles ) > "$px/out" 2>&1 &
-        pid=$!
-        sleep 6.5
-        kill "$pid" 2>/dev/null; wait "$pid" 2>/dev/null
-        echo "judged $(/usr/bin/grep -c '^[JF] ' "$px/out") polls $(cat "$px"/*.polls 2>/dev/null | wc -l)"
+          "l6_$which" ) > "$px/out" 2>&1
+        echo "judged $(/usr/bin/grep -c '^[JF] ' "$px/out") reads $(cat "$px"/*.polls 2>/dev/null | wc -l) after $(( $(< "$px/clock") - 1000000000 )) s"
     }
-    got="$(st_l6_inherited)" || true
-    if [[ "$got" == "judged 0 polls "* && "${got##* }" -ge 2 ]]; then
-        ok "  an inherited L1_POLL_S=2 does not shorten the live poll: still polling at 6.5 s ($got)"
+    got="$(st_l6_default roles)" || true
+    if [[ "$got" == "judged 3 reads 16 after 30 s" ]]; then
+        ok "  the live call's own poll is 30 s (roles): 16 reads over 30 s by its own clock, then judged"
+    else
+        red "  the live call's own poll is 30 s (roles) -- $got"
+    fi
+    got="$(st_l6_default roles L1_POLL_S=2 SELFTEST_L1_POLL_S=2)" || true
+    if [[ "$got" == "judged 3 reads 16 after 30 s" ]]; then
+        ok "  an inherited L1_POLL_S=2 does not shorten the live poll: still 16 reads over 30 s ($got)"
     else
         red "  an inherited L1_POLL_S does not shorten the live poll -- $got"
+    fi
+    got="$(st_l6_default plain)" || true
+    if [[ "$got" == "judged 3 reads 16 after 30 s" ]]; then
+        ok "  the live call's own poll is 30 s (unbound): 16 reads over 30 s by its own clock, then judged"
+    else
+        red "  the live call's own poll is 30 s (unbound) -- $got"
     fi
     got="$(st_l6 plain state_plain.json - 4)" || true
     if [[ "$got" == *"J L6 capabilities (unbound): OK"* && "$got" == *"J L6 control_plane.skipped (unbound): OK"* \

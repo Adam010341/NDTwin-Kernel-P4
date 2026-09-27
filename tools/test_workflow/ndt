@@ -2067,7 +2067,7 @@ app_preflight() {
     tool="${NDT_APP_PREFLIGHT:-$REPO/tools/p4_exercise/preflight.py}"
     if [[ ! -x "$py" ]]; then
         err "the app package pre-flight needs the proxy's venv interpreter: $py"
-        err "  create it: python3 -m venv p4_proxy/venv && p4_proxy/venv/bin/pip install -r p4_proxy/requirements.txt"
+        err "  create it: python3 -m venv p4_proxy/venv && p4_proxy/venv/bin/pip install -r p4_proxy/requirements.txt && p4_proxy/venv/bin/python p4_proxy/regen_p4runtime_pb2.py"
         return 1
     fi
     [[ -r "$tool" ]] || { err "no package pre-flight at $tool"; return 1; }

@@ -1585,6 +1585,21 @@ m=$(l7_mutant l7_shortpoll '        "$CAPS_OWNED" "$SKIPPED_OWNED" "" "L6: no sw
     '        "$CAPS_OWNED" "$SKIPPED_OWNED" "" "L6: no switch_state" "${1:-2}"')
 l7_report "L7-29: the live path's own poll is 2 s, not 30" "$m" \
           "  an inherited L1_POLL_S does not shorten the live poll"
+# [Co-developed with claude code -- Adam] R3-N4 (the r3 opus judge, 09-27): the unbound call's own
+# default -- phase B's l6_plain runs on it -- and both defaults from the other side: 40 s passes
+# any "still polling at 6.5 s" check; only a poll run to its end on the self-test's clock sees it.
+m=$(l7_mutant l7_plainshort '        "$CAPS_UNBOUND" "$SKIPPED_UNBOUND" " (unbound)" "L6: no switch_state on the control fabric" "${1:-30}"' \
+    '        "$CAPS_UNBOUND" "$SKIPPED_UNBOUND" " (unbound)" "L6: no switch_state on the control fabric" "${1:-2}"')
+l7_report "L7-30: the unbound call's own poll is 2 s, not 30" "$m" \
+          "  the live call's own poll is 30 s (unbound)"
+m=$(l7_mutant l7_plainlong '        "$CAPS_UNBOUND" "$SKIPPED_UNBOUND" " (unbound)" "L6: no switch_state on the control fabric" "${1:-30}"' \
+    '        "$CAPS_UNBOUND" "$SKIPPED_UNBOUND" " (unbound)" "L6: no switch_state on the control fabric" "${1:-40}"')
+l7_report "L7-31: the unbound call's own poll is 40 s, not 30" "$m" \
+          "  the live call's own poll is 30 s (unbound)"
+m=$(l7_mutant l7_roleslong '        "$CAPS_OWNED" "$SKIPPED_OWNED" "" "L6: no switch_state" "${1:-30}"' \
+    '        "$CAPS_OWNED" "$SKIPPED_OWNED" "" "L6: no switch_state" "${1:-40}"')
+l7_report "L7-32: the live path's own poll is 40 s, not 30" "$m" \
+          "  the live call's own poll is 30 s (roles)"
 # [Co-developed with claude code -- Adam] Adam's ruling E (09-27): with the heartbeat driving the
 # watchdog, `link_watchdog` is not in control_plane.skipped -- each list as it was before the ruling
 # must be red on its own fabric's check. (Numbered L7-33/34: L7-30..32 are fix/followup-notes-0927's.)

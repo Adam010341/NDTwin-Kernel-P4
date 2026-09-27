@@ -321,7 +321,7 @@ start_step() {
     trap finish EXIT INT TERM
     printf '== %s\n   repo: %s\n   raw : %s\n   owner: %s\n' "$STEP" "$REPO" "$RUN" "$NDT_OWNER"
     [[ -x "$NDT" ]] || die "no ndt at $NDT"
-    [[ -x "$PY" ]]  || die "no proxy venv interpreter at $PY -- python3 -m venv p4_proxy/venv && p4_proxy/venv/bin/pip install -r p4_proxy/requirements.txt"
+    [[ -x "$PY" ]]  || die "no proxy venv interpreter at $PY -- python3 -m venv p4_proxy/venv && p4_proxy/venv/bin/pip install -r p4_proxy/requirements.txt && p4_proxy/venv/bin/python p4_proxy/regen_p4runtime_pb2.py"
     require_root
     require_free_lab
     snapshot_knob
