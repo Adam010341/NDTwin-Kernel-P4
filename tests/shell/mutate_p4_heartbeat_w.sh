@@ -96,6 +96,10 @@ MUTATIONS=0
 # a mutant that writes a knob writes the checkout's. ltree builds the tree; ltree_leaks names every
 # way out of it other than the two read-only links; the gate refuses before any mutation runs if
 # there is one, and checks that the leak check sees a whole-p4_proxy link (its control).
+# [Co-developed with claude code -- Adam] R3-N5 (the r3 opus judge, 09-27): the control used to ask
+# for "at least one line", and a whole-p4_proxy link gives two -- the knob it exposes and the link
+# itself -- so either branch of ltree_leaks alone kept the control green. ltree_control asks for
+# each line by name.
 ltree() {   # ltree <dir>
     local d="$1"
     mkdir -p "$d/$LIVE_DIR_REL" "$d/tools/test_workflow" "$d/doc/audit/2026-09-25_p4-heartbeat/spike" "$d/tmp"
@@ -118,11 +122,22 @@ ltree_leaks() {   # ltree_leaks <dir> -> one line per way out of the tree; nothi
         esac
     done < <(find "$d" -type l)
 }
+ltree_control() {   # ltree_control <dir> -> one line per branch of ltree_leaks that does NOT see a
+                    # whole-p4_proxy link laid in <dir>; nothing when both do
+    local c="$1" got
+    mkdir -p "$c"; ln -s "$REPO/p4_proxy" "$c/p4_proxy"
+    got="$(ltree_leaks "$c")"
+    /usr/bin/grep -qxF "p4_proxy/mininet/host_count_override resolves to $(readlink -f "$REPO/p4_proxy/mininet/host_count_override")" <<<"$got" \
+        || echo "the knob branch does not see the checkout's host_count_override through it"
+    /usr/bin/grep -qxF "p4_proxy is a link to $(readlink -f "$REPO/p4_proxy")" <<<"$got" \
+        || echo "the link branch does not see the link itself"
+}
 lprobe="$BK/ltree-probe"; ltree "$lprobe"
 lleaks="$(ltree_leaks "$lprobe")"
-lctl="$BK/ltree-control"; mkdir -p "$lctl"; ln -s "$REPO/p4_proxy" "$lctl/p4_proxy"
-if [[ -z "$(ltree_leaks "$lctl")" ]]; then
-    echo "REFUSE: the leak check sees nothing in a tree that links all of p4_proxy -- it proves nothing"; exit 2
+lctl="$BK/ltree-control"; lmiss="$(ltree_control "$lctl")"
+if [[ -n "$lmiss" ]]; then
+    echo "REFUSE: the leak check's control, a tree that links all of p4_proxy, is not seen whole -- it proves nothing:"
+    sed 's/^/  /' <<<"$lmiss"; exit 2
 fi
 if [[ -n "$lleaks" ]]; then
     echo "REFUSE: 08's mutant tree reaches out of itself -- a mutant could write the checkout's lab state:"
@@ -1120,7 +1135,10 @@ open(p, "w").write(s.replace(a, b))
 PY
     echo "$d"
 }
-lrun() { ( cd "$1" && TMPDIR="$1/tmp" timeout 300 bash "$LIVE_DIR_REL/08_heartbeat.sh" --self-test 2>&1 ); }
+# [Co-developed with claude code -- Adam] R3-N7 (the r3 opus judge, 09-27): no byte-code either. The
+# tree's p4_proxy/proxy_agent and p4_proxy/venv are LINKS to the checkout's, so a python that 08
+# (or its _common.sh) starts would write __pycache__ into them.
+lrun() { ( cd "$1" && TMPDIR="$1/tmp" PYTHONDONTWRITEBYTECODE=1 timeout 300 bash "$LIVE_DIR_REL/08_heartbeat.sh" --self-test 2>&1 ); }
 lreport() {   # $1 = mutation name, $2 = mutant dir, $3 = the self-test case that must go red
     local out
     MUTATIONS=$((MUTATIONS+1))
