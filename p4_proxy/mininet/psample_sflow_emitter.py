@@ -314,7 +314,10 @@ class PortMap:
 
 
 def _trusted_loader():
-    """link_telemetry.load_manifest, imported from beside this file when first needed."""
+    """link_telemetry.load_manifest, imported from beside this file when first needed.
+
+    [Co-developed with claude code -- Adam]
+    """
     if _HERE not in sys.path:
         sys.path.insert(0, _HERE)
     import link_telemetry  # noqa: PLC0415 -- the one reader every consumer of the file shares

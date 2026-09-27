@@ -882,6 +882,9 @@ class TheLinkEmitterSummaryTest(unittest.TestCase):
         path = os.path.join(self.tmp, "broken.json")
         with open(path, "w") as fh:
             fh.write("{not json")
+        # 0644: at this user's umask the file would be refused on its mode before the parse
+        # this cell is about was ever reached. [Co-developed with claude code -- Adam]
+        os.chmod(path, 0o644)
         self.assertIsNone(main.link_emitter_report(path))
 
     def test_a_manifest_with_no_pid_is_not_alive(self):

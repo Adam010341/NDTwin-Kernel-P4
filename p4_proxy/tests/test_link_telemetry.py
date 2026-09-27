@@ -401,7 +401,12 @@ class TheManifestTest(PlanFixture):
     def test_reading_a_corrupt_manifest_is_not_an_error_either(self):
         with open(self.path, "w") as fh:
             fh.write("not json")
+        # 0644, so the trust check passes and it is the PARSE that fails: at this user's umask
+        # (0002) the file would be refused on its mode before any JSON was read, and this cell
+        # would say nothing about a corrupt document. [Co-developed with claude code -- Adam]
+        os.chmod(self.path, 0o644)
         self.assertIsNone(link_telemetry.read_manifest(self.path))
+        self.assertIn("cannot be read", link_telemetry.load_manifest(self.path)[1])
 
 
 class TheManifestIsTrustedOnlyFromItsOwnerTest(unittest.TestCase):
@@ -418,6 +423,15 @@ class TheManifestIsTrustedOnlyFromItsOwnerTest(unittest.TestCase):
     @staticmethod
     def st(mode, uid):
         return os.stat_result((mode, 0, 0, 1, uid, 0, 0, 0, 0, 0))
+
+    def test_a_root_reader_refuses_a_file_another_user_owns(self):
+        # The one configuration in which these checks protect anything: the reader is root (the
+        # teardown, the emitter) and the file belongs to somebody else. Every other owner cell
+        # runs as the test's own euid. [Co-developed with claude code -- Adam]
+        other_user = os.stat_result((0o100644, 0, 0, 1, 1000, 0, 0, 0, 0, 0))
+        self.assertIsNotNone(link_telemetry.manifest_distrust(other_user, 0))
+        self.assertIsNone(link_telemetry.manifest_distrust(
+            os.stat_result((0o100644, 0, 0, 1, 0, 0, 0, 0, 0, 0)), 0))
 
     def test_only_root_or_the_reader_may_own_it_and_nobody_else_may_write_it(self):
         me, reg = os.geteuid(), 0o100000

@@ -553,8 +553,11 @@ def read_manifest(path=None):
 
     `load_manifest`'s document alone -- for `ndt` and the proxy, which render a None as
     "unreadable". The teardown (`shut_down`) and the root emitter
-    (`psample_sflow_emitter.load_manifest`) call `load_manifest` itself, so every reader of the
-    file refuses the same files. [Co-developed with claude code -- Adam]
+    (`psample_sflow_emitter.load_manifest`) call `load_manifest` itself, so every reader applies
+    the same check. What it accepts depends on who is reading, since the owner must be root or
+    the reader's own user: a root teardown or emitter accepts only root's file, while `ndt` and
+    the proxy, running as the lab user, also accept one the lab user wrote.
+    [Co-developed with claude code -- Adam]
     """
     return load_manifest(path)[0]
 
@@ -651,8 +654,8 @@ def process_is_the_emitter(pid, proc_root="/proc", argv=None, start_time=None):
         --manifest <path>` (`_is_the_launchers_shape`) -- ALWAYS, whatever the manifest recorded.
         The real emitter is never anything else, and this is what keeps a manifest someone else
         wrote from naming an arbitrary process by copying its argv and start time out of /proc
-        (judge KJL B2: at 4a96f894 a recorded argv REPLACED the shape check, so a forged manifest
-        could have root signal sshd);
+        (judge KJL B2: when a recorded argv could stand in for the shape, a forged manifest could
+        make root signal an unrelated process);
       * and, when the manifest recorded an identity (`emitter_identity`), BOTH halves of it: the
         cmdline equal to the recorded `argv` word for word -- a file of the same NAME run from
         another path is not it -- and `/proc/<pid>/stat` field 22 equal to the recorded

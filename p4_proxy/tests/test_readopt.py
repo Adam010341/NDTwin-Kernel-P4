@@ -1408,6 +1408,9 @@ class ReapManifestSwitchesTest(unittest.TestCase):
     def test_a_corrupt_manifest_is_not_an_error(self):
         with open(self.path, "w") as fh:
             fh.write("{not json")
+        # 0644, so the trust check passes and the PARSE is what fails -- at this user's umask
+        # the file would be refused on its mode first. [Co-developed with claude code -- Adam]
+        os.chmod(self.path, 0o644)
         self.assertEqual(self.reap(is_switch=lambda pid, **kw: True), [])
 
     def test_an_entry_without_a_pid_is_skipped(self):
@@ -1587,14 +1590,27 @@ class ProcessIsASwitchTest(unittest.TestCase):
     def make(self, pid, cmdline):
         d = os.path.join(self.root, str(pid))
         os.makedirs(d)
-        # Real cmdline entries are NUL-separated, which is why the check is a substring
-        # search over bytes rather than a split-and-compare.
+        # Real cmdline entries are NUL-separated, one word each; the check splits them and
+        # compares argv[0] and the entry's port and device id word by word.
         with open(os.path.join(d, "cmdline"), "wb") as fh:
             fh.write(cmdline)
 
+    BMV2 = (b"/usr/local/bmv2-fast/bin/simple_switch_grpc\x00--device-id\x001\x00"
+            b"--\x00--grpc-server-addr\x000.0.0.0:50051\x00")
+
     def test_a_bmv2_cmdline_is_recognised(self):
-        self.make(10, b"simple_switch_grpc\x00--device-id\x001\x00")
-        self.assertTrue(self.mod.process_is_a_switch(10, proc_root=self.root))
+        # [Co-developed with claude code -- Adam] With the entry it is: see the next cell.
+        self.make(10, self.BMV2)
+        self.assertTrue(self.mod.process_is_a_switch(
+            10, proc_root=self.root, entry={"grpc_port": 50051, "device_id": 1}))
+
+    def test_without_an_entry_nothing_is_a_switch(self):
+        # argv[0] alone is ANY bmv2 on the machine -- another user's fabric included -- so a
+        # caller that has no manifest entry to tie the pid to gets no for an answer.
+        # [Co-developed with claude code -- Adam]
+        self.make(15, self.BMV2)
+        self.assertFalse(self.mod.process_is_a_switch(15, proc_root=self.root))
+        self.assertFalse(self.mod.process_is_a_switch(15, proc_root=self.root, entry=None))
 
     def test_an_unrelated_process_is_not(self):
         self.make(11, b"/usr/bin/python3\x00server.py\x00")
@@ -1612,6 +1628,7 @@ class ProcessIsASwitchTest(unittest.TestCase):
 
     def test_an_entry_with_no_grpc_port_matches_nothing(self):
         # Without its port the entry cannot be tied to ONE process, so it ties to none.
+        # [Co-developed with claude code -- Adam]
         self.make(14, b"/usr/local/bmv2-fast/bin/simple_switch_grpc\x00--device-id\x001\x00"
                       b"--\x00--grpc-server-addr\x000.0.0.0:50051\x00")
         self.assertTrue(self.mod.process_is_a_switch(

@@ -1895,6 +1895,23 @@ class AManifestThatCannotBeWrittenIsFatalTest(FabricFixture):
                         "the filters attached for it were left on")
 
 
+class ASwitchManifestThatCannotBeWrittenIsFatalTest(FabricFixture):
+    """The switch manifest, like the link-telemetry one: not written is not healthy.
+
+    [Co-developed with claude code -- Adam]
+    ndtwin-p4-power and the teardown's reap address switches only through this file, so a
+    fabric without it cannot power a switch off or on, and cannot stop a switch the helper
+    restarted. It used to be one WARNING line.
+    """
+
+    def test_a_switch_manifest_that_cannot_be_written_is_fatal(self):
+        # A DIRECTORY at the name: the rename over it fails, as it would for a full /tmp.
+        os.makedirs(self.manifest)
+        _plan, _net, (_n, _s, fatal, verdict, _u) = self.bring_up()
+        self.assertTrue(fatal, "a fabric with no switch manifest on disk was called healthy")
+        self.assertIn("could not write the switch manifest", verdict or "")
+
+
 class StartingTheEmitterTest(FabricFixture):
     """The grace period itself, which every other case patches to zero."""
 
