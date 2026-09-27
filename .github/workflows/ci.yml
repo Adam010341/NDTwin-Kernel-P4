@@ -116,7 +116,8 @@ jobs:
       # step above serves this job's python3; this one is the interpreter the tree itself names:
       # tests/shell/test_live_p1_common.sh, tests/shell/test_mutate_gate_dead_mutant.sh (through
       # mutate_drive_exercise.sh) and doc/audit/.../live-p1/_common.sh all run
-      # p4_proxy/venv/bin/python, and without it 78 + 4 of their checks were red (run 36319541715).
+      # p4_proxy/venv/bin/python. Without it 78 + 4 of their checks were red in a local reproduction of
+      # this job (2026-09-27); run 36319541715's log shows only the first 8 and 4, the lane's head -8.
       # It also becomes the P4 lane's interpreter, since l1_unit_tests.sh probes it first.
       - name: Create p4_proxy/venv
         run: >-
@@ -132,6 +133,8 @@ jobs:
         #   * PROVED LESS for the P4 cases that need the compiled program (no p4_src/build here);
         #   * DECLARED SKIP for kernel-side files whose NDTWIN_L1_NEEDS this runner lacks: `ryu`
         #     (Ryu needs its own Python 3.8 env) and `py-plot` (the E round's plotting interpreter).
+        #     Only because this is a hosted runner (CI / GITHUB_ACTIONS): on the lab the same skip
+        #     fails and names the missing need.
         # Any other skip, and any of these on a machine that has what they need, is a failure.
 
   # ===========================================================================

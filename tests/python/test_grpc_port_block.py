@@ -418,6 +418,9 @@ _TUTORIALS_ADAPTER_TEST = (
     "they land")
 _TUTORIALS_VERBATIM = (
     "a verbatim copy of exercises/p4runtime/mycontroller.py; the fixture is only useful unedited")
+_TUTORIALS_REFUSAL = (
+    "a refusal test: 127.0.0.1:50050 is no tutorials switch (they start at 50051), and the adapter "
+    "must refuse it rather than pass it through")
 _OLD_BASE_IS_REFUSED = (
     "asserts that a package declaring the old base 50050 is refused by the pre-flight")
 _RUN_EXT = os.path.join("tools", "p4_exercise", "run_external_controller.py")
@@ -448,7 +451,7 @@ ALLOWED_LINES_NAMING_THE_OLD_BLOCK = {
     (_RUN_EXT_TEST, "self.assertEqual(adapter.remap(address=\"127.0.0.1:50051\", "
                     "grpc_base=31000),"): _TUTORIALS_ADAPTER_TEST,
     (_RUN_EXT_TEST, "adapter.remap(address=\"127.0.0.1:50050\", device_id=0)"):
-        _TUTORIALS_ADAPTER_TEST,
+        _TUTORIALS_REFUSAL,
     (_RUN_EXT_TEST, "adapter.remap(address=\"127.0.0.1:50054\", dpids={1, 2, 3})"):
         _TUTORIALS_ADAPTER_TEST,
     (_RUN_EXT_TEST, "module.Bmv2SwitchConnection(name=\"s1\", address=\"127.0.0.1:50051\", "
