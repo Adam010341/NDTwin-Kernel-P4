@@ -31,6 +31,9 @@ SUITE_REL="tests/shell/test_l1_shell_scoring.sh"
 # Named as a variable so check_gate_anchors.py can resolve the last mutation's anchor: the
 # tool checks an unpinned anchor against every path the gate declares.
 CORPUS_REL="tests/shell/test_faults.sh"
+CORPUS_PRINTF_REL="tests/shell/test_stack_log_rotation.sh"   # a suite whose summary is a printf
+CORPUS_ONELINE_REL="tests/shell/test_faults_topo_pid.sh"      # its failure branch is one line
+CORPUS_GROUPED_REL="tests/shell/test_ndt_down_stops_only_ours.sh"   # `|| { echo "Ran ..."; exit 1; }`
 
 KILLED=0
 SURVIVED=0
@@ -46,13 +49,28 @@ build_sandbox() {
     printf '%s' "$sb"
 }
 
-# mutate <name> <file-relative-to-sandbox-root> <python-mutation-expression>
+# [Co-developed with claude code -- Adam] 🔴 THE BASELINE MUST BE GREEN (2026-09-27). This gate had
+# no baseline, and a mutation counted as KILLED whenever the suite went red at all -- so from the
+# day group C went red (12 of the corpus's suites changed shape) every mutation here was "killed"
+# by the red that was already there, and the gate passed while proving nothing.
+echo "baseline (must be green before any mutation):"
+sb0="$(build_sandbox)"
+if ! bash "$sb0/$SUITE_REL" > "$sb0/out.log" 2>&1; then
+    echo "  refused: the suite is RED with no mutation ($(grep -c '^  FAILED' "$sb0/out.log") check(s)) -- mutations prove nothing"
+    grep '^  FAILED' "$sb0/out.log" | head -5 | sed 's/^/    /'
+    rm -rf "$sb0"; exit 2
+fi
+echo "  $(tail -1 "$sb0/out.log")"
+rm -rf "$sb0"
+
+# mutate <name> <file-relative-to-sandbox-root> <python-mutation-expression> [<check that must go red>
+#        [<text its "actual:" line must hold -- WHICH rule caught it>]]
 #
 # The mutation is a python snippet given the file text as `s` and expected to rebind `s`. It MUST
 # change the text: a no-op mutation would report KILLED or SURVIVED about nothing, which is the
 # failure mode this repo calls "the instrument looking like its own finding".
 mutate() {
-    local name="$1" rel="$2" expr="$3"
+    local name="$1" rel="$2" expr="$3" want="${4:-}" because="${5:-}"
     local sb; sb="$(build_sandbox)"
     local target="$sb/$rel"
 
@@ -78,8 +96,18 @@ PY
 
     local rc=0
     bash "$sb/$SUITE_REL" > "$sb/out.log" 2>&1 || rc=$?
-    if [[ "$rc" -ne 0 ]]; then
-        echo "  KILLED   $name   (suite rc=$rc, $(grep -c '^  FAILED' "$sb/out.log") check(s) red)"
+    local why=""
+    [[ -n "$because" ]] && why="$(awk -v w="  FAILED   $want" 'index($0, w) == 1 {f = 1; next}
+                                     f && /^ +actual:/ {print; exit}' "$sb/out.log")"
+    if [[ "$rc" -ne 0 && -n "$want" ]] && ! grep -qF "  FAILED   $want" "$sb/out.log"; then
+        echo "  SURVIVED $name   -- red, but not on '$want'"
+        grep '^  FAILED' "$sb/out.log" | head -3 | sed 's/^/             /'
+        SURVIVED=$((SURVIVED + 1))
+    elif [[ "$rc" -ne 0 && -n "$because" && "$why" != *"$because"* ]]; then
+        echo "  SURVIVED $name   -- '$want' red, but not because '$because' (${why:-no actual: line})"
+        SURVIVED=$((SURVIVED + 1))
+    elif [[ "$rc" -ne 0 ]]; then
+        echo "  KILLED   $name   (suite rc=$rc, $(grep -c '^  FAILED' "$sb/out.log") check(s) red${want:+, '$want' among them}${because:+, because '$because'})"
         KILLED=$((KILLED + 1))
     else
         echo "  SURVIVED $name   -- the suite stayed GREEN with this defect present"
@@ -163,10 +191,46 @@ s = s.replace("elif [[ \"$failed\"  -gt 0 ]]; then echo FAIL-CHECKS",
 echo
 echo "=== mutations: the corpus check (group C) actually reads the corpus ==="
 
+# [Co-developed with claude code -- Adam] (09-27) each corpus mutant names the check that must go
+# red AND the rule that must be the reason: "zero" is rule (1), no summary at all; "followed by a
+# bare exit" is rule (2), a summary left only on the failure path. The first is the defect the
+# old last-echo check was written for; with rule (2) gone it survives (its failure-path summary
+# still scores).
+mutate "a suite stops printing its GREEN-path summary (its failure one, followed by a bare exit, is left)" "$CORPUS_REL" '
+s = s.replace("echo \"Ran $((PASS + FAIL)) checks, all passed\"",
+              "echo \"everything is fine\"")
+' "C  test_faults.sh prints" "followed by a bare exit at line"
 mutate "a suite stops printing any summary the lane understands" "$CORPUS_REL" '
 s = s.replace("echo \"Ran $((PASS + FAIL)) checks, all passed\"",
               "echo \"everything is fine\"")
-'
+s = s.replace("echo \"Ran $((PASS + FAIL)) checks, $FAIL failed\"",
+              "echo \"something failed\"")
+' "C  test_faults.sh prints" "zero:"
+# the same two for a suite that prints its summary with printf -- the form the old last-echo
+# heuristic could not read at all (it was red on this suite before any mutation)
+mutate "a printf-summary suite stops printing a summary the lane understands" "$CORPUS_PRINTF_REL" '
+s = s.replace("printf \x27\\nRan %d checks, %d failed\\n\x27", "printf \x27\\nDone: %d, %d\\n\x27")
+' "C  test_stack_log_rotation.sh prints" "zero:"
+mutate "a printf-summary suite prints it only on the failure path, followed by a bare exit" "$CORPUS_PRINTF_REL" '
+s = s.replace("printf \x27\\nRan %d checks, %d failed\\n\x27 \"$((PASS+FAIL))\" \"$FAIL\"\n[[ \"$FAIL\" -eq 0 ]] || exit 1\n",
+              "if [[ \"$FAIL\" -ne 0 ]]; then\n    printf \x27\\nRan %d checks, %d failed\\n\x27 \"$((PASS+FAIL))\" \"$FAIL\"\n    exit 1\nfi\n")
+' "C  test_stack_log_rotation.sh prints" "followed by a bare exit at line"
+# [Co-developed with claude code -- Adam] rule (2a), the opus judge's B1 on d2a9d641 (09-27): the
+# one-line failure branch and the `|| { ...; exit 1; }` summary. At d2a9d641 both SURVIVED (group C
+# saw a bare exit only at the start of a later line); each must now be caught by (2a) by name.
+mutate "a one-line-failure-branch suite stops printing its green summary" "$CORPUS_ONELINE_REL" '
+s = s.replace("echo \"Ran $((PASS+FAIL)) checks, all passed${SKIP:+ ($SKIP skipped)}\"",
+              "echo \"everything is fine\"")
+' "C  test_faults_topo_pid.sh prints" "exit <non-zero> after it on the same line"
+mutate "a suite whose other summaries are all \"|| { ...; exit 1; }\" loses its final one" "$CORPUS_GROUPED_REL" '
+s = s.replace("printf \x27\\n\x27\necho \"Ran $((PASS+FAIL)) checks, $FAIL failed\"\n", "printf \x27\\n\x27\n")
+' "C  test_ndt_down_stops_only_ours.sh prints" "exit <non-zero> after it on the same line"
+# ... and the judge's N4: a $(( )) the renderer cannot evaluate is an instrument failure, red as
+# such -- never read as "zero", or as the prints before it
+mutate "a summary whose \$(( )) the renderer cannot evaluate (09)" "$CORPUS_REL" '
+s = s.replace("echo \"Ran $((PASS + FAIL)) checks, all passed\"",
+              "echo \"Ran $((PASS + 09)) checks, all passed\"")
+' "C  test_faults.sh prints" "instrument failed"
 
 echo
 echo "===== $((KILLED + SURVIVED)) mutation(s): $KILLED killed, $SURVIVED survived ====="

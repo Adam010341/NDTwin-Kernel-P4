@@ -32,6 +32,9 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
 STACK="$REPO/tools/test_workflow/stack.sh"
 TEST="$HERE/test_stack_log_rotation.sh"
+# [Co-developed with claude code -- Adam] and start_bg's side of it (2026-09-27): WHEN start_bg
+# rotates is test_start_bg_log_rotation.sh's, so its mutants run that suite (report_bg below)
+TEST_BG="$HERE/test_start_bg_log_rotation.sh"
 BK=$(mktemp -d "${TMPDIR:-/tmp}/stack-rot-mutate-XXXXXX")
 trap 'rm -rf "$BK"' EXIT
 BASE_STACK=$(sha256sum "$STACK" | cut -d' ' -f1)
@@ -40,11 +43,25 @@ SURVIVORS=0
 MUTATIONS=0
 
 run_against() { STACK_UNDER_TEST="$1/stack.sh" timeout 600 bash "$TEST" 2>&1; }
+run_against_bg() { STACK_UNDER_TEST="$1/stack.sh" timeout 600 bash "$TEST_BG" 2>&1; }
 
 report() {   # $1 = mutation name, $2 = mutant dir, $3 = case that must fail
     local out rc
     MUTATIONS=$((MUTATIONS+1))
     out=$(run_against "$2"); rc=$?
+    if [[ "$rc" -ne 0 ]] && grep -qF "FAILED   $3" <<<"$out"; then
+        printf '  caught   %-58s (%s went red)\n' "$1" "$3"
+    else
+        SURVIVORS=$((SURVIVORS+1))
+        printf '  SURVIVED %-58s (%s stayed green -- that case proves nothing)\n' "$1" "$3"
+        grep -E '^  FAILED|^Ran ' <<<"$out" | sed 's/^/             /'
+    fi
+}
+
+report_bg() {   # $1 = mutation name, $2 = mutant dir, $3 = case of test_start_bg_log_rotation that must fail
+    local out rc
+    MUTATIONS=$((MUTATIONS+1))
+    out=$(run_against_bg "$2"); rc=$?
     if [[ "$rc" -ne 0 ]] && grep -qF "FAILED   $3" <<<"$out"; then
         printf '  caught   %-58s (%s went red)\n' "$1" "$3"
     else
@@ -80,6 +97,8 @@ cp "$REPO/tools/test_workflow/components.env" "$base/components.env"
 cp "$REPO/tools/test_workflow/supervise.sh" "$base/supervise.sh"
 run_against "$base" | tail -1
 run_against "$base" >/dev/null 2>&1 || { echo "  baseline is RED -- fix that first, mutations prove nothing on a red baseline"; exit 2; }
+run_against_bg "$base" | tail -1
+run_against_bg "$base" >/dev/null 2>&1 || { echo "  test_start_bg_log_rotation's baseline is RED -- mutations prove nothing"; exit 2; }
 echo
 
 # --- O-4 itself ------------------------------------------------------------------------------
@@ -146,6 +165,32 @@ m=$(mutant n1 "$STACK" \
     '    return 0')
 report "N1 (control, never rotates): the log is left in place" "$m" \
        "the live log is moved aside, not left in place"
+
+# --- start_bg's decision: WHEN it rotates (test_start_bg_log_rotation.sh) --------------------
+# [Co-developed with claude code -- Adam] (2026-09-27) The two-generation expectations are gone
+# from that suite -- the contract is this gate's first suite -- and what stays is start_bg's own
+# `-s` test (stack.sh:559-560). A first start is not a path of its own: with no log, `-s` is
+# false exactly as for an empty one, and a rotate_log handed a missing file makes nothing
+# (its mv fails) -- so "rotates on a first start" leaves no generation to see. S2 is the half
+# that is distinct: a start_bg that never rotates.
+m=$(mutant s1 "$STACK" \
+    '    if [[ -s "$log" ]]; then
+        rotate_log "$log"
+    fi' \
+    '    if [[ -e "$log" ]]; then
+        rotate_log "$log"
+    fi')
+report_bg "S1: start_bg rotates an EMPTY log too" "$m" \
+       "an empty previous log is not rotated"
+m=$(mutant s2 "$STACK" \
+    '    if [[ -s "$log" ]]; then
+        rotate_log "$log"
+    fi' \
+    '    if false; then
+        rotate_log "$log"
+    fi')
+report_bg "S2: start_bg never rotates (the previous era is overwritten)" "$m" \
+       "a non-empty previous log is rotated: exactly one stamped generation"
 
 echo
 NOW_STACK=$(sha256sum "$STACK" | cut -d' ' -f1)

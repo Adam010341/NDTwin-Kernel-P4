@@ -1,22 +1,36 @@
 #!/usr/bin/env bash
 #
-# Tests for start_bg's two-generation log rotation.
+# Tests for start_bg's side of log rotation: WHEN it rotates, and that what it rotates survives.
 #
 # [Co-developed with claude code -- Adam]
 #
 # start_bg used a bare '>' redirect, so every restart erased the previous era's log. That is
 # how the entire P4-era kernel.log vanished on 2026-08-15: the OVS restart truncated it, and
 # the era had to be reconstructed from the proxy's log during the overnight audit. The fix
-# rotates a non-empty log to <log>.prev before starting -- each file stays single-era, disk
-# use stays bounded, and the era you just tore down remains readable.
+# rotates a non-empty log aside before starting -- each file stays single-era, disk use stays
+# bounded, and the era you just tore down remains readable.
 #
-# Depth went 1 -> 2 on 2026-08-30 (KNOWN-ISSUES A-5): one generation survives a single restart
-# but not the second, and "restart, it recurred, restart again" is the demo sequence A-5 is
-# about -- the second restart overwrote the era holding the evidence with the era holding none.
+# 🔴 THE ROTATION CONTRACT ITSELF LIVES IN test_stack_log_rotation.sh (2026-09-27). O-4
+# (74c811df, 2026-09-06) replaced this file's two-generation `.prev`/`.prev2` scheme with five
+# time-stamped generations `<log>.<YYYYmmdd-HHMMSS>` and NDT_LOG_KEEP, and that suite tests them
+# (3A-3D at its lines 84-122; 3E and 3F at :144-162 -- two restarts inside one second, and start_bg
+# really calling the rotator). This file kept asserting `.prev`/`.prev2` and was red from then on.
+# 13 checks became 5 (the accounting corrected after the opus judge's N5 on d2a9d641):
+#   - 8 deleted, not replaced here -- the two multi-restart cells: the red #6, #9, #10, #13 (the
+#     older eras in .prev / .prev2, the oldest one dropped), the green #8 and #12 (".prev2 / .prev3
+#     not there yet" -- green only because no .prev file is made any more) and the green #7 and #11
+#     (the newest era in the live log, which #3 below still asserts); the contract they stood for
+#     is test_stack_log_rotation's, stated once;
+#   - #1 and #2 (the previous log rotated, holding the previous era) kept, RETARGETED from .prev to
+#     the one stamped generation;
+#   - #3 (the live log is the new era's -- stricter now: its content, not only that it exists),
+#     #4 (no generation on a first start) and #5 (an empty log is not rotated) kept, #4 and #5
+#     retargeted to the stamped names: start_bg's own decision (stack.sh:559-560), which only this
+#     file covers.
 
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-STACK="$HERE/../../tools/test_workflow/stack.sh"
+STACK="${STACK_UNDER_TEST:-$HERE/../../tools/test_workflow/stack.sh}"   # mutate_stack_log_rotation.sh points this at a copy
 
 PASS=0
 FAIL=0
@@ -43,16 +57,20 @@ trap 'rm -rf "$TMP"' EXIT
 PID_DIR="$TMP/pids"   # start_bg writes the pid file here; is_running reads it
 mkdir -p "$PID_DIR"
 
+# gens <log> -- the time-stamped generations rotate_log left beside <log>, one per line.
+gens() { ls -1 "$1".[0-9]* 2>/dev/null | /usr/bin/grep -E "^$1\.[0-9]{8}-[0-9]{6}(-[0-9]+)?$"; }
+
 # --- a previous era's log is rotated, not erased -------------------------------------------
 
 LOG="$TMP/kernel.log"
 printf 'previous era line\n' >"$LOG"
-start_bg rot_test1 "$LOG" true >/dev/null 2>&1
+start_bg rot_test1 "$LOG" echo the-new-era >/dev/null 2>&1
 wait 2>/dev/null || true
+sleep 0.2   # let the new era's echo land before reading the live log
 
-check "previous log rotated to .prev" "yes" "$([[ -f "$LOG.prev" ]] && echo yes || echo no)"
-check ".prev holds the previous era's content" "previous era line" "$(cat "$LOG.prev" 2>/dev/null)"
-check "current log is a fresh file for the new era" "yes" "$([[ -f "$LOG" ]] && echo yes || echo no)"
+check "a non-empty previous log is rotated: exactly one stamped generation" "1" "$(gens "$LOG" | wc -l)"
+check "  and it holds the previous era's content" "previous era line" "$(cat "$(gens "$LOG" | head -1)" 2>/dev/null)"
+check "the live log is the new era's alone" "the-new-era" "$(cat "$LOG" 2>/dev/null)"
 
 # --- a first start has nothing to rotate ----------------------------------------------------
 
@@ -60,61 +78,17 @@ LOG2="$TMP/first.log"
 start_bg rot_test2 "$LOG2" true >/dev/null 2>&1
 wait 2>/dev/null || true
 
-check "no .prev appears on a first start" "no" "$([[ -f "$LOG2.prev" ]] && echo yes || echo no)"
+check "no generation appears on a first start" "0" "$(gens "$LOG2" | wc -l)"
 
-# --- an empty leftover log is not worth a generation ----------------------------------------
+# --- an empty previous log is not rotated: an empty generation would be one of the five kept,
+#     pushing out an era that had something in it ---------------------------------------------
 
 LOG3="$TMP/empty.log"
 : >"$LOG3"
 start_bg rot_test3 "$LOG3" true >/dev/null 2>&1
 wait 2>/dev/null || true
 
-check "an empty previous log is not rotated" "no" "$([[ -f "$LOG3.prev" ]] && echo yes || echo no)"
-
-# --- two eras end up in exactly two files ---------------------------------------------------
-
-LOG4="$TMP/two_eras.log"
-start_bg era1 "$LOG4" echo era-one >/dev/null 2>&1
-sleep 0.2   # let the echo land before the next start rotates it
-start_bg era2 "$LOG4" echo era-two >/dev/null 2>&1
-sleep 0.2
-
-check "the older era survives in .prev" "era-one" "$(cat "$LOG4.prev" 2>/dev/null)"
-check "the newer era is in the main log" "era-two" "$(cat "$LOG4" 2>/dev/null)"
-check "two eras produce no third generation yet" "no" \
-    "$([[ -f "$LOG4.prev2" ]] && echo yes || echo no)"
-
-# --- the SECOND restart is the one that used to lose the evidence ---------------------------
-#
-# KNOWN-ISSUES A-2's documented workaround is "restart the kernel". When the symptom comes back
-# you restart again -- and at depth 1 the only surviving generation was the short restart that
-# fixed nothing, while the era that explains the fault had just been overwritten. That is the
-# demo sequence A-5 names, and it is what depth 2 covers.
-
-LOG5="$TMP/three_eras.log"
-start_bg gen1 "$LOG5" echo the-era-with-the-evidence >/dev/null 2>&1
-sleep 0.2
-start_bg gen2 "$LOG5" echo the-restart-that-fixed-nothing >/dev/null 2>&1
-sleep 0.2
-start_bg gen3 "$LOG5" echo the-current-era >/dev/null 2>&1
-sleep 0.2
-
-check "the oldest of three eras survives in .prev2" \
-    "the-era-with-the-evidence" "$(cat "$LOG5.prev2" 2>/dev/null)"
-check "the middle era is in .prev" \
-    "the-restart-that-fixed-nothing" "$(cat "$LOG5.prev" 2>/dev/null)"
-check "the newest era is in the main log" \
-    "the-current-era" "$(cat "$LOG5" 2>/dev/null)"
-
-# --- disk stays bounded: a fourth restart drops the oldest, it does not accumulate -----------
-
-start_bg gen4 "$LOG5" echo the-fourth-era >/dev/null 2>&1
-sleep 0.2
-
-check "a fourth era does not create a .prev3" "no" \
-    "$([[ -f "$LOG5.prev3" ]] && echo yes || echo no)"
-check "the oldest era is now the one that was in .prev" \
-    "the-restart-that-fixed-nothing" "$(cat "$LOG5.prev2" 2>/dev/null)"
+check "an empty previous log is not rotated" "0" "$(gens "$LOG3" | wc -l)"
 
 echo
 if [[ $FAIL -gt 0 ]]; then

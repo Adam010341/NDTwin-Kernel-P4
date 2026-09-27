@@ -23,13 +23,21 @@
 # pinned to a mechanism rather than to a story that fits. Case 5 is the one that stops the defect
 # coming back at a call site nobody is looking at.
 #
-# No fabric, no lab claim: the gate is pointed at t008_poll, an archived 08-20 cell that is in
-# version control, which is the same cell the live G7 uses.
+# No fabric, no lab claim: the gate is pointed at t008_poll, the 08-20 cell the live G7 uses.
+# [Co-developed with claude code -- Adam] 🔴 CORRECTED 2026-09-27: that cell is NOT in version
+# control. Its raw directory ignores itself (raw/.gitignore: `*`) and lives on the audit-raw
+# orphan branch, so in every worktree, clone and CI checkout the gate had no data -- UNRUNNABLE,
+# rc 2 -- and case 2, which expects rc 2, passed for that wrong reason. The suite now brings a
+# MINIMAL SYNTHETIC t008_poll (tests/shell/fixtures/gate_exit_code_not_tee/, README there: the real
+# trace's shape, made-up readings, ratio 1.000) and points plot_figures.RAW at a copy of it; and
+# case 2 asserts the gate's verdict line as well as its rc, so an UNRUNNABLE can never pass it.
+# Case 1b asserts the gate read that fixture (its ratio, 1.0000), not a real trace left on disk.
 
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROUND_DIR="$HERE/../../doc/audit/2026-08-31_sampling-ceiling-after-merge"
 GOODCELL="${RATIO_GOOD_CELL:-t008_poll}"
+FIXTURE_DIR="${NOT_TEE_FIXTURE_DIR:-$HERE/fixtures/gate_exit_code_not_tee}"   # the red-first run empties it
 
 PASS=0
 FAIL=0
@@ -61,6 +69,9 @@ LOG="$T/test.log"          # round.env sets its own LOG; ours is the one under t
 # shellcheck source=/dev/null
 . "$ROUND_DIR/lib_e.sh"
 LOG="$T/test.log"
+# [Co-developed with claude code -- Adam] the synthetic cell, copied: the gate reads it, nothing writes here
+mkdir -p "$T/raw"; cp "$FIXTURE_DIR"/t008_poll_* "$T/raw/" 2>/dev/null || true
+export NDT_SAMPLING_RAW_DIR="$T/raw"
 
 if ! declare -F run_gate >/dev/null; then
     echo "FAILED   lib_e.sh does not define run_gate -- the helper under test is gone"
@@ -76,11 +87,23 @@ GATE=(env PYTHONDONTWRITEBYTECODE=1 "$PY_PLOT" "$ROUND_DIR/ratio_gate.py")
 # --- case 1: the accept path.  A green cell asked to be green passes. --------------------------
 run_gate "${GATE[@]}" --check "$GOODCELL" --expect green >/dev/null 2>&1
 check "case 1  --expect green on a green cell -> caller sees success" 0 "$?"
+# [Co-developed with claude code -- Adam] N2 (the opus judge on d2a9d641, 09-27): the gate read THIS
+# fixture -- not whatever raw/ the tree has on disk. The real t008_poll is GREEN too (ratio 0.9656),
+# so with a broken override every case here passed on a checkout that still has the real trace;
+# only the fixture's ratio, exactly 1.0000, tells the two apart.
+out1b="$("${GATE[@]}" --check "$GOODCELL" --expect green 2>&1)"
+check "case 1b the gate read the synthetic fixture (ratio 1.0000), not a raw/ on disk" \
+      "GATE ratio cell=$GOODCELL ratio=1.0000" \
+      "$(/usr/bin/grep -m1 -oE '^GATE ratio cell=[^ ]+ ratio=[0-9.]+' <<<"$out1b")"
 
 # --- case 2: THE DEFECT.  A green cell asked to be RED must reach the caller as a failure. -----
 # Before the fix this returned 0, and gates_e.sh recorded PASS.
-run_gate "${GATE[@]}" --check "$GOODCELL" --expect red >/dev/null 2>&1
-check "case 2  --expect red on a green cell -> caller sees failure" 2 "$?"
+# [Co-developed with claude code -- Adam] 🔴 the rc AND the verdict (2026-09-27): rc 2 is also what an
+# UNRUNNABLE gate (no data) returns, so the rc alone passed this case with no cell at all.
+out2="$(run_gate "${GATE[@]}" --check "$GOODCELL" --expect red 2>&1)"; rc2=$?
+check "case 2  --expect red on a green cell -> caller sees failure" \
+      "2 | GATE ratio FORCE-TEST FAILED: expected RED, got GREEN." \
+      "$rc2 | $(/usr/bin/grep -m1 -E '^GATE ratio (FORCE-TEST|cell=.*verdict=UNRUNNABLE)' <<<"$out2")"
 
 # --- case 3: the witness.  The original construct, same command, still reports success. --------
 # This is not a hypothetical: it is what shipped, and it is why case 2 could not have caught it.
