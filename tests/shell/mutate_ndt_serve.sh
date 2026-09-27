@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/python/test_ndt_serve.py (TICKET-ndt-serve, 09-24).
+# Mutation gate for tests/python/test_ndt_serve.py (TICKET-ndt-serve, 09-24), its cells suite, and
+# tests/python/test_ndt_serve_gui.py (the GUI cut, 09-27: the G series at the end). The page cases
+# that need a browser have their own gate, tests/shell/mutate_ndt_serve_page.sh (headless Chrome,
+# under the build guard).
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -32,6 +35,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
 TEST="$REPO/tests/python/test_ndt_serve.py"
 TEST_CELLS="$REPO/tests/python/test_ndt_serve_cells.py"
+TEST_GUI="$REPO/tests/python/test_ndt_serve_gui.py"
 SERVE_PY="$REPO/tools/ndt_serve/serve.py"
 VERBS_PY="$REPO/tools/ndt_serve/verbs.py"
 JOBS_PY="$REPO/tools/ndt_serve/jobs.py"
@@ -42,7 +46,13 @@ DEMO_PY="$REPO/tools/ndt_serve/demo_sequence.py"
 # probe citation, RcProvenance), so a mutant tree carries it and the gate watches it too
 README_MD="$REPO/tools/ndt_serve/README.md"
 NDT="$REPO/tools/test_workflow/ndt"
+# [Co-developed with claude code -- Adam] the page (GUI cut, 09-27): a mutant tree carries all of it
+APP_JS="$REPO/tools/ndt_serve/static/app.js"
+INDEX_HTML="$REPO/tools/ndt_serve/static/index.html"
+APP_CSS="$REPO/tools/ndt_serve/static/app.css"
 SUBJECTS=("$SERVE_PY" "$VERBS_PY" "$JOBS_PY" "$RUNNER_PY" "$CELLS_PY" "$DEMO_PY" "$README_MD" "$NDT")
+# one line, not a continuation: check_gate_anchors.py reads a line that starts "$X" "$Y" as a call
+SUBJECTS+=("$APP_JS" "$INDEX_HTML" "$APP_CSS")
 BK=$(mktemp -d "${TMPDIR:-/tmp}/ndt-serve-mutate-XXXXXX")
 trap 'rm -rf "$BK"' EXIT
 BASE_SHA=$(sha256sum "${SUBJECTS[@]}")
@@ -52,8 +62,9 @@ MUTATIONS=0
 
 layout() {   # $1 = dir -- a copy of the service and of ndt with what it sources
     local d="$1"
-    mkdir -p "$d/tools/ndt_serve" "$d/tools/test_workflow"
+    mkdir -p "$d/tools/ndt_serve/static" "$d/tools/test_workflow"
     cp "$SERVE_PY" "$VERBS_PY" "$JOBS_PY" "$RUNNER_PY" "$CELLS_PY" "$DEMO_PY" "$README_MD" "$d/tools/ndt_serve/"
+    cp "$APP_JS" "$INDEX_HTML" "$APP_CSS" "$d/tools/ndt_serve/static/"
     cp "$NDT" "$REPO/tools/test_workflow/ports.sh" "$REPO/tools/test_workflow/sudo_surface.sh" \
        "$REPO/tools/test_workflow/components.env" "$d/tools/test_workflow/"
     chmod +x "$d/tools/test_workflow/ndt"
@@ -88,9 +99,10 @@ PY
     echo "$d"
 }
 
-report() {   # $1 = mutation name, $2 = mutant dir, $3 = [cells:]Class.test_case that must fail
+report() {   # $1 = mutation name, $2 = mutant dir, $3 = [cells:|gui:]Class.test_case that must fail
     local out rc id="$3" t="$TEST"
     [[ "$id" == cells:* ]] && { t="$TEST_CELLS"; id="${id#cells:}"; }
+    [[ "$id" == gui:* ]] && { t="$TEST_GUI"; id="${id#gui:}"; }
     local name="${id##*.}"
     MUTATIONS=$((MUTATIONS+1))
     if [[ "$2" == NOAPPLY ]]; then
@@ -110,7 +122,7 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = [cells:]Class.test_case
 
 echo "baseline (must be green before any mutation):"
 layout "$BK/base"
-for t in "$TEST" "$TEST_CELLS"; do
+for t in "$TEST" "$TEST_CELLS" "$TEST_GUI"; do
     out=$(run_against "$BK/base" "$t"); brc=$?
     printf '  %s: %s\n' "$(basename "$t")" "$(tail -1 <<<"$out")"
     (( brc == 0 )) || { echo "  baseline is RED -- fix that first, mutations prove nothing on a red baseline"; exit 2; }
@@ -738,6 +750,321 @@ m=$(mutant m62 "$SERVE_PY" \
     '    request_queue_size = 5')
 report "M62: the listen backlog is socketserver's 5 (a burst of 20 gets a reset)" "$m" \
        Bounded.test_listen_backlog_holds_a_burst
+
+# --- the GUI cut (09-27, SCOPE bfffefa0 as the orchestrator approved it): the G series ------------
+# [Co-developed with claude code -- Adam]
+
+# the page's three files: no token, nothing run, the Host check, the CSP
+m=$(mutant g1 "$SERVE_PY" \
+    '                # the page: after the Host check, before any token -- it runs nothing' \
+    '                # the page: after the Host check, before any token -- it runs nothing
+                run_read(self.cfg, "status", verbs.argv_status(False), 5)')
+report "G1: serving the page runs ndt status" "$m" \
+       gui:Page.test_page_files_need_no_token_and_run_nothing
+
+m=$(mutant g2 "$SERVE_PY" \
+    '    ("Content-Security-Policy", "default-src' \
+    '    ("X-Not-A-CSP", "default-src')
+report "G2: no Content-Security-Policy" "$m" \
+       gui:Page.test_every_answer_carries_a_csp_with_no_inline_script_and_no_other_origin
+
+m=$(mutant g2b "$SERVE_PY" \
+    "script-src 'self'; style-src" \
+    "script-src 'self' 'unsafe-inline'; style-src")
+report "G2b: the CSP allows inline script" "$m" \
+       gui:Page.test_every_answer_carries_a_csp_with_no_inline_script_and_no_other_origin
+
+m=$(mutant g3 "$SERVE_PY" \
+    "form-action 'none'; frame-ancestors 'none'\")," \
+    "form-action 'none'\"),")
+report "G3: the CSP has no frame-ancestors" "$m" \
+       gui:Page.test_the_page_cannot_be_framed
+
+m=$(mutant g3b "$SERVE_PY" \
+    '    ("X-Frame-Options", "DENY"),' \
+    '')
+report "G3b: no X-Frame-Options" "$m" \
+       gui:Page.test_the_page_cannot_be_framed
+
+m=$(mutant g4 "$SERVE_PY" \
+    '            self._check_host()
+            url = urllib.parse.urlsplit(self.path)
+            path, query = url.path, urllib.parse.parse_qs(url.query)
+            if path in STATIC:' \
+    '            url = urllib.parse.urlsplit(self.path)
+            path, query = url.path, urllib.parse.parse_qs(url.query)
+            if path not in STATIC:
+                self._check_host()
+            if path in STATIC:')
+report "G4: the page is served before the Host check (DNS rebinding)" "$m" \
+       gui:Page.test_the_page_obeys_the_host_check
+
+m=$(mutant g30 "$SERVE_PY" \
+    '                if method != "GET":
+                    raise HttpError(405, "method not allowed", allowed=["GET"])' \
+    '                if False:
+                    raise HttpError(405, "method not allowed", allowed=["GET"])')
+report "G30: the page answers any method" "$m" \
+       gui:Page.test_the_page_is_get_only
+
+# the start-up URL
+m=$(mutant g5 "$SERVE_PY" \
+    '    url = page_url(port, cfg.nonces.mint())' \
+    '    url = page_url(port, cfg.token)')
+report "G5: the start-up URL carries the token itself" "$m" \
+       gui:StartupUrl.test_the_url_goes_to_a_0600_file_when_stdout_is_not_a_terminal
+
+m=$(mutant g19 "$SERVE_PY" \
+    '        os.fchmod(fd, 0o600)' \
+    '        os.fchmod(fd, 0o644)')
+report "G19: the URL file and serve.json are world-readable" "$m" \
+       gui:StartupUrl.test_the_url_goes_to_a_0600_file_when_stdout_is_not_a_terminal
+
+m=$(mutant g31 "$SERVE_PY" \
+    '    if sys.stdout.isatty():' \
+    '    if False:')
+report "G31: a terminal does not get the URL (it goes to the file)" "$m" \
+       gui:StartupUrl.test_the_url_is_printed_to_a_terminal_and_written_nowhere
+
+# trading the key
+m=$(mutant g6 "$SERVE_PY" \
+    '                    del self.book[i]
+                    return t > now' \
+    '                    return t > now')
+report "G6: a key is not spent when traded" "$m" \
+       gui:Session.test_a_key_is_good_once
+
+m=$(mutant g7 "$SERVE_PY" \
+    '                    return t > now' \
+    '                    return True')
+report "G7: a key never expires" "$m" \
+       gui:Session.test_a_key_expires
+
+m=$(mutant g8 "$SERVE_PY" \
+    '        if origin != "http://" + self.headers["Host"].strip().lower():' \
+    '        if False:')
+report "G8: the key is traded without an Origin, or from any" "$m" \
+       gui:Session.test_the_key_is_traded_only_from_this_very_origin
+
+m=$(mutant g8b "$SERVE_PY" \
+    '        if origin != "http://" + self.headers["Host"].strip().lower():' \
+    '        if origin not in ("http://127.0.0.1:%d" % self.server.server_address[1], "http://localhost:%d" % self.server.server_address[1]):')
+report "G8b: the key is traded from either loopback name, not this very origin" "$m" \
+       gui:Session.test_the_key_is_traded_only_from_this_very_origin
+
+m=$(mutant g8c "$SERVE_PY" \
+    '        if query:
+            raise HttpError(400, "refused", note="the key goes in the JSON body, never in the URL")' \
+    '        if False:
+            raise HttpError(400, "refused", note="the key goes in the JSON body, never in the URL")')
+report "G8c: a key in the query string is taken" "$m" \
+       gui:Session.test_the_key_is_traded_only_from_this_very_origin
+
+m=$(mutant g20 "$SERVE_PY" \
+    '        _whitelisted(verbs.no_fields, self._check_write())' \
+    '        _whitelisted(verbs.no_fields, self._json_body())')
+report "G20: a new key needs no token" "$m" \
+       gui:Session.test_a_new_key_needs_the_token
+
+m=$(mutant g32 "$SERVE_PY" \
+    '            self.book = [(k, t) for k, t in self.book if t > now][-(MAX_NONCES - 1):]' \
+    '            self.book = [(k, t) for k, t in self.book if t > now]')
+report "G32: keys are never forgotten (no cap on the outstanding ones)" "$m" \
+       gui:Session.test_only_the_newest_keys_are_kept
+
+# serve.py url / ndt serve url
+m=$(mutant g18 "$SERVE_PY" \
+    '    if not listener_owned_by(pid, port):' \
+    '    if False:')
+report "G18: url sends the token to whoever holds the port serve.json names" "$m" \
+       gui:UrlCommand.test_url_sends_the_token_only_to_the_pid_that_holds_the_port
+
+m=$(mutant g35 "$SERVE_PY" \
+    '    if a.command == "url":' \
+    '    if False:')
+report "G35: serve.py url is not a command" "$m" \
+       gui:UrlCommand.test_url_prints_a_new_key_of_the_running_server
+
+m=$(mutant g34 "$NDT" \
+    "  serve url     a new one-time URL of the running server's page -- each opens it once" \
+    '')
+report "G34: ndt help does not list serve url" "$m" \
+       gui:UrlCommand.test_ndt_help_lists_serve_url
+
+# GET /lab and GET /meta
+m=$(mutant g9 "$SERVE_PY" \
+    'A read stopped at its timeout is not a reading: both are false."""
+        r = run_read(self.cfg, "status", verbs.argv_status(False), self.cfg.read_timeout)' \
+    'A read stopped at its timeout is not a reading: both are false."""
+        r = run_read(self.cfg, "status", verbs.argv_status(True), self.cfg.read_timeout)')
+report "G9: /lab runs status --check (it POSTs lock probes)" "$m" \
+       gui:Lab.test_lab_is_plain_status_with_its_rows_verbatim
+
+m=$(mutant g11 "$SERVE_PY" \
+    '                 claim_is_yours=read and bool(OWN_CLAIM.fullmatch(claim or "")),' \
+    '                 claim_is_yours=read and (claim or "").startswith("yours"),')
+report "G11: /lab calls a claim yours by its prefix (owner yours-x)" "$m" \
+       gui:Lab.test_lab_claim_is_yours_only_in_ndts_own_form_whole
+
+m=$(mutant g11b "$SERVE_PY" \
+    '                 claim_is_yours=read and bool(OWN_CLAIM.fullmatch(claim or "")),' \
+    '                 claim_is_yours=read and bool(OWN_CLAIM.match(claim or "")),')
+report "G11b: /lab matches the own form at the start only, not whole" "$m" \
+       gui:Lab.test_lab_claim_is_yours_only_in_ndts_own_form_whole
+
+m=$(mutant g24 "$SERVE_PY" \
+    '                 measuring_is_nothing=read and measuring == "nothing",' \
+    '                 measuring_is_nothing=read and measuring in ("nothing", None),')
+report "G24: no measuring row (orphaned) reads as nothing measuring" "$m" \
+       gui:Lab.test_measuring_is_nothing_only_when_ndt_says_nothing
+
+m=$(mutant g25 "$SERVE_PY" \
+    '        read = r["rc_class"] != "timeout"' \
+    '        read = True')
+report "G25: a status stopped at its timeout is read as a reading" "$m" \
+       gui:Lab.test_a_stopped_read_is_not_a_reading
+
+m=$(mutant g33 "$SERVE_PY" \
+    '                 busy=self.cfg.store.holding_the_slot())' \
+    '                 busy=None)')
+report "G33: /lab does not say which job holds the slot" "$m" \
+       gui:Lab.test_lab_names_the_job_holding_the_slot
+
+m=$(mutant g36 "$SERVE_PY" \
+    '            if method == "GET" and route is not Handler.r_health:
+                self._check_read()' \
+    '            if method == "GET" and route is not Handler.r_health:
+                pass')
+report "G36: /lab and /meta need no token" "$m" \
+       gui:Lab.test_lab_and_meta_need_the_token
+
+m=$(mutant g26 "$SERVE_PY" \
+    '                         "up_hosts": {k: list(v) for k, v in verbs.UP_HOSTS.items()},' \
+    '                         "up_hosts": {k: [h for h in v if h] for k, v in verbs.UP_HOSTS.items()},')
+report "G26: /meta is not verbs' own table (ndt's default size dropped)" "$m" \
+       gui:Lab.test_meta_is_the_servers_own_tables
+
+m=$(mutant g26b "$VERBS_PY" \
+    '    minutes = body.get("minutes", DEFAULT_CLAIM_MINUTES)' \
+    '    minutes = body.get("minutes", 60)')
+report "G26b: the default the page offers is not the default a claim gets" "$m" \
+       gui:Lab.test_meta_is_the_servers_own_tables
+
+# dry_run
+m=$(mutant g10 "$SERVE_PY" \
+    '        if self.dry_run:
+            raise DryRun(kind, argv)' \
+    '        if False:
+            raise DryRun(kind, argv)')
+report "G10: a dry run spawns the job" "$m" \
+       gui:DryRun.test_a_dry_run_runs_nothing_and_answers_the_argv_that_would_run
+
+m=$(mutant g27 "$SERVE_PY" \
+    '    if kind in ("up", "down"):
+        return "typed", True' \
+    '    if kind in ("up", "down"):
+        return "plain", True')
+report "G27: up and down ask for a plain confirm" "$m" \
+       gui:DryRun.test_the_dialogs_strength_is_the_servers
+
+m=$(mutant g27b "$SERVE_PY" \
+    '    if kind in ("apps.start", "apps.stop"):
+        return "plain", True' \
+    '    if kind in ("apps.start", "apps.stop"):
+        return "plain", False')
+report "G27b: apps do not wait for your claim" "$m" \
+       gui:DryRun.test_the_dialogs_strength_is_the_servers
+
+m=$(mutant g28 "$SERVE_PY" \
+    '            if not isinstance(self.dry_run, bool):' \
+    '            if False:')
+report "G28: dry_run \"yes\" is a dry run" "$m" \
+       gui:DryRun.test_dry_run_is_true_or_false
+
+m=$(mutant g21 "$SERVE_PY" \
+    '        if self.route in DRY_RUN_OK and "dry_run" in body:' \
+    '        if "dry_run" in body:')
+report "G21: every POST takes dry_run, and the ones that spawn nothing just write" "$m" \
+       gui:DryRunCells.test_the_dry_run_is_refused_where_it_is_not_offered
+
+m=$(mutant g22 "$SERVE_PY" \
+    '        raw_root = os.path.join(cfg.state_dir, "cells-raw", cell["name"] + "-" + secrets.token_hex(4))
+        if self.dry_run:' \
+    '        raw_root = os.path.join(cfg.state_dir, "cells-raw", cell["name"] + "-" + secrets.token_hex(4))
+        os.makedirs(raw_root, mode=0o700)
+        if self.dry_run:')
+report "G22: a cell dry run makes its raw directory" "$m" \
+       gui:DryRunCells.test_a_cell_dry_run_makes_nothing_and_asks_nothing
+
+m=$(mutant g22b "$SERVE_PY" \
+    '        raw_root = os.path.join(cfg.state_dir, "cells-raw", cell["name"] + "-" + secrets.token_hex(4))
+        if self.dry_run:' \
+    '        raw_root = os.path.join(cfg.state_dir, "cells-raw", cell["name"] + "-" + secrets.token_hex(4))
+        self._need_confirmation(cell, confirmed)
+        if self.dry_run:')
+report "G22b: a shared-state cell's preview demands the confirmation it is there to show" "$m" \
+       gui:DryRunCells.test_a_cell_dry_run_makes_nothing_and_asks_nothing
+
+m=$(mutant g23 "$SERVE_PY" \
+    '            if self.dry_run and st["step"] in READ_STEPS:' \
+    '            if False:')
+report "G23: a walk's dry run does its read-only step" "$m" \
+       gui:DryRunCells.test_a_walks_dry_run_moves_nothing
+
+# the page's script and markup (PageLint)
+m=$(mutant g15 "$APP_JS" \
+    '    token = r.json.token;' \
+    '    token = r.json.token;
+    sessionStorage.setItem("t", token);')
+report "G15: the token goes into sessionStorage" "$m" \
+       gui:PageLint.test_the_script_keeps_nothing_outside_memory
+
+m=$(mutant g15b "$APP_JS" \
+    '    token = r.json.token;' \
+    '    token = r.json.token;
+    document.cookie = "t=" + token;')
+report "G15b: the token goes into a cookie" "$m" \
+       gui:PageLint.test_the_script_keeps_nothing_outside_memory
+
+m=$(mutant g15c "$APP_JS" \
+    'if (text !== undefined && text !== null) e.textContent = String(text);' \
+    'if (text !== undefined && text !== null) e.innerHTML = String(text);')
+report "G15c: ndt's text goes in as HTML" "$m" \
+       gui:PageLint.test_the_script_makes_no_html_from_strings
+
+m=$(mutant g16 "$APP_JS" \
+    '    const [lab, health] = await Promise.all([get(API + "/lab"), get(API + "/health")]);' \
+    '    fetch(API + "/status", {headers: {"X-NDT-Token": token}});
+    const [lab, health] = await Promise.all([get(API + "/lab"), get(API + "/health")]);')
+report "G16: a second fetch, with its own token header" "$m" \
+       gui:PageLint.test_there_is_one_door_out_and_the_token_is_set_at_it
+
+m=$(mutant g16b "$APP_JS" \
+    '  async function refreshAll() {' \
+    '  async function refreshAll() {
+    call("POST", API + "/down", {});')
+report "G16b: a write through call() itself, past post()" "$m" \
+       gui:PageLint.test_there_is_one_door_out_and_the_token_is_set_at_it
+
+m=$(mutant g17 "$APP_JS" \
+    '  async function refreshAll() {' \
+    '  async function refreshAll() {
+    post(API + "/release", {});')
+report "G17: a write outside the confirm dialog" "$m" \
+       gui:PageLint.test_every_write_is_confirmed_in_the_dialog
+
+m=$(mutant g29 "$INDEX_HTML" \
+    '<button id="refresh" type="button" disabled>Refresh</button>' \
+    '<button id="refresh" type="button" onclick="location.reload()" disabled>Refresh</button>')
+report "G29: an inline handler in the markup (the CSP would block it)" "$m" \
+       gui:PageLint.test_the_markup_has_no_inline_script_style_or_handler
+
+m=$(mutant g29b "$INDEX_HTML" \
+    '<script src="/app.js" defer></script>' \
+    '<script src="/app.js" defer></script>
+<script>window.x = 1;</script>')
+report "G29b: an inline script in the markup" "$m" \
+       gui:PageLint.test_the_markup_has_no_inline_script_style_or_handler
 
 echo
 if [[ "$(sha256sum "${SUBJECTS[@]}")" != "$BASE_SHA" ]]; then
