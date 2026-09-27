@@ -349,6 +349,13 @@ def words_of(text):   # its words, up to the first redirection; None when its qu
 LEAD = ("if", "then", "else", "elif", "do", "while", "until", "!", "{", "time")
 def print_words(text):   # the words of a print command (echo/printf first), or None
     w = words_of(text)
+    # a function's one-line body starts after its head: `name() {`, `name () {`, `function name {`
+    if w and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*\(\)", w[0]):
+        w = w[1:]
+    elif len(w or []) > 1 and w[1] == "()":
+        w = w[2:]
+    elif len(w or []) > 1 and w[0] == "function":
+        w = w[2:]
     while w and (w[0] in LEAD or w[0].startswith("(")):
         if w[0].startswith("(") and w[0] != "(":
             w[0] = w[0].lstrip("(")
