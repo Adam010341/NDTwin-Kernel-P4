@@ -150,6 +150,45 @@ m=$(mutant m10 "$NDT" \
 report "M10: cmd_status --check stops reading the sudo table" "$m" \
        "cmd_status --check reads ndt_sudo_report"
 
+# --- the words: what ndt_sudo_probe does with a "sudo:" line it does not know ----------------------
+# [Co-developed with claude code -- Adam] (2026-09-27, fix/sudo-probe-unknown-0927) each part of the
+# rule taken out once; each must turn the case that holds that part red, by name.
+m=$(mutant s1 "$SURFACE" \
+    '    ndt_sudo_unread && return 2' \
+    '    : ndt_sudo_unread')
+report "S1: an unknown sudo: line falls through to 'granted' again" "$m" \
+       "probe: an unknown sudo: line (PAM) is 2, could not tell -- not granted"
+m=$(mutant s2 "$SURFACE" \
+    '        [[ "$line" == "sudo:"* ]] || continue' \
+    '        [[ -n "$line" ]] || continue')
+report "S2 (control): any stderr line counts, so the program's own failure is 'could not tell'" "$m" \
+       "control, probe: rc!=0 with no sudo: line (ovsdb down, ovs-vsctl's own words) is 0, granted"
+m=$(mutant s3 "$SURFACE" \
+    '        *"you must have a tty"*)' \
+    '        *"NEVER-MATCHES-tty"*)')
+report "S3: requiretty's wording is not a known refusal" "$m" \
+       "probe: requiretty ('sorry, you must have a tty to run sudo') is 1, refused"
+m=$(mutant s4 "$SURFACE" \
+    'NDT_SUDO_WARNINGS=("unable to resolve host" "setrlimit(RLIMIT_CORE)")' \
+    'NDT_SUDO_WARNINGS=("setrlimit(RLIMIT_CORE)")')
+report "S4 (control): 'unable to resolve host' dropped from the warning list" "$m" \
+       "control, probe: warning 'unable to resolve host' + ovsdb down is 0, granted"
+m=$(mutant s5 "$SURFACE" \
+    'NDT_SUDO_WARNINGS=("unable to resolve host" "setrlimit(RLIMIT_CORE)")' \
+    'NDT_SUDO_WARNINGS=("unable to resolve host")')
+report "S5 (control): 'setrlimit(RLIMIT_CORE)' dropped from the warning list" "$m" \
+       "control, probe: warning 'setrlimit(RLIMIT_CORE)' + ovsdb down is 0, granted"
+m=$(mutant s6 "$SURFACE" \
+    '        (( warn )) && continue' \
+    '        (( warn )) && return 1')
+report "S6: a warning hides every sudo: line after it, a refusal included" "$m" \
+       "probe: a warning AND an unknown sudo: refusal together is 2 -- the list hides only itself"
+m=$(mutant s7 "$SURFACE" \
+    '               if [[ -n "$NDT_SUDO_UNREAD" ]]; then' \
+    '               if false; then')
+report "S7: the report says 'no sudo, or not installed' when sudo said something else" "$m" \
+       "report: an unknown sudo: line is rc 2, 'could NOT be tested', and quotes what sudo said"
+
 # --- 🔴 the other direction: refuse-everything, in four shapes -------------------------------------
 # Every one of these passes all ten mutations above. They are caught only by the controls, and
 # without them this gate would sign off on an `ndt` that can never bring a fabric up at all.

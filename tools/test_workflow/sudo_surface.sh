@@ -149,8 +149,42 @@ ndt_sudo_refused() {
         *"no tty present and no askpass program"*)        return 0 ;;
         *"is not allowed to execute"*)                    return 0 ;;
         *"sudo: command not found"*)                      return 0 ;;
+        *"you must have a tty"*)                          return 0 ;;   # requiretty (09-27)
         *) return 1 ;;
     esac
+}
+
+# [Co-developed with claude code -- Adam] (2026-09-27, fix/sudo-probe-unknown-0927)
+# sudo's own NON-FATAL warnings. sudo prints these on stderr and then RUNS the command, so a
+# "sudo:" line that is one of them says nothing about whether the grant is live. An explicit list,
+# not a pattern (the orchestrator's ruling, 09-27): a pattern broad enough to catch the next warning
+# is broad enough to swallow the next refusal.
+#   unable to resolve host   the machine's own hostname is missing from /etc/hosts
+#   setrlimit(RLIMIT_CORE)   containers, and hosts whose core-dump rlimit sudo may not raise
+NDT_SUDO_WARNINGS=("unable to resolve host" "setrlimit(RLIMIT_CORE)")
+NDT_SUDO_UNREAD=""
+
+# ndt_sudo_unread -- did the last ndt_sudo_capture's sudo say something ON ITS OWN ACCOUNT -- a
+# stderr line that starts with "sudo:" and is not one of NDT_SUDO_WARNINGS -- that
+# ndt_sudo_refused does not know? Sets NDT_SUDO_UNREAD to the first such line. Examples:
+# "sudo: PAM account management error: ...", "sudo: mnexec: command not found" (secure_path),
+# and the gates' own nolab shim, "sudo: refused by the nolab shim (a lab command)". A command
+# that ran and failed speaks in its own name ("ovs-vsctl: ... database connection failed"), not
+# in sudo's, so it is not caught here.
+ndt_sudo_unread() {
+    local line w warn
+    NDT_SUDO_UNREAD=""
+    while IFS= read -r line; do
+        [[ "$line" == "sudo:"* ]] || continue
+        warn=0
+        for w in "${NDT_SUDO_WARNINGS[@]}"; do
+            [[ "$line" == *"$w"* ]] && { warn=1; break; }
+        done
+        (( warn )) && continue
+        NDT_SUDO_UNREAD="$line"
+        return 0
+    done <<<"$NDT_SUDO_STDERR"
+    return 1
 }
 
 # ndt_sudo_explain <key> -- the two lines an error message owes the reader when a grant is
@@ -168,9 +202,19 @@ ndt_sudo_explain() {
 # ndt_sudo_probe <key> -- run this row's harmless probe.
 #   0 the grant is live
 #   1 sudo refused it
-#   2 could not tell (no sudo, or the program is not installed on this machine)
+#   2 could not tell: no sudo, the program is not installed on this machine, or sudo said
+#     something on its own account that ndt_sudo_refused cannot read (NDT_SUDO_UNREAD holds it)
+# [Co-developed with claude code -- Adam] (2026-09-27, fix/sudo-probe-unknown-0927) A probe that
+# exits non-zero is ambiguous -- sudo refused, or sudo ran it and it failed (ovs-vsctl with no ovsdb
+# to talk to) -- and until this date every wording ndt_sudo_refused did not know was read as the
+# second, i.e. as GRANTED: requiretty, PAM, secure_path's "command not found", and the gates'
+# nolab shim all made `ndt status` print a live grant. Now a "sudo:" line that is neither a
+# known refusal nor a known warning is "could not tell" (2). What is still read as granted: a
+# non-zero exit with no "sudo:" line at all -- the program's own failure, and equally a refusal
+# that prints nothing (a silent shim); from stderr the two cannot be told apart.
 ndt_sudo_probe() {
     local key="$1" probe bin
+    NDT_SUDO_UNREAD=""
     probe="$(ndt_sudo_field "$key" 2)" || return 2
     bin="${probe%% *}"
     command -v sudo >/dev/null 2>&1 || return 2
@@ -178,6 +222,7 @@ ndt_sudo_probe() {
     # shellcheck disable=SC2086
     ndt_sudo_capture $probe >/dev/null && return 0
     ndt_sudo_refused && return 1
+    ndt_sudo_unread && return 2
     # The command ran and failed on its own account -- the grant is live.
     return 0
 }
@@ -197,8 +242,13 @@ ndt_sudo_report() {
                printf 'sudo: %-10s REFUSED -- %s\n' "$key" "$(ndt_sudo_field "$key" 2)"
                ndt_sudo_explain "$key" ;;
             *) blind=1
-               printf 'sudo: %-10s could NOT be tested on this machine (no sudo, or %s is not installed) -- not a pass\n' \
-                      "$key" "$(ndt_sudo_field "$key" 3)" ;;
+               if [[ -n "$NDT_SUDO_UNREAD" ]]; then
+                   printf 'sudo: %-10s could NOT be tested: sudo answered "%s", which ndt cannot read as granted or refused -- not a pass\n' \
+                          "$key" "$NDT_SUDO_UNREAD"
+               else
+                   printf 'sudo: %-10s could NOT be tested on this machine (no sudo, or %s is not installed) -- not a pass\n' \
+                          "$key" "$(ndt_sudo_field "$key" 3)"
+               fi ;;
         esac
     done < <(ndt_sudo_rows all)
     (( rc == 1 )) && return 1
