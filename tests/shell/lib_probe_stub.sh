@@ -1,6 +1,7 @@
-# lib_probe_stub.sh -- sourced, never run: a suite's OWN sudo, answering every call the way CI and
-# every gate answer it today -- recorded, and REFUSED with rc 1 -- so the suite's result no longer
-# depends on whether this machine has a live lab, and no call it makes can reach root.
+# lib_probe_stub.sh -- sourced, never run: a suite's OWN sudo, answering every call the same way on
+# every machine -- recorded, and REFUSED with rc 1 in sudo's own words -- so no sudo ANSWER a suite
+# gets depends on this machine's grants or lab, and no call it makes can reach root. What it does
+# NOT fix is the suite's PATH through ndt: see "WHAT THE STUB FIXES" below.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -9,15 +10,41 @@
 # machine with the grants and a live lab those are answered, and the suite then runs on a path
 # neither CI nor any gate has run: under a sudo that answered as a live OVS lab would,
 # test_ndt_sample_rate_reads_both_bounds went red on four checks. Refusing (never a fabricated
-# "no lab" answer with rc 0) keeps every suite on the one path CI and the gates run.
+# "no lab" answer with rc 0) fixes every sudo answer a suite gets.
+#
+# 🔴 WHAT THE STUB FIXES, AND WHAT IT DOES NOT (the opus judge's B1 on 356d4e4e, 09-27).
+#   - It fixes the ANSWERS to sudo: always `sudo: a password is required`, rc 1.
+#   - It does not fix the PATH a suite takes through ndt. That still varies with the machine:
+#     `ps` (ovs_daemon_running, bmv2_count), `command -v` (ovs-vsctl, mnexec, the helper), the lab
+#     ports, curl :8000 and the p4 switch manifest decide which probes are made at all.
+#     test_ndt_sample_rate_reads_both_bounds takes ndt's p4 branch with a live bmv2 (0 sudo calls),
+#     the unknown branch with ovs-vswitchd running (4 calls), and the none branch in CI (0 calls).
+#     The gates on this laptop run the unknown branch; the other two are read from ndt, not run.
+#   - The WORDING is not neutral either. ndt_sudo_probe decides granted / refused BY it
+#     (sudo_surface.sh:179-182 -- ndt_sudo_refused knows five wordings). A DEVIATION from the
+#     orchestrator's ruling ("answering like today's R pass"), which the orchestrator RATIFIED on
+#     09-27: the R pass's shim said `sudo: refused by the nolab shim (a lab command)`, which is not
+#     one of the five, so ndt read every probe as GRANTED -- an artifact of the gate. This stub says
+#     what a real sudo without NOPASSWD says, and ndt reads it as refused. test_lab_handoff's
+#     `ndt status` shows the three branches (its "sudo grants" line; the verdict is unchanged only
+#     because that suite reads the `lab` section and nothing else):
+#         where                           sudo -n answers                        ndt reads
+#         gates before this stub (R pass) "refused by the nolab shim", rc 1      granted
+#         this stub                       "a password is required", rc 1         refused (+ how to grant)
+#         CI (ubuntu-24.04: no mnexec,    not asked -- `command -v` of the       could not be tested
+#             no ndtwin-lab, no OVS)      probe's program fails first
+#     The first two rows are run (the stub fix round's red first, 09-27); the CI row is read from
+#     .github/workflows/ci.yml and sudo_surface.sh:176-177, not run.
 #
 #   probe_stub_install <dir> [--tc-empty] [--ovs-refuse] -- <allowed call>...
 #       puts <dir>/probe-stub first on PATH (the suite's own temp dir: its trap removes it). An
 #       allowed call is written as it is RECORDED: `sudo <command basename> <args>` with sudo's -n
 #       dropped (`sudo ndtwin-lab status`, `sudo ovs-vsctl list-br`), a shell glob allowed
 #       (`sudo ndtwin-lab topo-out *`); `tc <args>` / `ovs-vsctl <args>` for the unprivileged stubs.
-#       --tc-empty    an unprivileged `tc` that records and prints nothing (rc 0): no qdisc, as on a
-#                     machine with no lab -- CI's answer, not this machine's
+#       --tc-empty    an unprivileged `tc` that records every call; `tc qdisc show` alone prints
+#                     nothing (rc 0) -- no netem qdisc anywhere, which is the part of the answer the
+#                     suites read (CI's own `tc qdisc show` lists its default qdiscs, and no netem);
+#                     every other argv is REFUSED (rc 1), never a fabricated success (the judge's N5)
 #       --ovs-refuse  an unprivileged `ovs-vsctl` that records and refuses (rc 1)
 #   probe_stub_outside  -> one line per recorded call that no allowed call matches, plus one if the
 #                          stub is not installed or not the sudo on PATH; nothing at all only when
@@ -34,8 +61,9 @@ probe_stub_install() {
     PROBE_STUB_DIR="$d"
     PROBE_STUB_LOG="$d/calls"; : > "$PROBE_STUB_LOG"
     PROBE_STUB_ALLOW=("$@")
-    # sudo's own refusal, word for word (sudo 1.9.15p5 with no NOPASSWD rule): ndt words its
-    # messages by it (sudo_surface.sh ndt_sudo_refused -- wording only, never a verdict).
+    # sudo's own refusal, word for word (sudo 1.9.15p5 with no NOPASSWD rule). ndt DECIDES by it,
+    # not only words its messages: ndt_sudo_probe reads it as "refused" (sudo_surface.sh:179-182,
+    # ndt_sudo_refused). See "WHAT THE STUB FIXES" above -- a ratified deviation from the R pass.
     cat > "$d/sudo" <<EOF
 #!/bin/bash
 printf 'sudo %s\\n' "\$*" >> '$PROBE_STUB_LOG'
@@ -46,7 +74,9 @@ EOF
         cat > "$d/tc" <<EOF
 #!/bin/bash
 printf 'tc %s\\n' "\$*" >> '$PROBE_STUB_LOG'
-exit 0
+[[ "\$*" == "qdisc show" ]] && exit 0
+echo "tc: refused by this suite's stub (only 'qdisc show' is answered)" >&2
+exit 1
 EOF
     fi
     if (( ovs )); then
