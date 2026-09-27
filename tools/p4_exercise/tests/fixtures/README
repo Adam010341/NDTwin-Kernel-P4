@@ -6,23 +6,36 @@ not on the machine rather than passing silently):
 
   basic/pod-topo/{topology,s1-runtime,s2-runtime,s3-runtime,s4-runtime}.json
   basic/triangle-topo/{topology,s1-runtime,s2-runtime,s3-runtime}.json
-  basic/build/{basic.json,basic.p4.p4info.txtpb}
   basic/solution/basic.p4
   p4runtime/{topology.json,mycontroller.py,advanced_tunnel.p4}
-  p4runtime/build/{advanced_tunnel.json,advanced_tunnel.p4.p4info.txtpb}
   ecn/{topology.json,s1-runtime.json,s2-runtime.json,s3-runtime.json}
   mri/{topology.json,s1-runtime.json,s2-runtime.json,s3-runtime.json}
   firewall/pod-topo/{topology,s1-runtime,s2-runtime,s3-runtime,s4-runtime}.json   (2026-09-18)
   firewall/basic.p4                                                              (2026-09-18)
   calc/{topology.json,s1-runtime.json,calc.p4}                                   (2026-09-18)
 
-COMPILED HERE, NOT COPIED (2026-09-18; the allow list is
-test_convert.GENERATED_FIXTURES, and every name in it is checked to exist so the exemption
-cannot rot into a silent pass):
+BUILD ARTIFACTS ARE NOT BYTE-COMPARED (Adam's ruling J, 2026-09-27). Every compiler output
+under a build/ directory (*.json, *.p4info.txtpb) carries the command that produced it instead,
+in test_convert.BUILD_ARTIFACTS, and each bmv2 json's `program` must be the source that command
+names. The reason is the tree they were copied from: the live runs recompile
+~/tutorials/exercises/*/build/ -- the drivers compile the solution into the skeleton's output
+name, `make` compiles the skeleton, by an absolute or a relative path -- so byte provenance
+against it measured whichever program was compiled last. The SOURCES above stay byte-compared,
+and a .p4 put under build/ is still a source. Two of the build artifacts are copies of that
+tree, taken 2026-09-17 and compared by bytes until the ruling:
+
+  basic/build/{basic.json,basic.p4.p4info.txtpb}                  (skeleton basic.p4, by absolute path)
+  p4runtime/build/{advanced_tunnel.json,advanced_tunnel.p4.p4info.txtpb}   (the exercise's Makefile)
+
+and the rest were COMPILED HERE, NOT COPIED (2026-09-18 onward; every one of them is in
+test_convert.BUILD_ARTIFACTS with its command, and that record is checked to be exactly the set
+of build artifacts in this tree, so the exemption cannot rot into a silent pass):
 
   firewall/build/{basic.json,basic.p4.p4info.txtpb}
   firewall/build/{firewall.json,firewall.p4.p4info.txtpb}
   calc/build/{calc.json,calc.p4.p4info.txtpb}
+  basic_telemetry/build/*, multicast/build/*, basic_tunnel/build/*   (TICKET-P3; commands in
+                                                                      BUILD_ARTIFACTS)
 
   Neither exercise has ever been built in this checkout -- there is no build/ under either --
   and TICKET-P2's G4 means a package names the program each switch runs, so a package that
