@@ -59,9 +59,12 @@ TUTORIALS_EXERCISES = os.path.expanduser("~/tutorials/exercises")
 #: p4runtime/build/advanced_tunnel.json (rewritten 01:54, `program` now absolute) -- inside the
 #: window of that night's live-p1 runs.
 #:
-#: So an artifact is held by what CAN be stated about it: the command that produces its bytes,
-#: recorded here, and `program` in each bmv2 json naming the source that command compiled
-#: (checked below; a p4info names no source, and shares its json's command). The SOURCES -- every
+#: So an artifact is held by what CAN be stated about it: the command that produced it, recorded
+#: here, and `program` in each bmv2 json naming the source that command compiled (checked below; a
+#: p4info names no source, and shares its json's command). Rerun as recorded, each command gives
+#: back its artifact's bytes, with one stated exception: basic_telemetry's json also carries the
+#: `-I` include's path in its source_info, so from any checkout but wt-p3-proxy-0919 it differs in
+#: that path and nothing else (verify_recipes, 2026-09-27: 15 identical, 1 identical modulo it). The SOURCES -- every
 #: `.p4`, every topology and runtime file, `mycontroller.py` -- stay byte-compared with
 #: ~/tutorials, and a `.p4` placed under `build/` is still a source (`is_build_artifact`).
 #:

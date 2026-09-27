@@ -353,6 +353,13 @@ CTRL_SRC="$CONVERT"
 CTRL_ANCHOR='def build_model(hosts, switches, links):'
 CTRL_REPL='# MUTANT: a comment, and nothing else.
 def build_model(hosts, switches, links):'
+# The fourth subject gets its own control (judge K-N12): six mutants there go red, and without a
+# comment-only edit of the same file staying green, "test_convert.py reddens for anything" would
+# print the same six lines. [Co-developed with claude code -- Adam]
+CTRL2_SRC="$TESTCONV"
+CTRL2_ANCHOR='def is_build_artifact(rel):'
+CTRL2_REPL='# MUTANT: a comment, and nothing else.
+def is_build_artifact(rel):'
 
 # --- anchor check (never a verdict) -------------------------------------------------------------
 
@@ -377,6 +384,12 @@ if [[ "$ANCHOR_CHECK" != "0" ]]; then
         printf '  ok    %s  (negative control)\n' "$n"
     else
         printf '  🔴 %s matches  (negative control)\n' "$n"; broken=$((broken + 1))
+    fi
+    n=$(anchor_count "$CTRL2_SRC" "$CTRL2_ANCHOR")
+    if [[ "$n" -eq 1 ]]; then
+        printf '  ok    %s  (negative control 2, test_convert.py)\n' "$n"
+    else
+        printf '  🔴 %s matches  (negative control 2, test_convert.py)\n' "$n"; broken=$((broken + 1))
     fi
     if [[ "$broken" -eq 0 ]]; then
         echo "ANCHORS: ok -- all ${#MUT_LABEL[@]} mutations plus the control resolve to one site each."
@@ -514,6 +527,29 @@ PY
     else
         printf '  🔴 A COMMENT TURNED THE SUITE RED: %s\n' "$ctrl_red"
         echo "     These tests are change detectors, not a specification."
+        SURVIVORS=$((SURVIVORS + 1))
+    fi
+    restore
+fi
+
+printf '\n=== NEGATIVE CONTROL 2: comment-only edit of test_convert.py must stay GREEN ===\n'
+n=$(anchor_count "$CTRL2_SRC" "$CTRL2_ANCHOR")
+printf '  subject           : %s\n' "$CTRL2_SRC"
+printf '  anchor occurrences: %s\n' "$n"
+if [[ "$n" -ne 1 ]]; then
+    echo "  🔴 control anchor is not unique ($n matches) -- the control proves nothing."
+    SURVIVORS=$((SURVIVORS + 1))
+else
+    ANCHOR="$CTRL2_ANCHOR" REPL="$CTRL2_REPL" "$PYTHON" - "$CTRL2_SRC" <<'PY'
+import os, pathlib, sys
+p = pathlib.Path(sys.argv[1]); s = p.read_text()
+p.write_text(s.replace(os.environ["ANCHOR"], os.environ["REPL"], 1))
+PY
+    ctrl_red=$(red_tests)
+    if [[ -z "$ctrl_red" ]]; then
+        echo "  ✅ green: the suite does not react to a comment in test_convert.py"
+    else
+        printf '  🔴 A COMMENT TURNED THE SUITE RED: %s\n' "$ctrl_red"
         SURVIVORS=$((SURVIVORS + 1))
     fi
     restore
