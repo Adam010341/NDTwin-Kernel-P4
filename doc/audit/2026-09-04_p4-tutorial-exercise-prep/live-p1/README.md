@@ -292,7 +292,8 @@ unbound 的 L6。L4 **不斷言改路**（第一刀 (c) 不成立，`capabilitie
   - 落在剪線或復原窗口內的幀**標出來，不丟掉**。
 - **H1 的驗收是「最多約 20 s」**（Adam 09-27 裁決：與 NDTwin 自家 fabric 的 LLDP 同級，同一條規則、同一組常數）：
   - 嚴格的 20 s 照量、照記：每個 cycle 在 `30_cycles.tsv` 的 `strict_20s` 欄寫 `yes` 或 `OVER+x`，那個 cycle 自己也印一行嚴格值。
-  - 超過 20 s 的 cycle **揭露為 NOTE，不判 FAIL**：run 的最後一行（`PASS 08_heartbeat` 或 FAIL 的原因）正上方，會有一行 `NOTE 08_heartbeat -- H1: N of M cycle(s) over the strict 20 s -- disclosed, not a failure …`，**逐字**列出每個超過的 cycle 自己那行嚴格值。H3 的那一個 cycle 也一樣。
+  - 超過 20 s 的 cycle **揭露為 NOTE，不判 FAIL**：run 的最後一行（`PASS 08_heartbeat` 或 FAIL 的原因）正上方，會有一行 `NOTE 08_heartbeat -- H1: N of M cycle(s) over the strict 20 s -- disclosed, not a failure …`，**逐字**列出每個超過的 cycle 自己那行嚴格值。H3 的那一個 cycle 也一樣。run 在 H1 迴圈或 H3 **中途停下**（剪線或復原失敗而 exit、INT／TERM）時，EXIT trap（`w_finish`）先把已量到的 cycle 結算，那行寫成 `H1, cut short: …`，一樣在最後一行正上方。
+  - 「約」**不延伸**到這兩處（opus judge 09-27 的 N2）：偵測有**硬上限 35 s**（`DETECT_BOUND_S + 15`，graph_until 等到這裡就放棄，那個 cycle 判 **FAIL**，不是 NOTE）；**復原仍以嚴格 20 s 判定**（`RESTORE_BOUND_S`，超過判 FAIL）——裁決只講偵測，復原要不要也改成「約 20 s」待 Adam 決定。
   - （裁決前：那個 cycle 判 FAIL，最後一行以「`H1: N of M cycle(s) OVER the strict 20 s … until Adam rules on the acceptance`」開頭——fable judge 的 F1，09-26。）
   - 「20 s ＋ 實際量到的時間」只是**診斷欄**：它包含 pass 晚到的部分、讀檔／HTTP／kernel／本腳本輪詢，以及剪線本身開的窗口。judge 證明了這個數字在設計照常運作時恆為 OK。
   - 設計的最壞情況是 (15 s − φ) ＋ 最多一個 watchdog 間隔 5 s ＋ 上述那些，**在 φ→0 時嚴格 20 s 沒有任何餘裕**；所以是「約」20 s，這正是自家 LLDP 的同一性質。
