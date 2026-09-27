@@ -44,6 +44,9 @@
 # that property; its gate is tests/shell/mutate_round_env_kernel_dir.sh.
 
 set -uo pipefail
+# [Co-developed with claude code -- Adam] N7: a KERNEL_DIR inherited from a shell that once sourced
+# some round.env would win over round.env's own derivation and point this suite at THAT tree.
+unset KERNEL_DIR
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROUND_DIR="$HERE/../../doc/audit/2026-08-31_sampling-ceiling-after-merge"
 GOODCELL="${RATIO_GOOD_CELL:-t008_poll}"
@@ -79,6 +82,8 @@ LOG="$T/test.log"          # round.env sets its own LOG; ours is the one under t
 # shellcheck source=/dev/null
 . "$ROUND_DIR/lib_e.sh"
 LOG="$T/test.log"
+# [Co-developed with claude code -- Adam] N7: whatever the caller exported, this suite tests its own tree.
+check "round.env resolved KERNEL_DIR to this checkout" "$(cd "$HERE/../.." && pwd)" "${KERNEL_DIR:-unset}"
 # [Co-developed with claude code -- Adam] the synthetic cell, copied: the gate reads it, nothing writes here
 mkdir -p "$T/raw"; cp "$FIXTURE_DIR"/t008_poll_* "$T/raw/" 2>/dev/null || true
 export NDT_SAMPLING_RAW_DIR="$T/raw"
