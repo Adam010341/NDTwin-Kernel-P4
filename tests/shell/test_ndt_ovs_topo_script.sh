@@ -62,6 +62,7 @@ set +e
 # "Exists" means a kernel tree, by the test ndtwin-lab itself applies to a configured KERNEL_DIR
 # (p4_proxy/mininet/ntg_bmv2_topo.py), not merely a directory: other suites source round.env,
 # whose mkdir can leave an empty directory at the built-in path on a machine that lets it.
+CONFIGURED_KERNEL_DIR="$KERNEL_DIR"
 if [[ ! -f "$KERNEL_DIR/p4_proxy/mininet/ntg_bmv2_topo.py" ]]; then
     echo "  note     ndtwin-lab's KERNEL_DIR ($KERNEL_DIR, from $LAB_CONF_SOURCE) is not a kernel tree"
     echo "           on this machine; the launch sections use this checkout ($REPO) instead"
@@ -135,6 +136,14 @@ TMUX="$REC"
 
 # --- 1. what the launch hands root ---------------------------------------------------------
 echo "what \`ndt up ovs\` launches"
+
+# [Co-developed with claude code -- Adam] (2026-09-28) The lab side of the fallback above: where the
+# configured tree IS a kernel tree -- every lab -- it is the tree under test, never this checkout.
+# Worked out again here rather than trusted from the branch above, so a fallback that fires
+# everywhere (and would leave the lab testing its own checkout instead of its install) goes red.
+check "a lab install's configured tree is the one under test" \
+      "$( [[ -e "$CONFIGURED_KERNEL_DIR/p4_proxy/mininet/ntg_bmv2_topo.py" ]] && echo "$CONFIGURED_KERNEL_DIR" || echo "$REPO" )" \
+      "$KERNEL_DIR"
 
 rec_reset
 out="$(ovs_topo_start 2>&1)"; rc=$?

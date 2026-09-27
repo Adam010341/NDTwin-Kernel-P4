@@ -71,6 +71,7 @@ mutant() {   # $1 = label, $2 = file to mutate, $3 = the anchor, $4 = its replac
     d="$(shadow_of "$label")"
     case "${file##*/}" in
         ndtwin-lab) target="$d/tools/test_workflow/ndtwin-lab" ;;
+        test_ndt_ovs_topo_script.sh) target="$d/tests/shell/test_ndt_ovs_topo_script.sh" ;;
         *)          target="$d/${file##*/}" ;;
     esac
     python3 - "$target" "$old" "$new" <<'PY'
@@ -220,6 +221,16 @@ m=$(mutant m10 "$LAB" \
     "    local script; script=/nonexistent/NDT-TEST-FIXTURE/testbed_topo.py")
 report_completes "M10: every launch is refused, and the suite still finishes" "$m" \
        "the launch succeeds"
+
+# [Co-developed with claude code -- Adam] (2026-09-28) the SUITE's own fallback, made to fire everywhere:
+# on the lab, where the configured tree is a kernel tree, that would test this checkout instead of
+# the install and still pass every launch check. The suite's own "configured tree is the one under
+# test" check must go red for it. (This gate runs on the lab, so the configured tree is there.)
+m=$(mutant m11 "$TEST" \
+    'if [[ ! -f "$KERNEL_DIR/p4_proxy/mininet/ntg_bmv2_topo.py" ]]; then' \
+    'if true; then')
+report "M11: the suite falls back to its own checkout even on the lab" "$m" \
+       "a lab install's configured tree is the one under test"
 
 echo
 echo "widenings -- behaviour-preserving rewrites that must stay green:"
