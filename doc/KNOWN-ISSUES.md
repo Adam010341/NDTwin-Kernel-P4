@@ -5282,6 +5282,48 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 > 同一輪順手撞到的第二個（`inject_link_failure` 在一端已有別人的 netem 時**半成功而回 200
 > `link failure injected`**）在 `hunt-0911/ROLE-1-A1-REPORT.md` ②，**建議另開單**。
 
+### G-60 🏁 `test_ovs4_sflow.py` 拿 NTG 那份 `testbed_topo.py` 對參數的那一格，前提在 `87612059` 之後就不成立 —— **已退役（2026-09-28）**
+
+> **編號**：G-59 已由分支 `fix/sudo-probe-unknown-0927` 佔用（本條寫入時未併），所以從 G-60 開。
+
+- **狀態**：🏁 已退役（分支 `fix/ci-l1-0927`）。
+- **它原本測什麼**：`ParametersComeFromTheReferenceTopology.test_the_reference_copy_ndt_actually_runs_agrees_too`
+  比對本 repo 的 `testbed_topo.py` 與 `/home/adam/Network-Traffic-Generator/testbed_topo.py` 的 sFlow
+  header／sampling／polling；理由寫在它的 docstring：「`ndt up ovs` 執行的是 NTG 那份」。
+  寫於 `e707cab6`（2026-09-03 16:49）。
+- **為什麼退役**（讀於 `fed37cff`）：同一天 23:21 的 `87612059`（FIX-NDT-OVS-TOPO）讓 `ndt up ovs` 改跑本 repo 的那份。
+  - `tools/test_workflow/ndt:4303-4304` 選 verb（128 → `ovs-topo-start`，4 → `ovs-topo-4host`），
+    `:4454` 呼叫 `sudo -n "$LAB" "$ovs_verb"`，`LAB=/usr/local/sbin/ndtwin-lab`（`:55`）。
+  - `tools/test_workflow/ndtwin-lab` 的 `ovs-topo-start)`（`:1725-1736`）→ `ovs_topo_start`（`:571-577`）
+    → tmux 裡跑 `"$NTG_PY" "$(ovs_topo_script)"`，而 `ovs_topo_script` 是 `$KERNEL_DIR/testbed_topo.py`（`:552`）。
+    `ovs-topo-4host`（`:1737-`）跑 `$KERNEL_DIR/tools/test_workflow/ovs_4host_topo.py`。
+  - `KERNEL_DIR` 是內建預設（`:98`）或 `/etc/ndtwin-lab.conf`；設定檔給的樹必須有
+    `p4_proxy/mininet/ntg_bmv2_topo.py`（`:244-246`），NTG 的樹過不了。
+  - ndtwin-lab 裡剩下唯一提到 NTG `testbed_topo.py` 的是 `cleanup` 的孤兒清掃（`:1711`）：只殺、不啟動。
+  - 這台安裝的 `/usr/local/sbin/ndtwin-lab` 在 `:552` 有同一個 `ovs_topo_script`（2026-09-28 讀）。
+  - ⇒ 那一格比對的是一份 `ndt up ovs` 不會再執行的檔案；它綠或紅都不說明 `ndt up ovs` 的參數。
+- **它在 CI 上的樣子**：runner 沒有 NTG ⇒ 那一格 skip ⇒ L1 lane 判 FAIL（CI run 36319541715 的 12 組之一）。
+- **留下來的那一格**：`test_header_sampling_polling_match_the_reference` 比對的正是 `ndt up ovs` 執行的本 repo 那份，不動。
+- **殘留（沒改）**：還有四處文字說 `ndt up ovs` 跑 NTG 那份：`tools/test_workflow/ndt:4308` 的註解、
+  `:4331` 的錯誤訊息（「128 comes from NTG's testbed_topo.py」，操作者看得到）、`:10521` 的註解，
+  以及 `doc/2026-08-17_testing-manual.md:349`（「NTG 自帶的 testbed_topo.py」）。
+
+### G-61 🔴 lab 的 L1 lane 用 Python 3.8 跑 `tests/python`，而 `test_ovs4_sflow.py` 用了 3.9 才有的 `ast.unparse` ⇒ lab 上 ERROR、CI 上看不到
+
+- **狀態**：🔴 OPEN（登記，未修；2026-09-28）。
+- **事實**：`tools/test_workflow/l1_unit_tests.sh:508` 替 `tests/python` 挑第一個能 `import networkx, ryu`
+  的直譯器，這台是 ryu-env（**3.8.20**）。`FailuresAreNotSwallowed.test_the_default_runner_checks_the_exit_status`
+  （`tests/python/test_ovs4_sflow.py:325`，`ast.unparse(ast.parse(...))`）因此
+  `AttributeError: module 'ast' has no attribute 'unparse'`，整個檔 rc 1。
+  觀測：`scratch/overnight-2026-09-05/logs/ci-l1-0927/lab.test_ovs4_sflow.diag-4ff4eee8.log`（2026-09-27）。
+- **為什麼 CI 看不到**：CI 沒有 ryu，挑到的是 setup-python 的 3.12，那裡 `ast.unparse` 存在。
+  ⇒ 同一個檔案，兩條 lane 給相反的答案；**只有 lab 那條是紅的**。
+- **同形狀的另一處**：`tests/python/test_chaos_invariants_method.py:404`／`:413`／`:499` 也用 `ast.unparse`。
+  CI（3.12）上它是 PASS；在 3.8 下有沒有走到那幾行**沒有跑過、沒查**。
+- **失效方向**：悲觀（多一個紅），不是樂觀；但它讓 lab 的 L1 在乾淨的樹上也紅。
+- **修法方向（未做，要裁）**：讓那一格不依賴 3.9 的 API（例如在原始碼文字上找 `check=True`），
+  或讓 lane 對 `tests/python` 只在需要 ryu 的檔案才用 ryu-env。
+
 ## 證據索引
 
 | 輪次 | 位置 | 內容 |
