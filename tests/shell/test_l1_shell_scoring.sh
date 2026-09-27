@@ -210,39 +210,68 @@ echo "=== group C: the corpus -- every suite in tests/shell prints a form this s
 #
 # What the lane needs of a suite is that its GREEN run prints a summary shell_summary reads. So:
 #   (1) every `echo` and `printf` in the source is rendered -- EVERY one on a line, not only the
-#       first (a line is cut into its commands at unquoted ; && || | &, outside quotes, $( ) and
-#       $(( )); a print is a command whose first word, after if/then/else/do/{/(, is echo or
-#       printf) -- a printf's %d/%s filled from its own arguments, a counter whose name says
+#       first (a line is cut into its commands at unquoted ; ;; && || | &, outside quotes, $( ) and
+#       $(( )); a print is a command whose first word, after a function head (`f() {`, `f(){`,
+#       `function f {`), if/then/else/do/{/(, `case X in` and a case pattern (`0)`, `*)`), is echo
+#       or printf) -- a printf's %d/%s filled from its own arguments, a counter whose name says
 #       fail/bad as 0 and every other as 9 ($((PASS + FAIL)) is 9 + 0) -- and scored by the lane's
 #       own shell_summary; at least one must score a non-zero count. Where it sits no longer
-#       matters: a printf summary, or an echo that comes after it in the source, is fine.
-#   (2) the LAST one that scores (in source order; a print inside a function counts at that
-#       function's last call) must be on the path that runs to the end:
-#       (2a) no `exit <non-zero>` after it ON ITS OWN LINE, reached from it through ; or && -- the
-#            one-line failure branch, `if (( FAIL > 0 )); then echo "Ran ..."; exit 1; fi`, or
-#            `|| { echo "Ran 1 checks, 1 failed"; exit 1; }`. Such a print is on a failure path and
-#            is never "the last one"; if every scoring print is one, the suite is red for it.
+#       matters: a printf summary, or an echo that comes after it in the source, is fine. A print
+#       whose stdout goes to a FILE (`> f`, `>> f`, `&> f`) is not rendered: the lane runs
+#       `bash suite >log 2>&1`, so it never reaches the log (`>&2` does, and is rendered).
+#   (2) the LAST one that scores (in source order; a print inside a function counts at the last
+#       call of that function that is not itself on a failure path) must be on the path that runs
+#       to the end:
+#       (2a) no `exit <non-zero>` CERTAIN to run after it on ITS OWN LINE -- the one-line failure
+#            branch, `if (( FAIL > 0 )); then echo "Ran ..."; exit 1; fi`, or
+#            `|| { echo "Ran 1 checks, 1 failed"; exit 1; }`. Certain means reached through ; or &,
+#            through && after a command that cannot fail (a print, tee), through a pipe into
+#            tee/sed/..., or past the end of the block the print is in (} fi done esac )). NOT
+#            certain: an exit behind && after a test (`; (( FAIL )) && exit 1` -- that summary is
+#            the green one), behind ||, inside an if/while/for/case opened after the print, or in
+#            another branch (else, elif, the next ;; pattern). A conditional exit that does not
+#            fail (`[[ $FAIL -eq 0 ]] && exit 0`) is a way to the end: not a failure path.
+#            For a print inside a function, (2a) is also read on the line of every CALL
+#            (`summary; exit 1` -- the opus judge's NOTE A on 1d5180ce) and in the function's own
+#            body (a later line of it that starts with `exit <non-zero>`): a function whose every
+#            call, or whose body, ends in a failure prints only on a failure path.
+#            Such a print is on a failure path and is never "the last one"; if every scoring print
+#            is one, the suite is red for it.
 #       (2b) no bare `exit <non-zero>` at the start of any LATER line.
 #       Together they keep what the old last-echo check caught -- a suite that still prints its
 #       failure-path summary but lost its green one would read NO-TESTS-RAN at run time -- in both
 #       the multi-line and the one-line shape, without the old check's false alarms. (2a) came
-#       with the opus judge's B1 on d2a9d641 (09-27): the first version of (2) saw only (2b), and
-#       test_faults_topo_pid.sh / test_ndtwin_lab_config.sh (one-line failure branches) and
-#       test_ndt_down_stops_only_ours.sh (`|| { ...; exit 1; }` summaries) could lose their green
-#       summary with group C still green -- shapes the old check caught.
-# 🔴 KNOWN LIMITATION, not fixed: a summary followed by a bare `exit` or `exit $FAIL` -- the
-# SELFTEST_INNER branch of test_mutate_gate_dead_mutant.sh (`echo "Ran ..."`, then
-# `(( FAIL == 0 )); exit`) -- is a GREEN-path form this static rule cannot tell from a failure
-# branch: whether it runs to the end depends on a value, not on the text. If the suite's final
-# summary is lost, group C still reads that branch's summary as the green one.
-# 🔴 FAIL CLOSED (the judge's N4): a $(( )) the renderer cannot evaluate (09, an empty $(( )), **,
-# a division by zero) stops render_prints with a message and a non-zero status, and so does a
-# renderer that runs past 30 s; group C then reports "instrument failed" for that suite, never a
-# zero or half its prints. (A print whose quotes do not close on its own line -- a multi-line
-# string -- is not a one-line print and is skipped, as before.)
-# mutate_l1_shell_scoring.sh's corpus mutants hold both halves of (2) and each shape of (2a).
+#       with the opus judge's B1 on d2a9d641 (09-27); its call-line, pipe, block-end, conditional
+#       and case readings with the same judge's NOTEs A, B, F, G and H on 1d5180ce (09-27). Group R
+#       holds each reading on a fixture of its own; mutate_l1_shell_scoring.sh breaks each one.
+# 🔴 KNOWN LIMITATIONS, not fixed -- each a shape the corpus does not have today (M0 is green):
+#   - a summary followed by a bare `exit` or `exit $FAIL` -- the SELFTEST_INNER branch of
+#     test_mutate_gate_dead_mutant.sh (`echo "Ran ..."`, then `(( FAIL == 0 )); exit`) -- is a
+#     GREEN-path form this static rule cannot tell from a failure branch: whether it runs to the end
+#     depends on a value, not on the text. If the suite's final summary is lost, group C still reads
+#     that branch's summary as the green one.
+#   - (2b) reads ANY later line that starts with `exit <non-zero>`, including one inside an
+#     `if (( FAIL ))` after the green summary: a false red, never a false green. So does a function
+#     body's later `exit <non-zero>`.
+#   - heredoc bodies are read as code (NOTE J): a `echo "Ran ..."` line inside a heredoc renders as a
+#     print of the suite. No heredoc in the corpus holds one. A regex that skipped heredocs is worse:
+#     test_redirection_order.sh has a `<<` inside a quoted check name, and skipping from there
+#     swallows the suite's real summary (09-27, read).
+#   - a function's extent is found by counting { and } per line (N4): braces inside strings and
+#     heredoc bodies count too. In the corpus this moves the extent of functions in
+#     test_live_p1_common.sh and test_ndtwin_lab_heartbeat.sh; both read green.
+#   - an `exit` inside a subshell, `( echo "Ran ..."; exit 1 )`, is read as the script's exit.
+#   - a call of the function that is not at the start of a line (`|| summary`, `trap summary EXIT`,
+#     a call from another function) is not seen: its prints count at the function's own line.
+# 🔴 FAIL CLOSED (the judge's N4): a $(( )) the renderer cannot evaluate (09, an empty $(( )), **)
+# stops render_prints with a message and a non-zero status, and so does a renderer that runs past
+# 30 s; group C then reports "instrument failed" for that suite, never a zero or half its prints.
+# A `/` is not in the renderer's alphabet at all: a $(( )) holding one renders as 9, silently, and is
+# never evaluated -- so a division by zero is NOT an instrument failure (the judge's NOTE E).
+# (A print whose quotes do not close on its own line -- a multi-line string -- is not a one-line
+# print and is skipped, as before.)
 # Reading source, not running it: this file is in the corpus.
-render_prints() {   # render_prints <suite> -> "<effective line><TAB><0|1: failure path><TAB><text>" per rendered line
+render_prints() {   # render_prints <suite> -> "<effective line><TAB><0, or the failure rule><TAB><text>" per rendered line
     timeout 30 python3 - "$1" <<'PYR'
 import re, shlex, sys
 
@@ -252,7 +281,7 @@ class InstrumentError(Exception):
 lines = open(sys.argv[1], errors="replace").read().split("\n")
 # A print inside a function body happens where the function is CALLED, not where it is written:
 # `done_() { echo "Ran ..."; ...; exit $?; }` near the top, `done_` as the file's last line
-# (test_run_layers_*). Its effective line is the function's last call at the start of a line.
+# (test_run_layers_*). Its calls are the lines that start with its name, outside any function.
 owner, depth, func_of = None, 0, {}
 for n, line in enumerate(lines, 1):
     m = re.match(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*\(\)\s*\{", line)
@@ -263,13 +292,23 @@ for n, line in enumerate(lines, 1):
         depth += line.count("{") - line.count("}")
         if depth <= 0:
             owner = None
-def effective(n):
-    f = func_of.get(n)
-    if f is None:
-        return n
-    calls = [i for i, l in enumerate(lines, 1)
-             if i not in func_of and re.match(r"^\s*" + re.escape(f) + r"(\s|;|$)", l)]
-    return calls[-1] if calls else n
+_calls, _call_fails = {}, {}
+def call_lines(f):
+    if f not in _calls:
+        _calls[f] = [i for i, l in enumerate(lines, 1)
+                     if i not in func_of and re.match(r"^\s*" + re.escape(f) + r"(\s|;|$)", l)]
+    return _calls[f]
+def call_fails(c):   # (2a) read on a call's own line: the call is its first command
+    if c not in _call_fails:
+        _call_fails[c] = failure_after(commands(lines[c - 1]), 0)
+    return _call_fails[c]
+def body_exits_after(n):   # a later line of the same function body that starts with exit <non-zero>
+    f, m = func_of.get(n), n + 1
+    while func_of.get(m) == f:
+        if re.match(r"^\s*exit\s+[1-9]", lines[m - 1]):
+            return True
+        m += 1
+    return False
 def val(expr):
     return "0" if re.search(r"fail|bad", expr, re.I) else "9"
 def arith(expr):   # $(( PASS + FAIL )) -> each counter by its name, then the sum: 9 + 0 = 9
@@ -286,7 +325,7 @@ def expand(text):
     text = re.sub(r"\$\(\(([^)]*)\)\)", lambda m: arith(m.group(1)), text)
     text = re.sub(r"\$\{([A-Za-z_][A-Za-z0-9_]*)[^}]*\}", lambda m: val(m.group(1)), text)
     return re.sub(r"\$([A-Za-z_][A-Za-z0-9_]*)", lambda m: val(m.group(1)), text)
-def commands(line):   # -> [(operator before it, its text)], cut at unquoted ; && || | &
+def commands(line):   # -> [(operator before it, its text)], cut at unquoted ; ;; && || | &
     out, cur, op, stack, i = [], [], "", [], 0
     while i < len(line):
         c, top = line[i], (stack[-1] if stack else "")
@@ -327,7 +366,7 @@ def commands(line):   # -> [(operator before it, its text)], cut at unquoted ; &
             break
         two = line[i:i + 2]
         if two in ("&&", "||", ";;"):
-            out.append((op, "".join(cur))); cur, op = [], two.replace(";;", ";"); i += 2; continue
+            out.append((op, "".join(cur))); cur, op = [], two; i += 2; continue
         if c == ";" or c == "|" and two != "|&" or \
            c == "&" and line[i - 1:i] not in ("<", ">") and line[i + 1:i + 2] != ">":
             out.append((op, "".join(cur))); cur, op = [], c; i += 1; continue
@@ -347,42 +386,105 @@ def words_of(text):   # its words, up to the first redirection; None when its qu
     except ValueError:
         return None
 LEAD = ("if", "then", "else", "elif", "do", "while", "until", "!", "{", "time")
-def print_words(text):   # the words of a print command (echo/printf first), or None
-    w = words_of(text)
-    # a function's one-line body starts after its head: `name() {`, `name () {`, `function name {`
-    if w and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*\(\)", w[0]):
-        w = w[1:]
-    elif len(w or []) > 1 and w[1] == "()":
+def strip_head(w):   # the command's own words: a function head, keywords, `(`, a case pattern off the front
+    w = list(w or [])
+    if w and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*\(\)\{?", w[0]):        # f() {   f(){
+        w = (["{"] if w[0].endswith("{") else []) + w[1:]
+    elif len(w) > 1 and w[1] in ("()", "(){"):                             # f () {
+        w = (["{"] if w[1].endswith("{") else []) + w[2:]
+    elif len(w) > 1 and w[0] == "function":                                # function f {
         w = w[2:]
-    elif len(w or []) > 1 and w[0] == "function":
-        w = w[2:]
-    while w and (w[0] in LEAD or w[0].startswith("(")):
-        if w[0].startswith("(") and w[0] != "(":
-            w[0] = w[0].lstrip("(")
-        else:
+    if len(w) > 3 and w[0] == "case" and w[2] == "in":                     # case X in 0) ...
+        w = w[3:]
+    while w:
+        h = w[0]
+        if h in LEAD or h == "(":
             w.pop(0)
+        elif h.startswith("("):
+            w[0] = h.lstrip("(")
+        elif re.fullmatch(r"[^$`(){}\"']*\)", h):                          # 0)  *)  --help)
+            w.pop(0)
+        else:
+            break
+    return w
+def print_words(text):   # the words of a print command (echo/printf first), or None
+    w = strip_head(words_of(text))
     return w if w and w[0] in ("echo", "printf") else None
-def is_exit_nonzero(text):
-    w = words_of(text)
-    return bool(w) and w[0] == "exit" and len(w) > 1 and re.fullmatch(r"[1-9][0-9]*", w[1]) is not None
-def ends_block(text):
-    w = words_of(text)
-    return bool(w) and (w[0] in ("fi", "done", "esac", "}", ")", "else", "elif") or w[0].startswith(")"))
+def stdout_away(text):   # its stdout goes to a file -- never to the lane's log (`bash suite >log 2>&1`)
+    t = re.sub(r"'[^']*'|\"(?:\\.|[^\"\\])*\"", "Q", text)
+    for m in re.finditer(r"(\d*)(&?)>>?\s*(\S+)", t):
+        fd, _amp, target = m.groups()
+        if fd not in ("", "1"):
+            continue                                  # 2> ...: not its stdout
+        if target.startswith("&") or target in ("/dev/stdout", "/dev/stderr"):
+            continue                                  # >&2: still the lane's log
+        return True
+    return False
+def exit_kind(text):   # "fail" exit <literal non-zero>; "other" exit 0, bare exit, exit $X; None
+    w = strip_head(words_of(text))
+    if not w or w[0] != "exit":
+        return None
+    return "fail" if len(w) > 1 and re.fullmatch(r"[1-9][0-9]*", w[1]) else "other"
+OPENERS = ("if", "while", "until", "for", "case", "select")
+CLOSERS = ("fi", "done", "esac")
+SURE = ("echo", "printf", "tee", "true", ":")
+def failure_after(cmds, k):   # (2a): an exit <non-zero> CERTAIN to run after command k of this line
+    ok, cond, nest = True, False, 0      # ok: the last command cannot have failed (k is a print or a call)
+    for op, text in cmds[k + 1:]:
+        raw = words_of(text) or []
+        head = raw[0] if raw else ""
+        if nest == 0 and (op == ";;" or head in ("else", "elif")):
+            return False                     # another branch: not on this print's path
+        if op in (";", "&", ";;"):
+            cond = False
+        elif op == "&&":
+            cond = cond or not ok
+        elif op == "||":
+            if ok and not cond:
+                continue                     # never runs, and the list still succeeded
+            cond = True
+        elif op == "|":                      # the same pipeline: an exit here ends a subshell
+            w = strip_head(raw)
+            ok = bool(w) and w[0] in SURE + ("cat", "sed")
+            nest += head in OPENERS              # `| while read ...; do`: its body is not this path
+            continue
+        if head in OPENERS:
+            nest, ok = nest + 1, False
+            continue
+        if head in CLOSERS or head in ("}", ")") or head.startswith(")"):
+            if head in CLOSERS and nest > 0:
+                nest, ok = nest - 1, False
+            continue                         # the print's own block ends: what follows still runs
+        kind = exit_kind(text)
+        if kind is not None:
+            if nest == 0 and not cond:
+                return kind == "fail"        # it runs: the script ends here
+            if kind == "other":
+                return False                 # it may run: a way to the end that does not fail
+            continue                         # a conditional failure exit: go on
+        w = strip_head(raw)
+        ok = bool(w) and w[0] in SURE
+    return False
+def where(n, cmds, k):   # -> (effective line, "0" or the rule that puts it on a failure path)
+    here = failure_after(cmds, k)
+    f = func_of.get(n)
+    if f is None:
+        return n, ("2a" if here else "0")
+    body = not here and body_exits_after(n)
+    calls = call_lines(f)
+    if here or body:
+        return (calls[-1] if calls else n), ("2a" if here else "body")
+    ok = [c for c in calls if not call_fails(c)]
+    if ok or not calls:
+        return (ok[-1] if ok else n), "0"
+    return calls[-1], "call"
 rendered = []
 for n, line in enumerate(lines, 1):
     cmds = commands(line)
     for k, (op, text) in enumerate(cmds):
         w = print_words(text)
-        if w is None:
+        if w is None or stdout_away(text):
             continue
-        # (2a): an exit <non-zero> after it on this line, reached through ; or && at its own level
-        failure = False
-        for op2, text2 in cmds[k + 1:]:
-            if op2 not in (";", "&&") or ends_block(text2):
-                break
-            if is_exit_nonzero(text2):
-                failure = True
-                break
         args = [x for x in w[1:] if not (w[0] == "echo" and x in ("-e", "-n"))]
         if not args:
             continue
@@ -396,35 +498,98 @@ for n, line in enumerate(lines, 1):
         except InstrumentError as x:
             sys.stderr.write("render_prints: line %d: %s\n" % (n, x))
             sys.exit(3)
+        eff, rule = where(n, cmds, k)
         for o in outs:
             if o.strip():
-                rendered.append("%d\t%d\t%s" % (effective(n), 1 if failure else 0, o))
+                rendered.append("%d\t%s\t%s" % (eff, rule, o))
 sys.stdout.write("".join(r + "\n" for r in rendered))
 PYR
 }
-for suite in "$SHELL_TESTS_DIR"/test_*.sh; do
-    name="$(basename "$suite")"
-    rout="$(render_prints "$suite" 2>"$T/render.err")"; rrc=$?
+# corpus_verdict <suite> -> "nonzero" when its green path prints a summary the lane reads; else why not
+corpus_verdict() {
+    local rout rrc last=0 fpline=0 fprule="" n rule line bare
+    rout="$(render_prints "$1" 2>"$T/render.err")"; rrc=$?
     if (( rrc != 0 )); then
-        check "C  $name prints a summary this scorer reads on its green path" "nonzero" \
-              "instrument failed: render_prints rc $rrc -- $(head -1 "$T/render.err")"
-        continue
+        echo "instrument failed: render_prints rc $rrc -- $(head -1 "$T/render.err")"; return
     fi
-    last=0; fpline=0
-    while IFS=$'\t' read -r n fp line; do
+    while IFS=$'\t' read -r n rule line; do
         [[ -n "$line" && "$(summary_of "$line" | cut -d' ' -f1)" -gt 0 ]] || continue
-        if (( fp )); then fpline="$n"; continue; fi
+        # the LAST failure-path summary is the one with the greatest effective line, as for `last`
+        # below -- not the last one read: a function's print is read at its definition and counts
+        # at its call (queued2, 09-27: test_ndt_ovs_topo_script.sh was named for its line-51
+        # `|| { ...; exit 1; }` while its `summary; exit 1` call at line 70 is the later one)
+        if [[ "$rule" != 0 ]]; then
+            (( n >= fpline )) && { fpline="$n"; fprule="$rule"; }
+            continue
+        fi
         (( n >= last )) && last="$n"
     done <<<"$rout"
     if (( last == 0 && fpline > 0 )); then
-        why="only on a failure path: every summary it prints has an exit <non-zero> after it on the same line (the last at line $fpline)"
+        case "$fprule" in
+            2a)   echo "only on a failure path: every summary it prints has an exit <non-zero> after it on the same line (the last at line $fpline)" ;;
+            call) echo "only on a failure path: its last summary (line $fpline) is printed by a function every call of which has an exit <non-zero> after the call on the same line" ;;
+            body) echo "only on a failure path: its last summary (line $fpline) is printed by a function that exits <non-zero> later in its body" ;;
+            *)    echo "instrument failed: render_prints named no rule we know ($fprule)" ;;
+        esac
     elif (( last == 0 )); then
-        why="zero: no echo or printf in it renders to a summary"
+        echo "zero: no echo or printf in it renders to a summary"
     else
-        bare="$(awk -v n="$last" 'NR > n && /^[[:space:]]*exit[[:space:]]+[1-9]/ {print NR; exit}' "$suite")"
-        why="$([[ -z "$bare" ]] && echo nonzero || echo "only on a failure path: its last summary (line $last) is followed by a bare exit at line $bare")"
+        bare="$(awk -v n="$last" 'NR > n && /^[[:space:]]*exit[[:space:]]+[1-9]/ {print NR; exit}' "$1")"
+        if [[ -z "$bare" ]]; then echo nonzero
+        else echo "only on a failure path: its last summary (line $last) is followed by a bare exit at line $bare"; fi
     fi
-    check "C  $name prints a summary this scorer reads on its green path" "nonzero" "$why"
+}
+
+echo
+echo "=== group R: group C's readings, one fixture each (tests/shell/fixtures/l1_shell_scoring/) ==="
+
+# [Co-developed with claude code -- Adam] (09-27) every reading group C makes, held on a file of its
+# own, so the rule is pinned and not only the corpus it happens to meet today: each fixture is a
+# minimal suite text (read, never run; README.md there). The ones marked * were read the other way
+# by b005bf50's group C -- a false red (B, F) or a vacuous green (A, G, H) -- the rest pin a reading
+# that did not change, so that mutate_l1_shell_scoring.sh can break it by name (the judge's NOTE I).
+RFIX="$SHELL_TESTS_DIR/fixtures/l1_shell_scoring"   # not $HERE: sourcing the driver replaced it
+FP="only on a failure path:"
+SAME="every summary it prints has an exit <non-zero> after it on the same line"
+rcheck() { check "R$1" "$3" "$(corpus_verdict "$RFIX/$2")"; }
+rcheck "1 * a function summary whose every call is \`summary; exit 1\` is on a failure path (A)" \
+       r01_call_line_exit.sh \
+       "$FP its last summary (line 5) is printed by a function every call of which has an exit <non-zero> after the call on the same line"
+rcheck "2   ... and a bare \`summary\` call after it is its green path" r02_call_line_green.sh nonzero
+rcheck "3 * a function that exits 1 later in its body prints on a failure path (A)" \
+       r03_function_body_exit.sh \
+       "$FP its last summary (line 7) is printed by a function that exits <non-zero> later in its body"
+rcheck "4 * \`echo ...; (( FAIL )) && exit 1\` is the green summary: the exit is conditional (B)" \
+       r04_conditional_exit_after.sh nonzero
+rcheck "5 * \`echo ...; [[ \$FAIL -eq 0 ]] && exit 0; exit 1\` is the green summary: a way out that does not fail (B)" \
+       r05_conditional_exit_zero.sh nonzero
+rcheck "6   \`echo ... || exit 1\`: the exit after || never runs (I)" r06_or_exit.sh nonzero
+rcheck "7   \`echo ... && exit 1\` in a failure branch: && after a print is certain (I)" \
+       r07_and_exit.sh "$FP $SAME (the last at line 3)"
+rcheck "8 * \`summary(){ echo ...; }\` -- no space before { -- is a print (F)" r08_function_no_space.sh nonzero
+rcheck "9 * a print behind a case pattern, \`0) echo ... ;;\`, is a print (F)" r09_case_branches.sh nonzero
+rcheck "10 * a summary written to a FILE never reaches the lane's log (G)" \
+       r10_redirected_to_file.sh "zero: no echo or printf in it renders to a summary"
+rcheck "11   ... and one written to stderr (>&2) does (G)" r11_redirected_to_stderr.sh nonzero
+rcheck "12 * \`echo ... | tee -a \$LOG; exit 1\`: the exit after a pipeline is certain (G)" \
+       r12_piped_then_exit.sh "$FP $SAME (the last at line 4)"
+rcheck "13 * \`{ echo ...; }; exit 1\`: the end of a block does not stop the reading (H)" \
+       r13_group_then_exit.sh "$FP $SAME (the last at line 3)"
+rcheck "14   \`then echo ...; else exit 1; fi\`: the else branch is not the print's path (H)" \
+       r14_else_branch.sh nonzero
+rcheck "15 * \`case ... in 0) echo ... ;; *) exit 1 ;; esac\`: the next pattern is not the print's path (F)" \
+       r15_case_other_branch.sh nonzero
+rcheck "16   \`echo ...; if (( FAIL )); then exit 1; fi\`: an exit inside a later if is conditional (B)" \
+       r16_exit_in_later_if.sh nonzero
+rcheck "17 * the reason named is the LAST failure path in line order: a call at line 6 after a 2a at line 4 (A)" \
+       r17_last_failure_is_the_call.sh \
+       "$FP its last summary (line 6) is printed by a function every call of which has an exit <non-zero> after the call on the same line"
+
+echo
+echo "=== group C: the corpus ==="
+for suite in "$SHELL_TESTS_DIR"/test_*.sh; do
+    check "C  $(basename "$suite") prints a summary this scorer reads on its green path" "nonzero" \
+          "$(corpus_verdict "$suite")"
 done
 
 echo

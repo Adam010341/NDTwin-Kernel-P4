@@ -15,8 +15,11 @@
 # 🔴 WHAT THE STUB FIXES, AND WHAT IT DOES NOT (the opus judge's B1 on 356d4e4e, 09-27).
 #   - It fixes the ANSWERS to sudo: always `sudo: a password is required`, rc 1.
 #   - It does not fix the PATH a suite takes through ndt. That still varies with the machine:
-#     `ps` (ovs_daemon_running, bmv2_count), `command -v` (ovs-vsctl, mnexec, the helper), the lab
-#     ports, curl :8000 and the p4 switch manifest decide which probes are made at all.
+#     `ps` (ovs_daemon_running, bmv2_count, and the process table `ndt status` lists), `command -v`
+#     (ovs-vsctl, mnexec, the helper), the lab ports, curl :8000, the p4 switch manifest and the
+#     sha of the installed /usr/local/sbin/ndtwin-lab decide which probes are made at all and what
+#     `ndt status` prints around them (the judge's N1 on 356d4e4e; pinning them is the live-answer
+#     variant the ruling left out of scope).
 #     test_ndt_sample_rate_reads_both_bounds takes ndt's p4 branch with a live bmv2 (0 sudo calls),
 #     the unknown branch with ovs-vswitchd running (4 calls), and the none branch in CI (0 calls).
 #     The gates on this laptop run the unknown branch; the other two are read from ndt, not run.
@@ -27,7 +30,8 @@
 #     one of the five, so ndt read every probe as GRANTED -- an artifact of the gate. This stub says
 #     what a real sudo without NOPASSWD says, and ndt reads it as refused. test_lab_handoff's
 #     `ndt status` shows the three branches (its "sudo grants" line; the verdict is unchanged only
-#     because that suite reads the `lab` section and nothing else):
+#     because that suite reads the `lab` section and the rc of a plain `ndt status`, which without
+#     --check is 0 whatever the grants -- the judge's NOTE f on f9c59a44):
 #         where                           sudo -n answers                        ndt reads
 #         gates before this stub (R pass) "refused by the nolab shim", rc 1      granted
 #         this stub                       "a password is required", rc 1         refused (+ how to grant)
@@ -47,8 +51,16 @@
 #                     every other argv is REFUSED (rc 1), never a fabricated success (the judge's N5)
 #       --ovs-refuse  an unprivileged `ovs-vsctl` that records and refuses (rc 1)
 #   probe_stub_outside  -> one line per recorded call that no allowed call matches, plus one if the
-#                          stub is not installed or not the sudo on PATH; nothing at all only when
-#                          the stub took every call and every call was allowed
+#                          stub is not installed, or if a stub it installed -- sudo, and tc /
+#                          ovs-vsctl when asked for -- is not the one on PATH (the judge's N6 on
+#                          356d4e4e: a tc or ovs-vsctl in front of the stub takes calls nobody
+#                          records); nothing at all only when the stubs took every call and every
+#                          call was allowed
+#   🔴 KNOWN LIMITATION (the judge's N7 on 356d4e4e): an allowed call is matched on the command's
+#   BASENAME, so `sudo -n /any/dir/ndtwin-lab status` reads as the allowed `sudo ndtwin-lab status`.
+#   Every call is refused whatever its path, so this bounds what the closing check CLAIMS (which
+#   binary was asked), not what can reach root; matching full paths would rewrite six allow-lists
+#   and the mutation gate's anchors for a distinction no suite makes today.
 #   probe_stub_calls    -> every recorded call, normalised, counted
 probe_stub_install() {
     local dir="$1" tc=0 ovs=0 d
@@ -60,6 +72,7 @@ probe_stub_install() {
     d="$dir/probe-stub"; mkdir -p "$d"
     PROBE_STUB_DIR="$d"
     PROBE_STUB_LOG="$d/calls"; : > "$PROBE_STUB_LOG"
+    PROBE_STUB_TC="$tc"; PROBE_STUB_OVS="$ovs"
     PROBE_STUB_ALLOW=("$@")
     # sudo's own refusal, word for word (sudo 1.9.15p5 with no NOPASSWD rule). ndt DECIDES by it,
     # not only words its messages: ndt_sudo_probe reads it as "refused" (sudo_surface.sh:179-182,
@@ -109,6 +122,13 @@ probe_stub_outside() {
         echo "NO STUB: probe_stub_install never ran"; return
     fi
     [[ "$(type -P sudo)" == "$PROBE_STUB_DIR/sudo" ]] || echo "the sudo on PATH is $(type -P sudo), not this suite's stub"
+    # [Co-developed with claude code -- Adam] the unprivileged stubs too (the judge's N6, 09-27)
+    if [[ "${PROBE_STUB_TC:-0}" == 1 && "$(type -P tc)" != "$PROBE_STUB_DIR/tc" ]]; then
+        echo "the tc on PATH is $(type -P tc), not this suite's stub"
+    fi
+    if [[ "${PROBE_STUB_OVS:-0}" == 1 && "$(type -P ovs-vsctl)" != "$PROBE_STUB_DIR/ovs-vsctl" ]]; then
+        echo "the ovs-vsctl on PATH is $(type -P ovs-vsctl), not this suite's stub"
+    fi
     while IFS= read -r line; do
         [[ -n "$line" ]] || continue
         n="$(_probe_stub_norm "$line")"; hit=0
