@@ -53,6 +53,18 @@ source "$LAB" || { echo "  FAILED   could not source $LAB"; echo "Ran 1 checks, 
 # it: the first `die` would end the run while every check already printed still reads ok.
 set +e
 
+# [Co-developed with claude code -- Adam] (2026-09-28) A machine with no lab install -- a hosted CI
+# runner, a fresh clone -- has neither /etc/ndtwin-lab.conf nor the tree ndtwin-lab's built-in
+# default names, so the launch sections below would be asking about a directory that is not there
+# (`ovs_topo_start` refuses it, correctly). What they test is "the launch follows KERNEL_DIR",
+# and that holds for any tree; so on such a machine they use THIS checkout, and say so. Where
+# the configured tree exists -- the lab -- nothing changes: it is still the one under test.
+if [[ ! -d "$KERNEL_DIR" ]]; then
+    echo "  note     ndtwin-lab's KERNEL_DIR ($KERNEL_DIR, from $LAB_CONF_SOURCE) is not a directory"
+    echo "           on this machine; the launch sections use this checkout ($REPO) instead"
+    KERNEL_DIR="$REPO"
+fi
+
 # The seam itself is the first check, and it is a check rather than a bail-out because its
 # absence IS the finding: with the launch written inline in the root-only dispatch, nothing short
 # of root can see which file tmux is handed, and that is how the NTG path survived here.
@@ -160,7 +172,9 @@ check "  and does not name another tree's copy"    no  "$(yn sweep_matches "$(ov
 # same file components.env calls OVS_TOPO_SCRIPT and stack.sh prints.
 KERNEL_DIR="$REPO"
 rec_reset
-ovs_topo_start >/dev/null 2>&1
+# In a subshell, like every other launch here: `ovs_topo_start` dies on a refusal, and a die
+# outside one would end the whole suite with no summary rather than turn one check red.
+( ovs_topo_start ) >/dev/null 2>&1
 check "pointed here, it launches this repo's copy" "$REPO/testbed_topo.py" "$(rec_last)"
 KERNEL_DIR="$REAL_KERNEL_DIR"
 
@@ -184,9 +198,13 @@ check "  and nothing was launched"                 0 "$(rec_calls)"
 # suffix. This section is the reason the fix is two changes and not one.
 echo "the sweep still finds what the launch starts (ndt down)"
 
-rec_reset; ovs_topo_start >/dev/null 2>&1
+# [Co-developed with claude code -- Adam] (2026-09-28) In a subshell: before this, a refused launch
+# here ended the suite at this line -- no summary, so L1 read "ran=0" and every check below was lost.
+rec_reset; ( ovs_topo_start ) >/dev/null 2>&1; s4_rc=$?
 mapfile -t LAUNCHED < <(rec_argv | grep -v '^$')
 LAUNCHED_SCRIPT="$(rec_last)"
+
+check "the launch this section reads back succeeded" 0 "$s4_rc"
 
 check "cleanup's pattern matches the launched argv" yes "$(yn sweep_matches "$(ovs_topo_pattern)" "${LAUNCHED[@]}")"
 check "🔴 the OLD NTG pattern does not match it"    no  "$(yn sweep_matches "Network-Traffic-Generator/testbed_topo.py" "${LAUNCHED[@]}")"

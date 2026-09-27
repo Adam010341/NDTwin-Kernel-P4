@@ -106,6 +106,22 @@ report() {   # $1 = label, $2 = shadow dir, $3 = the check that MUST go red
     fi
 }
 
+# [Co-developed with claude code -- Adam] (2026-09-28) report, plus: the suite must still reach its
+# summary. For a mutant whose every launch is refused -- the shape of a lab with no topology -- the
+# named check going red is not enough: before the fix a refusal outside a subshell ended the whole
+# suite there, and the lane read the missing summary as "ran=0".
+report_completes() {   # $1 = label, $2 = shadow dir, $3 = the check that MUST go red
+    local out
+    if [[ "$2" != ANCHOR-FAILED ]]; then
+        out="$(run_suite "$2")"
+        if ! grep -qE '^Ran [0-9]+ checks, [0-9]+ failed$' <<<"$out"; then
+            printf '  SURVIVED %-56s (the suite never reached its summary -- one refusal ended it)\n' "$1"
+            SURVIVORS=$((SURVIVORS+1)); return
+        fi
+    fi
+    report "$@"
+}
+
 report_green() {   # $1 = label, $2 = shadow dir -- a widening: it must stay GREEN
     local out rc
     if [[ "$2" == ANCHOR-FAILED ]]; then
@@ -197,6 +213,14 @@ m=$(mutant m9 "$TOPO" \
 report "M9: testbed_topo.py loses its interpreter bootstrap" "$m" \
        "it imports under"
 
+# [Co-developed with claude code -- Adam] (2026-09-28) every launch refused. The named check goes
+# red either way; what this one is for is that the suite still reaches its summary (report_completes).
+m=$(mutant m10 "$LAB" \
+    "    local script; script=\"\$(ovs_topo_script)\"" \
+    "    local script; script=/nonexistent/NDT-TEST-FIXTURE/testbed_topo.py")
+report_completes "M10: every launch is refused, and the suite still finishes" "$m" \
+       "the launch succeeds"
+
 echo
 echo "widenings -- behaviour-preserving rewrites that must stay green:"
 
@@ -215,6 +239,14 @@ m=$(mutant n3 "$LAB" \
     "    [[ -r \"\$script\" ]] || die \"no readable OVS topology at \$script" \
     "    [[ -e \"\$script\" ]] || die \"no readable OVS topology at \$script")
 report_green "N3 (widening): the refusal tests -e rather than -r" "$m"
+
+# [Co-developed with claude code -- Adam] (2026-09-28) a machine with no lab install (a CI runner):
+# the built-in KERNEL_DIR is not there, and the suite must fall back to its own checkout and stay
+# green -- not refuse, and not end at the first launch.
+m=$(mutant n4 "$LAB" \
+    "LAB_DEFAULT_KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel" \
+    "LAB_DEFAULT_KERNEL_DIR=/nonexistent/NDT-TEST-FIXTURE/NDTwin-Kernel")
+report_green "N4 (widening): no lab install -- the suite uses its own checkout" "$m"
 
 echo
 NOW_LAB="$(sha256sum "$LAB" | cut -d' ' -f1)"
