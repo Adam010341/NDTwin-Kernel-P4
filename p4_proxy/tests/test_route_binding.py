@@ -511,10 +511,14 @@ class TheFactoryBindsEveryClientTest(unittest.TestCase):
         binding = self.build(self.basic_owned).route_binding
         self.assertEqual((binding.owner, binding.source), ("package", "package"))
 
-    @needs_compiled_p4info
     def test_the_install_time_record_keys_by_the_renamed_table(self):
         # The record's key is the table name read_table_entries will report for this switch.
+        # [Co-developed with claude code -- Adam] The renamed fixture carries its own p4info, so
+        # this half runs everywhere; the baseline half needs NDTwin's compiled one and is below.
         self.assertEqual(self.build(self.renamed).IPV4_LPM_TABLE, "RouteIngress.dest_routes")
+
+    @needs_compiled_p4info
+    def test_the_install_time_record_keys_ndtwins_own_pipeline_by_the_baseline_table(self):
         self.assertEqual(self.build(app_package.baseline()).IPV4_LPM_TABLE, BASELINE.table)
 
     def test_a_role_that_does_not_fit_refuses_rather_than_falling_back_to_unbound(self):
