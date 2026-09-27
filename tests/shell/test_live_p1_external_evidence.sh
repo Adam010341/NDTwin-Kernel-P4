@@ -169,7 +169,7 @@ rm "$FIX/nolog-rounds/fc_sol/driver-controller-flowcache.log"
 OUT="$(ev compare "$FIX/base" "$FIX/nolog")"
 check "🔴 an arm with no controller log: rc 2"              "2" "$(rc_of "$OUT")"
 has   "  and says which"                                   "UNREADABLE" "$OUT"
-hasnt "  and does not print a conclusion"                  "NO DIFFERENCE" "$OUT"
+hasnt "  and does not print a conclusion either way"       "DIFFERENCE" "$OUT"
 mkrun norow
 sed -i '/^flowcache\tsolution/d' "$FIX/norow/00_table.tsv"
 OUT="$(ev compare "$FIX/base" "$FIX/norow")"

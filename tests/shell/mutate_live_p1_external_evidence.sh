@@ -82,7 +82,7 @@ mutate "E4: a round with no controller log reads as an empty one" \
     '    if len(logs) != 1:
         return "/dev/null"
         raise Unreadable' \
-    "🔴 an arm with no controller log: rc 2"
+    "🔴 an arm with no controller log: rc 2" "  and does not print a conclusion either way"
 mutate "E5: the FIRST counter read is compared, not the last" \
     '        "counters_final": blocks[-1] if blocks else {},' \
     '        "counters_final": blocks[0] if blocks else {},' \
