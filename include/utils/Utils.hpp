@@ -21,6 +21,9 @@
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
+// [Co-developed with claude code -- Adam] <ctime> for formatTime's localtime_r; the localtime
+// @warning in the header comment below was updated in the same change.
+#include <ctime>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -42,7 +45,8 @@
  *
  * @warning Some functions (execCommand, httpsPost) perform I/O and may throw.
  * @warning localtime is a non-thread-safe libc API. (ipToString uses inet_ntop and is safe.)
- *          Prefer thread-safe alternatives if called from multiple threads.
+ *          Prefer thread-safe alternatives if called from multiple threads. formatTime uses
+ *          localtime_r; logCurrentTimeSystemClock still uses localtime.
  */
 namespace utils
 {
@@ -975,17 +979,39 @@ getCurrentTimeMillisSteadyClock()
 }
 
 /**
- * @brief Monotonic time in milliseconds (steady_clock).
+ * @brief Format system-clock milliseconds as local time, "YYYY-MM-DD HH:MM:SS".
  *
- * Suitable for measuring durations; not tied to wall-clock time.
+ * [Co-developed with claude code -- Adam]
+ * localtime_r, not localtime. localtime() returns a pointer to one struct tm shared by the whole
+ * process, and getFlowInfoJson calls this twice per row from every reader that holds the
+ * collector's shared lock at the same time, so two concurrent readers could each print the other's
+ * timestamp. TSan reported it in TopKFlowInfoTest.TopKKeepsAnsweringWhileAWriterIsFeedingTheTable.
+ * With TZ unset (as on the CI runner) the report is a free/strdup pair in glibc's tzset_internal,
+ * because localtime() re-checks TZ on every call and, with none set, re-copies the zone name; with
+ * TZ set, TSan reports the shared struct (glibc's _tmbuf) directly. localtime_r writes only the
+ * caller's buffer, and neither report appears with it. tests/test_IpToString.cpp pins that the
+ * shared struct is left alone.
+ *
+ * On glibc, localtime_r does not re-run tzset after its first call, so a TZ or /etc/localtime
+ * change made while the process runs is no longer picked up (localtime() re-checked every call).
+ * Harmless here: nothing in this codebase sets TZ or calls tzset, and a host zone change takes
+ * effect at the next restart.
+ *
+ * The empty-string return is defensive only. On glibc with a 64-bit time_t no int64 millisecond
+ * value reaches it: localtime_r fails only when the year overflows an int, and INT64_MAX ms is the
+ * year 292278994. It is kept because POSIX allows localtime_r to fail.
  */
 inline std::string
 formatTime(int64_t timestamp_ms)
 {
-    time_t timestamp_s = timestamp_ms / 1000;
-    struct tm* localTime = localtime(&timestamp_s);
+    const time_t timestamp_s = timestamp_ms / 1000;
+    struct tm localTime{};
+    if (localtime_r(&timestamp_s, &localTime) == nullptr)
+    {
+        return {};
+    }
     char buffer[80];
-    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", localTime);
+    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", &localTime);
     return std::string(buffer);
 }
 
