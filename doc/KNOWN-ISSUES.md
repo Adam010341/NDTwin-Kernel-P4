@@ -5320,9 +5320,23 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   ⇒ 同一個檔案，兩條 lane 給相反的答案；**只有 lab 那條是紅的**。
 - **同形狀的另一處**：`tests/python/test_chaos_invariants_method.py:404`／`:413`／`:499` 也用 `ast.unparse`。
   CI（3.12）上它是 PASS；在 3.8 下有沒有走到那幾行**沒有跑過、沒查**。
-- **失效方向**：悲觀（多一個紅），不是樂觀；但它讓 lab 的 L1 在乾淨的樹上也紅。
-- **修法方向（未做，要裁）**：讓那一格不依賴 3.9 的 API（例如在原始碼文字上找 `check=True`），
-  或讓 lane 對 `tests/python` 只在需要 ryu 的檔案才用 ryu-env。
+- 🆕 **2026-09-28 補（整條 lab lane 跑過一次）**：同一個根因不只這一個檔。trunk `fed37cff` 在 lab 形狀下跑整條 L1
+  lane（編譯產物、ryu-env、PY_PLOT 都在），`tests/python` 裡有 **8 個檔紅**，全都是「用 3.8 跑了寫給較新 Python
+  或別的 venv 的檔」：
+  - `test_ovs4_sflow.py`：`ast.unparse`（上面那格）；
+  - `test_chaos_c07_control`、`test_chaos_invariants_method`、`test_chaos_link_blackhole_attach`、
+    `test_chaos_opt_in_all_actions`、`test_chaos_runner_wiring`：五個都在 import chaos harness 的 `actions.py`
+    時 `SyntaxError: EOL while scanning string literal`（f-string 裡的寫法 3.8 不收），ran=0；
+  - `test_l3_dispatch_drift.py`：`str.removeprefix`（3.9 起）→ 10 個 ERROR；
+  - `test_sflow_stats_endpoint.py`：ryu-env 沒有 `fastapi`，ran=0。
+  CI（3.12、pb5 套件）上這 8 個都是 PASS。觀測：`scratch/overnight-2026-09-05/logs/ci-l1-0928/`
+  `fulllab-trunk-fed37cff-CONTROL.log` 與 `lane-logs/fulllab-trunk-fed37cff-CONTROL/`；分支 `fix/ci-l1-0927` 上同 8 個一樣紅
+  （`fulllab.log`）。
+- **失效方向**：悲觀（多一個紅），不是樂觀；但它讓 lab 的 L1 在乾淨的樹上也紅——現在是 8 組。
+- **修法方向（未做，要裁）**：根因是 lane 的直譯器選擇（`tools/test_workflow/l1_unit_tests.sh` 裡替
+  kernel-side 挑 PY_KERNEL 的那段）：只要 ryu-env 在，**整個** `tests/python` 都交給 3.8 跑。改成只把宣告
+  `NDTWIN_L1_NEEDS: ryu` 的檔交給 ryu-env、其餘用與 CI 同版的 python3，就同時解掉這 8 個；
+  逐檔改寫成 3.8 相容是另一條路，但每加一個新測試就要再守一次。
 
 ## 證據索引
 
