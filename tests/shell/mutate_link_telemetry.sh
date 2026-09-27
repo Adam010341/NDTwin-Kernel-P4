@@ -13,6 +13,8 @@
 # written beside it. M-B11 is split: M-B11a is the coarse "the whole teardown call goes" and
 # M-B11b is the ticket's literal "it does not detach".
 #
+# Five more on 2026-09-28, M-B49 .. M-B53: the root emitter's read, a manifest write that fails,
+# a second hard link, and the teardown's `tc` half.
 # Nine more for Adam's ruling K (2026-09-27), M-B29 .. M-B37: the pid the manifest names is ONE
 # process -- the argv the launcher recorded, word for word, and the start time /proc gave it --
 # not any process whose cmdline contains the emitter's file name. Eleven for the judge's KJL B2
@@ -626,6 +628,50 @@ report "M-B48 (K-N7): a launch whose start time is unreadable records half an id
 # NOT here, and why: dropping O_NONBLOCK would make the FIFO cell block in open() -- the gate
 # would score that HUNG, a survivor of nothing -- so O_NONBLOCK is held by that cell's own
 # termination (it returns) rather than by a mutant.
+
+# --- the other readers of the file, and the write (2026-09-28) ---------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# The root emitter starts BEFORE write_manifest replaces whatever is at the name, and a file the
+# teardown refused is left there on purpose -- so the emitter must refuse it too. A manifest that
+# could not be written is fatal, and the emitter already launched for it is stopped. A second
+# hard link is refused. And the teardown's `tc qdisc del` half: an untrusted file detaches nothing.
+
+m=$(mutant m_b49 "$EMITTER" \
+    '            document, problem = loader(path)' \
+    '            document, problem = json.load(open(path)), None  # MUTANT: the plain open it was')
+report "M-B49: the root emitter reads whatever is at the manifest's name" "$m" \
+       "test_a_group_writable_file_at_the_name_is_refused_with_the_reason"
+
+m=$(mutant m_b50 "$LINKTEL" \
+    '        raise LinkTelemetryError(
+            f"could not write the link telemetry manifest to {path}: {e}. The emitter reads its "' \
+    '        print(f"WARNING: could not write the link telemetry manifest to {path}: {e}")
+        return document  # MUTANT: a warning, and the bring-up carries on
+        raise LinkTelemetryError(
+            f"could not write the link telemetry manifest to {path}: {e}. The emitter reads its "')
+report "M-B50: a link manifest that could not be written is a warning again" "$m" \
+       "test_the_bring_up_is_fatal_and_says_why"
+
+m=$(mutant m_b51 "$TESTBED" \
+    '        if proc is not None:
+            link_telemetry.stop_launched_emitter(proc)' \
+    '        if False:  # MUTANT: the emitter no manifest names is left running
+            link_telemetry.stop_launched_emitter(proc)')
+report "M-B51: a bring-up that fails after the launch leaves the emitter running" "$m" \
+       "test_the_emitter_it_launched_is_stopped_and_the_filters_come_off"
+
+m=$(mutant m_b52 "$LINKTEL" \
+    '    if st.st_nlink != 1:' \
+    '    if False:  # MUTANT: a second hard link is the manifest too')
+report "M-B52: a hard link to a root-owned file is trusted as the manifest" "$m" \
+       "test_a_hard_link_to_the_manifest_is_not_the_manifest"
+
+m=$(mutant m_b53 "$LINKTEL" \
+    '    document, problem = load_manifest(path)' \
+    '    document, problem = (json.load(open(path)) if os.path.lexists(path) else None), None  # MUTANT')
+report "M-B53: the teardown reads an untrusted manifest and detaches what it lists" "$m" \
+       "test_an_untrusted_manifest_detaches_nothing"
 
 # --- negative controls -----------------------------------------------------------------------
 #

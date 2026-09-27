@@ -445,6 +445,13 @@ def write_manifest(plan, emitter_pid, path=None, log_path=None, identity=None):
     next door: /tmp is sticky, anyone can create this NAME before we run, and `open(path, "w")`
     as root would truncate their file and leave them owning a document that names a pid this
     fabric's teardown then signals.
+
+    [Co-developed with claude code -- Adam]
+    🔴 A MANIFEST THAT COULD NOT BE WRITTEN IS A REFUSAL, NOT A WARNING. Without it the emitter
+    (which waits for it) has no port map, the teardown has no pid to stop, and whatever is at
+    the name instead -- a directory, or a file someone else put there -- is what every reader
+    finds. Raised as LinkTelemetryError, which `start_link_telemetry` turns into the same fatal
+    verdict as an emitter that died.
     """
     path = path or LINK_TELEMETRY_MANIFEST
     document = manifest_document(plan, emitter_pid, log_path=log_path, identity=identity)
@@ -460,7 +467,10 @@ def write_manifest(plan, emitter_pid, path=None, log_path=None, identity=None):
             os.unlink(tmp)
             raise
     except OSError as e:
-        print(f"WARNING: could not write the link telemetry manifest to {path}: {e}")
+        raise LinkTelemetryError(
+            f"could not write the link telemetry manifest to {path}: {e}. The emitter reads its "
+            f"port map from it and the teardown finds the emitter through it, so a link fabric "
+            f"without it measures nothing and cannot be stopped cleanly") from e
     return document
 
 
@@ -492,6 +502,11 @@ def manifest_distrust(st, euid):
     if st.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
         return (f"it is writable by its group or by others (mode "
                 f"{stat.S_IMODE(st.st_mode):04o}), so its contents are not its owner's")
+    # The file `write_manifest` creates has exactly one name. A second one is a hard link
+    # somebody made to an inode they do not own -- which only `fs.protected_hardlinks` would
+    # otherwise stop -- and a root-owned JSON object reached that way is not this manifest.
+    if st.st_nlink != 1:
+        return (f"it has {st.st_nlink} hard links, and the file written for it has exactly one")
     return None
 
 
@@ -537,7 +552,9 @@ def read_manifest(path=None):
     """The manifest as a dict, or None when there is none or it must not be used.
 
     `load_manifest`'s document alone -- for `ndt` and the proxy, which render a None as
-    "unreadable" -- so every reader of the file refuses the same files the teardown refuses.
+    "unreadable". The teardown (`shut_down`) and the root emitter
+    (`psample_sflow_emitter.load_manifest`) call `load_manifest` itself, so every reader of the
+    file refuses the same files. [Co-developed with claude code -- Adam]
     """
     return load_manifest(path)[0]
 
@@ -754,9 +771,11 @@ def shut_down(path=None, run=None, kill=None, is_emitter=None, sleep=None, repor
     path = path or LINK_TELEMETRY_MANIFEST
     remove = remove or os.remove
     # 🔴 A MANIFEST THIS PROCESS MAY NOT TRUST IS NOT ACTED ON AT ALL (judge KJL B2): no signal,
-    # no `tc qdisc del` on the interfaces it lists, and the file left where it is -- the next
-    # bring-up's `write_manifest` replaces the inode. Said, never silent: "something stopped the
-    # teardown doing its job" is a fact the operator needs. [Co-developed with claude code -- Adam]
+    # no `tc qdisc del` on the interfaces it lists, and the file left where it is. The next LINK
+    # bring-up's `write_manifest` replaces the inode; a cooperative bring-up never writes one, so
+    # on a cooperative fabric the refusal is repeated at every reset and teardown until someone
+    # removes the file. Said, never silent: "something stopped the teardown doing its job" is a
+    # fact the operator needs. [Co-developed with claude code -- Adam]
     document, problem = load_manifest(path)
     if document is None:
         if problem is None:
@@ -811,6 +830,25 @@ def start_emitter(manifest_path=None, popen=None, python=None, emitter=None, std
         return popen(argv, stdout=handle, stderr=handle)
     finally:
         handle.close()
+
+
+def stop_launched_emitter(proc, grace_s=EMITTER_STOP_GRACE_S):
+    """Stop an emitter THIS process just launched, through its own Popen. Never raises.
+
+    [Co-developed with claude code -- Adam]
+    For a bring-up that fails after `start_emitter`: the child is unreaped, so its pid is still
+    its own, and `terminate`/`kill` address exactly it. Without this, a failed manifest write
+    leaves a root process holding the psample group that no manifest names.
+    """
+    try:
+        proc.terminate()
+        proc.wait(timeout=grace_s)
+    except Exception:                                    # noqa: BLE001 -- best effort
+        try:
+            proc.kill()
+            proc.wait(timeout=grace_s)
+        except Exception:                                # noqa: BLE001
+            pass
 
 
 def describe(plan, emitter_pid=None) -> str:

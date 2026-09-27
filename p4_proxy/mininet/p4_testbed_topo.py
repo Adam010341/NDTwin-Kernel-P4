@@ -1130,6 +1130,7 @@ def _start_link_telemetry(package, model, switches, manifest_path=None, report=p
         report(link_telemetry.describe(plan))
         return LinkTelemetry(plan=plan, proc=None, fatal=False, verdict=None)
 
+    proc = None
     try:
         link_telemetry.attach(plan, run=tc_run)
         proc = link_telemetry.start_emitter(manifest_path, popen=emitter_popen)
@@ -1148,6 +1149,11 @@ def _start_link_telemetry(package, model, switches, manifest_path=None, report=p
         # next bring-up destroys the veths and takes the qdiscs with them, but "the next run
         # cleans it up" is not a thing to rely on for state this process created. Best effort,
         # then the original failure.
+        # A manifest that could not be written is one of those failures now, and it comes
+        # AFTER the launch: the emitter is stopped here, through its own Popen, because no
+        # manifest will ever name it. [Co-developed with claude code -- Adam]
+        if proc is not None:
+            link_telemetry.stop_launched_emitter(proc)
         link_telemetry.detach(plan, run=tc_run, report=report)
         raise
     report(link_telemetry.describe(plan, getattr(proc, "pid", None)))

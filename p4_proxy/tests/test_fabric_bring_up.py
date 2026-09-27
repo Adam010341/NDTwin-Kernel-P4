@@ -425,6 +425,22 @@ class FakeProcess:
         #: "it died during the grace period" case is written without a real process.
         self._exits = list(exits) if isinstance(exits, list) else exits
         self.polls = 0
+        #: What was asked of it through its own Popen: "terminate", "kill", "wait". A bring-up
+        #: that fails after the launch stops the emitter this way. [Co-developed with claude code -- Adam]
+        self.stopped = []
+
+    def terminate(self):
+        self.stopped.append("terminate")
+        if self._exits is None or isinstance(self._exits, list):
+            self._exits = -15
+
+    def kill(self):
+        self.stopped.append("kill")
+        self._exits = -9
+
+    def wait(self, timeout=None):
+        self.stopped.append("wait")
+        return self.poll()
 
     def poll(self):
         """None until the scripted status is reached, and that status for ever after.
@@ -1847,6 +1863,36 @@ class AnEmitterThatDiedIsFatalTest(FabricFixture):
         self.assertTrue(fatal)
         self.assertIn("0/10", verdict)
         self.assertIn("link-telemetry emitter", verdict)
+
+
+class AManifestThatCannotBeWrittenIsFatalTest(FabricFixture):
+    """A link bring-up whose manifest never reached the disk is refused, like a dead emitter.
+
+    [Co-developed with claude code -- Adam]
+    Without the manifest the emitter (which waits for it) has no port map, the teardown has no
+    pid to stop, and whatever occupies the name is what every reader finds. It used to be one
+    WARNING line and a bring-up that carried on.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.set_telemetry_knob("link")
+        # A DIRECTORY at the manifest's name: the rename over it fails with EISDIR, which is
+        # what a full /tmp, or anybody who created the name first, would also produce.
+        os.makedirs(self.link_manifest)
+
+    def test_the_bring_up_is_fatal_and_says_why(self):
+        _plan, _net, (_n, _s, fatal, verdict, _u) = self.bring_up()
+        self.assertTrue(fatal, "a link fabric with no manifest on disk was called healthy")
+        self.assertIn("could not write the link telemetry manifest", verdict or "")
+
+    def test_the_emitter_it_launched_is_stopped_and_the_filters_come_off(self):
+        self.bring_up()
+        self.assertEqual(len(self.sub.started), 1, "the emitter was not launched at all")
+        self.assertIn("terminate", self.sub.process.stopped,
+                      "the emitter no manifest names was left running")
+        self.assertTrue(any(argv[1:3] == ["qdisc", "del"] for argv in self.sub.ran),
+                        "the filters attached for it were left on")
 
 
 class StartingTheEmitterTest(FabricFixture):

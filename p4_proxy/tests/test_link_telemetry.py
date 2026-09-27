@@ -428,10 +428,21 @@ class TheManifestIsTrustedOnlyFromItsOwnerTest(unittest.TestCase):
             "group-writable": self.st(reg | 0o664, 0),
             "other-writable": self.st(reg | 0o646, me),
             "a directory": self.st(0o040000 | 0o755, 0),
+            "a second hard link": os.stat_result((reg | 0o644, 0, 0, 2, 0, 0, 0, 0, 0, 0)),
         }
         for label, st in refused.items():
             with self.subTest(label):
                 self.assertIsNotNone(link_telemetry.manifest_distrust(st, me))
+
+    def test_a_hard_link_to_the_manifest_is_not_the_manifest(self):
+        # The file `write_manifest` makes has exactly one name. A second one is a hard link
+        # somebody made -- to an inode they do not own, unless `fs.protected_hardlinks` stops
+        # them -- and the check must not rest on that sysctl. [Co-developed with claude code -- Adam]
+        link_telemetry.write_manifest(link_telemetry.LinkTelemetryPlan(), 4242, path=self.path)
+        os.link(self.path, os.path.join(self.tmp, "second-name.json"))
+        document, problem = link_telemetry.load_manifest(self.path)
+        self.assertIsNone(document, "a manifest with two names was acted on")
+        self.assertIn("hard links", problem)
 
     def test_what_write_manifest_leaves_is_trusted(self):
         link_telemetry.write_manifest(link_telemetry.LinkTelemetryPlan(), 4242, path=self.path)
@@ -532,6 +543,26 @@ class ShuttingDownFromTheManifestTest(PlanFixture):
         self.set_knob("link")
         self.path = os.path.join(self.tmp, "ndtwin_link_telemetry.json")
         link_telemetry.write_manifest(self.plan(), 4242, path=self.path)
+
+    def test_an_untrusted_manifest_detaches_nothing(self):
+        # The `tc` half of what an untrusted manifest could make root do: `tc qdisc del` on
+        # every interface it lists. The file here lists all 36 of this plan's interfaces, and is
+        # then made untrusted two ways; neither may produce a single command.
+        # [Co-developed with claude code -- Adam]
+        other = os.path.join(self.tmp, "real.json")
+        os.replace(self.path, other)
+        for label, plant in (("group-writable", lambda: (shutil.copy(other, self.path),
+                                                         os.chmod(self.path, 0o664))),
+                             ("a symlink", lambda: os.symlink(other, self.path))):
+            with self.subTest(label):
+                plant()
+                run, killed = FakeRun(), []
+                fate, removed, _doc = link_telemetry.shut_down(
+                    self.path, run=run, kill=lambda pid, sig: killed.append((pid, sig)),
+                    is_emitter=lambda pid, **kw: False, sleep=lambda _s: None)
+                self.assertEqual(run.calls, [], "an untrusted manifest had root run tc")
+                self.assertEqual((removed, killed), ([], []))
+                os.unlink(self.path)
 
     def test_it_stops_the_pid_the_manifest_names_and_detaches_every_interface(self):
         stopped, run = [], FakeRun()
