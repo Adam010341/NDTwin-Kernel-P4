@@ -51,7 +51,11 @@ GB="$GUARD/guarded_build.sh"
 # 🔴 The ambient environment must not decide the answer. If this file is itself run from inside
 # a guard (the gate may be), NDTWIN_GUARD_HELD arrives already set, and a case that means to be
 # the outermost layer would be testing something else.
-unset NDTWIN_GUARD_HELD
+# [Co-developed with claude code -- Adam] NOTE-2 (the build_guard opus judge, 09-27): and not only
+# that one -- the same nine variables test_build_guard.sh clears, every one guarded_build.sh or its
+# shims read. An inherited NO_CGROUP=1 skips (g)'s fake systemd-run; an inherited TIMEOUT below
+# the holders' sleeps kills them under (b) and (d). A case that wants a value sets it itself.
+unset JOBS SHIM_JOBS NDTWIN_GUARD_HELD LOCK LOCK_WAIT MEM_HIGH MEM_MAX TIMEOUT NO_CGROUP
 
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 LA="$TMP/lock-a"; LB="$TMP/lock-b"

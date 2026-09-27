@@ -1045,7 +1045,7 @@ cmd_up() {
         echo "[2/3] control plane (P4 proxy agent)"
         if [[ ! -x "$P4_PROXY_PY" ]]; then
             err "  P4 proxy interpreter not found: $P4_PROXY_PY"
-            err "  create it: python3 -m venv p4_proxy/venv && p4_proxy/venv/bin/pip install -r p4_proxy/requirements.txt"
+            err "  create it: python3 -m venv p4_proxy/venv && p4_proxy/venv/bin/pip install -r p4_proxy/requirements.txt && p4_proxy/venv/bin/python p4_proxy/regen_p4runtime_pb2.py"
             return 1
         fi
         # The agent must run with p4_proxy as cwd; it resolves p4info/json relative to it.

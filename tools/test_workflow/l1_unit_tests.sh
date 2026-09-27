@@ -306,7 +306,11 @@ if [[ ! -d "$PROXY_DIR/tests" ]]; then
     echo "  ${D}no p4_proxy/tests directory; skipping${N}"
 else
     # Pick an interpreter with the P4Runtime protobufs, falling back to plain python3. Tests
-    # that need them skip themselves, so the fallback still runs the emitter suite.
+    # that need them skip themselves, so the fallback still runs the emitter suite -- unless
+    # python3 HAS p4runtime but fails the probe, which since protobuf 5 means the install skipped
+    # p4_proxy/regen_p4runtime_pb2.py: then the files that import the proxy fail at import
+    # instead (21 of 41 on 2026-09-26, and one more whose proxy subprocess did), and the note
+    # below says so. [Co-developed with claude code -- Adam]
     PY_P4=""
     for candidate in "$P4_PROXY_PY" /home/adam/p4dev-python-venv/bin/python3 python3; do
         if [[ -n "$candidate" ]] && command -v "$candidate" >/dev/null 2>&1 \
@@ -316,7 +320,8 @@ else
     done
     PY_PLAIN="$(command -v python3)"
     [[ -z "$PY_P4" ]] && echo "  ${Y}note: no interpreter with P4Runtime protobufs; " \
-        "gRPC-dependent tests will skip themselves${N}"
+        "gRPC-dependent tests will skip themselves -- or FAIL at import, if python3 has" \
+        "p4runtime installed without p4_proxy/regen_p4runtime_pb2.py${N}"
 
     # [Co-developed with claude code -- Adam]
     # The second prerequisite a skip is allowed to blame. l0_build_check.sh p4 writes this file;

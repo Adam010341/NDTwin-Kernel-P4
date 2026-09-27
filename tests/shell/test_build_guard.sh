@@ -116,7 +116,12 @@ NO_CGROUP=1 LOCK="$TMP/l1" "$GB" bash -c 'exit 42' >/dev/null 2>&1
 t_eq "🔴 the wrapped command's exit code comes back"     "42" "$?"
 NO_CGROUP=1 LOCK="$TMP/l1" JOBS=zero "$GB" true >/dev/null 2>&1
 t_eq "a bad JOBS is refused, not defaulted"              "2" "$?"
-"$GB" >/dev/null 2>&1
+# [Co-developed with claude code -- Adam] NOTE-1 (the build_guard opus judge, 09-27): its own lock
+# and LOCK_WAIT=1, like every other case. Bare, it takes the DEFAULT lock -- which, run from a gate,
+# the outer guard holds -- so a guard that lost its no-command refusal waited the default 3600 s
+# on it and then gave up with rc 2: the very answer this case expects. Here it runs the empty
+# command at once (rc 0, red), or gives up after 1 s on its own lock.
+NO_CGROUP=1 LOCK="$TMP/l0" LOCK_WAIT=1 "$GB" >/dev/null 2>&1
 t_eq "no command at all is refused"                      "2" "$?"
 
 # flock: hold the lock in one process, prove a second one waits rather than running alongside.
