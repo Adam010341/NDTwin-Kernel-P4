@@ -363,17 +363,18 @@ class UrlCommand(unittest.TestCase):
         finally:
             s.close()
 
-    def test_url_sends_the_token_only_to_the_pid_that_holds_the_port(self):
-        s = GuiServe().start()
+    def stranger(self):
+        """A listener on 127.0.0.1 that records what it is sent: whoever bound a port after the
+        server serve.json names. -> (port, what it got, stop)."""
         lsock = socket.socket()
         lsock.bind(("127.0.0.1", 0))
         lsock.listen(4)
         lsock.settimeout(0.2)
         got = []
-        stop = threading.Event()
+        done = threading.Event()
 
-        def stranger():   # whoever bound the port after the server that wrote serve.json
-            while not stop.is_set():
+        def serve():
+            while not done.is_set():
                 try:
                     c, _ = lsock.accept()
                 except socket.timeout:
@@ -384,22 +385,49 @@ class UrlCommand(unittest.TestCase):
                 except OSError:
                     got.append(b"")
                 c.close()
-        t = threading.Thread(target=stranger, daemon=True)
+        t = threading.Thread(target=serve, daemon=True)
         t.start()
+
+        def stop():
+            done.set()
+            t.join(5)
+            lsock.close()
+        return lsock.getsockname()[1], got, stop
+
+    def url_against(self, s, port, pid):
+        with open(os.path.join(s.conf(), "serve.json"), "w") as f:
+            json.dump({"port": port, "pid": pid, "owner": base.OWNER}, f)
+        return subprocess.run([sys.executable, SERVE_PY, "url", "--token-file", s.token_file],
+                              capture_output=True, text=True, env=s.env, timeout=60)
+
+    def test_url_sends_the_token_only_to_the_pid_that_holds_the_port(self):
+        s = GuiServe().start()
+        port, got, stop = self.stranger()
         try:
-            base_json = os.path.join(s.conf(), "serve.json")
-            with open(base_json, "w") as f:   # the server's pid, alive -- but not the port's holder
-                json.dump({"port": lsock.getsockname()[1], "pid": s.proc.pid, "owner": base.OWNER}, f)
-            r = subprocess.run([sys.executable, SERVE_PY, "url", "--token-file", s.token_file],
-                               capture_output=True, text=True, env=s.env, timeout=60)
+            r = self.url_against(s, port, s.proc.pid)   # the server's pid, alive -- not the port's holder
             self.assertNotEqual(r.returncode, 0, r.stdout)
             self.assertIn("is not the process listening", r.stderr)
             time.sleep(0.3)
             self.assertEqual(got, [], "the token went to a process serve.json does not name")
         finally:
-            stop.set()
-            t.join(5)
-            lsock.close()
+            stop()
+            s.close()
+
+    def test_url_refuses_a_serve_json_whose_pid_is_gone(self):
+        # judge G-N7 (fcd4f69a): the server died, serve.json stayed, somebody else holds its port
+        s = GuiServe().start()
+        port, got, stop = self.stranger()
+        gone = subprocess.Popen([sys.executable, "-c", "pass"])
+        gone.wait()
+        try:
+            self.assertFalse(os.path.exists("/proc/%d" % gone.pid), "the pid came back already")
+            r = self.url_against(s, port, gone.pid)
+            self.assertNotEqual(r.returncode, 0, r.stdout)
+            self.assertIn("is not the process listening", r.stderr)
+            time.sleep(0.3)
+            self.assertEqual(got, [], "the token went to whoever holds a dead server's port")
+        finally:
+            stop()
             s.close()
 
     def test_url_with_no_server_says_so(self):
@@ -517,6 +545,41 @@ class Lab(unittest.TestCase):
         self.assertEqual(self.s.wait(c["job"]["id"])["argv"][1:], ["claim", str(j["default_claim_minutes"])])
 
 
+# --- apps start / stop: the own-claim rule is this server's (judge B1, fcd4f69a) ------------------
+
+class AppsNeedYourClaim(unittest.TestCase):
+    """ndt's apps verbs check no claim -- cmd_apps and app_start ask neither foreign_claim nor
+    in_flight, and ndtwin-lab's energy-start / sim-start ask nothing -- so the "claim first" the page
+    shows for them was the only guard there was (opus judge on fcd4f69a, B1). The orchestrator's
+    ruling (a): the server reads the claim inside the slot, as for a lab cell. [Co-developed with
+    claude code -- Adam]"""
+
+    def setUp(self):
+        self.s = GuiServe().start()
+
+    def tearDown(self):
+        self.s.close()
+
+    def test_apps_start_and_stop_run_only_under_your_claim(self):
+        for claim in ("orch-0924 -- 12m left (until 23:40:00)", "none", "yours-x -- 12m left (until 23:40:00)",
+                      "EXPIRED 3m ago (was serve-test) -- treated as free"):
+            self.s.behave(status={"stdout": "lab\n  claim          %s\n  measuring      nothing\n" % claim})
+            for path in ("/apps/sim/start", "/apps/sim/stop"):
+                st, j, _, _ = self.s.post(path)
+                self.assertEqual((st, j.get("error"), j.get("claim")), (409, "claim", claim), (path, j))
+            # the preview needs no claim: it runs nothing, and the dialog is where "claim first" is shown
+            st, j, _, _ = self.s.post("/apps/sim/start", {"dry_run": True})
+            self.assertEqual((st, j.get("needs_own_claim")), (200, True), j)
+        self.assertEqual({tuple(c["argv"]) for c in self.s.calls()}, {("status",)},
+                         "an app verb reached ndt without your claim")
+        self.assertEqual(self.s.jobs(), [])
+        self.s.behave(status={"stdout": STATUS_FULL})
+        for path, tail in (("/apps/sim/start", ["apps", "sim"]), ("/apps/sim/stop", ["apps", "stop", "sim"])):
+            st, j, _, _ = self.s.post(path)
+            self.assertEqual(st, 202, j)
+            self.assertEqual(self.s.wait(j["job"]["id"])["argv"][1:], tail)
+
+
 # --- dry_run -----------------------------------------------------------------------------------
 
 WRITES = [  # path, body, argv tail, kind, confirm, needs_own_claim
@@ -533,6 +596,7 @@ WRITES = [  # path, body, argv tail, kind, confirm, needs_own_claim
 class DryRun(unittest.TestCase):
     def setUp(self):
         self.s = GuiServe().start()
+        self.s.behave(status={"stdout": STATUS_FULL})   # your claim: the real app runs below need it
 
     def tearDown(self):
         self.s.close()
@@ -736,6 +800,15 @@ class PageLint(unittest.TestCase):
         self.assertRegex(body, r'\$\("job"\)\.hidden = true;', "closing the view does not hide it")
         self.assertRegex(self.code, r'\$\("job-close"\)\.addEventListener\("click", closeJob\)',
                          "the Close button is not wired to closeJob")
+
+    def test_the_log_loop_stops_when_the_job_ends(self):
+        # judge G-N1 (fcd4f69a): this condition was held by nothing -- `if (false)` there survived
+        a, b = function_spans(self.code)["openJob"]
+        loop = self.code[a:b]
+        m = re.search(r'if \(r\.json\.job\.state !== "running"\) \{([^}]*)\}', loop)
+        self.assertTrue(m, "the log loop does not stop when the job ends")
+        self.assertRegex(m.group(1), r"\breturn;\s*$", "the job-ended branch does not leave the loop")
+        self.assertLess(m.start(), loop.index("await sleep(2000);"), "the loop sleeps before it looks")
 
     def test_a_hidden_page_does_not_poll_a_jobs_log(self):
         spans = function_spans(self.code)

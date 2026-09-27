@@ -15,8 +15,11 @@ The design red lines (TICKET section 3), and where each one lives:
 
   1. loopback only     BIND below; the Host header must be 127.0.0.1:<port> or localhost:<port>
                        (DNS rebinding); no CORS header is ever sent.
-  2. CSRF              every request but GET /health carries the token from
-                       ~/.config/ndt-serve/token (0600) in the X-NDT-Token header -- a custom header,
+  2. CSRF              every request carries the token from ~/.config/ndt-serve/token (0600) in
+                       the X-NDT-Token header but these: GET /health, the page's three static
+                       files (GET /, /app.js, /app.css -- they run nothing), and POST /session,
+                       which trades a one-time key instead and REQUIRES the Origin to be this very
+                       origin (judge G-N17, 09-27). The token header is a custom header,
                        so no browser sends it cross-origin without a preflight this server never
                        answers -- and an Origin header, when present, must be this server's; a POST
                        also needs a JSON body. 🔴 GETs are gated too (judge 09-24, finding 1): a
@@ -373,8 +376,12 @@ class DryRun(Exception):
 def confirm_policy(kind, cell=None):
     """How hard the page makes Adam confirm a write (SCOPE section 2): "typed" or "plain", and
     whether it waits for his own claim first (section 2.4). The page keeps no table of its own;
-    it adds only the measuring rule (typed whenever measuring is not `nothing`). A UI guard --
-    ndt and this server still decide."""
+    it adds only the measuring rule (typed whenever measuring is not `nothing`).
+
+    Behind the page, who refuses what (judge B1, 09-27): `up` and `down` under somebody else's
+    claim -- ndt (rc 5; with no claim at all ndt lets them run, so there the page is stricter than
+    ndt); an app start/stop and a lab cell's run unless the claim is yours -- THIS SERVER (409
+    claim, _require_own_claim, read inside the slot), because ndt's apps verbs check no claim."""
     if kind in ("up", "down"):
         return "typed", True
     if kind in ("apps.start", "apps.stop"):
@@ -681,11 +688,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self._start("release", _whitelisted(verbs.argv_release, body), body)
 
     def w_app(self, query, name, action):
+        # [Co-developed with claude code -- Adam] only under your own claim, read inside the slot
+        # as for a lab cell: ndt's apps verbs check no claim at all (cmd_apps, app_start; ndtwin-lab's
+        # energy-start / sim-start neither), so this server is the one that refuses (judge B1, 09-27)
         body = self._check_write()
-        self._start("apps." + action, _whitelisted(verbs.argv_app, name, action, body, self.cfg.apps), body)
+        self._start("apps." + action, _whitelisted(verbs.argv_app, name, action, body, self.cfg.apps), body,
+                    precheck=self._require_own_claim)
 
-    def _start(self, kind, argv_tail, body):
-        job_id = self._spawn(kind, [self.cfg.ndt_real] + argv_tail, body)
+    def _start(self, kind, argv_tail, body, precheck=None):
+        job_id = self._spawn(kind, [self.cfg.ndt_real] + argv_tail, body, precheck=precheck)
         cfg = self.cfg
         self._send(202, {"job": cfg.store.view(job_id), "links": _links(job_id)})
 
@@ -775,7 +786,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def _require_own_claim(self):
         """Read `ndt status`'s claim line (ndt:5786 claim_line) and go on only if it is ndt's
-        own-claim form, exactly. This reads ndt's answer; it does not decide anything ndt decides.
+        own-claim form, exactly. The precheck of a lab cell's run and of an app start/stop. For a
+        cell it doubles guards ndt has for part of what a cell does; for an app it is the only
+        guard -- ndt's apps verbs check no claim (judge B1, 09-27).
 
         🔴 Exact, not a prefix (intake judge 09-26, finding 2): claim_line prints somebody else's
         claim as `<owner> -- ...`, and an owner is any string -- `yours-x`, or one that spells the
@@ -783,19 +796,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
         that claim as it prints your own (and its own `--check` reads `yours*` the same way)."""
         r = run_read(self.cfg, "status", verbs.argv_status(False), self.cfg.read_timeout)
         # [Co-developed with claude code -- Adam] two reasons the claim was not read, each named
-        # (intake judge 09-26, finding 5) -- neither is a claim, and neither runs the cell
+        # (intake judge 09-26, finding 5) -- neither is a claim, and neither runs the write
         if r is None:
             raise HttpError(409, "claim", note="the claim was not read: no read slot came free within %d s "
-                            "(two read-only ndt calls held both), so ndt status never ran; a cell that needs "
-                            "the lab is not run on a guess -- try again" % self.cfg.read_queue_wait)
+                            "(two read-only ndt calls held both), so ndt status never ran; a write that needs "
+                            "your claim is not run on a guess -- try again" % self.cfg.read_queue_wait)
         if r["rc_class"] == "timeout":
             raise HttpError(409, "claim", note="the claim was not read: ndt status did not answer within %d s "
-                            "and was stopped, and a stopped read is not a reading; a cell that needs the lab "
-                            "is not run on a guess" % self.cfg.read_timeout, read=r["read"]["id"])
+                            "and was stopped, and a stopped read is not a reading; a write that needs your "
+                            "claim is not run on a guess" % self.cfg.read_timeout, read=r["read"]["id"])
         line = claim_of(r["stdout"])
         if not OWN_CLAIM.fullmatch(line or ""):
-            raise HttpError(409, "claim", note="a cell that needs the lab runs only under your own claim -- "
-                            "POST %s/claim first" % API, claim=line, read=r["read"]["id"])
+            raise HttpError(409, "claim", note="a lab cell's run and an app start/stop run only under your "
+                            "own claim -- POST %s/claim first" % API, claim=line, read=r["read"]["id"])
 
     def _job(self, job_id):
         """A job's view; a cell run also carries the CELL: line its own judge printed, and a

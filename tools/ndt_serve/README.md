@@ -50,8 +50,8 @@ answers 404.
 | POST | `/release` `{}` | `ndt release` | 202 + job |
 | POST | `/up` `{"plane":"ovs"\|"p4","hosts":4\|128}` or `{"plane":"p4","app":"<dir>"}` | `ndt up ovs` / `up 4` / `up p4 [N]` / `up p4 --app <realpath>` | 202 + job |
 | POST | `/down` `{}` | `ndt down` (never `--deep`, never `--force`) | 202 + job |
-| POST | `/apps/<name>/start` `{}` | `ndt apps <name>` | 202 + job |
-| POST | `/apps/<name>/stop` `{}` | `ndt apps stop <name>` | 202 + job |
+| POST | `/apps/<name>/start` `{}` | `ndt apps <name>` | 202 + job -- **only under your own claim**: inside the slot, `ndt status`'s claim line must be ndt's own form, whole, else 409 `claim` (ndt's apps verbs check no claim, so this server does) |
+| POST | `/apps/<name>/stop` `{}` | `ndt apps stop <name>` | 202 + job -- only under your own claim, as `start` |
 | GET | `/lab` | `ndt status` (plain) | the read, plus the `claim`, `measuring` and `declared` rows verbatim, `claim_is_yours` (ndt's own-claim form, whole), `measuring_is_nothing`, and `busy` (the job holding the slot). What the page confirms every write against |
 | GET | `/meta` | nothing | the server's own tables: `up_hosts`, `max_claim_minutes`, `default_claim_minutes`, `max_note_chars`, `apps`, `owner` |
 | POST | `/session` `{"nonce":"<key>"}` | nothing | the token, for a one-time key. **No token**; the `Origin` is required and must be this very origin (`http://` + the Host). A key is good once, for `--nonce-ttl` s, and only among the 8 newest |
@@ -167,8 +167,11 @@ invisible load during a measurement.
 (`dry_run`), and shows the argv, the claim row and the measuring row. Cancel has the focus, Enter
 does not confirm, and Confirm works once. `up`, `down` and a cell that needs the lab ask for a
 typed word, and so does every write while measuring is not `nothing`. Where the server says a
-write needs your claim, Confirm stays off with "claim first" until the claim is yours. All of this
-is a guard in the page -- ndt and this server still decide.
+write needs your claim, Confirm stays off with "claim first" until the claim is yours.
+Behind the page, who refuses: `up` and `down` under somebody else's claim -- ndt (rc 5; with no
+claim at all ndt lets them run, so there the page is stricter than ndt); an app start/stop and a
+lab cell's run unless the claim is yours -- this server (409 `claim`), because ndt's apps verbs
+check no claim at all. The typed word and the focus rules are the page's alone.
 
 ## Reading an answer
 
@@ -198,8 +201,8 @@ still holds the slot), `lost` (it ended and nobody recorded its rc).
 ```bash
 python3 tests/python/test_ndt_serve.py        # 74 cases against a stub ndt (RcProvenance reads the real ndt), no lab
 python3 tests/python/test_ndt_serve_cells.py  # 35 cases against a stub grid, no lab
-python3 tests/python/test_ndt_serve_gui.py    # 37 cases: the page's server side, and a lint of app.js / index.html
-bash tests/shell/mutate_ndt_serve.sh          # 144 named mutations (the G series is the GUI cut), each must redden its case
+python3 tests/python/test_ndt_serve_gui.py    # 40 cases: the page's server side, and a lint of app.js / index.html
+bash tests/shell/mutate_ndt_serve.sh          # 150 named mutations (the G series, 57, is the GUI cut), each must redden its case
 # the page in a real browser: headless Chrome, only under the build guard (it skips elsewhere)
 JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh python3 tests/browser/test_ndt_serve_page.py
 JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash tests/shell/mutate_ndt_serve_page.sh

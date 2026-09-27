@@ -450,8 +450,8 @@ report "M48: a read's output is kept decoded, not as bytes" "$m" \
        ThinShell.test_read_output_is_kept_byte_for_byte
 
 m=$(mutant m49 "$SERVE_PY" \
-    '        job_id = self._spawn(kind, [self.cfg.ndt_real] + argv_tail, body)' \
-    '        job_id = self._spawn(kind, [self.cfg.ndt] + argv_tail, body)')
+    '        job_id = self._spawn(kind, [self.cfg.ndt_real] + argv_tail, body, precheck=precheck)' \
+    '        job_id = self._spawn(kind, [self.cfg.ndt] + argv_tail, body, precheck=precheck)')
 report "M49: a job runs the symlink, not what it resolved to at start" "$m" \
        Identity.test_jobs_run_the_ndt_resolved_at_start
 
@@ -1104,6 +1104,52 @@ m=$(mutant g39 "$APP_JS" \
     '    const mine = id;')
 report "G39: the loop is keyed by job id (close and reopen leaves two loops)" "$m" \
        gui:PageLint.test_a_hidden_page_does_not_poll_a_jobs_log
+
+# --- the intake judge on fcd4f69a (opus-judge, 09-27; the orchestrator's selection) -------------
+# [Co-developed with claude code -- Adam]
+
+m=$(mutant g41 "$SERVE_PY" \
+    '        self._start("apps." + action, _whitelisted(verbs.argv_app, name, action, body, self.cfg.apps), body,
+                    precheck=self._require_own_claim)' \
+    '        self._start("apps." + action, _whitelisted(verbs.argv_app, name, action, body, self.cfg.apps), body)')
+report "G41: an app start/stop runs under somebody else's claim (B1: the page was the only guard)" "$m" \
+       gui:AppsNeedYourClaim.test_apps_start_and_stop_run_only_under_your_claim
+
+m=$(mutant g40 "$APP_JS" \
+    '      if (r.json.job.state !== "running") {' \
+    '      if (false) {')
+report "G40: the log loop does not stop when the job ends (G-N1)" "$m" \
+       gui:PageLint.test_the_log_loop_stops_when_the_job_ends
+
+m=$(mutant g43 "$SERVE_PY" \
+    'if len(cols) > 9 and cols[1] == want and cols[3] == "0A":' \
+    'if len(cols) > 9 and cols[3] == "0A":')
+report "G43: the listener check ignores which address and port (G-N7)" "$m" \
+       gui:UrlCommand.test_url_sends_the_token_only_to_the_pid_that_holds_the_port
+
+m=$(mutant g44 "$SERVE_PY" \
+    '        fds = os.listdir("/proc/%d/fd" % pid)
+    except OSError:
+        return False' \
+    '        fds = os.listdir("/proc/%d/fd" % pid) if os.path.isdir("/proc/%d" % pid) else None
+    except OSError:
+        return False
+    if fds is None:
+        return bool(inodes)')
+report "G44: serve.json's pid is gone, and whatever listens on its port is trusted (G-N7)" "$m" \
+       gui:UrlCommand.test_url_refuses_a_serve_json_whose_pid_is_gone
+
+m=$(mutant g45 "$NDT" \
+    '    serve)   shift; exec python3 "$HERE/../ndt_serve/serve.py" --ndt "$HERE/ndt" "$@" ;;' \
+    '    serve)   shift; [[ "${1:-}" == url ]] && { echo "ndt serve: no such subcommand: url" >&2; exit 2; }; exec python3 "$HERE/../ndt_serve/serve.py" --ndt "$HERE/ndt" "$@" ;;')
+report "G45: ndt serve does not pass url through (G-N8)" "$m" \
+       gui:UrlCommand.test_ndt_serve_url_is_the_same_command
+
+m=$(mutant g46 "$SERVE_PY" \
+    '        raise SystemExit("ndt serve url: no running server'"'"'s files in %s (%s)" % (conf, e))' \
+    '        info, token = {"port": 8765, "pid": 1}, ""')
+report "G46: a missing serve.json is guessed at, port 8765 (G-N8)" "$m" \
+       gui:UrlCommand.test_url_with_no_server_says_so
 
 echo
 if [[ "$(sha256sum "${SUBJECTS[@]}")" != "$BASE_SHA" ]]; then
