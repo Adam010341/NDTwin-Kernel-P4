@@ -257,6 +257,35 @@ cat > "$A/m14.new" <<'EOF'
 EOF
 check "M14: a ':' in the lock path splits the held list silently" m14 guarded_build.sh "LOCK containing ':' is rc 2"
 
+# ---- [Co-developed with claude code -- Adam] the build_guard opus judge's NOTE-1 and NOTE-5 (09-27) ----
+# M15: the no-command refusal gone. Before NOTE-1 the suite's bare call waited on the default lock
+# (held by the outer guard in any gate), so this mutant would have timed out here -- SURVIVED -- and
+# a suite run on its own in a gate would have read green after LOCK_WAIT's 3600 s. Now that case
+# has its own lock.
+cat > "$A/m15.old" <<'EOF'
+[[ $# -gt 0 ]] || { sed -n '/^# USAGE/,/^# ENV/p' "${BASH_SOURCE[0]}" >&2; exit 2; }
+EOF
+cat > "$A/m15.new" <<'EOF'
+:
+EOF
+check "M15: no command at all is run, not refused" m15 guarded_build.sh "no command at all is refused"
+# M16 / M17: the two -j defaults. test_build_guard.sh asserts the DEFAULTS (it clears the caller's
+# JOBS / SHIM_JOBS, d271f5b8), so each must be red on its own named check.
+cat > "$A/m16.old" <<'EOF'
+JOBS="${JOBS:-2}"
+EOF
+cat > "$A/m16.new" <<'EOF'
+JOBS="${JOBS:-3}"
+EOF
+check "M16: guarded_build's default JOBS is 3, not 2" m16 guarded_build.sh "it puts the shims on PATH for the wrapped command"
+cat > "$A/m17.old" <<'EOF'
+    local j="${SHIM_JOBS:-2}"
+EOF
+cat > "$A/m17.new" <<'EOF'
+    local j="${SHIM_JOBS:-3}"
+EOF
+check "M17: a shim's default -j is 3, not 2" m17 shims/_resolve.sh "-j14 glued becomes -j2"
+
 echo
 NOW_SUM="$(cd "$GUARD" && find . -type f | sort | xargs sha256sum | sha256sum | cut -d' ' -f1)"
 if [[ "$NOW_SUM" != "$BASE_SUM" ]]; then
