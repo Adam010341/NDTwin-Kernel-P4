@@ -13,11 +13,20 @@
 # 🔴 THE ROTATION CONTRACT ITSELF LIVES IN test_stack_log_rotation.sh (2026-09-27). O-4
 # (74c811df, 2026-09-06) replaced this file's two-generation `.prev`/`.prev2` scheme with five
 # time-stamped generations `<log>.<YYYYmmdd-HHMMSS>` and NDT_LOG_KEEP, and that suite tests them
-# (its lines 84-122). This file kept asserting `.prev`/`.prev2` and was red from then on; those
-# six expectations -- and the three that stayed green only because no `.prev` file is ever made
-# any more -- are gone and NOT replaced here, so the contract is stated once. What only this file
-# covers stays, retargeted to the stamped names: start_bg's own decision (stack.sh:559-560) --
-# a non-empty log is rotated, a first start and an empty log are not.
+# (3A-3D at its lines 84-122; 3E and 3F at :144-162 -- two restarts inside one second, and start_bg
+# really calling the rotator). This file kept asserting `.prev`/`.prev2` and was red from then on.
+# 13 checks became 5 (the accounting corrected after the opus judge's N5 on d2a9d641):
+#   - 8 deleted, not replaced here -- the two multi-restart cells: the red #6, #9, #10, #13 (the
+#     older eras in .prev / .prev2, the oldest one dropped), the green #8 and #12 (".prev2 / .prev3
+#     not there yet" -- green only because no .prev file is made any more) and the green #7 and #11
+#     (the newest era in the live log, which #3 below still asserts); the contract they stood for
+#     is test_stack_log_rotation's, stated once;
+#   - #1 and #2 (the previous log rotated, holding the previous era) kept, RETARGETED from .prev to
+#     the one stamped generation;
+#   - #3 (the live log is the new era's -- stricter now: its content, not only that it exists),
+#     #4 (no generation on a first start) and #5 (an empty log is not rotated) kept, #4 and #5
+#     retargeted to the stamped names: start_bg's own decision (stack.sh:559-560), which only this
+#     file covers.
 
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
