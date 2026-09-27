@@ -20,7 +20,7 @@
    - 其餘是測試、閘門和文件。
 2. **job log 的輪詢**（orchestrator 15:4x 暫定裁定：可以，但有條件，驗收判官可推翻）。
    - 現況：D 區打開一個正在跑的 job 時，頁面每 2 秒讀一次它的 log。只讀檔案，不跑 ndt，不碰 lab。
-   - 裁定的條件是「job 結束、job 畫面關掉、頁面被隱藏時都要停」。**`cb1b42d7` 的現況，逐條對照**（讀碼，`app.js` 的 `openJob`）：
+   - 裁定的條件是「job 結束、job 畫面關掉、頁面被隱藏時都要停」。**交件時（`cb1b42d7`）的現況，逐條對照**（讀碼，`app.js` 的 `openJob`）：
 
      | 條件 | 現況 |
      |---|---|
@@ -28,8 +28,12 @@
      | job 畫面關掉時停 | ⚠️ 部分成立：打開另一個 job 時舊的迴圈會停（`watching` 換掉）；但**畫面沒有「關閉」按鈕**，所以沒辦法單純關掉 |
      | 頁面被隱藏時停 | ❌ 不成立：沒有檢查 `document.visibilityState`。分頁在背景時照樣輪詢（Chrome 只會替背景分頁的計時器降頻，不會停） |
 
-   - 補上缺的兩條大約 15 行：加一個關閉按鈕（把 `watching` 設成 null 並把畫面藏起來），再讓迴圈在 `visibilityState` 為 hidden 時暫停、回到前景才繼續，外加一條 PageLint 規則和一個 G 變異。
-   - **orchestrator 要求收件前分支保持原樣，所以還沒改**。要改的話，收件前或收件後都可以，等 orchestrator 一句話。
+   - **orchestrator 要求收件前補上，已補在 `cf053502`**：
+     - job 畫面加了 Close 按鈕，`closeJob()` 會把 `watching` 設成 null，並把畫面藏起來；
+     - 每次 sleep 之後都會 `await whileHidden()`：頁面在前景就馬上往下走，被隱藏時要等 `visibilitychange` 變回可見才繼續；等完之後會再確認自己是不是還在被看的那一個。
+     - 順手修掉一個 Close 讓它變容易踩到的邊角：原本 `watching` 存的是 job id。關掉畫面後 2 秒內又打開同一個 job，舊迴圈醒來會以為自己還在被看，和新迴圈一起跑，log 就重複附加兩次。現在 `watching` 存的是「這一次打開」，關閉或重開都會換掉它。
+   - 紅燈先行：兩條新的 PageLint 對 `cb1b42d7` 的頁面是紅的（`LOGS/close-hidden-cf053502/red-first-on-cb1b42d7.log`）。另外加了 6 個 G 變異：G37、G37b、G37c 對應 Close，G38、G38b 對應隱藏時停止，G39 對應以 job id 為鍵。閘門總數變成 144。
+   - 三條件的現況（`cf053502`）：job 結束時停 ✅、畫面關閉時停 ✅、頁面隱藏時停 ✅。**這是讀碼加 PageLint 的結論，沒有在瀏覽器裡實際點過 Close，也沒有實際切到背景看過。**
 3. **確認強度的表放在伺服器，不放頁面**（偏離 SCOPE §2 的寫法，§2 第 1 點）。**orchestrator 15:4x 已追認**，理由是該拒絕的本來就是伺服器；列為經追認的 SCOPE 偏離。
 4. **P4 的 `--app` 套件目錄**，這一刀的頁面沒有提供輸入欄位。API 本來就支援（`{"plane":"p4","app":"<dir>"}`）。要不要在頁面上開放，排下一刀。
 5. **下一刀：用 DevTools protocol 把點擊行為自動化**（裁定 5）。這一刀的點擊行為是在瀏覽器裡實際操作驗證的（§4.3），還不能重跑。
@@ -75,9 +79,9 @@
 | 伺服器 | `tools/ndt_serve/serve.py` |
 | 靜態頁 | `tools/ndt_serve/static/{index.html,app.js,app.css}` |
 | `ndt help` 的 `serve url` | `tools/test_workflow/ndt` |
-| 伺服器端與頁面靜態檢查 | `tests/python/test_ndt_serve_gui.py`（35 例） |
+| 伺服器端與頁面靜態檢查 | `tests/python/test_ndt_serve_gui.py`（37 例；交件時是 35 例，`cf053502` 加了 2 例） |
 | 頁面（headless Chrome） | `tests/browser/test_ndt_serve_page.py`（5 例） |
-| 閘門 | `tests/shell/mutate_ndt_serve.sh`（G 系列 47 條，總數 138）；`tests/shell/mutate_ndt_serve_page.sh`（5 條：G12–G14，加上兩個拒絕案例的紅燈先行 P1、P2 條） |
+| 閘門 | `tests/shell/mutate_ndt_serve.sh`（G 系列 53 條，總數 144；交件時 47／138，`cf053502` 加了 G37–G39 共 6 條）；`tests/shell/mutate_ndt_serve_page.sh`（5 條：G12–G14，加上兩個拒絕案例的紅燈先行 P1、P2 條） |
 | 文件 | `tools/ndt_serve/README.md` 的「The page」一節和 API 表 |
 
 **新的端點**：
@@ -112,6 +116,18 @@
 | `mutate_ndt_serve_page.sh`（guard 內） | cb1b42d7 | 5 條變異，0 條倖存。每一條都是指名的那一例、因為指名的原因變紅，Chrome 當掉不算數；受測檔沒有變動。事後掃 `/proc`，殘留程序 0、殘留暫存目錄 0 | 同上 |
 | `check_gate_anchors.py b005bf50 cb1b42d7` | — | HEAD 122/122；兩個 rev 243/244（頁面閘門在 trunk 上 absent） | 同上 |
 | `check_process_by_name.py`、`check_test_tmpdirs.py`（整棵樹） | cb1b42d7 | process_by_name：338 個檔、0 處；tmpdirs：371 個檔、0 處（trunk 同樣是 0 和 0） | 同上 |
+
+**收件前追加的修正 `cf053502`**（orchestrator 15:4x 要求：只重跑受影響的閘門，再加 check_gate_anchors）：
+
+| 項目 | 結果 | log |
+|---|---|---|
+| 兩條新 PageLint 對 `cb1b42d7` 的頁面 | **紅**（2 failures），紅燈先行 | `LOGS/close-hidden-cf053502/red-first-on-cb1b42d7.log` |
+| `mutate_ndt_serve.sh` | 144 條變異，0 條倖存（310 s）；baseline 三套測試都綠；11 個受測檔的 sha256 和 `cf053502` 的 blob 逐一相同 | `LOGS/close-hidden-cf053502/gate.log` |
+| `mutate_ndt_serve_page.sh`（guard 內） | 5 條變異，0 條倖存；baseline 5/5；16 個受測檔的 sha256 和 `cf053502` 逐一相同 | `LOGS/close-hidden-cf053502/page-gate.log` |
+| `test_ndt_serve_gui.py`，Python 3.8.20 | 37/37 OK | `LOGS/close-hidden-cf053502/test_ndt_serve_gui.py38.log` |
+| `check_gate_anchors.py HEAD` | 122/122 | `LOGS/close-hidden-anchors.log` |
+
+L1 lane 的 step 3b 沒有重跑。`cf053502` 在 lane 範圍裡只動到 `test_ndt_serve_gui.py`，而且它在 lane 的直譯器下是 37/37。
 
 - 紅燈先行：
   - 每個 G 變異都讓它指名的那一例變紅（閘門 log 裡逐行列出）；
