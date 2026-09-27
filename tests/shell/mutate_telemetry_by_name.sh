@@ -371,10 +371,10 @@ report "M-C10: a dead link emitter is reported alive, and link telemetry samples
 # to the launcher's four-word shape, which this test's own process does not have, so ONLY a
 # reader passing the recorded identity can answer True for it.
 # [Co-developed with claude code -- Adam]
-m=$(mutant c22 "$MAIN" \
+m=$(mutant c24 "$MAIN" \
     '            "alive": link_telemetry.emitter_is_running(document),' \
     '            "alive": link_telemetry.process_is_the_emitter(document.get("pid") or 0),  # MUTANT')
-report "M-C22 (ruling K): alive is judged by the pid alone, not by the identity the bring-up recorded" "$m" \
+report "M-C24 (ruling K): alive is judged by the pid alone, not by the identity the bring-up recorded" "$m" \
        "test_alive_is_judged_by_the_identity_the_bring_up_recorded"
 
 # Round 2, section 9 ruling 5: the manifest is B's document and `switches` is a LIST of objects.
