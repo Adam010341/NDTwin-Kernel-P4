@@ -1541,10 +1541,15 @@ class AnUntrustedSwitchManifestSignalsNothingTest(unittest.TestCase):
     # --- the process --------------------------------------------------------------------------
 
     def test_a_process_that_only_mentions_the_binary_is_never_signalled(self):
-        self.process(4321, ["/usr/bin/tail", "-f", "/tmp/simple_switch_grpc.log"])
+        # Every word the entry is checked against is there -- the binary's name, this entry's
+        # device id and gRPC port -- except in argv[0]. Anyone can start such a process, and a
+        # `tail -f /tmp/simple_switch_grpc.log` is the innocent version of it; only the rule
+        # that argv[0] IS the binary refuses it here.
+        self.process(4321, ["/usr/bin/python3", "/tmp/not_a_switch.py", "simple_switch_grpc",
+                            "--device-id", "1", "--", "--grpc-server-addr", "0.0.0.0:50051"])
         self.write({"s1": self.entry(4321)})
         self.assertEqual(self.reap(), [])
-        self.assertEqual(self.signals, [], "a tail of a switch log was taken for the switch")
+        self.assertEqual(self.signals, [], "a process that only named the binary was signalled")
 
     def test_another_switchs_process_is_never_signalled(self):
         # A real bmv2 -- but on port 50051, and this entry is the switch on 50052.
