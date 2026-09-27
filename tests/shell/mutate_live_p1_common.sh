@@ -936,6 +936,104 @@ EOF
 check_fires_only "M44: a sudo past every stub, the refusal otherwise intact" m44 \
             "🔴 NOTHING reached for sudo, mnexec or iperf past a stub"
 
+# --- M45-M49 (Adam's rulings A and G, 09-27) ------------------------------------------------------
+# [Co-developed with claude code -- Adam] A: a disclosure is printed right above the verdict --
+# M45 drops the printing, M46 drops the recording. G: no default owner -- M47 brings the default
+# back, M48 drops start_step's refusal, M49 makes the refusal come after the run directory.
+cat > "$A/m45.old" <<'EOF'
+    for d in "${DISCLOSED[@]}"; do printf 'NOTE %s -- %s\n' "$STEP" "$d"; done
+EOF
+cat > "$A/m45.new" <<'EOF'
+    :
+EOF
+check_fires "M45: finish does not print the disclosures" m45 \
+            "🔴 and the line right above it is the disclosure, verbatim" "  and the disclosure is still right above it"
+cat > "$A/m46.old" <<'EOF'
+disclose() { DISCLOSED+=("$*"); note "disclosed: $*"; }
+EOF
+cat > "$A/m46.new" <<'EOF'
+disclose() { note "disclosed: $*"; }
+EOF
+check_fires "M46: disclose only notes, it records nothing" m46 \
+            "🔴 and the line right above it is the disclosure, verbatim" "  and the disclosure is still right above it"
+cat > "$A/m47.old" <<'EOF'
+if [[ -n "${NDT_OWNER:-}" ]]; then export NDT_OWNER; fi
+EOF
+cat > "$A/m47.new" <<'EOF'
+: "${NDT_OWNER:=live-p1}"
+export NDT_OWNER
+EOF
+check_fires "M47: NDT_OWNER defaults to live-p1 again (the line as it was)" m47 \
+            "🔴 no NDT_OWNER: start_step refuses with rc 2" "🔴 it did not go on as a default owner" \
+            "🔴 and made no run directory" "🔴 sourcing the file does not invent an owner"
+cat > "$A/m48.old" <<'EOF'
+    if [[ -z "${NDT_OWNER:-}" ]]; then
+        bad "refusing: NDT_OWNER is not set. Run it as NDT_OWNER=<you> bash .../$STEP.sh -- the lab is claimed in that name, and no default owner is used"
+        printf 'REFUSED %s -- nothing was started\n' "$STEP"
+        exit 2
+    fi
+EOF
+cat > "$A/m48.new" <<'EOF'
+EOF
+check_fires "M48: start_step no longer refuses without an owner" m48 \
+            "🔴 no NDT_OWNER: start_step refuses with rc 2" "🔴 and made no run directory"
+cat > "$A/m49.old" <<'EOF'
+    if [[ -z "${NDT_OWNER:-}" ]]; then
+        bad "refusing: NDT_OWNER is not set. Run it as NDT_OWNER=<you> bash .../$STEP.sh -- the lab is claimed in that name, and no default owner is used"
+        printf 'REFUSED %s -- nothing was started\n' "$STEP"
+        exit 2
+    fi
+    RUN="$LIVE_DIR/runs/$(date -u '+%Y-%m-%dT%H%M%SZ')_$STEP"
+    mkdir -p "$RUN" || die "could not create $RUN"
+EOF
+cat > "$A/m49.new" <<'EOF'
+    RUN="$LIVE_DIR/runs/$(date -u '+%Y-%m-%dT%H%M%SZ')_$STEP"
+    mkdir -p "$RUN" || die "could not create $RUN"
+    if [[ -z "${NDT_OWNER:-}" ]]; then
+        bad "refusing: NDT_OWNER is not set. Run it as NDT_OWNER=<you> bash .../$STEP.sh -- the lab is claimed in that name, and no default owner is used"
+        printf 'REFUSED %s -- nothing was started\n' "$STEP"
+        exit 2
+    fi
+EOF
+check_fires_only "M49: the refusal comes after the run directory is made" m49 "🔴 and made no run directory"
+
+# --- M50-M53 (the opus judge's N1, 09-27): 02's fabric list asserts the heartbeat watchdog runs ------
+# [Co-developed with claude code -- Adam] heartbeat_skips_verdict: M50 accepts not_started (the old
+# pick-a-list behaviour, from the far side), M51 stops naming the proxy's error, M52 reads an absent
+# block as running, M53 stops comparing the list.
+cat > "$A/m50.old" <<'EOF'
+elif hb.get("watchdog") != "running":
+EOF
+cat > "$A/m50.new" <<'EOF'
+elif hb.get("watchdog") not in ("running", "not_started"):
+EOF
+check_fires "M50: a heartbeat watchdog that did not start is accepted" m50 \
+            "🔴 not_started is a failure, not the other list"
+cat > "$A/m51.old" <<'EOF'
+    print(f"BAD heartbeat.watchdog is {hb.get('watchdog')!r}, not 'running' (heartbeat.error: "
+EOF
+cat > "$A/m51.new" <<'EOF'
+    print(f"BAD heartbeat.watchdog is {hb.get('watchdog')!r}, not 'running' ("
+EOF
+check_fires "M51: the proxy's heartbeat.error is not named" m51 \
+            "  and it names the proxy's own heartbeat.error"
+cat > "$A/m52.old" <<'EOF'
+hb = d.get("heartbeat")
+EOF
+cat > "$A/m52.new" <<'EOF'
+hb = d.get("heartbeat") or {"watchdog": "running"}
+EOF
+check_fires "M52: no heartbeat block reads as running" m52 \
+            "🔴 no heartbeat block is a failure too"
+cat > "$A/m53.old" <<'EOF'
+elif skipped != sys.argv[2]:
+EOF
+cat > "$A/m53.new" <<'EOF'
+elif False:
+EOF
+check_fires "M53: the skipped list is not compared" m53 \
+            "🔴 running with link_watchdog still named: BAD"
+
 # --- T1 (the judge, 09-27): the suite's 5e back on $PKG3 -- a TEST-side mutant --------------------
 # [Co-developed with claude code -- Adam] The cells as they were before b2e656e5: h1..h3, the names
 # a live fabric has. Under the suite's fake fabric host_pid finds h1/h2/h3, link_usage_round goes on
