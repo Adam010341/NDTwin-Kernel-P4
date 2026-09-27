@@ -34,6 +34,7 @@ CORPUS_REL="tests/shell/test_faults.sh"
 CORPUS_PRINTF_REL="tests/shell/test_stack_log_rotation.sh"   # a suite whose summary is a printf
 CORPUS_ONELINE_REL="tests/shell/test_faults_topo_pid.sh"      # its failure branch is one line
 CORPUS_GROUPED_REL="tests/shell/test_ndt_down_stops_only_ours.sh"   # `|| { echo "Ran ..."; exit 1; }`
+CORPUS_CALL_REL="tests/shell/test_ndt_ovs_topo_script.sh"   # `summary() { printf ...; }`, `summary; exit 1`, `summary`
 
 KILLED=0
 SURVIVED=0
@@ -46,6 +47,9 @@ build_sandbox() {
     cp "$REPO_ROOT/$DRIVER_REL" "$REPO_ROOT/tools/test_workflow/components.env" \
        "$sb/tools/test_workflow/"
     cp "$REPO_ROOT"/tests/shell/test_*.sh "$sb/tests/shell/"
+    # group R's fixtures (09-27): without them every R check reads "instrument failed"
+    mkdir -p "$sb/tests/shell/fixtures"
+    cp -r "$REPO_ROOT/tests/shell/fixtures/l1_shell_scoring" "$sb/tests/shell/fixtures/"
     printf '%s' "$sb"
 }
 
@@ -231,6 +235,77 @@ mutate "a summary whose \$(( )) the renderer cannot evaluate (09)" "$CORPUS_REL"
 s = s.replace("echo \"Ran $((PASS + FAIL)) checks, all passed\"",
               "echo \"Ran $((PASS + 09)) checks, all passed\"")
 ' "C  test_faults.sh prints" "instrument failed"
+
+# [Co-developed with claude code -- Adam] rule (2a) read on a CALL's line -- the opus judge's NOTE A on
+# 1d5180ce (09-27). test_ndt_ovs_topo_script.sh prints its summary from `summary() { printf ...; }`,
+# calls it as `summary; exit 1` when a section cannot run, and as a bare `summary` last. With the bare
+# call gone, 1d5180ce's group C read the function's print at its definition line, saw no exit there,
+# took the failure call as "the last call" -- and stayed GREEN on a suite whose green run prints no
+# summary at all. It must now be red, for the call-line reason.
+mutate "a suite whose summary is a function loses its last, bare call (only \`summary; exit 1\` is left)" "$CORPUS_CALL_REL" '
+s = s.replace("\nsummary\n[[ $FAIL -eq 0 ]]\n", "\n[[ $FAIL -eq 0 ]]\n")
+' "C  test_ndt_ovs_topo_script.sh prints" "every call of which has an exit <non-zero> after the call"
+
+echo
+echo "=== mutations: group C's readings, each broken in the suite's own reader (group R must see it) ==="
+
+# [Co-developed with claude code -- Adam] (09-27, the opus judge's NOTE I on 1d5180ce) each reading of
+# render_prints is broken once, in the suite's OWN copy of it, and the group R fixture that pins that
+# reading must go red for it -- by name, and with the verdict the broken reading gives.
+mutate "(2a) && after a print is no longer certain" "$SUITE_REL" '
+s = s.replace("        elif op == \"&&\":\n            cond = cond or not ok\n",
+              "        elif op == \"&&\":\n            cond = True\n")
+' 'R7   `echo ... && exit 1` in a failure branch' "nonzero"
+mutate "(2a) the command after || is read as reached" "$SUITE_REL" '
+s = s.replace("            if ok and not cond:\n                continue                     # never runs, and the list still succeeded\n            cond = True\n",
+              "            cond = False\n")
+' 'R6   `echo ... || exit 1`' "exit <non-zero> after it on the same line"
+mutate "(2a) an exit behind && after a test is read as certain (B)" "$SUITE_REL" '
+s = s.replace("            if nest == 0 and not cond:\n                return kind == \"fail\"",
+              "            if nest == 0:\n                return kind == \"fail\"")
+' 'R4 * `echo ...; (( FAIL )) && exit 1`' "exit <non-zero> after it on the same line"
+mutate "(2a) a conditional exit 0 is no longer a way to the end (B)" "$SUITE_REL" '
+s = s.replace("            if kind == \"other\":\n                return False                 # it may run: a way to the end that does not fail\n",
+              "            if kind == \"other\":\n                continue\n")
+' 'R5 * `echo ...; [[ $FAIL -eq 0 ]] && exit 0; exit 1`' "exit <non-zero> after it on the same line"
+mutate "(2a) an exit inside an if opened after the print is read as certain" "$SUITE_REL" '
+s = s.replace("        if head in OPENERS:\n            nest, ok = nest + 1, False\n",
+              "        if head in OPENERS:\n            ok = False\n")
+' 'R16   `echo ...; if (( FAIL )); then exit 1; fi`' "exit <non-zero> after it on the same line"
+mutate "(2a) a function's calls are not read, only its definition line (A)" "$SUITE_REL" '
+s = s.replace("    ok = [c for c in calls if not call_fails(c)]\n", "    ok = calls\n")
+' 'R1 * a function summary whose every call is `summary; exit 1`' "nonzero"
+mutate "(2a) a function's own body is not read (A)" "$SUITE_REL" '
+s = s.replace("    body = not here and body_exits_after(n)\n", "    body = False\n")
+' 'R3 * a function that exits 1 later in its body' "nonzero"
+mutate "(2a) the end of the block the print is in stops the reading (H)" "$SUITE_REL" '
+s = s.replace("            continue                         # the print\x27s own block ends: what follows still runs\n",
+              "            return False\n")
+' 'R13 * `{ echo ...; }; exit 1`' "nonzero"
+mutate "(2a) a pipe stops the reading (G)" "$SUITE_REL" '
+s = s.replace("        elif op == \"|\":                      # the same pipeline: an exit here ends a subshell\n",
+              "        elif op == \"|\":\n            return False\n")
+' 'R12 * `echo ... | tee -a $LOG; exit 1`' "nonzero"
+mutate "(1) a print written to a file is rendered as if it reached the log (G)" "$SUITE_REL" '
+s = s.replace("        if w is None or stdout_away(text):\n", "        if w is None:\n")
+' 'R10 * a summary written to a FILE' "nonzero"
+mutate "(1) a print written to stderr is dropped with the ones written to files (G)" "$SUITE_REL" '
+s = s.replace("        if target.startswith(\"&\") or target in", "        if target.startswith(\"&1\") or target in")
+' 'R11   ... and one written to stderr' "zero:"
+mutate "(1) \`name(){\` -- no space -- is not a function head (F)" "$SUITE_REL" '
+s = s.replace("r\"[A-Za-z_][A-Za-z0-9_]*\\(\\)\\{?\", w[0]", "r\"[A-Za-z_][A-Za-z0-9_]*\\(\\)\", w[0]")
+' 'R8 * `summary(){ echo ...; }`' "zero:"
+mutate "(1) a case pattern is not taken off the front of a print (F)" "$SUITE_REL" '
+s = s.replace("        elif re.fullmatch(r\"[^$`(){}\\\"\x27]*\\)\", h):", "        elif False:")
+' 'R9 * a print behind a case pattern' "zero:"
+mutate "(2a) the next ;; pattern is read as the print's path" "$SUITE_REL" '
+s = s.replace("        if nest == 0 and (op == \";;\" or head in (\"else\", \"elif\")):",
+              "        if nest == 0 and head in (\"else\", \"elif\"):")
+' 'R15 * `case ... in 0) echo ... ;; *) exit 1 ;; esac`' "exit <non-zero> after it on the same line"
+mutate "(2a) the else branch is read as the print's path" "$SUITE_REL" '
+s = s.replace("        if nest == 0 and (op == \";;\" or head in (\"else\", \"elif\")):",
+              "        if nest == 0 and op == \";;\":")
+' 'R14   `then echo ...; else exit 1; fi`' "exit <non-zero> after it on the same line"
 
 echo
 echo "===== $((KILLED + SURVIVED)) mutation(s): $KILLED killed, $SURVIVED survived ====="
