@@ -1145,6 +1145,41 @@ check "  and made its run directory"                     "1" "$(ls -d "$FIX16"/r
 rm -rf "$FIX16"
 
 # =============================================================================================
+section "17. 🔴 every run records the venv fingerprint, and one it could not take is disclosed"
+# =============================================================================================
+# [Co-developed with claude code -- Adam] 09-27: the proxy's venv moved to protobuf 5 that day, so a
+# raw that does not say which stack it ran on cannot be compared with one from before. start_step
+# writes 00_venv.txt for the proxy's interpreter ($PY) and the controllers' ($CTRL_PY); a missing
+# one is a NOTE above the last line, and the run still passes.
+FIX17="$(mktemp -d "${TMPDIR:-/tmp}/common-venv-XXXXXX")"
+mkdir -p "$FIX17/bin"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$FIX17/bin/ndt"; chmod +x "$FIX17/bin/ndt"
+cat > "$FIX17/step.sh" <<STEPSH
+set -euo pipefail
+source "$COMMON"
+LIVE_DIR="$FIX17"; NDT="$FIX17/bin/ndt"; PY=/usr/bin/python3; CLAIMED=0
+require_root() { :; }; require_free_lab() { :; }; snapshot_knob() { :; }; snapshot_telemetry_knob() { :; }
+restore_knob() { :; }; restore_telemetry_knob() { :; }
+start_step 17_venv
+exit 0
+STEPSH
+OUT17="$(env NDT_OWNER=someone CTRL_PY=/usr/bin/python3 timeout 120 bash "$FIX17/step.sh" 2>&1)"
+VENV17="$(ls "$FIX17"/runs/*_17_venv/00_venv.txt 2>/dev/null | head -1)"
+check "🔴 the raw has 00_venv.txt"                         "yes" "$([[ -s "$VENV17" ]] && echo yes || echo no)"
+check "  one block per interpreter (proxy and controllers)" "2" "$(/usr/bin/grep -c '^== interpreter /usr/bin/python3$' "$VENV17" 2>/dev/null)"
+has   "🔴 naming protobuf and its implementation"          "api_implementation" "$(cat "$VENV17" 2>/dev/null)"
+has   "  and the installed set's sha"                      "sha256 " "$(cat "$VENV17" 2>/dev/null)"
+check "  the control: both answered, no NOTE line"         "0" "$(/usr/bin/grep -c '^NOTE ' <<<"$OUT17")"
+check "  and the run passes"                               "PASS 17_venv" "$(tail -1 <<<"$OUT17")"
+rm -rf "$FIX17"/runs
+OUT17="$(env NDT_OWNER=someone CTRL_PY=/nowhere/python timeout 120 bash "$FIX17/step.sh" 2>&1)"
+VENV17="$(ls "$FIX17"/runs/*_17_venv/00_venv.txt 2>/dev/null | head -1)"
+has   "🔴 a missing interpreter is written down as such"   "NOT RECORDED: not an executable file" "$(cat "$VENV17" 2>/dev/null)"
+check "🔴 and disclosed above the last line"               "NOTE 17_venv -- the venv fingerprint was not fully recorded (00_venv.txt says which interpreter did not answer)" "$(tail -2 <<<"$OUT17" | head -1)"
+check "  and the run still passes"                         "PASS 17_venv" "$(tail -1 <<<"$OUT17")"
+rm -rf "$FIX17"
+
+# =============================================================================================
 section "14. 🔴 no lab command left this suite (the fake fabric was up throughout)"
 # =============================================================================================
 # [Co-developed with claude code -- Adam] The guard at the top, and its controls: without them a

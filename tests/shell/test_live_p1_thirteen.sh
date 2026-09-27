@@ -104,6 +104,13 @@ has   "  and says so"                                    "PASS 06_thirteen" "$OU
 # 🔴 `hasnt`, NOT `has "rc=0 (want 0)"`. The SOLUTION arm prints that line too, so a `has`
 # would be satisfied by it while the skeleton arm wanted 1 -- which is exactly the defect.
 hasnt "🔴 neither arm of a correct pair wants a non-zero rc" "(want 1)" "$OUT"
+# [Co-developed with claude code -- Adam] 09-27: the raw says which stack the round ran on -- the
+# proxy's venv and $VENV_PY (here /usr/bin/python3), one block each.
+VENV13="$(ls -t "$FIX"/runs/*_06_thirteen/00_venv.txt 2>/dev/null | head -1)"
+check "🔴 the raw records the venv fingerprint of both interpreters" "2" \
+      "$(/usr/bin/grep -c '^== interpreter ' "$VENV13" 2>/dev/null)"
+has   "  the driver's interpreter among them"          "== interpreter /usr/bin/python3" "$(cat "$VENV13" 2>/dev/null)"
+has   "  with protobuf's version and implementation"   "api_implementation" "$(cat "$VENV13" 2>/dev/null)"
 
 OUT="$(run13 basic RC_basic_skeleton=1)"; RC=$?
 check "🔴 a skeleton arm that FAILED an expectation is the finding" "1" "$RC"

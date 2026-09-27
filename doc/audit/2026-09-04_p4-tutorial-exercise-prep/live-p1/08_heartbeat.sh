@@ -33,12 +33,24 @@
 #       (H3 is cut at the worst phase too and recorded like an H1 cycle.)
 #   H4  exercises/p4runtime (external control plane): /stats/flowentry/add, delete,
 #       delete_strict and modify answer 409 `external control plane`; `reroute.reason`
-#       external_control_plane, and `ndt up` started no heartbeat there.
+#       external_control_plane. [Co-developed with claude code -- Adam] Since 09-27 `ndt up`
+#       starts the heartbeat there too, DETECT ONLY: it says so, the helper runs, switch_state's
+#       heartbeat is usable with capabilities reroute false / link_discovery heartbeat, and one
+#       out-of-band cut of s1-s2 is held down BY THE PROXY (switch_state `links`, both
+#       directions, source heartbeat) within about 20 s while reroute stays false for the
+#       external reason; restored, both directions up again, no netem left, no heartbeat frame
+#       counted leaving a host port. 🔴 THE KERNEL'S GRAPH IS NOT THE READING HERE: no exercise
+#       controller runs in H4, so no pipeline is loaded and the twin holds these switches down
+#       (03's 2026-09-18 reading). What the exercise's own evidence does with the heartbeat
+#       running is live 06 against 2026-09-27T074635Z_06_thirteen, by external_evidence.py.
 #   H5  (PART=h5, separately: it runs 06 and 01, which claim the lab per step) live-p1/06 ONCE
 #       with the heartbeat on wherever `ndt up` starts it -> 26 arms, every one's rc and verdict
-#       what `2026-09-24T185505Z_06_thirteen` recorded; a sampler of the heartbeat report proves
-#       which arms had one running (and that no arm's daemon counted a frame leaving a host
-#       port); then 01 (NDTwin's own fabric) PASS, with no heartbeat session started under it.
+#       what `2026-09-27T074635Z_06_thirteen` recorded (OLD_06; 185505Z until 09-27, the same rc
+#       and verdict arm for arm); a sampler of the heartbeat report proves which arms had one
+#       running -- 20 since 09-27, the 3 external ones included (HB_ARMS) -- and that no arm's
+#       daemon counted a frame leaving a host port; then 01 (NDTwin's own fabric) PASS, with no
+#       heartbeat session started under it. The external arms' OWN evidence (tunnel counters,
+#       packet-ins, cache entries) is external_evidence.py's, against the same OLD_06.
 #
 # 🔴 HOW H1 JUDGES "WITHIN 20 s" (the fable judge's F1 on 1a3ebd7f, 09-26; SUMMARY section 2).
 # Detection is (timeout - phi) + psi + the pass's read, _notify_link's HTTP and the kernel's graph
@@ -145,15 +157,23 @@ consts() {
     ( cd "$REPO/p4_proxy" && env -u NDTWIN_P4_BEACON_S PYTHONPATH=. PYTHONDONTWRITEBYTECODE=1 "$PY" -c \
         'from proxy_agent import topology_manager as t; print(t.LLDP_BEACON_INTERVAL_S, t.LINK_BEACON_TIMEOUT_S, t.LINK_WATCHDOG_INTERVAL_S)' 2>/dev/null )
 }
-#: What 06 is reconciled against (H5).
-OLD_06="${OLD_06:-$LIVE_DIR/runs/2026-09-24T185505Z_06_thirteen}"
-#: The 06 arms that bring up a foreign, non-external fabric with an inter-switch link, i.e. the
-#: ones `ndt up p4 --app` starts the heartbeat on. Segment S's census: calc and multicast are one
-#: switch; p4runtime and flowcache are external; basic_tunnel and flowcache skeletons do not build.
+#: What 06 is reconciled against (H5). [Co-developed with claude code -- Adam] 09-27: the round on
+#: the protobuf 5 venv with no heartbeat on the external arms (its rc and verdict columns are
+#: 185505Z's, arm for arm) -- the baseline the external detect-only change is compared against.
+OLD_06="${OLD_06:-$LIVE_DIR/runs/2026-09-27T074635Z_06_thirteen}"
+#: The 06 arms that bring up a foreign fabric with an inter-switch link, i.e. the ones `ndt up p4
+#: --app` starts the heartbeat on. Segment S's census: calc and multicast are one switch;
+#: basic_tunnel and flowcache skeletons do not build. [Co-developed with claude code -- Adam] Since
+#: 09-27 the three external arms (p4runtime x2, flowcache/solution) are in it too, detect only --
+#: all 20 of segment S's running arms.
 HB_ARMS="basic/skeleton basic/solution source_routing/skeleton source_routing/solution
 basic_tunnel/solution load_balance/skeleton load_balance/solution qos/skeleton qos/solution
 link_monitor/skeleton link_monitor/solution firewall/skeleton firewall/solution ecn/skeleton
-ecn/solution mri/skeleton mri/solution"
+ecn/solution mri/skeleton mri/solution p4runtime/skeleton p4runtime/solution flowcache/solution"
+#: [Co-developed with claude code -- Adam] H4's cut: exercises/p4runtime/topology.json's s1-p2 <->
+#: s2-p2, the cable its tunnel 100 rides (transcribed, `a:ap:b:bp`; the proxy's own model of the
+#: package is checked against it before the cut).
+CUT_EXT="1:2:2:2"
 
 FABRIC_UP=0
 TEARDOWN_DOWN_RC=""
@@ -230,6 +250,28 @@ def v_hb_state(state, want):
     if h.get("state") == want:
         return f"OK heartbeat.state {want} (watchdog {h.get('watchdog')}, session {h.get('session')})"
     return f"BAD heartbeat.state {h.get('state')!r}, want {want!r} ({h.get('detail')})"
+
+def v_links(state, want, *cut):
+    """[Co-developed with claude code -- Adam] H4: both directions of the cut as the PROXY holds them
+    (switch_state `links`) -- down or up, and from the heartbeat, not merely declared."""
+    a, ap, b, bp = cut_args(cut)
+    links = load(state).get("links") or {}
+    got = {k: links.get(k) for k in (f"{a}:{ap}->{b}:{bp}", f"{b}:{bp}->{a}:{ap}")}
+    bad = [f"{k}={(v.get('down'), v.get('source')) if isinstance(v, dict) else None}" for k, v in got.items()
+           if not isinstance(v, dict) or v.get("down") is not (want == "down") or v.get("source") != "heartbeat"]
+    if bad:
+        return f"BAD the proxy does not hold s{a}:{ap}<->s{b}:{bp} {want} by the heartbeat: " + "; ".join(bad)
+    told = ", ".join(f"{k} reported_to_kernel {v.get('reported_to_kernel')}" for k, v in got.items())
+    return f"OK both directions of s{a}:{ap}<->s{b}:{bp} {want} at the proxy, source heartbeat ({told})"
+
+def v_model_has(model, *cut):
+    """[Co-developed with claude code -- Adam] H4: the cable to cut is one the package declares."""
+    a, ap, b, bp = cut_args(cut)
+    m = load(model)
+    pairs = {(e["src_dpid"], e["src_interface"], e["dst_dpid"], e["dst_interface"]) for e in m.get("edges", [])}
+    if (a, ap, b, bp) in pairs and (b, bp, a, ap) in pairs:
+        return f"OK the package declares s{a}:{ap}<->s{b}:{bp}, both directions"
+    return f"BAD the package's model does not declare s{a}:{ap}<->s{b}:{bp}"
 
 def v_hosts_clean(path):
     doc = load(path)
@@ -1244,6 +1286,26 @@ dump("report_clean.json", {"side_effects": {"forwarded_to_hosts": 0, "forwarded_
 dump("report_leak.json", {"side_effects": {"forwarded_to_hosts": 2}})
 leak = copy.deepcopy(s); leak["heartbeat"]["side_effects"]["forwarded_to_hosts"] = 1
 dump("state_leak.json", leak)
+# [Co-developed with claude code -- Adam] H4 (09-27): an external control plane, detect only.
+def ext_links(down, source="heartbeat"):
+    return {"1:2->2:2": {"down": down, "source": source, "reported_to_kernel": False},
+            "2:2->1:2": {"down": down, "source": source, "reported_to_kernel": False},
+            "1:3->3:2": {"down": False, "source": source, "reported_to_kernel": False}}
+x = caps(False, "heartbeat", 3)
+x["reroute"] = {"available": False, "reason": "external_control_plane", "detail": "x"}
+x["heartbeat"] = {"state": "usable", "watchdog": "running", "side_effects": {"forwarded_to_hosts": 0}}
+x["links"] = ext_links(False)
+dump("state_ext.json", x)
+xc = copy.deepcopy(x); xc["links"] = ext_links(True)
+dump("state_ext_cut.json", xc)
+xh = copy.deepcopy(xc); xh["links"]["2:2->1:2"]["down"] = False
+dump("state_ext_half.json", xh)
+xd = copy.deepcopy(x); xd["links"] = ext_links(None, "declared")
+dump("state_ext_declared.json", xd)
+p4rt = [(1, 2, 2, 2), (1, 3, 3, 2), (3, 3, 2, 3)]
+dump("model_p4rt.json", {"nodes": [{"dpid": d, "vertex_type": 0} for d in (1, 2, 3)],
+                         "edges": [{"src_dpid": s, "src_interface": sp, "dst_dpid": d, "dst_interface": dp}
+                                   for s, sp, d, dp in p4rt + [(d, dp, s, sp) for s, sp, d, dp in p4rt]]})
 row = lambda dst, port: {"priority": 0, "match": {"dl_type": 2048, "nw_dst": dst}, "actions": [f"OUTPUT:{port}"]}
 H = ["10.0.1.1", "10.0.2.2", "10.0.3.3", "10.0.4.4"]
 before = {1: [row(H[0], 1), row(H[1], 2), row(H[2], 3), row(H[3], 3)], 2: [row(H[0], 4), row(H[1], 4), row(H[2], 1), row(H[3], 2)],
@@ -1298,7 +1360,9 @@ diff = list(arms); diff[3] = ("source_routing", "solution", "1", "FAIL (4/5)"); 
 tbl(arms[:25], "table_short.tsv")
 expected = {"basic/skeleton","basic/solution","source_routing/skeleton","source_routing/solution","basic_tunnel/solution",
             "load_balance/skeleton","load_balance/solution","qos/skeleton","qos/solution","link_monitor/skeleton",
-            "link_monitor/solution","firewall/skeleton","firewall/solution","ecn/skeleton","ecn/solution","mri/skeleton","mri/solution"}
+            "link_monitor/solution","firewall/skeleton","firewall/solution","ecn/skeleton","ecn/solution","mri/skeleton","mri/solution",
+            # [Co-developed with claude code -- Adam] 09-27: the external arms, detect only.
+            "p4runtime/skeleton","p4runtime/solution","flowcache/solution"}
 # [Co-developed with claude code -- Adam] A read every 5 s through 06 AND on through 01 (100 s after
 # T_END), as a sampler that lived to be stopped writes; `hole` leaves a stretch out (one that died).
 def sampled(name, hosts=0, drop=None, extra=None, hole=None):
@@ -1370,6 +1434,18 @@ PY
     expect OK   "H4 409 external control plane"                      "$(verdict conflict_409 "$t/code_409" "$t/body_409.json")"
     expect BAD  "H4 the 500 of before"                               "$(verdict conflict_409 "$t/code_500" "$t/body_500.json")"
     expect BAD  "H4 a 409 for something else"                        "$(verdict conflict_409 "$t/code_409_other" "$t/body_409_other.json")"
+    # [Co-developed with claude code -- Adam] H4 since 09-27: detect only on the external fabric.
+    expect OK   "H4 capabilities: no reroute, heartbeat"             "$(verdict caps "$t/state_ext.json" false heartbeat)"
+    expect OK   "H4 reason external_control_plane"                   "$(verdict reroute "$t/state_ext.json" false external_control_plane)"
+    expect BAD  "H4 an unbound reason is not the external one"       "$(verdict reroute "$t/state_unbound.json" false external_control_plane)"
+    expect OK   "H4 the proxy holds the cut down"                    "$(verdict links "$t/state_ext_cut.json" down 1 2 2 2)"
+    expect BAD  "H4 one direction still up"                          "$(verdict links "$t/state_ext_half.json" down 1 2 2 2)"
+    expect BAD  "H4 declared is not the heartbeat"                   "$(verdict links "$t/state_ext_declared.json" down 1 2 2 2)"
+    expect BAD  "H4 a cable the proxy does not name"                 "$(verdict links "$t/state_ext_cut.json" down 3 3 2 3)"
+    expect OK   "H4 restored: both up again"                         "$(verdict links "$t/state_ext.json" up 1 2 2 2)"
+    expect BAD  "H4 a cut that did not come back"                    "$(verdict links "$t/state_ext_cut.json" up 1 2 2 2)"
+    expect OK   "H4 the cut is a cable the package declares"         "$(verdict model_has "$t/model_p4rt.json" 1 2 2 2)"
+    expect BAD  "H4 a cable the package does not declare"            "$(verdict model_has "$t/model_p4rt.json" 1 3 3 1)"
     expect OK   "H5 26 arms identical"                               "$(verdict same_06 "$t/table_same.tsv" "$t/table_old.tsv")"
     expect BAD  "H5 one arm differs"                                 "$(verdict same_06 "$t/table_diff.tsv" "$t/table_old.tsv")"
     expect BAD  "H5 an arm missing"                                  "$(verdict same_06 "$t/table_short.tsv" "$t/table_old.tsv")"
@@ -1850,8 +1926,11 @@ open(p + ".t", "w").write(json.dumps(doc)); os.replace(p + ".t", p)' "$HB_REPORT
         red "graph_until before any cut gave '$got' (elapsed '$(cat "$t/gu.json.elapsed" 2>/dev/null)')"
     fi
     local n_arms; n_arms="$(wc -w <<<"$HB_ARMS")"
-    [[ "$n_arms" == 17 ]] && ok "HB_ARMS names 17 arms (segment S's 20 running arms less the 3 external ones)" \
-                          || red "HB_ARMS names $n_arms arms, not 17"
+    # [Co-developed with claude code -- Adam] 17 until 09-27; the external arms are in it since.
+    [[ "$n_arms" == 20 ]] && ok "HB_ARMS names 20 arms (segment S's 20 running arms, the 3 external ones detect only)" \
+                          || red "HB_ARMS names $n_arms arms, not 20"
+    [[ " $(tr '\n' ' ' <<<"$HB_ARMS") " == *" p4runtime/skeleton p4runtime/solution flowcache/solution "* ]] \
+        && ok "HB_ARMS names the 3 external arms" || red "HB_ARMS does not name p4runtime/skeleton, p4runtime/solution and flowcache/solution"
     # [Co-developed with claude code -- Adam] Adam's ruling A (09-27): an OVER cycle reaches the
     # last lines only through strict_conclude, so every cut_cycle on the LIVE path must be followed
     # by one before the next phase (H1 after its loop, H3 after its one cycle). Read from this file
@@ -2056,7 +2135,7 @@ read -r HB_PERIOD_S TIMEOUT_S WATCHDOG_S < <(consts) || true
 [[ "$HB_PERIOD_S" =~ ^[0-9.]+$ && "$TIMEOUT_S" =~ ^[0-9.]+$ && "$WATCHDOG_S" =~ ^[0-9.]+$ ]] \
     || die "could not read the proxy's beacon constants from p4_proxy/proxy_agent/topology_manager.py"
 
-take_claim "P4 heartbeat live H1-H4 (segment W): basic roles (H1, H2), basic unbound (H3), p4runtime external (H4)"
+take_claim "P4 heartbeat live H1-H4 (segment W): basic roles (H1, H2), basic unbound (H3), p4runtime external detect-only (H4)"
 
 # === phase A: H1 and H2, the roles package ====================================================
 say "ndt up p4 --app $(basename "$PKG_ROLES")"
@@ -2175,21 +2254,49 @@ judge "$(verdict hosts_clean "$RUN/69a_report.json")" "H3 ruling 4"
 [[ "$VERDICT_WHY" == STOP* ]] && exit 1
 phase_down "$RUN/69_down_plain.txt" "phase B (H3)" || exit 1
 
-# === phase C: H4, an external control plane ======================================================
-say "ndt up p4 --app $(basename "$PKG_EXT") (external)"
+# === phase C: H4, an external control plane -- detect only (09-27) ================================
+# [Co-developed with claude code -- Adam] Until 09-27 H4 asked for `heartbeat status` rc 3 here (ndt
+# started none on an external fabric). Now ndt starts it, detect only, and H4 is the check that the
+# proxy DETECTS a cut on this fabric and still reroutes nothing -- read at the proxy, see the header.
+say "ndt up p4 --app $(basename "$PKG_EXT") (external, detect only)"
 set +e; nd_up "$PKG_EXT" "$RUN/80_up_external.txt"; UPRC=$?; set -e
 note "rc $UPRC -> 80_up_external.txt"
 (( UPRC == 0 )) || { fail "'ndt up p4 --app' (p4runtime) exited $UPRC -- H4 is not measured"; exit 1; }
+/usr/bin/grep -qF "heartbeat running on the inter-switch veths, detect only" "$RUN/80_up_external.txt" \
+    && note "ndt up started the heartbeat, detect only" || fail "H4: 'ndt up p4 --app' did not say it started the heartbeat detect-only"
 set +e; hb_status "$RUN/81_hb_status.txt"; HBRC=$?; set -e
-(( HBRC == 3 )) && note "no heartbeat on the external fabric (rc 3), as designed" \
-               || fail "H4: 'heartbeat status' answered $HBRC on an external fabric (want 3: ndt starts none there)"
+(( HBRC == 0 )) && note "the helper says it runs: $(head -1 "$RUN/81_hb_status.txt")" \
+               || fail "H4: 'heartbeat status' answered $HBRC on the external fabric (want 0: ndt starts it there, detect only)"
+judge "$(state_until 30 "$RUN/83_switch_state.json" hb_state usable)" "H4 heartbeat"
+judge "$(verdict caps "$RUN/83_switch_state.json" false heartbeat)" "H4 capabilities"
+judge "$(verdict reroute "$RUN/83_switch_state.json" false external_control_plane)" "H4 reroute"
 ROUTE='{"dpid":1,"match":{"dl_type":2048,"nw_dst":"10.0.1.1"},"actions":[{"type":"OUTPUT","port":1}]}'
 for verb in add delete delete_strict modify; do
     post_json "$PROXY_URL/stats/flowentry/$verb" "$ROUTE" "$RUN/82_flowentry_$verb"
     judge "$(verdict conflict_409 "$RUN/82_flowentry_$verb.code" "$RUN/82_flowentry_$verb.json")" "H4 /stats/flowentry/$verb"
 done
-get_json "$PROXY_URL/p4/switch_state" "$RUN/83_switch_state.json" || true
-judge "$(verdict reroute "$RUN/83_switch_state.json" false external_control_plane)" "H4 reroute"
+IFS=: read -r CA CAP CB CBP <<<"$CUT_EXT"
+V="$(verdict model_has "$PKG_EXT/ndtwin/topology.json" "$CA" "$CAP" "$CB" "$CBP")"
+[[ "$V" == OK* ]] || { fail "H4: $V"; exit 1; }
+say "H4 -- cut s$CA-eth$CAP <-> s$CB-eth$CBP out of band: the proxy holds it down by the heartbeat, and reroutes nothing"
+tc_ends "$RUN/84_tc_before" "$CA" "$CAP" "$CB" "$CBP"
+cut_link "$CA" "$CAP" "$CB" "$CBP" || exit 1
+judge "$(state_until $(( DETECT_BOUND_S + 15 )) "$RUN/85_switch_state_cut.json" links down "$CA" "$CAP" "$CB" "$CBP")" "H4 detection at the proxy"
+H4_DET="$(awk -v a="$EPOCHREALTIME" -v b="$T_CUT" 'BEGIN { printf "%.1f", a - b }')"
+if awk -v d="$H4_DET" -v b="$DETECT_BOUND_S" 'BEGIN { exit !(d <= b) }'; then
+    note "H4 detection at the proxy within ${H4_DET} s of the cut (switch_state polled every 2 s)"
+else
+    disclose "H4: detection at the proxy read ${H4_DET} s after the cut, over the strict ${DETECT_BOUND_S} s -- disclosed, not a failure (Adam, 09-27: at most about ${DETECT_BOUND_S} s; switch_state polled every 2 s)"
+fi
+judge "$(verdict reroute "$RUN/85_switch_state_cut.json" false external_control_plane)" "H4 reroute after the cut"
+judge "$(verdict caps "$RUN/85_switch_state_cut.json" false heartbeat)" "H4 capabilities after the cut"
+restore_link || { fail "H4: could not remove the netem"; exit 1; }
+judge "$(state_until $(( RESTORE_BOUND_S + 15 )) "$RUN/86_switch_state_restored.json" links up "$CA" "$CAP" "$CB" "$CBP")" "H4 recovery at the proxy"
+tc_ends "$RUN/87_tc_after" "$CA" "$CAP" "$CB" "$CBP"
+judge "$(no_netem "$RUN/87_tc_after_s$CA-eth$CAP.txt" "$RUN/87_tc_after_s$CB-eth$CBP.txt")" "H4 netem"
+cp "$HB_REPORT_FILE" "$RUN/88_report.json" 2>/dev/null || true
+judge "$(verdict hosts_clean "$RUN/88_report.json")" "H4 ruling 4"
+[[ "$VERDICT_WHY" == STOP* ]] && exit 1
 phase_down "$RUN/89_down_external.txt" "phase C (H4)" || exit 1
 
 say "done -- teardown follows"

@@ -81,6 +81,15 @@ else
     EXERCISES="$ALL"
 fi
 
+# [Co-developed with claude code -- Adam] 09-27: which stack this round ran on -- the proxy's venv
+# (protobuf 5 on upb since that day) and $VENV_PY, which runs the driver and the exercises'
+# controllers. Recorded, never a refusal: a fingerprint that could not be taken is said here.
+if bash "$HERE/venv_fingerprint.sh" "$RUN/00_venv.txt" "$REPO/p4_proxy/venv/bin/python" "$VENV_PY"; then
+    note "venv fingerprint -> 00_venv.txt ($(/usr/bin/grep -m1 '^protobuf ' "$RUN/00_venv.txt"))"
+else
+    bad "the venv fingerprint was not fully recorded -- 00_venv.txt says which interpreter did not answer"
+fi
+
 TABLE="$RUN/00_table.tsv"
 printf 'exercise\twhich\trc\tverdict\treport\n' > "$TABLE"
 FAILED=0

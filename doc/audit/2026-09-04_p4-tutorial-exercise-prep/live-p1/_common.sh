@@ -32,6 +32,9 @@ APP_KNOB="$REPO/p4_proxy/mininet/app_package_override"
 PKG_ROOT="$REPO/.test_run/packages"
 PROXY_URL="http://localhost:8081"
 KERNEL_URL="http://localhost:8000"
+#: [Co-developed with claude code -- Adam] Named here, beside this file, and not from $LIVE_DIR at
+#: call time: a suite points LIVE_DIR at its own temp dir to catch the run directory.
+VENV_FINGERPRINT="$LIVE_DIR/venv_fingerprint.sh"
 # [Co-developed with claude code -- Adam] 🔴 NO DEFAULT OWNER (Adam's ruling G, 09-27). This line
 # used to be `: "${NDT_OWNER:=live-p1}"`: a run nobody named claimed the lab as `live-p1`, which is
 # nobody -- a claim no person owns is one no person can finish by hand (segment S, round 7, is how
@@ -322,10 +325,25 @@ start_step() {
     printf '== %s\n   repo: %s\n   raw : %s\n   owner: %s\n' "$STEP" "$REPO" "$RUN" "$NDT_OWNER"
     [[ -x "$NDT" ]] || die "no ndt at $NDT"
     [[ -x "$PY" ]]  || die "no proxy venv interpreter at $PY -- python3 -m venv p4_proxy/venv && p4_proxy/venv/bin/pip install -r p4_proxy/requirements.txt && p4_proxy/venv/bin/python p4_proxy/regen_p4runtime_pb2.py"
+    record_venvs "$RUN/00_venv.txt"
     require_root
     require_free_lab
     snapshot_knob
     snapshot_telemetry_knob
+}
+
+# record_venvs <out> -- the fingerprint of the proxy's venv and the exercises' controller venv, in
+# every live raw. [Co-developed with claude code -- Adam] 09-27: the proxy's venv moved to
+# protobuf 5 (upb) that day, and a raw that does not say which stack it ran on cannot be compared
+# with one from before. A fingerprint that could not be taken is DISCLOSED, not a failure: the run
+# itself is as good as it was, only its comparability is not.
+record_venvs() {
+    local ctrl="${CTRL_PY:-/home/adam/p4dev-python-venv/bin/python}"
+    if bash "$VENV_FINGERPRINT" "$1" "$PY" "$ctrl"; then
+        note "venv fingerprint -> $(basename "$1") ($(/usr/bin/grep -m1 '^protobuf ' "$1"))"
+    else
+        disclose "the venv fingerprint was not fully recorded ($(basename "$1") says which interpreter did not answer)"
+    fi
 }
 
 # --- captures ---------------------------------------------------------------------------------

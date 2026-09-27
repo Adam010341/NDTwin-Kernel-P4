@@ -85,6 +85,9 @@ proxy log 那 40 行裡要有 `[Proxy Agent] app package: baseline (mode ndtwin,
 `--app <p4runtime pkg>` 起來的 fabric **是空的**（`mode: external` ⇒ proxy 不開 arbitration
 stream、不推 pipeline、不寫任何東西、不發 LLDP、不裝路由；`skipped` 要含
 `pipeline_push`／`clone_session`／`lldp`／`link_watchdog`／`initial_routes` 五個）。
+（09-27 起 `ndt up` 在這個 fabric 上也啟動心跳，**只偵測**：`heartbeat.watchdog` 是 `running` 時
+`link_watchdog` **不在** `skipped` 裡——watchdog 在跑，由心跳餵；其餘五個照樣在。03／04 依 switch_state 自己的
+`heartbeat.watchdog` 決定要不要 `link_watchdog`，跟 02 一樣。）
 `ndt up` 的 [3/3] 會把「路徑數」與「轉發」兩格印成 **NOT CHECKED／NOT TESTED 並說原因**，
 而不是判紅或判綠——這一步看到那兩行是**預期**，不是故障。
 
@@ -297,8 +300,45 @@ unbound 的 L6。L4 **不斷言改路**（第一刀 (c) 不成立，`capabilitie
   - 「20 s ＋ 實際量到的時間」只是**診斷欄**：它包含 pass 晚到的部分、讀檔／HTTP／kernel／本腳本輪詢，以及剪線本身開的窗口。judge 證明了這個數字在設計照常運作時恆為 OK。
   - 設計的最壞情況是 (15 s − φ) ＋ 最多一個 watchdog 間隔 5 s ＋ 上述那些，**在 φ→0 時嚴格 20 s 沒有任何餘裕**；所以是「約」20 s，這正是自家 LLDP 的同一性質。
   - **一次 run 只取樣到一個 ψ**：watchdog 的相位每個 pass 只漂一個 pass 的耗時，所以最壞的 ψ 不保證被取樣到。
+- H4（09-27 起）：external 的 p4runtime 上 `ndt up` 也啟動心跳，**只偵測、不改路由**。驗：`ndt up` 說 detect only、
+  helper 在跑、switch_state 心跳 usable、capabilities `reroute: false`／`link_discovery: heartbeat`、`reroute.reason`
+  仍是 `external_control_plane`、四個 `/stats/flowentry/*` 仍是 409；剪 s1-s2 一條線，**proxy 自己**（switch_state
+  的 `links`）兩個方向都判 down、來源 heartbeat，約 20 s 內（超過揭露、不判 FAIL），剪著時 reroute 仍 false；
+  復原後兩向 up、沒有殘留 netem、沒有心跳幀離開 host 埠。**這裡不看 kernel 的 graph**：H4 沒跑 exercise 的控制器，
+  pipeline 沒載入，twin 把這些交換機判 down（03 在 09-18 的讀數）。
 - H5 不自己 claim（06、01 每步自己 claim），跑 06 一次時旁邊有一個讀心跳報告的 sampler，逐臂對
-  `2026-09-24T185505Z_06_thirteen`，並確認心跳只在 17 個外來、非 external、多交換機的臂上跑過；接著跑 01。
+  `2026-09-27T074635Z_06_thirteen`（09-27 前是 `2026-09-24T185505Z`，兩者 rc／verdict 逐臂相同），並確認心跳只在
+  20 個多交換機、有建出來的外來臂上跑過（09-27 前是 17 個：當時不含 3 個 external 臂）；接著跑 01。
 - 任何 `forwarded_to_hosts > 0`（心跳幀離開 host 埠）＝裁決 4，最後一行以 `STOP` 開頭。
+
+[Co-developed with claude code -- Adam]
+
+---
+
+## external 的臂也跑心跳之後（09-27，只偵測）
+
+`ndt up p4 --app` 從 09-27 起在 **external control plane 跑自己的 pipeline** 的 fabric（06 的 p4runtime 兩臂、
+flowcache/solution）上也啟動心跳：proxy 宣告 package 的連線、由心跳判斷哪條斷了、告訴 kernel，**不寫任何交換機**
+（client 沒有 arbitration、每個寫入都拒絕；`install_initial_routes` 仍在 `skipped`），`reroute` 永遠是 false、
+理由 `external_control_plane`。Adam 09-25 的條件：心跳若改變使用者自己的轉發結果，就停下來回報。
+
+**合併前的比對**（orchestrator 跑，這裡只給工具）：
+
+| 步 | 貼這一行 | 看什麼 |
+|---|---|---|
+| 06 一次 | `NDT_OWNER=<你> ONLY=p4runtime,flowcache bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/06_thirteen.sh`（或整輪） | `PASS 06_thirteen` |
+| 對帳 | `python3 doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_evidence.py compare <repo>/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-27T074635Z_06_thirteen <新的 06 run>` | `NO DIFFERENCE in the external arms' own evidence`，rc 0 |
+
+`external_evidence.py` 從每一臂自己的控制器 log（`runs/<round>/driver-controller-*.log`）讀出 exercise **自己的**
+證據逐項比對：p4runtime 的每條安裝規則與**最後一次** tunnel counter 讀數（封包數＋位元組數）；flowcache 收到幾個
+packet-in、加了哪些 cache entry、有沒有任何 packet-in 的 ethertype 是心跳的 0x88B5（有就是心跳幀到了 exercise 的
+控制器）；三臂的 rc／verdict 與 gRPC 錯誤數。讀 counter 的**次數**只列不比（那是臂跑了多久）。兩邊的 venv
+指紋（下一段）一併印出。**已知**：074635Z 的 flowcache/solution 控制器在第 6 個 packet-in 後 gRPC UNKNOWN 死掉
+（iperf 到 h3 沒送達、G1 卻判 PASS——另案），所以那一臂的比對只到它死之前。
+
+**venv 指紋**：從 09-27 起每個 live-p1 raw（`start_step` 的每一步、06）都有 `00_venv.txt`——proxy 的 venv 與
+控制器／driver 的直譯器各一段：路徑、Python 版本、protobuf 版本與 `api_implementation`、grpcio、所有已安裝套件
+（`name==version`，排序）及其 sha256。取不到就揭露（`NOTE … venv fingerprint was not fully recorded`），不判 FAIL。
+074635Z 沒有這個檔（它早於這個改動）；它跑在 protobuf 5 遷移之後（orchestrator 09-27 的紀錄）。
 
 [Co-developed with claude code -- Adam]
