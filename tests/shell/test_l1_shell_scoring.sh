@@ -246,8 +246,9 @@ if [[ "$have_d" == yes ]]; then
     check "D4c ... and with no hosted flag at all it is FAIL-SKIP too" "FAIL-SKIP" \
           "$(l1_lane_verdict 0 5 0 5 ryu)"
     check "D5 the same skip with no excuse is still FAIL-SKIP" "FAIL-SKIP" "$(l1_lane_verdict 0 5 0 5 '' 1)"
+    # rc 1 over a clean count -- a harness that crashed -- so that only the rc can say no here
     check "D6 an excuse never outranks a harness that exited non-zero" "FAIL-RC" \
-          "$(l1_lane_verdict 1 5 1 5 ryu 1)"
+          "$(l1_lane_verdict 1 5 0 5 ryu 1)"
     check "D6b 🔴 a summary that counts failed checks vetoes the excuse, whatever its lines say" "FAIL-SKIP" \
           "$(l1_lane_verdict 0 12 3 1 ryu 1)"
     check "D7 an excuse with nothing skipped changes nothing" "PASS" "$(l1_lane_verdict 0 5 0 0 ryu 1)"

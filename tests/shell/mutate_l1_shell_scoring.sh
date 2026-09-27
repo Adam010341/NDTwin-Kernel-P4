@@ -200,7 +200,7 @@ echo "=== mutations: declared skips (group D) -- the excuse must not grow ==="
 # excuse in the driver, and the group D check that pins that edge must go red by name.
 mutate "the DECLARED-SKIP verdict is gone, so an excused skip is a failure again" "$DRIVER_REL" '
 s = s.replace("    elif [[ \"$skipped\" -gt 0 && -n \"$excuse\" && \"$hosted\" == 1 && \"$failed\" -eq 0 ]]; then echo DECLARED-SKIP\n", "")
-' "D4 a skip with an excuse is DECLARED-SKIP"
+' "D4 a hosted runner's skip with an excuse is DECLARED-SKIP"
 mutate "an excuse outranks a harness that exited non-zero" "$DRIVER_REL" '
 s = s.replace("    elif [[ \"$skipped\" -gt 0 && -n \"$excuse\" && \"$hosted\" == 1 && \"$failed\" -eq 0 ]]; then echo DECLARED-SKIP\n", "")
 s = s.replace("    if   [[ \"$rc\"      -ne 0 ]]; then echo FAIL-RC\n",
@@ -208,7 +208,7 @@ s = s.replace("    if   [[ \"$rc\"      -ne 0 ]]; then echo FAIL-RC\n",
 ' "D6 an excuse never outranks a harness that exited non-zero"
 mutate "a need the machine HAS still excuses (the lab would go quiet)" "$DRIVER_REL" '
 s = s.replace("            0)        missing+=(\"$need\") ;;", "            0|1)      missing+=(\"$need\") ;;")
-' "D8 🔴 a machine that HAS the need excuses nothing (the lab stays strict)"
+' "D8 🔴 a machine that HAS the need excuses nothing"
 mutate "a need with no probe is read as missing" "$DRIVER_REL" '
 s = s.replace("            unprobed) return 0 ;;", "            unprobed) missing+=(\"$need\") ;;")
 ' "D12 🔴 a need the lane has no probe for excuses nothing, even beside a missing one"

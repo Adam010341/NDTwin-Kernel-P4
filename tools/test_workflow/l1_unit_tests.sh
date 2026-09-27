@@ -569,7 +569,8 @@ done
 if ! "$PY_KERNEL" -c "import networkx, ryu" >/dev/null 2>&1; then
     # Say which one, because "N skip(s)" below names the symptom and not the cause.
     echo "  ${Y}note${N} ${D}no interpreter with networkx+ryu found; suites needing them will" \
-         "skip -- excused only where they declare it (NDTWIN_L1_NEEDS: ryu). Set RYU_PY to override.${N}"
+         "skip -- excused only on a hosted CI runner, and only where they declare it" \
+         "(NDTWIN_L1_NEEDS: ryu). Set RYU_PY to override.${N}"
 fi
 # [Co-developed with claude code -- Adam] The needs a file here may declare (NDTWIN_L1_NEEDS), each
 # probed on THIS machine. A need not assigned below has no probe and excuses nothing.
