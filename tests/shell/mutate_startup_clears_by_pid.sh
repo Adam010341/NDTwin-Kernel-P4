@@ -43,6 +43,9 @@
 #   MS9       main() stops calling it, so the policy exists and nothing executes it.
 #   MS10      the owner is looked up for the first held port only.
 #   MS11      the abort stops naming WHO holds the port, leaving a number the operator cannot act on.
+#   MS12-MS17 (2026-09-28) the reap's own inputs: a plain open of a file anyone can create, a
+#             substring match, the entry's port and device id not compared, a non-int pid, and
+#             a refusal nobody is told about.
 #   C1        a comment is reworded and nothing may change.
 #
 # A mutation that makes the WRONG test go red is a SURVIVOR: the case it targets was never put to
@@ -224,6 +227,42 @@ report "MS10: only the first held port has its owner looked up" "$ms10" \
 ms11=$(mutant ms11 '            report("  :%d is held by  %s" % (port, line))'$'\x1f''            report("  :%d is held" % port)')
 report "MS11: the abort stops saying WHO holds the port" "$ms11" \
        "test_the_owner_of_each_held_port_is_printed_verbatim"
+
+# --- the reap's own inputs: the file, the pid, the process (2026-09-28) ---------------------------
+#
+# [Co-developed with claude code -- Adam]
+# The reap runs as root on /tmp/ndtwin_p4_switches.json, a name anyone can create while no fabric
+# is up. It used to read it with a plain open and signal every pid whose cmdline merely CONTAINED
+# "simple_switch_grpc". These put back each half of that. Killed by
+# AnUntrustedSwitchManifestSignalsNothingTest, whose kills only record.
+#
+# NOT here, as equivalent: dropping TypeError from the kill's except. The pid check runs first,
+# so no non-int ever reaches kill; the catch is kept only so the promise "never raises" does not
+# rest on one line.
+
+ms12=$(mutant ms12 '    manifest, problem = link_telemetry.load_manifest(path)'$'\x1f''    manifest, problem = (json.load(open(path)) if os.path.lexists(path) else None), None')
+report "MS12: the switch manifest is read with a plain open again" "$ms12" \
+       "test_a_group_writable_switch_manifest_signals_nothing_and_says_why"
+
+ms13=$(mutant ms13 '    if not argv or os.path.basename(argv[0]) != BMV2_EXECUTABLE_NAME:'$'\x1f''    if not any(BMV2_EXECUTABLE_NAME in word for word in argv):')
+report "MS13: a process that merely mentions simple_switch_grpc is a switch" "$ms13" \
+       "test_a_process_that_only_mentions_the_binary_is_never_signalled"
+
+ms14=$(mutant ms14 '    if not _is_a_signallable_pid(port) or addr is None or addr.rpartition(":")[2] != str(port):'$'\x1f''    if False:')
+report "MS14: any bmv2 is this entry's switch, whatever port it serves" "$ms14" \
+       "test_another_switchs_process_is_never_signalled"
+
+ms15=$(mutant ms15 '    if device_id is not None and _word_after(argv, "--device-id") != str(device_id):'$'\x1f''    if False:')
+report "MS15: the entry's device id is not compared" "$ms15" \
+       "test_the_same_port_on_another_device_id_is_never_signalled"
+
+ms16=$(mutant ms16 '        if _is_a_signallable_pid(pid) and is_switch(pid, entry=entry):'$'\x1f''        if pid and is_switch(pid, entry=entry):')
+report "MS16: a pid of true, a string or a negative number reaches kill" "$ms16" \
+       "test_a_pid_that_is_not_an_int_above_one_is_never_signalled"
+
+ms17=$(mutant ms17 '        if problem and report:'$'\x1f''        if False:')
+report "MS17: an untrusted switch manifest is refused in silence" "$ms17" \
+       "test_a_group_writable_switch_manifest_signals_nothing_and_says_why"
 
 # --- the control ---------------------------------------------------------------------------------
 

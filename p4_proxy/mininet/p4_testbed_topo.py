@@ -534,7 +534,25 @@ def write_manifest(switches, path=MANIFEST_PATH):
         print(f"WARNING: could not write the switch manifest to {path}: {e}")
 
 
-def process_is_a_switch(pid, proc_root="/proc"):
+#: The executable every switch of this fabric runs, by file name. `argv[0]` is compared with
+#: this exactly; a process whose command line merely MENTIONS it is not a switch.
+BMV2_EXECUTABLE_NAME = "simple_switch_grpc"
+
+
+def _is_a_signallable_pid(pid):
+    """An int, not a bool, above 1: never init, never a process group, never a string."""
+    return isinstance(pid, int) and not isinstance(pid, bool) and pid > 1
+
+
+def _word_after(argv, flag):
+    """The word following `flag` in `argv`, or None."""
+    try:
+        return argv[argv.index(flag) + 1]
+    except (ValueError, IndexError):
+        return None
+
+
+def process_is_a_switch(pid, proc_root="/proc", entry=None):
     """
     Whether `pid` is currently a bmv2 process rather than whatever inherited that number.
 
@@ -543,17 +561,44 @@ def process_is_a_switch(pid, proc_root="/proc"):
     recycles pids, so killing a manifest pid unchecked would eventually kill something
     unrelated -- as root, since teardown runs under sudo. Reading the cmdline costs one open
     and turns "this number was a switch once" into "this number is a switch now".
+
+    🔴 AND IT IS THE SWITCH, NOT A MENTION OF ONE. This used to answer
+    `b"simple_switch_grpc" in <the whole cmdline>` -- so a `tail` of a switch log, an editor, a
+    grep, anybody's process whose argv merely contained the string, holding a recycled pid (or
+    named by a manifest someone else wrote), was SIGTERMed and SIGKILLed as root. Now:
+
+      * the pid is an int above 1 and not a bool;
+      * `argv[0]`'s file name IS `simple_switch_grpc` -- exactly, as tools/p4_power_helper.py
+        checks it before it signals the same processes;
+      * and given the manifest `entry`, the process is THAT switch: its `--grpc-server-addr`
+        ends in the entry's `grpc_port`, and its `--device-id` is the entry's `device_id`. An
+        entry without a gRPC port cannot be tied to one process, and is never a match.
     """
+    if not _is_a_signallable_pid(pid):
+        return False
     try:
         with open(os.path.join(proc_root, str(pid), "cmdline"), "rb") as fh:
-            return b"simple_switch_grpc" in fh.read()
+            raw = fh.read()
     except OSError:
         # Gone, or not ours to look at. Either way there is nothing here to reap.
         return False
+    argv = [os.fsdecode(word) for word in raw.split(b"\0")[:-1]] if raw else []
+    if not argv or os.path.basename(argv[0]) != BMV2_EXECUTABLE_NAME:
+        return False
+    if entry is None:
+        return True
+    port = entry.get("grpc_port") if isinstance(entry, dict) else None
+    addr = _word_after(argv, "--grpc-server-addr")
+    if not _is_a_signallable_pid(port) or addr is None or addr.rpartition(":")[2] != str(port):
+        return False
+    device_id = entry.get("device_id")
+    if device_id is not None and _word_after(argv, "--device-id") != str(device_id):
+        return False
+    return True
 
 
 def reap_manifest_switches(path=MANIFEST_PATH, is_switch=process_is_a_switch,
-                           kill=os.kill, settle_s=0.5):
+                           kill=os.kill, settle_s=0.5, report=print):
     """
     Stop every switch still listed in the manifest. Returns the names actually reaped.
 
@@ -582,27 +627,37 @@ def reap_manifest_switches(path=MANIFEST_PATH, is_switch=process_is_a_switch,
     instead -- which is why leaving the manifest in place on the paths below is load-bearing.
 
     Never raises. Teardown must go on to remove the manifest whatever happens here.
+
+    [Co-developed with claude code -- Adam]
+    🔴 THE MANIFEST IS READ THROUGH THE SAME TRUST CHECK AS THE LINK-TELEMETRY ONE
+    (`link_telemetry.load_manifest`): /tmp is sticky and this name is free whenever no fabric is
+    up, so anyone can create it -- and this runs as root, at teardown and at every bring-up's
+    reset. Opened with O_NOFOLLOW, the owner and mode taken from the descriptor: a regular file
+    with one link, owned by root or by this process's user, writable by nobody else, or it is
+    not acted on at all (and the refusal is reported). The pid must be an int above 1 before
+    anything is asked about it: `"pid": "123"` used to reach `kill` and raise TypeError out of
+    a function that promises never to raise. And a pid is signalled only when
+    `process_is_a_switch` says it is THIS entry's switch.
     """
-    try:
-        with open(path) as fh:
-            manifest = json.load(fh)
-    except (OSError, ValueError):
-        # No manifest, or one we cannot parse. Nothing addressable either way.
+    manifest, problem = link_telemetry.load_manifest(path)
+    if manifest is None:
+        # No manifest, one we cannot parse, or one we must not trust. Nothing addressable.
+        if problem and report:
+            report(f"switch manifest: {problem} -- no switch was signalled")
         return []
 
     doomed = []
     for name, entry in sorted(manifest.items()):
-        try:
-            pid = entry.get("pid")
-        except AttributeError:
+        if not isinstance(entry, dict):
             continue
-        if pid and is_switch(pid):
-            doomed.append((name, pid))
+        pid = entry.get("pid")
+        if _is_a_signallable_pid(pid) and is_switch(pid, entry=entry):
+            doomed.append((name, pid, entry))
 
-    for name, pid in doomed:
+    for name, pid, _entry in doomed:
         try:
             kill(pid, signal.SIGTERM)
-        except OSError:
+        except (OSError, TypeError):
             pass
 
     # One settle window for all of them rather than per switch: they shut down in parallel,
@@ -610,14 +665,14 @@ def reap_manifest_switches(path=MANIFEST_PATH, is_switch=process_is_a_switch,
     if doomed:
         time.sleep(settle_s)
 
-    for name, pid in doomed:
-        if is_switch(pid):
+    for name, pid, entry in doomed:
+        if is_switch(pid, entry=entry):
             try:
                 kill(pid, signal.SIGKILL)
-            except OSError:
+            except (OSError, TypeError):
                 pass
 
-    return [name for name, _ in doomed]
+    return [name for name, _pid, _entry in doomed]
 
 
 def grpc_port_is_open(port, host="127.0.0.1", timeout=0.3):

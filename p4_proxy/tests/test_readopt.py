@@ -1342,9 +1342,12 @@ class ReapManifestSwitchesTest(unittest.TestCase):
         self.path = os.path.join(self.dir, "switches.json")
         self.signals = []
 
-    def write(self, manifest):
+    def write(self, manifest, mode=0o644):
         with open(self.path, "w") as fh:
             json.dump(manifest, fh)
+        # 0644, as write_manifest leaves it: the reap reads through a trust check that refuses
+        # a group-writable file, and this user's umask is 0002. [Co-developed with claude code -- Adam]
+        os.chmod(self.path, mode)
 
     def recording_kill(self, pid, sig):
         self.signals.append((pid, sig))
@@ -1389,10 +1392,12 @@ class ReapManifestSwitchesTest(unittest.TestCase):
                          "escalating to SIGKILL after a clean exit could hit a recycled pid")
 
     def test_every_listed_switch_is_reaped_not_just_the_first(self):
-        self.write({"s1": {"pid": 1}, "s2": {"pid": 2}, "s3": {"pid": 3}})
+        # 11, 12, 13 rather than 1, 2, 3: pid 1 is init, and the reap refuses it before it asks
+        # anything else about it.
+        self.write({"s1": {"pid": 11}, "s2": {"pid": 12}, "s3": {"pid": 13}})
         reaped = self.reap(is_switch=lambda pid, **kw: True)
         self.assertEqual(reaped, ["s1", "s2", "s3"])
-        self.assertEqual([p for p, s in self.signals if s == signal.SIGTERM], [1, 2, 3])
+        self.assertEqual([p for p, s in self.signals if s == signal.SIGTERM], [11, 12, 13])
 
     def test_a_missing_manifest_is_not_an_error(self):
         # Teardown calls this unconditionally; the manifest is absent whenever write_manifest
@@ -1421,6 +1426,146 @@ class ReapManifestSwitchesTest(unittest.TestCase):
         self.assertEqual(reaped, ["s1"],
                          "a switch we could not signal is still reported, so the operator "
                          "learns it is still out there")
+
+
+class AnUntrustedSwitchManifestSignalsNothingTest(unittest.TestCase):
+    """The reap runs as root, at teardown and at every bring-up's reset, on a name in /tmp.
+
+    [Co-developed with claude code -- Adam]
+    /tmp/ndtwin_p4_switches.json can be created by anyone while no fabric is up. The reap used
+    to read it with a plain open, and signal every pid whose cmdline merely CONTAINED
+    "simple_switch_grpc" -- a tail of a switch log, an editor, a grep, another user's fabric. It
+    now reads through link_telemetry.load_manifest (regular file, one link, owned by root or
+    this user, writable by nobody else, no symlink), refuses a pid that is not an int above 1,
+    and signals only the process that is THIS entry's switch. Every kill here only records.
+    """
+
+    BMV2 = ("/usr/local/bmv2-fast/bin/simple_switch_grpc", "-i", "1@s1-eth1", "--thrift-port",
+            "9090", "--device-id", "1", "/tmp/s1.json", "--", "--grpc-server-addr",
+            "0.0.0.0:50051", "--cpu-port", "255")
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mod = load_testbed_module()
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp(prefix="ndtwin_reap_trust.")
+        self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
+        self.path = os.path.join(self.dir, "ndtwin_p4_switches.json")
+        self.root = os.path.join(self.dir, "proc")
+        self.signals, self.said = [], []
+
+    def write(self, manifest, path=None, mode=0o644):
+        path = path or self.path
+        with open(path, "w") as fh:
+            json.dump(manifest, fh)
+        os.chmod(path, mode)
+        return path
+
+    def process(self, pid, argv):
+        d = os.path.join(self.root, str(pid))
+        os.makedirs(d, exist_ok=True)
+        with open(os.path.join(d, "cmdline"), "wb") as fh:
+            fh.write(b"".join(os.fsencode(w) + b"\0" for w in argv))
+
+    def typed_kill(self, pid, sig):
+        # os.kill's own refusal of a non-int, so a pid that reaches it raises as it would live.
+        if not isinstance(pid, int):
+            raise TypeError("an integer is required (got type %s)" % type(pid).__name__)
+        self.signals.append((pid, sig))
+
+    def reap(self, is_switch=None):
+        import functools
+        import inspect
+        is_switch = is_switch or functools.partial(self.mod.process_is_a_switch,
+                                                   proc_root=self.root)
+        # The refusal is captured where the reap can report one; a version with no `report`
+        # (before the trust check) is still driven, so its answer can be seen to be wrong.
+        extra = ({"report": self.said.append}
+                 if "report" in inspect.signature(self.mod.reap_manifest_switches).parameters
+                 else {})
+        try:
+            return self.mod.reap_manifest_switches(path=self.path, is_switch=is_switch,
+                                                   kill=self.typed_kill, settle_s=0, **extra)
+        except TypeError as exc:
+            self.fail(f"reap_manifest_switches raised {exc!r}; it promises never to raise")
+
+    def entry(self, pid, port=50051, device=1):
+        return {"pid": pid, "grpc_port": port, "device_id": device}
+
+    # --- the file ---------------------------------------------------------------------------
+
+    def test_a_group_writable_switch_manifest_signals_nothing_and_says_why(self):
+        self.process(4321, self.BMV2)
+        self.write({"s1": self.entry(4321)}, mode=0o664)
+        self.assertEqual(self.reap(is_switch=lambda pid, **kw: True), [])
+        self.assertEqual(self.signals, [], "root signalled a pid named by a group-writable file")
+        self.assertTrue(any("writable by its group or by others" in line for line in self.said),
+                        f"the refusal was not said, or not why: {self.said}")
+
+    def test_a_symlinked_switch_manifest_signals_nothing(self):
+        target = self.write({"s1": self.entry(4321)}, path=os.path.join(self.dir, "real.json"))
+        os.symlink(target, self.path)
+        self.assertEqual(self.reap(is_switch=lambda pid, **kw: True), [])
+        self.assertEqual(self.signals, [])
+
+    def test_a_switch_manifest_owned_by_another_uid_signals_nothing(self):
+        # No root to chown with: the descriptor's owner is changed through the one seam.
+        self.write({"s1": self.entry(4321)})
+        other = os.geteuid() + 1
+
+        def fstat(fd):
+            st = os.fstat(fd)
+            return os.stat_result((st.st_mode, st.st_ino, st.st_dev, st.st_nlink, other,
+                                   st.st_gid, st.st_size, st.st_atime, st.st_mtime, st.st_ctime))
+        with mock.patch.object(self.mod.link_telemetry, "_fstat", fstat, create=True):
+            self.assertEqual(self.reap(is_switch=lambda pid, **kw: True), [])
+        self.assertEqual(self.signals, [])
+
+    def test_a_switch_manifest_with_two_names_signals_nothing(self):
+        self.write({"s1": self.entry(4321)})
+        os.link(self.path, os.path.join(self.dir, "second-name.json"))
+        self.assertEqual(self.reap(is_switch=lambda pid, **kw: True), [])
+        self.assertEqual(self.signals, [])
+
+    # --- the pid ----------------------------------------------------------------------------
+
+    def test_a_pid_that_is_not_an_int_above_one_is_never_signalled(self):
+        # "123" used to reach kill and raise TypeError out of a function that never raises;
+        # true is int(True) == 1, init. The predicate says yes to all of them on purpose.
+        self.write({"a": {"pid": "123"}, "b": {"pid": True}, "c": {"pid": 1},
+                    "d": {"pid": 0}, "e": {"pid": -5}})
+        self.assertEqual(self.reap(is_switch=lambda pid, **kw: True), [])
+        self.assertEqual(self.signals, [])
+
+    # --- the process --------------------------------------------------------------------------
+
+    def test_a_process_that_only_mentions_the_binary_is_never_signalled(self):
+        self.process(4321, ["/usr/bin/tail", "-f", "/tmp/simple_switch_grpc.log"])
+        self.write({"s1": self.entry(4321)})
+        self.assertEqual(self.reap(), [])
+        self.assertEqual(self.signals, [], "a tail of a switch log was taken for the switch")
+
+    def test_another_switchs_process_is_never_signalled(self):
+        # A real bmv2 -- but on port 50051, and this entry is the switch on 50052.
+        self.process(4321, self.BMV2)
+        self.write({"s2": self.entry(4321, port=50052)})
+        self.assertEqual(self.reap(), [])
+        self.assertEqual(self.signals, [])
+
+    def test_the_same_port_on_another_device_id_is_never_signalled(self):
+        self.process(4321, self.BMV2)
+        self.write({"s1": self.entry(4321, device=2)})
+        self.assertEqual(self.reap(), [])
+        self.assertEqual(self.signals, [])
+
+    def test_this_entrys_own_switch_is_still_signalled(self):
+        # The positive half: the process IS the switch this entry names, and the fake /proc
+        # keeps it there, so the SIGTERM is followed by the SIGKILL.
+        self.process(4321, self.BMV2)
+        self.write({"s1": self.entry(4321)})
+        self.assertEqual(self.reap(), ["s1"])
+        self.assertEqual(self.signals, [(4321, signal.SIGTERM), (4321, signal.SIGKILL)])
 
 
 class ProcessIsASwitchTest(unittest.TestCase):
@@ -1452,6 +1597,24 @@ class ProcessIsASwitchTest(unittest.TestCase):
 
     def test_a_vanished_pid_is_not_a_switch(self):
         self.assertFalse(self.mod.process_is_a_switch(9999, proc_root=self.root))
+
+    def test_the_binary_is_argv0_not_a_word_anywhere(self):
+        # [Co-developed with claude code -- Adam]
+        self.make(12, b"/usr/bin/vim\x00simple_switch_grpc\x00")
+        self.make(13, b"/opt/x/simple_switch_grpc_wrapper\x00--device-id\x001\x00")
+        self.assertFalse(self.mod.process_is_a_switch(12, proc_root=self.root))
+        self.assertFalse(self.mod.process_is_a_switch(13, proc_root=self.root))
+
+    def test_an_entry_with_no_grpc_port_matches_nothing(self):
+        # Without its port the entry cannot be tied to ONE process, so it ties to none.
+        self.make(14, b"/usr/local/bmv2-fast/bin/simple_switch_grpc\x00--device-id\x001\x00"
+                      b"--\x00--grpc-server-addr\x000.0.0.0:50051\x00")
+        self.assertTrue(self.mod.process_is_a_switch(
+            14, proc_root=self.root, entry={"grpc_port": 50051, "device_id": 1}))
+        self.assertFalse(self.mod.process_is_a_switch(
+            14, proc_root=self.root, entry={"device_id": 1}))
+        self.assertFalse(self.mod.process_is_a_switch(
+            14, proc_root=self.root, entry={"grpc_port": "50051", "device_id": 1}))
 
 
 # --- the startup reset ----------------------------------------------------------------------
