@@ -1163,13 +1163,16 @@ class Entry(unittest.TestCase):
         self.assertIn("usage: ndt serve", r.stdout)
         self.assertIn("127.0.0.1", r.stdout)
 
-    def test_root_is_reserved_for_the_gui(self):
+    def test_outside_the_api_there_is_only_the_page(self):
+        # [Co-developed with claude code -- Adam] the GUI cut (09-27) took /, /app.js and /app.css;
+        # those three are tests/python/test_ndt_serve_gui.py's. Nothing else is a path to a file.
         s = Serve().start()
         try:
-            for p in ("/", "/index.html", "/app.js", "/apiv1/health"):
+            for p in ("/index.html", "/static/app.js", "/app.js/", "/favicon.ico", "/apiv1/health",
+                      "/../tools/ndt_serve/serve.py", "/static/../serve.py", "/serve.py"):
                 st, j, _, _ = s.request("GET", p)
                 self.assertEqual(st, 404, p)
-                self.assertIn("reserved for the Web-GUI", j["note"])
+                self.assertIn("there is only the page", j["note"])
         finally:
             s.close()
 

@@ -1,0 +1,124 @@
+<!doctype html>
+<!-- ndt serve: the page (GUI cut, Adam's Q2/Q3 rulings 09-27). [Co-developed with claude code -- Adam]
+     No inline script or style: the server's CSP allows only /app.js and /app.css. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ndt serve</title>
+<link rel="stylesheet" href="/app.css">
+<script src="/app.js" defer></script>
+</head>
+<body>
+<header>
+  <h1>ndt serve</h1>
+  <span id="who"></span>
+  <span id="session" class="muted">opening the session...</span>
+  <button id="refresh" type="button" disabled>Refresh</button>
+  <span class="muted">manual refresh only: every refresh runs one plain <code>ndt status</code></span>
+</header>
+
+<main>
+<section id="lab">
+  <h2>A. Lab</h2>
+  <p id="drift" class="warn" hidden></p>
+  <table class="rows">
+    <tr><th>claim</th><td><code id="lab-claim"></code> <span id="lab-yours"></span></td></tr>
+    <tr><th>measuring</th><td><code id="lab-measuring"></code></td></tr>
+    <tr id="lab-declared-row" hidden><th>declared</th><td><code id="lab-declared"></code></td></tr>
+    <tr><th>slot</th><td id="lab-busy"></td></tr>
+    <tr><th>read</th><td><span id="lab-read" class="muted"></span></td></tr>
+  </table>
+  <details><summary>ndt status, whole</summary><pre id="lab-out"></pre></details>
+</section>
+
+<section id="actions">
+  <h2>B. Lab actions</h2>
+  <div class="form">
+    <label>minutes <input id="claim-min" type="number" min="1" step="1"></label>
+    <label>note <input id="claim-note" type="text" size="40"></label>
+    <button id="do-claim" type="button">Claim</button>
+    <button id="do-release" type="button">Release</button>
+  </div>
+  <div class="form">
+    <label>plane <select id="up-plane"></select></label>
+    <label>hosts <select id="up-hosts"></select></label>
+    <button id="do-up" type="button">Up</button>
+    <button id="do-down" type="button">Down</button>
+  </div>
+  <p id="actions-answer" class="answer"></p>
+</section>
+
+<section id="apps">
+  <h2>C. Apps</h2>
+  <button id="apps-load" type="button">Read ndt apps status</button>
+  <table id="apps-table" class="list"></table>
+  <pre id="apps-out" hidden></pre>
+  <p id="apps-answer" class="answer"></p>
+</section>
+
+<section id="jobs">
+  <h2>D. Jobs</h2>
+  <button id="jobs-load" type="button">Reload the list</button>
+  <table id="jobs-table" class="list"></table>
+  <div id="job" hidden>
+    <h3>job <code id="job-id"></code></h3>
+    <table class="rows" id="job-rows"></table>
+    <h4>stdout</h4><pre id="job-stdout"></pre>
+    <h4>stderr</h4><pre id="job-stderr"></pre>
+  </div>
+</section>
+
+<section id="cells">
+  <h2>E. Cells and walks</h2>
+  <button id="cells-load" type="button">Read the grid (run_cells.sh --list)</button>
+  <button id="walks-load" type="button">Reload the walks</button>
+  <table id="cells-table" class="list"></table>
+  <p id="cells-answer" class="answer"></p>
+  <div id="fixture" hidden>
+    <h3 id="fixture-title"></h3>
+    <p><code id="fixture-verdict"></code></p>
+    <table id="fixture-asserts" class="list"></table>
+    <table class="rows" id="fixture-rows"></table>
+    <pre id="fixture-raw" hidden></pre>
+  </div>
+  <table id="walks-table" class="list"></table>
+  <div id="walk" hidden>
+    <h3>walk <code id="walk-id"></code> <span id="walk-cell"></span></h3>
+    <p id="walk-blocked" class="warn" hidden></p>
+    <ol id="walk-steps"></ol>
+    <div class="form">
+      <button id="walk-next" type="button">Next step</button>
+      <button id="walk-abort" type="button">Abort</button>
+    </div>
+    <div class="form" id="walk-verdict" hidden>
+      <label>note <input id="walk-note" type="text" size="50"></label>
+      <button id="walk-green" type="button">Verdict: green</button>
+      <button id="walk-red" type="button">Verdict: red</button>
+    </div>
+    <p id="walk-answer" class="answer"></p>
+  </div>
+</section>
+</main>
+
+<dialog id="confirm">
+  <h3 id="c-title"></h3>
+  <p id="c-state" class="muted"></p>
+  <table class="rows">
+    <tr><th>ndt runs</th><td id="c-argv"></td></tr>
+    <tr><th>claim</th><td><code id="c-claim"></code></td></tr>
+    <tr><th>measuring</th><td><code id="c-measuring"></code></td></tr>
+    <tr id="c-declared-row" hidden><th>declared</th><td><code id="c-declared"></code></td></tr>
+    <tr><th>slot</th><td id="c-busy"></td></tr>
+  </table>
+  <p id="c-note" class="muted"></p>
+  <ul id="c-blockers" class="warn"></ul>
+  <p id="c-shared-row" hidden><label><input id="c-shared" type="checkbox"> <span id="c-shared-text"></span></label></p>
+  <p id="c-typed-row" hidden><label>type <code id="c-word"></code> to confirm <input id="c-typed" type="text" autocomplete="off" spellcheck="false"></label></p>
+  <div class="form">
+    <button id="c-cancel" type="button">Cancel</button>
+    <button id="c-go" type="button" disabled>Confirm</button>
+  </div>
+</dialog>
+</body>
+</html>

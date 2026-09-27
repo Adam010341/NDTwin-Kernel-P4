@@ -383,7 +383,7 @@ m=$(mutant m39 "$SERVE_PY" \
     '            if path != API and not path.startswith(API + "/"):' \
     '            if False:')
 report "M39: paths outside /api/ are not reserved" "$m" \
-       Entry.test_root_is_reserved_for_the_gui
+       Entry.test_outside_the_api_there_is_only_the_page
 
 m=$(mutant m40 "$SERVE_PY" \
     '    locks = [hold_lock(os.path.join(cfg.state_dir, "serve.lock")), hold_lock(cfg.token_file + ".lock")]' \
