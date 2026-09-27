@@ -46,6 +46,23 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = case that must fail
     fi
 }
 
+# report_all -- as report, but EVERY named case must go red (a mutation that should show in several
+# places, each of which would otherwise never have been seen red).
+report_all() {   # $1 = mutation name, $2 = mutant dir, $3... = cases that must all fail
+    local name="$1" dir="$2" out rc c missing=""
+    shift 2
+    MUTATIONS=$((MUTATIONS+1))
+    out=$(run_against "$dir"); rc=$?
+    for c in "$@"; do grep -qF "FAILED   $c" <<<"$out" || missing="${missing:+$missing; }$c"; done
+    if [[ "$rc" -ne 0 && -z "$missing" ]]; then
+        printf '  caught   %-58s (%d named cases went red)\n' "$name" "$#"
+        printf '             red: %s\n' "$@"
+    else
+        SURVIVORS=$((SURVIVORS+1))
+        printf '  SURVIVED %-58s (stayed green: %s)\n' "$name" "${missing:-none named -- rc 0}"
+    fi
+}
+
 # A mutant is a whole directory: ndt sources sudo_surface.sh from beside itself, so both files
 # travel together and a mutation to either is exercised through the real seam. The anchor must
 # be unique, so a mutation cannot quietly land somewhere other than where it is described.
@@ -69,6 +86,34 @@ assert s.count(a) == 1, "anchor not unique (%d hits): %s" % (s.count(a), a[:70])
 open(p, "w").write(s.replace(a, b))
 PY
     echo "$d"
+}
+
+# tmutant -- a mutated copy of the SUITE ITSELF, for the checks that hold the suite's own fakes
+# (the parameters are named for check_gate_anchors.py, as in mutant() above). It runs against the
+# unmutated sudo_surface.sh and ndt.
+tmutant() {   # $1 = label, $2 = file to mutate (the suite), $3 = the anchor, $4 = its replacement
+    local label="$1" file="$2" old="$3" new="$4"
+    local d="$BK/t-$label"; mkdir -p "$d"
+    cp "$file" "$d/$(basename "$file")"
+    python3 - "$d/$(basename "$file")" "$old" "$new" <<'PY'
+import sys
+p, a, b = sys.argv[1], sys.argv[2], sys.argv[3]
+s = open(p).read()
+assert s.count(a) == 1, "anchor not unique (%d hits): %s" % (s.count(a), a[:70])
+open(p, "w").write(s.replace(a, b))
+PY
+    echo "$d/$(basename "$file")"
+}
+report_test() {   # $1 = mutation name, $2 = the suite's mutated copy, $3 = case that must fail
+    local out rc
+    MUTATIONS=$((MUTATIONS+1))
+    out=$(SURFACE_UNDER_TEST="$base/sudo_surface.sh" NDT_UNDER_TEST="$base/ndt" timeout 300 bash "$2" 2>&1); rc=$?
+    if [[ "$rc" -ne 0 ]] && grep -qF "FAILED   $3" <<<"$out"; then
+        printf '  caught   %-58s (%s went red)\n' "$1" "$3"
+    else
+        SURVIVORS=$((SURVIVORS+1))
+        printf '  SURVIVED %-58s (%s stayed green -- that case proves nothing)\n' "$1" "$3"
+    fi
 }
 
 echo "baseline (must be green before any mutation):"
@@ -189,8 +234,46 @@ m=$(mutant s7 "$SURFACE" \
 report "S7: the report says 'no sudo, or not installed' when sudo said something else" "$m" \
        "report: an unknown sudo: line is rc 2, 'could NOT be tested', and quotes what sudo said"
 
+# The checks none of the mutations above reach: each has to be seen red once, by name.
+m=$(mutant s8 "$SURFACE" \
+    '    local key="$1" probe bin
+    NDT_SUDO_UNREAD=""' \
+    '    local key="$1" probe bin')
+report "S8: the probe keeps the last row's unread line past its early returns" "$m" \
+       "report, two rows: an unknown sudo: line, then a program that is not installed -- each row its own reason"
+m=$(mutant s9 "$SURFACE" \
+    '    ndt_sudo_refused && return 1
+    ndt_sudo_unread && return 2' \
+    '    ndt_sudo_unread && return 2
+    ndt_sudo_refused && return 1')
+report_all "S9: an unread sudo: line is asked for before a known refusal" "$m" \
+       "probe: a refusal ndt_sudo_refused knows ('a password is required') is 1, refused" \
+       "probe: a warning AND a known refusal is 1, refused" \
+       "control, report: a known refusal is still rc 1, REFUSED"
+m=$(mutant s10 "$SURFACE" \
+    '    ndt_sudo_capture $probe >/dev/null && return 0' \
+    '    ndt_sudo_capture $probe >/dev/null && return 2')
+report "S10 (control): a probe that succeeds is 'could not tell'" "$m" \
+       "control, probe: the grant is live and the probe succeeds -- 0"
+m=$(mutant s11 "$SURFACE" \
+    '    local line w warn' \
+    '    local line w warn
+    [[ -z "$NDT_SUDO_STDERR" ]] && { NDT_SUDO_UNREAD=""; return 0; }')
+report "S11: a refusal that prints nothing is 'could not tell' too" "$m" \
+       "control, probe: a refusal that prints nothing is read as granted -- the rule's known limit"
+m=$(mutant s12 "$SURFACE" \
+    'NDT_SUDO_WARNINGS=("unable to resolve host" "setrlimit(RLIMIT_CORE)")' \
+    'NDT_SUDO_WARNINGS=("unable to" "setrlimit(RLIMIT_CORE)")')
+report "S12: a warning entry widened into a pattern ('unable to')" "$m" \
+       "probe: a fatal 'sudo: unable to execute ...' is 2 -- a warning entry is matched whole, from 'sudo: '"
+t=$(tmutant t1 "$TEST" \
+    '[[ -n "${FAKE_SUDO_WARN:-}" ]] && printf '"'"'%s\n'"'"' "$FAKE_SUDO_WARN" >&2' \
+    ': the fake no longer prints its warning')
+report_test "T1: the suite's fake sudo stops printing the warning it is given" "$t" \
+       "injection took effect: the fake prints the warning, then the refusal it is given"
+
 # --- 🔴 the other direction: refuse-everything, in four shapes -------------------------------------
-# Every one of these passes all ten mutations above. They are caught only by the controls, and
+# Each of these would satisfy every check that M1-M10 above are killed on. They are caught only by the controls, and
 # without them this gate would sign off on an `ndt` that can never bring a fabric up at all.
 
 m=$(mutant n1 "$NDT" \

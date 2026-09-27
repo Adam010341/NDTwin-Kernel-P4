@@ -289,6 +289,11 @@ check "probe: a warning AND an unknown sudo: refusal together is 2 -- the list h
       "$(probe_rc FAKE_SUDO_WARN="$W_HOST" FAKE_SUDO_DENY=ovs-vsctl FAKE_SUDO_SAY='sudo: refused by the nolab shim (a lab command)')"
 check "probe: a warning AND a known refusal is 1, refused" \
       "rc=1 unread=[]" "$(probe_rc FAKE_SUDO_WARN="$W_CORE" FAKE_SUDO_DENY=ovs-vsctl)"
+# a warning entry matches from "sudo: " on, as a whole: a fatal line that shares its first words
+# is not a warning
+check "probe: a fatal 'sudo: unable to execute ...' is 2 -- a warning entry is matched whole, from 'sudo: '" \
+      "rc=2 unread=[sudo: unable to execute /usr/bin/ovs-vsctl: Permission denied]" \
+      "$(probe_rc FAKE_SUDO_DENY=ovs-vsctl FAKE_SUDO_SAY='sudo: unable to execute /usr/bin/ovs-vsctl: Permission denied')"
 
 # ndt_sudo_report -- what `ndt status` prints and returns -- over the ovs-vsctl row alone, so no
 # case asks this machine's /usr/local/sbin/ndtwin-lab anything.
@@ -303,6 +308,17 @@ check "control, report: a known refusal is still rc 1, REFUSED" \
       "rc=1 sudo: ovs-vsctl  REFUSED -- ovs-vsctl list-br" "$(report_of FAKE_SUDO_DENY=ovs-vsctl)"
 check "control, report: ovsdb down behind a warning is still rc 0, granted" \
       "rc=0 sudo: ovs-vsctl  granted" "$(report_of FAKE_SUDO_WARN="$W_HOST" FAKE_OVSDB_DOWN=1)"
+# Two rows, the way `ndt status` reports them: the first answers with a line ndt cannot read, the
+# second's program is not installed. The second row must say so -- not repeat what sudo said for
+# the first (the probe clears NDT_SUDO_UNREAD before its early returns).
+report_two() {
+    env "$@" bash -c 'source "$1" >/dev/null 2>&1
+        NDT_SUDO_TABLE="$(ndt_sudo_rows ovs-vsctl)"$'"'"'\n'"'"'"nosuch|ndt-no-such-program --probe|/usr/bin/ndt-no-such-program|nowhere|nothing"
+        out="$(ndt_sudo_report)"; rc=$?; printf "rc=%s | %s" "$rc" "$(paste -sd"|" <<<"$out" | sed "s/|/ | /g")"' _ "$SURFACE"
+}
+check "report, two rows: an unknown sudo: line, then a program that is not installed -- each row its own reason" \
+      'rc=2 | sudo: ovs-vsctl  could NOT be tested: sudo answered "sudo: refused by the nolab shim (a lab command)", which ndt cannot read as granted or refused -- not a pass | sudo: nosuch     could NOT be tested on this machine (no sudo, or /usr/bin/ndt-no-such-program is not installed) -- not a pass' \
+      "$(report_two FAKE_SUDO_DENY=ovs-vsctl FAKE_SUDO_SAY='sudo: refused by the nolab shim (a lab command)')"
 
 echo "the wiring: the callers read the table rather than keeping a copy"
 

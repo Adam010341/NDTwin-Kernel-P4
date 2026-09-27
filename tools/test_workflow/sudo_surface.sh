@@ -197,8 +197,10 @@ ndt_sudo_unread() {
     while IFS= read -r line; do
         [[ "$line" == "sudo:"* ]] || continue
         warn=0
+        # anchored at "sudo: " and matched on the whole entry, so an entry cannot swallow a
+        # fatal line that merely shares its words ("sudo: unable to execute ...")
         for w in "${NDT_SUDO_WARNINGS[@]}"; do
-            [[ "$line" == *"$w"* ]] && { warn=1; break; }
+            [[ "$line" == "sudo: $w"* ]] && { warn=1; break; }
         done
         (( warn )) && continue
         NDT_SUDO_UNREAD="$line"
