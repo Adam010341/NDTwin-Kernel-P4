@@ -31,9 +31,10 @@
 # M14 is not about capabilities at all: the change moved the bmv2 liveness fetch into the step
 # this gate mutates, and M14 is the check that the move did not cost the liveness loop its input.
 #
-# Every build goes through tools/build_guard/guarded_build.sh, one lock acquisition per build, so
-# the gate never holds the lock while it only runs tests. To take the lock once for the whole run
-# instead, wrap it in an outer guard and set NO_GUARD=1 (the guard is re-entrant):
+# Every cell -- one build followed by one run of the suite -- is ONE call to
+# tools/build_guard/guarded_build.sh, so each takes the lock once and the gate never holds it
+# between cells. To take the lock once for the whole run instead, wrap it in an outer guard and
+# set NO_GUARD=1 (the guard is re-entrant):
 #
 #   JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh \
 #       env NO_GUARD=1 bash tests/shell/mutate_p4_capabilities.sh
@@ -305,34 +306,50 @@ restore() {
 }
 trap 'restore; rm -rf "$SNAP" "$BK"' EXIT
 
-# One guard call per build. See the header for NO_GUARD.
-build() {
+# cell -- ONE guard call that builds the target and, only if that succeeded, runs the suite:
+# one cell, one lock acquisition, never a batch. Writes $BK/build.log and $BK/run.log and sets
+# CELL_BUILT (0/1) and CELL_RC (the suite's exit status, taken from the binary directly, never
+# through a pipe). See the header for NO_GUARD.
+CELL_BUILT=0
+CELL_RC=0
+cell() {
+    local runner=(bash -c '
+        cmake --build "$1" --target "$2" -j1 >"$3" 2>&1 || exit 97
+        "$4" --gtest_filter="$5" >"$6" 2>&1' _
+        "$BUILD_DIR" "$TARGET" "$BK/build.log" "$BIN" "$FILTER" "$BK/run.log")
+    : >"$BK/build.log"; : >"$BK/run.log"
+    local rc
     if [[ "${NO_GUARD:-0}" == "1" ]]; then
-        cmake --build "$BUILD_DIR" --target "$TARGET" >"$BK/build.log" 2>&1
+        "${runner[@]}"; rc=$?
     else
-        LOCK_WAIT="${LOCK_WAIT:-10800}" JOBS=1 "$GUARD" \
-            cmake --build "$BUILD_DIR" --target "$TARGET" -j1 >"$BK/build.log" 2>&1
+        LOCK_WAIT="${LOCK_WAIT:-10800}" JOBS=1 "$GUARD" "${runner[@]}" >>"$BK/guard.log" 2>&1; rc=$?
     fi
+    # 97 is the build failing. The guard's own refusals (lock timeout, bad env) come back as other
+    # codes with an empty run log; they are reported as "did not build" too, never as a verdict.
+    if [[ $rc -eq 97 || ! -s "$BK/run.log" ]]; then
+        CELL_BUILT=0
+    else
+        CELL_BUILT=1
+    fi
+    CELL_RC=$rc
 }
 
-# red_tests -- the names of the tests that failed, space-separated; empty when all passed. rc is
-# taken from the binary directly, never through a pipe. The name pattern admits digits: every
-# suite here is spelled P4..., and a letters-only pattern would read each red as "none" and score
-# every mutant a survivor.
+# red_tests -- the names of the tests the last cell saw fail, space-separated; empty when all
+# passed. The name pattern admits digits: every suite here is spelled P4..., and a letters-only
+# pattern would read each red as "none" and score every mutant a survivor.
 red_tests() {
-    local out rc
-    out=$("$BIN" --gtest_filter="$FILTER" 2>&1); rc=$?
-    if [[ $rc -eq 0 ]]; then echo ""; return; fi
+    if [[ $CELL_RC -eq 0 ]]; then echo ""; return; fi
     local names
-    names=$(sed -n 's/^\[  FAILED  \] \([A-Za-z0-9_]*\.[A-Za-z0-9_]*\).*/\1/p' <<<"$out" | sort -u | tr '\n' ' ')
+    names=$(sed -n 's/^\[  FAILED  \] \([A-Za-z0-9_]*\.[A-Za-z0-9_]*\).*/\1/p' "$BK/run.log" | sort -u | tr '\n' ' ')
     # A non-zero exit with no FAILED line is a crash or an abort, which is red but names nothing.
-    [[ -n "$names" ]] && echo "$names" || echo "UNNAMED(rc=$rc)"
+    [[ -n "$names" ]] && echo "$names" || echo "UNNAMED(rc=$CELL_RC)"
 }
 
 echo "baseline (must be green before any mutation):"
-if ! build; then
-    echo "  the tree does not build -- nothing below would mean anything"
-    tail -8 "$BK/build.log" | sed 's/^/    /'
+cell
+if [[ $CELL_BUILT -ne 1 ]]; then
+    echo "  the tree does not build (cell rc $CELL_RC) -- nothing below would mean anything"
+    tail -8 "$BK/build.log" "$BK/guard.log" 2>/dev/null | sed 's/^/    /'
     exit 2
 fi
 base_red=$(red_tests)
@@ -340,7 +357,7 @@ if [[ -n "$base_red" ]]; then
     echo "  baseline is RED: $base_red"
     exit 2
 fi
-echo "  green  ($("$BIN" --gtest_filter="$FILTER" --gtest_list_tests | grep -c '^  ') cases in $FILTER)"
+echo "  green  ($(grep -c '^\[       OK \]' "$BK/run.log") cases passed in $FILTER)"
 
 CONTROL_RED=0
 
@@ -368,9 +385,10 @@ PY
         SURVIVORS=$((SURVIVORS + 1)); restore; return
     fi
 
-    if ! build; then
+    cell
+    if [[ $CELL_BUILT -ne 1 ]]; then
         # A mutant that never reached the compiler established nothing about the tests.
-        echo "  🔴 MUTANT DOES NOT COMPILE -- the behaviour it was aimed at is still untested."
+        echo "  🔴 MUTANT DOES NOT COMPILE (cell rc $CELL_RC) -- the behaviour it was aimed at is still untested."
         tail -8 "$BK/build.log" | sed 's/^/    /'
         SURVIVORS=$((SURVIVORS + 1)); restore; return
     fi
@@ -409,7 +427,8 @@ done
 echo
 echo "restoring and rebuilding the baseline..."
 restore
-if ! build; then
+cell
+if [[ $CELL_BUILT -ne 1 ]]; then
     echo "🔴 the tree does not build after restore -- the baseline was NOT restored"
     exit 2
 fi
