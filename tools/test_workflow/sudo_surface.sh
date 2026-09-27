@@ -9,8 +9,8 @@
 # `ndt` calls `sudo -n` in thirteen places. Eleven go through /usr/local/sbin/ndtwin-lab,
 # which the manual teaches the reader to grant. The other two do not:
 #
-#   ndt:1177   sudo -n ovs-vsctl list-br            (ovs_bridge_count)
-#   ndt:1206   sudo -n mnexec -a <pid> ping ...     (dataplane_ok)
+#   ovs_bridge_count   sudo -n ovs-vsctl list-br
+#   dataplane_ok       sudo -n mnexec -a <pid> ping ...
 #
 # The website's User Manual -> NDTwin Kernel -> Operate an Emulated (Software) Network ->
 # "Native-Linux Excution Environment" teaches exactly one sudoers line, for ndtwin-lab. No

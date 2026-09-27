@@ -107,11 +107,11 @@ source "$SURFACE" || { echo "  FAILED   could not source $SURFACE"; echo "Ran 1 
 
 rows="$(ndt_sudo_rows all)"
 grep -q '^ovs-vsctl|' <<<"$rows" \
-    && t_ok "ovs-vsctl has a row (ndt:1177, in no page of the manual)" \
-    || t_bad "ovs-vsctl has a row (ndt:1177, in no page of the manual)" "$rows"
+    && t_ok "ovs-vsctl has a row (ovs_bridge_count, in no page of the manual)" \
+    || t_bad "ovs-vsctl has a row (ovs_bridge_count, in no page of the manual)" "$rows"
 grep -q '^mnexec|' <<<"$rows" \
-    && t_ok "mnexec has a row (ndt:1206, in no page of the manual)" \
-    || t_bad "mnexec has a row (ndt:1206, in no page of the manual)" "$rows"
+    && t_ok "mnexec has a row (dataplane_ok, in no page of the manual)" \
+    || t_bad "mnexec has a row (dataplane_ok, in no page of the manual)" "$rows"
 
 bad=0
 while IFS='|' read -r key probe target taught consequence; do
@@ -294,6 +294,17 @@ check "probe: a warning AND a known refusal is 1, refused" \
 check "probe: a fatal 'sudo: unable to execute ...' is 2 -- a warning entry is matched whole, from 'sudo: '" \
       "rc=2 unread=[sudo: unable to execute /usr/bin/ovs-vsctl: Permission denied]" \
       "$(probe_rc FAKE_SUDO_DENY=ovs-vsctl FAKE_SUDO_SAY='sudo: unable to execute /usr/bin/ovs-vsctl: Permission denied')"
+# ... and only right after "sudo: ": a fatal line that carries an entry's words further on is not
+# that warning
+check "probe: a fatal sudo: line with a warning entry further on is 2 -- entries match only right after 'sudo: '" \
+      "rc=2 unread=[sudo: error initializing audit plugin sudoers_audit (setrlimit(RLIMIT_CORE): Operation not permitted)]" \
+      "$(probe_rc FAKE_SUDO_DENY=ovs-vsctl FAKE_SUDO_SAY='sudo: error initializing audit plugin sudoers_audit (setrlimit(RLIMIT_CORE): Operation not permitted)')"
+# 🔴 KNOWN LIMIT, pinned: a refusal that does not start "sudo:" -- another implementation's prefix,
+# e.g. sudo-rs (its exact wording is not verified here) -- is read as the program's own failure,
+# i.e. granted. The rule reads sudo's own diagnostics by their prefix and nothing else.
+check "control, probe: a refusal worded without a 'sudo:' prefix (sudo-rs) is read as granted -- the rule's known limit" \
+      "rc=0 unread=[]" \
+      "$(probe_rc FAKE_SUDO_DENY=ovs-vsctl FAKE_SUDO_SAY='sudo-rs: interactive authentication is required')"
 
 # ndt_sudo_report -- what `ndt status` prints and returns -- over the ovs-vsctl row alone, so no
 # case asks this machine's /usr/local/sbin/ndtwin-lab anything.

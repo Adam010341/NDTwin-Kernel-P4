@@ -266,6 +266,16 @@ m=$(mutant s12 "$SURFACE" \
     'NDT_SUDO_WARNINGS=("unable to" "setrlimit(RLIMIT_CORE)")')
 report "S12: a warning entry widened into a pattern ('unable to')" "$m" \
        "probe: a fatal 'sudo: unable to execute ...' is 2 -- a warning entry is matched whole, from 'sudo: '"
+m=$(mutant s13 "$SURFACE" \
+    '            [[ "$line" == "sudo: $w"* ]] && { warn=1; break; }' \
+    '            [[ "$line" == *"$w"* ]] && { warn=1; break; }')
+report "S13: a warning entry is matched anywhere in the line, not right after 'sudo: '" "$m" \
+       "probe: a fatal sudo: line with a warning entry further on is 2 -- entries match only right after 'sudo: '"
+m=$(mutant s14 "$SURFACE" \
+    '        [[ "$line" == "sudo:"* ]] || continue' \
+    '        [[ "$line" == "sudo"* ]] || continue')
+report "S14 (control): any line that starts 'sudo' is sudo's own, sudo-rs's included" "$m" \
+       "control, probe: a refusal worded without a 'sudo:' prefix (sudo-rs) is read as granted -- the rule's known limit"
 t=$(tmutant t1 "$TEST" \
     '[[ -n "${FAKE_SUDO_WARN:-}" ]] && printf '"'"'%s\n'"'"' "$FAKE_SUDO_WARN" >&2' \
     ': the fake no longer prints its warning')
