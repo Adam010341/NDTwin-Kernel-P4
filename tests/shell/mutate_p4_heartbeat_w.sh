@@ -1090,9 +1090,11 @@ m=$(nmutant n11 "$NDT" \
     'sudo -n "$LAB" topo-stop')
 nreport "N11: replacing a topology leaves its heartbeat running" "$m" \
         "🔴 the old heartbeat was stopped before the old topology"
+# [Co-developed with claude code -- Adam] N12 and N29 anchor on the rc-0 branch as it reads since the
+# external detect-only sentence was added beside it (09-27).
 m=$(nmutant n12 "$NDT" \
-    '        0) ok "heartbeat running on the inter-switch veths:' \
-    '        0) heartbeat_stop_step "mutant"; ok "heartbeat running on the inter-switch veths:')
+    '        0) if [[ "$2" == external ]]; then' \
+    '        0) heartbeat_stop_step "mutant"; if [[ "$2" == external ]]; then')
 nreport "N12: the bring-up stops the heartbeat it just started" "$m" "  nothing was stopped on the way up"
 m=$(nmutant n13 "$NDT" \
     '            heartbeat)
@@ -1173,8 +1175,8 @@ m=$(nmutant n28 "$NDT" \
     '    case "$rc" in')
 nreport "N28: the helper's start answer is not printed" "$m" "  the helper's answer is printed"
 m=$(nmutant n29 "$NDT" \
-    '        0) ok "heartbeat running on the inter-switch veths:' \
-    '        0) ok "started:')
+    '               ok "heartbeat running on the inter-switch veths: a cut' \
+    '               ok "started: a cut')
 nreport "N29: ndt does not say what the heartbeat is for" "$m" "  and ndt says what it is for"
 m=$(nmutant n30 "$NDT" \
     '        *) warn "heartbeat did NOT start (rc $rc): a cut link on this fabric will not be detected."' \
