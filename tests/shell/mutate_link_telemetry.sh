@@ -14,7 +14,8 @@
 # M-B11b is the ticket's literal "it does not detach".
 #
 # Five more on 2026-09-28, M-B49 .. M-B53: the root emitter's read, a manifest write that fails,
-# a second hard link, and the teardown's `tc` half.
+# a second hard link, and the teardown's `tc` half. Then M-B54 .. M-B56: a root reader facing
+# another user's file, a document that does not parse, and a switch manifest never written.
 # Nine more for Adam's ruling K (2026-09-27), M-B29 .. M-B37: the pid the manifest names is ONE
 # process -- the argv the launcher recorded, word for word, and the start time /proc gave it --
 # not any process whose cmdline contains the emitter's file name. Eleven for the judge's KJL B2
@@ -666,6 +667,28 @@ m=$(mutant m_b52 "$LINKTEL" \
     '    if False:  # MUTANT: a second hard link is the manifest too')
 report "M-B52: a hard link to a root-owned file is trusted as the manifest" "$m" \
        "test_a_hard_link_to_the_manifest_is_not_the_manifest"
+
+m=$(mutant m_b54 "$LINKTEL" \
+    '    if st.st_uid not in (0, euid):' \
+    '    if euid and st.st_uid not in (0, euid):  # MUTANT: a root reader trusts any owner')
+report "M-B54: root -- the reader this check exists for -- trusts a file any user owns" "$m" \
+       "test_a_root_reader_refuses_a_file_another_user_owns"
+
+m=$(mutant m_b55 "$LINKTEL" \
+    '    except (OSError, ValueError) as exc:
+        return None, f"{path} cannot be read: {exc}"' \
+    '    except OSError as exc:  # MUTANT: a document that does not parse escapes as an exception
+        return None, f"{path} cannot be read: {exc}"')
+report "M-B55: a manifest that does not parse raises out of every reader" "$m" \
+       "test_reading_a_corrupt_manifest_is_not_an_error_either"
+
+m=$(mutant m_b56 "$TESTBED" \
+    '    if manifest_problem:
+        # Fatal, like a link-telemetry manifest' \
+    '    if False:  # MUTANT: a switch manifest that was not written is a warning again
+        # Fatal, like a link-telemetry manifest')
+report "M-B56: a switch manifest that could not be written leaves the bring-up healthy" "$m" \
+       "test_a_switch_manifest_that_cannot_be_written_is_fatal"
 
 m=$(mutant m_b53 "$LINKTEL" \
     '    document, problem = load_manifest(path)' \

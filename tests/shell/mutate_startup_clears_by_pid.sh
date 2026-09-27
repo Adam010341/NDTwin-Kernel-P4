@@ -46,6 +46,7 @@
 #   MS12-MS17 (2026-09-28) the reap's own inputs: a plain open of a file anyone can create, a
 #             substring match, the entry's port and device id not compared, a non-int pid, and
 #             a refusal nobody is told about.
+#   MS18-MS20 the entry: a check made without one says yes, or the reap does not pass it.
 #   C1        a comment is reworded and nothing may change.
 #
 # A mutation that makes the WRONG test go red is a SURVIVOR: the case it targets was never put to
@@ -263,6 +264,30 @@ report "MS16: a pid of true, a string or a negative number reaches kill" "$ms16"
 ms17=$(mutant ms17 '        if problem and report:'$'\x1f''        if False:')
 report "MS17: an untrusted switch manifest is refused in silence" "$ms17" \
        "test_a_group_writable_switch_manifest_signals_nothing_and_says_why"
+
+# Without a manifest entry there is nothing to tie a pid to ONE switch, so the check says no;
+# and the reap must ask it WITH the entry, both before the SIGTERM and before the SIGKILL.
+# [Co-developed with claude code -- Adam]
+
+ms18=$(mutant ms18 '    if entry is None:
+        return False
+    port = entry.get'$'\x1f''    if entry is None:
+        return True
+    port = entry.get')
+report "MS18: with no entry, any process whose argv[0] is the binary is a switch" "$ms18" \
+       "test_without_an_entry_nothing_is_a_switch"
+
+ms19=$(mutant ms19 '        if _is_a_signallable_pid(pid) and is_switch(pid, entry=entry):'$'\x1f''        if _is_a_signallable_pid(pid) and is_switch(pid):')
+report "MS19: the reap asks about the pid without the entry it came from" "$ms19" \
+       "test_this_entrys_own_switch_is_still_signalled"
+
+ms20=$(mutant ms20 '        if is_switch(pid, entry=entry):
+            try:
+                kill(pid, signal.SIGKILL)'$'\x1f''        if is_switch(pid):
+            try:
+                kill(pid, signal.SIGKILL)')
+report "MS20: the check before the SIGKILL is made without the entry" "$ms20" \
+       "test_this_entrys_own_switch_is_still_signalled"
 
 # --- the control ---------------------------------------------------------------------------------
 
