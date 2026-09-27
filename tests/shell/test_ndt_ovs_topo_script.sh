@@ -55,12 +55,15 @@ set +e
 
 # [Co-developed with claude code -- Adam] (2026-09-28) A machine with no lab install -- a hosted CI
 # runner, a fresh clone -- has neither /etc/ndtwin-lab.conf nor the tree ndtwin-lab's built-in
-# default names, so the launch sections below would be asking about a directory that is not there
+# default names, so the launch sections below would be asking about a tree that is not there
 # (`ovs_topo_start` refuses it, correctly). What they test is "the launch follows KERNEL_DIR",
 # and that holds for any tree; so on such a machine they use THIS checkout, and say so. Where
 # the configured tree exists -- the lab -- nothing changes: it is still the one under test.
-if [[ ! -d "$KERNEL_DIR" ]]; then
-    echo "  note     ndtwin-lab's KERNEL_DIR ($KERNEL_DIR, from $LAB_CONF_SOURCE) is not a directory"
+# "Exists" means a kernel tree, by the test ndtwin-lab itself applies to a configured KERNEL_DIR
+# (p4_proxy/mininet/ntg_bmv2_topo.py), not merely a directory: other suites source round.env,
+# whose mkdir can leave an empty directory at the built-in path on a machine that lets it.
+if [[ ! -f "$KERNEL_DIR/p4_proxy/mininet/ntg_bmv2_topo.py" ]]; then
+    echo "  note     ndtwin-lab's KERNEL_DIR ($KERNEL_DIR, from $LAB_CONF_SOURCE) is not a kernel tree"
     echo "           on this machine; the launch sections use this checkout ($REPO) instead"
     KERNEL_DIR="$REPO"
 fi

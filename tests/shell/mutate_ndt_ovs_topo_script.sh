@@ -248,6 +248,14 @@ m=$(mutant n4 "$LAB" \
     "LAB_DEFAULT_KERNEL_DIR=/nonexistent/NDT-TEST-FIXTURE/NDTwin-Kernel")
 report_green "N4 (widening): no lab install -- the suite uses its own checkout" "$m"
 
+# ...and the same when something has made an empty directory at the built-in path: round.env's
+# mkdir does that on any machine that lets it, and a directory is not a kernel tree.
+mkdir -p "$BK/empty-tree-at-the-built-in-path"
+m=$(mutant n5 "$LAB" \
+    "LAB_DEFAULT_KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel" \
+    "LAB_DEFAULT_KERNEL_DIR=$BK/empty-tree-at-the-built-in-path")
+report_green "N5 (widening): an empty directory at the built-in path is not a lab install" "$m"
+
 echo
 NOW_LAB="$(sha256sum "$LAB" | cut -d' ' -f1)"
 NOW_TOPO="$(sha256sum "$TOPO" | cut -d' ' -f1)"
