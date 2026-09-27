@@ -193,6 +193,42 @@ s = s.replace("elif [[ \"$failed\"  -gt 0 ]]; then echo FAIL-CHECKS",
 '
 
 echo
+echo "=== mutations: declared skips (group D) -- the excuse must not grow ==="
+
+# [Co-developed with claude code -- Adam] (2026-09-28) each one widens or deletes the declared-skip
+# excuse in the driver, and the group D check that pins that edge must go red by name.
+mutate "the DECLARED-SKIP verdict is gone, so an excused skip is a failure again" "$DRIVER_REL" '
+s = s.replace("    elif [[ \"$skipped\" -gt 0 && -n \"$excuse\" ]]; then echo DECLARED-SKIP\n", "")
+' "D4 a skip with an excuse is DECLARED-SKIP"
+mutate "an excuse outranks a harness that exited non-zero" "$DRIVER_REL" '
+s = s.replace("    elif [[ \"$skipped\" -gt 0 && -n \"$excuse\" ]]; then echo DECLARED-SKIP\n", "")
+s = s.replace("    if   [[ \"$rc\"      -ne 0 ]]; then echo FAIL-RC\n",
+              "    if   [[ \"$skipped\" -gt 0 && -n \"$excuse\" ]]; then echo DECLARED-SKIP\n    elif [[ \"$rc\"      -ne 0 ]]; then echo FAIL-RC\n")
+' "D6 an excuse never outranks a harness that exited non-zero"
+mutate "a need the machine HAS still excuses (the lab would go quiet)" "$DRIVER_REL" '
+s = s.replace("            0)        missing+=(\"$need\") ;;", "            0|1)      missing+=(\"$need\") ;;")
+' "D8 🔴 a machine that HAS the need excuses nothing (the lab stays strict)"
+mutate "a need with no probe is read as missing" "$DRIVER_REL" '
+s = s.replace("            unprobed) return 0 ;;", "            unprobed) missing+=(\"$need\") ;;")
+' "D12 🔴 a need the lane has no probe for excuses nothing, even beside a missing one"
+mutate "a shell suite with a red check before its SKIP is excused" "$DRIVER_REL" '
+s = s.replace("    if [[ \"$kind\" == sh ]] && grep -qE \x27^[[:space:]]*(FAILED|FAIL )\x27 \"$log\"; then return 0; fi\n", "")
+' "D13 🔴 a shell suite that printed a FAILED check before its SKIP is not excused"
+mutate "the py-plot probe lets round.env mkdir" "$DRIVER_REL" '
+s = s.replace("    ( mkdir() { :; }\n", "    (\n")
+' "D16 ... and round.env's mkdir did not run"
+mutate "the DECLARED-SKIP arm counts a failure after all" "$DRIVER_REL" '
+s = s.replace("            DECLARED_SKIPS+=(\"$name (needs $excuse)\")\n",
+              "            DECLARED_SKIPS+=(\"$name (needs $excuse)\")\n            FAILURES=$((FAILURES + 1))\n")
+' "D20 🔴 the DECLARED-SKIP arm records the file and does NOT count a failure"
+mutate "the DECLARED-SKIP arm records nothing, so the end of the lane never lists it" "$DRIVER_REL" '
+s = s.replace("            DECLARED_SKIPS+=(\"$name (needs $excuse)\")\n", "")
+' "D20 🔴 the DECLARED-SKIP arm records the file and does NOT count a failure"
+mutate "the ryu probe is lost" "$DRIVER_REL" '
+s = s.replace("L1_NEED_MET[ryu]=0\n\"$PY_KERNEL\" -c \"import networkx, ryu\" >/dev/null 2>&1 && L1_NEED_MET[ryu]=1\n", "")
+' "D18 the lane probes the needs it can excuse (ryu, py-plot)"
+
+echo
 echo "=== mutations: the corpus check (group C) actually reads the corpus ==="
 
 # [Co-developed with claude code -- Adam] (09-27) each corpus mutant names the check that must go
