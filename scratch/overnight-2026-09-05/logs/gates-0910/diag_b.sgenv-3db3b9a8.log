@@ -1,0 +1,61 @@
+3db3b9a8e0135f35d02cd3b914cf300e6627cb35
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-suites-gate-env-0927  2026-09-26T22:17:24Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-suites-gate-env-0927  TMPDIR /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-sgenv-3db3b9a8-diag/diag_b.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-suites-gate-env-0927 /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp/diag_b_3db3b9a8
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-suites-gate-env-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-sgenv-3db3b9a8-diag/shims (nolab)
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-sgenv-3db3b9a8-diag/diag_b.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-suites-gate-env-0927 /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp/diag_b_3db3b9a8
+PATH the environments are built on: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-suites-gate-env-0927/tools/build_guard/shims:/home/adam/.local/bin:/home/adam/.local/bin:/home/adam
+HEAD 3db3b9a8e0135f35d02cd3b914cf300e6627cb35
+the guard's variables as the suites inherit them: NDTWIN_GUARD_HELD=/tmp/ndtwin-build.lock JOBS=1 SHIM_JOBS=1 LOCK_WAIT=10800 
+
+== test_build_guard.sh
+   E1 rc 1  Ran 37 checks, 15 failed                  red: 15
+   E2 rc 1  Ran 37 checks, 15 failed                  red: 15
+   E3 rc 0  Ran 37 checks, 0 failed                   red: 0
+   E4 rc 0  Ran 37 checks, 0 failed                   red: 0
+
+== test_l1_shell_scoring.sh
+   E1 rc 1  Ran 96 checks, 12 failed                  red: 12
+   E2 rc 1  Ran 96 checks, 12 failed                  red: 12
+   E3 rc 1  Ran 96 checks, 12 failed                  red: 12
+   E4 rc 1  Ran 96 checks, 12 failed                  red: 12
+
+== test_gate_exit_code_not_tee.sh
+   E1 rc 1    5 passed, 2 failed                      red: 2
+   E2 rc 1    5 passed, 2 failed                      red: 2
+   E3 rc 1    5 passed, 2 failed                      red: 2
+   E4 rc 1    5 passed, 2 failed                      red: 2
+
+== test_start_bg_log_rotation.sh
+   E1 rc 1  Ran 13 checks, 6 failed                   red: 6
+   E2 rc 1  Ran 13 checks, 6 failed                   red: 6
+   E3 rc 1  Ran 13 checks, 6 failed                   red: 6
+   E4 rc 1  Ran 13 checks, 6 failed                   red: 6
+
+== test_gate_exit_code_not_tee: its red cases with their output KEPT (E2)
+   PY_PLOT=/home/adam/miniconda3/bin/python3 (executable)
+   --- case 1: run_gate ratio_gate.py --check t008_poll --expect green
+     cell=t008_poll  mark=NO-DATA  why=no twin trace
+   GATE ratio cell=t008_poll verdict=UNRUNNABLE (no ratio -- NO-DATA)
+   rc=2
+   --- the gate itself, no run_gate
+     cell=t008_poll  mark=NO-DATA  why=no twin trace
+   GATE ratio cell=t008_poll verdict=UNRUNNABLE (no ratio -- NO-DATA)
+   rc=2
+   --- the log run_gate wrote
+     cell=t008_poll  mark=NO-DATA  why=no twin trace
+   GATE ratio cell=t008_poll verdict=UNRUNNABLE (no ratio -- NO-DATA)
+
+== history of the code under test, for the suites red in every environment
+   test_start_bg_log_rotation.sh last changed: 8e7e3b00 2026-08-31 Keep two log generations, because the second restart is the one that loses the evidence
+   tools/test_workflow/stack.sh last changed: 30e2d5e8 2026-09-19 P3-D: `ndt up p4 --telemetry`, the knob ndt is the only writer of, and the emitter nobody 
+   test_l1_shell_scoring.sh last changed: 49801adb 2026-09-02 Score tests/shell by the summary it actually prints, not by unittest's
+   tests/shell last changed: 3db3b9a8 2026-09-27 Merge fix/live-p1-common-5e-nolab-0927 (opus judge MERGE on be2ad2d2, after MERGE AFTER FI
+   rotate_log's .prev / timestamp history:
+      74c811df 2026-09-06 O-4: keep five stamped generations of each component log, not two
+      8e7e3b00 2026-08-31 Keep two log generations, because the second restart is the one that loses the evidence
+DIAG-B: done
+guarded_build: exit 0
+# rc=0

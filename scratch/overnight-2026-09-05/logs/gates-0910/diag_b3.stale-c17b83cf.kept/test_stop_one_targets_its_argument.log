@@ -1,0 +1,13 @@
+A. a caller whose own $name names a DIFFERENT component
+  ok       the component that was ASKED for is stopped
+  ok       the component that was NOT asked for survives
+
+B. a caller with no $name in scope at all
+tests/shell/test_stop_one_targets_its_argument.sh: line 75: 1939771 Killed                  setsid "$SUPERVISE" "$PID_DIR/$name" "$@" > "$log" 2>&1
+  ok       teardown does not die on an unbound variable
+  ok       and it still stops the right one
+  ok       leaving the other alone
+
+Ran 5 checks, all passed
+  (stack.sh under test: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927/tools/test_workflow/stack.sh)
+tests/shell/test_stop_one_targets_its_argument.sh: line 64: 1939810 Killed                  setsid "$SUPERVISE" "$PID_DIR/$name" "$@" > "$log" 2>&1

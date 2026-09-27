@@ -1,0 +1,75 @@
+supervise.sh records how the child ended
+  ok       status of a clean exit
+  ok       propagates the child's status
+  ok       status of a failed exit
+  ok       propagates a non-zero status
+  ok       a plain exit names no signal
+  ok       an abort is recorded as 134
+  ok       an abort names signal 6
+  ok       propagates 134
+  ok       the reason says it aborted
+  ok       the child pid is recorded
+  ok       the child pid is not the supervisor's
+  ok       🔴 and the transient pidfile is not left naming it
+  ok       the latest .exit is the latest run
+  ok       the abort still exists in the history
+
+start_bg + stop_one report the ending
+  ok       start_bg's component has its ending recorded
+  ok       stop_one reports the abort
+  ok       the child pid is recorded and alive
+  ok       the recorded pid leads the child's process group
+  ok       the child really died
+  ok       a SIGTERM stop is recorded as 143
+  ok       a normal stop is not called a crash
+
+supervise.sh removes the child pidfile it can prove is dead, and only that one (R7 I-3)
+  ok       🔴 the child pidfile is gone once the ending is recorded
+  ok       🔴 and <prefix>.pid is NOT removed -- stop_one needs it to report the ending
+  ok         the ending itself was still recorded
+  ok         the child pid is still readable, from the record
+  ok         and the history line too
+  ok       🔴 .exit exists in the state .child.pid does not
+  ok       🔴 a RUNNING component still has its child pidfile
+  ok         and it is gone once that run has ended
+
+cmd_down fails on a fatal ending, and only on one
+  ok       status 132 is fatal
+  ok       status 134 is fatal
+  ok       status 135 is fatal
+  ok       status 136 is fatal
+  ok       status 137 is fatal
+  ok       status 139 is fatal
+  ok       status 0 is NOT fatal
+  ok       status 1 is NOT fatal
+  ok       status 2 is NOT fatal
+  ok       status 130 is NOT fatal
+  ok       status 143 is NOT fatal
+  ok       an aborted kernel fails down
+  ok       and down names it
+  ok       the same crash is not reported twice
+  ok       an OOM-killed kernel (137) fails down
+  ok       the ordinary SIGTERM ending (143) does NOT fail down
+  ok       a clean exit does not fail down
+
+the orphan sweep: report the ending, clear only what is provably dead
+  ok       🔴 a non-fatal, non-zero ending with no pidfile is NAMED
+  ok         and it is not called a fatal ending
+  ok       a FATAL ending with no pidfile is still fatal
+  ok         and report_exit removed the record it delivered
+  ok       🔴 R7 I-3: the pidfile naming a dead pid is swept
+  ok         and the child pidfile with it
+  ok         and the recorded command line
+  ok         the ending was reported while doing it
+  ok         and it says which files it removed, not just that it did
+  ok       🔴 a LIVE component's pidfile is NOT swept
+  ok         and its old record is not reported over it
+  ok       🔴 an ending stop_one already reported is not reported again
+  ok       🔴 cmd_down names the orphaned ending
+  ok         and a non-fatal one does not fail the teardown
+
+check_logs.py fails a log containing the B-5 abort
+  ok       an aborted log is failed, not passed
+  ok       and it is reported as a crash
+
+Ran 62 checks, all passed

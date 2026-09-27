@@ -1,0 +1,14 @@
+save then diff against unchanged state -> clean pass
+  ok       save exits 0
+  ok       snapshot has the 3 lines
+  ok       diff exits 0
+  ok       reports unchanged
+htb silently replaced (the live 2026-08-13 shape) -> diff fails and names the loss
+  ok       diff exits 1
+  ok       the lost htb line is in the output
+  ok       points at the gotcha
+operator errors are exit 2, distinct from drift's exit 1
+  ok       missing snapshot is 2
+  ok       missing file arg is 2
+
+Ran 9 checks, all passed

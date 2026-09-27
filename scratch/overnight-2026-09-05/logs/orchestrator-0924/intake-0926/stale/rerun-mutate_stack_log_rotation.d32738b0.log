@@ -1,0 +1,22 @@
+d32738b0f760bef0924e363aa91715dd38239b61
+# 2026-09-27T03:43:54Z cmd bash tests/shell/mutate_stack_log_rotation.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_stack_log_rotation.sh
+baseline (must be green before any mutation):
+Ran 23 checks, 0 failed
+Ran 5 checks, all passed
+
+  caught   M1: back to .prev/.prev2, and start_bg stops calling rotate_log (start_bg left a stamped generation behind went red)
+  caught   M2 (wrong fix, still five files): pruned by mtime, not by era (🔴 the newest seeded era survives (mtime says it is the oldest) went red)
+  caught   M6 (wrong fix): the pruner deletes what it did not create  (🔴 a .prev from the old scheme is not swept up went red)
+  caught   M3: nothing is ever pruned                                 (eight generations are pruned to five went red)
+  caught   M4: NDT_LOG_KEEP=0 is honoured                             (🔴 NDT_LOG_KEEP=0 falls back to five, not to none went red)
+  caught   M5: same-second restarts overwrite each other              (both generations exist went red)
+  caught   N1 (control, never rotates): the log is left in place      (the live log is moved aside, not left in place went red)
+  caught   S1: start_bg rotates an EMPTY log too                      (an empty previous log is not rotated went red)
+  caught   S2: start_bg never rotates (the previous era is overwritten) (a non-empty previous log is rotated: exactly one stamped generation went red)
+
+baseline byte-identical: yes  tools/test_workflow/stack.sh  sha256 02de11fca77d52aedc7ad9de707f43d7513e82618947215c6b789699b0f22c2f
+mutation gate: 9 mutations, 0 survived
+guarded_build: exit 0
+# rc=0

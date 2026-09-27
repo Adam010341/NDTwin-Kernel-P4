@@ -1,0 +1,4 @@
+test_cell_gate_suspect_wiring.sh A sudo -n /usr/local/sbin/ndtwin-lab topo-out 400
+test_cell_gate_suspect_wiring.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_cell_gate_suspect_wiring.sh A sudo -n /usr/local/sbin/ndtwin-lab topo-out 400
+test_cell_gate_suspect_wiring.sh A sudo -n /usr/local/sbin/ndtwin-lab status

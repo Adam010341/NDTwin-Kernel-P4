@@ -1,0 +1,4 @@
+test_ndt_sample_rate_reads_both_bounds.sh B sudo -n ovs-vsctl list-br
+test_ndt_sample_rate_reads_both_bounds.sh B sudo -n ovs-vsctl list-br
+test_ndt_sample_rate_reads_both_bounds.sh B sudo -n ovs-vsctl list-br
+test_ndt_sample_rate_reads_both_bounds.sh B sudo -n ovs-vsctl list-br

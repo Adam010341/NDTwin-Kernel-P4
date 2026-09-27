@@ -1,0 +1,15 @@
+slim_client_json.sh
+  ok       good run exits 0
+  ok       good run keeps the packet count
+  ok       good run drops intervals[]
+  ok       errored run exits 3
+  ok       errored run keeps the error text
+  ok       errored run is not a nulled result
+  skip     committed artefact not present
+  ok       truncated run exits 3
+  ok       truncated run is kept verbatim
+  ok       null end.sum exits 3
+  ok       no arguments exits 2
+  ok       missing input exits 2
+
+Ran 11 checks, all passed

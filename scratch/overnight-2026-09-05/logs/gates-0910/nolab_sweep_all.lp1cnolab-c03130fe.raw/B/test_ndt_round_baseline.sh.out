@@ -1,0 +1,151 @@
+
+1. 🔴 the finding: the knob at 128 with git calling the file CLEAN
+  ok       🔴 the porcelain count moved the WRONG way (22->21 on 09-05)
+  ok         and git itself calls the knob clean
+  ok       🔴 the alarm fires anyway
+  ok         naming the value it should be
+  ok         and the value it is
+  ok       🔴 and saying the thing that made this invisible
+  ok         it hands over the restore command
+  ok       🔴 and warns against the one that gives 128
+
+2. 🔴 a clean tree does not stop the check
+  ok       the tree really is clean now
+  ok       the code row still says clean tree
+  ok       🔴 and the knob is still checked
+
+3. 🔴 the other direction: a 128-host round that is MEANT to be at 128
+  ok       it says the value matches what the round started with
+  ok         and does not shout
+
+4. no baseline: the unconditional fallback Adam named
+  ok       🔴 128 with no baseline is still printed
+  ok         saying what it decides
+  ok         and 4 with no baseline is quiet but explicit
+  ok         nothing red about it
+
+5. 🔴 the restoration check compares the SET, not the count
+  ok       the baseline records the paths, sorted
+  ok         the knob's value is in it
+  ok         and both dirty paths
+  ok         including the other one
+  ok       🔴 the count says the tree got cleaner
+  ok       🔴 the set difference names the path that LEFT
+  ok         and says what leaving the set means
+  ok         counted in both directions
+  ok       🔴 a path that JOINED the set is named too
+
+6. 🔴 no baseline is said, not assumed
+  ok       it says there is nothing to compare against
+  ok         and never reports a match
+
+7. the wiring: 'ndt claim' is what records a round
+  ok       claim succeeds
+  ok       🔴 and it wrote the baseline
+  ok         with the owner in it
+  ok         and the knob's value at that moment
+  ok       git_lines runs the knob check
+  ok         and the set comparison
+
+8. 🔴 E-9: '--check' EXITS 1 on NOT RESTORED (on 09-07 it printed red and exited 0)
+  ok       the row still prints in red
+  ok       🔴 and it is listed as a problem
+  ok         the problem line carries both values
+  ok         and how to put it back
+  ok       🔴 and warns against the one that gives HEAD
+  ok       🔴 --check exits 1 (it exited 0 over this at 04:36)
+  ok         and does not also say ok
+
+9. 🔴 the other direction: putting the knob back makes --check green again
+  ok       the row says the value matches
+  ok       🔴 the problem is gone
+  ok       🔴 and rc is back to 0
+  ok         check: ok
+
+10. 🔴 scope: a changed SET is not a problem, only a changed VALUE is
+  ok       the set difference is reported
+  ok       🔴 but a file that joined the set is NOT a problem
+  ok       🔴 and --check is still green
+  ok       no baseline: the row still says 128 != 4
+  ok       🔴 but it is not a problem
+  ok       🔴 and --check stays green
+
+11. no up.target: rc 3 COULD NOT CHECK, and the knob problem is still shown
+  ok       rc 3, not 1: nothing was compared against a target
+  ok         it says so
+  ok       🔴 and the knob problem is still listed
+
+12. 🔴 E-11: 'ndt release' retires the round baseline to .prev
+  ok       claim wrote a baseline
+  ok       release succeeds
+  ok       🔴 the round baseline is gone
+  ok       🔴 and kept as .prev, not deleted
+  ok         byte-identical to what claim wrote
+  ok         and release says where it went
+  ok       🔴 status is back to 'no baseline'
+  ok       release --force succeeds
+  ok       🔴 --force retires the baseline too
+  ok       release with no claim says so
+  ok       🔴 and leaves the baseline where it is
+
+13. 🔴 E-9b: 'ndt up p4 <n>' leaves a note saying ndt itself moved the knob
+  ok       set_host_count succeeds
+  ok         and the knob really moved
+  ok       🔴 the baseline records that ndt wrote it
+  ok         and when
+  ok       🔴 the round's own starting value is untouched
+  ok         and so is the dirty set it recorded
+  ok       🔴 a second 'ndt up' leaves ONE up_wrote line
+  ok         and one timestamp
+  ok         carrying the newest value
+  ok         and not the one it replaced
+  ok       with no round claimed set_host_count still succeeds
+  ok       🔴 and it writes no baseline file
+  ok         (the knob still moved)
+
+14. 🔴 E-9b: what 'ndt up p4' wrote is a WARNING; a hand edit is still a problem
+  ok       🔴 the row names who wrote it
+  ok         and what the round started at
+  ok         with the deadline attached
+  ok         and how to do it
+  ok         saying release will enforce it
+  ok       🔴 it is NOT called NOT RESTORED
+  ok       🔴 and NOT a --check problem
+  ok       🔴 --check is green (rc 1 for the whole round before E-9b)
+  ok       🔴 a hand edit is still NOT RESTORED
+  ok         naming the value ndt did write
+  ok       🔴 and still a problem
+  ok       🔴 rc 1 (a hand edit after 'ndt up')
+  ok       a fresh baseline carries no up_wrote field
+  ok       🔴 no note means NOT RESTORED, exactly as before
+  ok       🔴 and it is a problem
+  ok       🔴 rc 1 (nothing excuses this value)
+
+15. 🔴 E-11b: 'ndt release' refuses while the knob is not back
+  ok       claim succeeds
+  ok       🔴 release refuses
+  ok         saying what the knob is now
+  ok         and what the round started at
+  ok       🔴 and how to put it back
+  ok         warning off the command that gives HEAD
+  ok         and naming the override
+  ok       🔴 the claim is NOT released
+  ok       🔴 and the baseline is NOT retired
+  ok       🔴 --force releases anyway
+  ok       🔴 in red, saying what it left behind
+  ok         the claim is gone
+  ok         and the baseline was still retired to .prev
+  ok       🔴 with the knob back at the start, release just works
+  ok         and says so
+  ok         retiring the baseline as E-11 says
+
+16. 🔴 E-11b: 'ndt up p4' buys time, not a release
+  ok       the note is there
+  ok         --check is green during the round
+  ok       🔴 but release still refuses
+  ok         naming the value to write back
+  ok       🔴 and the claim is still held
+  ok         writing 128 back releases cleanly
+  ok         and the claim is gone
+
+Ran 117 checks, 0 failed

@@ -1,0 +1,43 @@
+d271f5b8589d9d8e0d8ac172080c3cd7db7ed69a
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-suites-gate-env-0927  2026-09-26T22:57:38Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-suites-gate-env-0927  TMPDIR /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp
+# cmd bash tests/shell/test_guarded_build_reentrant.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-suites-gate-env-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-sgenv-d271f5b8-b/shims (nolab)
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/test_guarded_build_reentrant.sh
+
+(a) the nested call must not wait for a lock this tree already holds
+  ok       nested same-lock guard exits 0
+  ok       and it took 0s, not the whole LOCK_WAIT=3
+  ok       and it never printed 'giving up'
+  ok       and the log says the nesting happened, not nothing
+
+(b) two INDEPENDENT outer guards on one lock are still mutually exclusive
+  ok       the second one still gets in, eventually
+  ok       🔴 and it WAITED (3s, needs >=2)
+
+(c) the nested command's exit code is the answer
+  ok       a nested guard around `false` is rc 1, not rc 0 and not rc 2
+
+🔴 (d) nesting does NOT switch locking off -- a DIFFERENT lock is still contended
+  ok       an inner guard on a lock SOMEONE ELSE holds still gives up (rc 2)
+
+🔴 (e) the outer lock is still remembered after an inner one is taken (A-B-A)
+  ok       A(outer) -> B -> A(inner) exits 0
+  ok       and did not wait out LOCK_WAIT (0s, needs <3)
+
+(f) a lock path that would corrupt the held-lock list is refused, not accepted
+  ok       LOCK containing ':' is rc 2
+
+(g) the nested call re-uses the outer cgroup scope instead of opening a second one
+  ok       the nested pair exits 0 with the cgroup guard on
+  ok       🔴 systemd-run was called ONCE, by the outer layer
+
+(h) the nested call still gets the shims and its own JOBS
+  ok       the inner layer's own JOBS reaches the shims
+  ok       and the shim dir is still the first thing on PATH
+
+Ran 15 checks, 0 failed
+guarded_build: exit 0
+# rc=0

@@ -1,0 +1,17 @@
+diff --git a/tests/shell/test_build_guard.sh b/tests/shell/test_build_guard.sh
+index 335626e1..571d6dae 100755
+--- a/tests/shell/test_build_guard.sh
++++ b/tests/shell/test_build_guard.sh
+@@ -14,6 +14,12 @@
+ # [Co-developed with claude code -- Adam]
+ set -uo pipefail
+ 
++# [Co-developed with claude code -- Adam] 🔴 NOT THE CALLER'S GUARD SETTINGS (2026-09-27). Every
++# expectation below is about the guard's DEFAULTS (-j2, its own lock, no cgroup here). Run under a
++# guard -- as every gate is -- this suite inherited the OUTER guard's JOBS=1, SHIM_JOBS=1,
++# NDTWIN_GUARD_HELD and LOCK_WAIT, and 15 checks read -j1: red for the caller's settings, not for
++# the code under test. A case that wants a value sets it on its own command line, as they all do.
++unset JOBS SHIM_JOBS NDTWIN_GUARD_HELD LOCK LOCK_WAIT MEM_HIGH MEM_MAX TIMEOUT NO_CGROUP
+ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ GUARD="${GUARD_UNDER_TEST:-$HERE/../../tools/build_guard}"
+ SHIM="$GUARD/shims"

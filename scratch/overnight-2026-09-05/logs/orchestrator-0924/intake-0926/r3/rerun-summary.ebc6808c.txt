@@ -1,0 +1,10 @@
+live07_selftest # rc=0 | SELF-TEST PASS 
+live08_selftest # rc=0 | SELF-TEST PASS 
+check_gate_anchors # rc=0 | 
+mutate_roles_binding # rc=0 | mutation gate: 174 mutations, 0 survived 
+mutate_p4_heartbeat_w # rc=0 | 08's mutant tree: only p4_proxy/proxy_agent and p4_proxy/venv lead out of it, and no lab-state knob is in it mutation gate: 195 mutations, 0 survived 
+main checkout's lab-state knobs unchanged
+tripwire lines: 0
+tracked tree clean after the gates
+no leftover copies
+RERUN-R3-DONE

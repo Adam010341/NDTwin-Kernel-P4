@@ -1,0 +1,48 @@
+=== started 2026-09-12T17:15:08+08:00 ===
+=== cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-doc4-0912
+=== head 98a76c8d418ed3e11c4aa09ae21523134b7bef3c
+=== cmd MANUAL=/tmp/doc4base/manual-base.md (git show 53a62c71:doc/2026-08-17_testing-manual.md) NDT=<worktree tools/test_workflow/ndt> env MANUAL=/tmp/doc4base/manual-base.md bash tests/shell/test_manual_no_stale_in_progress.sh
+=== sha256 MANUAL (base copy, NOT written to the worktree)  7edea2f31324481d2483087d7af980ec1bae76a37fbcc0cc97a5e81d4804fe4a
+=== sha256 NDT   tools/test_workflow/ndt  b7a0283ceca5629b2cc963f43f4ea51c0c3b554d4f228fa1eedaf611878bacf3
+=== sha256 TEST  tests/shell/test_manual_no_stale_in_progress.sh  84a0f76f6cf5872c40304034444517f13b8f70af281c6f3e8d3c9c444c9b3529
+  ok       case 0  git resolves a merged ticket (FIX-NDT-6 -> a merge reachable from HEAD)
+  ok       case 1  'ndt help' no longer names only three ports for --deep
+  ok       case 2  'ndt help' prints --deep's size out of ports.sh's table
+  ok       case 3  'ndt' tells an operator its own fabric is its own
+  ok       case 4  'ndt' still has the stranger sentence (the fix was not 'never say it')
+  FAILED   case 5a caveat 'clean-calls-your-fabric-residue' is retracted and says what merged it
+             expected: marked/已修/merged/no-in-progress
+             actual:   markers 0 BEGIN + 0 END (want 1+1)/-/-/-
+  FAILED   case 5b caveat 'help-deep-names-three-ports' is retracted and says what merged it
+             expected: marked/已修/merged/no-in-progress
+             actual:   markers 0 BEGIN + 0 END (want 1+1)/-/-/-
+  FAILED   case 5c caveat 'clean-advises-deep-on-your-own' is retracted and says what merged it
+             expected: marked/已修/merged/no-in-progress
+             actual:   markers 0 BEGIN + 0 END (want 1+1)/-/-/-
+  FAILED   case 5d caveat 'e21-contract-branch-only' is retracted and says what merged it
+             expected: marked/已修/merged/no-in-progress
+             actual:   markers 0 BEGIN + 0 END (want 1+1)/-/-/-
+             manual-base.md:177  calls FIX-NDT-6 unfixed, but 1656bdba71eb64eaa9a293185f026c91007e5982 is reachable from HEAD
+             manual-base.md:216  calls FIX-NDT-6 unfixed, but 1656bdba71eb64eaa9a293185f026c91007e5982 is reachable from HEAD
+             manual-base.md:219  calls FIX-NDT-6 unfixed, but 1656bdba71eb64eaa9a293185f026c91007e5982 is reachable from HEAD
+  FAILED   case 6  no line calls a ticket unfixed when its merge is already in the tree
+             expected: 0
+             actual:   3
+             manual-base.md:1128  calls fix/e21-link-endpoints-in-contract unmerged, but bb9301a00ee92b424bb91fcc9adb03e8e6246247 is reachable from HEAD
+  FAILED   case 6b no line calls a branch unmerged when its merge is already in the tree
+             expected: 0
+             actual:   1
+  FAILED   case 7  the manual quotes help's computed --deep size
+             expected: yes
+             actual:   no (0)
+  FAILED   case 8  the manual quotes clean's own-fabric sentence
+             expected: yes
+             actual:   no (0)
+  FAILED   case 9  the measured record inside the third caveat survived the sweep
+             expected: 1/1/1
+             actual:   0/0/0
+  ok       case 10 CONTROL: §2.1 still says the machine's 4 veth are not residue
+
+6 passed, 9 failed
+RC=1
+=== finished 2026-09-12T17:15:09+08:00 ===

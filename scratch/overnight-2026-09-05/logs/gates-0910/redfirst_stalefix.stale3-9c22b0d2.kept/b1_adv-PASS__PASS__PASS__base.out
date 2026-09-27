@@ -1,0 +1,54 @@
+
+=== group A: the 'Ran N checks' form, which is the only one the old scorer knew ===
+  ok       A1 'Ran 60 checks, all passed' -> 60 ran, 0 failed
+  ok       A2 'Ran 6 checks, 0 failed' -> the second number is the failed count, not the total
+  ok       A3 'Ran 12 checks, 3 failed' -> 12 ran, 3 failed
+
+=== group B: the two forms the old scorer scored as zero (the 09-02 defect) ===
+  ok       B1 '12 passed, 0 failed' (test_cell_gate_suspect_wiring) -> 12 ran, 0 failed
+  ok       B2 '  12 passed, 0 failed' indented (test_ep4_gate_and_abort_evidence) -> 12 ran
+  ok       B3 '  7 passed, 0 failed' (test_gate_exit_code_not_tee) -> 7 ran
+  ok       B4 '  15 passed, 0 failed' (test_log_suffix_idempotent) -> 15 ran
+  ok       B5 the banner form (test_harness_instruments) -> 34 ran, 0 failed
+  ok       B6 'N passed, M failed' with M>0 carries the failed count through
+  ok       B7 the banner's third number is the failed count
+  ok       B8 a real transcript, ok lines then the summary last
+
+=== group Z: zero stays zero -- 'nothing ran' must not become 'passed' ===
+  ok       Z1 a log with no summary at all is 0 ran, never a pass
+  ok       Z2 an empty log is 0 ran
+  ok       Z3 'Ran 0 checks, all passed' -> 0 ran (the __main__-guard shape, shell edition)
+  ok       Z4 '0 passed, 0 failed' -> 0 ran, so a suite that collected nothing cannot pass
+  ok       Z5 '===== 0 check(s): 0 ok, 0 FAILED =====' -> 0 ran
+  ok       Z6 a check whose NAME quotes a summary is output, not a summary
+  ok       Z7 the LAST summary wins, as tail -1 did (5 passed + 1 failed = 6 ran)
+
+=== group V: the verdict branch order, so ran=0 keeps its own answer ===
+  ok       V1 rc!=0 is FAIL-RC even with a green summary
+  ok       V2 a skip outranks the zero count, so a skipping suite is not 'no tests ran'
+  ok       V3 rc=0 and nothing collected is NO-TESTS-RAN, NOT a pass
+  ok       V4 rc=0 over a summary that names failures is FAIL-CHECKS
+  ok       V5 rc=0, checks ran, none failed, none skipped is the only PASS
+  ok       V6 NO-TESTS-RAN and PASS are different tokens (the distinction is the point)
+
+=== group W: the driver still counts every non-PASS verdict as a failure ===
+  ok       W  the FAIL-RC arm increments FAILURES
+  ok       W  the FAIL-SKIP arm increments FAILURES
+  ok       W  the NO-TESTS-RAN arm increments FAILURES
+  ok       W  the FAIL-CHECKS arm increments FAILURES
+
+=== group X: the scorer is WIRED IN, and the Python side keeps unittest's line ===
+  ok       X0 the scoring dispatch was located, so X1-X4 are not asking about an empty string
+  ok       X1 the shell arm scores with shell_summary
+  ok       X2 the shell arm does NOT count with unittest's '^Ran N'
+  ok       X3 the Python arm still counts with unittest's '^Ran N' (the __main__-guard catch)
+  ok       X4 the shell arm binds both numbers the verdict needs
+
+=== group C: the corpus -- every suite in tests/shell prints a form this scorer reads ===
+  ok       C  test_apps_residue.sh prints a summary this scorer reads on its green path
+  ok       C  test_apps_stop_kills_the_group.sh prints a summary this scorer reads on its green path
+  ok       C  test_build_guard.sh prints a summary this scorer reads on its green path
+  ok       C  test_cell_gate_suspect_wiring.sh prints a summary this scorer reads on its green path
+  ok       C  test_check_logs_crash_patterns.sh prints a summary this scorer reads on its green path
+  ok       C  test_ep4_gate_and_abort_evidence.sh prints a summary this scorer reads on its green path
+  ok       C  test_e_restore_asserts_compiled_artifact.sh prints a summary this scorer reads on its green path

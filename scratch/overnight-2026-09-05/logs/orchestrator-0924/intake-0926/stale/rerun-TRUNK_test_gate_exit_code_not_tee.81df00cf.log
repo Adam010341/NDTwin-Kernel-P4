@@ -1,0 +1,19 @@
+81df00cff2ef12e8089309c00011c33f44caf87f
+# 2026-09-27T01:31:00Z cmd bash tests/shell/.redfirst-ab-test_gate_exit_code_not_tee.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/.redfirst-ab-test_gate_exit_code_not_tee.sh
+  FAILED   case 1  --expect green on a green cell -> caller sees success
+             expected: 0
+             actual:   2
+  ok       case 2  --expect red on a green cell -> caller sees failure
+  ok       case 3  the pre-fix pipeline hid that same failure (no pipefail, as gates_e.sh runs)
+  ok       case 3b gates_e.sh sets no pipefail, so run_gate is the only thing standing there
+  FAILED   case 4  gate output still reaches the log
+             expected: 1
+             actual:   0
+  ok       case 5  no gate is wired straight into a condition through tee
+  ok       case 5b the continuation joiner sees a leak written across two lines
+
+  5 passed, 2 failed
+guarded_build: exit 1
+# rc=1

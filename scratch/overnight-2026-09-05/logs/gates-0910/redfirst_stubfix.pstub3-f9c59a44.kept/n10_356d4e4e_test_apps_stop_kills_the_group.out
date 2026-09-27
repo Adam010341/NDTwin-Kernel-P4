@@ -1,0 +1,2 @@
+tests/shell/test_apps_stop_kills_the_group.sh: line 78: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp/stubfix-red-TeyqZw/nolib-356d4e4e/tests/shell/lib_probe_stub.sh: No such file or directory
+  FAILED   no tests/shell/lib_probe_stub.sh beside this suite

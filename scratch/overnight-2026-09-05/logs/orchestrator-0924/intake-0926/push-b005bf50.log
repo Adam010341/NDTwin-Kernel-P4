@@ -1,0 +1,43 @@
+# push trunk + trunk:main b005bf501e91fc1859a5fb2307b4840641f9fe9f (probe stubs 46a18285 + stale suites) 2026-09-27T13:05:36+08:00
+range     : c34a643a..b005bf501e91fc1859a5fb2307b4840641f9fe9f ( 18 files changed, 1096 insertions(+), 82 deletions(-))
+scan hits : 0
+control   : 3 (want 3)
+binary    : 0 file(s) NOT read by this scan -- scan each separately
+ssh: Could not resolve hostname github.com: Temporary failure in name resolution
+fatal: Could not read from remote repository.
+
+Please make sure you have the correct access rights
+and the repository exists.
+# push rc=128
+$ env -u GIT_ASKPASS -u SSH_ASKPASS GIT_TERMINAL_PROMPT=0 git -c credential.helper= -c core.askPass= ls-remote https://github.com/ndtwin-lab/NDTwin-Kernel-P4.git refs/heads/trunk refs/heads/main
+fatal: unable to access 'https://github.com/ndtwin-lab/NDTwin-Kernel-P4.git/': Could not resolve host: github.com
+$ env -u GIT_ASKPASS -u SSH_ASKPASS GIT_TERMINAL_PROMPT=0 git -c credential.helper= -c core.askPass= ls-remote https://github.com/Adam010341/NDTwin-Kernel-P4.git refs/heads/trunk refs/heads/main
+c34a643a358ce33297af81df305454384fa6d936	refs/heads/main
+c34a643a358ce33297af81df305454384fa6d936	refs/heads/trunk
+$ env -u GITHUB_TOKEN -u GH_TOKEN curl -s -o /dev/null -w '%{http_code}' https://github.com/ndtwin-lab/NDTwin-Kernel-P4/tree/b005bf50
+404
+$ env -u GITHUB_TOKEN -u GH_TOKEN curl -s -o /dev/null -w '%{http_code}' https://github.com/Adam010341/NDTwin-Kernel-P4/tree/b005bf50
+404
+
+# RETRY after DNS failure 2026-09-27T13:12:28+08:00
+To github.com:Adam010341/NDTwin-Kernel-P4.git
+   c34a643a..b005bf50  trunk -> main
+   c34a643a..b005bf50  trunk -> trunk
+remote: 
+remote: GitHub found 2 vulnerabilities on ndtwin-lab/NDTwin-Kernel-P4's default branch (2 high). To find out more, visit:        
+remote:      https://github.com/ndtwin-lab/NDTwin-Kernel-P4/security/dependabot        
+remote: 
+To github.com:ndtwin-lab/NDTwin-Kernel-P4.git
+   c34a643a..b005bf50  trunk -> main
+   c34a643a..b005bf50  trunk -> trunk
+# push rc=0
+$ env -u GIT_ASKPASS -u SSH_ASKPASS GIT_TERMINAL_PROMPT=0 git -c credential.helper= -c core.askPass= ls-remote https://github.com/ndtwin-lab/NDTwin-Kernel-P4.git refs/heads/trunk refs/heads/main
+b005bf501e91fc1859a5fb2307b4840641f9fe9f	refs/heads/main
+b005bf501e91fc1859a5fb2307b4840641f9fe9f	refs/heads/trunk
+$ env -u GIT_ASKPASS -u SSH_ASKPASS GIT_TERMINAL_PROMPT=0 git -c credential.helper= -c core.askPass= ls-remote https://github.com/Adam010341/NDTwin-Kernel-P4.git refs/heads/trunk refs/heads/main
+b005bf501e91fc1859a5fb2307b4840641f9fe9f	refs/heads/main
+b005bf501e91fc1859a5fb2307b4840641f9fe9f	refs/heads/trunk
+$ env -u GITHUB_TOKEN -u GH_TOKEN curl -s -o /dev/null -w '%{http_code}' https://github.com/ndtwin-lab/NDTwin-Kernel-P4/tree/b005bf50
+200
+$ env -u GITHUB_TOKEN -u GH_TOKEN curl -s -o /dev/null -w '%{http_code}' https://github.com/Adam010341/NDTwin-Kernel-P4/tree/b005bf50
+200

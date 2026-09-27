@@ -1,0 +1,11 @@
+  ok       the model the kernel says it loaded is the model used
+  ok       a topology whose sha256 no longer matches is refused (rc 3)
+  ok       the refusal prints the digest the kernel loaded and the one on disk now
+  ok       a pre-E-2 kernel falls back to the derivation and says it is guessing
+  ok       an unreachable kernel falls back to the derivation and says it is guessing
+  ok       a model the kernel named but this host cannot read is refused, not derived around
+  ok       a kernel that names a file but no digest is still believed about the file, with a note
+  ok       NDT_TOPO overrides the kernel's answer as well as the derivation
+  ok       a null topology_file reads as "the kernel did not say", not as a filename
+  ok       the reader parses a body larger than one exec argument (374467 bytes)
+Ran 10 checks, 0 failed

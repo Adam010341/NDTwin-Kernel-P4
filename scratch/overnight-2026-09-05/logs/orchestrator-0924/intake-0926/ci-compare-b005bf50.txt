@@ -1,0 +1,26 @@
+# CI run 36296537822 on b005bf50 (probe stubs + stale suites), GCC job via API raw log; 2026-09-27T13:31:40+08:00
+PREDICTION (worker, recorded before the run): start_bg and l1_shell_scoring groups clear, 14 -> 12; not_tee stays (no PY_PLOT in CI)
+vs c34a643a (36279411773):
+14,19d13
+<         FAILED   C  test_apps_residue.sh's last line scores non-zero (it is 'something was logged')
+<         FAILED   C  test_build_guard.sh ends in an echo this test can read
+<         FAILED   C  test_check_logs_crash_patterns.sh's last line scores non-zero (it is '  (checker under test: $CHECK_LOGS)')
+<         FAILED   C  test_guarded_build_reentrant.sh's last line scores non-zero (it is 'systemd-run $*')
+<         FAILED   C  test_ndt_honesty.sh's last line scores non-zero (it is 'other-session (until 03:00:00, their round)')
+<         FAILED   C  test_ndt_ovs_topo_script.sh's last line scores non-zero (it is 'the verbs are wired to what was tested')
+25,26d18
+<         FAILED   .prev holds the previous era's content
+<         FAILED   previous log rotated to .prev
+31,34d22
+<         FAILED   the middle era is in .prev
+<         FAILED   the older era survives in .prev
+<         FAILED   the oldest era is now the one that was in .prev
+<         FAILED   the oldest of three eras survives in .prev2
+41,43c29
+< L1 FAILED (14 problem group(s))   logs: /home/runner/work/NDTwin-Kernel-P4/NDTwin-Kernel-P4/.test_run/logs
+<         ok       C  test_harness_instruments.sh's last line scores non-zero (it is '===== 9 check(s): 9 ok, 0 FAILED =====')
+<         ok       Z5 '===== 0 check(s): 0 ok, 0 FAILED =====' -> 0 ran
+---
+> L1 FAILED (12 problem group(s))   logs: /home/runner/work/NDTwin-Kernel-P4/NDTwin-Kernel-P4/.test_run/logs
+L1 FAILED (12 problem group(s))   logs: /home/runner/work/NDTwin-Kernel-P4/NDTwin-Kernel-P4/.test_run/logs
+jobs: ASan + UBSan success,TSan failure,Build and unit tests (GCC) failure,clang can compile it failure

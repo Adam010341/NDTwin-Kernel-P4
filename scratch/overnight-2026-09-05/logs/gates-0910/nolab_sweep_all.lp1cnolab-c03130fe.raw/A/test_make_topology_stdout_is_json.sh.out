@@ -1,0 +1,6 @@
+  ok       injection check: the run exited 0 and wrote to BOTH streams (rc=0, 19731 B out, 294 B err)
+  ok       case 2  --stdout writes a parseable model to stdout (8 hosts: 10 switches + 8 hosts, 48 edges)
+  ok       case 3  the round-trip report is NOT on stdout
+  ok       case 4  the round-trip report IS on stderr (not deleted -- it carries the refusal too)
+  ok       case 5  without --stdout the report still goes to stdout (--check unchanged)
+Ran 5 checks, 0 failed

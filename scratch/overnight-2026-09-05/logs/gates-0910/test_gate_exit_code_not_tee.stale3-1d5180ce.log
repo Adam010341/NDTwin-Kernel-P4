@@ -1,0 +1,20 @@
+1d5180ce827f22dc6b8e4dfdd94757c23d697528
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927  2026-09-27T02:50:15Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927  TMPDIR /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp
+# cmd bash tests/shell/test_gate_exit_code_not_tee.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-stale3-1d5180ce/shims (nolab)
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/test_gate_exit_code_not_tee.sh
+  ok       case 1  --expect green on a green cell -> caller sees success
+  ok       case 1b the gate read the synthetic fixture (ratio 1.0000), not a raw/ on disk
+  ok       case 2  --expect red on a green cell -> caller sees failure
+  ok       case 3  the pre-fix pipeline hid that same failure (no pipefail, as gates_e.sh runs)
+  ok       case 3b gates_e.sh sets no pipefail, so run_gate is the only thing standing there
+  ok       case 4  gate output still reaches the log
+  ok       case 5  no gate is wired straight into a condition through tee
+  ok       case 5b the continuation joiner sees a leak written across two lines
+
+  8 passed, 0 failed
+guarded_build: exit 0
+# rc=0

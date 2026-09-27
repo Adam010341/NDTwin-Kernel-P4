@@ -1,0 +1,33 @@
+d32738b0f760bef0924e363aa91715dd38239b61
+# 2026-09-27T03:31:16Z cmd bash tests/shell/.redfirst-ab-test_start_bg_log_rotation.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/.redfirst-ab-test_start_bg_log_rotation.sh
+  FAILED   previous log rotated to .prev
+             expected: yes
+             actual:   no
+  FAILED   .prev holds the previous era's content
+             expected: previous era line
+             actual:   
+  ok       current log is a fresh file for the new era
+  ok       no .prev appears on a first start
+  ok       an empty previous log is not rotated
+  FAILED   the older era survives in .prev
+             expected: era-one
+             actual:   
+  ok       the newer era is in the main log
+  ok       two eras produce no third generation yet
+  FAILED   the oldest of three eras survives in .prev2
+             expected: the-era-with-the-evidence
+             actual:   
+  FAILED   the middle era is in .prev
+             expected: the-restart-that-fixed-nothing
+             actual:   
+  ok       the newest era is in the main log
+  ok       a fourth era does not create a .prev3
+  FAILED   the oldest era is now the one that was in .prev
+             expected: the-restart-that-fixed-nothing
+             actual:   
+
+Ran 13 checks, 6 failed
+guarded_build: exit 1
+# rc=1

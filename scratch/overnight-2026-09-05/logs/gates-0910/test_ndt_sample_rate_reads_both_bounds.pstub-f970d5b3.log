@@ -1,0 +1,18 @@
+f970d5b384511c30368852365f459a31c7ea2cd7
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-probe-stub-0927  2026-09-26T23:44:37Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-probe-stub-0927  TMPDIR /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp
+# cmd bash tests/shell/test_ndt_sample_rate_reads_both_bounds.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-probe-stub-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-pstub-f970d5b3/shims (nolab)
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/test_ndt_sample_rate_reads_both_bounds.sh
+  ok       production lo=0 hi=255 reads 256
+  ok       lo=1 hi=255 is reported DISABLED, not 1/256
+  ok       lo=0 hi=1023 reads 1024
+  ok       rate_label: 1/256 for a rate, DISABLED text (not 1/DISABLED) for a dead pipeline
+  ok       source older than build -> not ahead
+  ok       source newer than build -> ahead (restored .p4, never recompiled)
+  ok       🔴 every sudo went to this suite's stub and was an allow-listed read-only probe
+Ran 7 checks, 0 failed
+guarded_build: exit 0
+# rc=0

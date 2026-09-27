@@ -1,0 +1,20 @@
+d271f5b8589d9d8e0d8ac172080c3cd7db7ed69a
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-suites-gate-env-0927  2026-09-26T22:57:09Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-suites-gate-env-0927  TMPDIR /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-sgenv-d271f5b8-b/redfirst_sge.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-suites-gate-env-0927
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-suites-gate-env-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-sgenv-d271f5b8-b/shims (nolab)
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-sgenv-d271f5b8-b/redfirst_sge.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-suites-gate-env-0927
+HEAD d271f5b8589d9d8e0d8ac172080c3cd7db7ed69a; base 3db3b9a8
+the guard's variables this run inherits: NDTWIN_GUARD_HELD=/tmp/ndtwin-build.lock JOBS=1 SHIM_JOBS=1 LOCK_WAIT=10800 
+  ok    this is the gate environment (JOBS=1, SHIM_JOBS=1 inherited)
+    base: rc 1, Ran 37 checks, 15 failed
+    head: rc 0, Ran 37 checks, 0 failed
+  ok    3db3b9a8 under the gate environment: 15 checks red
+  ok      every one of them read -j1 where the default -j2 was expected (the inherited SHIM_JOBS=1)
+  ok    HEAD under the same environment: Ran 37 checks, 0 failed
+  ok      the same number of checks, none removed
+SGE-RED-FIRST: red under the gate environment at 3db3b9a8, green at HEAD
+guarded_build: exit 0
+# rc=0

@@ -1,0 +1,75 @@
+f9c59a44e39ea9e0c5ad74bdd1a9af26b5ea0a72
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-probe-stub-0927  2026-09-27T02:09:00Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-probe-stub-0927  TMPDIR /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-pstub3-f9c59a44/redfirst_stubfix.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-probe-stub-0927 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/redfirst_stubfix.pstub3-f9c59a44.kept
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-probe-stub-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-pstub3-f9c59a44/shims (nolab)
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-pstub3-f9c59a44/redfirst_stubfix.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-probe-stub-0927 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/redfirst_stubfix.pstub3-f9c59a44.kept
+HEAD f9c59a44e39ea9e0c5ad74bdd1a9af26b5ea0a72; base 356d4e4eb02e95b006afaa64a6e81414ab7b76fe
+== B1: the sudo grants line test_lab_handoff's ndt status prints, per wording
+    wording 'sudo: a password is required':
+      sudo grants    refused -- readings below them are not measurements
+      sudo: lab        REFUSED -- /usr/local/sbin/ndtwin-lab status
+      sudo: ovs-vsctl  REFUSED -- ovs-vsctl list-br
+      sudo: mnexec     REFUSED -- mnexec -a 1 true
+      (sudo calls the stub recorded: 1 sudo mnexec -a 1 true;4 sudo ndtwin-lab status;2 sudo ovs-vsctl list-br;1 tc qdisc show)
+    wording 'sudo: refused by the nolab shim (a lab command)':
+      sudo grants    all 3 granted
+      (sudo calls the stub recorded: 1 sudo mnexec -a 1 true;4 sudo ndtwin-lab status;2 sudo ovs-vsctl list-br;1 tc qdisc show)
+  ok    the stub's wording: ndt reads the grants as REFUSED
+  ok    the R pass's wording: ndt reads them as GRANTED -- the gate's artifact
+== N10: a suite with no lib beside it
+    356d4e4e test_apps_stop_kills_the_group: rc 1, last '  FAILED   no tests/shell/lib_probe_stub.sh beside this suite', the lane reads ran/failed 0 0
+    356d4e4e test_ndt_app_orphans: rc 1, last '  FAILED   no tests/shell/lib_probe_stub.sh beside this suite', the lane reads ran/failed 0 0
+    356d4e4e test_cell_gate_suspect_wiring: rc 1, last '  FAILED   no tests/shell/lib_probe_stub.sh beside this suite', the lane reads ran/failed 0 0
+    356d4e4e test_lab_handoff: rc 1, last '  FAILED   no tests/shell/lib_probe_stub.sh beside this suite', the lane reads ran/failed 0 0
+    356d4e4e test_ndt_honesty: rc 1, last '  FAILED   no tests/shell/lib_probe_stub.sh beside this suite', the lane reads ran/failed 0 0
+    356d4e4e test_ndt_sample_rate_reads_both_bounds: rc 1, last '  FAILED   no tests/shell/lib_probe_stub.sh beside this suite', the lane reads ran/failed 0 0
+    HEAD test_apps_stop_kills_the_group: rc 1, last 'Ran 1 checks, 1 failed', the lane reads ran/failed 1 1
+  ok      HEAD test_apps_stop_kills_the_group: 'Ran 1 checks, 1 failed', read as 1 ran, 1 failed
+    HEAD test_ndt_app_orphans: rc 1, last 'Ran 1 checks, 1 failed', the lane reads ran/failed 1 1
+  ok      HEAD test_ndt_app_orphans: 'Ran 1 checks, 1 failed', read as 1 ran, 1 failed
+    HEAD test_cell_gate_suspect_wiring: rc 1, last 'Ran 1 checks, 1 failed', the lane reads ran/failed 1 1
+  ok      HEAD test_cell_gate_suspect_wiring: 'Ran 1 checks, 1 failed', read as 1 ran, 1 failed
+    HEAD test_lab_handoff: rc 1, last 'Ran 1 checks, 1 failed', the lane reads ran/failed 1 1
+  ok      HEAD test_lab_handoff: 'Ran 1 checks, 1 failed', read as 1 ran, 1 failed
+    HEAD test_ndt_honesty: rc 1, last 'Ran 1 checks, 1 failed', the lane reads ran/failed 1 1
+  ok      HEAD test_ndt_honesty: 'Ran 1 checks, 1 failed', read as 1 ran, 1 failed
+    HEAD test_ndt_sample_rate_reads_both_bounds: rc 1, last 'Ran 1 checks, 1 failed', the lane reads ran/failed 1 1
+  ok      HEAD test_ndt_sample_rate_reads_both_bounds: 'Ran 1 checks, 1 failed', read as 1 ran, 1 failed
+== N5: the stubs' contract on 356d4e4e's lib and on HEAD's
+    356d4e4e: tc qdisc add ...: rc 0 (want a refusal);tc qdisc del ...: rc 0 (want a refusal)
+    HEAD: (the contract holds)
+  ok    at 356d4e4e the tc stub answers rc 0 to a changing argv (a fabricated success)
+  ok    at HEAD the contract holds
+== B2: P9 against a lib without its 'the sudo on PATH is' line
+      caught   P1: apps_stop no longer allows 'ndtwin-lab status'                 (0 escaped; the closing check went red: actual:   8 sudo ndtwin-lab stat
+      caught   P2: app_orphans no longer allows 'ndtwin-lab status'               (0 escaped; the closing check went red: actual:   16 sudo ndtwin-lab sta
+      caught   P3: cell_gate no longer allows 'ndtwin-lab topo-out N'             (0 escaped; the closing check went red: actual:   2 sudo ndtwin-lab topo
+      caught   P4: lab_handoff no longer allows 'ovs-vsctl list-br'               (0 escaped; the closing check went red: actual:   26 sudo ovs-vsctl list
+      caught   P5: honesty no longer allows 'ovs-vsctl list-br'                   (0 escaped; the closing check went red: actual: [2 sudo ovs-vsctl list-b
+      caught   P6: sample_rate no longer allows 'ovs-vsctl list-br'               (0 escaped; the closing check went red: outside the allow-list: 4 sudo o
+      caught   P7: lab_handoff no longer allows the unprivileged 'tc qdisc show'  (0 escaped; the closing check went red: actual:   13 tc qdisc show)
+      caught   P8: sample_rate's stub is never installed (its calls escape to this gate's sudo) (4 escaped; the closing check went red: outside the allow-
+      SURVIVED P9: cell_gate's stub is shadowed by another sudo on PATH           (rc 0; the closing check did not go red)
+      caught   T1: the tc stub answers rc 0 to every argv                         (tc qdisc add ...: rc 0 (want a refusal);tc qdisc del ...: rc 0 (want a 
+    rc 1, 10 mutation(s), 1 survivor(s)
+  ok    without that line P9 SURVIVES, and only P9 -- the line is what kills it
+== N2: a machine where ps lists no ovs-vswitchd
+      caught   P1: apps_stop no longer allows 'ndtwin-lab status'                 (0 escaped; the closing check went red: )
+      caught   P2: app_orphans no longer allows 'ndtwin-lab status'               (0 escaped; the closing check went red: )
+      caught   P3: cell_gate no longer allows 'ndtwin-lab topo-out N'             (0 escaped; the closing check went red: )
+      caught   P4: lab_handoff no longer allows 'ovs-vsctl list-br'               (0 escaped; the closing check went red: )
+      SURVIVED P5: honesty no longer allows 'ovs-vsctl list-br'                   (rc 0; the closing check did not go red)
+      SURVIVED P6: sample_rate no longer allows 'ovs-vsctl list-br'               (rc 0; the closing check did not go red)
+      caught   P7: lab_handoff no longer allows the unprivileged 'tc qdisc show'  (0 escaped; the closing check went red: )
+      SURVIVED P8: sample_rate's stub is never installed (its calls escape to this gate's sudo) (no call reached this gate's sudo -- the escape it tests w
+  ok    at 356d4e4e, no ovs-vswitchd: P5, P6 and P8 SURVIVE for the machine's reason, and the gate says nothing of why
+    refused: P5, P6 and P8 need ndt's OVS path and this machine does not give it: no ovs-vswitchd running.
+      (on such a machine they would SURVIVE for the machine's reason, not the suites'; run this gate where
+       ovs-vswitchd runs, ovs-vsctl is on PATH and no bmv2 fabric is up)
+  ok    at HEAD the gate refuses (rc 2) before any suite or mutation runs, and names what is missing
+STUBFIX-RED-FIRST: B1 observed; B2, N2, N5, N10 red at 356d4e4e (or in the mutated sandbox), green at HEAD
+guarded_build: exit 0
+# rc=0

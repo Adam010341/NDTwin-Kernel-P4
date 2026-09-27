@@ -1,0 +1,191 @@
+diff --git a/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh
+index 5c4d0683..30885f2c 100755
+--- a/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh
++++ b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh
+@@ -367,13 +367,16 @@ state_until() {
+     printf '%s\n' "$v"
+ }
+ 
+-# l6_switch_state <out> <model> <caps> <skipped> <label suffix> <no-state message> -- L6's two
+-# capability checks and L1 on switch_state, on the capture state_until's poll ends on.
+-# l6_roles / l6_plain are the live path's two calls, arguments and all -- functions so that the
+-# self-test executes them (the opus judge's N3-2). [Co-developed with claude code -- Adam]
++# l6_switch_state <out> <model> <caps> <skipped> <label suffix> <no-state message> <poll s> -- L6's
++# two capability checks and L1 on switch_state, on the capture state_until's poll ends on.
++# l6_roles / l6_plain [poll s] are the live path's two calls, arguments and all -- functions so
++# that the self-test executes them (the opus judge's N3-2). [Co-developed with claude code -- Adam]
++# 🔴 THE POLL IS AN ARGUMENT, NEVER THE ENVIRONMENT (R-N2, 09-27): the live path calls them with
++# none and gets 30 s; only the self-test passes a shorter one. It used to be ${L1_POLL_S:-30}, and
++# any caller that exported L1_POLL_S cut the live wait for the first watchdog pass.
+ l6_switch_state() {
+-    local out="$1" model="$2" caps="$3" skipped="$4" sfx="$5" none="$6" v
+-    v="$(state_until "${L1_POLL_S:-30}" l1_links_verdict "$out" "$model")"
++    local out="$1" model="$2" caps="$3" skipped="$4" sfx="$5" none="$6" poll="$7" v
++    v="$(state_until "$poll" l1_links_verdict "$out" "$model")"
+     if [[ -s "$out" ]]; then
+         judge "$(caps_are "$out" "$caps")" "L6 capabilities$sfx"
+         judge "$(skipped_is "$out" "$skipped")" "L6 control_plane.skipped$sfx"
+@@ -384,11 +387,11 @@ l6_switch_state() {
+ }
+ l6_roles() {
+     l6_switch_state "$RUN/30_switch_state_roles.json" "$PKG_ROLES/ndtwin/topology.json" \
+-        "$CAPS_OWNED" "$SKIPPED_OWNED" "" "L6: no switch_state"
++        "$CAPS_OWNED" "$SKIPPED_OWNED" "" "L6: no switch_state" "${1:-30}"
+ }
+ l6_plain() {
+     l6_switch_state "$RUN/71_switch_state_plain.json" "$PKG_PLAIN/ndtwin/topology.json" \
+-        "$CAPS_UNBOUND" "$SKIPPED_UNBOUND" " (unbound)" "L6: no switch_state on the control fabric"
++        "$CAPS_UNBOUND" "$SKIPPED_UNBOUND" " (unbound)" "L6: no switch_state on the control fabric" "${1:-30}"
+ }
+ 
+ # --- --self-test: every verdict against a capture it must pass and one it must fail ------------
+@@ -566,12 +569,12 @@ PY
+         local px d
+         px="$(mktemp -d "$t/px-XXXXXX")"; mkdir -p "$px/p4"
+         [[ "$2" == - ]] || cp "$t/$2" "$px/p4/switch_state"
+-        ( RUN="$px"; PROXY_URL="file://$px"; PKG_ROLES="$t/pkg"; PKG_PLAIN="$t/pkg"; L1_POLL_S="$4"
++        ( RUN="$px"; PROXY_URL="file://$px"; PKG_ROLES="$t/pkg"; PKG_PLAIN="$t/pkg"
+           note() { :; }; judge() { echo "J $2: ${1:0:70}"; }; fail() { echo "F $*"; }
+           if [[ "$3" != - ]]; then
+               ( sleep 2.5; cp "$t/$3" "$px/p4/switch_state.tmp"; mv "$px/p4/switch_state.tmp" "$px/p4/switch_state" ) &
+           fi
+-          "l6_$1"
++          "l6_$1" "$4"
+           wait
+           d="$(ls "$px"/*.polls 2>/dev/null | head -1)"
+           echo "polls $( [[ -n "$d" ]] && wc -l < "$d" || echo 0)" ) 2>&1
+@@ -599,6 +602,29 @@ PY
+     got="$(st_l6 roles - - 2)" || true
+     [[ "$got" == *"F L6: no switch_state"* ]] && ok "  no switch_state at all: a fail, not a pass" \
+                                             || red "  no switch_state at all -- $(tr '\n' '|' <<<"$got")"
++    # [Co-developed with claude code -- Adam] R-N2 (the opus judge, 09-27): the live path's poll is
++    # 30 s whatever the environment says. The live call as the live path makes it -- l6_roles with
++    # no argument -- with L1_POLL_S=2 (and SELFTEST_L1_POLL_S=2) in its environment, on a
++    # switch_state that is never heard: 6.5 s in, it must still be polling (no judgement yet, more
++    # than one read). An inherited 2 s would have judged it BAD by then.
++    st_l6_inherited() {
++        local px pid
++        px="$(mktemp -d "$t/px-XXXXXX")"; mkdir -p "$px/p4"; cp "$t/state_grace.json" "$px/p4/switch_state"
++        ( export L1_POLL_S=2 SELFTEST_L1_POLL_S=2
++          RUN="$px"; PROXY_URL="file://$px"; PKG_ROLES="$t/pkg"
++          note() { :; }; judge() { echo "J $2: ${1:0:70}"; }; fail() { echo "F $*"; }
++          l6_roles ) > "$px/out" 2>&1 &
++        pid=$!
++        sleep 6.5
++        kill "$pid" 2>/dev/null; wait "$pid" 2>/dev/null
++        echo "judged $(/usr/bin/grep -c '^[JF] ' "$px/out") polls $(cat "$px"/*.polls 2>/dev/null | wc -l)"
++    }
++    got="$(st_l6_inherited)" || true
++    if [[ "$got" == "judged 0 polls "* && "${got##* }" -ge 2 ]]; then
++        ok "  an inherited L1_POLL_S=2 does not shorten the live poll: still polling at 6.5 s ($got)"
++    else
++        red "  an inherited L1_POLL_S does not shorten the live poll -- $got"
++    fi
+     got="$(st_l6 plain state_plain.json - 4)" || true
+     if [[ "$got" == *"J L6 capabilities (unbound): OK"* && "$got" == *"J L6 control_plane.skipped (unbound): OK"* \
+           && "$got" == *"J L1 declared links on switch_state, fed by the heartbeat (unbound): OK"* ]]; then
+diff --git a/tests/shell/mutate_p4_heartbeat_w.sh b/tests/shell/mutate_p4_heartbeat_w.sh
+index ef83a6f7..51ecbb49 100644
+--- a/tests/shell/mutate_p4_heartbeat_w.sh
++++ b/tests/shell/mutate_p4_heartbeat_w.sh
+@@ -87,6 +87,50 @@ for f in "${SOURCES[@]}"; do BASE_SHA["$f"]=$(sha256sum "$f" | cut -d' ' -f1); d
+ SURVIVORS=0
+ MUTATIONS=0
+ 
++# === 08's mutant tree, and what it may reach (the opus judge's R-N1, 09-27) ========================
++# [Co-developed with claude code -- Adam] 08's self-test runs in a tree of COPIES (08, _common.sh,
++# faults.sh, ...) plus links to what it only READS: the proxy's constants (consts imports
++# proxy_agent) and the venv's interpreter. _common.sh names the lab-state knobs relative to that
++# tree -- $REPO/p4_proxy/mininet/{host_count_override,app_package_override,telemetry_override} --
++# so a link to the whole of p4_proxy puts the checkout's real knobs inside every mutant tree, and
++# a mutant that writes a knob writes the checkout's. ltree builds the tree; ltree_leaks names every
++# way out of it other than the two read-only links; the gate refuses before any mutation runs if
++# there is one, and checks that the leak check sees a whole-p4_proxy link (its control).
++ltree() {   # ltree <dir>
++    local d="$1"
++    mkdir -p "$d/$LIVE_DIR_REL" "$d/tools/test_workflow" "$d/doc/audit/2026-09-25_p4-heartbeat/spike" "$d/tmp"
++    cp "$REPO/$LIVE_DIR_REL/_common.sh" "$LIVE08" "$d/$LIVE_DIR_REL/"
++    cp "$REPO/tools/test_workflow/faults.sh" "$REPO/tools/test_workflow/qdisc_snapshot.sh" "$d/tools/test_workflow/"
++    cp "$REPO/doc/audit/2026-09-25_p4-heartbeat/spike/census_prepare.py" "$d/doc/audit/2026-09-25_p4-heartbeat/spike/"
++    mkdir -p "$d/p4_proxy"   # a real directory: its mininet/ (the knobs) is simply not there
++    ln -s "$REPO/p4_proxy/proxy_agent" "$d/p4_proxy/proxy_agent"
++    ln -s "$REPO/p4_proxy/venv" "$d/p4_proxy/venv"
++}
++ltree_leaks() {   # ltree_leaks <dir> -> one line per way out of the tree; nothing when sealed
++    local d="$1" k l
++    for k in host_count_override app_package_override telemetry_override; do
++        [[ -e "$d/p4_proxy/mininet/$k" ]] && echo "p4_proxy/mininet/$k resolves to $(readlink -f "$d/p4_proxy/mininet/$k")"
++    done
++    while IFS= read -r l; do
++        case "${l#"$d"/}" in
++            p4_proxy/proxy_agent|p4_proxy/venv) ;;
++            *) echo "${l#"$d"/} is a link to $(readlink -f "$l")" ;;
++        esac
++    done < <(find "$d" -type l)
++}
++lprobe="$BK/ltree-probe"; ltree "$lprobe"
++lleaks="$(ltree_leaks "$lprobe")"
++lctl="$BK/ltree-control"; mkdir -p "$lctl"; ln -s "$REPO/p4_proxy" "$lctl/p4_proxy"
++if [[ -z "$(ltree_leaks "$lctl")" ]]; then
++    echo "REFUSE: the leak check sees nothing in a tree that links all of p4_proxy -- it proves nothing"; exit 2
++fi
++if [[ -n "$lleaks" ]]; then
++    echo "REFUSE: 08's mutant tree reaches out of itself -- a mutant could write the checkout's lab state:"
++    sed 's/^/  /' <<<"$lleaks"; exit 2
++fi
++echo "08's mutant tree: only p4_proxy/proxy_agent and p4_proxy/venv lead out of it, and no lab-state knob is in it"
++rm -rf "$lprobe" "$lctl"
++
+ # === the proxy ====================================================================================
+ lay_out() {   # $1 = a directory to become a repo-shaped copy
+     local d="$1"
+@@ -1065,12 +1109,7 @@ echo "08_heartbeat.sh --self-test"
+ lmutant() {   # $1 = label, $2 = file (08), $3 = the anchor, $4 = its replacement
+     local label="$1" file="$2" old="$3" new="$4"
+     local d="$BK/$label"
+-    mkdir -p "$d/$LIVE_DIR_REL" "$d/tools/test_workflow" "$d/doc/audit/2026-09-25_p4-heartbeat/spike" "$d/tmp"
+-    cp "$REPO/$LIVE_DIR_REL/_common.sh" "$LIVE08" "$d/$LIVE_DIR_REL/"
+-    cp "$REPO/tools/test_workflow/faults.sh" "$REPO/tools/test_workflow/qdisc_snapshot.sh" "$d/tools/test_workflow/"
+-    cp "$REPO/doc/audit/2026-09-25_p4-heartbeat/spike/census_prepare.py" "$d/doc/audit/2026-09-25_p4-heartbeat/spike/"
+-    # [Co-developed with claude code -- Adam] the proxy, READ by the self-test's consts (never written)
+-    ln -s "$REPO/p4_proxy" "$d/p4_proxy"
++    ltree "$d"   # [Co-developed with claude code -- Adam] (R-N1: the one builder, checked above)
+     python3 - "$d/$LIVE_DIR_REL/$(basename "$file")" "$old" "$new" <<'PY'
+ import sys
+ p, a, b = sys.argv[1], sys.argv[2], sys.argv[3]
+@@ -1096,11 +1135,8 @@ lreport() {   # $1 = mutation name, $2 = mutant dir, $3 = the self-test case tha
+     rm -rf "$2"
+ }
+ lb="$BK/lbase"
+-mkdir -p "$lb/$LIVE_DIR_REL" "$lb/tools/test_workflow" "$lb/doc/audit/2026-09-25_p4-heartbeat/spike" "$lb/tmp"
+-cp "$REPO/$LIVE_DIR_REL/_common.sh" "$LIVE08" "$lb/$LIVE_DIR_REL/"
+-cp "$REPO/tools/test_workflow/faults.sh" "$REPO/tools/test_workflow/qdisc_snapshot.sh" "$lb/tools/test_workflow/"
+-cp "$REPO/doc/audit/2026-09-25_p4-heartbeat/spike/census_prepare.py" "$lb/doc/audit/2026-09-25_p4-heartbeat/spike/"
+-ln -s "$REPO/p4_proxy" "$lb/p4_proxy"
++ltree "$lb"
++[[ -z "$(ltree_leaks "$lb")" ]] || { echo "REFUSE: the baseline tree leaks: $(ltree_leaks "$lb" | paste -sd';' -)"; exit 2; }
+ if [[ "$(lrun "$lb" | tail -1)" == "SELF-TEST PASS" ]]; then
+     echo "  08 self-test baseline: SELF-TEST PASS"
+ else
+diff --git a/tests/shell/mutate_roles_binding.sh b/tests/shell/mutate_roles_binding.sh
+index b3aaa3e1..dad0bdfe 100755
+--- a/tests/shell/mutate_roles_binding.sh
++++ b/tests/shell/mutate_roles_binding.sh
+@@ -1575,6 +1575,17 @@ m=$(l7_mutant l7_nostate '    if [[ -s "$out" ]]; then
+         judge "$(caps_are "$out" "$caps")"')
+ l7_report "L7-27: no switch_state at all is judged, not failed" "$m" "  no switch_state at all"
+ 
++# [Co-developed with claude code -- Adam] R-N2 (09-27): the live L1 poll is an argument, 30 s
++# when the live path passes none -- never read from the environment.
++m=$(l7_mutant l7_envpoll '    v="$(state_until "$poll" l1_links_verdict "$out" "$model")"' \
++    '    v="$(state_until "${L1_POLL_S:-$poll}" l1_links_verdict "$out" "$model")"')
++l7_report "L7-28: the caller's L1_POLL_S shortens the live poll again" "$m" \
++          "  an inherited L1_POLL_S does not shorten the live poll"
++m=$(l7_mutant l7_shortpoll '        "$CAPS_OWNED" "$SKIPPED_OWNED" "" "L6: no switch_state" "${1:-30}"' \
++    '        "$CAPS_OWNED" "$SKIPPED_OWNED" "" "L6: no switch_state" "${1:-2}"')
++l7_report "L7-29: the live path's own poll is 2 s, not 30" "$m" \
++          "  an inherited L1_POLL_S does not shorten the live poll"
++
+ # --- negative controls: edits no suite specifies, which must stay GREEN -------------------------
+ 
+ control() {  # $1 = label, $2 = mutant dir

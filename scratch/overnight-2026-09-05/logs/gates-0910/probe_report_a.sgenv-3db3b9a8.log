@@ -1,0 +1,73 @@
+3db3b9a8e0135f35d02cd3b914cf300e6627cb35
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-suites-gate-env-0927  2026-09-26T21:44:10Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-suites-gate-env-0927  TMPDIR /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-sgenv-3db3b9a8-diag/probe_report.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-suites-gate-env-0927 /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp/probe_report_a_3db3b9a8
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-suites-gate-env-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-sgenv-3db3b9a8-diag/shims (nolab)
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-sgenv-3db3b9a8-diag/probe_report.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-suites-gate-env-0927 /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp/probe_report_a_3db3b9a8
+HEAD 3db3b9a8e0135f35d02cd3b914cf300e6627cb35
+
+== test_apps_stop_kills_the_group.sh   R rc 0 (Ran 71 checks, 0 failed)   L rc 1 (Ran 71 checks, 3 failed)
+   calls under R:
+            8 sudo -n /usr/local/sbin/ndtwin-lab status
+   calls under L:
+            8 sudo -n /usr/local/sbin/ndtwin-lab status
+   in L and not in R (what a LIVE answer leads to):
+   checks that changed verdict R -> L:
+      <   ok       proc_pgid agrees with ps about this shell
+      <   ok       proc_sid agrees with ps about this shell
+      >   FAILED   proc_pgid agrees with ps about this shell
+      >   FAILED   proc_sid agrees with ps about this shell
+      <   ok       a comm containing ') ' does not fool the parser
+      >   FAILED   a comm containing ') ' does not fool the parser
+
+== test_cell_gate_suspect_wiring.sh   R rc 0 (12 passed, 0 failed)   L rc 0 (12 passed, 0 failed)
+   calls under R:
+            2 sudo -n /usr/local/sbin/ndtwin-lab status
+            2 sudo -n /usr/local/sbin/ndtwin-lab topo-out 400
+   calls under L:
+            2 sudo -n /usr/local/sbin/ndtwin-lab status
+            2 sudo -n /usr/local/sbin/ndtwin-lab topo-out 400
+   in L and not in R (what a LIVE answer leads to):
+   checks that changed verdict R -> L:
+
+== test_lab_handoff.sh   R rc 0 (Ran 18 checks, all passed)   L rc 0 (Ran 18 checks, all passed)
+   calls under R:
+           13 sudo -n mnexec -a 1 true
+           26 sudo -n ovs-vsctl list-br
+           52 sudo -n /usr/local/sbin/ndtwin-lab status
+           13 tc qdisc show
+   calls under L:
+           13 sudo -n mnexec -a 1 true
+           13 sudo -n ovs-vsctl list-br
+           52 sudo -n /usr/local/sbin/ndtwin-lab status
+           13 tc qdisc show
+   in L and not in R (what a LIVE answer leads to):
+   checks that changed verdict R -> L:
+
+== test_ndt_app_orphans.sh   R rc 0 (Ran 103 checks, all passed)   L rc 0 (Ran 103 checks, all passed)
+   calls under R:
+           16 sudo -n /usr/local/sbin/ndtwin-lab status
+   calls under L:
+           16 sudo -n /usr/local/sbin/ndtwin-lab status
+   in L and not in R (what a LIVE answer leads to):
+   checks that changed verdict R -> L:
+
+== test_ndt_honesty.sh   R rc 0 (Ran 345 checks, 0 failed)   L rc 0 (Ran 345 checks, 0 failed)
+   calls under R:
+            2 sudo -n ovs-vsctl list-br
+   calls under L:
+   in L and not in R (what a LIVE answer leads to):
+   checks that changed verdict R -> L:
+
+== test_ndt_sample_rate_reads_both_bounds.sh   R rc 0 (Ran 6 checks, 0 failed)   L rc 0 (Ran 6 checks, 0 failed)
+   calls under R:
+            4 sudo -n ovs-vsctl list-br
+   calls under L:
+   in L and not in R (what a LIVE answer leads to):
+   checks that changed verdict R -> L:
+no real mininet host appeared
+PROBE-REPORT: done
+guarded_build: exit 0
+# rc=0

@@ -1,0 +1,27 @@
+c22d130041f0416293e333fbcd13956d5e4bbbd7
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r3-0927  2026-09-26T20:07:29Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r3-0927  TMPDIR /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbr3-c22d1300/redfirst_lib_gate.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbr3-c22d1300/redfirst_lib.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r3-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbr3-c22d1300/shims (nolab)
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbr3-c22d1300/redfirst_lib_gate.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbr3-c22d1300/redfirst_lib.sh
+== the lib
+  ok    a clean PASS is green, and nothing is kept
+  ok    🔴 a line AFTER SELF-TEST PASS is told apart from a clean pass
+  ok      and says what it is
+  ok      and keeps the output
+  ok    a PASS line under a red line is not green
+  ok    a FAIL is not green
+  ok    no output at all is not green
+  ok    exactly_red: the one expected case, red once, FAIL last
+  ok    exactly_red: a case expected but not red is BAD, and kept
+  ok    exactly_red: a PASS is not a red-first run
+REDFIRST-LIB SELF-CHECK: PASS
+== mutant Q2-1: SELF-TEST PASS need not be the last line
+      🔴    🔴 a line AFTER SELF-TEST PASS is told apart from a clean pass -- got '0', want '1'
+      🔴      and says what it is -- got 'no:   ok    trailing: SELF-TEST PASS, the last line (1 ok, 0 red)', want 'yes'
+      🔴      and keeps the output -- got 'no', want 'yes'
+REDFIRST-LIB-GATE: self-check PASS; Q2-1 caught by its named check
+guarded_build: exit 0
+# rc=0

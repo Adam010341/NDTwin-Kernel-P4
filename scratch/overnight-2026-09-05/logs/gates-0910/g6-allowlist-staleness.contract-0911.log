@@ -1,0 +1,9 @@
+scanned 218 C++ file(s), 9465 string-literal run(s)
+
+44 rule line(s); 39 matched a C++ literal, 5 did not:
+
+  warning_allowlist.txt:133  WARNING           P4 BMv2 Power ON from Kernel is currently a stub
+  warning_allowlist.txt:168  FORBID            logger with name .* already exists
+  warning_allowlist.txt:169  FORBID            Cannot open OpenflowCapacity\.json
+  warning_allowlist.txt:203  WARNING           ^Rejecting simulation case: body is not valid JSON
+  warning_allowlist.txt:204  WARNING           ^Rejecting simulation case: missing required field

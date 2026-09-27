@@ -1,0 +1,9 @@
+#!/bin/bash
+printf "%s %s %s %s\n" "${NOLAB_SUITE:--}" "${NOLAB_PASS:--}" "$(basename "$0")" "$*" >> "${NOLAB_LOG:-/dev/null}"
+for a in "$@"; do
+    case "$a" in
+        *localhost:8000*|*localhost:8081*|*localhost:8080*|*127.0.0.1:8000*|*127.0.0.1:8081*|*127.0.0.1:8080*|*\[::1\]:80[08][01]*)
+            echo "curl: refused by the nolab shim (a lab endpoint): $a" >&2; exit 7 ;;
+    esac
+done
+exec /usr/bin/curl "$@"

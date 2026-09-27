@@ -1,0 +1,30 @@
+run_cells.sh  NDT_ROOT=/home/adam/Desktop/NDTwin-Kernel  ndt=54fd094e2dff10ccbe69a5a3b9028ca8b22c36bc  raw=/home/adam/Desktop/NDTwin-Kernel/.test_run/live_cells/2026-09-12
+started 2026-09-12T15:00:47+08:00   cells=1   restore=between-cells
+
+=== stale_app_pidfile_does_not_frame_the_fabric  (tag=ndt requires=ovs4)
+  ASSERT ok   stale_plant_recorded                   plant.txt present
+  ASSERT ok   stale_orphans_report_present           orphans.txt present
+  ASSERT ok   stale_check_present                    check.log present
+  ASSERT ok   stale_premise_pidfile_predates_bringup pidfile mtime 1788608311 is 588136s before the bring-up at 1789196447
+  ASSERT ok   stale_premise_pid_was_dead             = [no]
+  ASSERT ok   stale_premise_up_rc_is_0               = [0]
+  ASSERT FAIL stale_premise_flow_table_not_empty     flow table entry count [0]: with no rule on the wire 'no rule in that window' is true of every tool, including one that stopped looking
+  ASSERT ok   stale_premise_the_app_got_a_window      te     window 2026-09-05 19:38:31 -> now (588145s)
+  ASSERT FAIL stale_window_has_a_right_edge          expected [closed] actual [open]
+  ASSERT ok   stale_window_frames_no_rule            = [none]
+  ASSERT ok   stale_app_block_lists_no_rule          = [0]
+  ASSERT ok   stale_check_does_not_list_them         check.log does not contain it
+  ASSERT ok   stale_check_rc_is_0                    = [0]
+  ASSERT ok   stale_premise_no_app_was_running       check.log contains it
+  ASSERT ok   stale_control_fabric_was_really_up     check.log contains it
+  ASSERT ok   stale_control_plant_was_removed        = [no]
+  CELL: FAIL stale_app_pidfile_does_not_frame_the_fabric tag=ndt kernel=c4c8e50310d7e4a1 ndt=54fd094e2dff10ccbe69a5a3b9028ca8b22c36bc at=2026-09-12T15:00:47+08:00
+RESTORE ok  after stale_app_pidfile_does_not_frame_the_fabric down=0 clean=0 VERDICT: CLEAN -- the process half only; the network half was NOT checked (kernel down)
+
+--- verdicts ---
+CELL: FAIL stale_app_pidfile_does_not_frame_the_fabric tag=ndt kernel=c4c8e50310d7e4a1 ndt=54fd094e2dff10ccbe69a5a3b9028ca8b22c36bc at=2026-09-12T15:00:47+08:00
+CELLS: 0/1 pass, 1 FAIL, 0 SKIP
+=== FOOTER ADDED AFTER THE FACT by the CELLS-2 agent at 2026-09-12T15:21:46+08:00: this log predates the
+=== orchestrator rule that every gate log carries date at head and tail. The times below
+=== come from the agent's own shell (`date -Iseconds` either side of the run), not from
+=== inside the log: started 2026-09-12T15:00:46+08:00  ended 2026-09-12T15:01:15+08:00  RC=1

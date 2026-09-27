@@ -1,0 +1,410 @@
+diff --git a/tests/shell/lib_probe_stub.sh b/tests/shell/lib_probe_stub.sh
+new file mode 100644
+index 00000000..e82f757c
+--- /dev/null
++++ b/tests/shell/lib_probe_stub.sh
+@@ -0,0 +1,95 @@
++# lib_probe_stub.sh -- sourced, never run: a suite's OWN sudo, answering every call the way CI and
++# every gate answer it today -- recorded, and REFUSED with rc 1 -- so the suite's result no longer
++# depends on whether this machine has a live lab, and no call it makes can reach root.
++#
++# [Co-developed with claude code -- Adam]
++#
++# WHY (2026-09-27, the orchestrator's round (a)). Six suites send read-only lab probes through the
++# real `sudo -n` -- `ndtwin-lab status`, `topo-out`, `ovs-vsctl list-br`, `mnexec -a 1 true`. On a
++# machine with the grants and a live lab those are answered, and the suite then runs on a path
++# neither CI nor any gate has run: under a sudo that answered as a live OVS lab would,
++# test_ndt_sample_rate_reads_both_bounds went red on four checks. Refusing (never a fabricated
++# "no lab" answer with rc 0) keeps every suite on the one path CI and the gates run.
++#
++#   probe_stub_install <dir> [--tc-empty] [--ovs-refuse] -- <allowed call>...
++#       puts <dir>/probe-stub first on PATH (the suite's own temp dir: its trap removes it). An
++#       allowed call is written as it is RECORDED: `sudo <command basename> <args>` with sudo's -n
++#       dropped (`sudo ndtwin-lab status`, `sudo ovs-vsctl list-br`), a shell glob allowed
++#       (`sudo ndtwin-lab topo-out *`); `tc <args>` / `ovs-vsctl <args>` for the unprivileged stubs.
++#       --tc-empty    an unprivileged `tc` that records and prints nothing (rc 0): no qdisc, as on a
++#                     machine with no lab -- CI's answer, not this machine's
++#       --ovs-refuse  an unprivileged `ovs-vsctl` that records and refuses (rc 1)
++#   probe_stub_outside  -> one line per recorded call that no allowed call matches, plus one if the
++#                          stub is not installed or not the sudo on PATH; nothing at all only when
++#                          the stub took every call and every call was allowed
++#   probe_stub_calls    -> every recorded call, normalised, counted
++probe_stub_install() {
++    local dir="$1" tc=0 ovs=0 d
++    shift
++    while [[ "${1:-}" == --* ]]; do
++        case "$1" in --tc-empty) tc=1 ;; --ovs-refuse) ovs=1 ;; --) shift; break ;; esac
++        shift
++    done
++    d="$dir/probe-stub"; mkdir -p "$d"
++    PROBE_STUB_DIR="$d"
++    PROBE_STUB_LOG="$d/calls"; : > "$PROBE_STUB_LOG"
++    PROBE_STUB_ALLOW=("$@")
++    # sudo's own refusal, word for word (sudo 1.9.15p5 with no NOPASSWD rule): ndt words its
++    # messages by it (sudo_surface.sh ndt_sudo_refused -- wording only, never a verdict).
++    cat > "$d/sudo" <<EOF
++#!/bin/bash
++printf 'sudo %s\\n' "\$*" >> '$PROBE_STUB_LOG'
++echo "sudo: a password is required" >&2
++exit 1
++EOF
++    if (( tc )); then
++        cat > "$d/tc" <<EOF
++#!/bin/bash
++printf 'tc %s\\n' "\$*" >> '$PROBE_STUB_LOG'
++exit 0
++EOF
++    fi
++    if (( ovs )); then
++        cat > "$d/ovs-vsctl" <<EOF
++#!/bin/bash
++printf 'ovs-vsctl %s\\n' "\$*" >> '$PROBE_STUB_LOG'
++echo "ovs-vsctl: refused by this suite's stub" >&2
++exit 1
++EOF
++    fi
++    chmod +x "$d"/*
++    export PATH="$d:$PATH"
++}
++_probe_stub_norm() {   # a recorded line -> `sudo <basename> <args>` (sudo's -n dropped) or as is
++    local l="$1" w
++    if [[ "$l" == "sudo "* ]]; then
++        l="${l#sudo }"; [[ "$l" == "-n "* ]] && l="${l#-n }"
++        w="${l%% *}"; [[ "$l" == *" "* ]] && l="${w##*/} ${l#* }" || l="${w##*/}"
++        l="sudo $l"
++    fi
++    printf '%s' "$l"
++}
++probe_stub_outside() {
++    local line n a hit
++    # 🔴 never vacuous: a stub that was never installed, or is not the sudo on PATH, is itself a
++    # line here -- "no call outside the allow-list" must not be true of a suite whose sudo went
++    # somewhere else (found 09-27: a suite that sourced ndt first lost its HERE, the lib was not
++    # found, and the closing check read an empty list as clean)
++    if [[ -z "${PROBE_STUB_LOG:-}" || ! -f "$PROBE_STUB_LOG" ]]; then
++        echo "NO STUB: probe_stub_install never ran"; return
++    fi
++    [[ "$(type -P sudo)" == "$PROBE_STUB_DIR/sudo" ]] || echo "the sudo on PATH is $(type -P sudo), not this suite's stub"
++    while IFS= read -r line; do
++        [[ -n "$line" ]] || continue
++        n="$(_probe_stub_norm "$line")"; hit=0
++        for a in "${PROBE_STUB_ALLOW[@]}"; do
++            # shellcheck disable=SC2053  # the allowed call IS a glob
++            [[ "$n" == $a ]] && { hit=1; break; }
++        done
++        (( hit )) || printf '%s\n' "$n"
++    done < "$PROBE_STUB_LOG"
++}
++probe_stub_calls() {
++    local line
++    while IFS= read -r line; do _probe_stub_norm "$line"; echo; done < "$PROBE_STUB_LOG" | sort | uniq -c | sed 's/^ *//' | paste -sd';' -
++}
+diff --git a/tests/shell/mutate_probe_stubs.sh b/tests/shell/mutate_probe_stubs.sh
+new file mode 100644
+index 00000000..4fc4006e
+--- /dev/null
++++ b/tests/shell/mutate_probe_stubs.sh
+@@ -0,0 +1,129 @@
++#!/usr/bin/env bash
++#
++# Mutation gate for the probe stubs of six suites (tests/shell/lib_probe_stub.sh): each suite's
++# own sudo records every call and refuses it, and its closing check fails on a call outside the
++# suite's allow-list. A closing check that cannot fail would make the allow-list decoration, so
++# each mutation takes ONE entry out of one suite's allow-list -- a call the suite really makes --
++# and that suite's closing check must go red. P8 removes a stub altogether: the closing check must
++# say the stub is not there, never read an empty call list as clean.
++#
++# [Co-developed with claude code -- Adam]
++#
++# A mutant is a copy of the suite BESIDE it (tests/shell/.mutant-<label>-<suite>), so its HERE and
++# every path it derives are the suite's own; the copy is removed after its run and on exit. A
++# mutation that does not apply (the anchor is not exactly once in the suite) is a SURVIVOR, never a
++# skip. The baseline -- every suite green, its closing check ok -- must hold first.
++#
++# Usage: bash tests/shell/mutate_probe_stubs.sh
++# Exit:  0 every mutation caught; 1 a mutation survived; 2 refused (baseline red / harness)
++set -uo pipefail
++HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
++APPS_STOP="$HERE/test_apps_stop_kills_the_group.sh"
++APP_ORPHANS="$HERE/test_ndt_app_orphans.sh"
++CELL_GATE="$HERE/test_cell_gate_suspect_wiring.sh"
++LAB_HANDOFF="$HERE/test_lab_handoff.sh"
++HONESTY="$HERE/test_ndt_honesty.sh"
++SAMPLE_RATE="$HERE/test_ndt_sample_rate_reads_both_bounds.sh"
++CLOSING="🔴 every sudo went to this suite's stub and was an allow-listed read-only probe"
++# [Co-developed with claude code -- Adam] 🔴 THIS GATE'S OWN sudo, FIRST ON PATH FOR EVERY RUN (09-27).
++# A mutant can take a suite's stub away (P8), and then the suite's probes go to whatever sudo is
++# next on PATH -- on 09-27 that was the driver's nolab shim, and its tripwire counted them. Here they
++# land in this gate's own recorder, which refuses them (rc 1), and P8's kill REQUIRES them there: a
++# stub that is gone must show up as calls that escaped it, not as silence.
++ESC="$(mktemp -d "${TMPDIR:-/tmp}/probe-stub-gate-XXXXXX")"
++cat > "$ESC/sudo" <<EOF
++#!/bin/bash
++printf 'sudo %s\n' "\$*" >> '$ESC/escaped'
++echo "sudo: a password is required" >&2
++exit 1
++EOF
++chmod +x "$ESC/sudo"; : > "$ESC/escaped"
++export PATH="$ESC:$PATH"
++trap 'rm -f "$HERE"/.mutant-*-test_*.sh; rm -rf "$ESC"' EXIT
++SURVIVORS=0; MUTATIONS=0
++
++echo "baseline (every suite green, its closing check ok):"
++for s in "$APPS_STOP" "$APP_ORPHANS" "$CELL_GATE" "$LAB_HANDOFF" "$HONESTY" "$SAMPLE_RATE"; do
++    : > "$ESC/escaped"
++    out="$(timeout 900 bash "$s" < /dev/null 2>&1)"; rc=$?
++    if [[ -s "$ESC/escaped" ]]; then
++        echo "  refused: $(basename "$s") sent $(wc -l < "$ESC/escaped") sudo call(s) past its own stub"; exit 2
++    fi
++    if [[ $rc -ne 0 ]] || ! /usr/bin/grep -E '^ *ok ' <<<"$out" | /usr/bin/grep -qF -- "$CLOSING"; then
++        echo "  refused: $(basename "$s") is not green with its closing check ok (rc $rc)"; exit 2
++    fi
++    echo "  ok       $(basename "$s"): $(tail -1 <<<"$out")"
++done
++
++# The parameters are NAMED so tests/shell/check_gate_anchors.py can read this gate.
++mutant() {   # $1 = label, $2 = file (the suite), $3 = the anchor, $4 = its replacement -> the copy
++    local label="$1" file="$2" old="$3" new="$4"
++    local copy="$HERE/.mutant-$label-$(basename "$file")"
++    python3 - "$file" "$copy" "$old" "$new" <<'PY'
++import sys
++src, dst, a, b = sys.argv[1:5]
++s = open(src).read()
++if s.count(a) != 1:
++    print("ANCHOR:%d" % s.count(a)); sys.exit(0)
++open(dst, "w").write(s.replace(a, b, 1)); print(dst)
++PY
++}
++report() {   # $1 = mutation name, $2 = the copy (or ANCHOR:n), $3 = "escapes" when the stub is meant to be gone
++    local out rc esc
++    MUTATIONS=$((MUTATIONS+1))
++    if [[ "$2" == ANCHOR:* ]]; then
++        SURVIVORS=$((SURVIVORS+1)); printf '  SURVIVED %-66s (anchor occurrences: %s)\n' "$1" "${2#ANCHOR:}"; return
++    fi
++    : > "$ESC/escaped"
++    out="$(timeout 900 bash "$2" < /dev/null 2>&1)"; rc=$?; rm -f "$2"
++    esc="$(wc -l < "$ESC/escaped")"
++    # a stub that is there takes every call (0 escaped); a stub that is gone must leak (>0)
++    if [[ "${3:-}" == escapes ]] && (( esc == 0 )); then
++        SURVIVORS=$((SURVIVORS+1)); printf '  SURVIVED %-66s (no call reached this gate'"'"'s sudo -- the escape it tests went nowhere)\n' "$1"; return
++    fi
++    if [[ "${3:-}" != escapes ]] && (( esc > 0 )); then
++        SURVIVORS=$((SURVIVORS+1)); printf '  SURVIVED %-66s (%s call(s) escaped a stub that should have taken them)\n' "$1" "$esc"; return
++    fi
++    if [[ $rc -ne 0 ]] && /usr/bin/grep -E '^ *FAILED ' <<<"$out" | /usr/bin/grep -qF -- "$CLOSING"; then
++        printf '  caught   %-66s (%s escaped; the closing check went red: %s)\n' "$1" "$esc" \
++            "$(/usr/bin/grep -A2 -F -- "$CLOSING" <<<"$out" | /usr/bin/grep -oE '(actual: *\[[^]]*\]|outside the allow-list: .*)' | head -1 | cut -c1-80)"
++    else
++        SURVIVORS=$((SURVIVORS+1))
++        printf '  SURVIVED %-66s (rc %s; the closing check did not go red)\n' "$1" "$rc"
++    fi
++}
++
++echo
++echo "mutations (one allow-list entry out of one suite):"
++m=$(mutant p1 "$APPS_STOP" "probe_stub_install \"\$TMPROOT\" -- 'sudo ndtwin-lab status'" \
++    "probe_stub_install \"\$TMPROOT\" --")
++report "P1: apps_stop no longer allows 'ndtwin-lab status'" "$m"
++m=$(mutant p2 "$APP_ORPHANS" "probe_stub_install \"\$TMPROOT\" -- 'sudo ndtwin-lab status'" \
++    "probe_stub_install \"\$TMPROOT\" --")
++report "P2: app_orphans no longer allows 'ndtwin-lab status'" "$m"
++m=$(mutant p3 "$CELL_GATE" "'sudo ndtwin-lab status' 'sudo ndtwin-lab topo-out *'" \
++    "'sudo ndtwin-lab status'")
++report "P3: cell_gate no longer allows 'ndtwin-lab topo-out N'" "$m"
++m=$(mutant p4 "$LAB_HANDOFF" "'sudo ndtwin-lab status' 'sudo ovs-vsctl list-br' 'sudo mnexec -a 1 true' 'tc qdisc show'" \
++    "'sudo ndtwin-lab status' 'sudo mnexec -a 1 true' 'tc qdisc show'")
++report "P4: lab_handoff no longer allows 'ovs-vsctl list-br'" "$m"
++m=$(mutant p5 "$HONESTY" "probe_stub_install \"\$FIX\" -- 'sudo ovs-vsctl list-br'" \
++    "probe_stub_install \"\$FIX\" --")
++report "P5: honesty no longer allows 'ovs-vsctl list-br'" "$m"
++m=$(mutant p6 "$SAMPLE_RATE" "probe_stub_install \"\$TMPROOT\" --ovs-refuse -- 'sudo ovs-vsctl list-br'" \
++    "probe_stub_install \"\$TMPROOT\" --ovs-refuse --")
++report "P6: sample_rate no longer allows 'ovs-vsctl list-br'" "$m"
++m=$(mutant p7 "$LAB_HANDOFF" "'sudo ndtwin-lab status' 'sudo ovs-vsctl list-br' 'sudo mnexec -a 1 true' 'tc qdisc show'" \
++    "'sudo ndtwin-lab status' 'sudo ovs-vsctl list-br' 'sudo mnexec -a 1 true'")
++report "P7: lab_handoff no longer allows the unprivileged 'tc qdisc show'" "$m"
++
++# P8: the stub never installed -- the shape of the first version's defect in the three suites that
++# source ndt first (their HERE became ndt's, the lib was not found): the closing check must say so,
++# not read an empty list as clean.
++m=$(mutant p8 "$SAMPLE_RATE" "probe_stub_install \"\$TMPROOT\" --ovs-refuse -- 'sudo ovs-vsctl list-br'" \
++    ": the stub is not installed")
++report "P8: sample_rate's stub is never installed (its calls escape to this gate's sudo)" "$m" escapes
++
++echo
++echo "$MUTATIONS mutation(s), $SURVIVORS survivor(s)"
++(( SURVIVORS == 0 ))
+diff --git a/tests/shell/test_apps_stop_kills_the_group.sh b/tests/shell/test_apps_stop_kills_the_group.sh
+index c4f67317..285fb2c6 100644
+--- a/tests/shell/test_apps_stop_kills_the_group.sh
++++ b/tests/shell/test_apps_stop_kills_the_group.sh
+@@ -69,6 +69,15 @@ has() { case "$2" in *"$1"*) echo yes ;; *) echo no ;; esac; }
+ source "$NDT" || { echo "  FAILED   could not source $NDT"; echo "Ran 1 checks, 1 failed"; exit 1; }
+ 
+ TMPROOT="$(mktemp -d /tmp/ndt-appsgroup-XXXXXX)"
++# [Co-developed with claude code -- Adam] 🔴 THIS SUITE'S OWN sudo (2026-09-27): every sudo it
++# makes is recorded and REFUSED rc 1 -- what CI and every gate answer today -- so a live lab on
++# this machine cannot change its path or its verdict, and nothing it runs reaches root. The
++# closing check fails on any call outside the allow-list (tests/shell/lib_probe_stub.sh).
++# (from this file's own directory: a suite that sources ndt first has had its HERE replaced by
++# ndt's -- the first version of this line found no lib there and the stub never ran)
++source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_probe_stub.sh" \
++    || { echo "  FAILED   no tests/shell/lib_probe_stub.sh beside this suite"; exit 1; }
++probe_stub_install "$TMPROOT" -- 'sudo ndtwin-lab status'
+ REPO="$TMPROOT"
+ mkdir -p "$TMPROOT/.test_run/pids" "$TMPROOT/.test_run/logs"
+ FIXDIR="$TMPROOT/fixture"
+@@ -553,6 +562,8 @@ check "  and it says so"                           yes "$(has "no untracked app
+ LEAKED="$(printf '%s\n' "$(cat "$FIXTURE_REG")" | alive_count)"
+ check "this suite leaked no fixtures"              0 "$LEAKED"
+ 
++# [Co-developed with claude code -- Adam] the stub's closing check (lib_probe_stub.sh)
++check "🔴 every sudo went to this suite's stub and was an allow-listed read-only probe" "" "$(probe_stub_outside 2>&1 | sort | uniq -c | sed 's/^ *//' | paste -sd';' -)"
+ echo "Ran $((PASS + FAIL)) checks, $FAIL failed"
+ [[ "$FAIL" -eq 0 ]] || exit 1
+ exit 0
+diff --git a/tests/shell/test_cell_gate_suspect_wiring.sh b/tests/shell/test_cell_gate_suspect_wiring.sh
+index 0e3653fb..124a86e4 100755
+--- a/tests/shell/test_cell_gate_suspect_wiring.sh
++++ b/tests/shell/test_cell_gate_suspect_wiring.sh
+@@ -42,6 +42,15 @@ check() {
+ # --- source the SHIPPED reader, never a copy of it ----------------------------------------------
+ T=$(mktemp -d)
+ trap 'rm -rf "$T"' EXIT
++# [Co-developed with claude code -- Adam] 🔴 THIS SUITE'S OWN sudo (2026-09-27): every sudo it
++# makes is recorded and REFUSED rc 1 -- what CI and every gate answer today -- so a live lab on
++# this machine cannot change its path or its verdict, and nothing it runs reaches root. The
++# closing check fails on any call outside the allow-list (tests/shell/lib_probe_stub.sh).
++# (from this file's own directory: a suite that sources ndt first has had its HERE replaced by
++# ndt's -- the first version of this line found no lib there and the stub never ran)
++source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_probe_stub.sh" \
++    || { echo "  FAILED   no tests/shell/lib_probe_stub.sh beside this suite"; exit 1; }
++probe_stub_install "$T" -- 'sudo ndtwin-lab status' 'sudo ndtwin-lab topo-out *'
+ export ROUND="$ROUND_DIR"
+ export LOG="$T/test.log"
+ export DRY_RUN=0
+@@ -125,6 +134,8 @@ CELL_GATE_OUT="$T/c1.jsonl"
+ ( FORCED_ABORT=1; cell_cpu_gate_finish c6 ) >/dev/null 2>&1
+ check "case 6  the suspect line carries unattributed_cores" 1 "$(grep -c 'suspect: *true unattributed=3.635' "$LOG")"
+ 
++# [Co-developed with claude code -- Adam] the stub's closing check (lib_probe_stub.sh)
++check "🔴 every sudo went to this suite's stub and was an allow-listed read-only probe" "" "$(probe_stub_outside 2>&1 | sort | uniq -c | sed 's/^ *//' | paste -sd';' -)"
+ echo
+ echo "$PASS passed, $FAIL failed"
+ [[ "$FAIL" -eq 0 ]]
+diff --git a/tests/shell/test_lab_handoff.sh b/tests/shell/test_lab_handoff.sh
+index e417061c..b81a252d 100755
+--- a/tests/shell/test_lab_handoff.sh
++++ b/tests/shell/test_lab_handoff.sh
+@@ -49,6 +49,15 @@ fi
+ # A sandbox shaped like the repo: ndt derives REPO from its own path as $HERE/../..
+ SANDBOX="$(mktemp -d)"
+ trap 'rm -rf "$SANDBOX"' EXIT
++# [Co-developed with claude code -- Adam] 🔴 THIS SUITE'S OWN sudo (2026-09-27): every sudo it
++# makes is recorded and REFUSED rc 1 -- what CI and every gate answer today -- so a live lab on
++# this machine cannot change its path or its verdict, and nothing it runs reaches root. The
++# closing check fails on any call outside the allow-list (tests/shell/lib_probe_stub.sh).
++# (from this file's own directory: a suite that sources ndt first has had its HERE replaced by
++# ndt's -- the first version of this line found no lib there and the stub never ran)
++source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_probe_stub.sh" \
++    || { echo "  FAILED   no tests/shell/lib_probe_stub.sh beside this suite"; exit 1; }
++probe_stub_install "$SANDBOX" --tc-empty -- 'sudo ndtwin-lab status' 'sudo ovs-vsctl list-br' 'sudo mnexec -a 1 true' 'tc qdisc show'
+ mkdir -p "$SANDBOX/tools/test_workflow" "$SANDBOX/.test_run"
+ cp "$NDT_SRC" "$SANDBOX/tools/test_workflow/ndt"
+ # 🔴 The three files ndt sources from beside itself. Without them it prints "cannot read
+@@ -160,6 +169,8 @@ check "a handoff missing every optional field still prints" "yes" "$(has_handoff
+ check "an empty handoff file does not crash status" "0" \
+       "$(bash "$NDT" status >/dev/null 2>&1; echo $?)"
+ 
++# [Co-developed with claude code -- Adam] the stub's closing check (lib_probe_stub.sh)
++check "🔴 every sudo went to this suite's stub and was an allow-listed read-only probe" "" "$(probe_stub_outside 2>&1 | sort | uniq -c | sed 's/^ *//' | paste -sd';' -)"
+ echo
+ if (( FAIL > 0 )); then
+     echo "Ran $((PASS + FAIL)) checks, $FAIL failed"
+diff --git a/tests/shell/test_ndt_app_orphans.sh b/tests/shell/test_ndt_app_orphans.sh
+index 991122ff..26dc55b2 100755
+--- a/tests/shell/test_ndt_app_orphans.sh
++++ b/tests/shell/test_ndt_app_orphans.sh
+@@ -73,6 +73,15 @@ has() { case "$2" in *"$1"*) echo yes ;; *) echo no ;; esac; }
+ source "$NDT" || { echo "  FAILED   could not source $NDT"; echo "Ran 1 checks, 1 failed"; exit 1; }
+ 
+ TMPROOT="$(mktemp -d /tmp/ndt-app-orphans-XXXXXX)"
++# [Co-developed with claude code -- Adam] 🔴 THIS SUITE'S OWN sudo (2026-09-27): every sudo it
++# makes is recorded and REFUSED rc 1 -- what CI and every gate answer today -- so a live lab on
++# this machine cannot change its path or its verdict, and nothing it runs reaches root. The
++# closing check fails on any call outside the allow-list (tests/shell/lib_probe_stub.sh).
++# (from this file's own directory: a suite that sources ndt first has had its HERE replaced by
++# ndt's -- the first version of this line found no lib there and the stub never ran)
++source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_probe_stub.sh" \
++    || { echo "  FAILED   no tests/shell/lib_probe_stub.sh beside this suite"; exit 1; }
++probe_stub_install "$TMPROOT" -- 'sudo ndtwin-lab status'
+ REPO="$TMPROOT"                       # every app_pidfile call now lands here, not in the workspace
+ PIDDIR="$TMPROOT/.test_run/pids"
+ mkdir -p "$PIDDIR"
+@@ -536,6 +545,8 @@ rm -f "$PIDDIR"/app_*.pid
+ echo "the suite reaps its own fixtures"
+ check "no fixture survives this run"              0 "$(reap_fixtures)"
+ 
++# [Co-developed with claude code -- Adam] the stub's closing check (lib_probe_stub.sh)
++check "🔴 every sudo went to this suite's stub and was an allow-listed read-only probe" "" "$(probe_stub_outside 2>&1 | sort | uniq -c | sed 's/^ *//' | paste -sd';' -)"
+ echo
+ if (( FAIL > 0 )); then
+     echo "Ran $((PASS + FAIL)) checks, $FAIL failed"
+diff --git a/tests/shell/test_ndt_honesty.sh b/tests/shell/test_ndt_honesty.sh
+index dd5842fd..b63f48b5 100755
+--- a/tests/shell/test_ndt_honesty.sh
++++ b/tests/shell/test_ndt_honesty.sh
+@@ -59,6 +59,15 @@ section() { printf '\n%s\n' "$1"; }
+ 
+ FIX="$(mktemp -d "${TMPDIR:-/tmp}/ndt-honesty-XXXXXX")"
+ trap 'rm -rf "$FIX"' EXIT
++# [Co-developed with claude code -- Adam] 🔴 THIS SUITE'S OWN sudo (2026-09-27): every sudo it
++# makes is recorded and REFUSED rc 1 -- what CI and every gate answer today -- so a live lab on
++# this machine cannot change its path or its verdict, and nothing it runs reaches root. The
++# closing check fails on any call outside the allow-list (tests/shell/lib_probe_stub.sh).
++# (from this file's own directory: a suite that sources ndt first has had its HERE replaced by
++# ndt's -- the first version of this line found no lib there and the stub never ran)
++source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_probe_stub.sh" \
++    || { echo "  FAILED   no tests/shell/lib_probe_stub.sh beside this suite"; exit 1; }
++probe_stub_install "$FIX" -- 'sudo ovs-vsctl list-br'
+ mkdir -p "$FIX/.test_run/pids" "$FIX/.test_run/logs" "$FIX/setting" "$FIX/p4_proxy/mininet"
+ 
+ # --- fixtures ------------------------------------------------------------------------------
+@@ -1489,6 +1498,8 @@ check "  the manual is readable from here"               "yes" \
+       "$( [[ -r "$MANUAL" ]] && echo yes || echo no )"
+ has   "🔴 and the manual's claim section says it too"    "ROLE-4 T4" "$(cat "$MANUAL" 2>/dev/null)"
+ 
++# [Co-developed with claude code -- Adam] the stub's closing check (lib_probe_stub.sh)
++check "🔴 every sudo went to this suite's stub and was an allow-listed read-only probe" "" "$(probe_stub_outside 2>&1 | sort | uniq -c | sed 's/^ *//' | paste -sd';' -)"
+ # --- done ---------------------------------------------------------------------------------
+ printf '\nRan %d checks, %d failed\n' "$((PASS+FAIL))" "$FAIL"
+ [[ "$FAIL" -eq 0 ]] || exit 1
+diff --git a/tests/shell/test_ndt_sample_rate_reads_both_bounds.sh b/tests/shell/test_ndt_sample_rate_reads_both_bounds.sh
+index 71ae37ef..8a5ac2d8 100755
+--- a/tests/shell/test_ndt_sample_rate_reads_both_bounds.sh
++++ b/tests/shell/test_ndt_sample_rate_reads_both_bounds.sh
+@@ -31,6 +31,15 @@ source "$NDT" || { echo "  FAILED   could not source $NDT"; echo "Ran 1 checks,
+ TMPROOT="$(mktemp -d /tmp/ndt-sample-rate-XXXXXX)"
+ cleanup() { [[ -n "${TMPROOT:-}" && "$TMPROOT" == /tmp/ndt-sample-rate-* ]] && rm -rf "$TMPROOT"; }
+ trap cleanup EXIT
++# [Co-developed with claude code -- Adam] 🔴 THIS SUITE'S OWN sudo (2026-09-27): every sudo it
++# makes is recorded and REFUSED rc 1 -- what CI and every gate answer today -- so a live lab on
++# this machine cannot change its path or its verdict, and nothing it runs reaches root. The
++# closing check fails on any call outside the allow-list (tests/shell/lib_probe_stub.sh).
++# (from this file's own directory: a suite that sources ndt first has had its HERE replaced by
++# ndt's -- the first version of this line found no lib there and the stub never ran)
++source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_probe_stub.sh" \
++    || { echo "  FAILED   no tests/shell/lib_probe_stub.sh beside this suite"; exit 1; }
++probe_stub_install "$TMPROOT" --ovs-refuse -- 'sudo ovs-vsctl list-br'
+ mkdir -p "$TMPROOT/p4_proxy/p4_src/build"
+ REPO="$TMPROOT"   # sample_rate() and source_ahead_of_build() read this at call time
+ BUILT="$TMPROOT/p4_proxy/p4_src/build/ndtwin_switch.json"
+@@ -85,5 +94,8 @@ else
+     t_bad "source_ahead_of_build exists" "function is not defined"
+ fi
+ 
++# [Co-developed with claude code -- Adam] the stub's closing check (lib_probe_stub.sh)
++outside="$(probe_stub_outside 2>&1 | sort | uniq -c | sed 's/^ *//' | paste -sd';' -)"
++[[ -z "$outside" ]] && t_ok "🔴 every sudo went to this suite's stub and was an allow-listed read-only probe" || t_bad "🔴 every sudo went to this suite's stub and was an allow-listed read-only probe" "outside the allow-list: $outside"
+ echo "Ran $((PASS+FAIL)) checks, $FAIL failed"
+ [[ "$FAIL" -eq 0 ]]

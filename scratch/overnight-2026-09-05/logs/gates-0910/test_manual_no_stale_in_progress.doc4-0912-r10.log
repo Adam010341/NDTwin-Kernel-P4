@@ -1,0 +1,24 @@
+=== started 2026-09-12T17:05:03+08:00 ===
+=== cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-doc4-0912
+=== head 94549c9f1daa0b8efc03be4127845643da99d7ba
+=== cmd (no env overrides; MANUAL/NDT/REPO_UNDER_TEST default to this worktree) bash tests/shell/test_manual_no_stale_in_progress.sh
+=== sha256 MANUAL doc/2026-08-17_testing-manual.md  0cb48068a5dff6d771a3d2581267e38ab025a11aa56f73a11d58e32890ecfb12
+=== sha256 NDT    tools/test_workflow/ndt  b7a0283ceca5629b2cc963f43f4ea51c0c3b554d4f228fa1eedaf611878bacf3
+=== sha256 TEST   tests/shell/test_manual_no_stale_in_progress.sh  4915dfd42550d401ed391f556e88ba38e24919aca339f6b7677b96d7caf2a6ea
+  ok       case 0  git resolves a merged ticket (FIX-NDT-6 -> a merge reachable from HEAD)
+  ok       case 1  'ndt help' no longer names only three ports for --deep
+  ok       case 2  'ndt help' prints --deep's size out of ports.sh's table
+  ok       case 3  'ndt' tells an operator its own fabric is its own
+  ok       case 4  'ndt' still has the stranger sentence (the fix was not 'never say it')
+  ok       case 5a caveat 'clean-calls-your-fabric-residue' is retracted and says what merged it
+  ok       case 5b caveat 'help-deep-names-three-ports' is retracted and says what merged it
+  ok       case 5c caveat 'clean-advises-deep-on-your-own' is retracted and says what merged it
+  ok       case 6  no line calls a ticket unfixed when its merge is already in the tree
+  ok       case 7  the manual quotes help's computed --deep size
+  ok       case 8  the manual quotes clean's own-fabric sentence
+  ok       case 9  the measured record inside the third caveat survived the sweep
+  ok       case 10 CONTROL: §2.1 still says the machine's 4 veth are not residue
+
+13 passed, 0 failed
+RC=0
+=== finished 2026-09-12T17:05:04+08:00 ===

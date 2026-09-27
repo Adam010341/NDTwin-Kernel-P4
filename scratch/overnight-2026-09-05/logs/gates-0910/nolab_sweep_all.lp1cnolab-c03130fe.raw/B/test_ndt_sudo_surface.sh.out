@@ -1,0 +1,40 @@
+the table
+  ok       ovs-vsctl has a row (ndt:1177, in no page of the manual)
+  ok       mnexec has a row (ndt:1206, in no page of the manual)
+  ok       every row declares a probe, an absolute target, where it is taught, and the consequence
+  ok       the rule for a key is a complete sudoers line naming the absolute path
+  ok       explain() prints the sudoers line that fixes it
+  ok       explain() prints what the refusal costs
+  ok       every privileged command ndt names has a row (nothing new can go unlisted)
+a refusal is not a measurement: ovs_bridge_count
+  ok       injection took effect: sudo really refuses ovs-vsctl (rc 1, sudo's own wording)
+  ok       refused: ovs_bridge_count returns 2 and prints no number
+  ok       control, permitted: ovs_bridge_count returns 0 and the real count
+  ok       same three bridges: permitted reads 3, refused does NOT read 0
+  ok       control, no ovs-vswitchd: a definite 0, answered without sudo
+the guard: 'I could not tell' stops ndt up p4
+  ok       a live OVS fabric stops the bring-up (unchanged)
+  ok       refused: the guard stops the bring-up
+  ok       refused: and says it could not tell
+  ok       refused: and blames sudo, not OVS
+  ok       refused: and prints the line that fixes it
+  ok       control, permitted and no bridges: the guard PASSES and the bring-up proceeds
+  ok       control, a machine with no OVS: the guard PASSES
+  ok       control, no topo session: the guard does not ask and PASSES
+the other call site: a permission error is not a routing failure
+  ok       refused: dataplane_ok returns 2 (not tested), and says why
+  ok       refused: the message says NOT tested
+  ok       refused: no XX line claiming the host cannot be reached
+  ok       refused: returns 0 -- not tested is not a routing failure
+  ok       refused: and prints the mnexec sudoers line
+  ok       control, permitted and the ping really fails: 'not forwarding' is still said
+  ok       control, permitted and the ping really fails: verify_dataplane returns 1
+  ok       control, permitted and forwarding: dataplane_ok returns 0
+  ok       no namespace is still its own reason, not folded into the sudo one
+the wiring: the callers read the table rather than keeping a copy
+  ok       up_p4 asks guard_no_live_ovs
+  ok       up_p4 stops when the guard says stop
+  ok       cmd_status --check reads ndt_sudo_report
+  ok       a refused grant is a --check problem, not a cosmetic line
+
+Ran 33 checks, 0 failed

@@ -323,3 +323,182 @@
    - 另外兩支不丟輸出再跑一次。
 9. **補 PATH tripwire 看不到的部分。** 用 `strace -f -e trace=kill,tgkill,connect` 看每支 suite 的 signal 與連線。
 10. **歸檔 raw。** 把 SW 下的 `.calls`／`.out` 複製到 G 旁邊。
+
+
+---
+
+# Round 2 -- scoped re-review of be2ad2d2 (12fc0683 F1, be2ad2d2 M44/T1/T2)
+
+# 判決：MERGE
+
+- **BLOCKING：無。必修：無。**
+- 本判決依據兩部分：worker 在 be2ad2d2 上的閘門 log，以及我對 test merge 樹的逐行讀碼。
+  - 【讀】test merge 的 worktree `wt-hbw-intake-0926` 裡，ndt 的 `host_pid`（ndt:6055-6062）與被 source 時的 return（10658-10660）都和本分支一字不差。
+  - 【讀】test:87-119 的新 ps shim 也已經在 test merge 裡。
+- **orchestrator 在 d3683aeb 上的重跑，我寫完時還沒有結果。**
+  - 【讀】`rerun-redfirst_f1.d3683aeb.log` 只有第 1-4 行的 header（20:35:40Z 開始），沒有任何 stage 輸出，也沒有 `# rc=`。
+  - 【讀】`rerun-summary.d3683aeb.txt` 是空檔。
+  - redfirst（lp1c）、test、mutate 在 d3683aeb 上的 log 都還不存在。這些結果我**沒讀到**。
+  - 請以你們自己的重跑結果作為最後確認。
+- 另外更正我上一輪的建議：我寫的 decoy `exec -a "bash --norc -is mininet:h2" sleep 120`，argv 最後一個字是 `120`，`host_pid` 根本比不到。worker 沒照做是對的（SUMMARY:170）。
+
+縮寫：
+- test＝WT/tests/shell/test_live_p1_common.sh
+- mut＝WT/tests/shell/mutate_live_p1_common.sh
+- G＝logs/gates-0910
+- WT＝`/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-live-p1-common-nolab-0927`
+
+---
+
+## Q1　12fc0683 有沒有關掉 F1：有
+
+**host_pid 那一種呼叫：假列一定排在最前面。**
+- 【讀】`host_pid` 只發一種 ps 呼叫：`ps -eo pid=,args=`（ndt:6060）。
+- 【讀】shim 對這種呼叫的處理：
+  - 解析出 `spec=",pid=,args="`（test:92-97）；
+  - 因為含 `args`，不走直接放行（test:98）；
+  - 兩欄都帶 `=`，所以判定 `headerless=1`（test:115-116）；
+  - 先執行 `fake`（test:100-114），再 `exec /usr/bin/ps "$@"`（test:117-119）。
+- 所以四列假主機一定排在任何真列之前。`host_pid` 讀到第一個相符就 return，永遠拿到 4194391..4194394 其中之一。
+- 【讀】`host_pid` 沒有第二種 ps 呼叫。
+
+**rc 有保留。**
+- 【推】兩個 `exec` 分支（test:98、119）的結束碼就是 ps 自己的。
+- 【讀】有 header 的分支用 `real="$(…)"; rc=$?`（test:121），最後 `exit $rc`（test:125）。
+
+**header 判斷的邊角情況（host_pid 都用不到，列為 NOTE-A）：**
+- (a) **`x=TEXT`（非空的自訂 header），例如 `-o pid=PID,args=`。**
+  - 【推】因為每欄都帶 `=`，shim 把它判成沒有 header。但 procps 遇到非空的自訂 header 會印出 header 行。
+  - 結果是 header 排在四列假主機**之後**。會跳過第一行的讀法，會丟掉假的 h1，並把 header 當成資料。
+- (b) **`--no-headers`、`--no-heading` 或 BSD 的 `h`，搭配不帶 `=` 的欄位。**
+  - 【推】這會被判成有 header，但 `head -1`（test:122）拿到的其實是**第一筆真列**，所以真列排在假列前面。
+  - 用 `-e` 時第一筆是 pid 1。但加上 `-p`／`-C` 之類的篩選時，第一筆可能就是真的 Mininet host。
+- (c) **真表輸出為空。**
+  - 【推】`printf '%s\n' ""` 會先印出一行空白。
+- (d) **`--format`、BSD 的 `o`，或 `-eopid=,args=` 這種寫法。**
+  - 【推】這些不會被解析，直接放行，完全不會加假列。
+- 【讀】這個 suite 裡 ps 唯一的使用者就是 `host_pid`，所以以上情況都不影響本 suite。
+
+## Q2　decoy red first：證明了它所宣稱的
+
+**decoy 的 argv 符合 host_pid 的比對規則。**
+- 【讀】decoy 是 `( exec -a "bash --norc -is" /usr/bin/python3 -I -c '…sleep(120)' mininet:h2 ) &`（redfirst_f1.sh:25）。
+- 【推】它的 args 以空白接起來後，最後一個字是 `mininet:h2`，符合 ndt:6059 的 `${args##* } == mininet:h2`。
+- 【讀】腳本另外做了兩層驗證：
+  - 起來後讀 `/proc/$DECOY/cmdline` 確認（:27-29）；
+  - 每次跑 suite 之前，用**真的** `host_pid h2` 確認拿到的就是 decoy（:34-36）。
+- 【讀】四次執行都記錄「decoy pid N；host_pid h2 = N」（redfirst_f1 log:11、18、22、25）。這是最直接的證據。
+- 【讀】driver 設 `NOLAB_FAKE_FABRIC=0`（gates_lp1c3.sh:32），所以外部的 ps 只是原樣放行。
+
+**無特權，而且有收掉。**
+- 【讀】decoy 由腳本自己起，沒有經過 sudo。
+- 【讀】每次執行後都用它自己的 pid `kill` 再 `wait`（:31、39）；EXIT trap 也會再收一次（:15-16）。
+- 【推】`$!` 就是 exec 之後的 python 的 pid；它本身有 120 s 的上限，所以即使被 SIGKILL 最多也只殘留 120 s。
+
+**三段（stage 3 跑兩次）：**
+1. 【讀】c03130fe 加 decoy：**只有** section 14 的對照紅，expected [4194392]、actual [797841]，actual 就是 decoy 的 pid（log:10-16）。這是 F1 的紅。
+2. 【讀】HEAD 加 decoy：169 條、0 失敗，對照 ok（log:17-20）。
+3. 【讀】124a7f3c（5e 還在用 h 名）：
+   - 原樣執行時，h2 server 的呼叫收到的是 **decoy 的 pid 800890**（log:23-24）。
+   - 把 HEAD 的 ps 移植進去後，收到的是 4194392／4194391／4194393，從來不是 decoy（log:26-28）。
+   - 「守衛的 sudo」指的是 suite 自己的 PATH shim：只記錄、拒絕，沒有對 decoy 執行任何東西。
+4. 【讀】副本已刪（log:29）；worktree 的 tests/shell 裡沒有殘留的 `.redfirst-*`、`.mutant-*`（我 glob 過）。
+
+**一個小缺口：** decoy 只在跑之前驗證過存活，跑完沒有再驗。
+- 【推】suite 大約 4 s（sweep log:26 的 `0/4`），遠低於 120 s 上限。而且 stage 1 和 stage 3 的原樣執行都看到了 decoy，所以 stage 2 與 stage 3 移植版的「ok／從來不是 decoy」應該不是 decoy 已死造成的空泛結果。
+- 建議在 `decoy_down` 之前加一行 `kill -0` 確認。
+
+## Q3　M44 與 check_fires_only：有強制「只有 PATH 檢查紅」
+
+**「只紅指名那條」是真的被強制：**
+- 【讀】`others` 取的是**所有** `^  FAILED` 行，去掉前綴後逐字比對指名的 label（mut:143-145）。
+- 【讀】只有當 `others` 為空、指名的都紅、rc≠0、而且跑完的條數等於 baseline 時，才算 caught（mut:137-146）。
+- 【推】`check`、`has`、`hasnt` 以及 test:44 的提前退出，印出來的失敗行都是同一個 `  FAILED   ` 前綴；suite 中途死掉則會讓條數不符，被判 SURVIVED。所以沒有漏網的紅。
+
+**`command sudo -n true` 確實繞過函數 stub、打到 PATH shim：**
+- 【推】bash 的 `command` 會略過函數查找，所以會找到 PATH 上的 `$NOLAB/bin/sudo`（test:128 把它放在 PATH 最前面）。這次呼叫只會記在 `$NOLAB/calls`，不會進 `stub_lab.log`；而且 `return 2` 保留了。
+- 【讀】mutate log:283-284 是 `caught … (exactly the named check(s) went red)`，只有「NOTHING reached for sudo, mnexec or iperf past a stub」這一條紅，stub 檢查和 rc-2 都是綠。這就是實證。
+- 【讀】anchor 唯一：`ok(47)` 裡包含 m44 那一對。
+- 就算萬一打到真的 sudo，`sudo -n true` 也是 no-op。
+
+## Q4　T1／T2（.told／.tnew）
+
+**anchor 唯一。**
+- 【讀】test:623（to-zz2）與 test:626（default）各只出現一次。
+- 【讀】runtime 的 applier 會數出現次數，不等於 1 就判 SURVIVED（diff:63-79）。
+
+**旁邊的副本：正常情況一定會刪；被 SIGKILL 時不會。**
+- 【讀】bash -n 失敗時刪（mut:185），跑完立刻刪（mut:187），anchor 失敗時根本不會寫出檔案。
+- 【讀】EXIT trap 會刪掉 `.mutant-*-test_live_p1_common.sh`（mut:44）。
+- 【推】遇到 SIGINT、SIGTERM、SIGHUP 時也會刪：非互動 bash 只要設了 EXIT trap，就會攔截這些終止訊號並先執行 trap。
+- 遇到 SIGKILL、OOM kill 則不會刪，細節見 NOTE-D。
+
+**它們避開 pass 1.6 的理由：成立。**
+- 【讀】`CASE_FILE_RE` 要求檔名以 `\.(old|new)$` 結尾（check_gate_anchors.py:901），`.told`／`.tnew` 對不上。
+- 【讀】整個 gate 只取一個 applier，也就是第一個 body 同時含 `.old` 與 `.new` 的函數，即 `mutant()`，它的檔案是 _common.sh（:925-926）。所以所有 `.old` anchor 都會拿去 _common.sh 裡數（:956-960）。
+- 【推】如果 T1／T2 用 `.old`，就會在 _common.sh 裡數到 0 次，被判 MISSING，checker 會紅。
+
+**失去靜態檢查可以接受，列為 NOTE-C。**
+- runtime applier 是 fail closed 的：anchor 過期會判 SURVIVED，gate 會紅，不會產生假綠。
+- 但 checker 的格子只顯示 `ok(47)`，完全看不出這個 gate 還有 2 個它看不見的 anchor。這違反它自己「無法檢查 ≠ 檢查過且沒問題」的原則（check_gate_anchors.py:37-46）。
+- 目前只有 SUMMARY:192 有揭露。建議 follow-up：
+  - 讓 pass 1.6 依副檔名對應 applier（`.told` 對應 `check_fires_test`／`$TEST`）；或
+  - 至少把 `.told` 列為 UNPARSED。
+
+**T1／T2 的內容與安全性：**
+- 【讀】它們跑的是真的 _common.sh（沒有設 `COMMON_UNDER_TEST`）。
+- 【推】所以 `host_pid` 有定義，確實從假 fabric 拿到 fake pid，接著在函數 stub 被記錄。
+- 【讀】mutate log:285-296 顯示紅的是 rc-2、stub 檢查、目的地文字三條，PATH 檢查保持綠，與上面的推論一致。
+- 【推】即使 live 07 正在跑，因為假列排在前面，T1／T2 拿到的也是 fake pid；再加上 stub 與 PATH shim，是安全的。
+
+## Q5　數字
+
+- 【讀】caught 共 45 行，SURVIVED 0 行（mutate log）。
+  - 45＝M1–M44 扣掉 M25 共 43 個，加 T1、T2。
+- 【讀】控制組 C1–C4 都保持綠（log:79-80、297-298）；總結行在 log:301。
+- 【讀】`ok(47)`（anchors log:73）＝43 個 _common mutation＋4 個控制組，T1／T2 不在其中，與 Q4 一致；120/120 格，0 個 NOT CHECKED（:135）。
+- 【讀】仍是 169 條（test log:201；mutate baseline log:10）。delta diff 沒有新增任何 check。
+- 【讀】_common.sh 的 sha256 沒變（36c3689b…，log:300）。
+- 【讀】redfirst_lp1c_f1 與 -b 版結果相同（163、166、169），腳本 hash 也相同（5c6f042a）。
+- 【讀】tripwire_f1 為 0 行。
+- 【讀】N6 的 raw：285 檔＝284 個檔＋SHA256SUMS，與 SUMMARY:198 的「284 個檔」相符。
+
+## Q6　先前的 NOTE 有沒有因為這輪改變
+
+| 項目 | 本輪之後 |
+|---|---|
+| R1／F1 | **已解決**（Q1、Q2） |
+| N1（mutant 裡 host_pid 未定義） | 沒修（SUMMARY:151-153 已承認）；T1／T2 已經走過真的 host_pid 加假 fabric 這條路，**部分補上** |
+| N2（M43 被多重條件殺掉） | **已由 M44 解決** |
+| N3（tripwire 只涵蓋 driver） | 文件已註明（SUMMARY:141、209）；行為沒變 |
+| N4／R3（B 輪只假了 ps） | 沒變，另見 NOTE-E |
+| N5／R5（沒在合併樹上掃） | 沒變；d3683aeb 的重跑不包含 63 支 sweep |
+| N6（raw 沒歸檔） | **已解決** |
+| N7（假列不看 `-p`） | 沒變；而且現在假列排在前面，對 `ps -o args= -p X | head -1` 這種讀法影響更大。本 suite 仍然沒有這種呼叫 |
+| R2、R4、R6 | 沒變 |
+| R7（檔案狀態碰撞） | 沒變；另外多了暫存副本的問題（NOTE-D） |
+| C1 與上輪的小錯 | 已就地更正（SUMMARY:84、91、94、138）。【讀】lib_e.sh:133-134 確認 topo-out 與 status 都來自那裡 |
+
+---
+
+## NOTEs（都不擋 merge）
+
+- **NOTE-A** header 判斷的邊角情況（Q1 的 a–d）。
+- **NOTE-B decoy 會干擾 lab 工具。**
+  - 【讀】decoy 的 argv 以 `mininet:h2` 結尾，所以會被 ndt 的 `mn_count`／`fabric_host_count` 算進去（ndt:126-146）。受影響的地方包括：
+    - `ndt down` 的清場驗證（:5018）；
+    - `ndt up` 的 model／fabric 主機數比對（:4276）；
+    - rollback（:3098）；
+    - `ndtwin-lab status` 的 mininet 計數（ndtwin-lab:1830）。
+  - `mn -c` 也會把它 SIGKILL 掉。
+  - 所以 **redfirst_f1 不可以和任何 live 的 up／down／status 重疊**，包括你們現在跑的 d3683aeb 重跑：必須在 live 07 開始前跑完，decoy 也要收乾淨。
+- **NOTE-C** T1／T2 的 anchor 在 check_gate_anchors 的格子裡看不到（Q4）。
+- **NOTE-D 副本在 SIGKILL 時會殘留。**
+  - 【讀】.gitignore 沒有排除 `.mutant-*` 或 `.redfirst-*`。
+  - 副本檔名是固定的，同一個 checkout 裡同時跑兩份這個 gate，會互相刪掉對方的副本（fail closed）。
+  - 【讀】你們的 rerun 在結束時只檢查 `.redfirst-*`（rerun-lp1c-f1.frozen.sh:24），`--untracked-files=no`（:25）也看不到 `.mutant-*`。建議把 `.mutant-*` 加進檢查。
+- **NOTE-E 外部 make_shims.sh 的 ps 仍然是假列在後。**
+  - 【讀】ps 與 make_shims.sh 的 hash 都沒變（SHA256SUMS）。
+  - 【讀】sweep 在有真 fabric 時會拒跑（nolab_sweep.sh:19），所以 sweep 沒問題。
+  - 但 redfirst_lp1c 的 stage 1 沒有這個拒跑：若有 fabric 在跑，會把真 pid 交給外部 shim。雖然會被拒絕，但該 stage 會判 BAD。它同樣必須在 live 07 之前跑。
+- **NOTE-F** red-first 只在跑前確認 decoy 存活（Q2）。

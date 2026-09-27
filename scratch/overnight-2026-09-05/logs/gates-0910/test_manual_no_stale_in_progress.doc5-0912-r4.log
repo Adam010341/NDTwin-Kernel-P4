@@ -1,0 +1,37 @@
+=== started 2026-09-12T19:09:35+08:00 ===
+=== cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-doc5-0912
+=== head 536b664ac66dab73f3563809ddc90ea17cddfda1
+=== cmd bash tests/shell/test_manual_no_stale_in_progress.sh
+=== sha256 MANUAL doc/2026-08-17_testing-manual.md  fb4cecb7cb4aa51d74b20e606b9861cb4660976ad39b557abb142d54cc00283e
+=== sha256 NDT tools/test_workflow/ndt  9f56a38bf50085cc25d0f26bc99aeb5616320df0bfb35e8e4b2133e43d2d4efa
+=== sha256 KNOWN-ISSUES doc/KNOWN-ISSUES.md  26c9e8e8640fb3e75db47008c237a6304d5bbcc3df3e13b6913d79ecc06b7992
+=== sha256 TEST tests/shell/test_manual_no_stale_in_progress.sh  b46e977cbfc4ed61457a0ce516423cede84cf398bb958b29d0904677306cb758
+  ok       case 0  git resolves a merged ticket (FIX-NDT-6 -> a merge reachable from HEAD)
+  ok       case 1  'ndt help' no longer names only three ports for --deep
+  ok       case 2  'ndt help' prints --deep's size out of ports.sh's table
+  ok       case 3  'ndt' tells an operator its own fabric is its own
+  ok       case 4  'ndt' still has the stranger sentence (the fix was not 'never say it')
+  ok       case 5a caveat 'clean-calls-your-fabric-residue' is retracted and says what merged it
+  ok       case 5b caveat 'help-deep-names-three-ports' is retracted and says what merged it
+  ok       case 5c caveat 'clean-advises-deep-on-your-own' is retracted and says what merged it
+  ok       case 5d caveat 'e21-contract-branch-only' is retracted and says what merged it
+  ok       case 6  no line calls a ticket unfixed when its merge is already in the tree
+  ok       case 6b no line calls a branch unmerged when its merge is already in the tree
+  ok       case 7  the manual quotes help's computed --deep size
+  ok       case 8  the manual quotes clean's own-fabric sentence
+  ok       case 9  the measured record inside the third caveat survived the sweep
+             doc/KNOWN-ISSUES.md:4522  calls FIX-NDT-3 unfixed; 4e969110c0132d3c1c430c0b614c205ec3c8f327 (fix/ndt-3-51-helper-apps-window) is reachable from HEAD,
+                    and this block names no merge of its own
+             doc/KNOWN-ISSUES.md:4634  calls FIX-PROXY-2 unfixed; 892fdbdc98cd5b335dfb28d8102e1df18eb3ccb4 (fix/proxy-2-0912) is reachable from HEAD,
+                    and this block names no merge of its own
+             (sweep: 38 page(s); skipped 2 as a record of past wording, 1 as retracted in place)
+  FAILED   case 11  no doc page calls a ticket unfixed without naming the merge that landed it
+             expected: 0
+             actual:   2
+  ok       case 11b no doc page calls a branch unmerged without naming the merge that landed it
+  ok       case 11c the sweep has a page list, all of it readable, with the manual and KNOWN-ISSUES in it
+  ok       case 10 CONTROL: §2.1 still says the machine's 4 veth are not residue
+
+17 passed, 1 failed
+=== RC=1
+=== finished 2026-09-12T19:09:36+08:00 ===

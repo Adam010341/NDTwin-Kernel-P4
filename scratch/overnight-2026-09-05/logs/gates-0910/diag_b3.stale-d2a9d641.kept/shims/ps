@@ -1,0 +1,29 @@
+#!/bin/bash
+/usr/bin/ps "$@"; rc=$?
+if [[ "${NOLAB_FAKE_FABRIC:-}" == 1 ]]; then
+    spec=""; prev=""
+    for a in "$@"; do
+        [[ "$prev" == -o || "$prev" == -eo || "$prev" == -axo || "$prev" == -Ao ]] && spec="$spec,$a"
+        [[ "$a" == -o* && "$a" != -o ]] && spec="$spec,${a#-o}"
+        prev="$a"
+    done
+    if [[ "$spec" == *args* || "$spec" == *cmd* || "$spec" == *command* ]]; then
+        for h in 1 2 3 4; do
+            line=""
+            IFS=, read -r -a cols <<<"${spec#,}"
+            for c in "${cols[@]}"; do
+                case "${c%%=*}" in
+                    pid) line+="$((4194390 + h)) " ;;
+                    ppid|pgid|sid) line+="$((4194390 + h)) " ;;   # never 1: a `kill -- -1` would reach everything
+                    comm) line+="bash " ;;
+                    args|cmd|command) line+="bash --norc -is mininet:h$h " ;;
+                    etimes) line+="100 " ;;
+                    user) line+="root " ;;
+                    *) line+="- " ;;
+                esac
+            done
+            printf '%s\n' "${line% }"
+        done
+    fi
+fi
+exit $rc

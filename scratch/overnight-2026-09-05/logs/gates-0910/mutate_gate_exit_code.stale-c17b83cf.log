@@ -1,0 +1,23 @@
+c17b83cf08b28edb2dfe4c45ce0567b83b3e40d0
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927  2026-09-26T23:44:27Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927  TMPDIR /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp
+# cmd bash tests/shell/mutate_gate_exit_code.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-stale-c17b83cf/shims (nolab)
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_gate_exit_code.sh
+baseline (unmutated) must be green:
+  ok       baseline green
+
+mutations:
+  caught   run_gate returns 0 instead of PIPESTATUS[0]    (case 2 went red)
+  caught   G6b call site piped back into the condition    (case 5 went red)
+  caught   run_gate stops writing the gate output to the log (case 4 went red)
+  caught   gates_e.sh gains pipefail                      (case 3b went red)
+
+baseline restored: both files byte-identical to the pre-run snapshot
+after restore: the suite is green again
+
+4 mutations, 0 survived
+guarded_build: exit 0
+# rc=0

@@ -1,0 +1,9 @@
+  ok       case 1  --expect green on a green cell -> caller sees success
+  ok       case 2  --expect red on a green cell -> caller sees failure
+  ok       case 3  the pre-fix pipeline hid that same failure (no pipefail, as gates_e.sh runs)
+  ok       case 3b gates_e.sh sets no pipefail, so run_gate is the only thing standing there
+  ok       case 4  gate output still reaches the log
+  ok       case 5  no gate is wired straight into a condition through tee
+  ok       case 5b the continuation joiner sees a leak written across two lines
+
+  7 passed, 0 failed

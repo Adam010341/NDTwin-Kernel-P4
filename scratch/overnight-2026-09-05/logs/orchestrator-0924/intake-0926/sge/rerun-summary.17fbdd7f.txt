@@ -1,0 +1,7 @@
+test_build_guard_TRUNK_expect_red # rc=1 | Ran 37 checks, 15 failed
+test_build_guard # rc=0 | Ran 37 checks, 0 failed
+test_guarded_build_reentrant # rc=0 | Ran 15 checks, 0 failed
+mutate_build_guard # rc=0 | mutation gate: 14 mutations, 0 survived
+tripwire lines: 0
+tests/ clean after the gates
+RERUN-SGE-DONE

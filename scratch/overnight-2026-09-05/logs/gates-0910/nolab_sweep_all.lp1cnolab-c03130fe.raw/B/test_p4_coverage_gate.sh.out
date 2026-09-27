@@ -1,0 +1,23 @@
+unchanged .p4 -> skips without running p4testgen at all
+  ok       exit 0
+  ok       p4testgen not called
+changed .p4, same uncovered set -> PASS
+  ok       exit 0
+  ok       p4testgen called
+  ok       says PASS
+changed .p4, a NEW unreachable line -> FAIL naming it
+  ok       exit 1
+  ok       names the new line
+  ok       points at --update-baseline
+changed .p4, one line now covered -> PASS with a note
+  ok       exit 0
+  ok       notes the newly covered line
+p4testgen itself failing the coverage floor -> FAIL
+  ok       exit 1
+  ok       blames the floor
+--update-baseline records the current measurement
+  ok       exit 0
+  ok       sha rewritten
+  ok       uncovered rewritten
+
+Ran 15 checks, all passed

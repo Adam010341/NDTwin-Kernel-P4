@@ -1,0 +1,48 @@
+
+=== group 1: port_holder is three-valued (FINDING-02 Defect B) ===
+  ok       no LISTEN line          -> '' (FREE)
+  ok       LISTEN line with pid=   -> the pid
+  ok       LISTEN line, no pid=    -> the sentinel
+  ok       the sentinel is not numeric
+
+=== group 2: 'is anything listening' is decided by the LISTEN line, not by the pid ===
+  ok       port_is_bound  free   -> false
+  ok       port_is_bound  mine   -> true
+  ok       port_is_bound  hidden -> true
+
+=== group 3: assert_port_is keeps UNREADABLE separate from none (sentinel family) ===
+  ok       hidden -> N/A (UNTESTABLE), not PASS and not FAIL
+  ok       hidden -> the message says the owner is not visible
+  ok       hidden -> does NOT increment FAILS
+  ok       free   -> FAIL 'nothing is listening'
+  ok       free   -> DOES increment FAILS
+  ok       mine, pid matches -> PASS
+  ok       mine, pid differs  -> FAIL (P-1 orphan)
+
+=== group 4: the registered window is COMPARED to the executed one (FINDING-05) ===
+  ok       08-30's real numbers go RED
+  ok       and the line names all three
+  ok       and it is counted as a failure
+  ok       a structural overrun (one sleep) passes
+  ok       and counts no failure
+  ok       an UNDERRUN goes RED even by 40 s
+  ok       and says which direction
+  ok       an UNDERRUN of 1 s still goes RED
+  ok       an explicitly widened tolerance passes
+
+=== group 5: the span reaches the artefacts, whatever the verdict ===
+  ok       a RED verdict still writes the span file
+  ok       the file carries registered, actual and overrun
+  ok       the file carries the verdict
+  ok       a GREEN verdict writes it too
+
+=== group 6: source guards -- the two defect SHAPES stay out (FINDING-02 A, FINDING-05) ===
+  ok       20_apps_lifecycle.sh has no 'T0 + <loop var>' clock
+  ok       every app served-epoch comes from a real clock
+  ok       mark_start records a real clock, not T0
+  ok       the convergence table header carries both since_T0 and own
+  ok       25_apps_energy.sh's watch loop is deadline-driven, not iteration-counted
+  ok       and it asserts its own span rather than only printing it
+  ok       the degraded banner's own gate is POWERED_OFF
+
+===== 34 check(s): 34 ok, 0 FAILED =====

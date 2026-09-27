@@ -1,0 +1,24 @@
+the table itself
+  ok       6343 is in the table AND declared udp (the 09-02 incident)
+  ok       the bmv2 gRPC block is a row (ndt:635 said :3005x in a comment)
+  ok       BOTH 6653 and 6633 are rows (the probe order reaches both)
+  ok       sim's :9000 is a row
+  ok       every row declares proto, owner and consequence
+  ok       30051-30060 expands to all ten device ports
+residue on a port that is NOT one of the original three
+  ok       injection took effect: something really is holding :45901
+  ok       a held port outside 8000/8080/8081 makes residue return 1
+  ok       the residue line names the port
+  ok       the residue line names the HOLDER by pid, not a count
+  ok       the residue line states the consequence from the row
+  ok       a free port produces no residue and returns 0
+  ok       and prints nothing
+the proto column: a UDP holder a TCP probe cannot see
+  ok       injection took effect: something really is holding udp :45902
+  ok       the same port probed as tcp reads closed (a TCP-only check would miss it)
+  ok       a held UDP port makes residue return 1
+  ok       the UDP residue line states its consequence
+cmd_clean reads the table
+  ok       cmd_clean's port residue comes from the shared table function
+
+Ran 18 checks, 0 failed

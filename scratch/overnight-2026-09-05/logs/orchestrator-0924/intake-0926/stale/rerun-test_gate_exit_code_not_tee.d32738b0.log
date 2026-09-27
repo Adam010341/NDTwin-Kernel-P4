@@ -1,0 +1,16 @@
+d32738b0f760bef0924e363aa91715dd38239b61
+# 2026-09-27T03:39:38Z cmd bash tests/shell/test_gate_exit_code_not_tee.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/test_gate_exit_code_not_tee.sh
+  ok       case 1  --expect green on a green cell -> caller sees success
+  ok       case 1b the gate read the synthetic fixture (ratio 1.0000), not a raw/ on disk
+  ok       case 2  --expect red on a green cell -> caller sees failure
+  ok       case 3  the pre-fix pipeline hid that same failure (no pipefail, as gates_e.sh runs)
+  ok       case 3b gates_e.sh sets no pipefail, so run_gate is the only thing standing there
+  ok       case 4  gate output still reaches the log
+  ok       case 5  no gate is wired straight into a condition through tee
+  ok       case 5b the continuation joiner sees a leak written across two lines
+
+  8 passed, 0 failed
+guarded_build: exit 0
+# rc=0

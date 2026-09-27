@@ -1,0 +1,4 @@
+  cell=t008_poll  mark=DATAPLANE-HURT  ratio=1  gt_mbit=200  lost_pct=8.11  lam=13  quantum=16000000  spread=0  floor=27.74  distinct=2
+GATE ratio cell=t008_poll ratio=1.0000 threshold=0.95 verdict=GREEN
+GATE ratio force-test OK: expected GREEN, got GREEN
+rc=0

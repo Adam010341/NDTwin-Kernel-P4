@@ -1,0 +1,4 @@
+gates r3 sudo -n ovs-vsctl list-br
+gates r3 sudo -n ovs-vsctl list-br
+gates r3 sudo -n ovs-vsctl list-br
+gates r3 sudo -n ovs-vsctl list-br

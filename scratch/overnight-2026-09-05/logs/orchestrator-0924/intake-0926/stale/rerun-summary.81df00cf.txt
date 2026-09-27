@@ -1,0 +1,20 @@
+TRUNK_test_start_bg_log_rotation # rc=1 | Ran 13 checks, 6 failed
+TRUNK_test_gate_exit_code_not_tee # rc=1 |   5 passed, 2 failed
+TRUNK_test_l1_shell_scoring # rc=1 | Ran 96 checks, 12 failed
+test_apps_stop_kills_the_group # rc=0 | Ran 72 checks, 0 failed
+test_cell_gate_suspect_wiring # rc=0 | 13 passed, 0 failed
+test_lab_handoff # rc=0 | Ran 19 checks, all passed
+test_ndt_app_orphans # rc=0 | Ran 104 checks, all passed
+test_ndt_honesty # rc=0 | Ran 346 checks, 0 failed
+test_ndt_sample_rate_reads_both_bounds # rc=0 | Ran 7 checks, 0 failed
+test_start_bg_log_rotation # rc=0 | Ran 5 checks, all passed
+test_stack_log_rotation # rc=0 | Ran 23 checks, 0 failed
+test_gate_exit_code_not_tee # rc=0 |   7 passed, 0 failed
+test_l1_shell_scoring # rc=0 | Ran 96 checks, 0 failed
+mutate_probe_stubs # rc=0 | 8 mutation(s), 0 survivor(s)
+mutate_stack_log_rotation # rc=0 | mutation gate: 9 mutations, 0 survived
+mutate_l1_shell_scoring # rc=0 | ===== 17 mutation(s): 17 killed, 0 survived =====
+check_gate_anchors # rc=0 | 121/121 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+tripwire lines: 0
+tests/ tools/ 08-20 clean after the gates
+RERUN-AB-DONE

@@ -1,0 +1,18 @@
+356d4e4eb02e95b006afaa64a6e81414ab7b76fe
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-probe-stub-0927  2026-09-27T01:22:26Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-probe-stub-0927  TMPDIR /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp
+# cmd bash tests/shell/mutate_ndt_sample_rate_reads_both_bounds.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-probe-stub-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-pstub-356d4e4e/shims (nolab)
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_ndt_sample_rate_reads_both_bounds.sh
+baseline (must be green before any mutation):
+Ran 7 checks, 0 failed
+  caught   M1: read only the upper bound (the original defect)        (lo=1 hi=255 is reported DISABLED, not 1/256 went red)
+  caught   M2: rate_label prints 1/<anything> (1/DISABLED:lo=1)       (rate_label: 1/256 for a rate, DISABLED text (not 1/DISABLED) for a dead pipeline went red)
+  caught   M3: source_ahead_of_build is blind (always false)          (source newer than build -> ahead (restored .p4, never recompiled) went red)
+
+baseline byte-identical: yes
+mutation gate: 3 mutations, 0 survived
+guarded_build: exit 0
+# rc=0

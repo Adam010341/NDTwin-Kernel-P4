@@ -1,0 +1,24 @@
+
+=== mutations: the 09-02 defect itself -- shell logs scored with unittest's vocabulary ===
+  KILLED   the pre-fix scorer at l1_unit_tests.sh:319, verbatim   (suite rc=1, 15 check(s) red)
+  KILLED   form B dropped, so '12 passed, 0 failed' counts as nothing   (suite rc=1, 25 check(s) red)
+  KILLED   form C dropped, so the check(s) banner counts as nothing   (suite rc=1, 15 check(s) red)
+  KILLED   form B loses its anchors, so a check NAME that quotes a summary invents tests   (suite rc=1, 13 check(s) red)
+  KILLED   form A reads the total as the failed count   (suite rc=1, 14 check(s) red)
+  KILLED   form B counts only the passes, so a red suite under-reports what it ran   (suite rc=1, 14 check(s) red)
+
+=== mutations: the WORSE bug -- 'no tests ran' quietly becoming 'passed' ===
+  KILLED   shell_summary answers 1 for a log it cannot read (absence scored as a pass)   (suite rc=1, 9 check(s) red)
+  KILLED   ran==0 verdict flipped to PASS   (suite rc=1, 14 check(s) red)
+  KILLED   the zero check deleted from the verdict entirely   (suite rc=1, 14 check(s) red)
+  KILLED   the NO-TESTS-RAN arm stops counting, so the lane prints red and exits 0   (suite rc=1, 13 check(s) red)
+
+=== mutations: the rest of the verdict order ===
+  KILLED   the rc check dropped, so a harness that exited nonzero can still pass   (suite rc=1, 13 check(s) red)
+  KILLED   the skip check dropped, so a skipping suite reads as no-tests-ran   (suite rc=1, 13 check(s) red)
+  KILLED   the failed-checks arm dropped, so exit 0 over a red summary passes   (suite rc=1, 13 check(s) red)
+
+=== mutations: the corpus check (group C) actually reads the corpus ===
+  KILLED   a suite stops printing any summary the lane understands   (suite rc=1, 13 check(s) red)
+
+===== 14 mutation(s): 14 killed, 0 survived =====

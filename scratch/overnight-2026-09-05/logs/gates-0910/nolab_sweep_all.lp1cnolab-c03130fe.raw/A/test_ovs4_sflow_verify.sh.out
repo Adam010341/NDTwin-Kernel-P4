@@ -1,0 +1,61 @@
+the defect: bridges that sample nothing
+  ok       the fabric from finding #4 is red
+  ok         ... and names a bridge that samples nothing
+  ok         ... and says what the operator will see instead
+  ok         ... and counts how many are sampling
+  ok       verify_sflow fails the bring-up
+  ok         ... and says the API will answer 0.0 with success
+  ok       one bridge not sampling is red
+  ok         ... and it is named
+  ok         ... and the other nine are not blamed
+
+configured, but reporting something the kernel cannot use
+  ok       an agent address the model does not declare is red
+  ok         ... and both addresses are printed
+  ok         ... and the model's is printed too
+  ok       an agent interface with no IPv4 is red
+  ok         ... and says why one address for ten switches is bad
+  ok       a record naming no agent interface is red
+  ok         ... and says the kernel will match no edge
+  ok       a target on the wrong port is red
+  ok         ... and names the port the collector is on
+  ok       a target that is not a local address is red
+  ok         ... and says nothing will arrive
+
+the loosening shapes -- configured MORE than once, or onto nothing
+  ok       a bridge referencing two records is red
+  ok         ... and says a bridge samples to one
+  ok       an sFlow record no bridge references is red
+  ok         ... and says it is a configuration that ran twice
+
+refused: a permission error is not a verdict about telemetry
+  ok       a refused ovs-vsctl returns 2, not 1
+  ok         ... and says it was sudo
+  ok         ... and accuses no bridge
+  ok       verify_sflow reports NOT tested
+  ok         ... and prints the sudoers line that fixes it
+  ok         ... and does not claim the fabric is fine
+  ok       control: a refusal does not fail the bring-up
+  ok       ovsdb down also returns 2
+  ok         ... and the reason is ovs-vsctl's, not sudo's
+  ok       an empty bridge list is 'could not tell', not a pass
+  ok       a failed bridge query is 'could not tell'
+  ok         ... reported with the reason ovs-vsctl gave
+  ok         ... and not as an empty fabric
+  ok       a failed record query is 'could not tell'
+  ok         ... reported with the reason ovs-vsctl gave, too
+  ok         ... and not as ten bridges sampling nothing
+
+control: a correctly sampling fabric must NOT be red
+  ok       control: the healthy fabric passes
+  ok       control: and says how many bridges are sampling
+  ok       control: verify_sflow returns 0
+  ok       control: and reports ok
+  ok       control: the 128-host topology's collector alias passes
+
+wiring: existence is not wiring
+  ok       up_ovs calls verify_sflow
+  ok         ... beside the forwarding check it belongs with
+  ok       verify_sflow takes its verdict from sflow_state
+
+Ran 48 checks, 0 failed

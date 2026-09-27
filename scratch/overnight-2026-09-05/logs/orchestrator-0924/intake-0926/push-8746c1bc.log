@@ -1,0 +1,26 @@
+# push trunk + trunk:main 8746c1bcadff4f94207e5192560f45a901a29dae (r3: R-N1 ltree, R-N2 poll argument, Q2 redfirst lib) 2026-09-27T06:47:25+08:00
+range     : 3db3b9a8..8746c1bcadff4f94207e5192560f45a901a29dae ( 3 files changed, 94 insertions(+), 21 deletions(-))
+scan hits : 0
+control   : 3 (want 3)
+binary    : 0 file(s) NOT read by this scan -- scan each separately
+To github.com:Adam010341/NDTwin-Kernel-P4.git
+   3db3b9a8..8746c1bc  trunk -> main
+   3db3b9a8..8746c1bc  trunk -> trunk
+remote: 
+remote: GitHub found 2 vulnerabilities on ndtwin-lab/NDTwin-Kernel-P4's default branch (2 high). To find out more, visit:        
+remote:      https://github.com/ndtwin-lab/NDTwin-Kernel-P4/security/dependabot        
+remote: 
+To github.com:ndtwin-lab/NDTwin-Kernel-P4.git
+   3db3b9a8..8746c1bc  trunk -> main
+   3db3b9a8..8746c1bc  trunk -> trunk
+# push rc=0
+$ env -u GIT_ASKPASS -u SSH_ASKPASS GIT_TERMINAL_PROMPT=0 git -c credential.helper= -c core.askPass= ls-remote https://github.com/ndtwin-lab/NDTwin-Kernel-P4.git refs/heads/trunk refs/heads/main
+8746c1bcadff4f94207e5192560f45a901a29dae	refs/heads/main
+8746c1bcadff4f94207e5192560f45a901a29dae	refs/heads/trunk
+$ env -u GIT_ASKPASS -u SSH_ASKPASS GIT_TERMINAL_PROMPT=0 git -c credential.helper= -c core.askPass= ls-remote https://github.com/Adam010341/NDTwin-Kernel-P4.git refs/heads/trunk refs/heads/main
+8746c1bcadff4f94207e5192560f45a901a29dae	refs/heads/main
+8746c1bcadff4f94207e5192560f45a901a29dae	refs/heads/trunk
+$ env -u GITHUB_TOKEN -u GH_TOKEN curl -s -o /dev/null -w '%{http_code}' https://github.com/ndtwin-lab/NDTwin-Kernel-P4/tree/8746c1bc
+200
+$ env -u GITHUB_TOKEN -u GH_TOKEN curl -s -o /dev/null -w '%{http_code}' https://github.com/Adam010341/NDTwin-Kernel-P4/tree/8746c1bc
+200

@@ -1,0 +1,210 @@
+diff --git a/tests/shell/mutate_live_p1_common.sh b/tests/shell/mutate_live_p1_common.sh
+index 2eaedc69..2c569075 100644
+--- a/tests/shell/mutate_live_p1_common.sh
++++ b/tests/shell/mutate_live_p1_common.sh
+@@ -40,7 +40,8 @@ TEST="$HERE/test_live_p1_common.sh"
+ [[ -r "$COMMON" && -r "$TEST" ]] || { echo "refused: _common.sh or test missing"; exit 2; }
+ 
+ BK="$(mktemp -d "${TMPDIR:-/tmp}/live-p1-common-mutate-XXXXXX")"
+-trap 'rm -rf "$BK"' EXIT
++# [Co-developed with claude code -- Adam] and the test-side mutants' copies beside the suite (09-27)
++trap 'rm -rf "$BK"; rm -f "$HERE"/.mutant-*-test_live_p1_common.sh' EXIT
+ A="$BK/anchors"; mkdir -p "$A"
+ BASE_SUM="$(sha256sum "$COMMON" | cut -d' ' -f1)"
+ 
+@@ -119,6 +120,89 @@ check_fires() {   # <label> <name> <check text that MUST go red> [<more>...]
+     fi
+ }
+ 
++# [Co-developed with claude code -- Adam] (09-27) check_fires_only: the named checks red and NO
++# other -- for a mutation whose point is that exactly one guard sees it (M44).
++check_fires_only() {   # <label> <name> <the only check(s) that may and must go red>...
++    local label="$1" name="$2"; shift 2
++    local wants=("$@") want missing=() d out rc ran others
++    d="$(mutant "$name")"
++    if [[ "$d" == ANCHOR:* ]]; then
++        printf '  SURVIVED %-56s (anchor occurrences: %s, expected 1)\n' "$label" "${d#ANCHOR:}"
++        SURVIVED=$((SURVIVED+1)); return
++    fi
++    if ! bash -n "$d" 2>/dev/null; then
++        printf '  SURVIVED %-56s (the mutant does not PARSE)\n' "$label"; SURVIVED=$((SURVIVED+1)); return
++    fi
++    out="$(run_test "$d")"; rc=$?
++    ran="$(/usr/bin/grep -oE 'Ran [0-9]+ checks' <<<"$out" | tail -1)"
++    if [[ "$ran" != "$BASE_RAN" || $rc -eq 0 ]]; then
++        printf '  SURVIVED %-56s (rc %s, "%s" vs baseline "%s")\n' "$label" "$rc" "$ran" "$BASE_RAN"
++        SURVIVED=$((SURVIVED+1)); return
++    fi
++    for want in "${wants[@]}"; do /usr/bin/grep -qF "FAILED   $want" <<<"$out" || missing+=("$want"); done
++    others="$(/usr/bin/grep '^  FAILED' <<<"$out" | sed 's/^  FAILED   //' | while IFS= read -r l; do
++                  keep=1; for want in "${wants[@]}"; do [[ "$l" == "$want" ]] && keep=0; done
++                  (( keep )) && printf '%s\n' "$l"; done)"
++    if (( ${#missing[@]} == 0 )) && [[ -z "$others" ]]; then
++        printf '  caught   %-56s (exactly the named check(s) went red)\n' "$label"
++        printf '             red: %s\n' "${wants[@]}"
++        CAUGHT=$((CAUGHT+1))
++    else
++        printf '  SURVIVED %-56s (not exactly the named check(s) red)\n' "$label"
++        (( ${#missing[@]} )) && printf '             still green: %s\n' "${missing[@]}"
++        [[ -n "$others" ]] && sed 's/^/             also red: /' <<<"$others"
++        SURVIVED=$((SURVIVED+1))
++    fi
++}
++
++# [Co-developed with claude code -- Adam] (09-27) TEST-SIDE mutants: the suite's own cells changed,
++# _common.sh untouched. The copy sits BESIDE the suite (so its HERE / REAL_REPO are the suite's)
++# and is removed after its run and on exit. Its anchors are A/<name>.told / .tnew -- not .old/.new:
++# check_gate_anchors.py's pass 1.6 reads .old/.new as anchors into _common.sh (mutant()'s file),
++# and these are anchors into the suite; this gate's own applier refuses a non-unique one.
++check_fires_test() {   # <label> <name> <check that MUST go red>...
++    local label="$1" name="$2"; shift 2
++    local wants=("$@") want missing=() c r out rc ran
++    c="$HERE/.mutant-$name-test_live_p1_common.sh"
++    r="$(python3 - "$TEST" "$c" "$A/$name.told" "$A/$name.tnew" <<'PY'
++import sys, io
++src, dst, oldf, newf = sys.argv[1:5]
++s = io.open(src, encoding='utf-8').read()
++o = io.open(oldf, encoding='utf-8').read()
++n = io.open(newf, encoding='utf-8').read()
++c = s.count(o)
++if c != 1:
++    print("ANCHOR:%d" % c); sys.exit(0)
++io.open(dst, 'w', encoding='utf-8').write(s.replace(o, n, 1))
++print(dst)
++PY
++)"
++    if [[ "$r" == ANCHOR:* ]]; then
++        printf '  SURVIVED %-56s (anchor occurrences: %s, expected 1)\n' "$label" "${r#ANCHOR:}"
++        SURVIVED=$((SURVIVED+1)); return
++    fi
++    if ! bash -n "$c" 2>/dev/null; then
++        printf '  SURVIVED %-56s (the mutant does not PARSE)\n' "$label"; rm -f "$c"; SURVIVED=$((SURVIVED+1)); return
++    fi
++    out="$(timeout 600 bash "$c" 2>&1)"; rc=$?; rm -f "$c"
++    ran="$(/usr/bin/grep -oE 'Ran [0-9]+ checks' <<<"$out" | tail -1)"
++    if [[ "$ran" != "$BASE_RAN" || $rc -eq 0 ]]; then
++        printf '  SURVIVED %-56s (rc %s, "%s" vs baseline "%s")\n' "$label" "$rc" "$ran" "$BASE_RAN"
++        SURVIVED=$((SURVIVED+1)); return
++    fi
++    for want in "${wants[@]}"; do /usr/bin/grep -qF "FAILED   $want" <<<"$out" || missing+=("$want"); done
++    if (( ${#missing[@]} == 0 )); then
++        printf '  caught   %-56s (%d named check(s) went red)\n' "$label" "${#wants[@]}"
++        printf '             red: %s\n' "${wants[@]}"
++        /usr/bin/grep '^  FAILED' <<<"$out" | sed 's/^  FAILED   /             also red: /'
++        CAUGHT=$((CAUGHT+1))
++    else
++        printf '  SURVIVED %-56s (red, but NOT on every named check)\n' "$label"
++        printf '             still green: %s\n' "${missing[@]}"
++        SURVIVED=$((SURVIVED+1))
++    fi
++}
++
+ check_control() {   # <label> <name> -- behaviour-preserving; the suite must stay GREEN
+     local label="$1" name="$2" d out rc
+     CONTROLS=$((CONTROLS+1))
+@@ -835,6 +919,46 @@ cat > "$A/c3.new" <<'EOF'
+     (( rc == 0 )) && note "$label: link usage follows the iperf path (off-path under $floor bit)"
+     return $rc
+ EOF
++# --- M44 (the judge, 09-27): what only the PATH guard can see -----------------------------------
++# [Co-developed with claude code -- Adam] rc 2 kept, and a `command sudo -n true` before it: the
++# namespace refusal still refuses, no cell reaches a stub (command skips functions), and only the
++# PATH guard's record says a sudo left the suite. M43 changed the rc too; this one changes nothing
++# else, so the PATH check is the ONLY check that may go red.
++cat > "$A/m44.old" <<'EOF'
++        fail "$label: no namespace for $src ($pid_c) or $dst ($pid_s) -- this is a permission/namespace answer, never a reading about link usage"
++        return 2
++EOF
++cat > "$A/m44.new" <<'EOF'
++        fail "$label: no namespace for $src ($pid_c) or $dst ($pid_s) -- this is a permission/namespace answer, never a reading about link usage"
++        command sudo -n true
++        return 2
++EOF
++check_fires_only "M44: a sudo past every stub, the refusal otherwise intact" m44 \
++            "🔴 NOTHING reached for sudo, mnexec or iperf past a stub"
++
++# --- T1 (the judge, 09-27): the suite's 5e back on $PKG3 -- a TEST-side mutant --------------------
++# [Co-developed with claude code -- Adam] The cells as they were before b2e656e5: h1..h3, the names
++# a live fabric has. Under the suite's fake fabric host_pid finds h1/h2/h3, link_usage_round goes on
++# to the flow, the shared stubs record it, and neither cell stops at the namespace refusal.
++cat > "$A/t1.told" <<'EOF'
++OUT="$(drive "link_usage_round '$PKGZ' 'to-zz2' '$FIX/lur3' follows zz2")"
++EOF
++cat > "$A/t1.tnew" <<'EOF'
++OUT="$(drive "link_usage_round '$PKG3' 'to-h2' '$FIX/lur3' follows h2")"
++EOF
++check_fires_test "T1: 5e's to-zz2 cell back on \$PKG3 (h1 -> h2)" t1 \
++            "  and, zz2 having no namespace, it stopped there (rc 2)" \
++            "🔴 and no cell reached the shared stubs either (no flow was attempted)"
++cat > "$A/t2.told" <<'EOF'
++OUT="$(drive "link_usage_round '$PKGZ' 'default' '$FIX/lur4'")"
++EOF
++cat > "$A/t2.tnew" <<'EOF'
++OUT="$(drive "link_usage_round '$PKG3' 'default' '$FIX/lur4'")"
++EOF
++check_fires_test "T2: 5e's default cell back on \$PKG3 (h1 -> h3)" t2 \
++            "  stopping at the same refusal (rc 2)" \
++            "🔴 and no cell reached the shared stubs either (no flow was attempted)"
++
+ check_control "C3: a comment above the cell's verdict" c3
+ 
+ # 🔴 THE ANCHOR IS THE CONTROL'S SIGNATURE PLUS ITS OWN FIRST MESSAGE. The two assert_
+diff --git a/tests/shell/test_live_p1_common.sh b/tests/shell/test_live_p1_common.sh
+index 55e2f687..e420b111 100644
+--- a/tests/shell/test_live_p1_common.sh
++++ b/tests/shell/test_live_p1_common.sh
+@@ -64,8 +64,9 @@ trap 'rm -rf "$FIX"' EXIT INT TERM
+ # drive() -- a 2 Mbit/s iperf ran between them and landed in that arm's G1 counters (+375 kB).
+ # "Offline" had meant "offline as long as nobody else has a fabric up".
+ # So this suite now ALWAYS runs as if a fabric were up, and can never reach one:
+-#   * a `ps` on PATH that lists, after the real process table, four Mininet host shells h1..h4
+-#     (pids above pid_max -- no process can have them, a signal aimed at one reaches nobody);
++#   * a `ps` on PATH that lists four Mininet host shells h1..h4 BEFORE the real process table
++#     (pids above pid_max -- no process can have them, a signal aimed at one reaches nobody; first,
++#     because host_pid takes the first match and a live fabric's hosts must never be it -- F1);
+ #     host_pid reads nothing else, so any path that would drive a live fabric's hosts is taken
+ #     here on every run, not only on the night somebody's lab is up;
+ #   * `sudo`, `mnexec`, `iperf` and `iperf3` on PATH that record the call and refuse it.
+@@ -83,15 +84,21 @@ SHIM
+ done
+ cat > "$NOLAB/bin/ps" <<'PSEOF'
+ #!/bin/bash
+-/usr/bin/ps "$@"; rc=$?
++# [Co-developed with claude code -- Adam] 🔴 THE FAKE ROWS COME FIRST (the judge's F1, 09-27):
++# host_pid takes the FIRST row whose argv ends mininet:hN, so with the real table first a real
++# fabric's h2 won over the fake one -- the control below went red and the guard handed a live
++# host's pid to its sudo. A header-less listing (every column named `x=`, which is what host_pid
++# asks for) gets the fake rows and then the real table; one with a header keeps it on top.
+ spec=""; prev=""
+ for a in "$@"; do
+     [[ "$prev" == -o || "$prev" == -eo || "$prev" == -axo || "$prev" == -Ao ]] && spec="$spec,$a"
+     [[ "$a" == -o?* ]] && spec="$spec,${a#-o}"
+     prev="$a"
+ done
+-if [[ "$spec" == *args* || "$spec" == *cmd* || "$spec" == *command* ]]; then
+-    IFS=, read -r -a cols <<<"${spec#,}"
++[[ "$spec" == *args* || "$spec" == *cmd* || "$spec" == *command* ]] || exec /usr/bin/ps "$@"
++IFS=, read -r -a cols <<<"${spec#,}"
++fake() {
++    local h c line
+     for h in 1 2 3 4; do
+         line=""
+         for c in "${cols[@]}"; do
+@@ -104,7 +111,17 @@ if [[ "$spec" == *args* || "$spec" == *cmd* || "$spec" == *command* ]]; then
+         done
+         printf '%s\n' "${line% }"
+     done
++}
++headerless=1
++for c in "${cols[@]}"; do [[ "$c" == *=* ]] || headerless=0; done
++if (( headerless )); then
++    fake
++    exec /usr/bin/ps "$@"
+ fi
++real="$(/usr/bin/ps "$@")"; rc=$?
++printf '%s\n' "$real" | head -1
++fake
++printf '%s\n' "$real" | tail -n +2
+ exit $rc
+ PSEOF
+ chmod +x "$NOLAB/bin"/*

@@ -1,0 +1,24 @@
+d2a9d641b78dcfe1ac964bced5f367cd49d56b7e
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927  2026-09-27T01:11:14Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927  TMPDIR /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-stale-d2a9d641/predict_ci.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/predict_ci.stale-d2a9d641.kept
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-stale-d2a9d641/shims (nolab)
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-stale-d2a9d641/predict_ci.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/predict_ci.stale-d2a9d641.kept
+trunk c34a643a358ce33297af81df305454384fa6d936  A 356d4e4eb02e95b006afaa64a6e81414ab7b76fe  B d2a9d641b78dcfe1ac964bced5f367cd49d56b7e  base 8746c1bcadff4f94207e5192560f45a901a29dae
+  ok    git merge-tree c34a643a 356d4e4e: clean
+  ok    git merge-tree c34a643a d2a9d641: clean
+  ok    no file changed on more than one side (1 trunk, 8 A, 9 B)
+== the merged tree (c34a643a + A + B), the lane's own scorer
+    test_start_bg_log_rotation: rc 0  ran 5  failed 0  skips 0  -> PASS   (Ran 5 checks, all passed)
+    test_l1_shell_scoring: rc 0  ran 96  failed 0  skips 0  -> PASS   (Ran 96 checks, 0 failed)
+    not_tee.no-PY_PLOT: rc 0  ran 0  failed 0  skips 1  -> FAIL-SKIP   (SKIP: PY_PLOT (/nonexistent/ci-has-no-miniconda/python3) is not presen)
+    not_tee.this-laptop: rc 1  ran 7  failed 3  skips 0  -> FAIL-RC   (  4 passed, 3 failed)
+  ok    start_bg: PASS -- its CI group should clear
+  ok    l1_shell_scoring: PASS -- its CI group should clear
+  ok    not_tee with no PY_PLOT: FAIL-SKIP -- its CI group stays, as CI has it today
+  BAD   not_tee, this laptop: FAIL-RC
+PREDICT-CI: BROKEN
+guarded_build: exit 1
+# rc=1

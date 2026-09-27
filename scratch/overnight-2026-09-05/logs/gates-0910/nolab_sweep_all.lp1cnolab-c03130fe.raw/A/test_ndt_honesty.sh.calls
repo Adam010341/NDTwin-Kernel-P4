@@ -1,0 +1,2 @@
+test_ndt_honesty.sh A sudo -n ovs-vsctl list-br
+test_ndt_honesty.sh A sudo -n ovs-vsctl list-br

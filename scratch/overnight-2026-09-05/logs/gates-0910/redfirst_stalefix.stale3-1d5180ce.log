@@ -1,0 +1,62 @@
+1d5180ce827f22dc6b8e4dfdd94757c23d697528
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927  2026-09-27T02:38:15Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927  TMPDIR /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-stale3-1d5180ce/redfirst_stalefix.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/redfirst_stalefix.stale3-1d5180ce.kept
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-stale3-1d5180ce/shims (nolab)
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-stale3-1d5180ce/redfirst_stalefix.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/redfirst_stalefix.stale3-1d5180ce.kept
+HEAD 1d5180ce827f22dc6b8e4dfdd94757c23d697528; base d2a9d641b78dcfe1ac964bced5f367cd49d56b7e
+== B1: the four counterexamples, group C at d2a9d641 and at HEAD
+    M5-topo_pid (test_faults_topo_pid.sh):  d2a9d641 ok   HEAD FAILED  -- only on a failure path: every summary it prints has an exit <non-zero> after it on the same line (the last at line 441)
+  ok      at d2a9d641 it SURVIVES (group C green on test_faults_topo_pid.sh)
+  ok      at HEAD KILLED, by: exit <non-zero> after it on the same line
+    M1-lab_config (test_ndtwin_lab_config.sh):  d2a9d641 ok   HEAD FAILED  -- only on a failure path: every summary it prints has an exit <non-zero> after it on the same line (the last at line 292)
+  ok      at d2a9d641 it SURVIVES (group C green on test_ndtwin_lab_config.sh)
+  ok      at HEAD KILLED, by: exit <non-zero> after it on the same line
+    M6-down_stops (test_ndt_down_stops_only_ours.sh):  d2a9d641 ok   HEAD FAILED  -- only on a failure path: every summary it prints has an exit <non-zero> after it on the same line (the last at line 225)
+  ok      at d2a9d641 it SURVIVES (group C green on test_ndt_down_stops_only_ours.sh)
+  ok      at HEAD KILLED, by: exit <non-zero> after it on the same line
+    dead_mutant (test_mutate_gate_dead_mutant.sh):  d2a9d641 ok   HEAD ok  -- ok
+  ok      at d2a9d641 it SURVIVES (group C green on test_mutate_gate_dead_mutant.sh)
+  ok      at HEAD it still survives -- the KNOWN LIMITATION, recorded
+  -- M0, the corpus unmutated:
+    base: rc 0, Ran 96 checks, 0 failed; group C ok 63, red 0
+    head: rc 0, Ran 96 checks, 0 failed; group C ok 63, red 0
+  ok    HEAD's group C green on every suite of the corpus (63)
+== N4: a $(( )) the renderer cannot evaluate
+    $((PASS + 09)):  d2a9d641: FAILED -- only on a failure path: its last summary (line 314) is followed by a bare exit at line 315
+    $((PASS + 09)):  HEAD: FAILED -- instrument failed: render_prints rc 3 -- render_prints: line 317: cannot evaluate $((PASS + 09)) as '9 + 09': leading zeros in decimal integer literals are not permitted; use an 0o prefix for octal integers (<string>, line 1)
+  ok      HEAD: red as an instrument failure
+  ok      d2a9d641: not an instrument failure (read as: FAILED	only on a failure path: its last summary (line 314) is followed by a bare exit at line 315)
+    $(( )):  d2a9d641: FAILED -- only on a failure path: its last summary (line 314) is followed by a bare exit at line 315
+    $(( )):  HEAD: FAILED -- instrument failed: render_prints rc 3 -- render_prints: line 317: cannot evaluate $(( )) as ' ': invalid syntax (<string>, line 0)
+  ok      HEAD: red as an instrument failure
+  ok      d2a9d641: not an instrument failure (read as: FAILED	only on a failure path: its last summary (line 314) is followed by a bare exit at line 315)
+    $((PASS**PASS**PASS)):  d2a9d641: 
+    $((PASS**PASS**PASS)):  HEAD: FAILED -- instrument failed: render_prints rc 3 -- render_prints: line 317: '**' in $((PASS**PASS**PASS))
+  ok      HEAD: red as an instrument failure
+  ok      d2a9d641: not an instrument failure (read as: nothing)
+== N1: an inherited NDT_SAMPLING_RAW_DIR, then round.env
+    d2a9d641: plot_figures.RAW = /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp/stalefix-red-kn9VR0/somewhere-else
+  ok      at d2a9d641 the round would read the inherited directory
+    HEAD: plot_figures.RAW = /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp/stalefix-red-kn9VR0/n1-HEAD/doc/audit/2026-08-20_sampling-rate-and-cpu/raw
+  ok      at HEAD round.env clears it: the round's own raw/
+== N2: a tree that HAS the real raw, and a broken override
+    d2a9d641, override broken: rc 0, 7 passed, 0 failed
+  ok      at d2a9d641, override broken, the real trace read: still GREEN -- vacuous
+    d2a9d641, override intact: rc 0, 7 passed, 0 failed
+    HEAD, override broken: rc 1, 7 passed, 1 failed -- 1b read: GATE ratio cell=t008_poll ratio=0.9656
+  ok      at HEAD, override broken: red on case 1b
+    HEAD, override intact: rc 0, 8 passed, 0 failed
+  ok      at HEAD, override intact, real raw present: green, the fixture read
+== N3: the fixture's first row, and the real trace's sha256
+    fixture row 1: {"t": 1700000000.0, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 0}}
+    real row 1:    {"t": 1787658157.534, "twin": {"s1-eth1": 0, "s1-eth2": 0, "s2-eth1": 0, "s2-eth2": 0, "s3-eth1": 0, "s3-eth2": 0, "s4-eth1": 0, "s4-eth2": 0, "s5-eth1": 0, "s5-eth2": 0, "s5-eth3": 0, "s5-eth4": 0, "s6-eth1": 0, "s6-eth2": 0, "s6-eth3": 0, "s6-eth4": 0, "s7-eth1": 0, "s7-eth2": 0, "s7-eth3": 0, "s7-eth4": 0, "s8-eth1": 0, "s8-eth2": 0, "s8-eth3": 0, "s8-eth4": 0, "s9-eth1": 0, "s9-eth2": 0, "s9-eth3": 0, "s9-eth4": 0, "s10-eth1": 0, "s10-eth2": 0, "s10-eth3": 0, "s10-eth4": 0}, "tx": {"s1-eth3": 3441, "s1-eth4": 3441, "s1-eth5": 3441, "s1-eth6": 3331, "s1-eth7": 3441, "s1-eth8": 3441, "s1-eth9": 3441, "s1-eth10": 3351, "s1-eth11": 3441, "s1-eth12": 3351, "s1-eth13": 3441, "s1-eth14": 3441, "s1-eth15": 3441, "s1-eth16": 3351, "s1-eth17": 3441, "s1-eth18": 3441, "s1-eth19": 3441, "s1-eth20": 3351, "s1-eth21": 3441, "s1-eth22": 3441, "s1-eth23": 3441, "s1-eth24": 3441, "s1-eth25": 3441, "s1-eth26": 3441, "s1-eth27": 3351, "s1-eth28": 3441, "s1-eth29": 3351, "s1-eth30": 3351, "s1-eth31": 3441, "s1-eth32": 3351, "s1-eth33": 3351, "s1-eth34": 3441, "s2-eth3": 3441, "s2-eth4": 3441, "s2-eth5": 3351, "s2-eth6": 3441, "s2-eth7": 3351, "s2-eth8": 3441, "s2-eth9": 3441, "s2-eth10": 3441, "s2-eth11": 3441, "s2-eth12": 3441, "s2-eth13": 3441, "s2-eth14": 3441, "s2-eth15": 3351, "s2-eth16": 3351, "s2-eth17": 3351, "s2-eth18": 3441, "s2-eth19": 3441, "s2-eth20": 3351, "s2-eth21": 3331, "s2-eth22": 3351, "s2-eth23": 3351, "s2-eth24": 3441, "s2-eth25": 3441, "s2-eth26": 3351, "s2-eth27": 3351, "s2-eth28": 3351, "s2-eth29": 3351, "s2-eth30": 3441, "s2-eth31": 3331, "s2-eth32": 3331, "s2-eth33": 3351, "s2-eth34": 3351, "s3-eth3": 3441, "s3-eth4": 3441, "s3-eth5": 3241, "s3-eth6": 3351, "s3-eth7": 3441, "s3-eth8": 3441, "s3-eth9": 3351, "s3-eth10": 3441, "s3-eth11": 3351, "s3-eth12": 3331, "s3-eth13": 3351, "s3-eth14": 3351, "s3-eth15": 3351, "s3-eth16": 3441, "s3-eth17": 3441, "s3-eth18": 3351, "s3-eth19": 3351, "s3-eth20": 3351, "s3-eth21": 3351, "s3-eth22": 3331, "s3-eth23": 3441, "s3-eth24": 3401, "s3-eth25": 3461, "s3-eth26": 3441, "s3-eth27": 3351, "s3-eth28": 3351, "s3-eth29": 3441, "s3-eth30": 3351, "s3-eth31": 3331, "s3-eth32": 3351, "s3-eth33": 3351, "s3-eth34": 3351, "s4-eth3": 3351, "s4-eth4": 3351, "s4-eth5": 3351, "s4-eth6": 3401, "s4-eth7": 3441, "s4-eth8": 3351, "s4-eth9": 3331, "s4-eth10": 3261, "s4-eth11": 3331, "s4-eth12": 3351, "s4-eth13": 3351, "s4-eth14": 3441, "s4-eth15": 3331, "s4-eth16": 3331, "s4-eth17": 3351, "s4-eth18": 3331, "s4-eth19": 3331, "s4-eth20": 3351, "s4-eth21": 3401, "s4-eth22": 3331, "s4-eth23": 3441, "s4-eth24": 3401, "s4-eth25": 3401, "s4-eth26": 3351, "s4-eth27": 3371, "s4-eth28": 3351, "s4-eth29": 3331, "s4-eth30": 3331, "s4-eth31": 3331, "s4-eth32": 3331, "s4-eth33": 3331, "s4-eth34": 3401, "s5-eth1": 3302, "s1-eth1": 3302, "s6-eth1": 3302, "s1-eth2": 3302, "s5-eth2": 3302, "s2-eth1": 3302, "s6-eth2": 2490, "s2-eth2": 3302, "s7-eth1": 3302, "s3-eth1": 3302, "s8-eth1": 3302, "s3-eth2": 3302, "s7-eth2": 3435, "s4-eth1": 3302, "s8-eth2": 3302, "s4-eth2": 3302, "s9-eth1": 2490, "s5-eth3": 3302, "s10-eth1": 3305, "s5-eth4": 2287, "s9-eth2": 3302, "s6-eth3": 2287, "s10-eth2": 2290, "s6-eth4": 3302, "s9-eth3": 3302, "s7-eth3": 3302, "s10-eth3": 3305, "s7-eth4": 3302, "s9-eth4": 3322, "s8-eth3": 3302, "s10-eth4": 3235, "s8-eth4": 3302}}
+    sha256 audit-raw:      295ab0d46ea830bcf039eb4fab02461b2268527e0a92b8138347d05edcae1d07
+    sha256 main checkout:  295ab0d46ea830bcf039eb4fab02461b2268527e0a92b8138347d05edcae1d07  (/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw/t008_poll_twin.jsonl, read only)
+  ok    the main checkout's t008_poll_twin.jsonl is audit-raw's, byte for byte
+  ok    no row of the fixture is the real trace's first
+STALEFIX-RED-FIRST: B1, N1, N2, N4 red at d2a9d641, green at HEAD; the SELFTEST_INNER shape recorded as a limitation
+guarded_build: exit 0
+# rc=0

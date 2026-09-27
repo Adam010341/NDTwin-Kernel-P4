@@ -1,0 +1,32 @@
+356d4e4eb02e95b006afaa64a6e81414ab7b76fe
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-probe-stub-0927  2026-09-27T00:43:03Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-probe-stub-0927  TMPDIR /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp
+# cmd bash tests/shell/test_lab_handoff.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-probe-stub-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-pstub-356d4e4e/shims (nolab)
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/test_lab_handoff.sh
+ndt status handoff line
+  ok       no handoff file, no handoff line
+  ok       handoff shown when the lab is unclaimed
+  ok       it says who left it
+  ok       it says what state the fabric is in
+  ok       it carries the free-text note
+  ok       it states the rule, so the reader need not remember it
+  ok       a live claim suppresses the handoff line
+  ok       and the claim itself is still reported
+  ok       the fixture is not mistakable for a real handoff
+  ok       an expired claim does not hide the handoff
+  ok       claiming removes the handoff
+  ok       and keeps it as .prev, so an interrupted handover survives
+  ok       so status shows no handoff once someone owns the lab
+  ok       releasing does not bring the old note back
+  ok       claiming with no handoff present is fine
+  ok       and does not create one
+  ok       a handoff missing every optional field still prints
+  ok       an empty handoff file does not crash status
+  ok       🔴 every sudo went to this suite's stub and was an allow-listed read-only probe
+
+Ran 19 checks, all passed
+guarded_build: exit 0
+# rc=0

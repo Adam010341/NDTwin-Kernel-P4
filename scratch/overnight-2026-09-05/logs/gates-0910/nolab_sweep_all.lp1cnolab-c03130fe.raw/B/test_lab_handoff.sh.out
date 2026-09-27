@@ -1,0 +1,21 @@
+ndt status handoff line
+  ok       no handoff file, no handoff line
+  ok       handoff shown when the lab is unclaimed
+  ok       it says who left it
+  ok       it says what state the fabric is in
+  ok       it carries the free-text note
+  ok       it states the rule, so the reader need not remember it
+  ok       a live claim suppresses the handoff line
+  ok       and the claim itself is still reported
+  ok       the fixture is not mistakable for a real handoff
+  ok       an expired claim does not hide the handoff
+  ok       claiming removes the handoff
+  ok       and keeps it as .prev, so an interrupted handover survives
+  ok       so status shows no handoff once someone owns the lab
+  ok       releasing does not bring the old note back
+  ok       claiming with no handoff present is fine
+  ok       and does not create one
+  ok       a handoff missing every optional field still prints
+  ok       an empty handoff file does not crash status
+
+Ran 18 checks, all passed

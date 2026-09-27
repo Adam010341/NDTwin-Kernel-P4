@@ -1,0 +1,10 @@
+  ok       fabric_hosts_in counts host namespaces only (3 of 9 lines)
+  ok       128-host fabric selects the 128-host P4 model, not the configured 4-host one
+  ok       4-host fabric selects the 4-host P4 model
+  ok       no fabric visible falls back to the configured model
+  ok       a fabric size no model describes is refused (rc 3), not served the default
+  ok       an OVS run never picks a P4 model of the same size
+  ok       a 128-host OVS fabric picks the Mininet model, not the P4 one
+  ok       NDT_TOPO overrides the derivation
+  ok       an unknown data plane returns the usage code (2), distinct from the refusal (3)
+Ran 9 checks, 0 failed

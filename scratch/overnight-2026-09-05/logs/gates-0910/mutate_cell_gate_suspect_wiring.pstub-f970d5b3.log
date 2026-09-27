@@ -1,0 +1,23 @@
+f970d5b384511c30368852365f459a31c7ea2cd7
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-probe-stub-0927  2026-09-27T00:09:54Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-probe-stub-0927  TMPDIR /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp
+# cmd bash tests/shell/mutate_cell_gate_suspect_wiring.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-probe-stub-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-pstub-f970d5b3/shims (nolab)
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_cell_gate_suspect_wiring.sh
+baseline (unmutated) must be green:
+  ok       baseline green
+
+mutations:
+  caught        SUSPECT_CELLS never written                          (case 1c went red)
+  caught        missing suspect field treated as not-suspect         (case 3c went red)
+  caught        suspect turned into an abort                         (case 1a went red)
+  caught        SUSPECT line dropped from the transcript             (case 1b went red)
+  caught        suspect readout line dropped                         (case 6 went red)
+  caught        missing field printed as false                       (case 3b went red)
+
+baseline restored: lib_e.sh byte-identical to the pre-run snapshot
+survivors=0  harness-errors(did-not-apply / test-did-not-run)=0
+guarded_build: exit 0
+# rc=0

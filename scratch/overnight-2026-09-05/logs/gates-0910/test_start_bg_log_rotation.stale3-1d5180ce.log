@@ -1,0 +1,17 @@
+1d5180ce827f22dc6b8e4dfdd94757c23d697528
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927  2026-09-27T02:49:47Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927  TMPDIR /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp
+# cmd bash tests/shell/test_start_bg_log_rotation.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-stale3-1d5180ce/shims (nolab)
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/test_start_bg_log_rotation.sh
+  ok       a non-empty previous log is rotated: exactly one stamped generation
+  ok         and it holds the previous era's content
+  ok       the live log is the new era's alone
+  ok       no generation appears on a first start
+  ok       an empty previous log is not rotated
+
+Ran 5 checks, all passed
+guarded_build: exit 0
+# rc=0

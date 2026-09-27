@@ -1,0 +1,2 @@
+diag_b3 R sudo -n ovs-vsctl list-br
+diag_b3 R sudo -n ovs-vsctl list-br

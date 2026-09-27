@@ -1,0 +1,28 @@
+d3683aeb813e76f616822120c5b539313de8db23
+# 2026-09-26T20:35:40Z cmd env KEEP=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp-lp1c/f1keep bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/lp1c/frozen-f1/redfirst_f1.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hbw-intake-0926 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/lp1c/frozen-f1/redfirst_lib.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env KEEP=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp-lp1c/f1keep bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/lp1c/frozen-f1/redfirst_f1.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hbw-intake-0926 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/lp1c/frozen-f1/redfirst_lib.sh
+HEAD d3683aeb813e76f616822120c5b539313de8db23; F1 base c03130fe; 5e red-first 124a7f3c
+== 1. c03130fe's suite, decoy up
+    (decoy pid 1009560; the real ps's host_pid h2 = 1009560)
+      FAILED     and the fake fabric is what host_pid sees
+                 expected: [4194392]
+                 actual:   [1009560]
+  ok    c03130fe: section 14's control goes red -- host_pid h2 is the decoy, not the fake 4194392
+  ok      and only that check
+== 2. HEAD's suite, decoy up
+    (decoy pid 1011070; the real ps's host_pid h2 = 1011070)
+  ok    HEAD: Ran 169 checks, 0 failed
+  ok      the control is ok with a real-looking h2 up
+== 3. 124a7f3c's suite (5e on h1..h3), decoy up
+    (decoy pid 1012588; the real ps's host_pid h2 = 1012588)
+    recorded: 1 sudo -n mnexec -a 1012588 iperf -s -u;1 sudo -n mnexec -a 4194391 iperf -c 10.0.2.2 -u -b 2M -t 16 -l 1200;1 sudo -n mnexec -a 4194391 iperf -c 10.0.3.3 -u -b 2M -t 16 -l 1200;1 sudo -n mnexec -a 4194393 iperf -s -
+  ok    as committed (old ps): the guard's sudo was handed the DECOY's pid (1012588) for h2, not the fake one
+    (decoy pid 1014509; the real ps's host_pid h2 = 1014509)
+    recorded: 1 sudo -n mnexec -a 4194391 iperf -c 10.0.2.2 -u -b 2M -t 16 -l 1200;1 sudo -n mnexec -a 4194391 iperf -c 10.0.3.3 -u -b 2M -t 16 -l 1200;1 sudo -n mnexec -a 4194392 iperf -s -u;1 sudo -n mnexec -a 4194393 iperf -s -
+  ok    with HEAD's ps: the guard's sudo is handed the FAKE hosts (4194392, 4194391)
+  ok      and never the decoy (1014509)
+  ok    the copies are gone (3 removed)
+F1-RED-FIRST: the old ps lets a real h2 win, the new one never does
+guarded_build: exit 0
+# rc=0

@@ -1,0 +1,14 @@
+  ok       case 1  partner row MISSING -> MISSING-PARTNER (the defect)
+  ok       case 2  partner healthy, cell saturated -> RATIO-MOVED (behaviour kept)
+  ok       case 3  partner saturated too -> OK (not a merge effect)
+  ok       case 4  both healthy -> OK
+  ok       case 4b run_e.sh calls ep4_verdict on the real cell values
+  ok       case 4c run_e.sh aborts on MISSING-PARTNER
+  ok       case 5  abort preserves evidence BEFORE restore_production
+  ok       case 6  a FORCED abort captures evidence and skips only the restore
+  ok       case 7  an empty pane is reported as NOT captured, not as nothing to report
+  ok       case 8  a real pane is reported as preserved
+  ok       case 8b the captured file actually contains the pane
+  ok       case 9  the empty-pane file is still non-trivial, so a file-size test would have passed it
+
+  12 passed, 0 failed

@@ -1,0 +1,32 @@
+c22d130041f0416293e333fbcd13956d5e4bbbd7
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r3-0927  2026-09-26T20:07:29Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r3-0927  TMPDIR /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp
+# cmd env KEEP=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp/redfirst_r3_keep_c22d1300 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbr3-c22d1300/redfirst_r3.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r3-0927 /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp/hbsnap
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r3-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbr3-c22d1300/shims (nolab)
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env KEEP=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp/redfirst_r3_keep_c22d1300 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbr3-c22d1300/redfirst_r3.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r3-0927 /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp/hbsnap
+HEAD c22d130041f0416293e333fbcd13956d5e4bbbd7; R-N1 red-first c0cef3925b66e0250cee384c00948b565117f708; R-N2 red-first a435d24e707577c39b886915d478c120a110f72c
+== R-N1: the 08 mutant tree
+    REFUSE: 08's mutant tree reaches out of itself -- a mutant could write the checkout's lab state:
+      p4_proxy/mininet/host_count_override resolves to /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r3-0927/p4_proxy/mininet/host_count_override
+      p4_proxy is a link to /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r3-0927/p4_proxy
+  ok    the gate at c0cef392 refuses (rc 2)
+  ok      before any mutation, and says why
+  ok      naming it: the tree's host_count_override IS the checkout's (/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r3-0927/p4_proxy/mininet/host_count_override)
+  ok      and no mutation ran (0)
+    ltree at c0cef392 -> leaks: [p4_proxy/mininet/host_count_override resolves to /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r3-0927/p4_proxy/mininet/host_count_override;p4_proxy is a link to /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r3-0927/p4_proxy]
+  ok    ltree at c0cef392: the knobs are the checkout's
+    ltree at HEAD -> leaks: []
+  ok    ltree at HEAD: no way out but the two read-only links
+  ok      (HEAD's tree: no p4_proxy/mininet; proxy_agent and the venv's python are there)
+== R-N2: 07's live L1 poll
+      🔴      an inherited L1_POLL_S does not shorten the live poll -- judged 3 polls 2
+  ok    07 at a435d24e: 1 red line(s), as many as expected
+  ok    07 at a435d24e: red once -- an inherited L1_POLL_S does not shorten the live poll
+  ok    07 at a435d24e: SELF-TEST FAIL, the last line
+  ok    07 at HEAD: SELF-TEST PASS, the last line (57 ok, 0 red)
+  ok    07 at HEAD runs the new cell: still polling at 6.5 s (judged 0 polls 4)
+R3-RED-FIRST: red at each red-first tree, clean at HEAD
+guarded_build: exit 0
+# rc=0

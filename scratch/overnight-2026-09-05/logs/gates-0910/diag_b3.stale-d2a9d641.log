@@ -1,0 +1,26 @@
+d2a9d641b78dcfe1ac964bced5f367cd49d56b7e
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927  2026-09-27T00:49:14Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927  TMPDIR /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-stale-d2a9d641/diag_b3.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/diag_b3.stale-d2a9d641.kept
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-stale-d2a9d641/shims (nolab)
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-stale-d2a9d641/diag_b3.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/diag_b3.stale-d2a9d641.kept
+HEAD d2a9d641b78dcfe1ac964bced5f367cd49d56b7e
+suite                                  rc  scorer ran/fail  log ok/FAILED  verdict      last output line | static heuristic's last echo
+test_apps_residue                      0   131/0            131/0          PASS         Ran 131 checks, 0 failed | something was logged
+test_build_guard                       1   37/15            22/15          FAIL-RC      Ran 37 checks, 15 failed | 
+test_check_logs_crash_patterns         0   32/0             32/0           PASS           (checker under test: /home/adam/Desktop/NDTwin-Kernel/scra |   (checker under test: $CHECK_LOGS)
+test_guarded_build_reentrant           0   15/0             15/0           PASS         Ran 15 checks, 0 failed | systemd-run $*
+test_ndt_honesty                       0   345/0            345/0          PASS         Ran 345 checks, 0 failed | other-session (until 03:00:00, their rou
+test_ndt_ovs_topo_script               0   41/0             41/0           PASS         Ran 41 checks, 0 failed | the verbs are wired to what was tested
+test_ndt_status_check_baseline         0   104/0            104/0          PASS         Ran 104 checks, 0 failed | $p
+test_ndt_up_down_robust                0   424/0            424/0          PASS         424 passed, 0 failed | MARKER=$([[ -f 
+test_ndt_up_target                     0   23/0             23/0           PASS         Ran 23 checks, 0 failed | resolve_up_target is not defined after s
+test_orphans_verdict                   0   181/0            181/0          PASS         181 passed, 0 failed | 
+test_stack_log_rotation                0   23/0             23/0           PASS         Ran 23 checks, 0 failed | 
+test_stop_one_targets_its_argument     0   5/0              5/0            PASS         tests/shell/test_stop_one_targets_its_argument.sh: line 64:  |   (stack.sh under test: $STACK)
+calls its own shims recorded (refused): 2 sudo -n ovs-vsctl list-br
+DIAG-B3: the runtime scorer read every one of the 12 correctly
+guarded_build: exit 0
+# rc=0

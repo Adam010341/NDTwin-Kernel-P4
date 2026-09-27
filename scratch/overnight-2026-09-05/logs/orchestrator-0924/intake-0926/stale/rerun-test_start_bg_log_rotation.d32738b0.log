@@ -1,0 +1,13 @@
+d32738b0f760bef0924e363aa91715dd38239b61
+# 2026-09-27T03:39:18Z cmd bash tests/shell/test_start_bg_log_rotation.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/test_start_bg_log_rotation.sh
+  ok       a non-empty previous log is rotated: exactly one stamped generation
+  ok         and it holds the previous era's content
+  ok       the live log is the new era's alone
+  ok       no generation appears on a first start
+  ok       an empty previous log is not rotated
+
+Ran 5 checks, all passed
+guarded_build: exit 0
+# rc=0

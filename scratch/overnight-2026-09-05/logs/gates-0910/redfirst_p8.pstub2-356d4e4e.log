@@ -1,0 +1,28 @@
+356d4e4eb02e95b006afaa64a6e81414ab7b76fe
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-probe-stub-0927  2026-09-27T01:23:44Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-probe-stub-0927  TMPDIR /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-pstub2-356d4e4e/redfirst_p8.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-probe-stub-0927 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/redfirst_p8.pstub2-356d4e4e.kept
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-probe-stub-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-pstub2-356d4e4e/shims (nolab)
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-pstub2-356d4e4e/redfirst_p8.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-probe-stub-0927 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/redfirst_p8.pstub2-356d4e4e.kept
+HEAD 356d4e4eb02e95b006afaa64a6e81414ab7b76fe
+    diff: 36c36
+    diff: < printf 'sudo %s\n' "\$*" >> '$ESC/escaped'
+    diff: ---
+    diff: > printf 'sudo %s\n' "\$*" >> /dev/null
+    the gate with its recorder writing nowhere: rc 1, 8 mutation(s), 1 survivor(s)
+      caught   P1: apps_stop no longer allows 'ndtwin-lab status'                 (0 escaped; the closing check went red: )
+      caught   P2: app_orphans no longer allows 'ndtwin-lab status'               (0 escaped; the closing check went red: )
+      caught   P3: cell_gate no longer allows 'ndtwin-lab topo-out N'             (0 escaped; the closing check went red: )
+      caught   P4: lab_handoff no longer allows 'ovs-vsctl list-br'               (0 escaped; the closing check went red: )
+      caught   P5: honesty no longer allows 'ovs-vsctl list-br'                   (0 escaped; the closing check went red: actual: [2 sudo ovs-vsctl list-br])
+      caught   P6: sample_rate no longer allows 'ovs-vsctl list-br'               (0 escaped; the closing check went red: outside the allow-list: 4 sudo ovs-vsctl list-br
+      caught   P7: lab_handoff no longer allows the unprivileged 'tc qdisc show'  (0 escaped; the closing check went red: )
+      SURVIVED P8: sample_rate's stub is never installed (its calls escape to this gate's sudo) (no call reached this gate's sudo -- the escape it tests went nowhere)
+  ok    the gate fails
+  ok    P8 is not caught: no call reached this gate's sudo
+  ok    P1-P7 still caught
+P8-RED-FIRST: an escape that reaches nothing is not a kill
+guarded_build: exit 0
+# rc=0

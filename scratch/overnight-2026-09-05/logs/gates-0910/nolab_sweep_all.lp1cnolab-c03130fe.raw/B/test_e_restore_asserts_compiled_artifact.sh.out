@@ -1,0 +1,12 @@
+  ok       fixture check: production JSON encodes rng 0..255 and a truncate op
+  ok       case 1  production compiled artefact (rng 0..255) is accepted
+  ok       fixture check: 1/8 JSON encodes rng 0..7 with the source still saying 256
+  ok       case 2  compiled artefact still at 1/8 while the source reads 256 is REJECTED
+  ok       fixture check: zero-sampling JSON encodes rng 1..255 (hi still 255)
+  ok       case 3  compiled artefact that samples nothing (rng 1..255) is REJECTED
+  ok       injection check: the ordering probe reached both teardown and the kernel copy
+  ok       case 4  restore_production tears the stack down BEFORE copying the kernel binary
+  ok       injection check: the failing-cp probe actually invoked the stubbed cp exactly once
+  ok       case 5a a kernel copy that SUCCEEDS leaves restore_production green
+  ok       case 5b a kernel copy that FAILS is reported and makes restore_production non-zero
+Ran 11 checks, 0 failed

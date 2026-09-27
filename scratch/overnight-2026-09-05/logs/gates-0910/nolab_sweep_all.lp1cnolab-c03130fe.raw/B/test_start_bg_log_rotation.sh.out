@@ -1,0 +1,27 @@
+  FAILED   previous log rotated to .prev
+             expected: yes
+             actual:   no
+  FAILED   .prev holds the previous era's content
+             expected: previous era line
+             actual:   
+  ok       current log is a fresh file for the new era
+  ok       no .prev appears on a first start
+  ok       an empty previous log is not rotated
+  FAILED   the older era survives in .prev
+             expected: era-one
+             actual:   
+  ok       the newer era is in the main log
+  ok       two eras produce no third generation yet
+  FAILED   the oldest of three eras survives in .prev2
+             expected: the-era-with-the-evidence
+             actual:   
+  FAILED   the middle era is in .prev
+             expected: the-restart-that-fixed-nothing
+             actual:   
+  ok       the newest era is in the main log
+  ok       a fourth era does not create a .prev3
+  FAILED   the oldest era is now the one that was in .prev
+             expected: the-restart-that-fixed-nothing
+             actual:   
+
+Ran 13 checks, 6 failed

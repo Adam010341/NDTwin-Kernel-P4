@@ -1,0 +1,793 @@
+diff --git a/doc/audit/2026-08-20_sampling-rate-and-cpu/plot_figures.py b/doc/audit/2026-08-20_sampling-rate-and-cpu/plot_figures.py
+index 2b70cb82..3a7b6324 100644
+--- a/doc/audit/2026-08-20_sampling-rate-and-cpu/plot_figures.py
++++ b/doc/audit/2026-08-20_sampling-rate-and-cpu/plot_figures.py
+@@ -43,7 +43,10 @@ def _open(path):
+     return gzip.open(path + ".gz", "rt")
+ 
+ HERE = os.path.dirname(os.path.abspath(__file__))
+-RAW = os.path.join(HERE, "raw")
++# [Co-developed with claude code -- Adam] NDT_SAMPLING_RAW_DIR (2026-09-27): a hermetic caller --
++# tests/shell/test_gate_exit_code_not_tee.sh with its synthetic fixture -- points every reader of
++# this module at another directory. Unset, it is raw/ beside this file, as it always was.
++RAW = os.environ.get("NDT_SAMPLING_RAW_DIR") or os.path.join(HERE, "raw")
+ OUT = sys.argv[1] if len(sys.argv) > 1 else "."
+ 
+ INK, BODY, MUTED = "#1A1A1A", "#2E2E2E", "#4F4F4F"
+diff --git a/tests/shell/fixtures/gate_exit_code_not_tee/README.md b/tests/shell/fixtures/gate_exit_code_not_tee/README.md
+new file mode 100644
+index 00000000..4eac4470
+--- /dev/null
++++ b/tests/shell/fixtures/gate_exit_code_not_tee/README.md
+@@ -0,0 +1,21 @@
++# t008_poll, synthetic -- the cell tests/shell/test_gate_exit_code_not_tee.sh gates
++
++[Co-developed with claude code -- Adam]
++
++The suite asks `ratio_gate.py` about one GREEN cell. It used the real 2026-08-20 cell `t008_poll`,
++but that cell's raw lives only on the `audit-raw` orphan branch and in whichever checkout still has
++it on disk (`doc/audit/2026-08-20_sampling-rate-and-cpu/raw/` is ignored by its own `.gitignore`),
++so in any worktree, clone or CI checkout the gate had no data: `UNRUNNABLE (no ratio -- NO-DATA)`,
++rc 2 -- and case 2, which expects rc 2, passed for that wrong reason.
++
++These two files are MADE, not copied. Their shape is the real trace's (`git show
++audit-raw:doc/audit/2026-08-20_sampling-rate-and-cpu/raw/t008_poll_twin.jsonl`, sha256 295ab0d4…):
++one JSON object per line, `t` every 0.25 s, `twin` and `tx` dicts keyed by interface, `twin` in
++bit/s as whole multiples of one sample's worth, `tx` a byte counter. Only the edge the gate reads
++(`s5-eth2`, `plot_ladder_rates.EDGE`) is present; 64 s of it (past `TRIM`, inside `SPAN`); readings
++192/208 Mbit/s alternately against a counter growing 200 Mbit/s, so ratio = 1.000 (GREEN, over
++`SATURATED_RATIO` 0.95). `t008_poll_client.json` carries only the field `cell_verdict.lost_percent`
++reads, set to the real cell's 8.1097 %, so the verdict's mark is the real one's too.
++
++The suite copies them into its own temp dir and points `plot_figures.RAW` there with
++`NDT_SAMPLING_RAW_DIR`; nothing is ever written here.
+diff --git a/tests/shell/fixtures/gate_exit_code_not_tee/t008_poll_client.json b/tests/shell/fixtures/gate_exit_code_not_tee/t008_poll_client.json
+new file mode 100644
+index 00000000..a1056810
+--- /dev/null
++++ b/tests/shell/fixtures/gate_exit_code_not_tee/t008_poll_client.json
+@@ -0,0 +1 @@
++{"end": {"sum": {"lost_percent": 8.109701338049295}}}
+diff --git a/tests/shell/fixtures/gate_exit_code_not_tee/t008_poll_twin.jsonl b/tests/shell/fixtures/gate_exit_code_not_tee/t008_poll_twin.jsonl
+new file mode 100644
+index 00000000..279c78b3
+--- /dev/null
++++ b/tests/shell/fixtures/gate_exit_code_not_tee/t008_poll_twin.jsonl
+@@ -0,0 +1,256 @@
++{"t": 1787658157.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 3302}}
++{"t": 1787658157.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 6253302}}
++{"t": 1787658158.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 12503302}}
++{"t": 1787658158.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 18753302}}
++{"t": 1787658158.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 25003302}}
++{"t": 1787658158.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 31253302}}
++{"t": 1787658159.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 37503302}}
++{"t": 1787658159.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 43753302}}
++{"t": 1787658159.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 50003302}}
++{"t": 1787658159.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 56253302}}
++{"t": 1787658160.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 62503302}}
++{"t": 1787658160.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 68753302}}
++{"t": 1787658160.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 75003302}}
++{"t": 1787658160.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 81253302}}
++{"t": 1787658161.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 87503302}}
++{"t": 1787658161.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 93753302}}
++{"t": 1787658161.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 100003302}}
++{"t": 1787658161.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 106253302}}
++{"t": 1787658162.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 112503302}}
++{"t": 1787658162.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 118753302}}
++{"t": 1787658162.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 125003302}}
++{"t": 1787658162.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 131253302}}
++{"t": 1787658163.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 137503302}}
++{"t": 1787658163.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 143753302}}
++{"t": 1787658163.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 150003302}}
++{"t": 1787658163.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 156253302}}
++{"t": 1787658164.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 162503302}}
++{"t": 1787658164.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 168753302}}
++{"t": 1787658164.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 175003302}}
++{"t": 1787658164.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 181253302}}
++{"t": 1787658165.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 187503302}}
++{"t": 1787658165.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 193753302}}
++{"t": 1787658165.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 200003302}}
++{"t": 1787658165.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 206253302}}
++{"t": 1787658166.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 212503302}}
++{"t": 1787658166.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 218753302}}
++{"t": 1787658166.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 225003302}}
++{"t": 1787658166.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 231253302}}
++{"t": 1787658167.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 237503302}}
++{"t": 1787658167.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 243753302}}
++{"t": 1787658167.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 250003302}}
++{"t": 1787658167.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 256253302}}
++{"t": 1787658168.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 262503302}}
++{"t": 1787658168.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 268753302}}
++{"t": 1787658168.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 275003302}}
++{"t": 1787658168.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 281253302}}
++{"t": 1787658169.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 287503302}}
++{"t": 1787658169.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 293753302}}
++{"t": 1787658169.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 300003302}}
++{"t": 1787658169.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 306253302}}
++{"t": 1787658170.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 312503302}}
++{"t": 1787658170.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 318753302}}
++{"t": 1787658170.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 325003302}}
++{"t": 1787658170.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 331253302}}
++{"t": 1787658171.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 337503302}}
++{"t": 1787658171.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 343753302}}
++{"t": 1787658171.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 350003302}}
++{"t": 1787658171.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 356253302}}
++{"t": 1787658172.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 362503302}}
++{"t": 1787658172.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 368753302}}
++{"t": 1787658172.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 375003302}}
++{"t": 1787658172.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 381253302}}
++{"t": 1787658173.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 387503302}}
++{"t": 1787658173.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 393753302}}
++{"t": 1787658173.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 400003302}}
++{"t": 1787658173.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 406253302}}
++{"t": 1787658174.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 412503302}}
++{"t": 1787658174.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 418753302}}
++{"t": 1787658174.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 425003302}}
++{"t": 1787658174.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 431253302}}
++{"t": 1787658175.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 437503302}}
++{"t": 1787658175.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 443753302}}
++{"t": 1787658175.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 450003302}}
++{"t": 1787658175.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 456253302}}
++{"t": 1787658176.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 462503302}}
++{"t": 1787658176.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 468753302}}
++{"t": 1787658176.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 475003302}}
++{"t": 1787658176.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 481253302}}
++{"t": 1787658177.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 487503302}}
++{"t": 1787658177.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 493753302}}
++{"t": 1787658177.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 500003302}}
++{"t": 1787658177.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 506253302}}
++{"t": 1787658178.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 512503302}}
++{"t": 1787658178.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 518753302}}
++{"t": 1787658178.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 525003302}}
++{"t": 1787658178.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 531253302}}
++{"t": 1787658179.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 537503302}}
++{"t": 1787658179.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 543753302}}
++{"t": 1787658179.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 550003302}}
++{"t": 1787658179.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 556253302}}
++{"t": 1787658180.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 562503302}}
++{"t": 1787658180.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 568753302}}
++{"t": 1787658180.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 575003302}}
++{"t": 1787658180.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 581253302}}
++{"t": 1787658181.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 587503302}}
++{"t": 1787658181.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 593753302}}
++{"t": 1787658181.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 600003302}}
++{"t": 1787658181.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 606253302}}
++{"t": 1787658182.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 612503302}}
++{"t": 1787658182.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 618753302}}
++{"t": 1787658182.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 625003302}}
++{"t": 1787658182.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 631253302}}
++{"t": 1787658183.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 637503302}}
++{"t": 1787658183.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 643753302}}
++{"t": 1787658183.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 650003302}}
++{"t": 1787658183.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 656253302}}
++{"t": 1787658184.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 662503302}}
++{"t": 1787658184.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 668753302}}
++{"t": 1787658184.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 675003302}}
++{"t": 1787658184.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 681253302}}
++{"t": 1787658185.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 687503302}}
++{"t": 1787658185.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 693753302}}
++{"t": 1787658185.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 700003302}}
++{"t": 1787658185.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 706253302}}
++{"t": 1787658186.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 712503302}}
++{"t": 1787658186.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 718753302}}
++{"t": 1787658186.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 725003302}}
++{"t": 1787658186.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 731253302}}
++{"t": 1787658187.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 737503302}}
++{"t": 1787658187.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 743753302}}
++{"t": 1787658187.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 750003302}}
++{"t": 1787658187.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 756253302}}
++{"t": 1787658188.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 762503302}}
++{"t": 1787658188.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 768753302}}
++{"t": 1787658188.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 775003302}}
++{"t": 1787658188.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 781253302}}
++{"t": 1787658189.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 787503302}}
++{"t": 1787658189.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 793753302}}
++{"t": 1787658189.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 800003302}}
++{"t": 1787658189.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 806253302}}
++{"t": 1787658190.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 812503302}}
++{"t": 1787658190.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 818753302}}
++{"t": 1787658190.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 825003302}}
++{"t": 1787658190.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 831253302}}
++{"t": 1787658191.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 837503302}}
++{"t": 1787658191.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 843753302}}
++{"t": 1787658191.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 850003302}}
++{"t": 1787658191.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 856253302}}
++{"t": 1787658192.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 862503302}}
++{"t": 1787658192.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 868753302}}
++{"t": 1787658192.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 875003302}}
++{"t": 1787658192.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 881253302}}
++{"t": 1787658193.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 887503302}}
++{"t": 1787658193.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 893753302}}
++{"t": 1787658193.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 900003302}}
++{"t": 1787658193.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 906253302}}
++{"t": 1787658194.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 912503302}}
++{"t": 1787658194.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 918753302}}
++{"t": 1787658194.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 925003302}}
++{"t": 1787658194.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 931253302}}
++{"t": 1787658195.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 937503302}}
++{"t": 1787658195.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 943753302}}
++{"t": 1787658195.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 950003302}}
++{"t": 1787658195.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 956253302}}
++{"t": 1787658196.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 962503302}}
++{"t": 1787658196.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 968753302}}
++{"t": 1787658196.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 975003302}}
++{"t": 1787658196.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 981253302}}
++{"t": 1787658197.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 987503302}}
++{"t": 1787658197.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 993753302}}
++{"t": 1787658197.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1000003302}}
++{"t": 1787658197.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1006253302}}
++{"t": 1787658198.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1012503302}}
++{"t": 1787658198.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1018753302}}
++{"t": 1787658198.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1025003302}}
++{"t": 1787658198.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1031253302}}
++{"t": 1787658199.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1037503302}}
++{"t": 1787658199.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1043753302}}
++{"t": 1787658199.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1050003302}}
++{"t": 1787658199.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1056253302}}
++{"t": 1787658200.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1062503302}}
++{"t": 1787658200.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1068753302}}
++{"t": 1787658200.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1075003302}}
++{"t": 1787658200.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1081253302}}
++{"t": 1787658201.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1087503302}}
++{"t": 1787658201.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1093753302}}
++{"t": 1787658201.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1100003302}}
++{"t": 1787658201.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1106253302}}
++{"t": 1787658202.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1112503302}}
++{"t": 1787658202.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1118753302}}
++{"t": 1787658202.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1125003302}}
++{"t": 1787658202.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1131253302}}
++{"t": 1787658203.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1137503302}}
++{"t": 1787658203.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1143753302}}
++{"t": 1787658203.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1150003302}}
++{"t": 1787658203.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1156253302}}
++{"t": 1787658204.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1162503302}}
++{"t": 1787658204.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1168753302}}
++{"t": 1787658204.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1175003302}}
++{"t": 1787658204.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1181253302}}
++{"t": 1787658205.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1187503302}}
++{"t": 1787658205.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1193753302}}
++{"t": 1787658205.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1200003302}}
++{"t": 1787658205.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1206253302}}
++{"t": 1787658206.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1212503302}}
++{"t": 1787658206.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1218753302}}
++{"t": 1787658206.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1225003302}}
++{"t": 1787658206.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1231253302}}
++{"t": 1787658207.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1237503302}}
++{"t": 1787658207.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1243753302}}
++{"t": 1787658207.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1250003302}}
++{"t": 1787658207.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1256253302}}
++{"t": 1787658208.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1262503302}}
++{"t": 1787658208.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1268753302}}
++{"t": 1787658208.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1275003302}}
++{"t": 1787658208.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1281253302}}
++{"t": 1787658209.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1287503302}}
++{"t": 1787658209.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1293753302}}
++{"t": 1787658209.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1300003302}}
++{"t": 1787658209.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1306253302}}
++{"t": 1787658210.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1312503302}}
++{"t": 1787658210.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1318753302}}
++{"t": 1787658210.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1325003302}}
++{"t": 1787658210.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1331253302}}
++{"t": 1787658211.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1337503302}}
++{"t": 1787658211.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1343753302}}
++{"t": 1787658211.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1350003302}}
++{"t": 1787658211.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1356253302}}
++{"t": 1787658212.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1362503302}}
++{"t": 1787658212.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1368753302}}
++{"t": 1787658212.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1375003302}}
++{"t": 1787658212.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1381253302}}
++{"t": 1787658213.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1387503302}}
++{"t": 1787658213.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1393753302}}
++{"t": 1787658213.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1400003302}}
++{"t": 1787658213.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1406253302}}
++{"t": 1787658214.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1412503302}}
++{"t": 1787658214.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1418753302}}
++{"t": 1787658214.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1425003302}}
++{"t": 1787658214.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1431253302}}
++{"t": 1787658215.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1437503302}}
++{"t": 1787658215.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1443753302}}
++{"t": 1787658215.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1450003302}}
++{"t": 1787658215.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1456253302}}
++{"t": 1787658216.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1462503302}}
++{"t": 1787658216.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1468753302}}
++{"t": 1787658216.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1475003302}}
++{"t": 1787658216.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1481253302}}
++{"t": 1787658217.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1487503302}}
++{"t": 1787658217.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1493753302}}
++{"t": 1787658217.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1500003302}}
++{"t": 1787658217.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1506253302}}
++{"t": 1787658218.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1512503302}}
++{"t": 1787658218.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1518753302}}
++{"t": 1787658218.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1525003302}}
++{"t": 1787658218.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1531253302}}
++{"t": 1787658219.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1537503302}}
++{"t": 1787658219.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1543753302}}
++{"t": 1787658219.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1550003302}}
++{"t": 1787658219.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1556253302}}
++{"t": 1787658220.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1562503302}}
++{"t": 1787658220.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1568753302}}
++{"t": 1787658220.534, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1575003302}}
++{"t": 1787658220.784, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1581253302}}
++{"t": 1787658221.034, "twin": {"s5-eth2": 208000000}, "tx": {"s5-eth2": 1587503302}}
++{"t": 1787658221.284, "twin": {"s5-eth2": 192000000}, "tx": {"s5-eth2": 1593753302}}
+diff --git a/tests/shell/mutate_l1_shell_scoring.sh b/tests/shell/mutate_l1_shell_scoring.sh
+index 363f5824..26e2be01 100755
+--- a/tests/shell/mutate_l1_shell_scoring.sh
++++ b/tests/shell/mutate_l1_shell_scoring.sh
+@@ -31,6 +31,7 @@ SUITE_REL="tests/shell/test_l1_shell_scoring.sh"
+ # Named as a variable so check_gate_anchors.py can resolve the last mutation's anchor: the
+ # tool checks an unpinned anchor against every path the gate declares.
+ CORPUS_REL="tests/shell/test_faults.sh"
++CORPUS_PRINTF_REL="tests/shell/test_stack_log_rotation.sh"   # a suite whose summary is a printf
+ 
+ KILLED=0
+ SURVIVED=0
+@@ -46,13 +47,28 @@ build_sandbox() {
+     printf '%s' "$sb"
+ }
+ 
+-# mutate <name> <file-relative-to-sandbox-root> <python-mutation-expression>
++# [Co-developed with claude code -- Adam] 🔴 THE BASELINE MUST BE GREEN (2026-09-27). This gate had
++# no baseline, and a mutation counted as KILLED whenever the suite went red at all -- so from the
++# day group C went red (12 of the corpus's suites changed shape) every mutation here was "killed"
++# by the red that was already there, and the gate passed while proving nothing.
++echo "baseline (must be green before any mutation):"
++sb0="$(build_sandbox)"
++if ! bash "$sb0/$SUITE_REL" > "$sb0/out.log" 2>&1; then
++    echo "  refused: the suite is RED with no mutation ($(grep -c '^  FAILED' "$sb0/out.log") check(s)) -- mutations prove nothing"
++    grep '^  FAILED' "$sb0/out.log" | head -5 | sed 's/^/    /'
++    rm -rf "$sb0"; exit 2
++fi
++echo "  $(tail -1 "$sb0/out.log")"
++rm -rf "$sb0"
++
++# mutate <name> <file-relative-to-sandbox-root> <python-mutation-expression> [<check that must go red>
++#        [<text its "actual:" line must hold -- WHICH rule caught it>]]
+ #
+ # The mutation is a python snippet given the file text as `s` and expected to rebind `s`. It MUST
+ # change the text: a no-op mutation would report KILLED or SURVIVED about nothing, which is the
+ # failure mode this repo calls "the instrument looking like its own finding".
+ mutate() {
+-    local name="$1" rel="$2" expr="$3"
++    local name="$1" rel="$2" expr="$3" want="${4:-}" because="${5:-}"
+     local sb; sb="$(build_sandbox)"
+     local target="$sb/$rel"
+ 
+@@ -78,8 +94,18 @@ PY
+ 
+     local rc=0
+     bash "$sb/$SUITE_REL" > "$sb/out.log" 2>&1 || rc=$?
+-    if [[ "$rc" -ne 0 ]]; then
+-        echo "  KILLED   $name   (suite rc=$rc, $(grep -c '^  FAILED' "$sb/out.log") check(s) red)"
++    local why=""
++    [[ -n "$because" ]] && why="$(awk -v w="  FAILED   $want" 'index($0, w) == 1 {f = 1; next}
++                                     f && /^ +actual:/ {print; exit}' "$sb/out.log")"
++    if [[ "$rc" -ne 0 && -n "$want" ]] && ! grep -qF "  FAILED   $want" "$sb/out.log"; then
++        echo "  SURVIVED $name   -- red, but not on '$want'"
++        grep '^  FAILED' "$sb/out.log" | head -3 | sed 's/^/             /'
++        SURVIVED=$((SURVIVED + 1))
++    elif [[ "$rc" -ne 0 && -n "$because" && "$why" != *"$because"* ]]; then
++        echo "  SURVIVED $name   -- '$want' red, but not because '$because' (${why:-no actual: line})"
++        SURVIVED=$((SURVIVED + 1))
++    elif [[ "$rc" -ne 0 ]]; then
++        echo "  KILLED   $name   (suite rc=$rc, $(grep -c '^  FAILED' "$sb/out.log") check(s) red${want:+, '$want' among them}${because:+, because '$because'})"
+         KILLED=$((KILLED + 1))
+     else
+         echo "  SURVIVED $name   -- the suite stayed GREEN with this defect present"
+@@ -163,10 +189,30 @@ s = s.replace("elif [[ \"$failed\"  -gt 0 ]]; then echo FAIL-CHECKS",
+ echo
+ echo "=== mutations: the corpus check (group C) actually reads the corpus ==="
+ 
++# [Co-developed with claude code -- Adam] (09-27) each corpus mutant names the check that must go
++# red AND the rule that must be the reason: "zero" is rule (1), no summary at all; "followed by a
++# bare exit" is rule (2), a summary left only on the failure path. The first is the defect the
++# old last-echo check was written for; with rule (2) gone it survives (its failure-path summary
++# still scores).
++mutate "a suite stops printing its GREEN-path summary (its failure one, followed by a bare exit, is left)" "$CORPUS_REL" '
++s = s.replace("echo \"Ran $((PASS + FAIL)) checks, all passed\"",
++              "echo \"everything is fine\"")
++' "C  test_faults.sh prints" "followed by a bare exit at line"
+ mutate "a suite stops printing any summary the lane understands" "$CORPUS_REL" '
+ s = s.replace("echo \"Ran $((PASS + FAIL)) checks, all passed\"",
+               "echo \"everything is fine\"")
+-'
++s = s.replace("echo \"Ran $((PASS + FAIL)) checks, $FAIL failed\"",
++              "echo \"something failed\"")
++' "C  test_faults.sh prints" "zero:"
++# the same two for a suite that prints its summary with printf -- the form the old last-echo
++# heuristic could not read at all (it was red on this suite before any mutation)
++mutate "a printf-summary suite stops printing a summary the lane understands" "$CORPUS_PRINTF_REL" '
++s = s.replace("printf \x27\\nRan %d checks, %d failed\\n\x27", "printf \x27\\nDone: %d, %d\\n\x27")
++' "C  test_stack_log_rotation.sh prints" "zero:"
++mutate "a printf-summary suite prints it only on the failure path, followed by a bare exit" "$CORPUS_PRINTF_REL" '
++s = s.replace("printf \x27\\nRan %d checks, %d failed\\n\x27 \"$((PASS+FAIL))\" \"$FAIL\"\n[[ \"$FAIL\" -eq 0 ]] || exit 1\n",
++              "if [[ \"$FAIL\" -ne 0 ]]; then\n    printf \x27\\nRan %d checks, %d failed\\n\x27 \"$((PASS+FAIL))\" \"$FAIL\"\n    exit 1\nfi\n")
++' "C  test_stack_log_rotation.sh prints" "followed by a bare exit at line"
+ 
+ echo
+ echo "===== $((KILLED + SURVIVED)) mutation(s): $KILLED killed, $SURVIVED survived ====="
+diff --git a/tests/shell/mutate_stack_log_rotation.sh b/tests/shell/mutate_stack_log_rotation.sh
+index 30ec0517..359734d5 100755
+--- a/tests/shell/mutate_stack_log_rotation.sh
++++ b/tests/shell/mutate_stack_log_rotation.sh
+@@ -32,6 +32,9 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ REPO="$(cd "$HERE/../.." && pwd)"
+ STACK="$REPO/tools/test_workflow/stack.sh"
+ TEST="$HERE/test_stack_log_rotation.sh"
++# [Co-developed with claude code -- Adam] and start_bg's side of it (2026-09-27): WHEN start_bg
++# rotates is test_start_bg_log_rotation.sh's, so its mutants run that suite (report_bg below)
++TEST_BG="$HERE/test_start_bg_log_rotation.sh"
+ BK=$(mktemp -d "${TMPDIR:-/tmp}/stack-rot-mutate-XXXXXX")
+ trap 'rm -rf "$BK"' EXIT
+ BASE_STACK=$(sha256sum "$STACK" | cut -d' ' -f1)
+@@ -40,6 +43,7 @@ SURVIVORS=0
+ MUTATIONS=0
+ 
+ run_against() { STACK_UNDER_TEST="$1/stack.sh" timeout 600 bash "$TEST" 2>&1; }
++run_against_bg() { STACK_UNDER_TEST="$1/stack.sh" timeout 600 bash "$TEST_BG" 2>&1; }
+ 
+ report() {   # $1 = mutation name, $2 = mutant dir, $3 = case that must fail
+     local out rc
+@@ -54,6 +58,19 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = case that must fail
+     fi
+ }
+ 
++report_bg() {   # $1 = mutation name, $2 = mutant dir, $3 = case of test_start_bg_log_rotation that must fail
++    local out rc
++    MUTATIONS=$((MUTATIONS+1))
++    out=$(run_against_bg "$2"); rc=$?
++    if [[ "$rc" -ne 0 ]] && grep -qF "FAILED   $3" <<<"$out"; then
++        printf '  caught   %-58s (%s went red)\n' "$1" "$3"
++    else
++        SURVIVORS=$((SURVIVORS+1))
++        printf '  SURVIVED %-58s (%s stayed green -- that case proves nothing)\n' "$1" "$3"
++        grep -E '^  FAILED|^Ran ' <<<"$out" | sed 's/^/             /'
++    fi
++}
++
+ # The parameters are NAMED rather than used positionally so tests/shell/check_gate_anchors.py can
+ # read this gate: it learns which argument is the anchor and which is the file from this
+ # function's own `local ... file="$2" old="$3"` line.
+@@ -80,6 +97,8 @@ cp "$REPO/tools/test_workflow/components.env" "$base/components.env"
+ cp "$REPO/tools/test_workflow/supervise.sh" "$base/supervise.sh"
+ run_against "$base" | tail -1
+ run_against "$base" >/dev/null 2>&1 || { echo "  baseline is RED -- fix that first, mutations prove nothing on a red baseline"; exit 2; }
++run_against_bg "$base" | tail -1
++run_against_bg "$base" >/dev/null 2>&1 || { echo "  test_start_bg_log_rotation's baseline is RED -- mutations prove nothing"; exit 2; }
+ echo
+ 
+ # --- O-4 itself ------------------------------------------------------------------------------
+@@ -147,6 +166,32 @@ m=$(mutant n1 "$STACK" \
+ report "N1 (control, never rotates): the log is left in place" "$m" \
+        "the live log is moved aside, not left in place"
+ 
++# --- start_bg's decision: WHEN it rotates (test_start_bg_log_rotation.sh) --------------------
++# [Co-developed with claude code -- Adam] (2026-09-27) The two-generation expectations are gone
++# from that suite -- the contract is this gate's first suite -- and what stays is start_bg's own
++# `-s` test (stack.sh:559-560). A first start is not a path of its own: with no log, `-s` is
++# false exactly as for an empty one, and a rotate_log handed a missing file makes nothing
++# (its mv fails) -- so "rotates on a first start" leaves no generation to see. S2 is the half
++# that is distinct: a start_bg that never rotates.
++m=$(mutant s1 "$STACK" \
++    '    if [[ -s "$log" ]]; then
++        rotate_log "$log"
++    fi' \
++    '    if [[ -e "$log" ]]; then
++        rotate_log "$log"
++    fi')
++report_bg "S1: start_bg rotates an EMPTY log too" "$m" \
++       "an empty previous log is not rotated"
++m=$(mutant s2 "$STACK" \
++    '    if [[ -s "$log" ]]; then
++        rotate_log "$log"
++    fi' \
++    '    if false; then
++        rotate_log "$log"
++    fi')
++report_bg "S2: start_bg never rotates (the previous era is overwritten)" "$m" \
++       "a non-empty previous log is rotated: exactly one stamped generation"
++
+ echo
+ NOW_STACK=$(sha256sum "$STACK" | cut -d' ' -f1)
+ if [[ "$NOW_STACK" != "$BASE_STACK" ]]; then
+diff --git a/tests/shell/test_gate_exit_code_not_tee.sh b/tests/shell/test_gate_exit_code_not_tee.sh
+index 12fa1cc3..1dd19094 100755
+--- a/tests/shell/test_gate_exit_code_not_tee.sh
++++ b/tests/shell/test_gate_exit_code_not_tee.sh
+@@ -23,13 +23,20 @@
+ # pinned to a mechanism rather than to a story that fits. Case 5 is the one that stops the defect
+ # coming back at a call site nobody is looking at.
+ #
+-# No fabric, no lab claim: the gate is pointed at t008_poll, an archived 08-20 cell that is in
+-# version control, which is the same cell the live G7 uses.
++# No fabric, no lab claim: the gate is pointed at t008_poll, the 08-20 cell the live G7 uses.
++# [Co-developed with claude code -- Adam] 🔴 CORRECTED 2026-09-27: that cell is NOT in version
++# control. Its raw directory ignores itself (raw/.gitignore: `*`) and lives on the audit-raw
++# orphan branch, so in every worktree, clone and CI checkout the gate had no data -- UNRUNNABLE,
++# rc 2 -- and case 2, which expects rc 2, passed for that wrong reason. The suite now brings a
++# MINIMAL SYNTHETIC t008_poll (tests/shell/fixtures/gate_exit_code_not_tee/, README there: the real
++# trace's shape, made-up readings, ratio 1.000) and points plot_figures.RAW at a copy of it; and
++# case 2 asserts the gate's verdict line as well as its rc, so an UNRUNNABLE can never pass it.
+ 
+ set -uo pipefail
+ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ ROUND_DIR="$HERE/../../doc/audit/2026-08-31_sampling-ceiling-after-merge"
+ GOODCELL="${RATIO_GOOD_CELL:-t008_poll}"
++FIXTURE_DIR="${NOT_TEE_FIXTURE_DIR:-$HERE/fixtures/gate_exit_code_not_tee}"   # the red-first run empties it
+ 
+ PASS=0
+ FAIL=0
+@@ -61,6 +68,9 @@ LOG="$T/test.log"          # round.env sets its own LOG; ours is the one under t
+ # shellcheck source=/dev/null
+ . "$ROUND_DIR/lib_e.sh"
+ LOG="$T/test.log"
++# [Co-developed with claude code -- Adam] the synthetic cell, copied: the gate reads it, nothing writes here
++mkdir -p "$T/raw"; cp "$FIXTURE_DIR"/t008_poll_* "$T/raw/" 2>/dev/null || true
++export NDT_SAMPLING_RAW_DIR="$T/raw"
+ 
+ if ! declare -F run_gate >/dev/null; then
+     echo "FAILED   lib_e.sh does not define run_gate -- the helper under test is gone"
+@@ -79,8 +89,12 @@ check "case 1  --expect green on a green cell -> caller sees success" 0 "$?"
+ 
+ # --- case 2: THE DEFECT.  A green cell asked to be RED must reach the caller as a failure. -----
+ # Before the fix this returned 0, and gates_e.sh recorded PASS.
+-run_gate "${GATE[@]}" --check "$GOODCELL" --expect red >/dev/null 2>&1
+-check "case 2  --expect red on a green cell -> caller sees failure" 2 "$?"
++# [Co-developed with claude code -- Adam] 🔴 the rc AND the verdict (2026-09-27): rc 2 is also what an
++# UNRUNNABLE gate (no data) returns, so the rc alone passed this case with no cell at all.
++out2="$(run_gate "${GATE[@]}" --check "$GOODCELL" --expect red 2>&1)"; rc2=$?
++check "case 2  --expect red on a green cell -> caller sees failure" \
++      "2 | GATE ratio FORCE-TEST FAILED: expected RED, got GREEN." \
++      "$rc2 | $(/usr/bin/grep -m1 -E '^GATE ratio (FORCE-TEST|cell=.*verdict=UNRUNNABLE)' <<<"$out2")"
+ 
+ # --- case 3: the witness.  The original construct, same command, still reports success. --------
+ # This is not a hypothetical: it is what shipped, and it is why case 2 could not have caught it.
+diff --git a/tests/shell/test_l1_shell_scoring.sh b/tests/shell/test_l1_shell_scoring.sh
+index dedc6561..9b536882 100755
+--- a/tests/shell/test_l1_shell_scoring.sh
++++ b/tests/shell/test_l1_shell_scoring.sh
+@@ -200,23 +200,100 @@ check "X4 the shell arm binds both numbers the verdict needs" "yes" \
+ echo
+ echo "=== group C: the corpus -- every suite in tests/shell prints a form this scorer reads ==="
+ 
+-# The check that would have caught the defect on the day it landed. Every suite in this
+-# directory ends the same way -- print the summary, then let `[[ $FAIL -eq 0 ]]` be the exit
+-# status -- so the LAST echo in the file is the green-path summary. Render it with plausible
+-# numbers and require a non-zero recognised count. Reading source, not running it: this file is
+-# in the corpus and running the corpus would run itself.
++# [Co-developed with claude code -- Adam] 🔴 REWRITTEN 2026-09-27. The first version took the LAST
++# `echo "..."` in each suite's source as its summary. That is not what the lane reads: shell_summary
++# reads the whole LOG, and the last summary in it wins -- so an echo placed after the summary in the
++# source (a trailer, a heredoc line, a message in a function defined below), or a summary written
++# with printf, made that heuristic red on suites the lane scores correctly. 12 suites, red since
++# they changed shape; every one of the 12 was run for real (inside the guard, 09-27) and the lane's
++# own shell_summary + l1_lane_verdict read each run exactly: this side was the wrong one.
++#
++# What the lane needs of a suite is that its GREEN run prints a summary shell_summary reads. So:
++#   (1) every `echo` and `printf` in the source is rendered -- a printf's %d/%s filled from its own
++#       arguments, a counter whose name says fail/bad as 0 and every other as 9 ($((PASS + FAIL))
++#       is 9 + 0) -- and scored by
++#       the lane's own shell_summary; at least one must score a non-zero count. Where it sits no
++#       longer matters: a printf summary, or an echo that comes after it in the source, is fine.
++#   (2) the LAST one that scores (in source order; a print inside a function counts at that
++#       function's last call) must be on the path that runs to the end: no bare
++#       `exit <non-zero>` after it. That keeps what the old check caught -- a suite that
++#       still prints its failure-path summary (`...; exit 1`) but lost its green one would read
++#       NO-TESTS-RAN at run time -- without its false alarms.
++# mutate_l1_shell_scoring.sh's corpus mutants hold both halves. Reading source, not running it:
++# this file is in the corpus.
++render_prints() {   # render_prints <suite> -> "<effective line><TAB><rendered text>" per printable line
++    python3 - "$1" <<'PYR'
++import re, shlex, sys
++lines = open(sys.argv[1], errors="replace").read().split("\n")
++# A print inside a function body happens where the function is CALLED, not where it is written:
++# `done_() { echo "Ran ..."; ...; exit $?; }` near the top, `done_` as the file's last line
++# (test_run_layers_*). Its effective line is the function's last call at the start of a line.
++owner, depth, func_of = None, 0, {}
++for n, line in enumerate(lines, 1):
++    m = re.match(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*\(\)\s*\{", line)
++    if owner is None and m:
++        owner, depth = m.group(1), 0
++    if owner is not None:
++        func_of[n] = owner
++        depth += line.count("{") - line.count("}")
++        if depth <= 0:
++            owner = None
++def effective(n):
++    f = func_of.get(n)
++    if f is None:
++        return n
++    calls = [i for i, l in enumerate(lines, 1)
++             if i not in func_of and re.match(r"^\s*" + re.escape(f) + r"(\s|;|$)", l)]
++    return calls[-1] if calls else n
++def val(expr):
++    return "0" if re.search(r"fail|bad", expr, re.I) else "9"
++def arith(expr):   # $(( PASS + FAIL )) -> each counter by its name, then the sum: 9 + 0 = 9
++    e = re.sub(r"\$?\{?([A-Za-z_][A-Za-z0-9_]*)\}?", lambda m: val(m.group(1)), expr)
++    return str(eval(e, {"__builtins__": {}})) if re.fullmatch(r"[0-9+\-* ()]+", e) else "9"
++def expand(text):
++    text = re.sub(r"\$\(\(([^)]*)\)\)", lambda m: arith(m.group(1)), text)
++    text = re.sub(r"\$\{([A-Za-z_][A-Za-z0-9_]*)[^}]*\}", lambda m: val(m.group(1)), text)
++    return re.sub(r"\$([A-Za-z_][A-Za-z0-9_]*)", lambda m: val(m.group(1)), text)
++for n, line in enumerate(lines, 1):
++    for m in re.finditer(r"(?:^|[;&|{(]|\bthen|\belse|\bdo)\s*(echo|printf)\s+(.*)$", line):
++        rest = m.group(2)
++        try:   # the words of this one command: up to the first unquoted ; & | or redirection
++            lx = shlex.shlex(rest, posix=True, punctuation_chars=";&|<>")
++            lx.whitespace_split = True
++            words = []
++            for w in lx:
++                if w and set(w) <= set(";&|<>"):
++                    break
++                words.append(w)
++        except ValueError:
++            continue
++        words = [w for w in words if not (m.group(1) == "echo" and w in ("-e", "-n"))]
++        if not words:
++            continue
++        if m.group(1) == "echo":
++            outs = [expand(" ".join(words))]
++        else:
++            it = iter([expand(a) for a in words[1:]])
++            fmt = words[0].replace("%%", "%")
++            outs = re.sub(r"%[-0-9.]*[dsi]", lambda _m: next(it, "9"), fmt).replace("\\n", "\n").split("\n")
++        for o in outs:
++            if o.strip():
++                print(f"{effective(n)}\t{o}")
++PYR
++}
+ for suite in "$SHELL_TESTS_DIR"/test_*.sh; do
+     name="$(basename "$suite")"
+-    line="$(grep -hoE '^ *echo "[^"]*"' "$suite" | tail -1 \
+-            | sed -e 's/^ *echo "//' -e 's/"$//' \
+-                  -e 's/\$((PASS *+ *FAIL))/9/g' -e 's/\$((PASS+FAIL))/9/g' \
+-                  -e 's/\$PASS/9/g' -e 's/\$FAIL/0/g')"
+-    if [[ -z "$line" ]]; then
+-        check "C  $name ends in an echo this test can read" "found" "not found"
+-        continue
++    last=0; lastline=""
++    while IFS=$'\t' read -r n line; do
++        [[ "$(summary_of "$line" | cut -d' ' -f1)" -gt 0 ]] && (( n >= last )) && { last="$n"; lastline="$line"; }
++    done < <(render_prints "$suite")
++    if (( last == 0 )); then
++        why="zero: no echo or printf in it renders to a summary"
++    else
++        bare="$(awk -v n="$last" 'NR > n && /^[[:space:]]*exit[[:space:]]+[1-9]/ {print NR; exit}' "$suite")"
++        why="$([[ -z "$bare" ]] && echo nonzero || echo "only on a failure path: its last summary (line $last) is followed by a bare exit at line $bare")"
+     fi
+-    check "C  $name's last line scores non-zero (it is '$line')" "nonzero" \
+-          "$( [[ "$(summary_of "$line" | cut -d' ' -f1)" -gt 0 ]] && echo nonzero || echo zero )"
++    check "C  $name prints a summary this scorer reads on its green path" "nonzero" "$why"
+ done
+ 
+ echo
+diff --git a/tests/shell/test_start_bg_log_rotation.sh b/tests/shell/test_start_bg_log_rotation.sh
+index 528dc8dc..57da18db 100755
+--- a/tests/shell/test_start_bg_log_rotation.sh
++++ b/tests/shell/test_start_bg_log_rotation.sh
+@@ -1,22 +1,27 @@
+ #!/usr/bin/env bash
+ #
+-# Tests for start_bg's two-generation log rotation.
++# Tests for start_bg's side of log rotation: WHEN it rotates, and that what it rotates survives.
+ #
+ # [Co-developed with claude code -- Adam]
+ #
+ # start_bg used a bare '>' redirect, so every restart erased the previous era's log. That is
+ # how the entire P4-era kernel.log vanished on 2026-08-15: the OVS restart truncated it, and
+ # the era had to be reconstructed from the proxy's log during the overnight audit. The fix
+-# rotates a non-empty log to <log>.prev before starting -- each file stays single-era, disk
+-# use stays bounded, and the era you just tore down remains readable.
++# rotates a non-empty log aside before starting -- each file stays single-era, disk use stays
++# bounded, and the era you just tore down remains readable.
+ #
+-# Depth went 1 -> 2 on 2026-08-30 (KNOWN-ISSUES A-5): one generation survives a single restart
+-# but not the second, and "restart, it recurred, restart again" is the demo sequence A-5 is
+-# about -- the second restart overwrote the era holding the evidence with the era holding none.
++# 🔴 THE ROTATION CONTRACT ITSELF LIVES IN test_stack_log_rotation.sh (2026-09-27). O-4
++# (74c811df, 2026-09-06) replaced this file's two-generation `.prev`/`.prev2` scheme with five
++# time-stamped generations `<log>.<YYYYmmdd-HHMMSS>` and NDT_LOG_KEEP, and that suite tests them
++# (its lines 84-122). This file kept asserting `.prev`/`.prev2` and was red from then on; those
++# six expectations -- and the three that stayed green only because no `.prev` file is ever made
++# any more -- are gone and NOT replaced here, so the contract is stated once. What only this file
++# covers stays, retargeted to the stamped names: start_bg's own decision (stack.sh:559-560) --
++# a non-empty log is rotated, a first start and an empty log are not.
+ 
+ set -uo pipefail
+ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+-STACK="$HERE/../../tools/test_workflow/stack.sh"
++STACK="${STACK_UNDER_TEST:-$HERE/../../tools/test_workflow/stack.sh}"   # mutate_stack_log_rotation.sh points this at a copy
+ 
+ PASS=0
+ FAIL=0
+@@ -43,16 +48,20 @@ trap 'rm -rf "$TMP"' EXIT
+ PID_DIR="$TMP/pids"   # start_bg writes the pid file here; is_running reads it
+ mkdir -p "$PID_DIR"
+ 
++# gens <log> -- the time-stamped generations rotate_log left beside <log>, one per line.
++gens() { ls -1 "$1".[0-9]* 2>/dev/null | /usr/bin/grep -E "^$1\.[0-9]{8}-[0-9]{6}(-[0-9]+)?$"; }
++
+ # --- a previous era's log is rotated, not erased -------------------------------------------
+ 
+ LOG="$TMP/kernel.log"
+ printf 'previous era line\n' >"$LOG"
+-start_bg rot_test1 "$LOG" true >/dev/null 2>&1
++start_bg rot_test1 "$LOG" echo the-new-era >/dev/null 2>&1
+ wait 2>/dev/null || true
++sleep 0.2   # let the new era's echo land before reading the live log
+ 
+-check "previous log rotated to .prev" "yes" "$([[ -f "$LOG.prev" ]] && echo yes || echo no)"
+-check ".prev holds the previous era's content" "previous era line" "$(cat "$LOG.prev" 2>/dev/null)"
+-check "current log is a fresh file for the new era" "yes" "$([[ -f "$LOG" ]] && echo yes || echo no)"
++check "a non-empty previous log is rotated: exactly one stamped generation" "1" "$(gens "$LOG" | wc -l)"
++check "  and it holds the previous era's content" "previous era line" "$(cat "$(gens "$LOG" | head -1)" 2>/dev/null)"
++check "the live log is the new era's alone" "the-new-era" "$(cat "$LOG" 2>/dev/null)"
+ 
+ # --- a first start has nothing to rotate ----------------------------------------------------
+ 
+@@ -60,61 +69,17 @@ LOG2="$TMP/first.log"
+ start_bg rot_test2 "$LOG2" true >/dev/null 2>&1
+ wait 2>/dev/null || true
+ 
+-check "no .prev appears on a first start" "no" "$([[ -f "$LOG2.prev" ]] && echo yes || echo no)"
++check "no generation appears on a first start" "0" "$(gens "$LOG2" | wc -l)"
+ 
+-# --- an empty leftover log is not worth a generation ----------------------------------------
++# --- an empty previous log is not rotated: an empty generation would be one of the five kept,
++#     pushing out an era that had something in it ---------------------------------------------
+ 
+ LOG3="$TMP/empty.log"
+ : >"$LOG3"
+ start_bg rot_test3 "$LOG3" true >/dev/null 2>&1
+ wait 2>/dev/null || true
+ 
+-check "an empty previous log is not rotated" "no" "$([[ -f "$LOG3.prev" ]] && echo yes || echo no)"
+-
+-# --- two eras end up in exactly two files ---------------------------------------------------
+-
+-LOG4="$TMP/two_eras.log"
+-start_bg era1 "$LOG4" echo era-one >/dev/null 2>&1
+-sleep 0.2   # let the echo land before the next start rotates it
+-start_bg era2 "$LOG4" echo era-two >/dev/null 2>&1
+-sleep 0.2
+-
+-check "the older era survives in .prev" "era-one" "$(cat "$LOG4.prev" 2>/dev/null)"
+-check "the newer era is in the main log" "era-two" "$(cat "$LOG4" 2>/dev/null)"
+-check "two eras produce no third generation yet" "no" \
+-    "$([[ -f "$LOG4.prev2" ]] && echo yes || echo no)"
+-
+-# --- the SECOND restart is the one that used to lose the evidence ---------------------------
+-#
+-# KNOWN-ISSUES A-2's documented workaround is "restart the kernel". When the symptom comes back
+-# you restart again -- and at depth 1 the only surviving generation was the short restart that
+-# fixed nothing, while the era that explains the fault had just been overwritten. That is the
+-# demo sequence A-5 names, and it is what depth 2 covers.
+-
+-LOG5="$TMP/three_eras.log"
+-start_bg gen1 "$LOG5" echo the-era-with-the-evidence >/dev/null 2>&1
+-sleep 0.2
+-start_bg gen2 "$LOG5" echo the-restart-that-fixed-nothing >/dev/null 2>&1
+-sleep 0.2
+-start_bg gen3 "$LOG5" echo the-current-era >/dev/null 2>&1
+-sleep 0.2
+-
+-check "the oldest of three eras survives in .prev2" \
+-    "the-era-with-the-evidence" "$(cat "$LOG5.prev2" 2>/dev/null)"
+-check "the middle era is in .prev" \
+-    "the-restart-that-fixed-nothing" "$(cat "$LOG5.prev" 2>/dev/null)"
+-check "the newest era is in the main log" \
+-    "the-current-era" "$(cat "$LOG5" 2>/dev/null)"
+-
+-# --- disk stays bounded: a fourth restart drops the oldest, it does not accumulate -----------
+-
+-start_bg gen4 "$LOG5" echo the-fourth-era >/dev/null 2>&1
+-sleep 0.2
+-
+-check "a fourth era does not create a .prev3" "no" \
+-    "$([[ -f "$LOG5.prev3" ]] && echo yes || echo no)"
+-check "the oldest era is now the one that was in .prev" \
+-    "the-restart-that-fixed-nothing" "$(cat "$LOG5.prev2" 2>/dev/null)"
++check "an empty previous log is not rotated" "0" "$(gens "$LOG3" | wc -l)"
+ 
+ echo
+ if [[ $FAIL -gt 0 ]]; then

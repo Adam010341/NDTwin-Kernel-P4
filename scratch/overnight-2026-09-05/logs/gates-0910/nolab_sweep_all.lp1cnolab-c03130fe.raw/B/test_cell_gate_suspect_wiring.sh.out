@@ -1,0 +1,14 @@
+  ok       case 1a suspect=true -> the reader returns 0 (suspect is not an abort)
+  ok       case 1b suspect=true -> a SUSPECT line reaches the log
+  ok       case 1c suspect=true -> the cell is listed in cell_cpu/SUSPECT_CELLS
+  ok       case 2a suspect=false -> returns 0
+  ok       case 2b suspect=false -> no SUSPECT line
+  ok       case 2c suspect=false -> not listed
+  ok       case 3a no suspect field -> returns 0
+  ok       case 3b no suspect field -> readout says UNKNOWN, not false
+  ok       case 3c no suspect field -> listed as UNKNOWN (absence is not a clean bill)
+  ok       case 4  RED -> abort (exit 9), unchanged by the wiring
+  ok       case 5  UNREADABLE -> abort (exit 9), unchanged by the wiring
+  ok       case 6  the suspect line carries unattributed_cores
+
+12 passed, 0 failed

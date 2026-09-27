@@ -1,0 +1,14 @@
+  ok       case 1  no process the guard spawns carries 'iperf3' in its own argv
+  ok       case 1b it did look: the process list was read (ps ran)
+  ok       case 2  a foreign iperf3 in the process list is REFUSED
+  ok       case 2b the refusal names the pid
+  ok       case 3  look-alike comms (iperf, iperf3d, xiperf3, iperf3.sh) do NOT trip the guard
+  ok       case 4  an empty process list is REFUSED, not read as 'clean'
+  ok       case 4b the refusal says the guard did not look
+  ok       case 4c a process table of one blank line is REFUSED (a blank line is not a process)
+  ok       case 5  ps absent from PATH is REFUSED, not read as 'clean'
+  ok       case 6  DRY_RUN=1 synthesises a clean machine
+  ok       case 6b DRY_RUN=1 DRY_FAIL=iperf3 forces the refusal branch
+  ok       case 7  run_e.sh and gates_e.sh still call the guard and act on its answer
+
+  12 passed, 0 failed

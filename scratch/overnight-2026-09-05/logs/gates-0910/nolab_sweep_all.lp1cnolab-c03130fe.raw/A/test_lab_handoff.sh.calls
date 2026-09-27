@@ -1,0 +1,104 @@
+test_lab_handoff.sh A sudo -n ovs-vsctl list-br
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A tc qdisc show
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n ovs-vsctl list-br
+test_lab_handoff.sh A sudo -n mnexec -a 1 true
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n ovs-vsctl list-br
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A tc qdisc show
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n ovs-vsctl list-br
+test_lab_handoff.sh A sudo -n mnexec -a 1 true
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n ovs-vsctl list-br
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A tc qdisc show
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n ovs-vsctl list-br
+test_lab_handoff.sh A sudo -n mnexec -a 1 true
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n ovs-vsctl list-br
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A tc qdisc show
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n ovs-vsctl list-br
+test_lab_handoff.sh A sudo -n mnexec -a 1 true
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n ovs-vsctl list-br
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A tc qdisc show
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n ovs-vsctl list-br
+test_lab_handoff.sh A sudo -n mnexec -a 1 true
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n ovs-vsctl list-br
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A tc qdisc show
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n ovs-vsctl list-br
+test_lab_handoff.sh A sudo -n mnexec -a 1 true
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n ovs-vsctl list-br
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A tc qdisc show
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n ovs-vsctl list-br
+test_lab_handoff.sh A sudo -n mnexec -a 1 true
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n ovs-vsctl list-br
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A tc qdisc show
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n ovs-vsctl list-br
+test_lab_handoff.sh A sudo -n mnexec -a 1 true
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n ovs-vsctl list-br
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A tc qdisc show
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n ovs-vsctl list-br
+test_lab_handoff.sh A sudo -n mnexec -a 1 true
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n ovs-vsctl list-br
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A tc qdisc show
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n ovs-vsctl list-br
+test_lab_handoff.sh A sudo -n mnexec -a 1 true
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n ovs-vsctl list-br
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A tc qdisc show
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n ovs-vsctl list-br
+test_lab_handoff.sh A sudo -n mnexec -a 1 true
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n ovs-vsctl list-br
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A tc qdisc show
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n ovs-vsctl list-br
+test_lab_handoff.sh A sudo -n mnexec -a 1 true
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n ovs-vsctl list-br
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A tc qdisc show
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n ovs-vsctl list-br
+test_lab_handoff.sh A sudo -n mnexec -a 1 true
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_lab_handoff.sh A sudo -n /usr/local/sbin/ndtwin-lab status

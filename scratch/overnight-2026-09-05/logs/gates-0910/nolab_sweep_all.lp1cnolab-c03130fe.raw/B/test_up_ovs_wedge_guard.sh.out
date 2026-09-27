@@ -1,0 +1,16 @@
+live Mininet + 'up ovs' -> refused before touching Ryu
+  ok       returns 1
+  ok       says why
+  ok       names the wedge
+  ok       never reaches the Ryu step
+no Mininet + 'up ovs' -> guard passes (dies later at the missing ryu-manager, by design)
+  ok       guard silent
+  ok       reached the Ryu step
+live Mininet + 'up ovs --force' -> guard bypassed on explicit request
+  ok       guard silent
+  ok       reached the Ryu step
+live Mininet + 'up p4' -> the guard is ovs-only (P4 restarts under live Mininet are routine)
+  ok       guard silent
+  ok       reached the proxy step
+
+Ran 10 checks, all passed

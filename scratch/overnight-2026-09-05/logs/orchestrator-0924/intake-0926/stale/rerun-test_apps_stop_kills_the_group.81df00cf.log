@@ -1,0 +1,89 @@
+81df00cff2ef12e8089309c00011c33f44caf87f
+# 2026-09-27T01:31:02Z cmd bash tests/shell/test_apps_stop_kills_the_group.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/test_apps_stop_kills_the_group.sh
+reading /proc (cross-checked against ps, which is a different implementation)
+  ok       proc_pgid agrees with ps about this shell
+  ok       proc_sid agrees with ps about this shell
+  ok       proc_pgid of a pid that does not exist
+  ok       proc_pgid of a non-numeric pid
+  ok       a comm containing ') ' does not fool the parser
+app_spawn (the property, not the word 'setsid')
+  ok       the pidfile holds a live pid
+  ok       the recorded pid is the app itself
+  ok       the app is its own process group leader
+  ok       the app is its own session leader
+  ok         and that group is NOT this shell's
+  ok       the .pgid file records that group
+  ok       the fixture really has descendants
+  ok       every descendant is in the app's group
+  ok       no descendant carries the app's signature
+the process group channel
+  ok       app_group_pids finds the whole group
+  ok         including a child with no signature
+  ok         and not this shell
+  ok       app_group_pids REFUSES this shell's group (rc 2)
+  ok         and prints nothing for it
+  ok       app_group_pids refuses pgid 1
+  ok       app_group_pids refuses an empty pgid
+the log-writer channel (who holds the log open, not who mentions it)
+  ok       the log's writers are found
+  ok         including a child with no signature
+  ok       a reader of the log is NOT a writer
+  ok       an app with no log of its own has no writers
+  ok       a channel naming 199 processes is discarded
+  ok         and says so instead of reporting clean
+the verifier
+  ok       🔴 the verifier says NO while the app is running
+  ok         and names a pid it can see
+  ok       🔴 a stop that killed nothing returns 1
+  ok         and does not say 'stopped'
+  ok         and the app is indeed still running
+  ok       the stubborn fixture is alive and ignoring TERM
+  ok       🔴 a TERM-ignoring child is escalated to KILL
+  ok         and it really is gone
+stop
+  ok       stop returns 0
+  ok       🔴 nothing of the tree survives
+  ok       🔴 the app's process group is empty
+  ok         and it says what it verified
+  ok         the group is named in the transcript
+  ok       the pidfile is gone
+  ok       the .pgid file is gone
+  ok       the log stops growing after stop
+orphaned children (no pidfile, no signature, still running)
+  ok       the launcher is gone and the children are not
+  ok       the pidfile-and-argv probe says not-running
+  ok       🔴 apps orphans exits 1 (it answered 0 on 09-02)
+  ok         names the app
+  ok         names a surviving pid
+  ok         and names the channel that found it
+  ok       stop of an orphan returns 0
+  ok       🔴 the orphaned children are gone
+  ok         and it did not call them 'not running'
+refusals (a stop that kills its own caller is not a better stop)
+  ok       🔴 app_kill_group refuses its own group -- the caller lives
+  ok         and says so with rc 2
+  ok       an uncorroborated .pgid group is refused
+  ok         and its members are still alive
+  ok       🔴 stopping an app that shares the caller's group does not kill the caller
+  ok         the group signal is refused, with a reason
+  ok         and the app is stopped anyway (log fd)
+log size (875 MB in 1h54m, on a filesystem at 85%)
+  ok       app_log_bytes reports a size
+  ok       apps status prints the log size
+  ok         and warns when it is over the cap
+  ok       trim truncates the log
+  ok         keeps the tail
+  ok         and says what it did
+  ok       🔴 the running app resumes at offset 0
+  ok         and is still running
+  ok       trim leaves an under-cap log alone
+the same question, with nothing running
+  ok       a clean machine has no orphans (rc 0)
+  ok         and it says so
+  ok       this suite leaked no fixtures
+  ok       🔴 every sudo went to this suite's stub and was an allow-listed read-only probe
+Ran 72 checks, 0 failed
+guarded_build: exit 0
+# rc=0

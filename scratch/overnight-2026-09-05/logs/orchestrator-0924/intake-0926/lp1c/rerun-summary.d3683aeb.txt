@@ -1,0 +1,8 @@
+redfirst_f1 # rc=0 | F1-RED-FIRST: the old ps lets a real h2 win, the new one never does 
+redfirst # rc=0 | LP1C-RED-FIRST: trunk reaches for sudo, the red-first suite says so, HEAD neither 
+test_live_p1_common # rc=0 | Ran 169 checks, 0 failed 
+mutate_live_p1_common # rc=0 | mutation gate: 45 mutations, 0 survived; 4 control(s), 0 went red 
+tripwire lines: 0
+no redfirst copies left
+tracked tree clean after the gates
+RERUN-LP1C-DONE

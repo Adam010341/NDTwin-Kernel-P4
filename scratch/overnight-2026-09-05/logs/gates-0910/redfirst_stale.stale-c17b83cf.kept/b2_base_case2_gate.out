@@ -1,0 +1,3 @@
+  cell=t008_poll  mark=NO-DATA  why=no twin trace
+GATE ratio cell=t008_poll verdict=UNRUNNABLE (no ratio -- NO-DATA)
+rc=2

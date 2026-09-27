@@ -1,0 +1,79 @@
+the catalogue is data: faults.txt parses into ids, specs and reasons
+  ok       the shipped catalogue lists exactly the three agreed types
+  ok       commented-out TODO entries are not live types
+  ok       the spec field comes back whole
+  ok       the reason field names the incident
+  ok       an unknown id yields nothing
+spec parsing
+  ok       the action is the first word
+  ok       a key is read out
+  ok       a missing key falls back to the default
+  ok       N-4 declares its restore signal
+  ok       L-3's expectation is 'moving' -- the gray-failure blind spot, stated
+
+netem attach point: never at root on a shaped (htb) interface
+  ok       htb root -> netem hangs under the default class
+  ok       htb root -> the answer is NEVER 'root'
+  ok       unshaped interface -> root is correct (the P4 testbed case)
+  ok       netem already present -> unsafe, refuse
+  ok       unreadable tree -> unsafe, refuse
+  ok       htb with no default class -> unsafe rather than a guess
+  ok       the handle and default class are read, not hardcoded
+netem delete point: remove exactly what was added
+  ok       a netem under a class is deleted by parent
+  ok       a netem at root is deleted at root
+  ok       no netem to delete -> unsafe, do not touch root
+
+a round: qdisc snapshot, baseline, inject, revert, recheck, diff
+  ok       a well-behaved round passes
+  ok       it says PASS
+  ok       netem went under the class, not at root
+  ok       nothing was added at root
+  ok       direction=one touched exactly one interface
+a tc that will not run says how to run it as uid 0
+  ok       the round fails rather than pretending
+  ok       and names the mnexec escape
+  ok       and says the grant only covers the destructive form
+the qdisc diff is the veto
+  ok       a dirty qdisc tree fails the round even though the checks were fine
+  ok       and says the round is void
+  ok       no snapshot means nothing is injected at all
+  ok       and tc was never called
+a broken baseline is not a valid experiment
+  ok       a round on an already-dead network fails
+  ok       and injects nothing
+  ok       and says why
+  ok       and names the baseline verdict it refused
+revert always runs
+  ok       an unexpected mid-round verdict fails the round
+  ok       but the netem was still removed
+the network must come back
+  ok       a network that stays dead after the revert fails the round
+  ok       and says the damage was left behind
+direction=both needs both ends
+  ok       refuses without --peer-iface
+  ok       and says which option is missing
+  ok       direction=both touches both interfaces
+  ok       and the second one is the peer
+proc_signal targets a PID and restores it
+  ok       the round passes
+  ok       SIGSTOP went to the PID from --pid
+  ok       SIGCONT put it back
+  ok       no tc was involved
+  ok       refuses without --pid rather than signalling something else
+  ok       and nothing was signalled
+unknown ids and unknown mechanisms are usage errors, not silent no-ops
+  ok       an id not in the catalogue is exit 2
+  ok       an unimplemented mechanism is exit 2
+  ok       and says a new mechanism needs code
+verdict matching
+  ok       'any' accepts anything
+  ok       an exact match passes
+  ok       a mismatch fails
+option parsing
+  ok       --pair splits into two addresses
+  ok       a --pair without a comma is a usage error
+  ok       a missing --pair is a usage error
+  ok       an unknown option is a usage error
+
+Ran 60 checks, all passed

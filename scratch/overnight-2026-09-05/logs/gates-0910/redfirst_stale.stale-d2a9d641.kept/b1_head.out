@@ -1,0 +1,7 @@
+  ok       a non-empty previous log is rotated: exactly one stamped generation
+  ok         and it holds the previous era's content
+  ok       the live log is the new era's alone
+  ok       no generation appears on a first start
+  ok       an empty previous log is not rotated
+
+Ran 5 checks, all passed

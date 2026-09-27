@@ -1,0 +1,19 @@
+c22d130041f0416293e333fbcd13956d5e4bbbd7
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r3-0927  2026-09-26T20:08:37Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r3-0927  TMPDIR /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp
+# cmd bash tests/shell/mutate_roles_binding.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r3-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbr3-c22d1300/shims (nolab)
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_roles_binding.sh
+interpreter: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-hb-followups-r3-0927/p4_proxy/venv/bin/python
+baseline (must be green before any mutation):
+ERROR: test_ndtwins_own_pipeline_is_bound_to_the_baseline (tests.test_route_binding.TheFactoryBindsEveryClientTest.test_ndtwins_own_pipeline_is_bound_to_the_baseline)
+ERROR: test_the_install_time_record_keys_by_the_renamed_table (tests.test_route_binding.TheFactoryBindsEveryClientTest.test_the_install_time_record_keys_by_the_renamed_table)
+Ran 708 tests in 6.968s
+FAILED (errors=2)
+Ran 187 tests in 1.735s
+OK (skipped=1)
+  baseline is RED -- fix that first, mutations prove nothing on a red baseline
+guarded_build: exit 2
+# rc=2

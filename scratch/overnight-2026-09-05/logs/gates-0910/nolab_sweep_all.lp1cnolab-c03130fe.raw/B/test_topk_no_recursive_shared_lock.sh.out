@@ -1,0 +1,9 @@
+  ok       the two function bodies were found in the source
+  ok       getTopKFlowInfoJson's body is more than its signature
+  ok       case 1  getTopKFlowInfoJson does not lock m_flowInfoTableMutex
+  ok       case 2  getTopKFlowInfoJson still calls getFlowInfoJson()
+  ok       case 3  getFlowInfoJson does take m_flowInfoTableMutex
+  ok       case 4  the matcher sees the banned line when it is present
+  ok       case 5  a commented-out lock is not counted as code
+
+Ran 7 checks, all passed

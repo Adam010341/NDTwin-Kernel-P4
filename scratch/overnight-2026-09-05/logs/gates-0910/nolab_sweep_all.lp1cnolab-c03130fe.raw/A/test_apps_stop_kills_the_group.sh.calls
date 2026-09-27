@@ -1,0 +1,8 @@
+test_apps_stop_kills_the_group.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_apps_stop_kills_the_group.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_apps_stop_kills_the_group.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_apps_stop_kills_the_group.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_apps_stop_kills_the_group.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_apps_stop_kills_the_group.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_apps_stop_kills_the_group.sh A sudo -n /usr/local/sbin/ndtwin-lab status
+test_apps_stop_kills_the_group.sh A sudo -n /usr/local/sbin/ndtwin-lab status

@@ -1,0 +1,19 @@
+=== (a) NDT_OWNER: the harness must not read its own claim as a stranger's ===
+  ok       case 1  claim 'yours ...' with NDT_OWNER set    -> YOURS
+  ok       case 2  a NAME with NDT_OWNER UNSET is OWNER-UNSET, not FOREIGN (the L-10 defect)
+  ok       case 3  a NAME with a DIFFERENT NDT_OWNER set is still FOREIGN (the check is not silenced)
+  ok       case 4a 'none' -> UNCLAIMED
+  ok       case 4b 'EXPIRED 3m ago (was auditor) -- treated as free' -> EXPIRED
+  ok       case 4c 00_preflight.sh calls claim_verdict, has an OWNER-UNSET branch, and dropped the old catch-all
+  ok       case 4d sourcing lib.sh EXPORTS a set-but-unexported NDT_OWNER so ndt can see it
+=== (b) :8000 -- the LISTEN owner, not whichever fd-holder ss happens to print first ===
+  ok       injection check: the captured line lists 4 holders and the FIRST one is the curl, not the kernel
+  ok       injection check: the start-time oracle was consulted for all four holders
+  ok       case 5  the LISTEN owner is the kernel, not the curl ss printed first
+  ok       case 6  with the ages reversed the answer follows the age, not the process name
+  ok       case 7a several holders, all gone -> LISTENER-OWNER-HIDDEN (not a guess)
+  ok       case 7b one holder is unambiguous and is returned without consulting /proc
+=== (b') the same question against a REAL socket and a REAL inherited fd ===
+  ok       injection check: the real socket really has TWO fd-holders (parent + forked child)
+  ok       case 8  port_holder names the process that called listen(), not the child that inherited it
+Ran 15 checks, 0 failed

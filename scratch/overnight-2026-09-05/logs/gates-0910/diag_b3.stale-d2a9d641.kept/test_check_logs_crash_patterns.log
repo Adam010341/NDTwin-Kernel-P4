@@ -1,0 +1,44 @@
+libstdc++ terminate paths
+  ok       caught: terminate, exception in flight
+  ok       caught: terminate, NO exception in flight (B-5: a joinable std::thread destroyed)
+  ok       caught: terminate during terminate
+  ok       caught: the exception's message
+  ok       caught: a pure virtual call
+  ok       caught: allocation failure
+
+glibc aborts
+  ok       caught: assert()
+  ok       caught: double free, the tcache wording
+  ok       caught: double free, the older wording
+  ok       caught: invalid free
+  ok       caught: malloc corruption
+  ok       caught: realloc corruption
+  ok       caught: munmap corruption
+  ok       caught: chunk header corruption
+  ok       caught: linked-list corruption
+  ok       caught: stack protector
+  ok       caught: FORTIFY_SOURCE
+  ok       caught: glibc's own fatal error
+
+deaths reported by the shell, not by the process
+  ok       caught: SIGSEGV
+  ok       caught: SIGABRT
+  ok       caught: SIGKILL -- what systemd-oomd leaves behind, and the process prints nothing itself
+  ok       caught: SIGBUS
+  ok       caught: SIGILL
+  ok       caught: SIGFPE
+  ok       caught: a signal named in prose
+
+sanitizers
+  ok       caught: ASan
+  ok       caught: TSan
+
+negative controls -- ordinary lines that must NOT be called crashes
+  ok       not a false positive: a normal info line
+  ok       not a false positive: the word terminated in prose
+  ok       not a false positive: the word killed in prose
+  ok       not a false positive: a number next to the word aborted in prose
+  ok       not a false positive: free() mentioned without an allocator message
+
+Ran 32 checks, all passed
+  (checker under test: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927/tools/contract_test/check_logs.py)

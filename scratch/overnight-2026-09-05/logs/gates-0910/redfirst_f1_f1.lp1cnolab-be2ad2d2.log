@@ -1,0 +1,32 @@
+be2ad2d2acb4021a2649cbd502cc8dba69e40c09
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-live-p1-common-nolab-0927  2026-09-26T20:30:03Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-live-p1-common-nolab-0927  TMPDIR /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp
+# cmd env KEEP=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp/redfirst_f1_keep_be2ad2d2 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-lp1cnolab-be2ad2d2-f1/redfirst_f1.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-live-p1-common-nolab-0927 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-lp1cnolab-be2ad2d2-f1/redfirst_lib.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-live-p1-common-nolab-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-lp1cnolab-be2ad2d2-f1/shims (nolab)
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env KEEP=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp/redfirst_f1_keep_be2ad2d2 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-lp1cnolab-be2ad2d2-f1/redfirst_f1.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-live-p1-common-nolab-0927 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-lp1cnolab-be2ad2d2-f1/redfirst_lib.sh
+HEAD be2ad2d2acb4021a2649cbd502cc8dba69e40c09; F1 base c03130fe; 5e red-first 124a7f3c
+== 1. c03130fe's suite, decoy up
+    (decoy pid 797841; the real ps's host_pid h2 = 797841)
+      FAILED     and the fake fabric is what host_pid sees
+                 expected: [4194392]
+                 actual:   [797841]
+  ok    c03130fe: section 14's control goes red -- host_pid h2 is the decoy, not the fake 4194392
+  ok      and only that check
+== 2. HEAD's suite, decoy up
+    (decoy pid 799355; the real ps's host_pid h2 = 799355)
+  ok    HEAD: Ran 169 checks, 0 failed
+  ok      the control is ok with a real-looking h2 up
+== 3. 124a7f3c's suite (5e on h1..h3), decoy up
+    (decoy pid 800890; the real ps's host_pid h2 = 800890)
+    recorded: 1 sudo -n mnexec -a 4194391 iperf -c 10.0.2.2 -u -b 2M -t 16 -l 1200;1 sudo -n mnexec -a 4194391 iperf -c 10.0.3.3 -u -b 2M -t 16 -l 1200;1 sudo -n mnexec -a 4194393 iperf -s -u;1 sudo -n mnexec -a 800890 iperf -s -u
+  ok    as committed (old ps): the guard's sudo was handed the DECOY's pid (800890) for h2, not the fake one
+    (decoy pid 802816; the real ps's host_pid h2 = 802816)
+    recorded: 1 sudo -n mnexec -a 4194391 iperf -c 10.0.2.2 -u -b 2M -t 16 -l 1200;1 sudo -n mnexec -a 4194391 iperf -c 10.0.3.3 -u -b 2M -t 16 -l 1200;1 sudo -n mnexec -a 4194392 iperf -s -u;1 sudo -n mnexec -a 4194393 iperf -s -
+  ok    with HEAD's ps: the guard's sudo is handed the FAKE hosts (4194392, 4194391)
+  ok      and never the decoy (802816)
+  ok    the copies are gone (3 removed)
+F1-RED-FIRST: the old ps lets a real h2 win, the new one never does
+guarded_build: exit 0
+# rc=0

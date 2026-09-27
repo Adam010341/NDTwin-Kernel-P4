@@ -1,0 +1,15 @@
+  ok       previous log rotated to .prev
+  ok       .prev holds the previous era's content
+  ok       current log is a fresh file for the new era
+  ok       no .prev appears on a first start
+  ok       an empty previous log is not rotated
+  ok       the older era survives in .prev
+  ok       the newer era is in the main log
+  ok       two eras produce no third generation yet
+  ok       the oldest of three eras survives in .prev2
+  ok       the middle era is in .prev
+  ok       the newest era is in the main log
+  ok       a fourth era does not create a .prev3
+  ok       the oldest era is now the one that was in .prev
+
+Ran 13 checks, all passed

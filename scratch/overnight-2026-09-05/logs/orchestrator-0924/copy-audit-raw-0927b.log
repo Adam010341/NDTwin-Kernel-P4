@@ -1,1 +1,14 @@
 == orchestrator-0924 (minus the two housekeeping logs)
+== worker summaries
+   scratch/overnight-2026-09-05/hunt-0911/fix/P4-HB-FOLLOWUPS-R2-SUMMARY.md                             24K
+== gate logs (p4hbr2b, lp1cnolab) and their scripts
+   26 file(s)
+   scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbr2b-4f661e31                                180K
+   scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbr2b-4f661e31-extra                          56K
+   scratch/overnight-2026-09-05/logs/gates-0910/scripts-p4hbr2b-4f661e31-repeat                         76K
+   scratch/overnight-2026-09-05/logs/gates-0910/scripts-lp1cnolab-c03130fe-b                            116K
+   scratch/overnight-2026-09-05/logs/gates-0910/scripts-lp1cnolab-c03130fe-final                        112K
+== live-p1 run: 07 on b2eeb71d
+   doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-26T202055Z_07_roles_basic        396K
+== pyc check: 0 (want 0)
+== audit-raw would commit 233 path(s); disk free 7.1G

@@ -1,0 +1,30 @@
+=== started 2026-09-12T17:15:27+08:00 ===
+=== cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-doc4-0912
+=== head 98a76c8d418ed3e11c4aa09ae21523134b7bef3c
+=== cmd PY=/usr/bin/python3 (default) bash tests/shell/mutate_manual_no_stale_in_progress.sh
+=== sha256 MANUAL doc/2026-08-17_testing-manual.md  b8cf7b95b0af117486db51558214e7546ff2b7d78da1bb0164cf0d9eb0a2a43a
+=== sha256 NDT    tools/test_workflow/ndt  b7a0283ceca5629b2cc963f43f4ea51c0c3b554d4f228fa1eedaf611878bacf3
+=== sha256 GATE   tests/shell/mutate_manual_no_stale_in_progress.sh  ed33510ef3e16a6bd70bcfb89d35a5410661313efc062753fa69b079b0410443
+baseline (unmutated) must be green:
+  ok            baseline green
+
+mutations:
+  caught        M1: the clean caveat is written back as an open defect (case 5a caveat 'clean-calls-your-fabric-residue' is retracted and says what merged it went red)
+  caught        M2: the help caveat's BEGIN marker is deleted          (case 5b caveat 'help-deep-names-three-ports' is retracted and says what merged it went red)
+  caught        M3: a caveat names a merge that is not an ancestor     (case 5c caveat 'clean-advises-deep-on-your-own' is retracted and says what merged it went red)
+  caught        M4: a stale line loses the word that excuses it        (case 6  no line calls a ticket unfixed when its merge is already in the tree went red)
+  caught        M5: the test stops reading 'ndt help'                  (case 2  'ndt help' prints --deep's size out of ports.sh's table went red)
+  caught        M6: the measured record is dropped with the caveat     (case 9  the measured record inside the third caveat survived the sweep went red)
+  caught        M7: 'ndt' stops warning about a stranger at all        (case 4  'ndt' still has the stranger sentence (the fix was not 'never say it') went red; the witness stayed green)
+  caught        M8: the branch caveat says 未併入 again             (case 6b no line calls a branch unmerged when its merge is already in the tree went red)
+  caught        M9: the branch caveat's END marker is deleted          (case 5d caveat 'e21-contract-branch-only' is retracted and says what merged it went red)
+
+  SURVIVED      C1 (control): a source comment is reworded             (control, as required)
+
+baseline byte-identical: yes  doc/2026-08-17_testing-manual.md
+baseline byte-identical: yes  tests/shell/test_manual_no_stale_in_progress.sh
+baseline byte-identical: yes  tools/test_workflow/ndt
+GATE-SUMMARY mutations=9 survived=0 unapplied=0 controls=1 red=0
+mutation gate: 9 mutations, 0 survived; 1 control(s), 0 went red
+RC=0
+=== finished 2026-09-12T17:15:29+08:00 ===

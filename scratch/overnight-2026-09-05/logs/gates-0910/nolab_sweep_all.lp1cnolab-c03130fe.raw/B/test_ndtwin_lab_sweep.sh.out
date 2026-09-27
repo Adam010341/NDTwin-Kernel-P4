@@ -1,0 +1,37 @@
+  ok       sourcing it as a non-root user is allowed
+identity (an argv element IS the program; a mention is not)
+  ok       a compiled switch by absolute path
+  ok       an interpreted topo as argv[1]
+  ok       the path-suffix form
+  ok       an echo that MENTIONS a switch
+  ok       a log file named after the topo
+  ok       an editor holding the file open
+  ok       the operator's own cleanup command
+  ok       a different testbed_topo.py
+  ok       no argv at all
+machine-wide scan (real ps, read-only)
+  ok       the real scan finds the switch fixture
+  ok       the real scan does not find the decoy
+  ok       the real scan does not find this shell
+self-match (the failure that makes a guard report a clean machine)
+  ok       the scanner really looks like a switch
+  ok       and it does not find ITSELF
+  ok       a matching ANCESTOR is not a candidate
+  ok       the real switch fixture still is found
+  ok         even though it shares our group
+counting (what 'ndtwin-lab status' prints)
+  ok       no switches, and we are looking -> 0
+  ok       two switches, and we are looking -> 2
+kill (what actually happened, not what was requested)
+  ok       killing a real topo -> rc 0
+  ok         it names the pid it stopped
+  ok         and /proc agrees it is gone
+  ok         the decoy was left alone
+  ok       nothing to kill -> rc 0
+  ok         and it says 'none', not 'done'
+  ok       a pid that does not exist is not alive
+  ok       a live pid that is not the program
+the suite reaps its own fixtures
+  ok       no fixture survives this run
+
+Ran 29 checks, all passed

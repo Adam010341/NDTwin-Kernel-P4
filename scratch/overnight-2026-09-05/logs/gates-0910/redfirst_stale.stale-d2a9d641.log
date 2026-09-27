@@ -1,0 +1,63 @@
+d2a9d641b78dcfe1ac964bced5f367cd49d56b7e
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927  2026-09-27T00:34:58Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927  TMPDIR /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-stale-d2a9d641/redfirst_stale.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/redfirst_stale.stale-d2a9d641.kept
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-stale-d2a9d641/shims (nolab)
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-stale-d2a9d641/redfirst_stale.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/redfirst_stale.stale-d2a9d641.kept
+HEAD d2a9d641b78dcfe1ac964bced5f367cd49d56b7e; base 8746c1bc
+== b1 test_start_bg_log_rotation
+    base: rc 1, Ran 13 checks, 6 failed   red: previous log rotated to .prev;.prev holds the previous era's content;the older era survives in .prev;the oldest of three eras survives in .prev2;the middle era 
+    head: rc 0, Ran 5 checks, all passed
+  ok    8746c1bc: red, the six .prev/.prev2 expectations
+  ok    HEAD: Ran 5 checks, all passed
+    the 08-31 suite (8e7e3b00) against stack.sh at 74c811df^: rc 0, Ran 13 checks, all passed
+  ok      green before O-4
+    the 08-31 suite (8e7e3b00) against stack.sh at 74c811df: rc 1, Ran 13 checks, 6 failed
+  ok      red from O-4 on (observed, not inferred)
+== b2 test_gate_exit_code_not_tee
+  ok    this worktree has no raw t008_poll_twin.jsonl
+    base: rc 1,   5 passed, 2 failed   red: case 1  --expect green on a green cell -> caller sees success;case 4  gate output still reaches the log
+  ok    8746c1bc: red on cases 1 and 4
+  ok      and case 2 GREEN there -- with no data at all
+    what case 2's gate said at base (the suite threw it away): GATE ratio cell=t008_poll verdict=UNRUNNABLE (no ratio -- NO-DATA) rc=2
+  ok      -- UNRUNNABLE, rc 2: case 2's rc was right for the wrong reason
+    head: rc 0,   7 passed, 0 failed
+  ok    HEAD: green, in a worktree with no raw file
+    head, fixture dir empty: rc 1   red: case 1  --expect green on a green cell -> caller sees success;case 2  --expect red on a green cell -> caller sees failure;case 4  gate output still reaches the log
+  ok    HEAD with no fixture and no raw: case 2 is RED, and says the gate was UNRUNNABLE
+    the real trace, read from audit-raw into a temp dir: sha256 295ab0d46ea830bc…
+    real:
+        cell=t008_poll  mark=DATAPLANE-HURT  ratio=0.9656  gt_mbit=191.4  lost_pct=8.11  lam=2003  quantum=92288  spread=14.58  floor=2.234  distinct=201
+      GATE ratio cell=t008_poll ratio=0.9656 threshold=0.95 verdict=GREEN
+      GATE ratio force-test OK: expected GREEN, got GREEN
+      rc=0
+    fixture:
+        cell=t008_poll  mark=DATAPLANE-HURT  ratio=1  gt_mbit=200  lost_pct=8.11  lam=13  quantum=16000000  spread=0  floor=27.74  distinct=2
+      GATE ratio cell=t008_poll ratio=1.0000 threshold=0.95 verdict=GREEN
+      GATE ratio force-test OK: expected GREEN, got GREEN
+      rc=0
+  ok    the fixture takes the real trace's path: verdict=GREEN, mark=DATAPLANE-HURT in both, through the ratio (not UNRUNNABLE)
+== b3 test_l1_shell_scoring group C, and mutate_l1_shell_scoring's baseline
+    base: rc 1, Ran 96 checks, 12 failed   head: rc 0, Ran 96 checks, 0 failed
+  ok    8746c1bc: group C red on 12 suites
+  ok    HEAD: green, 63 group C checks ok
+    8746c1bc's gate on 8746c1bc: rc 0, ===== 14 mutation(s): 14 killed, 0 survived ===== -- with the suite already red: 14 KILLED
+  ok      the old gate PASSED on a red baseline (every kill vacuous)
+    HEAD's gate on 8746c1bc: rc 2,   refused: the suite is RED with no mutation (12 check(s)) -- mutations prove nothing
+  ok      HEAD's gate refuses there (rc 2): a red baseline
+== b3 group C, old (8746c1bc) vs new vs new-without-rule-(2), on one corpus and its four mutants
+    M0  test_faults.sh:  old ok   new ok   new-without-rule-(2) ok
+    M0  test_stack_log_rotation.sh:  old FAILED   new ok   new-without-rule-(2) ok
+    M1  test_faults.sh:  old FAILED   new FAILED   new-without-rule-(2) ok
+    M2  test_faults.sh:  old FAILED   new FAILED   new-without-rule-(2) FAILED
+    M3  test_stack_log_rotation.sh:  old FAILED   new FAILED   new-without-rule-(2) FAILED
+    M4  test_stack_log_rotation.sh:  old FAILED   new FAILED   new-without-rule-(2) ok
+    discriminates (green before, red after) M1 M2 M3 M4:  old yesyesnono   new yesyesyesyes   new-without-rule-(2) noyesyesno
+  ok    the new group C discriminates all four
+  ok    the old one discriminates M1 M2 only (red on the printf suite before any mutation)
+  ok    without rule (2) the new one misses M1 and M4: the bare-exit rule is what catches them
+STALE-RED-FIRST: b1, b2 and b3 red at 8746c1bc, green at HEAD
+guarded_build: exit 0
+# rc=0

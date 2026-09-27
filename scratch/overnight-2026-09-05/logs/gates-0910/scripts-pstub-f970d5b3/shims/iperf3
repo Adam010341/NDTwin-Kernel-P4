@@ -1,0 +1,4 @@
+#!/bin/bash
+printf "%s %s %s %s\n" "${NOLAB_SUITE:--}" "${NOLAB_PASS:--}" "$(basename "$0")" "$*" >> "${NOLAB_LOG:-/dev/null}"
+echo "iperf3: refused by the nolab shim (a lab command)" >&2
+exit 1

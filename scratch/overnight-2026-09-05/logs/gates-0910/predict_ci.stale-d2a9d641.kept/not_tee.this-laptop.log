@@ -1,0 +1,15 @@
+  FAILED   case 1  --expect green on a green cell -> caller sees success
+             expected: 0
+             actual:   2
+  FAILED   case 2  --expect red on a green cell -> caller sees failure
+             expected: 2 | GATE ratio FORCE-TEST FAILED: expected RED, got GREEN.
+             actual:   2 | 
+  ok       case 3  the pre-fix pipeline hid that same failure (no pipefail, as gates_e.sh runs)
+  ok       case 3b gates_e.sh sets no pipefail, so run_gate is the only thing standing there
+  FAILED   case 4  gate output still reaches the log
+             expected: 1
+             actual:   0
+  ok       case 5  no gate is wired straight into a condition through tee
+  ok       case 5b the continuation joiner sees a leak written across two lines
+
+  4 passed, 3 failed

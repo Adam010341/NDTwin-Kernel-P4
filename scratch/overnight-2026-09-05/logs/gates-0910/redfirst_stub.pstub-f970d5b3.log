@@ -1,0 +1,68 @@
+f970d5b384511c30368852365f459a31c7ea2cd7
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-probe-stub-0927  2026-09-26T23:28:13Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-probe-stub-0927  TMPDIR /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-pstub-f970d5b3/redfirst_stub.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-probe-stub-0927 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-pstub-f970d5b3
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-probe-stub-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-pstub-f970d5b3/shims (nolab)
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-pstub-f970d5b3/redfirst_stub.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-probe-stub-0927 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-pstub-f970d5b3
+HEAD f970d5b384511c30368852365f459a31c7ea2cd7; base 8746c1bc
+
+== test_apps_stop_kills_the_group.sh
+    R   base rc 0, 0   red, Ran 71 checks, 0 failed      | head rc 0, 0   red, Ran 72 checks, 0 failed
+    L   base rc 0, 0   red, Ran 71 checks, 0 failed      | head rc 0, 0   red, Ran 72 checks, 0 failed
+    L2  base rc 0, 0   red, Ran 71 checks, 0 failed      | head rc 0, 0   red, Ran 72 checks, 0 failed
+  ok    head: green under R, L and L2, the same 72 checks, ok for ok
+  ok      72 checks = base's 71 + the closing check
+  ok      the closing check is ok
+  ok      under L and L2 the external (answering) shims got no sudo/ovs call at all -- the suite's stub took every one
+
+== test_cell_gate_suspect_wiring.sh
+    R   base rc 0, 0   red, 12 passed, 0 failed          | head rc 0, 0   red, 13 passed, 0 failed
+    L   base rc 0, 0   red, 12 passed, 0 failed          | head rc 0, 0   red, 13 passed, 0 failed
+    L2  base rc 0, 0   red, 12 passed, 0 failed          | head rc 0, 0   red, 13 passed, 0 failed
+  ok    head: green under R, L and L2, the same 13 checks, ok for ok
+  ok      13 checks = base's 12 + the closing check
+  ok      the closing check is ok
+  ok      under L and L2 the external (answering) shims got no sudo/ovs call at all -- the suite's stub took every one
+
+== test_lab_handoff.sh
+    R   base rc 0, 0   red, Ran 18 checks, all passed    | head rc 0, 0   red, Ran 19 checks, all passed
+    L   base rc 0, 0   red, Ran 18 checks, all passed    | head rc 0, 0   red, Ran 19 checks, all passed
+    L2  base rc 0, 0   red, Ran 18 checks, all passed    | head rc 0, 0   red, Ran 19 checks, all passed
+  ok    head: green under R, L and L2, the same 19 checks, ok for ok
+  ok      19 checks = base's 18 + the closing check
+  ok      the closing check is ok
+  ok      under L and L2 the external (answering) shims got no sudo/ovs call at all -- the suite's stub took every one
+
+== test_ndt_app_orphans.sh
+    R   base rc 0, 0   red, Ran 103 checks, all passed   | head rc 0, 0   red, Ran 104 checks, all passed
+    L   base rc 0, 0   red, Ran 103 checks, all passed   | head rc 0, 0   red, Ran 104 checks, all passed
+    L2  base rc 0, 0   red, Ran 103 checks, all passed   | head rc 0, 0   red, Ran 104 checks, all passed
+  ok    head: green under R, L and L2, the same 104 checks, ok for ok
+  ok      104 checks = base's 103 + the closing check
+  ok      the closing check is ok
+  ok      under L and L2 the external (answering) shims got no sudo/ovs call at all -- the suite's stub took every one
+
+== test_ndt_honesty.sh
+    R   base rc 0, 0   red, Ran 345 checks, 0 failed     | head rc 0, 0   red, Ran 346 checks, 0 failed
+    L   base rc 0, 0   red, Ran 345 checks, 0 failed     | head rc 0, 0   red, Ran 346 checks, 0 failed
+    L2  base rc 0, 0   red, Ran 345 checks, 0 failed     | head rc 0, 0   red, Ran 346 checks, 0 failed
+  ok    head: green under R, L and L2, the same 346 checks, ok for ok
+  ok      346 checks = base's 345 + the closing check
+  ok      the closing check is ok
+  ok      under L and L2 the external (answering) shims got no sudo/ovs call at all -- the suite's stub took every one
+
+== test_ndt_sample_rate_reads_both_bounds.sh
+    R   base rc 0, 0   red, Ran 6 checks, 0 failed       | head rc 0, 0   red, Ran 7 checks, 0 failed
+    L   base rc 0, 0   red, Ran 6 checks, 0 failed       | head rc 0, 0   red, Ran 7 checks, 0 failed
+    L2  base rc 1, 4   red, Ran 6 checks, 4 failed       | head rc 0, 0   red, Ran 7 checks, 0 failed
+  ok    base under L2 (a live OVS): RED -- the verdict depended on the lab
+  ok    head: green under R, L and L2, the same 7 checks, ok for ok
+  ok      7 checks = base's 6 + the closing check
+  ok      the closing check is ok
+  ok      under L and L2 the external (answering) shims got no sudo/ovs call at all -- the suite's stub took every one
+  ok    the base copies are gone
+STUB-RED-FIRST: sample_rate red on a live OVS at base; all six identical under R/L/L2 at HEAD
+guarded_build: exit 0
+# rc=0

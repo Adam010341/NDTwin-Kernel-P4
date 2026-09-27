@@ -1,0 +1,14 @@
+d32738b0f760bef0924e363aa91715dd38239b61
+# 2026-09-27T03:39:17Z cmd bash tests/shell/test_ndt_sample_rate_reads_both_bounds.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/test_ndt_sample_rate_reads_both_bounds.sh
+  ok       production lo=0 hi=255 reads 256
+  ok       lo=1 hi=255 is reported DISABLED, not 1/256
+  ok       lo=0 hi=1023 reads 1024
+  ok       rate_label: 1/256 for a rate, DISABLED text (not 1/DISABLED) for a dead pipeline
+  ok       source older than build -> not ahead
+  ok       source newer than build -> ahead (restored .p4, never recompiled)
+  ok       🔴 every sudo went to this suite's stub and was an allow-listed read-only probe
+Ran 7 checks, 0 failed
+guarded_build: exit 0
+# rc=0

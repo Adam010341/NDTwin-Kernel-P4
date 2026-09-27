@@ -1,0 +1,9 @@
+wait_for_port ownership
+  ok       a stray listener is refused even though our component is alive
+  ok       and it says why
+  ok       the process that actually holds the port is accepted
+  ok       with no component name, an open port is still success
+  ok       a component that is not running is refused
+  ok       an unheld port times out
+
+Ran 6 checks, all passed

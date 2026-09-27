@@ -1,0 +1,31 @@
+d32738b0f760bef0924e363aa91715dd38239b61
+# 2026-09-27T03:40:09Z cmd bash tests/shell/mutate_probe_stubs.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_probe_stubs.sh
+precondition: ovs-vsctl on PATH, ovs-vswitchd running, no bmv2 switch -- ndt takes its OVS path
+baseline (every suite green, its closing check ok):
+  ok       test_apps_stop_kills_the_group.sh: Ran 72 checks, 0 failed
+  ok       test_ndt_app_orphans.sh: Ran 104 checks, all passed
+  ok       test_cell_gate_suspect_wiring.sh: 13 passed, 0 failed
+  ok       test_lab_handoff.sh: Ran 19 checks, all passed
+  ok       test_ndt_honesty.sh: Ran 346 checks, 0 failed
+  ok       test_ndt_sample_rate_reads_both_bounds.sh: Ran 7 checks, 0 failed
+
+mutations (one allow-list entry out of one suite):
+  caught   P1: apps_stop no longer allows 'ndtwin-lab status'                 (0 escaped; the closing check went red: actual:   8 sudo ndtwin-lab status)
+  caught   P2: app_orphans no longer allows 'ndtwin-lab status'               (0 escaped; the closing check went red: actual:   16 sudo ndtwin-lab status)
+  caught   P3: cell_gate no longer allows 'ndtwin-lab topo-out N'             (0 escaped; the closing check went red: actual:   2 sudo ndtwin-lab topo-out 400)
+  caught   P4: lab_handoff no longer allows 'ovs-vsctl list-br'               (0 escaped; the closing check went red: actual:   26 sudo ovs-vsctl list-br)
+  caught   P5: honesty no longer allows 'ovs-vsctl list-br'                   (0 escaped; the closing check went red: actual: [2 sudo ovs-vsctl list-br])
+  caught   P6: sample_rate no longer allows 'ovs-vsctl list-br'               (0 escaped; the closing check went red: outside the allow-list: 4 sudo ovs-vsctl list-br)
+  caught   P7: lab_handoff no longer allows the unprivileged 'tc qdisc show'  (0 escaped; the closing check went red: actual:   13 tc qdisc show)
+  caught   P8: sample_rate's stub is never installed (its calls escape to this gate's sudo) (4 escaped; the closing check went red: outside the allow-list: 1 NO STUB: probe_stub_install never ran)
+  caught   P9: cell_gate's stub is shadowed by another sudo on PATH           (0 escaped; the closing check went red: actual:   1 the sudo on PATH is /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8)
+
+the stubs' contract:
+  ok       lib_probe_stub.sh: tc answers qdisc show and refuses the rest; sudo and ovs-vsctl refuse
+  caught   T1: the tc stub answers rc 0 to every argv                         (tc qdisc add ...: rc 0 (want a refusal);tc qdisc del ...: rc 0 (want a refusal))
+
+10 mutation(s), 0 survivor(s)
+guarded_build: exit 0
+# rc=0

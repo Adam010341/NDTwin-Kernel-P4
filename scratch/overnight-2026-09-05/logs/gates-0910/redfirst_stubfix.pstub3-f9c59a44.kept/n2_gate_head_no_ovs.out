@@ -1,0 +1,3 @@
+refused: P5, P6 and P8 need ndt's OVS path and this machine does not give it: no ovs-vswitchd running.
+  (on such a machine they would SURVIVE for the machine's reason, not the suites'; run this gate where
+   ovs-vswitchd runs, ovs-vsctl is on PATH and no bmv2 fabric is up)

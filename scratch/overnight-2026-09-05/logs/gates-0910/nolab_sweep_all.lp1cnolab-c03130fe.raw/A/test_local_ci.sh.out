@@ -1,0 +1,16 @@
+no arguments -> every job, in order, exit 0
+  ok       exit 0
+  ok       all six ran in order
+one job fails -> exit 1, and the others still run (not fail-fast)
+  ok       exit 1
+  ok       later jobs still ran
+the last job failing still reaches the exit code
+  ok       exit 1
+named jobs -> only those run
+  ok       exit 0
+  ok       only the two named ran
+an unknown job name is a usage error, and nothing runs
+  ok       exit 2
+  ok       no job ran
+
+Ran 9 checks, all passed

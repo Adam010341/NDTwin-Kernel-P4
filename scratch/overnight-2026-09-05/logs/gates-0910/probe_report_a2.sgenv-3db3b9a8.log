@@ -1,0 +1,109 @@
+3db3b9a8e0135f35d02cd3b914cf300e6627cb35
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-suites-gate-env-0927  2026-09-26T22:36:20Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-suites-gate-env-0927  TMPDIR /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-sgenv-3db3b9a8-diag2/probe_report2.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-suites-gate-env-0927 /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp/probe_report_a2_3db3b9a8
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-suites-gate-env-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-sgenv-3db3b9a8-diag2/shims (nolab)
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-sgenv-3db3b9a8-diag2/probe_report2.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-suites-gate-env-0927 /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp/probe_report_a2_3db3b9a8
+HEAD 3db3b9a8e0135f35d02cd3b914cf300e6627cb35
+
+== test_apps_stop_kills_the_group.sh   R rc 0 (Ran 71 checks, 0 failed)   L rc 0 (Ran 71 checks, 0 failed)   L2 rc 0 (Ran 71 checks, 0 failed)
+   calls under R:
+            8 sudo -n /usr/local/sbin/ndtwin-lab status
+   calls under L:
+            8 sudo -n /usr/local/sbin/ndtwin-lab status
+   calls under L2:
+            8 sudo -n /usr/local/sbin/ndtwin-lab status
+   in L2 and not in R:
+   checks that changed verdict R -> L2:
+   in L and not in R (what a LIVE answer leads to):
+   checks that changed verdict R -> L:
+
+== test_cell_gate_suspect_wiring.sh   R rc 0 (12 passed, 0 failed)   L rc 0 (12 passed, 0 failed)   L2 rc 0 (12 passed, 0 failed)
+   calls under R:
+            2 sudo -n /usr/local/sbin/ndtwin-lab status
+            2 sudo -n /usr/local/sbin/ndtwin-lab topo-out 400
+   calls under L:
+            2 sudo -n /usr/local/sbin/ndtwin-lab status
+            2 sudo -n /usr/local/sbin/ndtwin-lab topo-out 400
+   calls under L2:
+            2 sudo -n /usr/local/sbin/ndtwin-lab status
+            2 sudo -n /usr/local/sbin/ndtwin-lab topo-out 400
+   in L2 and not in R:
+   checks that changed verdict R -> L2:
+   in L and not in R (what a LIVE answer leads to):
+   checks that changed verdict R -> L:
+
+== test_lab_handoff.sh   R rc 0 (Ran 18 checks, all passed)   L rc 0 (Ran 18 checks, all passed)   L2 rc 0 (Ran 18 checks, all passed)
+   calls under R:
+           13 sudo -n mnexec -a 1 true
+           26 sudo -n ovs-vsctl list-br
+           52 sudo -n /usr/local/sbin/ndtwin-lab status
+           13 tc qdisc show
+   calls under L:
+           13 sudo -n mnexec -a 1 true
+           13 sudo -n ovs-vsctl list-br
+           52 sudo -n /usr/local/sbin/ndtwin-lab status
+           13 tc qdisc show
+   calls under L2:
+           13 sudo -n mnexec -a 1 true
+           13 sudo -n ovs-vsctl --bare --columns=sampling list sflow
+           26 sudo -n ovs-vsctl list-br
+           52 sudo -n /usr/local/sbin/ndtwin-lab status
+           13 tc qdisc show
+   in L2 and not in R:
+      + sudo -n ovs-vsctl --bare --columns=sampling list sflow
+   checks that changed verdict R -> L2:
+   in L and not in R (what a LIVE answer leads to):
+   checks that changed verdict R -> L:
+
+== test_ndt_app_orphans.sh   R rc 0 (Ran 103 checks, all passed)   L rc 0 (Ran 103 checks, all passed)   L2 rc 0 (Ran 103 checks, all passed)
+   calls under R:
+           16 sudo -n /usr/local/sbin/ndtwin-lab status
+   calls under L:
+           16 sudo -n /usr/local/sbin/ndtwin-lab status
+   calls under L2:
+           16 sudo -n /usr/local/sbin/ndtwin-lab status
+   in L2 and not in R:
+   checks that changed verdict R -> L2:
+   in L and not in R (what a LIVE answer leads to):
+   checks that changed verdict R -> L:
+
+== test_ndt_honesty.sh   R rc 0 (Ran 345 checks, 0 failed)   L rc 0 (Ran 345 checks, 0 failed)   L2 rc 0 (Ran 345 checks, 0 failed)
+   calls under R:
+            2 sudo -n ovs-vsctl list-br
+   calls under L:
+   calls under L2:
+            2 sudo -n ovs-vsctl --bare --columns=sampling list sflow
+            2 sudo -n ovs-vsctl list-br
+   in L2 and not in R:
+      + sudo -n ovs-vsctl --bare --columns=sampling list sflow
+   checks that changed verdict R -> L2:
+   in L and not in R (what a LIVE answer leads to):
+   checks that changed verdict R -> L:
+
+== test_ndt_sample_rate_reads_both_bounds.sh   R rc 0 (Ran 6 checks, 0 failed)   L rc 0 (Ran 6 checks, 0 failed)   L2 rc 1 (Ran 6 checks, 4 failed)
+   calls under R:
+            4 sudo -n ovs-vsctl list-br
+   calls under L:
+   calls under L2:
+            4 sudo -n ovs-vsctl --bare --columns=sampling list sflow
+            4 sudo -n ovs-vsctl list-br
+   in L2 and not in R:
+      + sudo -n ovs-vsctl --bare --columns=sampling list sflow
+   checks that changed verdict R -> L2:
+      <   ok       production lo=0 hi=255 reads 256
+      <   ok       lo=1 hi=255 is reported DISABLED, not 1/256
+      <   ok       lo=0 hi=1023 reads 1024
+      <   ok       rate_label: 1/256 for a rate, DISABLED text (not 1/DISABLED) for a dead pipeline
+      >   FAILED   production lo=0 hi=255 reads 256
+      >   FAILED   lo=1 hi=255 is reported DISABLED, not 1/256
+      >   FAILED   lo=0 hi=1023 reads 1024
+      >   FAILED   rate_label: 1/256 for a rate, DISABLED text (not 1/DISABLED) for a dead pipeline
+   in L and not in R (what a LIVE answer leads to):
+   checks that changed verdict R -> L:
+no real mininet host appeared
+PROBE-REPORT: done
+guarded_build: exit 0
+# rc=0

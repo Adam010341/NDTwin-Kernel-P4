@@ -1,0 +1,47 @@
+d2a9d641b78dcfe1ac964bced5f367cd49d56b7e
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927  2026-09-27T00:43:03Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927  TMPDIR /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp
+# cmd bash tests/shell/test_stack_log_rotation.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-stale-suites-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-stale-d2a9d641/shims (nolab)
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/test_stack_log_rotation.sh
+
+3A. a rotation names the generation by the era's own start time
+  ok       the live log is moved aside, not left in place
+  ok         exactly one generation exists
+  ok         it is stamped YYYYmmdd-HHMMSS
+  ok         and it holds what the log held
+
+3B. 🔴 five generations, not two -- and the newest five, by era, not by mtime
+  ok       eight generations are pruned to five
+  ok         the era just rotated is kept
+  ok         the 4th-oldest is kept
+  ok       🔴 the oldest era is gone
+  ok         and so is the second oldest
+  ok       🔴 the newest seeded era survives (mtime says it is the oldest)
+
+3C. NDT_LOG_KEEP sets the depth, and cannot set it to zero
+  ok       NDT_LOG_KEEP=2 keeps two
+  ok       🔴 NDT_LOG_KEEP=0 falls back to five, not to none
+  ok         and so does a value that is not a number
+
+3D. 🔴 it prunes only what it created
+  ok       one stamped generation is left
+  ok       🔴 a .prev from the old scheme is not swept up
+  ok       🔴 nor .prev2
+  ok       🔴 nor a file somebody parked beside it
+  ok       🔴 and another component's log is untouched
+
+3E. 🔴 two restarts inside one second do not overwrite each other
+  ok       both generations exist
+  ok         and both eras are readable
+
+3F. 🔴 the wiring: start_bg rotates -- a rotator nothing calls keeps nothing
+  ok       start_bg left a stamped generation behind
+  ok         holding the era that was running before it
+  ok         named by its start time, not .prev
+
+Ran 23 checks, 0 failed
+guarded_build: exit 0
+# rc=0
