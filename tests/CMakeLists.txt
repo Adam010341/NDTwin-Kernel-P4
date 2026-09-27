@@ -184,6 +184,11 @@ add_executable(
   # answer: the file, the digest of its BYTES at load, and the fact that neither follows the
   # file afterwards.
   test_TopologyLoadedModelReported.cpp
+
+  # [Co-developed with claude code -- Adam] Third cut of the P4-driven API (TICKET-P4-roles
+  # Appendix A): each bmv2 switch's `capabilities`, verbatim from GET /p4/switch_state, on its
+  # /ndt/get_graph_data node -- and absent, never invented, whenever the kernel has none to copy.
+  test_P4Capabilities.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there

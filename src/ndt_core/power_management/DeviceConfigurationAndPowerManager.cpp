@@ -781,6 +781,30 @@ DeviceConfigurationAndPowerManager::fetchP4SwitchState()
     return parsed;
 }
 
+/** @brief One tick of bmv2 evidence. See the header for why this is not inline in pingWorker.
+ *
+ * [Co-developed with claude code -- Adam]
+ */
+std::optional<json>
+DeviceConfigurationAndPowerManager::pollP4SwitchState()
+{
+    std::optional<json> payload;
+    if (m_mode == utils::DeploymentMode::MININET && dataPlaneIsBmv2())
+    {
+        payload = fetchP4SwitchState();
+    }
+
+    // RED-FIRST STUB: nothing is recorded yet.
+    return payload;
+}
+
+p4caps::CapabilitiesByDpid
+DeviceConfigurationAndPowerManager::p4CapabilitiesSnapshot() const
+{
+    std::lock_guard<std::mutex> lock(m_p4CapabilitiesMutex);
+    return m_p4Capabilities;
+}
+
 /** @brief A plausible synthetic power draw in mW for a simulated switch. See the header for why.
  *
  * [Co-developed with claude code -- Adam]
@@ -956,11 +980,11 @@ DeviceConfigurationAndPowerManager::pingWorker(int interval_sec = 1)
         //
         // Guarded on m_dataPlaneIsBmv2 so an OVS run never talks to a proxy that is not there --
         // the same conservatism as configureTopologyApiUrls.
-        std::optional<json> p4SwitchState;
-        if (m_mode == utils::DeploymentMode::MININET && dataPlaneIsBmv2())
-        {
-            p4SwitchState = fetchP4SwitchState();
-        }
+        //
+        // [Co-developed with claude code -- Adam] The guard and the fetch now live in
+        // pollP4SwitchState, which also records each switch's `capabilities` from the same answer
+        // for /ndt/get_graph_data. Moved rather than duplicated, so one request a tick serves both.
+        const std::optional<json> p4SwitchState = pollP4SwitchState();
 
         for (; vi != vi_end; ++vi)
         {
