@@ -609,6 +609,43 @@ hasnt "  🔴 and no reading of it names the main checkout" "/home/adam/Desktop/
 check "  energy still has no evidence log (rc 1)"        "1" \
       "$(_f9 'app_evidence_log energy >/dev/null 2>&1; echo $?')"
 
+# ==========================================================================================
+section "S. a sudo grant ndt cannot confirm makes --check fail"
+# ==========================================================================================
+# [Co-developed with claude code -- Adam] (2026-09-28) The healthy ovs4 fixture of group 1 exits 0.
+# Here only the sudo report differs, so the exit code is about the "sudo grants" arm of cmd_status:
+# a refused grant (report rc 1) and one that could not be tested (report rc 2) must each make
+# --check exit 1 and name the problem. Without these two cases nothing noticed if either problem
+# line went missing: the "sudo grants" row itself is printed in every arm.
+knob 128
+record ovs 4 "$OVS4"
+healthy_ovs4
+run_check_with() {   # <shell code run after the stubs> -> the whole report plus a trailing RC=<n>
+    bash -c "source '$NDT' >/dev/null 2>&1
+$STUBS
+$1
+cmd_status --check
+echo \"RC=\$?\"" 2>&1
+}
+OUT="$(run_check_with 'ndt_sudo_report() { echo "sudo: ovs-vsctl  REFUSED -- ovs-vsctl list-br"; return 1; }')"
+check "a refused sudo grant (report rc 1) makes --check exit 1"  "1" "$(rc_of "$OUT")"
+has   "  and it is named as a problem"                           "a sudo grant ndt needs is refused" "$OUT"
+OUT="$(run_check_with 'ndt_sudo_report() { echo "sudo: ovs-vsctl  could NOT be tested"; return 2; }')"
+check "a grant that could not be tested (report rc 2) makes --check exit 1" "1" "$(rc_of "$OUT")"
+has   "  and it is named as a problem"                           "a sudo grant ndt needs could not be tested on this machine" "$OUT"
+# The same, measured through the real report: the stubs are put back to sudo_surface.sh's own
+# functions (the table cut to the ovs-vsctl row, so nothing asks this machine's ndtwin-lab), and the
+# sudo on PATH answers the way the gates' nolab shim does -- refused, in words sudo_surface.sh does
+# not know. Before sudo_surface.sh learned to read those words this was "all 1 granted" and exit 0.
+FAKESUDO="$FIX/fakesudo"; mkdir -p "$FAKESUDO"
+printf '#!/bin/bash\necho "sudo: refused by the nolab shim (a lab command)" >&2\nexit 1\n' > "$FAKESUDO/sudo"
+printf '#!/bin/bash\nexit 0\n' > "$FAKESUDO/ovs-vsctl"
+chmod +x "$FAKESUDO/sudo" "$FAKESUDO/ovs-vsctl"
+OUT="$(run_check_with 'source "$SUDO_SURFACE"; NDT_SUDO_TABLE="$(ndt_sudo_rows ovs-vsctl)"; PATH="'"$FAKESUDO"':$PATH"')"
+check "measured: sudo refusing in words ndt does not know makes --check exit 1" "1" "$(rc_of "$OUT")"
+has   "  the grants row says it could not be tested"            "could not be tested" "$OUT"
+has   "  and quotes what sudo said"                             'sudo answered "sudo: refused by the nolab shim (a lab command)"' "$OUT"
+
 # --- done ---------------------------------------------------------------------------------
 printf '\nRan %d checks, %d failed\n' "$((PASS+FAIL))" "$FAIL"
 [[ "$FAIL" -eq 0 ]] || exit 1

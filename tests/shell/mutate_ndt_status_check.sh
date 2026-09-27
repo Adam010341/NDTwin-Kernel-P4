@@ -309,6 +309,20 @@ report 'MI7: a pidfile that is not a pid at all is passed over in silence' "$m" 
 
 
 
+# --- the sudo grants arm (2026-09-28): each problem line taken out ---------------------------------
+# [Co-developed with claude code -- Adam] The "sudo grants" row is printed in every arm, so only the
+# problem each arm adds makes --check exit 1; take either out and its case must go red by name.
+m=$(mutant s1 "$NDT" \
+    '           problems+=("a sudo grant ndt needs is refused; see the sudo grants block above") ;;' \
+    '           : ;;')
+report "S1: a refused sudo grant no longer counts as a --check problem" "$m" \
+       "a refused sudo grant (report rc 1) makes --check exit 1"
+m=$(mutant s2 "$NDT" \
+    '           problems+=("a sudo grant ndt needs could not be tested on this machine") ;;' \
+    '           : ;;')
+report "S2: an untested sudo grant no longer counts as a --check problem" "$m" \
+       "a grant that could not be tested (report rc 2) makes --check exit 1"
+
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
 if [[ "$NOW_NDT" != "$BASE_NDT" ]]; then
