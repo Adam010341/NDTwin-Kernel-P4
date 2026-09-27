@@ -221,6 +221,7 @@
     }
     if (a.preview) {
       if (D) {
+        if (D.argv === null) $("c-argv").append(el("span", "no ndt job (" + D.kind + "): see the note below", "muted"));
         for (const arg of D.argv || []) $("c-argv").append(el("code", arg, "arg"), " ");
         setText("c-note", D.note);
         if (D.needs_own_claim && !(L && L.claim_is_yours)) blockers.push("claim first: the claim is not yours");
