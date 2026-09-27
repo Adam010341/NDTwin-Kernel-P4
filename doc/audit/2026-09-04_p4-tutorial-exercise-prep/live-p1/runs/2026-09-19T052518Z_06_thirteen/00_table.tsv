@@ -1,0 +1,27 @@
+exercise	which	rc	verdict	report
+basic	skeleton	1	ERROR -- LAB NOT RETURNED: `ndt down` exited 1	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T052519Z_basic_skeleton_ndtwin.md
+basic	solution	1	ERROR -- LAB NOT RETURNED: `ndt down` exited 1	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T052720Z_basic_solution_ndtwin.md
+source_routing	skeleton	1	ERROR -- LAB NOT RETURNED: `ndt down` exited 1	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T052903Z_source_routing_skeleton_ndtwin.md
+source_routing	solution	1	ERROR -- LAB NOT RETURNED: `ndt down` exited 1	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T052946Z_source_routing_solution_ndtwin.md
+calc	skeleton	1	ERROR -- LAB NOT RETURNED: `ndt down` exited 1	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053030Z_calc_skeleton_ndtwin.md
+calc	solution	1	ERROR -- LAB NOT RETURNED: `ndt down` exited 1	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053107Z_calc_solution_ndtwin.md
+multicast	skeleton	1	ERROR -- LAB NOT RETURNED: `ndt down` exited 1	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053144Z_multicast_skeleton_ndtwin.md
+multicast	solution	1	ERROR -- LAB NOT RETURNED: `ndt down` exited 1	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053334Z_multicast_solution_ndtwin.md
+basic_tunnel	skeleton	1	RED ARM (1/1): the skeleton does not get past the control plane, by design	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053533Z_basic_tunnel_skeleton_ndtwin.md
+basic_tunnel	solution	1	ERROR -- LAB NOT RETURNED: `ndt down` exited 1	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053534Z_basic_tunnel_solution_ndtwin.md
+load_balance	skeleton	1	ERROR -- LAB NOT RETURNED: `ndt down` exited 1	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053606Z_load_balance_skeleton_ndtwin.md
+load_balance	solution	1	ERROR -- LAB NOT RETURNED: `ndt down` exited 1	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053700Z_load_balance_solution_ndtwin.md
+qos	skeleton	1	ERROR -- LAB NOT RETURNED: `ndt down` exited 1	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053755Z_qos_skeleton_ndtwin.md
+qos	solution	1	ERROR -- LAB NOT RETURNED: `ndt down` exited 1	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053856Z_qos_solution_ndtwin.md
+link_monitor	skeleton	1	ERROR -- LAB NOT RETURNED: `ndt down` exited 1	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T054007Z_link_monitor_skeleton_ndtwin.md
+link_monitor	solution	1	ERROR -- LAB NOT RETURNED: `ndt down` exited 1	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T054057Z_link_monitor_solution_ndtwin.md
+firewall	skeleton	1	ERROR -- LAB NOT RETURNED: `ndt down` exited 1	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T054159Z_firewall_skeleton_ndtwin.md
+firewall	solution	1	ERROR -- LAB NOT RETURNED: `ndt down` exited 1	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T054334Z_firewall_solution_ndtwin.md
+ecn	skeleton	1	ERROR -- LAB NOT RETURNED: `ndt down` exited 1	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T054729Z_ecn_skeleton_ndtwin.md
+ecn	solution	1	ERROR -- LAB NOT RETURNED: `ndt down` exited 1	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T054821Z_ecn_solution_ndtwin.md
+mri	skeleton	1	ERROR -- LAB NOT RETURNED: `ndt down` exited 1	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T054923Z_mri_skeleton_ndtwin.md
+mri	solution	1	ERROR -- LAB NOT RETURNED: `ndt down` exited 1	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T055015Z_mri_solution_ndtwin.md
+p4runtime	skeleton	1	ERROR -- LAB NOT RETURNED: `ndt down` exited 1	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T055118Z_p4runtime_skeleton_ndtwin.md
+p4runtime	solution	1	ERROR -- LAB NOT RETURNED: `ndt down` exited 1	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T055210Z_p4runtime_solution_ndtwin.md
+flowcache	skeleton	1	RED ARM (1/1): skeleton does not compile, by design	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T055311Z_flowcache_skeleton_ndtwin.md
+flowcache	solution	1	ERROR -- LAB NOT RETURNED: `ndt down` exited 1	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T055312Z_flowcache_solution_ndtwin.md

@@ -1,0 +1,27 @@
+exercise	which	rc	verdict	report
+basic	skeleton	0	PASS (4/4)	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T083258Z_basic_skeleton_ndtwin.md
+basic	solution	0	PASS (6/6)	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T083439Z_basic_solution_ndtwin.md
+source_routing	skeleton	0	PASS (2/2)	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T083604Z_source_routing_skeleton_ndtwin.md
+source_routing	solution	0	PASS (5/5)	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T083629Z_source_routing_solution_ndtwin.md
+calc	skeleton	0	PASS (2/2)	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T083654Z_calc_skeleton_ndtwin.md
+calc	solution	0	PASS (3/3)	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T083713Z_calc_solution_ndtwin.md
+multicast	skeleton	0	PASS (2/2)	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T083732Z_multicast_skeleton_ndtwin.md
+multicast	solution	0	PASS (6/6)	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T083904Z_multicast_solution_ndtwin.md
+basic_tunnel	skeleton	1	RED ARM (1/1): the skeleton does not get past the control plane, by design	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T084044Z_basic_tunnel_skeleton_ndtwin.md
+basic_tunnel	solution	0	PASS (4/4)	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T084045Z_basic_tunnel_solution_ndtwin.md
+load_balance	skeleton	0	PASS (2/2)	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T084137Z_load_balance_skeleton_ndtwin.md
+load_balance	solution	0	PASS (2/2)	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T084210Z_load_balance_solution_ndtwin.md
+qos	skeleton	0	PASS (3/3)	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T084243Z_qos_skeleton_ndtwin.md
+qos	solution	0	PASS (4/4)	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T084324Z_qos_solution_ndtwin.md
+link_monitor	skeleton	0	PASS (4/4)	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T084417Z_link_monitor_skeleton_ndtwin.md
+link_monitor	solution	0	PASS (4/4)	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T084448Z_link_monitor_solution_ndtwin.md
+firewall	skeleton	0	PASS (3/3)	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T084529Z_firewall_skeleton_ndtwin.md
+firewall	solution	0	PASS (4/4)	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T084645Z_firewall_solution_ndtwin.md
+ecn	skeleton	0	PASS (3/3)	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T085023Z_ecn_skeleton_ndtwin.md
+ecn	solution	1	FAIL (1/4)	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T085056Z_ecn_solution_ndtwin.md
+mri	skeleton	0	PASS (4/4)	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T085140Z_mri_skeleton_ndtwin.md
+mri	solution	0	PASS (5/5)	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T085212Z_mri_solution_ndtwin.md
+p4runtime	skeleton	0	PASS (4/4)	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T085257Z_p4runtime_skeleton_ndtwin.md
+p4runtime	solution	1	FAIL (1/5)	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T085331Z_p4runtime_solution_ndtwin.md
+flowcache	skeleton	1	RED ARM (1/1): skeleton does not compile, by design	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T085415Z_flowcache_skeleton_ndtwin.md
+flowcache	solution	1	FAIL (2/5)	/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T085415Z_flowcache_solution_ndtwin.md

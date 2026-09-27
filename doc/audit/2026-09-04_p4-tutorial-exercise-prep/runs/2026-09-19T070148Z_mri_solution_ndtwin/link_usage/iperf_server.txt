@@ -1,0 +1,13 @@
+------------------------------------------------------------
+Server listening on UDP port 5001
+UDP buffer size:  208 KByte (default)
+------------------------------------------------------------
+[  1] local 10.0.2.22 port 5001 connected with 10.0.1.11 port 58336
+[ ID] Interval       Transfer     Bandwidth        Jitter   Lost/Total Datagrams
+[  1] 0.0000-3.2427 sec   194 KBytes   490 Kbits/sec  20.057 ms 1030/1165 (88%)
+[  5] WARNING: ack of last datagram failed.
+[  2] local 10.0.2.22 port 5001 connected with 10.0.1.1 port 37540
+Waiting for server threads to complete. Interrupt again to force quit.
+[ ID] Interval       Transfer     Bandwidth        Jitter   Lost/Total Datagrams
+[  2] 0.0000-5.5377 sec   329 KBytes   486 Kbits/sec  27.621 ms 506/735 (69%)
+[  6] WARNING: ack of last datagram failed.
