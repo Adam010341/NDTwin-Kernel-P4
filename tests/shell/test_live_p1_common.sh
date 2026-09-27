@@ -55,7 +55,14 @@ hasnt() { /usr/bin/grep -qF -- "$2" <<<"$3" && { FAIL=$((FAIL+1)); printf '  FAI
 section() { printf '\n%s\n' "$1"; }
 
 FIX="$(mktemp -d "${TMPDIR:-/tmp}/live-p1-common-XXXXXX")"
-trap 'rm -rf "$FIX"' EXIT INT TERM
+# [Co-developed with claude code -- Adam] A signal ENDS the run (2026-09-28). The handler used to
+# clean up and return, so on INT or TERM the suite went on running with its nolab sudo, mnexec and iperf (FIX/nolab) deleted,
+# and its next sudo went to whatever sudo came next on PATH -- on a machine with a NOPASSWD grant,
+# to root. The EXIT trap does the cleaning on the way out; INT and TERM only exit, with the
+# shell's usual 128+signal status.
+trap 'rm -rf "$FIX"' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 # --- 🔴 NO LAB, EVEN WHILE ONE IS UP (2026-09-27) -------------------------------------------------
 # [Co-developed with claude code -- Adam] On 09-26 at 17:55Z a worker ran this suite while the
