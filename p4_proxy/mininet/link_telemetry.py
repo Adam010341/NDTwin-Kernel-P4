@@ -36,10 +36,12 @@ spike-tc-sample/, run live 2026-09-17):
 """
 from __future__ import annotations
 
+import errno
 import json
 import math
 import os
 import signal
+import stat
 import subprocess
 import sys
 import tempfile
@@ -462,15 +464,82 @@ def write_manifest(plan, emitter_pid, path=None, log_path=None, identity=None):
     return document
 
 
-def read_manifest(path=None):
-    """The manifest as a dict, or None when there is none (and None is not an error)."""
+#: How the manifest's owner and mode are read: `os.fstat` of the descriptor `load_manifest`
+#: opened, never a second lookup of the path. A module attribute so a suite with no root can put
+#: a different owner in front of the check -- `chown` to another uid is not something a test
+#: can do -- resolved at call time for that reason. [Co-developed with claude code -- Adam]
+_fstat = os.fstat
+
+
+def manifest_distrust(st, euid):
+    """Why a manifest with this stat must not be acted on, or None when it may be.
+
+    [Co-developed with claude code -- Adam]
+    🔴 THE MANIFEST DECIDES WHAT ROOT SIGNALS (judge KJL B2, 2026-09-27). It lives in /tmp,
+    which is world-writable and sticky, and the name is free whenever no fabric is up -- so any
+    local user can create it before the next bring-up, and `reset_for_bring_up` reads it as
+    root and SIGTERMs, then SIGKILLs, the pid it names (and runs `tc qdisc del` on every
+    interface it lists). Only a document this process's own user or root wrote is one to act
+    on: a regular file, owned by root or by the euid reading it, writable by nobody else.
+    `write_manifest` produces exactly that (root, 0644); `ndt` and the proxy, running as the
+    lab user, read a root-owned file and accept it too.
+    """
+    if not stat.S_ISREG(st.st_mode):
+        return "it is not a regular file"
+    if st.st_uid not in (0, euid):
+        return (f"it is owned by uid {st.st_uid}, and only a manifest written by root or by "
+                f"this process's own user (uid {euid}) is acted on")
+    if st.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
+        return (f"it is writable by its group or by others (mode "
+                f"{stat.S_IMODE(st.st_mode):04o}), so its contents are not its owner's")
+    return None
+
+
+def load_manifest(path=None):
+    """(document, problem): the manifest as a dict, or None and the reason it cannot be used.
+
+    [Co-developed with claude code -- Adam]
+    Absent is (None, None): no manifest is the ordinary state of a cooperative fabric. Every
+    other None comes with a sentence -- a symlink, a file of the wrong owner or mode
+    (`manifest_distrust`), one that does not parse -- and the caller that would have acted on
+    it says that sentence rather than acting (judge KJL B2).
+
+    Opened with O_NOFOLLOW, so a symlink planted at the name is refused rather than followed to
+    whatever it points at; with O_NONBLOCK, so a FIFO planted there cannot hang a teardown on
+    open; and the owner and mode are those of the DESCRIPTOR (`_fstat`), so the file checked is
+    the file read -- no second lookup of the path for anything to swap in between.
+    """
     path = path or LINK_TELEMETRY_MANIFEST
     try:
-        with open(path) as fh:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+    except FileNotFoundError:
+        return None, None
+    except OSError as exc:
+        if exc.errno == errno.ELOOP:
+            return None, f"{path} is a symbolic link, and a link at this name is never followed"
+        return None, f"{path} cannot be opened: {exc}"
+    try:
+        why = manifest_distrust(_fstat(fd), os.geteuid())
+        if why:
+            return None, f"{path} is not acted on: {why}"
+        with os.fdopen(fd, "r", closefd=False) as fh:
             document = json.load(fh)
-    except (OSError, ValueError):
-        return None
-    return document if isinstance(document, dict) else None
+    except (OSError, ValueError) as exc:
+        return None, f"{path} cannot be read: {exc}"
+    finally:
+        os.close(fd)
+    if not isinstance(document, dict):
+        return None, f"{path} is not a JSON object"
+    return document, None
+
+
+def read_manifest(path=None):
+    """The manifest as a dict, or None when there is none or it must not be used.
+
+    `load_manifest`'s document alone -- for `ndt` and the proxy, which render a None as
+    "unreadable" -- so every reader of the file refuses the same files the teardown refuses.
+    """
+    return load_manifest(path)[0]
 
 
 def _read_cmdline(pid, proc_root):
@@ -520,6 +589,17 @@ def _is_an_int(value):
     return isinstance(value, int) and not isinstance(value, bool)
 
 
+def _is_a_signallable_pid(pid):
+    """An int, not a bool, above 1. [Co-developed with claude code -- Adam]
+
+    `True` is an int in Python and `int(True)` is 1 -- /proc/1, init -- so a manifest saying
+    `"pid": true` must not get as far as a lookup, let alone a signal (judge KJL B2). 1 is init,
+    0 is "my process group" to kill(2) and a negative number is somebody's process group: none
+    of them is ever an emitter this module launched.
+    """
+    return _is_an_int(pid) and pid > 1
+
+
 def _is_the_launchers_shape(cmdline):
     """Whether `cmdline` is exactly what `emitter_argv` builds, whoever built it.
 
@@ -547,35 +627,37 @@ def process_is_the_emitter(pid, proc_root="/proc", argv=None, start_time=None):
     answered `b"psample_sflow_emitter.py" in <the whole cmdline>` -- so `vim` with that file
     open, a `grep` or `tail` naming it, or a test runner with it among its arguments, holding a
     recycled pid, was "the emitter", and `stop_emitter` would SIGTERM and then SIGKILL it as
-    root. Now:
+    root. Every answer of True now needs ALL of:
 
-      * `argv` given (what the launcher recorded -- see `emitter_identity`): the cmdline must be
-        that list, word for word. A file of the same NAME run from another path is not it.
-      * `start_time` given: `/proc/<pid>/stat` field 22 must be that number. This is the check
-        that defeats pid reuse outright: a process that took the number later started later,
-        whatever its argv says.
-      * neither (a manifest written before this ruling): the cmdline must be exactly the
-        launcher's four-word shape (`_is_the_launchers_shape`), which is still strict enough
-        that no editor, grep, tail or test runner passes -- and loose enough that a fabric
-        brought up by the old code is not orphaned by the new teardown.
+      * `pid` an int above 1 that is not a bool (`_is_a_signallable_pid`);
+      * the cmdline in the launcher's own four-word shape, `<python> <.../psample_sflow_emitter.py>
+        --manifest <path>` (`_is_the_launchers_shape`) -- ALWAYS, whatever the manifest recorded.
+        The real emitter is never anything else, and this is what keeps a manifest someone else
+        wrote from naming an arbitrary process by copying its argv and start time out of /proc
+        (judge KJL B2: at 4a96f894 a recorded argv REPLACED the shape check, so a forged manifest
+        could have root signal sshd);
+      * and, when the manifest recorded an identity (`emitter_identity`), BOTH halves of it: the
+        cmdline equal to the recorded `argv` word for word -- a file of the same NAME run from
+        another path is not it -- and `/proc/<pid>/stat` field 22 equal to the recorded
+        `start_time`, which is what defeats pid reuse outright: a process that took the number
+        later started later, whatever its argv says.
 
-    A recorded field of the wrong type is a document nobody here wrote, and is never a match.
+    No identity at all (a manifest written before this ruling) is the shape alone. HALF an
+    identity -- an argv with no start time, or the reverse -- is never a match (judge K-N7):
+    the launcher records both or neither (`emitter_identity`), so half of one is a document
+    nobody here wrote, as is a recorded field of the wrong type.
     """
+    if not _is_a_signallable_pid(pid):
+        return False
     cmdline = _read_cmdline(pid, proc_root)
-    if not cmdline:
-        # Gone, not ours to read, or a zombie -- which is what a SIGTERMed emitter is until its
-        # parent reaps it. In every case there is nothing here to signal.
+    if not cmdline or not _is_the_launchers_shape(cmdline):
+        # Gone, not ours to read, a zombie (which is what a SIGTERMed emitter is until its
+        # parent reaps it), or something that is not an emitter at all.
         return False
-    if argv is not None:
-        if not _is_an_argv(argv) or cmdline != list(argv):
-            return False
-    elif not _is_the_launchers_shape(cmdline):
-        return False
-    if start_time is not None:
-        if not _is_an_int(start_time):
-            return False
-        return process_start_time(pid, proc_root) == start_time
-    return True
+    if argv is None and start_time is None:
+        return True
+    return (_is_an_argv(argv) and cmdline == list(argv)
+            and _is_an_int(start_time) and process_start_time(pid, proc_root) == start_time)
 
 
 def emitter_identity(proc, proc_root="/proc"):
@@ -587,29 +669,36 @@ def emitter_identity(proc, proc_root="/proc"):
     `start_time` is read from /proc HERE, and this is the one moment it can be read without a
     race: until `proc` is waited on, it is this process's unreaped child, so its pid cannot
     have been handed to anything else -- even if it has already exited, a zombie keeps its
-    number and its stat. Either field is None when it cannot be known, and the check then
-    does what `process_is_the_emitter` says it does without it.
+    number and its stat. When either cannot be known BOTH are None, and the check is then the
+    launcher's shape alone, as for a manifest written before the ruling.
     """
     args = getattr(proc, "args", None)
     pid = getattr(proc, "pid", None)
-    return {"argv": list(args) if _is_an_argv(args) else None,
-            "start_time": (process_start_time(pid, proc_root)
-                           if _is_an_int(pid) and pid > 0 else None)}
+    argv = list(args) if _is_an_argv(args) else None
+    started = process_start_time(pid, proc_root) if _is_a_signallable_pid(pid) else None
+    # 🔴 BOTH OR NEITHER (judge K-N7). Half an identity is a document `process_is_the_emitter`
+    # refuses outright, so recording one would orphan the emitter this launch just started;
+    # neither falls back to the launcher's shape, exactly as a pre-ruling manifest does.
+    if argv is None or started is None:
+        return {"argv": None, "start_time": None}
+    return {"argv": argv, "start_time": started}
 
 
 def emitter_is_running(document, proc_root="/proc"):
     """Whether the emitter a manifest document names is running NOW, by everything it recorded.
 
     [Co-developed with claude code -- Adam]
-    The one reading of the manifest's pid that `shut_down`, `ndt status`/`ndt down` and the
-    proxy's `switch_state` disclosure all make, so none of them can compare less than the
-    teardown that signals it: a reader calling the process "alive" on a looser test than the
-    teardown's is how an operator gets told to `kill` a pid the teardown would not touch.
+    What `ndt status`/`ndt down` and the proxy's `switch_state` disclosure read the manifest's
+    pid through. The teardown does not call this -- `shut_down` goes through `stop_emitter`,
+    which asks `process_is_the_emitter` again on every step of its grace loop -- but both ask
+    the same predicate with the same recorded identity, and `process_is_the_emitter` itself
+    refuses a pid that is not an int above 1 (judge K-N6). So no reader can call "alive" -- and
+    tell an operator to `kill` -- a process the teardown would refuse to signal.
     """
-    pid = document.get("pid") if isinstance(document, dict) else None
-    if not _is_an_int(pid) or pid <= 0:
+    if not isinstance(document, dict):
         return False
-    return process_is_the_emitter(pid, proc_root=proc_root, argv=document.get("argv"),
+    return process_is_the_emitter(document.get("pid"), proc_root=proc_root,
+                                  argv=document.get("argv"),
                                   start_time=document.get("start_time"))
 
 
@@ -625,7 +714,9 @@ def stop_emitter(pid, kill=None, is_emitter=None, sleep=None, grace_s=EMITTER_ST
     is_emitter = is_emitter or process_is_the_emitter
     sleep = sleep or time.sleep
     identity = {"argv": argv, "start_time": start_time}
-    if not pid or not is_emitter(pid, **identity):
+    # 🔴 THE PID IS CHECKED HERE TOO, not only inside the predicate (judge KJL B2): `is_emitter`
+    # is injectable, and `kill(int(True), ...)` is a signal to init. [Co-developed with claude code -- Adam]
+    if not _is_a_signallable_pid(pid) or not is_emitter(pid, **identity):
         return "absent"
     try:
         kill(int(pid), signal.SIGTERM)
@@ -657,13 +748,23 @@ def shut_down(path=None, run=None, kill=None, is_emitter=None, sleep=None, repor
     manifest is on disk before the first packet is sampled, so a teardown -- or the NEXT
     bring-up's -- can clean up after a process that died without one.
 
-    Returns (fate, interfaces removed, document) or (None, [], None) when nothing was up.
+    Returns (fate, interfaces removed, document) or (None, [], None) when nothing was up, and
+    ("refused", [], None) when the manifest must not be acted on (`load_manifest`).
     """
     path = path or LINK_TELEMETRY_MANIFEST
     remove = remove or os.remove
-    document = read_manifest(path)
+    # 🔴 A MANIFEST THIS PROCESS MAY NOT TRUST IS NOT ACTED ON AT ALL (judge KJL B2): no signal,
+    # no `tc qdisc del` on the interfaces it lists, and the file left where it is -- the next
+    # bring-up's `write_manifest` replaces the inode. Said, never silent: "something stopped the
+    # teardown doing its job" is a fact the operator needs. [Co-developed with claude code -- Adam]
+    document, problem = load_manifest(path)
     if document is None:
-        return None, [], None
+        if problem is None:
+            return None, [], None
+        if report:
+            report(f"link telemetry: {problem} -- nothing was signalled, no filter was removed, "
+                   f"and the file was left in place")
+        return "refused", [], None
     # The identity it recorded goes with the pid: `stop_emitter` asks `is_emitter` with it on
     # every step, so the process signalled is the one the bring-up launched and no other.
     fate = stop_emitter(document.get("pid"), kill=kill, is_emitter=is_emitter, sleep=sleep,

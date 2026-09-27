@@ -37,6 +37,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROXY_DIR = os.path.dirname(HERE)
@@ -403,6 +404,59 @@ class TheManifestTest(PlanFixture):
         self.assertIsNone(link_telemetry.read_manifest(self.path))
 
 
+class TheManifestIsTrustedOnlyFromItsOwnerTest(unittest.TestCase):
+    """Judge KJL B2: the file root acts on must be root's, or the reading user's, and nobody else's.
+
+    [Co-developed with claude code -- Adam]
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ndtwin_manifest_trust_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.path = os.path.join(self.tmp, "ndtwin_link_telemetry.json")
+
+    @staticmethod
+    def st(mode, uid):
+        return os.stat_result((mode, 0, 0, 1, uid, 0, 0, 0, 0, 0))
+
+    def test_only_root_or_the_reader_may_own_it_and_nobody_else_may_write_it(self):
+        me, reg = os.geteuid(), 0o100000
+        self.assertIsNone(link_telemetry.manifest_distrust(self.st(reg | 0o644, 0), me))
+        self.assertIsNone(link_telemetry.manifest_distrust(self.st(reg | 0o600, me), me))
+        refused = {
+            "another uid": self.st(reg | 0o644, me + 1),
+            "group-writable": self.st(reg | 0o664, 0),
+            "other-writable": self.st(reg | 0o646, me),
+            "a directory": self.st(0o040000 | 0o755, 0),
+        }
+        for label, st in refused.items():
+            with self.subTest(label):
+                self.assertIsNotNone(link_telemetry.manifest_distrust(st, me))
+
+    def test_what_write_manifest_leaves_is_trusted(self):
+        link_telemetry.write_manifest(link_telemetry.LinkTelemetryPlan(), 4242, path=self.path)
+        document, problem = link_telemetry.load_manifest(self.path)
+        self.assertEqual((document["pid"], problem), (4242, None))
+        self.assertEqual(os.stat(self.path).st_mode & 0o777, 0o644)
+
+    def test_absent_is_nothing_and_not_a_problem(self):
+        self.assertEqual(link_telemetry.load_manifest(self.path), (None, None))
+
+    def test_a_fifo_at_the_name_is_refused_and_does_not_hang_the_reader(self):
+        os.mkfifo(self.path, 0o644)
+        document, problem = link_telemetry.load_manifest(self.path)
+        self.assertIsNone(document)
+        self.assertIn("not a regular file", problem)
+
+    def test_a_document_that_is_not_an_object_is_a_problem_not_a_manifest(self):
+        with open(self.path, "w") as fh:
+            fh.write("[4242]")
+        os.chmod(self.path, 0o644)
+        self.assertEqual(link_telemetry.load_manifest(self.path)[0], None)
+        self.assertIn("not a JSON object", link_telemetry.load_manifest(self.path)[1])
+        self.assertIsNone(link_telemetry.read_manifest(self.path))
+
+
 class StoppingTheEmitterTest(unittest.TestCase):
     """By the pid the manifest names, after /proc says it is still that process."""
 
@@ -508,10 +562,14 @@ class ShuttingDownFromTheManifestTest(PlanFixture):
         self.assertEqual(run.calls, [])
 
     def test_the_manifest_goes_even_when_the_emitter_was_already_gone(self):
-        run = FakeRun()
+        # 🔴 A KILL THAT ONLY RECORDS (judge K-N4). Without it, a mutant that skips the
+        # predicate (M-B13) would send a REAL SIGTERM to pid 4242 -- whatever holds that number
+        # on the machine running the gate. [Co-developed with claude code -- Adam]
+        run, killed = FakeRun(), []
         fate, _removed, _doc = link_telemetry.shut_down(
-            self.path, run=run, is_emitter=lambda pid, **kw: False)
-        self.assertEqual(fate, "absent")
+            self.path, run=run, is_emitter=lambda pid, **kw: False,
+            kill=lambda pid, sig: killed.append((pid, sig)), sleep=lambda _s: None)
+        self.assertEqual((fate, killed), ("absent", []))
         self.assertFalse(os.path.exists(self.path))
 
 
@@ -599,20 +657,37 @@ class LiveProcessFixture(unittest.TestCase):
             proc.kill()                  # Popen.kill: os.kill(proc.pid, SIGKILL), our own child
         proc.wait(timeout=30)
 
-    def write_document(self, **fields):
-        """A manifest written by hand, so a case can name what a bring-up would have recorded."""
+    def write_document(self, path=None, mode=0o644, **fields):
+        """A manifest written by hand, so a case can name what a bring-up would have recorded.
+
+        0644 by default, as `write_manifest` leaves it: this user's umask is 0002, and a
+        group-writable manifest is refused before any identity is looked at (judge KJL B2) --
+        a case about the identity check must not pass because of the mode.
+        """
+        path = path or self.manifest
         document = link_telemetry.manifest_document(link_telemetry.LinkTelemetryPlan(), None)
         document.update(fields)
-        with open(self.manifest, "w") as fh:
+        with open(path, "w") as fh:
             json.dump(document, fh)
+        os.chmod(path, mode)
+        return path
 
     def tear_down_recording(self):
         """`shut_down` with a kill that only RECORDS. Returns (fate, [(pid, signal), ...])."""
-        kills = []
+        kills, self.said = [], []
         fate, _removed, _doc = link_telemetry.shut_down(
             self.manifest, run=FakeRun(), kill=lambda pid, sig: kills.append((pid, sig)),
-            sleep=lambda _s: None)
+            sleep=lambda _s: None, report=self.said.append)
         return fate, kills
+
+    def identity_of(self, proc):
+        """What /proc says about `proc` now -- read by THIS file, not by the module under test."""
+        return {"argv": observed_cmdline(proc.pid), "start_time": observed_start_time(proc.pid)}
+
+    def launcher_shaped(self):
+        """A live child in exactly the launcher's four-word shape, running the stand-in."""
+        return self.spawn(link_telemetry.emitter_argv(self.manifest, python=sys.executable,
+                                                      emitter=self.stub))
 
 
 class ADecoyIsNeverTheEmitterTest(LiveProcessFixture):
@@ -719,8 +794,100 @@ class TheEmitterItselfIsStillTheEmitterTest(LiveProcessFixture):
         proc = self.launch()
         self.write_document(pid=proc.pid)
         fate, kills = self.tear_down_recording()
+        # An assertion, not an IndexError, when nothing was signalled (judge K-N3): the mutant
+        # that orphans this emitter (M-B37) must die for the reason this cell is about.
+        self.assertTrue(kills, "a pre-ruling manifest's emitter was left running")
         self.assertEqual(kills[0], (proc.pid, signal.SIGTERM))
         self.assertEqual(fate, "kill")      # the recording kill never really stopped it
+
+    def test_a_launch_whose_start_time_cannot_be_read_records_no_identity_at_all(self):
+        # Both or neither (judge K-N7): half an identity is refused outright, so recording one
+        # would orphan the emitter just launched. Neither falls back to the launcher's shape.
+        # [Co-developed with claude code -- Adam]
+        proc = self.launch()
+        empty = tempfile.mkdtemp(prefix="ndtwin_proc_empty_")
+        self.addCleanup(shutil.rmtree, empty, True)
+        self.assertEqual(link_telemetry.emitter_identity(proc, proc_root=empty),
+                         {"argv": None, "start_time": None})
+
+
+class AForgedManifestKillsNothingTest(LiveProcessFixture):
+    """Judge KJL B2, red at 4a96f894: what a manifest someone else wrote could make root signal.
+
+    [Co-developed with claude code -- Adam]
+    /tmp/ndtwin_link_telemetry.json is a name any local user can create while no fabric is up,
+    and /proc has no hidepid here, so anybody can read any process's argv and stat. At 4a96f894
+    a recorded argv REPLACED the launcher-shape check, and `read_manifest` looked at neither the
+    owner nor the mode of what it read: a hand-written manifest naming any process by its full
+    identity was signalled by the next root bring-up. Every kill here only RECORDS; every
+    process is this file's own child, reaped by its own Popen.
+    """
+
+    def test_a_forged_manifest_holding_a_live_non_emitters_full_identity_sends_no_signal(self):
+        victim = self.spawn([sys.executable, "-c", "import time; time.sleep(120)"])
+        self.write_document(pid=victim.pid, **self.identity_of(victim))
+        fate, kills = self.tear_down_recording()
+        self.assertEqual(kills, [], "a manifest copying a non-emitter's argv and start time out "
+                                    "of /proc had root signal it")
+        self.assertEqual(fate, "absent")
+        self.assertIsNone(victim.poll())
+
+    def refused(self, fate, kills, reason):
+        self.assertEqual(kills, [], "an untrusted manifest was acted on")
+        self.assertEqual(fate, "refused")
+        self.assertTrue(any(reason in line and "nothing was signalled" in line
+                            for line in self.said),
+                        f"the refusal was not said, or not why: {self.said}")
+        self.assertTrue(os.path.lexists(self.manifest), "an untrusted file was removed")
+
+    def test_a_group_or_other_writable_manifest_is_refused(self):
+        # The identity is the launcher-shaped child's own and correct -- a trusted manifest
+        # would have it signalled -- so only the mode can be what refuses it.
+        holder = self.launcher_shaped()
+        for mode in (0o664, 0o646):
+            with self.subTest(mode=oct(mode)):
+                self.write_document(pid=holder.pid, mode=mode, **self.identity_of(holder))
+                fate, kills = self.tear_down_recording()
+                self.refused(fate, kills, "writable by its group or by others")
+
+    def test_a_manifest_owned_by_another_uid_is_refused(self):
+        # No root here to chown with, so the OWNER is put in front of the check through its
+        # one seam, `_fstat` -- the descriptor's stat, with only st_uid changed.
+        holder = self.launcher_shaped()
+        self.write_document(pid=holder.pid, **self.identity_of(holder))
+        other = os.geteuid() + 1
+
+        def fstat(fd):
+            st = os.fstat(fd)
+            return os.stat_result((st.st_mode, st.st_ino, st.st_dev, st.st_nlink, other,
+                                   st.st_gid, st.st_size, st.st_atime, st.st_mtime, st.st_ctime))
+        with mock.patch.object(link_telemetry, "_fstat", fstat, create=True):
+            fate, kills = self.tear_down_recording()
+        self.refused(fate, kills, f"owned by uid {other}")
+
+    def test_a_symlinked_manifest_is_refused(self):
+        holder = self.launcher_shaped()
+        target = self.write_document(path=os.path.join(self.tmp, "elsewhere.json"),
+                                     pid=holder.pid, **self.identity_of(holder))
+        os.symlink(target, self.manifest)
+        fate, kills = self.tear_down_recording()
+        self.refused(fate, kills, "symbolic link")
+
+    def test_pid_true_is_never_signalled_even_when_the_predicate_says_yes(self):
+        # `int(True)` is 1. The predicate is injectable, so the pid is checked before it.
+        kills = []
+        fate = link_telemetry.stop_emitter(True, kill=lambda p, s: kills.append((p, s)),
+                                           is_emitter=lambda pid, **kw: True,
+                                           sleep=lambda _s: None)
+        self.assertEqual((fate, kills), ("absent", []))
+
+    def test_a_manifest_whose_pid_is_true_sends_no_signal(self):
+        # `"pid": true` with init's own argv and start time -- which anyone can read.
+        with open("/proc/1/cmdline", "rb") as fh:
+            argv = [os.fsdecode(w) for w in fh.read().split(b"\0")[:-1]]
+        self.write_document(pid=True, argv=argv, start_time=observed_start_time(1))
+        fate, kills = self.tear_down_recording()
+        self.assertEqual((fate, kills), ("absent", []))
 
 
 class TheIdentityCheckTest(unittest.TestCase):
@@ -776,6 +943,40 @@ class TheIdentityCheckTest(unittest.TestCase):
         self.assertFalse(self.is_emitter(5, argv=list(self.ARGV), start_time=True))
         self.assertFalse(self.is_emitter(5, argv=list(self.ARGV), start_time="7777"))
 
+    def test_a_bool_start_time_is_not_the_number_it_equals(self):
+        # 🔴 `True == 1` in Python (judge K-N2): a manifest saying `"start_time": true` must not
+        # match a process whose start time really is 1. [Co-developed with claude code -- Adam]
+        self.process(5, self.ARGV, start_time=1)
+        self.assertTrue(self.is_emitter(5, argv=list(self.ARGV), start_time=1))
+        self.assertFalse(self.is_emitter(5, argv=list(self.ARGV), start_time=True))
+
+    def test_a_string_argv_is_not_the_list_of_its_characters(self):
+        # `list("ab") == ["a", "b"]` (judge K-N2). Under the always-required launcher shape a
+        # one-character-per-word cmdline can never pass, so this cell holds the refusal without
+        # being able to tell the type check from the shape check -- see the gate's note.
+        self.process(5, ["a", "b"])
+        self.assertFalse(self.is_emitter(5, argv="ab", start_time=7777))
+        self.process(6, self.ARGV, start_time=7777)
+        self.assertFalse(self.is_emitter(6, argv="".join(self.ARGV), start_time=7777))
+
+    def test_half_an_identity_is_never_a_match(self):
+        # Judge K-N7: the launcher records both or neither, so either half alone is a document
+        # nobody here wrote -- refused, not checked against the half that is there.
+        self.process(5, self.ARGV, start_time=7777)
+        self.assertTrue(self.is_emitter(5))
+        self.assertTrue(self.is_emitter(5, argv=list(self.ARGV), start_time=7777))
+        self.assertFalse(self.is_emitter(5, argv=list(self.ARGV)))
+        self.assertFalse(self.is_emitter(5, start_time=7777))
+
+    def test_init_a_bool_and_a_process_group_are_never_the_emitter(self):
+        # A fake /proc/1 in the launcher's exact shape: only the pid check can refuse it.
+        for pid in ("1", "0"):
+            self.process(pid, self.ARGV, start_time=7777)
+        for pid in (1, True, 0, -1, False, None, "5", 5.0):
+            with self.subTest(pid=pid):
+                self.assertFalse(self.is_emitter(pid))
+                self.assertFalse(self.is_emitter(pid, argv=list(self.ARGV), start_time=7777))
+
     def test_a_process_with_no_command_line_is_not_the_emitter(self):
         # A zombie -- which is what a SIGTERMed emitter is until its parent reaps it -- has an
         # empty cmdline. That is "gone", and it is what makes stop_emitter's loop end in "term".
@@ -804,19 +1005,22 @@ class TheIdentityCheckTest(unittest.TestCase):
                 self.assertFalse(self.is_emitter(6))
 
     def test_the_document_reader_passes_the_recorded_identity(self):
-        # `emitter_is_running` is what `ndt`, the proxy and `shut_down` all read the manifest
-        # through, so a reader cannot quietly compare less than the teardown does.
-        self.process(5, ["/usr/bin/python3", "not-the-launchers-shape"], start_time=11)
-        document = {"pid": 5, "argv": ["/usr/bin/python3", "not-the-launchers-shape"],
-                    "start_time": 11}
-        self.assertTrue(link_telemetry.emitter_is_running(document, proc_root=self.proc))
-        self.assertFalse(link_telemetry.emitter_is_running(dict(document, start_time=12),
-                                                           proc_root=self.proc))
-        self.assertFalse(link_telemetry.emitter_is_running({"pid": 5}, proc_root=self.proc))
-        for pid in (None, 0, -1, True, "5", 5.0):
+        # `emitter_is_running` is what `ndt` and the proxy read the manifest through, so neither
+        # can quietly compare less than the teardown does. The process IS in the launcher's
+        # shape -- so the shape alone would say yes -- and only the recorded start time can
+        # tell the right document from the wrong one (judge KJL B2 reworked this cell: it used
+        # to rest on "not the shape, but the identity", which is exactly what B2 forbids).
+        self.running = lambda doc: link_telemetry.emitter_is_running(doc, proc_root=self.proc)
+        self.process(5, self.ARGV, start_time=11)
+        document = {"pid": 5, "argv": list(self.ARGV), "start_time": 11}
+        self.assertTrue(self.running(document))
+        self.assertFalse(self.running(dict(document, start_time=12)))
+        self.assertFalse(self.running(dict(document, argv=self.ARGV[:3] + ["/tmp/other.json"])))
+        self.assertTrue(self.running({"pid": 5}))           # pre-ruling: the shape alone
+        self.assertFalse(self.running("not a document"))
+        for pid in (None, 0, 1, -1, True, "5", 5.0):
             with self.subTest(pid=pid):
-                self.assertFalse(link_telemetry.emitter_is_running(dict(document, pid=pid),
-                                                                   proc_root=self.proc))
+                self.assertFalse(self.running(dict(document, pid=pid)))
 
 
 # --- a package's own fabric, which is neither ten switches nor all of one source --------------

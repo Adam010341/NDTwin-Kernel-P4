@@ -594,6 +594,16 @@ class FabricFixture(unittest.TestCase):
         # the machine running this suite. [Co-developed with claude code -- Adam]
         self.patch(link_telemetry, "process_start_time",
                    lambda pid, proc_root="/proc": FAKE_EMITTER_START_TIME if pid == 4242 else None)
+        # 🔴 AND NO REAL SIGNAL, EVER (judge K-N4). `tear_down` -> `shut_down` -> `stop_emitter`
+        # defaults to `os.kill`, and three cells here patch the predicate to False without
+        # passing a kill: a mutant that skips the predicate (M-B13) would then SIGTERM pid 4242,
+        # whatever holds it on the machine running the gate. `link_telemetry.os` is replaced for
+        # every case, as `subprocess` is above, so "this suite signals nothing" is a property of
+        # the fixture; a case that wants the signals reads `self.signals`, or installs its own.
+        # [Co-developed with claude code -- Adam]
+        self.signals = []
+        self.patch(link_telemetry, "os",
+                   _OsWithKill(lambda pid, sig: self.signals.append((pid, sig))))
         # The three-second liveness grace is real time in production and dead time here. The
         # loop that spends it has its own case (StartingTheEmitterTest), which is where it is
         # allowed to cost something.

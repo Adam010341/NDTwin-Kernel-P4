@@ -1584,11 +1584,11 @@ section "19. 🔴 'ndt status' names the telemetry source, the emitter and the s
 # `auto` over a foreign pipeline, `status --check` would have carried an extra problem and
 # `down` would have reported residue -- on all thirteen driver arms. A fixture nobody generates
 # from the writer is a fixture that agrees with whatever the reader guessed.
-mkmanifest() {   # mkmanifest <pid> [<switches>] [<rate>]
-    python3 - "$FIX/ndtwin_link_telemetry.json" "$1" "${2:-2}" "${3:-256}" "$REAL_REPO" <<'PYM'
+mkmanifest() {   # mkmanifest <pid> [<switches>] [<rate>] [<start-time skew>]
+    python3 - "$FIX/ndtwin_link_telemetry.json" "$1" "${2:-2}" "${3:-256}" "$REAL_REPO" "${4:-0}" <<'PYM'
 import sys, os, json
-f, pid, nsw, rate, repo = (sys.argv[1], sys.argv[2], int(sys.argv[3]),
-                           int(sys.argv[4]), sys.argv[5])
+f, pid, nsw, rate, repo, skew = (sys.argv[1], sys.argv[2], int(sys.argv[3]),
+                                 int(sys.argv[4]), sys.argv[5], int(sys.argv[6]))
 sys.path.insert(0, os.path.join(repo, "p4_proxy", "mininet"))
 import link_telemetry as lt
 
@@ -1616,16 +1616,21 @@ class _Plan:
 # argv the emitter was started with and its start time, which `ndt` now reads the pid WITH
 # (link_telemetry.emitter_is_running). Read off the live pid the way the launcher would have
 # recorded it; a pid that is not there gets none, as a manifest older than the ruling has none.
-# The fixture emitter below is started as `python3 <file>` -- two words, NOT the launcher's
-# four-word shape -- so only a reader that passes this identity can call it alive.
-# [Co-developed with claude code -- Adam]
+# <start-time skew> is added to the start time recorded: a manifest naming this very pid, with
+# a start it never had, is what pid reuse looks like -- and the one thing the shape alone cannot
+# tell apart (judge KJL B2: the fixture emitter is now in the launcher's four-word shape, since
+# nothing else may ever read alive).
+# 🔴 AND 0644, as B's write_manifest leaves it: this user's umask is 0002, and B's reader refuses
+# a group-writable manifest outright -- a fixture at the umask's mode would read `unreadable` for
+# a reason these cells are not about. [Co-developed with claude code -- Adam]
 identity = None
 if pid != "-" and os.path.isdir("/proc/%d" % int(pid)):
     with open("/proc/%d/cmdline" % int(pid), "rb") as fh:
         argv = [os.fsdecode(w) for w in fh.read().split(b"\0")[:-1]]
-    identity = {"argv": argv, "start_time": lt.process_start_time(int(pid))}
+    identity = {"argv": argv, "start_time": lt.process_start_time(int(pid)) + skew}
 json.dump(lt.manifest_document(_Plan(), None if pid == "-" else int(pid), identity=identity),
           open(f, "w"), indent=2)
+os.chmod(f, 0o644)
 PYM
 }
 reset_fix; rm -f "$FIX/ndtwin_link_telemetry.json" "$TELKNOB"
@@ -1653,7 +1658,9 @@ has   "  a knob that names one prints it"                 "telemetry      link  
 # psample_sflow_emitter.py -- and not merely some pid that happens to exist.
 EMIT_DIR="$FIX/emitter"; mkdir -p "$EMIT_DIR"
 printf 'import time\ntime.sleep(600)\n' > "$EMIT_DIR/psample_sflow_emitter.py"
-python3 "$EMIT_DIR/psample_sflow_emitter.py" & EMIT_PID=$!
+# The launcher's own four-word shape, `<python> <.../psample_sflow_emitter.py> --manifest <path>`:
+# after judge KJL B2 no other process can ever read alive, whatever its manifest records.
+python3 "$EMIT_DIR/psample_sflow_emitter.py" --manifest "$FIX/ndtwin_link_telemetry.json" & EMIT_PID=$!
 trap 'kill "$EMIT_PID" 2>/dev/null; rm -rf "$FIX"' EXIT INT TERM
 # 🔴 UNTIL ITS exec LANDS, THE CHILD IS A COPY OF THIS SHELL, with this shell's cmdline -- and
 # mkmanifest now records the cmdline it reads (ruling K, 2026-09-27). Wait for the emitter's own,
@@ -1666,6 +1673,12 @@ mkmanifest "$EMIT_PID" 3 256
 OUT="$(run_status --check)"
 has   "  an emitter that is running is named with its pid" "link emitter: alive pid $EMIT_PID, 3 switch(es), rate 256" "$OUT"
 hasnt "  and is not a problem"                             "- the link-telemetry emitter" "$OUT"
+# 🔴 THE SAME LIVE, EMITTER-SHAPED PID, WITH A START TIME IT NEVER HAD (ruling K; judge KJL B2):
+# that is a manifest whose pid now belongs to some other process, and `ndt` must read it with the
+# identity recorded, as the root teardown does -- by the pid and the shape alone it is alive.
+mkmanifest "$EMIT_PID" 3 256 1
+OUT="$(run_status --check)"
+has   "🔴 its own pid with a start it never had is DEAD, not alive" "link emitter: DEAD" "$OUT"
 
 # A pid that is not there: the highest pid the kernel will hand out, plus one.
 DEADPID="$(( $(cat /proc/sys/kernel/pid_max 2>/dev/null || echo 4194304) - 1 ))"

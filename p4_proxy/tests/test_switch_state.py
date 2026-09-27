@@ -790,11 +790,15 @@ class TheLinkEmitterSummaryTest(unittest.TestCase):
         return link_telemetry.LinkTelemetryPlan(switches=tuple(switches), commands=(),
                                                 rate=link_telemetry.LINK_SAMPLE_RATE)
 
-    def manifest(self, pid, dpids=(1, 2)):
+    def manifest(self, pid, dpids=(1, 2), identity=None):
         path = os.path.join(self.tmp, "ndtwin_link_telemetry.json")
-        document = link_telemetry.manifest_document(self.plan(dpids), pid)
+        document = link_telemetry.manifest_document(self.plan(dpids), pid, identity=identity)
         with open(path, "w") as fh:
             json.dump(document, fh)
+        # 0644, as B's `write_manifest` leaves it. This user's umask is 0002, and B's reader
+        # refuses a group-writable manifest outright (judge KJL B2) -- so a fixture at the umask's
+        # mode would test the refusal, not the field. [Co-developed with claude code -- Adam]
+        os.chmod(path, 0o644)
         return path
 
     def test_no_manifest_is_none_rather_than_an_empty_summary(self):
@@ -843,21 +847,34 @@ class TheLinkEmitterSummaryTest(unittest.TestCase):
         # 🔴 Adam 2026-09-27, ruling K. The manifest records the emitter's argv and start time,
         # and `alive` must be answered WITH them -- the test the root teardown applies before it
         # signals -- or this field calls a process alive that the teardown would refuse to stop.
-        # This test's own process is the subject: its argv is not the launcher's shape, so ONLY
-        # a reader that passes the recorded identity can answer True for it.
+        # The subject is a child of this test in EXACTLY the launcher's four-word shape (judge
+        # KJL B2: nothing else can ever read alive), so the shape alone says yes to both
+        # documents below, and ONLY a reader that passes the recorded start time can tell the
+        # one the bring-up wrote from the one that names the same pid with another start.
         # [Co-developed with claude code -- Adam]
-        pid = os.getpid()
-        with open(f"/proc/{pid}/cmdline", "rb") as fh:
-            argv = [os.fsdecode(w) for w in fh.read().split(b"\0")[:-1]]
-        with open(f"/proc/{pid}/stat", "rb") as fh:
+        import subprocess
+        stub = os.path.join(self.tmp, os.path.basename(link_telemetry.EMITTER_PATH))
+        with open(stub, "w") as fh:
+            fh.write("import time\ntime.sleep(120)\n")
+        path = os.path.join(self.tmp, "ndtwin_link_telemetry.json")
+        argv = link_telemetry.emitter_argv(path, python=sys.executable, emitter=stub)
+        child = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                 stderr=subprocess.DEVNULL,
+                                 env=dict(os.environ, PYTHONDONTWRITEBYTECODE="1"))
+        self.addCleanup(lambda: (child.poll() is None and child.kill(), child.wait(30)))
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:          # until the exec has published the argv
+            with open(f"/proc/{child.pid}/cmdline", "rb") as fh:
+                seen = [os.fsdecode(w) for w in fh.read().split(b"\0")[:-1]]
+            if seen:
+                break
+            time.sleep(0.005)
+        self.assertEqual(seen, argv)
+        with open(f"/proc/{child.pid}/stat", "rb") as fh:
             raw = fh.read()
         started = int(raw[raw.rindex(b")") + 1:].split()[19])
-        path = os.path.join(self.tmp, "ndtwin_link_telemetry.json")
         for start_time, alive in ((started, True), (started + 1, False)):
-            document = link_telemetry.manifest_document(
-                self.plan(), pid, identity={"argv": argv, "start_time": start_time})
-            with open(path, "w") as fh:
-                json.dump(document, fh)
+            path = self.manifest(child.pid, identity={"argv": argv, "start_time": start_time})
             with self.subTest(start_time=start_time):
                 self.assertIs(main.link_emitter_report(path)["alive"], alive)
 
@@ -868,10 +885,7 @@ class TheLinkEmitterSummaryTest(unittest.TestCase):
         self.assertIsNone(main.link_emitter_report(path))
 
     def test_a_manifest_with_no_pid_is_not_alive(self):
-        path = os.path.join(self.tmp, "ndtwin_link_telemetry.json")
-        document = link_telemetry.manifest_document(self.plan(), None)
-        with open(path, "w") as fh:
-            json.dump(document, fh)
+        path = self.manifest(None)
         report = main.link_emitter_report(path)
         self.assertFalse(report["alive"])
         self.assertIsNone(report["pid"])
