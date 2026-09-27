@@ -35,6 +35,7 @@ CORPUS_PRINTF_REL="tests/shell/test_stack_log_rotation.sh"   # a suite whose sum
 CORPUS_ONELINE_REL="tests/shell/test_faults_topo_pid.sh"      # its failure branch is one line
 CORPUS_GROUPED_REL="tests/shell/test_ndt_down_stops_only_ours.sh"   # `|| { echo "Ran ..."; exit 1; }`
 CORPUS_CALL_REL="tests/shell/test_ndt_ovs_topo_script.sh"   # `summary() { printf ...; }`, `summary; exit 1`, `summary`
+CORPUS_NEEDS_REL="tests/shell/test_gate_exit_code_not_tee.sh"   # carries a NDTWIN_L1_NEEDS declaration
 
 KILLED=0
 SURVIVED=0
@@ -198,12 +199,12 @@ echo "=== mutations: declared skips (group D) -- the excuse must not grow ==="
 # [Co-developed with claude code -- Adam] (2026-09-28) each one widens or deletes the declared-skip
 # excuse in the driver, and the group D check that pins that edge must go red by name.
 mutate "the DECLARED-SKIP verdict is gone, so an excused skip is a failure again" "$DRIVER_REL" '
-s = s.replace("    elif [[ \"$skipped\" -gt 0 && -n \"$excuse\" ]]; then echo DECLARED-SKIP\n", "")
+s = s.replace("    elif [[ \"$skipped\" -gt 0 && -n \"$excuse\" && \"$hosted\" == 1 && \"$failed\" -eq 0 ]]; then echo DECLARED-SKIP\n", "")
 ' "D4 a skip with an excuse is DECLARED-SKIP"
 mutate "an excuse outranks a harness that exited non-zero" "$DRIVER_REL" '
-s = s.replace("    elif [[ \"$skipped\" -gt 0 && -n \"$excuse\" ]]; then echo DECLARED-SKIP\n", "")
+s = s.replace("    elif [[ \"$skipped\" -gt 0 && -n \"$excuse\" && \"$hosted\" == 1 && \"$failed\" -eq 0 ]]; then echo DECLARED-SKIP\n", "")
 s = s.replace("    if   [[ \"$rc\"      -ne 0 ]]; then echo FAIL-RC\n",
-              "    if   [[ \"$skipped\" -gt 0 && -n \"$excuse\" ]]; then echo DECLARED-SKIP\n    elif [[ \"$rc\"      -ne 0 ]]; then echo FAIL-RC\n")
+              "    if   [[ \"$skipped\" -gt 0 && -n \"$excuse\" && \"$hosted\" == 1 && \"$failed\" -eq 0 ]]; then echo DECLARED-SKIP\n    elif [[ \"$rc\"      -ne 0 ]]; then echo FAIL-RC\n")
 ' "D6 an excuse never outranks a harness that exited non-zero"
 mutate "a need the machine HAS still excuses (the lab would go quiet)" "$DRIVER_REL" '
 s = s.replace("            0)        missing+=(\"$need\") ;;", "            0|1)      missing+=(\"$need\") ;;")
@@ -224,6 +225,32 @@ s = s.replace("            DECLARED_SKIPS+=(\"$name (needs $excuse)\")\n",
 mutate "the DECLARED-SKIP arm records nothing, so the end of the lane never lists it" "$DRIVER_REL" '
 s = s.replace("            DECLARED_SKIPS+=(\"$name (needs $excuse)\")\n", "")
 ' "D20 🔴 the DECLARED-SKIP arm records the file and does NOT count a failure"
+# [Co-developed with claude code -- Adam] (2026-09-28, second round) the excuse is a KIND of machine,
+# the failed count vetoes it, a partial Python skip is not excused, and only a real comment declares.
+mutate "the hosted-runner condition is dropped, so a lab that lost a need reads as excused" "$DRIVER_REL" '
+s = s.replace(" && \"$hosted\" == 1 && \"$failed\" -eq 0 ]]; then echo DECLARED-SKIP", " && \"$failed\" -eq 0 ]]; then echo DECLARED-SKIP")
+' "D4b 🔴 the same skip anywhere else is FAIL-SKIP (a lab that lost the need is red)"
+mutate "every machine is taken for a hosted runner" "$DRIVER_REL" '
+s = s.replace("    [[ \"${CI:-}\" == true || \"${GITHUB_ACTIONS:-}\" == true ]] && echo 1 || echo 0\n", "    echo 1\n")
+' "D23 🔴 lab env (CI, GITHUB_ACTIONS unset) + a missing declared need -> FAIL-SKIP"
+mutate "a failed count no longer vetoes the excuse" "$DRIVER_REL" '
+s = s.replace(" && \"$hosted\" == 1 && \"$failed\" -eq 0 ]]; then echo DECLARED-SKIP", " && \"$hosted\" == 1 ]]; then echo DECLARED-SKIP")
+' "D6b 🔴 a summary that counts failed checks vetoes the excuse, whatever its lines say"
+mutate "a Python file that ran some of its tests is excused" "$DRIVER_REL" '
+s = s.replace("    if [[ \"$kind\" == py && \"$skipped\" -ne \"$ran\" ]]; then return 0; fi\n", "")
+' "D9b 🔴 a Python file that ran some of its tests is not excused (only a whole-file skip is)"
+mutate "a .py file is read line by line, so a docstring declares" "$DRIVER_REL" '
+s = s.replace("    *.py)\n        python3 - \"$1\" 2>/dev/null <<\x27PY\x27", "    *.never-py)\n        python3 - \"$1\" 2>/dev/null <<\x27PY\x27")
+' "D3b 🔴 a declaration quoted inside a Python docstring is not one"
+mutate "a heredoc body is read as the script" "$DRIVER_REL" '
+s = s.replace("            hd != \"\" { t = $0; if (strip) sub(/^\\t+/, \"\", t); if (t == hd) hd = \"\"; next }\n", "")
+' "D3d 🔴 a line inside a shell heredoc is not one; the declaration after it is"
+mutate "the FAIL-SKIP line stops naming the missing need" "$DRIVER_REL" '
+s = s.replace("skip(s) — needs ${excuse}, which this machine", "skip(s) — a declared need, which this machine")
+' "D26 🔴 the FAIL-SKIP arm names a declared need that is missing (the lab is told what it lost)"
+mutate "a declaration in the corpus names a need the lane has no probe for" "$CORPUS_NEEDS_REL" '
+s = s.replace("# NDTWIN_L1_NEEDS: py-plot\n", "# NDTWIN_L1_NEEDS: py-plot no-such-need\n")
+' "D22 every NDTWIN_L1_NEEDS in tests/shell and tests/python is one the lane probes"
 mutate "the ryu probe is lost" "$DRIVER_REL" '
 s = s.replace("L1_NEED_MET[ryu]=0\n\"$PY_KERNEL\" -c \"import networkx, ryu\" >/dev/null 2>&1 && L1_NEED_MET[ryu]=1\n", "")
 ' "D18 the lane probes the needs it can excuse (ryu, py-plot)"

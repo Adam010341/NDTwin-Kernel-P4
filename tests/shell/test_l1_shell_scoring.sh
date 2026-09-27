@@ -198,22 +198,31 @@ check "X4 the shell arm binds both numbers the verdict needs" "yes" \
       "$( grep -q 'read -r ran failed' <<<"$sh_arm" && echo yes || echo no )"
 
 echo
-echo "=== group D: declared skips -- excused by what THIS machine lacks, never by the file ==="
+echo "=== group D: declared skips -- excused only on a hosted CI runner that lacks the need ==="
 
 # [Co-developed with claude code -- Adam] (2026-09-28) A file in tests/python or tests/shell may
-# declare `# NDTWIN_L1_NEEDS: <need>`; the lane probes the need itself and, only when this machine
-# lacks it, scores the skip DECLARED-SKIP -- not a pass, not a failure, listed apart. The risk this
-# group stands against is the excuse growing: a need the machine HAS still excusing (the lab going
-# quiet), an unknown word excusing, an excuse outranking a harness that exited non-zero, or a shell
-# suite carrying a red check out through its SKIP line.
+# declare `# NDTWIN_L1_NEEDS: <need>`; the lane probes the need itself and scores the skip
+# DECLARED-SKIP -- not a pass, not a failure, listed apart -- only when this machine lacks it AND is
+# a hosted CI runner (CI or GITHUB_ACTIONS true). The risk this group stands against is the excuse
+# growing: the lab going quiet because it lost a need, a need the machine HAS still excusing, an
+# unknown word excusing, an excuse outranking a non-zero exit or a failed count, a partial Python
+# skip or a declaration that is not a real comment being taken at its word, or a shell suite
+# carrying a red check out through its SKIP line.
 declare -F l1_declared_needs >/dev/null && declare -F l1_skip_excuse >/dev/null \
-    && declare -F l1_probe_py_plot >/dev/null && have_d=yes || have_d=no
-check "D0 the driver exposes l1_declared_needs, l1_skip_excuse and l1_probe_py_plot" "yes" "$have_d"
+    && declare -F l1_probe_py_plot >/dev/null && declare -F l1_hosted_runner >/dev/null \
+    && have_d=yes || have_d=no
+check "D0 the driver exposes l1_declared_needs, l1_skip_excuse, l1_probe_py_plot and l1_hosted_runner" \
+      "yes" "$have_d"
 if [[ "$have_d" == yes ]]; then
     DF="$T/declared"; mkdir -p "$DF"
     printf '"""x"""\n# NDTWIN_L1_NEEDS: ryu\nimport unittest\n' > "$DF/one.py"
     printf '#!/usr/bin/env bash\n#   NDTWIN_L1_NEEDS: py-plot, ryu ryu\necho hi\n' > "$DF/two.sh"
     printf 'x = "NDTWIN_L1_NEEDS: ryu"\n' > "$DF/quoted.py"
+    printf '"""A docstring that quotes the form:\n# NDTWIN_L1_NEEDS: ryu\n"""\nimport unittest\n' \
+        > "$DF/docstring.py"
+    printf 'import unittest  # NDTWIN_L1_NEEDS: ryu\n' > "$DF/aftercode.py"
+    printf "cat > \"\$T/f\" <<'EOF'\n# NDTWIN_L1_NEEDS: ryu\nEOF\nread -r x <<<\"\$y\"\n# NDTWIN_L1_NEEDS: py-plot\n" \
+        > "$DF/heredoc.sh"
     printf '# nothing declared here\n' > "$DF/none.py"
     printf '# NDTWIN_L1_NEEDS: ryu no-such-need\n' > "$DF/unknown.py"
     printf 'test_a ... skipped "no ryu"\n' > "$DF/py.log"
@@ -224,30 +233,55 @@ if [[ "$have_d" == yes ]]; then
     check "D2 several needs, comma or space separated, sorted and once each" "py-plot ryu" \
           "$(l1_declared_needs "$DF/two.sh" | tr '\n' ' ' | sed 's/ $//')"
     check "D3 the words inside a string are not a declaration" "" "$(l1_declared_needs "$DF/quoted.py")"
+    check "D3b 🔴 a declaration quoted inside a Python docstring is not one" "" \
+          "$(l1_declared_needs "$DF/docstring.py")"
+    check "D3c a comment after code on the same line is not one" "" "$(l1_declared_needs "$DF/aftercode.py")"
+    check "D3d 🔴 a line inside a shell heredoc is not one; the declaration after it is" "py-plot" \
+          "$(l1_declared_needs "$DF/heredoc.sh" | tr '\n' ' ' | sed 's/ $//')"
 
-    check "D4 a skip with an excuse is DECLARED-SKIP" "DECLARED-SKIP" "$(l1_lane_verdict 0 5 0 5 ryu)"
-    check "D5 the same skip with no excuse is still FAIL-SKIP" "FAIL-SKIP" "$(l1_lane_verdict 0 5 0 5 '')"
+    check "D4 a hosted runner's skip with an excuse is DECLARED-SKIP" "DECLARED-SKIP" \
+          "$(l1_lane_verdict 0 5 0 5 ryu 1)"
+    check "D4b 🔴 the same skip anywhere else is FAIL-SKIP (a lab that lost the need is red)" "FAIL-SKIP" \
+          "$(l1_lane_verdict 0 5 0 5 ryu 0)"
+    check "D4c ... and with no hosted flag at all it is FAIL-SKIP too" "FAIL-SKIP" \
+          "$(l1_lane_verdict 0 5 0 5 ryu)"
+    check "D5 the same skip with no excuse is still FAIL-SKIP" "FAIL-SKIP" "$(l1_lane_verdict 0 5 0 5 '' 1)"
     check "D6 an excuse never outranks a harness that exited non-zero" "FAIL-RC" \
-          "$(l1_lane_verdict 1 5 1 5 ryu)"
-    check "D7 an excuse with nothing skipped changes nothing" "PASS" "$(l1_lane_verdict 0 5 0 0 ryu)"
+          "$(l1_lane_verdict 1 5 1 5 ryu 1)"
+    check "D6b 🔴 a summary that counts failed checks vetoes the excuse, whatever its lines say" "FAIL-SKIP" \
+          "$(l1_lane_verdict 0 12 3 1 ryu 1)"
+    check "D7 an excuse with nothing skipped changes nothing" "PASS" "$(l1_lane_verdict 0 5 0 0 ryu 1)"
 
     L1_NEED_MET=([ryu]=1 [py-plot]=1)
-    check "D8 🔴 a machine that HAS the need excuses nothing (the lab stays strict)" "" \
-          "$(l1_skip_excuse "$DF/one.py" "$DF/py.log" py)"
+    check "D8 🔴 a machine that HAS the need excuses nothing" "" \
+          "$(l1_skip_excuse "$DF/one.py" "$DF/py.log" py 5 5)"
     L1_NEED_MET=([ryu]=0 [py-plot]=1)
-    check "D9 a machine that lacks it excuses the file that declared it" "ryu" \
-          "$(l1_skip_excuse "$DF/one.py" "$DF/py.log" py)"
+    check "D9 a machine that lacks it names what the file declared" "ryu" \
+          "$(l1_skip_excuse "$DF/one.py" "$DF/py.log" py 5 5)"
+    check "D9b 🔴 a Python file that ran some of its tests is not excused (only a whole-file skip is)" "" \
+          "$(l1_skip_excuse "$DF/one.py" "$DF/py.log" py 5 2)"
     check "D10 ... and names only what is missing" "ryu" \
-          "$(l1_skip_excuse "$DF/two.sh" "$DF/sh_clean.log" sh)"
+          "$(l1_skip_excuse "$DF/two.sh" "$DF/sh_clean.log" sh 0 1)"
     check "D11 a file that declared nothing has no excuse" "" \
-          "$(l1_skip_excuse "$DF/none.py" "$DF/py.log" py)"
+          "$(l1_skip_excuse "$DF/none.py" "$DF/py.log" py 5 5)"
     check "D12 🔴 a need the lane has no probe for excuses nothing, even beside a missing one" "" \
-          "$(l1_skip_excuse "$DF/unknown.py" "$DF/py.log" py)"
+          "$(l1_skip_excuse "$DF/unknown.py" "$DF/py.log" py 5 5)"
     check "D13 🔴 a shell suite that printed a FAILED check before its SKIP is not excused" "" \
-          "$(l1_skip_excuse "$DF/two.sh" "$DF/sh_red.log" sh)"
+          "$(l1_skip_excuse "$DF/two.sh" "$DF/sh_red.log" sh 0 1)"
+
+    # The two machines, end to end through the functions the dispatch calls: the same file, the same
+    # log, the same missing need -- and only the hosted runner excuses it.
+    check "D23 🔴 lab env (CI, GITHUB_ACTIONS unset) + a missing declared need -> FAIL-SKIP" "FAIL-SKIP" \
+          "$(unset CI GITHUB_ACTIONS; l1_lane_verdict 0 5 0 5 \
+               "$(l1_skip_excuse "$DF/one.py" "$DF/py.log" py 5 5)" "$(l1_hosted_runner)")"
+    check "D24 CI env (CI=true) + a missing declared need -> DECLARED-SKIP" "DECLARED-SKIP" \
+          "$(unset GITHUB_ACTIONS; export CI=true; l1_lane_verdict 0 5 0 5 \
+               "$(l1_skip_excuse "$DF/one.py" "$DF/py.log" py 5 5)" "$(l1_hosted_runner)")"
+    check "D25 l1_hosted_runner: GITHUB_ACTIONS=true yes, CI=false no, neither no" "1 0 0" \
+          "$(unset CI; GITHUB_ACTIONS=true l1_hosted_runner) $(unset GITHUB_ACTIONS; CI=false l1_hosted_runner) $(unset CI GITHUB_ACTIONS; l1_hosted_runner)"
     L1_NEED_MET=()
     check "D14 with no probes at all nothing is excused" "" \
-          "$(l1_skip_excuse "$DF/one.py" "$DF/py.log" py)"
+          "$(l1_skip_excuse "$DF/one.py" "$DF/py.log" py 5 5)"
 
     # l1_probe_py_plot asks round.env what the suite asks it, and must not let it mkdir.
     PR="$T/probe-repo"; RD="$PR/doc/audit/2026-08-31_sampling-ceiling-after-merge"; mkdir -p "$RD"
@@ -266,9 +300,10 @@ fi
 probed="$(grep -oE '^L1_NEED_MET\[[a-z0-9-]+\]=' "$DRIVER" | sed -E 's/^L1_NEED_MET\[([^]]*)\]=$/\1/' | sort -u)"
 check "D18 the lane probes the needs it can excuse (ryu, py-plot)" "py-plot ryu" \
       "$(tr '\n' ' ' <<<"$probed" | sed 's/ $//')"
-check "D19 the dispatch hands the lane's own excuse to the verdict" "yes" \
-      "$(grep -qF 'l1_lane_verdict "$rc" "${ran:-0}" "${failed:-0}" "${skipped:-0}" "$excuse"' "$DRIVER" \
-         && grep -qF 'excuse="$(l1_skip_excuse "$testfile" "$log" "${testfile##*.}")"' "$DRIVER" \
+check "D19 the dispatch hands the lane's own excuse and the hosted flag to the verdict" "yes" \
+      "$(grep -qF 'l1_lane_verdict "$rc" "${ran:-0}" "${failed:-0}" "${skipped:-0}" "$excuse" "$L1_HOSTED"' "$DRIVER" \
+         && grep -qF 'excuse="$(l1_skip_excuse "$testfile" "$log" "${testfile##*.}" "${ran:-0}" "${skipped:-0}")"' "$DRIVER" \
+         && grep -qF 'L1_HOSTED="$(l1_hosted_runner)"' "$DRIVER" \
          && echo yes || echo no)"
 check "D20 🔴 the DECLARED-SKIP arm records the file and does NOT count a failure" "records, no failure" \
       "$(awk '$0 ~ /^ *DECLARED-SKIP\)/ { on = 1; next }
@@ -278,6 +313,11 @@ check "D20 🔴 the DECLARED-SKIP arm records the file and does NOT count a fail
              END { printf "%s, %s", (r ? "records" : "records nothing"), (f ? "counts a failure" : "no failure") }' "$DRIVER")"
 check "D21 the end of the lane lists every declared skip" "yes" \
       "$(grep -qF 'printf '"'"'  %s\n'"'"' "${DECLARED_SKIPS[@]}"' "$DRIVER" && echo yes || echo no)"
+check "D26 🔴 the FAIL-SKIP arm names a declared need that is missing (the lab is told what it lost)" "yes" \
+      "$(awk '$0 ~ /^ *FAIL-SKIP\)/ { on = 1; next }
+             on && /^ *;;/ { exit }
+             on && index($0, "needs ${excuse}") { n = 1 }
+             END { print (n ? "yes" : "no") }' "$DRIVER")"
 # Every declaration in the corpus names a need the lane probes: an unknown word there would make
 # that file FAIL-SKIP on a machine without the need, which is loud, but the typo is cheaper here.
 unknown=""
