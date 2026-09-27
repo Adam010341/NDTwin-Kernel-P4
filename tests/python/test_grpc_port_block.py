@@ -348,10 +348,21 @@ class TheFabricAndTheProxyAgreeOnThePortBlock(unittest.TestCase):
             f"{literal.group(0) if literal else ''}")
 
     def test_the_topology_takes_its_ports_from_the_module(self):
+        # [Co-developed with claude code -- Adam] The property is "the port comes from
+        # grpc_ports", not the name of the loop variable: 918e8f58 renamed `i` to `dpid` and this
+        # check, written as the literal `grpc_ports.grpc_port(i)`, went red on a correct tree.
         with open(os.path.join(MININET_DIR, "p4_testbed_topo.py"), encoding="utf-8") as fh:
             source = fh.read()
-        self.assertIn("grpc_ports.grpc_port(i)", source)
-        self.assertNotIn("grpc_port=50050+i", source)
+        self.assertRegex(source, TOPOLOGY_TAKES_THE_PORT_FROM_THE_MODULE)
+        self.assertNotRegex(source, TOPOLOGY_RESTATES_THE_OLD_BASE)
+
+
+#: `grpc_port=grpc_ports.grpc_port(<name>)` -- the module computes the port, whatever the
+#: switch's index is called in the loop.
+TOPOLOGY_TAKES_THE_PORT_FROM_THE_MODULE = re.compile(
+    r"grpc_port\s*=\s*grpc_ports\.grpc_port\(\s*[A-Za-z_][A-Za-z0-9_]*\s*\)")
+#: `grpc_port=50050+i` and its spellings -- the literal the module replaced.
+TOPOLOGY_RESTATES_THE_OLD_BASE = re.compile(r"grpc_port\s*=\s*50050\s*\+")
 
 
 #: Files under doc/ or tools/ that may still name the old 5005x block, each for a stated
@@ -391,6 +402,70 @@ ALLOWED_TO_NAME_THE_OLD_BLOCK = {
     os.path.join("doc", "2026-08-11_phase7_power_mechanism_design.md"),
 }
 
+# [Co-developed with claude code -- Adam]
+#: Single LINES that must name 5005x, each with its reason. A line, not a file: these files also
+#: talk about NDTwin's own block, and a whole-file exemption would let a stale "50051" slip into
+#: them unseen. Keyed by the line's text (stripped), not its number, so an edit above does not
+#: move the key -- and a key that matches no line any more fails test_every_allowed_line_is_still_there.
+#:
+#: They all speak p4lang-tutorials' convention (switch i at 50050+i, device id i-1), which is not
+#: this fabric's old block but the one an exercise's own controller dials:
+_TUTORIALS_ADAPTER = (
+    "run_external_controller.py translates a tutorials controller's 50050+i onto this fabric's "
+    "block; it has to name the number it translates from")
+_TUTORIALS_ADAPTER_TEST = (
+    "the adapter's test feeds it the addresses a tutorials controller dials and checks where "
+    "they land")
+_TUTORIALS_VERBATIM = (
+    "a verbatim copy of exercises/p4runtime/mycontroller.py; the fixture is only useful unedited")
+_OLD_BASE_IS_REFUSED = (
+    "asserts that a package declaring the old base 50050 is refused by the pre-flight")
+_RUN_EXT = os.path.join("tools", "p4_exercise", "run_external_controller.py")
+_RUN_EXT_TEST = os.path.join("tools", "p4_exercise", "tests", "test_run_external_controller.py")
+_MYCONTROLLER = os.path.join("tools", "p4_exercise", "tests", "fixtures", "p4runtime",
+                             "mycontroller.py")
+_PREFLIGHT_TEST = os.path.join("tools", "p4_exercise", "tests", "test_preflight.py")
+ALLOWED_LINES_NAMING_THE_OLD_BLOCK = {
+    (_RUN_EXT, "opens `127.0.0.1:50051` with `device_id=0` for s1 and `127.0.0.1:50052` with "
+               "`device_id=1` for"): _TUTORIALS_ADAPTER,
+    (_RUN_EXT, "s2 -- tutorials' convention of port 50050+i and device id i-1. NDTwin's fabric "
+               "puts switch i at"): _TUTORIALS_ADAPTER,
+    (_RUN_EXT, "127.0.0.1:50051, find nothing listening, and hang in `MasterArbitrationUpdate` "
+               "-- a silence"): _TUTORIALS_ADAPTER,
+    (_RUN_EXT, "#: tutorials puts switch i at 50050+i (utils/run_exercise.py and every "
+               "mycontroller.py)."): _TUTORIALS_ADAPTER,
+    (_RUN_EXT, "TUTORIALS_PORT_BASE = 50050"): _TUTORIALS_ADAPTER,
+    (_RUN_EXT, "def patched(self, name=None, address=\"127.0.0.1:50051\", device_id=0, *args, "
+               "**kwargs):"): _TUTORIALS_ADAPTER,
+    (_RUN_EXT_TEST, "def __init__(self, name=None, address=\"127.0.0.1:50051\", "
+                    "device_id=0,"): _TUTORIALS_ADAPTER_TEST,
+    (_RUN_EXT_TEST, "address, device_id, dpid = adapter.remap(address=\"127.0.0.1:50051\", "
+                    "device_id=0)"): _TUTORIALS_ADAPTER_TEST,
+    (_RUN_EXT_TEST, "self.assertEqual(adapter.remap(address=\"127.0.0.1:50052\", "
+                    "device_id=1),"): _TUTORIALS_ADAPTER_TEST,
+    (_RUN_EXT_TEST, "self.assertEqual(adapter.remap(address=\"127.0.0.1:50053\", "
+                    "device_id=99),"): _TUTORIALS_ADAPTER_TEST,
+    (_RUN_EXT_TEST, "self.assertEqual(adapter.remap(address=\"127.0.0.1:50051\", "
+                    "grpc_base=31000),"): _TUTORIALS_ADAPTER_TEST,
+    (_RUN_EXT_TEST, "adapter.remap(address=\"127.0.0.1:50050\", device_id=0)"):
+        _TUTORIALS_ADAPTER_TEST,
+    (_RUN_EXT_TEST, "adapter.remap(address=\"127.0.0.1:50054\", dpids={1, 2, 3})"):
+        _TUTORIALS_ADAPTER_TEST,
+    (_RUN_EXT_TEST, "module.Bmv2SwitchConnection(name=\"s1\", address=\"127.0.0.1:50051\", "
+                    "device_id=0,"): _TUTORIALS_ADAPTER_TEST,
+    (_RUN_EXT_TEST, "module.Bmv2SwitchConnection(name=\"s2\", address=\"127.0.0.1:50052\", "
+                    "device_id=1,"): _TUTORIALS_ADAPTER_TEST,
+    (_RUN_EXT_TEST, "module.Bmv2SwitchConnection(name=\"s1\", address=\"127.0.0.1:50051\", "
+                    "device_id=0)"): _TUTORIALS_ADAPTER_TEST,
+    (_RUN_EXT_TEST, "self.assertIn(\"127.0.0.1:50051\", logged[0])"): _TUTORIALS_ADAPTER_TEST,
+    (_RUN_EXT_TEST, "module.Bmv2SwitchConnection(name=\"s9\", address=\"127.0.0.1:50059\", "
+                    "device_id=8)"): _TUTORIALS_ADAPTER_TEST,
+    (_MYCONTROLLER, "address='127.0.0.1:50051',"): _TUTORIALS_VERBATIM,
+    (_MYCONTROLLER, "address='127.0.0.1:50052',"): _TUTORIALS_VERBATIM,
+    (_PREFLIGHT_TEST, "self.edit_package(lambda d: d[\"control_plane\"].__setitem__(\"grpc_base\", "
+                      "50050))"): _OLD_BASE_IS_REFUSED,
+}
+
 #: 50051-50060, 50050, and the ":5005x" shorthand. Bounded so it does not fire on decimals:
 #: doc/audit/2026-08-28_flow-count-capacity/PREREG.md carries the value 0.5005557, which an
 #: unbounded search reports as a port reference.
@@ -428,7 +503,8 @@ class NoLiveDocumentStillNamesTheOldPortBlock(unittest.TestCase):
         offenders = []
         for rel, text in text_files_under("doc", "tools"):
             for lineno, line in enumerate(text.splitlines(), 1):
-                if OLD_BLOCK.search(line):
+                if OLD_BLOCK.search(line) \
+                        and (rel, line.strip()) not in ALLOWED_LINES_NAMING_THE_OLD_BLOCK:
                     offenders.append(f"{rel}:{lineno}: {line.strip()[:100]}")
         self.assertEqual(
             offenders, [],
@@ -441,6 +517,18 @@ class NoLiveDocumentStillNamesTheOldPortBlock(unittest.TestCase):
         for rel in ALLOWED_TO_NAME_THE_OLD_BLOCK:
             self.assertTrue(os.path.exists(os.path.join(REPO, rel)),
                             f"allowlisted path {rel} does not exist")
+
+    def test_every_allowed_line_is_still_there(self):
+        # [Co-developed with claude code -- Adam] The line-level allowlist's own staleness check.
+        # An entry whose line was edited or removed exempts nothing today, but it would exempt a
+        # line that comes back with that text for a different reason; and an entry that still
+        # matches must still name the block, or it was never needed.
+        for (rel, line), reason in ALLOWED_LINES_NAMING_THE_OLD_BLOCK.items():
+            self.assertTrue(reason.strip(), f"{rel}: an allowed line with no reason")
+            self.assertRegex(line, OLD_BLOCK, f"{rel}: allowed line does not name the block")
+            with open(os.path.join(REPO, rel), encoding="utf-8") as fh:
+                lines = {text.strip() for text in fh.read().splitlines()}
+            self.assertIn(line, lines, f"{rel}: allowed line is no longer in the file")
 
     def test_the_scan_can_actually_find_the_old_block(self):
         # The positive control. A scanner that reads nothing reports no offenders, and an
