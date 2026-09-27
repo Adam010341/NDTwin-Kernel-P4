@@ -145,15 +145,24 @@ class WedgedControlPlane
         m_accepting.store(false);
         if (m_listenFd >= 0)
         {
-            // Closing the listening fd is what wakes the accept(): this suite may not kill threads
-            // by name and must not leave one behind for the next test file's cases to trip over.
+            // Shutting the listening socket down is what wakes the accept(): this suite may not
+            // kill threads by name and must not leave one behind for the next test file's cases to
+            // trip over.
             ::shutdown(m_listenFd, SHUT_RDWR);
-            ::close(m_listenFd);
-            m_listenFd = -1;
         }
         if (m_thread.joinable())
         {
             m_thread.join();
+        }
+        // [Co-developed with claude code -- Adam]
+        // Closed only after the join. acceptLoop reads m_listenFd on every pass, so clearing it
+        // while that thread may still be running is a data race (TSan reported exactly this pair,
+        // this destructor against acceptLoop's accept()), and a closed descriptor number can be
+        // handed to another thread's open() before a late accept() is called on it.
+        if (m_listenFd >= 0)
+        {
+            ::close(m_listenFd);
+            m_listenFd = -1;
         }
         for (const int fd : m_held)
         {

@@ -153,8 +153,16 @@ class DeviceConfigurationAndPowerManager
      * reaches stop(); TopologyAndFlowMonitor, FlowLinkUsageCollector, HistoricalDataManager and
      * ControllerAndOtherEventHandler all already own their threads this way, and this class was
      * the exception.
+     *
+     * [Co-developed with claude code -- Adam]
+     * Virtual because the class is a base: its seams (p4Strategy, readFromDevice*,
+     * readPowerOverSsh) exist so tests can derive from it, and it is created and destroyed as
+     * itself too (main.cpp's make_shared), so a protected non-virtual destructor or `final` would
+     * not fit. clang's -Wdelete-non-abstract-non-virtual-dtor (an error under -Werror) rejected
+     * both main.cpp's make_shared and a test's unique_ptr to a derived probe (both destroy through
+     * libstdc++'s headers, and the GCC build never reported either).
      */
-    ~DeviceConfigurationAndPowerManager();
+    virtual ~DeviceConfigurationAndPowerManager();
 
     /**
      * @brief Query power state for one or more switches.
