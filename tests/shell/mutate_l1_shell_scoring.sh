@@ -32,6 +32,8 @@ SUITE_REL="tests/shell/test_l1_shell_scoring.sh"
 # tool checks an unpinned anchor against every path the gate declares.
 CORPUS_REL="tests/shell/test_faults.sh"
 CORPUS_PRINTF_REL="tests/shell/test_stack_log_rotation.sh"   # a suite whose summary is a printf
+CORPUS_ONELINE_REL="tests/shell/test_faults_topo_pid.sh"      # its failure branch is one line
+CORPUS_GROUPED_REL="tests/shell/test_ndt_down_stops_only_ours.sh"   # `|| { echo "Ran ..."; exit 1; }`
 
 KILLED=0
 SURVIVED=0
@@ -213,6 +215,22 @@ mutate "a printf-summary suite prints it only on the failure path, followed by a
 s = s.replace("printf \x27\\nRan %d checks, %d failed\\n\x27 \"$((PASS+FAIL))\" \"$FAIL\"\n[[ \"$FAIL\" -eq 0 ]] || exit 1\n",
               "if [[ \"$FAIL\" -ne 0 ]]; then\n    printf \x27\\nRan %d checks, %d failed\\n\x27 \"$((PASS+FAIL))\" \"$FAIL\"\n    exit 1\nfi\n")
 ' "C  test_stack_log_rotation.sh prints" "followed by a bare exit at line"
+# [Co-developed with claude code -- Adam] rule (2a), the opus judge's B1 on d2a9d641 (09-27): the
+# one-line failure branch and the `|| { ...; exit 1; }` summary. At d2a9d641 both SURVIVED (group C
+# saw a bare exit only at the start of a later line); each must now be caught by (2a) by name.
+mutate "a one-line-failure-branch suite stops printing its green summary" "$CORPUS_ONELINE_REL" '
+s = s.replace("echo \"Ran $((PASS+FAIL)) checks, all passed${SKIP:+ ($SKIP skipped)}\"",
+              "echo \"everything is fine\"")
+' "C  test_faults_topo_pid.sh prints" "exit <non-zero> after it on the same line"
+mutate "a suite whose other summaries are all \"|| { ...; exit 1; }\" loses its final one" "$CORPUS_GROUPED_REL" '
+s = s.replace("printf \x27\\n\x27\necho \"Ran $((PASS+FAIL)) checks, $FAIL failed\"\n", "printf \x27\\n\x27\n")
+' "C  test_ndt_down_stops_only_ours.sh prints" "exit <non-zero> after it on the same line"
+# ... and the judge's N4: a $(( )) the renderer cannot evaluate is an instrument failure, red as
+# such -- never read as "zero", or as the prints before it
+mutate "a summary whose \$(( )) the renderer cannot evaluate (09)" "$CORPUS_REL" '
+s = s.replace("echo \"Ran $((PASS + FAIL)) checks, all passed\"",
+              "echo \"Ran $((PASS + 09)) checks, all passed\"")
+' "C  test_faults.sh prints" "instrument failed"
 
 echo
 echo "===== $((KILLED + SURVIVED)) mutation(s): $KILLED killed, $SURVIVED survived ====="
