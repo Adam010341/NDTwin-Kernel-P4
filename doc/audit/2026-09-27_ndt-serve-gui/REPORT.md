@@ -18,17 +18,25 @@
    - 新的靜態頁 `tools/ndt_serve/static/`（HTML 124、JS 約 615、CSS 50 行）；
    - `ndt` 本體只改 help，加 3 行；
    - 其餘是測試、閘門和文件。
-2. **job log 的輪詢算不算「自動重新整理」。** 裁定 6 拿掉了每 30 秒一次的 `ndt status`，這一點照做了：頁面上會跑 ndt 的讀取，全部要手動按。
-   - 但是 **D 區打開一個正在跑的 job 時，頁面每 2 秒讀一次它的 log**，一直讀到 job 結束。這只讀檔案，不跑 ndt，也不碰 lab。
-   - 我的理解是：裁定針對的是看不見的 `ndt status` 負載，這個不算。請 orchestrator 確認。
-   - 如果要改成純手動，把 `openJob` 的迴圈換成一個「重新讀 log」按鈕就行，大約 10 行。
-3. **確認強度的表放在伺服器，不放頁面**（偏離 SCOPE §2 的寫法，§2 第 1 點）。我建議維持現狀。
+2. **job log 的輪詢**（orchestrator 15:4x 暫定裁定：可以，但有條件，驗收判官可推翻）。
+   - 現況：D 區打開一個正在跑的 job 時，頁面每 2 秒讀一次它的 log。只讀檔案，不跑 ndt，不碰 lab。
+   - 裁定的條件是「job 結束、job 畫面關掉、頁面被隱藏時都要停」。**`cb1b42d7` 的現況，逐條對照**（讀碼，`app.js` 的 `openJob`）：
+
+     | 條件 | 現況 |
+     |---|---|
+     | job 結束時停 | ✅ 成立：state 不是 `running` 就 return |
+     | job 畫面關掉時停 | ⚠️ 部分成立：打開另一個 job 時舊的迴圈會停（`watching` 換掉）；但**畫面沒有「關閉」按鈕**，所以沒辦法單純關掉 |
+     | 頁面被隱藏時停 | ❌ 不成立：沒有檢查 `document.visibilityState`。分頁在背景時照樣輪詢（Chrome 只會替背景分頁的計時器降頻，不會停） |
+
+   - 補上缺的兩條大約 15 行：加一個關閉按鈕（把 `watching` 設成 null 並把畫面藏起來），再讓迴圈在 `visibilityState` 為 hidden 時暫停、回到前景才繼續，外加一條 PageLint 規則和一個 G 變異。
+   - **orchestrator 要求收件前分支保持原樣，所以還沒改**。要改的話，收件前或收件後都可以，等 orchestrator 一句話。
+3. **確認強度的表放在伺服器，不放頁面**（偏離 SCOPE §2 的寫法，§2 第 1 點）。**orchestrator 15:4x 已追認**，理由是該拒絕的本來就是伺服器；列為經追認的 SCOPE 偏離。
 4. **P4 的 `--app` 套件目錄**，這一刀的頁面沒有提供輸入欄位。API 本來就支援（`{"plane":"p4","app":"<dir>"}`）。要不要在頁面上開放，排下一刀。
 5. **下一刀：用 DevTools protocol 把點擊行為自動化**（裁定 5）。這一刀的點擊行為是在瀏覽器裡實際操作驗證的（§4.3），還不能重跑。
 
 ## 2. 推翻／更正
 
-1. **偏離 SCOPE：確認強度由伺服器給。**
+1. **偏離 SCOPE（orchestrator 15:4x 已追認）：確認強度由伺服器給。**
    - SCOPE §2 的強度表（一般確認或打字確認、要不要先 claim）原本要寫在頁面裡。實作時我把它放進 `serve.confirm_policy()`，由 `dry_run` 的回答帶出 `confirm`（`typed`／`plain`）和 `needs_own_claim`。
    - 頁面只加一條規則：measuring 不是 `nothing`、或有 `declared` 列時，一律升級成打字確認。
    - 理由：
@@ -56,6 +64,7 @@
    - 處置：幾秒內我就用 `preview_stop` 停掉了，事後 1313 上沒有 listener。
    - 之後我想把 stub 的設定加進你那份 `launch.json`，被權限分類器擋下（理由是持久化設定）。我沒有再試。你那份檔案內容沒變（我讀過確認）。
    - 最後的做法：stub 伺服器照測試的方式用 `setsid` 起，瀏覽器面板只開它的 URL；結束後按 pid 停掉，停之前比對過 cmdline。
+   - orchestrator 15:4x：已記錄，不需要處理（你那份 launch.json 沒變）。
 8. **L1 lane 的直譯器是 Python 3.8.20（ryu-env），不是我平常測試用的那個。** 新 suite 在 3.8 下也是 35/35 綠（§4.1）。
 9. **頁面測試由 opus worker 寫**（`d6f4b5a9`，我在 commit 前讀過全文）。它自己揭露了一件事：14:12:07 在 guard **外**跑過一次 `/opt/google/chrome/chrome --version`，目的是把版本號（153.0.8010.36）記進 log 標頭。這個指令會馬上回傳、不會開瀏覽器，但當下沒有查程序清單。除此之外，所有啟動 Chrome 的動作都在 guard 內。
 
