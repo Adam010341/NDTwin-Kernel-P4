@@ -514,7 +514,14 @@ corpus_verdict() {
     fi
     while IFS=$'\t' read -r n rule line; do
         [[ -n "$line" && "$(summary_of "$line" | cut -d' ' -f1)" -gt 0 ]] || continue
-        if [[ "$rule" != 0 ]]; then fpline="$n"; fprule="$rule"; continue; fi
+        # the LAST failure-path summary is the one with the greatest effective line, as for `last`
+        # below -- not the last one read: a function's print is read at its definition and counts
+        # at its call (queued2, 09-27: test_ndt_ovs_topo_script.sh was named for its line-51
+        # `|| { ...; exit 1; }` while its `summary; exit 1` call at line 70 is the later one)
+        if [[ "$rule" != 0 ]]; then
+            (( n >= fpline )) && { fpline="$n"; fprule="$rule"; }
+            continue
+        fi
         (( n >= last )) && last="$n"
     done <<<"$rout"
     if (( last == 0 && fpline > 0 )); then
@@ -574,6 +581,9 @@ rcheck "15 * \`case ... in 0) echo ... ;; *) exit 1 ;; esac\`: the next pattern 
        r15_case_other_branch.sh nonzero
 rcheck "16   \`echo ...; if (( FAIL )); then exit 1; fi\`: an exit inside a later if is conditional (B)" \
        r16_exit_in_later_if.sh nonzero
+rcheck "17 * the reason named is the LAST failure path in line order: a call at line 6 after a 2a at line 4 (A)" \
+       r17_last_failure_is_the_call.sh \
+       "$FP its last summary (line 6) is printed by a function every call of which has an exit <non-zero> after the call on the same line"
 
 echo
 echo "=== group C: the corpus ==="

@@ -31,6 +31,7 @@ check go red.
 | r14 | `then echo ...; else exit 1; fi` | nonzero |
 | r15 | `case ... in 0) echo ... ;; *) exit 1 ;; esac` | nonzero |
 | r16 | `echo ...; if (( FAIL )); then exit 1; fi` | nonzero |
+| r17 | a 2a summary at line 4, then a function whose only call is `summary; exit 1` at line 6: the reason named is the call's, the later line (A) | failure path (`call`) |
 
 The first line of each is a comment and the line numbers in group R's expected verdicts count it:
 edit a fixture and its check's expected line moves with it.
