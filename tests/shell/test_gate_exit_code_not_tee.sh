@@ -32,6 +32,16 @@
 # trace's shape, made-up readings, ratio 1.000) and points plot_figures.RAW at a copy of it; and
 # case 2 asserts the gate's verdict line as well as its rc, so an UNRUNNABLE can never pass it.
 # Case 1b asserts the gate read that fixture (its ratio, 1.0000), not a real trace left on disk.
+# [Co-developed with claude code -- Adam] (09-27) case 3 now asserts the gate's OWN rc and verdict
+# under the old construct -- it used to be green whatever the gate did (the judge's N2 on d2a9d641) --
+# and case 6 holds lib_e.sh's `unset NDT_SAMPLING_RAW_DIR` (NOTE C on 1d5180ce).
+#
+# 🔴 KNOWN, not fixed here (the opus judge's N7 on d2a9d641): this suite sources round.env, as
+# gates_e.sh does, and round.env hardcodes KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel (round.env:13)
+# and runs `mkdir -p "$OUT" "$KBIN_STAGE"` (round.env:73). From any worktree or clone it therefore
+# touches the MAIN checkout's paths: a no-op where both exist (this laptop, 09-27), a new empty
+# directory where they do not, and a suppressed error on a machine with no /home/adam. The fix
+# belongs in round.env, which this suite sources because the round does.
 
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -72,6 +82,17 @@ LOG="$T/test.log"
 # [Co-developed with claude code -- Adam] the synthetic cell, copied: the gate reads it, nothing writes here
 mkdir -p "$T/raw"; cp "$FIXTURE_DIR"/t008_poll_* "$T/raw/" 2>/dev/null || true
 export NDT_SAMPLING_RAW_DIR="$T/raw"
+
+# --- case 6: an inherited NDT_SAMPLING_RAW_DIR never reaches the round's gates -----------------
+# [Co-developed with claude code -- Adam] (the opus judge's NOTE C on 1d5180ce, 09-27) round.env unsets
+# it, but gates_e.sh, run_e.sh and build_1khz_binary.sh skip round.env when ROUND is already set --
+# so lib_e.sh, which each of them sources unconditionally, must drop it as well. Asked in a child
+# shell with ROUND set and the variable exported: the operator's own sequence. It sits above the
+# PY_PLOT skip so that it runs wherever this suite runs.
+case6="$(env NDT_SAMPLING_RAW_DIR=/inherited/raw ROUND="$ROUND_DIR" LOG_BASE="$T/case6.log" \
+         bash -c '. "$1/lib_e.sh" >/dev/null 2>&1; printf "%s" "${NDT_SAMPLING_RAW_DIR-unset}"' _ "$ROUND_DIR")"
+check "case 6  lib_e.sh drops an inherited NDT_SAMPLING_RAW_DIR (what skips round.env still sources it)" \
+      unset "$case6"
 
 if ! declare -F run_gate >/dev/null; then
     echo "FAILED   lib_e.sh does not define run_gate -- the helper under test is gone"
@@ -115,15 +136,23 @@ check "case 2  --expect red on a green cell -> caller sees failure" \
 # that difference, so the reproduction has to run under the shell options the round actually used.
 # A harness whose options differ from production's is the same family as a harness that cd's
 # somewhere production never goes: both hide a whole class of defect while looking green.
+#
+# [Co-developed with claude code -- Adam] 🔴 AND THE GATE'S OWN ANSWER (2026-09-27, the opus judge's N2 on
+# d2a9d641). "reported-success" alone is what tee says whatever the gate did: an UNRUNNABLE gate (no
+# data, rc 2) and a gate that PASSED (rc 0) both read reported-success, so case 3 was green with no
+# cell at all and would stay green on a gate that no longer fails. It witnesses "that same failure"
+# only if the gate, inside the pipeline, really failed and for the reason case 2 names.
 set +o pipefail
+: > "$LOG"
 if "${GATE[@]}" --check "$GOODCELL" --expect red 2>&1 | tee -a "$LOG" >/dev/null; then
-    old_verdict=reported-success
+    old_gate_rc=${PIPESTATUS[0]}; old_verdict=reported-success
 else
-    old_verdict=reported-failure
+    old_gate_rc=${PIPESTATUS[0]}; old_verdict=reported-failure
 fi
 set -o pipefail
 check "case 3  the pre-fix pipeline hid that same failure (no pipefail, as gates_e.sh runs)" \
-      reported-success "$old_verdict"
+      "reported-success | gate rc 2 | GATE ratio FORCE-TEST FAILED: expected RED, got GREEN." \
+      "$old_verdict | gate rc $old_gate_rc | $(/usr/bin/grep -m1 -E '^GATE ratio (FORCE-TEST|cell=.*verdict=UNRUNNABLE)' "$LOG")"
 
 # --- case 3b: and gates_e.sh really does still lack pipefail, which is what makes 3 relevant ----
 check "case 3b gates_e.sh sets no pipefail, so run_gate is the only thing standing there" 0 \
