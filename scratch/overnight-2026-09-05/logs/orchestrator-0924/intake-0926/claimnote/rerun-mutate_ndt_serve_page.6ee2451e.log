@@ -1,0 +1,39 @@
+6ee2451e81098ad08cfe77ea1ab250260b5e94b7
+# 2026-09-27T15:20:13Z TMPDIR=/home/adam/.cache/cn-s (22) cmd bash tests/shell/mutate_ndt_serve_page.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_ndt_serve_page.sh
+baseline (must be green, every case run and none skipped, before any mutation):
+  test_ndt_serve_page.py: Ran 5 tests in 9.198s / OK
+
+  caught   G12: history.replaceState is gone (the key stays in the address bar) (test_the_key_leaves_the_address_bar_and_is_traded went red)
+             "the key is still in the address bar after the page ran")
+  caught   G13: the token is also put in sessionStorage (spelled past a static lint) (test_the_token_is_only_in_memory went red)
+             "the page left something in browser storage")
+  caught   G14: the page releases the lab the moment it has the token         (test_loading_the_page_writes_nothing went red)
+             self.assertEqual(problems, [], "loading the page writes")
+  caught   P1: a used key is not forgotten (serve.py Nonces.take)             (test_a_used_key_opens_nothing went red)
+             "the second load of a used key opened a session")
+  caught   P2: the page trades a key it does not have (an empty hash)         (test_a_url_without_a_key_opens_nothing went red)
+             self.assertEqual(body.get("data-session"), "no-key", "a URL with no key: %r" % body)
+
+files under test unchanged by this gate:
+  cf2d4c13d6a9ba51aa2334a3fd3b94ecd51675b9f624d24c087eaef778062017  tools/ndt_serve/cells.py
+  e417ef37f87a38790628a86b7ce9e8822a650b04dbd71e0c8cebe4883ea6a1d9  tools/ndt_serve/demo_sequence.py
+  04f19f11e9ea32591b322c5648bb85abe824280ebfebdd75b37c4a2cad2ec274  tools/ndt_serve/jobs.py
+  8bf944cf7b72b84c45a0a9342504bb8e160fa01c91c7f8254255078e23157a6e  tools/ndt_serve/runner.py
+  8932c2a1bd1711c314d47102a022fa7ca50a6c4951665b115867e7bf4a8addcd  tools/ndt_serve/serve.py
+  2d360a88e89bd315e07c351ec454e05d21547f7cc12fb83b9c5c3fb524784684  tools/ndt_serve/verbs.py
+  22c0b24a18138c970cd644ef01ff141890d70e89790cfafab80ea376c791b344  tools/ndt_serve/README.md
+  fb5ba7a62dd8aac76eb8d880a8ed00ff3dc83a4e3d688b731f61e8c88f979f5f  tools/ndt_serve/static/app.css
+  bae4342141d9c4b9f73fbc4cea532cb9f604017805b7e04ab36835c5cead88cc  tools/ndt_serve/static/app.js
+  b96197f56ddd1309dedc4c69f98f88ef436eb0ac0abd97048773ad23b415f6b6  tools/ndt_serve/static/index.html
+  c2751a7880b84e32c0bf056fd3fdea28551f1c7bf26fabedfbb001625331e864  tools/test_workflow/ndt
+  fb8688cf2b831039db04104b6932c5650536bc6d9ccbe446d206420caa17720f  tools/test_workflow/ports.sh
+  1ad2eda794fbc7fbfaabf0a00914b5d1f0c128aad361cd200a65a36daa38a5cd  tools/test_workflow/sudo_surface.sh
+  86aee2b28906c28b6a70074f64a8c6a979a7bb87fc8004dfed1b4c9ab682b1ba  tools/test_workflow/components.env
+  91098929585df4dc38dc924d9290d579d3bfb002a856c2e45d62fe067c93ea6f  tests/browser/test_ndt_serve_page.py
+  bc5dd13408f2eb0f3a35ccfd47821a80854ce4c535eec90ddb29a4e16e299ffd  tests/python/test_ndt_serve.py
+
+5 mutation(s), 0 survivor(s)
+guarded_build: exit 0
+# rc=0

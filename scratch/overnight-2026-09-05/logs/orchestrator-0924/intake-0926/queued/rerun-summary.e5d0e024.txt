@@ -1,0 +1,20 @@
+NOTEA_topo305_deleted # rc=1 |   FAILED   C  test_ndt_ovs_topo_script.sh prints a summary this scorer reads on its green path Ran 113 checks, 1 failed 
+topo_script restored
+  FAILED   C  test_ndt_ovs_topo_script.sh prints a summary this scorer reads on its green path
+test_l1_shell_scoring # rc=0 |   ok       W  the FAIL-SKIP arm increments FAILURES Ran 113 checks, 0 failed 
+test_gate_exit_code_not_tee # rc=0 | 
+test_ndt_sudo_surface # rc=0 | Ran 33 checks, 0 failed 
+test_apps_stop_kills_the_group # rc=0 |   ok       🔴 a stop that killed nothing returns 1 Ran 72 checks, 0 failed 
+test_cell_gate_suspect_wiring # rc=0 | 
+test_lab_handoff # rc=0 | Ran 19 checks, all passed 
+test_ndt_app_orphans # rc=0 | Ran 104 checks, all passed 
+test_ndt_honesty # rc=0 | Ran 346 checks, 0 failed 
+test_ndt_sample_rate_reads_both_bounds # rc=0 | Ran 7 checks, 0 failed 
+mutate_l1_shell_scoring # rc=0 | === mutations: group C's readings, each broken in the suite's own reader (group R must see it) === ===== 36 mutation(s): 36 killed, 0 survived ===== 
+mutate_gate_exit_code # rc=0 | mutations: 6 mutations, 0 survived 
+mutate_probe_stubs # rc=0 | mutations (one allow-list entry out of one suite; the red must name it): 14 mutation(s), 0 survivor(s) 
+mutate_ndt_sudo_surface # rc=0 | Ran 33 checks, 0 failed mutation gate: 14 mutations, 0 survived 
+check_gate_anchors # rc=0 | 121/121 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL) 
+tripwire lines: 0
+tracked tree clean after the gates
+RERUN-QUEUED-DONE

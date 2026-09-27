@@ -1,0 +1,8 @@
+# PREDICTION for CI on 7746832e (protobuf 5 merge 5dc7fc9a + migration record), written 2026-09-27T16:20:53+08:00,
+# BEFORE runs 36305829213 / 36305829193 completed (both in_progress at the time of writing).
+1. "Install Python test dependencies" (ci.yml, Python 3.12): pip install -r p4_proxy/requirements.txt, then
+   regen_p4runtime_pb2.py -- succeeds (offline CI-shaped run of set C on 3.12.3 had 0 of 41 P4-lane files fail with it).
+2. GCC job L1: 12 problem groups, failure lines identical to d9308f61's (36303713298) -- the pb5 judge's acceptance
+   form: no P4-lane file newly red (per-file compare to 36220555111 as well).
+3. If the install step fails, the P4 lane's 41 files would die at import (22/41 without regen offline) -- that would
+   show as a changed group count, not as the same 12.

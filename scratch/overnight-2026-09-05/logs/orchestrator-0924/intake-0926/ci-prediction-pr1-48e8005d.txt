@@ -1,0 +1,10 @@
+# written BEFORE pushing pr/shell-test-scoring (48e8005d, tree c8bf95a4 = trunk 4ff4eee8) and before trunk 3d740be0's CI finished
+# 2026-09-27 23:3x CST
+- ASan + UBSan: success (no C++ change since f186ce98).
+- clang can compile it: failure, same diagnostics as run 36319541715 (no C++ change).
+- TSan: failure, same race as run 36319541715 (no C++ change).
+- Build and unit tests (GCC): failure; the FAILED set is line-identical to ci-36319541715-gcc.failed.txt (12 groups).
+  Risk named in advance: 4ff4eee8 edits test_cell_gate_suspect_wiring.sh, test_gate_exit_code_not_tee.sh,
+  test_ndt_honesty.sh and test_l1_shell_scoring.sh; the first two are among the 12 (undeclared skips). If their
+  skip path changed, the set moves; any difference is investigated before squash.
+- trunk 3d740be0 (tree = c8bf95a4 + CLAUDE.md) predicts the same as the PR.

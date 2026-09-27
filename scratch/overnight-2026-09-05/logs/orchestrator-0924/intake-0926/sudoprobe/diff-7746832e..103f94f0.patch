@@ -1,0 +1,240 @@
+diff --git a/tests/shell/mutate_ndt_sudo_surface.sh b/tests/shell/mutate_ndt_sudo_surface.sh
+index a4619378..56019da1 100755
+--- a/tests/shell/mutate_ndt_sudo_surface.sh
++++ b/tests/shell/mutate_ndt_sudo_surface.sh
+@@ -150,6 +150,45 @@ m=$(mutant m10 "$NDT" \
+ report "M10: cmd_status --check stops reading the sudo table" "$m" \
+        "cmd_status --check reads ndt_sudo_report"
+ 
++# --- the words: what ndt_sudo_probe does with a "sudo:" line it does not know ----------------------
++# [Co-developed with claude code -- Adam] (2026-09-27, fix/sudo-probe-unknown-0927) each part of the
++# rule taken out once; each must turn the case that holds that part red, by name.
++m=$(mutant s1 "$SURFACE" \
++    '    ndt_sudo_unread && return 2' \
++    '    : ndt_sudo_unread')
++report "S1: an unknown sudo: line falls through to 'granted' again" "$m" \
++       "probe: an unknown sudo: line (PAM) is 2, could not tell -- not granted"
++m=$(mutant s2 "$SURFACE" \
++    '        [[ "$line" == "sudo:"* ]] || continue' \
++    '        [[ -n "$line" ]] || continue')
++report "S2 (control): any stderr line counts, so the program's own failure is 'could not tell'" "$m" \
++       "control, probe: rc!=0 with no sudo: line (ovsdb down, ovs-vsctl's own words) is 0, granted"
++m=$(mutant s3 "$SURFACE" \
++    '        *"you must have a tty"*)' \
++    '        *"NEVER-MATCHES-tty"*)')
++report "S3: requiretty's wording is not a known refusal" "$m" \
++       "probe: requiretty ('sorry, you must have a tty to run sudo') is 1, refused"
++m=$(mutant s4 "$SURFACE" \
++    'NDT_SUDO_WARNINGS=("unable to resolve host" "setrlimit(RLIMIT_CORE)")' \
++    'NDT_SUDO_WARNINGS=("setrlimit(RLIMIT_CORE)")')
++report "S4 (control): 'unable to resolve host' dropped from the warning list" "$m" \
++       "control, probe: warning 'unable to resolve host' + ovsdb down is 0, granted"
++m=$(mutant s5 "$SURFACE" \
++    'NDT_SUDO_WARNINGS=("unable to resolve host" "setrlimit(RLIMIT_CORE)")' \
++    'NDT_SUDO_WARNINGS=("unable to resolve host")')
++report "S5 (control): 'setrlimit(RLIMIT_CORE)' dropped from the warning list" "$m" \
++       "control, probe: warning 'setrlimit(RLIMIT_CORE)' + ovsdb down is 0, granted"
++m=$(mutant s6 "$SURFACE" \
++    '        (( warn )) && continue' \
++    '        (( warn )) && return 1')
++report "S6: a warning hides every sudo: line after it, a refusal included" "$m" \
++       "probe: a warning AND an unknown sudo: refusal together is 2 -- the list hides only itself"
++m=$(mutant s7 "$SURFACE" \
++    '               if [[ -n "$NDT_SUDO_UNREAD" ]]; then' \
++    '               if false; then')
++report "S7: the report says 'no sudo, or not installed' when sudo said something else" "$m" \
++       "report: an unknown sudo: line is rc 2, 'could NOT be tested', and quotes what sudo said"
++
+ # --- 🔴 the other direction: refuse-everything, in four shapes -------------------------------------
+ # Every one of these passes all ten mutations above. They are caught only by the controls, and
+ # without them this gate would sign off on an `ndt` that can never bring a fabric up at all.
+diff --git a/tests/shell/test_ndt_sudo_surface.sh b/tests/shell/test_ndt_sudo_surface.sh
+index dab95294..0aed5707 100755
+--- a/tests/shell/test_ndt_sudo_surface.sh
++++ b/tests/shell/test_ndt_sudo_surface.sh
+@@ -46,12 +46,17 @@ trap 'rm -rf "$BIN"' EXIT
+ # `sudo` refuses the binaries named in FAKE_SUDO_DENY with sudo's own measured wording, and
+ # otherwise runs them. Everything downstream therefore sees a real exit status and a real
+ # stderr rather than a value the test chose for it.
++# [Co-developed with claude code -- Adam] (09-27) FAKE_SUDO_SAY replaces that wording (set but empty:
++# a refusal that prints nothing), and FAKE_SUDO_WARN is a line sudo prints on stderr BEFORE it
++# refuses or runs -- its non-fatal warnings, e.g. "unable to resolve host".
+ cat >"$BIN/sudo" <<'FAKE'
+ #!/usr/bin/env bash
+ [[ "${1:-}" == "-n" ]] && shift
+ base="${1##*/}"
++[[ -n "${FAKE_SUDO_WARN:-}" ]] && printf '%s\n' "$FAKE_SUDO_WARN" >&2
+ case " ${FAKE_SUDO_DENY:-} " in
+-    *" $base "*) echo "sudo: a password is required" >&2; exit 1 ;;
++    *" $base "*) [[ -n "${FAKE_SUDO_SAY-x}" ]] && printf '%s\n' "${FAKE_SUDO_SAY-sudo: a password is required}" >&2
++                 exit 1 ;;
+ esac
+ exec "$@"
+ FAKE
+@@ -233,6 +238,72 @@ out="$(in_ndt "host_pid() { return 1; }; dataplane_ok h1 10.0.0.2; echo \"rc=\$?
+ check "no namespace is still its own reason, not folded into the sudo one" \
+       "rc=2 why=[no namespace for h1]" "$out"
+ 
++echo "the probe: what sudo's own words decide (ndt_sudo_probe -> the 'sudo grants' line of ndt status)"
++
++# [Co-developed with claude code -- Adam] (2026-09-27, fix/sudo-probe-unknown-0927) ndt_sudo_probe
++# reads a probe that exits non-zero by its stderr: a refusal ndt_sudo_refused knows is 1; a "sudo:"
++# line that is neither a known refusal nor a known non-fatal warning is 2, could not tell; no
++# "sudo:" line at all is the program's own failure, 0 (granted). Until this date every wording it
++# did not know was 0 -- a refusal reported as a live grant. The ovs-vsctl row is probed (its
++# program is the fake here, so no case depends on what this machine has installed).
++probe_rc() {   # probe_rc VAR=value... -> ndt_sudo_probe ovs-vsctl's rc, and the line it could not read
++    env "$@" bash -c 'source "$1" >/dev/null 2>&1; ndt_sudo_probe ovs-vsctl >/dev/null 2>&1; echo "rc=$? unread=[$NDT_SUDO_UNREAD]"' _ "$SURFACE"
++}
++W_HOST="sudo: unable to resolve host lab-7: Name or service not known"
++W_CORE="sudo: setrlimit(RLIMIT_CORE): Operation not permitted"
++# Assert the injection before the response to it: the fake must really print what each case says.
++inj="$(FAKE_SUDO_DENY=ovs-vsctl FAKE_SUDO_WARN="$W_HOST" FAKE_SUDO_SAY="sudo: PAM account management error: x" sudo -n ovs-vsctl list-br 2>&1)"
++[[ "$inj" == "$W_HOST"$'\n'"sudo: PAM account management error: x" ]] \
++    && t_ok  "injection took effect: the fake prints the warning, then the refusal it is given" \
++    || t_bad "injection took effect: the fake prints the warning, then the refusal it is given" "[$inj]"
++
++check "probe: a refusal ndt_sudo_refused knows ('a password is required') is 1, refused" \
++      "rc=1 unread=[]" "$(probe_rc FAKE_SUDO_DENY=ovs-vsctl)"
++check "probe: requiretty ('sorry, you must have a tty to run sudo') is 1, refused" \
++      "rc=1 unread=[]" "$(probe_rc FAKE_SUDO_DENY=ovs-vsctl FAKE_SUDO_SAY='sudo: sorry, you must have a tty to run sudo')"
++check "probe: an unknown sudo: line (PAM) is 2, could not tell -- not granted" \
++      "rc=2 unread=[sudo: PAM account management error: Authentication service cannot retrieve authentication info]" \
++      "$(probe_rc FAKE_SUDO_DENY=ovs-vsctl FAKE_SUDO_SAY='sudo: PAM account management error: Authentication service cannot retrieve authentication info')"
++check "probe: secure_path's 'sudo: <cmd>: command not found' is 2, could not tell" \
++      "rc=2 unread=[sudo: ovs-vsctl: command not found]" \
++      "$(probe_rc FAKE_SUDO_DENY=ovs-vsctl FAKE_SUDO_SAY='sudo: ovs-vsctl: command not found')"
++check "probe: the gates' nolab shim wording is 2, could not tell (it was read as granted)" \
++      "rc=2 unread=[sudo: refused by the nolab shim (a lab command)]" \
++      "$(probe_rc FAKE_SUDO_DENY=ovs-vsctl FAKE_SUDO_SAY='sudo: refused by the nolab shim (a lab command)')"
++# 🔴 controls: the program's own failure is still a live grant, or a machine with sudo granted and
++# ovsdb stopped would lose its green `ndt status --check` to this change.
++check "control, probe: rc!=0 with no sudo: line (ovsdb down, ovs-vsctl's own words) is 0, granted" \
++      "rc=0 unread=[]" "$(probe_rc FAKE_OVSDB_DOWN=1)"
++check "control, probe: the grant is live and the probe succeeds -- 0" \
++      "rc=0 unread=[]" "$(probe_rc FAKE_BRIDGES=s1)"
++check "control, probe: a refusal that prints nothing is read as granted -- the rule's known limit" \
++      "rc=0 unread=[]" "$(probe_rc FAKE_SUDO_DENY=ovs-vsctl FAKE_SUDO_SAY=)"
++# the non-fatal warning list: each entry, with the program's own failure behind it, is still 0 ...
++check "control, probe: warning 'unable to resolve host' + ovsdb down is 0, granted" \
++      "rc=0 unread=[]" "$(probe_rc FAKE_SUDO_WARN="$W_HOST" FAKE_OVSDB_DOWN=1)"
++check "control, probe: warning 'setrlimit(RLIMIT_CORE)' + ovsdb down is 0, granted" \
++      "rc=0 unread=[]" "$(probe_rc FAKE_SUDO_WARN="$W_CORE" FAKE_OVSDB_DOWN=1)"
++# ... and the list cannot hide a refusal standing next to it
++check "probe: a warning AND an unknown sudo: refusal together is 2 -- the list hides only itself" \
++      "rc=2 unread=[sudo: refused by the nolab shim (a lab command)]" \
++      "$(probe_rc FAKE_SUDO_WARN="$W_HOST" FAKE_SUDO_DENY=ovs-vsctl FAKE_SUDO_SAY='sudo: refused by the nolab shim (a lab command)')"
++check "probe: a warning AND a known refusal is 1, refused" \
++      "rc=1 unread=[]" "$(probe_rc FAKE_SUDO_WARN="$W_CORE" FAKE_SUDO_DENY=ovs-vsctl)"
++
++# ndt_sudo_report -- what `ndt status` prints and returns -- over the ovs-vsctl row alone, so no
++# case asks this machine's /usr/local/sbin/ndtwin-lab anything.
++report_of() {   # report_of VAR=value... -> "rc=N <its line>"
++    env "$@" bash -c 'source "$1" >/dev/null 2>&1; NDT_SUDO_TABLE="$(ndt_sudo_rows ovs-vsctl)"
++                      out="$(ndt_sudo_report)"; echo "rc=$? $(head -1 <<<"$out")"' _ "$SURFACE"
++}
++check "report: an unknown sudo: line is rc 2, 'could NOT be tested', and quotes what sudo said" \
++      'rc=2 sudo: ovs-vsctl  could NOT be tested: sudo answered "sudo: refused by the nolab shim (a lab command)", which ndt cannot read as granted or refused -- not a pass' \
++      "$(report_of FAKE_SUDO_DENY=ovs-vsctl FAKE_SUDO_SAY='sudo: refused by the nolab shim (a lab command)')"
++check "control, report: a known refusal is still rc 1, REFUSED" \
++      "rc=1 sudo: ovs-vsctl  REFUSED -- ovs-vsctl list-br" "$(report_of FAKE_SUDO_DENY=ovs-vsctl)"
++check "control, report: ovsdb down behind a warning is still rc 0, granted" \
++      "rc=0 sudo: ovs-vsctl  granted" "$(report_of FAKE_SUDO_WARN="$W_HOST" FAKE_OVSDB_DOWN=1)"
++
+ echo "the wiring: the callers read the table rather than keeping a copy"
+ 
+ # up_p4 must take its verdict from guard_no_live_ovs. Everything the function touches before
+diff --git a/tools/test_workflow/sudo_surface.sh b/tools/test_workflow/sudo_surface.sh
+index 53e1899e..a495d4d4 100644
+--- a/tools/test_workflow/sudo_surface.sh
++++ b/tools/test_workflow/sudo_surface.sh
+@@ -149,10 +149,44 @@ ndt_sudo_refused() {
+         *"no tty present and no askpass program"*)        return 0 ;;
+         *"is not allowed to execute"*)                    return 0 ;;
+         *"sudo: command not found"*)                      return 0 ;;
++        *"you must have a tty"*)                          return 0 ;;   # requiretty (09-27)
+         *) return 1 ;;
+     esac
+ }
+ 
++# [Co-developed with claude code -- Adam] (2026-09-27, fix/sudo-probe-unknown-0927)
++# sudo's own NON-FATAL warnings. sudo prints these on stderr and then RUNS the command, so a
++# "sudo:" line that is one of them says nothing about whether the grant is live. An explicit list,
++# not a pattern (the orchestrator's ruling, 09-27): a pattern broad enough to catch the next warning
++# is broad enough to swallow the next refusal.
++#   unable to resolve host   the machine's own hostname is missing from /etc/hosts
++#   setrlimit(RLIMIT_CORE)   containers, and hosts whose core-dump rlimit sudo may not raise
++NDT_SUDO_WARNINGS=("unable to resolve host" "setrlimit(RLIMIT_CORE)")
++NDT_SUDO_UNREAD=""
++
++# ndt_sudo_unread -- did the last ndt_sudo_capture's sudo say something ON ITS OWN ACCOUNT -- a
++# stderr line that starts with "sudo:" and is not one of NDT_SUDO_WARNINGS -- that
++# ndt_sudo_refused does not know? Sets NDT_SUDO_UNREAD to the first such line. Examples:
++# "sudo: PAM account management error: ...", "sudo: mnexec: command not found" (secure_path),
++# and the gates' own nolab shim, "sudo: refused by the nolab shim (a lab command)". A command
++# that ran and failed speaks in its own name ("ovs-vsctl: ... database connection failed"), not
++# in sudo's, so it is not caught here.
++ndt_sudo_unread() {
++    local line w warn
++    NDT_SUDO_UNREAD=""
++    while IFS= read -r line; do
++        [[ "$line" == "sudo:"* ]] || continue
++        warn=0
++        for w in "${NDT_SUDO_WARNINGS[@]}"; do
++            [[ "$line" == *"$w"* ]] && { warn=1; break; }
++        done
++        (( warn )) && continue
++        NDT_SUDO_UNREAD="$line"
++        return 0
++    done <<<"$NDT_SUDO_STDERR"
++    return 1
++}
++
+ # ndt_sudo_explain <key> -- the two lines an error message owes the reader when a grant is
+ # missing: what it costs, and the exact line that fixes it. Printed by the caller that could
+ # not get its answer, next to the refusal itself.
+@@ -168,9 +202,19 @@ ndt_sudo_explain() {
+ # ndt_sudo_probe <key> -- run this row's harmless probe.
+ #   0 the grant is live
+ #   1 sudo refused it
+-#   2 could not tell (no sudo, or the program is not installed on this machine)
++#   2 could not tell: no sudo, the program is not installed on this machine, or sudo said
++#     something on its own account that ndt_sudo_refused cannot read (NDT_SUDO_UNREAD holds it)
++# [Co-developed with claude code -- Adam] (2026-09-27, fix/sudo-probe-unknown-0927) A probe that
++# exits non-zero is ambiguous -- sudo refused, or sudo ran it and it failed (ovs-vsctl with no ovsdb
++# to talk to) -- and until this date every wording ndt_sudo_refused did not know was read as the
++# second, i.e. as GRANTED: requiretty, PAM, secure_path's "command not found", and the gates'
++# nolab shim all made `ndt status` print a live grant. Now a "sudo:" line that is neither a
++# known refusal nor a known warning is "could not tell" (2). What is still read as granted: a
++# non-zero exit with no "sudo:" line at all -- the program's own failure, and equally a refusal
++# that prints nothing (a silent shim); from stderr the two cannot be told apart.
+ ndt_sudo_probe() {
+     local key="$1" probe bin
++    NDT_SUDO_UNREAD=""
+     probe="$(ndt_sudo_field "$key" 2)" || return 2
+     bin="${probe%% *}"
+     command -v sudo >/dev/null 2>&1 || return 2
+@@ -178,6 +222,7 @@ ndt_sudo_probe() {
+     # shellcheck disable=SC2086
+     ndt_sudo_capture $probe >/dev/null && return 0
+     ndt_sudo_refused && return 1
++    ndt_sudo_unread && return 2
+     # The command ran and failed on its own account -- the grant is live.
+     return 0
+ }
+@@ -197,8 +242,13 @@ ndt_sudo_report() {
+                printf 'sudo: %-10s REFUSED -- %s\n' "$key" "$(ndt_sudo_field "$key" 2)"
+                ndt_sudo_explain "$key" ;;
+             *) blind=1
+-               printf 'sudo: %-10s could NOT be tested on this machine (no sudo, or %s is not installed) -- not a pass\n' \
+-                      "$key" "$(ndt_sudo_field "$key" 3)" ;;
++               if [[ -n "$NDT_SUDO_UNREAD" ]]; then
++                   printf 'sudo: %-10s could NOT be tested: sudo answered "%s", which ndt cannot read as granted or refused -- not a pass\n' \
++                          "$key" "$NDT_SUDO_UNREAD"
++               else
++                   printf 'sudo: %-10s could NOT be tested on this machine (no sudo, or %s is not installed) -- not a pass\n' \
++                          "$key" "$(ndt_sudo_field "$key" 3)"
++               fi ;;
+         esac
+     done < <(ndt_sudo_rows all)
+     (( rc == 1 )) && return 1

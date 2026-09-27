@@ -1,0 +1,30 @@
+bdcf64b8fc48851f87b5390081432e13ee962a76
+# 2026-09-27T06:03:28Z cmd bash tests/shell/mutate_build_guard.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_build_guard.sh
+baseline (both suites must be green before any mutation):
+  Ran 37 checks, 0 failed
+  Ran 15 checks, 0 failed
+
+  caught   M1: cmake ignores a glued -j14                             (-j14 glued becomes -j2 went red)
+  caught   M2: cmake stops eating the separate -j value               (-j 14 as a separate argv went red)
+  caught   M3: cmake --build gets no -j when the caller passed none   (no -j at all still gets one went red)
+  caught   M4: bare ninja is left at its own default (nproc+2)        (bare ninja gets a cap went red)
+  caught   M5: make stops capping an explicit -j                      (-j14 becomes -j2 went red)
+  caught   M6: SHIM_JOBS trusted as given (0 becomes 'unlimited')     (🔴 SHIM_JOBS=0 falls back to 2 went red)
+  caught   M7: the resolver goes back to a LOGICAL pwd                (shim dir reached by a symlink too went red)
+  caught   M8: a tool that points back at the shim is accepted        (a real tool that points back at the shim is refused went red)
+  caught   M9 (widening): cmake caps a configure too                  (cmake -S . -B build is untouched went red)
+  caught   M10 (widening): make forces -j onto a deliberately serial build (🔴 a serial make is left serial went red)
+  caught   M11: the guard forgets it already holds the lock           (nested same-lock guard exits 0 went red)
+  caught   M12 (widening): ANY nesting counts as holding the lock     (an inner guard on a lock SOMEONE ELSE holds still gives up (rc 2) went red)
+  caught   M13: the nested layer opens a second scope anyway          (🔴 systemd-run was called ONCE, by the outer layer went red)
+  caught   M14: a ':' in the lock path splits the held list silently  (LOCK containing ':' is rc 2 went red)
+  caught   M15: no command at all is run, not refused                 (no command at all is refused went red)
+  caught   M16: guarded_build's default JOBS is 3, not 2              (it puts the shims on PATH for the wrapped command went red)
+  caught   M17: a shim's default -j is 3, not 2                       (-j14 glued becomes -j2 went red)
+
+baseline byte-identical: yes (whole tools/build_guard tree)
+mutation gate: 17 mutations, 0 survived
+guarded_build: exit 0
+# rc=0

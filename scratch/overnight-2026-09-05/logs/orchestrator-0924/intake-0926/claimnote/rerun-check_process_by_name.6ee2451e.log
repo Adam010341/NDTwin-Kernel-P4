@@ -1,0 +1,6 @@
+6ee2451e81098ad08cfe77ea1ab250260b5e94b7
+# 2026-09-27T15:24:28Z TMPDIR=/home/adam/.cache/cn-s (22) cmd python3 tests/shell/check_process_by_name.py tests/python/test_ndt_serve.py
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ python3 tests/shell/check_process_by_name.py tests/python/test_ndt_serve.py
+guarded_build: exit 0
+# rc=0

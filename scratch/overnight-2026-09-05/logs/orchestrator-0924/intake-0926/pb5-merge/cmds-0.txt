@@ -1,0 +1,2 @@
+export NDT_OWNER=p4-venv-migration NDT_MEASURING='p4_proxy venv migration: no runs, no gates'; [ -z "${LOCK:-}${TIMEOUT:-}" ] || echo "WARNING: LOCK='${LOCK:-}' TIMEOUT='${TIMEOUT:-}' are set: the guard uses them (another lock file locks nothing; TIMEOUT kills the shell) -- unset them unless you mean it"
+tools/test_workflow/ndt claim 90 'p4_proxy venv migration' && JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash -i

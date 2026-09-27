@@ -1,0 +1,14 @@
+b5f146240ede11ec7c8c072a57dc6a29edbc3529 -> d6c4602edbe1f6d0579955731b5da75988c5932c protobuf 5.29.6 for the P4 proxy, with p4runtime's generated modules r
+98e9f873e79855e9f30c39bc25e6a85c278bb650 -> 63f70958b9aa6a94f63228d568f7cd1da30847d5 protobuf 5 for the P4 proxy after its live trial: say what was run and
+ac8f0f3fc8edf1a936b6af74431fa425ec0a5b4a -> a8a65ae3631610f3ab692027edcf6a066f73af17 p4_proxy venv upgrade procedure: park the old venv outside the checkou
+958bec1cb03551df3da7fbbb2ce8f5f1b58962e8 -> 41ae2ff4d3d81bf00f09a1a58f64f923a8b10961 p4_proxy/requirements.txt: a wrapped line in the rollback paragraph be
+8f10b203f278fec2544ad27f77a9d173f47239da -> f7e286869ac107d67892985ed96e5f2c82f5b3b7 p4_proxy venv procedure, step 3: name the proxy tests as modules and g
+08483aa59ca598642af6b256acdbc787c3711b95 -> d9bc74834562b427e935d8d0a9a98227c1374950 ci.yml: say what the missing regen step actually does to the P4 lane
+bc1860c8ee7ac2b9f64863f1184b0af9113d3ce2 -> 341ec4e2e7f5c929a87935c97d3440b09d2c6346 p4_proxy/requirements.txt: record the offline run of this file's exact
+6351be151e452ee83c4f9de58c22cebe7348f7ec -> 9e7febbc111f1104306d33eb18e037febb1f4612 p4_proxy/requirements.txt: the CI-shaped lane run was local, not on Gi
+94a1ccb923005931034ac01d7b202736d2bd1eb9 -> 588277fbbe5f3ee365c9bf30e790615d57e04646 p4_proxy venv procedure after review (judge READY AFTER FIXES on 6351b
+dc2dc80a401092db31457c9a9ecd8f5f9ecf4989 -> 2543b281cfc216cd4ed6dd1dd2b6dc32445ec590 p4_proxy venv procedure: suites() removes the empty HOME it makes for 
+d2e4708a2013b857aa16f882b251bf557d8d534e -> 90b19cbcf348f8fc956d249240cb952e8efea133 p4_proxy venv procedure: a failed park no longer reports a move that d
+5bb5f1fa8591151faea71217f6df8de81ce22e9d -> ab026ef04e17bdbe36c94dea9f6b61f2635e682a p4_proxy venv procedure, after the re-review of d2e4708a: the claim is
+tree identical: 690865964021f03fa98d4c79c2859aa7a5df7012
+branch fix/p4proxy-protobuf5-0927 = ab026ef04e17bdbe36c94dea9f6b61f2635e682a

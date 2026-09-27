@@ -1,0 +1,16 @@
+d09a4f1703fd67e97afe85888ed414e00d2a9812
+# 2026-09-27T10:55:18Z cmd python3 tests/browser/test_ndt_serve_page.py
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ python3 tests/browser/test_ndt_serve_page.py
+test_a_url_without_a_key_opens_nothing (__main__.PageSession.test_a_url_without_a_key_opens_nothing) ... ok
+test_a_used_key_opens_nothing (__main__.PageSession.test_a_used_key_opens_nothing) ... ok
+test_loading_the_page_writes_nothing (__main__.PageSession.test_loading_the_page_writes_nothing) ... ok
+test_the_key_leaves_the_address_bar_and_is_traded (__main__.PageSession.test_the_key_leaves_the_address_bar_and_is_traded) ... ok
+test_the_token_is_only_in_memory (__main__.PageSession.test_the_token_is_only_in_memory) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 5.649s
+
+OK
+guarded_build: exit 0
+# rc=0

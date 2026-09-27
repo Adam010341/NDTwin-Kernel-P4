@@ -1,0 +1,3 @@
+# written BEFORE pushing pr/claude-md-rules (a5bfd28286a35a55f27b84eb7b448cf80412c622), 2026-09-27T23:45:38+08:00
+CLAUDE.md only (+13 lines, no code). Every job identical to PR #6 runs 36329482388/36329490324:
+ASan+UBSan pass; clang fail; TSan fail; GCC fail with the same 29 FAILED lines as ci-36319541715-gcc.failed.txt.

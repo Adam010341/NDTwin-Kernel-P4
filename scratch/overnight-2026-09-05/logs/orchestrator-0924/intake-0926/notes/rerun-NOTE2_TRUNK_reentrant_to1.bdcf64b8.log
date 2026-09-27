@@ -1,0 +1,41 @@
+bdcf64b8fc48851f87b5390081432e13ee962a76
+# 2026-09-27T06:00:40Z cmd env TIMEOUT=1 bash tests/shell/.redfirst-notes-reentrant.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env TIMEOUT=1 bash tests/shell/.redfirst-notes-reentrant.sh
+
+(a) the nested call must not wait for a lock this tree already holds
+  ok       nested same-lock guard exits 0
+  ok       and it took 0s, not the whole LOCK_WAIT=3
+  ok       and it never printed 'giving up'
+  ok       and the log says the nesting happened, not nothing
+
+(b) two INDEPENDENT outer guards on one lock are still mutually exclusive
+  ok       the second one still gets in, eventually
+  FAILED   🔴 and it WAITED (0s, needs >=2)
+
+(c) the nested command's exit code is the answer
+  ok       a nested guard around `false` is rc 1, not rc 0 and not rc 2
+
+🔴 (d) nesting does NOT switch locking off -- a DIFFERENT lock is still contended
+  FAILED   an inner guard on a lock SOMEONE ELSE holds still gives up (rc 2)
+             expected: 2
+             actual:   0
+
+🔴 (e) the outer lock is still remembered after an inner one is taken (A-B-A)
+  ok       A(outer) -> B -> A(inner) exits 0
+  ok       and did not wait out LOCK_WAIT (0s, needs <3)
+
+(f) a lock path that would corrupt the held-lock list is refused, not accepted
+  ok       LOCK containing ':' is rc 2
+
+(g) the nested call re-uses the outer cgroup scope instead of opening a second one
+  ok       the nested pair exits 0 with the cgroup guard on
+  ok       🔴 systemd-run was called ONCE, by the outer layer
+
+(h) the nested call still gets the shims and its own JOBS
+  ok       the inner layer's own JOBS reaches the shims
+  ok       and the shim dir is still the first thing on PATH
+
+Ran 15 checks, 2 failed
+guarded_build: exit 1
+# rc=1

@@ -1,0 +1,5 @@
+test_ndt_sudo_surface # rc=0 |   ok       control, no topo session: the guard does not ask and PASSES Ran 51 checks, 0 failed 
+test_ndt_honesty # rc=0 | Ran 346 checks, 0 failed 
+test_l1_shell_scoring # rc=0 |   ok       R16   `echo ...; if (( FAIL )); then exit 1; fi`: an exit inside a later if is conditional (B) Ran 113 checks, 0 failed 
+check_test_tmpdirs # rc=0 | 
+# 2026-09-28T00:41:02+08:00 ABORTED by the orchestrator: re-review MERGE AFTER FIXES (F1-F3), head will change

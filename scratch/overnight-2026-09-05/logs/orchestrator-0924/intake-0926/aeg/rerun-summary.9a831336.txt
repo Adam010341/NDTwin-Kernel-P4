@@ -1,0 +1,3 @@
+test_live_p1_common # rc=0 |   ok       🔴 with a failure, the last line is still the FAIL Ran 184 checks, 0 failed 
+test_live_p1_thirteen # rc=0 |   ok       🔴 a FAIL that merely mentions RED ARM is still a failure Ran 42 checks, 0 failed 
+# 2026-09-27T23:54:10+08:00 ABORTED by the orchestrator: judge MERGE AFTER FIXES, the head will change; rerun on the new head

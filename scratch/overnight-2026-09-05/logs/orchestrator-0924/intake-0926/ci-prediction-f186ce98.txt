@@ -1,0 +1,6 @@
+# CI prediction for f186ce98 (GUI merge), written BEFORE the push, 2026-09-27
+- Install step succeeds as on 7746832e (no requirements change).
+- L1 failure lines identical to 7746832e (12 groups): the GUI adds tests/python/test_ndt_serve_gui.py (40, lab-free) which should PASS on CI's Python;
+  tests/browser/ is not globbed by L1 and the page suite skips outside the guard.
+- test_ndt_serve.py: 74 OK expected; the TMPDIR-length defect of test_claim_note_reaches_ndt_as_one_argv_element could redden it if CI's TMPDIR is long
+  (it was green on public CI at 73 cases before; if it goes red, that is this known defect, not a regression -- to be checked by reading the failure line).

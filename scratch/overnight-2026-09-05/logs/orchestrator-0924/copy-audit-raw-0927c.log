@@ -1,1 +1,11 @@
 == orchestrator-0924 (minus the two housekeeping logs and pid files)
+== worker summaries
+   scratch/overnight-2026-09-05/hunt-0911/fix/LIVE-P1-COMMON-NOLAB-SUMMARY.md                           16K
+   scratch/overnight-2026-09-05/hunt-0911/fix/P4-HB-FOLLOWUPS-R3-SUMMARY.md                             12K
+   scratch/overnight-2026-09-05/hunt-0911/fix/SUITES-UNDER-GATE-ENV-SUMMARY.md                          12K
+   scratch/overnight-2026-09-05/hunt-0911/fix/PROBE-SUITES-STUB-SUMMARY.md                              16K
+   scratch/overnight-2026-09-05/hunt-0911/fix/STALE-SUITES-SUMMARY.md                                   28K
+== gate logs, scripts and kept outputs (lp1cnolab-be2ad2d2, p4hbr3, sgenv, pstub*, stale*, diag_b*, probe_report_a*, predict_ci*, nolab_sweep_all raw)
+   208 entr(ies)
+== pyc check: 0 (want 0)
+== audit-raw would commit 1172 path(s); disk free 6.7G

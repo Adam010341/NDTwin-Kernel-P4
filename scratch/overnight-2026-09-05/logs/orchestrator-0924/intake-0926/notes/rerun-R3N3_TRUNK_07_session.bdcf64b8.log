@@ -1,0 +1,11 @@
+bdcf64b8fc48851f87b5390081432e13ee962a76
+# 2026-09-27T05:57:00Z cmd bash /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp-notes/sess07.sh doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/.redfirst-notes-07.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp-notes/sess07.sh doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/.redfirst-notes-07.sh
+self-test rc=0 last: SELF-TEST PASS
+SESSION 1712259 left at exit: 2
+  1712259 1712718 bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/.redfirst-notes-07.sh --self-test
+  1712259 1712819 sleep 2
+SESSION 1712259 left 30 s later: 0
+guarded_build: exit 0
+# rc=0

@@ -1,0 +1,3 @@
+# PR #8 runs 36331172122 / 36331169426: GCC 29 lines IDENTICAL to f186ce98; clang/TSan fail; ASan pass => prediction met
+f9be5842ed48c42ec3bba048179b39b0a254417e	refs/heads/main
+INVARIANT HOLDS

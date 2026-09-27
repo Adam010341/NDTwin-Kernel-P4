@@ -1,0 +1,9 @@
+# CI compare f186ce98 (run 36319541715) vs 7746832e (run 36305829213), written after the run; prediction in ci-prediction-f186ce98.txt was written before the push
+jobs:
+108620581797 TSan completed failure
+108620581833 ASan + UBSan completed success
+108620581909 Build and unit tests (GCC) completed failure
+108620581946 clang can compile it completed failure
+GCC: L1 FAILED (12 problem group(s)); failure lines (FAILED|FAIL:, timestamps stripped) diff vs 36305829213: EMPTY (diff rc 0)
+new suites on public CI: test_ndt_serve_gui.py PASS 40; test_ndt_serve.py PASS 74; test_ndt_serve_cells.py PASS 35
+PREDICTION MET.

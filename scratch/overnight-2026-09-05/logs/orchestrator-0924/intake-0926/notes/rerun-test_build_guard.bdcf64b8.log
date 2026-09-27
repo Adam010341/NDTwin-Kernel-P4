@@ -1,0 +1,59 @@
+bdcf64b8fc48851f87b5390081432e13ee962a76
+# 2026-09-27T06:01:55Z cmd bash tests/shell/test_build_guard.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/test_build_guard.sh
+
+the cmake shim caps --build, whatever spelling the caller used
+  ok       -j14 glued becomes -j2
+  ok       -j 14 as a separate argv
+  ok       --parallel 14
+  ok       --parallel=14
+  ok       no -j at all still gets one
+  ok       the target survives the rewrite
+
+🔴 and it must NOT fire on a configure -- capping that would break nothing but is a lie
+  ok       cmake -S . -B build is untouched
+  ok       cmake --version is untouched
+  ok       no -j is added to a configure
+
+the ninja shim -- an UNDECORATED ninja is the dangerous one (its default is nproc+2)
+  ok       bare ninja gets a cap
+  ok       -j14 becomes -j2
+  ok       -j 14 separate argv
+
+the make shim -- make is serial by default, so it caps only what asked for parallelism
+  ok       -j14 becomes -j2
+  ok       -j 14 separate argv
+  ok       --jobs=14
+  ok       🔴 a serial make is left serial
+
+SHIM_JOBS: the values that must NOT become 'unlimited'
+  ok       SHIM_JOBS=3 is honoured
+  ok       🔴 SHIM_JOBS=0 falls back to 2
+  ok       SHIM_JOBS=oops falls back to 2
+  ok       SHIM_JOBS=-4 falls back to 2
+  ok       SHIM_JOBS empty falls back to 2
+
+🔴 DoesNotResolveToItself -- the failure mode is a fork bomb, not a wrong answer
+  ok       shim dir listed twice
+  ok       shim dir reached by a symlink too
+  ok       no real tool anywhere -> rc 127, not a loop
+  ok       and it says which tool it could not find
+  ok       a real tool that points back at the shim is refused
+  ok       and it did not spin until the timeout
+  ok       a shim that can only find itself refuses, in bounded time
+  ok       and does not spin (timeout would have been 124)
+
+guarded_build.sh
+  ok       it puts the shims on PATH for the wrapped command
+  ok       JOBS reaches the shims
+  ok       🔴 the wrapped command's exit code comes back
+  ok       a bad JOBS is refused, not defaulted
+  ok       no command at all is refused
+  ok       🔴 a second build waits for the first (waited 3s, needs >=2)
+  ok       and it does not wait once the lock is free
+  ok       LOCK_WAIT exceeded is rc 2, not a silent parallel build
+
+Ran 37 checks, 0 failed
+guarded_build: exit 0
+# rc=0

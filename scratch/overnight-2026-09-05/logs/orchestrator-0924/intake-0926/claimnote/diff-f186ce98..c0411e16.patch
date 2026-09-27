@@ -1,0 +1,30 @@
+diff --git a/tests/python/test_ndt_serve.py b/tests/python/test_ndt_serve.py
+index 969f4a67..a58a2d59 100644
+--- a/tests/python/test_ndt_serve.py
++++ b/tests/python/test_ndt_serve.py
+@@ -613,12 +613,21 @@ class Whitelist(ServeCase):
+             other.close()
+ 
+     def test_claim_note_reaches_ndt_as_one_argv_element(self):
+-        m1, m2 = os.path.join(self.s.tmp, "m1"), os.path.join(self.s.tmp, "m2")
+-        note = '$(touch %s); `touch %s` && echo "q" | cat; *' % (m1, m2)
++        # [Co-developed with claude code -- Adam] The note is the same length whatever TMPDIR is. It
++        # used to carry two absolute paths under self.s.tmp, and under a TMPDIR of about 55
++        # characters or more it passed MAX_NOTE_CHARS (200): a 400, not this case (orchestrator
++        # 09-27, on b0cd6731: a 105-character TMPDIR red, 21 green). The names are relative now, so
++        # a shell that ran the note would make them in ITS cwd -- the job's, which is where the
++        # runner starts ndt (runner.py, cwd=req["cwd"]) and which lies inside the temp tree walked
++        # below.
++        note = '$(touch m1); `touch m2` && echo "q" | cat; *'
+         job = self.s.run_job("/claim", {"minutes": 25, "note": note})
+         self.assertEqual(job["argv"][1:], ["claim", "25", note])
+-        self.assertEqual(self.s.calls()[0]["argv"], ["claim", "25", note])
+-        self.assertFalse(os.path.exists(m1) or os.path.exists(m2), "the note was run by a shell")
++        call = self.s.calls()[0]
++        self.assertEqual(call["argv"], ["claim", "25", note])
++        self.assertTrue(os.path.realpath(call["cwd"]).startswith(os.path.realpath(self.s.tmp) + os.sep), call["cwd"])
++        made = [os.path.join(d, f) for d, _, files in os.walk(self.s.tmp) for f in files if f in ("m1", "m2")]
++        self.assertEqual(made, [], "the note was run by a shell")
+ 
+     def test_claim_note_with_a_newline_is_refused(self):
+         for note in ("x\nowner=evil", "tab\there", "nul\x00"):

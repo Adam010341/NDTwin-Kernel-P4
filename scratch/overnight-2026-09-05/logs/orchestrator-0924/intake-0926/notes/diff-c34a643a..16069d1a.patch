@@ -1,0 +1,227 @@
+diff --git a/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh
+index 30885f2c..ea1f6eb0 100755
+--- a/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh
++++ b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh
+@@ -603,28 +603,51 @@ PY
+     [[ "$got" == *"F L6: no switch_state"* ]] && ok "  no switch_state at all: a fail, not a pass" \
+                                             || red "  no switch_state at all -- $(tr '\n' '|' <<<"$got")"
+     # [Co-developed with claude code -- Adam] R-N2 (the opus judge, 09-27): the live path's poll is
+-    # 30 s whatever the environment says. The live call as the live path makes it -- l6_roles with
+-    # no argument -- with L1_POLL_S=2 (and SELFTEST_L1_POLL_S=2) in its environment, on a
+-    # switch_state that is never heard: 6.5 s in, it must still be polling (no judgement yet, more
+-    # than one read). An inherited 2 s would have judged it BAD by then.
+-    st_l6_inherited() {
+-        local px pid
+-        px="$(mktemp -d "$t/px-XXXXXX")"; mkdir -p "$px/p4"; cp "$t/state_grace.json" "$px/p4/switch_state"
+-        ( export L1_POLL_S=2 SELFTEST_L1_POLL_S=2
+-          RUN="$px"; PROXY_URL="file://$px"; PKG_ROLES="$t/pkg"
++    # 30 s whatever the environment says. R3-N3 / R3-N4 (the r3 opus judge, 09-27): it is now run to
++    # its END, on a clock this cell owns. state_until reads the time only through `date +%s` and
++    # waits only through `sleep`; st_l6_default puts a `date` and a `sleep` first on PATH that keep
++    # a virtual clock (`sleep N` adds N; `date +%s` reads it; every other `date` is the real one),
++    # calls l6_roles / l6_plain with NO argument -- as the live path does (phase B's l6_plain too) --
++    # on a switch_state that is never heard, and reports the reads the poll made and how long it
++    # ran by that clock. A 30 s poll, one read every 2 s, is exactly 16 reads over 30 s: the length
++    # is pinned, not only "longer than 6.5 s" (R3-N4: a 2 s or a 40 s default is red here, and
++    # before this cell nothing ran l6_plain's default at all). Nothing runs in the background, so
++    # nothing is left behind: the first version ran l6_roles in a background subshell for 6.5 real
++    # seconds and killed that subshell -- the poll loop runs in state_until's own $( ) child, which
++    # the kill never reached, and it went on polling after the self-test was done (R3-N3).
++    st_l6_default() {   # st_l6_default <roles|plain> [VAR=value...] -> "judged J reads R after S s"
++        local which="$1" px realdate; shift
++        px="$(mktemp -d "$t/px-XXXXXX")"; mkdir -p "$px/p4" "$px/bin"; cp "$t/state_grace.json" "$px/p4/switch_state"
++        realdate="$(type -P date)"; echo 1000000000 > "$px/clock"
++        # (a runaway -- a mutant's 3000 s -- ends 600 virtual seconds in: date then jumps far ahead)
++        printf '#!/bin/bash\nif [[ "$*" == "+%%s" ]]; then c=$(< %q); (( c > 1000000600 )) && c=9999999999; echo "$c"; exit 0; fi\nexec %q "$@"\n' \
++            "$px/clock" "$realdate" > "$px/bin/date"
++        printf '#!/bin/bash\nc=$(< %q); echo $(( c + ${1%%%%.*} )) > %q\n' "$px/clock" "$px/clock" > "$px/bin/sleep"
++        chmod +x "$px/bin/date" "$px/bin/sleep"
++        ( (( $# )) && export "$@"
++          PATH="$px/bin:$PATH"; RUN="$px"; PROXY_URL="file://$px"; PKG_ROLES="$t/pkg"; PKG_PLAIN="$t/pkg"
+           note() { :; }; judge() { echo "J $2: ${1:0:70}"; }; fail() { echo "F $*"; }
+-          l6_roles ) > "$px/out" 2>&1 &
+-        pid=$!
+-        sleep 6.5
+-        kill "$pid" 2>/dev/null; wait "$pid" 2>/dev/null
+-        echo "judged $(/usr/bin/grep -c '^[JF] ' "$px/out") polls $(cat "$px"/*.polls 2>/dev/null | wc -l)"
++          "l6_$which" ) > "$px/out" 2>&1
++        echo "judged $(/usr/bin/grep -c '^[JF] ' "$px/out") reads $(cat "$px"/*.polls 2>/dev/null | wc -l) after $(( $(< "$px/clock") - 1000000000 )) s"
+     }
+-    got="$(st_l6_inherited)" || true
+-    if [[ "$got" == "judged 0 polls "* && "${got##* }" -ge 2 ]]; then
+-        ok "  an inherited L1_POLL_S=2 does not shorten the live poll: still polling at 6.5 s ($got)"
++    got="$(st_l6_default roles)" || true
++    if [[ "$got" == "judged 3 reads 16 after 30 s" ]]; then
++        ok "  the live call's own poll is 30 s (roles): 16 reads over 30 s by its own clock, then judged"
++    else
++        red "  the live call's own poll is 30 s (roles) -- $got"
++    fi
++    got="$(st_l6_default roles L1_POLL_S=2 SELFTEST_L1_POLL_S=2)" || true
++    if [[ "$got" == "judged 3 reads 16 after 30 s" ]]; then
++        ok "  an inherited L1_POLL_S=2 does not shorten the live poll: still 16 reads over 30 s ($got)"
+     else
+         red "  an inherited L1_POLL_S does not shorten the live poll -- $got"
+     fi
++    got="$(st_l6_default plain)" || true
++    if [[ "$got" == "judged 3 reads 16 after 30 s" ]]; then
++        ok "  the live call's own poll is 30 s (unbound): 16 reads over 30 s by its own clock, then judged"
++    else
++        red "  the live call's own poll is 30 s (unbound) -- $got"
++    fi
+     got="$(st_l6 plain state_plain.json - 4)" || true
+     if [[ "$got" == *"J L6 capabilities (unbound): OK"* && "$got" == *"J L6 control_plane.skipped (unbound): OK"* \
+           && "$got" == *"J L1 declared links on switch_state, fed by the heartbeat (unbound): OK"* ]]; then
+diff --git a/tests/shell/mutate_build_guard.sh b/tests/shell/mutate_build_guard.sh
+index e7122864..cc92cf10 100755
+--- a/tests/shell/mutate_build_guard.sh
++++ b/tests/shell/mutate_build_guard.sh
+@@ -257,6 +257,35 @@ cat > "$A/m14.new" <<'EOF'
+ EOF
+ check "M14: a ':' in the lock path splits the held list silently" m14 guarded_build.sh "LOCK containing ':' is rc 2"
+ 
++# ---- [Co-developed with claude code -- Adam] the build_guard opus judge's NOTE-1 and NOTE-5 (09-27) ----
++# M15: the no-command refusal gone. Before NOTE-1 the suite's bare call waited on the default lock
++# (held by the outer guard in any gate), so this mutant would have timed out here -- SURVIVED -- and
++# a suite run on its own in a gate would have read green after LOCK_WAIT's 3600 s. Now that case
++# has its own lock.
++cat > "$A/m15.old" <<'EOF'
++[[ $# -gt 0 ]] || { sed -n '/^# USAGE/,/^# ENV/p' "${BASH_SOURCE[0]}" >&2; exit 2; }
++EOF
++cat > "$A/m15.new" <<'EOF'
++:
++EOF
++check "M15: no command at all is run, not refused" m15 guarded_build.sh "no command at all is refused"
++# M16 / M17: the two -j defaults. test_build_guard.sh asserts the DEFAULTS (it clears the caller's
++# JOBS / SHIM_JOBS, d271f5b8), so each must be red on its own named check.
++cat > "$A/m16.old" <<'EOF'
++JOBS="${JOBS:-2}"
++EOF
++cat > "$A/m16.new" <<'EOF'
++JOBS="${JOBS:-3}"
++EOF
++check "M16: guarded_build's default JOBS is 3, not 2" m16 guarded_build.sh "it puts the shims on PATH for the wrapped command"
++cat > "$A/m17.old" <<'EOF'
++    local j="${SHIM_JOBS:-2}"
++EOF
++cat > "$A/m17.new" <<'EOF'
++    local j="${SHIM_JOBS:-3}"
++EOF
++check "M17: a shim's default -j is 3, not 2" m17 shims/_resolve.sh "-j14 glued becomes -j2"
++
+ echo
+ NOW_SUM="$(cd "$GUARD" && find . -type f | sort | xargs sha256sum | sha256sum | cut -d' ' -f1)"
+ if [[ "$NOW_SUM" != "$BASE_SUM" ]]; then
+diff --git a/tests/shell/mutate_p4_heartbeat_w.sh b/tests/shell/mutate_p4_heartbeat_w.sh
+index 51ecbb49..b323887f 100644
+--- a/tests/shell/mutate_p4_heartbeat_w.sh
++++ b/tests/shell/mutate_p4_heartbeat_w.sh
+@@ -96,6 +96,10 @@ MUTATIONS=0
+ # a mutant that writes a knob writes the checkout's. ltree builds the tree; ltree_leaks names every
+ # way out of it other than the two read-only links; the gate refuses before any mutation runs if
+ # there is one, and checks that the leak check sees a whole-p4_proxy link (its control).
++# [Co-developed with claude code -- Adam] R3-N5 (the r3 opus judge, 09-27): the control used to ask
++# for "at least one line", and a whole-p4_proxy link gives two -- the knob it exposes and the link
++# itself -- so either branch of ltree_leaks alone kept the control green. ltree_control asks for
++# each line by name.
+ ltree() {   # ltree <dir>
+     local d="$1"
+     mkdir -p "$d/$LIVE_DIR_REL" "$d/tools/test_workflow" "$d/doc/audit/2026-09-25_p4-heartbeat/spike" "$d/tmp"
+@@ -118,11 +122,22 @@ ltree_leaks() {   # ltree_leaks <dir> -> one line per way out of the tree; nothi
+         esac
+     done < <(find "$d" -type l)
+ }
++ltree_control() {   # ltree_control <dir> -> one line per branch of ltree_leaks that does NOT see a
++                    # whole-p4_proxy link laid in <dir>; nothing when both do
++    local c="$1" got
++    mkdir -p "$c"; ln -s "$REPO/p4_proxy" "$c/p4_proxy"
++    got="$(ltree_leaks "$c")"
++    /usr/bin/grep -qxF "p4_proxy/mininet/host_count_override resolves to $(readlink -f "$REPO/p4_proxy/mininet/host_count_override")" <<<"$got" \
++        || echo "the knob branch does not see the checkout's host_count_override through it"
++    /usr/bin/grep -qxF "p4_proxy is a link to $(readlink -f "$REPO/p4_proxy")" <<<"$got" \
++        || echo "the link branch does not see the link itself"
++}
+ lprobe="$BK/ltree-probe"; ltree "$lprobe"
+ lleaks="$(ltree_leaks "$lprobe")"
+-lctl="$BK/ltree-control"; mkdir -p "$lctl"; ln -s "$REPO/p4_proxy" "$lctl/p4_proxy"
+-if [[ -z "$(ltree_leaks "$lctl")" ]]; then
+-    echo "REFUSE: the leak check sees nothing in a tree that links all of p4_proxy -- it proves nothing"; exit 2
++lctl="$BK/ltree-control"; lmiss="$(ltree_control "$lctl")"
++if [[ -n "$lmiss" ]]; then
++    echo "REFUSE: the leak check's control, a tree that links all of p4_proxy, is not seen whole -- it proves nothing:"
++    sed 's/^/  /' <<<"$lmiss"; exit 2
+ fi
+ if [[ -n "$lleaks" ]]; then
+     echo "REFUSE: 08's mutant tree reaches out of itself -- a mutant could write the checkout's lab state:"
+@@ -1120,7 +1135,10 @@ open(p, "w").write(s.replace(a, b))
+ PY
+     echo "$d"
+ }
+-lrun() { ( cd "$1" && TMPDIR="$1/tmp" timeout 300 bash "$LIVE_DIR_REL/08_heartbeat.sh" --self-test 2>&1 ); }
++# [Co-developed with claude code -- Adam] R3-N7 (the r3 opus judge, 09-27): no byte-code either. The
++# tree's p4_proxy/proxy_agent and p4_proxy/venv are LINKS to the checkout's, so a python that 08
++# (or its _common.sh) starts would write __pycache__ into them.
++lrun() { ( cd "$1" && TMPDIR="$1/tmp" PYTHONDONTWRITEBYTECODE=1 timeout 300 bash "$LIVE_DIR_REL/08_heartbeat.sh" --self-test 2>&1 ); }
+ lreport() {   # $1 = mutation name, $2 = mutant dir, $3 = the self-test case that must go red
+     local out
+     MUTATIONS=$((MUTATIONS+1))
+diff --git a/tests/shell/mutate_roles_binding.sh b/tests/shell/mutate_roles_binding.sh
+index dad0bdfe..592dc373 100755
+--- a/tests/shell/mutate_roles_binding.sh
++++ b/tests/shell/mutate_roles_binding.sh
+@@ -1585,6 +1585,21 @@ m=$(l7_mutant l7_shortpoll '        "$CAPS_OWNED" "$SKIPPED_OWNED" "" "L6: no sw
+     '        "$CAPS_OWNED" "$SKIPPED_OWNED" "" "L6: no switch_state" "${1:-2}"')
+ l7_report "L7-29: the live path's own poll is 2 s, not 30" "$m" \
+           "  an inherited L1_POLL_S does not shorten the live poll"
++# [Co-developed with claude code -- Adam] R3-N4 (the r3 opus judge, 09-27): the unbound call's own
++# default -- phase B's l6_plain runs on it -- and both defaults from the other side: 40 s passes
++# any "still polling at 6.5 s" check; only a poll run to its end on the self-test's clock sees it.
++m=$(l7_mutant l7_plainshort '        "$CAPS_UNBOUND" "$SKIPPED_UNBOUND" " (unbound)" "L6: no switch_state on the control fabric" "${1:-30}"' \
++    '        "$CAPS_UNBOUND" "$SKIPPED_UNBOUND" " (unbound)" "L6: no switch_state on the control fabric" "${1:-2}"')
++l7_report "L7-30: the unbound call's own poll is 2 s, not 30" "$m" \
++          "  the live call's own poll is 30 s (unbound)"
++m=$(l7_mutant l7_plainlong '        "$CAPS_UNBOUND" "$SKIPPED_UNBOUND" " (unbound)" "L6: no switch_state on the control fabric" "${1:-30}"' \
++    '        "$CAPS_UNBOUND" "$SKIPPED_UNBOUND" " (unbound)" "L6: no switch_state on the control fabric" "${1:-40}"')
++l7_report "L7-31: the unbound call's own poll is 40 s, not 30" "$m" \
++          "  the live call's own poll is 30 s (unbound)"
++m=$(l7_mutant l7_roleslong '        "$CAPS_OWNED" "$SKIPPED_OWNED" "" "L6: no switch_state" "${1:-30}"' \
++    '        "$CAPS_OWNED" "$SKIPPED_OWNED" "" "L6: no switch_state" "${1:-40}"')
++l7_report "L7-32: the live path's own poll is 40 s, not 30" "$m" \
++          "  the live call's own poll is 30 s (roles)"
+ 
+ # --- negative controls: edits no suite specifies, which must stay GREEN -------------------------
+ 
+diff --git a/tests/shell/test_build_guard.sh b/tests/shell/test_build_guard.sh
+index 571d6dae..628bbcd9 100755
+--- a/tests/shell/test_build_guard.sh
++++ b/tests/shell/test_build_guard.sh
+@@ -116,7 +116,12 @@ NO_CGROUP=1 LOCK="$TMP/l1" "$GB" bash -c 'exit 42' >/dev/null 2>&1
+ t_eq "🔴 the wrapped command's exit code comes back"     "42" "$?"
+ NO_CGROUP=1 LOCK="$TMP/l1" JOBS=zero "$GB" true >/dev/null 2>&1
+ t_eq "a bad JOBS is refused, not defaulted"              "2" "$?"
+-"$GB" >/dev/null 2>&1
++# [Co-developed with claude code -- Adam] NOTE-1 (the build_guard opus judge, 09-27): its own lock
++# and LOCK_WAIT=1, like every other case. Bare, it takes the DEFAULT lock -- which, run from a gate,
++# the outer guard holds -- so a guard that lost its no-command refusal waited the default 3600 s
++# on it and then gave up with rc 2: the very answer this case expects. Here it runs the empty
++# command at once (rc 0, red), or gives up after 1 s on its own lock.
++NO_CGROUP=1 LOCK="$TMP/l0" LOCK_WAIT=1 "$GB" >/dev/null 2>&1
+ t_eq "no command at all is refused"                      "2" "$?"
+ 
+ # flock: hold the lock in one process, prove a second one waits rather than running alongside.
+diff --git a/tests/shell/test_guarded_build_reentrant.sh b/tests/shell/test_guarded_build_reentrant.sh
+index c23b618a..755ee2e6 100755
+--- a/tests/shell/test_guarded_build_reentrant.sh
++++ b/tests/shell/test_guarded_build_reentrant.sh
+@@ -51,7 +51,11 @@ GB="$GUARD/guarded_build.sh"
+ # 🔴 The ambient environment must not decide the answer. If this file is itself run from inside
+ # a guard (the gate may be), NDTWIN_GUARD_HELD arrives already set, and a case that means to be
+ # the outermost layer would be testing something else.
+-unset NDTWIN_GUARD_HELD
++# [Co-developed with claude code -- Adam] NOTE-2 (the build_guard opus judge, 09-27): and not only
++# that one -- the same nine variables test_build_guard.sh clears, every one guarded_build.sh or its
++# shims read. An inherited NO_CGROUP=1 skips (g)'s fake systemd-run; an inherited TIMEOUT below
++# the holders' sleeps kills them under (b) and (d). A case that wants a value sets it itself.
++unset JOBS SHIM_JOBS NDTWIN_GUARD_HELD LOCK LOCK_WAIT MEM_HIGH MEM_MAX TIMEOUT NO_CGROUP
+ 
+ TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+ LA="$TMP/lock-a"; LB="$TMP/lock-b"

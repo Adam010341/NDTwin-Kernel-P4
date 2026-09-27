@@ -1,0 +1,1 @@
+at 3 "4, leaving" && echo "migrated. Keep $OLD and its .origin/.freeze/.fingerprint/.baseline/.new until a live 01 and 06 pass on the new venv; deleting them is the one step here that cannot be undone." && exit

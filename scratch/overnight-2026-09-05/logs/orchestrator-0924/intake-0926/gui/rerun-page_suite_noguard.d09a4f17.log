@@ -1,0 +1,13 @@
+d09a4f1703fd67e97afe85888ed414e00d2a9812
+# outside the guard, as CI runs
+test_a_url_without_a_key_opens_nothing (__main__.PageSession.test_a_url_without_a_key_opens_nothing) ... skipped 'not inside tools/build_guard/guarded_build.sh: headless Chrome runs only under the guard on this laptop (systemd-oomd) -- JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh python3 tests/browser/test_ndt_serve_page.py'
+test_a_used_key_opens_nothing (__main__.PageSession.test_a_used_key_opens_nothing) ... skipped 'not inside tools/build_guard/guarded_build.sh: headless Chrome runs only under the guard on this laptop (systemd-oomd) -- JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh python3 tests/browser/test_ndt_serve_page.py'
+test_loading_the_page_writes_nothing (__main__.PageSession.test_loading_the_page_writes_nothing) ... skipped 'not inside tools/build_guard/guarded_build.sh: headless Chrome runs only under the guard on this laptop (systemd-oomd) -- JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh python3 tests/browser/test_ndt_serve_page.py'
+test_the_key_leaves_the_address_bar_and_is_traded (__main__.PageSession.test_the_key_leaves_the_address_bar_and_is_traded) ... skipped 'not inside tools/build_guard/guarded_build.sh: headless Chrome runs only under the guard on this laptop (systemd-oomd) -- JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh python3 tests/browser/test_ndt_serve_page.py'
+test_the_token_is_only_in_memory (__main__.PageSession.test_the_token_is_only_in_memory) ... skipped 'not inside tools/build_guard/guarded_build.sh: headless Chrome runs only under the guard on this laptop (systemd-oomd) -- JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh python3 tests/browser/test_ndt_serve_page.py'
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.000s
+
+OK (skipped=5)
+# rc=0

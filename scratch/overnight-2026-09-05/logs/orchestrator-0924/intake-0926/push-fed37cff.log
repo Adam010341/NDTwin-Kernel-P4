@@ -1,0 +1,16 @@
+# push trunk fed37cff (claim-note merge) 2026-09-27T23:47:38+08:00 -- trunk only
+range     : 3d740be0..fed37cff ( 1 file changed, 13 insertions(+), 4 deletions(-))
+scan hits : 0
+control   : 3 (want 3)
+binary    : 0 file(s) NOT read by this scan -- scan each separately
+To github.com:Adam010341/NDTwin-Kernel-P4.git
+   3d740be0..fed37cff  trunk -> trunk
+To github.com:ndtwin-lab/NDTwin-Kernel-P4.git
+   3d740be0..fed37cff  trunk -> trunk
+# push rc=0
+$ unauthenticated ndtwin-lab
+f186ce98c7643cf1e7a9e7e402e4193bd0d72805	refs/heads/main
+fed37cff5d70209235f6f4458ed7294b4ef542b4	refs/heads/trunk
+$ unauthenticated Adam010341
+ce6a983242d2339a2528f2af769661bba772f496	refs/heads/main
+fed37cff5d70209235f6f4458ed7294b4ef542b4	refs/heads/trunk

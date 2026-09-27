@@ -1,0 +1,9 @@
+test_ndt_serve # rc=1 | Ran 74 tests in 54.993s FAILED (failures=1) 
+check_gate_anchors # rc=0 | 121/121 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL) 
+test_live_p1_common # rc=0 | Ran 169 checks, 0 failed 
+test_ndtwin_lab_heartbeat # rc=0 | Ran 196 checks, 0 failed 
+test_l1_shell_scoring # rc=0 |   ok       Z7 the LAST summary wins, as tail -1 did (5 passed + 1 failed = 6 ran) Ran 96 checks, 0 failed 
+syntax # rc=0 | 
+tripwire lines: 0
+tracked tree clean after the gates
+RERUN-PB5-DONE

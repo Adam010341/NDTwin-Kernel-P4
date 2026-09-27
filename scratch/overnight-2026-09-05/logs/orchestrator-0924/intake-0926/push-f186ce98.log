@@ -1,0 +1,22 @@
+# push trunk + trunk:main f186ce98c7643cf1e7a9e7e402e4193bd0d72805 (GUI merge) 2026-09-27T20:36:06+08:00
+range     : 7746832e..f186ce98 ( 14 files changed, 3485 insertions(+), 48 deletions(-))
+scan hits : 0
+control   : 3 (want 3)
+binary    : 0 file(s) NOT read by this scan -- scan each separately
+To github.com:Adam010341/NDTwin-Kernel-P4.git
+   7746832e..f186ce98  trunk -> main
+   7746832e..f186ce98  trunk -> trunk
+To github.com:ndtwin-lab/NDTwin-Kernel-P4.git
+   7746832e..f186ce98  trunk -> main
+   7746832e..f186ce98  trunk -> trunk
+# push rc=0
+$ env -u GIT_ASKPASS -u SSH_ASKPASS GIT_TERMINAL_PROMPT=0 git -c credential.helper= -c core.askPass= ls-remote https://github.com/ndtwin-lab/NDTwin-Kernel-P4.git refs/heads/trunk refs/heads/main
+f186ce98c7643cf1e7a9e7e402e4193bd0d72805	refs/heads/main
+f186ce98c7643cf1e7a9e7e402e4193bd0d72805	refs/heads/trunk
+$ env -u GIT_ASKPASS -u SSH_ASKPASS GIT_TERMINAL_PROMPT=0 git -c credential.helper= -c core.askPass= ls-remote https://github.com/Adam010341/NDTwin-Kernel-P4.git refs/heads/trunk refs/heads/main
+f186ce98c7643cf1e7a9e7e402e4193bd0d72805	refs/heads/main
+f186ce98c7643cf1e7a9e7e402e4193bd0d72805	refs/heads/trunk
+$ env -u GITHUB_TOKEN -u GH_TOKEN curl -s -o /dev/null -w '%{http_code}' https://github.com/ndtwin-lab/NDTwin-Kernel-P4/tree/f186ce98
+200
+$ env -u GITHUB_TOKEN -u GH_TOKEN curl -s -o /dev/null -w '%{http_code}' https://github.com/Adam010341/NDTwin-Kernel-P4/tree/f186ce98
+200

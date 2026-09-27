@@ -1,0 +1,7 @@
+# PR #6 (pr/shell-test-scoring 48e8005d, tree c8bf95a4), push run 36329482388 vs f186ce98 run 36319541715
+ASan + UBSan: pass  (predicted pass)
+clang: fail         (predicted fail, no C++ change)
+TSan: fail          (predicted fail, no C++ change)
+GCC: fail; FAILED set 29 lines, diff vs ci-36319541715-gcc.failed.txt: IDENTICAL (predicted identical)
+=> prediction met. pull_request run 36329490324 GCC still running at the time of writing.
+pull_request run 36329490324 GCC: IDENTICAL (29 lines); clang/TSan fail, ASan pass => prediction met on both runs

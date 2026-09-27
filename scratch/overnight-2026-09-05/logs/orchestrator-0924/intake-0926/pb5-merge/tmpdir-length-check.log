@@ -1,0 +1,7 @@
+== TMPDIR=/home/adam/.cache/nsv (len 21)
+Ran 1 test in 0.480s
+OK
+== TMPDIR=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/tmp-pb5 (len 105)
+AssertionError: (400, {'error': 'refused', 'note': 'note is longer than 200 characters'})
+Ran 1 test in 0.171s
+FAILED (failures=1)

@@ -1,0 +1,2 @@
+# written BEFORE pushing pr/ndt-serve-claim-note (ef3aec3fca520a6609a43c61c8dfeadfbd429740), 2026-09-27T23:52:46+08:00
+tests/python/test_ndt_serve.py only. Every job identical to PR #6: ASan+UBSan pass; clang fail; TSan fail; GCC fail, same 29 FAILED lines.

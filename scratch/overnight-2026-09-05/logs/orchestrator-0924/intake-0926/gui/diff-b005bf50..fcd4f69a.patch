@@ -1,0 +1,3662 @@
+diff --git a/doc/audit/2026-09-27_ndt-serve-gui/REPORT.md b/doc/audit/2026-09-27_ndt-serve-gui/REPORT.md
+new file mode 100644
+index 00000000..e6809792
+--- /dev/null
++++ b/doc/audit/2026-09-27_ndt-serve-gui/REPORT.md
+@@ -0,0 +1,190 @@
++# ndt serve GUI 第一刀 — 報告
++
++[Co-developed with claude code -- Adam]
++
++- 分支：`feat/ndt-serve-gui-0927`，從 trunk＝main `b005bf50` 開；worktree 在 `scratch/overnight-2026-09-05/wt-ndt-serve-gui-0927`。**沒有併進 trunk，也沒有推任何遠端。**
++- 依據：
++  - Adam 09-27 13:2x 的 Q2（頁面由 ndt serve 自己在 `/` 提供）和 Q3（token 用一次性 URL `#fragment` 交給頁面，只放記憶體）；
++  - 範圍草案 `SCOPE.md`（`bfffefa0`），以及 9/25 orchestrator 的核准與修改（`logs/orchestrator-0924/intake-0926/RULINGS-0927-ndtserve-gui-scope.md`）。
++- **本報告對應的程式碼 head：`cb1b42d7`**（報告本身是其後的一個 commit）。raw 在 `scratch/overnight-2026-09-05/logs/ndt-serve-gui-0927/`，下文簡稱 `LOGS/`；scratch 被 `.gitignore` 擋著，不在分支上。
++- 這一刀**沒有用到 lab**：伺服器端全部對 stub ndt 測，瀏覽器實測也是對 stub 伺服器。真的 ndt 只被 RcProvenance 讀過（不執行）；`ndt help` 和 `ndt serve url` 有被執行過。
++
++---
++
++## 1. 要你裁的
++
++1. **併不併。** 我建議：判官審完、沒有必修，就可以併。改動範圍：
++   - `tools/ndt_serve/serve.py` +約 330 行；`verbs.py` 3 行（`DEFAULT_CLAIM_MINUTES` 常數）；
++   - 新的靜態頁 `tools/ndt_serve/static/`（HTML 124、JS 約 615、CSS 50 行）；
++   - `ndt` 本體只改 help，加 3 行；
++   - 其餘是測試、閘門和文件。
++2. **job log 的輪詢**（orchestrator 15:4x 暫定裁定：可以，但有條件，驗收判官可推翻）。
++   - 現況：D 區打開一個正在跑的 job 時，頁面每 2 秒讀一次它的 log。只讀檔案，不跑 ndt，不碰 lab。
++   - 裁定的條件是「job 結束、job 畫面關掉、頁面被隱藏時都要停」。**交件時（`cb1b42d7`）的現況，逐條對照**（讀碼，`app.js` 的 `openJob`）：
++
++     | 條件 | 現況 |
++     |---|---|
++     | job 結束時停 | ✅ 成立：state 不是 `running` 就 return |
++     | job 畫面關掉時停 | ⚠️ 部分成立：打開另一個 job 時舊的迴圈會停（`watching` 換掉）；但**畫面沒有「關閉」按鈕**，所以沒辦法單純關掉 |
++     | 頁面被隱藏時停 | ❌ 不成立：沒有檢查 `document.visibilityState`。分頁在背景時照樣輪詢（Chrome 只會替背景分頁的計時器降頻，不會停） |
++
++   - **orchestrator 要求收件前補上，已補在 `cf053502`**：
++     - job 畫面加了 Close 按鈕，`closeJob()` 會把 `watching` 設成 null，並把畫面藏起來；
++     - 每次 sleep 之後都會 `await whileHidden()`：頁面在前景就馬上往下走，被隱藏時要等 `visibilitychange` 變回可見才繼續；等完之後會再確認自己是不是還在被看的那一個。
++     - 順手修掉一個 Close 讓它變容易踩到的邊角：原本 `watching` 存的是 job id。關掉畫面後 2 秒內又打開同一個 job，舊迴圈醒來會以為自己還在被看，和新迴圈一起跑，log 就重複附加兩次。現在 `watching` 存的是「這一次打開」，關閉或重開都會換掉它。
++   - 紅燈先行：兩條新的 PageLint 對 `cb1b42d7` 的頁面是紅的（`LOGS/close-hidden-cf053502/red-first-on-cb1b42d7.log`）。另外加了 6 個 G 變異：G37、G37b、G37c 對應 Close，G38、G38b 對應隱藏時停止，G39 對應以 job id 為鍵。閘門總數變成 144。
++   - 三條件的現況（`cf053502`）：job 結束時停 ✅、畫面關閉時停 ✅、頁面隱藏時停 ✅。**這是讀碼加 PageLint 的結論，沒有在瀏覽器裡實際點過 Close，也沒有實際切到背景看過。**
++3. **確認強度的表放在伺服器，不放頁面**（偏離 SCOPE §2 的寫法，§2 第 1 點）。**orchestrator 15:4x 已追認**，理由是該拒絕的本來就是伺服器；列為經追認的 SCOPE 偏離。
++4. **P4 的 `--app` 套件目錄**，這一刀的頁面沒有提供輸入欄位。API 本來就支援（`{"plane":"p4","app":"<dir>"}`）。要不要在頁面上開放，排下一刀。
++5. **下一刀：用 DevTools protocol 把點擊行為自動化**（裁定 5）。這一刀的點擊行為是在瀏覽器裡實際操作驗證的（§4.3），還不能重跑。
++
++## 2. 推翻／更正
++
++1. **偏離 SCOPE（orchestrator 15:4x 已追認）：確認強度由伺服器給。**
++   - SCOPE §2 的強度表（一般確認或打字確認、要不要先 claim）原本要寫在頁面裡。實作時我把它放進 `serve.confirm_policy()`，由 `dry_run` 的回答帶出 `confirm`（`typed`／`plain`）和 `needs_own_claim`。
++   - 頁面只加一條規則：measuring 不是 `nothing`、或有 `declared` 列時，一律升級成打字確認。
++   - 理由：
++     - 這樣頁面裡沒有任何表；
++     - 強度可以用 Python 測（G27、G27b），不必靠瀏覽器；
++     - 跟「argv 只在 verbs.py 組」同一個道理。
++2. **偏離 SCOPE：`/lab` 多回了東西。**
++   - 多了 `declared` 列（claim 宣告的 `measuring=`，ndt:6760）。這一列在的時候，dialog 也升級成打字確認。
++   - 多了整份 plain status 的讀取結果，所以 A 區直接用 `/lab`，不再另外打 `/status`。重新整理一次只跑一次 `ndt status`。
++3. **SCOPE 沒寫、我加的：`serve.json` 與「port 的主人」檢查。**
++   - 問題：`ndt serve url` 要知道 port，所以伺服器啟動時在 token 旁邊寫一份 0600 的 `serve.json`（port、pid、owner）。可是伺服器死了之後，這個檔還在。
++   - 風險：之後別的程序（包括別的使用者）綁上同一個 port，`url` 就會把 token 送給它。
++   - 做法：`url` 先從 `/proc` 確認 serve.json 記的那個 pid 真的持有那個 port 的 LISTEN socket（`/proc/net/tcp` 的 inode 在它的 fd 裡），確認了才送 token。
++   - 驗證：測試 `test_url_sends_the_token_only_to_the_pid_that_holds_the_port` 加上變異 G18。
++4. **SCOPE 沒寫、我加的：所有回應都帶 CSP、X-Frame-Options、Referrer-Policy。** SCOPE 只要求靜態檔帶；我改成加在 `_send`，連 API 的 JSON 回應也帶。
++5. **dry_run 預設拒收。**
++   - 只有會 spawn job 的寫入接受 `dry_run`：up、down、claim、release、apps、cells run、walk next。
++   - 其他 POST（walk 建立、verdict、abort、session/new）一律把它當成未知欄位回 400。
++   - 原因：這些端點本身就只寫檔、不 spawn。若照單全收，`{"verdict":"green","dry_run":true}` 會**真的**記下判定。變異 G21 就是這個情境。
++6. **dry_run 停在確認之前。**
++   - 會寫共用狀態的格子（H4），預覽時不需要先帶 `confirm_shared_state_write`，因為 dialog 就是讓你勾確認的地方。
++   - 真的跑的時候，沒帶這個欄位照樣回 400。變異 G22b 就是把順序換回來。
++7. **自己的失誤：preview 工具啟動了你的網站伺服器。**
++   - 經過：14:1x 我在 worktree 裡寫了 `.claude/launch.json`，接著呼叫 `preview_start`。但這個工具讀的是**主 checkout** 的 `.claude/launch.json`，所以啟動的是你的 `ndtwin-website`（hugo，port 1313）。
++   - 處置：幾秒內我就用 `preview_stop` 停掉了，事後 1313 上沒有 listener。
++   - 之後我想把 stub 的設定加進你那份 `launch.json`，被權限分類器擋下（理由是持久化設定）。我沒有再試。你那份檔案內容沒變（我讀過確認）。
++   - 最後的做法：stub 伺服器照測試的方式用 `setsid` 起，瀏覽器面板只開它的 URL；結束後按 pid 停掉，停之前比對過 cmdline。
++   - orchestrator 15:4x：已記錄，不需要處理（你那份 launch.json 沒變）。
++8. **L1 lane 的直譯器是 Python 3.8.20（ryu-env），不是我平常測試用的那個。** 新 suite 在 3.8 下也是 35/35 綠（§4.1）。
++9. **頁面測試由 opus worker 寫**（`d6f4b5a9`，我在 commit 前讀過全文）。它自己揭露了一件事：14:12:07 在 guard **外**跑過一次 `/opt/google/chrome/chrome --version`，目的是把版本號（153.0.8010.36）記進 log 標頭。這個指令會馬上回傳、不會開瀏覽器，但當下沒有查程序清單。除此之外，所有啟動 Chrome 的動作都在 guard 內。
++
++## 3. 交付
++
++| 項目 | 位置 |
++|---|---|
++| 伺服器 | `tools/ndt_serve/serve.py` |
++| 靜態頁 | `tools/ndt_serve/static/{index.html,app.js,app.css}` |
++| `ndt help` 的 `serve url` | `tools/test_workflow/ndt` |
++| 伺服器端與頁面靜態檢查 | `tests/python/test_ndt_serve_gui.py`（37 例；交件時是 35 例，`cf053502` 加了 2 例） |
++| 頁面（headless Chrome） | `tests/browser/test_ndt_serve_page.py`（5 例） |
++| 閘門 | `tests/shell/mutate_ndt_serve.sh`（G 系列 53 條，總數 144；交件時 47／138，`cf053502` 加了 G37–G39 共 6 條）；`tests/shell/mutate_ndt_serve_page.sh`（5 條：G12–G14，加上兩個拒絕案例的紅燈先行 P1、P2 條） |
++| 文件 | `tools/ndt_serve/README.md` 的「The page」一節和 API 表 |
++
++**新的端點**：
++- `GET /api/v1/lab`、`GET /api/v1/meta`；
++- `POST /api/v1/session`（不需要 token，Origin 必須是這個 origin）；
++- `POST /api/v1/session/new`；
++- 寫入端點的 `{"dry_run": true}`；
++- `serve.py url`（`ndt serve url`）。
++
++**頁面做的事**（全部是英文標籤，裁定 2）：
++- 載入時：清掉 fragment，用 nonce 換 token，接著讀 `/meta`、`/lab`、`/health`、`/jobs`。**載入時不寫入任何東西。**
++- 每一次寫入都經過同一個 dialog：
++  - 重讀 `/lab`；
++  - 顯示伺服器 dry_run 回來的 argv、claim 列、measuring 列（`nothing` 也顯示）、槽位；
++  - 預設焦點在 Cancel；按 Enter 不會確認；Confirm 按一次就停用；
++  - 需要自己的 claim 時，claim 不是你的 → Confirm 停用，並顯示「claim first」；
++  - up、down、需要 lab 的 cell → 打字確認；measuring 不是 `nothing` → 一律打字確認；
++  - 寫共用狀態的 cell → 要勾確認框。
++
++## 4. 細節
++
++### 4.1 測試與閘門（跑過）
++
++| 項目 | binary／tree | 結果 | log |
++|---|---|---|---|
++| `test_ndt_serve.py` | cb1b42d7 | 74/74 OK（56 s） | `LOGS/final-cb1b42d7/` |
++| `test_ndt_serve_cells.py` | cb1b42d7 | 35/35 OK（32 s） | 同上 |
++| `test_ndt_serve_gui.py` | cb1b42d7 | 35/35 OK（17 s）；Python 3.8.20（lane 的直譯器）下同樣 35/35 | 同上 |
++| `tests/browser/test_ndt_serve_page.py`（guard 內） | cb1b42d7 | 5/5 OK（8.5 s）。這是頁面閘門的 baseline；它測的 16 個檔 sha256 和 `cb1b42d7` 的 blob 逐一相同。另外 worker 在 `e4f7c036` 加上舊版 app.js 時也單獨跑過一次，同樣 5/5。**排 guard 鎖等了約 45 分鐘**，因為別的 session 的閘門佔著鎖 | 同上 |
++| 同上（guard 外） | cb1b42d7 | 5/5 SKIP，寫出 guard 的原因；rc 0 | 同上 |
++| `mutate_ndt_serve.sh` | cb1b42d7 | 138 條變異，0 條倖存（314 s）；受測檔在跑的過程中沒有變動 | 同上 |
++| `mutate_ndt_serve_page.sh`（guard 內） | cb1b42d7 | 5 條變異，0 條倖存。每一條都是指名的那一例、因為指名的原因變紅，Chrome 當掉不算數；受測檔沒有變動。事後掃 `/proc`，殘留程序 0、殘留暫存目錄 0 | 同上 |
++| `check_gate_anchors.py b005bf50 cb1b42d7` | — | HEAD 122/122；兩個 rev 243/244（頁面閘門在 trunk 上 absent） | 同上 |
++| `check_process_by_name.py`、`check_test_tmpdirs.py`（整棵樹） | cb1b42d7 | process_by_name：338 個檔、0 處；tmpdirs：371 個檔、0 處（trunk 同樣是 0 和 0） | 同上 |
++
++**收件前追加的修正 `cf053502`**（orchestrator 15:4x 要求：只重跑受影響的閘門，再加 check_gate_anchors）：
++
++| 項目 | 結果 | log |
++|---|---|---|
++| 兩條新 PageLint 對 `cb1b42d7` 的頁面 | **紅**（2 failures），紅燈先行 | `LOGS/close-hidden-cf053502/red-first-on-cb1b42d7.log` |
++| `mutate_ndt_serve.sh` | 144 條變異，0 條倖存（310 s）；baseline 三套測試都綠；11 個受測檔的 sha256 和 `cf053502` 的 blob 逐一相同 | `LOGS/close-hidden-cf053502/gate.log` |
++| `mutate_ndt_serve_page.sh`（guard 內） | 5 條變異，0 條倖存；baseline 5/5；16 個受測檔的 sha256 和 `cf053502` 逐一相同 | `LOGS/close-hidden-cf053502/page-gate.log` |
++| `test_ndt_serve_gui.py`，Python 3.8.20 | 37/37 OK | `LOGS/close-hidden-cf053502/test_ndt_serve_gui.py38.log` |
++| `check_gate_anchors.py HEAD` | 122/122 | `LOGS/close-hidden-anchors.log` |
++
++L1 lane 的 step 3b 沒有重跑。`cf053502` 在 lane 範圍裡只動到 `test_ndt_serve_gui.py`，而且它在 lane 的直譯器下是 37/37。
++
++- 紅燈先行：
++  - 每個 G 變異都讓它指名的那一例變紅（閘門 log 裡逐行列出）；
++  - `test_ndt_help_lists_serve_url` 在 help 還沒寫之前是紅的；
++  - `test_root_is_reserved_for_the_gui` 在頁面上線後如預期變紅，改成 `test_outside_the_api_there_is_only_the_page`，M39 跟著改名。
++
++### 4.2 L1 lane：CI 的問題群數不會增加
++
++- **做法**：CI 的 L1 lane（`tools/test_workflow/l1_unit_tests.sh`）要先有編好的 C++ 測試 binary 才會往下跑。在這台筆電上編 kernel 有被 oomd 殺的風險，而且這一刀根本沒碰 C++，所以我**只跑 lane 的 step 3b**（kernel-side Python 和 shell 測試）。
++  - 程式碼是在執行當下從**各自那棵樹**的 `l1_unit_tests.sh` 原文擷取出來的，用它自己的 `shell_summary`、`l1_lane_verdict` 評分；
++  - 兩棵樹擷取到的 step 3b 原文 sha256 相同（`c931643995be92dd`）；
++  - 驅動腳本是 `LOGS/final-cb1b42d7/l1_kernel_section.sh`（整輪收尾則是 `final_runs.sh`）；擷取出來的原文存在各自 log 目錄的 `step3b.extracted.sh`。
++- **比較**：同一台機器、同一個直譯器（lane 挑的 ryu-env Python 3.8.20），兩棵乾淨的 detached worktree：
++
++  | tree | problem groups | 耗時 | log |
++  |---|---|---|---|
++  | trunk `b005bf50` | 12 | 655 s | `LOGS/l1-step3b-trunk-b005bf50/lane.out` |
++  | 分支 `cb1b42d7` | **12** | 680 s | `LOGS/final-cb1b42d7/l1-step3b/lane.out` |
++
++- **逐檔判定**：兩邊的 diff 只有一行，就是分支多了 `test_ndt_serve_gui.py PASS 35 ran and passed`。其餘 102 個檔的判定完全相同。
++  - 這 12 個本機的問題群（5 個 chaos、check_gate_anchors 的 2 個 skip、grpc_port_block、l3_dispatch_drift、ovs4_sflow、sflow_stats_endpoint、live_p1_common、mutate_gate_dead_mutant）都是 trunk 原本就有的。
++  - 它們跟 CI 的 12 組不是同一批，因為本機環境不同，數字相同只是巧合。這裡能證明的是：**這一刀沒有讓任何一個檔的判定改變。**
++- **Chrome 不在的時候 lane 怎麼讀**：
++  - lane 只 glob `tests/python/test_*.py` 和 `tests/shell/test_*.sh`，所以 `tests/browser/` 完全不在它的範圍裡（上表的逐檔清單可以查）；
++  - 頁面測試在 guard 外 5/5 都是 SKIP，會寫出原因（`LOGS/final-cb1b42d7/page-suite-noguard.log`）；CI 沒有 Chrome，結果也一樣是 SKIP，而且 lane 根本不會跑到它；
++  - 新的 `test_ndt_serve_gui.py` 不需要 Chrome、不會 skip，在 lane 的直譯器（Python 3.8.20）下是 35/35 PASS。
++- **lane 的 step 0（gate anchors，檢查 HEAD）**：`check_gate_anchors.py HEAD` 在 `cb1b42d7` 是 122/122（trunk 的 121 個閘門，加上新的頁面閘門）。
++  - 兩個 rev 一起檢查時是 243/244，那一格是頁面閘門在 `b005bf50`「absent」，是預期中的結果。
++  - log：`LOGS/final-cb1b42d7/gate-anchors*.log`。
++- **CI 的推論**（沒有實際跑過）：CI 那 12 組的組成跟 `tests/python` 的逐檔判定有關。這一刀只新增了一個在 3.8 下綠、不會 skip 的檔，所以預期 CI 還是 12。這是推論，要等 orchestrator 併入後的 CI 實跑才算數。
++
++### 4.3 瀏覽器實測（跑過，瀏覽器；和單元測試分開）
++
++- 地點：Claude app 的瀏覽器面板。
++- 伺服器：stub 伺服器，監聽 `127.0.0.1:18765`；用的是測試自己的 stub ndt 和 stub grid，HOME 是私有的，token 是測試用的。
++- 逐列紀錄在 `LOGS/browser-pane-walkthrough/WALKTHROUGH.md`，伺服器端的請求 log、stub 呼叫紀錄、job 的 request 都在同一個目錄。
++
++| # | 驗了什麼 | 結果 |
++|---|---|---|
++| B0 | 用一次性 URL 打開頁面 | 網址列只剩 `http://127.0.0.1:18765/`；session ok；storage 和 cookie 都是空的 |
++| B1 | Up（claim 是你的） | argv 是伺服器給的 `ndt up 4`；焦點在 Cancel；要打 `up`；打之前 Confirm 是停用的 |
++| B1b | 把焦點移到 Confirm 後按 Enter | 沒有送出，job 數是 0 |
++| B1c | 連點兩下 Confirm | `POST /up` 只收到一次 202，stub 只收到一次 `up 4` |
++| B2 | Down（claim 是別人的） | 顯示「claim first」；打了 `down` 之後 Confirm 仍然停用；伺服器只收到 dry run |
++| B3 | Claim（measuring 是 iperf3） | 升級成打字確認 `claim`，measuring 原文標成警示色 |
++| B4 | Claim（measuring 是 nothing） | measuring 列照樣顯示 `nothing`；不用打字；按一下得到 202 |
++| B5 | H4 cell 的 run | 要打 `run`，也要勾確認框；勾了才能按；送出的 job body 帶 `confirm_shared_state_write: true` |
++| B6 | offline_cell 的 walk，一路走到 verdict | 每一步都經過 dialog；最後記下 green |
++
++- **截圖**只有 B0 和 B1 兩張，在 session 的對話紀錄裡。之後瀏覽器面板被收起來，截到的都是舊畫面，不算證據。其餘各列以 DOM 讀值和伺服器 log 為證。
++- **這次實測找到、已修的一個小問題**：walk 在唯讀步驟時，dialog 的「ndt runs」那一格是空的，只有下面的 note 說明原因。修正在 `9a6eb7f1`：那一格改成寫「no ndt job」。
++- 驗證方式：修正後重跑了 PageLint 和頁面測試。**這一格沒有在瀏覽器裡重新點過。**
++
++### 4.4 這一刀沒做的
++
++- 取消 job；
++- P4 的 `--app` 欄位；
++- 用 DevTools protocol 自動化點擊；
++- 外觀打磨；
++- 多人使用。
+diff --git a/doc/audit/2026-09-27_ndt-serve-gui/SCOPE.md b/doc/audit/2026-09-27_ndt-serve-gui/SCOPE.md
+new file mode 100644
+index 00000000..39528712
+--- /dev/null
++++ b/doc/audit/2026-09-27_ndt-serve-gui/SCOPE.md
+@@ -0,0 +1,174 @@
++# ndt serve GUI 第一刀 — 範圍草案（寫程式之前給 orchestrator 審）
++
++[Co-developed with claude code -- Adam]
++
++- **依據**
++  - Adam 09-27 13:2x 用表單裁定：
++    - Q2：GUI 由 ndt serve 自己在 `/` 提供；
++    - Q3：token 經由啟動時印出的一次性 URL `#fragment` 交給頁面，只放在記憶體裡，讀完就把網址清掉，不用 cookie。
++  - 第一刀工單 §1：「瀏覽器開 localhost 就是入口」。
++  - `doc/audit/2026-09-24_ndt-serve/REPORT.md` §4.5 第 1 項。
++- **分支**：`feat/ndt-serve-gui-0927`，從 trunk＝main `b005bf50` 開。**只放在分支上，不併、不推。**
++- **orchestrator 已接受的條件**：
++  - 靜態頁加最少量的 JS，不裝 Node；
++  - 同源、不開 CORS、token 只放在記憶體；
++  - 交件前跑兩套 `test_ndt_serve` 和閘門。
++- **lab**：這一刀不需要 lab。頁面要驗的東西都可以用 stub ndt 驗，讀取真的 ndt 也只用 plain status。如果需要 lab，會先問 orchestrator。
++
++---
++
++## 1. 做什麼
++
++一個單頁應用，由 `GET /` 提供，分成五區。
++
++| 區 | 內容 | 用到的 API |
++|---|---|---|
++| **A. Lab 狀態** | claim 列和 measuring 列**原文照登**；「claim 是你的」標記；`ndt status` 完整輸出放在 `<pre>`；`/health` 的 `ndt_drift` 警告；手動重新整理，另有「分頁可見時每 30 秒自動更新」 | `GET /api/v1/lab`（新）、`/status`、`/health` |
++| **B. Lab 動作** | claim（分鐘數、note）、release、up（平面和主機數，選項由伺服器提供）、down | `POST /claim`、`/release`、`/up`、`/down` |
++| **C. Apps** | 清單（名稱由伺服器提供，旁邊附 `ndt apps status` 原文），每個 app 有 start 和 stop | `GET /apps`、`POST /apps/<n>/start\|stop` |
++| **D. Jobs** | 列表；每個 job 顯示 state、rc、依 `rc_class` 上色、meaning 原文、argv；即時 log（用 offset 輪詢）；目前槽位被哪個 job 佔著 | `GET /jobs`、`/jobs/<id>?wait=`、`/jobs/<id>/log/*` |
++| **E. Cells 與 walk** | 格子清單和預期判決；old/new 的 ASSERT 表格和 raw 檔連結；run（附確認，寫共用狀態的格子要勾確認）；walk 的步驟列表、每一步的 look_at、next、verdict（green／red 加 note）、abort | `/cells…`、`/guided…` |
++
++**這一刀不做**：
++- 拓樸編輯；
++- `--force`（已同意不開放）；
++- claim 的 `NDT_MEASURING`／`NDT_EXCLUSIVE_CPU` 旗標；
++- 多人使用；
++- 外觀打磨；
++- 取消 job。
++
++## 2. 會改變 lab 狀態的動作，與防誤觸
++
++| 動作 | 會改 lab | 確認強度 |
++|---|---|---|
++| claim | 是（claim 檔） | 一般確認 |
++| release | 是 | 一般確認 |
++| up | 是 | **打字確認**（要輸入 `up`） |
++| down | 是 | **打字確認**（要輸入 `down`） |
++| apps start／stop | 是 | 一般確認 |
++| cells run（需要 lab 的格子） | 是 | **打字確認**；寫共用狀態的格子另外要勾「我知道它會改寫 …」（等同 `confirm_shared_state_write`） |
++| cells run（`requires none` 的格子） | 否 | 一般確認 |
++| walk next | 可能（它的 claim、run、release 步驟會 spawn job） | 依「當前這一步」決定強度，同上 |
++| walk verdict／abort | 否（只寫 walk 檔） | verdict 要選 green 或 red；abort 要一般確認 |
++
++每一次寫入之前，頁面都會做下面這幾件事：
++
++1. **重新讀一次 `GET /api/v1/lab`（新端點）**，不沿用畫面上舊的內容。它執行 plain `ndt status`，回傳：
++   - `claim`：claim 那一列的原文；
++   - `measuring`：measuring 那一列的原文；
++   - `claim_is_yours`：伺服器用既有的 `OWN_CLAIM` 做 fullmatch 的結果；
++   - `busy`：目前佔著槽位的 job；
++   - `read`：這次讀取的 id，原始位元組查得到。
++2. **跳出確認視窗**，裡面放：
++   - claim 和 measuring 兩列原文；
++   - `claim_is_yours` 為否時，顯示紅色警告；
++   - **ndt 實際會執行的 argv**：由伺服器用 `dry_run` 算出來（見 §4），頁面自己不組 argv。
++3. **防誤觸的細節**：
++   - 預設焦點放在「取消」；
++   - 按 Enter 不會確認；
++   - 按下確認後按鈕立刻停用，防止連點；即使連點，伺服器的槽位也會回 409。
++4. **`claim_is_yours` 為否時**：up、down、apps、需要 lab 的 cells run，確認鍵會停用，並提示「先 claim」。這只是介面層的防呆，最後由 ndt 和伺服器決定：OVS 和 P4 的 up 都會對別人的 claim 回 rc 5（trunk 已修），cells run 伺服器那邊也有 claim 前置檢查。
++5. **measuring 不是 `nothing` 時**，一律升級成打字確認，並把 measuring 原文放在最上面。
++6. **GET 永遠不寫入**：伺服器端本來就是寫入只接受 POST；頁面端所有寫入都走同一個 `post()` 函式，測試會檢查這一點（§5）。
++
++## 3. token 流程（Q3 的實作）
++
++**建議做法：fragment 裡放的是「一次性 nonce」，不是長期 token。**
++
++1. 啟動時，伺服器產生一個 nonce：隨機、只能用一次、10 分鐘過期。
++2. **stdout 是終端機時**，印出 `http://127.0.0.1:<port>/#k=<nonce>`；**不是終端機時**（例如被導向到 log 檔），把 URL 寫進 `~/.config/ndt-serve/url`（權限 0600），終端只印出這個路徑。
++   - 理由：我們自己的 live log（`serve.out`）就會把 stdout 整份存下來。
++3. 頁面載入時：
++   - 讀取 `location.hash`；
++   - **立刻**用 `history.replaceState` 把 fragment 從網址裡拿掉；
++   - `POST /api/v1/session {"nonce": …}` 換到 token。這個請求要求 Origin 存在而且同源，Content-Type 必須是 JSON。
++4. nonce **用一次就作廢**，第二次用回 403，過期也回 403。
++5. token 只放在 JS 閉包裡的一個變數。**絕不寫進** `localStorage`、`sessionStorage`、cookie，也不寫進 DOM。
++6. 重新整理頁面，token 就沒了。要重新打開時，執行 `ndt serve url`（新子命令）：它讀 0600 的 token 檔，帶 token 呼叫 `POST /api/v1/session/new` 產生新的 nonce，再印出新 URL。
++
++**為什麼不直接把長期 token 放進 fragment？** 瀏覽器可能在 `replaceState` 之前，就把完整網址記進歷史紀錄或網址列的自動完成。放一次性 nonce 的話，就算被記下來也已經沒用；fragment 本身也不會送到伺服器，所以伺服器的 log 和 Referer 裡都不會有它。→ 決策清單第 1 題。
++
++## 4. 頁面「讀來做判斷」vs「只顯示」——rc 表只有一個來源
++
++| 類別 | 項目 |
++|---|---|
++| **頁面讀來決定畫面狀態的** | `rc_class`（決定顏色）、`job.state`、`busy`、`claim_is_yours`、`writes_shared_state`、cell 的 `requires`、walk 的 `current`／`blocked`／`done`、每一步的 `state`；up 的選項、claim 分鐘上限、app 名稱來自 **`GET /api/v1/meta`（新）**，它直接輸出 `verbs.UP_HOSTS`、`verbs.MAX_CLAIM_MINUTES` 和 ndt 的 `APP_NAMES` |
++| **只原文顯示、頁面絕不解析的** | ndt 的 stdout／stderr、claim 列、measuring 列、`meaning`、`look_at`、CELLS.md 的預期判決、ASSERT 的 detail。**一律用 `textContent`，不用 `innerHTML`** |
++| **頁面裡絕對沒有的** | rc 表、argv 的組法、對 ndt 文字的任何解析 |
++
++- argv 的預覽：寫入端點加上 `{"dry_run": true}`，伺服器照原本的路徑驗證 token、Origin、body，由 `verbs.py` 產生 argv，**但不 spawn**，直接回 `{"argv": […]}`。這樣 argv 的組法只存在於 `verbs.py` 一處。
++- `rc_class` 的配色：`refused` 和 `dirty` 是兩種不同的顏色，`nothing`、`report`、`skip` 則用灰階。
++
++## 5. 伺服器端的最小改動
++
++1. **靜態檔**：
++   - `GET /`（對應 `index.html`）、`/app.js`、`/app.css`，**這三個固定檔名**，放在 `tools/ndt_serve/static/`。
++   - 不需要 token，也不會執行任何東西。Host 檢查照樣套用（它本來就套用在所有路徑上）。
++   - 回應標頭：
++     - `Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`
++     - `X-Frame-Options: DENY`、`Referrer-Policy: no-referrer`、`Cache-Control: no-store`、`X-Content-Type-Options: nosniff`
++   - 因為 CSP 擋掉了 inline script，JS 一定放在獨立的 `app.js`。
++   - 其他路徑維持現在的 404 加 `GUI_NOTE`。
++2. **新端點**：
++   - `POST /api/v1/session`（用 nonce 換 token，不需要 token header，但 Origin 必須存在而且同源）；
++   - `POST /api/v1/session/new`（需要 token，產生新的 nonce）；
++   - `GET /api/v1/lab`、`GET /api/v1/meta`（都需要 token）。
++3. **dry_run**：所有 POST 寫入端點都接受 `dry_run`（加進 verbs 的白名單欄位）。
++4. **啟動與 CLI**：啟動時印出或寫出 URL；新增 `serve.py url` 子命令，並在 `ndt help` 的 serve 段落加一行說明。
++5. **估計規模**：伺服器端約 +150 行；靜態檔（HTML、JS、CSS）約 400–600 行；測試約 +350 行。
++
++## 6. 測試計畫（每條都紅燈先行，每條配具名變異，G 系列）
++
++**伺服器端（Python unittest，沿用現有的 stub ndt）**
++
++| 性質 | 測試 | 變異 |
++|---|---|---|
++| 靜態檔不執行 ndt、不需要 token | `/`、`/app.js`、`/app.css` 沒帶 token 也回 200；stub 一次都沒被呼叫；其他路徑回 404；`/../`、`/static/../serve.py` 回 404 | G1：靜態路由去執行 `ndt status` |
++| 靜態檔的安全標頭 | CSP、XFO、Referrer-Policy 三個標頭都在 | G2：拿掉 CSP；G3：拿掉 `frame-ancestors`／XFO |
++| Host 檢查也套用在靜態檔 | 外來的 Host 打 `/` 回 403 | G4：靜態路由不做 Host 檢查 |
++| 印出的 URL 裡沒有長期 token | 解析啟動輸出，確認 token 字串不在裡面；非終端機時 URL 寫進 0600 檔 | G5：URL 改成放 token |
++| nonce 只能用一次 | 第一次 200，第二次 403；過期 403 | G6：用完不作廢；G7：不檢查過期 |
++| nonce 交換要求同源 | 缺 Origin 回 403、外來 Origin 回 403、nonce 放在 query 被拒 | G8：不檢查 Origin |
++| GET 永遠不寫入 | 既有測試延伸到 `/`、`/lab`、`/meta`：只會執行唯讀動詞；寫入路徑用 GET 回 405 | G9：`/lab` 改跑 `status --check` |
++| dry_run 不 spawn | job 數量不變、stub 沒被呼叫；argv 與實跑時相同 | G10：dry_run 照樣 spawn |
++| `/lab` 的 claim 判斷 | 重用 `OWN_CLAIM` 的案例，含 `yours-x`、`none`、`EXPIRED` | G11：改成 `startswith` |
++
++**頁面端（headless Chrome，已確認可用）**
++
++- 做法：
++  - 由 Python 測試啟動 stub 伺服器，接著執行 `google-chrome --headless=new --user-data-dir=<暫存目錄> --virtual-time-budget=… --dump-dom <URL#k=nonce>`；
++  - 用拋棄式的 profile，不碰 Adam 的 Chrome 設定；
++  - 測試結束後確認沒有殘留的 Chrome 程序。
++- 09-27 實測過可行：JS 會執行、讀得到 fragment、`replaceState` 之後網址裡沒有 fragment，事後殘留程序是 0。
++
++| 性質 | 測試 | 變異 |
++|---|---|---|
++| fragment 被清掉 | 頁面在測試模式下，把 `location.href` 寫進一個 hook 元素；斷言裡面沒有 `#`，而且伺服器收到了 nonce 交換的請求 | G12：拿掉 `replaceState` |
++| token 不進 storage | hook 列出 `localStorage`、`sessionStorage` 的 key 和 `document.cookie`，斷言三者都是空的 | G13：token 寫進 `sessionStorage` |
++| 載入頁面不會寫入 | 載入頁面之後，stub 只收到唯讀呼叫，沒有任何寫入 | G14：載入時自動執行一個寫入 |
++
++**頁面端的靜態檢查**（Python 讀 `app.js`）：
++
++- 不准出現 `localStorage`、`sessionStorage`、`document.cookie`、`eval`、`innerHTML`；
++- `fetch(` 只能出現在 `get()` 和 `post()` 兩個函式裡；
++- `X-NDT-Token` 只能在一處設定；
++- 每一次 `post(` 呼叫，都必須透過 `confirmThen(`（確認視窗的回呼）。
++
++對應的變異是 G15–G17。
++
++**確認視窗的行為**（實際點擊、預設焦點、打字確認、claim 不是自己的時候確認鍵停用）：`--dump-dom` 沒辦法模擬點擊，所以由我在 app 內建瀏覽器實際操作，附截圖；報告裡這部分會標成「跑過（瀏覽器）」，跟單元測試分欄。要做到可重跑，需要 DevTools protocol 那一類更重的工具。→ 決策清單第 5 題。
++
++## 7. 交付
++
++- 程式、測試、閘門都放在分支上；交件前跑兩套既有測試、新測試、`mutate_ndt_serve.sh`（加上 G 系列）、`check_gate_anchors`、兩支靜態 meta-gate。
++- 報告：`doc/audit/2026-09-27_ndt-serve-gui/REPORT.md`，四段式。截圖照 CLAUDE.md 的規矩：圖上只留少量必要的字。
++- 收件照 orchestrator 的流程：讀 diff、掃秘密字串、判官。
++
++## 8. 決策清單
++
++1. **fragment 裡放什麼？** 我建議放一次性 nonce，用它去換 token（§3）；另一個選項是直接放長期 token，比較簡單，但可能被瀏覽器的歷史紀錄記下來。
++2. **介面語言？** 我建議中文標籤，程式碼和 API 維持英文；另一個選項是全英文。
++3. **claim 不是自己的時候，要不要停用 up、down 等動作的確認鍵？** 我建議停用，並提示「先 claim」。這只是介面防呆，最後仍由 ndt 決定。
++4. **要不要做 `dry_run` 預覽 argv？** 我建議要，讓 argv 的組法只存在 verbs.py 一處。
++5. **確認視窗的點擊行為，怎麼驗？** 這一刀用瀏覽器實際操作加截圖；如果要做到可重跑，下一刀引入 DevTools protocol，但只用 Python 標準庫來寫。
++6. **自動重新整理？** 我建議只在分頁可見時每 30 秒一次（每次會執行一次 plain `ndt status`，約 0.7 秒，受伺服器的讀取名額限制）；另一個選項是只做手動。
+diff --git a/tests/browser/test_ndt_serve_page.py b/tests/browser/test_ndt_serve_page.py
+new file mode 100755
+index 00000000..95ef53d7
+--- /dev/null
++++ b/tests/browser/test_ndt_serve_page.py
+@@ -0,0 +1,323 @@
++#!/usr/bin/env python3
++"""ndt serve's page in a real browser: SCOPE section 6, the page rows G12-G14
++(doc/audit/2026-09-27_ndt-serve-gui/SCOPE.md).
++
++[Co-developed with claude code -- Adam]
++
++What only a browser can show about tools/ndt_serve/static/app.js, because it is about what the
++page DOES once it runs, not about how it is spelled:
++
++  G12  the one-time key leaves the address bar (history.replaceState) and is traded for the
++       token -- once: the key the page used is refused afterwards;
++  G13  the token lives in the page's memory only: nothing in localStorage, sessionStorage or
++       document.cookie, and neither the token nor the key anywhere in the rendered DOM or, for the
++       token, in any file of the browser profile;
++  G14  loading the page writes nothing: the stub ndt sees only plain `status`, no job exists,
++       and the only non-GET request the server logged is the key trade (POST /api/v1/session);
++
++plus the two refusals: a used key opens nothing (no session, no ndt call) and neither does a URL
++with no key at all.
++
++    JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh python3 tests/browser/test_ndt_serve_page.py
++    NDT_SERVE_UNDER_TEST=/tmp/x/tools/ndt_serve ... (a mutant tree -- tests/shell/mutate_ndt_serve_page.sh)
++
++WHY tests/browser/ AND NOT tests/python/: CI's L1 lane globs tests/python/test_*.py and
++tests/shell/test_*.sh and fails any suite that skips; CI has no Chrome, so every case here would
++skip there. This directory is outside that glob on purpose.
++
++WHEN IT SKIPS (every case, with the reason in unittest's output): google-chrome is not installed;
++or it is not running inside tools/build_guard/guarded_build.sh (NDTWIN_GUARD_HELD unset) -- on
++this laptop systemd-oomd has twice killed Adam's own application under memory pressure, and a
++browser is the one thing in this suite that can make some. A skipped case proves nothing, which is
++why the mutation gate refuses a baseline with a skip in it.
++
++HOW A CASE RUNS: its own stub server (tests/python/test_ndt_serve.py's Serve: a stub ndt that
++records every call to calls.jsonl, no real ndt, no lab), with HOME inside the case's temp dir and
++XDG_CONFIG_HOME / XDG_STATE_HOME unset, so no default path reaches the real ~. The page URL is the
++one the server wrote to the 0600 `url` file beside its token file (its stdout is not a terminal).
++Then ONE Chrome at a time -- headless, a fresh profile inside the case's temp dir, the same HOME --
++dumps the DOM once the page's own fetches are done. Chrome is started in a session and process
++group of its own. After it exits, no process may remain in that session or that group, or carry
++the profile directory in its cmdline. A Chrome that runs past its timeout, and a leftover in that
++group, get the GROUP SIGKILLed -- the group this file created, by the pid it recorded -- and the
++case fails naming the pids; nothing else is ever signalled, and no process is looked up by name.
++
++The page reports through data-* attributes on <body> (app.js, hook()): data-href (location.href
++after the wipe), data-session (ok | refused | no-key), data-storage ({"local":N,"session":N,
++"cookie":"..."}), data-loaded (yes | no-session | no-meta). The token never goes there.
++
++tests/shell/mutate_ndt_serve_page.sh is this file's mutation gate.
++"""
++import html
++import json
++import os
++import re
++import shutil
++import signal
++import subprocess
++import sys
++import tempfile
++import time
++import unittest
++
++HERE = os.path.dirname(os.path.abspath(__file__))
++REPO = os.path.dirname(os.path.dirname(HERE))
++sys.path.insert(0, os.path.join(REPO, "tests", "python"))
++import test_ndt_serve as base  # noqa: E402 -- Serve, the stub ndt; honours NDT_SERVE_UNDER_TEST
++from test_ndt_serve import tearDownModule  # noqa: E402,F401 -- the same leftover-server sweep
++
++CHROME = shutil.which("google-chrome")
++GUARD_HELD = os.environ.get("NDTWIN_GUARD_HELD", "")
++NO_CHROME = "google-chrome is not installed (CI has none): the page cases need a real browser"
++NO_GUARD = ("not inside tools/build_guard/guarded_build.sh: headless Chrome runs only under the guard on "
++            "this laptop (systemd-oomd) -- JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh "
++            "python3 tests/browser/test_ndt_serve_page.py")
++
++CHROME_TIMEOUT_S = 60
++LEFTOVER_GRACE_S = 5       # a child still on its way out when the main process is reaped
++STATUS = "lab\n  claim          yours -- 30m left (until 23:59:00)\n  measuring      nothing\n"
++SERVER_XDG = ("XDG_CONFIG_HOME", "XDG_STATE_HOME")
++CHROME_XDG = ("XDG_CONFIG_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME")
++
++URL_RE = re.compile(r"http://127\.0\.0\.1:(\d+)/#k=([A-Za-z0-9_-]{16,64})")
++# <body ...>, with a quoted value allowed to hold any byte but a double quote (Chrome writes " as &quot;)
++BODY_RE = re.compile(r'<body((?:\s+[^\s=>"]+(?:="[^"]*")?)*)\s*>')
++ATTR_RE = re.compile(r'([^\s=>"]+)(?:="([^"]*)")?')
++# the server's access log line (serve.py log_message): HH:MM:SS "POST /api/v1/session HTTP/1.1" 200 -
++REQUEST_RE = re.compile(r'"([A-Z]+) (\S+) HTTP/[0-9.]+" (\d{3})')
++
++
++def chrome_argv(profile, url):
++    # The 09-27 invocation the parent session verified, plus four switches that keep a throwaway
++    # profile from reaching anything beyond this page: no component/background fetches, no sync,
++    # and a plain password store instead of the desktop keyring.
++    return [CHROME, "--headless=new", "--no-first-run", "--no-default-browser-check",
++            "--user-data-dir=" + profile, "--disable-background-networking", "--disable-component-update",
++            "--disable-sync", "--password-store=basic", "--virtual-time-budget=8000", "--dump-dom", url]
++
++
++def processes():
++    """(pid, pgrp, sid, state, cmdline bytes) of every process /proc lists now. One that exits
++    while it is being read is skipped. Read by pid from /proc, never looked up by name."""
++    rows = []
++    for d in os.listdir("/proc"):
++        if not d.isdigit():
++            continue
++        try:
++            with open("/proc/%s/stat" % d) as f:
++                rest = f.read().rsplit(")", 1)[1].split()
++            with open("/proc/%s/cmdline" % d, "rb") as f:
++                cmd = f.read()
++        except OSError:
++            continue
++        rows.append((int(d), int(rest[2]), int(rest[3]), rest[0], cmd))
++    return rows
++
++
++def leftovers(pid, profile):
++    """Every process in the session or the process group Chrome was started as (both numbered by
++    its pid), and every process whose cmdline names its profile directory -- detection only."""
++    mark = profile.encode()
++    return [r for r in processes() if r[1] == pid or r[2] == pid or mark in r[4]]
++
++
++def describe(rows):
++    return "; ".join("pid %d pgrp %d sid %d state %s: %s" % (p, g, s, st, c.replace(b"\0", b" ")[:160].decode(
++        "utf-8", "replace")) for p, g, s, st, c in rows)
++
++
++def body_attrs(dump):
++    tags = BODY_RE.findall(dump)
++    if len(tags) != 1:
++        raise AssertionError("the dump holds %d <body> tags, not 1: %r" % (len(tags), dump[:400]))
++    return {k: html.unescape(v or "") for k, v in ATTR_RE.findall(tags[0])}
++
++
++def files_holding(root, secret):
++    """Files under `root` holding `secret`, as UTF-8 or as UTF-16LE (how Chrome's DOM storage
++    keeps a string it cannot store as Latin-1)."""
++    needles = (secret.encode(), secret.encode("utf-16-le"))
++    hits = []
++    for d, _, names in os.walk(root):
++        for n in names:
++            p = os.path.join(d, n)
++            try:
++                with open(p, "rb") as f:
++                    data = f.read()
++            except OSError:
++                continue
++            if any(x in data for x in needles):
++                hits.append(os.path.relpath(p, root))
++    return hits
++
++
++@unittest.skipUnless(CHROME, NO_CHROME)          # outermost: its reason wins when both are missing
++@unittest.skipUnless(GUARD_HELD, NO_GUARD)
++class PageSession(unittest.TestCase):
++    def setUp(self):
++        tmp = tempfile.mkdtemp(prefix="ndt-serve-page-")
++        self.home = os.path.join(tmp, "home")
++        os.makedirs(self.home)
++        self.s = base.Serve(tmp=tmp, env={"HOME": self.home})
++        for k in SERVER_XDG:
++            self.s.env.pop(k, None)
++        self.addCleanup(self.s.close)     # also removes tmp, profiles included -- after Chrome is gone
++        self.s.behave(status={"stdout": STATUS})
++        self.s.start()
++
++    # --- helpers ---
++    def page_url(self):
++        """The one-time URL the server wrote beside its token file, and its key."""
++        path = os.path.join(os.path.dirname(self.s.token_file), "url")
++        deadline = time.monotonic() + 10
++        while not os.path.exists(path) and time.monotonic() < deadline:
++            time.sleep(0.05)
++        text = base._read(path).strip()
++        m = URL_RE.fullmatch(text)
++        self.assertIsNotNone(m, "the url file does not hold a page URL with a key: %r" % text)
++        self.assertEqual(int(m.group(1)), self.s.port, "the url file names another port")
++        return text, m.group(2)
++
++    def open_page(self, url):
++        """One headless Chrome on `url`, to the end: -> (<body> data-* attributes, the dump, the
++        profile directory). Fails on a timeout, a non-zero exit, or any leftover process."""
++        profile = tempfile.mkdtemp(prefix="chrome-profile-", dir=self.s.tmp)
++        out, err = profile + ".dump", profile + ".stderr"
++        env = {k: v for k, v in os.environ.items() if not k.startswith("NDT_")}
++        env["HOME"] = self.home
++        for k in CHROME_XDG:
++            env.pop(k, None)
++        with open(out, "wb") as o, open(err, "wb") as e:
++            p = subprocess.Popen(chrome_argv(profile, url), stdin=subprocess.DEVNULL, stdout=o, stderr=e,
++                                 env=env, cwd=self.s.tmp, start_new_session=True)
++        problems = []
++        try:
++            p.wait(CHROME_TIMEOUT_S)
++        except subprocess.TimeoutExpired:
++            os.killpg(p.pid, signal.SIGKILL)   # the group this test created for it
++            p.wait(10)
++            problems.append("Chrome did not finish in %d s: its process group %d was SIGKILLed"
++                            % (CHROME_TIMEOUT_S, p.pid))
++        except BaseException:                  # interrupted (SIGTERM from the gate's timeout, ^C)
++            os.killpg(p.pid, signal.SIGKILL)
++            p.wait(10)
++            raise
++        left = leftovers(p.pid, profile)
++        deadline = time.monotonic() + LEFTOVER_GRACE_S
++        while left and time.monotonic() < deadline:
++            time.sleep(0.1)
++            left = leftovers(p.pid, profile)
++        if left:
++            if any(r[1] == p.pid for r in left):
++                try:
++                    os.killpg(p.pid, signal.SIGKILL)   # our group, and only our group
++                except ProcessLookupError:
++                    pass
++                problems.append("processes left in Chrome's process group %d (SIGKILLed): %s"
++                                % (p.pid, describe([r for r in left if r[1] == p.pid])))
++            other = [r for r in left if r[1] != p.pid]
++            if other:
++                problems.append("processes left in Chrome's session or naming its profile (NOT signalled): %s"
++                                % describe(other))
++        if p.returncode != 0 and not problems:
++            problems.append("Chrome exited %d" % p.returncode)
++        if problems:
++            self.fail("%s\n  profile %s\n  Chrome's stderr (tail): %s"
++                      % ("\n  ".join(problems), profile, base._read(err)[-1500:]))
++        dump = base._read(out)
++        return body_attrs(dump), dump, profile
++
++    def requests_seen(self):
++        """(method, path, status) of every request the server logged, in order."""
++        return [(m.group(1), m.group(2), int(m.group(3)))
++                for m in REQUEST_RE.finditer(base._read(self.s.out + ".err"))]
++
++    # --- G12 ---
++    def test_the_key_leaves_the_address_bar_and_is_traded(self):
++        url, key = self.page_url()
++        body, _, _ = self.open_page(url)
++        self.assertEqual(body.get("data-session"), "ok", "the page did not open a session: %r" % body)
++        self.assertEqual(body.get("data-href"), "http://127.0.0.1:%d/" % self.s.port,
++                         "the key is still in the address bar after the page ran")
++        trades = [st for method, path, st in self.requests_seen() if (method, path) == ("POST", "/api/v1/session")]
++        self.assertEqual(trades, [200], "the server did not see the page trade the key exactly once")
++        st, j, _, _ = self.s.request("POST", "/api/v1/session", body={"nonce": key}, token=None,
++                                     headers={"Origin": "http://127.0.0.1:%d" % self.s.port})
++        self.assertEqual((st, (j or {}).get("error")), (403, "nonce"),
++                         "the key the page traded still opens a session")
++
++    # --- G13 ---
++    def test_the_token_is_only_in_memory(self):
++        url, key = self.page_url()
++        body, dump, profile = self.open_page(url)
++        self.assertEqual(body.get("data-loaded"), "yes", "the page did not load: %r" % body)
++        self.assertEqual(json.loads(body.get("data-storage") or "null"), {"local": 0, "session": 0, "cookie": ""},
++                         "the page left something in browser storage")
++        token = self.s.token()
++        self.assertGreaterEqual(len(token), 40)
++        self.assertFalse(token in dump, "the token is in the page's DOM")
++        self.assertFalse(key in dump, "the one-time key is in the page's DOM")
++        self.assertEqual(files_holding(profile, token), [], "the token is in a file of the browser profile")
++
++    # --- G14 ---
++    def test_loading_the_page_writes_nothing(self):
++        url, _ = self.page_url()
++        body, _, _ = self.open_page(url)
++        self.assertEqual(body.get("data-loaded"), "yes", "the page did not load: %r" % body)
++        problems = []
++        st, j, _, _ = self.s.get("/jobs")
++        jobs = j.get("jobs") if st == 200 and isinstance(j, dict) else None
++        if jobs != []:
++            problems.append("GET /jobs after loading the page answered %d with %r" % (st, jobs))
++            for job in jobs or []:
++                try:
++                    self.s.wait(job["id"])     # so the stub has recorded what the job ran
++                except (AssertionError, OSError, KeyError, TypeError):
++                    pass                       # already a problem; the calls below say what ran
++        argvs = [c["argv"] for c in self.s.calls()]
++        if not argvs:
++            problems.append("the stub saw no call at all: the page never read the lab, so this checked nothing")
++        writes = [a for a in argvs if a != ["status"]]
++        if writes:
++            problems.append("the stub saw calls other than plain status: %r" % writes)
++        not_get = [(method, path, code) for method, path, code in self.requests_seen() if method != "GET"]
++        if not not_get:
++            problems.append("the server logged no key trade (POST /api/v1/session): nothing was loaded")
++        others = [r for r in not_get if r[:2] != ("POST", "/api/v1/session")]
++        if others:
++            problems.append("the page's load made requests that are not the key trade: %r" % others)
++        self.assertEqual(problems, [], "loading the page writes")
++
++    # --- the refusals ---
++    def test_a_used_key_opens_nothing(self):
++        url, _ = self.page_url()
++        first, _, _ = self.open_page(url)
++        self.assertEqual((first.get("data-session"), first.get("data-loaded")), ("ok", "yes"),
++                         "the first load, the one the second is held against, did not open")
++        before = self.s.calls()
++        second, _, _ = self.open_page(url)
++        self.assertEqual((second.get("data-session"), second.get("data-loaded")), ("refused", "no-session"),
++                         "the second load of a used key opened a session")
++        self.assertEqual(self.s.calls(), before, "the second load of a used key ran ndt")
++
++    def test_a_url_without_a_key_opens_nothing(self):
++        body, _, _ = self.open_page("http://127.0.0.1:%d/" % self.s.port)
++        self.assertEqual(body.get("data-session"), "no-key", "a URL with no key: %r" % body)
++        self.assertEqual(body.get("data-loaded"), "no-session", "a URL with no key: %r" % body)
++        self.assertEqual(self.s.calls(), [], "a URL with no key ran ndt")
++        self.assertEqual([r for r in self.requests_seen() if r[0] != "GET"], [],
++                         "a URL with no key made a non-GET request")
++
++
++def _interrupted(signum, frame):
++    # SIGTERM (the gate's `timeout`) becomes ^C, so open_page's handler kills the Chrome group it
++    # started and the finally below stops the servers, instead of both outliving this process.
++    raise KeyboardInterrupt("signal %d" % signum)
++
++
++if __name__ == "__main__":
++    signal.signal(signal.SIGTERM, _interrupted)
++    try:
++        unittest.main(verbosity=2)
++    finally:
++        tearDownModule()
+diff --git a/tests/python/test_ndt_serve.py b/tests/python/test_ndt_serve.py
+index 447446c0..eae73e3b 100644
+--- a/tests/python/test_ndt_serve.py
++++ b/tests/python/test_ndt_serve.py
+@@ -1163,13 +1163,16 @@ class Entry(unittest.TestCase):
+         self.assertIn("usage: ndt serve", r.stdout)
+         self.assertIn("127.0.0.1", r.stdout)
+ 
+-    def test_root_is_reserved_for_the_gui(self):
++    def test_outside_the_api_there_is_only_the_page(self):
++        # [Co-developed with claude code -- Adam] the GUI cut (09-27) took /, /app.js and /app.css;
++        # those three are tests/python/test_ndt_serve_gui.py's. Nothing else is a path to a file.
+         s = Serve().start()
+         try:
+-            for p in ("/", "/index.html", "/app.js", "/apiv1/health"):
++            for p in ("/index.html", "/static/app.js", "/app.js/", "/favicon.ico", "/apiv1/health",
++                      "/../tools/ndt_serve/serve.py", "/static/../serve.py", "/serve.py"):
+                 st, j, _, _ = s.request("GET", p)
+                 self.assertEqual(st, 404, p)
+-                self.assertIn("reserved for the Web-GUI", j["note"])
++                self.assertIn("there is only the page", j["note"])
+         finally:
+             s.close()
+ 
+diff --git a/tests/python/test_ndt_serve_gui.py b/tests/python/test_ndt_serve_gui.py
+new file mode 100644
+index 00000000..56ef5365
+--- /dev/null
++++ b/tests/python/test_ndt_serve_gui.py
+@@ -0,0 +1,773 @@
++#!/usr/bin/env python3
++"""ndt serve, the GUI cut: what the server does for the page, and what the page's script may do.
++
++[Co-developed with claude code -- Adam]
++
++Adam's rulings (09-27 13:2x): the page is served by ndt serve itself at / (Q2), and the token
++reaches it through a one-time URL #fragment, kept in memory only (Q3). The orchestrator's review
++of doc/audit/2026-09-27_ndt-serve-gui/SCOPE.md made the fragment a ONE-TIME KEY traded for the
++token. These cases pin the server's side of that, against the stub ndt of test_ndt_serve.Serve:
++
++  * the page's three files need no token, run nothing, obey the Host check and carry a CSP that
++    allows no inline script, no other origin and no frame;
++  * the start-up URL carries a key, never the token, and goes to a terminal or to a 0600 file --
++    never into a log; a key trades once, within its time, from this very origin, in a JSON body;
++  * `serve.py url` sends the token only to the process serve.json names, and only if that
++    process holds the port;
++  * GET /lab is plain `ndt status` with its rows verbatim and two readings: the own-claim form,
++    whole, and measuring exactly `nothing`; GET /meta is the server's own tables;
++  * {"dry_run": true} answers the argv the write would run and runs, spawns and makes nothing --
++    and only where it is offered;
++
++and PageLint holds static/app.js and static/index.html to what the page may do (SCOPE section 6):
++one door out, every write through the confirm dialog, nothing in storage, no HTML from strings.
++What only a browser can show is tests/browser/test_ndt_serve_page.py (headless Chrome, under the
++build guard) -- kept out of this directory because CI has no Chrome and the L1 lane fails a skip.
++
++Every server here gets its own HOME, so no default path reaches the real ~/.config/ndt-serve.
++
++    python3 tests/python/test_ndt_serve_gui.py
++    NDT_SERVE_UNDER_TEST=/tmp/x/ndt_serve python3 tests/python/test_ndt_serve_gui.py   # a mutant
++
++tests/shell/mutate_ndt_serve.sh (the G series) is this file's mutation gate.
++"""
++import glob
++import importlib.util
++import json
++import os
++import pty
++import re
++import select
++import signal
++import socket
++import stat
++import subprocess
++import sys
++import threading
++import time
++import unittest
++
++sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
++import test_ndt_serve as base  # noqa: E402
++import test_ndt_serve_cells as grid  # noqa: E402
++from test_ndt_serve import tearDownModule  # noqa: E402,F401 -- the same leftover-server sweep
++
++SERVE_PY = os.path.join(base.SERVE_DIR, "serve.py")
++STATIC = os.path.join(base.SERVE_DIR, "static")
++KEY = r"[A-Za-z0-9_-]{43}"
++
++_spec = importlib.util.spec_from_file_location("verbs_under_test", os.path.join(base.SERVE_DIR, "verbs.py"))
++verbs = importlib.util.module_from_spec(_spec)
++_spec.loader.exec_module(verbs)
++
++STATUS_FULL = ("lab\n"
++               "  claim          yours -- 30m left (until 23:59:00)\n"
++               "  prev claim     orch-0924 (until 20:00:00)\n"
++               "  declared       iperf3 matrix   (claim measuring=; 'ndt check' refuses while set)\n"
++               "  measuring      nothing\n")
++
++
++def private_home(s):
++    """The server's HOME inside its own temp tree; no XDG_* of the shell running the tests."""
++    s.home = os.path.join(s.tmp, "home")
++    os.makedirs(s.home, exist_ok=True)
++    s.env["HOME"] = s.home
++    for k in ("XDG_CONFIG_HOME", "XDG_STATE_HOME"):
++        s.env.pop(k, None)
++
++
++class Gui:
++    """What a GUI case needs on top of a Serve: the one-time URL, and trading its key."""
++
++    def conf(self):
++        return os.path.dirname(self.token_file)
++
++    def url_file(self):
++        return os.path.join(self.conf(), "url")
++
++    def key(self):
++        m = re.fullmatch(r"http://127\.0\.0\.1:%d/#k=(%s)\n" % (self.port, KEY), base._read(self.url_file()))
++        assert m, base._read(self.url_file())
++        return m.group(1)
++
++    def trade(self, key, origin="default", host="default", ctype="application/json", query="", body=None):
++        if origin == "default":
++            origin = "http://127.0.0.1:%d" % self.port
++        headers = {"Origin": origin} if origin is not None else {}
++        st, j, h, _ = self.request("POST", "/api/v1/session" + query, body if body is not None else {"nonce": key},
++                                   token=None, host=host, ctype=ctype, headers=headers)
++        return st, j
++
++    def jobs(self):
++        st, j, _, _ = self.get("/jobs")
++        assert st == 200, (st, j)
++        return j["jobs"]
++
++
++class GuiServe(Gui, base.Serve):
++    def __init__(self, **kw):
++        super().__init__(**kw)
++        private_home(self)
++
++
++class GuiGridServe(Gui, grid.GridServe):
++    def __init__(self, **kw):
++        super().__init__(**kw)
++        private_home(self)
++
++
++def page_file(name):
++    with open(os.path.join(STATIC, name), "rb") as f:
++        return f.read()
++
++
++def csp_of(headers):
++    out = {}
++    for d in headers.get("content-security-policy", "").split(";"):
++        parts = d.split()
++        if parts:
++            out[parts[0]] = parts[1:]
++    return out
++
++
++# --- the page's three files --------------------------------------------------------------------
++
++class Page(unittest.TestCase):
++    def setUp(self):
++        self.s = GuiServe().start()
++
++    def tearDown(self):
++        self.s.close()
++
++    def test_page_files_need_no_token_and_run_nothing(self):
++        for path, name, ctype in (("/", "index.html", "text/html"), ("/app.js", "app.js", "text/javascript"),
++                                  ("/app.css", "app.css", "text/css"), ("/?x=1", "index.html", "text/html")):
++            st, _, h, payload = self.s.request("GET", path, token=None)
++            self.assertEqual(st, 200, path)
++            self.assertTrue(h["content-type"].startswith(ctype), (path, h["content-type"]))
++            self.assertEqual(payload, page_file(name), path)
++        self.assertEqual(self.s.calls(), [], "a page file ran ndt")
++        self.assertEqual(self.s.jobs(), [])
++
++    def test_every_answer_carries_a_csp_with_no_inline_script_and_no_other_origin(self):
++        for path in ("/", "/app.js", "/app.css", "/api/v1/health"):
++            st, _, h, _ = self.s.request("GET", path, token=None)
++            self.assertEqual(st, 200, path)
++            csp = csp_of(h)
++            for directive, want in (("default-src", ["'none'"]), ("script-src", ["'self'"]),
++                                    ("style-src", ["'self'"]), ("connect-src", ["'self'"]),
++                                    ("img-src", ["'self'"]), ("base-uri", ["'none'"]), ("form-action", ["'none'"])):
++                self.assertEqual(csp.get(directive), want, (path, directive, h.get("content-security-policy")))
++            self.assertNotIn("unsafe", h["content-security-policy"], path)
++            self.assertEqual(h.get("referrer-policy"), "no-referrer", path)
++            self.assertEqual(h.get("cache-control"), "no-store", path)
++            self.assertEqual(h.get("x-content-type-options"), "nosniff", path)
++
++    def test_the_page_cannot_be_framed(self):
++        for path in ("/", "/app.js"):
++            _, _, h, _ = self.s.request("GET", path, token=None)
++            self.assertEqual(csp_of(h).get("frame-ancestors"), ["'none'"], path)
++            self.assertEqual(h.get("x-frame-options"), "DENY", path)
++
++    def test_the_page_obeys_the_host_check(self):
++        for host in ("evil.example:%d" % self.s.port, "127.0.0.1:%d" % (self.s.port + 1), None):
++            st, j, _, payload = self.s.request("GET", "/", token=None, host=host)
++            self.assertEqual(st, 403, host)
++            self.assertEqual(j["error"], "host", host)
++            self.assertNotIn(b"<html", payload)
++
++    def test_the_page_is_get_only(self):
++        for method in ("POST", "PUT", "DELETE", "HEAD"):
++            st, _, h, payload = self.s.request(method, "/", body={}, token=None)
++            self.assertEqual(st, 405, method)
++            self.assertEqual(h.get("allow"), "GET", method)
++            self.assertNotIn(b"<html", payload)
++
++
++# --- the start-up URL --------------------------------------------------------------------------
++
++def read_until(fd, pattern, timeout=15):
++    buf = b""
++    deadline = time.monotonic() + timeout
++    while time.monotonic() < deadline:
++        r, _, _ = select.select([fd], [], [], 0.2)
++        if r:
++            try:
++                chunk = os.read(fd, 4096)
++            except OSError:
++                break
++            if not chunk:
++                break
++            buf += chunk
++            if re.search(pattern, buf.decode("utf-8", "replace")):
++                break
++    return buf.decode("utf-8", "replace")
++
++
++class StartupUrl(unittest.TestCase):
++    def test_the_url_goes_to_a_0600_file_when_stdout_is_not_a_terminal(self):
++        s = GuiServe().start()
++        try:
++            out = base._read(s.out)
++            self.assertIn("the one-time URL is in %s (0600)" % s.url_file(), out)
++            self.assertNotIn("#k=", out)
++            self.assertNotIn(s.token(), out)
++            self.assertNotIn(s.token(), base._read(s.out + ".err"))
++            for p in (s.url_file(), os.path.join(s.conf(), "serve.json")):
++                self.assertEqual(stat.S_IMODE(os.stat(p).st_mode), 0o600, p)
++            key = s.key()
++            self.assertNotIn(s.token(), base._read(s.url_file()), "the URL carries the token")
++            st, j = s.trade(key)
++            self.assertEqual(st, 200, j)
++            self.assertEqual(j["token"], s.token())
++        finally:
++            s.close()
++
++    def test_the_url_is_printed_to_a_terminal_and_written_nowhere(self):
++        s = GuiServe()
++        master, slave = pty.openpty()
++        try:
++            with open(os.path.join(s.tmp, "tty.err"), "wb") as e:
++                s.proc = subprocess.Popen(s.argv(), stdout=slave, stderr=e, stdin=subprocess.DEVNULL, env=s.env,
++                                          start_new_session=True)
++            base.STARTED.append(s.proc)
++            os.close(slave)
++            slave = None
++            out = read_until(master, r"one use, good for")
++            m = re.search(r"listening on http://127\.0\.0\.1:(\d+)/", out)
++            self.assertTrue(m, out)
++            s.port = int(m.group(1))
++            m = re.search(r"page     http://127\.0\.0\.1:%d/#k=(%s)\r?\n" % (s.port, KEY), out)
++            self.assertTrue(m, out)
++            self.assertFalse(os.path.exists(s.url_file()), "a terminal got the URL, and a file too")
++            self.assertNotIn(s.token(), out)
++            st, j = s.trade(m.group(1))
++            self.assertEqual(st, 200, j)
++        finally:
++            if slave is not None:
++                os.close(slave)
++            s.close()
++            os.close(master)
++
++
++# --- trading the key ---------------------------------------------------------------------------
++
++class Session(unittest.TestCase):
++    def setUp(self):
++        self.s = GuiServe().start()
++
++    def tearDown(self):
++        self.s.close()
++
++    def test_a_key_is_good_once(self):
++        key = self.s.key()
++        st, j = self.s.trade(key)
++        self.assertEqual(st, 200, j)
++        self.assertEqual(j["token"], self.s.token())
++        st, j = self.s.trade(key)
++        self.assertEqual((st, j["error"]), (403, "nonce"), j)
++        self.assertNotIn("token", j)
++
++    def test_a_key_expires(self):
++        s = GuiServe(extra=["--nonce-ttl", "1"]).start()
++        try:
++            key = s.key()
++            time.sleep(1.5)
++            st, j = s.trade(key)
++            self.assertEqual((st, j["error"]), (403, "nonce"), j)
++        finally:
++            s.close()
++
++    def test_the_key_is_traded_only_from_this_very_origin(self):
++        s, key = self.s, self.s.key()
++        p = s.port
++        for origin in (None, "null", "http://evil.example", "http://localhost:%d" % p,
++                       "http://127.0.0.1:%d" % (p + 1), "https://127.0.0.1:%d" % p):
++            st, j = s.trade(key, origin=origin)
++            self.assertEqual((st, j["error"]), (403, "origin"), origin)
++        st, j = s.trade(key, query="?nonce=" + key)
++        self.assertEqual((st, j["error"]), (400, "refused"), j)
++        for ctype in ("text/plain", "application/x-www-form-urlencoded"):
++            st, j = s.trade(key, ctype=ctype)
++            self.assertEqual(st, 415, (ctype, j))
++        for body in ({"nonce": key, "x": 1}, {"nonce": [key]}, {"key": key}):
++            st, j = s.trade(key, body=body)
++            self.assertEqual((st, j["error"]), (400, "refused"), body)
++        # none of those spent it -- and the same origin under its other name trades it
++        st, j = s.trade(key, origin="http://localhost:%d" % p, host="localhost:%d" % p)
++        self.assertEqual(st, 200, j)
++        self.assertEqual(j["token"], s.token())
++
++    def test_a_new_key_needs_the_token(self):
++        st, j, _, _ = self.s.post("/session/new", token=None)
++        self.assertEqual((st, j["error"]), (403, "token"), j)
++        st, j, _, _ = self.s.post("/session/new", {"dry_run": True})
++        self.assertEqual((st, j["error"]), (400, "refused"), j)
++        st, j, _, _ = self.s.post("/session/new")
++        self.assertEqual(st, 201, j)
++        m = re.fullmatch(r"http://127\.0\.0\.1:%d/#k=(%s)" % (self.s.port, KEY), j["url"])
++        self.assertTrue(m, j)
++        self.assertEqual(j["expires_in_s"], 600)
++        self.assertEqual(self.s.trade(m.group(1))[0], 200)
++        self.assertEqual(self.s.trade(m.group(1))[0], 403)
++
++    def test_only_the_newest_keys_are_kept(self):
++        first = self.s.key()
++        new = []
++        for _ in range(8):
++            st, j, _, _ = self.s.post("/session/new")
++            self.assertEqual(st, 201, j)
++            new.append(j["url"].split("#k=")[1])
++        st, j = self.s.trade(first)
++        self.assertEqual((st, j["error"]), (403, "nonce"), "a ninth key did not push out the oldest")
++        self.assertEqual(self.s.trade(new[0])[0], 200)
++        self.assertEqual(self.s.trade(new[-1])[0], 200)
++
++
++# --- `serve.py url` / `ndt serve url` ----------------------------------------------------------
++
++class UrlCommand(unittest.TestCase):
++    def start_with_default_paths(self):
++        """A server started WITHOUT --token-file: its files land under the temp HOME's
++        ~/.config/ndt-serve, which is where `url` looks by default."""
++        s = GuiServe()
++        argv = s.argv()
++        i = argv.index("--token-file")
++        del argv[i:i + 2]
++        s.token_file = os.path.join(s.home, ".config", "ndt-serve", "token")
++        return s.start(argv=argv)
++
++    def check_url_answer(self, s, r):
++        self.assertEqual(r.returncode, 0, r.stderr)
++        m = re.fullmatch(r"http://127\.0\.0\.1:%d/#k=(%s)\n" % (s.port, KEY), r.stdout)
++        self.assertTrue(m, r.stdout)
++        self.assertIn("one use", r.stderr)
++        self.assertEqual(s.trade(m.group(1))[0], 200)
++        self.assertEqual(s.trade(m.group(1))[0], 403)
++
++    def test_url_prints_a_new_key_of_the_running_server(self):
++        s = self.start_with_default_paths()
++        try:
++            self.assertTrue(os.path.isfile(s.token_file))
++            r = subprocess.run([sys.executable, SERVE_PY, "url"], capture_output=True, text=True, env=s.env,
++                               timeout=60)
++            self.check_url_answer(s, r)
++        finally:
++            s.close()
++
++    def test_ndt_serve_url_is_the_same_command(self):
++        s = self.start_with_default_paths()
++        try:
++            r = subprocess.run([base.NDT, "serve", "url"], capture_output=True, text=True, env=s.env, timeout=60)
++            self.check_url_answer(s, r)
++        finally:
++            s.close()
++
++    def test_url_sends_the_token_only_to_the_pid_that_holds_the_port(self):
++        s = GuiServe().start()
++        lsock = socket.socket()
++        lsock.bind(("127.0.0.1", 0))
++        lsock.listen(4)
++        lsock.settimeout(0.2)
++        got = []
++        stop = threading.Event()
++
++        def stranger():   # whoever bound the port after the server that wrote serve.json
++            while not stop.is_set():
++                try:
++                    c, _ = lsock.accept()
++                except socket.timeout:
++                    continue
++                c.settimeout(2)
++                try:
++                    got.append(c.recv(65536))
++                except OSError:
++                    got.append(b"")
++                c.close()
++        t = threading.Thread(target=stranger, daemon=True)
++        t.start()
++        try:
++            base_json = os.path.join(s.conf(), "serve.json")
++            with open(base_json, "w") as f:   # the server's pid, alive -- but not the port's holder
++                json.dump({"port": lsock.getsockname()[1], "pid": s.proc.pid, "owner": base.OWNER}, f)
++            r = subprocess.run([sys.executable, SERVE_PY, "url", "--token-file", s.token_file],
++                               capture_output=True, text=True, env=s.env, timeout=60)
++            self.assertNotEqual(r.returncode, 0, r.stdout)
++            self.assertIn("is not the process listening", r.stderr)
++            time.sleep(0.3)
++            self.assertEqual(got, [], "the token went to a process serve.json does not name")
++        finally:
++            stop.set()
++            t.join(5)
++            lsock.close()
++            s.close()
++
++    def test_url_with_no_server_says_so(self):
++        s = GuiServe()
++        try:
++            os.makedirs(s.conf(), exist_ok=True)
++            with open(s.token_file, "w") as f:
++                f.write("x" * 43 + "\n")
++            r = subprocess.run([sys.executable, SERVE_PY, "url", "--token-file", s.token_file],
++                               capture_output=True, text=True, env=s.env, timeout=60)
++            self.assertNotEqual(r.returncode, 0)
++            self.assertIn("no running server's files", r.stderr)
++            self.assertEqual(r.stdout, "")
++        finally:
++            s.close()
++
++    def test_ndt_help_lists_serve_url(self):
++        r = subprocess.run([base.NDT, "help"], capture_output=True, text=True, timeout=60,
++                           env=dict(os.environ, NDT_OWNER=base.OWNER))
++        self.assertRegex(r.stdout + r.stderr, r"\n  serve url  +\S")
++
++
++# --- GET /lab and GET /meta --------------------------------------------------------------------
++
++class Lab(unittest.TestCase):
++    def setUp(self):
++        self.s = GuiServe().start()
++
++    def tearDown(self):
++        self.s.close()
++
++    def lab(self, stdout, **kw):
++        self.s.behave(status=dict({"stdout": stdout}, **kw))
++        st, j, _, _ = self.s.get("/lab")
++        self.assertEqual(st, 200, j)
++        return j
++
++    def test_lab_is_plain_status_with_its_rows_verbatim(self):
++        j = self.lab(STATUS_FULL)
++        self.assertEqual(j["claim"], "yours -- 30m left (until 23:59:00)")
++        self.assertEqual(j["measuring"], "nothing")
++        self.assertEqual(j["declared"], "iperf3 matrix   (claim measuring=; 'ndt check' refuses while set)")
++        self.assertIs(j["claim_is_yours"], True)
++        self.assertIs(j["measuring_is_nothing"], True)
++        self.assertIsNone(j["busy"])
++        self.assertEqual(j["stdout"], STATUS_FULL)
++        self.assertEqual([c["argv"] for c in self.s.calls()], [["status"]])
++        st, _, _, raw = self.s.request("GET", j["read"]["stdout"])
++        self.assertEqual((st, raw), (200, STATUS_FULL.encode()))
++
++    def test_lab_claim_is_yours_only_in_ndts_own_form_whole(self):
++        for claim, yours in (("yours -- 30m left (until 23:59:00)", True),
++                             ("yours-x -- 12m left (until 23:40:00)", False),
++                             ("yours -- 30m left (until 23:59:00) and more", False),
++                             ("orch-0924 -- 12m left (until 23:40:00)", False),
++                             ("none", False),
++                             ("EXPIRED 3m ago (was serve-test) -- treated as free", False)):
++            j = self.lab("lab\n  claim          %s\n  measuring      nothing\n" % claim)
++            self.assertEqual(j["claim"], claim)
++            self.assertIs(j["claim_is_yours"], yours, claim)
++        j = self.lab("lab\n  prev claim     yours -- 30m left (until 23:59:00)\n")
++        self.assertIsNone(j["claim"])
++        self.assertIs(j["claim_is_yours"], False)
++
++    def test_measuring_is_nothing_only_when_ndt_says_nothing(self):
++        for rows, value, nothing in (("  measuring      nothing\n", "nothing", True),
++                                     ("  measuring      iperf3 -c 10.0.0.2 -t 30\n", "iperf3 -c 10.0.0.2 -t 30", False),
++                                     ("  orphaned       iperf3 -c 10.0.0.2\n", None, False),
++                                     ("", None, False)):
++            j = self.lab("lab\n  claim          none\n" + rows)
++            self.assertEqual(j["measuring"], value, rows)
++            self.assertIs(j["measuring_is_nothing"], nothing, rows)
++
++    def test_a_stopped_read_is_not_a_reading(self):
++        s = GuiServe(extra=["--read-timeout", "1"]).start()
++        try:
++            s.behave(status={"stdout": STATUS_FULL, "sleep_after": 5})
++            st, j, _, _ = s.get("/lab")
++            self.assertEqual(st, 200, j)
++            self.assertEqual(j["rc_class"], "timeout")
++            self.assertIs(j["claim_is_yours"], False)
++            self.assertIs(j["measuring_is_nothing"], False)
++        finally:
++            s.close()
++
++    def test_lab_names_the_job_holding_the_slot(self):
++        self.s.behave(down={"sleep": 3}, status={"stdout": STATUS_FULL})
++        st, j, _, _ = self.s.post("/down")
++        self.assertEqual(st, 202, j)
++        st, lab, _, _ = self.s.get("/lab")
++        self.assertEqual(st, 200, lab)
++        self.assertEqual((lab["busy"] or {}).get("id"), j["job"]["id"])
++        self.s.wait(j["job"]["id"])
++
++    def test_lab_and_meta_need_the_token(self):
++        for path in ("/lab", "/meta"):
++            st, j, _, _ = self.s.get(path, token=None)
++            self.assertEqual((st, j["error"]), (403, "token"), path)
++        self.assertEqual(self.s.calls(), [])
++
++    def test_meta_is_the_servers_own_tables(self):
++        st, j, _, _ = self.s.get("/meta")
++        self.assertEqual(st, 200, j)
++        self.assertEqual(j["up_hosts"], {k: list(v) for k, v in verbs.UP_HOSTS.items()})
++        self.assertIn(None, j["up_hosts"]["ovs"], "ndt's default size is an option too")
++        self.assertEqual(j["max_claim_minutes"], verbs.MAX_CLAIM_MINUTES)
++        self.assertEqual(j["max_note_chars"], verbs.MAX_NOTE_CHARS)
++        self.assertEqual(j["default_claim_minutes"], 30)
++        self.assertEqual(j["apps"], ["energy", "sim", "nsr", "viz", "te"])
++        self.assertEqual(j["owner"], base.OWNER)
++        self.assertEqual(self.s.calls(), [])
++        # the default the page offers is the default a claim without minutes gets
++        st, c, _, _ = self.s.post("/claim", {})
++        self.assertEqual(st, 202, c)
++        self.assertEqual(self.s.wait(c["job"]["id"])["argv"][1:], ["claim", str(j["default_claim_minutes"])])
++
++
++# --- dry_run -----------------------------------------------------------------------------------
++
++WRITES = [  # path, body, argv tail, kind, confirm, needs_own_claim
++    ("/up", {"plane": "ovs", "hosts": 4}, ["up", "4"], "up", "typed", True),
++    ("/up", {"plane": "p4", "hosts": 128}, ["up", "p4", "128"], "up", "typed", True),
++    ("/down", {}, ["down"], "down", "typed", True),
++    ("/claim", {"minutes": 20, "note": "gui test"}, ["claim", "20", "gui test"], "claim", "plain", False),
++    ("/release", {}, ["release"], "release", "plain", False),
++    ("/apps/sim/start", {}, ["apps", "sim"], "apps.start", "plain", True),
++    ("/apps/sim/stop", {}, ["apps", "stop", "sim"], "apps.stop", "plain", True),
++]
++
++
++class DryRun(unittest.TestCase):
++    def setUp(self):
++        self.s = GuiServe().start()
++
++    def tearDown(self):
++        self.s.close()
++
++    def test_a_dry_run_runs_nothing_and_answers_the_argv_that_would_run(self):
++        ndt = os.path.realpath(self.s.ndt)
++        dry = []
++        for path, body, tail, kind, _, _ in WRITES:
++            st, j, _, _ = self.s.post(path, dict(body, dry_run=True))
++            self.assertEqual(st, 200, (path, j))
++            self.assertIs(j["dry_run"], True)
++            self.assertEqual((j["kind"], j["argv"]), (kind, [ndt] + tail), path)
++            dry.append(j["argv"])
++        self.assertEqual(self.s.calls(), [], "a dry run ran ndt")
++        self.assertEqual(self.s.jobs(), [], "a dry run started a job")
++        for (path, body, _, _, _, _), argv in zip(WRITES, dry):   # the same argv, when it runs
++            st, j, _, _ = self.s.post(path, body)
++            self.assertEqual(st, 202, (path, j))
++            self.assertEqual(self.s.wait(j["job"]["id"])["argv"], argv, path)
++
++    def test_the_dialogs_strength_is_the_servers(self):
++        for path, body, _, kind, confirm, own in WRITES:
++            st, j, _, _ = self.s.post(path, dict(body, dry_run=True))
++            self.assertEqual(st, 200, (path, j))
++            self.assertEqual((j["confirm"], j["needs_own_claim"]), (confirm, own), kind)
++
++    def test_dry_run_is_true_or_false(self):
++        for bad in ("yes", 1, None, "true"):
++            st, j, _, _ = self.s.post("/down", {"dry_run": bad})
++            self.assertEqual((st, j["error"]), (400, "refused"), bad)
++        self.assertEqual(self.s.calls(), [])
++        self.assertEqual(self.s.jobs(), [])
++        st, j, _, _ = self.s.post("/release", {"dry_run": False})
++        self.assertEqual(st, 202, j)
++        self.s.wait(j["job"]["id"])
++
++
++class DryRunCells(grid.GridCase):
++    def setUp(self):
++        self.s = GuiGridServe().start()
++
++    def cells_raw(self):
++        return sorted(glob.glob(os.path.join(self.s.state, "cells-raw", "*")))
++
++    def test_a_cell_dry_run_makes_nothing_and_asks_nothing(self):
++        st, j, _, _ = self.s.post("/cells/lab_cell/run", {"dry_run": True})
++        self.assertEqual(st, 200, j)
++        runner = os.path.join(self.s.grid_dir, "run_cells.sh")
++        self.assertEqual(j["argv"][:4], [runner, "--cell", "lab_cell", "--raw-root"])
++        self.assertTrue(j["argv"][4].startswith(os.path.join(self.s.state, "cells-raw", "lab_cell-")), j["argv"])
++        self.assertFalse(os.path.exists(j["argv"][4]), "a dry run made the raw directory")
++        self.assertEqual((j["kind"], j["requires"], j["confirm"], j["needs_own_claim"]),
++                         ("cells.run", "ovs4", "typed", True))
++        self.assertIsNone(j["writes_shared_state"])
++        st, off, _, _ = self.s.post("/cells/offline_cell/run", {"dry_run": True})
++        self.assertEqual((st, off["confirm"], off["needs_own_claim"]), (200, "plain", False), off)
++        # a cell that writes shared state: the preview shows what it writes and asks for nothing --
++        # the confirmation is given in the dialog, and a run without it is still refused
++        st, h4, _, _ = self.s.post("/cells/%s/run" % grid.H4, {"dry_run": True})
++        self.assertEqual(st, 200, h4)
++        self.assertIn("host_count_override", h4["writes_shared_state"])
++        st, r, _, _ = self.s.post("/cells/%s/run" % grid.H4)
++        self.assertEqual((st, r["error"]), (400, "confirm"), r)
++        self.assertEqual(self.cells_raw(), [])
++        self.assertEqual(self.s.runs(), [])
++        self.assertEqual(self.s.jobs(), [])
++        st, run, _, _ = self.s.post("/cells/lab_cell/run")
++        self.assertEqual(st, 202, run)
++        self.assertEqual(self.s.wait(run["job"]["id"])["argv"][:4], j["argv"][:4])
++
++    def test_the_dry_run_is_refused_where_it_is_not_offered(self):
++        gid = self.walk()
++        before = sorted(os.listdir(os.path.join(self.s.state, "guided")))
++        st, j, _, _ = self.s.post("/cells/lab_cell/guided", {"dry_run": True})
++        self.assertEqual((st, j["error"]), (400, "refused"), j)
++        self.assertEqual(sorted(os.listdir(os.path.join(self.s.state, "guided"))), before, "a walk was created")
++        st, j, _, _ = self.s.post("/guided/%s/abort" % gid, {"dry_run": True})
++        self.assertEqual((st, j["error"]), (400, "refused"), j)
++        st, j, _, _ = self.s.post("/guided/%s/verdict" % gid, {"verdict": "green", "note": "", "dry_run": True})
++        self.assertEqual((st, j["error"]), (400, "refused"), j)
++        st, w, _, _ = self.s.get("/guided/" + gid)
++        self.assertFalse(w["walk"].get("aborted"), "a dry run aborted the walk")
++        self.assertIsNone(w["walk"]["verdict"])
++
++    def test_a_walks_dry_run_moves_nothing(self):
++        gid = self.walk("lab_cell")
++        ndt = os.path.realpath(self.s.ndt)
++        seen = len(self.s.grid_calls())
++        st, j, _, _ = self.s.post("/guided/%s/next" % gid, {"dry_run": True})
++        self.assertEqual(st, 200, j)
++        self.assertEqual((j.get("dry_run"), j["kind"], j["argv"]), (True, "guided.old", None), j)
++        self.assertIn("read-only", j["note"])
++        self.assertEqual(len(self.s.grid_calls()), seen, "a dry run ran the judge")
++        st, w, _, _ = self.s.get("/guided/" + gid)
++        self.assertEqual(w["walk"]["steps"][0]["state"], "pending")
++        for _ in ("old", "new", "status"):
++            self.next(gid)
++        st, j, _, _ = self.s.post("/guided/%s/next" % gid, {"dry_run": True})
++        self.assertEqual(st, 200, j)
++        self.assertEqual((j["kind"], j["argv"], j["confirm"]),
++                         ("claim", [ndt, "claim", "30", "guided walk %s (lab_cell)" % gid], "plain"), j)
++        self.assertNotIn(["claim"], [c["argv"][:1] for c in self.s.calls()])
++        self.assertEqual([x for x in self.s.jobs() if x["kind"] == "claim"], [])
++        self.next(gid)
++        self.settle(gid)
++        st, j, _, _ = self.s.post("/guided/%s/next" % gid, {"dry_run": True})
++        self.assertEqual(st, 200, j)
++        self.assertEqual((j["kind"], j["argv"][1:3], j["confirm"], j["needs_own_claim"]),
++                         ("cells.run", ["--cell", "lab_cell"], "typed", True), j)
++        self.assertEqual(self.s.runs(), [])
++
++
++# --- the page's script and markup (SCOPE section 6, "頁面端的靜態檢查") ---------------------------
++
++def js_code():
++    """static/app.js without comments: whole-line `//` comments, and trailing ones after two spaces."""
++    out = []
++    for line in page_file("app.js").decode().splitlines():
++        out.append("" if line.lstrip().startswith("//") else re.sub(r"\s{2,}//.*$", "", line))
++    return "\n".join(out)
++
++
++def function_spans(code):
++    """name -> (start, end) of every `function name(...) {...}`, by brace matching."""
++    spans = {}
++    for m in re.finditer(r"\bfunction\s+(\w+)\s*\(", code):
++        i = code.index("{", m.end())
++        depth = 0
++        for j in range(i, len(code)):
++            depth += {"{": 1, "}": -1}.get(code[j], 0)
++            if depth == 0:
++                break
++        spans[m.group(1)] = (m.start(), j + 1)
++    return spans
++
++
++def owner(spans, pos):
++    """The innermost named function around pos, or None (top level)."""
++    best = None
++    for name, (a, b) in spans.items():
++        if a <= pos < b and (best is None or a > spans[best][0]):
++            best = name
++    return best
++
++
++def sites(code, pattern, definition=None):
++    """Every match of pattern, minus the definition itself, as (owner, pos)."""
++    spans = function_spans(code)
++    out = []
++    for m in re.finditer(pattern, code):
++        if definition and code.startswith("function " + definition, m.start() - len("function ")):
++            continue
++        out.append((owner(spans, m.start()), m.start()))
++    return out
++
++
++class PageLint(unittest.TestCase):
++    def setUp(self):
++        self.code = js_code()
++
++    def test_the_script_keeps_nothing_outside_memory(self):
++        found = sites(self.code, r"\b(localStorage|sessionStorage|indexedDB|caches)\b|document\.cookie")
++        self.assertTrue(found, "storageHook must read the stores for the browser case")
++        self.assertEqual({o for o, _ in found}, {"storageHook"}, found)
++        a, b = function_spans(self.code)["storageHook"]
++        self.assertNotRegex(self.code[a:b], r"token|setItem|=(?!=)[^=]*cookie|cookie\s*=(?!=)")
++        self.assertNotRegex(self.code, r"\.setItem\s*\(|document\.cookie\s*=(?!=)")
++
++    def test_the_script_makes_no_html_from_strings(self):
++        for pat in (r"innerHTML", r"outerHTML", r"insertAdjacentHTML", r"document\.write", r"\beval\s*\(",
++                    r"\bnew\s+Function\b", r"\bsetTimeout\s*\(\s*[\"'`]", r"\bDOMParser\b",
++                    r"createContextualFragment", r"\.setAttribute\s*\(\s*[\"']on", r"\bsrcdoc\b"):
++            self.assertNotRegex(self.code, pat)
++
++    def test_there_is_one_door_out_and_the_token_is_set_at_it(self):
++        self.assertEqual(sites(self.code, r"\bfetch\s*\("), [("call", self.code.index("fetch("))])
++        self.assertEqual([o for o, _ in sites(self.code, r"X-NDT-Token")], ["call"])
++        for pat in (r"XMLHttpRequest", r"sendBeacon", r"\bWebSocket\b", r"\bEventSource\b", r"window\.open\s*\(",
++                    r"\bimport\s*\(", r"\.src\s*="):
++            self.assertNotRegex(self.code, pat)
++        callers = {o for o, _ in sites(self.code, r"(?<![\w.])call\(", definition="call(")}
++        self.assertLessEqual(callers, {"get", "post", "openSession"}, callers)
++
++    def test_every_write_is_confirmed_in_the_dialog(self):
++        posts = sites(self.code, r"(?<![\w.])post\(", definition="post(")
++        self.assertTrue(posts)
++        self.assertEqual({o for o, _ in posts}, {"confirmThen"}, posts)
++        self.assertLessEqual({o for o, _ in sites(self.code, r"[\"']POST[\"']")}, {"post", "openSession"})
++
++    # [Co-developed with claude code -- Adam] the orchestrator's condition on the log re-read (09-27
++    # 15:4x): a job's log is re-read every 2 s only while its view is open and the page is shown
++    def test_the_job_view_can_be_closed_and_its_log_stops(self):
++        html = page_file("index.html").decode()
++        self.assertEqual(len(re.findall(r'<button id="job-close" type="button">', html)), 1,
++                         "the job view has no Close button")
++        spans = function_spans(self.code)
++        self.assertIn("closeJob", spans, "no closeJob()")
++        a, b = spans["closeJob"]
++        body = self.code[a:b]
++        self.assertRegex(body, r"\bwatching = null;", "closing the view does not stop the log loop")
++        self.assertRegex(body, r'\$\("job"\)\.hidden = true;', "closing the view does not hide it")
++        self.assertRegex(self.code, r'\$\("job-close"\)\.addEventListener\("click", closeJob\)',
++                         "the Close button is not wired to closeJob")
++
++    def test_a_hidden_page_does_not_poll_a_jobs_log(self):
++        spans = function_spans(self.code)
++        self.assertIn("whileHidden", spans, "no whileHidden()")
++        a, b = spans["whileHidden"]
++        wait = self.code[a:b]
++        # it waits: the one early return is for a page that is shown, and a hidden one resolves only
++        # from the visibilitychange listener
++        self.assertIn('if (document.visibilityState !== "hidden") return Promise.resolve();', wait)
++        self.assertEqual(wait.count("Promise.resolve()"), 1, wait)
++        self.assertIn('document.visibilityState === "hidden"', wait)
++        self.assertIn('"visibilitychange"', wait)
++        a, b = spans["openJob"]
++        loop = self.code[a:b]
++        # the wait sits after the sleep and before the next read, and the loop asks again after it
++        # whether this is still the job being watched
++        self.assertRegex(loop, r"await sleep\(2000\);\s*await whileHidden\(\);\s*if \(watching !== mine\) return;",
++                         "the log loop reads on while the page is hidden")
++        # watching holds this OPENING, not the job id: a view closed and opened again on the same
++        # job within one sleep would otherwise leave the old loop running beside the new one
++        self.assertRegex(loop, r"const mine = \{\};[^\n]*\n\s*watching = mine;")
++        self.assertNotIn("watching !== id", loop)
++
++    def test_the_markup_has_no_inline_script_style_or_handler(self):
++        html = page_file("index.html").decode()
++        scripts = re.findall(r"<script\b[^>]*>(.*?)</script>", html, re.S)
++        self.assertEqual(re.findall(r"<script\b([^>]*)>", html), [' src="/app.js" defer'])
++        self.assertEqual(scripts, [""])
++        self.assertNotRegex(html, r"\son[a-z]+\s*=")
++        self.assertNotRegex(html, r"\sstyle\s*=|<style\b|javascript:")
++        self.assertEqual(re.findall(r"\b(?:href|src)=\"([^\"]*)\"", html), ["/app.css", "/app.js"])
++
++
++if __name__ == "__main__":
++    unittest.main(verbosity=2)
+diff --git a/tests/shell/mutate_ndt_serve.sh b/tests/shell/mutate_ndt_serve.sh
+index 54d46891..bccb2788 100755
+--- a/tests/shell/mutate_ndt_serve.sh
++++ b/tests/shell/mutate_ndt_serve.sh
+@@ -1,6 +1,9 @@
+ #!/usr/bin/env bash
+ #
+-# Mutation gate for tests/python/test_ndt_serve.py (TICKET-ndt-serve, 09-24).
++# Mutation gate for tests/python/test_ndt_serve.py (TICKET-ndt-serve, 09-24), its cells suite, and
++# tests/python/test_ndt_serve_gui.py (the GUI cut, 09-27: the G series at the end). The page cases
++# that need a browser have their own gate, tests/shell/mutate_ndt_serve_page.sh (headless Chrome,
++# under the build guard).
+ #
+ # [Co-developed with claude code -- Adam]
+ #
+@@ -32,6 +35,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ REPO="$(cd "$HERE/../.." && pwd)"
+ TEST="$REPO/tests/python/test_ndt_serve.py"
+ TEST_CELLS="$REPO/tests/python/test_ndt_serve_cells.py"
++TEST_GUI="$REPO/tests/python/test_ndt_serve_gui.py"
+ SERVE_PY="$REPO/tools/ndt_serve/serve.py"
+ VERBS_PY="$REPO/tools/ndt_serve/verbs.py"
+ JOBS_PY="$REPO/tools/ndt_serve/jobs.py"
+@@ -42,7 +46,13 @@ DEMO_PY="$REPO/tools/ndt_serve/demo_sequence.py"
+ # probe citation, RcProvenance), so a mutant tree carries it and the gate watches it too
+ README_MD="$REPO/tools/ndt_serve/README.md"
+ NDT="$REPO/tools/test_workflow/ndt"
++# [Co-developed with claude code -- Adam] the page (GUI cut, 09-27): a mutant tree carries all of it
++APP_JS="$REPO/tools/ndt_serve/static/app.js"
++INDEX_HTML="$REPO/tools/ndt_serve/static/index.html"
++APP_CSS="$REPO/tools/ndt_serve/static/app.css"
+ SUBJECTS=("$SERVE_PY" "$VERBS_PY" "$JOBS_PY" "$RUNNER_PY" "$CELLS_PY" "$DEMO_PY" "$README_MD" "$NDT")
++# one line, not a continuation: check_gate_anchors.py reads a line that starts "$X" "$Y" as a call
++SUBJECTS+=("$APP_JS" "$INDEX_HTML" "$APP_CSS")
+ BK=$(mktemp -d "${TMPDIR:-/tmp}/ndt-serve-mutate-XXXXXX")
+ trap 'rm -rf "$BK"' EXIT
+ BASE_SHA=$(sha256sum "${SUBJECTS[@]}")
+@@ -52,8 +62,9 @@ MUTATIONS=0
+ 
+ layout() {   # $1 = dir -- a copy of the service and of ndt with what it sources
+     local d="$1"
+-    mkdir -p "$d/tools/ndt_serve" "$d/tools/test_workflow"
++    mkdir -p "$d/tools/ndt_serve/static" "$d/tools/test_workflow"
+     cp "$SERVE_PY" "$VERBS_PY" "$JOBS_PY" "$RUNNER_PY" "$CELLS_PY" "$DEMO_PY" "$README_MD" "$d/tools/ndt_serve/"
++    cp "$APP_JS" "$INDEX_HTML" "$APP_CSS" "$d/tools/ndt_serve/static/"
+     cp "$NDT" "$REPO/tools/test_workflow/ports.sh" "$REPO/tools/test_workflow/sudo_surface.sh" \
+        "$REPO/tools/test_workflow/components.env" "$d/tools/test_workflow/"
+     chmod +x "$d/tools/test_workflow/ndt"
+@@ -88,9 +99,10 @@ PY
+     echo "$d"
+ }
+ 
+-report() {   # $1 = mutation name, $2 = mutant dir, $3 = [cells:]Class.test_case that must fail
++report() {   # $1 = mutation name, $2 = mutant dir, $3 = [cells:|gui:]Class.test_case that must fail
+     local out rc id="$3" t="$TEST"
+     [[ "$id" == cells:* ]] && { t="$TEST_CELLS"; id="${id#cells:}"; }
++    [[ "$id" == gui:* ]] && { t="$TEST_GUI"; id="${id#gui:}"; }
+     local name="${id##*.}"
+     MUTATIONS=$((MUTATIONS+1))
+     if [[ "$2" == NOAPPLY ]]; then
+@@ -110,7 +122,7 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = [cells:]Class.test_case
+ 
+ echo "baseline (must be green before any mutation):"
+ layout "$BK/base"
+-for t in "$TEST" "$TEST_CELLS"; do
++for t in "$TEST" "$TEST_CELLS" "$TEST_GUI"; do
+     out=$(run_against "$BK/base" "$t"); brc=$?
+     printf '  %s: %s\n' "$(basename "$t")" "$(tail -1 <<<"$out")"
+     (( brc == 0 )) || { echo "  baseline is RED -- fix that first, mutations prove nothing on a red baseline"; exit 2; }
+@@ -383,7 +395,7 @@ m=$(mutant m39 "$SERVE_PY" \
+     '            if path != API and not path.startswith(API + "/"):' \
+     '            if False:')
+ report "M39: paths outside /api/ are not reserved" "$m" \
+-       Entry.test_root_is_reserved_for_the_gui
++       Entry.test_outside_the_api_there_is_only_the_page
+ 
+ m=$(mutant m40 "$SERVE_PY" \
+     '    locks = [hold_lock(os.path.join(cfg.state_dir, "serve.lock")), hold_lock(cfg.token_file + ".lock")]' \
+@@ -739,6 +751,360 @@ m=$(mutant m62 "$SERVE_PY" \
+ report "M62: the listen backlog is socketserver's 5 (a burst of 20 gets a reset)" "$m" \
+        Bounded.test_listen_backlog_holds_a_burst
+ 
++# --- the GUI cut (09-27, SCOPE bfffefa0 as the orchestrator approved it): the G series ------------
++# [Co-developed with claude code -- Adam]
++
++# the page's three files: no token, nothing run, the Host check, the CSP
++m=$(mutant g1 "$SERVE_PY" \
++    '                # the page: after the Host check, before any token -- it runs nothing' \
++    '                # the page: after the Host check, before any token -- it runs nothing
++                run_read(self.cfg, "status", verbs.argv_status(False), 5)')
++report "G1: serving the page runs ndt status" "$m" \
++       gui:Page.test_page_files_need_no_token_and_run_nothing
++
++m=$(mutant g2 "$SERVE_PY" \
++    '    ("Content-Security-Policy", "default-src' \
++    '    ("X-Not-A-CSP", "default-src')
++report "G2: no Content-Security-Policy" "$m" \
++       gui:Page.test_every_answer_carries_a_csp_with_no_inline_script_and_no_other_origin
++
++m=$(mutant g2b "$SERVE_PY" \
++    "script-src 'self'; style-src" \
++    "script-src 'self' 'unsafe-inline'; style-src")
++report "G2b: the CSP allows inline script" "$m" \
++       gui:Page.test_every_answer_carries_a_csp_with_no_inline_script_and_no_other_origin
++
++m=$(mutant g3 "$SERVE_PY" \
++    "form-action 'none'; frame-ancestors 'none'\")," \
++    "form-action 'none'\"),")
++report "G3: the CSP has no frame-ancestors" "$m" \
++       gui:Page.test_the_page_cannot_be_framed
++
++m=$(mutant g3b "$SERVE_PY" \
++    '    ("X-Frame-Options", "DENY"),' \
++    '')
++report "G3b: no X-Frame-Options" "$m" \
++       gui:Page.test_the_page_cannot_be_framed
++
++m=$(mutant g4 "$SERVE_PY" \
++    '            self._check_host()
++            url = urllib.parse.urlsplit(self.path)
++            path, query = url.path, urllib.parse.parse_qs(url.query)
++            if path in STATIC:' \
++    '            url = urllib.parse.urlsplit(self.path)
++            path, query = url.path, urllib.parse.parse_qs(url.query)
++            if path not in STATIC:
++                self._check_host()
++            if path in STATIC:')
++report "G4: the page is served before the Host check (DNS rebinding)" "$m" \
++       gui:Page.test_the_page_obeys_the_host_check
++
++m=$(mutant g30 "$SERVE_PY" \
++    '                if method != "GET":
++                    raise HttpError(405, "method not allowed", allowed=["GET"])' \
++    '                if False:
++                    raise HttpError(405, "method not allowed", allowed=["GET"])')
++report "G30: the page answers any method" "$m" \
++       gui:Page.test_the_page_is_get_only
++
++# the start-up URL
++m=$(mutant g5 "$SERVE_PY" \
++    '    url = page_url(port, cfg.nonces.mint())' \
++    '    url = page_url(port, cfg.token)')
++report "G5: the start-up URL carries the token itself" "$m" \
++       gui:StartupUrl.test_the_url_goes_to_a_0600_file_when_stdout_is_not_a_terminal
++
++m=$(mutant g19 "$SERVE_PY" \
++    '        os.fchmod(fd, 0o600)' \
++    '        os.fchmod(fd, 0o644)')
++report "G19: the URL file and serve.json are world-readable" "$m" \
++       gui:StartupUrl.test_the_url_goes_to_a_0600_file_when_stdout_is_not_a_terminal
++
++m=$(mutant g31 "$SERVE_PY" \
++    '    if sys.stdout.isatty():' \
++    '    if False:')
++report "G31: a terminal does not get the URL (it goes to the file)" "$m" \
++       gui:StartupUrl.test_the_url_is_printed_to_a_terminal_and_written_nowhere
++
++# trading the key
++m=$(mutant g6 "$SERVE_PY" \
++    '                    del self.book[i]
++                    return t > now' \
++    '                    return t > now')
++report "G6: a key is not spent when traded" "$m" \
++       gui:Session.test_a_key_is_good_once
++
++m=$(mutant g7 "$SERVE_PY" \
++    '                    return t > now' \
++    '                    return True')
++report "G7: a key never expires" "$m" \
++       gui:Session.test_a_key_expires
++
++m=$(mutant g8 "$SERVE_PY" \
++    '        if origin != "http://" + self.headers["Host"].strip().lower():' \
++    '        if False:')
++report "G8: the key is traded without an Origin, or from any" "$m" \
++       gui:Session.test_the_key_is_traded_only_from_this_very_origin
++
++m=$(mutant g8b "$SERVE_PY" \
++    '        if origin != "http://" + self.headers["Host"].strip().lower():' \
++    '        if origin not in ("http://127.0.0.1:%d" % self.server.server_address[1], "http://localhost:%d" % self.server.server_address[1]):')
++report "G8b: the key is traded from either loopback name, not this very origin" "$m" \
++       gui:Session.test_the_key_is_traded_only_from_this_very_origin
++
++m=$(mutant g8c "$SERVE_PY" \
++    '        if query:
++            raise HttpError(400, "refused", note="the key goes in the JSON body, never in the URL")' \
++    '        if False:
++            raise HttpError(400, "refused", note="the key goes in the JSON body, never in the URL")')
++report "G8c: a key in the query string is taken" "$m" \
++       gui:Session.test_the_key_is_traded_only_from_this_very_origin
++
++m=$(mutant g20 "$SERVE_PY" \
++    '        _whitelisted(verbs.no_fields, self._check_write())' \
++    '        _whitelisted(verbs.no_fields, self._json_body())')
++report "G20: a new key needs no token" "$m" \
++       gui:Session.test_a_new_key_needs_the_token
++
++m=$(mutant g32 "$SERVE_PY" \
++    '            self.book = [(k, t) for k, t in self.book if t > now][-(MAX_NONCES - 1):]' \
++    '            self.book = [(k, t) for k, t in self.book if t > now]')
++report "G32: keys are never forgotten (no cap on the outstanding ones)" "$m" \
++       gui:Session.test_only_the_newest_keys_are_kept
++
++# serve.py url / ndt serve url
++m=$(mutant g18 "$SERVE_PY" \
++    '    if not listener_owned_by(pid, port):' \
++    '    if False:')
++report "G18: url sends the token to whoever holds the port serve.json names" "$m" \
++       gui:UrlCommand.test_url_sends_the_token_only_to_the_pid_that_holds_the_port
++
++m=$(mutant g35 "$SERVE_PY" \
++    '    if a.command == "url":' \
++    '    if False:')
++report "G35: serve.py url is not a command" "$m" \
++       gui:UrlCommand.test_url_prints_a_new_key_of_the_running_server
++
++m=$(mutant g34 "$NDT" \
++    "  serve url     a new one-time URL of the running server's page -- each opens it once" \
++    '')
++report "G34: ndt help does not list serve url" "$m" \
++       gui:UrlCommand.test_ndt_help_lists_serve_url
++
++# GET /lab and GET /meta
++m=$(mutant g9 "$SERVE_PY" \
++    'A read stopped at its timeout is not a reading: both are false."""
++        r = run_read(self.cfg, "status", verbs.argv_status(False), self.cfg.read_timeout)' \
++    'A read stopped at its timeout is not a reading: both are false."""
++        r = run_read(self.cfg, "status", verbs.argv_status(True), self.cfg.read_timeout)')
++report "G9: /lab runs status --check (it POSTs lock probes)" "$m" \
++       gui:Lab.test_lab_is_plain_status_with_its_rows_verbatim
++
++m=$(mutant g11 "$SERVE_PY" \
++    '                 claim_is_yours=read and bool(OWN_CLAIM.fullmatch(claim or "")),' \
++    '                 claim_is_yours=read and (claim or "").startswith("yours"),')
++report "G11: /lab calls a claim yours by its prefix (owner yours-x)" "$m" \
++       gui:Lab.test_lab_claim_is_yours_only_in_ndts_own_form_whole
++
++m=$(mutant g11b "$SERVE_PY" \
++    '                 claim_is_yours=read and bool(OWN_CLAIM.fullmatch(claim or "")),' \
++    '                 claim_is_yours=read and bool(OWN_CLAIM.match(claim or "")),')
++report "G11b: /lab matches the own form at the start only, not whole" "$m" \
++       gui:Lab.test_lab_claim_is_yours_only_in_ndts_own_form_whole
++
++m=$(mutant g24 "$SERVE_PY" \
++    '                 measuring_is_nothing=read and measuring == "nothing",' \
++    '                 measuring_is_nothing=read and measuring in ("nothing", None),')
++report "G24: no measuring row (orphaned) reads as nothing measuring" "$m" \
++       gui:Lab.test_measuring_is_nothing_only_when_ndt_says_nothing
++
++m=$(mutant g25 "$SERVE_PY" \
++    '        read = r["rc_class"] != "timeout"' \
++    '        read = True')
++report "G25: a status stopped at its timeout is read as a reading" "$m" \
++       gui:Lab.test_a_stopped_read_is_not_a_reading
++
++m=$(mutant g33 "$SERVE_PY" \
++    '                 busy=self.cfg.store.holding_the_slot())' \
++    '                 busy=None)')
++report "G33: /lab does not say which job holds the slot" "$m" \
++       gui:Lab.test_lab_names_the_job_holding_the_slot
++
++m=$(mutant g36 "$SERVE_PY" \
++    '            if method == "GET" and route is not Handler.r_health:
++                self._check_read()' \
++    '            if method == "GET" and route is not Handler.r_health:
++                pass')
++report "G36: /lab and /meta need no token" "$m" \
++       gui:Lab.test_lab_and_meta_need_the_token
++
++m=$(mutant g26 "$SERVE_PY" \
++    '                         "up_hosts": {k: list(v) for k, v in verbs.UP_HOSTS.items()},' \
++    '                         "up_hosts": {k: [h for h in v if h] for k, v in verbs.UP_HOSTS.items()},')
++report "G26: /meta is not verbs' own table (ndt's default size dropped)" "$m" \
++       gui:Lab.test_meta_is_the_servers_own_tables
++
++m=$(mutant g26b "$VERBS_PY" \
++    '    minutes = body.get("minutes", DEFAULT_CLAIM_MINUTES)' \
++    '    minutes = body.get("minutes", 60)')
++report "G26b: the default the page offers is not the default a claim gets" "$m" \
++       gui:Lab.test_meta_is_the_servers_own_tables
++
++# dry_run
++m=$(mutant g10 "$SERVE_PY" \
++    '        if self.dry_run:
++            raise DryRun(kind, argv)' \
++    '        if False:
++            raise DryRun(kind, argv)')
++report "G10: a dry run spawns the job" "$m" \
++       gui:DryRun.test_a_dry_run_runs_nothing_and_answers_the_argv_that_would_run
++
++m=$(mutant g27 "$SERVE_PY" \
++    '    if kind in ("up", "down"):
++        return "typed", True' \
++    '    if kind in ("up", "down"):
++        return "plain", True')
++report "G27: up and down ask for a plain confirm" "$m" \
++       gui:DryRun.test_the_dialogs_strength_is_the_servers
++
++m=$(mutant g27b "$SERVE_PY" \
++    '    if kind in ("apps.start", "apps.stop"):
++        return "plain", True' \
++    '    if kind in ("apps.start", "apps.stop"):
++        return "plain", False')
++report "G27b: apps do not wait for your claim" "$m" \
++       gui:DryRun.test_the_dialogs_strength_is_the_servers
++
++m=$(mutant g28 "$SERVE_PY" \
++    '            if not isinstance(self.dry_run, bool):' \
++    '            if False:')
++report "G28: dry_run \"yes\" is a dry run" "$m" \
++       gui:DryRun.test_dry_run_is_true_or_false
++
++m=$(mutant g21 "$SERVE_PY" \
++    '        if self.route in DRY_RUN_OK and "dry_run" in body:' \
++    '        if "dry_run" in body:')
++report "G21: every POST takes dry_run, and the ones that spawn nothing just write" "$m" \
++       gui:DryRunCells.test_the_dry_run_is_refused_where_it_is_not_offered
++
++m=$(mutant g22 "$SERVE_PY" \
++    '        raw_root = os.path.join(cfg.state_dir, "cells-raw", cell["name"] + "-" + secrets.token_hex(4))
++        if self.dry_run:' \
++    '        raw_root = os.path.join(cfg.state_dir, "cells-raw", cell["name"] + "-" + secrets.token_hex(4))
++        os.makedirs(raw_root, mode=0o700)
++        if self.dry_run:')
++report "G22: a cell dry run makes its raw directory" "$m" \
++       gui:DryRunCells.test_a_cell_dry_run_makes_nothing_and_asks_nothing
++
++m=$(mutant g22b "$SERVE_PY" \
++    '        raw_root = os.path.join(cfg.state_dir, "cells-raw", cell["name"] + "-" + secrets.token_hex(4))
++        if self.dry_run:' \
++    '        raw_root = os.path.join(cfg.state_dir, "cells-raw", cell["name"] + "-" + secrets.token_hex(4))
++        self._need_confirmation(cell, confirmed)
++        if self.dry_run:')
++report "G22b: a shared-state cell's preview demands the confirmation it is there to show" "$m" \
++       gui:DryRunCells.test_a_cell_dry_run_makes_nothing_and_asks_nothing
++
++m=$(mutant g23 "$SERVE_PY" \
++    '            if self.dry_run and st["step"] in READ_STEPS:' \
++    '            if False:')
++report "G23: a walk's dry run does its read-only step" "$m" \
++       gui:DryRunCells.test_a_walks_dry_run_moves_nothing
++
++# the page's script and markup (PageLint)
++m=$(mutant g15 "$APP_JS" \
++    '    token = r.json.token;' \
++    '    token = r.json.token;
++    sessionStorage.setItem("t", token);')
++report "G15: the token goes into sessionStorage" "$m" \
++       gui:PageLint.test_the_script_keeps_nothing_outside_memory
++
++m=$(mutant g15b "$APP_JS" \
++    '    token = r.json.token;' \
++    '    token = r.json.token;
++    document.cookie = "t=" + token;')
++report "G15b: the token goes into a cookie" "$m" \
++       gui:PageLint.test_the_script_keeps_nothing_outside_memory
++
++m=$(mutant g15c "$APP_JS" \
++    'if (text !== undefined && text !== null) e.textContent = String(text);' \
++    'if (text !== undefined && text !== null) e.innerHTML = String(text);')
++report "G15c: ndt's text goes in as HTML" "$m" \
++       gui:PageLint.test_the_script_makes_no_html_from_strings
++
++m=$(mutant g16 "$APP_JS" \
++    '    const [lab, health] = await Promise.all([get(API + "/lab"), get(API + "/health")]);' \
++    '    fetch(API + "/status", {headers: {"X-NDT-Token": token}});
++    const [lab, health] = await Promise.all([get(API + "/lab"), get(API + "/health")]);')
++report "G16: a second fetch, with its own token header" "$m" \
++       gui:PageLint.test_there_is_one_door_out_and_the_token_is_set_at_it
++
++m=$(mutant g16b "$APP_JS" \
++    '  async function refreshAll() {' \
++    '  async function refreshAll() {
++    call("POST", API + "/down", {});')
++report "G16b: a write through call() itself, past post()" "$m" \
++       gui:PageLint.test_there_is_one_door_out_and_the_token_is_set_at_it
++
++m=$(mutant g17 "$APP_JS" \
++    '  async function refreshAll() {' \
++    '  async function refreshAll() {
++    post(API + "/release", {});')
++report "G17: a write outside the confirm dialog" "$m" \
++       gui:PageLint.test_every_write_is_confirmed_in_the_dialog
++
++m=$(mutant g29 "$INDEX_HTML" \
++    '<button id="refresh" type="button" disabled>Refresh</button>' \
++    '<button id="refresh" type="button" onclick="location.reload()" disabled>Refresh</button>')
++report "G29: an inline handler in the markup (the CSP would block it)" "$m" \
++       gui:PageLint.test_the_markup_has_no_inline_script_style_or_handler
++
++m=$(mutant g29b "$INDEX_HTML" \
++    '<script src="/app.js" defer></script>' \
++    '<script src="/app.js" defer></script>
++<script>window.x = 1;</script>')
++report "G29b: an inline script in the markup" "$m" \
++       gui:PageLint.test_the_markup_has_no_inline_script_style_or_handler
++
++# the log re-read of an opened job stops when the view closes and while the page is hidden (the
++# orchestrator's condition, 09-27 15:4x) [Co-developed with claude code -- Adam]
++m=$(mutant g37 "$APP_JS" \
++    '    watching = null;   // the loop above returns at its next look' \
++    '    // the loop is left running')
++report "G37: closing the job view does not stop its log loop" "$m" \
++       gui:PageLint.test_the_job_view_can_be_closed_and_its_log_stops
++
++m=$(mutant g37b "$INDEX_HTML" \
++    '<code id="job-id"></code> <button id="job-close" type="button">Close</button></h3>' \
++    '<code id="job-id"></code></h3>')
++report "G37b: the job view has no Close button" "$m" \
++       gui:PageLint.test_the_job_view_can_be_closed_and_its_log_stops
++
++m=$(mutant g37c "$APP_JS" \
++    '    $("job-close").addEventListener("click", closeJob);' \
++    '')
++report "G37c: the Close button is wired to nothing" "$m" \
++       gui:PageLint.test_the_job_view_can_be_closed_and_its_log_stops
++
++m=$(mutant g38 "$APP_JS" \
++    '      await sleep(2000);
++      await whileHidden();' \
++    '      await sleep(2000);')
++report "G38: the log loop reads on while the page is hidden" "$m" \
++       gui:PageLint.test_a_hidden_page_does_not_poll_a_jobs_log
++
++m=$(mutant g38b "$APP_JS" \
++    '    if (document.visibilityState !== "hidden") return Promise.resolve();' \
++    '    return Promise.resolve();')
++report "G38b: whileHidden() never waits" "$m" \
++       gui:PageLint.test_a_hidden_page_does_not_poll_a_jobs_log
++
++m=$(mutant g39 "$APP_JS" \
++    '    const mine = {};   // this opening: closing the view, or opening a job again, replaces it' \
++    '    const mine = id;')
++report "G39: the loop is keyed by job id (close and reopen leaves two loops)" "$m" \
++       gui:PageLint.test_a_hidden_page_does_not_poll_a_jobs_log
++
+ echo
+ if [[ "$(sha256sum "${SUBJECTS[@]}")" != "$BASE_SHA" ]]; then
+     echo "a file under test CHANGED while this gate ran -- the results above are about two versions"
+diff --git a/tests/shell/mutate_ndt_serve_page.sh b/tests/shell/mutate_ndt_serve_page.sh
+new file mode 100755
+index 00000000..cf769879
+--- /dev/null
++++ b/tests/shell/mutate_ndt_serve_page.sh
+@@ -0,0 +1,229 @@
++#!/usr/bin/env bash
++#
++# Mutation gate for tests/browser/test_ndt_serve_page.py -- the ndt serve page in headless Chrome
++# (doc/audit/2026-09-27_ndt-serve-gui/SCOPE.md section 6, the page rows G12-G14).
++#
++# [Co-developed with claude code -- Adam]
++#
++# Each mutation puts back one way the PAGE could break the token flow Adam ruled (Q3, 09-27) -- a
++# key left in the address bar, a token put in browser storage, a write the moment the page loads --
++# and must turn the ONE case it names red, for the reason it names. Only a browser sees these: G13
++# is spelled window["session" + "Storage"] so that no static lint of the word can see it.
++# P1 and P2 go beyond the ticket's three: they are the red-first proof of the two refusal cases
++# (a used key, a URL with no key), which G12-G14 do not touch.
++#
++# 🔴 Runs only inside tools/build_guard/guarded_build.sh (NDTWIN_GUARD_HELD set), and refuses
++# otherwise: every case starts a headless Chrome, and systemd-oomd on this laptop has twice killed
++# Adam's own application under memory pressure.
++#
++#     JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh tests/shell/mutate_ndt_serve_page.sh
++#
++# 🔴 Guards its own baseline: mutations are applied to COPIES in a temp dir, and the suite is
++# pointed at them with NDT_SERVE_UNDER_TEST (and NDT_UNDER_TEST, as the main gate does).
++# tools/ndt_serve/ is never written, and the sha256 lines at the end say so.
++#
++# 🔴 A mutant carries the WHOLE layout -- tools/ndt_serve/*.py, README.md and the whole static/
++# dir, beside tools/test_workflow/ndt with ports.sh, sudo_surface.sh and components.env, as
++# tests/shell/mutate_ndt_serve.sh's layout() does -- because serve.py reads the page from
++# $HERE/static at start and `ndt serve` execs $HERE/../ndt_serve/serve.py.
++#
++# 🔴 A mutation that will not apply, a non-unique anchor, the named case staying green, or the
++# named case going red for another reason than the one named, counts as SURVIVOR -- never as
++# skipped. The reason matters here more than in a server gate: a Chrome that crashed or timed out
++# also turns a case red, and would otherwise read as "caught".
++#
++# 🔴 The baseline is refused (exit 2) when it is red, when ANY case was skipped, and when a case
++# this gate names did not run ok -- a skipped page case proves nothing, and a case name that no
++# longer exists ERRORs under every mutant and would read as caught.
++#
++# Each mutation runs only the case it names; the baseline is the whole suite. ~2-4 s a mutation.
++#
++# Exit: 0 every mutation caught, 1 a mutation survived, 2 refused (no guard / baseline red,
++#       skipped or incomplete / harness), 3 a file under test changed while the gate ran.
++set -uo pipefail
++HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
++REPO="$(cd "$HERE/../.." && pwd)"
++TEST="$REPO/tests/browser/test_ndt_serve_page.py"
++HARNESS="$REPO/tests/python/test_ndt_serve.py"
++SERVE_DIR="$REPO/tools/ndt_serve"
++APP_JS="$REPO/tools/ndt_serve/static/app.js"
++SERVE_PY="$REPO/tools/ndt_serve/serve.py"
++README_MD="$REPO/tools/ndt_serve/README.md"
++NDT="$REPO/tools/test_workflow/ndt"
++NDT_SIDE=("$REPO/tools/test_workflow/ports.sh" "$REPO/tools/test_workflow/sudo_surface.sh"
++          "$REPO/tools/test_workflow/components.env")
++
++if [[ -z "${NDTWIN_GUARD_HELD:-}" ]]; then
++    echo "refused: not inside tools/build_guard/guarded_build.sh -- every case starts a headless Chrome"
++    echo "  JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh tests/shell/mutate_ndt_serve_page.sh"
++    exit 2
++fi
++
++shopt -s nullglob
++PYS=("$SERVE_DIR"/*.py)
++STATICS=()
++for f in "$SERVE_DIR"/static/*; do [[ -f "$f" ]] && STATICS+=("$f"); done
++shopt -u nullglob
++if (( ${#PYS[@]} == 0 || ${#STATICS[@]} == 0 )) || [[ ! -f "$APP_JS" || ! -f "$TEST" ]]; then
++    echo "refused: the layout is not there (tools/ndt_serve/*.py, static/, app.js, the suite)"
++    exit 2
++fi
++# The files under test, and the two test files: a change to any while this runs means the results
++# are about two versions.
++SUBJECTS=("${PYS[@]}" "$README_MD" "${STATICS[@]}" "$NDT" "${NDT_SIDE[@]}" "$TEST" "$HARNESS")
++BK=$(mktemp -d "${TMPDIR:-/tmp}/ndt-serve-page-gate-XXXXXX")
++trap 'rm -rf "$BK"' EXIT
++BASE_SHA=$(sha256sum "${SUBJECTS[@]}")
++
++SURVIVORS=0
++MUTATIONS=0
++CASES=(PageSession.test_the_key_leaves_the_address_bar_and_is_traded
++       PageSession.test_the_token_is_only_in_memory
++       PageSession.test_loading_the_page_writes_nothing
++       PageSession.test_a_used_key_opens_nothing
++       PageSession.test_a_url_without_a_key_opens_nothing)
++
++layout() {   # $1 = dir -- a copy of the service with its page, and of ndt with what it sources
++    local d="$1"
++    mkdir -p "$d/tools/ndt_serve" "$d/tools/test_workflow"
++    cp "${PYS[@]}" "$README_MD" "$d/tools/ndt_serve/"
++    cp -r "$SERVE_DIR/static" "$d/tools/ndt_serve/static"
++    cp "$NDT" "${NDT_SIDE[@]}" "$d/tools/test_workflow/"
++    chmod +x "$d/tools/test_workflow/ndt"
++}
++
++run_against() {   # $1 = dir, $2... = unittest ids (none = the whole file)
++    local d="$1"; shift
++    NDT_SERVE_UNDER_TEST="$d/tools/ndt_serve" NDT_UNDER_TEST="$d/tools/test_workflow/ndt" \
++        timeout 600 python3 "$TEST" "$@" 2>&1
++}
++
++# The parameters are NAMED rather than used positionally so tests/shell/check_gate_anchors.py can
++# read this gate: it learns which argument is the anchor and which is the file from this
++# function's own `local ... file="$2" old="$3"` line.
++mutant() {   # $1 = label, $2 = file to mutate, $3 = the anchor, $4 = its replacement
++    local label="$1" file="$2" old="$3" new="$4"
++    local d="$BK/$label"
++    layout "$d"
++    if ! python3 - "$d/${file#$REPO/}" "$old" "$new" <<'PY'
++import sys
++p, a, b = sys.argv[1], sys.argv[2], sys.argv[3]
++s = open(p).read()
++if s.count(a) != 1:
++    sys.stderr.write("anchor not unique (%d hits): %s\n" % (s.count(a), a[:70]))
++    sys.exit(1)
++open(p, "w").write(s.replace(a, b))
++PY
++    then
++        echo "NOAPPLY"
++        return
++    fi
++    echo "$d"
++}
++
++report() {   # $1 = mutation name, $2 = mutant dir, $3 = Class.test_case that must fail, $4 = why (fixed text)
++    local out rc id="$3" why="$4"
++    local name="${id##*.}"
++    MUTATIONS=$((MUTATIONS+1))
++    if [[ "$2" == NOAPPLY ]]; then
++        SURVIVORS=$((SURVIVORS+1))
++        printf '  SURVIVED %-66s (the mutation did not apply -- the anchor moved)\n' "$1"
++        return
++    fi
++    out=$(run_against "$2" "$id"); rc=$?
++    if [[ "$rc" -ne 0 ]] && grep -qE "^(FAIL|ERROR): $name \(" <<<"$out" && grep -qF -- "$why" <<<"$out"; then
++        printf '  caught   %-66s (%s went red)\n' "$1" "$name"
++        grep -m1 -F -- "$why" <<<"$out" | cut -c1-220 | sed 's/^[[:space:]]*/             /'
++    elif [[ "$rc" -ne 0 ]] && grep -qE "^(FAIL|ERROR): $name \(" <<<"$out"; then
++        SURVIVORS=$((SURVIVORS+1))
++        printf '  SURVIVED %-66s (%s went red, but not with "%s")\n' "$1" "$name" "$why"
++        grep -E '^(FAIL|ERROR):|Error:|^Ran |^OK|^FAILED' <<<"$out" | cut -c1-220 | sed 's/^/             /'
++    else
++        SURVIVORS=$((SURVIVORS+1))
++        printf '  SURVIVED %-66s (%s stayed green -- that case proves nothing)\n' "$1" "$name"
++        grep -E '^(FAIL|ERROR):|^Ran |^OK|^FAILED|skipped' <<<"$out" | cut -c1-220 | sed 's/^/             /'
++    fi
++}
++
++echo "baseline (must be green, every case run and none skipped, before any mutation):"
++layout "$BK/base"
++out=$(run_against "$BK/base"); brc=$?
++printf '  %s: %s / %s\n' "$(basename "$TEST")" "$(grep -E '^Ran ' <<<"$out" | tail -1)" "$(tail -1 <<<"$out")"
++if (( brc != 0 )); then
++    echo "  baseline is RED -- fix that first, mutations prove nothing on a red baseline"
++    grep -E '^(FAIL|ERROR):|Error:' <<<"$out" | cut -c1-220 | sed 's/^/    /'
++    exit 2
++fi
++if grep -qE '\.\.\. skipped' <<<"$out" || [[ "$(tail -1 <<<"$out")" != "OK" ]]; then
++    echo "  a baseline case was SKIPPED -- a skipped page case proves nothing:"
++    grep -E '\.\.\. skipped' <<<"$out" | cut -c1-220 | sed 's/^/    /'
++    exit 2
++fi
++for c in "${CASES[@]}"; do
++    if ! grep -qE "^${c##*.} \(.*\) \.\.\. ok$" <<<"$out"; then
++        echo "  the baseline did not run $c ok -- a mutation naming it would prove nothing"
++        exit 2
++    fi
++done
++echo
++
++# --- G12: the key leaves the address bar ------------------------------------------------------
++
++# The key is still read from the hash and traded; only the wipe goes. The session opens as before
++# -- only location.href after the page ran says the key is still in the address bar.
++m=$(mutant g12 "$APP_JS" \
++    '    history.replaceState(null, "", location.pathname + location.search);   // the key leaves the address bar first' \
++    '    // G12: the key stays in the address bar')
++report "G12: history.replaceState is gone (the key stays in the address bar)" "$m" \
++       PageSession.test_the_key_leaves_the_address_bar_and_is_traded \
++       "the key is still in the address bar"
++
++# --- G13: the token only in memory ------------------------------------------------------------
++
++m=$(mutant g13 "$APP_JS" \
++    '    token = r.json.token;' \
++    '    token = r.json.token;
++    window["session" + "Storage"].setItem("t", token);')
++report "G13: the token is also put in sessionStorage (spelled past a static lint)" "$m" \
++       PageSession.test_the_token_is_only_in_memory \
++       "the page left something in browser storage"
++
++# --- G14: loading the page writes nothing -----------------------------------------------------
++
++m=$(mutant g14 "$APP_JS" \
++    '    token = r.json.token;' \
++    '    token = r.json.token;
++    call("POST", API + "/release", {});')
++report "G14: the page releases the lab the moment it has the token" "$m" \
++       PageSession.test_loading_the_page_writes_nothing \
++       "loading the page writes"
++
++# --- beyond the ticket: red first for the two refusal cases -----------------------------------
++
++# The server keeps a used key: the second load of the same URL opens a session and reads the lab.
++m=$(mutant p1 "$SERVE_PY" \
++    '                    del self.book[i]' \
++    '                    pass')
++report "P1: a used key is not forgotten (serve.py Nonces.take)" "$m" \
++       PageSession.test_a_used_key_opens_nothing \
++       "the second load of a used key opened a session"
++
++# The page trades whatever the address bar holds, an empty key included: a URL with no key
++# sends a trade (refused by the server) instead of stopping at "no key".
++m=$(mutant p2 "$APP_JS" \
++    '    const m = /^#k=([A-Za-z0-9_-]{16,64})$/.exec(location.hash);' \
++    '    const m = /^(?:#k=)?([A-Za-z0-9_-]{0,64})$/.exec(location.hash);')
++report "P2: the page trades a key it does not have (an empty hash)" "$m" \
++       PageSession.test_a_url_without_a_key_opens_nothing \
++       "a URL with no key"
++
++echo
++if [[ "$(sha256sum "${SUBJECTS[@]}")" != "$BASE_SHA" ]]; then
++    echo "a file under test CHANGED while this gate ran -- the results above are about two versions"
++    exit 3
++fi
++echo "files under test unchanged by this gate:"
++sha256sum "${SUBJECTS[@]}" | sed "s|$REPO/||; s/^/  /"
++echo
++echo "$MUTATIONS mutation(s), $SURVIVORS survivor(s)"
++(( SURVIVORS == 0 ))
+diff --git a/tools/ndt_serve/README.md b/tools/ndt_serve/README.md
+index 6a9aabd1..9385cf2f 100644
+--- a/tools/ndt_serve/README.md
++++ b/tools/ndt_serve/README.md
+@@ -3,8 +3,9 @@
+ [Co-developed with claude code -- Adam]
+ 
+ First cut (TICKET-ndt-serve, 09-24): backend only, one user, `127.0.0.1` only, no login. Second
+-ticket (Adam, 09-24 21:4x): the live_cells grid and a guided walk through one cell.
+-Standard-library Python; nothing to install.
++ticket (Adam, 09-24 21:4x): the live_cells grid and a guided walk through one cell. GUI cut
++(Adam's Q2/Q3 rulings, 09-27): the page at `/` -- see "The page" below.
++Standard-library Python and one static page; nothing to install.
+ 
+ ## Start
+ 
+@@ -13,14 +14,16 @@ ndt serve --owner adam                    # the ndt verb: drives the ndt of its
+ python3 tools/ndt_serve/serve.py --owner adam --ndt ~/.local/bin/ndt   # from a worktree
+ ```
+ 
+-It prints where it listens, which `ndt` it drives (with its sha256), and where the token is.
++It prints where it listens, which `ndt` it drives (with its sha256), where the token is, and the
++page's one-time URL -- or, when stdout is not a terminal, the 0600 file it wrote that URL to.
+ Options: `--port` (default 8765, `0` = any free port), `--ndt` (default `~/.local/bin/ndt` —
+ the main checkout's, the only tree `sudo ndtwin-lab` acts in), `--state-dir` (jobs; default
+ `~/.local/state/ndt-serve`), `--token-file` (default `~/.config/ndt-serve/token`), `--app-root`
+ (where `up --app` packages may live; default `<repo>/.test_run/packages`), `--read-timeout`
+ (a read-only ndt call, default 60 s), `--read-queue-wait` (how long a third read waits for one of
+ the two read slots before 503, default 30 s), `--max-connections` (default 32; more get an
+-immediate 503), `--max-waiters` (`?wait=` long-polls at once, default 4).
++immediate 503), `--max-waiters` (`?wait=` long-polls at once, default 4), `--nonce-ttl` (how long
++a one-time page URL stays good, default 600 s).
+ 
+ Every job and every read runs the file `--ndt` resolved to **when the server started**;
+ `/health` reports `ndt_drift` if the symlink has been re-pointed or the file edited since.
+@@ -30,7 +33,8 @@ Every `NDT_*` variable of the shell that starts it is dropped, and every `ndt` c
+ 
+ ## The API (`/api/v1/`)
+ 
+-Every path outside `/api/` is reserved for the Web-GUI's static files (next cut) and answers 404.
++Outside `/api/v1/` there is only the page: `/`, `/app.js` and `/app.css`. Every other path
++answers 404.
+ 
+ | method | path | what runs | answer |
+ |---|---|---|---|
+@@ -48,6 +52,16 @@ Every path outside `/api/` is reserved for the Web-GUI's static files (next cut)
+ | POST | `/down` `{}` | `ndt down` (never `--deep`, never `--force`) | 202 + job |
+ | POST | `/apps/<name>/start` `{}` | `ndt apps <name>` | 202 + job |
+ | POST | `/apps/<name>/stop` `{}` | `ndt apps stop <name>` | 202 + job |
++| GET | `/lab` | `ndt status` (plain) | the read, plus the `claim`, `measuring` and `declared` rows verbatim, `claim_is_yours` (ndt's own-claim form, whole), `measuring_is_nothing`, and `busy` (the job holding the slot). What the page confirms every write against |
++| GET | `/meta` | nothing | the server's own tables: `up_hosts`, `max_claim_minutes`, `default_claim_minutes`, `max_note_chars`, `apps`, `owner` |
++| POST | `/session` `{"nonce":"<key>"}` | nothing | the token, for a one-time key. **No token**; the `Origin` is required and must be this very origin (`http://` + the Host). A key is good once, for `--nonce-ttl` s, and only among the 8 newest |
++| POST | `/session/new` `{}` | nothing | 201 + a new one-time page URL (`ndt serve url` calls this) |
++
++**`{"dry_run": true}`** on `/up`, `/down`, `/claim`, `/release`, `/apps/<n>/start|stop`,
++`/cells/<n>/run` and `/guided/<id>/next` answers 200 with the argv that write would run, its
++`kind`, and how hard the page asks for a confirmation (`confirm`: `typed` or `plain`;
++`needs_own_claim`) -- and runs, spawns and makes nothing. It is the only place the page gets an
++argv from. Every other POST refuses the field.
+ 
+ A POST changes the lab, so it is a **job**: it returns at once with a job id, and only one job
+ may run at a time (409 `busy` names the one that does). A job runs under a detached runner and
+@@ -122,6 +136,40 @@ curl -s -H "$H" -H "$T" "$U/guided/$G" | jq '.walk.steps[] | {step, state, look_
+ curl -s -H "$H" -H "$T" -H "$J" -d '{"verdict":"green","note":"h4nl_* all flipped"}' $U/guided/$G/verdict
+ ```
+ 
++## The page
++
++`http://127.0.0.1:<port>/`, served by the server itself (Adam's Q2 ruling, 09-27): three fixed
++files from `tools/ndt_serve/static/`, read once at start, served with no token and running
++nothing. Every answer carries a Content-Security-Policy that allows no inline script, no other
++origin and no frame.
++
++**Getting in** (Q3): the URL the server starts with carries a ONE-TIME key in its `#fragment`
++-- never the token. The page wipes the fragment from the address bar first, then trades the key
++for the token (`POST /session`) and keeps the token in memory only: not in storage, a cookie or
++the page. Reloading the page ends the session; for a new URL:
++
++```bash
++ndt serve url          # or: python3 tools/ndt_serve/serve.py url [--token-file F]
++```
++
++It reads the token file and `serve.json` beside it, and sends the token only after checking that
++the pid `serve.json` names is the process listening on its port.
++
++**What it shows**: A. the lab (`/lab`, the claim and measuring rows verbatim, the whole
++`ndt status`, the `ndt_drift` warning); B. claim / release / up / down; C. the apps; D. the jobs,
++with a live log while one you opened runs -- re-read every 2 s from its file, never by running
++ndt, and stopped when the job ends, when you close the view, and while the page is hidden; E. the
++cells, old/ and new/, runs and walks.
++**Refresh is manual**: every refresh runs one plain `ndt status`, and a periodic one would be an
++invisible load during a measurement.
++
++**Every write goes through one dialog**: it reads `/lab` again, asks the server for the argv
++(`dry_run`), and shows the argv, the claim row and the measuring row. Cancel has the focus, Enter
++does not confirm, and Confirm works once. `up`, `down` and a cell that needs the lab ask for a
++typed word, and so does every write while measuring is not `nothing`. Where the server says a
++write needs your claim, Confirm stays off with "claim first" until the claim is yours. All of this
++is a guard in the page -- ndt and this server still decide.
++
+ ## Reading an answer
+ 
+ `rc` is always the integer `ndt` exited with. `rc_class` and `meaning` are a per-verb reading
+@@ -148,7 +196,11 @@ still holds the slot), `lost` (it ended and nobody recorded its rc).
+ ## Tests
+ 
+ ```bash
+-python3 tests/python/test_ndt_serve.py        # 73 cases against a stub ndt (RcProvenance reads the real ndt), no lab
++python3 tests/python/test_ndt_serve.py        # 74 cases against a stub ndt (RcProvenance reads the real ndt), no lab
+ python3 tests/python/test_ndt_serve_cells.py  # 35 cases against a stub grid, no lab
+-bash tests/shell/mutate_ndt_serve.sh          # 91 named mutations, each must redden its case
++python3 tests/python/test_ndt_serve_gui.py    # 37 cases: the page's server side, and a lint of app.js / index.html
++bash tests/shell/mutate_ndt_serve.sh          # 144 named mutations (the G series is the GUI cut), each must redden its case
++# the page in a real browser: headless Chrome, only under the build guard (it skips elsewhere)
++JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh python3 tests/browser/test_ndt_serve_page.py
++JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash tests/shell/mutate_ndt_serve_page.sh
+ ```
+diff --git a/tools/ndt_serve/serve.py b/tools/ndt_serve/serve.py
+index cd7da570..8ee0c9ed 100644
+--- a/tools/ndt_serve/serve.py
++++ b/tools/ndt_serve/serve.py
+@@ -1,5 +1,5 @@
+ #!/usr/bin/env python3
+-"""ndt serve -- a local HTTP API over `ndt`'s lab verbs. First cut: backend only.
++"""ndt serve -- a local HTTP API over `ndt`'s lab verbs, and the one page that drives it.
+ 
+ [Co-developed with claude code -- Adam]
+ 
+@@ -7,7 +7,9 @@
+     python3 tools/ndt_serve/serve.py --owner adam [--port 8765] [--ndt ~/.local/bin/ndt]
+ 
+ It listens on 127.0.0.1 only, for one user, with no login (Adam's ruling, 09-24). The API is
+-under /api/v1/; every other path is reserved for the Web-GUI's static files (next cut).
++under /api/v1/. The page (the GUI cut, Adam's Q2 ruling 09-27) is three fixed files -- /,
++/app.js, /app.css from static/ -- read once at start, served with no token and running nothing;
++every other path is 404.
+ 
+ The design red lines (TICKET section 3), and where each one lives:
+ 
+@@ -31,10 +33,18 @@ The design red lines (TICKET section 3), and where each one lives:
+                        `ndt apps` (run_read, below), or a grid call -- `run_cells.sh --list` or
+                        a cell's `judge` (cells.Grid._run). Two places, one shape.
+   7. identity          --owner (or $NDT_OWNER) is set once, and every ndt call carries it.
++
++The page gets the token the way Adam ruled (Q3, 09-27): a ONE-TIME key in the URL's #fragment,
++which the page trades for the token (POST /session) and then wipes from the address bar. The
++token itself is never in a URL -- a browser may keep a URL in its history before the page can
++wipe it, and a used key is worth nothing there. The start-up URL goes to a terminal only; when
++stdout is a file (a log keeps what it is sent) it goes to a 0600 file beside the token instead.
++`serve.py url` asks the running server for another.
+ """
+ import argparse
+ import fcntl
+ import hmac
++import http.client
+ import http.server
+ import json
+ import os
+@@ -65,7 +75,22 @@ PIPE_GRACE_S = 5           # after killpg, how long a read waits for its pipes t
+ MAX_LOG_CHUNK = 16 * 1024 * 1024
+ OWNER_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
+ APP_NAMES_LINE = re.compile(r'^APP_NAMES="([a-z0-9 _-]*)"\s*$', re.M)
+-GUI_NOTE = "paths outside /api/ are reserved for the Web-GUI's static files (next cut)"
++GUI_NOTE = "outside /api/v1/ there is only the page: /, /app.js and /app.css"
++# The page's three files, and nothing else: a path is looked up, never joined onto a directory.
++STATIC_DIR = os.path.join(HERE, "static")
++STATIC = {"/": ("index.html", "text/html; charset=utf-8"),
++          "/app.js": ("app.js", "text/javascript; charset=utf-8"),
++          "/app.css": ("app.css", "text/css; charset=utf-8")}
++# On every answer, the page's first: no inline script, no other origin, no frame around it.
++SECURITY_HEADERS = (
++    ("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; "
++                                "img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"),
++    ("X-Frame-Options", "DENY"),
++    ("Referrer-Policy", "no-referrer"),
++)
++NONCE_TTL_S = 600          # a one-time page URL is good for this long, and for one use
++MAX_NONCES = 8             # outstanding at once; minting another forgets the oldest
++NONCE_RE = re.compile(r"[A-Za-z0-9_-]{16,64}")
+ 
+ 
+ class Config:
+@@ -123,19 +148,134 @@ def hold_lock(path):
+ 
+ 
+ def write_token(path):
+-    """A fresh token on every start, mode 0600, written atomically. rename() replaces a symlink
+-    at the path instead of writing through it."""
++    """A fresh token on every start, mode 0600, written atomically."""
+     token = secrets.token_urlsafe(32)
++    write_private(path, token + "\n")
++    return token
++
++
++def write_private(path, text):
++    """Mode 0600, written atomically: the token, the one-time page URL, serve.json. rename()
++    replaces a symlink at the path instead of writing through it."""
+     tmp = "%s.tmp.%d" % (path, os.getpid())
+     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+     try:
+         os.fchmod(fd, 0o600)
+-        os.write(fd, (token + "\n").encode())
++        os.write(fd, text.encode())
+         os.fsync(fd)
+     finally:
+         os.close(fd)
+     os.replace(tmp, path)
+-    return token
++
++
++def load_static():
++    """The page's three files, read once: the page served is the page that was there at start,
++    as every ndt call runs the ndt that was there at start."""
++    out = {}
++    for path, (name, ctype) in STATIC.items():
++        try:
++            with open(os.path.join(STATIC_DIR, name), "rb") as f:
++                out[path] = (f.read(), ctype)
++        except OSError as e:
++            raise SystemExit("ndt serve: cannot read the page's %s: %s" % (name, e))
++    return out
++
++
++def page_url(port, nonce):
++    return "http://%s:%d/#k=%s" % (BIND, port, nonce)
++
++
++class Nonces:
++    """One-time keys for the page URL (SCOPE section 3). A key is good once, for `ttl` seconds,
++    and only while it is one of the MAX_NONCES newest -- a used, expired or forgotten key and a
++    key never minted are the same answer: 403."""
++
++    def __init__(self, ttl):
++        self.ttl = ttl
++        self.lock = threading.Lock()
++        self.book = []   # [(key, deadline)], oldest first
++
++    def mint(self):
++        key = secrets.token_urlsafe(32)
++        with self.lock:
++            now = time.monotonic()
++            self.book = [(k, t) for k, t in self.book if t > now][-(MAX_NONCES - 1):]
++            self.book.append((key, now + self.ttl))
++        return key
++
++    def take(self, key):
++        """True once for a live key; the key is gone after it, whatever the answer."""
++        with self.lock:
++            now = time.monotonic()
++            for i, (k, t) in enumerate(self.book):
++                if hmac.compare_digest(k.encode(), key.encode()):
++                    del self.book[i]
++                    return t > now
++        return False
++
++
++def listener_owned_by(pid, port):
++    """Is `pid` the process listening on 127.0.0.1:<port>? Read from /proc: the listening
++    socket's inode in /proc/net/tcp, found among pid's own fds -- by the pid serve.json names,
++    never by a process name. A server that died leaves serve.json behind, and whoever binds its
++    port next must not be handed the token."""
++    want = "0100007F:%04X" % port   # /proc/net/tcp: address and port in hex, the address as stored
++    inodes = set()
++    try:
++        with open("/proc/net/tcp") as f:
++            for line in list(f)[1:]:
++                cols = line.split()
++                if len(cols) > 9 and cols[1] == want and cols[3] == "0A":   # 0A = LISTEN
++                    inodes.add("socket:[%s]" % cols[9])
++        fds = os.listdir("/proc/%d/fd" % pid)
++    except OSError:
++        return False
++    for fd in fds:
++        try:
++            if os.readlink("/proc/%d/fd/%s" % (pid, fd)) in inodes:
++                return True
++        except OSError:
++            continue
++    return False
++
++
++def url_command(token_file):
++    """`ndt serve url`: a new one-time page URL from the RUNNING server, which alone can mint
++    one. It reads the token file and serve.json beside it, checks that serve.json's pid really
++    is the process listening on its port, and only then sends the token there."""
++    conf = os.path.dirname(token_file)
++    try:
++        with open(os.path.join(conf, "serve.json")) as f:
++            info = json.load(f)
++        with open(token_file) as f:
++            token = f.read().strip()
++    except (OSError, ValueError) as e:
++        raise SystemExit("ndt serve url: no running server's files in %s (%s)" % (conf, e))
++    port, pid = info.get("port"), info.get("pid")
++    if not (isinstance(port, int) and isinstance(pid, int)):
++        raise SystemExit("ndt serve url: %s names no port and pid" % os.path.join(conf, "serve.json"))
++    if not listener_owned_by(pid, port):
++        raise SystemExit("ndt serve url: pid %d (serve.json) is not the process listening on %s:%d -- "
++                         "is ndt serve running? The token was not sent." % (pid, BIND, port))
++    conn = http.client.HTTPConnection(BIND, port, timeout=10)
++    try:
++        conn.request("POST", API + "/session/new", body=b"{}", headers={
++            "Host": "%s:%d" % (BIND, port), TOKEN_HEADER: token, "Content-Type": "application/json"})
++        r = conn.getresponse()
++        raw = r.read()
++    except OSError as e:
++        raise SystemExit("ndt serve url: %s:%d did not answer: %s" % (BIND, port, e))
++    finally:
++        conn.close()
++    try:
++        j = json.loads(raw)
++    except ValueError:
++        j = {}
++    if r.status != 201 or not isinstance(j.get("url"), str):
++        raise SystemExit("ndt serve url: the server answered %d: %s" % (r.status, raw[:300].decode("utf-8", "replace")))
++    print(j["url"])
++    sys.stderr.write("one use, good for %d min\n" % (j.get("expires_in_s", 0) // 60))
++    return 0
+ 
+ 
+ # --- running a read-only verb in the request ---------------------------------------------------
+@@ -213,6 +353,38 @@ class HttpError(Exception):
+         self.code, self.body = code, dict(error=error, **extra)
+ 
+ 
++class DryRun(Exception):
++    """`{"dry_run": true}` on a write that allows it (DRY_RUN_OK): raised where the job would
++    be spawned -- after the whitelist built the argv, before anything is made or run -- and
++    answered with that argv. The page shows it in its confirm dialog and builds no argv itself."""
++
++    def __init__(self, kind, argv, cell=None, note=None):
++        super().__init__(kind)
++        confirm, own_claim = confirm_policy(kind, cell)
++        self.body = {"dry_run": True, "kind": kind, "argv": argv, "confirm": confirm,
++                     "needs_own_claim": own_claim,
++                     "note": note or "nothing was run; whether the slot is free and the claim is yours "
++                                     "is decided when it runs, by this server and by ndt"}
++        if cell is not None:
++            self.body.update(cell=cell["name"], requires=cell["requires"],
++                             writes_shared_state=cell.get("writes_shared_state"))
++
++
++def confirm_policy(kind, cell=None):
++    """How hard the page makes Adam confirm a write (SCOPE section 2): "typed" or "plain", and
++    whether it waits for his own claim first (section 2.4). The page keeps no table of its own;
++    it adds only the measuring rule (typed whenever measuring is not `nothing`). A UI guard --
++    ndt and this server still decide."""
++    if kind in ("up", "down"):
++        return "typed", True
++    if kind in ("apps.start", "apps.stop"):
++        return "plain", True
++    if kind == "cells.run":
++        lab = cell is None or cell["requires"] != "none"
++        return ("typed" if lab else "plain"), lab
++    return "plain", False   # claim, release, a walk's read-only step
++
++
+ SLOT = threading.Lock()   # serialises "is the slot free?" with "take it"
+ 
+ 
+@@ -257,6 +429,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
+         self.send_header("Content-Length", str(len(body)))
+         self.send_header("Cache-Control", "no-store")
+         self.send_header("X-Content-Type-Options", "nosniff")
++        for k, v in SECURITY_HEADERS:
++            self.send_header(k, v)
+         for k, v in (headers or {}).items():
+             self.send_header(k, v)
+         self.end_headers()
+@@ -264,18 +438,29 @@ class Handler(http.server.BaseHTTPRequestHandler):
+             self.wfile.write(body)
+ 
+     def _handle(self, method):
++        self.route, self.dry_run = None, False
+         try:
+             self._check_host()
+             url = urllib.parse.urlsplit(self.path)
+             path, query = url.path, urllib.parse.parse_qs(url.query)
++            if path in STATIC:
++                # the page: after the Host check, before any token -- it runs nothing
++                if method != "GET":
++                    raise HttpError(405, "method not allowed", allowed=["GET"])
++                self._send(200, raw=self.cfg.static[path][0], ctype=self.cfg.static[path][1])
++                return
+             if path != API and not path.startswith(API + "/"):
+                 raise HttpError(404, "not found", note=GUI_NOTE)
+             route, args = self._route(method, path[len(API):] or "/")
++            self.route = route
+             if method == "GET" and route is not Handler.r_health:
+                 self._check_read()
+             route(self, query, *args)
++        except DryRun as d:
++            self._send(200, d.body)
+         except HttpError as e:
+-            self._send(e.code, e.body, headers={"Allow": "GET, POST"} if e.code == 405 else None)
++            self._send(e.code, e.body, headers={"Allow": ", ".join(e.body.get("allowed") or ("GET", "POST"))}
++                       if e.code == 405 else None)
+         except BrokenPipeError:
+             pass
+         except Exception as e:   # an answer, not a dropped connection the client cannot read
+@@ -307,9 +492,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
+         self._check_origin()
+ 
+     def _check_write(self):
+-        """A state-changing request: the token, then the Origin, then a JSON body."""
++        """A state-changing request: the token, then the Origin, then a JSON body. A route in
++        DRY_RUN_OK takes `dry_run` out of the body here; on any other route it stays in, and the
++        route's whitelist refuses it as an unknown field -- a preview is never a write's default."""
+         self._check_token()
+         self._check_origin()
++        body = self._json_body()
++        if self.route in DRY_RUN_OK and "dry_run" in body:
++            self.dry_run = body.pop("dry_run")
++            if not isinstance(self.dry_run, bool):
++                raise HttpError(400, "refused", note="dry_run must be true or false")
++        return body
++
++    def _json_body(self):
+         ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+         if ctype != "application/json":
+             raise HttpError(415, "content-type", note="a write must be Content-Type: application/json")
+@@ -370,6 +565,56 @@ class Handler(http.server.BaseHTTPRequestHandler):
+     def r_apps(self, query):
+         self._read_verb("apps.status", verbs.ARGV_APPS_STATUS, extra={"apps": self.cfg.apps})
+ 
++    def r_lab(self, query):
++        """What the page confirms a write against, read afresh before every one (SCOPE 2.1):
++        plain `ndt status` -- never --check, which POSTs lock probes -- with its claim, measuring
++        and declared rows VERBATIM, and the only two readings the page may act on: is the claim
++        ndt's own-claim form, whole (OWN_CLAIM, as a cell run's precheck), and is measuring
++        exactly `nothing`. A read stopped at its timeout is not a reading: both are false."""
++        r = run_read(self.cfg, "status", verbs.argv_status(False), self.cfg.read_timeout)
++        if r is None:
++            raise HttpError(503, "busy", note="two read-only ndt calls were running for %d s" % self.cfg.read_queue_wait)
++        read = r["rc_class"] != "timeout"
++        claim, measuring = claim_of(r["stdout"]), row_of(MEASURING_LINE, r["stdout"])
++        r.update(claim=claim, measuring=measuring, declared=row_of(DECLARED_LINE, r["stdout"]),
++                 claim_is_yours=read and bool(OWN_CLAIM.fullmatch(claim or "")),
++                 measuring_is_nothing=read and measuring == "nothing",
++                 busy=self.cfg.store.holding_the_slot())
++        self._send(200, r)
++
++    def r_meta(self, query):
++        """What the page's forms offer, from the tables that decide it -- the page has none."""
++        self._send(200, {"owner": self.cfg.owner, "apps": self.cfg.apps,
++                         "up_hosts": {k: list(v) for k, v in verbs.UP_HOSTS.items()},
++                         "max_claim_minutes": verbs.MAX_CLAIM_MINUTES,
++                         "default_claim_minutes": verbs.DEFAULT_CLAIM_MINUTES,
++                         "max_note_chars": verbs.MAX_NOTE_CHARS})
++
++    # --- the page's way in (SCOPE section 3) ---
++    def w_session(self, query):
++        """A one-time key from the page's URL, for the token. There is no token to check yet, so
++        the Origin is REQUIRED here and must be this very origin: a browser sends it on every
++        POST and no page can forge it, and the key comes only in a JSON body."""
++        if query:
++            raise HttpError(400, "refused", note="the key goes in the JSON body, never in the URL")
++        origin = (self.headers.get("Origin") or "").lower()
++        if origin != "http://" + self.headers["Host"].strip().lower():
++            raise HttpError(403, "origin", note="the key is traded only from this server's own page")
++        body = self._json_body()
++        key = body.get("nonce")
++        if set(body) != {"nonce"} or not isinstance(key, str) or not NONCE_RE.fullmatch(key):
++            raise HttpError(400, "refused", note='the body is {"nonce": "<the key from the URL>"}')
++        if not self.cfg.nonces.take(key):
++            raise HttpError(403, "nonce", note="this link was used already or has expired -- "
++                                               "'ndt serve url' prints a new one")
++        self._send(200, {"token": self.cfg.token, "owner": self.cfg.owner})
++
++    def w_session_new(self, query):
++        """A new one-time page URL, for the token holder (`ndt serve url`)."""
++        _whitelisted(verbs.no_fields, self._check_write())
++        self._send(201, {"url": page_url(self.server.server_address[1], self.cfg.nonces.mint()),
++                         "expires_in_s": self.cfg.nonces.ttl})
++
+     def _read_verb(self, kind, argv_tail, extra=None):
+         res = run_read(self.cfg, kind, argv_tail, self.cfg.read_timeout)
+         if res is None:
+@@ -449,6 +694,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
+         `precheck` runs INSIDE the slot, after the busy check and before the spawn, so what it
+         read is still true when the job starts -- no other job of this server can move it."""
+         cfg = self.cfg
++        if self.dry_run:
++            raise DryRun(kind, argv)
+         with SLOT:
+             busy = cfg.store.holding_the_slot()
+             if busy is not None:
+@@ -515,8 +762,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
+         host-count knob, and none of that asks ndt's guard -- and under a foreign claim the
+         restore's `down` is refused (rc 5), so what the cell left stays."""
+         cfg = self.cfg
+-        self._need_confirmation(cell, confirmed)
+         raw_root = os.path.join(cfg.state_dir, "cells-raw", cell["name"] + "-" + secrets.token_hex(4))
++        if self.dry_run:
++            # before the raw directory (a preview makes nothing) and before the confirmation it
++            # shows: the dialog is where Adam gives it
++            raise DryRun("cells.run", cfg.grid.run_argv(cell["name"], raw_root), cell)
++        self._need_confirmation(cell, confirmed)
+         os.makedirs(raw_root, mode=0o700)
+         return self._spawn("cells.run", cfg.grid.run_argv(cell["name"], raw_root), body,
+                            env=cfg.grid.env, extra={"cell": cell["name"], "raw_root": raw_root},
+@@ -660,7 +911,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
+                 raise HttpError(409, "running", note="this step's job is still running", walk=walk)
+             if st["step"] == "verdict":
+                 raise HttpError(409, "yours", note="this step is Adam's: POST %s/guided/%s/verdict" % (API, gid), walk=walk)
+-            self._do_step(walk, st)
++            if self.dry_run and st["step"] in READ_STEPS:
++                raise DryRun("guided." + st["step"], None, note=READ_STEPS[st["step"]])
++            self._do_step(walk, st)   # a dry run of a claim, run or release step stops at its spawn
+             g.save(walk)
+             self._send(200, {"walk": self._walk_view(walk)})
+ 
+@@ -749,7 +1002,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
+                 if claimed and not released else "nothing of the lab is held by this walk"})
+ 
+ 
++# A walk's steps that spawn no job, and what the page's dialog says each one does.
++READ_STEPS = {"old": "a read-only step: the cell's own judge reads its old/ fixture (the red it was built on)",
++              "new": "a read-only step: the cell's own judge reads its new/ fixture",
++              "status": "a read-only step: plain ndt status",
++              "compare": "a read-only step: the run's result beside old/'s, row by row"}
++
+ CLAIM_LINE = re.compile(r"^  claim\s+(.*?)\s*$", re.M)
++# ndt status's measuring and declared rows (cmd_status, ndt:6760-6787): `measuring  nothing`, or
++# the first process in flight; `declared` only when a claim says measuring=.
++MEASURING_LINE = re.compile(r"^  measuring\s+(.*?)\s*$", re.M)
++DECLARED_LINE = re.compile(r"^  declared\s+(.*?)\s*$", re.M)
+ # ndt's own-claim value, whole: `printf 'yours -- %dm left (until %s)\n'` (ndt:5799, claim_line),
+ # the time from `date +%H:%M:%S`. [Co-developed with claude code -- Adam]
+ OWN_CLAIM = re.compile(r"yours -- [0-9]+m left \(until [0-9]{2}:[0-9]{2}:[0-9]{2}\)")
+@@ -762,6 +1025,11 @@ def claim_of(status_stdout):
+     return m.group(1) if m else None
+ 
+ 
++def row_of(pattern, status_stdout):
++    m = pattern.search(status_stdout or "")
++    return m.group(1) if m else None
++
++
+ def _step_ok(step, v):
+     """Did a job step come out so that the walk may go on?"""
+     if v.get("state") != "finished":
+@@ -828,7 +1096,14 @@ ROUTES = [
+     ("POST", re.compile(r"/guided/([^/]+)/next"), Handler.w_guided_next),
+     ("POST", re.compile(r"/guided/([^/]+)/verdict"), Handler.w_guided_verdict),
+     ("POST", re.compile(r"/guided/([^/]+)/abort"), Handler.w_guided_abort),
++    ("GET", re.compile(r"/lab"), Handler.r_lab),
++    ("GET", re.compile(r"/meta"), Handler.r_meta),
++    ("POST", re.compile(r"/session"), Handler.w_session),
++    ("POST", re.compile(r"/session/new"), Handler.w_session_new),
+ ]
++# The writes that answer {"dry_run": true} with their argv. Every other POST refuses the field.
++DRY_RUN_OK = {Handler.w_up, Handler.w_down, Handler.w_claim, Handler.w_release, Handler.w_app,
++              Handler.w_cell_run, Handler.w_guided_next}
+ 
+ 
+ class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
+@@ -885,8 +1160,15 @@ def main(argv=None):
+                     help="seconds a third read-only call waits for one of the two slots before 503")
+     ap.add_argument("--max-connections", type=int, default=32, help="connections served at once")
+     ap.add_argument("--max-waiters", type=int, default=4, help="?wait= long-polls at once")
++    ap.add_argument("--nonce-ttl", type=int, default=NONCE_TTL_S,
++                    help="seconds a one-time page URL stays good (default %d)" % NONCE_TTL_S)
++    ap.add_argument("command", nargs="?", choices=["url"],
++                    help="url: print a new one-time URL of the running server's page (it reads "
++                         "--token-file and serve.json beside it)")
+     a = ap.parse_args(argv)
+ 
++    if a.command == "url":
++        return url_command(os.path.abspath(a.token_file))
+     if not a.owner or not OWNER_RE.match(a.owner):
+         ap.error("--owner (or $NDT_OWNER) is required: 1-64 of [A-Za-z0-9._-]")
+     ndt_real = os.path.realpath(a.ndt)
+@@ -904,6 +1186,8 @@ def main(argv=None):
+     cfg.ndt_sha_at_start = jobs.file_sha256(ndt_real)
+     cfg.state_dir = os.path.abspath(a.state_dir)
+     cfg.token_file = os.path.abspath(a.token_file)
++    cfg.static = load_static()
++    cfg.nonces = Nonces(a.nonce_ttl)
+ 
+     private_dir(cfg.state_dir)
+     private_dir(os.path.dirname(cfg.token_file))
+@@ -921,6 +1205,10 @@ def main(argv=None):
+     httpd.waiters = threading.BoundedSemaphore(a.max_waiters)
+     cfg.token = write_token(cfg.token_file)   # only after the bind: a server that could not
+     #                                           start must not replace a running one's token
++    port = httpd.server_address[1]
++    conf = os.path.dirname(cfg.token_file)
++    write_private(os.path.join(conf, "serve.json"),
++                  json.dumps({"port": port, "pid": os.getpid(), "owner": cfg.owner}) + "\n")
+ 
+     def reaper():
+         while True:
+@@ -929,11 +1217,20 @@ def main(argv=None):
+     threading.Thread(target=reaper, daemon=True).start()
+     signal.signal(signal.SIGTERM, lambda *_: threading.Thread(target=httpd.shutdown, daemon=True).start())
+ 
+-    port = httpd.server_address[1]
+     print("ndt serve: listening on http://%s:%d%s/  owner=%s" % (BIND, port, API, cfg.owner))
+     print("  ndt      %s -> %s (sha256 %s)" % (cfg.ndt, ndt_real, jobs.file_sha256(ndt_real)[:16]))
+     print("  token    %s (header %s)" % (cfg.token_file, TOKEN_HEADER))
+     print("  jobs     %s" % cfg.store.root)
++    # The page's URL carries a one-time key: to a terminal it is printed; to anything else (a log
++    # keeps what it is sent, and ours do) it goes to a 0600 file and only the file's name is printed.
++    url = page_url(port, cfg.nonces.mint())
++    if sys.stdout.isatty():
++        print("  page     %s" % url)
++        print("           one use, good for %d min; 'ndt serve url' prints another" % (a.nonce_ttl // 60))
++    else:
++        url_file = os.path.join(conf, "url")
++        write_private(url_file, url + "\n")
++        print("  page     the one-time URL is in %s (0600): stdout is not a terminal" % url_file)
+     if cfg.stripped:
+         print("  dropped  %s -- not passed to ndt" % " ".join(cfg.stripped))
+     sys.stdout.flush()
+diff --git a/tools/ndt_serve/static/app.css b/tools/ndt_serve/static/app.css
+new file mode 100644
+index 00000000..8902515f
+--- /dev/null
++++ b/tools/ndt_serve/static/app.css
+@@ -0,0 +1,50 @@
++/* ndt serve: the page. [Co-developed with claude code -- Adam]
++   rc_class colours (SCOPE section 4): refused and dirty are two different colours on purpose --
++   ndt help: "1 AND 5 ARE DIFFERENT QUESTIONS"; nothing, report, skip and see-verdict are grey. */
++:root {
++  --fg: #1d1d1f; --muted: #6e6e73; --bg: #ffffff; --panel: #f5f5f7; --line: #d2d2d7;
++  --ok: #1a7f37; --warn: #b35900; --bad: #c9182b; --refused: #8a4dd6; --grey: #6e6e73;
++}
++body { font: 14px/1.45 system-ui, sans-serif; color: var(--fg); background: var(--bg); margin: 0; }
++header { display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; padding: 10px 16px;
++         border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 1; }
++header h1 { font-size: 18px; margin: 0; }
++main { padding: 0 16px 40px; max-width: 1200px; }
++section { border-bottom: 1px solid var(--line); padding: 8px 0 16px; }
++h2 { font-size: 16px; margin: 12px 0 8px; }
++h3 { font-size: 15px; margin: 12px 0 6px; }
++h4 { font-size: 13px; margin: 8px 0 4px; color: var(--muted); }
++pre { background: var(--panel); padding: 8px; overflow: auto; max-height: 360px; white-space: pre-wrap;
++      word-break: break-word; margin: 4px 0; }
++code, .mono, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
++table { border-collapse: collapse; margin: 6px 0; }
++table.rows th { text-align: left; color: var(--muted); font-weight: normal; padding: 2px 12px 2px 0;
++                vertical-align: top; white-space: nowrap; }
++table.list th, table.list td { border-bottom: 1px solid var(--line); padding: 3px 8px; text-align: left;
++                               vertical-align: top; }
++.form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0; }
++button { font: inherit; padding: 3px 10px; cursor: pointer; }
++button:disabled { cursor: not-allowed; }
++.muted { color: var(--muted); }
++.small { font-size: 12.5px; color: var(--muted); }
++.ok { color: var(--ok); }
++.bad { color: var(--bad); font-weight: 600; }
++.warn { color: var(--warn); }
++.answer { min-height: 1.2em; }
++.arg { border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; background: var(--panel); }
++ol#walk-steps li { margin: 6px 0; }
++ol#walk-steps li.current { background: var(--panel); outline: 1px solid var(--line); padding: 4px; }
++
++.rc, .state { display: inline-block; padding: 0 6px; border-radius: 3px; color: #fff; font-size: 12px;
++              background: var(--grey); }
++.rc-ok, .rc-pass, .state-done, .state-finished { background: var(--ok); }
++.rc-dirty, .rc-fail, .rc-failed, .rc-harness, .state-blocked, .state-lost { background: var(--bad); }
++.rc-refused { background: var(--refused); }
++.rc-usage, .rc-unknown, .rc-signal, .rc-timeout, .state-orphaned { background: var(--warn); }
++.rc-nothing, .rc-report, .rc-skip, .rc-see-verdict, .state-pending { background: var(--grey); }
++.state-running { background: #0969da; }
++
++dialog { max-width: 760px; width: 92vw; border: 1px solid var(--line); border-radius: 6px; }
++dialog::backdrop { background: rgba(0, 0, 0, 0.35); }
++#c-blockers { padding-left: 18px; }
++#c-go:not(:disabled) { background: var(--bad); color: #fff; border: 1px solid var(--bad); }
+diff --git a/tools/ndt_serve/static/app.js b/tools/ndt_serve/static/app.js
+new file mode 100644
+index 00000000..0ac9c0b9
+--- /dev/null
++++ b/tools/ndt_serve/static/app.js
+@@ -0,0 +1,638 @@
++// ndt serve: the page (GUI cut, Adam's Q2/Q3 rulings 09-27; doc/audit/2026-09-27_ndt-serve-gui/SCOPE.md).
++// [Co-developed with claude code -- Adam]
++//
++// What this file may do, and what tests/python/test_ndt_serve_gui.py (PageLint, and the headless
++// Chrome cases in tests/browser/) holds it to:
++//
++//   * The token lives in ONE variable of this closure. It is never put in storage, a cookie, the
++//     DOM or a URL; the URL carries a one-time key, which is wiped from the address bar before
++//     anything else runs and traded for the token (POST /session).
++//   * fetch() is called in one place, call(), and the token header is set there and nowhere else.
++//   * Every write is post(), and post() is called only from confirmThen(): a fresh GET /lab, the
++//     server's own dry run of the write, and a dialog Adam confirms. Loading the page writes nothing.
++//   * ndt's text is shown with textContent and never parsed. What the page decides on are fields
++//     the server computed: rc_class, state, busy, claim_is_yours, measuring_is_nothing, declared,
++//     confirm, needs_own_claim, writes_shared_state, requires, a walk's current/blocked/done.
++//     There is no rc table here and no argv is built here.
++//   * Refresh is manual: every refresh runs one plain `ndt status`, and a periodic one would be an
++//     invisible load source during a measurement (orchestrator's ruling 6, 09-27). The one thing
++//     that repeats is the log of a job Adam opened, while it runs -- file reads, no ndt -- and it
++//     stops when the job ends, when its view is closed, and while the page is hidden (the
++//     orchestrator's condition on that, 09-27 15:4x).
++"use strict";
++(function () {
++  const API = "/api/v1";
++  let token = null;        // the only copy the page has
++  let meta = null;
++  let dialogGen = 0;
++  let watching = null;     // the opening of the job view whose log is being followed
++  let walkOpen = null;     // the walk shown in section E
++
++  const $ = (id) => document.getElementById(id);
++
++  // --- the only way out of this page ---------------------------------------------------------
++  async function call(method, path, body) {
++    const headers = {};
++    if (token !== null) headers["X-NDT-Token"] = token;
++    const init = {method: method, headers: headers, cache: "no-store", credentials: "omit", redirect: "error"};
++    if (body !== undefined) {
++      headers["Content-Type"] = "application/json";
++      init.body = JSON.stringify(body);
++    }
++    let r;
++    try {
++      r = await fetch(path, init);
++    } catch (e) {
++      return {status: 0, json: null, text: String(e), headers: new Headers()};
++    }
++    const text = await r.text();
++    let json = null;
++    if ((r.headers.get("Content-Type") || "").startsWith("application/json")) {
++      try { json = JSON.parse(text); } catch (e) { json = null; }
++    }
++    return {status: r.status, json: json, text: text, headers: r.headers};
++  }
++
++  function get(path) {
++    return call("GET", path);
++  }
++
++  function post(path, body) {
++    return call("POST", path, body);
++  }
++
++  // --- small helpers: every piece of text goes in as text ------------------------------------
++  function el(tag, text, cls) {
++    const e = document.createElement(tag);
++    if (text !== undefined && text !== null) e.textContent = String(text);
++    if (cls) e.className = cls;
++    return e;
++  }
++
++  function button(label, onclick) {
++    const b = el("button", label);
++    b.type = "button";
++    b.addEventListener("click", onclick);
++    return b;
++  }
++
++  function setText(id, text) {
++    $(id).textContent = text === null || text === undefined ? "" : String(text);
++  }
++
++  function clear(node) {
++    while (node.firstChild) node.removeChild(node.firstChild);
++  }
++
++  function rcBadge(rcClass) {
++    return el("span", rcClass, "rc rc-" + String(rcClass).replace(/[^a-z-]/g, ""));
++  }
++
++  function stateBadge(state) {
++    return el("span", state, "state state-" + String(state).replace(/[^a-z-]/g, ""));
++  }
++
++  function errText(r) {
++    if (r.status === 0) return "no answer: " + r.text;
++    if (r.json && r.json.error) return r.status + " " + r.json.error + (r.json.note ? " -- " + r.json.note : "");
++    return r.status + " " + r.text.slice(0, 300);
++  }
++
++  function answer(id, r) {
++    const p = $(id);
++    clear(p);
++    if (r.status >= 200 && r.status < 300) {
++      p.className = "answer";
++      p.textContent = r.status + (r.json && r.json.job ? " -- job " + r.json.job.id + " started" : "");
++    } else {
++      p.className = "answer warn";
++      p.textContent = errText(r);
++    }
++  }
++
++  function hook(name, value) {
++    // test hooks (tests/browser): never the token, never the key
++    document.body.dataset[name] = value;
++  }
++
++  function storageHook() {
++    hook("storage", JSON.stringify({local: localStorage.length, session: sessionStorage.length,
++                                    cookie: document.cookie}));
++  }
++
++  const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
++
++  function whileHidden() {
++    // resolves at once on a shown page; on a hidden one, when it is shown again
++    if (document.visibilityState !== "hidden") return Promise.resolve();
++    return new Promise((ok) => {
++      const shown = () => {
++        if (document.visibilityState === "hidden") return;
++        document.removeEventListener("visibilitychange", shown);
++        ok();
++      };
++      document.addEventListener("visibilitychange", shown);
++    });
++  }
++
++  // --- the session (SCOPE section 3) ---------------------------------------------------------
++  async function openSession() {
++    const m = /^#k=([A-Za-z0-9_-]{16,64})$/.exec(location.hash);
++    history.replaceState(null, "", location.pathname + location.search);   // the key leaves the address bar first
++    hook("href", location.href);
++    if (!m) {
++      setText("session", "no key in this URL: run 'ndt serve url' and open the URL it prints");
++      $("session").className = "warn";
++      hook("session", "no-key");
++      return false;
++    }
++    const r = await call("POST", API + "/session", {nonce: m[1]});
++    if (r.status !== 200 || !r.json || typeof r.json.token !== "string") {
++      setText("session", "the key was refused (" + errText(r) + "): run 'ndt serve url' for a new one");
++      $("session").className = "warn";
++      hook("session", "refused");
++      return false;
++    }
++    token = r.json.token;
++    setText("session", "session open -- reloading this page ends it");
++    $("session").className = "muted";
++    hook("session", "ok");
++    return true;
++  }
++
++  // --- A. lab --------------------------------------------------------------------------------
++  function busyText(busy) {
++    return busy ? "held by job " + busy.id + " (" + busy.kind + ", " + busy.state + ")" : "free";
++  }
++
++  async function loadLab() {
++    const [lab, health] = await Promise.all([get(API + "/lab"), get(API + "/health")]);
++    if (health.status === 200 && health.json.ndt_drift) {
++      $("drift").hidden = false;
++      setText("drift", "ndt changed since this server started (ndt_drift): every call still runs " +
++              health.json.ndt_realpath + " as it was -- restart ndt serve to drive the new one");
++    } else {
++      $("drift").hidden = true;
++    }
++    if (lab.status !== 200) {
++      setText("lab-claim", "");
++      setText("lab-measuring", "");
++      setText("lab-yours", "the lab could not be read: " + errText(lab));
++      $("lab-yours").className = "warn";
++      return;
++    }
++    const j = lab.json;
++    setText("lab-claim", j.claim === null ? "(no claim row)" : j.claim);
++    setText("lab-yours", j.claim_is_yours ? "yours" : "not yours");
++    $("lab-yours").className = j.claim_is_yours ? "ok" : "warn";
++    setText("lab-measuring", j.measuring === null ? "(no measuring row)" : j.measuring);
++    $("lab-measuring").className = j.measuring_is_nothing ? "" : "warn";
++    $("lab-declared-row").hidden = j.declared === null;
++    setText("lab-declared", j.declared);
++    setText("lab-busy", busyText(j.busy));
++    setText("lab-read", "read " + j.read.id + " at " + new Date().toLocaleTimeString() + ", rc " + j.rc + " (" + j.rc_class + ")");
++    setText("lab-out", j.stdout + (j.stderr ? "\n--- stderr ---\n" + j.stderr : ""));
++  }
++
++  // --- the one door every write goes through (SCOPE section 2) -------------------------------
++  //   a = {title, path, body, word, preview, shared, sharedInBody, then}
++  async function confirmThen(a) {
++    const gen = ++dialogGen;
++    const d = $("confirm");
++    const go = $("c-go");
++    setText("c-title", a.title);
++    setText("c-state", "reading the lab (plain ndt status)" + (a.preview ? " and asking the server for the argv..." : "..."));
++    for (const id of ["c-claim", "c-measuring", "c-declared", "c-busy", "c-note"]) setText(id, "");
++    clear($("c-argv"));
++    clear($("c-blockers"));
++    $("c-declared-row").hidden = true;
++    $("c-shared-row").hidden = true;
++    $("c-typed-row").hidden = true;
++    $("c-shared").checked = false;
++    $("c-typed").value = "";
++    go.disabled = true;
++    go.onclick = null;
++    if (!d.open) d.showModal();
++    $("c-cancel").focus();
++
++    const lab = await get(API + "/lab");
++    const dry = a.preview ? await post(a.path, Object.assign({}, a.body, {dry_run: true})) : null;
++    if (gen !== dialogGen || !d.open) return;   // cancelled, or another dialog took over
++
++    const blockers = [];
++    const L = lab.status === 200 ? lab.json : null;
++    const D = dry && dry.status === 200 ? dry.json : null;
++    setText("c-state", "");
++    if (L) {
++      setText("c-claim", L.claim === null ? "(no claim row)" : L.claim);
++      $("c-claim").className = L.claim_is_yours ? "ok" : "warn";
++      setText("c-measuring", L.measuring === null ? "(no measuring row)" : L.measuring);
++      $("c-measuring").className = L.measuring_is_nothing ? "" : "warn";
++      $("c-declared-row").hidden = L.declared === null;
++      setText("c-declared", L.declared);
++      setText("c-busy", busyText(L.busy));
++    } else {
++      blockers.push("the lab could not be read: " + errText(lab));
++    }
++    if (a.preview) {
++      if (D) {
++        if (D.argv === null) $("c-argv").append(el("span", "no ndt job (" + D.kind + "): see the note below", "muted"));
++        for (const arg of D.argv || []) $("c-argv").append(el("code", arg, "arg"), " ");
++        setText("c-note", D.note);
++        if (D.needs_own_claim && !(L && L.claim_is_yours)) blockers.push("claim first: the claim is not yours");
++      } else {
++        blockers.push("the server refused this request: " + errText(dry));
++      }
++    } else {
++      $("c-argv").append(el("span", "no ndt command: " + a.effect, "muted"));
++    }
++    const shared = (D && D.writes_shared_state) || a.shared || null;
++    if (shared) {
++      $("c-shared-row").hidden = false;
++      setText("c-shared-text", a.sharedInBody ? "I know this rewrites shared state: " + shared
++                                                : "this step writes shared state (confirmed when the walk was started): " + shared);
++      $("c-shared").disabled = !a.sharedInBody;
++      $("c-shared").checked = !a.sharedInBody;
++    }
++    // typed: the server says so for this write, or anything is measuring or declared
++    const typed = (D && D.confirm === "typed") || !(L && L.measuring_is_nothing) || (L && L.declared !== null);
++    if (typed) {
++      $("c-typed-row").hidden = false;
++      setText("c-word", a.word);
++    }
++    for (const b of blockers) $("c-blockers").append(el("li", b));
++
++    const ready = () => blockers.length === 0 && (!typed || $("c-typed").value === a.word) &&
++                        (!shared || $("c-shared").checked);
++    const update = () => { go.disabled = !ready(); };
++    $("c-typed").oninput = update;
++    $("c-shared").onchange = update;
++    update();
++    go.onclick = async () => {
++      if (!ready()) return;
++      go.disabled = true;   // once: a second click finds it disabled (and the slot would 409)
++      const body = Object.assign({}, a.body);
++      if (shared && a.sharedInBody) body.confirm_shared_state_write = true;
++      const r = await post(a.path, body);
++      if (gen === dialogGen) d.close();
++      a.then(r);
++    };
++  }
++
++  // --- B. lab actions ------------------------------------------------------------------------
++  function fillUpHosts() {
++    const sel = $("up-hosts");
++    clear(sel);
++    for (const h of meta.up_hosts[$("up-plane").value] || []) {
++      const o = el("option", h === null ? "(ndt's default)" : String(h));
++      o.value = h === null ? "" : String(h);
++      sel.append(o);
++    }
++  }
++
++  function jobStarted(answerId) {
++    return (r) => {
++      answer(answerId, r);
++      loadJobs();
++      if (r.status === 202 && r.json && r.json.job) openJob(r.json.job.id);
++    };
++  }
++
++  function setupActions() {
++    $("claim-min").value = meta.default_claim_minutes;
++    $("claim-min").max = meta.max_claim_minutes;
++    $("claim-note").maxLength = meta.max_note_chars;
++    const plane = $("up-plane");
++    clear(plane);
++    for (const p of Object.keys(meta.up_hosts)) {
++      const o = el("option", p);
++      o.value = p;
++      plane.append(o);
++    }
++    plane.addEventListener("change", fillUpHosts);
++    fillUpHosts();
++    $("do-claim").addEventListener("click", () => {
++      const body = {minutes: Number($("claim-min").value)};
++      if ($("claim-note").value) body.note = $("claim-note").value;
++      confirmThen({title: "claim the lab", path: API + "/claim", body: body, word: "claim", preview: true,
++                   then: jobStarted("actions-answer")});
++    });
++    $("do-release").addEventListener("click", () => confirmThen({
++      title: "release the lab", path: API + "/release", body: {}, word: "release", preview: true,
++      then: jobStarted("actions-answer")}));
++    $("do-up").addEventListener("click", () => {
++      const body = {plane: $("up-plane").value};
++      if ($("up-hosts").value !== "") body.hosts = Number($("up-hosts").value);
++      confirmThen({title: "bring the fabric up", path: API + "/up", body: body, word: "up", preview: true,
++                   then: jobStarted("actions-answer")});
++    });
++    $("do-down").addEventListener("click", () => confirmThen({
++      title: "tear the fabric down", path: API + "/down", body: {}, word: "down", preview: true,
++      then: jobStarted("actions-answer")}));
++  }
++
++  // --- C. apps -------------------------------------------------------------------------------
++  function renderApps() {
++    const t = $("apps-table");
++    clear(t);
++    for (const name of meta.apps) {
++      const tr = el("tr");
++      tr.append(el("td", name));
++      for (const action of ["start", "stop"]) {
++        const td = el("td");
++        td.append(button(action, () => confirmThen({
++          title: action + " " + name, path: API + "/apps/" + encodeURIComponent(name) + "/" + action, body: {},
++          word: action, preview: true, then: jobStarted("apps-answer")})));
++        tr.append(td);
++      }
++      t.append(tr);
++    }
++  }
++
++  async function loadApps() {
++    const r = await get(API + "/apps");
++    $("apps-out").hidden = false;
++    setText("apps-out", r.status === 200 ? r.json.stdout + (r.json.stderr ? "\n--- stderr ---\n" + r.json.stderr : "")
++                                         : errText(r));
++  }
++
++  // --- D. jobs -------------------------------------------------------------------------------
++  async function loadJobs() {
++    const r = await get(API + "/jobs");
++    const t = $("jobs-table");
++    clear(t);
++    if (r.status !== 200) {
++      const tr = el("tr");
++      tr.append(el("td", errText(r), "warn"));
++      t.append(tr);
++      return;
++    }
++    const head = el("tr");
++    for (const h of ["id", "kind", "state", "rc", "rc_class", "meaning", "argv"]) head.append(el("th", h));
++    t.append(head);
++    for (const j of r.json.jobs) {
++      const tr = el("tr");
++      const idc = el("td");
++      idc.append(button(j.id, () => openJob(j.id)));
++      tr.append(idc, el("td", j.kind), el("td"), el("td", j.rc), el("td"), el("td", j.meaning),
++                el("td", (j.argv || []).slice(1).join(" "), "mono"));
++      tr.children[2].append(stateBadge(j.state));
++      tr.children[4].append(rcBadge(j.rc_class));
++      t.append(tr);
++    }
++  }
++
++  function renderJob(j) {
++    const rows = $("job-rows");
++    clear(rows);
++    const add = (k, v) => {
++      const tr = el("tr");
++      const td = el("td");
++      if (v instanceof Node) td.append(v); else td.textContent = v === null || v === undefined ? "" : String(v);
++      tr.append(el("th", k), td);
++      rows.append(tr);
++    };
++    add("kind", j.kind);
++    add("state", stateBadge(j.state));
++    add("rc", j.rc);
++    add("rc_class", rcBadge(j.rc_class));
++    add("meaning", j.meaning);
++    add("argv", (j.argv || []).join(" "));
++    if (j.cell_verdict) add("cell verdict", j.cell_verdict.line);
++  }
++
++  async function openJob(id) {
++    const mine = {};   // this opening: closing the view, or opening a job again, replaces it
++    watching = mine;
++    $("job").hidden = false;
++    setText("job-id", id);
++    setText("job-stdout", "");
++    setText("job-stderr", "");
++    const off = {stdout: 0, stderr: 0};
++    for (;;) {
++      const r = await get(API + "/jobs/" + encodeURIComponent(id));
++      if (watching !== mine) return;
++      if (r.status !== 200) {
++        setText("job-stderr", errText(r));
++        return;
++      }
++      renderJob(r.json.job);
++      for (const s of ["stdout", "stderr"]) {
++        const lr = await get(API + "/jobs/" + encodeURIComponent(id) + "/log/" + s + "?offset=" + off[s]);
++        if (watching !== mine) return;
++        if (lr.status === 200) {
++          $("job-" + s).append(document.createTextNode(lr.text));
++          off[s] = Number(lr.headers.get("X-NDT-Log-Next-Offset") || off[s]);
++        }
++      }
++      if (r.json.job.state !== "running") {
++        loadJobs();
++        if (walkOpen) openWalk(walkOpen);
++        return;
++      }
++      await sleep(2000);
++      await whileHidden();
++      if (watching !== mine) return;
++    }
++  }
++
++  function closeJob() {
++    watching = null;   // the loop above returns at its next look
++    $("job").hidden = true;
++  }
++
++  // --- E. cells and walks --------------------------------------------------------------------
++  async function loadCells() {
++    const r = await get(API + "/cells");
++    const t = $("cells-table");
++    clear(t);
++    if (r.status !== 200) {
++      answer("cells-answer", r);
++      return;
++    }
++    const head = el("tr");
++    for (const h of ["cell", "requires", "expected (CELLS.md)", ""]) head.append(el("th", h));
++    t.append(head);
++    for (const c of r.json.cells) {
++      const tr = el("tr");
++      const name = el("td");
++      name.append(el("code", c.name));
++      if (c.writes_shared_state) name.append(el("div", "writes shared state: " + c.writes_shared_state, "warn small"));
++      const acts = el("td");
++      if (c.old) acts.append(button("old/", () => openFixture(c.name, "old")));
++      if (c.new) acts.append(button("new/", () => openFixture(c.name, "new")));
++      acts.append(button("run", () => confirmThen({
++        title: "run the cell " + c.name, path: API + "/cells/" + encodeURIComponent(c.name) + "/run", body: {},
++        word: "run", preview: true, sharedInBody: true, then: jobStarted("cells-answer")})));
++      acts.append(button("walk", () => confirmThen({
++        title: "start a guided walk through " + c.name, path: API + "/cells/" + encodeURIComponent(c.name) + "/guided",
++        body: {}, word: "walk", preview: false, shared: c.writes_shared_state, sharedInBody: true,
++        effect: "records a walk; nothing runs until you press Next step",
++        then: (w) => { answer("cells-answer", w); if (w.status === 201) { loadWalks(); openWalk(w.json.walk.id); } }})));
++      tr.append(name, el("td", c.requires), el("td", c.expected || ""), acts);
++      t.append(tr);
++    }
++  }
++
++  async function openFixture(cell, which) {
++    const base = API + "/cells/" + encodeURIComponent(cell) + "/" + which;
++    const r = await get(base);
++    $("fixture").hidden = false;
++    $("fixture-raw").hidden = true;
++    setText("fixture-title", cell + " -- " + which + "/");
++    const t = $("fixture-asserts");
++    const rows = $("fixture-rows");
++    clear(t);
++    clear(rows);
++    if (r.status !== 200) {
++      setText("fixture-verdict", errText(r));
++      return;
++    }
++    const j = r.json;
++    setText("fixture-verdict", j.verdict ? j.verdict.line : "(no CELL: line)" + (j.timed_out ? " -- the judge timed out" : ""));
++    for (const a of j.asserts) {
++      const tr = el("tr");
++      tr.append(el("td", a.ok ? "ok" : "FAIL", a.ok ? "ok" : "bad"), el("td", a.id, "mono"), el("td", a.detail));
++      t.append(tr);
++    }
++    const add = (k, v) => { const tr = el("tr"); tr.append(el("th", k), el("td", v)); rows.append(tr); };
++    add("failing", (j.failing || []).join(" "));
++    if (which === "old") {
++      add("expected_fails", (j.expected_fails || []).join(" "));
++      add("failing = expected", j.failing_matches_expected ? "yes" : "NO");
++      add("provenance", j.provenance || "");
++      add("note", j.gap_note || "");
++    }
++    const files = el("td");
++    for (const f of j.files || []) {
++      files.append(button(f, async () => {
++        const fr = await get(base + "/raw/" + encodeURIComponent(f));
++        $("fixture-raw").hidden = false;
++        setText("fixture-raw", fr.status === 200 ? fr.text : errText(fr));
++      }), " ");
++    }
++    const tr = el("tr");
++    tr.append(el("th", "raw files"), files);
++    rows.append(tr);
++  }
++
++  async function loadWalks() {
++    const r = await get(API + "/guided");
++    const t = $("walks-table");
++    clear(t);
++    if (r.status !== 200) {
++      const tr = el("tr");
++      tr.append(el("td", errText(r), "warn"));
++      t.append(tr);
++      return;
++    }
++    if (!r.json.walks.length) return;
++    const head = el("tr");
++    for (const h of ["walk", "cell", "current", "done", "verdict"]) head.append(el("th", h));
++    t.append(head);
++    for (const w of r.json.walks) {
++      const tr = el("tr");
++      const idc = el("td");
++      idc.append(button(w.id, () => openWalk(w.id)));
++      tr.append(idc, el("td", w.cell), el("td", w.current), el("td", w.done ? "yes" : ""),
++                el("td", w.verdict ? w.verdict.verdict : ""));
++      t.append(tr);
++    }
++  }
++
++  async function openWalk(gid) {
++    walkOpen = gid;
++    const r = await get(API + "/guided/" + encodeURIComponent(gid));
++    $("walk").hidden = false;
++    setText("walk-id", gid);
++    const ol = $("walk-steps");
++    clear(ol);
++    if (r.status !== 200) {
++      answer("walk-answer", r);
++      return;
++    }
++    const w = r.json.walk;
++    setText("walk-cell", w.cell + (w.aborted ? " (aborted)" : "") + (w.done ? " (done)" : ""));
++    $("walk-blocked").hidden = !w.blocked;
++    setText("walk-blocked", w.blocked ? "blocked: " + w.blocked : "");
++    w.steps.forEach((st, i) => {
++      const li = el("li", null, i === w.current ? "current" : "");
++      const title = el("div");
++      title.append(stateBadge(st.state), " ", el("strong", st.step), " ", el("span", st.title));
++      li.append(title, el("div", st.look_at, "small"));
++      if (st.result) {
++        const det = el("details");
++        det.append(el("summary", "result"), el("pre", JSON.stringify(st.result, null, 1)));
++        li.append(det);
++      }
++      if (st.job) li.append(button("job " + st.job, () => openJob(st.job)));
++      ol.append(li);
++    });
++    const cur = w.current === null ? null : w.steps[w.current];
++    const atVerdict = cur !== null && cur.step === "verdict" && !w.aborted;
++    $("walk-verdict").hidden = !atVerdict;
++    $("walk-next").disabled = w.done || !!w.aborted || atVerdict || (cur !== null && cur.state === "running");
++    $("walk-abort").disabled = w.done || !!w.aborted;
++  }
++
++  function setupWalkButtons() {
++    const path = (tail) => API + "/guided/" + encodeURIComponent(walkOpen) + tail;
++    const after = (r) => { answer("walk-answer", r); openWalk(walkOpen); loadJobs();
++                           if (r.status === 200 && r.json && r.json.walk) {
++                             const cur = r.json.walk.steps[r.json.walk.current];
++                             if (cur && cur.job && cur.state === "running") openJob(cur.job);
++                           } };
++    $("walk-next").addEventListener("click", () => confirmThen({
++      title: "walk " + walkOpen + ": the next step", path: path("/next"), body: {}, word: "next",
++      preview: true, sharedInBody: false, then: after}));
++    $("walk-abort").addEventListener("click", () => confirmThen({
++      title: "abort walk " + walkOpen, path: path("/abort"), body: {}, word: "abort", preview: false,
++      effect: "marks the walk aborted; a claim it took is NOT released", then: after}));
++    for (const v of ["green", "red"]) {
++      $("walk-" + v).addEventListener("click", () => confirmThen({
++        title: "walk " + walkOpen + ": your verdict is " + v, path: path("/verdict"),
++        body: {verdict: v, note: $("walk-note").value}, word: v, preview: false,
++        effect: "records your verdict in the walk", then: after}));
++    }
++  }
++
++  // --- start ---------------------------------------------------------------------------------
++  async function refreshAll() {
++    await Promise.all([loadLab(), loadJobs()]);
++  }
++
++  async function start() {
++    storageHook();
++    $("c-go").addEventListener("keydown", (e) => { if (e.key === "Enter") e.preventDefault(); });
++    $("c-cancel").addEventListener("click", () => { dialogGen++; $("confirm").close(); });
++    $("confirm").addEventListener("close", () => { dialogGen++; });
++    if (!(await openSession())) {
++      storageHook();
++      hook("loaded", "no-session");
++      return;
++    }
++    const m = await get(API + "/meta");
++    if (m.status !== 200) {
++      setText("session", "GET /meta: " + errText(m));
++      hook("loaded", "no-meta");
++      return;
++    }
++    meta = m.json;
++    setText("who", "owner " + meta.owner);
++    setupActions();
++    renderApps();
++    setupWalkButtons();
++    $("refresh").disabled = false;
++    $("refresh").addEventListener("click", refreshAll);
++    $("apps-load").addEventListener("click", loadApps);
++    $("jobs-load").addEventListener("click", loadJobs);
++    $("job-close").addEventListener("click", closeJob);
++    $("cells-load").addEventListener("click", loadCells);
++    $("walks-load").addEventListener("click", loadWalks);
++    await refreshAll();
++    storageHook();
++    hook("loaded", "yes");
++  }
++
++  document.addEventListener("DOMContentLoaded", start);
++})();
+diff --git a/tools/ndt_serve/static/index.html b/tools/ndt_serve/static/index.html
+new file mode 100644
+index 00000000..215c1814
+--- /dev/null
++++ b/tools/ndt_serve/static/index.html
+@@ -0,0 +1,124 @@
++<!doctype html>
++<!-- ndt serve: the page (GUI cut, Adam's Q2/Q3 rulings 09-27). [Co-developed with claude code -- Adam]
++     No inline script or style: the server's CSP allows only /app.js and /app.css. -->
++<html lang="en">
++<head>
++<meta charset="utf-8">
++<meta name="viewport" content="width=device-width, initial-scale=1">
++<title>ndt serve</title>
++<link rel="stylesheet" href="/app.css">
++<script src="/app.js" defer></script>
++</head>
++<body>
++<header>
++  <h1>ndt serve</h1>
++  <span id="who"></span>
++  <span id="session" class="muted">opening the session...</span>
++  <button id="refresh" type="button" disabled>Refresh</button>
++  <span class="muted">manual refresh only: every refresh runs one plain <code>ndt status</code></span>
++</header>
++
++<main>
++<section id="lab">
++  <h2>A. Lab</h2>
++  <p id="drift" class="warn" hidden></p>
++  <table class="rows">
++    <tr><th>claim</th><td><code id="lab-claim"></code> <span id="lab-yours"></span></td></tr>
++    <tr><th>measuring</th><td><code id="lab-measuring"></code></td></tr>
++    <tr id="lab-declared-row" hidden><th>declared</th><td><code id="lab-declared"></code></td></tr>
++    <tr><th>slot</th><td id="lab-busy"></td></tr>
++    <tr><th>read</th><td><span id="lab-read" class="muted"></span></td></tr>
++  </table>
++  <details><summary>ndt status, whole</summary><pre id="lab-out"></pre></details>
++</section>
++
++<section id="actions">
++  <h2>B. Lab actions</h2>
++  <div class="form">
++    <label>minutes <input id="claim-min" type="number" min="1" step="1"></label>
++    <label>note <input id="claim-note" type="text" size="40"></label>
++    <button id="do-claim" type="button">Claim</button>
++    <button id="do-release" type="button">Release</button>
++  </div>
++  <div class="form">
++    <label>plane <select id="up-plane"></select></label>
++    <label>hosts <select id="up-hosts"></select></label>
++    <button id="do-up" type="button">Up</button>
++    <button id="do-down" type="button">Down</button>
++  </div>
++  <p id="actions-answer" class="answer"></p>
++</section>
++
++<section id="apps">
++  <h2>C. Apps</h2>
++  <button id="apps-load" type="button">Read ndt apps status</button>
++  <table id="apps-table" class="list"></table>
++  <pre id="apps-out" hidden></pre>
++  <p id="apps-answer" class="answer"></p>
++</section>
++
++<section id="jobs">
++  <h2>D. Jobs</h2>
++  <button id="jobs-load" type="button">Reload the list</button>
++  <table id="jobs-table" class="list"></table>
++  <div id="job" hidden>
++    <h3>job <code id="job-id"></code> <button id="job-close" type="button">Close</button></h3>
++    <table class="rows" id="job-rows"></table>
++    <h4>stdout</h4><pre id="job-stdout"></pre>
++    <h4>stderr</h4><pre id="job-stderr"></pre>
++  </div>
++</section>
++
++<section id="cells">
++  <h2>E. Cells and walks</h2>
++  <button id="cells-load" type="button">Read the grid (run_cells.sh --list)</button>
++  <button id="walks-load" type="button">Reload the walks</button>
++  <table id="cells-table" class="list"></table>
++  <p id="cells-answer" class="answer"></p>
++  <div id="fixture" hidden>
++    <h3 id="fixture-title"></h3>
++    <p><code id="fixture-verdict"></code></p>
++    <table id="fixture-asserts" class="list"></table>
++    <table class="rows" id="fixture-rows"></table>
++    <pre id="fixture-raw" hidden></pre>
++  </div>
++  <table id="walks-table" class="list"></table>
++  <div id="walk" hidden>
++    <h3>walk <code id="walk-id"></code> <span id="walk-cell"></span></h3>
++    <p id="walk-blocked" class="warn" hidden></p>
++    <ol id="walk-steps"></ol>
++    <div class="form">
++      <button id="walk-next" type="button">Next step</button>
++      <button id="walk-abort" type="button">Abort</button>
++    </div>
++    <div class="form" id="walk-verdict" hidden>
++      <label>note <input id="walk-note" type="text" size="50"></label>
++      <button id="walk-green" type="button">Verdict: green</button>
++      <button id="walk-red" type="button">Verdict: red</button>
++    </div>
++    <p id="walk-answer" class="answer"></p>
++  </div>
++</section>
++</main>
++
++<dialog id="confirm">
++  <h3 id="c-title"></h3>
++  <p id="c-state" class="muted"></p>
++  <table class="rows">
++    <tr><th>ndt runs</th><td id="c-argv"></td></tr>
++    <tr><th>claim</th><td><code id="c-claim"></code></td></tr>
++    <tr><th>measuring</th><td><code id="c-measuring"></code></td></tr>
++    <tr id="c-declared-row" hidden><th>declared</th><td><code id="c-declared"></code></td></tr>
++    <tr><th>slot</th><td id="c-busy"></td></tr>
++  </table>
++  <p id="c-note" class="muted"></p>
++  <ul id="c-blockers" class="warn"></ul>
++  <p id="c-shared-row" hidden><label><input id="c-shared" type="checkbox"> <span id="c-shared-text"></span></label></p>
++  <p id="c-typed-row" hidden><label>type <code id="c-word"></code> to confirm <input id="c-typed" type="text" autocomplete="off" spellcheck="false"></label></p>
++  <div class="form">
++    <button id="c-cancel" type="button">Cancel</button>
++    <button id="c-go" type="button" disabled>Confirm</button>
++  </div>
++</dialog>
++</body>
++</html>
+diff --git a/tools/ndt_serve/verbs.py b/tools/ndt_serve/verbs.py
+index bed2f2fe..6a8c70b5 100644
+--- a/tools/ndt_serve/verbs.py
++++ b/tools/ndt_serve/verbs.py
+@@ -38,6 +38,7 @@ UP_HOSTS = {
+ }
+ 
+ MAX_CLAIM_MINUTES = 240
++DEFAULT_CLAIM_MINUTES = 30   # ndt's own default (`claim [min]`, ndt help: "default 30m")
+ MAX_NOTE_CHARS = 200
+ 
+ # A claim note is written by `ndt` into .test_run/lab.claim as a `note=<text>` line. A newline in
+@@ -130,7 +131,7 @@ def argv_down(body):
+ def argv_claim(body):
+     """POST /api/v1/claim  {"minutes": 1..240, "note": "<text>"}"""
+     _no_extra_keys(body, ("minutes", "note"))
+-    minutes = body.get("minutes", 30)
++    minutes = body.get("minutes", DEFAULT_CLAIM_MINUTES)
+     if not _is_int(minutes) or not 1 <= minutes <= MAX_CLAIM_MINUTES:
+         raise Refused("minutes must be an integer from 1 to %d" % MAX_CLAIM_MINUTES)
+     note = body.get("note", "")
+diff --git a/tools/test_workflow/ndt b/tools/test_workflow/ndt
+index 506b862d..09064b72 100755
+--- a/tools/test_workflow/ndt
++++ b/tools/test_workflow/ndt
+@@ -11007,6 +11007,9 @@ usage: ndt <command>
+                 carries the token the server writes to ~/.config/ndt-serve/token (0600);
+                 every call to ndt carries NDT_OWNER=N. 'ndt serve --help' for the options,
+                 tools/ndt_serve/README.md for the API.
++                The page at / drives the same API: open the one-time URL it starts with
++                (printed on a terminal, else in ~/.config/ndt-serve/url, 0600).
++  serve url     a new one-time URL of the running server's page -- each opens it once
+ 
+   .test_run/pids/ is shared, so 'down' kills whoever is registered there.
+   Declare yourself before a long run -- any script can just write .test_run/lab.claim:

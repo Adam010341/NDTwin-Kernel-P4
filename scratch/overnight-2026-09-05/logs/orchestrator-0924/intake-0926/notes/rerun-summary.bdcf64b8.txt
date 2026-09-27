@@ -1,0 +1,22 @@
+R3N3_TRUNK_07_session # rc=0 | SESSION 1712259 left at exit: 2 SESSION 1712259 left 30 s later: 0 
+R3N3_MERGE_07_session # rc=0 | SESSION 1715541 left at exit: 0 SESSION 1715541 left 30 s later: 0 
+R3N4 trunk copy mutated lines: 1
+R3N4_TRUNK_07_plain40 # rc=0 | SELF-TEST PASS 
+NOTE2_TRUNK_reentrant_nocg # rc=1 | Ran 15 checks, 1 failed 
+NOTE2_TRUNK_reentrant_to1 # rc=1 | Ran 15 checks, 2 failed 
+NOTE2_MERGE_reentrant_nocg # rc=0 | Ran 15 checks, 0 failed 
+NOTE2_MERGE_reentrant_to1 # rc=0 | Ran 15 checks, 0 failed 
+live07_selftest # rc=0 | SELF-TEST PASS 
+live08_selftest # rc=0 | SELF-TEST PASS 
+test_build_guard # rc=0 | Ran 37 checks, 0 failed 
+test_guarded_build_reentrant # rc=0 | Ran 15 checks, 0 failed 
+test_l1_shell_scoring # rc=0 |   ok       Z7 the LAST summary wins, as tail -1 did (5 passed + 1 failed = 6 ran) Ran 96 checks, 0 failed 
+check_gate_anchors # rc=0 | 121/121 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL) 
+mutate_build_guard # rc=0 | mutation gate: 17 mutations, 0 survived 
+mutate_roles_binding # rc=0 | mutation gate: 177 mutations, 0 survived 
+mutate_p4_heartbeat_w # rc=0 | 08's mutant tree: only p4_proxy/proxy_agent and p4_proxy/venv lead out of it, and no lab-state knob is in it mutation gate: 195 mutations, 0 survived 
+main checkout's lab-state knobs unchanged
+tripwire lines: 0
+tracked tree clean after the gates
+no leftover copies
+RERUN-NOTES-DONE

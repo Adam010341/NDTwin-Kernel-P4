@@ -1,0 +1,11 @@
+ac0c3b64bb242a1dee4606958c260de4bf1cf853
+# 2026-09-27T07:42:20Z cmd bash -c for f in tools/test_workflow/ndt tools/test_workflow/stack.sh tools/test_workflow/l1_unit_tests.sh doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/_common.sh; do bash -n "$f" && echo "syntax ok $f"; done; python3 -m py_compile p4_proxy/regen_p4runtime_pb2.py && echo "py_compile ok regen"
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c for f in tools/test_workflow/ndt tools/test_workflow/stack.sh tools/test_workflow/l1_unit_tests.sh doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/_common.sh; do bash -n "$f" && echo "syntax ok $f"; done; python3 -m py_compile p4_proxy/regen_p4runtime_pb2.py && echo "py_compile ok regen"
+syntax ok tools/test_workflow/ndt
+syntax ok tools/test_workflow/stack.sh
+syntax ok tools/test_workflow/l1_unit_tests.sh
+syntax ok doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/_common.sh
+py_compile ok regen
+guarded_build: exit 0
+# rc=0

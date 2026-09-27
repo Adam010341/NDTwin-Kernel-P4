@@ -1,0 +1,3 @@
+#!/bin/sh
+echo "sudo $*" >> /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/claimnote/nolab/tripwire.log
+exit 1

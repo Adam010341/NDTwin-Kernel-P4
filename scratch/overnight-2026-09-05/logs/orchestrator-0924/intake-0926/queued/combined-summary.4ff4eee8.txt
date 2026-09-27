@@ -1,0 +1,5 @@
+check_gate_anchors # rc=0 | 122/122 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+test_l1_shell_scoring # rc=0 | Ran 113 checks, 0 failed
+tripwire lines: 0
+tracked tree clean
+COMBINED-DONE

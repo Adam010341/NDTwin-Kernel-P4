@@ -1,0 +1,15 @@
+LONG is 116 chars, SHORT is 22 chars
+test_ndt_serve_LONG # rc=0 | test_claim_note_with_a_newline_is_refused (__main__.Whitelist.test_claim_note_with_a_newline_is_refused) ... ok Ran 74 tests in 59.374s OK 
+test_ndt_serve_SHORT # rc=0 | test_claim_note_with_a_newline_is_refused (__main__.Whitelist.test_claim_note_with_a_newline_is_refused) ... ok Ran 74 tests in 59.760s OK 
+test_ndt_serve_cells # rc=0 | Ran 35 tests in 33.057s OK 
+test_ndt_serve_gui # rc=0 | Ran 40 tests in 20.165s OK 
+mutate_ndt_serve # rc=0 |   caught   M17: the argv goes through a shell                             (test_claim_note_reaches_ndt_as_one_argv_element went red)   caught   M18: a newline in a claim note is passed on                    (test_claim_note_with_a_newline_is_refused went red) 150 mutation(s), 0 survivor(s) 
+mutate_ndt_serve_page # rc=0 | 5 mutation(s), 0 survivor(s) 
+check_gate_anchors # rc=0 | 122/122 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL) 
+check_process_by_name # rc=0 | 
+check_test_tmpdirs # rc=0 | 
+  caught   M17: the argv goes through a shell                             (test_claim_note_reaches_ndt_as_one_argv_element went red)
+tripwire lines: 0
+tracked tree clean after the gates
+(above: leftover serve/headless processes, if any)
+RERUN-CLAIMNOTE-DONE

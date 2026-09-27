@@ -1,0 +1,50 @@
+# push trunk + trunk:main 7746832ef7f54bb5538c39bb3fcb80024693a072 (protobuf 5 merge 5dc7fc9a + migration record) 2026-09-27T16:15:06+08:00
+range     : d9308f61..7746832ef7f54bb5538c39bb3fcb80024693a072 ( 7 files changed, 447 insertions(+), 45 deletions(-))
+scan hits : 0
+control   : 3 (want 3)
+binary    : 0 file(s) NOT read by this scan -- scan each separately
+send-pack: unexpected disconnect while reading sideband packet
+fatal: the remote end hung up unexpectedly
+# push rc=128
+$ env -u GIT_ASKPASS -u SSH_ASKPASS GIT_TERMINAL_PROMPT=0 git -c credential.helper= -c core.askPass= ls-remote https://github.com/ndtwin-lab/NDTwin-Kernel-P4.git refs/heads/trunk refs/heads/main
+d9308f61f7569f375960d2ecb93bdb32a9148b34	refs/heads/main
+d9308f61f7569f375960d2ecb93bdb32a9148b34	refs/heads/trunk
+$ env -u GIT_ASKPASS -u SSH_ASKPASS GIT_TERMINAL_PROMPT=0 git -c credential.helper= -c core.askPass= ls-remote https://github.com/Adam010341/NDTwin-Kernel-P4.git refs/heads/trunk refs/heads/main
+d9308f61f7569f375960d2ecb93bdb32a9148b34	refs/heads/main
+d9308f61f7569f375960d2ecb93bdb32a9148b34	refs/heads/trunk
+$ env -u GITHUB_TOKEN -u GH_TOKEN curl -s -o /dev/null -w '%{http_code}' https://github.com/ndtwin-lab/NDTwin-Kernel-P4/tree/7746832e
+404
+$ env -u GITHUB_TOKEN -u GH_TOKEN curl -s -o /dev/null -w '%{http_code}' https://github.com/Adam010341/NDTwin-Kernel-P4/tree/7746832e
+404
+
+# RETRY after a stuck ssh (opened during the network drop; killed by pid) 2026-09-27T16:19:00+08:00
+To github.com:Adam010341/NDTwin-Kernel-P4.git
+   d9308f61..7746832e  trunk -> main
+   d9308f61..7746832e  trunk -> trunk
+remote: 
+remote: GitHub found 2 vulnerabilities on ndtwin-lab/NDTwin-Kernel-P4's default branch (2 high). To find out more, visit:        
+remote:      https://github.com/ndtwin-lab/NDTwin-Kernel-P4/security/dependabot        
+remote: 
+To github.com:ndtwin-lab/NDTwin-Kernel-P4.git
+   d9308f61..7746832e  trunk -> main
+   d9308f61..7746832e  trunk -> trunk
+# push rc=0
+$ env -u GIT_ASKPASS -u SSH_ASKPASS GIT_TERMINAL_PROMPT=0 git -c credential.helper= -c core.askPass= ls-remote https://github.com/ndtwin-lab/NDTwin-Kernel-P4.git refs/heads/trunk refs/heads/main
+7746832ef7f54bb5538c39bb3fcb80024693a072	refs/heads/main
+7746832ef7f54bb5538c39bb3fcb80024693a072	refs/heads/trunk
+$ env -u GIT_ASKPASS -u SSH_ASKPASS GIT_TERMINAL_PROMPT=0 git -c credential.helper= -c core.askPass= ls-remote https://github.com/Adam010341/NDTwin-Kernel-P4.git refs/heads/trunk refs/heads/main
+7746832ef7f54bb5538c39bb3fcb80024693a072	refs/heads/main
+7746832ef7f54bb5538c39bb3fcb80024693a072	refs/heads/trunk
+$ env -u GITHUB_TOKEN -u GH_TOKEN curl -s -o /dev/null -w '%{http_code}' https://github.com/ndtwin-lab/NDTwin-Kernel-P4/tree/7746832e
+404
+$ env -u GITHUB_TOKEN -u GH_TOKEN curl -s -o /dev/null -w '%{http_code}' https://github.com/Adam010341/NDTwin-Kernel-P4/tree/7746832e
+404
+# re-verify 2026-09-27T16:19:39+08:00
+$ env -u GITHUB_TOKEN -u GH_TOKEN curl -s -o /dev/null -w '%{http_code}' https://github.com/ndtwin-lab/NDTwin-Kernel-P4/tree/7746832e
+200
+$ env -u GITHUB_TOKEN -u GH_TOKEN curl -s -o /dev/null -w '%{http_code}' https://github.com/ndtwin-lab/NDTwin-Kernel-P4/commit/7746832ef7f54bb5538c39bb3fcb80024693a072
+200
+$ env -u GITHUB_TOKEN -u GH_TOKEN curl -s -o /dev/null -w '%{http_code}' https://github.com/Adam010341/NDTwin-Kernel-P4/tree/7746832e
+200
+$ env -u GITHUB_TOKEN -u GH_TOKEN curl -s -o /dev/null -w '%{http_code}' https://github.com/Adam010341/NDTwin-Kernel-P4/commit/7746832ef7f54bb5538c39bb3fcb80024693a072
+200

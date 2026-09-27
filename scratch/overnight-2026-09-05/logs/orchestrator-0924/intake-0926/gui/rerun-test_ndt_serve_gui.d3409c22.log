@@ -1,0 +1,5 @@
+d3409c223e2ea8e772fd76b5894141379cf51ad0
+# 2026-09-27T08:42:05Z cmd python3 tests/python/test_ndt_serve_gui.py
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ python3 tests/python/test_ndt_serve_gui.py
+# ABORTED while waiting for the build lock (orchestrator, 2026-09-27T17:06:15+08:00) -- NOT a result

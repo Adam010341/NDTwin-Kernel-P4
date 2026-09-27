@@ -1,0 +1,18 @@
+# push trunk 3d740be0964b36091c6f4299bd288fa52bcd258d (queued merge 4ff4eee8 + CLAUDE.md) 2026-09-27T23:24:32+08:00 -- trunk only, no trunk:main
+range     : f186ce98..3d740be0 ( 29 files changed, 753 insertions(+), 201 deletions(-))
+scan hits : 0
+control   : 3 (want 3)
+binary    : 0 file(s) NOT read by this scan -- scan each separately
+To github.com:Adam010341/NDTwin-Kernel-P4.git
+   f186ce98..3d740be0  trunk -> trunk
+To github.com:ndtwin-lab/NDTwin-Kernel-P4.git
+   f186ce98..3d740be0  trunk -> trunk
+# push rc=0
+$ ls-remote (unauthenticated) ndtwin-lab
+f186ce98c7643cf1e7a9e7e402e4193bd0d72805	refs/heads/main
+3d740be0964b36091c6f4299bd288fa52bcd258d	refs/heads/trunk
+$ curl tree/3d740be0 ndtwin-lab: 200
+$ ls-remote (unauthenticated) Adam010341
+f186ce98c7643cf1e7a9e7e402e4193bd0d72805	refs/heads/main
+3d740be0964b36091c6f4299bd288fa52bcd258d	refs/heads/trunk
+$ curl tree/3d740be0 Adam010341: 200

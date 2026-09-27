@@ -1,0 +1,15 @@
+# PR #6 squash-merged -> ce6a9832 2026-09-27T23:45:17+08:00
+fetched main: ce6a983242d2339a2528f2af769661bba772f496
+tree: c8bf95a443616c87b77deda8057338bef4188905 (want c8bf95a4... = trunk 4ff4eee8)
+parents: f186ce98c7643cf1e7a9e7e402e4193bd0d72805 (want f186ce98 only)
+---
+tests: tighten the shell-suite scorer and the sudo stub checks (#6)
+
+The L1 scorer now follows a summary printed by a helper function through its call sites, so deleting the call is caught. Guarded exits, one-line case arms and redirected prints are read as conditionals. The sudo stub library checks the tc and ovs-vsctl it finds on PATH, and its mutation gate names the entry it removed in every failure.---
+# invariant: diff main trunk excluding doc/audit/**/*.md and REPORT*.md
+ CLAUDE.md | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+$ unauthenticated ls-remote Adam010341 main
+ce6a983242d2339a2528f2af769661bba772f496	refs/heads/main
+$ unauthenticated ndtwin-lab main (must stay f186ce98)
+f186ce98c7643cf1e7a9e7e402e4193bd0d72805	refs/heads/main

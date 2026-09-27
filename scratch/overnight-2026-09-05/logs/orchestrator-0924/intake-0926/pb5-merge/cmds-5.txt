@@ -1,0 +1,1 @@
+[ -z "${STEP+set}" ] && tools/test_workflow/ndt release || echo "STOP: STEP is set in this shell. If this IS the shell of step 0 (a block was pasted here by mistake), type unset STEP and paste step 5 again; if it is the migration shell, finish or roll back, exit it, then release from the shell of step 0"

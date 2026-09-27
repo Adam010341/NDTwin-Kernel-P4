@@ -1,0 +1,3 @@
+at 1 "2a, the new venv" && { test -d "$OLD" && test ! -e "$V" && "$BASE" -m venv "$V" && STEP=2b || { STEP=; echo "STOP at 2a: no new venv made; the old one is parked at $OLD -- paste ROLLBACK"; }; }
+at 2b "2b, pip install" && { "$V/bin/pip" install -r "$R/p4_proxy/requirements.txt" && STEP=2c || { STEP=; echo "STOP at 2b: the install did not finish; the old venv is parked at $OLD -- paste ROLLBACK"; }; }
+at 2c "2c, regen" && { "$V/bin/python" "$R/p4_proxy/regen_p4runtime_pb2.py" && STEP=2 || { STEP=; echo "STOP at 2c: the regeneration did not finish; the old venv is parked at $OLD -- paste ROLLBACK"; }; }

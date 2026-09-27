@@ -1,0 +1,5 @@
+# CI run 36305829213 on 7746832e (protobuf 5 merge + migration record), GCC job via API raw log; 2026-09-27T16:36:37+08:00
+PREDICTION recorded beforehand: ci-prediction-7746832e.txt (install succeeds; 12 groups, lines identical to d9308f61)
+RESULT: install step -- protobuf-5.29.6 installed, regen: the four descriptors identical (raw log :6529-6650); L1 failure lines vs d9308f61 (36303713298):
+IDENTICAL -- prediction met
+L1 FAILED (12 problem group(s))   logs: /home/runner/work/NDTwin-Kernel-P4/NDTwin-Kernel-P4/.test_run/logs

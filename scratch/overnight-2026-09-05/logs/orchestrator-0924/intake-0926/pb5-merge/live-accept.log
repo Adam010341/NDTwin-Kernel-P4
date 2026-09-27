@@ -1,0 +1,13 @@
+== 2026-09-27 15:45:56 +0800 trunk 5dc7fc9a657cf58b12729ec14e2ead02f7afdab5; venv 5.29.6 upb; fingerprint 1824871ac1eef20f; helper 6a558fe452955de3; disk 6.1G
+== 2026-09-27 15:45:58 +0800 start 01
+== 2026-09-27 15:46:35 +0800 end 01 rc=0 last: PASS 01_baseline
+== 2026-09-27 15:46:35 +0800 01 run dir: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-27T074558Z_01_baseline
+== 2026-09-27 15:46:35 +0800 start 06
+== 2026-09-27 16:13:55 +0800 end 06 rc=0 last: PASS 06_thirteen -- 26 arm(s), every arm as the exercise says it should be
+== 2026-09-27 16:13:55 +0800 06 run dir: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-27T074635Z_06_thirteen
+  claim          none
+  prev claim     orch-0927 (until 16:57:56), superseded 2026-09-27 16:13:55  (.test_run/lab.claim.prev)
+                 nothing holds the lab now: that claim was released or replaced
+== 2026-09-27 16:13:57 +0800 knob unchanged (4)
+== 2026-09-27 16:13:58 +0800 venv fingerprint CHANGED by the live runs (byte-code?)
+== 2026-09-27 16:13:58 +0800 DONE rc01=0 rc06=0

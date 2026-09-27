@@ -1,0 +1,5 @@
+# CI run 36303713298 on d9308f61 (followup NOTEs, tests only), GCC job 108576119253 via API raw log; 2026-09-27T16:20:35+08:00
+EXPECTATION (written together with this comparison, NOT recorded before the run): identical to b005bf50 (12 groups) -- the branch touches only tests/shell suites that CI runs green and 07/08 self-tests CI does not run
+vs b005bf50 (36296537822):
+IDENTICAL failure lines
+L1 FAILED (12 problem group(s))   logs: /home/runner/work/NDTwin-Kernel-P4/NDTwin-Kernel-P4/.test_run/logs
