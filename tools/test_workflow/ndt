@@ -2938,9 +2938,10 @@ ndt_port_proto() {
 #
 #   * started by `ndt up p4 --app` on a foreign pipeline, after the fabric and before the proxy,
 #     so the proxy's first watchdog pass has a report to read. NEVER on NDTwin's own pipeline
-#     (it has LLDP; the helper refuses it too), and not under an external control plane: the
-#     proxy reads only there and runs no watchdog, so the frames would go into somebody's
-#     pipeline for nobody to read;
+#     (it has LLDP; the helper refuses it too). [Co-developed with claude code -- Adam] Since
+#     09-27 an external control plane on its own pipeline gets it as well, DETECT ONLY: the
+#     proxy there still writes nothing (no arbitration, install_initial_routes skipped), so a
+#     cut is told to the twin and the exercise's controller keeps every table as it wrote it;
 #   * a heartbeat that does not start does NOT fail the bring-up. The fabric is up; what is
 #     missing is detection, and the proxy says so on /p4/switch_state (`reroute`);
 #   * stopped before the topology it watches, by `ndt down`, by a rollback, and by a bring-up
@@ -2956,8 +2957,10 @@ HB_PIDFILE=/run/ndtwin-lab/heartbeat.pid
 HB_REPORT=/run/ndtwin-lab/heartbeat.json
 
 # heartbeat_wanted <app_pipe> <app_mode> -- does this bring-up start the heartbeat?
+# [Co-developed with claude code -- Adam] The mode no longer decides whether (09-27: external
+# too); heartbeat_up_step still reads it, to say what the heartbeat is for on this fabric.
 heartbeat_wanted() {
-    [[ "$1" == foreign:* && "$2" != external ]]
+    [[ "$1" == foreign:* ]]
 }
 
 # heartbeat_up_step <app_pipe> <app_mode> -- start it where it is wanted. Always rc 0.
@@ -2970,7 +2973,11 @@ heartbeat_up_step() {
     out="$(sudo -n "$LAB" heartbeat start 2>&1)"; rc=$?
     [[ -n "$out" ]] && printf '%s\n' "$out" | sed 's/^/      /'
     case "$rc" in
-        0) ok "heartbeat running on the inter-switch veths: a cut link is detected, and routed around where NDTwin owns the route tables (switch_state: reroute, heartbeat)" ;;
+        0) if [[ "$2" == external ]]; then
+               ok "heartbeat running on the inter-switch veths, detect only: a cut link is told to the twin and nothing is rerouted -- this fabric's own controller owns every table (switch_state: reroute external_control_plane, heartbeat)"
+           else
+               ok "heartbeat running on the inter-switch veths: a cut link is detected, and routed around where NDTwin owns the route tables (switch_state: reroute, heartbeat)"
+           fi ;;
         3) info "heartbeat: nothing to watch -- this fabric has no inter-switch link (rc 3)" ;;
         *) warn "heartbeat did NOT start (rc $rc): a cut link on this fabric will not be detected."
            warn "  the fabric itself is up; the proxy reports reroute.reason heartbeat_not_running." ;;

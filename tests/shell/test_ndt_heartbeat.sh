@@ -14,8 +14,10 @@
 #
 #   * a foreign package fabric: one `heartbeat start`, AFTER `topo-start` and BEFORE stack.sh
 #     starts the proxy, so the proxy's first watchdog pass already has a report to read;
-#   * NOT on the baseline fabric, NOT on a package running NDTwin's own pipeline, NOT on an
-#     external control plane (the proxy reads only there, so nobody would read the report);
+#   * NOT on the baseline fabric, NOT on a package running NDTwin's own pipeline. [Co-developed
+#     with claude code -- Adam] Since 09-27 an external control plane on its own pipeline DOES
+#     get one, detect only -- the proxy there writes nothing and says so -- and `ndt` says which
+#     of the two it started (section 2b);
 #   * a heartbeat that does not start does NOT fail the bring-up -- the fabric is up, only
 #     detection is off, and the proxy says so -- and rc 3 (no inter-switch link) is not a warning;
 #   * `ndt down` stops it before `topo-stop`, and a stop that fails is a failed teardown (rc 1,
@@ -249,7 +251,7 @@ has   "  (it did take the reuse branch)"                         "already up" "$
 check "🔴 a reused foreign fabric asks for the heartbeat too"    "1" "$(count_of 'ndtwin-lab heartbeat start')"
 
 # =============================================================================================
-section "2. 🔴 NOT on NDTwin's own pipeline, NOT on the baseline, NOT on an external plane"
+section "2. 🔴 NOT on NDTwin's own pipeline, NOT on the baseline"
 # =============================================================================================
 reset_fix
 OUT="$(drive "NDT_APP_DIR=$(q "$PKG_NDTWIN"); up_p4")"
@@ -262,11 +264,23 @@ OUT="$(drive 'up_p4 4')"
 check "  the baseline fabric comes up"                           "0" "$(rc_of "$OUT")"
 check "🔴 and never asks for a heartbeat"                        "0" "$(hb_calls)"
 
+# =============================================================================================
+section "2b. 🔴 an external control plane on its own pipeline: started, detect only (09-27)"
+# =============================================================================================
+# [Co-developed with claude code -- Adam] Was "NOT on an external plane" until 09-27. The helper
+# is asked exactly as on any foreign fabric; what differs is what ndt says the heartbeat is for.
 reset_fix
 OUT="$(drive "NDT_APP_DIR=$(q "$PKG_EXTERNAL"); up_p4")"
 check "  an external package comes up"                           "0" "$(rc_of "$OUT")"
 has   "  (the pipeline kind was read as foreign)"                "VERIFY_P4 pipe=foreign:" "$OUT"
-check "🔴 and does not start one: the proxy reads only there"    "0" "$(hb_calls)"
+check "🔴 exactly one 'heartbeat start' on an external plane"    "1" "$(count_of 'ndtwin-lab heartbeat start')"
+check "🔴 after topo-start, before the proxy, as anywhere"       "yes" "$(before 'ndtwin-lab heartbeat start' 'stack up p4')"
+has   "🔴 and ndt says it detects only"                          "detect only: a cut link is told to the twin and nothing is rerouted" "$OUT"
+hasnt "🔴 and not that it routes around"                         "routed around where NDTwin owns" "$OUT"
+
+reset_fix
+OUT="$(drive "NDT_APP_DIR=$(q "$PKG_FOREIGN"); up_p4")"
+hasnt "🔴 a non-external foreign fabric is not called detect-only" "detect only" "$OUT"
 
 # =============================================================================================
 section "3. 🔴 a heartbeat that does not start does not fail the bring-up"
