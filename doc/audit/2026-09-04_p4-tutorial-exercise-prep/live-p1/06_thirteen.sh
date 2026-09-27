@@ -26,8 +26,8 @@
 #
 # 🔴 NOTHING HERE USES pkill/pgrep, and nothing here kills anything at all.
 #
-# Run:  bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/06_thirteen.sh
-#       ONLY=basic,calc  bash .../06_thirteen.sh      # a subset, for a re-run
+# Run:  NDT_OWNER=<you> bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/06_thirteen.sh
+#       NDT_OWNER=<you> ONLY=basic,calc  bash .../06_thirteen.sh      # a subset, for a re-run
 # Exit: 0 every arm as expected, 1 some arm was not, 2 refused before anything was started.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -37,7 +37,14 @@ REPO="$(cd "$HERE/../../../.." && pwd)"
 #: are a table -- which is the only way to test the one decision this step makes without a lab.
 DRIVER="${DRIVER_UNDER_TEST:-$REPO/doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py}"
 VENV_PY="${VENV_PY:-/home/adam/p4dev-python-venv/bin/python}"
-: "${NDT_OWNER:=live-p1}"
+# [Co-developed with claude code -- Adam] 🔴 NO DEFAULT OWNER (Adam's ruling G, 09-27): this line was
+# `: "${NDT_OWNER:=live-p1}"`, and every round the driver claimed was then claimed by nobody.
+# Refused before anything is written -- the run directory included.
+if [[ -z "${NDT_OWNER:-}" ]]; then
+    echo "   !! refusing: NDT_OWNER is not set. Run it as NDT_OWNER=<you> bash .../06_thirteen.sh -- every round claims the lab in that name, and no default owner is used" >&2
+    echo "REFUSED 06_thirteen -- nothing was started"
+    exit 2
+fi
 export NDT_OWNER
 
 #: Where this step's raw goes. A seam for the same reason DRIVER_UNDER_TEST is one: without it

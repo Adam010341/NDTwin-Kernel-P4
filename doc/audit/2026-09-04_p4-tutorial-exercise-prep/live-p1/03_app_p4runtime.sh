@@ -36,7 +36,7 @@
 # change" would be true of a switch with no tables at all. The count must be > 0 before the
 # readopt, and the ping must already be 0% loss both ways.
 #
-# Run:  bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/03_app_p4runtime.sh
+# Run:  NDT_OWNER=<you> bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/03_app_p4runtime.sh
 # Exit: 0 PASS, 1 FAIL (the last line says which), 2 refused before anything was started.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -1073,6 +1073,115 @@ has   "  and the summary line says NOT-RUN"              "rc=NOT-RUN" "$OUT"
 check "🔴 NOT RUN has its own rc, not 0 and not 2"       "3" "$(rc_of "$OUT")"
 
 # =============================================================================================
+section "15. 🔴 a disclosure is repeated right above the last line, PASS or FAIL (Adam's ruling A)"
+# =============================================================================================
+# [Co-developed with claude code -- Adam] 09-27: 08's H1 discloses a cycle over the strict 20 s
+# instead of failing on it. `disclose` records the text; finish() prints it as `NOTE <step> --
+# <text>` just above the verdict, whatever the verdict is -- so a PASS still carries it, and a FAIL
+# does not swallow it. The real finish, with a clean ndt stub.
+FIX15="$(mktemp -d "${TMPDIR:-/tmp}/common-disclose-XXXXXX")"
+mkdir -p "$FIX15/bin" "$FIX15/run"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$FIX15/bin/ndt"; chmod +x "$FIX15/bin/ndt"
+step15() {   # step15 <disclose text or -> <fail reason or -> -> the run's output, then "rc=<n>"
+    cat > "$FIX15/step.sh" <<STEPSH
+set -euo pipefail
+source "$COMMON"
+NDT="$FIX15/bin/ndt"
+RUN="$FIX15/run"; STEP=15_disclose; CLAIMED=1; CTRL_PID=""
+VERDICT_RC=0; VERDICT_WHY=""
+trap finish EXIT INT TERM
+[[ "\$1" == - ]] || disclose "\$1"
+[[ "\$2" == - ]] || fail "\$2"
+exit 0
+STEPSH
+    timeout 120 bash "$FIX15/step.sh" "$1" "$2" 2>&1; echo "rc=$?"
+}
+OUT15="$(step15 "H1: 1 of 3 cycle(s) over the strict 20 s -- H1 cycle 2: detection 20.320 s is OVER" -)"
+check "🔴 a disclosure does not fail the run: the last line is PASS" "PASS 15_disclose" "$(tail -2 <<<"$OUT15" | head -1)"
+check "🔴 and the line right above it is the disclosure, verbatim"  \
+      "NOTE 15_disclose -- H1: 1 of 3 cycle(s) over the strict 20 s -- H1 cycle 2: detection 20.320 s is OVER" \
+      "$(tail -3 <<<"$OUT15" | head -1)"
+check "  rc 0"                                            "rc=0" "$(tail -1 <<<"$OUT15")"
+OUT15="$(step15 "a thing disclosed" "boom")"
+check "🔴 with a failure, the last line is still the FAIL"  "FAIL 15_disclose -- boom" "$(tail -2 <<<"$OUT15" | head -1)"
+check "  and the disclosure is still right above it"      "NOTE 15_disclose -- a thing disclosed" "$(tail -3 <<<"$OUT15" | head -1)"
+OUT15="$(step15 - -)"
+check "  the control: nothing disclosed, no NOTE line"   "0" "$(/usr/bin/grep -c '^NOTE ' <<<"$OUT15")"
+check "  and it passes"                                  "PASS 15_disclose" "$(tail -2 <<<"$OUT15" | head -1)"
+rm -rf "$FIX15"
+
+# =============================================================================================
+section "16. 🔴 no default owner: a run with no NDT_OWNER refuses and starts nothing (Adam's ruling G)"
+# =============================================================================================
+# [Co-developed with claude code -- Adam] 09-27. `_common.sh:35` used to be `: "${NDT_OWNER:=live-p1}"`,
+# so a run nobody named claimed the lab as `live-p1` -- nobody. start_step is where a run starts; the
+# lab-facing checks after it (root, a free lab, the knob snapshots) are stubbed here, so the only
+# question asked of the real start_step is whether it goes on without an owner. Its run directory
+# is pointed into this suite's temp dir.
+FIX16="$(mktemp -d "${TMPDIR:-/tmp}/common-owner-XXXXXX")"
+mkdir -p "$FIX16/bin"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$FIX16/bin/ndt"; chmod +x "$FIX16/bin/ndt"
+cat > "$FIX16/step.sh" <<STEPSH
+set -euo pipefail
+source "$COMMON"
+LIVE_DIR="$FIX16"; NDT="$FIX16/bin/ndt"; PY=/usr/bin/python3; CLAIMED=0
+require_root() { :; }; require_free_lab() { :; }; snapshot_knob() { :; }; snapshot_telemetry_knob() { :; }
+restore_knob() { :; }; restore_telemetry_knob() { :; }
+start_step 16_owner
+echo "STARTED as owner [\$NDT_OWNER]"
+exit 0
+STEPSH
+OUT16="$(env -u NDT_OWNER timeout 120 bash "$FIX16/step.sh" 2>&1; echo "rc=$?")"
+check "🔴 no NDT_OWNER: start_step refuses with rc 2"      "rc=2" "$(tail -1 <<<"$OUT16")"
+check "  and says so on the last line"                   "REFUSED 16_owner -- nothing was started" "$(tail -2 <<<"$OUT16" | head -1)"
+has   "  naming what to set"                             "refusing: NDT_OWNER is not set. Run it as NDT_OWNER=<you>" "$OUT16"
+hasnt "🔴 it did not go on as a default owner"           "STARTED as owner" "$OUT16"
+check "🔴 and made no run directory"                     "0" "$(ls -d "$FIX16"/runs/*_16_owner 2>/dev/null | wc -l)"
+check "🔴 sourcing the file does not invent an owner"    "UNSET" \
+      "$(env -u NDT_OWNER bash -c 'source "$1" >/dev/null 2>&1; printf "%s" "${NDT_OWNER-UNSET}"' _ "$COMMON")"
+OUT16="$(env NDT_OWNER=someone timeout 120 bash "$FIX16/step.sh" 2>&1; echo "rc=$?")"
+has   "  the control: with an owner it starts, as that owner" "STARTED as owner [someone]" "$OUT16"
+check "  and made its run directory"                     "1" "$(ls -d "$FIX16"/runs/*_16_owner 2>/dev/null | wc -l)"
+rm -rf "$FIX16"
+
+# =============================================================================================
+section "18. 🔴 02's fabric list: the heartbeat watchdog must RUN, not be read to pick a list (the opus judge's N1)"
+# =============================================================================================
+# [Co-developed with claude code -- Adam] 09-27. 02 brings up a foreign, non-external fabric, where
+# `ndt up p4 --app` starts the heartbeat; heartbeat_skips_verdict asserts the watchdog runs (naming
+# the proxy's heartbeat.error when it does not) and then the two-name list. Three proxy answers:
+# running, not_started, and no heartbeat block at all.
+FIX18="$(mktemp -d "${TMPDIR:-/tmp}/common-hbskips-XXXXXX")"
+REAL_PY=/usr/bin/python3   # the verdict is stdlib only; the venv is not needed to judge a file
+W18="['install_initial_routes', 'lldp_discovery']"
+st18() {   # st18 <file> <watchdog or -> <error> <skipped python list>
+    "$REAL_PY" - "$FIX18/$1" "$2" "$3" "$4" <<'MK'
+import ast, json, sys
+out, wd, err, sk = sys.argv[1:5]
+d = {"control_plane": {"mode": "ndtwin", "skipped": ast.literal_eval(sk)}}
+if wd != "-":
+    d["heartbeat"] = {"watchdog": wd, "error": None if err == "-" else err}
+json.dump(d, open(out, "w"))
+MK
+}
+st18 running.json running - "['lldp_discovery', 'install_initial_routes']"
+st18 not_started.json not_started "OSError: no /run" "['lldp_discovery', 'link_watchdog', 'install_initial_routes']"
+st18 absent.json - - "['lldp_discovery', 'link_watchdog', 'install_initial_routes']"
+st18 running_three.json running - "['lldp_discovery', 'link_watchdog', 'install_initial_routes']"
+V18() { ( source "$COMMON" >/dev/null 2>&1; PY="$REAL_PY"; heartbeat_skips_verdict "$FIX18/$1" "$W18" ); }
+check "🔴 running, the two names: OK"                        "OK heartbeat.watchdog running, control_plane.skipped $W18" "$(V18 running.json)"
+OUT18="$(V18 not_started.json)"
+has   "🔴 not_started is a failure, not the other list"      "BAD heartbeat.watchdog is 'not_started', not 'running'" "$OUT18"
+has   "  and it names the proxy's own heartbeat.error"      "(heartbeat.error: OSError: no /run)" "$OUT18"
+has   "🔴 no heartbeat block is a failure too"               "BAD switch_state has no heartbeat block" "$(V18 absent.json)"
+has   "🔴 running with link_watchdog still named: BAD"       "BAD control_plane.skipped is ['install_initial_routes', 'link_watchdog', 'lldp_discovery'], want $W18" "$(V18 running_three.json)"
+check "  02 asks this verdict, with the two-name list"      "1" \
+      "$(/usr/bin/grep -c '^    V="$(heartbeat_skips_verdict "$SS" "$FABRIC_SKIPS_HB")"$' "$LIVE/02_app_basic.sh")"
+check "🔴 and 02 no longer picks its list from heartbeat.watchdog" "0" \
+      "$(/usr/bin/grep -c 'HB_WD" == running' "$LIVE/02_app_basic.sh")"
+rm -rf "$FIX18"
+
+# =============================================================================================
 section "14. 🔴 no lab command left this suite (the fake fabric was up throughout)"
 # =============================================================================================
 # [Co-developed with claude code -- Adam] The guard at the top, and its controls: without them a
