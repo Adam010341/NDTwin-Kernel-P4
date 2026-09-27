@@ -25,12 +25,30 @@ LAB_HANDOFF="$HERE/test_lab_handoff.sh"
 HONESTY="$HERE/test_ndt_honesty.sh"
 SAMPLE_RATE="$HERE/test_ndt_sample_rate_reads_both_bounds.sh"
 CLOSING="🔴 every sudo went to this suite's stub and was an allow-listed read-only probe"
-trap 'rm -f "$HERE"/.mutant-*-test_*.sh' EXIT
+# [Co-developed with claude code -- Adam] 🔴 THIS GATE'S OWN sudo, FIRST ON PATH FOR EVERY RUN (09-27).
+# A mutant can take a suite's stub away (P8), and then the suite's probes go to whatever sudo is
+# next on PATH -- on 09-27 that was the driver's nolab shim, and its tripwire counted them. Here they
+# land in this gate's own recorder, which refuses them (rc 1), and P8's kill REQUIRES them there: a
+# stub that is gone must show up as calls that escaped it, not as silence.
+ESC="$(mktemp -d "${TMPDIR:-/tmp}/probe-stub-gate-XXXXXX")"
+cat > "$ESC/sudo" <<EOF
+#!/bin/bash
+printf 'sudo %s\n' "\$*" >> '$ESC/escaped'
+echo "sudo: a password is required" >&2
+exit 1
+EOF
+chmod +x "$ESC/sudo"; : > "$ESC/escaped"
+export PATH="$ESC:$PATH"
+trap 'rm -f "$HERE"/.mutant-*-test_*.sh; rm -rf "$ESC"' EXIT
 SURVIVORS=0; MUTATIONS=0
 
 echo "baseline (every suite green, its closing check ok):"
 for s in "$APPS_STOP" "$APP_ORPHANS" "$CELL_GATE" "$LAB_HANDOFF" "$HONESTY" "$SAMPLE_RATE"; do
+    : > "$ESC/escaped"
     out="$(timeout 900 bash "$s" < /dev/null 2>&1)"; rc=$?
+    if [[ -s "$ESC/escaped" ]]; then
+        echo "  refused: $(basename "$s") sent $(wc -l < "$ESC/escaped") sudo call(s) past its own stub"; exit 2
+    fi
     if [[ $rc -ne 0 ]] || ! /usr/bin/grep -E '^ *ok ' <<<"$out" | /usr/bin/grep -qF -- "$CLOSING"; then
         echo "  refused: $(basename "$s") is not green with its closing check ok (rc $rc)"; exit 2
     fi
@@ -50,15 +68,24 @@ if s.count(a) != 1:
 open(dst, "w").write(s.replace(a, b, 1)); print(dst)
 PY
 }
-report() {   # $1 = mutation name, $2 = the copy (or ANCHOR:n)
-    local out rc
+report() {   # $1 = mutation name, $2 = the copy (or ANCHOR:n), $3 = "escapes" when the stub is meant to be gone
+    local out rc esc
     MUTATIONS=$((MUTATIONS+1))
     if [[ "$2" == ANCHOR:* ]]; then
         SURVIVORS=$((SURVIVORS+1)); printf '  SURVIVED %-66s (anchor occurrences: %s)\n' "$1" "${2#ANCHOR:}"; return
     fi
+    : > "$ESC/escaped"
     out="$(timeout 900 bash "$2" < /dev/null 2>&1)"; rc=$?; rm -f "$2"
+    esc="$(wc -l < "$ESC/escaped")"
+    # a stub that is there takes every call (0 escaped); a stub that is gone must leak (>0)
+    if [[ "${3:-}" == escapes ]] && (( esc == 0 )); then
+        SURVIVORS=$((SURVIVORS+1)); printf '  SURVIVED %-66s (no call reached this gate'"'"'s sudo -- the escape it tests went nowhere)\n' "$1"; return
+    fi
+    if [[ "${3:-}" != escapes ]] && (( esc > 0 )); then
+        SURVIVORS=$((SURVIVORS+1)); printf '  SURVIVED %-66s (%s call(s) escaped a stub that should have taken them)\n' "$1" "$esc"; return
+    fi
     if [[ $rc -ne 0 ]] && /usr/bin/grep -E '^ *FAILED ' <<<"$out" | /usr/bin/grep -qF -- "$CLOSING"; then
-        printf '  caught   %-66s (the closing check went red: %s)\n' "$1" \
+        printf '  caught   %-66s (%s escaped; the closing check went red: %s)\n' "$1" "$esc" \
             "$(/usr/bin/grep -A2 -F -- "$CLOSING" <<<"$out" | /usr/bin/grep -oE '(actual: *\[[^]]*\]|outside the allow-list: .*)' | head -1 | cut -c1-80)"
     else
         SURVIVORS=$((SURVIVORS+1))
@@ -95,7 +122,7 @@ report "P7: lab_handoff no longer allows the unprivileged 'tc qdisc show'" "$m"
 # not read an empty list as clean.
 m=$(mutant p8 "$SAMPLE_RATE" "probe_stub_install \"\$TMPROOT\" --ovs-refuse -- 'sudo ovs-vsctl list-br'" \
     ": the stub is not installed")
-report "P8: sample_rate's stub is never installed" "$m"
+report "P8: sample_rate's stub is never installed (its calls escape to this gate's sudo)" "$m" escapes
 
 echo
 echo "$MUTATIONS mutation(s), $SURVIVORS survivor(s)"
