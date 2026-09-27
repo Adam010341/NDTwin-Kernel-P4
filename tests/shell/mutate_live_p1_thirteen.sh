@@ -307,7 +307,7 @@ check_fires "M10: the by-design check becomes a substring match" m10 \
 # suite that asserts the decoy is visible to the glob at all, so this can never go vacuous
 # again without something going red.
 
-# --- (no M11) R3(b) lives in the TEST FILE, which this gate does not mutate ---------------------
+# --- (not a mutant here) R3(b) lives in the TEST FILE, which this gate does not mutate -----------
 # 🔴 SAID OUT LOUD RATHER THAN FAKED. The set-difference that keeps a real `06` run's raw from
 # being reported as this suite's litter is in `tests/shell/test_live_p1_thirteen.sh`, not in
 # `06_thirteen.sh`; this gate's subject is the STEP. A mutation here would have had to anchor
@@ -315,6 +315,22 @@ check_fires "M10: the by-design check becomes a substring match" m10 \
 # would have read as MISSING against 06. The evidence for R3(b) is the cell that plants a decoy
 # run directory and asserts it is not counted ("a PREVIOUS real run's directory is not counted
 # as ours"), which fails if the difference is replaced by a count.
+
+# --- M11 (Adam's ruling G, 09-27): the default owner comes back ---------------------------------------
+# [Co-developed with claude code -- Adam] The line as it was: every round claimed by `live-p1`.
+cat > "$A/m11.old" <<'EOF'
+if [[ -z "${NDT_OWNER:-}" ]]; then
+    echo "   !! refusing: NDT_OWNER is not set. Run it as NDT_OWNER=<you> bash .../06_thirteen.sh -- every round claims the lab in that name, and no default owner is used" >&2
+    echo "REFUSED 06_thirteen -- nothing was started"
+    exit 2
+fi
+EOF
+cat > "$A/m11.new" <<'EOF'
+: "${NDT_OWNER:=live-p1}"
+EOF
+check_fires "M11: 06 defaults NDT_OWNER to live-p1 again" m11 \
+            "🔴 no NDT_OWNER is rc 2" "  refused, saying what to set" "🔴 no round ran as a default owner" \
+            "  and no verdict was reached" "🔴 and no run directory was made"
 
 # --- the control -----------------------------------------------------------------------------------------
 cat > "$A/c1.old" <<'EOF'
