@@ -59,12 +59,16 @@ section() { printf '\n%s\n' "$1"; }
 
 FIX="$(mktemp -d "${TMPDIR:-/tmp}/ndt-honesty-XXXXXX")"
 trap 'rm -rf "$FIX"' EXIT
-# [Co-developed with claude code -- Adam] 🔴 THIS SUITE'S OWN sudo (2026-09-27): every sudo it
-# makes is recorded and REFUSED rc 1 in sudo's own words, whatever this machine's grants or lab --
-# the ANSWERS are fixed, and nothing it runs reaches root. Its PATH through ndt is not: ps,
-# command -v, the lab ports, curl :8000 and the p4 manifest still decide which probes it makes
-# (tests/shell/lib_probe_stub.sh, "WHAT THE STUB FIXES"). The closing check fails on any call
-# outside the allow-list, and on a sudo on PATH that is not this stub.
+# [Co-developed with claude code -- Adam] 🔴 THIS SUITE'S OWN sudo (2026-09-27): every sudo that
+# goes through PATH is recorded and REFUSED rc 1 in sudo's own words, whatever this machine's grants
+# or lab -- the ANSWERS are fixed, and nothing it runs reaches root. Not recorded, and not through
+# the stub at all (the opus judge's NOTE a on f9c59a44): the fixtures below that define a shell
+# FUNCTION named sudo -- `sudo() { return 1; }` in three of them, and `sudo() { return 0; }` in the
+# one that needs a granted answer -- answer their own subshell's calls and never reach PATH. Its
+# PATH through ndt is not fixed either: ps, command -v, the lab ports, curl :8000 and the p4
+# manifest still decide which probes it makes (tests/shell/lib_probe_stub.sh, "WHAT THE STUB
+# FIXES"). The closing check fails on any call outside the allow-list, and on a sudo on PATH that
+# is not this stub.
 # (from this file's own directory: a suite that sources ndt first has had its HERE replaced by
 # ndt's -- the first version of this line found no lib there and the stub never ran)
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_probe_stub.sh" \
