@@ -191,6 +191,17 @@ OUT="$(env -i PATH="/usr/bin:/bin" HOME="$FIX" TMPDIR="$FIX" NO_COLOR=1 NDT_OWNE
         bash "$STEP" 2>&1)"; RC=$?
 check "🔴 no interpreter with scapy is rc 2"             "2" "$RC"
 has   "  naming it"                                      "no interpreter at" "$OUT"
+# [Co-developed with claude code -- Adam] 🔴 NO DEFAULT OWNER (Adam's ruling G, 09-27): 06 used to
+# run `: "${NDT_OWNER:=live-p1}"`, and every round then claimed the lab as `live-p1` -- nobody.
+# Without NDT_OWNER it refuses, rc 2, before its run directory exists.
+OUT="$(env -i PATH="/usr/bin:/bin" HOME="$FIX" TMPDIR="$FIX" NO_COLOR=1 \
+        ONLY=basic VENV_PY="/usr/bin/python3" DRIVER_UNDER_TEST="$FIX/driver.py" RUNS_DIR="$FIX/runs-noowner" \
+        bash "$STEP" 2>&1)"; RC=$?
+check "🔴 no NDT_OWNER is rc 2"                          "2" "$RC"
+has   "  refused, saying what to set"                    "refusing: NDT_OWNER is not set" "$OUT"
+has   "  and that nothing was started"                   "REFUSED 06_thirteen -- nothing was started" "$OUT"
+hasnt "🔴 no round ran as a default owner"               ">>> " "$OUT"
+check "🔴 and no run directory was made"                 "0" "$(ls -d "$FIX/runs-noowner"/*_06_thirteen 2>/dev/null | wc -l)"
 
 # =============================================================================================
 section "6. 🔴 this suite leaves nothing in the checkout"

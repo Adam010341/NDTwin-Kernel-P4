@@ -8,10 +8,13 @@ TICKET-P4-heartbeat segment W, section 1:
   * the watchdog on a foreign fabric is fed by the heartbeat, and ONLY there -- NDTwin's own
     pipeline keeps LLDP (段 W: "NDTwin 自己的 pipeline（LLDP）不啟動心跳"), and an external
     control plane is left exactly as it was (it reads only; the first cut's 2.2-4);
-  * the LLDP beacon watchdog stays off on a foreign fabric and stays named in
-    `control_plane.skipped` -- it rides a controller header those programs do not have
+  * the LLDP beacons stay off on a foreign fabric and `lldp_discovery` stays named in
+    `control_plane.skipped` -- they ride a controller header those programs do not have
     (TICKET-P4-roles M-R10). The heartbeat watchdog is a different evidence source through the
-    same pass, and it is disclosed on its own;
+    same pass, and it is disclosed on its own. [Co-developed with claude code -- Adam] Adam's
+    ruling E (09-27): while the heartbeat drives the watchdog, `link_watchdog` is NOT in
+    `control_plane.skipped` -- it runs; it is named there only when the heartbeat watchdog did not
+    start;
   * `capabilities.reroute` is true only when the heartbeat is usable AND every foreign switch
     binds its route table with owner ndtwin; otherwise false, and the reason is served, in the
     first cut's words (`unbound`, `owned_by_package`) where the tables are the cause;
@@ -143,14 +146,39 @@ class WhichFabricGetsTheHeartbeatWatchdogTest(unittest.TestCase):
         run_startup(clients_bound(None, None), topo=topo, package=a_foreign_package())
         self.assertEqual(len(topo.heartbeat_calls), 1)
 
-    def test_the_lldp_watchdog_stays_off_and_stays_named_skipped(self):
+    def test_the_lldp_beacons_stay_off_and_named_skipped_but_the_watchdog_runs(self):
+        # [Co-developed with claude code -- Adam] Adam's ruling E (09-27): the heartbeat drives the
+        # watchdog, so the watchdog is not skipped -- only the beacons are. (This test used to
+        # assert link_watchdog IN the list.)
         topo = HeartbeatTopo()
         summary, _ = run_startup(clients_bound(bound("ndtwin"), bound("ndtwin")), topo=topo,
                                  package=a_foreign_package(owner="ndtwin"))
         self.assertNotIn("lldp", topo.started)
-        self.assertNotIn("watchdog", topo.started)
+        self.assertNotIn("watchdog", topo.started, "the LLDP beacon watchdog itself stays off")
+        self.assertIn("heartbeat-watchdog", topo.started)
         self.assertIn(main.SKIP_LLDP, summary["control_plane"]["skipped"])
-        self.assertIn(main.SKIP_WATCHDOG, summary["control_plane"]["skipped"])
+        self.assertNotIn(main.SKIP_WATCHDOG, summary["control_plane"]["skipped"])
+        self.assertEqual(main.control_plane_report()["skipped"], summary["control_plane"]["skipped"],
+                         "switch_state serves the same list")
+
+    def test_an_unbound_fabric_reports_its_watchdog_running_too(self):
+        # [Co-developed with claude code -- Adam] Ruling E: detecting without rerouting is still
+        # the watchdog running -- 07's unbound expectation, [install_initial_routes, lldp_discovery].
+        topo = HeartbeatTopo()
+        summary, _ = run_startup(clients_bound(None, None), topo=topo, package=a_foreign_package())
+        self.assertEqual(sorted(summary["control_plane"]["skipped"]),
+                         sorted([main.SKIP_LLDP, main.SKIP_ROUTES]))
+
+    def test_a_heartbeat_watchdog_that_did_not_start_leaves_the_watchdog_named_skipped(self):
+        # [Co-developed with claude code -- Adam] Ruling E's other half: when the heartbeat watchdog
+        # did not start, nothing watches the links, and the list must still say so.
+        for topo in (HeartbeatTopo(raises=OSError("the report cannot be read")), SeedingTopo()):
+            with self.subTest(topo=type(topo).__name__):
+                summary, _ = run_startup(clients_bound(bound("ndtwin"), bound("ndtwin")), topo=topo,
+                                         package=a_foreign_package(owner="ndtwin"))
+                self.assertEqual(main.heartbeat_report()["watchdog"], "not_started")
+                self.assertIn(main.SKIP_WATCHDOG, summary["control_plane"]["skipped"])
+                self.assertIn(main.SKIP_LLDP, summary["control_plane"]["skipped"])
 
     def test_an_all_ndtwin_fabric_does_not_start_it(self):
         topo = HeartbeatTopo()

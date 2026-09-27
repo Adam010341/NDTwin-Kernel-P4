@@ -21,7 +21,8 @@
 #     the things the proxy SKIPS on a foreign pipeline, so nothing NDTwin wrote is carrying
 #     these packets -- the sX-runtime.json entries are.
 #   * `control_plane.skipped` naming exactly lldp_discovery, link_watchdog and
-#     install_initial_routes is the disclosure that goes with that: those three ride on
+#     install_initial_routes (link_watchdog only when the heartbeat watchdog is NOT running --
+#     Adam's ruling E, 09-27) is the disclosure that goes with that: those three ride on
 #     packet-in/packet-out, and a tutorials p4info declares no controller_packet_metadata at
 #     all (ndtwin_switch declares two, basic declares zero). A short list here would be a proxy
 #     that did half the work of a control plane while reporting that it did none.
@@ -38,7 +39,7 @@
 # whatever was left in that directory by an earlier round would be a pipeline nobody can name.
 # The two sha256s are printed for that reason.
 #
-# Run:  bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/02_app_basic.sh
+# Run:  NDT_OWNER=<you> bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/02_app_basic.sh
 # Exit: 0 PASS, 1 FAIL (the last line says which), 2 refused before anything was started.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -58,6 +59,12 @@ P4C="${P4C:-/usr/local/bin/p4c-bm2-ss}"
 # Written out rather than read from that file: a check that derives its expectation from the
 # code under test agrees with it by construction.
 FABRIC_SKIPS="['install_initial_routes', 'link_watchdog', 'lldp_discovery']"   # sorted
+# [Co-developed with claude code -- Adam] Adam's ruling E (09-27): where the heartbeat drives the
+# watchdog (`ndt up p4 --app` starts it on a foreign, non-external fabric -- this one), the proxy
+# runs the watchdog and does NOT name `link_watchdog` skipped; only with the heartbeat watchdog not
+# started does the three-name list above stand. Which one applies is switch_state's own
+# `heartbeat.watchdog`, printed beside it.
+FABRIC_SKIPS_HB="['install_initial_routes', 'lldp_discovery']"                # sorted
 SWITCH_SKIPS="[\"('clone_session', 'sflow_telemetry')\"]"                      # per switch
 
 start_step 02_app_basic
@@ -152,6 +159,7 @@ if [[ -s "$SS" ]]; then
     MODE="$(jqp "$SS" "(d.get('control_plane') or {}).get('mode')")"
     PKG_SAID="$(jqp "$SS" "(d.get('control_plane') or {}).get('package')")"
     SKIPPED="$(jqp "$SS" "sorted((d.get('control_plane') or {}).get('skipped') or [])")"
+    HB_WD="$(jqp "$SS" "(d.get('heartbeat') or {}).get('watchdog')")"
     ENTRIES="$(jqp "$SS" "sorted({s.get('entries_recorded') for s in ((d.get('switches') or {}).values() if isinstance(d.get('switches'), dict) else (d.get('switches') or []))})")"
     NDTWIN="$(sw_set "$SS" "(s.get('pipeline') or {}).get('ndtwin')")"
     SHAS="$(sw_set "$SS" "(s.get('pipeline') or {}).get('p4info_sha256')")"
@@ -163,6 +171,7 @@ if [[ -s "$SS" ]]; then
     note "control_plane.mode  $MODE"
     note "control_plane.package $PKG_SAID"
     note "control_plane.skipped $SKIPPED"
+    note "heartbeat.watchdog  $HB_WD"
     note "entries_recorded    $ENTRIES   (distinct values across the switches)"
     note "pipeline.ndtwin     $NDTWIN"
     note "pipeline.p4info_sha256 $SHAS"
@@ -173,8 +182,9 @@ if [[ -s "$SS" ]]; then
     [[ "$N_SW" == 4 ]]        || fail "switch_state names $N_SW switches, pod-topo declares 4"
     # 🔴 THE FABRIC-WIDE LIST IS THE THREE THAT RIDE ON THE CPU PORT, and nothing else
     # (TICKET-P2 §2.2, §7-7). Sorted on both sides so the assertion is about the SET.
-    [[ "$SKIPPED" == "$FABRIC_SKIPS" ]] \
-        || fail "control_plane.skipped is $SKIPPED, want $FABRIC_SKIPS -- a foreign pipeline has no controller header, so LLDP, the watchdog and the initial routes are what cannot run"
+    WANT_SKIPS="$([[ "$HB_WD" == running ]] && echo "$FABRIC_SKIPS_HB" || echo "$FABRIC_SKIPS")"
+    [[ "$SKIPPED" == "$WANT_SKIPS" ]] \
+        || fail "control_plane.skipped is $SKIPPED, want $WANT_SKIPS (heartbeat.watchdog $HB_WD) -- a foreign pipeline has no controller header, so LLDP and the initial routes cannot run, and the watchdog runs only when the heartbeat drives it"
     # Every switch is on the exercise's program, and says so with a stable identifier.
     [[ "$NDTWIN" == "['False']" ]] \
         || fail "pipeline.ndtwin is $NDTWIN, want ['False'] on every switch -- the package named build/basic.* for all four"

@@ -81,9 +81,12 @@ AUTHOR_DST="10.0.1.1"; AUTHOR_PORT=1; AUTHOR_MOVED_TO=2
 #: (TICKET-P4-heartbeat segment W): owned -> true / heartbeat, unbound -> false / heartbeat.
 CAPS_OWNED='{"ipv4_route":"ndtwin","five_tuple":false,"reroute":true,"link_discovery":"heartbeat","binding_source":"package"}'
 CAPS_UNBOUND='{"ipv4_route":"unbound","five_tuple":false,"reroute":false,"link_discovery":"heartbeat","binding_source":null}'
-#: control_plane.skipped with every table owned: LLDP and the watchdog still off, routes back on.
-SKIPPED_OWNED="['link_watchdog', 'lldp_discovery']"
-SKIPPED_UNBOUND="['install_initial_routes', 'link_watchdog', 'lldp_discovery']"
+#: control_plane.skipped with every table owned: LLDP's beacons still off, routes back on.
+#: [Co-developed with claude code -- Adam] Adam's ruling E (09-27): `link_watchdog` is NOT in it --
+#: the heartbeat drives the watchdog on this fabric, so it runs. (Before the ruling both lists
+#: named it.) It is named only when the heartbeat watchdog did not start.
+SKIPPED_OWNED="['lldp_discovery']"
+SKIPPED_UNBOUND="['install_initial_routes', 'lldp_discovery']"
 
 # --- the verdicts. Each reads saved captures only and prints `OK ...` or `BAD ...`; the live
 # path and --self-test call the same functions. --------------------------------------------------
@@ -444,7 +447,7 @@ heard = lambda: {"source": "heartbeat", "down": False, "last_beacon_age_s": 1.2,
 declared_only = lambda: {"source": "declared", "down": None, "last_beacon_age_s": None,
                          "reported_to_kernel": False}
 key = lambda s, sp, d, dp: f"{s}:{sp}->{d}:{dp}"
-state = {"control_plane": {"skipped": ["lldp_discovery", "link_watchdog"]},
+state = {"control_plane": {"skipped": ["lldp_discovery"]},
          "switches": {str(d): {"capabilities": owned} for d in (1, 2, 3, 4)},
          "links": {key(*x): heard() for x in directions}}
 dump("state_owned.json", state)
@@ -465,7 +468,7 @@ links_variant("links_one_grace.json", lambda l: l.__setitem__(key(2, 4, 3, 2), g
 links_variant("state_grace.json", lambda l: [l.__setitem__(k, grace()) for k in list(l)])
 state_plain = copy.deepcopy(state)
 state_plain["switches"] = {str(d): {"capabilities": unbound} for d in (1, 2, 3, 4)}
-state_plain["control_plane"]["skipped"] = ["install_initial_routes", "link_watchdog", "lldp_discovery"]
+state_plain["control_plane"]["skipped"] = ["install_initial_routes", "lldp_discovery"]
 dump("state_plain.json", state_plain)
 os.makedirs(os.path.join(t, "pkg", "ndtwin"))
 dump(os.path.join("pkg", "ndtwin", "topology.json"), model)
@@ -474,6 +477,11 @@ wrong["switches"]["3"]["capabilities"] = dict(owned, reroute=False)
 wrong["control_plane"]["skipped"].append("install_initial_routes")
 wrong["links"] = {}
 dump("state_wrong.json", wrong)
+# [Co-developed with claude code -- Adam] Ruling E: the list as it was before -- the watchdog named
+# skipped on a fabric whose heartbeat drives it.
+watchdog_named = copy.deepcopy(state)
+watchdog_named["control_plane"]["skipped"] = ["link_watchdog", "lldp_discovery"]
+dump("state_watchdog_named.json", watchdog_named)
 state_unbound = copy.deepcopy(state)
 state_unbound["switches"] = {str(d): {"capabilities": unbound} for d in (1, 2, 3, 4)}
 dump("state_unbound.json", state_unbound)
@@ -542,6 +550,8 @@ PY
     expect BAD "L6 one switch says reroute:true" "$(caps_are "$t/state_unbound_wrong.json" "$CAPS_UNBOUND")"
     expect OK  "L6 skipped with every table owned" "$(skipped_is "$t/state_owned.json" "$SKIPPED_OWNED")"
     expect BAD "L6 routes still skipped"         "$(skipped_is "$t/state_wrong.json" "$SKIPPED_OWNED")"
+    expect BAD "L6 link_watchdog still named skipped while the heartbeat drives it" \
+               "$(skipped_is "$t/state_watchdog_named.json" "$SKIPPED_OWNED")"
     # [Co-developed with claude code -- Adam] L1 on switch_state with the heartbeat running: the
     # package's 8 declared directions, exactly, every one fed by the heartbeat and none down.
     # The live path's L1-on-switch_state check (l1_links_verdict), on a heartbeat-fed switch_state

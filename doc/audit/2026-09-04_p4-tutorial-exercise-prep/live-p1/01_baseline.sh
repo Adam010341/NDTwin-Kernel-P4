@@ -18,7 +18,7 @@
 # model the kernel was handed. It is written to runs/ so that the NEXT change to this code has
 # the verbatim "before" this one did not.
 #
-# Run:  bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/01_baseline.sh
+# Run:  NDT_OWNER=<you> bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/01_baseline.sh
 # Exit: 0 PASS, 1 FAIL (the last line says which), 2 refused before anything was started.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

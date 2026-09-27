@@ -32,14 +32,23 @@ APP_KNOB="$REPO/p4_proxy/mininet/app_package_override"
 PKG_ROOT="$REPO/.test_run/packages"
 PROXY_URL="http://localhost:8081"
 KERNEL_URL="http://localhost:8000"
-: "${NDT_OWNER:=live-p1}"
-export NDT_OWNER
+# [Co-developed with claude code -- Adam] 🔴 NO DEFAULT OWNER (Adam's ruling G, 09-27). This line
+# used to be `: "${NDT_OWNER:=live-p1}"`: a run nobody named claimed the lab as `live-p1`, which is
+# nobody -- a claim no person owns is one no person can finish by hand (segment S, round 7, is how
+# 08 learned it and refused on its own). Now start_step REFUSES (rc 2, nothing started) when
+# NDT_OWNER is not given. Sourcing this file for its functions (a self-test, link_usage_cell) still
+# works without one: only a run -- start_step -- needs an owner.
+if [[ -n "${NDT_OWNER:-}" ]]; then export NDT_OWNER; fi
 : "${CLAIM_MINUTES:=45}"
 
 STEP=""
 RUN=""
 VERDICT_RC=0
 VERDICT_WHY=""
+#: [Co-developed with claude code -- Adam] What a run DISCLOSES without failing on it (Adam's ruling
+#: of 09-27 on 08's H1: a cycle over the strict 20 s is a NOTE, not a FAIL). finish() prints each
+#: entry as `NOTE <step> -- <text>` right above the last line, so a PASS still carries it.
+DISCLOSED=()
 KNOB_ENTRY_COPY=""
 CLAIMED=0
 #: 🔴 NOT RESET WHEN THE CALLER ALREADY SET ONE (§9 ruling 28①). `link_usage_cell` sources this
@@ -69,6 +78,9 @@ bad()  { printf '   !! %s\n' "$*" >&2; }
 # that must stop says so itself; this never exits on its own, because a step that stopped in the
 # middle still has a lab to tear down and a claim to give back.
 fail() { VERDICT_RC=1; [[ -z "$VERDICT_WHY" ]] && VERDICT_WHY="$*"; bad "$*"; }
+# disclose <text> -- a finding the run reports but does not fail on; repeated above the last line.
+# [Co-developed with claude code -- Adam]
+disclose() { DISCLOSED+=("$*"); note "disclosed: $*"; }
 die()  { bad "$*"; exit 2; }
 
 # --- refusals, before anything is touched -----------------------------------------------------
@@ -282,6 +294,10 @@ finish() {
     # The raw path first and the verdict LAST, because the README tells Adam what the last line
     # should read and a path underneath it would be the last line instead.
     printf 'raw: %s\n' "${RUN:-<none>}"
+    # [Co-developed with claude code -- Adam] Each disclosure, verbatim, just above the verdict --
+    # so the last lines carry it whether the verdict is PASS or FAIL.
+    local d
+    for d in "${DISCLOSED[@]}"; do printf 'NOTE %s -- %s\n' "$STEP" "$d"; done
     if (( VERDICT_RC == 0 )); then
         printf 'PASS %s\n' "$STEP"
     else
@@ -293,6 +309,13 @@ finish() {
 # start_step <name> -- make the run directory, arm the trap, and do the two refusals.
 start_step() {
     STEP="$1"
+    # [Co-developed with claude code -- Adam] 🔴 FIRST, before the run directory and the trap: a
+    # run with no named owner starts nothing (Adam's ruling G, 09-27; see NDT_OWNER above).
+    if [[ -z "${NDT_OWNER:-}" ]]; then
+        bad "refusing: NDT_OWNER is not set. Run it as NDT_OWNER=<you> bash .../$STEP.sh -- the lab is claimed in that name, and no default owner is used"
+        printf 'REFUSED %s -- nothing was started\n' "$STEP"
+        exit 2
+    fi
     RUN="$LIVE_DIR/runs/$(date -u '+%Y-%m-%dT%H%M%SZ')_$STEP"
     mkdir -p "$RUN" || die "could not create $RUN"
     trap finish EXIT INT TERM

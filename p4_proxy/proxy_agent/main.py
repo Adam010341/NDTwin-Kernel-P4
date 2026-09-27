@@ -1408,7 +1408,7 @@ def _start_heartbeat_watchdog(topo):
              else getattr(reading, "reason", "not read"))
     print(f"[Proxy Agent] heartbeat watchdog started on the declared links, reading "
           f"{HEARTBEAT_REPORT_PATH} ({state}); judged with the LLDP beacon rule and constants. "
-          f"The LLDP beacon watchdog itself stays skipped.")
+          f"The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.")
     return True, None
 
 
@@ -2214,12 +2214,19 @@ async def startup(clients_factory, sflow, kernel, topo,
     # foreign fabric, never on NDTwin's own pipeline) says which of them still carry frames, and
     # the ONE watchdog pass judges that with the beacon rule. After the route decision, because
     # the pass reads `routes_to_attached_hosts_only` to decide between rerouting and detecting
-    # only. The LLDP beacon watchdog stays off and stays in `control_plane.skipped`: it rides a
-    # controller header these programs do not have. External is untouched (it reads only).
+    # only. The LLDP BEACONS stay off and `lldp_discovery` stays in `control_plane.skipped`: they
+    # ride a controller header these programs do not have. External is untouched (it reads only).
+    # [Co-developed with claude code -- Adam] 🔴 ADAM'S RULING E (09-27): `link_watchdog` LEAVES
+    # `control_plane.skipped` when the heartbeat drives the watchdog -- the watchdog IS running,
+    # fed by the heartbeat instead of by beacons, and a list that says it was skipped tells a reader
+    # no cut on this fabric is watched. It stays named skipped when the heartbeat watchdog did not
+    # start (heartbeat.watchdog `not_started`, with its error): then nothing watches the links.
     if _fabric.get("declared_links"):
         _fabric["routes_blocked"] = _routes_blocked_word(clients, foreign)
         started, error = _start_heartbeat_watchdog(topo)
         _fabric.update(heartbeat_watchdog=started, heartbeat_error=error)
+        if started and SKIP_WATCHDOG in skipped:
+            skipped.remove(SKIP_WATCHDOG)
 
     # Start LLDP dynamic topology discovery
     #
