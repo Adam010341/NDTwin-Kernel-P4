@@ -31,6 +31,17 @@ source "$NDT" || { echo "  FAILED   could not source $NDT"; echo "Ran 1 checks, 
 TMPROOT="$(mktemp -d /tmp/ndt-sample-rate-XXXXXX)"
 cleanup() { [[ -n "${TMPROOT:-}" && "$TMPROOT" == /tmp/ndt-sample-rate-* ]] && rm -rf "$TMPROOT"; }
 trap cleanup EXIT
+# [Co-developed with claude code -- Adam] 🔴 THIS SUITE'S OWN sudo (2026-09-27): every sudo it
+# makes is recorded and REFUSED rc 1 in sudo's own words, whatever this machine's grants or lab --
+# the ANSWERS are fixed, and nothing it runs reaches root. Its PATH through ndt is not: ps,
+# command -v, the lab ports, curl :8000 and the p4 manifest still decide which probes it makes
+# (tests/shell/lib_probe_stub.sh, "WHAT THE STUB FIXES"). The closing check fails on any call
+# outside the allow-list, and on a sudo on PATH that is not this stub.
+# (from this file's own directory: a suite that sources ndt first has had its HERE replaced by
+# ndt's -- the first version of this line found no lib there and the stub never ran)
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_probe_stub.sh" \
+    || { echo "  FAILED   no tests/shell/lib_probe_stub.sh beside this suite"; echo "Ran 1 checks, 1 failed"; exit 1; }
+probe_stub_install "$TMPROOT" --ovs-refuse -- 'sudo ovs-vsctl list-br'
 mkdir -p "$TMPROOT/p4_proxy/p4_src/build"
 REPO="$TMPROOT"   # sample_rate() and source_ahead_of_build() read this at call time
 BUILT="$TMPROOT/p4_proxy/p4_src/build/ndtwin_switch.json"
@@ -85,5 +96,8 @@ else
     t_bad "source_ahead_of_build exists" "function is not defined"
 fi
 
+# [Co-developed with claude code -- Adam] the stub's closing check (lib_probe_stub.sh)
+outside="$(probe_stub_outside 2>&1 | sort | uniq -c | sed 's/^ *//' | paste -sd';' -)"
+[[ -z "$outside" ]] && t_ok "🔴 every sudo went to this suite's stub and was an allow-listed read-only probe" || t_bad "🔴 every sudo went to this suite's stub and was an allow-listed read-only probe" "outside the allow-list: $outside"
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"
 [[ "$FAIL" -eq 0 ]]

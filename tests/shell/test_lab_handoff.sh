@@ -49,6 +49,17 @@ fi
 # A sandbox shaped like the repo: ndt derives REPO from its own path as $HERE/../..
 SANDBOX="$(mktemp -d)"
 trap 'rm -rf "$SANDBOX"' EXIT
+# [Co-developed with claude code -- Adam] 🔴 THIS SUITE'S OWN sudo (2026-09-27): every sudo it
+# makes is recorded and REFUSED rc 1 in sudo's own words, whatever this machine's grants or lab --
+# the ANSWERS are fixed, and nothing it runs reaches root. Its PATH through ndt is not: ps,
+# command -v, the lab ports, curl :8000 and the p4 manifest still decide which probes it makes
+# (tests/shell/lib_probe_stub.sh, "WHAT THE STUB FIXES"). The closing check fails on any call
+# outside the allow-list, and on a sudo on PATH that is not this stub.
+# (from this file's own directory: a suite that sources ndt first has had its HERE replaced by
+# ndt's -- the first version of this line found no lib there and the stub never ran)
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_probe_stub.sh" \
+    || { echo "  FAILED   no tests/shell/lib_probe_stub.sh beside this suite"; echo "Ran 1 checks, 1 failed"; exit 1; }
+probe_stub_install "$SANDBOX" --tc-empty -- 'sudo ndtwin-lab status' 'sudo ovs-vsctl list-br' 'sudo mnexec -a 1 true' 'tc qdisc show'
 mkdir -p "$SANDBOX/tools/test_workflow" "$SANDBOX/.test_run"
 cp "$NDT_SRC" "$SANDBOX/tools/test_workflow/ndt"
 # 🔴 The three files ndt sources from beside itself. Without them it prints "cannot read
@@ -160,6 +171,8 @@ check "a handoff missing every optional field still prints" "yes" "$(has_handoff
 check "an empty handoff file does not crash status" "0" \
       "$(bash "$NDT" status >/dev/null 2>&1; echo $?)"
 
+# [Co-developed with claude code -- Adam] the stub's closing check (lib_probe_stub.sh)
+check "🔴 every sudo went to this suite's stub and was an allow-listed read-only probe" "" "$(probe_stub_outside 2>&1 | sort | uniq -c | sed 's/^ *//' | paste -sd';' -)"
 echo
 if (( FAIL > 0 )); then
     echo "Ran $((PASS + FAIL)) checks, $FAIL failed"

@@ -42,6 +42,17 @@ check() {
 # --- source the SHIPPED reader, never a copy of it ----------------------------------------------
 T=$(mktemp -d)
 trap 'rm -rf "$T"' EXIT
+# [Co-developed with claude code -- Adam] 🔴 THIS SUITE'S OWN sudo (2026-09-27): every sudo it
+# makes is recorded and REFUSED rc 1 in sudo's own words, whatever this machine's grants or lab --
+# the ANSWERS are fixed, and nothing it runs reaches root. Its PATH through ndt is not: ps,
+# command -v, the lab ports, curl :8000 and the p4 manifest still decide which probes it makes
+# (tests/shell/lib_probe_stub.sh, "WHAT THE STUB FIXES"). The closing check fails on any call
+# outside the allow-list, and on a sudo on PATH that is not this stub.
+# (from this file's own directory: a suite that sources ndt first has had its HERE replaced by
+# ndt's -- the first version of this line found no lib there and the stub never ran)
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_probe_stub.sh" \
+    || { echo "  FAILED   no tests/shell/lib_probe_stub.sh beside this suite"; echo "Ran 1 checks, 1 failed"; exit 1; }
+probe_stub_install "$T" -- 'sudo ndtwin-lab status' 'sudo ndtwin-lab topo-out *'
 export ROUND="$ROUND_DIR"
 export LOG="$T/test.log"
 export DRY_RUN=0
@@ -125,6 +136,8 @@ CELL_GATE_OUT="$T/c1.jsonl"
 ( FORCED_ABORT=1; cell_cpu_gate_finish c6 ) >/dev/null 2>&1
 check "case 6  the suspect line carries unattributed_cores" 1 "$(grep -c 'suspect: *true unattributed=3.635' "$LOG")"
 
+# [Co-developed with claude code -- Adam] the stub's closing check (lib_probe_stub.sh)
+check "🔴 every sudo went to this suite's stub and was an allow-listed read-only probe" "" "$(probe_stub_outside 2>&1 | sort | uniq -c | sed 's/^ *//' | paste -sd';' -)"
 echo
 echo "$PASS passed, $FAIL failed"
 [[ "$FAIL" -eq 0 ]]
