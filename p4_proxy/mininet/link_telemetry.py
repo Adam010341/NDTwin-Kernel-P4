@@ -480,6 +480,12 @@ def write_manifest(plan, emitter_pid, path=None, log_path=None, identity=None):
 #: can do -- resolved at call time for that reason. [Co-developed with claude code -- Adam]
 _fstat = os.fstat
 
+#: Whose manifest this process may act on is decided by its euid, read here. A module attribute
+#: for the same reason as `_fstat`: the reader these checks exist for is root (the teardown, the
+#: emitter), and a suite that never runs as root can only put euid 0 in front of the check this
+#: way. [Co-developed with claude code -- Adam]
+_geteuid = os.geteuid
+
 
 def manifest_distrust(st, euid):
     """Why a manifest with this stat must not be acted on, or None when it may be.
@@ -534,7 +540,7 @@ def load_manifest(path=None):
             return None, f"{path} is a symbolic link, and a link at this name is never followed"
         return None, f"{path} cannot be opened: {exc}"
     try:
-        why = manifest_distrust(_fstat(fd), os.geteuid())
+        why = manifest_distrust(_fstat(fd), _geteuid())
         if why:
             return None, f"{path} is not acted on: {why}"
         with os.fdopen(fd, "r", closefd=False) as fh:
@@ -624,8 +630,9 @@ def _is_the_launchers_shape(cmdline):
     """Whether `cmdline` is exactly what `emitter_argv` builds, whoever built it.
 
     `<python> <.../psample_sflow_emitter.py> --manifest <path>`: four words, a python first,
-    this module's emitter by file name second, the flag the launcher itself writes third. The
-    fallback for a manifest that recorded no argv -- every one written before 2026-09-27.
+    this module's emitter by file name second, the flag the launcher itself writes third.
+    Required of every pid `process_is_the_emitter` accepts; for a manifest that recorded no
+    identity (every one written before 2026-09-27) it is the whole check.
     """
     return (len(cmdline) == 4
             and os.path.basename(cmdline[0]).startswith("python")
@@ -659,8 +666,9 @@ def process_is_the_emitter(pid, proc_root="/proc", argv=None, start_time=None):
       * and, when the manifest recorded an identity (`emitter_identity`), BOTH halves of it: the
         cmdline equal to the recorded `argv` word for word -- a file of the same NAME run from
         another path is not it -- and `/proc/<pid>/stat` field 22 equal to the recorded
-        `start_time`, which is what defeats pid reuse outright: a process that took the number
-        later started later, whatever its argv says.
+        `start_time`, which is what tells a process that took the number later from the one
+        recorded: it started later, whatever its argv says. That is the answer at the moment
+        of the check; a check-then-signal window remains until signalling moves to pidfds.
 
     No identity at all (a manifest written before this ruling) is the shape alone. HALF an
     identity -- an argv with no start time, or the reverse -- is never a match (judge K-N7):
@@ -787,8 +795,9 @@ def shut_down(path=None, run=None, kill=None, is_emitter=None, sleep=None, repor
             report(f"link telemetry: {problem} -- nothing was signalled, no filter was removed, "
                    f"and the file was left in place")
         return "refused", [], None
-    # The identity it recorded goes with the pid: `stop_emitter` asks `is_emitter` with it on
-    # every step, so the process signalled is the one the bring-up launched and no other.
+    # The identity it recorded goes with the pid: `stop_emitter` asks `is_emitter` with it
+    # before each signal, so each signal goes to a pid that, when last asked, was the process
+    # the bring-up launched (a check-then-signal window remains until signalling moves to pidfds).
     fate = stop_emitter(document.get("pid"), kill=kill, is_emitter=is_emitter, sleep=sleep,
                         argv=document.get("argv"), start_time=document.get("start_time"))
     interfaces = [port["ifname"]

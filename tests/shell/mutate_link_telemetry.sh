@@ -15,12 +15,14 @@
 #
 # Five more on 2026-09-28, M-B49 .. M-B53: the root emitter's read, a manifest write that fails,
 # a second hard link, and the teardown's `tc` half. Then M-B54 .. M-B56: a root reader facing
-# another user's file, a document that does not parse, and a switch manifest never written.
+# another user's file, a document that does not parse, and a switch manifest never written; and
+# M-B57, the same root reader one layer up, where `load_manifest` asks whose manifest it may use.
 # Nine more for Adam's ruling K (2026-09-27), M-B29 .. M-B37: the pid the manifest names is ONE
 # process -- the argv the launcher recorded, word for word, and the start time /proc gave it --
 # not any process whose cmdline contains the emitter's file name. Eleven for the judge's KJL B2
-# round on 4a96f894, M-B38 .. M-B48: the launcher's shape always, the identity all-or-nothing,
-# the pid an int above 1, and a manifest only from root or the reader's own user.
+# round on an intermediate revision of this change, M-B38 .. M-B48: the launcher's shape always,
+# the identity all-or-nothing, the pid an int above 1, and a manifest only from root or the
+# reader's own user.
 # [Co-developed with claude code -- Adam]
 #
 # [Co-developed with claude code -- Adam]
@@ -474,9 +476,10 @@ report "M-B16: the emitter inherits fds 1 and 2, so it holds the tee's pipe open
 # only records; the one real signal goes to the suite's own child, through a kill that refuses
 # any other number.
 #
-# Judge KJL B2 (on 4a96f894): a recorded argv had REPLACED the launcher-shape check, and nothing
-# looked at who wrote the manifest -- a file any local user can create in /tmp -- so a forged one
-# carrying any process's argv and start time (both public in /proc) had root signal that process.
+# Judge KJL B2 (on an intermediate revision of this change): a recorded argv had REPLACED the
+# launcher-shape check, and nothing looked at who wrote the manifest -- a file any local user can
+# create in /tmp -- so a forged one carrying any process's argv and start time (both readable in
+# /proc, which is not mounted hidepid by default) had root signal that process.
 # M-B38 .. M-B48 are that round: the shape always, identity all-or-nothing, the pid check, and a
 # manifest only from root or the reader's own user, mode without group/other write, no symlink.
 #
@@ -551,11 +554,11 @@ m=$(mutant m_b37 "$LINKTEL" \
 report "M-B37 (K): a manifest written before the ruling orphans the emitter it names" "$m" \
        "test_a_manifest_that_records_no_identity_still_stops_an_emitter_of_the_launchers_shape"
 
-# --- judge KJL B2 (2026-09-27, on 4a96f894) --------------------------------------------------
+# --- judge KJL B2 (2026-09-27, an intermediate revision of this change) ----------------------
 
 m=$(mutant m_b38 "$LINKTEL" \
     '    if not cmdline or not _is_the_launchers_shape(cmdline):' \
-    '    if not cmdline or (argv is None and not _is_the_launchers_shape(cmdline)):  # MUTANT: 4a96f894')
+    '    if not cmdline or (argv is None and not _is_the_launchers_shape(cmdline)):  # MUTANT: the intermediate revision')
 report "M-B38 (B2): a recorded argv replaces the shape check, so a forged manifest names anything" "$m" \
        "test_a_forged_manifest_holding_a_live_non_emitters_full_identity_sends_no_signal"
 
@@ -673,6 +676,15 @@ m=$(mutant m_b54 "$LINKTEL" \
     '    if euid and st.st_uid not in (0, euid):  # MUTANT: a root reader trusts any owner')
 report "M-B54: root -- the reader this check exists for -- trusts a file any user owns" "$m" \
        "test_a_root_reader_refuses_a_file_another_user_owns"
+
+# M-B54 one layer up: `manifest_distrust` intact, and `load_manifest` skipping it for euid 0. The
+# cell above calls `manifest_distrust` directly and cannot see this; the one that does puts euid
+# 0 in front of a whole teardown through `_geteuid`. [Co-developed with claude code -- Adam]
+m=$(mutant m_b57 "$LINKTEL" \
+    '        why = manifest_distrust(_fstat(fd), _geteuid())' \
+    '        why = manifest_distrust(_fstat(fd), _geteuid()) if _geteuid() else None  # MUTANT: root trusts any owner')
+report "M-B57: a root teardown acts on a manifest any user owns (load_manifest skips the check)" "$m" \
+       "test_a_root_teardown_refuses_a_manifest_another_user_owns"
 
 m=$(mutant m_b55 "$LINKTEL" \
     '    except (OSError, ValueError) as exc:

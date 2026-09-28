@@ -578,6 +578,39 @@ class ShuttingDownFromTheManifestTest(PlanFixture):
                 self.assertEqual((removed, killed), ([], []))
                 os.unlink(self.path)
 
+    def test_a_root_teardown_refuses_a_manifest_another_user_owns(self):
+        # The reader these checks exist for is root, and this suite never runs as root: euid 0
+        # goes in front of `load_manifest` through `_geteuid`, and the file's owner through
+        # `_fstat` (the descriptor's own stat with only st_uid changed). A root teardown facing
+        # the lab user's file must do nothing; the same file read AS the lab user is acted on,
+        # so the refusal is the owner rule and nothing else. [Co-developed with claude code -- Adam]
+        lab_user = 1000
+
+        def fstat(fd):
+            st = os.fstat(fd)
+            return os.stat_result((st.st_mode, st.st_ino, st.st_dev, st.st_nlink, lab_user,
+                                   st.st_gid, st.st_size, st.st_atime, st.st_mtime, st.st_ctime))
+
+        def tear_down(euid):
+            run, killed, said = FakeRun(), [], []
+            with mock.patch.object(link_telemetry, "_fstat", fstat), \
+                    mock.patch.object(link_telemetry, "_geteuid", lambda: euid):
+                fate, removed, _doc = link_telemetry.shut_down(
+                    self.path, run=run, kill=lambda pid, sig: killed.append((pid, sig)),
+                    is_emitter=lambda pid, **kw: not killed, sleep=lambda _s: None,
+                    report=said.append, remove=lambda _p: None)
+            return fate, killed, run.calls, said
+
+        fate, killed, tc, said = tear_down(0)
+        self.assertEqual(fate, "refused", "a root teardown acted on a manifest the lab user owns")
+        self.assertEqual(killed, [], "a root teardown signalled the pid another user's file named")
+        self.assertEqual(tc, [], "a root teardown ran tc on what another user's file listed")
+        self.assertTrue(any(f"owned by uid {lab_user}" in line for line in said), said)
+
+        fate, killed, tc, _said = tear_down(lab_user)
+        self.assertEqual((fate, killed), ("term", [(4242, signal.SIGTERM)]))
+        self.assertEqual(len(tc), 36)
+
     def test_it_stops_the_pid_the_manifest_names_and_detaches_every_interface(self):
         stopped, run = [], FakeRun()
         fate, removed, document = link_telemetry.shut_down(
@@ -657,9 +690,9 @@ def wait_until_exec_has_finished(proc, timeout_s=10.0):
     closes its close-on-exec error pipe (and, under vfork, when the exec releases the parent),
     and both happen in `begin_new_exec` -- BEFORE the ELF loader sets the new mm's arg_start
     and arg_end. A read in that window gets an EMPTY cmdline: this file's first gate run saw it
-    as a flaky red in 2 of 4 decoy cases. Nothing in production reads the cmdline that soon (the
-    bring-up waits out a three-second grace on `poll()` first, and the start time is fixed at
-    fork, not at exec), so the wait belongs here and not in the module.
+    as a flaky red in 2 of 4 decoy cases. Production does not depend on that read: the bring-up
+    records the argv from `Popen.args` and the start time from /proc/<pid>/stat, which is fixed
+    at fork, not at exec, so the wait belongs here and not in the module.
     """
     deadline = time.monotonic() + timeout_s
     while time.monotonic() < deadline:
@@ -857,15 +890,17 @@ class TheEmitterItselfIsStillTheEmitterTest(LiveProcessFixture):
 
 
 class AForgedManifestKillsNothingTest(LiveProcessFixture):
-    """Judge KJL B2, red at 4a96f894: what a manifest someone else wrote could make root signal.
+    """Judge KJL B2, red at an intermediate revision of this change: what a manifest someone else
+    wrote could make root signal.
 
     [Co-developed with claude code -- Adam]
     /tmp/ndtwin_link_telemetry.json is a name any local user can create while no fabric is up,
-    and /proc has no hidepid here, so anybody can read any process's argv and stat. At 4a96f894
-    a recorded argv REPLACED the launcher-shape check, and `read_manifest` looked at neither the
-    owner nor the mode of what it read: a hand-written manifest naming any process by its full
-    identity was signalled by the next root bring-up. Every kill here only RECORDS; every
-    process is this file's own child, reaped by its own Popen.
+    and /proc is not mounted hidepid by default, so anybody can read any process's argv and
+    stat. At that revision a recorded argv REPLACED the launcher-shape check, and
+    `read_manifest` looked at neither the owner nor the mode of what it read: a hand-written
+    manifest naming any process by its full identity was signalled by the next root bring-up.
+    Every kill here only RECORDS; every process is this file's own child, reaped by its own
+    Popen.
     """
 
     def test_a_forged_manifest_holding_a_live_non_emitters_full_identity_sends_no_signal(self):
