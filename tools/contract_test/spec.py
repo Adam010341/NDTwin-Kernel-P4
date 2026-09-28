@@ -475,6 +475,15 @@ GRAPH_NODE = Obj({
     # switch; only `power_path` does.
     "power_path": Str(allowed=("synthetic", "snmp", "ssh", "none")),
     "telemetry_path": Str(allowed=("snmp", "none")),
+    # [Co-developed with claude code -- Adam]
+    # doc/2026-01-02_ndt_api.md section 3, `capabilities`: a bmv2 switch's capabilities, copied
+    # verbatim from the P4 proxy. OPTIONAL because most nodes never carry it (hosts, OVS, a proxy
+    # that does not report) and absence means "every operation is supported". Listed to pin the
+    # TYPE only: absent or an object, never `null` or a string, which a consumer could misread as
+    # present. The VALUES are deliberately not pinned -- they are the proxy's vocabulary, which
+    # has already grown once (`link_discovery: "heartbeat"`), and pinning them here would make
+    # the kernel's contract test a second, lagging copy of the proxy's list.
+    "capabilities": Obj({}, strict=False),
 })
 
 GRAPH_EDGE = Obj({

@@ -11,6 +11,7 @@
 #include "ndt_core/intent_translator/IntentTranslator.hpp"
 #include "ndt_core/lock_management/LockManager.hpp"
 #include "ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp"
+#include "ndt_core/power_management/P4Capabilities.hpp" // [Co-developed with claude code -- Adam]
 #include "ndt_core/routing_management/Controller.hpp"
 #include "ndt_core/routing_management/DispatchOutcomeLog.hpp"
 #include "ndt_core/routing_management/FlowJob.hpp"
@@ -1413,9 +1414,21 @@ HttpSession::handleGetGraphData(http::response<http::string_body>& res)
     result.update(m_topologyAndFlowMonitor->loadedTopologyJson());
 
     auto graph = m_topologyAndFlowMonitor->getGraph();
+    // [Co-developed with claude code -- Adam]
+    // Each bmv2 switch's `capabilities`, verbatim from the proxy's GET /p4/switch_state, so a
+    // consumer can grey out what the switch cannot be asked to do. An added key on switch nodes
+    // only; no existing key changes. Absent whenever the kernel has nothing to copy -- an OVS
+    // fabric, a proxy that does not report it, or one the last 1 Hz read could not reach -- and a
+    // consumer must read absence as "every operation is supported". See P4Capabilities.hpp.
+    const p4caps::CapabilitiesByDpid p4Capabilities =
+        m_deviceConfigurationAndPowerManager
+            ? m_deviceConfigurationAndPowerManager->p4CapabilitiesSnapshot()
+            : p4caps::CapabilitiesByDpid{};
     for (auto vd : boost::make_iterator_range(boost::vertices(graph)))
     {
-        result["nodes"].push_back(graph[vd]);
+        json node = graph[vd];
+        p4caps::attachToNode(node, graph[vd], p4Capabilities);
+        result["nodes"].push_back(std::move(node));
     }
 
     for (auto ed : boost::make_iterator_range(boost::edges(graph)))

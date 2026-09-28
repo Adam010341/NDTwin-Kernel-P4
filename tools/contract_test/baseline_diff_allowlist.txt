@@ -44,6 +44,15 @@ get_cpu_utilization | type differs at .* (int|float|number) | Mininet mode retur
 get_memory_utilization | type differs at .* (int|float|number) | as above
 get_temperature | type differs | temperature is a per-model SNMP feature; both planes return the unsupported-model string under Mininet
 
+# [Co-developed with claude code -- Adam]
+# doc/2026-01-02_ndt_api.md section 3: a bmv2 switch node carries `capabilities`, copied from the
+# P4 proxy, and an OVS node never does -- there is no proxy to copy it from. So every key inside
+# it is an "extra field in P4" by design. Anchored to that one wording and to the path BELOW
+# `capabilities.`, so these still fail: `capabilities` itself turning into null or a string
+# ("extra field in P4: nodes[].capabilities (null)"), a key present in OVS and missing in P4, and
+# a type change on a key both sides carry.
+get_graph_data | ^extra field in P4: nodes\[\]\.capabilities\. | per-switch capabilities exist only on bmv2 (API doc section 3); OVS never carries the key
+
 
 # ============================================================================
 # Known gaps, each tied to a phase that removes it

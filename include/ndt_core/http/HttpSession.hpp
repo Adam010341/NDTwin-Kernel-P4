@@ -137,6 +137,12 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
     // handler that never asked for it would leave every one of them green.
     friend class HttpSessionLoadedModelTestPeer;
 
+    // [Co-developed with claude code -- Adam]
+    // One more peer, for tests/test_P4Capabilities.cpp, separate for the same ODR reason as the
+    // second. It supplies a power manager, which the peer above does not, because the per-switch
+    // `capabilities` it pins reach /ndt/get_graph_data from that manager's record of the proxy.
+    friend class HttpSessionP4CapabilitiesTestPeer;
+
     // --- Asynchronous Operation Handlers ---
     void readRequest();
     void onRead(beast::error_code ec, std::size_t bytesTransferred);

@@ -2936,5 +2936,47 @@ class LabClaimOnWriteRepliesTest(unittest.TestCase):
                                  f"{name} declares the claim, so the marking is not selective")
 
 
+class GraphNodeCapabilitiesTest(unittest.TestCase):
+    """
+    `capabilities` on a get_graph_data node: its TYPE is part of the contract, its values are not.
+
+    [Co-developed with claude code -- Adam]
+    The kernel copies the object from the P4 proxy verbatim (doc/2026-01-02_ndt_api.md section 3),
+    so the words inside it are the proxy's to define and this schema does not pin them. What
+    consumers rely on is that the key is either absent or an object: an absent key reads as
+    "every operation is supported", so a `null` or a string where the object belongs is the one
+    shape that would be misread, and GRAPH_NODE, being non-strict, accepted any value at all.
+    """
+
+    #: Fixture (4) of tests/test_P4Capabilities.cpp: a foreign pipeline with no route binding.
+    CAPS = {"ipv4_route": "unbound", "five_tuple": False, "reroute": False,
+            "link_discovery": "declared", "binding_source": None}
+
+    def _node(self, **extra):
+        import selftest_fixtures as fx
+        node = dict(next(n for n in fx.GRAPH_DATA_SAMPLE["nodes"] if n["vertex_type"] == 0))
+        node.pop("capabilities", None)
+        node.update(extra)
+        return node
+
+    def test_a_switch_node_without_capabilities_conforms(self):
+        self.assertEqual(validate(spec.GRAPH_NODE, self._node()), [])
+
+    def test_a_capabilities_object_conforms(self):
+        self.assertEqual(validate(spec.GRAPH_NODE, self._node(capabilities=self.CAPS)), [])
+
+    def test_the_values_inside_are_not_pinned(self):
+        grown = dict(self.CAPS, link_discovery="heartbeat", l2_route="unbound")
+        self.assertEqual(validate(spec.GRAPH_NODE, self._node(capabilities=grown)), [])
+
+    def test_a_null_capabilities_is_rejected(self):
+        self.assertTrue(validate(spec.GRAPH_NODE, self._node(capabilities=None)),
+                        "capabilities: null passed; a consumer could read it as present")
+
+    def test_a_string_capabilities_is_rejected(self):
+        self.assertTrue(validate(spec.GRAPH_NODE, self._node(capabilities="ndtwin")),
+                        "a string where the object belongs passed")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
