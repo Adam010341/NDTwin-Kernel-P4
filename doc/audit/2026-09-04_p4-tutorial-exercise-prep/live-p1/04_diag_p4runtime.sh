@@ -23,7 +23,7 @@
 # TODO, so the skeleton controller forwards nothing and the fabric was never at fault. Step 03
 # now runs the skeleton as its red control and `solution/mycontroller.py` as the green arm.
 #
-# Run:  bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/04_diag_p4runtime.sh
+# Run:  NDT_OWNER=<you> bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/04_diag_p4runtime.sh
 # Exit: 0 when the fabric came up and the diagnostic tail ran (it asserts nothing about loss),
 #       1 when the fabric or the controller could not be started, 2 refused before starting.
 set -euo pipefail

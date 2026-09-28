@@ -620,7 +620,7 @@ m=$(mutant m04 "$MAIN" \
     '        started, error = _start_heartbeat_watchdog(topo)
         topo.start_link_watchdog(seed_expected=True)')
 report "M04: the LLDP beacon watchdog is started beside it" "$m" \
-       "test_the_lldp_watchdog_stays_off_and_stays_named_skipped"
+       "test_the_lldp_beacons_stay_off_and_named_skipped_but_the_watchdog_runs"
 m=$(mutant m05 "$MAIN" \
     '        _heartbeat["evidence"] = start(path=HEARTBEAT_REPORT_PATH, owner_uid=HEARTBEAT_REPORT_UID)' \
     '        _heartbeat["evidence"] = start()')
@@ -683,6 +683,37 @@ m=$(mutant m16 "$MAIN" \
     '    return {"reroute": bool(available),' \
     '    return {"reroute": bool(available), "reroute_reason": _reason,')
 report "M16: the capabilities grow a sixth key" "$m" "test_the_capabilities_keep_their_five_keys"
+# [Co-developed with claude code -- Adam] Adam's ruling E (09-27): link_watchdog leaves
+# control_plane.skipped exactly when the heartbeat drives the watchdog. E1 is the list as it was
+# before the ruling; E2 takes it out whether or not the heartbeat watchdog started. E1b (the opus
+# judge's N4, 09-27: it used to be E1's own change again) takes it out only where the routes are
+# NDTwin's, so the owned fabric stays green and only the unbound one can catch it.
+m=$(mutant e1 "$MAIN" \
+    '        if started and SKIP_WATCHDOG in skipped:
+            skipped.remove(SKIP_WATCHDOG)' \
+    '        pass')
+report "E1: link_watchdog stays named skipped while the heartbeat drives it" "$m" \
+       "test_the_lldp_beacons_stay_off_and_named_skipped_but_the_watchdog_runs"
+m=$(mutant e1b "$MAIN" \
+    '        if started and SKIP_WATCHDOG in skipped:
+            skipped.remove(SKIP_WATCHDOG)' \
+    '        if started and SKIP_WATCHDOG in skipped and routes_owned:
+            skipped.remove(SKIP_WATCHDOG)')
+report "E1b: link_watchdog leaves the list only where the routes are NDTwin's" "$m" \
+       "test_an_unbound_fabric_reports_its_watchdog_running_too"
+# [Co-developed with claude code -- Adam] The opus judge's F2 (09-27): the startup line's Skipped
+# list is the served one. F2 prints link_watchdog in it whatever the heartbeat decided -- what the
+# line said when it was printed before the decision.
+m=$(mutant f2 "$MAIN" \
+    '        print(foreign_note + f"Skipped: {'"'"', '"'"'.join(sorted(set(skipped)))}. The per-switch skips (no "' \
+    '        print(foreign_note + f"Skipped: {'"'"', '"'"'.join(sorted(set(skipped) | {SKIP_WATCHDOG}))}. The per-switch skips (no "')
+report "F2: the startup log names link_watchdog skipped while the heartbeat drives it" "$m" \
+       "test_the_startup_log_names_the_same_skipped_list_switch_state_serves"
+m=$(mutant e2 "$MAIN" \
+    '        if started and SKIP_WATCHDOG in skipped:' \
+    '        if SKIP_WATCHDOG in skipped:')
+report "E2: link_watchdog leaves the list even when the heartbeat watchdog did not start" "$m" \
+       "test_a_heartbeat_watchdog_that_did_not_start_leaves_the_watchdog_named_skipped"
 m=$(mutant m17 "$MAIN" \
     '    return evidence.last() if evidence is not None else None' \
     '    return _heartbeat.setdefault("frozen", evidence.last() if evidence is not None else None)')
@@ -1360,29 +1391,55 @@ m=$(lmutant l42 "$LIVE08" \
     '        res="$(cat "$gout.elapsed")"')
 lreport "L42: the recovery time is the poll's, not the record's" "$m" "restore_cycle gave"
 
-# [Co-developed with claude code -- Adam] Round 2, the fable judge's F1 on 1a3ebd7f: H1 is judged
-# on the strict 20 s, and the count of cycles over it leads the run's last line.
+# [Co-developed with claude code -- Adam] Round 2, the fable judge's F1 on 1a3ebd7f: H1 is measured
+# against the strict 20 s. 🔴 Adam's ruling A (09-27): at most ABOUT 20 s -- a cycle over it is
+# DISCLOSED, verbatim, above the run's last line, and the run PASSes. L43 is the pre-ruling F1 path
+# put back (an OVER cycle fails H1); L44 judges the cycle's strict line again; L45 stops counting it;
+# L46 carries the cycle's name but not its own line; L61 discloses only when nothing failed; L62
+# drops H3's conclusion. (L50/L51 are H5's sampler mutants.)
 m=$(lmutant l43 "$LIVE08" \
+    '        disclose "$what: $over of $n cycle(s) over the strict ${DETECT_BOUND_S} s -- disclosed, not a failure (Adam, 09-27: at most about ${DETECT_BOUND_S} s, the class of NDTwin'"'"'s own LLDP; strict_${DETECT_BOUND_S}s in 30_cycles.tsv) -- $list"' \
     '        VERDICT_RC=1
-        VERDICT_WHY="$msg${VERDICT_WHY:+ (first failure before it: $VERDICT_WHY)}"
-        bad "$msg"' \
-    '        note "$msg"')
-lreport "L43: an OVER cycle is only noted (the F1 defect: the run ends PASS)" "$m" \
+        VERDICT_WHY="$what: $over of $n cycle(s) OVER the strict ${DETECT_BOUND_S} s${VERDICT_WHY:+ (first failure before it: $VERDICT_WHY)}"
+        bad "$VERDICT_WHY"')
+lreport "L43: an OVER cycle FAILS H1 again (the pre-ruling F1 path)" "$m" \
         "H1's last line with an OVER cycle was"
 m=$(lmutant l44 "$LIVE08" \
-    '        judge "$(verdict strict "$CYCLE_ROW" "$DETECT_BOUND_S")" "$label detection time"' \
-    '        judge "$(verdict budget "$CYCLE_ROW" "$DETECT_BOUND_S")" "$label detection time"')
-lreport "L44: the cycle's verdict is the budget again" "$m" "cut_cycle gave"
+    '            note "$label detection time (disclosed, not a failure): ${sv#OVER }"' \
+    '            judge "BAD ${sv#OVER }" "$label detection time"')
+lreport "L44: the cycle's strict line is judged again" "$m" "cut_cycle gave"
 m=$(lmutant l45 "$LIVE08" \
     '        [[ "$CYCLE_STRICT" == OVER* ]] && STRICT_OVER=$(( STRICT_OVER + 1 ))' \
     '        :')
 lreport "L45: an OVER cycle is not counted" "$m" "H1's last line with an OVER cycle was"
 m=$(lmutant l46 "$LIVE08" \
-    '        VERDICT_RC=1
-        VERDICT_WHY="$msg${VERDICT_WHY:+ (first failure before it: $VERDICT_WHY)}"' \
-    '        fail "$msg"')
-lreport "L46: an earlier failure pushes the OVER count off the last line" "$m" \
+    '            STRICT_OVER_LIST="${STRICT_OVER_LIST:+$STRICT_OVER_LIST; }$label: ${sv#OVER }"' \
+    '            STRICT_OVER_LIST="${STRICT_OVER_LIST:+$STRICT_OVER_LIST; }$label"')
+lreport "L46: the disclosure names the cycle but not its own line (not verbatim)" "$m" \
+        "H1's last line with an OVER cycle was"
+m=$(lmutant l61 "$LIVE08" \
+    '    if (( over > 0 )); then
+        disclose' \
+    '    if (( over > 0 && VERDICT_RC == 0 )); then
+        disclose')
+lreport "L61: an over-cycle is disclosed only when nothing else failed" "$m" \
         "  H1's last line after an earlier failure was"
+m=$(lmutant l62 "$LIVE08" \
+    '# before the ruling its OVER was a per-cycle FAIL; now it is repeated above the last line.
+strict_conclude H3' \
+    '# before the ruling its OVER was a per-cycle FAIL; now it is repeated above the last line.
+:')
+lreport "L62: H3's one cycle is never concluded (its OVER never reaches the last lines)" "$m" \
+        "  a live cut_cycle with no strict_conclude after it"
+# [Co-developed with claude code -- Adam] The opus judge's F1 (09-27): an exit before the phase's own
+# conclusion (H1's loop, H3) is concluded by w_finish. L63 takes that away.
+m=$(lmutant l63 "$LIVE08" \
+    '    if (( ${STRICT_CYCLES:-0} > 0 )); then
+        strict_conclude "${STRICT_PHASE:-H1}, cut short"
+    fi' \
+    '    :')
+lreport "L63: an early exit drops the over-cycles measured before it" "$m" \
+        "  H1's last lines after an early exit following an OVER cycle were"
 m=$(lmutant l47 "$LIVE08" \
     '    if d <= b:
         return f"OK detection {d:.3f} s, within the strict {b:g} s"' \
