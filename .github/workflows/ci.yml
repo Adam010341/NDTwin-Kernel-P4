@@ -47,7 +47,12 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
+      # Full history, not the default depth 1: tests/shell/test_manual_no_stale_in_progress.sh asks
+      # git whether a merge is an ancestor of HEAD, and a depth-1 clone has no merges at all -- six of
+      # its checks were red on every run for that alone (e.g. 36319541715).
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install dependencies
         run: |
@@ -97,23 +102,40 @@ jobs:
       # probe (`import p4.v1.p4runtime_pb2`) finds nothing, the lane falls back to the same python3,
       # and the P4 test files that import the proxy fail: in a CI-shaped local run on 2026-09-26
       # (Python 3.12.3, this step without its third command) 21 of the 41 died at import and one
-      # more because the proxy it starts did; with the third command, all 41 passed but the one
-      # opt-in live-switch file. Not yet run on GitHub, where CI was red before this change (run
-      # 36220555111): judge it by the P4 lane's verdict per file against that run -- no file newly
-      # red -- and by this Install step on its own.
+      # more because the proxy it starts did. With it, every P4 file imports -- but on GitHub (run
+      # 36319541715, f186ce98) two still failed: test_fabric_bring_up.py and test_route_binding.py,
+      # whose baseline cases need NDTwin's compiled program in p4_proxy/p4_src/build, which only
+      # p4c makes and this job does not install. Those cases now skip when it is absent.
       - name: Install Python test dependencies
         run: >-
           python -m pip install --upgrade pip
           && pip install -r p4_proxy/requirements.txt
           && python p4_proxy/regen_p4runtime_pb2.py
 
+      # The proxy's own venv, built with the three commands p4_proxy/requirements.txt documents. The
+      # step above serves this job's python3; this one is the interpreter the tree itself names:
+      # tests/shell/test_live_p1_common.sh, tests/shell/test_mutate_gate_dead_mutant.sh (through
+      # mutate_drive_exercise.sh) and doc/audit/.../live-p1/_common.sh all run
+      # p4_proxy/venv/bin/python. Without it 78 + 4 of their checks were red in a local reproduction of
+      # this job (2026-09-27); run 36319541715's log shows only the first 8 and 4, the lane's head -8.
+      # It also becomes the P4 lane's interpreter, since l1_unit_tests.sh probes it first.
+      - name: Create p4_proxy/venv
+        run: >-
+          python -m venv p4_proxy/venv
+          && p4_proxy/venv/bin/pip install -r p4_proxy/requirements.txt
+          && p4_proxy/venv/bin/python p4_proxy/regen_p4runtime_pb2.py
+
       - name: Python unit tests
         run: bash tools/test_workflow/l1_unit_tests.sh
-        # l1_unit_tests.sh treats a fully-skipped Python file as a FAILURE unless it declares
-        # NDTWIN_L1_OPT_IN, because unittest counts skipped tests inside "Ran N" and a file where
-        # every test skips prints "Ran 55 tests / OK". With the requirements installed above, the
-        # only file that legitimately skips is test_p4_client.py, whose single test declares it
-        # needs a live switch.
+        # l1_unit_tests.sh never counts a skip as a pass. What it will report here without failing,
+        # each because it checked the machine itself:
+        #   * test_p4_client.py: all skipped, declares NDTWIN_L1_OPT_IN (needs a live switch);
+        #   * PROVED LESS for the P4 cases that need the compiled program (no p4_src/build here);
+        #   * DECLARED SKIP for kernel-side files whose NDTWIN_L1_NEEDS this runner lacks: `ryu`
+        #     (Ryu needs its own Python 3.8 env) and `py-plot` (the E round's plotting interpreter).
+        #     Only because this is a hosted runner (CI / GITHUB_ACTIONS): on the lab the same skip
+        #     fails and names the missing need.
+        # Any other skip, and any of these on a machine that has what they need, is a failure.
 
   # ===========================================================================
   # ASan + UBSan. Same tests, different instrumentation.
