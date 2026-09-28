@@ -1,7 +1,11 @@
 # lib_probe_stub.sh -- sourced, never run: a suite's OWN sudo, answering every call the same way on
 # every machine -- recorded, and REFUSED with rc 1 in sudo's own words -- so no sudo ANSWER a suite
-# gets depends on this machine's grants or lab, and no call it makes can reach root. What it does
-# NOT fix is the suite's PATH through ndt: see "WHAT THE STUB FIXES" below.
+# gets depends on this machine's grants or lab, and no call it makes reaches root WHILE THE STUB IS
+# ON PATH. The stub lives in the suite's temp dir: a suite that deletes that dir and keeps running
+# (a signal handler that cleans up and returns) sends its later calls to the next sudo on PATH --
+# on a machine with a NOPASSWD grant, root. So a suite using this lib must exit on INT and TERM
+# (2026-09-28: test_apps_stop_kills_the_group and test_ndt_app_orphans did not). What the lib does
+# NOT fix either is the suite's PATH through ndt: see "WHAT THE STUB FIXES" below.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -122,8 +126,13 @@ probe_stub_outside() {
     # line here -- "no call outside the allow-list" must not be true of a suite whose sudo went
     # somewhere else (found 09-27: a suite that sourced ndt first lost its HERE, the lib was not
     # found, and the closing check read an empty list as clean)
-    if [[ -z "${PROBE_STUB_LOG:-}" || ! -f "$PROBE_STUB_LOG" ]]; then
+    if [[ -z "${PROBE_STUB_LOG:-}" ]]; then
         echo "NO STUB: probe_stub_install never ran"; return
+    fi
+    # installed, then deleted under the suite (its temp dir removed while it ran on) -- a different
+    # fault from never installing it, and the one a cleanup-and-return signal handler produces
+    if [[ ! -f "$PROBE_STUB_LOG" ]]; then
+        echo "NO STUB: the stub was installed and is gone ($PROBE_STUB_DIR removed while the suite ran)"; return
     fi
     [[ "$(type -P sudo)" == "$PROBE_STUB_DIR/sudo" ]] || echo "the sudo on PATH is $(type -P sudo), not this suite's stub"
     # [Co-developed with claude code -- Adam] the unprivileged stubs too (the judge's N6, 09-27)
