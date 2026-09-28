@@ -26,7 +26,8 @@
 - **diff 瞬間暴漲太多的時候，先確認有沒有不必要的東西被推上了 repo。**
 - **NDTwin-Kernel-P4 的 main 只經 PR＋squash merge 更新**（Adam 2026-09-27）：
   - PR 只開在 `Adam010341/NDTwin-Kernel-P4`；`ndtwin-lab/NDTwin-Kernel-P4`
-    的 main 停在 `f186ce98`、不再推。trunk 照舊推兩個 repo。
+    的 main 跟著同步：每次 squash 完，把同一顆 main 快轉推過去（Adam 2026-09-28，
+    取代 09-27 的「停在 `f186ce98`」）。trunk 照舊推兩個 repo。
   - 審核流程（判官、收件、裁決、報告）只在 trunk 與功能分支上進行。
   - 不再 `git push … trunk:main`；不 force push、不改寫 main 的既有歷史。
   - PR 的內容＝trunk 的改動，排除 `doc/audit/**/*.md` 與各處 `REPORT*.md`；
