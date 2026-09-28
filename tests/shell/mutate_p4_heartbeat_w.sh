@@ -1544,6 +1544,39 @@ m=$(lmutant l67 "$LIVE08" \
     'ecn/solution mri/skeleton mri/solution"')
 lreport "L67: HB_ARMS without the external arms (17, as before)" "$m" \
         "HB_ARMS names 17 arms, not 20"
+# [Co-developed with claude code -- Adam] The AEG judge's 09-28 round. L68: INT and TERM back on
+# w_finish (N-1: a TERM'd run ends PASS). L69: w_finish names every cut-short phase H1. L70: it
+# concludes even with nothing pending. L71: no hard ceiling (N-4). L72: an all-within tally is
+# disclosed anyway.
+m=$(lmutant l68 "$LIVE08" \
+    "arm_traps() { trap w_finish EXIT; trap 'w_interrupted SIGINT 130' INT; trap 'w_interrupted SIGTERM 143' TERM; }" \
+    'arm_traps() { trap w_finish EXIT INT TERM; }')
+lreport "L68: INT and TERM run w_finish with the interrupted command's rc" "$m" \
+        "TERM mid-H1 with nothing failed before it ended"
+m=$(lmutant l69 "$LIVE08" \
+    '        strict_conclude "${STRICT_PHASE:-H1}, cut short"' \
+    '        strict_conclude "H1, cut short"')
+lreport "L69: a cut-short conclusion always says H1" "$m" \
+        "  H3's last lines after an early exit following an OVER cycle were"
+m=$(lmutant l70 "$LIVE08" \
+    '    if (( ${STRICT_CYCLES:-0} > 0 )); then
+        strict_conclude "${STRICT_PHASE:-H1}, cut short"' \
+    '    if (( ${STRICT_CYCLES:-0} >= 0 )); then
+        strict_conclude "${STRICT_PHASE:-H1}, cut short"')
+lreport "L70: w_finish concludes with nothing pending" "$m" \
+        "  a clean run's output said 'cut short' or did not PASS"
+m=$(lmutant l71 "$LIVE08" \
+    '    if d > b + DETECT_CEILING_EXTRA_S:' \
+    '    if False:')
+lreport "L71: no hard ceiling -- a 36 s detection is a NOTE" "$m" \
+        "strict 36 s is past the 35 s ceiling: a FAIL"
+m=$(lmutant l72 "$LIVE08" \
+    '    if (( over > 0 )); then
+        disclose' \
+    '    if (( over >= 0 )); then
+        disclose')
+lreport "L72: a tally with every cycle within 20 s is disclosed anyway" "$m" \
+        "  an early exit with every cycle within 20 s ended"
 m=$(lmutant l47 "$LIVE08" \
     '    if d <= b:
         return f"OK detection {d:.3f} s, within the strict {b:g} s"' \

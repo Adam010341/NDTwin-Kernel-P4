@@ -92,6 +92,9 @@
 #   * a phase whose `ndt down` did not answer 0 stops the run: the next `ndt up p4 --app` over
 #     an intact fabric of the same size would reuse it ("already up ... reusing");
 #   * CLAIM_MINUTES is defaulted BEFORE _common.sh is sourced (whose `:=45` would shadow it);
+#   * INT and TERM are failures [Co-developed with claude code -- Adam] (the AEG judge's N-1,
+#     09-28): each has its own trap that records "interrupted by SIG..." and exits 130 / 143, so a
+#     run stopped by pid can never end PASS -- the EXIT trap then tears down as always;
 #   * NDT_OWNER must be given explicitly (`live-p1` is not an owner); since Adam's ruling G
 #     (09-27) _common.sh's start_step refuses without one too -- this check stays, earlier.
 #
@@ -488,6 +491,9 @@ def v_cycle(state, a_s, a_e, b_s, b_e, off_pre, off_post, l_ab, l_ba, down_wall,
            fnum(down - ps), fnum(max(0.0, -phi)), f"{drift:.1f}", "; ".join(flags) or "-"]
     return "OK " + "\t".join(row)
 
+#: [Co-developed with claude code -- Adam] N-4: the part of graph_until's limit above the strict bound.
+DETECT_CEILING_EXTRA_S = 15.0
+
 def v_strict(row, bound):
     """A cycle row (v_cycle) against the STRICT bound -- the verdict (the judge's F1). Detection runs
     from the FIRST end's tc call to the poll that saw both directions down: the longest it can be."""
@@ -497,6 +503,13 @@ def v_strict(row, bound):
     d, b = float(f[8]), float(bound)
     if d <= b:
         return f"OK detection {d:.3f} s, within the strict {b:g} s"
+    # [Co-developed with claude code -- Adam] The opus judge's N-4 (09-28): "about 20 s" stops at a
+    # hard ceiling of the strict bound + DETECT_CEILING_EXTRA_S. graph_until's own limit is the same
+    # number but counts whole seconds from its own start, so a slow last poll could record a
+    # detection past it -- that is a FAIL here, not a NOTE.
+    if d > b + DETECT_CEILING_EXTRA_S:
+        return (f"BAD detection {d:.3f} s is past the hard ceiling of {b + DETECT_CEILING_EXTRA_S:g} s "
+                f"(the strict {b:g} s + {DETECT_CEILING_EXTRA_S:g} s): a FAIL, not a disclosure")
     # [Co-developed with claude code -- Adam] OVER, not BAD (Adam, 09-27: at most about 20 s): a
     # measurement to disclose, not a failure. A row that cannot be read is still BAD, above.
     return (f"OVER detection {d:.3f} s is OVER the strict {b:g} s by {d - b:.3f} s (from the first end's "
@@ -714,18 +727,12 @@ keep_claim() {
 }
 
 # w_finish -- the EXIT trap: netem this run added comes off FIRST, then the H5 sampler stops, then
-# _common.sh's finish() (ndt down, knobs back, release through w_ndt, verdict).
+# any strict tally still open is concluded, then _common.sh's finish() (ndt down, knobs back,
+# release through w_ndt, verdict).
 w_finish() {
     local rc=$?
     set +e
     trap - EXIT INT TERM
-    # [Co-developed with claude code -- Adam] The opus judge's F1 (09-27): an exit inside H1's loop
-    # or H3 (a cut_cycle or restore_cycle that stopped the run, INT, TERM) comes here before that
-    # phase's strict_conclude ran, and finish() prints only what is already disclosed -- so an
-    # over-cycle measured before the exit would have stayed in the body. Conclude it first.
-    if (( ${STRICT_CYCLES:-0} > 0 )); then
-        strict_conclude "${STRICT_PHASE:-H1}, cut short"
-    fi
     if (( ${#INJECTED_IFACES[@]} > 0 )); then
         # Read before the revert: faults.sh's revert empties the list whatever happened, and the
         # failure line below used to name nothing (the spike's round-7 note).
@@ -735,10 +742,36 @@ w_finish() {
     fi
     restore_watch_stop
     sampler_stop
+    # [Co-developed with claude code -- Adam] The opus judge's F1 (09-27): an exit inside H1's loop
+    # or H3 (a cut_cycle or restore_cycle that stopped the run, INT, TERM) comes here before that
+    # phase's strict_conclude ran, and finish() prints only what is already disclosed -- so an
+    # over-cycle measured before the exit would have stayed in the body. Concluded here, just
+    # before finish (the AEG judge's N-3, 09-28: after the netem is off, as the header says).
+    if (( ${STRICT_CYCLES:-0} > 0 )); then
+        strict_conclude "${STRICT_PHASE:-H1}, cut short"
+    fi
     NDT=w_ndt
     ( exit "$rc" )
     finish
 }
+
+# [Co-developed with claude code -- Adam] The AEG judge's N-1 (09-28): INT and TERM get traps of
+# their own. With w_finish as their trap, bash ran it with the INTERRUPTED command's $? -- a `sleep`
+# or a poll that returned 0 -- so a run stopped by pid (this project's way) with nothing failed
+# before it ended `PASS 08_heartbeat`. Now a signal is recorded as the run's failure and the exit
+# code is the signal's (130 / 143); the EXIT trap then tears down as always.
+w_interrupted() {   # w_interrupted <signal name> <rc>
+    trap - INT TERM
+    VERDICT_RC=1
+    if [[ "$VERDICT_WHY" == STOP* ]]; then
+        VERDICT_WHY="$VERDICT_WHY (then interrupted by $1)"
+    else
+        VERDICT_WHY="interrupted by $1 before the run finished${VERDICT_WHY:+ (first failure before it: $VERDICT_WHY)}"
+    fi
+    bad "interrupted by $1 -- the run stops here and tears down"
+    exit "$2"
+}
+arm_traps() { trap w_finish EXIT; trap 'w_interrupted SIGINT 130' INT; trap 'w_interrupted SIGTERM 143' TERM; }
 
 # nd_up <pkg> <out> / nd_down <out> -- the run's own bring-ups and teardowns, never under measuring=.
 nd_up() {
@@ -1958,6 +1991,81 @@ open(p + ".t", "w").write(json.dumps(doc)); os.replace(p + ".t", p)' "$HB_REPORT
     else
         red "  H1's last lines after an early exit following an OVER cycle were: '$got' (above it: '$above')"
     fi
+    # [Co-developed with claude code -- Adam] The AEG judge's 09-28 round: the same exit from H3 (a
+    # w_finish that assumed H1 would name the wrong phase), an early exit whose cycles were all
+    # within 20 s (concluded, nothing disclosed), a clean run (no "cut short" at all), and N-1 --
+    # TERM sent to the run's own shell mid-H1 with nothing failed before it.
+    st_exit() {   # st_exit <cut_cycle label> <state fixture> <kernel-down wall> <exit|clean> -> output
+        local d
+        d="$(mktemp -d "$t/stx-XXXXXX")"
+        printf '#!/usr/bin/env bash\nexit 0\n' > "$d/ndt"; chmod +x "$d/ndt"
+        ( STEP=08_heartbeat; RUN="$d/run"; mkdir -p "$RUN"; CLAIMED=1; VERDICT_RC=0; VERDICT_WHY=""; FABRIC_UP=1
+          INJECTED_IFACES=(); NDT="$d/ndt"; REAL_NDT="$d/ndt"; APP_KNOB="$d/none"
+          KNOB_ENTRY_COPY=""; TEL_ENTRY_COPY=""; CTRL_PID=""; TEARDOWN_DOWN_RC=""; SAMPLER_PID=""
+          mono_offset() { echo -800.0; }
+          cut_at_phase() { CUT_A_START=1000.01; CUT_A_END=1000.02; CUT_B_START=1000.03; CUT_B_END=1000.05; }
+          graph_until() { echo "$ST_DOWN" > "$4.at_wall"; echo 20.3 > "$4.elapsed"; echo "OK stub"; }
+          report_dirs() { echo "199.995 200.0"; }
+          get_json() { cp "$t/$ST_STATE" "$2"; }
+          CA=1; CAP=3; CB=3; CBP=1; TIMEOUT_S=15; WATCHDOG_S=5; DETECT_BOUND_S=20
+          ST_STATE="$2"; ST_DOWN="$3"
+          arm_traps
+          cut_cycle "$1" "$RUN/31_graph_cut_1.json" "$RUN/32_switch_state_cut_1.json" 0.02 1
+          if [[ "$4" == clean ]]; then strict_conclude "${1%% *}"; exit 0; fi
+          fail "$1: could not remove the netem"; exit 1 ) 2>&1
+    }
+    out="$(st_exit H3 state_late.json 1020.33 exit)" || true
+    got="$(tail -1 <<<"$out")"; above="$(tail -2 <<<"$out" | head -1)"
+    if [[ "$got" == "FAIL 08_heartbeat -- H3: could not remove the netem" \
+          && "$above" == "NOTE 08_heartbeat -- H3, cut short: 1 of 1 cycle(s) over the strict 20 s"*" -- H3: detection 20.320 s is OVER"* ]]; then
+        ok "  an early exit from H3 after an OVER cycle: concluded as H3, the NOTE right above the FAIL"
+    else
+        red "  H3's last lines after an early exit following an OVER cycle were: '$got' (above it: '$above')"
+    fi
+    out="$(st_exit "H1 cycle 1" state_passes.json 1015.9 exit)" || true
+    got="$(tail -1 <<<"$out")"; above="$(tail -2 <<<"$out" | head -1)"
+    if [[ "$got" == "FAIL 08_heartbeat -- H1 cycle 1: could not remove the netem" && "$above" == "raw: "* \
+          && "$out" == *"H1, cut short: all 1 cycle(s) within the strict 20 s"* ]]; then
+        ok "  an early exit whose cycles were all within 20 s: concluded (said in the body), nothing disclosed"
+    else
+        red "  an early exit with every cycle within 20 s ended: '$got' (above it: '$above')"
+    fi
+    out="$(st_exit "H1 cycle 1" state_passes.json 1015.9 clean)" || true
+    if [[ "$(tail -1 <<<"$out")" == "PASS 08_heartbeat" && "$out" != *"cut short"* && "$out" == *"H1: all 1 cycle(s) within"* ]]; then
+        ok "  a clean run concludes once, in its phase, and never says 'cut short'"
+    else
+        red "  a clean run's output said 'cut short' or did not PASS: '$(tail -1 <<<"$out")'"
+    fi
+    st_term() {   # st_term <send TERM: 1|0> -> output. The H1 loop's own wait (a foreground sleep).
+        local d
+        d="$(mktemp -d "$t/term-XXXXXX")"
+        printf '#!/usr/bin/env bash\nexit 0\n' > "$d/ndt"; chmod +x "$d/ndt"
+        ( STEP=08_heartbeat; RUN="$d/run"; mkdir -p "$RUN"; CLAIMED=1; VERDICT_RC=0; VERDICT_WHY=""; FABRIC_UP=1
+          INJECTED_IFACES=(); NDT="$d/ndt"; REAL_NDT="$d/ndt"; APP_KNOB="$d/none"
+          KNOB_ENTRY_COPY=""; TEL_ENTRY_COPY=""; CTRL_PID=""; TEARDOWN_DOWN_RC=""; SAMPLER_PID=""
+          arm_traps
+          me=$BASHPID
+          (( $1 )) && ( command sleep 0.4; kill -TERM "$me" ) &
+          command sleep 2
+          echo "the loop went on" ) 2>&1
+    }
+    out="$(st_term 1)" && rc_t=0 || rc_t=$?
+    if [[ "$(tail -1 <<<"$out")" == "FAIL 08_heartbeat -- interrupted by SIGTERM before the run finished" \
+          && "$rc_t" == 1 && "$out" != *"the loop went on"* ]]; then
+        ok "🔴 TERM to the run's own shell mid-H1, nothing failed before: FAIL (interrupted by SIGTERM), never PASS"
+    else
+        red "TERM mid-H1 with nothing failed before it ended: '$(tail -1 <<<"$out")' (rc $rc_t)"
+    fi
+    out="$(st_term 0)" || true
+    [[ "$(tail -1 <<<"$out")" == "PASS 08_heartbeat" && "$out" == *"the loop went on"* ]] \
+        && ok "  the control: no signal, the same harness PASSes" \
+        || red "  the no-signal control did not PASS: '$(tail -1 <<<"$out")'"
+    # [Co-developed with claude code -- Adam] N-4: the strict verdict itself, against a row whose
+    # detection is inside, over, and past the hard ceiling.
+    srow() { printf '1\t2\t3\t4\t5\t6\t7\t8\t%s\t10\t11\t12\t13\t14\t15\t16\t17\t18' "$1"; }
+    expect OK   "strict 19.5 s is within 20 s"                         "$(verdict strict "$(srow 19.5)" 20)"
+    expect OVER "strict 21 s is OVER, disclosed"                       "$(verdict strict "$(srow 21)" 20)"
+    expect BAD  "strict 36 s is past the 35 s ceiling: a FAIL"         "$(verdict strict "$(srow 36)" 20)"
     # graph_until before any cut: no instant to count from, and no unbound T_CUT under set -u
     mkdir -p "$t/k/ndt"; cp "$t/graph_up.json" "$t/k/ndt/get_graph_data"
     # (`|| got=`: under set -e a subshell that dies -- an unbound variable -- would take the whole
@@ -2078,7 +2186,7 @@ fi
 # ================================================================================================
 
 start_step 08_heartbeat
-trap w_finish EXIT INT TERM
+arm_traps
 
 say "which code this run is about"
 {
@@ -2219,7 +2327,7 @@ printf "cycle\tphi_target\t$CYCLE_COLS\tstrict_${DETECT_BOUND_S}s\t$RESTORE_COLS
 STRICT_CYCLES=0; STRICT_OVER=0; STRICT_OVER_LIST=""
 for (( CYC = 1; CYC <= H1_CYCLES; CYC++ )); do
     PHI="$(phase_for "$CYC")"
-    say "H1 cycle $CYC/$H1_CYCLES -- cut $PHI s after a heartbeat round; down in the kernel's graph within ${DETECT_BOUND_S} s"
+    say "H1 cycle $CYC/$H1_CYCLES -- cut $PHI s after a heartbeat round; down in the kernel's graph within about ${DETECT_BOUND_S} s (the strict ${DETECT_BOUND_S} s measured and disclosed; past $(( DETECT_BOUND_S + 15 )) s a FAIL)"
     cut_cycle "H1 cycle $CYC" "$RUN/31_graph_cut_$CYC.json" "$RUN/32_switch_state_cut_$CYC.json" \
         "$PHI" "$(( CYC <= H1_WORST ? 1 : 0 ))" || exit 1
     if (( CYC == 1 )); then

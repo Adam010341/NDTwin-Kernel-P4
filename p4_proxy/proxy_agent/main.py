@@ -1823,8 +1823,10 @@ async def startup(clients_factory, sflow, kernel, topo,
         declare. The watchdog would additionally report every seeded link down inside its
         timeout: a fabric-wide false alarm.
 
-    🔴 THE TWO DISCLOSURES ARE NOT ONE LIST. `control_plane.skipped` carries the FABRIC-wide
-    three only; the per-switch pair lands on that switch's `pipeline.skipped`. On a mixed fabric
+    🔴 THE TWO DISCLOSURES ARE NOT ONE LIST. `control_plane.skipped` carries the fabric-wide
+    steps only -- [Co-developed with claude code -- Adam] lldp_discovery and install_initial_routes,
+    plus link_watchdog when the heartbeat watchdog did not start (Adam's ruling E, 09-27) -- and
+    the per-switch pair lands on that switch's `pipeline.skipped`. On a mixed fabric
     the switches beside the package's still get a clone session and still sample, so saying
     `clone_session` at fabric level would be a true sentence about one switch told about ten.
     """

@@ -1212,8 +1212,27 @@ has   "🔴 no heartbeat block is a failure too"               "BAD switch_state
 has   "🔴 running with link_watchdog still named: BAD"       "BAD control_plane.skipped is ['install_initial_routes', 'link_watchdog', 'lldp_discovery'], want $W18" "$(V18 running_three.json)"
 check "  02 asks this verdict, with the two-name list"      "1" \
       "$(/usr/bin/grep -c '^    V="$(heartbeat_skips_verdict "$SS" "$FABRIC_SKIPS_HB")"$' "$LIVE/02_app_basic.sh")"
+# [Co-developed with claude code -- Adam] The AEG judge's N-7 (09-28): the line that CONSUMES the
+# verdict, right under the call -- deleting it used to survive every gate -- and the old selection
+# in any spelling (`"$HB_WD" == running`, `== "running"`, `[ ... = running ]`).
+check "🔴 and fails the run on anything but OK, on the next line" "    [[ \"\$V\" == OK* ]] || fail \"\${V#BAD }\"" \
+      "$(/usr/bin/grep -A1 '^    V="$(heartbeat_skips_verdict "$SS" "$FABRIC_SKIPS_HB")"$' "$LIVE/02_app_basic.sh" | sed -n 2p)"
 check "🔴 and 02 no longer picks its list from heartbeat.watchdog" "0" \
-      "$(/usr/bin/grep -c 'HB_WD" == running' "$LIVE/02_app_basic.sh")"
+      "$(/usr/bin/grep -cE 'HB_WD"? *==? *"?running|running"? *==? *"?\$\{?HB_WD' "$LIVE/02_app_basic.sh")"
+# The AEG judge's N-7: the two-name list with a watchdog that is NOT running -- the cases M50 and M52
+# would actually let through -- and N-5: one BAD line, naming the cause, on a capture that is not
+# what the proxy serves or is not there.
+st18 ns_two.json not_started "OSError: no /run" "['lldp_discovery', 'install_initial_routes']"
+st18 absent_two.json - - "['lldp_discovery', 'install_initial_routes']"
+has   "🔴 not_started with the two names is still BAD"       "BAD heartbeat.watchdog is 'not_started'" "$(V18 ns_two.json)"
+has   "🔴 no heartbeat block with the two names is still BAD" "BAD switch_state has no heartbeat block" "$(V18 absent_two.json)"
+printf '[1, 2]' > "$FIX18/list.json"
+OUT18="$(V18 list.json)"
+check "🔴 a top-level list: exactly one line"               "1" "$(/usr/bin/grep -c '' <<<"$OUT18")"
+has   "  a BAD one, naming the cause"                        "BAD switch_state is not what the proxy serves: AttributeError" "$OUT18"
+OUT18="$(V18 no_such_file.json)"
+check "  a missing capture: exactly one line"               "1" "$(/usr/bin/grep -c '' <<<"$OUT18")"
+has   "  a BAD one"                                          "BAD switch_state unreadable: FileNotFoundError" "$OUT18"
 # [Co-developed with claude code -- Adam] 09-27, external detect-only: 03/04 ask the same verdict
 # with the five names an external control plane skips while the heartbeat drives its watchdog.
 W5="['clone_session', 'install_initial_routes', 'lldp_discovery', 'pipeline_push', 'sflow_telemetry']"

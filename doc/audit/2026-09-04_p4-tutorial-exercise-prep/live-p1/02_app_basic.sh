@@ -181,8 +181,10 @@ if [[ -s "$SS" ]]; then
     [[ "$MODE" == ndtwin ]]   || fail "control_plane.mode is '$MODE', want ndtwin"
     [[ "$PKG_SAID" == "$PKG" ]] || fail "control_plane.package is '$PKG_SAID', want $PKG"
     [[ "$N_SW" == 4 ]]        || fail "switch_state names $N_SW switches, pod-topo declares 4"
-    # 🔴 THE FABRIC-WIDE LIST IS THE THREE THAT RIDE ON THE CPU PORT, and nothing else
-    # (TICKET-P2 §2.2, §7-7). Sorted on both sides so the assertion is about the SET.
+    # 🔴 THE FABRIC-WIDE LIST IS WHAT RIDES ON THE CPU PORT, and nothing else (TICKET-P2 §2.2,
+    # §7-7): lldp_discovery and install_initial_routes. [Co-developed with claude code -- Adam]
+    # link_watchdog was the third until Adam's ruling E (09-27); the heartbeat runs the watchdog
+    # here, and heartbeat_skips_verdict asserts that before it compares the SET (sorted).
     V="$(heartbeat_skips_verdict "$SS" "$FABRIC_SKIPS_HB")"
     [[ "$V" == OK* ]] || fail "${V#BAD }"
     # Every switch is on the exercise's program, and says so with a stable identifier.

@@ -365,7 +365,6 @@ open(sys.argv[2],'a').write('\n')" "$out.raw" "$out" 2>/dev/null; then
     return 1
 }
 
-# jqp <file> <python-expr over d> -- one value out of a saved capture, printed.
 # heartbeat_skips_verdict <switch_state.json> <want: the sorted list, as Python prints it> -- a
 # foreign fabric's fabric-level answer, one line, OK ... or BAD .... [Co-developed with claude code
 # -- Adam] 02 asks it with its two names; 03/04, on an external control plane that runs the
@@ -374,16 +373,24 @@ open(sys.argv[2],'a').write('\n')" "$out.raw" "$out" 2>/dev/null; then
 # from the proxy's own `heartbeat.watchdog`. `ndt up p4 --app` starts the heartbeat on such a
 # fabric, so the watchdog MUST run -- anything else is the failure, named with the proxy's own
 # heartbeat.error -- and with it running, control_plane.skipped is exactly <want>.
+# [Co-developed with claude code -- Adam] The AEG judge's N-5 (09-28): ONE line on every path. Every
+# exception is caught inside the program and named in its BAD line (a top-level list, a non-dict
+# control_plane, unsortable values); stderr is not merged, so a traceback can never come first; and
+# an interpreter that dies without a word still leaves one BAD line.
 heartbeat_skips_verdict() {
-    "$PY" - "$1" "$2" <<'HBSKIPS' 2>&1 || echo "BAD the verdict could not run on $1"
+    "$PY" - "$1" "$2" <<'HBSKIPS' 2>/dev/null || echo "BAD the verdict could not run on $1"
 import json, sys
 try:
-    d = json.load(open(sys.argv[1]))
-except (OSError, ValueError) as exc:
-    print(f"BAD switch_state unreadable: {type(exc).__name__}: {exc}")
+    try:
+        d = json.load(open(sys.argv[1]))
+    except (OSError, ValueError) as exc:
+        print(f"BAD switch_state unreadable: {type(exc).__name__}: {exc}")
+        sys.exit(0)
+    hb = d.get("heartbeat")
+    skipped = str(sorted((d.get("control_plane") or {}).get("skipped") or []))
+except Exception as exc:  # noqa: BLE001 -- one line, whatever the capture holds
+    print(f"BAD switch_state is not what the proxy serves: {type(exc).__name__}: {exc}")
     sys.exit(0)
-hb = d.get("heartbeat")
-skipped = str(sorted((d.get("control_plane") or {}).get("skipped") or []))
 if not isinstance(hb, dict):
     print("BAD switch_state has no heartbeat block (a proxy from before the heartbeat, or one that "
           "does not call this fabric foreign) -- the heartbeat watchdog is not running")
@@ -400,6 +407,7 @@ else:
 HBSKIPS
 }
 
+# jqp <file> <python-expr over d> -- one value out of a saved capture, printed.
 jqp() { "$PY" -c "
 import json,sys
 d=json.load(open(sys.argv[1]))

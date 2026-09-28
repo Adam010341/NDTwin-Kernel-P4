@@ -1011,7 +1011,7 @@ cat > "$A/m50.new" <<'EOF'
 elif hb.get("watchdog") not in ("running", "not_started"):
 EOF
 check_fires "M50: a heartbeat watchdog that did not start is accepted" m50 \
-            "🔴 not_started is a failure, not the other list"
+            "🔴 not_started is a failure, not the other list" "🔴 not_started with the two names is still BAD"
 cat > "$A/m51.old" <<'EOF'
     print(f"BAD heartbeat.watchdog is {hb.get('watchdog')!r}, not 'running' (heartbeat.error: "
 EOF
@@ -1027,7 +1027,18 @@ cat > "$A/m52.new" <<'EOF'
 hb = d.get("heartbeat") or {"watchdog": "running"}
 EOF
 check_fires "M52: no heartbeat block reads as running" m52 \
-            "🔴 no heartbeat block is a failure too"
+            "🔴 no heartbeat block is a failure too" "🔴 no heartbeat block with the two names is still BAD"
+# [Co-developed with claude code -- Adam] The AEG judge's N-5 (09-28): M56 catches only a KeyError
+# inside the program, so a top-level list falls through to the shell's fallback and its line no
+# longer names the cause.
+cat > "$A/m56.old" <<'EOF'
+except Exception as exc:  # noqa: BLE001 -- one line, whatever the capture holds
+EOF
+cat > "$A/m56.new" <<'EOF'
+except KeyError as exc:  # noqa: BLE001 -- one line, whatever the capture holds
+EOF
+check_fires "M56: the verdict catches only what it expected" m56 \
+            "  a BAD one, naming the cause"
 cat > "$A/m53.old" <<'EOF'
 elif skipped != sys.argv[2]:
 EOF
