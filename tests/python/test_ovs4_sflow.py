@@ -53,11 +53,12 @@ NDT = os.environ.get("NDT_UNDER_TEST", os.path.join(REPO, "tools", "test_workflo
 PORTS_SH = os.path.join(os.path.dirname(NDT), "ports.sh")
 MODEL = os.path.join(REPO, "setting", "StaticNetworkTopologyOVS_10Switches_4Hosts.json")
 
-#: The reference topology whose parameters must not be re-invented. The repo copy is the one
-#: with the polling=0 reasoning written out; NTG's is the copy `ndt up ovs` actually executes,
-#: and is checked too when it is present so the two cannot drift apart unnoticed.
+#: The reference topology whose parameters must not be re-invented: this repo's copy, which is
+#: also the one `ndt up ovs` executes (ndtwin-lab's ovs_topo_script, since 87612059).
+#: [Co-developed with claude code -- Adam] A second reference, NTG's own testbed_topo.py, was
+#: checked here while `ndt up ovs` still ran that copy; the check was retired on 2026-09-28 when it
+#: no longer did -- see doc/KNOWN-ISSUES.md G-60.
 REFERENCE = os.path.join(REPO, "testbed_topo.py")
-REFERENCE_NTG = "/home/adam/Network-Traffic-Generator/testbed_topo.py"
 
 SWITCHES = 10
 
@@ -270,14 +271,6 @@ class ParametersComeFromTheReferenceTopology(unittest.TestCase):
         for key, value in want.items():
             self.assertEqual(argv_field(self.call, key), value,
                              f"{key} differs from the reference topology testbed_topo.py")
-
-    def test_the_reference_copy_ndt_actually_runs_agrees_too(self):
-        """`ndt up ovs` executes NTG's copy, not the repo's. If the two ever disagree, the
-        parameters this fixture matches are not the ones the other plane uses."""
-        if not os.path.exists(REFERENCE_NTG):
-            self.skipTest("NTG's testbed_topo.py is not on this machine")
-        self.assertEqual(reference_sflow_params(REFERENCE),
-                         reference_sflow_params(REFERENCE_NTG))
 
     def test_polling_is_off(self):
         """Stated separately because it is the one a reader is most likely to 'fix': in

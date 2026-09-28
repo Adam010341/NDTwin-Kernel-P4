@@ -98,6 +98,11 @@ if ! declare -F run_gate >/dev/null; then
     echo "FAILED   lib_e.sh does not define run_gate -- the helper under test is gone"
     exit 1
 fi
+# [Co-developed with claude code -- Adam] The skip below is excused where round.env's PY_PLOT is
+# not on the machine (a hosted runner), and only there: l1_unit_tests.sh asks round.env the same
+# question itself (l1_probe_py_plot), and where the answer is yes a skip here is still a failure.
+# Case 6 above runs either way, and a red check before the SKIP is never excused.
+# NDTWIN_L1_NEEDS: py-plot
 if [[ ! -x "${PY_PLOT:-}" && ! -f "${PY_PLOT:-}" ]]; then
     echo "SKIP: PY_PLOT (${PY_PLOT:-unset}) is not present; the gate cannot be invoked"
     exit 0
