@@ -180,7 +180,9 @@ consts() {
 }
 #: What 06 is reconciled against (H5). [Co-developed with claude code -- Adam] 09-27: the round on
 #: the protobuf 5 venv with no heartbeat on the external arms (its rc and verdict columns are
-#: 185505Z's, arm for arm) -- the baseline the external detect-only change is compared against.
+#: 185505Z's, arm for arm). For the external detect-only comparison set it to the same session's
+#: control C1 instead (the external judge's S2, 09-28; README "合併前的比對"): 074635Z ran other
+#: code (5dc7fc9a + 95 uncommitted files) and recorded no venv.
 OLD_06="${OLD_06:-$LIVE_DIR/runs/2026-09-27T074635Z_06_thirteen}"
 #: The 06 arms that bring up a foreign fabric with an inter-switch link, i.e. the ones `ndt up p4
 #: --app` starts the heartbeat on. Segment S's census: calc and multicast are one switch;

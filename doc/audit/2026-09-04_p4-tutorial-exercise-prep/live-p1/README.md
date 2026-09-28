@@ -21,9 +21,10 @@ Ctrl-C 也會走）。**不需要 `sudo bash`**——腳本要的是「root 拿�
 | ② | `NDT_OWNER=adam bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/02_app_basic.sh` | `PASS 02_app_basic` |
 | ③ | `NDT_OWNER=adam bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/03_app_p4runtime.sh` | `PASS 03_app_p4runtime` |
 
-在**這個分支的 worktree 根目錄**跑（`scratch/overnight-2026-09-05/wt-app-ndt-0917`）；
-併回 trunk 之後同樣的相對路徑在主 checkout 也成立。腳本自己從所在位置推 repo 根，所以
-`cd` 到哪裡都行，上面寫相對路徑只是因為那樣好貼。
+在**跑 lab 的那個 checkout**（主 checkout，`/home/adam/Desktop/NDTwin-Kernel`）的根目錄跑。`ndt` 只在
+`/etc/ndtwin-lab.conf` 的 KERNEL_DIR 指的那一棵樹裡動 lab（`guard_lab_acts_in_this_tree`），而且那棵樹要有
+建好的 `build/bin/ndtwin_kernel`——功能分支的 worktree 兩樣都沒有，所以分支要先併進主 checkout 再跑。
+腳本自己從所在位置推 repo 根，所以 `cd` 到哪裡都行，上面寫相對路徑只是因為那樣好貼。
 
 失敗時最後一行是 `FAIL <step> -- <原因>`，rc 1。
 **rc 2＝拒絕**：root 拿不到、lab 被別人 claim、claim 裡有 `measuring=`、package 目錄不在、
@@ -314,8 +315,10 @@ unbound 的 L6。L4 **不斷言改路**（第一刀 (c) 不成立，`capabilitie
   `pipeline_commits`／`rules_timed`／`table_generation` 在剪線與復原前後都沒動；復原以**嚴格 20 s** 判（輪詢等到 35 s，
   只是為了晚到的也量得到）。
 - H5 不自己 claim（06、01 每步自己 claim），跑 06 一次時旁邊有一個讀心跳報告的 sampler，逐臂對
-  `2026-09-27T074635Z_06_thirteen`（09-27 前是 `2026-09-24T185505Z`，兩者 rc／verdict 逐臂相同），並確認心跳只在
-  20 個多交換機、有建出來的外來臂上跑過（09-27 前是 17 個：當時不含 3 個 external 臂）；接著跑 01。
+  `OLD_06`（預設 `2026-09-27T074635Z_06_thirteen`；09-27 前是 `2026-09-24T185505Z`，兩者 rc／verdict 逐臂相同。
+  **做 external 比對時設成同一個 session 的對照組 C1**，見下面「合併前的比對」），並確認心跳只在 20 個多交換機、
+  有建出來的外來臂上跑過（09-27 前是 17 個：當時不含 3 個 external 臂）；接著跑 01。sampler 每一列也記報告的
+  `written_wall`、`stop_reason` 與 daemon 的四個計數器，`50_t06_end.txt` 記 06 結束的時間。
 - 任何 `forwarded_to_hosts > 0`（心跳幀離開 host 埠）＝裁決 4，最後一行以 `STOP` 開頭。
 
 [Co-developed with claude code -- Adam]
@@ -337,55 +340,91 @@ flowcache/solution）上也啟動心跳：proxy 宣告 package 的連線、由�
   L2 學習型的控制器——會把 0x88B5 的幀交給**它自己的控制器**或它的 host。
 - 這兩條路 NDTwin **都看不到**：proxy 在 external 上沒有 stream（packet-in 不經過它），daemon 只數離開交換機埠的
   幀。所以 switch_state 的 `side_effects`／`frames_reached_hosts` 在「punt 給控制器」這一種上**是盲的**。
-- 已量過、而且從 P4 原始碼讀得到為什麼安全的，**只有這三個程式**：
+- 這三個程式為什麼應該會丟掉它，是**從 P4 原始碼讀出來的，不是量到的**（第二輪 judge 的 S1）：
   - **flowcache/solution**：parser 對非 0x0800 的幀不再往下解（`flowcache.p4:137-143`）；ingress 丟掉不是
     packet-out 也不是 IPv4 的所有東西（`:251-257`）⇒ 不 punt、不建 cache entry、counter 不動（counter 只數
     packet-out 與 CPU 埠的 egress，`:236-238`、`:279-283`）。
   - **p4runtime（advanced_tunnel，skeleton 與 solution 同一個程式）**：parser 預設 accept（`advanced_tunnel.p4:70-74`），
-    但沒有任何表會套到這種幀（`:170-180`），`egress_spec` 停在 0；交換機的埠從 1 開始，沒有埠 0 ⇒ 幀被丟掉
-    （這一步是從 bmv2 的行為**推論**的）。tunnel counter 只在 tunnel action 裡動（`:123-141`）；沒有控制器 header，
-    不可能有 packet-in。
-  - 段 S 的普查（`doc/audit/2026-09-25_p4-heartbeat/spike/runs/2026-09-26T052148Z_S_heartbeat/40_census.tsv:24-26`）
-    在這三臂上手動跑過心跳：host 收到 0 幀、`forwarded_between_switches` 0、`misdelivered` 0。
+    沒有任何表會套到這種幀（`:170-180`），`egress_spec` 停在 0；「沒有埠 0 ⇒ 幀被丟」是從 bmv2 的行為**推論**的。
+    tunnel counter 只在 tunnel action 裡動（`:123-141`）；沒有控制器 header，不可能有 packet-in。
+  - 段 S 的普查（`40_census.tsv:24-26`）在這三臂上手動跑過心跳，但**沒有啟動它們的控制器**
+    （`S_heartbeat_spike.sh:63-65`）——external package 沒有控制器就沒有 pipeline，所以那三列量到的是**空的交換機**。
+    **`PART=h5` 是第一次在這三個程式載入時量**。
 - 其他 external 程式**沒有人看過**。要不要給一個關掉的選項，orchestrator 在問 Adam；在那之前，這一段就是揭露。
 - **twin 那一側也變了**（F5）：external 上 `/ryu_server/all_destination_paths` 現在是**在宣告連線上算的最短路徑**
   （external 上沒有已安裝的路由可讀），**不是** exercise 真正的轉發。它是 twin 的猜測，不是讀數。
 
-### 合併前的比對（orchestrator 跑；這裡是程序與工具）
+### 合併前的比對——可以照著跑的程序（第二輪 judge 的 M1；預先登記，事後不改）
 
-基準**不是**「只差 B 的同一份程式」：`2026-09-27T074635Z_06_thirteen` 每一臂記的程式是
-**`5dc7fc9a` ＋ 95 個未提交的檔**（`p4runtime_solution.log:153`），不是 `f7e2a128`，也沒有 venv 指紋。所以比對要有
-**同一個 session 的對照組**（F2），DIFF 只有落在對照組的離散**之外**才算：
+**要回答的問題**：B 讓 external 臂也跑心跳之後，三個 external 臂（p4runtime skeleton／solution、flowcache
+solution）**exercise 自己**的證據有沒有變。**不是**拿來和 074635Z 比：它跑的是 `5dc7fc9a` ＋ 95 個未提交的檔，
+沒有 venv 指紋，只能當參考。
 
-1. **對照組 C1、C2**：同一台機器、同一個 venv，三個 external 臂各跑兩次、**不跑心跳**——在 trunk（例如 `149c8234`，
-   不含 B）上跑 `NDT_OWNER=<你> ONLY=p4runtime,flowcache bash .../06_thirteen.sh` 兩次；或在 B 上 `ndt up` 之後、
-   控制器啟動之前 `sudo ndtwin-lab heartbeat stop`（要另外接到 driver 裡）。
-2. **處理組 T**：B 上的 `PART=h5`（`NDT_OWNER=<你> PART=h5 bash .../08_heartbeat.sh`，它跑 06 一次、旁邊的
-   sampler 逐臂記 daemon 的 session），或 B 上的 06 一次。
-3. `python3 .../external_evidence.py compare <C1> <T> --control2 <C2> [--samples <T 的 H5 run>/50_samples.tsv]`
+**在哪裡跑**：全部從主 checkout（`/home/adam/Desktop/NDTwin-Kernel`）跑——它就是 `/etc/ndtwin-lab.conf` 的
+KERNEL_DIR 指的樹，所以**不需要任何 root 步驟**。B 沒有改任何 C++，**不需要重建 kernel**；proxy 是 Python，下一次
+`ndt up` 就用新的。每一步都要 `NDT_OWNER=<你>`，照常 claim（06／08 自己 claim）。
 
-工具會做的事：
-- **拒絕**（rc 3）一個不是處理組的處理組：任何一臂的報告裡沒有 `ndt up` 的 detect-only 那行、沒有
-  `heartbeat running (pid, session)` 那一列、沒有 daemon 的計數器（switch_state 的 `heartbeat.side_effects`）；
-  給了 `--samples` 時，那個 session 沒被讀到 running、或有任何一筆算到轉給 host／轉給別台交換機的幀。對照組
-  （C1、C2）只要有一臂的心跳在跑也拒絕——A/A 永遠只會印 NO DIFFERENCE。
-- **比**每一臂 exercise 自己的證據：rc／verdict、每條安裝規則、**最後一個完整**的 tunnel counter 區塊、packet-in
-  數、cache entry、0x88B5 的 packet-in、任何非 IPv4 的 packet-in、gRPC 錯誤。落在 C1、C2 之間的算
-  **spread**、不計；沒給 `--control2` 時每個 DIFF 都印、並聲明分不出噪音。
-- **不變式**（每一臂自己的數字，和基準無關）：p4runtime/solution 的 s1 ingress 100 ＝ h1 對 h2 的 ping ＋ 打到
-  10.0.2.2 的 iperf 資料報（client 沒收到 ack 時再加最多 10 個 FIN 重送），s2 egress 100 ＝ s1 ingress 100，
-  s1 egress 200 ＝ s2 ingress 200；skeleton 的 s1 ingress 100 ＝ ping、其餘 counter 都是 0；flowcache 的每個
-  packet-in 都是 IPv4、每條 cache entry 都是某個 IPv4 packet-in 的 flow。處理組破而對照組守住的，算差異。
-- **印出**每個 run 的程式（報告裡 `code <sha> …` 那行）與 venv 指紋。
-- **讀不到**（rc 2）不當「一樣」：缺表、缺列、缺報告或 log、讀不了或不是 UTF-8、counter 區塊被截斷（控制器在印的
-  途中被停）、解析不了的 packet-in。
-- 沒看的（要另外看 switch_state）：judge §5.6「proxy 什麼都沒寫」——每台交換機臂結束時 `pipeline_commits` 0、
-  `table_generation` null——以及 kernel 發起、被 409 擋掉的寫入數（kernel 現在有 graph，預期會變多，要揭露）。
+1. **對照組 C1、C2（不含 B）**：主 checkout 停在 trunk 的 head（**還沒** merge B），同一台機器、同一個
+   `p4_proxy/venv`：
+   ```
+   NDT_OWNER=<你> ONLY=p4runtime,flowcache bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/06_thirteen.sh   # C1
+   NDT_OWNER=<你> ONLY=p4runtime,flowcache bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/06_thirteen.sh   # C2
+   ```
+   trunk 的 06 **不寫** `00_venv.txt`（那是 B 加的），所以每一次跑完**手動補記**，用 B 分支裡的那支腳本（它是獨立的，
+   不讀 repo 其他東西）：
+   ```
+   bash <B 的 worktree>/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/venv_fingerprint.sh \
+       <C 的 run 目錄>/00_venv.txt /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/p4dev-python-venv/bin/python
+   git -C /home/adam/Desktop/NDTwin-Kernel rev-parse HEAD > <C 的 run 目錄>/00_code.txt
+   git -C /home/adam/Desktop/NDTwin-Kernel status --short | wc -l >> <C 的 run 目錄>/00_code.txt
+   ```
+2. **merge B 進主 checkout 的 trunk，只在本地、不 push**（orchestrator 做）。
+3. **處理組 T（含 B）**：一次 `PART=h5`，`OLD_06` 指向 C1——H5 的 rc／verdict 檢查就是和同一個 session 的對照組比：
+   ```
+   NDT_OWNER=<你> OLD_06=<C1 的 run 目錄> PART=h5 bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh
+   ```
+   它跑完整的 06（26 臂）一次、旁邊的 sampler 每秒讀一次 daemon 的報告（含 `written_wall`、`stop_reason`、四個
+   計數器），接著跑 01。T＝它印的 `06 rc …, raw …` 那個 06 run；samples＝`<08 的 run 目錄>/50_samples.tsv`
+   （旁邊的 `50_t06_end.txt` 是 06 結束的時間）。這一輪 B 的 06 會自己寫 `00_venv.txt`。
+   **只有這一種處理組**：沒有 samples 的「B 上的 06 一次」**不算**——報告裡的標記全都在控制器啟動、pipeline
+   載入之前取得，說不出心跳在程式跑的時候有沒有在跑。
+4. **比對**：
+   ```
+   python3 doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_evidence.py compare \
+       <C1> <T> --control2 <C2> --samples <08 的 run 目錄>/50_samples.tsv
+   ```
 
-基準 074635Z 自己的讀數（`show`，OBSERVED）：p4runtime/solution 最後 counter `s1 ingress 100 = 3505`、`s2 egress 100 = 3505`、
-`200` 兩個各 7，不變式都成立（5 個 ping ＋ 3500 個資料報）；skeleton `s1 ingress 100 = 5`、其餘 0；flowcache 6 個
-packet-in 全是 IPv4、5 條 cache entry 都是 packet-in 的 flow、1 個 gRPC 錯誤。它**沒有**對照組的第二次，也不是處理組
-的同一份程式——所以它只能當第三個參考，不能單獨當基準。
+**判定（預先登記）**：
+- **rc 0**：沒有任何差異落在對照組的範圍外，每臂的不變式都成立，daemon 在每臂的 session 裡什麼都沒轉 ⇒ **通過**，
+  可以 push（照 orchestrator 的順序）。**只有 rc 0 是通過。**
+- **rc 1**（差異）：
+  - 下列任何一個 ⇒ **失敗，停下來回報**（Adam 09-25 的條件），不補跑、不事後解釋：`!! DAEMON`（daemon 在該臂的
+    session 算到轉出的幀；轉給 host 就是 ruling 4）、任何 0x88B5 的 packet-in、`INV BAD`（每個對照組都守住的不變式）、
+    **C1 與 C2 相等**的欄位上的 DIFF（沒有噪音可解釋）。
+  - 只有在 **C1 與 C2 本來就不同**的欄位上有 DIFF（噪音，例如 flowcache 的 packet-in 數）⇒ 再跑兩次對照組 C3、C4
+    （同第 1 步），`--control2 C2 --control2 C3 --control2 C4` 重跑比對，**以四個對照組的結果定案**：rc 0 通過、rc 1
+    失敗。只加這一次，不再加。
+- **rc 2**（讀不到）：這次比對不算。原因寫在那一行（缺檔、counter 區塊被截斷或**還沒穩定**——最後一次讀數既不重複
+  前一次、也還沒算到這一輪送出的全部封包——解析不了的 packet-in）。重跑出問題的那一個 run 一次；同樣的原因再出現一次
+  就回報，不算通過。
+- **rc 3**（拒絕）：程序沒照做（沒給 samples 或 C2、對照組裡有心跳的痕跡、處理組某一臂的 session 沒有從頭到尾都
+  在跑——沒被取樣到、報告變 STALE、中間有空檔、停了又起、在控制器最後一次寫 log 之前就停、同一個窗口裡還有別的
+  session）。修正後重跑；**心跳在某一臂中途停掉的處理組不算通過**。
+- **H5 本身的判定**：`H5 where the heartbeat ran`（每臂剛好有一個 session）或 ruling 4 STOP 失敗 ⇒ T 無效（STOP 就停下
+  回報）。`H5 06 against <C1>` 的 rc／verdict 差異同時會是 compare 的 `DIFF rc/verdict`，以 compare 為準。H5 的 01 與
+  external 臂無關，另外回報。
+- **H4 的風險（S4，預先登記）**：之後跑一次 H1–H4（`NDT_OWNER=<你> bash .../08_heartbeat.sh`）。H4 現在要求 kernel
+  對兩個方向的連線回報都回 200（`reported_to_kernel: true`），而 H4 沒有跑 exercise 的控制器，kernel 把這些交換機
+  判 Down——**沒有證據說 kernel 會接受 Down 交換機的連線回報**。如果 H4 **只**因為 `reported_to_kernel` 失敗：那是
+  kernel 處理 Down 交換機的發現，**不改變**上面 external 臂比對的結論，但「剪線會告訴 twin」在沒有控制器的
+  external fabric 上仍未證明，要回報。
+- **這個 raw 答不了的**：「臂結束時 proxy 什麼都沒寫」——06 只在 bring-up 時記一次 switch_state。proxy 在 external
+  fabric 上的寫入紀錄由 H4 的 `no_writes`（剪線與復原前後 `pipeline_commits`／`rules_timed`／`table_generation`
+  不變）回答。
+
+`external_evidence.py` 的細節（它的 docstring 是正本）：它從每臂自己的控制器 log、round 報告、`00_table.tsv`、
+H5 的 samples 讀證據；拒絕／讀不到／比對／不變式的規則如上；N4 那份 switch_state 的 daemon 計數器是 pipeline
+載入之前的快照，**只列、不判**。
 
 **venv 指紋**：從 09-27 起每個 live-p1 raw（`start_step` 的每一步、06）都有 `00_venv.txt`——proxy 的 venv 與
 控制器／driver 的直譯器各一段：路徑、Python 版本、protobuf 版本與 `api_implementation`、grpcio、所有已安裝套件
