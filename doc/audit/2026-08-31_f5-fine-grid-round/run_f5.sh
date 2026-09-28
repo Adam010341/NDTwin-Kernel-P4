@@ -380,7 +380,7 @@ f5_exit_restore_check() {
 
 # -------------------------------------------------------------------------------------------------
 preflight() {
-    local avail owner excl claim="$KERNEL_DIR/.test_run/lab.claim"
+    local avail owner excl claim; lab_tree_check || return 2; claim="$KERNEL_DIR/.test_run/lab.claim"   # the tree first (N7)
     avail=$(df -BG --output=avail / | tail -1 | tr -dc '0-9')
     say "=== preflight arm=$ARM fabric=$FABRIC DRY_RUN=$DRY_RUN disk=${avail}G ==="
     (( avail >= 3 )) || { printf 'REFUSE: only %sG free on / (need >=3G).\n' "$avail" >&2; return 1; }
@@ -796,6 +796,53 @@ plan() {
     say "🔴 state that it crosses two different fabrics."
 }
 
+# -------------------------------------------------------------------------------------------------
+# [Co-developed with claude code -- Adam] WHICH TREE (N7, 2026-09-28).  round.env derives
+# KERNEL_DIR from the checkout it sits in, but the fabric does not: `ndtwin-lab topo-start`
+# starts the bridge from the tree `sudo ndtwin-lab config` names, and that bridge loads THAT
+# tree's compiled P4 -- so a live round run from any other checkout compiles one program and
+# measures another.  measure.sh writes a fixed raw/, and the claim file and the LAB-NOT-RESTORED
+# marker live in each tree, which a second tree cannot see.  A live run therefore refuses unless
+# KERNEL_DIR is the lab's tree, compared after resolving symlinks, and it refuses BEFORE anything
+# is written -- preflight calls this ahead of its own first log line (kept
+# in step with lib_e.sh's copy; run_f5.sh does not source lib_e.sh).  A dry run is exempt: it
+# touches no fabric and must stay runnable from any checkout.
+#   rc 0 = the lab's tree (or a dry run); 2 = refused, the reason (and both trees) on stderr.
+# The dispatch below also calls it BEFORE arming the restore trap: a refused tree must not get a
+# restore check, markers or a "do not release the lab" alarm about a lab it never touched.
+# There is no DRY_FAIL force for this refusal: a dry run is exempt by design, and a forced row
+# would change the PREREG force matrix and its transcripts. tests/shell/test_live_round_*.sh
+# exercise it with a stubbed sudo instead.
+lab_tree_check() {
+    [[ "${DRY_RUN:-0}" == 1 ]] && return 0
+    # unset or relative (a partial environment: ROUND exported, round.env not sourced) -- `cd -P`
+    # would resolve "" or "." against the caller's cwd and could agree with the lab by accident
+    if [[ "${KERNEL_DIR:-}" != /* ]]; then
+        printf 'REFUSE: KERNEL_DIR=%s is not an absolute path.  Source the round.env of the tree\n' "${KERNEL_DIR:-<unset>}" >&2
+        printf '        you mean to run (it exports ROUND and KERNEL_DIR together) and retry.\n' >&2
+        return 2
+    fi
+    local lab_cmd="${LAB:-sudo -n /usr/local/sbin/ndtwin-lab}" cfg lab mine theirs
+    # shellcheck disable=SC2086  # LAB is a command line ("sudo -n <helper>"), split on purpose
+    if ! cfg="$($lab_cmd config 2>&1)"; then
+        printf 'REFUSE: could not ask the lab which tree it runs (%s config):\n' "$lab_cmd" >&2
+        printf '        %s\n' "$cfg" >&2
+        return 2
+    fi
+    lab="$(sed -n 's/^KERNEL_DIR:[[:space:]]*//p' <<<"$cfg" | head -1)"
+    mine="$(CDPATH= cd -P -- "$KERNEL_DIR" 2>/dev/null && pwd -P)"
+    theirs="$( [[ -n "$lab" ]] && CDPATH= cd -P -- "$lab" 2>/dev/null && pwd -P)"
+    if [[ -n "$mine" && -n "$theirs" && "$mine" == "$theirs" ]]; then
+        return 0
+    fi
+    printf 'REFUSE: this round would run from KERNEL_DIR=%s\n' "${KERNEL_DIR:-<unset>}" >&2
+    printf '        but the lab runs the tree %s (%s config).\n' "${lab:-<not reported>}" "$lab_cmd" >&2
+    printf "        Live rounds run only from the lab's tree: the switches load that tree's compiled\n" >&2
+    printf '        P4, measure.sh writes its raw/, and the claim and restore marker are kept there.\n' >&2
+    printf '        Run this from %s, or point the lab at this tree first.  Dry runs may run anywhere.\n' "${lab:-the lab tree}" >&2
+    return 2
+}
+
 # Same reasoning as run_e.sh: `plan`, `selftest` and `restore` execute for real and need no
 # fabric, so they are not dry runs -- but none of them is a measurement, and their transcripts
 # must not share a file with one.
@@ -813,8 +860,8 @@ case "${1:-plan}" in
     # no trap -- so an operator could fix the kernel, run restore, see green, and leave the marker
     # on disk forever.  Adding a reader without this would have created a warning that can never
     # go green again, which is the 08-30 mirrored defect: people learn to ignore those.
-    restore)  trap f5_exit_restore_check EXIT; preflight && assert_kernel_restored ;;
-    arm)      trap f5_exit_restore_check EXIT; arm ;;
-    q3)       trap f5_exit_restore_check EXIT; q3 ;;
+    restore)  lab_tree_check || exit 2; trap f5_exit_restore_check EXIT; preflight && assert_kernel_restored ;;
+    arm)      lab_tree_check || exit 2; trap f5_exit_restore_check EXIT; arm ;;
+    q3)       lab_tree_check || exit 2; trap f5_exit_restore_check EXIT; q3 ;;
     *) printf 'usage: %s {plan|selftest|arm|q3|restore}\n' "$0" >&2; exit 2 ;;
 esac

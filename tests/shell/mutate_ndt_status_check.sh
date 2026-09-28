@@ -40,6 +40,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
 NDT="$REPO/tools/test_workflow/ndt"
 TEST="$HERE/test_ndt_status_check_baseline.sh"
+SURFACE="$REPO/tools/test_workflow/sudo_surface.sh"   # the copy beside each mutant ndt
 BK=$(mktemp -d "${TMPDIR:-/tmp}/ndt-checkbase-mutate-XXXXXX")
 trap 'rm -rf "$BK"' EXIT
 BASE_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
@@ -308,6 +309,32 @@ report 'MI7: a pidfile that is not a pid at all is passed over in silence' "$m" 
        '🔴 an unusable pidfile is named as unusable'
 
 
+
+# --- the sudo grants arm (2026-09-28): each problem line taken out ---------------------------------
+# [Co-developed with claude code -- Adam] The "sudo grants" row is printed in every arm, so only the
+# problem each arm adds makes --check exit 1; take either out and its case must go red by name.
+m=$(mutant s1 "$NDT" \
+    '           problems+=("a sudo grant ndt needs is refused; see the sudo grants block above") ;;' \
+    '           : ;;')
+report "S1: a refused sudo grant no longer counts as a --check problem" "$m" \
+       "a refused sudo grant (report rc 1) makes --check exit 1"
+m=$(mutant s2 "$NDT" \
+    '           problems+=("a sudo grant ndt needs could not be tested on this machine") ;;' \
+    '           : ;;')
+report "S2: an untested sudo grant no longer counts as a --check problem" "$m" \
+       "a grant that could not be tested (report rc 2) makes --check exit 1"
+# ... and the measured case, through the real report: sudo_surface.sh stops reading a "sudo:" line
+# it does not know, so the nolab wording reads as granted again
+m=$(mutant s3 "$SURFACE" \
+    '    ndt_sudo_unread && return 2' \
+    '    : ndt_sudo_unread')
+report "S3: sudo_surface.sh reads an unknown sudo: refusal as granted again" "$m" \
+       "measured: sudo refusing in words ndt does not know makes --check exit 1"
+m=$(mutant s4 "$NDT" \
+    '        *) printf '"'"'  %-14s %s\n'"'"' "sudo grants" "${Y}could not be tested${N}"' \
+    '        *) :')
+report "S4: the grants row stops saying it could not be tested" "$m" \
+       "  the grants row says it could not be tested"
 
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
