@@ -240,8 +240,11 @@ check "🔴 no --control2: rc 3"                              "3" "$(rc_of "$OUT
 OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c1" --samples "$S")"
 check "🔴 --control2 that is the control itself: rc 3"      "3" "$(rc_of "$OUT")"
 has   "  said as no spread"                                "a control compared with itself has no spread" "$OUT"
-OUT="$(ev compare "$FIX/c1" "$FIX/c2" --control2 "$FIX/c1" --samples "$S")"
-check "  a treatment that is a control: rc 3"             "3" "$(rc_of "$OUT")"
+# [Co-developed with claude code -- Adam] (09-28) the treatment also passed as a control: refused
+# by name. Its rc alone cannot tell this guard from check_roles (a treatment has the heartbeat's
+# traces, so as a control it is refused anyway) -- the message is the check.
+OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --control2 "$FIX/t1" --samples "$S")"
+has   "🔴 a treatment also given as a control: refused as such" "REFUSED the treatment is one of the controls" "$OUT"
 mk c3 control
 OUT="$(ev compare "$FIX/c1" "$FIX/c2" --control2 "$FIX/c3" --samples "$S")"
 check "🔴 A/A (a control as the treatment): rc 3"           "3" "$(rc_of "$OUT")"
