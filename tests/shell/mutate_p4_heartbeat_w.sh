@@ -1106,11 +1106,20 @@ m=$(nmutant n43 "$NDT" \
 nreport "N43: the heartbeat is withheld on every external plane, proven or not" "$m" \
         "🔴 proven dropped: the heartbeat starts"
 m=$(nmutant n44 "$NDT" \
-    '    [[ -n "$out" ]] && printf '"'"'%s\n'"'"' "$out" | sed '"'"'s/^/  /'"'"'
-    HB_CHECK_RC="$rc"' \
-    '    HB_CHECK_RC="$rc"')
-nreport "N44: the check's own lines are not printed" "$m" \
-        "  the check's answer is printed"
+    '        0) ok "heartbeat drop check: every program drops its frame (${progs:-?}) -- default actions only; entries its controller installs later are not covered" ;;' \
+    '        0) ok "heartbeat drop check: passed" ;;')
+nreport "N44: the check's answer and its limit are not said" "$m" \
+        "  the check's answer is said, in one line"
+m=$(nmutant n44b "$NDT" \
+    '    mkdir -p "$(dirname "$log")" 2>/dev/null && printf '"'"'%s\n'"'"' "$out" > "$log" 2>/dev/null' \
+    '    :')
+nreport "N44b: the whole answer is not kept" "$m" \
+        "  and the whole of it is kept"
+m=$(nmutant n48 "$NDT" \
+    '        *) warn "heartbeat drop check could not tell (rc $rc) -- $HB_CHECK_WHY (${log#$REPO/})" ;;' \
+    '        *) : ;;')
+nreport "N48: could-not-tell is not said" "$m" \
+        "  saying it could not tell"
 m=$(nmutant n45 "$NDT" \
     '        printf '"'"'withheld %s %s\n'"'"' "$(date +%s)" "$why" > "$(hb_withheld_file)" 2>/dev/null
         return 0' \
@@ -1128,11 +1137,6 @@ m=$(nmutant n47 "$NDT" \
     '        :')
 nreport "N47: no record is written for 'ndt status'" "$m" \
         "🔴 and the record names it for 'ndt status'"
-m=$(nmutant n48 "$NDT" \
-    '        *) warn "the heartbeat drop check could not tell (rc $rc): the heartbeat will not be started -- unknown is not a drop" ;;' \
-    '        *) : ;;')
-nreport "N48: could-not-tell is not said" "$m" \
-        "  saying it could not tell"
 m=$(nmutant n49 "$NDT" \
     '    if [[ "$2" == external && "${HB_CHECK_RC:-}" != 0 ]]; then' \
     '    if [[ "$2" == external && "${HB_CHECK_RC:-0}" != 0 ]]; then')

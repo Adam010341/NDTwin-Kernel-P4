@@ -313,7 +313,8 @@ OUT="$(drive "NDT_APP_DIR=$(q "$PKG_EXTERNAL"); up_p4")"
 check "🔴 the check ran once, on the package"                    "1" "$(count_of "hbcheck $PKG_EXTERNAL")"
 check "🔴 before anything touched the machine"                   "yes" "$(before 'hbcheck ' 'topo-start')"
 check "🔴 proven dropped: the heartbeat starts"                  "1" "$(count_of 'ndtwin-lab heartbeat start')"
-has   "  the check's answer is printed"                          "DROPPED -- every injected frame was dropped" "$OUT"
+has   "  the check's answer is said, in one line"             "heartbeat drop check: every program drops its frame (advanced_tunnel.json checked) -- default actions only; entries its controller installs later are not covered" "$OUT"
+check "  and the whole of it is kept"                            "1" "$(/usr/bin/grep -cF 'DROPPED -- every injected frame was dropped' "$FIX/.test_run/logs/heartbeat_drop_check.log" 2>/dev/null || echo 0)"
 check "  and nothing is recorded as withheld"                    "<no record>" "$(withheld)"
 
 reset_fix
@@ -328,7 +329,7 @@ has   "🔴 and the record names it for 'ndt status'"              "PUNTED to th
 reset_fix
 OUT="$(drive "export HB_CHECK_STUB_RC=2; NDT_APP_DIR=$(q "$PKG_EXTERNAL"); up_p4")"
 check "🔴 could not tell: NOT started either (unknown is not a drop)" "0" "$(count_of 'ndtwin-lab heartbeat start')"
-has   "  saying it could not tell"                               "could not tell (rc 2)" "$OUT"
+has   "  saying it could not tell"                               "heartbeat drop check could not tell (rc 2)" "$OUT"
 has   "  and why"                                                "the switch exited before the check finished" "$(withheld)"
 
 reset_fix
