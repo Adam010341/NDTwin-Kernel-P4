@@ -3103,7 +3103,7 @@ HBROW
     # withheld the heartbeat on an external control plane: the report above can be an older run's.
     local withheld; withheld="$(hb_withheld_file)"
     if [[ -f "$withheld" ]]; then
-        local at why
+        local at="" why=""
         read -r _ at why < "$withheld"
         printf '  %-14s %s\n' "" "NOT started by the last 'ndt up' ($(( $(date +%s) - ${at:-0} )) s ago): its program is not proven to drop the heartbeat's frame -- $why"
     fi
