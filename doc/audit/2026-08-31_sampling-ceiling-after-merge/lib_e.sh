@@ -1344,9 +1344,19 @@ archive_cell() {   # $1 = cell label
 # KERNEL_DIR is the lab's tree, compared after resolving symlinks, and it refuses BEFORE anything
 # is written -- preflight calls this ahead of its own first log line.  A dry run is exempt: it
 # touches no fabric and must stay runnable from any checkout.
-#   rc 0 = the lab's tree (or a dry run); 2 = refused, both trees named on stderr.
+#   rc 0 = the lab's tree (or a dry run); 2 = refused, the reason (and both trees) on stderr.
+# There is no DRY_FAIL force for this refusal: a dry run is exempt by design, and a forced row
+# would change the PREREG force matrix and its transcripts. tests/shell/test_live_round_*.sh
+# exercise it with a stubbed sudo instead.
 lab_tree_check() {
     [[ "${DRY_RUN:-0}" == 1 ]] && return 0
+    # unset or relative (a partial environment: ROUND exported, round.env not sourced) -- `cd -P`
+    # would resolve "" or "." against the caller's cwd and could agree with the lab by accident
+    if [[ "${KERNEL_DIR:-}" != /* ]]; then
+        printf 'REFUSE: KERNEL_DIR=%s is not an absolute path.  Source the round.env of the tree\n' "${KERNEL_DIR:-<unset>}" >&2
+        printf '        you mean to run (it exports ROUND and KERNEL_DIR together) and retry.\n' >&2
+        return 2
+    fi
     local lab_cmd="${LAB:-sudo -n /usr/local/sbin/ndtwin-lab}" cfg lab mine theirs
     # shellcheck disable=SC2086  # LAB is a command line ("sudo -n <helper>"), split on purpose
     if ! cfg="$($lab_cmd config 2>&1)"; then

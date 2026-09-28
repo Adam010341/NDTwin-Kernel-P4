@@ -5,15 +5,20 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# M1/M2 remove the call from each preflight (the state before N7 B1). The others are the ways the
-# check itself can be quietly wrong: comparing paths without resolving symlinks, asking the lab in
-# a dry run, taking a failed config query for an answer, taking a config that names no tree for
-# agreement, and inverting the comparison.
+# M1/M2 remove the call from each preflight (the state before N7 B1). M3-M10 and M16-M19 are the
+# ways the check itself can be quietly wrong: comparing paths without resolving symlinks (on either
+# side, or with readlink -f, which resolves a path that does not exist), asking the lab in a dry
+# run, taking a failed config query for an answer or failing open on it, taking a config that
+# names no tree for agreement, inverting the comparison, reading a KERNEL_DIR: line out of the
+# refused-conf preamble, and accepting an unset or relative KERNEL_DIR. M11-M15 are the entry
+# points: run_f5.sh arming its restore trap before the tree check (arm, q3, restore) and gates_e.sh
+# writing its first log line before preflight (main, baseline).
 #
 # 🔴 Guards its own baseline: mutations go into COPIES in a temp dir and the suite is pointed at
-# them through LIB_E_UNDER_TEST / RUN_F5_UNDER_TEST. lib_e.sh and run_f5.sh in this checkout are
-# never written; their sha256 is compared before and after. Anchors are counted in the REAL files.
-# No real sudo is run: the suite's own stub answers the only query.
+# them through LIB_E_UNDER_TEST / RUN_F5_UNDER_TEST / GATES_E_UNDER_TEST. lib_e.sh, run_f5.sh and
+# gates_e.sh in this checkout are never written; their sha256 is compared before and after.
+# Anchors are counted in the REAL files. No real sudo is run: the suite's own stub answers the
+# only query.
 #
 # Run:  bash tests/shell/mutate_live_round_lab_tree.sh
 # Exit: 0 every mutation caught and the controls stayed green; 1 a mutation survived or a control
@@ -26,20 +31,21 @@ cd "$REPO"
 
 LIB=doc/audit/2026-08-31_sampling-ceiling-after-merge/lib_e.sh
 F5=doc/audit/2026-08-31_f5-fine-grid-round/run_f5.sh
+GATES=doc/audit/2026-08-31_sampling-ceiling-after-merge/gates_e.sh
 TEST=tests/shell/test_live_round_lab_tree.sh
 
 BK="$(mktemp -d "${TMPDIR:-/tmp}/live-round-lab-tree-mutate-XXXXXX")"
 trap 'rm -rf "$BK"' EXIT
-BASE_SHA="$(sha256sum "$LIB" "$F5" | sha256sum | cut -d' ' -f1)"
+BASE_SHA="$(sha256sum "$LIB" "$F5" "$GATES" | sha256sum | cut -d' ' -f1)"
 
 SURVIVORS=0
 MUTATIONS=0
 CONTROLS_RED=0
 
-fresh() {   # fresh <tag> -- unmutated copies of both files; echoes their directory
+fresh() {   # fresh <tag> -- unmutated copies of the three files; echoes their directory
     local d="$BK/$1"
     rm -rf "$d"; mkdir -p "$d"
-    cp "$LIB" "$d/lib_e.sh"; cp "$F5" "$d/run_f5.sh"
+    cp "$LIB" "$d/lib_e.sh"; cp "$F5" "$d/run_f5.sh"; cp "$GATES" "$d/gates_e.sh"
     echo "$d"
 }
 
@@ -58,7 +64,8 @@ apply_exact() {
 }
 
 run_suite() {   # run_suite <dir>
-    LIB_E_UNDER_TEST="$1/lib_e.sh" RUN_F5_UNDER_TEST="$1/run_f5.sh" timeout 300 bash "$TEST" 2>&1
+    LIB_E_UNDER_TEST="$1/lib_e.sh" RUN_F5_UNDER_TEST="$1/run_f5.sh" GATES_E_UNDER_TEST="$1/gates_e.sh" \
+        timeout 300 bash "$TEST" 2>&1
 }
 
 report() {   # report <label> <dir> <check that must go red>...
@@ -113,8 +120,8 @@ report "M1: E preflight no longer asks which tree (the defect)" "$d" \
 
 d="$(fresh m2)"
 apply_exact "$F5" \
-  'claim="$KERNEL_DIR/.test_run/lab.claim"; lab_tree_check || return 2   # the tree first (N7)' \
-  'claim="$KERNEL_DIR/.test_run/lab.claim"' "$d/run_f5.sh"
+  '    local avail owner excl claim; lab_tree_check || return 2; claim="$KERNEL_DIR/.test_run/lab.claim"   # the tree first (N7)' \
+  '    local avail owner excl claim; claim="$KERNEL_DIR/.test_run/lab.claim"' "$d/run_f5.sh"
 report "M2: F5 preflight no longer asks which tree (the defect)" "$d" \
        "🔴 F5: a live preflight from another tree is refused with rc 2" \
        "🔴 F5: and it refused before writing anything (no preflight log)"
@@ -162,6 +169,90 @@ apply_exact "$F5" \
 report "M8: F5 compares paths without resolving symlinks" "$d" \
        "🔴 F5: the lab's tree reached through a symlink passes too"
 
+d="$(fresh m9)"
+apply_exact "$LIB" \
+  $'"$cfg" >&2\n        return 2' \
+  $'"$cfg" >&2\n        return 0' "$d/lib_e.sh"
+report "M9: E fails open when the config query fails" "$d" \
+       "🔴 E: a lab that cannot be asked is a refusal (rc 2)"
+
+d="$(fresh m10)"
+apply_exact "$F5" \
+  '    theirs="$( [[ -n "$lab" ]] && CDPATH= cd -P -- "$lab" 2>/dev/null && pwd -P)"' \
+  '    theirs="$lab"' "$d/run_f5.sh"
+report "M10: F5 resolves symlinks on its own side only" "$d" \
+       "🔴 F5: and so does a lab config that names this tree through a symlink"
+
+d="$(fresh m11)"
+apply_exact "$F5" \
+  '    arm)      lab_tree_check || exit 2; trap f5_exit_restore_check EXIT; arm ;;' \
+  '    arm)      trap f5_exit_restore_check EXIT; arm ;;' "$d/run_f5.sh"
+report "M11: run_f5.sh arm arms its restore trap before the tree check" "$d" \
+       "🔴 run_f5.sh arm: no file created or changed in the tree" \
+       "🔴 run_f5.sh arm: no restore alarm (nothing was armed)"
+
+d="$(fresh m12)"
+apply_exact "$F5" \
+  '    q3)       lab_tree_check || exit 2; trap f5_exit_restore_check EXIT; q3 ;;' \
+  '    q3)       trap f5_exit_restore_check EXIT; q3 ;;' "$d/run_f5.sh"
+report "M12: run_f5.sh q3 arms its restore trap before the tree check" "$d" \
+       "🔴 run_f5.sh q3: refused with rc 2" \
+       "🔴 run_f5.sh q3: no file created or changed in the tree"
+
+d="$(fresh m13)"
+apply_exact "$F5" \
+  '    restore)  lab_tree_check || exit 2; trap f5_exit_restore_check EXIT; preflight && assert_kernel_restored ;;' \
+  '    restore)  trap f5_exit_restore_check EXIT; preflight && assert_kernel_restored ;;' "$d/run_f5.sh"
+report "M13: run_f5.sh restore arms its restore trap before the tree check" "$d" \
+       "🔴 run_f5.sh restore: no file created or changed in the tree" \
+       "🔴 run_f5.sh restore: no restore alarm (nothing was armed)"
+
+d="$(fresh m14)"
+apply_exact "$GATES" \
+  $'    preflight gates || { printf \'preflight refused -- nothing below ran\\n\' >&2; exit 2; }   # before any log line (N7)\n    say "=== gates_e start (PREREG-E §2), DRY_RUN=$DRY_RUN ==="' \
+  $'    say "=== gates_e start (PREREG-E §2), DRY_RUN=$DRY_RUN ==="\n    preflight gates || { printf \'preflight refused -- nothing below ran\\n\' >&2; exit 2; }' \
+  "$d/gates_e.sh"
+report "M14: gates_e.sh logs its start line before preflight" "$d" \
+       "🔴 gates_e.sh: no file created or changed in the tree"
+
+d="$(fresh m15)"
+apply_exact "$GATES" \
+  $'    preflight plan || exit 2       # [Co-developed with claude code -- Adam] before the first log line (N7)\n    say "=== gates_e baseline (fabric must be DOWN) ==="' \
+  $'    say "=== gates_e baseline (fabric must be DOWN) ==="\n    preflight plan || exit 2' \
+  "$d/gates_e.sh"
+report "M15: gates_e.sh baseline logs before preflight" "$d" \
+       "🔴 gates_e.sh baseline: no file created or changed in the tree"
+
+d="$(fresh m16)"
+apply_exact "$LIB" \
+  '    if [[ "${KERNEL_DIR:-}" != /* ]]; then' \
+  '    if false; then' "$d/lib_e.sh"
+report "M16: E takes an unset or relative KERNEL_DIR to the lab" "$d" \
+       "🔴 E: a relative KERNEL_DIR is refused even from inside the lab's tree (rc 2)" \
+       "  E: and does not ask the lab"
+
+d="$(fresh m17)"
+apply_exact "$F5" \
+  '    if [[ "${KERNEL_DIR:-}" != /* ]]; then' \
+  '    if false; then' "$d/run_f5.sh"
+report "M17: F5 takes an unset or relative KERNEL_DIR to the lab" "$d" \
+       "🔴 F5: a relative KERNEL_DIR is refused even from inside the lab's tree (rc 2)" \
+       "  N-9 run_f5.sh arm: and says KERNEL_DIR is not set"
+
+d="$(fresh m18)"
+apply_exact "$LIB" \
+  "    lab=\"\$(sed -n 's/^KERNEL_DIR:[[:space:]]*//p' <<<\"\$cfg\" | head -1)\"" \
+  "    lab=\"\$(sed -n 's/.*KERNEL_DIR:[[:space:]]*//p' <<<\"\$cfg\" | head -1)\"" "$d/lib_e.sh"
+report "M18: E reads a KERNEL_DIR: line out of the refused-conf preamble" "$d" \
+       "🔴 E: nor does one naming THIS tree while the lab runs another (rc 2)"
+
+d="$(fresh m19)"
+apply_exact "$F5" \
+  $'    mine="$(CDPATH= cd -P -- "$KERNEL_DIR" 2>/dev/null && pwd -P)"\n    theirs="$( [[ -n "$lab" ]] && CDPATH= cd -P -- "$lab" 2>/dev/null && pwd -P)"' \
+  $'    mine="$(readlink -f -- "$KERNEL_DIR")"\n    theirs="$( [[ -n "$lab" ]] && readlink -f -- "$lab")"' "$d/run_f5.sh"
+report "M19: F5 resolves with readlink -f (a missing path resolves too)" "$d" \
+       "  F5: the same missing path on both sides is no agreement (rc 2)"
+
 # --- controls: behaviour-preserving rewrites -----------------------------------------------------
 d="$(fresh c1)"
 apply_exact "$LIB" \
@@ -175,9 +266,21 @@ apply_exact "$F5" \
   'preflight calls this before its own first log line' "$d/run_f5.sh"
 control "C2 (control): a comment in F5's copy is reworded" "$d"
 
+d="$(fresh c3)"
+apply_exact "$LIB" \
+  $'    mine="$(CDPATH= cd -P -- "$KERNEL_DIR" 2>/dev/null && pwd -P)"\n    theirs="$( [[ -n "$lab" ]] && CDPATH= cd -P -- "$lab" 2>/dev/null && pwd -P)"' \
+  $'    mine="$(readlink -e -- "$KERNEL_DIR")"\n    theirs="$( [[ -n "$lab" ]] && readlink -e -- "$lab")"' "$d/lib_e.sh"
+control "C3 (control): E resolves with readlink -e (existing paths only, like cd -P)" "$d"
+
+d="$(fresh c4)"
+apply_exact "$GATES" \
+  '   # before any log line (N7)' \
+  '   # ahead of any log line (N7)' "$d/gates_e.sh"
+control "C4 (control): a comment in gates_e.sh is reworded" "$d"
+
 echo
-if [[ "$(sha256sum "$LIB" "$F5" | sha256sum | cut -d' ' -f1)" != "$BASE_SHA" ]]; then
-    echo "🔴 lib_e.sh or run_f5.sh in this checkout CHANGED during the gate"
+if [[ "$(sha256sum "$LIB" "$F5" "$GATES" | sha256sum | cut -d' ' -f1)" != "$BASE_SHA" ]]; then
+    echo "🔴 lib_e.sh, run_f5.sh or gates_e.sh in this checkout CHANGED during the gate"
     exit 3
 fi
 echo "baseline byte-identical: yes"
