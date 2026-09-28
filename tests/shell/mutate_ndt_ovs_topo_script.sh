@@ -71,6 +71,7 @@ mutant() {   # $1 = label, $2 = file to mutate, $3 = the anchor, $4 = its replac
     d="$(shadow_of "$label")"
     case "${file##*/}" in
         ndtwin-lab) target="$d/tools/test_workflow/ndtwin-lab" ;;
+        test_ndt_ovs_topo_script.sh) target="$d/tests/shell/test_ndt_ovs_topo_script.sh" ;;
         *)          target="$d/${file##*/}" ;;
     esac
     python3 - "$target" "$old" "$new" <<'PY'
@@ -104,6 +105,22 @@ report() {   # $1 = label, $2 = shadow dir, $3 = the check that MUST go red
         grep 'FAILED' <<<"$out" | head -3 | sed 's/^/             /'
         SURVIVORS=$((SURVIVORS+1))
     fi
+}
+
+# [Co-developed with claude code -- Adam] (2026-09-28) report, plus: the suite must still reach its
+# summary. For a mutant whose every launch is refused -- the shape of a lab with no topology -- the
+# named check going red is not enough: before the fix a refusal outside a subshell ended the whole
+# suite there, and the lane read the missing summary as "ran=0".
+report_completes() {   # $1 = label, $2 = shadow dir, $3 = the check that MUST go red
+    local out
+    if [[ "$2" != ANCHOR-FAILED ]]; then
+        out="$(run_suite "$2")"
+        if ! grep -qE '^Ran [0-9]+ checks, [0-9]+ failed$' <<<"$out"; then
+            printf '  SURVIVED %-56s (the suite never reached its summary -- one refusal ended it)\n' "$1"
+            SURVIVORS=$((SURVIVORS+1)); return
+        fi
+    fi
+    report "$@"
 }
 
 report_green() {   # $1 = label, $2 = shadow dir -- a widening: it must stay GREEN
@@ -197,6 +214,24 @@ m=$(mutant m9 "$TOPO" \
 report "M9: testbed_topo.py loses its interpreter bootstrap" "$m" \
        "it imports under"
 
+# [Co-developed with claude code -- Adam] (2026-09-28) every launch refused. The named check goes
+# red either way; what this one is for is that the suite still reaches its summary (report_completes).
+m=$(mutant m10 "$LAB" \
+    "    local script; script=\"\$(ovs_topo_script)\"" \
+    "    local script; script=/nonexistent/NDT-TEST-FIXTURE/testbed_topo.py")
+report_completes "M10: every launch is refused, and the suite still finishes" "$m" \
+       "the launch succeeds"
+
+# [Co-developed with claude code -- Adam] (2026-09-28) the SUITE's own fallback, made to fire everywhere:
+# on the lab, where the configured tree is a kernel tree, that would test this checkout instead of
+# the install and still pass every launch check. The suite's own "configured tree is the one under
+# test" check must go red for it. (This gate runs on the lab, so the configured tree is there.)
+m=$(mutant m11 "$TEST" \
+    'if [[ ! -f "$KERNEL_DIR/p4_proxy/mininet/ntg_bmv2_topo.py" ]]; then' \
+    'if true; then')
+report "M11: the suite falls back to its own checkout even on the lab" "$m" \
+       "a lab install's configured tree is the one under test"
+
 echo
 echo "widenings -- behaviour-preserving rewrites that must stay green:"
 
@@ -215,6 +250,22 @@ m=$(mutant n3 "$LAB" \
     "    [[ -r \"\$script\" ]] || die \"no readable OVS topology at \$script" \
     "    [[ -e \"\$script\" ]] || die \"no readable OVS topology at \$script")
 report_green "N3 (widening): the refusal tests -e rather than -r" "$m"
+
+# [Co-developed with claude code -- Adam] (2026-09-28) a machine with no lab install (a CI runner):
+# the built-in KERNEL_DIR is not there, and the suite must fall back to its own checkout and stay
+# green -- not refuse, and not end at the first launch.
+m=$(mutant n4 "$LAB" \
+    "LAB_DEFAULT_KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel" \
+    "LAB_DEFAULT_KERNEL_DIR=/nonexistent/NDT-TEST-FIXTURE/NDTwin-Kernel")
+report_green "N4 (widening): no lab install -- the suite uses its own checkout" "$m"
+
+# ...and the same when something has made an empty directory at the built-in path: round.env's
+# mkdir does that on any machine that lets it, and a directory is not a kernel tree.
+mkdir -p "$BK/empty-tree-at-the-built-in-path"
+m=$(mutant n5 "$LAB" \
+    "LAB_DEFAULT_KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel" \
+    "LAB_DEFAULT_KERNEL_DIR=$BK/empty-tree-at-the-built-in-path")
+report_green "N5 (widening): an empty directory at the built-in path is not a lab install" "$m"
 
 echo
 NOW_LAB="$(sha256sum "$LAB" | cut -d' ' -f1)"

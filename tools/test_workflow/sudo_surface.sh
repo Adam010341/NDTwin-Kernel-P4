@@ -48,17 +48,29 @@
 # exactly zero discriminating power on the machine it was written for, which is the same defect
 # it was meant to detect, one level up.
 #
-# What actually discriminates
+# What actually discriminates -- and the one place the wording decides
 #
-#   rc decides, the message only explains.
+#   rc says whether the answer came back; the wording says why it did not.
 #
 # `sudo -n` exits non-zero when it refuses, and the wrapped command's exit status when it runs.
 # So a caller that keeps the exit status can always tell "I got an answer" from "I did not",
-# without parsing anything. That verdict is locale-proof and sudo-version-proof.
+# without parsing anything. That half is locale-proof and sudo-version-proof, and the callers that
+# need only that half -- ovs_bridge_count, dataplane_ok, sflow_query/sflow_why in ndt, and
+# guard_no_live_ovs's message -- take their verdict from the exit status and use the stderr
+# classifier below (ndt_sudo_refused) only to word the message ("add this sudoers line" versus
+# "the command itself failed"). For them a wrong guess makes the message wrong, never the verdict.
 #
-# The stderr classifier below exists only to word the error message ("add this sudoers line"
-# versus "the command itself failed"). If it ever guesses wrong the message is wrong; the
-# decision is not, because the decision was already taken from the exit status.
+# 🔴 ndt_sudo_probe is NOT one of them. [Co-developed with claude code -- Adam] (corrected
+# 2026-09-27: this paragraph used to say the classifier decides nothing, anywhere.) A probe that
+# exits non-zero is ambiguous -- sudo refused it, or sudo ran it and it failed (ovs-vsctl with no
+# ovsdb to talk to) -- and ndt_sudo_probe resolves that BY THE WORDING: one of the wordings
+# ndt_sudo_refused knows means refused (1), any other means granted (0). Its answer is
+# ndt_sudo_report's row and return code, i.e. the "sudo grants" line of `ndt status` and whether
+# `ndt status --check` lists a missing grant as a problem (ndt cmd_status). So there the wording IS
+# the verdict, and a refusal worded some other way -- another sudo's, a PAM or requiretty refusal,
+# a test harness's shim -- is reported as a live grant. It has been seen: the nolab shim of the
+# 09-27 gates ("sudo: refused by the nolab shim (a lab command)") made `ndt status` print "all 3
+# granted" (tests/shell/lib_probe_stub.sh, "WHAT THE STUB FIXES").
 #
 # Not covered here: tools/test_workflow/faults.sh keeps its own privileged surface in
 # FAULTS_TC / FAULTS_KILL (bare `tc` and bare `kill`), documented in its header and in
@@ -114,7 +126,8 @@ ndt_sudo_rule() {
 
 # --- asking the question -------------------------------------------------------------
 
-# Stderr of the last ndt_sudo_capture, for wording an error message. Never for a verdict.
+# Stderr of the last ndt_sudo_capture. Callers word their error messages with it; ndt_sudo_probe
+# also takes its granted / refused verdict from it -- see "What actually discriminates" above.
 NDT_SUDO_STDERR=""
 
 # ndt_sudo_capture <binary> [args...] -- run it under `sudo -n`, keeping BOTH halves of the
@@ -135,8 +148,10 @@ ndt_sudo_capture() {
 }
 
 # ndt_sudo_refused -- did the last ndt_sudo_capture fail because sudo refused, rather than
-# because the command ran and failed? Advisory: this picks the WORDING of a message. Callers
-# take their verdict from the exit status, so a wrong guess here cannot produce a wrong answer.
+# because the command ran and failed? For most callers it only picks the WORDING of a message:
+# they took their verdict from the exit status already. ndt_sudo_probe is the exception -- it
+# takes its VERDICT from this answer, so for that caller a refusal worded in a way missing here is
+# reported as a live grant (see "What actually discriminates" above).
 #
 # The first pattern is measured on this machine (sudo 1.9.15p5, 2026-09-03, `sudo -n
 # ovs-ofctl --version` with no matching NOPASSWD rule -> rc 1, "sudo: a password is required").
@@ -178,7 +193,8 @@ ndt_sudo_probe() {
     # shellcheck disable=SC2086
     ndt_sudo_capture $probe >/dev/null && return 0
     ndt_sudo_refused && return 1
-    # The command ran and failed on its own account -- the grant is live.
+    # The command ran and failed on its own account -- the grant is live. (Or sudo refused in words
+    # ndt_sudo_refused does not know: from here the two cannot be told apart.)
     return 0
 }
 

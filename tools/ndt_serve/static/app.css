@@ -1,0 +1,50 @@
+/* ndt serve: the page. [Co-developed with claude code -- Adam]
+   rc_class colours (SCOPE section 4): refused and dirty are two different colours on purpose --
+   ndt help: "1 AND 5 ARE DIFFERENT QUESTIONS"; nothing, report, skip and see-verdict are grey. */
+:root {
+  --fg: #1d1d1f; --muted: #6e6e73; --bg: #ffffff; --panel: #f5f5f7; --line: #d2d2d7;
+  --ok: #1a7f37; --warn: #b35900; --bad: #c9182b; --refused: #8a4dd6; --grey: #6e6e73;
+}
+body { font: 14px/1.45 system-ui, sans-serif; color: var(--fg); background: var(--bg); margin: 0; }
+header { display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; padding: 10px 16px;
+         border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 1; }
+header h1 { font-size: 18px; margin: 0; }
+main { padding: 0 16px 40px; max-width: 1200px; }
+section { border-bottom: 1px solid var(--line); padding: 8px 0 16px; }
+h2 { font-size: 16px; margin: 12px 0 8px; }
+h3 { font-size: 15px; margin: 12px 0 6px; }
+h4 { font-size: 13px; margin: 8px 0 4px; color: var(--muted); }
+pre { background: var(--panel); padding: 8px; overflow: auto; max-height: 360px; white-space: pre-wrap;
+      word-break: break-word; margin: 4px 0; }
+code, .mono, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+table { border-collapse: collapse; margin: 6px 0; }
+table.rows th { text-align: left; color: var(--muted); font-weight: normal; padding: 2px 12px 2px 0;
+                vertical-align: top; white-space: nowrap; }
+table.list th, table.list td { border-bottom: 1px solid var(--line); padding: 3px 8px; text-align: left;
+                               vertical-align: top; }
+.form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0; }
+button { font: inherit; padding: 3px 10px; cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+.muted { color: var(--muted); }
+.small { font-size: 12.5px; color: var(--muted); }
+.ok { color: var(--ok); }
+.bad { color: var(--bad); font-weight: 600; }
+.warn { color: var(--warn); }
+.answer { min-height: 1.2em; }
+.arg { border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; background: var(--panel); }
+ol#walk-steps li { margin: 6px 0; }
+ol#walk-steps li.current { background: var(--panel); outline: 1px solid var(--line); padding: 4px; }
+
+.rc, .state { display: inline-block; padding: 0 6px; border-radius: 3px; color: #fff; font-size: 12px;
+              background: var(--grey); }
+.rc-ok, .rc-pass, .state-done, .state-finished { background: var(--ok); }
+.rc-dirty, .rc-fail, .rc-failed, .rc-harness, .state-blocked, .state-lost { background: var(--bad); }
+.rc-refused { background: var(--refused); }
+.rc-usage, .rc-unknown, .rc-signal, .rc-timeout, .state-orphaned { background: var(--warn); }
+.rc-nothing, .rc-report, .rc-skip, .rc-see-verdict, .state-pending { background: var(--grey); }
+.state-running { background: #0969da; }
+
+dialog { max-width: 760px; width: 92vw; border: 1px solid var(--line); border-radius: 6px; }
+dialog::backdrop { background: rgba(0, 0, 0, 0.35); }
+#c-blockers { padding-left: 18px; }
+#c-go:not(:disabled) { background: var(--bad); color: #fff; border: 1px solid var(--bad); }

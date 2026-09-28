@@ -27,6 +27,7 @@
  */
 
 #include <atomic>
+#include <ctime>
 #include <string>
 #include <thread>
 #include <vector>
@@ -218,4 +219,45 @@ TEST(TryMacToUint64Test, TheThrowingWrapperStillThrowsAndOnTheSameInputs)
     EXPECT_EQ(utils::macToUint64("00:11:22:33:44:55"), 0x001122334455ull);
     EXPECT_THROW(utils::macToUint64("00:11:22:33:44:5"), std::invalid_argument);
     EXPECT_THROW(utils::macToUint64(""), std::invalid_argument);
+}
+
+// --- formatTime ---------------------------------------------------------------------------------
+//
+// [Co-developed with claude code -- Adam]
+// formatTime went through localtime(), whose struct tm is one per process -- unlike inet_ntoa's
+// buffer above, which glibc keeps per thread. getFlowInfoJson calls formatTime twice per row from
+// every reader holding the collector's shared lock, so concurrent readers could print each other's
+// timestamps. TSan flagged it in TopKFlowInfoTest.TopKKeepsAnsweringWhileAWriterIsFeedingTheTable,
+// but only in the TSan job. This test needs neither threads nor a sanitizer: a formatter that
+// writes the process-wide struct necessarily changes what an earlier localtime() caller is still
+// holding.
+
+TEST(FormatTimeTest, LeavesTheStructLocaltimeReturnedToOtherCallersAlone)
+{
+    const std::time_t epoch = 0;
+    const std::tm* const shared = std::localtime(&epoch);
+    ASSERT_NE(shared, nullptr);
+    const int yearBefore = shared->tm_year; // 69 or 70, depending on the zone
+    const int ydayBefore = shared->tm_yday;
+
+    const std::string formatted = utils::formatTime(int64_t{1'700'000'000'000}); // November 2023
+    ASSERT_FALSE(formatted.empty());
+
+    EXPECT_EQ(shared->tm_year, yearBefore)
+        << "formatTime(" << formatted << ") rewrote the struct tm that localtime() gave another "
+        << "caller: it formats through the process-wide buffer, so concurrent callers race on it";
+    EXPECT_EQ(shared->tm_yday, ydayBefore);
+}
+
+TEST(FormatTimeTest, StillPrintsLocalTimeToTheSecond)
+{
+    // Pins what the fix must not change: local time rather than UTC, milliseconds truncated, and
+    // the exact layout the flow-info JSON has always carried.
+    const std::time_t seconds = 1'700'000'000;
+    std::tm expected{};
+    ASSERT_NE(localtime_r(&seconds, &expected), nullptr);
+    char text[32];
+    ASSERT_GT(std::strftime(text, sizeof(text), "%Y-%m-%d %H:%M:%S", &expected), 0u);
+
+    EXPECT_EQ(utils::formatTime(int64_t{1'700'000'000'999}), text);
 }

@@ -36,6 +36,9 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 SERVE_DIR = os.environ.get("NDT_SERVE_UNDER_TEST") or os.path.join(REPO, "tools", "ndt_serve")
 NDT = os.environ.get("NDT_UNDER_TEST") or os.path.join(REPO, "tools", "test_workflow", "ndt")
 OWNER = "serve-test"
+# [Co-developed with claude code -- Adam] `ndt status` with this server's own claim (claim_line's own
+# form): an app start/stop reads it inside the slot and runs only under it (judge B1, 09-27)
+OWN_CLAIM_STATUS = "lab\n  claim          yours -- 30m left (until 23:59:00)\n  measuring      nothing\n"
 
 STUB_NDT = textwrap.dedent('''\
     #!/usr/bin/env bash
@@ -593,6 +596,7 @@ class Whitelist(ServeCase):
             st, j, _, _ = self.s.post("/apps/%s/start" % name)
             self.assertIn(st, (400, 404), name)
         self.assertEqual(self.s.calls(), [])
+        self.s.behave(status={"stdout": OWN_CLAIM_STATUS})
         self.assertEqual(self.s.run_job("/apps/nsr/start")["argv"][1:], ["apps", "nsr"])
         self.assertEqual(self.s.run_job("/apps/te/stop")["argv"][1:], ["apps", "stop", "te"])
 
@@ -603,17 +607,27 @@ class Whitelist(ServeCase):
             self.assertEqual(j["apps"], ["alpha", "beta"])
             st, _, _, _ = other.post("/apps/nsr/start")
             self.assertEqual(st, 400)
+            other.behave(status={"stdout": OWN_CLAIM_STATUS})
             self.assertEqual(other.run_job("/apps/beta/start")["argv"][1:], ["apps", "beta"])
         finally:
             other.close()
 
     def test_claim_note_reaches_ndt_as_one_argv_element(self):
-        m1, m2 = os.path.join(self.s.tmp, "m1"), os.path.join(self.s.tmp, "m2")
-        note = '$(touch %s); `touch %s` && echo "q" | cat; *' % (m1, m2)
+        # [Co-developed with claude code -- Adam] The note is the same length whatever TMPDIR is. It
+        # used to carry two absolute paths under self.s.tmp, and under a TMPDIR of about 55
+        # characters or more it passed MAX_NOTE_CHARS (200): a 400, not this case (orchestrator
+        # 09-27, on b0cd6731: a 105-character TMPDIR red, 21 green). The names are relative now, so
+        # a shell that ran the note would make them in ITS cwd -- the job's, which is where the
+        # runner starts ndt (runner.py, cwd=req["cwd"]) and which lies inside the temp tree walked
+        # below.
+        note = '$(touch m1); `touch m2` && echo "q" | cat; *'
         job = self.s.run_job("/claim", {"minutes": 25, "note": note})
         self.assertEqual(job["argv"][1:], ["claim", "25", note])
-        self.assertEqual(self.s.calls()[0]["argv"], ["claim", "25", note])
-        self.assertFalse(os.path.exists(m1) or os.path.exists(m2), "the note was run by a shell")
+        call = self.s.calls()[0]
+        self.assertEqual(call["argv"], ["claim", "25", note])
+        self.assertTrue(os.path.realpath(call["cwd"]).startswith(os.path.realpath(self.s.tmp) + os.sep), call["cwd"])
+        made = [os.path.join(d, f) for d, _, files in os.walk(self.s.tmp) for f in files if f in ("m1", "m2")]
+        self.assertEqual(made, [], "the note was run by a shell")
 
     def test_claim_note_with_a_newline_is_refused(self):
         for note in ("x\nowner=evil", "tab\there", "nul\x00"):
@@ -654,7 +668,7 @@ class ThinShell(ServeCase):
         self.assertEqual((dirty["rc"], dirty["rc_class"]), (1, "dirty"))
 
     def test_each_verb_reads_its_own_rc_table(self):
-        self.s.behave(apps_stop={"rc": 2}, down={"rc": 3}, up={"rc": 2})
+        self.s.behave(apps_stop={"rc": 2}, down={"rc": 3}, up={"rc": 2}, status={"stdout": OWN_CLAIM_STATUS})
         self.assertEqual(self.s.run_job("/apps/nsr/stop")["rc_class"], "nothing")
         self.assertEqual(self.s.run_job("/down")["rc_class"], "nothing")
         self.assertEqual(self.s.run_job("/up", {"plane": "ovs"})["rc_class"], "usage")
@@ -956,14 +970,15 @@ class Identity(unittest.TestCase):
     def test_every_ndt_call_carries_the_owner(self):
         s = Serve().start()
         try:
+            s.behave(status={"stdout": OWN_CLAIM_STATUS})
             s.get("/status")
             s.get("/apps")
             s.run_job("/claim", {"minutes": 5})
             s.run_job("/up", {"plane": "ovs", "hosts": 4})
-            s.run_job("/apps/nsr/start")
+            s.run_job("/apps/nsr/start")   # two calls: its claim precheck reads status first
             s.run_job("/release")
             calls = s.calls()
-            self.assertEqual(len(calls), 6)
+            self.assertEqual(len(calls), 7)
             self.assertEqual({c["owner"] for c in calls}, {OWNER})
         finally:
             s.close()
@@ -1163,13 +1178,16 @@ class Entry(unittest.TestCase):
         self.assertIn("usage: ndt serve", r.stdout)
         self.assertIn("127.0.0.1", r.stdout)
 
-    def test_root_is_reserved_for_the_gui(self):
+    def test_outside_the_api_there_is_only_the_page(self):
+        # [Co-developed with claude code -- Adam] the GUI cut (09-27) took /, /app.js and /app.css;
+        # those three are tests/python/test_ndt_serve_gui.py's. Nothing else is a path to a file.
         s = Serve().start()
         try:
-            for p in ("/", "/index.html", "/app.js", "/apiv1/health"):
+            for p in ("/index.html", "/static/app.js", "/app.js/", "/favicon.ico", "/apiv1/health",
+                      "/../tools/ndt_serve/serve.py", "/static/../serve.py", "/serve.py"):
                 st, j, _, _ = s.request("GET", p)
                 self.assertEqual(st, 404, p)
-                self.assertIn("reserved for the Web-GUI", j["note"])
+                self.assertIn("there is only the page", j["note"])
         finally:
             s.close()
 

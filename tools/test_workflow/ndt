@@ -11014,6 +11014,9 @@ usage: ndt <command>
                 carries the token the server writes to ~/.config/ndt-serve/token (0600);
                 every call to ndt carries NDT_OWNER=N. 'ndt serve --help' for the options,
                 tools/ndt_serve/README.md for the API.
+                The page at / drives the same API: open the one-time URL it starts with
+                (printed on a terminal, else in ~/.config/ndt-serve/url, 0600).
+  serve url     a new one-time URL of the running server's page -- each opens it once
 
   .test_run/pids/ is shared, so 'down' kills whoever is registered there.
   Declare yourself before a long run -- any script can just write .test_run/lab.claim:

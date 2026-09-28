@@ -40,6 +40,14 @@ PREREG_FILE="${PREREG_FILE:-$ROUND/PREREG.md}"
 : "${_DRY_LIVE_ARM:=1hz}"
 : "${_LAST_EXE_READ_VIA:=unset}"
 : "${_DRY_EXE_READS:=0}"
+# [Co-developed with claude code -- Adam] 🔴 NDT_SAMPLING_RAW_DIR is a TEST seam (plot_figures.RAW;
+# tests/shell/test_gate_exit_code_not_tee.sh) and never an input to this round: cell_verdict,
+# ratio_gate (--make-forcered WRITES there), plot_ladder_rates and wall_f.sh's cpu_stats would all
+# read another directory while measure.sh keeps writing PRIOR_RAW -- the round judging cells it did
+# not measure, silently. round.env unsets it, but gates_e.sh, run_e.sh and build_1khz_binary.sh
+# skip round.env when ROUND is already set, and each of them sources THIS file unconditionally (the
+# opus judge's NOTE C on 1d5180ce, 09-27). The test seam sets it AFTER sourcing this file.
+unset NDT_SAMPLING_RAW_DIR
 
 # 🔴 A dry run and a real run must never share a transcript.  CLAUDE.md: "跑過" and
 # "讀過未執行" are never tabled together -- and a log file that contains both is exactly that,

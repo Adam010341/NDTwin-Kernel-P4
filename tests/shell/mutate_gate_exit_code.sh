@@ -38,10 +38,12 @@ cd "$REPO"
 LIB=doc/audit/2026-08-31_sampling-ceiling-after-merge/lib_e.sh
 GATES=doc/audit/2026-08-31_sampling-ceiling-after-merge/gates_e.sh
 TEST=tests/shell/test_gate_exit_code_not_tee.sh
+# [Co-developed with claude code -- Adam] (09-27) the seam the suite's fixture goes through: mutation 6
+PLOT=doc/audit/2026-08-20_sampling-rate-and-cpu/plot_figures.py
 BK=$(mktemp -d)
 
-cp "$LIB" "$BK/lib" && cp "$GATES" "$BK/gates"
-restore() { cp "$BK/lib" "$LIB"; cp "$BK/gates" "$GATES"; }
+cp "$LIB" "$BK/lib" && cp "$GATES" "$BK/gates" && cp "$PLOT" "$BK/plot"
+restore() { cp "$BK/lib" "$LIB"; cp "$BK/gates" "$GATES"; cp "$BK/plot" "$PLOT"; }
 trap 'restore; rm -rf "$BK"' EXIT
 
 run() { bash "$TEST" 2>&1; }
@@ -53,7 +55,7 @@ SURVIVORS=0
 # invisible: the mutation is never applied, the suite stays green, and the run blames the test
 # for being decorative when in fact nothing was ever tested. report() always starts from a
 # restored tree, so "still identical to the baseline" means the perl above matched nothing.
-state() { sha256sum "$LIB" "$GATES" | cut -d' ' -f1 | tr '\n' ' '; }
+state() { sha256sum "$LIB" "$GATES" "$PLOT" | cut -d' ' -f1 | tr '\n' ' '; }
 BASELINE_STATE=$(state)
 
 # A harness fault means the run measured nothing. It is never a survivor count and never a 1.
@@ -120,14 +122,27 @@ report "run_gate stops writing the gate output to the log" "case 4"
 perl -0pi -e 's/^set -u$/set -uo pipefail/m' "$GATES"
 report "gates_e.sh gains pipefail" "case 3b"
 
+# [Co-developed with claude code -- Adam] 5. (the opus judge's NOTE C on 1d5180ce, 09-27) lib_e.sh stops
+#    dropping an inherited NDT_SAMPLING_RAW_DIR: an operator who sourced round.env and then exported it
+#    would have gates_e.sh's gates judge another directory's cells.
+perl -0pi -e 's/^unset NDT_SAMPLING_RAW_DIR\n//m' "$LIB"
+report "lib_e.sh keeps an inherited NDT_SAMPLING_RAW_DIR" "case 6"
+
+# 6. (the judge's NOTE I on 1d5180ce) plot_figures.RAW stops honouring the override, so the gate reads
+#    whatever raw/ the tree has -- nothing in a clone (UNRUNNABLE), the real trace here (0.9656):
+#    case 1b is the one check that tells the fixture from either.
+perl -0pi -e 's/RAW = os\.environ\.get\("NDT_SAMPLING_RAW_DIR"\) or os\.path\.join\(HERE, "raw"\)/RAW = os.path.join(HERE, "raw")/' "$PLOT"
+report "plot_figures.RAW ignores NDT_SAMPLING_RAW_DIR" "case 1b"
+
 restore
 echo
-if cmp -s "$BK/lib" "$LIB" && cmp -s "$BK/gates" "$GATES"; then
-    echo "baseline restored: both files byte-identical to the pre-run snapshot"
+if cmp -s "$BK/lib" "$LIB" && cmp -s "$BK/gates" "$GATES" && cmp -s "$BK/plot" "$PLOT"; then
+    echo "baseline restored: all three files byte-identical to the pre-run snapshot"
 else
     echo "🔴 BASELINE NOT RESTORED -- a mutant is still on disk:"
     diff -u "$BK/lib" "$LIB" | head -20
     diff -u "$BK/gates" "$GATES" | head -20
+    diff -u "$BK/plot" "$PLOT" | head -20
     harness_fault "the baseline was not restored -- a mutant is still on disk"
 fi
 if ! run | tail -2 | grep -q '0 failed'; then
