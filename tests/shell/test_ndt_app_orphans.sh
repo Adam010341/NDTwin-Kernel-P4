@@ -120,7 +120,14 @@ cleanup_fixtures() {
     [[ -n "${TMPROOT:-}" && "$TMPROOT" == /tmp/ndt-app-orphans-* ]] && rm -rf "$TMPROOT"
     return 0
 }
-trap cleanup_fixtures EXIT INT TERM
+# [Co-developed with claude code -- Adam] A signal ENDS the run (2026-09-28). The handler used to
+# clean up and return, so on INT or TERM the suite went on running with its probe stubs (TMPROOT) deleted,
+# and its next sudo went to whatever sudo came next on PATH -- on a machine with a NOPASSWD grant,
+# to root. The EXIT trap does the cleaning on the way out; INT and TERM only exit, with the
+# shell's usual 128+signal status.
+trap cleanup_fixtures EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 # spawn_fixture <argv0> [cwd] -- start a process wearing that command line; echo its pid.
 #
