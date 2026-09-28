@@ -7046,9 +7046,14 @@ cmd_status() {
         # about something that was never attempted, and raising it as a `--check` problem sends an
         # operator to debug a fabric that is behaving exactly as designed. `unreadable` keeps
         # today's behaviour: a package this script could not parse is not evidence about routes.
+        # [Co-developed with claude code -- Adam] "none expected" stopped being true when the
+        # package's links were declared (TICKET-P4-roles 2.3) and, for an external control plane,
+        # when it declared them too (09-27): the proxy renders shortest paths over the declared
+        # links, so the count is the twin's guess, not zero and not a reading (the external
+        # judge's S3, 09-28).
         case "$pkgpipe" in
             foreign:*)
-                echo "  ${paths:-?} destination paths reported; none expected -- the package's program on dpid ${pkgpipe#foreign:}, proxy skipped lldp_discovery"
+                echo "  ${paths:-?} destination paths reported; not a count of installed routes -- the package's program on dpid ${pkgpipe#foreign:}, proxy skipped lldp_discovery (they are shortest paths over the package's declared links: the twin's guess, whether or not the routes are NDTwin's)"
                 ;;
             *)
                 echo "  ${paths:-?} destination paths (want $(( ph * (ph - 1) )) for $ph hosts)"

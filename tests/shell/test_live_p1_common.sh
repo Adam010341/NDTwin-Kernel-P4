@@ -1242,6 +1242,10 @@ V5() { ( source "$COMMON" >/dev/null 2>&1; PY="$REAL_PY"; heartbeat_skips_verdic
 check "🔴 external, running, the five names: OK"            "OK heartbeat.watchdog running, control_plane.skipped $W5" "$(V5 ext_running.json)"
 has   "🔴 external, running, link_watchdog still named: BAD" "BAD control_plane.skipped is" "$(V5 ext_six.json)"
 for step in 03_app_p4runtime 04_diag_p4runtime; do
+    # [Co-developed with claude code -- Adam] The external judge's m3 (09-28): and CONSUMES it on the
+    # next line, as 02 does.
+    check "🔴 $step fails the run on anything but OK, on the next line" "    [[ \"\$V\" == OK* ]] || fail \"\${V#BAD }\"" \
+          "$(/usr/bin/grep -A1 -F "V=\"\$(heartbeat_skips_verdict \"\$SS0\" \"$W5\")\"" "$LIVE/$step.sh" | sed -n 2p)"
     check "  $step asks this verdict, with the five names"  "1" \
           "$(/usr/bin/grep -cF "V=\"\$(heartbeat_skips_verdict \"\$SS0\" \"$W5\")\"" "$LIVE/$step.sh")"
 done

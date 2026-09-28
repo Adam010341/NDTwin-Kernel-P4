@@ -1172,7 +1172,7 @@ json_len() { echo 4; }
 reset_fix
 OUT="$(drive "NDT_APP_DIR=$(q "$PKG_FOREIGN"); up_p4")"
 OUT="$(run_status --check "$PROXY_STUBS")"
-has   "🔴 a package fabric is told none were expected"    "4 destination paths reported; none expected" "$OUT"
+has   "🔴 a package fabric is told the count is not a reading"    "4 destination paths reported; not a count of installed routes" "$OUT"
 has   "  naming the dpid and the step the proxy skipped"  "the package's program on dpid 1, proxy skipped lldp_discovery" "$OUT"
 hasnt "🔴 and the shortfall is NOT a --check problem"     "proxy reports 4 destination paths, want" "$OUT"
 check "  so --check still exits 0"                        "0" "$(rc_of "$OUT")"

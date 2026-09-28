@@ -1351,14 +1351,19 @@ HEARTBEAT_CENSUS = {
                "ndt's rule and not yet measured under ndt (live-p1/08 PART=h5 checks it per arm). "
                "On an external control plane a frame the program punts to ITS OWN controller is "
                "seen neither by this proxy (it has no stream there) nor by the daemon (it counts "
-               "frames leaving switch ports): these 3 programs drop it (flowcache drops every "
-               "non-IPv4 frame at ingress; advanced_tunnel applies no table to it and its egress "
-               "port 0 does not exist), and no other external program has been looked at.",
+               "frames leaving switch ports). The P4 SOURCE of these 3 programs drops it "
+               "(flowcache drops every non-IPv4 frame at ingress; advanced_tunnel applies no table "
+               "to it, so egress_spec stays 0 -- that no port 0 exists is inferred from bmv2); "
+               "segment S's census ran them with no controller, so no pipeline was loaded, and "
+               "live-p1/08 PART=h5 is the first measurement with these programs loaded. No other "
+               "external program has been looked at.",
     # [Co-developed with claude code -- Adam] The last sentences: the fable judge's 2.1 on 1a3ebd7f
     # -- the 20 is segment S's, not ndt's. It said 17 until 09-27, when `ndt up` started the
     # heartbeat on the external arms as well; the external judge's F6 (09-28) made "all 20 under
     # ndt" an EXPECTATION until H5 measures it (this constant is otherwise measured numbers), and
-    # its F3 made the punt blind spot on external control planes part of what is served.
+    # its F3 made the punt blind spot on external control planes part of what is served. Its S1
+    # (round 2): the 3 external arms were NOT measured with their programs loaded -- segment S never
+    # started their controllers -- so what is served is a reading of the P4 source, and says so.
 }
 
 
@@ -1835,9 +1840,12 @@ async def startup(clients_factory, sflow, kernel, topo,
         timeout: a fabric-wide false alarm.
 
     🔴 THE TWO DISCLOSURES ARE NOT ONE LIST. `control_plane.skipped` carries the fabric-wide
-    steps only -- [Co-developed with claude code -- Adam] lldp_discovery and install_initial_routes,
-    plus link_watchdog when the heartbeat watchdog did not start (Adam's ruling E, 09-27) -- and
-    the per-switch pair lands on that switch's `pipeline.skipped`. On a mixed fabric
+    steps only -- [Co-developed with claude code -- Adam] lldp_discovery; install_initial_routes,
+    unless every foreign switch's route table is bound with owner ndtwin (roles; TICKET-P4-roles
+    2.3-3), when NDTwin installs the routes and it drops off the list; and link_watchdog only when
+    the heartbeat watchdog did not start (Adam's ruling E, 09-27). Under an external control plane
+    the list is EXTERNAL_SKIPS, less link_watchdog when the heartbeat drives it -- and the
+    per-switch pair lands on that switch's `pipeline.skipped`. On a mixed fabric
     the switches beside the package's still get a clone session and still sample, so saying
     `clone_session` at fabric level would be a true sentence about one switch told about ten.
     """

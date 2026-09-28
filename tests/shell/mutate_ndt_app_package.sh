@@ -603,14 +603,14 @@ check_fires "M27: a package pipeline is reported as an external plane" m27 \
 # and the operator's next move is to debug a control plane that is behaving as designed.
 cat > "$A/m28.old" <<'EOF'
             foreign:*)
-                echo "  ${paths:-?} destination paths reported; none expected -- the package's program on dpid ${pkgpipe#foreign:}, proxy skipped lldp_discovery"
+                echo "  ${paths:-?} destination paths reported; not a count of installed routes -- the package's program on dpid ${pkgpipe#foreign:}, proxy skipped lldp_discovery (they are shortest paths over the package's declared links: the twin's guess, whether or not the routes are NDTwin's)"
 EOF
 cat > "$A/m28.new" <<'EOF'
             never-taken:*)
-                echo "  ${paths:-?} destination paths reported; none expected -- the package's program on dpid ${pkgpipe#foreign:}, proxy skipped lldp_discovery"
+                echo "  ${paths:-?} destination paths reported; not a count of installed routes -- the package's program on dpid ${pkgpipe#foreign:}, proxy skipped lldp_discovery (they are shortest paths over the package's declared links: the twin's guess, whether or not the routes are NDTwin's)"
 EOF
 check_fires "M28: status wants paths nobody was ever going to install" m28 \
-            "🔴 a package fabric is told none were expected" \
+            "🔴 a package fabric is told the count is not a reading" \
             "🔴 and the shortfall is NOT a --check problem"
 
 # M29: `up_p4` stops telling verify_p4 whose program is on the switches. Every branch above is

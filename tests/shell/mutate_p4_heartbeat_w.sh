@@ -910,15 +910,18 @@ m=$(mutant m28 "$MAIN" \
                "ndt'"'"'s rule and not yet measured under ndt (live-p1/08 PART=h5 checks it per arm). "
                "On an external control plane a frame the program punts to ITS OWN controller is "
                "seen neither by this proxy (it has no stream there) nor by the daemon (it counts "
-               "frames leaving switch ports): these 3 programs drop it (flowcache drops every "
-               "non-IPv4 frame at ingress; advanced_tunnel applies no table to it and its egress "
-               "port 0 does not exist), and no other external program has been looked at.",' \
+               "frames leaving switch ports). The P4 SOURCE of these 3 programs drops it "
+               "(flowcache drops every non-IPv4 frame at ingress; advanced_tunnel applies no table "
+               "to it, so egress_spec stays 0 -- that no port 0 exists is inferred from bmv2); "
+               "segment S'"'"'s census ran them with no controller, so no pipeline was loaded, and "
+               "live-p1/08 PART=h5 is the first measurement with these programs loaded. No other "
+               "external program has been looked at.",' \
     '               "skeletons do not build.",')
 report "M28: the census does not say which arms ndt up starts it on" "$m" \
        "test_the_census_says_which_of_its_arms_ndt_up_starts_the_heartbeat_on"
 m=$(mutant m28b "$MAIN" \
-    '               "port 0 does not exist), and no other external program has been looked at.",' \
-    '               "port 0 does not exist).",')
+    '               "external program has been looked at.",' \
+    '               "external program has been assumed safe.",')
 report "M28b: the census stops saying no other external program was looked at" "$m" \
        "test_the_census_names_the_punt_blind_spot_on_external_control_planes"
 m=$(mutant k01 "$HELPER" \
@@ -1612,6 +1615,33 @@ m=$(lmutant l75 "$LIVE08" \
     '    untold = list(got)')
 lreport "L75: H4 never believes the kernel accepted anything" "$m" \
         "H4 restored and the kernel accepted it"
+# [Co-developed with claude code -- Adam] The external judge's m3 and M2 (09-28, round 2): L73b is
+# L73 seen on the up side; L76 lets the restore run to the poll's 35 s (F9); L77 does not look at
+# table_generation; L78 is the sampler without the report's written_wall.
+m=$(lmutant l73b "$LIVE08" \
+    '    if told == "told" and untold:' \
+    '    if False:')
+lreport "L73b: H4 does not ask whether the kernel accepted the restore" "$m" \
+        "H4 up at the proxy, not accepted by the kernel"
+m=$(lmutant l76 "$LIVE08" \
+    '    d, b = float(elapsed), float(bound)
+    if d <= b:
+        return f"OK recovery' \
+    '    d, b = float(elapsed), float(bound) + 15
+    if d <= b:
+        return f"OK recovery')
+lreport "L76: H4's restore judged at the poll's 35 s, not the strict 20 s" "$m" \
+        "H4 restore 20.5 s is over the strict 20 s"
+m=$(lmutant l77 "$LIVE08" \
+    '    keys = ("pipeline_commits", "rules_timed", "table_generation")' \
+    '    keys = ("pipeline_commits", "rules_timed")')
+lreport "L77: H4 does not look at table_generation across the cut" "$m" \
+        "H4 only table_generation moved"
+m=$(lmutant l78 "$LIVE08" \
+    '                  d.get("written_wall"), d.get("stop_reason") or "",' \
+    '                  "-", d.get("stop_reason") or "",')
+lreport "L78: the sampler records no written_wall" "$m" \
+        "H5 sampler rows"
 m=$(lmutant l47 "$LIVE08" \
     '    if d <= b:
         return f"OK detection {d:.3f} s, within the strict {b:g} s"' \

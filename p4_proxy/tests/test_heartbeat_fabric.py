@@ -522,12 +522,18 @@ class TheHeartbeatIsDisclosedOnSwitchStateTest(unittest.TestCase):
     def test_the_census_names_the_punt_blind_spot_on_external_control_planes(self):
         # [Co-developed with claude code -- Adam] The external judge's F3 (09-28): a heartbeat frame
         # an external program punts to its own controller is invisible to the proxy and the daemon;
-        # served beside the census, with the P4-level reason the 3 measured programs are safe.
+        # served beside the census, with the P4-level reason the 3 programs' source drops it (read
+        # from the source, not measured with the programs loaded -- S1, round 2).
         self.start()
         text = main.heartbeat_report()["census"]["summary"]
         self.assertIn("punts to ITS OWN controller", text)
-        self.assertIn("no other external program has been looked at", text)
+        self.assertIn("No other external program has been looked at", text)
         self.assertIn("flowcache drops every non-IPv4 frame at ingress", text)
+        # [Co-developed with claude code -- Adam] The external judge's S1 (09-28): a reading of the
+        # P4 source, not a measurement -- segment S ran these arms with no controller.
+        self.assertIn("The P4 SOURCE of these 3 programs drops it", text)
+        self.assertIn("is the first measurement with these programs loaded", text)
+        self.assertIn("inferred from bmv2", text)
 
     def test_the_watchdogs_passes_are_served(self):
         topo = self.start()

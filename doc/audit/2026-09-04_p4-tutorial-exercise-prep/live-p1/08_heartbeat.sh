@@ -46,15 +46,22 @@
 #       at the strict 20 s (the poll waits 35 s so a late one is still measured). 🔴 THE KERNEL'S GRAPH IS NOT THE READING HERE: no exercise
 #       controller runs in H4, so no pipeline is loaded and the twin holds these switches down
 #       (03's 2026-09-18 reading). What the exercise's own evidence does with the heartbeat
-#       running is live 06 against 2026-09-27T074635Z_06_thirteen, by external_evidence.py.
+#       running is H5's 06 against a same-session CONTROL without the heartbeat (README, "合併前的
+#       比對"), by external_evidence.py -- not against 074635Z, which ran other code
+#       (5dc7fc9a + 95 uncommitted files) and has no venv fingerprint.
 #   H5  (PART=h5, separately: it runs 06 and 01, which claim the lab per step) live-p1/06 ONCE
 #       with the heartbeat on wherever `ndt up` starts it -> 26 arms, every one's rc and verdict
 #       what `2026-09-27T074635Z_06_thirteen` recorded (OLD_06; 185505Z until 09-27, the same rc
 #       and verdict arm for arm); a sampler of the heartbeat report proves which arms had one
 #       running -- 20 since 09-27, the 3 external ones included (HB_ARMS) -- and that no arm's
 #       daemon counted a frame leaving a host port; then 01 (NDTwin's own fabric) PASS, with no
-#       heartbeat session started under it. The external arms' OWN evidence (tunnel counters,
-#       packet-ins, cache entries) is external_evidence.py's, against the same OLD_06.
+#       heartbeat session started under it. [Co-developed with claude code -- Adam] (the external
+#       judge's S2, 09-28) For the external comparison, run H5 with OLD_06 set to the control C1
+#       (`OLD_06=<C1> PART=h5 ...`): its rc/verdict check is then against a run of the same session
+#       and venv. The external arms' OWN evidence (tunnel counters, packet-ins, cache entries) is
+#       external_evidence.py's, against C1 and C2 with this run's 50_samples.tsv -- the sampler
+#       also records each report's written_wall, stop_reason and the daemon's four counters, and
+#       50_t06_end.txt holds 06's end, the last arm's window edge.
 #
 # 🔴 HOW H1 JUDGES "WITHIN 20 s" (the fable judge's F1 on 1a3ebd7f, 09-26; SUMMARY section 2).
 # Detection is (timeout - phi) + psi + the pass's read, _notify_link's HTTP and the kernel's graph
@@ -287,6 +294,14 @@ def v_links(state, want, *cut):
                 f"reported_to_kernel is not true on {untold}")
     said = ", ".join(f"{k} reported_to_kernel {v.get('reported_to_kernel')}" for k, v in got.items())
     return f"OK both directions of s{a}:{ap}<->s{b}:{bp} {word} at the proxy, source heartbeat ({said})"
+
+def v_restore_strict(elapsed, bound):
+    """[Co-developed with claude code -- Adam] H4's restore against the STRICT bound (the external
+    judge's F9, 09-28): Adam's "about 20 s" names detection only, so a restore over it is a FAIL."""
+    d, b = float(elapsed), float(bound)
+    if d <= b:
+        return f"OK recovery {d:.1f} s, within the strict {b:g} s"
+    return f"BAD recovery {d:.1f} s, over the strict {b:g} s (restore is judged strictly)"
 
 def v_no_writes(before, after):
     """[Co-developed with claude code -- Adam] H4, the external judge's F4 (09-28): nothing this proxy
@@ -834,13 +849,14 @@ phase_down() {
 # holds an expression with quotes in it, on any Python), its stderr is a file in $RUN, and
 # sampler_start waits for the header and a live pid or FAILS the run before 06 starts. The
 # self-test executes this text (st_sampler).
-SAMPLER_HEADER=$'wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches'
+SAMPLER_HEADER=$'wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches\twritten_wall\tstop_reason\tmisdelivered\tforeign_frames'
 SAMPLER_PY="$(cat <<'SAMPLER'
 import json, os, sys, time
 report, out, stop = sys.argv[1], sys.argv[2], sys.argv[3]
 interval = float(sys.argv[4]) if len(sys.argv) > 4 else 1.0
 end = time.time() + 5 * 3600
-HEADER = ("wall", "status", "session", "pid", "forwarded_to_hosts", "forwarded_between_switches")
+HEADER = ("wall", "status", "session", "pid", "forwarded_to_hosts", "forwarded_between_switches",
+          "written_wall", "stop_reason", "misdelivered", "foreign_frames")
 
 
 def row(fh):
@@ -850,9 +866,11 @@ def row(fh):
             d = json.load(rf)
         se = d.get("side_effects") or {}
         values = (wall, d.get("status"), d.get("session"), d.get("pid"),
-                  se.get("forwarded_to_hosts"), se.get("forwarded_between_switches"))
+                  se.get("forwarded_to_hosts"), se.get("forwarded_between_switches"),
+                  d.get("written_wall"), d.get("stop_reason") or "",
+                  se.get("misdelivered"), se.get("foreign_frames"))
     except (OSError, ValueError, AttributeError):
-        values = (wall, "absent", "-", "-", 0, 0)
+        values = (wall, "absent", "-", "-", 0, 0, "-", "", 0, 0)
     fh.write("\t".join(str(v) for v in values) + "\n")
 
 
@@ -1388,6 +1406,8 @@ xw = copy.deepcopy(xt); xw["switches"]["2"]["pipeline_commits"] = 1; xw["switche
 dump("state_ext_wrote.json", xw)
 xr = copy.deepcopy(xt); xr["switches"]["1"]["rules_timed"] = 3
 dump("state_ext_rules.json", xr)
+xg = copy.deepcopy(xt); xg["switches"]["3"]["table_generation"] = "g7"
+dump("state_ext_gen.json", xg)
 p4rt = [(1, 2, 2, 2), (1, 3, 3, 2), (3, 3, 2, 3)]
 dump("model_p4rt.json", {"nodes": [{"dpid": d, "vertex_type": 0} for d in (1, 2, 3)],
                          "edges": [{"src_dpid": s, "src_interface": sp, "dst_dpid": d, "dst_interface": dp}
@@ -1538,6 +1558,12 @@ PY
     expect OK   "H4 nothing written across the cut"                  "$(verdict no_writes "$t/state_ext.json" "$t/state_ext_cut_told.json")"
     expect BAD  "H4 a pipeline commit across the cut"                "$(verdict no_writes "$t/state_ext.json" "$t/state_ext_wrote.json")"
     expect BAD  "H4 a timed rule across the cut"                     "$(verdict no_writes "$t/state_ext.json" "$t/state_ext_rules.json")"
+    # [Co-developed with claude code -- Adam] The external judge's m3 (09-28): up at the proxy with
+    # the kernel not having accepted it; table_generation moving on its own; the restore's bound.
+    expect BAD  "H4 up at the proxy, not accepted by the kernel"     "$(verdict links "$t/state_ext.json" up-told 1 2 2 2)"
+    expect BAD  "H4 only table_generation moved"                     "$(verdict no_writes "$t/state_ext.json" "$t/state_ext_gen.json")"
+    expect OK   "H4 restore 19.9 s is within the strict 20 s"        "$(verdict restore_strict 19.9 20)"
+    expect BAD  "H4 restore 20.5 s is over the strict 20 s"          "$(verdict restore_strict 20.5 20)"
     expect OK   "H4 the cut is a cable the package declares"         "$(verdict model_has "$t/model_p4rt.json" 1 2 2 2)"
     expect BAD  "H4 a cable the package does not declare"            "$(verdict model_has "$t/model_p4rt.json" 1 3 3 1)"
     expect OK   "H5 26 arms identical"                               "$(verdict same_06 "$t/table_same.tsv" "$t/table_old.tsv")"
@@ -1863,7 +1889,9 @@ print(f["ab"]["heard"], f["ba"]["heard"], f["ab"]["written"], f["ba"]["written"]
             "$VPY" -I -c 'import json, os, sys
 p, st, se, h, b = sys.argv[1:6]
 doc = {"format": 1, "source": "heartbeat", "status": st, "session": se, "pid": 4242,
-       "side_effects": {"forwarded_to_hosts": int(h), "forwarded_between_switches": int(b)}}
+       "written_wall": 1000.5, "stop_reason": "SIGTERM" if st == "stopped" else None,
+       "side_effects": {"forwarded_to_hosts": int(h), "forwarded_between_switches": int(b),
+                        "misdelivered": 0, "foreign_frames": 0}}
 open(p + ".tmp", "w").write(json.dumps(doc)); os.replace(p + ".tmp", p)' "$rep" "$@"
         }
         (   RUN="$d/run"; HB_REPORT_FILE="$rep"; SAMPLER_PID=""; SAMPLER_STOP=""; SAMPLER_INTERVAL_S=0.1
@@ -1883,12 +1911,15 @@ open(p + ".tmp", "w").write(json.dumps(doc)); os.replace(p + ".tmp", p)' "$rep" 
     # (every read below ends `|| true`: under this script's set -e a failing $( ) in an assignment
     # would end the self-test silently instead of printing its red line)
     d="$(st_sampler)" || true
-    got="$(awk -F'\t' 'NR == 1 {next} {k = $2 " " $3 " " $5 " " $6; if (k != last) {printf "%s|", k; last = k}}' "$d/samples.tsv" 2>/dev/null)" || true
-    want="absent - 0 0|running aaaa 0 0|running aaaa 0 1|stopped aaaa 2 3|absent - 0 0|running bbbb 0 0|"
-    local hdr=$'wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches'
+    # [Co-developed with claude code -- Adam] The external judge's M2 (09-28): the report's
+    # written_wall and stop_reason (a killed daemon's stale "running"; why a session stopped) and
+    # the daemon's other two counters are on every row too -- ten fields.
+    got="$(awk -F'\t' 'NR == 1 {next} {k = $2 " " $3 " " $5 " " $6 " " $7 " " $8; if (k != last) {printf "%s|", k; last = k}}' "$d/samples.tsv" 2>/dev/null)" || true
+    want="absent - 0 0 - |running aaaa 0 0 1000.5 |running aaaa 0 1 1000.5 |stopped aaaa 2 3 1000.5 SIGTERM|absent - 0 0 - |running bbbb 0 0 1000.5 |"
+    local hdr=$'wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches\twritten_wall\tstop_reason\tmisdelivered\tforeign_frames'
     if [[ "$(head -1 "$d/samples.tsv" 2>/dev/null)" == "$hdr" && "$got" == "$want" ]] \
-       && awk -F'\t' 'NR > 1 && (NF != 6 || $1 !~ /^[0-9]+\.[0-9]$/) {bad = 1} END {exit bad}' "$d/samples.tsv"; then
-        ok "H5 sampler: the real SAMPLER_PY writes its header and one 6-field row per read, through missing, running, stopped (final counters) and a second session"
+       && awk -F'\t' 'NR > 1 && (NF != 10 || $1 !~ /^[0-9]+\.[0-9]$/) {bad = 1} END {exit bad}' "$d/samples.tsv"; then
+        ok "H5 sampler: the real SAMPLER_PY writes its header and one 10-field row per read (written_wall and stop_reason included), through missing, running, stopped (final counters) and a second session"
     else
         red "H5 sampler rows: header '$(head -1 "$d/samples.tsv" 2>/dev/null)', rows '$got' (want '$want'); $(tr '\n' ' ' < "$d/notes.txt" 2>/dev/null)"
     fi
@@ -2288,6 +2319,9 @@ if [[ "$PART" == h5 ]]; then
     NDT_OWNER="$NDT_OWNER" bash "$LIVE_DIR/06_thirteen.sh" > "$RUN/51_06.txt" 2>&1
     R06=$?
     T06_END="$(date +%s)"
+    # [Co-developed with claude code -- Adam] 06's end, the last arm's window edge for
+    # external_evidence.py --samples (the external judge's M2, 09-28).
+    printf '%s\n' "$T06_END" > "$RUN/50_t06_end.txt"
     set -e
     NEW_06="$(sed -n 's/^   raw : //p' "$RUN/51_06.txt" | head -1)"
     note "06 rc $R06, raw $NEW_06"
@@ -2510,11 +2544,7 @@ restore_link || { fail "H4: could not remove the netem"; exit 1; }
 # RESTORE_BOUND_S, like every restore in this file (Adam has not extended "about 20 s" to restores).
 judge "$(state_until $(( RESTORE_BOUND_S + 15 )) "$RUN/86_switch_state_restored.json" links up-told "$CA" "$CAP" "$CB" "$CBP")" "H4 recovery at the proxy, told to the kernel"
 H4_REST="$(awk -v a="$EPOCHREALTIME" -v b="$T_CUT" 'BEGIN { printf "%.1f", a - b }')"
-if awk -v d="$H4_REST" -v b="$RESTORE_BOUND_S" 'BEGIN { exit !(d <= b) }'; then
-    note "H4 recovery at the proxy within ${H4_REST} s of the restore (switch_state polled every 2 s)"
-else
-    fail "H4: recovery at the proxy read ${H4_REST} s after the restore, over the strict ${RESTORE_BOUND_S} s"
-fi
+judge "$(verdict restore_strict "$H4_REST" "$RESTORE_BOUND_S")" "H4 recovery time at the proxy (switch_state polled every 2 s)"
 judge "$(verdict no_writes "$RUN/83_switch_state.json" "$RUN/86_switch_state_restored.json")" "H4 nothing written across the restore"
 tc_ends "$RUN/87_tc_after" "$CA" "$CAP" "$CB" "$CBP"
 judge "$(no_netem "$RUN/87_tc_after_s$CA-eth$CAP.txt" "$RUN/87_tc_after_s$CB-eth$CBP.txt")" "H4 netem"
