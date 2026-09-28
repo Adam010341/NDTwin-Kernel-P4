@@ -1304,6 +1304,23 @@ EOF
 check_fires "M75 (widening): a live emitter's manifest is deleted as well" m75 \
             "  the manifest is left exactly where it was"
 
+# --- M76 (ruling K, 2026-09-27): `alive` is asked with the pid alone ------------------------------
+# 🔴 The bring-up records the emitter's argv and start time beside its pid, and the root teardown
+# will not signal a process that does not match them. A status row that asked with the pid alone
+# would call "alive" -- and print `kill <pid>` for -- a process that teardown refuses to touch.
+# The fixture emitter is in the launcher's four-word shape (judge KJL B2: nothing else may ever
+# read alive), so by pid and shape alone it IS alive; the cell that dies is the manifest naming
+# that same pid with a start time it never had -- only the recorded identity reads that DEAD.
+# [Co-developed with claude code -- Adam]
+cat > "$A/m76.old" <<'EOF'
+alive = link_telemetry.emitter_is_running(d)
+EOF
+cat > "$A/m76.new" <<'EOF'
+alive = link_telemetry.process_is_the_emitter(pid)
+EOF
+check_fires "M76 (K): ndt asks whether the emitter is alive by its pid alone" m76 \
+            "🔴 its own pid with a start it never had is DEAD, not alive"
+
 # --- two more controls, for the half of the file this round added ------------------------------------
 # 🔴 Without them the eleven "caught" lines above say nothing about the NEW cells: a suite that
 # reddened for any edit to the telemetry code would print the same table.

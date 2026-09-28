@@ -313,19 +313,47 @@ class PortMap:
         return sorted(self.agents)
 
 
-def load_manifest(path, wait_s=0.0, sleep=time.sleep, exists=os.path.exists):
-    """Read the manifest, waiting up to `wait_s` for it to appear.
+def _trusted_loader():
+    """link_telemetry.load_manifest, imported from beside this file when first needed.
+
+    [Co-developed with claude code -- Adam]
+    """
+    if _HERE not in sys.path:
+        sys.path.insert(0, _HERE)
+    import link_telemetry  # noqa: PLC0415 -- the one reader every consumer of the file shares
+    return link_telemetry.load_manifest
+
+
+def load_manifest(path, wait_s=0.0, sleep=time.sleep, exists=os.path.exists, loader=None):
+    """Read the manifest, waiting up to `wait_s` for a TRUSTED one to appear.
 
     The wait is not defensive padding: `bring_up` starts this process and THEN writes the
     manifest, because the manifest carries this process's pid. Missing after the wait is a
     refusal -- a running emitter with no map would join the group and drop every sample.
+
+    [Co-developed with claude code -- Adam]
+    🔴 READ THROUGH `link_telemetry.load_manifest`, THE CHECK THE TEARDOWN MAKES. This process
+    runs as root and starts BEFORE `write_manifest` replaces whatever is at the name -- and a
+    file the teardown refused is deliberately left there. A plain `open` would follow a symlink
+    and accept any owner's JSON: its collector address, its group filter (a null group turns the
+    filter off) and its ifindex map would all be taken from somebody else. A refused file is
+    waited past, since the bring-up is about to replace it; still refused at the deadline is a
+    refusal with the reason in it.
     """
+    loader = loader or _trusted_loader()
     deadline = time.monotonic() + wait_s
+    problem = None
     while True:
         if exists(path):
-            with open(path) as fh:
-                return PortMap(json.load(fh))
+            document, problem = loader(path)
+            if document is not None:
+                return PortMap(document)
         if time.monotonic() >= deadline:
+            if problem:
+                raise SetupError(
+                    "refusing the link-telemetry manifest after %.1fs: %s. It is written by "
+                    "link_telemetry.write_manifest immediately after this process is started, "
+                    "and no other file at that name is used" % (wait_s, problem))
             raise SetupError(
                 "no link-telemetry manifest at %s after %.1fs. It is written by "
                 "link_telemetry.write_manifest immediately after this process is started; "

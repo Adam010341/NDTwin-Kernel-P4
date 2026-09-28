@@ -323,6 +323,9 @@ class ThePortMapTest(unittest.TestCase):
         path = os.path.join(tmp, "m.json")
         with open(path, "w") as fh:
             json.dump(MANIFEST, fh)
+        # 0644, as link_telemetry.write_manifest leaves it: the emitter reads through the same
+        # trust check as the teardown, and this user's umask (0002) would make it group-writable.
+        os.chmod(path, 0o644)
         seen = []
 
         def exists(p):
@@ -331,6 +334,67 @@ class ThePortMapTest(unittest.TestCase):
         ports = emitter_module.load_manifest(path, wait_s=5.0, sleep=lambda _s: None,
                                              exists=exists)
         self.assertEqual(ports.switches(), [1, 2])
+
+
+class AnUntrustedManifestIsNeverUsedTest(unittest.TestCase):
+    """The emitter runs as root and starts BEFORE the bring-up replaces the file at the name.
+
+    [Co-developed with claude code -- Adam]
+    Whatever is at the name when it first looks -- a file the teardown refused and left there,
+    a symlink -- would otherwise give it someone else's collector address, group filter and
+    ifindex map. It reads through link_telemetry.load_manifest, the teardown's own check, waits
+    past a refused file for the real one, and refuses at the deadline with the reason.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ndtwin_emitter_trust_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.path = os.path.join(self.tmp, "ndtwin_link_telemetry.json")
+
+    def plant(self, document, mode):
+        with open(self.path, "w") as fh:
+            json.dump(document, fh)
+        os.chmod(self.path, mode)
+
+    def test_a_group_writable_file_at_the_name_is_refused_with_the_reason(self):
+        forged = json.loads(json.dumps(MANIFEST))
+        forged["collector"] = ["192.0.2.7", 6343]
+        self.plant(forged, 0o664)
+        with self.assertRaises(emitter_module.SetupError) as ctx:
+            emitter_module.load_manifest(self.path, wait_s=0.0, sleep=lambda _s: None)
+        self.assertIn("writable by its group or by others", str(ctx.exception))
+
+    def test_a_symlink_at_the_name_is_refused(self):
+        real = os.path.join(self.tmp, "elsewhere.json")
+        with open(real, "w") as fh:
+            json.dump(MANIFEST, fh)
+        os.chmod(real, 0o644)
+        os.symlink(real, self.path)
+        with self.assertRaises(emitter_module.SetupError) as ctx:
+            emitter_module.load_manifest(self.path, wait_s=0.0, sleep=lambda _s: None)
+        self.assertIn("symbolic link", str(ctx.exception))
+
+    def test_a_refused_file_is_waited_past_and_the_real_one_is_used(self):
+        # What a bring-up does: the untrusted file is there when the emitter first looks, and
+        # write_manifest's rename replaces it a moment later.
+        forged = json.loads(json.dumps(MANIFEST))
+        forged["collector"] = ["192.0.2.7", 6343]
+        self.plant(forged, 0o664)
+        real = os.path.join(self.tmp, ".replacement")
+        with open(real, "w") as fh:
+            json.dump(MANIFEST, fh)
+        os.chmod(real, 0o644)
+        looks = []
+
+        def exists(p):
+            looks.append(p)
+            if len(looks) == 3:
+                os.replace(real, self.path)     # the bring-up's write_manifest, mid-wait
+            return os.path.exists(p)
+        ports = emitter_module.load_manifest(self.path, wait_s=30.0, sleep=lambda _s: None,
+                                             exists=exists)
+        self.assertEqual(ports.collector, ("127.0.0.1", 6343),
+                         "the emitter took its collector from the file that was there first")
 
 
 class TheLoopTest(PortMapFixture):
