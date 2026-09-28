@@ -9,8 +9,8 @@
 # `ndt` calls `sudo -n` in thirteen places. Eleven go through /usr/local/sbin/ndtwin-lab,
 # which the manual teaches the reader to grant. The other two do not:
 #
-#   ndt:1177   sudo -n ovs-vsctl list-br            (ovs_bridge_count)
-#   ndt:1206   sudo -n mnexec -a <pid> ping ...     (dataplane_ok)
+#   ovs_bridge_count   sudo -n ovs-vsctl list-br
+#   dataplane_ok       sudo -n mnexec -a <pid> ping ...
 #
 # The website's User Manual -> NDTwin Kernel -> Operate an Emulated (Software) Network ->
 # "Native-Linux Excution Environment" teaches exactly one sudoers line, for ndtwin-lab. No
@@ -63,14 +63,17 @@
 # 🔴 ndt_sudo_probe is NOT one of them. [Co-developed with claude code -- Adam] (corrected
 # 2026-09-27: this paragraph used to say the classifier decides nothing, anywhere.) A probe that
 # exits non-zero is ambiguous -- sudo refused it, or sudo ran it and it failed (ovs-vsctl with no
-# ovsdb to talk to) -- and ndt_sudo_probe resolves that BY THE WORDING: one of the wordings
-# ndt_sudo_refused knows means refused (1), any other means granted (0). Its answer is
+# ovsdb to talk to) -- and ndt_sudo_probe resolves that BY THE WORDING: a wording
+# ndt_sudo_refused knows means refused (1); a "sudo:" line it does not know, and that is not one
+# of sudo's known non-fatal warnings, means could not tell (2, ndt_sudo_unread); no "sudo:" line
+# at all means the program's own failure, granted (0). Its answer is
 # ndt_sudo_report's row and return code, i.e. the "sudo grants" line of `ndt status` and whether
 # `ndt status --check` lists a missing grant as a problem (ndt cmd_status). So there the wording IS
-# the verdict, and a refusal worded some other way -- another sudo's, a PAM or requiretty refusal,
-# a test harness's shim -- is reported as a live grant. It has been seen: the nolab shim of the
-# 09-27 gates ("sudo: refused by the nolab shim (a lab command)") made `ndt status` print "all 3
-# granted" (tests/shell/lib_probe_stub.sh, "WHAT THE STUB FIXES").
+# the verdict. Until fix/sudo-probe-unknown-0927 (09-27) a refusal worded some other way --
+# another sudo's, a PAM or requiretty refusal, a test harness's shim -- was reported as a live
+# grant; it was seen: the nolab shim of the 09-27 gates ("sudo: refused by the nolab shim (a lab
+# command)") made `ndt status` print "all 3 granted" (tests/shell/lib_probe_stub.sh, "WHAT THE
+# STUB FIXES"). Now only a refusal that prints no "sudo:" line at all still reads as granted.
 #
 # Not covered here: tools/test_workflow/faults.sh keeps its own privileged surface in
 # FAULTS_TC / FAULTS_KILL (bare `tc` and bare `kill`), documented in its header and in
@@ -127,7 +130,8 @@ ndt_sudo_rule() {
 # --- asking the question -------------------------------------------------------------
 
 # Stderr of the last ndt_sudo_capture. Callers word their error messages with it; ndt_sudo_probe
-# also takes its granted / refused verdict from it -- see "What actually discriminates" above.
+# also takes its granted / refused / could-not-tell verdict from it -- see "What actually
+# discriminates" above.
 NDT_SUDO_STDERR=""
 
 # ndt_sudo_capture <binary> [args...] -- run it under `sudo -n`, keeping BOTH halves of the
@@ -150,8 +154,9 @@ ndt_sudo_capture() {
 # ndt_sudo_refused -- did the last ndt_sudo_capture fail because sudo refused, rather than
 # because the command ran and failed? For most callers it only picks the WORDING of a message:
 # they took their verdict from the exit status already. ndt_sudo_probe is the exception -- it
-# takes its VERDICT from this answer, so for that caller a refusal worded in a way missing here is
-# reported as a live grant (see "What actually discriminates" above).
+# takes its VERDICT from this answer: for that caller a refusal worded in a way missing here is
+# "could not tell" when sudo says it on a "sudo:" line (ndt_sudo_unread), and a live grant only when
+# it prints no such line (see "What actually discriminates" above).
 #
 # The first pattern is measured on this machine (sudo 1.9.15p5, 2026-09-03, `sudo -n
 # ovs-ofctl --version` with no matching NOPASSWD rule -> rc 1, "sudo: a password is required").
@@ -164,8 +169,44 @@ ndt_sudo_refused() {
         *"no tty present and no askpass program"*)        return 0 ;;
         *"is not allowed to execute"*)                    return 0 ;;
         *"sudo: command not found"*)                      return 0 ;;
+        *"you must have a tty"*)                          return 0 ;;   # requiretty (09-27)
         *) return 1 ;;
     esac
+}
+
+# [Co-developed with claude code -- Adam] (2026-09-27, fix/sudo-probe-unknown-0927)
+# sudo's own NON-FATAL warnings. sudo prints these on stderr and then RUNS the command, so a
+# "sudo:" line that is one of them says nothing about whether the grant is live. An explicit list,
+# not a pattern (the orchestrator's ruling, 09-27): a pattern broad enough to catch the next warning
+# is broad enough to swallow the next refusal.
+#   unable to resolve host   the machine's own hostname is missing from /etc/hosts
+#   setrlimit(RLIMIT_CORE)   containers, and hosts whose core-dump rlimit sudo may not raise
+NDT_SUDO_WARNINGS=("unable to resolve host" "setrlimit(RLIMIT_CORE)")
+NDT_SUDO_UNREAD=""
+
+# ndt_sudo_unread -- did the last ndt_sudo_capture's sudo say something ON ITS OWN ACCOUNT -- a
+# stderr line that starts with "sudo:" and is not one of NDT_SUDO_WARNINGS -- that
+# ndt_sudo_refused does not know? Sets NDT_SUDO_UNREAD to the first such line. Examples:
+# "sudo: PAM account management error: ...", "sudo: mnexec: command not found" (secure_path),
+# and the gates' own nolab shim, "sudo: refused by the nolab shim (a lab command)". A command
+# that ran and failed speaks in its own name ("ovs-vsctl: ... database connection failed"), not
+# in sudo's, so it is not caught here.
+ndt_sudo_unread() {
+    local line w warn
+    NDT_SUDO_UNREAD=""
+    while IFS= read -r line; do
+        [[ "$line" == "sudo:"* ]] || continue
+        warn=0
+        # anchored at "sudo: " and matched on the whole entry, so an entry cannot swallow a
+        # fatal line that merely shares its words ("sudo: unable to execute ...")
+        for w in "${NDT_SUDO_WARNINGS[@]}"; do
+            [[ "$line" == "sudo: $w"* ]] && { warn=1; break; }
+        done
+        (( warn )) && continue
+        NDT_SUDO_UNREAD="$line"
+        return 0
+    done <<<"$NDT_SUDO_STDERR"
+    return 1
 }
 
 # ndt_sudo_explain <key> -- the two lines an error message owes the reader when a grant is
@@ -183,9 +224,19 @@ ndt_sudo_explain() {
 # ndt_sudo_probe <key> -- run this row's harmless probe.
 #   0 the grant is live
 #   1 sudo refused it
-#   2 could not tell (no sudo, or the program is not installed on this machine)
+#   2 could not tell: no sudo, the program is not installed on this machine, or sudo said
+#     something on its own account that ndt_sudo_refused cannot read (NDT_SUDO_UNREAD holds it)
+# [Co-developed with claude code -- Adam] (2026-09-27, fix/sudo-probe-unknown-0927) A probe that
+# exits non-zero is ambiguous -- sudo refused, or sudo ran it and it failed (ovs-vsctl with no ovsdb
+# to talk to) -- and until this date every wording ndt_sudo_refused did not know was read as the
+# second, i.e. as GRANTED: requiretty, PAM, secure_path's "command not found", and the gates'
+# nolab shim all made `ndt status` print a live grant. Now a "sudo:" line that is neither a
+# known refusal nor a known warning is "could not tell" (2). What is still read as granted: a
+# non-zero exit with no "sudo:" line at all -- the program's own failure, and equally a refusal
+# that prints nothing (a silent shim); from stderr the two cannot be told apart.
 ndt_sudo_probe() {
     local key="$1" probe bin
+    NDT_SUDO_UNREAD=""
     probe="$(ndt_sudo_field "$key" 2)" || return 2
     bin="${probe%% *}"
     command -v sudo >/dev/null 2>&1 || return 2
@@ -193,8 +244,9 @@ ndt_sudo_probe() {
     # shellcheck disable=SC2086
     ndt_sudo_capture $probe >/dev/null && return 0
     ndt_sudo_refused && return 1
-    # The command ran and failed on its own account -- the grant is live. (Or sudo refused in words
-    # ndt_sudo_refused does not know: from here the two cannot be told apart.)
+    ndt_sudo_unread && return 2
+    # The command ran and failed on its own account -- the grant is live. (Or sudo refused and said
+    # so on no "sudo:" line at all -- a silent refusal: from here the two cannot be told apart.)
     return 0
 }
 
@@ -213,8 +265,13 @@ ndt_sudo_report() {
                printf 'sudo: %-10s REFUSED -- %s\n' "$key" "$(ndt_sudo_field "$key" 2)"
                ndt_sudo_explain "$key" ;;
             *) blind=1
-               printf 'sudo: %-10s could NOT be tested on this machine (no sudo, or %s is not installed) -- not a pass\n' \
-                      "$key" "$(ndt_sudo_field "$key" 3)" ;;
+               if [[ -n "$NDT_SUDO_UNREAD" ]]; then
+                   printf 'sudo: %-10s could NOT be tested: sudo answered "%s", which ndt cannot read as granted or refused -- not a pass\n' \
+                          "$key" "$NDT_SUDO_UNREAD"
+               else
+                   printf 'sudo: %-10s could NOT be tested on this machine (no sudo, or %s is not installed) -- not a pass\n' \
+                          "$key" "$(ndt_sudo_field "$key" 3)"
+               fi ;;
         esac
     done < <(ndt_sudo_rows all)
     (( rc == 1 )) && return 1
