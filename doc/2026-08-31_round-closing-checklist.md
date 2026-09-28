@@ -56,7 +56,7 @@ hook 只在你 commit 的那一刻才有機會說話，而**「缺席」不觸�
       🔑 **理由是實例**：`2026-08-31_sampling-ceiling-after-merge` 的 §6 與
       `gates_e.sh:264` 的 `RATIO_GOOD_CELL:-t008_poll` 都寫「08-25 D 輪的格子」，
       但那些 cell 其實在 **`2026-08-20_sampling-rate-and-cpu/raw/`**
-      （`round.env:23` 的 `PRIOR` 才是真正解析的地方）。
+      （`round.env:37` 的 `PRIOR` 才是真正解析的地方）。
       **輪次名對不上檔案位置，而依賴只活在腳本裡**——這正是本清單第 1 項要防的病的另一面。
 
 ### 4. 歸檔的方式（這台機器上）

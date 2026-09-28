@@ -21,6 +21,9 @@
 # exactly that on its first run. FORCED_ABORT makes abort() skip restore_production.
 
 set -uo pipefail
+# [Co-developed with claude code -- Adam] N7: a KERNEL_DIR inherited from a shell that once sourced
+# some round.env would win over round.env's own derivation and point this suite at THAT tree.
+unset KERNEL_DIR
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROUND_DIR="$HERE/../../doc/audit/2026-08-31_sampling-ceiling-after-merge"
 
@@ -64,6 +67,8 @@ LOG="$T/test.log"
 # shellcheck source=/dev/null
 . "$ROUND_DIR/lib_e.sh"
 LOG="$T/test.log"
+# [Co-developed with claude code -- Adam] N7: whatever the caller exported, this suite tests its own tree.
+check "round.env resolved KERNEL_DIR to this checkout" "$(cd "$HERE/../.." && pwd)" "${KERNEL_DIR:-unset}"
 OUT="$T/out"              # round.env points OUT at the real raw/; every write here goes to tmp
 mkdir -p "$OUT"
 
@@ -71,9 +76,15 @@ if ! declare -F cell_cpu_gate_finish >/dev/null; then
     echo "FAILED   lib_e.sh does not define cell_cpu_gate_finish -- the reader under test is gone"
     exit 1
 fi
+# [Co-developed with claude code -- Adam] N7 B2: a missing interpreter is NOT a pass. round.env
+# now names THIS tree's p4_proxy/venv, which a fresh worktree or clone does not have, and an
+# `exit 0` here read green there without running a single case.
 if [[ ! -x "${PY_PROXY:-}" ]]; then
-    echo "SKIP: PY_PROXY (${PY_PROXY:-unset}) is not present; the reader cannot parse records"
-    exit 0
+    echo "  FAILED   no interpreter at PY_PROXY=${PY_PROXY:-unset}: the reader cannot parse records."
+    echo "           This tree has no p4_proxy/venv. Export PY_PROXY=<a python with the proxy's deps>"
+    echo "           (e.g. the main checkout's p4_proxy/venv/bin/python) and run again."
+    echo "  $PASS passed, $((FAIL + 1)) failed"
+    exit 1
 fi
 
 # A gate record as cpu_gate.py writes it -- one JSON object per line, last line wins.
