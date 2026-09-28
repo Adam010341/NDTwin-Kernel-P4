@@ -284,6 +284,8 @@ unbound 的 L6。L4 **不斷言改路**（第一刀 (c) 不成立，`capabilitie
 一份該紅的合成 capture，teardown 用假 ndt 走一遍（down 回 5／1 時**不 release、保留 claim**），前導段單獨跑、
 讀回預設值。只證明判定分得出兩種答案，**不證明任何 fabric 的事**。
 
+- **INT／TERM 是失敗**（AEG judge 09-28 的 N-1）：各有自己的 trap，記下 `interrupted by SIG…`、以 130／143 結束，
+  EXIT trap 照常拆；用 pid 停掉的 run **不可能**以 PASS 收尾。
 - **必須明給 `NDT_OWNER`**（沒給就 rc 2、什麼都沒做）；**從不宣告 `measuring=`**，所以自己的 `ndt down` 不會被
   T2d 擋；最後一次 `ndt down` 不是 0／3 就**不 release**（段 S 第 7 輪的教訓）。
 - H1 的剪線**控制相位**：
@@ -297,7 +299,7 @@ unbound 的 L6。L4 **不斷言改路**（第一刀 (c) 不成立，`capabilitie
 - **H1 的驗收是「最多約 20 s」**（Adam 09-27 裁決：與 NDTwin 自家 fabric 的 LLDP 同級，同一條規則、同一組常數）：
   - 嚴格的 20 s 照量、照記：每個 cycle 在 `30_cycles.tsv` 的 `strict_20s` 欄寫 `yes` 或 `OVER+x`，那個 cycle 自己也印一行嚴格值。
   - 超過 20 s 的 cycle **揭露為 NOTE，不判 FAIL**：run 的最後一行（`PASS 08_heartbeat` 或 FAIL 的原因）正上方，會有一行 `NOTE 08_heartbeat -- H1: N of M cycle(s) over the strict 20 s -- disclosed, not a failure …`，**逐字**列出每個超過的 cycle 自己那行嚴格值。H3 的那一個 cycle 也一樣。run 在 H1 迴圈或 H3 **中途停下**（剪線或復原失敗而 exit、INT／TERM）時，EXIT trap（`w_finish`）先把已量到的 cycle 結算，那行寫成 `H1, cut short: …`，一樣在最後一行正上方。
-  - 「約」**不延伸**到這兩處（opus judge 09-27 的 N2）：偵測有**硬上限 35 s**（`DETECT_BOUND_S + 15`，graph_until 等到這裡就放棄，那個 cycle 判 **FAIL**，不是 NOTE）；**復原仍以嚴格 20 s 判定**（`RESTORE_BOUND_S`，超過判 FAIL）——裁決只講偵測，復原要不要也改成「約 20 s」待 Adam 決定。
+  - 「約」**不延伸**到這兩處（opus judge 09-27 的 N2）：偵測有**硬上限 35 s**（`DETECT_BOUND_S + 15`：graph_until 等到這裡就放棄；09-28 起 `v_strict` 自己也把超過 35 s 的判 **FAIL**——慢的最後一次輪詢也逃不掉；AEG judge 的 N-4），不是 NOTE；**復原仍以嚴格 20 s 判定**（`RESTORE_BOUND_S`，超過判 FAIL）——裁決只講偵測，復原要不要也改成「約 20 s」待 Adam 決定。
   - （裁決前：那個 cycle 判 FAIL，最後一行以「`H1: N of M cycle(s) OVER the strict 20 s … until Adam rules on the acceptance`」開頭——fable judge 的 F1，09-26。）
   - 「20 s ＋ 實際量到的時間」只是**診斷欄**：它包含 pass 晚到的部分、讀檔／HTTP／kernel／本腳本輪詢，以及剪線本身開的窗口。judge 證明了這個數字在設計照常運作時恆為 OK。
   - 設計的最壞情況是 (15 s − φ) ＋ 最多一個 watchdog 間隔 5 s ＋ 上述那些，**在 φ→0 時嚴格 20 s 沒有任何餘裕**；所以是「約」20 s，這正是自家 LLDP 的同一性質。
@@ -307,7 +309,10 @@ unbound 的 L6。L4 **不斷言改路**（第一刀 (c) 不成立，`capabilitie
   仍是 `external_control_plane`、四個 `/stats/flowentry/*` 仍是 409；剪 s1-s2 一條線，**proxy 自己**（switch_state
   的 `links`）兩個方向都判 down、來源 heartbeat，約 20 s 內（超過揭露、不判 FAIL），剪著時 reroute 仍 false；
   復原後兩向 up、沒有殘留 netem、沒有心跳幀離開 host 埠。**這裡不看 kernel 的 graph**：H4 沒跑 exercise 的控制器，
-  pipeline 沒載入，twin 把這些交換機判 down（03 在 09-18 的讀數）。
+  pipeline 沒載入，twin 把這些交換機判 down（03 在 09-18 的讀數）。09-28 起（external judge 的 F4、F9）還要：
+  剪線後與復原後兩個方向的 `reported_to_kernel` 都是 true（kernel 收下了）、每台交換機的
+  `pipeline_commits`／`rules_timed`／`table_generation` 在剪線與復原前後都沒動；復原以**嚴格 20 s** 判（輪詢等到 35 s，
+  只是為了晚到的也量得到）。
 - H5 不自己 claim（06、01 每步自己 claim），跑 06 一次時旁邊有一個讀心跳報告的 sampler，逐臂對
   `2026-09-27T074635Z_06_thirteen`（09-27 前是 `2026-09-24T185505Z`，兩者 rc／verdict 逐臂相同），並確認心跳只在
   20 個多交換機、有建出來的外來臂上跑過（09-27 前是 17 個：當時不含 3 個 external 臂）；接著跑 01。
@@ -324,23 +329,67 @@ flowcache/solution）上也啟動心跳：proxy 宣告 package 的連線、由�
 （client 沒有 arbitration、每個寫入都拒絕；`install_initial_routes` 仍在 `skipped`），`reroute` 永遠是 false、
 理由 `external_control_plane`。Adam 09-25 的條件：心跳若改變使用者自己的轉發結果，就停下來回報。
 
-**合併前的比對**（orchestrator 跑，這裡只給工具）：
+### 🔴 看不到的地方（external judge 09-28 的 F3，揭露）
 
-| 步 | 貼這一行 | 看什麼 |
-|---|---|---|
-| 06 一次 | `NDT_OWNER=<你> ONLY=p4runtime,flowcache bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/06_thirteen.sh`（或整輪） | `PASS 06_thirteen` |
-| 對帳 | `python3 doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_evidence.py compare <repo>/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-27T074635Z_06_thirteen <新的 06 run>` | `NO DIFFERENCE in the external arms' own evidence`，rc 0 |
+- **這對「每一個」跑自己 pipeline 的 external package 都生效**，不只這三臂。helper 只拒絕 NDTwin 自己的
+  pipeline（argv 裡的 `ndtwin_switch.json`）。
+- 心跳幀會進 exercise 自己的 pipeline。**一個會把未知 ethertype 送上控制器（punt）或洪泛的程式**——最明顯的是
+  L2 學習型的控制器——會把 0x88B5 的幀交給**它自己的控制器**或它的 host。
+- 這兩條路 NDTwin **都看不到**：proxy 在 external 上沒有 stream（packet-in 不經過它），daemon 只數離開交換機埠的
+  幀。所以 switch_state 的 `side_effects`／`frames_reached_hosts` 在「punt 給控制器」這一種上**是盲的**。
+- 已量過、而且從 P4 原始碼讀得到為什麼安全的，**只有這三個程式**：
+  - **flowcache/solution**：parser 對非 0x0800 的幀不再往下解（`flowcache.p4:137-143`）；ingress 丟掉不是
+    packet-out 也不是 IPv4 的所有東西（`:251-257`）⇒ 不 punt、不建 cache entry、counter 不動（counter 只數
+    packet-out 與 CPU 埠的 egress，`:236-238`、`:279-283`）。
+  - **p4runtime（advanced_tunnel，skeleton 與 solution 同一個程式）**：parser 預設 accept（`advanced_tunnel.p4:70-74`），
+    但沒有任何表會套到這種幀（`:170-180`），`egress_spec` 停在 0；交換機的埠從 1 開始，沒有埠 0 ⇒ 幀被丟掉
+    （這一步是從 bmv2 的行為**推論**的）。tunnel counter 只在 tunnel action 裡動（`:123-141`）；沒有控制器 header，
+    不可能有 packet-in。
+  - 段 S 的普查（`doc/audit/2026-09-25_p4-heartbeat/spike/runs/2026-09-26T052148Z_S_heartbeat/40_census.tsv:24-26`）
+    在這三臂上手動跑過心跳：host 收到 0 幀、`forwarded_between_switches` 0、`misdelivered` 0。
+- 其他 external 程式**沒有人看過**。要不要給一個關掉的選項，orchestrator 在問 Adam；在那之前，這一段就是揭露。
+- **twin 那一側也變了**（F5）：external 上 `/ryu_server/all_destination_paths` 現在是**在宣告連線上算的最短路徑**
+  （external 上沒有已安裝的路由可讀），**不是** exercise 真正的轉發。它是 twin 的猜測，不是讀數。
 
-`external_evidence.py` 從每一臂自己的控制器 log（`runs/<round>/driver-controller-*.log`）讀出 exercise **自己的**
-證據逐項比對：p4runtime 的每條安裝規則與**最後一次** tunnel counter 讀數（封包數＋位元組數）；flowcache 收到幾個
-packet-in、加了哪些 cache entry、有沒有任何 packet-in 的 ethertype 是心跳的 0x88B5（有就是心跳幀到了 exercise 的
-控制器）；三臂的 rc／verdict 與 gRPC 錯誤數。讀 counter 的**次數**只列不比（那是臂跑了多久）。兩邊的 venv
-指紋（下一段）一併印出。**已知**：074635Z 的 flowcache/solution 控制器在第 6 個 packet-in 後 gRPC UNKNOWN 死掉
-（iperf 到 h3 沒送達、G1 卻判 PASS——另案），所以那一臂的比對只到它死之前。
+### 合併前的比對（orchestrator 跑；這裡是程序與工具）
+
+基準**不是**「只差 B 的同一份程式」：`2026-09-27T074635Z_06_thirteen` 每一臂記的程式是
+**`5dc7fc9a` ＋ 95 個未提交的檔**（`p4runtime_solution.log:153`），不是 `f7e2a128`，也沒有 venv 指紋。所以比對要有
+**同一個 session 的對照組**（F2），DIFF 只有落在對照組的離散**之外**才算：
+
+1. **對照組 C1、C2**：同一台機器、同一個 venv，三個 external 臂各跑兩次、**不跑心跳**——在 trunk（例如 `149c8234`，
+   不含 B）上跑 `NDT_OWNER=<你> ONLY=p4runtime,flowcache bash .../06_thirteen.sh` 兩次；或在 B 上 `ndt up` 之後、
+   控制器啟動之前 `sudo ndtwin-lab heartbeat stop`（要另外接到 driver 裡）。
+2. **處理組 T**：B 上的 `PART=h5`（`NDT_OWNER=<你> PART=h5 bash .../08_heartbeat.sh`，它跑 06 一次、旁邊的
+   sampler 逐臂記 daemon 的 session），或 B 上的 06 一次。
+3. `python3 .../external_evidence.py compare <C1> <T> --control2 <C2> [--samples <T 的 H5 run>/50_samples.tsv]`
+
+工具會做的事：
+- **拒絕**（rc 3）一個不是處理組的處理組：任何一臂的報告裡沒有 `ndt up` 的 detect-only 那行、沒有
+  `heartbeat running (pid, session)` 那一列、沒有 daemon 的計數器（switch_state 的 `heartbeat.side_effects`）；
+  給了 `--samples` 時，那個 session 沒被讀到 running、或有任何一筆算到轉給 host／轉給別台交換機的幀。對照組
+  （C1、C2）只要有一臂的心跳在跑也拒絕——A/A 永遠只會印 NO DIFFERENCE。
+- **比**每一臂 exercise 自己的證據：rc／verdict、每條安裝規則、**最後一個完整**的 tunnel counter 區塊、packet-in
+  數、cache entry、0x88B5 的 packet-in、任何非 IPv4 的 packet-in、gRPC 錯誤。落在 C1、C2 之間的算
+  **spread**、不計；沒給 `--control2` 時每個 DIFF 都印、並聲明分不出噪音。
+- **不變式**（每一臂自己的數字，和基準無關）：p4runtime/solution 的 s1 ingress 100 ＝ h1 對 h2 的 ping ＋ 打到
+  10.0.2.2 的 iperf 資料報（client 沒收到 ack 時再加最多 10 個 FIN 重送），s2 egress 100 ＝ s1 ingress 100，
+  s1 egress 200 ＝ s2 ingress 200；skeleton 的 s1 ingress 100 ＝ ping、其餘 counter 都是 0；flowcache 的每個
+  packet-in 都是 IPv4、每條 cache entry 都是某個 IPv4 packet-in 的 flow。處理組破而對照組守住的，算差異。
+- **印出**每個 run 的程式（報告裡 `code <sha> …` 那行）與 venv 指紋。
+- **讀不到**（rc 2）不當「一樣」：缺表、缺列、缺報告或 log、讀不了或不是 UTF-8、counter 區塊被截斷（控制器在印的
+  途中被停）、解析不了的 packet-in。
+- 沒看的（要另外看 switch_state）：judge §5.6「proxy 什麼都沒寫」——每台交換機臂結束時 `pipeline_commits` 0、
+  `table_generation` null——以及 kernel 發起、被 409 擋掉的寫入數（kernel 現在有 graph，預期會變多，要揭露）。
+
+基準 074635Z 自己的讀數（`show`，OBSERVED）：p4runtime/solution 最後 counter `s1 ingress 100 = 3505`、`s2 egress 100 = 3505`、
+`200` 兩個各 7，不變式都成立（5 個 ping ＋ 3500 個資料報）；skeleton `s1 ingress 100 = 5`、其餘 0；flowcache 6 個
+packet-in 全是 IPv4、5 條 cache entry 都是 packet-in 的 flow、1 個 gRPC 錯誤。它**沒有**對照組的第二次，也不是處理組
+的同一份程式——所以它只能當第三個參考，不能單獨當基準。
 
 **venv 指紋**：從 09-27 起每個 live-p1 raw（`start_step` 的每一步、06）都有 `00_venv.txt`——proxy 的 venv 與
 控制器／driver 的直譯器各一段：路徑、Python 版本、protobuf 版本與 `api_implementation`、grpcio、所有已安裝套件
 （`name==version`，排序）及其 sha256。取不到就揭露（`NOTE … venv fingerprint was not fully recorded`），不判 FAIL。
-074635Z 沒有這個檔（它早於這個改動）；它跑在 protobuf 5 遷移之後（orchestrator 09-27 的紀錄）。
+074635Z 沒有這個檔（它早於這個改動）。
 
 [Co-developed with claude code -- Adam]
