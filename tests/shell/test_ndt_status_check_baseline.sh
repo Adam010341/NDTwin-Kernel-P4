@@ -627,6 +627,8 @@ $1
 cmd_status --check
 echo \"RC=\$?\"" 2>&1
 }
+OUT="$(run_check_with 'ndt_sudo_report() { return 0; }')"
+check "control: every grant live (report rc 0) leaves --check at exit 0" "0" "$(rc_of "$OUT")"
 OUT="$(run_check_with 'ndt_sudo_report() { echo "sudo: ovs-vsctl  REFUSED -- ovs-vsctl list-br"; return 1; }')"
 check "a refused sudo grant (report rc 1) makes --check exit 1"  "1" "$(rc_of "$OUT")"
 has   "  and it is named as a problem"                           "a sudo grant ndt needs is refused" "$OUT"
@@ -643,7 +645,9 @@ printf '#!/bin/bash\nexit 0\n' > "$FAKESUDO/ovs-vsctl"
 chmod +x "$FAKESUDO/sudo" "$FAKESUDO/ovs-vsctl"
 OUT="$(run_check_with 'source "$SUDO_SURFACE"; NDT_SUDO_TABLE="$(ndt_sudo_rows ovs-vsctl)"; PATH="'"$FAKESUDO"':$PATH"')"
 check "measured: sudo refusing in words ndt does not know makes --check exit 1" "1" "$(rc_of "$OUT")"
-has   "  the grants row says it could not be tested"            "could not be tested" "$OUT"
+# on the row itself -- the problem line below the report says "could not be tested" too
+check "  the grants row says it could not be tested"            "yes" \
+      "$(grep -qE '^ *sudo grants +.*could not be tested' <<<"$OUT" && echo yes || echo no)"
 has   "  and quotes what sudo said"                             'sudo answered "sudo: refused by the nolab shim (a lab command)"' "$OUT"
 
 # --- done ---------------------------------------------------------------------------------

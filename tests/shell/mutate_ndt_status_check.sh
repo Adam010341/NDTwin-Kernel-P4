@@ -40,6 +40,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
 NDT="$REPO/tools/test_workflow/ndt"
 TEST="$HERE/test_ndt_status_check_baseline.sh"
+SURFACE="$REPO/tools/test_workflow/sudo_surface.sh"   # the copy beside each mutant ndt
 BK=$(mktemp -d "${TMPDIR:-/tmp}/ndt-checkbase-mutate-XXXXXX")
 trap 'rm -rf "$BK"' EXIT
 BASE_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
@@ -322,6 +323,18 @@ m=$(mutant s2 "$NDT" \
     '           : ;;')
 report "S2: an untested sudo grant no longer counts as a --check problem" "$m" \
        "a grant that could not be tested (report rc 2) makes --check exit 1"
+# ... and the measured case, through the real report: sudo_surface.sh stops reading a "sudo:" line
+# it does not know, so the nolab wording reads as granted again
+m=$(mutant s3 "$SURFACE" \
+    '    ndt_sudo_unread && return 2' \
+    '    : ndt_sudo_unread')
+report "S3: sudo_surface.sh reads an unknown sudo: refusal as granted again" "$m" \
+       "measured: sudo refusing in words ndt does not know makes --check exit 1"
+m=$(mutant s4 "$NDT" \
+    '        *) printf '"'"'  %-14s %s\n'"'"' "sudo grants" "${Y}could not be tested${N}"' \
+    '        *) :')
+report "S4: the grants row stops saying it could not be tested" "$m" \
+       "  the grants row says it could not be tested"
 
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)

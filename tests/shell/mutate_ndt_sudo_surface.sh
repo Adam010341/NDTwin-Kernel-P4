@@ -276,6 +276,16 @@ m=$(mutant s14 "$SURFACE" \
     '        [[ "$line" == "sudo"* ]] || continue')
 report "S14 (control): any line that starts 'sudo' is sudo's own, sudo-rs's included" "$m" \
        "control, probe: a refusal worded without a 'sudo:' prefix (sudo-rs) is read as granted -- the rule's known limit"
+m=$(mutant s15 "$SURFACE" \
+    '            [[ "$line" == "sudo: $w"* ]] && { warn=1; break; }' \
+    '            [[ "$line" == *": $w"* ]] && { warn=1; break; }')
+report "S15: a warning entry is matched after any ': ' in the line" "$m" \
+       "probe: a fatal sudo: line naming a command before a warning entry is 2 -- not matched after any ': '"
+m=$(mutant s16 "$SURFACE" \
+    '        (( warn )) && continue' \
+    '        (( warn )) && { NDT_SUDO_UNREAD="$line"; return 0; }')
+report "S16 (control): a listed warning is itself read as a line ndt cannot read" "$m" \
+       "control, probe: a listed warning followed by a silent refusal is read as granted -- the rule's known limit"
 t=$(tmutant t1 "$TEST" \
     '[[ -n "${FAKE_SUDO_WARN:-}" ]] && printf '"'"'%s\n'"'"' "$FAKE_SUDO_WARN" >&2' \
     ': the fake no longer prints its warning')

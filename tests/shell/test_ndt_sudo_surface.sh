@@ -299,6 +299,14 @@ check "probe: a fatal 'sudo: unable to execute ...' is 2 -- a warning entry is m
 check "probe: a fatal sudo: line with a warning entry further on is 2 -- entries match only right after 'sudo: '" \
       "rc=2 unread=[sudo: error initializing audit plugin sudoers_audit (setrlimit(RLIMIT_CORE): Operation not permitted)]" \
       "$(probe_rc FAKE_SUDO_DENY=ovs-vsctl FAKE_SUDO_SAY='sudo: error initializing audit plugin sudoers_audit (setrlimit(RLIMIT_CORE): Operation not permitted)')"
+check "probe: a fatal sudo: line naming a command before a warning entry is 2 -- not matched after any ': '" \
+      "rc=2 unread=[sudo: ovs-vsctl: setrlimit(RLIMIT_CORE): Operation not permitted]" \
+      "$(probe_rc FAKE_SUDO_DENY=ovs-vsctl FAKE_SUDO_SAY='sudo: ovs-vsctl: setrlimit(RLIMIT_CORE): Operation not permitted')"
+# 🔴 KNOWN LIMIT, pinned: sudo prints only a listed warning, then refuses without a word -- nothing
+# in stderr says "refused", so it reads as the program's own failure, i.e. granted.
+check "control, probe: a listed warning followed by a silent refusal is read as granted -- the rule's known limit" \
+      "rc=0 unread=[]" \
+      "$(probe_rc FAKE_SUDO_WARN="$W_HOST" FAKE_SUDO_DENY=ovs-vsctl FAKE_SUDO_SAY=)"
 # 🔴 KNOWN LIMIT, pinned: a refusal that does not start "sudo:" -- another implementation's prefix,
 # e.g. sudo-rs (its exact wording is not verified here) -- is read as the program's own failure,
 # i.e. granted. The rule reads sudo's own diagnostics by their prefix and nothing else.
