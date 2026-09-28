@@ -360,10 +360,23 @@ report "M-C18: the baseline clone session's replica changes instance, so a warm 
 # --- the disclosure -------------------------------------------------------------------------------
 
 m=$(mutant c10 "$MAIN" \
-    '            "alive": bool(pid) and link_telemetry.process_is_the_emitter(pid),' \
+    '            "alive": link_telemetry.emitter_is_running(document),' \
     '            "alive": True,  # MUTANT: the manifest exists, so the emitter must be running')
 report "M-C10: a dead link emitter is reported alive, and link telemetry samples into nothing" "$m" \
        "test_a_pid_that_is_not_the_emitter_reads_dead"
+
+# Adam 2026-09-27, ruling K. The manifest records the emitter's argv and start time, and the root
+# teardown refuses to signal a pid that does not match them. A disclosure that asked with the pid
+# alone would call "alive" a process the teardown will never stop. The cell's subject is a child in
+# the launcher's four-word shape (judge KJL B2: nothing else may ever read alive), so the pid and
+# the shape alone say alive to BOTH of its documents; only a reader passing the recorded start
+# time reads the one with a start the child never had as dead.
+# [Co-developed with claude code -- Adam]
+m=$(mutant c24 "$MAIN" \
+    '            "alive": link_telemetry.emitter_is_running(document),' \
+    '            "alive": link_telemetry.process_is_the_emitter(document.get("pid") or 0),  # MUTANT')
+report "M-C24 (ruling K): alive is judged by the pid alone, not by the identity the bring-up recorded" "$m" \
+       "test_alive_is_judged_by_the_identity_the_bring_up_recorded"
 
 # Round 2, section 9 ruling 5: the manifest is B's document and `switches` is a LIST of objects.
 # Round 1 iterated it as a map and produced a list of stringified dicts -- silently wrong, not

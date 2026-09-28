@@ -500,6 +500,11 @@ def write_manifest(switches, path=MANIFEST_PATH):
     powering one switch off by pattern-matching the process name would kill all ten. Only
     verified-live switches are listed -- a manifest entry for a dead switch would be worse
     than no entry, since a caller would trust it.
+
+    Returns None, or the reason the file could not be written -- which `bring_up` makes fatal:
+    without it ndtwin-p4-power cannot address a switch and the reap cannot stop one the helper
+    restarted, and whatever occupies the name is what they would read instead.
+    [Co-developed with claude code -- Adam]
     """
     manifest = {
         sw.name: {
@@ -531,10 +536,35 @@ def write_manifest(switches, path=MANIFEST_PATH):
             os.unlink(tmp)
             raise
     except OSError as e:
-        print(f"WARNING: could not write the switch manifest to {path}: {e}")
+        return (f"could not write the switch manifest to {path}: {e}. ndtwin-p4-power and the "
+                f"teardown's reap address switches only through it, so without it no switch "
+                f"can be powered off or on, and a switch the helper restarted cannot be stopped")
+    return None
 
 
-def process_is_a_switch(pid, proc_root="/proc"):
+#: The executable every switch of this fabric runs, by file name. `argv[0]` is compared with
+#: this exactly; a process whose command line merely MENTIONS it is not a switch.
+#: [Co-developed with claude code -- Adam]
+BMV2_EXECUTABLE_NAME = "simple_switch_grpc"
+
+
+def _is_a_signallable_pid(pid):
+    """An int, not a bool, above 1: never init, never a process group, never a string.
+
+    [Co-developed with claude code -- Adam]
+    """
+    return isinstance(pid, int) and not isinstance(pid, bool) and pid > 1
+
+
+def _word_after(argv, flag):
+    """The word following `flag` in `argv`, or None. [Co-developed with claude code -- Adam]"""
+    try:
+        return argv[argv.index(flag) + 1]
+    except (ValueError, IndexError):
+        return None
+
+
+def process_is_a_switch(pid, proc_root="/proc", entry=None):
     """
     Whether `pid` is currently a bmv2 process rather than whatever inherited that number.
 
@@ -543,17 +573,48 @@ def process_is_a_switch(pid, proc_root="/proc"):
     recycles pids, so killing a manifest pid unchecked would eventually kill something
     unrelated -- as root, since teardown runs under sudo. Reading the cmdline costs one open
     and turns "this number was a switch once" into "this number is a switch now".
+
+    🔴 AND IT IS THE SWITCH, NOT A MENTION OF ONE. This used to answer
+    `b"simple_switch_grpc" in <the whole cmdline>` -- so a `tail` of a switch log, an editor, a
+    grep, anybody's process whose argv merely contained the string, holding a recycled pid (or
+    named by a manifest someone else wrote), was SIGTERMed and SIGKILLed as root. Now:
+
+      * the pid is an int above 1 and not a bool;
+      * `argv[0]`'s file name IS `simple_switch_grpc` -- exactly, as tools/p4_power_helper.py
+        checks it before it signals the same processes;
+      * and the process is THE manifest `entry`'s switch: its `--grpc-server-addr` ends in the
+        entry's `grpc_port`, and, when the entry records a `device_id`, its `--device-id` is
+        that one. No entry, or an entry without a gRPC port, cannot be tied to one process, and
+        is never a match -- argv[0] alone is any bmv2 on the machine.
+
+    A check-then-signal window remains until signalling moves to pidfds. The pid itself comes
+    only from a manifest this reader trusts.
     """
+    if not _is_a_signallable_pid(pid):
+        return False
     try:
         with open(os.path.join(proc_root, str(pid), "cmdline"), "rb") as fh:
-            return b"simple_switch_grpc" in fh.read()
+            raw = fh.read()
     except OSError:
         # Gone, or not ours to look at. Either way there is nothing here to reap.
         return False
+    argv = [os.fsdecode(word) for word in raw.split(b"\0")[:-1]] if raw else []
+    if not argv or os.path.basename(argv[0]) != BMV2_EXECUTABLE_NAME:
+        return False
+    if entry is None:
+        return False
+    port = entry.get("grpc_port") if isinstance(entry, dict) else None
+    addr = _word_after(argv, "--grpc-server-addr")
+    if not _is_a_signallable_pid(port) or addr is None or addr.rpartition(":")[2] != str(port):
+        return False
+    device_id = entry.get("device_id")
+    if device_id is not None and _word_after(argv, "--device-id") != str(device_id):
+        return False
+    return True
 
 
 def reap_manifest_switches(path=MANIFEST_PATH, is_switch=process_is_a_switch,
-                           kill=os.kill, settle_s=0.5):
+                           kill=os.kill, settle_s=0.5, report=print):
     """
     Stop every switch still listed in the manifest. Returns the names actually reaped.
 
@@ -582,27 +643,37 @@ def reap_manifest_switches(path=MANIFEST_PATH, is_switch=process_is_a_switch,
     instead -- which is why leaving the manifest in place on the paths below is load-bearing.
 
     Never raises. Teardown must go on to remove the manifest whatever happens here.
+
+    [Co-developed with claude code -- Adam]
+    🔴 THE MANIFEST IS READ THROUGH THE SAME TRUST CHECK AS THE LINK-TELEMETRY ONE
+    (`link_telemetry.load_manifest`): /tmp is sticky and this name is free whenever no fabric is
+    up, so anyone can create it -- and this runs as root, at teardown and at every bring-up's
+    reset. Opened with O_NOFOLLOW, the owner and mode taken from the descriptor: a regular file
+    with one link, owned by root or by this process's user, writable by nobody else, or it is
+    not acted on at all (and the refusal is reported). The pid must be an int above 1 before
+    anything is asked about it: `"pid": "123"` used to reach `kill` and raise TypeError out of
+    a function that promises never to raise. And a pid is signalled only when
+    `process_is_a_switch` says it is THIS entry's switch.
     """
-    try:
-        with open(path) as fh:
-            manifest = json.load(fh)
-    except (OSError, ValueError):
-        # No manifest, or one we cannot parse. Nothing addressable either way.
+    manifest, problem = link_telemetry.load_manifest(path)
+    if manifest is None:
+        # No manifest, one we cannot parse, or one we must not trust. Nothing addressable.
+        if problem and report:
+            report(f"switch manifest: {problem} -- no switch was signalled")
         return []
 
     doomed = []
     for name, entry in sorted(manifest.items()):
-        try:
-            pid = entry.get("pid")
-        except AttributeError:
+        if not isinstance(entry, dict):
             continue
-        if pid and is_switch(pid):
-            doomed.append((name, pid))
+        pid = entry.get("pid")
+        if _is_a_signallable_pid(pid) and is_switch(pid, entry=entry):
+            doomed.append((name, pid, entry))
 
-    for name, pid in doomed:
+    for name, pid, _entry in doomed:
         try:
             kill(pid, signal.SIGTERM)
-        except OSError:
+        except (OSError, TypeError):
             pass
 
     # One settle window for all of them rather than per switch: they shut down in parallel,
@@ -610,14 +681,14 @@ def reap_manifest_switches(path=MANIFEST_PATH, is_switch=process_is_a_switch,
     if doomed:
         time.sleep(settle_s)
 
-    for name, pid in doomed:
-        if is_switch(pid):
+    for name, pid, entry in doomed:
+        if is_switch(pid, entry=entry):
             try:
                 kill(pid, signal.SIGKILL)
-            except OSError:
+            except (OSError, TypeError):
                 pass
 
-    return [name for name, _ in doomed]
+    return [name for name, _pid, _entry in doomed]
 
 
 def grpc_port_is_open(port, host="127.0.0.1", timeout=0.3):
@@ -649,8 +720,10 @@ def clear_switches_from_a_previous_run(manifest_path=MANIFEST_PATH, ports=(), re
 
     The pid was never missing information. write_manifest has recorded name -> pid for every
     verified switch since Phase 7; reap_manifest_switches signals exactly those pids and
-    re-reads /proc/<pid>/cmdline first, so a recycled number is never signalled; and teardown
-    has called it since the A-4 bookkeeping fix. Startup was simply not using any of it.
+    re-reads /proc/<pid>/cmdline first, so a number recycled BEFORE the check is not signalled
+    (a reuse between the check and the signal remains possible -- the carried pidfd ticket);
+    and teardown has called it since the A-4 bookkeeping fix. Startup was simply not using any
+    of it.
 
     What a name match did that a pid cannot: reach a switch with no manifest entry -- a manifest
     deleted by hand, or a run that predates it. That case is neither dropped nor guessed at. The
@@ -662,7 +735,9 @@ def clear_switches_from_a_previous_run(manifest_path=MANIFEST_PATH, ports=(), re
     about that exact mistake: the file is the only thing that can still address a switch we
     failed to stop, so removing it after a refused kill would destroy the last handle on a
     process nothing owns. write_manifest replaces the whole file later in this run anyway, and
-    stale entries are inert because process_is_a_switch re-checks every pid.
+    a stale entry is signalled only if its pid is, at the moment of the check, a bmv2 with that
+    entry's port and device id (process_is_a_switch re-checks every pid, subject to the same
+    check-then-signal window).
 
     Reports; it does not decide. This function's job ends at "these ports are still held, and
     here is how to find out by whom". What to DO about that is abort_if_grpc_ports_are_held,
@@ -1130,10 +1205,17 @@ def _start_link_telemetry(package, model, switches, manifest_path=None, report=p
         report(link_telemetry.describe(plan))
         return LinkTelemetry(plan=plan, proc=None, fatal=False, verdict=None)
 
+    proc = None
     try:
         link_telemetry.attach(plan, run=tc_run)
         proc = link_telemetry.start_emitter(manifest_path, popen=emitter_popen)
-        link_telemetry.write_manifest(plan, getattr(proc, "pid", None), path=manifest_path)
+        # 🔴 THE IDENTITY IS TAKEN HERE, BEFORE ANYTHING POLLS `proc` (Adam 2026-09-27, ruling
+        # K). Until it is waited on, the emitter is an unreaped child of this process, so its
+        # pid cannot belong to anything else -- and this is the one read of its start time no
+        # pid reuse can race. Every later reader compares against what is recorded here.
+        # [Co-developed with claude code -- Adam]
+        link_telemetry.write_manifest(plan, getattr(proc, "pid", None), path=manifest_path,
+                                      identity=link_telemetry.emitter_identity(proc))
     except Exception:
         # 🔴 A HALF-BUILT LINK PATH LEAVES QDISCS BEHIND WHERE NO TEARDOWN RUNS. Until
         # `write_manifest` returns there is nothing on disk for `tear_down` to read, so both
@@ -1142,6 +1224,11 @@ def _start_link_telemetry(package, model, switches, manifest_path=None, report=p
         # next bring-up destroys the veths and takes the qdiscs with them, but "the next run
         # cleans it up" is not a thing to rely on for state this process created. Best effort,
         # then the original failure.
+        # A manifest that could not be written is one of those failures now, and it comes
+        # AFTER the launch: the emitter is stopped here, through its own Popen, because no
+        # manifest will ever name it. [Co-developed with claude code -- Adam]
+        if proc is not None:
+            link_telemetry.stop_launched_emitter(proc)
         link_telemetry.detach(plan, run=tc_run, report=report)
         raise
     report(link_telemetry.describe(plan, getattr(proc, "pid", None)))
@@ -1219,9 +1306,15 @@ def bring_up(package, model, net=None, manifest_path=None, verify_timeout=10.0,
     disable_host_offloads(hosts)
 
     failures = verify_switches(switches, timeout=verify_timeout)
-    write_manifest(switches, path=manifest_path)
+    manifest_problem = write_manifest(switches, path=manifest_path)
 
     fatal, verdict = partial_fabric_verdict(failures, len(switches))
+    if manifest_problem:
+        # Fatal, like a link-telemetry manifest that could not be written: the file is the only
+        # handle the power helper and the reap have on these processes. [Co-developed with claude code -- Adam]
+        fatal = True
+        line = f"FATAL: {manifest_problem}"
+        verdict = f"{verdict}\n{line}" if verdict else line
     if telemetry.fatal:
         # Both verdicts, never one instead of the other: a fabric can lose a switch AND its
         # emitter, and an operator who is told only about the switch fixes half of it.

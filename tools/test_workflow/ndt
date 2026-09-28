@@ -1995,9 +1995,9 @@ LINK_TELEMETRY_MANIFEST="${LINK_TELEMETRY_MANIFEST:-/tmp/ndtwin_link_telemetry.j
 # on all thirteen driver arms. read_manifest and process_is_the_emitter are B's, so the shape of
 # that file is now asked of the module that writes it.
 #
-# 🔴 AND `alive` IS process_is_the_emitter, NOT os.path.isdir("/proc/<pid>"). A pid recorded at
-# bring-up is not evidence that the same process holds it now -- Linux recycles them -- and the
-# difference decides whether `ndt down` reports residue and tells an operator to kill it.
+# 🔴 AND `alive` IS emitter_is_running(d): the pid WITH the argv and start_time the bring-up
+# recorded (ruling K, 2026-09-27), never "/proc/<pid> exists" -- pids are recycled, and this row
+# decides whether `ndt down` reports residue and tells an operator to kill a pid it names.
 link_emitter_row() {
     [[ -e "$LINK_TELEMETRY_MANIFEST" ]] || { echo "none - - -"; return 0; }
     python3 -c '
@@ -2015,7 +2015,7 @@ sw = d.get("switches") or []
 rate = d.get("rate", "-")
 if not isinstance(pid, int) or isinstance(pid, bool):
     print("unreadable - %d %s" % (len(sw), rate)); raise SystemExit(0)
-alive = link_telemetry.process_is_the_emitter(pid)
+alive = link_telemetry.emitter_is_running(d)
 print("%s %d %d %s" % ("alive" if alive else "dead", pid, len(sw), rate))
 ' "$LINK_TELEMETRY_MANIFEST" "$REPO" 2>/dev/null || echo "unreadable - - -"
 }

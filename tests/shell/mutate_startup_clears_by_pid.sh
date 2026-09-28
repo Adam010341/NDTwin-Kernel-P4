@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for p4_proxy/tests/test_readopt.py's startup-reset classes:
-# ClearSwitchesFromAPreviousRunTest and GrpcPortIsOpenTest.  KNOWN-ISSUES G-9, G-inst-2.
+# Mutation gate for p4_proxy/tests/test_readopt.py's startup-reset and switch-reap classes:
+# ClearSwitchesFromAPreviousRunTest, GrpcPortIsOpenTest, ReapManifestSwitchesTest,
+# AnUntrustedSwitchManifestSignalsNothingTest and ProcessIsASwitchTest.  KNOWN-ISSUES G-9,
+# G-inst-2.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -30,7 +32,7 @@
 # reach on its own -- ndtwin-lab starts ntg_bmv2_topo.py, so a decision wired into only one
 # main is a decision that does not run.
 #
-# Eleven mutations plus a control:
+# Twenty-one mutations plus a control:
 #   MS1       the manifest is never consulted -- a reset that resets nothing.
 #   MS2       the manifest is deleted after the reap. This is the A-4 bookkeeping defect moved
 #             to startup: the file is the only handle left on a switch the reap failed to stop.
@@ -43,6 +45,13 @@
 #   MS9       main() stops calling it, so the policy exists and nothing executes it.
 #   MS10      the owner is looked up for the first held port only.
 #   MS11      the abort stops naming WHO holds the port, leaving a number the operator cannot act on.
+#   MS12-MS17 (2026-09-28) the reap's own inputs: a plain open of a file anyone can create, a
+#             substring match, the entry's port and device id not compared, a non-int pid, and
+#             a refusal nobody is told about.
+#   MS18-MS20 the entry: a check made without one says yes, or the reap does not pass it.
+#   MS21      the reap's reader (link_telemetry.load_manifest) lets a parse error escape, so a
+#             corrupt manifest takes the reap down. The twin of mutate_link_telemetry.sh's M-B55,
+#             named on this suite's own cell so that cell is seen to fail too.
 #   C1        a comment is reworded and nothing may change.
 #
 # A mutation that makes the WRONG test go red is a SURVIVOR: the case it targets was never put to
@@ -51,6 +60,9 @@
 # 🔴 Never writes p4_proxy/mininet/p4_testbed_topo.py. Every mutation goes to a COPY in a temp
 # dir and the suite is pointed at it with P4_TESTBED_TOPO_UNDER_TEST -- this worktree is shared
 # and another session may be running the real file right now. Byte identity is asserted anyway.
+# MS21 mutates link_telemetry.py, which the proxy package imports before the suite loads the
+# copy, so it runs against a copy of the whole p4_proxy tree instead (`mutant_tree`); that file
+# is never written either, and is hashed too.
 #
 # 🔴 Signals nothing. The reap and the port probe are injected in every test in the two classes;
 # the one real socket is bound on an ephemeral port on 127.0.0.1 and closed by the test.
@@ -70,6 +82,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
 SUBJECT="$REPO/p4_proxy/mininet/p4_testbed_topo.py"
 SUITE="$REPO/p4_proxy/tests/test_readopt.py"
+LINKTEL="$REPO/p4_proxy/mininet/link_telemetry.py"
 PY="${PY:-$REPO/p4_proxy/venv/bin/python3}"
 TEST_TIMEOUT="${TEST_TIMEOUT:-300}"
 
@@ -81,6 +94,7 @@ command -v timeout >/dev/null || { echo "🔴 GNU timeout is required" >&2; exit
 BK=$(mktemp -d "${TMPDIR:-/tmp}/startup-clear-mutate-XXXXXX")
 trap 'rm -rf "$BK"' EXIT INT TERM
 BASE_SHA=$(sha256sum "$SUBJECT" | cut -d' ' -f1)
+BASE_LINKTEL_SHA=$(sha256sum "$LINKTEL" | cut -d' ' -f1)
 
 MUTATIONS=0
 SURVIVORS=0
@@ -95,10 +109,19 @@ run_against() {
         2>&1 )
 }
 
+# A copy of the whole p4_proxy tree (see mutant_tree), run as l1_unit_tests.sh runs it. Its own
+# p4_testbed_topo.py is the one loaded, so P4_TESTBED_TOPO_UNDER_TEST is left unset.
+# [Co-developed with claude code -- Adam]
+run_tree() {
+    ( cd "$1" && PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. \
+        timeout "$TEST_TIMEOUT" "$PY" tests/test_readopt.py 2>&1 )
+}
+
 report() {   # $1 = mutation name, $2 = mutated copy, $3 = the test that must go red
     local out rc
     MUTATIONS=$((MUTATIONS + 1))
-    out=$(run_against "$2"); rc=$?
+    # A mutated tree (a directory) runs as a tree; a mutated file through the seam.
+    if [[ -d "$2" ]]; then out=$(run_tree "$2"); rc=$?; else out=$(run_against "$2"); rc=$?; fi
     if [[ "$rc" == 124 ]]; then
         printf '  🔴 %-56s suite HUNG -- never a catch\n' "$1" >&2
         VERDICT=2; return
@@ -147,6 +170,30 @@ assert s.count(old) == 1, "anchor is not unique (%d matches): %r" % (s.count(old
 open(p, "w").write(s.replace(old, new))
 PY
     echo "$out"
+}
+
+# 🔴 A COPY OF THE WHOLE p4_proxy TREE, for a mutation of link_telemetry.py. The proxy package
+# (proxy_agent.main) imports link_telemetry from its own mininet/ before test_readopt loads the
+# testbed copy, so a link_telemetry.py mutated beside that copy would never be imported: the
+# mutant would "survive" without having run. Here the whole tree is the copy, and `setting/` and
+# `tools/` are linked beside it, as mutate_link_telemetry.sh does. Prints the tree's p4_proxy dir.
+# [Co-developed with claude code -- Adam]
+mutant_tree() {   # $1 = name, $2 = anchor \x1f replacement in link_telemetry.py ('' = unmutated)
+    local file="$LINKTEL" root="$BK/tree-$1" d
+    d="$root/p4_proxy"; mkdir -p "$d"
+    cp -r "$REPO/p4_proxy/proxy_agent" "$REPO/p4_proxy/tests" "$REPO/p4_proxy/mininet" "$d/"
+    ln -s "$REPO/setting" "$root/setting"; ln -s "$REPO/tools" "$root/tools"
+    find "$d" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null
+    [[ -z "$2" ]] && { echo "$d"; return; }
+    "$PY" - "$d/mininet/$(basename "$file")" "$2" <<'PY'
+import sys
+p, spec = sys.argv[1], sys.argv[2]
+old, new = spec.split("\x1f")
+s = open(p).read()
+assert s.count(old) == 1, "anchor is not unique (%d matches): %r" % (s.count(old), old[:70])
+open(p, "w").write(s.replace(old, new))
+PY
+    echo "$d"
 }
 
 echo "baseline (must be green before any mutation):"
@@ -225,6 +272,85 @@ ms11=$(mutant ms11 '            report("  :%d is held by  %s" % (port, line))'$'
 report "MS11: the abort stops saying WHO holds the port" "$ms11" \
        "test_the_owner_of_each_held_port_is_printed_verbatim"
 
+# --- the reap's own inputs: the file, the pid, the process (2026-09-28) ---------------------------
+#
+# [Co-developed with claude code -- Adam]
+# The reap runs as root on /tmp/ndtwin_p4_switches.json, a name anyone can create while no fabric
+# is up. It used to read it with a plain open and signal every pid whose cmdline merely CONTAINED
+# "simple_switch_grpc". These put back each half of that. Killed by
+# AnUntrustedSwitchManifestSignalsNothingTest, whose kills only record.
+#
+# NOT here, as equivalent: dropping TypeError from the kill's except. The pid check runs first,
+# so no non-int ever reaches kill; the catch is kept only so the promise "never raises" does not
+# rest on one line.
+
+ms12=$(mutant ms12 '    manifest, problem = link_telemetry.load_manifest(path)'$'\x1f''    manifest, problem = (json.load(open(path)) if os.path.lexists(path) else None), None')
+report "MS12: the switch manifest is read with a plain open again" "$ms12" \
+       "test_a_group_writable_switch_manifest_signals_nothing_and_says_why"
+
+ms13=$(mutant ms13 '    if not argv or os.path.basename(argv[0]) != BMV2_EXECUTABLE_NAME:'$'\x1f''    if not any(BMV2_EXECUTABLE_NAME in word for word in argv):')
+report "MS13: a process that merely mentions simple_switch_grpc is a switch" "$ms13" \
+       "test_a_process_that_only_mentions_the_binary_is_never_signalled"
+
+ms14=$(mutant ms14 '    if not _is_a_signallable_pid(port) or addr is None or addr.rpartition(":")[2] != str(port):'$'\x1f''    if False:')
+report "MS14: any bmv2 is this entry's switch, whatever port it serves" "$ms14" \
+       "test_another_switchs_process_is_never_signalled"
+
+ms15=$(mutant ms15 '    if device_id is not None and _word_after(argv, "--device-id") != str(device_id):'$'\x1f''    if False:')
+report "MS15: the entry's device id is not compared" "$ms15" \
+       "test_the_same_port_on_another_device_id_is_never_signalled"
+
+ms16=$(mutant ms16 '        if _is_a_signallable_pid(pid) and is_switch(pid, entry=entry):'$'\x1f''        if pid and is_switch(pid, entry=entry):')
+report "MS16: a pid of true, a string or a negative number reaches kill" "$ms16" \
+       "test_a_pid_that_is_not_an_int_above_one_is_never_signalled"
+
+ms17=$(mutant ms17 '        if problem and report:'$'\x1f''        if False:')
+report "MS17: an untrusted switch manifest is refused in silence" "$ms17" \
+       "test_a_group_writable_switch_manifest_signals_nothing_and_says_why"
+
+# Without a manifest entry there is nothing to tie a pid to ONE switch, so the check says no;
+# and the reap must ask it WITH the entry, both before the SIGTERM and before the SIGKILL.
+# [Co-developed with claude code -- Adam]
+
+ms18=$(mutant ms18 '    if entry is None:
+        return False
+    port = entry.get'$'\x1f''    if entry is None:
+        return True
+    port = entry.get')
+report "MS18: with no entry, any process whose argv[0] is the binary is a switch" "$ms18" \
+       "test_without_an_entry_nothing_is_a_switch"
+
+ms19=$(mutant ms19 '        if _is_a_signallable_pid(pid) and is_switch(pid, entry=entry):'$'\x1f''        if _is_a_signallable_pid(pid) and is_switch(pid):')
+report "MS19: the reap asks about the pid without the entry it came from" "$ms19" \
+       "test_this_entrys_own_switch_is_still_signalled"
+
+ms20=$(mutant ms20 '        if is_switch(pid, entry=entry):
+            try:
+                kill(pid, signal.SIGKILL)'$'\x1f''        if is_switch(pid):
+            try:
+                kill(pid, signal.SIGKILL)')
+report "MS20: the check before the SIGKILL is made without the entry" "$ms20" \
+       "test_this_entrys_own_switch_is_still_signalled"
+
+# --- the reap's reader: a manifest that does not parse ------------------------------------------
+# The twin of mutate_link_telemetry.sh's M-B55, killed there by test_link_telemetry's cell only.
+# This suite's cell writes the same broken document at 0644; if that chmod is ever dropped, the
+# file is refused on its mode before the parse, the cell passes for that reason, and this twin
+# survives -- which is the point of naming it here. The tree copy is checked green before the
+# mutated one is believed. [Co-developed with claude code -- Adam]
+
+tree_base=$(mutant_tree base '')
+if ! run_tree "$tree_base" >/dev/null 2>&1; then
+    echo "  🔴 the tree copy is RED unmutated -- MS21 below is not interpretable" >&2
+    run_tree "$tree_base" | grep -E '^(FAIL|ERROR): ' | sed 's/^/    /' >&2
+    VERDICT=2
+fi
+ms21=$(mutant_tree ms21 '    except (OSError, ValueError) as exc:
+        return None, f"{path} cannot be read: {exc}"'$'\x1f''    except OSError as exc:  # MUTANT: a document that does not parse escapes as an exception
+        return None, f"{path} cannot be read: {exc}"')
+report "MS21: a corrupt switch manifest raises out of the reap" "$ms21" \
+       "test_a_corrupt_manifest_is_not_an_error"
+
 # --- the control ---------------------------------------------------------------------------------
 
 c1=$(mutant c1 '        # One settle for the whole set: a port is released when the process exits, and the'$'\x1f''        # One settle for the whole set (a port is released when the process exits) and the')
@@ -237,6 +363,13 @@ if [[ "$NOW_SHA" == "$BASE_SHA" ]]; then
     echo "baseline byte-identical: yes  p4_proxy/mininet/p4_testbed_topo.py (never written)"
 else
     echo "🔴 $SUBJECT WAS WRITTEN -- $BASE_SHA -> $NOW_SHA" >&2
+    VERDICT=2
+fi
+NOW_LINKTEL_SHA=$(sha256sum "$LINKTEL" | cut -d' ' -f1)
+if [[ "$NOW_LINKTEL_SHA" == "$BASE_LINKTEL_SHA" ]]; then
+    echo "baseline byte-identical: yes  p4_proxy/mininet/link_telemetry.py (never written)"
+else
+    echo "🔴 $LINKTEL WAS WRITTEN -- $BASE_LINKTEL_SHA -> $NOW_LINKTEL_SHA" >&2
     VERDICT=2
 fi
 

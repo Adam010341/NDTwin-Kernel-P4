@@ -44,71 +44,162 @@ CALC = os.path.join(FIXTURES, "calc")
 #: when it is not there -- nothing else in this file depends on the machine having tutorials.
 TUTORIALS_EXERCISES = os.path.expanduser("~/tutorials/exercises")
 
-#: 🔴 THE ONLY FIXTURES THAT ARE NOT COPIES, listed here so that "not in ~/tutorials" can never
-#: quietly become the answer for a file that is supposed to be one.
+#: 🔴 BUILD ARTIFACTS CARRY THE COMMAND THAT MADE THEM, NOT BYTE PROVENANCE (Adam 2026-09-27,
+#: ruling J, the P3-C precedent (c) made the rule rather than a list of exceptions).
 #:
 #: [Co-developed with claude code -- Adam]
-#: `exercises/firewall` and `exercises/calc` have never been built in this checkout -- there is
-#: no `build/` under either -- and a package cannot name a pipeline it does not carry, so the
-#: four artefacts a firewall package needs and the two a calc package needs were COMPILED into
-#: the fixture tree rather than copied out of one:
+#: A file under a `build/` directory whose name is a compiler output (`.json`, `.p4info.txtpb`)
+#: is the product of a command, and `~/tutorials/exercises/*/build/` is a tree the live runs
+#: RECOMPILE: the live-p1 drivers compile the solution into the skeleton's output name
+#: (`compile_prog`), `make` compiles the skeleton, and either may name the source by an absolute
+#: or a relative path -- so the same path holds whichever program was compiled last, and how.
+#: Byte-comparing the fixture to that tree measured the last live run, not the fixture: on
+#: 2026-09-27 it was red under the real HOME on basic/build/{basic.json,basic.p4.p4info.txtpb}
+#: (rewritten 04:20 +08:00, `program` now "solution/basic.p4") and
+#: p4runtime/build/advanced_tunnel.json (rewritten 01:54, `program` now absolute) -- inside the
+#: window of that night's live-p1 runs.
 #:
-#:   p4c-bm2-ss --p4v 16 --p4runtime-files build/<stem>.p4.p4info.txtpb \
-#:              -o build/<stem>.json ~/tutorials/exercises/<ex>/<stem>.p4
+#: So an artifact is held by what CAN be stated about it: the command that produced it, recorded
+#: here, and `program` in each bmv2 json naming the source that command compiled (checked below; a
+#: p4info names no source, and shares its json's command). Rerun as recorded, each command gives
+#: back its artifact's bytes, with one stated exception: basic_telemetry's json also carries the
+#: `-I` include's path in its source_info, so from any checkout but wt-p3-proxy-0919 it differs in
+#: that path and nothing else (verify_recipes, 2026-09-27: 15 identical, 1 identical modulo it). The SOURCES -- every
+#: `.p4`, every topology and runtime file, `mycontroller.py` -- stay byte-compared with
+#: ~/tutorials, and a `.p4` placed under `build/` is still a source (`is_build_artifact`).
 #:
-#: with p4c-bm2-ss 1.2.5.15 (SHA 5b948b037a, /usr/local/bin/p4c-bm2-ss). Their bmv2 json
-#: therefore carries `program: /home/adam/tutorials/exercises/<ex>/<stem>.p4`, which is where
-#: the source really is; the p4info sha is the stable identifier and the one the tests compare.
-GENERATED_FIXTURES = frozenset({
-    "firewall/build/basic.json",
-    "firewall/build/basic.p4.p4info.txtpb",
-    "firewall/build/firewall.json",
-    "firewall/build/firewall.p4.p4info.txtpb",
-    "calc/build/calc.json",
-    "calc/build/calc.p4.p4info.txtpb",
-    # TICKET-P3 2.6. Compiled FROM basic_telemetry/basic_telemetry.p4 below, from inside that
-    # directory, so the json's `program` is the relative "basic_telemetry.p4" rather than an
-    # absolute path into one machine -- anyone who recompiles it the same way gets the same
-    # bytes:
-    #
-    #   cd tools/p4_exercise/tests/fixtures/basic_telemetry
-    #   p4c-bm2-ss --p4v 16 -I <repo>/p4_proxy/p4_src \
-    #              --p4runtime-files build/basic_telemetry.p4.p4info.txtpb \
-    #              -o build/basic_telemetry.json basic_telemetry.p4
-    #
-    # (p4c warns once, about NDTWIN_PKTIN_REASON_PACKET_IN being unused -- that constant is for
-    # the including program, not for the include. rc is 0.)
-    "basic_telemetry/build/basic_telemetry.json",
-    "basic_telemetry/build/basic_telemetry.p4.p4info.txtpb",
-    # TICKET-P3 2.6 again: `exercises/multicast` has never been built in this checkout either,
-    # and its runtime file names build/multicast.p4.p4info.txtpb. Compiled from the fixture's
-    # own copy of the SKELETON multicast.p4 (the tables and actions its entries name are in the
-    # skeleton; only the group logic is missing), from inside the fixture directory:
-    #
-    #   cd tools/p4_exercise/tests/fixtures/multicast
-    #   p4c-bm2-ss --p4v 16 --p4runtime-files build/multicast.p4.p4info.txtpb \
-    #              -o build/multicast.json multicast.p4
-    "multicast/build/multicast.json",
-    "multicast/build/multicast.p4.p4info.txtpb",
-    # TICKET-P3 section 9 ruling 23②, and the orchestrator's option (c) on the drift the
-    # live runs caused. These two are the SOLUTION compiled by absolute path -- the driver's
-    # `compile_prog` equivalent, which is what the fabric actually ran when the defect was
-    # found -- while `~/tutorials/exercises/basic_tunnel/build/` holds the skeleton's Makefile
-    # build (relative `program`, 67 lines of p4info, and no `MyIngress.myTunnel_exact` at all).
-    # The two cannot both be true of one path, so these are GENERATED with the command
-    # recorded rather than byte-provenanced against a tree that builds whichever program was
-    # asked for last:
-    #
-    #   p4c-bm2-ss --p4v 16 \
-    #       --p4runtime-files tools/p4_exercise/tests/fixtures/basic_tunnel/build/basic_tunnel.p4.p4info.txtpb \
-    #       -o tools/p4_exercise/tests/fixtures/basic_tunnel/build/basic_tunnel.json \
-    #       /home/adam/tutorials/exercises/basic_tunnel/solution/basic_tunnel.p4
-    #
-    # `s1-runtime.json` beside them is NOT here: it is a plain copy no build rewrites, and it
-    # is the file the whole fix is about, so it stays under the provenance check.
-    "basic_tunnel/build/basic_tunnel.json",
-    "basic_tunnel/build/basic_tunnel.p4.p4info.txtpb",
-})
+#: p4c-bm2-ss 1.2.5.15 (SHA 5b948b037a), /usr/local/bin/p4c-bm2-ss, throughout. A `cd <dir> &&`
+#: prefix is part of the command: a relative source is recorded in the json as given, which is
+#: how the json and the command are tied together. `<repo>` is this checkout.
+_TUT = "/home/adam/tutorials/exercises"
+_FIX = "tools/p4_exercise/tests/fixtures"
+
+
+def _p4c(source, out_dir, stem, cd=None, extra=""):
+    """The one command shape every artifact here was produced by."""
+    command = (f"p4c-bm2-ss --p4v 16 {extra}--p4runtime-files {out_dir}/{stem}.p4.p4info.txtpb "
+               f"-o {out_dir}/{stem}.json {source}")
+    return f"cd {cd} && {command}" if cd else command
+
+
+BUILD_ARTIFACTS = {}
+for _rel_dir, _stem, _command in (
+        # COPIED from ~/tutorials on 2026-09-17, until 2026-09-27 byte-compared against it. The
+        # skeleton `exercises/basic/basic.p4` compiled by ABSOLUTE path (its json's `program`),
+        # i.e. the driver's compile, not the Makefile's.
+        ("basic/build", "basic",
+         _p4c(f"{_TUT}/basic/basic.p4", f"{_TUT}/basic/build", "basic")),
+        # COPIED from ~/tutorials on 2026-09-17, until 2026-09-27 byte-compared against it. The
+        # exercise's own Makefile (utils/Makefile `%.json: %.p4`), run inside the exercise: its
+        # json's `program` is the relative "advanced_tunnel.p4".
+        ("p4runtime/build", "advanced_tunnel",
+         _p4c("advanced_tunnel.p4", "build", "advanced_tunnel", cd=f"{_TUT}/p4runtime")),
+        # TICKET-P2 (2026-09-18): `exercises/firewall` and `exercises/calc` have never been
+        # built in this checkout -- there is no `build/` under either -- and a package cannot
+        # name a pipeline it does not carry, so the four artefacts a firewall package needs and
+        # the two a calc package needs were compiled into the fixture tree, from the tutorials
+        # sources by absolute path.
+        ("firewall/build", "basic",
+         _p4c(f"{_TUT}/firewall/basic.p4", f"{_FIX}/firewall/build", "basic")),
+        ("firewall/build", "firewall",
+         _p4c(f"{_TUT}/firewall/firewall.p4", f"{_FIX}/firewall/build", "firewall")),
+        ("calc/build", "calc",
+         _p4c(f"{_TUT}/calc/calc.p4", f"{_FIX}/calc/build", "calc")),
+        # TICKET-P3 2.6. Compiled FROM basic_telemetry/basic_telemetry.p4 (AUTHORED_FIXTURES), from
+        # inside that directory, so the json's `program` is the relative "basic_telemetry.p4".
+        # The include's path IS recorded in the json's source_info, as whatever `-I` said -- on
+        # 2026-09-19 that was the wt-p3-proxy-0919 worktree's p4_proxy/p4_src. (p4c warns once,
+        # about NDTWIN_PKTIN_REASON_PACKET_IN being unused -- that constant is for the including
+        # program, not for the include. rc is 0.)
+        ("basic_telemetry/build", "basic_telemetry",
+         _p4c("basic_telemetry.p4", "build", "basic_telemetry", cd=f"{_FIX}/basic_telemetry",
+              extra="-I <repo>/p4_proxy/p4_src ")),
+        # TICKET-P3 2.6 again: `exercises/multicast` has never been built in this checkout
+        # either, and its runtime file names build/multicast.p4.p4info.txtpb. Compiled from the
+        # fixture's own copy of the SKELETON multicast.p4 (the tables and actions its entries
+        # name are in the skeleton; only the group logic is missing), inside the fixture dir.
+        ("multicast/build", "multicast",
+         _p4c("multicast.p4", "build", "multicast", cd=f"{_FIX}/multicast")),
+        # TICKET-P3 section 9 ruling 23②, the P3-C precedent this rule generalises: the SOLUTION
+        # compiled by absolute path -- the driver's `compile_prog` equivalent, which is what the
+        # fabric actually ran when the defect was found -- while
+        # `~/tutorials/exercises/basic_tunnel/build/` holds the skeleton's Makefile build
+        # (relative `program`, 67 lines of p4info, and no `MyIngress.myTunnel_exact` at all).
+        # `s1-runtime.json` beside them is NOT an artifact: it is a plain copy no build rewrites,
+        # and it stays under the byte provenance check.
+        ("basic_tunnel/build", "basic_tunnel",
+         _p4c(f"{_TUT}/basic_tunnel/solution/basic_tunnel.p4", f"{_FIX}/basic_tunnel/build",
+              "basic_tunnel")),
+):
+    BUILD_ARTIFACTS[f"{_rel_dir}/{_stem}.json"] = _command
+    BUILD_ARTIFACTS[f"{_rel_dir}/{_stem}.p4.p4info.txtpb"] = _command
+
+#: The compiler outputs a `build/` directory holds. Anything else found there -- a `.p4`, a
+#: runtime file -- is NOT an artifact, and is compared like any other source.
+BUILD_OUTPUT_SUFFIXES = (".json", ".p4info.txtpb")
+
+
+def is_build_artifact(rel):
+    """Whether a fixture-relative path is a compiler output: under `build/`, named like one.
+
+    [Co-developed with claude code -- Adam]
+    Both halves are required. `build` must be a DIRECTORY component (a file called `build` is
+    just a file), and the name must end in a compiler output's suffix -- so a `.p4` copied into
+    a build directory is still a source, and still byte-compared.
+    """
+    parts = rel.replace(os.sep, "/").split("/")
+    return "build" in parts[:-1] and parts[-1].endswith(BUILD_OUTPUT_SUFFIXES)
+
+
+def fixture_provenance(fixtures_dir, tutorials_dir, authored=frozenset()):
+    """Compare every SOURCE fixture with its original. Returns (mismatched, orphaned, checked).
+
+    [Co-developed with claude code -- Adam]
+    Build artifacts are not compared (`is_build_artifact`; their record is BUILD_ARTIFACTS),
+    nor are the `authored` fixtures (written here; they have no original), nor `README`. Every
+    other file must exist under `tutorials_dir` at the same relative path (else `orphaned`) and
+    be byte-identical to it (else `mismatched`).
+    """
+    mismatched, orphaned, checked = [], [], 0
+    for root, dirs, files in os.walk(fixtures_dir):
+        dirs[:] = sorted(d for d in dirs if d != "__pycache__")
+        for filename in sorted(files):
+            rel = os.path.relpath(os.path.join(root, filename), fixtures_dir)
+            if rel == "README":
+                continue          # this directory's own note, not a copy of anything
+            if is_build_artifact(rel) or rel in authored:
+                continue          # a command's product, or written here; see BUILD_ARTIFACTS
+            original = os.path.join(tutorials_dir, rel)
+            if not os.path.isfile(original):
+                orphaned.append(rel)
+                continue
+            checked += 1
+            if sha(os.path.join(root, filename)) != sha(original):
+                mismatched.append(rel)
+    return mismatched, orphaned, checked
+
+
+def unrecorded_build_artifacts(fixtures_dir, recorded):
+    """(artifacts in the tree with no recorded command, recorded names that are not one).
+
+    [Co-developed with claude code -- Adam]
+    The exemption from byte provenance is paid for by the record, so the two must be the same
+    set: a build artifact nobody recorded a command for is exempt from everything, and a
+    recorded name that is not an artifact in the tree is either stale or -- worse -- a source
+    that someone tried to exempt by listing it.
+    """
+    in_tree = set()
+    for root, dirs, files in os.walk(fixtures_dir):
+        dirs[:] = [d for d in dirs if d != "__pycache__"]
+        for filename in files:
+            rel = os.path.relpath(os.path.join(root, filename), fixtures_dir)
+            if is_build_artifact(rel):
+                in_tree.add(rel)
+    unrecorded = sorted(in_tree - set(recorded))
+    # `in_tree` holds only artifacts, so a recorded source lands here as surely as a stale name.
+    not_artifacts = sorted(set(recorded) - in_tree)
+    return unrecorded, not_artifacts
+
 
 #: 🔴 THE FIXTURES THAT ARE NEITHER COPIED NOR COMPILED -- written here, on purpose, and listed
 #: for the reason GENERATED_FIXTURES is listed: "not in ~/tutorials" must never quietly become
@@ -541,7 +632,12 @@ class ShapedLinks(unittest.TestCase):
 
 
 class FixtureProvenance(unittest.TestCase):
-    """The fixtures claim to be byte copies of ~/tutorials. This is that claim, checked."""
+    """The fixtures claim to be byte copies of ~/tutorials. This is that claim, checked.
+
+    [Co-developed with claude code -- Adam]
+    For the SOURCES. Build artifacts carry their compile command instead (BUILD_ARTIFACTS, Adam
+    2026-09-27 ruling J), because the tree they were copied from is one the live runs recompile.
+    """
 
     def test_every_fixture_is_still_byte_identical_to_its_tutorials_original(self):
         if not os.path.isdir(TUTORIALS_EXERCISES):
@@ -550,53 +646,155 @@ class FixtureProvenance(unittest.TestCase):
                 f"no p4lang-tutorials checkout at {TUTORIALS_EXERCISES}, so the fixtures cannot "
                 f"be compared with the files they were copied from. This is NOT evidence that "
                 f"they match.")
-        mismatched, orphaned, checked = [], [], 0
-        for root, dirs, files in os.walk(FIXTURES):
-            dirs[:] = [d for d in dirs if d != "__pycache__"]
-            for filename in sorted(files):
-                rel = os.path.relpath(os.path.join(root, filename), FIXTURES)
-                if rel == "README":
-                    continue          # this directory's own note, not a copy of anything
-                if rel in GENERATED_FIXTURES or rel in AUTHORED_FIXTURES:
-                    continue          # compiled or written here on purpose; see the constants
-                original = os.path.join(TUTORIALS_EXERCISES, rel)
-                if not os.path.isfile(original):
-                    orphaned.append(rel)
-                    continue
-                checked += 1
-                if sha(os.path.join(root, filename)) != sha(original):
-                    mismatched.append(rel)
+        mismatched, orphaned, checked = fixture_provenance(FIXTURES, TUTORIALS_EXERCISES,
+                                                           authored=AUTHORED_FIXTURES)
         self.assertEqual(orphaned, [],
                          "fixture file(s) with no counterpart in ~/tutorials -- either the "
                          "exercise moved, or something generated was committed as if copied")
         self.assertEqual(mismatched, [],
                          "fixture(s) that have drifted from ~/tutorials; the tests describe a "
                          "file shape the upstream exercise no longer has")
-        # 34, not 25: TICKET-P2 added nine copies (firewall's topology, its four runtime files
-        # and its basic.p4; calc's topology, runtime file and calc.p4). The floor moves with
-        # the tree so that deleting fixtures cannot make this check easier.
-        self.assertGreaterEqual(checked, 34, "the fixture tree shrank -- this check got easier")
+        # 34, exactly. It was a floor of 34 (TICKET-P2's nine copies on top of 25) while the tree
+        # compared 38 -- TICKET-P3 added four copies (basic_tunnel/s1-runtime.json,
+        # multicast/multicast.p4 and multicast/sig-topo/*) and the floor never moved. Ruling J
+        # (2026-09-27) then moved the four COPIED build artifacts --
+        # basic/build/{basic.json,basic.p4.p4info.txtpb} and
+        # p4runtime/build/{advanced_tunnel.json,advanced_tunnel.p4.p4info.txtpb} -- from bytes to
+        # recorded commands: 38 - 4. Exact, not a floor, because a source quietly becoming "not
+        # compared" is the failure this check exists for, and a floor absorbs four of them.
+        self.assertEqual(checked, 34, "the set of byte-compared sources changed")
 
     def test_the_generated_fixtures_are_all_there_and_are_the_only_exemptions(self):
-        # 🔴 The allow list above is the one way a file can be in this tree without being
-        # compared to anything, so it is itself checked: every name in it must exist (a stale
-        # entry would silently exempt nothing, or worse, a file that later became a copy), and
-        # nothing may be exempt that is not in it -- which is what the `continue` enforces.
-        for rel in sorted(GENERATED_FIXTURES | AUTHORED_FIXTURES):
+        # 🔴 The record is the one way a file can be in this tree without being compared to
+        # anything, so it is itself checked: every build artifact in the tree has a recorded
+        # command, every recorded name is a build artifact that is there (a stale entry would
+        # exempt nothing, or worse, a source listed to exempt it), and nothing else is exempt --
+        # which is what `fixture_provenance` enforces.
+        unrecorded, not_artifacts = unrecorded_build_artifacts(FIXTURES, BUILD_ARTIFACTS)
+        self.assertEqual(unrecorded, [], "build artifact(s) with no recorded compile command")
+        self.assertEqual(not_artifacts, [],
+                         "recorded as build artifacts but absent, or not build artifacts at all")
+        for rel in sorted(AUTHORED_FIXTURES):
             with self.subTest(fixture=rel):
                 self.assertTrue(os.path.isfile(os.path.join(FIXTURES, rel)),
                                 f"{rel} is exempted from the provenance check but is not there")
-        # And they really are build products of the programs they claim: each json names its
-        # own source, and each p4info parses. `program` is an absolute path into whoever
-        # compiled it -- recorded, never compared (TICKET-P1 B measured that its sha moves with
-        # the directory, while the p4info's does not).
-        for rel in sorted(r for r in GENERATED_FIXTURES if r.endswith(".json")):
+                self.assertFalse(is_build_artifact(rel))
+        # And each is the product of the command recorded for it: a bmv2 json names its own
+        # source in `program`, which is the last word of that command -- the source path exactly
+        # as the command gave it. `program` is recorded, never byte-compared (TICKET-P1 B
+        # measured that the json's sha moves with the directory, while the p4info's does not).
+        # A p4info names no source; it must share its json's command.
+        for rel, command in sorted(BUILD_ARTIFACTS.items()):
             with self.subTest(fixture=rel):
-                with open(os.path.join(FIXTURES, rel), encoding="utf-8") as fh:
-                    built = json.load(fh)
-                stem = os.path.basename(rel)[: -len(".json")]
-                self.assertTrue(built.get("program", "").endswith(f"{stem}.p4"),
-                                f"{rel} says it was compiled from {built.get('program')!r}")
+                self.assertTrue(command.split(" && ")[-1].startswith("p4c-bm2-ss --p4v 16 "))
+                json_out = command.split(" -o ")[1].split()[0]
+                p4info_out = command.split(" --p4runtime-files ")[1].split()[0]
+                if rel.endswith(".json"):
+                    self.assertEqual(os.path.basename(json_out), os.path.basename(rel))
+                    with open(os.path.join(FIXTURES, rel), encoding="utf-8") as fh:
+                        built = json.load(fh)
+                    self.assertEqual(built.get("program"), command.split()[-1],
+                                     f"{rel} says it was compiled from {built.get('program')!r}")
+                else:
+                    self.assertEqual(os.path.basename(p4info_out), os.path.basename(rel))
+                    json_rel = rel[: -len(".p4.p4info.txtpb")] + ".json"
+                    self.assertEqual(command, BUILD_ARTIFACTS.get(json_rel))
+
+
+class TheProvenanceRule(TmpMixin, unittest.TestCase):
+    """Ruling J, against trees written here: what drifts is a failure only if it is a source.
+
+    [Co-developed with claude code -- Adam]
+    These need no ~/tutorials: they build both trees here, so they run wherever this suite runs,
+    including a machine without a p4lang-tutorials checkout, where FixtureProvenance skips. The
+    hosted CI does not run tools/p4_exercise/tests at all; mutate_roles_binding.sh and
+    mutate_p4_exercise_tools.sh do. They are what the mutation gate's J cells are killed by.
+    """
+
+    def lay_out(self, files):
+        """A fixture tree and an identical 'tutorials' tree, each holding `files`."""
+        fixtures, tutorials = os.path.join(self.tmp, "fixtures"), os.path.join(self.tmp, "tut")
+        for rel, body in files.items():
+            for base in (fixtures, tutorials):
+                path = os.path.join(base, rel)
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "w", encoding="utf-8") as fh:
+                    fh.write(body)
+        return fixtures, tutorials
+
+    FILES = {
+        "ex/ex.p4": "control C() { apply { } }\n",
+        "ex/topology.json": "{}\n",
+        "ex/s1-runtime.json": "{\"table_entries\": []}\n",
+        "ex/mycontroller.py": "print('hi')\n",
+        "ex/build/ex.json": "{\"program\": \"ex.p4\"}\n",
+        "ex/build/ex.p4.p4info.txtpb": "pkg_info {}\n",
+    }
+
+    def drift(self, tutorials, rel):
+        with open(os.path.join(tutorials, rel), "a", encoding="utf-8") as fh:
+            fh.write("// drifted\n")
+
+    def test_the_identical_trees_are_clean_and_only_sources_are_counted(self):
+        fixtures, tutorials = self.lay_out(self.FILES)
+        self.assertEqual(fixture_provenance(fixtures, tutorials), ([], [], 4))
+
+    def test_a_rebuilt_build_artifact_is_not_a_provenance_failure(self):
+        # The live runs' recompile, exactly: the upstream artifact changes, the fixture does not.
+        fixtures, tutorials = self.lay_out(self.FILES)
+        self.drift(tutorials, "ex/build/ex.json")
+        self.drift(tutorials, "ex/build/ex.p4.p4info.txtpb")
+        self.assertEqual(fixture_provenance(fixtures, tutorials), ([], [], 4))
+
+    def test_a_changed_p4_source_is_still_a_provenance_failure(self):
+        fixtures, tutorials = self.lay_out(self.FILES)
+        self.drift(tutorials, "ex/ex.p4")
+        self.assertEqual(fixture_provenance(fixtures, tutorials)[0], ["ex/ex.p4"])
+
+    def test_every_other_authored_input_is_still_compared(self):
+        for rel in ("ex/topology.json", "ex/s1-runtime.json", "ex/mycontroller.py"):
+            with self.subTest(source=rel):
+                fixtures, tutorials = self.lay_out(self.FILES)
+                self.drift(tutorials, rel)
+                self.assertEqual(fixture_provenance(fixtures, tutorials)[0], [rel])
+                shutil.rmtree(fixtures)
+                shutil.rmtree(tutorials)
+
+    def test_a_p4_source_inside_a_build_directory_is_still_compared(self):
+        files = dict(self.FILES, **{"ex/build/stray.p4": "control D() { apply { } }\n"})
+        fixtures, tutorials = self.lay_out(files)
+        self.drift(tutorials, "ex/build/stray.p4")
+        self.assertEqual(fixture_provenance(fixtures, tutorials)[0], ["ex/build/stray.p4"])
+        self.assertFalse(is_build_artifact("ex/build/stray.p4"))
+        self.assertFalse(is_build_artifact("ex/build"))
+        self.assertTrue(is_build_artifact("ex/build/ex.p4.p4info.txtpb"))
+
+    def test_a_source_missing_upstream_is_orphaned_but_a_build_artifact_is_not(self):
+        fixtures, tutorials = self.lay_out(self.FILES)
+        os.remove(os.path.join(tutorials, "ex/build/ex.json"))
+        os.remove(os.path.join(tutorials, "ex/topology.json"))
+        self.assertEqual(fixture_provenance(fixtures, tutorials)[1], ["ex/topology.json"])
+
+    def test_an_authored_fixture_is_exempt_only_when_it_is_listed(self):
+        files = dict(self.FILES, **{"ex/mine.p4": "// written here\n"})
+        fixtures, tutorials = self.lay_out(files)
+        os.remove(os.path.join(tutorials, "ex/mine.p4"))
+        self.assertEqual(fixture_provenance(fixtures, tutorials)[1], ["ex/mine.p4"])
+        self.assertEqual(fixture_provenance(fixtures, tutorials,
+                                            authored=frozenset({"ex/mine.p4"}))[1], [])
+
+    def test_an_unrecorded_build_artifact_is_named(self):
+        fixtures, _tutorials = self.lay_out(self.FILES)
+        recorded = {"ex/build/ex.json": "p4c-bm2-ss ..."}
+        self.assertEqual(unrecorded_build_artifacts(fixtures, recorded),
+                         (["ex/build/ex.p4.p4info.txtpb"], []))
+
+    def test_a_source_listed_as_a_build_artifact_is_named(self):
+        fixtures, _tutorials = self.lay_out(self.FILES)
+        recorded = {"ex/build/ex.json": "c", "ex/build/ex.p4.p4info.txtpb": "c",
+                    "ex/ex.p4": "c", "ex/build/gone.json": "c"}
+        self.assertEqual(unrecorded_build_artifacts(fixtures, recorded),
+                         ([], ["ex/build/gone.json", "ex/ex.p4"]))
 
 
 class Refusals(TmpMixin, unittest.TestCase):
