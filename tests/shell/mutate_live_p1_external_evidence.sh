@@ -64,10 +64,10 @@ PY
 }
 
 # [Co-developed with claude code -- Adam] Rewritten 09-28 with the tool (the external judge's F1, F2,
-# F7 and F8): E1-E15 the comparison of the exercise's own evidence (F8 added E10-E15: every COMPARED
-# key and the ethertype parse), E16-E20 the roles (F1), E21-E22 what is unreadable (F2, F7),
-# E23-E24 the spread of two controls (F2), E25-E31 the invariants and the daemon (F2, section 5 of
-# the judge), E32 a second control with the heartbeat.
+# F7, F8) and again for its second round (M2, m1, m3): E1-E15 the comparison of the exercise's own
+# evidence, E16-E19 and E32-E40 the roles and the samples, E21-E22 and E41-E43 and E46-E47 what is
+# unreadable, E23-E24 and E45 the controls' spread, E25-E31 the invariants and the daemon, E44 N4's
+# label, E48 a control's heartbeat block.
 mutate '            "heartbeat_packet_ins", "non_ipv4_packet_ins", "grpc_errors")' \
     '            "heartbeat_packet_ins", "non_ipv4_packet_ins", "grpc_errors")
 COMPARED = tuple(k for k in COMPARED if k != "counters_final")' \
@@ -87,7 +87,7 @@ mutate '    if len(logs) != 1:
         return "/dev/null"
         raise Unreadable' \
     "E4: a round with no controller log reads as an empty one" \
-    "🔴 an arm with no controller log: rc 2" "  and does not print a conclusion either way"
+    "🔴 an arm with no controller log: rc 2"
 mutate '        "counters_final": blocks[-1] if blocks else {},' \
     '        "counters_final": blocks[0] if blocks else {},' \
     "E5: the FIRST counter read is compared, not the last" \
@@ -131,8 +131,8 @@ mutate 'COMPARED = ("rc", "verdict", "rules_installed", "counters_final",' \
     'COMPARED = ("rc", "rules_installed", "counters_final",' \
     "E14: the verdict is not compared" \
     "  named as verdict"
-mutate '    return int.from_bytes(payload[12:14], "big"), payload' \
-    '    return int.from_bytes(payload[14:16], "big"), payload' \
+mutate '        et = int.from_bytes(payload[12:14], "big")' \
+    '        et = int.from_bytes(payload[14:16], "big")' \
     "E15: the ethertype is read two bytes late" \
     "🔴 named as heartbeat_packet_ins"
 mutate '        if not t["hb_started"]:' \
@@ -143,56 +143,74 @@ mutate '        if not t["hb_running"]:' \
     '        if False:' \
     "E17: a treatment need not have a running status row" \
     "🔴 a treatment whose status row is not running: rc 3"
-mutate '        if control[arm]["hb_running"]:' \
-    '        if False:' \
-    "E18: a control may have run the heartbeat" \
-    "🔴 a control whose heartbeat was running: rc 3"
-mutate '            if not any(s["status"] == "running" for s in mine):' \
-    '            if False:' \
+mutate '            if trace:
+                raise Refused' \
+    '            if False:
+                raise Refused' \
+    "E18: a control may carry the heartbeat" \
+    "🔴 a control with a running row: rc 3"
+mutate '        if not t["hb_started"]:
+            raise Refused(f"treatment {name}: `ndt up` did not say it started the heartbeat detect-only")
+        if not t["hb_running"]:' \
+    '        if False:
+            raise Refused(f"treatment {name}: `ndt up` did not say it started the heartbeat detect-only")
+        if False:' \
+    "E18b: a treatment need show no heartbeat at all" \
+    "🔴 A/A (a control as the treatment): rc 3"
+mutate '    if not mine:' \
+    '    if False:' \
     "E19: a session need not have been sampled running" \
-    "🔴 a session H5 never read running: rc 3"
-mutate '            leaked = [s for s in mine if s["hosts"] not in ("0", "") or s["between"] not in ("0", "")]' \
-    '            leaked = [s for s in mine if s["hosts"] not in ("0", "")]' \
+    "🔴 a session never sampled running: rc 3"
+mutate '    counts = {k: max(s["counts"][k] for s in win if s["session"] == sess) for k in DAEMON}' \
+    '    counts = {k: max(s["counts"][k] for s in win if s["session"] == sess) for k in DAEMON if k != "forwarded_between_switches"}' \
     "E20: a sampled session may forward between switches" \
-    "🔴 a sampled session that forwarded between switches: rc 3"
+    "🔴 a session that forwarded between switches: rc 1"
 mutate '        if short:
             raise Unreadable' \
     '        if False:
             raise Unreadable' \
     "E21: a counter block cut short is read as a reading" \
     "🔴 a counter block cut short: rc 2"
-mutate '    except (OSError, UnicodeDecodeError) as exc:' \
-    '    except OSError as exc:' \
+mutate '    except (OSError, UnicodeDecodeError) as exc:
+        raise Unreadable(f"{path}: {type(exc).__name__}: {exc}") from exc
+
+
+def table_rows' \
+    '    except OSError as exc:
+        raise Unreadable(f"{path}: {type(exc).__name__}: {exc}") from exc
+
+
+def table_rows' \
     "E22: a log that is not UTF-8 is a traceback" \
     "🔴 a controller log that is not UTF-8: rc 2"
-mutate '            if c2 is not None and within(key, b[arm][key], a[arm][key], c2[arm][key]):' \
+mutate '            if within(key, b[arm][key], cvals):' \
     '            if False:' \
-    "E23: the second control's spread is ignored" \
+    "E23: the controls' spread is ignored" \
     "🔴 a packet-in count between the controls': rc 0"
-mutate '        return min(c1, c2) <= t <= max(c1, c2)' \
+mutate '        return min(cs) <= t <= max(cs)' \
     '        return True' \
     "E24: any count is inside the spread" \
     "🔴 a packet-in count outside the controls': rc 1"
 mutate '            s1_in is not None and base <= s1_in <= base + extra,' \
     '            True,' \
     "E25: s1 ingress 100 is not checked against the pings and datagrams" \
-    "  said as the invariant, kept by the control"
-mutate '            elif not ia[name][0]:' \
+    "  said as the invariant, kept by every control"
+mutate '            elif not all(i[name][0] for i in ic):' \
     '            elif False:' \
-    "E26: an invariant the control breaks too is counted" \
-    "  and with nothing else different: rc 0"
+    "E26: an invariant a control breaks too is counted" \
+    "  and with the counters inside the spread: rc 0"
 mutate '        stray = [f for f in ev["_entry_flows"] if f not in ev["_flows"]]' \
     '        stray = []' \
     "E27: a cache entry need not be a packet-in's flow" \
     "🔴 a cache entry that is no packet-in's flow: INV BAD"
-mutate '        moved = {k: v for k, v in b[arm]["side_effects"].items() if v}' \
+mutate '        moved = {k: v for k, v in se["counts"].items() if v}' \
     '        moved = {}' \
     "E28: a daemon that forwarded a frame is not a difference" \
-    "🔴 a daemon that counted a frame to a host: rc 1"
-mutate '        if not t["side_effects"]:' \
-    '        if False:' \
-    "E29: a treatment need not show the daemon's counters" \
-    "🔴 a treatment with no daemon counters: rc 3"
+    "🔴 a session whose daemon counted a frame to a host: rc 1"
+mutate '            elif not all(i[name][0] for i in ic):' \
+    '            elif not ic[0][name][0]:' \
+    "E29: an invariant only the second control breaks is counted" \
+    "🔴 broken in the second control only: shown, not counted"
 mutate '        out["every other tunnel counter 0"] = (bool(others) and all(v == 0 for v in others.values()),' \
     '        out["every other tunnel counter 0"] = (True,' \
     "E30: the skeleton's other counters are not checked" \
@@ -201,10 +219,102 @@ mutate '        extra = IPERF_FIN_RETRIES if ip["no_ack"] else 0' \
     '        extra = 0' \
     "E31: FIN retries after a lost ack are not allowed for" \
     "  up to 10 FIN retries when the client got no ack"
-mutate '            if c2[arm]["hb_running"]:' \
-    '            if False:' \
+mutate '    sessions = check_roles([("control", a)] + [(f"control2 #{i + 1}", c) for i, c in enumerate(cs2)],' \
+    '    sessions = check_roles([("control", a)],' \
     "E32: a second control may have run the heartbeat" \
-    "🔴 a second control with the heartbeat running: rc 3"
+    "🔴 a second control with only a heartbeat block: rc 3"
+mutate '    if not samples_path:
+        raise Refused' \
+    '    if False:
+        raise Refused' \
+    "E33: no --samples is accepted" \
+    "🔴 no --samples: rc 3"
+mutate '    if not controls2:
+        raise Refused' \
+    '    if False:
+        raise Refused' \
+    "E34: one control is accepted" \
+    "🔴 no --control2: rc 3"
+mutate '    if len(set(dirs)) != len(dirs):' \
+    '    if False:' \
+    "E35: a control given twice is accepted" \
+    "🔴 --control2 that is the control itself: rc 3"
+mutate '    if others:
+        raise Refused' \
+    '    if False:
+        raise Refused' \
+    "E36: another session in the arm window is accepted" \
+    "🔴 a second session inside the arm window: rc 3"
+mutate '        if b["wall"] - a["wall"] > MAX_GAP_S:' \
+    '        if False:' \
+    "E37: a stretch without samples is accepted" \
+    "🔴 a stretch of the session with no sample: rc 3"
+mutate '        if s["written"] is None or s["wall"] - s["written"] > STALE_S or s["stop_reason"]:' \
+    '        if False:' \
+    "E38: a stale 'running' is accepted" \
+    "🔴 a stale 'running' left by a killed daemon: rc 3"
+mutate '    if stop is not None and any(s["session"] == sess and s["status"] == "running" for s in win[stop:]):' \
+    '    if False:' \
+    "E39: a stop and a restart is accepted" \
+    "🔴 a session that stopped and ran again: rc 3"
+mutate '    if ev["_last_write"] > stopped_at:' \
+    '    if False:' \
+    "E40: a session that stopped before the controller's last write is accepted" \
+    "🔴 a session sampled running, then stopped before the controller: rc 3"
+mutate '    if before == last or (exp[0] == exp[1] and s1 == exp[0]):
+        return' \
+    '    if True:
+        return' \
+    "E41: an unsettled last counter block is read as final" \
+    "🔴 a last counter block that had not settled: rc 2"
+mutate '        if et == IPV4_ETHERTYPE and len(payload) < 34:' \
+    '        if False:' \
+    "E42: an IPv4 payload shorter than its header is parsed" \
+    "🔴 an IPv4 packet-in shorter than its header: rc 2"
+mutate '    if head[:len(want)] != want:' \
+    '    if False:' \
+    "E43: a sampler file from before 09-28 is not named" \
+    "  said as such"
+mutate '"(before the exercise'"'"'s pipeline was loaded: not evidence about the program)")' \
+    '"")' \
+    "E44: N4's counters are not labelled" \
+    "🔴 N4's counters are labelled as before the pipeline"
+mutate '    if key == "counters_final":
+        keys = set(t).union(*(set(c) for c in cs))' \
+    '    if key == "counters_final":
+        return True
+        keys = set(t).union(*(set(c) for c in cs))' \
+    "E45: any tunnel counter is inside the spread" \
+    "🔴 tunnel counters outside the controls': rc 1"
+mutate '    print(__doc__.split("Usage:")[1].split("Exit:")[0].rstrip(), file=sys.stderr)
+    return 2' \
+    '    print(__doc__.split("Usage:")[1].split("Exit:")[0].rstrip(), file=sys.stderr)
+    return 0' \
+    "E46: a wrong command line exits 0" \
+    "🔴 a compare with one run: usage, rc 2"
+mutate '    except (OSError, UnicodeDecodeError) as exc:
+        raise Unreadable(f"{path}: {type(exc).__name__}: {exc}") from exc
+
+
+def table_rows' \
+    '    except (FileNotFoundError, UnicodeDecodeError) as exc:
+        raise Unreadable(f"{path}: {type(exc).__name__}: {exc}") from exc
+
+
+def table_rows' \
+    "E47: a report that is a directory is a traceback" \
+    "🔴 and no traceback from it"
+mutate '                                      ("a heartbeat block on switch_state", ev["hb_block"]),' \
+    '                                      ("a heartbeat block on switch_state", False),' \
+    "E48: a control's heartbeat block is not a trace" \
+    "🔴 a second control with only a heartbeat block: rc 3" "  naming both traces"
+mutate '    except Unreadable as exc:
+        print(f"UNREADABLE {exc}")' \
+    '    except Unreadable as exc:
+        print("NO DIFFERENCE")
+        print(f"UNREADABLE {exc}")' \
+    "E49: an unreadable run still prints a conclusion" \
+    "  and does not print a conclusion either way"
 
 echo
 NOW_SUM="$(sha256sum "$TOOL" | cut -d' ' -f1)"
