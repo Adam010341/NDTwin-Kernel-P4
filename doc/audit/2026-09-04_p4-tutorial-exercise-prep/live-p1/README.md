@@ -350,7 +350,22 @@ flowcache/solution）上也啟動心跳：proxy 宣告 package 的連線、由�
   - 段 S 的普查（`40_census.tsv:24-26`）在這三臂上手動跑過心跳，但**沒有啟動它們的控制器**
     （`S_heartbeat_spike.sh:63-65`）——external package 沒有控制器就沒有 pipeline，所以那三列量到的是**空的交換機**。
     **`PART=h5` 是第一次在這三個程式載入時量**。
-- 其他 external 程式**沒有人看過**。要不要給一個關掉的選項，orchestrator 在問 Adam；在那之前，這一段就是揭露。
+- **Adam 09-28 裁定：預設安全，不是預設開**。`ndt up p4 --app` 在 external control plane 上**先**跑離線的
+  drop check（`tools/test_workflow/heartbeat_drop_check.py`），證明程式會丟掉心跳幀，才啟動心跳；沒證明——
+  不丟、或判斷不了——就不啟動，`ndt up` 與 `ndt status` 都寫原因（`.test_run/heartbeat.withheld`）。
+  - 方法：一個丟棄式的 stock `simple_switch`（與 fabric 的 fast build 同一個 bmv2 commit，有逐封包 log）載入
+    package 的**同一份編好的 JSON**，沒有控制器、沒有表項、沒有 clone session 與 multicast group；每個資料埠
+    各打一個真的心跳幀（與 daemon 的 `encode()` 逐 byte 相同，測試釘住）；每個幀的去向讀 bmv2 自己的 log，
+    並用每個接上的埠（資料埠與 CPU 埠）的輸出 pcap 交叉核對。轉到 fabric 的埠、送到 CPU 埠、digest、clone、
+    multicast、任何 pcap 有幀 ⇒ 不丟；讀不到的 ⇒ 判斷不了（不是丟）。結果以程式 JSON 的 sha256 快取。
+  - 這三個程式都過（2026-09-28 離線量）：flowcache 在 ingress 丟掉；advanced_tunnel 送到埠 0，而這個 fabric
+    沒有任何交換機有埠 0。
+  - 🔴 **限制**：只驗程式的預設（table-miss）行為；external 控制器之後裝的表項、clone session、multicast
+    group 都不在涵蓋範圍內。
+  - 不是 lab：以呼叫者身分跑（沒有 root），pcap、log、nanomsg socket 都在它自己的暫存目錄，Thrift 埠在
+    29400-29499（lab 的埠之外，啟動前再確認一次沒人用），device id 遠高於任何 fabric，argv[0] 是
+    `ndt-hbdrop-bmv2`——ndt 的 bmv2_count、helper 的 sweep、p4_testbed_topo、kernel 的 capacity scan 都不會
+    把它當成 fabric 的交換機；以確切 pid 停止，checker 死掉時也一起死（PR_SET_PDEATHSIG）。
 - **twin 那一側**（F5；Adam 09-28 裁定後改）：09-27 起 external 上 `/ryu_server/all_destination_paths` 曾是
   **在宣告連線上算的最短路徑**——external 上沒有已安裝的路由可讀，那是 twin 的猜測，不是 exercise 真正的轉發。
   **現在回到不報任何路徑**（unknown，不是猜測）：轉發是 exercise 自己的控制器的事，proxy 不知道。宣告的連線
@@ -412,6 +427,8 @@ KERNEL_DIR 指的樹，所以**不需要任何 root 步驟**。B 沒有改任何
 - **rc 3**（拒絕）：程序沒照做（沒給 samples 或 C2、對照組裡有心跳的痕跡、處理組某一臂的 session 沒有從頭到尾都
   在跑——沒被取樣到、報告變 STALE、中間有空檔、停了又起、在控制器最後一次寫 log 之前就停、同一個窗口裡還有別的
   session）。修正後重跑；**心跳在某一臂中途停掉的處理組不算通過**。
+- **drop check（Adam 09-28）**：T 的 `ndt up` 在三個 external 臂上會先跑 drop check；若某臂沒過，ndt 不在那臂啟動
+  心跳、`H5 where the heartbeat ran` 會失敗 ⇒ T 無效，回報那臂的 drop check 輸出（它離線時三個都過）。
 - **H5 本身的判定**：`H5 where the heartbeat ran`（每臂剛好有一個 session）或 ruling 4 STOP 失敗 ⇒ T 無效（STOP 就停下
   回報）。`H5 06 against <C1>` 的 rc／verdict 差異同時會是 compare 的 `DIFF rc/verdict`，以 compare 為準。H5 的 01 與
   external 臂無關，另外回報。

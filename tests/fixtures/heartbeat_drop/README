@@ -1,0 +1,29 @@
+Programs for tools/test_workflow/heartbeat_drop_check.py (tests/shell/test_heartbeat_drop_check.py).
+[Co-developed with claude code -- Adam]
+
+What each one does with a frame whose ethertype it does not know (the heartbeat's 0x88B5), with
+no controller, no table entries, no clone session and no multicast group:
+
+  hb_drop.json      drops it                                    -> the check says DROPPED
+  hb_flood.json     sends it out of another data port           -> NOT_DROPPED (forwarded)
+  hb_punt.json      sends it to the CPU port (255)              -> NOT_DROPPED (punted)
+  hb_digest.json    sends a digest to the controller, drops it  -> NOT_DROPPED (a digest)
+  hb_clone.json     clones it to mirror session 5, drops it     -> NOT_DROPPED (a clone)
+  hb_mcast.json     asks for multicast group 1                  -> NOT_DROPPED (a multicast group)
+  flowcache_solution.json   p4lang/tutorials exercises/flowcache/solution/flowcache.p4, the
+                            program live-p1/06's flowcache/solution arm loads -> DROPPED
+
+The p4runtime arms' program (advanced_tunnel, skeleton and solution alike) is not copied here: the
+check's tests read tools/p4_exercise/tests/fixtures/p4runtime/build/advanced_tunnel.json, which is
+the same compiled program as ~/tutorials/exercises/p4runtime/build/advanced_tunnel.json once the
+`program` field and every `source_info` are set aside (compared 2026-09-28).
+
+COMPILED HERE, NOT COPIED (2026-09-28), with p4c-bm2-ss 1.2.5.15 (SHA 5b948b037a BUILD: Release),
+/usr/local/bin/p4c-bm2-ss, from inside this directory:
+
+  p4c-bm2-ss --p4v 16 -D<DROP|FLOOD|PUNT|DIGEST|CLONE|MCAST> -o hb_<drop|flood|...>.json hb_fixture.p4
+  p4c-bm2-ss --p4v 16 -o flowcache_solution.json \
+      /home/adam/tutorials/exercises/flowcache/solution/flowcache.p4
+      (that source's sha256 was c568e570fe0296656516d3cb1bfad548343a25b97b98bab1e926ef30b31e463a)
+
+hb_fixture.p4 is written here; it is not a tutorials file.

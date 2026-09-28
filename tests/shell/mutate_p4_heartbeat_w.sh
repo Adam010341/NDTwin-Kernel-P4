@@ -935,23 +935,30 @@ m=$(mutant m28 "$MAIN" \
     '               "skeletons do not build. Segment S'"'"'s census started the heartbeat by hand (the "
                "helper, not ndt) on all 20. Since 2026-09-27 `ndt up p4 --app` is EXPECTED to "
                "start it on all 20 too -- on the 3 external control planes among them (p4runtime "
-               "skeleton and solution, flowcache solution) detect only -- which is inferred from "
-               "ndt'"'"'s rule and not yet measured under ndt (live-p1/08 PART=h5 checks it per arm). "
-               "On an external control plane a frame the program punts to ITS OWN controller is "
-               "seen neither by this proxy (it has no stream there) nor by the daemon (it counts "
-               "frames leaving switch ports). The P4 SOURCE of these 3 programs drops it "
-               "(flowcache drops every non-IPv4 frame at ingress; advanced_tunnel applies no table "
-               "to it, so egress_spec stays 0 -- that no port 0 exists is inferred from bmv2); "
-               "segment S'"'"'s census ran them with no controller, so no pipeline was loaded, and "
-               "live-p1/08 PART=h5 is the first measurement with these programs loaded. No other "
-               "external program has been looked at.",' \
+               "skeleton and solution, flowcache solution) detect only, and since 2026-09-28 only "
+               "after ndt'"'"'s offline drop check proves the program drops the frame -- which is "
+               "inferred from ndt'"'"'s rule and not yet measured under ndt (live-p1/08 PART=h5 checks "
+               "it per arm). On an external control plane a frame the program punts to ITS OWN "
+               "controller is seen neither by this proxy (it has no stream there) nor by the "
+               "daemon (it counts frames leaving switch ports); the drop check "
+               "(tools/test_workflow/heartbeat_drop_check.py) is what keeps the heartbeat off a "
+               "program that does that. The P4 SOURCE of these 3 programs drops it (flowcache "
+               "drops every non-IPv4 frame at ingress; advanced_tunnel applies no table to it, so "
+               "egress_spec stays 0 -- that no port 0 exists is inferred from bmv2), and the drop "
+               "check agrees on a throwaway bmv2 with each program loaded and no controller "
+               "(flowcache drops it at ingress; advanced_tunnel sends it to port 0, which no "
+               "switch of the fabric has). Segment S'"'"'s census ran them with no controller, so no "
+               "pipeline was loaded, and live-p1/08 PART=h5 is the first measurement with these "
+               "programs loaded and their controllers running. Any other external program is "
+               "checked the same way before the heartbeat starts on it; what its controller "
+               "installs later is not covered.",' \
     '               "skeletons do not build.",')
 report "M28: the census does not say which arms ndt up starts it on" "$m" \
        "test_the_census_says_which_of_its_arms_ndt_up_starts_the_heartbeat_on"
 m=$(mutant m28b "$MAIN" \
-    '               "external program has been looked at.",' \
-    '               "external program has been assumed safe.",')
-report "M28b: the census stops saying no other external program was looked at" "$m" \
+    '               "installs later is not covered.",' \
+    '               "installs later is covered too.",')
+report "M28b: the census stops saying what the drop check does not cover" "$m" \
        "test_the_census_names_the_punt_blind_spot_on_external_control_planes"
 m=$(mutant k01 "$HELPER" \
     '        end = lambda port: {"dpid": port.dpid, "port": port.port, "ifname": port.ifname}' \
@@ -1069,6 +1076,110 @@ m=$(nmutant n03d "$NDT" \
                warn "  the fabric itself is up; the proxy reports reroute.reason external_control_plane')
 nreport "N03d: a failed start on an external plane names the foreign reason" "$m" \
         "🔴 a failed start on an external plane names external_control_plane"
+# [Co-developed with claude code -- Adam] Adam's 09-28 ruling: on an external control plane the
+# heartbeat starts only when the drop check proved the program drops its frame. N40 ignores the
+# check; N41 takes could-not-tell as proof; N42 never runs it; N43 withholds it everywhere external;
+# N44 hides the check's own lines; N45 fails the bring-up over it; N46 parses no reason out of it;
+# N47 writes no record; N48 is silent on could-not-tell; N49 takes a check that never ran as
+# proof; N50 runs it on every package; N51 withholds it on a foreign fabric that is not external;
+# N52/N53 leave a stale record; N54/N55 the status row.
+m=$(nmutant n40 "$NDT" \
+    '    if [[ "$2" == external && "${HB_CHECK_RC:-}" != 0 ]]; then' \
+    '    if false; then')
+nreport "N40: the heartbeat starts on an external plane whatever the check said" "$m" \
+        "🔴 and the heartbeat is NOT started"
+m=$(nmutant n41 "$NDT" \
+    '    if [[ "$2" == external && "${HB_CHECK_RC:-}" != 0 ]]; then' \
+    '    if [[ "$2" == external && "${HB_CHECK_RC:-}" == 1 ]]; then')
+nreport "N41: could-not-tell is taken as proof" "$m" \
+        "🔴 could not tell: NOT started either (unknown is not a drop)"
+m=$(nmutant n42 "$NDT" \
+    '        if [[ "$app_mode" == external && "$app_pipe" == foreign:* ]]; then
+            hb_drop_check_step "$app_dir"' \
+    '        if false; then
+            hb_drop_check_step "$app_dir"')
+nreport "N42: the check never runs" "$m" \
+        "🔴 the check ran once, on the package"
+m=$(nmutant n43 "$NDT" \
+    '    if [[ "$2" == external && "${HB_CHECK_RC:-}" != 0 ]]; then' \
+    '    if [[ "$2" == external ]]; then')
+nreport "N43: the heartbeat is withheld on every external plane, proven or not" "$m" \
+        "🔴 proven dropped: the heartbeat starts"
+m=$(nmutant n44 "$NDT" \
+    '    [[ -n "$out" ]] && printf '"'"'%s\n'"'"' "$out" | sed '"'"'s/^/  /'"'"'
+    HB_CHECK_RC="$rc"' \
+    '    HB_CHECK_RC="$rc"')
+nreport "N44: the check's own lines are not printed" "$m" \
+        "  the check's answer is printed"
+m=$(nmutant n45 "$NDT" \
+    '        printf '"'"'withheld %s %s\n'"'"' "$(date +%s)" "$why" > "$(hb_withheld_file)" 2>/dev/null
+        return 0' \
+    '        printf '"'"'withheld %s %s\n'"'"' "$(date +%s)" "$why" > "$(hb_withheld_file)" 2>/dev/null
+        exit 1')
+nreport "N45: a withheld heartbeat fails the bring-up" "$m" \
+        "🔴 NOT dropped: the bring-up still succeeds"
+m=$(nmutant n46 "$NDT" \
+    '(.*: (NOT_DROPPED|UNKNOWN) -- .*)$/\1/p'"'"' | head -1)"' \
+    '(.*: (NEVER_DROPPED|UNKNOWN_NEVER) -- .*)$/\1/p'"'"' | head -1)"')
+nreport "N46: the check's reason is not carried to the warning" "$m" \
+        "  with the check's own reason"
+m=$(nmutant n47 "$NDT" \
+    '        printf '"'"'withheld %s %s\n'"'"' "$(date +%s)" "$why" > "$(hb_withheld_file)" 2>/dev/null' \
+    '        :')
+nreport "N47: no record is written for 'ndt status'" "$m" \
+        "🔴 and the record names it for 'ndt status'"
+m=$(nmutant n48 "$NDT" \
+    '        *) warn "the heartbeat drop check could not tell (rc $rc): the heartbeat will not be started -- unknown is not a drop" ;;' \
+    '        *) : ;;')
+nreport "N48: could-not-tell is not said" "$m" \
+        "  saying it could not tell"
+m=$(nmutant n49 "$NDT" \
+    '    if [[ "$2" == external && "${HB_CHECK_RC:-}" != 0 ]]; then' \
+    '    if [[ "$2" == external && "${HB_CHECK_RC:-0}" != 0 ]]; then')
+nreport "N49: a check that never ran is taken as proof" "$m" \
+        "🔴 a check that never ran is not proof: NOT started"
+m=$(nmutant n50 "$NDT" \
+    '        if [[ "$app_mode" == external && "$app_pipe" == foreign:* ]]; then
+            hb_drop_check_step "$app_dir"' \
+    '        if true; then
+            hb_drop_check_step "$app_dir"')
+nreport "N50: the check runs on every package" "$m" \
+        "🔴 a foreign fabric that is not external: no check"
+m=$(nmutant n50b "$NDT" \
+    '        if [[ "$app_mode" == external && "$app_pipe" == foreign:* ]]; then
+            hb_drop_check_step "$app_dir"' \
+    '        if true; then
+            hb_drop_check_step "$app_dir"')
+nreport "N50b: (the same, on NDTwin's own pipeline)" "$m" \
+        "  NDTwin's own pipeline: no check either"
+m=$(nmutant n51 "$NDT" \
+    '    if [[ "$2" == external && "${HB_CHECK_RC:-}" != 0 ]]; then' \
+    '    if [[ "${HB_CHECK_RC:-}" != 0 ]]; then')
+nreport "N51: a foreign fabric that is not external is held to the check too" "$m" \
+        "  and its heartbeat starts as before"
+m=$(nmutant n52 "$NDT" \
+    '    rm -f "$(hb_withheld_file)"
+    heartbeat_wanted "$1" "$2" || return 0' \
+    '    heartbeat_wanted "$1" "$2" || return 0')
+nreport "N52: a later bring-up leaves the last one's record" "$m" \
+        "🔴 a later bring-up that starts it clears the record"
+m=$(nmutant n53 "$NDT" \
+    '    # [Co-developed with claude code -- Adam] The withheld record describes the fabric going away.
+    rm -f "$(hb_withheld_file)"' \
+    '    # [Co-developed with claude code -- Adam] The withheld record describes the fabric going away.
+    :')
+nreport "N53: 'ndt down' leaves the record behind" "$m" \
+        "🔴 'ndt down' clears it with the fabric"
+m=$(nmutant n54 "$NDT" \
+    '    if [[ -f "$withheld" ]]; then' \
+    '    if false; then')
+nreport "N54: 'ndt status' does not say a heartbeat was withheld" "$m" \
+        "🔴 a heartbeat the last bring-up withheld is said, with why"
+m=$(nmutant n55 "$NDT" \
+    '    if [[ -f "$withheld" ]]; then' \
+    '    if true; then')
+nreport "N55: 'ndt status' says withheld with no record" "$m" \
+        "  and not when there is no record"
 m=$(nmutant n04 "$NDT" \
     '    heartbeat_up_step "$app_pipe" "$app_mode"' \
     '    heartbeat_up_step "$app_pipe" "$app_mode"; [[ -e "$HB_PIDFILE" ]] || { rollback_up "the heartbeat did not start"; return 1; }')

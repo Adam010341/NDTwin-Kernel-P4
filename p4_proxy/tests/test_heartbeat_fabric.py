@@ -590,6 +590,9 @@ class TheHeartbeatIsDisclosedOnSwitchStateTest(unittest.TestCase):
         self.assertIn("external control plane", text)
         self.assertIn("EXPECTED to start it on all 20 too", text)
         self.assertIn("not yet measured under ndt", text)
+        # [Co-developed with claude code -- Adam] Adam's 09-28 ruling: on an external control plane
+        # only after the offline drop check proves the program drops the frame.
+        self.assertIn("only after ndt's offline drop check proves the program drops the frame", text)
         self.assertIn("detect only", text)
         self.assertNotIn("17", text)
         self.assertIn("ndt up", text)
@@ -602,7 +605,9 @@ class TheHeartbeatIsDisclosedOnSwitchStateTest(unittest.TestCase):
         self.start()
         text = main.heartbeat_report()["census"]["summary"]
         self.assertIn("punts to ITS OWN controller", text)
-        self.assertIn("No other external program has been looked at", text)
+        self.assertIn("Any other external program is checked the same way before the heartbeat "
+                      "starts on it; what its controller installs later is not covered", text)
+        self.assertIn("the drop check agrees on a throwaway bmv2", text)
         self.assertIn("flowcache drops every non-IPv4 frame at ingress", text)
         # [Co-developed with claude code -- Adam] The external judge's S1 (09-28): a reading of the
         # P4 source, not a measurement -- segment S ran these arms with no controller.

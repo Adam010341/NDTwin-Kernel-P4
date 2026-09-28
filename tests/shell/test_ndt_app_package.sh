@@ -236,6 +236,7 @@ in_flight() { :; }
 guard_no_live_ovs() { return 0; }
 stale_pipeline() { return 1; }
 preflight() { return 0; }
+hb_drop_check_run() { echo "heartbeat drop check (stub): DROPPED"; return 0; }
 claim_note_up() { :; }
 bmv2_binary() { echo "simple_switch_grpc (stub)"; }
 sample_rate() { echo 256; }
