@@ -886,6 +886,8 @@ class TheLinkEmitterSummaryTest(unittest.TestCase):
         # this cell is about was ever reached. [Co-developed with claude code -- Adam]
         os.chmod(path, 0o644)
         self.assertIsNone(main.link_emitter_report(path))
+        # The reader's own reason, so this cell cannot pass on a refusal that came first.
+        self.assertIn("cannot be read", link_telemetry.load_manifest(path)[1] or "")
 
     def test_a_manifest_with_no_pid_is_not_alive(self):
         path = self.manifest(None)

@@ -1937,8 +1937,8 @@ class AManifestThatCannotBeWrittenIsFatalTest(FabricFixture):
     def setUp(self):
         super().setUp()
         self.set_telemetry_knob("link")
-        # A DIRECTORY at the manifest's name: the rename over it fails with EISDIR, which is
-        # what a full /tmp, or anybody who created the name first, would also produce.
+        # A DIRECTORY at the manifest's name makes the rename fail (EISDIR), as a full /tmp
+        # would.
         os.makedirs(self.link_manifest)
 
     def test_the_bring_up_is_fatal_and_says_why(self):

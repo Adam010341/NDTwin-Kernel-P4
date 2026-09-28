@@ -587,9 +587,8 @@ def process_is_a_switch(pid, proc_root="/proc", entry=None):
         that one. No entry, or an entry without a gRPC port, cannot be tied to one process, and
         is never a match -- argv[0] alone is any bmv2 on the machine.
 
-    What this cannot close: the process can exit and its pid be reused between this check and
-    the signal that follows it (see the carried pidfd ticket), and anybody can start a process
-    with this exact argv. The pid itself comes only from a manifest this reader trusts.
+    A check-then-signal window remains until signalling moves to pidfds. The pid itself comes
+    only from a manifest this reader trusts.
     """
     if not _is_a_signallable_pid(pid):
         return False

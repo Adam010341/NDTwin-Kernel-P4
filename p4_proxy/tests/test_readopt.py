@@ -1411,7 +1411,10 @@ class ReapManifestSwitchesTest(unittest.TestCase):
         # 0644, so the trust check passes and the PARSE is what fails -- at this user's umask
         # the file would be refused on its mode first. [Co-developed with claude code -- Adam]
         os.chmod(self.path, 0o644)
-        self.assertEqual(self.reap(is_switch=lambda pid, **kw: True), [])
+        said = []
+        self.assertEqual(self.reap(is_switch=lambda pid, **kw: True, report=said.append), [])
+        # The reason, so this cell cannot pass on a refusal that came before the parse.
+        self.assertTrue(any("cannot be read" in line for line in said), said)
 
     def test_an_entry_without_a_pid_is_skipped(self):
         self.write({"s1": {"grpc_port": 50051}, "s2": {"pid": None}})
