@@ -255,7 +255,7 @@ run_gate() {
 # NDT_OWNER does not cost a fabric probe.
 # -------------------------------------------------------------------------------------------------
 preflight() {
-    local stage="$1" rc=0        # stage: "gates" | "measure" | "cell" | "plan"
+    local stage="$1" rc=0; lab_tree_check || return 2   # the tree first, before any write (N7); stage: gates|measure|cell|plan
     say "=== preflight ($stage), DRY_RUN=$DRY_RUN ==="
 
     # -- 0. disk.  A round that fills / mid-ladder loses every cell after the one that filled it,
@@ -1332,4 +1332,48 @@ archive_cell() {   # $1 = cell label
     # a guess; the 08-20 round archived no kernel.log and can never resolve its tid offsets.
     cp -f "$KERNEL_DIR/.test_run/logs/kernel.log" "$OUT/cells/${cell}_kernel.log" 2>/dev/null \
         || say "    WARNING: no kernel.log to keep for $cell"
+}
+
+# -------------------------------------------------------------------------------------------------
+# [Co-developed with claude code -- Adam] WHICH TREE (N7, 2026-09-28).  round.env derives
+# KERNEL_DIR from the checkout it sits in, but the fabric does not: `ndtwin-lab topo-start`
+# starts the bridge from the tree `sudo ndtwin-lab config` names, and that bridge loads THAT
+# tree's compiled P4 -- so a live round run from any other checkout compiles one program and
+# measures another.  measure.sh writes a fixed raw/, and the claim file and the LAB-NOT-RESTORED
+# marker live in each tree, which a second tree cannot see.  A live run therefore refuses unless
+# KERNEL_DIR is the lab's tree, compared after resolving symlinks, and it refuses BEFORE anything
+# is written -- preflight calls this ahead of its own first log line.  A dry run is exempt: it
+# touches no fabric and must stay runnable from any checkout.
+#   rc 0 = the lab's tree (or a dry run); 2 = refused, the reason (and both trees) on stderr.
+# There is no DRY_FAIL force for this refusal: a dry run is exempt by design, and a forced row
+# would change the PREREG force matrix and its transcripts. tests/shell/test_live_round_*.sh
+# exercise it with a stubbed sudo instead.
+lab_tree_check() {
+    [[ "${DRY_RUN:-0}" == 1 ]] && return 0
+    # unset or relative (a partial environment: ROUND exported, round.env not sourced) -- `cd -P`
+    # would resolve "" or "." against the caller's cwd and could agree with the lab by accident
+    if [[ "${KERNEL_DIR:-}" != /* ]]; then
+        printf 'REFUSE: KERNEL_DIR=%s is not an absolute path.  Source the round.env of the tree\n' "${KERNEL_DIR:-<unset>}" >&2
+        printf '        you mean to run (it exports ROUND and KERNEL_DIR together) and retry.\n' >&2
+        return 2
+    fi
+    local lab_cmd="${LAB:-sudo -n /usr/local/sbin/ndtwin-lab}" cfg lab mine theirs
+    # shellcheck disable=SC2086  # LAB is a command line ("sudo -n <helper>"), split on purpose
+    if ! cfg="$($lab_cmd config 2>&1)"; then
+        printf 'REFUSE: could not ask the lab which tree it runs (%s config):\n' "$lab_cmd" >&2
+        printf '        %s\n' "$cfg" >&2
+        return 2
+    fi
+    lab="$(sed -n 's/^KERNEL_DIR:[[:space:]]*//p' <<<"$cfg" | head -1)"
+    mine="$(CDPATH= cd -P -- "$KERNEL_DIR" 2>/dev/null && pwd -P)"
+    theirs="$( [[ -n "$lab" ]] && CDPATH= cd -P -- "$lab" 2>/dev/null && pwd -P)"
+    if [[ -n "$mine" && -n "$theirs" && "$mine" == "$theirs" ]]; then
+        return 0
+    fi
+    printf 'REFUSE: this round would run from KERNEL_DIR=%s\n' "${KERNEL_DIR:-<unset>}" >&2
+    printf '        but the lab runs the tree %s (%s config).\n' "${lab:-<not reported>}" "$lab_cmd" >&2
+    printf "        Live rounds run only from the lab's tree: the switches load that tree's compiled\n" >&2
+    printf '        P4, measure.sh writes its raw/, and the claim and restore marker are kept there.\n' >&2
+    printf '        Run this from %s, or point the lab at this tree first.  Dry runs may run anywhere.\n' "${lab:-the lab tree}" >&2
+    return 2
 }

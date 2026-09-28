@@ -274,8 +274,8 @@ cpu_gate() {   # $1 = label, $2 = expect (green|red), $3.. = extra args
 # switches are running would fold the experiment's own load into the baseline and the gate could
 # then never see a fabric-sized contamination at all.
 baseline_mode() {
+    preflight plan || exit 2       # [Co-developed with claude code -- Adam] before the first log line (N7)
     say "=== gates_e baseline (fabric must be DOWN) ==="
-    preflight plan || exit 2
     # DRY_FAIL=fabricup makes this refusal reachable in a dry run too: a branch that can
     # only ever be exercised live is a branch nobody has tested.
     if { [[ "$DRY_FAIL" == fabricup ]]; } || { fabric_is_up && [[ "$DRY_RUN" != 1 ]]; }; then
@@ -310,8 +310,8 @@ baseline_mode() {
 
 # =================================================================================================
 main() {
+    preflight gates || { printf 'preflight refused -- nothing below ran\n' >&2; exit 2; }   # before any log line (N7)
     say "=== gates_e start (PREREG-E §2), DRY_RUN=$DRY_RUN ==="
-    preflight gates || { say "preflight refused -- nothing below ran"; exit 2; }
     if [[ ! -s "$CPU_BASELINE_FILE" && "$DRY_RUN" != 1 ]]; then
         printf 'REFUSE: no CPU baseline at %s.\n' "$CPU_BASELINE_FILE" >&2
         printf '        Run `./gates_e.sh baseline` with the fabric down first.  Without it the\n' >&2
