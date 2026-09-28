@@ -41,7 +41,15 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="${P4CAPS_WIRING_ROOT:-$(cd "$HERE/../.." && pwd)}"
 
-python3 - "$ROOT" <<'PY'
+# The checks run in Python, which prints one "  ok" / "  FAILED" line per check and, last, a line
+# "@counts <passed> <failed>". The summary is printed HERE, by the shell, in the form the L1 lane's
+# shell_summary reads ("Ran N checks, F failed") -- tests/shell/test_l1_shell_scoring.sh's group C
+# reads each suite's source for exactly that, and a summary printed from inside a heredoc is not one
+# it can see. No @counts line (the checker crashed) leaves both counts at 0: "Ran 0 checks", which
+# the lane scores as nothing run, and this script exits 1.
+PASS=0
+FAIL=0
+OUT="$(python3 - "$ROOT" 2>&1 <<'PY'
 import os
 import re
 import sys
@@ -122,8 +130,8 @@ def body(stripped, name):
 
 if not os.path.isfile(DCPM):
     print(f"  FAILED   the source file exists\n    {DCPM} not found")
-    print("0 passed, 1 failed")
-    sys.exit(1)
+    print("@counts 0 1")
+    sys.exit(0)
 
 sources = {}
 for sub in ("src", "include"):
@@ -203,6 +211,16 @@ elif any(v != assign.group(1) for v in verdicts):
 else:
     ok(name)
 
-print(f"{passed} passed, {failed} failed")
-sys.exit(1 if failed else 0)
+print(f"@counts {passed} {failed}")
 PY
+)"
+while IFS= read -r line; do
+    if [[ "$line" == "@counts "* ]]; then
+        read -r _ PASS FAIL <<<"$line"
+    else
+        printf '%s\n' "$line"
+    fi
+done <<<"$OUT"
+
+printf 'Ran %d checks, %d failed\n' "$((PASS + FAIL))" "$FAIL"
+(( FAIL == 0 && PASS > 0 )) || exit 1
