@@ -107,7 +107,7 @@ grep -rhE '^(TEST|TEST_F|TEST_P)\(' tests --include='*.cpp' | wc -l   # C++ case
 | 目錄 | 直譯器 | 可用什麼 | skip 的意義 |
 |---|---|---|---|
 | `p4_proxy/tests/` | `p4_proxy/venv/bin/python`（`components.env` 的 `P4_PROXY_PY`；runner 會依序試它、`p4dev-python-venv`、`python3`，挑第一個 import 得到 P4Runtime protobufs 的） | 第三方套件（grpc、networkx、hypothesis…） | 缺 protobufs 或缺編譯好的 p4info 時 skip，回報為 **PROVED LESS**；兩個前置都在卻還 skip 則是 **FAIL** |
-| `tests/python/` | **系統 `python3`，只准標準庫** | 標準庫，就這樣 | **任何 skip 都是 FAIL**——這裡的測試不依賴 python3 以外的任何東西，所以沒有 skip 的正當理由 |
+| `tests/python/` | **系統 `python3`，只准標準庫** | 標準庫，就這樣 | **skip 是 FAIL**——這裡的測試不依賴 python3 以外的任何東西，所以沒有 skip 的正當理由。唯一例外（2026-09-28）：檔案用 `# NDTWIN_L1_NEEDS: <need>` 宣告它需要的東西（目前 `ryu`、`py-plot`），lane 自己探測這台缺、而且這台是 hosted CI runner（`CI`／`GITHUB_ACTIONS`=true）時，整檔 skip 判 **DECLARED SKIP**（單獨列出，不算 pass）；lab 上同一個 skip 照樣 FAIL，並點名缺的是什麼。`tests/shell/` 同一套規則 |
 
 2026-08-13 踩過一次：在 `tests/python/` 底下的測試 import 了 networkx，系統 python3 沒有，整個檔案在 import 期就死掉，runner 讀到 `ran=0` 判 FAIL。**要寫依賴第三方套件的測試，它就不屬於 `tests/python/`。** 這條界線是刻意的：`tests/python/` 涵蓋 OVS/Ryu 那半邊與測試工具本身，必須在一台只有裸 python3 的機器上能跑。
 
