@@ -33,6 +33,10 @@ struct VertexProperties;
 #include "ndt_core/power_management/P4PowerStrategy.hpp"
 // [Co-developed with claude code -- Adam] KNOWN-ISSUES F-6: UnreadSwitch and the carry-forward rule.
 #include "ndt_core/power_management/StaleTableCarryForward.hpp"
+// [Co-developed with claude code -- Adam] Per-switch `capabilities`, read from the same
+// GET /p4/switch_state the bmv2 liveness verdict is read from.
+#include "ndt_core/power_management/P4Capabilities.hpp"
+#include <mutex> // for mutex (m_p4CapabilitiesMutex)
 
 using json = nlohmann::json;
 
@@ -333,7 +337,44 @@ class DeviceConfigurationAndPowerManager
      */
     bool dataPlaneKindDetermined() const noexcept { return m_dataPlaneKindDetermined.load(); }
 
+    /**
+     * @brief What the proxy last said each bmv2 switch may be asked to do, keyed by dpid.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * The `capabilities` object of every switch in the most recent GET /p4/switch_state answer,
+     * verbatim (see P4Capabilities.hpp). /ndt/get_graph_data puts each one on its switch's node.
+     *
+     * Empty -- so no node carries the key -- on an OVS fabric (the proxy is never asked), before
+     * the first answer, and whenever the most recent attempt could not be read. The last one is
+     * deliberate: "the kernel cannot read it, so the field is absent" is the rule the GUI's
+     * reading is built on, and an answer kept from an earlier read would describe a proxy the
+     * kernel can no longer see. It is replaced whole on every 1 Hz tick.
+     *
+     * ⚠️ "Every tick" is only as good as the tick. The record carries no timestamp: if pingWorker
+     * stalls -- the `sudo ovs-vsctl list-br` it runs first on every MININET tick, bmv2 fabrics
+     * included, has no deadline -- the last answer is served unchanged until the loop moves again.
+     * bmv2 liveness has the same exposure, since it reads the same payload on the same tick.
+     */
+    p4caps::CapabilitiesByDpid p4CapabilitiesSnapshot() const;
+
   protected:
+    /**
+     * @brief One tick of bmv2 evidence: ask the proxy, record each switch's capabilities from the
+     *        answer, and hand the answer back for the liveness verdicts.
+     *
+     * @return The parsed GET /p4/switch_state body, or nullopt when the proxy was not asked (not
+     *         an all-bmv2 MININET fabric) or could not be read.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * Out of pingWorker for the reason p4VerdictFor is: a line inside the 1 Hz loop cannot be
+     * reached by any test, so a mutation deleting it would survive. What is left inline is the one
+     * call that also feeds every liveness verdict. The proxy is asked through fetchP4SwitchState,
+     * which a test replaces.
+     */
+    std::optional<json> pollP4SwitchState();
+
     /**
      * @brief What the bridge list implies about one OVS switch.
      *
@@ -1159,8 +1200,17 @@ class DeviceConfigurationAndPowerManager
      *
      * Edge-triggered logging, as with the bridge query: this runs at 1 Hz, so warning every time is
      * how the sudo failure buried the log in 3596 lines.
+     *
+     * [Co-developed with claude code -- Adam] Virtual so a test can stand in for the proxy when it
+     * drives pollP4SwitchState; production has exactly this one implementation.
      */
-    std::optional<json> fetchP4SwitchState();
+    virtual std::optional<json> fetchP4SwitchState();
+
+    /// pollP4SwitchState's record of each switch's `capabilities`, served by
+    /// p4CapabilitiesSnapshot. Written on the ping thread, read on HTTP session threads.
+    /// [Co-developed with claude code -- Adam]
+    mutable std::mutex m_p4CapabilitiesMutex;
+    p4caps::CapabilitiesByDpid m_p4Capabilities;
 
     // Helpers for TESTBED mode
     bool setPowerStateTestbed(const SwitchInfo& si, const std::string& action);
