@@ -705,8 +705,10 @@ class TheProvenanceRule(TmpMixin, unittest.TestCase):
     """Ruling J, against trees written here: what drifts is a failure only if it is a source.
 
     [Co-developed with claude code -- Adam]
-    These run on every machine -- CI has no ~/tutorials, and FixtureProvenance then skips -- and
-    they are what the mutation gate's J cells are killed by.
+    These need no ~/tutorials: they build both trees here, so they run wherever this suite runs,
+    including a machine without a p4lang-tutorials checkout, where FixtureProvenance skips. The
+    hosted CI does not run tools/p4_exercise/tests at all; mutate_roles_binding.sh and
+    mutate_p4_exercise_tools.sh do. They are what the mutation gate's J cells are killed by.
     """
 
     def lay_out(self, files):
