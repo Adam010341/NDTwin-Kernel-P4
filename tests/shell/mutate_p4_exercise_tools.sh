@@ -6,6 +6,8 @@
 #
 # TICKET-P2 section 3.7 appended M-A4, M-A5 and M-A6 as 8, 9 and 10 (G4, the per-switch
 # pipeline). The header below was written for the first seven and still describes them.
+# Adam's ruling J (2026-09-27) appended 23-28, the fixture-provenance rule, and with them a
+# fourth subject: tools/p4_exercise/tests/test_convert.py, where that rule lives.
 #
 # A test that has never been seen to fail is a decoration. This applies ten mutations to the
 # three tools, re-runs the whole suite after each, and records WHICH test went red -- not merely
@@ -69,6 +71,10 @@ TESTS="$PKG/tests"
 CONVERT="$PKG/convert.py"
 PREFLIGHT="$PKG/preflight.py"
 ADAPTER="$PKG/run_external_controller.py"
+# Ruling J (2026-09-27): the fixture-provenance RULE lives in the suite's own file -- it is what
+# decides which fixture is byte-compared and which carries a compile command -- so that file is
+# a subject too, snapshotted and restored with the three tools. [Co-developed with claude code -- Adam]
+TESTCONV="$PKG/tests/test_convert.py"
 
 ANCHOR_CHECK="${ANCHOR_CHECK:-0}"
 if [[ "${1:-}" == "--dry-run" ]]; then
@@ -78,6 +84,7 @@ fi
 [[ -f "$CONVERT" ]]   || { echo "REFUSE: $CONVERT not found -- run from the repo root." >&2; exit 2; }
 [[ -f "$PREFLIGHT" ]] || { echo "REFUSE: $PREFLIGHT not found -- run from the repo root." >&2; exit 2; }
 [[ -f "$ADAPTER" ]]   || { echo "REFUSE: $ADAPTER not found -- run from the repo root." >&2; exit 2; }
+[[ -f "$TESTCONV" ]]  || { echo "REFUSE: $TESTCONV not found -- run from the repo root." >&2; exit 2; }
 [[ -d "$TESTS" ]]     || { echo "REFUSE: $TESTS not found -- run from the repo root." >&2; exit 2; }
 [[ -x "$PYTHON" ]]    || { echo "REFUSE: no interpreter at $PYTHON (override with PYTHON=)." >&2; exit 2; }
 
@@ -298,10 +305,61 @@ add "22. the same (port, instance) twice is accepted, and the group is quietly s
     '                if False:  # MUTANT: the PRE holds both. It does not.' \
     'test_the_same_replica_twice_fails'
 
+# 23-28 are Adam's ruling J (2026-09-27), the P3-C precedent (c) made a rule: a build ARTIFACT
+# (a compiler output under build/) leaves byte provenance and carries the command that made it;
+# every SOURCE -- the .p4 files, the topology and runtime files, mycontroller.py -- stays
+# byte-compared with ~/tutorials. The live runs recompile ~/tutorials/*/build, so an artifact
+# compared by bytes turned the suite red on whatever program was compiled last; a source that
+# slipped out of the comparison would turn nothing red at all. These are killed by
+# TheProvenanceRule's cells, which write their own trees and so run on a machine with no
+# ~/tutorials -- CI included. [Co-developed with claude code -- Adam]
+add "23. build artifacts are byte-compared again, so every live run's recompile is a red suite" \
+    "$TESTCONV" \
+    '    return "build" in parts[:-1] and parts[-1].endswith(BUILD_OUTPUT_SUFFIXES)' \
+    '    return False  # MUTANT: nothing is an artifact; every build output is compared by bytes' \
+    'test_a_rebuilt_build_artifact_is_not_a_provenance_failure'
+
+add "24. whatever sits under build/ is an artifact, so a .p4 copied there is never compared" \
+    "$TESTCONV" \
+    '    return "build" in parts[:-1] and parts[-1].endswith(BUILD_OUTPUT_SUFFIXES)' \
+    '    return "build" in parts[:-1]  # MUTANT: the directory alone decides' \
+    'test_a_p4_source_inside_a_build_directory_is_still_compared'
+
+add "25. a .p4 source leaves byte provenance with the artifacts compiled from it" \
+    "$TESTCONV" \
+    '            if is_build_artifact(rel) or rel in authored:' \
+    '            if is_build_artifact(rel) or rel in authored or rel.endswith(".p4"):  # MUTANT' \
+    'test_a_changed_p4_source_is_still_a_provenance_failure'
+
+add "26. a build artifact with no recorded command is exempt from everything" \
+    "$TESTCONV" \
+    '    unrecorded = sorted(in_tree - set(recorded))' \
+    '    unrecorded = []  # MUTANT: the record is optional' \
+    'test_an_unrecorded_build_artifact_is_named'
+
+add "27. a source can be exempted by listing it as a build artifact" \
+    "$TESTCONV" \
+    '    not_artifacts = sorted(set(recorded) - in_tree)' \
+    '    not_artifacts = []  # MUTANT: whatever is listed is exempt' \
+    'test_a_source_listed_as_a_build_artifact_is_named'
+
+add "28. a recorded command names a source the artifact was not compiled from" \
+    "$TESTCONV" \
+    '         _p4c(f"{_TUT}/basic/basic.p4", f"{_TUT}/basic/build", "basic")),' \
+    '         _p4c(f"{_TUT}/basic/solution/basic.p4", f"{_TUT}/basic/build", "basic")),  # MUTANT' \
+    'test_the_generated_fixtures_are_all_there_and_are_the_only_exemptions'
+
 CTRL_SRC="$CONVERT"
 CTRL_ANCHOR='def build_model(hosts, switches, links):'
 CTRL_REPL='# MUTANT: a comment, and nothing else.
 def build_model(hosts, switches, links):'
+# The fourth subject gets its own control (judge K-N12): six mutants there go red, and without a
+# comment-only edit of the same file staying green, "test_convert.py reddens for anything" would
+# print the same six lines. [Co-developed with claude code -- Adam]
+CTRL2_SRC="$TESTCONV"
+CTRL2_ANCHOR='def is_build_artifact(rel):'
+CTRL2_REPL='# MUTANT: a comment, and nothing else.
+def is_build_artifact(rel):'
 
 # --- anchor check (never a verdict) -------------------------------------------------------------
 
@@ -327,6 +385,12 @@ if [[ "$ANCHOR_CHECK" != "0" ]]; then
     else
         printf '  🔴 %s matches  (negative control)\n' "$n"; broken=$((broken + 1))
     fi
+    n=$(anchor_count "$CTRL2_SRC" "$CTRL2_ANCHOR")
+    if [[ "$n" -eq 1 ]]; then
+        printf '  ok    %s  (negative control 2, test_convert.py)\n' "$n"
+    else
+        printf '  🔴 %s matches  (negative control 2, test_convert.py)\n' "$n"; broken=$((broken + 1))
+    fi
     if [[ "$broken" -eq 0 ]]; then
         echo "ANCHORS: ok -- all ${#MUT_LABEL[@]} mutations plus the control resolve to one site each."
     else
@@ -339,11 +403,11 @@ fi
 # --- baseline snapshot --------------------------------------------------------------------------
 
 BK=$(mktemp -d)
-for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER"; do
+for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER" "$TESTCONV"; do
     cp -p "$f" "$BK/$(basename "$f")"
 done
 restore() {
-    for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER"; do
+    for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER" "$TESTCONV"; do
         cp -p "$BK/$(basename "$f")" "$f"
         # cp -p puts the ORIGINAL mtime back. Nothing here is compiled, so no build system can
         # be fooled -- but __pycache__ is keyed on mtime and size, and an unlucky pair would let
@@ -417,8 +481,9 @@ echo "  interpreter : $PYTHON"
 echo "  subjects    : $CONVERT"
 echo "                $PREFLIGHT"
 echo "                $ADAPTER"
+echo "                $TESTCONV (the fixture-provenance rule, ruling J)"
 echo "  suite       : $TESTS"
-for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER"; do
+for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER" "$TESTCONV"; do
     printf '  baseline    : %s %s\n' "$(sha256sum "$f" | cut -c1-16)" "$f"
 done
 echo
@@ -467,12 +532,35 @@ PY
     restore
 fi
 
+printf '\n=== NEGATIVE CONTROL 2: comment-only edit of test_convert.py must stay GREEN ===\n'
+n=$(anchor_count "$CTRL2_SRC" "$CTRL2_ANCHOR")
+printf '  subject           : %s\n' "$CTRL2_SRC"
+printf '  anchor occurrences: %s\n' "$n"
+if [[ "$n" -ne 1 ]]; then
+    echo "  🔴 control anchor is not unique ($n matches) -- the control proves nothing."
+    SURVIVORS=$((SURVIVORS + 1))
+else
+    ANCHOR="$CTRL2_ANCHOR" REPL="$CTRL2_REPL" "$PYTHON" - "$CTRL2_SRC" <<'PY'
+import os, pathlib, sys
+p = pathlib.Path(sys.argv[1]); s = p.read_text()
+p.write_text(s.replace(os.environ["ANCHOR"], os.environ["REPL"], 1))
+PY
+    ctrl_red=$(red_tests)
+    if [[ -z "$ctrl_red" ]]; then
+        echo "  ✅ green: the suite does not react to a comment in test_convert.py"
+    else
+        printf '  🔴 A COMMENT TURNED THE SUITE RED: %s\n' "$ctrl_red"
+        SURVIVORS=$((SURVIVORS + 1))
+    fi
+    restore
+fi
+
 # --- byte-identity and verdict ------------------------------------------------------------------
 
 restore
 printf '\n--- baseline restored? ---\n'
 bad_restore=0
-for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER"; do
+for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER" "$TESTCONV"; do
     if cmp -s "$BK/$(basename "$f")" "$f"; then
         printf '  byte-identical  %s\n' "$f"
     else
