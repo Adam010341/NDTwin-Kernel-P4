@@ -34,6 +34,8 @@ CORPUS_REL="tests/shell/test_faults.sh"
 CORPUS_PRINTF_REL="tests/shell/test_stack_log_rotation.sh"   # a suite whose summary is a printf
 CORPUS_ONELINE_REL="tests/shell/test_faults_topo_pid.sh"      # its failure branch is one line
 CORPUS_GROUPED_REL="tests/shell/test_ndt_down_stops_only_ours.sh"   # `|| { echo "Ran ..."; exit 1; }`
+CORPUS_CALL_REL="tests/shell/test_ndt_ovs_topo_script.sh"   # `summary() { printf ...; }`, `summary; exit 1`, `summary`
+CORPUS_NEEDS_REL="tests/shell/test_gate_exit_code_not_tee.sh"   # carries a NDTWIN_L1_NEEDS declaration
 
 KILLED=0
 SURVIVED=0
@@ -46,6 +48,9 @@ build_sandbox() {
     cp "$REPO_ROOT/$DRIVER_REL" "$REPO_ROOT/tools/test_workflow/components.env" \
        "$sb/tools/test_workflow/"
     cp "$REPO_ROOT"/tests/shell/test_*.sh "$sb/tests/shell/"
+    # group R's fixtures (09-27): without them every R check reads "instrument failed"
+    mkdir -p "$sb/tests/shell/fixtures"
+    cp -r "$REPO_ROOT/tests/shell/fixtures/l1_shell_scoring" "$sb/tests/shell/fixtures/"
     printf '%s' "$sb"
 }
 
@@ -189,6 +194,68 @@ s = s.replace("elif [[ \"$failed\"  -gt 0 ]]; then echo FAIL-CHECKS",
 '
 
 echo
+echo "=== mutations: declared skips (group D) -- the excuse must not grow ==="
+
+# [Co-developed with claude code -- Adam] (2026-09-28) each one widens or deletes the declared-skip
+# excuse in the driver, and the group D check that pins that edge must go red by name.
+mutate "the DECLARED-SKIP verdict is gone, so an excused skip is a failure again" "$DRIVER_REL" '
+s = s.replace("    elif [[ \"$skipped\" -gt 0 && -n \"$excuse\" && \"$hosted\" == 1 && \"$failed\" -eq 0 ]]; then echo DECLARED-SKIP\n", "")
+' "D4 a hosted runner's skip with an excuse is DECLARED-SKIP"
+mutate "an excuse outranks a harness that exited non-zero" "$DRIVER_REL" '
+s = s.replace("    elif [[ \"$skipped\" -gt 0 && -n \"$excuse\" && \"$hosted\" == 1 && \"$failed\" -eq 0 ]]; then echo DECLARED-SKIP\n", "")
+s = s.replace("    if   [[ \"$rc\"      -ne 0 ]]; then echo FAIL-RC\n",
+              "    if   [[ \"$skipped\" -gt 0 && -n \"$excuse\" && \"$hosted\" == 1 && \"$failed\" -eq 0 ]]; then echo DECLARED-SKIP\n    elif [[ \"$rc\"      -ne 0 ]]; then echo FAIL-RC\n")
+' "D6 an excuse never outranks a harness that exited non-zero"
+mutate "a need the machine HAS still excuses (the lab would go quiet)" "$DRIVER_REL" '
+s = s.replace("            0)        missing+=(\"$need\") ;;", "            0|1)      missing+=(\"$need\") ;;")
+' "D8 🔴 a machine that HAS the need excuses nothing"
+mutate "a need with no probe is read as missing" "$DRIVER_REL" '
+s = s.replace("            unprobed) return 0 ;;", "            unprobed) missing+=(\"$need\") ;;")
+' "D12 🔴 a need the lane has no probe for excuses nothing, even beside a missing one"
+mutate "a shell suite with a red check before its SKIP is excused" "$DRIVER_REL" '
+s = s.replace("    if [[ \"$kind\" == sh ]] && grep -qE \x27^[[:space:]]*(FAILED|FAIL )\x27 \"$log\"; then return 0; fi\n", "")
+' "D13 🔴 a shell suite that printed a FAILED check before its SKIP is not excused"
+mutate "the py-plot probe lets round.env mkdir" "$DRIVER_REL" '
+s = s.replace("    ( mkdir() { :; }\n", "    (\n")
+' "D16 ... and round.env's mkdir did not run"
+mutate "the DECLARED-SKIP arm counts a failure after all" "$DRIVER_REL" '
+s = s.replace("            DECLARED_SKIPS+=(\"$name (needs $excuse)\")\n",
+              "            DECLARED_SKIPS+=(\"$name (needs $excuse)\")\n            FAILURES=$((FAILURES + 1))\n")
+' "D20 🔴 the DECLARED-SKIP arm records the file and does NOT count a failure"
+mutate "the DECLARED-SKIP arm records nothing, so the end of the lane never lists it" "$DRIVER_REL" '
+s = s.replace("            DECLARED_SKIPS+=(\"$name (needs $excuse)\")\n", "")
+' "D20 🔴 the DECLARED-SKIP arm records the file and does NOT count a failure"
+# [Co-developed with claude code -- Adam] (2026-09-28, second round) the excuse is a KIND of machine,
+# the failed count vetoes it, a partial Python skip is not excused, and only a real comment declares.
+mutate "the hosted-runner condition is dropped, so a lab that lost a need reads as excused" "$DRIVER_REL" '
+s = s.replace(" && \"$hosted\" == 1 && \"$failed\" -eq 0 ]]; then echo DECLARED-SKIP", " && \"$failed\" -eq 0 ]]; then echo DECLARED-SKIP")
+' "D4b 🔴 the same skip anywhere else is FAIL-SKIP (a lab that lost the need is red)"
+mutate "every machine is taken for a hosted runner" "$DRIVER_REL" '
+s = s.replace("    [[ \"${CI:-}\" == true || \"${GITHUB_ACTIONS:-}\" == true ]] && echo 1 || echo 0\n", "    echo 1\n")
+' "D23 🔴 lab env (CI, GITHUB_ACTIONS unset) + a missing declared need -> FAIL-SKIP"
+mutate "a failed count no longer vetoes the excuse" "$DRIVER_REL" '
+s = s.replace(" && \"$hosted\" == 1 && \"$failed\" -eq 0 ]]; then echo DECLARED-SKIP", " && \"$hosted\" == 1 ]]; then echo DECLARED-SKIP")
+' "D6b 🔴 a summary that counts failed checks vetoes the excuse, whatever its lines say"
+mutate "a Python file that ran some of its tests is excused" "$DRIVER_REL" '
+s = s.replace("    if [[ \"$kind\" == py && \"$skipped\" -ne \"$ran\" ]]; then return 0; fi\n", "")
+' "D9b 🔴 a Python file that ran some of its tests is not excused (only a whole-file skip is)"
+mutate "a .py file is read line by line, so a docstring declares" "$DRIVER_REL" '
+s = s.replace("    *.py)\n        python3 - \"$1\" 2>/dev/null <<\x27PY\x27", "    *.never-py)\n        python3 - \"$1\" 2>/dev/null <<\x27PY\x27")
+' "D3b 🔴 a declaration quoted inside a Python docstring is not one"
+mutate "a heredoc body is read as the script" "$DRIVER_REL" '
+s = s.replace("            hd != \"\" { t = $0; if (strip) sub(/^\\t+/, \"\", t); if (t == hd) hd = \"\"; next }\n", "")
+' "D3d 🔴 a line inside a shell heredoc is not one; the declaration after it is"
+mutate "the FAIL-SKIP line stops naming the missing need" "$DRIVER_REL" '
+s = s.replace("skip(s) — needs ${excuse}, which this machine", "skip(s) — a declared need, which this machine")
+' "D26 🔴 the FAIL-SKIP arm names a declared need that is missing (the lab is told what it lost)"
+mutate "a declaration in the corpus names a need the lane has no probe for" "$CORPUS_NEEDS_REL" '
+s = s.replace("# NDTWIN_L1_NEEDS: py-plot\n", "# NDTWIN_L1_NEEDS: py-plot no-such-need\n")
+' "D22 every NDTWIN_L1_NEEDS in tests/shell and tests/python is one the lane probes"
+mutate "the ryu probe is lost" "$DRIVER_REL" '
+s = s.replace("L1_NEED_MET[ryu]=0\n\"$PY_KERNEL\" -c \"import networkx, ryu\" >/dev/null 2>&1 && L1_NEED_MET[ryu]=1\n", "")
+' "D18 the lane probes the needs it can excuse (ryu, py-plot)"
+
+echo
 echo "=== mutations: the corpus check (group C) actually reads the corpus ==="
 
 # [Co-developed with claude code -- Adam] (09-27) each corpus mutant names the check that must go
@@ -231,6 +298,77 @@ mutate "a summary whose \$(( )) the renderer cannot evaluate (09)" "$CORPUS_REL"
 s = s.replace("echo \"Ran $((PASS + FAIL)) checks, all passed\"",
               "echo \"Ran $((PASS + 09)) checks, all passed\"")
 ' "C  test_faults.sh prints" "instrument failed"
+
+# [Co-developed with claude code -- Adam] rule (2a) read on a CALL's line -- the opus judge's NOTE A on
+# 1d5180ce (09-27). test_ndt_ovs_topo_script.sh prints its summary from `summary() { printf ...; }`,
+# calls it as `summary; exit 1` when a section cannot run, and as a bare `summary` last. With the bare
+# call gone, 1d5180ce's group C read the function's print at its definition line, saw no exit there,
+# took the failure call as "the last call" -- and stayed GREEN on a suite whose green run prints no
+# summary at all. It must now be red, for the call-line reason.
+mutate "a suite whose summary is a function loses its last, bare call (only \`summary; exit 1\` is left)" "$CORPUS_CALL_REL" '
+s = s.replace("\nsummary\n[[ $FAIL -eq 0 ]]\n", "\n[[ $FAIL -eq 0 ]]\n")
+' "C  test_ndt_ovs_topo_script.sh prints" "every call of which has an exit <non-zero> after the call"
+
+echo
+echo "=== mutations: group C's readings, each broken in the suite's own reader (group R must see it) ==="
+
+# [Co-developed with claude code -- Adam] (09-27, the opus judge's NOTE I on 1d5180ce) each reading of
+# render_prints is broken once, in the suite's OWN copy of it, and the group R fixture that pins that
+# reading must go red for it -- by name, and with the verdict the broken reading gives.
+mutate "(2a) && after a print is no longer certain" "$SUITE_REL" '
+s = s.replace("        elif op == \"&&\":\n            cond = cond or not ok\n",
+              "        elif op == \"&&\":\n            cond = True\n")
+' 'R7   `echo ... && exit 1` in a failure branch' "nonzero"
+mutate "(2a) the command after || is read as reached" "$SUITE_REL" '
+s = s.replace("            if ok and not cond:\n                continue                     # never runs, and the list still succeeded\n            cond = True\n",
+              "            cond = False\n")
+' 'R6   `echo ... || exit 1`' "exit <non-zero> after it on the same line"
+mutate "(2a) an exit behind && after a test is read as certain (B)" "$SUITE_REL" '
+s = s.replace("            if nest == 0 and not cond:\n                return kind == \"fail\"",
+              "            if nest == 0:\n                return kind == \"fail\"")
+' 'R4 * `echo ...; (( FAIL )) && exit 1`' "exit <non-zero> after it on the same line"
+mutate "(2a) a conditional exit 0 is no longer a way to the end (B)" "$SUITE_REL" '
+s = s.replace("            if kind == \"other\":\n                return False                 # it may run: a way to the end that does not fail\n",
+              "            if kind == \"other\":\n                continue\n")
+' 'R5 * `echo ...; [[ $FAIL -eq 0 ]] && exit 0; exit 1`' "exit <non-zero> after it on the same line"
+mutate "(2a) an exit inside an if opened after the print is read as certain" "$SUITE_REL" '
+s = s.replace("        if head in OPENERS:\n            nest, ok = nest + 1, False\n",
+              "        if head in OPENERS:\n            ok = False\n")
+' 'R16   `echo ...; if (( FAIL )); then exit 1; fi`' "exit <non-zero> after it on the same line"
+mutate "(2a) a function's calls are not read, only its definition line (A)" "$SUITE_REL" '
+s = s.replace("    ok = [c for c in calls if not call_fails(c)]\n", "    ok = calls\n")
+' 'R1 * a function summary whose every call is `summary; exit 1`' "nonzero"
+mutate "(2a) a function's own body is not read (A)" "$SUITE_REL" '
+s = s.replace("    body = not here and body_exits_after(n)\n", "    body = False\n")
+' 'R3 * a function that exits 1 later in its body' "nonzero"
+mutate "(2a) the end of the block the print is in stops the reading (H)" "$SUITE_REL" '
+s = s.replace("            continue                         # the print\x27s own block ends: what follows still runs\n",
+              "            return False\n")
+' 'R13 * `{ echo ...; }; exit 1`' "nonzero"
+mutate "(2a) a pipe stops the reading (G)" "$SUITE_REL" '
+s = s.replace("        elif op == \"|\":                      # the same pipeline: an exit here ends a subshell\n",
+              "        elif op == \"|\":\n            return False\n")
+' 'R12 * `echo ... | tee -a $LOG; exit 1`' "nonzero"
+mutate "(1) a print written to a file is rendered as if it reached the log (G)" "$SUITE_REL" '
+s = s.replace("        if w is None or stdout_away(text):\n", "        if w is None:\n")
+' 'R10 * a summary written to a FILE' "nonzero"
+mutate "(1) a print written to stderr is dropped with the ones written to files (G)" "$SUITE_REL" '
+s = s.replace("        if target.startswith(\"&\") or target in", "        if target.startswith(\"&1\") or target in")
+' 'R11   ... and one written to stderr' "zero:"
+mutate "(1) \`name(){\` -- no space -- is not a function head (F)" "$SUITE_REL" '
+s = s.replace("r\"[A-Za-z_][A-Za-z0-9_]*\\(\\)\\{?\", w[0]", "r\"[A-Za-z_][A-Za-z0-9_]*\\(\\)\", w[0]")
+' 'R8 * `summary(){ echo ...; }`' "zero:"
+mutate "(1) a case pattern is not taken off the front of a print (F)" "$SUITE_REL" '
+s = s.replace("        elif re.fullmatch(r\"[^$`(){}\\\"\x27]*\\)\", h):", "        elif False:")
+' 'R9 * a print behind a case pattern' "zero:"
+mutate "(2a) the next ;; pattern is read as the print's path" "$SUITE_REL" '
+s = s.replace("        if nest == 0 and (op == \";;\" or head in (\"else\", \"elif\")):",
+              "        if nest == 0 and head in (\"else\", \"elif\"):")
+' 'R15 * `case ... in 0) echo ... ;; *) exit 1 ;; esac`' "exit <non-zero> after it on the same line"
+mutate "(2a) the else branch is read as the print's path" "$SUITE_REL" '
+s = s.replace("        if nest == 0 and (op == \";;\" or head in (\"else\", \"elif\")):",
+              "        if nest == 0 and op == \";;\":")
+' 'R14   `then echo ...; else exit 1; fi`' "exit <non-zero> after it on the same line"
 
 echo
 echo "===== $((KILLED + SURVIVED)) mutation(s): $KILLED killed, $SURVIVED survived ====="

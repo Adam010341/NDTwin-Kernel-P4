@@ -24,6 +24,19 @@
 - commit 時機自主、做完就推——但**公開與否只能打公開 URL 驗**（tracking ref 不算數；
   push URL 可能一私一公）。
 - **diff 瞬間暴漲太多的時候，先確認有沒有不必要的東西被推上了 repo。**
+- **NDTwin-Kernel-P4 的 main 只經 PR＋squash merge 更新**（Adam 2026-09-27）：
+  - PR 只開在 `Adam010341/NDTwin-Kernel-P4`；`ndtwin-lab/NDTwin-Kernel-P4`
+    的 main 停在 `f186ce98`、不再推。trunk 照舊推兩個 repo。
+  - 審核流程（判官、收件、裁決、報告）只在 trunk 與功能分支上進行。
+  - 不再 `git push … trunk:main`；不 force push、不改寫 main 的既有歷史。
+  - PR 的內容＝trunk 的改動，排除 `doc/audit/**/*.md` 與各處 `REPORT*.md`；
+    程式與測試資料照進（搬工具出 doc/audit 是待辦、順序 Adam 定）。
+  - PR 標題／描述／squash 訊息：`<模組>: <做了什麼> (#N)`，簡短，
+    不寫 judge、intake、ruling、REPORT、orchestrator、opus、工單或 NOTE 編號。
+- **所有 commit 訊息都寫成一般工程師的樣子**（Adam 2026-09-27）：
+  主旨一行、內文幾句講改了什麼與為什麼；不寫長篇推理、不列測試數字清單，
+  證據留在收件紀錄與 audit-raw。commit 訊息**不加** `Co-Authored-By` 尾行，
+  也不加 `[Co-developed with claude code -- Adam]`（程式碼裡的標記照「工程紀律」一節）。
 
 ## 工程紀律
 

@@ -38,6 +38,7 @@ UP_HOSTS = {
 }
 
 MAX_CLAIM_MINUTES = 240
+DEFAULT_CLAIM_MINUTES = 30   # ndt's own default (`claim [min]`, ndt help: "default 30m")
 MAX_NOTE_CHARS = 200
 
 # A claim note is written by `ndt` into .test_run/lab.claim as a `note=<text>` line. A newline in
@@ -130,7 +131,7 @@ def argv_down(body):
 def argv_claim(body):
     """POST /api/v1/claim  {"minutes": 1..240, "note": "<text>"}"""
     _no_extra_keys(body, ("minutes", "note"))
-    minutes = body.get("minutes", 30)
+    minutes = body.get("minutes", DEFAULT_CLAIM_MINUTES)
     if not _is_int(minutes) or not 1 <= minutes <= MAX_CLAIM_MINUTES:
         raise Refused("minutes must be an integer from 1 to %d" % MAX_CLAIM_MINUTES)
     note = body.get("note", "")
