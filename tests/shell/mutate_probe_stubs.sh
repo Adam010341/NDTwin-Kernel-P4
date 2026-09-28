@@ -9,7 +9,8 @@
 # stub is not there, never read an empty call list as clean. P9 leaves the stub installed but puts
 # ANOTHER sudo in front of it on PATH, P10 another tc, P11 another ovs-vsctl (the judge's N6): the
 # closing check must say so ("the <cmd> on PATH is"), never read the calls that stub no longer sees
-# as none. T1-T3 are the stubs' own contract: the unprivileged tc answers `qdisc show` and refuses
+# as none. P12 installs the stub and then deletes it while the suite runs on: the closing check must
+# say it is gone, not that it was never installed. T1-T3 are the stubs' own contract: the unprivileged tc answers `qdisc show` and refuses
 # everything else, and each stub is the command on PATH and records what it is asked.
 #
 # [Co-developed with claude code -- Adam]
@@ -224,6 +225,15 @@ m=$(mutant p9 "$CELL_GATE" "probe_stub_install \"\$T\" -- 'sudo ndtwin-lab statu
 P9D=\"\$(mktemp -d \"\$T/p9-XXXXXX\")\"; printf '#!/bin/bash\\necho \"sudo: a password is required\" >&2\\nexit 1\\n' > \"\$P9D/sudo\"
 chmod +x \"\$P9D/sudo\"; export PATH=\"\$P9D:\$PATH\"")
 report "P9: cell_gate's stub is shadowed by another sudo on PATH" "$m" "" "the sudo on PATH is"
+
+# [Co-developed with claude code -- Adam] P12 (2026-09-28): the stub installed, then its directory
+# deleted while the suite runs on -- what a signal handler that cleans up and returns used to do.
+# The calls escape (to this gate's own sudo), and the closing check must say the stub is GONE, not
+# that it was never installed.
+m=$(mutant p12 "$CELL_GATE" "probe_stub_install \"\$T\" -- 'sudo ndtwin-lab status' 'sudo ndtwin-lab topo-out *'" \
+    "probe_stub_install \"\$T\" -- 'sudo ndtwin-lab status' 'sudo ndtwin-lab topo-out *'
+rm -rf \"\$PROBE_STUB_DIR\"")
+report "P12: cell_gate's stub is deleted while the suite runs on" "$m" escapes "the stub was installed and is gone"
 
 # [Co-developed with claude code -- Adam] P10, P11 (the judge's N6 on 356d4e4e, 09-27): the same for the
 # unprivileged stubs. The shadow answers exactly as the stub does -- tc `qdisc show` with nothing,
