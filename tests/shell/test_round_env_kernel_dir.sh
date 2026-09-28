@@ -19,14 +19,16 @@
 # (tools/test_workflow/components.env's convention); it is honoured when it names a checkout and
 # refused when it does not (a relative one included: it would follow the caller's cwd). Sourced
 # any other way -- by dash, or as text with no file behind it (`bash -c "$(cat round.env)"`, or
-# `eval` in an INTERACTIVE bash, which must survive the refusal), or from a copy that sits in no
-# checkout -- it refuses, says why, and derives nothing: the old `${BASH_SOURCE[0]:?}` guard sat
-# inside two command substitutions, so it failed only its own subshell and the file went on to
-# derive KERNEL_DIR=/. The dash case runs only where dash is installed and says NOT RUN otherwise.
+# `eval` in an INTERACTIVE bash, which must survive), or from a copy in no checkout -- it refuses,
+# says why, and derives nothing: the old `${BASH_SOURCE[0]:?}` guard sat inside two command
+# substitutions, so it failed only its own subshell and the file went on to derive KERNEL_DIR=/.
+# The dash case runs only where dash is installed and says NOT RUN otherwise.
 #
-# What it does NOT promise, shown as today's behaviour ("inherited"): KERNEL_DIR, CPU_BASELINE_FILE
-# and PY_PROXY are overrides, so a shell that sourced another tree's round.env keeps that tree's
-# values -- all of them if nothing is unset, the last two even when KERNEL_DIR and ROUND are.
+# What it does NOT promise, shown as today's behaviour: pasted LINE BY LINE into an interactive
+# bash, each guard stops only its own line (and must not close the shell), so the later lines run
+# and leave KERNEL_DIR empty; and ("inherited") KERNEL_DIR, CPU_BASELINE_FILE and PY_PROXY are
+# overrides, so a shell that sourced another tree's round.env keeps that tree's values -- all of
+# them if nothing is unset, the last two even when KERNEL_DIR and ROUND are.
 #
 # How it is read without touching anything: a byte-identical copy of each round.env is planted at
 # its real relative path inside a temp tree that is NOT this checkout, and sourced by a child shell
@@ -211,6 +213,20 @@ for round in E F5; do
     has "🔴 $round: and the interactive shell survives (its next command runs)" "NEXT 42 KD=" "$(cat "$T/$round-int.out")"
     has "  $round: and the rest of the file did not run" "NEXT 42 KD=UNSET" "$(cat "$T/$round-int.out")"
     check "  $round: and writes nothing" "0" "$(nwrites "$round-int")"
+
+    # PASTED line by line into an interactive bash, at cwd / (not three levels below a checkout):
+    # every line is its own command, so each guard can only stop its own line -- and none of them
+    # may close the operator's shell. What the later lines then leave behind is documented, not
+    # prevented: KERNEL_DIR exported EMPTY, which lab_tree_check refuses (not an absolute path).
+    : > "$T/$round-paste.writes"
+    { echo 'cd /'; grep -v '^[[:space:]]*#' "$A/$rel" | grep -v '^[[:space:]]*$'
+      echo 'echo "NEXT $((6*7)) KD=[${KERNEL_DIR-UNSET}]"'; } \
+        | ( env -i PATH="$SHIM:$PATH" HOME="$T" HISTFILE=/dev/null SHIM_LOG="$T/$round-paste.writes" \
+            bash --norc --noprofile -i > "$T/$round-paste.out" 2> "$T/$round-paste.err" )
+    has "🔴 $round: pasted line by line into an interactive bash, the shell survives every refusal" \
+        "NEXT 42 KD=" "$(cat "$T/$round-paste.out")"
+    has "  $round: (pasted) and the KERNEL_DIR left behind is empty, which lab_tree_check refuses" \
+        "NEXT 42 KD=[]" "$(cat "$T/$round-paste.out")"
 
     # inherited (today's behaviour, documented in round.env): no env -i between two sourcings
     : > "$T/$round-inh.writes"

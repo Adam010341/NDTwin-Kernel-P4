@@ -11,8 +11,8 @@
 # caller's cwd or $0 instead of the file's own path, one directory short or long, an override that
 # is silently ignored, one exported path or one mkdir still pointing at a fixed tree, CDPATH left
 # in play, and each of the three guards removed (not bash; no file behind BASH_SOURCE; a
-# derivation that is no checkout, e.g. /). M22 makes the no-file guard exit an interactive shell
-# again, M23 lets a relative KERNEL_DIR through. M19-M21 break the two consumer suites instead: an
+# derivation that is no checkout, e.g. /). M22 and M24 make the no-file guard and the checkout
+# guard exit an interactive shell again, M23 lets a relative KERNEL_DIR through. M19-M21 break the two consumer suites instead: an
 # inherited KERNEL_DIR no longer dropped, and a missing interpreter read as a green skip again.
 #
 # 🔴 Guards its own baseline: round.env mutations go into COPIES in a temp dir, pointed at through
@@ -207,6 +207,13 @@ apply_exact "$E_ENV" \
   'names no file)" >&2; return 1 2>/dev/null || exit 1; }' "$d/e.env"
 report "M22: E's no-file guard exits an interactive shell again" "$d" "$RO" \
        "🔴 E: and the interactive shell survives (its next command runs)"
+
+d="$(fresh m24)"
+apply_exact "$E_ENV" \
+  'with doc/audit)" >&2; unset _kd; return 1 2>/dev/null || { [[ $- == *i* ]] && kill -INT $$; exit 1; }; }' \
+  'with doc/audit)" >&2; unset _kd; return 1 2>/dev/null || exit 1; }' "$d/e.env"
+report "M24: E's checkout guard exits an interactive shell again (a paste)" "$d" "$RO" \
+       "🔴 E: pasted line by line into an interactive bash, the shell survives every refusal"
 
 # --- the F-5 round -----------------------------------------------------------------------------
 d="$(fresh m7)"
