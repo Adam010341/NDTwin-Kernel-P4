@@ -1222,6 +1222,8 @@ m=$(nmutant n08 "$NDT" \
         down_rc=1
         not_verified "the heartbeat daemon (its stop failed; sudo ndtwin-lab heartbeat status says whether it runs)"
     }
+    # [Co-developed with claude code -- Adam] The withheld record describes the fabric going away.
+    rm -f "$(hb_withheld_file)"
 
     say "[2/3] topology session"
     sudo -n "$LAB" topo-stop 2>&1 | sed '"'"'s/^/      /'"'"'' \
