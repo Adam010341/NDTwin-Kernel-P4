@@ -55,7 +55,7 @@ Worked examples of (2), all real lines in this tree that this gate deliberately 
                                     argv for a parser test. Nothing is ever opened.
   tests/test_SwitchKindDispatch.cpp:379  ScopedTopoEnv env("/tmp/ndt_override_mininet.json");
                                     sets an environment variable and reads it back.
-  tests/shell/test_ndt_sudo_surface.sh:241  topo_for_hosts() { echo /tmp/x.json; }
+  tests/shell/test_ndt_sudo_surface.sh (UP_STUBS, ST_STUBS)  topo_for_hosts() { echo /tmp/x.json; }
                                     a stub's return value, inside a single-quoted blob.
   tests/shell/test_apps_stop_kills_the_group.sh:190  [[ "$TMPROOT" == /tmp/ndt-appsgroup-* ]]
                                     a guard on a glob before an rm -rf. An operand of `==`, not

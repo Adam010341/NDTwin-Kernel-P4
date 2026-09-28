@@ -4702,8 +4702,8 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 
 - **狀態**：**OPEN**（2026-09-11 ROLE-8 實測兩格；2026-09-12 FIX-NDT-5 寫進
   `tools/test_workflow/README.md`，merge `d7aa176e`）。**這是安全觀察，不是產品缺陷**——`ndt` 自己沒有拿
-  `mnexec` 繞過任何東西（它只有 `dataplane_ok` 兩處呼叫，`ndt:3394`／`ndt:3403`，
-  而且在 `sudo_surface.sh:88` 的表裡宣告著）。
+  `mnexec` 繞過任何東西（它只有 `dataplane_ok` 裡的兩處呼叫，
+  而且在 `sudo_surface.sh` 的 `NDT_SUDO_TABLE` 裡有 `mnexec` 那一列宣告著）。
    (numbered by KI-FOLLOWUP-2；`fix/FIX-NDT-5-SUMMARY.md` §6 自己建議的 `G-39` 與 FIX-PROXY-2 撞號)
 - **會發生什麼**：sudoers 給的 `tc` NOPASSWD 白名單只涵蓋 netem 形
   （`tc qdisc add|del|show … netem`），`htb`／`class`／`tc qdisc replace` 都不在裡面；
@@ -5282,9 +5282,36 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 > 同一輪順手撞到的第二個（`inject_link_failure` 在一端已有別人的 netem 時**半成功而回 200
 > `link failure injected`**）在 `hunt-0911/ROLE-1-A1-REPORT.md` ②，**建議另開單**。
 
+### G-59 🟠 `ndt status` 的 sudo grants：沒有 `sudo:` 那一行的拒絕，仍被讀成 granted
+
+> **編號**：C-3 那一段（「為什麼寫在 C-3 底下而不是開 `G-59`」）提到的 `G-59` 從來沒有開過——那一族掛在 C-3 底下。
+> 這個代號在 2026-09-28 首次實際使用，就是下面這一條，與 C-3 那段無關。
+
+- **狀態**：🟠 **已知限制**（2026-09-28，`fix/sudo-probe-unknown-0927`）。
+- **位置**：`tools/test_workflow/sudo_surface.sh` 的 `ndt_sudo_probe`／`ndt_sudo_unread`。
+- **規則**：探針 rc≠0 時，分成三種情況：
+  - 認得的拒絕字句 ⇒ refused；
+  - 一行以 `sudo:` 開頭、不在非致命警告清單裡、又認不得的字句 ⇒ could not tell；
+  - **除了清單裡的警告，沒有任何 `sudo:` 行** ⇒ 當作「程式自己跑了、自己失敗」，也就是 **granted**。例如 sudo 已放行，但 ovsdb 沒起來。
+- **因此仍會被讀成 granted 的有三種**：
+  1. 什麼都不印就 exit 非零的拒絕，例如某些測試 shim。**從 stderr 分不出它和程式自己的失敗。**
+  2. 只印了清單裡的警告（例如 `sudo: unable to resolve host …`），然後無聲地拒絕。理由同上。
+  3. 前綴不是 `sudo:` 的拒絕。
+     - 這一種**讀得出來**：那一行就在 stderr 裡，是這條規則**選擇不讀**——它只認 sudo 自己的 `sudo:` 前綴。
+     - 例子可能是 sudo-rs，但它的實際前綴與字句**未驗證**（據說較新的 Ubuntu 預設就是 sudo-rs，也未驗證）。
+- **後果**：不影響特權。
+  - 擋住不可逆拆除的 guard 看的是 exit status（`ovs_bridge_count`／`guard_no_live_ovs`），`dataplane_ok` 也一樣。
+  - 會出錯的是：`ndt status --check` 偽綠、guard 的措辭說錯，以及 lab 那一列寫著「granted」、旁邊的 topo session 卻寫「沒有」。
+- **測試**：`tests/shell/test_ndt_sudo_surface.sh` 用三條 control 把這個限制釘住：
+  - `a refusal that prints nothing is read as granted`；
+  - `a listed warning followed by a silent refusal is read as granted`；
+  - `a refusal worded without a 'sudo:' prefix (sudo-rs) is read as granted`。
+  - 🔴 **修第 3 種的人要把 mutation gate 的 S14 反過來。** S14 目前是 control：它斷言「前綴不是 `sudo:` ⇒ 0」。修好之後這條預期要改成 2，S14 也要改成殺在新行為上。
+- **待辦（tracked）**：在容器或 VM 裡裝真的 sudo-rs，錄下它對 `sudo -n ovs-vsctl list-br` 的拒絕字句（有 NOPASSWD 規則與沒有兩種情況）。錄到之後再決定：要把它的前綴加進規則，還是繼續當已知限制。
+
 ### G-60 🏁 `test_ovs4_sflow.py` 拿 NTG 那份 `testbed_topo.py` 對參數的那一格，前提在 `87612059` 之後就不成立 —— **已退役（2026-09-28）**
 
-> **編號**：G-59 已由分支 `fix/sudo-probe-unknown-0927` 佔用（本條寫入時未併），所以從 G-60 開。
+> **編號**：G-59 已由分支 `fix/sudo-probe-unknown-0927` 佔用（本條寫入時未併，後來併入，就是上一條），所以從 G-60 開。
 
 - **狀態**：🏁 已退役（分支 `fix/ci-l1-0927`）。
 - **它原本測什麼**：`ParametersComeFromTheReferenceTopology.test_the_reference_copy_ndt_actually_runs_agrees_too`
