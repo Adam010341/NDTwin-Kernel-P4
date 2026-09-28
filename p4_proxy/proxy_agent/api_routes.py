@@ -338,6 +338,11 @@ async def get_all_paths():
     """
     if not topology:
         return {"status": "success", "all_destination_paths": []}
+    # [Co-developed with claude code -- Adam] (Adam, 09-28) An external control plane on its own
+    # pipeline: the forwarding is its controller's and nothing installed is known here, so no
+    # path is reported -- "unknown", not a shortest path over the declared links.
+    if getattr(topology, "destination_paths_unknown", False):
+        return {"status": "success", "all_destination_paths": []}
     # Links the watchdog believes are down are excluded from the search, or m_switchCountMap ends
     # up holding a route over a dead link. [Co-developed with claude code -- Adam]
     return ryu_topology.render_destination_paths(

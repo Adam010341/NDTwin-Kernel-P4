@@ -603,15 +603,27 @@ check_fires "M27: a package pipeline is reported as an external plane" m27 \
 # and the operator's next move is to debug a control plane that is behaving as designed.
 cat > "$A/m28.old" <<'EOF'
             foreign:*)
-                echo "  ${paths:-?} destination paths reported; not a count of installed routes -- the package's program on dpid ${pkgpipe#foreign:}, proxy skipped lldp_discovery (they are shortest paths over the package's declared links: the twin's guess, whether or not the routes are NDTwin's)"
+                if [[ "$pkgmode" == external ]]; then
 EOF
 cat > "$A/m28.new" <<'EOF'
             never-taken:*)
-                echo "  ${paths:-?} destination paths reported; not a count of installed routes -- the package's program on dpid ${pkgpipe#foreign:}, proxy skipped lldp_discovery (they are shortest paths over the package's declared links: the twin's guess, whether or not the routes are NDTwin's)"
+                if [[ "$pkgmode" == external ]]; then
 EOF
 check_fires "M28: status wants paths nobody was ever going to install" m28 \
             "🔴 a package fabric is told the count is not a reading" \
             "🔴 and the shortfall is NOT a --check problem"
+
+# [Co-developed with claude code -- Adam] M28b (Adam's 09-28 ruling): the status row's external
+# branch is never taken, so an external control plane on its own pipeline is told its count is
+# the twin's guess over the declared links -- the guess the proxy no longer makes there.
+cat > "$A/m28b.old" <<'EOF'
+                if [[ "$pkgmode" == external ]]; then
+EOF
+cat > "$A/m28b.new" <<'EOF'
+                if [[ "$pkgmode" == never-external ]]; then
+EOF
+check_fires "M28b: an external plane's no-path row is read as a guess" m28b \
+            "🔴 an external plane on its own pipeline expects no path"
 
 # M29: `up_p4` stops telling verify_p4 whose program is on the switches. Every branch above is
 # then unreachable from the command that matters, while the functions themselves stay perfect --

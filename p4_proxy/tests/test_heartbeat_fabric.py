@@ -478,6 +478,81 @@ class AnExternalFabricsCutIsToldAndRewritesNothingTest(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_PROXY, "proxy dependencies not available in this interpreter")
+class AnExternalFabricReportsNoGuessedPathsTest(unittest.TestCase):
+    """
+    [Co-developed with claude code -- Adam] Adam's ruling, 09-28: on an external control plane
+    running its own pipeline the forwarding is the exercise's controller's and nothing installed
+    is known to the proxy, so `/ryu_server/all_destination_paths` reports NO path -- "unknown",
+    not a shortest path over the declared links (what it served from 09-27). The declared links
+    still seed the graph: the heartbeat judges them. A REAL TopologyManager (pod-topo's cables,
+    two hosts on different switches, so a shortest path exists to be withheld), with the flag
+    startup leaves on it; the controls are the same manager with startup's flag from NDTwin's own
+    pipeline and from a foreign fabric that is not external -- both still render the paths.
+    """
+
+    def setUp(self):
+        SavedGlobals().save(self)
+        saved = api_routes.topology
+        self.addCleanup(lambda: setattr(api_routes, "topology", saved))
+
+    def flag_after_startup(self, package):
+        topo = HeartbeatTopo()
+        run_startup({1: FakeClient(1), 2: FakeClient(2)}, topo=topo, package=package)
+        return getattr(topo, "destination_paths_unknown", False)
+
+    def fabric(self, paths_unknown):
+        from tests.test_heartbeat_watchdog import Fabric
+        f = Fabric(self, routes_skipped=True)
+        f.topo.destination_paths_unknown = paths_unknown
+        f.topo.add_host("10.0.1.1", "08:00:00:00:01:11", 1, 10)
+        f.topo.add_host("10.0.2.2", "08:00:00:00:02:22", 2, 10)
+        return f
+
+    def served(self, f):
+        api_routes.topology = f.topo
+        return asyncio.run(api_routes.get_all_paths())
+
+    def test_startup_marks_an_external_fabric_on_its_own_pipeline_only(self):
+        self.assertIs(self.flag_after_startup(EXTERNAL_FOREIGN), True)
+        self.assertIs(self.flag_after_startup(app_package.baseline()), False)
+        self.assertIs(self.flag_after_startup(a_foreign_package()), False)
+        self.assertIs(self.flag_after_startup(EXTERNAL), False)
+
+    def test_the_declared_links_still_seed_the_graph(self):
+        topo = HeartbeatTopo()
+        run_startup({1: FakeClient(1), 2: FakeClient(2)}, topo=topo, package=EXTERNAL_FOREIGN)
+        self.assertEqual(len(topo.seeded), 1, "the heartbeat has no links to judge")
+
+    def test_an_external_fabric_serves_no_path_over_its_declared_links(self):
+        f = self.fabric(self.flag_after_startup(EXTERNAL_FOREIGN))
+        self.assertEqual(self.served(f), {"status": "success", "all_destination_paths": []})
+
+    def test_the_same_graph_without_the_flag_does_have_a_path_to_withhold(self):
+        # The control: the graph above is not empty of paths -- the flag is what withholds them.
+        for package in (app_package.baseline(), a_foreign_package()):
+            with self.subTest(package=package.name):
+                body = self.served(self.fabric(self.flag_after_startup(package)))
+                self.assertEqual(body["status"], "success")
+                self.assertEqual(len(body["all_destination_paths"]), 2, body)
+
+    def test_a_cut_on_an_external_fabric_pushes_no_path(self):
+        from tests.test_heartbeat_watchdog import TIMEOUT
+        from tests.test_link_heartbeat import CUT, POD_DIRECTIONS
+        for unknown, pushed in ((True, 0), (False, 1)):
+            with self.subTest(paths_unknown=unknown):
+                f = self.fabric(unknown)
+                f.run()
+                f.clock.now = f.last_heard[CUT[0]] + TIMEOUT + 0.1
+                for d in POD_DIRECTIONS:
+                    if d not in CUT:
+                        f.last_heard[d] = f.clock.now - 0.2
+                f.run()
+                self.assertEqual(f.kernel.of("link_failure"), sorted(CUT), "the cut was not told")
+                self.assertEqual(sum(1 for c in f.kernel.calls if c[0] == "all_destination_paths"),
+                                 pushed)
+
+
+@unittest.skipUnless(HAVE_PROXY, "proxy dependencies not available in this interpreter")
 class TheHeartbeatIsDisclosedOnSwitchStateTest(unittest.TestCase):
 
     def setUp(self):

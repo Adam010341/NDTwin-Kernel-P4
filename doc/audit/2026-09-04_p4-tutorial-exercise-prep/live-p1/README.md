@@ -351,8 +351,10 @@ flowcache/solution）上也啟動心跳：proxy 宣告 package 的連線、由�
     （`S_heartbeat_spike.sh:63-65`）——external package 沒有控制器就沒有 pipeline，所以那三列量到的是**空的交換機**。
     **`PART=h5` 是第一次在這三個程式載入時量**。
 - 其他 external 程式**沒有人看過**。要不要給一個關掉的選項，orchestrator 在問 Adam；在那之前，這一段就是揭露。
-- **twin 那一側也變了**（F5）：external 上 `/ryu_server/all_destination_paths` 現在是**在宣告連線上算的最短路徑**
-  （external 上沒有已安裝的路由可讀），**不是** exercise 真正的轉發。它是 twin 的猜測，不是讀數。
+- **twin 那一側**（F5；Adam 09-28 裁定後改）：09-27 起 external 上 `/ryu_server/all_destination_paths` 曾是
+  **在宣告連線上算的最短路徑**——external 上沒有已安裝的路由可讀，那是 twin 的猜測，不是 exercise 真正的轉發。
+  **現在回到不報任何路徑**（unknown，不是猜測）：轉發是 exercise 自己的控制器的事，proxy 不知道。宣告的連線
+  照樣進 topology（心跳要判它們）；NDTwin 自己的 pipeline 不變。
 
 ### 合併前的比對——可以照著跑的程序（第二輪 judge 的 M1；預先登記，事後不改）
 

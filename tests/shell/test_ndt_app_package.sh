@@ -126,6 +126,9 @@ PKG_BAD="$FIX/packages/redflag"    ; mkpkg "$PKG_BAD" ndtwin   4 4
 # TICKET-P2 §5.5: a package that puts somebody else's program on s1 and leaves s2-s4 on
 # NDTwin's. exercises/firewall is the shipped shape of exactly this.
 PKG_FOREIGN="$FIX/packages/foreign"; mkpkg "$PKG_FOREIGN" ndtwin 4 4 firewall
+# [Co-developed with claude code -- Adam] An external control plane on its OWN pipeline --
+# exercises/p4runtime's shape, the 3 external arms of live-p1/06.
+PKG_EXT_OWN="$FIX/packages/three-ext-own"; mkpkg "$PKG_EXT_OWN" external 3 3 advanced_tunnel
 # A package directory whose manifest cannot be read at all. `unreadable` is its own answer and
 # is NOT `ndtwin`: rendering an unparsable package as the default pipeline is the silent
 # substitution this feature exists to remove.
@@ -1176,6 +1179,15 @@ has   "🔴 a package fabric is told the count is not a reading"    "4 destinati
 has   "  naming the dpid and the step the proxy skipped"  "the package's program on dpid 1, proxy skipped lldp_discovery" "$OUT"
 hasnt "🔴 and the shortfall is NOT a --check problem"     "proxy reports 4 destination paths, want" "$OUT"
 check "  so --check still exits 0"                        "0" "$(rc_of "$OUT")"
+# [Co-developed with claude code -- Adam] Adam's 09-28 ruling: an external control plane on its
+# own pipeline reports NO path (its forwarding is its controller's), so the row says none is
+# expected there -- and does not call the number the twin's guess, which it no longer is.
+reset_fix
+OUT="$(drive "NDT_APP_DIR=$(q "$PKG_EXT_OWN"); up_p4")"
+OUT="$(run_status --check "$PROXY_STUBS")"
+has   "🔴 an external plane on its own pipeline expects no path" "4 destination paths reported; none expected -- an external control plane on dpid 1" "$OUT"
+hasnt "  and does not call its count the twin's guess"   "the twin's guess" "$OUT"
+hasnt "  nor a --check problem"                          "proxy reports 4 destination paths, want" "$OUT"
 reset_fix
 OUT="$(drive "NDT_APP_DIR=$(q "$PKG_OK"); up_p4")"
 OUT="$(run_status --check "$PROXY_STUBS")"

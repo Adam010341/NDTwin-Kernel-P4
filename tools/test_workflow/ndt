@@ -4021,9 +4021,9 @@ verify_p4() {
     # no LLDP and installs no route (P1-A §2.3) -- so forwarding is nothing until the exercise's
     # own controller runs. [Co-developed with claude code -- Adam] Since 09-27 an external
     # control plane on its own pipeline has declared links and a heartbeat watchdog (detect
-    # only), so all_destination_paths is no longer 0 there: it is a shortest-path search over the
-    # DECLARED links, not the exercise's forwarding (nothing installed, so nothing to read back)
-    # -- a guess the twin makes, which is exactly why it is not counted as a reading. A bring-up
+    # only); from 09-27 to Adam's 09-28 ruling all_destination_paths rendered shortest paths over
+    # those links -- a guess served as the twin's answer. It reports none again: the forwarding
+    # is the exercise's controller's and nothing installed is known to the proxy. A bring-up
     # that reported `0/6 destination paths, never settled` would be reporting the mode as a
     # fault; one that quietly counted it as ok would be the "report zero, not an error" shape
     # this project keeps finding. Both unrunnable checks are therefore NAMED, individually,
@@ -4037,9 +4037,10 @@ verify_p4() {
     # shipped two copies of one paragraph with one of them wrong for a day.
     if [[ "$mode" == external ]]; then
         warn "proxy: destination paths NOT CHECKED -- this package declares an external control"
-        warn "  plane, so the proxy installs no routes: its count is 0, or on the package's own"
-        warn "  pipeline a shortest-path guess over the declared links -- not a reading either"
-        warn "  way. The exercise's own controller is what puts rules on these switches:"
+        warn "  plane, so the proxy installs no routes and 0 is the designed answer, not a"
+        warn "  reading: the forwarding is the exercise's controller's, and the proxy reports no"
+        warn "  path rather than guess one over the declared links. The exercise's own controller"
+        warn "  is what puts rules on these switches:"
         warn "  tools/p4_exercise/run_external_controller.py <pkg> <controller.py>"
         # 🔴 AND THE CHECK THAT REPLACES "N UP" ON THIS PLANE (TICKET-P2-F §4.2-2). The bring-up
         # is not left with nothing assertable about the switches just because the liveness
@@ -7047,13 +7048,20 @@ cmd_status() {
         # operator to debug a fabric that is behaving exactly as designed. `unreadable` keeps
         # today's behaviour: a package this script could not parse is not evidence about routes.
         # [Co-developed with claude code -- Adam] "none expected" stopped being true when the
-        # package's links were declared (TICKET-P4-roles 2.3) and, for an external control plane,
-        # when it declared them too (09-27): the proxy renders shortest paths over the declared
-        # links, so the count is the twin's guess, not zero and not a reading (the external
-        # judge's S3, 09-28).
+        # package's links were declared (TICKET-P4-roles 2.3): where NDTwin owns no route table
+        # the proxy renders shortest paths over the declared links -- the twin's guess, not zero
+        # and not a reading (the external judge's S3, 09-28) -- and where it owns every one they
+        # are the routes it installed. An EXTERNAL control plane is the exception again since
+        # Adam's 09-28 ruling: its forwarding is its own controller's, and the proxy reports no
+        # path there rather than guess one.
+        local pkgmode; pkgmode="$(app_knob_mode)"
         case "$pkgpipe" in
             foreign:*)
-                echo "  ${paths:-?} destination paths reported; not a count of installed routes -- the package's program on dpid ${pkgpipe#foreign:}, proxy skipped lldp_discovery (they are shortest paths over the package's declared links: the twin's guess, whether or not the routes are NDTwin's)"
+                if [[ "$pkgmode" == external ]]; then
+                    echo "  ${paths:-?} destination paths reported; none expected -- an external control plane on dpid ${pkgpipe#foreign:}: its forwarding is its own controller's, and the proxy reports no path rather than guess one over the declared links"
+                else
+                    echo "  ${paths:-?} destination paths reported; not a count of installed routes unless NDTwin owns the route tables -- the package's program on dpid ${pkgpipe#foreign:}, proxy skipped lldp_discovery (without them they are shortest paths over the package's declared links: the twin's guess)"
+                fi
                 ;;
             *)
                 echo "  ${paths:-?} destination paths (want $(( ph * (ph - 1) )) for $ph hosts)"

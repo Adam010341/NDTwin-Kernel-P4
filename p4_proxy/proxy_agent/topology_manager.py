@@ -538,6 +538,14 @@ class TopologyManager:
     #: [Co-developed with claude code -- Adam] Section 7 ruling 6, F1.
     routes_to_attached_hosts_only = False
 
+    #: [Co-developed with claude code -- Adam] (Adam, 09-28) True on an external control plane
+    #: running its own pipeline: that fabric's forwarding is its own controller's, nothing
+    #: installed is known here, and a shortest path over the package's declared links is a guess
+    #: -- so no destination path is reported, pulled or pushed. The declared links still seed the
+    #: graph (the heartbeat judges them). A class attribute for the reason
+    #: `routes_to_attached_hosts_only` is one; False everywhere else.
+    destination_paths_unknown = False
+
     #: TICKET-P4-heartbeat segment W: link evidence from outside this proxy's LLDP -- the veth
     #: heartbeat's report on a foreign fabric (link_heartbeat.HeartbeatEvidence) -- and the clock
     #: reading of the last pass that had usable evidence, which is where a dead heartbeat freezes
@@ -700,6 +708,8 @@ class TopologyManager:
         #: that is a path half-installed. False (every host, as before) everywhere else.
         #: [Co-developed with claude code -- Adam]
         self.routes_to_attached_hosts_only = False
+        #: See the class attribute. [Co-developed with claude code -- Adam]
+        self.destination_paths_unknown = False
 
         #: TICKET-P4-roles 2.4 -- what `report_external_link_state` has been told, and what it
         #: did with it. Guarded by _liveness_lock. [Co-developed with claude code -- Adam]
@@ -2152,7 +2162,8 @@ class TopologyManager:
             # that runs LLDP has it False, so its pass is the pass it was.
             # [Co-developed with claude code -- Adam] Since 09-27 an external control plane takes
             # this branch too (the external judge's F5, 09-28: the reason named here used to be
-            # only the roles one).
+            # only the roles one) -- and since Adam's 09-28 ruling its paths are NOT re-pushed:
+            # `push_destination_paths` knows none there (`destination_paths_unknown`).
             if self.routes_to_attached_hosts_only:
                 print("[TopologyManager] link transition reported to the kernel and NOT rerouted: "
                       "this fabric skips install_initial_routes (a switch on it is unbound or "
@@ -2197,6 +2208,14 @@ class TopologyManager:
         report in the same breath.
         """
         if self._kernel is None:
+            return False
+        if self.destination_paths_unknown:
+            # [Co-developed with claude code -- Adam] (Adam, 09-28) An external control plane's
+            # forwarding is its own controller's: no path is known, so none is pushed (the
+            # kernel refuses an empty snapshot anyway), and a guess over the declared links is
+            # exactly what this flag withholds.
+            print("[TopologyManager] destination paths not pushed: this fabric's forwarding "
+                  "belongs to its external controller, so no path is known here")
             return False
         try:
             # Snapshot inside the lock, compute outside it. The search walks every host pair, and

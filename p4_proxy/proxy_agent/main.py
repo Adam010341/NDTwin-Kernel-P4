@@ -2272,6 +2272,11 @@ async def startup(clients_factory, sflow, kernel, topo,
         seeded, seed_error = _seed_declared_links(topo, package)
         _fabric.update(lldp=False, watchdog=False, declared_links=True,
                        declared_links_seed={"directions": seeded, "error": seed_error})
+        # [Co-developed with claude code -- Adam] (Adam, 09-28) The declared links seed the graph
+        # for the heartbeat, NOT for paths: the forwarding is the exercise's controller's and none
+        # of it is known here, so `/ryu_server/all_destination_paths` reports none (it rendered
+        # shortest paths over these links from 09-27 -- a guess served as the twin's answer).
+        topo.destination_paths_unknown = True
     elif read_only:
         # `external` on NDTwin's own pipeline: nothing discovers links and nothing seeds them. The
         # root helper refuses a heartbeat on NDTwin's pipeline and `ndt up` asks for none there.
