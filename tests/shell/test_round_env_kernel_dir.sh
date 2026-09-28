@@ -17,10 +17,16 @@
 # directory (CDPATH set or not), EVERY variable the file exports that holds an absolute path, and
 # EVERY write it asks for, is inside THAT checkout. An exported KERNEL_DIR is the one override
 # (tools/test_workflow/components.env's convention); it is honoured when it names a checkout and
-# refused when it does not. Sourced any other way -- by dash, or as text with no file behind it
-# (`bash -c "$(cat round.env)"`), or from a copy that sits in no checkout -- it refuses, says why,
-# and derives nothing: the old `${BASH_SOURCE[0]:?}` guard sat inside two command substitutions, so
-# it failed only its own subshell and the file went on to derive KERNEL_DIR=/.
+# refused when it does not (a relative one included: it would follow the caller's cwd). Sourced
+# any other way -- by dash, or as text with no file behind it (`bash -c "$(cat round.env)"`, or
+# `eval` in an INTERACTIVE bash, which must survive the refusal), or from a copy that sits in no
+# checkout -- it refuses, says why, and derives nothing: the old `${BASH_SOURCE[0]:?}` guard sat
+# inside two command substitutions, so it failed only its own subshell and the file went on to
+# derive KERNEL_DIR=/. The dash case runs only where dash is installed and says NOT RUN otherwise.
+#
+# What it does NOT promise, shown as today's behaviour ("inherited"): KERNEL_DIR, CPU_BASELINE_FILE
+# and PY_PROXY are overrides, so a shell that sourced another tree's round.env keeps that tree's
+# values -- all of them if nothing is unset, the last two even when KERNEL_DIR and ROUND are.
 #
 # How it is read without touching anything: a byte-identical copy of each round.env is planted at
 # its real relative path inside a temp tree that is NOT this checkout, and sourced by a child shell
@@ -56,7 +62,8 @@ T="$(mktemp -d "${TMPDIR:-/tmp}/round-env-kdir-XXXXXX")"
 trap 'rm -rf "$T"' EXIT
 T="$(cd "$T" && pwd)"
 
-PASS=0; FAIL=0
+PASS=0; FAIL=0; NOTRUN=0
+notrun() { NOTRUN=$((NOTRUN+1)); printf '  NOT RUN  %s\n' "$1"; }
 check() {   # <name> <expected> <actual>
     if [[ "$2" == "$3" ]]; then PASS=$((PASS+1)); printf '  ok       %s\n' "$1"
     else FAIL=$((FAIL+1)); printf '  FAILED   %s\n             expected: [%s]\n             actual:   [%s]\n' "$1" "$2" "$3"; fi
@@ -154,6 +161,11 @@ for round in E F5; do
     resolve "$round-nx" / "$A/$rel" KERNEL_DIR="$NX"
     has "🔴 $round: an exported KERNEL_DIR that is no checkout is refused" "is not a checkout" "$(cat "$T/$round-nx.err")"
     check "  $round: and nothing is written" "0" "$(nwrites "$round-nx")"
+    resolve "$round-rel" "$X" "$A/$rel" KERNEL_DIR=.        # cwd IS a checkout-shaped tree
+    has "🔴 $round: a relative exported KERNEL_DIR is refused, even from inside a checkout" \
+        "is not a checkout (an absolute path" "$(cat "$T/$round-rel.err")"
+    check "  $round: and derives nothing from it" "" "$(val "$round-rel" ROUND)"
+    check "  $round: and nothing is written" "0" "$(nwrites "$round-rel")"
 
     # 5. sourced any other way: refused, told why, nothing derived, nothing written
     cp "$src" "$T/$round.loose.env"          # directly in the temp dir: ../../.. of it is / here
@@ -167,14 +179,18 @@ for round in E F5; do
     resolve "$round-deep" / "$T/$round/deep/in/no/round.env"
     has "🔴 $round: a copy in a directory that is no checkout refuses" "is not a checkout" "$(cat "$T/$round-deep.err")"
 
-    : > "$T/$round-sh.writes"
-    ( cd / && env -i PATH="$SHIM:$PATH" SHIM_LOG="$T/$round-sh.writes" sh -c \
-        '. "$1"; echo "rc=$?"; echo "KERNEL_DIR=${KERNEL_DIR-UNSET}"' _ "$A/$rel" \
-        > "$T/$round-sh.out" 2> "$T/$round-sh.err" )
-    has "🔴 $round: sh (dash) is told to use bash" "round.env: source this file with bash" "$(cat "$T/$round-sh.err")"
-    has "  $round: and the source fails" "rc=1" "$(cat "$T/$round-sh.out")"
-    has "  $round: and derives nothing" "KERNEL_DIR=UNSET" "$(cat "$T/$round-sh.out")"
-    check "  $round: and writes nothing" "0" "$(nwrites "$round-sh")"
+    if DASH="$(command -v dash)"; then
+        : > "$T/$round-sh.writes"
+        ( cd / && env -i PATH="$SHIM:$PATH" SHIM_LOG="$T/$round-sh.writes" "$DASH" -c \
+            '. "$1"; echo "rc=$?"; echo "KERNEL_DIR=${KERNEL_DIR-UNSET}"' _ "$A/$rel" \
+            > "$T/$round-sh.out" 2> "$T/$round-sh.err" )
+        has "🔴 $round: dash is told to use bash" "round.env: source this file with bash" "$(cat "$T/$round-sh.err")"
+        has "  $round: and the source fails" "rc=1" "$(cat "$T/$round-sh.out")"
+        has "  $round: and derives nothing" "KERNEL_DIR=UNSET" "$(cat "$T/$round-sh.out")"
+        check "  $round: and writes nothing" "0" "$(nwrites "$round-sh")"
+    else
+        notrun "🔴 $round: dash is told to use bash (no dash on PATH; the bash guard is untested here)"
+    fi
 
     : > "$T/$round-text.writes"
     ( cd / && env -i PATH="$SHIM:$PATH" SHIM_LOG="$T/$round-text.writes" \
@@ -184,6 +200,34 @@ for round in E F5; do
     has "  $round: and exits 1" "exit=1" "$(cat "$T/$round-text.out")"
     has "  $round: and derives nothing (was / before)" "KERNEL_DIR=UNSET" "$(cat "$T/$round-text.out")"
     check "  $round: and writes nothing" "0" "$(nwrites "$round-text")"
+
+    # eval'd in an INTERACTIVE bash: the refusal must abort the eval, not exit the operator's shell.
+    # $((6*7)) is expanded only if the next command RUNS (an echoed input line shows it literally).
+    : > "$T/$round-int.writes"
+    printf 'eval "$(cat %q)"\necho "NEXT $((6*7)) KD=${KERNEL_DIR-UNSET}"\n' "$A/$rel" \
+        | ( cd / && env -i PATH="$SHIM:$PATH" HOME="$T" HISTFILE=/dev/null SHIM_LOG="$T/$round-int.writes" \
+            bash --norc --noprofile -i > "$T/$round-int.out" 2> "$T/$round-int.err" )
+    has "🔴 $round: eval'd in an interactive bash it refuses" "round.env: source this file by its path" "$(cat "$T/$round-int.err")"
+    has "🔴 $round: and the interactive shell survives (its next command runs)" "NEXT 42 KD=" "$(cat "$T/$round-int.out")"
+    has "  $round: and the rest of the file did not run" "NEXT 42 KD=UNSET" "$(cat "$T/$round-int.out")"
+    check "  $round: and writes nothing" "0" "$(nwrites "$round-int")"
+
+    # inherited (today's behaviour, documented in round.env): no env -i between two sourcings
+    : > "$T/$round-inh.writes"
+    ( cd / && env -i PATH="$SHIM:$PATH" SHIM_LOG="$T/$round-inh.writes" bash -c '
+        . "$1"; . "$2"
+        echo "both KERNEL_DIR=$KERNEL_DIR ROUND=$ROUND PY_PROXY=$PY_PROXY CPU_BASELINE_FILE=${CPU_BASELINE_FILE-UNSET}"
+        unset KERNEL_DIR ROUND; . "$2"
+        echo "reset KERNEL_DIR=$KERNEL_DIR ROUND=$ROUND PY_PROXY=$PY_PROXY CPU_BASELINE_FILE=${CPU_BASELINE_FILE-UNSET}"
+    ' _ "$A/$rel" "$B/$rel" > "$T/$round-inh.out" 2>&1 )
+    inh() { sed -n "s/^$1 .*$2=\([^ ]*\).*/\1/p" "$T/$round-inh.out"; }
+    check "  $round: (inherited) B sourced after A in one shell names A throughout" "$A $A/$slug $A/p4_proxy/venv/bin/python" \
+          "$(inh both KERNEL_DIR) $(inh both ROUND) $(inh both PY_PROXY)"
+    check "  $round: (inherited) with KERNEL_DIR and ROUND unset first, B is named but PY_PROXY stays A's" \
+          "$B $B/$slug $A/p4_proxy/venv/bin/python" "$(inh reset KERNEL_DIR) $(inh reset ROUND) $(inh reset PY_PROXY)"
+    if [[ "$round" == E ]]; then
+        check "  $round: (inherited) and so does CPU_BASELINE_FILE" "$A/$slug/raw/cpu_baseline.json" "$(inh reset CPU_BASELINE_FILE)"
+    fi
 done
 
 # --- consumers: the two suites that source the E round.env --------------------------------------
@@ -194,7 +238,7 @@ if [[ "${ROUND_ENV_CONSUMERS:-1}" != 0 ]]; then
     printf '#!/bin/sh\nprintf "%%s\\n" "$*" >> "$MKDIR_LOG"\nexec %s "$@"\n' "$(command -v mkdir)" > "$PT/mkdir"
     chmod +x "$PT/mkdir"
     for suite in "$GATE_EXIT_SUITE" "$CELL_WIRING_SUITE"; do
-        name="$(basename "$suite" .sh)"; name="${name#.mutant-*-}"
+        name="$(basename "$suite" .sh)"; name="${name##.mutant-*-}"
         : > "$T/$name.mkdir"
         out="$(KERNEL_DIR="$ELSE" MKDIR_LOG="$T/$name.mkdir" PATH="$PT:$PATH" timeout 600 bash "$suite" 2>&1)"
         has "🔴 $name: under an inherited KERNEL_DIR it still tests this checkout" \
@@ -203,11 +247,11 @@ if [[ "${ROUND_ENV_CONSUMERS:-1}" != 0 ]]; then
               "$(tr ' ' '\n' < "$T/$name.mkdir" | grep -F "$ELSE" || true)"
     done
     out="$(PY_PROXY="$T/no-such-venv/bin/python" timeout 600 bash "$CELL_WIRING_SUITE" 2>&1)"; rc=$?
-    name="$(basename "$CELL_WIRING_SUITE" .sh)"; name="${name#.mutant-*-}"
+    name="$(basename "$CELL_WIRING_SUITE" .sh)"; name="${name##.mutant-*-}"
     check "🔴 $name: a missing interpreter is a failure, not a green skip (rc)" "1" "$rc"
     has "  $name: and it says what is missing" "no interpreter at PY_PROXY=$T/no-such-venv/bin/python" "$out"
 fi
 
 echo
-echo "Ran $((PASS + FAIL)) checks, $FAIL failed"
+echo "Ran $((PASS + FAIL)) checks, $FAIL failed$( (( NOTRUN )) && echo ", $NOTRUN NOT RUN")"
 [[ "$FAIL" -eq 0 ]]

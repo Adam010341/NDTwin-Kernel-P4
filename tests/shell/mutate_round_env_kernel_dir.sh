@@ -11,13 +11,15 @@
 # caller's cwd or $0 instead of the file's own path, one directory short or long, an override that
 # is silently ignored, one exported path or one mkdir still pointing at a fixed tree, CDPATH left
 # in play, and each of the three guards removed (not bash; no file behind BASH_SOURCE; a
-# derivation that is no checkout, e.g. /). M19-M21 break the two consumer suites instead: an
+# derivation that is no checkout, e.g. /). M22 makes the no-file guard exit an interactive shell
+# again, M23 lets a relative KERNEL_DIR through. M19-M21 break the two consumer suites instead: an
 # inherited KERNEL_DIR no longer dropped, and a missing interpreter read as a green skip again.
 #
 # 🔴 Guards its own baseline: round.env mutations go into COPIES in a temp dir, pointed at through
 # E_ROUND_ENV_UNDER_TEST / F5_ROUND_ENV_UNDER_TEST. A consumer suite finds round.env relative to
-# its own location, so its mutated copy is written beside it as tests/shell/.mutant-<m>-<name>.sh
-# (removed on exit) and pointed at through GATE_EXIT_SUITE_UNDER_TEST / CELL_WIRING_SUITE_UNDER_TEST.
+# its own location, so its mutated copy is written beside it by mktemp as
+# tests/shell/.mutant-<m>-XXXXXX-<name>.sh (only the files this run created are removed on exit)
+# and pointed at through GATE_EXIT_SUITE_UNDER_TEST / CELL_WIRING_SUITE_UNDER_TEST.
 # No tracked file is written; the sha256 of every file under mutation is compared before and after.
 # Anchors are counted in the REAL files, so a reworded line reports a missing anchor here and in
 # tests/shell/check_gate_anchors.py.
@@ -38,7 +40,10 @@ WIRING=tests/shell/test_cell_gate_suspect_wiring.sh
 TEST=tests/shell/test_round_env_kernel_dir.sh
 
 BK="$(mktemp -d "${TMPDIR:-/tmp}/round-env-kdir-mutate-XXXXXX")"
-trap 'rm -rf "$BK"; rm -f "$HERE"/.mutant-*-test_gate_exit_code_not_tee.sh "$HERE"/.mutant-*-test_cell_gate_suspect_wiring.sh' EXIT
+CREATED=()
+trap 'rm -rf "$BK"; if (( ${#CREATED[@]} )); then rm -f -- "${CREATED[@]}"; fi' EXIT
+# mutant_copy <tag> <suite basename> -- MUT = a fresh, uniquely named file beside the real suite
+mutant_copy() { MUT="$(mktemp --suffix="-$2" "$HERE/.mutant-$1-XXXXXX")" || exit 2; CREATED+=("$MUT"); }
 BASE_SHA="$(sha256sum "$E_ENV" "$F_ENV" "$NOT_TEE" "$WIRING" | sha256sum | cut -d' ' -f1)"
 
 SURVIVORS=0
@@ -171,7 +176,7 @@ report "M6: E creates one directory in a fixed tree" "$d" "$RO" \
 d="$(fresh m13)"
 apply_exact "$E_ENV" '[ -n "${BASH_VERSION:-}" ] ||' 'true ||' "$d/e.env"
 report "M13: E drops the bash guard" "$d" "$RO" \
-       "🔴 E: sh (dash) is told to use bash"
+       "🔴 E: dash is told to use bash"
 
 d="$(fresh m14)"
 apply_exact "$E_ENV" '[[ -n "${BASH_SOURCE[0]:-}" && -f "${BASH_SOURCE[0]}" ]] ||' 'true ||' "$d/e.env"
@@ -179,7 +184,7 @@ report "M14: E drops the no-file-behind-BASH_SOURCE guard" "$d" "$RO" \
        "🔴 E: sourced as text (empty BASH_SOURCE) it refuses"
 
 d="$(fresh m15)"
-apply_exact "$E_ENV" '[[ "$_kd" != / && -d "$_kd/doc/audit" ]] ||' 'true ||' "$d/e.env"
+apply_exact "$E_ENV" '[[ "$_kd" == /?* && -d "$_kd/doc/audit" ]] ||' 'true ||' "$d/e.env"
 report "M15: E drops the is-it-a-checkout check" "$d" "$RO" \
        "🔴 E: a copy outside any checkout refuses" \
        "🔴 E: an exported KERNEL_DIR that is no checkout is refused"
@@ -195,6 +200,13 @@ d="$(fresh m18)"
 apply_exact "$E_ENV" 'CDPATH= cd -- "$(dirname' 'cd -- "$(dirname' "$d/e.env"
 report "M18: E lets CDPATH steer the relative form" "$d" "$RO" \
        "🔴 E: the documented relative form ignores CDPATH"
+
+d="$(fresh m22)"
+apply_exact "$E_ENV" \
+  'names no file)" >&2; return 1 2>/dev/null || { [[ $- == *i* ]] && kill -INT $$; exit 1; }; }' \
+  'names no file)" >&2; return 1 2>/dev/null || exit 1; }' "$d/e.env"
+report "M22: E's no-file guard exits an interactive shell again" "$d" "$RO" \
+       "🔴 E: and the interactive shell survives (its next command runs)"
 
 # --- the F-5 round -----------------------------------------------------------------------------
 d="$(fresh m7)"
@@ -243,48 +255,53 @@ report "M12: F5 creates its directory in a fixed tree" "$d" "$RO" \
 d="$(fresh m17)"
 apply_exact "$F_ENV" '[ -n "${BASH_VERSION:-}" ] ||' 'true ||' "$d/f.env"
 report "M17: F5 drops the bash guard" "$d" "$RO" \
-       "🔴 F5: sh (dash) is told to use bash"
+       "🔴 F5: dash is told to use bash"
+
+d="$(fresh m23)"
+apply_exact "$F_ENV" '[[ "$_kd" == /?* && -d "$_kd/doc/audit" ]] ||' '[[ "$_kd" != / && -d "$_kd/doc/audit" ]] ||' "$d/f.env"
+report "M23: F5 takes a relative KERNEL_DIR again" "$d" "$RO" \
+       "🔴 F5: a relative exported KERNEL_DIR is refused, even from inside a checkout"
 
 # --- the consumer suites -----------------------------------------------------------------------
-d="$(fresh m19)"
-apply_exact "$NOT_TEE" $'unset KERNEL_DIR\n' $'\n' "$HERE/.mutant-m19-test_gate_exit_code_not_tee.sh"
+d="$(fresh m19)"; mutant_copy m19 test_gate_exit_code_not_tee.sh
+apply_exact "$NOT_TEE" $'unset KERNEL_DIR\n' $'\n' "$MUT"
 report "M19: test_gate_exit_code_not_tee keeps an inherited KERNEL_DIR" "$d" \
-       "GATE_EXIT_SUITE_UNDER_TEST=$HERE/.mutant-m19-test_gate_exit_code_not_tee.sh" \
+       "GATE_EXIT_SUITE_UNDER_TEST=$MUT" \
        "🔴 test_gate_exit_code_not_tee: under an inherited KERNEL_DIR it still tests this checkout"
 
-d="$(fresh m20)"
-apply_exact "$WIRING" $'unset KERNEL_DIR\n' $'\n' "$HERE/.mutant-m20-test_cell_gate_suspect_wiring.sh"
+d="$(fresh m20)"; mutant_copy m20 test_cell_gate_suspect_wiring.sh
+apply_exact "$WIRING" $'unset KERNEL_DIR\n' $'\n' "$MUT"
 report "M20: test_cell_gate_suspect_wiring keeps an inherited KERNEL_DIR" "$d" \
-       "CELL_WIRING_SUITE_UNDER_TEST=$HERE/.mutant-m20-test_cell_gate_suspect_wiring.sh" \
+       "CELL_WIRING_SUITE_UNDER_TEST=$MUT" \
        "🔴 test_cell_gate_suspect_wiring: under an inherited KERNEL_DIR it still tests this checkout"
 
-d="$(fresh m21)"
+d="$(fresh m21)"; mutant_copy m21 test_cell_gate_suspect_wiring.sh
 apply_exact "$WIRING" \
   '    echo "  $PASS passed, $((FAIL + 1)) failed"
     exit 1' \
   '    echo "  $PASS passed, $((FAIL + 1)) failed"
-    exit 0' "$HERE/.mutant-m21-test_cell_gate_suspect_wiring.sh"
+    exit 0' "$MUT"
 report "M21: test_cell_gate_suspect_wiring skips green without an interpreter" "$d" \
-       "CELL_WIRING_SUITE_UNDER_TEST=$HERE/.mutant-m21-test_cell_gate_suspect_wiring.sh" \
+       "CELL_WIRING_SUITE_UNDER_TEST=$MUT" \
        "🔴 test_cell_gate_suspect_wiring: a missing interpreter is a failure, not a green skip (rc)"
 
 # --- controls: behaviour-preserving rewrites -----------------------------------------------------
 d="$(fresh c1)"
 apply_exact "$E_ENV" \
-  'An exported KERNEL_DIR overrides the derivation.' \
-  'An exported KERNEL_DIR overrides it.' "$d/e.env"
+  'so source it by its real path.' \
+  'so source it through its real path.' "$d/e.env"
 control "C1 (control): a comment in E's header is reworded" "$d" "$RO"
 
 d="$(fresh c2)"
 apply_exact "$E_ENV" 'CDPATH= cd -- "$(dirname' 'CDPATH= cd -P -- "$(dirname' "$d/e.env"
 control "C2 (control): E resolves with cd -P (no symlinks in the temp trees)" "$d" "$RO"
 
-d="$(fresh c3)"
+d="$(fresh c3)"; mutant_copy c3 test_gate_exit_code_not_tee.sh
 apply_exact "$NOT_TEE" \
   'a KERNEL_DIR inherited from a shell that once sourced' \
-  'a KERNEL_DIR inherited from a shell that had sourced' "$HERE/.mutant-c3-test_gate_exit_code_not_tee.sh"
+  'a KERNEL_DIR inherited from a shell that had sourced' "$MUT"
 control "C3 (control): a comment in the not_tee consumer is reworded" "$d" \
-        "GATE_EXIT_SUITE_UNDER_TEST=$HERE/.mutant-c3-test_gate_exit_code_not_tee.sh"
+        "GATE_EXIT_SUITE_UNDER_TEST=$MUT"
 
 echo
 if [[ "$(sha256sum "$E_ENV" "$F_ENV" "$NOT_TEE" "$WIRING" | sha256sum | cut -d' ' -f1)" != "$BASE_SHA" ]]; then
