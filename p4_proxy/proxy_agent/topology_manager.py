@@ -2151,9 +2151,13 @@ class TopologyManager:
             # that fabric's one flag (startup sets it from `control_plane.skipped`); every fabric
             # that runs LLDP has it False, so its pass is the pass it was.
             if self.routes_to_attached_hosts_only:
+                # [Co-developed with claude code -- Adam] Since 09-27 an external control plane
+                # takes this branch too (the external judge's F5, 09-28: the reason named here
+                # used to be only the roles one).
                 print("[TopologyManager] link transition reported to the kernel and NOT rerouted: "
                       "this fabric skips install_initial_routes (a switch on it is unbound or "
-                      "keeps its own route table)")
+                      "keeps its own route table, or the package's own controller owns every "
+                      "table -- an external control plane)")
             else:
                 try:
                     self.install_initial_routes()

@@ -1085,7 +1085,7 @@ _pre_entries.update({str(dpid): _blank_pre_counts() for dpid in DEFAULT_SWITCH_D
 #   capabilities  {"ipv4_route": "ndtwin" | "package" | "unbound",
 #                  "five_tuple": bool,       true only for NDTwin's own pipeline
 #                  "reroute": bool,          true only where LLDP AND the watchdog run
-#                  "link_discovery": "lldp" | "declared" | "none",
+#                  "link_discovery": "lldp" | "declared" | "heartbeat" | "none",
 #                  "binding_source": "baseline" | "package" | null}
 #
 # 🔴 `reroute` IS A FABRIC FACT REPORTED PER SWITCH. The watchdog is skipped for the whole fabric
@@ -1095,14 +1095,18 @@ _pre_entries.update({str(dpid): _blank_pre_counts() for dpid in DEFAULT_SWITCH_D
 # DECLARED links, not from failure detection (section 2.3-4), which is what "declared" says.
 #
 # 🔴 "none" is not in the ticket's two-word list, on purpose and disclosed (P4-R-SUMMARY,
-# Dissent): under `control_plane.mode: external` nothing discovers links and nothing seeds them
-# (this cut leaves external exactly as it was, 2.2-4), and "lldp" or "declared" would each be a
-# claim about a mechanism that is not running. Appendix A carries it since section 7 ruling 5.
+# Dissent): under `control_plane.mode: external` on NDTwin's own pipeline nothing discovers links
+# and nothing seeds them, and "lldp" or "declared" would each be a claim about a mechanism that is
+# not running. Appendix A carries it since section 7 ruling 5. [Co-developed with claude code --
+# Adam] Since 09-27 an external control plane on its OWN pipeline declares its links (and the
+# heartbeat judges them, detect only), so it says "declared" / "heartbeat" like any foreign
+# fabric; "none" is left for external on NDTwin's pipeline.
 #
 # 🔴 THE WORD IS THE FABRIC'S MODE, NOT WHAT HAPPENED TO IT (section 7 ruling 5, item 8). Round 1
 # said "none" when the seed entered nothing or raised, so a foreign fabric with a broken model
-# read exactly like an external one. Now: external -> "none", any other fabric with a foreign
-# switch -> "declared", every other fabric -> "lldp" -- whether LLDP started (`reroute` says
+# read exactly like an external one. Now: a fabric with a foreign switch -> "declared" (an
+# external one included, since 09-27), external on NDTwin's pipeline -> "none", every other
+# fabric -> "lldp" -- whether LLDP started (`reroute` says
 # that) and whether the declaration reached the graph (the fabric-level `declared_links` on
 # switch_state says that) are separate facts, reported separately.
 
@@ -1341,13 +1345,20 @@ HEARTBEAT_CENSUS = {
                "host-facing port and none forwarded to another switch. calc and multicast are "
                "one switch (no inter-switch link, nothing sent); basic_tunnel and flowcache "
                "skeletons do not build. Segment S's census started the heartbeat by hand (the "
-               "helper, not ndt) on all 20; `ndt up p4 --app` starts it on all 20 too since "
-               "2026-09-27 -- on the 3 external control planes among them (p4runtime skeleton and "
-               "solution, flowcache solution) detect only: a cut is told to the twin and no route "
-               "is rewritten.",
-    # [Co-developed with claude code -- Adam] The last sentence: the fable judge's 2.1 on 1a3ebd7f
+               "helper, not ndt) on all 20. Since 2026-09-27 `ndt up p4 --app` is EXPECTED to "
+               "start it on all 20 too -- on the 3 external control planes among them (p4runtime "
+               "skeleton and solution, flowcache solution) detect only -- which is inferred from "
+               "ndt's rule and not yet measured under ndt (live-p1/08 PART=h5 checks it per arm). "
+               "On an external control plane a frame the program punts to ITS OWN controller is "
+               "seen neither by this proxy (it has no stream there) nor by the daemon (it counts "
+               "frames leaving switch ports): these 3 programs drop it (flowcache drops every "
+               "non-IPv4 frame at ingress; advanced_tunnel applies no table to it and its egress "
+               "port 0 does not exist), and no other external program has been looked at.",
+    # [Co-developed with claude code -- Adam] The last sentences: the fable judge's 2.1 on 1a3ebd7f
     # -- the 20 is segment S's, not ndt's. It said 17 until 09-27, when `ndt up` started the
-    # heartbeat on the external arms as well.
+    # heartbeat on the external arms as well; the external judge's F6 (09-28) made "all 20 under
+    # ndt" an EXPECTATION until H5 measures it (this constant is otherwise measured numbers), and
+    # its F3 made the punt blind spot on external control planes part of what is served.
 }
 
 

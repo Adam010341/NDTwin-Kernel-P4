@@ -904,13 +904,23 @@ report "A07: delete_strict is not the delete handler" "$m" "test_both_delete_rou
 echo "round 2: the census, and the helper's report as the proxy reads it"
 m=$(mutant m28 "$MAIN" \
     '               "skeletons do not build. Segment S'"'"'s census started the heartbeat by hand (the "
-               "helper, not ndt) on all 20; `ndt up p4 --app` starts it on all 20 too since "
-               "2026-09-27 -- on the 3 external control planes among them (p4runtime skeleton and "
-               "solution, flowcache solution) detect only: a cut is told to the twin and no route "
-               "is rewritten.",' \
+               "helper, not ndt) on all 20. Since 2026-09-27 `ndt up p4 --app` is EXPECTED to "
+               "start it on all 20 too -- on the 3 external control planes among them (p4runtime "
+               "skeleton and solution, flowcache solution) detect only -- which is inferred from "
+               "ndt'"'"'s rule and not yet measured under ndt (live-p1/08 PART=h5 checks it per arm). "
+               "On an external control plane a frame the program punts to ITS OWN controller is "
+               "seen neither by this proxy (it has no stream there) nor by the daemon (it counts "
+               "frames leaving switch ports): these 3 programs drop it (flowcache drops every "
+               "non-IPv4 frame at ingress; advanced_tunnel applies no table to it and its egress "
+               "port 0 does not exist), and no other external program has been looked at.",' \
     '               "skeletons do not build.",')
 report "M28: the census does not say which arms ndt up starts it on" "$m" \
        "test_the_census_says_which_of_its_arms_ndt_up_starts_the_heartbeat_on"
+m=$(mutant m28b "$MAIN" \
+    '               "port 0 does not exist), and no other external program has been looked at.",' \
+    '               "port 0 does not exist).",')
+report "M28b: the census stops saying no other external program was looked at" "$m" \
+       "test_the_census_names_the_punt_blind_spot_on_external_control_planes"
 m=$(mutant k01 "$HELPER" \
     '        end = lambda port: {"dpid": port.dpid, "port": port.port, "ifname": port.ifname}' \
     '        end = lambda port: {"switch_dpid": port.dpid, "port": port.port, "ifname": port.ifname}')
@@ -1528,7 +1538,7 @@ lreport "L63: an early exit drops the over-cycles measured before it" "$m" \
 # arm list. L64 reads only the source, L65 only one direction, L66 accepts any cable, L67 is the
 # 17-arm list as it was.
 m=$(lmutant l64 "$LIVE08" \
-    '           if not isinstance(v, dict) or v.get("down") is not (want == "down") or v.get("source") != "heartbeat"]' \
+    '           if not isinstance(v, dict) or v.get("down") is not (word == "down") or v.get("source") != "heartbeat"]' \
     '           if not isinstance(v, dict) or v.get("source") != "heartbeat"]')
 lreport "L64: the proxy's cut is read without its down flag" "$m" "H4 one direction still up"
 m=$(lmutant l65 "$LIVE08" \
@@ -1577,6 +1587,18 @@ m=$(lmutant l72 "$LIVE08" \
         disclose')
 lreport "L72: a tally with every cycle within 20 s is disclosed anyway" "$m" \
         "  an early exit with every cycle within 20 s ended"
+# [Co-developed with claude code -- Adam] The external judge's F4 (09-28): L73 never asks whether the
+# kernel accepted the report; L74 does not look at pipeline_commits.
+m=$(lmutant l73 "$LIVE08" \
+    '    if told == "told" and untold:' \
+    '    if False:')
+lreport "L73: H4 does not ask whether the kernel accepted the cut" "$m" \
+        "H4 down at the proxy, not accepted by the kernel"
+m=$(lmutant l74 "$LIVE08" \
+    '    keys = ("pipeline_commits", "rules_timed", "table_generation")' \
+    '    keys = ("rules_timed",)')
+lreport "L74: H4 does not look at pipeline commits across the cut" "$m" \
+        "H4 a pipeline commit across the cut"
 m=$(lmutant l47 "$LIVE08" \
     '    if d <= b:
         return f"OK detection {d:.3f} s, within the strict {b:g} s"' \

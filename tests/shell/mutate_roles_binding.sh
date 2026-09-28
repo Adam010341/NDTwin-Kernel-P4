@@ -742,7 +742,7 @@ m=$(mutant mn_seedall "$MAIN" \
         _seed_declared_links(topo, package)
         # `external` on NDTwin'"'"'s own pipeline: nothing discovers links and nothing seeds them. The')
 report "MN15: an external fabric on NDTwin's pipeline seeds declared links too" "$m" \
-       "test_an_external_fabric_seeds_nothing_this_cut_leaves_it_as_it_was"
+       "test_an_external_fabric_on_ndtwins_own_pipeline_seeds_nothing"
 
 m=$(mutant mn_seedndtwin "$MAIN" \
     '    if routes_owned:

@@ -2980,7 +2980,13 @@ heartbeat_up_step() {
            fi ;;
         3) info "heartbeat: nothing to watch -- this fabric has no inter-switch link (rc 3)" ;;
         *) warn "heartbeat did NOT start (rc $rc): a cut link on this fabric will not be detected."
-           warn "  the fabric itself is up; the proxy reports reroute.reason heartbeat_not_running." ;;
+           # [Co-developed with claude code -- Adam] The reason the proxy serves depends on the
+           # fabric (the external judge's F5, 09-28): an external control plane never reroutes.
+           if [[ "$2" == external ]]; then
+               warn "  the fabric itself is up; the proxy reports reroute.reason external_control_plane, and heartbeat.state heartbeat_not_running."
+           else
+               warn "  the fabric itself is up; the proxy reports reroute.reason heartbeat_not_running."
+           fi ;;
     esac
     return 0
 }
@@ -4012,8 +4018,12 @@ verify_p4() {
     fi
     # 🔴 UNDER AN EXTERNAL CONTROL PLANE THIS CHECK HAS NO SUBJECT, and saying so is not the
     # same as passing it. `mode: external` means the proxy opens no arbitration stream, sends
-    # no LLDP, starts no watchdog and installs no route (P1-A §2.3) -- so all_destination_paths
-    # is 0 BY DESIGN, and so is forwarding until the exercise's own controller runs. A bring-up
+    # no LLDP and installs no route (P1-A §2.3) -- so forwarding is nothing until the exercise's
+    # own controller runs. [Co-developed with claude code -- Adam] Since 09-27 an external
+    # control plane on its own pipeline has declared links and a heartbeat watchdog (detect
+    # only), so all_destination_paths is no longer 0 there: it is a shortest-path search over the
+    # DECLARED links, not the exercise's forwarding (nothing installed, so nothing to read back)
+    # -- a guess the twin makes, which is exactly why it is not counted as a reading. A bring-up
     # that reported `0/6 destination paths, never settled` would be reporting the mode as a
     # fault; one that quietly counted it as ok would be the "report zero, not an error" shape
     # this project keeps finding. Both unrunnable checks are therefore NAMED, individually,
@@ -4027,8 +4037,9 @@ verify_p4() {
     # shipped two copies of one paragraph with one of them wrong for a day.
     if [[ "$mode" == external ]]; then
         warn "proxy: destination paths NOT CHECKED -- this package declares an external control"
-        warn "  plane, so the proxy installs no routes and 0 is the designed answer, not a"
-        warn "  reading. The exercise's own controller is what puts rules on these switches:"
+        warn "  plane, so the proxy installs no routes: its count is 0, or on the package's own"
+        warn "  pipeline a shortest-path guess over the declared links -- not a reading either"
+        warn "  way. The exercise's own controller is what puts rules on these switches:"
         warn "  tools/p4_exercise/run_external_controller.py <pkg> <controller.py>"
         # 🔴 AND THE CHECK THAT REPLACES "N UP" ON THIS PLANE (TICKET-P2-F §4.2-2). The bring-up
         # is not left with nothing assertable about the switches just because the liveness

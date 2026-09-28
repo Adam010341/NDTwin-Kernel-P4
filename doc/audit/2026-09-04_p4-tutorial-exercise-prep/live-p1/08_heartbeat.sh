@@ -39,7 +39,11 @@
 #       out-of-band cut of s1-s2 is held down BY THE PROXY (switch_state `links`, both
 #       directions, source heartbeat) within about 20 s while reroute stays false for the
 #       external reason; restored, both directions up again, no netem left, no heartbeat frame
-#       counted leaving a host port. 🔴 THE KERNEL'S GRAPH IS NOT THE READING HERE: no exercise
+#       counted leaving a host port. [Co-developed with claude code -- Adam] Since the external
+#       judge's F4/F9 (09-28): the kernel must have ACCEPTED both transitions on both directions
+#       (`reported_to_kernel: true`), every switch's pipeline_commits / rules_timed /
+#       table_generation is unchanged across the cut and the restore, and the restore is judged
+#       at the strict 20 s (the poll waits 35 s so a late one is still measured). 🔴 THE KERNEL'S GRAPH IS NOT THE READING HERE: no exercise
 #       controller runs in H4, so no pipeline is loaded and the twin holds these switches down
 #       (03's 2026-09-18 reading). What the exercise's own evidence does with the heartbeat
 #       running is live 06 against 2026-09-27T074635Z_06_thirteen, by external_evidence.py.
@@ -265,16 +269,46 @@ def v_hb_state(state, want):
 
 def v_links(state, want, *cut):
     """[Co-developed with claude code -- Adam] H4: both directions of the cut as the PROXY holds them
-    (switch_state `links`) -- down or up, and from the heartbeat, not merely declared."""
+    (switch_state `links`) -- down or up, and from the heartbeat, not merely declared. `down-told` /
+    `up-told` also require the kernel to have ACCEPTED the report on both directions
+    (`reported_to_kernel: true`) -- the external judge's F4 (09-28): "a cut is told to the twin" is
+    otherwise asserted nowhere live."""
     a, ap, b, bp = cut_args(cut)
+    word, _, told = want.partition("-")
     links = load(state).get("links") or {}
     got = {k: links.get(k) for k in (f"{a}:{ap}->{b}:{bp}", f"{b}:{bp}->{a}:{ap}")}
     bad = [f"{k}={(v.get('down'), v.get('source')) if isinstance(v, dict) else None}" for k, v in got.items()
-           if not isinstance(v, dict) or v.get("down") is not (want == "down") or v.get("source") != "heartbeat"]
+           if not isinstance(v, dict) or v.get("down") is not (word == "down") or v.get("source") != "heartbeat"]
     if bad:
-        return f"BAD the proxy does not hold s{a}:{ap}<->s{b}:{bp} {want} by the heartbeat: " + "; ".join(bad)
-    told = ", ".join(f"{k} reported_to_kernel {v.get('reported_to_kernel')}" for k, v in got.items())
-    return f"OK both directions of s{a}:{ap}<->s{b}:{bp} {want} at the proxy, source heartbeat ({told})"
+        return f"BAD the proxy does not hold s{a}:{ap}<->s{b}:{bp} {word} by the heartbeat: " + "; ".join(bad)
+    untold = [k for k, v in got.items() if v.get("reported_to_kernel") is not True]
+    if told == "told" and untold:
+        return (f"BAD s{a}:{ap}<->s{b}:{bp} is {word} at the proxy, but the kernel has not accepted it: "
+                f"reported_to_kernel is not true on {untold}")
+    said = ", ".join(f"{k} reported_to_kernel {v.get('reported_to_kernel')}" for k, v in got.items())
+    return f"OK both directions of s{a}:{ap}<->s{b}:{bp} {word} at the proxy, source heartbeat ({said})"
+
+def v_no_writes(before, after):
+    """[Co-developed with claude code -- Adam] H4, the external judge's F4 (09-28): nothing this proxy
+    could write moved across the cut -- every switch's pipeline_commits, rules_timed and
+    table_generation (switch_state) are what they were before it."""
+    keys = ("pipeline_commits", "rules_timed", "table_generation")
+    b, a = load(before).get("switches") or {}, load(after).get("switches") or {}
+    if not b:
+        return "BAD the capture before the cut names no switch"
+    bad = []
+    for d, s in sorted(b.items()):
+        t = a.get(d)
+        if not isinstance(t, dict):
+            bad.append(f"s{d} is missing after")
+            continue
+        moved = [f"{k} {s.get(k)!r}->{t.get(k)!r}" for k in keys if s.get(k) != t.get(k)]
+        if moved:
+            bad.append(f"s{d}: " + ", ".join(moved))
+    if bad:
+        return "BAD a switch's write record moved across the cut: " + "; ".join(bad)
+    seen = sorted({str(tuple(s.get(k) for k in keys)) for s in b.values()})
+    return f"OK {len(b)} switch(es): {', '.join(keys)} unchanged ({'; '.join(seen)})"
 
 def v_model_has(model, *cut):
     """[Co-developed with claude code -- Adam] H4: the cable to cut is one the package declares."""
@@ -1337,11 +1371,13 @@ dump("report_leak.json", {"side_effects": {"forwarded_to_hosts": 2}})
 leak = copy.deepcopy(s); leak["heartbeat"]["side_effects"]["forwarded_to_hosts"] = 1
 dump("state_leak.json", leak)
 # [Co-developed with claude code -- Adam] H4 (09-27): an external control plane, detect only.
-def ext_links(down, source="heartbeat"):
-    return {"1:2->2:2": {"down": down, "source": source, "reported_to_kernel": False},
-            "2:2->1:2": {"down": down, "source": source, "reported_to_kernel": False},
+def ext_links(down, source="heartbeat", told=False):
+    return {"1:2->2:2": {"down": down, "source": source, "reported_to_kernel": told},
+            "2:2->1:2": {"down": down, "source": source, "reported_to_kernel": told},
             "1:3->3:2": {"down": False, "source": source, "reported_to_kernel": False}}
 x = caps(False, "heartbeat", 3)
+for _d, _sw in x["switches"].items():
+    _sw.update(pipeline_commits=0, rules_timed=0, table_generation=None)
 x["reroute"] = {"available": False, "reason": "external_control_plane", "detail": "x"}
 x["heartbeat"] = {"state": "usable", "watchdog": "running", "side_effects": {"forwarded_to_hosts": 0}}
 x["links"] = ext_links(False)
@@ -1352,6 +1388,17 @@ xh = copy.deepcopy(xc); xh["links"]["2:2->1:2"]["down"] = False
 dump("state_ext_half.json", xh)
 xd = copy.deepcopy(x); xd["links"] = ext_links(None, "declared")
 dump("state_ext_declared.json", xd)
+# [Co-developed with claude code -- Adam] F4 (09-28): told to the kernel, and the write record.
+xt = copy.deepcopy(x); xt["links"] = ext_links(True, told=True)
+dump("state_ext_cut_told.json", xt)
+xu = copy.deepcopy(x); xu["links"] = ext_links(False, told=True)
+dump("state_ext_told.json", xu)
+xh2 = copy.deepcopy(xt); xh2["links"]["2:2->1:2"]["reported_to_kernel"] = False
+dump("state_ext_cut_half_told.json", xh2)
+xw = copy.deepcopy(xt); xw["switches"]["2"]["pipeline_commits"] = 1; xw["switches"]["2"]["table_generation"] = "g1"
+dump("state_ext_wrote.json", xw)
+xr = copy.deepcopy(xt); xr["switches"]["1"]["rules_timed"] = 3
+dump("state_ext_rules.json", xr)
 p4rt = [(1, 2, 2, 2), (1, 3, 3, 2), (3, 3, 2, 3)]
 dump("model_p4rt.json", {"nodes": [{"dpid": d, "vertex_type": 0} for d in (1, 2, 3)],
                          "edges": [{"src_dpid": s, "src_interface": sp, "dst_dpid": d, "dst_interface": dp}
@@ -1494,6 +1541,14 @@ PY
     expect BAD  "H4 a cable the proxy does not name"                 "$(verdict links "$t/state_ext_cut.json" down 3 3 2 3)"
     expect OK   "H4 restored: both up again"                         "$(verdict links "$t/state_ext.json" up 1 2 2 2)"
     expect BAD  "H4 a cut that did not come back"                    "$(verdict links "$t/state_ext_cut.json" up 1 2 2 2)"
+    # [Co-developed with claude code -- Adam] F4 (09-28): told to the kernel, and nothing written.
+    expect OK   "H4 the cut is down and the kernel accepted it"      "$(verdict links "$t/state_ext_cut_told.json" down-told 1 2 2 2)"
+    expect BAD  "H4 down at the proxy, not accepted by the kernel"   "$(verdict links "$t/state_ext_cut.json" down-told 1 2 2 2)"
+    expect BAD  "H4 one direction not accepted"                      "$(verdict links "$t/state_ext_cut_half_told.json" down-told 1 2 2 2)"
+    expect OK   "H4 restored and the kernel accepted it"             "$(verdict links "$t/state_ext_told.json" up-told 1 2 2 2)"
+    expect OK   "H4 nothing written across the cut"                  "$(verdict no_writes "$t/state_ext.json" "$t/state_ext_cut_told.json")"
+    expect BAD  "H4 a pipeline commit across the cut"                "$(verdict no_writes "$t/state_ext.json" "$t/state_ext_wrote.json")"
+    expect BAD  "H4 a timed rule across the cut"                     "$(verdict no_writes "$t/state_ext.json" "$t/state_ext_rules.json")"
     expect OK   "H4 the cut is a cable the package declares"         "$(verdict model_has "$t/model_p4rt.json" 1 2 2 2)"
     expect BAD  "H4 a cable the package does not declare"            "$(verdict model_has "$t/model_p4rt.json" 1 3 3 1)"
     expect OK   "H5 26 arms identical"                               "$(verdict same_06 "$t/table_same.tsv" "$t/table_old.tsv")"
@@ -2435,7 +2490,9 @@ V="$(verdict model_has "$PKG_EXT/ndtwin/topology.json" "$CA" "$CAP" "$CB" "$CBP"
 say "H4 -- cut s$CA-eth$CAP <-> s$CB-eth$CBP out of band: the proxy holds it down by the heartbeat, and reroutes nothing"
 tc_ends "$RUN/84_tc_before" "$CA" "$CAP" "$CB" "$CBP"
 cut_link "$CA" "$CAP" "$CB" "$CBP" || exit 1
-judge "$(state_until $(( DETECT_BOUND_S + 15 )) "$RUN/85_switch_state_cut.json" links down "$CA" "$CAP" "$CB" "$CBP")" "H4 detection at the proxy"
+# [Co-developed with claude code -- Adam] The external judge's F4 (09-28): down at the proxy AND
+# accepted by the kernel (reported_to_kernel on both directions), and no write record moved.
+judge "$(state_until $(( DETECT_BOUND_S + 15 )) "$RUN/85_switch_state_cut.json" links down-told "$CA" "$CAP" "$CB" "$CBP")" "H4 detection at the proxy, told to the kernel"
 H4_DET="$(awk -v a="$EPOCHREALTIME" -v b="$T_CUT" 'BEGIN { printf "%.1f", a - b }')"
 if awk -v d="$H4_DET" -v b="$DETECT_BOUND_S" 'BEGIN { exit !(d <= b) }'; then
     note "H4 detection at the proxy within ${H4_DET} s of the cut (switch_state polled every 2 s)"
@@ -2444,8 +2501,19 @@ else
 fi
 judge "$(verdict reroute "$RUN/85_switch_state_cut.json" false external_control_plane)" "H4 reroute after the cut"
 judge "$(verdict caps "$RUN/85_switch_state_cut.json" false heartbeat)" "H4 capabilities after the cut"
+judge "$(verdict no_writes "$RUN/83_switch_state.json" "$RUN/85_switch_state_cut.json")" "H4 nothing written across the cut"
 restore_link || { fail "H4: could not remove the netem"; exit 1; }
-judge "$(state_until $(( RESTORE_BOUND_S + 15 )) "$RUN/86_switch_state_restored.json" links up "$CA" "$CAP" "$CB" "$CBP")" "H4 recovery at the proxy"
+# [Co-developed with claude code -- Adam] The external judge's F9 (09-28): RESTORE_BOUND_S + 15 is how
+# long the poll WAITS (so a late restore is measured); the restore is JUDGED at the strict
+# RESTORE_BOUND_S, like every restore in this file (Adam has not extended "about 20 s" to restores).
+judge "$(state_until $(( RESTORE_BOUND_S + 15 )) "$RUN/86_switch_state_restored.json" links up-told "$CA" "$CAP" "$CB" "$CBP")" "H4 recovery at the proxy, told to the kernel"
+H4_REST="$(awk -v a="$EPOCHREALTIME" -v b="$T_CUT" 'BEGIN { printf "%.1f", a - b }')"
+if awk -v d="$H4_REST" -v b="$RESTORE_BOUND_S" 'BEGIN { exit !(d <= b) }'; then
+    note "H4 recovery at the proxy within ${H4_REST} s of the restore (switch_state polled every 2 s)"
+else
+    fail "H4: recovery at the proxy read ${H4_REST} s after the restore, over the strict ${RESTORE_BOUND_S} s"
+fi
+judge "$(verdict no_writes "$RUN/83_switch_state.json" "$RUN/86_switch_state_restored.json")" "H4 nothing written across the restore"
 tc_ends "$RUN/87_tc_after" "$CA" "$CAP" "$CB" "$CBP"
 judge "$(no_netem "$RUN/87_tc_after_s$CA-eth$CAP.txt" "$RUN/87_tc_after_s$CB-eth$CBP.txt")" "H4 netem"
 cp "$HB_REPORT_FILE" "$RUN/88_report.json" 2>/dev/null || true

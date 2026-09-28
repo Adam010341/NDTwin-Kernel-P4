@@ -316,7 +316,10 @@ class WhichFabricsSeedAndWhenRoutesComeBackTest(unittest.TestCase):
         self.assertIn(main.SKIP_LLDP, summary["control_plane"]["skipped"])
         self.assertIn(main.SKIP_WATCHDOG, summary["control_plane"]["skipped"])
 
-    def test_an_external_fabric_seeds_nothing_this_cut_leaves_it_as_it_was(self):
+    def test_an_external_fabric_on_ndtwins_own_pipeline_seeds_nothing(self):
+        # [Co-developed with claude code -- Adam] Renamed 09-28 (was ..._seeds_nothing_this_cut_
+        # leaves_it_as_it_was): an external control plane on its OWN pipeline seeds since 09-27
+        # (test_heartbeat_fabric.py); this package names no pipeline, so it is NDTwin's.
         package = app_package.Package(dir="/packages/p4runtime", name="p4runtime",
                                       mode="external", election_id=(0, 65535))
         _summary, topo = self.start({1: FakeClient(1)}, package)
