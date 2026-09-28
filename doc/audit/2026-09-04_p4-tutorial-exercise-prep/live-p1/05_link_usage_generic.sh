@@ -33,7 +33,7 @@
 # 🔴 NOTHING HERE USES pkill/pgrep. The iperf server each round starts is stopped by the pid
 # link_usage_round holds; the fabric is torn down by `ndt down`.
 #
-# Run:  bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/05_link_usage_generic.sh
+# Run:  NDT_OWNER=<you> bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/05_link_usage_generic.sh
 # Exit: 0 PASS, 1 FAIL (the last line says which), 2 refused before anything was started.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

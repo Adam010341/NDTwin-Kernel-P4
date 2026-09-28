@@ -20,11 +20,14 @@
 #     basic.p4 that is the exercise's own program doing it: `install_initial_routes` is one of
 #     the things the proxy SKIPS on a foreign pipeline, so nothing NDTwin wrote is carrying
 #     these packets -- the sX-runtime.json entries are.
-#   * `control_plane.skipped` naming exactly lldp_discovery, link_watchdog and
-#     install_initial_routes is the disclosure that goes with that: those three ride on
-#     packet-in/packet-out, and a tutorials p4info declares no controller_packet_metadata at
-#     all (ndtwin_switch declares two, basic declares zero). A short list here would be a proxy
-#     that did half the work of a control plane while reporting that it did none.
+#   * `control_plane.skipped` naming exactly lldp_discovery and install_initial_routes is the
+#     disclosure that goes with that: LLDP rides on packet-in/packet-out, and a tutorials p4info
+#     declares no controller_packet_metadata at all (ndtwin_switch declares two, basic declares
+#     zero). [Co-developed with claude code -- Adam] `link_watchdog` is NOT in it: `ndt up p4
+#     --app` starts the heartbeat on this fabric and the watchdog runs, fed by it (Adam's ruling
+#     E, 09-27) -- so `heartbeat.watchdog` must be `running`, asserted outright (the opus judge's
+#     N1: the expectation is not picked from the proxy's own report). A short list here would be
+#     a proxy that did half the work of a control plane while reporting that it did none.
 #   * The per-switch skips (clone_session, sflow_telemetry) are on each switch's own row and
 #     NOT in the fabric-wide list -- TICKET-P2 §7-7: in a mixed fabric a neighbouring NDTwin
 #     switch still has its clone session, and a fabric-wide `clone_session` would be saying
@@ -38,7 +41,7 @@
 # whatever was left in that directory by an earlier round would be a pipeline nobody can name.
 # The two sha256s are printed for that reason.
 #
-# Run:  bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/02_app_basic.sh
+# Run:  NDT_OWNER=<you> bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/02_app_basic.sh
 # Exit: 0 PASS, 1 FAIL (the last line says which), 2 refused before anything was started.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -57,7 +60,12 @@ P4C="${P4C:-/usr/local/bin/p4c-bm2-ss}"
 #                                 = clone_session, sflow_telemetry   (per switch, not here)
 # Written out rather than read from that file: a check that derives its expectation from the
 # code under test agrees with it by construction.
-FABRIC_SKIPS="['install_initial_routes', 'link_watchdog', 'lldp_discovery']"   # sorted
+# [Co-developed with claude code -- Adam] Adam's ruling E (09-27): the heartbeat drives the watchdog
+# here (`ndt up p4 --app` starts it on a foreign, non-external fabric -- this one), so the proxy runs
+# the watchdog and does NOT name `link_watchdog` skipped. The opus judge's N1 (09-27): that the
+# heartbeat watchdog runs is ASSERTED (heartbeat_skips_verdict in _common.sh), not read off the
+# proxy to choose between this list and the three-name one it had before the ruling.
+FABRIC_SKIPS_HB="['install_initial_routes', 'lldp_discovery']"                # sorted
 SWITCH_SKIPS="[\"('clone_session', 'sflow_telemetry')\"]"                      # per switch
 
 start_step 02_app_basic
@@ -152,6 +160,7 @@ if [[ -s "$SS" ]]; then
     MODE="$(jqp "$SS" "(d.get('control_plane') or {}).get('mode')")"
     PKG_SAID="$(jqp "$SS" "(d.get('control_plane') or {}).get('package')")"
     SKIPPED="$(jqp "$SS" "sorted((d.get('control_plane') or {}).get('skipped') or [])")"
+    HB_WD="$(jqp "$SS" "(d.get('heartbeat') or {}).get('watchdog')")"
     ENTRIES="$(jqp "$SS" "sorted({s.get('entries_recorded') for s in ((d.get('switches') or {}).values() if isinstance(d.get('switches'), dict) else (d.get('switches') or []))})")"
     NDTWIN="$(sw_set "$SS" "(s.get('pipeline') or {}).get('ndtwin')")"
     SHAS="$(sw_set "$SS" "(s.get('pipeline') or {}).get('p4info_sha256')")"
@@ -163,6 +172,7 @@ if [[ -s "$SS" ]]; then
     note "control_plane.mode  $MODE"
     note "control_plane.package $PKG_SAID"
     note "control_plane.skipped $SKIPPED"
+    note "heartbeat.watchdog  $HB_WD"
     note "entries_recorded    $ENTRIES   (distinct values across the switches)"
     note "pipeline.ndtwin     $NDTWIN"
     note "pipeline.p4info_sha256 $SHAS"
@@ -173,8 +183,8 @@ if [[ -s "$SS" ]]; then
     [[ "$N_SW" == 4 ]]        || fail "switch_state names $N_SW switches, pod-topo declares 4"
     # 🔴 THE FABRIC-WIDE LIST IS THE THREE THAT RIDE ON THE CPU PORT, and nothing else
     # (TICKET-P2 §2.2, §7-7). Sorted on both sides so the assertion is about the SET.
-    [[ "$SKIPPED" == "$FABRIC_SKIPS" ]] \
-        || fail "control_plane.skipped is $SKIPPED, want $FABRIC_SKIPS -- a foreign pipeline has no controller header, so LLDP, the watchdog and the initial routes are what cannot run"
+    V="$(heartbeat_skips_verdict "$SS" "$FABRIC_SKIPS_HB")"
+    [[ "$V" == OK* ]] || fail "${V#BAD }"
     # Every switch is on the exercise's program, and says so with a stable identifier.
     [[ "$NDTWIN" == "['False']" ]] \
         || fail "pipeline.ndtwin is $NDTWIN, want ['False'] on every switch -- the package named build/basic.* for all four"

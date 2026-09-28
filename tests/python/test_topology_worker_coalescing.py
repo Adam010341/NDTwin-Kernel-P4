@@ -25,6 +25,10 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
+# [Co-developed with claude code -- Adam] The skip below is excused on a machine with no Ryu
+# env (a hosted runner), and only there: l1_unit_tests.sh probes its own interpreter for
+# networkx+ryu, and where that probe succeeds a skip here is still a failure.
+# NDTWIN_L1_NEEDS: ryu
 try:
     from ryu.lib import hub                                      # noqa: E402
     import intelligent_router as ir                              # noqa: E402

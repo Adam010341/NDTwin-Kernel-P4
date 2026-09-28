@@ -5309,6 +5309,62 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   - 🔴 **修第 3 種的人要把 mutation gate 的 S14 反過來。** S14 目前是 control：它斷言「前綴不是 `sudo:` ⇒ 0」。修好之後這條預期要改成 2，S14 也要改成殺在新行為上。
 - **待辦（tracked）**：在容器或 VM 裡裝真的 sudo-rs，錄下它對 `sudo -n ovs-vsctl list-br` 的拒絕字句（有 NOPASSWD 規則與沒有兩種情況）。錄到之後再決定：要把它的前綴加進規則，還是繼續當已知限制。
 
+### G-60 🏁 `test_ovs4_sflow.py` 拿 NTG 那份 `testbed_topo.py` 對參數的那一格，前提在 `87612059` 之後就不成立 —— **已退役（2026-09-28）**
+
+> **編號**：G-59 已由分支 `fix/sudo-probe-unknown-0927` 佔用（本條寫入時未併，後來併入，就是上一條），所以從 G-60 開。
+
+- **狀態**：🏁 已退役（分支 `fix/ci-l1-0927`）。
+- **它原本測什麼**：`ParametersComeFromTheReferenceTopology.test_the_reference_copy_ndt_actually_runs_agrees_too`
+  比對本 repo 的 `testbed_topo.py` 與 `/home/adam/Network-Traffic-Generator/testbed_topo.py` 的 sFlow
+  header／sampling／polling；理由寫在它的 docstring：「`ndt up ovs` 執行的是 NTG 那份」。
+  寫於 `e707cab6`（2026-09-03 16:49）。
+- **為什麼退役**（讀於 `fed37cff`）：同一天 23:21 的 `87612059`（FIX-NDT-OVS-TOPO）讓 `ndt up ovs` 改跑本 repo 的那份。
+  - `tools/test_workflow/ndt:4303-4304` 選 verb（128 → `ovs-topo-start`，4 → `ovs-topo-4host`），
+    `:4454` 呼叫 `sudo -n "$LAB" "$ovs_verb"`，`LAB=/usr/local/sbin/ndtwin-lab`（`:55`）。
+  - `tools/test_workflow/ndtwin-lab` 的 `ovs-topo-start)`（`:1725-1736`）→ `ovs_topo_start`（`:571-577`）
+    → tmux 裡跑 `"$NTG_PY" "$(ovs_topo_script)"`，而 `ovs_topo_script` 是 `$KERNEL_DIR/testbed_topo.py`（`:552`）。
+    `ovs-topo-4host`（`:1737-`）跑 `$KERNEL_DIR/tools/test_workflow/ovs_4host_topo.py`。
+  - `KERNEL_DIR` 是內建預設（`:98`）或 `/etc/ndtwin-lab.conf`；設定檔給的樹必須有
+    `p4_proxy/mininet/ntg_bmv2_topo.py`（`:244-246`），NTG 的樹過不了。
+  - ndtwin-lab 裡剩下唯一提到 NTG `testbed_topo.py` 的是 `cleanup` 的孤兒清掃（`:1711`）：只殺、不啟動。
+  - 這台安裝的 `/usr/local/sbin/ndtwin-lab` 在 `:552` 有同一個 `ovs_topo_script`（2026-09-28 讀）。
+  - ⇒ 那一格比對的是一份 `ndt up ovs` 不會再執行的檔案；它綠或紅都不說明 `ndt up ovs` 的參數。
+- **它在 CI 上的樣子**：runner 沒有 NTG ⇒ 那一格 skip ⇒ L1 lane 判 FAIL（CI run 36319541715 的 12 組之一）。
+- **留下來的那一格**：`test_header_sampling_polling_match_the_reference` 比對的正是 `ndt up ovs` 執行的本 repo 那份，不動。
+- **殘留（沒改）**：還有四處文字說 `ndt up ovs` 跑 NTG 那份：`tools/test_workflow/ndt:4308` 的註解、
+  `:4331` 的錯誤訊息（「128 comes from NTG's testbed_topo.py」，操作者看得到）、`:10521` 的註解，
+  以及 `doc/2026-08-17_testing-manual.md:349`（「NTG 自帶的 testbed_topo.py」）。
+
+### G-61 🔴 lab 的 L1 lane 用 Python 3.8 跑 `tests/python`，而 `test_ovs4_sflow.py` 用了 3.9 才有的 `ast.unparse` ⇒ lab 上 ERROR、CI 上看不到
+
+- **狀態**：🔴 OPEN（登記，未修；2026-09-28）。
+- **事實**：`tools/test_workflow/l1_unit_tests.sh:508` 替 `tests/python` 挑第一個能 `import networkx, ryu`
+  的直譯器，這台是 ryu-env（**3.8.20**）。`FailuresAreNotSwallowed.test_the_default_runner_checks_the_exit_status`
+  （`tests/python/test_ovs4_sflow.py:325`，`ast.unparse(ast.parse(...))`）因此
+  `AttributeError: module 'ast' has no attribute 'unparse'`，整個檔 rc 1。
+  觀測：`scratch/overnight-2026-09-05/logs/ci-l1-0927/lab.test_ovs4_sflow.diag-4ff4eee8.log`（2026-09-27）。
+- **為什麼 CI 看不到**：CI 沒有 ryu，挑到的是 setup-python 的 3.12，那裡 `ast.unparse` 存在。
+  ⇒ 同一個檔案，兩條 lane 給相反的答案；**只有 lab 那條是紅的**。
+- **同形狀的另一處**：`tests/python/test_chaos_invariants_method.py:404`／`:413`／`:499` 也用 `ast.unparse`。
+  CI（3.12）上它是 PASS；在 3.8 下有沒有走到那幾行**沒有跑過、沒查**。
+- 🆕 **2026-09-28 補（整條 lab lane 跑過一次）**：同一個根因不只這一個檔。trunk `fed37cff` 在 lab 形狀下跑整條 L1
+  lane（編譯產物、ryu-env、PY_PLOT 都在），`tests/python` 裡有 **8 個檔紅**，全都是「用 3.8 跑了寫給較新 Python
+  或別的 venv 的檔」：
+  - `test_ovs4_sflow.py`：`ast.unparse`（上面那格）；
+  - `test_chaos_c07_control`、`test_chaos_invariants_method`、`test_chaos_link_blackhole_attach`、
+    `test_chaos_opt_in_all_actions`、`test_chaos_runner_wiring`：五個都在 import chaos harness 的 `actions.py`
+    時 `SyntaxError: EOL while scanning string literal`（f-string 裡的寫法 3.8 不收），ran=0；
+  - `test_l3_dispatch_drift.py`：`str.removeprefix`（3.9 起）→ 10 個 ERROR；
+  - `test_sflow_stats_endpoint.py`：ryu-env 沒有 `fastapi`，ran=0。
+  CI（3.12、pb5 套件）上這 8 個都是 PASS。觀測：`scratch/overnight-2026-09-05/logs/ci-l1-0928/`
+  `fulllab-trunk-fed37cff-CONTROL.log` 與 `lane-logs/fulllab-trunk-fed37cff-CONTROL/`；分支 `fix/ci-l1-0927` 上同 8 個一樣紅
+  （`fulllab.log`）。
+- **失效方向**：悲觀（多一個紅），不是樂觀；但它讓 lab 的 L1 在乾淨的樹上也紅——現在是 8 組。
+- **修法方向（未做，要裁）**：根因是 lane 的直譯器選擇（`tools/test_workflow/l1_unit_tests.sh` 裡替
+  kernel-side 挑 PY_KERNEL 的那段）：只要 ryu-env 在，**整個** `tests/python` 都交給 3.8 跑。改成只把宣告
+  `NDTWIN_L1_NEEDS: ryu` 的檔交給 ryu-env、其餘用與 CI 同版的 python3，就同時解掉這 8 個；
+  逐檔改寫成 3.8 相容是另一條路，但每加一個新測試就要再守一次。
+
 ## 證據索引
 
 | 輪次 | 位置 | 內容 |

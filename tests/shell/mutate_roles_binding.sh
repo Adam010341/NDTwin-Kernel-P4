@@ -1600,6 +1600,15 @@ m=$(l7_mutant l7_roleslong '        "$CAPS_OWNED" "$SKIPPED_OWNED" "" "L6: no sw
     '        "$CAPS_OWNED" "$SKIPPED_OWNED" "" "L6: no switch_state" "${1:-40}"')
 l7_report "L7-32: the live path's own poll is 40 s, not 30" "$m" \
           "  the live call's own poll is 30 s (roles)"
+# [Co-developed with claude code -- Adam] Adam's ruling E (09-27): with the heartbeat driving the
+# watchdog, `link_watchdog` is not in control_plane.skipped -- each list as it was before the ruling
+# must be red on its own fabric's check. (Numbered L7-33/34: L7-30..32 are fix/followup-notes-0927's.)
+m=$(l7_mutant l7_skipowned "SKIPPED_OWNED=\"['lldp_discovery']\"" \
+    "SKIPPED_OWNED=\"['link_watchdog', 'lldp_discovery']\"")
+l7_report "L7-33: the owned fabric's list still names link_watchdog" "$m" "L6 skipped with every table owned"
+m=$(l7_mutant l7_skipunbound "SKIPPED_UNBOUND=\"['install_initial_routes', 'lldp_discovery']\"" \
+    "SKIPPED_UNBOUND=\"['install_initial_routes', 'link_watchdog', 'lldp_discovery']\"")
+l7_report "L7-34: the unbound fabric's list still names link_watchdog" "$m" "L6/L1 on switch_state (unbound)"
 
 # --- negative controls: edits no suite specifies, which must stay GREEN -------------------------
 
