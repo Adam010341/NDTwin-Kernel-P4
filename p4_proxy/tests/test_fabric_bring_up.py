@@ -361,7 +361,8 @@ BASELINE_JSON = os.path.join(MININET_DIR, "..", "p4_src", "build", "ndtwin_switc
 # program is not on disk -- correctly. A fresh checkout (a CI runner) has none, so every case below
 # that plans or brings up a switch running NDTwin's own pipeline skips there: the ones marked
 # @needs_compiled_baseline, which are exactly the cases that fail without the file (82 of 112,
-# measured 2026-09-27). l1_unit_tests.sh reports those skips as PROVED LESS only when it sees for
+# measured 2026-09-27; 86 of 116 once the manifest-identity and manifest-write cases joined,
+# measured 2026-09-28). l1_unit_tests.sh reports those skips as PROVED LESS only when it sees for
 # itself that the compiled artefacts are missing (its HAVE_P4INFO); where they exist, a skip here
 # is a failure, so the lab still runs every case.
 needs_compiled_baseline = unittest.skipUnless(
@@ -430,10 +431,29 @@ class FakeProcess:
 
     def __init__(self, pid=4242, exits=None):
         self.pid = pid
+        #: What `Popen.args` is: the argv it was started with. Set by FakeSubprocess.Popen,
+        #: because `link_telemetry.emitter_identity` records it in the manifest.
+        self.args = None
         #: None means "still running". A list is consumed one poll at a time, which is how the
         #: "it died during the grace period" case is written without a real process.
         self._exits = list(exits) if isinstance(exits, list) else exits
         self.polls = 0
+        #: What was asked of it through its own Popen: "terminate", "kill", "wait". A bring-up
+        #: that fails after the launch stops the emitter this way. [Co-developed with claude code -- Adam]
+        self.stopped = []
+
+    def terminate(self):
+        self.stopped.append("terminate")
+        if self._exits is None or isinstance(self._exits, list):
+            self._exits = -15
+
+    def kill(self):
+        self.stopped.append("kill")
+        self._exits = -9
+
+    def wait(self, timeout=None):
+        self.stopped.append("wait")
+        return self.poll()
 
     def poll(self):
         """None until the scripted status is reached, and that status for ever after.
@@ -494,6 +514,7 @@ class FakeSubprocess:
     def Popen(self, argv, **kwargs):          # noqa: N802 -- subprocess spells it this way
         self.events.append(("popen", list(argv)))
         self.process = self.process or FakeProcess()
+        self.process.args = list(argv)
         return self.process
 
     # --- what the assertions read ------------------------------------------------------
@@ -524,6 +545,12 @@ class FakeSubprocess:
             else:
                 out.append(" ".join(argv))
         return out
+
+
+#: The start time the fake emitter (pid 4242) is recorded with -- see FabricFixture, which is
+#: what keeps the bring-up from reading the host's /proc/4242/stat.
+#: [Co-developed with claude code -- Adam]
+FAKE_EMITTER_START_TIME = 31415926
 
 
 #: ifindexes for the offline suites: `sN-ethM` -> a number nothing on this machine owns.
@@ -590,6 +617,22 @@ class FabricFixture(unittest.TestCase):
         self.patch(link_telemetry, "read_ifindex", fake_ifindex)
         self.sub = FakeSubprocess()
         self.patch(link_telemetry, "subprocess", self.sub)
+        # 🔴 AND NOT /proc/<pid>/stat EITHER. The bring-up records the emitter's start time
+        # (`link_telemetry.emitter_identity`, Adam 2026-09-27 ruling K) by reading its pid's
+        # stat -- and the fake emitter's pid, 4242, is whatever process holds that number on
+        # the machine running this suite. [Co-developed with claude code -- Adam]
+        self.patch(link_telemetry, "process_start_time",
+                   lambda pid, proc_root="/proc": FAKE_EMITTER_START_TIME if pid == 4242 else None)
+        # 🔴 AND NO REAL SIGNAL, EVER (judge K-N4). `tear_down` -> `shut_down` -> `stop_emitter`
+        # defaults to `os.kill`, and three cells here patch the predicate to False without
+        # passing a kill: a mutant that skips the predicate (M-B13) would then SIGTERM pid 4242,
+        # whatever holds it on the machine running the gate. `link_telemetry.os` is replaced for
+        # every case, as `subprocess` is above, so "this suite signals nothing" is a property of
+        # the fixture; a case that wants the signals reads `self.signals`, or installs its own.
+        # [Co-developed with claude code -- Adam]
+        self.signals = []
+        self.patch(link_telemetry, "os",
+                   _OsWithKill(lambda pid, sig: self.signals.append((pid, sig))))
         # The three-second liveness grace is real time in production and dead time here. The
         # loop that spends it has its own case (StartingTheEmitterTest), which is where it is
         # allowed to cost something.
@@ -1670,9 +1713,9 @@ class LinkTelemetryUnderTheKnobTest(FabricFixture):
         order = []
         real = link_telemetry.write_manifest
 
-        def write_manifest(plan, emitter_pid, path=None, log_path=None):
+        def write_manifest(plan, emitter_pid, path=None, log_path=None, identity=None):
             order.append(("write_manifest", emitter_pid))
-            return real(plan, emitter_pid, path=path, log_path=log_path)
+            return real(plan, emitter_pid, path=path, log_path=log_path, identity=identity)
         self.patch(link_telemetry, "write_manifest", write_manifest)
         original_popen = self.sub.Popen
 
@@ -1685,6 +1728,20 @@ class LinkTelemetryUnderTheKnobTest(FabricFixture):
         self.assertEqual([step for step, _pid in order], ["popen", "write_manifest"])
         self.assertEqual(order[0][1], order[1][1])
         self.assertEqual(self.link_manifest_contents()["pid"], order[0][1])
+
+    @needs_compiled_baseline
+    def test_the_manifest_records_the_emitters_argv_and_its_start_time(self):
+        # 🔴 Adam 2026-09-27, ruling K. The pid alone names whichever process holds that number
+        # when it is read; the root teardown SIGTERMs and SIGKILLs what it names. What the
+        # bring-up launched (the argv, exactly) and when (/proc/<pid>/stat field 22, read while
+        # the emitter is still this process's unreaped child) are what make it ONE process.
+        # [Co-developed with claude code -- Adam]
+        self.bring_up()
+        document = self.link_manifest_contents()
+        self.assertEqual(len(self.sub.started), 1)
+        self.assertEqual(document["argv"], self.sub.started[0])
+        self.assertEqual(document["argv"], link_telemetry.emitter_argv(self.link_manifest))
+        self.assertEqual(document["start_time"], FAKE_EMITTER_START_TIME)
 
     @needs_compiled_baseline
     def test_the_manifest_names_the_pid_the_rate_and_every_port(self):
@@ -1865,6 +1922,55 @@ class AnEmitterThatDiedIsFatalTest(FabricFixture):
         self.assertTrue(fatal)
         self.assertIn("0/10", verdict)
         self.assertIn("link-telemetry emitter", verdict)
+
+
+@needs_compiled_baseline
+class AManifestThatCannotBeWrittenIsFatalTest(FabricFixture):
+    """A link bring-up whose manifest never reached the disk is refused, like a dead emitter.
+
+    [Co-developed with claude code -- Adam]
+    Without the manifest the emitter (which waits for it) has no port map, the teardown has no
+    pid to stop, and whatever occupies the name is what every reader finds. It used to be one
+    WARNING line and a bring-up that carried on.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.set_telemetry_knob("link")
+        # A DIRECTORY at the manifest's name makes the rename fail (EISDIR), as a full /tmp
+        # would.
+        os.makedirs(self.link_manifest)
+
+    def test_the_bring_up_is_fatal_and_says_why(self):
+        _plan, _net, (_n, _s, fatal, verdict, _u) = self.bring_up()
+        self.assertTrue(fatal, "a link fabric with no manifest on disk was called healthy")
+        self.assertIn("could not write the link telemetry manifest", verdict or "")
+
+    def test_the_emitter_it_launched_is_stopped_and_the_filters_come_off(self):
+        self.bring_up()
+        self.assertEqual(len(self.sub.started), 1, "the emitter was not launched at all")
+        self.assertIn("terminate", self.sub.process.stopped,
+                      "the emitter no manifest names was left running")
+        self.assertTrue(any(argv[1:3] == ["qdisc", "del"] for argv in self.sub.ran),
+                        "the filters attached for it were left on")
+
+
+@needs_compiled_baseline
+class ASwitchManifestThatCannotBeWrittenIsFatalTest(FabricFixture):
+    """The switch manifest, like the link-telemetry one: not written is not healthy.
+
+    [Co-developed with claude code -- Adam]
+    ndtwin-p4-power and the teardown's reap address switches only through this file, so a
+    fabric without it cannot power a switch off or on, and cannot stop a switch the helper
+    restarted. It used to be one WARNING line.
+    """
+
+    def test_a_switch_manifest_that_cannot_be_written_is_fatal(self):
+        # A DIRECTORY at the name: the rename over it fails, as it would for a full /tmp.
+        os.makedirs(self.manifest)
+        _plan, _net, (_n, _s, fatal, verdict, _u) = self.bring_up()
+        self.assertTrue(fatal, "a fabric with no switch manifest on disk was called healthy")
+        self.assertIn("could not write the switch manifest", verdict or "")
 
 
 @needs_compiled_baseline
