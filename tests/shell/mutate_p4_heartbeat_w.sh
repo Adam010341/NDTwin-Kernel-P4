@@ -1029,6 +1029,14 @@ m=$(nmutant n03c "$NDT" \
     '        0) if [[ "$2" == external ]]; then' \
     '        0) if true; then')
 nreport "N03c: every foreign fabric is called detect-only" "$m" "🔴 a non-external foreign fabric is not called detect-only"
+# [Co-developed with claude code -- Adam] F5 (09-28): the failure branch names the external reason.
+m=$(nmutant n03d "$NDT" \
+    '           if [[ "$2" == external ]]; then
+               warn "  the fabric itself is up; the proxy reports reroute.reason external_control_plane' \
+    '           if false; then
+               warn "  the fabric itself is up; the proxy reports reroute.reason external_control_plane')
+nreport "N03d: a failed start on an external plane names the foreign reason" "$m" \
+        "🔴 a failed start on an external plane names external_control_plane"
 m=$(nmutant n04 "$NDT" \
     '    heartbeat_up_step "$app_pipe" "$app_mode"' \
     '    heartbeat_up_step "$app_pipe" "$app_mode"; [[ -e "$HB_PIDFILE" ]] || { rollback_up "the heartbeat did not start"; return 1; }')

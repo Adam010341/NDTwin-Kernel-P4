@@ -282,6 +282,13 @@ reset_fix
 OUT="$(drive "NDT_APP_DIR=$(q "$PKG_FOREIGN"); up_p4")"
 hasnt "🔴 a non-external foreign fabric is not called detect-only" "detect only" "$OUT"
 
+# [Co-developed with claude code -- Adam] The external judge's F5 (09-28): when the heartbeat does not
+# start on an external plane, the reason ndt names is the one the proxy serves there.
+reset_fix
+OUT="$(drive "export HB_START_RC=1; NDT_APP_DIR=$(q "$PKG_EXTERNAL"); up_p4")"
+has   "🔴 a failed start on an external plane names external_control_plane" "the proxy reports reroute.reason external_control_plane" "$OUT"
+hasnt "  and not the reason a foreign fabric serves"        "reroute.reason heartbeat_not_running." "$OUT"
+
 # =============================================================================================
 section "3. 🔴 a heartbeat that does not start does not fail the bring-up"
 # =============================================================================================
