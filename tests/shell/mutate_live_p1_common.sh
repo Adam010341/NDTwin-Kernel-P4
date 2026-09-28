@@ -1068,6 +1068,26 @@ EOF
 check_fires "M55: a fingerprint that could not be taken is not disclosed" m55 \
             "🔴 and disclosed above the last line"
 
+# --- M57-M58 (the external judge's M3, 09-28): INT/TERM fail the step, with the signal's code ---------
+# [Co-developed with claude code -- Adam] M57 puts finish back as the INT/TERM trap (the PASS on a
+# TERM); M58 exits the verdict's rc instead of the signal's.
+cat > "$A/m57.old" <<'EOF'
+arm_step_traps() { trap finish EXIT; trap 'interrupted SIGINT 130' INT; trap 'interrupted SIGTERM 143' TERM; }
+EOF
+cat > "$A/m57.new" <<'EOF'
+arm_step_traps() { trap finish EXIT INT TERM; }
+EOF
+check_fires "M57: INT and TERM run finish with the interrupted command's rc" m57 \
+            "🔴 TERM mid-step: the last verdict line is a FAIL" "🔴 INT mid-step: FAIL"
+cat > "$A/m58.old" <<'EOF'
+    exit "${SIGNAL_RC:-$VERDICT_RC}"
+EOF
+cat > "$A/m58.new" <<'EOF'
+    exit "$VERDICT_RC"
+EOF
+check_fires "M58: a signalled step exits 1, not the signal's code" m58 \
+            "🔴 and the step exits 143" "🔴 and the step exits 130"
+
 # --- T1 (the judge, 09-27): the suite's 5e back on $PKG3 -- a TEST-side mutant --------------------
 # [Co-developed with claude code -- Adam] The cells as they were before b2e656e5: h1..h3, the names
 # a live fabric has. Under the suite's fake fabric host_pid finds h1/h2/h3, link_usage_round goes on

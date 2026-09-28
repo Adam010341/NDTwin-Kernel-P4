@@ -790,22 +790,11 @@ w_finish() {
 }
 
 # [Co-developed with claude code -- Adam] The AEG judge's N-1 (09-28): INT and TERM get traps of
-# their own. With w_finish as their trap, bash ran it with the INTERRUPTED command's $? -- a `sleep`
-# or a poll that returned 0 -- so a run stopped by pid (this project's way) with nothing failed
-# before it ended `PASS 08_heartbeat`. Now a signal is recorded as the run's failure and the exit
-# code is the signal's (130 / 143); the EXIT trap then tears down as always.
-w_interrupted() {   # w_interrupted <signal name> <rc>
-    trap - INT TERM
-    VERDICT_RC=1
-    if [[ "$VERDICT_WHY" == STOP* ]]; then
-        VERDICT_WHY="$VERDICT_WHY (then interrupted by $1)"
-    else
-        VERDICT_WHY="interrupted by $1 before the run finished${VERDICT_WHY:+ (first failure before it: $VERDICT_WHY)}"
-    fi
-    bad "interrupted by $1 -- the run stops here and tears down"
-    exit "$2"
-}
-arm_traps() { trap w_finish EXIT; trap 'w_interrupted SIGINT 130' INT; trap 'w_interrupted SIGTERM 143' TERM; }
+# their own -- _common.sh's `interrupted`, the same one start_step arms before this line runs (the
+# external judge's M3: the window between start_step and here used to print PASS on a TERM). A
+# signal is recorded as the run's failure and the exit code is the signal's -- 130 / 143, carried
+# through finish (SIGNAL_RC); the EXIT trap then tears down as always.
+arm_traps() { trap w_finish EXIT; trap 'interrupted SIGINT 130' INT; trap 'interrupted SIGTERM 143' TERM; }
 
 # nd_up <pkg> <out> / nd_down <out> -- the run's own bring-ups and teardowns, never under measuring=.
 nd_up() {
@@ -2091,14 +2080,16 @@ open(p + ".t", "w").write(json.dumps(doc)); os.replace(p + ".t", p)' "$HB_REPORT
     else
         red "  a clean run's output said 'cut short' or did not PASS: '$(tail -1 <<<"$out")'"
     fi
-    st_term() {   # st_term <send TERM: 1|0> -> output. The H1 loop's own wait (a foreground sleep).
+    st_term() {   # st_term <send TERM: 1|0> [<arming: arm_traps|arm_step_traps>] -> output
+        # (the H1 loop's own wait, a foreground sleep; arm_step_traps is what start_step arms, i.e.
+        # a TERM between start_step and arm_traps -- the external judge's M3)
         local d
         d="$(mktemp -d "$t/term-XXXXXX")"
         printf '#!/usr/bin/env bash\nexit 0\n' > "$d/ndt"; chmod +x "$d/ndt"
         ( STEP=08_heartbeat; RUN="$d/run"; mkdir -p "$RUN"; CLAIMED=1; VERDICT_RC=0; VERDICT_WHY=""; FABRIC_UP=1
-          INJECTED_IFACES=(); NDT="$d/ndt"; REAL_NDT="$d/ndt"; APP_KNOB="$d/none"
+          INJECTED_IFACES=(); NDT="$d/ndt"; REAL_NDT="$d/ndt"; APP_KNOB="$d/none"; SIGNAL_RC=""
           KNOB_ENTRY_COPY=""; TEL_ENTRY_COPY=""; CTRL_PID=""; TEARDOWN_DOWN_RC=""; SAMPLER_PID=""
-          arm_traps
+          "${2:-arm_traps}"
           me=$BASHPID
           (( $1 )) && ( command sleep 0.4; kill -TERM "$me" ) &
           command sleep 2
@@ -2106,10 +2097,21 @@ open(p + ".t", "w").write(json.dumps(doc)); os.replace(p + ".t", p)' "$HB_REPORT
     }
     out="$(st_term 1)" && rc_t=0 || rc_t=$?
     if [[ "$(tail -1 <<<"$out")" == "FAIL 08_heartbeat -- interrupted by SIGTERM before the run finished" \
-          && "$rc_t" == 1 && "$out" != *"the loop went on"* ]]; then
+          && "$out" != *"the loop went on"* ]]; then
         ok "🔴 TERM to the run's own shell mid-H1, nothing failed before: FAIL (interrupted by SIGTERM), never PASS"
     else
         red "TERM mid-H1 with nothing failed before it ended: '$(tail -1 <<<"$out")' (rc $rc_t)"
+    fi
+    # [Co-developed with claude code -- Adam] The external judge's M3 (09-28): the rc IS 143, carried
+    # through finish -- and a TERM between start_step and arm_traps (start_step's own traps) is the
+    # same FAIL with the same rc.
+    [[ "$rc_t" == 143 ]] && ok "🔴 and the run exits 143, the signal's code" \
+        || red "a TERM'd run exited $rc_t, not 143"
+    out="$(st_term 1 arm_step_traps)" && rc_t=0 || rc_t=$?
+    if [[ "$(tail -1 <<<"$out")" == "FAIL 08_heartbeat -- interrupted by SIGTERM before the run finished" && "$rc_t" == 143 ]]; then
+        ok "🔴 TERM before arm_traps (start_step's traps): FAIL, rc 143"
+    else
+        red "TERM before arm_traps ended: '$(tail -1 <<<"$out")' (rc $rc_t)"
     fi
     out="$(st_term 0)" || true
     [[ "$(tail -1 <<<"$out")" == "PASS 08_heartbeat" && "$out" == *"the loop went on"* ]] \

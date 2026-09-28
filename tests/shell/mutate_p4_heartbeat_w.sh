@@ -1567,7 +1567,7 @@ lreport "L67: HB_ARMS without the external arms (17, as before)" "$m" \
 # concludes even with nothing pending. L71: no hard ceiling (N-4). L72: an all-within tally is
 # disclosed anyway.
 m=$(lmutant l68 "$LIVE08" \
-    "arm_traps() { trap w_finish EXIT; trap 'w_interrupted SIGINT 130' INT; trap 'w_interrupted SIGTERM 143' TERM; }" \
+    "arm_traps() { trap w_finish EXIT; trap 'interrupted SIGINT 130' INT; trap 'interrupted SIGTERM 143' TERM; }" \
     'arm_traps() { trap w_finish EXIT INT TERM; }')
 lreport "L68: INT and TERM run w_finish with the interrupted command's rc" "$m" \
         "TERM mid-H1 with nothing failed before it ended"

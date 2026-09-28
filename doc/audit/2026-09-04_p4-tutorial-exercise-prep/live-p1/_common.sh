@@ -52,6 +52,9 @@ VERDICT_WHY=""
 #: of 09-27 on 08's H1: a cycle over the strict 20 s is a NOTE, not a FAIL). finish() prints each
 #: entry as `NOTE <step> -- <text>` right above the last line, so a PASS still carries it.
 DISCLOSED=()
+#: [Co-developed with claude code -- Adam] The signal that stopped the run, carried to finish's exit
+#: code: 130 for INT, 143 for TERM (the external judge's M3, 09-28). Empty on every other path.
+SIGNAL_RC=""
 KNOB_ENTRY_COPY=""
 CLAIMED=0
 #: 🔴 NOT RESET WHEN THE CALLER ALREADY SET ONE (§9 ruling 28①). `link_usage_cell` sources this
@@ -306,8 +309,29 @@ finish() {
     else
         printf 'FAIL %s -- %s\n' "$STEP" "$VERDICT_WHY"
     fi
-    exit "$VERDICT_RC"
+    exit "${SIGNAL_RC:-$VERDICT_RC}"
 }
+
+# interrupted <signal name> <rc> -- the INT / TERM trap of every live-p1 step.
+# [Co-developed with claude code -- Adam] The AEG judge's N-1 and the external judge's M3 (09-28):
+# with `finish` itself as the INT/TERM trap, bash ran it with the INTERRUPTED command's $? -- a
+# sleep or a poll that returned 0 -- so a step stopped by pid (this project's way) with nothing
+# failed before it printed PASS. The signal is now the run's failure, named first (a ruling-4 STOP
+# keeps the head of the line), and the exit code is the signal's, carried through finish.
+interrupted() {
+    trap - INT TERM
+    SIGNAL_RC="$2"
+    VERDICT_RC=1
+    if [[ "$VERDICT_WHY" == STOP* ]]; then
+        VERDICT_WHY="$VERDICT_WHY (then interrupted by $1)"
+    else
+        VERDICT_WHY="interrupted by $1 before the run finished${VERDICT_WHY:+ (first failure before it: $VERDICT_WHY)}"
+    fi
+    bad "interrupted by $1 -- the run stops here and tears down"
+    exit "$2"
+}
+# arm_step_traps -- EXIT runs finish; INT and TERM go through `interrupted` first.
+arm_step_traps() { trap finish EXIT; trap 'interrupted SIGINT 130' INT; trap 'interrupted SIGTERM 143' TERM; }
 
 # start_step <name> -- make the run directory, arm the trap, and do the two refusals.
 start_step() {
@@ -321,7 +345,7 @@ start_step() {
     fi
     RUN="$LIVE_DIR/runs/$(date -u '+%Y-%m-%dT%H%M%SZ')_$STEP"
     mkdir -p "$RUN" || die "could not create $RUN"
-    trap finish EXIT INT TERM
+    arm_step_traps
     printf '== %s\n   repo: %s\n   raw : %s\n   owner: %s\n' "$STEP" "$REPO" "$RUN" "$NDT_OWNER"
     [[ -x "$NDT" ]] || die "no ndt at $NDT"
     [[ -x "$PY" ]]  || die "no proxy venv interpreter at $PY -- python3 -m venv p4_proxy/venv && p4_proxy/venv/bin/pip install -r p4_proxy/requirements.txt && p4_proxy/venv/bin/python p4_proxy/regen_p4runtime_pb2.py"

@@ -1248,6 +1248,41 @@ done
 rm -rf "$FIX18"
 
 # =============================================================================================
+section "19. 🔴 a step stopped by INT or TERM fails with the signal's code (01-05, 07, 08 share it)"
+# =============================================================================================
+# [Co-developed with claude code -- Adam] The AEG judge's N-1 and the external judge's M3 (09-28):
+# start_step armed `trap finish EXIT INT TERM`, so a TERM while a step waited on a child ran finish
+# with that child's rc 0 and printed PASS. Now INT/TERM go through `interrupted`: FAIL, and the step
+# exits 130 / 143. A real start_step (stubs for the lab-facing checks, as in section 16), then the
+# step's own wait, with the signal sent to the step's shell by pid.
+FIX19="$(mktemp -d "${TMPDIR:-/tmp}/common-signal-XXXXXX")"
+mkdir -p "$FIX19/bin"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$FIX19/bin/ndt"; chmod +x "$FIX19/bin/ndt"
+cat > "$FIX19/step.sh" <<STEPSH
+set -euo pipefail
+source "$COMMON"
+LIVE_DIR="$FIX19"; NDT="$FIX19/bin/ndt"; PY=/usr/bin/python3; CLAIMED=0
+require_root() { :; }; require_free_lab() { :; }; snapshot_knob() { :; }; snapshot_telemetry_knob() { :; }
+restore_knob() { :; }; restore_telemetry_knob() { :; }
+start_step 19_signal
+if [[ -n "\${SEND:-}" ]]; then ( command sleep 0.4; kill -"\$SEND" \$\$ ) & fi
+command sleep 2
+echo "the step went on"
+exit 0
+STEPSH
+OUT19="$(env NDT_OWNER=someone SEND=TERM timeout 120 bash "$FIX19/step.sh" 2>&1; echo "rc=$?")"
+check "🔴 TERM mid-step: the last verdict line is a FAIL"     "FAIL 19_signal -- interrupted by SIGTERM before the run finished" "$(tail -2 <<<"$OUT19" | head -1)"
+check "🔴 and the step exits 143"                          "rc=143" "$(tail -1 <<<"$OUT19")"
+hasnt "  and it did not go on"                             "the step went on" "$OUT19"
+OUT19="$(env NDT_OWNER=someone SEND=INT timeout 120 bash "$FIX19/step.sh" 2>&1; echo "rc=$?")"
+check "🔴 INT mid-step: FAIL"                               "FAIL 19_signal -- interrupted by SIGINT before the run finished" "$(tail -2 <<<"$OUT19" | head -1)"
+check "🔴 and the step exits 130"                          "rc=130" "$(tail -1 <<<"$OUT19")"
+OUT19="$(env NDT_OWNER=someone timeout 120 bash "$FIX19/step.sh" 2>&1; echo "rc=$?")"
+check "  the control: no signal, the same step PASSes"     "PASS 19_signal" "$(tail -2 <<<"$OUT19" | head -1)"
+check "  and exits 0"                                      "rc=0" "$(tail -1 <<<"$OUT19")"
+rm -rf "$FIX19"
+
+# =============================================================================================
 section "14. 🔴 no lab command left this suite (the fake fabric was up throughout)"
 # =============================================================================================
 # [Co-developed with claude code -- Adam] The guard at the top, and its controls: without them a
