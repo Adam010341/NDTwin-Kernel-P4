@@ -1607,6 +1607,11 @@ m=$(lmutant l74 "$LIVE08" \
     '    keys = ("rules_timed",)')
 lreport "L74: H4 does not look at pipeline commits across the cut" "$m" \
         "H4 a pipeline commit across the cut"
+m=$(lmutant l75 "$LIVE08" \
+    '    untold = [k for k, v in got.items() if v.get("reported_to_kernel") is not True]' \
+    '    untold = list(got)')
+lreport "L75: H4 never believes the kernel accepted anything" "$m" \
+        "H4 restored and the kernel accepted it"
 m=$(lmutant l47 "$LIVE08" \
     '    if d <= b:
         return f"OK detection {d:.3f} s, within the strict {b:g} s"' \
