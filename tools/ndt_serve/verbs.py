@@ -256,6 +256,8 @@ RC_TABLE = {
 # below every anchor. 🔴 The function is half the anchor (intake judge 09-26, finding 3): `return
 # 1` is on 187 lines of this tree's ndt, and 09-24's apps.start line 8315 was one of them --
 # proc_checkout's, 8439 since segment W. [Co-developed with claude code -- Adam]
+# 2026-09-28: the one-clock residue change put 36 lines above the apps.stop and apps.status rows
+# (app_started_at and residue_report); nothing above cmd_apps' own rows moved otherwise.
 RC_SOURCE = {
     "up": {"help": {0: "exit 0 the fabric came up and verified",
                     1: "1 something was MEASURED and it was dirty",
@@ -279,9 +281,9 @@ RC_SOURCE = {
                          (899, 1, "return 1", "cmd_release")]},
     "apps.start": {"code": [(8895, 0, "return 0", "app_start"), (8899, 1, "return 1", "app_start"),
                             (8972, 1, "return 1", "app_start")]},
-    "apps.stop": {"code": [(10413, 1, "return 1", "cmd_apps"), (10416, 2, "return 2", "cmd_apps"),
-                           (10419, 0, "return 0", "cmd_apps")]},
-    "apps.status": {"code": [(10346, 0, "return 0", "cmd_apps")]},
+    "apps.stop": {"code": [(10449, 1, "return 1", "cmd_apps"), (10452, 2, "return 2", "cmd_apps"),
+                           (10455, 0, "return 0", "cmd_apps")]},
+    "apps.status": {"code": [(10382, 0, "return 0", "cmd_apps")]},
 }
 
 

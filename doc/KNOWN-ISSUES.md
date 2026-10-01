@@ -5365,6 +5365,36 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   `NDTWIN_L1_NEEDS: ryu` 的檔交給 ryu-env、其餘用與 CI 同版的 python3，就同時解掉這 8 個；
   逐檔改寫成 3.8 相容是另一條路，但每加一個新測試就要再守一次。
 
+### G-62 🔴 residue 視窗「記錄下來的那條邊」會把 app 自己的規則排除：stop 記下的起點可晚 1 s，封口與紀錄檔的終點被快取表的年齡推過去
+
+- **狀態**：🔴 OPEN（登記，未修；2026-09-28）。同一輪修掉的是另一半：`residue_report` 內部現在只讀一次
+  `now`、讀在流表之後、每個 app 緊接著就定年（`app_started_at` 拿這個 `now`），活著的 app 的視窗不再錯一秒
+  （`tests/shell/test_apps_residue.sh` 5K／5N）。本條是一次 `now` 管不到的三條路：它們的邊是**事先記下來的時刻**，
+  不是這一次報告讀的鐘。
+- **實測（決定性擺位：在秒內選定的位置啟動，每格 3 次，MISS 3/3、對照 3/3 列出；新舊 `ndt` 同結果）**：
+  `scratch/overnight-2026-09-05/logs/gates-0910/residue-0928/measure-windows-3368412d.log` 與
+  `measure-windows-74d1383f.log`，腳本在同目錄 `scripts/measure_windows.sh`（假交換機按規則的安裝時刻回
+  `duration_sec`；`app_stop` 以 stub 依指定時刻殺掉夾具；其餘是真的 `cmd_apps stop`／`residue_report`）：
+  - **S1 stop 路徑的起點**：`cmd_apps stop` 在停之前用 `app_started_at` 記下 `RESIDUE_WINDOW`，這時沒有報告的
+    `now`，它自己讀鐘，而整秒的 `etimes` 換成絕對時刻**最多晚 1 s** ⇒ app 第一個不滿一秒裡裝的規則被排除，
+    報告印 `no flow entry arrived during that window`。**同一個起點也寫進磁碟**：`app_stop` 開頭的
+    `wstart="$(app_started_at "$name")"` → `app_window_record`，之後的 `ndt apps orphans`／`ndt status --check`
+    讀的就是這份紀錄。
+  - **S2 封口窗的右端**（pidfile 的行程已死，右端＝app log 的 mtime）與 **S3 紀錄窗的右端**
+    （`.test_run/apps/<app>.window` 的 `end`）：一條在右端**之前**裝上的規則，只要它的 `now - duration_sec`
+    落在右端之後就被排除。
+- **界線（讀碼）**：`/ndt/get_switch_openflow_table_entries` 回的是 kernel 的快取表
+  （`HttpSession.cpp` 的 `handleGetSwitchOpenflowEntries` → `DeviceConfigurationAndPowerManager::getOpenFlowTables`），
+  大約每 10 s 輪詢一次，輪詢失敗時沿用上一張（`stale_since`／`stale_polls` 標在被沿用的那台交換機上）。
+  ⇒ `now - duration_sec` **永遠不早於**規則裝上的那一秒，但**可以晚到快取的年齡**：S2／S3 的誤差不是整秒進位，
+  而是 **0–10 s，表被沿用時沒有上界**。S1 的 1 s 才是整秒 `etimes` 換絕對時刻的進位。
+  量測腳本的假交換機在抓取當下作答，是最緊的情形；實機上 S2／S3 的窗口更寬。
+- **失效方向：樂觀**。漏掉的是 app 自己的規則，報告說那個視窗裡沒有規則，rc 0。
+- **修法方向（2026-09-28 審核裁定：走 (a)，不用容忍值）**：(a) 次秒精度比較——規則用 `duration_sec`＋`duration_nsec`
+  從**表的輪詢時刻**往回推（kernel 目前只在被沿用的表上帶 `stale_since`，一般的表沒有輪詢時刻，要先補），
+  起點用 `/proc/<pid>/stat` 的 starttime 與 `/proc/uptime` 換出的次秒時刻，記錄下來的邊也存次秒。
+  不採：在記錄下來的邊外放寬 1 s（會把視窗外的底座規則算進來，而且擋不住 0–10 s 的快取年齡）。
+
 ## 證據索引
 
 | 輪次 | 位置 | 內容 |
