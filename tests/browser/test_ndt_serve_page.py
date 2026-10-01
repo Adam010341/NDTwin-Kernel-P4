@@ -17,13 +17,17 @@ the server and the stub ndt recorded -- never from the page's word alone where t
                  ndt sees only `status` and `apps status`                                   Load
   CSP            <body data-csp-violations> is "0" after the page has been used             Load
   confirm        how hard the dialog asks is the server's (confirm_policy, needs_own_claim), plus
-                 the page's measuring rule; focus starts on Cancel, Enter on Confirm does nothing,
-                 a double click posts once                                               Confirm
+                 the page's measuring rule; claim first under somebody else's claim, `claim none`
+                 or no claim row; the exact typed word; focus starts on Cancel, Enter on Confirm
+                 does nothing, a double click posts once                                 Confirm
   dry run        the argv in the dialog is the argv the server's dry run answered (read from
-                 Chrome's own network record), and the write is posted after that dry run Confirm
-  auto-refresh   10 s while shown and idle; nothing while measuring, while a measurement is
+                 Chrome's own network record), for an app start too, and the write is posted after
+                 that dry run                                                            Confirm
+  auto-refresh   10 s while shown and idle; no tick while measuring, while a measurement is
                  declared, or while the page is hidden (a second target really hides it), and a
-                 read as soon as it is shown again                                       Refresh
+                 read as soon as it is shown again; 立即更新 while measuring keeps the pause;
+                 during a measuring pause a probe reads /lab alone once a minute, and the one that
+                 reads nothing measuring brings the tick back; hidden, nothing at all   Refresh
   job log        2 s while the job runs; nothing after Close, after the job ended, or while the
                  page is hidden                                                           JobLog
 
@@ -48,10 +52,14 @@ When the class ends, Chrome is closed and nothing may be left in its session or 
 its profile ("chrome leftovers (<class>): N" on stderr; N > 0 fails the class). Only the group
 cdp_pipe created is ever signalled; no process is looked up by name.
 
-TIME: the auto-refresh (10 s) and the job log (2 s) are measured in real time -- a window just
-longer than the interval for "nothing was read", the spec's 25 s for "it does read". No virtual
-time: it stops while a fetch is pending, which is exactly what is being counted. The whole suite
-is about 2 minutes, most of it the Refresh class.
+TIME: the auto-refresh (10 s), the probe (60 s) and the job log (2 s) are measured in real time --
+a window just longer than the interval for "nothing was read", the spec's 25 s for "it does read".
+No virtual time: it stops while a fetch is pending, which is exactly what is being counted. The
+whole suite is about 6 minutes, most of it the two probe cases (about 2 min and 1.5 min).
+
+PROVENANCE: run as a script, it prints its own header first (date, argv, git HEAD and how many
+paths are uncommitted, the python and Chrome it runs, the page's files with their sha256) and, at
+the end, how many processes still name a temp dir it made.
 
 THE PAGE'S HOOKS (web/src/testhooks.ts): data-href, data-session (ok | refused | no-key),
 data-storage, data-loaded (yes | no-session | no-meta), data-csp-violations, data-refresh. They
@@ -65,11 +73,14 @@ their own requests to a path they count while counting it (a job's end is read f
 
 tests/shell/mutate_ndt_serve_page.sh is this file's mutation gate.
 """
+import datetime
+import hashlib
 import json
 import os
 import re
 import shutil
 import signal
+import subprocess
 import sys
 import tempfile
 import time
@@ -104,12 +115,15 @@ DECLARED = ("lab\n  claim          yours -- 30m left (until 23:59:00)\n"
             "  declared       iperf3 matrix   (claim measuring=; 'ndt check' refuses while set)\n"
             "  measuring      nothing\n")
 FOREIGN = "lab\n  claim          someone -- 10m left (until 23:59:00)\n  measuring      nothing\n"
+CLAIM_NONE = "lab\n  claim          none\n  measuring      nothing\n"      # ndt claim_line, no claim file
+NO_CLAIM_ROW = "lab\n  measuring      nothing\n"
 
 REFRESH_S = 10            # web/src/hooks/useAutoRefresh.ts REFRESH_INTERVAL_MS
 JOB_LOG_S = 2             # web/src/hooks/useJobLog.ts JOB_LOG_INTERVAL_MS
 QUIET_S = REFRESH_S + 2   # "nothing was read": one interval and a margin
 LOG_QUIET_S = 2 * JOB_LOG_S + 1.5
 READING_S = 25            # SCOPE-v2 section 5: >= 2 reads in about 25 s
+PROBE_S = 60              # useAutoRefresh.ts PROBE_INTERVAL_MS: /lab alone, during a measuring pause (Q6)
 
 REQUEST_RE = re.compile(r'"([A-Z]+) (\S+) HTTP/[0-9.]+" (\d{3})')
 TICK_RE = re.compile(r"/api/v1/(lab|apps|health|jobs)")      # what one auto-refresh tick reads
@@ -135,6 +149,7 @@ BOX_JS = """(() => { const e = document.getElementById(%s); if (!e) return null;
   const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2, r.width, r.height]; })()"""
 
 OPEN_CLASSES = []   # classes whose Chrome is running -- closed in __main__'s finally on an interrupt
+RUN_DIRS = []       # every temp dir this run made (Chrome's, the servers'): what a leftover would name
 
 
 def describe(rows):
@@ -209,6 +224,7 @@ class PageCase(unittest.TestCase):
             shutil.rmtree(cls.root, ignore_errors=True)
             raise RuntimeError("TMPDIR is too long for Chrome's SingletonSocket (%d > %d bytes): %s -- use a "
                                "shorter TMPDIR" % (len(sock.encode()), SOCKET_PATH_MAX, sock))
+        RUN_DIRS.append(cls.root)
         cls.home = os.path.join(cls.root, "home")
         cls.profile = os.path.join(cls.root, "chrome-profile")
         os.makedirs(cls.home)
@@ -249,6 +265,7 @@ class PageCase(unittest.TestCase):
 
     def setUp(self):
         self.s = gui.GuiServe()
+        RUN_DIRS.append(self.s.tmp)
         self.addCleanup(self.s.close)
         self.addCleanup(self.jobs_end)          # cleanups run last-in first-out: pages, jobs, server
         self.beh = {"status": {"stdout": IDLE}, "apps_status": {"stdout": "energy  stopped\n"},
@@ -347,10 +364,10 @@ class PageCase(unittest.TestCase):
         p.wait_for("document.visibilityState === 'visible'", 10)
 
     # --- the dialog ---
-    def dialog(self, p, button):
-        """Opens the confirm dialog from the 操作 tab's `button` and waits until it is ready."""
-        if p.eval("document.getElementById('panel-actions').hidden"):
-            p.click("tab-actions")
+    def dialog(self, p, button, tab="actions"):
+        """Opens the confirm dialog from `button` on `tab` and waits until it is ready."""
+        if p.eval("document.getElementById('panel-%s').hidden" % tab):
+            p.click("tab-" + tab)
         p.click(button)
         p.wait_for(READY_JS, 20)
         return p.eval(DIALOG_JS)
@@ -493,6 +510,8 @@ class Confirm(PageCase):
         self.assertTrue(self.settle(p)["go_disabled"], "Confirm is on after typing only `u`")
         p.type("p")
         self.assertFalse(self.settle(p)["go_disabled"], "Confirm is still off after typing `up`")
+        p.type("x")
+        self.assertTrue(self.settle(p)["go_disabled"], "Confirm is on after typing `upx`")
         self.cancel(p)
         self.assertEqual((self.posts("/up"), self.ndt_calls("up")), ([200], []), "Cancel wrote")
 
@@ -505,6 +524,41 @@ class Confirm(PageCase):
         p.focus("c-typed")
         p.type("up")
         self.assertTrue(self.settle(p)["go_disabled"], "Confirm is on under somebody else's claim")
+
+    def test_no_claim_puts_claim_first(self):
+        # Adam 09-28: no claim at all is not yours either. `claim none` is what plain ndt status prints
+        # without a claim file (claim_line); a status with no claim row at all reads as claim null.
+        p = self.load()
+        for status, what in ((CLAIM_NONE, "`claim none`"), (NO_CLAIM_ROW, "no claim row")):
+            self.stub(status=status)
+            for button, word in (("do-up", "up"), ("do-down", "down")):
+                d = self.dialog(p, button)
+                self.assertIn(CLAIM_FIRST, d["blockers"], "no \"claim first\" blocker for %s with %s: %r"
+                              % (word, what, d))
+                p.focus("c-typed")
+                p.type(word)
+                self.assertTrue(self.settle(p)["go_disabled"], "Confirm is on for %s with %s" % (word, what))
+                self.cancel(p)
+        self.assertEqual((self.ndt_calls("up"), self.ndt_calls("down")), ([], []), "a write ran")
+
+    def test_an_app_start_shows_the_dry_run_and_claim_first(self):
+        p = self.load(network=True)
+        d = self.dialog(p, "app-start-energy", tab="apps")
+        answers = until(lambda: self.dry_run_answers(p, "/apps/energy/start"), 10)
+        self.assertEqual(len(answers), 1, "Chrome saw %d dry-run answer(s) to POST /apps/energy/start, not 1"
+                         % len(answers))
+        self.assertEqual((d["argv"], answers[0]["argv"][1:]), (answers[0]["argv"], ["apps", "energy"]),
+                         "the app dialog's argv is not the argv the dry run answered")
+        self.assertEqual((d["blockers"], d["go_disabled"]), ([], False), "an app start under your own claim")
+        self.cancel(p)
+        self.stub(status=FOREIGN)
+        d = self.dialog(p, "app-start-energy", tab="apps")
+        self.assertIn(CLAIM_FIRST, d["blockers"], "no \"claim first\" blocker for an app start under somebody "
+                      "else's claim: %r" % d)
+        self.assertTrue(d["go_disabled"], "Confirm is on for an app start under somebody else's claim")
+        self.cancel(p)
+        self.assertEqual(self.ndt_calls("apps"), [["apps", "status"]] * len(self.ndt_calls("apps")),
+                         "an app start ran")
 
     def test_measuring_or_declared_makes_it_typed(self):
         self.stub(status=MEASURING)
@@ -615,7 +669,7 @@ class Refresh(PageCase):
                                 % (n, READING_S))
         self.assertEqual(hook(p, "refresh"), "running")
 
-    def paused_by_the_lab(self, status, why):
+    def paused_by_the_lab(self, status, why, refresh_now_while_measuring=False):
         self.stub(status=status)
         p = self.load()
         before = self.tick_reads()
@@ -623,17 +677,72 @@ class Refresh(PageCase):
         after = self.tick_reads()
         self.assertEqual(after, before, "the page read %r in %d s while %s (before %r)" % (after, QUIET_S, why, before))
         self.assertEqual(hook(p, "refresh"), "paused-measuring")
-        # only 立即更新 resumes it, and only once nothing measures (SCOPE-v2 section 6)
+        if refresh_now_while_measuring:
+            # 立即更新 reads everything once, and a read that is still measuring keeps the pause
+            p.click("refresh-now")
+            want = {k: v + 1 for k, v in after.items()}
+            until(lambda: self.tick_reads() == want, 5)
+            self.assertEqual(self.tick_reads(), want, "立即更新 did not read everything once")
+            self.pause(REFRESH_S + 1)
+            self.assertEqual((self.tick_reads(), hook(p, "refresh")), (want, "paused-measuring"),
+                             "立即更新 while still measuring brought the 10 s tick back")
+        # back to the 10 s tick: 立即更新 (here) or the probe (test_a_measuring_pause_probes_the_lab_alone),
+        # and only once nothing measures (SCOPE-v2 section 6, Adam's Q6)
         self.stub(status=IDLE)
+        n = self.tick_reads()["lab"]
         p.click("refresh-now")
         p.wait_for("document.body.dataset.refresh === 'running'", 10)
-        self.assertEqual(self.tick_reads()["lab"], after["lab"] + 1, "立即更新 read /lab other than once")
+        self.assertEqual(self.tick_reads()["lab"], n + 1, "立即更新 read /lab other than once")
 
     def test_refresh_stops_while_measuring(self):
-        self.paused_by_the_lab(MEASURING, "ndt status said measuring")
+        self.paused_by_the_lab(MEASURING, "ndt status said measuring", refresh_now_while_measuring=True)
 
     def test_refresh_stops_while_declared(self):
         self.paused_by_the_lab(DECLARED, "a measurement was declared")
+
+    def test_a_measuring_pause_probes_the_lab_alone(self):
+        # Adam's Q6 (09-28): during a measuring pause, /lab alone once every 60 s; a probe that reads
+        # nothing measuring brings the 10 s tick back.
+        self.stub(status=MEASURING)
+        p = self.load()
+        t0 = time.monotonic()                   # the load's read has just ended: the probe is due at t0 + 60
+        before = self.tick_reads()
+        self.pause(PROBE_S + 6)
+        got = self.tick_reads()
+        want = dict(before, lab=before["lab"] + 1)
+        self.assertEqual(got, want, "the measuring pause read %r in %d s, not /lab alone once (before %r)"
+                         % (got, PROBE_S + 6, before))
+        self.assertEqual(hook(p, "refresh"), "paused-measuring")
+        self.stub(status=IDLE)
+        deadline = 2 * PROBE_S + REFRESH_S + 6 - (time.monotonic() - t0)   # the next probe, then one tick
+        self.assertTrue(until(lambda: self.tick_reads()["apps"] > before["apps"], deadline),
+                        "the refresh did not resume by the next probe and a tick after nothing measured: %r"
+                        % self.tick_reads())
+        p.wait_for("document.body.dataset.refresh === 'running'", 5)
+
+    def test_a_measuring_pause_reads_nothing_while_hidden(self):
+        # The load's own read ends while the page is hidden (the stub's status is slow and the page is
+        # hidden while it runs), so the pause begins hidden: no probe may be armed, none may read, and
+        # being shown again arms the probe for later -- it does not read at once.
+        self.beh["status"] = {"stdout": MEASURING, "sleep": 2}
+        self.s.behave(**self.beh)
+        p = self.open_page()
+        self.assertTrue(until(lambda: any(c["argv"] == ["status"] for c in self.s.calls()), 15),
+                        "the page never read the lab")
+        self.hide(p)
+        self.stub(status=MEASURING)
+        p.wait_for("document.body.dataset.loaded", 20)
+        self.assertEqual((hook(p, "loaded"), p.eval("document.visibilityState")), ("yes", "hidden"),
+                         "precondition: the load ended while the page was hidden")
+        before = self.tick_reads()
+        self.pause(PROBE_S + 8)
+        after = self.tick_reads()
+        self.assertEqual(after, before, "the page read %r in %d s while measuring and hidden (before %r)"
+                         % (after, PROBE_S + 8, before))
+        self.show(p)
+        self.pause(5)
+        self.assertEqual(self.tick_reads(), after, "the page read at once when shown again while measuring")
+        self.assertEqual(hook(p, "refresh"), "paused-measuring")
 
     def test_refresh_stops_while_hidden_and_resumes_when_shown(self):
         p = self.load()
@@ -691,6 +800,45 @@ class JobLog(PageCase):
                         "the job log was not read again after the page was shown")
 
 
+def header():
+    """This run's own provenance, printed before any case: what code, what tree, what interpreter."""
+    def out(*argv):
+        try:
+            return subprocess.run(argv, capture_output=True, text=True, timeout=30).stdout.strip()
+        except (OSError, subprocess.SubprocessError) as e:
+            return "? (%s)" % e
+    page = os.path.join(base.SERVE_DIR, "static")
+    lines = ["date -Is: %s" % datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
+             "argv: %s" % " ".join(sys.argv),
+             "git rev-parse HEAD: %s" % out("git", "-C", REPO, "rev-parse", "HEAD"),
+             "git status --porcelain | wc -l: %d" % len(out("git", "-C", REPO, "status", "--porcelain").splitlines()),
+             "python: %s %s" % (sys.executable, sys.version.replace("\n", " ")),
+             "chrome: %s" % (out(CHROME, "--version") if CHROME else "none"),
+             "NDTWIN_GUARD_HELD: %s" % (GUARD_HELD or "(unset)"),
+             "page under test: %s" % page]
+    for name in sorted(os.listdir(page)) if os.path.isdir(page) else []:
+        with open(os.path.join(page, name), "rb") as f:
+            lines.append("  %s  %s" % (hashlib.sha256(f.read()).hexdigest(), name))
+    sys.stderr.write("".join("# %s\n" % l for l in lines))
+    sys.stderr.flush()
+
+
+def stray():
+    """Processes whose command line names a temp dir this run made (read from /proc; nothing signalled)."""
+    marks = [d.encode() + b"/" for d in RUN_DIRS]
+    hits = []
+    for d in os.listdir("/proc"):
+        if d.isdigit() and int(d) != os.getpid():
+            try:
+                with open("/proc/%s/cmdline" % d, "rb") as f:
+                    cmd = f.read()
+            except OSError:
+                continue
+            if any(m in cmd for m in marks):
+                hits.append(int(d))
+    return hits
+
+
 def _interrupted(signum, frame):
     # SIGTERM (the gate's `timeout`) becomes ^C, so the finally below closes the Chromes and
     # stops the servers this file started, instead of both outliving it.
@@ -699,6 +847,7 @@ def _interrupted(signum, frame):
 
 if __name__ == "__main__":
     signal.signal(signal.SIGTERM, _interrupted)
+    header()
     try:
         unittest.main(verbosity=2)
     finally:
@@ -706,3 +855,7 @@ if __name__ == "__main__":
             c.end_chrome()
             c.say_leftovers()
         tearDownModule()
+        until(lambda: not stray(), 5)
+        left = stray()
+        sys.stderr.write("# processes naming this run's %d temp dir(s) after the run: %d %s\n"
+                         % (len(RUN_DIRS), len(left), left or ""))
