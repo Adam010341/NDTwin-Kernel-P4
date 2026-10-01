@@ -15,32 +15,41 @@
 # HOW. Each suite is started in the background with a token in its environment that every
 # process it starts inherits, so "a process of this run" is read from /proc/<pid>/environ, not
 # from a name: a busy machine, or another checkout running the same suite, cannot be mistaken for
-# it. The suite leads a session of its own (setsid). When it has printed its first
-# `ok       fixture took argv0=` line -- a fixture exists -- the signal is sent: TERM to the
-# suite's own pid, INT to its whole process group, the way a terminal's Ctrl-C arrives (bash
-# runs an INT trap once the foreground child it is waiting for has died of INT too). Then:
+# it. The suite leads a session of its own (setsid). The signal is sent once the suite has printed
+# an `ok       fixture took argv0=` line AND a live process carrying the token is listed in the
+# suite's own fixture register -- a fixture, not just any process of the run (a poll's sleep, a
+# `bash -c`), so there is something its cleanup must reap. That register also names the suite's
+# temp tree: three suites honour TMPDIR, which is pointed at a directory of this test's own; the
+# other four write under /tmp, and their tree is the new one whose register lists such a pid.
+# TERM goes to the suite's own pid, INT to its whole process group, the way a terminal's Ctrl-C
+# arrives (bash runs an INT trap once the foreground child it is waiting for has died of INT too).
+# Then:
 #   * it ends within SIGNAL_END_WITHIN seconds (default 20), with 143 for TERM and 130 for INT;
 #   * no process carrying the token is left once it has ended;
-#   * its temp tree is gone. Three suites honour TMPDIR, which is pointed at a directory of this
-#     test's own; the other four write under /tmp, and their tree is the new one whose fixture
-#     register lists a pid that carries the token.
+#   * its temp tree is gone.
+# Under INT the "no process left" check can only fail for a fixture outside the suite's process
+# group (a setsid one): a fixture inside it dies of the same INT, reaped or not.
 # INT goes through `env --default-signal=INT`: a background job of a non-interactive shell starts
 # with INT ignored, and bash cannot trap a signal that was ignored when it started.
 #
 # Run:  bash tests/shell/test_fixture_suites_end_on_signal.sh [label...]
 #   labels: orphans liveness sweep window topo_pid ovs_claim down (default: all seven)
-#   SIGNAL_END_WITHIN=20  SIGNAL_FIRST_FIXTURE_WAIT=60  SIGNAL_HARD_LIMIT=30  SIGNAL_TOTAL_LIMIT=300
-#   (seconds). Green, the fourteen runs take about 15 s in all. The limits keep a HUNG suite a red
-#   line rather than a killed CI job (build-and-test has timeout-minutes 30): one run is at most
-#   FIRST_WAIT + HARD_LIMIT + 3 s = 93 s, and no run starts after TOTAL_LIMIT, so the whole test
-#   ends within 300 + 93 = 393 s. Without the total limit it would be 14 x 93 = 1302 s.
+#   SIGNAL_END_WITHIN=20  SIGNAL_FIRST_FIXTURE_WAIT=30  SIGNAL_HARD_LIMIT=30  SIGNAL_TOTAL_LIMIT=150
+#   (seconds). Green, the fourteen runs take 23-24 s in all on the development machine.
+# THE BOUND. The limits keep a HUNG suite a red line rather than a killed CI job. ci.yml's
+#   build-and-test has timeout-minutes 30, and on PR #22 that job took 22 min 11 s and 21 min 30 s
+#   (GitHub Actions jobs 110274499246 and 110274514834: 07:56:17Z-08:18:28Z and
+#   07:56:19Z-08:17:49Z), so about 7.8 min are left. One run is at most FIRST_WAIT + HARD_LIMIT +
+#   about 5 s of /proc scans = 65 s, and no run starts after TOTAL_LIMIT, so this whole test ends
+#   within 150 + 65 = 215 s (3.6 min) -- 22 min 11 s + 3.6 min = 25.8 min, inside the 30. Without
+#   the total limit it would be 14 x 65 = 910 s.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ALL_LABELS=(orphans liveness sweep window topo_pid ovs_claim down)
 END_WITHIN="${SIGNAL_END_WITHIN:-20}"
-FIRST_WAIT="${SIGNAL_FIRST_FIXTURE_WAIT:-60}"
+FIRST_WAIT="${SIGNAL_FIRST_FIXTURE_WAIT:-30}"
 HARD_LIMIT="${SIGNAL_HARD_LIMIT:-30}"
-TOTAL_LIMIT="${SIGNAL_TOTAL_LIMIT:-300}"
+TOTAL_LIMIT="${SIGNAL_TOTAL_LIMIT:-150}"
 
 PASS=0; FAIL=0
 check() {
@@ -62,16 +71,16 @@ for l in "${LABELS[@]}"; do
 done
 
 # suite_info <label> -> SFILE, SPREFIX (its temp tree's mktemp prefix), SPRIVATE (1: it honours
-# TMPDIR), SREG (its fixture register, relative to that tree; empty if it keeps none)
+# TMPDIR), SREG (its fixture register, one pid per line, relative to that tree)
 suite_info() {
     case "$1" in
         orphans)   SFILE="$HERE/test_ndt_app_orphans.sh";           SPREFIX=ndt-app-orphans-;     SPRIVATE=0; SREG=fixtures ;;
         liveness)  SFILE="$HERE/test_ndt_apps_liveness.sh";         SPREFIX=ndt-apps-liveness-;   SPRIVATE=0; SREG=fixtures ;;
         sweep)     SFILE="$HERE/test_ndtwin_lab_sweep.sh";          SPREFIX=ndtwin-lab-sweep-;    SPRIVATE=0; SREG=fixtures ;;
         topo_pid)  SFILE="$HERE/test_faults_topo_pid.sh";           SPREFIX=faults-topo-pid-;     SPRIVATE=0; SREG=fixtures ;;
-        window)    SFILE="$HERE/test_ndt_helper_apps_window.sh";    SPREFIX=ndt-helper-window-;   SPRIVATE=1; SREG="" ;;
-        ovs_claim) SFILE="$HERE/test_ndt_ovs_claim.sh";             SPREFIX=ndt-ovs-claim-;       SPRIVATE=1; SREG="" ;;
-        down)      SFILE="$HERE/test_ndt_down_stops_only_ours.sh";  SPREFIX=ndt-down-ours-;       SPRIVATE=1; SREG="" ;;
+        window)    SFILE="$HERE/test_ndt_helper_apps_window.sh";    SPREFIX=ndt-helper-window-;   SPRIVATE=1; SREG=fixtures ;;
+        ovs_claim) SFILE="$HERE/test_ndt_ovs_claim.sh";             SPREFIX=ndt-ovs-claim-;       SPRIVATE=1; SREG=fixture.pids ;;
+        down)      SFILE="$HERE/test_ndt_down_stops_only_ours.sh";  SPREFIX=ndt-down-ours-;       SPRIVATE=1; SREG=spawned.pids ;;
     esac
 }
 
@@ -113,7 +122,7 @@ now_ms() { local t="${EPOCHREALTIME/,/.}"; echo $(( ${t%.*} * 1000 + 10#${t#*.} 
 # one <label> <SIG> <expected rc>
 one() {
     local label="$1" sig="$2" want="$3" tok tmpd out spid t0 t1 rc i tree="" d p f0="$FAIL" deadline
-    local -a before=() fixtures=() left=()
+    local -a before=() fixtures=() left=() live=()
     suite_info "$label"
     tok="$label-$sig-$$-$RANDOM$RANDOM"; TOKENS+=("$tok")
     tmpd="$WORK/tmp-$label-$sig"; out="$WORK/out-$label-$sig.log"
@@ -123,40 +132,37 @@ one() {
     TMPDIR="$tmpd" NDT_SIGNAL_TEST_TOKEN="$tok" \
         setsid env --default-signal=INT bash "$SFILE" </dev/null >"$out" 2>&1 &
     spid=$!
-    # Wait until a fixture premise has been printed AND a process of this run other than the suite
-    # is alive: from then on the run is mid-way, with something to lose. Both, because a suite may
-    # stop its first fixture again within a second (test_ndt_ovs_claim.sh does), and a signal sent
-    # after that would have nothing for the leftover checks to find.
+    # Wait until a fixture premise has been printed AND a live process of this run is in the suite's
+    # own fixture register; the register it is in is the suite's temp tree. A suite may stop its
+    # first fixture again within a second (test_ndt_ovs_claim.sh does) and run on with only a poll's
+    # sleep or a `bash -c` of its own alive: a signal sent then gives the leftover checks nothing to
+    # find, so that moment does not count.
     deadline=$(( SECONDS + FIRST_WAIT ))
     while (( SECONDS < deadline )); do
         ended "$spid" && break
         if grep -qE '^ *ok +fixture took argv0=' "$out" 2>/dev/null; then
-            mapfile -t fixtures < <(token_pids "$tok" | grep -vx -- "$spid")
-            (( ${#fixtures[@]} )) && break
+            mapfile -t live < <(token_pids "$tok" | grep -vx -- "$spid")
+            for d in "$( (( SPRIVATE )) && echo "$tmpd" || echo /tmp)/$SPREFIX"*; do
+                [[ -f "$d/$SREG" ]] || continue
+                (( SPRIVATE )) || [[ " ${before[*]} " != *" $d "* ]] || continue
+                mapfile -t fixtures < <(printf '%s\n' "${live[@]}" | grep -xF -f "$d/$SREG" | grep -x '[0-9][0-9]*')
+                (( ${#fixtures[@]} )) && { tree="$d"; break; }
+            done
+            [[ -n "$tree" ]] && break
         fi
         sleep 0.1
     done
-    if ended "$spid" || (( ${#fixtures[@]} == 0 )); then
-        check "$label $sig: the suite reaches a live fixture within ${FIRST_WAIT}s, still running" yes \
-              "no ($(state_of "$spid"), ${#fixtures[@]} process(es) of its own; last line: $(tail -1 "$out" | cut -c1-90))"
+    if ended "$spid" || [[ -z "$tree" ]]; then
+        check "$label $sig: within ${FIRST_WAIT}s, a pid in its own fixture register is alive, the suite still running" yes \
+              "no ($(state_of "$spid"); ${#live[@]} other process(es) of the run alive; last line: $(tail -1 "$out" | cut -c1-80))"
         kill -KILL "$spid" 2>/dev/null; wait "$spid" 2>/dev/null; reap_token "$tok"
+        [[ -n "$tree" && -d "$tree" ]] && rm -rf "$tree"
         return
     fi
     check "$label $sig: the pid signalled is the shell running the suite" yes \
           "$([[ "$(tr '\0' ' ' < "/proc/$spid/cmdline" 2>/dev/null)" == *"$SFILE"* ]] && echo yes || echo no)"
     check "$label $sig: and it leads its own process group" "$spid" "$(ps -o pgid= -p "$spid" 2>/dev/null | tr -d ' ')"
-    check "$label $sig: a process of this run besides the suite is alive when it is signalled" yes \
-          "$( (( ${#fixtures[@]} > 0 )) && echo yes || echo "no (${#fixtures[@]})")"
-    # Its temp tree, by construction (TMPDIR) or by the register that names one of its pids.
-    if (( SPRIVATE )); then
-        for d in "$tmpd/$SPREFIX"*; do [[ -d "$d" ]] && tree="$d"; done
-    else
-        for d in /tmp/"$SPREFIX"*; do
-            [[ -d "$d" && " ${before[*]} " != *" $d "* && -f "$d/$SREG" ]] || continue
-            for p in "${fixtures[@]}"; do grep -qx -- "$p" "$d/$SREG" 2>/dev/null && { tree="$d"; break; }; done
-        done
-    fi
-    check "$label $sig: its temp tree is found while it runs" yes "$([[ -n "$tree" ]] && echo yes || echo no)"
+    echo "  note     signalled with fixture pid(s) ${fixtures[*]} alive, listed in $tree/$SREG"
     t0="$(now_ms)"
     if [[ "$sig" == INT ]]; then kill -s INT -- "-$spid"; else kill -s "$sig" "$spid"; fi
     deadline=$(( SECONDS + HARD_LIMIT ))
