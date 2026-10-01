@@ -37,6 +37,13 @@
 # a mutant that does not build, the named case staying green, or the named case going red for
 # another reason than the one named, counts as SURVIVED -- never as skipped.
 #
+# 🔴 A mutation documented as EQUIVALENT (another part of the page still holds the guarantee, so no
+# case can see it) is run as well and must stay green; one that goes red makes the gate exit 1,
+# because then the comment that calls it equivalent is wrong.
+#
+# Provenance: the gate prints its own header first (date, git HEAD, uncommitted path count, python,
+# node, its own sha256) and its last line is rc=N, however it ends.
+#
 # 🔴 Guards its own baseline, before any mutation:
 #   1. the whole suite on the committed page, through the same layout: green, nothing skipped,
 #      every case a mutation names run ok, and no leftover;
@@ -52,9 +59,24 @@
 # Exit: 0 every mutation caught, 1 a mutation survived, 2 refused (no space / baseline red,
 #       skipped or incomplete / the build pipeline does not reproduce the bundle / a leftover /
 #       harness), 3 a file under test changed while the gate ran.
+# The whole body is one { ... } block, so bash has parsed all of it before running any: an edit to
+# this file while it runs (it takes minutes) cannot shift what the running copy reads next.
+{
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
+NODE_BIN="${NODE_BIN:-$HOME/.local/node/bin}"
+BK=""
+# The last line is always rc=N, whichever way this ends (a refusal included).
+trap 'rc=$?; [[ -n "$BK" ]] && rm -rf "$BK"; echo "rc=$rc"; exit $rc' EXIT
+# This gate's own provenance, before anything else.
+echo "# date -Is: $(date -Is)"
+echo "# argv: $0 $*"
+echo "# git rev-parse HEAD: $(git -C "$REPO" rev-parse HEAD 2>&1)"
+echo "# git status --porcelain | wc -l: $(git -C "$REPO" status --porcelain 2>/dev/null | wc -l)"
+echo "# python3: $(command -v python3) $(python3 -c 'import sys; print(sys.version.replace(chr(10), " "))')"
+echo "# node -v: $("$NODE_BIN/node" -v 2>&1)   npm -v: $(PATH="$NODE_BIN:$PATH" "$NODE_BIN/npm" -v 2>&1)"
+echo "# this gate: $(sha256sum "${BASH_SOURCE[0]}" | cut -c1-64)"
 TEST="$REPO/tests/browser/test_ndt_serve_page.py"
 DRIVER="$REPO/tests/browser/cdp_pipe.py"
 HARNESS=("$REPO/tests/python/test_ndt_serve.py" "$REPO/tests/python/test_ndt_serve_gui.py"
@@ -62,7 +84,6 @@ HARNESS=("$REPO/tests/python/test_ndt_serve.py" "$REPO/tests/python/test_ndt_ser
 SERVE_DIR="$REPO/tools/ndt_serve"
 WEB="$SERVE_DIR/web"
 GUARD="$REPO/tools/build_guard/guarded_build.sh"
-NODE_BIN="${NODE_BIN:-$HOME/.local/node/bin}"
 MIN_FREE_KB=$((2 * 1024 * 1024))
 README_MD="$SERVE_DIR/README.md"
 NDT="$REPO/tools/test_workflow/ndt"
@@ -76,6 +97,9 @@ DIALOG_TSX="$WEB/src/components/ConfirmDialog.tsx"
 REFRESH_TS="$WEB/src/hooks/useAutoRefresh.ts"
 JOBLOG_TS="$WEB/src/hooks/useJobLog.ts"
 TABBAR_TSX="$WEB/src/components/TabBar.tsx"
+APPSTAB_TSX="$WEB/src/components/tabs/AppsTab.tsx"
+APP_TSX="$WEB/src/NdtServeApp.tsx"
+MAIN_TSX="$WEB/src/main.tsx"
 
 refuse() { echo "REFUSED: $*"; exit 2; }
 
@@ -96,7 +120,6 @@ mapfile -t WEB_SRC < <(find "$WEB" -path "$WEB/node_modules" -prune -o -path "$W
 SUBJECTS=("${PYS[@]}" "$README_MD" "${STATICS[@]}" "${WEB_SRC[@]}" "$NDT" "${NDT_SIDE[@]}" "$TEST" "$DRIVER"
           "${HARNESS[@]}")
 BK=$(mktemp -d "${TMPDIR:-/tmp}/ndt-page-gate-XXXXXX")   # short: Chrome's socket lives under it
-trap 'rm -rf "$BK"' EXIT
 BASE_SHA=$(sha256sum "${SUBJECTS[@]}")
 T0=$SECONDS
 
@@ -113,6 +136,8 @@ CASES=(Load.test_the_key_leaves_the_address_bar
        Load.test_the_page_sees_no_csp_violation
        Profile.test_the_token_is_in_no_file_of_the_profile
        Confirm.test_up_asks_for_the_typed_word
+       Confirm.test_no_claim_puts_claim_first
+       Confirm.test_an_app_start_shows_the_dry_run_and_claim_first
        Confirm.test_a_claim_not_yours_puts_claim_first
        Confirm.test_measuring_or_declared_makes_it_typed
        Confirm.test_claim_asks_for_no_typed_word
@@ -125,6 +150,8 @@ CASES=(Load.test_the_key_leaves_the_address_bar
        Refresh.test_refresh_stops_while_measuring
        Refresh.test_refresh_stops_while_declared
        Refresh.test_refresh_stops_while_hidden_and_resumes_when_shown
+       Refresh.test_a_measuring_pause_probes_the_lab_alone
+       Refresh.test_a_measuring_pause_reads_nothing_while_hidden
        JobLog.test_job_log_stops_on_close
        JobLog.test_job_log_stops_when_the_job_ends
        JobLog.test_job_log_stops_while_hidden_and_resumes)
@@ -279,8 +306,35 @@ report() {   # $1 = mutation name, $2 = Class.test_case that must go red, $3 = w
     rm -rf "$MUT_DIR"
 }
 
-echo "$(date -Is)  $(git -C "$REPO" rev-parse --short HEAD 2>/dev/null) $(git -C "$REPO" status --porcelain -- \
-    "$TEST" "$DRIVER" "$SERVE_DIR" | wc -l) changed path(s) under test vs HEAD; node $("$NODE_BIN/node" --version)"
+# A mutation this gate documents as EQUIVALENT -- the case cannot see it because another part of the
+# page still holds the guarantee -- is run too, and must stay GREEN. If it goes red, the claim in the
+# comment above it is wrong, which counts like a survivor (exit 1): the documentation is.
+EQUIVALENTS=0
+BROKEN_CLAIMS=0
+equivalent() {   # $1 = mutation name, $2 = Class.test_case that must stay green, $3 = what still holds it
+    local out rc id="$2" t=$SECONDS
+    local name="${id##*.}"
+    EQUIVALENTS=$((EQUIVALENTS+1))
+    if [[ "$MUT_STATE" == noapply ]] || { (( MUT_WEB )) && ! build "$MUT_DIR"; }; then
+        BROKEN_CLAIMS=$((BROKEN_CLAIMS+1))
+        printf '  CLAIM?   %-70s (did not apply or build: nothing was shown)\n' "$1"
+        rm -rf "$MUT_DIR"
+        return
+    fi
+    free_enough
+    out=$(run_against "$MUT_DIR" "$id"); rc=$?
+    if [[ "$rc" -eq 0 ]] && grep -qE "^$name \(.*\) \.\.\. ok$" <<<"$out"; then
+        printf '  equiv.   %-70s (%s stayed green, %d s: %s)\n' "$1" "$name" $((SECONDS - t)) "$3"
+    else
+        BROKEN_CLAIMS=$((BROKEN_CLAIMS+1))
+        printf '  CLAIM?   %-70s (%s did NOT stay green -- the equivalence claim is wrong)\n' "$1" "$name"
+        grep -E '^(FAIL|ERROR):|Error:|^Ran |^OK|^FAILED' <<<"$out" | cut -c1-240 | sed 's/^/             /'
+    fi
+    leftovers "$MUT_DIR" "$out"
+    rm -rf "$MUT_DIR"
+}
+
+echo "# changed paths under test vs HEAD: $(git -C "$REPO" status --porcelain -- "$TEST" "$DRIVER" "$SERVE_DIR" | wc -l)"
 df -h / "$BK" | sed 's/^/  /'
 echo
 echo "baseline 1 -- the whole suite on the committed page (green, every case run ok, none skipped, no leftover):"
@@ -365,6 +419,20 @@ mutant t4-tab-in-storage "$TABBAR_TSX" \
 report "T4: the page remembers its open tab in localStorage (no token in it)" \
        Load.test_the_token_is_not_in_browser_storage "the page left something in browser storage"
 
+mutant t5-cookie "$SESSION_TS" \
+    '  holdToken(j.token);' \
+    '  holdToken(j.token);
+  document.cookie = "t=" + j.token;'
+report "T5: the token is written into a cookie" \
+       Load.test_the_token_is_not_in_browser_storage "the token is in browser storage"
+
+mutant t6-indexeddb-database "$APP_TSX" \
+    '  const firstRead = useCallback(() => {' \
+    '  const firstRead = useCallback(() => {
+    void indexedDB.open("ndt-page-cache");'
+report "T6: the page opens an IndexedDB database (no token in it): indexedDB.databases() must see it" \
+       Load.test_the_token_is_not_in_browser_storage "the page left something in browser storage"
+
 # === the key: traded once, gone from the address bar, a used key and no key open nothing ===========
 
 mutant s1-second-trade "$SESSION_TS" \
@@ -410,6 +478,17 @@ mutant x1-inline-script "$INDEX_HTML" \
 report "X1: an inline <script> in the built index.html (CSP positive control)" \
        Load.test_the_page_sees_no_csp_violation "CSP violation(s) (data-csp-violations)"
 
+# X1 is caught by the buffered ReportingObserver (the inline script is blocked before main.tsx runs).
+# X2 proves the other counter: the observer is switched off and the page makes a violation AFTER the
+# listener is registered -- a style attribute, which style-src 'self' blocks -- so only the
+# securitypolicyviolation listener can count it.
+mutant x2-listener-only "$MAIN_TSX" \
+    'if (typeof ReportingObserver === "function") {' \
+    'document.body.setAttribute("style", "color: red"); // X2: a violation after load
+if (document.body.dataset.x2Never === "on") { // X2: the observer never starts'
+report "X2: no ReportingObserver, and a style attribute set at run time (the listener's positive control)" \
+       Load.test_the_page_sees_no_csp_violation "CSP violation(s) (data-csp-violations)"
+
 # === how hard the dialog asks: the server's confirm_policy, the page's measuring rule ==============
 
 mutant c1-up-plain "$SERVE_PY" \
@@ -435,6 +514,43 @@ mutant c2b-server-no-own-claim "$SERVE_PY" \
     '        return "typed", False'
 report "C2b: serve.py confirm_policy says up/down need no claim of your own" \
        Confirm.test_a_claim_not_yours_puts_claim_first 'no "claim first" blocker'
+
+# Adam 09-28: no claim at all is not yours either.
+mutant cf1-blocks-only-a-claim-row "$DIALOG_TSX" \
+    'if (D.needs_own_claim && !(L && L.claim_is_yours))' \
+    'if (D.needs_own_claim && L && L.claim !== null && !L.claim_is_yours)'
+report "CF1: the page puts claim first only when there is a claim row" \
+       Confirm.test_no_claim_puts_claim_first "blocker for up with no claim row"
+
+mutant cf2-blocks-only-a-foreign-claim "$DIALOG_TSX" \
+    'if (D.needs_own_claim && !(L && L.claim_is_yours))' \
+    'if (D.needs_own_claim && L && L.claim !== null && L.claim !== "none" && !L.claim_is_yours)'
+report "CF2: the page puts claim first only under somebody else's claim (not none, not missing)" \
+       Confirm.test_no_claim_puts_claim_first 'blocker for up with `claim none`'
+
+mutant a1-app-no-preview "$APPSTAB_TSX" \
+    '      preview: true,' \
+    '      preview: false,'
+report "A1: an app start or stop asks the server for no dry run (AppsTab preview: false)" \
+       Confirm.test_an_app_start_shows_the_dry_run_and_claim_first "dry-run answer(s) to POST /apps/energy/start, not 1"
+
+mutant w1-any-text "$DIALOG_TSX" \
+    'typedRef.current?.value === a.word' \
+    '(typedRef.current?.value ?? "") !== ""'
+report "W1: any non-empty text in the typed box turns Confirm on" \
+       Confirm.test_up_asks_for_the_typed_word "Confirm is on after typing only \`u\`"
+
+mutant w2-a-prefix "$DIALOG_TSX" \
+    'typedRef.current?.value === a.word' \
+    '((v: string) => v !== "" && a.word.startsWith(v))(typedRef.current?.value ?? "")'
+report "W2: a non-empty prefix of the word turns Confirm on" \
+       Confirm.test_up_asks_for_the_typed_word "Confirm is on after typing only \`u\`"
+
+mutant w3-starts-with-the-word "$DIALOG_TSX" \
+    'typedRef.current?.value === a.word' \
+    'typedRef.current?.value.startsWith(a.word) === true'
+report "W3: any text that starts with the word turns Confirm on" \
+       Confirm.test_up_asks_for_the_typed_word "Confirm is on after typing \`upx\`"
 
 mutant c3-no-measuring-upgrade "$DIALOG_TSX" \
     ' || !(L && L.measuring_is_nothing)' \
@@ -486,6 +602,15 @@ also "$DIALOG_TSX" \
 report "C8: Confirm works twice (no fired ref, no disabled at once, no sent)" \
        Confirm.test_a_double_click_posts_once "a double click on Confirm posted more than the one write"
 
+# Equivalent today: showModal() runs the dialog focusing steps, and at that moment Cancel is the first
+# focusable element (the typed row and the checkbox are hidden, Confirm is disabled).
+mutant e1-no-cancel-focus "$DIALOG_TSX" \
+    '    cancelRef.current?.focus();
+' \
+    ''
+equivalent "E1: the explicit focus() on Cancel is removed" \
+       Confirm.test_the_focus_starts_on_cancel "showModal() focuses Cancel itself"
+
 # === the dry run ===================================================================================
 
 mutant d1-own-argv "$DIALOG_TSX" \
@@ -510,13 +635,14 @@ report "R0: the auto-refresh timer is never armed (the load's read only)" \
 
 mutant r1-not-hidden "$REFRESH_TS" \
     'if (document.visibilityState === "hidden") {' \
-    'if ((document.visibilityState as string) === "never") {' 3
-report "R1: the auto-refresh never sees the page hidden (all three checks)" \
+    'if ((document.visibilityState as string) === "never") {' 4
+report "R1: the auto-refresh never sees the page hidden (all four === checks)" \
        Refresh.test_refresh_stops_while_hidden_and_resumes_when_shown "while the page was hidden"
 
 mutant r1b-no-read-when-shown "$REFRESH_TS" \
-    '      if (timer.current === null && !inFlight.current) void tick();' \
-    '      // R1b: nothing on coming back'
+    '      void tick();
+    };' \
+    '    };'
 report "R1b: shown again, the page does not read and re-arm" \
        Refresh.test_refresh_stops_while_hidden_and_resumes_when_shown "no read of /lab after the page was shown again"
 
@@ -524,6 +650,7 @@ mutant r2-no-measuring-pause "$REFRESH_TS" \
     '    if (!live.current) return;
     if (measuring.current) {
       setState("paused-measuring");
+      if (document.visibilityState !== "hidden") timer.current = window.setTimeout(probe, PROBE_INTERVAL_MS);
       return;
     }
 ' \
@@ -543,6 +670,92 @@ mutant r2b-declared-half "$REFRESH_TS" \
     '  return lab.measuring_is_nothing === false;'
 report "R2b: a declared measurement does not pause" \
        Refresh.test_refresh_stops_while_declared "while a measurement was declared"
+
+mutant r6-refresh-now-resumes "$REFRESH_TS" \
+    '    await readOnce(readRef.current);
+    arm();
+  }, []);' \
+    '    await readOnce(readRef.current);
+    measuring.current = false; // R6
+    arm();
+  }, []);'
+report "R6: 立即更新 always brings the 10 s tick back, even while still measuring" \
+       Refresh.test_refresh_stops_while_measuring "while still measuring brought the 10 s tick back"
+
+# --- the probe during a measuring pause (Adam's Q6, 09-28) ---
+
+mutant q1-no-probe "$REFRESH_TS" \
+    '      if (document.visibilityState !== "hidden") timer.current = window.setTimeout(probe, PROBE_INTERVAL_MS);' \
+    '      // Q1: no probe'
+report "Q1: the probe is never armed" \
+       Refresh.test_a_measuring_pause_probes_the_lab_alone "not /lab alone once"
+
+mutant q2-probe-reads-everything "$REFRESH_TS" \
+    'await readOnce(labRef.current);' \
+    'await readOnce(readRef.current);'
+report "Q2: the probe reads everything (readRef, not labRef)" \
+       Refresh.test_a_measuring_pause_probes_the_lab_alone "not /lab alone once"
+
+mutant q3-probe-every-20-s "$REFRESH_TS" \
+    'export const PROBE_INTERVAL_MS = 60_000;' \
+    'export const PROBE_INTERVAL_MS = 20_000;'
+report "Q3: the probe interval is 20 s, not 60 s" \
+       Refresh.test_a_measuring_pause_probes_the_lab_alone "not /lab alone once"
+
+mutant q4-readlab-reads-apps "$APP_TSX" \
+    '    const l = await get<LabAnswer>("/lab");' \
+    '    const l = await get<LabAnswer>("/lab");
+    await get<AppsAnswer>("/apps");'
+report "Q4: readLab also GETs /apps" \
+       Refresh.test_a_measuring_pause_probes_the_lab_alone "not /lab alone once"
+
+mutant q5-probe-result-ignored "$REFRESH_TS" \
+    'await readOnce(labRef.current);' \
+    'await labRef.current();'
+report "Q5: the probe reads /lab but its answer never ends the pause" \
+       Refresh.test_a_measuring_pause_probes_the_lab_alone "the refresh did not resume"
+
+mutant q6-shown-reads-at-once "$REFRESH_TS" \
+    '      if (measuring.current) {
+        arm();
+        return;
+      }
+      void tick();' \
+    '      void tick();'
+report "Q6: shown again while measuring, the page reads at once" \
+       Refresh.test_a_measuring_pause_reads_nothing_while_hidden "read at once when shown again while measuring"
+
+# The two hidden checks of the probe hold each other up: arm() arms no probe while hidden, and
+# probe() reads nothing while hidden. Each alone is equivalent (Q7a, Q7b below, run and seen green);
+# both gone (Q7) is a probe that reads while the page is hidden.
+mutant q7-probe-while-hidden "$REFRESH_TS" \
+    '      if (document.visibilityState !== "hidden") timer.current = window.setTimeout(probe, PROBE_INTERVAL_MS);' \
+    '      timer.current = window.setTimeout(probe, PROBE_INTERVAL_MS); // Q7'
+also "$REFRESH_TS" \
+    '    if (document.visibilityState === "hidden") {
+      arm(); // nothing is read while hidden
+      return;
+    }
+    await readOnce(labRef.current);' \
+    '    await readOnce(labRef.current);'
+report "Q7: the probe is armed while hidden AND reads while hidden" \
+       Refresh.test_a_measuring_pause_reads_nothing_while_hidden "while measuring and hidden"
+
+mutant q7a-armed-while-hidden "$REFRESH_TS" \
+    '      if (document.visibilityState !== "hidden") timer.current = window.setTimeout(probe, PROBE_INTERVAL_MS);' \
+    '      timer.current = window.setTimeout(probe, PROBE_INTERVAL_MS); // Q7a'
+equivalent "Q7a: the probe is armed while hidden (probe() still checks)" \
+       Refresh.test_a_measuring_pause_reads_nothing_while_hidden "probe() reads nothing while hidden"
+
+mutant q7b-reads-while-hidden "$REFRESH_TS" \
+    '    if (document.visibilityState === "hidden") {
+      arm(); // nothing is read while hidden
+      return;
+    }
+    await readOnce(labRef.current);' \
+    '    await readOnce(labRef.current);'
+equivalent "Q7b: probe() has no hidden check (arm() still arms none while hidden)" \
+       Refresh.test_a_measuring_pause_reads_nothing_while_hidden "arm() arms no probe while hidden"
 
 # === the job log: stops on Close, at the job's end, while hidden ===================================
 
@@ -573,9 +786,11 @@ echo "files under test unchanged by this gate (${#SUBJECTS[@]} files; node_modul
 sha256sum "${SUBJECTS[@]}" | sha256sum | sed 's/ .*//; s/^/  sha256 of their sha256sum lines: /'
 echo "  total $((SECONDS - T0)) s"
 echo
-echo "$MUTATIONS mutation(s), $SURVIVORS survivor(s)"
+echo "$MUTATIONS mutation(s), $SURVIVORS survivor(s); $EQUIVALENTS documented equivalent(s), $BROKEN_CLAIMS broken"
 if (( LEFTOVER_RUNS > 0 )); then
     echo "REFUSED: $LEFTOVER_RUNS run(s) left processes behind (see 'leftovers:' above)"
     exit 2
 fi
-(( SURVIVORS == 0 ))
+(( SURVIVORS == 0 && BROKEN_CLAIMS == 0 ))
+exit
+}
