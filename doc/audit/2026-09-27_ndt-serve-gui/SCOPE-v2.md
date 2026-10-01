@@ -292,9 +292,8 @@ Web-GUI 沒有全域的上方列，這裡照它 `AvailabilityStatus.tsx:~236-255
 **真的要搬進 Web-GUI 時，得改的東西**（只列出來，不設計）：
 1. **路由**：Web-GUI 用 react-router 7 的 `BrowserRouter`（`App.tsx:73`）。`<NdtServeApp/>` 要掛成它的一個 route，分頁可能要改成 nested route。
 2. **認證和 token 的交接**：現在「fragment 裡的一次性 key 換 token」建立在頁面和 API 同源的前提上。
-   - Web-GUI 在 `:3000`，打 ndt serve（127.0.0.1 上的另一個 port）就是跨源。要嘛 ndt serve 開 CORS（現在是紅線），要嘛由 Web-GUI 的 Express（`:3001`）代理。
-   - 這牽涉到 Web-GUI 綁在 0.0.0.0:3000、而 lab 動作只准 loopback 這個安全問題，是另一份設計，還沒排程。
-3. **CSP**：Web-GUI 用 `serve -s` 提供頁面，沒有任何 CSP；我們的「沒有 inline、只有 `'self'`」保證，要靠它那邊設標頭。
+   - 掛進另一個 app 之後，頁面和 ndt serve 不再同源。ndt serve 不送 CORS 標頭（紅線），所以要由那個 app 的後端代理，或另做同源的安排；這是另一份設計，還沒排程。
+3. **CSP**：「沒有 inline、只有 `'self'`」這個保證來自 ndt serve 自己送的標頭。搬過去之後，要由提供頁面的那一端送同樣的標頭，這個保證才還在。
 4. **i18n**：Web-GUI 把語言寫死成 `lng: 'en'`（`i18n.ts:15`），而且沒有 zh 的資源。
 5. **儲存**：Web-GUI 的 `useLanguage.ts:10` 會寫 localStorage。「token 不落地」的 SourceLint 規則要限定在我們自己的目錄。
 6. **建置**：Web-GUI 用 pnpm，Docker 裡是 Node 18。原始碼搬過去之後要用它的 lockfile 重新解版本；BUILD.json 和 rebuild 閘門在那邊不適用。
