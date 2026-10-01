@@ -2,7 +2,12 @@
 
 [Co-developed with claude code -- Adam]
 
-- **DELIVERED**：`feat/ndt-serve-gui-v2-0927`。下面所有的測試和閘門都在 **`3b6e533c`** 上跑；這份 SUMMARY 是它之後唯一的 commit，只加這一個檔（`evidence-r2-3b6e533c.log` 與送給 orchestrator 的訊息裡有 `git diff --stat`）。
+- **DELIVERED**：`feat/ndt-serve-gui-v2-0927` `189e89a0`。第 4 節表格前五列的閘門和套件都在 **`3b6e533c`** 上跑；`189e89a0` 只多了這份 SUMMARY（`evidence-r2-3b6e533c.log` 末段有 `git diff --stat`）。
+- **例外**（判官 r2 的 N5）：
+  - G-N7 的紅燈先行（`gn7-red-first-r2.log`）跑在 `0fde4678` 加上當時還沒 commit 的測試檔；
+  - `evidence-r2-3b6e533c.log` 在 15:34 寫下首行之後，又追加過兩段（`189e89a0` 的 diff-stat、`d452d111` 的 merge-tree）；
+  - 合併樹的 log 只靠檔名綁定樹 id。
+- **189e89a0 之後的修正**（判官 r2 的 MERGE AFTER FIXES）都在本檔第 1、2 節直接改正；最終結果等 Adam 的兩項裁定後重跑。
 - **只在分支上**：沒有併、沒有推，沒用 sudo，沒動 lab。
 - **第一輪的 SUMMARY**（`SUMMARY-v2.md`）原樣保留。它和本檔不一致的地方，以本檔為準，第 2 節逐條列出。
 - **標記**：OBSERVED＝本輪在 `3b6e533c` 上實際跑過，log 會印出 head。INFERRED＝推論、讀碼得出，或沒有在這顆 head 上跑過。
@@ -11,17 +16,16 @@
 ## 1. 要 orchestrator 決定的
 
 1. **探測算不算「輕」**（判官的發現 1，請轉問 Adam）。
-   - 一次探測就是一次 plain `ndt status`：約 221 個程序，其中 7 次 `sudo`（`strace/summary.json`）。
-   - 量測中每 60 秒一次，等於每分鐘約 221 個程序；沒在量測時的自動更新約每分鐘 1,500 個。
+   - 一次探測就是一次 plain `ndt status`。**strace 量的時候 lab 是閒置的**：沒有量測、沒有 fabric、kernel 的 :8000 沒開（`strace/precheck-status.out`）。那時約 221 個程序，其中 7 次 `sudo`，都只是列出或查狀態（`strace/summary.json`）。
+   - **kernel 在跑時還多一件事**：plain `ndt status` 會向 kernel 拿一次 `/ndt/get_graph_data`（curl，最多 5 秒；ndt 的 `http_get_graph`）。也就是說，每次探測都會對正在受測的 kernel 做一次 northbound 讀取。這個狀態的程序數**還沒量過**，要開 lab 才能量，等你和 Adam 的指示。
+   - 量測中每 60 秒一次。沒在量測時，自動更新每輪是 `ndt status` 加 `ndt apps status`，約 287 個程序、9 次 `sudo`（7＋2）；實際約每分鐘 5.4 輪，即每分鐘約 1,550 個程序、49 次 `sudo`，上限是 6 輪。
+   - **量測沒有 declared 時**：探測剛好落在兩段量測之間的空檔，就會恢復每 10 秒一次；下一段量測開始後，到某一次讀取看到它之前，可能會有一次完整的讀取落在量測裡。量測有 declared 的話，頁面會一直暫停。
    - ndt serve 沒有比 `/lab` 更輕、又能讀到 measuring 欄位的辦法，因為 ndt 的行數不能改。
    - 如果 Adam 覺得太重，可以選的方向：把間隔拉長、改成只探幾次，或者回到只能手動恢復。
-2. **SCOPE-v2 的公開內容**：我選**改寫**（`e74d0a63`），只寫 ndt serve 自己要求托管它的 app 做什麼；描述 Web-GUI 現狀的原文已從樹上拿掉。
-   - **但原文仍在這條分支的歷史 `0d7f6ce8` 裡**（`git log -S'0.0.0.0:3000'` 列出 `0d7f6ce8` 和 `e74d0a63`）。
-   - trunk 若照慣例用 merge commit 併進來，原文就會隨歷史公開。
-   - 建議：這條分支**用 squash 併進 trunk**。或者由我在本機重做分支歷史，把原文從 `0d7f6ce8` 拿掉；分支沒推過，但要你點頭才做。
+2. **SCOPE-v2 的公開內容**：我選**改寫**（`e74d0a63`），只寫 ndt serve 自己要求托管它的 app 做什麼。這條分支怎麼併進 trunk（squash，或重做分支歷史），等 Adam 決定；細節在 orchestrator 的 intake 紀錄，不寫在這裡。
 3. **trunk 又往前了**：我開始這一輪時是 `584905d8`，不是你說的 `da10d3a3`。
    - 對 `da10d3a3`、`584905d8`、`d452d111` 做 `merge-tree --write-tree`，都沒有衝突（rc 0）。
-   - `da10d3a3..trunk` 裡只有 `571fa6fd`（ndt 的時鐘修正）動到 ndt serve 的檔案：只改了 RC_SOURCE 的行號和 lock probe 的引用。
+   - `da10d3a3..trunk` 裡只有 `571fa6fd`（ndt 的時鐘修正）動到 ndt serve 的檔案：ndt 本身多了 36 行，ndt serve 這邊跟著改 RC_SOURCE 的行號、lock probe 的引用，以及 M61／M64／M65 的錨點（`evidence-571fa6fd.log`）。
    - 寫這份 SUMMARY 時，trunk 又前進到 `d452d111`：多了 3 顆 commit，都只動 `tests/shell` 裡其他工具的檢查，沒碰 ndt serve，也沒碰 ndt。合併後的樹 `3a186b15` 上，四個 Python 套件（3.12 和 3.8）和主閘門全綠（第 4 節）。
 
 ## 2. 推翻／更正第一輪的說法
@@ -32,11 +36,11 @@
 | 「Python 3.12 和 3.8 全綠」 | **3.12 那一半是錯的**：`python3` 在這台機器上是 miniconda 的 **3.13.13**。這一輪明確指定 `/usr/bin/python3.12`（3.12.3）和 ryu-env 的 `python3.8`（3.8.20），閘門會把直譯器印在 log 裡。 | `which -a python3` |
 | 「app.js 是一行的 bundle」 | 51 行、291,374 bytes | `evidence-r2-3b6e533c.log` |
 | 「web/src 約 3,360 行」 | 34 個檔、3,189 行（TS/TSX 是 32 個檔、2,866 行） | 同上 |
-| 「每分鐘約 1,700 個程序、12 次 ndt、24 個請求」 | 那是**上限**。上一次讀完才排下一次，一次讀取約 1.2 秒，所以實際約每分鐘 5.4 輪：約 1,550 個程序，其中約 38 次 `sudo`。 | 判官的發現 9 |
+| 「每分鐘約 1,700 個程序、12 次 ndt、24 個請求」 | 那是**上限**。上一次讀完才排下一次，一次讀取約 1.2 秒，所以實際約每分鐘 5.4 輪：約 1,550 個程序，其中約 49 次 `sudo`（每輪 7＋2）。這些都是 lab 閒置時量的數字。第二輪原本寫「38 次」，漏算了 `ndt apps status` 的 2 次。 | 判官的發現 9；r2 的 N3 |
 | G58c「抓到安裝時跑了 install script」 | 說過頭了。它只抓得到「manifest 寫的建置指令不同」。真的跑了 install script 的建置，寫出來的 BUILD.json 一模一樣，這要靠 rebuild 閘門。標籤已改。 | 判官的發現 5 |
 | G-N7 的紅燈「token 會送給子程序」 | 第一輪的紅燈其實失敗在錯誤訊息那個斷言上。這一輪把斷言順序對調、重跑，現在失敗在 token 上，見第 4 節。 | 判官的發現 6 |
 | 「CSP 計數器有效，但分不出是誰數的」 | X1（inline script 在解析 HTML 時就被擋）只可能是 buffered observer 數到的。listener 這條路徑是這一輪的 X2 才證明的。 | 判官的發現 7 |
-| 頁面閘門的結果綁在 `6c82b9f8` | 第一輪的頁面閘門其實跑在 `2156786b` 加上兩個未 commit 的檔上，SUMMARY 沒講。這一輪全部在乾淨的 `3b6e533c` 上跑（porcelain 0）。 | 判官的發現 2 |
+| 頁面閘門的結果綁在 `6c82b9f8` | 第一輪的頁面閘門其實跑在 `2156786b` 加上兩個未 commit 的檔上，SUMMARY 沒講。這一輪第 4 節表格前五列都在乾淨的 `3b6e533c` 上跑（porcelain 0）；例外見檔首。 | 判官的發現 2 |
 
 ## 3. 這一輪改了什麼
 
@@ -51,7 +55,12 @@
 
 ## 4. 結果（OBSERVED，全部在 `3b6e533c` 上，porcelain 0）
 
-每個 log 都只由指令自己寫（`cmd > log 2>&1`），首行是閘門或套件自己印的 head、porcelain、日期和直譯器。
+前五列的 log 只由指令自己寫（`cmd > log 2>&1`），首行是閘門或套件自己印的 head、porcelain、日期和直譯器（rebuild 閘門不印直譯器，它用 Node）。其他幾列的情況：
+- 錨點 log 的首行，是我寫下的指令說明；
+- evidence log 後來追加過；
+- 合併樹的 log 只有直譯器，沒有日期、目錄和 rc。
+
+最終重跑時，這三種都會改成自己印出處。
 
 | 項目 | 結果 | log |
 |---|---|---|
@@ -77,7 +86,7 @@
 | 5 | cookie、`indexedDB.databases()` 的陽性對照；關掉 observer 的執行期 CSP 違規 | T5、T6、X2 | T5 在 70 行、T6 74、X2 102（關掉 observer 後，執行期的 `setAttribute("style")` 讓計數讀到 `'1'`） |
 | 6 | 伺服器端：沒有回應設 cookie | `Page.test_no_answer_sets_a_cookie`，變異 G61 | 主閘門 log |
 | 7 | 在最終的樹上，用明確指定的 3.12 和 3.8 跑 Python 套件 | 第 4 節 | log 首行有直譯器 |
-| 8 | 舊的 `url_command`，token 斷言放第一個 | `gn7-red-first-r2.log`：`fed37cff` 版的 serve.py 和 G48 變異兩種情況，都失敗在 token；子程序收到 198 bytes，含 `X-NDT-Token`。現在的 serve.py 是綠的 | OBSERVED |
+| 8 | 舊的 `url_command`，token 斷言放第一個 | `gn7-red-first-r2.log`：`fed37cff` 版的 serve.py 和 G48 變異兩種情況，都失敗在 token；子程序收到 198 bytes，含 `X-NDT-Token`。現在的 serve.py 是綠的 | OBSERVED，但跑在 `0fde4678` 加上未 commit 的測試檔，不是 `3b6e533c`；最終重跑時會在交付的 head 上重做 |
 | 9 | 雜湊清單對 head、merge-tree、diff-stat、ls-tree | 這一輪的 log 都由閘門自己印 head；`evidence-r2-3b6e533c.log` | OBSERVED |
 | 10 | static/ 和 web/ 多出一個檔的變異 | G58d、G58e | 主閘門 log |
 
@@ -93,7 +102,7 @@
 - 「量測中回到前景後，探測會重新排上」：沒有獨立的瀏覽器案例，要多等 60 秒。SourceLint 釘了 `onVisibility` 的寫法，主閘門的 G54c 抓得到。
 - apps 只驅動 start，沒有驅動 stop。「沒有 claim」只測了 `claim none` 和完全沒有 claim 列兩種，`EXPIRED … -- treated as free` 這種寫法沒測；伺服器端對 cells 和 apps 的過期 claim 有案例。
 - Q7a、Q7b 是**等價變異**：arm() 和 probe() 的兩個隱藏檢查互相撐著，只拿掉一個，行為不變。頁面閘門會跑這兩個，要求它們維持綠；兩個一起拿掉的 Q7 會變紅。靜態那一層，G59c 和 G59d 各自抓得到。
-- `testhooks.ts` 會出現在正式的 bundle 裡，把 `document.cookie` 複製進 DOM。只要伺服器不設 cookie，這就無害；G61 釘住了伺服器不設 cookie。
+- `testhooks.ts` 會出現在正式的 bundle 裡，把 `document.cookie` 複製進 DOM。cookie 只依 host 區分、不分 port，所以 127.0.0.1 上的其他服務設的 cookie，也會出現在 `document.cookie`，被複製進 DOM。G61 釘住的只是 ndt serve 自己不設 cookie。token 不在 cookie 裡，所以這對 token 無害（判官 r2 的 N8）。
 - `/lab` 讀取逾時時，`measuring_is_nothing` 是 false，自動更新會停在「量測中」。現在探測每 60 秒會再讀一次，讀到正常回應就自己恢復，判官的發現 1 提到的情況因此改善。
 
 ## 7. 怎麼重跑
