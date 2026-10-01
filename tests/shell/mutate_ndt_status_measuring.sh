@@ -26,7 +26,30 @@ REPO="$(cd "$HERE/../.." && pwd)"
 NDT="$REPO/tools/test_workflow/ndt"
 TEST="$HERE/test_ndt_status_measuring.sh"
 BK=$(mktemp -d "${TMPDIR:-/tmp}/ndt-measuring-mutate-XXXXXX")
-trap 'rc=$?; rm -rf "$BK"; echo "rc=$rc"' EXIT
+# [Co-developed with claude code -- Adam] How a run ENDS is part of its record. A run stopped by a
+# signal, or one that ends before its verdict line, says INCOMPLETE and never exits 0: the EXIT trap
+# alone printed rc=0 for a page gate killed with SIGTERM (10-01), which reads as a pass.
+# the end lines go to the stdout this gate STARTED with (fd 7): a trap that fires while a command
+# redirected to a file is running prints into that file -- the rebuild gate's went into ci.log
+exec 7>&1
+GATE_SIGNAL=""
+GATE_VERDICT=0
+trap 'GATE_SIGNAL=TERM; exit 143' TERM
+trap 'GATE_SIGNAL=INT; exit 130' INT
+trap 'GATE_SIGNAL=HUP; exit 129' HUP
+gate_end() {   # the EXIT trap; $1 = the status the shell is exiting with
+    local rc="$1"
+    rm -rf "$BK"
+    if [[ -n "$GATE_SIGNAL" ]]; then
+        echo "INCOMPLETE: stopped by SIG$GATE_SIGNAL before its verdict -- not a verdict" >&7
+    elif (( ! GATE_VERDICT )); then
+        echo "INCOMPLETE: ended before its verdict line -- not a verdict" >&7
+        (( rc != 0 )) || rc=2
+    fi
+    echo "rc=$rc" >&7
+    exit "$rc"
+}
+trap 'gate_end $?' EXIT
 # what this run is about, printed by the gate itself; "?" when git cannot say
 git_head=$(git -C "$REPO" rev-parse HEAD 2>/dev/null) || git_head="?"
 if git_status=$(git -C "$REPO" status --porcelain --untracked-files=no 2>/dev/null); then
@@ -244,5 +267,6 @@ fi
 echo "files under test unchanged by this gate:"
 sha256sum "$NDT" "$TEST" | sed "s|$REPO/||; s/^/  /"
 echo
+GATE_VERDICT=1
 echo "$MUTATIONS mutation(s), $SURVIVORS survivor(s)"
 (( SURVIVORS == 0 ))

@@ -68,7 +68,30 @@ REPO="$(cd "$HERE/../.." && pwd)"
 NODE_BIN="${NODE_BIN:-$HOME/.local/node/bin}"
 BK=""
 # The last line is always rc=N, whichever way this ends (a refusal included).
-trap 'rc=$?; [[ -n "$BK" ]] && rm -rf "$BK"; echo "rc=$rc"; exit $rc' EXIT
+# [Co-developed with claude code -- Adam] How a run ENDS is part of its record. A run stopped by a
+# signal, or one that ends before its verdict line, says INCOMPLETE and never exits 0: the EXIT trap
+# alone printed rc=0 for a page gate killed with SIGTERM (10-01), which reads as a pass.
+# the end lines go to the stdout this gate STARTED with (fd 7): a trap that fires while a command
+# redirected to a file is running prints into that file -- the rebuild gate's went into ci.log
+exec 7>&1
+GATE_SIGNAL=""
+GATE_VERDICT=0
+trap 'GATE_SIGNAL=TERM; exit 143' TERM
+trap 'GATE_SIGNAL=INT; exit 130' INT
+trap 'GATE_SIGNAL=HUP; exit 129' HUP
+gate_end() {   # the EXIT trap; $1 = the status the shell is exiting with
+    local rc="$1"
+    [[ -n "$BK" ]] && rm -rf "$BK"
+    if [[ -n "$GATE_SIGNAL" ]]; then
+        echo "INCOMPLETE: stopped by SIG$GATE_SIGNAL before its verdict -- not a verdict" >&7
+    elif (( ! GATE_VERDICT )); then
+        echo "INCOMPLETE: ended before its verdict line -- not a verdict" >&7
+        (( rc != 0 )) || rc=2
+    fi
+    echo "rc=$rc" >&7
+    exit "$rc"
+}
+trap 'gate_end $?' EXIT
 # This gate's own provenance, before anything else.
 echo "# date -Is: $(date -Is)"
 echo "# argv: $0 $*"
@@ -910,6 +933,7 @@ echo
 for l in $ONLY; do
     [[ "$ONLY_SEEN" == *" $l "* ]] || refuse "ONLY names $l, which is no mutation of this gate"
 done
+GATE_VERDICT=1
 echo "$MUTATIONS mutation(s), $SURVIVORS survivor(s); $EQUIVALENTS documented equivalent(s), $BROKEN_CLAIMS broken${ONLY:+ (ONLY: a partial run)}"
 if (( LEFTOVER_RUNS > 0 )); then
     echo "REFUSED: $LEFTOVER_RUNS run(s) left processes behind (see 'leftovers:' above)"

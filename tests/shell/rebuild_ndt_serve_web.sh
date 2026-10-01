@@ -32,7 +32,30 @@ NODE_BIN="${NODE_BIN:-$HOME/.local/node/bin}"
 MIN_FREE_KB=$((2 * 1024 * 1024))
 export PATH="$NODE_BIN:$PATH"
 T=""
-trap 'rc=$?; [[ -n "$T" ]] && rm -rf "$T"; echo "rc=$rc"' EXIT
+# [Co-developed with claude code -- Adam] How a run ENDS is part of its record. A run stopped by a
+# signal, or one that ends before its verdict line, says INCOMPLETE and never exits 0: the EXIT trap
+# alone printed rc=0 for a page gate killed with SIGTERM (10-01), which reads as a pass.
+# the end lines go to the stdout this gate STARTED with (fd 7): a trap that fires while a command
+# redirected to a file is running prints into that file -- the rebuild gate's went into ci.log
+exec 7>&1
+GATE_SIGNAL=""
+GATE_VERDICT=0
+trap 'GATE_SIGNAL=TERM; exit 143' TERM
+trap 'GATE_SIGNAL=INT; exit 130' INT
+trap 'GATE_SIGNAL=HUP; exit 129' HUP
+gate_end() {   # the EXIT trap; $1 = the status the shell is exiting with
+    local rc="$1"
+    [[ -n "$T" ]] && rm -rf "$T"
+    if [[ -n "$GATE_SIGNAL" ]]; then
+        echo "INCOMPLETE: stopped by SIG$GATE_SIGNAL before its verdict -- not a verdict" >&7
+    elif (( ! GATE_VERDICT )); then
+        echo "INCOMPLETE: ended before its verdict line -- not a verdict" >&7
+        (( rc != 0 )) || rc=2
+    fi
+    echo "rc=$rc" >&7
+    exit "$rc"
+}
+trap 'gate_end $?' EXIT
 # "?" when git cannot say (not a work tree, say): never a 0 that reads as a clean tree
 git_head=$(git -C "$REPO" rev-parse HEAD 2>/dev/null) || git_head="?"
 if git_status=$(git -C "$REPO" status --porcelain --untracked-files=no 2>/dev/null); then
@@ -80,6 +103,7 @@ guarded "$T/web" npm ci --ignore-scripts --no-audit --no-fund > "$T/ci.log" 2>&1
 free_enough
 if ! guarded "$T/web" env NDT_SERVE_STATIC_OUT="$T/static" npm run build > "$T/build.log" 2>&1; then
     tail -30 "$T/build.log"
+    GATE_VERDICT=1
     echo "FAIL: the sources do not build"
     exit 1
 fi
@@ -103,7 +127,9 @@ for f in $built; do
     fi
 done
 if (( bad )); then
+    GATE_VERDICT=1
     echo "FAIL: the committed bundle is not what these sources build into"
     exit 1
 fi
+GATE_VERDICT=1
 echo "OK: the committed bundle is byte for byte what these sources build into"
