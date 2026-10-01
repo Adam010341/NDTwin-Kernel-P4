@@ -59,7 +59,7 @@
 # would be in the real tree while the suite's paths are in the mirror. So each copy is removed
 # after its run, and on EXIT, INT and TERM; a SIGKILL can still leave one, and .gitignore keeps
 # that out of a commit. The judge itself is held first to synthetic runs, each built to come out
-# one way (J1-J12: the verdict, the gone-without-true acceptance, GONE's block, SUBSHELL's verdict).
+# one way (J1-J14: the verdict, the gone-without-true acceptance, GONE's block, SUBSHELL's verdict).
 #
 # Usage: bash tests/shell/mutate_fixture_spawn_helpers.sh [label...]
 #   labels: orphans liveness sweep window topo_pid ovs_claim down (default: all seven)
@@ -313,6 +313,14 @@ jcontrol "J11: the guard's FAILED line once, then rc 143" 143 "  ok       fixtur
   FAILED   spawn $GUARD_TEXT (BASHPID 9, suite 8): ending the run" 'caught (rc 143;*' judge_subshell
 jcontrol "J12: red with a summary, but no guard line" 1 \
     $'  ok       fixture took argv0=x\n  FAILED   the decoy is not te\nRan 5 checks, 1 failed' 'SURVIVED (0 line(s) say*' judge_subshell
+# J13-J14: the guard fired, but the run did not end the way its TERM ends it -- a TERM trap that
+# cleans up and returns, or a suite that ran on to a green summary.
+jcontrol "J13: the guard's FAILED line once, but rc 1" 1 "  ok       fixture took argv0=x
+  FAILED   spawn $GUARD_TEXT (BASHPID 9, suite 8): ending the run
+Ran 2 checks, 1 failed" 'SURVIVED (rc 1, not the 143*' judge_subshell
+jcontrol "J14: the guard's FAILED line once, rc 143, then a green summary" 143 "  ok       fixture took argv0=x
+  FAILED   spawn $GUARD_TEXT (BASHPID 9, suite 8): ending the run
+Ran 5 checks, all passed" 'SURVIVED (a green summary after the guard fired)' judge_subshell
 
 # --- 1. static: every call site of every selected suite -----------------------------------------
 declare -A STATIC_TOTAL=() STATIC_COND=()
