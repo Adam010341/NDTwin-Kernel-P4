@@ -16,12 +16,11 @@
 ## 1. 要 orchestrator 決定的
 
 1. **探測算不算「輕」**（判官的發現 1，請轉問 Adam）。
-   - 一次探測就是一次 plain `ndt status`。**strace 量的時候 lab 是閒置的**：沒有量測、沒有 fabric、kernel 的 :8000 沒開（`strace/precheck-status.out`）。那時約 221 個程序，其中 7 次 `sudo`，都只是列出或查狀態（`strace/summary.json`）。
-   - **kernel 在跑時還多一件事**：plain `ndt status` 會向 kernel 拿一次 `/ndt/get_graph_data`（curl，最多 5 秒；ndt 的 `http_get_graph`）。也就是說，每次探測都會對正在受測的 kernel 做一次 northbound 讀取。這個狀態的程序數**還沒量過**，要開 lab 才能量，等你和 Adam 的指示。
-   - 量測中每 60 秒一次。沒在量測時，自動更新每輪是 `ndt status` 加 `ndt apps status`，約 287 個程序、9 次 `sudo`（7＋2）；實際約每分鐘 5.4 輪，即每分鐘約 1,550 個程序、49 次 `sudo`，上限是 6 輪。
-   - **量測沒有 declared 時**：探測剛好落在兩段量測之間的空檔，就會恢復每 10 秒一次；下一段量測開始後，到某一次讀取看到它之前，可能會有一次完整的讀取落在量測裡。量測有 declared 的話，頁面會一直暫停。
-   - ndt serve 沒有比 `/lab` 更輕、又能讀到 measuring 欄位的辦法，因為 ndt 的行數不能改。
-   - 如果 Adam 覺得太重，可以選的方向：把間隔拉長、改成只探幾次，或者回到只能手動恢復。
+   - 🔴 **10-01 更正（第三輪）**：這一點原本寫的 strace 數字（221 個程序、7 次 `sudo`、一輪 287 個）不成立：ptrace 底下 setuid 失效，每次 `sudo` 都立刻失敗，root 那側什麼都沒跑。改用不經 ptrace 的量法（`/proc/stat` 程序數減等長閒置窗口、sudo 經記錄 shim、各 7 次；`live-probe-cost/RESULTS.md`）：
+     - 一次探測（plain `ndt status`）：閒置 448 個 task、8 次 `sudo`；量測中（P4 4 hosts、kernel 開著、iperf3 在跑）564 個 task、6 次 `sudo`，外加一次 `GET /ndt/get_graph_data`（約 6 ms）。
+     - 一輪完整讀取（`ndt status`＋`ndt apps status`）：閒置 596 個 task、10 次 `sudo`；量測中 719 個 task、8 次 `sudo`、一次 graph 請求。
+   - Adam 10-01 依這些數字裁定改用**更輕的探測**（RULINGS-1001 表單 7）：第三輪的 `ndt status --measuring`，只讀 claim 的 measuring= 和程序表。閒置時量得約 12 個 task、0.14 秒、0 次 `sudo`、0 次 curl（`live-probe-cost-r3/`）。細節見 `SUMMARY-v2-r3.md`。
+   - 空檔恢復的效果不變：量測沒有 declared 時，探測落在兩段量測之間的空檔就會恢復每 10 秒一次，下一段量測開始後可能有一輪完整讀取（719 個 task、8 次 `sudo`、一次 graph 請求）落在量測裡；有 declared 就一直暫停。
 2. **SCOPE-v2 的公開內容**：我選**改寫**（`e74d0a63`），只寫 ndt serve 自己要求托管它的 app 做什麼。這條分支怎麼併進 trunk（squash，或重做分支歷史），等 Adam 決定；細節在 orchestrator 的 intake 紀錄，不寫在這裡。
 3. **trunk 又往前了**：我開始這一輪時是 `584905d8`，不是你說的 `da10d3a3`。
    - 對 `da10d3a3`、`584905d8`、`d452d111` 做 `merge-tree --write-tree`，都沒有衝突（rc 0）。
@@ -36,7 +35,7 @@
 | 「Python 3.12 和 3.8 全綠」 | **3.12 那一半是錯的**：`python3` 在這台機器上是 miniconda 的 **3.13.13**。這一輪明確指定 `/usr/bin/python3.12`（3.12.3）和 ryu-env 的 `python3.8`（3.8.20），閘門會把直譯器印在 log 裡。 | `which -a python3` |
 | 「app.js 是一行的 bundle」 | 51 行、291,374 bytes | `evidence-r2-3b6e533c.log` |
 | 「web/src 約 3,360 行」 | 34 個檔、3,189 行（TS/TSX 是 32 個檔、2,866 行） | 同上 |
-| 「每分鐘約 1,700 個程序、12 次 ndt、24 個請求」 | 那是**上限**。上一次讀完才排下一次，一次讀取約 1.2 秒，所以實際約每分鐘 5.4 輪：約 1,550 個程序，其中約 49 次 `sudo`（每輪 7＋2）。這些都是 lab 閒置時量的數字。第二輪原本寫「38 次」，漏算了 `ndt apps status` 的 2 次。 | 判官的發現 9；r2 的 N3 |
+| 「每分鐘約 1,700 個程序、12 次 ndt、24 個請求」 | 那是**上限**。上一次讀完才排下一次，一次讀取約 1.2 秒，所以實際約每分鐘 5.4 輪：約 1,550 個程序，其中約 49 次 `sudo`（每輪 7＋2）。這些都是 lab 閒置時量的數字。第二輪原本寫「38 次」，漏算了 `ndt apps status` 的 2 次。🔴 10-01：這一列的 1,550 和 49 也是 strace 的數字，已被 §1.1 的更正推翻（量得閒置一輪 596 個 task、10 次 `sudo`）。 | 判官的發現 9；r2 的 N3 |
 | G58c「抓到安裝時跑了 install script」 | 說過頭了。它只抓得到「manifest 寫的建置指令不同」。真的跑了 install script 的建置，寫出來的 BUILD.json 一模一樣，這要靠 rebuild 閘門。標籤已改。 | 判官的發現 5 |
 | G-N7 的紅燈「token 會送給子程序」 | 第一輪的紅燈其實失敗在錯誤訊息那個斷言上。這一輪把斷言順序對調、重跑，現在失敗在 token 上，見第 4 節。 | 判官的發現 6 |
 | 「CSP 計數器有效，但分不出是誰數的」 | X1（inline script 在解析 HTML 時就被擋）只可能是 buffered observer 數到的。listener 這條路徑是這一輪的 X2 才證明的。 | 判官的發現 7 |
