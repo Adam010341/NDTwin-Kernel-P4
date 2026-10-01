@@ -2979,14 +2979,17 @@ hb_drop_check_run() {
     python3 "$REPO/tools/test_workflow/heartbeat_drop_check.py" "$1"
 }
 
-# hb_drop_check_step <package dir> -- run it, say it in ONE line (the whole answer goes to
-# .test_run/logs/heartbeat_drop_check.log), and remember it for heartbeat_up_step. Always rc 0: a
-# program that does not drop the frame costs the fabric its detection, not its bring-up.
+# hb_drop_check_step <package dir> -- run it, say it in ONE line (the whole answer goes to a log
+# of this bring-up's own, named on that line), and remember it for heartbeat_up_step. Always rc 0:
+# a program that does not drop the frame costs the fabric its detection, not its bring-up.
 # 🔴 One line on purpose: live-p1/06 keeps the first 6000 characters of `ndt up`'s output per arm,
 # and the detect-only line external_evidence.py needs comes later in it.
+# [Co-developed with claude code -- Adam] One log PER BRING-UP (the round-4 review's S-5): 06 runs
+# 26 arms, and a single heartbeat_drop_check.log held only the last arm's answer by the time
+# anybody read it. The name carries the UTC second and this shell's pid; the line names the file.
 hb_drop_check_step() {
     local out rc log progs
-    log="$REPO/.test_run/logs/heartbeat_drop_check.log"
+    log="$REPO/.test_run/logs/heartbeat_drop_check.$(date -u +%Y%m%dT%H%M%SZ).$$.log"
     out="$(hb_drop_check_run "$1" 2>&1)"; rc=$?
     mkdir -p "$(dirname "$log")" 2>/dev/null && printf '%s\n' "$out" > "$log" 2>/dev/null
     HB_CHECK_RC="$rc"
@@ -2995,7 +2998,7 @@ hb_drop_check_step() {
     [[ -z "$HB_CHECK_WHY" && "$rc" != 0 ]] && HB_CHECK_WHY="the drop check answered rc $rc"
     progs="$(printf '%s\n' "$out" | sed -n -E 's/^heartbeat drop check \(([a-z]+)\): ([^ ]+) .*$/\2 \1/p' | paste -sd, - | sed 's/,/, /g')"
     case "$rc" in
-        0) ok "heartbeat drop check: every program drops its frame (${progs:-?}) -- default actions only; entries its controller installs later are not covered" ;;
+        0) ok "heartbeat drop check: every program drops its frame (${progs:-?}) -- the declared program's default actions only; entries, a pipeline or a default action its controller sets later are not covered (${log#$REPO/})" ;;
         1) warn "heartbeat drop check: a program does NOT drop its frame -- $HB_CHECK_WHY (${log#$REPO/})" ;;
         *) warn "heartbeat drop check could not tell (rc $rc) -- $HB_CHECK_WHY (${log#$REPO/})" ;;
     esac
@@ -7136,6 +7139,12 @@ cmd_status() {
             foreign:*)
                 if [[ "$pkgmode" == external ]]; then
                     echo "  ${paths:-?} destination paths reported; none expected -- an external control plane on dpid ${pkgpipe#foreign:}: its forwarding is its own controller's, and the proxy reports no path rather than guess one over the declared links"
+                    # [Co-developed with claude code -- Adam] A count there means the guess came
+                    # back (the round-4 review's nit): the proxy reports none on an external plane.
+                    if [[ "$paths" =~ ^[0-9]+$ ]] && (( paths > 0 )); then
+                        echo "  !! $paths path(s) on an external control plane, where the proxy reports none: a guessed route is being served"
+                        problems+=("proxy reports $paths destination paths on an external control plane, want 0 (it reports none there)")
+                    fi
                 else
                     echo "  ${paths:-?} destination paths reported; not a count of installed routes unless NDTwin owns the route tables -- the package's program on dpid ${pkgpipe#foreign:}, proxy skipped lldp_discovery (without them they are shortest paths over the package's declared links: the twin's guess)"
                 fi

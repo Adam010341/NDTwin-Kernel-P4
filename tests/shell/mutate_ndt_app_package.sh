@@ -625,6 +625,17 @@ EOF
 check_fires "M28b: an external plane's no-path row is read as a guess" m28b \
             "🔴 an external plane on its own pipeline expects no path"
 
+# [Co-developed with claude code -- Adam] M28c (the round-4 review's nit): a count of paths on an
+# external control plane -- the guess coming back -- is never flagged.
+cat > "$A/m28c.old" <<'EOF'
+                    if [[ "$paths" =~ ^[0-9]+$ ]] && (( paths > 0 )); then
+EOF
+cat > "$A/m28c.new" <<'EOF'
+                    if false; then
+EOF
+check_fires "M28c: a path count on an external plane is not flagged" m28c \
+            "🔴 a nonzero count on an external plane is flagged" "🔴 and is a --check problem"
+
 # M29: `up_p4` stops telling verify_p4 whose program is on the switches. Every branch above is
 # then unreachable from the command that matters, while the functions themselves stay perfect --
 # the P1-A M19 shape (a decision that is right and never consulted).

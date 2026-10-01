@@ -1188,7 +1188,17 @@ OUT="$(drive "NDT_APP_DIR=$(q "$PKG_EXT_OWN"); up_p4")"
 OUT="$(run_status --check "$PROXY_STUBS")"
 has   "🔴 an external plane on its own pipeline expects no path" "4 destination paths reported; none expected -- an external control plane on dpid 1" "$OUT"
 hasnt "  and does not call its count the twin's guess"   "the twin's guess" "$OUT"
-hasnt "  nor a --check problem"                          "proxy reports 4 destination paths, want" "$OUT"
+hasnt "  nor a shortfall --check problem"                "proxy reports 4 destination paths, want 12" "$OUT"
+# [Co-developed with claude code -- Adam] ...but a count there IS the guess coming back (the
+# round-4 review's nit): flagged, and a --check problem. Zero is the designed answer, and quiet.
+has   "🔴 a nonzero count on an external plane is flagged"  "!! 4 path(s) on an external control plane, where the proxy reports none" "$OUT"
+has   "🔴 and is a --check problem"                         "proxy reports 4 destination paths on an external control plane, want 0" "$OUT"
+check "  so --check exits 1 on it"                        "1" "$(rc_of "$OUT")"
+reset_fix
+OUT="$(drive "NDT_APP_DIR=$(q "$PKG_EXT_OWN"); up_p4")"
+OUT="$(run_status --check "${PROXY_STUBS/echo 4/echo 0}")"
+has   "  zero paths on an external plane: the designed answer" "0 destination paths reported; none expected -- an external control plane" "$OUT"
+hasnt "🔴 and not flagged"                                   "path(s) on an external control plane, where the proxy reports none" "$OUT"
 reset_fix
 OUT="$(drive "NDT_APP_DIR=$(q "$PKG_OK"); up_p4")"
 OUT="$(run_status --check "$PROXY_STUBS")"
