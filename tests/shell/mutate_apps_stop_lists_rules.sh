@@ -196,12 +196,13 @@ report "M9: the report starts deleting what it finds" "$m" \
 # printed `SURVIVED M10 ... that case proves nothing`. `check_gate_anchors.py HEAD` said
 # `MISSING:1` for this file in the same round, which is how it was found rather than believed.
 # The anchor is now app_started_at's own last two lines: same function, same statement, and it
-# does not depend on what follows the closing brace.
+# does not depend on what follows the closing brace. [Co-developed with claude code -- Adam]
+# 2026-09-28: the line now reads the caller's `now` first (one clock per residue report).
 m=$(mutant m10 "$NDT" \
-    '    [[ -n "$best" ]] && { echo "$(( $(date +%s) - best ))"; return 0; }
+    '    [[ -n "$best" ]] && { echo "$(( ${now:-$(date +%s)} - best ))"; return 0; }
     return 1
 }' \
-    '    [[ -n "$best" ]] && { echo "$(( $(date +%s) - best ))"; return 0; }
+    '    [[ -n "$best" ]] && { echo "$(( ${now:-$(date +%s)} - best ))"; return 0; }
     echo 0
 }')
 report "M10: an app with no record gets a window of all time" "$m" \
