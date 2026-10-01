@@ -29,13 +29,18 @@
 #
 # Run:  bash tests/shell/test_fixture_suites_end_on_signal.sh [label...]
 #   labels: orphans liveness sweep window topo_pid ovs_claim down (default: all seven)
-#   SIGNAL_END_WITHIN=20  SIGNAL_FIRST_FIXTURE_WAIT=180  SIGNAL_HARD_LIMIT=600   (seconds)
+#   SIGNAL_END_WITHIN=20  SIGNAL_FIRST_FIXTURE_WAIT=60  SIGNAL_HARD_LIMIT=30  SIGNAL_TOTAL_LIMIT=300
+#   (seconds). Green, the fourteen runs take about 15 s in all. The limits keep a HUNG suite a red
+#   line rather than a killed CI job (build-and-test has timeout-minutes 30): one run is at most
+#   FIRST_WAIT + HARD_LIMIT + 3 s = 93 s, and no run starts after TOTAL_LIMIT, so the whole test
+#   ends within 300 + 93 = 393 s. Without the total limit it would be 14 x 93 = 1302 s.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ALL_LABELS=(orphans liveness sweep window topo_pid ovs_claim down)
 END_WITHIN="${SIGNAL_END_WITHIN:-20}"
-FIRST_WAIT="${SIGNAL_FIRST_FIXTURE_WAIT:-180}"
-HARD_LIMIT="${SIGNAL_HARD_LIMIT:-600}"
+FIRST_WAIT="${SIGNAL_FIRST_FIXTURE_WAIT:-60}"
+HARD_LIMIT="${SIGNAL_HARD_LIMIT:-30}"
+TOTAL_LIMIT="${SIGNAL_TOTAL_LIMIT:-300}"
 
 PASS=0; FAIL=0
 check() {
@@ -107,7 +112,7 @@ now_ms() { local t="${EPOCHREALTIME/,/.}"; echo $(( ${t%.*} * 1000 + 10#${t#*.} 
 
 # one <label> <SIG> <expected rc>
 one() {
-    local label="$1" sig="$2" want="$3" tok tmpd out spid t0 t1 rc i tree="" d p f0="$FAIL"
+    local label="$1" sig="$2" want="$3" tok tmpd out spid t0 t1 rc i tree="" d p f0="$FAIL" deadline
     local -a before=() fixtures=() left=()
     suite_info "$label"
     tok="$label-$sig-$$-$RANDOM$RANDOM"; TOKENS+=("$tok")
@@ -119,13 +124,14 @@ one() {
         setsid env --default-signal=INT bash "$SFILE" </dev/null >"$out" 2>&1 &
     spid=$!
     # Wait for the first fixture premise: from here on the run is mid-way, with a fixture to lose.
-    for (( i = 0; i < FIRST_WAIT * 10; i++ )); do
+    deadline=$(( SECONDS + FIRST_WAIT ))
+    while (( SECONDS < deadline )); do
         grep -qE '^ *ok +fixture took argv0=' "$out" 2>/dev/null && break
         ended "$spid" && break
         sleep 0.1
     done
     if ended "$spid" || ! grep -qE '^ *ok +fixture took argv0=' "$out"; then
-        check "$label $sig: the suite reaches its first fixture, still running" yes \
+        check "$label $sig: the suite reaches its first fixture within ${FIRST_WAIT}s, still running" yes \
               "no ($(state_of "$spid"); last line: $(tail -1 "$out" | cut -c1-100))"
         kill -KILL "$spid" 2>/dev/null; wait "$spid" 2>/dev/null; reap_token "$tok"
         return
@@ -148,9 +154,13 @@ one() {
     check "$label $sig: its temp tree is found while it runs" yes "$([[ -n "$tree" ]] && echo yes || echo no)"
     t0="$(now_ms)"
     if [[ "$sig" == INT ]]; then kill -s INT -- "-$spid"; else kill -s "$sig" "$spid"; fi
-    for (( i = 0; i < HARD_LIMIT * 10; i++ )); do ended "$spid" && break; sleep 0.1; done
+    deadline=$(( SECONDS + HARD_LIMIT ))
+    while (( SECONDS < deadline )); do ended "$spid" && break; sleep 0.1; done
     t1="$(now_ms)"
-    ended "$spid" || kill -KILL "$spid" 2>/dev/null
+    if ! ended "$spid"; then
+        echo "             still running ${HARD_LIMIT}s after the signal: killed (SIGNAL_HARD_LIMIT)"
+        kill -KILL "$spid" 2>/dev/null
+    fi
     wait "$spid"; rc=$?
     check "$label $sig: the run ends with $want" "$want" "$rc"
     check "$label $sig: within ${END_WITHIN}s of the signal" yes \
@@ -168,8 +178,13 @@ one() {
 }
 
 for l in "${LABELS[@]}"; do
-    one "$l" TERM 143
-    one "$l" INT 130
+    for sig in TERM INT; do
+        if (( SECONDS >= TOTAL_LIMIT )); then
+            check "$l $sig: run, before SIGNAL_TOTAL_LIMIT (${TOTAL_LIMIT}s) was used up" yes "no (${SECONDS}s used)"
+            continue
+        fi
+        if [[ "$sig" == TERM ]]; then one "$l" TERM 143; else one "$l" INT 130; fi
+    done
 done
 
 echo

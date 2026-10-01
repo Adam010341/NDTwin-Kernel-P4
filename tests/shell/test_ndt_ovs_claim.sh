@@ -278,8 +278,9 @@ spawn() {
     FIXTURE_PID=""
     # From a command substitution of its own, so the fixture is never a job of this shell; the
     # redirections keep it off that substitution's pipe, which it would otherwise hold open. The
-    # pid is registered inside the substitution, so a signal handled when it returns finds it in
-    # the register (2026-10-01; test_ndt_app_orphans.sh's spawn_fixture says why).
+    # pid is registered inside the substitution, so a signal sent to this shell finds it in the
+    # register; a group-wide one (Ctrl-C) still has a window (2026-10-01; test_ndt_app_orphans.sh's
+    # spawn_fixture says both).
     if [[ "$how" == setsid ]]; then
         pid="$( ( cd "$FIX" && exec setsid bash -c 'exec -a "$0" sleep 120' "$want" ) \
                 >/dev/null 2>&1 </dev/null & echo "$!" >> "$FIXTURES"; echo "$!" )"

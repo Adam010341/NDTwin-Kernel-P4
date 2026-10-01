@@ -167,9 +167,12 @@ spawn_fixture() {
     # The redirections are load-bearing, not tidiness: a background child that inherits that
     # substitution's pipe keeps it open, and the caller blocks for the fixture's whole lifetime
     # (measured here -- the first draft hung for FIXTURE_TTL seconds per fixture and had to be
-    # killed). The pid is registered INSIDE the substitution (2026-10-01): a signal this shell
-    # takes while the substitution runs is handled after it returns, and by then the EXIT trap's
-    # register already holds the pid. Registered after the assignment, it could be lost.
+    # killed). The pid is registered INSIDE the substitution (2026-10-01): a signal sent to THIS
+    # shell while the substitution runs is handled after it returns, and by then the EXIT trap's
+    # register already holds the pid; registered after the assignment, it could be lost. Not
+    # closed: a signal sent to the whole process group (a Ctrl-C) also reaches the substitution's
+    # own subshell, which can die between starting the fixture and writing its pid -- a window
+    # under a millisecond, in which the fixture (it ignores INT) is left to its FIXTURE_TTL.
     pid="$( ( cd "$dir" && exec -a "$want" sleep "$FIXTURE_TTL" ) \
             >/dev/null 2>&1 </dev/null & echo "$!" >> "$FIXTURE_REG"; echo "$!" )"
     deadline=$(( SECONDS + FIXTURE_ARGV_WAIT ))

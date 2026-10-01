@@ -125,8 +125,9 @@ spawn_fixture() {
     # From a command substitution of its own, so the fixture is never a job of this shell (it
     # still shares this shell's process group -- section 3 depends on that); the redirections
     # keep it off that substitution's pipe, which it would otherwise hold open. The pid is
-    # registered inside the substitution, so a signal handled when it returns finds it in the
-    # register (2026-10-01; test_ndt_app_orphans.sh's spawn_fixture says why).
+    # registered inside the substitution, so a signal sent to this shell finds it in the
+    # register; a group-wide one (Ctrl-C) still has a window (2026-10-01; test_ndt_app_orphans.sh's
+    # spawn_fixture says both).
     pid="$( ( exec -a "$want" sleep "$FIXTURE_TTL" ) \
             >/dev/null 2>&1 </dev/null & echo "$!" >> "$FIXTURE_REG"; echo "$!" )"
     deadline=$(( SECONDS + FIXTURE_ARGV_WAIT ))

@@ -99,9 +99,10 @@ OURS=""; THEIRS=""
 FIXTURE_ARGV_WAIT=30
 FIXTURE_PID=""
 # Every pid spawn() starts, one per line. A FILE since 2026-10-01, written inside the substitution
-# that starts the fixture: a signal this shell takes while that substitution runs is handled after
+# that starts the fixture: a signal sent to this shell while that substitution runs is handled after
 # it returns, and the EXIT trap then finds the pid here. An array appended after the assignment
-# could miss it.
+# could miss it. A signal to the whole process group still has a window: test_ndt_app_orphans.sh's
+# spawn_fixture says which.
 SPAWNED_REG="$FIX/spawned.pids"
 : > "$SPAWNED_REG"
 spawn() {
