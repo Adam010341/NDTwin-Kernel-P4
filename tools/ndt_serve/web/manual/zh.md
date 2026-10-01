@@ -177,13 +177,16 @@ job、逐步驗證和讀取紀錄的 id 都很長，頁面只顯示**短 id**：
 
 - 頁面每 10 秒讀一次：`/lab`（執行一次 plain `ndt status`）、`/apps`（執行一次 `ndt apps status`）、`/health` 和 `/jobs`（這兩個不執行任何程序）。
 - 上一次讀完才排下一次，不會疊加。所以頁面在前景、沒有量測時，每分鐘**最多** 24 個請求、12 次 `ndt` 呼叫；一次讀取約 1.2 秒，實際大約每分鐘 5 輪多。
-- 在這台筆電上量過（strace）：一次 plain `ndt status` 約 221 個程序，其中 7 次 `sudo`；一次 `ndt apps status` 約 66 個。
+- 在這台筆電上用 strace 量過，當時 lab 閒置：沒有量測、沒有 fabric、kernel 的 8000 port 沒開。一次 plain `ndt status` 約 221 個程序，其中 7 次 `sudo`；一次 `ndt apps status` 約 66 個，其中 2 次 `sudo`。這些 `sudo` 都只是列出或查狀態。
+- kernel 在跑的時候，plain `ndt status` 還會向它拿一次 `/ndt/get_graph_data`（curl，最多 5 秒），也就是對正在受測的 kernel 做一次 northbound 讀取。這個狀態還沒量過。
 
 **已暫停（量測中）**
 
 - 什麼時候：最近一次讀到的 measuring 不是 `nothing`，或有 declared。
-- 暫停期間，頁面**每 60 秒只讀一次 `/lab`**（一次 plain `ndt status`），不讀 `/apps`、`/health`、`/jobs`。這是 Adam 09-28 的裁定：量測中的自動探測要唯讀、要輕。
+- 暫停期間，頁面**每 60 秒只讀一次 `/lab`**（一次 plain `ndt status`；kernel 在跑時，也就包括一次向 kernel 拿圖），不讀 `/apps`、`/health`、`/jobs`。這是 Adam 09-28 的裁定：量測中的自動探測要唯讀、要輕。
 - **怎麼恢復**：探測讀到 measuring 是 `nothing` 而且沒有 declared，就自動恢復每 10 秒一次；否則 60 秒後再探一次。
+- 所以如果量測沒有 declared，探測剛好落在兩段量測之間的空檔時，自動更新會恢復；下一段量測開始後，到某一次讀取看到它之前，可能會有一次完整的讀取落在量測裡。量測期間要完全不讀，就先 declare。
+- 暫停期間，上方列的「上次讀取」是探測的時間，而探測只讀 lab：apps、health、jobs 停在最後一次完整讀取的時候。
 - 也可以隨時按「立即更新」：它把 lab、apps、health、jobs 全部讀一次，再由讀到的結果決定恢復或繼續暫停。
 - 頁面在背景時連探測也停；回到前景後，60 秒後才探下一次，不會一回來就讀。
 

@@ -3,7 +3,7 @@
     "app.css": "780f0a54807c1edb0ceaa7d626bc58ff68001493110eebd4030f71816febc482",
     "app.js": "108591256761cf666e741ee373afbcf8e6b3ecf437abb2a48ac7b4e8ae6981e2",
     "index.html": "ba7f56b21e294bf5852dd8a35478a58a271b7ff0abbb8a431291cc581daef732",
-    "manual.html": "772d41bc9eaad7bb592fe6e2547eb054b132b0c9042379b00f58319a1bf688c3"
+    "manual.html": "b873dcd616825b76863281d917694c8c5955ebe7af2a0ead4a4592139baeac24"
   },
   "command": "npm ci --ignore-scripts && npm run build",
   "source": {
@@ -11,7 +11,7 @@
     "tools/ndt_serve/web/THIRD_PARTY.md": "9a54bf42ca9d2a969b187d75f0b31bfe483d59fe4345446dee8c59d801dcdbe7",
     "tools/ndt_serve/web/index.html": "df8e8adbfc89e04d1276840df9b50f73791130b5c642ba868985f9d43bc50198",
     "tools/ndt_serve/web/manual/style.json": "59ba7f9e71406f23daa385ade65ed8ffe32f11b4356b06109317deadc8198041",
-    "tools/ndt_serve/web/manual/zh.md": "34ce99fa52926b543d9e7fc415006dd5e3268ee23621c0b13f78480ba5e0a12a",
+    "tools/ndt_serve/web/manual/zh.md": "dab687991108bc3648c0a249f940f347e14839a5af79e6b176176be8c77776a5",
     "tools/ndt_serve/web/package-lock.json": "205ad1296bfdd0b4e18f97121bc135c505811f3720bba4c2d21142097a0ceee5",
     "tools/ndt_serve/web/package.json": "a46992aaa55a33441b33eac651bb145028d972da885c728c41406e8b2fc74e90",
     "tools/ndt_serve/web/postcss.config.js": "549e88984bd3c7cdefa044232b932b2b5d366e1bb425e61efabf83d7751e1511",

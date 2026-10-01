@@ -180,13 +180,22 @@ with a live log while one you opened runs -- re-read every 2 s from its file, ne
 ndt, and stopped when the job ends, when you close the view, and while the page is hidden; E. the
 cells, old/ and new/, runs and walks.
 **It refreshes itself every 10 s** (R2): one read of `/lab`, `/apps`, `/health` and `/jobs` -- two
-ndt calls (plain `ndt status`, `ndt apps status`), measured with strace at about 221 + 66
-processes a read on this laptop, 7 of them `sudo`. The next read is armed only when the last one
-has finished, so it is at most six reads a minute (about five, with a ~1.2 s read). While the last
-`/lab` said measuring is not `nothing` or a measurement is declared, it pauses, and a probe reads
-`/lab` alone once every 60 s (Adam's Q6, 09-28: read-only and light -- one plain `ndt status` a
-minute); the probe that reads nothing measuring brings the 10 s refresh back. 立即更新 (refresh
-now) reads everything at any time. While the page is hidden nothing is read, probe included.
+ndt calls (plain `ndt status`, `ndt apps status`). With the lab idle on this laptop (nothing
+measuring, no fabric, the kernel's port 8000 closed) strace counted about 221 + 66 processes a
+read, 7 + 2 of them `sudo` (list and status calls only). With the kernel up, plain `ndt status`
+also fetches `/ndt/get_graph_data` from it once (curl, 5 s cap): a northbound read served by the
+kernel under test. That state has not been measured. The next read is armed only when the last
+one has finished, so it is at most six reads a minute (about five, with a ~1.2 s read).
+
+While the last `/lab` said measuring is not `nothing` or a measurement is declared, it pauses,
+and a probe reads `/lab` alone once every 60 s (Adam's Q6, 09-28: read-only and light) -- one
+plain `ndt status`, so one graph fetch a minute while the kernel is up. The probe that reads
+nothing measuring brings the 10 s refresh back. A probe that lands in the gap between two runs of
+an undeclared measurement therefore resumes it, and one full read can fall inside the next run
+before a read sees it measuring again; a declared measurement keeps the page paused throughout.
+立即更新 (refresh now) reads everything at any time. While the page is hidden nothing is read,
+probe included. While paused, the top bar's "last read" time is the probe's, which reads `/lab`
+only: apps, health and jobs are as old as the last full read.
 
 **Every write goes through one dialog**: it reads `/lab` again, asks the server for the argv
 (`dry_run`), and shows the argv, the claim row and the measuring row. Cancel has the focus, Enter
