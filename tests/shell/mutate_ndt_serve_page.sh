@@ -72,11 +72,28 @@ trap 'rc=$?; [[ -n "$BK" ]] && rm -rf "$BK"; echo "rc=$rc"; exit $rc' EXIT
 # This gate's own provenance, before anything else.
 echo "# date -Is: $(date -Is)"
 echo "# argv: $0 $*"
-echo "# git rev-parse HEAD: $(git -C "$REPO" rev-parse HEAD 2>&1)"
-echo "# git status --porcelain | wc -l: $(git -C "$REPO" status --porcelain 2>/dev/null | wc -l)"
+# A git that fails prints "?" -- never an empty head or "0", which would read as a clean tree.
+head=$(git -C "$REPO" rev-parse HEAD 2>/dev/null) || head="?"
+if porcelain=$(git -C "$REPO" status --porcelain 2>/dev/null); then
+    porcelain=$(grep -c . <<<"$porcelain")
+else
+    porcelain="?"
+fi
+echo "# git rev-parse HEAD: $head"
+echo "# git status --porcelain | wc -l: $porcelain"
 echo "# python3: $(command -v python3) $(python3 -c 'import sys; print(sys.version.replace(chr(10), " "))')"
 echo "# node -v: $("$NODE_BIN/node" -v 2>&1)   npm -v: $(PATH="$NODE_BIN:$PATH" "$NODE_BIN/npm" -v 2>&1)"
 echo "# this gate: $(sha256sum "${BASH_SOURCE[0]}" | cut -c1-64)"
+# ONLY="label label ..." (or comma-separated) runs only the named mutations -- with both baselines,
+# this header and the same verdict lines -- and says so in the header and the totals. A label that
+# names no mutation refuses (exit 2), so a typo cannot pass as a clean partial run.
+ONLY="${ONLY:-}"
+ONLY="${ONLY//,/ }"
+ONLY_SEEN=" "
+for l in $ONLY; do
+    grep -qE "^mutant $l " "${BASH_SOURCE[0]}" || { echo "REFUSED: ONLY names $l, which is no mutation of this gate"; exit 2; }
+done
+[[ -z "$ONLY" ]] || echo "# ONLY=$ONLY -- a PARTIAL run of the named mutation(s): not this gate's verdict on the page"
 TEST="$REPO/tests/browser/test_ndt_serve_page.py"
 DRIVER="$REPO/tests/browser/cdp_pipe.py"
 HARNESS=("$REPO/tests/python/test_ndt_serve.py" "$REPO/tests/python/test_ndt_serve_gui.py"
@@ -98,6 +115,7 @@ REFRESH_TS="$WEB/src/hooks/useAutoRefresh.ts"
 JOBLOG_TS="$WEB/src/hooks/useJobLog.ts"
 TABBAR_TSX="$WEB/src/components/TabBar.tsx"
 APPSTAB_TSX="$WEB/src/components/tabs/AppsTab.tsx"
+ACTIONSTAB_TSX="$WEB/src/components/tabs/ActionsTab.tsx"
 APP_TSX="$WEB/src/NdtServeApp.tsx"
 MAIN_TSX="$WEB/src/main.tsx"
 
@@ -239,6 +257,11 @@ MUT_WEB=0
 MUT_N=0
 mutant() {   # $1 = label, $2 = file to mutate, $3 = the anchor, $4 = its replacement, $5 = anchor count (1)
     local label="$1" file="$2" old="$3" new="$4" want="${5:-1}"
+    if [[ -n "$ONLY" && " $ONLY " != *" $label "* ]]; then
+        MUT_STATE=skip
+        return 0
+    fi
+    ONLY_SEEN+="$label "
     MUT_N=$((MUT_N+1))
     MUT_DIR="$BK/$(printf '%02d' "$MUT_N")"   # numbered, not $label: Chrome's socket path lives under it
     MUT_STATE=ready
@@ -269,6 +292,7 @@ PY
 report() {   # $1 = mutation name, $2 = Class.test_case that must go red, $3 = why (fixed text in its failure)
     local out rc id="$2" why="$3" t=$SECONDS
     local name="${id##*.}"
+    [[ "$MUT_STATE" == skip ]] && return 0
     MUTATIONS=$((MUTATIONS+1))
     if [[ "$MUT_STATE" == noapply ]]; then
         SURVIVORS=$((SURVIVORS+1))
@@ -314,6 +338,7 @@ BROKEN_CLAIMS=0
 equivalent() {   # $1 = mutation name, $2 = Class.test_case that must stay green, $3 = what still holds it
     local out rc id="$2" t=$SECONDS
     local name="${id##*.}"
+    [[ "$MUT_STATE" == skip ]] && return 0
     EQUIVALENTS=$((EQUIVALENTS+1))
     if [[ "$MUT_STATE" == noapply ]] || { (( MUT_WEB )) && ! build "$MUT_DIR"; }; then
         BROKEN_CLAIMS=$((BROKEN_CLAIMS+1))
@@ -334,7 +359,12 @@ equivalent() {   # $1 = mutation name, $2 = Class.test_case that must stay green
     rm -rf "$MUT_DIR"
 }
 
-echo "# changed paths under test vs HEAD: $(git -C "$REPO" status --porcelain -- "$TEST" "$DRIVER" "$SERVE_DIR" | wc -l)"
+if changed=$(git -C "$REPO" status --porcelain -- "$TEST" "$DRIVER" "$SERVE_DIR" 2>/dev/null); then
+    changed=$(grep -c . <<<"$changed")
+else
+    changed="?"
+fi
+echo "# changed paths under test vs HEAD: $changed"
 df -h / "$BK" | sed 's/^/  /'
 echo
 echo "baseline 1 -- the whole suite on the committed page (green, every case run ok, none skipped, no leftover):"
@@ -527,6 +557,38 @@ mutant cf2-blocks-only-a-foreign-claim "$DIALOG_TSX" \
     'if (D.needs_own_claim && L && L.claim !== null && L.claim !== "none" && !L.claim_is_yours)'
 report "CF2: the page puts claim first only under somebody else's claim (not none, not missing)" \
        Confirm.test_no_claim_puts_claim_first 'blocker for up with `claim none`'
+
+# Down was never seen red in the no-claim case (Up runs first there): Down alone loses its dry run.
+mutant cf3-down-no-preview "$ACTIONSTAB_TSX" \
+    '      word: "down",
+      preview: true,' \
+    '      word: "down",
+      preview: false,'
+report "CF3: Down asks the server for no dry run (ActionsTab), so no claim-first check for it" \
+       Confirm.test_no_claim_puts_claim_first 'blocker for down with `claim none`'
+
+# The blocker is shown, but Confirm does not wait for it: only the typed word enables it.
+mutant cf4-blocker-does-not-disable "$DIALOG_TSX" \
+    '        blockers.length === 0 &&' \
+    '        blockers.length >= 0 &&'
+report "CF4: a claim-first blocker is shown but does not keep Confirm off" \
+       Confirm.test_no_claim_puts_claim_first "Confirm is on for up with \`claim none\`"
+
+# The apps case's claim-first half: the page skips the own-claim check for apps only (the dry run and
+# its argv are untouched, so the argv half stays green); and the same from the server's side.
+mutant a2-apps-skip-own-claim "$DIALOG_TSX" \
+    'if (D.needs_own_claim && !(L && L.claim_is_yours))' \
+    'if (D.needs_own_claim && !(L && L.claim_is_yours) && !a.path.startsWith("/apps/"))'
+report "A2: the page skips the claim-first check for an app start or stop" \
+       Confirm.test_an_app_start_shows_the_dry_run_and_claim_first \
+       "no \"claim first\" blocker for an app start under somebody else's claim"
+
+mutant a2b-server-apps-no-own-claim "$SERVE_PY" \
+    '        return "plain", True' \
+    '        return "plain", False'
+report "A2b: serve.py confirm_policy says an app start or stop needs no claim of your own" \
+       Confirm.test_an_app_start_shows_the_dry_run_and_claim_first \
+       "no \"claim first\" blocker for an app start under somebody else's claim"
 
 mutant a1-app-no-preview "$APPSTAB_TSX" \
     '      preview: true,' \
@@ -786,7 +848,10 @@ echo "files under test unchanged by this gate (${#SUBJECTS[@]} files; node_modul
 sha256sum "${SUBJECTS[@]}" | sha256sum | sed 's/ .*//; s/^/  sha256 of their sha256sum lines: /'
 echo "  total $((SECONDS - T0)) s"
 echo
-echo "$MUTATIONS mutation(s), $SURVIVORS survivor(s); $EQUIVALENTS documented equivalent(s), $BROKEN_CLAIMS broken"
+for l in $ONLY; do
+    [[ "$ONLY_SEEN" == *" $l "* ]] || refuse "ONLY names $l, which is no mutation of this gate"
+done
+echo "$MUTATIONS mutation(s), $SURVIVORS survivor(s); $EQUIVALENTS documented equivalent(s), $BROKEN_CLAIMS broken${ONLY:+ (ONLY: a partial run)}"
 if (( LEFTOVER_RUNS > 0 )); then
     echo "REFUSED: $LEFTOVER_RUNS run(s) left processes behind (see 'leftovers:' above)"
     exit 2
