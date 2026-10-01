@@ -97,3 +97,7 @@ doc/audit/2026-08-25_sampling-rounds/ladder_ext.out
 doc/audit/2026-08-25_sampling-rounds/gil_g.log
 doc/audit/2026-08-25_sampling-rounds/h_probe.log
 doc/audit/2026-08-25_sampling-rounds/*.log
+
+# Local agent instructions and settings; kept out of the repository (Adam 2026-10-01).
+CLAUDE.md
+.claude/
