@@ -323,13 +323,31 @@ PY
 # in this run, so the dead-pid fixture excluded the rule by a second or two of wall clock. The
 # app that just installed a rule is the app that is still running; the fixture now says so, and
 # /proc is the witness. Killed immediately afterwards, by pid, never by name.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 A YOUNG pid, on purpose. This fixture is well under a second old when the report dates it,
+# which is the case that failed CI (run 36373153486 and others): residue_report used to read
+# `now` once and app_started_at read the clock again, so a second boundary between the two put
+# the window's left edge one second after `now` and dropped the rule installed at `now`
+# (`-> now (-1s)`, the two "dated" checks red, "-> now" green). ndt now dates the app against
+# the report's own `now`, so this is deterministic at any age -- and making the fixture wait until
+# it is older would hide exactly that regression. 5N below puts a boundary between the two reads
+# on purpose; this group keeps the ordinary young case.
+#
+# The argv IS waited for, on the condition itself, and asserted: the wait this replaced gave up
+# after one second and carried on, so a fixture that never became the app failed four lines
+# further down with nothing naming why.
 LIVE_TE_ARGV="/nonexistent/NDT-TEST-FIXTURE/Traffic-engineering-App.py"
-( exec -a "$LIVE_TE_ARGV" sleep 60 ) >/dev/null 2>&1 </dev/null &
+( exec -a "$LIVE_TE_ARGV" sleep 120 ) >/dev/null 2>&1 </dev/null &
 LIVE_TE=$!
-for _i in 1 2 3 4 5 6 7 8 9 10; do
-    [[ "$(tr '\0' '\n' 2>/dev/null < "/proc/$LIVE_TE/cmdline" | head -1)" == "$LIVE_TE_ARGV" ]] && break
+live_argv0=""
+for _i in {1..300}; do                  # up to 30 s for the exec to land
+    live_argv0="$(tr '\0' '\n' 2>/dev/null < "/proc/$LIVE_TE/cmdline" | head -1)"
+    [[ "$live_argv0" == "$LIVE_TE_ARGV" ]] && break
     sleep 0.1
 done
+check "🔴 premise: /proc shows the live fixture's argv, so ndt can recognise the pid" \
+      "$LIVE_TE_ARGV" "$live_argv0"
 echo "$LIVE_TE" > "$FIX/.test_run/pids/app_te.pid"
 OUT="$(FX_PLANE=ovs run_residue "$LOCKS_FREE" te)"
 has   "🔴 sec=0 with nsec set is a real just-installed rule, and is DATED" "installed 0s ago" "$OUT"
@@ -338,6 +356,216 @@ has   "  and it is counted as dated"                     "1 rule(s) listed: 1 da
 hasnt "  and the plane is not called blind"              "CANNOT WINDOW" "$OUT"
 has   "🔴 and a live pid's window still runs to now"     "-> now" "$OUT"
 kill -KILL "$LIVE_TE" 2>/dev/null
+started_ago te 600
+mk_entries 300
+
+section "5N. one clock per report: an app's age and a rule's age are read against the same 'now'"
+# [Co-developed with claude code -- Adam]
+# 🔴 Before the fix residue_report read `now` once and app_started_at read the clock again for a
+# live app, so a second boundary between the two reads dated the app one second late. An app
+# younger than a second then had a window that started AFTER `now`, and the rule it had just
+# installed was reported as "no flow entry arrived during that window"; an app two seconds old
+# lost the rules of its first second the same way. 5K above is the case CI hit.
+#
+# Nothing in the dating is stubbed: residue_report, app_started_at and residue_rule_lines run for
+# real, against real processes. What stands in for the kernel is chosen to make each race CERTAIN
+# instead of likely:
+#   * a fake switch answers duration_sec/nsec from the instant its rule was "installed". The real
+#     kernel serves a table it polled up to ~10 s earlier; answering at the fetch is the tightest
+#     case, and the one where a late window edge loses a rule soonest;
+#   * `ps`, on its first `etimes` query in a case, waits for the wall clock to enter the next
+#     second and then runs the real ps. That query is the app's dating, so a boundary falls
+#     between the report's `now` and the dating on every run.
+# The three live cases assert that their race really was set up -- one boundary, at the age the
+# case needs, with the fork where the case put it -- and retry when it was not (at most 5 tries
+# and 30 s of wall clock each): a stall can move the fork into another second, and a case that
+# ran without its race would pass on the code it is here to catch. The try count is printed.
+# The early-window and dead-app cases need no retry: their set-up does not depend on where in a
+# second anything lands.
+cat > "$FIX/fake_switch.py" <<'PY'
+# The switch for 5N: one rule installed at the instant in argv[1]'s file, one baseline rule. When
+# argv[2] exists it answers only after the wall clock has entered the next second, plus 50 ms --
+# a fetch that straddles a boundary -- and writes "<second called> <second answered>" into it.
+import json, os, sys, time
+at = float(open(sys.argv[1]).read())
+if os.path.exists(sys.argv[2]):
+    s0 = int(time.time())
+    while int(time.time()) == s0:
+        time.sleep(0.005)
+    time.sleep(0.05)
+    open(sys.argv[2], "w").write("%d %d\n" % (s0, int(time.time())))
+el = max(0.0, time.time() - at)
+sec = int(el)
+nsec = int((el - sec) * 1e9) or 1
+def row(dur, ns, pri, acts):
+    return {"actions": acts, "byte_count": 0, "cookie": 0, "duration_sec": dur,
+            "duration_nsec": ns, "flags": 0, "hard_timeout": 0, "idle_timeout": 0,
+            "length": 96, "match": {"in_port": 1}, "packet_count": 0,
+            "priority": pri, "table_id": 0}
+json.dump([{"dpid": 5, "flows": {"5": [row(sec, nsec, 96, ["OUTPUT:9"]),
+                                       row(9000, 91000000, 10, ["OUTPUT:1"])]}}], sys.stdout)
+PY
+CLOCK_STUBS='
+http_get_flow_entries() { python3 "$REPO/fake_switch.py" "$REPO/.test_run/rule_at" "$REPO/.test_run/fetch_straddles"; }
+ps() {
+    local s0 s1 _w
+    case " $* " in
+        *" etimes= "*)
+            if [[ -e "$REPO/.test_run/ps_waits" ]]; then
+                rm -f "$REPO/.test_run/ps_waits"
+                s0=${EPOCHREALTIME%.*}; s1=$s0
+                for _w in {1..400}; do s1=${EPOCHREALTIME%.*}; (( s1 > s0 )) && break; sleep 0.005; done
+                echo "$s0 $s1" > "$REPO/.test_run/tick"
+            fi ;;
+    esac
+    command ps "$@"
+}
+lock_probe() {
+    if [[ -e "$REPO/.test_run/probes_slow" ]]; then
+        sleep 1.2
+        echo x >> "$REPO/.test_run/probes_slept"
+    fi
+    echo free
+}'
+wait_phase() {   # <lo-us> <hi-us> -- until the wall clock's fraction of a second is in [lo, hi)
+    local _w t
+    for _w in {1..3000}; do
+        t=$EPOCHREALTIME
+        (( 10#${t#*.} >= $1 && 10#${t#*.} < $2 )) && return 0
+        sleep 0.001
+    done
+    return 1
+}
+wait_until() {   # <second> <fraction-us> -- until that instant (a few seconds ahead at most)
+    local _w t
+    for _w in {1..5000}; do
+        t=$EPOCHREALTIME
+        (( ${t%.*} > $1 || ( ${t%.*} == $1 && 10#${t#*.} >= $2 ) )) && return 0
+        sleep 0.002
+    done
+    return 1
+}
+# clock_case <young|old|scan> -> CLOCK_OUT; rc 1 and CLOCK_WHY when the race was not set up.
+#   young  a pidfile'd app under a second old, its rule installed once it was running
+#   old    a pidfile'd app 2 s old, its rule installed 0.1 s after the fork
+#   scan   young, with NO pidfile: found by the scan, in this suite's REPO so it is claimed
+CLOCK_OUT=""; CLOCK_WHY=""
+clock_case() {
+    local kind="$1" pid t k us a0 _i s0 s1 et want_s0 want_et
+    CLOCK_OUT=""; CLOCK_WHY=""
+    rm -f "$FIX/.test_run/tick" "$FIX/.test_run/fetch_straddles" "$FIX/.test_run/pids/app_te.pid"
+    wait_phase 400000 430000 || { CLOCK_WHY="the clock never showed .40-.43 of a second"; return 1; }
+    if [[ "$kind" == scan ]]; then
+        ( cd "$FIX" && exec -a "$LIVE_TE_ARGV" sleep 120 ) >/dev/null 2>&1 </dev/null &
+    else
+        ( exec -a "$LIVE_TE_ARGV" sleep 120 ) >/dev/null 2>&1 </dev/null &
+    fi
+    pid=$!; t=$EPOCHREALTIME; k=${t%.*}
+    a0=""
+    for _i in {1..300}; do
+        a0="$(tr '\0' '\n' 2>/dev/null < "/proc/$pid/cmdline" | head -1)"
+        [[ "$a0" == "$LIVE_TE_ARGV" ]] && break
+        sleep 0.01
+    done
+    if [[ "$a0" != "$LIVE_TE_ARGV" ]]; then
+        kill -KILL "$pid" 2>/dev/null; wait "$pid" 2>/dev/null
+        CLOCK_WHY="the fixture never took its argv"; return 1
+    fi
+    if (( 10#${t#*.} >= 430000 )); then
+        kill -KILL "$pid" 2>/dev/null; wait "$pid" 2>/dev/null
+        CLOCK_WHY="the fork returned at .${t#*.}, after .43"; return 1
+    fi
+    if [[ "$kind" == old ]]; then
+        us=$(( k * 1000000 + 10#${t#*.} + 100000 ))
+        want_s0=$(( k + 2 )); want_et=2
+    else
+        t=$EPOCHREALTIME; us=$(( ${t%.*} * 1000000 + 10#${t#*.} ))
+        want_s0=$k; want_et=0
+    fi
+    printf '%d.%06d\n' $(( us / 1000000 )) $(( us % 1000000 )) > "$FIX/.test_run/rule_at"
+    [[ "$kind" == scan ]] || echo "$pid" > "$FIX/.test_run/pids/app_te.pid"
+    [[ "$kind" == old ]] && wait_until "$(( k + 2 ))" 580000
+    : > "$FIX/.test_run/ps_waits"
+    CLOCK_OUT="$(FX_PLANE=ovs run_residue "$CLOCK_STUBS" te)"
+    et="$(command ps -o etimes= -p "$pid" 2>/dev/null | tr -d ' ')"
+    kill -KILL "$pid" 2>/dev/null; wait "$pid" 2>/dev/null
+    rm -f "$FIX/.test_run/pids/app_te.pid" "$FIX/.test_run/ps_waits"
+    read -r s0 s1 2>/dev/null < "$FIX/.test_run/tick" || { CLOCK_WHY="the app was never dated"; return 1; }
+    (( s1 == s0 + 1 )) || { CLOCK_WHY="the dating did not see exactly one second boundary ($s0 -> $s1)"; return 1; }
+    (( s0 == want_s0 )) || { CLOCK_WHY="the report's now was in second $s0, not $want_s0 (a stall?)"; return 1; }
+    [[ "$et" == "$want_et" ]] || { CLOCK_WHY="the app was ${et:-?}s old after the report, not $want_et"; return 1; }
+    return 0
+}
+CLOCK_R=""
+clock_try() {   # <kind> -> CLOCK_R "yes, try N of 5 (Ms)" or why not. Not in $(...): CLOCK_OUT must survive.
+    local _try t0=${EPOCHREALTIME%.*}
+    for _try in 1 2 3 4 5; do
+        if clock_case "$1"; then CLOCK_R="yes, try $_try of 5 ($(( ${EPOCHREALTIME%.*} - t0 ))s)"; return; fi
+        (( ${EPOCHREALTIME%.*} - t0 >= 30 )) && break
+    done
+    CLOCK_R="no after $_try tries and $(( ${EPOCHREALTIME%.*} - t0 ))s: $CLOCK_WHY"
+}
+
+clock_try young
+check "🔴 premise (young): one second boundary between the report's now and the dating, app < 1s old" "yes" "${CLOCK_R%%,*}"
+printf '             (young: %s)\n' "$CLOCK_R"
+has   "🔴 young app: its rule is DATED, 0s old, across a boundary between now and the dating" "installed 0s ago" "$CLOCK_OUT"
+has   "  young app: its window starts at the report's now, not a second after it" "-> now (0s)" "$CLOCK_OUT"
+
+clock_try old
+check "🔴 premise (old): one second boundary between the report's now and the dating, app 2s old" "yes" "${CLOCK_R%%,*}"
+printf '             (old: %s)\n' "$CLOCK_R"
+has   "🔴 2s-old app: the rule from its first second is DATED, 2s old, across the boundary" "installed 2s ago" "$CLOCK_OUT"
+has   "  2s-old app: its window opens where it started, two seconds back" "-> now (2s)" "$CLOCK_OUT"
+
+clock_try scan
+check "🔴 premise (scan): one second boundary between the report's now and the dating, app < 1s old" "yes" "${CLOCK_R%%,*}"
+printf '             (scan: %s)\n' "$CLOCK_R"
+has   "🔴 an app found by the scan, no pidfile: its young rule is DATED, 0s old" "installed 0s ago" "$CLOCK_OUT"
+
+# An app dated AFTER slow lock probes: three acquire POSTs, 1.2 s each here, stand between the
+# report's `now` and the rest of the report. A rule installed 2 s before the app forked is the
+# fabric's, not the app's. Dated right after `now`, the window opens where the app started and
+# that rule is outside it; dated after the probes, `now - etimes` opens the window ~3.6 s early
+# and swallows it. No retry: this holds wherever in a second the fork lands.
+rm -f "$FIX/.test_run/tick" "$FIX/.test_run/fetch_straddles" "$FIX/.test_run/probes_slept" "$FIX/.test_run/ps_waits"
+t=$EPOCHREALTIME; us=$(( ${t%.*} * 1000000 + 10#${t#*.} - 2000000 ))
+printf '%d.%06d\n' $(( us / 1000000 )) $(( us % 1000000 )) > "$FIX/.test_run/rule_at"
+( exec -a "$LIVE_TE_ARGV" sleep 120 ) >/dev/null 2>&1 </dev/null &
+EARLY_TE=$!
+for _i in {1..300}; do
+    [[ "$(tr '\0' '\n' 2>/dev/null < "/proc/$EARLY_TE/cmdline" | head -1)" == "$LIVE_TE_ARGV" ]] && break
+    sleep 0.01
+done
+echo "$EARLY_TE" > "$FIX/.test_run/pids/app_te.pid"
+: > "$FIX/.test_run/probes_slow"
+OUT="$(FX_PLANE=ovs run_residue "$CLOCK_STUBS" te)"
+kill -KILL "$EARLY_TE" 2>/dev/null; wait "$EARLY_TE" 2>/dev/null
+rm -f "$FIX/.test_run/probes_slow" "$FIX/.test_run/pids/app_te.pid"
+check "🔴 premise (early): the three lock probes each took 1.2s" "3" "$(wc -l 2>/dev/null < "$FIX/.test_run/probes_slept" | tr -d ' ')"
+hasnt "🔴 early window: a rule from 2s before the app started is NOT in its window" "rule  dpid=5 table=0 pri=96" "$OUT"
+EARLY_AGE="$(grep -oE -- '-> now \((-?[0-9]+)s\)' <<<"$OUT" | head -1 | grep -oE -- '-?[0-9]+')"
+check "  early window: the window's age is the app's, not the app's plus the probes'" "yes" \
+      "$([[ "$EARLY_AGE" =~ ^[0-9]+$ ]] && (( EARLY_AGE < 3 )) && echo yes || echo "no, (${EARLY_AGE:-?}s)")"
+
+# A DEAD app, dated by its pidfile's mtime, whose first rule went in during that same second --
+# and a fetch that straddles a boundary. `now - duration_sec` is never earlier than the rule's
+# own second only if `now` is read after the table; read before it, this rule is dated a second
+# before the pidfile and falls out of a window that plainly contains it. Against the real kernel
+# this needs a poll to land between the report's `now` and its fetch, so it is in principle only
+# there (the table is cached); here the switch answers at the fetch, which makes it certain.
+# No retry: the straddle is built in, not waited for.
+t=$EPOCHREALTIME; k=$(( ${t%.*} - 5 ))
+: > "$FIX/.test_run/pids/app_te.pid";  touch -d "@$k.005" "$FIX/.test_run/pids/app_te.pid"
+printf 'the app wrote this\n' > "$FIX/.test_run/logs/app_te.log"; touch -d "@$(( k + 2 ))" "$FIX/.test_run/logs/app_te.log"
+printf '%d.020000\n' "$k" > "$FIX/.test_run/rule_at"
+: > "$FIX/.test_run/fetch_straddles"; rm -f "$FIX/.test_run/ps_waits" "$FIX/.test_run/tick"
+OUT="$(FX_PLANE=ovs run_residue "$CLOCK_STUBS" te)"
+s0=""; s1=""; read -r s0 s1 2>/dev/null < "$FIX/.test_run/fetch_straddles"
+check "🔴 premise (dead): the flow-table fetch straddled a second boundary" "yes" \
+      "$([[ "$s0" =~ ^[0-9]+$ && "$s1" =~ ^[0-9]+$ ]] && (( s1 == s0 + 1 )) && echo yes || echo "no: [$s0] [$s1]")"
+has   "🔴 dead app: a rule from its pidfile's own second is DATED across a straddling fetch" "rule  dpid=5 table=0 pri=96" "$OUT"
+rm -f "$FIX/.test_run/rule_at" "$FIX/.test_run/fetch_straddles" "$FIX/.test_run/tick" "$FIX/.test_run/ps_waits" "$FIX/.test_run/probes_slept"
 started_ago te 600
 mk_entries 300
 

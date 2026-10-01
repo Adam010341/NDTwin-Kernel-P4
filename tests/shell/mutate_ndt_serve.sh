@@ -523,8 +523,10 @@ m=$(mutant m60 "$DEMO_PY" \
 report "M60: the demo's slot probe is a real POST /down with the token" "$m" \
        DemoProbes.test_demo_probes_cannot_touch_the_lab
 
+# [Co-developed with claude code -- Adam] 2026-09-28: M61, M64 and M65 re-anchored on the lines
+# ndt's one-clock residue change moved (apps.status 10346 -> 10382, lock_probe +13).
 m=$(mutant m61 "$VERBS_PY" \
-    '    "apps.status": {"code": [(10346, 0, "return 0", "cmd_apps")]},' \
+    '    "apps.status": {"code": [(10382, 0, "return 0", "cmd_apps")]},' \
     '')
 report "M61: an rc table with no source" "$m" \
        RcProvenance.test_every_table_names_its_source
@@ -735,13 +737,13 @@ report "M63: apps.start rc 1 cites proc_checkout's return 1 (09-24's line 8315, 
 # [Co-developed with claude code -- Adam] The opus judge's N1-1 (09-27): the README's lock probe
 # citation was left at its pre-segment-W lines; the suite now holds every such citation to ndt.
 m=$(mutant m64 "$README_MD" \
-    'lock probes to the kernel (ndt:9416-9431)' \
+    'lock probes to the kernel (ndt:9429-9444)' \
     'lock probes to the kernel (ndt:9292-9307)')
 report "M64: the README cites the lock probes where they were before segment W (ndt:9292-9307)" "$m" \
        RcProvenance.test_lock_probe_citations_are_lock_probe
 m=$(mutant m65 "$SERVE_PY" \
-    'probes to the kernel (ndt:9416-9431)' \
-    'probes to the kernel (ndt:9416-9420)')
+    'probes to the kernel (ndt:9429-9444)' \
+    'probes to the kernel (ndt:9429-9433)')
 report "M65: serve.py's docstring cites lock_probe's comment but not its POST" "$m" \
        RcProvenance.test_lock_probe_citations_are_lock_probe
 
