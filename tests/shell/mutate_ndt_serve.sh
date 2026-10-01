@@ -84,8 +84,15 @@ SUBJECTS+=("${PAGE_FILES[@]}")
 BK=$(mktemp -d "${TMPDIR:-/tmp}/ndt-serve-mutate-XXXXXX")
 trap 'rc=$?; rm -rf "$BK"; echo "rc=$rc"' EXIT
 # [Co-developed with claude code -- Adam] what this run is about, printed by the gate itself
-echo "head $(git -C "$REPO" rev-parse HEAD)"
-echo "porcelain $(git -C "$REPO" status --porcelain --untracked-files=no | wc -l) tracked file(s) differ from HEAD"
+# "?" when git cannot say (not a work tree, say): never a 0 that reads as a clean tree
+git_head=$(git -C "$REPO" rev-parse HEAD 2>/dev/null) || git_head="?"
+if git_status=$(git -C "$REPO" status --porcelain --untracked-files=no 2>/dev/null); then
+    git_dirty=$(grep -c . <<<"$git_status")
+else
+    git_dirty="?"
+fi
+echo "head $git_head"
+echo "porcelain $git_dirty tracked file(s) differ from HEAD"
 echo "date $(date -Is)"
 echo "python $(command -v "$PY") $("$PY" -c 'import sys; print(sys.version.split()[0])')"
 BASE_SHA=$(sha256sum "${SUBJECTS[@]}")

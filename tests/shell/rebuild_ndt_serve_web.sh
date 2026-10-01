@@ -33,8 +33,15 @@ MIN_FREE_KB=$((2 * 1024 * 1024))
 export PATH="$NODE_BIN:$PATH"
 T=""
 trap 'rc=$?; [[ -n "$T" ]] && rm -rf "$T"; echo "rc=$rc"' EXIT
-echo "head $(git -C "$REPO" rev-parse HEAD)"
-echo "porcelain $(git -C "$REPO" status --porcelain --untracked-files=no | wc -l) tracked file(s) differ from HEAD"
+# "?" when git cannot say (not a work tree, say): never a 0 that reads as a clean tree
+git_head=$(git -C "$REPO" rev-parse HEAD 2>/dev/null) || git_head="?"
+if git_status=$(git -C "$REPO" status --porcelain --untracked-files=no 2>/dev/null); then
+    git_dirty=$(grep -c . <<<"$git_status")
+else
+    git_dirty="?"
+fi
+echo "head $git_head"
+echo "porcelain $git_dirty tracked file(s) differ from HEAD"
 echo "date $(date -Is)"
 echo "static $STATIC"
 
