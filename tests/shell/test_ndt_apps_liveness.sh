@@ -103,7 +103,12 @@ cleanup_fixtures() {
     [[ -n "${TMPROOT:-}" && "$TMPROOT" == /tmp/ndt-apps-liveness-* ]] && rm -rf "$TMPROOT"
     return 0
 }
-trap cleanup_fixtures EXIT INT TERM
+# [Co-developed with claude code -- Adam] A signal ENDS the run (2026-10-01), as in
+# test_ndt_app_orphans.sh. The handler used to clean up and return, so on INT or TERM the suite
+# went on running with its fixtures reaped and its temp tree deleted. The EXIT trap does the cleaning on the way out; INT and TERM only exit, 128+signal.
+trap cleanup_fixtures EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 # spawn_fixture <argv0> [cwd] -- a process wearing that command line; its pid is left in
 # FIXTURE_PID.
@@ -124,14 +129,18 @@ trap cleanup_fixtures EXIT INT TERM
 FIXTURE_ARGV_WAIT=30
 FIXTURE_PID=""
 spawn_fixture() {
+    # [Co-developed with claude code -- Adam] In this shell or not at all (2026-10-01): see
+    # test_ndt_app_orphans.sh's spawn_fixture. A call from a subshell ends the run, loudly.
+    [[ $BASHPID == "$$" ]] || { echo "  FAILED   ${FUNCNAME[0]} called outside this suite's own shell (BASHPID $BASHPID, suite $$): ending the run" >&2; kill -TERM "$$"; exit 1; }
     local want="$1" dir="${2:-$TMPROOT}" pid deadline
     local -a argv=()
     FIXTURE_PID=""
     # From a command substitution of its own, so the fixture is never a job of this shell; the
-    # redirections keep it off that substitution's pipe, which it would otherwise hold open.
+    # redirections keep it off that substitution's pipe, which it would otherwise hold open. The
+    # pid is registered inside the substitution, so a signal handled when it returns finds it in
+    # the register (2026-10-01; test_ndt_app_orphans.sh's spawn_fixture says why).
     pid="$( ( cd "$dir" && exec -a "$want" sleep "$FIXTURE_TTL" ) \
-            >/dev/null 2>&1 </dev/null & echo "$!" )"
-    echo "$pid" >> "$FIXTURE_REG"
+            >/dev/null 2>&1 </dev/null & echo "$!" >> "$FIXTURE_REG"; echo "$!" )"
     deadline=$(( SECONDS + FIXTURE_ARGV_WAIT ))
     while :; do
         argv=()

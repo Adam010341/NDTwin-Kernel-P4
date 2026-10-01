@@ -91,15 +91,23 @@ OURS=""; THEIRS=""
 # 🔴 CALLED AS A PLAIN COMMAND, NEVER AS X="$(spawn ...)" (2026-10-01). It used to be, with
 # `|| { echo "Ran ..."; exit 1; }` after it: the failure was counted, but the fixture it gave up on
 # was in no list the cleanup reads (OURS and THEIRS were still empty), so it outlived the run, and
-# the poll gave up after 2 s. Every pid is now registered in SPAWNED before the poll, so the EXIT
+# the poll gave up after 2 s. Every pid is now registered in SPAWNED_REG before the poll, so the EXIT
 # trap reaps it either way; the premise is a check THIS shell counts, on success too, and a failure
 # ends the run with its summary. The poll waits up to FIXTURE_ARGV_WAIT seconds: a slow exec on a
 # loaded machine is not a defect in `ndt down`. Same shape as the helpers of the six suites
 # tests/shell/mutate_fixture_spawn_helpers.sh covers, and that gate covers this one too.
 FIXTURE_ARGV_WAIT=30
 FIXTURE_PID=""
-SPAWNED=()
+# Every pid spawn() starts, one per line. A FILE since 2026-10-01, written inside the substitution
+# that starts the fixture: a signal this shell takes while that substitution runs is handled after
+# it returns, and the EXIT trap then finds the pid here. An array appended after the assignment
+# could miss it.
+SPAWNED_REG="$FIX/spawned.pids"
+: > "$SPAWNED_REG"
 spawn() {
+    # [Co-developed with claude code -- Adam] In this shell or not at all (2026-10-01): see
+    # test_ndt_app_orphans.sh's spawn_fixture. A call from a subshell ends the run, loudly.
+    [[ $BASHPID == "$$" ]] || { echo "  FAILED   ${FUNCNAME[0]} called outside this suite's own shell (BASHPID $BASHPID, suite $$): ending the run" >&2; kill -TERM "$$"; exit 1; }
     local want="$1" dir="$2" pid deadline
     local -a argv=()
     FIXTURE_PID=""
@@ -107,8 +115,7 @@ spawn() {
     # shell, so a stopped one is reaped at once and /proc stops showing it -- the "OURS IS GONE"
     # check below reads /proc. The redirections keep it off that substitution's pipe.
     pid="$( setsid bash -c "cd '$dir' && exec -a '$want' sleep $FIXTURE_TTL" \
-            >/dev/null 2>&1 </dev/null & echo "$!" )"
-    SPAWNED+=("$pid")
+            >/dev/null 2>&1 </dev/null & echo "$!" >> "$SPAWNED_REG"; echo "$!" )"
     deadline=$(( SECONDS + FIXTURE_ARGV_WAIT ))
     while :; do
         argv=()
@@ -133,22 +140,30 @@ spawn() {
 # 🔴 The cleanup is an ASSERTION, not a trap nobody reads. FIX-NDT-10 SUMMARY section 8-3: that
 # round could not tell "the TTL expired" from "I cleaned up", because every log line it had was
 # taken BEFORE the kill. This kills by exact pid, re-reads /proc afterwards, and prints both.
-# Every pid spawn() started is in SPAWNED, including one it gave up on and the section-2 control.
+# Every pid spawn() started is in SPAWNED_REG, including one it gave up on and the section-2 control.
 cleanup() {
     local p
-    for p in "${SPAWNED[@]}"; do
+    local -a spawned=()
+    [[ -f "${SPAWNED_REG:-}" ]] && mapfile -t spawned < "$SPAWNED_REG"
+    for p in "${spawned[@]}"; do
         [[ "$p" =~ ^[0-9]+$ ]] || continue
         [[ "$(cat "/proc/$p/comm" 2>/dev/null)" == sleep ]] && kill -KILL "$p" 2>/dev/null
     done
     sleep 0.3
-    for p in "${SPAWNED[@]}"; do
+    for p in "${spawned[@]}"; do
         [[ "$p" =~ ^[0-9]+$ ]] || continue
         printf '### FIXTURE %s after kill: /proc/%s exists = %s\n' "$p" "$p" "$(alive "$p")"
     done
     [[ -n "${FIX:-}" && "$FIX" == "${TMPDIR:-/tmp}/ndt-down-ours-"* ]] && rm -rf "$FIX"
     return 0
 }
-trap cleanup EXIT INT TERM
+# [Co-developed with claude code -- Adam] A signal ENDS the run (2026-10-01), as in
+# test_ndt_app_orphans.sh. The handler used to clean up and return, so on INT or TERM the suite
+# went on running with its fixtures reaped and $FIX deleted. The EXIT trap does the cleaning on
+# the way out; INT and TERM only exit, 128+signal.
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 spawn "$OURS_ARGV" "$FIX"; OURS="$FIXTURE_PID"
 spawn "$THEIRS_ARGV" "$OTHER_TREE"; THEIRS="$FIXTURE_PID"
