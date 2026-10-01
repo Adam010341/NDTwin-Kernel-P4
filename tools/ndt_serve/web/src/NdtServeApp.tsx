@@ -18,6 +18,7 @@ import type {
   HealthAnswer,
   JobsAnswer,
   LabAnswer,
+  MeasuringAnswer,
   Meta,
   WalkAnswer,
   WalksAnswer,
@@ -60,6 +61,7 @@ function Page() {
 
   const [lab, setLab] = useState<ApiResult<LabAnswer> | null>(null);
   const [labAt, setLabAt] = useState<string | null>(null);
+  const [probeAt, setProbeAt] = useState<string | null>(null);
   const [health, setHealth] = useState<ApiResult<HealthAnswer> | null>(null);
   const [apps, setApps] = useState<ApiResult<AppsAnswer> | null>(null);
   const [jobs, setJobs] = useState<ApiResult<JobsAnswer> | null>(null);
@@ -112,18 +114,20 @@ function Page() {
     ]);
     setLab(l);
     setLabAt(clock());
+    setProbeAt(null);
     setApps(a);
     setHealth(h);
     setJobs(j);
     return l.status === 200 && l.json ? l.json : null;
   }, []);
 
-  // The probe while a measurement pauses the refresh: /lab alone, one plain `ndt status`.
-  const readLab = useCallback(async (): Promise<LabAnswer | null> => {
-    const l = await get<LabAnswer>("/lab");
-    setLab(l);
-    setLabAt(clock());
-    return l.status === 200 && l.json ? l.json : null;
+  // The probe while a measurement pauses the refresh: /measuring alone, one `ndt status --measuring`
+  // (the claim's measuring= and the process table; no sudo, no request to the kernel). It changes
+  // nothing a tab shows -- the tabs and "last read" stay the last full read -- only when it probed.
+  const readProbe = useCallback(async (): Promise<MeasuringAnswer | null> => {
+    const m = await get<MeasuringAnswer>("/measuring");
+    setProbeAt(clock());
+    return m.status === 200 && m.json ? m.json : null;
   }, []);
 
   const firstRead = useCallback(() => {
@@ -131,7 +135,7 @@ function Page() {
     hook("loaded", "yes");
   }, []);
 
-  const refresh = useAutoRefresh(meta !== null, readAll, readLab, firstRead);
+  const refresh = useAutoRefresh(meta !== null, readAll, readProbe, firstRead);
 
   useEffect(() => {
     if (meta !== null) hook("refresh", refresh.state);
@@ -219,6 +223,7 @@ function Page() {
         refresh={meta !== null ? refresh.state : null}
         reading={refresh.reading}
         lastRead={labAt}
+        lastProbe={refresh.state === "paused-measuring" ? probeAt : null}
         canRefresh={meta !== null}
         onRefresh={() => void refresh.refreshNow()}
         webguiUrl={meta?.webgui_url ?? null}

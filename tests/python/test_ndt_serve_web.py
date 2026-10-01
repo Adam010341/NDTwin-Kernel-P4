@@ -248,8 +248,10 @@ class SourceLint(unittest.TestCase):
         self.assertRegex(s, r"if \(timer\.current !== null \|\| inFlight\.current\) return;\s*"
                             r"if \(measuring\.current\) \{\s*arm\(\);\s*return;\s*\}\s*void tick\(\);")
 
-    def test_a_measuring_pause_probes_lab_alone_once_a_minute(self):
-        # Adam's Q6 (09-28): after a measuring pause, an automatic probe -- read-only and light
+    def test_a_measuring_pause_probes_measuring_alone_once_a_minute(self):
+        # Adam's Q6 (09-28): after a measuring pause, an automatic probe -- read-only and light; and
+        # 10-01: it asks only "is anyone measuring" -- GET /measuring, `ndt status --measuring`, no
+        # sudo and no request to the kernel under measurement. [Co-developed with claude code -- Adam]
         s = self.src["hooks/useAutoRefresh.ts"]
         self.assertRegex(s, r"export const PROBE_INTERVAL_MS = 60_000;")
         body = re.search(r"const arm = \(\) => \{(.*?)\n  \};", s, re.S).group(1)
@@ -263,16 +265,21 @@ class SourceLint(unittest.TestCase):
         self.assertTrue(probe, "no probe()")
         probe = probe.group(1)
         self.assertLess(probe.index('if (document.visibilityState === "hidden") {'),
-                        probe.index("await readOnce(labRef.current);"), "the probe reads while hidden")
-        self.assertNotIn("readRef", probe, "the probe reads more than /lab")
-        self.assertEqual(s.count("await readOnce(labRef.current);"), 1, "/lab alone is read past the probe")
-        # labRef is NdtServeApp's readLab, and readLab reads /lab and nothing else
+                        probe.index("await readOnce(probeRef.current);"), "the probe reads while hidden")
+        self.assertNotIn("readRef", probe, "the probe reads more than /measuring")
+        self.assertEqual(s.count("await readOnce(probeRef.current);"), 1, "the probe's read is made past the probe")
+        # probeRef is NdtServeApp's readProbe, and readProbe reads /measuring and nothing else
         app = self.src["NdtServeApp.tsx"]
-        self.assertIn("useAutoRefresh(meta !== null, readAll, readLab, firstRead)", app)
-        lab = block(app, "const readLab = useCallback(async (): Promise<LabAnswer | null> => {")
-        self.assertIsNotNone(lab, "no readLab")
-        self.assertEqual(re.findall(r"\bget(?:<[^>]*>)?\(\s*\"([^\"]*)\"", lab), ["/lab"], "the probe reads more than /lab")
-        self.assertNotRegex(lab, r"\b(?:post|call|fetch)\b")
+        self.assertIn("useAutoRefresh(meta !== null, readAll, readProbe, firstRead)", app)
+        rp = block(app, "const readProbe = useCallback(async (): Promise<MeasuringAnswer | null> => {")
+        self.assertIsNotNone(rp, "no readProbe")
+        self.assertEqual(re.findall(r"\bget(?:<[^>]*>)?\(\s*\"([^\"]*)\"", rp), ["/measuring"],
+                         "the probe reads more than /measuring")
+        self.assertNotRegex(rp, r"\b(?:post|call|fetch)\b")
+        # it changes nothing a tab shows: its own time is the one thing it sets
+        self.assertEqual(re.findall(r"\b(set[A-Z]\w*)\(", rp), ["setProbeAt"], "the probe writes what a tab shows")
+        # and /measuring is the probe's alone
+        self.assertEqual(where(r'"/measuring"', self.src), {"NdtServeApp.tsx": 1})
 
     def test_every_write_the_server_can_preview_is_previewed(self):
         # a confirm request with preview: false skips the server's dry run -- and with it the argv

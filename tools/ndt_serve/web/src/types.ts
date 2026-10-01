@@ -23,7 +23,7 @@ export interface Job {
   created_at?: number | null;
 }
 
-// A read-only ndt call (run_read): /status, /apps, and the read under /lab.
+// A read-only ndt call (run_read): /status, /apps, and the read under /lab and /measuring.
 export interface ReadAnswer {
   argv: string[];
   rc: number | null;
@@ -44,6 +44,14 @@ export interface LabAnswer extends ReadAnswer {
   claim_is_yours: boolean;
   measuring_is_nothing: boolean;
   busy: Job | null;
+}
+
+// GET /measuring, the probe while a measurement runs: `ndt status --measuring` (the measuring rows of
+// plain status alone), with /lab's reading of them. [Co-developed with claude code -- Adam]
+export interface MeasuringAnswer extends ReadAnswer {
+  measuring: string | null;
+  declared: string | null;
+  measuring_is_nothing: boolean;
 }
 
 export interface AppsAnswer extends ReadAnswer {

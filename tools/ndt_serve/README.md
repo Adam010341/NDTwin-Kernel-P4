@@ -181,22 +181,32 @@ with a live log while one you opened runs -- re-read every 2 s from its file, ne
 ndt, and stopped when the job ends, when you close the view, and while the page is hidden; E. the
 cells, old/ and new/, runs and walks.
 **It refreshes itself every 10 s** (R2): one read of `/lab`, `/apps`, `/health` and `/jobs` -- two
-ndt calls (plain `ndt status`, `ndt apps status`). With the lab idle on this laptop (nothing
-measuring, no fabric, the kernel's port 8000 closed) strace counted about 221 + 66 processes a
-read, 7 + 2 of them `sudo` (list and status calls only). With the kernel up, plain `ndt status`
-also fetches `/ndt/get_graph_data` from it once (curl, 5 s cap): a northbound read served by the
-kernel under test. That state has not been measured. The next read is armed only when the last
-one has finished, so it is at most six reads a minute (about five, with a ~1.2 s read).
+ndt calls (plain `ndt status`, `ndt apps status`). Measured on this laptop without ptrace (the
+`/proc/stat` process count around a read minus an equal idle window, sudo through a logging shim,
+7 runs; `logs/ndt-serve-gui-v2/live-probe-cost/RESULTS.md`): with the lab idle a round is about 596
+tasks and 10 `sudo` (8 + 2); with a P4 fabric up and iperf3 running, about 719 tasks, 8 `sudo`
+(6 + 2) and one `GET /ndt/get_graph_data` to the kernel under test (curl, 5 s cap, about 6 ms).
+Every `sudo` is a list or status call. The next read is armed only when the last one has finished,
+so it is at most six rounds a minute (about five, with a 1-1.9 s round).
 
-While the last `/lab` said measuring is not `nothing` or a measurement is declared, it pauses,
-and a probe reads `/lab` alone once every 60 s (Adam's Q6, 09-28: read-only and light) -- one
-plain `ndt status`, so one graph fetch a minute while the kernel is up. The probe that reads
-nothing measuring brings the 10 s refresh back. A probe that lands in the gap between two runs of
-an undeclared measurement therefore resumes it, and one full read can fall inside the next run
+While the last read said measuring is not `nothing` or a measurement is declared, it pauses, and a
+probe reads `/measuring` alone once every 60 s (Adam's Q6, 09-28; 10-01: the probe asks only
+whether anyone is measuring). That is `ndt status --measuring`: plain status's `declared` and
+measuring rows alone, printed by the same ndt function, which reads the claim file and the process
+table -- no `sudo`, no request to the kernel, no OVS or bmv2 query. Measured the same way on an
+idle lab: about 12 tasks (9-24) in 0.14 s, 0 `sudo`, 0 curl; 17 tasks with a declared measurement.
+The measuring state was not measured; from the code, it adds one more process-table scan
+(`mn_count`) and still no `sudo` or curl, and `tests/shell/test_ndt_status_measuring.sh` pins the
+no-`sudo`, no-curl half with shims in eight fixture states. The probe before it was a plain
+`ndt status`: 564 tasks, 6 `sudo` and one graph request per probe while measuring.
+
+The probe that reads nothing measuring and nothing declared brings the 10 s refresh back. A probe
+that lands in the gap between two runs of an undeclared measurement therefore resumes it, and one
+full round (719 tasks, 8 `sudo` and one graph request, measured) can fall inside the next run
 before a read sees it measuring again; a declared measurement keeps the page paused throughout.
 立即更新 (refresh now) reads everything at any time. While the page is hidden nothing is read,
-probe included. While paused, the top bar's "last read" time is the probe's, which reads `/lab`
-only: apps, health and jobs are as old as the last full read.
+probe included. The probe changes nothing the tabs show: the top bar's "last read" is the last
+full read, and while paused a "last probe" time stands beside it.
 
 **Every write goes through one dialog**: it reads `/lab` again, asks the server for the argv
 (`dry_run`), and shows the argv, the claim row and the measuring row. Cancel has the focus, Enter
@@ -236,12 +246,15 @@ still holds the slot), `lost` (it ended and nobody recorded its rc).
 ```bash
 python3 tests/python/test_ndt_serve.py        # 75 cases against a stub ndt (RcProvenance reads the real ndt), no lab
 python3 tests/python/test_ndt_serve_cells.py  # 35 cases against a stub grid, no lab
-python3 tests/python/test_ndt_serve_gui.py    # 35 cases: the page's server side
-python3 tests/python/test_ndt_serve_web.py    # 16 cases: BUILD.json, a lint of the built files and of web/src
-bash tests/shell/mutate_ndt_serve.sh          # 176 named mutations, each must redden its case (the G series covers the page)
+python3 tests/python/test_ndt_serve_gui.py    # 39 cases: the page's server side
+python3 tests/python/test_ndt_serve_web.py    # 18 cases: BUILD.json, a lint of the built files and of web/src
+bash tests/shell/mutate_ndt_serve.sh          # 198 named mutations, each must redden its case (the G series covers the page)
+# ndt's side of the probe: `ndt status --measuring` against plain status, and no sudo or curl
+bash tests/shell/test_ndt_status_measuring.sh
+bash tests/shell/mutate_ndt_status_measuring.sh   # 14 named mutations
 # Node, only under the build guard: rebuild the page from its lockfile and compare with static/
 bash tests/shell/rebuild_ndt_serve_web.sh
 # the page in a real browser: headless Chrome, only under the build guard (it skips elsewhere)
 JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh python3 tests/browser/test_ndt_serve_page.py
-JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash tests/shell/mutate_ndt_serve_page.sh
+bash tests/shell/mutate_ndt_serve_page.sh   # bare: it takes the guard itself, per build and per Chrome
 ```

@@ -23,6 +23,7 @@ export default function TopBar({
   refresh,
   reading,
   lastRead,
+  lastProbe,
   canRefresh,
   onRefresh,
   webguiUrl,
@@ -32,6 +33,7 @@ export default function TopBar({
   refresh: RefreshState | null;
   reading: boolean;
   lastRead: string | null;
+  lastProbe: string | null;
   canRefresh: boolean;
   onRefresh: () => void;
   webguiUrl: string | null;
@@ -86,6 +88,11 @@ export default function TopBar({
         {lastRead !== null && (
           <span id="last-read" className="text-xs text-gray-500">
             {t("ndtServe.refresh.last", { time: lastRead })}
+          </span>
+        )}
+        {lastProbe !== null && (
+          <span id="last-probe" className="text-xs text-gray-500">
+            {t("ndtServe.refresh.lastProbe", { time: lastProbe })}
           </span>
         )}
         <div className="ml-auto flex flex-wrap items-center gap-2">

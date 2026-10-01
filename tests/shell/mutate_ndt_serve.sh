@@ -1258,49 +1258,65 @@ m=$(mutant g56 "$CONFIRM_TSX" \
 report "G56: a UI string written into a component, past the string table" "$m" \
        web:SourceLint.test_every_ui_string_is_in_the_string_table
 
-# the probe during a measuring pause (Adam's Q6, 09-28): /lab alone, once a minute, never hidden
+# the probe during a measuring pause (Adam's Q6, 09-28): /measuring alone (10-01), once a minute, never hidden
 m=$(mutant g59 "$REFRESH_TS" \
     '      if (document.visibilityState !== "hidden") timer.current = window.setTimeout(probe, PROBE_INTERVAL_MS);' \
     '')
 report "G59: a measuring pause arms no probe (nothing but 立即更新 resumes it)" "$m" \
-       web:SourceLint.test_a_measuring_pause_probes_lab_alone_once_a_minute
+       web:SourceLint.test_a_measuring_pause_probes_measuring_alone_once_a_minute
 
 m=$(mutant g59b "$REFRESH_TS" \
-    '    await readOnce(labRef.current);' \
+    '    await readOnce(probeRef.current);' \
     '    await readOnce(readRef.current);')
 report "G59b: the probe reads /apps, /health and /jobs too" "$m" \
-       web:SourceLint.test_a_measuring_pause_probes_lab_alone_once_a_minute
+       web:SourceLint.test_a_measuring_pause_probes_measuring_alone_once_a_minute
 
 m=$(mutant g59c "$REFRESH_TS" \
     '      if (document.visibilityState !== "hidden") timer.current = window.setTimeout(probe, PROBE_INTERVAL_MS);' \
     '      timer.current = window.setTimeout(probe, PROBE_INTERVAL_MS);')
 report "G59c: the probe is armed while the page is hidden" "$m" \
-       web:SourceLint.test_a_measuring_pause_probes_lab_alone_once_a_minute
+       web:SourceLint.test_a_measuring_pause_probes_measuring_alone_once_a_minute
 
 m=$(mutant g59d "$REFRESH_TS" \
     '    if (document.visibilityState === "hidden") {
       arm(); // nothing is read while hidden
       return;
     }
-    await readOnce(labRef.current);' \
-    '    await readOnce(labRef.current);')
+    await readOnce(probeRef.current);' \
+    '    await readOnce(probeRef.current);')
 report "G59d: a probe that fires while hidden reads" "$m" \
-       web:SourceLint.test_a_measuring_pause_probes_lab_alone_once_a_minute
+       web:SourceLint.test_a_measuring_pause_probes_measuring_alone_once_a_minute
 
 m=$(mutant g59e "$REFRESH_TS" \
     'export const PROBE_INTERVAL_MS = 60_000;' \
     'export const PROBE_INTERVAL_MS = 20_000;')
 report "G59e: the probe reads every 20 s (three times Q6's load)" "$m" \
-       web:SourceLint.test_a_measuring_pause_probes_lab_alone_once_a_minute
+       web:SourceLint.test_a_measuring_pause_probes_measuring_alone_once_a_minute
 
 m=$(mutant g59f "$APP_TSX" \
-    '    const l = await get<LabAnswer>("/lab");
-    setLab(l);' \
-    '    const l = await get<LabAnswer>("/lab");
+    '    const m = await get<MeasuringAnswer>("/measuring");
+    setProbeAt(clock());' \
+    '    const m = await get<MeasuringAnswer>("/measuring");
     setApps(await get<AppsAnswer>("/apps"));
-    setLab(l);')
-report "G59f: readLab, the probe's read, also runs ndt apps status" "$m" \
-       web:SourceLint.test_a_measuring_pause_probes_lab_alone_once_a_minute
+    setProbeAt(clock());')
+report "G59f: readProbe, the probe's read, also runs ndt apps status" "$m" \
+       web:SourceLint.test_a_measuring_pause_probes_measuring_alone_once_a_minute
+
+# [Co-developed with claude code -- Adam] 10-01: the probe is /measuring (`ndt status --measuring`)
+m=$(mutant g59g "$APP_TSX" \
+    '    const m = await get<MeasuringAnswer>("/measuring");' \
+    '    const m = await get<MeasuringAnswer>("/lab");')
+report "G59g: the probe reads /lab again (plain ndt status: sudo and a kernel request)" "$m" \
+       web:SourceLint.test_a_measuring_pause_probes_measuring_alone_once_a_minute
+
+m=$(mutant g59h "$APP_TSX" \
+    '    const m = await get<MeasuringAnswer>("/measuring");
+    setProbeAt(clock());' \
+    '    const m = await get<MeasuringAnswer>("/measuring");
+    setLab(m as ApiResult<LabAnswer>);
+    setProbeAt(clock());')
+report "G59h: the probe's answer is shown as the lab tab (rows a full read did not make)" "$m" \
+       web:SourceLint.test_a_measuring_pause_probes_measuring_alone_once_a_minute
 
 # every write the server can dry-run asks for it: preview false drops the argv and "claim first"
 m=$(mutant g60 "$APPS_TSX" \

@@ -3,49 +3,53 @@
 // at most 24 requests and 12 ndt calls a minute while the page is shown and idle.
 //
 //   * No overlap: the next tick is armed only after the previous read has finished.
-//   * paused-measuring: the last /lab said measuring_is_nothing === false, or declared !== null.
-//     While it lasts, a probe reads /lab and nothing else once every 60 s -- one plain `ndt status`
-//     a minute, no /apps, /health or /jobs (Adam's Q6, 09-28: an automatic probe after a measuring
-//     pause, read-only and light). The probe that reads nothing measuring and nothing declared
-//     brings the 10 s tick back. 立即更新 reads everything at once, paused or not.
+//   * paused-measuring: the last read said measuring_is_nothing === false, or declared !== null.
+//     While it lasts, a probe reads /measuring and nothing else once every 60 s (Adam's Q6, 09-28:
+//     an automatic probe after a measuring pause, read-only and light; and 10-01: it asks only "is
+//     anyone measuring" -- `ndt status --measuring`, the claim's measuring= and the process table,
+//     no sudo and no request to the kernel under measurement). No /lab, /apps, /health or /jobs.
+//     The probe that reads nothing measuring and nothing declared brings the 10 s tick back.
+//     立即更新 reads everything at once, paused or not.
 //   * paused-hidden: while document.visibilityState === "hidden" nothing is read, tick or probe.
 //     Shown again, the page reads once at once and re-arms the timer -- unless the last read was
 //     measuring: then only the probe is armed again, and it reads 60 s later, not at once.
 //   * What pauses it is a field the server computed; no ndt text is parsed here.
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { LabAnswer } from "../types";
+import type { MeasuringAnswer } from "../types";
 
 export const REFRESH_INTERVAL_MS = 10_000;
 export const PROBE_INTERVAL_MS = 60_000;
 
 export type RefreshState = "running" | "paused-measuring" | "paused-hidden";
 
-// A read, and the /lab answer it got (null when /lab did not answer 200): readAll is what the tick
-// and 立即更新 read, readLab is the probe's /lab alone.
-export type ReadAll = () => Promise<LabAnswer | null>;
+// A read, and the measuring reading it got (null when it did not answer 200): readAll is what the
+// tick and 立即更新 read (its /lab answer), readProbe is the probe's /measuring alone. Both answers
+// carry the server's one reading of ndt's measuring rows (serve.py measuring_fields).
+export type Measuring = Pick<MeasuringAnswer, "measuring_is_nothing" | "declared">;
+export type Read = () => Promise<Measuring | null>;
 
-function isMeasuring(lab: LabAnswer): boolean {
+function isMeasuring(lab: Measuring): boolean {
   return lab.measuring_is_nothing === false || lab.declared !== null;
 }
 
-export function useAutoRefresh(enabled: boolean, readAll: ReadAll, readLab: ReadAll, onFirstRead: () => void) {
+export function useAutoRefresh(enabled: boolean, readAll: Read, readProbe: Read, onFirstRead: () => void) {
   const [state, setState] = useState<RefreshState>("running");
   const [reading, setReading] = useState(false);
   const timer = useRef<number | null>(null);
   const inFlight = useRef(false);
-  const measuring = useRef(false); // what the last /lab that answered said
+  const measuring = useRef(false); // what the last read that answered said
   const live = useRef(false); // mounted and enabled
   const readRef = useRef(readAll);
   readRef.current = readAll;
-  const labRef = useRef(readLab);
-  labRef.current = readLab;
+  const probeRef = useRef(readProbe);
+  probeRef.current = readProbe;
 
   const disarm = () => {
     if (timer.current !== null) window.clearTimeout(timer.current);
     timer.current = null;
   };
 
-  const readOnce = async (read: ReadAll): Promise<void> => {
+  const readOnce = async (read: Read): Promise<void> => {
     inFlight.current = true;
     setReading(true);
     try {
@@ -85,7 +89,7 @@ export function useAutoRefresh(enabled: boolean, readAll: ReadAll, readLab: Read
     arm();
   };
 
-  // While paused-measuring: /lab alone. arm() then brings the tick back or arms the next probe.
+  // While paused-measuring: /measuring alone. arm() then brings the tick back or arms the next probe.
   const probe = async () => {
     timer.current = null;
     if (!live.current || inFlight.current) return;
@@ -93,7 +97,7 @@ export function useAutoRefresh(enabled: boolean, readAll: ReadAll, readLab: Read
       arm(); // nothing is read while hidden
       return;
     }
-    await readOnce(labRef.current);
+    await readOnce(probeRef.current);
     arm();
   };
 

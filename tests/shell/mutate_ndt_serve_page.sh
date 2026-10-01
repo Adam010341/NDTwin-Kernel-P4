@@ -168,8 +168,11 @@ CASES=(Load.test_the_key_leaves_the_address_bar
        Refresh.test_refresh_stops_while_measuring
        Refresh.test_refresh_stops_while_declared
        Refresh.test_refresh_stops_while_hidden_and_resumes_when_shown
-       Refresh.test_a_measuring_pause_probes_the_lab_alone
+       Refresh.test_a_measuring_pause_probes_measuring_alone
        Refresh.test_a_measuring_pause_reads_nothing_while_hidden
+       Refresh.test_shown_again_while_measuring_probes_once_60_s_later
+       Refresh.test_a_declared_pause_is_resumed_by_the_probe
+       ProbeTimeout.test_a_probe_that_times_out_keeps_the_pause_and_the_next_one_ends_it
        JobLog.test_job_log_stops_on_close
        JobLog.test_job_log_stops_when_the_job_ends
        JobLog.test_job_log_stops_while_hidden_and_resumes)
@@ -744,38 +747,94 @@ mutant r6-refresh-now-resumes "$REFRESH_TS" \
 report "R6: 立即更新 always brings the 10 s tick back, even while still measuring" \
        Refresh.test_refresh_stops_while_measuring "while still measuring brought the 10 s tick back"
 
-# --- the probe during a measuring pause (Adam's Q6, 09-28) ---
+# --- the probe during a measuring pause (Adam's Q6, 09-28; /measuring alone since 10-01) ---
 
 mutant q1-no-probe "$REFRESH_TS" \
     '      if (document.visibilityState !== "hidden") timer.current = window.setTimeout(probe, PROBE_INTERVAL_MS);' \
     '      // Q1: no probe'
 report "Q1: the probe is never armed" \
-       Refresh.test_a_measuring_pause_probes_the_lab_alone "not /lab alone once"
+       Refresh.test_a_measuring_pause_probes_measuring_alone "not /measuring alone once"
 
 mutant q2-probe-reads-everything "$REFRESH_TS" \
-    'await readOnce(labRef.current);' \
+    'await readOnce(probeRef.current);' \
     'await readOnce(readRef.current);'
-report "Q2: the probe reads everything (readRef, not labRef)" \
-       Refresh.test_a_measuring_pause_probes_the_lab_alone "not /lab alone once"
+report "Q2: the probe reads everything (readRef, not probeRef)" \
+       Refresh.test_a_measuring_pause_probes_measuring_alone "not /measuring alone once"
 
 mutant q3-probe-every-20-s "$REFRESH_TS" \
     'export const PROBE_INTERVAL_MS = 60_000;' \
     'export const PROBE_INTERVAL_MS = 20_000;'
 report "Q3: the probe interval is 20 s, not 60 s" \
-       Refresh.test_a_measuring_pause_probes_the_lab_alone "not /lab alone once"
+       Refresh.test_a_measuring_pause_probes_measuring_alone "not /measuring alone once"
 
-mutant q4-readlab-reads-apps "$APP_TSX" \
-    '    const l = await get<LabAnswer>("/lab");' \
-    '    const l = await get<LabAnswer>("/lab");
+mutant q4-probe-reads-apps "$APP_TSX" \
+    '    const m = await get<MeasuringAnswer>("/measuring");' \
+    '    const m = await get<MeasuringAnswer>("/measuring");
     await get<AppsAnswer>("/apps");'
-report "Q4: readLab also GETs /apps" \
-       Refresh.test_a_measuring_pause_probes_the_lab_alone "not /lab alone once"
+report "Q4: readProbe also GETs /apps" \
+       Refresh.test_a_measuring_pause_probes_measuring_alone "not /measuring alone once"
 
 mutant q5-probe-result-ignored "$REFRESH_TS" \
-    'await readOnce(labRef.current);' \
-    'await labRef.current();'
-report "Q5: the probe reads /lab but its answer never ends the pause" \
-       Refresh.test_a_measuring_pause_probes_the_lab_alone "the refresh did not resume"
+    'await readOnce(probeRef.current);' \
+    'await probeRef.current();'
+report "Q5: the probe reads /measuring but its answer never ends the pause" \
+       Refresh.test_a_measuring_pause_probes_measuring_alone "the refresh did not resume"
+
+# 10-01: the probe is /measuring, `ndt status --measuring` -- not plain status's /lab again
+mutant q4b-probe-reads-lab "$APP_TSX" \
+    '    const m = await get<MeasuringAnswer>("/measuring");' \
+    '    const m = await get<MeasuringAnswer>("/lab");'
+report "Q4b: the probe is /lab again (plain ndt status: sudo and the kernel graph)" \
+       Refresh.test_a_measuring_pause_probes_measuring_alone "not /measuring alone once"
+
+mutant q12-probe-sets-last-read "$APP_TSX" \
+    '    setProbeAt(clock());
+    return m.status === 200' \
+    '    setProbeAt(clock());
+    setLabAt(clock());
+    return m.status === 200'
+report "Q12: the probe moves the full read's time (the tabs would read fresher than they are)" \
+       Refresh.test_a_measuring_pause_probes_measuring_alone "the probe changed the full read's time"
+
+# the r2 review's tests 4-6, against the probe: shown again, a declared pause, a probe timeout
+mutant q8-shown-probes-at-once "$REFRESH_TS" \
+    '      if (measuring.current) {
+        arm();
+        return;
+      }
+      void tick();' \
+    '      if (measuring.current) {
+        void probe();
+        return;
+      }
+      void tick();'
+report "Q8: shown again while measuring, the probe reads at once (not 60 s later)" \
+       Refresh.test_shown_again_while_measuring_probes_once_60_s_later "read before its 60 s probe"
+
+mutant q8b-shown-arms-nothing "$REFRESH_TS" \
+    '      if (measuring.current) {
+        arm();
+        return;
+      }
+      void tick();' \
+    '      if (measuring.current) {
+        return;
+      }
+      void tick();'
+report "Q8b: shown again while measuring, no probe is armed again" \
+       Refresh.test_shown_again_while_measuring_probes_once_60_s_later "no probe within"
+
+mutant q9-declared-sticks "$REFRESH_TS" \
+    '  return lab.measuring_is_nothing === false || lab.declared !== null;' \
+    '  return lab.measuring_is_nothing === false || (lab.declared as unknown) !== undefined;'
+report "Q9: a declared pause never ends (null read as a declaration)" \
+       Refresh.test_a_declared_pause_is_resumed_by_the_probe "did not resume by the probe"
+
+mutant q10-probe-parses-the-row "$APP_TSX" \
+    '    return m.status === 200 && m.json ? m.json : null;' \
+    '    return m.status === 200 && m.json ? { ...m.json, measuring_is_nothing: m.json.measuring === "nothing" } : null;'
+report "Q10: the page reads the row itself, so a timed-out probe reads as nothing measuring" \
+       ProbeTimeout.test_a_probe_that_times_out_keeps_the_pause_and_the_next_one_ends_it "a probe that timed out brought the 10 s tick back"
 
 mutant q6-shown-reads-at-once "$REFRESH_TS" \
     '      if (measuring.current) {
@@ -798,8 +857,8 @@ also "$REFRESH_TS" \
       arm(); // nothing is read while hidden
       return;
     }
-    await readOnce(labRef.current);' \
-    '    await readOnce(labRef.current);'
+    await readOnce(probeRef.current);' \
+    '    await readOnce(probeRef.current);'
 report "Q7: the probe is armed while hidden AND reads while hidden" \
        Refresh.test_a_measuring_pause_reads_nothing_while_hidden "while measuring and hidden"
 
@@ -814,8 +873,8 @@ mutant q7b-reads-while-hidden "$REFRESH_TS" \
       arm(); // nothing is read while hidden
       return;
     }
-    await readOnce(labRef.current);' \
-    '    await readOnce(labRef.current);'
+    await readOnce(probeRef.current);' \
+    '    await readOnce(probeRef.current);'
 equivalent "Q7b: probe() has no hidden check (arm() still arms none while hidden)" \
        Refresh.test_a_measuring_pause_reads_nothing_while_hidden "arm() arms no probe while hidden"
 

@@ -26,8 +26,12 @@ the server and the stub ndt recorded -- never from the page's word alone where t
   auto-refresh   10 s while shown and idle; no tick while measuring, while a measurement is
                  declared, or while the page is hidden (a second target really hides it), and a
                  read as soon as it is shown again; 立即更新 while measuring keeps the pause;
-                 during a measuring pause a probe reads /lab alone once a minute, and the one that
-                 reads nothing measuring brings the tick back; hidden, nothing at all   Refresh
+                 during a measuring pause a probe reads /measuring alone once a minute (`ndt
+                 status --measuring`, never /lab), and the one that reads nothing measuring and
+                 nothing declared brings the tick back; shown again while measuring, one probe
+                 60 s later; hidden, nothing at all                                     Refresh
+  probe timeout  a probe stopped at --read-timeout keeps the pause, and the next one ends it
+                                                                                 ProbeTimeout
   job log        2 s while the job runs; nothing after Close, after the job ended, or while the
                  page is hidden                                                           JobLog
 
@@ -55,7 +59,7 @@ cdp_pipe created is ever signalled; no process is looked up by name.
 TIME: the auto-refresh (10 s), the probe (60 s) and the job log (2 s) are measured in real time --
 a window just longer than the interval for "nothing was read", the spec's 25 s for "it does read".
 No virtual time: it stops while a fetch is pending, which is exactly what is being counted. The
-whole suite is about 6 minutes, most of it the two probe cases (about 2 min and 1.5 min).
+whole suite is about 12 minutes, most of it the five probe cases (1 to 2.5 min each).
 
 PROVENANCE: run as a script, it prints its own header first (date, argv, git HEAD and how many
 paths are uncommitted, the python and Chrome it runs, the page's files with their sha256) and, at
@@ -115,6 +119,7 @@ DECLARED = ("lab\n  claim          yours -- 30m left (until 23:59:00)\n"
             "  declared       iperf3 matrix   (claim measuring=; 'ndt check' refuses while set)\n"
             "  measuring      nothing\n")
 FOREIGN = "lab\n  claim          someone -- 10m left (until 23:59:00)\n  measuring      nothing\n"
+NOTHING_ROWS = "  measuring      nothing\n"    # `ndt status --measuring` with nothing measuring
 CLAIM_NONE = "lab\n  claim          none\n  measuring      nothing\n"      # ndt claim_line, no claim file
 NO_CLAIM_ROW = "lab\n  measuring      nothing\n"
 
@@ -123,10 +128,10 @@ JOB_LOG_S = 2             # web/src/hooks/useJobLog.ts JOB_LOG_INTERVAL_MS
 QUIET_S = REFRESH_S + 2   # "nothing was read": one interval and a margin
 LOG_QUIET_S = 2 * JOB_LOG_S + 1.5
 READING_S = 25            # SCOPE-v2 section 5: >= 2 reads in about 25 s
-PROBE_S = 60              # useAutoRefresh.ts PROBE_INTERVAL_MS: /lab alone, during a measuring pause (Q6)
+PROBE_S = 60              # useAutoRefresh.ts PROBE_INTERVAL_MS: /measuring alone, during a measuring pause (Q6)
 
 REQUEST_RE = re.compile(r'"([A-Z]+) (\S+) HTTP/[0-9.]+" (\d{3})')
-TICK_RE = re.compile(r"/api/v1/(lab|apps|health|jobs)")      # what one auto-refresh tick reads
+TICK_RE = re.compile(r"/api/v1/(lab|apps|health|jobs|measuring)")   # what a tick reads, and the probe
 with open(os.path.join(REPO, "tools", "ndt_serve", "web", "src", "i18n", "zh.json"), encoding="utf-8") as _f:
     CLAIM_FIRST = json.load(_f)["ndtServe"]["confirm"]["blockClaim"]
 
@@ -215,6 +220,7 @@ def double_click(p, element_id):
 @unittest.skipUnless(GUARD_HELD, NO_GUARD)
 class PageCase(unittest.TestCase):
     """One Chrome for the class; per case a stub server and a page of its own."""
+    SERVE_EXTRA = ()          # more of serve.py's options, for a class that needs them
 
     @classmethod
     def setUpClass(cls):
@@ -264,7 +270,7 @@ class PageCase(unittest.TestCase):
             raise AssertionError("Chrome left %d process(es) behind: %s" % (len(left), describe(left)))
 
     def setUp(self):
-        self.s = gui.GuiServe()
+        self.s = gui.GuiServe(extra=list(self.SERVE_EXTRA))
         RUN_DIRS.append(self.s.tmp)
         self.addCleanup(self.s.close)
         self.addCleanup(self.jobs_end)          # cleanups run last-in first-out: pages, jobs, server
@@ -292,8 +298,9 @@ class PageCase(unittest.TestCase):
         return sum(1 for m, path, _ in self.requests() if m == method and re.fullmatch(pattern, path))
 
     def tick_reads(self):
-        """{lab, apps, health, jobs}: how often the server answered each read an auto-refresh tick makes."""
-        out = {"lab": 0, "apps": 0, "health": 0, "jobs": 0}
+        """{lab, apps, health, jobs, measuring}: how often the server answered each read an auto-refresh
+        tick makes, and the probe's /measuring."""
+        out = {"lab": 0, "apps": 0, "health": 0, "jobs": 0, "measuring": 0}
         for m, path, _ in self.requests():
             hit = TICK_RE.fullmatch(path)
             if m == "GET" and hit:
@@ -678,15 +685,16 @@ class Refresh(PageCase):
         self.assertEqual(after, before, "the page read %r in %d s while %s (before %r)" % (after, QUIET_S, why, before))
         self.assertEqual(hook(p, "refresh"), "paused-measuring")
         if refresh_now_while_measuring:
-            # 立即更新 reads everything once, and a read that is still measuring keeps the pause
+            # 立即更新 reads everything once (the four reads, not the probe), and a read that is still
+            # measuring keeps the pause
             p.click("refresh-now")
-            want = {k: v + 1 for k, v in after.items()}
+            want = {k: v + (k != "measuring") for k, v in after.items()}
             until(lambda: self.tick_reads() == want, 5)
             self.assertEqual(self.tick_reads(), want, "立即更新 did not read everything once")
             self.pause(REFRESH_S + 1)
             self.assertEqual((self.tick_reads(), hook(p, "refresh")), (want, "paused-measuring"),
                              "立即更新 while still measuring brought the 10 s tick back")
-        # back to the 10 s tick: 立即更新 (here) or the probe (test_a_measuring_pause_probes_the_lab_alone),
+        # back to the 10 s tick: 立即更新 (here) or the probe (test_a_measuring_pause_probes_measuring_alone),
         # and only once nothing measures (SCOPE-v2 section 6, Adam's Q6)
         self.stub(status=IDLE)
         n = self.tick_reads()["lab"]
@@ -700,24 +708,72 @@ class Refresh(PageCase):
     def test_refresh_stops_while_declared(self):
         self.paused_by_the_lab(DECLARED, "a measurement was declared")
 
-    def test_a_measuring_pause_probes_the_lab_alone(self):
-        # Adam's Q6 (09-28): during a measuring pause, /lab alone once every 60 s; a probe that reads
-        # nothing measuring brings the 10 s tick back.
+    def probe_calls(self):
+        """(`ndt status --measuring` calls, plain `ndt status` calls) the stub ndt has seen."""
+        argvs = [c["argv"] for c in self.s.calls()]
+        return argvs.count(["status", "--measuring"]), argvs.count(["status"])
+
+    def test_a_measuring_pause_probes_measuring_alone(self):
+        # Adam's Q6 (09-28): during a measuring pause, one probe every 60 s; 10-01: it asks only "is
+        # anyone measuring" -- /measuring, `ndt status --measuring`, never /lab's plain status. The
+        # probe changes nothing the tabs show, and one that reads nothing measuring brings the tick back.
         self.stub(status=MEASURING)
         p = self.load()
         t0 = time.monotonic()                   # the load's read has just ended: the probe is due at t0 + 60
-        before = self.tick_reads()
+        before, calls = self.tick_reads(), self.probe_calls()
+        last = p.eval("document.getElementById('last-read').textContent")
         self.pause(PROBE_S + 6)
         got = self.tick_reads()
-        want = dict(before, lab=before["lab"] + 1)
-        self.assertEqual(got, want, "the measuring pause read %r in %d s, not /lab alone once (before %r)"
+        want = dict(before, measuring=before["measuring"] + 1)
+        self.assertEqual(got, want, "the measuring pause read %r in %d s, not /measuring alone once (before %r)"
                          % (got, PROBE_S + 6, before))
+        self.assertEqual(self.probe_calls(), (calls[0] + 1, calls[1]),
+                         "the probe ran other than one `ndt status --measuring` and no plain status")
         self.assertEqual(hook(p, "refresh"), "paused-measuring")
+        self.assertEqual(p.eval("document.getElementById('last-read').textContent"), last,
+                         "the probe changed the full read's time (the tabs are as old as the last full read)")
+        self.assertTrue(p.eval("!!document.getElementById('last-probe')"), "the top bar does not say when it probed")
         self.stub(status=IDLE)
         deadline = 2 * PROBE_S + REFRESH_S + 6 - (time.monotonic() - t0)   # the next probe, then one tick
         self.assertTrue(until(lambda: self.tick_reads()["apps"] > before["apps"], deadline),
                         "the refresh did not resume by the next probe and a tick after nothing measured: %r"
                         % self.tick_reads())
+        p.wait_for("document.body.dataset.refresh === 'running'", 5)
+
+    def test_shown_again_while_measuring_probes_once_60_s_later(self):
+        # The r2 review's test 4: hidden during a measuring pause and shown again, the page reads
+        # nothing at once and exactly one /measuring about 60 s after it was shown -- no tick.
+        self.stub(status=MEASURING)
+        p = self.load()
+        self.hide(p)
+        self.pause(5)
+        before = self.tick_reads()
+        self.show(p)
+        t_show = time.monotonic()
+        self.pause(PROBE_S - 6)
+        self.assertEqual(self.tick_reads(), before, "shown again while measuring, the page read before its 60 s "
+                         "probe: %r (before %r)" % (self.tick_reads(), before))
+        self.assertTrue(until(lambda: self.tick_reads()["measuring"] > before["measuring"],
+                              t_show + PROBE_S + 6 - time.monotonic()),
+                        "shown again while measuring, no probe within %d s" % (PROBE_S + 6))
+        self.pause(1)
+        self.assertEqual(self.tick_reads(), dict(before, measuring=before["measuring"] + 1),
+                         "shown again while measuring: not exactly one probe of /measuring about 60 s later")
+        self.assertEqual(hook(p, "refresh"), "paused-measuring")
+
+    def test_a_declared_pause_is_resumed_by_the_probe(self):
+        # The r2 review's test 5: a pause on a DECLARED measurement (measuring nothing) ends at the
+        # probe that reads no declaration -- not only at 立即更新.
+        self.stub(status=DECLARED)
+        p = self.load()
+        self.assertEqual(hook(p, "refresh"), "paused-measuring", "precondition: a declaration pauses the page")
+        before = self.tick_reads()
+        self.stub(status=IDLE)
+        self.assertTrue(until(lambda: self.tick_reads()["apps"] > before["apps"], PROBE_S + REFRESH_S + 8),
+                        "the declared pause did not resume by the probe and a tick: %r (before %r)"
+                        % (self.tick_reads(), before))
+        self.assertEqual(self.tick_reads()["measuring"], before["measuring"] + 1,
+                         "the declared pause was not ended by one probe of /measuring")
         p.wait_for("document.body.dataset.refresh === 'running'", 5)
 
     def test_a_measuring_pause_reads_nothing_while_hidden(self):
@@ -756,6 +812,34 @@ class Refresh(PageCase):
         self.show(p)
         self.assertTrue(until(lambda: self.tick_reads()["lab"] > after["lab"], 4),
                         "no read of /lab after the page was shown again")
+        p.wait_for("document.body.dataset.refresh === 'running'", 5)
+
+
+class ProbeTimeout(PageCase):
+    """The r2 review's test 6: a probe that runs past --read-timeout, then one that answers."""
+    SERVE_EXTRA = ("--read-timeout", "3")
+
+    def test_a_probe_that_times_out_keeps_the_pause_and_the_next_one_ends_it(self):
+        self.stub(status=MEASURING)
+        p = self.load()
+        before = self.tick_reads()
+        # the probe prints `measuring  nothing` and then hangs: stopped at 3 s, it is no reading
+        self.stub(**{"status --measuring": {"stdout": NOTHING_ROWS, "sleep_after": 8}})
+        self.assertTrue(until(lambda: self.tick_reads()["measuring"] > before["measuring"], PROBE_S + 10),
+                        "no probe within %d s" % (PROBE_S + 10))
+        self.assertEqual([c for c in self.s.calls(done=True) if c["argv"] == ["status", "--measuring"]], [],
+                         "precondition: the probe's ndt was stopped at its timeout, not finished")
+        self.pause(REFRESH_S + 2)
+        self.assertEqual((self.tick_reads(), hook(p, "refresh")),
+                         (dict(before, measuring=before["measuring"] + 1), "paused-measuring"),
+                         "a probe that timed out brought the 10 s tick back")
+        # the measurement is over: the next probe answers, and the tick it brings back reads idle too
+        self.stub(status=IDLE, **{"status --measuring": {"stdout": NOTHING_ROWS}})
+        self.assertTrue(until(lambda: self.tick_reads()["apps"] > before["apps"], PROBE_S + REFRESH_S + 8),
+                        "the next probe, which answered nothing measuring, did not end the pause: %r"
+                        % self.tick_reads())
+        self.assertEqual(self.tick_reads()["measuring"], before["measuring"] + 2,
+                         "the pause was ended by something other than the second probe")
         p.wait_for("document.body.dataset.refresh === 'running'", 5)
 
 
