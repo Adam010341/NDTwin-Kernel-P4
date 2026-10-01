@@ -578,7 +578,7 @@ report "M60: the demo's slot probe is a real POST /down with the token" "$m" \
        DemoProbes.test_demo_probes_cannot_touch_the_lab
 
 m=$(mutant m61 "$VERBS_PY" \
-    '    "apps.status": {"code": [(10346, 0, "return 0", "cmd_apps")]},' \
+    '    "apps.status": {"code": [(10369, 0, "return 0", "cmd_apps")]},' \
     '')
 report "M61: an rc table with no source" "$m" \
        RcProvenance.test_every_table_names_its_source
@@ -780,22 +780,22 @@ report "C28: a claim read stopped at its timeout is trusted (its partial yours r
        cells:CellsRun.test_a_status_past_its_timeout_is_not_a_claim
 
 m=$(mutant m63 "$VERBS_PY" \
-    '(8899, 1, "return 1", "app_start")' \
-    '(8439, 1, "return 1", "app_start")')
-report "M63: apps.start rc 1 cites proc_checkout's return 1 (09-24's line 8315, 8439 since segment W)" "$m" \
+    '(8922, 1, "return 1", "app_start")' \
+    '(8462, 1, "return 1", "app_start")')
+report "M63: apps.start rc 1 cites proc_checkout's return 1 (09-24's line 8315, 8462 since --measuring)" "$m" \
        RcProvenance.test_code_sourced_tables_are_in_ndt
 
 
 # [Co-developed with claude code -- Adam] The opus judge's N1-1 (09-27): the README's lock probe
 # citation was left at its pre-segment-W lines; the suite now holds every such citation to ndt.
 m=$(mutant m64 "$README_MD" \
-    'lock probes to the kernel (ndt:9416-9431)' \
+    'lock probes to the kernel (ndt:9439-9454)' \
     'lock probes to the kernel (ndt:9292-9307)')
 report "M64: the README cites the lock probes where they were before segment W (ndt:9292-9307)" "$m" \
        RcProvenance.test_lock_probe_citations_are_lock_probe
 m=$(mutant m65 "$SERVE_PY" \
-    'probes to the kernel (ndt:9416-9431)' \
-    'probes to the kernel (ndt:9416-9420)')
+    'probes to the kernel (ndt:9439-9454)' \
+    'probes to the kernel (ndt:9439-9443)')
 report "M65: serve.py's docstring cites lock_probe's comment but not its POST" "$m" \
        RcProvenance.test_lock_probe_citations_are_lock_probe
 
@@ -955,26 +955,28 @@ report "G9: /lab runs status --check (it POSTs lock probes)" "$m" \
        gui:Lab.test_lab_is_plain_status_with_its_rows_verbatim
 
 m=$(mutant g11 "$SERVE_PY" \
-    '                 claim_is_yours=read and bool(OWN_CLAIM.fullmatch(claim or "")),' \
-    '                 claim_is_yours=read and (claim or "").startswith("yours"),')
+    'claim_is_yours=read and bool(OWN_CLAIM.fullmatch(claim or "")),' \
+    'claim_is_yours=read and (claim or "").startswith("yours"),')
 report "G11: /lab calls a claim yours by its prefix (owner yours-x)" "$m" \
        gui:Lab.test_lab_claim_is_yours_only_in_ndts_own_form_whole
 
 m=$(mutant g11b "$SERVE_PY" \
-    '                 claim_is_yours=read and bool(OWN_CLAIM.fullmatch(claim or "")),' \
-    '                 claim_is_yours=read and bool(OWN_CLAIM.match(claim or "")),')
+    'claim_is_yours=read and bool(OWN_CLAIM.fullmatch(claim or "")),' \
+    'claim_is_yours=read and bool(OWN_CLAIM.match(claim or "")),')
 report "G11b: /lab matches the own form at the start only, not whole" "$m" \
        gui:Lab.test_lab_claim_is_yours_only_in_ndts_own_form_whole
 
 m=$(mutant g24 "$SERVE_PY" \
-    '                 measuring_is_nothing=read and measuring == "nothing",' \
-    '                 measuring_is_nothing=read and measuring in ("nothing", None),')
+    '             measuring_is_nothing=read and measuring == "nothing")' \
+    '             measuring_is_nothing=read and measuring in ("nothing", None))')
 report "G24: no measuring row (orphaned) reads as nothing measuring" "$m" \
        gui:Lab.test_measuring_is_nothing_only_when_ndt_says_nothing
 
 m=$(mutant g25 "$SERVE_PY" \
-    '        read = r["rc_class"] != "timeout"' \
-    '        read = True')
+    '    read = r["rc_class"] != "timeout"
+    measuring = row_of(MEASURING_LINE, r["stdout"])' \
+    '    read = True
+    measuring = row_of(MEASURING_LINE, r["stdout"])')
 report "G25: a status stopped at its timeout is read as a reading" "$m" \
        gui:Lab.test_a_stopped_read_is_not_a_reading
 
@@ -1476,6 +1478,66 @@ m=$(mutant g61 "$SERVE_PY" \
         self.send_header("X-Content-Type-Options", "nosniff")')
 report "G61: an answer sets a cookie (Chrome keeps it encrypted, out of the profile scan's sight)" "$m" \
        gui:Page.test_no_answer_sets_a_cookie
+
+# --- the probe's read: GET /measuring, `ndt status --measuring` (Adam, 2026-10-01) ---------------
+# [Co-developed with claude code -- Adam]
+
+# The probe is the full report again: 564 tasks, 6 sudo and a kernel request per probe, measured.
+m=$(mutant g62 "$SERVE_PY" \
+    '        r = run_read(self.cfg, "status.measuring", verbs.ARGV_STATUS_MEASURING, self.cfg.read_timeout)' \
+    '        r = run_read(self.cfg, "status.measuring", verbs.argv_status(False), self.cfg.read_timeout)')
+report "G62: /measuring runs plain ndt status (sudo and the kernel graph on every probe)" "$m" \
+       gui:Lab.test_measuring_is_status_measuring_and_nothing_else
+
+m=$(mutant g62b "$VERBS_PY" \
+    'ARGV_STATUS_MEASURING = ["status", "--measuring"]' \
+    'ARGV_STATUS_MEASURING = ["status"]')
+report "G62b: the argv table names plain status for the probe" "$m" \
+       gui:Lab.test_measuring_is_status_measuring_and_nothing_else
+
+# A second reading of the rows, for the probe alone: the declaration and the timeout rule are lost.
+m=$(mutant g62c "$SERVE_PY" \
+    '        measuring_fields(r)
+        self._send(200, r)' \
+    '        r.update(measuring=row_of(MEASURING_LINE, r["stdout"]), declared=None,
+                 measuring_is_nothing=row_of(MEASURING_LINE, r["stdout"]) == "nothing")
+        self._send(200, r)')
+report "G62c: /measuring reads the rows with its own copy (no declared row)" "$m" \
+       gui:Lab.test_measuring_reads_the_rows_as_lab_does
+
+m=$(mutant g62d "$SERVE_PY" \
+    '    read = r["rc_class"] != "timeout"
+    measuring = row_of(MEASURING_LINE, r["stdout"])' \
+    '    read = True
+    measuring = row_of(MEASURING_LINE, r["stdout"])')
+report "G62d: a measuring read stopped at its timeout reads as nothing measuring (G25's mutation, the probe's case)" "$m" \
+       gui:Lab.test_a_stopped_measuring_read_is_not_a_reading
+
+m=$(mutant g62e "$SERVE_PY" \
+    '            if method == "GET" and route is not Handler.r_health:' \
+    '            if method == "GET" and route not in (Handler.r_health, Handler.r_measuring):')
+report "G62e: /measuring needs no token (any page could make ndt scan the process table)" "$m" \
+       gui:Lab.test_lab_and_meta_need_the_token
+
+m=$(mutant g62f "$VERBS_PY" \
+    '    "status.measuring": {
+        0: ("report",' \
+    '    "status.measuring.x": {
+        0: ("report",')
+report "G62f: --measuring's rc 0 is not in the rc table (unknown)" "$m" \
+       gui:Lab.test_measuring_is_status_measuring_and_nothing_else
+
+m=$(mutant g62g "$VERBS_PY" \
+    '    "status.measuring": {"help": {0: "exit 0 always: like plain status it judges nothing"},' \
+    '    "status.measuring": {"help": {0: "exit 0 the measuring rows were printed"},')
+report "G62g: --measuring's rc 0 cites a phrase ndt help does not print" "$m" \
+       RcProvenance.test_help_sourced_tables_are_in_ndt_help
+
+m=$(mutant g62h "$VERBS_PY" \
+    '                         "code": [(6725, 0, "return 0", "cmd_status")]},' \
+    '                         "code": [(6663, 0, "return 0", "cmd_status")]},')
+report "G62h: --measuring's rc 0 cites a return 0 of another function (app_package_row)" "$m" \
+       RcProvenance.test_code_sourced_tables_are_in_ndt
 
 echo
 if [[ "$(sha256sum "${SUBJECTS[@]}")" != "$BASE_SHA" ]]; then

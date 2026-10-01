@@ -15,7 +15,9 @@ token. These cases pin the server's side of that, against the stub ndt of test_n
   * `serve.py url` sends the token only to the process serve.json names, and only if that
     process holds the port;
   * GET /lab is plain `ndt status` with its rows verbatim and two readings: the own-claim form,
-    whole, and measuring exactly `nothing`; GET /meta is the server's own tables;
+    whole, and measuring exactly `nothing`; GET /measuring, the page's probe while a measurement
+    runs, is `ndt status --measuring` with /lab's measuring reading and nothing else; GET /meta is
+    the server's own tables;
   * {"dry_run": true} answers the argv the write would run and runs, spawns and makes nothing --
     and only where it is offered;
 
@@ -208,11 +210,11 @@ class Page(unittest.TestCase):
                    for p in ("/", "/app.js", "/app.css", "/manual.html", "/nope")]
         answers.append(("POST /session",) + self.s.request("POST", "/api/v1/session", {"nonce": self.s.key()},
                                                          token=None, headers=origin))
-        answers += [("GET " + p,) + self.s.get(p) for p in ("/health", "/lab", "/meta", "/jobs", "/apps")]
+        answers += [("GET " + p,) + self.s.get(p) for p in ("/health", "/lab", "/measuring", "/meta", "/jobs", "/apps")]
         answers.append(("POST /claim dry_run",) + self.s.post("/claim", {"dry_run": True}))
         answers.append(("POST /down, no token",) + self.s.post("/down", token=None))
         self.assertEqual(answers[5][1], 200, "the key trade did not answer 200: %r" % (answers[5][2],))
-        self.assertEqual(answers[11][1], 200, "the dry run did not answer 200: %r" % (answers[11][2],))
+        self.assertEqual(answers[12][1], 200, "the dry run did not answer 200: %r" % (answers[12][2],))
         self.assertEqual([what for what, _, _, h, _ in answers if "set-cookie" in h], [])
 
     def test_the_page_obeys_the_host_check(self):
@@ -596,10 +598,58 @@ class Lab(unittest.TestCase):
         self.s.wait(j["job"]["id"])
 
     def test_lab_and_meta_need_the_token(self):
-        for path in ("/lab", "/meta"):
+        for path in ("/lab", "/measuring", "/meta"):
             st, j, _, _ = self.s.get(path, token=None)
             self.assertEqual((st, j["error"]), (403, "token"), path)
         self.assertEqual(self.s.calls(), [])
+
+    # [Co-developed with claude code -- Adam] the probe while a measurement runs (Adam, 2026-10-01):
+    # `ndt status --measuring`, read by /lab's own code -- the same rows give the same answer
+    MEASURING_ROWS = (("  measuring      nothing\n", "nothing", None, True),
+                      ("  measuring      iperf3 -c 10.0.0.2 -t 30\n", "iperf3 -c 10.0.0.2 -t 30", None, False),
+                      ("  declared       iperf3 matrix   (claim measuring=; 'ndt check' refuses while set)\n"
+                       "  measuring      nothing\n", "nothing",
+                       "iperf3 matrix   (claim measuring=; 'ndt check' refuses while set)", True),
+                      ("  orphaned       iperf3 -c 10.0.0.2\n"
+                       "                 no fabric is running, so these are leftovers, not a measurement\n",
+                       None, None, False),
+                      ("", None, None, False))
+
+    def measuring(self, stdout, **kw):
+        self.s.behave(**{"status --measuring": dict({"stdout": stdout}, **kw)})
+        st, j, _, _ = self.s.get("/measuring")
+        self.assertEqual(st, 200, j)
+        return j
+
+    def test_measuring_is_status_measuring_and_nothing_else(self):
+        for rows, measuring, declared, nothing in self.MEASURING_ROWS:
+            j = self.measuring(rows)
+            self.assertEqual((j["measuring"], j["declared"], j["measuring_is_nothing"]), (measuring, declared, nothing), rows)
+            self.assertEqual((j["rc"], j["rc_class"]), (0, "report"), rows)
+            self.assertEqual(j["stdout"], rows)
+            self.assertNotIn("claim", j, "the probe confirms no write: it has no claim to read")
+        self.assertEqual([c["argv"] for c in self.s.calls()], [["status", "--measuring"]] * len(self.MEASURING_ROWS))
+
+    def test_measuring_reads_the_rows_as_lab_does(self):
+        for rows, _, _, _ in self.MEASURING_ROWS:
+            stdout = "lab\n  claim          none\n" + rows
+            self.s.behave(**{"status": {"stdout": stdout}, "status --measuring": {"stdout": rows}})
+            _, lab, _, _ = self.s.get("/lab")
+            _, probe, _, _ = self.s.get("/measuring")
+            want = {k: lab[k] for k in ("measuring", "declared", "measuring_is_nothing")}
+            self.assertEqual({k: probe[k] for k in want}, want, rows)
+
+    def test_a_stopped_measuring_read_is_not_a_reading(self):
+        s = GuiServe(extra=["--read-timeout", "1"]).start()
+        try:
+            s.behave(**{"status --measuring": {"stdout": "  measuring      nothing\n", "sleep_after": 5}})
+            st, j, _, _ = s.get("/measuring")
+            self.assertEqual(st, 200, j)
+            self.assertEqual(j["rc_class"], "timeout")
+            self.assertEqual(j["measuring"], "nothing", "the row was printed before the read was stopped")
+            self.assertIs(j["measuring_is_nothing"], False)
+        finally:
+            s.close()
 
     def test_meta_is_the_servers_own_tables(self):
         st, j, _, _ = self.s.get("/meta")

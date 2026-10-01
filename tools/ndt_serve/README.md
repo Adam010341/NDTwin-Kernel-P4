@@ -56,6 +56,7 @@ other path answers 404 -- `static/BUILD.json` and the page's sources under `web/
 | POST | `/apps/<name>/start` `{}` | `ndt apps <name>` | 202 + job -- **only under your own claim**: inside the slot, `ndt status`'s claim line must be ndt's own form, whole, else 409 `claim` (ndt's apps verbs check no claim, so this server does) |
 | POST | `/apps/<name>/stop` `{}` | `ndt apps stop <name>` | 202 + job -- only under your own claim, as `start` |
 | GET | `/lab` | `ndt status` (plain) | the read, plus the `claim`, `measuring` and `declared` rows verbatim, `claim_is_yours` (ndt's own-claim form, whole), `measuring_is_nothing`, and `busy` (the job holding the slot). What the page confirms every write against |
+| GET | `/measuring` | `ndt status --measuring` | the read, plus `/lab`'s `measuring` and `declared` rows verbatim and `measuring_is_nothing`, read by the same code (no `claim`). The page's probe while a measurement runs: ndt prints plain status's measuring rows alone, from the claim's measuring= and the process table -- no sudo, no request to the kernel, no OVS or bmv2 query (Adam, 10-01) |
 | GET | `/meta` | nothing | the server's own tables: `up_hosts`, `max_claim_minutes`, `default_claim_minutes`, `max_note_chars`, `apps`, `owner`, `webgui_url` |
 | POST | `/session` `{"nonce":"<key>"}` | nothing | the token, for a one-time key. **No token**; the `Origin` is required and must be this very origin (`http://` + the Host). A key is good once, for `--nonce-ttl` s, and only among the 8 newest |
 | POST | `/session/new` `{}` | nothing | 201 + a new one-time page URL (`ndt serve url` calls this) |
@@ -74,7 +75,7 @@ keeps running if the server dies; a restarted server finds it again from disk.
 an `Origin` -- this server's own origin; a POST also needs `Content-Type: application/json`.
 The Host header must be `127.0.0.1:<port>` or `localhost:<port>`. No CORS header is ever sent.
 Reads are gated too because a read is not side-effect free: `ndt status --check` POSTs three
-lock probes to the kernel (ndt:9416-9431), and without the token any page in the browser could
+lock probes to the kernel (ndt:9439-9454), and without the token any page in the browser could
 start one with an `<img>` (judge 09-24, finding 1).
 
 Two read-only ndt calls run at a time; a third waits up to `--read-queue-wait` seconds and then

@@ -166,6 +166,12 @@ def argv_status(check):
     return ["status", "--check"] if check else ["status"]
 
 
+# GET /measuring, the page's probe while a measurement runs (Adam, 2026-10-01): the measuring rows of
+# plain status and nothing else -- no sudo, no kernel request (ndt help, `status --measuring`).
+# [Co-developed with claude code -- Adam]
+ARGV_STATUS_MEASURING = ["status", "--measuring"]
+
+
 ARGV_APPS_STATUS = ["apps", "status"]
 
 # --- what the exit codes mean -----------------------------------------------------------------
@@ -202,13 +208,18 @@ RC_TABLE = {
         0: ("report", "the report was printed; plain 'ndt status' judges nothing and answers 0 "
                       "whatever it found -- read the report, or ask for a verdict with ?check=1"),
     },
+    # `status --measuring`: plain status's measuring rows alone, and 0 whatever they say.
+    "status.measuring": {
+        0: ("report", "the measuring rows were printed; 'ndt status --measuring' judges nothing and answers 0 "
+                      "whatever they say -- read measuring and declared"),
+    },
     "status.check": {
         0: ("ok", "all compared fields match what the last 'ndt up' asked for"),
         # 🔴 ndt help says "1 one of them does not", but cmd_status answers 1 whenever its
-        # problems[] is not empty (ndt:7070-7072) -- a claim held by somebody else (6698), a
-        # measurement process in flight (6784, in_flight's process scan -- a measuring= the claim
-        # only DECLARES, 6760-6762, is not a problem), a netem qdisc (6930), a refused sudo grant
-        # (6943) are all problems. A GUI that printed "a field does not match" would name the wrong
+        # problems[] is not empty (ndt:7093-7095) -- a claim held by somebody else (6754), a
+        # measurement process in flight (6712, in_flight's process scan -- a measuring= the claim
+        # only DECLARES, 6688-6690, is not a problem), a netem qdisc (6953), a refused sudo grant
+        # (6966) are all problems. A GUI that printed "a field does not match" would name the wrong
         # cause.
         1: ("dirty", "ndt reported at least one problem -- a compared field that does not match, a claim "
                      "held by somebody else, a measurement in progress, a netem qdisc, a refused sudo "
@@ -249,7 +260,9 @@ RC_TABLE = {
 
 # Where each table's codes come from. "help": the phrase `ndt help` prints for each rc (compared
 # whitespace-normalised). "code": (line, rc, text that line must contain, the function that line
-# lies in) in tools/test_workflow/ndt -- trunk cafd518a's line numbers (segment W of
+# lies in) in tools/test_workflow/ndt -- this tree's line numbers: status_measuring_rows and
+# `status --measuring` (10-01) added 23 lines above cmd_status's verdict, and every row from there
+# down moved by that much. Before that, trunk cafd518a's line numbers (segment W of
 # TICKET-P4-heartbeat added 124 lines to ndt above these rows -- 122 before cmd_status and 2 inside
 # it, the `heartbeat` row, before its verdict; the 11 rows below them moved by that much, each
 # located by its old line's text in the same function): the `serve)` dispatch lies
@@ -269,19 +282,21 @@ RC_SOURCE = {
     "status.check": {"help": {0: "exit 0 all compared fields match",
                               1: "1 one of them does not (the message names it)",
                               3: "3 nothing was compared, because there is no baseline RIGHT NOW"},
-                     "code": [(7063, 3, "return 3", "cmd_status"), (7068, 0, "return 0", "cmd_status"),
-                              (7072, 1, "return 1", "cmd_status")]},
-    "status": {"code": [(7074, 0, "return 0", "cmd_status")]},
+                     "code": [(7086, 3, "return 3", "cmd_status"), (7091, 0, "return 0", "cmd_status"),
+                              (7095, 1, "return 1", "cmd_status")]},
+    "status": {"code": [(7097, 0, "return 0", "cmd_status")]},
+    "status.measuring": {"help": {0: "exit 0 always: like plain status it judges nothing"},
+                         "code": [(6725, 0, "return 0", "cmd_status")]},
     "claim": {"code": [(753, 2, "return 2", "cmd_claim"), (762, 2, "return 2", "cmd_claim"),
                        (787, 1, "return 1", "claim_take"), (860, 1, "return 1", "claim_take"),
                        (862, 0, 'ok "lab claimed by', "claim_take")]},
     "release": {"code": [(866, 0, "return 0", "cmd_release"), (871, 1, "return 1", "cmd_release"),
                          (899, 1, "return 1", "cmd_release")]},
-    "apps.start": {"code": [(8895, 0, "return 0", "app_start"), (8899, 1, "return 1", "app_start"),
-                            (8972, 1, "return 1", "app_start")]},
-    "apps.stop": {"code": [(10413, 1, "return 1", "cmd_apps"), (10416, 2, "return 2", "cmd_apps"),
-                           (10419, 0, "return 0", "cmd_apps")]},
-    "apps.status": {"code": [(10346, 0, "return 0", "cmd_apps")]},
+    "apps.start": {"code": [(8918, 0, "return 0", "app_start"), (8922, 1, "return 1", "app_start"),
+                            (8995, 1, "return 1", "app_start")]},
+    "apps.stop": {"code": [(10436, 1, "return 1", "cmd_apps"), (10439, 2, "return 2", "cmd_apps"),
+                           (10442, 0, "return 0", "cmd_apps")]},
+    "apps.status": {"code": [(10369, 0, "return 0", "cmd_apps")]},
 }
 
 

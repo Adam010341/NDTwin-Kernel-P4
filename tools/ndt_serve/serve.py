@@ -25,7 +25,7 @@ The design red lines (TICKET section 3), and where each one lives:
                        answers -- and an Origin header, when present, must be this server's; a POST
                        also needs a JSON body. 🔴 GETs are gated too (judge 09-24, finding 1): a
                        "read" is not side-effect free -- `ndt status --check` POSTs three lock
-                       probes to the kernel (ndt:9416-9431) -- so an <img> in any page must not be
+                       probes to the kernel (ndt:9439-9454) -- so an <img> in any page must not be
                        able to start one.
   3. whitelist         verbs.py builds every argv; there is no shell on any path.
   4. thin shell        ndt's rc is passed through untouched, with a sentence from ndt help beside
@@ -648,12 +648,22 @@ class Handler(http.server.BaseHTTPRequestHandler):
         r = run_read(self.cfg, "status", verbs.argv_status(False), self.cfg.read_timeout)
         if r is None:
             raise HttpError(503, "busy", note="two read-only ndt calls were running for %d s" % self.cfg.read_queue_wait)
-        read = r["rc_class"] != "timeout"
-        claim, measuring = claim_of(r["stdout"]), row_of(MEASURING_LINE, r["stdout"])
-        r.update(claim=claim, measuring=measuring, declared=row_of(DECLARED_LINE, r["stdout"]),
-                 claim_is_yours=read and bool(OWN_CLAIM.fullmatch(claim or "")),
-                 measuring_is_nothing=read and measuring == "nothing",
+        read = measuring_fields(r)
+        claim = claim_of(r["stdout"])
+        r.update(claim=claim, claim_is_yours=read and bool(OWN_CLAIM.fullmatch(claim or "")),
                  busy=self.cfg.store.holding_the_slot())
+        self._send(200, r)
+
+    def r_measuring(self, query):
+        """The page's probe while a measurement pauses its refresh (Adam, 2026-10-01): `ndt status
+        --measuring`, which prints only plain status's measuring rows, from the same ndt function
+        (status_measuring_rows) -- the claim's measuring= and the process table, no sudo, no
+        request to the kernel, no OVS or bmv2 query. The rows and the readings are /lab's, read by
+        the same code; there is no claim here, and nothing to confirm a write against."""
+        r = run_read(self.cfg, "status.measuring", verbs.ARGV_STATUS_MEASURING, self.cfg.read_timeout)
+        if r is None:
+            raise HttpError(503, "busy", note="two read-only ndt calls were running for %d s" % self.cfg.read_queue_wait)
+        measuring_fields(r)
         self._send(200, r)
 
     def r_meta(self, query):
@@ -1089,8 +1099,9 @@ READ_STEPS = {"old": "a read-only step: the cell's own judge reads its old/ fixt
               "compare": "a read-only step: the run's result beside old/'s, row by row"}
 
 CLAIM_LINE = re.compile(r"^  claim\s+(.*?)\s*$", re.M)
-# ndt status's measuring and declared rows (cmd_status, ndt:6760-6787): `measuring  nothing`, or
-# the first process in flight; `declared` only when a claim says measuring=.
+# ndt status's measuring and declared rows (status_measuring_rows, ndt:6688-6716; `ndt status
+# --measuring` prints them alone): `measuring  nothing`, or the first process in flight; `declared`
+# only when a claim says measuring=.
 MEASURING_LINE = re.compile(r"^  measuring\s+(.*?)\s*$", re.M)
 DECLARED_LINE = re.compile(r"^  declared\s+(.*?)\s*$", re.M)
 # ndt's own-claim value, whole: `printf 'yours -- %dm left (until %s)\n'` (ndt:5799, claim_line),
@@ -1108,6 +1119,18 @@ def claim_of(status_stdout):
 def row_of(pattern, status_stdout):
     m = pattern.search(status_stdout or "")
     return m.group(1) if m else None
+
+
+def measuring_fields(r):
+    """/lab's and /measuring's one reading of the measuring rows, added to the read `r`: the
+    `measuring` and `declared` rows verbatim, and measuring_is_nothing -- the row is exactly
+    `nothing`. A read stopped at its timeout is not a reading: measuring_is_nothing is false, and
+    the answer is whether it was one. [Co-developed with claude code -- Adam]"""
+    read = r["rc_class"] != "timeout"
+    measuring = row_of(MEASURING_LINE, r["stdout"])
+    r.update(measuring=measuring, declared=row_of(DECLARED_LINE, r["stdout"]),
+             measuring_is_nothing=read and measuring == "nothing")
+    return read
 
 
 def _step_ok(step, v):
@@ -1177,6 +1200,7 @@ ROUTES = [
     ("POST", re.compile(r"/guided/([^/]+)/verdict"), Handler.w_guided_verdict),
     ("POST", re.compile(r"/guided/([^/]+)/abort"), Handler.w_guided_abort),
     ("GET", re.compile(r"/lab"), Handler.r_lab),
+    ("GET", re.compile(r"/measuring"), Handler.r_measuring),
     ("GET", re.compile(r"/meta"), Handler.r_meta),
     ("POST", re.compile(r"/session"), Handler.w_session),
     ("POST", re.compile(r"/session/new"), Handler.w_session_new),
