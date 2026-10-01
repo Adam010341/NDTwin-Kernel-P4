@@ -484,7 +484,8 @@ mutate_id() {
     local old="$1" new="$2" label="$3" d want out missing=()
     shift 3
     d="$BK/$(printf '%s' "$label" | cut -d: -f1)"; mkdir -p "$d"
-    cp "$TOOL" "$d/external_evidence.py"
+    # (the mutated file first: tests/shell/check_gate_anchors.py takes the first path a function
+    # names as the file its anchors are in)
     if ! python3 - "$IDENT" "$d/code_identity.py" "$old" "$new" <<'PY'
 import sys
 src, dst, a, b = sys.argv[1:5]
@@ -496,6 +497,7 @@ PY
     then
         printf '  SURVIVED %-62s (anchor not unique or identity)\n' "$label"; SURVIVED=$((SURVIVED+1)); return
     fi
+    cp "$TOOL" "$d/external_evidence.py"
     if ! python3 -m py_compile "$d/code_identity.py" 2>/dev/null; then
         printf '  SURVIVED %-62s (the mutant does not compile)\n' "$label"; SURVIVED=$((SURVIVED+1)); return
     fi

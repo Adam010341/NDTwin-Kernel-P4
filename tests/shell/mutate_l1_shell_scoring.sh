@@ -36,6 +36,7 @@ CORPUS_ONELINE_REL="tests/shell/test_faults_topo_pid.sh"      # its failure bran
 CORPUS_GROUPED_REL="tests/shell/test_ndt_down_stops_only_ours.sh"   # `|| { echo "Ran ..."; exit 1; }`
 CORPUS_CALL_REL="tests/shell/test_ndt_ovs_topo_script.sh"   # `summary() { printf ...; }`, `summary; exit 1`, `summary`
 CORPUS_NEEDS_REL="tests/shell/test_gate_exit_code_not_tee.sh"   # carries a NDTWIN_L1_NEEDS declaration
+HBDROP_REL="tests/shell/test_heartbeat_drop_check.py"   # [Co-developed with claude code -- Adam] declares bmv2-stock
 
 KILLED=0
 SURVIVED=0
@@ -382,7 +383,7 @@ s = s.replace(" \"$KERNEL_DIR\"/tests/shell/test_*.py)", ")")
 mutate "a tests/shell/*.py is scored with unittest's vocabulary" "$DRIVER_REL" '
 s = s.replace("[[ \"$testfile\" == *.py && \"$testfile\" != */tests/shell/* ]] && kind=py", "[[ \"$testfile\" == *.py ]] && kind=py")
 ' "D28 🔴 and scores them as shell suites (their summary and SKIP: lines), run by python3"
-mutate "the drop check suite does not declare the stock bmv2" "tests/shell/test_heartbeat_drop_check.py" '
+mutate "the drop check suite does not declare the stock bmv2" "$HBDROP_REL" '
 s = s.replace("# NDTWIN_L1_NEEDS: bmv2-stock\n", "\n")
 ' "D29 🔴 the drop check's suite declares the stock bmv2 it needs"
 mutate "the lane never probes bmv2-stock" "$DRIVER_REL" '
