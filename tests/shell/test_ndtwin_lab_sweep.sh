@@ -90,25 +90,51 @@ cleanup_fixtures() {
 }
 trap cleanup_fixtures EXIT INT TERM
 
-# spawn_fixture <argv0> -- a real process wearing that command line; echoes its pid.
+# spawn_fixture <argv0> -- a real process wearing that command line; its pid is left in
+# FIXTURE_PID.
 #
 # argv0 only: the fixture is a `sleep`, and every extra argument would have to be a duration for
 # it to survive. That is not a limitation here -- argv0 is exactly where the identity question
 # lives, and a decoy carries its mention in argv0 too.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 CALLED AS A PLAIN COMMAND, NEVER AS X="$(spawn_fixture ...)" (2026-09-28). Inside a command
+# substitution the `exit 1` below left only that subshell -- and this suite runs under errexit,
+# which `set -euo pipefail` in the ndtwin-lab it sources leaves on, so the failed assignment then
+# ended the run with no summary at all (measured on 3368412d; with `set +e` after the source the
+# same run printed "Ran 29 checks, 6 failed" over 10 FAILED lines). The premise is a check THIS
+# shell counts, on success too, and a failure ends the run with its summary. Every command in here
+# is written for errexit: the mapfile of a pid that is already gone must not end the run by itself.
+# The poll waits up to FIXTURE_ARGV_WAIT seconds: a slow exec on a loaded machine is not a defect in
+# the sweep.
+FIXTURE_ARGV_WAIT=30
+FIXTURE_PID=""
 spawn_fixture() {
-    local want="$1" pid i
+    local want="$1" pid deadline
     local -a argv=()
-    ( exec -a "$want" sleep "$FIXTURE_TTL" ) >/dev/null 2>&1 </dev/null &
-    pid=$!
+    FIXTURE_PID=""
+    # From a command substitution of its own, so the fixture is never a job of this shell (it
+    # still shares this shell's process group -- section 3 depends on that); the redirections
+    # keep it off that substitution's pipe, which it would otherwise hold open.
+    pid="$( ( exec -a "$want" sleep "$FIXTURE_TTL" ) \
+            >/dev/null 2>&1 </dev/null & echo "$!" )"
     echo "$pid" >> "$FIXTURE_REG"
-    for i in 1 2 3 4 5 6 7 8 9 10; do
+    deadline=$(( SECONDS + FIXTURE_ARGV_WAIT ))
+    while :; do
         argv=()
-        mapfile -d '' -t argv < "/proc/$pid/cmdline" 2>/dev/null
-        [[ "${argv[0]:-}" == "$want" ]] && { echo "$pid"; return 0; }
+        mapfile -d '' -t argv 2>/dev/null < "/proc/$pid/cmdline" || true
+        if [[ "${argv[0]:-}" == "$want" ]]; then
+            check "fixture took argv0=$want" "$want" "${argv[0]}"
+            FIXTURE_PID="$pid"
+            return 0
+        fi
+        (( SECONDS < deadline )) || break
         sleep 0.1
     done
-    echo "  FAILED   fixture never took argv0=$want (pid $pid)" >&2
-    echo "Ran $((PASS + FAIL + 1)) checks, $((FAIL + 1)) failed"
+    check "fixture took argv0=$want" "$want" \
+          "${argv[0]:-nothing readable} (pid $pid, after ${FIXTURE_ARGV_WAIT}s)"
+    echo
+    echo "Ran $((PASS + FAIL)) checks, $FAIL failed"
     exit 1
 }
 
@@ -144,11 +170,11 @@ check "no argv at all"                       no  "$(yn sweep_matches "$SW")"
 # is not". Both stay true however busy the machine is, so a live round cannot turn this red.
 echo "machine-wide scan (real ps, read-only)"
 
-SWFIX="$(spawn_fixture "$FIX_SW")"
+spawn_fixture "$FIX_SW"; SWFIX="$FIXTURE_PID"
 # The decoy's command line CONTAINS both patterns -- `pkill -f simple_switch_grpc` and
 # `pkill -f ntg_bmv2_topo.py` would each signal it -- while no argv element IS either program.
 DECOY_ARGV0="/nonexistent/NDT-TEST-FIXTURE/bin/reporter-restarting-$SW-and-$TOPO"
-DECOY="$(spawn_fixture "$DECOY_ARGV0")"
+spawn_fixture "$DECOY_ARGV0"; DECOY="$FIXTURE_PID"
 
 check "the real scan finds the switch fixture"  yes "$(has "$SWFIX" $'\n'"$(sweep_find "$SW")"$'\n')"
 check "the real scan does not find the decoy"   no  "$(has "$DECOY" $'\n'"$(sweep_find "$SW")"$'\n')"
@@ -158,8 +184,9 @@ check "the real scan does not find this shell"  no  "$(has "$$" $'\n'"$(sweep_fi
 #
 # The candidate list is bounded from here on. This shell is INJECTED into it wearing the
 # pattern, which is precisely what happens to an operator who typed the pattern: `pkill -f`
-# signals them. The ancestor chain must drop it -- and must NOT drop the fixture, which is a
-# child of this shell and a legitimate target.
+# signals them. The ancestor chain must drop it -- and must NOT drop the fixture, a legitimate
+# target: this shell started it, from a command substitution, so it was reparented and is not this
+# shell's child, but it is still in this shell's process group.
 echo "self-match (the failure that makes a guard report a clean machine)"
 
 SNAP_LINES=""
@@ -230,7 +257,7 @@ echo "counting (what 'ndtwin-lab status' prints)"
 SNAP_LINES="$(printf '%s %s' "$$" "bash tests/shell/test_ndtwin_lab_sweep.sh $SW")"
 check "no switches, and we are looking -> 0"   0 "$(sweep_count "$SW")"
 
-SWFIX2="$(spawn_fixture "/nonexistent/NDT-TEST-FIXTURE/bin2/$SW")"
+spawn_fixture "/nonexistent/NDT-TEST-FIXTURE/bin2/$SW"; SWFIX2="$FIXTURE_PID"
 SNAP_LINES="$(printf '%s %s\n%s %s\n%s %s' \
     "$$"      "bash tests/shell/test_ndtwin_lab_sweep.sh $SW" \
     "$SWFIX"  "$FIX_SW --name s1" \
@@ -240,7 +267,7 @@ check "two switches, and we are looking -> 2"  2 "$(sweep_count "$SW")"
 # --- 5. signalling, and reading /proc afterwards ---------------------------------------
 echo "kill (what actually happened, not what was requested)"
 
-TOPOFIX="$(spawn_fixture "$FIX_TOPO")"
+spawn_fixture "$FIX_TOPO"; TOPOFIX="$FIXTURE_PID"
 SNAP_LINES="$(printf '%s %s\n%s %s' \
     "$TOPOFIX" "$FIX_TOPO" \
     "$DECOY"   "$DECOY_ARGV0")"

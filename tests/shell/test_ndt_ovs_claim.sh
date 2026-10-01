@@ -250,26 +250,49 @@ dead_pid() {
     [[ -d "/proc/$p" ]] && { echo 0; return 1; }
     echo "$p"
 }
-# spawn <argv0> [setsid] -- a `sleep` wearing that argv0, in $FIX; echo its pid. With `setsid`
-# it leads a process group of its own, which is how a live group is planted.
+# spawn <argv0> [setsid] -- a `sleep` wearing that argv0, in $FIX; its pid is left in FIXTURE_PID.
+# With `setsid` it leads a process group of its own, which is how a live group is planted.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 CALLED AS A PLAIN COMMAND, NEVER AS X="$(spawn ...)" (2026-09-28). Inside a command substitution
+# the `exit 1` below left only that subshell: the suite ran on with the helper's own summary text
+# where a pid should be, and the FAILED line was never counted -- measured on 3368412d by
+# tests/shell/mutate_fixture_spawn_helpers.sh, 26 FAILED lines under "Ran 166 checks, 18 failed".
+# The premise is a check THIS shell counts, on success too, and a failure ends the run with its
+# summary. The poll waits up to FIXTURE_ARGV_WAIT seconds: a slow exec on a loaded machine is not a
+# defect in `ndt`.
+FIXTURE_ARGV_WAIT=30
+FIXTURE_PID=""
 spawn() {
-    local want="$1" how="${2:-}" pid i
+    local want="$1" how="${2:-}" pid deadline
     local -a argv=()
+    FIXTURE_PID=""
+    # From a command substitution of its own, so the fixture is never a job of this shell; the
+    # redirections keep it off that substitution's pipe, which it would otherwise hold open.
     if [[ "$how" == setsid ]]; then
-        ( cd "$FIX" && exec setsid bash -c 'exec -a "$0" sleep 120' "$want" ) >/dev/null 2>&1 </dev/null &
+        pid="$( ( cd "$FIX" && exec setsid bash -c 'exec -a "$0" sleep 120' "$want" ) \
+                >/dev/null 2>&1 </dev/null & echo "$!" )"
     else
-        ( cd "$FIX" && exec -a "$want" sleep 120 ) >/dev/null 2>&1 </dev/null &
+        pid="$( ( cd "$FIX" && exec -a "$want" sleep 120 ) \
+                >/dev/null 2>&1 </dev/null & echo "$!" )"
     fi
-    pid=$!
     echo "$pid" >> "$FIXTURES"
-    for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+    deadline=$(( SECONDS + FIXTURE_ARGV_WAIT ))
+    while :; do
         argv=()
-        mapfile -d '' -t argv < "/proc/$pid/cmdline" 2>/dev/null
-        [[ "${argv[0]:-}" == "$want" ]] && { echo "$pid"; return 0; }
+        mapfile -d '' -t argv 2>/dev/null < "/proc/$pid/cmdline" || true
+        if [[ "${argv[0]:-}" == "$want" ]]; then
+            check "fixture took argv0=$want" "$want" "${argv[0]}"
+            FIXTURE_PID="$pid"
+            return 0
+        fi
+        (( SECONDS < deadline )) || break
         command sleep 0.1
     done
-    echo "  FAILED   fixture never took argv0=$want (pid $pid)" >&2
-    echo "Ran $((PASS + FAIL + 1)) checks, $((FAIL + 1)) failed"
+    check "fixture took argv0=$want" "$want" \
+          "${argv[0]:-nothing readable} (pid $pid, after ${FIXTURE_ARGV_WAIT}s)"
+    echo
+    echo "Ran $((PASS+FAIL)) checks, $FAIL failed"
     exit 1
 }
 kill_fixture() {
@@ -497,7 +520,7 @@ has   "a dead stack pidfile is still marked stale"          "kernel.pid: stale p
 
 # The controls, one per way "the file exists" differs from "the process is gone".
 reset_fix
-LIVE_VIZ="$(spawn "$FIX/network_traffic_visualizer.sh")"
+spawn "$FIX/network_traffic_visualizer.sh"; LIVE_VIZ="$FIXTURE_PID"
 pidf app_viz.pid "$LIVE_VIZ"
 OUT="$(drive 'app_pidfile_stale_row')"
 hasnt "🔴 a pidfile naming a LIVE viz is not stale"          "STALE" "$OUT"
@@ -506,7 +529,7 @@ kill_fixture "$LIVE_VIZ"
 # pid gone, but the process group the app was started in still has a member: the FINDINGS #6/#48
 # shape (viz's launcher dead, its JVMs running on). NOT stale.
 reset_fix
-GROUP="$(spawn "java-child-of-viz" setsid)"
+spawn "java-child-of-viz" setsid; GROUP="$FIXTURE_PID"
 DEAD="$(dead_pid)"
 pidf app_viz.pid "$DEAD"; pidf app_viz.pgid "$GROUP"
 OUT="$(drive 'app_pidfile_stale_row')"
@@ -516,7 +539,7 @@ kill_fixture "$GROUP"
 
 # pid alive, but it is not viz any more -- a recycled number. Identity is pid + argv.
 reset_fix
-STRANGER="$(spawn "some-unrelated-program")"
+spawn "some-unrelated-program"; STRANGER="$FIXTURE_PID"
 pidf app_viz.pid "$STRANGER"
 OUT="$(drive 'app_pidfile_stale_row')"
 has   "🔴 a pid alive as somebody else is STALE (pid + argv, not the number)" "STALE" "$OUT"
@@ -562,7 +585,7 @@ check "  and it is removed"                                  "absent" "$(present
 
 # 🔴 THE CONTROLS: the sweep removes only what is provably stale.
 reset_fix; rm -f "$FIX/manifest.json"
-LIVE_VIZ="$(spawn "$FIX/network_traffic_visualizer.sh")"
+spawn "$FIX/network_traffic_visualizer.sh"; LIVE_VIZ="$FIXTURE_PID"
 pidf app_viz.pid "$LIVE_VIZ"
 OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
 check "🔴 a LIVE pidfile is kept"                            "present" "$(present app_viz.pid)"
@@ -570,7 +593,7 @@ check "  and is a subject: rc 0, not 3"                      "0" "$(rc_of "$OUT"
 kill_fixture "$LIVE_VIZ"
 
 reset_fix; rm -f "$FIX/manifest.json"
-GROUP="$(spawn "java-child-of-viz" setsid)"
+spawn "java-child-of-viz" setsid; GROUP="$FIXTURE_PID"
 DEAD="$(dead_pid)"
 pidf app_viz.pid "$DEAD"; pidf app_viz.pgid "$GROUP"
 OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
@@ -653,7 +676,7 @@ section "12. 🔴 F2/F8: a recycled number that leads its own group is STALE (st
 # own member and called the record "NOT stale". The real shape: a setsid-spawned stranger, the
 # .pgid naming it, the pidfile written BEFORE the stranger started.
 reset_fix; rm -f "$FIX/manifest.json"
-STR="$(spawn "stranger-group-leader" setsid)"
+spawn "stranger-group-leader" setsid; STR="$FIXTURE_PID"
 pidf app_viz.pid "$STR"; pidf app_viz.pgid "$STR"
 touch -d "@$(( $(date +%s) - 600 ))" "$FIX/.test_run/pids/app_viz.pid"
 OUT="$(drive 'app_pidfile_stale_row')"
@@ -675,7 +698,7 @@ kill_fixture "$STR"
 # F8: the stack's own files take the same test. They carry no argv to compare, so a live number
 # was always LIVE; one whose process started after the file was written is somebody else's.
 reset_fix; rm -f "$FIX/manifest.json"
-DAEMON="$(spawn "some-daemon")"
+spawn "some-daemon"; DAEMON="$FIXTURE_PID"
 pidf kernel.pid "$DAEMON"
 touch -d "@$(( $(date +%s) - 600 ))" "$FIX/.test_run/pids/kernel.pid"
 OUT="$(drive 'stack_pidfile_row')"
@@ -824,7 +847,7 @@ section "17. 🔴 a recycled stack number is a --check problem: rc 1 with a base
 # answers only "is there a baseline" (0) or "none" (3), from the file, and everything else in
 # cmd_status runs for real.
 CHECK_STUB='check_up_target() { UP_TARGET_PROBLEMS=(); [[ -f "$REPO/.test_run/up.target" ]] || return 3; return 0; }'
-DAEMON="$(spawn "some-daemon")"
+spawn "some-daemon"; DAEMON="$FIXTURE_PID"
 reset_fix; rm -f "$KNOB"
 printf 'plane=ovs\n' > "$FIX/.test_run/up.target"
 pidf kernel.pid "$DAEMON"

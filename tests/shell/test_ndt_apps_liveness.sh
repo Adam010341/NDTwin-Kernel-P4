@@ -105,27 +105,49 @@ cleanup_fixtures() {
 }
 trap cleanup_fixtures EXIT INT TERM
 
-# spawn_fixture <argv0> [cwd] -- a process wearing that command line; echo its pid.
+# spawn_fixture <argv0> [cwd] -- a process wearing that command line; its pid is left in
+# FIXTURE_PID.
 #
 # [Co-developed with claude code -- Adam]
 # 🔴 C10-8 (2026-09-12): the cwd defaults to $TMPROOT, which is this suite's $REPO, and that is
 # load-bearing rather than tidy. `ndt` now asks whether a scanned pid belongs to THIS checkout
 # before it may be counted or signalled (proc_checkout), and a fixture inherits the cwd of the
 # tree this suite was launched from -- which is another checkout as far as $REPO is concerned.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 CALLED AS A PLAIN COMMAND, NEVER AS X="$(spawn_fixture ...)" (2026-09-28). Inside a command
+# substitution the `exit 1` below left only that subshell: measured on 3368412d by
+# tests/shell/mutate_fixture_spawn_helpers.sh, this suite then printed 23 FAILED lines under "Ran 51
+# checks, 17 failed". The premise is a check THIS shell counts, on success too, and a failure ends
+# the run with its summary. The poll waits up to FIXTURE_ARGV_WAIT seconds: a slow exec on a loaded
+# machine is not a defect in `ndt`.
+FIXTURE_ARGV_WAIT=30
+FIXTURE_PID=""
 spawn_fixture() {
-    local want="$1" dir="${2:-$TMPROOT}" pid i
+    local want="$1" dir="${2:-$TMPROOT}" pid deadline
     local -a argv=()
-    ( cd "$dir" && exec -a "$want" sleep "$FIXTURE_TTL" ) >/dev/null 2>&1 </dev/null &
-    pid=$!
+    FIXTURE_PID=""
+    # From a command substitution of its own, so the fixture is never a job of this shell; the
+    # redirections keep it off that substitution's pipe, which it would otherwise hold open.
+    pid="$( ( cd "$dir" && exec -a "$want" sleep "$FIXTURE_TTL" ) \
+            >/dev/null 2>&1 </dev/null & echo "$!" )"
     echo "$pid" >> "$FIXTURE_REG"
-    for i in 1 2 3 4 5 6 7 8 9 10; do
+    deadline=$(( SECONDS + FIXTURE_ARGV_WAIT ))
+    while :; do
         argv=()
-        mapfile -d '' -t argv < "/proc/$pid/cmdline" 2>/dev/null
-        [[ "${argv[0]:-}" == "$want" ]] && { echo "$pid"; return 0; }
+        mapfile -d '' -t argv 2>/dev/null < "/proc/$pid/cmdline" || true
+        if [[ "${argv[0]:-}" == "$want" ]]; then
+            check "fixture took argv0=$want" "$want" "${argv[0]}"
+            FIXTURE_PID="$pid"
+            return 0
+        fi
+        (( SECONDS < deadline )) || break
         sleep 0.1
     done
-    echo "  FAILED   fixture never took argv0=$want (pid $pid)" >&2
-    echo "Ran $((PASS + FAIL + 1)) checks, $((FAIL + 1)) failed"
+    check "fixture took argv0=$want" "$want" \
+          "${argv[0]:-nothing readable} (pid $pid, after ${FIXTURE_ARGV_WAIT}s)"
+    echo
+    echo "Ran $((PASS + FAIL)) checks, $FAIL failed"
     exit 1
 }
 
@@ -205,8 +227,8 @@ TE_ARGV="python3 /nonexistent/NDT-TEST-FIXTURE/Traffic-engineering-App.py"
 # Paired with a real-ps read so that "the scan found nothing" can never pass by accident.
 echo "identity (energy and sim are recognisable at all)"
 
-SIMFIX="$(spawn_fixture "$SIM_ARGV")"
-ENFIX="$(spawn_fixture "$ENERGY_ARGV")"
+spawn_fixture "$SIM_ARGV"; SIMFIX="$FIXTURE_PID"
+spawn_fixture "$ENERGY_ARGV"; ENFIX="$FIXTURE_PID"
 
 check "sim has a signature"                       yes "$(yn pid_is_app "$SIMFIX" sim)"
 check "energy has a signature"                    yes "$(yn pid_is_app "$ENFIX" energy)"
@@ -301,7 +323,7 @@ check "stop of a never-started pidfile app -> rc 2" 2 "$rc"
 check "  still says not running"                  yes "$(has "te not running" "$out")"
 
 # Really running, really stopped: rc 0 is reserved for this.
-TEFIX="$(spawn_fixture "$TE_ARGV")"
+spawn_fixture "$TE_ARGV"; TEFIX="$FIXTURE_PID"
 SNAPSHOT_LINES="$(fix_line "$TEFIX" "$TE_ARGV")"
 echo "$TEFIX" > "$PIDDIR/app_te.pid"
 out="$(app_stop te 2>&1)"; rc=$?
@@ -320,7 +342,7 @@ check "  and clears it"                           yes "$(has "energy-stop" " $(s
 
 # A lab app the lab cannot reach: `energy-stop` kills a SESSION, and this one is not in a
 # session. Reporting success here is the failure this whole area exists to stop.
-ENFIX2="$(spawn_fixture "$ENERGY_ARGV")"
+spawn_fixture "$ENERGY_ARGV"; ENFIX2="$FIXTURE_PID"
 SNAPSHOT_LINES="$(fix_line "$ENFIX2" "$ENERGY_ARGV")"
 LAB_SESSIONS=""
 out="$(app_stop energy 2>&1)"; rc=$?
@@ -331,7 +353,7 @@ check "  names the pid to kill"                   yes "$(has "$ENFIX2" "$out")"
 kill_fixture "$ENFIX2"
 
 # The lab's own stop does work when the lab owns the pane.
-SIMFIX2="$(spawn_fixture "$SIM_ARGV")"
+spawn_fixture "$SIM_ARGV"; SIMFIX2="$FIXTURE_PID"
 SNAPSHOT_LINES="$(fix_line "$SIMFIX2" "$SIM_ARGV")"
 LAB_SESSIONS="sim"
 LAB_PANE_PID[sim]="$SIMFIX2"
@@ -350,7 +372,7 @@ out="$(cmd_apps stop all 2>&1)"; rc=$?
 check "nothing was running -> rc 2"               2 "$rc"
 check "  and it says nothing was stopped"         yes "$(has "nothing to stop" "$out")"
 
-TEFIX2="$(spawn_fixture "$TE_ARGV")"
+spawn_fixture "$TE_ARGV"; TEFIX2="$FIXTURE_PID"
 SNAPSHOT_LINES="$(fix_line "$TEFIX2" "$TE_ARGV")"
 echo "$TEFIX2" > "$PIDDIR/app_te.pid"
 out="$(cmd_apps stop all 2>&1)"; rc=$?

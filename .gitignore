@@ -101,3 +101,9 @@ doc/audit/2026-08-25_sampling-rounds/*.log
 # Local agent instructions and settings; kept out of the repository (Adam 2026-10-01).
 CLAUDE.md
 .claude/
+
+# [Co-developed with claude code -- Adam]
+# tests/shell/mutate_fixture_spawn_helpers.sh writes its mutant copies beside the suites they
+# copy (the suites find their siblings by their own path) and removes them on EXIT, INT and TERM;
+# only a SIGKILL can leave one behind.
+tests/shell/.spawn-gate-*

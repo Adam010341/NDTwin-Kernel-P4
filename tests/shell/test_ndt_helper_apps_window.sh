@@ -124,19 +124,41 @@ trap cleanup EXIT INT TERM
 # on the machine at 15:05:14. `ndt` now asks whether a scanned pid belongs to this checkout
 # (proc_checkout), so a fixture that is meant to stand for THIS $REPO's app has to run in it --
 # hence the cwd, which defaults to $FIX and is not scenery.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 CALLED AS A PLAIN COMMAND, NEVER AS X="$(spawn_fixture ...)"; the pid is left in FIXTURE_PID
+# (2026-09-28). Inside a command substitution the `exit 1` below left only that subshell: measured
+# on 3368412d by tests/shell/mutate_fixture_spawn_helpers.sh, this suite then printed 28 FAILED
+# lines under "Ran 150 checks, 21 failed". The premise is a check THIS shell counts, on success too,
+# and a failure ends the run with its summary. The poll waits up to FIXTURE_ARGV_WAIT seconds: a
+# slow exec on a loaded machine is not a defect in `ndt`.
+FIXTURE_ARGV_WAIT=30
+FIXTURE_PID=""
 spawn_fixture() {
-    local want="$1" dir="${2:-$FIX}" pid i
+    local want="$1" dir="${2:-$FIX}" pid deadline
     local -a argv=()
-    ( cd "$dir" && exec -a "$want" sleep "$FIXTURE_TTL" ) >/dev/null 2>&1 </dev/null &
-    pid=$!
+    FIXTURE_PID=""
+    # From a command substitution of its own, so the fixture is never a job of this shell; the
+    # redirections keep it off that substitution's pipe, which it would otherwise hold open.
+    pid="$( ( cd "$dir" && exec -a "$want" sleep "$FIXTURE_TTL" ) \
+            >/dev/null 2>&1 </dev/null & echo "$!" )"
     echo "$pid" >> "$FIXTURE_REG"
-    for i in 1 2 3 4 5 6 7 8 9 10; do
+    deadline=$(( SECONDS + FIXTURE_ARGV_WAIT ))
+    while :; do
         argv=()
-        mapfile -d '' -t argv < "/proc/$pid/cmdline" 2>/dev/null
-        [[ "${argv[0]:-}" == "$want" ]] && { echo "$pid"; return 0; }
+        mapfile -d '' -t argv 2>/dev/null < "/proc/$pid/cmdline" || true
+        if [[ "${argv[0]:-}" == "$want" ]]; then
+            check "fixture took argv0=$want" "$want" "${argv[0]}"
+            FIXTURE_PID="$pid"
+            return 0
+        fi
+        (( SECONDS < deadline )) || break
         sleep 0.1
     done
-    echo "  FAILED   fixture never took argv0=$want (pid $pid)" >&2
+    check "fixture took argv0=$want" "$want" \
+          "${argv[0]:-nothing readable} (pid $pid, after ${FIXTURE_ARGV_WAIT}s)"
+    echo
+    echo "Ran $((PASS+FAIL)) checks, $FAIL failed"
     exit 1
 }
 # Only sim gets a process fixture: every energy case below is about a channel that does not
@@ -306,7 +328,7 @@ check "🔴 energy has NO log channel at all -> rc 1" "1" \
 check "  and prints nothing to be mistaken for a path" "" "$(inner 'app_evidence_log energy')"
 
 section "4. app_start writes the pidfile it just verified (E-8 point 1)"
-SIMFIX="$(spawn_fixture "$SIM_ARGV")"
+spawn_fixture "$SIM_ARGV"; SIMFIX="$FIXTURE_PID"
 rm -f "$FIX/.test_run/pids/app_sim.pid" "$FIX/sudo_calls"
 OUT="$(FX_START_PS="$SIMFIX $SIM_ARGV" inner 'app_start sim; echo "RC=$?"')"
 check "start of a helper app that comes up -> rc 0" "0" "$(rc_of "$OUT")"
@@ -343,7 +365,7 @@ check "🔴 nothing running and no pidfile -> still no window, not a made-up one
 # arrived during that window", which is a clean answer arrived at by looking at the wrong hour.
 OLDFIX="$SIMFIX"
 sleep 4
-NEWFIX="$(spawn_fixture "$SIM_ARGV")"
+spawn_fixture "$SIM_ARGV"; NEWFIX="$FIXTURE_PID"
 # 🔴 The younger pid is listed FIRST, so "take the first one" and "take the oldest" differ here.
 # Compared against the YOUNGER-ONLY answer with a >= 2s margin rather than against the older-only
 # answer for equality: `ps -o etimes=` is whole seconds and each call re-reads the clock, so two
@@ -416,7 +438,7 @@ section "9. 'apps stop sim' reports on a window it can still see"
 # 🔴 lw16pw's headline: `ndt apps stop sim` verified the app was gone and then printed
 # "no window, so no rule can be dated" about the app it had just stopped. The stop deletes the
 # record; the window has to be read before it does.
-SIMFIX2="$(spawn_fixture "$SIM_ARGV")"
+spawn_fixture "$SIM_ARGV"; SIMFIX2="$FIXTURE_PID"
 rm -f "$FIX/.test_run/pids"/app_*.pid
 echo "$SIMFIX2" > "$FIX/.test_run/pids/app_sim.pid"
 # The window here is the fixture's own age, which is seconds. The rule has to be inside it, so
@@ -675,7 +697,7 @@ for _pass in cmdline any; do
     done
 done
 OUR_ARGV="/nonexistent/NDT-TEST-FIXTURE/ordinary_process"
-OURPID="$(spawn_fixture "$OUR_ARGV")"
+spawn_fixture "$OUR_ARGV"; OURPID="$FIXTURE_PID"
 check "the control process is ours and alive"             "yes" \
       "$(if [[ -d "/proc/$OURPID" && -r "/proc/$OURPID/fd" ]]; then echo yes; else echo no; fi)"
 check "🔴 app_fd_readable is true for a process this user owns" "0" \
@@ -721,7 +743,7 @@ rm -f "$FIX/.test_run/pids"/app_*.pid; rm -rf "$WINDIR"
 mkdir -p "$FIX/othertree/.test_run/logs"
 echo "the helper wrote this" > "$FIX/othertree/.test_run/logs/app_sim.log"
 # --- the writer: a verified stop leaves the window behind ---------------------------------
-SIMFIX3="$(spawn_fixture "$SIM_ARGV")"
+spawn_fixture "$SIM_ARGV"; SIMFIX3="$FIXTURE_PID"
 echo "$SIMFIX3" > "$FIX/.test_run/pids/app_sim.pid"
 mk_entries 0
 OUT="$(FX_DEFAULT_KERNEL_DIR="$FIX/othertree" FX_PS="$SIMFIX3 $SIM_ARGV" FX_SESSIONS="sim" \
@@ -764,7 +786,7 @@ check "  and the verdict is clean -- rc 0"               "0" "$(rc_of "$OUT")"
 # --- who clears it -------------------------------------------------------------------------
 # A start supersedes the window its own last stop left: the record exists to answer for an app
 # that is NOT running, and a bounded set of five files is the whole of the cleanup question.
-SIMFIX4="$(spawn_fixture "$SIM_ARGV")"
+spawn_fixture "$SIM_ARGV"; SIMFIX4="$FIXTURE_PID"
 rm -f "$FIX/.test_run/pids"/app_*.pid
 OUT="$(FX_START_PS="$SIMFIX4 $SIM_ARGV" inner 'app_start sim; echo "RC=$?"')"
 check "a start of the same app -> rc 0"                  "0" "$(rc_of "$OUT")"
@@ -831,7 +853,7 @@ if [[ "$DEAD_TE" =~ ^[0-9]+$ ]] && [[ ! -d "/proc/$DEAD_TE" ]]; then
     # to now. Sealing a running app would report "nothing arrived" about an app that is
     # installing rules this second.
     TE_ARGV="/nonexistent/NDT-TEST-FIXTURE/Traffic-engineering-App.py"
-    TEFIX="$(spawn_fixture "$TE_ARGV")"
+    spawn_fixture "$TE_ARGV"; TEFIX="$FIXTURE_PID"
     echo "$TEFIX" > "$FIX/.test_run/pids/app_te.pid"
     OUT="$(FX_PS="$TEFIX $TE_ARGV" FX_PORT_PIDS="" inner 'residue_report te')"
     has   "🔴 control: a LIVE pid still windows to now"      "-> now" "$OUT"
