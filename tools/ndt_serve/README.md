@@ -4,8 +4,10 @@
 
 First cut (TICKET-ndt-serve, 09-24): backend only, one user, `127.0.0.1` only, no login. Second
 ticket (Adam, 09-24 21:4x): the live_cells grid and a guided walk through one cell. GUI cut
-(Adam's Q2/Q3 rulings, 09-27): the page at `/` -- see "The page" below.
-Standard-library Python and one static page; nothing to install.
+(Adam's Q2/Q3 rulings, 09-27): the page at `/` -- see "The page" below. v2 (Adam's R1-R3, 09-27):
+the page rebuilt on Web-GUI's stack (React, Vite, Tailwind, i18next), refreshing itself every 10 s.
+Standard-library Python and a page that is built ahead of time and committed: running it needs
+nothing installed; rebuilding the page needs Node (see "The page").
 
 ## Start
 
@@ -23,7 +25,8 @@ the main checkout's, the only tree `sudo ndtwin-lab` acts in), `--state-dir` (jo
 (a read-only ndt call, default 60 s), `--read-queue-wait` (how long a third read waits for one of
 the two read slots before 503, default 30 s), `--max-connections` (default 32; more get an
 immediate 503), `--max-waiters` (`?wait=` long-polls at once, default 4), `--nonce-ttl` (how long
-a one-time page URL stays good, default 600 s).
+a one-time page URL stays good, default 600 s), `--webgui-url` (where the page's Web-GUI button
+goes, default `http://localhost:3000`; http or https with a host, nothing else -- checked at start).
 
 Every job and every read runs the file `--ndt` resolved to **when the server started**;
 `/health` reports `ndt_drift` if the symlink has been re-pointed or the file edited since.
@@ -33,8 +36,8 @@ Every `NDT_*` variable of the shell that starts it is dropped, and every `ndt` c
 
 ## The API (`/api/v1/`)
 
-Outside `/api/v1/` there is only the page: `/`, `/app.js` and `/app.css`. Every other path
-answers 404.
+Outside `/api/v1/` there is only the page: `/`, `/app.js`, `/app.css` and `/manual.html`. Every
+other path answers 404 -- `static/BUILD.json` and the page's sources under `web/` included.
 
 | method | path | what runs | answer |
 |---|---|---|---|
@@ -53,7 +56,7 @@ answers 404.
 | POST | `/apps/<name>/start` `{}` | `ndt apps <name>` | 202 + job -- **only under your own claim**: inside the slot, `ndt status`'s claim line must be ndt's own form, whole, else 409 `claim` (ndt's apps verbs check no claim, so this server does) |
 | POST | `/apps/<name>/stop` `{}` | `ndt apps stop <name>` | 202 + job -- only under your own claim, as `start` |
 | GET | `/lab` | `ndt status` (plain) | the read, plus the `claim`, `measuring` and `declared` rows verbatim, `claim_is_yours` (ndt's own-claim form, whole), `measuring_is_nothing`, and `busy` (the job holding the slot). What the page confirms every write against |
-| GET | `/meta` | nothing | the server's own tables: `up_hosts`, `max_claim_minutes`, `default_claim_minutes`, `max_note_chars`, `apps`, `owner` |
+| GET | `/meta` | nothing | the server's own tables: `up_hosts`, `max_claim_minutes`, `default_claim_minutes`, `max_note_chars`, `apps`, `owner`, `webgui_url` |
 | POST | `/session` `{"nonce":"<key>"}` | nothing | the token, for a one-time key. **No token**; the `Origin` is required and must be this very origin (`http://` + the Host). A key is good once, for `--nonce-ttl` s, and only among the 8 newest |
 | POST | `/session/new` `{}` | nothing | 201 + a new one-time page URL (`ndt serve url` calls this) |
 
@@ -138,10 +141,26 @@ curl -s -H "$H" -H "$T" -H "$J" -d '{"verdict":"green","note":"h4nl_* all flippe
 
 ## The page
 
-`http://127.0.0.1:<port>/`, served by the server itself (Adam's Q2 ruling, 09-27): three fixed
-files from `tools/ndt_serve/static/`, read once at start, served with no token and running
-nothing. Every answer carries a Content-Security-Policy that allows no inline script, no other
-origin and no frame.
+`http://127.0.0.1:<port>/`, served by the server itself (Adam's Q2 ruling, 09-27): four fixed
+files from `tools/ndt_serve/static/` -- the page, its script, its stylesheet and the manual
+(`/manual.html`, in Chinese) -- read once at start, served with no token and running nothing.
+Every answer carries a Content-Security-Policy that allows no inline script, no other origin and
+no frame.
+
+**Where it comes from** (v2): a React app in `tools/ndt_serve/web/`, built by Vite into
+`static/` and committed, so the server needs no Node. `static/BUILD.json` records the sha256 of
+every source and built file; `tests/python/test_ndt_serve_web.py` checks it without Node, and
+`tests/shell/rebuild_ndt_serve_web.sh` rebuilds from the lockfile and compares byte for byte.
+To change the page:
+
+```bash
+cd tools/ndt_serve/web
+JOBS=1 LOCK_WAIT=10800 ../../build_guard/guarded_build.sh npm ci --ignore-scripts   # once
+JOBS=1 LOCK_WAIT=10800 ../../build_guard/guarded_build.sh npm run build            # writes ../static
+```
+
+Node v24.20.0 / npm 11.19.0 (`BUILD.json` names them; the rebuild gate refuses others).
+`web/THIRD_PARTY.md` lists what was taken from Web-GUI.
 
 **Getting in** (Q3): the URL the server starts with carries a ONE-TIME key in its `#fragment`
 -- never the token. The page wipes the fragment from the address bar first, then trades the key
@@ -160,8 +179,12 @@ the pid `serve.json` names is the process listening on its port.
 with a live log while one you opened runs -- re-read every 2 s from its file, never by running
 ndt, and stopped when the job ends, when you close the view, and while the page is hidden; E. the
 cells, old/ and new/, runs and walks.
-**Refresh is manual**: every refresh runs one plain `ndt status`, and a periodic one would be an
-invisible load during a measurement.
+**It refreshes itself every 10 s** (R2): one read of `/lab`, `/apps`, `/health` and `/jobs` -- two
+ndt calls (plain `ndt status`, `ndt apps status`), measured at about 290 processes a read on this
+laptop. It pauses while the last `/lab` said measuring is not `nothing` or a measurement is
+declared, and then only 立即更新 (refresh now) resumes it: the page would otherwise never learn
+the measurement ended without reading during it. It also pauses while the page is hidden, and
+resumes by itself when shown again unless the last read was measuring.
 
 **Every write goes through one dialog**: it reads `/lab` again, asks the server for the argv
 (`dry_run`), and shows the argv, the claim row and the measuring row. Cancel has the focus, Enter
@@ -199,10 +222,13 @@ still holds the slot), `lost` (it ended and nobody recorded its rc).
 ## Tests
 
 ```bash
-python3 tests/python/test_ndt_serve.py        # 74 cases against a stub ndt (RcProvenance reads the real ndt), no lab
+python3 tests/python/test_ndt_serve.py        # 75 cases against a stub ndt (RcProvenance reads the real ndt), no lab
 python3 tests/python/test_ndt_serve_cells.py  # 35 cases against a stub grid, no lab
-python3 tests/python/test_ndt_serve_gui.py    # 40 cases: the page's server side, and a lint of app.js / index.html
-bash tests/shell/mutate_ndt_serve.sh          # 150 named mutations (the G series, 57, is the GUI cut), each must redden its case
+python3 tests/python/test_ndt_serve_gui.py    # 35 cases: the page's server side
+python3 tests/python/test_ndt_serve_web.py    # 16 cases: BUILD.json, a lint of the built files and of web/src
+bash tests/shell/mutate_ndt_serve.sh          # 176 named mutations, each must redden its case (the G series covers the page)
+# Node, only under the build guard: rebuild the page from its lockfile and compare with static/
+bash tests/shell/rebuild_ndt_serve_web.sh
 # the page in a real browser: headless Chrome, only under the build guard (it skips elsewhere)
 JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh python3 tests/browser/test_ndt_serve_page.py
 JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh bash tests/shell/mutate_ndt_serve_page.sh
