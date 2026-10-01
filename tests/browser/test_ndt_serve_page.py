@@ -803,17 +803,21 @@ class JobLog(PageCase):
 def header():
     """This run's own provenance, printed before any case: what code, what tree, what interpreter."""
     def out(*argv):
+        """The command's stdout, or None when it failed -- printed as "?", never as an empty or clean
+        reading (a failed `git status` is not "0 paths differ")."""
         try:
-            return subprocess.run(argv, capture_output=True, text=True, timeout=30).stdout.strip()
-        except (OSError, subprocess.SubprocessError) as e:
-            return "? (%s)" % e
+            r = subprocess.run(argv, capture_output=True, text=True, timeout=30)
+        except (OSError, subprocess.SubprocessError):
+            return None
+        return r.stdout.strip() if r.returncode == 0 else None
+    porcelain = out("git", "-C", REPO, "status", "--porcelain")
     page = os.path.join(base.SERVE_DIR, "static")
     lines = ["date -Is: %s" % datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
              "argv: %s" % " ".join(sys.argv),
-             "git rev-parse HEAD: %s" % out("git", "-C", REPO, "rev-parse", "HEAD"),
-             "git status --porcelain | wc -l: %d" % len(out("git", "-C", REPO, "status", "--porcelain").splitlines()),
+             "git rev-parse HEAD: %s" % (out("git", "-C", REPO, "rev-parse", "HEAD") or "?"),
+             "git status --porcelain | wc -l: %s" % ("?" if porcelain is None else len(porcelain.splitlines())),
              "python: %s %s" % (sys.executable, sys.version.replace("\n", " ")),
-             "chrome: %s" % (out(CHROME, "--version") if CHROME else "none"),
+             "chrome: %s" % ((out(CHROME, "--version") or "?") if CHROME else "none"),
              "NDTWIN_GUARD_HELD: %s" % (GUARD_HELD or "(unset)"),
              "page under test: %s" % page]
     for name in sorted(os.listdir(page)) if os.path.isdir(page) else []:
