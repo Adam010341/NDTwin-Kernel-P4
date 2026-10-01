@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 #
 # Mutation gate for the fixture-spawn helpers of seven suites: every call of a helper runs in the
-# suite's own shell, and a fixture that never takes its argv0 must be a FAILED check the suite
-# COUNTS, followed by a summary line and a non-zero exit.
+# suite's own shell -- each helper refuses any other and ends the run (its `[[ $BASHPID == "$$" ]]`
+# guard), and the SUBSHELL mutants below hold it to that -- and a fixture that never takes its
+# argv0 must be a FAILED check the suite COUNTS, followed by a summary line and a non-zero exit.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -18,8 +19,8 @@
 # test_ndt_down_stops_only_ours.sh had the same call form with `|| { ...; exit 1; }` after it: the
 # failure was counted, but the fixture it gave up on was never reaped.
 #
-# THREE PARTS, because a mutant of a helper only ever reaches that helper's FIRST call site: the
-# helper ends the run there. A later site written back as X="$(helper ...)" is never reached by
+# FOUR PARTS. The first two are there because a mutant of a helper only ever reaches that helper's
+# FIRST call site: the helper ends the run there. A later site written back as X="$(helper ...)" is never reached by
 # any mutant, and at some sites (a decoy whose pid nothing reads again) the suite stays green too.
 #   1. STATIC, every call site. Each non-comment line that mentions the suite's helper is either
 #      its one definition or `helper ARGS; VAR="$FIXTURE_PID"` -- arguments double-quoted with
@@ -40,9 +41,15 @@
 #        2. print a "Ran N checks, M failed" summary,
 #        3. print a FAILED line for the fixture itself,
 #        4. COUNT it -- M equals the number of FAILED lines it printed --
-#        5. and not leave the fixture it gave up on running (every pid named after that FAILED line).
-#      And one mutant must SURVIVE: sweep's GONE with that `|| true` removed has to end with no
-#      summary at all. If it did not, GONE would not be reaching the read it is meant to reach.
+#        5. and not leave the fixture it gave up on running (every pid named after that FAILED line);
+#      a GONE mutant's FAILED block must also say "nothing readable", the read GONE is there for.
+#      And one mutant must SURVIVE: sweep's GONE with that `|| true` removed has to end with rc 1
+#      and no summary at all -- errexit ending it at that read, not a timeout (124) or anything
+#      else. If it did not, GONE would not be reaching the read it is meant to reach.
+#   4. SUBSHELL: one call per suite wrapped in ( ... ). Part 1 passes that line and part 2 still
+#      counts its premise (the subshell's stdout is the suite's), so only the helper's own guard
+#      can catch it: the run must end with that guard's FAILED line, exactly once, and the rc 143
+#      of the TERM it sends -- and no green summary.
 #
 # A copy is written BESIDE its suite (tests/shell/.spawn-gate-<pid>-<kind>-<label>-<suite>), so
 # every path the suite derives from its own location -- lib_probe_stub.sh,
@@ -51,8 +58,8 @@
 # symlinks would not do either: `ndt` finds its REPO through `readlink -f` of its own path, so it
 # would be in the real tree while the suite's paths are in the mirror. So each copy is removed
 # after its run, and on EXIT, INT and TERM; a SIGKILL can still leave one, and .gitignore keeps
-# that out of a commit. The judge itself is held first to six synthetic runs, each built to come
-# out one way.
+# that out of a commit. The judge itself is held first to synthetic runs, each built to come out
+# one way (J1-J12: the verdict, the gone-without-true acceptance, GONE's block, SUBSHELL's verdict).
 #
 # Usage: bash tests/shell/mutate_fixture_spawn_helpers.sh [label...]
 #   labels: orphans liveness sweep window topo_pid ovs_claim down (default: all seven)
@@ -220,12 +227,41 @@ judge() {   # judge -> "caught (...)" or "SURVIVED (...)", read from RUN_OUT and
     [[ -z "$left" ]] || { echo "SURVIVED (the fixture it gave up on is still running: pid$left)"; return; }
     echo "caught (rc $RUN_RC; $ran; ${fixline:0:80})"
 }
+# [Co-developed with claude code -- Adam] The three rules below were added 2026-10-01.
+# The one verdict gone-without-true may have: errexit ended the run at the read (rc 1), with no
+# summary. A timeout (124) or any other rc with no summary is some other way of ending.
+MUST_SURVIVE='SURVIVED (rc 1, and no "Ran N checks" line at all)'
+# gone_block_says_unreadable: RUN_OUT's FAILED fixture block -- that line and the indented lines
+# under it -- says "nothing readable", so the read of /proc/<pid>/cmdline is what came up empty.
+# (Into a variable first: `awk | grep -q` under pipefail can read as a failure when grep quits early.)
+gone_block_says_unreadable() {
+    local block
+    block="$(awk '!b && /^ *FAILED +fixture .*argv0/ { b = 1; print; next }
+                  b && /^      / { print; next }
+                  b { exit }' <<<"$RUN_OUT")"
+    [[ "$block" == *"nothing readable"* ]]
+}
+# judge_subshell -> "caught (...)" or "SURVIVED (...)" for a SUBSHELL mutant: the helper's guard
+# printed its FAILED line exactly once, the run ended with the 143 of the TERM the guard sends,
+# and no green summary came after it.
+GUARD_TEXT="called outside this suite's own shell"
+judge_subshell() {
+    local n
+    n="$(grep -cF -- "$GUARD_TEXT" <<<"$RUN_OUT")"
+    (( RUN_RC != 0 )) || { echo "SURVIVED (rc 0)"; return; }
+    (( n == 1 )) || { echo "SURVIVED ($n line(s) say the helper was $GUARD_TEXT, not 1; rc $RUN_RC)"; return; }
+    (( RUN_RC == 143 )) || { echo "SURVIVED (rc $RUN_RC, not the 143 of the TERM the guard sends)"; return; }
+    if grep -qE '^Ran [0-9]+ checks, (0 failed|all passed)' <<<"$RUN_OUT"; then
+        echo "SURVIVED (a green summary after the guard fired)"; return
+    fi
+    echo "caught (rc $RUN_RC; $(grep -m1 -F -- "$GUARD_TEXT" <<<"$RUN_OUT" | sed 's/^ *//' | cut -c1-80))"
+}
 
 # --- the judge's own controls: each must come out as stated, or nothing below means anything ----
 echo "the judge, on synthetic runs:"
-jcontrol() {   # jcontrol <name> <rc> <output> <the glob the verdict must match>
+jcontrol() {   # jcontrol <name> <rc> <output> <the glob the verdict must match> [<verdict fn>, judge]
     local v
-    RUN_RC="$2"; RUN_OUT="$3"; v="$(judge)"
+    RUN_RC="$2"; RUN_OUT="$3"; v="$("${5:-judge}")"
     # shellcheck disable=SC2053  # $4 IS a glob
     if [[ "$v" == $4 ]]; then printf '  ok       %s -> %s\n' "$1" "${v:0:100}"
     else printf '  refused: control "%s" answered "%s", not "%s"\n' "$1" "${v:0:100}" "$4"; exit 2; fi
@@ -249,6 +285,34 @@ jcontrol "J6: the fixture's failure, counted, but the fixture is still running" 
              actual:   [nothing readable (pid $J6PID, after 30s)]
 Ran 2 checks, 1 failed" "SURVIVED (the fixture it gave up on is still running: pid $J6PID)"
 kill "$J6PID" 2>/dev/null; wait "$J6PID" 2>/dev/null; J6PID=""
+# J7-J8: what gone-without-true accepts. A timeout with no summary is not errexit ending the run.
+jsurvive() {   # jsurvive <name> <rc> <output> <accepted|rejected>
+    local v got=rejected
+    RUN_RC="$2"; RUN_OUT="$3"; v="$(judge)"
+    [[ "$v" == "$MUST_SURVIVE" ]] && got=accepted
+    if [[ "$got" == "$4" ]]; then printf '  ok       %s -> %s: %s\n' "$1" "$got" "${v:0:90}"
+    else printf '  refused: control "%s" was %s (%s), not %s\n' "$1" "$got" "${v:0:90}" "$4"; exit 2; fi
+}
+jsurvive "J7: gone-without-true timed out (rc 124), no summary" 124 \
+    'machine-wide scan (real ps, read-only)' rejected
+jsurvive "J8: gone-without-true ended by errexit (rc 1), no summary" 1 \
+    'machine-wide scan (real ps, read-only)' accepted
+# J9-J10: GONE's FAILED block, in the two layouts the suites print.
+jgone() {   # jgone <name> <output> <yes|no: the block says "nothing readable">
+    local got=no
+    RUN_OUT="$2"; gone_block_says_unreadable && got=yes
+    if [[ "$got" == "$3" ]]; then printf '  ok       %s -> %s\n' "$1" "$got"
+    else printf '  refused: control "%s" answered %s, not %s\n' "$1" "$got" "$3"; exit 2; fi
+}
+jgone "J9: a fixture block whose read came up empty" \
+    $'  FAILED   fixture took argv0=x\n             expected: [x]  actual: [nothing readable (pid 7, after 30s)]\nRan 2 checks, 1 failed' yes
+jgone "J10: a fixture block that read an argv0, \"nothing readable\" only in a later block" \
+    $'  FAILED   fixture took argv0=x\n             expected: x\n             actual:   x/y (pid 7, after 30s)\n  FAILED   other: nothing readable\nRan 3 checks, 2 failed' no
+# J11-J12: SUBSHELL's verdict -- the guard's line and its TERM, against a suite that just went red.
+jcontrol "J11: the guard's FAILED line once, then rc 143" 143 "  ok       fixture took argv0=x
+  FAILED   spawn $GUARD_TEXT (BASHPID 9, suite 8): ending the run" 'caught (rc 143;*' judge_subshell
+jcontrol "J12: red with a summary, but no guard line" 1 \
+    $'  ok       fixture took argv0=x\n  FAILED   the decoy is not te\nRan 5 checks, 1 failed' 'SURVIVED (0 line(s) say*' judge_subshell
 
 # --- 1. static: every call site of every selected suite -----------------------------------------
 declare -A STATIC_TOTAL=() STATIC_COND=()
@@ -324,15 +388,23 @@ gate_control() {   # gate_control <label>: green, and one ok line per call site
 
 # The parameters are NAMED so tests/shell/check_gate_anchors.py can read this gate.
 gate_mutant() {   # gate_mutant <kind> <label> <file> <old> <new>: must be caught
-    local kind="$1" label="$2" file="$3" old="$4" new="$5" r
+    local kind="$1" label="$2" file="$3" old="$4" new="$5" r line what
     MUTATIONS=$((MUTATIONS+1))
     make_copy "$kind" "$label" "$file" "$old" "$new"
     run_one "$COPY"; rm -f "$COPY"
-    r="$(judge)"
+    if [[ "$kind" == subshell ]]; then
+        r="$(judge_subshell)"; what="guard FAILED"
+        line="$(grep -m1 -F -- "$GUARD_TEXT" <<<"$RUN_OUT" | sed 's/^ *//' | cut -c1-110)"
+    else
+        r="$(judge)"; what="fixture FAILED"
+        line="$(grep -m1 -E '^ *FAILED +fixture .*argv0' <<<"$RUN_OUT" | sed 's/^ *//' | cut -c1-110)"
+    fi
+    if [[ "$kind" == gone && "$r" == caught* ]] && ! gone_block_says_unreadable; then
+        r="SURVIVED (caught, but its FAILED block does not say \"nothing readable\": not the read GONE is for)"
+    fi
     [[ "$r" == SURVIVED* ]] && SURVIVORS=$((SURVIVORS+1))
-    printf '  %-8s %-10s %-6s %s  (%ss)\n' "${r%% (*}" "$label" "$kind" "(${r#* (}" "$RUN_S"
-    printf '             its fixture FAILED line: %s\n' \
-           "$(grep -m1 -E '^ *FAILED +fixture .*argv0' <<<"$RUN_OUT" | sed 's/^ *//' | cut -c1-110)"
+    printf '  %-8s %-10s %-8s %s  (%ss)\n' "${r%% (*}" "$label" "$kind" "(${r#* (}" "$RUN_S"
+    printf '             its %s line: %s\n' "$what" "$line"
     printf '             its last line:           %s\n' "$(tail -1 <<<"$RUN_OUT" | cut -c1-110)"
 }
 # gate_must_survive <kind> <label> <file> <old> <new> <file2> <old2> <new2>: the positive control --
@@ -344,11 +416,11 @@ gate_must_survive() {
     make_copy "$kind" "$label" "$file" "$old" "$new" "$old2" "$new2"
     run_one "$COPY"; rm -f "$COPY"
     r="$(judge)"
-    if [[ "$r" == 'SURVIVED (rc '[1-9]*', and no "Ran N checks" line at all)' ]]; then
+    if [[ "$r" == "$MUST_SURVIVE" ]]; then
         printf '  ok       %-10s %-6s survives as it must: %s  (%ss)\n' "$label" "$kind" "$r" "$RUN_S"
         printf '             its last line:           %s\n' "$(tail -1 <<<"$RUN_OUT" | cut -c1-110)"
     else
-        printf '  refused: %s %s -- this mutant must end with no summary, and the judge said: %s\n' "$label" "$kind" "$r"
+        printf '  refused: %s %s -- this mutant must end with rc 1 and no summary, and the judge said: %s\n' "$label" "$kind" "$r"
         printf '             its last line: %s\n' "$(tail -1 <<<"$RUN_OUT" | cut -c1-110)"
         exit 2
     fi
@@ -357,20 +429,24 @@ gate_must_survive() {
 echo
 echo "2. each suite's unmutated copy: green, and one counted premise per call site"
 echo "3. then its helper made unable to recognise its fixture: NEVER (the poll's bound), GONE (/proc empty)"
+echo "4. and one call wrapped in ( ... ): SUBSHELL, which only the helper's own guard can catch"
 if selected orphans; then
     gate_control orphans
     gate_mutant never orphans "$ORPHANS" '[[ "${argv[0]:-}" == "$want" ]]' '[[ "${argv[0]:-}" == "$want/NDT-GATE-NEVER" ]]'
     gate_mutant gone  orphans "$ORPHANS" '( cd "$dir" && exec -a "$want" sleep "$FIXTURE_TTL" )' '( cd "$dir" && exit 0 )'
+    gate_mutant subshell orphans "$ORPHANS" 'spawn_fixture "$FIX_ARGV"; FIX="$FIXTURE_PID"' '( spawn_fixture "$FIX_ARGV"; FIX="$FIXTURE_PID" )'
 fi
 if selected liveness; then
     gate_control liveness
     gate_mutant never liveness "$LIVENESS" '[[ "${argv[0]:-}" == "$want" ]]' '[[ "${argv[0]:-}" == "$want/NDT-GATE-NEVER" ]]'
     gate_mutant gone  liveness "$LIVENESS" '( cd "$dir" && exec -a "$want" sleep "$FIXTURE_TTL" )' '( cd "$dir" && exit 0 )'
+    gate_mutant subshell liveness "$LIVENESS" 'spawn_fixture "$SIM_ARGV"; SIMFIX="$FIXTURE_PID"' '( spawn_fixture "$SIM_ARGV"; SIMFIX="$FIXTURE_PID" )'
 fi
 if selected sweep; then
     gate_control sweep
     gate_mutant never sweep "$SWEEP" '[[ "${argv[0]:-}" == "$want" ]]' '[[ "${argv[0]:-}" == "$want/NDT-GATE-NEVER" ]]'
     gate_mutant gone  sweep "$SWEEP" '( exec -a "$want" sleep "$FIXTURE_TTL" )' '( exit 0 )'
+    gate_mutant subshell sweep "$SWEEP" 'spawn_fixture "$FIX_SW"; SWFIX="$FIXTURE_PID"' '( spawn_fixture "$FIX_SW"; SWFIX="$FIXTURE_PID" )'
     gate_must_survive gone-without-true sweep \
         "$SWEEP" '( exec -a "$want" sleep "$FIXTURE_TTL" )' '( exit 0 )' \
         "$SWEEP" "mapfile -d '' -t argv 2>/dev/null < \"/proc/\$pid/cmdline\" || true" "mapfile -d '' -t argv 2>/dev/null < \"/proc/\$pid/cmdline\""
@@ -379,21 +455,25 @@ if selected window; then
     gate_control window
     gate_mutant never window "$WINDOW" '[[ "${argv[0]:-}" == "$want" ]]' '[[ "${argv[0]:-}" == "$want/NDT-GATE-NEVER" ]]'
     gate_mutant gone  window "$WINDOW" '( cd "$dir" && exec -a "$want" sleep "$FIXTURE_TTL" )' '( cd "$dir" && exit 0 )'
+    gate_mutant subshell window "$WINDOW" 'spawn_fixture "$SIM_ARGV"; SIMFIX="$FIXTURE_PID"' '( spawn_fixture "$SIM_ARGV"; SIMFIX="$FIXTURE_PID" )'
 fi
 if selected topo_pid; then
     gate_control topo_pid
     gate_mutant never topo_pid "$TOPO_PID" '[[ "${argv[0]:-}" == "$want" ]]' '[[ "${argv[0]:-}" == "$want/NDT-GATE-NEVER" ]]'
     gate_mutant gone  topo_pid "$TOPO_PID" '( exec -a "$want" sleep "$FIXTURE_TTL" )' '( exit 0 )'
+    gate_mutant subshell topo_pid "$TOPO_PID" 'spawn "$DECOYP"; DECOY="$FIXTURE_PID"' '( spawn "$DECOYP"; DECOY="$FIXTURE_PID" )'
 fi
 if selected ovs_claim; then
     gate_control ovs_claim
     gate_mutant never ovs_claim "$OVS_CLAIM" '[[ "${argv[0]:-}" == "$want" ]]' '[[ "${argv[0]:-}" == "$want/NDT-GATE-NEVER" ]]'
     gate_mutant gone  ovs_claim "$OVS_CLAIM" '( cd "$FIX" && exec -a "$want" sleep 120 )' '( cd "$FIX" && exit 0 )'
+    gate_mutant subshell ovs_claim "$OVS_CLAIM" 'spawn "some-unrelated-program"; STRANGER="$FIXTURE_PID"' '( spawn "some-unrelated-program"; STRANGER="$FIXTURE_PID" )'
 fi
 if selected down; then
     gate_control down
     gate_mutant never down "$DOWN" '[[ "${argv[0]:-}" == "$want" ]]' '[[ "${argv[0]:-}" == "$want/NDT-GATE-NEVER" ]]'
     gate_mutant gone  down "$DOWN" "exec -a '\$want' sleep \$FIXTURE_TTL" 'exit 0'
+    gate_mutant subshell down "$DOWN" 'spawn "$OURS_ARGV" "$FIX"; OURS="$FIXTURE_PID"' '( spawn "$OURS_ARGV" "$FIX"; OURS="$FIXTURE_PID" )'
 fi
 
 echo
