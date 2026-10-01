@@ -23,7 +23,7 @@ COMPILED HERE, NOT COPIED (2026-09-28), with p4c-bm2-ss 1.2.5.15 (SHA 5b948b037a
 
   p4c-bm2-ss --p4v 16 -D<DROP|FLOOD|PUNT|DIGEST|CLONE|MCAST> -o hb_<drop|flood|...>.json hb_fixture.p4
   p4c-bm2-ss --p4v 16 -o flowcache_solution.json \
-      /home/adam/tutorials/exercises/flowcache/solution/flowcache.p4
+      ~/tutorials/exercises/flowcache/solution/flowcache.p4
       (that source's sha256 was c568e570fe0296656516d3cb1bfad548343a25b97b98bab1e926ef30b31e463a)
 
 hb_fixture.p4 is written here; it is not a tutorials file.

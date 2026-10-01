@@ -33,9 +33,12 @@ clone or a multicast group (a controller configures those later), or when any at
 pcap received a frame. Anything the check cannot read -- a frame never processed, a fate never
 logged, a switch that exited, an unreadable program -- is UNKNOWN, and unknown is not a drop.
 
-🔴 THE LIMIT, disclosed on every answer: only the program's default (table-miss) behaviour is
-checked. Entries, clone sessions and multicast groups the external controller installs later are
-not covered -- a controller could still send an 0x88B5 frame somewhere by installing a rule for it.
+🔴 THE LIMIT, disclosed on every answer: only the program the package declares, and only its
+default (table-miss) behaviour, is checked. Entries, clone sessions and multicast groups the
+external controller installs later are not covered -- a controller could still send an 0x88B5
+frame somewhere by installing a rule for it -- and neither is a pipeline the controller pushes
+itself (SetForwardingPipelineConfig with another program) or a default action it changes at
+runtime: the answer is about the declared JSON's defaults, nothing the controller does after.
 
 NOT THE LAB. The switch runs as the caller, in its own temporary directory (its pcaps, its log and
 its nanomsg socket, `ipc://notif.ipc`, relative to that directory), on a Thrift port chosen from
@@ -49,13 +52,25 @@ CACHE. The answer is kept per program (the JSON's sha256) under
 ${NDT_HB_CHECK_CACHE:-${XDG_CACHE_HOME:-~/.cache}/ndtwin/heartbeat-drop}, and reused only for the
 same ports, CPU port, bmv2 version and check version. UNKNOWN is never cached.
 
+THE SAME bmv2 AS THE FABRIC, checked on every run: the throwaway switch's `--version` must equal
+the fabric's (the binary p4_proxy/mininet/bmv2_binary_override names, the one p4_testbed_topo
+launches); a version that differs or cannot be read is UNKNOWN. Both version runs carry argv[0]
+`ndt-hbdrop-bmv2` and are executed through a symlink of that name, so their comm is not a
+fabric switch's either. (Both builds of one commit answer the same version; the check runs the
+stock one because the fast one has no per-packet log.)
+
 Usage:  heartbeat_drop_check.py <package dir> [--json <out>]
 Exit:   0 every program the package's switches run drops the heartbeat's frame (it may start)
         1 at least one does not (do not start it)
-        2 could not tell (do not start it either)
-        3 refused: not a package this check applies to (no switch runs a program of its own)
-Env:    NDT_HB_CHECK_BMV2   the simple_switch to run (default /usr/local/bin/simple_switch)
-        NDT_HB_CHECK_CACHE  the cache directory
+        2 could not tell (do not start it either): an unreadable package or program, a switch
+          that exited, a bmv2 version that is not the fabric's, a signal (128+N is kept for
+          those), root, and ANY crash of this script -- never Python's own rc 1 for a traceback
+        3 refused: not a package this check applies to (no switch runs a program of its own,
+          or a program with no data port to inject on)
+Env:    NDT_HB_CHECK_BMV2         the simple_switch to run (default /usr/local/bin/simple_switch)
+        NDT_HB_CHECK_FABRIC_BMV2  the fabric's binary whose version must match (default: the one
+                                  p4_proxy/mininet/bmv2_binary_override names)
+        NDT_HB_CHECK_CACHE        the cache directory
 """
 
 from __future__ import annotations
@@ -78,12 +93,18 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, os.path.join(REPO, "p4_proxy", "mininet"))
 
-import app_package  # noqa: E402
-import grpc_ports  # noqa: E402
-import topo_from_json  # noqa: E402
+try:
+    import app_package  # noqa: E402
+    import grpc_ports  # noqa: E402
+    import topo_from_json  # noqa: E402
+    IMPORT_ERROR = None
+except Exception as _exc:  # noqa: BLE001 -- main() answers rc 2 with it, never a traceback's rc 1
+    IMPORT_ERROR = _exc
 
-CHECK_VERSION = 1
+CHECK_VERSION = 2
 DEFAULT_BMV2 = "/usr/local/bin/simple_switch"
+#: Where p4_testbed_topo reads the fabric's binary from (its resolve_bmv2_launcher).
+FABRIC_OVERRIDE = os.path.join(REPO, "p4_proxy", "mininet", "bmv2_binary_override")
 #: argv[0] of the throwaway switch: not `simple_switch*`, so no by-name or by-argv reader of the
 #: fabric's switches (bmv2_count's comm, the helper's sweep, p4_testbed_topo.process_is_a_switch,
 #: the kernel's OpenflowCapacityReport scan) takes it for one.
@@ -91,19 +112,23 @@ ARGV0 = "ndt-hbdrop-bmv2"
 #: Thrift ports to choose from: below the ephemeral range and outside every lab port (ports.sh:
 #: 6343, 6633, 6653, 8000, 8080, 8081, 9000, Thrift 9090+N, gRPC 30050+N).
 THRIFT_CANDIDATES = range(29400, 29500)
-LAB_PORT_RANGES = ((grpc_ports.THRIFT_PORT_BASE, grpc_ports.THRIFT_PORT_BASE + 512),
-                   (grpc_ports.GRPC_PORT_BASE, grpc_ports.GRPC_PORT_BASE + 512),
-                   (6343, 6344), (6633, 6634), (6653, 6654), (8000, 8001), (8080, 8082),
-                   (9000, 9001))
+if IMPORT_ERROR is None:
+    LAB_PORT_RANGES = ((grpc_ports.THRIFT_PORT_BASE, grpc_ports.THRIFT_PORT_BASE + 512),
+                       (grpc_ports.GRPC_PORT_BASE, grpc_ports.GRPC_PORT_BASE + 512),
+                       (6343, 6344), (6633, 6634), (6653, 6654), (8000, 8001), (8080, 8082),
+                       (9000, 9001))
+else:                                   # main() refuses before any port is chosen
+    LAB_PORT_RANGES = ((0, 65536),)
 #: A fabric's device ids are its dpids (1..N); this is far above any.
 DEVICE_ID_BASE = 900000
 DROP_PORT = 511
 TIMEOUT_S = 20.0
 SETTLE_S = 0.4
 
-LIMITS = ("only the program's default (table-miss) behaviour was checked: no controller, no table "
-          "entries, no clone session, no multicast group. Entries, sessions and groups the "
-          "external controller installs later are not covered.")
+LIMITS = ("only the declared program's default (table-miss) behaviour was checked: no controller, "
+          "no table entries, no clone session, no multicast group. Entries, sessions and groups "
+          "the external controller installs later are not covered, and neither is a pipeline it "
+          "pushes itself or a default action it changes at runtime.")
 
 # --- the heartbeat's frame: the daemon's layout (tools/test_workflow/ndtwin-lab, hb_program's
 #     encode), pinned to it by tests/shell/test_heartbeat_drop_check.sh ------------------------
@@ -185,6 +210,12 @@ def plan(package_dir):
     out = []
     for entry in programs.values():
         entry["ports"] = sorted(entry["ports"])
+        if not entry["ports"]:
+            # [Co-developed with claude code -- Adam] No port to inject on is no question asked:
+            # "every injected frame was dropped" over no frame would be a vacuous pass.
+            raise NotApplicable(f"{package_dir}: {os.path.basename(entry['json'])} runs on "
+                                f"dpid {','.join(map(str, entry['dpids']))}, which the model gives "
+                                f"no data port -- no frame to inject")
         out.append(entry)
     return sorted(out, key=lambda e: e["dpids"])
 
@@ -218,14 +249,54 @@ def binary():
     return os.environ.get("NDT_HB_CHECK_BMV2") or DEFAULT_BMV2
 
 
-def binary_version(path):
+def fabric_binary():
+    """The simple_switch_grpc the fabric runs: the first directive of p4_testbed_topo's override
+    file (the same rule as its resolve_bmv2_launcher and ndt's bmv2_binary), or None."""
+    env = os.environ.get("NDT_HB_CHECK_FABRIC_BMV2")
+    if env:
+        return env
     try:
-        # argv[0] is ARGV0 here too: not even a --version run reads as a fabric switch.
-        out = subprocess.run([ARGV0, "--version"], executable=path, capture_output=True,
-                             text=True, timeout=10, env=dict(os.environ, NDT_HB_CHECK_ARGV0=ARGV0))
+        with open(FABRIC_OVERRIDE, encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    return line if os.path.isabs(line) else None
+    except OSError:
+        return None
+    return None
+
+
+def exe_link(directory, target):
+    """A symlink named ARGV0 in `directory`, pointing at `target`: executed through it, a process's
+    comm is `ndt-hbdrop-bmv2` (the kernel takes comm from the name executed, not from argv[0]).
+    [Co-developed with claude code -- Adam]"""
+    link = os.path.join(directory, ARGV0)
+    if not os.path.lexists(link):
+        os.symlink(os.path.abspath(target), link)
+    return link
+
+
+def binary_version(path):
+    """`<path> --version`'s first line, or None. [Co-developed with claude code -- Adam] argv[0] is
+    ARGV0 and the file executed is a symlink named ARGV0 in a fresh directory, so the process's
+    comm is `ndt-hbdrop-bmv2` too: not even a version run of the FABRIC'S binary (comm
+    `simple_switch_g` when run by its own name) reads as a fabric switch to ndt's bmv2_count."""
+    if not path:
+        return None
+    tmp = tempfile.mkdtemp(prefix="ndt-hbdrop-ver-")
+    try:
+        link = exe_link(tmp, path)
+        env = dict(os.environ, NDT_HB_CHECK_ARGV0=ARGV0)
+        lib = os.path.normpath(os.path.join(os.path.dirname(os.path.realpath(path)), "..", "lib"))
+        if os.path.isdir(lib) and os.path.basename(os.path.realpath(path)).startswith("simple_switch_grpc"):
+            env["LD_LIBRARY_PATH"] = lib            # p4_testbed_topo's ../lib rule
+        out = subprocess.run([ARGV0, "--version"], executable=link, capture_output=True,
+                             text=True, timeout=10, env=env, cwd=tmp)
         return (out.stdout or out.stderr).strip().splitlines()[0]
     except (OSError, subprocess.SubprocessError, IndexError):
         return None
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def _die_with_parent():
@@ -262,9 +333,16 @@ class Launch:
         self.proc = None
 
     def start(self):
+        if os.geteuid() == 0:
+            # [Co-developed with claude code -- Adam] The orchestrator's first condition (09-28).
+            raise PermissionError("refusing to launch the throwaway switch as root")
         env = dict(os.environ, NDT_HB_CHECK_ARGV0=ARGV0)
+        # [Co-developed with claude code -- Adam] Executed through a symlink named ARGV0 in its own
+        # directory: the comm is then `ndt-hbdrop-bmv2` as well, not `simple_switch`.
+        os.makedirs(os.path.join(self.workdir, ".bin"), exist_ok=True)
+        link = exe_link(os.path.join(self.workdir, ".bin"), self.executable)
         with open(self.stdout_path, "wb") as out:
-            self.proc = subprocess.Popen(self.argv, executable=self.executable, cwd=self.workdir,
+            self.proc = subprocess.Popen(self.argv, executable=link, cwd=self.workdir,
                                          stdin=subprocess.DEVNULL, stdout=out,
                                          stderr=subprocess.STDOUT, env=env,
                                          preexec_fn=_die_with_parent, start_new_session=True)
@@ -429,6 +507,9 @@ def check_program(program_json, ports, cpu_port, bmv2=None, tmp_parent=None, tim
               "limits": LIMITS, "checked_at": int(time.time())}
     with open(program_json, "rb") as fh:
         answer["program_sha256"] = hashlib.sha256(fh.read()).hexdigest()
+    if not ports:
+        answer.update(verdict="unknown", reason="no data port to inject a frame on: nothing was asked")
+        return answer
     workdir = tempfile.mkdtemp(prefix="ndt-hbdrop-", dir=tmp_parent)
     launch = None
     try:
@@ -531,11 +612,24 @@ def run(package_dir, out=print):
         out(f"heartbeat drop check: could not read the package ({type(exc).__name__}: {exc})")
         return 2, []
     version = binary_version(binary())
+    # [Co-developed with claude code -- Adam] The same bmv2 as the fabric, or no answer: a verdict
+    # from another bmv2 version is about another switch (the round-4 review's S-4).
+    fabric = fabric_binary()
+    fabric_version = binary_version(fabric)
+    mismatch = None
+    if version is None or fabric_version is None or version != fabric_version:
+        mismatch = (f"the check's bmv2 {binary()} answers --version {version!r} and the fabric's "
+                    f"{fabric} answers {fabric_version!r}: not the same switch, no answer")
     answers = []
     for entry in programs:
-        answer = cached(entry, version)
+        answer = None if mismatch else cached(entry, version)
         how = "cached"
-        if answer is None:
+        if mismatch:
+            how = "checked"
+            answer = {"program": entry["json"], "program_sha256": entry["sha256"],
+                      "verdict": "unknown", "reason": mismatch, "binary_version": version,
+                      "fabric_binary": fabric, "fabric_version": fabric_version}
+        elif answer is None:
             how = "checked"
             try:
                 answer = check_program(entry["json"], entry["ports"], entry["cpu_port"])
@@ -560,7 +654,19 @@ def _raise_on_signal(signum, _frame):
     raise SystemExit(128 + signum)
 
 
-def main(argv):
+def _main(argv):
+    if IMPORT_ERROR is not None:
+        print(f"heartbeat drop check: could not tell -- the check could not load its modules "
+              f"({type(IMPORT_ERROR).__name__}: {IMPORT_ERROR})")
+        return 2
+    if os.geteuid() == 0:
+        # [Co-developed with claude code -- Adam] The orchestrator's first condition (09-28): the
+        # throwaway switch runs as the caller, never as root -- refused, not obeyed under sudo.
+        print("heartbeat drop check: could not tell -- refusing to run as root (euid 0); run it "
+              "as the user who runs ndt")
+        return 2
+
+
     if len(argv) not in (2, 4) or (len(argv) == 4 and argv[2] != "--json"):
         print(__doc__.split("Usage:")[1].split("Env:")[0].rstrip(), file=sys.stderr)
         return 3
@@ -572,6 +678,20 @@ def main(argv):
             json.dump({"rc": rc, "limits": LIMITS, "programs": answers}, fh, indent=2,
                       sort_keys=True)
     return rc
+
+
+def main(argv):
+    """_main, with every crash an rc 2 (could not tell) -- never Python's rc 1 for a traceback,
+    which ndt would read as "a program does NOT drop it" (the round-4 review's S-4). A signal's
+    SystemExit(128+N) passes through; the switch was stopped by check_program's `finally`."""
+    try:
+        return _main(argv)
+    except SystemExit:
+        raise
+    except BaseException as exc:  # noqa: BLE001 -- KeyboardInterrupt included
+        print(f"heartbeat drop check: could not tell -- the check itself crashed "
+              f"({type(exc).__name__}: {exc})")
+        return 2
 
 
 if __name__ == "__main__":
