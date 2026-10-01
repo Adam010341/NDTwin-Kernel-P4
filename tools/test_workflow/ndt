@@ -9370,7 +9370,7 @@ app_stop() {
 # a human with curl. It is still worth printing: it excludes the fabric's own baseline, which
 # is installed at `ndt up` and is the overwhelming majority of the table.
 
-# app_started_at <name> -- unix seconds when this app was started, or nothing.
+# app_started_at <name> [now] -- unix seconds when this app was started, or nothing.
 #
 # THREE sources, most precise first, and none is invented: the pidfile's live process is asked
 # how long it has been running; a dead one is dated by the pidfile app_spawn wrote immediately
@@ -9395,11 +9395,24 @@ app_stop() {
 # it execs) and a child is younger than its parent; taking the first would open the window
 # after the app had already installed rules, and a window that starts too late reports "no flow
 # entry arrived during that window" -- a clean answer, arrived at by looking at the wrong hour.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 `now` IS THE CALLER'S WHEN IT HAS ONE, and residue_report always passes its own. It dates
+# every rule as `now - duration_sec`; a live app dated here against a SECOND read of the clock
+# lands in a different second whenever a boundary falls between the two reads, and for an app
+# younger than a second that puts the window's left edge AFTER `now` -- the rule it installed a
+# moment ago falls outside, and the report says "no flow entry arrived during that window" over
+# `-> now (-1s)`. An older app loses the rules of its first second the same way. Against one
+# `now` the test is duration_sec <= etimes, and the table's durations were taken before etimes
+# is read, so for a rule the app installed it cannot invert. A caller with no report around it
+# (the stop path's capture) gets a fresh read, as before; what that one still gets wrong is
+# KNOWN-ISSUES G-62.
 app_started_at() {
-    local name="$1" pid et p best=""
+    local name="$1" now="${2:-}" pid et p best=""
+    [[ "$now" =~ ^[0-9]+$ ]] || now=""
     if pid="$(app_pidfile_pid "$name" 2>/dev/null)" && [[ -n "$pid" ]]; then
         et="$(ps -o etimes= -p "$pid" 2>/dev/null | tr -d ' ')"
-        if [[ "$et" =~ ^[0-9]+$ ]]; then echo "$(( $(date +%s) - et ))"; return 0; fi
+        if [[ "$et" =~ ^[0-9]+$ ]]; then echo "$(( ${now:-$(date +%s)} - et ))"; return 0; fi
     fi
     p="$(app_pidfile "$name")"
     if [[ -f "$p" ]]; then
@@ -9413,7 +9426,7 @@ app_started_at() {
         [[ "$et" =~ ^[0-9]+$ ]] || continue
         if [[ -z "$best" ]] || (( et > best )); then best="$et"; fi
     done
-    [[ -n "$best" ]] && { echo "$(( $(date +%s) - best ))"; return 0; }
+    [[ -n "$best" ]] && { echo "$(( ${now:-$(date +%s)} - best ))"; return 0; }
     return 1
 }
 
@@ -9871,7 +9884,6 @@ residue_report() {
     local wend wrec wwhy wseal
     local plane blind_said="" elog rpid
     local -a live=()
-    now="$(date +%s)"
     RESIDUE_RULES=0; RESIDUE_LOCKS=0; RESIDUE_UNDATABLE=0; RESIDUE_BLIND=0
     RESIDUE_UNKNOWABLE=0; RESIDUE_UNKNOWABLE_APPS=""
     RESIDUE_EMPTY_TABLE=0; RESIDUE_TABLE_ROWS=""
@@ -9887,6 +9899,30 @@ residue_report() {
     # stats are synthesised and have no time axis -- so it is read once, here, and passed down.
     plane="$(live_dataplane_kind)"
     entries="$(http_get_flow_entries)"
+    # [Co-developed with claude code -- Adam]
+    # 🔴 THE REPORT'S ONE CLOCK READ, taken after the table. Every age below is measured against
+    # it: a rule's (`now - duration_sec`) and a live app's (`now - etimes`: app_started_at is
+    # handed this value instead of reading its own).
+    #
+    # duration_sec is NOT the switch's answer at this fetch. The endpoint serves the kernel's
+    # cached table (HttpSession.cpp handleGetSwitchOpenflowEntries -> DeviceConfigurationAndPower-
+    # Manager::getOpenFlowTables), polled about every 10 s and carried forward when a poll fails.
+    # So `now - duration_sec` is never earlier than the second a rule went in -- its poll came
+    # before `now` -- but can be later by up to the cache's age (KNOWN-ISSUES G-62). Reading `now`
+    # after the fetch rather than before it matters only when a poll lands between the two, which
+    # against this kernel is possible in principle and no more; the order is kept because it is
+    # the one that is right whatever serves the table.
+    now="$(date +%s)"
+    # 🔴 AND EVERY APP IS DATED HERE, right after `now` and before the lock probes. etimes read
+    # after three acquire POSTs (curl allows each 5 s) is older than `now` by however long they
+    # took, and `now - etimes` would open the window that much early -- in front of the app's own
+    # start, where the fabric's baseline lives. Still after the table, so duration_sec <= etimes
+    # still holds. A window captured before a stop (RESIDUE_WINDOW) needs no dating.
+    local -A dated=()
+    for a in "$@"; do
+        [[ -n "${RESIDUE_WINDOW[$a]:-}" ]] && continue
+        dated[$a]="$(app_started_at "$a" "$now")" || dated[$a]=""
+    done
     if [[ -z "$entries" ]]; then
         warn "the kernel gave no flow table on :8000 -- rules NOT checked (not 'none found')."
         RESIDUE_BLIND=$(( RESIDUE_BLIND + 1 ))
@@ -9959,7 +9995,7 @@ residue_report() {
         # report. Empty for every other caller, which is why `apps orphans` and `--check` still
         # answer from the machine's own state.
         started="${RESIDUE_WINDOW[$a]:-}"
-        [[ -n "$started" ]] || started="$(app_started_at "$a")" || started=""
+        [[ -n "$started" ]] || started="${dated[$a]:-}"
         # [Co-developed with claude code -- Adam]
         # F3. The fourth source, and the only one that survives the process that read it: the
         # record a verified stop left on disk. Asked LAST, after the pidfile and the live

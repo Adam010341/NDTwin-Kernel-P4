@@ -24,7 +24,7 @@ The design red lines (TICKET section 3), and where each one lives:
                        answers -- and an Origin header, when present, must be this server's; a POST
                        also needs a JSON body. 🔴 GETs are gated too (judge 09-24, finding 1): a
                        "read" is not side-effect free -- `ndt status --check` POSTs three lock
-                       probes to the kernel (ndt:9416-9431) -- so an <img> in any page must not be
+                       probes to the kernel (ndt:9429-9444) -- so an <img> in any page must not be
                        able to start one.
   3. whitelist         verbs.py builds every argv; there is no shell on any path.
   4. thin shell        ndt's rc is passed through untouched, with a sentence from ndt help beside
