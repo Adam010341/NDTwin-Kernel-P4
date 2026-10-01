@@ -1364,11 +1364,17 @@ HEARTBEAT_CENSUS = {
                "egress_spec stays 0 -- that no port 0 exists is inferred from bmv2), and the drop "
                "check agrees on a throwaway bmv2 with each program loaded and no controller "
                "(flowcache drops it at ingress; advanced_tunnel sends it to port 0, which no "
-               "switch of the fabric has). Segment S's census ran them with no controller, so no "
-               "pipeline was loaded, and live-p1/08 PART=h5 is the first measurement with these "
-               "programs loaded and their controllers running. Any other external program is "
-               "checked the same way before the heartbeat starts on it; what its controller "
-               "installs later is not covered.",
+               "switch of the fabric has). Segment S's census ran them with no controller: each "
+               "switch ran the package's compiled program (the daemon's report names "
+               "advanced_tunnel.json or flowcache.json for every switch) with no table entry, "
+               "every direction heard all 5 frames sent and no host saw one -- the programs' "
+               "default actions, the drop check's question. P4Runtime had no pipeline config "
+               "pushed (the FAILED_PRECONDITION ndt's verify reports as 'no pipeline loaded'); "
+               "live-p1/08 PART=h5 is the first measurement with these programs loaded by their "
+               "controllers, entries and all. Any other external program is checked the same way "
+               "before the heartbeat starts on it; what its controller does later -- entries it "
+               "installs, a pipeline it pushes itself, a default action it changes -- is not "
+               "covered.",
     # [Co-developed with claude code -- Adam] The last sentences: the fable judge's 2.1 on 1a3ebd7f
     # -- the 20 is segment S's, not ndt's. It said 17 until 09-27, when `ndt up` started the
     # heartbeat on the external arms as well; the external judge's F6 (09-28) made "all 20 under
@@ -1378,6 +1384,11 @@ HEARTBEAT_CENSUS = {
     # started their controllers -- so what is served is a reading of the P4 source, and says so.
     # Adam's 09-28 ruling: on an external control plane the heartbeat starts only after the offline
     # drop check proves the program drops the frame; its answer on the 3 programs is served too.
+    # [Co-developed with claude code -- Adam] Round 5 (the round-4 review's S-3): "no pipeline was
+    # loaded" was contradicted by its own raw -- census_<arm>/30_report.json names the package's
+    # program on every switch and 10_up.txt's "no pipeline loaded" is P4Runtime's FAILED_PRECONDITION
+    # -- so the sentence now says what that raw shows; and (S-2) what the controller does later
+    # includes a pipeline it pushes and a default action it changes.
 }
 
 

@@ -606,14 +606,22 @@ class TheHeartbeatIsDisclosedOnSwitchStateTest(unittest.TestCase):
         text = main.heartbeat_report()["census"]["summary"]
         self.assertIn("punts to ITS OWN controller", text)
         self.assertIn("Any other external program is checked the same way before the heartbeat "
-                      "starts on it; what its controller installs later is not covered", text)
+                      "starts on it; what its controller does later -- entries it installs, a "
+                      "pipeline it pushes itself, a default action it changes -- is not covered",
+                      text)
         self.assertIn("the drop check agrees on a throwaway bmv2", text)
         self.assertIn("flowcache drops every non-IPv4 frame at ingress", text)
         # [Co-developed with claude code -- Adam] The external judge's S1 (09-28): a reading of the
         # P4 source, not a measurement -- segment S ran these arms with no controller.
         self.assertIn("The P4 SOURCE of these 3 programs drops it", text)
-        self.assertIn("is the first measurement with these programs loaded", text)
+        self.assertIn("is the first measurement with these programs loaded by their controllers", text)
         self.assertIn("inferred from bmv2", text)
+        # [Co-developed with claude code -- Adam] Round 5 (S-3): what segment S's raw shows -- the
+        # package's program on every switch, no entry, P4Runtime's FAILED_PRECONDITION -- not "no
+        # pipeline was loaded", which its own 30_report.json contradicts.
+        self.assertIn("each switch ran the package's compiled program", text)
+        self.assertIn("P4Runtime had no pipeline config pushed", text)
+        self.assertNotIn("so no pipeline was loaded", text)
 
     def test_the_watchdogs_passes_are_served(self):
         topo = self.start()
