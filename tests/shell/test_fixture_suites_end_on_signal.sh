@@ -123,20 +123,25 @@ one() {
     TMPDIR="$tmpd" NDT_SIGNAL_TEST_TOKEN="$tok" \
         setsid env --default-signal=INT bash "$SFILE" </dev/null >"$out" 2>&1 &
     spid=$!
-    # Wait for the first fixture premise: from here on the run is mid-way, with a fixture to lose.
+    # Wait until a fixture premise has been printed AND a process of this run other than the suite
+    # is alive: from then on the run is mid-way, with something to lose. Both, because a suite may
+    # stop its first fixture again within a second (test_ndt_ovs_claim.sh does), and a signal sent
+    # after that would have nothing for the leftover checks to find.
     deadline=$(( SECONDS + FIRST_WAIT ))
     while (( SECONDS < deadline )); do
-        grep -qE '^ *ok +fixture took argv0=' "$out" 2>/dev/null && break
         ended "$spid" && break
+        if grep -qE '^ *ok +fixture took argv0=' "$out" 2>/dev/null; then
+            mapfile -t fixtures < <(token_pids "$tok" | grep -vx -- "$spid")
+            (( ${#fixtures[@]} )) && break
+        fi
         sleep 0.1
     done
-    if ended "$spid" || ! grep -qE '^ *ok +fixture took argv0=' "$out"; then
-        check "$label $sig: the suite reaches its first fixture within ${FIRST_WAIT}s, still running" yes \
-              "no ($(state_of "$spid"); last line: $(tail -1 "$out" | cut -c1-100))"
+    if ended "$spid" || (( ${#fixtures[@]} == 0 )); then
+        check "$label $sig: the suite reaches a live fixture within ${FIRST_WAIT}s, still running" yes \
+              "no ($(state_of "$spid"), ${#fixtures[@]} process(es) of its own; last line: $(tail -1 "$out" | cut -c1-90))"
         kill -KILL "$spid" 2>/dev/null; wait "$spid" 2>/dev/null; reap_token "$tok"
         return
     fi
-    mapfile -t fixtures < <(token_pids "$tok" | grep -vx -- "$spid")
     check "$label $sig: the pid signalled is the shell running the suite" yes \
           "$([[ "$(tr '\0' ' ' < "/proc/$spid/cmdline" 2>/dev/null)" == *"$SFILE"* ]] && echo yes || echo no)"
     check "$label $sig: and it leads its own process group" "$spid" "$(ps -o pgid= -p "$spid" 2>/dev/null | tr -d ' ')"

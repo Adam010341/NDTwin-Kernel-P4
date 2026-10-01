@@ -172,7 +172,8 @@ spawn_fixture() {
     # register already holds the pid; registered after the assignment, it could be lost. Not
     # closed: a signal sent to the whole process group (a Ctrl-C) also reaches the substitution's
     # own subshell, which can die between starting the fixture and writing its pid -- a window
-    # under a millisecond, in which the fixture (it ignores INT) is left to its FIXTURE_TTL.
+    # under a millisecond. A fixture in this shell's group usually dies of that same Ctrl-C; one
+    # in a session of its own (setsid) does not, and is then left to its TTL.
     pid="$( ( cd "$dir" && exec -a "$want" sleep "$FIXTURE_TTL" ) \
             >/dev/null 2>&1 </dev/null & echo "$!" >> "$FIXTURE_REG"; echo "$!" )"
     deadline=$(( SECONDS + FIXTURE_ARGV_WAIT ))
