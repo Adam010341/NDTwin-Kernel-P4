@@ -198,6 +198,23 @@ class Page(unittest.TestCase):
             self.assertEqual(csp_of(h).get("frame-ancestors"), ["'none'"], path)
             self.assertEqual(h.get("x-frame-options"), "DENY", path)
 
+    def test_no_answer_sets_a_cookie(self):
+        # [Co-developed with claude code -- Adam] the token lives in one variable of the page. A
+        # cookie would put it -- or anything -- where Chrome keeps it encrypted on disk and the
+        # browser suite's profile scan cannot read it, so no answer may set one: the page files, a
+        # 404, the key trade, the reads, a dry run, and a refused write.
+        origin = {"Origin": "http://127.0.0.1:%d" % self.s.port}
+        answers = [("GET " + p,) + self.s.request("GET", p, token=None)
+                   for p in ("/", "/app.js", "/app.css", "/manual.html", "/nope")]
+        answers.append(("POST /session",) + self.s.request("POST", "/api/v1/session", {"nonce": self.s.key()},
+                                                         token=None, headers=origin))
+        answers += [("GET " + p,) + self.s.get(p) for p in ("/health", "/lab", "/meta", "/jobs", "/apps")]
+        answers.append(("POST /claim dry_run",) + self.s.post("/claim", {"dry_run": True}))
+        answers.append(("POST /down, no token",) + self.s.post("/down", token=None))
+        self.assertEqual(answers[5][1], 200, "the key trade did not answer 200: %r" % (answers[5][2],))
+        self.assertEqual(answers[11][1], 200, "the dry run did not answer 200: %r" % (answers[11][2],))
+        self.assertEqual([what for what, _, _, h, _ in answers if "set-cookie" in h], [])
+
     def test_the_page_obeys_the_host_check(self):
         for host in ("evil.example:%d" % self.s.port, "127.0.0.1:%d" % (self.s.port + 1), None):
             st, j, _, payload = self.s.request("GET", "/", token=None, host=host)
@@ -471,14 +488,16 @@ class UrlCommand(unittest.TestCase):
         try:
             port = int(helper.stdout.readline().split()[0])
             r = self.url_against(s, port, helper.pid)
-            self.assertNotEqual(r.returncode, 0, r.stdout)
-            self.assertIn("the token was not sent", r.stderr.lower())
             deadline = time.monotonic() + 5
             while not os.path.exists(got) and time.monotonic() < deadline:
                 time.sleep(0.05)
             sent = open(got, "rb").read() if os.path.exists(got) else b""
-            self.assertNotIn(s.token().encode(), sent, "the token went to a process that only shares the socket")
+            # what the child received first: the point of the case is the token, not the message
+            self.assertNotIn(s.token().encode(), sent, "the token went to a process that only shares the socket "
+                             "(the child received %d bytes: %r)" % (len(sent), sent[:300]))
             self.assertEqual(sent, b"", "anything at all was sent to the child")
+            self.assertNotEqual(r.returncode, 0, r.stdout)
+            self.assertIn("the token was not sent", r.stderr.lower())
         finally:
             os.killpg(helper.pid, signal.SIGKILL)   # the group this case created: parent and child
             helper.wait(10)
