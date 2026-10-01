@@ -19,8 +19,9 @@ token. These cases pin the server's side of that, against the stub ndt of test_n
   * {"dry_run": true} answers the argv the write would run and runs, spawns and makes nothing --
     and only where it is offered;
 
-and PageLint holds static/app.js and static/index.html to what the page may do (SCOPE section 6):
-one door out, every write through the confirm dialog, nothing in storage, no HTML from strings.
+The page's own rules -- one door out, every write through the confirm dialog, nothing in storage,
+no HTML from strings -- are tests/python/test_ndt_serve_web.py's (SourceLint, on the React sources;
+the page is built from tools/ndt_serve/web/ since v2).
 What only a browser can show is tests/browser/test_ndt_serve_page.py (headless Chrome, under the
 build guard) -- kept out of this directory because CI has no Chrome and the L1 lane fails a skip.
 
@@ -168,7 +169,8 @@ class Page(unittest.TestCase):
 
     def test_page_files_need_no_token_and_run_nothing(self):
         for path, name, ctype in (("/", "index.html", "text/html"), ("/app.js", "app.js", "text/javascript"),
-                                  ("/app.css", "app.css", "text/css"), ("/?x=1", "index.html", "text/html")):
+                                  ("/app.css", "app.css", "text/css"), ("/?x=1", "index.html", "text/html"),
+                                  ("/manual.html", "manual.html", "text/html")):
             st, _, h, payload = self.s.request("GET", path, token=None)
             self.assertEqual(st, 200, path)
             self.assertTrue(h["content-type"].startswith(ctype), (path, h["content-type"]))
@@ -788,139 +790,6 @@ class DryRunCells(grid.GridCase):
         self.assertEqual((j["kind"], j["argv"][1:3], j["confirm"], j["needs_own_claim"]),
                          ("cells.run", ["--cell", "lab_cell"], "typed", True), j)
         self.assertEqual(self.s.runs(), [])
-
-
-# --- the page's script and markup (SCOPE section 6, "頁面端的靜態檢查") ---------------------------
-
-def js_code():
-    """static/app.js without comments: whole-line `//` comments, and trailing ones after two spaces."""
-    out = []
-    for line in page_file("app.js").decode().splitlines():
-        out.append("" if line.lstrip().startswith("//") else re.sub(r"\s{2,}//.*$", "", line))
-    return "\n".join(out)
-
-
-def function_spans(code):
-    """name -> (start, end) of every `function name(...) {...}`, by brace matching."""
-    spans = {}
-    for m in re.finditer(r"\bfunction\s+(\w+)\s*\(", code):
-        i = code.index("{", m.end())
-        depth = 0
-        for j in range(i, len(code)):
-            depth += {"{": 1, "}": -1}.get(code[j], 0)
-            if depth == 0:
-                break
-        spans[m.group(1)] = (m.start(), j + 1)
-    return spans
-
-
-def owner(spans, pos):
-    """The innermost named function around pos, or None (top level)."""
-    best = None
-    for name, (a, b) in spans.items():
-        if a <= pos < b and (best is None or a > spans[best][0]):
-            best = name
-    return best
-
-
-def sites(code, pattern, definition=None):
-    """Every match of pattern, minus the definition itself, as (owner, pos)."""
-    spans = function_spans(code)
-    out = []
-    for m in re.finditer(pattern, code):
-        if definition and code.startswith("function " + definition, m.start() - len("function ")):
-            continue
-        out.append((owner(spans, m.start()), m.start()))
-    return out
-
-
-class PageLint(unittest.TestCase):
-    def setUp(self):
-        self.code = js_code()
-
-    def test_the_script_keeps_nothing_outside_memory(self):
-        found = sites(self.code, r"\b(localStorage|sessionStorage|indexedDB|caches)\b|document\.cookie")
-        self.assertTrue(found, "storageHook must read the stores for the browser case")
-        self.assertEqual({o for o, _ in found}, {"storageHook"}, found)
-        a, b = function_spans(self.code)["storageHook"]
-        self.assertNotRegex(self.code[a:b], r"token|setItem|=(?!=)[^=]*cookie|cookie\s*=(?!=)")
-        self.assertNotRegex(self.code, r"\.setItem\s*\(|document\.cookie\s*=(?!=)")
-
-    def test_the_script_makes_no_html_from_strings(self):
-        for pat in (r"innerHTML", r"outerHTML", r"insertAdjacentHTML", r"document\.write", r"\beval\s*\(",
-                    r"\bnew\s+Function\b", r"\bsetTimeout\s*\(\s*[\"'`]", r"\bDOMParser\b",
-                    r"createContextualFragment", r"\.setAttribute\s*\(\s*[\"']on", r"\bsrcdoc\b"):
-            self.assertNotRegex(self.code, pat)
-
-    def test_there_is_one_door_out_and_the_token_is_set_at_it(self):
-        self.assertEqual(sites(self.code, r"\bfetch\s*\("), [("call", self.code.index("fetch("))])
-        self.assertEqual([o for o, _ in sites(self.code, r"X-NDT-Token")], ["call"])
-        for pat in (r"XMLHttpRequest", r"sendBeacon", r"\bWebSocket\b", r"\bEventSource\b", r"window\.open\s*\(",
-                    r"\bimport\s*\(", r"\.src\s*="):
-            self.assertNotRegex(self.code, pat)
-        callers = {o for o, _ in sites(self.code, r"(?<![\w.])call\(", definition="call(")}
-        self.assertLessEqual(callers, {"get", "post", "openSession"}, callers)
-
-    def test_every_write_is_confirmed_in_the_dialog(self):
-        posts = sites(self.code, r"(?<![\w.])post\(", definition="post(")
-        self.assertTrue(posts)
-        self.assertEqual({o for o, _ in posts}, {"confirmThen"}, posts)
-        self.assertLessEqual({o for o, _ in sites(self.code, r"[\"']POST[\"']")}, {"post", "openSession"})
-
-    # [Co-developed with claude code -- Adam] the orchestrator's condition on the log re-read (09-27
-    # 15:4x): a job's log is re-read every 2 s only while its view is open and the page is shown
-    def test_the_job_view_can_be_closed_and_its_log_stops(self):
-        html = page_file("index.html").decode()
-        self.assertEqual(len(re.findall(r'<button id="job-close" type="button">', html)), 1,
-                         "the job view has no Close button")
-        spans = function_spans(self.code)
-        self.assertIn("closeJob", spans, "no closeJob()")
-        a, b = spans["closeJob"]
-        body = self.code[a:b]
-        self.assertRegex(body, r"\bwatching = null;", "closing the view does not stop the log loop")
-        self.assertRegex(body, r'\$\("job"\)\.hidden = true;', "closing the view does not hide it")
-        self.assertRegex(self.code, r'\$\("job-close"\)\.addEventListener\("click", closeJob\)',
-                         "the Close button is not wired to closeJob")
-
-    def test_the_log_loop_stops_when_the_job_ends(self):
-        # judge G-N1 (fcd4f69a): this condition was held by nothing -- `if (false)` there survived
-        a, b = function_spans(self.code)["openJob"]
-        loop = self.code[a:b]
-        m = re.search(r'if \(r\.json\.job\.state !== "running"\) \{([^}]*)\}', loop)
-        self.assertTrue(m, "the log loop does not stop when the job ends")
-        self.assertRegex(m.group(1), r"\breturn;\s*$", "the job-ended branch does not leave the loop")
-        self.assertLess(m.start(), loop.index("await sleep(2000);"), "the loop sleeps before it looks")
-
-    def test_a_hidden_page_does_not_poll_a_jobs_log(self):
-        spans = function_spans(self.code)
-        self.assertIn("whileHidden", spans, "no whileHidden()")
-        a, b = spans["whileHidden"]
-        wait = self.code[a:b]
-        # it waits: the one early return is for a page that is shown, and a hidden one resolves only
-        # from the visibilitychange listener
-        self.assertIn('if (document.visibilityState !== "hidden") return Promise.resolve();', wait)
-        self.assertEqual(wait.count("Promise.resolve()"), 1, wait)
-        self.assertIn('document.visibilityState === "hidden"', wait)
-        self.assertIn('"visibilitychange"', wait)
-        a, b = spans["openJob"]
-        loop = self.code[a:b]
-        # the wait sits after the sleep and before the next read, and the loop asks again after it
-        # whether this is still the job being watched
-        self.assertRegex(loop, r"await sleep\(2000\);\s*await whileHidden\(\);\s*if \(watching !== mine\) return;",
-                         "the log loop reads on while the page is hidden")
-        # watching holds this OPENING, not the job id: a view closed and opened again on the same
-        # job within one sleep would otherwise leave the old loop running beside the new one
-        self.assertRegex(loop, r"const mine = \{\};[^\n]*\n\s*watching = mine;")
-        self.assertNotIn("watching !== id", loop)
-
-    def test_the_markup_has_no_inline_script_style_or_handler(self):
-        html = page_file("index.html").decode()
-        scripts = re.findall(r"<script\b[^>]*>(.*?)</script>", html, re.S)
-        self.assertEqual(re.findall(r"<script\b([^>]*)>", html), [' src="/app.js" defer'])
-        self.assertEqual(scripts, [""])
-        self.assertNotRegex(html, r"\son[a-z]+\s*=")
-        self.assertNotRegex(html, r"\sstyle\s*=|<style\b|javascript:")
-        self.assertEqual(re.findall(r"\b(?:href|src)=\"([^\"]*)\"", html), ["/app.css", "/app.js"])
 
 
 if __name__ == "__main__":

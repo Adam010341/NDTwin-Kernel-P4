@@ -1216,12 +1216,13 @@ class Entry(unittest.TestCase):
         self.assertIn("127.0.0.1", r.stdout)
 
     def test_outside_the_api_there_is_only_the_page(self):
-        # [Co-developed with claude code -- Adam] the GUI cut (09-27) took /, /app.js and /app.css;
-        # those three are tests/python/test_ndt_serve_gui.py's. Nothing else is a path to a file.
+        # [Co-developed with claude code -- Adam] the page is /, /app.js, /app.css and /manual.html
+        # (tests/python/test_ndt_serve_gui.py's); its build manifest and sources are not served.
         s = Serve().start()
         try:
             for p in ("/index.html", "/static/app.js", "/app.js/", "/favicon.ico", "/apiv1/health",
-                      "/../tools/ndt_serve/serve.py", "/static/../serve.py", "/serve.py"):
+                      "/../tools/ndt_serve/serve.py", "/static/../serve.py", "/serve.py",
+                      "/BUILD.json", "/static/BUILD.json", "/web/package.json", "/web/src/main.tsx"):
                 st, j, _, _ = s.request("GET", p)
                 self.assertEqual(st, 404, p)
                 self.assertIn("there is only the page", j["note"])

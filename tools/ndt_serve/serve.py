@@ -79,12 +79,15 @@ PIPE_GRACE_S = 5           # after killpg, how long a read waits for its pipes t
 MAX_LOG_CHUNK = 16 * 1024 * 1024
 OWNER_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 APP_NAMES_LINE = re.compile(r'^APP_NAMES="([a-z0-9 _-]*)"\s*$', re.M)
-GUI_NOTE = "outside /api/v1/ there is only the page: /, /app.js and /app.css"
-# The page's three files, and nothing else: a path is looked up, never joined onto a directory.
+GUI_NOTE = "outside /api/v1/ there is only the page: /, /app.js, /app.css and /manual.html"
+# The page's four files, and nothing else: a path is looked up, never joined onto a directory.
+# They are built from tools/ndt_serve/web/ (React; static/BUILD.json ties them to their sources and
+# is not served). [Co-developed with claude code -- Adam]
 STATIC_DIR = os.path.join(HERE, "static")
 STATIC = {"/": ("index.html", "text/html; charset=utf-8"),
           "/app.js": ("app.js", "text/javascript; charset=utf-8"),
-          "/app.css": ("app.css", "text/css; charset=utf-8")}
+          "/app.css": ("app.css", "text/css; charset=utf-8"),
+          "/manual.html": ("manual.html", "text/html; charset=utf-8")}
 # On every answer, the page's first: no inline script, no other origin, no frame around it.
 SECURITY_HEADERS = (
     ("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; "
