@@ -48,6 +48,9 @@ build_sandbox() {
     cp "$REPO_ROOT/$DRIVER_REL" "$REPO_ROOT/tools/test_workflow/components.env" \
        "$sb/tools/test_workflow/"
     cp "$REPO_ROOT"/tests/shell/test_*.sh "$sb/tests/shell/"
+    # [Co-developed with claude code -- Adam] and the Python suites (S-8): D22 and D29 read their
+    # NDTWIN_L1_NEEDS declarations
+    cp "$REPO_ROOT"/tests/shell/test_*.py "$sb/tests/shell/"
     # group R's fixtures (09-27): without them every R check reads "instrument failed"
     mkdir -p "$sb/tests/shell/fixtures"
     cp -r "$REPO_ROOT/tests/shell/fixtures/l1_shell_scoring" "$sb/tests/shell/fixtures/"
@@ -369,6 +372,22 @@ mutate "(2a) the else branch is read as the print's path" "$SUITE_REL" '
 s = s.replace("        if nest == 0 and (op == \";;\" or head in (\"else\", \"elif\")):",
               "        if nest == 0 and op == \";;\":")
 ' 'R14   `then echo ...; else exit 1; fi`' "exit <non-zero> after it on the same line"
+
+echo
+echo "=== mutations: tests/shell's Python suites are collected, scored as shell suites, and declare their need (S-8) ==="
+# [Co-developed with claude code -- Adam] round 5 (the round-4 review's S-8)
+mutate "tests/shell/test_*.py is not collected" "$DRIVER_REL" '
+s = s.replace(" \"$KERNEL_DIR\"/tests/shell/test_*.py)", ")")
+' "D27 🔴 the lane collects tests/shell/test_*.py"
+mutate "a tests/shell/*.py is scored with unittest's vocabulary" "$DRIVER_REL" '
+s = s.replace("[[ \"$testfile\" == *.py && \"$testfile\" != */tests/shell/* ]] && kind=py", "[[ \"$testfile\" == *.py ]] && kind=py")
+' "D28 🔴 and scores them as shell suites (their summary and SKIP: lines), run by python3"
+mutate "the drop check suite does not declare the stock bmv2" "tests/shell/test_heartbeat_drop_check.py" '
+s = s.replace("# NDTWIN_L1_NEEDS: bmv2-stock\n", "\n")
+' "D29 🔴 the drop check's suite declares the stock bmv2 it needs"
+mutate "the lane never probes bmv2-stock" "$DRIVER_REL" '
+s = s.replace("L1_NEED_MET[bmv2-stock]=0\n", "").replace("&& L1_NEED_MET[bmv2-stock]=1", "&& :")
+' "D18 the lane probes the needs it can excuse (ryu, py-plot, bmv2-stock)"
 
 echo
 echo "===== $((KILLED + SURVIVED)) mutation(s): $KILLED killed, $SURVIVED survived ====="

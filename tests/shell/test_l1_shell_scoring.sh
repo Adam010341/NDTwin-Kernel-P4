@@ -179,7 +179,9 @@ echo "=== group X: the scorer is WIRED IN, and the Python side keeps unittest's 
 # that one would read the wrong block and every check below would pass on an empty string.
 dispatch="$(awk '/^[[:space:]]*ran=0; failed=0[[:space:]]*$/ { on = 1 }
                  on && /l1_lane_verdict/ { exit } on { print }' "$DRIVER")"
-py_arm="$(awk '/== \*\.py \]\]; then/ { on = 1; next } on && /^ *else$/ { exit } on { print }' \
+# [Co-developed with claude code -- Adam] Since tests/shell/*.py are shell-style too (S-8), the arm
+# is picked by the lane's own `kind`, not by the file's extension.
+py_arm="$(awk '/"\$kind" == py \]\]; then/ { on = 1; next } on && /^ *else$/ { exit } on { print }' \
           <<<"$dispatch")"
 sh_arm="$(awk '/^ *else$/ { on = 1; next } on && /^ *fi$/ { exit } on { print }' <<<"$dispatch")"
 
@@ -299,11 +301,11 @@ fi
 
 # The driver's own wiring, read from its source (the lane itself builds the kernel).
 probed="$(grep -oE '^L1_NEED_MET\[[a-z0-9-]+\]=' "$DRIVER" | sed -E 's/^L1_NEED_MET\[([^]]*)\]=$/\1/' | sort -u)"
-check "D18 the lane probes the needs it can excuse (ryu, py-plot)" "py-plot ryu" \
+check "D18 the lane probes the needs it can excuse (ryu, py-plot, bmv2-stock)" "bmv2-stock py-plot ryu" \
       "$(tr '\n' ' ' <<<"$probed" | sed 's/ $//')"
 check "D19 the dispatch hands the lane's own excuse and the hosted flag to the verdict" "yes" \
       "$(grep -qF 'l1_lane_verdict "$rc" "${ran:-0}" "${failed:-0}" "${skipped:-0}" "$excuse" "$L1_HOSTED"' "$DRIVER" \
-         && grep -qF 'excuse="$(l1_skip_excuse "$testfile" "$log" "${testfile##*.}" "${ran:-0}" "${skipped:-0}")"' "$DRIVER" \
+         && grep -qF 'excuse="$(l1_skip_excuse "$testfile" "$log" "$kind" "${ran:-0}" "${skipped:-0}")"' "$DRIVER" \
          && grep -qF 'L1_HOSTED="$(l1_hosted_runner)"' "$DRIVER" \
          && echo yes || echo no)"
 check "D20 🔴 the DECLARED-SKIP arm records the file and does NOT count a failure" "records, no failure" \
@@ -322,13 +324,21 @@ check "D26 🔴 the FAIL-SKIP arm names a declared need that is missing (the lab
 # Every declaration in the corpus names a need the lane probes: an unknown word there would make
 # that file FAIL-SKIP on a machine without the need, which is loud, but the typo is cheaper here.
 unknown=""
-for f in "$SHELL_TESTS_DIR"/test_*.sh "$SHELL_TESTS_DIR"/../python/test_*.py; do
+for f in "$SHELL_TESTS_DIR"/test_*.sh "$SHELL_TESTS_DIR"/test_*.py "$SHELL_TESTS_DIR"/../python/test_*.py; do
     [[ -f "$f" ]] || continue
     while IFS= read -r need; do
         grep -qxF -- "$need" <<<"$probed" || unknown+="$(basename "$f"):$need "
     done < <(l1_declared_needs "$f" 2>/dev/null)
 done
 check "D22 every NDTWIN_L1_NEEDS in tests/shell and tests/python is one the lane probes" "" "$unknown"
+# [Co-developed with claude code -- Adam] (the round-4 review's S-8) tests/shell's Python suites --
+# test_heartbeat_drop_check.py -- were collected by no runner.
+check "D27 🔴 the lane collects tests/shell/test_*.py" "yes" \
+      "$(grep -qE '^KERNEL_TESTS=\(.*"\$KERNEL_DIR"/tests/shell/test_\*\.py' "$DRIVER" && echo yes || echo no)"
+check "D28 🔴 and scores them as shell suites (their summary and SKIP: lines), run by python3" "yes yes" \
+      "$(grep -qF '[[ "$testfile" == *.py && "$testfile" != */tests/shell/* ]] && kind=py' "$DRIVER" && echo yes || echo no) $(grep -qF '(cd "$KERNEL_DIR" && python3 "$testfile") >"$log" 2>&1' "$DRIVER" && echo yes || echo no)"
+check "D29 🔴 the drop check's suite declares the stock bmv2 it needs" "bmv2-stock" \
+      "$(l1_declared_needs "$SHELL_TESTS_DIR/test_heartbeat_drop_check.py" 2>/dev/null)"
 
 echo
 echo "=== group C: the corpus -- every suite in tests/shell prints a form this scorer reads ==="
