@@ -1,0 +1,318 @@
+{
+  "ndtServe": {
+    "app": {
+      "title": "ndt serve"
+    },
+    "loading": "讀取中…",
+    "top": {
+      "owner": "owner {{owner}}",
+      "webgui": "開啟 Web-GUI",
+      "webguiTitle": "在新分頁打開 {{url}}：拓樸和流量在 Web-GUI 裡",
+      "manual": "使用手冊"
+    },
+    "session": {
+      "opening": "正在開啟 session…",
+      "ok": "session 已開啟（重新整理頁面就會結束）",
+      "noKey": "這個網址沒有一次性 key：執行 ndt serve url，打開它印出的網址",
+      "refused": "一次性 key 被拒絕（{{detail}}）：執行 ndt serve url 取得新的網址",
+      "noMeta": "讀不到伺服器的 /meta：{{detail}}",
+      "getIn": "頁面沒有載入，所以這裡什麼都不讀；原因寫在上方。需要新的網址時，執行 ndt serve url，打開它印出的網址。"
+    },
+    "refresh": {
+      "now": "立即更新",
+      "last": "上次讀取 {{time}}",
+      "state": {
+        "running": "每 {{seconds}} 秒自動更新",
+        "paused-measuring": "已暫停（量測中）",
+        "paused-hidden": "已暫停（頁面在背景）"
+      },
+      "hint": {
+        "running": "每 {{seconds}} 秒讀一次 lab、apps、health、jobs；上一次讀完才排下一次",
+        "paused-measuring": "量測結束後按「立即更新」才會恢復",
+        "paused-hidden": "回到這個分頁就會自動恢復"
+      }
+    },
+    "tabs": {
+      "lab": "實驗室",
+      "actions": "操作",
+      "apps": "Apps",
+      "jobs": "工作紀錄",
+      "cells": "驗證格"
+    },
+    "section": {
+      "lab": {
+        "explain": "lab 現在的狀態：ndt status 裡 claim、measuring、declared 三列的原文，以及伺服器對它們的判讀。這一頁每 10 秒自動讀一次。"
+      },
+      "actions": {
+        "explain": "claim／release 與 up／down。每個按鈕都會先打開確認視窗：重新讀一次 lab、請伺服器給出實際要跑的指令，你確認之後才會送出。"
+      },
+      "apps": {
+        "explain": "ndt 認得的 app。start／stop 只有在 claim 是你的時候才會執行（伺服器會擋）。下面是 ndt apps status 的原文，每 10 秒自動讀一次。"
+      },
+      "jobs": {
+        "explain": "每一個寫入都是一個 job，同一時間只會跑一個。按「開啟」看它的 log：job 跑完、按「關閉」、或頁面在背景時，就不再讀 log。"
+      },
+      "cells": {
+        "explain": "回歸驗證格（live_cells）：每一格對應一個修好的 bug。可以看它修好之前的紅、修好當晚的綠，或是現在在 lab 上重跑一次，並由你做判定。"
+      }
+    },
+    "lab": {
+      "claim": "claim",
+      "measuring": "measuring",
+      "declared": "declared",
+      "slot": "槽位",
+      "read": "讀取",
+      "yours": "是你的",
+      "notYours": "不是你的",
+      "noClaimRow": "（ndt status 沒有 claim 這一列）",
+      "noMeasuringRow": "（ndt status 沒有 measuring 這一列）",
+      "readLine": "{{time}} 讀取，rc {{rc}}（{{rcClass}}），花了 {{seconds}} 秒",
+      "unreadable": "讀不到 lab：{{detail}}",
+      "notRead": "還沒讀過。",
+      "whole": "ndt status 全文",
+      "stderrMarker": "--- stderr ---",
+      "drift": "ndt 在這個伺服器啟動之後被改過（ndt_drift）：每一次呼叫仍然跑啟動時的 {{path}}。要用新的 ndt，請重新啟動 ndt serve。"
+    },
+    "busy": {
+      "free": "空著",
+      "held": "被 job {{id}} 佔用（{{kind}}，{{state}}）"
+    },
+    "actions": {
+      "claimTitle": "claim／release",
+      "claimExplain": "claim 是對其他人宣告「lab 現在是我的」，時間到會自動失效；release 是提早還回去。",
+      "minutes": "分鐘",
+      "note": "備註",
+      "claim": "Claim",
+      "release": "Release",
+      "upTitle": "up／down",
+      "upExplain": "up 把 fabric 建起來（選 ovs 或 p4、幾台 host），down 把它拆掉。兩個都要打字確認；claim 不是你的時候確認鈕不會亮。",
+      "plane": "plane",
+      "hosts": "hosts",
+      "hostsDefault": "（ndt 的預設）",
+      "up": "Up",
+      "down": "Down"
+    },
+    "apps": {
+      "name": "app",
+      "start": "start",
+      "stop": "stop",
+      "status": "ndt apps status 原文",
+      "notRead": "還沒讀過。"
+    },
+    "jobs": {
+      "id": "id",
+      "kind": "種類",
+      "state": "狀態",
+      "rc": "rc",
+      "rcClass": "rc_class",
+      "meaning": "意思",
+      "open": "開啟",
+      "none": "還沒有 job。"
+    },
+    "job": {
+      "title": "job",
+      "close": "關閉",
+      "following": "每 2 秒讀一次 log；job 跑完、按「關閉」、或頁面在背景時停止。",
+      "notFollowing": "沒有在讀 log。",
+      "kind": "種類",
+      "state": "狀態",
+      "rc": "rc",
+      "rcClass": "rc_class",
+      "meaning": "意思",
+      "argv": "argv",
+      "cellVerdict": "驗證格判定",
+      "stdout": "stdout",
+      "stderr": "stderr"
+    },
+    "answer": {
+      "job": "job",
+      "started": "已開始"
+    },
+    "shortId": {
+      "copied": "已複製",
+      "copyFailed": "無法複製"
+    },
+    "confirm": {
+      "reading": "正在讀 lab（plain ndt status）…",
+      "readingPreview": "正在讀 lab（plain ndt status），並請伺服器給出要跑的指令…",
+      "argv": "會執行",
+      "noJob": "不跑 ndt job（{{kind}}）：見下方說明",
+      "noCommand": "不跑任何 ndt 指令：{{effect}}",
+      "blockLab": "讀不到 lab：{{detail}}",
+      "blockRefused": "伺服器拒絕了這個請求：{{detail}}",
+      "blockClaim": "請先 claim：claim 不是你的",
+      "sharedBody": "我知道這會改寫共用狀態：{{what}}",
+      "sharedWalk": "這一步會寫共用狀態（開始逐步驗證時已經確認過）：{{what}}",
+      "typeBefore": "輸入",
+      "typeAfter": "以確認",
+      "cancel": "取消",
+      "go": "確認",
+      "titleClaim": "claim lab",
+      "titleRelease": "release lab",
+      "titleUp": "把 fabric 建起來（up）",
+      "titleDown": "把 fabric 拆掉（down）",
+      "titleApp": "{{action}} {{name}}",
+      "titleRun": "現在重跑 {{cell}}",
+      "titleWalk": "逐步驗證 {{cell}}",
+      "titleNext": "逐步驗證 {{walk}}：下一步",
+      "titleAbort": "中止逐步驗證 {{walk}}",
+      "titleVerdict": "逐步驗證 {{walk}}：你的判定是{{verdict}}",
+      "effectWalk": "記錄一次逐步驗證；在你按「下一步」之前什麼都不會跑",
+      "effectAbort": "把這次逐步驗證標成中止；它拿到的 claim 不會被 release",
+      "effectVerdict": "把你的判定記進這次逐步驗證"
+    },
+    "badge": {
+      "rc": {
+        "ok": "做到了它說的事，而且驗證過",
+        "report": "plain ndt status：印了一份報告，什麼都沒判定",
+        "dirty": "ndt 看了，不喜歡它看到的（up／down 的 rc 1）",
+        "refused": "守門的檢查拒絕了，什麼都沒做（up／down 的 rc 5、claim／release 的 rc 1）",
+        "nothing": "沒有東西可以處理（down 的 rc 3、status --check 的 rc 3、apps stop 的 rc 2）",
+        "usage": "用法錯誤",
+        "failed": "失敗",
+        "signal": "被訊號結束",
+        "timeout": "逾時，被停止",
+        "unknown": "表上沒有的 rc，或是 rc 沒被記下來的 job",
+        "pass": "驗證格 PASS",
+        "skip": "驗證格 SKIP：沒有跑，不算通過",
+        "fail": "驗證格 FAIL",
+        "harness": "run_cells.sh 跑不起來，或還原失敗：lab 不乾淨",
+        "see-verdict": "看驗證格自己的判定行"
+      },
+      "state": {
+        "running": "還在跑",
+        "finished": "已結束，rc 已記錄",
+        "orphaned": "runner 不見了但 ndt 還在跑，仍然佔著槽位",
+        "lost": "已結束，但沒有人記下 rc",
+        "pending": "還沒做",
+        "done": "完成",
+        "blocked": "卡住了：按「下一步」重試這一步，或中止"
+      }
+    },
+    "fixture": {
+      "title": "{{cell}}：{{which}}（{{dir}}）",
+      "close": "關閉",
+      "noVerdict": "（沒有 CELL: 行）",
+      "timedOut": "，judge 逾時被停止",
+      "assert": "assert",
+      "detail": "內容",
+      "ok": "ok",
+      "fail": "FAIL",
+      "failing": "failing",
+      "expectedFails": "expected_fails",
+      "matches": "failing = expected",
+      "yes": "是",
+      "no": "否",
+      "note": "注意",
+      "rawFiles": "raw 檔案",
+      "provenance": "PROVENANCE.md（這些檔案從哪裡來）"
+    },
+    "walk": {
+      "title": "逐步驗證",
+      "aborted": "（已中止）",
+      "done": "（已完成）",
+      "close": "關閉",
+      "blocked": "卡住了：{{why}}",
+      "result": "這一步的結果",
+      "job": "看這一步的 job",
+      "next": "下一步",
+      "abort": "中止",
+      "verdictExplain": "最後一步由你判定：對照修前和現在的結果，這一格是綠還是紅。",
+      "note": "備註",
+      "green": "判定：綠",
+      "red": "判定：紅",
+      "verdict": {
+        "green": "綠",
+        "red": "紅"
+      }
+    },
+    "cellsTab": {
+      "load": "讀取驗證格（run_cells.sh --list）",
+      "walksLoad": "重新讀取逐步驗證清單",
+      "col": {
+        "cell": "格子",
+        "what": "在驗什麼",
+        "requires": "需要"
+      },
+      "writesShared": "會寫共用狀態：{{what}}",
+      "buttons": {
+        "old": {
+          "label": "修前紀錄",
+          "explain": "修好之前的紀錄，應該是紅的"
+        },
+        "new": {
+          "label": "修好當晚",
+          "explain": "修好那一晚第一次變綠的紀錄"
+        },
+        "run": {
+          "label": "現在重跑",
+          "explain": "現在在 lab 上重跑這一格；需要 lab 的格子要先 claim"
+        },
+        "walk": {
+          "label": "逐步驗證",
+          "explain": "帶你走一遍：修前 → 修好當晚 → claim → 重跑 → 對照 → 你的判定"
+        }
+      },
+      "requires": {
+        "none": "不需要 lab：別人佔著 lab 也能跑",
+        "idle": "lab 必須是關著的",
+        "ovs4": "這一格自己把 OVS 4 台 host 的 fabric 建起來",
+        "p4-4": "這一格自己把 P4 4 台 host 的 fabric 建起來"
+      },
+      "walksTitle": "逐步驗證清單",
+      "walksExplain": "開始過的逐步驗證，最新的在最上面。按「開啟」接著走。",
+      "walkCol": {
+        "walk": "id",
+        "cell": "格子",
+        "current": "目前",
+        "done": "完成",
+        "verdict": "判定"
+      },
+      "stepN": "第 {{n}} 步",
+      "yes": "是",
+      "open": "開啟"
+    },
+    "cells": {
+      "up_target_names_a_readable_model": {
+        "what": "ndt up ovs 4 要成功（rc 0），而且 up.target 記下一個讀得懂的拓樸模型（sha、host 數、模型路徑）；修前模型的數量讀不出來，bring-up 以 rc 1 失敗。"
+      },
+      "up_refuses_a_model_of_another_network": {
+        "what": "拿別的網路（128 台 host）的模型去跑 ndt up p4 4，ndt 要立刻拒絕、說出兩邊的數量、什麼都不建；修前它照樣建了十台交換機，300 秒後逾時。會暫時改寫 host_count_override（共用狀態）。"
+      },
+      "up_refuses_while_a_down_is_in_flight": {
+        "what": "ndt down 還在拆的時候又下 up，要立刻拒絕並指出 .test_run/down.inflight；修前它把正在拆的 fabric 當成已經建好，直接沿用。"
+      },
+      "half_stack_is_not_clean": {
+        "what": "只起來一半（kernel 停了、交換機還在）時，判定要是 NOT CLEAN 並說出是半套；修前這種狀態被判成 VERDICT: CLEAN。"
+      },
+      "recovery_refuses_foreign_netem": {
+        "what": "對沒有宣告、卻掛著別人 netem 的鏈路做 inject_link_recovery，kernel 要回 409 netem_not_ours、什麼都不動；修前它回 200，還把別人的 netem 拿掉了。"
+      },
+      "link_failure_cuts_both_ends_or_neither": {
+        "what": "inject_link_failure 有一端被拒時，兩端都不能掛上 netem，並照實說什麼都沒掛；修前被拒的另一端真的被切斷，還回報「已注入」。"
+      },
+      "orphans_blind_probes_not_checked": {
+        "what": "kernel 起著、三個 lock probe 全是 NOT CHECKED（http 500）時，判定要是 NOT CHECKED（rc 3），不能是 CLEAN；修前它給了 VERDICT: CLEAN。"
+      },
+      "help_drops_deleted_claims": {
+        "what": "ndt help 不再寫那兩句已經刪掉的保證（has run in THIS checkout，以及環境變數的全面保證），改成範圍正確的句子；修前兩句都還在。"
+      },
+      "default_round_plane_is_classified": {
+        "what": "last_kernel_plane 要把 Mininet_* 和 OVS_* 讀成 ovs、P4_* 讀成 p4，實體模式的指令讀成 rc 1；修前 Mininet_* 的模型讀不出 plane。"
+      },
+      "stale_app_pidfile_does_not_frame_the_fabric": {
+        "what": "app 的 pidfile 指向已經死掉的程序時，那段 app 時間窗要有結束點，不能把之後才建的 fabric 規則算成 app 的殘留；CELLS.md 記載修正合併前這一格是紅的，也還沒有修好當晚的紀錄。"
+      },
+      "northbound_write_reply_names_the_lab_claim": {
+        "what": "kernel 北向寫入（inject／recover 一組，以及 body 解析失敗的 400）的回覆要帶 lab_claim，owner 和 expires_at 與 .test_run/lab.claim 一致；修前 claim 過期或換人時，寫入照樣回 200、什麼都沒說。"
+      }
+    },
+    "err": {
+      "noAnswer": "沒有回應：{{detail}}",
+      "boundaryTitle": "頁面出錯了",
+      "boundaryBody": "頁面遇到無法處理的錯誤。重新整理會結束這個 session，之後要執行 ndt serve url 取得新的網址。",
+      "boundaryReload": "重新整理",
+      "boundaryDetails": "錯誤細節（開發模式）"
+    }
+  }
+}
