@@ -73,7 +73,13 @@ reap_fixtures() {
     return 0
 }
 cleanup() { reap_fixtures; [[ -n "${FIX:-}" && -d "$FIX" ]] && rm -rf "$FIX"; return 0; }
-trap cleanup EXIT INT TERM
+# [Co-developed with claude code -- Adam] A signal ENDS the run (2026-10-01), as in
+# test_ndt_app_orphans.sh. The handler used to clean up and return, so on INT or TERM the suite
+# went on running with its fixtures reaped and $FIX deleted. The EXIT trap does the cleaning on
+# the way out; INT and TERM only exit, 128+signal.
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 export FIX
 mkdir -p "$FIX/.test_run/pids" "$FIX/.test_run/logs" "$FIX/setting" "$FIX/p4_proxy/mininet" \
          "$FIX/p4_proxy/venv/bin" "$FIX/p4_proxy/p4_src/build" "$FIX/build/bin" \
@@ -264,19 +270,24 @@ dead_pid() {
 FIXTURE_ARGV_WAIT=30
 FIXTURE_PID=""
 spawn() {
+    # [Co-developed with claude code -- Adam] In this shell or not at all (2026-10-01): see
+    # test_ndt_app_orphans.sh's spawn_fixture. A call from a subshell ends the run, loudly.
+    [[ $BASHPID == "$$" ]] || { echo "  FAILED   ${FUNCNAME[0]} called outside this suite's own shell (BASHPID $BASHPID, suite $$): ending the run" >&2; kill -TERM "$$"; exit 1; }
     local want="$1" how="${2:-}" pid deadline
     local -a argv=()
     FIXTURE_PID=""
     # From a command substitution of its own, so the fixture is never a job of this shell; the
-    # redirections keep it off that substitution's pipe, which it would otherwise hold open.
+    # redirections keep it off that substitution's pipe, which it would otherwise hold open. The
+    # pid is registered inside the substitution, so a signal sent to this shell finds it in the
+    # register; a group-wide one (Ctrl-C) still has a window (2026-10-01; test_ndt_app_orphans.sh's
+    # spawn_fixture says both).
     if [[ "$how" == setsid ]]; then
         pid="$( ( cd "$FIX" && exec setsid bash -c 'exec -a "$0" sleep 120' "$want" ) \
-                >/dev/null 2>&1 </dev/null & echo "$!" )"
+                >/dev/null 2>&1 </dev/null & echo "$!" >> "$FIXTURES"; echo "$!" )"
     else
         pid="$( ( cd "$FIX" && exec -a "$want" sleep 120 ) \
-                >/dev/null 2>&1 </dev/null & echo "$!" )"
+                >/dev/null 2>&1 </dev/null & echo "$!" >> "$FIXTURES"; echo "$!" )"
     fi
-    echo "$pid" >> "$FIXTURES"
     deadline=$(( SECONDS + FIXTURE_ARGV_WAIT ))
     while :; do
         argv=()
