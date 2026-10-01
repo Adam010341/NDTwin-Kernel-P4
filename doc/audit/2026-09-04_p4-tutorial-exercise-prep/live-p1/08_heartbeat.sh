@@ -2004,7 +2004,7 @@ open(p + ".tmp", "w").write(json.dumps(doc)); os.replace(p + ".tmp", p)' "$rep" 
     got="$(awk -F'\t' -v p="$cpid" 'NR > 1 {n++; split($12, a, ","); for (i in a) if (a[i] == p) {s++; break}} END {printf "%d of %d", s, n}' "$d/samples.tsv" 2>/dev/null)" || true
     [[ -n "$cpid" && "$got" =~ ^([1-9][0-9]*)\ of\ ([0-9]+)$ ]] && (( BASH_REMATCH[1] < BASH_REMATCH[2] )) \
         && ok "🔴 H5 sampler: the exercise controller (pid $cpid) is in the controllers column while it lives, and only then ($got reads)" \
-        || red "🔴 H5 sampler controllers column: pid '$cpid' in $got reads"
+        || red "🔴 H5 sampler controllers column: '$cpid' in $got reads"
     got="$(tail -1 "$d/samples.tsv" 2>/dev/null | cut -f2,3)" || true
     [[ "$got" == $'running\tbbbb' ]] && /usr/bin/grep -q '^started rc 0$' "$d/notes.txt" \
         && ok "  sampler_start said it had started, and the stop path took a last sample of the report as it stood" \
