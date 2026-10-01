@@ -104,6 +104,8 @@ ltree() {   # ltree <dir>
     local d="$1"
     mkdir -p "$d/$LIVE_DIR_REL" "$d/tools/test_workflow" "$d/doc/audit/2026-09-25_p4-heartbeat/spike" "$d/tmp"
     cp "$REPO/$LIVE_DIR_REL/_common.sh" "$LIVE08" "$d/$LIVE_DIR_REL/"
+    # [Co-developed with claude code -- Adam] round 5: 08's identity gate runs these two (M-2)
+    cp "$REPO/$LIVE_DIR_REL/code_identity.py" "$REPO/$LIVE_DIR_REL/venv_fingerprint.sh" "$d/$LIVE_DIR_REL/"
     cp "$REPO/tools/test_workflow/faults.sh" "$REPO/tools/test_workflow/qdisc_snapshot.sh" "$d/tools/test_workflow/"
     cp "$REPO/doc/audit/2026-09-25_p4-heartbeat/spike/census_prepare.py" "$d/doc/audit/2026-09-25_p4-heartbeat/spike/"
     mkdir -p "$d/p4_proxy"   # a real directory: its mininet/ (the knobs) is simply not there
@@ -947,18 +949,33 @@ m=$(mutant m28 "$MAIN" \
                "egress_spec stays 0 -- that no port 0 exists is inferred from bmv2), and the drop "
                "check agrees on a throwaway bmv2 with each program loaded and no controller "
                "(flowcache drops it at ingress; advanced_tunnel sends it to port 0, which no "
-               "switch of the fabric has). Segment S'"'"'s census ran them with no controller, so no "
-               "pipeline was loaded, and live-p1/08 PART=h5 is the first measurement with these "
-               "programs loaded and their controllers running. Any other external program is "
-               "checked the same way before the heartbeat starts on it; what its controller "
-               "installs later is not covered.",' \
+               "switch of the fabric has). Segment S'"'"'s census ran them with no controller: each "
+               "switch ran the package'"'"'s compiled program (the daemon'"'"'s report names "
+               "advanced_tunnel.json or flowcache.json for every switch) with no table entry, "
+               "every direction heard all 5 frames sent and no host saw one -- the programs'"'"' "
+               "default actions, the drop check'"'"'s question. P4Runtime had no pipeline config "
+               "pushed (the FAILED_PRECONDITION ndt'"'"'s verify reports as '"'"'no pipeline loaded'"'"'); "
+               "live-p1/08 PART=h5 is the first measurement with these programs loaded by their "
+               "controllers, entries and all. Any other external program is checked the same way "
+               "before the heartbeat starts on it; what its controller does later -- entries it "
+               "installs, a pipeline it pushes itself, a default action it changes -- is not "
+               "covered.",' \
     '               "skeletons do not build.",')
 report "M28: the census does not say which arms ndt up starts it on" "$m" \
        "test_the_census_says_which_of_its_arms_ndt_up_starts_the_heartbeat_on"
 m=$(mutant m28b "$MAIN" \
-    '               "installs later is not covered.",' \
-    '               "installs later is covered too.",')
+    '               "installs, a pipeline it pushes itself, a default action it changes -- is not "' \
+    '               "installs -- is not "')
 report "M28b: the census stops saying what the drop check does not cover" "$m" \
+       "test_the_census_names_the_punt_blind_spot_on_external_control_planes"
+# [Co-developed with claude code -- Adam] Round 5 (S-3): the sentence about segment S's raw goes back
+# to "no pipeline was loaded", which that raw contradicts.
+m=$(mutant m28d "$MAIN" \
+    '               "switch of the fabric has). Segment S'"'"'s census ran them with no controller: each "
+               "switch ran the package'"'"'s compiled program (the daemon'"'"'s report names "' \
+    '               "switch of the fabric has). Segment S'"'"'s census ran them with no controller, so no "
+               "pipeline was loaded (the daemon'"'"'s report names "')
+report "M28d: the census says segment S loaded no pipeline" "$m" \
        "test_the_census_names_the_punt_blind_spot_on_external_control_planes"
 m=$(mutant k01 "$HELPER" \
     '        end = lambda port: {"dpid": port.dpid, "port": port.port, "ifname": port.ifname}' \
@@ -1106,7 +1123,7 @@ m=$(nmutant n43 "$NDT" \
 nreport "N43: the heartbeat is withheld on every external plane, proven or not" "$m" \
         "🔴 proven dropped: the heartbeat starts"
 m=$(nmutant n44 "$NDT" \
-    '        0) ok "heartbeat drop check: every program drops its frame (${progs:-?}) -- default actions only; entries its controller installs later are not covered" ;;' \
+    '        0) ok "heartbeat drop check: every program drops its frame (${progs:-?}) -- the declared program'"'"'s default actions only; entries, a pipeline or a default action its controller sets later are not covered (${log#$REPO/})" ;;' \
     '        0) ok "heartbeat drop check: passed" ;;')
 nreport "N44: the check's answer and its limit are not said" "$m" \
         "  the check's answer is said, in one line"
@@ -1114,7 +1131,13 @@ m=$(nmutant n44b "$NDT" \
     '    mkdir -p "$(dirname "$log")" 2>/dev/null && printf '"'"'%s\n'"'"' "$out" > "$log" 2>/dev/null' \
     '    :')
 nreport "N44b: the whole answer is not kept" "$m" \
-        "  and the whole of it is kept"
+        "  and the whole of it is kept, in the log the line names"
+# [Co-developed with claude code -- Adam] S-5 (round-4 review): one log per bring-up.
+m=$(nmutant n44c "$NDT" \
+    '    log="$REPO/.test_run/logs/heartbeat_drop_check.$(date -u +%Y%m%dT%H%M%SZ).$$.log"' \
+    '    log="$REPO/.test_run/logs/heartbeat_drop_check.0.0.log"')
+nreport "N44c: every bring-up writes the same log" "$m" \
+        "🔴 a second bring-up keeps its own log: the first one's is still there"
 m=$(nmutant n48 "$NDT" \
     '        *) warn "heartbeat drop check could not tell (rc $rc) -- $HB_CHECK_WHY (${log#$REPO/})" ;;' \
     '        *) : ;;')
@@ -1788,6 +1811,52 @@ m=$(lmutant l78 "$LIVE08" \
     '                  "-", d.get("stop_reason") or "",')
 lreport "L78: the sampler records no written_wall" "$m" \
         "H5 sampler rows"
+# [Co-developed with claude code -- Adam] Round 5 (the round-4 review's M-1, M-2, M-3). L79: H5 takes a
+# reference that is not a whole 06; L79b: H5 judges rc/verdict on the report path too (a C1 from
+# another run is then never the same); L80: the sampler records no heard; L81: no controllers;
+# L82: the identity gate records and never verifies; L83: it lets an unnamed B through.
+m=$(lmutant l79 "$LIVE08" \
+    '    if [[ "$_arms" != 26 ]]; then' \
+    '    if false; then')
+lreport "L79: PART=h5 accepts a 4-arm OLD_06" "$m" \
+        "🔴 PART=h5 OLD_06=<4 arms>"
+m=$(lmutant l79b "$LIVE08" \
+    '            out[(f[0], f[1])] = (f[2], f[3])' \
+    '            out[(f[0], f[1])] = (f[2], f[3], f[4] if len(f) > 4 else "")')
+lreport "L79b: H5's reference must be the very same run" "$m" \
+        "🔴 H5 against the control C1 as the README runs it (a whole 06)"
+m=$(lmutant l80 "$LIVE08" \
+    '                  se.get("misdelivered"), se.get("foreign_frames"), heard(d))' \
+    '                  se.get("misdelivered"), se.get("foreign_frames"), "-")')
+lreport "L80: the sampler records no heard" "$m" \
+        "H5 sampler rows"
+m=$(lmutant l81 "$LIVE08" \
+    '    return ",".join(str(p) for p in sorted(pids)) or "-"' \
+    '    return "-"')
+lreport "L81: the sampler records no controllers" "$m" \
+        "🔴 H5 sampler controllers column"
+m=$(lmutant l82 "$LIVE08" \
+    '    "$VPY" "$LIVE_DIR/code_identity.py" verify "$1" "$3" "$2"' \
+    '    echo "SAME CODE APART FROM B (not checked)"')
+lreport "L82: the identity gate never compares" "$m" \
+        "🔴 identity gate, another B"
+m=$(lmutant l83 "$LIVE08" \
+    '    [[ -n "$2" ]] || { echo "REFUSED C_IDENTITY is set but B_SHA is not' \
+    '    true || { echo "REFUSED C_IDENTITY is set but B_SHA is not')
+lreport "L83: the identity gate takes no B_SHA" "$m" \
+        "🔴 identity gate, no B_SHA"
+# L84/L85: code_identity.py's record, as 08's gate runs it on a real repository: no uncommitted
+# files recorded; no parents recorded (a merge reads as no merge).
+m=$(lmutant l84 "$REPO/$LIVE_DIR_REL/code_identity.py" \
+    '        ident["uncommitted"] = uncommitted(repo)' \
+    '        ident["uncommitted"] = []')
+lreport "L84: the identity records no uncommitted file" "$m" \
+        "🔴 identity gate, a new uncommitted file"
+m=$(lmutant l85 "$REPO/$LIVE_DIR_REL/code_identity.py" \
+    '        ident["parents"] = git(repo, "rev-list", "--parents", "-n", "1", "HEAD").split()[1:]' \
+    '        ident["parents"] = []')
+lreport "L85: the identity records no parents" "$m" \
+        "  identity gate, the good case"
 m=$(lmutant l47 "$LIVE08" \
     '    if d <= b:
         return f"OK detection {d:.3f} s, within the strict {b:g} s"' \

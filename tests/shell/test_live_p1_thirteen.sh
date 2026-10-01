@@ -111,6 +111,11 @@ check "🔴 the raw records the venv fingerprint of both interpreters" "2" \
       "$(/usr/bin/grep -c '^== interpreter ' "$VENV13" 2>/dev/null)"
 has   "  the driver's interpreter among them"          "== interpreter /usr/bin/python3" "$(cat "$VENV13" 2>/dev/null)"
 has   "  with protobuf's version and implementation"   "api_implementation" "$(cat "$VENV13" 2>/dev/null)"
+# [Co-developed with claude code -- Adam] M-2: and which code -- the identity external_evidence.py
+# checks a treatment against.
+ID13="$(dirname "$VENV13")/00_identity.txt"
+check "🔴 the raw records the code identity" "1 yes" \
+      "$(python3 -c 'import json, sys; d = json.load(open(sys.argv[1])); print(d.get("format"), "yes" if "head" in d and "uncommitted" in d and "kernel" in d and "venv" in d else "no")' "$ID13" 2>&1 | tail -1)"
 
 OUT="$(run13 basic RC_basic_skeleton=1)"; RC=$?
 check "🔴 a skeleton arm that FAILED an expectation is the finding" "1" "$RC"

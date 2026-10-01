@@ -128,6 +128,19 @@ if [[ "${1:-}" != "--self-test" && -z "${NDT_OWNER:-}" ]]; then
 fi
 PART="${PART:-h1h4}"
 case "$PART" in h1h4|h5) ;; *) echo "REFUSED 08_heartbeat -- PART=$PART (want h1h4 or h5)"; exit 2 ;; esac
+# [Co-developed with claude code -- Adam] (the round-4 review's M-1) H5 reconciles a WHOLE 06 -- 26
+# arms, rc and verdict each -- so its reference is a whole 06 too: refused here, before anything
+# runs, rather than ending every run on "the reference table has 4 arms, not 26" (an ONLY= 06).
+if [[ "$PART" == h5 ]]; then
+    : "${OLD_06:=$LIVE_DIR_08/runs/2026-09-27T074635Z_06_thirteen}"
+    _arms="$(awk -F'\t' 'NR > 1 && NF >= 5' "$OLD_06/00_table.tsv" 2>/dev/null | wc -l)"
+    if [[ "$_arms" != 26 ]]; then
+        echo "   !! OLD_06=$OLD_06 has $_arms arm(s) in its 00_table.tsv, not 26: H5 compares a whole 06" >&2
+        echo "      (for the external comparison, the control C1 is a full 06 with no ONLY=; README)." >&2
+        echo "REFUSED 08_heartbeat -- OLD_06 is not a whole 06 (nothing was started)"
+        exit 2
+    fi
+fi
 # 🔴 Before the source: _common.sh runs `: "${CLAIM_MINUTES:=45}"`, and H1-H4 is four fabrics.
 : "${CLAIM_MINUTES:=120}"
 # 🔴 This script never declares a measurement; see the header.
@@ -836,6 +849,14 @@ phase_down() {
     return 1
 }
 
+# identity_gate <controls' identity.json> <B sha> <out identity.json> -- record this checkout's identity
+# into <out> and check it is the controls' plus B (live-p1/code_identity.py verify): its rc, 0 or not.
+identity_gate() {
+    [[ -n "$2" ]] || { echo "REFUSED C_IDENTITY is set but B_SHA is not: which B was merged must be named"; return 3; }
+    "$VPY" "$LIVE_DIR/code_identity.py" record "$REPO" "$3" || return 2
+    "$VPY" "$LIVE_DIR/code_identity.py" verify "$1" "$3" "$2"
+}
+
 # --- the heartbeat report sampler (H5) ---------------------------------------------------------
 # One line per read: wall, status, session, pid, forwarded_to_hosts, forwarded_between_switches.
 # It stops itself when SAMPLER_STOP appears (or after 5 h), taking ONE LAST sample first -- so the
@@ -851,14 +872,46 @@ phase_down() {
 # holds an expression with quotes in it, on any Python), its stderr is a file in $RUN, and
 # sampler_start waits for the header and a live pid or FAILS the run before 06 starts. The
 # self-test executes this text (st_sampler).
-SAMPLER_HEADER=$'wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches\twritten_wall\tstop_reason\tmisdelivered\tforeign_frames'
+# [Co-developed with claude code -- Adam] (the round-4 review's M-3) Since round 5 two more fields:
+# `heard` -- every direction of the report as "<tx dpid>:<port>><rx dpid>:<port>=<heard>", joined by
+# commas ("-" with no report) -- and `controllers`, the pids of every process alive at that read
+# whose argv runs tools/p4_exercise/run_external_controller.py (the exercises' controllers; "-"
+# for none), read from /proc. external_evidence.py refuses an external arm whose session did not
+# hear every direction while its controller ran: a daemon that runs and hears nothing is no
+# treatment.
+SAMPLER_HEADER=$'wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches\twritten_wall\tstop_reason\tmisdelivered\tforeign_frames\theard\tcontrollers'
 SAMPLER_PY="$(cat <<'SAMPLER'
 import json, os, sys, time
 report, out, stop = sys.argv[1], sys.argv[2], sys.argv[3]
 interval = float(sys.argv[4]) if len(sys.argv) > 4 else 1.0
 end = time.time() + 5 * 3600
 HEADER = ("wall", "status", "session", "pid", "forwarded_to_hosts", "forwarded_between_switches",
-          "written_wall", "stop_reason", "misdelivered", "foreign_frames")
+          "written_wall", "stop_reason", "misdelivered", "foreign_frames", "heard", "controllers")
+CONTROLLER = b"run_external_controller.py"
+
+
+def controllers():
+    pids = []
+    for pid in os.listdir("/proc"):
+        if not pid.isdigit():
+            continue
+        try:
+            with open("/proc/" + pid + "/cmdline", "rb") as fh:
+                argv = fh.read().split(b"\0")
+        except OSError:
+            continue
+        if any(a == CONTROLLER or a.endswith(b"/" + CONTROLLER) for a in argv):
+            pids.append(int(pid))
+    return ",".join(str(p) for p in sorted(pids)) or "-"
+
+
+def heard(d):
+    out = []
+    for r in d.get("directions") or []:
+        tx, rx = r.get("tx") or {}, r.get("rx") or {}
+        out.append("%s:%s>%s:%s=%s" % (tx.get("dpid"), tx.get("port"), rx.get("dpid"), rx.get("port"),
+                                       r.get("heard")))
+    return ",".join(out) or "-"
 
 
 def row(fh):
@@ -870,10 +923,10 @@ def row(fh):
         values = (wall, d.get("status"), d.get("session"), d.get("pid"),
                   se.get("forwarded_to_hosts"), se.get("forwarded_between_switches"),
                   d.get("written_wall"), d.get("stop_reason") or "",
-                  se.get("misdelivered"), se.get("foreign_frames"))
+                  se.get("misdelivered"), se.get("foreign_frames"), heard(d))
     except (OSError, ValueError, AttributeError):
-        values = (wall, "absent", "-", "-", 0, 0, "-", "", 0, 0)
-    fh.write("\t".join(str(v) for v in values) + "\n")
+        values = (wall, "absent", "-", "-", 0, 0, "-", "", 0, 0, "-")
+    fh.write("\t".join(str(v) for v in values + (controllers(),)) + "\n")
 
 
 with open(out, "a", buffering=1) as fh:
@@ -1464,6 +1517,19 @@ def tbl(rows, name):
             stamp = __import__("time").strftime("%Y-%m-%dT%H%M%SZ", __import__("time").gmtime(T0 + 100 * i))
             fh.write(f"{e}\t{w}\t{rc}\t{v}\t/x/runs/{stamp}_{e}_{w}_ndtwin.md\n")
 tbl(arms, "table_old.tsv"); tbl(arms, "table_same.tsv")
+# [Co-developed with claude code -- Adam] (M-1) the control C1 as the README now runs it: a whole 06
+# on trunk -- the same 26 arms, other stamps and reports -- and the 4-arm ONLY= one it ran before.
+def tbl_at(rows, name, t0, runs):
+    with open(os.path.join(t, name), "w") as fh:
+        fh.write("exercise\twhich\trc\tverdict\treport\n")
+        for i, (e, w, rc, v) in enumerate(rows):
+            stamp = __import__("time").strftime("%Y-%m-%dT%H%M%SZ", __import__("time").gmtime(t0 + 90 * i))
+            fh.write(f"{e}\t{w}\t{rc}\t{v}\t{runs}/{stamp}_{e}_{w}_ndtwin.md\n")
+tbl_at(arms, "table_c1.tsv", T0 - 7200, "/main/doc/audit/runs")
+tbl_at([a for a in arms if a[0] in ("p4runtime", "flowcache")], "table_c1_only.tsv", T0 - 7200, "/main/doc/audit/runs")
+os.makedirs(os.path.join(t, "c1_full")); os.makedirs(os.path.join(t, "c1_only"))
+__import__("shutil").copyfile(os.path.join(t, "table_c1.tsv"), os.path.join(t, "c1_full", "00_table.tsv"))
+__import__("shutil").copyfile(os.path.join(t, "table_c1_only.tsv"), os.path.join(t, "c1_only", "00_table.tsv"))
 diff = list(arms); diff[3] = ("source_routing", "solution", "1", "FAIL (4/5)"); tbl(diff, "table_diff.tsv")
 tbl(arms[:25], "table_short.tsv")
 expected = {"basic/skeleton","basic/solution","source_routing/skeleton","source_routing/solution","basic_tunnel/solution",
@@ -1571,6 +1637,8 @@ PY
     expect OK   "H5 26 arms identical"                               "$(verdict same_06 "$t/table_same.tsv" "$t/table_old.tsv")"
     expect BAD  "H5 one arm differs"                                 "$(verdict same_06 "$t/table_diff.tsv" "$t/table_old.tsv")"
     expect BAD  "H5 an arm missing"                                  "$(verdict same_06 "$t/table_short.tsv" "$t/table_old.tsv")"
+    expect OK   "🔴 H5 against the control C1 as the README runs it (a whole 06)" "$(verdict same_06 "$t/table_same.tsv" "$t/table_c1.tsv")"
+    expect BAD  "  H5 against a 4-arm ONLY= control: the reference is not a whole 06" "$(verdict same_06 "$t/table_same.tsv" "$t/table_c1_only.tsv")"
     expect OK   "H5 heartbeat on exactly the expected arms"          "$(verdict h5_heartbeat "$t/samples_ok.tsv" "$t/table_same.tsv" "$tend" "$HB_ARMS")"
     expect BAD  "H5 an expected arm had none"                        "$(verdict h5_heartbeat "$t/samples_missing.tsv" "$t/table_same.tsv" "$tend" "$HB_ARMS")"
     expect BAD  "H5 an arm that should have none had one"            "$(verdict h5_heartbeat "$t/samples_extra.tsv" "$t/table_same.tsv" "$tend" "$HB_ARMS")"
@@ -1893,7 +1961,9 @@ p, st, se, h, b = sys.argv[1:6]
 doc = {"format": 1, "source": "heartbeat", "status": st, "session": se, "pid": 4242,
        "written_wall": 1000.5, "stop_reason": "SIGTERM" if st == "stopped" else None,
        "side_effects": {"forwarded_to_hosts": int(h), "forwarded_between_switches": int(b),
-                        "misdelivered": 0, "foreign_frames": 0}}
+                        "misdelivered": 0, "foreign_frames": 0},
+       "directions": [{"id": 1, "heard": 3 + int(b), "tx": {"dpid": 1, "port": 2}, "rx": {"dpid": 2, "port": 2}},
+                      {"id": 2, "heard": 5, "tx": {"dpid": 2, "port": 2}, "rx": {"dpid": 1, "port": 2}}]}
 open(p + ".tmp", "w").write(json.dumps(doc)); os.replace(p + ".tmp", p)' "$rep" "$@"
         }
         (   RUN="$d/run"; HB_REPORT_FILE="$rep"; SAMPLER_PID=""; SAMPLER_STOP=""; SAMPLER_INTERVAL_S=0.1
@@ -1902,6 +1972,10 @@ open(p + ".tmp", "w").write(json.dumps(doc)); os.replace(p + ".tmp", p)' "$rep" 
             sampler_start "$d/samples.tsv" && echo "started rc 0" >&3 || echo "started rc $?" >&3
             sleep 0.5
             wr running aaaa 0 0; sleep 0.5
+            # [Co-developed with claude code -- Adam] an exercise controller, as far as argv goes, for
+            # the next reads (M-3: the sampler records which ones are alive)
+            "$VPY" -c 'import time; time.sleep(1.2)' /x/tools/p4_exercise/run_external_controller.py pkg c.py &
+            echo "controller $!" >&3
             wr running aaaa 0 1; sleep 0.5
             wr stopped aaaa 2 3; sleep 0.5
             rm -f "$rep"; sleep 0.5
@@ -1916,15 +1990,21 @@ open(p + ".tmp", "w").write(json.dumps(doc)); os.replace(p + ".tmp", p)' "$rep" 
     # [Co-developed with claude code -- Adam] The external judge's M2 (09-28): the report's
     # written_wall and stop_reason (a killed daemon's stale "running"; why a session stopped) and
     # the daemon's other two counters are on every row too -- ten fields.
-    got="$(awk -F'\t' 'NR == 1 {next} {k = $2 " " $3 " " $5 " " $6 " " $7 " " $8; if (k != last) {printf "%s|", k; last = k}}' "$d/samples.tsv" 2>/dev/null)" || true
-    want="absent - 0 0 - |running aaaa 0 0 1000.5 |running aaaa 0 1 1000.5 |stopped aaaa 2 3 1000.5 SIGTERM|absent - 0 0 - |running bbbb 0 0 1000.5 |"
-    local hdr=$'wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches\twritten_wall\tstop_reason\tmisdelivered\tforeign_frames'
+    got="$(awk -F'\t' 'NR == 1 {next} {k = $2 " " $3 " " $5 " " $6 " " $7 " " $8 " " $11; if (k != last) {printf "%s|", k; last = k}}' "$d/samples.tsv" 2>/dev/null)" || true
+    want="absent - 0 0 -  -|running aaaa 0 0 1000.5  1:2>2:2=3,2:2>1:2=5|running aaaa 0 1 1000.5  1:2>2:2=4,2:2>1:2=5|stopped aaaa 2 3 1000.5 SIGTERM 1:2>2:2=6,2:2>1:2=5|absent - 0 0 -  -|running bbbb 0 0 1000.5  1:2>2:2=3,2:2>1:2=5|"
+    local hdr=$'wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches\twritten_wall\tstop_reason\tmisdelivered\tforeign_frames\theard\tcontrollers'
     if [[ "$(head -1 "$d/samples.tsv" 2>/dev/null)" == "$hdr" && "$got" == "$want" ]] \
-       && awk -F'\t' 'NR > 1 && (NF != 10 || $1 !~ /^[0-9]+\.[0-9]$/) {bad = 1} END {exit bad}' "$d/samples.tsv"; then
-        ok "H5 sampler: the real SAMPLER_PY writes its header and one 10-field row per read (written_wall and stop_reason included), through missing, running, stopped (final counters) and a second session"
+       && awk -F'\t' 'NR > 1 && (NF != 12 || $1 !~ /^[0-9]+\.[0-9]$/) {bad = 1} END {exit bad}' "$d/samples.tsv"; then
+        ok "H5 sampler: the real SAMPLER_PY writes its header and one 12-field row per read (written_wall, stop_reason and every direction's heard included), through missing, running, stopped (final counters) and a second session"
     else
         red "H5 sampler rows: header '$(head -1 "$d/samples.tsv" 2>/dev/null)', rows '$got' (want '$want'); $(tr '\n' ' ' < "$d/notes.txt" 2>/dev/null)"
     fi
+    # [Co-developed with claude code -- Adam] M-3: the controllers alive at each read, by pid.
+    local cpid; cpid="$(sed -n 's/^controller //p' "$d/notes.txt" 2>/dev/null)"
+    got="$(awk -F'\t' -v p="$cpid" 'NR > 1 {n++; split($12, a, ","); for (i in a) if (a[i] == p) {s++; break}} END {printf "%d of %d", s, n}' "$d/samples.tsv" 2>/dev/null)" || true
+    [[ -n "$cpid" && "$got" =~ ^([1-9][0-9]*)\ of\ ([0-9]+)$ ]] && (( BASH_REMATCH[1] < BASH_REMATCH[2] )) \
+        && ok "🔴 H5 sampler: the exercise controller (pid $cpid) is in the controllers column while it lives, and only then ($got reads)" \
+        || red "🔴 H5 sampler controllers column: pid '$cpid' in $got reads"
     got="$(tail -1 "$d/samples.tsv" 2>/dev/null | cut -f2,3)" || true
     [[ "$got" == $'running\tbbbb' ]] && /usr/bin/grep -q '^started rc 0$' "$d/notes.txt" \
         && ok "  sampler_start said it had started, and the stop path took a last sample of the report as it stood" \
@@ -2234,6 +2314,38 @@ open(p + ".t", "w").write(json.dumps(doc)); os.replace(p + ".t", p)' "$HB_REPORT
         && ok "🔴 a phase's 'ndt down' runs without measuring= even when the caller exported one" \
         || red "🔴 nd_down: '$got', calls: $(paste -sd, "$d/calls")"
 
+    # --- [Co-developed with claude code -- Adam] M-2: the treatment is the controls' code plus B -----
+    # A real git repository: C on trunk, B on a branch, T = B merged locally onto C (as the README's
+    # step 2 does), and identity_gate run from it, as H5 runs it, against C's recorded identity.
+    local g="$t/idrepo" gi=(-c user.name=st -c user.email=st@example.invalid -c commit.gpgsign=false)
+    mkdir -p "$g" && git -C "$g" init -q -b trunk && printf 'a\n' > "$g/a.txt" && printf 'k\n' > "$g/keep.txt" \
+        && git -C "$g" add a.txt keep.txt && git "${gi[@]}" -C "$g" commit -q -m c \
+        && git -C "$g" checkout -q -b b && printf 'b\n' > "$g/b.txt" && git -C "$g" add b.txt \
+        && git "${gi[@]}" -C "$g" commit -q -m b && git -C "$g" checkout -q trunk \
+        && printf 'theirs\n' >> "$g/keep.txt" || red "  (the identity repository could not be built)"
+    local bsha; bsha="$(git -C "$g" rev-parse b)"
+    ( REPO="$g"; "$VPY" "$LIVE_DIR/code_identity.py" record "$g" "$t/id_c.json" ) > /dev/null 2>&1 || true
+    git "${gi[@]}" -C "$g" merge -q --no-ff --no-edit b 2>/dev/null || true
+    got="$( REPO="$g"; identity_gate "$t/id_c.json" "$bsha" "$t/id_t.json" 2>&1; echo "rc=$?" )"
+    [[ "$got" == *"SAME CODE APART FROM B"*"rc=0" ]] \
+        && ok "  identity gate: B merged onto the controls' HEAD, the same uncommitted file: through (rc 0)" \
+        || red "  identity gate, the good case: $got"
+    got="$( REPO="$g"; identity_gate "$t/id_c.json" "0123456789abcdef0123456789abcdef01234567" "$t/id_t2.json" 2>&1; echo "rc=$?" )"
+    [[ "$got" == *"is not the B commit under test"*"rc=3" ]] \
+        && ok "🔴 identity gate: another B than the one named -- refused" || red "🔴 identity gate, another B: $got"
+    got="$( REPO="$g"; identity_gate "$t/id_c.json" "" "$t/id_t3.json" 2>&1; echo "rc=$?" )"
+    [[ "$got" == *"B_SHA is not"*"rc=3" ]] && ok "🔴 identity gate: no B_SHA -- refused" || red "🔴 identity gate, no B_SHA: $got"
+    printf 'mine\n' > "$g/a.txt"
+    got="$( REPO="$g"; identity_gate "$t/id_c.json" "$bsha" "$t/id_t4.json" 2>&1; echo "rc=$?" )"
+    [[ "$got" == *"uncommitted: controls"*"rc=3" ]] \
+        && ok "🔴 identity gate: a file changed in the shared checkout since the controls -- refused" \
+        || red "🔴 identity gate, a new uncommitted file: $got"
+    git -C "$g" checkout -q -- a.txt
+    printf 'x\n' > "$g/c2.txt" && git -C "$g" add c2.txt && git "${gi[@]}" -C "$g" commit -q -m moved
+    got="$( REPO="$g"; identity_gate "$t/id_c.json" "$bsha" "$t/id_t5.json" 2>&1; echo "rc=$?" )"
+    [[ "$got" == *"rc=3" && "$got" == *"REFUSED"* ]] \
+        && ok "🔴 identity gate: HEAD moved on past the merge -- refused" || red "🔴 identity gate, HEAD moved: $got"
+
     # --- the prelude, run on its own: its refusals and its defaults --------------------------------
     local pre="$t/prelude.sh"
     awk -v dir="$LIVE_DIR" '/^# --- end of prelude/ {exit} /^LIVE_DIR_08=/ {printf "LIVE_DIR_08=\"%s\"\n", dir; next} {print}' \
@@ -2244,6 +2356,16 @@ open(p + ".t", "w").write(json.dumps(doc)); os.replace(p + ".t", p)' "$HB_REPORT
         || red "🔴 no NDT_OWNER: $got"
     got="$(env NDT_OWNER=st PART=nope "$BASH" "$pre" 2>&1; echo "rc=$?")"
     [[ "$got" == *"REFUSED"*"PART=nope"*"rc=2" ]] && ok "  an unknown PART is refused" || red "  PART=nope: $got"
+    # [Co-developed with claude code -- Adam] M-1: H5 against a reference that is not a whole 06 is
+    # refused before anything starts; a whole one passes the prelude.
+    got="$(env NDT_OWNER=st PART=h5 OLD_06="$t/c1_only" "$BASH" "$pre" 2>&1; echo "rc=$?")"
+    [[ "$got" == *"has 4 arm(s) in its 00_table.tsv, not 26"*"REFUSED 08_heartbeat -- OLD_06 is not a whole 06"*"rc=2" ]] \
+        && ok "🔴 PART=h5 with a 4-arm OLD_06 (an ONLY= 06): refused (rc 2) before anything ran" \
+        || red "🔴 PART=h5 OLD_06=<4 arms>: $got"
+    got="$(env -u NDT_MEASURING NDT_OWNER=st PART=h5 OLD_06="$t/c1_full" "$BASH" -c 'source "$1" > /dev/null 2>&1 || exit 97; echo "through, OLD_06=$OLD_06"' _ "$pre" 2>&1; echo "rc=$?")"
+    [[ "$got" == *"through, OLD_06=$t/c1_full"*"rc=0" ]] \
+        && ok "  PART=h5 with a whole 06 as OLD_06 goes through the prelude, and keeps it" \
+        || red "  PART=h5 OLD_06=<26 arms>: $got"
     st_prelude() {   # st_prelude <var> [VAR=value...] -- <var> after the prelude ran
         env -u "$1" -u NDT_MEASURING NDT_OWNER=st "${@:2}" "$BASH" -c \
             'source "$1" > /dev/null 2>&1 || exit 97; printf "%s|%s" "${!2-<unset>}" "${NDT_MEASURING-unset}"' _ "$pre" "$1"
@@ -2314,6 +2436,15 @@ if [[ "$PART" == h5 ]]; then
     # ============================== H5 (no claim: 06 and 01 claim per step) ======================
     say "H5 -- 06 once with the heartbeat wherever ndt up starts it, and a sampler of its report"
     [[ -s "$OLD_06/00_table.tsv" ]] || die "no reference table at $OLD_06/00_table.tsv (set OLD_06=)"
+    # [Co-developed with claude code -- Adam] (the round-4 review's M-2) The external comparison's
+    # treatment must be the controls' code plus B: with C_IDENTITY (the controls' recorded identity)
+    # and B_SHA, refused HERE, before 06 runs, unless this checkout's HEAD is a merge of B onto the
+    # controls' HEAD with the same uncommitted files, kernel, bmv2, helper and venv.
+    if [[ -n "${C_IDENTITY:-}" ]]; then
+        identity_gate "$C_IDENTITY" "${B_SHA:-}" "$RUN/00_identity.txt" > "$RUN/00_identity_check.txt" 2>&1 \
+            || die "H5: this checkout is not the controls' code plus B -- $(head -3 "$RUN/00_identity_check.txt" | tr '\n' ' ')"
+        note "$(tail -1 "$RUN/00_identity_check.txt")"
+    fi
     # [Co-developed with claude code -- Adam] A sampler that did not start stops the run HERE,
     # before 06 brings anything up: H5 without its samples is not H5 (live, cafd518a).
     sampler_start "$RUN/50_samples.tsv" || exit 1

@@ -89,6 +89,15 @@ if bash "$HERE/venv_fingerprint.sh" "$RUN/00_venv.txt" "$REPO/p4_proxy/venv/bin/
 else
     bad "the venv fingerprint was not fully recorded -- 00_venv.txt says which interpreter did not answer"
 fi
+# [Co-developed with claude code -- Adam] (the round-4 review's M-2) which code this round ran --
+# HEAD and its parents, the uncommitted tracked files, the kernel, bmv2 and helper binaries, both
+# venvs (live-p1/code_identity.py) -- so external_evidence.py can refuse a treatment that is not
+# its controls' code plus B. Recorded, never a refusal here.
+if CTRL_PY="$VENV_PY" python3 "$HERE/code_identity.py" record "$REPO" "$RUN/00_identity.txt" > /dev/null 2>&1; then
+    note "code identity -> 00_identity.txt"
+else
+    bad "the code identity was not recorded (live-p1/code_identity.py record)"
+fi
 
 TABLE="$RUN/00_table.tsv"
 printf 'exercise\twhich\trc\tverdict\treport\n' > "$TABLE"

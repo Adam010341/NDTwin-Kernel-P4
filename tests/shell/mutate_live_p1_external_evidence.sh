@@ -12,7 +12,9 @@
 # least one mutation: the gate keeps each mutant's whole run and names, by position (names repeat),
 # any check no mutation turned red -- a check never seen red is not evidence.
 # external_evidence.py is never written: mutants are copies, reached through EVIDENCE_UNDER_TEST,
-# and its sha256 is compared at the end.
+# and its sha256 is compared at the end. [Co-developed with claude code -- Adam] Since round 5 it
+# imports live-p1/code_identity.py from its own directory: every mutant directory gets a copy of it,
+# and the I mutants mutate that copy instead (the tool beside it unchanged).
 #
 # Run:  bash tests/shell/mutate_live_p1_external_evidence.sh
 # Exit: 0 every mutation caught and every check seen red; 1 one survived, or a check no mutation
@@ -21,8 +23,10 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
 TOOL="$REPO/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_evidence.py"
+IDENT="$REPO/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/code_identity.py"
 TEST="$HERE/test_live_p1_external_evidence.sh"
-[[ -r "$TOOL" && -r "$TEST" ]] || { echo "refused: the tool or its suite is missing"; exit 2; }
+[[ -r "$TOOL" && -r "$TEST" && -r "$IDENT" ]] || { echo "refused: the tool, code_identity.py or the suite is missing"; exit 2; }
+ID_SUM="$(sha256sum "$IDENT" | cut -d' ' -f1)"
 BK="$(mktemp -d "${TMPDIR:-/tmp}/live-p1-evidence-mutate-XXXXXX")"
 trap 'rm -rf "$BK"' EXIT
 BASE_SUM="$(sha256sum "$TOOL" | cut -d' ' -f1)"
@@ -54,6 +58,7 @@ PY
     then
         printf '  SURVIVED %-62s (anchor not unique or identity)\n' "$label"; SURVIVED=$((SURVIVED+1)); return
     fi
+    cp "$IDENT" "$d/code_identity.py"
     if ! python3 -m py_compile "$d/external_evidence.py" 2>/dev/null; then
         printf '  SURVIVED %-62s (the mutant does not compile)\n' "$label"; SURVIVED=$((SURVIVED+1)); return
     fi
@@ -79,7 +84,7 @@ mutate '            "heartbeat_packet_ins", "non_ipv4_packet_ins", "grpc_errors"
     '            "heartbeat_packet_ins", "non_ipv4_packet_ins", "grpc_errors")
 COMPARED = tuple(k for k in COMPARED if k != "counters_final")' \
     "E1: the counters' last values are not compared" \
-    "🔴 a tunnel counter that ended elsewhere, invariants kept: rc 1"
+    "  named as a DIFF in counters_final" "  noted as counters_final"
 mutate '            "heartbeat_packet_ins", "non_ipv4_packet_ins", "grpc_errors")' \
     '            "heartbeat_packet_ins", "non_ipv4_packet_ins", "grpc_errors", "counter_reads")' \
     "E2: how often the counters were read is compared" \
@@ -98,7 +103,7 @@ mutate '    if len(logs) != 1:
 mutate '        "counters_final": blocks[-1] if blocks else {},' \
     '        "counters_final": blocks[0] if blocks else {},' \
     "E5: the FIRST counter read is compared, not the last" \
-    "🔴 a tunnel counter that ended elsewhere, invariants kept: rc 1"
+    "  noted as counters_final"
 mutate '        if b[arm]["heartbeat_packet_ins"]:' \
     '        if False:' \
     "E6: a heartbeat frame at the controller is not said in words" \
@@ -121,11 +126,11 @@ mutate '        if row is None:
 mutate 'COMPARED = ("rc", "verdict", "rules_installed", "counters_final", "packet_ins", "cache_entries",' \
     'COMPARED = ("rc", "verdict", "rules_installed", "counters_final", "cache_entries",' \
     "E10: the packet-in count is not compared" \
-    "🔴 a packet-in more (an IPv4 one): rc 1"
+    "  named as a DIFF in packet_ins" "  noted as packet_ins"
 mutate 'COMPARED = ("rc", "verdict", "rules_installed", "counters_final", "packet_ins", "cache_entries",' \
     'COMPARED = ("rc", "verdict", "rules_installed", "counters_final", "packet_ins",' \
     "E11: the cache entries are not compared" \
-    "  and a DIFF in cache_entries"
+    "  and a note on cache_entries (descriptive)"
 mutate '            "heartbeat_packet_ins", "non_ipv4_packet_ins", "grpc_errors")' \
     '            "heartbeat_packet_ins", "non_ipv4_packet_ins")' \
     "E12: the gRPC errors are not compared" \
@@ -137,7 +142,7 @@ mutate 'COMPARED = ("rc", "verdict", "rules_installed", "counters_final",' \
 mutate 'COMPARED = ("rc", "verdict", "rules_installed", "counters_final",' \
     'COMPARED = ("rc", "rules_installed", "counters_final",' \
     "E14: the verdict is not compared" \
-    "  named as verdict"
+    "  noted as verdict"
 mutate '        et = int.from_bytes(payload[12:14], "big")' \
     '        et = int.from_bytes(payload[14:16], "big")' \
     "E15: the ethertype is read two bytes late" \
@@ -190,22 +195,22 @@ def table_rows' \
 def table_rows' \
     "E22: a log that is not UTF-8 is a traceback" \
     "🔴 a controller log that is not UTF-8: rc 2"
-mutate '            if within(key, b[arm][key], cvals):' \
-    '            if False:' \
+mutate '                where = "inside" if within(key, b[arm][key], cvals) else "OUTSIDE"' \
+    '                where = "OUTSIDE"' \
     "E23: the controls' spread is ignored" \
-    "🔴 a packet-in count between the controls': rc 0"
+    "  noted as inside the spread" "  noted as inside the counters' spread"
 mutate '        return min(cs) <= t <= max(cs)' \
     '        return True' \
     "E24: any count is inside the spread" \
-    "🔴 a packet-in count outside the controls': rc 1"
+    "  noted as OUTSIDE the spread"
 mutate '            s1_in is not None and base <= s1_in <= base + extra,' \
     '            True,' \
     "E25: s1 ingress 100 is not checked against the pings and datagrams" \
-    "  said as the invariant, kept by every control"
+    "  noted as the invariant, descriptive"
 mutate '            elif not all(i[name][0] for i in ic):' \
     '            elif False:' \
     "E26: an invariant a control breaks too is counted" \
-    "  and with the counters inside the spread: rc 0"
+    "🔴 a decisive invariant broken in a control too: UNDECIDED, rc 2"
 mutate '        stray = [f for f in ev["_entry_flows"] if f not in ev["_flows"]]' \
     '        stray = []' \
     "E27: a cache entry need not be a packet-in's flow" \
@@ -217,7 +222,7 @@ mutate '        moved = {k: v for k, v in se["counts"].items() if v}' \
 mutate '            elif not all(i[name][0] for i in ic):' \
     '            elif not ic[0][name][0]:' \
     "E29: an invariant only the second control breaks is counted" \
-    "🔴 broken in the second control only: shown, not counted"
+    "🔴 a decisive invariant broken in a control too: UNDECIDED, rc 2"
 mutate '        out["every other tunnel counter 0"] = (bool(others) and all(v == 0 for v in others.values()),' \
     '        out["every other tunnel counter 0"] = (True,' \
     "E30: the skeleton's other counters are not checked" \
@@ -267,7 +272,7 @@ mutate '    if stop is not None and any(s["session"] == sess and s["status"] == 
 mutate '    if ev["_last_write"] > stopped_at:' \
     '    if False:' \
     "E40: a session that stopped before the controller's last write is accepted" \
-    "🔴 a session sampled running, then stopped before the controller: rc 3"
+    "  said as stopped before the controller's last write"
 mutate '    if before == last or (exp[0] == exp[1] and s1 == exp[0]):
         return' \
     '    if True:
@@ -292,7 +297,7 @@ mutate '    if key == "counters_final":
         return True
         keys = set(t).union(*(set(c) for c in cs))' \
     "E45: any tunnel counter is inside the spread" \
-    "🔴 tunnel counters outside the controls': rc 1"
+    "  noted as OUTSIDE the counters' spread"
 mutate '    print(__doc__.split("Usage:")[1].split("Exit:")[0].rstrip(), file=sys.stderr)
     return 2' \
     '    print(__doc__.split("Usage:")[1].split("Exit:")[0].rstrip(), file=sys.stderr)
@@ -342,7 +347,7 @@ mutate '    lines = read_text(log_path).splitlines()' \
 mutate 'COMPARED = ("rc", "verdict", "rules_installed", "counters_final",' \
     'COMPARED = ("rules_installed", "counters_final",' \
     "E52: an arm's rc and verdict are not compared" \
-    "🔴 an arm whose verdict changed: rc 1"
+    "  noted as verdict" "  and as rc"
 mutate '    if os.path.realpath(treatment) in dirs:' \
     '    if False:' \
     "E53: the treatment may also be a control" \
@@ -355,39 +360,198 @@ mutate '        return ["not recorded (no 00_venv.txt)"]' \
     '        return []' \
     "E55: a run without 00_venv.txt says nothing about it" \
     "🔴 and the control's absence is said"
-mutate '    return 0 if not diffs else 1' \
+mutate '    return 1 if diffs else 2 if undecided else 0' \
     '    return 1' \
     "E56: every compare is a difference (the rc-0 controls)" \
     "🔴 controls vs treatment, the same evidence, H5's samples: rc 0" "  identity is not evidence: still rc 0"
 mutate '    return 0
 
 
-def compare(control, treatment, controls2, samples_path):' \
+def identities(control, controls2, treatment, b_sha):' \
     '    return 2
 
 
-def compare(control, treatment, controls2, samples_path):' \
+def identities(control, controls2, treatment, b_sha):' \
     "E57: show refuses (the rc-0 control)" \
     "  show: rc 0" "  the same numbers read twice are settled: show rc 0"
 mutate '        print(f"   hb      session {se[' \
     '        (f"   hb      session {se[' \
     "E58: the session each arm was judged on is not printed" \
     "  naming each arm's session and how long it ran"
-mutate '          f"own evidence ({1 + len(cs2)} controls)")' \
-    '          f"own evidence ({len(cs2)} controls)")' \
+mutate '          f"own evidence ({1 + len(cs2)} controls)"' \
+    '          f"own evidence ({len(cs2)} controls)"' \
     "E59: the conclusion miscounts the controls" \
     "  and says so" "  said with its count of controls"
 mutate '        return float(read_text(path).split()[0])' \
     '        return float(read_text(path).split()[0]) if os.path.exists(path) else float("inf")' \
     "E60: samples without 06's end run the last arm to no end" \
     "🔴 samples without 06's end beside them: rc 2"
+# --- [Co-developed with claude code -- Adam] round 5: heard during the controller's lifetime (M-3),
+# counters that are not numbers, the code identity (M-2) ---------------------------------------
+mutate '    heard = heard_evidence(name, ev, sess, stretch)' \
+    '    heard = {"pid": 0, "from": 0, "to": 0, "grew": {}}' \
+    "E61: whether the session heard anything is not asked" \
+    "🔴 a direction not heard while the controller ran: rc 3" "🔴 a controller the sampler never saw alive: rc 3" \
+    "🔴 a round report that names no controller pid: rc 3" "🔴 every direction heard while the controller ran, said per direction"
+mutate '    deaf = sorted(d for d in first if last[d] <= first[d])' \
+    '    deaf = []' \
+    "E62: a direction that heard nothing is let through" \
+    "🔴 a direction not heard while the controller ran: rc 3" "  naming the direction and the controller" "  and which one"
+mutate '    if len(life) < 2:' \
+    '    if len(life) < 0:' \
+    "E63: a controller the sampler never saw has a lifetime anyway" \
+    "🔴 a controller the sampler never saw alive: rc 3" "  said as no lifetime"
+mutate '    "controller_pid": ctrl[0] if len(set(ctrl)) == 1 else None,' \
+    '    "controller_pid": ctrl[0] if ctrl else 7001,' \
+    "E64: a report with no controller pid is given one" \
+    "🔴 a round report that names no controller pid: rc 3" "  said as no controller pid in the report"
+mutate 'CTRL_PID = re.compile(r"^\s*controller pid (\d+) \(handed to the generic cell")' \
+    'CTRL_PID = re.compile(r"^\s*controller pid (\d+) \(given to the generic cell")' \
+    "E65: drive_exercise's controller line is not read" \
+    "🔴 controls vs treatment, the same evidence, H5's samples: rc 0"
+mutate '            counts[name] = int(v) if v.isdigit() else None' \
+    '            counts[name] = int(v) if v.isdigit() else 0' \
+    "E66: a counter the report did not carry reads as 0" \
+    "🔴 a running sample whose daemon counter is not a number: rc 2, not a zero" "  naming the counter"
+mutate '        if bad or s["heard"] is None:' \
+    '        if bad:' \
+    "E67: a heard column that is not counts is let through" \
+    "🔴 a running sample whose heard column is not counts: rc 2" "  said as a heard column that is not counts"
+mutate '    want = SAMPLER_COLUMNS' \
+    '    want = SAMPLER_COLUMNS[:10]' \
+    "E68: round 4's sampler file is taken" \
+    "🔴 samples from round 4's sampler (no heard, no controllers): rc 2"
+mutate '    cid, tid = identities(control, controls2, treatment, b_sha)' \
+    '    cid, tid = {"head": "?" * 12}, {"head": "?" * 12}' \
+    "E69: which code the runs ran is not asked" \
+    "🔴 no --b-sha: rc 3" "🔴 a control with no identity: rc 3" "🔴 controls on two different HEADs: rc 3" \
+    "🔴 a treatment merged onto another trunk: rc 3" "  the identities are said when they match"
+mutate '        if why:
+            raise Refused(f"the controls did not run the same code: {'"'"'; '"'"'.join(why)}")' \
+    '        if False:
+            raise Refused(f"the controls did not run the same code: {'"'"'; '"'"'.join(why)}")' \
+    "E70: controls on different code are one spread" \
+    "🔴 controls on two different HEADs: rc 3" "  said as the controls' code differing"
+mutate '    if not b_sha:
+        raise Refused("no --b-sha:' \
+    '    if False:
+        raise Refused("no --b-sha:' \
+    "E71: no B named is let through to the identity check" \
+    "  said as a missing --b-sha"
+mutate '            raise Refused(f"{run}: no 00_identity.txt -- which code it ran is not known "' \
+    '            continue; (f"{run}: no 00_identity.txt -- which code it ran is not known "' \
+    "E72: a run with no identity is skipped" \
+    "🔴 a control with no identity: rc 3" "  said as no identity"
+
+# the pre-registered split (S-9): decisive keys and invariants held exactly, descriptive ones noted
+mutate '    ("p4runtime", "solution"): {"rc", "verdict", "counters_final"},' \
+    '    ("p4runtime", "solution"): {"rc", "verdict"},' \
+    "E73: p4runtime/solution's varying counters are decisive" \
+    "🔴 p4runtime/solution's counters ending elsewhere, invariants kept: noted, rc 0"
+mutate '    ("flowcache", "solution"): {"rc", "verdict", "packet_ins", "cache_entries", "grpc_errors"},' \
+    '    ("flowcache", "solution"): {"rc", "verdict", "cache_entries", "grpc_errors"},' \
+    "E74: flowcache's varying packet-in count is decisive" \
+    "🔴 a flowcache packet-in more (an IPv4 one; that count varied before): noted, rc 0"
+mutate '    ("p4runtime", "solution"): {"rc", "verdict", "counters_final"},' \
+    '    ("p4runtime", "solution"): {"rc", "verdict", "counters_final", "rules_installed"},' \
+    "E75: the rules installed are only described" \
+    "🔴 a rule the controller did not install: rc 1"
+mutate '            if any(v != cvals[0] for v in cvals):' \
+    '            if False:' \
+    "E76: controls that disagree on a decisive key decide it anyway" \
+    "🔴 controls that disagree on a decisive key (rules installed): UNDECIDED, rc 2" "  said as such"
+mutate '    return 1 if diffs else 2 if undecided else 0' \
+    '    return 1 if diffs else 0' \
+    "E77: UNDECIDED exits 0" \
+    "🔴 controls that disagree on a decisive key (rules installed): UNDECIDED, rc 2" \
+    "🔴 a decisive invariant broken in a control too: UNDECIDED, rc 2"
+mutate '    ("p4runtime", "solution"): {"s1 ingress 100 = pings + iperf datagrams",' \
+    '    ("p4runtime", "solution"): {"s1 ingress 100 = never",' \
+    "E78: the traffic sum that broke before is decisive" \
+    "🔴 s1 ingress 100 one short of pings + datagrams (as 6 of 12 earlier rounds): noted, rc 0"
+mutate '          + (f"; {undecided} UNDECIDED: the controls disagree on a decisive check" if undecided else ""))' \
+    '          + "")' \
+    "E79: the conclusion does not say UNDECIDED" \
+    "  and in the conclusion"
+mutate '            elif name in DESCRIPTIVE_INVARIANTS.get(arm, ()):' \
+    '            elif name in DESCRIPTIVE_INVARIANTS.get(arm, ()) or True:' \
+    "E80: every invariant is only described" \
+    "🔴 the 200 tunnel's sum broken (it never broke before): rc 1" "  said as INV BAD"
+
+# mutate_id <old> <new> <label> <check>... -- the same, on the copy of code_identity.py beside the
+# (unchanged) tool.
+mutate_id() {
+    local old="$1" new="$2" label="$3" d want out missing=()
+    shift 3
+    d="$BK/$(printf '%s' "$label" | cut -d: -f1)"; mkdir -p "$d"
+    cp "$TOOL" "$d/external_evidence.py"
+    if ! python3 - "$IDENT" "$d/code_identity.py" "$old" "$new" <<'PY'
+import sys
+src, dst, a, b = sys.argv[1:5]
+s = open(src).read()
+if a == b or s.count(a) != 1:
+    print(f"ANCHOR:{s.count(a)}"); sys.exit(1)
+open(dst, "w").write(s.replace(a, b))
+PY
+    then
+        printf '  SURVIVED %-62s (anchor not unique or identity)\n' "$label"; SURVIVED=$((SURVIVED+1)); return
+    fi
+    if ! python3 -m py_compile "$d/code_identity.py" 2>/dev/null; then
+        printf '  SURVIVED %-62s (the mutant does not compile)\n' "$label"; SURVIVED=$((SURVIVED+1)); return
+    fi
+    out="$(run_test "$d/external_evidence.py")"
+    printf '%s\n' "$out" > "$d/suite.out"
+    for want in "$@"; do
+        /usr/bin/grep -qF -- "  FAILED   $want" <<<"$out" || missing+=("$want")
+    done
+    if (( ${#missing[@]} == 0 )); then
+        printf '  caught   %-62s (%s)\n' "$label" "$(tail -1 <<<"$out")"; CAUGHT=$((CAUGHT+1))
+    else
+        printf '  SURVIVED %-62s still green: %s\n' "$label" "${missing[0]}"; SURVIVED=$((SURVIVED+1))
+    fi
+}
+mutate_id '        if parents[0] != c.get("head"):' \
+    '        if False:' \
+    "I1: T's first parent is not compared with the controls' HEAD" \
+    "🔴 a treatment merged onto another trunk: rc 3" "  said as trunk moved"
+mutate_id '        if not re.fullmatch(r"[0-9a-f]{7,40}", b_sha or "") or not parents[1].startswith(b_sha):' \
+    '        if False:' \
+    "I2: T's second parent is not compared with B" \
+    "🔴 a treatment that merged another commit than B: rc 3" "  said as another B"
+mutate_id '    if len(parents) != 2:' \
+    '    if False:' \
+    "I3: a commit that is not a merge passes as one" \
+    "🔴 a treatment that is a commit on the controls' HEAD, not a merge: rc 3" "  said as not a merge"
+mutate_id '    if c.get("head") == t.get("head"):' \
+    '    if False:' \
+    "I4: T on the controls' very HEAD is not said as B not merged" \
+    "  said as B not merged"
+mutate_id 'SAME = ("uncommitted", "kernel", "bmv2_fabric", "bmv2_stock", "helper", "venv")' \
+    'SAME = ("kernel", "bmv2_fabric", "bmv2_stock", "helper", "venv")' \
+    "I5: other uncommitted files are the same code" \
+    "🔴 a treatment with another uncommitted file: rc 3" "  said as other uncommitted files"
+mutate_id 'SAME = ("uncommitted", "kernel", "bmv2_fabric", "bmv2_stock", "helper", "venv")' \
+    'SAME = ("uncommitted", "bmv2_fabric", "bmv2_stock", "helper", "venv")' \
+    "I6: another kernel binary is the same code" \
+    "🔴 a treatment on another kernel binary: rc 3" "  said as another kernel"
+mutate_id '    if touched:' \
+    '    if False:' \
+    "I7: an uncommitted file B also changes is let through" \
+    "🔴 an uncommitted file that B's merge changes too: rc 3" "  said as a file B changes"
+mutate_id '    if changed_by_b is None and len(parents) == 2:' \
+    '    if False:' \
+    "I8: an identity that does not say what its merge changed is let through" \
+    "🔴 a treatment whose identity does not say what its merge changed: rc 3" "  said as unknown merge changes"
 
 echo
 NOW_SUM="$(sha256sum "$TOOL" | cut -d' ' -f1)"
 if [[ "$NOW_SUM" != "$BASE_SUM" ]]; then
     echo "🔴 external_evidence.py CHANGED during the gate"; exit 3
 fi
-echo "source byte-identical: yes  external_evidence.py  sha256 $BASE_SUM"
+if [[ "$(sha256sum "$IDENT" | cut -d' ' -f1)" != "$ID_SUM" ]]; then
+    echo "🔴 code_identity.py CHANGED during the gate"; exit 3
+fi
+echo "source byte-identical: yes  external_evidence.py  sha256 $BASE_SUM; code_identity.py sha256 $ID_SUM"
 echo "mutation gate: $((CAUGHT+SURVIVED)) mutations, $SURVIVED survived"
 # [Co-developed with claude code -- Adam] (09-28) every check, by position, red under some mutation
 COV="$(python3 - "$BK" <<'COVERAGE'

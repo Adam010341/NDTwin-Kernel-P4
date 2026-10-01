@@ -21,7 +21,12 @@ WHAT IS READ, per external arm (p4runtime skeleton and solution, flowcache solut
   * the controller log: every rule installed, the tunnel-counter blocks, every packet-in (and its
     frame), every cache entry, every gRPC error -- and when it was last written;
   * the treatment's H5 samples (--samples: live-p1/08 PART=h5's 50_samples.tsv, with its
-    50_t06_end.txt beside it): the daemon's report, read every second through the whole of 06.
+    50_t06_end.txt beside it): the daemon's report, read every second through the whole of 06 --
+    since round 5 with each direction's `heard` count and the pids of the exercise controllers
+    (run_external_controller.py) alive at that read;
+  * each run's 00_identity.txt (live-p1/code_identity.py): which commit, which uncommitted files,
+    which kernel, bmv2 and venv. Every control must carry the same identity, and the treatment's
+    must be that one plus B merged: refused otherwise (README, "合併前的比對", M-2).
 
 WHAT IS REFUSED (exit 3) -- a comparison about nothing (the external judge's F1 and M2, 09-28):
   * no --samples: the round report's markers are all taken before the exercise's controller runs
@@ -30,23 +35,47 @@ WHAT IS REFUSED (exit 3) -- a comparison about nothing (the external judge's F1 
     running, a report that went STALE while "running" (a killed daemon leaves `running` behind --
     its written_wall stops), a stretch without a sample, a stop and a restart, a stop before the
     exercise's controller last wrote its log, or ANY OTHER session running inside the arm window;
+  * [Co-developed with claude code -- Adam] a treatment arm whose session did not HEAR every one of
+    its directions while the exercise's controller ran (the round-4 review's M-3): a daemon that
+    runs but whose frames never arrive leaves the program nothing to drop, and the comparison
+    would be about nothing. The controller's lifetime is where the sampler saw the controller's
+    own pid (the round report's `controller pid N` line) -- at least two samples -- and each
+    direction's `heard` count must grow between the first and the last of them;
   * a control arm with the detect-only line, a heartbeat block or a running row -- any trace of the
     heartbeat -- and a --control2 that is the control itself or another control (no spread).
 
 WHAT IS UNREADABLE (exit 2), never "same": a missing or unreadable table, row, report, log or
-samples file; a counter block cut short; a LAST counter block that had not settled (it neither
+samples file (a sampler file without the round-5 columns included; a running sample of the arm's
+session whose counters or `heard` are not numbers); a counter block cut short; a LAST counter block that had not settled (it neither
 repeats the block before it nor already counts everything the round sent -- a read taken mid-
 traffic); a packet-in whose frame cannot be parsed, an IPv4 one included.
 
-WHAT IS COMPARED. Run-to-run noise is real, so a difference counts only OUTSIDE the spread of the
-controls (--control2, repeatable: the same arms in the same session and venv without the
-heartbeat). Each arm's INVARIANTS hold on its own numbers:
+WHAT DECIDES, AND WHAT IS ONLY DESCRIBED (pre-registered, round 5 -- the round-4 review's S-9;
+README "合併前的比對" has the arithmetic). Run-to-run noise is real, and a range rule cannot hold a
+noisy field to a small false-fail rate: under no effect, a continuous field lands outside the range
+of n controls with probability 2/(n+1) -- 2/3 with two controls, 2/5 with four. So each arm's
+evidence is split, by what 34 earlier no-heartbeat rounds of these arms show (README):
+  * DECISIVE -- held EXACTLY to the controls: every key and invariant that never varied in those
+    rounds (rules installed everywhere; the 0x88B5 and non-IPv4 packet-ins; on p4runtime the
+    packet-ins, cache entries and gRPC errors, and the skeleton's counters; the invariants named in
+    DESCRIPTIVE_INVARIANTS' complement). A treatment value that differs from controls that all
+    agree is a DIFF (rc 1). Controls that DISAGREE on a decisive check make it UNDECIDED (rc 2):
+    a check the pre-registration took for deterministic was not, and that is reported, not judged;
+  * DESCRIPTIVE -- printed with the controls' values and whether the treatment lies inside their
+    spread, and NOT counted: rc and verdict (flaky: 3 of 12 p4runtime/solution and 3 of 11
+    flowcache/solution rounds FAILed), p4runtime/solution's final counters and its two traffic
+    invariants (s1 ingress 100 = pings + datagrams held in 1 of 12), flowcache's packet-ins, cache
+    entries and gRPC errors (3, 4 and 2 distinct values).
+The daemon's counters and the 0x88B5 packet-ins are what the heartbeat would DO to the exercise --
+a frame forwarded, misdelivered or punted -- and are decisive on any value but 0.
+
+Each arm's INVARIANTS hold on its own numbers:
   * p4runtime/solution: s1 ingress 100 = pings h1->h2 + iperf datagrams to h2 (+ at most 10 FIN
     retries when the client got no ack); s2 egress 100 = s1 ingress 100; s1 egress 200 = s2
     ingress 200;
   * p4runtime/skeleton: s1 ingress 100 = pings h1->h2, and every other tunnel counter 0;
   * flowcache/solution: every packet-in is IPv4 and every cache entry is an IPv4 packet-in's flow.
-An invariant the treatment breaks counts only when EVERY control keeps it. The daemon's own
+A decisive invariant the treatment breaks counts only when EVERY control keeps it. The daemon's own
 counters, from the samples of the arm's session (forwarded to hosts or between switches,
 misdelivered, foreign), must all stay 0: that is the only evidence of what the LOADED program did
 with a 0x88B5 frame. The N4 switch_state counters are printed as what they are -- a snapshot from
@@ -56,8 +85,11 @@ Usage:  external_evidence.py show <06 run dir>
         external_evidence.py compare <control 06 run> <treatment 06 run>
                                      --control2 <06 run> [--control2 <06 run> ...]
                                      --samples <08 H5 run>/50_samples.tsv
-Exit:   0 nothing outside the controls' spread, every invariant kept, the daemon forwarded nothing;
-        1 a difference (each printed); 2 unreadable; 3 refused.
+                                     --b-sha <the B commit T merged>
+Exit:   0 every decisive check the same as the controls', every decisive invariant kept, the
+          daemon forwarded nothing (descriptive differences are printed, not counted);
+        1 a decisive difference (each printed); 2 unreadable, or UNDECIDED (the controls disagree
+          on a decisive check); 3 refused.
 """
 
 from __future__ import annotations
@@ -65,10 +97,14 @@ from __future__ import annotations
 import ast
 import calendar
 import glob
+import json
 import os
 import re
 import sys
 import time
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import code_identity  # noqa: E402
 
 #: (exercise, arm) -- the three 06 arms whose fabric has an external control plane.
 EXTERNAL_ARMS = (("p4runtime", "skeleton"), ("p4runtime", "solution"), ("flowcache", "solution"))
@@ -77,6 +113,18 @@ IPV4_ETHERTYPE = 0x0800
 #: The evidence that decides; everything else printed is context.
 COMPARED = ("rc", "verdict", "rules_installed", "counters_final", "packet_ins", "cache_entries",
             "heartbeat_packet_ins", "non_ipv4_packet_ins", "grpc_errors")
+#: [Co-developed with claude code -- Adam] Pre-registered (round 5, S-9; README): what is only
+#: DESCRIBED per arm -- the keys that varied across 34 earlier no-heartbeat rounds of these arms.
+DESCRIPTIVE = {
+    ("p4runtime", "skeleton"): {"rc", "verdict"},
+    ("p4runtime", "solution"): {"rc", "verdict", "counters_final"},
+    ("flowcache", "solution"): {"rc", "verdict", "packet_ins", "cache_entries", "grpc_errors"},
+}
+#: ...and the invariants that broke in some of those rounds (p4runtime/solution's traffic sums).
+DESCRIPTIVE_INVARIANTS = {
+    ("p4runtime", "solution"): {"s1 ingress 100 = pings + iperf datagrams",
+                                "s2 egress 100 = s1 ingress 100"},
+}
 #: The most FIN retries iperf makes when it gets no ack of its last datagram.
 IPERF_FIN_RETRIES = 10
 #: The longest a running report may go unrewritten, and the longest stretch without a sample,
@@ -85,6 +133,12 @@ STALE_S = 10.0
 MAX_GAP_S = 10.0
 #: The daemon's four counters as the sampler records them (live-p1/08 SAMPLER_HEADER).
 DAEMON = ("forwarded_to_hosts", "forwarded_between_switches", "misdelivered", "foreign_frames")
+#: live-p1/08's SAMPLER_HEADER since round 5 (heard per direction, the controllers alive).
+SAMPLER_COLUMNS = ["wall", "status", "session", "pid", "forwarded_to_hosts",
+                   "forwarded_between_switches", "written_wall", "stop_reason", "misdelivered",
+                   "foreign_frames", "heard", "controllers"]
+#: drive_exercise.py's line for the controller it started (run_external_controller.py's pid).
+CTRL_PID = re.compile(r"^\s*controller pid (\d+) \(handed to the generic cell")
 
 INSTALLED = re.compile(r"^Installed .* on s\d+\s*$")
 COUNTER = re.compile(r"^(s\d+ \S+ \d+): (\d+) packets \((\d+) bytes\)\s*$")
@@ -238,7 +292,9 @@ def report_evidence(report):
     for name, n in SIDE_EFFECT.findall(text):
         n4[name] = max(n4.get(name, 0), int(n))
     stamp = STAMP.search(os.path.basename(report))
+    ctrl = [int(m.group(1)) for m in map(CTRL_PID.match, text.splitlines()) if m]
     return {
+        "controller_pid": ctrl[0] if len(set(ctrl)) == 1 else None,
         "code": "; ".join(f"{sha} {rest}".strip() for sha, rest in codes) or "not recorded",
         "hb_started": HB_UP in text,
         "hb_block": bool(HB_BLOCK.search(text)),
@@ -338,15 +394,27 @@ def invariants(arm, ev):
     return out
 
 
+def parse_heard(field):
+    """{direction: heard} out of the sampler's `heard` column, or None when it is not one."""
+    if field in ("", "-"):
+        return None
+    out = {}
+    for item in field.split(","):
+        name, _, n = item.rpartition("=")
+        if not name or not n.isdigit():
+            return None
+        out[name] = int(n)
+    return out
+
+
 def read_samples(path):
     out = []
     lines = read_text(path).splitlines()
     head = lines[0].split("\t") if lines else []
-    want = ["wall", "status", "session", "pid", "forwarded_to_hosts", "forwarded_between_switches",
-            "written_wall", "stop_reason", "misdelivered", "foreign_frames"]
+    want = SAMPLER_COLUMNS
     if head[:len(want)] != want:
-        raise Unreadable(f"{path}: header {head} -- a sampler from before 09-28 (no written_wall / "
-                         f"stop_reason), or not a sampler's file")
+        raise Unreadable(f"{path}: header {head} -- a sampler from before round 5 (no per-direction "
+                         f"`heard`, no controllers column), or not a sampler's file")
     for line in lines[1:]:
         f = line.split("\t")
         if len(f) < len(want):
@@ -361,12 +429,13 @@ def read_samples(path):
             written = None
         counts = {}
         for name, v in zip(DAEMON, (f[4], f[5], f[8], f[9])):
-            try:
-                counts[name] = int(v)
-            except ValueError:
-                counts[name] = 0
+            # [Co-developed with claude code -- Adam] None, not 0: a counter the report did not carry
+            # is not a counter that stayed at zero (the round-4 review's residual on M2).
+            counts[name] = int(v) if v.isdigit() else None
+        ctrls = {int(x) for x in f[11].split(",") if x.isdigit()}
         out.append({"wall": wall, "status": f[1], "session": f[2], "written": written,
-                    "stop_reason": f[7], "counts": counts})
+                    "stop_reason": f[7], "counts": counts, "heard": parse_heard(f[10]),
+                    "heard_raw": f[10], "controllers": ctrls, "row": line[:120]})
     if not out:
         raise Unreadable(f"{path}: no samples")
     return sorted(out, key=lambda s: s["wall"])
@@ -412,10 +481,44 @@ def session_evidence(arm, ev, samples, end_06):
     if ev["_last_write"] > stopped_at:
         raise Refused(f"treatment {name}: session {sess} stopped at {stopped_at:.0f}, before the "
                       f"exercise's controller last wrote its log ({ev['_last_write']:.0f})")
+    for s in stretch:
+        bad = [k for k in DAEMON if s["counts"][k] is None]
+        if bad or s["heard"] is None:
+            raise Unreadable(f"treatment {name}: a running sample of session {sess} whose "
+                             f"{'counters ' + ', '.join(bad) if bad else 'heard column'} "
+                             f"{'are' if bad else 'is'} not numbers: {s['row']}")
     counts = {k: max(s["counts"][k] for s in win if s["session"] == sess) for k in DAEMON}
+    heard = heard_evidence(name, ev, sess, stretch)
     return {"session": sess, "from": stretch[0]["wall"], "to": stopped_at, "samples": len(stretch),
             "stop_reason": win[stop]["stop_reason"] if stop is not None else "(still running at the window's end)",
-            "counts": counts}
+            "counts": counts, "heard": heard}
+
+
+def heard_evidence(name, ev, sess, stretch):
+    """[Co-developed with claude code -- Adam] Every direction of the session HEARD while the exercise's
+    controller ran (the round-4 review's M-3), or Refused. The controller's lifetime is the samples
+    of the session's stretch that saw its pid alive."""
+    pid = ev["controller_pid"]
+    if pid is None:
+        raise Refused(f"treatment {name}: the round report names no single `controller pid N` -- the "
+                      f"controller's lifetime cannot be placed among the samples")
+    life = [s for s in stretch if pid in s["controllers"]]
+    if len(life) < 2:
+        raise Refused(f"treatment {name}: the sampler saw the controller (pid {pid}) alive in "
+                      f"{len(life)} sample(s) of session {sess} -- no lifetime to hear anything in")
+    first, last = life[0]["heard"], life[-1]["heard"]
+    if not first or set(first) != set(last):
+        raise Refused(f"treatment {name}: session {sess}'s directions changed or are none during the "
+                      f"controller's lifetime ({sorted(first or {})} vs {sorted(last or {})})")
+    deaf = sorted(d for d in first if last[d] <= first[d])
+    if deaf:
+        raise Refused(f"treatment {name}: session {sess} did not hear {len(deaf)} of {len(first)} "
+                      f"direction(s) while the controller (pid {pid}) ran, "
+                      f"{life[0]['wall']:.0f}-{life[-1]['wall']:.0f}: "
+                      + ", ".join(f"{d} stayed {first[d]}" for d in deaf[:4])
+                      + " -- no frame entered the program then, so the arm says nothing about it")
+    return {"pid": pid, "from": life[0]["wall"], "to": life[-1]["wall"],
+            "grew": {d: last[d] - first[d] for d in sorted(first)}}
 
 
 def check_roles(controls, treatment, samples, end_06):
@@ -503,7 +606,35 @@ def show(run):
     return 0
 
 
-def compare(control, treatment, controls2, samples_path):
+def identities(control, controls2, treatment, b_sha):
+    """[Co-developed with claude code -- Adam] The round-4 review's M-2: every control ran the same
+    code, and the treatment ran that code with B merged on top -- or Refused."""
+    if not b_sha:
+        raise Refused("no --b-sha: which B the treatment merged must be named, or 'the same code "
+                      "apart from B' cannot be checked (README, 合併前的比對)")
+    ids = []
+    for run in [control] + list(controls2) + [treatment]:
+        path = os.path.join(run, "00_identity.txt")
+        if not os.path.exists(path):
+            raise Refused(f"{run}: no 00_identity.txt -- which code it ran is not known "
+                          f"(record it with live-p1/code_identity.py, README step 1)")
+        try:
+            ids.append(code_identity.load(path))
+        except (OSError, ValueError) as exc:
+            raise Unreadable(f"{path}: {type(exc).__name__}: {exc}") from exc
+    c, cs, t = ids[0], ids[1:-1], ids[-1]
+    for i, other in enumerate(cs):
+        why = ([f"HEAD {c.get('head')} vs {other.get('head')}"] if other.get("head") != c.get("head") else []) \
+            + code_identity.same_reasons(c, other, "control", f"control2 #{i + 1}")
+        if why:
+            raise Refused(f"the controls did not run the same code: {'; '.join(why)}")
+    why = code_identity.verify(c, t, b_sha)
+    if why:
+        raise Refused(f"the treatment is not the controls' code plus B: {'; '.join(why)}")
+    return c, t
+
+
+def compare(control, treatment, controls2, samples_path, b_sha=None):
     if not samples_path:
         raise Refused("no --samples: every marker in a round report is taken before the exercise's "
                       "controller runs, so only live-p1/08 PART=h5's samples can say the heartbeat "
@@ -516,6 +647,7 @@ def compare(control, treatment, controls2, samples_path):
         raise Refused(f"a control is given twice ({dirs}): a control compared with itself has no spread")
     if os.path.realpath(treatment) in dirs:
         raise Refused("the treatment is one of the controls")
+    cid, tid = identities(control, controls2, treatment, b_sha)
     a = arms(control)
     cs2 = [arms(d) for d in controls2]
     b = arms(treatment)
@@ -526,14 +658,21 @@ def compare(control, treatment, controls2, samples_path):
     for i, (d, c) in enumerate(zip(controls2, cs2)):
         header(f"control2 #{i + 1}", d, c)
     header("treatment", treatment, b)
+    print(f"  identity: the controls ran {cid['head'][:12]} with {len(cid.get('uncommitted') or [])} "
+          f"uncommitted tracked file(s); the treatment ran {tid['head'][:12]} = that + B {b_sha[:12]}, "
+          f"the same uncommitted files, kernel, bmv2, helper and venv")
     print(f"  samples {samples_path}: 06 ended at {end_06:.0f}")
-    diffs = 0
+    diffs = undecided = 0
     for arm in EXTERNAL_ARMS:
         se = sessions[arm]
         print(f"\n== {arm[0]}/{arm[1]}")
         print(f"   hb      session {se['session']} running from {se['from']:.0f} to {se['to']:.0f} "
               f"({se['samples']} samples, none stale, no gap over {MAX_GAP_S:g} s; stop: "
               f"{se['stop_reason'] or '-'}); the controller last wrote at {b[arm]['_last_write']:.0f}")
+        hd = se["heard"]
+        print(f"   heard   all {len(hd['grew'])} direction(s) while the controller (pid {hd['pid']}) ran, "
+              f"{hd['from']:.0f}-{hd['to']:.0f}: "
+              + ", ".join(f"{d} +{n}" for d, n in hd["grew"].items()))
         moved = {k: v for k, v in se["counts"].items() if v}
         if moved:
             diffs += 1
@@ -546,9 +685,17 @@ def compare(control, treatment, controls2, samples_path):
             if all(v == b[arm][key] for v in cvals):
                 print(f"   same    {key:<21} {fmt(b[arm][key])}")
                 continue
-            if within(key, b[arm][key], cvals):
-                print(f"   spread  {key:<21} {fmt(b[arm][key])}\n"
-                      f"           {'':<21} inside the controls' spread (not counted)")
+            if key in DESCRIPTIVE.get(arm, ()):
+                where = "inside" if within(key, b[arm][key], cvals) else "OUTSIDE"
+                print(f"   note    {key:<21} {fmt(b[arm][key])}\n"
+                      f"           {'':<21} {where} the controls' spread -- descriptive, not counted "
+                      f"(pre-registered); control: {fmt(a[arm][key])}")
+                continue
+            if any(v != cvals[0] for v in cvals):
+                undecided += 1
+                print(f"   UNDECIDED {key:<19} {fmt(b[arm][key])}\n"
+                      f"           {'':<21} the controls disagree on a decisive check: "
+                      + " / ".join(fmt(v) for v in cvals))
                 continue
             diffs += 1
             print(f"   DIFF    {key:<21} {fmt(b[arm][key])}\n"
@@ -559,8 +706,12 @@ def compare(control, treatment, controls2, samples_path):
         for name, (ok, detail) in invariants(arm, b[arm]).items():
             if ok:
                 print(f"   inv ok  {name}: {detail}")
+            elif name in DESCRIPTIVE_INVARIANTS.get(arm, ()):
+                print(f"   inv ..  {name}: {detail} (descriptive, not counted: pre-registered)")
             elif not all(i[name][0] for i in ic):
-                print(f"   inv --  {name}: broken in a control too, so not the treatment's: {detail}")
+                undecided += 1
+                print(f"   UNDECIDED inv {name}: broken in a control too -- a decisive invariant that "
+                      f"is not one: {detail}")
             else:
                 diffs += 1
                 print(f"   INV BAD {name}: {detail} (every control keeps it)")
@@ -568,8 +719,9 @@ def compare(control, treatment, controls2, samples_path):
             print(f"   !! {b[arm]['heartbeat_packet_ins']} packet-in(s) carried the heartbeat's "
                   f"ethertype 0x88B5: the frame reached the exercise's own controller")
     print(f"\n{'NO DIFFERENCE' if not diffs else f'{diffs} DIFFERENCE(S)'} in the external arms' "
-          f"own evidence ({1 + len(cs2)} controls)")
-    return 0 if not diffs else 1
+          f"own evidence ({1 + len(cs2)} controls)"
+          + (f"; {undecided} UNDECIDED: the controls disagree on a decisive check" if undecided else ""))
+    return 1 if diffs else 2 if undecided else 0
 
 
 def main(argv):
@@ -577,15 +729,17 @@ def main(argv):
         if len(argv) == 2 and argv[0] == "show":
             return show(argv[1])
         if len(argv) >= 3 and argv[0] == "compare":
-            rest, controls2, samples = argv[3:], [], None
-            while len(rest) >= 2 and rest[0] in ("--control2", "--samples"):
+            rest, controls2, samples, b_sha = argv[3:], [], None, None
+            while len(rest) >= 2 and rest[0] in ("--control2", "--samples", "--b-sha"):
                 if rest[0] == "--control2":
                     controls2.append(rest[1])
-                else:
+                elif rest[0] == "--samples":
                     samples = rest[1]
+                else:
+                    b_sha = rest[1]
                 rest = rest[2:]
             if not rest:
-                return compare(argv[1], argv[2], controls2, samples)
+                return compare(argv[1], argv[2], controls2, samples, b_sha)
     except Unreadable as exc:
         print(f"UNREADABLE {exc}")
         return 2
