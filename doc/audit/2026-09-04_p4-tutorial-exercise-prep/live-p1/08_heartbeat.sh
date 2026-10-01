@@ -1716,11 +1716,14 @@ $SAMPLER_PY"
     got="$(next_phase_target 100.0 0.05 5 104.9)"
     [[ "$got" == "110.050" ]] && ok "  a round too close to catch is skipped for the next (now 104.9 -> 110.050)" \
                               || red "  too close gave '$got'"
+    # [Co-developed with claude code -- Adam] The bounds are INCLUSIVE: phase_for's range is [PHI_WORST,
+    # period - PHI_WORST] with the ends reachable (%.2f rounds r = 32767 to 4.95), and the strict test went red
+    # about once in 250 self-tests (round 5, seen in a red-first run: '... 1.30 4.95').
     got="$( H1_WORST=3; PHI_WORST=0.05; HB_PERIOD_S=5; RANDOM=7
             for c in 1 2 3 4 5 6 7 8 9 10; do phase_for "$c"; done | paste -sd' ' )"
     read -r -a PH <<<"$got"
     if [[ "${PH[0]} ${PH[1]} ${PH[2]}" == "0.05 0.05 0.05" ]] \
-       && awk -v a="${PH[3]}" -v b="${PH[9]}" 'BEGIN{exit !(a > 0.05 && a < 4.95 && b > 0.05 && b < 4.95)}' \
+       && awk -v a="${PH[3]}" -v b="${PH[9]}" 'BEGIN{exit !(a >= 0.05 && a <= 4.95 && b >= 0.05 && b <= 4.95)}' \
        && [[ "$(printf '%s\n' "${PH[@]:3}" | sort -u | wc -l)" -gt 1 ]]; then
         ok "phase_for: the first H1_WORST cycles at the worst phase, the rest random inside the period ($got)"
     else
