@@ -59,16 +59,40 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+# spawn <argv0> -- a `sleep` wearing that argv0; its pid is left in FIXTURE_PID.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 CALLED AS A PLAIN COMMAND, NEVER AS X="$(spawn ...)" (2026-09-28). Inside a command substitution
+# the `exit 1` below left only that subshell: the suite ran on with an empty pid and never counted
+# the FAILED line -- measured on 3368412d by tests/shell/mutate_fixture_spawn_helpers.sh, 5 FAILED
+# lines under "Ran 58 checks, 2 failed". The premise is a check THIS shell counts, on success too,
+# and a failure ends the run with its summary. The poll waits up to FIXTURE_ARGV_WAIT seconds: a
+# slow exec on a loaded machine is not a defect in topo_pid.
+FIXTURE_ARGV_WAIT=30
+FIXTURE_PID=""
 spawn() {
-    local want="$1" pid i; local -a argv=()
-    ( exec -a "$want" sleep "$FIXTURE_TTL" ) >/dev/null 2>&1 </dev/null &
-    pid=$!; echo "$pid" >> "$FIXTURE_REG"
-    for i in 1 2 3 4 5 6 7 8 9 10; do
-        argv=(); mapfile -d '' -t argv < "/proc/$pid/cmdline" 2>/dev/null
-        [[ "${argv[0]:-}" == "$want" ]] && { echo "$pid"; return 0; }
+    local want="$1" pid deadline; local -a argv=()
+    FIXTURE_PID=""
+    # From a command substitution of its own, so the fixture is never a job of this shell; the
+    # redirections keep it off that substitution's pipe, which it would otherwise hold open.
+    pid="$( ( exec -a "$want" sleep "$FIXTURE_TTL" ) \
+            >/dev/null 2>&1 </dev/null & echo "$!" )"
+    echo "$pid" >> "$FIXTURE_REG"
+    deadline=$(( SECONDS + FIXTURE_ARGV_WAIT ))
+    while :; do
+        argv=(); mapfile -d '' -t argv 2>/dev/null < "/proc/$pid/cmdline" || true
+        if [[ "${argv[0]:-}" == "$want" ]]; then
+            check "fixture took argv0=$want" "$want" "${argv[0]}"
+            FIXTURE_PID="$pid"; return 0
+        fi
+        (( SECONDS < deadline )) || break
         sleep 0.1
     done
-    echo "  FAILED   fixture never took argv0=$want" >&2; exit 1
+    check "fixture took argv0=$want" "$want" \
+          "${argv[0]:-nothing readable} (pid $pid, after ${FIXTURE_ARGV_WAIT}s)"
+    echo
+    echo "Ran $((PASS+FAIL)) checks, $FAIL failed${SKIP:+ ($SKIP skipped)}"
+    exit 1
 }
 
 SCRIPT=NDT-TEST-FIXTURE-topo.py
@@ -87,19 +111,19 @@ else
     skip "nothing running (something already matches $SCRIPT on this machine)"
 fi
 
-FIX="$(spawn "$FIXP")"
+spawn "$FIXP"; FIX="$FIXTURE_PID"
 out="$(topo_pid "$SCRIPT" 2>/dev/null)"; rc=$?
 check "one topology -> rc 0"                     0 "$rc"
 check "  and it is the right pid"                "$FIX" "$out"
 
-DECOY="$(spawn "$DECOYP")"
+spawn "$DECOYP"; DECOY="$FIXTURE_PID"
 out="$(topo_pid "$SCRIPT" 2>/dev/null)"; rc=$?
 check "a log file named after it is not it"      "$FIX" "$out"
 check "  still rc 0"                             0 "$rc"
 
 # Two of them is the case where guessing is worst: `| head -1` silently picked one, and mnexec
 # would have run tc as root in whichever namespace won the race.
-FIX2="$(spawn "$FIXP")"
+spawn "$FIXP"; FIX2="$FIXTURE_PID"
 out="$(topo_pid "$SCRIPT" 2>/dev/null)"; rc=$?
 check "two topologies -> refuses, rc 1"          1 "$rc"
 check "  and prints no pid at all"               "" "$out"
