@@ -339,6 +339,19 @@ check "D28 🔴 and scores them as shell suites (their summary and SKIP: lines),
       "$(grep -qF '[[ "$testfile" == *.py && "$testfile" != */tests/shell/* ]] && kind=py' "$DRIVER" && echo yes || echo no) $(grep -qF '(cd "$KERNEL_DIR" && python3 "$testfile") >"$log" 2>&1' "$DRIVER" && echo yes || echo no)"
 check "D29 🔴 the drop check's suite declares the stock bmv2 it needs" "bmv2-stock" \
       "$(l1_declared_needs "$SHELL_TESTS_DIR/test_heartbeat_drop_check.py" 2>/dev/null)"
+# ...and, run with no stock simple_switch, it skips the way the lane can excuse: rc 0, one SKIP line,
+# nothing ran -- DECLARED-SKIP on a hosted runner, FAIL-SKIP on the lab (which must have one).
+HBT="$(mktemp -d)"
+NDT_HB_CHECK_BMV2="$HBT/no-such-simple_switch" python3 "$SHELL_TESTS_DIR/test_heartbeat_drop_check.py" > "$HBT/skip.log" 2>&1
+hb_rc=$?
+read -r hb_ran hb_failed <<<"$(shell_summary "$HBT/skip.log")"
+hb_sk="$(grep -cE '^[[:space:]]*SKIP:' "$HBT/skip.log")"
+check "D30 🔴 with no stock simple_switch the drop check's suite skips: rc 0, one SKIP line, nothing ran" "0 1 0" \
+      "$hb_rc $hb_sk $hb_ran"
+hb_excuse="$(L1_NEED_MET=([bmv2-stock]=0); l1_skip_excuse "$SHELL_TESTS_DIR/test_heartbeat_drop_check.py" "$HBT/skip.log" sh "$hb_ran" "$hb_sk")"
+check "D31 🔴 ...which the lane scores DECLARED-SKIP on a hosted runner and FAIL-SKIP on the lab" "DECLARED-SKIP FAIL-SKIP" \
+      "$(l1_lane_verdict "$hb_rc" "$hb_ran" "$hb_failed" "$hb_sk" "$hb_excuse" 1) $(l1_lane_verdict "$hb_rc" "$hb_ran" "$hb_failed" "$hb_sk" "$hb_excuse" 0)"
+rm -rf "$HBT"
 
 echo
 echo "=== group C: the corpus -- every suite in tests/shell prints a form this scorer reads ==="

@@ -386,6 +386,9 @@ s = s.replace("[[ \"$testfile\" == *.py && \"$testfile\" != */tests/shell/* ]] &
 mutate "the drop check suite does not declare the stock bmv2" "$HBDROP_REL" '
 s = s.replace("# NDTWIN_L1_NEEDS: bmv2-stock\n", "\n")
 ' "D29 🔴 the drop check's suite declares the stock bmv2 it needs"
+mutate "the drop check suite runs on with no stock simple_switch" "$HBDROP_REL" '
+s = s.replace("          f\"checked\")\n    sys.exit(0)\n", "          f\"checked\")\n")
+' "D30 🔴 with no stock simple_switch the drop check's suite skips: rc 0, one SKIP line, nothing ran"
 mutate "the lane never probes bmv2-stock" "$DRIVER_REL" '
 s = s.replace("L1_NEED_MET[bmv2-stock]=0\n", "").replace("&& L1_NEED_MET[bmv2-stock]=1", "&& :")
 ' "D18 the lane probes the needs it can excuse (ryu, py-plot, bmv2-stock)"
