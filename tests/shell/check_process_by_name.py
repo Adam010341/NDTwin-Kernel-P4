@@ -21,7 +21,8 @@ G-inst-2 are the two times it was learned the expensive way:
 =================================================================================================
 THE RULE, and why it is not `grep -n 'pgrep -f'`
 =================================================================================================
-tests/shell/test_faults_topo_pid.sh:114-117 used to be
+The two checks in tests/shell/test_faults_topo_pid.sh used to be (its "B12 (2026-09-11)" comment,
+above the checks that replaced them, quotes them)
 
     grep -n 'pgrep -f' "$FAULTS" | grep -vc '^[0-9]*:[[:space:]]*#'
     grep -E '^[[:space:]]*(err|say|echo|printf)' "$FAULTS" | grep -c 'pgrep'
