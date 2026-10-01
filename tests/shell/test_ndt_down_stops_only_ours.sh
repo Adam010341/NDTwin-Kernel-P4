@@ -80,35 +80,68 @@ THEIRS_ARGV="python3 /nonexistent/NDT-TEST-FIXTURE-NDT11-THEIRS/$TE_SIG"
 FIXTURE_TTL=120
 OURS=""; THEIRS=""
 
-# spawn <argv0> <cwd> -- a process wearing that command line, in a session of its own.
+# spawn <argv0> <cwd> -- a process wearing that command line, in a session of its own; its pid is
+# left in FIXTURE_PID.
 # 🔴 setsid, and it is load-bearing twice: app_kill_group REFUSES to signal this shell's own
 # group (it would take the test down with it), and a fixture sharing this shell's group would
 # make the stop that IS supposed to happen degrade to the per-pid path -- a different code path
 # from the one a real app takes.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 CALLED AS A PLAIN COMMAND, NEVER AS X="$(spawn ...)" (2026-10-01). It used to be, with
+# `|| { echo "Ran ..."; exit 1; }` after it: the failure was counted, but the fixture it gave up on
+# was in no list the cleanup reads (OURS and THEIRS were still empty), so it outlived the run, and
+# the poll gave up after 2 s. Every pid is now registered in SPAWNED before the poll, so the EXIT
+# trap reaps it either way; the premise is a check THIS shell counts, on success too, and a failure
+# ends the run with its summary. The poll waits up to FIXTURE_ARGV_WAIT seconds: a slow exec on a
+# loaded machine is not a defect in `ndt down`. Same shape as the helpers of the six suites
+# tests/shell/mutate_fixture_spawn_helpers.sh covers, and that gate covers this one too.
+FIXTURE_ARGV_WAIT=30
+FIXTURE_PID=""
+SPAWNED=()
 spawn() {
-    local want="$1" dir="$2" pid i argv
-    setsid bash -c "cd '$dir' && exec -a '$want' sleep $FIXTURE_TTL" >/dev/null 2>&1 </dev/null &
-    pid=$!
-    for i in 1 2 3 4 5 6 7 8 9 10; do
-        argv="$(tr '\0' '\n' 2>/dev/null < "/proc/$pid/cmdline" | head -1)"
-        [[ "$argv" == "$want" ]] && { echo "$pid"; return 0; }
-        sleep 0.2
+    local want="$1" dir="$2" pid deadline
+    local -a argv=()
+    FIXTURE_PID=""
+    # From a command substitution of its own, as before: the fixture is never a child of this
+    # shell, so a stopped one is reaped at once and /proc stops showing it -- the "OURS IS GONE"
+    # check below reads /proc. The redirections keep it off that substitution's pipe.
+    pid="$( setsid bash -c "cd '$dir' && exec -a '$want' sleep $FIXTURE_TTL" \
+            >/dev/null 2>&1 </dev/null & echo "$!" )"
+    SPAWNED+=("$pid")
+    deadline=$(( SECONDS + FIXTURE_ARGV_WAIT ))
+    while :; do
+        argv=()
+        mapfile -d '' -t argv 2>/dev/null < "/proc/$pid/cmdline" || true
+        if [[ "${argv[0]:-}" == "$want" ]]; then
+            check "fixture took argv0=$want" "$want" "${argv[0]}"
+            FIXTURE_PID="$pid"
+            return 0
+        fi
+        (( SECONDS < deadline )) || break
+        sleep 0.1
     done
-    echo "  FAILED   fixture never took argv0=$want (pid $pid)" >&2
-    return 1
+    check "fixture took argv0=$want" "$want" \
+          "${argv[0]:-nothing readable} (pid $pid, after ${FIXTURE_ARGV_WAIT}s)"
+    echo
+    # The exit is on the summary's own line, like every other early summary in this file:
+    # tests/shell/mutate_l1_shell_scoring.sh uses this suite as the one whose summaries other than
+    # the last all have their exit <non-zero> on the same line.
+    echo "Ran $((PASS+FAIL)) checks, $FAIL failed"; exit 1
 }
 
 # 🔴 The cleanup is an ASSERTION, not a trap nobody reads. FIX-NDT-10 SUMMARY section 8-3: that
 # round could not tell "the TTL expired" from "I cleaned up", because every log line it had was
 # taken BEFORE the kill. This kills by exact pid, re-reads /proc afterwards, and prints both.
+# Every pid spawn() started is in SPAWNED, including one it gave up on and the section-2 control.
 cleanup() {
     local p
-    for p in "$OURS" "$THEIRS"; do
+    for p in "${SPAWNED[@]}"; do
         [[ "$p" =~ ^[0-9]+$ ]] || continue
         [[ "$(cat "/proc/$p/comm" 2>/dev/null)" == sleep ]] && kill -KILL "$p" 2>/dev/null
     done
     sleep 0.3
-    for p in "$OURS" "$THEIRS"; do
+    for p in "${SPAWNED[@]}"; do
         [[ "$p" =~ ^[0-9]+$ ]] || continue
         printf '### FIXTURE %s after kill: /proc/%s exists = %s\n' "$p" "$p" "$(alive "$p")"
     done
@@ -117,8 +150,8 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-OURS="$(spawn "$OURS_ARGV" "$FIX")"           || { echo "Ran 1 checks, 1 failed"; exit 1; }
-THEIRS="$(spawn "$THEIRS_ARGV" "$OTHER_TREE")" || { echo "Ran 1 checks, 1 failed"; exit 1; }
+spawn "$OURS_ARGV" "$FIX"; OURS="$FIXTURE_PID"
+spawn "$THEIRS_ARGV" "$OTHER_TREE"; THEIRS="$FIXTURE_PID"
 
 # --- the seam ------------------------------------------------------------------------------
 # app_probe, app_claims_pid, proc_checkout, app_stop, app_kill_group and cmd_down itself are
@@ -222,7 +255,7 @@ section "2. the control -- with ONLY the foreign process on the field, nothing i
 # =============================================================================================
 # FIX-NDT-10's green-2 is this case and only this case. Kept as the control: a [0/3] that had
 # stopped reaching apps altogether would pass it, which is why section 1 above is the finding.
-THEIRS2="$(spawn "$THEIRS_ARGV" "$OTHER_TREE")" || { echo "Ran $((PASS+FAIL+1)) checks, $((FAIL+1)) failed"; exit 1; }
+spawn "$THEIRS_ARGV" "$OTHER_TREE"; THEIRS2="$FIXTURE_PID"
 printf '%s %s\n' "$THEIRS2" "$THEIRS_ARGV" > "$FIX/snapshot"
 OUT="$(NDT_OWNER=ndt11-test drive 'cmd_down')"
 check "🔴 the other tree's process survives a teardown"   "yes" "$(alive "$THEIRS2")"

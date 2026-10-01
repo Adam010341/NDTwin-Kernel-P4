@@ -184,8 +184,9 @@ check "the real scan does not find this shell"  no  "$(has "$$" $'\n'"$(sweep_fi
 #
 # The candidate list is bounded from here on. This shell is INJECTED into it wearing the
 # pattern, which is precisely what happens to an operator who typed the pattern: `pkill -f`
-# signals them. The ancestor chain must drop it -- and must NOT drop the fixture, which is a
-# child of this shell and a legitimate target.
+# signals them. The ancestor chain must drop it -- and must NOT drop the fixture, a legitimate
+# target: this shell started it, from a command substitution, so it was reparented and is not this
+# shell's child, but it is still in this shell's process group.
 echo "self-match (the failure that makes a guard report a clean machine)"
 
 SNAP_LINES=""
