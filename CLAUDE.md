@@ -61,6 +61,11 @@
 
 ## 委派
 
-- subagent 明寫 opus；機械活 deepseek-cli；orchestrator 不做 grunt work。
+- subagent 明寫模型（Adam 2026-10-01）：
+  - 審查、改程式、寫測試：Opus；難裁決的判官：Fable。判官永不用 Sonnet。
+  - 有標準答案的機械活（跑寫好的腳本、對照分類、比對 CI 紀錄、重生圖）：Sonnet 5.5（`sonnet-worker`）；
+    orchestrator 抽幾行關鍵結果自己核對。
+  - 不需動手的大量閱讀摘要仍可用 deepseek-cli。
+- orchestrator 不做 grunt work。
 
 [Co-developed with claude code -- Adam]
