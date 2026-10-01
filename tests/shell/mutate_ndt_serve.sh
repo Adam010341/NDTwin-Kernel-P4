@@ -777,7 +777,7 @@ report "M62: the listen backlog is socketserver's 5 (a burst of 20 gets a reset)
 # --- the GUI cut (09-27, SCOPE bfffefa0 as the orchestrator approved it): the G series ------------
 # [Co-developed with claude code -- Adam]
 
-# the page's three files: no token, nothing run, the Host check, the CSP
+# the page's files: no token, nothing run, the Host check, the CSP
 m=$(mutant g1 "$SERVE_PY" \
     '                # the page: after the Host check, before any token -- it runs nothing' \
     '                # the page: after the Host check, before any token -- it runs nothing

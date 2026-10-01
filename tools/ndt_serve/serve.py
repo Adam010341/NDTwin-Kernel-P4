@@ -7,19 +7,20 @@
     python3 tools/ndt_serve/serve.py --owner adam [--port 8765] [--ndt ~/.local/bin/ndt]
 
 It listens on 127.0.0.1 only, for one user, with no login (Adam's ruling, 09-24). The API is
-under /api/v1/. The page (the GUI cut, Adam's Q2 ruling 09-27) is three fixed files -- /,
-/app.js, /app.css from static/ -- read once at start, served with no token and running nothing;
-every other path is 404.
+under /api/v1/. The page (the GUI cut, Adam's Q2 ruling 09-27; rebuilt on React in v2) is four
+fixed files -- /, /app.js, /app.css and /manual.html from static/ -- read once at start, served
+with no token and running nothing; every other path is 404.
 
 The design red lines (TICKET section 3), and where each one lives:
 
   1. loopback only     BIND below; the Host header must be 127.0.0.1:<port> or localhost:<port>
                        (DNS rebinding); no CORS header is ever sent.
   2. CSRF              every request carries the token from ~/.config/ndt-serve/token (0600) in
-                       the X-NDT-Token header but these: GET /health, the page's three static
-                       files (GET /, /app.js, /app.css -- they run nothing), and POST /session,
-                       which trades a one-time key instead and REQUIRES the Origin to be this very
-                       origin (judge G-N17, 09-27). The token header is a custom header,
+                       the X-NDT-Token header but these: GET /health, the page's four static
+                       files (GET /, /app.js, /app.css, /manual.html -- they run nothing), and
+                       POST /session, which trades a one-time key instead and REQUIRES the
+                       Origin to be this very origin (judge G-N17, 09-27). The token header is a
+                       custom header,
                        so no browser sends it cross-origin without a preflight this server never
                        answers -- and an Origin header, when present, must be this server's; a POST
                        also needs a JSON body. 🔴 GETs are gated too (judge 09-24, finding 1): a
@@ -177,7 +178,7 @@ def write_private(path, text):
 
 
 def load_static():
-    """The page's three files, read once: the page served is the page that was there at start,
+    """The page's four files, read once: the page served is the page that was there at start,
     as every ndt call runs the ndt that was there at start."""
     out = {}
     for path, (name, ctype) in STATIC.items():
