@@ -1,60 +1,75 @@
 #!/usr/bin/env python3
-"""ndt serve's page in a real browser: SCOPE section 6, the page rows G12-G14
-(doc/audit/2026-09-27_ndt-serve-gui/SCOPE.md).
+"""ndt serve's page (v2: React, built into tools/ndt_serve/static) in a real headless Chrome:
+SCOPE-v2 section 5, one named case per guarantee (doc/audit/2026-09-27_ndt-serve-gui/SCOPE-v2.md).
 
 [Co-developed with claude code -- Adam]
 
-What only a browser can show about tools/ndt_serve/static/app.js, because it is about what the
-page DOES once it runs, not about how it is spelled:
+What only a browser can show, because it is about what the page DOES once it runs, asserted from
+what Chrome reports (tests/browser/cdp_pipe.py, the DevTools protocol over a pipe) and from what
+the server and the stub ndt recorded -- never from the page's word alone where the server has one:
 
-  G12  the one-time key leaves the address bar (history.replaceState) and is traded for the
-       token -- once: the key the page used is refused afterwards;
-  G13  the token lives in the page's memory only: nothing in localStorage, sessionStorage or
-       document.cookie, and neither the token nor the key anywhere in the rendered DOM or, for the
-       token, in any file of the browser profile;
-  G14  loading the page writes nothing: the stub ndt sees only plain `status`, no job exists,
-       and the only non-GET request the server logged is the key trade (POST /api/v1/session);
-
-plus the two refusals: a used key opens nothing (no session, no ndt call) and neither does a URL
-with no key at all.
+  the token      not in the DOM (outerHTML), localStorage, sessionStorage, document.cookie,
+                 indexedDB.databases(), nor in any file of the Chrome profile (UTF-8 and UTF-16LE,
+                 after Chrome has ended and flushed it)                              Load, Profile
+  the key        traded exactly once (the server log holds one POST /api/v1/session), and gone
+                 from location.href; a used key and a URL with no key open nothing          Load
+  loading        writes nothing: only GETs and the one key trade in the server log, and the stub
+                 ndt sees only `status` and `apps status`                                   Load
+  CSP            <body data-csp-violations> is "0" after the page has been used             Load
+  confirm        how hard the dialog asks is the server's (confirm_policy, needs_own_claim), plus
+                 the page's measuring rule; focus starts on Cancel, Enter on Confirm does nothing,
+                 a double click posts once                                               Confirm
+  dry run        the argv in the dialog is the argv the server's dry run answered (read from
+                 Chrome's own network record), and the write is posted after that dry run Confirm
+  auto-refresh   10 s while shown and idle; nothing while measuring, while a measurement is
+                 declared, or while the page is hidden (a second target really hides it), and a
+                 read as soon as it is shown again                                       Refresh
+  job log        2 s while the job runs; nothing after Close, after the job ended, or while the
+                 page is hidden                                                           JobLog
 
     JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh python3 tests/browser/test_ndt_serve_page.py
-    NDT_SERVE_UNDER_TEST=/tmp/x/tools/ndt_serve ... (a mutant tree -- tests/shell/mutate_ndt_serve_page.sh)
+    ... python3 tests/browser/test_ndt_serve_page.py Confirm.test_a_double_click_posts_once   # one case
+    NDT_SERVE_UNDER_TEST=/tmp/x/tools/ndt_serve ...   (a mutant tree: tests/shell/mutate_ndt_serve_page.sh)
 
-WHY tests/browser/ AND NOT tests/python/: CI's L1 lane globs tests/python/test_*.py and
-tests/shell/test_*.sh and fails any suite that skips; CI has no Chrome, so every case here would
-skip there. This directory is outside that glob on purpose.
+WHY tests/browser/ AND NOT tests/python/: CI's L1 lane globs tests/python/test_*.py and fails any
+suite that skips; CI has no Chrome, so every case here would skip there.
 
-WHEN IT SKIPS (every case, with the reason in unittest's output): google-chrome is not installed;
-or it is not running inside tools/build_guard/guarded_build.sh (NDTWIN_GUARD_HELD unset) -- on
-this laptop systemd-oomd has twice killed Adam's own application under memory pressure, and a
-browser is the one thing in this suite that can make some. A skipped case proves nothing, which is
-why the mutation gate refuses a baseline with a skip in it.
+WHEN IT SKIPS (every case, with the reason): google-chrome is not installed; or it is not running
+inside tools/build_guard/guarded_build.sh (NDTWIN_GUARD_HELD unset) -- systemd-oomd on this laptop
+has killed Adam's own application under memory pressure, and a browser can make some. A skipped
+case proves nothing, which is why the mutation gate refuses a baseline with a skip in it.
 
-HOW A CASE RUNS: its own stub server (tests/python/test_ndt_serve.py's Serve: a stub ndt that
-records every call to calls.jsonl, no real ndt, no lab), with HOME inside the case's temp dir and
-XDG_CONFIG_HOME / XDG_STATE_HOME unset, so no default path reaches the real ~. The page URL is the
-one the server wrote to the 0600 `url` file beside its token file (its stdout is not a terminal).
-Then ONE Chrome at a time -- headless, a fresh profile inside the case's temp dir, the same HOME --
-dumps the DOM once the page's own fetches are done. Chrome is started in a session and process
-group of its own. After it exits, no process may remain in that session or that group, or carry
-the profile directory in its cmdline. A Chrome that runs past its timeout, and a leftover in that
-group, get the GROUP SIGKILLed -- the group this file created, by the pid it recorded -- and the
-case fails naming the pids; nothing else is ever signalled, and no process is looked up by name.
+HOW A CASE RUNS: ONE Chrome per test class (cdp_pipe.Chrome: its own session and process group, a
+profile, HOME and TMPDIR inside the class's temp dir, no NDT_* and no XDG_* from the shell). Each
+case gets its own stub server (test_ndt_serve_gui.GuiServe: stub ndt recording to calls.jsonl, no
+real ndt, no lab, its own HOME) and its own page -- a new target, which is the visible one; the case's
+targets are closed when it ends. The page URL is the one the server wrote to its 0600 `url` file.
+When the class ends, Chrome is closed and nothing may be left in its session or group or naming
+its profile ("chrome leftovers (<class>): N" on stderr; N > 0 fails the class). Only the group
+cdp_pipe created is ever signalled; no process is looked up by name.
 
-The page reports through data-* attributes on <body> (app.js, hook()): data-href (location.href
-after the wipe), data-session (ok | refused | no-key), data-storage ({"local":N,"session":N,
-"cookie":"..."}), data-loaded (yes | no-session | no-meta). The token never goes there.
+TIME: the auto-refresh (10 s) and the job log (2 s) are measured in real time -- a window just
+longer than the interval for "nothing was read", the spec's 25 s for "it does read". No virtual
+time: it stops while a fetch is pending, which is exactly what is being counted. The whole suite
+is about 2 minutes, most of it the Refresh class.
+
+THE PAGE'S HOOKS (web/src/testhooks.ts): data-href, data-session (ok | refused | no-key),
+data-storage, data-loaded (yes | no-session | no-meta), data-csp-violations, data-refresh. They
+are read where they ARE the guarantee (the CSP counter) or to know the page has finished loading;
+everything else is read from Chrome or from the server's log.
+
+THE SERVER'S LOG (serve.py log_message, stderr): `HH:MM:SS "GET /api/v1/lab HTTP/1.1" 200 -`, one
+line per request when its answer starts. A dry run and a real write are the same POST line;
+they differ by status: a dry run answers 200, a write that starts a job 202. The cases never send
+their own requests to a path they count while counting it (a job's end is read from its exit.json).
 
 tests/shell/mutate_ndt_serve_page.sh is this file's mutation gate.
 """
-import html
 import json
 import os
 import re
 import shutil
 import signal
-import subprocess
 import sys
 import tempfile
 import time
@@ -63,7 +78,10 @@ import unittest
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, os.path.join(REPO, "tests", "python"))
-import test_ndt_serve as base  # noqa: E402 -- Serve, the stub ndt; honours NDT_SERVE_UNDER_TEST
+sys.path.insert(0, HERE)
+import cdp_pipe  # noqa: E402
+import test_ndt_serve as base  # noqa: E402 -- the stub ndt; honours NDT_SERVE_UNDER_TEST
+import test_ndt_serve_gui as gui  # noqa: E402 -- GuiServe: a Serve with its own HOME and url file
 from test_ndt_serve import tearDownModule  # noqa: E402,F401 -- the same leftover-server sweep
 
 CHROME = shutil.which("google-chrome")
@@ -72,65 +90,56 @@ NO_CHROME = "google-chrome is not installed (CI has none): the page cases need a
 NO_GUARD = ("not inside tools/build_guard/guarded_build.sh: headless Chrome runs only under the guard on "
             "this laptop (systemd-oomd) -- JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh "
             "python3 tests/browser/test_ndt_serve_page.py")
-
-CHROME_TIMEOUT_S = 60
-LEFTOVER_GRACE_S = 5       # a child still on its way out when the main process is reaped
-STATUS = "lab\n  claim          yours -- 30m left (until 23:59:00)\n  measuring      nothing\n"
-SERVER_XDG = ("XDG_CONFIG_HOME", "XDG_STATE_HOME")
 CHROME_XDG = ("XDG_CONFIG_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME")
+# Chrome's SingletonSocket is a unix socket at $TMPDIR/com.google.Chrome.XXXXXX/SingletonSocket, and
+# a path longer than sun_path holds is FATAL at start ("Socket path too long", measured 10-01 with a
+# 107-byte TMPDIR): every case would then fail on a broken pipe, saying nothing about the page.
+SOCKET_PATH_MAX = 107
 
-URL_RE = re.compile(r"http://127\.0\.0\.1:(\d+)/#k=([A-Za-z0-9_-]{16,64})")
-# <body ...>, with a quoted value allowed to hold any byte but a double quote (Chrome writes " as &quot;)
-BODY_RE = re.compile(r'<body((?:\s+[^\s=>"]+(?:="[^"]*")?)*)\s*>')
-ATTR_RE = re.compile(r'([^\s=>"]+)(?:="([^"]*)")?')
-# the server's access log line (serve.py log_message): HH:MM:SS "POST /api/v1/session HTTP/1.1" 200 -
+# `ndt status` as the stub answers it. The server reads three rows (claim, measuring, declared);
+# the own-claim form is ndt's claim_line (serve.py OWN_CLAIM).
+IDLE = "lab\n  claim          yours -- 30m left (until 23:59:00)\n  measuring      nothing\n"
+MEASURING = "lab\n  claim          yours -- 30m left (until 23:59:00)\n  measuring      iperf3 (pid 4242)\n"
+DECLARED = ("lab\n  claim          yours -- 30m left (until 23:59:00)\n"
+            "  declared       iperf3 matrix   (claim measuring=; 'ndt check' refuses while set)\n"
+            "  measuring      nothing\n")
+FOREIGN = "lab\n  claim          someone -- 10m left (until 23:59:00)\n  measuring      nothing\n"
+
+REFRESH_S = 10            # web/src/hooks/useAutoRefresh.ts REFRESH_INTERVAL_MS
+JOB_LOG_S = 2             # web/src/hooks/useJobLog.ts JOB_LOG_INTERVAL_MS
+QUIET_S = REFRESH_S + 2   # "nothing was read": one interval and a margin
+LOG_QUIET_S = 2 * JOB_LOG_S + 1.5
+READING_S = 25            # SCOPE-v2 section 5: >= 2 reads in about 25 s
+
 REQUEST_RE = re.compile(r'"([A-Z]+) (\S+) HTTP/[0-9.]+" (\d{3})')
+TICK_RE = re.compile(r"/api/v1/(lab|apps|health|jobs)")      # what one auto-refresh tick reads
+with open(os.path.join(REPO, "tools", "ndt_serve", "web", "src", "i18n", "zh.json"), encoding="utf-8") as _f:
+    CLAIM_FIRST = json.load(_f)["ndtServe"]["confirm"]["blockClaim"]
 
+DIALOG_JS = """(() => {
+  const $ = (id) => document.getElementById(id);
+  const d = $('confirm');
+  return {open: d.open, phase: d.dataset.phase, typed: !$('c-typed-row').hidden, word: $('c-word').textContent,
+          go_disabled: $('c-go').disabled, focus: document.activeElement ? document.activeElement.id : null,
+          blockers: [...document.querySelectorAll('#c-blockers li')].map((e) => e.textContent),
+          argv: [...document.querySelectorAll('#c-argv code')].map((e) => e.textContent)};
+})()"""
+READY_JS = "document.getElementById('confirm').open && document.getElementById('confirm').dataset.phase === 'ready'"
+CLOSED_JS = "!document.getElementById('confirm').open && document.getElementById('confirm').dataset.phase === 'closed'"
+STORAGE_JS = """(async () => {
+  const dump = (s) => { const o = {}; for (let i = 0; i < s.length; i++) o[s.key(i)] = s.getItem(s.key(i)); return o; };
+  return {local: dump(localStorage), session: dump(sessionStorage), cookie: document.cookie,
+          indexeddb: await indexedDB.databases()};
+})()"""
+BOX_JS = """(() => { const e = document.getElementById(%s); if (!e) return null; e.scrollIntoView({block: 'center'});
+  const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2, r.width, r.height]; })()"""
 
-def chrome_argv(profile, url):
-    # The 09-27 invocation the parent session verified, plus four switches that keep a throwaway
-    # profile from reaching anything beyond this page: no component/background fetches, no sync,
-    # and a plain password store instead of the desktop keyring.
-    return [CHROME, "--headless=new", "--no-first-run", "--no-default-browser-check",
-            "--user-data-dir=" + profile, "--disable-background-networking", "--disable-component-update",
-            "--disable-sync", "--password-store=basic", "--virtual-time-budget=8000", "--dump-dom", url]
-
-
-def processes():
-    """(pid, pgrp, sid, state, cmdline bytes) of every process /proc lists now. One that exits
-    while it is being read is skipped. Read by pid from /proc, never looked up by name."""
-    rows = []
-    for d in os.listdir("/proc"):
-        if not d.isdigit():
-            continue
-        try:
-            with open("/proc/%s/stat" % d) as f:
-                rest = f.read().rsplit(")", 1)[1].split()
-            with open("/proc/%s/cmdline" % d, "rb") as f:
-                cmd = f.read()
-        except OSError:
-            continue
-        rows.append((int(d), int(rest[2]), int(rest[3]), rest[0], cmd))
-    return rows
-
-
-def leftovers(pid, profile):
-    """Every process in the session or the process group Chrome was started as (both numbered by
-    its pid), and every process whose cmdline names its profile directory -- detection only."""
-    mark = profile.encode()
-    return [r for r in processes() if r[1] == pid or r[2] == pid or mark in r[4]]
+OPEN_CLASSES = []   # classes whose Chrome is running -- closed in __main__'s finally on an interrupt
 
 
 def describe(rows):
-    return "; ".join("pid %d pgrp %d sid %d state %s: %s" % (p, g, s, st, c.replace(b"\0", b" ")[:160].decode(
-        "utf-8", "replace")) for p, g, s, st, c in rows)
-
-
-def body_attrs(dump):
-    tags = BODY_RE.findall(dump)
-    if len(tags) != 1:
-        raise AssertionError("the dump holds %d <body> tags, not 1: %r" % (len(tags), dump[:400]))
-    return {k: html.unescape(v or "") for k, v in ATTR_RE.findall(tags[0])}
+    return "; ".join("pid %d pgrp %d sid %d: %s" % (p, g, s, c.replace(b"\0", b" ")[:160].decode("utf-8", "replace"))
+                     for p, g, s, c in rows)
 
 
 def files_holding(root, secret):
@@ -151,167 +160,540 @@ def files_holding(root, secret):
     return hits
 
 
+def until(fn, timeout, interval=0.2):
+    """fn() once it is true, or its last value when `timeout` s have passed."""
+    end = time.monotonic() + timeout
+    while True:
+        v = fn()
+        if v or time.monotonic() > end:
+            return v
+        time.sleep(interval)
+
+
+def hook(p, name):
+    return p.eval("document.body.dataset[%s] ?? null" % json.dumps(name))
+
+
+def double_click(p, element_id):
+    """Two real clicks on the element (press, release, press, release; clickCount 1 then 2), sent to
+    Chrome back to back without waiting for any of them to be handled: as fast as a mouse can go,
+    so the page gets no round trip of ours between the two in which to re-render."""
+    box = p.eval(BOX_JS % json.dumps(element_id))
+    if not box or box[2] == 0 or box[3] == 0:
+        raise cdp_pipe.CdpError("no visible element #%s" % element_id)
+    p.call("Input.dispatchMouseEvent", {"type": "mouseMoved", "x": box[0], "y": box[1]})
+    pending = set()
+    for kind, n in (("mousePressed", 1), ("mouseReleased", 1), ("mousePressed", 2), ("mouseReleased", 2)):
+        pending.add(p.chrome.send("Input.dispatchMouseEvent", {"type": kind, "x": box[0], "y": box[1],
+                                                               "button": "left", "clickCount": n}, p.session))
+
+    def answered(m):
+        if m.get("id") in pending:
+            pending.discard(m["id"])
+            if "error" in m:
+                raise cdp_pipe.CdpError("Input.dispatchMouseEvent: %s" % m["error"].get("message"))
+        return True if not pending else None
+    p.chrome._pump(answered, 20)
+
+
 @unittest.skipUnless(CHROME, NO_CHROME)          # outermost: its reason wins when both are missing
 @unittest.skipUnless(GUARD_HELD, NO_GUARD)
-class PageSession(unittest.TestCase):
-    def setUp(self):
-        tmp = tempfile.mkdtemp(prefix="ndt-serve-page-")
-        self.home = os.path.join(tmp, "home")
-        os.makedirs(self.home)
-        self.s = base.Serve(tmp=tmp, env={"HOME": self.home})
-        for k in SERVER_XDG:
-            self.s.env.pop(k, None)
-        self.addCleanup(self.s.close)     # also removes tmp, profiles included -- after Chrome is gone
-        self.s.behave(status={"stdout": STATUS})
-        self.s.start()
+class PageCase(unittest.TestCase):
+    """One Chrome for the class; per case a stub server and a page of its own."""
 
-    # --- helpers ---
-    def page_url(self):
-        """The one-time URL the server wrote beside its token file, and its key."""
-        path = os.path.join(os.path.dirname(self.s.token_file), "url")
-        deadline = time.monotonic() + 10
-        while not os.path.exists(path) and time.monotonic() < deadline:
-            time.sleep(0.05)
-        text = base._read(path).strip()
-        m = URL_RE.fullmatch(text)
-        self.assertIsNotNone(m, "the url file does not hold a page URL with a key: %r" % text)
-        self.assertEqual(int(m.group(1)), self.s.port, "the url file names another port")
-        return text, m.group(2)
-
-    def open_page(self, url):
-        """One headless Chrome on `url`, to the end: -> (<body> data-* attributes, the dump, the
-        profile directory). Fails on a timeout, a non-zero exit, or any leftover process."""
-        profile = tempfile.mkdtemp(prefix="chrome-profile-", dir=self.s.tmp)
-        out, err = profile + ".dump", profile + ".stderr"
+    @classmethod
+    def setUpClass(cls):
+        cls.root = tempfile.mkdtemp(prefix="ndt-page-")    # short: Chrome's socket path is under it
+        sock = os.path.join(cls.root, "com.google.Chrome.XXXXXX", "SingletonSocket")
+        if len(sock.encode()) > SOCKET_PATH_MAX:
+            shutil.rmtree(cls.root, ignore_errors=True)
+            raise RuntimeError("TMPDIR is too long for Chrome's SingletonSocket (%d > %d bytes): %s -- use a "
+                               "shorter TMPDIR" % (len(sock.encode()), SOCKET_PATH_MAX, sock))
+        cls.home = os.path.join(cls.root, "home")
+        cls.profile = os.path.join(cls.root, "chrome-profile")
+        os.makedirs(cls.home)
+        os.makedirs(cls.profile)
         env = {k: v for k, v in os.environ.items() if not k.startswith("NDT_")}
-        env["HOME"] = self.home
+        env["HOME"] = cls.home
+        env["TMPDIR"] = cls.root    # Chrome's own temp files (its socket, a url_fetcher dir) go with the class
         for k in CHROME_XDG:
             env.pop(k, None)
-        with open(out, "wb") as o, open(err, "wb") as e:
-            p = subprocess.Popen(chrome_argv(profile, url), stdin=subprocess.DEVNULL, stdout=o, stderr=e,
-                                 env=env, cwd=self.s.tmp, start_new_session=True)
-        problems = []
-        try:
-            p.wait(CHROME_TIMEOUT_S)
-        except subprocess.TimeoutExpired:
-            os.killpg(p.pid, signal.SIGKILL)   # the group this test created for it
-            p.wait(10)
-            problems.append("Chrome did not finish in %d s: its process group %d was SIGKILLed"
-                            % (CHROME_TIMEOUT_S, p.pid))
-        except BaseException:                  # interrupted (SIGTERM from the gate's timeout, ^C)
-            os.killpg(p.pid, signal.SIGKILL)
-            p.wait(10)
-            raise
-        left = leftovers(p.pid, profile)
-        deadline = time.monotonic() + LEFTOVER_GRACE_S
-        while left and time.monotonic() < deadline:
-            time.sleep(0.1)
-            left = leftovers(p.pid, profile)
-        if left:
-            if any(r[1] == p.pid for r in left):
-                try:
-                    os.killpg(p.pid, signal.SIGKILL)   # our group, and only our group
-                except ProcessLookupError:
-                    pass
-                problems.append("processes left in Chrome's process group %d (SIGKILLed): %s"
-                                % (p.pid, describe([r for r in left if r[1] == p.pid])))
-            other = [r for r in left if r[1] != p.pid]
-            if other:
-                problems.append("processes left in Chrome's session or naming its profile (NOT signalled): %s"
-                                % describe(other))
-        if p.returncode != 0 and not problems:
-            problems.append("Chrome exited %d" % p.returncode)
-        if problems:
-            self.fail("%s\n  profile %s\n  Chrome's stderr (tail): %s"
-                      % ("\n  ".join(problems), profile, base._read(err)[-1500:]))
-        dump = base._read(out)
-        return body_attrs(dump), dump, profile
+        cls.left = None
+        cls.chrome = cdp_pipe.Chrome(cls.profile, env=env)
+        OPEN_CLASSES.append(cls)
 
-    def requests_seen(self):
+    @classmethod
+    def end_chrome(cls):
+        """Closes the class's Chrome once and answers what it left ([] for nothing)."""
+        if cls.left is None:
+            cls.left = cls.chrome.close()
+            if cls in OPEN_CLASSES:
+                OPEN_CLASSES.remove(cls)
+        return cls.left
+
+    @classmethod
+    def say_leftovers(cls):
+        # its own line, after the class's last case (the gate reads it)
+        sys.stderr.write("chrome leftovers (%s): %d%s\n" % (cls.__name__, len(cls.left),
+                                                           (" -- " + describe(cls.left)) if cls.left else ""))
+
+    @classmethod
+    def tearDownClass(cls):
+        try:
+            left = cls.end_chrome()
+            cls.say_leftovers()
+        finally:
+            shutil.rmtree(cls.root, ignore_errors=True)
+        if left:
+            raise AssertionError("Chrome left %d process(es) behind: %s" % (len(left), describe(left)))
+
+    def setUp(self):
+        self.s = gui.GuiServe()
+        self.addCleanup(self.s.close)
+        self.addCleanup(self.jobs_end)          # cleanups run last-in first-out: pages, jobs, server
+        self.beh = {"status": {"stdout": IDLE}, "apps_status": {"stdout": "energy  stopped\n"},
+                    "claim": {"stdout": "claimed\n"}}
+        self.s.behave(**self.beh)
+        self.s.start()
+        self.pages = []
+        self.addCleanup(self.close_pages)
+
+    # --- the stub, the server's log, the jobs on disk ---
+    def stub(self, status=None, **verbs):
+        """What the stub ndt answers from now on (the server reads behavior.json on every call)."""
+        if status is not None:
+            self.beh["status"] = {"stdout": status}
+        self.beh.update(verbs)
+        self.s.behave(**self.beh)
+
+    def requests(self):
         """(method, path, status) of every request the server logged, in order."""
         return [(m.group(1), m.group(2), int(m.group(3)))
                 for m in REQUEST_RE.finditer(base._read(self.s.out + ".err"))]
 
-    # --- G12 ---
-    def test_the_key_leaves_the_address_bar_and_is_traded(self):
-        url, key = self.page_url()
-        body, _, _ = self.open_page(url)
-        self.assertEqual(body.get("data-session"), "ok", "the page did not open a session: %r" % body)
-        self.assertEqual(body.get("data-href"), "http://127.0.0.1:%d/" % self.s.port,
-                         "the key is still in the address bar after the page ran")
-        trades = [st for method, path, st in self.requests_seen() if (method, path) == ("POST", "/api/v1/session")]
-        self.assertEqual(trades, [200], "the server did not see the page trade the key exactly once")
-        st, j, _, _ = self.s.request("POST", "/api/v1/session", body={"nonce": key}, token=None,
-                                     headers={"Origin": "http://127.0.0.1:%d" % self.s.port})
-        self.assertEqual((st, (j or {}).get("error")), (403, "nonce"),
-                         "the key the page traded still opens a session")
+    def count(self, method, pattern):
+        return sum(1 for m, path, _ in self.requests() if m == method and re.fullmatch(pattern, path))
 
-    # --- G13 ---
-    def test_the_token_is_only_in_memory(self):
-        url, key = self.page_url()
-        body, dump, profile = self.open_page(url)
-        self.assertEqual(body.get("data-loaded"), "yes", "the page did not load: %r" % body)
-        self.assertEqual(json.loads(body.get("data-storage") or "null"), {"local": 0, "session": 0, "cookie": ""},
-                         "the page left something in browser storage")
-        token = self.s.token()
+    def tick_reads(self):
+        """{lab, apps, health, jobs}: how often the server answered each read an auto-refresh tick makes."""
+        out = {"lab": 0, "apps": 0, "health": 0, "jobs": 0}
+        for m, path, _ in self.requests():
+            hit = TICK_RE.fullmatch(path)
+            if m == "GET" and hit:
+                out[hit.group(1)] += 1
+        return out
+
+    def job_reads(self, jid):
+        """GET /jobs/<id> and /jobs/<id>/log/<stream>: the job view's reads."""
+        return self.count("GET", r"/api/v1/jobs/%s(?:/log/std(?:out|err)\?offset=\d+)?" % re.escape(jid))
+
+    def posts(self, path):
+        """The statuses the server answered POST /api/v1<path> with, in order (200: a dry run)."""
+        return [st for m, pth, st in self.requests() if m == "POST" and pth == "/api/v1" + path]
+
+    def job_ended(self, jid):
+        return os.path.exists(os.path.join(self.s.state, "jobs", jid, "exit.json"))
+
+    def jobs_end(self):
+        until(lambda: not any(self.s.job_running_on_disk()), 20)
+
+    def ndt_calls(self, verb):
+        return [c["argv"] for c in self.s.calls() if c["argv"][:1] == [verb]]
+
+    # --- Chrome ---
+    def pause(self, seconds):
+        """Real time, with Chrome's pipe read every half second (it must never fill up)."""
+        end = time.monotonic() + seconds
+        while True:
+            left = end - time.monotonic()
+            if left <= 0:
+                return
+            time.sleep(min(left, 0.5))
+            self.chrome.call("Browser.getVersion")
+
+    def open_page(self, url=None, network=False):
+        p = self.chrome.page()
+        self.pages.append(p)
+        if network:
+            p.call("Network.enable")
+        p.navigate(url or base._read(self.s.url_file()).strip())
+        return p
+
+    def load(self, network=False):
+        p = self.open_page(network=network)
+        p.wait_for("document.body.dataset.loaded", 20)
+        self.assertEqual(hook(p, "loaded"), "yes", "the page did not load: %r"
+                         % p.eval("Object.assign({}, document.body.dataset)"))
+        return p
+
+    def close_pages(self):
+        if self.left is not None:
+            return
+        for p in self.pages:
+            try:
+                self.chrome.call("Target.closeTarget", {"targetId": p.target}, timeout=10)
+            except cdp_pipe.CdpError:
+                pass
+
+    def hide(self, p):
+        """A second target: Chrome makes `p` really hidden (cdp_pipe's docstring). Answers the new one."""
+        q = self.chrome.page()
+        self.pages.append(q)
+        p.wait_for("document.visibilityState === 'hidden'", 10)
+        return q
+
+    def show(self, p):
+        p.activate()
+        p.wait_for("document.visibilityState === 'visible'", 10)
+
+    # --- the dialog ---
+    def dialog(self, p, button):
+        """Opens the confirm dialog from the 操作 tab's `button` and waits until it is ready."""
+        if p.eval("document.getElementById('panel-actions').hidden"):
+            p.click("tab-actions")
+        p.click(button)
+        p.wait_for(READY_JS, 20)
+        return p.eval(DIALOG_JS)
+
+    def cancel(self, p):
+        p.click("c-cancel")
+        p.wait_for(CLOSED_JS, 10)
+
+    def settle(self, p, seconds=0.3):
+        self.pause(seconds)
+        return p.eval(DIALOG_JS)
+
+    def start_job(self, p, sleep):
+        """A claim through the dialog, its stub running `sleep` s: the job panel opens and follows it."""
+        self.stub(claim={"stdout": "claimed\n", "sleep": sleep})
+        self.dialog(p, "do-claim")
+        p.click("c-go")
+        p.wait_for("!document.getElementById('job').hidden && !!document.getElementById('job-id')", 20)
+        jid = p.eval("document.getElementById('job-id').dataset.fullId")
+        self.assertTrue(os.path.isdir(os.path.join(self.s.state, "jobs", jid)), "the page opened job %r, which "
+                        "the server does not have" % jid)
+        self.assertTrue(until(lambda: self.job_reads(jid) >= 2, 10), "the job panel never read job %s" % jid)
+        return jid
+
+
+# --- the token, the key, loading, CSP ---------------------------------------------------------
+
+class Load(PageCase):
+    def exercise(self, p):
+        """Use the page a little: every tab, and the claim dialog opened (its dry run) and cancelled."""
+        for t in ("actions", "apps", "jobs", "cells", "lab"):
+            p.click("tab-" + t)
+        self.dialog(p, "do-claim")
+        self.cancel(p)
+
+    def test_the_key_leaves_the_address_bar(self):
+        p = self.load()
+        want = "http://127.0.0.1:%d/" % self.s.port
+        href = p.eval("location.href")
+        self.assertNotIn("#", href, "the key is still in the address bar after the page ran: %s" % href)
+        self.assertEqual((href, hook(p, "href")), (want, want), "location.href, and the page's data-href")
+
+    def test_the_key_is_traded_exactly_once(self):
+        key = self.s.key()
+        p = self.load()
+        self.exercise(p)
+        trades = self.posts("/session")
+        self.assertEqual(trades, [200], "the server logged %d key trade(s) (POST /api/v1/session), not exactly one "
+                         "answered 200: %r" % (len(trades), trades))
+        st, j = self.s.trade(key)
+        self.assertEqual((st, (j or {}).get("error")), (403, "nonce"), "the key the page traded still opens a session")
+
+    def test_the_token_is_not_in_the_dom(self):
+        key, token = self.s.key(), self.s.token()
         self.assertGreaterEqual(len(token), 40)
-        self.assertFalse(token in dump, "the token is in the page's DOM")
-        self.assertFalse(key in dump, "the one-time key is in the page's DOM")
-        self.assertEqual(files_holding(profile, token), [], "the token is in a file of the browser profile")
+        p = self.load()
+        self.exercise(p)
+        html = p.eval("document.documentElement.outerHTML")
+        self.assertNotIn(token, html, "the token is in the page's DOM")
+        self.assertNotIn(key, html, "the one-time key is in the page's DOM")
 
-    # --- G14 ---
+    def test_the_token_is_not_in_browser_storage(self):
+        token = self.s.token()
+        p = self.load()
+        self.exercise(p)
+        st = p.eval(STORAGE_JS)
+        self.assertNotIn(token, json.dumps(st), "the token is in browser storage: %r" % st)
+        self.assertEqual(st, {"local": {}, "session": {}, "cookie": "", "indexeddb": []},
+                         "the page left something in browser storage")
+        self.assertEqual(json.loads(hook(p, "storage") or "null"), {"local": 0, "session": 0, "cookie": ""},
+                         "the page's own data-storage hook")
+
     def test_loading_the_page_writes_nothing(self):
-        url, _ = self.page_url()
-        body, _, _ = self.open_page(url)
-        self.assertEqual(body.get("data-loaded"), "yes", "the page did not load: %r" % body)
+        p = self.load()
+        self.pause(1.5)                         # anything the load still had on its way
+        self.jobs_end()
         problems = []
-        st, j, _, _ = self.s.get("/jobs")
-        jobs = j.get("jobs") if st == 200 and isinstance(j, dict) else None
-        if jobs != []:
-            problems.append("GET /jobs after loading the page answered %d with %r" % (st, jobs))
-            for job in jobs or []:
-                try:
-                    self.s.wait(job["id"])     # so the stub has recorded what the job ran
-                except (AssertionError, OSError, KeyError, TypeError):
-                    pass                       # already a problem; the calls below say what ran
-        argvs = [c["argv"] for c in self.s.calls()]
-        if not argvs:
-            problems.append("the stub saw no call at all: the page never read the lab, so this checked nothing")
-        writes = [a for a in argvs if a != ["status"]]
-        if writes:
-            problems.append("the stub saw calls other than plain status: %r" % writes)
-        not_get = [(method, path, code) for method, path, code in self.requests_seen() if method != "GET"]
-        if not not_get:
-            problems.append("the server logged no key trade (POST /api/v1/session): nothing was loaded")
-        others = [r for r in not_get if r[:2] != ("POST", "/api/v1/session")]
-        if others:
-            problems.append("the page's load made requests that are not the key trade: %r" % others)
-        self.assertEqual(problems, [], "loading the page writes")
+        jobs = [os.path.basename(d) for d in sorted(os.listdir(os.path.join(self.s.state, "jobs")))] \
+            if os.path.isdir(os.path.join(self.s.state, "jobs")) else []
+        if jobs:
+            problems.append("the server holds job(s) %r" % jobs)
+        argvs = sorted(set(" ".join(c["argv"]) for c in self.s.calls()))
+        if argvs != ["apps status", "status"]:
+            problems.append("the stub ndt saw %r, not exactly `status` and `apps status`" % argvs)
+        not_get = [r for r in self.requests() if r[0] != "GET"]
+        if not_get != [("POST", "/api/v1/session", 200)]:
+            problems.append("the requests other than GET were %r, not the one key trade" % not_get)
+        self.assertEqual(problems, [], "loading the page wrote (data-loaded=%s)" % hook(p, "loaded"))
 
-    # --- the refusals ---
     def test_a_used_key_opens_nothing(self):
-        url, _ = self.page_url()
-        first, _, _ = self.open_page(url)
-        self.assertEqual((first.get("data-session"), first.get("data-loaded")), ("ok", "yes"),
-                         "the first load, the one the second is held against, did not open")
+        url = base._read(self.s.url_file()).strip()
+        first = self.load()
+        self.assertEqual(hook(first, "session"), "ok")
         before = self.s.calls()
-        second, _, _ = self.open_page(url)
-        self.assertEqual((second.get("data-session"), second.get("data-loaded")), ("refused", "no-session"),
+        second = self.open_page(url)
+        second.wait_for("document.body.dataset.loaded", 20)
+        self.assertEqual((hook(second, "session"), hook(second, "loaded")), ("refused", "no-session"),
                          "the second load of a used key opened a session")
         self.assertEqual(self.s.calls(), before, "the second load of a used key ran ndt")
 
     def test_a_url_without_a_key_opens_nothing(self):
-        body, _, _ = self.open_page("http://127.0.0.1:%d/" % self.s.port)
-        self.assertEqual(body.get("data-session"), "no-key", "a URL with no key: %r" % body)
-        self.assertEqual(body.get("data-loaded"), "no-session", "a URL with no key: %r" % body)
-        self.assertEqual(self.s.calls(), [], "a URL with no key ran ndt")
-        self.assertEqual([r for r in self.requests_seen() if r[0] != "GET"], [],
-                         "a URL with no key made a non-GET request")
+        p = self.open_page("http://127.0.0.1:%d/" % self.s.port)
+        p.wait_for("document.body.dataset.loaded", 20)
+        self.pause(1)
+        seen = (hook(p, "session"), hook(p, "loaded"), self.s.calls(), [r for r in self.requests() if r[0] != "GET"])
+        self.assertEqual(seen, ("no-key", "no-session", [], []),
+                         "a URL with no key: (data-session, data-loaded, ndt calls, non-GET requests)")
+
+    def test_the_page_sees_no_csp_violation(self):
+        p = self.load()
+        self.exercise(p)
+        n = hook(p, "cspViolations")
+        self.assertEqual(n, "0", "the page counted %s CSP violation(s) (data-csp-violations)" % n)
+
+
+class Profile(PageCase):
+    def test_the_token_is_in_no_file_of_the_profile(self):
+        token = self.s.token()
+        p = self.load()
+        self.dialog(p, "do-claim")
+        self.cancel(p)
+        self.pause(1)
+        left = self.end_chrome()                # ended and flushed: what is on disk now is all of it
+        self.assertEqual(left, [], "Chrome left processes behind: %s" % describe(left))
+        self.assertEqual(files_holding(self.profile, token), [], "the token is in a file of the browser profile")
+
+
+# --- the confirm dialog ------------------------------------------------------------------------
+
+class Confirm(PageCase):
+    def test_up_asks_for_the_typed_word(self):
+        p = self.load()
+        d = self.dialog(p, "do-up")
+        self.assertTrue(d["typed"], "the Up dialog asks for no typed word (the server's confirm_policy says typed): "
+                        "%r" % d)
+        self.assertEqual((d["word"], d["blockers"], d["go_disabled"]), ("up", [], True),
+                         "word, blockers, and Confirm before anything is typed")
+        p.focus("c-typed")
+        p.type("u")
+        self.assertTrue(self.settle(p)["go_disabled"], "Confirm is on after typing only `u`")
+        p.type("p")
+        self.assertFalse(self.settle(p)["go_disabled"], "Confirm is still off after typing `up`")
+        self.cancel(p)
+        self.assertEqual((self.posts("/up"), self.ndt_calls("up")), ([200], []), "Cancel wrote")
+
+    def test_a_claim_not_yours_puts_claim_first(self):
+        self.stub(status=FOREIGN)
+        p = self.load()
+        d = self.dialog(p, "do-up")
+        self.assertIn(CLAIM_FIRST, d["blockers"], "no \"claim first\" blocker for Up under somebody else's claim: "
+                      "%r" % d)
+        p.focus("c-typed")
+        p.type("up")
+        self.assertTrue(self.settle(p)["go_disabled"], "Confirm is on under somebody else's claim")
+
+    def test_measuring_or_declared_makes_it_typed(self):
+        self.stub(status=MEASURING)
+        p = self.load()
+        d = self.dialog(p, "do-claim")
+        self.assertTrue(d["typed"], "no typed word for Claim while measuring: %r" % d)
+        self.assertEqual((d["word"], d["go_disabled"]), ("claim", True), "while measuring")
+        self.cancel(p)
+        self.stub(status=DECLARED)
+        d = self.dialog(p, "do-claim")
+        self.assertTrue(d["typed"], "no typed word for Claim while a measurement is declared: %r" % d)
+        self.assertEqual((d["word"], d["go_disabled"]), ("claim", True), "while a measurement is declared")
+
+    def test_claim_asks_for_no_typed_word(self):
+        p = self.load()
+        d = self.dialog(p, "do-claim")
+        self.assertFalse(d["typed"], "the Claim dialog asks for a typed word (the server says plain): %r" % d)
+        self.assertEqual((d["blockers"], d["go_disabled"]), ([], False), "blockers, and Confirm, with nothing typed")
+
+    def test_the_focus_starts_on_cancel(self):
+        p = self.load()
+        p.click("tab-actions")
+        p.click("do-claim")
+        p.wait_for("document.getElementById('confirm').open", 10)
+        opened = p.eval("document.activeElement && document.activeElement.id")
+        p.wait_for(READY_JS, 20)
+        d = self.settle(p, 0.6)
+        self.assertEqual((opened, d["focus"]), ("c-cancel", "c-cancel"),
+                         "the focus is not on Cancel (when the dialog opened, once it was ready)")
+
+    def test_enter_on_confirm_does_not_confirm(self):
+        p = self.load()
+        d = self.dialog(p, "do-claim")
+        self.assertFalse(d["go_disabled"], "precondition: Confirm is on")
+        p.focus("c-go")
+        self.assertEqual(p.eval("document.activeElement.id"), "c-go", "precondition: Confirm has the focus")
+        p.key("Enter")
+        self.pause(1.5)
+        self.jobs_end()
+        self.assertEqual((self.posts("/claim"), self.ndt_calls("claim")), ([200], []),
+                         "Enter on Confirm confirmed the write: (POST /claim statuses, ndt claim calls)")
+        self.assertTrue(p.eval("document.getElementById('confirm').open"), "Enter on Confirm closed the dialog")
+
+    def test_a_double_click_posts_once(self):
+        self.stub(claim={"stdout": "claimed\n", "sleep": 1})
+        p = self.load()
+        self.dialog(p, "do-claim")
+        double_click(p, "c-go")
+        p.wait_for(CLOSED_JS, 20)
+        self.pause(1.5)                         # a second POST, if there is one, has landed by now
+        self.jobs_end()
+        self.assertEqual((self.posts("/claim"), len(self.ndt_calls("claim"))), ([200, 202], 1),
+                         "a double click on Confirm posted more than the one write: (POST /claim statuses, "
+                         "ndt claim calls)")
+
+    def test_the_dialog_shows_the_argv_the_dry_run_answered(self):
+        p = self.load(network=True)
+        d = self.dialog(p, "do-claim")
+        answers = until(lambda: self.dry_run_answers(p, "/claim"), 10)
+        self.assertEqual(len(answers), 1, "Chrome saw %d dry-run answer(s) to POST /claim, not 1" % len(answers))
+        self.assertTrue(answers[0]["argv"], "the dry run answered no argv: %r" % answers[0])
+        self.assertEqual(d["argv"], answers[0]["argv"], "the dialog's argv is not the argv the dry run answered")
+
+    def test_the_write_is_posted_after_its_dry_run(self):
+        p = self.load()
+        shown = self.dialog(p, "do-claim")["argv"]
+        p.click("c-go")
+        p.wait_for(CLOSED_JS, 20)
+        self.jobs_end()
+        self.assertEqual(self.posts("/claim"), [200, 202], "the write was posted with no dry run before it "
+                         "(POST /claim statuses in order; 200 is the dry run, 202 the write)")
+        self.assertEqual(self.ndt_calls("claim"), [shown[1:]], "the write ran another argv than the dialog showed "
+                         "(%r)" % shown)
+
+    def dry_run_answers(self, p, path):
+        """The JSON bodies Chrome received for the page's POSTs to /api/v1<path> that were dry runs --
+        Chrome's own network record (Network.enable before the page loaded), not the page's."""
+        p.eval("1")                             # read whatever events are waiting in the pipe
+        posts, done, out = {}, set(), []
+        for e in self.chrome.events:
+            if e.get("sessionId") != p.session:
+                continue
+            if e.get("method") == "Network.requestWillBeSent":
+                r = e["params"]["request"]
+                if r["method"] == "POST" and r["url"].split("?")[0].endswith("/api/v1" + path):
+                    posts[e["params"]["requestId"]] = r["url"]
+            elif e.get("method") == "Network.loadingFinished":
+                done.add(e["params"]["requestId"])
+        for rid in posts:
+            if rid in done:
+                body = p.call("Network.getResponseBody", {"requestId": rid})
+                j = json.loads(body["body"]) if not body.get("base64Encoded") else None
+                if isinstance(j, dict) and j.get("dry_run") is True:
+                    out.append(j)
+        return out
+
+
+# --- the auto-refresh ---------------------------------------------------------------------------
+
+class Refresh(PageCase):
+    def test_refresh_reads_while_shown_and_idle(self):
+        p = self.load()
+        self.assertEqual(p.eval("document.visibilityState"), "visible", "precondition: the page is shown")
+        n0 = self.tick_reads()["lab"]           # the load's own read
+        until(lambda: self.tick_reads()["lab"] - n0 >= 2, READING_S)
+        n = self.tick_reads()["lab"] - n0
+        self.assertGreaterEqual(n, 2, "%d timer read(s) of /lab in %d s of a shown page with nothing measuring"
+                                % (n, READING_S))
+        self.assertEqual(hook(p, "refresh"), "running")
+
+    def paused_by_the_lab(self, status, why):
+        self.stub(status=status)
+        p = self.load()
+        before = self.tick_reads()
+        self.pause(QUIET_S)
+        after = self.tick_reads()
+        self.assertEqual(after, before, "the page read %r in %d s while %s (before %r)" % (after, QUIET_S, why, before))
+        self.assertEqual(hook(p, "refresh"), "paused-measuring")
+        # only 立即更新 resumes it, and only once nothing measures (SCOPE-v2 section 6)
+        self.stub(status=IDLE)
+        p.click("refresh-now")
+        p.wait_for("document.body.dataset.refresh === 'running'", 10)
+        self.assertEqual(self.tick_reads()["lab"], after["lab"] + 1, "立即更新 read /lab other than once")
+
+    def test_refresh_stops_while_measuring(self):
+        self.paused_by_the_lab(MEASURING, "ndt status said measuring")
+
+    def test_refresh_stops_while_declared(self):
+        self.paused_by_the_lab(DECLARED, "a measurement was declared")
+
+    def test_refresh_stops_while_hidden_and_resumes_when_shown(self):
+        p = self.load()
+        self.hide(p)
+        self.pause(0.5)
+        before = self.tick_reads()
+        self.pause(QUIET_S)
+        after = self.tick_reads()
+        self.assertEqual(after, before, "the page read %r in %d s while the page was hidden (before %r)"
+                         % (after, QUIET_S, before))
+        self.show(p)
+        self.assertTrue(until(lambda: self.tick_reads()["lab"] > after["lab"], 4),
+                        "no read of /lab after the page was shown again")
+        p.wait_for("document.body.dataset.refresh === 'running'", 5)
+
+
+# --- the job log ----------------------------------------------------------------------------------
+
+class JobLog(PageCase):
+    def test_job_log_stops_on_close(self):
+        p = self.load()
+        jid = self.start_job(p, sleep=10)
+        p.click("job-close")
+        p.wait_for("document.getElementById('job').hidden", 5)
+        self.pause(0.5)
+        n = self.job_reads(jid)
+        self.pause(LOG_QUIET_S)
+        self.assertFalse(self.job_ended(jid), "precondition: the job is still running")
+        self.assertEqual(self.job_reads(jid), n, "the page read job %s %d more time(s) after the job panel was closed"
+                         % (jid, self.job_reads(jid) - n))
+
+    def test_job_log_stops_when_the_job_ends(self):
+        p = self.load()
+        jid = self.start_job(p, sleep=1)
+        self.assertTrue(until(lambda: self.job_ended(jid), 15), "the job did not end")
+        p.wait_for("document.getElementById('job-stdout').textContent.includes('claimed')", 2 * JOB_LOG_S + 3)
+        self.pause(JOB_LOG_S + 1)               # the read that sees it ended
+        n = self.job_reads(jid)
+        self.pause(LOG_QUIET_S)
+        self.assertEqual(self.job_reads(jid), n, "the page read job %s %d more time(s) after the job ended"
+                         % (jid, self.job_reads(jid) - n))
+
+    def test_job_log_stops_while_hidden_and_resumes(self):
+        p = self.load()
+        jid = self.start_job(p, sleep=12)
+        self.hide(p)
+        self.pause(1)
+        n = self.job_reads(jid)
+        self.pause(LOG_QUIET_S)
+        self.assertFalse(self.job_ended(jid), "precondition: the job is still running")
+        self.assertEqual(self.job_reads(jid), n, "the page read job %s's job log while the page was hidden (%d time(s))"
+                         % (jid, self.job_reads(jid) - n))
+        self.show(p)
+        self.assertTrue(until(lambda: self.job_reads(jid) > n, 2 * JOB_LOG_S),
+                        "the job log was not read again after the page was shown")
 
 
 def _interrupted(signum, frame):
-    # SIGTERM (the gate's `timeout`) becomes ^C, so open_page's handler kills the Chrome group it
-    # started and the finally below stops the servers, instead of both outliving this process.
+    # SIGTERM (the gate's `timeout`) becomes ^C, so the finally below closes the Chromes and
+    # stops the servers this file started, instead of both outliving it.
     raise KeyboardInterrupt("signal %d" % signum)
 
 
@@ -320,4 +702,7 @@ if __name__ == "__main__":
     try:
         unittest.main(verbosity=2)
     finally:
+        for c in list(OPEN_CLASSES):
+            c.end_chrome()
+            c.say_leftovers()
         tearDownModule()
