@@ -8,7 +8,7 @@ reaches it through a one-time URL #fragment, kept in memory only (Q3). The orche
 of doc/audit/2026-09-27_ndt-serve-gui/SCOPE.md made the fragment a ONE-TIME KEY traded for the
 token. These cases pin the server's side of that, against the stub ndt of test_ndt_serve.Serve:
 
-  * the page's three files need no token, run nothing, obey the Host check and carry a CSP that
+  * the page's four files need no token, run nothing, obey the Host check and carry a CSP that
     allows no inline script, no other origin and no frame;
   * the start-up URL carries a key, never the token, and goes to a terminal or to a 0600 file --
     never into a log; a key trades once, within its time, from this very origin, in a JSON body;
@@ -158,7 +158,7 @@ def csp_of(headers):
     return out
 
 
-# --- the page's three files --------------------------------------------------------------------
+# --- the page's four files ---------------------------------------------------------------------
 
 class Page(unittest.TestCase):
     def setUp(self):
