@@ -68,9 +68,11 @@ APP_CSS="$REPO/tools/ndt_serve/static/app.css"
 MANUAL_HTML="$REPO/tools/ndt_serve/static/manual.html"
 BUILD_JSON="$REPO/tools/ndt_serve/static/BUILD.json"
 SUBJECTS=("$SERVE_PY" "$VERBS_PY" "$JOBS_PY" "$RUNNER_PY" "$CELLS_PY" "$DEMO_PY" "$README_MD" "$NDT")
-mapfile -t PAGE_FILES < <(find "$WEB_DIR" "$STATIC_DIR" \( -path "$WEB_DIR/node_modules" -o -path "$WEB_DIR/dist" \) \
-                               -prune -o -type f -print | LC_ALL=C sort)
-# one line, not a continuation: check_gate_anchors.py reads a line that starts "$X" "$Y" as a call
+# a while loop, not mapfile: check_gate_anchors.py reads any command but a few it knows (while, find)
+# whose path argument is followed by a quoted one as a mutation call
+PAGE_FILES=()
+while IFS= read -r f; do PAGE_FILES+=("$f"); done < <(find "$REPO/tools/ndt_serve/web" "$REPO/tools/ndt_serve/static" \
+    \( -path "$WEB_DIR/node_modules" -o -path "$WEB_DIR/dist" \) -prune -o -type f -print | LC_ALL=C sort)
 SUBJECTS+=("${PAGE_FILES[@]}")
 BK=$(mktemp -d "${TMPDIR:-/tmp}/ndt-serve-mutate-XXXXXX")
 trap 'rm -rf "$BK"' EXIT
