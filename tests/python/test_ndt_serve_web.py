@@ -17,7 +17,7 @@ built files are committed. CI has no Node, so three things are held here, from f
   SourceLint     web/src/**/*.ts(x) keeps the page's rules where a reader can see them: the token
                  only in memory, one door out (fetch and the token header in api/client.ts), every
                  write through the confirm dialog, the one-time key traded once and wiped first,
-                 the job log's three stop conditions, the refresh's two pauses, every UI string in
+                 the job log's three stop conditions, the refresh's two pauses and its 60 s probe, every UI string in
                  the string table. The rules are about spelling; what the page DOES is
                  tests/browser/test_ndt_serve_page.py's (headless Chrome, under the guard).
 
@@ -235,15 +235,69 @@ class SourceLint(unittest.TestCase):
         self.assertTrue(arm, "no arm()")
         body = arm.group(1)
         armed = body.index("window.setTimeout(tick, REFRESH_INTERVAL_MS)")
-        self.assertLess(body.index('setState("paused-measuring");\n      return;'), armed)
+        self.assertLess(body.index('setState("paused-measuring");'), armed)
         self.assertLess(body.index('setState("paused-hidden");\n      return;'), armed)
-        self.assertEqual(s.count("window.setTimeout("), 1, "a timer armed past arm()")
+        # the two timers, tick and probe, are armed in arm() and nowhere else
+        self.assertEqual(s.count("window.setTimeout("), 2, "a timer armed past arm()")
+        self.assertEqual(body.count("window.setTimeout("), 2, "a timer armed past arm()")
         self.assertNotRegex(s, r"setInterval")
         tick = re.search(r"const tick = async \(\) => \{(.*?)\n  \};", s, re.S).group(1)
-        self.assertLess(tick.index('if (document.visibilityState === "hidden") {'), tick.index("await readOnce();"))
-        # shown again: a read only when the last one was not measuring
-        self.assertRegex(s, r"if \(measuring\.current\) \{\s*setState\(\"paused-measuring\"\);\s*return;\s*\}\s*"
-                            r"if \(timer\.current === null && !inFlight\.current\) void tick\(\);")
+        self.assertLess(tick.index('if (document.visibilityState === "hidden") {'),
+                        tick.index("await readOnce(readRef.current);"))
+        # shown again: a read only when the last one was not measuring; measuring, the probe is re-armed
+        self.assertRegex(s, r"if \(timer\.current !== null \|\| inFlight\.current\) return;\s*"
+                            r"if \(measuring\.current\) \{\s*arm\(\);\s*return;\s*\}\s*void tick\(\);")
+
+    def test_a_measuring_pause_probes_lab_alone_once_a_minute(self):
+        # Adam's Q6 (09-28): after a measuring pause, an automatic probe -- read-only and light
+        s = self.src["hooks/useAutoRefresh.ts"]
+        self.assertRegex(s, r"export const PROBE_INTERVAL_MS = 60_000;")
+        body = re.search(r"const arm = \(\) => \{(.*?)\n  \};", s, re.S).group(1)
+        paused = block(body, "if (measuring.current) {")
+        self.assertIsNotNone(paused, "arm() does not look at measuring")
+        # measuring: the probe, and only while shown; then arm() returns before the 10 s tick
+        self.assertRegex(paused, r'setState\("paused-measuring"\);\s*'
+                                 r'if \(document\.visibilityState !== "hidden"\) '
+                                 r'timer\.current = window\.setTimeout\(probe, PROBE_INTERVAL_MS\);\s*return;\s*$')
+        probe = re.search(r"const probe = async \(\) => \{(.*?)\n  \};", s, re.S)
+        self.assertTrue(probe, "no probe()")
+        probe = probe.group(1)
+        self.assertLess(probe.index('if (document.visibilityState === "hidden") {'),
+                        probe.index("await readOnce(labRef.current);"), "the probe reads while hidden")
+        self.assertNotIn("readRef", probe, "the probe reads more than /lab")
+        self.assertEqual(s.count("await readOnce(labRef.current);"), 1, "/lab alone is read past the probe")
+        # labRef is NdtServeApp's readLab, and readLab reads /lab and nothing else
+        app = self.src["NdtServeApp.tsx"]
+        self.assertIn("useAutoRefresh(meta !== null, readAll, readLab, firstRead)", app)
+        lab = block(app, "const readLab = useCallback(async (): Promise<LabAnswer | null> => {")
+        self.assertIsNotNone(lab, "no readLab")
+        self.assertEqual(re.findall(r"\bget(?:<[^>]*>)?\(\s*\"([^\"]*)\"", lab), ["/lab"], "the probe reads more than /lab")
+        self.assertNotRegex(lab, r"\b(?:post|call|fetch)\b")
+
+    def test_every_write_the_server_can_preview_is_previewed(self):
+        # a confirm request with preview: false skips the server's dry run -- and with it the argv
+        # shown and the "claim first" check (ConfirmDialog). Every write the server can dry-run
+        # (serve.py DRY_RUN_OK) asks for it; the three that cannot say so.
+        want = {
+            ("components/tabs/ActionsTab.tsx", '"/claim"'): "true",
+            ("components/tabs/ActionsTab.tsx", '"/release"'): "true",
+            ("components/tabs/ActionsTab.tsx", '"/up"'): "true",
+            ("components/tabs/ActionsTab.tsx", '"/down"'): "true",
+            ("components/tabs/AppsTab.tsx", '"/apps/" + encodeURIComponent(name) + "/" + action'): "true",
+            ("components/tabs/CellsTab.tsx", '"/cells/" + encodeURIComponent(c.name) + "/run"'): "true",
+            ("components/WalkPanel.tsx", 'path("/next")'): "true",
+            ("components/tabs/CellsTab.tsx", '"/cells/" + encodeURIComponent(c.name) + "/guided"'): "false",
+            ("components/WalkPanel.tsx", 'path("/abort")'): "false",
+            ("components/WalkPanel.tsx", 'path("/verdict")'): "false",
+        }
+        got = {}
+        for name, text in self.src.items():
+            if not name.startswith("components/") or name == "components/ConfirmDialog.tsx":
+                continue    # the requests are made in the tabs; the dialog only declares the field
+            for m in re.finditer(r"\bpath: (.+),\n((?:(?![ \t]*path: ).*\n){0,8})", text):
+                pv = re.search(r"^[ \t]*preview: (\w+),$", m.group(2), re.M)
+                got[(name, m.group(1))] = pv.group(1) if pv else None
+        self.assertEqual(got, want)
 
     def test_csp_violations_are_counted_for_the_browser_tests(self):
         s = self.src["main.tsx"]

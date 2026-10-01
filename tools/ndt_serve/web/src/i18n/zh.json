@@ -28,7 +28,7 @@
       },
       "hint": {
         "running": "每 {{seconds}} 秒讀一次 lab、apps、health、jobs；上一次讀完才排下一次",
-        "paused-measuring": "量測結束後按「立即更新」才會恢復",
+        "paused-measuring": "量測中每 {{probe}} 秒只讀一次 lab（一次 plain ndt status）；讀到量測結束就自動恢復，也可以按「立即更新」",
         "paused-hidden": "回到這個分頁就會自動恢復"
       }
     },

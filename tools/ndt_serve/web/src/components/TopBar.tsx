@@ -5,7 +5,7 @@
 // static file beside the page). Web-GUI has no global bar; this follows AvailabilityStatus.tsx's
 // header (Web-GUI @ f63a55ce, 236-260: the h1 at 242, the badge at 246, the ghost button at 255).
 import { useTranslation } from "react-i18next";
-import { REFRESH_INTERVAL_MS } from "../hooks/useAutoRefresh";
+import { PROBE_INTERVAL_MS, REFRESH_INTERVAL_MS } from "../hooks/useAutoRefresh";
 import type { RefreshState } from "../hooks/useAutoRefresh";
 import { BTN_GHOST, BTN_PRIMARY } from "../lib/ui";
 import LoadingSpinner from "./common/LoadingSpinner";
@@ -75,10 +75,12 @@ export default function TopBar({
               "inline-flex items-center gap-2 rounded-full px-2.5 py-0.5 text-xs font-medium " +
               (refresh === "running" ? "bg-blue-100 text-[#1976d2]" : "border border-[#FF7F50] bg-[#FFE8DF] text-[#b3471d]")
             }
-            title={t("ndtServe.refresh.hint." + refresh, { seconds: REFRESH_INTERVAL_MS / 1000 })}
+            title={t("ndtServe.refresh.hint." + refresh, { seconds: REFRESH_INTERVAL_MS / 1000, probe: PROBE_INTERVAL_MS / 1000 })}
           >
             {t("ndtServe.refresh.state." + refresh, { seconds: REFRESH_INTERVAL_MS / 1000 })}
-            {refresh !== "running" && <span className="font-normal">{t("ndtServe.refresh.hint." + refresh)}</span>}
+            {refresh !== "running" && (
+              <span className="font-normal">{t("ndtServe.refresh.hint." + refresh, { probe: PROBE_INTERVAL_MS / 1000 })}</span>
+            )}
           </span>
         )}
         {lastRead !== null && (

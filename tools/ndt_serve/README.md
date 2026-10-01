@@ -180,11 +180,13 @@ with a live log while one you opened runs -- re-read every 2 s from its file, ne
 ndt, and stopped when the job ends, when you close the view, and while the page is hidden; E. the
 cells, old/ and new/, runs and walks.
 **It refreshes itself every 10 s** (R2): one read of `/lab`, `/apps`, `/health` and `/jobs` -- two
-ndt calls (plain `ndt status`, `ndt apps status`), measured at about 290 processes a read on this
-laptop. It pauses while the last `/lab` said measuring is not `nothing` or a measurement is
-declared, and then only 立即更新 (refresh now) resumes it: the page would otherwise never learn
-the measurement ended without reading during it. It also pauses while the page is hidden, and
-resumes by itself when shown again unless the last read was measuring.
+ndt calls (plain `ndt status`, `ndt apps status`), measured with strace at about 221 + 66
+processes a read on this laptop, 7 of them `sudo`. The next read is armed only when the last one
+has finished, so it is at most six reads a minute (about five, with a ~1.2 s read). While the last
+`/lab` said measuring is not `nothing` or a measurement is declared, it pauses, and a probe reads
+`/lab` alone once every 60 s (Adam's Q6, 09-28: read-only and light -- one plain `ndt status` a
+minute); the probe that reads nothing measuring brings the 10 s refresh back. 立即更新 (refresh
+now) reads everything at any time. While the page is hidden nothing is read, probe included.
 
 **Every write goes through one dialog**: it reads `/lab` again, asks the server for the argv
 (`dry_run`), and shows the argv, the claim row and the measuring row. Cancel has the focus, Enter

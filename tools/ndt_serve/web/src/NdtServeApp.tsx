@@ -118,12 +118,20 @@ function Page() {
     return l.status === 200 && l.json ? l.json : null;
   }, []);
 
+  // The probe while a measurement pauses the refresh: /lab alone, one plain `ndt status`.
+  const readLab = useCallback(async (): Promise<LabAnswer | null> => {
+    const l = await get<LabAnswer>("/lab");
+    setLab(l);
+    setLabAt(clock());
+    return l.status === 200 && l.json ? l.json : null;
+  }, []);
+
   const firstRead = useCallback(() => {
     storageHook();
     hook("loaded", "yes");
   }, []);
 
-  const refresh = useAutoRefresh(meta !== null, readAll, firstRead);
+  const refresh = useAutoRefresh(meta !== null, readAll, readLab, firstRead);
 
   useEffect(() => {
     if (meta !== null) hook("refresh", refresh.state);
