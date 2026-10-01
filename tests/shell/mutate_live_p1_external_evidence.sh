@@ -272,7 +272,7 @@ mutate '    if stop is not None and any(s["session"] == sess and s["status"] == 
 mutate '    if ev["_last_write"] > stopped_at:' \
     '    if False:' \
     "E40: a session that stopped before the controller's last write is accepted" \
-    "  said as stopped before the controller's last write"
+    "🔴 a session sampled running, then stopped before the controller: rc 3" "  said as stopped before the controller's last write"
 mutate '    if before == last or (exp[0] == exp[1] and s1 == exp[0]):
         return' \
     '    if True:
@@ -286,7 +286,7 @@ mutate '        if et == IPV4_ETHERTYPE and len(payload) < 34:' \
 mutate '    if head[:len(want)] != want:' \
     '    if False:' \
     "E43: a sampler file from before 09-28 is not named" \
-    "  said as such"
+    "  said as a sampler from before round 5"
 mutate '"(before the exercise'"'"'s pipeline was loaded: not evidence about the program)")' \
     '"")' \
     "E44: N4's counters are not labelled" \
@@ -451,7 +451,8 @@ mutate '    ("p4runtime", "solution"): {"rc", "verdict", "counters_final"},' \
 mutate '    ("flowcache", "solution"): {"rc", "verdict", "packet_ins", "cache_entries", "grpc_errors"},' \
     '    ("flowcache", "solution"): {"rc", "verdict", "cache_entries", "grpc_errors"},' \
     "E74: flowcache's varying packet-in count is decisive" \
-    "🔴 a flowcache packet-in more (an IPv4 one; that count varied before): noted, rc 0"
+    "🔴 a flowcache packet-in more (an IPv4 one; that count varied before): noted, rc 0" \
+    "  and not decided either way (descriptive)"
 mutate '    ("p4runtime", "solution"): {"rc", "verdict", "counters_final"},' \
     '    ("p4runtime", "solution"): {"rc", "verdict", "counters_final", "rules_installed"},' \
     "E75: the rules installed are only described" \

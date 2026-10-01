@@ -325,7 +325,9 @@ has   "  naming both traces"                               "the detect-only star
 mk c_block control hb_block=1
 OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c_block" --samples "$S")"
 check "🔴 a second control with only a heartbeat block: rc 3" "3" "$(rc_of "$OUT")"
-ms h5_once arm=0b0b stop_at=40
+# [Co-developed with claude code -- Adam] (round 5) stopped at 120 s: after the controller had been heard
+# for 80 s (so the heard check passes) and before its last write at 150 s -- this cell is that check's alone
+ms h5_once arm=0b0b stop_at=120
 OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_once/50_samples.tsv")"
 check "🔴 a session sampled running, then stopped before the controller: rc 3" "3" "$(rc_of "$OUT")"
 has   "  said as stopped before the controller's last write" "before the exercise's controller last wrote its log" "$OUT"
@@ -477,7 +479,7 @@ mk t_spread treatment punts_extra=1
 OUT="$(ev compare "$FIX/c1" "$FIX/t_spread" --control2 "$FIX/c2p" --samples "$S")"
 check "🔴 a packet-in count between the controls': rc 0"    "0" "$(rc_of "$OUT")"
 has   "  noted as inside the spread"                       "inside the controls' spread -- descriptive, not counted" "$OUT"
-hasnt "  and not as a DIFF"                                "DIFF    packet_ins" "$OUT"
+hasnt "  and not decided either way (descriptive)"          "UNDECIDED packet_ins" "$OUT"
 mk t_out treatment punts_extra=3
 OUT="$(ev compare "$FIX/c1" "$FIX/t_out" --control2 "$FIX/c2p" --samples "$S")"
 check "🔴 a packet-in count outside the controls': noted, still rc 0" "0" "$(rc_of "$OUT")"
@@ -577,7 +579,7 @@ hasnt "🔴 and no traceback from it"                         "Traceback" "$OUT"
 ms h5_old old_header=1
 OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_old/50_samples.tsv")"
 check "🔴 samples from a sampler before 09-28: rc 2"        "2" "$(rc_of "$OUT")"
-has   "  said as such"                                     "a sampler from before round 5" "$OUT"
+has   "  said as a sampler from before round 5"            "a sampler from before round 5" "$OUT"
 # [Co-developed with claude code -- Adam] round 5: the sampler's heard and controllers columns.
 ms h5_r4 old_header=2
 OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_r4/50_samples.tsv")"
