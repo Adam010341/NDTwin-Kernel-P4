@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/python/test_ndt_serve.py (TICKET-ndt-serve, 09-24), its cells suite, and
-# tests/python/test_ndt_serve_gui.py (the GUI cut, 09-27: the G series at the end). The page cases
-# that need a browser have their own gate, tests/shell/mutate_ndt_serve_page.sh (headless Chrome,
-# under the build guard).
+# Mutation gate for tests/python/test_ndt_serve.py (TICKET-ndt-serve, 09-24), its cells suite,
+# tests/python/test_ndt_serve_gui.py (the GUI cut, 09-27: the G series at the end) and
+# tests/python/test_ndt_serve_web.py (the page rebuilt on React, v2: its manifest, bundle and
+# source lints). The page cases that need a browser have their own gate,
+# tests/shell/mutate_ndt_serve_page.sh (headless Chrome, a rebuild per mutant, under the build guard).
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -36,6 +37,7 @@ REPO="$(cd "$HERE/../.." && pwd)"
 TEST="$REPO/tests/python/test_ndt_serve.py"
 TEST_CELLS="$REPO/tests/python/test_ndt_serve_cells.py"
 TEST_GUI="$REPO/tests/python/test_ndt_serve_gui.py"
+TEST_WEB="$REPO/tests/python/test_ndt_serve_web.py"
 SERVE_PY="$REPO/tools/ndt_serve/serve.py"
 VERBS_PY="$REPO/tools/ndt_serve/verbs.py"
 JOBS_PY="$REPO/tools/ndt_serve/jobs.py"
@@ -46,13 +48,30 @@ DEMO_PY="$REPO/tools/ndt_serve/demo_sequence.py"
 # probe citation, RcProvenance), so a mutant tree carries it and the gate watches it too
 README_MD="$REPO/tools/ndt_serve/README.md"
 NDT="$REPO/tools/test_workflow/ndt"
-# [Co-developed with claude code -- Adam] the page (GUI cut, 09-27): a mutant tree carries all of it
-APP_JS="$REPO/tools/ndt_serve/static/app.js"
+# [Co-developed with claude code -- Adam] the page (v2): its sources under web/ and what they build
+# into static/. A mutant tree carries all of both but web/node_modules and web/dist; the G mutations
+# on the page edit the copies' TS sources or built files and need no Node.
+WEB_DIR="$REPO/tools/ndt_serve/web"
+STATIC_DIR="$REPO/tools/ndt_serve/static"
+CLIENT_TS="$REPO/tools/ndt_serve/web/src/api/client.ts"
+SESSION_TS="$REPO/tools/ndt_serve/web/src/api/session.ts"
+TESTHOOKS_TS="$REPO/tools/ndt_serve/web/src/testhooks.ts"
+MAIN_TSX="$REPO/tools/ndt_serve/web/src/main.tsx"
+APP_TSX="$REPO/tools/ndt_serve/web/src/NdtServeApp.tsx"
+CONFIRM_TSX="$REPO/tools/ndt_serve/web/src/components/ConfirmDialog.tsx"
+JOBLOG_TS="$REPO/tools/ndt_serve/web/src/hooks/useJobLog.ts"
+REFRESH_TS="$REPO/tools/ndt_serve/web/src/hooks/useAutoRefresh.ts"
+FORMAT_TS="$REPO/tools/ndt_serve/web/src/lib/format.ts"
 INDEX_HTML="$REPO/tools/ndt_serve/static/index.html"
+APP_JS="$REPO/tools/ndt_serve/static/app.js"
 APP_CSS="$REPO/tools/ndt_serve/static/app.css"
+MANUAL_HTML="$REPO/tools/ndt_serve/static/manual.html"
+BUILD_JSON="$REPO/tools/ndt_serve/static/BUILD.json"
 SUBJECTS=("$SERVE_PY" "$VERBS_PY" "$JOBS_PY" "$RUNNER_PY" "$CELLS_PY" "$DEMO_PY" "$README_MD" "$NDT")
+mapfile -t PAGE_FILES < <(find "$WEB_DIR" "$STATIC_DIR" \( -path "$WEB_DIR/node_modules" -o -path "$WEB_DIR/dist" \) \
+                               -prune -o -type f -print | LC_ALL=C sort)
 # one line, not a continuation: check_gate_anchors.py reads a line that starts "$X" "$Y" as a call
-SUBJECTS+=("$APP_JS" "$INDEX_HTML" "$APP_CSS")
+SUBJECTS+=("${PAGE_FILES[@]}")
 BK=$(mktemp -d "${TMPDIR:-/tmp}/ndt-serve-mutate-XXXXXX")
 trap 'rm -rf "$BK"' EXIT
 BASE_SHA=$(sha256sum "${SUBJECTS[@]}")
@@ -62,9 +81,10 @@ MUTATIONS=0
 
 layout() {   # $1 = dir -- a copy of the service and of ndt with what it sources
     local d="$1"
-    mkdir -p "$d/tools/ndt_serve/static" "$d/tools/test_workflow"
+    mkdir -p "$d/tools/ndt_serve" "$d/tools/test_workflow"
     cp "$SERVE_PY" "$VERBS_PY" "$JOBS_PY" "$RUNNER_PY" "$CELLS_PY" "$DEMO_PY" "$README_MD" "$d/tools/ndt_serve/"
-    cp "$APP_JS" "$INDEX_HTML" "$APP_CSS" "$d/tools/ndt_serve/static/"
+    tar -C "$REPO/tools/ndt_serve" --exclude=web/node_modules --exclude=web/dist -cf - web static \
+        | tar -C "$d/tools/ndt_serve" -xf -
     cp "$NDT" "$REPO/tools/test_workflow/ports.sh" "$REPO/tools/test_workflow/sudo_surface.sh" \
        "$REPO/tools/test_workflow/components.env" "$d/tools/test_workflow/"
     chmod +x "$d/tools/test_workflow/ndt"
@@ -86,11 +106,11 @@ mutant() {   # $1 = label, $2 = file to mutate, $3 = the anchor, $4 = its replac
     if ! python3 - "$d/${file#$REPO/}" "$old" "$new" <<'PY'
 import sys
 p, a, b = sys.argv[1], sys.argv[2], sys.argv[3]
-s = open(p).read()
+s = open(p, encoding="utf-8").read()
 if s.count(a) != 1:
     sys.stderr.write("anchor not unique (%d hits): %s\n" % (s.count(a), a[:70]))
     sys.exit(1)
-open(p, "w").write(s.replace(a, b))
+open(p, "w", encoding="utf-8").write(s.replace(a, b))
 PY
     then
         echo "NOAPPLY"
@@ -99,10 +119,11 @@ PY
     echo "$d"
 }
 
-report() {   # $1 = mutation name, $2 = mutant dir, $3 = [cells:|gui:]Class.test_case that must fail
+report() {   # $1 = mutation name, $2 = mutant dir, $3 = [cells:|gui:|web:]Class.test_case that must fail
     local out rc id="$3" t="$TEST"
     [[ "$id" == cells:* ]] && { t="$TEST_CELLS"; id="${id#cells:}"; }
     [[ "$id" == gui:* ]] && { t="$TEST_GUI"; id="${id#gui:}"; }
+    [[ "$id" == web:* ]] && { t="$TEST_WEB"; id="${id#web:}"; }
     local name="${id##*.}"
     MUTATIONS=$((MUTATIONS+1))
     if [[ "$2" == NOAPPLY ]]; then
@@ -122,7 +143,7 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = [cells:|gui:]Class.test
 
 echo "baseline (must be green before any mutation):"
 layout "$BK/base"
-for t in "$TEST" "$TEST_CELLS" "$TEST_GUI"; do
+for t in "$TEST" "$TEST_CELLS" "$TEST_GUI" "$TEST_WEB"; do
     out=$(run_against "$BK/base" "$t"); brc=$?
     printf '  %s: %s\n' "$(basename "$t")" "$(tail -1 <<<"$out")"
     (( brc == 0 )) || { echo "  baseline is RED -- fix that first, mutations prove nothing on a red baseline"; exit 2; }
@@ -1011,99 +1032,255 @@ m=$(mutant g23 "$SERVE_PY" \
 report "G23: a walk's dry run does its read-only step" "$m" \
        gui:DryRunCells.test_a_walks_dry_run_moves_nothing
 
-# the page's script and markup (PageLint)
-m=$(mutant g15 "$APP_JS" \
-    '    token = r.json.token;' \
-    '    token = r.json.token;
-    sessionStorage.setItem("t", token);')
+# the page's sources (SourceLint, test_ndt_serve_web.py): v2 rebuilt the page on React, so v1's
+# PageLint mutations now edit the TS sources. Same names where the rule is the same. The Close
+# button (v1's G37b/G37c) is a click, not a spelling: tests/shell/mutate_ndt_serve_page.sh has it.
+# [Co-developed with claude code -- Adam]
+m=$(mutant g15 "$CLIENT_TS" \
+    '  token = t;' \
+    '  token = t;
+  sessionStorage.setItem("t", t);')
 report "G15: the token goes into sessionStorage" "$m" \
-       gui:PageLint.test_the_script_keeps_nothing_outside_memory
+       web:SourceLint.test_nothing_is_kept_outside_memory
 
-m=$(mutant g15b "$APP_JS" \
-    '    token = r.json.token;' \
-    '    token = r.json.token;
-    document.cookie = "t=" + token;')
+m=$(mutant g15b "$CLIENT_TS" \
+    '  token = t;' \
+    '  token = t;
+  document.cookie = "t=" + t;')
 report "G15b: the token goes into a cookie" "$m" \
-       gui:PageLint.test_the_script_keeps_nothing_outside_memory
+       web:SourceLint.test_nothing_is_kept_outside_memory
 
-m=$(mutant g15c "$APP_JS" \
-    'if (text !== undefined && text !== null) e.textContent = String(text);' \
-    'if (text !== undefined && text !== null) e.innerHTML = String(text);')
-report "G15c: ndt's text goes in as HTML" "$m" \
-       gui:PageLint.test_the_script_makes_no_html_from_strings
+m=$(mutant g15d "$CLIENT_TS" \
+    '  token = t;' \
+    '  token = t;
+  indexedDB.open("ndt").onsuccess = () => undefined;')
+report "G15d: the page opens IndexedDB (judge G-N8: only the profile would show it)" "$m" \
+       web:SourceLint.test_nothing_is_kept_outside_memory
 
-m=$(mutant g16 "$APP_JS" \
-    '    const [lab, health] = await Promise.all([get(API + "/lab"), get(API + "/health")]);' \
-    '    fetch(API + "/status", {headers: {"X-NDT-Token": token}});
-    const [lab, health] = await Promise.all([get(API + "/lab"), get(API + "/health")]);')
+m=$(mutant g15e "$TESTHOOKS_TS" \
+    '      local: localStorage.length,' \
+    '      local: (localStorage.setItem("seen", "1"), localStorage.length),')
+report "G15e: the test hook writes to storage instead of only counting it" "$m" \
+       web:SourceLint.test_nothing_is_kept_outside_memory
+
+m=$(mutant g15c "$CONFIRM_TSX" \
+    '      <p id="c-note" className="mb-3 text-sm text-gray-500">
+        {D ? D.note : ""}
+      </p>' \
+    '      <p id="c-note" className="mb-3 text-sm text-gray-500" dangerouslySetInnerHTML={{ __html: D ? D.note : "" }} />')
+report "G15c: the server's text goes in as HTML" "$m" \
+       web:SourceLint.test_no_html_from_strings_no_eval_no_inline_style
+
+m=$(mutant g15f "$CONFIRM_TSX" \
+    '      <ul id="c-blockers" className={"mb-3 list-disc pl-5 text-sm " + WARN_TEXT}>' \
+    '      <ul id="c-blockers" style={{ color: "red" }}>')
+report "G15f: an inline style instead of a class" "$m" \
+       web:SourceLint.test_no_html_from_strings_no_eval_no_inline_style
+
+m=$(mutant g16 "$APP_TSX" \
+    '  const readAll = useCallback(async (): Promise<LabAnswer | null> => {' \
+    '  const readAll = useCallback(async (): Promise<LabAnswer | null> => {
+    void fetch("./api/v1/status", { headers: { "X-NDT-Token": "x" } });')
 report "G16: a second fetch, with its own token header" "$m" \
-       gui:PageLint.test_there_is_one_door_out_and_the_token_is_set_at_it
+       web:SourceLint.test_there_is_one_door_out_and_the_token_is_set_at_it
 
-m=$(mutant g16b "$APP_JS" \
-    '  async function refreshAll() {' \
-    '  async function refreshAll() {
-    call("POST", API + "/down", {});')
+m=$(mutant g16b "$APP_TSX" \
+    '  const readAll = useCallback(async (): Promise<LabAnswer | null> => {' \
+    '  const readAll = useCallback(async (): Promise<LabAnswer | null> => {
+    void call("POST", "/down", {});')
 report "G16b: a write through call() itself, past post()" "$m" \
-       gui:PageLint.test_there_is_one_door_out_and_the_token_is_set_at_it
+       web:SourceLint.test_there_is_one_door_out_and_the_token_is_set_at_it
 
-m=$(mutant g17 "$APP_JS" \
-    '  async function refreshAll() {' \
-    '  async function refreshAll() {
-    post(API + "/release", {});')
+m=$(mutant g16c "$APP_TSX" \
+    '  const readAll = useCallback(async (): Promise<LabAnswer | null> => {' \
+    '  const readAll = useCallback(async (): Promise<LabAnswer | null> => {
+    navigator.sendBeacon("./api/v1/release");')
+report "G16c: a beacon out of the page" "$m" \
+       web:SourceLint.test_there_is_one_door_out_and_the_token_is_set_at_it
+
+m=$(mutant g17 "$APP_TSX" \
+    '  const readAll = useCallback(async (): Promise<LabAnswer | null> => {' \
+    '  const readAll = useCallback(async (): Promise<LabAnswer | null> => {
+    void post("/release", {});')
 report "G17: a write outside the confirm dialog" "$m" \
-       gui:PageLint.test_every_write_is_confirmed_in_the_dialog
+       web:SourceLint.test_every_write_goes_through_the_confirm_dialog
 
+m=$(mutant g51 "$SESSION_TS" \
+    '  const r = await call("POST", "/session", { nonce });' \
+    '  const r = await call("POST", "/session", { nonce });
+  await call("POST", "/claim", {});')
+report "G51: the session module posts something besides the key (judge G-N10)" "$m" \
+       web:SourceLint.test_every_write_goes_through_the_confirm_dialog
+
+m=$(mutant g52 "$SESSION_TS" \
+    '  history.replaceState(null, "", location.pathname + location.search); // the key leaves the address bar first' \
+    '')
+report "G52: the key stays in the address bar" "$m" \
+       web:SourceLint.test_the_key_leaves_the_address_bar_before_it_is_traded
+
+m=$(mutant g52b "$SESSION_TS" \
+    '  history.replaceState(null, "", location.pathname + location.search); // the key leaves the address bar first
+  hook("href", location.href); // for the browser tests: the address as it is now, with no key
+  const m = KEY_RE.exec(hash);
+  opening = m ? trade(m[1]) : Promise.resolve<SessionOutcome>({ state: "no-key" });' \
+    '  const m = KEY_RE.exec(hash);
+  opening = m ? trade(m[1]) : Promise.resolve<SessionOutcome>({ state: "no-key" });
+  history.replaceState(null, "", location.pathname + location.search);
+  hook("href", location.href);')
+report "G52b: the key is traded before it leaves the address bar" "$m" \
+       web:SourceLint.test_the_key_leaves_the_address_bar_before_it_is_traded
+
+# the log re-read of an opened job stops when the job ends, when the view closes and while the page
+# is hidden (the orchestrator's condition, 09-27 15:4x)
+m=$(mutant g37 "$JOBLOG_TS" \
+    '        if (watching.current !== mine) return; // stop 2: closed, or opened again' \
+    '')
+report "G37: the log loop does not look whether its view was closed" "$m" \
+       web:SourceLint.test_the_job_log_stops_when_the_job_ends_the_view_closes_or_the_page_hides
+
+m=$(mutant g38 "$JOBLOG_TS" \
+    '        await whileHidden(); // stop 3: nothing is read while the page is hidden' \
+    '')
+report "G38: the log loop reads on while the page is hidden" "$m" \
+       web:SourceLint.test_the_job_log_stops_when_the_job_ends_the_view_closes_or_the_page_hides
+
+m=$(mutant g38b "$JOBLOG_TS" \
+    '  if (document.visibilityState !== "hidden") return Promise.resolve();' \
+    '  return Promise.resolve();')
+report "G38b: whileHidden() never waits" "$m" \
+       web:SourceLint.test_the_job_log_stops_when_the_job_ends_the_view_closes_or_the_page_hides
+
+m=$(mutant g39 "$JOBLOG_TS" \
+    '    const mine = {}; // this opening: closing the view, or opening a job again, replaces it' \
+    '    const mine = opening.id;')
+report "G39: the loop is keyed by job id (close and reopen leaves two loops)" "$m" \
+       web:SourceLint.test_the_job_log_stops_when_the_job_ends_the_view_closes_or_the_page_hides
+
+# the 10 s refresh (Adam's R2, 09-27) pauses while measuring and while hidden
+m=$(mutant g53 "$REFRESH_TS" \
+    '  return lab.measuring_is_nothing === false || lab.declared !== null;' \
+    '  return lab.declared !== null;')
+report "G53: the refresh reads on while ndt is measuring" "$m" \
+       web:SourceLint.test_the_refresh_pauses_while_measuring_and_while_hidden
+
+m=$(mutant g53b "$REFRESH_TS" \
+    '  return lab.measuring_is_nothing === false || lab.declared !== null;' \
+    '  return lab.measuring_is_nothing === false;')
+report "G53b: the refresh reads on while a measurement is declared" "$m" \
+       web:SourceLint.test_the_refresh_pauses_while_measuring_and_while_hidden
+
+m=$(mutant g54 "$REFRESH_TS" \
+    '    if (document.visibilityState === "hidden") {
+      setState("paused-hidden");
+      return;
+    }
+' \
+    '')
+report "G54: the next tick is armed while the page is hidden" "$m" \
+       web:SourceLint.test_the_refresh_pauses_while_measuring_and_while_hidden
+
+m=$(mutant g54b "$REFRESH_TS" \
+    '    if (document.visibilityState === "hidden") {
+      arm(); // nothing is read while hidden
+      return;
+    }
+' \
+    '')
+report "G54b: a tick that fires while hidden reads" "$m" \
+       web:SourceLint.test_the_refresh_pauses_while_measuring_and_while_hidden
+
+m=$(mutant g54c "$REFRESH_TS" \
+    '      if (measuring.current) {
+        setState("paused-measuring");
+        return;
+      }
+      if (timer.current === null' \
+    '      if (timer.current === null')
+report "G54c: shown again, the refresh resumes although the last read was measuring" "$m" \
+       web:SourceLint.test_the_refresh_pauses_while_measuring_and_while_hidden
+
+m=$(mutant g54d "$REFRESH_TS" \
+    '    timer.current = window.setTimeout(tick, REFRESH_INTERVAL_MS);' \
+    '    timer.current = window.setInterval(tick, REFRESH_INTERVAL_MS);')
+report "G54d: a free-running interval (reads overlap, a pause leaves it running)" "$m" \
+       web:SourceLint.test_the_refresh_pauses_while_measuring_and_while_hidden
+
+m=$(mutant g54e "$REFRESH_TS" \
+    'export const REFRESH_INTERVAL_MS = 10_000;' \
+    'export const REFRESH_INTERVAL_MS = 2_000;')
+report "G54e: the refresh reads every 2 s (five times R2's load)" "$m" \
+       web:SourceLint.test_the_refresh_pauses_while_measuring_and_while_hidden
+
+m=$(mutant g55 "$MAIN_TSX" \
+    'document.addEventListener("securitypolicyviolation", () => {' \
+    'document.addEventListener("x-unused", () => {')
+report "G55: CSP violations go uncounted (the browser tests would read 0 anyway)" "$m" \
+       web:SourceLint.test_csp_violations_are_counted_for_the_browser_tests
+
+m=$(mutant g56 "$CONFIRM_TSX" \
+    '          {t("ndtServe.confirm.cancel")}' \
+    '          取消')
+report "G56: a UI string written into a component, past the string table" "$m" \
+       web:SourceLint.test_every_ui_string_is_in_the_string_table
+
+# the built files (BundleLint) and the manifest that ties them to their sources (BuildManifest)
 m=$(mutant g29 "$INDEX_HTML" \
-    '<button id="refresh" type="button" disabled>Refresh</button>' \
-    '<button id="refresh" type="button" onclick="location.reload()" disabled>Refresh</button>')
-report "G29: an inline handler in the markup (the CSP would block it)" "$m" \
-       gui:PageLint.test_the_markup_has_no_inline_script_style_or_handler
+    '<div id="root"></div>' \
+    '<div id="root" onclick="location.reload()"></div>')
+report "G29: an inline handler in the page (the CSP would block it)" "$m" \
+       web:BundleLint.test_the_page_html_loads_only_its_own_two_files
 
 m=$(mutant g29b "$INDEX_HTML" \
-    '<script src="/app.js" defer></script>' \
-    '<script src="/app.js" defer></script>
-<script>window.x = 1;</script>')
-report "G29b: an inline script in the markup" "$m" \
-       gui:PageLint.test_the_markup_has_no_inline_script_style_or_handler
+    '<div id="root"></div>' \
+    '<div id="root"></div>
+    <script>window.x = 1;</script>')
+report "G29b: an inline script in the page" "$m" \
+       web:BundleLint.test_the_page_html_loads_only_its_own_two_files
 
-# the log re-read of an opened job stops when the view closes and while the page is hidden (the
-# orchestrator's condition, 09-27 15:4x) [Co-developed with claude code -- Adam]
-m=$(mutant g37 "$APP_JS" \
-    '    watching = null;   // the loop above returns at its next look' \
-    '    // the loop is left running')
-report "G37: closing the job view does not stop its log loop" "$m" \
-       gui:PageLint.test_the_job_view_can_be_closed_and_its_log_stops
+m=$(mutant g29c "$INDEX_HTML" \
+    '<link rel="stylesheet" crossorigin href="./app.css">' \
+    '<link rel="stylesheet" crossorigin href="./app.css">
+    <link rel="stylesheet" href="https://cdn.example.org/x.css">')
+report "G29c: the page loads a file from another origin" "$m" \
+       web:BundleLint.test_the_page_html_loads_only_its_own_two_files
 
-m=$(mutant g37b "$INDEX_HTML" \
-    '<code id="job-id"></code> <button id="job-close" type="button">Close</button></h3>' \
-    '<code id="job-id"></code></h3>')
-report "G37b: the job view has no Close button" "$m" \
-       gui:PageLint.test_the_job_view_can_be_closed_and_its_log_stops
+m=$(mutant g57 "$APP_JS" \
+    '/^#k=([A-Za-z0-9_-]{16,64})$/' \
+    '(eval("0"),/^#k=([A-Za-z0-9_-]{16,64})$/)')
+report "G57: the bundle calls eval" "$m" \
+       web:BundleLint.test_the_script_calls_no_eval
 
-m=$(mutant g37c "$APP_JS" \
-    '    $("job-close").addEventListener("click", closeJob);' \
-    '')
-report "G37c: the Close button is wired to nothing" "$m" \
-       gui:PageLint.test_the_job_view_can_be_closed_and_its_log_stops
+m=$(mutant g57b "$APP_CSS" \
+    '*,:before,:after{--tw-border-spacing-x: 0;' \
+    '@import url("https://cdn.example.org/x.css");*,:before,:after{--tw-border-spacing-x: 0;')
+report "G57b: the stylesheet loads another" "$m" \
+       web:BundleLint.test_the_styles_load_nothing
 
-m=$(mutant g38 "$APP_JS" \
-    '      await sleep(2000);
-      await whileHidden();' \
-    '      await sleep(2000);')
-report "G38: the log loop reads on while the page is hidden" "$m" \
-       gui:PageLint.test_a_hidden_page_does_not_poll_a_jobs_log
+m=$(mutant g57c "$MANUAL_HTML" \
+    '<link rel="stylesheet" href="./app.css">' \
+    '<link rel="stylesheet" href="./app.css">
+<script src="./app.js"></script>')
+report "G57c: the manual runs a script" "$m" \
+       web:BundleLint.test_the_manual_is_a_page_without_script_or_inline_style
 
-m=$(mutant g38b "$APP_JS" \
-    '    if (document.visibilityState !== "hidden") return Promise.resolve();' \
-    '    return Promise.resolve();')
-report "G38b: whileHidden() never waits" "$m" \
-       gui:PageLint.test_a_hidden_page_does_not_poll_a_jobs_log
+m=$(mutant g58 "$FORMAT_TS" \
+    'export function errText(r: ApiResult<unknown>): string {' \
+    'export function errText(r: ApiResult<unknown>): string {
+  if (r.status === 418) return "teapot";')
+report "G58: a source changed and the bundle was not rebuilt" "$m" \
+       web:BuildManifest.test_every_source_file_is_in_the_manifest_with_its_hash
 
-m=$(mutant g39 "$APP_JS" \
-    '    const mine = {};   // this opening: closing the view, or opening a job again, replaces it' \
-    '    const mine = id;')
-report "G39: the loop is keyed by job id (close and reopen leaves two loops)" "$m" \
-       gui:PageLint.test_a_hidden_page_does_not_poll_a_jobs_log
+m=$(mutant g58b "$APP_JS" \
+    '/^#k=([A-Za-z0-9_-]{16,64})$/' \
+    '/^#k=([A-Za-z0-9_-]{8,64})$/')
+report "G58b: the bundle was edited by hand" "$m" \
+       web:BuildManifest.test_the_bundle_is_the_one_the_manifest_names
+
+m=$(mutant g58c "$BUILD_JSON" \
+    '"command": "npm ci --ignore-scripts && npm run build"' \
+    '"command": "npm install && npm run build"')
+report "G58c: the build ran the packages' install scripts" "$m" \
+       web:BuildManifest.test_the_manifest_says_how_it_was_built
 
 # --- the intake judge on fcd4f69a (opus-judge, 09-27; the orchestrator's selection) -------------
 # [Co-developed with claude code -- Adam]
@@ -1115,11 +1292,11 @@ m=$(mutant g41 "$SERVE_PY" \
 report "G41: an app start/stop runs under somebody else's claim (B1: the page was the only guard)" "$m" \
        gui:AppsNeedYourClaim.test_apps_start_and_stop_run_only_under_your_claim
 
-m=$(mutant g40 "$APP_JS" \
-    '      if (r.json.job.state !== "running") {' \
-    '      if (false) {')
+m=$(mutant g40 "$JOBLOG_TS" \
+    '        if (job.state !== "running") {' \
+    '        if (false) {')
 report "G40: the log loop does not stop when the job ends (G-N1)" "$m" \
-       gui:PageLint.test_the_log_loop_stops_when_the_job_ends
+       web:SourceLint.test_the_job_log_stops_when_the_job_ends_the_view_closes_or_the_page_hides
 
 m=$(mutant g43 "$SERVE_PY" \
     'if len(cols) > 9 and cols[1] == want and cols[3] == "0A":' \
