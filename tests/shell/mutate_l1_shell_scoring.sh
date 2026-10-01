@@ -257,7 +257,7 @@ s = s.replace("# NDTWIN_L1_NEEDS: py-plot\n", "# NDTWIN_L1_NEEDS: py-plot no-suc
 ' "D22 every NDTWIN_L1_NEEDS in tests/shell and tests/python is one the lane probes"
 mutate "the ryu probe is lost" "$DRIVER_REL" '
 s = s.replace("L1_NEED_MET[ryu]=0\n\"$PY_KERNEL\" -c \"import networkx, ryu\" >/dev/null 2>&1 && L1_NEED_MET[ryu]=1\n", "")
-' "D18 the lane probes the needs it can excuse (ryu, py-plot)"
+' "D18 the lane probes the needs it can excuse (ryu, py-plot, bmv2-stock)"
 
 echo
 echo "=== mutations: the corpus check (group C) actually reads the corpus ==="
