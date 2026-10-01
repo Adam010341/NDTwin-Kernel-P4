@@ -155,6 +155,11 @@ trap 'exit 143' TERM
 FIXTURE_ARGV_WAIT=30
 FIXTURE_PID=""
 spawn_fixture() {
+    # [Co-developed with claude code -- Adam] In this shell or not at all (2026-10-01). FIXTURE_PID,
+    # the premise check and the `exit 1` below mean something only in the suite's own shell; a call
+    # from a ( ... ), a pipeline or a $( ) spread over several lines -- forms a read of the source
+    # does not see -- would keep all three in a subshell. So such a call ends the run, loudly.
+    [[ $BASHPID == "$$" ]] || { echo "  FAILED   ${FUNCNAME[0]} called outside this suite's own shell (BASHPID $BASHPID, suite $$): ending the run" >&2; kill -TERM "$$"; exit 1; }
     local want="$1" dir="${2:-$TMPROOT}" pid deadline
     local -a argv=()
     FIXTURE_PID=""
@@ -162,10 +167,15 @@ spawn_fixture() {
     # The redirections are load-bearing, not tidiness: a background child that inherits that
     # substitution's pipe keeps it open, and the caller blocks for the fixture's whole lifetime
     # (measured here -- the first draft hung for FIXTURE_TTL seconds per fixture and had to be
-    # killed).
+    # killed). The pid is registered INSIDE the substitution (2026-10-01): a signal sent to THIS
+    # shell while the substitution runs is handled after it returns, and by then the EXIT trap's
+    # register already holds the pid; registered after the assignment, it could be lost. Not
+    # closed: a signal sent to the whole process group (a Ctrl-C) also reaches the substitution's
+    # own subshell, which can die between starting the fixture and writing its pid -- a window
+    # under a millisecond. A fixture in this shell's group usually dies of that same Ctrl-C; one
+    # in a session of its own (setsid) does not, and is then left to its TTL.
     pid="$( ( cd "$dir" && exec -a "$want" sleep "$FIXTURE_TTL" ) \
-            >/dev/null 2>&1 </dev/null & echo "$!" )"
-    echo "$pid" >> "$FIXTURE_REG"
+            >/dev/null 2>&1 </dev/null & echo "$!" >> "$FIXTURE_REG"; echo "$!" )"
     deadline=$(( SECONDS + FIXTURE_ARGV_WAIT ))
     while :; do
         argv=()
