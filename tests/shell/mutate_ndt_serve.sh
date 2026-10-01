@@ -29,9 +29,13 @@
 # baseline below is the whole suite, green, and the question each mutation asks is "does THIS
 # case see it". ~2 s a mutation instead of ~25.
 #
+# PYTHON picks the interpreter the suites run under (default python3); the first lines say which
+# one, and which commit and tree the run is about, and the last line is the gate's exit code.
+#
 # Exit: 0 every mutation caught, 1 a mutation survived, 2 refused (baseline red / harness),
 #       3 a file under test changed while the gate ran.
 set -uo pipefail
+PY="${PYTHON:-python3}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
 TEST="$REPO/tests/python/test_ndt_serve.py"
@@ -62,6 +66,9 @@ CONFIRM_TSX="$REPO/tools/ndt_serve/web/src/components/ConfirmDialog.tsx"
 JOBLOG_TS="$REPO/tools/ndt_serve/web/src/hooks/useJobLog.ts"
 REFRESH_TS="$REPO/tools/ndt_serve/web/src/hooks/useAutoRefresh.ts"
 FORMAT_TS="$REPO/tools/ndt_serve/web/src/lib/format.ts"
+APPS_TSX="$REPO/tools/ndt_serve/web/src/components/tabs/AppsTab.tsx"
+CELLS_TSX="$REPO/tools/ndt_serve/web/src/components/tabs/CellsTab.tsx"
+ACTIONS_TSX="$REPO/tools/ndt_serve/web/src/components/tabs/ActionsTab.tsx"
 INDEX_HTML="$REPO/tools/ndt_serve/static/index.html"
 APP_JS="$REPO/tools/ndt_serve/static/app.js"
 APP_CSS="$REPO/tools/ndt_serve/static/app.css"
@@ -75,7 +82,12 @@ while IFS= read -r f; do PAGE_FILES+=("$f"); done < <(find "$REPO/tools/ndt_serv
     \( -path "$WEB_DIR/node_modules" -o -path "$WEB_DIR/dist" \) -prune -o -type f -print | LC_ALL=C sort)
 SUBJECTS+=("${PAGE_FILES[@]}")
 BK=$(mktemp -d "${TMPDIR:-/tmp}/ndt-serve-mutate-XXXXXX")
-trap 'rm -rf "$BK"' EXIT
+trap 'rc=$?; rm -rf "$BK"; echo "rc=$rc"' EXIT
+# [Co-developed with claude code -- Adam] what this run is about, printed by the gate itself
+echo "head $(git -C "$REPO" rev-parse HEAD)"
+echo "porcelain $(git -C "$REPO" status --porcelain --untracked-files=no | wc -l) tracked file(s) differ from HEAD"
+echo "date $(date -Is)"
+echo "python $(command -v "$PY") $("$PY" -c 'import sys; print(sys.version.split()[0])')"
 BASE_SHA=$(sha256sum "${SUBJECTS[@]}")
 
 SURVIVORS=0
@@ -95,7 +107,7 @@ layout() {   # $1 = dir -- a copy of the service and of ndt with what it sources
 run_against() {   # $1 = dir, $2 = test file, $3... = unittest ids (none = the whole file)
     local d="$1" t="$2"; shift 2
     NDT_SERVE_UNDER_TEST="$d/tools/ndt_serve" NDT_UNDER_TEST="$d/tools/test_workflow/ndt" \
-        timeout 600 python3 "$t" "$@" 2>&1
+        timeout 600 "$PY" "$t" "$@" 2>&1
 }
 
 # The parameters are NAMED rather than used positionally so tests/shell/check_gate_anchors.py can
@@ -118,6 +130,18 @@ PY
         echo "NOAPPLY"
         return
     fi
+    echo "$d"
+}
+
+mutant_add() {   # $1 = label, $2 = a file the layout does not have, $3 = what goes in it
+    local label="$1" path="$2" text="$3"
+    local d="$BK/$label"
+    layout "$d"
+    if [[ -e "$d/${path#$REPO/}" ]]; then
+        echo "NOAPPLY"
+        return
+    fi
+    printf '%s\n' "$text" > "$d/${path#$REPO/}"
     echo "$d"
 }
 
@@ -147,7 +171,7 @@ echo "baseline (must be green before any mutation):"
 layout "$BK/base"
 for t in "$TEST" "$TEST_CELLS" "$TEST_GUI" "$TEST_WEB"; do
     out=$(run_against "$BK/base" "$t"); brc=$?
-    printf '  %s: %s\n' "$(basename "$t")" "$(tail -1 <<<"$out")"
+    printf '  %s: %s, %s\n' "$(basename "$t")" "$(grep -E '^Ran [0-9]+ test' <<<"$out" | tail -1)" "$(tail -1 <<<"$out")"
     (( brc == 0 )) || { echo "  baseline is RED -- fix that first, mutations prove nothing on a red baseline"; exit 2; }
 done
 echo
@@ -1186,18 +1210,18 @@ m=$(mutant g54b "$REFRESH_TS" \
       arm(); // nothing is read while hidden
       return;
     }
-' \
-    '')
+    await readOnce(readRef.current);' \
+    '    await readOnce(readRef.current);')
 report "G54b: a tick that fires while hidden reads" "$m" \
        web:SourceLint.test_the_refresh_pauses_while_measuring_and_while_hidden
 
 m=$(mutant g54c "$REFRESH_TS" \
     '      if (measuring.current) {
-        setState("paused-measuring");
+        arm();
         return;
       }
-      if (timer.current === null' \
-    '      if (timer.current === null')
+      void tick();' \
+    '      void tick();')
 report "G54c: shown again, the refresh resumes although the last read was measuring" "$m" \
        web:SourceLint.test_the_refresh_pauses_while_measuring_and_while_hidden
 
@@ -1224,6 +1248,74 @@ m=$(mutant g56 "$CONFIRM_TSX" \
     '          取消')
 report "G56: a UI string written into a component, past the string table" "$m" \
        web:SourceLint.test_every_ui_string_is_in_the_string_table
+
+# the probe during a measuring pause (Adam's Q6, 09-28): /lab alone, once a minute, never hidden
+m=$(mutant g59 "$REFRESH_TS" \
+    '      if (document.visibilityState !== "hidden") timer.current = window.setTimeout(probe, PROBE_INTERVAL_MS);' \
+    '')
+report "G59: a measuring pause arms no probe (nothing but 立即更新 resumes it)" "$m" \
+       web:SourceLint.test_a_measuring_pause_probes_lab_alone_once_a_minute
+
+m=$(mutant g59b "$REFRESH_TS" \
+    '    await readOnce(labRef.current);' \
+    '    await readOnce(readRef.current);')
+report "G59b: the probe reads /apps, /health and /jobs too" "$m" \
+       web:SourceLint.test_a_measuring_pause_probes_lab_alone_once_a_minute
+
+m=$(mutant g59c "$REFRESH_TS" \
+    '      if (document.visibilityState !== "hidden") timer.current = window.setTimeout(probe, PROBE_INTERVAL_MS);' \
+    '      timer.current = window.setTimeout(probe, PROBE_INTERVAL_MS);')
+report "G59c: the probe is armed while the page is hidden" "$m" \
+       web:SourceLint.test_a_measuring_pause_probes_lab_alone_once_a_minute
+
+m=$(mutant g59d "$REFRESH_TS" \
+    '    if (document.visibilityState === "hidden") {
+      arm(); // nothing is read while hidden
+      return;
+    }
+    await readOnce(labRef.current);' \
+    '    await readOnce(labRef.current);')
+report "G59d: a probe that fires while hidden reads" "$m" \
+       web:SourceLint.test_a_measuring_pause_probes_lab_alone_once_a_minute
+
+m=$(mutant g59e "$REFRESH_TS" \
+    'export const PROBE_INTERVAL_MS = 60_000;' \
+    'export const PROBE_INTERVAL_MS = 20_000;')
+report "G59e: the probe reads every 20 s (three times Q6's load)" "$m" \
+       web:SourceLint.test_a_measuring_pause_probes_lab_alone_once_a_minute
+
+m=$(mutant g59f "$APP_TSX" \
+    '    const l = await get<LabAnswer>("/lab");
+    setLab(l);' \
+    '    const l = await get<LabAnswer>("/lab");
+    setApps(await get<AppsAnswer>("/apps"));
+    setLab(l);')
+report "G59f: readLab, the probe's read, also runs ndt apps status" "$m" \
+       web:SourceLint.test_a_measuring_pause_probes_lab_alone_once_a_minute
+
+# every write the server can dry-run asks for it: preview false drops the argv and "claim first"
+m=$(mutant g60 "$APPS_TSX" \
+    '      word: action,
+      preview: true,' \
+    '      word: action,
+      preview: false,')
+report "G60: an app start/stop skips the dry run (no argv shown, no claim-first check)" "$m" \
+       web:SourceLint.test_every_write_the_server_can_preview_is_previewed
+
+m=$(mutant g60b "$CELLS_TSX" \
+    '                        word: "run",
+                        preview: true,' \
+    '                        word: "run",
+                        preview: false,')
+report "G60b: a cell run skips the dry run" "$m" \
+       web:SourceLint.test_every_write_the_server_can_preview_is_previewed
+
+m=$(mutant g60c "$ACTIONS_TSX" \
+    '      word: "down",
+      preview: true,' \
+    '      word: "down",')
+report "G60c: down's request names no preview at all (the dialog's default is no dry run)" "$m" \
+       web:SourceLint.test_every_write_the_server_can_preview_is_previewed
 
 # the built files (BundleLint) and the manifest that ties them to their sources (BuildManifest)
 m=$(mutant g29 "$INDEX_HTML" \
@@ -1281,8 +1373,16 @@ report "G58b: the bundle was edited by hand" "$m" \
 m=$(mutant g58c "$BUILD_JSON" \
     '"command": "npm ci --ignore-scripts && npm run build"' \
     '"command": "npm install && npm run build"')
-report "G58c: the build ran the packages' install scripts" "$m" \
+report "G58c: the manifest names another build command (one without --ignore-scripts)" "$m" \
        web:BuildManifest.test_the_manifest_says_how_it_was_built
+
+m=$(mutant_add g58d "$STATIC_DIR/extra.js" 'x=1')
+report "G58d: a file in static/ that the build did not write" "$m" \
+       web:BuildManifest.test_the_bundle_is_the_one_the_manifest_names
+
+m=$(mutant_add g58e "$WEB_DIR/src/extra.ts" 'x=1')
+report "G58e: a source file the manifest does not name" "$m" \
+       web:BuildManifest.test_every_source_file_is_in_the_manifest_with_its_hash
 
 # --- the intake judge on fcd4f69a (opus-judge, 09-27; the orchestrator's selection) -------------
 # [Co-developed with claude code -- Adam]
@@ -1362,6 +1462,13 @@ m=$(mutant g50b "$SERVE_PY" \
     'OWN_CLAIM = re.compile(r"yours -- [0-9]+m left \(until .*\)")')
 report "G50b: OWN_CLAIM is wider than claim_line (an owner that spells the own form is yours)" "$m" \
        ClaimFormProvenance.test_own_claim_is_what_claim_line_prints_for_yours_and_nothing_else
+
+m=$(mutant g61 "$SERVE_PY" \
+    '        self.send_header("X-Content-Type-Options", "nosniff")' \
+    '        self.send_header("Set-Cookie", "ndt=1; HttpOnly; SameSite=Strict")
+        self.send_header("X-Content-Type-Options", "nosniff")')
+report "G61: an answer sets a cookie (Chrome keeps it encrypted, out of the profile scan's sight)" "$m" \
+       gui:Page.test_no_answer_sets_a_cookie
 
 echo
 if [[ "$(sha256sum "${SUBJECTS[@]}")" != "$BASE_SHA" ]]; then

@@ -18,6 +18,8 @@
 #   tests/shell/rebuild_ndt_serve_web.sh
 #   NDT_SERVE_STATIC_UNDER_TEST=/tmp/x/static tests/shell/rebuild_ndt_serve_web.sh   # another bundle
 #
+# The first lines say which commit and tree the run is about; the last line is the exit code.
+#
 # Exit: 0 the committed bundle is what the sources build into, 1 it is not (or they do not build),
 #       2 refused: wrong node/npm, less than 2 GB free, npm ci failed, harness error.
 set -uo pipefail
@@ -29,6 +31,12 @@ GUARD="$REPO/tools/build_guard/guarded_build.sh"
 NODE_BIN="${NODE_BIN:-$HOME/.local/node/bin}"
 MIN_FREE_KB=$((2 * 1024 * 1024))
 export PATH="$NODE_BIN:$PATH"
+T=""
+trap 'rc=$?; [[ -n "$T" ]] && rm -rf "$T"; echo "rc=$rc"' EXIT
+echo "head $(git -C "$REPO" rev-parse HEAD)"
+echo "porcelain $(git -C "$REPO" status --porcelain --untracked-files=no | wc -l) tracked file(s) differ from HEAD"
+echo "date $(date -Is)"
+echo "static $STATIC"
 
 refuse() { echo "REFUSED: $*"; exit 2; }
 
@@ -55,7 +63,6 @@ have_node=$(node --version); have_npm=$(npm --version)
 free_enough
 
 T=$(mktemp -d "${TMPDIR:-/tmp}/ndt-serve-rebuild-XXXXXX")
-trap 'rm -rf "$T"' EXIT
 tar -C "$REPO/tools/ndt_serve" --exclude=web/node_modules --exclude=web/dist -cf - web | tar -C "$T" -xf - \
     || refuse "could not copy web/"
 mkdir "$T/static"
