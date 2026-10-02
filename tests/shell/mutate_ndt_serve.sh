@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/python/test_ndt_serve.py (TICKET-ndt-serve, 09-24), its cells suite, and
-# tests/python/test_ndt_serve_gui.py (the GUI cut, 09-27: the G series at the end). The page cases
-# that need a browser have their own gate, tests/shell/mutate_ndt_serve_page.sh (headless Chrome,
-# under the build guard).
+# Mutation gate for tests/python/test_ndt_serve.py (TICKET-ndt-serve, 09-24), its cells suite,
+# tests/python/test_ndt_serve_gui.py (the GUI cut, 09-27: the G series at the end) and
+# tests/python/test_ndt_serve_web.py (the page rebuilt on React, v2: its manifest, bundle and
+# source lints). The page cases that need a browser have their own gate,
+# tests/shell/mutate_ndt_serve_page.sh (headless Chrome, a rebuild per mutant, under the build guard).
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -28,14 +29,19 @@
 # baseline below is the whole suite, green, and the question each mutation asks is "does THIS
 # case see it". ~2 s a mutation instead of ~25.
 #
+# PYTHON picks the interpreter the suites run under (default python3); the first lines say which
+# one, and which commit and tree the run is about, and the last line is the gate's exit code.
+#
 # Exit: 0 every mutation caught, 1 a mutation survived, 2 refused (baseline red / harness),
 #       3 a file under test changed while the gate ran.
 set -uo pipefail
+PY="${PYTHON:-python3}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
 TEST="$REPO/tests/python/test_ndt_serve.py"
 TEST_CELLS="$REPO/tests/python/test_ndt_serve_cells.py"
 TEST_GUI="$REPO/tests/python/test_ndt_serve_gui.py"
+TEST_WEB="$REPO/tests/python/test_ndt_serve_web.py"
 SERVE_PY="$REPO/tools/ndt_serve/serve.py"
 VERBS_PY="$REPO/tools/ndt_serve/verbs.py"
 JOBS_PY="$REPO/tools/ndt_serve/jobs.py"
@@ -46,15 +52,73 @@ DEMO_PY="$REPO/tools/ndt_serve/demo_sequence.py"
 # probe citation, RcProvenance), so a mutant tree carries it and the gate watches it too
 README_MD="$REPO/tools/ndt_serve/README.md"
 NDT="$REPO/tools/test_workflow/ndt"
-# [Co-developed with claude code -- Adam] the page (GUI cut, 09-27): a mutant tree carries all of it
-APP_JS="$REPO/tools/ndt_serve/static/app.js"
+# [Co-developed with claude code -- Adam] the page (v2): its sources under web/ and what they build
+# into static/. A mutant tree carries all of both but web/node_modules and web/dist; the G mutations
+# on the page edit the copies' TS sources or built files and need no Node.
+WEB_DIR="$REPO/tools/ndt_serve/web"
+STATIC_DIR="$REPO/tools/ndt_serve/static"
+CLIENT_TS="$REPO/tools/ndt_serve/web/src/api/client.ts"
+SESSION_TS="$REPO/tools/ndt_serve/web/src/api/session.ts"
+TESTHOOKS_TS="$REPO/tools/ndt_serve/web/src/testhooks.ts"
+MAIN_TSX="$REPO/tools/ndt_serve/web/src/main.tsx"
+APP_TSX="$REPO/tools/ndt_serve/web/src/NdtServeApp.tsx"
+CONFIRM_TSX="$REPO/tools/ndt_serve/web/src/components/ConfirmDialog.tsx"
+JOBLOG_TS="$REPO/tools/ndt_serve/web/src/hooks/useJobLog.ts"
+REFRESH_TS="$REPO/tools/ndt_serve/web/src/hooks/useAutoRefresh.ts"
+FORMAT_TS="$REPO/tools/ndt_serve/web/src/lib/format.ts"
+APPS_TSX="$REPO/tools/ndt_serve/web/src/components/tabs/AppsTab.tsx"
+CELLS_TSX="$REPO/tools/ndt_serve/web/src/components/tabs/CellsTab.tsx"
+ACTIONS_TSX="$REPO/tools/ndt_serve/web/src/components/tabs/ActionsTab.tsx"
 INDEX_HTML="$REPO/tools/ndt_serve/static/index.html"
+APP_JS="$REPO/tools/ndt_serve/static/app.js"
 APP_CSS="$REPO/tools/ndt_serve/static/app.css"
+MANUAL_HTML="$REPO/tools/ndt_serve/static/manual.html"
+BUILD_JSON="$REPO/tools/ndt_serve/static/BUILD.json"
 SUBJECTS=("$SERVE_PY" "$VERBS_PY" "$JOBS_PY" "$RUNNER_PY" "$CELLS_PY" "$DEMO_PY" "$README_MD" "$NDT")
-# one line, not a continuation: check_gate_anchors.py reads a line that starts "$X" "$Y" as a call
-SUBJECTS+=("$APP_JS" "$INDEX_HTML" "$APP_CSS")
+# a while loop, not mapfile: check_gate_anchors.py reads any command but a few it knows (while, find)
+# whose path argument is followed by a quoted one as a mutation call
+PAGE_FILES=()
+while IFS= read -r f; do PAGE_FILES+=("$f"); done < <(find "$REPO/tools/ndt_serve/web" "$REPO/tools/ndt_serve/static" \
+    \( -path "$WEB_DIR/node_modules" -o -path "$WEB_DIR/dist" \) -prune -o -type f -print | LC_ALL=C sort)
+SUBJECTS+=("${PAGE_FILES[@]}")
 BK=$(mktemp -d "${TMPDIR:-/tmp}/ndt-serve-mutate-XXXXXX")
-trap 'rm -rf "$BK"' EXIT
+# [Co-developed with claude code -- Adam] How a run ENDS is part of its record. A run stopped by a
+# signal, or one that ends before its verdict line, says INCOMPLETE and never exits 0: the EXIT trap
+# alone printed rc=0 for a page gate killed with SIGTERM (10-01), which reads as a pass.
+# the end lines go to the stdout this gate STARTED with (fd 7): a trap that fires while a command
+# redirected to a file is running prints into that file -- the rebuild gate's went into ci.log
+exec 7>&1
+GATE_SIGNAL=""
+GATE_VERDICT=0
+trap 'GATE_SIGNAL=TERM; exit 143' TERM
+trap 'GATE_SIGNAL=INT; exit 130' INT
+trap 'GATE_SIGNAL=HUP; exit 129' HUP
+gate_end() {   # the EXIT trap; $1 = the status the shell is exiting with
+    local rc="$1"
+    rm -rf "$BK"
+    if [[ -n "$GATE_SIGNAL" ]]; then
+        echo "INCOMPLETE: stopped by SIG$GATE_SIGNAL before its verdict -- not a verdict" >&7
+    elif (( ! GATE_VERDICT )); then
+        echo "INCOMPLETE: ended before its verdict line -- not a verdict" >&7
+        (( rc != 0 )) || rc=2
+    fi
+    echo "rc=$rc" >&7
+    exit "$rc"
+}
+trap 'gate_end $?' EXIT
+# [Co-developed with claude code -- Adam] what this run is about, printed by the gate itself
+# "?" when git cannot say (not a work tree, say): never a 0 that reads as a clean tree
+git_head=$(git -C "$REPO" rev-parse HEAD 2>/dev/null) || git_head="?"
+if git_status=$(git -C "$REPO" status --porcelain --untracked-files=no 2>/dev/null); then
+    git_dirty=$(grep -c . <<<"$git_status")
+else
+    git_dirty="?"
+fi
+echo "head $git_head"
+echo "porcelain $git_dirty tracked file(s) differ from HEAD"
+echo "date $(date -Is)"
+echo "python $(command -v "$PY") $("$PY" -c 'import sys; print(sys.version.split()[0])')"
+echo "gate $(sha256sum "${BASH_SOURCE[0]}" | cut -c1-64)"
 BASE_SHA=$(sha256sum "${SUBJECTS[@]}")
 
 SURVIVORS=0
@@ -62,9 +126,10 @@ MUTATIONS=0
 
 layout() {   # $1 = dir -- a copy of the service and of ndt with what it sources
     local d="$1"
-    mkdir -p "$d/tools/ndt_serve/static" "$d/tools/test_workflow"
+    mkdir -p "$d/tools/ndt_serve" "$d/tools/test_workflow"
     cp "$SERVE_PY" "$VERBS_PY" "$JOBS_PY" "$RUNNER_PY" "$CELLS_PY" "$DEMO_PY" "$README_MD" "$d/tools/ndt_serve/"
-    cp "$APP_JS" "$INDEX_HTML" "$APP_CSS" "$d/tools/ndt_serve/static/"
+    tar -C "$REPO/tools/ndt_serve" --exclude=web/node_modules --exclude=web/dist -cf - web static \
+        | tar -C "$d/tools/ndt_serve" -xf -
     cp "$NDT" "$REPO/tools/test_workflow/ports.sh" "$REPO/tools/test_workflow/sudo_surface.sh" \
        "$REPO/tools/test_workflow/components.env" "$d/tools/test_workflow/"
     chmod +x "$d/tools/test_workflow/ndt"
@@ -73,7 +138,7 @@ layout() {   # $1 = dir -- a copy of the service and of ndt with what it sources
 run_against() {   # $1 = dir, $2 = test file, $3... = unittest ids (none = the whole file)
     local d="$1" t="$2"; shift 2
     NDT_SERVE_UNDER_TEST="$d/tools/ndt_serve" NDT_UNDER_TEST="$d/tools/test_workflow/ndt" \
-        timeout 600 python3 "$t" "$@" 2>&1
+        timeout 600 "$PY" "$t" "$@" 2>&1
 }
 
 # The parameters are NAMED rather than used positionally so tests/shell/check_gate_anchors.py can
@@ -86,11 +151,11 @@ mutant() {   # $1 = label, $2 = file to mutate, $3 = the anchor, $4 = its replac
     if ! python3 - "$d/${file#$REPO/}" "$old" "$new" <<'PY'
 import sys
 p, a, b = sys.argv[1], sys.argv[2], sys.argv[3]
-s = open(p).read()
+s = open(p, encoding="utf-8").read()
 if s.count(a) != 1:
     sys.stderr.write("anchor not unique (%d hits): %s\n" % (s.count(a), a[:70]))
     sys.exit(1)
-open(p, "w").write(s.replace(a, b))
+open(p, "w", encoding="utf-8").write(s.replace(a, b))
 PY
     then
         echo "NOAPPLY"
@@ -99,10 +164,23 @@ PY
     echo "$d"
 }
 
-report() {   # $1 = mutation name, $2 = mutant dir, $3 = [cells:|gui:]Class.test_case that must fail
+mutant_add() {   # $1 = label, $2 = a file the layout does not have, $3 = what goes in it
+    local label="$1" path="$2" text="$3"
+    local d="$BK/$label"
+    layout "$d"
+    if [[ -e "$d/${path#$REPO/}" ]]; then
+        echo "NOAPPLY"
+        return
+    fi
+    printf '%s\n' "$text" > "$d/${path#$REPO/}"
+    echo "$d"
+}
+
+report() {   # $1 = mutation name, $2 = mutant dir, $3 = [cells:|gui:|web:]Class.test_case that must fail
     local out rc id="$3" t="$TEST"
     [[ "$id" == cells:* ]] && { t="$TEST_CELLS"; id="${id#cells:}"; }
     [[ "$id" == gui:* ]] && { t="$TEST_GUI"; id="${id#gui:}"; }
+    [[ "$id" == web:* ]] && { t="$TEST_WEB"; id="${id#web:}"; }
     local name="${id##*.}"
     MUTATIONS=$((MUTATIONS+1))
     if [[ "$2" == NOAPPLY ]]; then
@@ -122,9 +200,9 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = [cells:|gui:]Class.test
 
 echo "baseline (must be green before any mutation):"
 layout "$BK/base"
-for t in "$TEST" "$TEST_CELLS" "$TEST_GUI"; do
+for t in "$TEST" "$TEST_CELLS" "$TEST_GUI" "$TEST_WEB"; do
     out=$(run_against "$BK/base" "$t"); brc=$?
-    printf '  %s: %s\n' "$(basename "$t")" "$(tail -1 <<<"$out")"
+    printf '  %s: %s, %s\n' "$(basename "$t")" "$(grep -E '^Ran [0-9]+ test' <<<"$out" | tail -1)" "$(tail -1 <<<"$out")"
     (( brc == 0 )) || { echo "  baseline is RED -- fix that first, mutations prove nothing on a red baseline"; exit 2; }
 done
 echo
@@ -524,9 +602,10 @@ report "M60: the demo's slot probe is a real POST /down with the token" "$m" \
        DemoProbes.test_demo_probes_cannot_touch_the_lab
 
 # [Co-developed with claude code -- Adam] 2026-09-28: M61, M64 and M65 re-anchored on the lines
-# ndt's one-clock residue change moved (apps.status 10346 -> 10382, lock_probe +13).
+# ndt's one-clock residue change moved (apps.status 10346 -> 10382, lock_probe +13); on this
+# branch status --measuring adds 23 more above them (10405, lock_probe 9452-9467).
 m=$(mutant m61 "$VERBS_PY" \
-    '    "apps.status": {"code": [(10382, 0, "return 0", "cmd_apps")]},' \
+    '    "apps.status": {"code": [(10405, 0, "return 0", "cmd_apps")]},' \
     '')
 report "M61: an rc table with no source" "$m" \
        RcProvenance.test_every_table_names_its_source
@@ -728,22 +807,22 @@ report "C28: a claim read stopped at its timeout is trusted (its partial yours r
        cells:CellsRun.test_a_status_past_its_timeout_is_not_a_claim
 
 m=$(mutant m63 "$VERBS_PY" \
-    '(8899, 1, "return 1", "app_start")' \
-    '(8439, 1, "return 1", "app_start")')
-report "M63: apps.start rc 1 cites proc_checkout's return 1 (09-24's line 8315, 8439 since segment W)" "$m" \
+    '(8922, 1, "return 1", "app_start")' \
+    '(8462, 1, "return 1", "app_start")')
+report "M63: apps.start rc 1 cites proc_checkout's return 1 (09-24's line 8315, 8462 since --measuring)" "$m" \
        RcProvenance.test_code_sourced_tables_are_in_ndt
 
 
 # [Co-developed with claude code -- Adam] The opus judge's N1-1 (09-27): the README's lock probe
 # citation was left at its pre-segment-W lines; the suite now holds every such citation to ndt.
 m=$(mutant m64 "$README_MD" \
-    'lock probes to the kernel (ndt:9429-9444)' \
+    'lock probes to the kernel (ndt:9452-9467)' \
     'lock probes to the kernel (ndt:9292-9307)')
 report "M64: the README cites the lock probes where they were before segment W (ndt:9292-9307)" "$m" \
        RcProvenance.test_lock_probe_citations_are_lock_probe
 m=$(mutant m65 "$SERVE_PY" \
-    'probes to the kernel (ndt:9429-9444)' \
-    'probes to the kernel (ndt:9429-9433)')
+    'probes to the kernel (ndt:9452-9467)' \
+    'probes to the kernel (ndt:9452-9456)')
 report "M65: serve.py's docstring cites lock_probe's comment but not its POST" "$m" \
        RcProvenance.test_lock_probe_citations_are_lock_probe
 
@@ -756,7 +835,7 @@ report "M62: the listen backlog is socketserver's 5 (a burst of 20 gets a reset)
 # --- the GUI cut (09-27, SCOPE bfffefa0 as the orchestrator approved it): the G series ------------
 # [Co-developed with claude code -- Adam]
 
-# the page's three files: no token, nothing run, the Host check, the CSP
+# the page's files: no token, nothing run, the Host check, the CSP
 m=$(mutant g1 "$SERVE_PY" \
     '                # the page: after the Host check, before any token -- it runs nothing' \
     '                # the page: after the Host check, before any token -- it runs nothing
@@ -903,26 +982,28 @@ report "G9: /lab runs status --check (it POSTs lock probes)" "$m" \
        gui:Lab.test_lab_is_plain_status_with_its_rows_verbatim
 
 m=$(mutant g11 "$SERVE_PY" \
-    '                 claim_is_yours=read and bool(OWN_CLAIM.fullmatch(claim or "")),' \
-    '                 claim_is_yours=read and (claim or "").startswith("yours"),')
+    'claim_is_yours=read and bool(OWN_CLAIM.fullmatch(claim or "")),' \
+    'claim_is_yours=read and (claim or "").startswith("yours"),')
 report "G11: /lab calls a claim yours by its prefix (owner yours-x)" "$m" \
        gui:Lab.test_lab_claim_is_yours_only_in_ndts_own_form_whole
 
 m=$(mutant g11b "$SERVE_PY" \
-    '                 claim_is_yours=read and bool(OWN_CLAIM.fullmatch(claim or "")),' \
-    '                 claim_is_yours=read and bool(OWN_CLAIM.match(claim or "")),')
+    'claim_is_yours=read and bool(OWN_CLAIM.fullmatch(claim or "")),' \
+    'claim_is_yours=read and bool(OWN_CLAIM.match(claim or "")),')
 report "G11b: /lab matches the own form at the start only, not whole" "$m" \
        gui:Lab.test_lab_claim_is_yours_only_in_ndts_own_form_whole
 
 m=$(mutant g24 "$SERVE_PY" \
-    '                 measuring_is_nothing=read and measuring == "nothing",' \
-    '                 measuring_is_nothing=read and measuring in ("nothing", None),')
+    '             measuring_is_nothing=read and measuring == "nothing")' \
+    '             measuring_is_nothing=read and measuring in ("nothing", None))')
 report "G24: no measuring row (orphaned) reads as nothing measuring" "$m" \
        gui:Lab.test_measuring_is_nothing_only_when_ndt_says_nothing
 
 m=$(mutant g25 "$SERVE_PY" \
-    '        read = r["rc_class"] != "timeout"' \
-    '        read = True')
+    '    read = r["rc_class"] != "timeout"
+    measuring = row_of(MEASURING_LINE, r["stdout"])' \
+    '    read = True
+    measuring = row_of(MEASURING_LINE, r["stdout"])')
 report "G25: a status stopped at its timeout is read as a reading" "$m" \
        gui:Lab.test_a_stopped_read_is_not_a_reading
 
@@ -1013,99 +1094,347 @@ m=$(mutant g23 "$SERVE_PY" \
 report "G23: a walk's dry run does its read-only step" "$m" \
        gui:DryRunCells.test_a_walks_dry_run_moves_nothing
 
-# the page's script and markup (PageLint)
-m=$(mutant g15 "$APP_JS" \
-    '    token = r.json.token;' \
-    '    token = r.json.token;
-    sessionStorage.setItem("t", token);')
+# the page's sources (SourceLint, test_ndt_serve_web.py): v2 rebuilt the page on React, so v1's
+# PageLint mutations now edit the TS sources. Same names where the rule is the same. The Close
+# button (v1's G37b/G37c) is a click, not a spelling: tests/shell/mutate_ndt_serve_page.sh has it.
+# [Co-developed with claude code -- Adam]
+m=$(mutant g15 "$CLIENT_TS" \
+    '  token = t;' \
+    '  token = t;
+  sessionStorage.setItem("t", t);')
 report "G15: the token goes into sessionStorage" "$m" \
-       gui:PageLint.test_the_script_keeps_nothing_outside_memory
+       web:SourceLint.test_nothing_is_kept_outside_memory
 
-m=$(mutant g15b "$APP_JS" \
-    '    token = r.json.token;' \
-    '    token = r.json.token;
-    document.cookie = "t=" + token;')
+m=$(mutant g15b "$CLIENT_TS" \
+    '  token = t;' \
+    '  token = t;
+  document.cookie = "t=" + t;')
 report "G15b: the token goes into a cookie" "$m" \
-       gui:PageLint.test_the_script_keeps_nothing_outside_memory
+       web:SourceLint.test_nothing_is_kept_outside_memory
 
-m=$(mutant g15c "$APP_JS" \
-    'if (text !== undefined && text !== null) e.textContent = String(text);' \
-    'if (text !== undefined && text !== null) e.innerHTML = String(text);')
-report "G15c: ndt's text goes in as HTML" "$m" \
-       gui:PageLint.test_the_script_makes_no_html_from_strings
+m=$(mutant g15d "$CLIENT_TS" \
+    '  token = t;' \
+    '  token = t;
+  indexedDB.open("ndt").onsuccess = () => undefined;')
+report "G15d: the page opens IndexedDB (judge G-N8: only the profile would show it)" "$m" \
+       web:SourceLint.test_nothing_is_kept_outside_memory
 
-m=$(mutant g16 "$APP_JS" \
-    '    const [lab, health] = await Promise.all([get(API + "/lab"), get(API + "/health")]);' \
-    '    fetch(API + "/status", {headers: {"X-NDT-Token": token}});
-    const [lab, health] = await Promise.all([get(API + "/lab"), get(API + "/health")]);')
+m=$(mutant g15e "$TESTHOOKS_TS" \
+    '      local: localStorage.length,' \
+    '      local: (localStorage.setItem("seen", "1"), localStorage.length),')
+report "G15e: the test hook writes to storage instead of only counting it" "$m" \
+       web:SourceLint.test_nothing_is_kept_outside_memory
+
+m=$(mutant g15c "$CONFIRM_TSX" \
+    '      <p id="c-note" className="mb-3 text-sm text-gray-500">
+        {D ? D.note : ""}
+      </p>' \
+    '      <p id="c-note" className="mb-3 text-sm text-gray-500" dangerouslySetInnerHTML={{ __html: D ? D.note : "" }} />')
+report "G15c: the server's text goes in as HTML" "$m" \
+       web:SourceLint.test_no_html_from_strings_no_eval_no_inline_style
+
+m=$(mutant g15f "$CONFIRM_TSX" \
+    '      <ul id="c-blockers" className={"mb-3 list-disc pl-5 text-sm " + WARN_TEXT}>' \
+    '      <ul id="c-blockers" style={{ color: "red" }}>')
+report "G15f: an inline style instead of a class" "$m" \
+       web:SourceLint.test_no_html_from_strings_no_eval_no_inline_style
+
+m=$(mutant g16 "$APP_TSX" \
+    '  const readAll = useCallback(async (): Promise<LabAnswer | null> => {' \
+    '  const readAll = useCallback(async (): Promise<LabAnswer | null> => {
+    void fetch("./api/v1/status", { headers: { "X-NDT-Token": "x" } });')
 report "G16: a second fetch, with its own token header" "$m" \
-       gui:PageLint.test_there_is_one_door_out_and_the_token_is_set_at_it
+       web:SourceLint.test_there_is_one_door_out_and_the_token_is_set_at_it
 
-m=$(mutant g16b "$APP_JS" \
-    '  async function refreshAll() {' \
-    '  async function refreshAll() {
-    call("POST", API + "/down", {});')
+m=$(mutant g16b "$APP_TSX" \
+    '  const readAll = useCallback(async (): Promise<LabAnswer | null> => {' \
+    '  const readAll = useCallback(async (): Promise<LabAnswer | null> => {
+    void call("POST", "/down", {});')
 report "G16b: a write through call() itself, past post()" "$m" \
-       gui:PageLint.test_there_is_one_door_out_and_the_token_is_set_at_it
+       web:SourceLint.test_there_is_one_door_out_and_the_token_is_set_at_it
 
-m=$(mutant g17 "$APP_JS" \
-    '  async function refreshAll() {' \
-    '  async function refreshAll() {
-    post(API + "/release", {});')
+m=$(mutant g16c "$APP_TSX" \
+    '  const readAll = useCallback(async (): Promise<LabAnswer | null> => {' \
+    '  const readAll = useCallback(async (): Promise<LabAnswer | null> => {
+    navigator.sendBeacon("./api/v1/release");')
+report "G16c: a beacon out of the page" "$m" \
+       web:SourceLint.test_there_is_one_door_out_and_the_token_is_set_at_it
+
+m=$(mutant g17 "$APP_TSX" \
+    '  const readAll = useCallback(async (): Promise<LabAnswer | null> => {' \
+    '  const readAll = useCallback(async (): Promise<LabAnswer | null> => {
+    void post("/release", {});')
 report "G17: a write outside the confirm dialog" "$m" \
-       gui:PageLint.test_every_write_is_confirmed_in_the_dialog
+       web:SourceLint.test_every_write_goes_through_the_confirm_dialog
 
+m=$(mutant g51 "$SESSION_TS" \
+    '  const r = await call("POST", "/session", { nonce });' \
+    '  const r = await call("POST", "/session", { nonce });
+  await call("POST", "/claim", {});')
+report "G51: the session module posts something besides the key (judge G-N10)" "$m" \
+       web:SourceLint.test_every_write_goes_through_the_confirm_dialog
+
+m=$(mutant g52 "$SESSION_TS" \
+    '  history.replaceState(null, "", location.pathname + location.search); // the key leaves the address bar first' \
+    '')
+report "G52: the key stays in the address bar" "$m" \
+       web:SourceLint.test_the_key_leaves_the_address_bar_before_it_is_traded
+
+m=$(mutant g52b "$SESSION_TS" \
+    '  history.replaceState(null, "", location.pathname + location.search); // the key leaves the address bar first
+  hook("href", location.href); // for the browser tests: the address as it is now, with no key
+  const m = KEY_RE.exec(hash);
+  opening = m ? trade(m[1]) : Promise.resolve<SessionOutcome>({ state: "no-key" });' \
+    '  const m = KEY_RE.exec(hash);
+  opening = m ? trade(m[1]) : Promise.resolve<SessionOutcome>({ state: "no-key" });
+  history.replaceState(null, "", location.pathname + location.search);
+  hook("href", location.href);')
+report "G52b: the key is traded before it leaves the address bar" "$m" \
+       web:SourceLint.test_the_key_leaves_the_address_bar_before_it_is_traded
+
+# the log re-read of an opened job stops when the job ends, when the view closes and while the page
+# is hidden (the orchestrator's condition, 09-27 15:4x)
+m=$(mutant g37 "$JOBLOG_TS" \
+    '        if (watching.current !== mine) return; // stop 2: closed, or opened again' \
+    '')
+report "G37: the log loop does not look whether its view was closed" "$m" \
+       web:SourceLint.test_the_job_log_stops_when_the_job_ends_the_view_closes_or_the_page_hides
+
+m=$(mutant g38 "$JOBLOG_TS" \
+    '        await whileHidden(); // stop 3: nothing is read while the page is hidden' \
+    '')
+report "G38: the log loop reads on while the page is hidden" "$m" \
+       web:SourceLint.test_the_job_log_stops_when_the_job_ends_the_view_closes_or_the_page_hides
+
+m=$(mutant g38b "$JOBLOG_TS" \
+    '  if (document.visibilityState !== "hidden") return Promise.resolve();' \
+    '  return Promise.resolve();')
+report "G38b: whileHidden() never waits" "$m" \
+       web:SourceLint.test_the_job_log_stops_when_the_job_ends_the_view_closes_or_the_page_hides
+
+m=$(mutant g39 "$JOBLOG_TS" \
+    '    const mine = {}; // this opening: closing the view, or opening a job again, replaces it' \
+    '    const mine = opening.id;')
+report "G39: the loop is keyed by job id (close and reopen leaves two loops)" "$m" \
+       web:SourceLint.test_the_job_log_stops_when_the_job_ends_the_view_closes_or_the_page_hides
+
+# the 10 s refresh (Adam's R2, 09-27) pauses while measuring and while hidden
+m=$(mutant g53 "$REFRESH_TS" \
+    '  return lab.measuring_is_nothing === false || lab.declared !== null;' \
+    '  return lab.declared !== null;')
+report "G53: the refresh reads on while ndt is measuring" "$m" \
+       web:SourceLint.test_the_refresh_pauses_while_measuring_and_while_hidden
+
+m=$(mutant g53b "$REFRESH_TS" \
+    '  return lab.measuring_is_nothing === false || lab.declared !== null;' \
+    '  return lab.measuring_is_nothing === false;')
+report "G53b: the refresh reads on while a measurement is declared" "$m" \
+       web:SourceLint.test_the_refresh_pauses_while_measuring_and_while_hidden
+
+m=$(mutant g54 "$REFRESH_TS" \
+    '    if (document.visibilityState === "hidden") {
+      setState("paused-hidden");
+      return;
+    }
+' \
+    '')
+report "G54: the next tick is armed while the page is hidden" "$m" \
+       web:SourceLint.test_the_refresh_pauses_while_measuring_and_while_hidden
+
+m=$(mutant g54b "$REFRESH_TS" \
+    '    if (document.visibilityState === "hidden") {
+      arm(); // nothing is read while hidden
+      return;
+    }
+    await readOnce(readRef.current);' \
+    '    await readOnce(readRef.current);')
+report "G54b: a tick that fires while hidden reads" "$m" \
+       web:SourceLint.test_the_refresh_pauses_while_measuring_and_while_hidden
+
+m=$(mutant g54c "$REFRESH_TS" \
+    '      if (measuring.current) {
+        arm();
+        return;
+      }
+      void tick();' \
+    '      void tick();')
+report "G54c: shown again, the refresh resumes although the last read was measuring" "$m" \
+       web:SourceLint.test_the_refresh_pauses_while_measuring_and_while_hidden
+
+m=$(mutant g54d "$REFRESH_TS" \
+    '    timer.current = window.setTimeout(tick, REFRESH_INTERVAL_MS);' \
+    '    timer.current = window.setInterval(tick, REFRESH_INTERVAL_MS);')
+report "G54d: a free-running interval (reads overlap, a pause leaves it running)" "$m" \
+       web:SourceLint.test_the_refresh_pauses_while_measuring_and_while_hidden
+
+m=$(mutant g54e "$REFRESH_TS" \
+    'export const REFRESH_INTERVAL_MS = 10_000;' \
+    'export const REFRESH_INTERVAL_MS = 2_000;')
+report "G54e: the refresh reads every 2 s (five times R2's load)" "$m" \
+       web:SourceLint.test_the_refresh_pauses_while_measuring_and_while_hidden
+
+m=$(mutant g55 "$MAIN_TSX" \
+    'document.addEventListener("securitypolicyviolation", () => {' \
+    'document.addEventListener("x-unused", () => {')
+report "G55: CSP violations go uncounted (the browser tests would read 0 anyway)" "$m" \
+       web:SourceLint.test_csp_violations_are_counted_for_the_browser_tests
+
+m=$(mutant g56 "$CONFIRM_TSX" \
+    '          {t("ndtServe.confirm.cancel")}' \
+    '          取消')
+report "G56: a UI string written into a component, past the string table" "$m" \
+       web:SourceLint.test_every_ui_string_is_in_the_string_table
+
+# the probe during a measuring pause (Adam's Q6, 09-28): /measuring alone (10-01), once a minute, never hidden
+m=$(mutant g59 "$REFRESH_TS" \
+    '      if (document.visibilityState !== "hidden") timer.current = window.setTimeout(probe, PROBE_INTERVAL_MS);' \
+    '')
+report "G59: a measuring pause arms no probe (nothing but 立即更新 resumes it)" "$m" \
+       web:SourceLint.test_a_measuring_pause_probes_measuring_alone_once_a_minute
+
+m=$(mutant g59b "$REFRESH_TS" \
+    '    await readOnce(probeRef.current);' \
+    '    await readOnce(readRef.current);')
+report "G59b: the probe reads /apps, /health and /jobs too" "$m" \
+       web:SourceLint.test_a_measuring_pause_probes_measuring_alone_once_a_minute
+
+m=$(mutant g59c "$REFRESH_TS" \
+    '      if (document.visibilityState !== "hidden") timer.current = window.setTimeout(probe, PROBE_INTERVAL_MS);' \
+    '      timer.current = window.setTimeout(probe, PROBE_INTERVAL_MS);')
+report "G59c: the probe is armed while the page is hidden" "$m" \
+       web:SourceLint.test_a_measuring_pause_probes_measuring_alone_once_a_minute
+
+m=$(mutant g59d "$REFRESH_TS" \
+    '    if (document.visibilityState === "hidden") {
+      arm(); // nothing is read while hidden
+      return;
+    }
+    await readOnce(probeRef.current);' \
+    '    await readOnce(probeRef.current);')
+report "G59d: a probe that fires while hidden reads" "$m" \
+       web:SourceLint.test_a_measuring_pause_probes_measuring_alone_once_a_minute
+
+m=$(mutant g59e "$REFRESH_TS" \
+    'export const PROBE_INTERVAL_MS = 60_000;' \
+    'export const PROBE_INTERVAL_MS = 20_000;')
+report "G59e: the probe reads every 20 s (three times Q6's load)" "$m" \
+       web:SourceLint.test_a_measuring_pause_probes_measuring_alone_once_a_minute
+
+m=$(mutant g59f "$APP_TSX" \
+    '    const m = await get<MeasuringAnswer>("/measuring");
+    setProbeAt(clock());' \
+    '    const m = await get<MeasuringAnswer>("/measuring");
+    setApps(await get<AppsAnswer>("/apps"));
+    setProbeAt(clock());')
+report "G59f: readProbe, the probe's read, also runs ndt apps status" "$m" \
+       web:SourceLint.test_a_measuring_pause_probes_measuring_alone_once_a_minute
+
+# [Co-developed with claude code -- Adam] 10-01: the probe is /measuring (`ndt status --measuring`)
+m=$(mutant g59g "$APP_TSX" \
+    '    const m = await get<MeasuringAnswer>("/measuring");' \
+    '    const m = await get<MeasuringAnswer>("/lab");')
+report "G59g: the probe reads /lab again (plain ndt status: sudo and a kernel request)" "$m" \
+       web:SourceLint.test_a_measuring_pause_probes_measuring_alone_once_a_minute
+
+m=$(mutant g59h "$APP_TSX" \
+    '    const m = await get<MeasuringAnswer>("/measuring");
+    setProbeAt(clock());' \
+    '    const m = await get<MeasuringAnswer>("/measuring");
+    setLab(m as ApiResult<LabAnswer>);
+    setProbeAt(clock());')
+report "G59h: the probe's answer is shown as the lab tab (rows a full read did not make)" "$m" \
+       web:SourceLint.test_a_measuring_pause_probes_measuring_alone_once_a_minute
+
+# every write the server can dry-run asks for it: preview false drops the argv and "claim first"
+m=$(mutant g60 "$APPS_TSX" \
+    '      word: action,
+      preview: true,' \
+    '      word: action,
+      preview: false,')
+report "G60: an app start/stop skips the dry run (no argv shown, no claim-first check)" "$m" \
+       web:SourceLint.test_every_write_the_server_can_preview_is_previewed
+
+m=$(mutant g60b "$CELLS_TSX" \
+    '                        word: "run",
+                        preview: true,' \
+    '                        word: "run",
+                        preview: false,')
+report "G60b: a cell run skips the dry run" "$m" \
+       web:SourceLint.test_every_write_the_server_can_preview_is_previewed
+
+m=$(mutant g60c "$ACTIONS_TSX" \
+    '      word: "down",
+      preview: true,' \
+    '      word: "down",')
+report "G60c: down's request names no preview at all (the dialog's default is no dry run)" "$m" \
+       web:SourceLint.test_every_write_the_server_can_preview_is_previewed
+
+# the built files (BundleLint) and the manifest that ties them to their sources (BuildManifest)
 m=$(mutant g29 "$INDEX_HTML" \
-    '<button id="refresh" type="button" disabled>Refresh</button>' \
-    '<button id="refresh" type="button" onclick="location.reload()" disabled>Refresh</button>')
-report "G29: an inline handler in the markup (the CSP would block it)" "$m" \
-       gui:PageLint.test_the_markup_has_no_inline_script_style_or_handler
+    '<div id="root"></div>' \
+    '<div id="root" onclick="location.reload()"></div>')
+report "G29: an inline handler in the page (the CSP would block it)" "$m" \
+       web:BundleLint.test_the_page_html_loads_only_its_own_two_files
 
 m=$(mutant g29b "$INDEX_HTML" \
-    '<script src="/app.js" defer></script>' \
-    '<script src="/app.js" defer></script>
-<script>window.x = 1;</script>')
-report "G29b: an inline script in the markup" "$m" \
-       gui:PageLint.test_the_markup_has_no_inline_script_style_or_handler
+    '<div id="root"></div>' \
+    '<div id="root"></div>
+    <script>window.x = 1;</script>')
+report "G29b: an inline script in the page" "$m" \
+       web:BundleLint.test_the_page_html_loads_only_its_own_two_files
 
-# the log re-read of an opened job stops when the view closes and while the page is hidden (the
-# orchestrator's condition, 09-27 15:4x) [Co-developed with claude code -- Adam]
-m=$(mutant g37 "$APP_JS" \
-    '    watching = null;   // the loop above returns at its next look' \
-    '    // the loop is left running')
-report "G37: closing the job view does not stop its log loop" "$m" \
-       gui:PageLint.test_the_job_view_can_be_closed_and_its_log_stops
+m=$(mutant g29c "$INDEX_HTML" \
+    '<link rel="stylesheet" crossorigin href="./app.css">' \
+    '<link rel="stylesheet" crossorigin href="./app.css">
+    <link rel="stylesheet" href="https://cdn.example.org/x.css">')
+report "G29c: the page loads a file from another origin" "$m" \
+       web:BundleLint.test_the_page_html_loads_only_its_own_two_files
 
-m=$(mutant g37b "$INDEX_HTML" \
-    '<code id="job-id"></code> <button id="job-close" type="button">Close</button></h3>' \
-    '<code id="job-id"></code></h3>')
-report "G37b: the job view has no Close button" "$m" \
-       gui:PageLint.test_the_job_view_can_be_closed_and_its_log_stops
+m=$(mutant g57 "$APP_JS" \
+    '/^#k=([A-Za-z0-9_-]{16,64})$/' \
+    '(eval("0"),/^#k=([A-Za-z0-9_-]{16,64})$/)')
+report "G57: the bundle calls eval" "$m" \
+       web:BundleLint.test_the_script_calls_no_eval
 
-m=$(mutant g37c "$APP_JS" \
-    '    $("job-close").addEventListener("click", closeJob);' \
-    '')
-report "G37c: the Close button is wired to nothing" "$m" \
-       gui:PageLint.test_the_job_view_can_be_closed_and_its_log_stops
+m=$(mutant g57b "$APP_CSS" \
+    '*,:before,:after{--tw-border-spacing-x: 0;' \
+    '@import url("https://cdn.example.org/x.css");*,:before,:after{--tw-border-spacing-x: 0;')
+report "G57b: the stylesheet loads another" "$m" \
+       web:BundleLint.test_the_styles_load_nothing
 
-m=$(mutant g38 "$APP_JS" \
-    '      await sleep(2000);
-      await whileHidden();' \
-    '      await sleep(2000);')
-report "G38: the log loop reads on while the page is hidden" "$m" \
-       gui:PageLint.test_a_hidden_page_does_not_poll_a_jobs_log
+m=$(mutant g57c "$MANUAL_HTML" \
+    '<link rel="stylesheet" href="./app.css">' \
+    '<link rel="stylesheet" href="./app.css">
+<script src="./app.js"></script>')
+report "G57c: the manual runs a script" "$m" \
+       web:BundleLint.test_the_manual_is_a_page_without_script_or_inline_style
 
-m=$(mutant g38b "$APP_JS" \
-    '    if (document.visibilityState !== "hidden") return Promise.resolve();' \
-    '    return Promise.resolve();')
-report "G38b: whileHidden() never waits" "$m" \
-       gui:PageLint.test_a_hidden_page_does_not_poll_a_jobs_log
+m=$(mutant g58 "$FORMAT_TS" \
+    'export function errText(r: ApiResult<unknown>): string {' \
+    'export function errText(r: ApiResult<unknown>): string {
+  if (r.status === 418) return "teapot";')
+report "G58: a source changed and the bundle was not rebuilt" "$m" \
+       web:BuildManifest.test_every_source_file_is_in_the_manifest_with_its_hash
 
-m=$(mutant g39 "$APP_JS" \
-    '    const mine = {};   // this opening: closing the view, or opening a job again, replaces it' \
-    '    const mine = id;')
-report "G39: the loop is keyed by job id (close and reopen leaves two loops)" "$m" \
-       gui:PageLint.test_a_hidden_page_does_not_poll_a_jobs_log
+m=$(mutant g58b "$APP_JS" \
+    '/^#k=([A-Za-z0-9_-]{16,64})$/' \
+    '/^#k=([A-Za-z0-9_-]{8,64})$/')
+report "G58b: the bundle was edited by hand" "$m" \
+       web:BuildManifest.test_the_bundle_is_the_one_the_manifest_names
+
+m=$(mutant g58c "$BUILD_JSON" \
+    '"command": "npm ci --ignore-scripts && npm run build"' \
+    '"command": "npm install && npm run build"')
+report "G58c: the manifest names another build command (one without --ignore-scripts)" "$m" \
+       web:BuildManifest.test_the_manifest_says_how_it_was_built
+
+m=$(mutant_add g58d "$STATIC_DIR/extra.js" 'x=1')
+report "G58d: a file in static/ that the build did not write" "$m" \
+       web:BuildManifest.test_the_bundle_is_the_one_the_manifest_names
+
+m=$(mutant_add g58e "$WEB_DIR/src/extra.ts" 'x=1')
+report "G58e: a source file the manifest does not name" "$m" \
+       web:BuildManifest.test_every_source_file_is_in_the_manifest_with_its_hash
 
 # --- the intake judge on fcd4f69a (opus-judge, 09-27; the orchestrator's selection) -------------
 # [Co-developed with claude code -- Adam]
@@ -1117,11 +1446,11 @@ m=$(mutant g41 "$SERVE_PY" \
 report "G41: an app start/stop runs under somebody else's claim (B1: the page was the only guard)" "$m" \
        gui:AppsNeedYourClaim.test_apps_start_and_stop_run_only_under_your_claim
 
-m=$(mutant g40 "$APP_JS" \
-    '      if (r.json.job.state !== "running") {' \
-    '      if (false) {')
+m=$(mutant g40 "$JOBLOG_TS" \
+    '        if (job.state !== "running") {' \
+    '        if (false) {')
 report "G40: the log loop does not stop when the job ends (G-N1)" "$m" \
-       gui:PageLint.test_the_log_loop_stops_when_the_job_ends
+       web:SourceLint.test_the_job_log_stops_when_the_job_ends_the_view_closes_or_the_page_hides
 
 m=$(mutant g43 "$SERVE_PY" \
     'if len(cols) > 9 and cols[1] == want and cols[3] == "0A":' \
@@ -1153,6 +1482,106 @@ m=$(mutant g46 "$SERVE_PY" \
 report "G46: a missing serve.json is guessed at, port 8765 (G-N8)" "$m" \
        gui:UrlCommand.test_url_with_no_server_says_so
 
+# --- GUI v2: the server side (the Web-GUI button, the url command's connection, the claim form) ---
+# [Co-developed with claude code -- Adam]
+
+m=$(mutant g47 "$SERVE_PY" \
+    '    if u.scheme not in ("http", "https") or not u.hostname or re.search(r"[\x00-\x20\x7f]", raw):' \
+    '    if False:')
+report "G47: any --webgui-url is taken, javascript: included (it becomes an <a href>)" "$m" \
+       gui:WebGuiUrl.test_a_web_gui_url_that_is_not_http_is_refused_at_start
+
+m=$(mutant g48 "$SERVE_PY" \
+    '    if not peer_owned_by(pid, port, sock.getsockname()[1]):' \
+    '    if False:')
+report "G48: url sends the token over a connection another process accepted" "$m" \
+       gui:UrlCommand.test_url_sends_the_token_only_over_a_connection_the_pid_accepted
+
+m=$(mutant g49 "$NDT" \
+    "        printf 'yours -- %dm left (until %s)\n' \"\$left\"" \
+    "        printf 'yours -- %d min left (until %s)\n' \"\$left\"")
+report "G49: ndt's own-claim form changes and OWN_CLAIM no longer reads it" "$m" \
+       ClaimFormProvenance.test_own_claim_is_what_claim_line_prints_for_yours_and_nothing_else
+
+m=$(mutant g50 "$SERVE_PY" \
+    'OWN_CLAIM = re.compile(r"yours -- [0-9]+m left \(until [0-9]{2}:[0-9]{2}:[0-9]{2}\)")' \
+    'OWN_CLAIM = re.compile(r"yours -- [0-9]{1,2}m left \(until [0-9]{2}:[0-9]{2}:[0-9]{2}\)")')
+report "G50: OWN_CLAIM is narrower than claim_line (a 240-minute claim is not yours)" "$m" \
+       ClaimFormProvenance.test_own_claim_is_what_claim_line_prints_for_yours_and_nothing_else
+
+m=$(mutant g50b "$SERVE_PY" \
+    'OWN_CLAIM = re.compile(r"yours -- [0-9]+m left \(until [0-9]{2}:[0-9]{2}:[0-9]{2}\)")' \
+    'OWN_CLAIM = re.compile(r"yours -- [0-9]+m left \(until .*\)")')
+report "G50b: OWN_CLAIM is wider than claim_line (an owner that spells the own form is yours)" "$m" \
+       ClaimFormProvenance.test_own_claim_is_what_claim_line_prints_for_yours_and_nothing_else
+
+m=$(mutant g61 "$SERVE_PY" \
+    '        self.send_header("X-Content-Type-Options", "nosniff")' \
+    '        self.send_header("Set-Cookie", "ndt=1; HttpOnly; SameSite=Strict")
+        self.send_header("X-Content-Type-Options", "nosniff")')
+report "G61: an answer sets a cookie (Chrome keeps it encrypted, out of the profile scan's sight)" "$m" \
+       gui:Page.test_no_answer_sets_a_cookie
+
+# --- the probe's read: GET /measuring, `ndt status --measuring` (Adam, 2026-10-01) ---------------
+# [Co-developed with claude code -- Adam]
+
+# The probe is the full report again: 564 tasks, 6 sudo and a kernel request per probe, measured.
+m=$(mutant g62 "$SERVE_PY" \
+    '        r = run_read(self.cfg, "status.measuring", verbs.ARGV_STATUS_MEASURING, self.cfg.read_timeout)' \
+    '        r = run_read(self.cfg, "status.measuring", verbs.argv_status(False), self.cfg.read_timeout)')
+report "G62: /measuring runs plain ndt status (sudo and the kernel graph on every probe)" "$m" \
+       gui:Lab.test_measuring_is_status_measuring_and_nothing_else
+
+m=$(mutant g62b "$VERBS_PY" \
+    'ARGV_STATUS_MEASURING = ["status", "--measuring"]' \
+    'ARGV_STATUS_MEASURING = ["status"]')
+report "G62b: the argv table names plain status for the probe" "$m" \
+       gui:Lab.test_measuring_is_status_measuring_and_nothing_else
+
+# A second reading of the rows, for the probe alone: the declaration and the timeout rule are lost.
+m=$(mutant g62c "$SERVE_PY" \
+    '        measuring_fields(r)
+        self._send(200, r)' \
+    '        r.update(measuring=row_of(MEASURING_LINE, r["stdout"]), declared=None,
+                 measuring_is_nothing=row_of(MEASURING_LINE, r["stdout"]) == "nothing")
+        self._send(200, r)')
+report "G62c: /measuring reads the rows with its own copy (no declared row)" "$m" \
+       gui:Lab.test_measuring_reads_the_rows_as_lab_does
+
+m=$(mutant g62d "$SERVE_PY" \
+    '    read = r["rc_class"] != "timeout"
+    measuring = row_of(MEASURING_LINE, r["stdout"])' \
+    '    read = True
+    measuring = row_of(MEASURING_LINE, r["stdout"])')
+report "G62d: a measuring read stopped at its timeout reads as nothing measuring (G25's mutation, the probe's case)" "$m" \
+       gui:Lab.test_a_stopped_measuring_read_is_not_a_reading
+
+m=$(mutant g62e "$SERVE_PY" \
+    '            if method == "GET" and route is not Handler.r_health:' \
+    '            if method == "GET" and route not in (Handler.r_health, Handler.r_measuring):')
+report "G62e: /measuring needs no token (any page could make ndt scan the process table)" "$m" \
+       gui:Lab.test_lab_and_meta_need_the_token
+
+m=$(mutant g62f "$VERBS_PY" \
+    '    "status.measuring": {
+        0: ("report",' \
+    '    "status.measuring.x": {
+        0: ("report",')
+report "G62f: --measuring's rc 0 is not in the rc table (unknown)" "$m" \
+       gui:Lab.test_measuring_is_status_measuring_and_nothing_else
+
+m=$(mutant g62g "$VERBS_PY" \
+    '    "status.measuring": {"help": {0: "exit 0 always: like plain status it judges nothing"},' \
+    '    "status.measuring": {"help": {0: "exit 0 the measuring rows were printed"},')
+report "G62g: --measuring's rc 0 cites a phrase ndt help does not print" "$m" \
+       RcProvenance.test_help_sourced_tables_are_in_ndt_help
+
+m=$(mutant g62h "$VERBS_PY" \
+    '                         "code": [(6725, 0, "return 0", "cmd_status")]},' \
+    '                         "code": [(6663, 0, "return 0", "cmd_status")]},')
+report "G62h: --measuring's rc 0 cites a return 0 of another function (app_package_row)" "$m" \
+       RcProvenance.test_code_sourced_tables_are_in_ndt
+
 echo
 if [[ "$(sha256sum "${SUBJECTS[@]}")" != "$BASE_SHA" ]]; then
     echo "a file under test CHANGED while this gate ran -- the results above are about two versions"
@@ -1161,5 +1590,6 @@ fi
 echo "files under test unchanged by this gate:"
 sha256sum "${SUBJECTS[@]}" | sed "s|$REPO/||; s/^/  /"
 echo
+GATE_VERDICT=1
 echo "$MUTATIONS mutation(s), $SURVIVORS survivor(s)"
 (( SURVIVORS == 0 ))
