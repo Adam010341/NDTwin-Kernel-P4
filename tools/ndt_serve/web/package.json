@@ -1,0 +1,29 @@
+{
+  "name": "ndt-serve-web",
+  "private": true,
+  "version": "2.0.0",
+  "description": "The page ndt serve serves: React + Vite + Tailwind + i18next, built into ../static.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit && vite build && node scripts/build-manual.mjs && node scripts/write-build-manifest.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "i18next": "25.3.2",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-i18next": "15.6.1"
+  },
+  "devDependencies": {
+    "@types/react": "19.1.2",
+    "@types/react-dom": "19.1.2",
+    "@vitejs/plugin-react": "4.4.1",
+    "autoprefixer": "10.4.21",
+    "marked": "18.0.14",
+    "postcss": "8.5.6",
+    "tailwindcss": "3.4.17",
+    "typescript": "5.8.3",
+    "vite": "6.3.5"
+  }
+}

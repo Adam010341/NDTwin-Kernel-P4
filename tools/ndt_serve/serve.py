@@ -7,24 +7,25 @@
     python3 tools/ndt_serve/serve.py --owner adam [--port 8765] [--ndt ~/.local/bin/ndt]
 
 It listens on 127.0.0.1 only, for one user, with no login (Adam's ruling, 09-24). The API is
-under /api/v1/. The page (the GUI cut, Adam's Q2 ruling 09-27) is three fixed files -- /,
-/app.js, /app.css from static/ -- read once at start, served with no token and running nothing;
-every other path is 404.
+under /api/v1/. The page (the GUI cut, Adam's Q2 ruling 09-27; rebuilt on React in v2) is four
+fixed files -- /, /app.js, /app.css and /manual.html from static/ -- read once at start, served
+with no token and running nothing; every other path is 404.
 
 The design red lines (TICKET section 3), and where each one lives:
 
   1. loopback only     BIND below; the Host header must be 127.0.0.1:<port> or localhost:<port>
                        (DNS rebinding); no CORS header is ever sent.
   2. CSRF              every request carries the token from ~/.config/ndt-serve/token (0600) in
-                       the X-NDT-Token header but these: GET /health, the page's three static
-                       files (GET /, /app.js, /app.css -- they run nothing), and POST /session,
-                       which trades a one-time key instead and REQUIRES the Origin to be this very
-                       origin (judge G-N17, 09-27). The token header is a custom header,
+                       the X-NDT-Token header but these: GET /health, the page's four static
+                       files (GET /, /app.js, /app.css, /manual.html -- they run nothing), and
+                       POST /session, which trades a one-time key instead and REQUIRES the
+                       Origin to be this very origin (judge G-N17, 09-27). The token header is a
+                       custom header,
                        so no browser sends it cross-origin without a preflight this server never
                        answers -- and an Origin header, when present, must be this server's; a POST
                        also needs a JSON body. 🔴 GETs are gated too (judge 09-24, finding 1): a
                        "read" is not side-effect free -- `ndt status --check` POSTs three lock
-                       probes to the kernel (ndt:9429-9444) -- so an <img> in any page must not be
+                       probes to the kernel (ndt:9452-9467) -- so an <img> in any page must not be
                        able to start one.
   3. whitelist         verbs.py builds every argv; there is no shell on any path.
   4. thin shell        ndt's rc is passed through untouched, with a sentence from ndt help beside
@@ -54,6 +55,7 @@ import os
 import re
 import secrets
 import signal
+import socket
 import socketserver
 import stat
 import subprocess
@@ -78,12 +80,15 @@ PIPE_GRACE_S = 5           # after killpg, how long a read waits for its pipes t
 MAX_LOG_CHUNK = 16 * 1024 * 1024
 OWNER_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 APP_NAMES_LINE = re.compile(r'^APP_NAMES="([a-z0-9 _-]*)"\s*$', re.M)
-GUI_NOTE = "outside /api/v1/ there is only the page: /, /app.js and /app.css"
-# The page's three files, and nothing else: a path is looked up, never joined onto a directory.
+GUI_NOTE = "outside /api/v1/ there is only the page: /, /app.js, /app.css and /manual.html"
+# The page's four files, and nothing else: a path is looked up, never joined onto a directory.
+# They are built from tools/ndt_serve/web/ (React; static/BUILD.json ties them to their sources and
+# is not served). [Co-developed with claude code -- Adam]
 STATIC_DIR = os.path.join(HERE, "static")
 STATIC = {"/": ("index.html", "text/html; charset=utf-8"),
           "/app.js": ("app.js", "text/javascript; charset=utf-8"),
-          "/app.css": ("app.css", "text/css; charset=utf-8")}
+          "/app.css": ("app.css", "text/css; charset=utf-8"),
+          "/manual.html": ("manual.html", "text/html; charset=utf-8")}
 # On every answer, the page's first: no inline script, no other origin, no frame around it.
 SECURITY_HEADERS = (
     ("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; "
@@ -92,6 +97,7 @@ SECURITY_HEADERS = (
     ("Referrer-Policy", "no-referrer"),
 )
 NONCE_TTL_S = 600          # a one-time page URL is good for this long, and for one use
+WEBGUI_URL = "http://localhost:3000"   # the page's "open Web-GUI" button: Web-GUI's Docker port here
 MAX_NONCES = 8             # outstanding at once; minting another forgets the oldest
 NONCE_RE = re.compile(r"[A-Za-z0-9_-]{16,64}")
 
@@ -172,7 +178,7 @@ def write_private(path, text):
 
 
 def load_static():
-    """The page's three files, read once: the page served is the page that was there at start,
+    """The page's four files, read once: the page served is the page that was there at start,
     as every ndt call runs the ndt that was there at start."""
     out = {}
     for path, (name, ctype) in STATIC.items():
@@ -182,6 +188,16 @@ def load_static():
         except OSError as e:
             raise SystemExit("ndt serve: cannot read the page's %s: %s" % (name, e))
     return out
+
+
+def web_gui_url(ap, raw):
+    """The Web-GUI address the page links to. It becomes an <a href>, so only an http(s) URL with
+    a host is taken -- never a javascript: or file: one -- and the browser keeps no copy of it.
+    [Co-developed with claude code -- Adam]"""
+    u = urllib.parse.urlsplit(raw)
+    if u.scheme not in ("http", "https") or not u.hostname or re.search(r"[\x00-\x20\x7f]", raw):
+        ap.error("--webgui-url must be an http:// or https:// URL with a host: %r" % raw)
+    return raw
 
 
 def page_url(port, nonce):
@@ -242,6 +258,47 @@ def listener_owned_by(pid, port):
     return False
 
 
+def fd_links(pid):
+    """What each of pid's fds points at (`socket:[inode]` for a socket). Unreadable -> empty."""
+    out = set()
+    try:
+        fds = os.listdir("/proc/%d/fd" % pid)
+    except OSError:
+        return out
+    for fd in fds:
+        try:
+            out.add(os.readlink("/proc/%d/fd/%s" % (pid, fd)))
+        except OSError:
+            continue
+    return out
+
+
+def peer_owned_by(pid, port, lport, wait_s=3.0):
+    """Connected from 127.0.0.1:<lport> to 127.0.0.1:<port>: is the server end of THIS connection
+    one of pid's own fds? The listener check alone leaves a gap -- the socket can be held by pid and
+    accepted by another process (a forked child, or whoever bound the port between the check and
+    the connect). The accepted socket is the /proc/net/tcp row with local :port and remote :lport;
+    its inode stays 0 until the server accept()s it, so this waits for that, briefly.
+    [Co-developed with claude code -- Adam]"""
+    local, remote = "0100007F:%04X" % port, "0100007F:%04X" % lport
+    deadline = time.monotonic() + wait_s
+    while True:
+        inode = None
+        try:
+            with open("/proc/net/tcp") as f:
+                for line in list(f)[1:]:
+                    cols = line.split()
+                    if len(cols) > 9 and cols[1] == local and cols[2] == remote and cols[9] != "0":
+                        inode = "socket:[%s]" % cols[9]
+        except OSError:
+            return False
+        if inode is not None and inode in fd_links(pid):
+            return True
+        if time.monotonic() > deadline:
+            return False
+        time.sleep(0.05)
+
+
 def url_command(token_file):
     """`ndt serve url`: a new one-time page URL from the RUNNING server, which alone can mint
     one. It reads the token file and serve.json beside it, checks that serve.json's pid really
@@ -260,7 +317,17 @@ def url_command(token_file):
     if not listener_owned_by(pid, port):
         raise SystemExit("ndt serve url: pid %d (serve.json) is not the process listening on %s:%d -- "
                          "is ndt serve running? The token was not sent." % (pid, BIND, port))
+    # connect first, then check who accepted THIS connection, and only then send the token
+    try:
+        sock = socket.create_connection((BIND, port), timeout=10)
+    except OSError as e:
+        raise SystemExit("ndt serve url: %s:%d did not answer: %s" % (BIND, port, e))
+    if not peer_owned_by(pid, port, sock.getsockname()[1]):
+        sock.close()
+        raise SystemExit("ndt serve url: the connection to %s:%d was not accepted by pid %d (serve.json) -- "
+                         "the token was not sent." % (BIND, port, pid))
     conn = http.client.HTTPConnection(BIND, port, timeout=10)
+    conn.sock = sock
     try:
         conn.request("POST", API + "/session/new", body=b"{}", headers={
             "Host": "%s:%d" % (BIND, port), TOKEN_HEADER: token, "Content-Type": "application/json"})
@@ -581,12 +648,22 @@ class Handler(http.server.BaseHTTPRequestHandler):
         r = run_read(self.cfg, "status", verbs.argv_status(False), self.cfg.read_timeout)
         if r is None:
             raise HttpError(503, "busy", note="two read-only ndt calls were running for %d s" % self.cfg.read_queue_wait)
-        read = r["rc_class"] != "timeout"
-        claim, measuring = claim_of(r["stdout"]), row_of(MEASURING_LINE, r["stdout"])
-        r.update(claim=claim, measuring=measuring, declared=row_of(DECLARED_LINE, r["stdout"]),
-                 claim_is_yours=read and bool(OWN_CLAIM.fullmatch(claim or "")),
-                 measuring_is_nothing=read and measuring == "nothing",
+        read = measuring_fields(r)
+        claim = claim_of(r["stdout"])
+        r.update(claim=claim, claim_is_yours=read and bool(OWN_CLAIM.fullmatch(claim or "")),
                  busy=self.cfg.store.holding_the_slot())
+        self._send(200, r)
+
+    def r_measuring(self, query):
+        """The page's probe while a measurement pauses its refresh (Adam, 2026-10-01): `ndt status
+        --measuring`, which prints only plain status's measuring rows, from the same ndt function
+        (status_measuring_rows) -- the claim's measuring= and the process table, no sudo, no
+        request to the kernel, no OVS or bmv2 query. The rows and the readings are /lab's, read by
+        the same code; there is no claim here, and nothing to confirm a write against."""
+        r = run_read(self.cfg, "status.measuring", verbs.ARGV_STATUS_MEASURING, self.cfg.read_timeout)
+        if r is None:
+            raise HttpError(503, "busy", note="two read-only ndt calls were running for %d s" % self.cfg.read_queue_wait)
+        measuring_fields(r)
         self._send(200, r)
 
     def r_meta(self, query):
@@ -595,7 +672,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                          "up_hosts": {k: list(v) for k, v in verbs.UP_HOSTS.items()},
                          "max_claim_minutes": verbs.MAX_CLAIM_MINUTES,
                          "default_claim_minutes": verbs.DEFAULT_CLAIM_MINUTES,
-                         "max_note_chars": verbs.MAX_NOTE_CHARS})
+                         "max_note_chars": verbs.MAX_NOTE_CHARS, "webgui_url": self.cfg.webgui_url})
 
     # --- the page's way in (SCOPE section 3) ---
     def w_session(self, query):
@@ -1022,8 +1099,9 @@ READ_STEPS = {"old": "a read-only step: the cell's own judge reads its old/ fixt
               "compare": "a read-only step: the run's result beside old/'s, row by row"}
 
 CLAIM_LINE = re.compile(r"^  claim\s+(.*?)\s*$", re.M)
-# ndt status's measuring and declared rows (cmd_status, ndt:6760-6787): `measuring  nothing`, or
-# the first process in flight; `declared` only when a claim says measuring=.
+# ndt status's measuring and declared rows (status_measuring_rows, ndt:6688-6716; `ndt status
+# --measuring` prints them alone): `measuring  nothing`, or the first process in flight; `declared`
+# only when a claim says measuring=.
 MEASURING_LINE = re.compile(r"^  measuring\s+(.*?)\s*$", re.M)
 DECLARED_LINE = re.compile(r"^  declared\s+(.*?)\s*$", re.M)
 # ndt's own-claim value, whole: `printf 'yours -- %dm left (until %s)\n'` (ndt:5799, claim_line),
@@ -1041,6 +1119,18 @@ def claim_of(status_stdout):
 def row_of(pattern, status_stdout):
     m = pattern.search(status_stdout or "")
     return m.group(1) if m else None
+
+
+def measuring_fields(r):
+    """/lab's and /measuring's one reading of the measuring rows, added to the read `r`: the
+    `measuring` and `declared` rows verbatim, and measuring_is_nothing -- the row is exactly
+    `nothing`. A read stopped at its timeout is not a reading: measuring_is_nothing is false, and
+    the answer is whether it was one. [Co-developed with claude code -- Adam]"""
+    read = r["rc_class"] != "timeout"
+    measuring = row_of(MEASURING_LINE, r["stdout"])
+    r.update(measuring=measuring, declared=row_of(DECLARED_LINE, r["stdout"]),
+             measuring_is_nothing=read and measuring == "nothing")
+    return read
 
 
 def _step_ok(step, v):
@@ -1110,6 +1200,7 @@ ROUTES = [
     ("POST", re.compile(r"/guided/([^/]+)/verdict"), Handler.w_guided_verdict),
     ("POST", re.compile(r"/guided/([^/]+)/abort"), Handler.w_guided_abort),
     ("GET", re.compile(r"/lab"), Handler.r_lab),
+    ("GET", re.compile(r"/measuring"), Handler.r_measuring),
     ("GET", re.compile(r"/meta"), Handler.r_meta),
     ("POST", re.compile(r"/session"), Handler.w_session),
     ("POST", re.compile(r"/session/new"), Handler.w_session_new),
@@ -1175,6 +1266,8 @@ def main(argv=None):
     ap.add_argument("--max-waiters", type=int, default=4, help="?wait= long-polls at once")
     ap.add_argument("--nonce-ttl", type=int, default=NONCE_TTL_S,
                     help="seconds a one-time page URL stays good (default %d)" % NONCE_TTL_S)
+    ap.add_argument("--webgui-url", default=WEBGUI_URL,
+                    help="where the page's 'open Web-GUI' button goes (default %s); http(s) only" % WEBGUI_URL)
     ap.add_argument("command", nargs="?", choices=["url"],
                     help="url: print a new one-time URL of the running server's page (it reads "
                          "--token-file and serve.json beside it)")
@@ -1201,6 +1294,7 @@ def main(argv=None):
     cfg.token_file = os.path.abspath(a.token_file)
     cfg.static = load_static()
     cfg.nonces = Nonces(a.nonce_ttl)
+    cfg.webgui_url = web_gui_url(ap, a.webgui_url)
 
     private_dir(cfg.state_dir)
     private_dir(os.path.dirname(cfg.token_file))

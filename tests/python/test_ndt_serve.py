@@ -18,6 +18,7 @@ tests/shell/mutate_ndt_serve.sh is this file's mutation gate: each named mutatio
 case it names red.
 """
 import glob
+import importlib.util
 import http.client
 import json
 import os
@@ -419,7 +420,7 @@ class Csrf(ServeCase):
 
     def test_reads_need_the_token_except_health(self):
         """Judge 09-24 finding 1: GET /status?check=1 runs `ndt status --check`, whose lock probes
-        POST /ndt/acquire_lock to the kernel (ndt:9429-9444). A read is not side-effect free, so
+        POST /ndt/acquire_lock to the kernel (ndt:9452-9467). A read is not side-effect free, so
         every GET but /health is gated the way a write is."""
         paths = ["/status", "/status?check=1", "/apps", "/jobs", "/jobs/20260101T000000Z-abcdef",
                  "/jobs/20260101T000000Z-abcdef/log/stdout", "/cells", "/cells/x", "/cells/x/old",
@@ -1035,6 +1036,42 @@ class Identity(unittest.TestCase):
             s.close()
 
 
+class ClaimFormProvenance(unittest.TestCase):
+    """serve.OWN_CLAIM is read against what ndt prints, not against a copy of it. A lab cell's run
+    and an app start/stop go on only when `ndt status`'s claim row fullmatches OWN_CLAIM; the row
+    comes from claim_line(). Found by the function it lies in and the text it holds -- never by line
+    number, which is how RC_SOURCE's 8315 once cited the wrong `return 1` -- and printed through
+    bash's own printf. [Co-developed with claude code -- Adam]"""
+
+    def printf(self, fmt, *args):
+        r = subprocess.run(["bash", "-c", 'f=$1; shift; printf "$f" "$@"', "_", fmt] + list(args),
+                           capture_output=True, text=True, timeout=10)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return r.stdout[:-1] if r.stdout.endswith("\n") else r.stdout
+
+    def test_own_claim_is_what_claim_line_prints_for_yours_and_nothing_else(self):
+        spec = importlib.util.spec_from_file_location("serve_under_test", os.path.join(SERVE_DIR, "serve.py"))
+        serve = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(serve)
+        lines = _read(NDT).splitlines()
+        start = [i for i, l in enumerate(lines) if l.startswith("claim_line() {")]
+        self.assertEqual(len(start), 1, "claim_line() is defined %d times" % len(start))
+        end = next(i for i in range(start[0], len(lines)) if lines[i] == "}")
+        formats = [re.search(r"printf '([^']*)'", l).group(1) for l in lines[start[0]:end] if "printf '" in l]
+        own = [f for f in formats if f.startswith("yours -- ")]
+        foreign = [f for f in formats if f.startswith("%s -- ")]
+        self.assertEqual((len(own), len(foreign)), (1, 1), formats)
+        for left, until in (("30", "23:59:00"), ("1", "00:00:01"), ("240", "12:34:56")):
+            mine = self.printf(own[0], left, until)
+            self.assertTrue(serve.OWN_CLAIM.fullmatch(mine), "OWN_CLAIM does not take what ndt prints: %r" % mine)
+            for owner in ("yours-x", "orch-0924", "yours -- 30m left (until 23:59:00)"):
+                theirs = self.printf(foreign[0], owner, left, until)
+                self.assertIsNone(serve.OWN_CLAIM.fullmatch(theirs), "a foreign claim reads as yours: %r" % theirs)
+        for other in formats:   # the rest of claim_line's answers (EXPIRED ...): none reads as yours
+            if other not in own and other not in foreign:
+                self.assertIsNone(serve.OWN_CLAIM.fullmatch(self.printf(other, "3", "serve-test")), other)
+
+
 class RcProvenance(unittest.TestCase):
     """Judge finding 5: say where each rc table comes from, and hold it to that source -- the real
     ndt of this tree, not a stub."""
@@ -1179,12 +1216,13 @@ class Entry(unittest.TestCase):
         self.assertIn("127.0.0.1", r.stdout)
 
     def test_outside_the_api_there_is_only_the_page(self):
-        # [Co-developed with claude code -- Adam] the GUI cut (09-27) took /, /app.js and /app.css;
-        # those three are tests/python/test_ndt_serve_gui.py's. Nothing else is a path to a file.
+        # [Co-developed with claude code -- Adam] the page is /, /app.js, /app.css and /manual.html
+        # (tests/python/test_ndt_serve_gui.py's); its build manifest and sources are not served.
         s = Serve().start()
         try:
             for p in ("/index.html", "/static/app.js", "/app.js/", "/favicon.ico", "/apiv1/health",
-                      "/../tools/ndt_serve/serve.py", "/static/../serve.py", "/serve.py"):
+                      "/../tools/ndt_serve/serve.py", "/static/../serve.py", "/serve.py",
+                      "/BUILD.json", "/static/BUILD.json", "/web/package.json", "/web/src/main.tsx"):
                 st, j, _, _ = s.request("GET", p)
                 self.assertEqual(st, 404, p)
                 self.assertIn("there is only the page", j["note"])
