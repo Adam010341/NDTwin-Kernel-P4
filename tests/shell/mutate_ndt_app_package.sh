@@ -603,15 +603,38 @@ check_fires "M27: a package pipeline is reported as an external plane" m27 \
 # and the operator's next move is to debug a control plane that is behaving as designed.
 cat > "$A/m28.old" <<'EOF'
             foreign:*)
-                echo "  ${paths:-?} destination paths reported; none expected -- the package's program on dpid ${pkgpipe#foreign:}, proxy skipped lldp_discovery"
+                if [[ "$pkgmode" == external ]]; then
 EOF
 cat > "$A/m28.new" <<'EOF'
             never-taken:*)
-                echo "  ${paths:-?} destination paths reported; none expected -- the package's program on dpid ${pkgpipe#foreign:}, proxy skipped lldp_discovery"
+                if [[ "$pkgmode" == external ]]; then
 EOF
 check_fires "M28: status wants paths nobody was ever going to install" m28 \
-            "🔴 a package fabric is told none were expected" \
+            "🔴 a package fabric is told the count is not a reading" \
             "🔴 and the shortfall is NOT a --check problem"
+
+# [Co-developed with claude code -- Adam] M28b (Adam's 09-28 ruling): the status row's external
+# branch is never taken, so an external control plane on its own pipeline is told its count is
+# the twin's guess over the declared links -- the guess the proxy no longer makes there.
+cat > "$A/m28b.old" <<'EOF'
+                if [[ "$pkgmode" == external ]]; then
+EOF
+cat > "$A/m28b.new" <<'EOF'
+                if [[ "$pkgmode" == never-external ]]; then
+EOF
+check_fires "M28b: an external plane's no-path row is read as a guess" m28b \
+            "🔴 an external plane on its own pipeline expects no path"
+
+# [Co-developed with claude code -- Adam] M28c (the round-4 review's nit): a count of paths on an
+# external control plane -- the guess coming back -- is never flagged.
+cat > "$A/m28c.old" <<'EOF'
+                    if [[ "$paths" =~ ^[0-9]+$ ]] && (( paths > 0 )); then
+EOF
+cat > "$A/m28c.new" <<'EOF'
+                    if false; then
+EOF
+check_fires "M28c: a path count on an external plane is not flagged" m28c \
+            "🔴 a nonzero count on an external plane is flagged" "🔴 and is a --check problem"
 
 # M29: `up_p4` stops telling verify_p4 whose program is on the switches. Every branch above is
 # then unreachable from the command that matters, while the functions themselves stay perfect --

@@ -179,7 +179,9 @@ echo "=== group X: the scorer is WIRED IN, and the Python side keeps unittest's 
 # that one would read the wrong block and every check below would pass on an empty string.
 dispatch="$(awk '/^[[:space:]]*ran=0; failed=0[[:space:]]*$/ { on = 1 }
                  on && /l1_lane_verdict/ { exit } on { print }' "$DRIVER")"
-py_arm="$(awk '/== \*\.py \]\]; then/ { on = 1; next } on && /^ *else$/ { exit } on { print }' \
+# [Co-developed with claude code -- Adam] Since tests/shell/*.py are shell-style too (S-8), the arm
+# is picked by the lane's own `kind`, not by the file's extension.
+py_arm="$(awk '/"\$kind" == py \]\]; then/ { on = 1; next } on && /^ *else$/ { exit } on { print }' \
           <<<"$dispatch")"
 sh_arm="$(awk '/^ *else$/ { on = 1; next } on && /^ *fi$/ { exit } on { print }' <<<"$dispatch")"
 
@@ -299,11 +301,11 @@ fi
 
 # The driver's own wiring, read from its source (the lane itself builds the kernel).
 probed="$(grep -oE '^L1_NEED_MET\[[a-z0-9-]+\]=' "$DRIVER" | sed -E 's/^L1_NEED_MET\[([^]]*)\]=$/\1/' | sort -u)"
-check "D18 the lane probes the needs it can excuse (ryu, py-plot)" "py-plot ryu" \
+check "D18 the lane probes the needs it can excuse (ryu, py-plot, bmv2-stock)" "bmv2-stock py-plot ryu" \
       "$(tr '\n' ' ' <<<"$probed" | sed 's/ $//')"
 check "D19 the dispatch hands the lane's own excuse and the hosted flag to the verdict" "yes" \
       "$(grep -qF 'l1_lane_verdict "$rc" "${ran:-0}" "${failed:-0}" "${skipped:-0}" "$excuse" "$L1_HOSTED"' "$DRIVER" \
-         && grep -qF 'excuse="$(l1_skip_excuse "$testfile" "$log" "${testfile##*.}" "${ran:-0}" "${skipped:-0}")"' "$DRIVER" \
+         && grep -qF 'excuse="$(l1_skip_excuse "$testfile" "$log" "$kind" "${ran:-0}" "${skipped:-0}")"' "$DRIVER" \
          && grep -qF 'L1_HOSTED="$(l1_hosted_runner)"' "$DRIVER" \
          && echo yes || echo no)"
 check "D20 🔴 the DECLARED-SKIP arm records the file and does NOT count a failure" "records, no failure" \
@@ -322,13 +324,52 @@ check "D26 🔴 the FAIL-SKIP arm names a declared need that is missing (the lab
 # Every declaration in the corpus names a need the lane probes: an unknown word there would make
 # that file FAIL-SKIP on a machine without the need, which is loud, but the typo is cheaper here.
 unknown=""
-for f in "$SHELL_TESTS_DIR"/test_*.sh "$SHELL_TESTS_DIR"/../python/test_*.py; do
+for f in "$SHELL_TESTS_DIR"/test_*.sh "$SHELL_TESTS_DIR"/test_*.py "$SHELL_TESTS_DIR"/../python/test_*.py; do
     [[ -f "$f" ]] || continue
     while IFS= read -r need; do
         grep -qxF -- "$need" <<<"$probed" || unknown+="$(basename "$f"):$need "
     done < <(l1_declared_needs "$f" 2>/dev/null)
 done
 check "D22 every NDTWIN_L1_NEEDS in tests/shell and tests/python is one the lane probes" "" "$unknown"
+# [Co-developed with claude code -- Adam] (the round-4 review's S-8) tests/shell's Python suites --
+# test_heartbeat_drop_check.py -- were collected by no runner.
+check "D27 🔴 the lane collects tests/shell/test_*.py" "yes" \
+      "$(grep -qE '^KERNEL_TESTS=\(.*"\$KERNEL_DIR"/tests/shell/test_\*\.py' "$DRIVER" && echo yes || echo no)"
+check "D28 🔴 and scores them as shell suites (their summary and SKIP: lines), run by python3" "yes yes" \
+      "$(grep -qF '[[ "$testfile" == *.py && "$testfile" != */tests/shell/* ]] && kind=py' "$DRIVER" && echo yes || echo no) $(grep -qF '(cd "$KERNEL_DIR" && python3 "$testfile") >"$log" 2>&1' "$DRIVER" && echo yes || echo no)"
+check "D29 🔴 the drop check's suite declares the stock bmv2 it needs" "bmv2-stock" \
+      "$(l1_declared_needs "$SHELL_TESTS_DIR/test_heartbeat_drop_check.py" 2>/dev/null)"
+# ...and, run with no stock simple_switch, it skips the way the lane can excuse: rc 0, one SKIP line,
+# nothing ran -- DECLARED-SKIP on a hosted runner, FAIL-SKIP on the lab (which must have one).
+HBT="$(mktemp -d)"
+NDT_LAB_CLAIM_FILE="$HBT/no-claim" NDT_HB_CHECK_BMV2="$HBT/no-such-simple_switch" python3 "$SHELL_TESTS_DIR/test_heartbeat_drop_check.py" > "$HBT/skip.log" 2>&1
+hb_rc=$?
+read -r hb_ran hb_failed <<<"$(shell_summary "$HBT/skip.log")"
+hb_sk="$(grep -cE '^[[:space:]]*SKIP:' "$HBT/skip.log")"
+check "D30 🔴 with no stock simple_switch the drop check's suite skips: rc 0, one SKIP line, nothing ran" "0 1 0" \
+      "$hb_rc $hb_sk $hb_ran"
+hb_excuse="$(L1_NEED_MET=([bmv2-stock]=0); l1_skip_excuse "$SHELL_TESTS_DIR/test_heartbeat_drop_check.py" "$HBT/skip.log" sh "$hb_ran" "$hb_sk")"
+check "D31 🔴 ...which the lane scores DECLARED-SKIP on a hosted runner and FAIL-SKIP on the lab" "DECLARED-SKIP FAIL-SKIP" \
+      "$(l1_lane_verdict "$hb_rc" "$hb_ran" "$hb_failed" "$hb_sk" "$hb_excuse" 1) $(l1_lane_verdict "$hb_rc" "$hb_ran" "$hb_failed" "$hb_sk" "$hb_excuse" 0)"
+# [Co-developed with claude code -- Adam] (the orchestrator's round-6 ruling on S-8) on the lab the suite adds
+# no throwaway switch while somebody else holds the lab or a measurement is declared: it skips, before
+# anything. Run with no simple_switch as well, so a claim rule that fails still starts no switch -- and so
+# a claim that does NOT hold the lab is told by the OTHER skip.
+hb_claim() {   # hb_claim <owner> <expires> <measuring> <me> -> the suite's first line
+    printf 'owner=%s\nexpires=%s\nnote=x\nexclusive_cpu=no\nmeasuring=%s\n' "$1" "$2" "$3" > "$HBT/claim"
+    NDT_OWNER="$4" NDT_LAB_CLAIM_FILE="$HBT/claim" NDT_HB_CHECK_BMV2="$HBT/no-such-simple_switch" \
+        python3 "$SHELL_TESTS_DIR/test_heartbeat_drop_check.py" 2>&1 | head -1 | cut -c1-60
+}
+hb_now="$(date +%s)"
+check "D32 🔴 somebody else's live claim: the suite skips before anything" "SKIP: the lab is claimed by other (" \
+      "$(hb_claim other $((hb_now + 600)) "" me | cut -c1-35)"
+check "D33 🔴 a declared measurement, even under my own claim: it skips" "SKIP: a measurement is declared on the lab" \
+      "$(hb_claim me $((hb_now + 600)) "H5 run" me | cut -c1-42)"
+check "D34 🔴 an expired claim holds nothing (the other skip answers)" "SKIP: no stock simple_switch" \
+      "$(hb_claim other $((hb_now - 600)) "old" me | cut -c1-28)"
+check "D35   my own live claim and no measurement do not stop it" "SKIP: no stock simple_switch" \
+      "$(hb_claim me $((hb_now + 600)) "" me | cut -c1-28)"
+rm -rf "$HBT"
 
 echo
 echo "=== group C: the corpus -- every suite in tests/shell prints a form this scorer reads ==="

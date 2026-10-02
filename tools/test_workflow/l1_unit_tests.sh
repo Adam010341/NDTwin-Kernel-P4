@@ -577,11 +577,18 @@ fi
 L1_NEED_MET[ryu]=0
 "$PY_KERNEL" -c "import networkx, ryu" >/dev/null 2>&1 && L1_NEED_MET[ryu]=1
 L1_NEED_MET[py-plot]="$(l1_probe_py_plot "$KERNEL_DIR")"
+# [Co-developed with claude code -- Adam] bmv2-stock: the stock simple_switch the heartbeat drop check
+# runs for real (tests/shell/test_heartbeat_drop_check.py); a hosted runner has none.
+L1_NEED_MET[bmv2-stock]=0
+[[ -x "${NDT_HB_CHECK_BMV2:-/usr/local/bin/simple_switch}" ]] && L1_NEED_MET[bmv2-stock]=1
 # ...and whether this machine is one a declared skip may excuse at all (a hosted CI runner).
 L1_HOSTED="$(l1_hosted_runner)"
 DECLARED_SKIPS=()
 shopt -s nullglob
-KERNEL_TESTS=("$KERNEL_DIR"/tests/python/test_*.py "$KERNEL_DIR"/tests/shell/test_*.sh)
+# [Co-developed with claude code -- Adam] tests/shell/test_*.py too: suites written in Python that
+# print the shell suites' "Ran N checks, F failed" (the heartbeat drop check's). Scored as shell
+# suites, not by unittest's vocabulary.
+KERNEL_TESTS=("$KERNEL_DIR"/tests/python/test_*.py "$KERNEL_DIR"/tests/shell/test_*.sh "$KERNEL_DIR"/tests/shell/test_*.py)
 shopt -u nullglob
 if [[ ${#KERNEL_TESTS[@]} -eq 0 ]]; then
     echo "  ${D}none found${N}"
@@ -590,7 +597,13 @@ else
         name="$(basename "$testfile")"
         log="$LOG_DIR/l1_kernel_${name%.*}.log"
         printf '  %-30s ' "$name"
-        if [[ "$testfile" == *.py ]]; then
+        # py: a unittest file (tests/python); sh: a shell-style suite -- every tests/shell/*.sh, and
+        # a tests/shell/*.py that prints the same summary and SKIP: lines.
+        kind=sh
+        [[ "$testfile" == *.py && "$testfile" != */tests/shell/* ]] && kind=py
+        if [[ "$testfile" == */tests/shell/*.py ]]; then
+            (cd "$KERNEL_DIR" && python3 "$testfile") >"$log" 2>&1
+        elif [[ "$kind" == py ]]; then
             # -v so a skip prints "test_x ... skipped 'reason'". Without it unittest prints a bare
             # "s" and the skip count only appears in the summary, which is how the skip check below
             # was dead for these files from the day it was written. Found by agy-review 0117.
@@ -613,7 +626,7 @@ else
         # and local_ci.sh were red on a green tree. Shell logs now go through shell_summary,
         # which knows all three forms and still answers 0 for a log it cannot read.
         ran=0; failed=0
-        if [[ "$testfile" == *.py ]]; then
+        if [[ "$kind" == py ]]; then
             # unittest's own line, which is correct here and stays. It counts skipped tests
             # inside "Ran N", so N > 0 does not mean anything was asserted -- hence the skip
             # check below -- and a file whose cases sit under a __main__ guard collects nothing
@@ -637,7 +650,7 @@ else
         fi
         # [Co-developed with claude code -- Adam] which of its declared needs this machine lacks
         # (empty: no excuse). Computed by the lane, see l1_skip_excuse above.
-        excuse="$(l1_skip_excuse "$testfile" "$log" "${testfile##*.}" "${ran:-0}" "${skipped:-0}")"
+        excuse="$(l1_skip_excuse "$testfile" "$log" "$kind" "${ran:-0}" "${skipped:-0}")"
         case "$(l1_lane_verdict "$rc" "${ran:-0}" "${failed:-0}" "${skipped:-0}" "$excuse" "$L1_HOSTED")" in
         FAIL-RC)
             echo "${R}FAIL${N} (exit $rc, ran=$ran)"

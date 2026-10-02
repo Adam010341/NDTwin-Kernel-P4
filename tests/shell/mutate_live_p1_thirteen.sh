@@ -43,6 +43,9 @@ mutant() {
     local name="$1" d="$BK/$name"
     mkdir -p "$d"
     cp "$STEP" "$d/06_thirteen.sh"
+    # [Co-developed with claude code -- Adam] 06 runs its fingerprint script from beside itself (09-27).
+    cp "$(dirname "$STEP")/venv_fingerprint.sh" "$d/venv_fingerprint.sh"
+    cp "$(dirname "$STEP")/code_identity.py" "$d/code_identity.py"
     python3 - "$d/06_thirteen.sh" "$A/$name.old" "$A/$name.new" <<'PY'
 import sys, io
 target, oldf, newf = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -340,6 +343,34 @@ cat > "$A/c1.new" <<'EOF'
 # which rc this arm should end on
 expected_rc() {   # expected_rc <exercise> <which>
 EOF
+# [Co-developed with claude code -- Adam] M12 (09-27): 06 records no venv fingerprint.
+cat > "$A/m12.old" <<'EOF'
+if bash "$HERE/venv_fingerprint.sh" "$RUN/00_venv.txt" "$REPO/p4_proxy/venv/bin/python" "$VENV_PY"; then
+EOF
+cat > "$A/m12.new" <<'EOF'
+if true; then
+EOF
+check_fires "M12: 06 records no venv fingerprint" m12 \
+            "🔴 the raw records the venv fingerprint of both interpreters"
+# [Co-developed with claude code -- Adam] M13 (the round-4 review's M-2): 06 records no code identity.
+cat > "$A/m13.old" <<'EOF'
+record_identity before
+EOF
+cat > "$A/m13.new" <<'EOF'
+:
+EOF
+check_fires "M13: 06 records no code identity as it starts" m13 \
+            "🔴 the raw records the code identity as 06 starts"
+# [Co-developed with claude code -- Adam] M14 (round 6): nor as it ends.
+cat > "$A/m14.old" <<'EOF'
+record_identity after
+EOF
+cat > "$A/m14.new" <<'EOF'
+:
+EOF
+check_fires "M14: 06 records no code identity as it ends" m14 \
+            "🔴 and again as it ends, after the last round wrote its table row"
+
 check_control "C1: a comment above expected_rc" c1
 
 echo

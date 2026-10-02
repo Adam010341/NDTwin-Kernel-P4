@@ -96,6 +96,7 @@ if [[ -s "$SS0" ]]; then
     N_SW="$(jqp "$SS0" "len(d.get('switches') or [])")"
     note "control_plane.mode  $MODE"
     note "control_plane.skipped $SKIPPED"
+    note "heartbeat.watchdog  $(jqp "$SS0" "(d.get('heartbeat') or {}).get('watchdog')")"
     note "entries_recorded    $ENTRIES"
     note "switches            $N_SW"
     [[ "$MODE" == external ]] || fail "control_plane.mode is '$MODE', want external"
@@ -105,9 +106,12 @@ if [[ -s "$SS0" ]]; then
     # the work of a control plane while reporting that it did none.
     # The names the proxy actually emits (P1-A's startup(); live 2026-09-18:
     # clone_session, install_initial_routes, link_watchdog, lldp_discovery, pipeline_push, sflow_telemetry).
-    for s in pipeline_push clone_session lldp_discovery link_watchdog install_initial_routes sflow_telemetry; do
-        /usr/bin/grep -qF "'$s'" <<<"$SKIPPED" || fail "control_plane.skipped does not name '$s': $SKIPPED"
-    done
+    # [Co-developed with claude code -- Adam] 09-27: `ndt up p4 --app` starts the heartbeat on this
+    # fabric too (an external control plane on its own pipeline, detect only), so the heartbeat
+    # watchdog must RUN -- asserted, not read to choose a list (the opus judge's N1 on 02) -- and
+    # while it does `link_watchdog` is not skipped (Adam's ruling E); the other five are.
+    V="$(heartbeat_skips_verdict "$SS0" "['clone_session', 'install_initial_routes', 'lldp_discovery', 'pipeline_push', 'sflow_telemetry']")"
+    [[ "$V" == OK* ]] || fail "${V#BAD }"
 fi
 
 # --- 3. the exercise's own controller -------------------------------------------------------------
