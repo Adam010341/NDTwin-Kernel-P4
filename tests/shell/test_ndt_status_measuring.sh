@@ -16,9 +16,22 @@
 #      -- `declared`, `measuring`, or `orphaned` -- line for line, in every fixture state below,
 #      and each state's rows are also checked against what they must say (two copies that agree
 #      on a wrong answer would pass the first check alone).
-#   2. NOTHING HEAVY. Every command the ruling names is a recording shim on PATH, and `--measuring`
-#      calls none of them in any state; plain `ndt status`, run with the same shims, does call them
-#      -- the control that says the shims are on PATH and recording.
+#   2. NOTHING HEAVY, in four layers, because a PATH denylist alone is not a pin (the round-3
+#      review): ndt's own port_open is bash /dev/tcp, ndt already fetches with python3 urllib, and an
+#      absolute path never looks at PATH.
+#        a. every command the ruling names is a recording shim on PATH, and `--measuring` calls none
+#           of them; plain `ndt status` through the same shims does (the control);
+#        b. `--measuring` also runs on an ALLOWLIST-only PATH, with an exported
+#           command_not_found_handle recording anything else it asks for -- python3, curl, ip, git,
+#           anything; plain status on the same PATH asks for plenty (the control);
+#        c. in a network namespace of its own (`unshare -rn`, or the host when that is not possible
+#           and the ports are free), listeners on 127.0.0.1:8000, :8080 and :8081 count every
+#           connection while `--measuring` runs: it must make none, whatever the means; a bash
+#           /dev/tcp connect and a python3 urllib GET made the same way are counted (the control);
+#        d. statically: the functions `--measuring` reaches from status_measuring_rows are exactly
+#           the five that read a file or `ps`, and none of them names /dev/tcp, /dev/udp or runs a
+#           command by absolute path.
+#      A layer that cannot run (no unshare and a port taken) is a FAILED check, never a pass.
 #
 # The process table is a fixture: a `ps` shim answers the three listings ndt's scans read
 # (in_flight: pid,comm,args; mn_count and the host count: args; bmv2_count: comm) from a file, and
@@ -68,16 +81,18 @@ FULL_CALLS="$SANDBOX/full.calls"
 : > "$LIGHT_CALLS"; : > "$FULL_CALLS"
 
 # --- the shims -------------------------------------------------------------------------------
-REAL_PS="$(type -P ps)"
-[[ -n "$REAL_PS" ]] || { echo "  FAILED   no ps on PATH"; echo "Ran 1 checks, 1 failed"; exit 1; }
+REAL_PS="$(type -P ps)"; REAL_AWK="$(type -P awk)"; REAL_CUT="$(type -P cut)"; REAL_BASH="$(type -P bash)"
+[[ -n "$REAL_PS" && -n "$REAL_AWK" && -n "$REAL_CUT" && -n "$REAL_BASH" ]] \
+    || { echo "  FAILED   no ps, awk, cut or bash on PATH"; echo "Ran 1 checks, 1 failed"; exit 1; }
+# (absolute paths inside the shim: it also runs on the allowlist-only PATH below)
 cat > "$SANDBOX/shim/ps" <<EOF
-#!/bin/bash
+#!$REAL_BASH
 # the process table of the fixture, for the three listings ndt's scans read; the rest is real
 if [[ -f '$FIXTURE' ]]; then
     case "\$*" in
-        "-eo pid=,comm=,args=") awk -F'\t' '{ printf "%7s %s %s\n", \$1, \$2, \$3 }' '$FIXTURE'; exit 0 ;;
-        "-eo args=")            cut -f3 '$FIXTURE'; exit 0 ;;
-        "-eo comm=")            cut -f2 '$FIXTURE'; exit 0 ;;
+        "-eo pid=,comm=,args=") '$REAL_AWK' -F'\t' '{ printf "%7s %s %s\n", \$1, \$2, \$3 }' '$FIXTURE'; exit 0 ;;
+        "-eo args=")            '$REAL_CUT' -f3 '$FIXTURE'; exit 0 ;;
+        "-eo comm=")            '$REAL_CUT' -f2 '$FIXTURE'; exit 0 ;;
     esac
 fi
 exec '$REAL_PS' "\$@"
@@ -99,7 +114,93 @@ done
 chmod +x "$SANDBOX/shim"/*
 SHIMMED_PATH="$SANDBOX/shim:$PATH"
 
+# b. the allowlist: what `--measuring` needs and nothing else (found by running it on an empty
+# PATH, 10-02: ndt's preamble needs dirname and readlink, the sourced files cat, the claim reader
+# sed, head and date, the rows cut and wc; ps is the fixture's). Anything else it asks for lands in
+# STRICT_LOG through command_not_found_handle, exported into the bash that runs ndt.
+ALLOW_DIR="$SANDBOX/allow"; mkdir -p "$ALLOW_DIR"
+for c in cat cut date dirname head readlink sed wc; do
+    t="$(type -P "$c")" || { echo "  FAILED   no $c on PATH"; echo "Ran 1 checks, 1 failed"; exit 1; }
+    ln -s "$t" "$ALLOW_DIR/$c"
+done
+ln -s "$SANDBOX/shim/ps" "$ALLOW_DIR/ps"
+STRICT_LOG="$SANDBOX/strict.calls"; STRICT_CONTROL_LOG="$SANDBOX/strict-control.calls"
+: > "$STRICT_LOG"; : > "$STRICT_CONTROL_LOG"
+command_not_found_handle() { printf '%s\n' "$1" >> "${STRICT_CALLS:-/dev/null}"; return 127; }
+export -f command_not_found_handle
+
+# c. the listeners. One python3 process, run by absolute path, accepting on the three ports and
+# writing "port:count ..." after every accept; started and stopped around ONE command, in a network
+# namespace of its own when `unshare -rn` works (nothing else on the machine sees the ports), else
+# on the host if all three ports are free, else not at all (NET_MODE none: the checks fail).
+REAL_PY="$(type -P python3)"
+LISTENER="$SANDBOX/listener.py"
+cat > "$LISTENER" <<'EOF'
+import os, select, socket, sys
+out, ready = sys.argv[1], sys.argv[2]
+ports = (8000, 8080, 8081)
+socks, counts = [], {p: 0 for p in ports}
+for p in ports:
+    s = socket.socket()
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.bind(("127.0.0.1", p))
+    s.listen(16)
+    socks.append(s)
+def dump():
+    with open(out + ".tmp", "w") as f:
+        f.write(" ".join("%d:%d" % (p, counts[p]) for p in ports))
+    os.replace(out + ".tmp", out)
+dump()
+open(ready, "w").write("ok")
+while True:
+    for s in select.select(socks, [], [])[0]:
+        c, _ = s.accept()
+        counts[s.getsockname()[1]] += 1
+        c.close()
+        dump()
+EOF
+NET_RUN="$SANDBOX/net-run.sh"
+cat > "$NET_RUN" <<EOF
+#!$REAL_BASH
+# net-run.sh <counts file> <stdout file> <command...> -- the listeners up, the command, the listeners down
+counts="\$1" out="\$2"; shift 2
+if [[ "\${NET_IN_NS:-}" == 1 ]]; then ip link set lo up || exit 97; fi
+rm -f "\$counts" "\$counts.ready"
+'$REAL_PY' '$LISTENER' "\$counts" "\$counts.ready" 2>/dev/null &
+lp=\$!
+for i in \$(seq 1 100); do [[ -f "\$counts.ready" ]] && break; sleep 0.05; done
+[[ -f "\$counts.ready" ]] || { kill \$lp 2>/dev/null; exit 98; }
+"\$@" > "\$out" 2>/dev/null
+sleep 0.2
+kill \$lp 2>/dev/null; wait \$lp 2>/dev/null
+exit 0
+EOF
+chmod +x "$NET_RUN"
+NET_MODE=none
+if command -v unshare >/dev/null && command -v ip >/dev/null \
+        && NET_IN_NS=1 unshare -rn "$REAL_BASH" -c 'ip link set lo up' 2>/dev/null; then
+    NET_MODE=netns
+elif "$REAL_PY" -c '
+import socket
+for p in (8000, 8080, 8081):
+    s = socket.socket(); s.bind(("127.0.0.1", p)); s.close()' 2>/dev/null; then
+    NET_MODE=host
+fi
+net() {   # <counts file> <stdout file> <command...>
+    case "$NET_MODE" in
+        netns) NET_IN_NS=1 unshare -rn "$NET_RUN" "$@" ;;
+        host)  "$NET_RUN" "$@" ;;
+        *)     echo "8000:? 8080:? 8081:?" > "$1"; return 99 ;;
+    esac
+}
+NET_COUNTS_ALL=""
+
 export NDT_OWNER=fixture-me
+light_strict() { (cd "$SANDBOX" && STRICT_CALLS="$STRICT_LOG" PATH="$ALLOW_DIR" NO_COLOR=1 "$REAL_BASH" "$NDT" status --measuring 2>/dev/null); }
+light_net() {   # <counts file> -- the light call, through the listeners
+    (cd "$SANDBOX" && net "$1" "$SANDBOX/net.out" env CALLS_LOG="$LIGHT_CALLS" PATH="$SHIMMED_PATH" NO_COLOR=1 \
+        "$REAL_BASH" "$NDT" status --measuring) && cat "$SANDBOX/net.out"
+}
 light() { (cd "$SANDBOX" && CALLS_LOG="$LIGHT_CALLS" PATH="$SHIMMED_PATH" NO_COLOR=1 bash "$NDT" status --measuring 2>/dev/null); }
 full()  { (cd "$SANDBOX" && CALLS_LOG="$FULL_CALLS" PATH="$SHIMMED_PATH" NO_COLOR=1 bash "$NDT" status 2>/dev/null); }
 
@@ -145,6 +246,10 @@ state() {
     # 2. the measuring rows and nothing else (17 blanks: a row's continuation, printf "  %-14s %s" with an empty name)
     bad="$(printf '%s\n' "$L" | grep -vE '^  (declared|measuring|orphaned) |^ {17}[^ ]' || true)"
     check "$label: --measuring prints the measuring rows and nothing else" "" "$bad"
+    # 3. the same answer on the allowlist-only PATH, and through the listeners
+    check "$label: the allowlist-only PATH gives the same rows" "$L" "$(light_strict)"
+    check "$label: the run through the listeners gives the same rows" "$L" "$(light_net "$SANDBOX/net.counts")"
+    NET_COUNTS_ALL+="$(cat "$SANDBOX/net.counts" 2>/dev/null || echo '?')|"
     LAST_LIGHT="$L"; LAST_FULL="$F"
 }
 
@@ -191,6 +296,68 @@ check "🔴 --measuring ran no sudo, curl, OVS or bmv2 command (8 states)" "" "$
 check "  control: plain status, through the same shims, calls sudo" "yes" \
       "$(grep -q '^sudo ' "$FULL_CALLS" && echo yes || echo no)"
 check "  control: the process table both read is the fixture" "$IPERF_ROW" "$(row measuring "$LAST_FULL")"
+
+echo
+echo "ndt status --measuring: nothing outside its allowlist, no connection, no absolute path"
+check "🔴 --measuring ran nothing outside its allowlist on PATH (8 states)" "" "$(sort -u "$STRICT_LOG" | tr '\n' ' ')"
+# the control: plain status on the same PATH asks for commands the allowlist does not have
+(cd "$SANDBOX" && STRICT_CALLS="$STRICT_CONTROL_LOG" PATH="$ALLOW_DIR" NO_COLOR=1 timeout 60 "$REAL_BASH" "$NDT" status >/dev/null 2>&1)
+check "  control: plain status on the same PATH is recorded asking for more" "yes" \
+      "$([[ -s "$STRICT_CONTROL_LOG" ]] && echo yes || echo no)"
+
+check "the listeners ran (in a namespace of their own, or on free host ports)" "yes" \
+      "$([[ "$NET_MODE" != none ]] && echo yes || echo "no: no unshare -rn and a port of 8000/8080/8081 is taken -- NOT CHECKED")"
+want_net="$(printf '8000:0 8080:0 8081:0|%.0s' 1 2 3 4 5 6 7 8)"
+check "🔴 --measuring opened no TCP connection to the lab's ports (8 states, $NET_MODE)" "$want_net" "$NET_COUNTS_ALL"
+# the control: the two idioms ndt itself has, run the same way, are counted
+net "$SANDBOX/ctl.counts" "$SANDBOX/ctl.out" "$REAL_BASH" -c \
+    '(exec 3<>/dev/tcp/127.0.0.1/8000) 2>/dev/null; '"'$REAL_PY'"' -c "import urllib.request
+try: urllib.request.urlopen(\"http://127.0.0.1:8081/\", timeout=2)
+except Exception: pass"'
+check "  control: a bash /dev/tcp connect and a python3 urllib GET are counted" "8000:1 8080:0 8081:1" \
+      "$(cat "$SANDBOX/ctl.counts" 2>/dev/null)"
+
+# d. statically, from ndt itself: the functions --measuring reaches, and what they contain
+CLOSURE_DIR="$SANDBOX/closure"; mkdir -p "$CLOSURE_DIR"
+closure="$("$REAL_BASH" -c '
+    source "$1" >/dev/null 2>&1 || true
+    declare -F | awk "{print \$3}" | sort > "$2/all"
+    todo=(status_measuring_rows); seen=" "
+    while (( ${#todo[@]} )); do
+        f=${todo[0]}; todo=("${todo[@]:1}")
+        [[ "$seen" == *" $f "* ]] && continue
+        seen+="$f "
+        declare -f "$f" > "$2/fn.$f"
+        for w in $(tail -n +2 "$2/fn.$f" | grep -oE "[A-Za-z_][A-Za-z0-9_]*" | sort -u); do
+            grep -qx "$w" "$2/all" && todo+=("$w")
+        done
+    done
+    printf "%s\n" $seen | sort | tr "\n" " "' _ "$NDT" "$CLOSURE_DIR")"
+check "🔴 --measuring reaches only the five functions that read a file or ps" \
+      "claim_field in_flight measuring_declared mn_count status_measuring_rows " "$closure"
+# a word in command position that starts with "/" (declare -f puts each command on its line), or
+# /dev/tcp and /dev/udp anywhere
+abs="$("$REAL_PY" - "$CLOSURE_DIR" <<'EOF'
+import glob, re, sys
+bad = []
+sep = re.compile(r"\$\(|<\(|>\(|`|&&|\|\||[;|&]")
+skip = {"if", "then", "else", "elif", "do", "while", "until", "for", "case", "!", "{", "}", "(", "((", "time",
+        "exec", "command", "builtin", "env", "nohup", "timeout"}
+for p in sorted(glob.glob(sys.argv[1] + "/fn.*")):
+    fn = p.rsplit("fn.", 1)[1]
+    for n, line in enumerate(open(p), 1):
+        if re.search(r"/dev/(tcp|udp)/", line):
+            bad.append("%s:%d /dev/tcp|udp: %s" % (fn, n, line.strip()))
+        for part in sep.split(line):
+            words = part.split()
+            while words and (words[0] in skip or re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", words[0])):
+                words = words[1:]
+            if words and words[0].startswith("/"):
+                bad.append("%s:%d absolute path: %s" % (fn, n, line.strip()))
+print("; ".join(sorted(set(bad))))
+EOF
+)"
+check "🔴 no absolute-path command and no /dev/tcp on --measuring's path" "" "$abs"
 
 echo
 echo "ndt help"

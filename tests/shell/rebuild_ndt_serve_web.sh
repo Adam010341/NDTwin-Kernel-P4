@@ -67,6 +67,7 @@ echo "head $git_head"
 echo "porcelain $git_dirty tracked file(s) differ from HEAD"
 echo "date $(date -Is)"
 echo "static $STATIC"
+echo "gate $(sha256sum "${BASH_SOURCE[0]}" | cut -c1-64)"
 
 refuse() { echo "REFUSED: $*"; exit 2; }
 

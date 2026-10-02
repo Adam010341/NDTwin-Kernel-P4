@@ -118,6 +118,7 @@ echo "head $git_head"
 echo "porcelain $git_dirty tracked file(s) differ from HEAD"
 echo "date $(date -Is)"
 echo "python $(command -v "$PY") $("$PY" -c 'import sys; print(sys.version.split()[0])')"
+echo "gate $(sha256sum "${BASH_SOURCE[0]}" | cut -c1-64)"
 BASE_SHA=$(sha256sum "${SUBJECTS[@]}")
 
 SURVIVORS=0

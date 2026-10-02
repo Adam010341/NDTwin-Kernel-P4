@@ -60,6 +60,7 @@ fi
 echo "head $git_head"
 echo "porcelain $git_dirty tracked file(s) differ from HEAD"
 echo "date $(date -Is)"
+echo "gate $(sha256sum "${BASH_SOURCE[0]}" | cut -c1-64)"
 BASE_SHA=$(sha256sum "$NDT" "$TEST")
 
 SURVIVORS=0
@@ -193,6 +194,57 @@ m=$(mutant L6 "$NDT" \
     fi')
 report "L6: --measuring answers 1 (ndt serve would read a failure, not a report)" "$m" \
        "nothing: --measuring answers rc 0"
+
+# 10-02 (the round-3 review): the four ways around a PATH denylist. Each would reach the kernel or
+# a switch under measurement without one PATH shim seeing it.
+m=$(mutant L14 "$NDT" \
+    'status_measuring_rows() {
+    # Declared beside observed' \
+    'status_measuring_rows() {
+    port_open 8000 >/dev/null
+    # Declared beside observed')
+report "L14: ndt's own port_open (bash /dev/tcp) to the kernel on the shared path" "$m" \
+       "🔴 --measuring opened no TCP connection to the lab's ports"
+
+m=$(mutant L14b "$NDT" \
+    'status_measuring_rows() {
+    # Declared beside observed' \
+    'status_measuring_rows() {
+    (exec 3<>/dev/tcp/127.0.0.1/8080) 2>/dev/null
+    # Declared beside observed')
+report "L14b: a literal /dev/tcp connect to Ryu's port on the shared path" "$m" \
+       "🔴 no absolute-path command and no /dev/tcp on --measuring's path"
+
+m=$(mutant L15 "$NDT" \
+    'status_measuring_rows() {
+    # Declared beside observed' \
+    'status_measuring_rows() {
+    python3 -c '\''import urllib.request
+try: urllib.request.urlopen("http://127.0.0.1:8000/ndt/get_graph_data", timeout=2)
+except Exception: pass'\'' >/dev/null 2>&1
+    # Declared beside observed')
+report "L15: a python3 urllib GET of the kernel's graph on the shared path" "$m" \
+       "🔴 --measuring ran nothing outside its allowlist on PATH"
+
+# /usr/bin/sudo -n true in the ticket's wording: an OVS query by absolute path stands in for it, so
+# that running this gate makes no sudo call of its own; the check reads the text, not the binary.
+m=$(mutant L16 "$NDT" \
+    'status_measuring_rows() {
+    # Declared beside observed' \
+    'status_measuring_rows() {
+    /usr/bin/ovs-vsctl list-br >/dev/null 2>&1
+    # Declared beside observed')
+report "L16: an OVS query by absolute path (past every PATH shim)" "$m" \
+       "🔴 no absolute-path command and no /dev/tcp on --measuring's path"
+
+m=$(mutant L16b "$NDT" \
+    'status_measuring_rows() {
+    # Declared beside observed' \
+    'status_measuring_rows() {
+    /usr/bin/curl -s --max-time 1 http://127.0.0.1:8000/ndt/get_graph_data >/dev/null 2>&1
+    # Declared beside observed')
+report "L16b: curl by absolute path to the kernel (past the curl shim)" "$m" \
+       "🔴 --measuring opened no TCP connection to the lab's ports"
 
 # --- the answer itself, as both print it ------------------------------------------------------
 
