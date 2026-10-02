@@ -444,6 +444,31 @@ solution）**exercise 自己**的證據有沒有變。**不是**拿來和 074635
 - 這一節的 git 部分（第 0、2、6 步）在主 checkout 的一個丟棄式 clone 裡演練過三種情況：merge 之後別人改了 B 也改的檔、
   第 0 與第 2 步之間有人 commit 到 trunk、別人 stage 了東西——舊的文字在每一種都出錯，新的都對（第七輪的 SUMMARY）。
 
+**第八輪改了什麼**（10-02 那一次讀不到；Adam 的裁定；讀法的一條規則與這份 README）：
+- **10-02 照這份程序跑過一次**（B_SHA `9b5c0607`）：C1 `2026-10-02T111831Z_06_thirteen`、C2 `…T114559Z_06_thirteen`、
+  T `…T121504Z_06_thirteen`、H5 `…T121502Z_08_heartbeat`、H1–H4 `…T124313Z_08_heartbeat`（都在主 checkout 的 `$LP/runs/`）。
+  第 5 步 `compare` **rc 2 UNREADABLE**，停在 C1 的 p4runtime/solution（`the last counter block had not settled`）。
+  `compare` 在第一個讀不到的地方就停，**沒有印出任何判定欄位**；第 6 步 `ROLLED-BACK`。原因在讀法，不在 run：
+  `settled()` 要 s1 ingress 100 剛好等於 pings＋iperf 的 `Sent 3500`，而 iperf 2.1.9 的 Sent 比線上多一個。
+- **Adam 的裁定（form 9）**：先修好讀法並登記，再**重新跑一次**；**10-02 的資料永遠不拿來比**——不 compare、不當
+  對照組、不當處理組、不在任何「沿用」或「找回來」裡出現（第 0 步的 `START`，下面）。
+- **修改**：`75b5dd0e`，`external_evidence.py` 的 sha256 `69bccf77d23782e40e2f4d9ed14c827eabfb8513d96c035ff6ab865dcdfffbdf`（第 0 步釘進 `$V`，第 5 步再查）。
+  - 理由只用凍結的 12 個 p4runtime/solution round（`external_survey_34.tsv`）：6 個的最後一塊是 s1＝3504，bytes＝
+    5×98＋3499×1242 剛好，client 與 server 都寫 `0/3499`——線上就是 server 的 total（D）個 datagram；舊規則 12 個裡只
+    settle 了 1 個（09-27T081205Z，它的 FIN 送了兩次）。新規則 settle 了 traffic 結束後才讀的 7 個，仍讀不到
+    09-26T175425Z（s2 egress 3821、s1 3820）與 09-19 的 4 個（沒有 server report）。這些都在 10-02 之前。
+  - **放寬**：s1 從一個精確值（pings＋Sent）變成一段範圍：pings＋D ≤ s1 ≤ pings＋D＋10，D 是 server report 的 total。
+  - **收緊**：多要同一塊裡 s2 egress 100＝s1 ingress 100；沒有 Server Report（也沒有 warning）時只有「與前一塊相同」
+    能 settle。client 明說 `did not receive ack` 的情況，舊規則本來就只靠重複的一塊——那一半沒有變。
+  - **＋10 是推論，不是量的**（re-review 的 N1）：acked 的 round 看過的最多是＋1（081205Z）。server 回了 report，表示
+    第一個 FIN 已經到了它那裡、算在 D 裡，所以重試 10 次時最多大概只會是＋9；10 只放寬上界那一側，而讀在 traffic
+    中途的一塊會落在下界之下，放不進來。沒有改成 9：改了就要重跑 TS 與 MG（t_top 釘在 3514）。
+  - **描述用的不變式仍用 Sent**（re-review 的 N4）：`s1 ingress 100 = pings + iperf datagrams` 用的還是 `Sent`，
+    所以每一個正常的 round 它都印成 `inv ..`（不成立）。它只描述、不計；不改是為了 survey 的輸出不變。
+- **修改之後才看 10-02**：`settled()` 在 `75b5dd0e` 上對 10-02 的三個 p4runtime/solution round 只印了 settled／
+  UNREADABLE——三個都是 settled（logs/gates-0910/`settled15.extb9-75b5dd0e.log:17-19`）。三個結果相同，分不出 C 與 T。
+- **再遇到讀法的錯**：登記在下面「判定」的第一條。
+
 **在哪裡跑**：全部從主 checkout（`/home/adam/Desktop/NDTwin-Kernel`，下面寫成 `$M`）跑。這台機器**沒有**
 `/etc/ndtwin-lab.conf`，ndt 用它內建的 `LAB_DEFAULT_KERNEL_DIR`，就是主 checkout，所以**不需要任何 root 步驟**。
 B 沒有改任何 C++，**不需要重建 kernel**（重建了，身分就不同，`compare` 會拒絕）。每一步都要 `NDT_OWNER=<你>`，
@@ -470,7 +495,10 @@ EOF
 **變數檔不見時怎麼找回來**：`C_HEAD`＝`<C1>/00_identity.after.txt` 的 `head`；`T_MERGE`＝`<T>/00_identity.after.txt`
 的 `head`，它的 `parents` 就是 `[C_HEAD, B_SHA]`（兩個都要對得上）；T 還沒跑而已經 merge 了：`git -C $M rev-parse HEAD`，
 但**只在** `HEAD^1 == C_HEAD` 而且 `HEAD^2 == B_SHA` 時才算數，否則停下回報；`C1`、`C2`、`T` 是 `$M/$LP/runs/` 底下
-`*_06_thirteen` 的目錄（06 最後一行前印的 `raw:`），`H5` 是 `*_08_heartbeat`。讀 `head` 的方法：
+`*_06_thirteen` 的目錄（06 最後一行前印的 `raw:`），`H5` 是 `*_08_heartbeat`——**只算名字的時間戳晚於 `$START` 的**
+（`[[ "$(basename $R | cut -c1-18)" > "$START" ]]`；第八輪，re-review 的 F2）。更早的目錄，包括 10-02 的
+`2026-10-02T1[12]*`，**永遠不算**：身分檢查分不出它們（trunk 與 binary 沒動的話，身分一樣），只有時間戳分得出。
+`START` 本身也不見了 ⇒ 停下回報，不猜。讀 `head` 的方法：
 `python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["head"])' <C1>/00_identity.after.txt`。
 
 **任何一行印出 `STOP` ⇒ 不做下一步**；每一種 STOP 在下面寫了要做什麼，沒寫到的 ⇒ 回報 orchestrator，凍結不解除。
@@ -487,7 +515,12 @@ EOF
      || [[ "$(git -C $M merge-tree --write-tree $C_HEAD $B_SHA | head -1)" == "$(git -C $M rev-parse $B_SHA^{tree})" ]] \
      || echo "STOP: B was not built on this trunk"
    echo "C_HEAD=$C_HEAD" >> "$V"; git -C $M diff --name-only $C_HEAD $B_SHA    # 這份清單進凍結公告
+   # (第八輪) 這次程序的起點：比它早的 raw 目錄都不屬於這次；比對用的讀法是登記過的那一份
+   echo "START=$(date -u +%Y-%m-%dT%H%M%SZ)" >> "$V"
+   EE_SHA=$(sha256sum $B_WT/$LP/external_evidence.py | cut -d' ' -f1); echo "EE_SHA=$EE_SHA" >> "$V"
+   [[ "$EE_SHA" == 69bccf77d23782e40e2f4d9ed14c827eabfb8513d96c035ff6ab865dcdfffbdf ]] || echo "STOP: external_evidence.py is not the registered reader (75b5dd0e)"
    ```
+   - `not the registered reader`：B_WT 的讀法不是第八輪登記的那一份 ⇒ **停下回報**，不跑任何 run。
    - 最後一個 STOP：trunk 的 head 不是 B 的祖先、兩者 merge 出來的 tree 也不是 B 的 tree——T 跑的就不是 B 測過的那棵。
      **停下**，B 先 merge trunk、重跑閘門，再從這一步開始。其他 STOP：問那個狀態的主人，處理完重做這一步（還沒改任何東西）。
    - **凍結公告要寫的**（第七輪，re-review 的 N1），從這一步到第 7 步：
@@ -507,11 +540,12 @@ EOF
    NDT_OWNER=<你> bash $M/$LP/06_thirteen.sh                                            # 最後一行前一行：raw: <R>
    ```
    ```
-   V=/home/adam/Desktop/NDTwin-Kernel/scratch/live-extb/vars; source "$V"; R=<06 印的 raw 目錄>
+   V=/home/adam/Desktop/NDTwin-Kernel/scratch/live-extb/vars; source "$V"; : "${START:?}"; R=<06 印的 raw 目錄>
+   [[ "$(basename $R | cut -c1-18)" > "$START" ]] || echo "STOP: $R is older than START -- not this run's"
    cp "$(dirname "$V")/X.before.json" $R/00_identity.before.txt
    python3 $B_WT/$LP/code_identity.py record $M $R/00_identity.after.txt              # 跑完
    bash $B_WT/$LP/venv_fingerprint.sh $R/00_venv.txt $M/p4_proxy/venv/bin/python /home/adam/p4dev-python-venv/bin/python
-   echo "X=$R" >> "$V"
+   [[ "$(basename $R | cut -c1-18)" > "$START" ]] && echo "X=$R" >> "$V"
    python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import code_identity as c
    r = c.unchanged_reasons(c.load(sys.argv[2]), c.load(sys.argv[3]), "X"); print("\n".join("STOP: " + x for x in r) or "X: the code did not change while it ran")' \
        $B_WT/$LP $R/00_identity.before.txt $R/00_identity.after.txt
@@ -539,7 +573,7 @@ EOF
    - `trunk moved`：凍結被破了。**不 merge**；回報；C1、C2 跑的是舊的 head，作廢，**從第 0 步重新開始**。
    - `staged changes`／`merge refused`：HEAD 仍是 C_HEAD（STOP 那一行說了），不跑 T，回報；那份改動的主人把它移走之後，
      C1、C2 只在它們的身分與現在的一樣時才沿用（`code_identity.py record` 一份，`unchanged_reasons` 對 C2 的 after），
-     否則從第 0 步重來。
+     否則從第 0 步重來。「沿用」只指**這一次程序**（同一個 `$V`、同一個 `START`）第 1 步跑的 C1、C2，不是任何更早的 run（第八輪）。
    - `the merge is not C plus B`：**做第 6 步**（它回復的正好是這一個 merge），不跑 T，回報。
 
 3. **處理組 T（含 B）**：一次 `PART=h5`，`OLD_06` 指向 C1，身分對 C1 跑完時的那份檢查：
@@ -557,9 +591,15 @@ EOF
 
 5. **比對**：
    ```
-   V=/home/adam/Desktop/NDTwin-Kernel/scratch/live-extb/vars; source "$V"; : "${B_WT:?}" "${LP:?}" "${C1:?}" "${C2:?}" "${T:?}" "${H5:?}" "${B_SHA:?}"
-   python3 $B_WT/$LP/external_evidence.py compare $C1 $T --control2 $C2 --samples $H5/50_samples.tsv --b-sha $B_SHA
+   V=/home/adam/Desktop/NDTwin-Kernel/scratch/live-extb/vars; source "$V"; : "${B_WT:?}" "${LP:?}" "${C1:?}" "${C2:?}" "${T:?}" "${H5:?}" "${B_SHA:?}" "${START:?}" "${EE_SHA:?}"
+   ok=1
+   for R in $C1 $C2 $T $H5; do [[ "$(basename $R | cut -c1-18)" > "$START" ]] || { echo "STOP: $R is older than START"; ok=0; }; done
+   NOW=$(sha256sum $B_WT/$LP/external_evidence.py | cut -d' ' -f1); echo "EE_SHA_AT_COMPARE=$NOW" >> "$V"; echo "reader sha256 $NOW"
+   [[ "$NOW" == "$EE_SHA" ]] || { echo "STOP: external_evidence.py changed since step 0 -- no compare"; ok=0; }
+   (( ok )) && python3 $B_WT/$LP/external_evidence.py compare $C1 $T --control2 $C2 --samples $H5/50_samples.tsv --b-sha $B_SHA
    ```
+
+   有 STOP ⇒ 不比，回報（第八輪）。
 
 6. **回復本地 merge**（判定是通過以外的每一種結果；第七輪，re-review 的 F1）：
    ```
@@ -595,6 +635,10 @@ EOF
   不是判準。
 - **H1–H4**（第 4 步）：H4 **只**因為 `reported_to_kernel` 失敗 ⇒ kernel 處理 Down 交換機的發現（S4），不改變判定，
   但要回報；H1–H3 任何一個 FAIL、或 H4 因為別的原因 FAIL ⇒ **不通過**，回復、回報。
+- **讀法的錯**（第八輪，re-review 的 F3；比下面每一條都先看）：a reader defect (an UNREADABLE or refusal whose cause
+  is the reader, not the run) ⇒ stop, roll back, report to Adam; no re-compare under a changed reader. ——也就是：
+  讀不到或被拒絕、而原因在 `external_evidence.py` 的讀法而不在那個 run ⇒ **停下、照第 6 步回復、回報 Adam**；
+  **不在改過的讀法下重比**，也不走下面「重跑那一個 run 一次」的路（10-02 的前例）。
 - **`compare` rc 0** ⇒ **通過**。
 - **rc 1**（判定欄位的差異）：
   - `!! DAEMON`（該臂的 session 算到任何轉出、誤送或外來的幀）或任何 0x88B5 的 packet-in ⇒ **立刻失敗，停下回報**
@@ -628,7 +672,7 @@ EOF
     的程式路徑、重編了 kernel、換了 `~/tutorials`）⇒ 先照第 6 步回復（若已 merge），**從第 0 步、C1 重新開始**；被拒的 run
     留著當 raw，不再使用。
   - **merge 被拒**（第 2 步：本地改動會被蓋掉，或有衝突）⇒ 有衝突就 `git -C $M merge --abort`；確認 HEAD 仍是 C_HEAD；
-    **不跑 T**，回報。C1、C2 只在之後的身分仍然相同時才能沿用。
+    **不跑 T**，回報。C1、C2 只在之後的身分仍然相同時才能沿用——只限這一次程序（同一個 `START`）的 C1、C2（第八輪）。
 - **這個 raw 答不了的**：「臂結束時 proxy 什麼都沒寫」——由 H4 的 `no_writes` 回答。
 
 **判定的欄位與只描述的欄位，與誤判率的算式（S-9；預先登記，orchestrator 第六輪接受）**
@@ -678,10 +722,13 @@ counters_final 與它的兩條流量不變式；flowcache 的 packet_ins、cache
   （p=0.5 ⇒ 25%）。每次都出現的效果（p=1）一定抓得到；偶發的大多抓不到。
 - 一次 T、兩個對照組：只看得到這三臂、這一次的 06；別的 external package、別的程式不在裡面（見上面「看不到的地方」）。
 
-*為什麼現在改預先登記是正當的。*（1）這次比對還沒有任何 live 資料：C1、C2、T 都沒跑過，所以這個改動不可能是
-看了結果才調的；（2）它用的只有規則本身的算術，和 B 之前、跑別的程式版本的舊 round——那些 round 只拿來決定
+*為什麼現在改預先登記是正當的。*（1）第六輪改動的當時，這次比對還沒有任何 live 資料：C1、C2、T 都沒跑過，所以那個改動不可能是
+看了結果才調的（第八輪更正：這句只對第六輪成立——10-02 已經跑過一次，讀不到，見上面「第八輪改了什麼」；第八輪的
+改動只用 10-02 之前的凍結 round，在 commit 之後才拿 10-02 的三個 round 看 settled，而 10-02 的資料不再比）；（2）它用的只有規則本身的算術，和 B 之前、跑別的程式版本的舊 round——那些 round 只拿來決定
 哪些欄位會自己變，不是比對的對象，而且現在凍結了；（3）它是 orchestrator 第五、六輪的裁定要求的；（4）它在一個
-commit 裡，時間戳早於任何 live run，之後不再改——要再改，同樣得在下一次 live run 之前、寫明理由。
+commit 裡，時間戳早於任何 live run，之後不再改——要再改，同樣得在下一次 live run 之前、寫明理由。第八輪就是這樣改的
+一次：`settled()` 的規則在 10-02 那次之後改了（`75b5dd0e`），理由與放寬、收緊的地方寫在上面「第八輪改了什麼」，
+在下一次 live run 之前。
 
 `external_evidence.py` 的細節（它的 docstring 是正本）：它從每臂自己的控制器 log、round 報告、`00_table.tsv`、
 H5 的 samples 讀證據；拒絕／讀不到／比對／不變式的規則如上；N4 那份 switch_state 的 daemon 計數器是 pipeline
