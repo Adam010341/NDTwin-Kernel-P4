@@ -93,11 +93,17 @@ fi
 # HEAD and its parents, the uncommitted tracked files, the kernel, bmv2 and helper binaries, both
 # venvs (live-p1/code_identity.py) -- so external_evidence.py can refuse a treatment that is not
 # its controls' code plus B. Recorded, never a refusal here.
-if CTRL_PY="$VENV_PY" python3 "$HERE/code_identity.py" record "$REPO" "$RUN/00_identity.txt" > /dev/null 2>&1; then
-    note "code identity -> 00_identity.txt"
-else
-    bad "the code identity was not recorded (live-p1/code_identity.py record)"
-fi
+# [Co-developed with claude code -- Adam] (round 6) twice: as 06 starts (00_identity.before.txt) and
+# as it ends (00_identity.after.txt) -- external_evidence.py refuses a run whose two differ (the
+# code changed while it ran) and compares the after one.
+record_identity() {   # record_identity <before|after>
+    if CTRL_PY="$VENV_PY" python3 "$HERE/code_identity.py" record "$REPO" "$RUN/00_identity.$1.txt" > /dev/null 2>&1; then
+        note "code identity ($1 the rounds) -> 00_identity.$1.txt"
+    else
+        bad "the code identity was not recorded $1 the rounds (live-p1/code_identity.py record)"
+    fi
+}
+record_identity before
 
 TABLE="$RUN/00_table.tsv"
 printf 'exercise\twhich\trc\tverdict\treport\n' > "$TABLE"
@@ -220,6 +226,7 @@ if [[ -e "$REPO/p4_proxy/mininet/app_package_override" ]]; then
     FAILED=$((FAILED+1))
 fi
 
+record_identity after
 printf '\nraw: %s\n' "$RUN"
 if (( FAILED == 0 )); then
     printf 'PASS 06_thirteen -- %d arm(s), every arm as the exercise says it should be\n' "$ROWS"

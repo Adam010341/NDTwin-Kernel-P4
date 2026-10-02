@@ -354,13 +354,22 @@ check_fires "M12: 06 records no venv fingerprint" m12 \
             "🔴 the raw records the venv fingerprint of both interpreters"
 # [Co-developed with claude code -- Adam] M13 (the round-4 review's M-2): 06 records no code identity.
 cat > "$A/m13.old" <<'EOF'
-if CTRL_PY="$VENV_PY" python3 "$HERE/code_identity.py" record "$REPO" "$RUN/00_identity.txt" > /dev/null 2>&1; then
+record_identity before
 EOF
 cat > "$A/m13.new" <<'EOF'
-if true; then
+:
 EOF
-check_fires "M13: 06 records no code identity" m13 \
-            "🔴 the raw records the code identity"
+check_fires "M13: 06 records no code identity as it starts" m13 \
+            "🔴 the raw records the code identity as 06 starts"
+# [Co-developed with claude code -- Adam] M14 (round 6): nor as it ends.
+cat > "$A/m14.old" <<'EOF'
+record_identity after
+EOF
+cat > "$A/m14.new" <<'EOF'
+:
+EOF
+check_fires "M14: 06 records no code identity as it ends" m14 \
+            "🔴 and again as it ends, after the last round wrote its table row"
 
 check_control "C1: a comment above expected_rc" c1
 

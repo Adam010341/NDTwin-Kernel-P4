@@ -113,9 +113,15 @@ has   "  the driver's interpreter among them"          "== interpreter /usr/bin/
 has   "  with protobuf's version and implementation"   "api_implementation" "$(cat "$VENV13" 2>/dev/null)"
 # [Co-developed with claude code -- Adam] M-2: and which code -- the identity external_evidence.py
 # checks a treatment against.
-ID13="$(dirname "$VENV13")/00_identity.txt"
-check "🔴 the raw records the code identity" "1 yes" \
-      "$(python3 -c 'import json, sys; d = json.load(open(sys.argv[1])); print(d.get("format"), "yes" if "head" in d and "uncommitted" in d and "kernel" in d and "venv" in d else "no")' "$ID13" 2>&1 | tail -1)"
+# [Co-developed with claude code -- Adam] (round 6) taken as 06 starts and again as it ends, the
+# second after every round (00_table.tsv, rewritten per arm, is older than it).
+ID13="$(dirname "$VENV13")/00_identity.before.txt"
+# (HEAD and tree, or git's error: a mutant copy of 06 sits outside any repository, and its record says so)
+idok() { python3 -c 'import json, sys; d = json.load(open(sys.argv[1])); print(d.get("format"), "yes" if all(k in d for k in ("kernel", "bmv2_libs", "venv", "tutorials")) and ("tree" in d or "git_error" in d) else "no")' "$1" 2>&1 | tail -1; }
+check "🔴 the raw records the code identity as 06 starts" "2 yes" "$(idok "$ID13")"
+ID13A="$(dirname "$VENV13")/00_identity.after.txt"
+check "🔴 and again as it ends, after the last round wrote its table row" "2 yes after" \
+      "$(idok "$ID13A") $([[ "$ID13A" -nt "$(dirname "$VENV13")/00_table.tsv" ]] && echo after || echo not-after)"
 
 OUT="$(run13 basic RC_basic_skeleton=1)"; RC=$?
 check "🔴 a skeleton arm that FAILED an expectation is the finding" "1" "$RC"
