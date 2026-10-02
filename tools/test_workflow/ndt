@@ -6766,7 +6766,63 @@ app_package_row() {
     return 0
 }
 
+# status_measuring_rows -- the `declared` row and the measuring row of `ndt status` (`measuring
+# nothing`, the first measurement driver in flight, or the `orphaned` rows when there is no fabric
+# for it to be measuring), and the problems they add to the caller's problems[].
+#
+# [Co-developed with claude code -- Adam]
+# ONE function, called by plain `ndt status` and by `ndt status --measuring`, so the two cannot
+# answer "is anyone measuring" differently: ndt serve's page asks the light one once a minute while
+# a measurement pauses its refresh (Adam, 2026-10-01: the probe reads only the claim's measuring=
+# and the process table -- no sudo, no request to the kernel, no OVS or bmv2 query). Everything it
+# calls reads a file or `ps`: measuring_declared, in_flight, mn_count. Keep it that way -- a sudo, a
+# curl or a switch query here lands on every probe of a running measurement
+# (tests/shell/test_ndt_status_measuring.sh).
+status_measuring_rows() {
+    # Declared beside observed, the same pairing as cmd_status's exclusive-cpu row, and for the
+    # same reason: a declaration nobody checks against reality is a promise, and reality with no
+    # declaration beside it cannot say what it is FOR. This row is what `ndt check` refuses on
+    # (R4-2); the rows below it are what `up` and `down` refuse on. They answer different
+    # questions and are printed as two rows so they cannot be read as one.
+    local declared; declared="$(measuring_declared)"
+    [[ -n "$declared" ]] && printf '  %-14s %s\n' "declared" \
+        "$(printf '%s' "$declared" | cut -c1-64)   (claim measuring=; 'ndt check' refuses while set)"
+
+    local busy; busy="$(in_flight)"
+    if [[ -n "$busy" ]]; then
+        local extra; extra="$(printf '%s\n' "$busy" | wc -l)"
+        # A measurement process cannot be measuring a fabric that does not exist. iperf3 can
+        # outlive the fabric it was driving -- a client whose control channel never completes
+        # just sits there, and one was found still running 32 hours after its fabric was torn
+        # down (review session, 2026-08-23). Reporting that as "measuring" tells every reader,
+        # human and cross-session, that the lab is busy when it is merely dirty, and the
+        # advice attached to it ("wait for it") is then exactly wrong: waiting never ends.
+        #
+        # No timestamps needed -- the absence of a fabric is a stronger statement than any
+        # age comparison. [Co-developed with claude code -- Adam]
+        if [[ "$(mn_count)" -eq 0 ]]; then
+            printf '  %-14s %s\n' "orphaned" "$(printf '%s' "$busy" | head -1 | cut -c1-64)"
+            (( extra > 1 )) && printf '  %-14s %s\n' "" "+ $(( extra - 1 )) more process(es)"
+            printf '  %-14s %s\n' "" "no fabric is running, so these are leftovers, not a measurement"
+            problems+=("orphaned measurement processes with no fabric -- 'ndt clean' reaps them")
+        else
+            printf '  %-14s %s\n' "measuring" "$(printf '%s' "$busy" | head -1 | cut -c1-72)"
+            (( extra > 1 )) && printf '  %-14s %s\n' "" "+ $(( extra - 1 )) more process(es)"
+            problems+=("a measurement is in flight")
+        fi
+    else
+        printf '  %-14s %s\n' "measuring" "nothing"
+    fi
+}
+
 cmd_status() {
+    # [Co-developed with claude code -- Adam] `ndt status --measuring`: the measuring rows alone,
+    # before anything below runs -- no plane, no sudo grant, no kernel graph (status_measuring_rows).
+    if [[ "${1:-}" == "--measuring" ]]; then
+        local problems=()
+        status_measuring_rows
+        return 0
+    fi
     local check="" ; [[ "${1:-}" == "--check" ]] && check=1
     local hosts topo rate n problems=()
     # p4_proxy/mininet/host_count_override, and the P4 model that goes with it. This pair used
@@ -6851,40 +6907,7 @@ cmd_status() {
         printf '  %-14s %s\n' "" "no claim: the lab is free, this fabric included -- tear it down if you want"
     fi
 
-    # Declared beside observed, the same pairing the exclusive-cpu row above uses and for the
-    # same reason: a declaration nobody checks against reality is a promise, and reality with no
-    # declaration beside it cannot say what it is FOR. This row is what `ndt check` refuses on
-    # (R4-2); the rows below it are what `up` and `down` refuse on. They answer different
-    # questions and are printed as two rows so they cannot be read as one.
-    local declared; declared="$(measuring_declared)"
-    [[ -n "$declared" ]] && printf '  %-14s %s\n' "declared" \
-        "$(printf '%s' "$declared" | cut -c1-64)   (claim measuring=; 'ndt check' refuses while set)"
-
-    local busy; busy="$(in_flight)"
-    if [[ -n "$busy" ]]; then
-        local extra; extra="$(printf '%s\n' "$busy" | wc -l)"
-        # A measurement process cannot be measuring a fabric that does not exist. iperf3 can
-        # outlive the fabric it was driving -- a client whose control channel never completes
-        # just sits there, and one was found still running 32 hours after its fabric was torn
-        # down (review session, 2026-08-23). Reporting that as "measuring" tells every reader,
-        # human and cross-session, that the lab is busy when it is merely dirty, and the
-        # advice attached to it ("wait for it") is then exactly wrong: waiting never ends.
-        #
-        # No timestamps needed -- the absence of a fabric is a stronger statement than any
-        # age comparison. [Co-developed with claude code -- Adam]
-        if [[ "$(mn_count)" -eq 0 ]]; then
-            printf '  %-14s %s\n' "orphaned" "$(printf '%s' "$busy" | head -1 | cut -c1-64)"
-            (( extra > 1 )) && printf '  %-14s %s\n' "" "+ $(( extra - 1 )) more process(es)"
-            printf '  %-14s %s\n' "" "no fabric is running, so these are leftovers, not a measurement"
-            problems+=("orphaned measurement processes with no fabric -- 'ndt clean' reaps them")
-        else
-            printf '  %-14s %s\n' "measuring" "$(printf '%s' "$busy" | head -1 | cut -c1-72)"
-            (( extra > 1 )) && printf '  %-14s %s\n' "" "+ $(( extra - 1 )) more process(es)"
-            problems+=("a measurement is in flight")
-        fi
-    else
-        printf '  %-14s %s\n' "measuring" "nothing"
-    fi
+    status_measuring_rows
     git_lines
     # [Co-developed with claude code -- Adam]
     # E-9, Adam's decision 09-07 (grill §4E round 3). knob_row fills this while git_lines runs;
@@ -11030,7 +11053,8 @@ usage: ndt <command>
                   naming them. The other two halves of that status -- a port held by
                   something this stack STARTED, and a component that ended on a fatal
                   signal -- are red whatever the sweep does. (ROLE-12, 2026-09-12)
-  status [--check]     what is running, who has the lab, and the state that
+  status [--check | --measuring]
+                what is running, who has the lab, and the state that
                 decides every number. --check also exits non-zero on anything
                 that would make a measurement untrustworthy.
                   it compares the live lab against what the last 'ndt up' asked
@@ -11070,6 +11094,14 @@ usage: ndt <command>
                   too, and a --check problem: rc 1 while a baseline exists; with none
                   the answer is still 3. The override row is the last
                   'ndt up --force' and whose claim it went past. (Adam, 2026-09-25)
+                  --measuring prints only the rows that say whether anyone is
+                  measuring -- the 'declared' row (the claim's measuring=) and the
+                  'measuring' row, or the 'orphaned' rows when no fabric is up --
+                  from the same code as plain 'ndt status'. It reads the claim
+                  file and the process table and nothing else: no sudo, no kernel
+                  request, no OVS or bmv2 query. exit 0 always: like plain status
+                  it judges nothing -- read the rows. (ndt serve's probe while a
+                  measurement is running, Adam 2026-10-01)
   clean         just the teardown assertion
                   exit 0 it had something to be about and none of it is residue; 1
                   something was MEASURED and is still there -- a switch, a host or

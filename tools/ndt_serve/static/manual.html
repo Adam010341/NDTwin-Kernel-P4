@@ -1,0 +1,369 @@
+<!doctype html>
+<!-- ndt serve: the manual. Built from tools/ndt_serve/web/manual/zh.md by scripts/build-manual.mjs; do not edit. -->
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ndt serve 使用手冊</title>
+<link rel="stylesheet" href="./app.css">
+</head>
+<body class="bg-gray-100 text-[#222]">
+<main class="mx-auto my-8 max-w-4xl rounded-lg border border-[#e0e0e0] bg-white p-8 leading-relaxed [&amp;_h1]:mb-4 [&amp;_h1]:text-2xl [&amp;_h1]:font-bold [&amp;_h1]:text-[#333] [&amp;_h2]:mb-3 [&amp;_h2]:mt-10 [&amp;_h2]:border-b [&amp;_h2]:border-[#e0e0e0] [&amp;_h2]:pb-1 [&amp;_h2]:text-xl [&amp;_h2]:font-semibold [&amp;_h2]:text-[#1976d2] [&amp;_h3]:mb-2 [&amp;_h3]:mt-6 [&amp;_h3]:text-lg [&amp;_h3]:font-semibold [&amp;_h3]:text-[#333] [&amp;_p]:my-3 [&amp;_ul]:my-3 [&amp;_ul]:list-disc [&amp;_ul]:pl-6 [&amp;_ol]:my-3 [&amp;_ol]:list-decimal [&amp;_ol]:pl-6 [&amp;_li]:my-1 [&amp;_code]:rounded [&amp;_code]:bg-gray-100 [&amp;_code]:px-1 [&amp;_code]:font-mono [&amp;_code]:text-sm [&amp;_pre]:my-3 [&amp;_pre]:overflow-auto [&amp;_pre]:rounded [&amp;_pre]:bg-gray-100 [&amp;_pre]:p-3 [&amp;_pre_code]:bg-transparent [&amp;_pre_code]:p-0 [&amp;_table]:my-3 [&amp;_table]:w-full [&amp;_table]:border-collapse [&amp;_table]:text-sm [&amp;_th]:border [&amp;_th]:border-[#e0e0e0] [&amp;_th]:bg-gray-50 [&amp;_th]:px-3 [&amp;_th]:py-2 [&amp;_th]:text-left [&amp;_td]:border [&amp;_td]:border-[#e0e0e0] [&amp;_td]:px-3 [&amp;_td]:py-2 [&amp;_td]:align-top [&amp;_a]:text-[#1976d2] [&amp;_a]:underline [&amp;_blockquote]:my-3 [&amp;_blockquote]:border-l-4 [&amp;_blockquote]:border-[#FF7F50] [&amp;_blockquote]:bg-[#FFF5F0] [&amp;_blockquote]:px-4 [&amp;_blockquote]:py-2 [&amp;_strong]:font-semibold [&amp;_hr]:my-6 [&amp;_hr]:border-[#e0e0e0]">
+<h1>ndt serve 使用手冊</h1>
+<p>這份手冊說明 ndt serve 的網頁怎麼用。HTTP API 的完整參考在英文的 <code>tools/ndt_serve/README.md</code>；這裡只講頁面。</p>
+<h2>1. 這是什麼</h2>
+<p>ndt serve 是一個在你自己電腦上跑的小伺服器，把 <code>ndt</code> 的 lab 指令（status、claim、release、up、down、apps，以及 live_cells 驗證格）包成一個網頁和一組 HTTP API。</p>
+<ul>
+<li><strong>只在本機</strong>：它只聽 <code>127.0.0.1</code>，同一個網路上的其他電腦連不到它。</li>
+<li><strong>只給你一個人用</strong>：啟動時用 <code>--owner</code> 指定你是誰，之後每一次 <code>ndt</code> 呼叫都帶 <code>NDT_OWNER=&lt;owner&gt;</code>。</li>
+<li><strong>不碰網路</strong>：頁面不從外面載入任何東西（沒有 CDN、沒有網路字型），瀏覽器的內容安全政策（CSP）只允許同一個來源。唯一往外的是「開啟 Web-GUI」，它在新分頁打開另一個 app。</li>
+<li><strong>頁面不自己做決定</strong>：它把 <code>ndt</code> 的輸出原文照登，只依伺服器算好的欄位決定按鈕能不能按；真正擋住寫入的是伺服器和 <code>ndt</code>。</li>
+</ul>
+<h2>2. 啟動與打開頁面</h2>
+<pre><code>ndt serve --owner adam
+</code></pre>
+<p>它會印出：聽在哪個位址、驅動哪一個 <code>ndt</code>（連同它的 sha256）、token 檔在哪裡，以及頁面的<strong>一次性網址</strong>，長得像 <code>http://127.0.0.1:8765/#k=...</code>。stdout 不是終端機時，網址改寫進一個權限 0600 的檔案，並印出檔名。</p>
+<ul>
+<li><code>#k=</code> 後面是一把<strong>一次性的 key</strong>，不是 token。頁面打開後的第一件事，就是把它從網址列清掉，再拿它向伺服器換 token。token 只放在頁面的記憶體裡。</li>
+<li>一把 key 只能用一次，10 分鐘內有效（<code>--nonce-ttl</code>）。</li>
+<li><strong>重新整理頁面就會結束 session。</strong> 要再進來，執行：</li>
+</ul>
+<pre><code>ndt serve url
+</code></pre>
+<p>它會向正在跑的伺服器要一個新的一次性網址並印出來。</p>
+<p>上方列的 session 狀態會告訴你目前的情況：</p>
+<table>
+<thead>
+<tr>
+<th>顯示</th>
+<th>意思</th>
+<th>怎麼辦</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>session 已開啟</td>
+<td>一切正常</td>
+<td>—</td>
+</tr>
+<tr>
+<td>這個網址沒有一次性 key</td>
+<td>網址裡沒有 <code>#k=</code>，例如重新整理過</td>
+<td>執行 <code>ndt serve url</code>，打開它印的網址</td>
+</tr>
+<tr>
+<td>一次性 key 被拒絕</td>
+<td>key 用過了、過期了，或不是這個伺服器發的</td>
+<td>同上</td>
+</tr>
+</tbody></table>
+<p>其他常用的啟動選項：<code>--port</code>（預設 8765）、<code>--webgui-url</code>（「開啟 Web-GUI」的網址，見第 12 節）。</p>
+<h2>3. 畫面導覽</h2>
+<p><strong>上方列</strong>，從左到右：</p>
+<ul>
+<li>標題與 owner；</li>
+<li>session 狀態；</li>
+<li>自動更新狀態：平常是「每 10 秒自動更新」，暫停時是「已暫停（量測中）」或「已暫停（頁面在背景）」（第 9 節）；</li>
+<li>上次讀取的時間；</li>
+<li>「立即更新」：馬上讀一次，暫停時也能按；</li>
+<li>「開啟 Web-GUI」：在新分頁打開 Web-GUI（第 12 節）；</li>
+<li>「使用手冊」：在新分頁打開這份手冊。</li>
+</ul>
+<p><strong>五個分頁</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>分頁</th>
+<th>內容</th>
+<th>自動更新</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>實驗室</td>
+<td>lab 現在的狀態：claim、measuring、declared</td>
+<td>是</td>
+</tr>
+<tr>
+<td>操作</td>
+<td>claim／release、up／down</td>
+<td>不需要（每個寫入都經過確認視窗）</td>
+</tr>
+<tr>
+<td>Apps</td>
+<td>app 的 start／stop，以及 <code>ndt apps status</code></td>
+<td>是</td>
+</tr>
+<tr>
+<td>工作紀錄</td>
+<td>job 清單，和 job 的 log</td>
+<td>清單是；log 另有規則（第 7 節）</td>
+</tr>
+<tr>
+<td>驗證格</td>
+<td>live_cells 的格子、逐步驗證</td>
+<td>否</td>
+</tr>
+</tbody></table>
+<p>每個分頁最上面都有一行說明，告訴你這一頁是做什麼的。</p>
+<h3>短 id</h3>
+<p>job、逐步驗證和讀取紀錄的 id 都很長，頁面只顯示<strong>短 id</strong>：</p>
+<ul>
+<li>完整的 job id 長這樣：<code>20260927T062127Z-a8a334</code>，也就是 UTC 的日期與時間，加上 6 個亂數字元。逐步驗證的 id 前面多一個 <code>g</code>，讀取紀錄的 id 前面多一個 <code>r</code>。</li>
+<li>短 id 是 <strong>id 裡的「時分」加上最後 6 碼</strong>：上面那個 id 顯示成 <code>0621·a8a334</code>。</li>
+<li>為什麼不直接取前 8 碼：前 8 碼是日期（<code>20260927</code>），同一天的每一個 id 都一樣，分不出來。</li>
+<li>時分是 id 本身記的 <strong>UTC 時間，不是台灣時間</strong>（台灣時間 = UTC + 8，所以 <code>0621</code> 是台灣時間 14:21）。這樣短 id 的每一個字都能在完整 id 裡找到，拿去對 log 或檔名不會對錯。</li>
+<li>不是這種格式的 id，顯示它的前 8 個字。</li>
+<li><strong>滑鼠停在短 id 上</strong>，會顯示完整的 id；<strong>點一下</strong>，就把完整 id 複製到剪貼簿，旁邊出現「已複製」，1.5 秒後消失。</li>
+</ul>
+<h2>4. 實驗室分頁：claim、measuring、declared 三列怎麼讀</h2>
+<p>這三列都是 <code>ndt status</code> 輸出裡那一列的<strong>原文</strong>，頁面不改一個字。旁邊的標記是伺服器的判讀。</p>
+<ul>
+<li><strong>claim</strong>：誰佔著 lab、還剩多久。旁邊的「是你的／不是你的」由伺服器判斷：只有 <code>ndt</code> 自己印的「你的 claim」格式——<code>yours -- &lt;n&gt;m left (until HH:MM:SS)</code>——整行吻合才算是你的。<ul>
+<li>限制：如果有人的 owner 名字剛好就叫 <code>yours</code>，<code>ndt</code> 印出來的樣子和你自己的一樣，分不出來。</li>
+</ul>
+</li>
+<li><strong>measuring</strong>：有沒有量測在跑。只有剛好是 <code>nothing</code> 才算沒有；不是 <code>nothing</code> 時以橘色標示，而且：<ul>
+<li>自動更新會暫停（第 9 節）；</li>
+<li>所有寫入都要打字確認（第 5 節）。</li>
+</ul>
+</li>
+<li><strong>declared</strong>：只有在 claim 宣告了 <code>measuring=</code> 時才會出現這一列。出現時的效果和 measuring 不是 <code>nothing</code> 一樣。</li>
+<li><strong>槽位</strong>：伺服器同一時間只跑一個寫入 job。這裡顯示是空著，還是被哪一個 job 佔用。</li>
+<li><strong>讀取</strong>：這一次讀取的時間、<code>ndt status</code> 的 rc 與 rc_class、花了幾秒，以及讀取紀錄的短 id（伺服器把 <code>ndt</code> 的原始輸出逐位元組留著）。</li>
+<li><strong>ndt status 全文</strong>：展開可以看整份報告。</li>
+<li><strong>ndt_drift 警告</strong>：<code>ndt</code> 在伺服器啟動之後被改過時會出現。伺服器仍然執行啟動時的那一份；要用新的，請重新啟動 ndt serve。</li>
+</ul>
+<p><code>ndt status</code> 逾時被停止時，那一次不算讀到：「是你的」和「measuring 是 nothing」都當成否。</p>
+<h2>5. 操作分頁與確認視窗</h2>
+<p>操作分頁有兩區：</p>
+<ul>
+<li><strong>claim／release</strong>：claim 要填分鐘（1 到 240，預設 30）和備註（最多 200 字）；release 把 lab 提早還回去。</li>
+<li><strong>up／down</strong>：up 選 plane（ovs 或 p4）和 hosts（ndt 的預設、4 或 128）；down 把 fabric 拆掉，永遠不帶 <code>--deep</code> 或 <code>--force</code>。</li>
+</ul>
+<h3>確認視窗</h3>
+<p><strong>每一個寫入</strong>——這一頁的四個按鈕、Apps 的 start／stop、驗證格的重跑和逐步驗證——都先打開確認視窗：</p>
+<ol>
+<li><strong>重新讀一次 lab</strong>（plain <code>ndt status</code>），把 claim、measuring、declared 和槽位列在視窗裡。</li>
+<li><strong>請伺服器預演</strong>（dry run）：伺服器回答它實際會執行的指令，視窗裡「會執行」那一列就是伺服器給的；頁面自己不組指令。預演什麼都不執行。</li>
+<li><strong>打字確認</strong>：下面任何一種情況，都要在框裡打出指定的字（例如 <code>up</code>），「確認」才會亮：<ul>
+<li>伺服器說這個寫入要打字（up、down、需要 lab 的驗證格重跑）；</li>
+<li>measuring 不是 <code>nothing</code>；</li>
+<li>有 declared。</li>
+</ul>
+</li>
+<li><strong>「請先 claim」</strong>：伺服器說這個寫入需要你自己的 claim（up、down、app 的 start／stop、需要 lab 的驗證格重跑），而 claim 不是你的時候，視窗會列出「請先 claim：claim 不是你的」，「確認」不會亮。</li>
+<li><strong>共用狀態</strong>：會改寫共用狀態的寫入（例如會暫時改寫 <code>host_count_override</code> 的那一格），要勾選「我知道這會改寫共用狀態」。</li>
+<li><strong>防呆</strong>：視窗打開時焦點在「取消」上；在「確認」上按 Enter 不會確認；「確認」只能按一次；按 Esc 等於取消。</li>
+</ol>
+<h3>誰在擋什麼</h3>
+<table>
+<thead>
+<tr>
+<th>情況</th>
+<th>誰拒絕</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>up／down，claim 是別人的</td>
+<td><code>ndt</code>（rc 5，refused）</td>
+</tr>
+<tr>
+<td>up／down，沒有任何 claim</td>
+<td><code>ndt</code> 會放行；頁面比較嚴格，要你先 claim</td>
+</tr>
+<tr>
+<td>app 的 start／stop，claim 不是你的</td>
+<td>這個伺服器（409 claim），因為 <code>ndt</code> 的 apps 指令本身不檢查 claim</td>
+</tr>
+<tr>
+<td>需要 lab 的驗證格重跑，claim 不是你的</td>
+<td>這個伺服器（409 claim）</td>
+</tr>
+<tr>
+<td>另一個 job 正在跑</td>
+<td>這個伺服器（409 busy）</td>
+</tr>
+<tr>
+<td>打字確認、焦點、Enter</td>
+<td>只有頁面</td>
+</tr>
+</tbody></table>
+<p>送出之後，視窗下方的回應行會寫出結果；成功開始的 job 會自動在分頁下方打開它的 job 面板。</p>
+<h2>6. Apps 分頁</h2>
+<ul>
+<li>表格列出 <code>ndt</code> 認得的 app（伺服器啟動時從 <code>ndt</code> 讀出來的清單），每個 app 有 start 和 stop。</li>
+<li><strong>為什麼要先 claim</strong>：<code>ndt</code> 的 apps 指令本身不檢查 claim，所以由 ndt serve 把關——它在佔住槽位之後重新讀一次 <code>ndt status</code> 的 claim 列，不是你的就回 409 claim，什麼都不執行。</li>
+<li>下方是 <code>ndt apps status</code> 的原文，每 10 秒自動更新。</li>
+</ul>
+<h2>7. 工作紀錄分頁</h2>
+<ul>
+<li><strong>每一個寫入都是一個 job</strong>：伺服器馬上回一個 job id，由一個獨立的 runner 去跑。伺服器掛了，job 照樣跑完；伺服器重啟後找得回它。</li>
+<li>表格欄位：短 id、種類、狀態、rc、rc_class、意思，最新的在最上面，每 10 秒自動更新。</li>
+<li>狀態：<ul>
+<li><code>running</code>：還在跑；</li>
+<li><code>finished</code>：結束了，rc 已記錄；</li>
+<li><code>orphaned</code>：runner 不見了，但 <code>ndt</code> 還在跑，仍然佔著槽位；</li>
+<li><code>lost</code>：結束了，但沒有人記下 rc。</li>
+</ul>
+</li>
+<li>按「開啟」會在<strong>分頁下方</strong>打開 job 面板，從任何分頁都看得到。面板列出種類、狀態、rc、argv，以及 stdout 和 stderr。</li>
+<li>log 每 2 秒增量讀一次，讀的是檔案，不會執行 <code>ndt</code>。下面三種情況停止讀取：<ol>
+<li>job 不再是 <code>running</code>；</li>
+<li>你按了「關閉」；</li>
+<li>頁面在背景——回到前景後繼續。</li>
+</ol>
+</li>
+<li>從操作、Apps、驗證格送出的寫入，開始之後會自動打開它的 job 面板。</li>
+</ul>
+<h2>8. 驗證格分頁</h2>
+<p><strong>驗證格</strong>是 <code>tools/test_workflow/live_cells/</code> 裡的回歸格子：每一格對應一個曾經在真的 lab 上看到紅、然後修好的問題。它們永遠留著，用來確認問題沒有回來。</p>
+<p>表格的每一列是一格：名稱、一行說明它在驗什麼（滑鼠停在說明上，可以看 CELLS.md 的 expected 原文）、它需要什麼（<code>none</code>：不需要 lab；<code>idle</code>：lab 必須是關著的；<code>ovs4</code>、<code>p4-4</code>：這一格自己把那個 fabric 建起來），以及四個按鈕。第一次打開這個分頁時會讀一次清單，之後按「讀取驗證格」重讀。</p>
+<h3>四個按鈕</h3>
+<table>
+<thead>
+<tr>
+<th>按鈕</th>
+<th>做什麼</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>修前紀錄</strong></td>
+<td>修好之前的紀錄，應該是紅的。用這一格自己的 judge 讀 <code>old/</code> 這份 fixture：列出每一條 ASSERT、最後的 CELL: 行、失敗的那幾條是否正好等於人工審過的 EXPECTED-FAILS，以及 PROVENANCE.md（這些檔案從哪裡來）。只寫著「no such raw file」的紅，可能只是 fixture 缺檔，不是證據。</td>
+</tr>
+<tr>
+<td><strong>修好當晚</strong></td>
+<td>修好那一晚第一次變綠的紀錄（<code>new/</code>）。每一條都應該是 ok，最後一行是 CELL: PASS。這是當晚跑出來的，不是現在跑的。有些格子還沒有這份紀錄，按鈕會是灰的。</td>
+</tr>
+<tr>
+<td><strong>現在重跑</strong></td>
+<td>現在在 lab 上重跑這一格；需要 lab 的格子要先 claim。它是一個 job，結果看 rc_class：<code>pass</code> 是綠；<code>skip</code> 是沒有跑，不算通過；<code>fail</code> 是紅；<code>harness</code> 代表跑不起來或還原失敗，lab 不乾淨，要去看一眼。</td>
+</tr>
+<tr>
+<td><strong>逐步驗證</strong></td>
+<td>帶你走一遍：修前 → 修好當晚 → claim → 重跑 → 對照 → 你的判定。</td>
+</tr>
+</tbody></table>
+<h3>逐步驗證怎麼走</h3>
+<p>完整的步驟是：<code>old</code> → <code>new</code> → <code>status</code> → <code>claim</code> → <code>run</code> → <code>release</code> → <code>compare</code> → <code>verdict</code>。不需要 lab 的格子沒有 status、claim、release；沒有 <code>new/</code> 的格子沒有 new。</p>
+<ul>
+<li>每一步做完就停下來，每一步都寫著該看哪裡、綠長什麼樣子。按「下一步」（一樣會經過確認視窗）才往下走。</li>
+<li><strong>卡住</strong>：一步沒成功，整個流程就停在那一步，並寫出原因。按「下一步」重試那一步，或按「中止」。claim 被拒絕就不會重跑；還原失敗就不會自動 release——lab 的狀態要讓你看到。</li>
+<li>lab 在對照和判定<strong>之前</strong>就還回去：判定看的是這次重跑留下的原始紀錄，不需要佔著 lab，而 lab 是大家共用的。</li>
+<li><strong>中止</strong>不會 release 這次流程拿到的 claim；需要的話，自己到操作分頁按 Release。</li>
+<li><strong>你的判定</strong>：最後一步由你決定。填備註（可以不填），按「判定：綠」或「判定：紅」，一樣要確認。</li>
+<li>「逐步驗證清單」列出開始過的每一次流程，按「開啟」可以接著走。</li>
+</ul>
+<h2>9. 自動更新與暫停</h2>
+<ul>
+<li>頁面每 10 秒讀一次：<code>/lab</code>（執行一次 plain <code>ndt status</code>）、<code>/apps</code>（執行一次 <code>ndt apps status</code>）、<code>/health</code> 和 <code>/jobs</code>（這兩個不執行任何程序）。</li>
+<li>上一次讀完才排下一次，不會疊加。所以頁面在前景、沒有量測時，每分鐘<strong>最多</strong> 6 輪；一輪約 1 到 1.9 秒，實際大約每分鐘 5 輪。</li>
+<li>在這台筆電上量過（不用 strace：數 <code>/proc/stat</code> 的程序數，減掉等長的閒置窗口；sudo 經過記錄用的 shim；各 7 次）：<ul>
+<li>lab 閒置時，一輪約 596 個 task、10 次 <code>sudo</code>（8＋2）；</li>
+<li>P4 fabric 開著、iperf3 在跑時，一輪約 719 個 task、8 次 <code>sudo</code>（6＋2），外加一次向 kernel 拿 <code>/ndt/get_graph_data</code>（curl，最多 5 秒；約 6 ms），也就是對正在受測的 kernel 做一次 northbound 讀取。</li>
+<li>這些 <code>sudo</code> 都只是列出或查狀態。</li>
+</ul>
+</li>
+</ul>
+<p><strong>已暫停（量測中）</strong></p>
+<ul>
+<li>什麼時候：最近一次讀到的 measuring 不是 <code>nothing</code>，或有 declared。</li>
+<li>暫停期間，頁面<strong>每 60 秒只問一次「有沒有人在量測」</strong>：讀 <code>/measuring</code>，也就是 <code>ndt status --measuring</code>。不讀 <code>/lab</code>、<code>/apps</code>、<code>/health</code>、<code>/jobs</code>。這是 Adam 的裁定：09-28 要量測中的自動探測唯讀、要輕；10-01 再規定探測只問有沒有人在量測。</li>
+<li><code>ndt status --measuring</code> 只印 plain <code>ndt status</code> 裡的 declared 列和 measuring 列，由同一個 ndt 函式印出。它只讀 claim 檔和程序表：不用 <code>sudo</code>、不對 kernel 發請求、不查 OVS 或 bmv2。</li>
+<li>成本（lab 閒置時量的，方法同上）：一次約 12 個 task、0.14 秒、0 次 <code>sudo</code>、0 次 curl；claim 有 declared 時約 17 個 task。量測中的狀態沒有量，從程式碼看只多掃一次程序表，一樣沒有 <code>sudo</code> 和 curl。換掉之前的探測是一次 plain <code>ndt status</code>：量測中每次約 564 個 task、6 次 <code>sudo</code>、一次向 kernel 拿圖。</li>
+<li><strong>怎麼恢復</strong>：探測讀到 measuring 是 <code>nothing</code> 而且沒有 declared，就自動恢復每 10 秒一次；否則 60 秒後再探一次。探測逾時不算讀到，會繼續暫停，下一次探測再問。</li>
+<li>所以如果量測沒有 declared，探測剛好落在兩段量測之間的空檔時，自動更新會恢復；下一段量測開始後，到某一次讀取看到它之前，可能會有一輪完整的讀取（約 719 個 task、8 次 <code>sudo</code>、一次向 kernel 拿圖）落在量測裡。量測期間要完全不讀，就先 declare。</li>
+<li>探測不改任何分頁的內容：上方列的「上次讀取」一直是最後一次完整讀取的時間，暫停期間旁邊另外顯示「上次探測」的時間。</li>
+<li>也可以隨時按「立即更新」：它把 lab、apps、health、jobs 全部讀一次，再由讀到的結果決定恢復或繼續暫停。</li>
+<li>頁面在背景時連探測也停；回到前景後，60 秒後才探下一次，不會一回來就讀。</li>
+</ul>
+<p><strong>已暫停（頁面在背景）</strong></p>
+<ul>
+<li>什麼時候：你切到別的分頁、或把視窗縮小。</li>
+<li>怎麼恢復：回到這個分頁時，頁面立刻讀一次，然後恢復計時——除非上一次讀到的是量測中，那就維持「已暫停（量測中）」，照上面的規則每 60 秒探一次。</li>
+</ul>
+<p><strong>立即更新</strong>隨時都能按，包括暫停中；讀取進行中時按鈕會暫時變灰。</p>
+<p>暫停與否只看伺服器算好的欄位（<code>measuring_is_nothing</code>、<code>declared</code>），頁面不解析 <code>ndt</code> 的文字。</p>
+<p>不會自動更新的：驗證格清單與逐步驗證（按按鈕才讀）；job 的 log 有自己的規則（第 7 節）。</p>
+<h2>10. 常見的回應碼</h2>
+<p>寫入之後，按鈕下方的回應行會寫出結果。成功時是狀態碼和開始的 job；被拒絕時是 <code>狀態碼 錯誤 -- 伺服器的說明</code>，例如 <code>409 claim -- ...</code>。</p>
+<table>
+<thead>
+<tr>
+<th>回應</th>
+<th>意思</th>
+<th>怎麼辦</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>202</td>
+<td>job 已經開始</td>
+<td>看 job 面板</td>
+</tr>
+<tr>
+<td>409 claim</td>
+<td>這個寫入需要你自己的 claim，而 claim 不是你的（或 claim 沒讀到）</td>
+<td>先 claim，或等對方 release</td>
+</tr>
+<tr>
+<td>409 busy</td>
+<td>另一個 job 正佔著槽位</td>
+<td>等它結束；工作紀錄分頁看得到是哪一個</td>
+</tr>
+<tr>
+<td>503 busy</td>
+<td>已經有兩個唯讀的 <code>ndt</code> 呼叫在跑，第三個等太久</td>
+<td>稍後再試</td>
+</tr>
+<tr>
+<td>400 refused</td>
+<td>參數不在伺服器允許的範圍內</td>
+<td>看說明改參數</td>
+</tr>
+<tr>
+<td>400 confirm</td>
+<td>這一格會寫共用狀態，但沒有勾選確認</td>
+<td>重新送出並勾選</td>
+</tr>
+<tr>
+<td>403 token／nonce／origin</td>
+<td>session 的問題</td>
+<td>執行 <code>ndt serve url</code> 重新進來</td>
+</tr>
+</tbody></table>
+<h3>rc_class：refused 和 dirty 的差別</h3>
+<p>job 的 <code>rc</code> 永遠是 <code>ndt</code> 真正的離開碼；<code>rc_class</code> 是伺服器依指令對它的解讀：</p>
+<ul>
+<li><strong>refused</strong>（紫色）：守門的檢查說不，<strong>什麼都沒做</strong>。例如 up 在別人的 claim 下是 rc 5；claim 或 release 被拒是 rc 1。</li>
+<li><strong>dirty</strong>（紅色）：<code>ndt</code> 做了、檢查了，<strong>不喜歡它看到的</strong>。例如 up 或 down 的 rc 1。lab 可能處在需要你看一眼的狀態。</li>
+<li>這兩個是不同的問題（<code>ndt help</code>：「1 AND 5 ARE DIFFERENT QUESTIONS」），頁面永遠用兩種顏色，不合併。</li>
+<li><code>ok</code> 是綠色；<code>report</code>（plain <code>ndt status</code> 只印報告、不判定）、<code>nothing</code>（沒有東西可處理）、<code>skip</code> 是灰色；<code>usage</code>、<code>unknown</code>、<code>signal</code>、<code>timeout</code> 是橘色。滑鼠停在標記上會顯示它的意思。</li>
+</ul>
+<h2>11. 安全上它保證什麼、不保證什麼</h2>
+<p><strong>保證</strong></p>
+<ul>
+<li>只聽 <code>127.0.0.1</code>；Host 標頭必須是 <code>127.0.0.1:&lt;port&gt;</code> 或 <code>localhost:&lt;port&gt;</code>。</li>
+<li>除了 <code>/health</code>，每個 API 請求都要 token；伺服器從不送 CORS 標頭，其他來源的請求一律拒絕。</li>
+<li><strong>token 不落地</strong>：不在 localStorage、sessionStorage、cookie、頁面內容或網址裡。網址只帶一次性 key，打開就清掉。</li>
+<li>載入頁面不寫任何東西：只有讀取，和一次換 token。</li>
+<li>每一個寫入都經過確認視窗，要執行的指令由伺服器給。</li>
+<li>CSP：不允許 inline 的 script 或 style、不允許其他來源、不允許被別的頁面框住。這份手冊也一樣，它沒有任何 script。</li>
+<li>頁面檔案在伺服器啟動時讀一次；每一次 <code>ndt</code> 呼叫都執行啟動時那一份 <code>ndt</code>。</li>
+</ul>
+<p><strong>不保證</strong></p>
+<ul>
+<li>同一台機器上、以你的身分跑的程式，讀得到 token 檔（權限 0600，預設 <code>~/.config/ndt-serve/token</code>），也就能做你能做的一切。</li>
+<li>打字確認和焦點規則只是頁面的防呆，不是權限；拿著 token 用 curl 的人不會經過它們。</li>
+<li>owner 名字剛好叫 <code>yours</code> 的 claim，和你自己的分不出來（第 4 節）。</li>
+<li>頁面只轉述 <code>ndt</code> 說的話；<code>ndt</code> 說錯了，頁面也跟著錯。</li>
+<li>「開啟 Web-GUI」打開的是另一個 app，它的安全性不在這份保證之內。</li>
+</ul>
+<h2>12. 開啟 Web-GUI</h2>
+<ul>
+<li>網路拓樸和流量在 Web-GUI 裡看。按上方列的「開啟 Web-GUI」，會在新分頁打開它。</li>
+<li>網址由伺服器決定：<code>ndt serve --webgui-url &lt;URL&gt;</code>，預設 <code>http://localhost:3000</code>（Web-GUI 在這台機器上的 Docker port）。只接受 http 或 https 網址；瀏覽器不存這個網址。</li>
+<li>新分頁以 <code>noopener noreferrer</code> 打開：Web-GUI 拿不到這個頁面的任何東西，包括網址。</li>
+<li>Web-GUI 沒有在跑時，新分頁會顯示連不上；這不影響 ndt serve。</li>
+<li>長期來看，ndt serve 和 Web-GUI 會合併成同一個 app；在那之前，兩邊各自獨立。</li>
+</ul>
+</main>
+</body>
+</html>
