@@ -1380,8 +1380,9 @@ HEARTBEAT_CENSUS = {
     # heartbeat on the external arms as well; the external judge's F6 (09-28) made "all 20 under
     # ndt" an EXPECTATION until H5 measures it (this constant is otherwise measured numbers), and
     # its F3 made the punt blind spot on external control planes part of what is served. Its S1
-    # (round 2): the 3 external arms were NOT measured with their programs loaded -- segment S never
-    # started their controllers -- so what is served is a reading of the P4 source, and says so.
+    # (round 2): segment S never started the 3 external arms' controllers, so the census saw each
+    # program's default actions only (no entries) -- what is served about them is that, plus a
+    # reading of the P4 source (round 5 corrected how the census itself is described, below).
     # Adam's 09-28 ruling: on an external control plane the heartbeat starts only after the offline
     # drop check proves the program drops the frame; its answer on the 3 programs is served too.
     # [Co-developed with claude code -- Adam] Round 5 (the round-4 review's S-3): "no pipeline was
