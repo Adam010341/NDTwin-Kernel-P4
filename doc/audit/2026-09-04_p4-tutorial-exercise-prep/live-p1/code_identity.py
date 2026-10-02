@@ -20,6 +20,19 @@ B" is then four facts, and this file records them and checks them (the round-4 r
   * the two interpreters (the proxy's venv and the controllers' / driver's): live-p1/
     venv_fingerprint.sh's distribution sha256 for each.
 
+[Co-developed with claude code -- Adam] Round 6 (the round-5 re-review's M-2, and the orchestrator's
+ruling on it):
+  * the uncommitted comparison covers CODE paths only: doc/**/*.md and doc/audit/**/*.tsv are left
+    out (other sessions edit ledgers and reports in the shared checkout all day); every other
+    tracked file is compared;
+  * ~/tutorials, the compared arms' own code path (drive_exercise's TUT): its HEAD, its uncommitted
+    tracked files with sha256s, and a digest of every file under exercises/p4runtime,
+    exercises/flowcache and utils (build/, logs/, pcaps/ and byte-code left out: every round
+    rewrites them);
+  * the fabric bmv2's libraries (the shared objects under the fabric binary's ../lib), by digest;
+  * the tree: a merge's tree must be what `git merge-tree --write-tree <parent 1> <parent 2>`
+    gives -- an amended or hand-resolved merge is not "C plus B".
+
 Usage:  code_identity.py record <repo> <out.json>
         code_identity.py verify <controls' identity.json> <treatment's identity.json> <B sha>
 Exit:   record: 0 written (a part that could not be read is written as such), 2 usage/unwritable;
@@ -39,12 +52,18 @@ import tempfile
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-FORMAT = 1
+FORMAT = 2
 CTRL_PY_DEFAULT = os.path.expanduser("~/p4dev-python-venv/bin/python")
 HELPER = "/usr/local/sbin/ndtwin-lab"
 STOCK = "/usr/local/bin/simple_switch"
 #: The facts that must be equal between the controls, and between the controls and T.
-SAME = ("uncommitted", "kernel", "bmv2_fabric", "bmv2_stock", "helper", "venv")
+SAME = ("uncommitted", "kernel", "bmv2_fabric", "bmv2_libs", "bmv2_stock", "helper", "venv",
+        "tutorials")
+#: Tracked files left out of the uncommitted comparison (the orchestrator's round-6 ruling): docs and
+#: audit tables, which other sessions edit while the comparison runs.
+NOT_CODE = (re.compile(r"^doc/.*\.md$"), re.compile(r"^doc/audit/.*\.tsv$"))
+TUTORIALS_PARTS = ("exercises/p4runtime", "exercises/flowcache", "utils")
+TUTORIALS_SKIP_DIRS = {"build", "logs", "pcaps", "__pycache__"}
 
 
 def sha256_of(path):
@@ -79,9 +98,56 @@ def uncommitted(repo):
         status, path = item[:2], item[3:]
         if status[0] in "RC":                  # a rename/copy carries its source next
             i += 1
+        if any(rx.match(path) for rx in NOT_CODE):
+            continue
         full = os.path.join(repo, path)
         out.append([status, path, sha256_of(full) if os.path.isfile(full) else "-"])
     return sorted(out, key=lambda e: e[1])
+
+
+def tree_digest(root, skip_dirs=TUTORIALS_SKIP_DIRS):
+    """sha256 over (relative path, sha256) of every file under root, skipping some directories and
+    byte-code; "absent" when root is not a directory."""
+    if not os.path.isdir(root):
+        return "absent"
+    h, n = hashlib.sha256(), 0
+    for d, dirs, files in os.walk(root):
+        dirs[:] = sorted(x for x in dirs if x not in skip_dirs)
+        for f in sorted(files):
+            if f.endswith((".pyc", ".pyo")):
+                continue
+            p = os.path.join(d, f)
+            h.update(f"{os.path.relpath(p, root)}\0{sha256_of(p)}\n".encode())
+            n += 1
+    return f"{n} files sha256 {h.hexdigest()}"
+
+
+def tutorials(path=None):
+    path = path or os.environ.get("TUTORIALS_DIR") or os.path.expanduser("~/tutorials")
+    out = {"path": path}
+    try:
+        out["head"] = git(path, "rev-parse", "HEAD").strip()
+        out["uncommitted"] = [[st, p, h] for st, p, h in uncommitted(path)]
+    except RuntimeError as exc:
+        out["git"] = f"not read: {exc}"
+    out["trees"] = {part: tree_digest(os.path.join(path, part)) for part in TUTORIALS_PARTS}
+    return out
+
+
+def libs_digest(binary):
+    """The shared objects under <binary>/../lib (p4_testbed_topo's LD_LIBRARY_PATH rule), by digest."""
+    if not binary:
+        return "no binary"
+    lib = os.path.normpath(os.path.join(os.path.dirname(os.path.realpath(binary)), "..", "lib"))
+    if not os.path.isdir(lib):
+        return f"{lib}: absent"
+    h, n = hashlib.sha256(), 0
+    for f in sorted(os.listdir(lib)):
+        p = os.path.join(lib, f)
+        if ".so" in f and os.path.isfile(p) and not os.path.islink(p):
+            h.update(f"{f}\0{sha256_of(p)}\n".encode())
+            n += 1
+    return f"{lib}: {n} shared objects sha256 {h.hexdigest()}"
 
 
 def fabric_binary(repo):
@@ -125,16 +191,24 @@ def record(repo, out_path, ctrl_py=None):
         ident["head"] = git(repo, "rev-parse", "HEAD").strip()
         ident["parents"] = git(repo, "rev-list", "--parents", "-n", "1", "HEAD").split()[1:]
         ident["uncommitted"] = uncommitted(repo)
+        ident["tree"] = git(repo, "rev-parse", "HEAD^{tree}").strip()
         if len(ident["parents"]) == 2:
             # what the merge brought in over its first parent: B's side of it
             ident["merge_changes"] = sorted(git(repo, "diff", "--name-only", ident["parents"][0],
                                                 ident["head"]).split())
+            # and what an automatic merge of the two parents gives: the merge's tree must be it
+            r = subprocess.run(["git", "-C", repo, "merge-tree", "--write-tree", *ident["parents"]],
+                               capture_output=True, text=True)
+            ident["merge_tree"] = (r.stdout.split() or ["?"])[0] if r.returncode == 0 else \
+                f"merge-tree rc {r.returncode}: {r.stdout.strip()[:120]}"
     except RuntimeError as exc:
         ident["git_error"] = str(exc)
     kernel = os.path.join(repo, "build", "bin", "ndtwin_kernel")
     fabric = fabric_binary(repo)
     ident["kernel"] = [kernel, sha256_of(kernel)]
     ident["bmv2_fabric"] = [fabric, sha256_of(fabric) if fabric else "no directive"]
+    ident["bmv2_libs"] = libs_digest(fabric)
+    ident["tutorials"] = tutorials()
     ident["bmv2_stock"] = [STOCK, sha256_of(STOCK)]
     ident["helper"] = [HELPER, sha256_of(HELPER)]
     ident["venv"] = venv_shas(repo, ctrl_py or os.environ.get("CTRL_PY") or CTRL_PY_DEFAULT)
@@ -152,6 +226,17 @@ def load(path):
     if not isinstance(ident, dict) or ident.get("format") != FORMAT or "head" not in ident:
         raise ValueError(f"{path}: not a code identity (format {FORMAT}) with a HEAD")
     return ident
+
+
+def unchanged_reasons(before, after, label):
+    """[Co-developed with claude code -- Adam] What changed between a run's identity before and after
+    it (round 6): the HEAD, its parents, its tree or any fact in SAME."""
+    out = []
+    for key in ("head", "parents", "tree"):
+        if before.get(key) != after.get(key):
+            out.append(f"{label}: {key} {json.dumps(before.get(key))[:80]} before the run, "
+                       f"{json.dumps(after.get(key))[:80]} after it")
+    return out + same_reasons(before, after, f"{label} before", f"{label} after")
 
 
 def same_reasons(a, b, label_a, label_b):
@@ -178,6 +263,9 @@ def verify(c, t, b_sha):
                            f"trunk moved between C and T, or the merge went the other way")
         if not re.fullmatch(r"[0-9a-f]{7,40}", b_sha or "") or not parents[1].startswith(b_sha):
             reasons.append(f"T's second parent {parents[1]} is not the B commit under test {b_sha!r}")
+    if len(parents) == 2 and t.get("tree") != t.get("merge_tree"):
+        reasons.append(f"T's tree {t.get('tree')} is not what merging its two parents gives "
+                       f"({t.get('merge_tree')}): an amended or hand-resolved merge")
     reasons += same_reasons(c, t, "controls", "T")
     changed_by_b = t.get("merge_changes")
     if changed_by_b is None and len(parents) == 2:

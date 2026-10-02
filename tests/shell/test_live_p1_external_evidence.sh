@@ -89,18 +89,23 @@ for i, (ex, which, key) in enumerate(order):
         tbl.append(f"{ex}\t{which}\t{verdicts[key]}\t{paths[key]}")
 open(os.path.join(run, "00_table.tsv"), "w").write("\n".join(tbl) + "\n")
 hb = role == "treatment"
-# [Co-developed with claude code -- Adam] 00_identity.txt (live-p1/code_identity.py): the controls on
-# C, the treatment on C with B merged (the round-4 review's M-2). Options perturb one fact each.
+# [Co-developed with claude code -- Adam] 00_identity.before.txt and .after.txt (live-p1/code_identity.py,
+# format 2): the controls on C, the treatment on C with B merged (the round-4 review's M-2), its tree
+# the one merging its parents gives. Options perturb one fact each.
 C, B, T = "c" * 40, "b" * 40, "d" * 40
-ident = {"format": 1, "repo": "/r", "recorded_at": T0, "head": o.get("id_head", C), "parents": ["a" * 40],
+ident = {"format": 2, "repo": "/r", "recorded_at": T0, "head": o.get("id_head", C), "parents": ["a" * 40],
+         "tree": "e" * 40, "bmv2_libs": "/usr/local/bmv2-fast/lib: 9 shared objects sha256 " + o.get("id_libs", "11"),
+         "tutorials": {"path": "/h/tutorials", "head": o.get("id_tut", "7" * 40), "uncommitted": [],
+                       "trees": {"exercises/p4runtime": "12 file(s) sha256 aa", "exercises/flowcache": "9 file(s) sha256 bb",
+                                 "utils": "20 file(s) sha256 cc"}},
          "uncommitted": [[" M", "p4_proxy/mininet/host_count_override", "11"]],
          "kernel": ["/r/build/bin/ndtwin_kernel", o.get("id_kernel", "kk")],
          "bmv2_fabric": ["/usr/local/bmv2-fast/bin/simple_switch_grpc", "ff"],
          "bmv2_stock": ["/usr/local/bin/simple_switch", "ss"], "helper": ["/usr/local/sbin/ndtwin-lab", "hh"],
          "venv": {"/r/p4_proxy/venv/bin/python": "distributions 28 sha256 d5fc", "/x/python": "distributions 39 sha256 69c4"}}
 if role == "treatment" or o.get("id_role") == "treatment":
-    ident.update(head=T, parents=[o.get("id_parent0", C), o.get("id_parent1", B)],
-                 merge_changes=["tools/test_workflow/ndt"])
+    ident.update(head=T, parents=[o.get("id_parent0", C), o.get("id_parent1", B)], tree="f" * 40,
+                 merge_tree=o.get("id_merge_tree", "f" * 40), merge_changes=["tools/test_workflow/ndt"])
     if o.get("id_nomerge") == "1":
         ident.update(head=C, parents=["a" * 40]); ident.pop("merge_changes")
     if o.get("id_single") == "1":
@@ -111,14 +116,32 @@ if role == "treatment" or o.get("id_role") == "treatment":
         ident["merge_changes"].append("p4_proxy/mininet/host_count_override")
 if o.get("id_uncommitted") == "1":
     ident["uncommitted"].append([" M", "README.md", "22"])
+after = json.loads(json.dumps(ident))
+if o.get("id_drift") == "kernel":        # the kernel rebuilt while the run ran
+    after["kernel"] = [after["kernel"][0], "k9"]
+if o.get("id_drift") == "head":          # a commit landed in the checkout while the run ran
+    after["head"] = "9" * 40
 if o.get("id") != "none":
-    open(os.path.join(run, "00_identity.txt"), "w").write(json.dumps(ident, indent=2) + "\n")
+    open(os.path.join(run, "00_identity.before.txt"), "w").write(json.dumps(ident, indent=2) + "\n")
+    if o.get("id_after") != "none":
+        open(os.path.join(run, "00_identity.after.txt"), "w").write(json.dumps(after, indent=2) + "\n")
 ctl_pid = {"p4rt_skel": 7001, "p4rt_sol": 7002, "fc_sol": 7003}
 for i, (ex, which, key) in enumerate(order):
     if key in ("basic", "fc_skel"):
         continue
     d = paths[key][:-3]; os.makedirs(d)
-    md = [f"# report {ex}/{which}", "", "### 3. N3  ndt up p4 --app", "```"]
+    md = [f"# report {ex}/{which}", ""]
+    # [Co-developed with claude code -- Adam] (round 6) drive_exercise's toolchain row and compiled
+    # program table, as in the real reports
+    if o.get("noshas") != key:
+        prog = "advanced_tunnel" if ex == "p4runtime" else "flowcache"
+        js = o.get("json_" + key, {"p4rt_skel": "ef1adeee9e769f26", "p4rt_sol": "ef1adeee9e769f26", "fc_sol": "6156e996ba5c3ec4"}[key])
+        md += ["| 執行檔 | sha256[:16] | --version |", "|---|---|---|",
+               f"| `/usr/local/bin/p4c-bm2-ss` | `{o.get('p4c', '226f3f66df515c9e')}` | Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release) |", "",
+               "| 產物 | bytes | sha256[:16] |", "|---|---|---|",
+               f"| `/h/tutorials/exercises/{ex}/build/{prog}.json` | 27957 | `{js}` |",
+               f"| `/h/tutorials/exercises/{ex}/build/{prog}.p4.p4info.txtpb` | 2285 | `4d986039017abeef` |", ""]
+    md += ["### 3. N3  ndt up p4 --app", "```"]
     if o.get("hb_up", "1" if hb else "0") == "1":
         md.append("  ok  heartbeat running on the inter-switch veths, detect only: a cut link is told to the twin")
     md += ["```", "", "### 4. N4  GET /p4/switch_state", "```json"]
@@ -138,14 +161,17 @@ for i, (ex, which, key) in enumerate(order):
     md.append("```")
     md += ["", "### 7. P1  h1 ping h2 with the controller running", "```", "$ ping -c 5 -W 2 10.0.2.2", "```",
            "```", "5 packets transmitted, 5 received, 0% packet loss, time 4005ms", "```", ""]
-    if o.get("noctlpid") != key:
+    if True:
         md += ["## 8. 完整 transcript", "", "### stdout", "```",
                f"   controller pid {ctl_pid[key]} (handed to the generic cell; stopped after it)", "```", ""]
     if o.get("report_is_dir") == key:
         os.makedirs(paths[key])
     else:
         open(paths[key], "w").write("\n".join(md) + "\n")
-    log = ["Installed P4 Program using SetForwardingPipelineConfig on s1",
+    # [Co-developed with claude code -- Adam] (round 6) the adapter's header first, as in the real logs:
+    # the sampler's ctrl_logs sizes are read against where the pipeline push ends
+    log = ["[adapter] tutorials utils : /h/tutorials/utils", "[adapter] grpc base       : 30050 (device id = dpid)",
+           "Installed P4 Program using SetForwardingPipelineConfig on s1",
            "Installed P4 Program using SetForwardingPipelineConfig on s2"]
     if key.startswith("p4rt"):
         log += ["Installed ingress tunnel rule on s1", "Installed egress tunnel rule on s2"]
@@ -198,6 +224,10 @@ for i, (ex, which, key) in enumerate(order):
         name_log = "driver-controller-flowcache.log"
     if o.get("nolog") == key:
         continue
+    if o.get("nopush") == key:        # no pipeline push line: the window opens at the first entry
+        log = [x for x in log if "SetForwardingPipelineConfig" not in x]
+    if o.get("bare") == key:          # neither a push nor a rule nor a cache entry
+        log = [x for x in log if not x.startswith(("Installed ", "For switch "))]
     data = ("\n".join(log) + "\n").encode()
     if o.get("nonutf8") == key:
         data += b"\xff\xfe not utf-8\n"
@@ -211,43 +241,87 @@ if o.get("venv"):
         "protobuf 5.29.6 api_implementation upb\ngrpcio 1.82.1\ndistributions 28 sha256 d5fc\n\n")
 MK
 # ms <name> [key=value ...] -- H5's samples for a treatment made by mk (sessions 0a0a, 0b0b, 0c0c): a read every
-# 2 s through 06 (arms 300 s apart from T0; 06 ends at T0+1500), each external arm's session running
+# second through 06 (arms 300 s apart from T0; 06 ends at T0+1500), each external arm's session running
 # fresh from 30 s to 200 s into its arm, stopped by SIGTERM after; 50_t06_end.txt beside it.
+# [Co-developed with claude code -- Adam] (round 6) at the daemon's real cadence: each direction's heard
+# grows by one every 5 s (one round), and the sampler reads every second. The ctrl_logs column carries
+# the sizes of the treatment's own controller logs (mk's run, run=, default t1): the adapter's header
+# from 5 s before the push, the whole log from push_at (default 45 s) into the arm; each log is last
+# written at 150 s (mk's ctl_last), so the controller's window is 45-150 s.
 cat > "$FIX/ms.py" <<'MS'
-import os, sys
+import glob, os, sys
 fix, name = sys.argv[1], sys.argv[2]
 o = dict(a.split("=", 1) for a in sys.argv[3:])
 T0 = 1790000000
 d = os.path.join(fix, name); os.makedirs(d)
 arms = {2: "0a0a", 3: "0b0b", 4: "0c0c"}
-head = "wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches\twritten_wall\tstop_reason\tmisdelivered\tforeign_frames\theard\tcontrollers"
+which = {2: "p4runtime_skeleton", 3: "p4runtime_solution", 4: "flowcache_solution"}
+head = "wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches\twritten_wall\tstop_reason\tmisdelivered\tforeign_frames\theard\tcontrollers\tctrl_logs"
 if o.get("old_header") == "1":
     head = "wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches"
 if o.get("old_header") == "2":
     head = "\t".join(head.split("\t")[:10])
-# [Co-developed with claude code -- Adam] heard per direction (2 of them, one more per read) and the
-# arm's controller pid (7001..7003, as mk's reports say) alive 40-160 s into its arm.
+if o.get("old_header") == "3":
+    head = "\t".join(head.split("\t")[:12])
+# each external arm's controller log: its key as the sampler names it, and the sizes it passes through
+logs = {}
+for i, w in which.items():
+    found = glob.glob(os.path.join(fix, o.get("run", "t1") + "-rounds", f"*_{w}_ndtwin", "driver-controller-*.log"))
+    if len(found) != 1:
+        sys.exit(f"ms: {len(found)} controller log(s) for {w} in {o.get('run', 't1')}")
+    data = open(found[0], "rb").read()
+    lines = data.splitlines(keepends=True)
+    header = sum(len(x) for x in lines if x.startswith(b"[adapter]"))
+    first = next((sum(len(x) for x in lines[:n + 1]) for n, x in enumerate(lines) if b"SetForwardingPipelineConfig" in x), header)
+    key = os.path.basename(os.path.dirname(found[0])) + "/" + os.path.basename(found[0])
+    logs[i] = (key, header, first, len(data))
+def ctrl_logs(t):
+    out = []
+    for i in sorted(logs):
+        key, header, first, full = logs[i]
+        k = t - T0 - 300 * i
+        target = o.get("arm") == arms[i]
+        push = int(o["push_at"]) if target and "push_at" in o else 45
+        mid = int(o["mid_at"]) if target and "mid_at" in o else None
+        if k < min(push, mid if mid is not None else push) - 5:
+            continue
+        size = header
+        if mid is not None and k >= mid:
+            size = first
+        if k >= push:
+            size = full
+        if target and o.get("short_sizes") == "1":
+            size = header
+        out.append(f"{key}:{size}")
+    if o.get("nolog_sizes") == "1":
+        return "-"
+    return ",".join(out) or "-"
+# heard per direction (2 of them, +1 per 5 s round from 30 s into the arm) and the arm's controller pid
+# (7001..7003) alive 40-160 s into its arm -- the pids are context now, not the window
 ctl_pid = {"0a0a": 7001, "0b0b": 7002, "0c0c": 7003}
 def heard(sess, k, target):
-    a, b = k - 30, k - 30
-    if target and o.get("deaf") == "1" and k >= 40:
-        b = 10
+    a = b = (k - 30) // 5
+    if target and "deaf_from" in o:            # the second direction heard nothing from deaf_from on
+        b = (min(k, int(o["deaf_from"])) - 30) // 5
+    if target and "late_from" in o:            # ... and nothing until late_from
+        b = 0 if k < int(o["late_from"]) else (k - int(o["late_from"])) // 5 + 1
     if target and o.get("heard_bad") == "1" and k == 100:
         return "1:2>2:2=x"
     return f"1:2>2:2={a},2:2>1:2={b}"
 def ctls(sess, k, target):
-    if sess is None or not 40 <= k <= 160 or (target and o.get("noctl") == "1"):
+    if sess is None or not 40 <= k <= 160:
         return "-"
     return str(ctl_pid[sess])
-def tail(sess, k, target, running):
-    return "\t" + (heard(sess, k, target) if running else "-") + "\t" + ctls(sess, k, target)
+def tail(t, sess, k, target, running):
+    return "\t" + (heard(sess, k, target) if running else "-") + "\t" + ctls(sess, k, target) + "\t" + ctrl_logs(t)
 rows = [head]
-for t in range(T0, T0 + 1500, 2):
+for t in range(T0, T0 + 1500):
     i, k = divmod(t - T0, 300)
     sess = arms.get(i)
     target = o.get("arm") == sess
-    if sess is None or k < 30:
-        rows.append(f"{t}\tabsent\t-\t-\t0\t0\t-\t\t0\t0" + tail(sess, k, target, False)); continue
+    start_k = int(o["start_at"]) if target and "start_at" in o else 30
+    if sess is None or k < start_k:
+        rows.append(f"{t}\tabsent\t-\t-\t0\t0\t-\t\t0\t0" + tail(t, sess, k, target, False)); continue
     stop_k = int(o["stop_at"]) if target and "stop_at" in o else 200
     if target and "gap" in o and int(o["gap"]) <= k < int(o["gap"]) + 30:
         continue
@@ -258,11 +332,11 @@ for t in range(T0, T0 + 1500, 2):
         hosts = o.get("hosts", "0") if target and k == 100 else "0"
         between = o.get("between", "0") if target and k == 100 else "0"
         mis = "None" if target and o.get("counts_none") == "1" and k == 100 else "0"
-        rows.append(f"{t}\trunning\t{sess}\t4242\t{hosts}\t{between}\t{written}\t\t{mis}\t0" + tail(sess, k, target, True))
+        rows.append(f"{t}\trunning\t{sess}\t4242\t{hosts}\t{between}\t{written}\t\t{mis}\t0" + tail(t, sess, k, target, True))
         if target and o.get("second") == "1" and k == 120:
-            rows.append(f"{t}.5\trunning\t0d0d\t4343\t0\t0\t{t}\t\t0\t0\t1:2>2:2=1\t-")
+            rows.append(f"{t}.5\trunning\t0d0d\t4343\t0\t0\t{t}\t\t0\t0\t1:2>2:2=1\t-\t-")
     else:
-        rows.append(f"{t}\tstopped\t{sess}\t-\t0\t0\t{T0 + 300 * i + stop_k}\tSIGTERM\t0\t0" + tail(sess, k, target, False))
+        rows.append(f"{t}\tstopped\t{sess}\t-\t0\t0\t{T0 + 300 * i + stop_k}\tSIGTERM\t0\t0" + tail(t, sess, k, target, False))
 open(os.path.join(d, "50_samples.tsv"), "w").write("\n".join(rows) + "\n")
 if o.get("no_end") != "1":
     open(os.path.join(d, "50_t06_end.txt"), "w").write(f"{T0 + 1500}\n")
@@ -325,8 +399,8 @@ has   "  naming both traces"                               "the detect-only star
 mk c_block control hb_block=1
 OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c_block" --samples "$S")"
 check "🔴 a second control with only a heartbeat block: rc 3" "3" "$(rc_of "$OUT")"
-# [Co-developed with claude code -- Adam] (round 5) stopped at 120 s: after the controller had been heard
-# for 80 s (so the heard check passes) and before its last write at 150 s -- this cell is that check's alone
+# [Co-developed with claude code -- Adam] (round 5) stopped at 120 s: after the controller's window had
+# opened (45 s) and before its last write at 150 s -- this cell is that check's alone
 ms h5_once arm=0b0b stop_at=120
 OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_once/50_samples.tsv")"
 check "🔴 a session sampled running, then stopped before the controller: rc 3" "3" "$(rc_of "$OUT")"
@@ -360,22 +434,39 @@ check "🔴 a session that forwarded between switches: rc 1"  "1" "$(rc_of "$OUT
 OUT="$(ev show "$FIX/t1")"
 has   "🔴 N4's counters are labelled as before the pipeline" "(before the exercise's pipeline was loaded: not evidence about the program)" "$OUT"
 # [Co-developed with claude code -- Adam] The round-4 review's M-3: frames HEARD on every direction
-# while the exercise's controller ran -- else the treatment arm is about nothing.
+# inside the exercise's controller's own window -- else the treatment arm is about nothing. Round 6: the
+# window runs from the sample that saw the log reach its last pipeline push to the log's last write.
 OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$S")"
-has   "🔴 every direction heard while the controller ran, said per direction" "heard   all 2 direction(s) while the controller (pid 7002) ran, 1790000940-1790001060: 1:2>2:2 +120, 2:2>1:2 +120" "$OUT"
-ms h5_deaf arm=0b0b deaf=1
+has   "🔴 every direction heard in the controller's window, said per direction" "heard   all 2 direction(s) in the controller's window (2026-09-21T142820Z_p4runtime_solution_ndtwin/driver-controller-p4runtime.log from its push to its last write), 1790000945-1790001050: 1:2>2:2 +21, 2:2>1:2 +21" "$OUT"
+ms h5_deaf arm=0b0b deaf_from=46
 OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_deaf/50_samples.tsv")"
-check "🔴 a direction not heard while the controller ran: rc 3" "3" "$(rc_of "$OUT")"
-has   "  naming the direction and the controller"          "did not hear 1 of 2 direction(s) while the controller (pid 7002) ran" "$OUT"
-has   "  and which one"                                    "2:2>1:2 stayed 10" "$OUT"
-ms h5_noctl arm=0c0c noctl=1
-OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_noctl/50_samples.tsv")"
-check "🔴 a controller the sampler never saw alive: rc 3"  "3" "$(rc_of "$OUT")"
-has   "  said as no lifetime"                              "the sampler saw the controller (pid 7003) alive in 0 sample(s)" "$OUT"
-mk t_noctl treatment noctlpid=p4rt_skel
-OUT="$(ev compare "$FIX/c1" "$FIX/t_noctl" --control2 "$FIX/c2" --samples "$S")"
-check "🔴 a round report that names no controller pid: rc 3" "3" "$(rc_of "$OUT")"
-has   "  said as no controller pid in the report"         "names no single \`controller pid N\`" "$OUT"
+check "🔴 a direction heard only before the push (+1 per 5 s, 1-s reads): rc 3" "3" "$(rc_of "$OUT")"
+has   "  naming the direction and the window"              "did not hear 1 of 2 direction(s) in the controller's window, 1790000945-1790001050" "$OUT"
+has   "  and which one"                                    "2:2>1:2 stayed 3" "$OUT"
+ms h5_late arm=0c0c late_from=151
+OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_late/50_samples.tsv")"
+check "🔴 a direction heard only after the controller's last write: rc 3" "3" "$(rc_of "$OUT")"
+has   "  said as not heard in the window"                  "2:2>1:2 stayed 0" "$OUT"
+ms h5_short arm=0a0a push_at=145
+OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_short/50_samples.tsv")"
+check "🔴 a controller window of 5 s (under two periods): UNDECIDED, rc 2, not refused" "2" "$(rc_of "$OUT")"
+has   "  said as too short, with its length"               "UNDECIDED heard     the controller's window, push seen at 1790000745 to its last write at 1790000750, is 5.0 s -- under two heartbeat periods (10 s)" "$OUT"
+has   "  the rest of the comparison still printed"         "NO DIFFERENCE in the external arms' own evidence (2 controls); 1 UNDECIDED" "$OUT"
+ms h5_ten arm=0a0a push_at=140
+OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_ten/50_samples.tsv")"
+check "🔴 a window of exactly two periods is decided: rc 0" "0" "$(rc_of "$OUT")"
+has   "  heard +2 in it"                                   "1790000740-1790000750: 1:2>2:2 +2, 2:2>1:2 +2" "$OUT"
+ms h5_mid arm=0b0b mid_at=45 push_at=70
+OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_mid/50_samples.tsv")"
+has   "🔴 the window opens at the LAST push (s2's at 70 s), not the first" "1790000970-1790001050: 1:2>2:2 +16, 2:2>1:2 +16" "$OUT"
+ms h5_late_start arm=0b0b start_at=50
+OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_late_start/50_samples.tsv")"
+check "🔴 a session first running after the push: rc 3"    "3" "$(rc_of "$OUT")"
+has   "  said as the window not watched from its start"    "after the controller pushed its pipeline (1790000945) -- the window was not watched from its start" "$OUT"
+mk t_nopush treatment nopush=p4rt_sol
+ms h5_nopush run=t_nopush
+OUT="$(ev compare "$FIX/c1" "$FIX/t_nopush" --control2 "$FIX/c2" --samples "$FIX/h5_nopush/50_samples.tsv")"
+has   "🔴 no push line: the window opens at the first rule installed" "1790000945-1790001050: 1:2>2:2 +21" "$OUT"
 # [Co-developed with claude code -- Adam] The round-4 review's M-2: the same code apart from B.
 OUT="$(NO_BSHA=1 ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$S")"
 check "🔴 no --b-sha: rc 3"                                 "3" "$(rc_of "$OUT")"
@@ -384,7 +475,45 @@ has   "  the identities are said when they match"          "identity: the contro
 mk c_noid control id=none
 OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c_noid" --samples "$S")"
 check "🔴 a control with no identity: rc 3"                 "3" "$(rc_of "$OUT")"
-has   "  said as no identity"                              "no 00_identity.txt -- which code it ran is not known" "$OUT"
+has   "  said as no identity"                              "no 00_identity.before.txt -- which code it ran is not known" "$OUT"
+# [Co-developed with claude code -- Adam] (round 6) taken before AND after each run, and equal
+mk c_noafter control id_after=none
+OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c_noafter" --samples "$S")"
+check "🔴 a control with no identity after it ran: rc 3"   "3" "$(rc_of "$OUT")"
+has   "  said as no after-identity"                        "no 00_identity.after.txt" "$OUT"
+mk c_drift control id_drift=kernel
+OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c_drift" --samples "$S")"
+check "🔴 a control whose kernel was rebuilt while it ran: rc 3" "3" "$(rc_of "$OUT")"
+has   "  said as the code changing during the run"         "the code changed while a run ran: kernel: c_drift before" "$OUT"
+mk t_drift treatment id_drift=head
+OUT="$(ev compare "$FIX/c1" "$FIX/t_drift" --control2 "$FIX/c2" --samples "$S")"
+check "🔴 a treatment whose HEAD moved while it ran: rc 3" "3" "$(rc_of "$OUT")"
+has   "  said as its HEAD before and after"                "t_drift: head" "$OUT"
+mk t_amend treatment id_merge_tree=0123456789012345678901234567890123456789
+OUT="$(ev compare "$FIX/c1" "$FIX/t_amend" --control2 "$FIX/c2" --samples "$S")"
+check "🔴 a treatment whose tree is not the two parents' merge: rc 3" "3" "$(rc_of "$OUT")"
+has   "  said as an amended or hand-resolved merge"        "an amended or hand-resolved merge" "$OUT"
+mk t_tut treatment id_tut=8888888888888888888888888888888888888888
+OUT="$(ev compare "$FIX/c1" "$FIX/t_tut" --control2 "$FIX/c2" --samples "$S")"
+check "🔴 a treatment on another ~/tutorials: rc 3"        "3" "$(rc_of "$OUT")"
+has   "  said as tutorials"                                "tutorials: controls" "$OUT"
+mk t_libs treatment id_libs=22
+OUT="$(ev compare "$FIX/c1" "$FIX/t_libs" --control2 "$FIX/c2" --samples "$S")"
+check "🔴 a treatment on other bmv2 shared libraries: rc 3" "3" "$(rc_of "$OUT")"
+has   "  said as bmv2_libs"                                "bmv2_libs: controls" "$OUT"
+# [Co-developed with claude code -- Adam] (round 6) the same compiler and compiled program in every run
+mk t_p4c treatment p4c=0000000000000001
+OUT="$(ev compare "$FIX/c1" "$FIX/t_p4c" --control2 "$FIX/c2" --samples "$S")"
+check "🔴 a treatment compiled by another p4c: rc 3"       "3" "$(rc_of "$OUT")"
+has   "  said as not the same compiler and program"        "p4runtime/skeleton: not the same compiler and program in every run" "$OUT"
+mk c_json control json_fc_sol=0000000000000002
+OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c_json" --samples "$S")"
+check "🔴 a control whose flowcache JSON differs: rc 3"    "3" "$(rc_of "$OUT")"
+has   "  naming the JSON"                                  "json ['flowcache.json 0000000000000002']" "$OUT"
+mk t_noshas treatment noshas=p4rt_sol
+OUT="$(ev compare "$FIX/c1" "$FIX/t_noshas" --control2 "$FIX/c2" --samples "$S")"
+check "🔴 a report with no p4c or JSON sha: rc 2"          "2" "$(rc_of "$OUT")"
+has   "  said as such"                                     "names no p4c sha256 or no compiled JSON sha256" "$OUT"
 mk c_head control id_head=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c_head" --samples "$S")"
 check "🔴 controls on two different HEADs: rc 3"           "3" "$(rc_of "$OUT")"
@@ -579,11 +708,28 @@ hasnt "🔴 and no traceback from it"                         "Traceback" "$OUT"
 ms h5_old old_header=1
 OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_old/50_samples.tsv")"
 check "🔴 samples from a sampler before 09-28: rc 2"        "2" "$(rc_of "$OUT")"
-has   "  said as a sampler from before round 5"            "a sampler from before round 5" "$OUT"
+has   "  said as a sampler from before round 6"            "a sampler from before round 6" "$OUT"
 # [Co-developed with claude code -- Adam] round 5: the sampler's heard and controllers columns.
 ms h5_r4 old_header=2
 OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_r4/50_samples.tsv")"
 check "🔴 samples from round 4's sampler (no heard, no controllers): rc 2" "2" "$(rc_of "$OUT")"
+# [Co-developed with claude code -- Adam] round 6: and its ctrl_logs column; logs it never saw grow
+ms h5_r5 old_header=3
+OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_r5/50_samples.tsv")"
+check "🔴 samples from round 5's sampler (no ctrl_logs): rc 2" "2" "$(rc_of "$OUT")"
+ms h5_nosizes nolog_sizes=1
+OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_nosizes/50_samples.tsv")"
+check "🔴 a sampler that never saw the controller's log: rc 2" "2" "$(rc_of "$OUT")"
+has   "  said as such"                                     "the sampler never saw 2026-09-21T142320Z_p4runtime_skeleton_ndtwin/driver-controller-p4runtime.log" "$OUT"
+ms h5_header arm=0c0c short_sizes=1
+OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_header/50_samples.tsv")"
+check "🔴 a log the sampler never saw reach its push: rc 2" "2" "$(rc_of "$OUT")"
+has   "  said as no window start"                          "never at the push's end" "$OUT"
+mk t_bare treatment bare=p4rt_skel
+ms h5_bare run=t_bare
+OUT="$(ev compare "$FIX/c1" "$FIX/t_bare" --control2 "$FIX/c2" --samples "$FIX/h5_bare/50_samples.tsv")"
+check "🔴 a controller log with no push and no entry: rc 2" "2" "$(rc_of "$OUT")"
+has   "  said as a window with no start"                   "no pipeline push and no rule or cache entry" "$OUT"
 ms h5_none arm=0b0b counts_none=1
 OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_none/50_samples.tsv")"
 check "🔴 a running sample whose daemon counter is not a number: rc 2, not a zero" "2" "$(rc_of "$OUT")"
@@ -612,6 +758,114 @@ check "  identity is not evidence: still rc 0"            "0" "$(rc_of "$OUT")"
 OUT="$(ev show "$FIX/t_fp")"
 check "  show: rc 0"                                       "0" "$(rc_of "$OUT")"
 has   "  and lists the flowcache packet-ins"               "packet_ins            1" "$OUT"
+
+# =============================================================================================
+section "7. 🔴 code_identity.py record, on real repositories (round 6)"
+# =============================================================================================
+# [Co-developed with claude code -- Adam] What record writes, not what a fixture says it wrote: the
+# code paths it compares (docs and audit tables left out), ~/tutorials, the fabric's libraries, and a
+# merge's tree against what merging its parents gives. The copy beside the tool is the one run.
+IDPY="$(dirname "$TOOL")/code_identity.py"
+gi=(-c user.name=t -c user.email=t@example.invalid -c commit.gpgsign=false -c init.defaultBranch=trunk)
+G="$FIX/idrepo"; TUT="$FIX/tutorials"
+mkdir -p "$G/doc/audit" "$G/p4_proxy/mininet" "$FIX/bmv2/bin" "$FIX/bmv2/lib" \
+         "$TUT/exercises/p4runtime/build" "$TUT/exercises/flowcache" "$TUT/utils"
+printf 'a\n' > "$G/a.py"; printf 'n\n' > "$G/doc/notes.md"; printf 't\n' > "$G/doc/audit/agents.tsv"
+printf 'j\n' > "$G/doc/audit/raw.json"; printf '%s\n' "$FIX/bmv2/bin/simple_switch_grpc" > "$G/p4_proxy/mininet/bmv2_binary_override"
+printf 'bin\n' > "$FIX/bmv2/bin/simple_switch_grpc"; printf 'so1\n' > "$FIX/bmv2/lib/libbm.so.0.0.0"
+ln -s libbm.so.0.0.0 "$FIX/bmv2/lib/libbm.so"
+printf 'c\n' > "$TUT/exercises/p4runtime/mycontroller.py"; printf 'f\n' > "$TUT/exercises/flowcache/flowcache.p4"
+printf 'u\n' > "$TUT/utils/run.py"; printf 'build/\n' > "$TUT/.gitignore"
+{ git "${gi[@]}" init -q "$G" && git -C "$G" add -A && git "${gi[@]}" -C "$G" commit -q -m c \
+  && git "${gi[@]}" init -q "$TUT" && git -C "$TUT" add -A && git "${gi[@]}" -C "$TUT" commit -q -m t; } \
+    || echo "  (the identity repositories could not be built)"
+rec() { TUTORIALS_DIR="$TUT" CTRL_PY=/nonexistent "$EVIDENCE_PY" "$IDPY" record "$G" "$FIX/$1.json" > /dev/null 2>&1 || echo "record $1 failed"; }
+jq_() { "$EVIDENCE_PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); print(eval(sys.argv[2]))' "$FIX/$1.json" "$2" 2>&1 | tail -1; }
+why() { "$EVIDENCE_PY" -c 'import json, sys; sys.path.insert(0, sys.argv[1]); import code_identity as c
+a, b = (json.load(open(p)) for p in sys.argv[2:4]); print(sorted({r.split(":")[1].split()[0] if r.startswith("r ") else r.split(":")[0] for r in c.unchanged_reasons(a, b, "r")}))' \
+        "$(dirname "$IDPY")" "$FIX/$1.json" "$FIX/$2.json" 2>&1 | tail -1; }
+rec id0
+printf 'a2\n' > "$G/a.py"; printf 'n2\n' > "$G/doc/notes.md"; printf 't2\n' > "$G/doc/audit/agents.tsv"; printf 'j2\n' > "$G/doc/audit/raw.json"
+rec id1
+check "🔴 uncommitted: a code file and an audit .json are recorded, a doc .md and an audit .tsv are not" \
+      "['a.py', 'doc/audit/raw.json']" "$(jq_ id1 '[p for _s, p, _h in d["uncommitted"]]')"
+git -C "$G" checkout -q -- a.py doc
+check "  the tutorials' HEAD is recorded"                 "yes" "$(jq_ id0 '"yes" if d["tutorials"]["head"] == "'"$(git -C "$TUT" rev-parse HEAD)"'" else d["tutorials"]')"
+printf 'rebuilt\n' > "$TUT/exercises/p4runtime/build/advanced_tunnel.json"
+rec id2
+check "🔴 a round rewriting build/ under an exercise does not change the identity" "[]" "$(why id0 id2)"
+printf 'c2\n' > "$TUT/exercises/p4runtime/mycontroller.py"
+rec id3
+check "🔴 a changed exercise file in ~/tutorials does"   "['tutorials']" "$(why id0 id3)"
+check "  in that exercise's tree digest"                 "changed" "$(a="$(jq_ id0 'd["tutorials"]["trees"]["exercises/p4runtime"]')"; b="$(jq_ id3 'd["tutorials"]["trees"]["exercises/p4runtime"]')"; [[ -n "$a" && "$a" != "$b" ]] && echo changed || echo "same: $a")"
+git -C "$TUT" checkout -q -- exercises
+printf 'mine\n' > "$TUT/exercises/flowcache/new_helper.py"
+rec id3u
+check "🔴 an untracked file in an exercise (git's porcelain does not show it) changes it too" "['tutorials']" "$(why id0 id3u)"
+rm -f "$TUT/exercises/flowcache/new_helper.py"
+check "  the fabric's libraries: the one shared object, its symlink not counted" "yes" "$(jq_ id0 '"yes" if ": 1 shared objects sha256 " in d["bmv2_libs"] else d["bmv2_libs"]')"
+printf 'so2\n' > "$FIX/bmv2/lib/libbm.so.0.0.0"
+rec id4
+check "🔴 a rebuilt bmv2 shared library changes the identity" "['bmv2_libs']" "$(why id0 id4)"
+# a merge: C on trunk, B on a branch, T = B merged onto C -- then the same merge amended by hand
+bsha="$(git -C "$G" checkout -q -b b && printf 'b\n' > "$G/b.py" && git -C "$G" add b.py && git "${gi[@]}" -C "$G" commit -q -m b \
+        && git -C "$G" rev-parse HEAD && git -C "$G" checkout -q trunk)"
+rec idc
+git "${gi[@]}" -C "$G" merge -q --no-ff --no-edit b > /dev/null 2>&1
+rec idt
+vf() { "$EVIDENCE_PY" "$IDPY" verify "$FIX/idc.json" "$FIX/$1.json" "$bsha" 2>&1; }
+has   "🔴 a clean merge: its tree is what merging its parents gives" "SAME CODE APART FROM B" "$(vf idt)"
+printf 'hand\n' > "$G/hand.py"; git -C "$G" add hand.py; git "${gi[@]}" -C "$G" commit -q --amend --no-edit
+rec ida
+has   "🔴 an amended merge is refused"                     "an amended or hand-resolved merge" "$(vf ida)"
+
+# =============================================================================================
+section "8. 🔴 the 34 rounds the split rests on, frozen (external_survey.py, S-9)"
+# =============================================================================================
+# [Co-developed with claude code -- Adam] Round 6: the survey reads only the rounds its manifest names, by
+# sha256, and none of them may carry the heartbeat. Fixture: c1's two solution rounds in a prep dir of
+# their own, and t1's p4runtime/solution round (it has the heartbeat).
+SV="$(dirname "$TOOL")/external_survey.py"
+P="$FIX/prep"; mkdir -p "$P/runs"; cp -r "$FIX/c1-rounds/." "$P/runs/"
+mkdir -p "$P/hb"; cp -r "$FIX/t1-rounds/." "$P/hb/"
+manifest() {   # manifest <out> <dir under P> <stamp_ex_which>... -- the manifest of those rounds, as frozen now
+    local out="$1" sub="$2"; shift 2
+    "$EVIDENCE_PY" - "$P" "$out" "$sub" "$@" <<'PY'
+import glob, hashlib, os, sys
+p, out, sub, names = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4:]
+sha = lambda f: hashlib.sha256(open(f, "rb").read()).hexdigest()
+rows = ["arm\treport\treport_sha256\tlog\tlog_sha256"]
+for n in names:
+    md = os.path.join(p, sub, n + ".md")
+    log = glob.glob(os.path.join(p, sub, n, "driver-controller-*.log"))[0]
+    arm = "/".join(n.split("_")[1:3])
+    rows.append("\t".join([arm, os.path.relpath(md, p), sha(md), os.path.relpath(log, p), sha(log)]))
+open(out, "w").write("\n".join(rows) + "\n")
+PY
+}
+sv() { "$EVIDENCE_PY" "$SV" "$P" "$1" 2>&1; echo "RC=$?"; }
+SOL=2026-09-21T142820Z_p4runtime_solution_ndtwin; FC=2026-09-21T143320Z_flowcache_solution_ndtwin
+manifest "$FIX/m_ok.tsv" runs "$SOL" "$FC"
+OUT="$(sv "$FIX/m_ok.tsv")"
+check "🔴 the frozen rounds as frozen, none with the heartbeat: rc 0" "0" "$(rc_of "$OUT")"
+has   "  said as such"                                     "2 rounds, every report and controller log as frozen, none with the heartbeat" "$OUT"
+has   "  with each field's count of values"                "rules_installed        1 distinct" "$OUT"
+printf 'one more line\n' >> "$P/runs/$FC/driver-controller-flowcache.log"
+OUT="$(sv "$FIX/m_ok.tsv")"
+check "🔴 a round whose controller log changed since it was frozen: rc 3" "3" "$(rc_of "$OUT")"
+has   "  said as not what the manifest froze"              "the manifest froze" "$OUT"
+manifest "$FIX/m_ok.tsv" runs "$SOL" "$FC"
+mv "$P/runs/$SOL.md" "$P/runs/$SOL.md.gone"
+OUT="$(sv "$FIX/m_ok.tsv")"
+check "🔴 a frozen round that is gone: rc 3"               "3" "$(rc_of "$OUT")"
+mv "$P/runs/$SOL.md.gone" "$P/runs/$SOL.md"
+manifest "$FIX/m_hb.tsv" hb "$SOL"
+OUT="$(sv "$FIX/m_hb.tsv")"
+check "🔴 a round that had the heartbeat: rc 3"            "3" "$(rc_of "$OUT")"
+has   "  said as not a round without it"                   "not a round without the heartbeat" "$OUT"
+printf 'arm\treport\n' > "$FIX/m_bad.tsv"
+OUT="$(sv "$FIX/m_bad.tsv")"
+check "  a manifest that is not one: rc 2"                 "2" "$(rc_of "$OUT")"
 
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"

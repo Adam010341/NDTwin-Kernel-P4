@@ -24,9 +24,13 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
 TOOL="$REPO/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_evidence.py"
 IDENT="$REPO/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/code_identity.py"
+# [Co-developed with claude code -- Adam] (round 6) the frozen survey and its manifest sit beside the tool too
+SURVEY="$REPO/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_survey.py"
+MANIFEST="$REPO/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_survey_34.tsv"
 TEST="$HERE/test_live_p1_external_evidence.sh"
 [[ -r "$TOOL" && -r "$TEST" && -r "$IDENT" ]] || { echo "refused: the tool, code_identity.py or the suite is missing"; exit 2; }
 ID_SUM="$(sha256sum "$IDENT" | cut -d' ' -f1)"
+SV_SUM="$(sha256sum "$SURVEY" "$MANIFEST" | cut -d' ' -f1 | paste -sd,)"
 BK="$(mktemp -d "${TMPDIR:-/tmp}/live-p1-evidence-mutate-XXXXXX")"
 trap 'rm -rf "$BK"' EXIT
 BASE_SUM="$(sha256sum "$TOOL" | cut -d' ' -f1)"
@@ -58,7 +62,7 @@ PY
     then
         printf '  SURVIVED %-62s (anchor not unique or identity)\n' "$label"; SURVIVED=$((SURVIVED+1)); return
     fi
-    cp "$IDENT" "$d/code_identity.py"
+    cp "$IDENT" "$d/code_identity.py"; cp "$SURVEY" "$MANIFEST" "$d/"
     if ! python3 -m py_compile "$d/external_evidence.py" 2>/dev/null; then
         printf '  SURVIVED %-62s (the mutant does not compile)\n' "$label"; SURVIVED=$((SURVIVED+1)); return
     fi
@@ -286,7 +290,7 @@ mutate '        if et == IPV4_ETHERTYPE and len(payload) < 34:' \
 mutate '    if head[:len(want)] != want:' \
     '    if False:' \
     "E43: a sampler file from before 09-28 is not named" \
-    "  said as a sampler from before round 5"
+    "  said as a sampler from before round 6"
 mutate '"(before the exercise'"'"'s pipeline was loaded: not evidence about the program)")' \
     '"")' \
     "E44: N4's counters are not labelled" \
@@ -388,27 +392,107 @@ mutate '        return float(read_text(path).split()[0])' \
     "🔴 samples without 06's end beside them: rc 2"
 # --- [Co-developed with claude code -- Adam] round 5: heard during the controller's lifetime (M-3),
 # counters that are not numbers, the code identity (M-2) ---------------------------------------
-mutate '    heard = heard_evidence(name, ev, sess, stretch)' \
-    '    heard = {"pid": 0, "from": 0, "to": 0, "grew": {}}' \
-    "E61: whether the session heard anything is not asked" \
-    "🔴 a direction not heard while the controller ran: rc 3" "🔴 a controller the sampler never saw alive: rc 3" \
-    "🔴 a round report that names no controller pid: rc 3" "🔴 every direction heard while the controller ran, said per direction"
-mutate '    deaf = sorted(d for d in first if last[d] <= first[d])' \
+mutate '    heard = heard_evidence(name, ev, sess, stretch, samples)' \
+    '    heard = {"log": "-", "push_offset": 0, "from": 0, "to": 0, "undecided": None, "grew": {}}' \
+    "E61: whether the session heard anything in the controller's window is not asked" \
+    "🔴 a direction heard only before the push (+1 per 5 s, 1-s reads): rc 3" \
+    "🔴 a direction heard only after the controller's last write: rc 3" \
+    "🔴 a controller window of 5 s (under two periods): UNDECIDED, rc 2, not refused" \
+    "🔴 a session first running after the push: rc 3" "🔴 a sampler that never saw the controller's log: rc 2" \
+    "🔴 a log the sampler never saw reach its push: rc 2" "🔴 a controller log with no push and no entry: rc 2" \
+    "🔴 every direction heard in the controller's window, said per direction"
+mutate '    deaf = sorted(d for d in first if last[d] - first[d] < 1)' \
     '    deaf = []' \
     "E62: a direction that heard nothing is let through" \
-    "🔴 a direction not heard while the controller ran: rc 3" "  naming the direction and the controller" "  and which one"
-mutate '    if len(life) < 2:' \
-    '    if len(life) < 0:' \
-    "E63: a controller the sampler never saw has a lifetime anyway" \
-    "🔴 a controller the sampler never saw alive: rc 3" "  said as no lifetime"
-mutate '    "controller_pid": ctrl[0] if len(set(ctrl)) == 1 else None,' \
-    '    "controller_pid": ctrl[0] if ctrl else 7001,' \
-    "E64: a report with no controller pid is given one" \
-    "🔴 a round report that names no controller pid: rc 3" "  said as no controller pid in the report"
-mutate 'CTRL_PID = re.compile(r"^\s*controller pid (\d+) \(handed to the generic cell")' \
-    'CTRL_PID = re.compile(r"^\s*controller pid (\d+) \(given to the generic cell")' \
-    "E65: drive_exercise's controller line is not read" \
-    "🔴 controls vs treatment, the same evidence, H5's samples: rc 0"
+    "🔴 a direction heard only before the push (+1 per 5 s, 1-s reads): rc 3" "  naming the direction and the window" \
+    "  and which one" "🔴 a direction heard only after the controller's last write: rc 3" "  said as not heard in the window"
+# --- [Co-developed with claude code -- Adam] round 6: the controller's own window (push to last write)
+mutate '    if t1 - t0 < MIN_WINDOW_S:' \
+    '    if t1 - t0 <= MIN_WINDOW_S:' \
+    "E63: a window of exactly two periods is UNDECIDED" \
+    "🔴 a window of exactly two periods is decided: rc 0" "  heard +2 in it"
+mutate 'MIN_WINDOW_S = 2 * PERIOD_S' \
+    'MIN_WINDOW_S = 0' \
+    "E64: no window is too short" \
+    "🔴 a controller window of 5 s (under two periods): UNDECIDED, rc 2, not refused" "  said as too short, with its length" \
+    "  the rest of the comparison still printed"
+mutate '    before = [s for s in stretch if s["wall"] <= t0]' \
+    '    before = stretch[:1]' \
+    "E65: heard counted from the session's start, not the push" \
+    "🔴 a direction heard only before the push (+1 per 5 s, 1-s reads): rc 3" "🔴 a session first running after the push: rc 3" \
+    "  said as the window not watched from its start"
+mutate '    upto = [s for s in stretch if s["wall"] <= t1]' \
+    '    upto = stretch' \
+    "E81: heard counted to the session's end, not the controller's last write" \
+    "🔴 a direction heard only after the controller's last write: rc 3"
+mutate '        if PUSH.match(line):
+            push = pos' \
+    '        if PUSH.match(line):
+            push = pos if push is None else push' \
+    "E82: the window opens at the first push, not the last" \
+    "🔴 the window opens at the LAST push (s2's at 70 s), not the first"
+mutate '    return push if push is not None else entry' \
+    '    return push' \
+    "E83: a log with no push line has no window" \
+    "🔴 no push line: the window opens at the first rule installed"
+mutate '    if push is None and entry is None:' \
+    '    if False:' \
+    "E84: a log with neither push nor entry is not said as such" \
+    "🔴 a controller log with no push and no entry: rc 2" "  said as a window with no start"
+mutate '    if not seen:
+        raise Unreadable' \
+    '    if False:
+        raise Unreadable' \
+    "E85: a log the sampler never saw is not said as such" \
+    "🔴 a sampler that never saw the controller's log: rc 2" "  said as such"
+mutate '    if opened is None:' \
+    '    if False:' \
+    "E86: a log never seen at its push is not said as such" \
+    "🔴 a log the sampler never saw reach its push: rc 2" "  said as no window start"
+mutate '    if not before:' \
+    '    if False:' \
+    "E87: a session not running at the push is a traceback" \
+    "🔴 a session first running after the push: rc 3" "  said as the window not watched from its start"
+mutate '        if hd["undecided"]:
+            undecided += 1' \
+    '        if hd["undecided"]:
+            pass' \
+    "E88: a too-short window is not counted UNDECIDED" \
+    "🔴 a controller window of 5 s (under two periods): UNDECIDED, rc 2, not refused" "  the rest of the comparison still printed"
+mutate '            if key and size.isdigit():' \
+    '            if False:' \
+    "E89: the ctrl_logs column is not read" \
+    "🔴 controls vs treatment, the same evidence, H5's samples: rc 0" \
+    "🔴 every direction heard in the controller's window, said per direction"
+mutate '    want = SAMPLER_COLUMNS' \
+    '    want = SAMPLER_COLUMNS[:12]' \
+    "E90: round 5's sampler file (no ctrl_logs) is taken" \
+    "🔴 samples from round 5's sampler (no ctrl_logs): rc 2"
+# --- the same program and compiler in every run; the identity before and after each run
+mutate '    programs_same([("control", a)] + [(f"control2 #{i + 1}", c) for i, c in enumerate(cs2)]
+                  + [("treatment", b)])' \
+    '    pass' \
+    "E91: the compiler and program are not compared across runs" \
+    "🔴 a treatment compiled by another p4c: rc 3" "  said as not the same compiler and program" \
+    "🔴 a control whose flowcache JSON differs: rc 3" "  naming the JSON" "🔴 a report with no p4c or JSON sha: rc 2" \
+    "  said as such"
+mutate '        if len({(p, j) for _l, p, j in seen}) != 1:' \
+    '        if len({j for _l, p, j in seen}) != 1:' \
+    "E92: another p4c is the same compiler" \
+    "🔴 a treatment compiled by another p4c: rc 3"
+mutate '        if len({(p, j) for _l, p, j in seen}) != 1:' \
+    '        if len({p for _l, p, j in seen}) != 1:' \
+    "E93: another compiled JSON is the same program" \
+    "🔴 a control whose flowcache JSON differs: rc 3" "  naming the JSON"
+mutate '            if not ev["p4c_sha"] or not ev["json_shas"]:' \
+    '            if False:' \
+    "E94: a report with no shas is refused, not unreadable" \
+    "🔴 a report with no p4c or JSON sha: rc 2"
+mutate '        why = code_identity.unchanged_reasons(pair[0], pair[1], os.path.basename(run))' \
+    '        why = []' \
+    "E95: the code may change while a run runs" \
+    "  said as the code changing during the run" \
+    "🔴 a treatment whose HEAD moved while it ran: rc 3" "  said as its HEAD before and after"
 mutate '            counts[name] = int(v) if v.isdigit() else None' \
     '            counts[name] = int(v) if v.isdigit() else 0' \
     "E66: a counter the report did not carry reads as 0" \
@@ -438,10 +522,11 @@ mutate '    if not b_sha:
         raise Refused("no --b-sha:' \
     "E71: no B named is let through to the identity check" \
     "  said as a missing --b-sha"
-mutate '            raise Refused(f"{run}: no 00_identity.txt -- which code it ran is not known "' \
-    '            continue; (f"{run}: no 00_identity.txt -- which code it ran is not known "' \
+mutate '                raise Refused(f"{run}: no {name} -- which code it ran is not known "' \
+    '                continue; (f"{run}: no {name} -- which code it ran is not known "' \
     "E72: a run with no identity is skipped" \
-    "🔴 a control with no identity: rc 3" "  said as no identity"
+    "🔴 a control with no identity: rc 3" "  said as no identity" "🔴 a control with no identity after it ran: rc 3" \
+    "  said as no after-identity"
 
 # the pre-registered split (S-9): decisive keys and invariants held exactly, descriptive ones noted
 mutate '    ("p4runtime", "solution"): {"rc", "verdict", "counters_final"},' \
@@ -470,7 +555,8 @@ mutate '    ("p4runtime", "solution"): {"s1 ingress 100 = pings + iperf datagram
     '    ("p4runtime", "solution"): {"s1 ingress 100 = never",' \
     "E78: the traffic sum that broke before is decisive" \
     "🔴 s1 ingress 100 one short of pings + datagrams (as 6 of 12 earlier rounds): noted, rc 0"
-mutate '          + (f"; {undecided} UNDECIDED: the controls disagree on a decisive check" if undecided else ""))' \
+mutate '          + (f"; {undecided} UNDECIDED: the controls disagree on a decisive check, or a controller'"'"'s "
+             f"window was too short to show the heartbeat heard" if undecided else ""))' \
     '          + "")' \
     "E79: the conclusion does not say UNDECIDED" \
     "  and in the conclusion"
@@ -498,7 +584,7 @@ PY
     then
         printf '  SURVIVED %-62s (anchor not unique or identity)\n' "$label"; SURVIVED=$((SURVIVED+1)); return
     fi
-    cp "$TOOL" "$d/external_evidence.py"
+    cp "$TOOL" "$d/external_evidence.py"; cp "$SURVEY" "$MANIFEST" "$d/"
     if ! python3 -m py_compile "$d/code_identity.py" 2>/dev/null; then
         printf '  SURVIVED %-62s (the mutant does not compile)\n' "$label"; SURVIVED=$((SURVIVED+1)); return
     fi
@@ -529,12 +615,12 @@ mutate_id '    if c.get("head") == t.get("head"):' \
     '    if False:' \
     "I4: T on the controls' very HEAD is not said as B not merged" \
     "  said as B not merged"
-mutate_id 'SAME = ("uncommitted", "kernel", "bmv2_fabric", "bmv2_stock", "helper", "venv")' \
-    'SAME = ("kernel", "bmv2_fabric", "bmv2_stock", "helper", "venv")' \
+mutate_id 'SAME = ("uncommitted", "kernel", "bmv2_fabric", "bmv2_libs", "bmv2_stock", "helper", "venv",' \
+    'SAME = ("kernel", "bmv2_fabric", "bmv2_libs", "bmv2_stock", "helper", "venv",' \
     "I5: other uncommitted files are the same code" \
     "🔴 a treatment with another uncommitted file: rc 3" "  said as other uncommitted files"
-mutate_id 'SAME = ("uncommitted", "kernel", "bmv2_fabric", "bmv2_stock", "helper", "venv")' \
-    'SAME = ("uncommitted", "bmv2_fabric", "bmv2_stock", "helper", "venv")' \
+mutate_id 'SAME = ("uncommitted", "kernel", "bmv2_fabric", "bmv2_libs", "bmv2_stock", "helper", "venv",' \
+    'SAME = ("uncommitted", "bmv2_fabric", "bmv2_libs", "bmv2_stock", "helper", "venv",' \
     "I6: another kernel binary is the same code" \
     "🔴 a treatment on another kernel binary: rc 3" "  said as another kernel"
 mutate_id '    if touched:' \
@@ -545,6 +631,132 @@ mutate_id '    if changed_by_b is None and len(parents) == 2:' \
     '    if False:' \
     "I8: an identity that does not say what its merge changed is let through" \
     "🔴 a treatment whose identity does not say what its merge changed: rc 3" "  said as unknown merge changes"
+# [Co-developed with claude code -- Adam] round 6: the tree, ~/tutorials, the fabric's libraries, the
+# code paths compared, and the run's identity before against after
+mutate_id '    if len(parents) == 2 and t.get("tree") != t.get("merge_tree"):' \
+    '    if False:' \
+    "I9: an amended merge is C plus B" \
+    "🔴 a treatment whose tree is not the two parents' merge: rc 3" "  said as an amended or hand-resolved merge" \
+    "🔴 an amended merge is refused"
+mutate_id '            r = subprocess.run(["git", "-C", repo, "merge-tree", "--write-tree", *ident["parents"]],' \
+    '            r = subprocess.run(["git", "-C", repo, "merge-tree", "--write-tree", ident["parents"][0], ident["parents"][0]],' \
+    "I10: the merge's tree is checked against the wrong merge" \
+    "🔴 a clean merge: its tree is what merging its parents gives"
+mutate_id '        "tutorials")' \
+    '        )' \
+    "I11: another ~/tutorials is the same code" \
+    "🔴 a treatment on another ~/tutorials: rc 3" "  said as tutorials" "🔴 a changed exercise file in ~/tutorials does" \
+    "🔴 an untracked file in an exercise (git's porcelain does not show it) changes it too"
+mutate_id 'SAME = ("uncommitted", "kernel", "bmv2_fabric", "bmv2_libs", "bmv2_stock", "helper", "venv",' \
+    'SAME = ("uncommitted", "kernel", "bmv2_fabric", "bmv2_stock", "helper", "venv",' \
+    "I12: other bmv2 libraries are the same code" \
+    "🔴 a treatment on other bmv2 shared libraries: rc 3" "  said as bmv2_libs" "🔴 a rebuilt bmv2 shared library changes the identity"
+mutate_id 'TUTORIALS_SKIP_DIRS = {"build", "logs", "pcaps", "__pycache__"}' \
+    'TUTORIALS_SKIP_DIRS = {"logs", "pcaps", "__pycache__"}' \
+    "I13: a round's build/ output changes the identity" \
+    "🔴 a round rewriting build/ under an exercise does not change the identity"
+mutate_id '    out["trees"] = {part: tree_digest(os.path.join(path, part)) for part in TUTORIALS_PARTS}' \
+    '    out["trees"] = {}' \
+    "I14: the exercises' files are not digested" \
+    "🔴 an untracked file in an exercise (git's porcelain does not show it) changes it too" "  in that exercise's tree digest"
+mutate_id '        out["head"] = git(path, "rev-parse", "HEAD").strip()' \
+    '        out["head"] = "?"' \
+    "I15: the tutorials' HEAD is not recorded" \
+    "  the tutorials' HEAD is recorded"
+mutate_id '        if ".so" in f and os.path.isfile(p) and not os.path.islink(p):' \
+    '        if ".so" in f and os.path.isfile(p):' \
+    "I16: a library's symlinks are digested as libraries" \
+    "  the fabric's libraries: the one shared object, its symlink not counted"
+mutate_id '            h.update(f"{f}\0{sha256_of(p)}\n".encode())' \
+    '            h.update(f"{f}\n".encode())' \
+    "I17: a library is known by its name only" \
+    "🔴 a rebuilt bmv2 shared library changes the identity"
+mutate_id 'NOT_CODE = (re.compile(r"^doc/.*\.md$"), re.compile(r"^doc/audit/.*\.tsv$"))' \
+    'NOT_CODE = ()' \
+    "I18: docs and audit tables are compared as code" \
+    "🔴 uncommitted: a code file and an audit .json are recorded, a doc .md and an audit .tsv are not"
+mutate_id 'NOT_CODE = (re.compile(r"^doc/.*\.md$"), re.compile(r"^doc/audit/.*\.tsv$"))' \
+    'NOT_CODE = (re.compile(r"^doc/"),)' \
+    "I19: everything under doc/ is left out" \
+    "🔴 uncommitted: a code file and an audit .json are recorded, a doc .md and an audit .tsv are not"
+mutate_id '    for key in ("head", "parents", "tree"):' \
+    '    for key in ():' \
+    "I20: a HEAD that moved during a run goes unnoticed" \
+    "🔴 a treatment whose HEAD moved while it ran: rc 3" "  said as its HEAD before and after"
+
+# mutate_sv <old> <new> <label> <check>... -- the same, on the copy of external_survey.py beside the
+# (unchanged) tool. [Co-developed with claude code -- Adam]
+mutate_sv() {
+    local old="$1" new="$2" label="$3" d want out missing=()
+    shift 3
+    d="$BK/$(printf '%s' "$label" | cut -d: -f1)"; mkdir -p "$d"
+    # (the mutated file first: tests/shell/check_gate_anchors.py takes the first path a function
+    # names as the file its anchors are in)
+    if ! python3 - "$SURVEY" "$d/external_survey.py" "$old" "$new" <<'PY'
+import sys
+src, dst, a, b = sys.argv[1:5]
+s = open(src).read()
+if a == b or s.count(a) != 1:
+    print(f"ANCHOR:{s.count(a)}"); sys.exit(1)
+open(dst, "w").write(s.replace(a, b))
+PY
+    then
+        printf '  SURVIVED %-62s (anchor not unique or identity)\n' "$label"; SURVIVED=$((SURVIVED+1)); return
+    fi
+    cp "$TOOL" "$d/external_evidence.py"; cp "$IDENT" "$MANIFEST" "$d/"
+    if ! python3 -m py_compile "$d/external_survey.py" 2>/dev/null; then
+        printf '  SURVIVED %-62s (the mutant does not compile)\n' "$label"; SURVIVED=$((SURVIVED+1)); return
+    fi
+    out="$(run_test "$d/external_evidence.py")"
+    printf '%s\n' "$out" > "$d/suite.out"
+    for want in "$@"; do
+        /usr/bin/grep -qF -- "  FAILED   $want" <<<"$out" || missing+=("$want")
+    done
+    if (( ${#missing[@]} == 0 )); then
+        printf '  caught   %-62s (%s)\n' "$label" "$(tail -1 <<<"$out")"; CAUGHT=$((CAUGHT+1))
+    else
+        printf '  SURVIVED %-62s still green: %s\n' "$label" "${missing[0]}"; SURVIVED=$((SURVIVED+1))
+    fi
+}
+mutate_sv '            if got != r[kind + "_sha256"]:' \
+    '            if False:' \
+    "S1: a round whose bytes changed is surveyed anyway" \
+    "🔴 a round whose controller log changed since it was frozen: rc 3" "  said as not what the manifest froze"
+mutate_sv '            except OSError as exc:
+                refused.append' \
+    '            except OSError as exc:
+                continue
+                refused.append' \
+    "S2: a frozen round that is gone is skipped" \
+    "🔴 a frozen round that is gone: rc 3"
+mutate_sv '        if trace:
+            refused.append' \
+    '        if False:
+            refused.append' \
+    "S3: a round with the heartbeat is surveyed as a control" \
+    "🔴 a round that had the heartbeat: rc 3" "  said as not a round without it"
+mutate_sv '    if not lines or lines[0].split("\t") != COLUMNS:' \
+    '    if not lines:' \
+    "S4: any first line is a manifest's header" \
+    "  a manifest that is not one: rc 2"
+mutate_sv '    print(f"{len(rows)} rounds, every report and controller log as frozen, none with the heartbeat")' \
+    '    print(f"{len(rows)} rounds")' \
+    "S5: the survey does not say what it checked" \
+    "  said as such"
+mutate_sv '            cnt = collections.Counter(value(e[k]) for e in evs)' \
+    '            cnt = collections.Counter(value(e[k]) for e in evs[:0])' \
+    "S6: the counts are of nothing" \
+    "  with each field's count of values"
+mutate_sv '    return 0
+
+
+def main(argv):' \
+    '    return 1
+
+
+def main(argv):' \
+    "S7: a survey that found everything as frozen exits 1" \
+    "🔴 the frozen rounds as frozen, none with the heartbeat: rc 0"
 
 echo
 NOW_SUM="$(sha256sum "$TOOL" | cut -d' ' -f1)"
@@ -554,7 +766,10 @@ fi
 if [[ "$(sha256sum "$IDENT" | cut -d' ' -f1)" != "$ID_SUM" ]]; then
     echo "🔴 code_identity.py CHANGED during the gate"; exit 3
 fi
-echo "source byte-identical: yes  external_evidence.py  sha256 $BASE_SUM; code_identity.py sha256 $ID_SUM"
+if [[ "$(sha256sum "$SURVEY" "$MANIFEST" | cut -d' ' -f1 | paste -sd,)" != "$SV_SUM" ]]; then
+    echo "🔴 external_survey.py or its manifest CHANGED during the gate"; exit 3
+fi
+echo "source byte-identical: yes  external_evidence.py  sha256 $BASE_SUM; code_identity.py sha256 $ID_SUM; survey and manifest $SV_SUM"
 echo "mutation gate: $((CAUGHT+SURVIVED)) mutations, $SURVIVED survived"
 # [Co-developed with claude code -- Adam] (09-28) every check, by position, red under some mutation
 COV="$(python3 - "$BK" <<'COVERAGE'

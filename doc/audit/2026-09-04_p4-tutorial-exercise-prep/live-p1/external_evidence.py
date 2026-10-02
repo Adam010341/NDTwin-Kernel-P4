@@ -23,10 +23,16 @@ WHAT IS READ, per external arm (p4runtime skeleton and solution, flowcache solut
   * the treatment's H5 samples (--samples: live-p1/08 PART=h5's 50_samples.tsv, with its
     50_t06_end.txt beside it): the daemon's report, read every second through the whole of 06 --
     since round 5 with each direction's `heard` count and the pids of the exercise controllers
-    (run_external_controller.py) alive at that read;
-  * each run's 00_identity.txt (live-p1/code_identity.py): which commit, which uncommitted files,
-    which kernel, bmv2 and venv. Every control must carry the same identity, and the treatment's
-    must be that one plus B merged: refused otherwise (README, "合併前的比對", M-2).
+    (run_external_controller.py) alive at that read, since round 6 with the size of each
+    controller log (`ctrl_logs`), which places the controller's pipeline push among the samples;
+  * each run's 00_identity.before.txt and 00_identity.after.txt (live-p1/code_identity.py, taken
+    as 06 starts and as it ends): which commit and tree, which uncommitted code files, which
+    kernel, bmv2 (binaries and the fabric's lib/), helper, venv and ~/tutorials. Each run's two
+    must be equal (the code did not change while it ran); every control must carry the same
+    identity, and the treatment's must be that one plus B merged, its tree the one merging its two
+    parents gives: refused otherwise (README, "合併前的比對", M-2);
+  * [Co-developed with claude code -- Adam] (round 6) each round report's p4c sha256 and every
+    compiled JSON's sha256: refused unless each external arm's are the same in every run.
 
 WHAT IS REFUSED (exit 3) -- a comparison about nothing (the external judge's F1 and M2, 09-28):
   * no --samples: the round report's markers are all taken before the exercise's controller runs
@@ -38,15 +44,21 @@ WHAT IS REFUSED (exit 3) -- a comparison about nothing (the external judge's F1 
   * [Co-developed with claude code -- Adam] a treatment arm whose session did not HEAR every one of
     its directions while the exercise's controller ran (the round-4 review's M-3): a daemon that
     runs but whose frames never arrive leaves the program nothing to drop, and the comparison
-    would be about nothing. The controller's lifetime is where the sampler saw the controller's
-    own pid (the round report's `controller pid N` line) -- at least two samples -- and each
-    direction's `heard` count must grow between the first and the last of them;
+    would be about nothing. Since round 6 the window is the controller's OWN: it opens at the
+    first sample whose `ctrl_logs` size of the arm's controller log reaches the end of the log's
+    last pipeline push ("Installed P4 Program using SetForwardingPipelineConfig", or, with none,
+    its first "Installed"/cache-entry line), and closes at the log's last write. Every direction's
+    `heard` must grow by at least one round between the session's last sample at or before the
+    window's opening and its last sample at or before the close; a session not yet running when
+    the window opened is refused too. A window shorter than two heartbeat periods (10 s) cannot
+    show it and is UNDECIDED (exit 2, reported), not refused;
   * a control arm with the detect-only line, a heartbeat block or a running row -- any trace of the
     heartbeat -- and a --control2 that is the control itself or another control (no spread).
 
 WHAT IS UNREADABLE (exit 2), never "same": a missing or unreadable table, row, report, log or
-samples file (a sampler file without the round-5 columns included; a running sample of the arm's
-session whose counters or `heard` are not numbers); a counter block cut short; a LAST counter block that had not settled (it neither
+samples file (a sampler file without the round-6 columns included; a running sample of the arm's
+session whose counters or `heard` are not numbers; a controller log the sampler never saw reach
+its push; a controller log with no push and no entry); a counter block cut short; a LAST counter block that had not settled (it neither
 repeats the block before it nor already counts everything the round sent -- a read taken mid-
 traffic); a packet-in whose frame cannot be parsed, an IPv4 one included.
 
@@ -89,7 +101,8 @@ Usage:  external_evidence.py show <06 run dir>
 Exit:   0 every decisive check the same as the controls', every decisive invariant kept, the
           daemon forwarded nothing (descriptive differences are printed, not counted);
         1 a decisive difference (each printed); 2 unreadable, or UNDECIDED (the controls disagree
-          on a decisive check); 3 refused.
+          on a decisive check, or an arm's controller window is under two heartbeat periods --
+          printed with the rest, and a DIFF still exits 1); 3 refused.
 """
 
 from __future__ import annotations
@@ -133,12 +146,20 @@ STALE_S = 10.0
 MAX_GAP_S = 10.0
 #: The daemon's four counters as the sampler records them (live-p1/08 SAMPLER_HEADER).
 DAEMON = ("forwarded_to_hosts", "forwarded_between_switches", "misdelivered", "foreign_frames")
-#: live-p1/08's SAMPLER_HEADER since round 5 (heard per direction, the controllers alive).
+#: live-p1/08's SAMPLER_HEADER since round 6 (heard per direction, the controllers alive -- context
+#: only since round 6 -- and the controller logs' sizes).
 SAMPLER_COLUMNS = ["wall", "status", "session", "pid", "forwarded_to_hosts",
                    "forwarded_between_switches", "written_wall", "stop_reason", "misdelivered",
-                   "foreign_frames", "heard", "controllers"]
-#: drive_exercise.py's line for the controller it started (run_external_controller.py's pid).
-CTRL_PID = re.compile(r"^\s*controller pid (\d+) \(handed to the generic cell")
+                   "foreign_frames", "heard", "controllers", "ctrl_logs"]
+#: [Co-developed with claude code -- Adam] (round 6) the daemon's round period, and the shortest
+#: controller window that can show a direction heard: two periods.
+PERIOD_S = 5.0
+MIN_WINDOW_S = 2 * PERIOD_S
+#: The controller's pipeline push, as tutorials' p4runtime_lib/switch.py's callers print it.
+PUSH = re.compile(r"^Installed P4 Program using SetForwardingPipelineConfig on s\d+\s*$")
+#: drive_exercise's report tables: the toolchain row of p4c, and each compiled JSON with its sha256[:16].
+P4C_ROW = re.compile(r"^\|\s*`[^`]*p4c-bm2-ss`\s*\|\s*`([0-9a-f]{16})`\s*\|")
+JSON_ROW = re.compile(r"^\|\s*`([^`]+\.json)`\s*\|\s*\d+\s*\|\s*`([0-9a-f]{16})`\s*\|")
 
 INSTALLED = re.compile(r"^Installed .* on s\d+\s*$")
 COUNTER = re.compile(r"^(s\d+ \S+ \d+): (\d+) packets \((\d+) bytes\)\s*$")
@@ -292,9 +313,11 @@ def report_evidence(report):
     for name, n in SIDE_EFFECT.findall(text):
         n4[name] = max(n4.get(name, 0), int(n))
     stamp = STAMP.search(os.path.basename(report))
-    ctrl = [int(m.group(1)) for m in map(CTRL_PID.match, text.splitlines()) if m]
+    p4c = sorted({m.group(1) for m in map(P4C_ROW.match, text.splitlines()) if m})
+    jsons = sorted({(os.path.basename(m.group(1)), m.group(2)) for m in map(JSON_ROW.match, text.splitlines()) if m})
     return {
-        "controller_pid": ctrl[0] if len(set(ctrl)) == 1 else None,
+        "p4c_sha": p4c[0] if len(p4c) == 1 else None,
+        "json_shas": [f"{n} {h}" for n, h in jsons],
         "code": "; ".join(f"{sha} {rest}".strip() for sha, rest in codes) or "not recorded",
         "hb_started": HB_UP in text,
         "hb_block": bool(HB_BLOCK.search(text)),
@@ -413,8 +436,8 @@ def read_samples(path):
     head = lines[0].split("\t") if lines else []
     want = SAMPLER_COLUMNS
     if head[:len(want)] != want:
-        raise Unreadable(f"{path}: header {head} -- a sampler from before round 5 (no per-direction "
-                         f"`heard`, no controllers column), or not a sampler's file")
+        raise Unreadable(f"{path}: header {head} -- a sampler from before round 6 (no per-direction "
+                         f"`heard`, no controllers or ctrl_logs column), or not a sampler's file")
     for line in lines[1:]:
         f = line.split("\t")
         if len(f) < len(want):
@@ -432,10 +455,14 @@ def read_samples(path):
             # [Co-developed with claude code -- Adam] None, not 0: a counter the report did not carry
             # is not a counter that stayed at zero (the round-4 review's residual on M2).
             counts[name] = int(v) if v.isdigit() else None
-        ctrls = {int(x) for x in f[11].split(",") if x.isdigit()}
+        logs = {}
+        for item in f[12].split(","):
+            key, _, size = item.rpartition(":")
+            if key and size.isdigit():
+                logs[key] = int(size)
         out.append({"wall": wall, "status": f[1], "session": f[2], "written": written,
                     "stop_reason": f[7], "counts": counts, "heard": parse_heard(f[10]),
-                    "heard_raw": f[10], "controllers": ctrls, "row": line[:120]})
+                    "heard_raw": f[10], "ctrl_logs": logs, "row": line[:120]})
     if not out:
         raise Unreadable(f"{path}: no samples")
     return sorted(out, key=lambda s: s["wall"])
@@ -488,36 +515,74 @@ def session_evidence(arm, ev, samples, end_06):
                              f"{'counters ' + ', '.join(bad) if bad else 'heard column'} "
                              f"{'are' if bad else 'is'} not numbers: {s['row']}")
     counts = {k: max(s["counts"][k] for s in win if s["session"] == sess) for k in DAEMON}
-    heard = heard_evidence(name, ev, sess, stretch)
+    heard = heard_evidence(name, ev, sess, stretch, samples)
     return {"session": sess, "from": stretch[0]["wall"], "to": stopped_at, "samples": len(stretch),
             "stop_reason": win[stop]["stop_reason"] if stop is not None else "(still running at the window's end)",
             "counts": counts, "heard": heard}
 
 
-def heard_evidence(name, ev, sess, stretch):
-    """[Co-developed with claude code -- Adam] Every direction of the session HEARD while the exercise's
-    controller ran (the round-4 review's M-3), or Refused. The controller's lifetime is the samples
-    of the session's stretch that saw its pid alive."""
-    pid = ev["controller_pid"]
-    if pid is None:
-        raise Refused(f"treatment {name}: the round report names no single `controller pid N` -- the "
-                      f"controller's lifetime cannot be placed among the samples")
-    life = [s for s in stretch if pid in s["controllers"]]
-    if len(life) < 2:
-        raise Refused(f"treatment {name}: the sampler saw the controller (pid {pid}) alive in "
-                      f"{len(life)} sample(s) of session {sess} -- no lifetime to hear anything in")
-    first, last = life[0]["heard"], life[-1]["heard"]
+def push_offset(log_path):
+    """[Co-developed with claude code -- Adam] The byte offset just past the controller log's last
+    pipeline push -- or, with none, past its first rule or cache entry -- or Unreadable."""
+    try:
+        with open(log_path, "rb") as fh:
+            data = fh.read()
+    except OSError as exc:
+        raise Unreadable(f"{log_path}: {type(exc).__name__}: {exc}") from exc
+    pos, push, entry = 0, None, None
+    for raw in data.splitlines(keepends=True):
+        pos += len(raw)
+        line = raw.decode("utf-8", "replace").rstrip("\r\n")
+        if PUSH.match(line):
+            push = pos
+        elif entry is None and (INSTALLED.match(line) or CACHE_ENTRY.match(line)):
+            entry = pos
+    if push is None and entry is None:
+        raise Unreadable(f"{log_path}: no pipeline push and no rule or cache entry -- the controller's "
+                         f"window has no start")
+    return push if push is not None else entry
+
+
+def heard_evidence(name, ev, sess, stretch, samples):
+    """[Co-developed with claude code -- Adam] Every direction of the session HEARD at least one round
+    inside the controller's own window (the round-4 review's M-3, round 6's rule): from the first
+    sample whose ctrl_logs size of the arm's log reaches the push's end, to the log's last write."""
+    log = ev["log"]
+    key = f"{os.path.basename(os.path.dirname(log))}/{os.path.basename(log)}"
+    offset = push_offset(log)
+    seen = [s for s in samples if key in s["ctrl_logs"]]
+    if not seen:
+        raise Unreadable(f"treatment {name}: the sampler never saw {key} -- the controller's window "
+                         f"cannot be placed among the samples")
+    opened = next((s for s in seen if s["ctrl_logs"][key] >= offset), None)
+    if opened is None:
+        raise Unreadable(f"treatment {name}: the sampler last saw {key} at {seen[-1]['ctrl_logs'][key]} "
+                         f"bytes, never at the push's end ({offset}) -- no window start")
+    t0, t1 = opened["wall"], ev["_last_write"]
+    if t1 - t0 < MIN_WINDOW_S:
+        # [Co-developed with claude code -- Adam] UNDECIDED, counted like a decisive check the
+        # controls disagree on (exit 2 unless a DIFF), and the rest of the arm still printed
+        return {"log": key, "push_offset": offset, "from": t0, "to": t1, "grew": {},
+                "undecided": f"the controller's window, push seen at {t0:.0f} to its last write at "
+                             f"{t1:.0f}, is {t1 - t0:.1f} s -- under two heartbeat periods "
+                             f"({MIN_WINDOW_S:.0f} s), too short to show a direction heard"}
+    before = [s for s in stretch if s["wall"] <= t0]
+    upto = [s for s in stretch if s["wall"] <= t1]
+    if not before:
+        raise Refused(f"treatment {name}: session {sess} was first sampled running at "
+                      f"{stretch[0]['wall']:.0f}, after the controller pushed its pipeline ({t0:.0f}) "
+                      f"-- the window was not watched from its start")
+    first, last = before[-1]["heard"], upto[-1]["heard"]
     if not first or set(first) != set(last):
-        raise Refused(f"treatment {name}: session {sess}'s directions changed or are none during the "
-                      f"controller's lifetime ({sorted(first or {})} vs {sorted(last or {})})")
-    deaf = sorted(d for d in first if last[d] <= first[d])
+        raise Refused(f"treatment {name}: session {sess}'s directions changed or are none in the "
+                      f"controller's window ({sorted(first or {})} vs {sorted(last or {})})")
+    deaf = sorted(d for d in first if last[d] - first[d] < 1)
     if deaf:
         raise Refused(f"treatment {name}: session {sess} did not hear {len(deaf)} of {len(first)} "
-                      f"direction(s) while the controller (pid {pid}) ran, "
-                      f"{life[0]['wall']:.0f}-{life[-1]['wall']:.0f}: "
+                      f"direction(s) in the controller's window, {t0:.0f}-{t1:.0f}: "
                       + ", ".join(f"{d} stayed {first[d]}" for d in deaf[:4])
                       + " -- no frame entered the program then, so the arm says nothing about it")
-    return {"pid": pid, "from": life[0]["wall"], "to": life[-1]["wall"],
+    return {"log": key, "push_offset": offset, "from": t0, "to": t1, "undecided": None,
             "grew": {d: last[d] - first[d] for d in sorted(first)}}
 
 
@@ -614,14 +679,22 @@ def identities(control, controls2, treatment, b_sha):
                       "apart from B' cannot be checked (README, 合併前的比對)")
     ids = []
     for run in [control] + list(controls2) + [treatment]:
-        path = os.path.join(run, "00_identity.txt")
-        if not os.path.exists(path):
-            raise Refused(f"{run}: no 00_identity.txt -- which code it ran is not known "
-                          f"(record it with live-p1/code_identity.py, README step 1)")
-        try:
-            ids.append(code_identity.load(path))
-        except (OSError, ValueError) as exc:
-            raise Unreadable(f"{path}: {type(exc).__name__}: {exc}") from exc
+        # [Co-developed with claude code -- Adam] round 6: recorded BEFORE and AFTER the run, and equal
+        pair = []
+        for name in ("00_identity.before.txt", "00_identity.after.txt"):
+            path = os.path.join(run, name)
+            if not os.path.exists(path):
+                raise Refused(f"{run}: no {name} -- which code it ran is not known "
+                              f"(record it with live-p1/code_identity.py before and after the run, "
+                              f"README step 1)")
+            try:
+                pair.append(code_identity.load(path))
+            except (OSError, ValueError) as exc:
+                raise Unreadable(f"{path}: {type(exc).__name__}: {exc}") from exc
+        why = code_identity.unchanged_reasons(pair[0], pair[1], os.path.basename(run))
+        if why:
+            raise Refused(f"the code changed while a run ran: {'; '.join(why)}")
+        ids.append(pair[1])
     c, cs, t = ids[0], ids[1:-1], ids[-1]
     for i, other in enumerate(cs):
         why = ([f"HEAD {c.get('head')} vs {other.get('head')}"] if other.get("head") != c.get("head") else []) \
@@ -632,6 +705,22 @@ def identities(control, controls2, treatment, b_sha):
     if why:
         raise Refused(f"the treatment is not the controls' code plus B: {'; '.join(why)}")
     return c, t
+
+
+def programs_same(runs):
+    """[Co-developed with claude code -- Adam] Round 6: each external arm compiled the same program with
+    the same compiler in every run (the round reports' p4c and compiled-JSON sha256s) -- or Refused."""
+    for arm in EXTERNAL_ARMS:
+        seen = []
+        for label, evs in runs:
+            ev = evs[arm]
+            if not ev["p4c_sha"] or not ev["json_shas"]:
+                raise Unreadable(f"{label} {arm[0]}/{arm[1]}: its round report names no p4c sha256 or "
+                                 f"no compiled JSON sha256")
+            seen.append((label, ev["p4c_sha"], tuple(ev["json_shas"])))
+        if len({(p, j) for _l, p, j in seen}) != 1:
+            raise Refused(f"{arm[0]}/{arm[1]}: not the same compiler and program in every run: "
+                          + "; ".join(f"{l} p4c {p} json {list(j)}" for l, p, j in seen))
 
 
 def compare(control, treatment, controls2, samples_path, b_sha=None):
@@ -651,6 +740,8 @@ def compare(control, treatment, controls2, samples_path, b_sha=None):
     a = arms(control)
     cs2 = [arms(d) for d in controls2]
     b = arms(treatment)
+    programs_same([("control", a)] + [(f"control2 #{i + 1}", c) for i, c in enumerate(cs2)]
+                  + [("treatment", b)])
     samples, end_06 = read_samples(samples_path), t06_end(samples_path)
     sessions = check_roles([("control", a)] + [(f"control2 #{i + 1}", c) for i, c in enumerate(cs2)],
                            b, samples, end_06)
@@ -670,9 +761,13 @@ def compare(control, treatment, controls2, samples_path, b_sha=None):
               f"({se['samples']} samples, none stale, no gap over {MAX_GAP_S:g} s; stop: "
               f"{se['stop_reason'] or '-'}); the controller last wrote at {b[arm]['_last_write']:.0f}")
         hd = se["heard"]
-        print(f"   heard   all {len(hd['grew'])} direction(s) while the controller (pid {hd['pid']}) ran, "
-              f"{hd['from']:.0f}-{hd['to']:.0f}: "
-              + ", ".join(f"{d} +{n}" for d, n in hd["grew"].items()))
+        if hd["undecided"]:
+            undecided += 1
+            print(f"   UNDECIDED heard     {hd['undecided']}")
+        else:
+            print(f"   heard   all {len(hd['grew'])} direction(s) in the controller's window ({hd['log']} "
+                  f"from its push to its last write), {hd['from']:.0f}-{hd['to']:.0f}: "
+                  + ", ".join(f"{d} +{n}" for d, n in hd["grew"].items()))
         moved = {k: v for k, v in se["counts"].items() if v}
         if moved:
             diffs += 1
@@ -720,7 +815,8 @@ def compare(control, treatment, controls2, samples_path, b_sha=None):
                   f"ethertype 0x88B5: the frame reached the exercise's own controller")
     print(f"\n{'NO DIFFERENCE' if not diffs else f'{diffs} DIFFERENCE(S)'} in the external arms' "
           f"own evidence ({1 + len(cs2)} controls)"
-          + (f"; {undecided} UNDECIDED: the controls disagree on a decisive check" if undecided else ""))
+          + (f"; {undecided} UNDECIDED: the controls disagree on a decisive check, or a controller's "
+             f"window was too short to show the heartbeat heard" if undecided else ""))
     return 1 if diffs else 2 if undecided else 0
 
 
