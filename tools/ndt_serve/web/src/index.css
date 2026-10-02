@@ -1,0 +1,5 @@
+/* [Co-developed with claude code -- Adam]
+   As Web-GUI's src/index.css @ f63a55ce: Tailwind's three layers, and no CSS of our own. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

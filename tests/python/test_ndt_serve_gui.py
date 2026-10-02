@@ -8,19 +8,22 @@ reaches it through a one-time URL #fragment, kept in memory only (Q3). The orche
 of doc/audit/2026-09-27_ndt-serve-gui/SCOPE.md made the fragment a ONE-TIME KEY traded for the
 token. These cases pin the server's side of that, against the stub ndt of test_ndt_serve.Serve:
 
-  * the page's three files need no token, run nothing, obey the Host check and carry a CSP that
+  * the page's four files need no token, run nothing, obey the Host check and carry a CSP that
     allows no inline script, no other origin and no frame;
   * the start-up URL carries a key, never the token, and goes to a terminal or to a 0600 file --
     never into a log; a key trades once, within its time, from this very origin, in a JSON body;
   * `serve.py url` sends the token only to the process serve.json names, and only if that
     process holds the port;
   * GET /lab is plain `ndt status` with its rows verbatim and two readings: the own-claim form,
-    whole, and measuring exactly `nothing`; GET /meta is the server's own tables;
+    whole, and measuring exactly `nothing`; GET /measuring, the page's probe while a measurement
+    runs, is `ndt status --measuring` with /lab's measuring reading and nothing else; GET /meta is
+    the server's own tables;
   * {"dry_run": true} answers the argv the write would run and runs, spawns and makes nothing --
     and only where it is offered;
 
-and PageLint holds static/app.js and static/index.html to what the page may do (SCOPE section 6):
-one door out, every write through the confirm dialog, nothing in storage, no HTML from strings.
+The page's own rules -- one door out, every write through the confirm dialog, nothing in storage,
+no HTML from strings -- are tests/python/test_ndt_serve_web.py's (SourceLint, on the React sources;
+the page is built from tools/ndt_serve/web/ since v2).
 What only a browser can show is tests/browser/test_ndt_serve_page.py (headless Chrome, under the
 build guard) -- kept out of this directory because CI has no Chrome and the L1 lane fails a skip.
 
@@ -59,6 +62,33 @@ KEY = r"[A-Za-z0-9_-]{43}"
 _spec = importlib.util.spec_from_file_location("verbs_under_test", os.path.join(base.SERVE_DIR, "verbs.py"))
 verbs = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(verbs)
+
+# A process that listens on 127.0.0.1, then forks: the child accepts one connection and writes
+# what it received to argv[1]; the parent only holds the socket. Prints "<port> <child pid>".
+FORK_ACCEPTER = r"""
+import os, socket, sys, time
+s = socket.socket()
+s.bind(("127.0.0.1", 0))
+s.listen(4)
+child = os.fork()
+if child == 0:
+    s.settimeout(20)
+    data = b""
+    try:
+        c, _ = s.accept()
+        c.settimeout(3)
+        try:
+            data = c.recv(65536)
+        except OSError:
+            pass
+        c.close()
+    except OSError:
+        pass
+    open(sys.argv[1], "wb").write(data)
+    os._exit(0)
+print(s.getsockname()[1], child, flush=True)
+time.sleep(30)
+"""
 
 STATUS_FULL = ("lab\n"
                "  claim          yours -- 30m left (until 23:59:00)\n"
@@ -130,7 +160,7 @@ def csp_of(headers):
     return out
 
 
-# --- the page's three files --------------------------------------------------------------------
+# --- the page's four files ---------------------------------------------------------------------
 
 class Page(unittest.TestCase):
     def setUp(self):
@@ -141,7 +171,8 @@ class Page(unittest.TestCase):
 
     def test_page_files_need_no_token_and_run_nothing(self):
         for path, name, ctype in (("/", "index.html", "text/html"), ("/app.js", "app.js", "text/javascript"),
-                                  ("/app.css", "app.css", "text/css"), ("/?x=1", "index.html", "text/html")):
+                                  ("/app.css", "app.css", "text/css"), ("/?x=1", "index.html", "text/html"),
+                                  ("/manual.html", "manual.html", "text/html")):
             st, _, h, payload = self.s.request("GET", path, token=None)
             self.assertEqual(st, 200, path)
             self.assertTrue(h["content-type"].startswith(ctype), (path, h["content-type"]))
@@ -168,6 +199,23 @@ class Page(unittest.TestCase):
             _, _, h, _ = self.s.request("GET", path, token=None)
             self.assertEqual(csp_of(h).get("frame-ancestors"), ["'none'"], path)
             self.assertEqual(h.get("x-frame-options"), "DENY", path)
+
+    def test_no_answer_sets_a_cookie(self):
+        # [Co-developed with claude code -- Adam] the token lives in one variable of the page. A
+        # cookie would put it -- or anything -- where Chrome keeps it encrypted on disk and the
+        # browser suite's profile scan cannot read it, so no answer may set one: the page files, a
+        # 404, the key trade, the reads, a dry run, and a refused write.
+        origin = {"Origin": "http://127.0.0.1:%d" % self.s.port}
+        answers = [("GET " + p,) + self.s.request("GET", p, token=None)
+                   for p in ("/", "/app.js", "/app.css", "/manual.html", "/nope")]
+        answers.append(("POST /session",) + self.s.request("POST", "/api/v1/session", {"nonce": self.s.key()},
+                                                         token=None, headers=origin))
+        answers += [("GET " + p,) + self.s.get(p) for p in ("/health", "/lab", "/measuring", "/meta", "/jobs", "/apps")]
+        answers.append(("POST /claim dry_run",) + self.s.post("/claim", {"dry_run": True}))
+        answers.append(("POST /down, no token",) + self.s.post("/down", token=None))
+        self.assertEqual(answers[5][1], 200, "the key trade did not answer 200: %r" % (answers[5][2],))
+        self.assertEqual(answers[12][1], 200, "the dry run did not answer 200: %r" % (answers[12][2],))
+        self.assertEqual([what for what, _, _, h, _ in answers if "set-cookie" in h], [])
 
     def test_the_page_obeys_the_host_check(self):
         for host in ("evil.example:%d" % self.s.port, "127.0.0.1:%d" % (self.s.port + 1), None):
@@ -430,6 +478,33 @@ class UrlCommand(unittest.TestCase):
             stop()
             s.close()
 
+    def test_url_sends_the_token_only_over_a_connection_the_pid_accepted(self):
+        # [Co-developed with claude code -- Adam] the check-then-connect gap: the pid serve.json
+        # names holds the LISTEN socket, but the connection is accepted by somebody else -- here a
+        # child it forked, which inherited the socket. The token must go only over a connection
+        # whose server end is one of that pid's own fds.
+        s = GuiServe().start()
+        got = os.path.join(s.tmp, "child-got")
+        helper = subprocess.Popen([sys.executable, "-c", FORK_ACCEPTER, got], stdout=subprocess.PIPE,
+                                  text=True, start_new_session=True)
+        try:
+            port = int(helper.stdout.readline().split()[0])
+            r = self.url_against(s, port, helper.pid)
+            deadline = time.monotonic() + 5
+            while not os.path.exists(got) and time.monotonic() < deadline:
+                time.sleep(0.05)
+            sent = open(got, "rb").read() if os.path.exists(got) else b""
+            # what the child received first: the point of the case is the token, not the message
+            self.assertNotIn(s.token().encode(), sent, "the token went to a process that only shares the socket "
+                             "(the child received %d bytes: %r)" % (len(sent), sent[:300]))
+            self.assertEqual(sent, b"", "anything at all was sent to the child")
+            self.assertNotEqual(r.returncode, 0, r.stdout)
+            self.assertIn("the token was not sent", r.stderr.lower())
+        finally:
+            os.killpg(helper.pid, signal.SIGKILL)   # the group this case created: parent and child
+            helper.wait(10)
+            s.close()
+
     def test_url_with_no_server_says_so(self):
         s = GuiServe()
         try:
@@ -523,10 +598,58 @@ class Lab(unittest.TestCase):
         self.s.wait(j["job"]["id"])
 
     def test_lab_and_meta_need_the_token(self):
-        for path in ("/lab", "/meta"):
+        for path in ("/lab", "/measuring", "/meta"):
             st, j, _, _ = self.s.get(path, token=None)
             self.assertEqual((st, j["error"]), (403, "token"), path)
         self.assertEqual(self.s.calls(), [])
+
+    # [Co-developed with claude code -- Adam] the probe while a measurement runs (Adam, 2026-10-01):
+    # `ndt status --measuring`, read by /lab's own code -- the same rows give the same answer
+    MEASURING_ROWS = (("  measuring      nothing\n", "nothing", None, True),
+                      ("  measuring      iperf3 -c 10.0.0.2 -t 30\n", "iperf3 -c 10.0.0.2 -t 30", None, False),
+                      ("  declared       iperf3 matrix   (claim measuring=; 'ndt check' refuses while set)\n"
+                       "  measuring      nothing\n", "nothing",
+                       "iperf3 matrix   (claim measuring=; 'ndt check' refuses while set)", True),
+                      ("  orphaned       iperf3 -c 10.0.0.2\n"
+                       "                 no fabric is running, so these are leftovers, not a measurement\n",
+                       None, None, False),
+                      ("", None, None, False))
+
+    def measuring(self, stdout, **kw):
+        self.s.behave(**{"status --measuring": dict({"stdout": stdout}, **kw)})
+        st, j, _, _ = self.s.get("/measuring")
+        self.assertEqual(st, 200, j)
+        return j
+
+    def test_measuring_is_status_measuring_and_nothing_else(self):
+        for rows, measuring, declared, nothing in self.MEASURING_ROWS:
+            j = self.measuring(rows)
+            self.assertEqual((j["measuring"], j["declared"], j["measuring_is_nothing"]), (measuring, declared, nothing), rows)
+            self.assertEqual((j["rc"], j["rc_class"]), (0, "report"), rows)
+            self.assertEqual(j["stdout"], rows)
+            self.assertNotIn("claim", j, "the probe confirms no write: it has no claim to read")
+        self.assertEqual([c["argv"] for c in self.s.calls()], [["status", "--measuring"]] * len(self.MEASURING_ROWS))
+
+    def test_measuring_reads_the_rows_as_lab_does(self):
+        for rows, _, _, _ in self.MEASURING_ROWS:
+            stdout = "lab\n  claim          none\n" + rows
+            self.s.behave(**{"status": {"stdout": stdout}, "status --measuring": {"stdout": rows}})
+            _, lab, _, _ = self.s.get("/lab")
+            _, probe, _, _ = self.s.get("/measuring")
+            want = {k: lab[k] for k in ("measuring", "declared", "measuring_is_nothing")}
+            self.assertEqual({k: probe[k] for k in want}, want, rows)
+
+    def test_a_stopped_measuring_read_is_not_a_reading(self):
+        s = GuiServe(extra=["--read-timeout", "1"]).start()
+        try:
+            s.behave(**{"status --measuring": {"stdout": "  measuring      nothing\n", "sleep_after": 5}})
+            st, j, _, _ = s.get("/measuring")
+            self.assertEqual(st, 200, j)
+            self.assertEqual(j["rc_class"], "timeout")
+            self.assertEqual(j["measuring"], "nothing", "the row was printed before the read was stopped")
+            self.assertIs(j["measuring_is_nothing"], False)
+        finally:
+            s.close()
 
     def test_meta_is_the_servers_own_tables(self):
         st, j, _, _ = self.s.get("/meta")
@@ -578,6 +701,35 @@ class AppsNeedYourClaim(unittest.TestCase):
             st, j, _, _ = self.s.post(path)
             self.assertEqual(st, 202, j)
             self.assertEqual(self.s.wait(j["job"]["id"])["argv"][1:], tail)
+
+
+# --- the page's "open Web-GUI" button --------------------------------------------------------
+
+class WebGuiUrl(unittest.TestCase):
+    """The button's address comes from the server (`--webgui-url`, handed over in /meta); the
+    browser stores nothing. Only an http(s) URL with a host is taken: it becomes an <a href>.
+    [Co-developed with claude code -- Adam]"""
+
+    def test_meta_names_the_web_gui_url(self):
+        for extra, want in (([], "http://localhost:3000"),
+                            (["--webgui-url", "http://10.0.0.5:3000/topology"], "http://10.0.0.5:3000/topology")):
+            s = GuiServe(extra=extra).start()
+            try:
+                st, j, _, _ = s.get("/meta")
+                self.assertEqual((st, j.get("webgui_url")), (200, want), extra)
+            finally:
+                s.close()
+
+    def test_a_web_gui_url_that_is_not_http_is_refused_at_start(self):
+        for bad in ("javascript:alert(1)", "file:///etc/passwd", "http://", "localhost:3000",
+                    "http://host name:3000", "http://h\t:1"):
+            s = GuiServe(extra=["--webgui-url", bad])
+            try:
+                s.start(expect_ok=False)
+                self.assertNotEqual(s.proc.wait(10), 0, bad)
+                self.assertIn("--webgui-url", base._read(s.out + ".err"), bad)
+            finally:
+                s.close()
 
 
 # --- dry_run -----------------------------------------------------------------------------------
@@ -707,139 +859,6 @@ class DryRunCells(grid.GridCase):
         self.assertEqual((j["kind"], j["argv"][1:3], j["confirm"], j["needs_own_claim"]),
                          ("cells.run", ["--cell", "lab_cell"], "typed", True), j)
         self.assertEqual(self.s.runs(), [])
-
-
-# --- the page's script and markup (SCOPE section 6, "頁面端的靜態檢查") ---------------------------
-
-def js_code():
-    """static/app.js without comments: whole-line `//` comments, and trailing ones after two spaces."""
-    out = []
-    for line in page_file("app.js").decode().splitlines():
-        out.append("" if line.lstrip().startswith("//") else re.sub(r"\s{2,}//.*$", "", line))
-    return "\n".join(out)
-
-
-def function_spans(code):
-    """name -> (start, end) of every `function name(...) {...}`, by brace matching."""
-    spans = {}
-    for m in re.finditer(r"\bfunction\s+(\w+)\s*\(", code):
-        i = code.index("{", m.end())
-        depth = 0
-        for j in range(i, len(code)):
-            depth += {"{": 1, "}": -1}.get(code[j], 0)
-            if depth == 0:
-                break
-        spans[m.group(1)] = (m.start(), j + 1)
-    return spans
-
-
-def owner(spans, pos):
-    """The innermost named function around pos, or None (top level)."""
-    best = None
-    for name, (a, b) in spans.items():
-        if a <= pos < b and (best is None or a > spans[best][0]):
-            best = name
-    return best
-
-
-def sites(code, pattern, definition=None):
-    """Every match of pattern, minus the definition itself, as (owner, pos)."""
-    spans = function_spans(code)
-    out = []
-    for m in re.finditer(pattern, code):
-        if definition and code.startswith("function " + definition, m.start() - len("function ")):
-            continue
-        out.append((owner(spans, m.start()), m.start()))
-    return out
-
-
-class PageLint(unittest.TestCase):
-    def setUp(self):
-        self.code = js_code()
-
-    def test_the_script_keeps_nothing_outside_memory(self):
-        found = sites(self.code, r"\b(localStorage|sessionStorage|indexedDB|caches)\b|document\.cookie")
-        self.assertTrue(found, "storageHook must read the stores for the browser case")
-        self.assertEqual({o for o, _ in found}, {"storageHook"}, found)
-        a, b = function_spans(self.code)["storageHook"]
-        self.assertNotRegex(self.code[a:b], r"token|setItem|=(?!=)[^=]*cookie|cookie\s*=(?!=)")
-        self.assertNotRegex(self.code, r"\.setItem\s*\(|document\.cookie\s*=(?!=)")
-
-    def test_the_script_makes_no_html_from_strings(self):
-        for pat in (r"innerHTML", r"outerHTML", r"insertAdjacentHTML", r"document\.write", r"\beval\s*\(",
-                    r"\bnew\s+Function\b", r"\bsetTimeout\s*\(\s*[\"'`]", r"\bDOMParser\b",
-                    r"createContextualFragment", r"\.setAttribute\s*\(\s*[\"']on", r"\bsrcdoc\b"):
-            self.assertNotRegex(self.code, pat)
-
-    def test_there_is_one_door_out_and_the_token_is_set_at_it(self):
-        self.assertEqual(sites(self.code, r"\bfetch\s*\("), [("call", self.code.index("fetch("))])
-        self.assertEqual([o for o, _ in sites(self.code, r"X-NDT-Token")], ["call"])
-        for pat in (r"XMLHttpRequest", r"sendBeacon", r"\bWebSocket\b", r"\bEventSource\b", r"window\.open\s*\(",
-                    r"\bimport\s*\(", r"\.src\s*="):
-            self.assertNotRegex(self.code, pat)
-        callers = {o for o, _ in sites(self.code, r"(?<![\w.])call\(", definition="call(")}
-        self.assertLessEqual(callers, {"get", "post", "openSession"}, callers)
-
-    def test_every_write_is_confirmed_in_the_dialog(self):
-        posts = sites(self.code, r"(?<![\w.])post\(", definition="post(")
-        self.assertTrue(posts)
-        self.assertEqual({o for o, _ in posts}, {"confirmThen"}, posts)
-        self.assertLessEqual({o for o, _ in sites(self.code, r"[\"']POST[\"']")}, {"post", "openSession"})
-
-    # [Co-developed with claude code -- Adam] the orchestrator's condition on the log re-read (09-27
-    # 15:4x): a job's log is re-read every 2 s only while its view is open and the page is shown
-    def test_the_job_view_can_be_closed_and_its_log_stops(self):
-        html = page_file("index.html").decode()
-        self.assertEqual(len(re.findall(r'<button id="job-close" type="button">', html)), 1,
-                         "the job view has no Close button")
-        spans = function_spans(self.code)
-        self.assertIn("closeJob", spans, "no closeJob()")
-        a, b = spans["closeJob"]
-        body = self.code[a:b]
-        self.assertRegex(body, r"\bwatching = null;", "closing the view does not stop the log loop")
-        self.assertRegex(body, r'\$\("job"\)\.hidden = true;', "closing the view does not hide it")
-        self.assertRegex(self.code, r'\$\("job-close"\)\.addEventListener\("click", closeJob\)',
-                         "the Close button is not wired to closeJob")
-
-    def test_the_log_loop_stops_when_the_job_ends(self):
-        # judge G-N1 (fcd4f69a): this condition was held by nothing -- `if (false)` there survived
-        a, b = function_spans(self.code)["openJob"]
-        loop = self.code[a:b]
-        m = re.search(r'if \(r\.json\.job\.state !== "running"\) \{([^}]*)\}', loop)
-        self.assertTrue(m, "the log loop does not stop when the job ends")
-        self.assertRegex(m.group(1), r"\breturn;\s*$", "the job-ended branch does not leave the loop")
-        self.assertLess(m.start(), loop.index("await sleep(2000);"), "the loop sleeps before it looks")
-
-    def test_a_hidden_page_does_not_poll_a_jobs_log(self):
-        spans = function_spans(self.code)
-        self.assertIn("whileHidden", spans, "no whileHidden()")
-        a, b = spans["whileHidden"]
-        wait = self.code[a:b]
-        # it waits: the one early return is for a page that is shown, and a hidden one resolves only
-        # from the visibilitychange listener
-        self.assertIn('if (document.visibilityState !== "hidden") return Promise.resolve();', wait)
-        self.assertEqual(wait.count("Promise.resolve()"), 1, wait)
-        self.assertIn('document.visibilityState === "hidden"', wait)
-        self.assertIn('"visibilitychange"', wait)
-        a, b = spans["openJob"]
-        loop = self.code[a:b]
-        # the wait sits after the sleep and before the next read, and the loop asks again after it
-        # whether this is still the job being watched
-        self.assertRegex(loop, r"await sleep\(2000\);\s*await whileHidden\(\);\s*if \(watching !== mine\) return;",
-                         "the log loop reads on while the page is hidden")
-        # watching holds this OPENING, not the job id: a view closed and opened again on the same
-        # job within one sleep would otherwise leave the old loop running beside the new one
-        self.assertRegex(loop, r"const mine = \{\};[^\n]*\n\s*watching = mine;")
-        self.assertNotIn("watching !== id", loop)
-
-    def test_the_markup_has_no_inline_script_style_or_handler(self):
-        html = page_file("index.html").decode()
-        scripts = re.findall(r"<script\b[^>]*>(.*?)</script>", html, re.S)
-        self.assertEqual(re.findall(r"<script\b([^>]*)>", html), [' src="/app.js" defer'])
-        self.assertEqual(scripts, [""])
-        self.assertNotRegex(html, r"\son[a-z]+\s*=")
-        self.assertNotRegex(html, r"\sstyle\s*=|<style\b|javascript:")
-        self.assertEqual(re.findall(r"\b(?:href|src)=\"([^\"]*)\"", html), ["/app.css", "/app.js"])
 
 
 if __name__ == "__main__":
