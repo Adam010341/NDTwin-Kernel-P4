@@ -216,10 +216,10 @@ RC_TABLE = {
     "status.check": {
         0: ("ok", "all compared fields match what the last 'ndt up' asked for"),
         # 🔴 ndt help says "1 one of them does not", but cmd_status answers 1 whenever its
-        # problems[] is not empty (ndt:7093-7095) -- a claim held by somebody else (6754), a
-        # measurement process in flight (6712, in_flight's process scan -- a measuring= the claim
-        # only DECLARES, 6688-6690, is not a problem), a netem qdisc (6953), a refused sudo grant
-        # (6966) are all problems. A GUI that printed "a field does not match" would name the wrong
+        # problems[] is not empty (ndt:7210-7212) -- a claim held by somebody else (6853), a
+        # measurement process in flight (6811, in_flight's process scan -- a measuring= the claim
+        # only DECLARES, 6787-6789, is not a problem), a netem qdisc (7052), a refused sudo grant
+        # (7065) are all problems. A GUI that printed "a field does not match" would name the wrong
         # cause.
         1: ("dirty", "ndt reported at least one problem -- a compared field that does not match, a claim "
                      "held by somebody else, a measurement in progress, a netem qdisc, a refused sudo "
@@ -271,6 +271,9 @@ RC_TABLE = {
 # proc_checkout's, 8439 since segment W. [Co-developed with claude code -- Adam]
 # 2026-09-28: the one-clock residue change put 36 lines above the apps.stop and apps.status rows
 # (app_started_at and residue_report); nothing above cmd_apps' own rows moved otherwise.
+# 2026-10-02, external detect-only branch: the heartbeat drop check and the external-plane
+# rows put 99 lines above status --measuring's row, 117 above cmd_status's verdict and every
+# row below it; each row was re-read at its new line. The claim and release rows did not move.
 RC_SOURCE = {
     "up": {"help": {0: "exit 0 the fabric came up and verified",
                     1: "1 something was MEASURED and it was dirty",
@@ -284,21 +287,21 @@ RC_SOURCE = {
     "status.check": {"help": {0: "exit 0 all compared fields match",
                               1: "1 one of them does not (the message names it)",
                               3: "3 nothing was compared, because there is no baseline RIGHT NOW"},
-                     "code": [(7086, 3, "return 3", "cmd_status"), (7091, 0, "return 0", "cmd_status"),
-                              (7095, 1, "return 1", "cmd_status")]},
-    "status": {"code": [(7097, 0, "return 0", "cmd_status")]},
+                     "code": [(7203, 3, "return 3", "cmd_status"), (7208, 0, "return 0", "cmd_status"),
+                              (7212, 1, "return 1", "cmd_status")]},
+    "status": {"code": [(7214, 0, "return 0", "cmd_status")]},
     "status.measuring": {"help": {0: "exit 0 always: like plain status it judges nothing"},
-                         "code": [(6725, 0, "return 0", "cmd_status")]},
+                         "code": [(6824, 0, "return 0", "cmd_status")]},
     "claim": {"code": [(753, 2, "return 2", "cmd_claim"), (762, 2, "return 2", "cmd_claim"),
                        (787, 1, "return 1", "claim_take"), (860, 1, "return 1", "claim_take"),
                        (862, 0, 'ok "lab claimed by', "claim_take")]},
     "release": {"code": [(866, 0, "return 0", "cmd_release"), (871, 1, "return 1", "cmd_release"),
                          (899, 1, "return 1", "cmd_release")]},
-    "apps.start": {"code": [(8918, 0, "return 0", "app_start"), (8922, 1, "return 1", "app_start"),
-                            (8995, 1, "return 1", "app_start")]},
-    "apps.stop": {"code": [(10472, 1, "return 1", "cmd_apps"), (10475, 2, "return 2", "cmd_apps"),
-                           (10478, 0, "return 0", "cmd_apps")]},
-    "apps.status": {"code": [(10405, 0, "return 0", "cmd_apps")]},
+    "apps.start": {"code": [(9035, 0, "return 0", "app_start"), (9039, 1, "return 1", "app_start"),
+                            (9112, 1, "return 1", "app_start")]},
+    "apps.stop": {"code": [(10589, 1, "return 1", "cmd_apps"), (10592, 2, "return 2", "cmd_apps"),
+                           (10595, 0, "return 0", "cmd_apps")]},
+    "apps.status": {"code": [(10522, 0, "return 0", "cmd_apps")]},
 }
 
 
