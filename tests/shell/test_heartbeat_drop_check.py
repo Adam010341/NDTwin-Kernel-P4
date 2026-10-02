@@ -104,6 +104,46 @@ def section(title):
     print(f"\n{title}")
 
 
+def lab_claim_says_wait(path, me, now=None):
+    """[Co-developed with claude code -- Adam] The orchestrator's round-6 ruling on S-8: this suite
+    starts throwaway switches on whatever machine runs it, and on the lab it must not add any while
+    somebody else holds the lab or a measurement is declared. The reason to skip, or None. The claim
+    file is ndt's (`owner=`, `expires=` in unix seconds, `measuring=`); one that is absent, expired
+    or unreadable does not hold the lab -- as ndt itself reads it ("malformed (no usable expires=)
+    -- treated as free")."""
+    try:
+        with open(path) as fh:
+            fields = dict(line.rstrip("\n").split("=", 1) for line in fh if "=" in line)
+    except OSError:
+        return None
+    try:
+        live = int(fields.get("expires", "0")) > (time.time() if now is None else now)
+    except ValueError:
+        return None
+    if not live:
+        return None
+    if fields.get("measuring", "").strip():
+        return f"a measurement is declared on the lab ({fields['measuring'].strip()[:80]})"
+    owner = fields.get("owner", "").strip()
+    if owner and owner != me:
+        return f"the lab is claimed by {owner}"
+    return None
+
+
+def lab_claim_file():
+    """ndt's own answer to "which tree holds the lab" (lab_kernel_dir), and its claim file there."""
+    r = subprocess.run(["bash", "-c", 'source "$1" >/dev/null 2>&1; lab_kernel_dir', "_",
+                        os.path.join(REPO, "tools/test_workflow/ndt")], capture_output=True, text=True)
+    return os.path.join(r.stdout.strip() or "/nonexistent", ".test_run", "lab.claim")
+
+
+LAB_CLAIM = os.environ.get("NDT_LAB_CLAIM_FILE") or lab_claim_file()
+_wait = lab_claim_says_wait(LAB_CLAIM, os.environ.get("NDT_OWNER", ""))
+if _wait:
+    print(f"SKIP: {_wait} ({LAB_CLAIM}) -- this suite starts throwaway switches and adds none while "
+          f"the lab is held or measured; nothing was checked")
+    sys.exit(0)
+# (the claim first: its cells in tests/shell/test_l1_shell_scoring.sh tell the two skips apart)
 STOCK = os.environ.get("NDT_HB_CHECK_BMV2") or "/usr/local/bin/simple_switch"
 if not (os.path.isfile(STOCK) and os.access(STOCK, os.X_OK)):
     print(f"SKIP: no stock simple_switch at {STOCK} -- every cell drives one for real; nothing was "
@@ -686,7 +726,9 @@ try:
     words = out.split()
     orphan = int(words[0]) if words and words[0].isdigit() else None
     running = len(words) > 1 and words[1] == "True"
-    deadline = time.monotonic() + 3
+    # [Co-developed with claude code -- Adam] 10 s, not 3 (round 5's re-review): a SIGKILLed process
+    # under MemoryHigh throttling can take seconds to go -- the likeliest cause of round 4's D10 crash.
+    deadline = time.monotonic() + 10
     while orphan and alive(orphan) and time.monotonic() < deadline:
         time.sleep(0.05)
     survived = bool(orphan) and alive(orphan)

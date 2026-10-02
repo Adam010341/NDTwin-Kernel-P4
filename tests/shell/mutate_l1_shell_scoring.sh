@@ -389,6 +389,18 @@ s = s.replace("# NDTWIN_L1_NEEDS: bmv2-stock\n", "\n")
 mutate "the drop check suite runs on with no stock simple_switch" "$HBDROP_REL" '
 s = s.replace("          f\"checked\")\n    sys.exit(0)\n", "          f\"checked\")\n")
 ' "D30 🔴 with no stock simple_switch the drop check's suite skips: rc 0, one SKIP line, nothing ran"
+mutate "the drop check suite ignores a declared measurement" "$HBDROP_REL" '
+s = s.replace("    if fields.get(\"measuring\", \"\").strip():", "    if False:")
+' "D33 🔴 a declared measurement, even under my own claim: it skips"
+mutate "the drop check suite ignores somebody else's claim" "$HBDROP_REL" '
+s = s.replace("    if owner and owner != me:", "    if False:")
+' "D32 🔴 somebody else's live claim: the suite skips before anything"
+mutate "the drop check suite skips under my own claim too" "$HBDROP_REL" '
+s = s.replace("    if owner and owner != me:", "    if owner:")
+' "D35   my own live claim and no measurement do not stop it"
+mutate "the drop check suite takes an expired claim for a live one" "$HBDROP_REL" '
+s = s.replace("        live = int(fields.get(\"expires\", \"0\")) > (time.time() if now is None else now)", "        live = True")
+' "D34 🔴 an expired claim holds nothing (the other skip answers)"
 mutate "the lane never probes bmv2-stock" "$DRIVER_REL" '
 s = s.replace("L1_NEED_MET[bmv2-stock]=0\n", "").replace("&& L1_NEED_MET[bmv2-stock]=1", "&& :")
 ' "D18 the lane probes the needs it can excuse (ryu, py-plot, bmv2-stock)"

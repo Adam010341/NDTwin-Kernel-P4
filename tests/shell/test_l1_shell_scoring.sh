@@ -342,7 +342,7 @@ check "D29 🔴 the drop check's suite declares the stock bmv2 it needs" "bmv2-s
 # ...and, run with no stock simple_switch, it skips the way the lane can excuse: rc 0, one SKIP line,
 # nothing ran -- DECLARED-SKIP on a hosted runner, FAIL-SKIP on the lab (which must have one).
 HBT="$(mktemp -d)"
-NDT_HB_CHECK_BMV2="$HBT/no-such-simple_switch" python3 "$SHELL_TESTS_DIR/test_heartbeat_drop_check.py" > "$HBT/skip.log" 2>&1
+NDT_LAB_CLAIM_FILE="$HBT/no-claim" NDT_HB_CHECK_BMV2="$HBT/no-such-simple_switch" python3 "$SHELL_TESTS_DIR/test_heartbeat_drop_check.py" > "$HBT/skip.log" 2>&1
 hb_rc=$?
 read -r hb_ran hb_failed <<<"$(shell_summary "$HBT/skip.log")"
 hb_sk="$(grep -cE '^[[:space:]]*SKIP:' "$HBT/skip.log")"
@@ -351,6 +351,24 @@ check "D30 🔴 with no stock simple_switch the drop check's suite skips: rc 0, 
 hb_excuse="$(L1_NEED_MET=([bmv2-stock]=0); l1_skip_excuse "$SHELL_TESTS_DIR/test_heartbeat_drop_check.py" "$HBT/skip.log" sh "$hb_ran" "$hb_sk")"
 check "D31 🔴 ...which the lane scores DECLARED-SKIP on a hosted runner and FAIL-SKIP on the lab" "DECLARED-SKIP FAIL-SKIP" \
       "$(l1_lane_verdict "$hb_rc" "$hb_ran" "$hb_failed" "$hb_sk" "$hb_excuse" 1) $(l1_lane_verdict "$hb_rc" "$hb_ran" "$hb_failed" "$hb_sk" "$hb_excuse" 0)"
+# [Co-developed with claude code -- Adam] (the orchestrator's round-6 ruling on S-8) on the lab the suite adds
+# no throwaway switch while somebody else holds the lab or a measurement is declared: it skips, before
+# anything. Run with no simple_switch as well, so a claim rule that fails still starts no switch -- and so
+# a claim that does NOT hold the lab is told by the OTHER skip.
+hb_claim() {   # hb_claim <owner> <expires> <measuring> <me> -> the suite's first line
+    printf 'owner=%s\nexpires=%s\nnote=x\nexclusive_cpu=no\nmeasuring=%s\n' "$1" "$2" "$3" > "$HBT/claim"
+    NDT_OWNER="$4" NDT_LAB_CLAIM_FILE="$HBT/claim" NDT_HB_CHECK_BMV2="$HBT/no-such-simple_switch" \
+        python3 "$SHELL_TESTS_DIR/test_heartbeat_drop_check.py" 2>&1 | head -1 | cut -c1-60
+}
+hb_now="$(date +%s)"
+check "D32 🔴 somebody else's live claim: the suite skips before anything" "SKIP: the lab is claimed by other (" \
+      "$(hb_claim other $((hb_now + 600)) "" me | cut -c1-35)"
+check "D33 🔴 a declared measurement, even under my own claim: it skips" "SKIP: a measurement is declared on the lab" \
+      "$(hb_claim me $((hb_now + 600)) "H5 run" me | cut -c1-42)"
+check "D34 🔴 an expired claim holds nothing (the other skip answers)" "SKIP: no stock simple_switch" \
+      "$(hb_claim other $((hb_now - 600)) "old" me | cut -c1-28)"
+check "D35   my own live claim and no measurement do not stop it" "SKIP: no stock simple_switch" \
+      "$(hb_claim me $((hb_now + 600)) "" me | cut -c1-28)"
 rm -rf "$HBT"
 
 echo
