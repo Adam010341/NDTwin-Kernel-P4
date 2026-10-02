@@ -36,6 +36,7 @@ CORPUS_ONELINE_REL="tests/shell/test_faults_topo_pid.sh"      # its failure bran
 CORPUS_GROUPED_REL="tests/shell/test_ndt_down_stops_only_ours.sh"   # `|| { echo "Ran ..."; exit 1; }`
 CORPUS_CALL_REL="tests/shell/test_ndt_ovs_topo_script.sh"   # `summary() { printf ...; }`, `summary; exit 1`, `summary`
 CORPUS_NEEDS_REL="tests/shell/test_gate_exit_code_not_tee.sh"   # carries a NDTWIN_L1_NEEDS declaration
+HBDROP_REL="tests/shell/test_heartbeat_drop_check.py"   # [Co-developed with claude code -- Adam] declares bmv2-stock
 
 KILLED=0
 SURVIVED=0
@@ -48,6 +49,9 @@ build_sandbox() {
     cp "$REPO_ROOT/$DRIVER_REL" "$REPO_ROOT/tools/test_workflow/components.env" \
        "$sb/tools/test_workflow/"
     cp "$REPO_ROOT"/tests/shell/test_*.sh "$sb/tests/shell/"
+    # [Co-developed with claude code -- Adam] and the Python suites (S-8): D22 and D29 read their
+    # NDTWIN_L1_NEEDS declarations
+    cp "$REPO_ROOT"/tests/shell/test_*.py "$sb/tests/shell/"
     # group R's fixtures (09-27): without them every R check reads "instrument failed"
     mkdir -p "$sb/tests/shell/fixtures"
     cp -r "$REPO_ROOT/tests/shell/fixtures/l1_shell_scoring" "$sb/tests/shell/fixtures/"
@@ -253,7 +257,7 @@ s = s.replace("# NDTWIN_L1_NEEDS: py-plot\n", "# NDTWIN_L1_NEEDS: py-plot no-suc
 ' "D22 every NDTWIN_L1_NEEDS in tests/shell and tests/python is one the lane probes"
 mutate "the ryu probe is lost" "$DRIVER_REL" '
 s = s.replace("L1_NEED_MET[ryu]=0\n\"$PY_KERNEL\" -c \"import networkx, ryu\" >/dev/null 2>&1 && L1_NEED_MET[ryu]=1\n", "")
-' "D18 the lane probes the needs it can excuse (ryu, py-plot)"
+' "D18 the lane probes the needs it can excuse (ryu, py-plot, bmv2-stock)"
 
 echo
 echo "=== mutations: the corpus check (group C) actually reads the corpus ==="
@@ -369,6 +373,37 @@ mutate "(2a) the else branch is read as the print's path" "$SUITE_REL" '
 s = s.replace("        if nest == 0 and (op == \";;\" or head in (\"else\", \"elif\")):",
               "        if nest == 0 and op == \";;\":")
 ' 'R14   `then echo ...; else exit 1; fi`' "exit <non-zero> after it on the same line"
+
+echo
+echo "=== mutations: tests/shell's Python suites are collected, scored as shell suites, and declare their need (S-8) ==="
+# [Co-developed with claude code -- Adam] round 5 (the round-4 review's S-8)
+mutate "tests/shell/test_*.py is not collected" "$DRIVER_REL" '
+s = s.replace(" \"$KERNEL_DIR\"/tests/shell/test_*.py)", ")")
+' "D27 🔴 the lane collects tests/shell/test_*.py"
+mutate "a tests/shell/*.py is scored with unittest's vocabulary" "$DRIVER_REL" '
+s = s.replace("[[ \"$testfile\" == *.py && \"$testfile\" != */tests/shell/* ]] && kind=py", "[[ \"$testfile\" == *.py ]] && kind=py")
+' "D28 🔴 and scores them as shell suites (their summary and SKIP: lines), run by python3"
+mutate "the drop check suite does not declare the stock bmv2" "$HBDROP_REL" '
+s = s.replace("# NDTWIN_L1_NEEDS: bmv2-stock\n", "\n")
+' "D29 🔴 the drop check's suite declares the stock bmv2 it needs"
+mutate "the drop check suite runs on with no stock simple_switch" "$HBDROP_REL" '
+s = s.replace("          f\"checked\")\n    sys.exit(0)\n", "          f\"checked\")\n")
+' "D30 🔴 with no stock simple_switch the drop check's suite skips: rc 0, one SKIP line, nothing ran"
+mutate "the drop check suite ignores a declared measurement" "$HBDROP_REL" '
+s = s.replace("    if fields.get(\"measuring\", \"\").strip():", "    if False:")
+' "D33 🔴 a declared measurement, even under my own claim: it skips"
+mutate "the drop check suite ignores somebody else's claim" "$HBDROP_REL" '
+s = s.replace("    if owner and owner != me:", "    if False:")
+' "D32 🔴 somebody else's live claim: the suite skips before anything"
+mutate "the drop check suite skips under my own claim too" "$HBDROP_REL" '
+s = s.replace("    if owner and owner != me:", "    if owner:")
+' "D35   my own live claim and no measurement do not stop it"
+mutate "the drop check suite takes an expired claim for a live one" "$HBDROP_REL" '
+s = s.replace("        live = int(fields.get(\"expires\", \"0\")) > (time.time() if now is None else now)", "        live = True")
+' "D34 🔴 an expired claim holds nothing (the other skip answers)"
+mutate "the lane never probes bmv2-stock" "$DRIVER_REL" '
+s = s.replace("L1_NEED_MET[bmv2-stock]=0\n", "").replace("&& L1_NEED_MET[bmv2-stock]=1", "&& :")
+' "D18 the lane probes the needs it can excuse (ryu, py-plot, bmv2-stock)"
 
 echo
 echo "===== $((KILLED + SURVIVED)) mutation(s): $KILLED killed, $SURVIVED survived ====="

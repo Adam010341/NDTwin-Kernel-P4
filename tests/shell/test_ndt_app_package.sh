@@ -126,6 +126,9 @@ PKG_BAD="$FIX/packages/redflag"    ; mkpkg "$PKG_BAD" ndtwin   4 4
 # TICKET-P2 §5.5: a package that puts somebody else's program on s1 and leaves s2-s4 on
 # NDTwin's. exercises/firewall is the shipped shape of exactly this.
 PKG_FOREIGN="$FIX/packages/foreign"; mkpkg "$PKG_FOREIGN" ndtwin 4 4 firewall
+# [Co-developed with claude code -- Adam] An external control plane on its OWN pipeline --
+# exercises/p4runtime's shape, the 3 external arms of live-p1/06.
+PKG_EXT_OWN="$FIX/packages/three-ext-own"; mkpkg "$PKG_EXT_OWN" external 3 3 advanced_tunnel
 # A package directory whose manifest cannot be read at all. `unreadable` is its own answer and
 # is NOT `ndtwin`: rendering an unparsable package as the default pipeline is the silent
 # substitution this feature exists to remove.
@@ -233,6 +236,7 @@ in_flight() { :; }
 guard_no_live_ovs() { return 0; }
 stale_pipeline() { return 1; }
 preflight() { return 0; }
+hb_drop_check_run() { echo "heartbeat drop check (stub): DROPPED"; return 0; }
 claim_note_up() { :; }
 bmv2_binary() { echo "simple_switch_grpc (stub)"; }
 sample_rate() { echo 256; }
@@ -1172,10 +1176,29 @@ json_len() { echo 4; }
 reset_fix
 OUT="$(drive "NDT_APP_DIR=$(q "$PKG_FOREIGN"); up_p4")"
 OUT="$(run_status --check "$PROXY_STUBS")"
-has   "🔴 a package fabric is told none were expected"    "4 destination paths reported; none expected" "$OUT"
+has   "🔴 a package fabric is told the count is not a reading"    "4 destination paths reported; not a count of installed routes" "$OUT"
 has   "  naming the dpid and the step the proxy skipped"  "the package's program on dpid 1, proxy skipped lldp_discovery" "$OUT"
 hasnt "🔴 and the shortfall is NOT a --check problem"     "proxy reports 4 destination paths, want" "$OUT"
 check "  so --check still exits 0"                        "0" "$(rc_of "$OUT")"
+# [Co-developed with claude code -- Adam] Adam's 09-28 ruling: an external control plane on its
+# own pipeline reports NO path (its forwarding is its controller's), so the row says none is
+# expected there -- and does not call the number the twin's guess, which it no longer is.
+reset_fix
+OUT="$(drive "NDT_APP_DIR=$(q "$PKG_EXT_OWN"); up_p4")"
+OUT="$(run_status --check "$PROXY_STUBS")"
+has   "🔴 an external plane on its own pipeline expects no path" "4 destination paths reported; none expected -- an external control plane on dpid 1" "$OUT"
+hasnt "  and does not call its count the twin's guess"   "the twin's guess" "$OUT"
+hasnt "  nor a shortfall --check problem"                "proxy reports 4 destination paths, want 12" "$OUT"
+# [Co-developed with claude code -- Adam] ...but a count there IS the guess coming back (the
+# round-4 review's nit): flagged, and a --check problem. Zero is the designed answer, and quiet.
+has   "🔴 a nonzero count on an external plane is flagged"  "!! 4 path(s) on an external control plane, where the proxy reports none" "$OUT"
+has   "🔴 and is a --check problem"                         "proxy reports 4 destination paths on an external control plane, want 0" "$OUT"
+check "  so --check exits 1 on it"                        "1" "$(rc_of "$OUT")"
+reset_fix
+OUT="$(drive "NDT_APP_DIR=$(q "$PKG_EXT_OWN"); up_p4")"
+OUT="$(run_status --check "${PROXY_STUBS/echo 4/echo 0}")"
+has   "  zero paths on an external plane: the designed answer" "0 destination paths reported; none expected -- an external control plane" "$OUT"
+hasnt "🔴 and not flagged"                                   "path(s) on an external control plane, where the proxy reports none" "$OUT"
 reset_fix
 OUT="$(drive "NDT_APP_DIR=$(q "$PKG_OK"); up_p4")"
 OUT="$(run_status --check "$PROXY_STUBS")"

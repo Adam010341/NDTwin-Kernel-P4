@@ -32,6 +32,9 @@ APP_KNOB="$REPO/p4_proxy/mininet/app_package_override"
 PKG_ROOT="$REPO/.test_run/packages"
 PROXY_URL="http://localhost:8081"
 KERNEL_URL="http://localhost:8000"
+#: [Co-developed with claude code -- Adam] Named here, beside this file, and not from $LIVE_DIR at
+#: call time: a suite points LIVE_DIR at its own temp dir to catch the run directory.
+VENV_FINGERPRINT="$LIVE_DIR/venv_fingerprint.sh"
 # [Co-developed with claude code -- Adam] 🔴 NO DEFAULT OWNER (Adam's ruling G, 09-27). This line
 # used to be `: "${NDT_OWNER:=live-p1}"`: a run nobody named claimed the lab as `live-p1`, which is
 # nobody -- a claim no person owns is one no person can finish by hand (segment S, round 7, is how
@@ -49,6 +52,9 @@ VERDICT_WHY=""
 #: of 09-27 on 08's H1: a cycle over the strict 20 s is a NOTE, not a FAIL). finish() prints each
 #: entry as `NOTE <step> -- <text>` right above the last line, so a PASS still carries it.
 DISCLOSED=()
+#: [Co-developed with claude code -- Adam] The signal that stopped the run, carried to finish's exit
+#: code: 130 for INT, 143 for TERM (the external judge's M3, 09-28). Empty on every other path.
+SIGNAL_RC=""
 KNOB_ENTRY_COPY=""
 CLAIMED=0
 #: 🔴 NOT RESET WHEN THE CALLER ALREADY SET ONE (§9 ruling 28①). `link_usage_cell` sources this
@@ -303,8 +309,29 @@ finish() {
     else
         printf 'FAIL %s -- %s\n' "$STEP" "$VERDICT_WHY"
     fi
-    exit "$VERDICT_RC"
+    exit "${SIGNAL_RC:-$VERDICT_RC}"
 }
+
+# interrupted <signal name> <rc> -- the INT / TERM trap of every live-p1 step.
+# [Co-developed with claude code -- Adam] The AEG judge's N-1 and the external judge's M3 (09-28):
+# with `finish` itself as the INT/TERM trap, bash ran it with the INTERRUPTED command's $? -- a
+# sleep or a poll that returned 0 -- so a step stopped by pid (this project's way) with nothing
+# failed before it printed PASS. The signal is now the run's failure, named first (a ruling-4 STOP
+# keeps the head of the line), and the exit code is the signal's, carried through finish.
+interrupted() {
+    trap - INT TERM
+    SIGNAL_RC="$2"
+    VERDICT_RC=1
+    if [[ "$VERDICT_WHY" == STOP* ]]; then
+        VERDICT_WHY="$VERDICT_WHY (then interrupted by $1)"
+    else
+        VERDICT_WHY="interrupted by $1 before the run finished${VERDICT_WHY:+ (first failure before it: $VERDICT_WHY)}"
+    fi
+    bad "interrupted by $1 -- the run stops here and tears down"
+    exit "$2"
+}
+# arm_step_traps -- EXIT runs finish; INT and TERM go through `interrupted` first.
+arm_step_traps() { trap finish EXIT; trap 'interrupted SIGINT 130' INT; trap 'interrupted SIGTERM 143' TERM; }
 
 # start_step <name> -- make the run directory, arm the trap, and do the two refusals.
 start_step() {
@@ -318,14 +345,29 @@ start_step() {
     fi
     RUN="$LIVE_DIR/runs/$(date -u '+%Y-%m-%dT%H%M%SZ')_$STEP"
     mkdir -p "$RUN" || die "could not create $RUN"
-    trap finish EXIT INT TERM
+    arm_step_traps
     printf '== %s\n   repo: %s\n   raw : %s\n   owner: %s\n' "$STEP" "$REPO" "$RUN" "$NDT_OWNER"
     [[ -x "$NDT" ]] || die "no ndt at $NDT"
     [[ -x "$PY" ]]  || die "no proxy venv interpreter at $PY -- python3 -m venv p4_proxy/venv && p4_proxy/venv/bin/pip install -r p4_proxy/requirements.txt && p4_proxy/venv/bin/python p4_proxy/regen_p4runtime_pb2.py"
+    record_venvs "$RUN/00_venv.txt"
     require_root
     require_free_lab
     snapshot_knob
     snapshot_telemetry_knob
+}
+
+# record_venvs <out> -- the fingerprint of the proxy's venv and the exercises' controller venv, in
+# every live raw. [Co-developed with claude code -- Adam] 09-27: the proxy's venv moved to
+# protobuf 5 (upb) that day, and a raw that does not say which stack it ran on cannot be compared
+# with one from before. A fingerprint that could not be taken is DISCLOSED, not a failure: the run
+# itself is as good as it was, only its comparability is not.
+record_venvs() {
+    local ctrl="${CTRL_PY:-/home/adam/p4dev-python-venv/bin/python}"
+    if bash "$VENV_FINGERPRINT" "$1" "$PY" "$ctrl"; then
+        note "venv fingerprint -> $(basename "$1") ($(/usr/bin/grep -m1 '^protobuf ' "$1"))"
+    else
+        disclose "the venv fingerprint was not fully recorded ($(basename "$1") says which interpreter did not answer)"
+    fi
 }
 
 # --- captures ---------------------------------------------------------------------------------
@@ -347,30 +389,40 @@ open(sys.argv[2],'a').write('\n')" "$out.raw" "$out" 2>/dev/null; then
     return 1
 }
 
-# jqp <file> <python-expr over d> -- one value out of a saved capture, printed.
 # heartbeat_skips_verdict <switch_state.json> <want: the sorted list, as Python prints it> -- a
-# foreign, non-external fabric's fabric-level answer, one line, OK ... or BAD ....
+# foreign fabric's fabric-level answer, one line, OK ... or BAD .... [Co-developed with claude code
+# -- Adam] 02 asks it with its two names; 03/04, on an external control plane that runs the
+# heartbeat detect-only since 09-27, with their five.
 # [Co-developed with claude code -- Adam] The opus judge's N1 (09-27): the expectation is NOT picked
 # from the proxy's own `heartbeat.watchdog`. `ndt up p4 --app` starts the heartbeat on such a
 # fabric, so the watchdog MUST run -- anything else is the failure, named with the proxy's own
 # heartbeat.error -- and with it running, control_plane.skipped is exactly <want>.
+# [Co-developed with claude code -- Adam] The AEG judge's N-5 (09-28): ONE line on every path. Every
+# exception is caught inside the program and named in its BAD line (a top-level list, a non-dict
+# control_plane, unsortable values); stderr is not merged, so a traceback can never come first; and
+# an interpreter that dies without a word still leaves one BAD line.
 heartbeat_skips_verdict() {
-    "$PY" - "$1" "$2" <<'HBSKIPS' 2>&1 || echo "BAD the verdict could not run on $1"
+    "$PY" - "$1" "$2" <<'HBSKIPS' 2>/dev/null || echo "BAD the verdict could not run on $1"
 import json, sys
 try:
-    d = json.load(open(sys.argv[1]))
-except (OSError, ValueError) as exc:
-    print(f"BAD switch_state unreadable: {type(exc).__name__}: {exc}")
+    try:
+        d = json.load(open(sys.argv[1]))
+    except (OSError, ValueError) as exc:
+        print(f"BAD switch_state unreadable: {type(exc).__name__}: {exc}")
+        sys.exit(0)
+    hb = d.get("heartbeat")
+    skipped = str(sorted((d.get("control_plane") or {}).get("skipped") or []))
+except Exception as exc:  # noqa: BLE001 -- one line, whatever the capture holds
+    print(f"BAD switch_state is not what the proxy serves: {type(exc).__name__}: {exc}")
     sys.exit(0)
-hb = d.get("heartbeat")
-skipped = str(sorted((d.get("control_plane") or {}).get("skipped") or []))
 if not isinstance(hb, dict):
     print("BAD switch_state has no heartbeat block (a proxy from before the heartbeat, or one that "
           "does not call this fabric foreign) -- the heartbeat watchdog is not running")
 elif hb.get("watchdog") != "running":
     print(f"BAD heartbeat.watchdog is {hb.get('watchdog')!r}, not 'running' (heartbeat.error: "
-          f"{hb.get('error')}) -- `ndt up p4 --app` starts the heartbeat on a foreign, non-external "
-          f"fabric, and the proxy's watchdog must run on it")
+          f"{hb.get('error')}) -- `ndt up p4 --app` starts the heartbeat on a foreign pipeline "
+          f"(an external control plane's included, detect only, since 09-27), and the proxy's "
+          f"watchdog must run on it")
 elif skipped != sys.argv[2]:
     print(f"BAD control_plane.skipped is {skipped}, want {sys.argv[2]} -- no LLDP on a pipeline "
           f"without a controller header, and the watchdog runs, fed by the heartbeat")
@@ -379,6 +431,7 @@ else:
 HBSKIPS
 }
 
+# jqp <file> <python-expr over d> -- one value out of a saved capture, printed.
 jqp() { "$PY" -c "
 import json,sys
 d=json.load(open(sys.argv[1]))

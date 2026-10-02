@@ -14,8 +14,10 @@
 #
 #   * a foreign package fabric: one `heartbeat start`, AFTER `topo-start` and BEFORE stack.sh
 #     starts the proxy, so the proxy's first watchdog pass already has a report to read;
-#   * NOT on the baseline fabric, NOT on a package running NDTwin's own pipeline, NOT on an
-#     external control plane (the proxy reads only there, so nobody would read the report);
+#   * NOT on the baseline fabric, NOT on a package running NDTwin's own pipeline. [Co-developed
+#     with claude code -- Adam] Since 09-27 an external control plane on its own pipeline DOES
+#     get one, detect only -- the proxy there writes nothing and says so -- and `ndt` says which
+#     of the two it started (section 2b);
 #   * a heartbeat that does not start does NOT fail the bring-up -- the fabric is up, only
 #     detection is off, and the proxy says so -- and rc 3 (no inter-switch link) is not a warning;
 #   * `ndt down` stops it before `topo-stop`, and a stop that fails is a failed teardown (rc 1,
@@ -179,6 +181,17 @@ in_flight() { :; }
 guard_no_live_ovs() { return 0; }
 stale_pipeline() { return 1; }
 preflight() { return 0; }
+# [Co-developed with claude code -- Adam] (Adam, 09-28) The drop check stands in here: it is driven
+# for real by tests/shell/test_heartbeat_drop_check.py. On the event log, so ORDER can be asserted.
+hb_drop_check_run() {
+    printf "hbcheck %s\n" "$1" >> "$EVENTS"
+    case "${HB_CHECK_STUB_RC:-0}" in
+        0) echo "heartbeat drop check (checked): advanced_tunnel.json (stub): DROPPED -- every injected frame was dropped" ;;
+        1) echo "heartbeat drop check (checked): advanced_tunnel.json (stub): NOT_DROPPED -- port 2: PUNTED to the CPU port 255" ;;
+        *) echo "heartbeat drop check (checked): advanced_tunnel.json (stub): UNKNOWN -- the switch exited before the check finished" ;;
+    esac
+    return "${HB_CHECK_STUB_RC:-0}"
+}
 claim_note_up() { :; }
 claim_note_down() { printf "CLAIM_NOTE_DOWN rc=%s unverified=[%s]\n" "$1" "$2"; }
 bmv2_binary() { echo "simple_switch_grpc (stub)"; }
@@ -212,7 +225,8 @@ q() { printf '%q' "$1"; }
 reset_fix() {
     rm -f "$EVENTS" "$FIX/bmv2_count" "$FIX/fabric_hosts" "$FIX/topo_session" "$STACK_FAIL" \
           "$HB_PID" "$HB_JSON" "$FIX/p4_proxy/mininet/app_package_override" \
-          "$FIX/.test_run/up.target" "$FIX/.test_run/host_count_override.pre-up"
+          "$FIX/.test_run/up.target" "$FIX/.test_run/host_count_override.pre-up" \
+          "$FIX/.test_run/heartbeat.withheld"
     : > "$EVENTS"
     printf '4\n' > "$FIX/p4_proxy/mininet/host_count_override"
 }
@@ -249,7 +263,7 @@ has   "  (it did take the reuse branch)"                         "already up" "$
 check "🔴 a reused foreign fabric asks for the heartbeat too"    "1" "$(count_of 'ndtwin-lab heartbeat start')"
 
 # =============================================================================================
-section "2. 🔴 NOT on NDTwin's own pipeline, NOT on the baseline, NOT on an external plane"
+section "2. 🔴 NOT on NDTwin's own pipeline, NOT on the baseline"
 # =============================================================================================
 reset_fix
 OUT="$(drive "NDT_APP_DIR=$(q "$PKG_NDTWIN"); up_p4")"
@@ -262,11 +276,90 @@ OUT="$(drive 'up_p4 4')"
 check "  the baseline fabric comes up"                           "0" "$(rc_of "$OUT")"
 check "🔴 and never asks for a heartbeat"                        "0" "$(hb_calls)"
 
+# =============================================================================================
+section "2b. 🔴 an external control plane on its own pipeline: started, detect only (09-27)"
+# =============================================================================================
+# [Co-developed with claude code -- Adam] Was "NOT on an external plane" until 09-27. The helper
+# is asked exactly as on any foreign fabric; what differs is what ndt says the heartbeat is for.
 reset_fix
 OUT="$(drive "NDT_APP_DIR=$(q "$PKG_EXTERNAL"); up_p4")"
 check "  an external package comes up"                           "0" "$(rc_of "$OUT")"
 has   "  (the pipeline kind was read as foreign)"                "VERIFY_P4 pipe=foreign:" "$OUT"
-check "🔴 and does not start one: the proxy reads only there"    "0" "$(hb_calls)"
+check "🔴 exactly one 'heartbeat start' on an external plane"    "1" "$(count_of 'ndtwin-lab heartbeat start')"
+check "🔴 after topo-start, before the proxy, as anywhere"       "yes" "$(before 'ndtwin-lab heartbeat start' 'stack up p4')"
+has   "🔴 and ndt says it detects only"                          "detect only: a cut link is told to the twin and nothing is rerouted" "$OUT"
+hasnt "🔴 and not that it routes around"                         "routed around where NDTwin owns" "$OUT"
+
+reset_fix
+OUT="$(drive "NDT_APP_DIR=$(q "$PKG_FOREIGN"); up_p4")"
+hasnt "🔴 a non-external foreign fabric is not called detect-only" "detect only" "$OUT"
+
+# [Co-developed with claude code -- Adam] The external judge's F5 (09-28): when the heartbeat does not
+# start on an external plane, the reason ndt names is the one the proxy serves there.
+reset_fix
+OUT="$(drive "export HB_START_RC=1; NDT_APP_DIR=$(q "$PKG_EXTERNAL"); up_p4")"
+has   "🔴 a failed start on an external plane names external_control_plane" "the proxy reports reroute.reason external_control_plane" "$OUT"
+hasnt "  and not the reason a foreign fabric serves"        "reroute.reason heartbeat_not_running." "$OUT"
+
+# =============================================================================================
+section "2c. 🔴 external: started ONLY when the drop check proves its program drops the frame (09-28)"
+# =============================================================================================
+# [Co-developed with claude code -- Adam] Adam's ruling: default-safe on an external control plane.
+# The check runs in the package pre-flight (before the machine is touched), and the heartbeat
+# starts only on its rc 0 -- not dropped and could-not-tell both withhold it, and say why.
+withheld() { cat "$FIX/.test_run/heartbeat.withheld" 2>/dev/null || echo "<no record>"; }
+reset_fix
+OUT="$(drive "NDT_APP_DIR=$(q "$PKG_EXTERNAL"); up_p4")"
+check "🔴 the check ran once, on the package"                    "1" "$(count_of "hbcheck $PKG_EXTERNAL")"
+check "🔴 before anything touched the machine"                   "yes" "$(before 'hbcheck ' 'topo-start')"
+check "🔴 proven dropped: the heartbeat starts"                  "1" "$(count_of 'ndtwin-lab heartbeat start')"
+has   "  the check's answer is said, in one line"             "heartbeat drop check: every program drops its frame (advanced_tunnel.json checked) -- the declared program's default actions only; entries, a pipeline or a default action its controller sets later are not covered (.test_run/logs/heartbeat_drop_check." "$OUT"
+# [Co-developed with claude code -- Adam] One log per bring-up, named on the line (S-5).
+hblog() { local f; f="$(sed -n -E 's/.*\((\.test_run\/logs\/heartbeat_drop_check\.[0-9TZ]+\.[0-9]+\.log)\).*/\1/p' <<<"$1" | head -1)"; printf '%s' "${f:+$FIX/$f}"; }
+LOG1="$(hblog "$OUT")"
+check "  and the whole of it is kept, in the log the line names"  "1" "$(/usr/bin/grep -cF 'DROPPED -- every injected frame was dropped' "${LOG1:-/nonexistent}" 2>/dev/null || echo 0)"
+check "  and nothing is recorded as withheld"                    "<no record>" "$(withheld)"
+
+reset_fix
+OUT="$(drive "export HB_CHECK_STUB_RC=1; NDT_APP_DIR=$(q "$PKG_EXTERNAL"); up_p4")"
+check "🔴 NOT dropped: the bring-up still succeeds"              "0" "$(rc_of "$OUT")"
+check "🔴 and the heartbeat is NOT started"                      "0" "$(count_of 'ndtwin-lab heartbeat start')"
+has   "🔴 saying so"                                             "heartbeat NOT started on this external control plane" "$OUT"
+has   "  with the check's own reason"                            "PUNTED to the CPU port 255" "$OUT"
+check "  the proxy and kernel were still started"                "1" "$(count_of 'stack up p4')"
+has   "🔴 and the record names it for 'ndt status'"              "PUNTED to the CPU port 255" "$(withheld)"
+
+reset_fix
+OUT="$(drive "export HB_CHECK_STUB_RC=2; NDT_APP_DIR=$(q "$PKG_EXTERNAL"); up_p4")"
+check "🔴 could not tell: NOT started either (unknown is not a drop)" "0" "$(count_of 'ndtwin-lab heartbeat start')"
+LOG2="$(hblog "$OUT")"
+check "🔴 a second bring-up keeps its own log: the first one's is still there" "1" "$(/usr/bin/grep -cF 'DROPPED -- every injected frame was dropped' "${LOG1:-/nonexistent}" 2>/dev/null || echo 0)"
+check "  and this one's says what this check said"           "1" "$(/usr/bin/grep -cF 'UNKNOWN -- the switch exited' "${LOG2:-/nonexistent}" 2>/dev/null || echo 0)"
+check "  in another file"                                    "yes" "$([[ -n "$LOG1" && -n "$LOG2" && "$LOG1" != "$LOG2" ]] && echo yes || echo "no ($LOG1 / $LOG2)")"
+has   "  saying it could not tell"                               "heartbeat drop check could not tell (rc 2)" "$OUT"
+has   "  and why"                                                "the switch exited before the check finished" "$(withheld)"
+
+reset_fix
+OUT="$(drive "heartbeat_up_step foreign:1 external")"
+check "🔴 a check that never ran is not proof: NOT started"      "0" "$(count_of 'ndtwin-lab heartbeat start')"
+has   "  saying so"                                              "the drop check did not run" "$OUT"
+
+reset_fix
+OUT="$(drive "NDT_APP_DIR=$(q "$PKG_FOREIGN"); up_p4")"
+check "🔴 a foreign fabric that is not external: no check"       "0" "$(count_of 'hbcheck ')"
+check "  and its heartbeat starts as before"                     "1" "$(count_of 'ndtwin-lab heartbeat start')"
+reset_fix
+OUT="$(drive "NDT_APP_DIR=$(q "$PKG_NDTWIN"); up_p4")"
+check "  NDTwin's own pipeline: no check either"                 "0" "$(count_of 'hbcheck ')"
+
+# The record is the last bring-up's: a later bring-up that starts it clears it, and so does down.
+reset_fix
+printf 'withheld 1 an older reason\n' > "$FIX/.test_run/heartbeat.withheld"
+OUT="$(drive "NDT_APP_DIR=$(q "$PKG_EXTERNAL"); up_p4")"
+check "🔴 a later bring-up that starts it clears the record"     "<no record>" "$(withheld)"
+printf 'withheld 1 an older reason\n' > "$FIX/.test_run/heartbeat.withheld"
+OUT="$(NDT_OWNER=t drive 'cmd_down')"
+check "🔴 'ndt down' clears it with the fabric"                   "<no record>" "$(withheld)"
 
 # =============================================================================================
 section "3. 🔴 a heartbeat that does not start does not fail the bring-up"
@@ -364,6 +457,13 @@ report running 1 2
 has   "🔴 a frame that reached a host is named"                  "2 heartbeat frame(s) reached a host" "$(row)"
 printf '{not json' > "$HB_JSON"
 has   "  an unreadable report says so"                           "unreadable" "$(row)"
+# [Co-developed with claude code -- Adam] (Adam, 09-28) A withheld heartbeat is said under the row:
+# the report above it can be an older run's.
+printf 'withheld %s port 2: PUNTED to the CPU port 255\n' "$(date +%s)" > "$FIX/.test_run/heartbeat.withheld"
+has   "🔴 a heartbeat the last bring-up withheld is said, with why" "NOT started by the last 'ndt up'" "$(row)"
+has   "  and why"                                                "PUNTED to the CPU port 255" "$(row)"
+rm -f "$FIX/.test_run/heartbeat.withheld"
+hasnt "  and not when there is no record"                        "NOT started by the last" "$(row)"
 check "🔴 reading it needs no sudo"                              "0" "$(count_of 'sudo')"
 
 # The wiring: cmd_status prints that row in its `running` block.

@@ -52,6 +52,9 @@ mutant() {
     local name="$1" d="$BK/$name"
     mkdir -p "$d"
     cp "$COMMON" "$d/_common.sh"
+    # [Co-developed with claude code -- Adam] _common.sh names its fingerprint script beside itself
+    # (VENV_FINGERPRINT, 09-27); a copy without it would disclose a failed fingerprint in every mutant.
+    cp "$(dirname "$COMMON")/venv_fingerprint.sh" "$d/venv_fingerprint.sh"
     python3 - "$d/_common.sh" "$A/$name.old" "$A/$name.new" <<'PY'
 import sys, io
 target, oldf, newf = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -1008,7 +1011,7 @@ cat > "$A/m50.new" <<'EOF'
 elif hb.get("watchdog") not in ("running", "not_started"):
 EOF
 check_fires "M50: a heartbeat watchdog that did not start is accepted" m50 \
-            "🔴 not_started is a failure, not the other list"
+            "🔴 not_started is a failure, not the other list" "🔴 not_started with the two names is still BAD"
 cat > "$A/m51.old" <<'EOF'
     print(f"BAD heartbeat.watchdog is {hb.get('watchdog')!r}, not 'running' (heartbeat.error: "
 EOF
@@ -1024,7 +1027,18 @@ cat > "$A/m52.new" <<'EOF'
 hb = d.get("heartbeat") or {"watchdog": "running"}
 EOF
 check_fires "M52: no heartbeat block reads as running" m52 \
-            "🔴 no heartbeat block is a failure too"
+            "🔴 no heartbeat block is a failure too" "🔴 no heartbeat block with the two names is still BAD"
+# [Co-developed with claude code -- Adam] The AEG judge's N-5 (09-28): M56 catches only a KeyError
+# inside the program, so a top-level list falls through to the shell's fallback and its line no
+# longer names the cause.
+cat > "$A/m56.old" <<'EOF'
+except Exception as exc:  # noqa: BLE001 -- one line, whatever the capture holds
+EOF
+cat > "$A/m56.new" <<'EOF'
+except KeyError as exc:  # noqa: BLE001 -- one line, whatever the capture holds
+EOF
+check_fires "M56: the verdict catches only what it expected" m56 \
+            "  a BAD one, naming the cause"
 cat > "$A/m53.old" <<'EOF'
 elif skipped != sys.argv[2]:
 EOF
@@ -1033,6 +1047,46 @@ elif False:
 EOF
 check_fires "M53: the skipped list is not compared" m53 \
             "🔴 running with link_watchdog still named: BAD"
+
+# --- M54-M55 (09-27): every run records the venv fingerprint ------------------------------------
+# [Co-developed with claude code -- Adam] M54 never takes it; M55 takes it and says nothing when it
+# could not.
+cat > "$A/m54.old" <<'EOF'
+    record_venvs "$RUN/00_venv.txt"
+EOF
+cat > "$A/m54.new" <<'EOF'
+    :
+EOF
+check_fires "M54: start_step records no venv fingerprint" m54 \
+            "🔴 the raw has 00_venv.txt" "🔴 a missing interpreter is written down as such"
+cat > "$A/m55.old" <<'EOF'
+        disclose "the venv fingerprint was not fully recorded ($(basename "$1") says which interpreter did not answer)"
+EOF
+cat > "$A/m55.new" <<'EOF'
+        note "the venv fingerprint was not fully recorded ($(basename "$1") says which interpreter did not answer)"
+EOF
+check_fires "M55: a fingerprint that could not be taken is not disclosed" m55 \
+            "🔴 and disclosed above the last line"
+
+# --- M57-M58 (the external judge's M3, 09-28): INT/TERM fail the step, with the signal's code ---------
+# [Co-developed with claude code -- Adam] M57 puts finish back as the INT/TERM trap (the PASS on a
+# TERM); M58 exits the verdict's rc instead of the signal's.
+cat > "$A/m57.old" <<'EOF'
+arm_step_traps() { trap finish EXIT; trap 'interrupted SIGINT 130' INT; trap 'interrupted SIGTERM 143' TERM; }
+EOF
+cat > "$A/m57.new" <<'EOF'
+arm_step_traps() { trap finish EXIT INT TERM; }
+EOF
+check_fires "M57: INT and TERM run finish with the interrupted command's rc" m57 \
+            "🔴 TERM mid-step: the last verdict line is a FAIL" "🔴 INT mid-step: FAIL"
+cat > "$A/m58.old" <<'EOF'
+    exit "${SIGNAL_RC:-$VERDICT_RC}"
+EOF
+cat > "$A/m58.new" <<'EOF'
+    exit "$VERDICT_RC"
+EOF
+check_fires "M58: a signalled step exits 1, not the signal's code" m58 \
+            "🔴 and the step exits 143" "🔴 and the step exits 130"
 
 # --- T1 (the judge, 09-27): the suite's 5e back on $PKG3 -- a TEST-side mutant --------------------
 # [Co-developed with claude code -- Adam] The cells as they were before b2e656e5: h1..h3, the names
