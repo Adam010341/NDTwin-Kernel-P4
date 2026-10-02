@@ -433,64 +433,159 @@ solution）**exercise 自己**的證據有沒有變。**不是**拿來和 074635
 - 程序本身（下面）：凍結從 C1 前到判定後；merge 之前的祖先檢查；H1–H4 在本地 merge 之下、判定之前跑；回復前檢查
   HEAD 是 T 的 merge commit；每一種中途結果都預先登記。
 
+**第七輪改了什麼**（round-6 re-review；只改這份 README，程式與閘門不動）：
+- 變數檔 `$V`：每個值一知道就寫進去、每一步 source 並以 `: "${X:?}"` 守住；變數檔不見時怎麼從身分檔找回來（F4）。
+- 第 2 步：merge 之前確認 HEAD 仍是 C_HEAD、沒有 staged 的改動；merge 之後的 STOP 走第 6 步、不跑 T（F2）。
+- 第 6 步：回到 `$T_MERGE^1`；`reset --keep` 被拒有它自己的訊息；回復後確認 HEAD 是 C_HEAD 才印 `ROLLED-BACK`；
+  第 7 步只在 `ROLLED-BACK` 或 push 之後（F1）。staged 的檢查是演練時加的（第 6 步的說明）。
+- 第一次比對的 rc 3 有上限（F3，下面「判定」）。
+- 凍結公告的內容、C1 前後身分先比、回復後的工具路徑、讀不到的對照組重跑前後的回復、rc 1 與 UNDECIDED 同時出現時
+  （N1–N5）。
+- 這一節的 git 部分（第 0、2、6 步）在主 checkout 的一個丟棄式 clone 裡演練過三種情況：merge 之後別人改了 B 也改的檔、
+  第 0 與第 2 步之間有人 commit 到 trunk、別人 stage 了東西——舊的文字在每一種都出錯，新的都對（第七輪的 SUMMARY）。
+
 **在哪裡跑**：全部從主 checkout（`/home/adam/Desktop/NDTwin-Kernel`，下面寫成 `$M`）跑。這台機器**沒有**
 `/etc/ndtwin-lab.conf`，ndt 用它內建的 `LAB_DEFAULT_KERNEL_DIR`，就是主 checkout，所以**不需要任何 root 步驟**。
 B 沒有改任何 C++，**不需要重建 kernel**（重建了，身分就不同，`compare` 會拒絕）。每一步都要 `NDT_OWNER=<你>`，
-照常 claim（06／08 自己 claim）。`B_WT` 是 B 的 worktree（停在 `B_SHA`）、`B_SHA` 是要 merge 的 B commit、
-`LP=doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1`、`ID="python3 $B_WT/$LP/code_identity.py"`。
+照常 claim（06／08 自己 claim）。`B_WT` 是 B 的 worktree，從頭到尾停在 `B_SHA`（要 merge 的 B commit）。
+工具一律用 `B_WT` 裡的那份（`code_identity.py`、`external_evidence.py`、`venv_fingerprint.sh`）：回復之後的 `$M`
+是 trunk，它的 live-p1 沒有這些 .py（第七輪，re-review 的 N3）。
 
-0. **凍結與檢查**（orchestrator 宣布）：從這一步到第 7 步結束，trunk **不 commit、不 merge、不 push**。主 checkout
+**變數檔**（第七輪，re-review 的 F4）：每一步都是新的 shell——agent 的每一次呼叫都不保留 shell 變數，06 一跑就是
+幾個小時——所以每個值**一知道就寫進** `$V`，每一步開頭 `source "$V"`，再用 `: "${X:?}"` 守住它要用的值：少了
+就在那裡停下，不會變成空字串。🔴 空的 `C_HEAD` 會讓 `git reset --keep $C_HEAD` 變成 `git reset --keep`：成功、
+什麼都沒做、沒有 STOP，B 留在 trunk 上。開始之前寫一次：
+```
+V=/home/adam/Desktop/NDTwin-Kernel/scratch/live-extb/vars        # 不在 git 裡；每一步都先 V=... 再 source
+mkdir -p "$(dirname "$V")"
+[[ -e "$V" ]] && echo "STOP: $V exists -- another run of this procedure, or an old one not archived" || cat > "$V" <<'EOF'
+M=/home/adam/Desktop/NDTwin-Kernel
+B_WT=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927
+B_SHA=<B 的完整 40 位 sha>
+LP=doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1
+EOF
+```
+之後每一步寫進去的：`C_HEAD`（第 0 步）、`C1`、`C2`（第 1 步，兩個 raw 目錄）、`T_MERGE`（第 2 步）、`T`、`H5`
+（第 3 步：T 的 06 raw 目錄、08 自己的 raw 目錄）。同一個名字寫第二次（重新 merge 之後的 `T_MERGE`）以後面那行為準。
+**變數檔不見時怎麼找回來**：`C_HEAD`＝`<C1>/00_identity.after.txt` 的 `head`；`T_MERGE`＝`<T>/00_identity.after.txt`
+的 `head`，它的 `parents` 就是 `[C_HEAD, B_SHA]`（兩個都要對得上）；T 還沒跑而已經 merge 了：`git -C $M rev-parse HEAD`，
+但**只在** `HEAD^1 == C_HEAD` 而且 `HEAD^2 == B_SHA` 時才算數，否則停下回報；`C1`、`C2`、`T` 是 `$M/$LP/runs/` 底下
+`*_06_thirteen` 的目錄（06 最後一行前印的 `raw:`），`H5` 是 `*_08_heartbeat`。讀 `head` 的方法：
+`python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["head"])' <C1>/00_identity.after.txt`。
+
+**任何一行印出 `STOP` ⇒ 不做下一步**；每一種 STOP 在下面寫了要做什麼，沒寫到的 ⇒ 回報 orchestrator，凍結不解除。
+
+0. **凍結與檢查**（orchestrator 宣布）：從這一步到第 7 步，trunk **不 commit、不 merge、不 push**。主 checkout
    停在 trunk 的 head，**還沒** merge B：
    ```
-   C_HEAD=$(git -C $M rev-parse HEAD); [[ "$C_HEAD" == "$(git -C $M rev-parse trunk)" ]] || echo STOP
+   V=/home/adam/Desktop/NDTwin-Kernel/scratch/live-extb/vars; source "$V"; : "${M:?}" "${B_WT:?}" "${B_SHA:?}" "${LP:?}"
+   [[ "$(git -C $B_WT rev-parse HEAD)" == "$B_SHA" ]] || echo "STOP: B_WT is not at B_SHA"
+   C_HEAD=$(git -C $M rev-parse HEAD)
+   [[ "$(git -C $M symbolic-ref --short HEAD)" == trunk && "$C_HEAD" == "$(git -C $M rev-parse trunk)" ]] || echo "STOP: $M is not on trunk's head"
+   git -C $M diff --cached --quiet || echo "STOP: staged changes in $M -- the merge would refuse them; ask their owner"
    git -C $M merge-base --is-ancestor $C_HEAD $B_SHA \
      || [[ "$(git -C $M merge-tree --write-tree $C_HEAD $B_SHA | head -1)" == "$(git -C $M rev-parse $B_SHA^{tree})" ]] \
-     || echo STOP
+     || echo "STOP: B was not built on this trunk"
+   echo "C_HEAD=$C_HEAD" >> "$V"; git -C $M diff --name-only $C_HEAD $B_SHA    # 這份清單進凍結公告
    ```
-   第二行：trunk 的 head 是 B 的祖先，或兩者 merge 出來的 tree 就是 B 的 tree——否則 T 跑的不是 B 測過的那棵，
-   **停下**，B 先 merge trunk、重跑閘門，再從這一步開始。
+   - 最後一個 STOP：trunk 的 head 不是 B 的祖先、兩者 merge 出來的 tree 也不是 B 的 tree——T 跑的就不是 B 測過的那棵。
+     **停下**，B 先 merge trunk、重跑閘門，再從這一步開始。其他 STOP：問那個狀態的主人，處理完重做這一步（還沒改任何東西）。
+   - **凍結公告要寫的**（第七輪，re-review 的 N1），從這一步到第 7 步：
+     - trunk 不 commit、不 merge、不 push；`$M` 裡不 stage 任何東西；
+     - `$M` 裡上面那份清單（B 改的檔）**不做任何未提交的改動**；
+     - `$M` 裡不重產圖、不寫任何追蹤的、不是 `.md`／`.tsv` 的檔（它們在比較範圍內，裁定只排除 `doc/**/*.md` 與
+       `doc/audit/**/*.tsv`）——身分只在每個 run 的前後各取一次，中途改了又改回去的，看不到；
+     - 第 1 到第 4 步，別人不 claim lab：一個臂被別人的 claim 拿走，H5 會因為與 B 無關的原因 BAD；
+     - 這台機器上不跑任何閘門或 mutation 的 driver（它們會在 claim 的空檔裡啟動丟棄式交換機；以同一個
+       `NDT_OWNER` 跑的閘門也不會因為 claim 而 skip）；操作的人的 `NDT_OWNER` 與任何閘門的不同。
 
-1. **對照組 C1、C2（不含 B，完整的 06，不加 `ONLY=`）**，每一個都在開跑前與跑完各記一次身分：
+1. **對照組 C1、C2（不含 B，完整的 06，不加 `ONLY=`）**，每一個都在開跑前與跑完各記一次身分（`X` 是 `C1` 或 `C2`）：
    ```
-   S=$(mktemp -d); $ID record $M $S/before.json        # 開跑前
-   NDT_OWNER=<你> bash $M/$LP/06_thirteen.sh            # 最後一行前一行印出 raw 目錄 R
-   cp $S/before.json $R/00_identity.before.txt
-   $ID record $M $R/00_identity.after.txt               # 跑完
+   V=/home/adam/Desktop/NDTwin-Kernel/scratch/live-extb/vars; source "$V"; : "${M:?}" "${B_WT:?}" "${LP:?}" "${C_HEAD:?}"
+   [[ "$(git -C $M rev-parse HEAD)" == "$C_HEAD" ]] || echo "STOP: HEAD moved since step 0"
+   python3 $B_WT/$LP/code_identity.py record $M "$(dirname "$V")/X.before.json"       # 開跑前
+   NDT_OWNER=<你> bash $M/$LP/06_thirteen.sh                                            # 最後一行前一行：raw: <R>
+   ```
+   ```
+   V=/home/adam/Desktop/NDTwin-Kernel/scratch/live-extb/vars; source "$V"; R=<06 印的 raw 目錄>
+   cp "$(dirname "$V")/X.before.json" $R/00_identity.before.txt
+   python3 $B_WT/$LP/code_identity.py record $M $R/00_identity.after.txt              # 跑完
    bash $B_WT/$LP/venv_fingerprint.sh $R/00_venv.txt $M/p4_proxy/venv/bin/python /home/adam/p4dev-python-venv/bin/python
+   echo "X=$R" >> "$V"
+   python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import code_identity as c
+   r = c.unchanged_reasons(c.load(sys.argv[2]), c.load(sys.argv[3]), "X"); print("\n".join("STOP: " + x for x in r) or "X: the code did not change while it ran")' \
+       $B_WT/$LP $R/00_identity.before.txt $R/00_identity.after.txt
    ```
-   （trunk 的 06 不寫這三個檔，那是 B 加的；B 的兩支只讀，不動 repo。）C1 的 `head` 就是回復點 C_HEAD。
+   （trunk 的 06 不寫這三個檔，那是 B 加的；B 的三支只讀，不動 repo。）**C1 跑完立刻比它的前後兩份身分**
+   （`unchanged_reasons` 不看 `recorded_at`；第七輪，re-review 的 N2），對上了才開始 C2——不然要到第 5 步才發現。
+   有 STOP ⇒ 照下面「身分被拒絕」的那一條；C2 跑完同樣比一次。
 
-2. **merge B 進主 checkout 的 trunk，只在本地、不 push**（orchestrator 做）：
+2. **merge B 進主 checkout 的 trunk，只在本地、不 push**（orchestrator 做；第七輪，re-review 的 F2）：
    ```
-   git -C $M merge --no-ff --no-edit $B_SHA; T_MERGE=$(git -C $M rev-parse HEAD)
-   [[ "$(git -C $M rev-parse $T_MERGE^1)" == "$C_HEAD" && "$(git -C $M rev-parse $T_MERGE^2)" == "$(git -C $M rev-parse $B_SHA)" \
-      && "$(git -C $M rev-parse $T_MERGE^{tree})" == "$(git -C $M merge-tree --write-tree $C_HEAD $B_SHA | head -1)" ]] || echo STOP
+   V=/home/adam/Desktop/NDTwin-Kernel/scratch/live-extb/vars; source "$V"; : "${M:?}" "${B_SHA:?}" "${C_HEAD:?}" "${C1:?}" "${C2:?}"
+   if [[ "$(git -C $M rev-parse HEAD)" != "$C_HEAD" ]]; then echo "STOP: trunk moved since step 0 -- no merge"
+   elif ! git -C $M diff --cached --quiet; then echo "STOP: staged changes in $M -- no merge"
+   elif ! git -C $M merge --no-ff --no-edit $B_SHA; then
+       git -C $M merge --abort 2>/dev/null
+       [[ "$(git -C $M rev-parse HEAD)" == "$C_HEAD" ]] && echo "STOP: merge refused (git said why, above) -- no T; HEAD is still C_HEAD" \
+           || echo "STOP: merge refused and HEAD is not C_HEAD"
+   else
+       T_MERGE=$(git -C $M rev-parse HEAD); echo "T_MERGE=$T_MERGE" >> "$V"
+       [[ "$(git -C $M rev-parse $T_MERGE^1)" == "$C_HEAD" && "$(git -C $M rev-parse $T_MERGE^2)" == "$(git -C $M rev-parse $B_SHA)" \
+          && "$(git -C $M rev-parse $T_MERGE^{tree})" == "$(git -C $M merge-tree --write-tree $C_HEAD $B_SHA | head -1)" ]] \
+          && echo MERGED || echo "STOP: the merge is not C plus B -- step 6, no T"
+   fi
    ```
+   - `trunk moved`：凍結被破了。**不 merge**；回報；C1、C2 跑的是舊的 head，作廢，**從第 0 步重新開始**。
+   - `staged changes`／`merge refused`：HEAD 仍是 C_HEAD（STOP 那一行說了），不跑 T，回報；那份改動的主人把它移走之後，
+     C1、C2 只在它們的身分與現在的一樣時才沿用（`code_identity.py record` 一份，`unchanged_reasons` 對 C2 的 after），
+     否則從第 0 步重來。
+   - `the merge is not C plus B`：**做第 6 步**（它回復的正好是這一個 merge），不跑 T，回報。
 
 3. **處理組 T（含 B）**：一次 `PART=h5`，`OLD_06` 指向 C1，身分對 C1 跑完時的那份檢查：
    ```
-   NDT_OWNER=<你> OLD_06=<C1> C_IDENTITY=<C1>/00_identity.after.txt B_SHA=$B_SHA PART=h5 bash $M/$LP/08_heartbeat.sh
+   V=/home/adam/Desktop/NDTwin-Kernel/scratch/live-extb/vars; source "$V"; : "${M:?}" "${LP:?}" "${B_SHA:?}" "${C1:?}" "${T_MERGE:?}"
+   [[ "$(git -C $M rev-parse HEAD)" == "$T_MERGE" ]] || echo "STOP: HEAD is not T's merge"
+   NDT_OWNER=<你> OLD_06=$C1 C_IDENTITY=$C1/00_identity.after.txt B_SHA=$B_SHA PART=h5 bash $M/$LP/08_heartbeat.sh
    ```
    它跑完整的 06（26 臂）一次、旁邊的 sampler 每秒讀一次 daemon 的報告與控制器 log 的大小，接著跑 01。T＝它印的
-   `06 rc …, raw …` 那個 06 run（B 的 06 自己寫 `00_venv.txt` 與兩份身分）；samples＝`<08 的 run 目錄>/50_samples.tsv`。
+   `06 rc …, raw …` 那個 06 run（B 的 06 自己寫 `00_venv.txt` 與兩份身分），H5＝08 自己的 raw 目錄；
+   `echo "T=<06 raw>" >> "$V"; echo "H5=<08 raw>" >> "$V"`。
 
-4. **H1–H4，仍在本地 merge 之下、判定之前**：`NDT_OWNER=<你> bash $M/$LP/08_heartbeat.sh`（`PART` 預設 h1h4）。
+4. **H1–H4，仍在本地 merge 之下、判定之前**：`source "$V"; : "${T_MERGE:?}"`，確認 HEAD 仍是 `$T_MERGE`，然後
+   `NDT_OWNER=<你> bash $M/$LP/08_heartbeat.sh`（`PART` 預設 h1h4）。
 
 5. **比對**：
    ```
-   python3 $M/$LP/external_evidence.py compare <C1> <T> --control2 <C2> --samples <08 的 run 目錄>/50_samples.tsv --b-sha $B_SHA
+   V=/home/adam/Desktop/NDTwin-Kernel/scratch/live-extb/vars; source "$V"; : "${B_WT:?}" "${LP:?}" "${C1:?}" "${C2:?}" "${T:?}" "${H5:?}" "${B_SHA:?}"
+   python3 $B_WT/$LP/external_evidence.py compare $C1 $T --control2 $C2 --samples $H5/50_samples.tsv --b-sha $B_SHA
    ```
 
-6. **結束**：判定是通過 ⇒ 照 orchestrator 的順序 push，解除凍結。其他每一種結果 ⇒ **回復本地 merge**，先確認 HEAD
-   還是 T 的 merge commit：
+6. **回復本地 merge**（判定是通過以外的每一種結果；第七輪，re-review 的 F1）：
    ```
-   [[ "$(git -C $M rev-parse HEAD)" == "$T_MERGE" ]] && git -C $M reset --keep $C_HEAD || echo "STOP: HEAD is not T's merge"
+   V=/home/adam/Desktop/NDTwin-Kernel/scratch/live-extb/vars; source "$V"; : "${M:?}" "${C_HEAD:?}" "${T_MERGE:?}"
+   H=$(git -C $M rev-parse HEAD)
+   if [[ "$H" == "$C_HEAD" ]]; then echo "HEAD is already C_HEAD -- nothing to reset"
+   elif [[ "$H" != "$T_MERGE" ]]; then echo "STOP: HEAD is not T's merge -- no reset"
+   elif ! git -C $M diff --cached --quiet; then echo "STOP: staged changes in $M -- reset --keep would unstage them; no reset"
+   elif ! git -C $M reset --keep "$T_MERGE^1"; then echo "STOP: reset --keep refused -- local edits to files B changes (listed above)"
+   fi
+   [[ "$(git -C $M rev-parse HEAD)" == "$C_HEAD" ]] && echo ROLLED-BACK || echo "STOP: HEAD is not C_HEAD -- do not unfreeze"
    ```
-   HEAD 不是 T_MERGE（凍結期間有人 commit 了）⇒ **不 reset**，回報。**永遠是 `--keep`，不是 `--hard`**：主
-   checkout 帶著別人未提交的檔，`--keep` 遇到會被蓋掉的本地改動就停下來，`--hard` 會直接丟掉它們。回復後
-   `git -C $M rev-parse HEAD` 應等於 C_HEAD、程式路徑的未提交清單應等於 C1 身分裡的那份。
+   - 回到的是 `$T_MERGE^1`（merge 時的那個 head），不是 `$C_HEAD`：兩者不同時，`--keep $C_HEAD` 會把凍結期間別人的
+     commit 從 trunk 上拿掉（只剩 reflog）。**永遠是 `--keep`，不是 `--hard`**：主 checkout 帶著別人未提交的檔，
+     `--keep` 遇到會被蓋掉的本地改動就停下來，`--hard` 會直接丟掉它們。
+   - `reset --keep refused` 或 `staged changes`：**凍結不解除**。那份改動的主人把它移走（在別處 commit，或
+     `git stash`；**絕不** `--hard`、`checkout --`），然後重做這一步。（為什麼也查 staged：第七輪在一個 clone 裡演練，
+     `reset --keep` 會把別人 stage 好、與 B 無關的檔**默默 unstage**，內容留著、stage 沒了。）
+   - `HEAD is not T's merge`（凍結期間有人在 merge 上又 commit 了）：不 reset，回報，凍結不解除。
+   - reset 成功而 HEAD 不是 C_HEAD：別人的 commit 留在 trunk 上；回報，從第 0 步重新開始。
+   - `ROLLED-BACK` 之後：`python3 $B_WT/$LP/code_identity.py record $M <檔>`，用 `unchanged_reasons` 對 `$C1/00_identity.after.txt`
+     比——程式路徑的未提交清單、binary、venv、`~/tutorials` 應該都回到 C1 時的樣子；不同就回報。
 
-7. 解除凍結（orchestrator 宣布）。
+7. **解除凍結**（orchestrator 宣布）——**只在**第 6 步印出 `ROLLED-BACK` 之後，或通過而 push 完之後。通過的那條路：
+   push 之前，GUI v2 的 python 與 browser 測試、ndt_serve 的 mutation 閘門要在 merged head 上綠過（第七輪做了，
+   re-review 的 N6）。最後把 `$V` 搬進 T 的 raw 目錄留底（`mv "$V" $T/00_procedure.vars`）。
 
 **判定（預先登記；只看下面這些，08 最後一行的 PASS／FAIL 不是 B 的判準）**：
 - **H5 本身**：`H5 where the heartbeat ran` 必須是 OK（剛好 20 臂，含 3 個 external 臂——這就是 drop check 在
@@ -511,16 +606,26 @@ B 沒有改任何 C++，**不需要重建 kernel**（重建了，身分就不同
     - 重跑 rc 2（讀不到或 UNDECIDED）⇒ 同上：不通過、回復、回報，不跑第三次；
     - 重跑 rc 3（拒絕：程序出錯）⇒ 那次不算一次讀數；修正原因後**最多再做一次**這個重跑，再被拒絕 ⇒ 停下回報。
 - **rc 2**：
-  - `UNREADABLE` ⇒ 重跑出問題的那一個 run 一次，同樣原因再出現就回報。
+  - `UNREADABLE` ⇒ 重跑出問題的那一個 run 一次，同樣原因再出現就回報。讀不到的是**對照組**：先照第 6 步回復
+    （`ROLLED-BACK`），照第 1 步重跑那一個對照組（寫回 `$V` 的同一個名字），再照第 2 步 merge 同一個 B_SHA——新的
+    merge commit 的 tree 必須與舊的 `T_MERGE` 相同（`git rev-parse <新>^{tree}` 對 `<舊>^{tree}`），T 不重跑
+    （第七輪，re-review 的 N4）。讀不到的是 T：照第 3 步重跑，不回復。
   - `UNDECIDED`，對照組在一個判定欄位上彼此不同（預先登記以為是確定的，結果不是）⇒ 再跑兩次對照組 C3、C4
     （第 1 步；merge 之後要跑對照組就得先照第 6 步回復），`--control2 C2 --control2 C3 --control2 C4` 重比一次；
     通過 ⇒ 照第 2 步再 merge 同一個 B_SHA，它的 tree 必須與 T_MERGE 的相同；還是 UNDECIDED ⇒ 回報 Adam，
     **不算通過也不算失敗**。
+  - 第一次比對**同時**有判定欄位的 DIFF 與對照組彼此不同：rc 1，走上面「T 重跑一次」那條；重跑最好也只到 rc 2
+    （對照組的分歧還在），那就是「不通過、不跑第三次」，C3、C4 的路走不到。這是登記好的結果，只是浪費，照做
+    （第七輪，re-review 的 N5）。
   - `UNDECIDED heard`，某臂控制器的窗口不到 10 s ⇒ T 重跑一次；還是 ⇒ 回報 Adam，不算通過也不算失敗。
-- **rc 3**（拒絕）：程序沒照做（缺 samples／C2／`--b-sha`／身分、對照組有心跳痕跡、session 沒有從頭到尾在跑、在
-  控制器的窗口裡沒有每個方向都聽到）⇒ 修正後重跑；**心跳在某一臂中途停掉或什麼都沒聽到的處理組不算通過**。
+- **rc 3**（拒絕；第七輪，re-review 的 F3：有上限）：
+  - **指令錯了**（少了 `--samples`／`--control2`／`--b-sha`、路徑打錯）⇒ 改正指令再比一次；**不重跑任何 run**。
+  - **某個 run 因為它自己的內容被拒**（處理組的 session 沒有從頭到尾在跑、在控制器的窗口裡沒有每個方向都聽到、
+    一個 run 前後的身分不同、對照組有心跳痕跡）⇒ **那個 run 重做一次**：T 照第 3 步；對照組先照第 6 步回復，照
+    第 1 步重跑，再照第 2 步 merge（tree 對舊的 `T_MERGE`）。**同一種拒絕再出現一次 ⇒ 停下回報，不算通過也不算
+    失敗**；不再重做。**心跳在某一臂中途停掉或什麼都沒聽到的處理組不算通過。**
   - **身分被拒絕而原因是別人的改動**（拒絕訊息裡不同的檔或 binary 不是這個程序動的：凍結期間別人改了主 checkout
-    的程式路徑、重編了 kernel、換了 `~/tutorials`）⇒ 先回復（若已 merge），**從第 0 步、C1 重新開始**；被拒的 run
+    的程式路徑、重編了 kernel、換了 `~/tutorials`）⇒ 先照第 6 步回復（若已 merge），**從第 0 步、C1 重新開始**；被拒的 run
     留著當 raw，不再使用。
   - **merge 被拒**（第 2 步：本地改動會被蓋掉，或有衝突）⇒ 有衝突就 `git -C $M merge --abort`；確認 HEAD 仍是 C_HEAD；
     **不跑 T**，回報。C1、C2 只在之後的身分仍然相同時才能沿用。
