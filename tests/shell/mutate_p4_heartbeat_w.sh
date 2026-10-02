@@ -1857,6 +1857,24 @@ m=$(lmutant l85 "$REPO/$LIVE_DIR_REL/code_identity.py" \
     '        ident["parents"] = []')
 lreport "L85: the identity records no parents" "$m" \
         "  identity gate, the good case"
+# [Co-developed with claude code -- Adam] Round 6 (the round-5 re-review's M-3): the sampler's ctrl_logs
+# column, which places the controller's pipeline push among the samples. L86: no sizes; L87: rounds
+# from before the sampler started are listed; L88: the runs directory is not handed to it.
+m=$(lmutant l86 "$LIVE08" \
+    '                out.append("%s/%s:%d" % (r.name, n, os.stat(os.path.join(r.path, n)).st_size))' \
+    '                out.append("%s/%s:0" % (r.name, n))')
+lreport "L86: the sampler records no controller log sizes" "$m" \
+        "🔴 H5 sampler ctrl_logs column"
+m=$(lmutant l87 "$LIVE08" \
+    '        rounds = sorted((e for e in os.scandir(runs) if e.is_dir() and e.stat().st_mtime >= began - 2),' \
+    '        rounds = sorted((e for e in os.scandir(runs) if e.is_dir()),')
+lreport "L87: the sampler lists rounds from before it started" "$m" \
+        "🔴 H5 sampler ctrl_logs column"
+m=$(lmutant l88 "$LIVE08" \
+    '"${SAMPLER_INTERVAL_S:-1.0}" "${SAMPLER_RUNS_DIR:-$LIVE_DIR/../runs}" \' \
+    '"${SAMPLER_INTERVAL_S:-1.0}" \')
+lreport "L88: the sampler is not told where the rounds are" "$m" \
+        "🔴 H5 sampler ctrl_logs column"
 m=$(lmutant l47 "$LIVE08" \
     '    if d <= b:
         return f"OK detection {d:.3f} s, within the strict {b:g} s"' \

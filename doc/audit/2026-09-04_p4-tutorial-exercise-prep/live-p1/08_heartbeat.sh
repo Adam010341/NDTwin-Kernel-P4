@@ -879,15 +879,45 @@ identity_gate() {
 # for none), read from /proc. external_evidence.py refuses an external arm whose session did not
 # hear every direction while its controller ran: a daemon that runs and hears nothing is no
 # treatment.
-SAMPLER_HEADER=$'wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches\twritten_wall\tstop_reason\tmisdelivered\tforeign_frames\theard\tcontrollers'
+# [Co-developed with claude code -- Adam] (round 6) and `ctrl_logs`: the size of every exercise
+# controller's log -- "<round dir>/driver-controller-<x>.log:<bytes>", joined by commas ("-" for
+# none) -- in the round directories of drive_exercise.py's runs/ ($SAMPLER_RUNS_DIR, argv 5) made
+# since the sampler started. external_evidence.py places the controller's pipeline push among the
+# samples by it: the first sample whose size reaches the push line's end opens the window the
+# session must hear every direction in, and the log's last write closes it.
+SAMPLER_HEADER=$'wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches\twritten_wall\tstop_reason\tmisdelivered\tforeign_frames\theard\tcontrollers\tctrl_logs'
 SAMPLER_PY="$(cat <<'SAMPLER'
 import json, os, sys, time
 report, out, stop = sys.argv[1], sys.argv[2], sys.argv[3]
 interval = float(sys.argv[4]) if len(sys.argv) > 4 else 1.0
-end = time.time() + 5 * 3600
+runs = sys.argv[5] if len(sys.argv) > 5 else ""
+began = time.time()
+end = began + 5 * 3600
 HEADER = ("wall", "status", "session", "pid", "forwarded_to_hosts", "forwarded_between_switches",
-          "written_wall", "stop_reason", "misdelivered", "foreign_frames", "heard", "controllers")
+          "written_wall", "stop_reason", "misdelivered", "foreign_frames", "heard", "controllers",
+          "ctrl_logs")
 CONTROLLER = b"run_external_controller.py"
+
+
+def ctrl_logs():
+    out = []
+    try:
+        rounds = sorted((e for e in os.scandir(runs) if e.is_dir() and e.stat().st_mtime >= began - 2),
+                        key=lambda e: e.name)
+    except OSError:
+        return "-"
+    for r in rounds:
+        try:
+            names = sorted(n for n in os.listdir(r.path)
+                           if n.startswith("driver-controller-") and n.endswith(".log"))
+        except OSError:
+            continue
+        for n in names:
+            try:
+                out.append("%s/%s:%d" % (r.name, n, os.stat(os.path.join(r.path, n)).st_size))
+            except OSError:
+                pass
+    return ",".join(out) or "-"
 
 
 def controllers():
@@ -926,7 +956,7 @@ def row(fh):
                   se.get("misdelivered"), se.get("foreign_frames"), heard(d))
     except (OSError, ValueError, AttributeError):
         values = (wall, "absent", "-", "-", 0, 0, "-", "", 0, 0, "-")
-    fh.write("\t".join(str(v) for v in values + (controllers(),)) + "\n")
+    fh.write("\t".join(str(v) for v in values + (controllers(), ctrl_logs())) + "\n")
 
 
 with open(out, "a", buffering=1) as fh:
@@ -945,7 +975,7 @@ sampler_start() {
     SAMPLER_STOP="$RUN/.sampler.stop"
     SAMPLER_ERR="$RUN/50_sampler.err"
     rm -f "$SAMPLER_STOP"
-    setsid "$VPY" -I -c "$SAMPLER_PY" "$HB_REPORT_FILE" "$out" "$SAMPLER_STOP" "${SAMPLER_INTERVAL_S:-1.0}" \
+    setsid "$VPY" -I -c "$SAMPLER_PY" "$HB_REPORT_FILE" "$out" "$SAMPLER_STOP" "${SAMPLER_INTERVAL_S:-1.0}" "${SAMPLER_RUNS_DIR:-$LIVE_DIR/../runs}" \
         > /dev/null 2> "$SAMPLER_ERR" &
     SAMPLER_PID=$!
     for (( i = 0; i < 50; i++ )); do
@@ -1969,12 +1999,18 @@ doc = {"format": 1, "source": "heartbeat", "status": st, "session": se, "pid": 4
                       {"id": 2, "heard": 5, "tx": {"dpid": 2, "port": 2}, "rx": {"dpid": 1, "port": 2}}]}
 open(p + ".tmp", "w").write(json.dumps(doc)); os.replace(p + ".tmp", p)' "$rep" "$@"
         }
+        # [Co-developed with claude code -- Adam] (round 6) a runs/ with a round from before the
+        # sampler started (its controller log must never appear) and one made while it reads
+        mkdir -p "$d/runs/old_round"; printf 'old\n' > "$d/runs/old_round/driver-controller-p4runtime.log"
+        touch -d '-1 hour' "$d/runs/old_round"
         (   RUN="$d/run"; HB_REPORT_FILE="$rep"; SAMPLER_PID=""; SAMPLER_STOP=""; SAMPLER_INTERVAL_S=0.1
-            VERDICT_RC=0; VERDICT_WHY=""
+            SAMPLER_RUNS_DIR="$d/runs"; VERDICT_RC=0; VERDICT_WHY=""
             note() { echo "note: $*" >&3; }; fail() { echo "fail: $*" >&3; }; bad() { echo "bad: $*" >&3; }
             sampler_start "$d/samples.tsv" && echo "started rc 0" >&3 || echo "started rc $?" >&3
             sleep 0.5
+            mkdir -p "$d/runs/new_round"; printf 'push\n' > "$d/runs/new_round/driver-controller-flowcache.log"
             wr running aaaa 0 0; sleep 0.5
+            printf 'entry entry\n' >> "$d/runs/new_round/driver-controller-flowcache.log"
             # [Co-developed with claude code -- Adam] an exercise controller, as far as argv goes, for
             # the next reads (M-3: the sampler records which ones are alive)
             "$VPY" -c 'import time; time.sleep(1.2)' /x/tools/p4_exercise/run_external_controller.py pkg c.py &
@@ -1995,10 +2031,10 @@ open(p + ".tmp", "w").write(json.dumps(doc)); os.replace(p + ".tmp", p)' "$rep" 
     # the daemon's other two counters are on every row too -- ten fields.
     got="$(awk -F'\t' 'NR == 1 {next} {k = $2 " " $3 " " $5 " " $6 " " $7 " " $8 " " $11; if (k != last) {printf "%s|", k; last = k}}' "$d/samples.tsv" 2>/dev/null)" || true
     want="absent - 0 0 -  -|running aaaa 0 0 1000.5  1:2>2:2=3,2:2>1:2=5|running aaaa 0 1 1000.5  1:2>2:2=4,2:2>1:2=5|stopped aaaa 2 3 1000.5 SIGTERM 1:2>2:2=6,2:2>1:2=5|absent - 0 0 -  -|running bbbb 0 0 1000.5  1:2>2:2=3,2:2>1:2=5|"
-    local hdr=$'wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches\twritten_wall\tstop_reason\tmisdelivered\tforeign_frames\theard\tcontrollers'
+    local hdr=$'wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches\twritten_wall\tstop_reason\tmisdelivered\tforeign_frames\theard\tcontrollers\tctrl_logs'
     if [[ "$(head -1 "$d/samples.tsv" 2>/dev/null)" == "$hdr" && "$got" == "$want" ]] \
-       && awk -F'\t' 'NR > 1 && (NF != 12 || $1 !~ /^[0-9]+\.[0-9]$/) {bad = 1} END {exit bad}' "$d/samples.tsv"; then
-        ok "H5 sampler: the real SAMPLER_PY writes its header and one 12-field row per read (written_wall, stop_reason and every direction's heard included), through missing, running, stopped (final counters) and a second session"
+       && awk -F'\t' 'NR > 1 && (NF != 13 || $1 !~ /^[0-9]+\.[0-9]$/) {bad = 1} END {exit bad}' "$d/samples.tsv"; then
+        ok "H5 sampler: the real SAMPLER_PY writes its header and one 13-field row per read (written_wall, stop_reason, every direction's heard and the controller logs' sizes included), through missing, running, stopped (final counters) and a second session"
     else
         red "H5 sampler rows: header '$(head -1 "$d/samples.tsv" 2>/dev/null)', rows '$got' (want '$want'); $(tr '\n' ' ' < "$d/notes.txt" 2>/dev/null)"
     fi
@@ -2008,6 +2044,12 @@ open(p + ".tmp", "w").write(json.dumps(doc)); os.replace(p + ".tmp", p)' "$rep" 
     [[ -n "$cpid" && "$got" =~ ^([1-9][0-9]*)\ of\ ([0-9]+)$ ]] && (( BASH_REMATCH[1] < BASH_REMATCH[2] )) \
         && ok "🔴 H5 sampler: the exercise controller (pid $cpid) is in the controllers column while it lives, and only then ($got reads)" \
         || red "🔴 H5 sampler controllers column: '$cpid' in $got reads"
+    # [Co-developed with claude code -- Adam] (round 6) the controller logs' sizes, as they grow: a
+    # round made after the sampler started is read; one from before it never is.
+    got="$(awk -F'\t' 'NR > 1 && $13 != last {printf "%s|", $13; last = $13}' "$d/samples.tsv" 2>/dev/null)" || true
+    [[ "$got" == "-|new_round/driver-controller-flowcache.log:5|new_round/driver-controller-flowcache.log:17|" ]] \
+        && ok "🔴 H5 sampler: ctrl_logs records the size of each controller log in a round made since it started, as it grows (5, then 17 bytes), and never a round from before it" \
+        || red "🔴 H5 sampler ctrl_logs column: '$got'"
     got="$(tail -1 "$d/samples.tsv" 2>/dev/null | cut -f2,3)" || true
     [[ "$got" == $'running\tbbbb' ]] && /usr/bin/grep -q '^started rc 0$' "$d/notes.txt" \
         && ok "  sampler_start said it had started, and the stop path took a last sample of the report as it stood" \
