@@ -324,8 +324,9 @@ FAIL。）
   `OLD_06` 不是 26 臂就在開跑前拒絕，rc 2），並確認心跳只在 20 個多交換機、
   有建出來的外來臂上跑過（09-27 前是 17 個：當時不含 3 個 external 臂）；接著跑 01。sampler 每一列也記報告的
   `written_wall`、`stop_reason` 與 daemon 的四個計數器，`50_t06_end.txt` 記 06 結束的時間；第五輪起再加每個方向的
-  `heard` 與當下活著的 exercise 控制器 pid。`C_IDENTITY`＋`B_SHA` 給了時，06 開跑前先確認這棵樹是對照組的程式
-  加上 B（`code_identity.py verify`），不是就 rc 2。
+  `heard` 與當下活著的 exercise 控制器 pid，第六輪起再加每個控制器 log 的大小（`ctrl_logs`，sampler 開始之後
+  才建的 round 目錄裡的 `driver-controller-*.log`）。`C_IDENTITY`＋`B_SHA` 給了時，06 開跑前先確認這棵樹是對照組的
+  程式加上 B（`code_identity.py verify`），不是就 rc 2。
 - 任何 `forwarded_to_hosts > 0`（心跳幀離開 host 埠）＝裁決 4，最後一行以 `STOP` 開頭。
 
 [Co-developed with claude code -- Adam]
@@ -389,7 +390,7 @@ flowcache/solution）上也啟動心跳：proxy 宣告 package 的連線、由�
   **現在回到不報任何路徑**（unknown，不是猜測）：轉發是 exercise 自己的控制器的事，proxy 不知道。宣告的連線
   照樣進 topology（心跳要判它們）；NDTwin 自己的 pipeline 不變。
 
-### 合併前的比對——可以照著跑的程序（預先登記；第五輪重寫，round-4 review 的 M-1、M-2、S-9）
+### 合併前的比對——可以照著跑的程序（預先登記；第五輪重寫，第六輪改：round-5 re-review 的 M-1..M-3、S-9）
 
 [Co-developed with claude code -- Adam]
 
@@ -397,131 +398,185 @@ flowcache/solution）上也啟動心跳：proxy 宣告 package 的連線、由�
 solution）**exercise 自己**的證據有沒有變。**不是**拿來和 074635Z 比：它跑的是 `5dc7fc9a` ＋ 95 個未提交的檔，
 沒有 venv 指紋，只能當參考。
 
-**這一輪改了什麼、為什麼**（第四輪的程序照做會出錯）：
+**第五輪改了什麼**（第四輪的程序照做會出錯）：
 - 第四輪的 C1／C2 是 `ONLY=p4runtime,flowcache`（4 臂），而 T 的 H5 拿 C1 當 `OLD_06` 比 26 臂——每一次 T 都會
   以 `H5 06 against <C1>: the reference table has 4 arms, not 26` 收尾（M-1）。⇒ **對照組改成完整的 06**；08 的
   `PART=h5` 在 `OLD_06` 不是 26 臂時，**什麼都還沒跑就拒絕**（rc 2）。對照組與處理組因此也跑同一個臂序。
-- 本地 merge 沒有保護（M-2）。⇒ 每個 run 記下**程式身分**（`code_identity.py`）：HEAD 與它的 parents、
-  未提交的追蹤檔（路徑、狀態、檔案內容的 sha256）、kernel／fabric 的 bmv2／drop check 的 stock bmv2／
-  安裝的 helper 的 sha256、兩個 venv 的指紋 sha。`compare` 拒絕（rc 3）：對照組彼此不同、T 的第一個 parent
-  不是對照組的 HEAD、第二個 parent 不是 `--b-sha`、未提交的檔不同或其中有 B 也改的檔、任何一個 binary 或
-  venv 不同。08 在 `C_IDENTITY` 給了時，06 開跑前就做同一個檢查。
-  - 未追蹤的檔**不記**：每個 live run 都在 `runs/` 底下加 raw，所以它們必然不同（揭露，不檢查）。
-- 一個欄位的範圍規則撐不住小的誤判率（S-9，算式在下面）。⇒ 欄位分成**判定的**與**只描述的**，依據是 34 個
-  更早、沒有心跳的同臂 round。
-- 處理組的 session 必須在控制器活著的期間**每個方向都聽到幀**（M-3）：sampler 現在記每個方向的 `heard`
-  與當下活著的 `run_external_controller.py` 的 pid，`compare` 用 round 報告裡的 `controller pid N` 找出控制器
-  的那段時間，有任何一個方向沒增加就拒絕（rc 3）。daemon 在跑但什麼都沒聽到＝沒有處理。
+- 本地 merge 沒有保護（M-2）。⇒ 每個 run 記下**程式身分**（`code_identity.py`），`compare` 對不上就拒絕（rc 3）。
+- 一個欄位的範圍規則撐不住小的誤判率（S-9，算式在下面）。⇒ 欄位分成**判定的**與**只描述的**。
 
-**在哪裡跑**：全部從主 checkout（`/home/adam/Desktop/NDTwin-Kernel`）跑。這台機器**沒有** `/etc/ndtwin-lab.conf`，
-ndt 用它內建的 `LAB_DEFAULT_KERNEL_DIR`，就是主 checkout（`tools/test_workflow/ndt` 的 `LAB_DEFAULT_KERNEL_DIR`），
-所以**不需要任何 root 步驟**。B 沒有改任何 C++，**不需要重建 kernel**（重建了，身分就不同，`compare` 會拒絕）。
-每一步都要 `NDT_OWNER=<你>`，照常 claim（06／08 自己 claim）。下面 `B_WT` 是 B 的 worktree、`B_SHA` 是要
-merge 的 B commit、`LP=doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1`。
+**第六輪改了什麼**（round-5 re-review；orchestrator 第六輪的裁定）：
+- **身分多記四件事，而且每個 run 記兩次**：開跑前（`00_identity.before.txt`）與跑完（`00_identity.after.txt`），
+  兩份不同 ⇒ 拒絕（跑的途中程式變了）。身分是：HEAD、它的 parents 與 **tree**；未提交的追蹤檔（路徑、狀態、
+  內容的 sha256）；kernel／fabric 的 bmv2／**fabric bmv2 的 `lib/`（底下每個 shared object 的 sha256）**／drop
+  check 的 stock bmv2／安裝的 helper 的 sha256；兩個 venv 的指紋；**`~/tutorials`**（HEAD、未提交的追蹤檔與
+  sha256、`exercises/p4runtime`、`exercises/flowcache`、`utils` 底下每個檔的 digest——`build/`、`logs/`、`pcaps/`、
+  `__pycache__` 不算，每個 round 都會重寫它們）。T 的 tree 必須等於 `git merge-tree --write-tree <C 的 HEAD> <B>`
+  算出來的那棵：手動解衝突、amend 過的 merge 都不是「C 加 B」。
+- **未提交檔的比較只看程式路徑**（orchestrator 裁定）：`doc/**/*.md` 與 `doc/audit/**/*.tsv` 不比（別的 session
+  整天在主 checkout 改 ledger 與報告），**其餘每一個追蹤檔都比**。未追蹤的檔仍然不記：每個 live run 都在
+  `runs/` 底下加 raw，必然不同（揭露，不檢查）。
+- **編譯器與程式也要一樣**：每臂的 round 報告裡 p4c 的 sha256 與每個編出來的 JSON 的 sha256（§2 的表；控制器推的
+  就是那個 `build/*.json`），在 C1、C2、T 之間必須相同，否則拒絕；報告裡沒有這兩列 ⇒ 讀不到（rc 2）。
+- **「聽到」改用控制器自己的時間窗**（M-3）：sampler 多記一欄 `ctrl_logs`——每個 round 目錄裡
+  `driver-controller-*.log` 當下的大小。窗的起點＝第一個看到 log 長到「最後一行 pipeline push（`Installed P4 Program
+  using SetForwardingPipelineConfig`）的結尾」的 sample；沒有 push 行就用第一行 rule／cache entry；兩者都沒有 ⇒
+  讀不到。終點＝log 最後一次寫入（mtime）。session 在窗口起點那一刻之前（含）的最後一個 sample 與終點之前（含）的
+  最後一個 sample 之間，**每個方向都要至少多聽到一輪**，否則拒絕（rc 3）；起點時 session 還沒在跑也拒絕。
+  **窗口短於兩個心跳週期（10 s）⇒ UNDECIDED（rc 2，照樣印出整份比對）**，不是拒絕：那麼短的窗口證明不了有沒有
+  聽到。控制器的 pid 不再是依據（第五輪的版本靠 round 報告的 `controller pid N`；那一欄留在 samples 裡當背景）。
+  測試用的是真的節奏：每個方向每 5 s 加一、sampler 每秒讀一次。
+- **34 個依據 round 凍結了**：`external_survey_34.tsv` 記每個 round 報告與控制器 log 的路徑與 sha256；
+  `external_survey.py <主 checkout 的 prep 目錄>` 檔案不見、內容變了、或任何一個帶心跳痕跡（detect-only 行、
+  heartbeat block、running 列）就拒絕，其餘印出每臂每欄有幾種值（OBSERVED，2026-10-02：34 個都對得上、都沒有心跳，
+  輸出在 logs/gates-0910/extb6/survey.out）。
+- 程序本身（下面）：凍結從 C1 前到判定後；merge 之前的祖先檢查；H1–H4 在本地 merge 之下、判定之前跑；回復前檢查
+  HEAD 是 T 的 merge commit；每一種中途結果都預先登記。
 
-0. **凍結**：orchestrator 宣布從這一步到判定為止，trunk **不 push、不 merge**（ruling，round 5）。主 checkout 停在
-   trunk 的 head，**還沒** merge B。
+**在哪裡跑**：全部從主 checkout（`/home/adam/Desktop/NDTwin-Kernel`，下面寫成 `$M`）跑。這台機器**沒有**
+`/etc/ndtwin-lab.conf`，ndt 用它內建的 `LAB_DEFAULT_KERNEL_DIR`，就是主 checkout，所以**不需要任何 root 步驟**。
+B 沒有改任何 C++，**不需要重建 kernel**（重建了，身分就不同，`compare` 會拒絕）。每一步都要 `NDT_OWNER=<你>`，
+照常 claim（06／08 自己 claim）。`B_WT` 是 B 的 worktree（停在 `B_SHA`）、`B_SHA` 是要 merge 的 B commit、
+`LP=doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1`、`ID="python3 $B_WT/$LP/code_identity.py"`。
 
-1. **對照組 C1、C2（不含 B，完整的 06，不加 `ONLY=`）**：
+0. **凍結與檢查**（orchestrator 宣布）：從這一步到第 7 步結束，trunk **不 commit、不 merge、不 push**。主 checkout
+   停在 trunk 的 head，**還沒** merge B：
    ```
-   cd /home/adam/Desktop/NDTwin-Kernel
-   NDT_OWNER=<你> bash $LP/06_thirteen.sh        # C1：最後一行前一行印出 raw 目錄
-   NDT_OWNER=<你> bash $LP/06_thirteen.sh        # C2
+   C_HEAD=$(git -C $M rev-parse HEAD); [[ "$C_HEAD" == "$(git -C $M rev-parse trunk)" ]] || echo STOP
+   git -C $M merge-base --is-ancestor $C_HEAD $B_SHA \
+     || [[ "$(git -C $M merge-tree --write-tree $C_HEAD $B_SHA | head -1)" == "$(git -C $M rev-parse $B_SHA^{tree})" ]] \
+     || echo STOP
    ```
-   trunk 的 06 不寫 `00_venv.txt`、`00_identity.txt`（那是 B 加的），所以**每一次跑完立刻**用 B 分支裡的兩支
-   補記（它們只讀，不動 repo）：
+   第二行：trunk 的 head 是 B 的祖先，或兩者 merge 出來的 tree 就是 B 的 tree——否則 T 跑的不是 B 測過的那棵，
+   **停下**，B 先 merge trunk、重跑閘門，再從這一步開始。
+
+1. **對照組 C1、C2（不含 B，完整的 06，不加 `ONLY=`）**，每一個都在開跑前與跑完各記一次身分：
    ```
-   bash   $B_WT/$LP/venv_fingerprint.sh <C 的 run 目錄>/00_venv.txt /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/p4dev-python-venv/bin/python
-   python3 $B_WT/$LP/code_identity.py record /home/adam/Desktop/NDTwin-Kernel <C 的 run 目錄>/00_identity.txt
+   S=$(mktemp -d); $ID record $M $S/before.json        # 開跑前
+   NDT_OWNER=<你> bash $M/$LP/06_thirteen.sh            # 最後一行前一行印出 raw 目錄 R
+   cp $S/before.json $R/00_identity.before.txt
+   $ID record $M $R/00_identity.after.txt               # 跑完
+   bash $B_WT/$LP/venv_fingerprint.sh $R/00_venv.txt $M/p4_proxy/venv/bin/python /home/adam/p4dev-python-venv/bin/python
    ```
-   C1 的 `00_identity.txt` 的 `head` 就是**回復點**（C_HEAD）。
+   （trunk 的 06 不寫這三個檔，那是 B 加的；B 的兩支只讀，不動 repo。）C1 的 `head` 就是回復點 C_HEAD。
 
 2. **merge B 進主 checkout 的 trunk，只在本地、不 push**（orchestrator 做）：
    ```
-   git -C /home/adam/Desktop/NDTwin-Kernel merge --no-ff --no-edit $B_SHA
-   ```
-   有衝突就 `git -C /home/adam/Desktop/NDTwin-Kernel merge --abort`，回報，不跑 T。
-
-3. **處理組 T（含 B）**：一次 `PART=h5`，`OLD_06` 指向 C1，身分對 C1 檢查：
-   ```
-   NDT_OWNER=<你> OLD_06=<C1 的 run 目錄> C_IDENTITY=<C1 的 run 目錄>/00_identity.txt B_SHA=$B_SHA PART=h5 \
-       bash $LP/08_heartbeat.sh
-   ```
-   它跑完整的 06（26 臂）一次、旁邊的 sampler 每秒讀一次 daemon 的報告（含 `written_wall`、`stop_reason`、四個
-   計數器、每個方向的 `heard`、活著的控制器 pid），接著跑 01。T＝它印的 `06 rc …, raw …` 那個 06 run（B 的 06
-   自己寫 `00_venv.txt` 與 `00_identity.txt`）；samples＝`<08 的 run 目錄>/50_samples.tsv`。**只有這一種處理組。**
-
-4. **比對**：
-   ```
-   python3 $LP/external_evidence.py compare <C1> <T> --control2 <C2> --samples <08 的 run 目錄>/50_samples.tsv --b-sha $B_SHA
+   git -C $M merge --no-ff --no-edit $B_SHA; T_MERGE=$(git -C $M rev-parse HEAD)
+   [[ "$(git -C $M rev-parse $T_MERGE^1)" == "$C_HEAD" && "$(git -C $M rev-parse $T_MERGE^2)" == "$(git -C $M rev-parse $B_SHA)" \
+      && "$(git -C $M rev-parse $T_MERGE^{tree})" == "$(git -C $M merge-tree --write-tree $C_HEAD $B_SHA | head -1)" ]] || echo STOP
    ```
 
-5. **結束**：判定是通過 ⇒ 照 orchestrator 的順序 push，解除凍結。判定是失敗、或程序中途放棄 ⇒ **回復本地 merge**：
+3. **處理組 T（含 B）**：一次 `PART=h5`，`OLD_06` 指向 C1，身分對 C1 跑完時的那份檢查：
    ```
-   git -C /home/adam/Desktop/NDTwin-Kernel reset --keep <C_HEAD>
+   NDT_OWNER=<你> OLD_06=<C1> C_IDENTITY=<C1>/00_identity.after.txt B_SHA=$B_SHA PART=h5 bash $M/$LP/08_heartbeat.sh
    ```
-   **永遠是 `--keep`，不是 `--hard`**：主 checkout 帶著別人未提交的檔，`--keep` 遇到會被蓋掉的本地改動就停下來，
-   `--hard` 會直接丟掉它們。回復後 `git -C /home/adam/Desktop/NDTwin-Kernel rev-parse HEAD` 應等於 C_HEAD，
-   `status` 的未提交清單應等於 C1 身分裡的那份；然後解除凍結。
+   它跑完整的 06（26 臂）一次、旁邊的 sampler 每秒讀一次 daemon 的報告與控制器 log 的大小，接著跑 01。T＝它印的
+   `06 rc …, raw …` 那個 06 run（B 的 06 自己寫 `00_venv.txt` 與兩份身分）；samples＝`<08 的 run 目錄>/50_samples.tsv`。
 
-**判定（預先登記，第五輪；只看下面這些，08 最後一行的 PASS／FAIL 不是 B 的判準）**：
+4. **H1–H4，仍在本地 merge 之下、判定之前**：`NDT_OWNER=<你> bash $M/$LP/08_heartbeat.sh`（`PART` 預設 h1h4）。
+
+5. **比對**：
+   ```
+   python3 $M/$LP/external_evidence.py compare <C1> <T> --control2 <C2> --samples <08 的 run 目錄>/50_samples.tsv --b-sha $B_SHA
+   ```
+
+6. **結束**：判定是通過 ⇒ 照 orchestrator 的順序 push，解除凍結。其他每一種結果 ⇒ **回復本地 merge**，先確認 HEAD
+   還是 T 的 merge commit：
+   ```
+   [[ "$(git -C $M rev-parse HEAD)" == "$T_MERGE" ]] && git -C $M reset --keep $C_HEAD || echo "STOP: HEAD is not T's merge"
+   ```
+   HEAD 不是 T_MERGE（凍結期間有人 commit 了）⇒ **不 reset**，回報。**永遠是 `--keep`，不是 `--hard`**：主
+   checkout 帶著別人未提交的檔，`--keep` 遇到會被蓋掉的本地改動就停下來，`--hard` 會直接丟掉它們。回復後
+   `git -C $M rev-parse HEAD` 應等於 C_HEAD、程式路徑的未提交清單應等於 C1 身分裡的那份。
+
+7. 解除凍結（orchestrator 宣布）。
+
+**判定（預先登記；只看下面這些，08 最後一行的 PASS／FAIL 不是 B 的判準）**：
 - **H5 本身**：`H5 where the heartbeat ran` 必須是 OK（剛好 20 臂，含 3 個 external 臂——這就是 drop check 在
   live 也通過的證據）；ruling 4 的 STOP ⇒ 停下回報。某個 external 臂的 drop check 沒過 ⇒ 那臂沒有心跳、這一行
   會 BAD ⇒ T 無效，回報那臂的 drop check 輸出（每次 bring-up 一份 `.test_run/logs/heartbeat_drop_check.<UTC>.<pid>.log`，
   檔名就在那一行）。`H5 06 against <C1>` 的 rc／verdict 差異**只回報**：verdict 在更早的 round 裡會自己翻（見下），
-  不是判準；它讓 08 的最後一行變 FAIL 是可能的，不改變下面的判定。
+  不是判準。
+- **H1–H4**（第 4 步）：H4 **只**因為 `reported_to_kernel` 失敗 ⇒ kernel 處理 Down 交換機的發現（S4），不改變判定，
+  但要回報；H1–H3 任何一個 FAIL、或 H4 因為別的原因 FAIL ⇒ **不通過**，回復、回報。
 - **`compare` rc 0** ⇒ **通過**。
 - **rc 1**（判定欄位的差異）：
   - `!! DAEMON`（該臂的 session 算到任何轉出、誤送或外來的幀）或任何 0x88B5 的 packet-in ⇒ **立刻失敗，停下回報**
     （Adam 09-25 的條件），不補跑：這是心跳幀真的跑到哪裡去了，不是統計上的差異。
-  - 其他判定欄位的 `DIFF`／`INV BAD` ⇒ **T 重跑一次**（第 3 步，同一棵樹），用同樣的對照組再比一次：**同一臂的同一個
-    欄位或不變式再出現一次 ⇒ 失敗**，停下回報；重跑 rc 0 ⇒ 通過，並回報第一次的 DIFF。只重跑這一次。
-- **rc 2**：`UNREADABLE` ⇒ 重跑出問題的那一個 run 一次，同樣原因再出現就回報。`UNDECIDED`（對照組在一個判定欄位上
-  彼此不同：預先登記以為是確定的，結果不是）⇒ 再跑兩次對照組 C3、C4（第 1 步），`--control2 C2 --control2 C3
-  --control2 C4` 重比一次；還是 UNDECIDED ⇒ 回報 Adam，**不算通過也不算失敗**。
-- **rc 3**（拒絕）：程序沒照做（缺 samples／C2／`--b-sha`／身分、身分對不上、對照組有心跳痕跡、session 沒有從頭到尾
-  在跑、在控制器活著時沒有每個方向都聽到）⇒ 修正後重跑；**心跳在某一臂中途停掉或什麼都沒聽到的處理組不算通過**。
-- **H4 的風險（S4，不變）**：之後跑一次 H1–H4（`NDT_OWNER=<你> bash $LP/08_heartbeat.sh`）。H4 **只**因為
-  `reported_to_kernel` 失敗 ⇒ kernel 處理 Down 交換機的發現，不改變上面的結論，但要回報。
+  - 其他判定欄位的 `DIFF`／`INV BAD` ⇒ **T 重跑一次**（第 3 步，同一棵樹），用同樣的對照組再比一次，**只重跑這一次**：
+    - 重跑 rc 0 ⇒ 通過，並回報第一次的 DIFF；
+    - 重跑 rc 1、**同一臂的同一個欄位或不變式**再出現 ⇒ **失敗**，回復、回報；
+    - 重跑 rc 1、但只在**別的**欄位 ⇒ **不通過、也不算失敗的定論**：回復、記錄兩次的 DIFF、回報 Adam，不跑第三次；
+    - 重跑 rc 2（讀不到或 UNDECIDED）⇒ 同上：不通過、回復、回報，不跑第三次；
+    - 重跑 rc 3（拒絕：程序出錯）⇒ 那次不算一次讀數；修正原因後**最多再做一次**這個重跑，再被拒絕 ⇒ 停下回報。
+- **rc 2**：
+  - `UNREADABLE` ⇒ 重跑出問題的那一個 run 一次，同樣原因再出現就回報。
+  - `UNDECIDED`，對照組在一個判定欄位上彼此不同（預先登記以為是確定的，結果不是）⇒ 再跑兩次對照組 C3、C4
+    （第 1 步；merge 之後要跑對照組就得先照第 6 步回復），`--control2 C2 --control2 C3 --control2 C4` 重比一次；
+    通過 ⇒ 照第 2 步再 merge 同一個 B_SHA，它的 tree 必須與 T_MERGE 的相同；還是 UNDECIDED ⇒ 回報 Adam，
+    **不算通過也不算失敗**。
+  - `UNDECIDED heard`，某臂控制器的窗口不到 10 s ⇒ T 重跑一次；還是 ⇒ 回報 Adam，不算通過也不算失敗。
+- **rc 3**（拒絕）：程序沒照做（缺 samples／C2／`--b-sha`／身分、對照組有心跳痕跡、session 沒有從頭到尾在跑、在
+  控制器的窗口裡沒有每個方向都聽到）⇒ 修正後重跑；**心跳在某一臂中途停掉或什麼都沒聽到的處理組不算通過**。
+  - **身分被拒絕而原因是別人的改動**（拒絕訊息裡不同的檔或 binary 不是這個程序動的：凍結期間別人改了主 checkout
+    的程式路徑、重編了 kernel、換了 `~/tutorials`）⇒ 先回復（若已 merge），**從第 0 步、C1 重新開始**；被拒的 run
+    留著當 raw，不再使用。
+  - **merge 被拒**（第 2 步：本地改動會被蓋掉，或有衝突）⇒ 有衝突就 `git -C $M merge --abort`；確認 HEAD 仍是 C_HEAD；
+    **不跑 T**，回報。C1、C2 只在之後的身分仍然相同時才能沿用。
 - **這個 raw 答不了的**：「臂結束時 proxy 什麼都沒寫」——由 H4 的 `no_writes` 回答。
 
-**判定的欄位與只描述的欄位，與誤判率的算式（S-9；預先登記）**
+**判定的欄位與只描述的欄位，與誤判率的算式（S-9；預先登記，orchestrator 第六輪接受）**
 
 *範圍規則為什麼不行。*沒有效果時，處理組與 n 個對照組可交換；一個連續的噪音欄位落在 n 個對照組範圍之外的機率是
 2/(n+1)：n=2 是 67%，n=4 是 40%（每個欄位、每一次）。要壓到 5% 需要 n ≥ 39 個對照組。所以噪音欄位**不能**用
 範圍來判。
 
 *依據。*主 checkout 的 `runs/` 裡，B 之前、沒有心跳的同臂 round（2026-09-19 到 09-27，別的程式版本，只用來分類，
-不是這次比對的資料）：p4runtime/skeleton 11 個、p4runtime/solution 12 個、flowcache/solution 11 個，共 34 個。
-`external_evidence.py` 的讀法逐欄數過（OBSERVED，2026-10-01；腳本與輸出在 logs/gates-0910/extb5/）：
+不是這次比對的資料）：p4runtime/skeleton 11 個、p4runtime/solution 12 個、flowcache/solution 11 個，共 34 個，
+凍結在 `external_survey_34.tsv`。`external_survey.py` 用 `external_evidence.py` 的讀法逐欄數（OBSERVED，2026-10-02，
+輸出在 logs/gates-0910/extb6/survey.out；第五輪 10-01 的計數與它相同）：
 
 | 欄位 | p4runtime/skeleton (11) | p4runtime/solution (12) | flowcache/solution (11) |
 |---|---|---|---|
 | verdict | 2 種（1 個 ERROR：lab 沒還回） | 3 種（FAIL (1/5) ×3） | 4 種（FAIL ×3） |
+| p4c、編出的 JSON 的 sha256 | 1 種、1 種 | 1 種、1 種 | 1 種、1 種 |
 | rules_installed | 1 種 | 1 種 | 1 種 |
 | counters_final | 1 種 | 4 種 | 1 種（空） |
 | packet_ins／cache_entries／grpc_errors | 0／0／0 | 0／0／0 | 3 種／4 種／2 種 |
 | 0x88B5、非 IPv4 的 packet-in | 0、0 | 0、0 | 0、0 |
-| 不變式 | 都成立 | s1 ingress 100＝pings＋datagrams **只 1 個成立**（6 個少 1）；s2 egress 100＝s1 ingress 100 11 個成立；200 那條 12 個都成立 | 都成立 |
+| 不變式 | 都成立 | s1 ingress 100＝pings＋datagrams **只 1 個成立**；s2 egress 100＝s1 ingress 100 11 個成立；200 那條 12 個都成立 | 都成立 |
 
 *分類（寫在 `external_evidence.py` 的 `DESCRIPTIVE`／`DESCRIPTIVE_INVARIANTS`）。*有任何一個 round 變過的欄位與
-不變式＝**只描述**：印出對照組的值、處理組在不在它們的範圍內，**不計**（rc、verdict 三臂都是；p4runtime/solution 的
-counters_final 與它的兩條流量不變式；flowcache 的 packet_ins、cache_entries、grpc_errors）。其餘＝**判定**，對照組
-必須一致、處理組必須等於它。
+不變式＝**只描述**：印出對照組的值、處理組在不在它們的範圍內，**不計**——rc、verdict 三臂都是；p4runtime/solution 的
+counters_final 與它的兩條流量不變式；flowcache 的 packet_ins、cache_entries、grpc_errors。其餘＝**判定**，對照組
+必須一致、處理組必須等於它：skeleton 9 個、solution 7 個、flowcache 6 個，共 22 個檢查。
 
-*判定欄位的誤判率。*沒有效果、而一個判定檢查每一次以機率 q 自己變的話，「對照組一致、處理組不同」至多 q；加上
-「重跑一次、同一處再出現才算」，至多 q²。34 個 round 裡**沒有一個判定檢查變過**，所以 q 的點估計是 0。保守地用
-0/N 的 95% 上界（1 − 0.05^(1/N)）：N=11 時 q ≤ 23.8%、q² ≤ 5.7%；N=12 時 22.1%、4.9%；三臂共有的檢查
-（rules_installed、0x88B5 與非 IPv4 的 packet-in，N=34）8.4%、0.7%；p4runtime 兩臂共有的（N=23）12.2%、1.5%。
-⇒ 每個檢查在 N ≥ 12 時達到 ≤ 5% 的目標；只有 skeleton 那幾個（N=11）的保守上界是 5.7%，**略高於目標，揭露**。
-整個 run 的 family-wise 保守上界是各檢查相加，**超過 5%**——我們能說的是：34 個 round 裡沒有一個判定檢查變過。
-`!! DAEMON` 與 0x88B5 packet-in 不是統計判斷：沒有效果時那些幀根本不存在（drop check 離線、段 S 普查的 daemon
-計數器在三臂都是 0），誤判率在設計上是 0。
+*判定檢查的誤判率。*沒有效果、而一個判定檢查每一次以機率 q 自己變的話，「對照組一致、處理組不同」至多 q；加上
+「重跑一次、同一處再出現才算失敗」，至多 q²。
+- **點估計**：34 個 round 裡判定檢查**一次都沒有變過**（22 個檢查 × 各自的 round 數，0 次）⇒ q 的點估計是 0。
+- **每個檢查的保守上界**：0/N 的 95% 上界（1 − 0.05^(1/N)），平方：三臂共有的（rules_installed、0x88B5 與非 IPv4
+  的 packet-in，N=34）0.7%；p4runtime 兩臂共有的（packet_ins、cache_entries、grpc_errors，N=23）1.5%；
+  solution 自己的 200 那條（N=12）4.9%；skeleton 與 flowcache 自己的（N=11）5.7%——**略高於 5% 的目標，揭露**。
+- **整個 run 的 family-wise 上界**：把 22 個檢查的上界**相加**，skeleton 23.7%、solution 11.5%、flowcache 19.2%，
+  **共約 54%**（re-review 用略不同的 N 分配算出約 52%）。🔴 **這是上界的和，不是估計**：它假設每個檢查都以自己的
+  上界在變，而觀察到的是 0 次；把它當成「一半的機會誤判」是讀錯了。orchestrator 第六輪接受這個規則，附這段揭露。
+- **誤判的代價**：一個 FAIL 不是悄悄否決，而是一份記錄下來的調查，加上**那一次**預先登記的 T 重跑——**絕不**反覆重跑
+  直到通過。
+- **`!! DAEMON` 與 0x88B5 packet-in 不是統計判斷**：沒有效果時那些幀根本不存在（drop check 離線、段 S 普查的 daemon
+  計數器在三臂都是 0），誤判率在設計上是 0。
+
+*一個 PASS 不證明什麼。*
+- **只描述的欄位不判**：p4runtime/solution 的 tunnel counter 與兩條流量不變式、flowcache 的 packet-in、cache entry、
+  gRPC error 的數量。⇒ **PASS 排除不了「心跳改變了轉發的量」**——那些量本來就會自己變，這個比對分不出來。
+- **重跑規則的檢定力是 p²**：一個真的、但只以機率 p 出現的效果，要兩次都出現才算失敗，被抓到的機率只有 p²
+  （p=0.5 ⇒ 25%）。每次都出現的效果（p=1）一定抓得到；偶發的大多抓不到。
+- 一次 T、兩個對照組：只看得到這三臂、這一次的 06；別的 external package、別的程式不在裡面（見上面「看不到的地方」）。
 
 *為什麼現在改預先登記是正當的。*（1）這次比對還沒有任何 live 資料：C1、C2、T 都沒跑過，所以這個改動不可能是
 看了結果才調的；（2）它用的只有規則本身的算術，和 B 之前、跑別的程式版本的舊 round——那些 round 只拿來決定
-哪些欄位會自己變，不是比對的對象；（3）它是 orchestrator 第五輪的裁定要求的；（4）它在一個 commit 裡，時間戳早於
-任何 live run，之後不再改——要再改，同樣得在下一次 live run 之前、寫明理由。
+哪些欄位會自己變，不是比對的對象，而且現在凍結了；（3）它是 orchestrator 第五、六輪的裁定要求的；（4）它在一個
+commit 裡，時間戳早於任何 live run，之後不再改——要再改，同樣得在下一次 live run 之前、寫明理由。
 
 `external_evidence.py` 的細節（它的 docstring 是正本）：它從每臂自己的控制器 log、round 報告、`00_table.tsv`、
 H5 的 samples 讀證據；拒絕／讀不到／比對／不變式的規則如上；N4 那份 switch_state 的 daemon 計數器是 pipeline
