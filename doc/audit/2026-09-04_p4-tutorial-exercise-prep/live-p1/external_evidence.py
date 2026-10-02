@@ -58,9 +58,9 @@ WHAT IS REFUSED (exit 3) -- a comparison about nothing (the external judge's F1 
 WHAT IS UNREADABLE (exit 2), never "same": a missing or unreadable table, row, report, log or
 samples file (a sampler file without the round-6 columns included; a running sample of the arm's
 session whose counters or `heard` are not numbers; a controller log the sampler never saw reach
-its push; a controller log with no push and no entry); a counter block cut short; a LAST counter block that had not settled (it neither
-repeats the block before it nor already counts everything the round sent -- a read taken mid-
-traffic); a packet-in whose frame cannot be parsed, an IPv4 one included.
+its push; a controller log with no push and no entry); a counter block cut short; a LAST counter block that had not settled (a read
+taken mid-traffic: see settled() for when it has); a packet-in whose frame cannot be parsed, an
+IPv4 one included.
 
 WHAT DECIDES, AND WHAT IS ONLY DESCRIBED (pre-registered, round 5 -- the round-4 review's S-9;
 README "合併前的比對" has the arithmetic). Run-to-run noise is real, and a range rule cannot hold a
@@ -138,7 +138,8 @@ DESCRIPTIVE_INVARIANTS = {
     ("p4runtime", "solution"): {"s1 ingress 100 = pings + iperf datagrams",
                                 "s2 egress 100 = s1 ingress 100"},
 }
-#: The most FIN retries iperf makes when it gets no ack of its last datagram.
+#: The most FIN retries iperf makes when it gets no ack of its last datagram -- and the most
+#: settled() allows when it did (09-27T081205Z's FIN went out twice, acked).
 IPERF_FIN_RETRIES = 10
 #: The longest a running report may go unrewritten, and the longest stretch without a sample,
 #: before either stops being evidence (two heartbeat periods; the sampler reads every second).
@@ -174,6 +175,10 @@ SIDE_EFFECT = re.compile(r'"(forwarded_to_hosts|forwarded_between_switches|misde
 PING_HEAD = re.compile(r"^### \d+\. \S+\s+h1 (?:ping|probes) h2\b")
 TRANSMITTED = re.compile(r"^(\d+) packets transmitted")
 SENT = re.compile(r"Sent (\d+) datagrams")
+#: The iperf server's report as the client prints it ("Server Report:", then "... 0/3499 (0%)"):
+#: lost / total datagrams the server received.
+SERVER_REPORT = "Server Report:"
+LOST_TOTAL = re.compile(r"(\d+)/\s*(\d+) \(")
 CONNECTED = re.compile(r"connected with ([\d.]+) port")
 STAMP = re.compile(r"(\d{4}-\d\d-\d\dT\d{6}Z)_")
 
@@ -303,12 +308,15 @@ def report_evidence(report):
         if in_ping and m:
             pings += int(m.group(1))
     iperf = os.path.join(round_dir(report), "link_usage", "iperf_client.txt")
-    sent, target, no_ack = 0, None, False
+    sent, target, no_ack, total = 0, None, False, None
     if os.path.exists(iperf):
         itext = read_text(iperf)
         m, c = SENT.search(itext), CONNECTED.search(itext)
         sent, target = (int(m.group(1)) if m else 0), (c.group(1) if c else None)
         no_ack = "did not receive ack of last datagram" in itext
+        if SERVER_REPORT in itext:
+            t = LOST_TOTAL.search(itext.split(SERVER_REPORT, 1)[1])
+            total = int(t.group(2)) if t else None
     n4 = {}
     for name, n in SIDE_EFFECT.findall(text):
         n4[name] = max(n4.get(name, 0), int(n))
@@ -325,36 +333,71 @@ def report_evidence(report):
         "hb_running": running,
         "n4_counters": n4,
         "pings_h1_h2": pings,
-        "iperf": {"sent": sent, "target": target, "no_ack": no_ack},
+        "iperf": {"sent": sent, "target": target, "no_ack": no_ack, "server_total": total},
         "_start": calendar.timegm(time.strptime(stamp.group(1), "%Y-%m-%dT%H%M%SZ")) if stamp else None,
     }
 
 
-def expected_s1_in(arm, ev):
-    """What s1 ingress 100 must read once every packet the round sent is counted (low, high)."""
-    if arm == ("p4runtime", "solution"):
-        ip = ev["iperf"]
-        base = ev["pings_h1_h2"] + (ip["sent"] if ip["target"] == "10.0.2.2" else 0)
-        return base, base + (IPERF_FIN_RETRIES if ip["no_ack"] else 0)
-    if arm == ("p4runtime", "skeleton"):
-        return ev["pings_h1_h2"], ev["pings_h1_h2"]
-    return None
-
-
 def settled(arm, ev):
-    """Unreadable unless the LAST counter block is final: it repeats the block before it, or it
-    already counts exactly everything the round sent (so no read taken mid-traffic is compared)."""
-    exp = expected_s1_in(arm, ev)
-    if exp is None or not ev["counters_final"]:
-        return
+    """Unreadable unless the LAST counter block is final -- read after the round's traffic ended,
+    so that no read taken mid-traffic is compared.
+
+    [Co-developed with claude code -- Adam] Either (i) it repeats the block before it, or:
+      * p4runtime/skeleton: s1 ingress 100 is exactly the pings h1 sent h2 (11 of 11 earlier
+        rounds);
+      * p4runtime/solution, all of:
+          - the iperf client got the server's ack: a Server Report with its datagram total, and no
+            "did not receive ack";
+          - s2 egress 100 = s1 ingress 100 in that same block (nothing still between the switches);
+          - pings + D <= s1 ingress 100 <= pings + D + IPERF_FIN_RETRIES, D the server report's
+            total (the "/3499"; 0 if iperf went elsewhere than 10.0.2.2), the slack for FIN
+            retransmissions, which happen when acked too.
+    Why D and not the client's "Sent N": iperf 2.1.9 says Sent 3500 where the server counts 3499
+    in all 8 acked earlier rounds, and s1's bytes are 5 pings x 98 + 3499 x 1242 exactly -- the
+    3500th is on no wire. Exact pings + Sent, the rule before 10-02, settled 1 of the 12 frozen
+    rounds (external_survey_34.tsv), and that one by a FIN retransmission. This rule settles the 7
+    that ended after traffic (six at 3504, and 09-27T081205Z at 3505) and leaves UNREADABLE the
+    one read mid-traffic (09-26T175425Z: s2 egress 3821, s1 3820) and the four 09-19 rounds,
+    which have no server report. A repeated last block occurs in none of them.
+    With no server report only (i) settles the block. No earlier round supports that case with
+    data: the only no-ack rounds are those four, whose forwarding had broken."""
     last, before = ev["counters_final"], ev["_counters_before"]
-    s1 = last.get("s1 MyIngress.ingressTunnelCounter 100", (None,))[0]
-    if before == last or (exp[0] == exp[1] and s1 == exp[0]):
+    if arm not in (("p4runtime", "skeleton"), ("p4runtime", "solution")) or not last:
         return
+    if before == last:
+        return
+    s1 = last.get("s1 MyIngress.ingressTunnelCounter 100", (None,))[0]
+    pings = ev["pings_h1_h2"]
+    if arm == ("p4runtime", "skeleton"):
+        if s1 == pings:
+            return
+        why = f"s1 ingress 100 = {s1} is not the {pings} ping(s) h1 sent h2: a read taken mid-traffic"
+    else:
+        ip = ev["iperf"]
+        s2e = last.get("s2 MyIngress.egressTunnelCounter 100", (None,))[0]
+        total = ip["server_total"]
+        if total is None or ip["no_ack"]:
+            why = ("the iperf client got no ack from the server ("
+                   + ("it says it did not receive ack of the last datagram" if ip["no_ack"]
+                      else "no Server Report with a datagram total")
+                   + "), so only a repeated block can show the traffic over")
+        elif s1 is None or s2e != s1:
+            why = (f"s2 egress 100 = {s2e} is not s1 ingress 100 = {s1} in that block: a read "
+                   f"taken mid-traffic")
+        else:
+            low = pings + (total if ip["target"] == "10.0.2.2" else 0)
+            high = low + IPERF_FIN_RETRIES
+            if low <= s1 <= high:
+                return
+            if s1 < low:
+                why = (f"s1 ingress 100 = {s1} is under pings {pings} + the server's {total} "
+                       f"datagram(s) = {low}: a read taken mid-traffic")
+            else:
+                why = (f"s1 ingress 100 = {s1} is over pings {pings} + the server's {total} "
+                       f"datagram(s) + {IPERF_FIN_RETRIES} FIN retries = {high}: more than the "
+                       f"round sent")
     raise Unreadable(f"{ev['log']}: the last counter block had not settled -- it does not repeat "
-                     f"the block before it, and s1 ingress 100 = {s1} is not yet every packet the "
-                     f"round sent ({exp[0]}{'' if exp[0] == exp[1] else f'..{exp[1]}'}): a read "
-                     f"taken mid-traffic")
+                     f"the block before it, and {why}")
 
 
 def arms(run):

@@ -277,7 +277,7 @@ mutate '    if ev["_last_write"] > stopped_at:' \
     '    if False:' \
     "E40: a session that stopped before the controller's last write is accepted" \
     "🔴 a session sampled running, then stopped before the controller: rc 3" "  said as stopped before the controller's last write"
-mutate '    if before == last or (exp[0] == exp[1] and s1 == exp[0]):
+mutate '    if before == last:
         return' \
     '    if True:
         return' \
@@ -554,7 +554,7 @@ mutate '    return 1 if diffs else 2 if undecided else 0' \
 mutate '    ("p4runtime", "solution"): {"s1 ingress 100 = pings + iperf datagrams",' \
     '    ("p4runtime", "solution"): {"s1 ingress 100 = never",' \
     "E78: the traffic sum that broke before is decisive" \
-    "🔴 s1 ingress 100 one short of pings + datagrams (as 6 of 12 earlier rounds): noted, rc 0"
+    "🔴 s1 ingress 100 = pings + the server's 3499, one under pings + Sent (as 6 of 12 earlier rounds): noted, rc 0"
 mutate '          + (f"; {undecided} UNDECIDED: the controls disagree on a decisive check, or a controller'"'"'s "
              f"window was too short to show the heartbeat heard" if undecided else ""))' \
     '          + "")' \
@@ -564,6 +564,59 @@ mutate '            elif name in DESCRIPTIVE_INVARIANTS.get(arm, ()):' \
     '            elif name in DESCRIPTIVE_INVARIANTS.get(arm, ()) or True:' \
     "E80: every invariant is only described" \
     "🔴 the 200 tunnel's sum broken (it never broke before): rc 1" "  said as INV BAD"
+
+# [Co-developed with claude code -- Adam] (10-02) E96-E106: settled() -- each condition of its rule, on
+# the 12 frozen real rounds and on cells that break one condition each.
+R3504="2026-09-19T151037Z 2026-09-24T162954Z 2026-09-24T192012Z 2026-09-26T061642Z 2026-09-26T062438Z 2026-09-26T155814Z"
+real_settled() { local r; for r in $R3504; do printf '%s\n' "🔴 real $r: the last block settled, show rc 0"; done; }
+mapfile -t SETTLED_3504 < <(real_settled)
+mutate '    if before == last:' \
+    '    if False:' \
+    "E96: a last block read twice is not settled" \
+    "  the same numbers read twice are settled: show rc 0" "  no server report, the last block read twice: settled, show rc 0"
+mutate '        if total is None or ip["no_ack"]:' \
+    '        if total is None:' \
+    "E97: a server report is an ack, 'did not receive ack' or not" \
+    "🔴 a server report but 'did not receive ack', in range: rc 2" "  said as no ack"
+mutate '        total = ip["server_total"]' \
+    '        total = ip["server_total"] if ip["server_total"] is not None else ip["sent"] - 1' \
+    "E98: no server report reads as Sent - 1 datagrams acked" \
+    "🔴 no server report (and no warning), in range: rc 2" "  said as no server report"
+mutate '        elif s1 is None or s2e != s1:' \
+    '        elif s1 is None:' \
+    "E99: s2 egress 100 need not be s1 ingress 100" \
+    "🔴 s2 egress 100 not s1 ingress 100 in the last block, s1 in range: rc 2" "  naming the two counters" \
+    "  named as s2 egress 100 not s1 ingress 100"
+mutate '            if low <= s1 <= high:' \
+    '            if low < s1 <= high:' \
+    "E100: the low bound itself is not settled" \
+    "${SETTLED_3504[@]}"
+mutate '            if low <= s1 <= high:' \
+    '            if s1 <= high:' \
+    "E101: no low bound" \
+    "🔴 a last counter block that had not settled: rc 2" "  naming the low bound"
+mutate '            high = low + IPERF_FIN_RETRIES' \
+    '            high = low' \
+    "E102: no FIN retries allowed when acked" \
+    "🔴 real 2026-09-27T081205Z: the last block settled, show rc 0" \
+    "🔴 s1 ingress 100 at pings + the server's + 10 FIN retries: settled, show rc 0"
+mutate '            if low <= s1 <= high:' \
+    '            if low <= s1:' \
+    "E103: no high bound" \
+    "🔴 s1 ingress 100 over pings + the server's + 10 FIN retries: rc 2" "  naming the high bound"
+mutate '            low = pings + (total if ip["target"] == "10.0.2.2" else 0)' \
+    '            low = pings + (ip["sent"] if ip["target"] == "10.0.2.2" else 0)' \
+    "E104: the client's Sent, not the server's total" \
+    "${SETTLED_3504[@]}" \
+    "🔴 s1 ingress 100 = pings + the server's 3499, one under pings + Sent (as 6 of 12 earlier rounds): noted, rc 0"
+mutate '            total = int(t.group(2)) if t else None' \
+    '            total = int(t.group(1)) if t else None' \
+    "E105: the server's lost count read as its total" \
+    "${SETTLED_3504[@]}" "🔴 real 2026-09-27T081205Z: the last block settled, show rc 0"
+mutate '        if s1 == pings:' \
+    '        if True:' \
+    "E106: the skeleton's last block is settled whatever it counts" \
+    "🔴 the skeleton's s1 ingress 100 not the pings, read once: rc 2"
 
 # mutate_id <old> <new> <label> <check>... -- the same, on the copy of code_identity.py beside the
 # (unchanged) tool.

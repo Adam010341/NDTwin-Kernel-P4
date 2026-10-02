@@ -27,7 +27,8 @@
 #
 # The fixtures are cut down from the shapes in live-p1/runs/2026-09-27T074635Z_06_thirteen's three
 # external rounds -- 00_table.tsv, each round's report and controller log -- and from live-p1/08's
-# sampler, written here by two small generators; the real raw is not in the repository.
+# sampler, written here by two small generators; the real raw is not in the repository. Section 5 also
+# reads, as settled() reads them, the lines of the 12 frozen p4runtime/solution rounds it reads (real.txt).
 #
 # Run:  bash tests/shell/test_live_p1_external_evidence.sh
 # Env:  EVIDENCE_UNDER_TEST=<path to a copy of external_evidence.py>
@@ -63,6 +64,15 @@ T0 = 1790000000
 run, rounds = os.path.join(fix, name), os.path.join(fix, name + "-rounds")
 os.makedirs(run); os.makedirs(rounds)
 def stamp(i): return time.strftime("%Y-%m-%dT%H%M%SZ", time.gmtime(T0 + 300 * i))
+# [Co-developed with claude code -- Adam] real=<stamp>: p4runtime/solution's counter blocks and iperf client
+# lines from that frozen round (real.txt, written below)
+REAL, cur = {}, None
+if o.get("real"):
+    for line in open(os.path.join(fix, "real.txt")).read().splitlines():
+        if line.startswith("@@ "):
+            cur = tuple(line.split()[1:3]); REAL[cur] = []
+        elif cur and not line.startswith("#"):
+            REAL[cur].append(line)
 def ip(a): return bytes(int(x) for x in a.split("."))
 def frame(src, dst, proto, ethertype=0x0800, short=False):
     eth = bytes.fromhex("080000000100") + bytes.fromhex("080000000111") + ethertype.to_bytes(2, "big")
@@ -184,10 +194,15 @@ for i, (ex, which, key) in enumerate(order):
                     f"s2 MyIngress.egressTunnelCounter 100: {v[1]} packets ({v[1] * 1244} bytes)",
                     f"s2 MyIngress.ingressTunnelCounter 200: {v[2]} packets ({v[2] * 118} bytes)",
                     f"s1 MyIngress.egressTunnelCounter 200: {v[3]} packets ({v[3] * 122} bytes)"]
-        log += block([0, 0, 0, 0])
-        for _ in range(int(o.get("reads_extra", "0"))):
+        if key == "p4rt_sol" and o.get("real"):
+            # [Co-developed with claude code -- Adam] a frozen real round (real.txt below): its log's last
+            # two counter blocks as they are
+            log += REAL[(o["real"], "log")]
+        else:
+            log += block([0, 0, 0, 0])
+            for _ in range(int(o.get("reads_extra", "0"))):
+                log += block(final)
             log += block(final)
-        log += block(final)
         if o.get("truncate") == key:
             log += ["", "----- Reading tunnel counters -----", f"s1 MyIngress.ingressTunnelCounter 100: {final[0]} packets (1 bytes)"]
         if o.get("grpc") == key:
@@ -197,8 +212,16 @@ for i, (ex, which, key) in enumerate(order):
         if key == "p4rt_sol":
             os.makedirs(os.path.join(d, "link_usage"))
             it = ["[  1] local 10.0.1.1 port 52102 connected with 10.0.2.2 port 5001", "[  1] Sent 3500 datagrams"]
+            # [Co-developed with claude code -- Adam] the server's report as iperf 2.1.9 prints it on an
+            # acked round (09-27T081205Z's): one datagram fewer than "Sent"; none after a lost ack
+            if o.get("server_report", "0" if o.get("no_ack") == "1" else "1") == "1":
+                it += ["[  1] Server Report:",
+                       "[ ID] Interval       Transfer     Bandwidth        Jitter   Lost/Total Datagrams",
+                       "[  1] 0.0000-16.0079 sec  4.00 MBytes  2.10 Mbits/sec   0.074 ms 0/3499 (0%)"]
             if o.get("no_ack") == "1":
                 it.append("[  5] WARNING: did not receive ack of last datagram after 10 tries.")
+            if o.get("real"):
+                it = REAL[(o["real"], "iperf")]
             open(os.path.join(d, "link_usage", "iperf_client.txt"), "w").write("\n".join(it) + "\n")
         name_log = "driver-controller-p4runtime.log"
     else:
@@ -341,6 +364,258 @@ open(os.path.join(d, "50_samples.tsv"), "w").write("\n".join(rows) + "\n")
 if o.get("no_end") != "1":
     open(os.path.join(d, "50_t06_end.txt"), "w").write(f"{T0 + 1500}\n")
 MS
+# [Co-developed with claude code -- Adam] (10-02) real.txt: the 12 frozen p4runtime/solution rounds of
+# live-p1/external_survey_34.tsv, the lines settled() reads -- each controller log's last two counter blocks
+# and the iperf client's lines -- copied as they are from the main checkout's
+# doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/ (the path and line numbers under each @@; every
+# report counts 5 pings, mk's own). Each acked round's iperf_server.txt says the same 0/3499. 2026-10-02's
+# rounds are not here: they are the data the rule is read on.
+cat > "$FIX/real.txt" <<'REAL'
+@@ 2026-09-19T055210Z log
+# runs/2026-09-19T055210Z_p4runtime_solution_ndtwin/driver-controller-p4runtime.log:54-65 (its last two counter blocks; pings: the .md:564, 5 transmitted)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 1 packets (98 bytes)
+s2 MyIngress.egressTunnelCounter 100: 1 packets (102 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 1 packets (98 bytes)
+s1 MyIngress.egressTunnelCounter 200: 1 packets (102 bytes)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 3 packets (294 bytes)
+s2 MyIngress.egressTunnelCounter 100: 3 packets (306 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 3 packets (294 bytes)
+s1 MyIngress.egressTunnelCounter 200: 3 packets (306 bytes)
+@@ 2026-09-19T055210Z iperf
+# runs/2026-09-19T055210Z_p4runtime_solution_ndtwin/link_usage/iperf_client.txt:6,9,10
+[  1] local 10.0.1.1 port 37889 connected with 10.0.2.2 port 5001
+[  1] Sent 1431 datagrams
+[  5] WARNING: did not receive ack of last datagram after 10 tries.
+@@ 2026-09-19T065612Z log
+# runs/2026-09-19T065612Z_p4runtime_solution_ndtwin/driver-controller-p4runtime.log:54-65 (its last two counter blocks; pings: the .md:567, 5 transmitted)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 1 packets (98 bytes)
+s2 MyIngress.egressTunnelCounter 100: 1 packets (102 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 1 packets (98 bytes)
+s1 MyIngress.egressTunnelCounter 200: 1 packets (102 bytes)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 3 packets (294 bytes)
+s2 MyIngress.egressTunnelCounter 100: 3 packets (306 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 3 packets (294 bytes)
+s1 MyIngress.egressTunnelCounter 200: 3 packets (306 bytes)
+@@ 2026-09-19T065612Z iperf
+# runs/2026-09-19T065612Z_p4runtime_solution_ndtwin/link_usage/iperf_client.txt:6,9,10
+[  1] local 10.0.1.1 port 47963 connected with 10.0.2.2 port 5001
+[  1] Sent 1431 datagrams
+[  5] WARNING: did not receive ack of last datagram after 10 tries.
+@@ 2026-09-19T085331Z log
+# runs/2026-09-19T085331Z_p4runtime_solution_ndtwin/driver-controller-p4runtime.log:54-65 (its last two counter blocks; pings: the .md:567, 5 transmitted)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 1 packets (98 bytes)
+s2 MyIngress.egressTunnelCounter 100: 1 packets (102 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 1 packets (98 bytes)
+s1 MyIngress.egressTunnelCounter 200: 1 packets (102 bytes)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 3 packets (294 bytes)
+s2 MyIngress.egressTunnelCounter 100: 3 packets (306 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 3 packets (294 bytes)
+s1 MyIngress.egressTunnelCounter 200: 3 packets (306 bytes)
+@@ 2026-09-19T085331Z iperf
+# runs/2026-09-19T085331Z_p4runtime_solution_ndtwin/link_usage/iperf_client.txt:6,9,10
+[  1] local 10.0.1.1 port 46368 connected with 10.0.2.2 port 5001
+[  1] Sent 1431 datagrams
+[  5] WARNING: did not receive ack of last datagram after 10 tries.
+@@ 2026-09-19T085746Z log
+# runs/2026-09-19T085746Z_p4runtime_solution_ndtwin/driver-controller-p4runtime.log:54-65 (its last two counter blocks; pings: the .md:567, 5 transmitted)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 1 packets (98 bytes)
+s2 MyIngress.egressTunnelCounter 100: 1 packets (102 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 1 packets (98 bytes)
+s1 MyIngress.egressTunnelCounter 200: 1 packets (102 bytes)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 3 packets (294 bytes)
+s2 MyIngress.egressTunnelCounter 100: 3 packets (306 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 3 packets (294 bytes)
+s1 MyIngress.egressTunnelCounter 200: 3 packets (306 bytes)
+@@ 2026-09-19T085746Z iperf
+# runs/2026-09-19T085746Z_p4runtime_solution_ndtwin/link_usage/iperf_client.txt:6,9,10
+[  1] local 10.0.1.1 port 55185 connected with 10.0.2.2 port 5001
+[  1] Sent 1431 datagrams
+[  5] WARNING: did not receive ack of last datagram after 10 tries.
+@@ 2026-09-19T151037Z log
+# runs/2026-09-19T151037Z_p4runtime_solution_ndtwin/driver-controller-p4runtime.log:114-125 (its last two counter blocks; pings: the .md:567, 5 transmitted)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 3244 packets (4023328 bytes)
+s2 MyIngress.egressTunnelCounter 100: 3245 packets (4037550 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 5 packets (490 bytes)
+s1 MyIngress.egressTunnelCounter 200: 5 packets (510 bytes)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 3504 packets (4346248 bytes)
+s2 MyIngress.egressTunnelCounter 100: 3504 packets (4360264 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 6 packets (660 bytes)
+s1 MyIngress.egressTunnelCounter 200: 6 packets (684 bytes)
+@@ 2026-09-19T151037Z iperf
+# runs/2026-09-19T151037Z_p4runtime_solution_ndtwin/link_usage/iperf_client.txt:6,9,10,11,12
+[  1] local 10.0.1.1 port 60847 connected with 10.0.2.2 port 5001
+[  1] Sent 3500 datagrams
+[  1] Server Report:
+[ ID] Interval       Transfer     Bandwidth        Jitter   Lost/Total Datagrams
+[  1] 0.0000-16.0074 sec  4.00 MBytes  2.10 Mbits/sec   0.165 ms 0/3499 (0%)
+@@ 2026-09-24T162954Z log
+# runs/2026-09-24T162954Z_p4runtime_solution_ndtwin/driver-controller-p4runtime.log:114-125 (its last two counter blocks; pings: the .md:600, 5 transmitted)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 3270 packets (4055620 bytes)
+s2 MyIngress.egressTunnelCounter 100: 3270 packets (4068700 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 5 packets (490 bytes)
+s1 MyIngress.egressTunnelCounter 200: 5 packets (510 bytes)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 3504 packets (4346248 bytes)
+s2 MyIngress.egressTunnelCounter 100: 3504 packets (4360264 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 6 packets (660 bytes)
+s1 MyIngress.egressTunnelCounter 200: 6 packets (684 bytes)
+@@ 2026-09-24T162954Z iperf
+# runs/2026-09-24T162954Z_p4runtime_solution_ndtwin/link_usage/iperf_client.txt:6,9,10,11,12
+[  1] local 10.0.1.1 port 55879 connected with 10.0.2.2 port 5001
+[  1] Sent 3500 datagrams
+[  1] Server Report:
+[ ID] Interval       Transfer     Bandwidth        Jitter   Lost/Total Datagrams
+[  1] 0.0000-16.0073 sec  4.00 MBytes  2.10 Mbits/sec   0.045 ms 0/3499 (0%)
+@@ 2026-09-24T192012Z log
+# runs/2026-09-24T192012Z_p4runtime_solution_ndtwin/driver-controller-p4runtime.log:114-125 (its last two counter blocks; pings: the .md:599, 5 transmitted)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 3257 packets (4039474 bytes)
+s2 MyIngress.egressTunnelCounter 100: 3257 packets (4052502 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 5 packets (490 bytes)
+s1 MyIngress.egressTunnelCounter 200: 5 packets (510 bytes)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 3504 packets (4346248 bytes)
+s2 MyIngress.egressTunnelCounter 100: 3504 packets (4360264 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 6 packets (660 bytes)
+s1 MyIngress.egressTunnelCounter 200: 6 packets (684 bytes)
+@@ 2026-09-24T192012Z iperf
+# runs/2026-09-24T192012Z_p4runtime_solution_ndtwin/link_usage/iperf_client.txt:6,9,10,11,12
+[  1] local 10.0.1.1 port 43551 connected with 10.0.2.2 port 5001
+[  1] Sent 3500 datagrams
+[  1] Server Report:
+[ ID] Interval       Transfer     Bandwidth        Jitter   Lost/Total Datagrams
+[  1] 0.0000-16.0080 sec  4.00 MBytes  2.10 Mbits/sec   0.046 ms 0/3499 (0%)
+@@ 2026-09-26T061642Z log
+# runs/2026-09-26T061642Z_p4runtime_solution_ndtwin/driver-controller-p4runtime.log:114-125 (its last two counter blocks; pings: the .md:601, 5 transmitted)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 3263 packets (4046926 bytes)
+s2 MyIngress.egressTunnelCounter 100: 3264 packets (4061224 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 5 packets (490 bytes)
+s1 MyIngress.egressTunnelCounter 200: 5 packets (510 bytes)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 3504 packets (4346248 bytes)
+s2 MyIngress.egressTunnelCounter 100: 3504 packets (4360264 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 6 packets (660 bytes)
+s1 MyIngress.egressTunnelCounter 200: 6 packets (684 bytes)
+@@ 2026-09-26T061642Z iperf
+# runs/2026-09-26T061642Z_p4runtime_solution_ndtwin/link_usage/iperf_client.txt:6,9,10,11,12
+[  1] local 10.0.1.1 port 54130 connected with 10.0.2.2 port 5001
+[  1] Sent 3500 datagrams
+[  1] Server Report:
+[ ID] Interval       Transfer     Bandwidth        Jitter   Lost/Total Datagrams
+[  1] 0.0000-16.0077 sec  4.00 MBytes  2.10 Mbits/sec   0.057 ms 0/3499 (0%)
+@@ 2026-09-26T062438Z log
+# runs/2026-09-26T062438Z_p4runtime_solution_ndtwin/driver-controller-p4runtime.log:114-125 (its last two counter blocks; pings: the .md:599, 5 transmitted)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 3258 packets (4040716 bytes)
+s2 MyIngress.egressTunnelCounter 100: 3258 packets (4053748 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 5 packets (490 bytes)
+s1 MyIngress.egressTunnelCounter 200: 5 packets (510 bytes)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 3504 packets (4346248 bytes)
+s2 MyIngress.egressTunnelCounter 100: 3504 packets (4360264 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 6 packets (660 bytes)
+s1 MyIngress.egressTunnelCounter 200: 6 packets (684 bytes)
+@@ 2026-09-26T062438Z iperf
+# runs/2026-09-26T062438Z_p4runtime_solution_ndtwin/link_usage/iperf_client.txt:6,9,10,11,12
+[  1] local 10.0.1.1 port 45107 connected with 10.0.2.2 port 5001
+[  1] Sent 3500 datagrams
+[  1] Server Report:
+[ ID] Interval       Transfer     Bandwidth        Jitter   Lost/Total Datagrams
+[  1] 0.0000-16.0080 sec  4.00 MBytes  2.10 Mbits/sec   0.049 ms 0/3499 (0%)
+@@ 2026-09-26T155814Z log
+# runs/2026-09-26T155814Z_p4runtime_solution_ndtwin/driver-controller-p4runtime.log:114-125 (its last two counter blocks; pings: the .md:597, 5 transmitted)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 3250 packets (4030780 bytes)
+s2 MyIngress.egressTunnelCounter 100: 3251 packets (4045026 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 5 packets (490 bytes)
+s1 MyIngress.egressTunnelCounter 200: 5 packets (510 bytes)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 3504 packets (4346248 bytes)
+s2 MyIngress.egressTunnelCounter 100: 3504 packets (4360264 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 6 packets (660 bytes)
+s1 MyIngress.egressTunnelCounter 200: 6 packets (684 bytes)
+@@ 2026-09-26T155814Z iperf
+# runs/2026-09-26T155814Z_p4runtime_solution_ndtwin/link_usage/iperf_client.txt:6,9,10,11,12
+[  1] local 10.0.1.1 port 33174 connected with 10.0.2.2 port 5001
+[  1] Sent 3500 datagrams
+[  1] Server Report:
+[ ID] Interval       Transfer     Bandwidth        Jitter   Lost/Total Datagrams
+[  1] 0.0000-16.0079 sec  4.00 MBytes  2.10 Mbits/sec   0.063 ms 0/3499 (0%)
+@@ 2026-09-26T175425Z log
+# runs/2026-09-26T175425Z_p4runtime_solution_ndtwin/driver-controller-p4runtime.log:114-125 (its last two counter blocks; pings: the .md:597, 5 transmitted)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 3269 packets (4054378 bytes)
+s2 MyIngress.egressTunnelCounter 100: 3270 packets (4068700 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 5 packets (490 bytes)
+s1 MyIngress.egressTunnelCounter 200: 5 packets (510 bytes)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 3820 packets (4738720 bytes)
+s2 MyIngress.egressTunnelCounter 100: 3821 packets (4755246 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 6 packets (660 bytes)
+s1 MyIngress.egressTunnelCounter 200: 6 packets (684 bytes)
+@@ 2026-09-26T175425Z iperf
+# runs/2026-09-26T175425Z_p4runtime_solution_ndtwin/link_usage/iperf_client.txt:6,9,10,11,12
+[  1] local 10.0.1.1 port 33439 connected with 10.0.2.2 port 5001
+[  1] Sent 3500 datagrams
+[  1] Server Report:
+[ ID] Interval       Transfer     Bandwidth        Jitter   Lost/Total Datagrams
+[  1] 0.0000-16.0078 sec  4.00 MBytes  2.10 Mbits/sec   0.059 ms 0/3499 (0%)
+@@ 2026-09-27T081205Z log
+# runs/2026-09-27T081205Z_p4runtime_solution_ndtwin/driver-controller-p4runtime.log:114-125 (its last two counter blocks; pings: the .md:596, 5 transmitted)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 3267 packets (4051894 bytes)
+s2 MyIngress.egressTunnelCounter 100: 3267 packets (4064962 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 5 packets (490 bytes)
+s1 MyIngress.egressTunnelCounter 200: 5 packets (510 bytes)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 3505 packets (4347490 bytes)
+s2 MyIngress.egressTunnelCounter 100: 3505 packets (4361510 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 7 packets (830 bytes)
+s1 MyIngress.egressTunnelCounter 200: 7 packets (858 bytes)
+@@ 2026-09-27T081205Z iperf
+# runs/2026-09-27T081205Z_p4runtime_solution_ndtwin/link_usage/iperf_client.txt:6,9,10,11,12
+[  1] local 10.0.1.1 port 52102 connected with 10.0.2.2 port 5001
+[  1] Sent 3500 datagrams
+[  1] Server Report:
+[ ID] Interval       Transfer     Bandwidth        Jitter   Lost/Total Datagrams
+[  1] 0.0000-16.0079 sec  4.00 MBytes  2.10 Mbits/sec   0.074 ms 0/3499 (0%)
+REAL
 mk() { "$EVIDENCE_PY" "$FIX/mk.py" "$FIX" "$@" || echo "fixture $1 not built"; }
 ms() { "$EVIDENCE_PY" "$FIX/ms.py" "$FIX" "$@" || echo "samples $1 not built"; }
 # [Co-developed with claude code -- Adam] every compare names the B commit (M-2) unless NO_BSHA=1.
@@ -639,11 +914,14 @@ section "4. 🔴 invariants on each arm's own numbers, counted only when every c
 # [Co-developed with claude code -- Adam] Round 5 (S-9): p4runtime/solution's two traffic sums broke
 # in earlier no-heartbeat rounds (s1 ingress 100 = pings + datagrams held in 1 of 12) -- described;
 # the 200 tunnel's sum and the skeleton's and flowcache's never broke -- decisive.
-mk t_lost treatment counters_p4rt_sol=3504,3504,7,7 reads_extra=1
+# (10-02) 3504 is pings + the server's 3499 -- every datagram on the wire; iperf's "Sent 3500" counts one
+# more -- and it is 6 of the 12 frozen rounds' last block: settled without a repeated block (section 5).
+mk t_lost treatment counters_p4rt_sol=3504,3504,7,7
 OUT="$(cmp t_lost)"
-check "🔴 s1 ingress 100 one short of pings + datagrams (as 6 of 12 earlier rounds): noted, rc 0" "0" "$(rc_of "$OUT")"
+check "🔴 s1 ingress 100 = pings + the server's 3499, one under pings + Sent (as 6 of 12 earlier rounds): noted, rc 0" "0" "$(rc_of "$OUT")"
 has   "  noted as the invariant, descriptive"              "inv ..  s1 ingress 100 = pings + iperf datagrams: s1 ingress 100 = 3504; pings h1->h2 5 + datagrams to 10.0.2.2 3500 = 3505 (descriptive, not counted: pre-registered)" "$OUT"
-mk t_eg treatment counters_p4rt_sol=3505,3504,7,7
+# (10-02) read twice: a last block with s2 egress 100 not s1 ingress 100 is not settled on its own (section 5)
+mk t_eg treatment counters_p4rt_sol=3505,3504,7,7 reads_extra=1
 OUT="$(cmp t_eg)"
 has   "🔴 s2 egress 100 not s1 ingress 100: noted"          "inv ..  s2 egress 100 = s1 ingress 100: 3504 vs 3505" "$OUT"
 mk t_200b treatment counters_p4rt_sol=3505,3505,7,8 reads_extra=1
@@ -678,7 +956,9 @@ mk t_norow treatment norow=fc_sol
 OUT="$(cmp t_norow)"
 check "🔴 a run without the flowcache/solution row: rc 2"   "2" "$(rc_of "$OUT")"
 has   "  naming the arm"                                   "no flowcache/solution row" "$OUT"
-mk t_trunc treatment truncate=p4rt_sol
+# [Co-developed with claude code -- Adam] (10-02) on the skeleton: settled() also refuses a solution block
+# without s2 egress 100, which would hide a cut-short block read as a reading; the skeleton's s1 alone settles it
+mk t_trunc treatment truncate=p4rt_skel
 OUT="$(cmp t_trunc)"
 check "🔴 a counter block cut short: rc 2"                  "2" "$(rc_of "$OUT")"
 has   "  said as cut short"                                "has 1 of 4 counters -- cut short" "$OUT"
@@ -686,6 +966,55 @@ mk t_unset treatment counters_p4rt_sol=3000,3000,5,5
 OUT="$(cmp t_unset)"
 check "🔴 a last counter block that had not settled: rc 2"  "2" "$(rc_of "$OUT")"
 has   "  said as not settled"                              "the last counter block had not settled" "$OUT"
+has   "  naming the low bound"                             "s1 ingress 100 = 3000 is under pings 5 + the server's 3499 datagram(s) = 3504: a read taken mid-traffic" "$OUT"
+# [Co-developed with claude code -- Adam] (10-02) each condition of settled()'s p4runtime/solution arm on
+# its own, the rest kept: s2 egress 100 = s1 ingress 100, the high bound, the server's ack.
+mk t_eg2 control counters_p4rt_sol=3505,3504,7,7
+OUT="$(ev show "$FIX/t_eg2")"
+check "🔴 s2 egress 100 not s1 ingress 100 in the last block, s1 in range: rc 2" "2" "$(rc_of "$OUT")"
+has   "  naming the two counters"                          "s2 egress 100 = 3504 is not s1 ingress 100 = 3505 in that block" "$OUT"
+mk t_over control counters_p4rt_sol=3515,3515,7,7
+OUT="$(ev show "$FIX/t_over")"
+check "🔴 s1 ingress 100 over pings + the server's + 10 FIN retries: rc 2" "2" "$(rc_of "$OUT")"
+has   "  naming the high bound"                            "s1 ingress 100 = 3515 is over pings 5 + the server's 3499 datagram(s) + 10 FIN retries = 3514" "$OUT"
+mk t_top control counters_p4rt_sol=3514,3514,7,7
+OUT="$(ev show "$FIX/t_top")"
+check "🔴 s1 ingress 100 at pings + the server's + 10 FIN retries: settled, show rc 0" "0" "$(rc_of "$OUT")"
+mk t_ackwarn control server_report=1 no_ack=1 counters_p4rt_sol=3504,3504,6,6
+OUT="$(ev show "$FIX/t_ackwarn")"
+check "🔴 a server report but 'did not receive ack', in range: rc 2" "2" "$(rc_of "$OUT")"
+has   "  said as no ack"                                   "the iperf client got no ack from the server (it says it did not receive ack of the last datagram)" "$OUT"
+mk t_noreport control server_report=0 counters_p4rt_sol=3504,3504,6,6
+OUT="$(ev show "$FIX/t_noreport")"
+check "🔴 no server report (and no warning), in range: rc 2" "2" "$(rc_of "$OUT")"
+has   "  said as no server report"                         "the iperf client got no ack from the server (no Server Report with a datagram total)" "$OUT"
+mk t_noreport2 control server_report=0 counters_p4rt_sol=3504,3504,6,6 reads_extra=1
+OUT="$(ev show "$FIX/t_noreport2")"
+check "  no server report, the last block read twice: settled, show rc 0" "0" "$(rc_of "$OUT")"
+mk t_skel_unset control counters_p4rt_skel=4,0,0,0
+OUT="$(ev show "$FIX/t_skel_unset")"
+check "🔴 the skeleton's s1 ingress 100 not the pings, read once: rc 2" "2" "$(rc_of "$OUT")"
+has   "  said as not the pings"                            "s1 ingress 100 = 4 is not the 5 ping(s) h1 sent h2" "$OUT"
+# [Co-developed with claude code -- Adam] (10-02) the 12 frozen p4runtime/solution rounds (real.txt) as
+# settled() reads them: the 7 that ended after the traffic settle (six at 3504 = 5 pings + the server's
+# 3499; 09-27T081205Z at 3505, a FIN sent twice); 09-26T175425Z (s2 egress 3821, s1 3820) and the four
+# 09-19 rounds (no server report, forwarding broken) do not. Exact pings + Sent settled only 081205Z.
+for r in 2026-09-19T151037Z 2026-09-24T162954Z 2026-09-24T192012Z 2026-09-26T061642Z 2026-09-26T062438Z \
+         2026-09-26T155814Z 2026-09-27T081205Z; do
+    mk "r_$r" control real="$r"
+    OUT="$(ev show "$FIX/r_$r")"
+    check "🔴 real $r: the last block settled, show rc 0" "0" "$(rc_of "$OUT")"
+done
+mk r_175425Z control real=2026-09-26T175425Z
+OUT="$(ev show "$FIX/r_175425Z")"
+check "🔴 real 2026-09-26T175425Z: not settled, rc 2"       "2" "$(rc_of "$OUT")"
+has   "  named as s2 egress 100 not s1 ingress 100"         "s2 egress 100 = 3821 is not s1 ingress 100 = 3820 in that block" "$OUT"
+for r in 2026-09-19T055210Z 2026-09-19T065612Z 2026-09-19T085331Z 2026-09-19T085746Z; do
+    mk "r_$r" control real="$r"
+    OUT="$(ev show "$FIX/r_$r")"
+    check "🔴 real $r: not settled, rc 2" "2" "$(rc_of "$OUT")"
+    has   "  named as no ack (only a repeat could settle it)" "the iperf client got no ack from the server (it says it did not receive ack of the last datagram), so only a repeated block can show the traffic over" "$OUT"
+done
 mk t_eq treatment counters_p4rt_sol=3000,3000,5,5 reads_extra=1
 OUT="$(ev show "$FIX/t_eq")"
 check "  the same numbers read twice are settled: show rc 0" "0" "$(rc_of "$OUT")"
