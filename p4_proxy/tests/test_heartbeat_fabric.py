@@ -6,8 +6,12 @@ Which fabric gets the heartbeat watchdog, what `reroute` then says, and what swi
 TICKET-P4-heartbeat segment W, section 1:
 
   * the watchdog on a foreign fabric is fed by the heartbeat, and ONLY there -- NDTwin's own
-    pipeline keeps LLDP (段 W: "NDTwin 自己的 pipeline（LLDP）不啟動心跳"), and an external
-    control plane is left exactly as it was (it reads only; the first cut's 2.2-4);
+    pipeline keeps LLDP (段 W: "NDTwin 自己的 pipeline（LLDP）不啟動心跳"). [Co-developed with
+    claude code -- Adam] Since 09-27 that includes an external control plane on its own pipeline,
+    DETECT ONLY: its links are declared and judged like any foreign fabric's, a cut is told to the
+    kernel, and nothing is written to a switch -- `reroute` stays false with the reason
+    `external_control_plane` whatever the heartbeat says. An external control plane on NDTwin's
+    own pipeline is left as it was (no declared links, no heartbeat);
   * the LLDP beacons stay off on a foreign fabric and `lldp_discovery` stays named in
     `control_plane.skipped` -- they ride a controller header those programs do not have
     (TICKET-P4-roles M-R10). The heartbeat watchdog is a different evidence source through the
@@ -121,9 +125,24 @@ class SavedGlobals:
 
 
 EXTERNAL = None
+EXTERNAL_FOREIGN = None
 if HAVE_PROXY:
+    #: An external control plane on NDTwin's own pipeline (no switch names a program of its own).
     EXTERNAL = app_package.Package(dir="/packages/p4runtime", name="p4runtime", mode="external",
                                    election_id=(0, 65535))
+    #: [Co-developed with claude code -- Adam] What `convert.py` actually writes for
+    #: exercises/p4runtime and flowcache: an external control plane on the EXERCISE'S OWN
+    #: pipeline -- the 3 external arms of live-p1/06.
+    EXTERNAL_FOREIGN = app_package.Package(
+        dir="/packages/p4runtime", name="p4runtime", mode="external", election_id=(0, 65535),
+        switches=tuple(app_package.SwitchSpec(dpid=dpid, name=f"s{dpid}",
+                                              pipeline=("build/advanced_tunnel.p4.p4info.txtpb",
+                                                        "build/advanced_tunnel.json"),
+                                              entries=None)
+                       for dpid in (1, 2)))
+
+#: What a client is asked to do that puts something on a switch (FakeClient.events).
+WRITE_EVENTS = {"pipeline", "clone", "multicast", "table_entry"}
 
 
 @unittest.skipUnless(HAVE_PROXY, "proxy dependencies not available in this interpreter")
@@ -209,10 +228,14 @@ class WhichFabricGetsTheHeartbeatWatchdogTest(unittest.TestCase):
         self.assertIn("watchdog", topo.started, "the LLDP watchdog runs there as before")
         self.assertIsNone(main.heartbeat_report())
 
-    def test_an_external_fabric_does_not_start_it(self):
+    def test_an_external_fabric_on_ndtwins_own_pipeline_does_not_start_it(self):
+        # [Co-developed with claude code -- Adam] Renamed 09-27 (was
+        # test_an_external_fabric_does_not_start_it): the helper refuses NDTwin's own pipeline and
+        # `ndt up` asks for no heartbeat there, so nothing is declared and nothing is watched.
         topo = HeartbeatTopo()
         run_startup({1: FakeClient(1)}, topo=topo, package=EXTERNAL)
         self.assertEqual(topo.heartbeat_calls, [])
+        self.assertEqual(topo.seeded, [])
         self.assertIsNone(main.heartbeat_report())
 
     def test_a_topology_without_the_entry_does_not_stop_startup_and_says_so(self):
@@ -316,6 +339,220 @@ class RerouteNeedsTheHeartbeatAndEveryTableOwnedTest(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_PROXY, "proxy dependencies not available in this interpreter")
+class AnExternalControlPlaneOnItsOwnPipelineDetectsOnlyTest(unittest.TestCase):
+    """
+    [Co-developed with claude code -- Adam] 09-27: an external control plane on its own pipeline
+    (live-p1/06's p4runtime x2 and flowcache/solution) runs the heartbeat watchdog DETECT ONLY.
+    Adam's standing condition (09-25) is that the heartbeat must not change what a user's own
+    forwarding does, so what is asserted here is first what does NOT happen: no client is asked
+    to write, the route writer is left skipping, and `reroute` stays false with the reason
+    `external_control_plane` even when every table is bound to NDTwin and the heartbeat is usable.
+    """
+
+    def setUp(self):
+        SavedGlobals().save(self)
+
+    def start(self, clients=None, reading=None):
+        clients = clients if clients is not None else {1: FakeClient(1), 2: FakeClient(2)}
+        topo = HeartbeatTopo(reading=reading)
+        summary, _ = run_startup(clients, topo=topo, package=EXTERNAL_FOREIGN)
+        return summary, topo, clients
+
+    def test_it_declares_its_links_and_starts_the_heartbeat_watchdog(self):
+        summary, topo, _ = self.start()
+        self.assertEqual(len(topo.seeded), 1, "the package's cables were not declared")
+        self.assertEqual(topo.heartbeat_calls,
+                         [(main.HEARTBEAT_REPORT_PATH, main.HEARTBEAT_REPORT_UID)])
+        self.assertEqual(main.heartbeat_report()["watchdog"], "running")
+        self.assertEqual(main.declared_links_report(), {"directions": 8, "error": None})
+        self.assertEqual(summary["control_plane"]["mode"], "external")
+
+    def test_the_route_writer_is_left_skipping_so_a_cut_rewrites_nothing(self):
+        # The one flag the watchdog pass reads to choose "report and do not reroute"
+        # (TopologyManager.run_watchdog_pass); startup sets it from control_plane.skipped.
+        summary, topo, _ = self.start()
+        self.assertIs(topo.routes_to_attached_hosts_only, True)
+        self.assertIn(main.SKIP_ROUTES, summary["control_plane"]["skipped"])
+        self.assertEqual(topo.installs, 0)
+
+    def test_no_client_is_asked_to_write_anything(self):
+        _summary, _topo, clients = self.start()
+        for dpid, client in clients.items():
+            self.assertEqual([e for e in client.events if e in WRITE_EVENTS], [],
+                             f"switch {dpid} was written on an external control plane")
+
+    def test_reroute_is_false_for_the_external_reason_even_when_the_heartbeat_is_usable(self):
+        self.start()
+        answer = main.reroute_report()
+        self.assertEqual((answer["available"], answer["reason"]),
+                         (False, "external_control_plane"))
+        self.assertIn("detected by the heartbeat", answer["detail"])
+        caps = main.capabilities_report()
+        for dpid in ("1", "2"):
+            self.assertEqual((caps[dpid]["reroute"], caps[dpid]["link_discovery"]),
+                             (False, "heartbeat"))
+
+    def test_even_with_every_table_bound_to_ndtwin_it_does_not_reroute(self):
+        # The case in which, without `external` asked first, _fabric_reroute would answer True:
+        # usable heartbeat and no route table blocked.
+        self.start(clients_bound(bound("ndtwin"), bound("ndtwin")))
+        self.assertEqual(main.reroute_report()["reason"], "external_control_plane")
+        self.assertIs(main.capabilities_report()["1"]["reroute"], False)
+
+    def test_an_unusable_heartbeat_is_declared_and_still_external(self):
+        summary, _topo, _ = self.start(reading=a_reading(False, hb.REASON_NOT_RUNNING))
+        self.assertEqual(summary["capabilities"]["1"]["link_discovery"], "declared")
+        self.assertEqual(main.reroute_report()["reason"], "external_control_plane")
+        self.assertIn("not detected either", main.reroute_report()["detail"],
+                      "the detail must follow the report, not the watchdog's start")
+        self.assertEqual(main.heartbeat_report()["state"], hb.REASON_NOT_RUNNING)
+
+    def test_link_watchdog_leaves_the_list_while_the_heartbeat_drives_it(self):
+        # Adam's ruling E, on this fabric too: every other EXTERNAL_SKIPS step stays named.
+        summary, _topo, _ = self.start()
+        self.assertEqual(sorted(summary["control_plane"]["skipped"]),
+                         sorted(set(main.EXTERNAL_SKIPS) - {main.SKIP_WATCHDOG}))
+
+    def test_a_heartbeat_watchdog_that_did_not_start_names_all_six(self):
+        topo = HeartbeatTopo(raises=OSError("the report cannot be read"))
+        summary, _ = run_startup({1: FakeClient(1)}, topo=topo, package=EXTERNAL_FOREIGN)
+        self.assertEqual(sorted(summary["control_plane"]["skipped"]), sorted(main.EXTERNAL_SKIPS))
+        self.assertEqual(main.reroute_report()["reason"], "external_control_plane")
+        self.assertEqual(main.heartbeat_report()["watchdog"], "not_started")
+
+    def test_the_startup_log_names_the_skipped_list_switch_state_serves(self):
+        # The external line's Skipped list, printed after the heartbeat decision (as the foreign
+        # line's is): no link_watchdog while the heartbeat drives the watchdog, and named when the
+        # heartbeat watchdog did not start.
+        import contextlib
+        import io
+        for topo, named in ((HeartbeatTopo(), False),
+                            (HeartbeatTopo(raises=OSError("the report cannot be read")), True)):
+            with self.subTest(named=named):
+                out = io.StringIO()
+                with contextlib.redirect_stdout(out):
+                    summary, _ = run_startup({1: FakeClient(1)}, topo=topo,
+                                             package=EXTERNAL_FOREIGN)
+                line = [x for x in out.getvalue().splitlines()
+                        if x.startswith("[Proxy Agent] external control plane, skipped: ")]
+                self.assertEqual(len(line), 1, out.getvalue())
+                listed = line[0].split("skipped: ", 1)[1].split(". ", 1)[0].split(", ")
+                self.assertEqual(sorted(listed), sorted(summary["control_plane"]["skipped"]))
+                self.assertEqual(main.SKIP_WATCHDOG in listed, named)
+
+    def test_the_prediction_before_startup_says_declared(self):
+        caps = main._capabilities_blank(EXTERNAL_FOREIGN, [1, 2])
+        self.assertEqual((caps["1"]["reroute"], caps["1"]["link_discovery"]), (False, "declared"))
+        caps = main._capabilities_blank(EXTERNAL, [1])
+        self.assertEqual(caps["1"]["link_discovery"], "none")
+
+
+@unittest.skipUnless(HAVE_PROXY, "proxy dependencies not available in this interpreter")
+class AnExternalFabricsCutIsToldAndRewritesNothingTest(unittest.TestCase):
+    """
+    [Co-developed with claude code -- Adam] 09-27, end to end in two halves: the flag startup
+    leaves on an external control plane, handed to a REAL TopologyManager watching pod-topo's
+    cables with a real report (tests/test_heartbeat_watchdog.py's Fabric), and one cut. The
+    kernel must be told, and the route installer must not be reached.
+    """
+
+    def setUp(self):
+        SavedGlobals().save(self)
+
+    def test_the_cut_is_told_to_the_kernel_and_no_route_is_rewritten(self):
+        from tests.test_heartbeat_watchdog import TIMEOUT, Fabric
+        from tests.test_link_heartbeat import CUT, POD_DIRECTIONS
+
+        topo = HeartbeatTopo()
+        run_startup({1: FakeClient(1), 2: FakeClient(2)}, topo=topo, package=EXTERNAL_FOREIGN)
+        f = Fabric(self, routes_skipped=topo.routes_to_attached_hosts_only)
+        f.run()
+        f.clock.now = f.last_heard[CUT[0]] + TIMEOUT + 0.1
+        for d in POD_DIRECTIONS:
+            if d not in CUT:
+                f.last_heard[d] = f.clock.now - 0.2
+        result = f.run()
+        self.assertEqual(sorted(result["down"]), sorted(CUT))
+        self.assertEqual(f.kernel.of("link_failure"), sorted(CUT), "the cut was not told")
+        self.assertEqual(f.topo.installs, 0, "a route was rewritten on an external control plane")
+
+
+@unittest.skipUnless(HAVE_PROXY, "proxy dependencies not available in this interpreter")
+class AnExternalFabricReportsNoGuessedPathsTest(unittest.TestCase):
+    """
+    [Co-developed with claude code -- Adam] Adam's ruling, 09-28: on an external control plane
+    running its own pipeline the forwarding is the exercise's controller's and nothing installed
+    is known to the proxy, so `/ryu_server/all_destination_paths` reports NO path -- "unknown",
+    not a shortest path over the declared links (what it served from 09-27). The declared links
+    still seed the graph: the heartbeat judges them. A REAL TopologyManager (pod-topo's cables,
+    two hosts on different switches, so a shortest path exists to be withheld), with the flag
+    startup leaves on it; the controls are the same manager with startup's flag from NDTwin's own
+    pipeline and from a foreign fabric that is not external -- both still render the paths.
+    """
+
+    def setUp(self):
+        SavedGlobals().save(self)
+        saved = api_routes.topology
+        self.addCleanup(lambda: setattr(api_routes, "topology", saved))
+
+    def flag_after_startup(self, package):
+        topo = HeartbeatTopo()
+        run_startup({1: FakeClient(1), 2: FakeClient(2)}, topo=topo, package=package)
+        return getattr(topo, "destination_paths_unknown", False)
+
+    def fabric(self, paths_unknown):
+        from tests.test_heartbeat_watchdog import Fabric
+        f = Fabric(self, routes_skipped=True)
+        f.topo.destination_paths_unknown = paths_unknown
+        f.topo.add_host("10.0.1.1", "08:00:00:00:01:11", 1, 10)
+        f.topo.add_host("10.0.2.2", "08:00:00:00:02:22", 2, 10)
+        return f
+
+    def served(self, f):
+        api_routes.topology = f.topo
+        return asyncio.run(api_routes.get_all_paths())
+
+    def test_startup_marks_an_external_fabric_on_its_own_pipeline_only(self):
+        self.assertIs(self.flag_after_startup(EXTERNAL_FOREIGN), True)
+        self.assertIs(self.flag_after_startup(app_package.baseline()), False)
+        self.assertIs(self.flag_after_startup(a_foreign_package()), False)
+        self.assertIs(self.flag_after_startup(EXTERNAL), False)
+
+    def test_the_declared_links_still_seed_the_graph(self):
+        topo = HeartbeatTopo()
+        run_startup({1: FakeClient(1), 2: FakeClient(2)}, topo=topo, package=EXTERNAL_FOREIGN)
+        self.assertEqual(len(topo.seeded), 1, "the heartbeat has no links to judge")
+
+    def test_an_external_fabric_serves_no_path_over_its_declared_links(self):
+        f = self.fabric(self.flag_after_startup(EXTERNAL_FOREIGN))
+        self.assertEqual(self.served(f), {"status": "success", "all_destination_paths": []})
+
+    def test_the_same_graph_without_the_flag_does_have_a_path_to_withhold(self):
+        # The control: the graph above is not empty of paths -- the flag is what withholds them.
+        for package in (app_package.baseline(), a_foreign_package()):
+            with self.subTest(package=package.name):
+                body = self.served(self.fabric(self.flag_after_startup(package)))
+                self.assertEqual(body["status"], "success")
+                self.assertEqual(len(body["all_destination_paths"]), 2, body)
+
+    def test_a_cut_on_an_external_fabric_pushes_no_path(self):
+        from tests.test_heartbeat_watchdog import TIMEOUT
+        from tests.test_link_heartbeat import CUT, POD_DIRECTIONS
+        for unknown, pushed in ((True, 0), (False, 1)):
+            with self.subTest(paths_unknown=unknown):
+                f = self.fabric(unknown)
+                f.run()
+                f.clock.now = f.last_heard[CUT[0]] + TIMEOUT + 0.1
+                for d in POD_DIRECTIONS:
+                    if d not in CUT:
+                        f.last_heard[d] = f.clock.now - 0.2
+                f.run()
+                self.assertEqual(f.kernel.of("link_failure"), sorted(CUT), "the cut was not told")
+                self.assertEqual(sum(1 for c in f.kernel.calls if c[0] == "all_destination_paths"),
+                                 pushed)
+
+
+@unittest.skipUnless(HAVE_PROXY, "proxy dependencies not available in this interpreter")
 class TheHeartbeatIsDisclosedOnSwitchStateTest(unittest.TestCase):
 
     def setUp(self):
@@ -342,17 +579,49 @@ class TheHeartbeatIsDisclosedOnSwitchStateTest(unittest.TestCase):
         self.assertEqual(report["frame"]["ethertype"], "0x88B5")
 
     def test_the_census_says_which_of_its_arms_ndt_up_starts_the_heartbeat_on(self):
-        # [Co-developed with claude code -- Adam] The fable judge's 2.1 on 1a3ebd7f: the census
-        # counts 20 arms with the heartbeat, but `ndt up p4 --app` starts it on 17 -- the other 3
-        # (p4runtime x2, flowcache solution) are external control planes, where segment S started
-        # it by hand and `ndt up` does not. Said in the text, so the 20 is not read as ndt's.
+        # [Co-developed with claude code -- Adam] The fable judge's 2.1 on 1a3ebd7f: the census's
+        # 20 arms were started BY HAND (segment S), and the text says which of them `ndt up p4
+        # --app` starts it on. 17 until 09-27; all 20 since -- the 3 external control planes
+        # (p4runtime x2, flowcache solution) detect only.
         self.start()
         census = main.heartbeat_report()["census"]
         text = census["summary"]
         self.assertIn("by hand", text)
         self.assertIn("external control plane", text)
-        self.assertIn("17", text)
+        self.assertIn("EXPECTED to start it on all 20 too", text)
+        self.assertIn("not yet measured under ndt", text)
+        # [Co-developed with claude code -- Adam] Adam's 09-28 ruling: on an external control plane
+        # only after the offline drop check proves the program drops the frame.
+        self.assertIn("only after ndt's offline drop check proves the program drops the frame", text)
+        self.assertIn("detect only", text)
+        self.assertNotIn("17", text)
         self.assertIn("ndt up", text)
+
+    def test_the_census_names_the_punt_blind_spot_on_external_control_planes(self):
+        # [Co-developed with claude code -- Adam] The external judge's F3 (09-28): a heartbeat frame
+        # an external program punts to its own controller is invisible to the proxy and the daemon;
+        # served beside the census, with the P4-level reason the 3 programs' source drops it (read
+        # from the source, not measured with the programs loaded -- S1, round 2).
+        self.start()
+        text = main.heartbeat_report()["census"]["summary"]
+        self.assertIn("punts to ITS OWN controller", text)
+        self.assertIn("Any other external program is checked the same way before the heartbeat "
+                      "starts on it; what its controller does later -- entries it installs, a "
+                      "pipeline it pushes itself, a default action it changes -- is not covered",
+                      text)
+        self.assertIn("the drop check agrees on a throwaway bmv2", text)
+        self.assertIn("flowcache drops every non-IPv4 frame at ingress", text)
+        # [Co-developed with claude code -- Adam] The external judge's S1 (09-28): a reading of the
+        # P4 source, not a measurement -- segment S ran these arms with no controller.
+        self.assertIn("The P4 SOURCE of these 3 programs drops it", text)
+        self.assertIn("is the first measurement with these programs loaded by their controllers", text)
+        self.assertIn("inferred from bmv2", text)
+        # [Co-developed with claude code -- Adam] Round 5 (S-3): what segment S's raw shows -- the
+        # package's program on every switch, no entry, P4Runtime's FAILED_PRECONDITION -- not "no
+        # pipeline was loaded", which its own 30_report.json contradicts.
+        self.assertIn("each switch ran the package's compiled program", text)
+        self.assertIn("P4Runtime had no pipeline config pushed", text)
+        self.assertNotIn("so no pipeline was loaded", text)
 
     def test_the_watchdogs_passes_are_served(self):
         topo = self.start()

@@ -2938,9 +2938,10 @@ ndt_port_proto() {
 #
 #   * started by `ndt up p4 --app` on a foreign pipeline, after the fabric and before the proxy,
 #     so the proxy's first watchdog pass has a report to read. NEVER on NDTwin's own pipeline
-#     (it has LLDP; the helper refuses it too), and not under an external control plane: the
-#     proxy reads only there and runs no watchdog, so the frames would go into somebody's
-#     pipeline for nobody to read;
+#     (it has LLDP; the helper refuses it too). [Co-developed with claude code -- Adam] Since
+#     09-27 an external control plane on its own pipeline gets it as well, DETECT ONLY: the
+#     proxy there still writes nothing (no arbitration, install_initial_routes skipped), so a
+#     cut is told to the twin and the exercise's controller keeps every table as it wrote it;
 #   * a heartbeat that does not start does NOT fail the bring-up. The fabric is up; what is
 #     missing is detection, and the proxy says so on /p4/switch_state (`reroute`);
 #   * stopped before the topology it watches, by `ndt down`, by a rollback, and by a bring-up
@@ -2955,25 +2956,101 @@ ndt_port_proto() {
 HB_PIDFILE=/run/ndtwin-lab/heartbeat.pid
 HB_REPORT=/run/ndtwin-lab/heartbeat.json
 
+# --- the heartbeat drop check (Adam, 09-28): default-safe on an external control plane ----------
+#
+# [Co-developed with claude code -- Adam]
+# On an external control plane the heartbeat's frames enter the EXERCISE'S program, and a program
+# that punts, floods or digests an unknown ethertype hands them to its own controller or hosts --
+# where neither the proxy (no stream there) nor the daemon (it counts frames leaving switch
+# ports) can see it. So there the heartbeat starts ONLY when tools/test_workflow/
+# heartbeat_drop_check.py proves, offline, that every program the package's switches run drops
+# the frame with no controller and no entries. Not proven -- not dropped, or could not tell --
+# means not started, said here and in `ndt status`. Run in the package pre-flight, before
+# anything on the machine is touched: the check's throwaway switch is not the lab's (its own
+# directory, a Thrift port outside the lab's, argv[0] `ndt-hbdrop-bmv2`, stopped by its pid).
+# A foreign fabric that is NOT external keeps the heartbeat as before (segment W, ruling 4).
+HB_CHECK_RC=""
+HB_CHECK_WHY=""
+hb_withheld_file() { echo "${NDT_HB_WITHHELD:-$REPO/.test_run/heartbeat.withheld}"; }
+
+# hb_drop_check_run <package dir> -- the check itself: its lines, its rc (0 dropped, 1 not, 2 could
+# not tell, 3 nothing to check). A function so the offline suites can stand in for it.
+hb_drop_check_run() {
+    python3 "$REPO/tools/test_workflow/heartbeat_drop_check.py" "$1"
+}
+
+# hb_drop_check_step <package dir> -- run it, say it in ONE line (the whole answer goes to a log
+# of this bring-up's own, named on that line), and remember it for heartbeat_up_step. Always rc 0:
+# a program that does not drop the frame costs the fabric its detection, not its bring-up.
+# 🔴 One line on purpose: live-p1/06 keeps the first 6000 characters of `ndt up`'s output per arm,
+# and the detect-only line external_evidence.py needs comes later in it.
+# [Co-developed with claude code -- Adam] One log PER BRING-UP (the round-4 review's S-5): 06 runs
+# 26 arms, and a single heartbeat_drop_check.log held only the last arm's answer by the time
+# anybody read it. The name carries the UTC second and this shell's pid; the line names the file.
+hb_drop_check_step() {
+    local out rc log progs
+    log="$REPO/.test_run/logs/heartbeat_drop_check.$(date -u +%Y%m%dT%H%M%SZ).$$.log"
+    out="$(hb_drop_check_run "$1" 2>&1)"; rc=$?
+    mkdir -p "$(dirname "$log")" 2>/dev/null && printf '%s\n' "$out" > "$log" 2>/dev/null
+    HB_CHECK_RC="$rc"
+    HB_CHECK_WHY="$(printf '%s\n' "$out" | sed -n -E 's/^heartbeat drop check \([a-z]+\): (.*: (NOT_DROPPED|UNKNOWN) -- .*)$/\1/p' | head -1)"
+    [[ -z "$HB_CHECK_WHY" ]] && HB_CHECK_WHY="$(printf '%s\n' "$out" | sed -n 's/^heartbeat drop check: //p' | head -1)"
+    [[ -z "$HB_CHECK_WHY" && "$rc" != 0 ]] && HB_CHECK_WHY="the drop check answered rc $rc"
+    progs="$(printf '%s\n' "$out" | sed -n -E 's/^heartbeat drop check \(([a-z]+)\): ([^ ]+) .*$/\2 \1/p' | paste -sd, - | sed 's/,/, /g')"
+    case "$rc" in
+        0) ok "heartbeat drop check: every program drops its frame (${progs:-?}) -- the declared program's default actions only; entries, a pipeline or a default action its controller sets later are not covered (${log#$REPO/})" ;;
+        1) warn "heartbeat drop check: a program does NOT drop its frame -- $HB_CHECK_WHY (${log#$REPO/})" ;;
+        *) warn "heartbeat drop check could not tell (rc $rc) -- $HB_CHECK_WHY (${log#$REPO/})" ;;
+    esac
+    return 0
+}
+
 # heartbeat_wanted <app_pipe> <app_mode> -- does this bring-up start the heartbeat?
+# [Co-developed with claude code -- Adam] The mode no longer decides whether (09-27: external
+# too); heartbeat_up_step still reads it, to say what the heartbeat is for on this fabric.
 heartbeat_wanted() {
-    [[ "$1" == foreign:* && "$2" != external ]]
+    [[ "$1" == foreign:* ]]
 }
 
 # heartbeat_up_step <app_pipe> <app_mode> -- start it where it is wanted. Always rc 0.
 heartbeat_up_step() {
+    # [Co-developed with claude code -- Adam] A record of the LAST bring-up's decision, so it goes
+    # before anything is decided for this one.
+    rm -f "$(hb_withheld_file)"
     heartbeat_wanted "$1" "$2" || return 0
     local out rc
+    # [Co-developed with claude code -- Adam] (Adam, 09-28) Default-safe on an external control
+    # plane: started only when the drop check proved every program drops the frame. "" -- the
+    # check never ran -- is not proof either.
+    if [[ "$2" == external && "${HB_CHECK_RC:-}" != 0 ]]; then
+        local why="${HB_CHECK_WHY:-the drop check did not run}"
+        warn "heartbeat NOT started on this external control plane: its program is not proven to drop the heartbeat's frame"
+        warn "  ($why)"
+        warn "  a cut link on this fabric is not detected; the proxy reports reroute.reason external_control_plane."
+        mkdir -p "$(dirname "$(hb_withheld_file)")" 2>/dev/null
+        printf 'withheld %s %s\n' "$(date +%s)" "$why" > "$(hb_withheld_file)" 2>/dev/null
+        return 0
+    fi
     # Recorded before the call, like every stage: a start that fails part way has still changed
     # the machine, and a stop of nothing is harmless (it is pidfile-gated).
     up_started heartbeat
     out="$(sudo -n "$LAB" heartbeat start 2>&1)"; rc=$?
     [[ -n "$out" ]] && printf '%s\n' "$out" | sed 's/^/      /'
     case "$rc" in
-        0) ok "heartbeat running on the inter-switch veths: a cut link is detected, and routed around where NDTwin owns the route tables (switch_state: reroute, heartbeat)" ;;
+        0) if [[ "$2" == external ]]; then
+               ok "heartbeat running on the inter-switch veths, detect only: a cut link is told to the twin and nothing is rerouted -- this fabric's own controller owns every table (switch_state: reroute external_control_plane, heartbeat)"
+           else
+               ok "heartbeat running on the inter-switch veths: a cut link is detected, and routed around where NDTwin owns the route tables (switch_state: reroute, heartbeat)"
+           fi ;;
         3) info "heartbeat: nothing to watch -- this fabric has no inter-switch link (rc 3)" ;;
         *) warn "heartbeat did NOT start (rc $rc): a cut link on this fabric will not be detected."
-           warn "  the fabric itself is up; the proxy reports reroute.reason heartbeat_not_running." ;;
+           # [Co-developed with claude code -- Adam] The reason the proxy serves depends on the
+           # fabric (the external judge's F5, 09-28): an external control plane never reroutes.
+           if [[ "$2" == external ]]; then
+               warn "  the fabric itself is up; the proxy reports reroute.reason external_control_plane, and heartbeat.state heartbeat_not_running."
+           else
+               warn "  the fabric itself is up; the proxy reports reroute.reason heartbeat_not_running."
+           fi ;;
     esac
     return 0
 }
@@ -3025,6 +3102,14 @@ print(out)
 HBROW
 )"
     printf '  %-14s %s\n' "heartbeat" "$line"
+    # [Co-developed with claude code -- Adam] (Adam, 09-28) The last bring-up's decision when it
+    # withheld the heartbeat on an external control plane: the report above can be an older run's.
+    local withheld; withheld="$(hb_withheld_file)"
+    if [[ -f "$withheld" ]]; then
+        local at="" why=""
+        read -r _ at why < "$withheld"
+        printf '  %-14s %s\n' "" "NOT started by the last 'ndt up' ($(( $(date +%s) - ${at:-0} )) s ago): its program is not proven to drop the heartbeat's frame -- $why"
+    fi
 }
 
 # rollback_up <why> -- undo the recorded stages, newest first, then say what is left.
@@ -3242,6 +3327,12 @@ up_p4() {
         # knob is written further down and a verify that re-read it would be answering about
         # whatever file was on disk by then rather than about the package this round brought up.
         app_pipe="$(app_pipeline_kind "$app_dir")"
+        # [Co-developed with claude code -- Adam] (Adam, 09-28) The heartbeat drop check, here --
+        # before the machine is touched -- and only where heartbeat_up_step will ask for it.
+        HB_CHECK_RC=""; HB_CHECK_WHY=""
+        if [[ "$app_mode" == external && "$app_pipe" == foreign:* ]]; then
+            hb_drop_check_step "$app_dir"
+        fi
     elif [[ -n "${1:-}" ]]; then
         [[ "$1" =~ ^[0-9]+$ ]] || { err "usage: ndt up p4 [host-count] | ndt up p4 --app <dir>"; return 2; }
         host_count_buildable "$1" || return 1
@@ -4005,8 +4096,12 @@ verify_p4() {
     fi
     # 🔴 UNDER AN EXTERNAL CONTROL PLANE THIS CHECK HAS NO SUBJECT, and saying so is not the
     # same as passing it. `mode: external` means the proxy opens no arbitration stream, sends
-    # no LLDP, starts no watchdog and installs no route (P1-A §2.3) -- so all_destination_paths
-    # is 0 BY DESIGN, and so is forwarding until the exercise's own controller runs. A bring-up
+    # no LLDP and installs no route (P1-A §2.3) -- so forwarding is nothing until the exercise's
+    # own controller runs. [Co-developed with claude code -- Adam] Since 09-27 an external
+    # control plane on its own pipeline has declared links and a heartbeat watchdog (detect
+    # only); from 09-27 to Adam's 09-28 ruling all_destination_paths rendered shortest paths over
+    # those links -- a guess served as the twin's answer. It reports none again: the forwarding
+    # is the exercise's controller's and nothing installed is known to the proxy. A bring-up
     # that reported `0/6 destination paths, never settled` would be reporting the mode as a
     # fault; one that quietly counted it as ok would be the "report zero, not an error" shape
     # this project keeps finding. Both unrunnable checks are therefore NAMED, individually,
@@ -4021,7 +4116,9 @@ verify_p4() {
     if [[ "$mode" == external ]]; then
         warn "proxy: destination paths NOT CHECKED -- this package declares an external control"
         warn "  plane, so the proxy installs no routes and 0 is the designed answer, not a"
-        warn "  reading. The exercise's own controller is what puts rules on these switches:"
+        warn "  reading: the forwarding is the exercise's controller's, and the proxy reports no"
+        warn "  path rather than guess one over the declared links. The exercise's own controller"
+        warn "  is what puts rules on these switches:"
         warn "  tools/p4_exercise/run_external_controller.py <pkg> <controller.py>"
         # 🔴 AND THE CHECK THAT REPLACES "N UP" ON THIS PLANE (TICKET-P2-F §4.2-2). The bring-up
         # is not left with nothing assertable about the switches just because the liveness
@@ -5253,6 +5350,8 @@ cmd_down() {
         down_rc=1
         not_verified "the heartbeat daemon (its stop failed; sudo ndtwin-lab heartbeat status says whether it runs)"
     }
+    # [Co-developed with claude code -- Adam] The withheld record describes the fabric going away.
+    rm -f "$(hb_withheld_file)"
 
     say "[2/3] topology session"
     sudo -n "$LAB" topo-stop 2>&1 | sed 's/^/      /'
@@ -7051,9 +7150,27 @@ cmd_status() {
         # about something that was never attempted, and raising it as a `--check` problem sends an
         # operator to debug a fabric that is behaving exactly as designed. `unreadable` keeps
         # today's behaviour: a package this script could not parse is not evidence about routes.
+        # [Co-developed with claude code -- Adam] "none expected" stopped being true when the
+        # package's links were declared (TICKET-P4-roles 2.3): where NDTwin owns no route table
+        # the proxy renders shortest paths over the declared links -- the twin's guess, not zero
+        # and not a reading (the external judge's S3, 09-28) -- and where it owns every one they
+        # are the routes it installed. An EXTERNAL control plane is the exception again since
+        # Adam's 09-28 ruling: its forwarding is its own controller's, and the proxy reports no
+        # path there rather than guess one.
+        local pkgmode; pkgmode="$(app_knob_mode)"
         case "$pkgpipe" in
             foreign:*)
-                echo "  ${paths:-?} destination paths reported; none expected -- the package's program on dpid ${pkgpipe#foreign:}, proxy skipped lldp_discovery"
+                if [[ "$pkgmode" == external ]]; then
+                    echo "  ${paths:-?} destination paths reported; none expected -- an external control plane on dpid ${pkgpipe#foreign:}: its forwarding is its own controller's, and the proxy reports no path rather than guess one over the declared links"
+                    # [Co-developed with claude code -- Adam] A count there means the guess came
+                    # back (the round-4 review's nit): the proxy reports none on an external plane.
+                    if [[ "$paths" =~ ^[0-9]+$ ]] && (( paths > 0 )); then
+                        echo "  !! $paths path(s) on an external control plane, where the proxy reports none: a guessed route is being served"
+                        problems+=("proxy reports $paths destination paths on an external control plane, want 0 (it reports none there)")
+                    fi
+                else
+                    echo "  ${paths:-?} destination paths reported; not a count of installed routes unless NDTwin owns the route tables -- the package's program on dpid ${pkgpipe#foreign:}, proxy skipped lldp_discovery (without them they are shortest paths over the package's declared links: the twin's guess)"
+                fi
                 ;;
             *)
                 echo "  ${paths:-?} destination paths (want $(( ph * (ph - 1) )) for $ph hosts)"

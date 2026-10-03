@@ -81,6 +81,30 @@ else
     EXERCISES="$ALL"
 fi
 
+# [Co-developed with claude code -- Adam] 09-27: which stack this round ran on -- the proxy's venv
+# (protobuf 5 on upb since that day) and $VENV_PY, which runs the driver and the exercises'
+# controllers. Recorded, never a refusal: a fingerprint that could not be taken is said here.
+if bash "$HERE/venv_fingerprint.sh" "$RUN/00_venv.txt" "$REPO/p4_proxy/venv/bin/python" "$VENV_PY"; then
+    note "venv fingerprint -> 00_venv.txt ($(/usr/bin/grep -m1 '^protobuf ' "$RUN/00_venv.txt"))"
+else
+    bad "the venv fingerprint was not fully recorded -- 00_venv.txt says which interpreter did not answer"
+fi
+# [Co-developed with claude code -- Adam] (the round-4 review's M-2) which code this round ran --
+# HEAD and its parents, the uncommitted tracked files, the kernel, bmv2 and helper binaries, both
+# venvs (live-p1/code_identity.py) -- so external_evidence.py can refuse a treatment that is not
+# its controls' code plus B. Recorded, never a refusal here.
+# [Co-developed with claude code -- Adam] (round 6) twice: as 06 starts (00_identity.before.txt) and
+# as it ends (00_identity.after.txt) -- external_evidence.py refuses a run whose two differ (the
+# code changed while it ran) and compares the after one.
+record_identity() {   # record_identity <before|after>
+    if CTRL_PY="$VENV_PY" python3 "$HERE/code_identity.py" record "$REPO" "$RUN/00_identity.$1.txt" > /dev/null 2>&1; then
+        note "code identity ($1 the rounds) -> 00_identity.$1.txt"
+    else
+        bad "the code identity was not recorded $1 the rounds (live-p1/code_identity.py record)"
+    fi
+}
+record_identity before
+
 TABLE="$RUN/00_table.tsv"
 printf 'exercise\twhich\trc\tverdict\treport\n' > "$TABLE"
 FAILED=0
@@ -202,6 +226,7 @@ if [[ -e "$REPO/p4_proxy/mininet/app_package_override" ]]; then
     FAILED=$((FAILED+1))
 fi
 
+record_identity after
 printf '\nraw: %s\n' "$RUN"
 if (( FAILED == 0 )); then
     printf 'PASS 06_thirteen -- %d arm(s), every arm as the exercise says it should be\n' "$ROWS"

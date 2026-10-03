@@ -1090,7 +1090,7 @@ _pre_entries.update({str(dpid): _blank_pre_counts() for dpid in DEFAULT_SWITCH_D
 #   capabilities  {"ipv4_route": "ndtwin" | "package" | "unbound",
 #                  "five_tuple": bool,       true only for NDTwin's own pipeline
 #                  "reroute": bool,          true only where LLDP AND the watchdog run
-#                  "link_discovery": "lldp" | "declared" | "none",
+#                  "link_discovery": "lldp" | "declared" | "heartbeat" | "none",
 #                  "binding_source": "baseline" | "package" | null}
 #
 # 🔴 `reroute` IS A FABRIC FACT REPORTED PER SWITCH. The watchdog is skipped for the whole fabric
@@ -1100,14 +1100,18 @@ _pre_entries.update({str(dpid): _blank_pre_counts() for dpid in DEFAULT_SWITCH_D
 # DECLARED links, not from failure detection (section 2.3-4), which is what "declared" says.
 #
 # 🔴 "none" is not in the ticket's two-word list, on purpose and disclosed (P4-R-SUMMARY,
-# Dissent): under `control_plane.mode: external` nothing discovers links and nothing seeds them
-# (this cut leaves external exactly as it was, 2.2-4), and "lldp" or "declared" would each be a
-# claim about a mechanism that is not running. Appendix A carries it since section 7 ruling 5.
+# Dissent): under `control_plane.mode: external` on NDTwin's own pipeline nothing discovers links
+# and nothing seeds them, and "lldp" or "declared" would each be a claim about a mechanism that is
+# not running. Appendix A carries it since section 7 ruling 5. [Co-developed with claude code --
+# Adam] Since 09-27 an external control plane on its OWN pipeline declares its links (and the
+# heartbeat judges them, detect only), so it says "declared" / "heartbeat" like any foreign
+# fabric; "none" is left for external on NDTwin's pipeline.
 #
 # 🔴 THE WORD IS THE FABRIC'S MODE, NOT WHAT HAPPENED TO IT (section 7 ruling 5, item 8). Round 1
 # said "none" when the seed entered nothing or raised, so a foreign fabric with a broken model
-# read exactly like an external one. Now: external -> "none", any other fabric with a foreign
-# switch -> "declared", every other fabric -> "lldp" -- whether LLDP started (`reroute` says
+# read exactly like an external one. Now: a fabric with a foreign switch -> "declared" (an
+# external one included, since 09-27), external on NDTwin's pipeline -> "none", every other
+# fabric -> "lldp" -- whether LLDP started (`reroute` says
 # that) and whether the declaration reached the graph (the fabric-level `declared_links` on
 # switch_state says that) are separate facts, reported separately.
 
@@ -1160,10 +1164,13 @@ def capabilities_for(owner_word, source_word, ndtwin, external, fabric):
         # (`_refuse_write`, 409 on /p4/table_entry) whatever the roles say.
         owner_word = (route_binding.OWNER_PACKAGE if source_word is not None
                       else route_binding.REASON_UNBOUND)
-    if external:
-        discovery = "none"
-    elif fabric.get("declared_links"):
+    # [Co-developed with claude code -- Adam] `declared` first (09-27): an external control plane on
+    # its own pipeline declares its links too, for the heartbeat to judge; `none` is left for the
+    # one fabric that neither discovers nor declares -- external on NDTwin's own pipeline.
+    if fabric.get("declared_links"):
         discovery = "declared"
+    elif external:
+        discovery = "none"
     else:
         discovery = "lldp"
     return {
@@ -1192,7 +1199,9 @@ def _capabilities_blank(package, dpids):
     foreign = any(not v for v in ndtwin.values())
     external = package.read_only
     runs = not external and not foreign
-    fabric = {"lldp": runs, "watchdog": runs, "declared_links": foreign and not external}
+    # [Co-developed with claude code -- Adam] 09-27: a foreign pipeline declares its links whoever
+    # owns the tables -- an external control plane included (detect only).
+    fabric = {"lldp": runs, "watchdog": runs, "declared_links": foreign}
     return {str(dpid): capabilities_for(*_predicted_binding_words(package, dpid, ndtwin[dpid]),
                                         ndtwin[dpid], external, fabric)
             for dpid in dpids}
@@ -1253,7 +1262,10 @@ def _fabric_reroute():
     `reroute`, so the two cannot disagree. [Co-developed with claude code -- Adam]
     TICKET-P4-heartbeat segment W:
 
-      * external: never -- the exercise's controller owns every table;
+      * external: never -- the exercise's controller owns every table. [Co-developed with claude
+        code -- Adam] Asked FIRST, before the heartbeat: on its own pipeline an external fabric
+        runs the heartbeat watchdog too (09-27), detect only, and a usable heartbeat there must
+        not read as a fabric that reroutes;
       * declared links (a foreign fabric): only with the heartbeat watchdog running on a USABLE
         report AND every foreign route table NDTwin's. The tables are named first when both are
         wrong: fixing the heartbeat alone would not make this fabric reroute;
@@ -1262,9 +1274,19 @@ def _fabric_reroute():
     if _fabric.get("lldp") is None:
         return None
     if _fabric.get("external"):
+        # [Co-developed with claude code -- Adam] The detail says what the heartbeat does for this
+        # fabric NOW; the reason word never changes.
+        detects = ""
+        if _fabric.get("heartbeat_watchdog"):
+            reading = _heartbeat_reading()
+            detects = (" A cut link is detected by the heartbeat and told to the kernel, and no "
+                       "route is rewritten." if reading is not None and reading.usable else
+                       f" The heartbeat watchdog runs but its report is not usable "
+                       f"({getattr(reading, 'reason', 'not read')}), so a cut link is not "
+                       f"detected either.")
         return (False, REROUTE_EXTERNAL,
                 "the package declares an external control plane: its own controller owns every "
-                "table and this proxy writes nothing")
+                "table and this proxy writes nothing." + detects)
     if _fabric.get("declared_links"):
         blocked = _fabric.get("routes_blocked")
         if blocked is not None:
@@ -1328,19 +1350,55 @@ HEARTBEAT_CENSUS = {
                "host-facing port and none forwarded to another switch. calc and multicast are "
                "one switch (no inter-switch link, nothing sent); basic_tunnel and flowcache "
                "skeletons do not build. Segment S's census started the heartbeat by hand (the "
-               "helper, not ndt) on all 20; `ndt up p4 --app` starts it on 17 of them -- the other "
-               "3 (p4runtime skeleton and solution, flowcache solution) are external control "
-               "planes, where `ndt up` does not start it.",
-    # [Co-developed with claude code -- Adam] The last sentence: the fable judge's 2.1 on 1a3ebd7f
-    # -- the 20 is segment S's, not ndt's.
+               "helper, not ndt) on all 20. Since 2026-09-27 `ndt up p4 --app` is EXPECTED to "
+               "start it on all 20 too -- on the 3 external control planes among them (p4runtime "
+               "skeleton and solution, flowcache solution) detect only, and since 2026-09-28 only "
+               "after ndt's offline drop check proves the program drops the frame -- which is "
+               "inferred from ndt's rule and not yet measured under ndt (live-p1/08 PART=h5 checks "
+               "it per arm). On an external control plane a frame the program punts to ITS OWN "
+               "controller is seen neither by this proxy (it has no stream there) nor by the "
+               "daemon (it counts frames leaving switch ports); the drop check "
+               "(tools/test_workflow/heartbeat_drop_check.py) is what keeps the heartbeat off a "
+               "program that does that. The P4 SOURCE of these 3 programs drops it (flowcache "
+               "drops every non-IPv4 frame at ingress; advanced_tunnel applies no table to it, so "
+               "egress_spec stays 0 -- that no port 0 exists is inferred from bmv2), and the drop "
+               "check agrees on a throwaway bmv2 with each program loaded and no controller "
+               "(flowcache drops it at ingress; advanced_tunnel sends it to port 0, which no "
+               "switch of the fabric has). Segment S's census ran them with no controller: each "
+               "switch ran the package's compiled program (the daemon's report names "
+               "advanced_tunnel.json or flowcache.json for every switch) with no table entry, "
+               "every direction heard all 5 frames sent and no host saw one -- the programs' "
+               "default actions, the drop check's question. P4Runtime had no pipeline config "
+               "pushed (the FAILED_PRECONDITION ndt's verify reports as 'no pipeline loaded'); "
+               "live-p1/08 PART=h5 is the first measurement with these programs loaded by their "
+               "controllers, entries and all. Any other external program is checked the same way "
+               "before the heartbeat starts on it; what its controller does later -- entries it "
+               "installs, a pipeline it pushes itself, a default action it changes -- is not "
+               "covered.",
+    # [Co-developed with claude code -- Adam] The last sentences: the fable judge's 2.1 on 1a3ebd7f
+    # -- the 20 is segment S's, not ndt's. It said 17 until 09-27, when `ndt up` started the
+    # heartbeat on the external arms as well; the external judge's F6 (09-28) made "all 20 under
+    # ndt" an EXPECTATION until H5 measures it (this constant is otherwise measured numbers), and
+    # its F3 made the punt blind spot on external control planes part of what is served. Its S1
+    # (round 2): segment S never started the 3 external arms' controllers, so the census saw each
+    # program's default actions only (no entries) -- what is served about them is that, plus a
+    # reading of the P4 source (round 5 corrected how the census itself is described, below).
+    # Adam's 09-28 ruling: on an external control plane the heartbeat starts only after the offline
+    # drop check proves the program drops the frame; its answer on the 3 programs is served too.
+    # [Co-developed with claude code -- Adam] Round 5 (the round-4 review's S-3): "no pipeline was
+    # loaded" was contradicted by its own raw -- census_<arm>/30_report.json names the package's
+    # program on every switch and 10_up.txt's "no pipeline loaded" is P4Runtime's FAILED_PRECONDITION
+    # -- so the sentence now says what that raw shows; and (S-2) what the controller does later
+    # includes a pipeline it pushes and a default action it changes.
 }
 
 
 def heartbeat_report():
     """
     `GET /p4/switch_state`'s top-level `heartbeat`: what the heartbeat is doing to and for this
-    fabric. None on a fabric that runs none -- NDTwin's own pipeline (LLDP) and an external
-    control plane. [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W.
+    fabric. None on a fabric that runs none -- NDTwin's own pipeline (LLDP), and an external
+    control plane on NDTwin's pipeline. [Co-developed with claude code -- Adam] TICKET-P4-heartbeat
+    segment W; since 09-27 an external control plane on its own pipeline runs one (detect only).
 
     🔴 THE SIDE EFFECTS ARE HERE, NOT IN A DOCUMENT. The frames enter the package's own pipeline
     (bmv2 reads the veth), which is the price of a liveness signal that needs no change to the
@@ -1393,7 +1451,8 @@ def _heartbeat_passes():
 
 
 def _start_heartbeat_watchdog(topo):
-    """Start the heartbeat-fed watchdog on a foreign fabric. Never raises: returns (started,
+    """Start the heartbeat-fed watchdog on a foreign fabric (an external one included, detect only,
+    since 09-27). Never raises: returns (started,
     "Type: message" or None). A topology without the entry -- every pre-W test double -- is
     disclosed, not fatal. [Co-developed with claude code -- Adam]"""
     start = getattr(topo, "start_heartbeat_watchdog", None)
@@ -1806,8 +1865,13 @@ async def startup(clients_factory, sflow, kernel, topo,
         declare. The watchdog would additionally report every seeded link down inside its
         timeout: a fabric-wide false alarm.
 
-    🔴 THE TWO DISCLOSURES ARE NOT ONE LIST. `control_plane.skipped` carries the FABRIC-wide
-    three only; the per-switch pair lands on that switch's `pipeline.skipped`. On a mixed fabric
+    🔴 THE TWO DISCLOSURES ARE NOT ONE LIST. `control_plane.skipped` carries the fabric-wide
+    steps only -- [Co-developed with claude code -- Adam] lldp_discovery; install_initial_routes,
+    unless every foreign switch's route table is bound with owner ndtwin (roles; TICKET-P4-roles
+    2.3-3), when NDTwin installs the routes and it drops off the list; and link_watchdog only when
+    the heartbeat watchdog did not start (Adam's ruling E, 09-27). Under an external control plane
+    the list is EXTERNAL_SKIPS, less link_watchdog when the heartbeat drives it -- and the
+    per-switch pair lands on that switch's `pipeline.skipped`. On a mixed fabric
     the switches beside the package's still get a clone session and still sample, so saying
     `clone_session` at fabric level would be a true sentence about one switch told about ten.
     """
@@ -1876,11 +1940,18 @@ async def startup(clients_factory, sflow, kernel, topo,
         # a background retry that matters just as much on this fabric (stack.sh starts the
         # kernel AFTER the proxy, so the first push always lands on a closed port), and an early
         # return is how that kind of thing gets quietly dropped from the second code path.
+        # [Co-developed with claude code -- Adam] "watch links" left the sentence on 09-27: on a
+        # foreign pipeline the declared links ARE watched now, by the heartbeat, detect only.
+        watched = (" Its declared links are watched by the root helper's heartbeat, detect only: "
+                   "a cut is told to the kernel and no route is rewritten." if foreign else "")
+        # The Skipped list is printed once the heartbeat decision below has settled it (the
+        # foreign fabric's line learned that from the opus judge's F2, 09-27): on a foreign
+        # pipeline `link_watchdog` leaves it when the heartbeat drives the watchdog.
         print(f"[Proxy Agent] app package {package.name} declares an EXTERNAL control plane: "
-              f"this proxy will not push pipelines, program clone sessions, send LLDP beacons, "
-              f"watch links or install routes on any of the {len(clients)} switches it "
-              f"connected to. It reads only. Skipped: {', '.join(sorted(skipped))}. "
-              f"Reported on GET /p4/switch_state.")
+              f"this proxy will not push pipelines, program clone sessions, send LLDP beacons "
+              f"or install routes on any of the {len(clients)} switches it "
+              f"connected to. It reads only.{watched} What it skipped follows once startup has "
+              f"decided it. Reported on GET /p4/switch_state.")
 
     # Wait ONCE for mastership to be confirmed on all switches.
     # asyncio.sleep, not time.sleep: this coroutine runs on the event loop, and a blocking sleep
@@ -2207,8 +2278,29 @@ async def startup(clients_factory, sflow, kernel, topo,
         seeded, seed_error = _seed_declared_links(topo, package)
         _fabric.update(lldp=False, watchdog=False, declared_links=True,
                        declared_links_seed={"directions": seeded, "error": seed_error})
+    elif read_only and foreign:
+        # [Co-developed with claude code -- Adam] 🔴 AN EXTERNAL CONTROL PLANE ON ITS OWN PIPELINE
+        # DETECTS, AND NOTHING MORE (09-27). The exercise's controller still owns every table and
+        # this proxy still writes nothing: every client here was built without arbitration and
+        # refuses every write (`_refuse_write`), and `install_initial_routes` stays in `skipped`,
+        # so the watchdog pass below reports a transition and rewrites no route
+        # (`routes_to_attached_hosts_only`, set from that list two statements down). What is new
+        # is only the detection: the package's cables are declared exactly as on a foreign fabric,
+        # and the root helper's heartbeat (`ndt up p4 --app` starts it on every foreign pipeline
+        # now) says which of them still carry frames. `reroute` stays false with the reason
+        # `external_control_plane` whatever the heartbeat says (`_fabric_reroute` asks
+        # `external` first).
+        seeded, seed_error = _seed_declared_links(topo, package)
+        _fabric.update(lldp=False, watchdog=False, declared_links=True,
+                       declared_links_seed={"directions": seeded, "error": seed_error})
+        # [Co-developed with claude code -- Adam] (Adam, 09-28) The declared links seed the graph
+        # for the heartbeat, NOT for paths: the forwarding is the exercise's controller's and none
+        # of it is known here, so `/ryu_server/all_destination_paths` reports none (it rendered
+        # shortest paths over these links from 09-27 -- a guess served as the twin's answer).
+        topo.destination_paths_unknown = True
     elif read_only:
-        # `external`: nothing discovers links and nothing seeds them -- unchanged by this cut.
+        # `external` on NDTwin's own pipeline: nothing discovers links and nothing seeds them. The
+        # root helper refuses a heartbeat on NDTwin's pipeline and `ndt up` asks for none there.
         _fabric.update(lldp=False, watchdog=False, declared_links=False)
 
     # [Co-developed with claude code -- Adam] Section 7 ruling 5, item 1: the fabric's route
@@ -2226,7 +2318,9 @@ async def startup(clients_factory, sflow, kernel, topo,
     # the ONE watchdog pass judges that with the beacon rule. After the route decision, because
     # the pass reads `routes_to_attached_hosts_only` to decide between rerouting and detecting
     # only. The LLDP BEACONS stay off and `lldp_discovery` stays in `control_plane.skipped`: they
-    # ride a controller header these programs do not have. External is untouched (it reads only).
+    # ride a controller header these programs do not have. [Co-developed with claude code -- Adam]
+    # An external control plane on its own pipeline gets it too (09-27), detect only: it skips
+    # install_initial_routes, so the pass takes the report-and-do-not-reroute branch.
     # [Co-developed with claude code -- Adam] 🔴 ADAM'S RULING E (09-27): `link_watchdog` LEAVES
     # `control_plane.skipped` when the heartbeat drives the watchdog -- the watchdog IS running,
     # fed by the heartbeat instead of by beacons, and a list that says it was skipped tells a reader
@@ -2238,6 +2332,9 @@ async def startup(clients_factory, sflow, kernel, topo,
         _fabric.update(heartbeat_watchdog=started, heartbeat_error=error)
         if started and SKIP_WATCHDOG in skipped:
             skipped.remove(SKIP_WATCHDOG)
+    if _fabric.get("external"):
+        print(f"[Proxy Agent] external control plane, skipped: {', '.join(sorted(set(skipped)))}. "
+              f"Reported on GET /p4/switch_state.")
     if foreign_note is not None:
         print(foreign_note + f"Skipped: {', '.join(sorted(set(skipped)))}. The per-switch skips (no "
                              f"clone session, no sFlow) are on each switch's own `pipeline.skipped`, "

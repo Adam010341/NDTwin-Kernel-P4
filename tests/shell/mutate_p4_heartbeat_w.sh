@@ -104,6 +104,8 @@ ltree() {   # ltree <dir>
     local d="$1"
     mkdir -p "$d/$LIVE_DIR_REL" "$d/tools/test_workflow" "$d/doc/audit/2026-09-25_p4-heartbeat/spike" "$d/tmp"
     cp "$REPO/$LIVE_DIR_REL/_common.sh" "$LIVE08" "$d/$LIVE_DIR_REL/"
+    # [Co-developed with claude code -- Adam] round 5: 08's identity gate runs these two (M-2)
+    cp "$REPO/$LIVE_DIR_REL/code_identity.py" "$REPO/$LIVE_DIR_REL/venv_fingerprint.sh" "$d/$LIVE_DIR_REL/"
     cp "$REPO/tools/test_workflow/faults.sh" "$REPO/tools/test_workflow/qdisc_snapshot.sh" "$d/tools/test_workflow/"
     cp "$REPO/doc/audit/2026-09-25_p4-heartbeat/spike/census_prepare.py" "$d/doc/audit/2026-09-25_p4-heartbeat/spike/"
     mkdir -p "$d/p4_proxy"   # a real directory: its mininet/ (the knobs) is simply not there
@@ -603,7 +605,8 @@ m=$(mutant m01b "$MAIN" \
         _fabric["routes_blocked"] = _routes_blocked_word(clients, foreign)' \
     '    if _fabric.get("declared_links") or read_only:
         _fabric["routes_blocked"] = _routes_blocked_word(clients, foreign)')
-report "M01b: an external control plane starts it" "$m" "test_an_external_fabric_does_not_start_it"
+report "M01b: an external control plane on NDTwin's own pipeline starts it" "$m" \
+       "test_an_external_fabric_on_ndtwins_own_pipeline_does_not_start_it"
 m=$(mutant m02 "$MAIN" \
     '        started, error = _start_heartbeat_watchdog(topo)' \
     '        started, error = False, "mutant"')
@@ -709,6 +712,104 @@ m=$(mutant f2 "$MAIN" \
     '        print(foreign_note + f"Skipped: {'"'"', '"'"'.join(sorted(set(skipped) | {SKIP_WATCHDOG}))}. The per-switch skips (no "')
 report "F2: the startup log names link_watchdog skipped while the heartbeat drives it" "$m" \
        "test_the_startup_log_names_the_same_skipped_list_switch_state_serves"
+# [Co-developed with claude code -- Adam] 09-27, external detect-only. X1 declares nothing on an
+# external control plane (the branch as it was); X2 lets its watchdog pass reroute; X3 asks the
+# heartbeat before `external`; X5 predicts its links `none` again; X6/X7 the
+# reroute detail; X8 a pipeline push on it (the write the tests count); X9 the external line's list.
+m=$(mutant x1 "$MAIN" \
+    '    elif read_only and foreign:' \
+    '    elif False:')
+report "X1: an external control plane on its own pipeline declares nothing" "$m" \
+       "test_it_declares_its_links_and_starts_the_heartbeat_watchdog"
+m=$(mutant x2 "$MAIN" \
+    '    topo.routes_to_attached_hosts_only = SKIP_ROUTES in skipped' \
+    '    topo.routes_to_attached_hosts_only = SKIP_ROUTES in skipped and not _fabric.get("external")')
+report "X2: the external fabric's watchdog pass may reroute" "$m" \
+       "test_the_route_writer_is_left_skipping_so_a_cut_rewrites_nothing"
+m=$(mutant x2b "$MAIN" \
+    '    topo.routes_to_attached_hosts_only = SKIP_ROUTES in skipped' \
+    '    topo.routes_to_attached_hosts_only = SKIP_ROUTES in skipped and not _fabric.get("external")')
+report "X2b: (the same, end to end: a real TopologyManager's cut)" "$m" \
+       "test_the_cut_is_told_to_the_kernel_and_no_route_is_rewritten"
+m=$(mutant x3 "$MAIN" \
+    '    if _fabric.get("external"):
+        # [Co-developed with claude code -- Adam] The detail says what the heartbeat does for this' \
+    '    if _fabric.get("external") and not _fabric.get("declared_links"):
+        # [Co-developed with claude code -- Adam] The detail says what the heartbeat does for this')
+report "X3: the heartbeat is asked before external" "$m" \
+       "test_even_with_every_table_bound_to_ndtwin_it_does_not_reroute"
+m=$(mutant x3b "$MAIN" \
+    '    if _fabric.get("external"):
+        # [Co-developed with claude code -- Adam] The detail says what the heartbeat does for this' \
+    '    if _fabric.get("external") and not _fabric.get("declared_links"):
+        # [Co-developed with claude code -- Adam] The detail says what the heartbeat does for this')
+report "X3b: (the same, seen as the reason on a usable heartbeat)" "$m" \
+       "test_reroute_is_false_for_the_external_reason_even_when_the_heartbeat_is_usable"
+m=$(mutant x5 "$MAIN" \
+    '    fabric = {"lldp": runs, "watchdog": runs, "declared_links": foreign}' \
+    '    fabric = {"lldp": runs, "watchdog": runs, "declared_links": foreign and not external}')
+report "X5: the prediction says an external fabric declares nothing" "$m" \
+       "test_the_prediction_before_startup_says_declared"
+m=$(mutant x6 "$MAIN" \
+    '                       "route is rewritten." if reading is not None and reading.usable else' \
+    '                       "route is rewritten." if True else')
+report "X6: the detail says cuts are detected when the heartbeat is not usable" "$m" \
+       "test_an_unusable_heartbeat_is_declared_and_still_external"
+m=$(mutant x7 "$MAIN" \
+    '        if _fabric.get("heartbeat_watchdog"):
+            reading = _heartbeat_reading()' \
+    '        if False:
+            reading = _heartbeat_reading()')
+report "X7: the external detail never mentions the heartbeat" "$m" \
+       "test_reroute_is_false_for_the_external_reason_even_when_the_heartbeat_is_usable"
+m=$(mutant x8 "$MAIN" \
+    '        if read_only or not client.json_path:
+            continue' \
+    '        if not client.json_path:
+            continue')
+report "X8: a pipeline is pushed on an external control plane" "$m" \
+       "test_no_client_is_asked_to_write_anything"
+m=$(mutant x9 "$MAIN" \
+    '        print(f"[Proxy Agent] external control plane, skipped: {'"'"', '"'"'.join(sorted(set(skipped)))}. "' \
+    '        print(f"[Proxy Agent] external control plane, skipped: {'"'"', '"'"'.join(sorted(set(skipped) | {SKIP_WATCHDOG}))}. "')
+report "X9: the external line names link_watchdog skipped while the heartbeat drives it" "$m" \
+       "test_the_startup_log_names_the_skipped_list_switch_state_serves"
+m=$(mutant x10 "$MAIN" \
+    '        if started and SKIP_WATCHDOG in skipped:
+            skipped.remove(SKIP_WATCHDOG)' \
+    '        if started and SKIP_WATCHDOG in skipped and not _fabric.get("external"):
+            skipped.remove(SKIP_WATCHDOG)')
+report "X10: link_watchdog stays named skipped on an external fabric the heartbeat watches" "$m" \
+       "test_link_watchdog_leaves_the_list_while_the_heartbeat_drives_it"
+# [Co-developed with claude code -- Adam] Adam's 09-28 ruling: an external control plane on its
+# own pipeline reports NO destination path. X11 never marks the fabric (the guess comes back
+# through startup); X12 the pull ignores the mark; X13 the push ignores it; X14 the pull
+# withholds the paths of every fabric (what the control cell is for).
+m=$(mutant x11 "$MAIN" \
+    '        topo.destination_paths_unknown = True' \
+    '        pass')
+report "X11: startup leaves an external fabric's paths to the shortest-path guess" "$m" \
+       "test_startup_marks_an_external_fabric_on_its_own_pipeline_only"
+m=$(mutant x11b "$MAIN" \
+    '        topo.destination_paths_unknown = True' \
+    '        pass')
+report "X11b: (the same, seen as the paths the pull serves)" "$m" \
+       "test_an_external_fabric_serves_no_path_over_its_declared_links"
+m=$(mutant x12 "$ROUTES" \
+    '    if getattr(topology, "destination_paths_unknown", False):' \
+    '    if False:')
+report "X12: the pull renders the guess on an external fabric" "$m" \
+       "test_an_external_fabric_serves_no_path_over_its_declared_links"
+m=$(mutant x13 "$TOPOMGR" \
+    '        if self.destination_paths_unknown:' \
+    '        if False:')
+report "X13: a cut on an external fabric pushes the guess" "$m" \
+       "test_a_cut_on_an_external_fabric_pushes_no_path"
+m=$(mutant x14 "$ROUTES" \
+    '    if getattr(topology, "destination_paths_unknown", False):' \
+    '    if True:')
+report "X14: the pull withholds the paths of every fabric" "$m" \
+       "test_the_same_graph_without_the_flag_does_have_a_path_to_withhold"
 m=$(mutant e2 "$MAIN" \
     '        if started and SKIP_WATCHDOG in skipped:' \
     '        if SKIP_WATCHDOG in skipped:')
@@ -834,12 +935,48 @@ report "A07: delete_strict is not the delete handler" "$m" "test_both_delete_rou
 echo "round 2: the census, and the helper's report as the proxy reads it"
 m=$(mutant m28 "$MAIN" \
     '               "skeletons do not build. Segment S'"'"'s census started the heartbeat by hand (the "
-               "helper, not ndt) on all 20; `ndt up p4 --app` starts it on 17 of them -- the other "
-               "3 (p4runtime skeleton and solution, flowcache solution) are external control "
-               "planes, where `ndt up` does not start it.",' \
+               "helper, not ndt) on all 20. Since 2026-09-27 `ndt up p4 --app` is EXPECTED to "
+               "start it on all 20 too -- on the 3 external control planes among them (p4runtime "
+               "skeleton and solution, flowcache solution) detect only, and since 2026-09-28 only "
+               "after ndt'"'"'s offline drop check proves the program drops the frame -- which is "
+               "inferred from ndt'"'"'s rule and not yet measured under ndt (live-p1/08 PART=h5 checks "
+               "it per arm). On an external control plane a frame the program punts to ITS OWN "
+               "controller is seen neither by this proxy (it has no stream there) nor by the "
+               "daemon (it counts frames leaving switch ports); the drop check "
+               "(tools/test_workflow/heartbeat_drop_check.py) is what keeps the heartbeat off a "
+               "program that does that. The P4 SOURCE of these 3 programs drops it (flowcache "
+               "drops every non-IPv4 frame at ingress; advanced_tunnel applies no table to it, so "
+               "egress_spec stays 0 -- that no port 0 exists is inferred from bmv2), and the drop "
+               "check agrees on a throwaway bmv2 with each program loaded and no controller "
+               "(flowcache drops it at ingress; advanced_tunnel sends it to port 0, which no "
+               "switch of the fabric has). Segment S'"'"'s census ran them with no controller: each "
+               "switch ran the package'"'"'s compiled program (the daemon'"'"'s report names "
+               "advanced_tunnel.json or flowcache.json for every switch) with no table entry, "
+               "every direction heard all 5 frames sent and no host saw one -- the programs'"'"' "
+               "default actions, the drop check'"'"'s question. P4Runtime had no pipeline config "
+               "pushed (the FAILED_PRECONDITION ndt'"'"'s verify reports as '"'"'no pipeline loaded'"'"'); "
+               "live-p1/08 PART=h5 is the first measurement with these programs loaded by their "
+               "controllers, entries and all. Any other external program is checked the same way "
+               "before the heartbeat starts on it; what its controller does later -- entries it "
+               "installs, a pipeline it pushes itself, a default action it changes -- is not "
+               "covered.",' \
     '               "skeletons do not build.",')
-report "M28: the census does not say which 17 arms ndt up starts it on" "$m" \
+report "M28: the census does not say which arms ndt up starts it on" "$m" \
        "test_the_census_says_which_of_its_arms_ndt_up_starts_the_heartbeat_on"
+m=$(mutant m28b "$MAIN" \
+    '               "installs, a pipeline it pushes itself, a default action it changes -- is not "' \
+    '               "installs -- is not "')
+report "M28b: the census stops saying what the drop check does not cover" "$m" \
+       "test_the_census_names_the_punt_blind_spot_on_external_control_planes"
+# [Co-developed with claude code -- Adam] Round 5 (S-3): the sentence about segment S's raw goes back
+# to "no pipeline was loaded", which that raw contradicts.
+m=$(mutant m28d "$MAIN" \
+    '               "switch of the fabric has). Segment S'"'"'s census ran them with no controller: each "
+               "switch ran the package'"'"'s compiled program (the daemon'"'"'s report names "' \
+    '               "switch of the fabric has). Segment S'"'"'s census ran them with no controller, so no "
+               "pipeline was loaded (the daemon'"'"'s report names "')
+report "M28d: the census says segment S loaded no pipeline" "$m" \
+       "test_the_census_names_the_punt_blind_spot_on_external_control_planes"
 m=$(mutant k01 "$HELPER" \
     '        end = lambda port: {"dpid": port.dpid, "port": port.port, "ifname": port.ifname}' \
     '        end = lambda port: {"switch_dpid": port.dpid, "port": port.port, "ifname": port.ifname}')
@@ -930,13 +1067,146 @@ m=$(nmutant n01 "$NDT" \
     '    :')
 nreport "N01: ndt up never starts the heartbeat" "$m" "🔴 exactly one 'heartbeat start'"
 m=$(nmutant n02 "$NDT" \
-    '    [[ "$1" == foreign:* && "$2" != external ]]' \
+    '    [[ "$1" == foreign:* ]]' \
     '    true')
 nreport "N02: every bring-up starts it (NDTwin's pipeline too)" "$m" "🔴 and never asks for a heartbeat (it has LLDP)"
+# [Co-developed with claude code -- Adam] 09-27, external detect-only: N03 is now the condition as it
+# was before (no heartbeat on an external control plane); N03b drops the detect-only sentence, N03c
+# says it on every foreign fabric.
 m=$(nmutant n03 "$NDT" \
-    '    [[ "$1" == foreign:* && "$2" != external ]]' \
-    '    [[ "$1" == foreign:* ]]')
-nreport "N03: an external control plane gets one" "$m" "🔴 and does not start one: the proxy reads only there"
+    '    [[ "$1" == foreign:* ]]' \
+    '    [[ "$1" == foreign:* && "$2" != external ]]')
+nreport "N03: an external control plane gets none again" "$m" "🔴 exactly one 'heartbeat start' on an external plane"
+m=$(nmutant n03b "$NDT" \
+    '        0) if [[ "$2" == external ]]; then' \
+    '        0) if false; then')
+nreport "N03b: an external fabric is told its cuts are routed around" "$m" "🔴 and ndt says it detects only"
+m=$(nmutant n03c "$NDT" \
+    '        0) if [[ "$2" == external ]]; then' \
+    '        0) if true; then')
+nreport "N03c: every foreign fabric is called detect-only" "$m" "🔴 a non-external foreign fabric is not called detect-only"
+# [Co-developed with claude code -- Adam] F5 (09-28): the failure branch names the external reason.
+m=$(nmutant n03d "$NDT" \
+    '           if [[ "$2" == external ]]; then
+               warn "  the fabric itself is up; the proxy reports reroute.reason external_control_plane' \
+    '           if false; then
+               warn "  the fabric itself is up; the proxy reports reroute.reason external_control_plane')
+nreport "N03d: a failed start on an external plane names the foreign reason" "$m" \
+        "🔴 a failed start on an external plane names external_control_plane"
+# [Co-developed with claude code -- Adam] Adam's 09-28 ruling: on an external control plane the
+# heartbeat starts only when the drop check proved the program drops its frame. N40 ignores the
+# check; N41 takes could-not-tell as proof; N42 never runs it; N43 withholds it everywhere external;
+# N44 hides the check's own lines; N45 fails the bring-up over it; N46 parses no reason out of it;
+# N47 writes no record; N48 is silent on could-not-tell; N49 takes a check that never ran as
+# proof; N50 runs it on every package; N51 withholds it on a foreign fabric that is not external;
+# N52/N53 leave a stale record; N54/N55 the status row.
+m=$(nmutant n40 "$NDT" \
+    '    if [[ "$2" == external && "${HB_CHECK_RC:-}" != 0 ]]; then' \
+    '    if false; then')
+nreport "N40: the heartbeat starts on an external plane whatever the check said" "$m" \
+        "🔴 and the heartbeat is NOT started"
+m=$(nmutant n41 "$NDT" \
+    '    if [[ "$2" == external && "${HB_CHECK_RC:-}" != 0 ]]; then' \
+    '    if [[ "$2" == external && "${HB_CHECK_RC:-}" == 1 ]]; then')
+nreport "N41: could-not-tell is taken as proof" "$m" \
+        "🔴 could not tell: NOT started either (unknown is not a drop)"
+m=$(nmutant n42 "$NDT" \
+    '        if [[ "$app_mode" == external && "$app_pipe" == foreign:* ]]; then
+            hb_drop_check_step "$app_dir"' \
+    '        if false; then
+            hb_drop_check_step "$app_dir"')
+nreport "N42: the check never runs" "$m" \
+        "🔴 the check ran once, on the package"
+m=$(nmutant n43 "$NDT" \
+    '    if [[ "$2" == external && "${HB_CHECK_RC:-}" != 0 ]]; then' \
+    '    if [[ "$2" == external ]]; then')
+nreport "N43: the heartbeat is withheld on every external plane, proven or not" "$m" \
+        "🔴 proven dropped: the heartbeat starts"
+m=$(nmutant n44 "$NDT" \
+    '        0) ok "heartbeat drop check: every program drops its frame (${progs:-?}) -- the declared program'"'"'s default actions only; entries, a pipeline or a default action its controller sets later are not covered (${log#$REPO/})" ;;' \
+    '        0) ok "heartbeat drop check: passed" ;;')
+nreport "N44: the check's answer and its limit are not said" "$m" \
+        "  the check's answer is said, in one line"
+m=$(nmutant n44b "$NDT" \
+    '    mkdir -p "$(dirname "$log")" 2>/dev/null && printf '"'"'%s\n'"'"' "$out" > "$log" 2>/dev/null' \
+    '    :')
+nreport "N44b: the whole answer is not kept" "$m" \
+        "  and the whole of it is kept, in the log the line names"
+# [Co-developed with claude code -- Adam] S-5 (round-4 review): one log per bring-up.
+m=$(nmutant n44c "$NDT" \
+    '    log="$REPO/.test_run/logs/heartbeat_drop_check.$(date -u +%Y%m%dT%H%M%SZ).$$.log"' \
+    '    log="$REPO/.test_run/logs/heartbeat_drop_check.0.0.log"')
+nreport "N44c: every bring-up writes the same log" "$m" \
+        "🔴 a second bring-up keeps its own log: the first one's is still there"
+m=$(nmutant n48 "$NDT" \
+    '        *) warn "heartbeat drop check could not tell (rc $rc) -- $HB_CHECK_WHY (${log#$REPO/})" ;;' \
+    '        *) : ;;')
+nreport "N48: could-not-tell is not said" "$m" \
+        "  saying it could not tell"
+m=$(nmutant n45 "$NDT" \
+    '        printf '"'"'withheld %s %s\n'"'"' "$(date +%s)" "$why" > "$(hb_withheld_file)" 2>/dev/null
+        return 0' \
+    '        printf '"'"'withheld %s %s\n'"'"' "$(date +%s)" "$why" > "$(hb_withheld_file)" 2>/dev/null
+        exit 1')
+nreport "N45: a withheld heartbeat fails the bring-up" "$m" \
+        "🔴 NOT dropped: the bring-up still succeeds"
+m=$(nmutant n46 "$NDT" \
+    '(.*: (NOT_DROPPED|UNKNOWN) -- .*)$/\1/p'"'"' | head -1)"' \
+    '(.*: (NEVER_DROPPED|UNKNOWN_NEVER) -- .*)$/\1/p'"'"' | head -1)"')
+nreport "N46: the check's reason is not carried to the warning" "$m" \
+        "  with the check's own reason"
+m=$(nmutant n47 "$NDT" \
+    '        printf '"'"'withheld %s %s\n'"'"' "$(date +%s)" "$why" > "$(hb_withheld_file)" 2>/dev/null' \
+    '        :')
+nreport "N47: no record is written for 'ndt status'" "$m" \
+        "🔴 and the record names it for 'ndt status'"
+m=$(nmutant n49 "$NDT" \
+    '    if [[ "$2" == external && "${HB_CHECK_RC:-}" != 0 ]]; then' \
+    '    if [[ "$2" == external && "${HB_CHECK_RC:-0}" != 0 ]]; then')
+nreport "N49: a check that never ran is taken as proof" "$m" \
+        "🔴 a check that never ran is not proof: NOT started"
+m=$(nmutant n50 "$NDT" \
+    '        if [[ "$app_mode" == external && "$app_pipe" == foreign:* ]]; then
+            hb_drop_check_step "$app_dir"' \
+    '        if true; then
+            hb_drop_check_step "$app_dir"')
+nreport "N50: the check runs on every package" "$m" \
+        "🔴 a foreign fabric that is not external: no check"
+m=$(nmutant n50b "$NDT" \
+    '        if [[ "$app_mode" == external && "$app_pipe" == foreign:* ]]; then
+            hb_drop_check_step "$app_dir"' \
+    '        if true; then
+            hb_drop_check_step "$app_dir"')
+nreport "N50b: (the same, on NDTwin's own pipeline)" "$m" \
+        "  NDTwin's own pipeline: no check either"
+m=$(nmutant n51 "$NDT" \
+    '    if [[ "$2" == external && "${HB_CHECK_RC:-}" != 0 ]]; then' \
+    '    if [[ "${HB_CHECK_RC:-}" != 0 ]]; then')
+nreport "N51: a foreign fabric that is not external is held to the check too" "$m" \
+        "  and its heartbeat starts as before"
+m=$(nmutant n52 "$NDT" \
+    '    rm -f "$(hb_withheld_file)"
+    heartbeat_wanted "$1" "$2" || return 0' \
+    '    heartbeat_wanted "$1" "$2" || return 0')
+nreport "N52: a later bring-up leaves the last one's record" "$m" \
+        "🔴 a later bring-up that starts it clears the record"
+m=$(nmutant n53 "$NDT" \
+    '    # [Co-developed with claude code -- Adam] The withheld record describes the fabric going away.
+    rm -f "$(hb_withheld_file)"' \
+    '    # [Co-developed with claude code -- Adam] The withheld record describes the fabric going away.
+    :')
+nreport "N53: 'ndt down' leaves the record behind" "$m" \
+        "🔴 'ndt down' clears it with the fabric"
+m=$(nmutant n54 "$NDT" \
+    '    if [[ -f "$withheld" ]]; then' \
+    '    if false; then')
+nreport "N54: 'ndt status' does not say a heartbeat was withheld" "$m" \
+        "🔴 a heartbeat the last bring-up withheld is said, with why"
+m=$(nmutant n55 "$NDT" \
+    '    if [[ -f "$withheld" ]]; then' \
+    '    if true; then')
+nreport "N55: 'ndt status' says withheld with no record" "$m" \
+        "  and not when there is no record"
 m=$(nmutant n04 "$NDT" \
     '    heartbeat_up_step "$app_pipe" "$app_mode"' \
     '    heartbeat_up_step "$app_pipe" "$app_mode"; [[ -e "$HB_PIDFILE" ]] || { rollback_up "the heartbeat did not start"; return 1; }')
@@ -979,6 +1249,8 @@ m=$(nmutant n08 "$NDT" \
         down_rc=1
         not_verified "the heartbeat daemon (its stop failed; sudo ndtwin-lab heartbeat status says whether it runs)"
     }
+    # [Co-developed with claude code -- Adam] The withheld record describes the fabric going away.
+    rm -f "$(hb_withheld_file)"
 
     say "[2/3] topology session"
     sudo -n "$LAB" topo-stop 2>&1 | sed '"'"'s/^/      /'"'"'' \
@@ -1008,9 +1280,11 @@ m=$(nmutant n11 "$NDT" \
     'sudo -n "$LAB" topo-stop')
 nreport "N11: replacing a topology leaves its heartbeat running" "$m" \
         "🔴 the old heartbeat was stopped before the old topology"
+# [Co-developed with claude code -- Adam] N12 and N29 anchor on the rc-0 branch as it reads since the
+# external detect-only sentence was added beside it (09-27).
 m=$(nmutant n12 "$NDT" \
-    '        0) ok "heartbeat running on the inter-switch veths:' \
-    '        0) heartbeat_stop_step "mutant"; ok "heartbeat running on the inter-switch veths:')
+    '        0) if [[ "$2" == external ]]; then' \
+    '        0) heartbeat_stop_step "mutant"; if [[ "$2" == external ]]; then')
 nreport "N12: the bring-up stops the heartbeat it just started" "$m" "  nothing was stopped on the way up"
 m=$(nmutant n13 "$NDT" \
     '            heartbeat)
@@ -1091,8 +1365,8 @@ m=$(nmutant n28 "$NDT" \
     '    case "$rc" in')
 nreport "N28: the helper's start answer is not printed" "$m" "  the helper's answer is printed"
 m=$(nmutant n29 "$NDT" \
-    '        0) ok "heartbeat running on the inter-switch veths:' \
-    '        0) ok "started:')
+    '               ok "heartbeat running on the inter-switch veths: a cut' \
+    '               ok "started: a cut')
 nreport "N29: ndt does not say what the heartbeat is for" "$m" "  and ndt says what it is for"
 m=$(nmutant n30 "$NDT" \
     '        *) warn "heartbeat did NOT start (rc $rc): a cut link on this fabric will not be detected."' \
@@ -1440,6 +1714,167 @@ m=$(lmutant l63 "$LIVE08" \
     '    :')
 lreport "L63: an early exit drops the over-cycles measured before it" "$m" \
         "  H1's last lines after an early exit following an OVER cycle were"
+# [Co-developed with claude code -- Adam] 09-27, external detect-only: H4's two new verdicts and the
+# arm list. L64 reads only the source, L65 only one direction, L66 accepts any cable, L67 is the
+# 17-arm list as it was.
+m=$(lmutant l64 "$LIVE08" \
+    '           if not isinstance(v, dict) or v.get("down") is not (word == "down") or v.get("source") != "heartbeat"]' \
+    '           if not isinstance(v, dict) or v.get("source") != "heartbeat"]')
+lreport "L64: the proxy's cut is read without its down flag" "$m" "H4 one direction still up"
+m=$(lmutant l65 "$LIVE08" \
+    '    got = {k: links.get(k) for k in (f"{a}:{ap}->{b}:{bp}", f"{b}:{bp}->{a}:{ap}")}' \
+    '    got = {k: links.get(k) for k in (f"{a}:{ap}->{b}:{bp}",)}')
+lreport "L65: only one direction of the cut is read" "$m" "H4 one direction still up"
+m=$(lmutant l66 "$LIVE08" \
+    '    if (a, ap, b, bp) in pairs and (b, bp, a, ap) in pairs:' \
+    '    if True:')
+lreport "L66: any cable is one the package declares" "$m" "H4 a cable the package does not declare"
+m=$(lmutant l67 "$LIVE08" \
+    'ecn/solution mri/skeleton mri/solution p4runtime/skeleton p4runtime/solution flowcache/solution"' \
+    'ecn/solution mri/skeleton mri/solution"')
+lreport "L67: HB_ARMS without the external arms (17, as before)" "$m" \
+        "HB_ARMS names 17 arms, not 20"
+# [Co-developed with claude code -- Adam] The AEG judge's 09-28 round. L68: INT and TERM back on
+# w_finish (N-1: a TERM'd run ends PASS). L69: w_finish names every cut-short phase H1. L70: it
+# concludes even with nothing pending. L71: no hard ceiling (N-4). L72: an all-within tally is
+# disclosed anyway.
+m=$(lmutant l68 "$LIVE08" \
+    "arm_traps() { trap w_finish EXIT; trap 'interrupted SIGINT 130' INT; trap 'interrupted SIGTERM 143' TERM; }" \
+    'arm_traps() { trap w_finish EXIT INT TERM; }')
+lreport "L68: INT and TERM run w_finish with the interrupted command's rc" "$m" \
+        "TERM mid-H1 with nothing failed before it ended"
+m=$(lmutant l69 "$LIVE08" \
+    '        strict_conclude "${STRICT_PHASE:-H1}, cut short"' \
+    '        strict_conclude "H1, cut short"')
+lreport "L69: a cut-short conclusion always says H1" "$m" \
+        "  H3's last lines after an early exit following an OVER cycle were"
+m=$(lmutant l70 "$LIVE08" \
+    '    if (( ${STRICT_CYCLES:-0} > 0 )); then
+        strict_conclude "${STRICT_PHASE:-H1}, cut short"' \
+    '    if (( ${STRICT_CYCLES:-0} >= 0 )); then
+        strict_conclude "${STRICT_PHASE:-H1}, cut short"')
+lreport "L70: w_finish concludes with nothing pending" "$m" \
+        "  a clean run's output said 'cut short' or did not PASS"
+m=$(lmutant l71 "$LIVE08" \
+    '    if d > b + DETECT_CEILING_EXTRA_S:' \
+    '    if False:')
+lreport "L71: no hard ceiling -- a 36 s detection is a NOTE" "$m" \
+        "strict 36 s is past the 35 s ceiling: a FAIL"
+m=$(lmutant l72 "$LIVE08" \
+    '    if (( over > 0 )); then
+        disclose' \
+    '    if (( over >= 0 )); then
+        disclose')
+lreport "L72: a tally with every cycle within 20 s is disclosed anyway" "$m" \
+        "  an early exit with every cycle within 20 s ended"
+# [Co-developed with claude code -- Adam] The external judge's F4 (09-28): L73 never asks whether the
+# kernel accepted the report; L74 does not look at pipeline_commits.
+m=$(lmutant l73 "$LIVE08" \
+    '    if told == "told" and untold:' \
+    '    if False:')
+lreport "L73: H4 does not ask whether the kernel accepted the cut" "$m" \
+        "H4 down at the proxy, not accepted by the kernel"
+m=$(lmutant l74 "$LIVE08" \
+    '    keys = ("pipeline_commits", "rules_timed", "table_generation")' \
+    '    keys = ("rules_timed",)')
+lreport "L74: H4 does not look at pipeline commits across the cut" "$m" \
+        "H4 a pipeline commit across the cut"
+m=$(lmutant l75 "$LIVE08" \
+    '    untold = [k for k, v in got.items() if v.get("reported_to_kernel") is not True]' \
+    '    untold = list(got)')
+lreport "L75: H4 never believes the kernel accepted anything" "$m" \
+        "H4 restored and the kernel accepted it"
+# [Co-developed with claude code -- Adam] The external judge's m3 and M2 (09-28, round 2): L73b is
+# L73 seen on the up side; L76 lets the restore run to the poll's 35 s (F9); L77 does not look at
+# table_generation; L78 is the sampler without the report's written_wall.
+m=$(lmutant l73b "$LIVE08" \
+    '    if told == "told" and untold:' \
+    '    if False:')
+lreport "L73b: H4 does not ask whether the kernel accepted the restore" "$m" \
+        "H4 up at the proxy, not accepted by the kernel"
+m=$(lmutant l76 "$LIVE08" \
+    '    d, b = float(elapsed), float(bound)
+    if d <= b:
+        return f"OK recovery' \
+    '    d, b = float(elapsed), float(bound) + 15
+    if d <= b:
+        return f"OK recovery')
+lreport "L76: H4's restore judged at the poll's 35 s, not the strict 20 s" "$m" \
+        "H4 restore 20.5 s is over the strict 20 s"
+m=$(lmutant l77 "$LIVE08" \
+    '    keys = ("pipeline_commits", "rules_timed", "table_generation")' \
+    '    keys = ("pipeline_commits", "rules_timed")')
+lreport "L77: H4 does not look at table_generation across the cut" "$m" \
+        "H4 only table_generation moved"
+m=$(lmutant l78 "$LIVE08" \
+    '                  d.get("written_wall"), d.get("stop_reason") or "",' \
+    '                  "-", d.get("stop_reason") or "",')
+lreport "L78: the sampler records no written_wall" "$m" \
+        "H5 sampler rows"
+# [Co-developed with claude code -- Adam] Round 5 (the round-4 review's M-1, M-2, M-3). L79: H5 takes a
+# reference that is not a whole 06; L79b: H5 judges rc/verdict on the report path too (a C1 from
+# another run is then never the same); L80: the sampler records no heard; L81: no controllers;
+# L82: the identity gate records and never verifies; L83: it lets an unnamed B through.
+m=$(lmutant l79 "$LIVE08" \
+    '    if [[ "$_arms" != 26 ]]; then' \
+    '    if false; then')
+lreport "L79: PART=h5 accepts a 4-arm OLD_06" "$m" \
+        "🔴 PART=h5 OLD_06=<4 arms>"
+m=$(lmutant l79b "$LIVE08" \
+    '            out[(f[0], f[1])] = (f[2], f[3])' \
+    '            out[(f[0], f[1])] = (f[2], f[3], f[4] if len(f) > 4 else "")')
+lreport "L79b: H5's reference must be the very same run" "$m" \
+        "🔴 H5 against the control C1 as the README runs it (a whole 06)"
+m=$(lmutant l80 "$LIVE08" \
+    '                  se.get("misdelivered"), se.get("foreign_frames"), heard(d))' \
+    '                  se.get("misdelivered"), se.get("foreign_frames"), "-")')
+lreport "L80: the sampler records no heard" "$m" \
+        "H5 sampler rows"
+m=$(lmutant l81 "$LIVE08" \
+    '    return ",".join(str(p) for p in sorted(pids)) or "-"' \
+    '    return "-"')
+lreport "L81: the sampler records no controllers" "$m" \
+        "🔴 H5 sampler controllers column"
+m=$(lmutant l82 "$LIVE08" \
+    '    "$VPY" "$LIVE_DIR/code_identity.py" verify "$1" "$3" "$2"' \
+    '    echo "SAME CODE APART FROM B (not checked)"')
+lreport "L82: the identity gate never compares" "$m" \
+        "🔴 identity gate, another B"
+m=$(lmutant l83 "$LIVE08" \
+    '    [[ -n "$2" ]] || { echo "REFUSED C_IDENTITY is set but B_SHA is not' \
+    '    true || { echo "REFUSED C_IDENTITY is set but B_SHA is not')
+lreport "L83: the identity gate takes no B_SHA" "$m" \
+        "🔴 identity gate, no B_SHA"
+# L84/L85: code_identity.py's record, as 08's gate runs it on a real repository: no uncommitted
+# files recorded; no parents recorded (a merge reads as no merge).
+m=$(lmutant l84 "$REPO/$LIVE_DIR_REL/code_identity.py" \
+    '        ident["uncommitted"] = uncommitted(repo)' \
+    '        ident["uncommitted"] = []')
+lreport "L84: the identity records no uncommitted file" "$m" \
+        "🔴 identity gate, a new uncommitted file"
+m=$(lmutant l85 "$REPO/$LIVE_DIR_REL/code_identity.py" \
+    '        ident["parents"] = git(repo, "rev-list", "--parents", "-n", "1", "HEAD").split()[1:]' \
+    '        ident["parents"] = []')
+lreport "L85: the identity records no parents" "$m" \
+        "  identity gate, the good case"
+# [Co-developed with claude code -- Adam] Round 6 (the round-5 re-review's M-3): the sampler's ctrl_logs
+# column, which places the controller's pipeline push among the samples. L86: no sizes; L87: rounds
+# from before the sampler started are listed; L88: the runs directory is not handed to it.
+m=$(lmutant l86 "$LIVE08" \
+    '                out.append("%s/%s:%d" % (r.name, n, os.stat(os.path.join(r.path, n)).st_size))' \
+    '                out.append("%s/%s:0" % (r.name, n))')
+lreport "L86: the sampler records no controller log sizes" "$m" \
+        "🔴 H5 sampler ctrl_logs column"
+m=$(lmutant l87 "$LIVE08" \
+    '        rounds = sorted((e for e in os.scandir(runs) if e.is_dir() and e.stat().st_mtime >= began - 2),' \
+    '        rounds = sorted((e for e in os.scandir(runs) if e.is_dir()),')
+lreport "L87: the sampler lists rounds from before it started" "$m" \
+        "🔴 H5 sampler ctrl_logs column"
+m=$(lmutant l88 "$LIVE08" \
+    '"${SAMPLER_INTERVAL_S:-1.0}" "${SAMPLER_RUNS_DIR:-$LIVE_DIR/../runs}" \' \
+    '"${SAMPLER_INTERVAL_S:-1.0}" \')
+lreport "L88: the sampler is not told where the rounds are" "$m" \
+        "🔴 H5 sampler ctrl_logs column"
 m=$(lmutant l47 "$LIVE08" \
     '    if d <= b:
         return f"OK detection {d:.3f} s, within the strict {b:g} s"' \

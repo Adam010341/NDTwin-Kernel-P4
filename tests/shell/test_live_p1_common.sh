@@ -1152,6 +1152,41 @@ check "  and made its run directory"                     "1" "$(ls -d "$FIX16"/r
 rm -rf "$FIX16"
 
 # =============================================================================================
+section "17. 🔴 every run records the venv fingerprint, and one it could not take is disclosed"
+# =============================================================================================
+# [Co-developed with claude code -- Adam] 09-27: the proxy's venv moved to protobuf 5 that day, so a
+# raw that does not say which stack it ran on cannot be compared with one from before. start_step
+# writes 00_venv.txt for the proxy's interpreter ($PY) and the controllers' ($CTRL_PY); a missing
+# one is a NOTE above the last line, and the run still passes.
+FIX17="$(mktemp -d "${TMPDIR:-/tmp}/common-venv-XXXXXX")"
+mkdir -p "$FIX17/bin"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$FIX17/bin/ndt"; chmod +x "$FIX17/bin/ndt"
+cat > "$FIX17/step.sh" <<STEPSH
+set -euo pipefail
+source "$COMMON"
+LIVE_DIR="$FIX17"; NDT="$FIX17/bin/ndt"; PY=/usr/bin/python3; CLAIMED=0
+require_root() { :; }; require_free_lab() { :; }; snapshot_knob() { :; }; snapshot_telemetry_knob() { :; }
+restore_knob() { :; }; restore_telemetry_knob() { :; }
+start_step 17_venv
+exit 0
+STEPSH
+OUT17="$(env NDT_OWNER=someone CTRL_PY=/usr/bin/python3 timeout 120 bash "$FIX17/step.sh" 2>&1)"
+VENV17="$(ls "$FIX17"/runs/*_17_venv/00_venv.txt 2>/dev/null | head -1)"
+check "🔴 the raw has 00_venv.txt"                         "yes" "$([[ -s "$VENV17" ]] && echo yes || echo no)"
+check "  one block per interpreter (proxy and controllers)" "2" "$(/usr/bin/grep -c '^== interpreter /usr/bin/python3$' "$VENV17" 2>/dev/null)"
+has   "🔴 naming protobuf and its implementation"          "api_implementation" "$(cat "$VENV17" 2>/dev/null)"
+has   "  and the installed set's sha"                      "sha256 " "$(cat "$VENV17" 2>/dev/null)"
+check "  the control: both answered, no NOTE line"         "0" "$(/usr/bin/grep -c '^NOTE ' <<<"$OUT17")"
+check "  and the run passes"                               "PASS 17_venv" "$(tail -1 <<<"$OUT17")"
+rm -rf "$FIX17"/runs
+OUT17="$(env NDT_OWNER=someone CTRL_PY=/nowhere/python timeout 120 bash "$FIX17/step.sh" 2>&1)"
+VENV17="$(ls "$FIX17"/runs/*_17_venv/00_venv.txt 2>/dev/null | head -1)"
+has   "🔴 a missing interpreter is written down as such"   "NOT RECORDED: not an executable file" "$(cat "$VENV17" 2>/dev/null)"
+check "🔴 and disclosed above the last line"               "NOTE 17_venv -- the venv fingerprint was not fully recorded (00_venv.txt says which interpreter did not answer)" "$(tail -2 <<<"$OUT17" | head -1)"
+check "  and the run still passes"                         "PASS 17_venv" "$(tail -1 <<<"$OUT17")"
+rm -rf "$FIX17"
+
+# =============================================================================================
 section "18. 🔴 02's fabric list: the heartbeat watchdog must RUN, not be read to pick a list (the opus judge's N1)"
 # =============================================================================================
 # [Co-developed with claude code -- Adam] 09-27. 02 brings up a foreign, non-external fabric, where
@@ -1184,9 +1219,79 @@ has   "🔴 no heartbeat block is a failure too"               "BAD switch_state
 has   "🔴 running with link_watchdog still named: BAD"       "BAD control_plane.skipped is ['install_initial_routes', 'link_watchdog', 'lldp_discovery'], want $W18" "$(V18 running_three.json)"
 check "  02 asks this verdict, with the two-name list"      "1" \
       "$(/usr/bin/grep -c '^    V="$(heartbeat_skips_verdict "$SS" "$FABRIC_SKIPS_HB")"$' "$LIVE/02_app_basic.sh")"
+# [Co-developed with claude code -- Adam] The AEG judge's N-7 (09-28): the line that CONSUMES the
+# verdict, right under the call -- deleting it used to survive every gate -- and the old selection
+# in any spelling (`"$HB_WD" == running`, `== "running"`, `[ ... = running ]`).
+check "🔴 and fails the run on anything but OK, on the next line" "    [[ \"\$V\" == OK* ]] || fail \"\${V#BAD }\"" \
+      "$(/usr/bin/grep -A1 '^    V="$(heartbeat_skips_verdict "$SS" "$FABRIC_SKIPS_HB")"$' "$LIVE/02_app_basic.sh" | sed -n 2p)"
 check "🔴 and 02 no longer picks its list from heartbeat.watchdog" "0" \
-      "$(/usr/bin/grep -c 'HB_WD" == running' "$LIVE/02_app_basic.sh")"
+      "$(/usr/bin/grep -cE 'HB_WD"? *==? *"?running|running"? *==? *"?\$\{?HB_WD' "$LIVE/02_app_basic.sh")"
+# The AEG judge's N-7: the two-name list with a watchdog that is NOT running -- the cases M50 and M52
+# would actually let through -- and N-5: one BAD line, naming the cause, on a capture that is not
+# what the proxy serves or is not there.
+st18 ns_two.json not_started "OSError: no /run" "['lldp_discovery', 'install_initial_routes']"
+st18 absent_two.json - - "['lldp_discovery', 'install_initial_routes']"
+has   "🔴 not_started with the two names is still BAD"       "BAD heartbeat.watchdog is 'not_started'" "$(V18 ns_two.json)"
+has   "🔴 no heartbeat block with the two names is still BAD" "BAD switch_state has no heartbeat block" "$(V18 absent_two.json)"
+printf '[1, 2]' > "$FIX18/list.json"
+OUT18="$(V18 list.json)"
+check "🔴 a top-level list: exactly one line"               "1" "$(/usr/bin/grep -c '' <<<"$OUT18")"
+has   "  a BAD one, naming the cause"                        "BAD switch_state is not what the proxy serves: AttributeError" "$OUT18"
+OUT18="$(V18 no_such_file.json)"
+check "  a missing capture: exactly one line"               "1" "$(/usr/bin/grep -c '' <<<"$OUT18")"
+has   "  a BAD one"                                          "BAD switch_state unreadable: FileNotFoundError" "$OUT18"
+# [Co-developed with claude code -- Adam] 09-27, external detect-only: 03/04 ask the same verdict
+# with the five names an external control plane skips while the heartbeat drives its watchdog.
+W5="['clone_session', 'install_initial_routes', 'lldp_discovery', 'pipeline_push', 'sflow_telemetry']"
+st18 ext_running.json running - "['pipeline_push', 'clone_session', 'lldp_discovery', 'install_initial_routes', 'sflow_telemetry']"
+st18 ext_six.json running - "['pipeline_push', 'clone_session', 'lldp_discovery', 'link_watchdog', 'install_initial_routes', 'sflow_telemetry']"
+V5() { ( source "$COMMON" >/dev/null 2>&1; PY="$REAL_PY"; heartbeat_skips_verdict "$FIX18/$1" "$W5" ); }
+check "🔴 external, running, the five names: OK"            "OK heartbeat.watchdog running, control_plane.skipped $W5" "$(V5 ext_running.json)"
+has   "🔴 external, running, link_watchdog still named: BAD" "BAD control_plane.skipped is" "$(V5 ext_six.json)"
+for step in 03_app_p4runtime 04_diag_p4runtime; do
+    # [Co-developed with claude code -- Adam] The external judge's m3 (09-28): and CONSUMES it on the
+    # next line, as 02 does.
+    check "🔴 $step fails the run on anything but OK, on the next line" "    [[ \"\$V\" == OK* ]] || fail \"\${V#BAD }\"" \
+          "$(/usr/bin/grep -A1 -F "V=\"\$(heartbeat_skips_verdict \"\$SS0\" \"$W5\")\"" "$LIVE/$step.sh" | sed -n 2p)"
+    check "  $step asks this verdict, with the five names"  "1" \
+          "$(/usr/bin/grep -cF "V=\"\$(heartbeat_skips_verdict \"\$SS0\" \"$W5\")\"" "$LIVE/$step.sh")"
+done
 rm -rf "$FIX18"
+
+# =============================================================================================
+section "19. 🔴 a step stopped by INT or TERM fails with the signal's code (01-05, 07, 08 share it)"
+# =============================================================================================
+# [Co-developed with claude code -- Adam] The AEG judge's N-1 and the external judge's M3 (09-28):
+# start_step armed `trap finish EXIT INT TERM`, so a TERM while a step waited on a child ran finish
+# with that child's rc 0 and printed PASS. Now INT/TERM go through `interrupted`: FAIL, and the step
+# exits 130 / 143. A real start_step (stubs for the lab-facing checks, as in section 16), then the
+# step's own wait, with the signal sent to the step's shell by pid.
+FIX19="$(mktemp -d "${TMPDIR:-/tmp}/common-signal-XXXXXX")"
+mkdir -p "$FIX19/bin"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$FIX19/bin/ndt"; chmod +x "$FIX19/bin/ndt"
+cat > "$FIX19/step.sh" <<STEPSH
+set -euo pipefail
+source "$COMMON"
+LIVE_DIR="$FIX19"; NDT="$FIX19/bin/ndt"; PY=/usr/bin/python3; CLAIMED=0
+require_root() { :; }; require_free_lab() { :; }; snapshot_knob() { :; }; snapshot_telemetry_knob() { :; }
+restore_knob() { :; }; restore_telemetry_knob() { :; }
+start_step 19_signal
+if [[ -n "\${SEND:-}" ]]; then ( command sleep 0.4; kill -"\$SEND" \$\$ ) & fi
+command sleep 2
+echo "the step went on"
+exit 0
+STEPSH
+OUT19="$(env NDT_OWNER=someone SEND=TERM timeout 120 bash "$FIX19/step.sh" 2>&1; echo "rc=$?")"
+check "🔴 TERM mid-step: the last verdict line is a FAIL"     "FAIL 19_signal -- interrupted by SIGTERM before the run finished" "$(tail -2 <<<"$OUT19" | head -1)"
+check "🔴 and the step exits 143"                          "rc=143" "$(tail -1 <<<"$OUT19")"
+hasnt "  and it did not go on"                             "the step went on" "$OUT19"
+OUT19="$(env NDT_OWNER=someone SEND=INT timeout 120 bash "$FIX19/step.sh" 2>&1; echo "rc=$?")"
+check "🔴 INT mid-step: FAIL"                               "FAIL 19_signal -- interrupted by SIGINT before the run finished" "$(tail -2 <<<"$OUT19" | head -1)"
+check "🔴 and the step exits 130"                          "rc=130" "$(tail -1 <<<"$OUT19")"
+OUT19="$(env NDT_OWNER=someone timeout 120 bash "$FIX19/step.sh" 2>&1; echo "rc=$?")"
+check "  the control: no signal, the same step PASSes"     "PASS 19_signal" "$(tail -2 <<<"$OUT19" | head -1)"
+check "  and exits 0"                                      "rc=0" "$(tail -1 <<<"$OUT19")"
+rm -rf "$FIX19"
 
 # =============================================================================================
 section "14. 🔴 no lab command left this suite (the fake fabric was up throughout)"
