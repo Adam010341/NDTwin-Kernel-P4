@@ -1115,6 +1115,284 @@ add "R4-8b. recover.sh takes only a measuring row for evidence (an orphaned row 
     'an expired claim and only an orphaned row (leftovers, no fabric): rc 0, re-claimed'
 
 
+# --- Cut 2: bring-up A's observers, B's attributions, the lab run ----------------------------------
+OBSA="$PKG/observe_a.py"
+ROUNDA="$PKG/round_a.py"
+ROUNDB="$PKG/round_b.py"
+ATTR="$PKG/attribution.py"
+LABPY="$PKG/lab.py"
+HOSTSPY="$PKG/collect/hosts.py"
+
+add "C2-V1. a cell never observed reads as an unreadable answer" \
+    "$VERDICT" \
+    '    if obs is None:
+        return Verdict(NOT_RUN, "not observed in this run", phase="unobserved")' \
+    '    if False:  # MUTANT
+        return Verdict(NOT_RUN, "not observed in this run", phase="unobserved")' \
+    'test_a_cell_never_observed_is_not_run_for_that_reason'
+
+add "C2-RA1. --only forgets the cells that produce a self-check's readings" \
+    "$ROUNDA" \
+    '            todo.append(SC_PRODUCER[cid])' \
+    '            pass  # MUTANT' \
+    'test_only_expands_to_the_gates_controls_and_self_check_producers'
+
+add "C2-RA2. --only forgets the controls" \
+    "$ROUNDA" \
+    '        todo += list(spec.gates) + list(getattr(spec, "controls", ())) + list(spec.self_checks)' \
+    '        todo += list(spec.gates) + list(spec.self_checks)  # MUTANT' \
+    'test_only_expands_to_the_gates_controls_and_self_check_producers'
+
+add "C2-RA3. the pingall counts every other host as reached" \
+    "$ROUNDA" \
+    '            got += len(srcs - {self.hosts.ip(dst)})' \
+    '            got += len(HOSTS) - 1  # MUTANT' \
+    'test_a_host_the_pingall_cannot_reach_is_sc_fwd_probe_broken'
+
+add "C2-RA4. SC-count takes the sender's count for what arrived" \
+    "$ROUNDA" \
+    '        received = None if rx.get("text") is None else len(S.received(rx["text"], "K1"))' \
+    '        received = obs.get("sent")  # MUTANT' \
+    'test_k1_markers_lost_on_the_path_leave_sc_count_undecided'
+
+add "C2-OA1. a write cell's negative read is taken after the write" \
+    "$OBSA" \
+    '    negative = None if before is None else {"absent": not find(before),' \
+    '    negative = None if before is None else {"absent": not find(after),  # MUTANT' \
+    'test_bring_up_a_reads_as_predicted'
+
+add "C2-OA2. thrift's priority is read as the P4Runtime number" \
+    "$OBSA" \
+    '    return BMV2_PRIORITY_TOP - int(p4rt_priority)' \
+    '    return int(p4rt_priority)  # MUTANT' \
+    'test_a_proxy_that_writes_ternary_turns_t4_to_t7_green'
+
+add "C2-OA3. T7's order is read the P4Runtime way round" \
+    "$OBSA" \
+    'n[0]["priority"] < w[0]["priority"]}' \
+    'n[0]["priority"] > w[0]["priority"]}  # MUTANT' \
+    'test_a_proxy_that_writes_ternary_turns_t4_to_t7_green'
+
+add "C2-OA4. T1's negative read ignores a foreign sentinel" \
+    "$OBSA" \
+    '        negative = {"absent": not foreign,' \
+    '        negative = {"absent": True,  # MUTANT' \
+    'test_a_foreign_sentinel_fails_t1s_negative_read'
+
+add "C2-OA5. an unreadable table dump is an empty one" \
+    "$OBSA" \
+    '                got = None
+                break' \
+    '                continue  # MUTANT' \
+    'test_an_unreachable_switch_leaves_t1_not_run'
+
+add "C2-OA6. T2 takes s2's runtime default as applied whatever the counts say" \
+    "$OBSA" \
+    '            answer = {"applied": bool(te.get("failed") == 0 and te.get("recorded", 0) > 0' \
+    '            answer = {"applied": True or bool(te.get("failed") == 0 and te.get("recorded", 0) > 0  # MUTANT' \
+    'test_a_failed_entry_on_s2_is_t2_red'
+
+add "C2-OA7. T2's negative read passes whatever s3 shows" \
+    "$OBSA" \
+    '        negative = {"absent": got == ("HcIngress.stamp", (0,)),' \
+    '        negative = {"absent": True,  # MUTANT' \
+    'test_s3_not_on_the_compiled_default_fails_t2s_negative_read'
+
+add "C2-OA8. C1's negative read ignores a session on another switch" \
+    "$OBSA" \
+    'else {"absent": not any(o[0] for o in others)}' \
+    'else {"absent": True}  # MUTANT' \
+    'test_a_missing_clone_session_is_c1_red_and_a_stray_one_fails_the_negative'
+
+add "C2-OA9. a missing clone session is an unread oracle" \
+    "$OBSA" \
+    '    if s2 is not None and not s2[0]:
+        oracle = {"ports": frozenset()}' \
+    '    if False:  # MUTANT
+        oracle = {"ports": frozenset()}' \
+    'test_a_missing_clone_session_is_c1_red_and_a_stray_one_fails_the_negative'
+
+add "C2-OA10. M2's negative read passes with group 2 already there" \
+    "$OBSA" \
+    '{"absent": 2 not in before}' \
+    '{"absent": True}  # MUTANT' \
+    'test_group_2_there_before_the_write_fails_m2s_negative_read'
+
+add "C2-OA11. one host's unreadable ethtool still yields an oracle" \
+    "$OBSA" \
+    '    if any(v is None for v in got.values()):
+        return {"oracle": None}' \
+    '    if False:  # MUTANT
+        return {"oracle": None}' \
+    'test_checksum_unreadable_on_one_host_is_not_run'
+
+add "C2-OA12. an unreadable openapi means no digest / packet-in exit" \
+    "$OBSA" \
+    '    if route is None:
+        return None' \
+    '    if route is None:
+        route = False  # MUTANT' \
+    'test_an_unreadable_openapi_is_not_a_missing_route'
+
+add "C2-OA13. an exit the probe cannot read is taken for no exit" \
+    "$OBSA" \
+    'exit=route, fields=None)' \
+    'exit=False, fields=None)  # MUTANT' \
+    'test_an_exit_the_probe_has_no_client_for_is_not_run'
+
+add "C2-OA14. K2's thrift oracle reads the indirect counter" \
+    "$OBSA" \
+    '    th0 = None if handle is None else reader.read(dpid, "counter_read %s %d" % (full, handle))' \
+    '    th0 = None if handle is None else reader.read(dpid, "counter_read HcIngress.c_in 0")  # MUTANT' \
+    'test_a_proxy_that_reads_direct_counters_turns_k2_green'
+
+add "C2-OA15. the meter cells' negative read passes with the rates already set" \
+    "$OBSA" \
+    '{"absent": before != METER_TARGET}' \
+    '{"absent": True}  # MUTANT' \
+    'test_a_kernel_that_installs_meters_turns_mt1_green_and_needs_the_before_read'
+
+add "C2-OA16. the kernel's MAC integer is read little-endian" \
+    "$OBSA" \
+    'to_bytes(6, "big"))' \
+    'to_bytes(6, "little"))  # MUTANT' \
+    'test_bring_up_a_reads_as_predicted'
+
+add "C2-OA17. the kernel's IPv4 integer is read big-endian" \
+    "$OBSA" \
+    'to_bytes(4, "little"))' \
+    'to_bytes(4, "big"))  # MUTANT' \
+    'test_bring_up_a_reads_as_predicted'
+
+add "C2-OA18. SC-ttl's links point back at the switch itself" \
+    "$OBSA" \
+    '            out[(a[1], a[2])] = b[1]' \
+    '            out[(a[1], a[2])] = a[1]  # MUTANT' \
+    'test_bring_up_a_reads_as_predicted'
+
+add "C2-HO1. the stimulus runs although a sniffer never listened" \
+    "$HOSTSPY" \
+    '        out = stimulate() if all(ready) else ""' \
+    '        out = stimulate()  # MUTANT' \
+    'test_a_sniffer_that_never_listens_sends_nothing'
+
+add "C2-HO2. a sniffer is not recorded in LAB_STATE" \
+    "$HOSTSPY" \
+    '                self.register("sniffer", proc.pid, self.token)' \
+    '                pass  # MUTANT' \
+    'test_every_reading_goes_through_the_one_runner'
+
+add "C2-AT1. a table attribution stands on thrift alone" \
+    "$ATTR" \
+    '        if not ok:
+            return put(item, False, "controller: %s" % err)
+        found = _entries(read(cmd), key, params)' \
+    '        found = _entries(read(cmd), key, params)  # MUTANT' \
+    'test_a_failed_call_fails_its_item_whatever_thrift_shows'
+
+add "C2-AT2. a table attribution ignores the priority thrift shows" \
+    "$ATTR" \
+    '        if found[0]["priority"] != thrift_priority(priority):' \
+    '        if False:  # MUTANT' \
+    'test_thrift_that_does_not_show_the_effect_fails_the_item'
+
+add "C2-AT3. the priority attribution wants the P4Runtime order in thrift's numbers" \
+    "$ATTR" \
+    'and a[0]["priority"] < b[0]["priority"]):' \
+    'and a[0]["priority"] > b[0]["priority"]):  # MUTANT' \
+    'test_every_item_confirmed'
+
+add "C2-AT4. a meter attribution holds whenever thrift answered" \
+    "$ATTR" \
+    '        if rates != METER_RATES:' \
+    '        if rates is None:  # MUTANT' \
+    'test_thrift_that_does_not_show_the_effect_fails_the_item'
+
+add "C2-AT5. any DigestList confirms the digest" \
+    "$ATTR" \
+    '    elif want not in got:' \
+    '    elif not got:  # MUTANT' \
+    'test_the_stream_messages_must_carry_what_the_probe_sent'
+
+add "C2-AT6. a clone session to any port confirms the clone" \
+    "$ATTR" \
+    '        if ports != frozenset([CX.CLONE["port"]]):' \
+    '        if not ports:  # MUTANT' \
+    'test_thrift_that_does_not_show_the_effect_fails_the_item'
+
+add "C2-AT7. the register attribution does not read the register" \
+    "$ATTR" \
+    '        put("register", v == CX.REGISTER["value"],' \
+    '        put("register", True,' \
+    'test_thrift_that_does_not_show_the_effect_fails_the_item'
+
+add "C2-AT8. the direct counter attribution takes the controller's own number" \
+    "$ATTR" \
+    '    elif not mine or mine != th[1]:' \
+    '    elif not mine:  # MUTANT' \
+    'test_thrift_that_does_not_show_the_effect_fails_the_item'
+
+add "C2-AT9. a packet-in from any port confirms" \
+    "$ATTR" \
+    '    elif any(p.get("ingress_port") != expect.get("packet_in_port") for p in ours):' \
+    '    elif False:  # MUTANT' \
+    'test_the_stream_messages_must_carry_what_the_probe_sent'
+
+add "C2-AT10. any packet-in confirms, marker or not" \
+    "$ATTR" \
+    '    ours = [p for p in pins if (p.get("marker") or [None, None])[:2] == [expect.get("token"), expect.get("packet_in_cell", "P2")]]' \
+    '    ours = list(pins)  # MUTANT' \
+    'test_the_stream_messages_must_carry_what_the_probe_sent'
+
+add "C2-AT11. a packet-out nobody received confirms" \
+    "$ATTR" \
+    '    elif not p3_received:' \
+    '    elif p3_received is None:  # MUTANT' \
+    'test_the_packet_out_needs_the_receiving_host'
+
+add "C2-AT12. every cell gets a bmv2 attribution" \
+    "$ATTR" \
+    '    return {cell: {"bmv2": bool((confirmed or {}).get(item, {}).get("ok"))}' \
+    '    return {cell: {"bmv2": True}  # MUTANT' \
+    'test_each_cell_gets_its_items_attribution'
+
+add "C2-RB1. B never tells its controller the stimuli are done" \
+    "$ROUNDB" \
+    '            open(self.path("controller.go"), "w").close()' \
+    '            pass  # MUTANT' \
+    'test_the_eleven_attributions_confirmed_from_thrift_and_the_receiver'
+
+add "C2-RB2. B's controller is not recorded in LAB_STATE" \
+    "$ROUNDB" \
+    '            lab_round.register("controller", proc.pid, self.cfg.run_dir)' \
+    '            pass  # MUTANT' \
+    'test_the_eleven_attributions_confirmed_from_thrift_and_the_receiver'
+
+add "C2-LAB1. B's attributions never reach A's cells" \
+    "$LABPY" \
+    '            out[cell] = dict(out[cell], attribution=dict(out[cell].get("attribution") or {}, **attr))' \
+    '            pass  # MUTANT' \
+    'test_a_then_b_then_the_verdicts'
+
+add "C2-LAB2. the lab runs after an incomplete S0" \
+    "$LABPY" \
+    '    if s0_out.get("verdict") != "COMPLETE":' \
+    '    if False:  # MUTANT' \
+    'test_an_incomplete_s0_touches_nothing'
+
+add "C2-LAB3. the see-red run brings up the plain package" \
+    "$LABPY" \
+    '"A-MUT" if mutant else "A")' \
+    '"A")  # MUTANT' \
+    'test_the_see_red_run_uses_the_mutant_package_and_only_its_cells'
+
+add "C2-LAB4. a run with an incomplete bring-up reads as complete" \
+    "$LABPY" \
+    '    complete = bool(recs) and all(r.get("complete") is True for r in recs)' \
+    '    complete = True  # MUTANT' \
+    'test_a_refused_claim_makes_the_run_incomplete'
+
+
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'
 CTRL_REPL='# MUTANT: a comment, and nothing else.

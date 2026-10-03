@@ -185,6 +185,12 @@ from p4_health.collect import tc as TC  # noqa: E402
 from p4_health.collect import thrift as TH  # noqa: E402
 from p4_health.collect.config import Config, HermeticViolation, HttpReply  # noqa: E402
 from p4_health.collect.runner import RecordingRunner  # noqa: E402
+from p4_health import attribution as AT  # noqa: E402
+from p4_health import lab as LAB  # noqa: E402
+from p4_health import observe_a as OA  # noqa: E402
+from p4_health import round_a as RA  # noqa: E402
+from p4_health import round_b as RB  # noqa: E402
+from p4_health.collect import hosts as HO  # noqa: E402
 
 
 #: What every test's tearDown checked, for $P4H_SEAL_REPORT (an audit of the seal itself).
@@ -1022,6 +1028,1043 @@ class TestConfig(Sealed):
     def test_the_knobs_are_the_two_and_not_the_override(self):
         self.assertEqual(sorted(self.cfg.knobs), ["host_count_override", "telemetry_override"])
         self.assertEqual(self.cfg.thrift_port(3), 9093)
+
+
+# --- Cut 2: a fake fabric behind the one Runner and the two HTTP clients ---------------------------
+#
+# Everything bring-up A and B read or poke, answered in the formats the real tools print (the
+# thrift fixtures above are captures of them): simple_switch_CLI per Thrift port, `ps`, `ip`,
+# `sudo -n mnexec -a <pid> ...` (the sender, the sniffer, ethtool, ip inside a host), the proxy's
+# routes, the kernel's two. Nothing is spawned: a "sniffer" or the "controller" is a fake process
+# whose output appears when it is waited for. The fabric is the healthy NDTwin of today's trunk
+# (what expected_today.tsv predicts); each red test breaks one thing.
+
+GEN_PATH = os.path.join(os.environ.get("P4_HEALTH_UNDER_TEST") or os.path.join(REPO, "tools"),
+                        "p4_health", "exercise", "gen_runtime.py")
+
+
+def load_gen():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("hc_gen_test", GEN_PATH)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+GEN = load_gen()
+#: p4info key and parameter orders for the tables gen_runtime fills (hc_main.p4's declarations)
+KEYS = {"HcIngress.ipv4_lpm": ["hdr.ipv4.dstAddr"], "HcIngress.tunnel_exact": ["meta.dst_id"],
+        "HcIngress.v6_host": ["meta.v6_lo"], "HcIngress.t_dcount": ["hdr.udp.dstPort"],
+        "HcIngress.t_dmeter": ["hdr.udp.dstPort"],
+        "HcIngress.t_multipath": ["hdr.ipv4.dstAddr", "meta.mp_choice"],
+        "HcIngress.t_default_only": [], "HcIngress.port_exact": ["standard_metadata.ingress_port"],
+        "HcIngress.t_ternary": ["hdr.ipv4.srcAddr"], "HcIngress.t_range": ["hdr.udp.dstPort"],
+        "HcIngress.t_optional": ["hdr.ipv4.protocol"]}
+PARAMS = {"HcIngress.ipv4_forward": ["dstAddr", "port"], "HcIngress.tunnel_forward": ["port"],
+          "HcIngress.v6_forward": ["dstAddr", "port"], "HcIngress.stamp": ["v"],
+          "HcIngress.set_mark": ["v"], "HcIngress.set_port_tag": ["tag"], "HcIngress.drop": [],
+          "HcIngress.dc_hit": [], "HcIngress.dm_read": [], "NoAction": []}
+ORDERS = {d: (KEYS, PARAMS) for d in (1, 2, 3, 4)}
+RUNTIMES = {d: GEN.runtime(d) for d in (1, 2, 3, 4)}
+PIPES4 = {"1": "alt0000000000001", "2": "main000000000002", "3": "main000000000002",
+          "4": "main000000000002"}
+HOST_PIDS = {"h%d" % h: 3100 + h for h in range(1, 7)}
+TOP = 2 ** 31 - 1
+
+
+def ival(v):
+    if isinstance(v, int):
+        return v
+    if v.count(".") == 3:
+        return int.from_bytes(bytes(int(x) for x in v.split(".")), "big")
+    if v.count(":") == 5:
+        return int(v.replace(":", ""), 16)
+    return int(v, 0)
+
+
+def p4info_text(keys=KEYS, params=PARAMS):
+    out = []
+    for t, ks in keys.items():
+        out.append('tables {\n  preamble {\n    id: 1\n    name: "%s"\n  }' % t)
+        for k in ks:
+            out.append('  match_fields {\n    id: 1\n    name: "%s"\n  }' % k)
+        out.append("}")
+    for a, ps in params.items():
+        out.append('actions {\n  preamble {\n    id: 2\n    name: "%s"\n  }' % a)
+        for p_ in ps:
+            out.append('  params {\n    id: 1\n    name: "%s"\n  }' % p_)
+        out.append("}")
+    return "\n".join(out) + "\n"
+
+
+class Switch(object):
+    def __init__(self, dpid):
+        self.dpid = dpid
+        self.tables, self.defaults = {}, {}
+        self.counters = {("HcIngress.c_in", 0): 0}
+        self.registers = {("HcIngress.r_mark", i): 0 for i in range(16)}
+        self.meters = {}
+        self.mirroring, self.mc = {}, {}
+        self.next_handle = 0
+
+    def add(self, table, keys, action, params, priority=None):
+        e = {"handle": self.next_handle, "keys": list(keys), "action": action, "params": list(params),
+             "priority": priority}
+        self.next_handle += 1
+        self.tables.setdefault(table, []).append(e)
+        if table == "HcIngress.t_dcount":
+            self.counters[("HcIngress.dc_k2", e["handle"])] = 0
+        return e
+
+
+class FakeFabric(object):
+    """Switches, hosts, the proxy and the kernel of a bring-up, all in memory."""
+
+    def __init__(self, test, cfg, proxy, kernel, proc_root):
+        self.test, self.cfg, self.proxy, self.kernel, self.proc = test, cfg, proxy, kernel, proc_root
+        self.sw = {d: Switch(d) for d in (1, 2, 3, 4)}
+        self.delivered = {h: [] for h in HOST_PIDS}
+        self.digests, self.packet_ins = [], []
+        # knobs a red test turns
+        self.ttl_decrements = True
+        self.count_k1 = True
+        self.proxy_k1_extra = 0
+        self.thrift_down = set()          # dpids whose CLI cannot connect
+        self.ndtwin_writes_ternary = False
+        self.ndtwin_priority = None       # what the proxy's future writer would store, or None
+        self.tx_checksum = "off"
+        self.graph_drop_edge = False
+        self.pipelines = dict(PIPES4)
+        self.ctrl_register_ok = False      # bmv2's P4Runtime refuses register writes today
+        self.ctrl_fail = set()
+        self.ctrl_no_result = False
+        self.fail_entry = None
+        self.foreign_sentinel = False
+        self.next_pid = 50000
+        for d in (1, 2, 3, 4):
+            self.boot(d)
+        self.routes()
+
+    # --- the package, applied at boot ------------------------------------------------------
+    def boot(self, d):
+        s = self.sw[d]
+        for e in RUNTIMES[d]["table_entries"]:
+            if e.get("default_action"):
+                s.defaults[e["table"]] = (e["action_name"], [ival(v) for v in
+                                                             [e["action_params"][p_] for p_ in PARAMS[e["action_name"]]]])
+                continue
+            keys = []
+            for k in KEYS[e["table"]]:
+                v = e["match"][k]
+                keys.append(("LPM", ival(v[0]), v[1]) if isinstance(v, list) else ("EXACT", ival(v)))
+            s.add(e["table"], keys, e["action_name"],
+                  [ival(e["action_params"][p_]) for p_ in PARAMS[e["action_name"]]])
+        s.defaults.setdefault("HcIngress.t_default_only", ("HcIngress.stamp", [0]))
+        for g in RUNTIMES[d].get("multicast_group_entries") or []:
+            s.mc[g["multicast_group_id"]] = frozenset(r["egress_port"] for r in g["replicas"])
+        for c in RUNTIMES[d].get("clone_session_entries") or []:
+            s.mirroring[c["clone_session_id"]] = 0x8000 + c["clone_session_id"]
+            s.mc[0x8000 + c["clone_session_id"]] = frozenset(r["egress_port"] for r in c["replicas"])
+        if self.foreign_sentinel and d == 1:
+            s.add("HcIngress.ipv4_lpm", [("LPM", ival("10.0.99.2"), 32)], "HcIngress.drop", [])
+
+    # --- the proxy and the kernel -------------------------------------------------------------
+    def routes(self):
+        pr, kr = self.proxy.routes, self.kernel.routes
+
+        def state(_b):
+            sw = {}
+            for d in (1, 2, 3, 4):
+                n = len(RUNTIMES[d]["table_entries"])
+                failed = 1 if self.fail_entry == d else 0
+                sw[str(d)] = {"pipeline": {"p4info_sha256": self.pipelines[str(d)]},
+                              "table_entries": {"recorded": n, "applied": n - failed, "failed": failed,
+                                                "api_writes": 0, "journaled": False},
+                              "pre_entries": {"multicast": {"recorded": len(RUNTIMES[d].get("multicast_group_entries") or []),
+                                                            "applied": len(RUNTIMES[d].get("multicast_group_entries") or []), "failed": 0},
+                                              "clone": {"recorded": len(RUNTIMES[d].get("clone_session_entries") or []),
+                                                        "applied": len(RUNTIMES[d].get("clone_session_entries") or []), "failed": 0}}}
+            return (200, {"switches": sw, "heartbeat": {"state": "usable", "frames_reached_hosts": False}})
+        pr[("GET", "/p4/switch_state")] = state
+        pr[("GET", "/openapi.json")] = (200, {"paths": {p_: {"get": {}} for p_ in (
+            "/p4/switch_state", "/p4/counter/{name}", "/p4/table_entry", "/p4/multicast_group",
+            "/p4/readopt/{dpid}", "/stats/flowentry/add")}})
+        def c_in(_b):
+            self.k1_reads += 1
+            return (200, {"packets": self.sw[2].counters[("HcIngress.c_in", 0)]
+                          + self.proxy_k1_extra * self.k1_reads, "bytes": 0})
+        self.k1_reads = 0
+        pr[("GET", "/p4/counter/HcIngress.c_in?dpid=2&index=0")] = c_in
+        for name in ("HcIngress.dc_k2", "HcIngress.no_such_counter"):
+            pr[("GET", "/p4/counter/%s?dpid=2&index=0" % name)] = (
+                404, {"detail": {"error": "not in this pipeline", "counter": name}})
+        pr[("POST", "/p4/table_entry")] = self.post_table_entry
+        pr[("POST", "/p4/multicast_group")] = self.post_mc
+        kr[("GET", "/ndt/get_graph_data")] = lambda b: (200, self.graph())
+        kr[("POST", "/ndt/install_meter_entry")] = (501, {"status": "error", "error": "unsupported_on_p4"})
+
+    def post_table_entry(self, body):
+        table = body["table"]
+        if table not in KEYS:
+            return (404, {"detail": {"error": "not in this pipeline", "message": "table not found"}})
+        s = self.sw[body["dpid"]]
+        prm = [ival(body["action_params"][p_]) for p_ in PARAMS[body["action_name"]]]
+        if table in ("HcIngress.t_ternary", "HcIngress.t_range", "HcIngress.t_optional"):
+            if not self.ndtwin_writes_ternary:
+                return (501, {"detail": {"error": "match type not supported"}})
+            (field, v), = body["match"].items()
+            prio = self.ndtwin_priority(body["priority"]) if self.ndtwin_priority else TOP - body["priority"]
+            if table == "HcIngress.t_ternary":
+                key = ("TERNARY", ival(v[0]) & ival(v[1]), ival(v[1]))
+            elif table == "HcIngress.t_range":
+                key = ("RANGE", v[0], v[1])
+            else:
+                key = ("TERNARY", v, 0xFF)
+            s.add(table, [key], body["action_name"], prm, priority=prio)
+            return (200, {"status": "success", "journaled": False})
+        (field, v), = body["match"].items()
+        s.add(table, [("EXACT", ival(v))], body["action_name"], prm)
+        return (200, {"status": "success", "journaled": False})
+
+    def post_mc(self, body):
+        self.sw[body["dpid"]].mc[body["multicast_group_id"]] = frozenset(r["egress_port"] for r in body["replicas"])
+        return (200, {"status": "success"})
+
+    def graph(self):
+        nodes = [{"vertex_type": 0, "dpid": d, "mac": 0, "ip": []} for d in (1, 2, 3, 4)]
+        for h in range(1, 7):
+            ip = GEN.host_ip(h)
+            nodes.append({"vertex_type": 1, "dpid": 0, "ip": [int.from_bytes(bytes(int(x) for x in ip.split(".")), "little")],
+                          "mac": int(GEN.host_mac(h).replace(":", ""), 16)})
+        edges = []
+        for h in range(1, 7):
+            ipn = int.from_bytes(bytes(int(x) for x in GEN.host_ip(h).split(".")), "little")
+            # the shape a live P4 graph has (e6-graph-p4.json of an earlier run): both
+            # directions, the host's side on interface 1, the switch's side carrying its agent ip
+            sw_ip = [192653504 + GEN.HOSTS[h]]
+            edges.append({"src_dpid": 0, "src_ip": [ipn], "src_interface": 1, "dst_dpid": GEN.HOSTS[h],
+                          "dst_interface": GEN.HOST_PORT[h], "dst_ip": sw_ip})
+            edges.append({"src_dpid": GEN.HOSTS[h], "src_ip": sw_ip, "src_interface": GEN.HOST_PORT[h],
+                          "dst_dpid": 0, "dst_interface": 1, "dst_ip": [ipn]})
+        links = GEN.SWITCH_LINKS[1:] if self.graph_drop_edge else GEN.SWITCH_LINKS
+        for a, ap, b, bp, _bw in links:
+            edges.append({"src_dpid": a, "src_interface": ap, "dst_dpid": b, "dst_interface": bp, "src_ip": [], "dst_ip": []})
+            edges.append({"src_dpid": b, "src_interface": bp, "dst_dpid": a, "dst_interface": ap, "src_ip": [], "dst_ip": []})
+        return {"nodes": nodes, "edges": edges}
+
+    # --- the Runner ----------------------------------------------------------------------------
+    def runner(self, ndt=None):
+        r = ndt or RecordingRunner()
+        r.add(("simple_switch_CLI",), self.cli)
+        r.add(("ps",), lambda a, e, i: (0, self.ps()))
+        r.add(("ip", "-o", "link", "show"), lambda a, e, i: (0, self.root_links()))
+        r.add(lambda a: a[:4] == ["sudo", "-n", "mnexec", "-a"] and a[4] != "1", self.in_host)
+
+        def spawn(argv, out_path, env=None, cwd=None):
+            r.calls.append({"argv": list(argv), "env": dict(env or {}), "input": None, "spawn": out_path})
+            return self.spawn(list(argv), out_path, env or {})
+        r.spawn = spawn
+        return r
+
+    def ps(self):
+        lines = ["%d bash --norc --noediting -is mininet:%s" % (pid, h) for h, pid in sorted(HOST_PIDS.items())]
+        for d in (1, 2, 3, 4):
+            lines.append("%d simple_switch_grpc -i 1@s%d-eth1 --thrift-port %d --cpu-port 510 x.json"
+                         % (4000 + d, d, 9090 + d))
+        return "\n".join(lines) + "\n"
+
+    def ifindex(self, d, port):
+        return 100 + d * 10 + port
+
+    def iface_list(self):
+        out = {}
+        for h in range(1, 7):
+            out[(GEN.HOSTS[h], GEN.HOST_PORT[h])] = ("h", h)
+        for a, ap, b, bp, _bw in GEN.SWITCH_LINKS:
+            out[(a, ap)] = ("s", b, bp)
+            out[(b, bp)] = ("s", a, ap)
+        return out
+
+    def root_links(self):
+        lines = []
+        for (d, port), far in sorted(self.iface_list().items()):
+            peer = 2 if far[0] == "h" else self.ifindex(far[1], far[2])
+            lines.append("%d: s%d-eth%d@if%d: <BROADCAST,MULTICAST,UP> mtu 1500" % (self.ifindex(d, port), d, port, peer))
+        return "\n".join(lines) + "\n"
+
+    def cli(self, argv, env, inp):
+        d = int(argv[argv.index("--thrift-port") + 1]) - 9090
+        if d in self.thrift_down:
+            return (0, "Could not connect to any of [('127.0.0.1', %d)]\n" % (9090 + d))
+        cmd = inp.strip().split()
+        body = self.cli_body(self.sw[d], cmd)
+        return (0, "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\n"
+                   "RuntimeCmd: %s\nRuntimeCmd: " % body)
+
+    @staticmethod
+    def fmt_key(k):
+        if k[0] == "LPM":
+            return "* f : LPM       %08x/%d" % (k[1], k[2])
+        if k[0] == "TERNARY":
+            return "* f : TERNARY   %x &&& %x" % (k[1], k[2])
+        if k[0] == "RANGE":
+            return "* f : RANGE     %x -> %x" % (k[1], k[2])
+        return "* f : EXACT     %x" % k[1]
+
+    def cli_body(self, s, cmd):
+        word = cmd[0]
+        if word == "table_dump":
+            t = cmd[1]
+            if t not in KEYS:
+                return "Error: Invalid table name (%s)" % t
+            lines = ["==========", "TABLE ENTRIES"]
+            for e in s.tables.get(t, []):
+                lines += ["**********", "Dumping entry 0x%x" % e["handle"], "Match key:"]
+                lines += [self.fmt_key(k) for k in e["keys"]]
+                if e["priority"] is not None:
+                    lines.append("Priority: %d" % e["priority"])
+                lines.append("Action entry: %s - %s" % (e["action"], ", ".join("%x" % p_ for p_ in e["params"])))
+            lines += ["==========", "Dumping default entry"]
+            dflt = s.defaults.get(t, ("NoAction", []))
+            lines += ["Action entry: %s - %s" % (dflt[0], ", ".join("%x" % p_ for p_ in dflt[1])), "=========="]
+            return "\n".join(lines)
+        if word == "show_tables":
+            names = sorted(KEYS) + (["HcIngress.alt_port_stamp"] if s.dpid == 1 else [])
+            return "\n".join("%s [implementation=None, mk=]" % n for n in names)
+        if word == "show_ports":
+            ports = sorted(p_ for (d, p_) in self.iface_list() if d == s.dpid)
+            return "  port #  iface name  status  extra info\n" + "\n".join(
+                "    %d   s%d-eth%d   UP   " % (p_, s.dpid, p_) for p_ in ports)
+        if word == "counter_read":
+            key = (cmd[1], int(cmd[2]))
+            if key not in s.counters:
+                return "Error: Invalid counter operation (INVALID_INDEX)"
+            return "%s[%s]= (0 bytes, %d packets)" % (cmd[1], cmd[2], s.counters[key])
+        if word == "register_read":
+            return "%s[%s]= %d" % (cmd[1], cmd[2], s.registers[(cmd[1], int(cmd[2]))])
+        if word == "meter_get_rates":
+            rates = s.meters.get((cmd[1], int(cmd[2])))
+            if not rates:
+                return "WARNING: expected 2 rates but only received 0"
+            return "\n".join("%d: info rate = %s, burst size = %d" % (i, r, b) for i, (r, b) in enumerate(rates))
+        if word == "mirroring_get":
+            sid = int(cmd[1])
+            if sid not in s.mirroring:
+                return "Invalid mirroring operation (SESSION_NOT_FOUND)"
+            return "MirroringSessionConfig(port=None, mgid=%d)" % s.mirroring[sid]
+        if word == "mc_dump":
+            lines = ["==========", "MC ENTRIES"]
+            for g, ports in sorted(s.mc.items()):
+                lines += ["**********", "mgrp(%d)" % g,
+                          "  -> (L1h=0, rid=1) -> (ports=[%s], lags=[])" % ", ".join(str(p_) for p_ in sorted(ports))]
+            lines += ["==========", "LAGS", "=========="]
+            return "\n".join(lines)
+        return "Error: unknown command"
+
+    # --- inside a host ----------------------------------------------------------------------------
+    def host_of(self, argv):
+        pid = int(argv[4])
+        return [h for h, p_ in HOST_PIDS.items() if p_ == pid][0]
+
+    @staticmethod
+    def opts(argv):
+        out = {}
+        for i, tok in enumerate(argv):
+            if tok.startswith("--") and i + 1 < len(argv):
+                out[tok[2:]] = argv[i + 1]
+        return out
+
+    def in_host(self, argv, env, inp):
+        h = self.host_of(argv)
+        rest = argv[5:]
+        if rest[:2] == ["ethtool", "-k"]:
+            return (0, "Features for eth0:\nrx-checksumming: on\ntx-checksumming: %s\n" % self.tx_checksum)
+        if rest[:4] == ["ip", "-o", "link", "show"]:
+            n = int(h[1:])
+            return (0, "2: eth0@if%d: <BROADCAST,MULTICAST,UP> mtu 1500\\    link/ether %s brd ff:ff:ff:ff:ff:ff\n"
+                    % (self.ifindex(GEN.HOSTS[n], GEN.HOST_PORT[n]), GEN.host_mac(n)))
+        if rest[:4] == ["ip", "-o", "addr", "show"]:
+            return (0, "2: eth0    inet %s/24 brd 10.0.%s.255 scope global eth0\n" % (GEN.host_ip(int(h[1:])), h[1:]))
+        if len(rest) > 2 and rest[2] == "send":
+            return (0, self.send(h, self.opts(rest)))
+        return (127, "")
+
+    def hops(self, src, dst_ip):
+        dst = [h for h in range(1, 7) if GEN.host_ip(h) == dst_ip][0]
+        d, n = GEN.HOSTS[int(src[1:])], 0
+        while True:
+            n += 1
+            port = GEN.ROUTES[d][dst]
+            kind, far = GEN.neighbour(d, port)
+            if kind == "host":
+                return n, "h%d" % far
+            d = far
+
+    def send(self, src, o):
+        n, dport, sport = int(o["count"]), int(o["dport"]), int(o["sport"])
+        cell = o["cell"]
+        s_first = self.sw[GEN.HOSTS[int(src[1:])]]
+        hops, dst = self.hops(src, o["dst-ip"])
+        if dport == 40011 and self.count_k1:
+            s_first.counters[("HcIngress.c_in", 0)] += n
+        if dport == 40012:
+            for e in s_first.tables.get("HcIngress.t_dcount", []):
+                if e["keys"] == [("EXACT", 40012)]:
+                    s_first.counters[("HcIngress.dc_k2", e["handle"])] += n
+        if dport == 40031:
+            s_first.registers[("HcIngress.r_mark", 0)] = sport
+        for seq in range(n):
+            if dport == 40050:
+                self.packet_ins.append({"ingress_port": GEN.HOST_PORT[int(src[1:])],
+                                        "marker": [o["run"], cell, seq], "dport": dport})
+                continue
+            if dport == 40041:
+                self.digests.append({"digest_id": 1, "members": [ival(o["src-ip"]), sport, dport]})
+            self.delivered[dst].append({"run": o["run"], "cell": cell, "seq": seq,
+                                        "ttl": int(o["ttl"]) - (hops if self.ttl_decrements else 0),
+                                        "ip_src": o["src-ip"], "ip_dst": o["dst-ip"], "dport": dport})
+        return "SENT cell=%s n=%d ident=%s requested=%d\n" % (cell, n, o["ident"], n)
+
+    # --- spawned children ---------------------------------------------------------------------------
+    def fake_proc(self, pid, argv):
+        d = os.path.join(self.proc, str(pid))
+        os.makedirs(d, exist_ok=True)
+        with open(os.path.join(d, "stat"), "w") as fh:
+            fh.write("%d (python3) S %s %d 0 0\n" % (pid, " ".join(str(i) for i in range(1, 19)), 900000 + pid))
+        with open(os.path.join(d, "cmdline"), "w") as fh:
+            fh.write("\0".join(argv) + "\0")
+
+    def spawn(self, argv, out_path, env):
+        self.next_pid += 1
+        pid = self.next_pid
+        self.fake_proc(pid, argv)
+        if "sniff" in argv:
+            return FakeSniffer(self, pid, argv, out_path)
+        if RB.ADAPTER in argv:
+            return FakeController(self, pid, argv, out_path, env)
+        return None
+
+
+class FakeSniffer(object):
+    def __init__(self, fab, pid, argv, path):
+        self.fab, self.pid, self.path = fab, pid, path
+        self.host = fab.host_of(argv)
+        o = fab.opts(argv)
+        self.cells, self.run = o["cells"].split(","), o["run"]
+        self.mark = len(fab.delivered[self.host])
+        self.returncode = None
+        with open(path, "w") as fh:
+            fh.write("READY iface=eth0\n")
+
+    def poll(self):
+        return self.returncode
+
+    def wait(self, timeout=None):
+        if self.returncode is None:
+            got = [r for r in self.fab.delivered[self.host][self.mark:]
+                   if r["cell"] in self.cells and r["run"] == self.run]
+            with open(self.path, "a") as fh:
+                for r in got:
+                    fh.write("RX %s\n" % json.dumps(r, sort_keys=True))
+                fh.write("DONE received=%d\n" % len(got))
+            shutil.rmtree(os.path.join(self.fab.proc, str(self.pid)), ignore_errors=True)
+            self.returncode = 0
+        return self.returncode
+
+
+class FakeController(object):
+    """controller_ext.py as the fabric sees it: writes its attributions on s2 at once (ready),
+    and on `go` reads the direct counter, sends the packet-out and writes its result."""
+
+    def __init__(self, fab, pid, argv, path, env):
+        self.fab, self.pid = fab, pid
+        with open(env["P4H_CTRL_CONFIG"]) as fh:
+            self.conf = json.load(fh)
+        self.returncode = None
+        s = fab.sw[2]
+        from p4_health import controller_ext as CX
+        self.CX = CX
+        calls = {}
+
+        def ok(name, fn):
+            if name in fab.ctrl_fail:
+                calls[name] = {"ok": False, "error": "UNKNOWN: refused"}
+                return
+            fn()
+            calls[name] = {"ok": True, "detail": None}
+        t, rg, op = CX.TERNARY, CX.RANGE, CX.OPTIONAL
+        ok("ternary", lambda: s.add(t["table"], [("TERNARY", ival(t["value"]), ival(t["mask"]))],
+                                    "HcIngress.set_mark", [t["mark"]], TOP - t["priority"]))
+        ok("range", lambda: s.add(rg["table"], [("RANGE", rg["low"], rg["high"])], "HcIngress.set_mark",
+                                  [rg["mark"]], TOP - rg["priority"]))
+        ok("optional", lambda: s.add(op["table"], [("TERNARY", op["value"], 0xFF)], "HcIngress.set_mark",
+                                     [op["mark"]], TOP - op["priority"]))
+        ok("priority", lambda: [s.add(t["table"], [("TERNARY", ival(p_["value"]), ival(p_["mask"]))],
+                                      "HcIngress.set_mark", [p_["mark"]], TOP - p_["priority"]) for p_ in CX.PRIORITY])
+        rates = [(0.125, 12500), (0.125, 12500)]
+        ok("meter", lambda: s.meters.__setitem__(("HcIngress.m_in", 0), rates))
+        dm = [e["handle"] for e in s.tables["HcIngress.t_dmeter"]][0]
+        ok("direct_meter", lambda: s.meters.__setitem__(("HcIngress.dm_mt3", dm), rates))
+        ok("digest", lambda: None)
+
+        def clone():
+            s.mirroring[9] = 0x8009
+            s.mc[0x8009] = frozenset([1])
+        ok("clone", clone)
+        if fab.ctrl_register_ok:
+            ok("register", lambda: s.registers.__setitem__(("HcIngress.r_mark", 1), CX.REGISTER["value"]))
+        else:
+            calls["register"] = {"ok": False, "error": "UNKNOWN:  [canonical_code 12: Register writes are not supported yet]"}
+        self.calls = calls
+        with open(self.conf["ready"], "w") as fh:
+            json.dump({"attributions": calls}, fh)
+
+    def poll(self):
+        if self.returncode is None and os.path.exists(self.conf["go"]):
+            s = self.fab.sw[2]
+            h = [e["handle"] for e in s.tables["HcIngress.t_dcount"]][0]
+            self.calls["direct_counter"] = {"ok": True, "detail": {"packets": s.counters[("HcIngress.dc_k2", h)]}}
+            po = self.conf["packet_out"]
+            for seq in range(po["count"]):
+                self.fab.delivered["h4"].append({"run": self.conf["token"], "cell": "P3", "seq": seq})
+            self.calls["packet_out"] = {"ok": True, "detail": {"frames": po["count"]}}
+            if not self.fab.ctrl_no_result:
+                with open(self.conf["out"], "w") as fh:
+                    json.dump({"attributions": self.calls, "digests": self.fab.digests,
+                               "packet_ins": self.fab.packet_ins, "switches": {}}, fh)
+            shutil.rmtree(os.path.join(self.fab.proc, str(self.pid)), ignore_errors=True)
+            self.returncode = 0
+        return self.returncode
+
+    def wait(self, timeout=None):
+        return self.poll()
+
+
+class FakeTime(object):
+    """A clock that moves only when something sleeps: a wait loop ends at its deadline at once."""
+
+    def __init__(self):
+        self.now = 0.0
+
+    def sleep(self, s):
+        self.now += s
+
+    def clock(self):
+        return self.now
+
+
+class Cut2(Sealed):
+    """Bring-ups A and B against the fake fabric, through the real observers and cells."""
+
+    def setUp(self):
+        Sealed.setUp(self)
+        self.proc = os.path.join(self.tmp, "proc")
+        os.makedirs(self.proc)
+        self.fab = FakeFabric(self, self.cfg, self.proxy, self.kernel, self.proc)
+        os.makedirs(self.cfg.run_dir, exist_ok=True)
+
+    def hosts(self, r, register=None):
+        out = os.path.join(self.cfg.run_dir, "A")
+        os.makedirs(out, exist_ok=True)
+        return HO.Hosts(self.cfg, r, "run-x", out, GEN, register=register, sleep=lambda s: None)
+
+    def a_round(self, only=None, register=True):
+        r = self.fab.runner()
+        lr = LR.LabRound(self.cfg, r, "A", os.path.join(self.cfg.run_dir, "packages", "A"), "run-x",
+                         pid=4242, proc_root=self.proc, install_signals=False)
+        a = RA.ARound(self.cfg, r, "run-x", GEN, dict(PIPES4), RUNTIMES, ORDERS, only=only,
+                      hosts=self.hosts(r, lr.register if register else None))
+        a.body(lr)
+        return a, r
+
+    def judge(self, a, confirmed=None):
+        obs = LAB.merge(a.observations, confirmed)
+        return V.judge_all(T.TABLE, obs, a.sc_observations)
+
+    def all_confirmed(self):
+        return {i: {"ok": True, "why": "fixture"} for i in AT.ITEMS}
+
+
+def expected_rows():
+    path = os.path.join(REPO, "doc", "audit", "2026-10-03_p4-health-check", "expected_today.tsv")
+    rows = {}
+    with open(path) as fh:
+        for line in fh:
+            if line.startswith("#") or line.startswith("cell\t"):
+                continue
+            f = line.rstrip("\n").split("\t")
+            rows[f[0]] = f
+    return rows
+
+
+class TestBringUpAOnTodaysFabric(Cut2):
+
+    def test_bring_up_a_reads_as_predicted(self):
+        """Every Cut 2 cell of bring-up A, through the real observers on a fabric that behaves as
+        today's trunk does, gives the verdict expected_today.tsv predicts -- with B's
+        attributions confirmed (R3's register write is the one bmv2 refuses: UNATTRIBUTED)."""
+        a, _r = self.a_round()
+        confirmed = self.all_confirmed()
+        confirmed["register"] = {"ok": False, "why": "Register writes are not supported yet"}
+        ctx = self.judge(a, confirmed)
+        rows = expected_rows()
+        got = {c: ctx.cells[c].label for c in RA.CUT2_CELLS + ("CP1",)}
+        want = {c: rows[c][5] for c in got}
+        want["R3"] = V.UNATTRIBUTED
+        self.assertEqual(got, want, {c: ctx.cells[c].reason for c in got if got[c] != want[c]})
+        self.assertEqual({k: v.verdict for k, v in ctx.self_checks.items() if k in a.sc_observations},
+                         {"SC-fwd": V.GREEN, "SC-count": V.GREEN, "SC-reg": V.GREEN, "SC-ttl": V.GREEN})
+        for cid in ("PL1", "T1", "T2", "M1", "M2", "C1", "T3"):
+            self.assertEqual(a.observations[cid]["negative"]["absent"], True, cid)
+
+    def test_without_b_every_bmv2_red_is_unattributed(self):
+        a, _r = self.a_round()
+        ctx = self.judge(a, None)
+        for cid in ("T4", "T5", "T6", "MT1", "MT2", "MT3", "D1", "C2", "R3", "K2", "P2", "P3"):
+            self.assertEqual(ctx.cells[cid].verdict, V.UNATTRIBUTED, cid)
+        for cid in ("T8", "R2"):
+            self.assertEqual(ctx.cells[cid].verdict, V.RED, cid)
+        cell = T.TABLE.cell("T4")
+        self.assertNotIn("attribution", a.observations["T4"])
+        self.assertTrue(V.attribution_holds(cell.red_attribution, {"structural"},
+                                            LAB.merge(a.observations, self.all_confirmed())["T4"]))
+
+    def test_every_reading_goes_through_the_one_runner(self):
+        a, r = self.a_round()
+        heads = {tuple(c["argv"][:3]) for c in r.calls}
+        self.assertTrue(all(c["argv"][0] in ("simple_switch_CLI", "ps", "ip", "sudo") for c in r.calls), heads)
+        for c in r.calls:
+            if c["argv"][0] == "sudo":
+                self.assertEqual(c["argv"][:4], ["sudo", "-n", "mnexec", "-a"])
+                self.assertIn(c["argv"][4], [str(p_) for p_ in HOST_PIDS.values()])
+        thrift = [c for c in r.calls if c["argv"][0] == "simple_switch_CLI"]
+        for c in thrift:
+            self.assertIn(c["input"].split()[0], TH.READ_COMMANDS)
+        spawns = [c for c in r.calls if c.get("spawn")]
+        self.assertTrue(spawns and all("sniff" in c["argv"] for c in spawns))
+        # every sniffer was recorded in LAB_STATE (pid + start + the run's marker token), and
+        # every one has ended, so the teardown finds it "gone" and signals nothing
+        with open(self.cfg.lab_state_path) as fh:
+            recorded = json.load(fh)["sniffers"]
+        self.assertEqual(len(recorded), len(spawns))
+        for e in recorded:
+            self.assertEqual(e["marker"], HO.marker_token("run-x"))
+            self.assertIsNone(LR.proc_identity(e["pid"], self.proc))
+
+    def test_sent_is_the_senders_own_count(self):
+        a, _r = self.a_round(only=["K1"])
+        self.assertEqual(a.observations["K1"]["sent"], RA.K1_FRAMES)
+        self.assertEqual(a.sc_observations["SC-count"]["received"], RA.K1_FRAMES)
+
+    def test_only_k1_ttl1_runs_their_gates_and_controls_and_nothing_else(self):
+        a, _r = self.a_round(only=["K1", "TTL1"])
+        self.assertEqual(set(a.observations), {"PL1", "T1", "TP1", "K1-neg", "K1", "TTL1"})
+        ctx = self.judge(a, None)
+        self.assertEqual(ctx.cells["K1"].verdict, V.GREEN)
+        self.assertEqual(ctx.cells["T4"].phase, "unobserved")
+
+
+class TestBringUpARedPaths(Cut2):
+    """One fault at a time; the cell that owns it must change, for the stated reason."""
+
+    def verdict(self, cid, only=None, confirmed="all"):
+        a, _r = self.a_round(only=only or [cid])
+        ctx = self.judge(a, self.all_confirmed() if confirmed == "all" else confirmed)
+        return ctx.cells.get(cid) or ctx.self_checks.get(cid), ctx, a
+
+    def test_k1_reads_one_more_than_thrift(self):
+        self.fab.proxy_k1_extra = 1
+        v, _c, _a = self.verdict("K1")
+        self.assertEqual(v.verdict, V.RED, v)
+        self.assertIn("NDTwin read %d, thrift %d" % (RA.K1_FRAMES + 1, RA.K1_FRAMES), v.reason)
+
+    def test_the_mutant_counter_is_probe_broken_by_sc_count(self):
+        self.fab.count_k1 = False
+        v, ctx, _a = self.verdict("K1")
+        self.assertEqual((v.verdict, ctx.self_checks["SC-count"].verdict), (V.PROBE_BROKEN, V.PROBE_BROKEN))
+        self.assertIn("SC-count", v.reason)
+
+    def test_the_mutant_ttl_is_probe_broken_by_sc_ttl(self):
+        self.fab.ttl_decrements = False
+        v, ctx, a = self.verdict("TTL1")
+        self.assertEqual(v.verdict, V.PROBE_BROKEN, v)
+        self.assertIn("SC-ttl", v.reason)
+        self.assertEqual(a.sc_observations["SC-ttl"]["hops_lpm"], 2)
+
+    def test_a_wrong_program_is_pl1_red_and_rule_d_keeps_the_round_publishable(self):
+        self.fab.pipelines["3"] = "alt0000000000001"
+        v, ctx, _a = self.verdict("PL1", only=["K1"])
+        self.assertEqual(v.verdict, V.RED)
+        self.assertEqual(ctx.self_checks["SC-fwd"].verdict, V.NOT_RUN)
+        self.assertEqual(ctx.cells["K1"].verdict, V.NOT_RUN)
+        self.assertEqual(V.run_verdict(ctx)[0], "COMPLETE")
+
+    def test_a_failed_package_entry_is_t1_red(self):
+        self.fab.fail_entry = 3
+        v, _c, _a = self.verdict("T1")
+        self.assertEqual(v.verdict, V.RED)
+        self.assertIn("s3", v.reason)
+
+    def test_a_missing_dump_entry_is_t1_red_and_sc_fwd_fails(self):
+        self.fab.sw[4].tables["HcIngress.v6_host"].pop()
+        v, ctx, _a = self.verdict("T1")
+        self.assertEqual(v.verdict, V.RED)
+        self.assertEqual(ctx.self_checks["SC-fwd"].verdict, V.NOT_RUN)   # gate T1 RED
+
+    def test_a_foreign_sentinel_fails_t1s_negative_read(self):
+        self.fab.sw[1].add("HcIngress.ipv4_lpm", [("LPM", ival("10.0.99.2"), 32)], "HcIngress.drop", [])
+        RUNTIMES_COPY = copy_runtimes()
+        RUNTIMES_COPY[1]["table_entries"].append({"table": "HcIngress.ipv4_lpm",
+                                                  "match": {"hdr.ipv4.dstAddr": ["10.0.99.2", 32]},
+                                                  "action_name": "HcIngress.drop", "action_params": {}})
+        obs = OA.observe_t1(self.cfg, self.fab.runner(), RUNTIMES_COPY, ORDERS, 30)
+        self.assertEqual(obs["negative"]["absent"], False)
+        v = V.decide(T.TABLE.cell("T1"), obs, V.Context())
+        self.assertEqual(v.verdict, V.PROBE_BROKEN, v)
+
+    def test_s2_with_the_compiled_default_is_t2_red(self):
+        self.fab.sw[2].defaults["HcIngress.t_default_only"] = ("HcIngress.stamp", [0])
+        v, _c, _a = self.verdict("T2")
+        self.assertEqual(v.verdict, V.RED)
+
+    def test_s3_not_on_the_compiled_default_fails_t2s_negative_read(self):
+        self.fab.sw[3].defaults["HcIngress.t_default_only"] = ("HcIngress.stamp", [0x2A])
+        v, _c, _a = self.verdict("T2")
+        self.assertEqual(v.verdict, V.PROBE_BROKEN)
+
+    def test_an_unreachable_switch_is_not_run_never_green_or_red(self):
+        self.fab.thrift_down = {1, 2}
+        for cid in ("T2", "C1", "M2", "T3"):
+            v, _c, _a = self.verdict(cid)
+            self.assertEqual(v.verdict, V.NOT_RUN, (cid, v))
+
+    def test_an_unreachable_switch_leaves_t1_not_run(self):
+        self.fab.thrift_down = {3}
+        v, _c, _a = self.verdict("T1")
+        self.assertEqual((v.verdict, v.phase), (V.NOT_RUN, "oracle"), v)
+
+    def test_k1_markers_lost_on_the_path_leave_sc_count_undecided(self):
+        orig = self.fab.send
+
+        def lossy(src, o):
+            out = orig(src, o)
+            if o["cell"] == "K1":
+                self.fab.delivered["h6"] = self.fab.delivered["h6"][:-3]
+            return out
+        self.fab.send = lossy
+        v, ctx, a = self.verdict("K1")
+        self.assertEqual(a.sc_observations["SC-count"]["received"], RA.K1_FRAMES - 3)
+        self.assertEqual((ctx.self_checks["SC-count"].verdict, v.verdict), (V.NOT_RUN, V.NOT_RUN))
+
+    def test_a_failed_entry_on_s2_is_t2_red(self):
+        self.fab.fail_entry = 2
+        v, _c, _a = self.verdict("T2")
+        self.assertEqual(v.verdict, V.RED)
+        self.assertIn("applied", v.reason)
+
+    def test_group_2_there_before_the_write_fails_m2s_negative_read(self):
+        self.fab.sw[1].mc[2] = frozenset([2, 3])
+        v, _c, _a = self.verdict("M2")
+        self.assertEqual(v.verdict, V.PROBE_BROKEN, v)
+
+    def test_a_proxy_that_reads_direct_counters_turns_k2_green(self):
+        s2 = self.fab.sw[2]
+        handle = [e["handle"] for e in s2.tables["HcIngress.t_dcount"]][0]
+        s2.counters[("HcIngress.dc_k2", handle)] = 5           # neither counter starts at zero
+        s2.counters[("HcIngress.c_in", 0)] = 7
+        self.proxy.routes[("GET", "/p4/counter/HcIngress.dc_k2?dpid=2&index=0")] = lambda b: (
+            200, {"packets": s2.counters[("HcIngress.dc_k2", handle)], "bytes": 0})
+        v, _c, a = self.verdict("K2")
+        self.assertEqual(v.verdict, V.GREEN, v)
+        self.assertEqual(a.observations["K2"]["oracle"]["delta"], RA.K2_FRAMES)
+
+    def test_a_kernel_that_installs_meters_turns_mt1_green_and_needs_the_before_read(self):
+        s2 = self.fab.sw[2]
+
+        def install(_b):
+            s2.meters[("HcIngress.m_in", 0)] = list(OA.METER_TARGET)
+            return (200, {"status": "Meter entry installed"})
+        self.kernel.routes[("POST", "/ndt/install_meter_entry")] = install
+        v, _c, _a = self.verdict("MT1")
+        self.assertEqual(v.verdict, V.GREEN, v)
+        s2.meters[("HcIngress.m_in", 0)] = list(OA.METER_TARGET)       # already there before
+        v, _c, _a = self.verdict("MT1")
+        self.assertEqual(v.verdict, V.PROBE_BROKEN, v)
+
+    def test_a_missing_edge_is_tp1_red(self):
+        self.fab.graph_drop_edge = True
+        v, _c, _a = self.verdict("TP1")
+        self.assertEqual(v.verdict, V.RED)
+        self.assertIn("edges", v.reason)
+
+    def test_checksum_offload_on_is_cs1_red(self):
+        self.fab.tx_checksum = "on"
+        v, _c, _a = self.verdict("CS1")
+        self.assertEqual(v.verdict, V.RED)
+
+    def test_a_proxy_that_writes_ternary_turns_t4_to_t7_green(self):
+        self.fab.ndtwin_writes_ternary = True
+        a, _r = self.a_round(only=["T4", "T5", "T6", "T7"])
+        ctx = self.judge(a, self.all_confirmed())
+        self.assertEqual({c: ctx.cells[c].verdict for c in ("T4", "T5", "T6", "T7")},
+                         {c: V.GREEN for c in ("T4", "T5", "T6", "T7")})
+
+    def test_a_ternary_writer_that_keeps_p4runtimes_numbers_is_red(self):
+        """bmv2's thrift prints INT32_MAX - priority (observed on throwaway switches); a writer that
+        stored the P4Runtime number as is would invert the order of every overlapping pair."""
+        self.fab.ndtwin_writes_ternary = True
+        self.fab.ndtwin_priority = lambda p_: p_
+        a, _r = self.a_round(only=["T4", "T7"])
+        ctx = self.judge(a, self.all_confirmed())
+        self.assertEqual(ctx.cells["T4"].verdict, V.RED)
+        self.assertIn("priority_ok", ctx.cells["T4"].reason)
+        self.assertEqual(ctx.cells["T7"].verdict, V.NOT_RUN)          # gate T4 RED
+        obs = a.observations["T7"]
+        self.assertIs(obs["oracle"]["order_ok"], False)
+
+    def test_an_entry_there_before_the_write_fails_t3s_negative_read(self):
+        self.fab.sw[2].add("HcIngress.port_exact", [("EXACT", 7)], "HcIngress.set_port_tag", [0x33])
+        v, _c, _a = self.verdict("T3")
+        self.assertNotEqual(v.verdict, V.GREEN)
+
+    def test_a_multicast_200_that_wrote_nothing_is_m2_red(self):
+        self.proxy.routes[("POST", "/p4/multicast_group")] = (200, {"status": "success"})
+        v, _c, _a = self.verdict("M2")
+        self.assertEqual(v.verdict, V.RED)
+
+    def test_a_missing_clone_session_is_c1_red_and_a_stray_one_fails_the_negative(self):
+        del self.fab.sw[2].mirroring[7]
+        v, _c, _a = self.verdict("C1")
+        self.assertEqual(v.verdict, V.RED)
+        self.fab.sw[2].mirroring[7] = 0x8007
+        self.fab.sw[3].mirroring[7] = 0x8007
+        v, _c, _a = self.verdict("C1")
+        self.assertEqual(v.verdict, V.PROBE_BROKEN)
+
+    def test_a_host_the_pingall_cannot_reach_is_sc_fwd_probe_broken(self):
+        orig = self.fab.send
+
+        def lossy(src, o):
+            out = orig(src, o)
+            self.fab.delivered["h5"] = []
+            return out
+        self.fab.send = lossy
+        _v, ctx, a = self.verdict("K1")
+        self.assertEqual(ctx.self_checks["SC-fwd"].verdict, V.PROBE_BROKEN)
+        self.assertEqual(a.sc_observations["SC-fwd"]["pingall"], (25, 30))
+
+    def test_a_sniffer_that_never_listens_sends_nothing(self):
+        orig = self.fab.spawn
+
+        def deaf(argv, out_path, env):
+            proc = orig(argv, out_path, env)
+            if "sniff" in argv:
+                with open(out_path, "w") as fh:
+                    fh.write("")
+                proc.returncode = 1
+            return proc
+        self.fab.spawn = deaf
+        v, _c, a = self.verdict("K1", only=["K1"])
+        self.assertIsNone(a.observations["K1"]["sent"])
+        self.assertEqual(ctx_cell(self.judge(a), "K1").verdict, V.NOT_RUN)
+
+    def test_an_unreadable_openapi_is_not_a_missing_route(self):
+        del self.proxy.routes[("GET", "/openapi.json")]
+        for cid in ("C2", "MT2", "MT3", "R2", "R3", "P3", "D1", "P2"):
+            v, _c, _a = self.verdict(cid)
+            self.assertEqual(v.verdict, V.NOT_RUN, (cid, v))
+
+    def test_an_exit_the_probe_has_no_client_for_is_not_run(self):
+        self.proxy.routes[("GET", "/openapi.json")][1]["paths"]["/p4/digest"] = {"get": {}}
+        v, _c, _a = self.verdict("D1")
+        self.assertEqual(v.verdict, V.NOT_RUN, v)
+        self.assertIn("answer.fields", v.reason)
+
+    def test_checksum_unreadable_on_one_host_is_not_run(self):
+        orig = self.fab.in_host
+
+        def broken(argv, env, inp):
+            if "ethtool" in argv and argv[4] == str(HOST_PIDS["h3"]):
+                return (1, "")
+            return orig(argv, env, inp)
+        self.fab.in_host = broken
+        v, _c, a = self.verdict("CS1")
+        self.assertIsNone(a.observations["CS1"]["oracle"])
+        self.assertEqual(v.verdict, V.NOT_RUN)
+
+
+def copy_runtimes():
+    import copy
+    return copy.deepcopy(RUNTIMES)
+
+
+def ctx_cell(ctx, cid):
+    return ctx.cells[cid]
+
+
+class TestBringUpB(Cut2):
+
+    def b_round(self):
+        r = self.fab.runner()
+        pkg = os.path.join(self.cfg.run_dir, "packages", "B")
+        lr = LR.LabRound(self.cfg, r, "B", pkg, "run-x", pid=4242, proc_root=self.proc, install_signals=False)
+        out = os.path.join(self.cfg.run_dir, "B")
+        os.makedirs(out, exist_ok=True)
+        hosts = HO.Hosts(self.cfg, r, "run-x", out, GEN, register=lr.register, sleep=lambda s: None)
+        t = FakeTime()
+        b = RB.BRound(self.cfg, r, "run-x", GEN, os.path.join(self.tmp, "build"), RUNTIMES, "/tutorials/utils",
+                      hosts=hosts, sleep=t.sleep, clock=t.clock)
+        b.body(lr)
+        return b, r, pkg
+
+    def test_the_eleven_attributions_confirmed_from_thrift_and_the_receiver(self):
+        b, r, pkg = self.b_round()
+        self.assertEqual({k: v["ok"] for k, v in b.confirmed.items()},
+                         dict({i: True for i in AT.ITEMS}, register=False), b.confirmed)
+        spawn = [c for c in r.calls if c.get("spawn") and RB.ADAPTER in c["argv"]][0]
+        self.assertEqual(spawn["argv"], [self.cfg.p4dev_python, RB.ADAPTER, pkg, RB.CONTROLLER,
+                                         "--tutorials-utils", "/tutorials/utils"])
+        self.assertIn("P4H_CTRL_CONFIG", spawn["env"])
+        with open(self.cfg.lab_state_path) as fh:
+            recorded = json.load(fh)["controllers"]
+        # recorded by pid + start + the run directory its argv carries, and gone by now, so the
+        # teardown finds it ended and signals nothing
+        self.assertEqual([e["marker"] for e in recorded], [self.cfg.run_dir])
+        self.assertIsNone(LR.proc_identity(recorded[0]["pid"], self.proc))
+        self.assertEqual(b.problems, [])
+        with open(spawn["env"]["P4H_CTRL_CONFIG"]) as fh:
+            conf = json.load(fh)
+        self.assertEqual(conf["token"], HO.marker_token("run-x"))
+        self.assertEqual(sorted(conf["programs"].values()), ["hc_alt", "hc_main", "hc_main", "hc_main"])
+
+    def test_a_call_the_controller_lost_is_unattributed_in_a(self):
+        self.fab.ctrl_fail = {"ternary", "meter"}
+        b, _r, _p = self.b_round()
+        a, _r2 = self.a_round(only=["T4", "MT1", "MT2", "T5"])
+        ctx = self.judge(a, b.confirmed)
+        self.assertEqual({c: ctx.cells[c].verdict for c in ("T4", "MT1", "MT2", "T5")},
+                         {"T4": V.UNATTRIBUTED, "MT1": V.UNATTRIBUTED, "MT2": V.UNATTRIBUTED, "T5": V.RED})
+
+    def test_no_result_file_confirms_nothing(self):
+        self.fab.ctrl_no_result = True
+        b, _r, _p = self.b_round()
+        self.assertFalse(any(v["ok"] for v in b.confirmed.values()), b.confirmed)
+        self.assertTrue(any("no result" in p_ or "no controller result" in p_ for p_ in b.problems), b.problems)
+
+
+class TestTheLabRun(Cut2):
+    """lab.run_lab: S0 must be COMPLETE; A then B, each on its own package in the run dir; the
+    verdicts come only after both."""
+
+    def setUp(self):
+        Cut2.setUp(self)
+        run = self.cfg.run_dir
+        os.makedirs(os.path.join(run, "exercise", "build"))
+        shutil.copy(GEN_PATH, os.path.join(run, "exercise", "gen_runtime.py"))
+        for stem in ("hc_main", "hc_alt"):
+            with open(os.path.join(run, "exercise", "build", stem + ".p4.p4info.txtpb"), "w") as fh:
+                fh.write(p4info_text())
+        self.s0 = {"verdict": "COMPLETE", "builds": {"build/hc_alt": {"p4info_sha16": PIPES4["1"]},
+                                                      "build/hc_main": {"p4info_sha16": PIPES4["2"]}},
+                   "preflight": {"PF-T": {"rc": 1, "g5_rows": 1, "other_fail_rows": 0}},
+                   "self_checks": {"main": {"ternary_held": True}}}
+        self.claim = self.cfg.claim_file
+        self.expected = os.path.join(REPO, "doc", "audit", "2026-10-03_p4-health-check", "expected_today.tsv")
+
+    def ndt_runner(self):
+        test = self
+
+        def claim(argv, env, inp):
+            with open(test.claim, "w") as fh:
+                fh.write("owner=p4h-test\nexpires=%d\nnote=%s\n" % (int(__import__("time").time()) + 900, argv[3]))
+            return (0, "")
+
+        def release(argv, env, inp):
+            os.remove(test.claim)
+            return (0, "")
+        r = RecordingRunner()
+        r.add(("ndt", "status", "--measuring"), (0, "  measuring      nothing\n"))
+        r.add(("ndt", "claim"), claim)
+        r.add(("ndt", "up"), (0, "up"))
+        r.add(("ndt", "down"), (0, ""))
+        r.add(("ndt", "release"), release)
+        r.add(("qdisc_snapshot.sh",), (0, ""))
+        r.add(("sudo", "-n", "mnexec", "-a", "1", "kill"), (0, ""))
+        return self.fab.runner(r)
+
+    def fake_time(self):
+        t = FakeTime()
+        return {"sleep": t.sleep, "clock": t.clock}
+
+    def rounds(self):
+        proc = self.proc
+
+        def make(cfg, runner, bringup, pkg, run_id):
+            return LR.LabRound(cfg, runner, bringup, pkg, run_id, pid=4242, proc_root=proc, install_signals=False)
+        return make
+
+    def run_lab(self, **kw):
+        r = self.ndt_runner()
+        rc, doc = LAB.run_lab(self.cfg, r, self.s0, self.cfg.run_dir, "run-x", round_cls=self.rounds(),
+                              tutorials_utils="/tutorials/utils", expected_tsv=self.expected,
+                              a_kwargs={"hosts": None}, b_kwargs=self.fake_time(),
+                              log=lambda *a: None, **kw)
+        return rc, doc, r
+
+    def test_a_then_b_then_the_verdicts(self):
+        rc, doc, r = self.run_lab()
+        ndt = [(c["argv"][1], c["argv"][-1] if c["argv"][1] == "up" else "") for c in r.calls if c["argv"][0] == "ndt"]
+        ups = [os.path.relpath(p_, self.cfg.run_dir) for v, p_ in ndt if v == "up"]
+        self.assertEqual(ups, ["packages/A", "packages/B"])
+        self.assertEqual([v for v, _ in ndt], ["status", "claim", "up", "down", "release"] * 2)
+        cells = {c["id"]: c for c in doc["cells"]}
+        self.assertEqual((cells["T4"]["verdict"], cells["T4"]["attribution"]["ok"]), (V.RED, True),
+                         cells["T4"])
+        self.assertEqual(cells["R3"]["verdict"], V.UNATTRIBUTED)
+        self.assertEqual(cells["PF-T"]["verdict"], V.RED)
+        self.assertEqual(cells["CH1"]["phase"], "unobserved")
+        self.assertEqual((doc["verdict"], rc), ("COMPLETE", 0))
+        self.assertTrue(os.path.isfile(os.path.join(self.cfg.run_dir, "health.json")))
+        self.assertTrue(os.path.isfile(os.path.join(self.cfg.run_dir, "A", "K1.json")))
+
+    def test_an_incomplete_s0_touches_nothing(self):
+        self.s0["verdict"] = "PROBE-BROKEN"
+        rc, doc, r = self.run_lab()
+        self.assertEqual((rc, doc), (1, None))
+        self.assertEqual(r.calls, [])
+
+    def test_a_refused_claim_makes_the_run_incomplete(self):
+        r = self.ndt_runner()
+        claims = []
+
+        def claim(argv, env, inp):
+            claims.append(argv)
+            if len(claims) == 2:                    # bring-up B's claim is refused
+                return (1, "")
+            with open(self.claim, "w") as fh:
+                fh.write("owner=p4h-test\nexpires=%d\nnote=x\n" % (int(__import__("time").time()) + 900))
+            return (0, "")
+        r.replies = [(m, claim if m == ("ndt", "claim") else rep) for m, rep in r.replies]
+        rc, doc = LAB.run_lab(self.cfg, r, self.s0, self.cfg.run_dir, "run-x", round_cls=self.rounds(),
+                              tutorials_utils="/tutorials/utils", expected_tsv=self.expected,
+                              b_kwargs=self.fake_time(), log=lambda *a: None)
+        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
+        cells = {c["id"]: c for c in doc["cells"]}
+        self.assertEqual(cells["T4"]["verdict"], V.UNATTRIBUTED)     # B never ran
+
+    def test_the_see_red_run_uses_the_mutant_package_and_only_its_cells(self):
+        self.fab.count_k1 = False
+        self.fab.ttl_decrements = False
+        rc, doc, r = self.run_lab(bringups=("A",), only=["K1", "TTL1"], mutant=True)
+        ups = [c["argv"][-1] for c in r.calls if c["argv"][:2] == ["ndt", "up"]]
+        self.assertEqual([os.path.relpath(u, self.cfg.run_dir) for u in ups], ["packages/A-MUT"])
+        cells = {c["id"]: c for c in doc["cells"]}
+        self.assertEqual({c: cells[c]["verdict"] for c in ("K1", "TTL1", "PL1", "T1", "TP1")},
+                         {"K1": V.PROBE_BROKEN, "TTL1": V.PROBE_BROKEN, "PL1": V.GREEN, "T1": V.GREEN,
+                          "TP1": V.GREEN})
+        self.assertIn("SC-count", cells["K1"]["reason"])
+        self.assertIn("SC-ttl", cells["TTL1"]["reason"])
+        self.assertEqual((doc["verdict"], rc), ("PROBE-BROKEN", 1))
 
 
 if __name__ == "__main__":

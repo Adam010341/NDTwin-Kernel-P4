@@ -27,6 +27,9 @@ from p4_health import frames as F  # noqa: E402
 from p4_health import report as R  # noqa: E402
 from p4_health.cells import table as T  # noqa: E402
 from p4_health.cells import verdict as V  # noqa: E402
+from p4_health import attribution as AT  # noqa: E402
+from p4_health import controller_ext as CX  # noqa: E402
+from p4_health import round_a as RA  # noqa: E402
 
 PKG = os.path.dirname(os.path.abspath(T.__file__))
 EXPECTED_TSV = os.path.join(REPO, "doc", "audit", "2026-10-03_p4-health-check", "expected_today.tsv")
@@ -1316,6 +1319,165 @@ class TestS0Pieces(unittest.TestCase):
             self.assertTrue(inv["enq_qdepth"])
         finally:
             shutil.rmtree(d)
+
+
+# --- Cut 2 -----------------------------------------------------------------------------------------
+
+class TestCut2Decisions(unittest.TestCase):
+
+    def test_a_cell_never_observed_is_not_run_for_that_reason(self):
+        v = decide("CH1", None)
+        self.assertEqual((v.verdict, v.phase), (V.NOT_RUN, "unobserved"))
+        self.assertIn("not observed", v.reason)
+        # an observation that exists but carries no answer is still the "unreadable" step
+        v = decide("T4", {})
+        self.assertEqual((v.verdict, v.phase), (V.NOT_RUN, "answer"))
+
+    def test_only_expands_to_the_gates_controls_and_self_check_producers(self):
+        self.assertEqual(RA.expand(["K1", "TTL1"]), {"PL1", "T1", "TP1", "K1-neg", "K1", "TTL1"})
+        self.assertEqual(RA.expand(["T7"]), {"T7", "T4"})
+        self.assertEqual(RA.expand(["CP1"]), {"T1"})
+        self.assertEqual(RA.expand(["R2"]), {"R2", "T1", "PL1", "TP1"})
+        self.assertEqual(RA.expand(None), set(RA.CUT2_CELLS))
+        self.assertEqual(RA.expand(["CH1"]), set())        # a Cut 3 cell is not this round's
+        # a self-check named on its own brings the cell whose step takes its readings
+        self.assertEqual(RA.expand(["SC-count"]), {"K1", "K1-neg", "PL1", "T1", "TP1"})
+        self.assertEqual(RA.expand(["SC-reg"]), {"R2", "PL1", "T1", "TP1"})
+
+    def test_bring_up_as_cells_are_the_cut_2_rows_of_the_table(self):
+        rows = {c.id for c in T.TABLE.cells if c.cut == 2 and c.bringup == "A" and not c.q3b
+                and c.alias_of is None}
+        self.assertEqual(set(RA.CUT2_CELLS) - {"K1-neg", "T3-neg"}, rows)
+
+
+TOK = "abcd1234"
+
+
+def ctrl_result(fail=(), **over):
+    calls = {i: {"ok": i not in fail, "detail": None, "error": "refused" if i in fail else None}
+             for i in AT.ITEMS if i != "packet_in"}
+    calls["direct_counter"]["detail"] = {"packets": 200}
+    res = {"attributions": calls, "digests": [{"members": [AT.ip_int("10.0.4.4"), 40041, 40041]}],
+           "packet_ins": [{"ingress_port": 1, "marker": [TOK, "P2", 0]}]}
+    res.update(over)
+    return res
+
+
+TOP = 2 ** 31 - 1
+
+
+def dump(*entries):
+    return {"entries": [dict(handle=i, keys=[("f", k[0], k[1])], priority=p, action="HcIngress.set_mark",
+                             params=prm, member=None, group=None, life=None)
+                        for i, (k, p, prm) in enumerate(entries)], "default": None}
+
+
+def thrift_ok(over=None):
+    t, r, o = CX.TERNARY, CX.RANGE, CX.OPTIONAL
+    reads = {
+        "table_dump HcIngress.t_ternary": dump((("TERNARY", "0a000400 &&& ffffff00"), TOP - 10, [41]),
+                                               (("TERNARY", "0a000606 &&& ffffffff"), TOP - 30, [71]),
+                                               (("TERNARY", "0a000600 &&& ffffff00"), TOP - 20, [72])),
+        "table_dump HcIngress.t_range": dump((("RANGE", "9ca4 -> 9cae"), TOP - 10, [51])),
+        "table_dump HcIngress.t_optional": dump((("TERNARY", "11 &&& ff"), TOP - 10, [61])),
+        "meter_get_rates HcIngress.m_in 0": [(0.125, 12500), (0.125, 12500)],
+        "table_dump HcIngress.t_dmeter": {"entries": [{"handle": 3, "keys": [("f", "EXACT", "9c57")]}]},
+        "meter_get_rates HcIngress.dm_mt3 3": [(0.125, 12500), (0.125, 12500)],
+        "mirroring_get 9": {"present": True, "port": None, "mgid": 0x8009},
+        "mc_dump": {0x8009: frozenset([1])},
+        "register_read HcIngress.r_mark 1": 0xBEEF,
+        "table_dump HcIngress.t_dcount": {"entries": [{"handle": 5, "keys": [("f", "EXACT", "9c4c")]}]},
+        "counter_read HcIngress.dc_k2 5": (0, 200),
+    }
+    reads.update(over or {})
+    return lambda cmd: reads.get(cmd)
+
+
+EXPECT = {"digest": [AT.ip_int("10.0.4.4"), 40041, 40041], "packet_in_port": 1, "packet_in_cell": "P2",
+          "token": TOK}
+
+
+class TestAttributionConfirm(unittest.TestCase):
+    """design 4.2: a call that succeeded AND an independent reading, or the attribution fails."""
+
+    def ok(self, result=None, read=None, p3=5, expect=EXPECT):
+        got = AT.confirm(ctrl_result() if result is None else result, read or thrift_ok(), p3, expect)
+        return {k: v["ok"] for k, v in got.items()}, got
+
+    def test_every_item_confirmed(self):
+        ok, got = self.ok()
+        self.assertEqual(ok, {i: True for i in AT.ITEMS}, got)
+
+    def test_a_failed_call_fails_its_item_whatever_thrift_shows(self):
+        for item in AT.ITEMS:
+            if item == "packet_in":
+                continue
+            with self.subTest(item=item):
+                ok, _ = self.ok(ctrl_result(fail=(item,)))
+                self.assertEqual({k for k, v in ok.items() if not v}, {item})
+
+    def test_no_result_confirms_nothing(self):
+        ok, _ = self.ok({})
+        self.assertFalse(any(ok.values()))
+        got = AT.confirm(None, thrift_ok(), 5, EXPECT)
+        self.assertFalse(any(v["ok"] for v in got.values()))
+
+    def test_thrift_that_does_not_show_the_effect_fails_the_item(self):
+        cases = {
+            "ternary": {"table_dump HcIngress.t_ternary": dump(
+                (("TERNARY", "0a000400 &&& ffffff00"), 10, [41]),                 # P4Runtime's number kept
+                (("TERNARY", "0a000606 &&& ffffffff"), TOP - 30, [71]),
+                (("TERNARY", "0a000600 &&& ffffff00"), TOP - 20, [72]))},
+            "range": {"table_dump HcIngress.t_range": dump()},
+            "optional": {"table_dump HcIngress.t_optional": None},
+            "meter": {"meter_get_rates HcIngress.m_in 0": []},
+            "direct_meter": {"meter_get_rates HcIngress.dm_mt3 3": [(0.25, 12500), (0.125, 12500)]},
+            "clone": {"mc_dump": {0x8009: frozenset([2])}},
+            "register": {"register_read HcIngress.r_mark 1": 0},
+            "direct_counter": {"counter_read HcIngress.dc_k2 5": (0, 199)},
+        }
+        for item, over in cases.items():
+            with self.subTest(item=item):
+                ok, got = self.ok(read=thrift_ok(over))
+                self.assertFalse(ok[item], got[item])
+
+    def test_priority_needs_the_requested_order_in_thrifts_numbers(self):
+        swapped = dump((("TERNARY", "0a000400 &&& ffffff00"), TOP - 10, [41]),
+                       (("TERNARY", "0a000606 &&& ffffffff"), TOP - 20, [71]),
+                       (("TERNARY", "0a000600 &&& ffffff00"), TOP - 30, [72]))
+        ok, _ = self.ok(read=thrift_ok({"table_dump HcIngress.t_ternary": swapped}))
+        self.assertFalse(ok["priority"])
+        self.assertTrue(ok["ternary"])
+
+    def test_the_stream_messages_must_carry_what_the_probe_sent(self):
+        ok, _ = self.ok(ctrl_result(digests=[{"members": [AT.ip_int("10.0.4.4"), 40042, 40041]}]))
+        self.assertFalse(ok["digest"])
+        ok, _ = self.ok(ctrl_result(packet_ins=[{"ingress_port": 2, "marker": [TOK, "P2", 0]}]))
+        self.assertFalse(ok["packet_in"])
+        ok, _ = self.ok(ctrl_result(packet_ins=[{"ingress_port": 1, "marker": ["otherrun", "P2", 0]}]))
+        self.assertFalse(ok["packet_in"])
+        ok, _ = self.ok(ctrl_result(), expect=dict(EXPECT, digest=[]))
+        self.assertFalse(ok["digest"])
+
+    def test_the_packet_out_needs_the_receiving_host(self):
+        for p3 in (0, None):
+            ok, _ = self.ok(p3=p3)
+            self.assertFalse(ok["packet_out"])
+
+    def test_the_direct_counter_needs_traffic(self):
+        res = ctrl_result()
+        res["attributions"]["direct_counter"]["detail"] = {"packets": 0}
+        ok, _ = self.ok(res, read=thrift_ok({"counter_read HcIngress.dc_k2 5": (0, 0)}))
+        self.assertFalse(ok["direct_counter"])
+
+    def test_each_cell_gets_its_items_attribution(self):
+        cells = AT.for_cells({"ternary": {"ok": True}, "meter": {"ok": False}})
+        self.assertEqual((cells["T4"], cells["MT1"], cells["MT2"], cells["R3"]),
+                         ({"bmv2": True}, {"bmv2": False}, {"bmv2": False}, {"bmv2": False}))
+        self.assertEqual(set(cells), set(AT.CELL_ITEMS))
+        self.assertEqual(set(AT.CELL_ITEMS.values()), set(AT.ITEMS))
+        for cell in AT.CELL_ITEMS:
+            self.assertIn("bmv2", T.TABLE.cell(cell).red_attribution, cell)
 
 
 if __name__ == "__main__":
