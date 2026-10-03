@@ -373,10 +373,13 @@ TEST(P4PowerStrategyTest, PowerOnHelperFailureIsA500AndReadoptNeverRuns)
 
 TEST(P4PowerStrategyTest, PowerOnReadoptFailureIsA502AndDoesNotMarkUp)
 {
-    // The dangerous half-state: the process is alive and answers liveness probes, but it has no
-    // pipeline, no clone session, no mastership and no routes. Reporting failure here is what
-    // keeps the twin honest -- the liveness probe cannot tell the difference, by design note in
-    // 2026-08-11_phase7_power_mechanism_design.md, so this OpResult is the only honest witness.
+    // The dangerous half-state: the process is alive, but the readopt did not finish, so it may
+    // lack a pipeline, a clone session, mastership or routes. Reporting failure here is what
+    // keeps the twin honest. Liveness sees only part of it: a bmv2 with no pipeline answers the
+    // COOKIE_ONLY probe with FAILED_PRECONDITION and reads as not alive (measured,
+    // doc/audit/2026-10-04_p4-cookie-probe/), but one whose pipeline is committed and whose
+    // clone session or routes are missing reads as alive. So this OpResult is the witness.
+    // [Co-developed with claude code -- Adam]
     Fixture fix;
     (*fix.graph)[fix.sw].isUp = false;
     FakeP4 p4;
@@ -571,10 +574,15 @@ TEST(P4PowerStrategyTest, TheReadoptFailureNamesARecoveryThatCanActuallyRun)
     // [Co-developed with claude code -- Adam]
     // This message has now named two recoveries that do not work, so the assertions name both.
     //
-    // First it ended "retrying this power-on retries the readopt." It cannot: helper-on has
-    // already succeeded at this point, so bmv2 is serving; p4LivenessFor answers Up on probe_ok
-    // alone and the 1 Hz pingWorker calls setVertexUp within a second; the retry then hits
-    // powerOn's own getVertexIsUp early-return and answers 200 without going near the readopt.
+    // First it ended "retrying this power-on retries the readopt." It does not: helper-on has
+    // already succeeded at this point, so bmv2 is serving. If the readopt got past the pipeline
+    // commit (it failed at clone or routes, or curl timed out while the proxy finished), the
+    // probe answers OK, p4LivenessFor answers Up and the 1 Hz pingWorker calls setVertexUp
+    // within a second; the retry then hits powerOn's own getVertexIsUp early-return and
+    // answers 200 without going near the readopt. If it failed earlier (build, control plane,
+    // mastership, pipeline), a bmv2 with no pipeline answers the probe FAILED_PRECONDITION, the
+    // vertex stays down, and the retry reaches the helper, which refuses a second instance.
+    // Either way the retry does not re-attempt the readopt, so the message says "may" for both.
     //
     // Its replacement said "power off and then power on". Run against a live fabric on
     // 2026-08-12, that returned 500 too -- powering off leaves the proxy's prober hammering the
@@ -600,6 +608,15 @@ TEST(P4PowerStrategyTest, TheReadoptFailureNamesARecoveryThatCanActuallyRun)
            "has to name it, for this dpid: " << msg;
     EXPECT_EQ(msg.find("retrying this power-on retries the readopt"), std::string::npos)
         << "the message promises a retry that early-returns success instead: " << msg;
+    // [Co-developed with claude code -- Adam]
+    // The reason given for not repeating the power-on has to hold for every failing step, so it
+    // must not state the one-second liveness mark-up as a fact, and must name both outcomes.
+    EXPECT_EQ(msg.find("the process is up, so liveness marks the switch up"), std::string::npos)
+        << "that holds only after the pipeline was committed: " << msg;
+    EXPECT_NE(msg.find("may refuse to start a second instance"), std::string::npos)
+        << "the helper-refusal outcome is missing: " << msg;
+    EXPECT_NE(msg.find("may already be marked up"), std::string::npos)
+        << "the already-marked-up outcome is missing: " << msg;
     EXPECT_NE(msg.find("not work either"), std::string::npos)
         << "off-then-on was measured to fail, so the message must warn against it rather than "
            "leave it looking like the obvious thing to try: " << msg;
