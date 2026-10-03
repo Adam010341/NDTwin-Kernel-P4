@@ -50,7 +50,7 @@ def adapter_argv(python, package_dir, tutorials_utils):
 class BRound(object):
     def __init__(self, cfg, runner, run_id, model, build_dir, runtimes, tutorials_utils,
                  out_dir=None, hosts=None, sleep=time.sleep, clock=time.monotonic,
-                 ready_timeout_s=120.0, exit_timeout_s=120.0):
+                 ready_timeout_s=120.0, exit_timeout_s=120.0, hostside=None):
         self.cfg, self.runner, self.run_id, self.model = cfg, runner, run_id, model
         self.build_dir, self.runtimes = build_dir, runtimes
         self.tutorials_utils = tutorials_utils
@@ -58,6 +58,7 @@ class BRound(object):
         self.hosts = hosts
         self.sleep, self.clock = sleep, clock
         self.ready_timeout_s, self.exit_timeout_s = ready_timeout_s, exit_timeout_s
+        self.hostside = hostside            # the frozen copy root runs (lab.run_lab), or None
         self.confirmed = None
         self.problems = []
         #: (Cut 2 review N2) why B's controller did not do its part, or None: the run is then
@@ -97,7 +98,8 @@ class BRound(object):
         os.makedirs(self.out_dir, exist_ok=True)
         if self.hosts is None:
             self.hosts = Hosts(self.cfg, self.runner, self.run_id, self.out_dir, self.model,
-                               register=lab_round.register)
+                               register=lab_round.register,
+                               **({"hostside": self.hostside} if self.hostside else {}))
         # (Cut 2 review MAJOR-3) the adapter checks the package FILE; the fabric that is up must
         # itself say external, or this controller would be a second writer on NDTwin's tables
         mode = (((P.switch_state(self.cfg) or {}).get("control_plane")) or {}).get("mode")

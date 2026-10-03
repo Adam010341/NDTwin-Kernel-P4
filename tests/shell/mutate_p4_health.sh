@@ -1835,6 +1835,19 @@ add "R7-N7. an unobserved control reads as a flip" \
             # (Cut 2 second review N7)' \
     'test_a_cell_this_run_did_not_observe_has_no_delta'
 
+add "R7-N8a. root runs the shared tree's hostside.py, not the run's frozen copy" \
+    "$LABPY" \
+    '    a_kwargs = dict({"hostside": frozen}, **(a_kwargs or {}))' \
+    '    a_kwargs = dict(a_kwargs or {})  # MUTANT' \
+    'test_root_runs_a_frozen_copy_of_its_code_from_the_run_dir'
+
+add "R7-N8b. the frozen copy's record is not of the copy root runs" \
+    "$HOSTSPY" \
+    '        with open(os.path.join(dst, name), "rb") as fh:
+            sums[name] = hashlib.sha256(fh.read()).hexdigest()' \
+    '        sums[name] = "not recorded"  # MUTANT' \
+    'test_root_runs_a_frozen_copy_of_its_code_from_the_run_dir'
+
 
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'

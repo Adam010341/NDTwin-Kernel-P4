@@ -77,13 +77,14 @@ def expand(only, table=T.TABLE):
 
 class ARound(object):
     def __init__(self, cfg, runner, run_id, model, expect_pipelines, runtimes, orders, only=None,
-                 out_dir=None, hosts=None):
+                 out_dir=None, hosts=None, hostside=None):
         self.cfg, self.runner, self.run_id, self.model = cfg, runner, run_id, model
         self.expect_pipelines = expect_pipelines
         self.runtimes, self.orders = runtimes, orders
         self.selected = expand(only)
         self.out_dir = out_dir or os.path.join(cfg.run_dir, "A")
         self.hosts = hosts
+        self.hostside = hostside            # the frozen copy root runs (lab.run_lab), or None
         self.observations, self.sc_observations = {}, {}
         self.problems = []
         self.fabric = None
@@ -139,7 +140,8 @@ class ARound(object):
         os.makedirs(self.out_dir, exist_ok=True)
         if self.hosts is None:
             self.hosts = Hosts(self.cfg, self.runner, self.run_id, self.out_dir, self.model,
-                               register=lab_round.register)
+                               register=lab_round.register,
+                               **({"hostside": self.hostside} if self.hostside else {}))
         for cid in STATIC + ACTIVE:
             if cid in self.selected:
                 self.run_step(cid)

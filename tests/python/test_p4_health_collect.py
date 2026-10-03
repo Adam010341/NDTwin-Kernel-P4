@@ -2501,6 +2501,25 @@ class TestTheLabRun(Cut2):
         self.assertTrue(any("stop signal 15" in p_ for p_ in doc["problems"]), doc["problems"])
         self.assertNotEqual(getattr(restored, "__name__", ""), "raiser")   # the caller's handler is back
 
+    def test_root_runs_a_frozen_copy_of_its_code_from_the_run_dir(self):
+        """N8: root executes hostside.py, frames.py and __init__.py; it runs copies taken into the
+        run dir at the start, so the shared tree can change under a 15-minute run and root still
+        runs what was recorded."""
+        rc, doc, r = self.run_lab()
+        frozen = os.path.join(self.cfg.run_dir, "rootcode", "p4_health", "hostside.py")
+        root_argvs = [c["argv"] for c in r.calls if c["argv"][:4] == ["sudo", "-n", "mnexec", "-a"]
+                      and any(a.endswith("hostside.py") for a in c["argv"])]
+        self.assertTrue(root_argvs)
+        for argv in root_argvs:
+            self.assertIn(frozen, argv)
+        import hashlib
+        src = os.path.dirname(os.path.abspath(HS.__file__))
+        for name in ("hostside.py", "frames.py", "__init__.py"):
+            with open(os.path.join(src, name), "rb") as fh:
+                want = hashlib.sha256(fh.read()).hexdigest()
+            self.assertEqual(doc["root_code"][name], want, name)
+            self.assertTrue(os.path.isfile(os.path.join(self.cfg.run_dir, "rootcode", "p4_health", name)))
+
     def test_b_on_a_fabric_that_is_not_external_is_incomplete(self):
         self.fab.force_mode = "ndtwin"
         rc, doc, r = self.run_lab()

@@ -25,6 +25,7 @@ from . import report as R
 from . import runtime_cli as RC
 from .cells import table as T
 from .cells import verdict as V
+from .collect import hosts as HO
 from .lab_round import LabRound, SignalAbort
 from .round_a import ARound
 from .round_b import BRound
@@ -163,6 +164,9 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
     pipelines, runtimes, orders = expectations(s0_out, run_dir, model)
     packages = os.path.join(run_dir, "packages")
     recs, problems, holder = [], [], {}
+    root_code, frozen = HO.freeze_root_code(run_dir)
+    a_kwargs = dict({"hostside": frozen}, **(a_kwargs or {}))
+    b_kwargs = dict({"hostside": frozen}, **(b_kwargs or {}))
     old_handlers = _stop_on_signals() if signals else None
     try:
         _rounds(cfg, runner, run_id, model, pipelines, runtimes, orders, only, mutant, bringups,
@@ -196,6 +200,7 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
     doc["only"] = sorted(a.selected) if a else []
     doc["mutant"] = bool(mutant)
     doc["problems"] = problems
+    doc["root_code"] = root_code
     # (Cut 2 review m4) design 4.3's system_under_test and the Q6(a) gate fingerprint
     doc["system_under_test"] = (identity or {}).get("system_under_test")
     doc["gate_fingerprint"] = (identity or {}).get("gate_fingerprint")
