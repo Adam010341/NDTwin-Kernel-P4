@@ -1386,14 +1386,68 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         from p4_health import probe
         asked = []
 
-        def git(*args):
-            asked.append(args)
-            return " M tools/p4_health/hostside.py" if args[0] == "status" else "x"
-        with mock.patch.object(probe, "_git", git), \
+        import subprocess as sp
+
+        def git(argv, **kw):
+            asked.append(tuple(argv[3:]))
+            out = " M tools/p4_health/hostside.py\n" if argv[3] == "status" else "x\n"
+            return sp.CompletedProcess(argv, 0, stdout=out, stderr="")
+        with mock.patch.object(probe.subprocess, "run", git), \
                 mock.patch("p4_health.s0.S0", side_effect=AssertionError("S0 must not start")):
             rc = probe.main(["lab", "--run-dir", "/nonexistent/run", "--owner", "o"])
         self.assertEqual(rc, 2)
         self.assertIn(("status", "--porcelain", "--", "tools/p4_health"), asked)
+
+    @staticmethod
+    def git_answering(rc, out="", exc=None):
+        import subprocess as sp
+
+        def run(argv, **kw):
+            if argv[:1] != ["git"]:
+                raise AssertionError("unexpected spawn %r" % (argv,))
+            if exc is not None:
+                raise exc
+            return sp.CompletedProcess(argv, rc, stdout=out, stderr="")
+        return run
+
+    def test_a_git_that_cannot_answer_is_refused_before_s0(self):
+        """N3: a failed, timed-out or missing git is no answer about the tree -- not 'clean'."""
+        import subprocess as sp
+        from unittest import mock
+        from p4_health import probe
+        for kw in ({"rc": 128}, {"rc": 0, "exc": sp.TimeoutExpired("git", 10)},
+                   {"rc": 0, "exc": FileNotFoundError("git")}):
+            with self.subTest(kw=kw):
+                with mock.patch.object(probe.subprocess, "run", self.git_answering(**kw)), \
+                        mock.patch("p4_health.s0.S0", side_effect=AssertionError("S0 must not start")):
+                    rc = probe.main(["lab", "--run-dir", "/nonexistent/run", "--owner", "o"])
+                self.assertEqual(rc, 2)
+
+    def test_a_missing_identity_record_stops_the_run_before_the_lab(self):
+        """N3: the first authorized run's record is the baseline of the standing authorization;
+        without it, or with an incomplete fingerprint, the lab is not touched."""
+        import tempfile
+        from unittest import mock
+        from p4_health import probe
+        d = tempfile.mkdtemp(prefix="p4h-ident-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, d, True)
+
+        class FakeS0(object):
+            def __init__(self, *a, **kw):
+                self.out = {"verdict": "COMPLETE"}
+
+            def run(self):
+                return 0
+        good = {"sha256": "a" * 64, "parts": {}}
+        for sut, gate in ((None, good), (os.path.join(d, "code_identity.json"), dict(good, sha256="incomplete"))):
+            with self.subTest(sut=sut, gate=gate["sha256"]):
+                with mock.patch.object(probe.subprocess, "run", self.git_answering(0)), \
+                        mock.patch("p4_health.s0.S0", FakeS0), \
+                        mock.patch("p4_health.identity.system_under_test", return_value=sut), \
+                        mock.patch("p4_health.identity.fingerprint", return_value=gate), \
+                        mock.patch("p4_health.lab.run_lab", side_effect=AssertionError("the lab must not start")):
+                    rc = probe.main(["lab", "--run-dir", d, "--owner", "o"])
+                self.assertEqual(rc, 2)
 
     def test_the_may_differ_classes_are_the_designs(self):
         from p4_health import identity as ID

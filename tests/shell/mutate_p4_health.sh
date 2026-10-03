@@ -1783,6 +1783,26 @@ add "R7-N2. a B whose controller did nothing leaves the run complete" \
     '        elif False:  # MUTANT' \
     'test_b_on_a_fabric_that_is_not_external_is_incomplete'
 
+add "R7-N3a. a git that could not answer reads as a clean tree" \
+    "$PROBEPY" \
+    '    if git_rc != 0:
+        # (Cut 2 review N3) no answer is not "clean"' \
+    '    if False:  # MUTANT
+        # (Cut 2 review N3) no answer is not "clean"' \
+    'test_a_git_that_cannot_answer_is_refused_before_s0'
+
+add "R7-N3b. the lab starts without a system-under-test record" \
+    "$PROBEPY" \
+    '    if sut is None or gate.get("sha256") in (None, "incomplete"):' \
+    '    if gate.get("sha256") in (None, "incomplete"):  # MUTANT' \
+    'test_a_missing_identity_record_stops_the_run_before_the_lab'
+
+add "R7-N3c. the lab starts on an incomplete fingerprint" \
+    "$PROBEPY" \
+    '    if sut is None or gate.get("sha256") in (None, "incomplete"):' \
+    '    if sut is None:  # MUTANT' \
+    'test_a_missing_identity_record_stops_the_run_before_the_lab'
+
 
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'

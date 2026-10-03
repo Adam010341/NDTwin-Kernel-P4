@@ -33,12 +33,21 @@ from p4_health.collect.runner import Runner  # noqa: E402
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
-def _git(*args):
+def _git_run(*args):
+    """(rc, stdout) of one git call; rc None when git could not run at all (missing, timeout)."""
     try:
-        return subprocess.run(["git", "-C", REPO] + list(args), stdout=subprocess.PIPE,
-                              stderr=subprocess.DEVNULL, universal_newlines=True, timeout=10).stdout.strip()
+        res = subprocess.run(["git", "-C", REPO] + list(args), stdout=subprocess.PIPE,
+                             stderr=subprocess.DEVNULL, universal_newlines=True, timeout=10)
     except (OSError, subprocess.SubprocessError):
-        return ""
+        return None, ""
+    return res.returncode, (res.stdout or "").strip()
+
+
+def _git(*args):
+    """stdout of a git call that only labels a record; "" when git could not answer. A decision
+    must not rest on this -- use _git_run and its rc (Cut 2 review N3)."""
+    rc, out = _git_run(*args)
+    return out if rc == 0 else ""
 
 
 def probe_version():
@@ -102,7 +111,12 @@ def cmd_lab(args):
         return 2
     # (Cut 2 review m4) root runs hostside.py, frames.py and __init__.py from this working tree:
     # a lab run is refused unless tools/p4_health is exactly what HEAD says (no edit, no new file)
-    dirty = _git("status", "--porcelain", "--", "tools/p4_health")
+    git_rc, dirty = _git_run("status", "--porcelain", "--", "tools/p4_health")
+    if git_rc != 0:
+        # (Cut 2 review N3) no answer is not "clean"
+        print("refused: git status could not tell whether tools/p4_health is clean (rc %s)" % (git_rc,),
+              file=sys.stderr)
+        return 2
     if dirty:
         print("refused: tools/p4_health has uncommitted changes; a lab run runs only committed "
               "code:\n%s" % dirty, file=sys.stderr)
@@ -132,6 +146,12 @@ def cmd_lab(args):
                           fabric_bmv2=fabric_binary(), fp_script=os.path.join(live, "venv_fingerprint.sh"))
     ID.dump(os.path.join(run_dir, "gate_fingerprint.json"), gate)
     print("gate fingerprint %s; system under test %s" % (gate["sha256"], sut))
+    if sut is None or gate.get("sha256") in (None, "incomplete"):
+        # (Cut 2 review N3) the first authorized run's record is the standing authorization's
+        # baseline: without it the run cannot be what it is meant to be, so the lab is not touched
+        print("refused: the identity record is incomplete (system under test %s, fingerprint %s); "
+              "see %s/gate_fingerprint.json" % (sut, gate.get("sha256"), run_dir), file=sys.stderr)
+        return 2
     bringups = tuple(b for b in (args.bringups or "A,B").split(",") if b)
     only = [c for c in (args.only or "").split(",") if c] or None
     rc, _doc = L.run_lab(cfg, runner, s0.out, run_dir, run_id, bringups=bringups, only=only,
