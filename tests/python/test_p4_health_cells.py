@@ -1329,6 +1329,54 @@ class TestS0Pieces(unittest.TestCase):
 
 # --- Cut 2 -----------------------------------------------------------------------------------------
 
+class TestS0Cut2Checks(unittest.TestCase):
+    """m5: S0's two new safety checks decide something, so each is pinned."""
+
+    def s0(self, replies):
+        import tempfile
+        from p4_health import s0
+        from p4_health.collect.runner import RecordingRunner
+        d = tempfile.mkdtemp(prefix="p4h-s0c2-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, d, True)
+        r = RecordingRunner(replies)
+        x = s0.S0(d, r, "py", log=lambda *a: None)
+        x.pkgs = {n: os.path.join(d, "packages", n) for n in ("A", "B", "C", "PF-T", "FWD", "A-MUT")}
+        return x, r
+
+    def test_the_mutant_package_is_drop_checked(self):
+        """The A-MUT package is the one the see-red run brings up: it must pass the drop check."""
+        x, r = self.s0([(lambda a: "heartbeat_drop_check.py" in " ".join(a),
+                         lambda a, e, i: (1 if a[2].endswith("/FWD") else 0, ""))])
+        x.drop_check()
+        checked = sorted(os.path.basename(c["argv"][2]) for c in r.calls)
+        self.assertEqual(checked, ["A", "A-MUT", "B", "C", "FWD"])
+        self.assertTrue(all(c["ok"] for c in x.out["checks"]), x.out["checks"])
+        self.assertIn("drop check A-MUT rc 0", [c["name"] for c in x.out["checks"]])
+
+    DRY = ("package  : p4-health-B  (mode external, grpc_base 30050)\ncontroller: %s\ncwd : x\n"
+           "rewrites this package's switches would receive:\n"
+           + "".join("  s%d: 127.0.0.1:%d device_id=%d  ->  localhost:%d device_id=%d\n" % (d, 50050 + d, d - 1, 30050 + d, d)
+                     for d in (1, 2, 3, 4))
+           + "(--dry-run: nothing was imported, patched or run)\n")
+
+    def test_the_adapter_dry_run_names_our_controller_and_four_rewrites(self):
+        from p4_health import round_b as RB
+        good = self.DRY % RB.CONTROLLER
+        x, r = self.s0([(lambda a: "--dry-run" in a, (0, good))])
+        x.adapter_dry_run()
+        self.assertEqual(r.calls[0]["argv"][:4], [r.calls[0]["argv"][0], RB.ADAPTER, x.pkgs["B"], RB.CONTROLLER])
+        self.assertTrue(x.out["checks"][-1]["ok"], x.out["checks"])
+        for bad in (good.replace("localhost:30053 device_id=3", "localhost:30053 device_id=2"),
+                    good.replace(RB.CONTROLLER, "/elsewhere/mycontroller.py"),
+                    good.replace("  s4: ", "  sX: ")):
+            x, r = self.s0([(lambda a: "--dry-run" in a, (0, bad))])
+            x.adapter_dry_run()
+            self.assertFalse(x.out["checks"][-1]["ok"])
+        x, r = self.s0([(lambda a: "--dry-run" in a, (1, good))])
+        x.adapter_dry_run()
+        self.assertFalse(x.out["checks"][-1]["ok"])
+
+
 class TestCut2Decisions(unittest.TestCase):
 
     def test_a_cell_never_observed_is_not_run_for_that_reason(self):

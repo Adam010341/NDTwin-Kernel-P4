@@ -1702,6 +1702,24 @@ add "R2-m7. VS1's negative read reads after the write" \
     '            "negative": None if before is None else {"absent": VS1_VALUE in before}}  # MUTANT' \
     'test_bring_up_a_reads_as_predicted'
 
+add "R2-m5a. the see-red run's package is not drop-checked" \
+    "$S0PY" \
+    '        want = {"A": 0, "B": 0, "C": 0, "FWD": 1, "A-MUT": 0}' \
+    '        want = {"A": 0, "B": 0, "C": 0, "FWD": 1}  # MUTANT' \
+    'test_the_mutant_package_is_drop_checked'
+
+add "R2-m5b. the adapter dry run passes whatever controller it names" \
+    "$S0PY" \
+    '        ok = (res.rc == 0 and ("controller: %s" % RB.CONTROLLER) in out' \
+    '        ok = (res.rc == 0  # MUTANT' \
+    'test_the_adapter_dry_run_names_our_controller_and_four_rewrites'
+
+add "R2-m5c. the adapter dry run passes any rewrite" \
+    "$S0PY" \
+    '              and sorted(l.split("  ->  ")[1].strip() for l in rewrites) == want' \
+    '              and len(rewrites) == 4  # MUTANT' \
+    'test_the_adapter_dry_run_names_our_controller_and_four_rewrites'
+
 
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'

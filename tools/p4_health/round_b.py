@@ -42,6 +42,11 @@ D1_SPORT = 40041
 P3_DPORT = CX.PACKET_OUT_DPORT
 
 
+def adapter_argv(python, package_dir, tutorials_utils):
+    """How bring-up B starts its controller; S0 runs the same argv with --dry-run."""
+    return [python, ADAPTER, package_dir, CONTROLLER, "--tutorials-utils", tutorials_utils]
+
+
 class BRound(object):
     def __init__(self, cfg, runner, run_id, model, build_dir, runtimes, tutorials_utils,
                  out_dir=None, hosts=None, sleep=time.sleep, clock=time.monotonic,
@@ -100,8 +105,7 @@ class BRound(object):
         conf_path = self.path("controller.conf.json")
         with open(conf_path, "w", encoding="utf-8") as fh:
             json.dump(self.config(), fh, indent=2, sort_keys=True)
-        argv = [self.cfg.p4dev_python, ADAPTER, lab_round.package_dir, CONTROLLER,
-                "--tutorials-utils", self.tutorials_utils]
+        argv = adapter_argv(self.cfg.p4dev_python, lab_round.package_dir, self.tutorials_utils)
         proc = self.runner.spawn(argv, self.path("controller.log"), env={"P4H_CTRL_CONFIG": conf_path})
         if proc is None:
             self.problems.append("B's controller could not be started")

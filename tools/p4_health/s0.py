@@ -595,6 +595,26 @@ class S0(object):
                        "unconfirmed %s (expected %s), controller rc %s"
                        % (sorted(failed), sorted(want_false), r.get("controller_rc")))
 
+    def adapter_dry_run(self):
+        """(Cut 2 review m5) The live B path through the adapter, without running anything: the
+        same argv bring-up B spawns, with --dry-run. It must name controller_ext.py and rewrite
+        s1-s4 onto the fabric's ports 30051-30054 with device id = dpid."""
+        from . import round_b as RB
+        pkg = (getattr(self, "pkgs", None) or {}).get("B")
+        if pkg is None:
+            self.check("adapter --dry-run on package B", False, "no package")
+            return
+        utils = os.path.join(os.path.expanduser("~"), "tutorials", "utils")
+        res = self.run_cmd(RB.adapter_argv(default_p4dev_python(), pkg, utils) + ["--dry-run"], timeout=60)
+        out = res.stdout or ""
+        want = ["localhost:%d device_id=%d" % (30050 + d, d) for d in (1, 2, 3, 4)]
+        rewrites = [l for l in out.splitlines() if "  ->  " in l]
+        ok = (res.rc == 0 and ("controller: %s" % RB.CONTROLLER) in out
+              and sorted(l.split("  ->  ")[1].strip() for l in rewrites) == want
+              and all(l.strip().startswith("s%d:" % d) for l, d in zip(rewrites, (1, 2, 3, 4))))
+        self.check("adapter --dry-run on package B: controller_ext.py, s1-s4 onto 30051-30054", ok,
+                   "rc %s, %d rewrite(s)" % (res.rc, len(rewrites)))
+
     def openapi(self):
         res = self.run_cmd([self.py, os.path.join(HERE, "openapi_probe.py"), "--repo", REPO], timeout=120)
         try:
@@ -628,6 +648,7 @@ class S0(object):
             self.self_checks()
             self.vs_trial()
             self.ctrl_trial()
+            self.adapter_dry_run()
         self.identity()
         self.openapi()
         self.pft_verdict()
