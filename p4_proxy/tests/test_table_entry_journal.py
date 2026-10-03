@@ -1295,10 +1295,13 @@ class TheJournalIsWiredInMainTest(unittest.TestCase):
             saved = main.table_journals
             main.table_journals = TableJournals(directory)
             try:
-                self.assertEqual(main.table_entries_report().get("1", {}).get(
-                    "journal", {"replay": "not implemented"})["replay"], "not implemented")
+                main.table_journals.write_and_journal(lambda: AFakeSwitch(), 1, {"table": "t"},
+                                                      "insert")
+                journal = main.table_entries_report()["1"]["journal"]
             finally:
                 main.table_journals = saved
+        self.assertEqual(journal["replay"], "not implemented")
+        self.assertEqual(journal["recorded"], 1)
 
     def test_the_constants_the_two_surfaces_disagree_on_are_split(self):
         # The multicast response keeps its own sentence; a table entry's is its own. One

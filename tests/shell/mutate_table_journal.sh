@@ -690,6 +690,89 @@ m=$(mutant k4 "$INSTALL" \
 report 'M-J72: an age lookup ignores that an entry is a default' "$m" \
        'test_deleting_a_catch_all_does_not_forget_the_defaults_install_time'
 
+# --- tests that guard the plain case, so that a break in it is seen ----------------------------
+
+m=$(mutant x1 "$INSTALL" \
+    '    return (str(dpid), str(table), int(priority or 0), normalise_match(match))' \
+    '    return (dpid, str(table), int(priority or 0), normalise_match(match))')
+report 'M-J73: a non-default entry'\''s key is spelled differently from what it always was' "$m" \
+       'test_a_non_default_entry_keeps_the_key_it_always_had'
+
+m=$(mutant x2 "$INSTALL" \
+    '        return (str(dpid), str(table), "default")' \
+    '        return (str(dpid), "default")')
+report 'M-J74: every table'\''s default entry has the same key' "$m" \
+       'test_the_default_of_one_table_is_not_the_default_of_another'
+
+m=$(mutant x3 "$JOURNAL" \
+    '            except Exception:  # noqa: BLE001 -- a header that cannot be built must not lose the record' \
+    '            except KeyboardInterrupt:  # noqa: BLE001 -- a header that cannot be built must not lose the record')
+report 'M-J75: a header that cannot be built loses the record that triggered it' "$m" \
+       'test_a_header_that_cannot_be_built_does_not_lose_the_record'
+
+m=$(mutant x4 "$JOURNAL" \
+    '        except FileNotFoundError:
+            pass
+        except OSError:
+            unreadable += 1
+        self._unreadable = unreadable
+        return header, records, unreadable' \
+    '        except FileNotFoundError:
+            unreadable += 1
+        except OSError:
+            unreadable += 1
+        self._unreadable = unreadable
+        return header, records, unreadable')
+report 'M-J76: a switch with no journal file yet is reported as having an unreadable one' "$m" \
+       'test_a_missing_file_reads_as_empty_and_not_as_an_error'
+
+m=$(mutant x5 "$JOURNAL" \
+    '        last[key] = rec' \
+    '        rec["seen"] = True
+        last[key] = rec')
+report 'M-J77: the fold writes into the records it was given' "$m" \
+       'test_folding_does_not_change_its_input'
+
+m=$(mutant x6 "$JOURNAL" \
+    'os.path.join(self.directory, f"s{key}.jsonl")' \
+    'os.path.join(self.directory, f"{key}.jsonl")')
+report 'M-J78: a switch'\''s file is named by its number alone' "$m" \
+       'test_a_file_is_named_for_its_switch'
+
+m=$(mutant x7 "$ROUTES" \
+    'TABLE_ENTRY_RECORDED_NOT_REPLAYED = (
+    "recorded in the table-entry journal, but nothing replays the journal yet: this entry is "
+    "still lost when the proxy restarts")' \
+    'TABLE_ENTRY_RECORDED_NOT_REPLAYED = TABLE_ENTRY_NOT_JOURNALED')
+report 'M-J79: a recorded table entry carries the multicast group'\''s sentence' "$m" \
+       'test_the_constants_the_two_surfaces_disagree_on_are_split'
+
+m=$(mutant x8 "$MAIN" \
+    '                     "journal": table_journals.report(dpid)}' \
+    '                     "journal": dict(table_journals.report(dpid), replay="implemented")}')
+report 'M-J80: the real report says replay is implemented' "$m" \
+       'test_the_real_report_states_that_nothing_replays'
+
+m=$(mutant x9 "$JOURNAL" \
+    'hashlib.sha256(repr(key).encode("utf-8"))' \
+    'hashlib.sha256(b"one key for every entry")')
+report 'M-J81: every entry has the same digest' "$m" \
+       'test_equal_keys_have_equal_digests_and_different_keys_do_not'
+
+m=$(mutant x10 "$JOURNAL" \
+    '            if os.path.exists(self.path):
+                quarantined' \
+    '            if True:
+                quarantined')
+report 'M-J82: a first snapshot tries to set aside a file that is not there' "$m" \
+       'test_a_first_snapshot_with_no_live_file_quarantines_nothing'
+
+m=$(mutant x11 "$JOURNAL" \
+    '                and self._failures.get(key, 0) == 0)' \
+    '                and self._failures.get(key, 0) == 1)')
+report 'M-J83: a journal with no failures is not complete' "$m" \
+       'test_all_three_true_is_complete'
+
 # --- negative controls ------------------------------------------------------------
 #
 # Edits that change no behaviour these suites specify; each must leave the suite GREEN.
