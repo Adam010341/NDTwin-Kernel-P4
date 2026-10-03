@@ -1085,10 +1085,11 @@ class TestExpectedFile(unittest.TestCase):
     RECORD_NAMES = re.compile(r"RULINGS|\bintake\b|\bjudge-[A-Za-z0-9_.-]+|REPORT[A-Za-z0-9_.-]*\.md"
                               r"|\[relayed|scratch/overnight|DESIGN-r\d", re.IGNORECASE)
 
-    def test_no_rulings_intake_judge_or_report_record_is_named_in_public_files(self):
+    def test_no_rulings_intake_judge_or_report_record_is_named_in_expected_today_tsv_or_tools_p4_health(self):
         """Cut 1 follow-up 11: expected_today.tsv and tools/p4_health go to the public main; neither
         may name a RULINGS, intake, judge-*, REPORT*.md, "[relayed", DESIGN-r<N> or scratch/overnight
-        record. (Only those names are scanned; it says nothing about any other citation.)"""
+        record. (r6: the name now says what is scanned -- those two and nothing else, so tests/ and
+        every other file are not covered; and only those names, not any other citation.)"""
         paths = [EXPECTED_TSV]
         for root, _dirs, files in os.walk(os.path.dirname(PKG) if os.path.basename(PKG) != "p4_health" else PKG):
             paths += [os.path.join(root, f) for f in files if f.endswith((".py", ".sh", ".p4", ".tsv", ".json"))]
@@ -1116,6 +1117,11 @@ class TestExpectedFile(unittest.TestCase):
         for needle in ("doc/audit/2026-09-04_p4-tutorial-exercise-prep/GAP-2b-ndtwin-p4-capabilities-2026-09-27.md",
                        "doc/audit/2026-10-03_p4-health-check/DESIGN.md", "trunk branch"):
             self.assertIn(needle, note[0])
+        # r6: "both live in this repository" is a fact the note states; the two files are here (that
+        # they are not on main is the PR rule and cannot be checked from a checkout).
+        for rel in ("doc/audit/2026-09-04_p4-tutorial-exercise-prep/GAP-2b-ndtwin-p4-capabilities-2026-09-27.md",
+                    "doc/audit/2026-10-03_p4-health-check/DESIGN.md"):
+            self.assertTrue(os.path.isfile(os.path.join(REPO, rel)), "the header note names %s, which is not here" % rel)
         with open(T.__file__, encoding="utf-8") as fh:
             self.assertIn("GAP-2b-ndtwin-p4-capabilities-2026-09-27.md, on the trunk branch", fh.read())
 
