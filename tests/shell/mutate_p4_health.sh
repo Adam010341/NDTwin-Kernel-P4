@@ -751,7 +751,7 @@ add "R1. recover.sh does not check that the lab is this run" \
     "$RECOVER" \
     'if [[ "$c_owner" == "$OWNER" && "$c_exp" -gt "$now" && "$claim_same" -eq 1 && "$override_ours" -eq 1 && "$note_ours" -eq 1 ]]; then' \
     'if true; then' \
-    'a live foreign claim: rc 3'
+    'nothing was run'
 
 add "R2. recover.sh releases after a failed down" \
     "$RECOVER" \
@@ -763,7 +763,7 @@ add "R3. recover.sh takes over an expired claim of somebody else" \
     "$RECOVER" \
     'elif [[ ( -z "$c_owner" || "$c_owner" == "$OWNER" ) && "$c_exp" -le "$now" && "$claim_same" -eq 1 \' \
     'elif [[ "$c_exp" -le "$now" && "$claim_same" -eq 1 \' \
-    'an expired foreign claim: rc 3, no re-claim'
+    'an expired foreign claim: the claim stub was never called'
 
 add "R4. recover.sh re-claims over a measurement" \
     "$RECOVER" \
@@ -777,7 +777,7 @@ add "R5. recover.sh signals a recycled pid" \
     '    true' \
     'no signal to the recycled sniffer pid or the vanished controller'
 
-add "R6. recover.sh accepts an up note written for another owner" \
+add "R-upnote. recover.sh accepts an up note written for another owner" \
     "$RECOVER" \
     '    "in use: ndt up p4 "*" by $OWNER")          note_ours=1 ;;' \
     '    "in use: ndt up p4 "*)          note_ours=1 ;;' \
@@ -1163,7 +1163,7 @@ add "R6-1c. recover.sh does not resolve the package path (.. and links)" \
 
 add "R6-1d. LabRound takes a package outside its run dir" \
     "$LABROUND" \
-    '        if not package_inside(package_dir, cfg.run_dir):' \
+    '        if not package_inside(package_real, cfg.run_dir):' \
     '        if False:  # MUTANT' \
     'test_a_package_outside_the_run_dir_is_refused_and_nothing_is_touched'
 
@@ -1173,10 +1173,10 @@ add "R6-1e. package_inside has no path boundary" \
     '    return pkg != run and pkg.startswith(run)  # MUTANT' \
     'test_a_package_outside_the_run_dir_is_refused_and_nothing_is_touched'
 
-add "R6-1f. package_inside does not follow links" \
+add "R6-1f. LabRound does not follow links in the package path" \
     "$LABROUND" \
-    '    pkg, run = os.path.realpath(package_dir), os.path.realpath(run_dir)' \
-    '    pkg, run = os.path.abspath(package_dir), os.path.abspath(run_dir)  # MUTANT' \
+    '        package_real = os.path.realpath(package_dir)' \
+    '        package_real = os.path.abspath(package_dir)  # MUTANT' \
     'test_a_package_outside_the_run_dir_is_refused_and_nothing_is_touched'
 
 add "R6-1g. package_inside accepts the run dir itself" \
@@ -1205,8 +1205,8 @@ add "R6-2c. the claim is the same when it merely has some expires" \
 
 add "R6-2d. recover.sh forgets the new expires after its own re-claim" \
     "$RECOVER" \
-    'st["claim_expires"] = int(sys.argv[2])' \
-    'st["claim_expires"] = st["claim_expires"]  # MUTANT' \
+    '&& state_set claim_expires "$new_exp"' \
+    '&& true  # MUTANT' \
     'after the re-claim the state records the new claim'"'"'s expires'
 
 add "R6-2e. LabRound records no expires after the claim" \
@@ -1223,14 +1223,14 @@ add "R6-2f. LabRound records the expires it computed, not the one the file shows
 
 add "R6-2g. LabRound brings the lab up on a claim the file does not show" \
     "$LABROUND" \
-    '        if mine.get("owner") != self.cfg.owner or not exp.isdigit() or int(exp) <= 0:' \
+    '        if mine.get("owner") != self.cfg.owner or not re.match(r"[1-9][0-9]*\Z", exp):' \
     '        if False:  # MUTANT' \
     'test_a_claim_the_file_does_not_show_as_ours_is_not_brought_up_on'
 
 add "R6-2h. LabRound takes somebody else's claim for its own" \
     "$LABROUND" \
-    '        if mine.get("owner") != self.cfg.owner or not exp.isdigit() or int(exp) <= 0:' \
-    '        if not exp.isdigit() or int(exp) <= 0:  # MUTANT' \
+    '        if mine.get("owner") != self.cfg.owner or not re.match(r"[1-9][0-9]*\Z", exp):' \
+    '        if not re.match(r"[1-9][0-9]*\Z", exp):  # MUTANT' \
     'test_a_claim_the_file_does_not_show_as_ours_is_not_brought_up_on'
 
 add "R6-3a. recover.sh does not ask for an owner" \
@@ -1265,15 +1265,132 @@ add "R6-3e. recover.sh does not ask for the override path" \
 
 add "R6-3g. recover.sh takes any claim_expires for a time" \
     "$RECOVER" \
-    '[[ "$CLAIM_EXPIRES" =~ ^[1-9][0-9]*$ ]] || {' \
-    'true || {  # MUTANT' \
+    'if ! [[ "$CLAIM_EXPIRES" =~ ^[1-9][0-9]*$ ]]; then' \
+    'if false; then  # MUTANT' \
     'LAB_STATE.json without claim_expires: rc 2, no stub called'
 
 add "R6-3h. recover.sh takes 0 for a time" \
     "$RECOVER" \
-    '[[ "$CLAIM_EXPIRES" =~ ^[1-9][0-9]*$ ]] || {' \
-    '[[ "$CLAIM_EXPIRES" =~ ^[0-9]+$ ]] || {  # MUTANT' \
+    'if ! [[ "$CLAIM_EXPIRES" =~ ^[1-9][0-9]*$ ]]; then' \
+    'if ! [[ "$CLAIM_EXPIRES" =~ ^[0-9]+$ ]]; then  # MUTANT' \
     'LAB_STATE.json with a claim_expires of 0: rc 2, no stub called'
+
+# Round 7 (the review of the run-identity branch: the knob as ndt writes it, the phase after recover's own
+# ndt down, an absent knob under a live claim, the claim looked at again, the messages).
+add "R7-1a. recover.sh reads the first line of the knob (head -1), a comment in real ndt" \
+    "$RECOVER" \
+    'ov=""
+if [[ -f "$OVERRIDE" ]]; then
+    while read -r knob_line; do
+        knob_line="${knob_line%%$'"'"'\r'"'"'}"      # (read already trims the blanks around a line, as in the reader of ndt itself)
+        [[ -z "$knob_line" || "$knob_line" == \#* ]] && continue
+        ov="$knob_line"; break
+    done < "$OVERRIDE"
+fi' \
+    'ov=""; [[ -f "$OVERRIDE" ]] && ov="$(head -1 "$OVERRIDE")"  # MUTANT' \
+    "the knob in ndt's two-line format: the recovery reads the path, not the comment: rc 0"
+
+add "R7-1b. the knob reader does not skip blank lines" \
+    "$RECOVER" \
+    '        [[ -z "$knob_line" || "$knob_line" == \#* ]] && continue' \
+    '        [[ "$knob_line" == \#* ]] && continue  # MUTANT' \
+    "a knob with blank lines, an indented comment and a CR-LF path (ndt's reader skips them): rc 0"
+
+add "R7-1d. the knob reader keeps the CR of a CR-LF path" \
+    "$RECOVER" \
+    '        knob_line="${knob_line%%$'"'"'\r'"'"'}"      # (read already trims the blanks around a line, as in the reader of ndt itself)' \
+    '        :  # MUTANT: the CR of a CR-LF path stays' \
+    "a knob with blank lines, an indented comment and a CR-LF path (ndt's reader skips them): rc 0"
+
+add "R7-4a. recover.sh does not record down-done after its own ndt down" \
+    "$RECOVER" \
+    'state_set phase down-done' \
+    ': # MUTANT' \
+    "after its own ndt down the state says down-done"
+
+add "R7-4b. recover.sh does not record down-failed after its own failed ndt down" \
+    "$RECOVER" \
+    '    state_set phase down-failed' \
+    '    : # MUTANT' \
+    "after its own failed ndt down the state says down-failed"
+
+add "R7-2a. an absent knob is backed by an ndt up note" \
+    "$RECOVER" \
+    'if [[ -z "$ov" && "$c_note" == "in use: ndt up p4 "* ]]; then note_ours=0; fi' \
+    ':  # MUTANT' \
+    "teardown, knob absent, our live claim with the note of somebody's ndt up: rc 3, no stub called"
+
+add "R7-2b. the up-note rule leaves out down-done" \
+    "$RECOVER" \
+    'if [[ -z "$ov" && "$c_note" == "in use: ndt up p4 "* ]]; then note_ours=0; fi' \
+    'if [[ -z "$ov" && "$PHASE" != down-done && "$c_note" == "in use: ndt up p4 "* ]]; then note_ours=0; fi  # MUTANT' \
+    "down-done, knob absent, our live claim with an ndt up note: rc 3, no stub called"
+
+add "R7-2c. a forced up past this run's claim is not looked at" \
+    "$RECOVER" \
+    '    claim_overridden=1; claim_same=0' \
+    '    claim_overridden=1  # MUTANT' \
+    "a forced up past this run's live claim is on record: rc 3, no stub called"
+
+add "R7-2d. any forced up on record counts, not only one past this run's claim" \
+    "$RECOVER" \
+    '{ for (i = 1; i <= NF; i++) if ($i == e) f = 1 } END { exit !f }' \
+    '{ for (i = 1; i <= NF; i++) if (index($i, "claim_expires=") == 1) f = 1 } END { exit !f }' \
+    "a forced up past ANOTHER claim is on record: no effect, rc 0"
+
+add "R7-3a. the claim is not looked at again after the down" \
+    "$RECOVER" \
+    'if [[ "$(claim_get owner)" != "$OWNER" || "$(claim_get expires)" != "$CLAIM_EXPIRES" ]]; then' \
+    'if false; then  # MUTANT' \
+    "a claim of the same owner taken while ndt down ran: rc 3"
+
+add "R7-3b. the second look at the claim reads only the owner" \
+    "$RECOVER" \
+    'if [[ "$(claim_get owner)" != "$OWNER" || "$(claim_get expires)" != "$CLAIM_EXPIRES" ]]; then' \
+    'if [[ "$(claim_get owner)" != "$OWNER" ]]; then  # MUTANT' \
+    "a claim of the same owner taken while ndt down ran: rc 3"
+
+add "R7-5a. the gone claim file is not said to be gone" \
+    "$RECOVER" \
+    '        echo "  the claim file is gone ($CLAIM_FILE)."' \
+    '        :  # MUTANT' \
+    "a claim file that is gone, its released copy kept as .prev: rc 3 and the output says which claim it was"
+
+add "R7-5b. the kept released claim is never said to be this run's" \
+    "$RECOVER" \
+    '            [[ "$p_exp" == "$CLAIM_EXPIRES" ]] && echo' \
+    '            false && echo  # MUTANT' \
+    "a claim file that is gone, its released copy kept as .prev: rc 3 and the output says which claim it was"
+
+add "R7-5c. the unrecorded claim's release command is not printed" \
+    "$RECOVER" \
+    '        echo "  Release it with:  NDT_OWNER=$OWNER $NDT release"' \
+    '        :  # MUTANT' \
+    "no claim_expires and the claim's note names this run: rc 2 and the output prints the release command"
+
+add "R7-5d. the release command is printed for any claim of the owner" \
+    "$RECOVER" \
+    '&& "$(claim_get note)" == "p4-health $RUNID $BRINGUP state=$STATE" ]]; then' \
+    ']]; then  # MUTANT' \
+    "no claim_expires and a claim that is not this run's: rc 2 and no release command"
+
+add "R7-L1. LabRound uses the path as given, not the resolved one" \
+    "$LABROUND" \
+    '        self.bringup, self.package_dir, self.run_id = bringup, package_real, run_id' \
+    '        self.bringup, self.package_dir, self.run_id = bringup, package_dir, run_id  # MUTANT' \
+    'test_the_package_path_is_resolved_once_and_that_path_is_used_everywhere'
+
+add "R7-L2. LabRound takes expires 0 for a time" \
+    "$LABROUND" \
+    '        if mine.get("owner") != self.cfg.owner or not re.match(r"[1-9][0-9]*\Z", exp):' \
+    '        if mine.get("owner") != self.cfg.owner or not re.match(r"[0-9]+\Z", exp):  # MUTANT' \
+    'test_a_claim_the_file_does_not_show_as_ours_is_not_brought_up_on'
+
+add "R7-L3. LabRound takes str.isdigit for a time" \
+    "$LABROUND" \
+    '        if mine.get("owner") != self.cfg.owner or not re.match(r"[1-9][0-9]*\Z", exp):' \
+    '        if mine.get("owner") != self.cfg.owner or not exp.isdigit() or int(exp) <= 0:  # MUTANT' \
+    'test_a_claim_the_file_does_not_show_as_ours_is_not_brought_up_on'
 
 
 CTRL_SRC="$TABLE"

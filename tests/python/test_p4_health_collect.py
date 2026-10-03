@@ -780,6 +780,21 @@ class TestLabRound(Sealed):
         lr = self.lab(self.runner())                                        # a package inside it is accepted
         self.assertEqual(lr.state["package"], self.pkg)
 
+    def test_the_package_path_is_resolved_once_and_that_path_is_used_everywhere(self):
+        """(r7) check, LAB_STATE and `ndt up --app` all take the resolved path. A path with a link followed
+        by .. names one directory to abspath and another to the file system."""
+        real = os.path.join(self.cfg.run_dir, "real")
+        os.makedirs(os.path.join(real, "sub"))
+        os.symlink(os.path.join(real, "sub"), os.path.join(self.cfg.run_dir, "ln"))
+        raw = os.path.join(self.cfg.run_dir, "ln", "..", "pkgA")       # abspath: run/pkgA; the file system: run/real/pkgA
+        want = os.path.join(os.path.realpath(self.cfg.run_dir), "real", "pkgA")
+        r = self.runner()
+        lr = LR.LabRound(self.cfg, r, "A", raw, "run-x", pid=4242, proc_root=self.proc, install_signals=False)
+        lr.run(lambda lab: None)
+        self.assertEqual(self.state()["package"], want)
+        up = [a for a in r.argvs() if a[:2] == ["ndt", "up"]][0]
+        self.assertEqual(up, ["ndt", "up", "p4", "--app", want])
+
     def test_the_claims_expires_is_recorded_right_after_the_claim_and_before_the_up(self):
         """(r6) recover.sh tells this claim from any later one by its expires."""
         seen = {}
@@ -799,7 +814,11 @@ class TestLabRound(Sealed):
         recover.sh to rest on, so nothing is brought up, and nothing is released either."""
         for what, writer in (("no claim file", lambda: None),
                              ("somebody else's claim", lambda: self.write_claim(owner="somebody-else")),
-                             ("no expires", lambda: self.write_claim_text("owner=p4h-test\n"))):
+                             ("no expires", lambda: self.write_claim_text("owner=p4h-test\n")),
+                             ("expires 0", lambda: self.write_claim_text("owner=p4h-test\nexpires=0\n")),
+                             ("a superscript digit, which str.isdigit takes and int() refuses",
+                              lambda: self.write_claim_text("owner=p4h-test\nexpires=\u00b2\n")),
+                             ("a leading zero", lambda: self.write_claim_text("owner=p4h-test\nexpires=0123\n"))):
             with self.subTest(claim=what):
                 if os.path.exists(self.cfg.claim_file):
                     os.remove(self.cfg.claim_file)
