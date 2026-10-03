@@ -949,6 +949,21 @@ add "R4-2a. recover.sh skips the process step in down-done (follow-up 2)" \
     'procs() { [[ "$PHASE" == down-done ]] && return 0  # MUTANT: procs <key>' \
     'down-done with a kept sniffer and controller: ndt status, both signalled, release -- no qdisc, no netem, no down'
 
+add "R4-2b. a failed kill is not a problem and the round stays complete (follow-up 2)" \
+    "$LABROUND" \
+    '        if not outcome.startswith("kill rc"):
+            return' \
+    '        if True:  # MUTANT: every kill reads as fine
+            return' \
+    'test_a_failed_kill_is_a_problem_and_the_round_is_not_complete'
+
+add "R4-2c. a failed kill is a problem but the round stays complete" \
+    "$LABROUND" \
+    '                               "recover.sh" % (what, entry["pid"], outcome))
+        rec["complete"] = False' \
+    '                               "recover.sh" % (what, entry["pid"], outcome))  # MUTANT' \
+    'test_a_failed_kill_is_a_problem_and_the_round_is_not_complete'
+
 add "R4-8a. recover.sh takes an answer with no measuring or orphaned row for idle (follow-up 8)" \
     "$RECOVER" \
     "    if ! printf '%s\n' \"\$out\" | awk '\$1 == \"measuring\" || \$1 == \"orphaned\" { found = 1 } END { exit !found }'; then" \

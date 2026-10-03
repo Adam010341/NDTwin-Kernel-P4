@@ -872,6 +872,25 @@ class TestLabRound(Sealed):
         self.round(r, body)
         self.assertEqual([e["pid"] for e in self.state()["sniffers"]], [555])
 
+    def test_a_failed_kill_is_a_problem_and_the_round_is_not_complete(self):
+        """Cut 1 follow-up 2: the teardown used to ignore how a kill ended, so a sniffer that kept
+        running left a round that read complete with no problem on it."""
+        for what, argv in (("sniffer", ("sudo", "-n", "mnexec", "-a", "1", "kill")), ("controller", ("kill",))):
+            with self.subTest(process=what):
+                r = self.runner()
+                r.replies.insert(0, (argv, (1, "")))
+
+                def body(lab):
+                    lab.register("sniffer", 555)
+                    lab.register("controller", 666)
+                _lr, rec = self.round(r, body)
+                self.assertFalse(rec["complete"])
+                self.assertTrue([p for p in rec["problems"] if "could not stop %s pid" % what in p and "kill rc 1" in p],
+                                rec["problems"])
+        r = self.runner()
+        _lr, rec = self.round(r)                    # the same round with every kill working
+        self.assertEqual((rec["complete"], rec["problems"]), (True, []))
+
     def test_the_probe_records_its_own_start_time(self):
         self.fake_proc(4242, 31337, "python3\0probe.py\0")
         lr = self.lab(self.runner())
