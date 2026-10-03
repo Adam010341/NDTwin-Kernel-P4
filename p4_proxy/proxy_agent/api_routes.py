@@ -662,7 +662,10 @@ def readopt(dpid: int):
     P4PowerStrategy calls this after ndtwin-p4-power has relaunched the process and seen its
     gRPC port open. The open port is where the helper's knowledge ends and this endpoint's
     work begins: mastership, pipeline, clone session and routes are all gone with the old
-    process, and the liveness probe cannot tell (see readopt_switch's docstring).
+    process. A bmv2 with no pipeline answers the liveness probe with FAILED_PRECONDITION, so
+    liveness reads `probe_ok` false, the same value as a dead process; it does not see empty
+    tables, a missing clone session or a lost stream, which is why this endpoint is still
+    needed (see readopt_switch's docstring for the measurement).
 
     Deliberately `def`, not `async def`: the sequence sleeps for the mastership settle and
     then blocks on gRPC round trips, so FastAPI must run it on the threadpool. As an async

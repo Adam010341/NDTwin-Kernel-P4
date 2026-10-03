@@ -702,8 +702,12 @@ class P4RuntimeClient:
         clean stop() too, so it cannot tell "gone" from "shut down".
 
         GetForwardingPipelineConfig with COOKIE_ONLY is the cheapest request in P4Runtime -- it
-        returns a single 64-bit cookie, no p4info and no device config -- and bmv2 answers it
-        without touching the pipeline.
+        returns a single 64-bit cookie, no p4info and no device config. A bmv2 with a pipeline
+        answers it; one with no pipeline pushed answers FAILED_PRECONDITION ("No forwarding
+        pipeline config set for this device"), which lands below as ok False, the same value as
+        a dead process, told apart only by `detail` (measured on stock and bmv2-fast
+        simple_switch_grpc, scratch/overnight-2026-09-05/logs/gates-0910/cookie-probe/run-stock.out
+        and run-fast.out, phase A).
 
         @return {"ok": bool, "detail": str}. `detail` carries the gRPC status *name* as well as its
                 details string, because bmv2 returns an empty details() for some failures and a
