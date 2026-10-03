@@ -36,6 +36,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
 import signal
 import time
 
@@ -91,9 +92,9 @@ def state_in_use(path):
     return None
 
 
-def package_inside(package_dir, run_dir):
-    """True when package_dir resolves (links followed) to a path strictly inside run_dir."""
-    pkg, run = os.path.realpath(package_dir), os.path.realpath(run_dir)
+def package_inside(package_real, run_dir):
+    """True when package_real, a path already resolved (links followed), is strictly inside run_dir."""
+    pkg, run = package_real, os.path.realpath(run_dir)
     return pkg != run and pkg.startswith(run.rstrip(os.sep) + os.sep)
 
 
@@ -161,7 +162,10 @@ class LabRound(object):
                  clock=time.time, install_signals=True, proc_root="/proc"):
         # (r6) Every round has its own package directory, inside its own run dir: what makes
         # app_package_override name THIS round for recover.sh. Refused before anything is touched.
-        if not package_inside(package_dir, cfg.run_dir):
+        # (r7) Resolved ONCE (links followed): that one path is checked, recorded in LAB_STATE and given to
+        # `ndt up --app`, so recover.sh compares the very string ndt wrote into the override.
+        package_real = os.path.realpath(package_dir)
+        if not package_inside(package_real, cfg.run_dir):
             raise PackageOutsideRunDir("package_dir %r is not inside the run dir %r: each round's package "
                                        "is its own copy there" % (package_dir, cfg.run_dir))
         # (Cut 2) Nor over a state file a round that did not finish left for recover.sh.
@@ -170,7 +174,7 @@ class LabRound(object):
             raise StateInUse("%s: %s; run recover.sh on this run before another round"
                              % (cfg.lab_state_path, in_use))
         self.cfg, self.runner = cfg, runner
-        self.bringup, self.package_dir, self.run_id = bringup, package_dir, run_id
+        self.bringup, self.package_dir, self.run_id = bringup, package_real, run_id
         self.minutes = minutes
         self.pid = pid if pid is not None else os.getpid()
         self.clock = clock
@@ -178,7 +182,7 @@ class LabRound(object):
         self.proc_root = proc_root
         me = proc_identity(self.pid, proc_root)
         self.state = {"pid": self.pid, "pid_start": me[0] if me else None, "owner": cfg.owner, "run": run_id, "bring_up": bringup,
-                      "package": os.path.abspath(package_dir), "phase": "pre-claim",
+                      "package": self.package_dir, "phase": "pre-claim",
                       "knob_snapshot": {}, "netem": [], "sniffers": [], "controllers": [],
                       "qdisc_before": None, "knob_paths": dict(cfg.knobs),
                       "app_package_override": cfg.app_package_override,
@@ -332,7 +336,7 @@ class LabRound(object):
         # ours is not brought up on; nothing was recorded that recover.sh could rest on.
         mine = read_claim(self.cfg.claim_file)
         exp = mine.get("expires", "")
-        if mine.get("owner") != self.cfg.owner or not exp.isdigit() or int(exp) <= 0:
+        if mine.get("owner") != self.cfg.owner or not re.match(r"[1-9][0-9]*\Z", exp):
             rec["problems"].append("ndt claim exited 0 but the claim file does not show our claim "
                                    "(owner %r, expires %r): nothing brought up, nothing released; look at "
                                    "ndt status" % (mine.get("owner"), exp))
