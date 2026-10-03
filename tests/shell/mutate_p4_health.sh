@@ -934,7 +934,7 @@ add "R3-m6c. recover.sh measuring check fails open" \
 add "R4-1a. recover.sh re-claims only while the override names the package (follow-up 1)" \
     "$RECOVER" \
     '( -z "$ov" && "$PHASE" == down-done && "$c_owner" == "$OWNER" )' \
-    'false' \
+    '( 1 -eq 0 )' \
     'down-done, own claim expired, override absent: rc 0'
 
 add "R5-1a. an absent override is evidence in every phase, not only down-done (r5 follow-up 1)" \
