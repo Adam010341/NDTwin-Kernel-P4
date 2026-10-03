@@ -47,7 +47,7 @@
 #            carrying the token is listed in the suite's own fixture register -- a fixture, not
 #            just any process of the run (a poll's sleep, a `bash -c`), so there is something its
 #            cleanup must reap. That register also names the suite's temp tree: three suites
-#            honour TMPDIR, which is pointed at a directory of this test's own; the other four
+#            honour TMPDIR, which is pointed at a directory of this test's own; the other five
 #            write under /tmp, and their tree is the new one whose register lists such a pid.
 #   cleanup  the same, and then, once the cleanup the first signal started is in its `sleep 0.3`
 #            (a child of the suite's shell that was not there before the signal), the second:
@@ -78,8 +78,8 @@
 #   labels: orphans liveness sweep window topo_pid ovs_claim down apps_group (default: all eight); a label
 #   selects every run of that suite.
 #   SIGNAL_END_WITHIN=20  SIGNAL_FIRST_FIXTURE_WAIT=30  SIGNAL_CLEANUP_WAIT=10  SIGNAL_HARD_LIMIT=30
-#   SIGNAL_TOTAL_LIMIT=210 (seconds). Green, the forty-three runs take 92-103 s in all on the
-#   development machine (measured 2026-10-03, five runs); about a third of that is the three
+#   SIGNAL_TOTAL_LIMIT=210 (seconds). Green, the forty-three runs take 91-101 s in all on the
+#   development machine (measured 2026-10-03, three runs on this tree, 98 s on the one before it); about a third of that is the three
 #   `app`/`two`/`held` runs, which wait for a point 11-13 s into their suite.
 # THE BOUND. The limits keep a HUNG suite a red line rather than a killed CI job. ci.yml's
 #   build-and-test has timeout-minutes 30, and on PR #22 that job took 22 min 11 s and 21 min 30 s
@@ -446,8 +446,10 @@ for l in "${LABELS[@]}"; do PLAN+=("$l cleanup INT 130 INT" "$l cleanup TERM 143
 # app, two and held only under INT: the reaper does not ask which signal ended the run, and each
 # run waits 11-13 s for its moment. INT is the one whose caller a wrong group kill would take with
 # it, and held under INT alone fails each of the three ways the reaper can be got wrong that held
-# is there for (a group kill of the child's real group, kill 0, no reaper call -- measured
-# 2026-10-03, r2/red-M2a..c). A held TERM run was dropped for the 12 s it cost.
+# is there for, all seen red on the shared lib (2026-10-03): a group kill of the child's real group
+# (the run ends 137, not 130), `kill -KILL 0` for a child that leads no group (137 again), and no
+# reaper call in the window suite's cleanup (the held parent is still there when the run is over).
+# A held TERM run was dropped for the 12 s it cost.
 selected liveness && PLAN+=("liveness app INT 130")
 selected window && PLAN+=("window two INT 130" "window held INT 130")
 for run in "${PLAN[@]}"; do
