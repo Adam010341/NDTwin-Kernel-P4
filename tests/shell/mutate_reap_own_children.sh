@@ -7,7 +7,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# Five mutations, each a way a reaper that kills process groups goes wrong:
+# Mutations, each a way a reaper that kills process groups goes wrong:
 #   M1  it kills each child's REAL process group, whether or not the child leads it -- a child that
 #       does not lead one (a parent held before its exec) then takes the suite's own group, the
 #       suite and whoever called it, down with it
@@ -17,6 +17,15 @@
 #   M4  a child that leads a group is killed by its pid alone, and what it forked outlives it
 #   M5  kill_group_if_leader, which the window suite's reap_two_layer uses, aims the group form at
 #       a process that leads no group: it fails, and a parent held before its exec is not reaped
+#   M6  kill_group_if_leader kills the target's REAL process group instead of `-$pid`: a process
+#       that leads none then takes the group it is in, the caller's, with it (the window suite is
+#       killed before it gets to its selftest, so there the catch is the kill itself)
+#   M7  kill_group_if_leader has no refusal of a pid that is not above 1 (`kill -- -1` is a broadcast)
+#   M8a/b/c  it does not refuse its own pid / the pid of the subshell it runs in / its parent
+#   M9  it does not refuse the process group its own shell is in
+#   M10 the reaper kills a child that leads no group with `kill -KILL 0`, its caller's own group
+#   M11 kill_group_if_leader does not refuse when it cannot read its own stat, and a group leader
+#       that is neither it, its parent nor a subshell can then take the caller's group with it
 # and a control, a reworded comment, that must change nothing.
 #
 # 🔴 Mutants that kill groups. Each mutation goes to a COPY of the lib in a temp dir (the suites
@@ -80,6 +89,20 @@ judge() {   # $1 = mutation name, $2 = the lib to use, $3 = the check that must 
         fi
     done
 }
+judge_dies() {   # $1 = mutation name, $2 = the lib to use, $3 = the last check that printed ok, $4 = suite
+    # For a mutant that kills the suite's own group before the check meant to catch it is reached:
+    # the catch is the death (137, KILL, of the session the gate made for it) at the point named.
+    local name="$1" lib="$2" want="$3" s="$4" out rc last
+    out=$(run_suite "$s" "$lib"); rc=$?
+    last=$(grep -E '^  ok ' <<<"$out" | tail -1)
+    if [[ "$rc" == 137 && "$last" == *"$want"* ]]; then
+        printf '  caught   %-52s %s: killed (137) right after "%s"\n' "$name" "${s##*/}" "$want"
+    else
+        SURVIVORS=$((SURVIVORS + 1)); VERDICT=1
+        printf '  SURVIVED %-52s %s: rc %s, last ok line [%s] -- expected 137 after [%s]\n' "$name" "${s##*/}" "$rc" "${last:0:70}" "$want" >&2
+        grep -E '^  FAILED|^Ran ' <<<"$out" | sed 's/^/             /' >&2
+    fi
+}
 report() { judge "$1" "$2" "$3" "$LIVENESS" "$WINDOW"; }          # both suites must catch it
 report_window() { judge "$1" "$2" "$3" "$WINDOW"; }               # the liveness suite has no use for it
 
@@ -118,6 +141,10 @@ for s in "$LIVENESS" "$WINDOW"; do
     out=$(run_suite "$s" "$LIB"); rc=$?
     printf '  %s rc %s: %s\n' "${s##*/}" "$rc" "$(tail -1 <<<"$out")"
     [[ "$rc" -eq 0 ]] || { echo "  🔴 baseline is RED -- nothing below is interpretable" >&2; grep -E '^  FAILED' <<<"$out" | sed 's/^/    /' >&2; exit 2; }
+    # A suite that is handed a lib says so on stderr (which run_suite merges in), so that a stray
+    # REAP_OWN_CHILDREN_LIB_UNDER_TEST shows in a log.
+    grep -qF "REAP_OWN_CHILDREN_LIB_UNDER_TEST is set" <<<"$out" \
+        || { echo "  🔴 ${s##*/} did not say that it was given a lib through REAP_OWN_CHILDREN_LIB_UNDER_TEST" >&2; exit 2; }
 done
 echo
 
@@ -137,10 +164,43 @@ m4=$(mutant m4 'then kill -KILL -- "-$c" 2>/dev/null;'$'\x1f''then kill -KILL "$
 report "M4: a group leader is killed by its pid alone" "$m4" \
        "reaper: a child that leads a group goes, and what it forked with it"
 
-# 🔴 Aimed at the helper reap_two_layer calls. Window suite only: the liveness suite does not use it.
-m5=$(mutant m5 '    if [[ "$s" == "$1" ]]; then kill -KILL -- "-$1" 2>/dev/null; else kill -KILL "$1" 2>/dev/null; fi'$'\x1f''    kill -KILL -- "-$1" 2>/dev/null')
+# 🔴 Aimed at the helper reap_two_layer calls. Named for the window suite's own check on it; the
+# lib's selftest, which both suites run, turns red on it too (the plain child it aims at stays).
+m5=$(mutant m5 '    if [[ "$s" == "$p" ]]; then kill -KILL -- "-$p" 2>/dev/null; else kill -KILL "$p" 2>/dev/null; fi'$'\x1f''    kill -KILL -- "-$p" 2>/dev/null')
 report_window "M5: the group form is aimed at any process" "$m5" \
        "  and signals a parent that leads no group by its pid alone"
+
+# 🔴 M6: the real group, not `-$pid`. Liveness: the selftest shell is killed with its group and the
+# check that reads its line goes red. Window: reap_two_layer's own call, on the held parent that
+# is in the suite's group, kills the suite before the selftest.
+m6=$(mutant m6 '    if [[ "$s" == "$p" ]]; then kill -KILL -- "-$p" 2>/dev/null; else kill -KILL "$p" 2>/dev/null; fi'$'\x1f''    kill -KILL -- "-$s" 2>/dev/null')
+M6_CHECK="kill_group_if_leader: a process that leads no group goes by its pid, its group is left alone"
+judge "M6: kill_group_if_leader kills the real group, leader or not" "$m6" "$M6_CHECK" "$LIVENESS"
+judge_dies "M6: kill_group_if_leader kills the real group, leader or not" "$m6" \
+           "a parent held before its exec still wears this suite's argv" "$WINDOW"
+
+m7=$(mutant m7 '    (( p > 1 )) || { echo "kill_group_if_leader: refusing pid $p" >&2; return 1; }'$'\x1f''    :')
+report "M7: no refusal of a pid that is not above 1" "$m7" "kill_group_if_leader: pid 1 is refused and nothing is sent"
+
+m8a=$(mutant m8a '[[ "$p" == "$$" || "$p" == "$BASHPID" || "$p" == "$PPID" ]]'$'\x1f''[[ "$p" == "$PPID" ]]')
+report "M8a: neither its own pid nor its subshell's is refused" "$m8a" "kill_group_if_leader: the shell's own pid is refused"
+m8b=$(mutant m8b '[[ "$p" == "$$" || "$p" == "$BASHPID" || "$p" == "$PPID" ]]'$'\x1f''[[ "$p" == "$$" || "$p" == "$PPID" ]]')
+report "M8b: the subshell's own pid is not refused" "$m8b" "kill_group_if_leader: the pid of the subshell it runs in is refused"
+m8c=$(mutant m8c '[[ "$p" == "$$" || "$p" == "$BASHPID" || "$p" == "$PPID" ]]'$'\x1f''[[ "$p" == "$$" || "$p" == "$BASHPID" ]]')
+report "M8c: its parent is not refused" "$m8c" "kill_group_if_leader: the shell's parent is refused"
+
+m9=$(mutant m9 '    [[ "$p" == "$mine" ]] && { echo "kill_group_if_leader: refusing $p, the group this shell is in" >&2; return 1; }'$'\x1f''    :')
+report "M9: the group its own shell is in is not refused" "$m9" "kill_group_if_leader: the group the shell is in (its leader's pid) is refused"
+
+# 🔴 M10: `kill -KILL 0` kills the caller's own group. The selftest shell leads the session the
+# gate gave it, so that is the only group it reaches; the suite's cleanup would take its session.
+m10=$(mutant m10 'else kill -KILL "$c" 2>/dev/null; fi'$'\x1f''else kill -KILL 0 2>/dev/null; fi')
+report "M10: a child that leads no group is killed with kill -KILL 0" "$m10" \
+       "reaper: a child that does not lead one goes, by its pid"
+
+m11=$(mutant m11 '    [[ "${mine%% *}" == "$BASHPID" ]] || { echo "kill_group_if_leader: cannot read this shell'"'"'s own process group: refused" >&2; return 1; }'$'\x1f''    :')
+report "M11: no refusal when its own group cannot be read" "$m11" \
+       "kill_group_if_leader: it refuses a leader when it cannot read its own group"
 
 c1=$(mutant c1 '# reap_own_children -- KILL whatever this shell forked that is still there.'$'\x1f''# reap_own_children -- KILL whatever this shell forked and that is still there.')
 control "C1 (control): a comment is reworded" "$c1"
