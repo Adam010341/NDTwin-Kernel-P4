@@ -68,14 +68,17 @@ check() {
 yn() { if "$@"; then echo yes; else echo no; fi; }
 has() { case "$2" in *"$1"*) echo yes ;; *) echo no ;; esac; }
 
-# [Co-developed with claude code -- Adam] The reaper cleanup_fixtures() uses is shared with
-# test_ndt_helper_apps_window.sh, and so are its checks (reap_own_children_selftest, section 7).
-# Sourced first: ndt rebinds HERE.
-source "${REAP_OWN_CHILDREN_LIB_UNDER_TEST:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_reap_own_children.sh}" \
-    || { echo "  FAILED   no tests/shell/lib_reap_own_children.sh beside this suite"; echo "Ran 1 checks, 1 failed"; exit 1; }
-
 # shellcheck source=/dev/null
 source "$NDT" || { echo "  FAILED   could not source $NDT"; echo "Ran 1 checks, 1 failed"; exit 1; }
+
+# [Co-developed with claude code -- Adam] The reaper cleanup_fixtures() uses is shared with
+# test_ndt_helper_apps_window.sh, and so are its checks (reap_own_children_selftest, section 7).
+# Sourced after ndt, so that a function of ndt's can never shadow one of the lib's. (The line does
+# not use HERE, so it does not matter that ndt rebinds it.)
+source "${REAP_OWN_CHILDREN_LIB_UNDER_TEST:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_reap_own_children.sh}" \
+    || { echo "  FAILED   no tests/shell/lib_reap_own_children.sh beside this suite"; echo "Ran 1 checks, 1 failed"; exit 1; }
+[[ -z "${REAP_OWN_CHILDREN_LIB_UNDER_TEST:-}" ]] \
+    || echo "  note     REAP_OWN_CHILDREN_LIB_UNDER_TEST is set: this run uses $REAP_OWN_CHILDREN_LIB_UNDER_TEST, not the lib beside the suite" >&2
 
 TMPROOT="$(mktemp -d /tmp/ndt-apps-liveness-XXXXXX)"
 REPO="$TMPROOT"
@@ -530,8 +533,8 @@ check "the te branch requests mode 2"             yes \
       "$(has "APP_STDIN=\$'2\\n5\\n' app_spawn te" "$(grep -F 'app_spawn te ' "$NDT")")"
 
 # --- 7. this suite does not become the thing it tests --------------------------------
-# [Co-developed with claude code -- Adam] The reaper cleanup_fixtures() ends with is put to six
-# checks first, in a shell of its own (lib_reap_own_children.sh): until 2026-10-03 this suite
+# [Co-developed with claude code -- Adam] The reaper cleanup_fixtures() ends with is put to eighteen
+# checks (it and kill_group_if_leader) first, in a shell of its own (lib_reap_own_children.sh): until 2026-10-03 this suite
 # carried a copy that nothing here ever held to anything.
 echo "the reaper that kills what this shell forked and did not write down"
 reap_own_children_selftest

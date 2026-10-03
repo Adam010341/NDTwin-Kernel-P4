@@ -209,8 +209,8 @@ cleanup_fixtures() {
 # [Co-developed with claude code -- Adam] A signal ENDS the run (2026-09-28). The handler used to
 # clean up and return, so on INT or TERM the suite went on running with its probe stubs (TMPROOT) deleted,
 # and its next sudo went to whatever sudo came next on PATH -- on a machine with a NOPASSWD grant,
-# to root. The EXIT trap does the cleaning on the way out; INT and TERM only exit, with the
-# shell's usual 128+signal status.
+# to root. The EXIT trap does the cleaning on the way out; INT and TERM only end the run, with
+# the shell's usual 128+signal status.
 trap cleanup_fixtures EXIT
 # [Co-developed with claude code -- Adam] INT kills the shell with INT again rather than exiting
 # 130 (2026-10-03), as in test_ndt_app_orphans.sh: the status is still 130, and a script that
@@ -260,12 +260,20 @@ chmod +x "$FIXDIR/we ird) name"
 "$FIXDIR/we ird) name" >/dev/null 2>&1 &
 ODD=$!
 echo "$ODD" >> "$FIXTURE_REG"
-sleep 0.3
 # [Co-developed with claude code -- Adam] Its `sleep` is the script's child, not this shell's, and
 # killing the script leaves it running for FIXTURE_TTL (2026-10-03): every run of this suite left
 # one behind, and a signal test that asks "is anything of this run left" found it. Written down
-# now, and killed with the script below.
+# now, and killed with the script below. Waited for until it is there (10 s at most), not for a
+# fixed 0.3 s: on a slow host the script's `sleep` comes later than that, and the leak came back
+# without a check going red.
+ODD_KID=""
+for (( i = 0; i < 200; i++ )); do
+    { read -r ODD_KID _ < "/proc/$ODD/task/$ODD/children"; } 2>/dev/null
+    [[ -n "$ODD_KID" ]] && break
+    sleep 0.05
+done
 ODD_KID="$(descendants "$ODD" | grep -vx "$ODD")"
+check "the odd fixture's child is there to be registered, within 10 s" yes "$([[ -n "$ODD_KID" ]] && echo yes || echo no)"
 [[ -n "$ODD_KID" ]] && printf '%s\n' $ODD_KID >> "$FIXTURE_REG"
 check "a comm containing ') ' does not fool the parser" \
       "$(ps -o pgid= -p "$ODD" 2>/dev/null | tr -d ' ')" "$(proc_pgid "$ODD")"
