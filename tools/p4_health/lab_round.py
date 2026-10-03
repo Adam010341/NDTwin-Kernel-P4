@@ -327,6 +327,16 @@ class LabRound(object):
         self.events.append(("stop-%s" % key[:-1], pid, outcome))
         return outcome
 
+    @staticmethod
+    def _note_kill(rec, what, entry, outcome):
+        """(r4, Cut 1 follow-ups) A kill that failed is a problem, and the round is not complete:
+        the process is still running, and the retry is recover.sh's."""
+        if not outcome.startswith("kill rc"):
+            return
+        rec["problems"].append("could not stop %s pid %s (%s): it stays in LAB_STATE.json for "
+                               "recover.sh" % (what, entry["pid"], outcome))
+        rec["complete"] = False
+
     def _claim_lost(self, rec, before):
         ours, why = self.claim_ours()
         if ours:
@@ -343,9 +353,9 @@ class LabRound(object):
     def teardown(self, rec):
         self.write_state(phase="teardown")
         for entry in list(self.state["sniffers"]):
-            self._stop("sniffers", entry, root=True)
+            self._note_kill(rec, "sniffer", entry, self._stop("sniffers", entry, root=True))
         for entry in list(self.state["controllers"]):
-            self._stop("controllers", entry, root=False)
+            self._note_kill(rec, "controller", entry, self._stop("controllers", entry, root=False))
         for iface in list(self.state["netem"]):
             if self._claim_lost(rec, "taking netem off %s" % iface):
                 return

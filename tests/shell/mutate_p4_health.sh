@@ -761,8 +761,8 @@ add "R2. recover.sh releases after a failed down" \
 
 add "R3. recover.sh takes over an expired claim of somebody else" \
     "$RECOVER" \
-    'elif [[ ( -z "$c_owner" || "$c_owner" == "$OWNER" ) && "$c_exp" -le "$now" && "$ov" == "$PKG" ]]; then' \
-    'elif [[ "$c_exp" -le "$now" && "$ov" == "$PKG" ]]; then' \
+    'elif [[ ( -z "$c_owner" || "$c_owner" == "$OWNER" ) && "$c_exp" -le "$now" \' \
+    'elif [[ "$c_exp" -le "$now" \' \
     'an expired foreign claim: rc 3, no re-claim'
 
 add "R4. recover.sh re-claims over a measurement" \
@@ -900,7 +900,7 @@ add "R3-m2. HU1 decides without its nested readings (MINOR 2)" \
 
 add "R3-m4. HR stimulus too small to trust (MINOR 4)" \
     "$TABLE" \
-    'HR_FRAMES = 20000' \
+    'HR_FRAMES = 24000' \
     'HR_FRAMES = 2000  # MUTANT' \
     'test_hr_stimulus_size_and_order'
 
@@ -927,6 +927,192 @@ add "R3-m6c. recover.sh measuring check fails open" \
     '        echo "ndt status --measuring did not answer"; return' \
     '        return  # MUTANT' \
     'an expired claim and ndt status --measuring not answering: rc 3 (fails closed)'
+
+
+# Round 4 (the Cut 1 follow-ups: recover after an expired claim in down-done, the HR bound, the
+# K1/T3 route, HU1's key, the timed-reading encodings, a failed kill, measuring_now).
+add "R4-1a. recover.sh re-claims only while the override names the package (follow-up 1)" \
+    "$RECOVER" \
+    '( -z "$ov" && "$PHASE" == down-done && "$c_owner" == "$OWNER" )' \
+    '( 1 -eq 0 )' \
+    'down-done, own claim expired, override absent: rc 0'
+
+add "R5-1a. an absent override is evidence in every phase, not only down-done (r5 follow-up 1)" \
+    "$RECOVER" \
+    '( -z "$ov" && "$PHASE" == down-done && "$c_owner" == "$OWNER" )' \
+    '( -z "$ov" && "$c_owner" == "$OWNER" )' \
+    'teardown, own claim expired, override absent: rc 3, no stub called'
+
+add "R5-1b. a down-done run with no claim file is re-claimed" \
+    "$RECOVER" \
+    '( -z "$ov" && "$PHASE" == down-done && "$c_owner" == "$OWNER" )' \
+    '( -z "$ov" && "$PHASE" == down-done )' \
+    'down-done, no lab.claim: rc 3, nothing written'
+
+add "R5-1c. the fabric is checked after the re-claim, not before (r5 follow-up 1b)" \
+    "$RECOVER" \
+    '    # the expired claim file is OUR owner'"'"'s. The fabric check comes first: it writes nothing.
+    down_done_fabric_check' \
+    '    # MUTANT: no fabric check before the claim' \
+    'down-done, own claim expired, fabric up: rc 4 and the claim stub never called'
+
+add "R5-2a. a released run falls through to the claim branches (r5 follow-up 2)" \
+    "$RECOVER" \
+    'if [[ "$PHASE" == released ]]; then' \
+    'if false; then  # MUTANT' \
+    'released with recorded live processes: rc 0, only the two kills'
+
+add "R5-2b. a released run whose kill failed exits 0" \
+    "$RECOVER" \
+    '(above); a person stops them."; exit 7' \
+    '(above); a person stops them."; exit 0' \
+    'released with a kill that fails: rc 7, only the kills'
+
+add "R5-3. a failed kill ends the recovery as done (r5 follow-up 3)" \
+    "$RECOVER" \
+    '(kill failed above): rc 7"
+    exit 7' \
+    '(kill failed above): rc 7"' \
+    'a controller kill fails in a live recovery: the recovery finishes, then rc 7'
+
+add "R4-2a. recover.sh skips the process step in down-done (follow-up 2)" \
+    "$RECOVER" \
+    'procs() {  # procs <key> -- "pid start marker" per recorded process' \
+    'procs() { [[ "$PHASE" == down-done ]] && return 0  # MUTANT: procs <key>' \
+    'down-done with a kept sniffer and controller: ndt status, both signalled, release -- no qdisc, no netem, no down'
+
+add "R4-2b. a failed kill is not a problem and the round stays complete (follow-up 2)" \
+    "$LABROUND" \
+    '        if not outcome.startswith("kill rc"):
+            return' \
+    '        if True:  # MUTANT: every kill reads as fine
+            return' \
+    'test_a_failed_kill_is_a_problem_and_the_round_is_not_complete'
+
+add "R4-2c. a failed kill is a problem but the round stays complete" \
+    "$LABROUND" \
+    '                               "recover.sh" % (what, entry["pid"], outcome))
+        rec["complete"] = False' \
+    '                               "recover.sh" % (what, entry["pid"], outcome))  # MUTANT' \
+    'test_a_failed_kill_is_a_problem_and_the_round_is_not_complete'
+
+add "R4-3a. HR stimulus back to 20000 frames, whose false-RED rate is 2e-5 (follow-up 3)" \
+    "$TABLE" \
+    'HR_FRAMES = 24000' \
+    'HR_FRAMES = 20000  # MUTANT' \
+    'test_hr_stimulus_size_and_order'
+
+add "R4-3b. HR1 may go out the shaped uplink" \
+    "$TABLE" \
+    '        if want == 1 and not carried[HR1_UPLINK]:' \
+    '        if False:  # MUTANT' \
+    'test_hr1_is_pinned_to_the_unshaped_uplink'
+
+add "R4-3c. HR1 is pinned to the shaped uplink" \
+    "$TABLE" \
+    'HR1_UPLINK = [u for u in UPLINKS if u not in SHAPED_IFACES][0]' \
+    'HR1_UPLINK = [u for u in UPLINKS if u in SHAPED_IFACES][0]  # MUTANT' \
+    'test_hr1_is_pinned_to_the_unshaped_uplink'
+
+add "R4-4a. K1's counter observer says nothing about the route (follow-up 4)" \
+    "$OBSERVE" \
+    '    return {"answer": with_route(answer, cfg, cell), "oracle": oracle, "sent": S.sent(out, cell)}' \
+    '    return {"answer": answer, "oracle": oracle, "sent": S.sent(out, cell)}  # MUTANT' \
+    'test_a_missing_counter_route_is_red_no_route_through_the_observers'
+
+add "R4-4b. K1-neg's observer says nothing about the route" \
+    "$OBSERVE" \
+    '    return {"answer": with_route(answer_or_none(status, {"http": status, "error": error}), cfg, "K1-neg")}' \
+    '    return {"answer": answer_or_none(status, {"http": status, "error": error})}  # MUTANT' \
+    'test_a_missing_counter_route_is_red_no_route_through_the_observers'
+
+add "R4-4c. an unreadable openapi reads as a missing route" \
+    "$OBSERVE" \
+    '    route = route_answer(P.openapi_paths(cfg), cell)' \
+    '    route = bool(route_answer(P.openapi_paths(cfg), cell))  # MUTANT' \
+    'test_a_missing_counter_route_is_red_no_route_through_the_observers'
+
+add "R4-5. HU1 decides without the IPv6 member's flow_identity (follow-up 5)" \
+    "$TABLE" \
+    '("v6", v6, ("g1", "pair", "side_after", "flow_identity")),' \
+    '("v6", v6, ("g1", "pair", "side_after")),  # MUTANT' \
+    'test_hu1s_nested_readings_are_needed'
+
+add "R4-6a. a negative time is a time (follow-up 6)" \
+    "$TABLE" \
+    '    if not _real(value) or value < 0:' \
+    '    if not _real(value):  # MUTANT' \
+    'test_malformed_timed_readings_are_probe_broken'
+
+add "R4-6b. Never in any case is NEVER" \
+    "$TABLE" \
+    '    if value == NEVER:
+        return None
+    if not _real(value)' \
+    '    if str(value).lower() == NEVER:  # MUTANT
+        return None
+    if not _real(value)' \
+    'test_malformed_timed_readings_are_probe_broken'
+
+add "R4-6c. a time larger than its own watched_s is a time" \
+    "$TABLE" \
+    '    if value > watched:' \
+    '    if False:  # MUTANT' \
+    'test_malformed_timed_readings_are_probe_broken'
+
+add "R4-6d. watched_s is not validated" \
+    "$TABLE" \
+    '    if not _real(watched) or watched < 0:' \
+    '    if False:  # MUTANT' \
+    'test_malformed_timed_readings_are_probe_broken'
+
+add "R4-6e. deadline_met takes a negative time" \
+    "$TABLE" \
+    '    return _real(seconds) and 0 <= seconds <= deadline' \
+    '    return _real(seconds) and seconds <= deadline  # MUTANT' \
+    'test_malformed_timed_readings_are_probe_broken'
+
+add "R4-6f. TP2 / TP4 do not validate the encoding" \
+    "$TABLE" \
+    '    bad = timing_problem(a, "down_after_s")' \
+    '    bad = None  # MUTANT' \
+    'test_malformed_timed_readings_are_probe_broken'
+
+add "R4-6g. CP4 does not validate the encoding" \
+    "$TABLE" \
+    '    bad = timing_problem(a, "rerouted_after_s")' \
+    '    bad = None  # MUTANT' \
+    'test_malformed_timed_readings_are_probe_broken'
+
+add "R4-6h. IT1 does not validate the encoding" \
+    "$TABLE" \
+    '    bad = timing_problem(a, "reported_after_s")' \
+    '    bad = None  # MUTANT' \
+    'test_malformed_timed_readings_are_probe_broken'
+
+add "R4-6i. CP4 reads gone before it checks how long it watched" \
+    "$TABLE" \
+    '    if a["rerouted_after_s"] == NEVER and not watched_enough(a):
+        return not_run("the route was watched for %s s, less than the %d s deadline" % (a.get("watched_s"), LINK_DOWN_DEADLINE_S))
+    if o["port_after_cut"] == GONE:
+        return red("thrift: s1'"'"'s route to h6 is gone after the cut", "structural", "thrift")' \
+    '    if o["port_after_cut"] == GONE:  # MUTANT: gone first
+        return red("thrift: s1'"'"'s route to h6 is gone after the cut", "structural", "thrift")
+    if a["rerouted_after_s"] == NEVER and not watched_enough(a):
+        return not_run("the route was watched for %s s, less than the %d s deadline" % (a.get("watched_s"), LINK_DOWN_DEADLINE_S))' \
+    'test_a_route_read_as_gone_during_a_short_watch_is_not_run'
+
+add "R4-8a. recover.sh takes an answer with no measuring or orphaned row for idle (follow-up 8)" \
+    "$RECOVER" \
+    "    if ! printf '%s\n' \"\$out\" | awk '\$1 == \"measuring\" || \$1 == \"orphaned\" { found = 1 } END { exit !found }'; then" \
+    '    if false; then  # MUTANT' \
+    'an expired claim and an empty ndt status --measuring answer: rc 3 (fails closed)'
+
+add "R4-8b. recover.sh takes only a measuring row for evidence (an orphaned row alone is busy)" \
+    "$RECOVER" \
+    "awk '\$1 == \"measuring\" || \$1 == \"orphaned\" { found = 1 }" \
+    "awk '\$1 == \"measuring\" { found = 1 }" \
+    'an expired claim and only an orphaned row (leftovers, no fabric): rc 0, re-claimed'
 
 
 CTRL_SRC="$TABLE"
