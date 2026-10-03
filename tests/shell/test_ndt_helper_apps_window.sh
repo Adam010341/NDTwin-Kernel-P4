@@ -109,7 +109,10 @@ reap_two_layer() {
     # exec'd, the parent's argv is still this suite's own, and the argv test alone let it live.
     if [[ "$(tr '\0' ' ' 2>/dev/null < "/proc/$TWO_PARENT/cmdline")" == *"$FIX/twolayer"* ]] \
             || own_child "$TWO_PARENT"; then
-        kill -KILL -"$TWO_PARENT" 2>/dev/null || kill -KILL "$TWO_PARENT" 2>/dev/null
+        # [Co-developed with claude code -- Adam] By its group only if it leads one (2026-10-03), as
+        # reap_own_children does: a parent caught before its exec is a child of this shell in the
+        # suite's group, which is not its to kill.
+        kill_group_if_leader "$TWO_PARENT"
         sleep 0.3
     fi
     [[ -d "/proc/$TWO_PARENT" ]] && left=$((left + 1))
@@ -641,11 +644,17 @@ HELD=$!
 disown "$HELD" 2>/dev/null || true
 check "a parent held before its exec still wears this suite's argv" "$(tr '\0' ' ' < /proc/$$/cmdline)" \
       "$(tr '\0' ' ' 2>/dev/null < "/proc/$HELD/cmdline")"
+# [Co-developed with claude code -- Adam] (2026-10-03) Every kill the reaper makes is written down,
+# because the group form of a kill aimed at a process that leads no group fails (no group has that
+# number) and the pid form after it works: the reaping looks the same either way, and only what was
+# SENT tells the two apart.
+KILL_LOG="$FIX/kills"; : > "$KILL_LOG"
+kill() { printf '%s\n' "$*" >> "$KILL_LOG"; builtin kill "$@"; }
 check "🔴 reap_two_layer reaps it all the same"           "0" "$(TWO_PARENT="$HELD" TWO_CHILD="" reap_two_layer)"
+unset -f kill
+check "  and signals a parent that leads no group by its pid alone" "-KILL $HELD" "$(cat "$KILL_LOG")"
 # By its group if it got as far as its exec and the setsid in it, else by its pid.
-if own_child "$HELD"; then
-    if [[ "$OWN_PGID" == "$HELD" ]]; then kill -KILL -- "-$HELD" 2>/dev/null; else kill -KILL "$HELD" 2>/dev/null; fi
-fi
+own_child "$HELD" && kill_group_if_leader "$HELD"
 # [Co-developed with claude code -- Adam] (2026-10-03) And the reaper itself, which cleanup() calls
 # for whatever this shell forked and has not yet written down: lib_reap_own_children.sh holds it to
 # six checks, in a shell of its own, and this suite and test_ndt_apps_liveness.sh both run them.

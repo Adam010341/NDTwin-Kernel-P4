@@ -7,7 +7,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# Four mutations, each a way a reaper that kills process groups goes wrong:
+# Five mutations, each a way a reaper that kills process groups goes wrong:
 #   M1  it kills each child's REAL process group, whether or not the child leads it -- a child that
 #       does not lead one (a parent held before its exec) then takes the suite's own group, the
 #       suite and whoever called it, down with it
@@ -15,6 +15,8 @@
 #       it runs in are among the children it kills
 #   M3  a child that does not lead a group is not killed at all
 #   M4  a child that leads a group is killed by its pid alone, and what it forked outlives it
+#   M5  kill_group_if_leader, which the window suite's reap_two_layer uses, aims the group form at
+#       a process that leads no group: it fails, and a parent held before its exec is not reaped
 # and a control, a reworded comment, that must change nothing.
 #
 # 🔴 Mutants that kill groups. Each mutation goes to a COPY of the lib in a temp dir (the suites
@@ -60,23 +62,26 @@ run_suite() {   # $1 = suite, $2 = lib
     REAP_OWN_CHILDREN_LIB_UNDER_TEST="$2" setsid --wait timeout "$TEST_TIMEOUT" bash "$1" 2>&1
 }
 
-report() {   # $1 = mutation name, $2 = mutated lib, $3 = the check that must go red, in both suites
-    local s out rc
+judge() {   # $1 = mutation name, $2 = the lib to use, $3 = the check that must go red, $4... = suites
+    local name="$1" lib="$2" want="$3" s out rc
+    shift 3
     MUTATIONS=$((MUTATIONS + 1))
-    for s in "$LIVENESS" "$WINDOW"; do
-        out=$(run_suite "$s" "$2"); rc=$?
+    for s in "$@"; do
+        out=$(run_suite "$s" "$lib"); rc=$?
         if [[ "$rc" == 124 ]]; then
-            printf '  🔴 %-52s %s HUNG -- never a catch\n' "$1" "${s##*/}" >&2; VERDICT=2; continue
+            printf '  🔴 %-52s %s HUNG -- never a catch\n' "$name" "${s##*/}" >&2; VERDICT=2; continue
         fi
-        if [[ "$rc" -ne 0 ]] && grep -qF "  FAILED   $3" <<<"$out"; then
-            printf '  caught   %-52s %s: %s went red\n' "$1" "${s##*/}" "$3"
+        if [[ "$rc" -ne 0 ]] && grep -qF "  FAILED   $want" <<<"$out"; then
+            printf '  caught   %-52s %s: %s went red\n' "$name" "${s##*/}" "$want"
         else
             SURVIVORS=$((SURVIVORS + 1)); VERDICT=1
-            printf '  SURVIVED %-52s %s: %s stayed green -- that case proves nothing\n' "$1" "${s##*/}" "$3" >&2
+            printf '  SURVIVED %-52s %s: %s stayed green -- that case proves nothing\n' "$name" "${s##*/}" "$want" >&2
             grep -E '^  FAILED|^Ran ' <<<"$out" | sed 's/^/             /' >&2
         fi
     done
 }
+report() { judge "$1" "$2" "$3" "$LIVENESS" "$WINDOW"; }          # both suites must catch it
+report_window() { judge "$1" "$2" "$3" "$WINDOW"; }               # the liveness suite has no use for it
 
 control() {  # $1 = name, $2 = mutated lib -- must NOT go red, in either suite
     local s out rc
@@ -103,6 +108,8 @@ s = open(p).read()
 assert s.count(old) == 1, "anchor is not unique (%d matches): %r" % (s.count(old), old[:70])
 open(p, "w").write(s.replace(old, new))
 PY
+    # The hunk, into the gate's own log: a red nobody can read the edit of is a number.
+    diff -u "$LIB" "$out" | tail -n +3 | sed 's/^/      /' >&2
     echo "$out"
 }
 
@@ -129,6 +136,11 @@ report "M3: a child that leads no group is not killed" "$m3" \
 m4=$(mutant m4 'then kill -KILL -- "-$c" 2>/dev/null;'$'\x1f''then kill -KILL "$c" 2>/dev/null;')
 report "M4: a group leader is killed by its pid alone" "$m4" \
        "reaper: a child that leads a group goes, and what it forked with it"
+
+# 🔴 Aimed at the helper reap_two_layer calls. Window suite only: the liveness suite does not use it.
+m5=$(mutant m5 '    if [[ "$s" == "$1" ]]; then kill -KILL -- "-$1" 2>/dev/null; else kill -KILL "$1" 2>/dev/null; fi'$'\x1f''    kill -KILL -- "-$1" 2>/dev/null')
+report_window "M5: the group form is aimed at any process" "$m5" \
+       "  and signals a parent that leads no group by its pid alone"
 
 c1=$(mutant c1 '# reap_own_children -- KILL whatever this shell forked that is still there.'$'\x1f''# reap_own_children -- KILL whatever this shell forked and that is still there.')
 control "C1 (control): a comment is reworded" "$c1"

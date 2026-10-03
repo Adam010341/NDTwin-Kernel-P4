@@ -34,6 +34,17 @@ own_child() {
     s="${s#* }"; OWN_PGID="${s%% *}"
 }
 
+# kill_group_if_leader <pid> -- KILL that process, and its whole group if it leads one. A process
+# that does not lead its group is killed by its pid alone, because its group is somebody else's:
+# for the suite's own children, this suite's -- and the caller's. The pgid is read here and used
+# here, with nothing forked in between.
+kill_group_if_leader() {
+    local s
+    { read -r s < "/proc/$1/stat"; } 2>/dev/null || return 1
+    s="${s##*) }"; s="${s#* }"; s="${s#* }"; s="${s%% *}"      # the pgrp
+    if [[ "$s" == "$1" ]]; then kill -KILL -- "-$1" 2>/dev/null; else kill -KILL "$1" 2>/dev/null; fi
+}
+
 # reap_own_children -- KILL whatever this shell forked that is still there. On the way out the
 # suite's own foreground commands have all been waited for, so its remaining children are what it
 # started in the background, and nothing needs to have been written down first: a signal that
