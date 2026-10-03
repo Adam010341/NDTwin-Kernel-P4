@@ -1,0 +1,22 @@
+Obtaining JSON from switch...
+Done
+Control utility for runtime P4 table manipulation
+RuntimeCmd: ==========
+TABLE ENTRIES
+**********
+Dumping entry 0x0
+Match key:
+* ipv4.srcAddr        : TERNARY   0a000100 &&& ffffff00
+Priority: 10
+Action entry: HcIngress.set_mark - 07
+**********
+Dumping entry 0x1
+Match key:
+* ipv4.srcAddr        : TERNARY   0a000000 &&& ffff0000
+Priority: 20
+Action entry: HcIngress.set_mark - 08
+==========
+Dumping default entry
+Action entry: NoAction - 
+==========
+RuntimeCmd: 

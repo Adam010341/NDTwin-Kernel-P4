@@ -1,0 +1,34 @@
+pre-flight: <run>/packages/PF-T
+  PASS  format                            1
+  INFO  name                              p4-health-PF-T
+  PASS  control_plane.mode                ndtwin
+  PASS  control_plane.grpc_base           30050
+  PASS  control_plane.device_id           dpid
+  PASS  control_plane.election_id         [0, 65535]
+  PASS  bmv2.cpu_port                     510
+  PASS  switches keys                     4 dpids: [1, 2, 3, 4]
+  PASS  switches name                     every sN has dpid N
+  PASS  referenced files                  9 present
+  PASS  topo_from_json.switches           4 entries
+  PASS  topo_from_json.hosts              6 entries
+  PASS  topo_from_json.switch_links       4 entries
+  PASS  topo_from_json.host_links         6 entries
+  PASS  switches agree                    model and package.json both say [1, 2, 3, 4]
+  PASS  links agree                       10 links in both
+  PASS  hosts named h<last octet>         6 hosts
+  PASS  hosts agree                       model and package.json both say ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']
+  PASS  switches pipeline                 4 of 4 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
+  INFO  s1 pipeline                       build/hc_alt.json  p4info sha256:b7490e9eb9979888  program=<run>/exercise/src/hc_main.p4
+  INFO  s2 pipeline                       build/hc_main.json  p4info sha256:5ce0a5595d5a65f1  program=<run>/exercise/src/hc_main.p4
+  INFO  s3 pipeline                       build/hc_main.json  p4info sha256:5ce0a5595d5a65f1  program=<run>/exercise/src/hc_main.p4
+  INFO  s4 pipeline                       build/hc_main.json  p4info sha256:5ce0a5595d5a65f1  program=<run>/exercise/src/hc_main.p4
+  PASS  p4info parses                     google.protobuf.text_format into p4.config.v1.P4Info
+  FAIL  entries match p4info              1 problem(s); first: s2 entry 23: hdr.ipv4.srcAddr is a TERNARY match -- G5 not done; POST /p4/table_entry answers 501 for TERNARY in this stage (exact and lpm only)
+  PASS  entries p4info is the pipeline's  4 switch(es); entries and pipeline name the same p4info
+  INFO  roles suggestion                  no roles declared, so NDTwin writes none of this program's tables. Its p4info has a destination-route-shaped table on every switch; to let NDTwin route here, add to package.json: "roles": {"ipv4_route": {"owner": "ndtwin", "table": "HcIngress.ipv4_lpm", "match_field": "hdr.ipv4.dstAddr", "action": "HcIngress.ipv4_forward", "params": {"dst_mac": "dstAddr", "port": "port"}}} (owner ndtwin: NDTwin writes that table and the package's own entries for it must go -- convert.py --role-ipv4-route takes them out; owner package: NDTwin only reads it)
+  PASS  telemetry.source                  link
+  PASS  PRE entries                       1 multicast group(s) and 1 clone session(s); every replica names a port the model builds
+  PASS  gRPC port block                   30051-30054 safe on this machine
+  PASS  p4c-bm2-ss                        rc=0  hc_main.json sha256:14cbe4829d7e58ee  hc_main.p4.p4info.txtpb sha256:5ce0a5595d5a65f1
+
+FAIL -- 1 check(s) failed; do NOT bring this package up

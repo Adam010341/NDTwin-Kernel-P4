@@ -1,0 +1,15 @@
+Obtaining JSON from switch...
+Done
+Control utility for runtime P4 table manipulation
+RuntimeCmd: ==========
+TABLE ENTRIES
+**********
+Dumping entry 0x0
+Match key:
+* standard_metadata.ingress_port: EXACT     0003
+Action entry: HcIngress.set_port_tag - 05
+==========
+Dumping default entry
+Action entry: NoAction - 
+==========
+RuntimeCmd: 

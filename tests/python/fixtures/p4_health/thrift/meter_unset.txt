@@ -1,0 +1,5 @@
+Obtaining JSON from switch...
+Done
+Control utility for runtime P4 table manipulation
+RuntimeCmd: WARNING: expected 2 rates but only received 0
+RuntimeCmd: 
