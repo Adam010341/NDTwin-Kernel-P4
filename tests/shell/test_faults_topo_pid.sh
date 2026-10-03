@@ -53,6 +53,12 @@ reap() {
     echo "$left"
 }
 cleanup() {
+    # [Co-developed with claude code -- Adam] First, so a second signal cannot cut the cleaning
+    # short (2026-10-03): an INT or TERM arriving in here would run its trap, and the shell would
+    # exit with the rest of this undone.
+    # The price: a signal that lands while a run that was ending anyway cleans up is ignored,
+    # and that run still ends 0 or 1, not 130 or 143.
+    trap '' INT TERM
     [[ -f "$FIXTURE_REG" ]] && reap >/dev/null
     [[ -n "${TMPROOT:-}" && "$TMPROOT" == /tmp/faults-topo-pid-* ]] && rm -rf "$TMPROOT"
     return 0
@@ -60,9 +66,12 @@ cleanup() {
 # [Co-developed with claude code -- Adam] A signal ENDS the run (2026-10-01), as in
 # test_ndt_app_orphans.sh. The handler used to clean up and return, so on INT or TERM the suite
 # went on running with its fixtures reaped and its temp tree deleted. The EXIT trap does the
-# cleaning on the way out; INT and TERM only exit, 128+signal.
+# cleaning on the way out; INT and TERM only end the run, 128+signal.
 trap cleanup EXIT
-trap 'exit 130' INT
+# [Co-developed with claude code -- Adam] INT kills the shell with INT again rather than exiting
+# 130 (2026-10-03), as in test_ndt_app_orphans.sh: the status is still 130, and a script that
+# called this one stops too.
+trap 'trap - INT; kill -INT $$' INT
 trap 'exit 143' TERM
 
 # spawn <argv0> -- a `sleep` wearing that argv0; its pid is left in FIXTURE_PID.
