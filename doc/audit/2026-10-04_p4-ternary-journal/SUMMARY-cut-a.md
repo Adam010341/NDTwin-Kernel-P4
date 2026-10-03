@@ -2,7 +2,12 @@
 
 # Cut A 摘要：P4 通用 table writer 支援 ternary／range／optional＋priority
 
-**結論**：Cut A（除 V7 外）已完成並 commit，head 為 `1b16b0a0`，在分支 `feat/p4-ternary-writer-a`，未推送。V7 依指示未做。
+**結論**：Cut A（除 V7 外）已完成並 commit，分支 `feat/p4-ternary-writer-a`，未推送。V7 依指示未做。
+
+🔴 **這個分支現在有兩個 hold，不是一個**：(1) D（健檢那條線的檔案，見下）；(2) **Q2／V7**。沒有 V7 的 Cut A，等於 Q2 (c) 的實際效果：baseline 的 `MyIngress.flow_5tuple` 以前只要 POST 裡寫了任何具名欄位就回 **501**，現在一律建出來、回 **200**。後果有兩個：
+- 部分遮罩的 ternary entry（例如一個 /16 的 drop）現在可以被裝在 `ipv4_lpm` 前面；
+- `insert_5tuple_rule` 的 MODIFY fallback 會默默覆蓋 operator 用同一個 key 寫的 entry（設計 Q2 (c) 自己寫的代價）。
+空 match 打 `flow_5tuple` 回 200 的既有缺陷（§1.5）也還在。所以 **V7 決定（Q2）之前，這個分支不該合併**，即使 D 已經備好。
 
 **做了什麼**
 - 新增 `match_shape.py`：writer 與 pre-flight 共用同一份形狀檢查。
@@ -35,12 +40,45 @@
 **S0 對 PF-T 的反應**
 Pre-flight 的 PF-T 現在 rc 0，「G5 not done」不再出現。但 S0 自己有兩條檢查要求 PF-T 必須失敗，所以結果是 `PROBE-BROKEN`（rc=1），其餘所有項目皆 ok。這正是設計預測的結果：A 必須與 D 一起合併。
 
+**D 的完整檔案清單**（DESIGN §7；全屬健檢線，這個分支一個都沒碰）：
+- `tools/p4_health/s0.py:275-277` 與 `pft_verdict`（`:574-583`）：兩條斷言 PF-T 必須 FAIL；
+- `classify_pft`（`s0.py:124-133`）：它的 RED 路徑只認「G5 not done」那句話；
+- `pft_cannot`（`tools/p4_health/cells/table.py:390-395`）；
+- `tests/python/fixtures/p4_health/preflight_pft.txt:26`（那份 fixture 還存著「G5 not done」那一行）；
+- `doc/audit/2026-10-03_p4-health-check/expected_today.tsv`；
+- T4–T7 的 oracle（priority 要用 bm priority = 2147483647 − p 換算、optional 的 thrift 顯示為 `TERNARY v &&& ff`、「數字大的贏」要比換算後的值）。
+
 **要注意的地方**
 - Q3 採 (a)：don't-care 的第二種寫法一律 400，訊息為「omit the field」。
-- Q2 未答：沒有 owner 檢查，沒有改任何既有 fixture，`flow_5tuple` 空 match 的現況行為照舊（測試明確寫成「今天接受」）。
+- Q2 未答：沒有 owner 檢查，沒有改任何 route binding。**但 `flow_5tuple` 的行為不是「照舊」**：空 match 照舊回 200，而具名欄位從 501 變成 200（見最上面的 hold）。
+- 哪些 fixture 變了（精確版）：`test_p4_client_writes.py` 與 `test_table_entry_route.py` 的 p4info fixture 各**新增**了 Synthetic 表（`Synthetic.unspecified_table`；前者另加 `Synthetic.mixed_table`）；`a_client` 替身、`bind_routes`、binding 一個都沒動。被改寫的是九個 501 測試與兩個 pre-flight 測試（它們的斷言本來就是舊行為）；`test_rule_install_times.py` 裡拿 `"optional"` 當「沒人建模的型別」的那顆，改成 `"some_future_type"`。
 - 順帶發現：priority 超過 int32 時，舊碼會丟出沒接住的 protobuf ValueError（等於 500）；現在是 400。
 - 另一個既有問題：`mutate_p4_rule_install_time.sh` 在 dd8022fa 本來就會 baseline 紅（缺 `setting/`），已修。
 - `entry_key` 的 default key（§10-2 後半）留給 Cut B。
 - M-B7、M-B14、M-B20 沒有退役：它們守的 `journaled:false` 在 Cut B 之前仍然是事實。
 
-**V7 待辦**（等 Q2 答覆）：見上方 V7 follow-up list，包含 `source` 參數、409 body、R19／R19b、V7 與 M-J29 mutant，以及會翻轉的既有測試清單。
+**V7 待辦**（等 Q2 答覆；沒有實作）
+- 程式：`write_table_entry(spec, op, source)`，`source` 為 `"boot"`／`"api"`／`"replay"`，`apply_package_entries` 傳 `"boot"`；409 body 為 `error: "owned by NDTwin"`、`outcome: "owned_by_ndtwin"`，remedy 放在前 200 bytes；default-action 例外只給 `roles.ipv4_route` 綁定的 owner-ndtwin package 表、而且只限開機。
+- 測試：R19（baseline 空 match 打 `flow_5tuple` 與 `ipv4_lpm` 都是 409；owner-ndtwin 表的 package default 開機仍裝得上，bring-up C 的 `failed == 0`；同一張表用 API 改 default 是 409）；R19b（API 改 baseline `ipv4_lpm` 的 default → 409，`stub.requests == []`）。
+- Mutant：V7、V7 的 default 例外、M-J29（例外擴大到 baseline 表或 API）。
+- **會翻轉的既有測試**（V7 在 `write_table_entry` 裡，所以只有經過它的才會翻；`BuildTableEntryTest` 只呼叫 `build_table_entry`，**不會翻**）：
+  - `test_table_entry_route.py`：所有 POST `AN_LPM_ENTRY` 的成功路徑，以及 Cut A 新增的三個接受測試（ternary／range／optional）；
+  - `test_p4_client_writes.py`：`WriteTableEntryTest` 的成功路徑、`TheShapeRulesTest` 與 `ThePriorityRulesTest` 的接受路徑（含 catch-all 與空 match）、`TheReadSideKnowsEveryMatchTypeTest` 的 findability 測試；`a_client` 是 baseline 替身，所以都會 409；
+  - 若 V7 排在 build 之前，這些類別裡斷言 `TableEntryInvalid` 的拒絕測試也會先拿到 409，順序要在 V7 實作時定；
+  - `test_foreign_pipeline.py` 的真 p4info ternary 寫入測試；
+  - Q2 (a-iii) 決定替身要不要加 `bind_routes`。
+
+---
+
+## 第二輪（審查後）的修正
+
+- **M1（揭露）**：上面最前面的 hold 說明、D 的完整檔案清單、V7 翻轉清單都已更正（`BuildTableEntryTest` 不會翻；`TheShapeRulesTest`、`TheReadSideKnowsEveryMatchTypeTest` 等的成功路徑會翻）。
+- **M2（`/stats/flow` 的顯示）**：`ryu_flow_stats.py` 依「無法描述的規則就不列、只計數」處理新的 match 型別。
+  - ternary 欄位的遮罩是 CIDR 形（開頭一串 1）：在位址欄位顯示成 `value/n`，與 lpm 相同；遮罩全滿：精確值。
+  - 其他任何遮罩，以及任何 range 欄位：整列不列出，計入 `flow_stats.unrendered_entries`，**在所有 pipeline 上，NDTwin 自己的也一樣**。
+  - 「baseline 的 count 恆為 0」這個承諾只在 NDTwin 是 baseline 表唯一寫入者時成立（Q2 (a) 之下為真），已寫進模組註解。
+  - 為此把 `test_ryu_flow_stats.py` 的 `a_ternary_rule` 預設 `in_port_mask` 從 `b"\xff"`（bit<9> 欄位的低 8 位）改成真正的全滿遮罩 `b"\x01\xff"`；渲染出來的位元組與基準擷取相同。
+- **m1**：flow_5tuple 空 match、ipv4_lpm 省略欄位這兩個「今天會被接受」的測試改成「§1.5 缺陷，等 Q2 再翻」的 pin；「欄位全省略、priority ≥ 1 通過 V1–V9」這個性質改在不屬於 NDTwin 的 Synthetic 表上、透過 `build_table_entry` 斷言（新增 `Synthetic.lpm_table`）。
+- **m2**：見上面「哪些 fixture 變了」；再加：`Synthetic.lpm_table`（p4info fixture 新增表）與 `a_ternary_rule` 的 in_port 遮罩（上一項）。
+- **m3**：n09（過寬的 bytes 遮罩）已用 A1 build 送到真的 bmv2：兩個 binary 都拒絕（「Bytestring provided does not fit within 9 bits」）。52 個案例變成 49 一致、3 個只有本機有意義（V1 ×2、priority 2^31）、0 不一致。`match_shape.py` 檔頭的說法已改成「V1 與超過 int32 的 priority 沒有線上形式，其餘都重複 bmv2 的拒絕」。
+- **可以晚點的項目**：過時註解已修；M-S2a 改用 0x1ff（截斷後會被接受），新增 M-S2e（截斷 ternary value）與 M-S2f（截斷 range low）；新增 route 測試：priority 2^31 → 400 且 `stub.requests == []`。
