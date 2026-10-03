@@ -94,20 +94,67 @@ reap_fixtures() {
     done < "$FIXTURE_REG"
     echo "$left"
 }
+# own_child <pid> -- true if that process is one this shell forked itself: its parent is $$. Its
+# process group is left in OWN_PGID. A child's number is not given to another process until bash
+# has reaped it, and bash reaps on its own schedule, so whatever is done with the answer is done at
+# once, with nothing forked in between. Before the child has exec'd its argv is still this
+# suite's own, and this still knows it.
+# [Co-developed with claude code -- Adam] (2026-10-03)
+own_child() {
+    local s
+    OWN_PGID=""
+    { read -r s < "/proc/$1/stat"; } 2>/dev/null || return 1
+    s="${s##*) }"; s="${s#* }"          # "<ppid> <pgrp> ..."
+    [[ "${s%% *}" == "$$" ]] || return 1
+    s="${s#* }"; OWN_PGID="${s%% *}"
+}
+# reap_own_children -- KILL whatever this shell forked that is still there. On the way out the
+# suite's own foreground commands have all been waited for, so its remaining children are what it
+# started in the background, and nothing needs to have been written down first: a signal that
+# lands between a fork and the line that records its pid still finds it (2026-10-03; here,
+# the second or more between app_spawn's fork and spawn_app_fixture adding the pid to SPAWNED,
+# which waits out app_spawn's `sleep 1`).
+# A child that leads its own process group is killed BY that group, which holds it and anything
+# it forked; any other child by its pid alone, because its group is this suite's -- and the
+# caller's. Only from this suite's own shell: in a subshell, $$ names a parent whose children
+# include that subshell.
+# [Co-developed with claude code -- Adam]
+reap_own_children() {
+    [[ $BASHPID == "$$" ]] || { echo "  FAILED   ${FUNCNAME[0]} called outside this suite's own shell (BASHPID $BASHPID, suite $$): not reaping" >&2; return 1; }
+    local f c
+    for f in /proc/[0-9]*/stat; do
+        c="${f#/proc/}"; c="${c%/stat}"
+        own_child "$c" || continue
+        if [[ "$OWN_PGID" == "$c" ]]; then kill -KILL -- "-$c" 2>/dev/null; else kill -KILL "$c" 2>/dev/null; fi
+    done
+    return 0
+}
 cleanup_fixtures() {
+    # [Co-developed with claude code -- Adam] First, so a second signal cannot cut the cleaning
+    # short (2026-10-03): an INT or TERM arriving in here would run its trap, and the shell would
+    # exit with the rest of this undone.
+    # The price: a signal that lands while a run that was ending anyway cleans up is ignored,
+    # and that run still ends 0 or 1, not 130 or 143.
+    trap '' INT TERM
     [[ -f "$FIXTURE_REG" ]] && reap_fixtures >/dev/null
     # Section 6 spawns through app_spawn itself, so its fixtures are not `sleep` processes and
     # reap_fixtures cannot see them. Guarded by declare -F because the trap is armed here, long
     # before that section defines the reaper.
     declare -F reap_spawned >/dev/null && reap_spawned >/dev/null
+    # And whatever app_spawn had started but not yet handed back (see reap_own_children).
+    reap_own_children
     [[ -n "${TMPROOT:-}" && "$TMPROOT" == /tmp/ndt-apps-liveness-* ]] && rm -rf "$TMPROOT"
     return 0
 }
 # [Co-developed with claude code -- Adam] A signal ENDS the run (2026-10-01), as in
 # test_ndt_app_orphans.sh. The handler used to clean up and return, so on INT or TERM the suite
-# went on running with its fixtures reaped and its temp tree deleted. The EXIT trap does the cleaning on the way out; INT and TERM only exit, 128+signal.
+# went on running with its fixtures reaped and its temp tree deleted. The EXIT trap does the cleaning on
+# the way out; INT and TERM only end the run, 128+signal.
 trap cleanup_fixtures EXIT
-trap 'exit 130' INT
+# [Co-developed with claude code -- Adam] INT kills the shell with INT again rather than exiting
+# 130 (2026-10-03), as in test_ndt_app_orphans.sh: the status is still 130, and a script that
+# called this one stops too.
+trap 'trap - INT; kill -INT $$' INT
 trap 'exit 143' TERM
 
 # spawn_fixture <argv0> [cwd] -- a process wearing that command line; its pid is left in
