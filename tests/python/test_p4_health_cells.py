@@ -1517,6 +1517,13 @@ class TestCut2Decisions(unittest.TestCase):
         self.assertEqual(ann["CH1"], ("PARTIAL(a)", "not observed"))
         self.assertEqual(ann["T8"], ("RED", "same"))
         self.assertEqual(ann["PL1"], ("GREEN", "flipped"))
+        # N7: a control this run did not observe (T3-neg in --only K1,TTL1) is no flip either
+        t3neg = [c for c in T.TABLE.controls if c.id == "T3-neg"][0]
+        ctx.cells["T3-neg"] = t3neg.judge(None)
+        ctx.cells["K1-neg"] = T.TABLE.controls[0].judge({"answer": None})
+        ann = E.annotate(ctx, {"T3-neg": {"expected": "GREEN"}, "K1-neg": {"expected": "GREEN"}})
+        self.assertEqual(ann["T3-neg"], ("GREEN", "not observed"))
+        self.assertEqual(ann["K1-neg"], ("GREEN", "flipped"))      # observed, and no answer: a flip
 
     def test_only_expands_to_the_gates_controls_and_self_check_producers(self):
         self.assertEqual(RA.expand(["K1", "TTL1"]), {"PL1", "T1", "TP1", "K1-neg", "K1", "TTL1"})

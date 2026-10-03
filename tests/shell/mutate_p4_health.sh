@@ -1827,6 +1827,14 @@ add "R7-N4d. S0's show_ports check rejects a listed CPU port" \
     '    return parsed is not None and set(parsed) == set(data_ports)  # MUTANT' \
     'test_show_ports_with_a_cpu_port_is_judged_on_the_data_ports'
 
+add "R7-N7. an unobserved control reads as a flip" \
+    "$TABLE" \
+    '        if obs is None:
+            # (Cut 2 second review N7)' \
+    '        if False:  # MUTANT
+            # (Cut 2 second review N7)' \
+    'test_a_cell_this_run_did_not_observe_has_no_delta'
+
 
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'

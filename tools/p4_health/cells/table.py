@@ -132,6 +132,10 @@ class Control(object):
         self.id, self.of, self.expect_http = id, of, expect_http
 
     def judge(self, obs):
+        if obs is None:
+            # (Cut 2 second review N7) a control this run did not observe, as a cell is (verdict
+            # step "unobserved"): its delta then reads "not observed", not "flipped"
+            return Verdict(NOT_RUN, "not observed in this run", phase="unobserved")
         a = (obs or {}).get("answer")
         if isinstance(a, dict) and a.get("route") is False:
             # (r3, review MINOR 3) the endpoint itself is missing from openapi: there is nothing
