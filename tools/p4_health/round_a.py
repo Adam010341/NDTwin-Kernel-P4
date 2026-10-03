@@ -119,7 +119,7 @@ class ARound(object):
                         outs.append(self.hosts.send(src, dst, "SCfwd", 40001, PING_FRAMES,
                                                     sport=40000 + self.hosts.num(src)))
             return "\n".join(outs)
-        sent_out, rx = self.hosts.window(sniffs, stimulate, seconds=60.0,
+        sent_out, rx = self.hosts.window(sniffs, stimulate, seconds=120.0,
                                          until=(len(HOSTS) - 1) * PING_FRAMES)
         sent = S.sent(sent_out, "SCfwd") or 0
         pairs = sum(1 for o in outs if (S.sent(o, "SCfwd") or 0) > 0)

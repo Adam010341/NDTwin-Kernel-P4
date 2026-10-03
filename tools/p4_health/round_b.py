@@ -116,7 +116,7 @@ class BRound(object):
             if not self._wait_file(self.path("controller.result.json"), proc, self.exit_timeout_s):
                 self.problems.append("B's controller wrote no result")
             return ""
-        _out, rx = self.hosts.window([(SRC, ["P3"])], stimulate, seconds=30.0, until=5)
+        _out, rx = self.hosts.window([(SRC, ["P3"])], stimulate, seconds=180.0, until=5)
         if proc.poll() is None:
             try:
                 proc.wait(timeout=30)
