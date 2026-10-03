@@ -427,7 +427,8 @@ S0（不用 lab，約 2 分鐘）
    寫 LAB_STATE.json {pid, owner, bring_up, phase:"pre-claim", knob_snapshot, netem:[], qdisc_before}
    snapshot 兩個 knob（這一次的 bytes）
    ndt claim 45 "p4-health <run> <X> state=<LAB_STATE.json>"   拿不到 -> 整輪 INCOMPLETE（不用 --force）
-   ndt up p4 --app <pkg> -> 讀 switch_state、openapi、fabric、`qdisc_snapshot.sh save`
+   **r6**：claim 成功後立刻從 claim 檔讀 `expires`，寫進 `LAB_STATE.claim_expires`（讀不到、或 owner 不是自己 → phase `claim-unverified`，不往下 up）
+   ndt up p4 --app <pkg>（**r6**：<pkg> 是這一輪自己的副本，放在這一輪的 run 目錄裡）-> 讀 switch_state、openapi、fabric、`qdisc_snapshot.sh save`
    逐格（順序：static -> active，TP2 在 Q1 之前，Q1 最後）
    結束前查 frames_reached_hosts
    finally（例外、SIGTERM、SIGINT、SIGHUP）：
@@ -510,6 +511,11 @@ S0（不用 lab，約 2 分鐘）
        - **r5 (Cut 1 follow-ups)**：`down-done` 的「`ndt status` 確認沒有 fabric」改在任何 claim 分支**寫入之前**做（唯讀）：fabric 還在 → rc 4，`ndt claim` 不會被呼叫。
        - **r5 (Cut 1 follow-ups)**：第 3 步有 kill 失敗時，不論 phase，整個流程做完之後以 rc 7 結束，不再印「done」、不再 rc 0。
        - `ndt status --measuring` 的輸出必須有 `measuring` 或 `orphaned` 其中一列（`ndt:6803-6815` 一定會印其中一列）；兩列都沒有就當忙碌，不放行（和讀不到時一樣，往關的方向失敗）。
+     - **r6 (Cut 1 follow-ups r6)**：「現場是這個 run 的」過去只靠 owner 加 package 路徑，這兩樣在兩輪之間都可以相同：先前某個 run 目錄的 `recover.sh`，會在後來同 owner、同 package 路徑那一輪的 live claim 之下通過、對那一輪的介面下 `tc qdisc del`、符合快照時再 `ndt down`。改成兩件事一起成立：
+       - **package 是這一輪自己的**：每一輪把 S0 建好的 package 複製進**這一輪的 run 目錄**（`<run>/pkg…`），`ndt up p4 --app` 用那一份；`LabRound` 拒絕 run 目錄以外的 `package_dir`（`..`、符號連結、名字開頭相同的鄰居、run 目錄本身都算外面），在動任何東西之前就丟 `PackageOutsideRunDir`。`recover.sh` 同樣要求 `package`（`readlink -m` 之後）在 run 目錄裡面，否則 rc 3、什麼都不寫。這讓 `app_package_override` ＝ 這個 package 成為只屬於這一輪的事實。
+       - **claim 是探測器自己那一個**：探測器在 `ndt claim` 成功後立刻把 claim 檔的 `expires` 記進 `LAB_STATE.claim_expires`。live claim 分支要求 claim 檔的 `expires` ＝ 記下的；過期 claim 分支要求過期的 claim **檔**的 `expires` ＝ 記下的（檔不見了就沒有東西可以對，rc 3）。任何一個不符：rc 3、什麼都不寫。`recover.sh` 自己重新 claim 成功之後，把新的 `expires` 寫回 `LAB_STATE.json`，否則失敗後第二次執行會在自己的 claim 上 rc 3。
+       - 還沒證明的：同一個 owner 在同一秒、同一長度的另一個 claim 會有相同的 `expires`；人手動對這一輪的 package 目錄下 `ndt up --app`，看起來就像探測器。
+     - **r6**：`recover.sh` 一開始（在 pid 檢查之前）要求 `owner`、`run`、`package`、`claim_file`、`app_package_override`、`claim_expires` 都在而且不是空的（`claim_expires` 是正整數），否則 rc 2、什麼都不做。package 為空、override 不見時，`"$ov" == "$PKG"` 在每個 phase 都成立。探測器若在 `ndt claim` 與寫入 `claim_expires` 之間死掉，`claim_expires` 是 null，也是 rc 2，由人看過再處理。
   3'. **r2 (Cut 1 review)**：sniffer 與控制器記錄成 pid＋start time（`/proc/<pid>/stat` 第 22 欄）＋cmdline marker（run id），三者都對得上才送訊號；停掉之後從 `LAB_STATE.json` 移除，之後不會被殺第二次。`lab_round` 的 teardown 在每個會動共用狀態的步驟（netem、`ndt down`、knob、release）之前重讀 claim：不再是自己的、或已過期，就停在那裡，剩下的交給 `recover.sh`。netem 加失敗的介面會移出清單。
   3. 停掉列出的 sniffer 與控制器 pid。
      - **r4 (Cut 1 follow-ups)**：phase 是 `down-done` 時**也做這一步**。停行程不需要 fabric；lab_round 在 kill 失敗時把那筆留在 `LAB_STATE.json` 就是留給這一次重試的，過了 `ndt down` 之後不能再跳過它。
@@ -1208,4 +1214,9 @@ S0（不用 lab，約 2 分鐘）
 9. **舊碼的身分**：任何舊碼對新碼的 log，表頭都記舊碼的 git tree sha、檔案的 blob sha 與副本的 sha256（本輪的紅燈 log 也是）。
 10. **`ORDER`**：沒有任何東西消費它。排程器是 Cut 3 的；這裡不發明一個。`table.py` 的註解與一個測試（`test_order_has_no_consumer_yet_and_the_comment_says_so`）都寫明這一點：真的有東西開始讀它的時候，這個測試會紅，逼著改註解與本節。
 11. **衛生——公開檔案不引用私有紀錄**：`expected_today.tsv` 與 `tools/p4_health` 會進公開的 main。CH4 的 basis 原本引的 `RULINGS-1001.md`（和 CH3 的 `REPORT.md`）是私有紀錄；改成引碼本身：`hc_main.p4` 把 shim 放在 IPv4 與 UDP 之間（`:87-88`、`:249`、`:254-260`），kernel 讀 L4 的位置由 IPv4 header 長度算出、而且只在 protocol 是 TCP／UDP 時才讀 port（`SFlowType.hpp:364,369,386,390-391`），所以 protocol 0xFD 的幀 key 是 protocol 253、port 0。一個測試掃這兩處，不允許再出現 rulings／intake／judge／report 檔名。**沒動的**：`expected_today.tsv` 裡還有 `GAP-2b` 的引用（C1、R2、P4、TTL1、TP4），那是 `doc/audit` 底下的 .md，同樣不在公開 main 上；這不在本輪的範圍，留給決定者。
-
+12. **r6 (Cut 1 follow-ups r6)：這一輪的身分是這一輪自己的**（細節與理由在 §4.5 第 2 項的 r6 註記）：
+    - 每一輪的 package 是 run 目錄裡的副本；`LabRound` 拒絕 run 目錄以外的 `package_dir`，`recover.sh` 也要求 `package` 在 run 目錄裡。Cut 1 沒有 `lab` 的驅動程式（Cut 2 才有），所以「把 S0 建好的 package 複製進 run 目錄」是 Cut 2 驅動程式要做的事；Cut 1 只能擋住不照做的情況。
+    - `LAB_STATE.claim_expires`：claim 成功後立刻記；`recover.sh` 在 live 與過期兩個分支都要求相等。過期分支從此不再接手「檔案不見」的 claim（沒有東西可對，rc 3）。`recover.sh` 重新 claim 後把新的 `expires` 寫回。
+    - `recover.sh` 對缺欄位的 state 檔 rc 2（見 §4.5）。
+    - `recover.sh` 第 9 行的「先證明現場還是探測器的」，現在的依據是上面兩樣；剩下沒證明的寫在 §4.5 與該檔表頭。
+    - `claim-unverified` 是新的 phase：`ndt claim` 回 0、claim 檔卻不顯示是自己的，不 up、不 release。

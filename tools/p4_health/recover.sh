@@ -6,8 +6,11 @@
 #
 # Run by a person, after the probe died. Reads <run dir>/LAB_STATE.json, which the probe rewrites
 # before every step that changes the machine, and does what its `finally` would have done, in
-# the same order -- but only after proving the lab is still the probe's:
+# the same order -- but only after checking, on evidence that belongs to THIS run alone (its own
+# package directory, the expires of its own claim), that the lab is still the probe's:
 #
+#   0. (r6) the state names what the proof rests on -- owner, run, package, claim_file,
+#      app_package_override and claim_expires -- else rc 2 with nothing done;
 #   1. the probe's pid must be gone;
 #   2. the lab must still be this run's (Cut 1 review, MAJ-5): the claim's owner is the run's
 #      owner and the claim is live; app_package_override names this run's package (or is empty
@@ -15,10 +18,19 @@
 #      this run or ndt wrote for it -- the probe's own "p4-health <run> <bring-up> ...", ndt up's
 #      "in use: ndt up p4 ... by <owner>" (ndt:1207-1215), or ndt down's "down at ..."
 #      (ndt:1245-1277). Any mismatch: print it, write NOTHING, stop (rc 3).
-#      Section 12 item 11: a claim that is GONE or EXPIRED while the override still names this
-#      run's package is re-taken with the same owner -- but only when the expired claim's owner
-#      was this run's (or there is no claim file at all) and `ndt status --measuring` shows no
-#      measurement declared or in flight. Somebody else's expired claim is not ours to take.
+#      (r6) Two things make "this run's" a fact about THIS run and not about its owner and a path:
+#      the package is inside the run's own directory (every round has its own copy, so the override
+#      names this round and no other), and the claim's `expires` is the one the probe read from the
+#      claim file right after its `ndt claim` succeeded (a later claim, by anyone, has another).
+#      Section 12 item 11: a claim that is EXPIRED while the override still names this run's
+#      package is re-taken with the same owner -- but only when that expired claim FILE is the
+#      one the probe recorded (same owner, same expires; a file that is gone identifies nothing:
+#      rc 3) and `ndt status --measuring` shows no measurement declared or in flight. Somebody
+#      else's expired claim is not ours to take. After a re-claim the new expires is written into
+#      LAB_STATE.json, so a second run of this script after a failed step still knows the claim.
+#      What is still not proven: a claim another session makes for the same owner in the very same
+#      second and for the same length has the same expires; and a person who runs `ndt up --app`
+#      by hand on this run's package directory looks like the probe.
 #   3. stop the recorded sniffers and controllers -- each only while its pid, its start time
 #      (/proc/<pid>/stat field 22) and the marker in its command line all still match what the
 #      probe recorded; a recycled pid is left alone;
@@ -46,7 +58,8 @@
 #   8. `ndt status`, printed for the person to read: no bmv2, no heartbeat, no claim.
 #      (r5) rc 7 at the very end if any kill in step 3 failed: the lab is put right, a process is not.
 #
-# Exit: 0 done; 2 usage / root; 3 not this run's lab, or the probe is alive; 4 a fabric up where
+# Exit: 0 done; 2 usage / root / a state file that lacks what the proof rests on; 3 not this run's
+# lab, or the probe is alive; 4 a fabric up where
 # none should be, or qdisc drift; 5 down or knobs failed; 6 release refused; 7 a recorded process
 # could not be stopped.
 #
@@ -78,11 +91,27 @@ PY
 PID="$(field pid)"; OWNER="$(field owner)"; RUNID="$(field run)"; BRINGUP="$(field bring_up)"
 PKG="$(field package)"; NETEM="$(field netem)"; QBEFORE="$(field qdisc_before)"; PHASE="$(field phase)"
 PID_START="$(field pid_start)"
-CLAIM_FILE="$(field claim_file)"; OVERRIDE="$(field app_package_override)"
+CLAIM_FILE="$(field claim_file)"; OVERRIDE="$(field app_package_override)"; CLAIM_EXPIRES="$(field claim_expires)"
 NDT="${P4H_NDT:-$(field ndt)}"; NDT="${NDT:-$REPO/tools/test_workflow/ndt}"
 QDISC="${P4H_QDISC_SNAPSHOT:-$REPO/tools/test_workflow/qdisc_snapshot.sh}"
 SUDO="${P4H_SUDO:-sudo}"; KILL="${P4H_KILL:-kill}"; PROC="${P4H_PROC:-/proc}"
 echo "recover: run $RUNID bring-up $BRINGUP phase $PHASE owner $OWNER"
+
+# 0. (r6) a state file that leaves out what the proof rests on proves nothing: with an empty package
+#    and an absent override "$ov" == "$PKG" would hold in every phase. A person looks at it (rc 2).
+for kv in \
+    "owner:$OWNER" \
+    "run:$RUNID" \
+    "package:$PKG" \
+    "claim_file:$CLAIM_FILE" \
+    "app_package_override:$OVERRIDE"; do
+    if [[ -z "${kv#*:}" ]]; then
+        echo "STOP: $STATE has no ${kv%%:*} -- nothing is proved without it; a person looks. Nothing done."; exit 2
+    fi
+done
+# claim_expires: absent, empty, null, 0 or text all fail this one test
+[[ "$CLAIM_EXPIRES" =~ ^[1-9][0-9]*$ ]] || {
+    echo "STOP: $STATE has claim_expires '$CLAIM_EXPIRES', not a time -- the probe did not record its claim. Nothing done."; exit 2; }
 
 # 3. sniffers (root, in a host namespace) and controllers (the user's): pid + start + marker.
 #    Also in down-done and released (r4, r5): a kill needs no fabric, and a failed one was kept for
@@ -141,12 +170,23 @@ if [[ "$PHASE" == released ]]; then
     echo "recover: nothing else to do for a released run."; exit 0
 fi
 
+# 1c. (r6) the package is this run's own copy, inside the run's directory. A package at a path another
+#     round can also use proves only that somebody ran `ndt up --app` with that path.
+run_abs="$(readlink -m "$RUN")"; pkg_abs="$(readlink -m "$PKG")"
+if [[ "$pkg_abs" != "$run_abs"/* ]]; then
+    echo "STOP: the package '$PKG' is not inside the run dir '$RUN': this state was not written by a probe"
+    echo "      that gives every round its own package, so the override cannot tell this run from another. Nothing written."
+    exit 3
+fi
+
 # 2. the lab is still ours
 claim_get() { [[ -f "$CLAIM_FILE" ]] && sed -n "s/^$1=//p" "$CLAIM_FILE" | head -1; }
 c_owner="$(claim_get owner)"; c_note="$(claim_get note)"; c_exp="$(claim_get expires)"
 c_meas="$(claim_get measuring)"
 [[ "$c_exp" =~ ^[0-9]+$ ]] || c_exp=0
 now="$(date +%s)"
+# (r6) the claim in the file is the one the probe recorded right after `ndt claim` -- not a later one
+claim_same=0; [[ "$c_exp" -gt 0 && "$c_exp" -eq "$CLAIM_EXPIRES" ]] && claim_same=1
 ov=""; [[ -f "$OVERRIDE" ]] && ov="$(head -1 "$OVERRIDE")"
 override_ours=0
 if [[ "$ov" == "$PKG" ]]; then override_ours=1
@@ -184,10 +224,10 @@ down_done_fabric_check() {  # (r3, review NEW-C; r5: called BEFORE any write) th
     fi
     echo "  the probe's ndt down had completed and ndt status shows no fabric: knobs and release only"
 }
-if [[ "$c_owner" == "$OWNER" && "$c_exp" -gt "$now" && "$override_ours" -eq 1 && "$note_ours" -eq 1 ]]; then
+if [[ "$c_owner" == "$OWNER" && "$c_exp" -gt "$now" && "$claim_same" -eq 1 && "$override_ours" -eq 1 && "$note_ours" -eq 1 ]]; then
     echo "  the claim, its note and the override are this run's"
     down_done_fabric_check
-elif [[ ( -z "$c_owner" || "$c_owner" == "$OWNER" ) && "$c_exp" -le "$now" \
+elif [[ ( -z "$c_owner" || "$c_owner" == "$OWNER" ) && "$c_exp" -le "$now" && "$claim_same" -eq 1 \
         && ( "$ov" == "$PKG" || ( -z "$ov" && "$PHASE" == down-done && "$c_owner" == "$OWNER" ) ) ]]; then
     # (r5) an expired claim is re-taken only on evidence the fabric is still ours: the override
     # still names our package, or -- in down-done alone, where our own `ndt down` removed it --
@@ -195,20 +235,36 @@ elif [[ ( -z "$c_owner" || "$c_owner" == "$OWNER" ) && "$c_exp" -le "$now" \
     down_done_fabric_check
     busy="$(measuring_now)"
     if [[ -n "$c_meas" || -n "$busy" ]]; then
-        echo "STOP: the claim is gone or expired, but a measurement is declared or running:"
+        echo "STOP: the claim is expired, but a measurement is declared or running:"
         echo "  ${c_meas:+claim measuring=$c_meas }$busy"
         echo "  nothing written."
         exit 3
     fi
-    echo "  the claim is gone or expired, it was this run's owner's, the override still names this run's"
+    echo "  the claim is expired, it is the one the probe recorded, the override still names this run's"
     echo "  package (or, in down-done, ndt down cleared it and the claim file is ours) and nothing is"
     echo "  measuring: re-claiming as $OWNER"
     if ! NDT_OWNER="$OWNER" "$NDT" claim 30 "p4-health $RUNID $BRINGUP recover state=$STATE"; then
         echo "STOP: the re-claim was refused; nothing written."; exit 3
     fi
+    # (r6) the claim is a new one now: record its expires, or a second run after a failed step would
+    # stop at rc 3 on a claim that is ours. Read the way the script reads every claim field.
+    new_exp="$(claim_get expires)"
+    if [[ "$new_exp" =~ ^[1-9][0-9]*$ ]] && python3 - "$STATE" "$new_exp" <<'PY'
+import json, os, sys
+st = json.load(open(sys.argv[1]))
+st["claim_expires"] = int(sys.argv[2])
+tmp = sys.argv[1] + ".tmp"
+with open(tmp, "w", encoding="utf-8") as fh:
+    json.dump(st, fh, indent=2, sort_keys=True)
+    fh.write("\n")
+os.replace(tmp, sys.argv[1])
+PY
+    then echo "  recorded the new claim's expires ($new_exp) in $STATE"
+    else echo "  WARNING: could not record the new claim's expires; a second run of this script will stop at rc 3"
+    fi
 else
     echo "STOP: the lab does not look like this run's -- nothing written."
-    echo "  claim owner '$c_owner' (want '$OWNER'), note '$c_note', expires '$c_exp' (now $now)"
+    echo "  claim owner '$c_owner' (want '$OWNER'), note '$c_note', expires '$c_exp' (now $now; the probe recorded $CLAIM_EXPIRES)"
     echo "  app_package_override '$ov' (want '$PKG')"
     exit 3
 fi

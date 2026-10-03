@@ -646,7 +646,8 @@ class TestLabRound(Sealed):
             fh.write(b"/some/other/package\n")
         self.proxy.routes[("GET", "/p4/switch_state")] = (200, {"heartbeat": {"state": "usable",
                                                                             "frames_reached_hosts": False}})
-        self.pkg = os.path.join(self.tmp, "pkgA")
+        self.pkg = os.path.join(self.cfg.run_dir, "pkgA")       # (r6) each round's package is inside its run dir
+        self.claim_exp = int(__import__("time").time()) + 600  # the one claim the round makes
         self.proc = os.path.join(self.tmp, "proc")
         self.fake_proc(555, 777001, "python3\0sniff.py\0--run-id\0run-x\0")
         self.fake_proc(666, 777002, "python3\0controller_ext.py\0run-x\0")
@@ -660,9 +661,13 @@ class TestLabRound(Sealed):
             fh.write(cmdline)
 
     def write_claim(self, owner="p4h-test", expires=None, note=""):
-        expires = expires if expires is not None else int(__import__("time").time()) + 600
+        expires = expires if expires is not None else self.claim_exp
         with open(self.cfg.claim_file, "w") as fh:
             fh.write("owner=%s\nexpires=%d\nnote=%s\nexclusive_cpu=no\nmeasuring=\n" % (owner, expires, note))
+
+    def write_claim_text(self, text):
+        with open(self.cfg.claim_file, "w") as fh:
+            fh.write(text)
 
     def runner(self, down_rc=0, release_rc=0, claim_rc=0, diff_rc=0, tc_add_rc=0,
                status="  measuring      nothing\n"):
@@ -749,6 +754,63 @@ class TestLabRound(Sealed):
         for call in r.calls:
             if call["argv"][0] == "ndt":
                 self.assertEqual(call["env"].get("NDT_OWNER"), "p4h-test", call["argv"])
+
+    def test_a_package_outside_the_run_dir_is_refused_and_nothing_is_touched(self):
+        """(r6) Each round's package is its own copy inside its run dir, so app_package_override names
+        that round and no other. A package anywhere else is refused before any file or command."""
+        outside = os.path.join(self.tmp, "shared", "pkg")
+        os.makedirs(outside)
+        link = os.path.join(self.cfg.run_dir, "pkgL")
+        os.makedirs(self.cfg.run_dir)
+        os.symlink(outside, link)
+        for what, pkg in (("a sibling directory", outside),
+                          ("a name that starts like the run dir", self.cfg.run_dir + "2/pkg"),
+                          ("a path that climbs out with ..", os.path.join(self.cfg.run_dir, "..", "pkgB")),
+                          ("a link out of the run dir", link),
+                          ("the run dir itself", self.cfg.run_dir)):
+            with self.subTest(package=what):
+                r = self.runner()
+                with self.assertRaises(ValueError) as cm:
+                    LR.LabRound(self.cfg, r, "A", pkg, "run-x", pid=4242, proc_root=self.proc,
+                                install_signals=False)
+                self.assertIn("not inside the run dir", str(cm.exception))
+                self.assertEqual(r.calls, [])                              # no command
+                self.assertFalse(os.path.exists(self.cfg.lab_state_path))   # no state file
+        self.assertEqual(os.listdir(self.cfg.run_dir), ["pkgL"])            # and nothing else in the run dir
+        lr = self.lab(self.runner())                                        # a package inside it is accepted
+        self.assertEqual(lr.state["package"], self.pkg)
+
+    def test_the_claims_expires_is_recorded_right_after_the_claim_and_before_the_up(self):
+        """(r6) recover.sh tells this claim from any later one by its expires."""
+        seen = {}
+        r = self.runner()
+        up = [rep for rep in r.replies if rep[0] == ("ndt", "up")][0][1]
+
+        def watching_up(argv, env, inp):
+            seen["at_up"] = self.state().get("claim_expires")
+            return up(argv, env, inp)
+        r.replies.insert(0, (("ndt", "up"), watching_up))
+        self.round(r)
+        self.assertEqual(seen["at_up"], self.claim_exp)
+        self.assertEqual(self.state()["claim_expires"], self.claim_exp)
+
+    def test_a_claim_the_file_does_not_show_as_ours_is_not_brought_up_on(self):
+        """(r6) `ndt claim` exited 0 but the file has no claim of ours: nothing can be recorded for
+        recover.sh to rest on, so nothing is brought up, and nothing is released either."""
+        for what, writer in (("no claim file", lambda: None),
+                             ("somebody else's claim", lambda: self.write_claim(owner="somebody-else")),
+                             ("no expires", lambda: self.write_claim_text("owner=p4h-test\n"))):
+            with self.subTest(claim=what):
+                if os.path.exists(self.cfg.claim_file):
+                    os.remove(self.cfg.claim_file)
+                r = self.runner()
+                r.replies.insert(0, (("ndt", "claim"), lambda a, e, i, w=writer: (w(), (0, ""))[1]))
+                _lr, rec = self.round(r)
+                self.assertEqual(self.names(r), ["ndt status", "ndt claim"])
+                self.assertFalse(rec["complete"])
+                self.assertTrue([p for p in rec["problems"] if "does not show our claim" in p], rec["problems"])
+                self.assertEqual(self.state()["phase"], "claim-unverified")
+                self.assertIsNone(self.state()["claim_expires"])
 
     def test_the_claim_note_names_the_state_file(self):
         r = self.runner()
@@ -987,6 +1049,9 @@ class TestLabRound(Sealed):
         self.assertIsNotNone(LR.lab_busy("  declared       a run\n  measuring      nothing\n", "", "me", now))
 
     def test_a_refused_claim_is_incomplete_and_brings_nothing_up(self):
+        # An earlier claim of our own owner is still in the file: it is not what stops the round,
+        # the refusal is (r6: the claim-file check after `ndt claim` would otherwise hide that).
+        self.write_claim()
         r = self.runner(claim_rc=1)
         _lr, rec = self.round(r)
         self.assertEqual(self.names(r), ["ndt status", "ndt claim"])
