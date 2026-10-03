@@ -1,7 +1,7 @@
 # P4 health check -- predictions, committed before any live run (DESIGN 5.1).
 # [Co-developed with claude code -- Adam]
 # expected = the verdict label predicted for today's trunk (995bdfd0). added: r6 = from the reviewed
-# design; cut1-q3b = added in Cut 1 for Q3(b), not yet reviewed (DESIGN.md section 13).
+# design; cut1-q3b = added in Cut 1 for Q3(b), not yet reviewed (DESIGN.md sections 13 and 14). Rows whose basis starts "r2 (Cut 1 review)" changed in the review round.
 cell	dimension	scope	bringup	cut	expected	basis	added
 PL1	pipeline_load	core	A	2	GREEN	§5.1 pipeline_load always can: each switch gets its own program (main.py:2012-2016); p4info sha in switch_state (api_routes.py:758-761)	r6
 PL2	pipeline_load	core	B	4	GREEN	external skips pipeline_push (main.py:337); the controller pushes its own	r6
@@ -39,7 +39,7 @@ CH5	custom_headers	core	A	3	GREEN	one VLAN tag is stripped natively (SFlowType.h
 CH6	custom_headers	ext	A	3	GREEN	a shim after L4 does not move the 5-tuple	r6
 CH7	custom_headers	core	A	3	GREEN	the side table keys ethertype and both MACs and counts samples (SFlowType.hpp:587-589)	r6
 CH8	custom_headers	ext	A	3	PARTIAL(a)	tunnel traffic through s1's port-keyed parser lands only in the side table	r6
-VB1	custom_headers	ext	A	3	NOT RUN	by design: NDTwin's half of a varbit tail is CH6's (DESIGN 13)	cut1-q3b
+VB1	custom_headers	ext	A	3	GREEN	r2 (Cut 1 review): alias of CH3 -- the varbit NDTwin parses through is the IPv4 options header; = CH3's prediction	cut1-q3b
 Q1	queue_metadata	core	A	3	GREEN	most likely per DESIGN 5.1: links[] shaping makes a queue at s1-eth5; UNATTRIBUTED if qdepth stays 0	r6
 Q2	queue_metadata	ext	A	3	RED	no --priority-queues anywhere in p4_proxy/mininet (0 hits); the fabric binary has the string	r6
 CS1	checksum	core	A	2	GREEN	tx-checksumming turned off per host (p4_testbed_topo.py:474-491)	r6
@@ -54,11 +54,11 @@ V1	verification	core	A	3	GREEN	G1 on plain IPv4 iperf	r6
 V2	verification	core	A	3	PARTIAL(a)	CH1/CH2 bytes match netdev; identity only in the side table	r6
 AP1	action_profile	ext	A	2	RED	no action-profile route; the writer builds direct EXACT/LPM entries only (p4_client.py:133,1204-1208)	cut1-q3b
 AS1	action_profile	ext	A	2	RED	no action-selector route (same writer)	cut1-q3b
-IT1	idle_timeout	ext	A	2	RED	no idle-timeout field on POST /p4/table_entry; the stream handles packet and arbitration only (p4_client.py:526-551)	cut1-q3b
-VS1	value_set	ext	A	2	RED	no value-set route	cut1-q3b
-RC1	recirculate	ext	A	3	GREEN	inferred: link telemetry samples each port's ingress (link_telemetry.py:312,329-338) and a recirculated or resubmitted pass crosses no veth	cut1-q3b
-HR1	hash_random	ext	A	3	GREEN	inferred: link usage is measured per link from samples, not computed from NDTwin's own routing	cut1-q3b
-HR2	hash_random	ext	A	3	GREEN	inferred: as HR1	cut1-q3b
-HU1	header_union	ext	A	3	PARTIAL(a)	inferred: IPv6 goes to the non_ipv4_flows side table (FlowLinkUsageCollector.cpp:1134-1161); no IPv6 flow identity	cut1-q3b
-K1-neg	control	-	A	2	GREEN	control: an unknown counter answers 404 (api_routes.py:963-1029)	r6
-T3-neg	control	-	A	2	GREEN	control: a table not in the pipeline answers 404	r6
+IT1	idle_timeout	ext	A	2	RED	no idle-timeout field on POST /p4/table_entry; the stream handles packet and arbitration only (p4_client.py:526-551); r2: thrift's Life: line is the aging oracle	cut1-q3b
+VS1	value_set	ext	A	2	UNATTRIBUTED	r2 (Cut 1 review): no value-set route (structural), but bmv2's P4Runtime refuses ValueSetEntry writes too (UNIMPLEMENTED 'ValueSet writes are not supported yet', vs_trial on throwaway simple_switch_grpc, stock and fast) and thrift pvs_add aborts the stock bmv2 -- the bmv2 half of the attribution cannot be established	cut1-q3b
+RC1	recirculate	ext	A	3	GREEN	r2 (Cut 1 review): alias of V1 -- with telemetry.source=link a recirculated pass enters no port (link_telemetry.py:312,329-338); = V1's prediction	cut1-q3b
+HR1	hash_random	ext	A	3	GREEN	r2 (Cut 1 review), inferred: one 5-tuple flow hashes to one uplink; link usage is measured per link from samples, read against a quiet window	cut1-q3b
+HR2	hash_random	ext	A	3	GREEN	r2 (Cut 1 review), inferred: the coin splits the flow over both uplinks; per-link usage from samples, read against a quiet window	cut1-q3b
+HU1	header_union	ext	A	3	PARTIAL(a)	r2 (Cut 1 review), inferred: the IPv6 member goes to the non_ipv4_flows side table (FlowLinkUsageCollector.cpp:1134-1161), the 0x1238 member too; no IPv6 flow identity	cut1-q3b
+K1-neg	control	-	A	2	GREEN	control: an unknown counter answers 404 {error: not in this pipeline} (api_routes.py:1015)	r6
+T3-neg	control	-	A	2	GREEN	control: a table not in the pipeline answers 404 {error: not in this pipeline} (api_routes.py:940)	r6
