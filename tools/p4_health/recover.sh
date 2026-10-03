@@ -23,9 +23,13 @@
 #      (/proc/<pid>/stat field 22) and the marker in its command line all still match what the
 #      probe recorded; a recycled pid is left alone;
 #   (r3, review NEW-C) phase `down-done` -- the probe's `ndt down` already succeeded: `ndt status`
-#      must show no bmv2 switch and no host/switch process (else STOP, rc 4); steps 3-5 are skipped
+#      must show no bmv2 switch and no host/switch process (else STOP, rc 4); steps 4-5 are skipped
 #      (the interfaces they would touch are gone, and a qdisc diff against them always differs);
-#      the recovery goes straight to the knobs and the release;
+#      the recovery goes to the knobs and the release.
+#      (r4, Cut 1 follow-ups) Step 3 is NOT skipped there: stopping a process needs no fabric, and
+#      a kill that failed in the probe's teardown is still recorded for exactly this retry. Our own
+#      expired claim is re-taken in this phase too: `ndt down` removes app_package_override
+#      (ndt:1597-1601), so the check is `override_ours`, not "the override names this package".
 #   4. take netem off the recorded interfaces; the qdisc tree must equal the snapshot taken after
 #      `ndt up` -- if it does not, print the difference and stop for a person (rc 4);
 #   5. `ndt down` as the same owner (rc 5 if it fails: nothing is released over a fabric still up);
@@ -98,15 +102,20 @@ case "$c_note" in
 esac
 measuring_now() {  # a declaration or a measurement in flight, per ndt's own rows; empty if none.
     # Fails CLOSED (review MINOR 6): an `ndt status --measuring` that does not answer is busy.
+    # (r4) So is one that answers with neither a `measuring` nor an `orphaned` row: ndt always
+    # prints one of the two (ndt:6803-6815), so their absence is an answer we do not understand.
     local out
     if ! out="$(NDT_OWNER="$OWNER" "$NDT" status --measuring 2>/dev/null)"; then
         echo "ndt status --measuring did not answer"; return
+    fi
+    if ! printf '%s\n' "$out" | awk '$1 == "measuring" || $1 == "orphaned" { found = 1 } END { exit !found }'; then
+        echo "ndt status --measuring printed neither a measuring nor an orphaned row"; return
     fi
     printf '%s\n' "$out" | awk '$1 == "declared" || ($1 == "measuring" && $2 != "nothing") { print; exit }'
 }
 if [[ "$c_owner" == "$OWNER" && "$c_exp" -gt "$now" && "$override_ours" -eq 1 && "$note_ours" -eq 1 ]]; then
     echo "  the claim, its note and the override are this run's"
-elif [[ ( -z "$c_owner" || "$c_owner" == "$OWNER" ) && "$c_exp" -le "$now" && "$ov" == "$PKG" ]]; then
+elif [[ ( -z "$c_owner" || "$c_owner" == "$OWNER" ) && "$c_exp" -le "$now" && "$override_ours" -eq 1 && "$PHASE" != released ]]; then
     busy="$(measuring_now)"
     if [[ -n "$c_meas" || -n "$busy" ]]; then
         echo "STOP: the claim is gone or expired, but a measurement is declared or running:"
@@ -114,8 +123,8 @@ elif [[ ( -z "$c_owner" || "$c_owner" == "$OWNER" ) && "$c_exp" -le "$now" && "$
         echo "  nothing written."
         exit 3
     fi
-    echo "  the claim is gone or expired, it was this run's owner's, the override still names this"
-    echo "  run's package and nothing is measuring: re-claiming as $OWNER"
+    echo "  the claim is gone or expired, it was this run's owner's, the override is this run's (or"
+    echo "  already cleared by the probe's ndt down) and nothing is measuring: re-claiming as $OWNER"
     if ! NDT_OWNER="$OWNER" "$NDT" claim 30 "p4-health $RUNID $BRINGUP recover state=$STATE"; then
         echo "STOP: the re-claim was refused; nothing written."; exit 3
     fi
@@ -139,8 +148,8 @@ if [[ "$PHASE" == down-done ]]; then
     echo "  the probe's ndt down had completed and ndt status shows no fabric: knobs and release only"
 fi
 
-if [[ "$PHASE" != down-done ]]; then
-# 3. sniffers (root, in a host namespace) and controllers (the user's): pid + start + marker
+# 3. sniffers (root, in a host namespace) and controllers (the user's): pid + start + marker.
+#    Also in down-done (r4): a kill needs no fabric, and a failed one was kept for this retry.
 procs() {  # procs <key> -- "pid start marker" per recorded process
     python3 - "$STATE" "$1" <<'PY'
 import json, sys
@@ -167,6 +176,7 @@ while read -r p st mk; do
     else echo "  controller $p: gone or no longer the process the probe started -- left alone"; fi
 done < <(procs controllers)
 
+if [[ "$PHASE" != down-done ]]; then
 # 4. netem off, and the qdisc tree must be what it was right after `ndt up`
 for i in $NETEM; do "$SUDO" -n tc qdisc del dev "$i" root || echo "  $i: no netem to remove?"; done
 if [[ -n "$QBEFORE" ]]; then

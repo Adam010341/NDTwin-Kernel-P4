@@ -761,8 +761,8 @@ add "R2. recover.sh releases after a failed down" \
 
 add "R3. recover.sh takes over an expired claim of somebody else" \
     "$RECOVER" \
-    'elif [[ ( -z "$c_owner" || "$c_owner" == "$OWNER" ) && "$c_exp" -le "$now" && "$ov" == "$PKG" ]]; then' \
-    'elif [[ "$c_exp" -le "$now" && "$ov" == "$PKG" ]]; then' \
+    'elif [[ ( -z "$c_owner" || "$c_owner" == "$OWNER" ) && "$c_exp" -le "$now" && "$override_ours" -eq 1 && "$PHASE" != released ]]; then' \
+    'elif [[ "$c_exp" -le "$now" && "$override_ours" -eq 1 && "$PHASE" != released ]]; then' \
     'an expired foreign claim: rc 3, no re-claim'
 
 add "R4. recover.sh re-claims over a measurement" \
@@ -927,6 +927,39 @@ add "R3-m6c. recover.sh measuring check fails open" \
     '        echo "ndt status --measuring did not answer"; return' \
     '        return  # MUTANT' \
     'an expired claim and ndt status --measuring not answering: rc 3 (fails closed)'
+
+
+# Round 4 (the Cut 1 follow-ups: recover after an expired claim in down-done, the HR bound, the
+# K1/T3 route, HU1's key, the timed-reading encodings, a failed kill, measuring_now).
+add "R4-1a. recover.sh re-claims only while the override names the package (follow-up 1)" \
+    "$RECOVER" \
+    '&& "$override_ours" -eq 1 && "$PHASE" != released ]]; then' \
+    '&& "$ov" == "$PKG" && "$PHASE" != released ]]; then' \
+    'down-done, own claim expired, override absent: rc 0'
+
+add "R4-1b. recover.sh re-claims a run that was already released" \
+    "$RECOVER" \
+    ' && "$PHASE" != released ]]; then' \
+    ' ]]; then  # MUTANT' \
+    'released, no claim, override absent: rc 3, nothing run (a finished run is not re-claimed)'
+
+add "R4-2a. recover.sh skips the process step in down-done (follow-up 2)" \
+    "$RECOVER" \
+    'procs() {  # procs <key> -- "pid start marker" per recorded process' \
+    'procs() { [[ "$PHASE" == down-done ]] && return 0  # MUTANT: procs <key>' \
+    'down-done with a kept sniffer and controller: ndt status, both signalled, release -- no qdisc, no netem, no down'
+
+add "R4-8a. recover.sh takes an answer with no measuring or orphaned row for idle (follow-up 8)" \
+    "$RECOVER" \
+    "    if ! printf '%s\n' \"\$out\" | awk '\$1 == \"measuring\" || \$1 == \"orphaned\" { found = 1 } END { exit !found }'; then" \
+    '    if false; then  # MUTANT' \
+    'an expired claim and an empty ndt status --measuring answer: rc 3 (fails closed)'
+
+add "R4-8b. recover.sh takes only a measuring row for evidence (an orphaned row alone is busy)" \
+    "$RECOVER" \
+    "awk '\$1 == \"measuring\" || \$1 == \"orphaned\" { found = 1 }" \
+    "awk '\$1 == \"measuring\" { found = 1 }" \
+    'an expired claim and only an orphaned row (leftovers, no fabric): rc 0, re-claimed'
 
 
 CTRL_SRC="$TABLE"
