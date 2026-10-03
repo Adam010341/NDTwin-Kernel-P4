@@ -1,0 +1,44 @@
+add20e879e7af3b61dcdb65ce8196f9f752b7616
+# 2026-09-27T23:55:42Z cmd bash -c p4_proxy/venv/bin/python tests/python/test_grpc_port_block.py
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c p4_proxy/venv/bin/python tests/python/test_grpc_port_block.py
+test_a_block_half_inside_the_range_is_still_refused (__main__.AnOverlappingRangeIsRefused.test_a_block_half_inside_the_range_is_still_refused) ... ok
+test_assert_raises_on_an_overlapping_range (__main__.AnOverlappingRangeIsRefused.test_assert_raises_on_an_overlapping_range) ... ok
+test_check_port_block_reports_the_overlap (__main__.AnOverlappingRangeIsRefused.test_check_port_block_reports_the_overlap) ... ok
+test_ports_at_risk_names_every_port_in_the_range (__main__.AnOverlappingRangeIsRefused.test_ports_at_risk_names_every_port_in_the_range) ... ok
+test_a_malformed_file_reads_as_None (__main__.AnUnreadableRangeIsNotTreatedAsSafe.test_a_malformed_file_reads_as_None) ... ok
+test_a_missing_file_reads_as_None (__main__.AnUnreadableRangeIsNotTreatedAsSafe.test_a_missing_file_reads_as_None) ... ok
+test_a_missing_reserved_file_reserves_nothing (__main__.AnUnreadableRangeIsNotTreatedAsSafe.test_a_missing_reserved_file_reserves_nothing) ... ok
+test_an_unreadable_range_is_refused (__main__.AnUnreadableRangeIsNotTreatedAsSafe.test_an_unreadable_range_is_refused) ... ok
+test_a_complete_fabric_is_not_fatal_and_says_nothing (__main__.BringUpRefusesAPartialFabric.test_a_complete_fabric_is_not_fatal_and_says_nothing) ... ok
+test_any_other_value_of_the_hatch_is_still_fatal (__main__.BringUpRefusesAPartialFabric.test_any_other_value_of_the_hatch_is_still_fatal) ... ok
+test_one_missing_switch_is_fatal (__main__.BringUpRefusesAPartialFabric.test_one_missing_switch_is_fatal) ... ok
+test_the_escape_hatch_keeps_a_partial_fabric_but_still_reports (__main__.BringUpRefusesAPartialFabric.test_the_escape_hatch_keeps_a_partial_fabric_but_still_reports) ... ok
+test_the_report_carries_each_failure_reason (__main__.BringUpRefusesAPartialFabric.test_the_report_carries_each_failure_reason) ... ok
+test_every_allowed_line_is_still_there (__main__.NoLiveDocumentStillNamesTheOldPortBlock.test_every_allowed_line_is_still_there) ... ok
+test_no_live_doc_or_tool_names_the_old_block (__main__.NoLiveDocumentStillNamesTheOldPortBlock.test_no_live_doc_or_tool_names_the_old_block) ... ok
+test_the_allowlist_is_not_hiding_a_typo (__main__.NoLiveDocumentStillNamesTheOldPortBlock.test_the_allowlist_is_not_hiding_a_typo) ... ok
+test_the_scan_can_actually_find_the_old_block (__main__.NoLiveDocumentStillNamesTheOldPortBlock.test_the_scan_can_actually_find_the_old_block) ... ok
+test_a_comma_separated_list_is_parsed_too (__main__.ReservingTheBlockMakesAnOverlapSafe.test_a_comma_separated_list_is_parsed_too) ... ok
+test_a_reserved_range_clears_the_check (__main__.ReservingTheBlockMakesAnOverlapSafe.test_a_reserved_range_clears_the_check) ... ok
+test_reserving_only_part_of_the_block_still_refuses (__main__.ReservingTheBlockMakesAnOverlapSafe.test_reserving_only_part_of_the_block_still_refuses) ... ok
+test_the_imported_constant_matches_the_source_on_disk (__main__.TheBlockClearsThisMachinesEphemeralRange.test_the_imported_constant_matches_the_source_on_disk)
+Guard against stale bytecode, which bit this change during development. ... ok
+test_the_range_file_is_readable (__main__.TheBlockClearsThisMachinesEphemeralRange.test_the_range_file_is_readable) ... ok
+test_the_ten_switch_block_is_outside_the_range (__main__.TheBlockClearsThisMachinesEphemeralRange.test_the_ten_switch_block_is_outside_the_range) ... ok
+test_the_thrift_block_is_outside_the_range_too (__main__.TheBlockClearsThisMachinesEphemeralRange.test_the_thrift_block_is_outside_the_range_too) ... ok
+test_the_whole_configured_block_passes_the_shipped_check (__main__.TheBlockClearsThisMachinesEphemeralRange.test_the_whole_configured_block_passes_the_shipped_check) ... ok
+test_there_is_headroom_for_a_much_larger_fabric (__main__.TheBlockClearsThisMachinesEphemeralRange.test_there_is_headroom_for_a_much_larger_fabric) ... ok
+test_the_proxy_carries_no_literal_port_base (__main__.TheFabricAndTheProxyAgreeOnThePortBlock.test_the_proxy_carries_no_literal_port_base) ... ok
+test_the_proxy_imports_the_base_instead_of_restating_it (__main__.TheFabricAndTheProxyAgreeOnThePortBlock.test_the_proxy_imports_the_base_instead_of_restating_it) ... ok
+test_the_topology_takes_its_ports_from_the_module (__main__.TheFabricAndTheProxyAgreeOnThePortBlock.test_the_topology_takes_its_ports_from_the_module) ... ok
+test_a_safe_block_returns_no_warning_even_with_the_override_set (__main__.TheOverrideIsADecisionNotADefault.test_a_safe_block_returns_no_warning_even_with_the_override_set) ... ok
+test_any_other_value_does_not_open_the_hatch (__main__.TheOverrideIsADecisionNotADefault.test_any_other_value_does_not_open_the_hatch) ... ok
+test_the_override_downgrades_the_refusal_to_a_returned_warning (__main__.TheOverrideIsADecisionNotADefault.test_the_override_downgrades_the_refusal_to_a_returned_warning) ... ok
+
+----------------------------------------------------------------------
+Ran 32 tests in 0.232s
+
+OK
+guarded_build: exit 0
+# rc=0

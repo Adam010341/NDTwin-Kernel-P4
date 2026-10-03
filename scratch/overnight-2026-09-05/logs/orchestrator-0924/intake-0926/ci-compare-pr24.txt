@@ -1,0 +1,25 @@
+# PR #24 head 969251eb, compared 2026-10-02 by sonnet-worker, key lines spot-checked by the orchestrator
+8/8 jobs pass in 2 runs: 36961099843 (push, branch pr/ndt-serve-gui-v2, GCC 110694749607) and 36961104072 (pull_request, GCC 110694762896); both headSha 969251eb1fa5eedc08eed6a6bbd78a439f821fbf; no cancelled runs (gh run list returned exactly these two). clang (110694749478 push / 110694762981 PR), TSan (110694749750 / 110694762824), ASan+UBSan (110694749690 / 110694762954): success in both runs.
+Logs: ci-pr24-gcc-110694749607.log (push, 7136 lines), ci-pr24-gcc-110694762896.log (pull_request, 7149 lines). The pull_request run tested the merge ref "HEAD is now at 05e2f50e Merge 969251eb... into a1f1bc3d" (PR log :145).
+ctest 1385/1385: MATCH (push :6649, :6935; PR :6662, :6948)
+L1 passed: MATCH (push :7117; PR :7130)
+0 FAILED lines: MATCH (grep -c FAILED = 0 in both logs)
+test_ndt_serve.py PASS 75: MATCH (push :7011; PR :7024). PR #23 CI baseline was 74 (pr23 push log :7010), so +1 as predicted
+test_ndt_serve_cells.py PASS 35: MATCH (push :7012; PR :7025). Baseline 35, delta 0 as predicted
+test_ndt_serve_gui.py PASS 39: MATCH (push :7013; PR :7026). Baseline 40, delta -1 as predicted
+test_ndt_serve_web.py PASS 18: MATCH (push :7014; PR :7027). No constant local-vs-CI offset: all four serve suites equal the local counts
+NEW test_ndt_status_measuring.sh PASS 102: MATCH (push :7079; PR :7092). It passed on the CI runner, so the no-FAILED branch of the risk did not occur. Namespace vs host-port fallback: ABSENT. The log prints only the summary line; grep -i for namespace, unshare, netns, userns, host-port, fallback and 8081 finds nothing about it in either log, so which path ran cannot be determined from CI output. Timing is only an inter-line gap (upper bound, not a measurement): push 04:01:01.763 (:7078) to 04:01:08.564 (:7079) = about 6.8 s; PR 04:00:08.062 (:7091) to 04:00:14.812 (:7092) = about 6.75 s.
+test_ndt_app_orphans PASS 111: MATCH (push :7065; PR :7078)
+test_ndt_apps_liveness PASS 57: MATCH (push :7067; PR :7080)
+test_ndtwin_lab_sweep PASS 33: MATCH (push :7086; PR :7099)
+test_ndt_helper_apps_window PASS 156: MATCH (push :7072; PR :7085)
+test_faults_topo_pid PASS 61: MATCH (push :7047; PR :7060)
+test_ndt_ovs_claim PASS 174: MATCH (push :7074; PR :7087)
+test_ndt_down_stops_only_ours PASS 32: MATCH (push :7070; PR :7083)
+test_apps_residue PASS 145: MATCH (push :7039; PR :7052)
+test_fixture_suites_end_on_signal PASS 84: MATCH (push :7048; PR :7061)
+test_ndt_status_check_baseline PASS 112: MATCH (push :7078; PR :7091)
+test_ndt_status_residue_row PASS 27: MATCH (push :7080; PR :7093)
+gate anchors ok 129/129: MATCH (push :6926 "gate anchors ok  (129/129 cells ok)"; PR :6939)
+clang / TSan / ASan+UBSan: success (conclusion only), MATCH, both runs.
+GCC wall time: DEVIATION in size, direction as predicted (longer than PR #23). Push 03:39:10Z to 04:02:13Z = 23m03s (+31 s over PR #23's 22m32s). PR 03:39:13Z to 04:01:17Z = 22m04s (+13 s over PR #23's 21m51s). Predicted "plus a few seconds"; observed +31 s / +13 s. The PR #23 baselines are taken from ci-compare-pr23.txt, not re-measured. The base moved (main a1f1bc3d) and the new suite's own gap is only about 6.8 s, so the delta is not attributable to the new suite alone.

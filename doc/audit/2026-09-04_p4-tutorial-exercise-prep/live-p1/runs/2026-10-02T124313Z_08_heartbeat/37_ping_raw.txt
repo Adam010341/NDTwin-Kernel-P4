@@ -1,0 +1,120 @@
+### h1 -> 10.0.2.2  (pid 958689, ping -c 3 -W 2)
+PING 10.0.2.2 (10.0.2.2) 56(84) bytes of data.
+64 bytes from 10.0.2.2: icmp_seq=1 ttl=63 time=0.291 ms
+64 bytes from 10.0.2.2: icmp_seq=2 ttl=63 time=0.723 ms
+64 bytes from 10.0.2.2: icmp_seq=3 ttl=63 time=0.656 ms
+
+--- 10.0.2.2 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2053ms
+rtt min/avg/max/mdev = 0.291/0.556/0.723/0.189 ms
+
+### h1 -> 10.0.3.3  (pid 958689, ping -c 3 -W 2)
+PING 10.0.3.3 (10.0.3.3) 56(84) bytes of data.
+64 bytes from 10.0.3.3: icmp_seq=1 ttl=61 time=1.14 ms
+64 bytes from 10.0.3.3: icmp_seq=2 ttl=61 time=1.61 ms
+64 bytes from 10.0.3.3: icmp_seq=3 ttl=61 time=1.04 ms
+
+--- 10.0.3.3 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2003ms
+rtt min/avg/max/mdev = 1.035/1.261/1.609/0.249 ms
+
+### h1 -> 10.0.4.4  (pid 958689, ping -c 3 -W 2)
+PING 10.0.4.4 (10.0.4.4) 56(84) bytes of data.
+64 bytes from 10.0.4.4: icmp_seq=1 ttl=61 time=0.747 ms
+64 bytes from 10.0.4.4: icmp_seq=2 ttl=61 time=1.65 ms
+64 bytes from 10.0.4.4: icmp_seq=3 ttl=61 time=1.27 ms
+
+--- 10.0.4.4 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2040ms
+rtt min/avg/max/mdev = 0.747/1.220/1.646/0.368 ms
+
+### h2 -> 10.0.1.1  (pid 958691, ping -c 3 -W 2)
+PING 10.0.1.1 (10.0.1.1) 56(84) bytes of data.
+64 bytes from 10.0.1.1: icmp_seq=1 ttl=63 time=0.382 ms
+64 bytes from 10.0.1.1: icmp_seq=2 ttl=63 time=0.731 ms
+64 bytes from 10.0.1.1: icmp_seq=3 ttl=63 time=0.684 ms
+
+--- 10.0.1.1 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2050ms
+rtt min/avg/max/mdev = 0.382/0.599/0.731/0.154 ms
+
+### h2 -> 10.0.3.3  (pid 958691, ping -c 3 -W 2)
+PING 10.0.3.3 (10.0.3.3) 56(84) bytes of data.
+64 bytes from 10.0.3.3: icmp_seq=1 ttl=61 time=0.899 ms
+64 bytes from 10.0.3.3: icmp_seq=2 ttl=61 time=1.78 ms
+64 bytes from 10.0.3.3: icmp_seq=3 ttl=61 time=1.80 ms
+
+--- 10.0.3.3 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2066ms
+rtt min/avg/max/mdev = 0.899/1.493/1.802/0.420 ms
+
+### h2 -> 10.0.4.4  (pid 958691, ping -c 3 -W 2)
+PING 10.0.4.4 (10.0.4.4) 56(84) bytes of data.
+64 bytes from 10.0.4.4: icmp_seq=1 ttl=61 time=0.854 ms
+64 bytes from 10.0.4.4: icmp_seq=2 ttl=61 time=1.93 ms
+64 bytes from 10.0.4.4: icmp_seq=3 ttl=61 time=2.24 ms
+
+--- 10.0.4.4 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2028ms
+rtt min/avg/max/mdev = 0.854/1.675/2.244/0.594 ms
+
+### h3 -> 10.0.1.1  (pid 958693, ping -c 3 -W 2)
+PING 10.0.1.1 (10.0.1.1) 56(84) bytes of data.
+64 bytes from 10.0.1.1: icmp_seq=1 ttl=61 time=0.967 ms
+64 bytes from 10.0.1.1: icmp_seq=2 ttl=61 time=0.728 ms
+64 bytes from 10.0.1.1: icmp_seq=3 ttl=61 time=1.44 ms
+
+--- 10.0.1.1 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2046ms
+rtt min/avg/max/mdev = 0.728/1.045/1.440/0.295 ms
+
+### h3 -> 10.0.2.2  (pid 958693, ping -c 3 -W 2)
+PING 10.0.2.2 (10.0.2.2) 56(84) bytes of data.
+64 bytes from 10.0.2.2: icmp_seq=1 ttl=61 time=1.11 ms
+64 bytes from 10.0.2.2: icmp_seq=2 ttl=61 time=2.08 ms
+64 bytes from 10.0.2.2: icmp_seq=3 ttl=61 time=2.17 ms
+
+--- 10.0.2.2 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2001ms
+rtt min/avg/max/mdev = 1.108/1.785/2.167/0.480 ms
+
+### h3 -> 10.0.4.4  (pid 958693, ping -c 3 -W 2)
+PING 10.0.4.4 (10.0.4.4) 56(84) bytes of data.
+64 bytes from 10.0.4.4: icmp_seq=1 ttl=63 time=0.355 ms
+64 bytes from 10.0.4.4: icmp_seq=2 ttl=63 time=0.514 ms
+64 bytes from 10.0.4.4: icmp_seq=3 ttl=63 time=0.397 ms
+
+--- 10.0.4.4 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2073ms
+rtt min/avg/max/mdev = 0.355/0.422/0.514/0.067 ms
+
+### h4 -> 10.0.1.1  (pid 958695, ping -c 3 -W 2)
+PING 10.0.1.1 (10.0.1.1) 56(84) bytes of data.
+64 bytes from 10.0.1.1: icmp_seq=1 ttl=61 time=0.827 ms
+64 bytes from 10.0.1.1: icmp_seq=2 ttl=61 time=1.55 ms
+64 bytes from 10.0.1.1: icmp_seq=3 ttl=61 time=2.14 ms
+
+--- 10.0.1.1 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2007ms
+rtt min/avg/max/mdev = 0.827/1.505/2.139/0.536 ms
+
+### h4 -> 10.0.2.2  (pid 958695, ping -c 3 -W 2)
+PING 10.0.2.2 (10.0.2.2) 56(84) bytes of data.
+64 bytes from 10.0.2.2: icmp_seq=1 ttl=61 time=0.656 ms
+64 bytes from 10.0.2.2: icmp_seq=2 ttl=61 time=1.87 ms
+64 bytes from 10.0.2.2: icmp_seq=3 ttl=61 time=2.25 ms
+
+--- 10.0.2.2 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2028ms
+rtt min/avg/max/mdev = 0.656/1.589/2.247/0.678 ms
+
+### h4 -> 10.0.3.3  (pid 958695, ping -c 3 -W 2)
+PING 10.0.3.3 (10.0.3.3) 56(84) bytes of data.
+64 bytes from 10.0.3.3: icmp_seq=1 ttl=63 time=0.298 ms
+64 bytes from 10.0.3.3: icmp_seq=2 ttl=63 time=0.653 ms
+64 bytes from 10.0.3.3: icmp_seq=3 ttl=63 time=0.666 ms
+
+--- 10.0.3.3 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2052ms
+rtt min/avg/max/mdev = 0.298/0.539/0.666/0.170 ms
+

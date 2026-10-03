@@ -1,0 +1,87 @@
+Round 6 is delivered on feat/external-detect-only-0927 at head 5311f3f60add32e9b92b2bf964db68a38419ae2a: all 44 gates of the extb6m run are rc 0 and the live comparison has not been run. I have not pushed and have not merged into trunk. §R6 is appended to /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/hunt-0911/fix/EXTERNAL-DETECT-ONLY-SUMMARY.md (lines 933 onward). It separates OBSERVED from INFERRED, cites log:line, and lists the live commands in R6.8. Findings log: logs/gates-0910/extb6-notes.log.
+
+**Trunk.** GUI v2 moved trunk (1e350bf2 → 67ec9f9e) while my first official run (extb6, on 1cf0692c) was going. I stopped that run and did not count it:
+- How I stopped it: the driver pid with TERM and its build scope with `systemctl --user stop`. No pid was left in its session and no ndt-hbdrop-bmv2 process was running.
+- Then I merged 67ec9f9e as 5311f3f6. Its tree is 2f6f20bc, the same as `git merge-tree --write-tree 1cf0692c 67ec9f9e` (rc 0). The only file both sides changed is tools/test_workflow/ndt, and it merged automatically.
+- I reran everything on the merged head. Before the run, `git rev-parse trunk` (no fetch) was 67ec9f9e and an ancestor of HEAD. The driver ends with "trunk: 67ec9f9e… throughout (not moved)".
+- The gates use string anchors, not ndt line numbers: check_gate_anchors is 131/131.
+
+**Commits** (4c18bf3d..5311f3f6, first-parent):
+- 5311f3f6 Merge trunk 67ec9f9e
+- 1cf0692c proxy: the stale census comment at main.py:1382 (comment only, so it has no test)
+- 11309566 drop check suite skips while the lab is held or a measurement is declared; SIGKILL probe now waits 10 s
+- 2d54f270 README procedure rewrite (Must 1), and the S-9 bound and what a PASS does not show
+- 9c860882 06 records its code identity before and after the rounds
+- d74297fc external_survey_34.tsv and external_survey.py: the 34 rounds frozen by sha256, refused if any shows the heartbeat
+- c1b1c22f the heard window, identity checks, and p4c/JSON equality (Must 2 and 3)
+- b938dee3 the sampler's ctrl_logs column
+
+**Must 1, the procedure.** README "合併前的比對", steps 0–7, now contains:
+- the freeze, and the narrowed comparison (doc/**/*.md and doc/audit/**/*.tsv left out);
+- the check that trunk's head is an ancestor of B_SHA, or that merge-tree gives B's tree;
+- checks after the merge that the parents and tree are right;
+- H1–H4 under the local merge, before the decision;
+- `[[ HEAD == T_MERGE ]]` before `reset --keep`;
+- pre-registered outcomes for a refused merge and for an identity refusal caused by someone else's edit (restart from C1);
+- outcomes for the one T rerun: rc 0 passes; rc 1 on the same field fails; rc 1 on another field or rc 2 means not passed and no third run; rc 3 may be redone once after the fix;
+- `UNDECIDED heard` means one T rerun.
+
+**Must 2, identity and compare.**
+- code_identity now records the tree and the merge-tree result (FORMAT 2), the fabric bmv2's lib/ digest, and ~/tutorials (HEAD, uncommitted files, digests of exercises/p4runtime, exercises/flowcache and utils, skipping build, logs, pcaps and __pycache__).
+- Every run needs a before and an after identity, and they must be equal.
+- p4c and compiled-JSON sha256 must be equal across C1, C2 and T for each external arm.
+- T's tree must equal the merge-tree result.
+
+**Must 3, the heard rule.**
+- The window runs from the first sample whose ctrl_logs size reaches the end of the controller log's last pipeline push (or its first rule or cache entry if there is no push) to the log's last write.
+- Each direction must be heard at least once inside it, otherwise rc 3. A session that was not running at the push is also rc 3.
+- A window under 10 s is printed as "UNDECIDED heard" and counts as UNDECIDED (rc 2, or rc 1 if there is also a DIFF).
+- The fixtures use the real cadence: 1-s reads, +1 per 5 s, and include a 5-s and an exactly-10-s window.
+
+**Must 4, S-9.**
+- Survey result: 34 rounds, all as frozen, none with the heartbeat.
+- The README states:
+  - the point estimate: 0 changes across 22 decisive checks;
+  - the per-check q² bounds;
+  - the family-wise figure as a sum of upper bounds: about 54% by my per-check numbers, about 52% by the re-review's, explicitly "not an estimate";
+  - what a FAIL costs: one investigation with the one T rerun;
+  - the demoted fields, and the p² power of the rerun rule.
+
+**S-8 and the shoulds.**
+- The suite reads ndt's claim file. A live claim held by someone else, or a declared measurement, means SKIP before any switch starts (D32–D35).
+- The driver treats that SKIP as a failure and refuses to start if the lab is held.
+- selfcheck_b6 has 35 fixtures; euid 0 is stated as needing root and was not run.
+- A switch's cwd must be under TMPDIR: the wrapper refuses it and the tripwire flags it.
+
+**Seen red.** Every new check is red on old code or on a mutant (log lines in §R6.6):
+- E61–E65, E72, E81–E95, I9–I20 and S1–S7 caught (evidence gate:75-136); L86–L88 (heartbeat_w:284-286); M13 and M14; the four claim mutants (l1:84-87).
+- redfirst_b6 is ALL-AS-EXPECTED against 4c18bf3d, sections A–E.
+- On the old tool redfirst_b6 A is degenerate: the old tool refuses everything, so the new rc-3 cells pass there by accident. Their red is the named mutants instead; the script says so.
+- Old redfirst_b, b3 and b5 needed new expected sets, patched by extb6/aeg/patch_old_redfirsts_r6.py; all are ALL-AS-EXPECTED.
+
+**Gates (extb6m, frozen/gates_b6m.sh, sha256 f1b04b98…).**
+- 44 logs. I read every one: each first line is 5311f3f60add… and each last line is `# rc=0`. The driver ends `GATES-extb6m 5311f3f6: ALL-AS-EXPECTED`.
+- They are round 5's 39 plus redfirst_b6, selfcheck_b6, survey_34, test_ndt_status_measuring (102 checks) and mutate_ndt_status_measuring (19 mutants, 0 survived).
+- Key numbers:
+  - evidence suite 202 checks, its gate 123 mutants with 202/202 seen red;
+  - heartbeat_w 269 mutants;
+  - l1 suite 162 checks, its gate 62 mutants;
+  - anchors 131/131.
+- Tripwire: 0 lab calls; 1317 switch launches and 2991 --version probes, 0 breaking a condition, 0 refused, 0 still alive.
+- Disk was 2705–3226 MB at every check. Mid-run it briefly dropped to 809 MB from other activity on the machine; my directories are a few MB.
+
+**Not done, or only inferred.**
+- The live comparison needs Adam's lab authorisation.
+- That ctrl_logs sees the push depends on the controller writing its log unbuffered (PYTHONUNBUFFERED); this is inferred, not shown live.
+- The sha in `ndt app validate`'s own compile line is not compared; the JSON the controller pushes is.
+- A malformed claim file does not cause a skip, which is how ndt itself reads one.
+- Trunk's GUI v2 python and browser tests and the ndt_serve mutate gates were not run.
+- proxy_unit leaves ndtwin_link_pkg_* directories in TMPDIR (removed).
+- I removed my scratch trees; / has 2.7 GB free.
+- I rewrote one unpushed commit subject that used "judge" as a verb; the tree is unchanged.
+
+**Files.**
+- Driver and tools: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb6/ (aeg/gates_b6.sh, aeg/redfirst_b6.sh, aeg/selfcheck_b6.sh, aeg/tripwire_b6.sh, make_hbwrap.sh, frozen/gates_b6m.sh)
+- Logs: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/*.extb6m-5311f3f6.log
+
+DELIVERED 5311f3f60add32e9b92b2bf964db68a38419ae2a

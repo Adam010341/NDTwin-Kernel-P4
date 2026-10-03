@@ -1,0 +1,60 @@
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env PYTHONDONTWRITEBYTECODE=1 python3 tests/browser/test_ndt_serve_page.py
+# date -Is: 2026-10-01T22:10:40+08:00
+# argv: tests/browser/test_ndt_serve_page.py
+# git rev-parse HEAD: 23e9b76fe64a6ecc659fb40961f95faf090f6b3f
+# git status --porcelain | wc -l: 0
+# python: /home/adam/miniconda3/bin/python3 3.13.13 | packaged by Anaconda, Inc. | (main, Apr 14 2026, 06:19:41) [GCC 14.3.0]
+# chrome: Google Chrome 153.0.8010.36
+# NDTWIN_GUARD_HELD: /tmp/ndtwin-build.lock
+# page under test: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/tools/ndt_serve/static
+#   4c98675f9d7fb25bf5a387c955ed0681ca68cb06de80b8d7f7e980e104193233  BUILD.json
+#   780f0a54807c1edb0ceaa7d626bc58ff68001493110eebd4030f71816febc482  app.css
+#   75f6255d2abed426e702eacac01ca7d5e23ce9e0e52f87ba12615dc8beea3dc3  app.js
+#   ba7f56b21e294bf5852dd8a35478a58a271b7ff0abbb8a431291cc581daef732  index.html
+#   a97624cad205d8fa2437d846c66da75a249a4fb50f735533943a2995fd15a378  manual.html
+test_a_claim_not_yours_puts_claim_first (__main__.Confirm.test_a_claim_not_yours_puts_claim_first) ... ok
+test_a_double_click_posts_once (__main__.Confirm.test_a_double_click_posts_once) ... ok
+test_an_app_start_shows_the_dry_run_and_claim_first (__main__.Confirm.test_an_app_start_shows_the_dry_run_and_claim_first) ... ok
+test_claim_asks_for_no_typed_word (__main__.Confirm.test_claim_asks_for_no_typed_word) ... ok
+test_enter_on_confirm_does_not_confirm (__main__.Confirm.test_enter_on_confirm_does_not_confirm) ... ok
+test_measuring_or_declared_makes_it_typed (__main__.Confirm.test_measuring_or_declared_makes_it_typed) ... ok
+test_no_claim_puts_claim_first (__main__.Confirm.test_no_claim_puts_claim_first) ... ok
+test_the_dialog_shows_the_argv_the_dry_run_answered (__main__.Confirm.test_the_dialog_shows_the_argv_the_dry_run_answered) ... ok
+test_the_focus_starts_on_cancel (__main__.Confirm.test_the_focus_starts_on_cancel) ... ok
+test_the_write_is_posted_after_its_dry_run (__main__.Confirm.test_the_write_is_posted_after_its_dry_run) ... ok
+test_up_asks_for_the_typed_word (__main__.Confirm.test_up_asks_for_the_typed_word) ... ok
+chrome leftovers (Confirm): 0
+test_job_log_stops_on_close (__main__.JobLog.test_job_log_stops_on_close) ... ok
+test_job_log_stops_when_the_job_ends (__main__.JobLog.test_job_log_stops_when_the_job_ends) ... ok
+test_job_log_stops_while_hidden_and_resumes (__main__.JobLog.test_job_log_stops_while_hidden_and_resumes) ... ok
+chrome leftovers (JobLog): 0
+test_a_url_without_a_key_opens_nothing (__main__.Load.test_a_url_without_a_key_opens_nothing) ... ok
+test_a_used_key_opens_nothing (__main__.Load.test_a_used_key_opens_nothing) ... ok
+test_loading_the_page_writes_nothing (__main__.Load.test_loading_the_page_writes_nothing) ... ok
+test_the_key_is_traded_exactly_once (__main__.Load.test_the_key_is_traded_exactly_once) ... ok
+test_the_key_leaves_the_address_bar (__main__.Load.test_the_key_leaves_the_address_bar) ... ok
+test_the_page_sees_no_csp_violation (__main__.Load.test_the_page_sees_no_csp_violation) ... ok
+test_the_token_is_not_in_browser_storage (__main__.Load.test_the_token_is_not_in_browser_storage) ... ok
+test_the_token_is_not_in_the_dom (__main__.Load.test_the_token_is_not_in_the_dom) ... ok
+chrome leftovers (Load): 0
+test_a_probe_that_times_out_keeps_the_pause_and_the_next_one_ends_it (__main__.ProbeTimeout.test_a_probe_that_times_out_keeps_the_pause_and_the_next_one_ends_it) ... ok
+chrome leftovers (ProbeTimeout): 0
+test_the_token_is_in_no_file_of_the_profile (__main__.Profile.test_the_token_is_in_no_file_of_the_profile) ... ok
+chrome leftovers (Profile): 0
+test_a_declared_pause_is_resumed_by_the_probe (__main__.Refresh.test_a_declared_pause_is_resumed_by_the_probe) ... ok
+test_a_measuring_pause_probes_measuring_alone (__main__.Refresh.test_a_measuring_pause_probes_measuring_alone) ... ok
+test_a_measuring_pause_reads_nothing_while_hidden (__main__.Refresh.test_a_measuring_pause_reads_nothing_while_hidden) ... ok
+test_refresh_reads_while_shown_and_idle (__main__.Refresh.test_refresh_reads_while_shown_and_idle) ... ok
+test_refresh_stops_while_declared (__main__.Refresh.test_refresh_stops_while_declared) ... ok
+test_refresh_stops_while_hidden_and_resumes_when_shown (__main__.Refresh.test_refresh_stops_while_hidden_and_resumes_when_shown) ... ok
+test_refresh_stops_while_measuring (__main__.Refresh.test_refresh_stops_while_measuring) ... ok
+test_shown_again_while_measuring_probes_once_60_s_later (__main__.Refresh.test_shown_again_while_measuring_probes_once_60_s_later) ... ok
+chrome leftovers (Refresh): 0
+
+----------------------------------------------------------------------
+Ran 32 tests in 617.767s
+
+OK
+# processes naming this run's 38 temp dir(s) after the run: 0 
+guarded_build: exit 0

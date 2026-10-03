@@ -1,0 +1,4 @@
+#!/bin/bash
+# logging shim: one line per sudo call (caller pid, argv), then the real setuid sudo -- no ptrace
+printf '%s\t%s\n' "$PPID" "$*" >> "${SUDO_SHIM_LOG:-/dev/null}"
+exec /usr/bin/sudo "$@"

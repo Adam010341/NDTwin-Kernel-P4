@@ -1,0 +1,27 @@
+date 2026-10-01T21:44:36+08:00
+dir /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927
+head 23e9b76fe64a6ecc659fb40961f95faf090f6b3f
+porcelain 0
+python /usr/bin/python3.12 3.12.3
+test file c4247ca2 (committed), sha256 853862247003283f
+
+== old: serve.py sha256 8932c2a1bd1711c3 (git show fed37cff5d70209235f6f4458ed7294b4ef542b4:tools/ndt_serve/serve.py)
+FAIL
+FAIL: test_url_sends_the_token_only_over_a_connection_the_pid_accepted (__main__.UrlCommand.test_url_sends_the_token_only_over_a_connection_the_pid_accepted)
+AssertionError: b'AiOZMOuy7hiu0We816YW4tSMArEV16KGMNeM4NfLa3w' unexpectedly found in b'POST /api/v1/session/new HTTP/1.1\r\nAccept-Encoding: identity\r\nContent-Length: 2\r\nHost: 127.0.0.1:38247\r\nX-NDT-Token: AiOZMOuy7hiu0We816YW4tSMArEV16KGMNeM4NfLa3w\r\nContent-Type: application/json\r\n\r\n{}' : the token went to a process that only shares the socket (the child received 198 bytes: b'POST /api/v1/session/new HTTP/1.1\r\nAccept-Encoding: identity\r\nContent-Length: 2\r\nHost: 127.0.0.1:38247\r\nX-NDT-Token: AiOZMOuy7hiu0We816YW4tSMArEV16KGMNeM4NfLa3w\r\nContent-Type: application/json\r\n\r\n{}')
+Ran 1 test in 0.350s
+FAILED (failures=1)
+rc=1
+
+== g48: serve.py sha256 c9aeb852adaac30c
+FAIL
+FAIL: test_url_sends_the_token_only_over_a_connection_the_pid_accepted (__main__.UrlCommand.test_url_sends_the_token_only_over_a_connection_the_pid_accepted)
+AssertionError: b'qLfFVLAe5m3eaY0o2adahCapra5skotZbLC-Z5Wp2Ao' unexpectedly found in b'POST /api/v1/session/new HTTP/1.1\r\nAccept-Encoding: identity\r\nContent-Length: 2\r\nHost: 127.0.0.1:46601\r\nX-NDT-Token: qLfFVLAe5m3eaY0o2adahCapra5skotZbLC-Z5Wp2Ao\r\nContent-Type: application/json\r\n\r\n{}' : the token went to a process that only shares the socket (the child received 198 bytes: b'POST /api/v1/session/new HTTP/1.1\r\nAccept-Encoding: identity\r\nContent-Length: 2\r\nHost: 127.0.0.1:46601\r\nX-NDT-Token: qLfFVLAe5m3eaY0o2adahCapra5skotZbLC-Z5Wp2Ao\r\nContent-Type: application/json\r\n\r\n{}')
+Ran 1 test in 0.334s
+FAILED (failures=1)
+rc=1
+
+== now: serve.py sha256 4e3183600198063a
+Ran 1 test in 3.367s
+OK
+rc=0

@@ -1,0 +1,25 @@
+# push trunk 149c8234 2026-09-28T06:34:16+08:00
+To github.com:Adam010341/NDTwin-Kernel-P4.git
+ ! [rejected]            149c8234ef1f4b1d8d2bd3ebd2c49d7b09ea2d20 -> trunk (needs force)
+error: failed to push some refs to 'github.com:Adam010341/NDTwin-Kernel-P4.git'
+hint: You cannot update a remote ref that points at a non-commit object,
+hint: or update a remote ref to make it point at a non-commit object,
+hint: without using the '--force' option.
+To github.com:Adam010341/NDTwin-Kernel-P4.git
+   18c83aba..149c8234  149c823466f48e03385ff0beb9401d23163c1203 -> trunk
+# push git@github.com:Adam010341/NDTwin-Kernel-P4.git rc=0
+To github.com:ndtwin-lab/NDTwin-Kernel-P4.git
+ ! [rejected]            149c8234ef1f4b1d8d2bd3ebd2c49d7b09ea2d20 -> trunk (needs force)
+error: failed to push some refs to 'github.com:ndtwin-lab/NDTwin-Kernel-P4.git'
+hint: You cannot update a remote ref that points at a non-commit object,
+hint: or update a remote ref to make it point at a non-commit object,
+hint: without using the '--force' option.
+To github.com:ndtwin-lab/NDTwin-Kernel-P4.git
+   18c83aba..149c8234  149c823466f48e03385ff0beb9401d23163c1203 -> trunk
+# push git@github.com:ndtwin-lab/NDTwin-Kernel-P4.git rc=0
+$ unauthenticated ndtwin-lab
+f186ce98c7643cf1e7a9e7e402e4193bd0d72805	refs/heads/main
+149c823466f48e03385ff0beb9401d23163c1203	refs/heads/trunk
+$ unauthenticated Adam010341
+bad4cc7ad984a77eaeaf3875e8319784f6353be3	refs/heads/main
+149c823466f48e03385ff0beb9401d23163c1203	refs/heads/trunk

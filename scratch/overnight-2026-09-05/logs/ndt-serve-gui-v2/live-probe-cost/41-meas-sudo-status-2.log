@@ -1,0 +1,6 @@
+3003836	-n /usr/local/sbin/ndtwin-lab status
+3003986	-n /usr/local/sbin/ndtwin-lab status
+3003986	-n ovs-vsctl list-br
+3003986	-n mnexec -a 1 true
+3004054	-n /usr/local/sbin/ndtwin-lab status
+3004093	-n /usr/local/sbin/ndtwin-lab status

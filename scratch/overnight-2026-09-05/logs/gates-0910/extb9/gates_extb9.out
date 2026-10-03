@@ -1,0 +1,7 @@
+redfirst_b9                        rc=1 (expected 1)  Ran 232 checks, 21 failed
+test_live_p1_external_evidence     rc=0  Ran 232 checks, 0 failed
+survey_34                          rc=0     invariants             1 distinct: [("every cache entry is an IPv4 packet-in's flow", True), (' x11
+check_gate_anchors                 rc=0  131/131 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+mutate_live_p1_external_evidence   rc=0  every check seen red: 232/232 (over 134 mutant runs)
+tripwire lines: 0
+GATES-extb9 75b5dd0e: ALL-AS-EXPECTED

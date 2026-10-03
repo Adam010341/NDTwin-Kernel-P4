@@ -1,0 +1,14 @@
+gui_test_ndt_serve_py312           rc=1  FAILED (failures=2)
+gui_test_ndt_serve_py38            rc=1  FAILED (failures=2)
+gui_test_ndt_serve_cells_py312     rc=0  OK
+gui_test_ndt_serve_cells_py38      rc=0  OK
+gui_test_ndt_serve_gui_py312       rc=0  OK
+gui_test_ndt_serve_gui_py38        rc=0  OK
+gui_test_ndt_serve_web_py312       rc=0  OK
+gui_test_ndt_serve_web_py38        rc=0  OK
+gui_mutate_ndt_serve_py312         rc=2  rc=2
+gui_mutate_ndt_serve_py38          rc=2  rc=2
+gui_page_suite                     rc=0  # processes naming this run's 38 temp dir(s) after the run: 0 
+gui_mutate_ndt_serve_page          rc=2  rc=2
+GUI-GATES-extb7 9054d0c4 done
+exit 0

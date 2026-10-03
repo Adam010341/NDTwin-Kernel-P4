@@ -1,0 +1,70 @@
+8d79dacd0e40e9ddd20d7c8e9af6185b4ef8e482
+porcelain-lines: 0
+# dir: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/t4-d1c = 8d79dacd0e40e9ddd20d7c8e9af6185b4ef8e482
+# sha256 e1c614c950540a9fc47e726e22501444d5677dc9a940d1052e12ba7aae8d9f80  tests/shell/test_fixture_suites_end_on_signal.sh
+# tripwire lines before: 0
+# $ bash tests/shell/test_fixture_suites_end_on_signal.sh topo_pid down
+# started 2026-10-01T21:21:52+08:00
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/claude-1000/spawn-traps-1001.lock
+guarded_build: $ bash tests/shell/test_fixture_suites_end_on_signal.sh topo_pid down
+topo_pid, TERM
+  ok       topo_pid TERM: the pid signalled is the shell running the suite
+  ok       topo_pid TERM: and it leads its own process group
+  note     signalled with fixture pid(s) 2091893 2092114 alive, listed in /tmp/faults-topo-pid-dvMPZW/fixtures
+  ok       topo_pid TERM: the run ends with 143
+  ok       topo_pid TERM: within 20s of the signal
+  ok       topo_pid TERM: no process of this run is left
+  FAILED   topo_pid TERM: its temp tree is gone
+             expected: no
+             actual:   yes (/tmp/faults-topo-pid-dvMPZW)
+             the suite's last lines:
+                 ok       fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/NDT-TEST-FIXTURE-topo.py
+                 ok       one topology -> rc 0
+                 ok         and it is the right pid
+topo_pid, INT
+  ok       topo_pid INT: the pid signalled is the shell running the suite
+  ok       topo_pid INT: and it leads its own process group
+  note     signalled with fixture pid(s) 2092589 alive, listed in /tmp/faults-topo-pid-YdWqey/fixtures
+  ok       topo_pid INT: the run ends with 130
+  ok       topo_pid INT: within 20s of the signal
+  ok       topo_pid INT: no process of this run is left
+  FAILED   topo_pid INT: its temp tree is gone
+             expected: no
+             actual:   yes (/tmp/faults-topo-pid-YdWqey)
+             the suite's last lines:
+                 ok       one topology -> rc 0
+                 ok         and it is the right pid
+                 ok       fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/tail-of-NDT-TEST-FIXTURE-topo.py.log
+down, TERM
+  ok       down TERM: the pid signalled is the shell running the suite
+  ok       down TERM: and it leads its own process group
+  note     signalled with fixture pid(s) 2093066 2093120 alive, listed in /tmp/ndt-signal-ends-run-pwwY0I/tmp-down-TERM/ndt-down-ours-82xnez/spawned.pids
+  ok       down TERM: the run ends with 143
+  ok       down TERM: within 20s of the signal
+  ok       down TERM: no process of this run is left
+  FAILED   down TERM: its temp tree is gone
+             expected: no
+             actual:   yes (/tmp/ndt-signal-ends-run-pwwY0I/tmp-down-TERM/ndt-down-ours-82xnez)
+             the suite's last lines:
+                 ok       theirs is alive before the teardown
+               ### FIXTURE 2093066 after kill: /proc/2093066 exists = no
+               ### FIXTURE 2093120 after kill: /proc/2093120 exists = no
+down, INT
+  ok       down INT: the pid signalled is the shell running the suite
+  ok       down INT: and it leads its own process group
+  note     signalled with fixture pid(s) 2093708 2093818 alive, listed in /tmp/ndt-signal-ends-run-pwwY0I/tmp-down-INT/ndt-down-ours-GTwlj0/spawned.pids
+  ok       down INT: the run ends with 130
+  ok       down INT: within 20s of the signal
+  ok       down INT: no process of this run is left
+  FAILED   down INT: its temp tree is gone
+             expected: no
+             actual:   yes (/tmp/ndt-signal-ends-run-pwwY0I/tmp-down-INT/ndt-down-ours-GTwlj0)
+             the suite's last lines:
+                 ok       theirs is alive before the teardown
+               ### FIXTURE 2093708 after kill: /proc/2093708 exists = no
+               ### FIXTURE 2093818 after kill: /proc/2093818 exists = no
+
+Ran 24 checks, 4 failed
+guarded_build: exit 1
+# ended 2026-10-01T21:21:55+08:00; tripwire lines after: 0
+rc=1

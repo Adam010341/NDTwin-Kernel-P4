@@ -1,0 +1,170 @@
+2026-10-01T11:50:06+08:00  2156786b 1 changed path(s) under test vs HEAD; node v24.20.0
+  Filesystem      Size  Used Avail Use% Mounted on
+  /dev/nvme0n1p5   98G   90G  3.3G  97% /
+  /dev/nvme0n1p5   98G   90G  3.3G  97% /
+
+baseline 1 -- the whole suite on the committed page (green, every case run ok, none skipped, no leftover):
+  test_a_claim_not_yours_puts_claim_first ... ok
+  test_a_double_click_posts_once ... ok
+  test_claim_asks_for_no_typed_word ... ok
+  test_enter_on_confirm_does_not_confirm ... ok
+  test_measuring_or_declared_makes_it_typed ... ok
+  test_the_dialog_shows_the_argv_the_dry_run_answered ... ok
+  test_the_focus_starts_on_cancel ... ok
+  test_the_write_is_posted_after_its_dry_run ... ok
+  test_up_asks_for_the_typed_word ... ok
+  test_job_log_stops_on_close ... ok
+  test_job_log_stops_when_the_job_ends ... ok
+  test_job_log_stops_while_hidden_and_resumes ... ok
+  test_a_url_without_a_key_opens_nothing ... ok
+  test_a_used_key_opens_nothing ... ok
+  test_loading_the_page_writes_nothing ... ok
+  test_the_key_is_traded_exactly_once ... ok
+  test_the_key_leaves_the_address_bar ... ok
+  test_the_page_sees_no_csp_violation ... ok
+  test_the_token_is_not_in_browser_storage ... ok
+  test_the_token_is_not_in_the_dom ... ok
+  test_the_token_is_in_no_file_of_the_profile ... ok
+  test_refresh_reads_while_shown_and_idle ... ok
+  test_refresh_stops_while_declared ... ok
+  test_refresh_stops_while_hidden_and_resumes_when_shown ... ok
+  test_refresh_stops_while_measuring ... ok
+  test_ndt_serve_page.py: Ran 25 tests in 112.881s / OK (113 s)
+             leftovers: chrome leftovers (Confirm): 0 chrome leftovers (JobLog): 0 chrome leftovers (Load): 0 chrome leftovers (Profile): 0 chrome leftovers (Refresh): 0  /proc after the run: none
+
+baseline 2 -- web/ copied and built the way every page mutant is, with no edit, is the committed static/:
+  same     BUILD.json   781369038a8ea977
+  same     app.css      780f0a54807c1edb
+  same     app.js       db950b461ad49258
+  same     index.html   ba7f56b21e294bf5
+  same     manual.html  ea3741ed4962b6fa
+  (built in 4 s)
+
+  caught   T1: the token is written into a data-* attribute of <body> (DOM)       (test_the_token_is_not_in_the_dom went red, 4 s)
+             AssertionError: 'tA1ranWUtCNmJW8cATcJfzrQ0AinRXgzXow9ST61CkA' unexpectedly found in '<html lang="zh-Hant"><head>\n    <meta charset="utf-8">\n    <meta name="viewport" content="width=device-width, initial-scale=1">\n    <title>ndt serve</ti
+             self.assertNotIn(token, html, "the token is in the page's DOM")
+             leftovers: chrome leftovers (Load): 0  /proc after the run: none
+  caught   T2: the token is put in IndexedDB (only the profile's files hold it; G-N8) (test_the_token_is_in_no_file_of_the_profile went red, 5 s)
+             AssertionError: Lists differ: ['Default/IndexedDB/http_127.0.0.1_38843.indexeddb.leveldb/000003.log'] != []
+             self.assertEqual(files_holding(self.profile, token), [], "the token is in a file of the browser profile")
+             leftovers: chrome leftovers (Profile): 0  /proc after the run: none
+  caught   T3: the token is also put in sessionStorage (spelled past a static lint) (test_the_token_is_not_in_browser_storage went red, 4 s)
+             AssertionError: 'BFjab9LS_vYOH0JBikfmumkwec78DlCLvmrNyfU1LjE' unexpectedly found in '{"local": {}, "session": {"t": "BFjab9LS_vYOH0JBikfmumkwec78DlCLvmrNyfU1LjE"}, "cookie": "", "indexeddb": []}' : the token is in browser storage: {'local':
+             self.assertNotIn(token, json.dumps(st), "the token is in browser storage: %r" % st)
+             leftovers: chrome leftovers (Load): 0  /proc after the run: none
+  caught   T4: the page remembers its open tab in localStorage (no token in it)   (test_the_token_is_not_in_browser_storage went red, 5 s)
+             AssertionError: {'local': {'ndt-serve-tab': 'actions'}, 'session': {[28 chars]: []} != {'local': {}, 'session': {}, 'cookie': '', 'indexeddb': []}
+             "the page left something in browser storage")
+             leftovers: chrome leftovers (Load): 0  /proc after the run: none
+  caught   S1: the session module trades the key a second time (G-N10)            (test_the_key_is_traded_exactly_once went red, 4 s)
+             AssertionError: Lists differ: [200, 403] != [200]
+             + [200] : the server logged 2 key trade(s) (POST /api/v1/session), not exactly one answered 200: [200, 403]
+             leftovers: chrome leftovers (Load): 0  /proc after the run: none
+  caught   F1: history.replaceState is gone (the key stays in the address bar)    (test_the_key_leaves_the_address_bar went red, 4 s)
+             AssertionError: '#' unexpectedly found in 'http://127.0.0.1:34809/#k=9ETYofgcth-2qL_YZn75YM2rhPSNtcHVRZozi7wjOls' : the key is still in the address bar after the page ran: http://127.0.0.1:34809/#k=9ETYofgcth-2qL_YZn75YM2rhPSNtcHVRZozi7wjOl
+             self.assertNotIn("#", href, "the key is still in the address bar after the page ran: %s" % href)
+             leftovers: chrome leftovers (Load): 0  /proc after the run: none
+  caught   P1: the server keeps a used key (serve.py Nonces.take)                 (test_a_used_key_opens_nothing went red, 1 s)
+             AssertionError: Tuples differ: ('ok', 'yes') != ('refused', 'no-session')
+             "the second load of a used key opened a session")
+             leftovers: chrome leftovers (Load): 0  /proc after the run: none
+  caught   P2: the page trades a key it does not have (an empty hash)             (test_a_url_without_a_key_opens_nothing went red, 5 s)
+             AssertionError: Tuples differ: ('refused', 'no-session', [], [('POST', '/api/v1/session', 400)]) != ('no-key', 'no-session', [], [])
+             "a URL with no key: (data-session, data-loaded, ndt calls, non-GET requests)")
+             leftovers: chrome leftovers (Load): 0  /proc after the run: none
+  caught   L1: the page releases the lab the moment it has the token (v1 G14)     (test_loading_the_page_writes_nothing went red, 6 s)
+             AssertionError: Lists differ: ["the server holds job(s) ['20261001T03523[233 chars]ade"] != []
+             self.assertEqual(problems, [], "loading the page wrote (data-loaded=%s)" % hook(p, "loaded"))
+             leftovers: chrome leftovers (Load): 0  /proc after the run: none
+  caught   X1: an inline <script> in the built index.html (CSP positive control)  (test_the_page_sees_no_csp_violation went red, 1 s)
+             AssertionError: '1' != '0'
+             self.assertEqual(n, "0", "the page counted %s CSP violation(s) (data-csp-violations)" % n)
+             leftovers: chrome leftovers (Load): 0  /proc after the run: none
+  caught   C1: serve.py confirm_policy says plain for up/down                     (test_up_asks_for_the_typed_word went red, 1 s)
+             AssertionError: False is not true : the Up dialog asks for no typed word (the server's confirm_policy says typed): {'open': True, 'phase': 'ready', 'typed': False, 'word': '', 'go_disabled': False, 'focus': 'c-cancel', 'blockers': [], 'argv
+             self.assertTrue(d["typed"], "the Up dialog asks for no typed word (the server's confirm_policy says typed): "
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   C5: the page ignores the server's confirm === "typed"                  (test_up_asks_for_the_typed_word went red, 3 s)
+             AssertionError: False is not true : the Up dialog asks for no typed word (the server's confirm_policy says typed): {'open': True, 'phase': 'ready', 'typed': False, 'word': '', 'go_disabled': False, 'focus': 'c-cancel', 'blockers': [], 'argv
+             self.assertTrue(d["typed"], "the Up dialog asks for no typed word (the server's confirm_policy says typed): "
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   C2: the page ignores needs_own_claim (blocks only when /lab did not answer) (test_a_claim_not_yours_puts_claim_first went red, 4 s)
+             AssertionError: '請先 claim：claim 不是你的' not found in [] : no "claim first" blocker for Up under somebody else's claim: {'open': True, 'phase': 'ready', 'typed': True, 'word': 'up', 'go_disabled': True, 'focus': 'c-cancel', 'bloc
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   C2b: serve.py confirm_policy says up/down need no claim of your own    (test_a_claim_not_yours_puts_claim_first went red, 1 s)
+             AssertionError: '請先 claim：claim 不是你的' not found in [] : no "claim first" blocker for Up under somebody else's claim: {'open': True, 'phase': 'ready', 'typed': True, 'word': 'up', 'go_disabled': True, 'focus': 'c-cancel', 'bloc
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   C3: the page does not upgrade to typed while measuring                 (test_measuring_or_declared_makes_it_typed went red, 4 s)
+             AssertionError: False is not true : no typed word for Claim while measuring: {'open': True, 'phase': 'ready', 'typed': False, 'word': '', 'go_disabled': False, 'focus': 'c-cancel', 'blockers': [], 'argv': ['/tmp/ndt-page-gate-tRzcVn/15/tmp/
+             self.assertTrue(d["typed"], "no typed word for Claim while measuring: %r" % d)
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   C3b: the page does not upgrade to typed while a measurement is declared (test_measuring_or_declared_makes_it_typed went red, 4 s)
+             AssertionError: False is not true : no typed word for Claim while a measurement is declared: {'open': True, 'phase': 'ready', 'typed': False, 'word': '', 'go_disabled': False, 'focus': 'c-cancel', 'blockers': [], 'argv': ['/tmp/ndt-page-gat
+             self.assertTrue(d["typed"], "no typed word for Claim while a measurement is declared: %r" % d)
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   C4: serve.py confirm_policy says typed for claim                       (test_claim_asks_for_no_typed_word went red, 1 s)
+             AssertionError: True is not false : the Claim dialog asks for a typed word (the server says plain): {'open': True, 'phase': 'ready', 'typed': True, 'word': 'claim', 'go_disabled': True, 'focus': 'c-cancel', 'blockers': [], 'argv': ['/tmp/nd
+             self.assertFalse(d["typed"], "the Claim dialog asks for a typed word (the server says plain): %r" % d)
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   C6: Confirm takes the focus once the dialog is ready                   (test_the_focus_starts_on_cancel went red, 4 s)
+             AssertionError: Tuples differ: ('c-cancel', 'c-go') != ('c-cancel', 'c-cancel')
+             "the focus is not on Cancel (when the dialog opened, once it was ready)")
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   C7: Enter on Confirm is not stopped (it clicks Confirm)                (test_enter_on_confirm_does_not_confirm went red, 6 s)
+             AssertionError: Tuples differ: ([200, 202], [['claim', '30']]) != ([200], [])
+             "Enter on Confirm confirmed the write: (POST /claim statuses, ndt claim calls)")
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   C8: Confirm works twice (no fired ref, no disabled at once, no sent)   (test_a_double_click_posts_once went red, 100 s)
+             AssertionError: Tuples differ: ([200, 202, 409], 1) != ([200, 202], 1)
+             "a double click on Confirm posted more than the one write: (POST /claim statuses, "
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   D1: the dialog shows an argv the page built (path and body), not the dry run's (test_the_dialog_shows_the_argv_the_dry_run_answered went red, 5 s)
+             AssertionError: Lists differ: ['claim', '30'] != ['/tmp/ndt-page-gate-tRzcVn/21/tmp/ndt-serv[56 chars]'30']
+             self.assertEqual(d["argv"], answers[0]["argv"], "the dialog's argv is not the argv the dry run answered")
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   D2: the page sends the write without its dry run first                 (test_the_write_is_posted_after_its_dry_run went red, 3 s)
+             AssertionError: Lists differ: [202] != [200, 202]
+             self.assertEqual(self.posts("/claim"), [200, 202], "the write was posted with no dry run before it "
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   R0: the auto-refresh timer is never armed (the load's read only)       (test_refresh_reads_while_shown_and_idle went red, 29 s)
+             AssertionError: 0 not greater than or equal to 2 : 0 timer read(s) of /lab in 25 s of a shown page with nothing measuring
+             self.assertGreaterEqual(n, 2, "%d timer read(s) of /lab in %d s of a shown page with nothing measuring"
+             leftovers: chrome leftovers (Refresh): 0  /proc after the run: none
+  caught   R1: the auto-refresh never sees the page hidden (all three checks)     (test_refresh_stops_while_hidden_and_resumes_when_shown went red, 16 s)
+             AssertionError: {'lab': 2, 'apps': 2, 'health': 2, 'jobs': 2} != {'lab': 1, 'apps': 1, 'health': 1, 'jobs': 1}
+             self.assertEqual(after, before, "the page read %r in %d s while the page was hidden (before %r)"
+             leftovers: chrome leftovers (Refresh): 0  /proc after the run: none
+  caught   R1b: shown again, the page does not read and re-arm                    (test_refresh_stops_while_hidden_and_resumes_when_shown went red, 20 s)
+             AssertionError: False is not true : no read of /lab after the page was shown again
+             "no read of /lab after the page was shown again")
+             leftovers: chrome leftovers (Refresh): 0  /proc after the run: none
+  caught   R2: arm() does not pause on measuring/declared                         (test_refresh_stops_while_measuring went red, 16 s)
+             AssertionError: {'lab': 2, 'apps': 2, 'health': 2, 'jobs': 2} != {'lab': 1, 'apps': 1, 'health': 1, 'jobs': 1}
+             : the page read {'lab': 2, 'apps': 2, 'health': 2, 'jobs': 2} in 12 s while ndt status said measuring (before {'lab': 1, 'apps': 1, 'health': 1, 'jobs': 1})
+             leftovers: chrome leftovers (Refresh): 0  /proc after the run: none
+  caught   R2a: only a declared measurement pauses (measuring_is_nothing ignored) (test_refresh_stops_while_measuring went red, 16 s)
+             AssertionError: {'lab': 2, 'apps': 2, 'health': 2, 'jobs': 2} != {'lab': 1, 'apps': 1, 'health': 1, 'jobs': 1}
+             : the page read {'lab': 2, 'apps': 2, 'health': 2, 'jobs': 2} in 12 s while ndt status said measuring (before {'lab': 1, 'apps': 1, 'health': 1, 'jobs': 1})
+             leftovers: chrome leftovers (Refresh): 0  /proc after the run: none
+  caught   R2b: a declared measurement does not pause                             (test_refresh_stops_while_declared went red, 16 s)
+             AssertionError: {'lab': 2, 'apps': 2, 'health': 2, 'jobs': 2} != {'lab': 1, 'apps': 1, 'health': 1, 'jobs': 1}
+             : the page read {'lab': 2, 'apps': 2, 'health': 2, 'jobs': 2} in 12 s while a measurement was declared (before {'lab': 1, 'apps': 1, 'health': 1, 'jobs': 1})
+             leftovers: chrome leftovers (Refresh): 0  /proc after the run: none
+  caught   R3: Close does not stop the log (only opening another job does)        (test_job_log_stops_on_close went red, 14 s)
+             AssertionError: 12 != 3 : the page read job 20261001T035656Z-2a1494 9 more time(s) after the job panel was closed
+             self.assertEqual(self.job_reads(jid), n, "the page read job %s %d more time(s) after the job panel was closed"
+             leftovers: chrome leftovers (JobLog): 0  /proc after the run: none
+  caught   R4: the job's end does not stop the log                                (test_job_log_stops_when_the_job_ends went red, 14 s)
+             AssertionError: 18 != 9 : the page read job 20261001T035709Z-5315b2 9 more time(s) after the job ended
+             self.assertEqual(self.job_reads(jid), n, "the page read job %s %d more time(s) after the job ended"
+             leftovers: chrome leftovers (JobLog): 0  /proc after the run: none
+  caught   R5: the job log reads on while the page is hidden                      (test_job_log_stops_while_hidden_and_resumes went red, 16 s)
+             AssertionError: 9 != 3 : the page read job 20261001T035724Z-e9f821's job log while the page was hidden (6 time(s))
+             self.assertEqual(self.job_reads(jid), n, "the page read job %s's job log while the page was hidden (%d time(s))"
+             leftovers: chrome leftovers (JobLog): 0  /proc after the run: none
+
+files under test unchanged by this gate (68 files; node_modules excluded, see baseline 2):
+  sha256 of their sha256sum lines: 895896249e2de7e6583665f1184102f366571da72777aac163d0f7fc3c102084
+  total 450 s
+
+31 mutation(s), 0 survivor(s)

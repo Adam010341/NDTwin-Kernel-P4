@@ -1,0 +1,26 @@
+14c490c3b2e3dc0c39fe5c8147c8f97d5af40ed5
+porcelain-lines: 0
+# dir: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-spawn-traps-1001
+# sha256 b89ea9ad452f2eb52a12d539047efc0805db6f6f4600103be99d5402261af726  tests/shell/mutate_g6_apps_liveness.sh
+# tripwire lines before: 0
+# $ bash tests/shell/mutate_g6_apps_liveness.sh
+# started 2026-10-01T18:00:55+08:00
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/claude-1000/spawn-traps-1001.lock
+guarded_build: $ bash tests/shell/mutate_g6_apps_liveness.sh
+=== baseline (the fix, unmutated) ===
+  rc=0  red=
+
+=== mutations ===
+  start-reads-request-rc     caught by: start of an app that never came up -> rc 1
+  stop-unconditional-ok      caught by: stop of a never-started lab app -> rc 2
+  probe-session-only         caught by: session up + NO process     -> not-running
+  notrunning-rc-zero         caught by: stop of a never-started pidfile app -> rc 2
+  aggregate-or-rc1           caught by: nothing was running -> rc 2
+  control-comment-only       SURVIVED (control, as required)
+
+restore: tools/test_workflow/ndt is byte-identical to the pre-gate snapshot
+
+VERDICT: every mutation was caught by the check named for it; the control survived
+guarded_build: exit 0
+# ended 2026-10-01T18:02:49+08:00; tripwire lines after: 0
+rc=0

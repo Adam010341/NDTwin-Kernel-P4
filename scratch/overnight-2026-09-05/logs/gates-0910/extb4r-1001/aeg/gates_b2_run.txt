@@ -1,0 +1,20 @@
+redfirst_b                     rc=0  REDFIRST-B: ALL-AS-EXPECTED
+redfirst_b2                    rc=0  REDFIRST-B2: ALL-AS-EXPECTED
+proxy_unit                     rc=0  PROXY-UNIT: 46 file(s), 1674 test(s): 1673 passed in OK files, 1 skipped, 0 file(s) FAILED -- all OK
+test_ndt_heartbeat             rc=0  Ran 63 checks, 0 failed
+test_ndt_app_package           rc=0  Ran 395 checks, 0 failed
+test_ndt_up_down_robust        rc=0  424 passed, 0 failed
+selftest_08                    rc=0  SELF-TEST PASS
+test_live_p1_common            rc=0  Ran 211 checks, 0 failed
+test_live_p1_thirteen          rc=0  Ran 45 checks, 0 failed
+test_live_p1_external_evidence rc=0  Ran 77 checks, 0 failed
+test_drive_exercise            rc=0  OK
+mutate_p4_heartbeat_w          rc=0  mutation gate: 229 mutations, 0 survived
+mutate_live_p1_common          rc=0  mutation gate: 57 mutations, 0 survived; 4 control(s), 0 went red
+mutate_live_p1_thirteen        rc=0  mutation gate: 12 mutations, 0 survived; 1 control(s), 0 went red
+mutate_live_p1_external_evidence rc=0  mutation gate: 32 mutations, 0 survived
+mutate_roles_binding           rc=0  mutation gate: 179 mutations, 0 survived
+mutate_app_package             rc=0  mutation gate: 48 mutations, 0 survived
+check_gate_anchors             rc=0  123/123 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+nolab_tripwire                 rc=0  NOLAB-TRIPWIRE: 0 lab call(s) (all refused)
+GATES-extb2 14921f98: ALL-AS-EXPECTED

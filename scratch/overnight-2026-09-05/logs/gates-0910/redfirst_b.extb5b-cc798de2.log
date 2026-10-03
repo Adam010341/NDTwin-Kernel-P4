@@ -1,0 +1,73 @@
+cc798de22edbb0970182783dc23ed6900b85b598
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  2026-10-01T14:41:27Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  TMPDIR /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5b-cc798de2/redfirst_b.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/redfirst_b.extb5b-cc798de2.kept
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5b-cc798de2/shims (nolab); drop check through /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5b-cc798de2/hbwrap
+# disk: 2092 MB free on / when queued; floor 1536 MB, checked again under the lock
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c a=$(df --output=avail -BM / | tail -1 | tr -dc 0-9); echo "# disk under the lock: $a MB free"; (( a >= $0 )) || { echo "DISK-FLOOR: $a MB < $0 MB -- not run"; exit 97; }; exec "$@" 1536 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5b-cc798de2/redfirst_b.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/redfirst_b.extb5b-cc798de2.kept
+# disk under the lock: 2097 MB free
+HEAD cc798de22edbb0970182783dc23ed6900b85b598; base f7e2a12874d2218d72b10769e1cf3967c51b5c5f
+== P: HEAD's test_heartbeat_fabric.py over the base's main.py
+    Ran 46 tests in 0.106s
+    FAILED (failures=12, errors=1)
+  ok    base main.py: exactly the 12 expected
+    (added at round 4, 09-28: the destination-path cells of test_heartbeat_fabric (and, over f7e2a128, its seeding cell) -- red over every older base for that reason)
+  ok      guard green at the base (external already did not do it): test_the_route_writer_is_left_skipping_so_a_cut_rewrites_nothing
+  ok      guard green at the base (external already did not do it): test_no_client_is_asked_to_write_anything
+  ok      guard green at the base (external already did not do it): test_even_with_every_table_bound_to_ndtwin_it_does_not_reroute
+  ok      guard green at the base (external already did not do it): test_the_cut_is_told_to_the_kernel_and_no_route_is_rewritten
+  ok      guard green at the base (external already did not do it): test_an_external_fabric_on_ndtwins_own_pipeline_does_not_start_it
+  ok      the same tree with HEAD's main.py: Ran 46 tests in 0.070s
+== N: HEAD's test_ndt_heartbeat.sh over the base's ndt
+  ok    base ndt: exactly the 21 expected
+    (round 5, S-5: one drop-check log per bring-up -- 'the whole of it is kept' is now '... in the log the line names', and three cells pin a second bring-up's own log; red over every base before round 5)
+    (added at round 4, 09-28: test_ndt_heartbeat's drop-check cells (section 2c and the withheld row) -- red over every older base for that reason)
+  ok      HEAD's ndt: Ran 91 checks, 0 failed
+== L: HEAD's 08 self-test with the base's HB_ARMS and without H4's new verdicts
+    red: H4 the proxy holds the cut down
+    red: H4 restored: both up again
+    red: H4 the cut is down and the kernel accepted it
+    red: H4 restored and the kernel accepted it
+    red: H4 the cut is a cable the package declares
+    red: H5 heartbeat on exactly the expected arms
+    red: HB_ARMS names 17 arms, not 20
+    red: HB_ARMS does not name p4runtime/skeleton, p4runtime/solution and flowcache/solution
+  ok    08 over the base's HB_ARMS and verdicts: exactly the 8 expected
+== C: HEAD's test_live_p1_common.sh over the base's _common.sh; the 03/04 pins over the base's 03/04
+  ok    base _common.sh: exactly the 12 expected
+    (round 3, 09-28: section 19's four cells -- INT/TERM fail the step with 130/143 -- are red over every base
+     before fdae10a9; redfirst_b3 sees them red against 14921f98 too)
+  ok      the base's 03_app_p4runtime does not ask the verdict (its pin would read 0, want 1: RED)
+  ok      the base's 04_diag_p4runtime does not ask the verdict (its pin would read 0, want 1: RED)
+== T: HEAD's test_live_p1_thirteen.sh over the base's 06
+  ok    base 06: exactly the 4 expected
+    (round 5, M-2: 06 records 00_identity.txt -- red over every base before round 5)
+== E: HEAD's test_live_p1_external_evidence.sh with no tool
+    Ran 151 checks, 129 failed; 22 ok
+    green without a tool:   ok         and NOT as the heartbeat's
+    green without a tool:   ok         and not decided either way (descriptive)
+    green without a tool:   ok       🔴 controls that disagree on a decisive key (rules installed): UNDECIDED, rc 2
+    green without a tool:   ok       🔴 a decisive invariant broken in a control too: UNDECIDED, rc 2
+    green without a tool:   ok       🔴 an arm with no controller log: rc 2
+    green without a tool:   ok         and does not print a conclusion either way
+    green without a tool:   ok       🔴 a run without the flowcache/solution row: rc 2
+    green without a tool:   ok       🔴 a counter block cut short: rc 2
+    green without a tool:   ok       🔴 a last counter block that had not settled: rc 2
+    green without a tool:   ok       🔴 a packet-in that cannot be parsed: rc 2
+    green without a tool:   ok       🔴 an IPv4 packet-in shorter than its header: rc 2
+    green without a tool:   ok         and no traceback
+    green without a tool:   ok       🔴 a controller log that is not UTF-8: rc 2
+    green without a tool:   ok         and no traceback
+    green without a tool:   ok       🔴 a report that cannot be read: rc 2
+    green without a tool:   ok       🔴 and no traceback from it
+    green without a tool:   ok       🔴 samples from a sampler before 09-28: rc 2
+    green without a tool:   ok       🔴 samples from round 4's sampler (no heard, no controllers): rc 2
+    green without a tool:   ok       🔴 a running sample whose daemon counter is not a number: rc 2, not a zero
+    green without a tool:   ok       🔴 a running sample whose heard column is not counts: rc 2
+    green without a tool:   ok       🔴 samples without 06's end beside them: rc 2
+    green without a tool:   ok       🔴 a compare with one run: usage, rc 2
+REDFIRST-B: ALL-AS-EXPECTED
+guarded_build: exit 0
+# rc=0

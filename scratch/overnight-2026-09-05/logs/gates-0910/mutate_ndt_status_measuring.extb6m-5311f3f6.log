@@ -1,0 +1,45 @@
+5311f3f60add32e9b92b2bf964db68a38419ae2a
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  2026-10-02T08:07:10Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  TMPDIR /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb6/tmp
+# cmd bash tests/shell/mutate_ndt_status_measuring.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb6m-5311f3f6/shims (nolab); drop check through /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb6m-5311f3f6/hbwrap
+# disk: 2920 MB free on / when queued; floor 1536 MB, checked again under the lock
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c a=$(df --output=avail -BM / | tail -1 | tr -dc 0-9); echo "# disk under the lock: $a MB free"; (( a >= $0 )) || { echo "DISK-FLOOR: $a MB < $0 MB -- not run"; exit 97; }; exec "$@" 1536 bash tests/shell/mutate_ndt_status_measuring.sh
+# disk under the lock: 2920 MB free
+head 5311f3f60add32e9b92b2bf964db68a38419ae2a
+porcelain 0 tracked file(s) differ from HEAD
+date 2026-10-02T16:07:11+08:00
+gate edcd5ddc2c54e67a88fc434c36f815b2a5a1272eeb69757d98bfd8a76a56db90
+baseline (must be green before any mutation):
+  Ran 102 checks, 0 failed
+
+  caught   L1: --measuring is the full report (sudo and the kernel graph on every probe) (🔴 --measuring ran no sudo, curl, OVS or bmv2 command (8 states) went red)
+  caught   L2: --measuring answers from its own copy (always nothing)     (in_flight only: the same measuring row as plain status went red)
+  caught   L3: plain status stops using the shared rows                   (in_flight only: --measuring's rows are plain status's, line for line went red)
+  caught   L4: a sudo OVS query on the measuring rows' path               (🔴 --measuring ran no sudo, curl, OVS or bmv2 command (8 states) went red)
+  caught   L5: a kernel get_graph_data request on the measuring rows' path (🔴 --measuring ran no sudo, curl, OVS or bmv2 command (8 states) went red)
+  caught   L5b: a bmv2 CLI query on the measuring rows' path              (🔴 --measuring ran no sudo, curl, OVS or bmv2 command (8 states) went red)
+  caught   L6: --measuring answers 1 (ndt serve would read a failure, not a report) (nothing: --measuring answers rc 0 went red)
+  caught   L14: ndt's own port_open (bash /dev/tcp) to the kernel on the shared path (🔴 --measuring opened no TCP connection to the lab's ports went red)
+  caught   L14b: a literal /dev/tcp connect to Ryu's port on the shared path (🔴 no absolute-path command and no /dev/tcp on --measuring's path went red)
+  caught   L15: a python3 urllib GET of the kernel's graph on the shared path (🔴 --measuring ran nothing outside its allowlist on PATH went red)
+  caught   L16: an OVS query by absolute path (past every PATH shim)      (🔴 no absolute-path command and no /dev/tcp on --measuring's path went red)
+  caught   L16b: curl by absolute path to the kernel (past the curl shim) (🔴 --measuring opened no TCP connection to the lab's ports went red)
+  caught   L7: the measuring rows drop the declaration                    (declared only: the declared row went red)
+  caught   L8: somebody else's claim declares nothing                     (somebody else's claim: the declared row went red)
+  caught   L9: an expired claim still declares a measurement              (expired claim: the declared row went red)
+  caught   L10: an orphaned driver reads as a measurement                 (orphaned (no fabric): the measuring row went red)
+  caught   L11: the measuring rows stop reading the process table         (in_flight only: the measuring row went red)
+  caught   L12: the '+ N more' row of a measurement is lost               (two drivers: the '+ 1 more' row, as plain status prints it went red)
+  caught   L13: ndt help does not name --measuring                        (ndt help names status --measuring went red)
+
+files under test unchanged by this gate:
+  f9cf6054d8cf42729e5ff061f80d7af63204746003010335fd98d125ab690567  tools/test_workflow/ndt
+  965620345606d0e103b65ea0d97cd4a8bca3cbb766f5c4ce7809b7fd6fcec1c2  tests/shell/test_ndt_status_measuring.sh
+
+19 mutation(s), 0 survivor(s)
+rc=0
+guarded_build: exit 0
+# rc=0

@@ -1,0 +1,84 @@
+cc798de22edbb0970182783dc23ed6900b85b598
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  2026-10-01T15:01:04Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  TMPDIR /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp
+# cmd p4_proxy/venv/bin/python -m unittest discover -s doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests -t doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5b-cc798de2/shims (nolab); drop check through /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5b-cc798de2/hbwrap
+# disk: 2076 MB free on / when queued; floor 1536 MB, checked again under the lock
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c a=$(df --output=avail -BM / | tail -1 | tr -dc 0-9); echo "# disk under the lock: $a MB free"; (( a >= $0 )) || { echo "DISK-FLOOR: $a MB < $0 MB -- not run"; exit 97; }; exec "$@" 1536 p4_proxy/venv/bin/python -m unittest discover -s doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests -t doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests
+# disk under the lock: 2076 MB free
+../home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:409: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/fixtures/dryrun_basic_solution.txt' mode='r' encoding='UTF-8'>
+  want = open(os.path.join(FIXTURES, "dryrun_%s_%s.txt" % (ex, which))).read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:409: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/fixtures/dryrun_basic_skeleton.txt' mode='r' encoding='UTF-8'>
+  want = open(os.path.join(FIXTURES, "dryrun_%s_%s.txt" % (ex, which))).read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:409: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/fixtures/dryrun_source_routing_solution.txt' mode='r' encoding='UTF-8'>
+  want = open(os.path.join(FIXTURES, "dryrun_%s_%s.txt" % (ex, which))).read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:409: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/fixtures/dryrun_source_routing_skeleton.txt' mode='r' encoding='UTF-8'>
+  want = open(os.path.join(FIXTURES, "dryrun_%s_%s.txt" % (ex, which))).read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+................./home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:2724: ResourceWarning: unclosed file <_io.BufferedWriter name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/drv-ctrl-pchn3zo4/driver-controller-p4runtime.log'>
+  v = verdict(self.session("p4runtime", "skeleton", "", 100, alive=False))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:2733: ResourceWarning: unclosed file <_io.BufferedWriter name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/drv-ctrl-1nzrqcen/driver-controller-p4runtime.log'>
+  v = verdict(self.session("p4runtime", "solution", log, 0))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:2753: ResourceWarning: unclosed file <_io.BufferedWriter name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/drv-ctrl-_72f4r76/driver-controller-flowcache.log'>
+  v = verdict(self.session("flowcache", "solution", log, 0))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:2747: ResourceWarning: unclosed file <_io.BufferedWriter name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/drv-ctrl-wb3xd_bl/driver-controller-flowcache.log'>
+  v = verdict(self.session("flowcache", "skeleton", self.FC_SOLUTION, 0))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:2739: ResourceWarning: unclosed file <_io.BufferedWriter name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/drv-ctrl-yigu_eqc/driver-controller-flowcache.log'>
+  v = verdict(self.session("flowcache", "solution", self.FC_SOLUTION, 0))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:2694: ResourceWarning: unclosed file <_io.BufferedWriter name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/drv-ctrl-714dohek/driver-controller-p4runtime.log'>
+  fabric="ndtwin", package="/pkg").run()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:2713: ResourceWarning: unclosed file <_io.BufferedWriter name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/drv-ctrl-gp5g6hug/driver-controller-p4runtime.log'>
+  self.assertFalse(verdict(self.session("p4runtime", "solution",
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:2716: ResourceWarning: unclosed file <_io.BufferedWriter name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/drv-ctrl-gp5g6hug/driver-controller-p4runtime.log'>
+  self.assertFalse(verdict(self.session("p4runtime", "skeleton",
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:2708: ResourceWarning: unclosed file <_io.BufferedWriter name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/drv-ctrl-qtxy44xb/driver-controller-p4runtime.log'>
+  v = verdict(self.session("p4runtime", "skeleton", self.P4RT_SKELETON, 100))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:2702: ResourceWarning: unclosed file <_io.BufferedWriter name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/drv-ctrl-9u5hudqz/driver-controller-p4runtime.log'>
+  v = verdict(self.session("p4runtime", "solution", self.P4RT_SOLUTION, 0))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:2679: ResourceWarning: unclosed file <_io.BufferedWriter name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/drv-ctrl-f_rkxpgo/driver-controller-p4runtime.log'>
+  steps_for(self.mod, "p4runtime", "solution", hosts, self.tmp).run()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+../home/adam/miniconda3/lib/python3.13/unittest/case.py:606: ResourceWarning: unclosed file <_io.BufferedWriter name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/drv-ctrlpid-qimo5adh/driver-controller-p4runtime.log'>
+  if method() is not None:
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+../home/adam/miniconda3/lib/python3.13/unittest/case.py:606: ResourceWarning: unclosed file <_io.BufferedWriter name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/drv-ctrlpid-bz2564iz/driver-controller-p4runtime.log'>
+  if method() is not None:
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./home/adam/miniconda3/lib/python3.13/unittest/case.py:606: ResourceWarning: unclosed file <_io.BufferedWriter name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/drv-ctrlpid-0fnuvesk/driver-controller-flowcache.log'>
+  if method() is not None:
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+............................../home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:2390: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py' mode='r' encoding='UTF-8'>
+  src = open(DRIVER_PATH).read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+.ok
+red
+.LINK_USAGE x expect=follows rc=NOT-RUN
+.
+......./home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:3352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py' mode='r' encoding='UTF-8'>
+  src = open(self.mod.__file__ if hasattr(self.mod, "__file__") else DRIVER).read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+.........................................................../home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:70: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/_common.sh' mode='r' encoding='UTF-8'>
+  m = re.search(r"^%s=(\d+)\s*$" % name, open(COMMON_SH).read(), re.M)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+..............................................
+----------------------------------------------------------------------
+Ran 178 tests in 13.176s
+
+OK
+guarded_build: exit 0
+# rc=0

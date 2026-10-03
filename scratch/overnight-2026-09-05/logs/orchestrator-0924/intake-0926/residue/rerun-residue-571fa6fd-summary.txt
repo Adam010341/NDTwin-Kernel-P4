@@ -1,0 +1,11 @@
+test_apps_residue # rc=0 |   ok       🔴 premise: /proc shows the live fixture's argv, so ndt can recognise the pid Ran 145 checks, 0 failed 
+test_apps_residue_again # rc=0 |   ok       🔴 premise: /proc shows the live fixture's argv, so ndt can recognise the pid Ran 145 checks, 0 failed 
+mutate_apps_residue_one_clock # rc=0 |   harness late on the unmutated suite: Ran 145 checks, 0 failed 9 mutation(s), 0 survived 
+mutate_apps_stop_lists_rules # rc=0 |   caught   M20 (widening): --check goes red on 'could not check'    (🔴 but a healthy P4 fabric still passes: rc 0 went red) mutation gate: 35 mutations, 0 survived 
+test_ndt_serve # rc=0 | Ran 74 tests in 50.968s 
+test_l1_shell_scoring # rc=0 |   ok       D22 every NDTWIN_L1_NEEDS in tests/shell and tests/python is one the lane probes Ran 150 checks, 0 failed 
+check_gate_anchors # rc=1 | 
+check_test_tmpdirs # rc=0 | 
+tripwire lines: 0
+tracked tree clean
+RERUN-DONE

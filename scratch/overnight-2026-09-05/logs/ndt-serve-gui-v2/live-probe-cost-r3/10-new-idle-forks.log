@@ -1,0 +1,8 @@
+{"rep": 0, "rc": 0, "wall_s": 0.141, "run_forks": 16, "idle_forks": 7, "net": 9}
+{"rep": 1, "rc": 0, "wall_s": 0.139, "run_forks": 28, "idle_forks": 4, "net": 24}
+{"rep": 2, "rc": 0, "wall_s": 0.139, "run_forks": 34, "idle_forks": 12, "net": 22}
+{"rep": 3, "rc": 0, "wall_s": 0.138, "run_forks": 16, "idle_forks": 4, "net": 12}
+{"rep": 4, "rc": 0, "wall_s": 0.139, "run_forks": 16, "idle_forks": 5, "net": 11}
+{"rep": 5, "rc": 0, "wall_s": 0.14, "run_forks": 16, "idle_forks": 4, "net": 12}
+{"rep": 6, "rc": 0, "wall_s": 0.138, "run_forks": 16, "idle_forks": 4, "net": 12}
+{"label": "r3-idle-measuring", "cmd": "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/tools/test_workflow/ndt status --measuring", "reps": 7, "net_median": 12, "net_min": 9, "net_max": 24, "wall_median_s": 0.139, "rcs": [0]}

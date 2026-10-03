@@ -1,0 +1,745 @@
+====================================================================================================
+A. STATIC PATH ENUMERATION (p4pi.enumerate_paths + classify_path on the compiled JSON)
+====================================================================================================
+-- basic: 2 path(s); json sha256[:12]=f967b39849a2
+   P1  D1 ip_off=[14,14] N=- tags=-
+        start -[0x0800]-> parse_ipv4 -[default]-> accept
+   P2  X  ip_off=[None,None] N=- tags=-
+        start -[default]-> accept
+-- basic_tunnel: 4 path(s); json sha256[:12]=bcb4ff532f30
+   P1  D1 ip_off=[18,18] N=- tags=-
+        start -[0x1212]-> parse_myTunnel -[0x0800]-> parse_ipv4 -[default]-> accept
+   P2  X  ip_off=[None,None] N=- tags=-
+        start -[0x1212]-> parse_myTunnel -[default]-> accept
+   P3  D1 ip_off=[14,14] N=- tags=-
+        start -[0x0800]-> parse_ipv4 -[default]-> accept
+   P4  X  ip_off=[None,None] N=- tags=-
+        start -[default]-> accept
+-- calc: 3 path(s); json sha256[:12]=f8ad3fba5391
+   P1  X  ip_off=[None,None] N=- tags=lookahead
+        start -[0x1234]-> check_p4calc -[0x503401]-> parse_p4calc -[default]-> accept
+   P2  X  ip_off=[None,None] N=- tags=lookahead
+        start -[0x1234]-> check_p4calc -[default]-> accept
+   P3  X  ip_off=[None,None] N=- tags=-
+        start -[default]-> accept
+-- ecn: 2 path(s); json sha256[:12]=7051f9a0601f
+   P1  D1 ip_off=[14,14] N=- tags=-
+        start -[0x0800]-> parse_ipv4 -[default]-> accept
+   P2  X  ip_off=[None,None] N=- tags=-
+        start -[default]-> accept
+-- firewall_basic: 2 path(s); json sha256[:12]=2e2eaaa92bbc
+   P1  D1 ip_off=[14,14] N=- tags=-
+        start -[0x0800]-> parse_ipv4 -[default]-> accept
+   P2  X  ip_off=[None,None] N=- tags=-
+        start -[default]-> accept
+-- firewall_fw: 3 path(s); json sha256[:12]=e21dcdca3847
+   P1  D1 ip_off=[14,14] N=- tags=-
+        start -[0x0800]-> parse_ipv4 -[0x06]-> tcp -[default]-> accept
+   P2  D1 ip_off=[14,14] N=- tags=-
+        start -[0x0800]-> parse_ipv4 -[default]-> accept
+   P3  X  ip_off=[None,None] N=- tags=-
+        start -[default]-> accept
+-- flowcache: 3 path(s); json sha256[:12]=6156e996ba5c
+   P1  X  ip_off=[None,None] N=standard_metadata.ingress_port tags=-
+        start -[0x01fe]-> parse_controller_packet_out_header -[default]-> accept
+   P2  N  ip_off=[14,14] N=standard_metadata.ingress_port tags=-
+        start -[default]-> parse_ethernet -[0x0800]-> parse_ipv4 -[default]-> accept
+   P3  X  ip_off=[None,None] N=standard_metadata.ingress_port tags=-
+        start -[default]-> parse_ethernet -[default]-> accept
+-- link_monitor: 4 path(s); json sha256[:12]=b4a2d84b5e5c
+   P1  D1 ip_off=[14,14] N=- tags=-
+        start -[0x0800]-> parse_ipv4 -[default]-> accept
+   P2  X  ip_off=[None,None] N=- tags=stack
+        start -[0x0812]-> parse_probe -[0x00]-> parse_probe_fwd -[0x00]-> accept  loops: parse_probe_fwd-[default]->parse_probe_fwd
+   P3  X  ip_off=[None,None] N=- tags=stack
+        start -[0x0812]-> parse_probe -[default]-> parse_probe_data -[0x01]-> parse_probe_fwd -[0x00]-> accept  loops: parse_probe_fwd-[default]->parse_probe_fwd, parse_probe_data-[default]->parse_probe_data
+   P4  X  ip_off=[None,None] N=- tags=-
+        start -[default]-> accept
+-- load_balance: 3 path(s); json sha256[:12]=f160936ef087
+   P1  D1 ip_off=[14,14] N=- tags=-
+        start -[0x0800]-> parse_ipv4 -[0x06]-> parse_tcp -[default]-> accept
+   P2  D1 ip_off=[14,14] N=- tags=-
+        start -[0x0800]-> parse_ipv4 -[default]-> accept
+   P3  X  ip_off=[None,None] N=- tags=-
+        start -[default]-> accept
+-- mri: 5 path(s); json sha256[:12]=c11d6a0786c5
+   P1  D1 ip_off=[14,14] N=- tags=verify
+        start -[0x0800]-> parse_ipv4 -[0x05]-> accept
+   P2  D1 ip_off=[14,14] N=- tags=verify
+        start -[0x0800]-> parse_ipv4 -[default]-> parse_ipv4_option -[0x1f]-> parse_mri -[0x0000]-> accept
+   P3  D2 ip_off=[14,14] N=- tags=stack,verify
+        start -[0x0800]-> parse_ipv4 -[default]-> parse_ipv4_option -[0x1f]-> parse_mri -[default]-> parse_swtrace -[0x0000]-> accept  loops: parse_swtrace-[default]->parse_swtrace
+   P4  D1 ip_off=[14,14] N=- tags=verify
+        start -[0x0800]-> parse_ipv4 -[default]-> parse_ipv4_option -[default]-> accept
+   P5  X  ip_off=[None,None] N=- tags=-
+        start -[default]-> accept
+-- multicast: 1 path(s); json sha256[:12]=350746c489be
+   P1  X  ip_off=[None,None] N=- tags=-
+        start -[default]-> accept
+-- p4runtime: 4 path(s); json sha256[:12]=ef1adeee9e76
+   P1  D1 ip_off=[18,18] N=- tags=-
+        start -[0x1212]-> parse_myTunnel -[0x0800]-> parse_ipv4 -[default]-> accept
+   P2  X  ip_off=[None,None] N=- tags=-
+        start -[0x1212]-> parse_myTunnel -[default]-> accept
+   P3  D1 ip_off=[14,14] N=- tags=-
+        start -[0x0800]-> parse_ipv4 -[default]-> accept
+   P4  X  ip_off=[None,None] N=- tags=-
+        start -[default]-> accept
+-- qos: 2 path(s); json sha256[:12]=352497178605
+   P1  D1 ip_off=[14,14] N=- tags=-
+        start -[0x0800]-> parse_ipv4 -[default]-> accept
+   P2  X  ip_off=[None,None] N=- tags=-
+        start -[default]-> accept
+-- source_routing: 2 path(s); json sha256[:12]=58f74ed1d535
+   P1  D2 ip_off=[16,32] N=- tags=stack
+        start -[0x1234]-> parse_srcRouting -[0x01]-> parse_ipv4 -[default]-> accept  loops: parse_srcRouting-[default]->parse_srcRouting
+   P2  X  ip_off=[None,None] N=- tags=-
+        start -[default]-> accept
+-- ndtwin_switch: 10 path(s); json sha256[:12]=0b19d789d74f
+   P1  N  ip_off=[16,16] N=standard_metadata.ingress_port tags=-
+        start -[0x00ff]-> parse_packet_out -[default]-> parse_ethernet -[0x0800]-> parse_ipv4 -[0x000006]-> parse_tcp -[default]-> accept
+   P2  N  ip_off=[16,16] N=standard_metadata.ingress_port tags=-
+        start -[0x00ff]-> parse_packet_out -[default]-> parse_ethernet -[0x0800]-> parse_ipv4 -[0x000011]-> parse_udp -[default]-> accept
+   P3  N  ip_off=[16,16] N=standard_metadata.ingress_port tags=-
+        start -[0x00ff]-> parse_packet_out -[default]-> parse_ethernet -[0x0800]-> parse_ipv4 -[0x000001]-> parse_icmp -[default]-> accept
+   P4  N  ip_off=[16,16] N=standard_metadata.ingress_port tags=-
+        start -[0x00ff]-> parse_packet_out -[default]-> parse_ethernet -[0x0800]-> parse_ipv4 -[default]-> accept
+   P5  X  ip_off=[None,None] N=standard_metadata.ingress_port tags=-
+        start -[0x00ff]-> parse_packet_out -[default]-> parse_ethernet -[default]-> accept
+   P6  N  ip_off=[14,14] N=standard_metadata.ingress_port tags=-
+        start -[default]-> parse_ethernet -[0x0800]-> parse_ipv4 -[0x000006]-> parse_tcp -[default]-> accept
+   P7  N  ip_off=[14,14] N=standard_metadata.ingress_port tags=-
+        start -[default]-> parse_ethernet -[0x0800]-> parse_ipv4 -[0x000011]-> parse_udp -[default]-> accept
+   P8  N  ip_off=[14,14] N=standard_metadata.ingress_port tags=-
+        start -[default]-> parse_ethernet -[0x0800]-> parse_ipv4 -[0x000001]-> parse_icmp -[default]-> accept
+   P9  N  ip_off=[14,14] N=standard_metadata.ingress_port tags=-
+        start -[default]-> parse_ethernet -[0x0800]-> parse_ipv4 -[default]-> accept
+   P10 X  ip_off=[None,None] N=standard_metadata.ingress_port tags=-
+        start -[default]-> parse_ethernet -[default]-> accept
+-- syn_pvs: 5 path(s); json sha256[:12]=e9ed1e553bb6
+   P1  D1 ip_off=[14,14] N=- tags=-
+        start -[0x0800]-> parse_ipv4 -[default]-> accept
+   P2  N  ip_off=[18,18] N=parse_vset tags=-
+        start -[vset:P.tunnel_types{vset-dependent}]-> parse_tun -[0x0800]-> parse_ipv4 -[default]-> accept
+   P3  X  ip_off=[None,None] N=parse_vset tags=-
+        start -[vset:P.tunnel_types{vset-dependent}]-> parse_tun -[default]-> accept
+   P4  X  ip_off=[None,None] N=parse_vset tags=-
+        start -[0x0bad{vset-dependent}]-> accept
+   P5  X  ip_off=[None,None] N=parse_vset tags=-
+        start -[default{vset-dependent}]-> accept
+-- syn_varbit_ok: 4 path(s); json sha256[:12]=e42498563ce1
+   P1  D2 ip_off=[14,14] N=- tags=varbit
+        start -[0x0800]-> parse_ipv4 -[0x06]-> parse_tcp -[default]-> accept
+   P2  D2 ip_off=[14,14] N=- tags=varbit
+        start -[0x0800]-> parse_ipv4 -[0x11]-> parse_udp -[default]-> accept
+   P3  D2 ip_off=[14,14] N=- tags=varbit
+        start -[0x0800]-> parse_ipv4 -[default]-> accept
+   P4  X  ip_off=[None,None] N=- tags=-
+        start -[default]-> accept
+-- syn_meta_key: 6 path(s); json sha256[:12]=e6ba0673645d
+   P1  N  ip_off=[18,18] N=standard_metadata.ingress_port tags=-
+        start -[0x01]-> start_true -[default]-> start_join -[0x0188b5]-> parse_tun -[default]-> parse_ipv4 -[default]-> accept
+   P2  N  ip_off=[14,14] N=standard_metadata.ingress_port tags=-
+        start -[0x01]-> start_true -[default]-> start_join -[0x000800&0x00ffff]-> parse_ipv4 -[default]-> accept
+   P3  X  ip_off=[None,None] N=standard_metadata.ingress_port tags=-
+        start -[0x01]-> start_true -[default]-> start_join -[default]-> accept
+   P4  N  ip_off=[18,18] N=standard_metadata.ingress_port tags=-
+        start -[0x00]-> start_false -[default]-> start_join -[0x0188b5]-> parse_tun -[default]-> parse_ipv4 -[default]-> accept
+   P5  N  ip_off=[14,14] N=standard_metadata.ingress_port tags=-
+        start -[0x00]-> start_false -[default]-> start_join -[0x000800&0x00ffff]-> parse_ipv4 -[default]-> accept
+   P6  X  ip_off=[None,None] N=standard_metadata.ingress_port tags=-
+        start -[0x00]-> start_false -[default]-> start_join -[default]-> accept
+-- syn_deep_stack: 5 path(s); json sha256[:12]=6d5be31bcfa8
+   P1  D1 ip_off=[14,14] N=- tags=-
+        start -[0x0800]-> parse_ipv4 -[0x11]-> parse_l4 -[default]-> accept
+   P2  D1 ip_off=[14,14] N=- tags=-
+        start -[0x0800]-> parse_ipv4 -[default]-> accept
+   P3  D2 ip_off=[30,142] N=- tags=stack
+        start -[0x1235]-> parse_hop -[0x01]-> parse_ipv4 -[0x11]-> parse_l4 -[default]-> accept  loops: parse_hop-[default]->parse_hop
+   P4  D2 ip_off=[30,142] N=- tags=stack
+        start -[0x1235]-> parse_hop -[0x01]-> parse_ipv4 -[default]-> accept  loops: parse_hop-[default]->parse_hop
+   P5  X  ip_off=[None,None] N=- tags=-
+        start -[default]-> accept
+-- syn_ipip: 5 path(s); json sha256[:12]=3d0143014373
+   P1  D1 ip_off=[14,14] N=- tags=-
+        start -[0x0800]-> parse_outer -[0x04]-> parse_inner -[0x11]-> parse_udp -[default]-> accept
+   P2  D1 ip_off=[14,14] N=- tags=-
+        start -[0x0800]-> parse_outer -[0x04]-> parse_inner -[default]-> accept
+   P3  D1 ip_off=[14,14] N=- tags=-
+        start -[0x0800]-> parse_outer -[0x11]-> parse_udp -[default]-> accept
+   P4  D1 ip_off=[14,14] N=- tags=-
+        start -[0x0800]-> parse_outer -[default]-> accept
+   P5  X  ip_off=[None,None] N=- tags=-
+        start -[default]-> accept
+
+====================================================================================================
+B. SYNTHESIZED FRAMES (struct, mirroring each send.py), truncated to 128 B
+   verdict = prototype vs what THIS program's parser must do; *_vs_wire = identity vs the
+   L3 identity actually present in the bytes (independent of the program)
+====================================================================================================
+[PASS] basic-1                  prog=basic           path=P1         ctx={'standard_metadata.ingress_port': 1}
+        link: h1->s1 ingress
+        expect=('IP', 14)  got: IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=6 50001->1234
+        states: start > parse_ipv4
+        vs wire: program=True  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+[PASS] basic-2-arp              prog=basic           path=P2         ctx={'standard_metadata.ingress_port': 1}
+        link: ARP
+        expect=('NO_IP',)  got: NO_IP
+        states: start
+        vs wire: program=True  native-model=True (l2)  hints=True (l2)  combined=True (via none)
+[PASS] btun-1-tunnel            prog=basic_tunnel    path=P1         ctx={'standard_metadata.ingress_port': 1}
+        link: h1->s1 ingress (host sends the tunnel header)
+        expect=('IP', 18)  got: IP ipv4@18 tuple=10.0.1.1->10.0.2.2 proto=6 50002->1234
+        states: start > parse_myTunnel > parse_ipv4
+        vs wire: program=True  native-model=False (l2)  hints=True (ipv4)  combined=True (via program)
+[PASS] btun-1b-tunnel-egress    prog=basic_tunnel    path=P1         ctx={'standard_metadata.ingress_port': 2}
+        link: s2->h2 egress (tunnel header kept to host)
+        expect=('IP', 18)  got: IP ipv4@18 tuple=10.0.1.1->10.0.2.2 proto=6 50002->1234
+        states: start > parse_myTunnel > parse_ipv4
+        vs wire: program=True  native-model=False (l2)  hints=True (ipv4)  combined=True (via program)
+        note: egress sample; switch never pops myTunnel (basic_tunnel.p4:147-157)
+[PASS] btun-2-plain             prog=basic_tunnel    path=P3         ctx={'standard_metadata.ingress_port': 1}
+        link: h1->s1 ingress, no --dst_id
+        expect=('IP', 14)  got: IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=6 50003->1234
+        states: start > parse_ipv4
+        vs wire: program=True  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+[PASS] btun-3-tunnel-v6         prog=basic_tunnel    path=P2         ctx={'standard_metadata.ingress_port': 1}
+        link: tunnel carrying IPv6 (not in send.py)
+        expect=('NO_IP',)  got: NO_IP
+        states: start > parse_myTunnel
+        vs wire: program=False  native-model=False (l2)  hints=True (ipv6)  combined=False (via none)
+        note: program parses only proto_id 0x0800 behind myTunnel: X by the program, IPv6 on wire
+[PASS] calc-1                   prog=calc            path=x-early:P1|P2|P3 ctx={'standard_metadata.ingress_port': 1}
+        link: h1->s1
+        expect=('NO_IP',)  got: NO_IP no IP-extracting state reachable from start
+        states: start
+        vs wire: program=True  native-model=True (l2)  hints=True (l2)  combined=True (via none)
+[PASS] calc-1-full              prog=calc            path=P1         ctx={'standard_metadata.ingress_port': 1}
+        link: h1->s1, reachability exit OFF: lookahead select must pick P1
+        expect=('NO_IP',)  got: NO_IP
+        states: start > check_p4calc > parse_p4calc
+        vs wire: program=True  native-model=True (l2)  hints=True (l2)  combined=True (via none)
+        note: runs check_p4calc's lookahead<p4calc_t> and its 3-field select
+[PASS] calc-1-full-badmagic     prog=calc            path=P2         ctx={'standard_metadata.ingress_port': 1}
+        link: reachability exit OFF, first byte 'Q'
+        expect=('NO_IP',)  got: NO_IP
+        states: start > check_p4calc
+        vs wire: program=True  native-model=True (l2)  hints=True (l2)  combined=True (via none)
+[PASS] calc-2-badmagic          prog=calc            path=x-early:P1|P2|P3 ctx={'standard_metadata.ingress_port': 1}
+        link: h1->s1, not 'P4'
+        expect=('NO_IP',)  got: NO_IP no IP-extracting state reachable from start
+        states: start
+        vs wire: program=True  native-model=True (l2)  hints=True (l2)  combined=True (via none)
+[PASS] ecn-1                    prog=ecn             path=P1         ctx={'standard_metadata.ingress_port': 1}
+        link: h1->s1
+        expect=('IP', 14)  got: IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=17 1234->4321
+        states: start > parse_ipv4
+        vs wire: program=True  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+[PASS] fw-1-s1                  prog=firewall_fw     path=P1         ctx={'standard_metadata.ingress_port': 1}
+        link: h1->s1 ingress (firewall.p4)
+        expect=('IP', 14)  got: IP ipv4@14 tuple=10.0.1.1->10.0.3.3 proto=6 40000->80
+        states: start > parse_ipv4 > tcp
+        vs wire: program=True  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+        program-extracted L4 header at byte 34
+[PASS] fw-2-s3                  prog=firewall_basic  path=P1         ctx={'standard_metadata.ingress_port': 1}
+        link: s1->s3 ingress at s3 (basic.p4)
+        expect=('IP', 14)  got: IP ipv4@14 tuple=10.0.1.1->10.0.3.3 proto=6 40000->80
+        states: start > parse_ipv4
+        vs wire: program=True  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+[PASS] fw-3-s1-udp              prog=firewall_fw     path=P2         ctx={'standard_metadata.ingress_port': 1}
+        link: h1->s1 UDP (non-TCP branch)
+        expect=('IP', 14)  got: IP ipv4@14 tuple=10.0.1.1->10.0.3.3 proto=17 5353->53
+        states: start > parse_ipv4
+        vs wire: program=True  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+[PASS] fc-1-ctx                 prog=flowcache       path=P2         ctx={'standard_metadata.ingress_port': 1}
+        link: h1->s1 ingress, port given
+        expect=('IP', 14)  got: IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=1 8->0
+        states: start > parse_ethernet > parse_ipv4
+        vs wire: program=True  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+[PASS] fc-2-noctx               prog=flowcache       path=refuse:P1|P2|P3 ctx=None
+        link: same frame, no port context
+        expect=('REFUSE', 'standard_metadata.ingress_port')  got: REFUSE [standard_metadata key] standard_metadata.ingress_port is not in the packet bytes and no context was given
+        states: start
+        vs wire: program=False  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+        note: NEGATIVE: class N construct
+[PASS] lm-1-probe0              prog=link_monitor    path=x-early:P2|P3 ctx={'standard_metadata.ingress_port': 1}
+        link: h1->s1
+        expect=('NO_IP',)  got: NO_IP no IP-extracting state reachable from parse_probe
+        states: start > parse_probe
+        vs wire: program=True  native-model=True (l2)  hints=True (l2)  combined=True (via none)
+[PASS] lm-2-probe3              prog=link_monitor    path=x-early:P2|P3 ctx={'standard_metadata.ingress_port': 2}
+        link: after 3 hops
+        expect=('NO_IP',)  got: NO_IP no IP-extracting state reachable from parse_probe
+        states: start > parse_probe
+        vs wire: program=True  native-model=True (l2)  hints=True (l2)  combined=True (via none)
+[PASS] lm-2-probe3-full         prog=link_monitor    path=P3         ctx={'standard_metadata.ingress_port': 2}
+        link: after 3 hops, reachability exit OFF
+        expect=('NO_IP',)  got: NO_IP
+        states: start > parse_probe > parse_probe_data > parse_probe_data > parse_probe_data > parse_probe_fwd > parse_probe_fwd > parse_probe_fwd > parse_probe_fwd
+        vs wire: program=True  native-model=True (l2)  hints=True (l2)  combined=True (via none)
+        note: runs both stacks: probe_data until bos, probe_fwd for hop_cnt+1 entries
+[PASS] lm-1-probe0-full         prog=link_monitor    path=P2         ctx={'standard_metadata.ingress_port': 2}
+        link: hop_cnt=0, reachability exit OFF
+        expect=('NO_IP',)  got: NO_IP
+        states: start > parse_probe > parse_probe_fwd
+        vs wire: program=True  native-model=True (l2)  hints=True (l2)  combined=True (via none)
+[PASS] lm-3-probe8-truncated    prog=link_monitor    path=x-early:P2|P3 ctx={'standard_metadata.ingress_port': 2}
+        link: after 8 hops, 167 B > 128 B capture
+        expect=('NO_IP',)  got: NO_IP no IP-extracting state reachable from parse_probe
+        states: start > parse_probe
+        vs wire: program=True  native-model=True (l2)  hints=True (l2)  combined=True (via none)
+        note: decided by reachability before the truncation bites
+[PASS] lm-4-ipv4                prog=link_monitor    path=P1         ctx={'standard_metadata.ingress_port': 1}
+        link: plain IPv4
+        expect=('IP', 14)  got: IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=17 5000->6000
+        states: start > parse_ipv4
+        vs wire: program=True  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+[PASS] lb-1                     prog=load_balance    path=P1         ctx={'standard_metadata.ingress_port': 1}
+        link: h1->s1
+        expect=('IP', 14)  got: IP ipv4@14 tuple=10.0.1.1->10.0.0.1 proto=6 50004->1234
+        states: start > parse_ipv4 > parse_tcp
+        vs wire: program=True  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+        program-extracted L4 header at byte 34
+[PASS] lb-2-udp                 prog=load_balance    path=P2         ctx={'standard_metadata.ingress_port': 1}
+        link: h1->s1 UDP (non-TCP branch)
+        expect=('IP', 14)  got: IP ipv4@14 tuple=10.0.1.1->10.0.0.1 proto=17 5000->1234
+        states: start > parse_ipv4
+        vs wire: program=True  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+[PASS] mri-0                    prog=mri             path=P2         ctx={'standard_metadata.ingress_port': 2}
+        link: h1->s1 (count=0, ihl=6)
+        expect=('IP', 14)  got: IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=17 1234->4321
+        states: start > parse_ipv4 > parse_ipv4_option > parse_mri
+        vs wire: program=True  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+[PASS] mri-1                    prog=mri             path=P3         ctx={'standard_metadata.ingress_port': 3}
+        link: s1->s2 (count=1, ihl=8)
+        expect=('IP', 14)  got: IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=17 1234->4321
+        states: start > parse_ipv4 > parse_ipv4_option > parse_mri > parse_swtrace
+        vs wire: program=True  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+[PASS] mri-3                    prog=mri             path=P3         ctx={'standard_metadata.ingress_port': 2}
+        link: s2->h2 via s3 (count=3, ihl=12)
+        expect=('IP', 14)  got: IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=17 1234->4321
+        states: start > parse_ipv4 > parse_ipv4_option > parse_mri > parse_swtrace > parse_swtrace > parse_swtrace
+        vs wire: program=True  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+[PASS] mri-4                    prog=mri             path=P3         ctx={'standard_metadata.ingress_port': 2}
+        link: count=4, ihl=14 (most that fits ihl's 4 bits)
+        expect=('IP', 14)  got: IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=17 1234->4321
+        states: start > parse_ipv4 > parse_ipv4_option > parse_mri > parse_swtrace > parse_swtrace > parse_swtrace > parse_swtrace
+        vs wire: program=True  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+[PASS] mri-5-ihl-wrap           prog=mri             path=parser_error:P1|P2|P3|P4 ctx={'standard_metadata.ingress_port': 2}
+        link: 5th hop: add_swtrace's ihl+2 wraps the 4-bit field to 0
+        expect=('PARSER_ERROR', 'IPHeaderTooShort')  got: PARSER_ERROR IPHeaderTooShort: verify failed
+        states: start > parse_ipv4
+        vs wire: program=False  native-model=False (ipv4-malformed-ihl)  hints=False (ipv4-malformed-ihl)  combined=False (via none)
+        note: LIMIT (an app bug, mri.p4:206): nothing in the header says where L4 is any more
+[PASS] mri-plain                prog=mri             path=P1         ctx={'standard_metadata.ingress_port': 2}
+        link: IPv4 ihl=5
+        expect=('IP', 14)  got: IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=17 1234->4321
+        states: start > parse_ipv4
+        vs wire: program=True  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+[PASS] mri-nop-opt              prog=mri             path=P4         ctx={'standard_metadata.ingress_port': 2}
+        link: IPv4 with a non-MRI option (NOP,NOP,NOP,EOL)
+        expect=('IP', 14)  got: IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=17 1234->4321
+        states: start > parse_ipv4 > parse_ipv4_option
+        vs wire: program=True  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+[PASS] mri-ihl4                 prog=mri             path=parser_error:P1|P2|P3|P4 ctx={'standard_metadata.ingress_port': 2}
+        link: malformed ihl=4
+        expect=('PARSER_ERROR', 'IPHeaderTooShort')  got: PARSER_ERROR IPHeaderTooShort: verify failed
+        states: start > parse_ipv4
+        vs wire: program=True  native-model=True (ipv4-malformed-ihl)  hints=True (ipv4-malformed-ihl)  combined=True (via none)
+        note: verify(ihl>=5) evaluated from the bytes
+[PASS] mc-1                     prog=multicast       path=x-early:P1 ctx={'standard_metadata.ingress_port': 1}
+        link: h1->s1 ping
+        expect=('NO_IP',)  got: NO_IP no IP-extracting state reachable from start
+        states: start
+        vs wire: program=False  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+        note: X by the program, IPv4 on the wire
+[PASS] p4rt-1-hostlink          prog=p4runtime       path=P3         ctx={'standard_metadata.ingress_port': 1}
+        link: h1->s1 ingress (plain IPv4)
+        expect=('IP', 14)  got: IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=1 8->0
+        states: start > parse_ipv4
+        vs wire: program=True  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+[PASS] p4rt-2-tunnel            prog=p4runtime       path=P1         ctx={'standard_metadata.ingress_port': 2}
+        link: s1->s2 ingress at s2 (tunnel)
+        expect=('IP', 18)  got: IP ipv4@18 tuple=10.0.1.1->10.0.2.2 proto=1 8->0
+        states: start > parse_myTunnel > parse_ipv4
+        vs wire: program=True  native-model=False (l2)  hints=True (ipv4)  combined=True (via program)
+[PASS] qos-1                    prog=qos             path=P1         ctx={'standard_metadata.ingress_port': 1}
+        link: h1->s1 UDP
+        expect=('IP', 14)  got: IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=17 1234->4321
+        states: start > parse_ipv4
+        vs wire: program=True  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+[PASS] qos-2                    prog=qos             path=P1         ctx={'standard_metadata.ingress_port': 1}
+        link: h1->s1 TCP
+        expect=('IP', 14)  got: IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=6 20->80
+        states: start > parse_ipv4
+        vs wire: program=True  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+[PASS] sr-1-host                prog=source_routing  path=P1         ctx={'standard_metadata.ingress_port': 1}
+        link: h1->s1 ingress, route '2 3 1'
+        expect=('IP', 20)  got: IP ipv4@20 tuple=10.0.1.1->10.0.2.2 proto=17 1234->4321
+        states: start > parse_srcRouting > parse_srcRouting > parse_srcRouting > parse_ipv4
+        vs wire: program=True  native-model=False (l2)  hints=True (ipv4)  combined=True (via program)
+[PASS] sr-2-core                prog=source_routing  path=P1         ctx={'standard_metadata.ingress_port': 2}
+        link: s1->s2 ingress after one pop
+        expect=('IP', 18)  got: IP ipv4@18 tuple=10.0.1.1->10.0.2.2 proto=17 1234->4321
+        states: start > parse_srcRouting > parse_srcRouting > parse_ipv4
+        vs wire: program=True  native-model=False (l2)  hints=True (ipv4)  combined=True (via program)
+[PASS] sr-9-max                 prog=source_routing  path=P1         ctx={'standard_metadata.ingress_port': 1}
+        link: 9 entries (stack size)
+        expect=('IP', 32)  got: IP ipv4@32 tuple=10.0.1.1->10.0.2.2 proto=17 1234->4321
+        states: start > parse_srcRouting > parse_srcRouting > parse_srcRouting > parse_srcRouting > parse_srcRouting > parse_srcRouting > parse_srcRouting > parse_srcRouting > parse_srcRouting > parse_ipv4
+        vs wire: program=True  native-model=False (l2)  hints=True (ipv4)  combined=True (via program)
+[PASS] sr-last-hop              prog=source_routing  path=P2         ctx={'standard_metadata.ingress_port': 1}
+        link: s->h2 egress: plain 0x0800 after srcRoute_finish
+        expect=('NO_IP',)  got: NO_IP
+        states: start
+        vs wire: program=False  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+        note: the program's parser has no 0x0800 branch: X by the program, IPv4 on the wire
+[PASS] sr-10-overflow           prog=source_routing  path=parser_error:P1 ctx={'standard_metadata.ingress_port': 1}
+        link: 10 entries > stack size 9
+        expect=('PARSER_ERROR', 'StackOutOfBounds')  got: PARSER_ERROR StackOutOfBounds: srcRoutes.next with 9 already extracted
+        states: start > parse_srcRouting > parse_srcRouting > parse_srcRouting > parse_srcRouting > parse_srcRouting > parse_srcRouting > parse_srcRouting > parse_srcRouting > parse_srcRouting > parse_srcRouting
+        vs wire: program=False  native-model=False (l2)  hints=True (ipv4)  combined=False (via none)
+        note: bmv2 would also raise StackOutOfBounds; the wire still has IPv4 at 34
+[PASS] ndt-1-ctx                prog=ndtwin_switch   path=P6         ctx={'standard_metadata.ingress_port': 1}
+        link: host->switch ingress, port 1
+        expect=('IP', 14)  got: IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=6 33000->5201
+        states: start > parse_ethernet > parse_ipv4 > parse_tcp
+        vs wire: program=True  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+        program-extracted L4 header at byte 34
+[PASS] ndt-2-noctx              prog=ndtwin_switch   path=refuse:P1|P2|P3|P4|P5|P6|P7|P8|P9|P10 ctx=None
+        link: same frame, no port context
+        expect=('REFUSE', 'standard_metadata.ingress_port')  got: REFUSE [standard_metadata key] standard_metadata.ingress_port is not in the packet bytes and no context was given
+        states: start
+        vs wire: program=False  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+        note: NEGATIVE: NDTwin's own program is class N on every path without port context
+[PASS] ndt-3-wrongctx           prog=ndtwin_switch   path=P5         ctx={'standard_metadata.ingress_port': 255}
+        link: same frame, port context 255 (wrong)
+        expect=('SAFE', 14)  got: NO_IP
+        states: start > parse_packet_out > parse_ethernet
+        vs wire: program=False  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+        note: NEGATIVE: wrong context must not yield the right answer
+[PASS] ndt-4-udp                prog=ndtwin_switch   path=P7         ctx={'standard_metadata.ingress_port': 1}
+        link: host->switch ingress, port 1
+        expect=('IP', 14)  got: IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=17 4000->4001
+        states: start > parse_ethernet > parse_ipv4 > parse_udp
+        vs wire: program=True  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+        program-extracted L4 header at byte 34
+[PASS] ndt-5-icmp               prog=ndtwin_switch   path=P8         ctx={'standard_metadata.ingress_port': 1}
+        link: host->switch ingress, port 1
+        expect=('IP', 14)  got: IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=1 8->0
+        states: start > parse_ethernet > parse_ipv4 > parse_icmp
+        vs wire: program=True  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+[PASS] ndt-6-ospf               prog=ndtwin_switch   path=P9         ctx={'standard_metadata.ingress_port': 1}
+        link: host->switch ingress, port 1
+        expect=('IP', 14)  got: IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=89 0->0
+        states: start > parse_ethernet > parse_ipv4
+        vs wire: program=True  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+[PASS] ndt-7-fragment           prog=ndtwin_switch   path=P9         ctx={'standard_metadata.ingress_port': 1}
+        link: non-first fragment (offset 185) of TCP
+        expect=('IP', 14)  got: IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=6 0->0
+        states: start > parse_ethernet > parse_ipv4
+        vs wire: program=True  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+        note: parse_ipv4 selects on (fragOffset, protocol)
+[PASS] ndt-8-pktout-tcp         prog=ndtwin_switch   path=P1         ctx={'standard_metadata.ingress_port': 255}
+        link: CPU port 255 (packet_out) -- never on a sampled veth
+        expect=('IP', 16)  got: IP ipv4@16 tuple=10.0.1.1->10.0.2.2 proto=6 1->2
+        states: start > parse_packet_out > parse_ethernet > parse_ipv4 > parse_tcp
+        vs wire: program=True  native-model=False (l2)  hints=False (l2)  combined=True (via program)
+        program-extracted L4 header at byte 36
+        note: exists only on the P4Runtime stream channel; run for path coverage only
+[PASS] ndt-9-pktout-udp         prog=ndtwin_switch   path=P2         ctx={'standard_metadata.ingress_port': 255}
+        link: CPU port 255 (packet_out) -- never on a sampled veth
+        expect=('IP', 16)  got: IP ipv4@16 tuple=10.0.1.1->10.0.2.2 proto=17 3->4
+        states: start > parse_packet_out > parse_ethernet > parse_ipv4 > parse_udp
+        vs wire: program=True  native-model=False (l2)  hints=False (l2)  combined=True (via program)
+        program-extracted L4 header at byte 36
+        note: exists only on the P4Runtime stream channel; run for path coverage only
+[PASS] ndt-10-pktout-icmp       prog=ndtwin_switch   path=P3         ctx={'standard_metadata.ingress_port': 255}
+        link: CPU port 255 (packet_out) -- never on a sampled veth
+        expect=('IP', 16)  got: IP ipv4@16 tuple=10.0.1.1->10.0.2.2 proto=1 8->0
+        states: start > parse_packet_out > parse_ethernet > parse_ipv4 > parse_icmp
+        vs wire: program=True  native-model=False (l2)  hints=False (l2)  combined=True (via program)
+        note: exists only on the P4Runtime stream channel; run for path coverage only
+[PASS] ndt-11-pktout-other      prog=ndtwin_switch   path=P4         ctx={'standard_metadata.ingress_port': 255}
+        link: CPU port 255 (packet_out) -- never on a sampled veth
+        expect=('IP', 16)  got: IP ipv4@16 tuple=10.0.1.1->10.0.2.2 proto=89 0->0
+        states: start > parse_packet_out > parse_ethernet > parse_ipv4
+        vs wire: program=True  native-model=False (l2)  hints=False (l2)  combined=True (via program)
+        note: exists only on the P4Runtime stream channel; run for path coverage only
+[PASS] syn-pvs-ipv4             prog=syn_pvs         path=P1         ctx={'standard_metadata.ingress_port': 1}
+        link: 0x0800 is matched before the value set
+        expect=('IP', 14)  got: IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=17 1->2
+        states: start > parse_ipv4
+        vs wire: program=True  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+[PASS] syn-pvs-tun              prog=syn_pvs         path=refuse:P1|P2|P3|P4|P5 ctx={'standard_metadata.ingress_port': 1}
+        link: ethertype that may or may not be in the runtime vset
+        expect=('REFUSE', 'parse_vset')  got: REFUSE [parse_vset] P.tunnel_types (members are written at runtime)
+        states: start
+        vs wire: program=False  native-model=False (l2)  hints=False (l2)  combined=False (via none)
+        note: NEGATIVE
+[PASS] syn-varbit               prog=syn_varbit_ok   path=P1         ctx={'standard_metadata.ingress_port': 1}
+        link: IPv4 + 8 B options parsed as varbit
+        expect=('IP', 14)  got: IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=6 7->8
+        states: start > parse_ipv4 > parse_tcp
+        vs wire: program=True  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+        program-extracted L4 header at byte 42
+        note: extract_VL length evaluated from ihl
+[PASS] syn-meta-noctx           prog=syn_meta_key    path=refuse:P1|P2|P3|P4|P5|P6 ctx=None
+        link: no port context
+        expect=('REFUSE', 'standard_metadata.ingress_port')  got: REFUSE [standard_metadata key] standard_metadata.ingress_port is not in the packet bytes and no context was given
+        states: start
+        vs wire: program=False  native-model=False (l2)  hints=False (l2)  combined=False (via none)
+        note: NEGATIVE: key is a scalar computed from ingress_port
+[PASS] syn-meta-ipv4-core       prog=syn_meta_key    path=P2         ctx={'standard_metadata.ingress_port': 4}
+        link: IPv4 on port 4: needs the (_, 0x0800) mask
+        expect=('IP', 14)  got: IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=17 1->2
+        states: start > start_true > start_join > parse_ipv4
+        vs wire: program=True  native-model=True (ipv4)  hints=True (ipv4)  combined=True (via native)
+        note: added after mutant M4 (mask ignored) survived suite v1
+[PASS] syn-meta-core            prog=syn_meta_key    path=P1         ctx={'standard_metadata.ingress_port': 4}
+        link: port 4 (core): tunnel parsed
+        expect=('IP', 18)  got: IP ipv4@18 tuple=10.0.1.1->10.0.2.2 proto=17 1->2
+        states: start > start_true > start_join > parse_tun > parse_ipv4
+        vs wire: program=True  native-model=False (l2)  hints=False (l2)  combined=True (via program)
+[PASS] syn-meta-edge            prog=syn_meta_key    path=P6         ctx={'standard_metadata.ingress_port': 1}
+        link: port 1 (edge): same bytes, tunnel not parsed
+        expect=('NO_IP',)  got: NO_IP
+        states: start > start_false > start_join
+        vs wire: program=False  native-model=False (l2)  hints=False (l2)  combined=False (via none)
+        note: same bytes, different program answer: the definition of class N
+[PASS] syn-ipip                 prog=syn_ipip        path=P1         ctx={'standard_metadata.ingress_port': 1}
+        link: IPv4-in-IPv4: innermost IP is the identity (design choice)
+        expect=('IP', 34)  got: IP ipv4@34 tuple=192.168.0.1->192.168.0.2 proto=17 7000->7001
+        states: start > parse_outer > parse_inner > parse_udp
+        vs wire: program=True  native-model=False (ipv4)  hints=False (ipv4)  combined=False (via native)
+        program-extracted L4 header at byte 54
+        note: native today reports the OUTER header (proto 4, no ports); policy question
+[PASS] syn-deep-2               prog=syn_deep_stack  path=P3         ctx={'standard_metadata.ingress_port': 1}
+        link: 2 x 16 B entries
+        expect=('IP', 46)  got: IP ipv4@46 tuple=10.0.1.1->10.0.2.2 proto=17 9->10
+        states: start > parse_hop > parse_hop > parse_ipv4 > parse_l4
+        vs wire: program=True  native-model=False (l2)  hints=False (l2)  combined=True (via program)
+[PASS] syn-deep-5               prog=syn_deep_stack  path=P3         ctx={'standard_metadata.ingress_port': 1}
+        link: 5 x 16 B entries (IP@94, ports end at 118)
+        expect=('IP', 94)  got: IP ipv4@94 tuple=10.0.1.1->10.0.2.2 proto=17 9->10
+        states: start > parse_hop > parse_hop > parse_hop > parse_hop > parse_hop > parse_ipv4 > parse_l4
+        vs wire: program=True  native-model=False (l2)  hints=False (l2)  combined=True (via program)
+[PASS] syn-deep-6               prog=syn_deep_stack  path=truncated:P3|P4 ctx={'standard_metadata.ingress_port': 1}
+        link: 6 x 16 B entries (IP@110, header ends at 130)
+        expect=('TRUNCATED',)  got: TRUNCATED TRUNCATED: need bit 1040, capture has 1024
+        states: start > parse_hop > parse_hop > parse_hop > parse_hop > parse_hop > parse_hop > parse_ipv4
+        vs wire: program=False  native-model=False (l2)  hints=False (l2)  combined=False (via none)
+        note: LIMIT: 128-byte capture
+[PASS] syn-deep-8               prog=syn_deep_stack  path=truncated:P3|P4 ctx={'standard_metadata.ingress_port': 1}
+        link: 8 x 16 B entries (IP@142)
+        expect=('TRUNCATED',)  got: TRUNCATED TRUNCATED: need bit 1040, capture has 1024
+        states: start > parse_hop > parse_hop > parse_hop > parse_hop > parse_hop > parse_hop > parse_hop > parse_hop
+        vs wire: program=False  native-model=False (l2)  hints=False (l2)  combined=False (via none)
+        note: LIMIT: 128-byte capture
+
+====================================================================================================
+C. DELIBERATELY CORRUPTED JSON (the JSON no longer matches the wire)
+====================================================================================================
+[PASS] K1-srcroute-24bit              srcRoute_t widened 16->24 bits; sanity check on
+        got: PARSER_ERROR StackOutOfBounds: srcRoutes.next with 9 already extracted  -> SAFE (refused / no identity)
+        states: start > parse_srcRouting > parse_srcRouting > parse_srcRouting > parse_srcRouting > parse_srcRouting > parse_srcRouting > parse_srcRouting > parse_srcRouting > parse_srcRouting > parse_srcRouting
+[PASS] K1b-srcroute-24bit-nosanity    same, version/ihl sanity check OFF
+        got: PARSER_ERROR StackOutOfBounds: srcRoutes.next with 9 already extracted  -> SAFE (refused / no identity)
+        states: start > parse_srcRouting > parse_srcRouting > parse_srcRouting > parse_srcRouting > parse_srcRouting > parse_srcRouting > parse_srcRouting > parse_srcRouting > parse_srcRouting > parse_srcRouting
+[PASS] K2-tunnel-fields-swapped       myTunnel_t field order swapped: key reads dst_id
+        got: NO_IP  -> SAFE (refused / no identity)
+        states: start > parse_myTunnel
+[PASS] K3-tunnel-widened              myTunnel_t dst_id 16->32 bits; sanity check on
+        got: SANITY structural IPv4 at 20 has version=0 ihl=0; refusing (the JSON and the wire disagree)  -> SAFE (refused / no identity)
+        states: start > parse_myTunnel > parse_ipv4
+[PASS] K3b-tunnel-widened-nosanity    same, sanity check OFF
+        got: IP ipv4@20 tuple=1.1.10.0->2.2.195.82 proto=203 0->0  -> UNSAFE (wrong identity, no refusal)
+        states: start > parse_myTunnel > parse_ipv4
+[PASS] K4-ipv4-renamed                POSITIVE control: IPv4 header type and every field renamed; structure unchanged
+        got: IP ipv4@18 tuple=10.0.1.1->10.0.2.2 proto=6 50002->1234  -> CORRECT
+        states: start > parse_myTunnel > parse_ipv4
+
+====================================================================================================
+D. REAL WIRE FRAMES: every frame in /home/adam/tutorials/exercises/*/pcaps/ (bmv2 --pcap,
+   per switch port), truncated to 128 B. Sampled set = what link_telemetry.py:332-351
+   would sample: every *_in (ingress filter on every port) + *_out on host-facing ports.
+   Program applied: the RECEIVING switch's program for *_in (ingress_port = N from sN-ethN);
+   for host-facing *_out (egress, receiver is a host) the SENDING switch's program.
+====================================================================================================
+-- basic  [pcaps from run 2026-09-18T110845Z solution]  sampled files=16
+   dir  ethtype program-vs-wire    native-model hints        combined     frames  example
+   in   86dd    miss(NO_IP)        agree-ip     agree-ip     agree-ip        374  s1-eth1_in: NO_IP
+   in   0800    agree-ip           agree-ip     agree-ip     agree-ip        344  s1-eth1_in: IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=1 8->0
+   out  0800    agree-ip           agree-ip     agree-ip     agree-ip        152  s1-eth1_out: IP ipv4@14 tuple=10.0.2.2->10.0.1.1 proto=1 0->0
+   paths walked: basic:P1(IP)=496, basic:P2(NO_IP)=374
+-- basic_tunnel  [pcaps from run 2026-09-24T095344Z solution]  sampled files=12
+   dir  ethtype program-vs-wire    native-model hints        combined     frames  example
+   in   86dd    miss(NO_IP)        agree-ip     agree-ip     agree-ip        272  s1-eth1_in: NO_IP
+   in   1212    agree-ip           miss         agree-ip     agree-ip          4  s1-eth1_in: IP ipv4@18 tuple=10.0.1.1->10.0.2.2 proto=6 49206->1234
+   out  1212    agree-ip           miss         agree-ip     agree-ip          2  s2-eth1_out: IP ipv4@18 tuple=10.0.1.1->10.0.2.2 proto=6 49206->1234
+   paths walked: basic_tunnel:P1(IP)=6, basic_tunnel:P4(NO_IP)=272
+-- calc  [pcaps from run 2026-09-24T095418Z solution]  sampled files=4
+   dir  ethtype program-vs-wire    native-model hints        combined     frames  example
+   in   86dd    miss(NO_IP)        agree-ip     agree-ip     agree-ip         24  s1-eth1_in: NO_IP no IP-extracting state reachable from start
+   in   1234    agree-no-ip        agree-no-ip  agree-no-ip  agree-no-ip       1  s1-eth1_in: NO_IP no IP-extracting state reachable from start
+   out  1234    agree-no-ip        agree-no-ip  agree-no-ip  agree-no-ip       1  s1-eth1_out: NO_IP no IP-extracting state reachable from start
+   paths walked: calc:x-early:P1|P2|P3(NO_IP)=26
+-- ecn  [pcaps from run 2026-09-25T045407Z solution]  sampled files=16
+   dir  ethtype program-vs-wire    native-model hints        combined     frames  example
+   in   0800    agree-ip           agree-ip     agree-ip     agree-ip       9245  s1-eth1_in: IP ipv4@14 tuple=10.0.1.11->10.0.2.22 proto=17 38363->5001
+   out  0800    agree-ip           agree-ip     agree-ip     agree-ip       2954  s1-eth1_out: IP ipv4@14 tuple=10.0.2.22->10.0.1.11 proto=17 5001->38363
+   in   86dd    miss(NO_IP)        agree-ip     agree-ip     agree-ip        375  s1-eth1_in: NO_IP
+   paths walked: ecn:P1(IP)=12199, ecn:P2(NO_IP)=375
+-- firewall  [pcaps from run 2026-09-18T111149Z SKELETON (parser identical to solution)]  sampled files=16
+   dir  ethtype program-vs-wire    native-model hints        combined     frames  example
+   in   0800    agree-ip           agree-ip     agree-ip     agree-ip      39439  s1-eth1_in: IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=1 8->0
+   out  0800    agree-ip           agree-ip     agree-ip     agree-ip      13173  s1-eth1_out: IP ipv4@14 tuple=10.0.2.2->10.0.1.1 proto=1 0->0
+   in   86dd    miss(NO_IP)        agree-ip     agree-ip     agree-ip        402  s1-eth1_in: NO_IP
+   paths walked: firewall_basic:P1(IP)=33325, firewall_basic:P2(NO_IP)=272, firewall_fw:P1(IP)=19127, firewall_fw:P2(IP)=160, firewall_fw:P3(NO_IP)=130
+-- flowcache  [pcaps from run 2026-09-24T131516Z solution]  sampled files=12
+   dir  ethtype program-vs-wire    native-model hints        combined     frames  example
+   in   86dd    miss(NO_IP)        agree-ip     agree-ip     agree-ip        259  s1-eth1_in: NO_IP
+   in   0800    agree-ip           agree-ip     agree-ip     agree-ip         30  s1-eth1_in: IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=1 8->0
+   out  0800    agree-ip           agree-ip     agree-ip     agree-ip         15  s1-eth1_out: IP ipv4@14 tuple=10.0.2.2->10.0.1.1 proto=1 0->0
+   paths walked: flowcache:P2(IP)=45, flowcache:P3(NO_IP)=259
+-- link_monitor  [pcaps from run 2026-09-18T113038Z SKELETON (parser identical to solution)]  sampled files=16
+   dir  ethtype program-vs-wire    native-model hints        combined     frames  example
+   in   86dd    miss(NO_IP)        agree-ip     agree-ip     agree-ip        328  s1-eth1_in: NO_IP
+   in   0812    agree-no-ip        agree-no-ip  agree-no-ip  agree-no-ip      72  s1-eth1_in: NO_IP no IP-extracting state reachable from parse_probe
+   out  0812    agree-no-ip        agree-no-ip  agree-no-ip  agree-no-ip       8  s1-eth1_out: NO_IP no IP-extracting state reachable from parse_probe
+   paths walked: link_monitor:P4(NO_IP)=328, link_monitor:x-early:P2|P3(NO_IP)=80
+-- load_balance  [pcaps from run 2026-09-24T095641Z solution]  sampled files=12
+   dir  ethtype program-vs-wire    native-model hints        combined     frames  example
+   in   86dd    miss(NO_IP)        agree-ip     agree-ip     agree-ip        273  s1-eth1_in: NO_IP
+   in   0800    agree-ip           agree-ip     agree-ip     agree-ip         20  s1-eth1_in: IP ipv4@14 tuple=10.0.1.1->10.0.0.1 proto=6 54849->1234
+   out  0800    agree-ip           agree-ip     agree-ip     agree-ip         10  s2-eth1_out: IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=6 54849->1234
+   paths walked: load_balance:P1(IP)=30, load_balance:P3(NO_IP)=273
+-- mri  [pcaps from run 2026-09-24T095524Z solution]  sampled files=16
+   dir  ethtype program-vs-wire    native-model hints        combined     frames  example
+   in   0800    agree-ip           agree-ip     agree-ip     agree-ip       1957  s1-eth1_in: IP ipv4@14 tuple=10.0.1.11->10.0.2.22 proto=17 47882->5001
+   out  0800    agree-ip           agree-ip     agree-ip     agree-ip        631  s1-eth1_out: IP ipv4@14 tuple=10.0.2.22->10.0.1.11 proto=17 5001->47882
+   in   86dd    miss(NO_IP)        agree-ip     agree-ip     agree-ip        289  s1-eth1_in: NO_IP
+   paths walked: mri:P1(IP)=2576, mri:P2(IP)=6, mri:P3(IP)=6, mri:P5(NO_IP)=289
+-- multicast  [pcaps from run 2026-09-24T095816Z solution]  sampled files=8
+   dir  ethtype program-vs-wire    native-model hints        combined     frames  example
+   out  86dd    miss(NO_IP)        agree-ip     agree-ip     agree-ip        161  s1-eth1_out: NO_IP no IP-extracting state reachable from start
+   out  0806    agree-no-ip        agree-no-ip  agree-no-ip  agree-no-ip     105  s1-eth1_out: NO_IP no IP-extracting state reachable from start
+   in   86dd    miss(NO_IP)        agree-ip     agree-ip     agree-ip         96  s1-eth1_in: NO_IP no IP-extracting state reachable from start
+   in   0800    miss(NO_IP)        agree-ip     agree-ip     agree-ip         94  s1-eth1_in: NO_IP no IP-extracting state reachable from start
+   out  0800    miss(NO_IP)        agree-ip     agree-ip     agree-ip         94  s1-eth1_out: NO_IP no IP-extracting state reachable from start
+   in   0806    agree-no-ip        agree-no-ip  agree-no-ip  agree-no-ip      60  s1-eth1_in: NO_IP no IP-extracting state reachable from start
+   paths walked: multicast:x-early:P1(NO_IP)=610
+-- p4runtime  [pcaps from run 2026-09-24T131543Z solution]  sampled files=12
+   dir  ethtype program-vs-wire    native-model hints        combined     frames  example
+   in   86dd    miss(NO_IP)        agree-ip     agree-ip     agree-ip        290  s1-eth1_in: NO_IP
+   in   0800    agree-ip           agree-ip     agree-ip     agree-ip         10  s1-eth1_in: IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=1 8->0
+   in   1212    agree-ip           miss         agree-ip     agree-ip         10  s1-eth2_in: IP ipv4@18 tuple=10.0.2.2->10.0.1.1 proto=1 0->0
+   out  0800    agree-ip           agree-ip     agree-ip     agree-ip         10  s1-eth1_out: IP ipv4@14 tuple=10.0.2.2->10.0.1.1 proto=1 0->0
+   paths walked: p4runtime:P1(IP)=10, p4runtime:P3(IP)=20, p4runtime:P4(NO_IP)=290
+-- qos  [pcaps from run 2026-09-24T100048Z solution]  sampled files=16
+   dir  ethtype program-vs-wire    native-model hints        combined     frames  example
+   in   86dd    miss(NO_IP)        agree-ip     agree-ip     agree-ip        317  s1-eth1_in: NO_IP
+   in   0800    agree-ip           agree-ip     agree-ip     agree-ip         48  s1-eth2_in: IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=17 1234->4321
+   out  0800    agree-ip           agree-ip     agree-ip     agree-ip         24  s1-eth2_out: IP ipv4@14 tuple=10.0.2.2->10.0.1.1 proto=1 3->3
+   paths walked: qos:P1(IP)=72, qos:P2(NO_IP)=317
+-- source_routing  [pcaps from run 2026-09-18T110948Z solution]  sampled files=12
+   dir  ethtype program-vs-wire    native-model hints        combined     frames  example
+   in   86dd    miss(NO_IP)        agree-ip     agree-ip     agree-ip        231  s1-eth1_in: NO_IP
+   in   1234    agree-ip           miss         agree-ip     agree-ip          7  s1-eth1_in: IP ipv4@24 tuple=10.0.1.1->10.0.2.2 proto=17 1234->4321
+   out  0800    miss(NO_IP)        agree-ip     agree-ip     agree-ip          2  s2-eth1_out: NO_IP
+   paths walked: source_routing:P1(IP)=7, source_routing:P2(NO_IP)=233
+
+====================================================================================================
+E. SUCCESS RATES (computed from parts A, B, D of this run)
+====================================================================================================
+  per path: program path class cpu_only synthesized_case_PASS pcap_frames_walking_it
+    basic           P1   D1 cpu_only=False case=yes pcap_frames=496
+    basic           P2   X  cpu_only=False case=yes pcap_frames=374
+    basic_tunnel    P1   D1 cpu_only=False case=yes pcap_frames=6
+    basic_tunnel    P2   X  cpu_only=False case=yes pcap_frames=0
+    basic_tunnel    P3   D1 cpu_only=False case=yes pcap_frames=0
+    basic_tunnel    P4   X  cpu_only=False case=no  pcap_frames=272
+    calc            P1   X  cpu_only=False case=yes pcap_frames=0
+    calc            P2   X  cpu_only=False case=yes pcap_frames=0
+    calc            P3   X  cpu_only=False case=no  pcap_frames=0
+    ecn             P1   D1 cpu_only=False case=yes pcap_frames=12199
+    ecn             P2   X  cpu_only=False case=no  pcap_frames=375
+    firewall_basic  P1   D1 cpu_only=False case=yes pcap_frames=33325
+    firewall_basic  P2   X  cpu_only=False case=no  pcap_frames=272
+    firewall_fw     P1   D1 cpu_only=False case=yes pcap_frames=19127
+    firewall_fw     P2   D1 cpu_only=False case=yes pcap_frames=160
+    firewall_fw     P3   X  cpu_only=False case=no  pcap_frames=130
+    flowcache       P1   X  cpu_only=True  case=no  pcap_frames=0
+    flowcache       P2   N  cpu_only=False case=yes pcap_frames=45
+    flowcache       P3   X  cpu_only=False case=no  pcap_frames=259
+    link_monitor    P1   D1 cpu_only=False case=yes pcap_frames=0
+    link_monitor    P2   X  cpu_only=False case=yes pcap_frames=0
+    link_monitor    P3   X  cpu_only=False case=yes pcap_frames=0
+    link_monitor    P4   X  cpu_only=False case=no  pcap_frames=328
+    load_balance    P1   D1 cpu_only=False case=yes pcap_frames=30
+    load_balance    P2   D1 cpu_only=False case=yes pcap_frames=0
+    load_balance    P3   X  cpu_only=False case=no  pcap_frames=273
+    mri             P1   D1 cpu_only=False case=yes pcap_frames=2576
+    mri             P2   D1 cpu_only=False case=yes pcap_frames=6
+    mri             P3   D2 cpu_only=False case=yes pcap_frames=6
+    mri             P4   D1 cpu_only=False case=yes pcap_frames=0
+    mri             P5   X  cpu_only=False case=no  pcap_frames=289
+    multicast       P1   X  cpu_only=False case=no  pcap_frames=0
+    p4runtime       P1   D1 cpu_only=False case=yes pcap_frames=10
+    p4runtime       P2   X  cpu_only=False case=no  pcap_frames=0
+    p4runtime       P3   D1 cpu_only=False case=yes pcap_frames=20
+    p4runtime       P4   X  cpu_only=False case=no  pcap_frames=290
+    qos             P1   D1 cpu_only=False case=yes pcap_frames=72
+    qos             P2   X  cpu_only=False case=no  pcap_frames=317
+    source_routing  P1   D2 cpu_only=False case=yes pcap_frames=7
+    source_routing  P2   X  cpu_only=False case=yes pcap_frames=233
+    ndtwin_switch   P1   N  cpu_only=True  case=yes pcap_frames=0
+    ndtwin_switch   P2   N  cpu_only=True  case=yes pcap_frames=0
+    ndtwin_switch   P3   N  cpu_only=True  case=yes pcap_frames=0
+    ndtwin_switch   P4   N  cpu_only=True  case=yes pcap_frames=0
+    ndtwin_switch   P5   X  cpu_only=True  case=yes pcap_frames=0
+    ndtwin_switch   P6   N  cpu_only=False case=yes pcap_frames=0
+    ndtwin_switch   P7   N  cpu_only=False case=yes pcap_frames=0
+    ndtwin_switch   P8   N  cpu_only=False case=yes pcap_frames=0
+    ndtwin_switch   P9   N  cpu_only=False case=yes pcap_frames=0
+    ndtwin_switch   P10  X  cpu_only=False case=no  pcap_frames=0
+  ALL 15 programs: paths=50  X=23  IP-bearing=27 (D1=16 D2=2 N=9)
+      strict (bytes+JSON only): 18/27 IP-bearing paths derivable; with the sample's ingress port as context: 27/27
+      excluding CPU-port-only paths (never on a sampled veth): strict 18/23, with port context 23/23
+      IP-bearing paths with a PASSing synthesized case: 27/27; with >=1 real pcap frame: 15/27
+  7 custom-header exercises: paths=25  X=14  IP-bearing=11 (D1=8 D2=2 N=1)
+      strict (bytes+JSON only): 10/11 IP-bearing paths derivable; with the sample's ingress port as context: 11/11
+      excluding CPU-port-only paths (never on a sampled veth): strict 10/11, with port context 11/11
+      IP-bearing paths with a PASSing synthesized case: 11/11; with >=1 real pcap frame: 8/11
+  per program (IP-bearing paths derivable strict / with port ctx / total; X paths):
+    basic           1/1 strict, 1/1 ctx, X=1  -> ALL
+    basic_tunnel    2/2 strict, 2/2 ctx, X=2  -> ALL
+    calc            0/0 strict, 0/0 ctx, X=3  -> no IP path
+    ecn             1/1 strict, 1/1 ctx, X=1  -> ALL
+    firewall_basic  1/1 strict, 1/1 ctx, X=1  -> ALL
+    firewall_fw     2/2 strict, 2/2 ctx, X=1  -> ALL
+    flowcache       0/1 strict, 1/1 ctx, X=2  -> NONE strict
+    link_monitor    1/1 strict, 1/1 ctx, X=3  -> ALL
+    load_balance    2/2 strict, 2/2 ctx, X=1  -> ALL
+    mri             4/4 strict, 4/4 ctx, X=1  -> ALL
+    multicast       0/0 strict, 0/0 ctx, X=1  -> no IP path
+    p4runtime       2/2 strict, 2/2 ctx, X=2  -> ALL
+    qos             1/1 strict, 1/1 ctx, X=1  -> ALL
+    source_routing  1/1 strict, 1/1 ctx, X=1  -> ALL
+    ndtwin_switch   0/8 strict, 8/8 ctx, X=2  -> NONE strict
+  programs with >=1 IP path: 13/15; fully derivable strict: 11/13; with port ctx: 13/13
+  custom-header 7: with IP path 6/7 (basic_tunnel, flowcache, link_monitor, mri, p4runtime, source_routing); fully derivable strict 5/6; with port ctx 6/6
+  real frames (part D), sampled set, truncated to 128 B:
+    frames      72213
+    ip_on_wire  71966
+    no_ip       247
+    ipv6        3691
+    prog_ok     68085
+    native_ok   71943
+    hints_ok    71966
+    comb_ok     71966
+    prog_adds   23
+    wrong       0
+
+====================================================================================================
+SUMMARY: 71/71 synthesized+corrupted cases matched expectation; failures: none

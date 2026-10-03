@@ -1,0 +1,479 @@
+# 2026-10-01T19:32:25+08:00 test_ndt_status_measuring.sh (uncommitted, worktree) against ndt of 59e3ba1f (before --measuring): red-first
+ndt status --measuring: the same answer as plain status
+  ok       nothing: --measuring answers rc 0
+  ok       nothing: --measuring's rows are plain status's, line for line
+  ok       nothing: the same declared row as plain status
+  ok       nothing: the same measuring row as plain status
+  ok       nothing: the same orphaned row as plain status
+  ok       nothing: the declared row
+  ok       nothing: the measuring row
+  ok       nothing: the orphaned row
+  FAILED   nothing: --measuring prints the measuring rows and nothing else
+             expected: 
+             actual:   lab
+  claim          none
+  code           ?  (clean tree)
+  knob baseline  4 (the default; no round baseline recorded -- 'ndt claim' writes one)
+  tree vs round  no baseline in .test_run/round.baseline -- nothing here can say what this round changed ('ndt claim' records one)
+  !!  helper: could not compare /usr/local/sbin/ndtwin-lab (sha256 6a558fe4) against /tmp/ndt-status-measuring-dGZRgy/tools/test_workflow/ndtwin-lab
+  !!    -- this checkout's copy is missing or unreadable, so which code 'ndt up'
+  !!    runs is an open question, not a match.
+
+configuration
+  hosts          unknown (no up.target) -- nothing here records what the running fabric was asked for
+  topology       unknown (no up.target); no kernel.exit either -- this checkout cannot say what ran
+  p4 host knob   4   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')
+  app package    none   (p4_proxy/mininet/app_package_override absent -- the baseline fabric)
+  bmv2           simple_switch_grpc (stock, PATH)
+  telemetry      auto   (p4_proxy/mininet/telemetry_override absent -- auto, then the package)
+  link shaping   off (no package link asks for one)
+  sample rate    unknown (could not be read)
+  rate source    no fabric running -- this is the COMPILED P4 pipeline, not a reading
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  0       topo session   absent
+  host/switch    0       manifest       absent
+  :8000 kernel   closed  :8081 proxy    closed  :8080 ryu closed
+  heartbeat      none -- no report at /run/ndtwin-lab/heartbeat.json (no heartbeat has run since boot)
+  pidfiles       none recorded
+
+network health
+  switches       kernel not answering; no graph
+  tc netem       none
+  sudo grants    refused -- readings below them are not measurements
+                    without it: lab_session() reads the refusal as "no lab sessions", so `ndt status` reports an empty lab while a topology is running, and `ndt down` skips the orderly stop
+                    grant it:   adam ALL=(root) NOPASSWD: /usr/local/sbin/ndtwin-lab
+                    taught in:  NDTwin User Manual > NDTwin Kernel > Operate an Emulated (Software) Network > Native-Linux Excution Environment, step 3
+                    without it: ovs_bridge_count() used to answer 0, which is also the answer for "there is no OVS here", so `ndt up p4`'s refusal to build over a live OVS fabric never fired and the fabric was torn down with no message
+                    grant it:   adam ALL=(root) NOPASSWD: /usr/bin/ovs-vsctl
+                    taught in:  NOWHERE in the Installation or User Manual -- only doc/2026-07-29_environment_gotchas.md, which is this machine's gotcha list and not part of the install path
+                    without it: dataplane_ok() used to answer "does not forward", which verify_dataplane printed as `h1 cannot reach 10.0.0.2 -- fabric is up but not forwarding`: a specific claim about the network, made from a permission error
+                    grant it:   adam ALL=(root) NOPASSWD: /usr/bin/mnexec
+                    taught in:  NOWHERE in the Installation or User Manual -- only doc/2026-07-29_environment_gotchas.md, as above
+  apps           none running
+
+
+up target
+  record         none -- nothing is being asked for right now, and there is no .test_run/pids/kernel.exit to say what ran before  (.test_run/up.target)
+  ok       declared only: --measuring answers rc 0
+  ok       declared only: --measuring's rows are plain status's, line for line
+  ok       declared only: the same declared row as plain status
+  ok       declared only: the same measuring row as plain status
+  ok       declared only: the same orphaned row as plain status
+  ok       declared only: the declared row
+  ok       declared only: the measuring row
+  ok       declared only: the orphaned row
+  FAILED   declared only: --measuring prints the measuring rows and nothing else
+             expected: 
+             actual:   lab
+  claim          yours -- 60m left (until 20:32:25)
+  note           fixture note
+  exclusive cpu  no (heavy local jobs may overlap this claim)
+  code           ?  (clean tree)
+  knob baseline  4 (the default; no round baseline recorded -- 'ndt claim' writes one)
+  tree vs round  no baseline in .test_run/round.baseline -- nothing here can say what this round changed ('ndt claim' records one)
+  !!  helper: could not compare /usr/local/sbin/ndtwin-lab (sha256 6a558fe4) against /tmp/ndt-status-measuring-dGZRgy/tools/test_workflow/ndtwin-lab
+  !!    -- this checkout's copy is missing or unreadable, so which code 'ndt up'
+  !!    runs is an open question, not a match.
+
+configuration
+  hosts          unknown (no up.target) -- nothing here records what the running fabric was asked for
+  topology       unknown (no up.target); no kernel.exit either -- this checkout cannot say what ran
+  p4 host knob   4   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')
+  app package    none   (p4_proxy/mininet/app_package_override absent -- the baseline fabric)
+  bmv2           simple_switch_grpc (stock, PATH)
+  telemetry      auto   (p4_proxy/mininet/telemetry_override absent -- auto, then the package)
+  link shaping   off (no package link asks for one)
+  sample rate    unknown (could not be read)
+  rate source    no fabric running -- this is the COMPILED P4 pipeline, not a reading
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  0       topo session   absent
+  host/switch    0       manifest       absent
+  :8000 kernel   closed  :8081 proxy    closed  :8080 ryu closed
+  heartbeat      none -- no report at /run/ndtwin-lab/heartbeat.json (no heartbeat has run since boot)
+  pidfiles       none recorded
+
+network health
+  switches       kernel not answering; no graph
+  tc netem       none
+  sudo grants    refused -- readings below them are not measurements
+                    without it: lab_session() reads the refusal as "no lab sessions", so `ndt status` reports an empty lab while a topology is running, and `ndt down` skips the orderly stop
+                    grant it:   adam ALL=(root) NOPASSWD: /usr/local/sbin/ndtwin-lab
+                    taught in:  NDTwin User Manual > NDTwin Kernel > Operate an Emulated (Software) Network > Native-Linux Excution Environment, step 3
+                    without it: ovs_bridge_count() used to answer 0, which is also the answer for "there is no OVS here", so `ndt up p4`'s refusal to build over a live OVS fabric never fired and the fabric was torn down with no message
+                    grant it:   adam ALL=(root) NOPASSWD: /usr/bin/ovs-vsctl
+                    taught in:  NOWHERE in the Installation or User Manual -- only doc/2026-07-29_environment_gotchas.md, which is this machine's gotcha list and not part of the install path
+                    without it: dataplane_ok() used to answer "does not forward", which verify_dataplane printed as `h1 cannot reach 10.0.0.2 -- fabric is up but not forwarding`: a specific claim about the network, made from a permission error
+                    grant it:   adam ALL=(root) NOPASSWD: /usr/bin/mnexec
+                    taught in:  NOWHERE in the Installation or User Manual -- only doc/2026-07-29_environment_gotchas.md, as above
+  apps           none running
+
+
+up target
+  record         none -- nothing is being asked for right now, and there is no .test_run/pids/kernel.exit to say what ran before  (.test_run/up.target)
+  ok       in_flight only: --measuring answers rc 0
+  ok       in_flight only: --measuring's rows are plain status's, line for line
+  ok       in_flight only: the same declared row as plain status
+  ok       in_flight only: the same measuring row as plain status
+  ok       in_flight only: the same orphaned row as plain status
+  ok       in_flight only: the declared row
+  ok       in_flight only: the measuring row
+  ok       in_flight only: the orphaned row
+  FAILED   in_flight only: --measuring prints the measuring rows and nothing else
+             expected: 
+             actual:   lab
+  claim          none
+  code           ?  (clean tree)
+  knob baseline  4 (the default; no round baseline recorded -- 'ndt claim' writes one)
+  tree vs round  no baseline in .test_run/round.baseline -- nothing here can say what this round changed ('ndt claim' records one)
+  !!  helper: could not compare /usr/local/sbin/ndtwin-lab (sha256 6a558fe4) against /tmp/ndt-status-measuring-dGZRgy/tools/test_workflow/ndtwin-lab
+  !!    -- this checkout's copy is missing or unreadable, so which code 'ndt up'
+  !!    runs is an open question, not a match.
+
+configuration
+  hosts          unknown (no up.target) -- nothing here records what the running fabric was asked for
+  topology       unknown (no up.target); no kernel.exit either -- this checkout cannot say what ran
+  p4 host knob   4   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')
+  app package    none   (p4_proxy/mininet/app_package_override absent -- the baseline fabric)
+  bmv2           simple_switch_grpc (stock, PATH)
+  telemetry      auto   (p4_proxy/mininet/telemetry_override absent -- auto, then the package)
+  link shaping   off (no package link asks for one)
+  sample rate    unknown (could not be read)
+  rate source    no fabric running -- this is the COMPILED P4 pipeline, not a reading
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  0       topo session   absent
+  host/switch    1       manifest       absent
+  :8000 kernel   closed  :8081 proxy    closed  :8080 ryu closed
+  heartbeat      none -- no report at /run/ndtwin-lab/heartbeat.json (no heartbeat has run since boot)
+  pidfiles       none recorded
+
+network health
+  switches       kernel not answering; no graph
+  tc netem       none
+  sudo grants    refused -- readings below them are not measurements
+                    without it: lab_session() reads the refusal as "no lab sessions", so `ndt status` reports an empty lab while a topology is running, and `ndt down` skips the orderly stop
+                    grant it:   adam ALL=(root) NOPASSWD: /usr/local/sbin/ndtwin-lab
+                    taught in:  NDTwin User Manual > NDTwin Kernel > Operate an Emulated (Software) Network > Native-Linux Excution Environment, step 3
+                    without it: ovs_bridge_count() used to answer 0, which is also the answer for "there is no OVS here", so `ndt up p4`'s refusal to build over a live OVS fabric never fired and the fabric was torn down with no message
+                    grant it:   adam ALL=(root) NOPASSWD: /usr/bin/ovs-vsctl
+                    taught in:  NOWHERE in the Installation or User Manual -- only doc/2026-07-29_environment_gotchas.md, which is this machine's gotcha list and not part of the install path
+                    without it: dataplane_ok() used to answer "does not forward", which verify_dataplane printed as `h1 cannot reach 10.0.0.2 -- fabric is up but not forwarding`: a specific claim about the network, made from a permission error
+                    grant it:   adam ALL=(root) NOPASSWD: /usr/bin/mnexec
+                    taught in:  NOWHERE in the Installation or User Manual -- only doc/2026-07-29_environment_gotchas.md, as above
+  apps           none running
+
+
+up target
+  record         none -- nothing is being asked for right now, and there is no .test_run/pids/kernel.exit to say what ran before  (.test_run/up.target)
+  ok       declared and in_flight: --measuring answers rc 0
+  ok       declared and in_flight: --measuring's rows are plain status's, line for line
+  ok       declared and in_flight: the same declared row as plain status
+  ok       declared and in_flight: the same measuring row as plain status
+  ok       declared and in_flight: the same orphaned row as plain status
+  ok       declared and in_flight: the declared row
+  ok       declared and in_flight: the measuring row
+  ok       declared and in_flight: the orphaned row
+  FAILED   declared and in_flight: --measuring prints the measuring rows and nothing else
+             expected: 
+             actual:   lab
+  claim          yours -- 60m left (until 20:32:25)
+  note           fixture note
+  exclusive cpu  no (heavy local jobs may overlap this claim)
+  code           ?  (clean tree)
+  knob baseline  4 (the default; no round baseline recorded -- 'ndt claim' writes one)
+  tree vs round  no baseline in .test_run/round.baseline -- nothing here can say what this round changed ('ndt claim' records one)
+  !!  helper: could not compare /usr/local/sbin/ndtwin-lab (sha256 6a558fe4) against /tmp/ndt-status-measuring-dGZRgy/tools/test_workflow/ndtwin-lab
+  !!    -- this checkout's copy is missing or unreadable, so which code 'ndt up'
+  !!    runs is an open question, not a match.
+
+configuration
+  hosts          unknown (no up.target) -- nothing here records what the running fabric was asked for
+  topology       unknown (no up.target); no kernel.exit either -- this checkout cannot say what ran
+  p4 host knob   4   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')
+  app package    none   (p4_proxy/mininet/app_package_override absent -- the baseline fabric)
+  bmv2           simple_switch_grpc (stock, PATH)
+  telemetry      auto   (p4_proxy/mininet/telemetry_override absent -- auto, then the package)
+  link shaping   off (no package link asks for one)
+  sample rate    unknown (could not be read)
+  rate source    no fabric running -- this is the COMPILED P4 pipeline, not a reading
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  0       topo session   absent
+  host/switch    1       manifest       absent
+  :8000 kernel   closed  :8081 proxy    closed  :8080 ryu closed
+  heartbeat      none -- no report at /run/ndtwin-lab/heartbeat.json (no heartbeat has run since boot)
+  pidfiles       none recorded
+
+network health
+  switches       kernel not answering; no graph
+  tc netem       none
+  sudo grants    refused -- readings below them are not measurements
+                    without it: lab_session() reads the refusal as "no lab sessions", so `ndt status` reports an empty lab while a topology is running, and `ndt down` skips the orderly stop
+                    grant it:   adam ALL=(root) NOPASSWD: /usr/local/sbin/ndtwin-lab
+                    taught in:  NDTwin User Manual > NDTwin Kernel > Operate an Emulated (Software) Network > Native-Linux Excution Environment, step 3
+                    without it: ovs_bridge_count() used to answer 0, which is also the answer for "there is no OVS here", so `ndt up p4`'s refusal to build over a live OVS fabric never fired and the fabric was torn down with no message
+                    grant it:   adam ALL=(root) NOPASSWD: /usr/bin/ovs-vsctl
+                    taught in:  NOWHERE in the Installation or User Manual -- only doc/2026-07-29_environment_gotchas.md, which is this machine's gotcha list and not part of the install path
+                    without it: dataplane_ok() used to answer "does not forward", which verify_dataplane printed as `h1 cannot reach 10.0.0.2 -- fabric is up but not forwarding`: a specific claim about the network, made from a permission error
+                    grant it:   adam ALL=(root) NOPASSWD: /usr/bin/mnexec
+                    taught in:  NOWHERE in the Installation or User Manual -- only doc/2026-07-29_environment_gotchas.md, as above
+  apps           none running
+
+
+up target
+  record         none -- nothing is being asked for right now, and there is no .test_run/pids/kernel.exit to say what ran before  (.test_run/up.target)
+  ok       expired claim: --measuring answers rc 0
+  ok       expired claim: --measuring's rows are plain status's, line for line
+  ok       expired claim: the same declared row as plain status
+  ok       expired claim: the same measuring row as plain status
+  ok       expired claim: the same orphaned row as plain status
+  ok       expired claim: the declared row
+  ok       expired claim: the measuring row
+  ok       expired claim: the orphaned row
+  FAILED   expired claim: --measuring prints the measuring rows and nothing else
+             expected: 
+             actual:   lab
+  claim          EXPIRED 29847572m ago (was fixture-me) -- treated as free
+  code           ?  (clean tree)
+  knob baseline  4 (the default; no round baseline recorded -- 'ndt claim' writes one)
+  tree vs round  no baseline in .test_run/round.baseline -- nothing here can say what this round changed ('ndt claim' records one)
+  !!  helper: could not compare /usr/local/sbin/ndtwin-lab (sha256 6a558fe4) against /tmp/ndt-status-measuring-dGZRgy/tools/test_workflow/ndtwin-lab
+  !!    -- this checkout's copy is missing or unreadable, so which code 'ndt up'
+  !!    runs is an open question, not a match.
+
+configuration
+  hosts          unknown (no up.target) -- nothing here records what the running fabric was asked for
+  topology       unknown (no up.target); no kernel.exit either -- this checkout cannot say what ran
+  p4 host knob   4   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')
+  app package    none   (p4_proxy/mininet/app_package_override absent -- the baseline fabric)
+  bmv2           simple_switch_grpc (stock, PATH)
+  telemetry      auto   (p4_proxy/mininet/telemetry_override absent -- auto, then the package)
+  link shaping   off (no package link asks for one)
+  sample rate    unknown (could not be read)
+  rate source    no fabric running -- this is the COMPILED P4 pipeline, not a reading
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  0       topo session   absent
+  host/switch    0       manifest       absent
+  :8000 kernel   closed  :8081 proxy    closed  :8080 ryu closed
+  heartbeat      none -- no report at /run/ndtwin-lab/heartbeat.json (no heartbeat has run since boot)
+  pidfiles       none recorded
+
+network health
+  switches       kernel not answering; no graph
+  tc netem       none
+  sudo grants    refused -- readings below them are not measurements
+                    without it: lab_session() reads the refusal as "no lab sessions", so `ndt status` reports an empty lab while a topology is running, and `ndt down` skips the orderly stop
+                    grant it:   adam ALL=(root) NOPASSWD: /usr/local/sbin/ndtwin-lab
+                    taught in:  NDTwin User Manual > NDTwin Kernel > Operate an Emulated (Software) Network > Native-Linux Excution Environment, step 3
+                    without it: ovs_bridge_count() used to answer 0, which is also the answer for "there is no OVS here", so `ndt up p4`'s refusal to build over a live OVS fabric never fired and the fabric was torn down with no message
+                    grant it:   adam ALL=(root) NOPASSWD: /usr/bin/ovs-vsctl
+                    taught in:  NOWHERE in the Installation or User Manual -- only doc/2026-07-29_environment_gotchas.md, which is this machine's gotcha list and not part of the install path
+                    without it: dataplane_ok() used to answer "does not forward", which verify_dataplane printed as `h1 cannot reach 10.0.0.2 -- fabric is up but not forwarding`: a specific claim about the network, made from a permission error
+                    grant it:   adam ALL=(root) NOPASSWD: /usr/bin/mnexec
+                    taught in:  NOWHERE in the Installation or User Manual -- only doc/2026-07-29_environment_gotchas.md, as above
+  apps           none running
+
+
+up target
+  record         none -- nothing is being asked for right now, and there is no .test_run/pids/kernel.exit to say what ran before  (.test_run/up.target)
+  ok       somebody else's claim: --measuring answers rc 0
+  ok       somebody else's claim: --measuring's rows are plain status's, line for line
+  ok       somebody else's claim: the same declared row as plain status
+  ok       somebody else's claim: the same measuring row as plain status
+  ok       somebody else's claim: the same orphaned row as plain status
+  ok       somebody else's claim: the declared row
+  ok       somebody else's claim: the measuring row
+  ok       somebody else's claim: the orphaned row
+  FAILED   somebody else's claim: --measuring prints the measuring rows and nothing else
+             expected: 
+             actual:   lab
+  claim          someone-else -- 60m left (until 20:32:25)
+  note           fixture note
+  exclusive cpu  no (heavy local jobs may overlap this claim)
+  code           ?  (clean tree)
+  knob baseline  4 (the default; no round baseline recorded -- 'ndt claim' writes one)
+  tree vs round  no baseline in .test_run/round.baseline -- nothing here can say what this round changed ('ndt claim' records one)
+  !!  helper: could not compare /usr/local/sbin/ndtwin-lab (sha256 6a558fe4) against /tmp/ndt-status-measuring-dGZRgy/tools/test_workflow/ndtwin-lab
+  !!    -- this checkout's copy is missing or unreadable, so which code 'ndt up'
+  !!    runs is an open question, not a match.
+
+configuration
+  hosts          unknown (no up.target) -- nothing here records what the running fabric was asked for
+  topology       unknown (no up.target); no kernel.exit either -- this checkout cannot say what ran
+  p4 host knob   4   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')
+  app package    none   (p4_proxy/mininet/app_package_override absent -- the baseline fabric)
+  bmv2           simple_switch_grpc (stock, PATH)
+  telemetry      auto   (p4_proxy/mininet/telemetry_override absent -- auto, then the package)
+  link shaping   off (no package link asks for one)
+  sample rate    unknown (could not be read)
+  rate source    no fabric running -- this is the COMPILED P4 pipeline, not a reading
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  0       topo session   absent
+  host/switch    1       manifest       absent
+  :8000 kernel   closed  :8081 proxy    closed  :8080 ryu closed
+  heartbeat      none -- no report at /run/ndtwin-lab/heartbeat.json (no heartbeat has run since boot)
+  pidfiles       none recorded
+
+network health
+  switches       kernel not answering; no graph
+  tc netem       none
+  sudo grants    refused -- readings below them are not measurements
+                    without it: lab_session() reads the refusal as "no lab sessions", so `ndt status` reports an empty lab while a topology is running, and `ndt down` skips the orderly stop
+                    grant it:   adam ALL=(root) NOPASSWD: /usr/local/sbin/ndtwin-lab
+                    taught in:  NDTwin User Manual > NDTwin Kernel > Operate an Emulated (Software) Network > Native-Linux Excution Environment, step 3
+                    without it: ovs_bridge_count() used to answer 0, which is also the answer for "there is no OVS here", so `ndt up p4`'s refusal to build over a live OVS fabric never fired and the fabric was torn down with no message
+                    grant it:   adam ALL=(root) NOPASSWD: /usr/bin/ovs-vsctl
+                    taught in:  NOWHERE in the Installation or User Manual -- only doc/2026-07-29_environment_gotchas.md, which is this machine's gotcha list and not part of the install path
+                    without it: dataplane_ok() used to answer "does not forward", which verify_dataplane printed as `h1 cannot reach 10.0.0.2 -- fabric is up but not forwarding`: a specific claim about the network, made from a permission error
+                    grant it:   adam ALL=(root) NOPASSWD: /usr/bin/mnexec
+                    taught in:  NOWHERE in the Installation or User Manual -- only doc/2026-07-29_environment_gotchas.md, as above
+  apps           none running
+
+
+up target
+  record         none -- nothing is being asked for right now, and there is no .test_run/pids/kernel.exit to say what ran before  (.test_run/up.target)
+  ok       orphaned (no fabric): --measuring answers rc 0
+  ok       orphaned (no fabric): --measuring's rows are plain status's, line for line
+  ok       orphaned (no fabric): the same declared row as plain status
+  ok       orphaned (no fabric): the same measuring row as plain status
+  ok       orphaned (no fabric): the same orphaned row as plain status
+  ok       orphaned (no fabric): the declared row
+  ok       orphaned (no fabric): the measuring row
+  ok       orphaned (no fabric): the orphaned row
+  FAILED   orphaned (no fabric): --measuring prints the measuring rows and nothing else
+             expected: 
+             actual:   lab
+  claim          none
+  code           ?  (clean tree)
+  knob baseline  4 (the default; no round baseline recorded -- 'ndt claim' writes one)
+  tree vs round  no baseline in .test_run/round.baseline -- nothing here can say what this round changed ('ndt claim' records one)
+  !!  helper: could not compare /usr/local/sbin/ndtwin-lab (sha256 6a558fe4) against /tmp/ndt-status-measuring-dGZRgy/tools/test_workflow/ndtwin-lab
+  !!    -- this checkout's copy is missing or unreadable, so which code 'ndt up'
+  !!    runs is an open question, not a match.
+
+configuration
+  hosts          unknown (no up.target) -- nothing here records what the running fabric was asked for
+  topology       unknown (no up.target); no kernel.exit either -- this checkout cannot say what ran
+  p4 host knob   4   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')
+  app package    none   (p4_proxy/mininet/app_package_override absent -- the baseline fabric)
+  bmv2           simple_switch_grpc (stock, PATH)
+  telemetry      auto   (p4_proxy/mininet/telemetry_override absent -- auto, then the package)
+  link shaping   off (no package link asks for one)
+  sample rate    unknown (could not be read)
+  rate source    no fabric running -- this is the COMPILED P4 pipeline, not a reading
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  0       topo session   absent
+  host/switch    0       manifest       absent
+  :8000 kernel   closed  :8081 proxy    closed  :8080 ryu closed
+  heartbeat      none -- no report at /run/ndtwin-lab/heartbeat.json (no heartbeat has run since boot)
+  pidfiles       none recorded
+
+network health
+  switches       kernel not answering; no graph
+  tc netem       none
+  sudo grants    refused -- readings below them are not measurements
+                    without it: lab_session() reads the refusal as "no lab sessions", so `ndt status` reports an empty lab while a topology is running, and `ndt down` skips the orderly stop
+                    grant it:   adam ALL=(root) NOPASSWD: /usr/local/sbin/ndtwin-lab
+                    taught in:  NDTwin User Manual > NDTwin Kernel > Operate an Emulated (Software) Network > Native-Linux Excution Environment, step 3
+                    without it: ovs_bridge_count() used to answer 0, which is also the answer for "there is no OVS here", so `ndt up p4`'s refusal to build over a live OVS fabric never fired and the fabric was torn down with no message
+                    grant it:   adam ALL=(root) NOPASSWD: /usr/bin/ovs-vsctl
+                    taught in:  NOWHERE in the Installation or User Manual -- only doc/2026-07-29_environment_gotchas.md, which is this machine's gotcha list and not part of the install path
+                    without it: dataplane_ok() used to answer "does not forward", which verify_dataplane printed as `h1 cannot reach 10.0.0.2 -- fabric is up but not forwarding`: a specific claim about the network, made from a permission error
+                    grant it:   adam ALL=(root) NOPASSWD: /usr/bin/mnexec
+                    taught in:  NOWHERE in the Installation or User Manual -- only doc/2026-07-29_environment_gotchas.md, as above
+  apps           none running
+
+
+up target
+  record         none -- nothing is being asked for right now, and there is no .test_run/pids/kernel.exit to say what ran before  (.test_run/up.target)
+  ok       orphaned (no fabric): says they are leftovers
+  ok       two drivers: --measuring answers rc 0
+  ok       two drivers: --measuring's rows are plain status's, line for line
+  ok       two drivers: the same declared row as plain status
+  ok       two drivers: the same measuring row as plain status
+  ok       two drivers: the same orphaned row as plain status
+  ok       two drivers: the declared row
+  ok       two drivers: the measuring row
+  ok       two drivers: the orphaned row
+  FAILED   two drivers: --measuring prints the measuring rows and nothing else
+             expected: 
+             actual:   lab
+  claim          none
+  code           ?  (clean tree)
+  knob baseline  4 (the default; no round baseline recorded -- 'ndt claim' writes one)
+  tree vs round  no baseline in .test_run/round.baseline -- nothing here can say what this round changed ('ndt claim' records one)
+  !!  helper: could not compare /usr/local/sbin/ndtwin-lab (sha256 6a558fe4) against /tmp/ndt-status-measuring-dGZRgy/tools/test_workflow/ndtwin-lab
+  !!    -- this checkout's copy is missing or unreadable, so which code 'ndt up'
+  !!    runs is an open question, not a match.
+
+configuration
+  hosts          unknown (no up.target) -- nothing here records what the running fabric was asked for
+  topology       unknown (no up.target); no kernel.exit either -- this checkout cannot say what ran
+  p4 host knob   4   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')
+  app package    none   (p4_proxy/mininet/app_package_override absent -- the baseline fabric)
+  bmv2           simple_switch_grpc (stock, PATH)
+  telemetry      auto   (p4_proxy/mininet/telemetry_override absent -- auto, then the package)
+  link shaping   off (no package link asks for one)
+  sample rate    unknown (could not be read)
+  rate source    no fabric running -- this is the COMPILED P4 pipeline, not a reading
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  0       topo session   absent
+  host/switch    1       manifest       absent
+  :8000 kernel   closed  :8081 proxy    closed  :8080 ryu closed
+  heartbeat      none -- no report at /run/ndtwin-lab/heartbeat.json (no heartbeat has run since boot)
+  pidfiles       none recorded
+
+network health
+  switches       kernel not answering; no graph
+  tc netem       none
+  sudo grants    refused -- readings below them are not measurements
+                    without it: lab_session() reads the refusal as "no lab sessions", so `ndt status` reports an empty lab while a topology is running, and `ndt down` skips the orderly stop
+                    grant it:   adam ALL=(root) NOPASSWD: /usr/local/sbin/ndtwin-lab
+                    taught in:  NDTwin User Manual > NDTwin Kernel > Operate an Emulated (Software) Network > Native-Linux Excution Environment, step 3
+                    without it: ovs_bridge_count() used to answer 0, which is also the answer for "there is no OVS here", so `ndt up p4`'s refusal to build over a live OVS fabric never fired and the fabric was torn down with no message
+                    grant it:   adam ALL=(root) NOPASSWD: /usr/bin/ovs-vsctl
+                    taught in:  NOWHERE in the Installation or User Manual -- only doc/2026-07-29_environment_gotchas.md, which is this machine's gotcha list and not part of the install path
+                    without it: dataplane_ok() used to answer "does not forward", which verify_dataplane printed as `h1 cannot reach 10.0.0.2 -- fabric is up but not forwarding`: a specific claim about the network, made from a permission error
+                    grant it:   adam ALL=(root) NOPASSWD: /usr/bin/mnexec
+                    taught in:  NOWHERE in the Installation or User Manual -- only doc/2026-07-29_environment_gotchas.md, as above
+  apps           none running
+
+
+up target
+  record         none -- nothing is being asked for right now, and there is no .test_run/pids/kernel.exit to say what ran before  (.test_run/up.target)
+  ok       two drivers: the '+ 1 more' row, as plain status prints it
+
+ndt status --measuring: no sudo, no kernel request, no OVS or bmv2 query
+  FAILED   🔴 --measuring ran no sudo, curl, OVS or bmv2 command (8 states)
+             expected: 
+             actual:   sudo -n mnexec -a 1 true
+sudo -n ovs-vsctl list-br
+sudo -n /usr/local/sbin/ndtwin-lab status
+tc qdisc show
+  ok         control: plain status, through the same shims, calls sudo
+  ok         control: the process table both read is the fixture
+
+ndt help
+  FAILED   ndt help names status --measuring
+             expected: yes
+             actual:   no
+  FAILED     and says what it reads and what it does not
+             expected: yes
+             actual:   no
+
+Ran 79 checks, 11 failed
+rc=1

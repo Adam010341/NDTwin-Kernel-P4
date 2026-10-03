@@ -1,0 +1,18 @@
+# PR #23 head 23dee9c4, compared 2026-10-02 by sonnet-worker, key lines spot-checked by the orchestrator
+8/8 jobs pass in 2 runs: 36872927735 (push, branch pr/spawn-helper-signals, GCC 110405049825) and 36872937761 (pull_request, GCC 110405036496); both headSha 23dee9c41d1983c63dbe461db0d349fafc9e3980; no cancelled runs. clang (110405049523 push / 110405036962 PR), TSan (110405050080 / 110405037019), ASan+UBSan (110405049237 / 110405036809): success in both runs.
+Logs: ci-pr23-gcc-110405049825.log (push), ci-pr23-gcc-110405036496.log (pull_request)
+ctest 1385/1385: MATCH (push :6648, :6934; PR :6661, :6947)
+L1 passed: MATCH (push :7114; PR :7127)
+0 FAILED lines: MATCH (grep -c FAILED = 0 in both logs)
+test_ndt_app_orphans PASS 111: MATCH (push :7063; PR :7076)
+test_ndt_apps_liveness PASS 57: MATCH (push :7065; PR :7078)
+test_ndtwin_lab_sweep PASS 33: MATCH (push :7083; PR :7096)
+test_ndt_helper_apps_window PASS 156: MATCH (push :7070; PR :7083)
+test_faults_topo_pid PASS 61: MATCH (push :7045; PR :7058)
+test_ndt_ovs_claim PASS 174: MATCH (push :7072; PR :7085)
+test_ndt_down_stops_only_ours PASS 32: MATCH (push :7068; PR :7081)
+test_apps_residue PASS 145: MATCH (push :7037; PR :7050)
+NEW test_fixture_suites_end_on_signal PASS 84: MATCH (push :7046; PR :7059). The premise did not FAIL on the CI runner (env --default-signal / setsid / /proc scans all passed). Only the summary line exists; grep 'fixture_suites' finds exactly that one line per log, with no per-check output. Timing is only an inter-line gap, which is an upper bound on the suite's own time, not a measurement. Push: 14:17:01.083 (:7045) to 14:17:16.746 (:7046) = about 15.7 s. PR: 14:16:23.371 (:7058) to 14:16:38.547 (:7059) = about 15.2 s. Local green was 22-23 s; the CI gap is shorter.
+gate anchors ok 128/128: MATCH (push :6925; PR :6938)
+clang / TSan / ASan+UBSan: success (conclusion only), MATCH, both runs.
+GCC wall time: DEVIATION in size only, direction as predicted. Push 14:00:22Z to 14:22:54Z = 22m32s (22m11s + 21 s). PR 14:00:20Z to 14:22:11Z = 21m51s (21m30s + 21 s). Predicted about +25 s; observed +21 s in both runs (within 4 s). The baselines 22m11s / 21m30s are taken from the prediction text, not re-measured here. Both runs also show the new suite's gap of about 15 s, so the delta is consistent with the new suite alone.

@@ -1,0 +1,18 @@
+# state 2026-10-01T17:04:09+08:00:  declared ndt serve probe-cost measurement (claim measuring=; 'ndt check' refuses while set)| measuring iperf3 -c 10.0.0.2 -p 5201 -t 480 -i 30| bmv2 switches 10 topo session present|
+# 2026-10-01T17:04:11+08:00 alone: http_code bytes time_total rc
+200 24994B 0.006247s rc=0
+200 25001B 0.006687s rc=0
+200 24998B 0.006529s rc=0
+200 24969B 0.006167s rc=0
+200 24996B 0.004692s rc=0
+200 25006B 0.006487s rc=0
+200 25011B 0.006391s rc=0
+# 2026-10-01T17:04:18+08:00 pairs: two GETs started together, each one's time_total
+pair 1: 0.006179 0.010552 
+pair 2: 0.006359 0.012018 
+pair 3: 0.006253 0.011310 
+pair 4: 0.004420 0.007641 
+pair 5: 0.005240 0.007698 
+pair 6: 0.006199 0.010915 
+pair 7: 0.006393 0.009495 
+# state 2026-10-01T17:04:25+08:00:  declared ndt serve probe-cost measurement (claim measuring=; 'ndt check' refuses while set)| measuring iperf3 -c 10.0.0.2 -p 5201 -t 480 -i 30| bmv2 switches 10 topo session present|

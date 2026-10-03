@@ -1,0 +1,17 @@
+date 2026-10-02T00:55:23+08:00
+head 23e9b76fe64a6ecc659fb40961f95faf090f6b3f
+porcelain 0
+gate tests/shell/mutate_ndt_serve_page.sh sha256 9ae9ca7d44730148
+gate log /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/killed-old-page-gate.gate.log
+/dev/nvme0n1p5   98G   90G  3.3G  97% /
+gate pid 1368591, pgid 1368591
+marker seen after ~2 s: baseline 1 -- the whole suite on the committed page (green, every case run ok, none skipped, no left
+2026-10-02T00:55:34+08:00 kill -TERM -- -1368591
+gate exit status: 143
+left in its process group 3 s later: none
+--- last 4 lines of the gate's log:
+  |   /dev/nvme0n1p5   98G   90G  3.3G  97% /
+  | 
+  | baseline 1 -- the whole suite on the committed page (green, every case run ok, none skipped, no leftover):
+  | rc=0
+--- verdict-shaped lines: rc=0 1, totals 0, INCOMPLETE 0

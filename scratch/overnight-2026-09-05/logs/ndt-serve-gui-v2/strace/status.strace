@@ -1,0 +1,571 @@
+3026306 execve("/home/adam/.local/bin/ndt", ["/home/adam/.local/bin/ndt", "status"], 0x7ffd05d71c78 /* 92 vars */) = 0
+3026306 execve("/home/adam/.local/bin/bash", ["bash", "/home/adam/.local/bin/ndt", "status"], 0x7fff7285a6f0 /* 92 vars */) = -1 ENOENT (No such file or directory)
+3026306 execve("/home/adam/.local/bin/bash", ["bash", "/home/adam/.local/bin/ndt", "status"], 0x7fff7285a6f0 /* 92 vars */) = -1 ENOENT (No such file or directory)
+3026306 execve("/home/adam/.grok/bin/bash", ["bash", "/home/adam/.local/bin/ndt", "status"], 0x7fff7285a6f0 /* 92 vars */) = -1 ENOENT (No such file or directory)
+3026306 execve("/home/adam/.local/bin/bash", ["bash", "/home/adam/.local/bin/ndt", "status"], 0x7fff7285a6f0 /* 92 vars */) = -1 ENOENT (No such file or directory)
+3026306 execve("/home/adam/miniconda3/bin/bash", ["bash", "/home/adam/.local/bin/ndt", "status"], 0x7fff7285a6f0 /* 92 vars */) = -1 ENOENT (No such file or directory)
+3026306 execve("/home/adam/miniconda3/condabin/bash", ["bash", "/home/adam/.local/bin/ndt", "status"], 0x7fff7285a6f0 /* 92 vars */) = -1 ENOENT (No such file or directory)
+3026306 execve("/home/adam/.local/bin/bash", ["bash", "/home/adam/.local/bin/ndt", "status"], 0x7fff7285a6f0 /* 92 vars */) = -1 ENOENT (No such file or directory)
+3026306 execve("/home/adam/.local/bin/bash", ["bash", "/home/adam/.local/bin/ndt", "status"], 0x7fff7285a6f0 /* 92 vars */) = -1 ENOENT (No such file or directory)
+3026306 execve("/home/adam/.local/bin/bash", ["bash", "/home/adam/.local/bin/ndt", "status"], 0x7fff7285a6f0 /* 92 vars */) = -1 ENOENT (No such file or directory)
+3026306 execve("/home/adam/.local/bin/bash", ["bash", "/home/adam/.local/bin/ndt", "status"], 0x7fff7285a6f0 /* 92 vars */) = -1 ENOENT (No such file or directory)
+3026306 execve("/usr/local/sbin/bash", ["bash", "/home/adam/.local/bin/ndt", "status"], 0x7fff7285a6f0 /* 92 vars */) = -1 ENOENT (No such file or directory)
+3026306 execve("/usr/local/bin/bash", ["bash", "/home/adam/.local/bin/ndt", "status"], 0x7fff7285a6f0 /* 92 vars */) = -1 ENOENT (No such file or directory)
+3026306 execve("/usr/sbin/bash", ["bash", "/home/adam/.local/bin/ndt", "status"], 0x7fff7285a6f0 /* 92 vars */) = -1 ENOENT (No such file or directory)
+3026306 execve("/usr/bin/bash", ["bash", "/home/adam/.local/bin/ndt", "status"], 0x7fff7285a6f0 /* 92 vars */) = 0
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026307
+3026307 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026308
+3026308 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026309
+3026309 execve("/usr/bin/readlink", ["readlink", "-f", "/home/adam/.local/bin/ndt"], 0x62a7f7fb3970 /* 92 vars */) = 0
+3026308 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026309, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026308 execve("/usr/bin/dirname", ["dirname", "/home/adam/Desktop/NDTwin-Kernel"...], 0x62a7f7fb3970 /* 92 vars */) = 0
+3026307 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026308, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026307, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026310
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026310, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026311
+3026311 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026312
+3026312 execve("/usr/bin/cat", ["cat"], 0x62a7f7fb3970 /* 92 vars */) = 0
+3026311 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026312, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026311, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026313
+3026313 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026314
+3026314 execve("/usr/bin/cat", ["cat"], 0x62a7f7fb3970 /* 92 vars */) = 0
+3026313 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026314, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026313, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026315
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026315, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026316
+3026316 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026317
+3026317 execve("/home/adam/miniconda3/bin/python3", ["python3", "-", "/home/adam/Desktop/NDTwin-Kernel"..., "4", "StaticNetworkTopologyP4_*.json"], 0x62a7f83d8f90 /* 93 vars */) = 0
+3026316 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026317, si_uid=1000, si_status=0, si_utime=1 /* 0.01 s */, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026316, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026318
+3026318 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026319
+3026319 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026320
+3026320 execve("/usr/bin/ps", ["ps", "-eo", "comm="], 0x62a7f83dd8e0 /* 93 vars */) = 0
+3026319 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026320, si_uid=1000, si_status=0, si_utime=1 /* 0.01 s */, si_stime=2 /* 0.02 s */} ---
+3026318 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026319, si_uid=1000, si_status=0, si_utime=0, si_stime=2 /* 0.02 s */} ---
+3026318 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026321
+3026321 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026322
+3026322 execve("/usr/bin/ps", ["ps", "-eo", "comm="], 0x62a7f83e06e0 /* 93 vars */) = 0
+3026321 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026322, si_uid=1000, si_status=0, si_utime=1 /* 0.01 s */, si_stime=3 /* 0.03 s */} ---
+3026321 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026340
+3026340 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026341
+3026341 execve("/usr/bin/mktemp", ["mktemp", "/tmp/ndt-sudo-err-XXXXXX"], 0x62a7f83e2b10 /* 93 vars */) = 0
+3026340 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026341, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026340 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026342
+3026342 execve("/usr/bin/sudo", ["sudo", "-n", "ovs-vsctl", "list-br"], 0x62a7f83e28a0 /* 95 vars */) = 0
+3026340 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026342, si_uid=1000, si_status=1, si_utime=0, si_stime=0} ---
+3026340 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026343
+3026343 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026344
+3026344 execve("/usr/bin/cat", ["cat", "/tmp/ndt-sudo-err-67XkMO"], 0x62a7f83e28a0 /* 93 vars */) = 0
+3026343 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026344, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026340 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026343, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026340 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026345
+3026345 execve("/usr/bin/rm", ["rm", "-f", "/tmp/ndt-sudo-err-67XkMO"], 0x62a7f83e28a0 /* 93 vars */) = 0
+3026340 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026345, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026321 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026340, si_uid=1000, si_status=1, si_utime=0, si_stime=0} ---
+3026318 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026321, si_uid=1000, si_status=2, si_utime=0, si_stime=1 /* 0.01 s */} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026318, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026346
+3026346 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026347
+3026347 execve("/home/adam/miniconda3/bin/python3", ["python3", "-", "/home/adam/Desktop/NDTwin-Kernel"...], 0x62a7f83d8f90 /* 93 vars */) = 0
+3026346 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026347, si_uid=1000, si_status=0, si_utime=1 /* 0.01 s */, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026346, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026348
+3026348 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026349
+3026348 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026349, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026348, si_uid=1000, si_status=1, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026350
+3026350 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026351
+3026350 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026351, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026350, si_uid=1000, si_status=1, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026352
+3026352 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026353
+3026352 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026353, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026352, si_uid=1000, si_status=1, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026354
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026354, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026355
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026355, si_uid=1000, si_status=1, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026356
+3026356 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026357
+3026356 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026358
+3026357 execve("/usr/bin/sed", ["sed", "-n", "s/^owner=//p", "/home/adam/Desktop/NDTwin-Kernel"...], 0x62a7f83d8f90 /* 93 vars */ <unfinished ...>
+3026358 execve("/usr/bin/head", ["head", "-1"], 0x62a7f83d8f90 /* 93 vars */) = 0
+3026357 <... execve resumed>)           = 0
+3026356 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026357, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026356, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026359
+3026359 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026360
+3026359 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026361
+3026360 execve("/usr/bin/sed", ["sed", "-n", "s/^expires=//p", "/home/adam/Desktop/NDTwin-Kernel"...], 0x62a7f83d8f90 /* 93 vars */ <unfinished ...>
+3026361 execve("/usr/bin/head", ["head", "-1"], 0x62a7f83d8f90 /* 93 vars */ <unfinished ...>
+3026360 <... execve resumed>)           = 0
+3026361 <... execve resumed>)           = 0
+3026359 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026360, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026359, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026362
+3026362 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026363
+3026362 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026364
+3026363 execve("/usr/bin/sed", ["sed", "-n", "s/^note=//p", "/home/adam/Desktop/NDTwin-Kernel"...], 0x62a7f83d8f90 /* 93 vars */ <unfinished ...>
+3026364 execve("/usr/bin/head", ["head", "-1"], 0x62a7f83d8f90 /* 93 vars */ <unfinished ...>
+3026363 <... execve resumed>)           = 0
+3026364 <... execve resumed>)           = 0
+3026362 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026363, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026362, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026365
+3026365 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026366
+3026366 execve("/usr/bin/stat", ["stat", "-c", "%Y", "/home/adam/Desktop/NDTwin-Kernel"...], 0x62a7f83d8f90 /* 93 vars */) = 0
+3026365 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026366, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026365, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026367
+3026367 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026368
+3026368 execve("/usr/bin/date", ["date", "-d", "@1790515588", "+%H:%M:%S"], 0x62a7f83d8f90 /* 93 vars */) = 0
+3026367 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026368, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026367, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026369
+3026369 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026370
+3026370 execve("/usr/bin/date", ["date", "-d", "@1790514045", "+%Y-%m-%d %H:%M:%S"], 0x62a7f83df9c0 /* 93 vars */) = 0
+3026369 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026370, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026369, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026371
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026371, si_uid=1000, si_status=1, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026372
+3026372 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026373
+3026372 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026374
+3026374 execve("/usr/bin/cut", ["cut", "-c1-72"], 0x62a7f83d8f90 /* 93 vars */) = 0
+3026372 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026373, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026372, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026375
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026375, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026376
+3026376 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026377
+3026377 execve("/usr/bin/ps", ["ps", "-eo", "pid=,comm=,args="], 0x62a7f83df480 /* 93 vars */) = 0
+3026376 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026377, si_uid=1000, si_status=0, si_utime=1 /* 0.01 s */, si_stime=3 /* 0.03 s */} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026376, si_uid=1000, si_status=0, si_utime=4 /* 0.04 s */, si_stime=30 /* 0.30 s */} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026438
+3026438 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026439
+3026439 execve("/usr/bin/git", ["git", "-C", "/home/adam/Desktop/NDTwin-Kernel", "rev-parse", "--short", "HEAD"], 0x62a7f83d8f90 /* 93 vars */) = 0
+3026438 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026439, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026438, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026440
+3026440 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026441
+3026440 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026442
+3026441 execve("/usr/bin/git", ["git", "-C", "/home/adam/Desktop/NDTwin-Kernel", "status", "--porcelain"], 0x62a7f83d8f90 /* 93 vars */ <unfinished ...>
+3026442 execve("/usr/bin/wc", ["wc", "-l"], 0x62a7f83d8f90 /* 93 vars */ <unfinished ...>
+3026441 <... execve resumed>)           = 0
+3026442 <... execve resumed>)           = 0
+3026441 clone3({flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, child_tid=0x7dcd1d5ff990, parent_tid=0x7dcd1d5ff990, exit_signal=0, stack=0x7dcd1cdff000, stack_size=0x7fff80, tls=0x7dcd1d5ff6c0} => {parent_tid=[3026443]}, 88) = 3026443
+3026441 clone3({flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, child_tid=0x7dcd1cdfe990, parent_tid=0x7dcd1cdfe990, exit_signal=0, stack=0x7dcd1c5fe000, stack_size=0x7fff80, tls=0x7dcd1cdfe6c0} => {parent_tid=[3026444]}, 88) = 3026444
+3026441 clone3({flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, child_tid=0x7dcd17fff990, parent_tid=0x7dcd17fff990, exit_signal=0, stack=0x7dcd177ff000, stack_size=0x7fff80, tls=0x7dcd17fff6c0} => {parent_tid=[3026445]}, 88) = 3026445
+3026441 clone3({flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, child_tid=0x7dcd177fe990, parent_tid=0x7dcd177fe990, exit_signal=0, stack=0x7dcd16ffe000, stack_size=0x7fff80, tls=0x7dcd177fe6c0} => {parent_tid=[3026446]}, 88) = 3026446
+3026441 clone3({flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, child_tid=0x7dcd16ffd990, parent_tid=0x7dcd16ffd990, exit_signal=0, stack=0x7dcd167fd000, stack_size=0x7fff80, tls=0x7dcd16ffd6c0} => {parent_tid=[3026447]}, 88) = 3026447
+3026441 clone3({flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, child_tid=0x7dcd167fc990, parent_tid=0x7dcd167fc990, exit_signal=0, stack=0x7dcd15ffc000, stack_size=0x7fff80, tls=0x7dcd167fc6c0} => {parent_tid=[3026448]}, 88) = 3026448
+3026440 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026441, si_uid=1000, si_status=0, si_utime=0, si_stime=2 /* 0.02 s */} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026440, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026449
+3026449 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026450
+3026449 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026451
+3026449 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026452
+3026449 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD <unfinished ...>
+3026450 execve("/usr/bin/git", ["git", "-C", "/home/adam/Desktop/NDTwin-Kernel", "status", "--porcelain"], 0x62a7f83d8f90 /* 93 vars */ <unfinished ...>
+3026449 <... clone resumed>, child_tidptr=0x7fb9d1424a10) = 3026453
+3026451 execve("/usr/bin/cut", ["cut", "-c4-"], 0x62a7f83d8f90 /* 93 vars */ <unfinished ...>
+3026452 execve("/usr/bin/grep", ["grep", "-E", "^(src|include|p4_proxy|tools|set"...], 0x62a7f83d8f90 /* 93 vars */ <unfinished ...>
+3026450 <... execve resumed>)           = 0
+3026451 <... execve resumed>)           = 0
+3026453 execve("/usr/bin/head", ["head", "-4"], 0x62a7f83d8f90 /* 93 vars */ <unfinished ...>
+3026452 <... execve resumed>)           = 0
+3026453 <... execve resumed>)           = 0
+3026450 clone3({flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, child_tid=0x7b53257ff990, parent_tid=0x7b53257ff990, exit_signal=0, stack=0x7b5324fff000, stack_size=0x7fff80, tls=0x7b53257ff6c0} => {parent_tid=[3026454]}, 88) = 3026454
+3026450 clone3({flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, child_tid=0x7b5324ffe990, parent_tid=0x7b5324ffe990, exit_signal=0, stack=0x7b53247fe000, stack_size=0x7fff80, tls=0x7b5324ffe6c0} => {parent_tid=[3026455]}, 88) = 3026455
+3026450 clone3({flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, child_tid=0x7b531ffff990, parent_tid=0x7b531ffff990, exit_signal=0, stack=0x7b531f7ff000, stack_size=0x7fff80, tls=0x7b531ffff6c0} => {parent_tid=[3026456]}, 88) = 3026456
+3026450 clone3({flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, child_tid=0x7b531f7fe990, parent_tid=0x7b531f7fe990, exit_signal=0, stack=0x7b531effe000, stack_size=0x7fff80, tls=0x7b531f7fe6c0} => {parent_tid=[3026457]}, 88) = 3026457
+3026450 clone3({flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, child_tid=0x7b531effd990, parent_tid=0x7b531effd990, exit_signal=0, stack=0x7b531e7fd000, stack_size=0x7fff80, tls=0x7b531effd6c0} => {parent_tid=[3026458]}, 88) = 3026458
+3026450 clone3({flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, child_tid=0x7b531e7fc990, parent_tid=0x7b531e7fc990, exit_signal=0, stack=0x7b531dffc000, stack_size=0x7fff80, tls=0x7b531e7fc6c0} => {parent_tid=[3026459]}, 88) = 3026459
+3026449 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026450, si_uid=1000, si_status=0, si_utime=0, si_stime=2 /* 0.02 s */} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026449, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026460
+3026460 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026461
+3026460 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026462
+3026462 execve("/usr/bin/wc", ["wc", "-l"], 0x62a7f83d8f90 /* 93 vars */) = 0
+3026460 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026461, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026460, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026463
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026464
+3026464 execve("/usr/bin/sed", ["sed", "s/^/                 /"], 0x62a7f83d8f90 /* 93 vars */) = 0
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026463, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026465
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026465, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026466
+3026466 execve("/usr/bin/git", ["git", "-C", "/home/adam/Desktop/NDTwin-Kernel", "diff", "--quiet", "--", "p4_proxy/mininet/host_count_over"...], 0x62a7f83d8f90 /* 93 vars */) = 0
+3026466 clone3({flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, child_tid=0x7144423ff990, parent_tid=0x7144423ff990, exit_signal=0, stack=0x714441bff000, stack_size=0x7fff80, tls=0x7144423ff6c0} => {parent_tid=[3026467]}, 88) = 3026467
+3026466 clone3({flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, child_tid=0x714441bfe990, parent_tid=0x714441bfe990, exit_signal=0, stack=0x7144413fe000, stack_size=0x7fff80, tls=0x714441bfe6c0} => {parent_tid=[3026468]}, 88) = 3026468
+3026466 clone3({flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, child_tid=0x7144413fd990, parent_tid=0x7144413fd990, exit_signal=0, stack=0x714440bfd000, stack_size=0x7fff80, tls=0x7144413fd6c0} => {parent_tid=[3026469]}, 88) = 3026469
+3026466 clone3({flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, child_tid=0x714440bfc990, parent_tid=0x714440bfc990, exit_signal=0, stack=0x7144403fc000, stack_size=0x7fff80, tls=0x714440bfc6c0} => {parent_tid=[3026470]}, 88) = 3026470
+3026466 clone3({flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, child_tid=0x7144403fb990, parent_tid=0x7144403fb990, exit_signal=0, stack=0x71443fbfb000, stack_size=0x7fff80, tls=0x7144403fb6c0} => {parent_tid=[3026471]}, 88) = 3026471
+3026466 clone3({flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, child_tid=0x71443fbfa990, parent_tid=0x71443fbfa990, exit_signal=0, stack=0x71443f3fa000, stack_size=0x7fff80, tls=0x71443fbfa6c0} => {parent_tid=[3026472]}, 88) = 3026472
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026466, si_uid=1000, si_status=1, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026473
+3026473 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026474
+3026473 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026474, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026473, si_uid=1000, si_status=1, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026475
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026475, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026476
+3026476 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026477
+3026477 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026478
+3026477 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026479
+3026478 execve("/usr/bin/sha256sum", ["sha256sum", "/usr/local/sbin/ndtwin-lab"], 0x62a7f83d8f90 /* 93 vars */ <unfinished ...>
+3026479 execve("/usr/bin/cut", ["cut", "-d ", "-f1"], 0x62a7f83d8f90 /* 93 vars */ <unfinished ...>
+3026478 <... execve resumed>)           = 0
+3026479 <... execve resumed>)           = 0
+3026477 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026478, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026476 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026477, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026476 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026480
+3026480 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026481
+3026480 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026481, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026480 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026482
+3026480 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026483
+3026482 execve("/usr/bin/sha256sum", ["sha256sum", "/home/adam/Desktop/NDTwin-Kernel"...], 0x62a7f83d8f90 /* 93 vars */ <unfinished ...>
+3026483 execve("/usr/bin/cut", ["cut", "-d ", "-f1"], 0x62a7f83d8f90 /* 93 vars */ <unfinished ...>
+3026482 <... execve resumed>)           = 0
+3026483 <... execve resumed>)           = 0
+3026480 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026482, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026476 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026480, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026476, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026484
+3026484 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026485
+3026485 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026486
+3026486 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026487
+3026486 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026488
+3026487 execve("/usr/bin/sha256sum", ["sha256sum", "/usr/local/sbin/ndtwin-lab"], 0x62a7f83d8f90 /* 93 vars */ <unfinished ...>
+3026488 execve("/usr/bin/cut", ["cut", "-d ", "-f1"], 0x62a7f83d8f90 /* 93 vars */ <unfinished ...>
+3026487 <... execve resumed>)           = 0
+3026488 <... execve resumed>)           = 0
+3026486 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026487, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026485 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026486, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026485 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026489
+3026489 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026490
+3026489 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026490, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026489 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026491
+3026489 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026492
+3026491 execve("/usr/bin/sha256sum", ["sha256sum", "/home/adam/Desktop/NDTwin-Kernel"...], 0x62a7f83d8f90 /* 93 vars */) = 0
+3026492 execve("/usr/bin/cut", ["cut", "-d ", "-f1"], 0x62a7f83d8f90 /* 93 vars */) = 0
+3026489 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026491, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026485 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026489, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026484 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026485, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026484, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026493
+3026493 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026494
+3026494 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026495
+3026494 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026495, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026494 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026496
+3026494 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026497
+3026497 execve("/usr/bin/head", ["head", "-1"], 0x62a7f83d8f90 /* 93 vars */ <unfinished ...>
+3026496 execve("/usr/bin/sed", ["sed", "-n", "s/^command=//p", "/home/adam/Desktop/NDTwin-Kernel"...], 0x62a7f83d8f90 /* 93 vars */ <unfinished ...>
+3026497 <... execve resumed>)           = 0
+3026496 <... execve resumed>)           = 0
+3026494 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026496, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026493 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026494, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026493, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026498
+3026498 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026499
+3026498 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026499, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026498 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026500
+3026498 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026501
+3026500 execve("/usr/bin/sed", ["sed", "-n", "s/^at=//p", "/home/adam/Desktop/NDTwin-Kernel"...], 0x62a7f83d8f90 /* 93 vars */ <unfinished ...>
+3026501 execve("/usr/bin/head", ["head", "-1"], 0x62a7f83d8f90 /* 93 vars */ <unfinished ...>
+3026500 <... execve resumed>)           = 0
+3026501 <... execve resumed>)           = 0
+3026498 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026500, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026498, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026502
+3026502 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026503
+3026502 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026503, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026502, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026504
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026504, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026505
+3026505 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026506
+3026506 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026507
+3026506 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026507, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026505 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026506, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026505, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026508
+3026508 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026509
+3026508 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026509, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026508, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026510
+3026510 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026511
+3026511 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026512
+3026511 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026512, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026510 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026511, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026510 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026513
+3026513 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026514
+3026513 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026514, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026510 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026513, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026510, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026515
+3026515 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026516
+3026516 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026517
+3026516 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026517, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026515 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026516, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026515, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026518
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026518, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026519
+3026519 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026520
+3026520 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026521
+3026520 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026521, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026519 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026520, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026519, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026522
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026522, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026523
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026523, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026524
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026524, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026525
+3026525 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026526
+3026526 execve("/usr/bin/ps", ["ps", "-eo", "comm="], 0x62a7f83e5f60 /* 93 vars */) = 0
+3026525 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026526, si_uid=1000, si_status=0, si_utime=0, si_stime=3 /* 0.03 s */} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026525, si_uid=1000, si_status=0, si_utime=0, si_stime=3 /* 0.03 s */} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026556
+3026556 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026557
+3026557 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026558
+3026558 execve("/usr/bin/sudo", ["sudo", "-n", "/usr/local/sbin/ndtwin-lab", "status"], 0x62a7f83e5f60 /* 93 vars */) = 0
+3026557 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026558, si_uid=1000, si_status=1, si_utime=0, si_stime=0} ---
+3026556 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026557, si_uid=1000, si_status=1, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026556, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026559
+3026559 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026560
+3026560 execve("/usr/bin/ps", ["ps", "-eo", "args="], 0x62a7f83e5f60 /* 93 vars */) = 0
+3026559 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026560, si_uid=1000, si_status=0, si_utime=1 /* 0.01 s */, si_stime=4 /* 0.04 s */} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026559, si_uid=1000, si_status=0, si_utime=6 /* 0.06 s */, si_stime=30 /* 0.30 s */} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026590
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026590, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026591
+3026591 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026592
+3026591 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026592, si_uid=1000, si_status=1, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026591, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026593
+3026593 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026594
+3026593 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026594, si_uid=1000, si_status=1, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026593, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026595
+3026595 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026596
+3026595 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026596, si_uid=1000, si_status=1, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026595, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026597
+3026597 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026598
+3026597 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026599
+3026597 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026600
+3026598 execve("/usr/bin/ps", ["ps", "-eo", "args="], 0x62a7f83e5f60 /* 93 vars */ <unfinished ...>
+3026597 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026601
+3026599 execve("/usr/bin/grep", ["grep", "-o", "/[^ ]*simple_switch_grpc"], 0x62a7f83e5f60 /* 93 vars */ <unfinished ...>
+3026598 <... execve resumed>)           = 0
+3026600 execve("/usr/bin/sort", ["sort", "-u"], 0x62a7f83e5f60 /* 93 vars */ <unfinished ...>
+3026599 <... execve resumed>)           = 0
+3026601 execve("/usr/bin/head", ["head", "-1"], 0x62a7f83e5f60 /* 93 vars */ <unfinished ...>
+3026600 <... execve resumed>)           = 0
+3026601 <... execve resumed>)           = 0
+3026597 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026599, si_uid=1000, si_status=1, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026597, si_uid=1000, si_status=1, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026602
+3026602 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026603
+3026603 execve("/home/adam/miniconda3/bin/python3", ["python3", "-", "/run/ndtwin-lab/heartbeat.json"], 0x62a7f83e5f60 /* 93 vars */) = 0
+3026602 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026603, si_uid=1000, si_status=0, si_utime=2 /* 0.02 s */, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026602, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026604
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026604, si_uid=1000, si_status=1, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026605
+3026605 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026606
+3026605 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026607
+3026606 execve("/usr/sbin/tc", ["tc", "qdisc", "show"], 0x62a7f83e5f60 /* 93 vars */ <unfinished ...>
+3026607 execve("/usr/bin/grep", ["grep", "-c", "netem"], 0x62a7f83e5f60 /* 93 vars */ <unfinished ...>
+3026606 <... execve resumed>)           = 0
+3026607 <... execve resumed>)           = 0
+3026605 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026606, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026605, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026608
+3026608 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026609
+3026608 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026610
+3026610 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026611
+3026608 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026609, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026610 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026611, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026610 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026612
+3026612 execve("/usr/bin/cut", ["cut", "-d|", "-f2"], 0x62a7f83e5f60 /* 93 vars */) = 0
+3026610 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026612, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026608 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026610, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026608 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026613
+3026613 execve("/usr/bin/mktemp", ["mktemp", "/tmp/ndt-sudo-err-XXXXXX"], 0x62a7f83e8810 /* 93 vars */) = 0
+3026608 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026613, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026608 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026614
+3026614 execve("/usr/bin/sudo", ["sudo", "-n", "/usr/local/sbin/ndtwin-lab", "status"], 0x62a7f83e8810 /* 95 vars */) = 0
+3026608 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026614, si_uid=1000, si_status=1, si_utime=0, si_stime=0} ---
+3026608 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026615
+3026615 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026616
+3026616 execve("/usr/bin/cat", ["cat", "/tmp/ndt-sudo-err-OiJmjF"], 0x62a7f83e8810 /* 93 vars */) = 0
+3026615 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026616, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026608 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026615, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026608 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026617
+3026617 execve("/usr/bin/rm", ["rm", "-f", "/tmp/ndt-sudo-err-OiJmjF"], 0x62a7f83e8810 /* 93 vars */) = 0
+3026608 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026617, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026608 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026618
+3026618 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026619
+3026618 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026619, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026618 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026620
+3026620 execve("/usr/bin/cut", ["cut", "-d|", "-f2"], 0x62a7f83e8810 /* 93 vars */) = 0
+3026618 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026620, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026608 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026618, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026608 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026621
+3026621 execve("/usr/bin/mktemp", ["mktemp", "/tmp/ndt-sudo-err-XXXXXX"], 0x62a7f83e8810 /* 93 vars */) = 0
+3026608 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026621, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026608 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026622
+3026622 execve("/usr/bin/sudo", ["sudo", "-n", "ovs-vsctl", "list-br"], 0x62a7f83e8810 /* 95 vars */) = 0
+3026608 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026622, si_uid=1000, si_status=1, si_utime=0, si_stime=0} ---
+3026608 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026623
+3026623 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026624
+3026624 execve("/usr/bin/cat", ["cat", "/tmp/ndt-sudo-err-BBkGgS"], 0x62a7f83e8810 /* 93 vars */) = 0
+3026623 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026624, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026608 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026623, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026608 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026625
+3026625 execve("/usr/bin/rm", ["rm", "-f", "/tmp/ndt-sudo-err-BBkGgS"], 0x62a7f83e8810 /* 93 vars */) = 0
+3026608 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026625, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026608 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026626
+3026626 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026627
+3026626 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026627, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026626 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026628
+3026628 execve("/usr/bin/cut", ["cut", "-d|", "-f2"], 0x62a7f83e8810 /* 93 vars */) = 0
+3026626 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026628, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026608 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026626, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026608 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026629
+3026629 execve("/usr/bin/mktemp", ["mktemp", "/tmp/ndt-sudo-err-XXXXXX"], 0x62a7f83e8810 /* 93 vars */) = 0
+3026608 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026629, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026608 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026630
+3026630 execve("/usr/bin/sudo", ["sudo", "-n", "mnexec", "-a", "1", "true"], 0x62a7f83e8810 /* 95 vars */) = 0
+3026608 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026630, si_uid=1000, si_status=1, si_utime=0, si_stime=0} ---
+3026608 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026631
+3026631 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026632
+3026632 execve("/usr/bin/cat", ["cat", "/tmp/ndt-sudo-err-h0ZuSn"], 0x62a7f83e8810 /* 93 vars */) = 0
+3026631 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026632, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026608 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026631, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026608 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026633
+3026633 execve("/usr/bin/rm", ["rm", "-f", "/tmp/ndt-sudo-err-h0ZuSn"], 0x62a7f83e8810 /* 93 vars */) = 0
+3026608 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026633, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026608, si_uid=1000, si_status=0, si_utime=0, si_stime=1 /* 0.01 s */} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026634
+3026634 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026635
+3026634 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026636
+3026636 execve("/usr/bin/wc", ["wc", "-l"], 0x62a7f83e5f60 /* 93 vars */) = 0
+3026634 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026635, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026634, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026637
+3026637 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026638
+3026637 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026638, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026637 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026639
+3026639 execve("/usr/bin/ps", ["ps", "-eo", "pid=,args="], 0x62a7f83e5f60 /* 93 vars */) = 0
+3026637 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026639, si_uid=1000, si_status=0, si_utime=1 /* 0.01 s */, si_stime=2 /* 0.02 s */} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026637, si_uid=1000, si_status=0, si_utime=4 /* 0.04 s */, si_stime=30 /* 0.30 s */} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026647
+3026647 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026648
+3026648 execve("/usr/bin/sudo", ["sudo", "-n", "/usr/local/sbin/ndtwin-lab", "status"], 0x62a7f83e5f60 /* 93 vars */) = 0
+3026647 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026648, si_uid=1000, si_status=1, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026647, si_uid=1000, si_status=1, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026649
+3026649 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026650
+3026649 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026650, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026649 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026651
+3026651 execve("/usr/bin/ps", ["ps", "-eo", "pid=,args="], 0x62a7f83e5f60 /* 93 vars */) = 0
+3026649 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026651, si_uid=1000, si_status=0, si_utime=1 /* 0.01 s */, si_stime=3 /* 0.03 s */} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026649, si_uid=1000, si_status=0, si_utime=3 /* 0.03 s */, si_stime=29 /* 0.29 s */} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026678
+3026678 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026679
+3026679 execve("/usr/bin/sudo", ["sudo", "-n", "/usr/local/sbin/ndtwin-lab", "status"], 0x62a7f83e5f60 /* 93 vars */) = 0
+3026678 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026679, si_uid=1000, si_status=1, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026678, si_uid=1000, si_status=1, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026680
+3026680 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026681
+3026680 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026681, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026680, si_uid=1000, si_status=1, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026682
+3026682 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026683
+3026682 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026683, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026682 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026684
+3026684 execve("/usr/bin/ps", ["ps", "-eo", "pid=,args="], 0x62a7f83e5f60 /* 93 vars */) = 0
+3026682 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026684, si_uid=1000, si_status=0, si_utime=0, si_stime=4 /* 0.04 s */} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026682, si_uid=1000, si_status=0, si_utime=3 /* 0.03 s */, si_stime=32 /* 0.32 s */} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026764
+3026764 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026765
+3026764 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026765, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026764, si_uid=1000, si_status=1, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026766
+3026766 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026767
+3026766 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026767, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026766 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3026768
+3026768 execve("/usr/bin/ps", ["ps", "-eo", "pid=,args="], 0x62a7f83e5f60 /* 93 vars */) = 0
+3026766 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026768, si_uid=1000, si_status=0, si_utime=1 /* 0.01 s */, si_stime=3 /* 0.03 s */} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3026766, si_uid=1000, si_status=0, si_utime=4 /* 0.04 s */, si_stime=36 /* 0.36 s */} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3027145
+3027145 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3027146
+3027145 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3027146, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3027145, si_uid=1000, si_status=1, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3027147
+3027147 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3027148
+3027147 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3027148, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3027147 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3027149
+3027149 execve("/usr/bin/ps", ["ps", "-eo", "pid=,args="], 0x62a7f83e5f60 /* 93 vars */) = 0
+3027147 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3027149, si_uid=1000, si_status=0, si_utime=1 /* 0.01 s */, si_stime=4 /* 0.04 s */} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3027147, si_uid=1000, si_status=0, si_utime=4 /* 0.04 s */, si_stime=32 /* 0.32 s */} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3027177
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3027177, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3027178
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3027178, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3027179
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3027179, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3027180
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3027180, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3027181
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3027181, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3027182
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3027182, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3027183
+3027183 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3027184
+3027183 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3027185
+3027184 execve("/usr/bin/curl", ["curl", "-s", "--max-time", "5", "http://localhost:8081/ryu_server"...], 0x62a7f83e5f60 /* 93 vars */ <unfinished ...>
+3027185 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3027186
+3027186 execve("/home/adam/miniconda3/bin/python3", ["python3", "-c", "import json,sys; d=json.load(sys"..., "all_destination_paths"], 0x62a7f83e5f60 /* 93 vars */ <unfinished ...>
+3027184 <... execve resumed>)           = 0
+3027186 <... execve resumed>)           = 0
+3027185 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3027186, si_uid=1000, si_status=1, si_utime=2 /* 0.02 s */, si_stime=0} ---
+3027183 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3027184, si_uid=1000, si_status=56, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3027183, si_uid=1000, si_status=1, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3027196
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3027196, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3027197
+3027197 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3027198
+3027197 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3027198, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3027197 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3027199
+3027197 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3027200
+3027199 execve("/usr/bin/sed", ["sed", "-n", "s/^at=//p", "/home/adam/Desktop/NDTwin-Kernel"...], 0x62a7f83e5f60 /* 93 vars */ <unfinished ...>
+3027200 execve("/usr/bin/head", ["head", "-1"], 0x62a7f83e5f60 /* 93 vars */ <unfinished ...>
+3027199 <... execve resumed>)           = 0
+3027200 <... execve resumed>)           = 0
+3027197 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3027199, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3027197, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3027201
+3027201 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3027202
+3027202 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3027203
+3027202 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3027203, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3027202 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3027204
+3027202 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7fb9d1424a10) = 3027205
+3027204 execve("/usr/bin/sed", ["sed", "-n", "s/^command=//p", "/home/adam/Desktop/NDTwin-Kernel"...], 0x62a7f83e5f60 /* 93 vars */ <unfinished ...>
+3027205 execve("/usr/bin/head", ["head", "-1"], 0x62a7f83e5f60 /* 93 vars */ <unfinished ...>
+3027204 <... execve resumed>)           = 0
+3027205 <... execve resumed>)           = 0
+3027202 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3027204, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3027201 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3027202, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+3026306 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=3027201, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---

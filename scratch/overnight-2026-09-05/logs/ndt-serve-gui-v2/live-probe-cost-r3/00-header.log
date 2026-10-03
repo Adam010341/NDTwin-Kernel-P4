@@ -1,0 +1,16 @@
+# 2026-10-01T19:55:22+08:00 r3 probe cost, idle lab. worktree head c4247ca25596b4d0fec67d9e2077868a97b3b70f, porcelain 2
+# new probe ndt: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/tools/test_workflow/ndt sha256 408310c7667af5e616421db114895fe4e9ab7bfed5ea6c1e951503686aeb7fc2  (git blob at HEAD: 2493cc3d856763ff1a98c99e2a4d9cc6b2f4c8eb)
+# old probe ndt: /home/adam/.local/bin/ndt -> /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt sha256 81c1326aee348e196af8f30f7bc4f40ddeb0bc275e0eb7615353ee83dbb7d4eb; main checkout HEAD d452d111f243b4f05225d16b5773f39076675fb4
+## state 2026-10-01T19:55:22+08:00: before
+     claim          none
+     measuring      nothing
+   simple_switch_grpc processes: 0
+   mininet-tagged processes: 0
+   kernel :8000 closed
+## state 2026-10-01T19:56:28+08:00: after
+     claim          none
+     measuring      nothing
+   simple_switch_grpc processes: 0
+   mininet-tagged processes: 0
+   kernel :8000 closed
+# 2026-10-01T19:56:30+08:00 done

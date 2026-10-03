@@ -1,0 +1,209 @@
+== 08_heartbeat
+   repo: /home/adam/Desktop/NDTwin-Kernel
+   raw : /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-10-02T161244Z_08_heartbeat
+   owner: extb-live
+   venv fingerprint -> 00_venv.txt (protobuf 5.29.6 api_implementation upb)
+   root is reachable for exactly what this needs: sudoers grants ndtwin-lab and mnexec without a prompt
+
+== lab state before this step
+   lab
+     claim          none
+     prev claim     extb-live (until 00:57:07), superseded 2026-10-03 00:12:33  (.test_run/lab.claim.prev)
+                    nothing holds the lab now: that claim was released or replaced
+                    it said: down at 2026-10-03 00:12:33; verified clean; claim kept
+     measuring      nothing
+     code           995bdfd0  +105 file(s) with uncommitted changes
+                    2 of them can change behaviour:
+                    p4_proxy/mininet/host_count_override
+                    tools/remote-lab/dorm_lab/
+     knob baseline  4 (the default; no round baseline recorded -- 'ndt claim' writes one)
+     tree vs round  no baseline in .test_run/round.baseline -- nothing here can say what this round changed ('ndt claim' records one)
+     ok  helper: /usr/local/sbin/ndtwin-lab is tools/test_workflow/ndtwin-lab (sha256 6a558fe4)
+   
+   lab is free
+   host_count_override snapshot taken (4)
+   telemetry_override does not exist; it will be removed again at the end
+
+== which code this run is about
+   repo HEAD  995bdfd0b7f2a81a357a480551ff82df4f6fc9b4
+   kernel     be70b5dd32356847  build/bin/ndtwin_kernel
+   helper     6a558fe452955de3  /usr/local/sbin/ndtwin-lab (installed)
+   helper     6a558fe452955de3  tools/test_workflow/ndtwin-lab (this checkout)
+   source     e9142f0825f42164  p4_proxy/proxy_agent/link_heartbeat.py
+   source     0ed0706f071a21f4  p4_proxy/proxy_agent/topology_manager.py
+   source     39d6445844e5fe8d  p4_proxy/proxy_agent/main.py
+   source     9691e71a805332e6  p4_proxy/proxy_agent/api_routes.py
+   source     f9cf6054d8cf4272  tools/test_workflow/ndt
+   heartbeat: not running
+   report: status stopped (stopped by SIGTERM), pid 1635405, period 5 s, ethertype 0x88b5, session 691ca4e5b21e4528
+     written 42.4 s ago
+   no heartbeat is running (rc 3)
+
+== compiling /home/adam/tutorials/exercises/basic/solution/basic.p4, converting with and without roles, and p4runtime
+
+== claiming the lab
+     recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+     ok  lab claimed by extb-live for 120m (P4 heartbeat live H1-H4 (segment W): basic roles (H1, H2), basic unbound (H3), p4runtime external detect-only (H4))
+
+== ndt up p4 --app hb_basic_roles
+   rc 0 -> 20_up_roles.txt
+       proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+       !!  package pipeline: NDTwin discovered no links and installed no routes on this
+       !!    fabric; forwarding is whatever the package's 4 entries on
+       !!    4 switch(es) make of it. ndt status quotes no sample rate for it.
+   ndt up started the heartbeat
+   the helper says it runs: heartbeat: running (pid 1643159)
+
+== H1 -- switch_state: the heartbeat is usable and this fabric reroutes (poll up to 30 s)
+   H1 heartbeat: heartbeat.state usable (watchdog running, session f32d3e52cf089672)
+   H1 capabilities: all 4 switches: reroute true, link_discovery heartbeat
+   H1 reroute: reroute.available True, reason None
+   H1 all eight directions up before the cut: 8/8 inter-switch directions is_enabled:true is_up:true
+   before the cut: PINGALL_LOSS pairs=12 zero_loss=12 lossy=0 untested=0
+   the cut: s1-eth3 <-> s3-eth1 (an installed route uses it)
+   the proxy's constants: beacon interval 5 s, timeout 15 s, watchdog every 5 s
+   the design's worst case at the kernel (INFERRED): (timeout 15 s - phi) + up to one watchdog interval 5 s + pass time + report read, HTTP, kernel -- at phi -> 0 that is the ticket's 20 s with nothing to spare. Each cycle is measured against the strict 20 s and one over it is DISCLOSED, not failed (Adam, 09-27: at most about 20 s); a detection not seen within 35 s is a FAIL; '20 s + what was measured' is recorded beside it as a diagnostic
+   random phases: seed 22524 (H1_SEED= to repeat); worst-phase cycles at PHI_WORST=0.02 s
+
+== H1 cycle 1/6 -- cut 0.02 s after a heartbeat round; down in the kernel's graph within about 20 s (the strict 20 s measured and disclosed; past 35 s a FAIL)
+   H1 cycle 1 detection: both directions of s1:3<->s3:1 is_up:false
+   H1 cycle 1 phase record: 135595.950	135595.960	135595.960	135595.966	135595.927	135595.927	0.022	135612.588	16.639	135607.381	135612.381	135612.404	1.454	0.000	0.207	0.000	-0.0	-
+   H1 cycle 1 detection time: detection 16.639 s, within the strict 20 s
+   H1 cycle 1 budget, 20 s + what was measured (a diagnostic, never the verdict): OK detection 16.639 s, within the strict 20 s (pass lateness +0.000, read/HTTP/kernel/poll +0.207, cut window +0.000)
+   H1 routes rewritten: no installed route points into s1:3<->s3:1 (4 did before), every destination kept
+   PINGALL_LOSS pairs=12 zero_loss=12 lossy=0 untested=0
+   H1: all 12 pairs at 0% loss around the cut
+   H1 cycle 1 recovery: both directions of s1:3<->s3:1 enabled and up
+   H1 cycle 1 restore record: 135667.325	135667.349	135667.349	135667.377	135670.927	135670.927	3.601	4.102	135672.408	0.981	135672.616	5.290	0.207	-0.0	-
+   H1 cycle 1 recovery time: both directions is_up:true again after 5.3 s (bound 20 s)
+   H1 cycle 1 netem: no netem on either end
+
+== H1 cycle 2/6 -- cut 0.02 s after a heartbeat round; down in the kernel's graph within about 20 s (the strict 20 s measured and disclosed; past 35 s a FAIL)
+   H1 cycle 2 detection: both directions of s1:3<->s3:1 is_up:false
+   H1 cycle 2 phase record: 135675.951	135675.962	135675.962	135675.971	135675.926	135675.926	0.025	135692.503	16.552	135687.430	135692.430	135692.449	1.504	0.000	0.073	0.000	0.0	-
+   H1 cycle 2 detection time: detection 16.552 s, within the strict 20 s
+   H1 cycle 2 budget, 20 s + what was measured (a diagnostic, never the verdict): OK detection 16.552 s, within the strict 20 s (pass lateness +0.000, read/HTTP/kernel/poll +0.073, cut window +0.000)
+   H1 cycle 2 recovery: both directions of s1:3<->s3:1 enabled and up
+   H1 cycle 2 restore record: 135692.752	135692.772	135692.772	135692.792	135695.927	135695.927	3.175	3.675	135697.449	1.022	135697.580	4.828	0.131	0.0	-
+   H1 cycle 2 recovery time: both directions is_up:true again after 4.8 s (bound 20 s)
+   H1 cycle 2 netem: no netem on either end
+
+== H1 cycle 3/6 -- cut 0.02 s after a heartbeat round; down in the kernel's graph within about 20 s (the strict 20 s measured and disclosed; past 35 s a FAIL)
+   H1 cycle 3 detection: both directions of s1:3<->s3:1 is_up:false
+   H1 cycle 3 phase record: 135700.950	135700.958	135700.958	135700.965	135700.926	135700.926	0.024	135717.546	16.596	135712.465	135717.465	135717.482	1.539	0.000	0.081	0.000	0.0	-
+   H1 cycle 3 detection time: detection 16.596 s, within the strict 20 s
+   H1 cycle 3 budget, 20 s + what was measured (a diagnostic, never the verdict): OK detection 16.596 s, within the strict 20 s (pass lateness +0.000, read/HTTP/kernel/poll +0.081, cut window +0.000)
+   H1 cycle 3 recovery: both directions of s1:3<->s3:1 enabled and up
+   H1 cycle 3 restore record: 135717.839	135717.865	135717.865	135717.891	135720.926	135720.926	3.087	3.588	135722.482	1.056	135722.526	4.687	0.044	-0.0	-
+   H1 cycle 3 recovery time: both directions is_up:true again after 4.7 s (bound 20 s)
+   H1 cycle 3 netem: no netem on either end
+
+== H1 cycle 4/6 -- cut 0.94 s after a heartbeat round; down in the kernel's graph within about 20 s (the strict 20 s measured and disclosed; past 35 s a FAIL)
+   H1 cycle 4 detection: both directions of s1:3<->s3:1 is_up:false
+   H1 cycle 4 phase record: 135726.872	135726.886	135726.886	135726.897	135725.927	135725.927	0.945	135742.626	15.754	135737.504	135742.504	135742.516	1.577	0.000	0.122	0.000	0.0	-
+   H1 cycle 4 detection time: detection 15.754 s, within the strict 20 s
+   H1 cycle 4 budget, 20 s + what was measured (a diagnostic, never the verdict): OK detection 15.754 s, within the strict 20 s (pass lateness +0.000, read/HTTP/kernel/poll +0.122, cut window +0.000)
+   H1 cycle 4 recovery: both directions of s1:3<->s3:1 enabled and up
+   H1 cycle 4 restore record: 135742.864	135742.884	135742.884	135742.903	135745.926	135745.926	3.062	3.562	135747.516	1.090	135747.658	4.794	0.142	0.0	-
+   H1 cycle 4 recovery time: both directions is_up:true again after 4.8 s (bound 20 s)
+   H1 cycle 4 netem: no netem on either end
+
+== H1 cycle 5/6 -- cut 2.36 s after a heartbeat round; down in the kernel's graph within about 20 s (the strict 20 s measured and disclosed; past 35 s a FAIL)
+   H1 cycle 5 detection: both directions of s1:3<->s3:1 is_up:false
+   H1 cycle 5 phase record: 135753.290	135753.299	135753.299	135753.306	135750.927	135750.927	2.362	135767.562	14.272	135762.529	135767.529	135767.541	1.602	0.000	0.032	0.000	0.0	-
+   H1 cycle 5 detection time: detection 14.272 s, within the strict 20 s
+   H1 cycle 5 budget, 20 s + what was measured (a diagnostic, never the verdict): OK detection 14.272 s, within the strict 20 s (pass lateness +0.000, read/HTTP/kernel/poll +0.032, cut window +0.000)
+   H1 cycle 5 recovery: both directions of s1:3<->s3:1 enabled and up
+   H1 cycle 5 restore record: 135767.807	135767.828	135767.828	135767.852	135770.926	135770.926	3.119	3.619	135772.541	1.115	135772.592	4.785	0.052	0.0	-
+   H1 cycle 5 recovery time: both directions is_up:true again after 4.8 s (bound 20 s)
+   H1 cycle 5 netem: no netem on either end
+
+== H1 cycle 6/6 -- cut 0.88 s after a heartbeat round; down in the kernel's graph within about 20 s (the strict 20 s measured and disclosed; past 35 s a FAIL)
+   H1 cycle 6 detection: both directions of s1:3<->s3:1 is_up:false
+   H1 cycle 6 phase record: 135776.809	135776.820	135776.820	135776.829	135775.927	135775.927	0.882	135792.777	15.968	135787.551	135792.551	135792.568	1.624	0.000	0.225	0.000	0.0	-
+   H1 cycle 6 detection time: detection 15.968 s, within the strict 20 s
+   H1 cycle 6 budget, 20 s + what was measured (a diagnostic, never the verdict): OK detection 15.968 s, within the strict 20 s (pass lateness +0.000, read/HTTP/kernel/poll +0.225, cut window +0.000)
+   H1 cycle 6 recovery: both directions of s1:3<->s3:1 enabled and up
+   H1 cycle 6 restore record: 135793.009	135793.028	135793.028	135793.048	135795.926	135795.926	2.917	3.417	135797.568	1.142	135797.582	4.573	0.013	0.0	-
+   H1 cycle 6 recovery time: both directions is_up:true again after 4.6 s (bound 20 s)
+   H1 cycle 6 netem: no netem on either end
+   H1: all 6 cycle(s) within the strict 20 s -- one run samples one psi (watchdog_phase_s in 30_cycles.tsv): the worst psi is not guaranteed to have been sampled
+   cycle  phi_target  cut_a_start_mono  cut_a_end_mono  cut_b_start_mono  cut_b_end_mono  last_heard_ab_mono  last_heard_ba_mono  phi_s  graph_down_mono  detect_s  pass_prev_start_mono  pass_start_mono  pass_end_mono  watchdog_phase_s  pass_lateness_s  pass_to_graph_s  cut_window_s  clock_drift_ms  cut_flags  strict_20s  restore_a_start_mono  restore_a_end_mono  restore_b_start_mono  restore_b_end_mono  first_heard_ab_mono  first_heard_ba_mono  restore_daemon_s  restore_report_s  pass_up_start_mono  pass_up_after_report_s  graph_up_mono  restore_s  pass_to_graph_up_s  restore_drift_ms  restore_flags
+   1      0.02        135595.950        135595.960      135595.960        135595.966      135595.927          135595.927          0.022  135612.588       16.639    135607.381            135612.381       135612.404     1.454             0.000            0.207            0.000         -0.0            -          yes         135667.325            135667.349          135667.349            135667.377          135670.927           135670.927           3.601             4.102             135672.408          0.981                   135672.616     5.290      0.207               -0.0              -
+   2      0.02        135675.951        135675.962      135675.962        135675.971      135675.926          135675.926          0.025  135692.503       16.552    135687.430            135692.430       135692.449     1.504             0.000            0.073            0.000         0.0             -          yes         135692.752            135692.772          135692.772            135692.792          135695.927           135695.927           3.175             3.675             135697.449          1.022                   135697.580     4.828      0.131               0.0               -
+   3      0.02        135700.950        135700.958      135700.958        135700.965      135700.926          135700.926          0.024  135717.546       16.596    135712.465            135717.465       135717.482     1.539             0.000            0.081            0.000         0.0             -          yes         135717.839            135717.865          135717.865            135717.891          135720.926           135720.926           3.087             3.588             135722.482          1.056                   135722.526     4.687      0.044               -0.0              -
+   4      0.94        135726.872        135726.886      135726.886        135726.897      135725.927          135725.927          0.945  135742.626       15.754    135737.504            135742.504       135742.516     1.577             0.000            0.122            0.000         0.0             -          yes         135742.864            135742.884          135742.884            135742.903          135745.926           135745.926           3.062             3.562             135747.516          1.090                   135747.658     4.794      0.142               0.0               -
+   5      2.36        135753.290        135753.299      135753.299        135753.306      135750.927          135750.927          2.362  135767.562       14.272    135762.529            135767.529       135767.541     1.602             0.000            0.032            0.000         0.0             -          yes         135767.807            135767.828          135767.828            135767.852          135770.926           135770.926           3.119             3.619             135772.541          1.115                   135772.592     4.785      0.052               0.0               -
+   6      0.88        135776.809        135776.820      135776.820        135776.829      135775.927          135775.927          0.882  135792.777       15.968    135787.551            135792.551       135792.568     1.624             0.000            0.225            0.000         0.0             -          yes         135793.009            135793.028          135793.028            135793.048          135795.926           135795.926           2.917             3.417             135797.568          1.142                   135797.582     4.573      0.013               0.0               -
+   after the last restore (recorded): PINGALL_LOSS pairs=12 zero_loss=12 lossy=0 untested=0
+   H1 ruling 4: forwarded_to_hosts 0 (forwarded_between_switches 0, misdelivered 0, foreign 0)
+
+== H2 -- the heartbeat STOPPED, the same cut held 30 s: nothing may go down
+   H2 the proxy sees it stopped: heartbeat.state heartbeat_not_running (watchdog running, session f32d3e52cf089672)
+   H2 reroute: reroute.available False, reason heartbeat_not_running
+   H2 no detection without the heartbeat: up in all 10 polls
+   H2 netem: no netem on either end
+   ndt down (phase A (H1, H2)): rc 0 -> 49_down_roles.txt
+
+== ndt up p4 --app hb_basic_noroles
+   rc 0 -> 60_up_plain.txt
+   H3 heartbeat: heartbeat.state usable (watchdog running, session 2349313ccb05ad43)
+   H3 capabilities: all 4 switches: reroute false, link_discovery heartbeat
+   H3 reroute and why not: reroute.available False, reason unbound
+   H3 all eight directions up before the cut: 8/8 inter-switch directions is_enabled:true is_up:true
+   H3 detection: both directions of s1:3<->s3:1 is_up:false
+   H3 phase record: 135877.087	135877.096	135877.096	135877.104	135877.070	135877.070	0.017	135893.627	16.540	135888.537	135893.538	135893.543	1.468	0.000	0.089	0.000	0.0	-
+   H3 detection time: detection 16.540 s, within the strict 20 s
+   H3 budget, 20 s + what was measured (a diagnostic, never the verdict): OK detection 16.540 s, within the strict 20 s (pass lateness +0.000, read/HTTP/kernel/poll +0.089, cut window +0.000)
+   H3: all 1 cycle(s) within the strict 20 s -- one run samples one psi (watchdog_phase_s in 30_cycles.tsv): the worst psi is not guaranteed to have been sampled
+   H3 the author's entries: 16 rows across 4 switch(es), identical before and after
+   H3 a write is still 501: 501 unsupported_on_p4, reason unbound
+   H3 recovery: both directions of s1:3<->s3:1 enabled and up
+   H3 restore record: 135899.014	135899.037	135899.037	135899.056	135902.069	135902.069	3.055	3.556	135903.544	0.974	135903.778	4.764	0.234	0.0	-
+   H3 recovery time: both directions is_up:true again after 4.8 s (bound 20 s)
+   H3 netem: no netem on either end
+   H3 ruling 4: forwarded_to_hosts 0 (forwarded_between_switches 0, misdelivered 0, foreign 0)
+   ndt down (phase B (H3)): rc 0 -> 69_down_plain.txt
+
+== ndt up p4 --app hb_p4runtime_solution (external, detect only)
+   rc 0 -> 80_up_external.txt
+   ndt up started the heartbeat, detect only
+   the helper says it runs: heartbeat: running (pid 1655905)
+   H4 heartbeat: heartbeat.state usable (watchdog running, session 798e7ffc49b55ad0)
+   H4 capabilities: all 3 switches: reroute false, link_discovery heartbeat
+   H4 reroute: reroute.available False, reason external_control_plane
+   H4 /stats/flowentry/add: 409 external control plane
+   H4 /stats/flowentry/delete: 409 external control plane
+   H4 /stats/flowentry/delete_strict: 409 external control plane
+   H4 /stats/flowentry/modify: 409 external control plane
+
+== H4 -- cut s1-eth2 <-> s2-eth2 out of band: the proxy holds it down by the heartbeat, and reroutes nothing
+   H4 detection at the proxy, told to the kernel: both directions of s1:2<->s2:2 down at the proxy, source heartbeat (1:2->2:2 reported_to_kernel True, 2:2->1:2 reported_to_kernel True)
+   H4 detection at the proxy within 14.4 s of the cut (switch_state polled every 2 s)
+   H4 reroute after the cut: reroute.available False, reason external_control_plane
+   H4 capabilities after the cut: all 3 switches: reroute false, link_discovery heartbeat
+   H4 nothing written across the cut: 3 switch(es): pipeline_commits, rules_timed, table_generation unchanged ((0, 0, None))
+   H4 recovery at the proxy, told to the kernel: both directions of s1:2<->s2:2 up at the proxy, source heartbeat (1:2->2:2 reported_to_kernel True, 2:2->1:2 reported_to_kernel True)
+   H4 recovery time at the proxy (switch_state polled every 2 s): recovery 6.2 s, within the strict 20 s
+   H4 nothing written across the restore: 3 switch(es): pipeline_commits, rules_timed, table_generation unchanged ((0, 0, None))
+   H4 netem: no netem on either end
+   H4 ruling 4: forwarded_to_hosts 0 (forwarded_between_switches 0, misdelivered 0, foreign 0)
+   ndt down (phase C (H4)): rc 0 -> 89_down_external.txt
+
+== done -- teardown follows
+
+== teardown
+   ndt down rc=0 -> 2026-10-02T161244Z_08_heartbeat/90_down.txt
+         until 09-12 this command answered both with the same byte.
+       claim note now says the lab was already down when this teardown ran
+     08: 'ndt down' answered 3 (nothing was up) -- this run had already taken its own fabric down
+   app_package_override is gone, as 'ndt down' should leave it
+   host_count_override put back to what this step found
+     the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+     this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+     ok  lab released
+
+raw: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-10-02T161244Z_08_heartbeat
+PASS 08_heartbeat
+08_RC=0
+2026-10-03T00:19:13+08:00

@@ -1,0 +1,173 @@
+# date -Is: 2026-10-01T22:20:58+08:00
+# argv: tests/shell/mutate_ndt_serve_page.sh 
+# git rev-parse HEAD: 23e9b76fe64a6ecc659fb40961f95faf090f6b3f
+# git status --porcelain | wc -l: 0
+# python3: /home/adam/miniconda3/bin/python3 3.13.13 | packaged by Anaconda, Inc. | (main, Apr 14 2026, 06:19:41) [GCC 14.3.0]
+# node -v: v24.20.0   npm -v: 11.19.0
+# this gate: 9ae9ca7d44730148df88a8c8f17404cf13f5b3c9f1872c594b88daae5fade3f9
+# changed paths under test vs HEAD: 0
+  Filesystem      Size  Used Avail Use% Mounted on
+  /dev/nvme0n1p5   98G   91G  2.1G  98% /
+  /dev/nvme0n1p5   98G   91G  2.1G  98% /
+
+baseline 1 -- the whole suite on the committed page (green, every case run ok, none skipped, no leftover):
+  test_a_claim_not_yours_puts_claim_first ... ok
+  test_a_double_click_posts_once ... ok
+  test_an_app_start_shows_the_dry_run_and_claim_first ... ok
+  test_claim_asks_for_no_typed_word ... ok
+  test_enter_on_confirm_does_not_confirm ... ok
+  test_measuring_or_declared_makes_it_typed ... ok
+  test_no_claim_puts_claim_first ... ok
+  test_the_dialog_shows_the_argv_the_dry_run_answered ... ok
+  test_the_focus_starts_on_cancel ... ok
+  test_the_write_is_posted_after_its_dry_run ... ok
+  test_up_asks_for_the_typed_word ... ok
+  test_job_log_stops_on_close ... ok
+  test_job_log_stops_when_the_job_ends ... ok
+  test_job_log_stops_while_hidden_and_resumes ... ok
+  test_a_url_without_a_key_opens_nothing ... ok
+  test_a_used_key_opens_nothing ... ok
+  test_loading_the_page_writes_nothing ... ok
+  test_the_key_is_traded_exactly_once ... ok
+  test_the_key_leaves_the_address_bar ... ok
+  test_the_page_sees_no_csp_violation ... ok
+  test_the_token_is_not_in_browser_storage ... ok
+  test_the_token_is_not_in_the_dom ... ok
+  test_a_probe_that_times_out_keeps_the_pause_and_the_next_one_ends_it ... ok
+  test_the_token_is_in_no_file_of_the_profile ... ok
+  test_a_declared_pause_is_resumed_by_the_probe ... ok
+  test_a_measuring_pause_probes_measuring_alone ... ok
+  test_a_measuring_pause_reads_nothing_while_hidden ... ok
+  test_refresh_reads_while_shown_and_idle ... ok
+  test_refresh_stops_while_declared ... ok
+  test_refresh_stops_while_hidden_and_resumes_when_shown ... ok
+  test_refresh_stops_while_measuring ... ok
+  test_shown_again_while_measuring_probes_once_60_s_later ... ok
+  test_ndt_serve_page.py: Ran 32 tests in 617.003s / OK (697 s)
+             leftovers: chrome leftovers (Confirm): 0 chrome leftovers (JobLog): 0 chrome leftovers (Load): 0 chrome leftovers (ProbeTimeout): 0 chrome leftovers (Profile): 0 chrome leftovers (Refresh): 0  /proc after the run: none
+
+baseline 2 -- web/ copied and built the way every page mutant is, with no edit, is the committed static/:
+  same     BUILD.json   4c98675f9d7fb25b
+  same     app.css      780f0a54807c1edb
+  same     app.js       75f6255d2abed426
+  same     index.html   ba7f56b21e294bf5
+  same     manual.html  a97624cad205d8fa
+  (built in 169 s)
+
+  caught   T1: the token is written into a data-* attribute of <body> (DOM)       (test_the_token_is_not_in_the_dom went red, 178 s)
+             AssertionError: 'jbjlRXgGGhk2HWCxN9uXbVOXar9T63tMHNyd4sTNK-k' unexpectedly found in '<html lang="zh-Hant"><head>\n    <meta charset="utf-8">\n    <meta name="viewport" content="width=device-width, initial-scale=1">\n    <title>ndt serve</ti
+             self.assertNotIn(token, html, "the token is in the page's DOM")
+             leftovers: chrome leftovers (Load): 0  /proc after the run: none
+  caught   T2: the token is put in IndexedDB (only the profile's files hold it; G-N8) (test_the_token_is_in_no_file_of_the_profile went red, 10 s)
+             AssertionError: Lists differ: ['Default/IndexedDB/http_127.0.0.1_46381.indexeddb.leveldb/000003.log'] != []
+             self.assertEqual(files_holding(self.profile, token), [], "the token is in a file of the browser profile")
+             leftovers: chrome leftovers (Profile): 0  /proc after the run: none
+  caught   T3: the token is also put in sessionStorage (spelled past a static lint) (test_the_token_is_not_in_browser_storage went red, 73 s)
+             AssertionError: 'my7750Zkb5MDaZHZfOEBHychqz-3CzRwmWLUEXW1VIA' unexpectedly found in '{"local": {}, "session": {"t": "my7750Zkb5MDaZHZfOEBHychqz-3CzRwmWLUEXW1VIA"}, "cookie": "", "indexeddb": []}' : the token is in browser storage: {'local':
+             self.assertNotIn(token, json.dumps(st), "the token is in browser storage: %r" % st)
+             leftovers: chrome leftovers (Load): 0  /proc after the run: none
+  caught   T4: the page remembers its open tab in localStorage (no token in it)   (test_the_token_is_not_in_browser_storage went red, 9 s)
+             AssertionError: {'local': {'ndt-serve-tab': 'actions'}, 'session': {[28 chars]: []} != {'local': {}, 'session': {}, 'cookie': '', 'indexeddb': []}
+             "the page left something in browser storage")
+             leftovers: chrome leftovers (Load): 0  /proc after the run: none
+  caught   T5: the token is written into a cookie                                 (test_the_token_is_not_in_browser_storage went red, 10 s)
+             AssertionError: 'J8ISugarnrkvcJwx0PbDFy9RN_xpKxT5E_wbP-LtCCY' unexpectedly found in '{"local": {}, "session": {}, "cookie": "t=J8ISugarnrkvcJwx0PbDFy9RN_xpKxT5E_wbP-LtCCY", "indexeddb": []}' : the token is in browser storage: {'local': {}, 
+             self.assertNotIn(token, json.dumps(st), "the token is in browser storage: %r" % st)
+             leftovers: chrome leftovers (Load): 0  /proc after the run: none
+  caught   T6: the page opens an IndexedDB database (no token in it): indexedDB.databases() must see it (test_the_token_is_not_in_browser_storage went red, 10 s)
+             AssertionError: {'loc[31 chars]': '', 'indexeddb': [{'name': 'ndt-page-cache', 'version': 1}]} != {'loc[31 chars]': '', 'indexeddb': []}
+             "the page left something in browser storage")
+             leftovers: chrome leftovers (Load): 0  /proc after the run: none
+  caught   S1: the session module trades the key a second time (G-N10)            (test_the_key_is_traded_exactly_once went red, 11 s)
+             AssertionError: Lists differ: [200, 403] != [200]
+             + [200] : the server logged 2 key trade(s) (POST /api/v1/session), not exactly one answered 200: [200, 403]
+             leftovers: chrome leftovers (Load): 0  /proc after the run: none
+  caught   F1: history.replaceState is gone (the key stays in the address bar)    (test_the_key_leaves_the_address_bar went red, 9 s)
+             AssertionError: '#' unexpectedly found in 'http://127.0.0.1:42541/#k=jrv1Sk3EjuVkVen2ny1yzzZSBBHjbOVmSBoyaX3viOA' : the key is still in the address bar after the page ran: http://127.0.0.1:42541/#k=jrv1Sk3EjuVkVen2ny1yzzZSBBHjbOVmSBoyaX3viO
+             self.assertNotIn("#", href, "the key is still in the address bar after the page ran: %s" % href)
+             leftovers: chrome leftovers (Load): 0  /proc after the run: none
+  caught   P1: the server keeps a used key (serve.py Nonces.take)                 (test_a_used_key_opens_nothing went red, 2 s)
+             AssertionError: Tuples differ: ('ok', 'yes') != ('refused', 'no-session')
+             "the second load of a used key opened a session")
+             leftovers: chrome leftovers (Load): 0  /proc after the run: none
+  caught   P2: the page trades a key it does not have (an empty hash)             (test_a_url_without_a_key_opens_nothing went red, 10 s)
+             AssertionError: Tuples differ: ('refused', 'no-session', [], [('POST', '/api/v1/session', 400)]) != ('no-key', 'no-session', [], [])
+             "a URL with no key: (data-session, data-loaded, ndt calls, non-GET requests)")
+             leftovers: chrome leftovers (Load): 0  /proc after the run: none
+  caught   L1: the page releases the lab the moment it has the token (v1 G14)     (test_loading_the_page_writes_nothing went red, 11 s)
+             AssertionError: Lists differ: ["the server holds job(s) ['20261001T14410[233 chars]ade"] != []
+             self.assertEqual(problems, [], "loading the page wrote (data-loaded=%s)" % hook(p, "loaded"))
+             leftovers: chrome leftovers (Load): 0  /proc after the run: none
+  caught   X1: an inline <script> in the built index.html (CSP positive control)  (test_the_page_sees_no_csp_violation went red, 3 s)
+             AssertionError: '1' != '0'
+             self.assertEqual(n, "0", "the page counted %s CSP violation(s) (data-csp-violations)" % n)
+             leftovers: chrome leftovers (Load): 0  /proc after the run: none
+  caught   X2: no ReportingObserver, and a style attribute set at run time (the listener's positive control) (test_the_page_sees_no_csp_violation went red, 10 s)
+             AssertionError: '1' != '0'
+             self.assertEqual(n, "0", "the page counted %s CSP violation(s) (data-csp-violations)" % n)
+             leftovers: chrome leftovers (Load): 0  /proc after the run: none
+  caught   C1: serve.py confirm_policy says plain for up/down                     (test_up_asks_for_the_typed_word went red, 2 s)
+             AssertionError: False is not true : the Up dialog asks for no typed word (the server's confirm_policy says typed): {'open': True, 'phase': 'ready', 'typed': False, 'word': '', 'go_disabled': False, 'focus': 'c-cancel', 'blockers': [], 'argv
+             self.assertTrue(d["typed"], "the Up dialog asks for no typed word (the server's confirm_policy says typed): "
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   C5: the page ignores the server's confirm === "typed"                  (test_up_asks_for_the_typed_word went red, 10 s)
+             AssertionError: False is not true : the Up dialog asks for no typed word (the server's confirm_policy says typed): {'open': True, 'phase': 'ready', 'typed': False, 'word': '', 'go_disabled': False, 'focus': 'c-cancel', 'blockers': [], 'argv
+             self.assertTrue(d["typed"], "the Up dialog asks for no typed word (the server's confirm_policy says typed): "
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   C2: the page ignores needs_own_claim (blocks only when /lab did not answer) (test_a_claim_not_yours_puts_claim_first went red, 252 s)
+             AssertionError: '請先 claim：claim 不是你的' not found in [] : no "claim first" blocker for Up under somebody else's claim: {'open': True, 'phase': 'ready', 'typed': True, 'word': 'up', 'go_disabled': True, 'focus': 'c-cancel', 'bloc
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   C2b: serve.py confirm_policy says up/down need no claim of your own    (test_a_claim_not_yours_puts_claim_first went red, 194 s)
+             AssertionError: '請先 claim：claim 不是你的' not found in [] : no "claim first" blocker for Up under somebody else's claim: {'open': True, 'phase': 'ready', 'typed': True, 'word': 'up', 'go_disabled': True, 'focus': 'c-cancel', 'bloc
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   CF1: the page puts claim first only when there is a claim row          (test_no_claim_puts_claim_first went red, 201 s)
+             AssertionError: '請先 claim：claim 不是你的' not found in [] : no "claim first" blocker for up with no claim row: {'open': True, 'phase': 'ready', 'typed': True, 'word': 'up', 'go_disabled': True, 'focus': 'c-cancel', 'blockers': [],
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   CF2: the page puts claim first only under somebody else's claim (not none, not missing) (test_no_claim_puts_claim_first went red, 71 s)
+             AssertionError: '請先 claim：claim 不是你的' not found in [] : no "claim first" blocker for up with `claim none`: {'open': True, 'phase': 'ready', 'typed': True, 'word': 'up', 'go_disabled': True, 'focus': 'c-cancel', 'blockers': [],
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   CF3: Down asks the server for no dry run (ActionsTab), so no claim-first check for it (test_no_claim_puts_claim_first went red, 89 s)
+             AssertionError: '請先 claim：claim 不是你的' not found in [] : no "claim first" blocker for down with `claim none`: {'open': True, 'phase': 'ready', 'typed': False, 'word': '', 'go_disabled': False, 'focus': 'c-cancel', 'blockers': [
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   CF4: a claim-first blocker is shown but does not keep Confirm off      (test_no_claim_puts_claim_first went red, 53 s)
+             AssertionError: False is not true : Confirm is on for up with `claim none`
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   A2: the page skips the claim-first check for an app start or stop      (test_an_app_start_shows_the_dry_run_and_claim_first went red, 52 s)
+             AssertionError: '請先 claim：claim 不是你的' not found in [] : no "claim first" blocker for an app start under somebody else's claim: {'open': True, 'phase': 'ready', 'typed': False, 'word': '', 'go_disabled': False, 'focus': 'c-canc
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   A2b: serve.py confirm_policy says an app start or stop needs no claim of your own (test_an_app_start_shows_the_dry_run_and_claim_first went red, 20 s)
+             AssertionError: '請先 claim：claim 不是你的' not found in [] : no "claim first" blocker for an app start under somebody else's claim: {'open': True, 'phase': 'ready', 'typed': False, 'word': '', 'go_disabled': False, 'focus': 'c-canc
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   A1: an app start or stop asks the server for no dry run (AppsTab preview: false) (test_an_app_start_shows_the_dry_run_and_claim_first went red, 42 s)
+             AssertionError: 0 != 1 : Chrome saw 0 dry-run answer(s) to POST /apps/energy/start, not 1
+             self.assertEqual(len(answers), 1, "Chrome saw %d dry-run answer(s) to POST /apps/energy/start, not 1"
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   W1: any non-empty text in the typed box turns Confirm on               (test_up_asks_for_the_typed_word went red, 27 s)
+             AssertionError: False is not true : Confirm is on after typing only `u`
+             self.assertTrue(self.settle(p)["go_disabled"], "Confirm is on after typing only `u`")
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   W2: a non-empty prefix of the word turns Confirm on                    (test_up_asks_for_the_typed_word went red, 46 s)
+             AssertionError: False is not true : Confirm is on after typing only `u`
+             self.assertTrue(self.settle(p)["go_disabled"], "Confirm is on after typing only `u`")
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   W3: any text that starts with the word turns Confirm on                (test_up_asks_for_the_typed_word went red, 47 s)
+             AssertionError: False is not true : Confirm is on after typing `upx`
+             self.assertTrue(self.settle(p)["go_disabled"], "Confirm is on after typing `upx`")
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   C3: the page does not upgrade to typed while measuring                 (test_measuring_or_declared_makes_it_typed went red, 38 s)
+             AssertionError: False is not true : no typed word for Claim while measuring: {'open': True, 'phase': 'ready', 'typed': False, 'word': '', 'go_disabled': False, 'focus': 'c-cancel', 'blockers': [], 'argv': ['/tmp/ndt-page-gate-EkF8u0/28/tmp/
+             self.assertTrue(d["typed"], "no typed word for Claim while measuring: %r" % d)
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   C3b: the page does not upgrade to typed while a measurement is declared (test_measuring_or_declared_makes_it_typed went red, 45 s)
+             AssertionError: False is not true : no typed word for Claim while a measurement is declared: {'open': True, 'phase': 'ready', 'typed': False, 'word': '', 'go_disabled': False, 'focus': 'c-cancel', 'blockers': [], 'argv': ['/tmp/ndt-page-gat
+             self.assertTrue(d["typed"], "no typed word for Claim while a measurement is declared: %r" % d)
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   C4: serve.py confirm_policy says typed for claim                       (test_claim_asks_for_no_typed_word went red, 16 s)
+             AssertionError: True is not false : the Claim dialog asks for a typed word (the server says plain): {'open': True, 'phase': 'ready', 'typed': True, 'word': 'claim', 'go_disabled': True, 'focus': 'c-cancel', 'blockers': [], 'argv': ['/tmp/nd
+             self.assertFalse(d["typed"], "the Claim dialog asks for a typed word (the server says plain): %r" % d)
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   C6: Confirm takes the focus once the dialog is ready                   (test_the_focus_starts_on_cancel went red, 5606 s)
+             AssertionError: Tuples differ: ('c-cancel', 'c-go') != ('c-cancel', 'c-cancel')
+             "the focus is not on Cancel (when the dialog opened, once it was ready)")
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+rc=0

@@ -1,0 +1,4 @@
+tree /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/t5-gap-prev = 664500d3a8e4cbe4700648c4ebbf2c16ab519049
+variant: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/t5-gap-prev/tests/shell/test_ndt_ovs_claim.sh: replaced 'LIVE_VIZ="$FIXTURE_PID"\npidf app_viz.pid "$LIVE_VIZ"\nOUT="$(drive \'app' -> 'LIVE_VIZ="$FIXTURE_PID"\nkill -KILL "$LIVE_VIZ"; for _ in $(seq 120); d'
+tree /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/t5-gap-head = 8d79dacd0e40e9ddd20d7c8e9af6185b4ef8e482
+variant: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/t5-gap-head/tests/shell/test_ndt_ovs_claim.sh: replaced 'LIVE_VIZ="$FIXTURE_PID"\npidf app_viz.pid "$LIVE_VIZ"\nOUT="$(drive \'app' -> 'LIVE_VIZ="$FIXTURE_PID"\nkill -KILL "$LIVE_VIZ"; for _ in $(seq 120); d'

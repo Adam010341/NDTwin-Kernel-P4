@@ -1,0 +1,219 @@
+start 2026-09-28T02:27:33+08:00  df=4.6G
+g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+88698541fd4bd8adbf3513184a68310bd2a1111fa7cb195e09b01996f382e1ec  /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/rerun-cicxx/test_IpToString.cpp
+99c4b467277eb13d31f84cbe9e9ba0aaf54d5c83cea9bfcbfdb7405410cd11a7  /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/rerun-cicxx/base/include/utils/Utils.hpp
+dc1170053b9e18b213f18da3ca902ccb1df90c31260afdade4f0fc8b392a405a  /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/rerun-cicxx/head/include/utils/Utils.hpp
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c g++ -std=c++23 -O0 -pthread -I/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/gtest/googletest-03597a01ee50ed33e9dfd640b249b4be3799d395/googletest/include -I/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/gtest/googletest-03597a01ee50ed33e9dfd640b249b4be3799d395/googletest -c /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/gtest/googletest-03597a01ee50ed33e9dfd640b249b4be3799d395/googletest/src/gtest-all.cc -o /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/rerun-cicxx/gtest-all.o && g++ -std=c++23 -O0 -pthread -I/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/gtest/googletest-03597a01ee50ed33e9dfd640b249b4be3799d395/googletest/include -I/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/gtest/googletest-03597a01ee50ed33e9dfd640b249b4be3799d395/googletest -c /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/gtest/googletest-03597a01ee50ed33e9dfd640b249b4be3799d395/googletest/src/gtest_main.cc -o /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/rerun-cicxx/gtest_main.o
+guarded_build: exit 0
+gtest objs rc=0
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c g++ -std=c++23 -g -O0 -Wall -Wextra -Wpedantic -Wno-unused-parameter -Wunused -Werror -pthread -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE -I/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/rerun-cicxx/base/include -I/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/rerun-cicxx/base/libs -I/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/gtest/googletest-03597a01ee50ed33e9dfd640b249b4be3799d395/googletest/include -c /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/rerun-cicxx/test_IpToString.cpp -o /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/rerun-cicxx/t-base.o && g++ -pthread /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/rerun-cicxx/t-base.o /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/rerun-cicxx/gtest-all.o /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/rerun-cicxx/gtest_main.o -lssl -lcrypto -o /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/rerun-cicxx/t-base
+guarded_build: exit 0
+variant base build rc=0
+===== base TZ unset =====
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/gtest/googletest-03597a01ee50ed33e9dfd640b249b4be3799d395/googletest/src/gtest_main.cc
+Note: Google Test filter = FormatTimeTest.*
+[==========] Running 2 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 2 tests from FormatTimeTest
+[ RUN      ] FormatTimeTest.LeavesTheStructLocaltimeReturnedToOtherCallersAlone
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/rerun-cicxx/test_IpToString.cpp:246: Failure
+Expected equality of these values:
+  shared->tm_year
+    Which is: 123
+  yearBefore
+    Which is: 70
+formatTime(2023-11-15 06:13:20) rewrote the struct tm that localtime() gave another caller: it formats through the process-wide buffer, so concurrent callers race on it
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/rerun-cicxx/test_IpToString.cpp:249: Failure
+Expected equality of these values:
+  shared->tm_yday
+    Which is: 318
+  ydayBefore
+    Which is: 0
+[  FAILED  ] FormatTimeTest.LeavesTheStructLocaltimeReturnedToOtherCallersAlone (0 ms)
+[ RUN      ] FormatTimeTest.StillPrintsLocalTimeToTheSecond
+[       OK ] FormatTimeTest.StillPrintsLocalTimeToTheSecond (0 ms)
+[----------] 2 tests from FormatTimeTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 2 tests from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] FormatTimeTest.LeavesTheStructLocaltimeReturnedToOtherCallersAlone
+
+ 1 FAILED TEST
+variant base TZ-unset rc=1
+===== base TZ=Asia/Taipei =====
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/gtest/googletest-03597a01ee50ed33e9dfd640b249b4be3799d395/googletest/src/gtest_main.cc
+Note: Google Test filter = FormatTimeTest.*
+[==========] Running 2 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 2 tests from FormatTimeTest
+[ RUN      ] FormatTimeTest.LeavesTheStructLocaltimeReturnedToOtherCallersAlone
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/rerun-cicxx/test_IpToString.cpp:246: Failure
+Expected equality of these values:
+  shared->tm_year
+    Which is: 123
+  yearBefore
+    Which is: 70
+formatTime(2023-11-15 06:13:20) rewrote the struct tm that localtime() gave another caller: it formats through the process-wide buffer, so concurrent callers race on it
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/rerun-cicxx/test_IpToString.cpp:249: Failure
+Expected equality of these values:
+  shared->tm_yday
+    Which is: 318
+  ydayBefore
+    Which is: 0
+[  FAILED  ] FormatTimeTest.LeavesTheStructLocaltimeReturnedToOtherCallersAlone (0 ms)
+[ RUN      ] FormatTimeTest.StillPrintsLocalTimeToTheSecond
+[       OK ] FormatTimeTest.StillPrintsLocalTimeToTheSecond (0 ms)
+[----------] 2 tests from FormatTimeTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 2 tests from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] FormatTimeTest.LeavesTheStructLocaltimeReturnedToOtherCallersAlone
+
+ 1 FAILED TEST
+variant base TZ=Asia/Taipei rc=1
+===== base TZ=UTC full file =====
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/gtest/googletest-03597a01ee50ed33e9dfd640b249b4be3799d395/googletest/src/gtest_main.cc
+[==========] Running 13 tests from 3 test suites.
+[----------] Global test environment set-up.
+[----------] 4 tests from IpToStringTest
+[ RUN      ] IpToStringTest.ConvertsKnownAddresses
+[       OK ] IpToStringTest.ConvertsKnownAddresses (0 ms)
+[ RUN      ] IpToStringTest.ConcurrentCallersEachGetTheirOwnAnswer
+[       OK ] IpToStringTest.ConcurrentCallersEachGetTheirOwnAnswer (4 ms)
+[ RUN      ] IpToStringTest.TheVectorOverloadIsAlsoSafeAndPreservesOrder
+[       OK ] IpToStringTest.TheVectorOverloadIsAlsoSafeAndPreservesOrder (5 ms)
+[ RUN      ] IpToStringTest.RoundTripsThroughIpStringToUint32
+[       OK ] IpToStringTest.RoundTripsThroughIpStringToUint32 (0 ms)
+[----------] 4 tests from IpToStringTest (10 ms total)
+
+[----------] 7 tests from TryMacToUint64Test
+[ RUN      ] TryMacToUint64Test.AWellFormedMacParses
+[       OK ] TryMacToUint64Test.AWellFormedMacParses (0 ms)
+[ RUN      ] TryMacToUint64Test.TheDashSeparatorIsAcceptedToo
+[       OK ] TryMacToUint64Test.TheDashSeparatorIsAcceptedToo (0 ms)
+[ RUN      ] TryMacToUint64Test.AMacOneDigitShortIsRefusedRatherThanSilentlyWrong
+[       OK ] TryMacToUint64Test.AMacOneDigitShortIsRefusedRatherThanSilentlyWrong (0 ms)
+[ RUN      ] TryMacToUint64Test.AnythingThatIsNotExactlySeventeenCharactersIsRefused
+[       OK ] TryMacToUint64Test.AnythingThatIsNotExactlySeventeenCharactersIsRefused (0 ms)
+[ RUN      ] TryMacToUint64Test.TheSeparatorsMustActuallyBeSeparators
+[       OK ] TryMacToUint64Test.TheSeparatorsMustActuallyBeSeparators (0 ms)
+[ RUN      ] TryMacToUint64Test.NonHexDigitsAreRefused
+[       OK ] TryMacToUint64Test.NonHexDigitsAreRefused (0 ms)
+[ RUN      ] TryMacToUint64Test.TheThrowingWrapperStillThrowsAndOnTheSameInputs
+[       OK ] TryMacToUint64Test.TheThrowingWrapperStillThrowsAndOnTheSameInputs (0 ms)
+[----------] 7 tests from TryMacToUint64Test (0 ms total)
+
+[----------] 2 tests from FormatTimeTest
+[ RUN      ] FormatTimeTest.LeavesTheStructLocaltimeReturnedToOtherCallersAlone
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/rerun-cicxx/test_IpToString.cpp:246: Failure
+Expected equality of these values:
+  shared->tm_year
+    Which is: 123
+  yearBefore
+    Which is: 70
+formatTime(2023-11-14 22:13:20) rewrote the struct tm that localtime() gave another caller: it formats through the process-wide buffer, so concurrent callers race on it
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/rerun-cicxx/test_IpToString.cpp:249: Failure
+Expected equality of these values:
+  shared->tm_yday
+    Which is: 317
+  ydayBefore
+    Which is: 0
+[  FAILED  ] FormatTimeTest.LeavesTheStructLocaltimeReturnedToOtherCallersAlone (0 ms)
+[ RUN      ] FormatTimeTest.StillPrintsLocalTimeToTheSecond
+[       OK ] FormatTimeTest.StillPrintsLocalTimeToTheSecond (0 ms)
+[----------] 2 tests from FormatTimeTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 13 tests from 3 test suites ran. (11 ms total)
+[  PASSED  ] 12 tests.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] FormatTimeTest.LeavesTheStructLocaltimeReturnedToOtherCallersAlone
+
+ 1 FAILED TEST
+variant base TZ=UTC all rc=1
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c g++ -std=c++23 -g -O0 -Wall -Wextra -Wpedantic -Wno-unused-parameter -Wunused -Werror -pthread -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE -I/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/rerun-cicxx/head/include -I/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/rerun-cicxx/head/libs -I/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/gtest/googletest-03597a01ee50ed33e9dfd640b249b4be3799d395/googletest/include -c /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/rerun-cicxx/test_IpToString.cpp -o /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/rerun-cicxx/t-head.o && g++ -pthread /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/rerun-cicxx/t-head.o /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/rerun-cicxx/gtest-all.o /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/rerun-cicxx/gtest_main.o -lssl -lcrypto -o /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/rerun-cicxx/t-head
+guarded_build: exit 0
+variant head build rc=0
+===== head TZ unset =====
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/gtest/googletest-03597a01ee50ed33e9dfd640b249b4be3799d395/googletest/src/gtest_main.cc
+Note: Google Test filter = FormatTimeTest.*
+[==========] Running 2 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 2 tests from FormatTimeTest
+[ RUN      ] FormatTimeTest.LeavesTheStructLocaltimeReturnedToOtherCallersAlone
+[       OK ] FormatTimeTest.LeavesTheStructLocaltimeReturnedToOtherCallersAlone (0 ms)
+[ RUN      ] FormatTimeTest.StillPrintsLocalTimeToTheSecond
+[       OK ] FormatTimeTest.StillPrintsLocalTimeToTheSecond (0 ms)
+[----------] 2 tests from FormatTimeTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 2 tests from 1 test suite ran. (0 ms total)
+[  PASSED  ] 2 tests.
+variant head TZ-unset rc=0
+===== head TZ=Asia/Taipei =====
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/gtest/googletest-03597a01ee50ed33e9dfd640b249b4be3799d395/googletest/src/gtest_main.cc
+Note: Google Test filter = FormatTimeTest.*
+[==========] Running 2 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 2 tests from FormatTimeTest
+[ RUN      ] FormatTimeTest.LeavesTheStructLocaltimeReturnedToOtherCallersAlone
+[       OK ] FormatTimeTest.LeavesTheStructLocaltimeReturnedToOtherCallersAlone (0 ms)
+[ RUN      ] FormatTimeTest.StillPrintsLocalTimeToTheSecond
+[       OK ] FormatTimeTest.StillPrintsLocalTimeToTheSecond (0 ms)
+[----------] 2 tests from FormatTimeTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 2 tests from 1 test suite ran. (0 ms total)
+[  PASSED  ] 2 tests.
+variant head TZ=Asia/Taipei rc=0
+===== head TZ=UTC full file =====
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6e0a568f-9cd4-4ec8-9673-89540b96867b/scratchpad/gtest/googletest-03597a01ee50ed33e9dfd640b249b4be3799d395/googletest/src/gtest_main.cc
+[==========] Running 13 tests from 3 test suites.
+[----------] Global test environment set-up.
+[----------] 4 tests from IpToStringTest
+[ RUN      ] IpToStringTest.ConvertsKnownAddresses
+[       OK ] IpToStringTest.ConvertsKnownAddresses (0 ms)
+[ RUN      ] IpToStringTest.ConcurrentCallersEachGetTheirOwnAnswer
+[       OK ] IpToStringTest.ConcurrentCallersEachGetTheirOwnAnswer (3 ms)
+[ RUN      ] IpToStringTest.TheVectorOverloadIsAlsoSafeAndPreservesOrder
+[       OK ] IpToStringTest.TheVectorOverloadIsAlsoSafeAndPreservesOrder (5 ms)
+[ RUN      ] IpToStringTest.RoundTripsThroughIpStringToUint32
+[       OK ] IpToStringTest.RoundTripsThroughIpStringToUint32 (0 ms)
+[----------] 4 tests from IpToStringTest (9 ms total)
+
+[----------] 7 tests from TryMacToUint64Test
+[ RUN      ] TryMacToUint64Test.AWellFormedMacParses
+[       OK ] TryMacToUint64Test.AWellFormedMacParses (0 ms)
+[ RUN      ] TryMacToUint64Test.TheDashSeparatorIsAcceptedToo
+[       OK ] TryMacToUint64Test.TheDashSeparatorIsAcceptedToo (0 ms)
+[ RUN      ] TryMacToUint64Test.AMacOneDigitShortIsRefusedRatherThanSilentlyWrong
+[       OK ] TryMacToUint64Test.AMacOneDigitShortIsRefusedRatherThanSilentlyWrong (0 ms)
+[ RUN      ] TryMacToUint64Test.AnythingThatIsNotExactlySeventeenCharactersIsRefused
+[       OK ] TryMacToUint64Test.AnythingThatIsNotExactlySeventeenCharactersIsRefused (0 ms)
+[ RUN      ] TryMacToUint64Test.TheSeparatorsMustActuallyBeSeparators
+[       OK ] TryMacToUint64Test.TheSeparatorsMustActuallyBeSeparators (0 ms)
+[ RUN      ] TryMacToUint64Test.NonHexDigitsAreRefused
+[       OK ] TryMacToUint64Test.NonHexDigitsAreRefused (0 ms)
+[ RUN      ] TryMacToUint64Test.TheThrowingWrapperStillThrowsAndOnTheSameInputs
+[       OK ] TryMacToUint64Test.TheThrowingWrapperStillThrowsAndOnTheSameInputs (0 ms)
+[----------] 7 tests from TryMacToUint64Test (0 ms total)
+
+[----------] 2 tests from FormatTimeTest
+[ RUN      ] FormatTimeTest.LeavesTheStructLocaltimeReturnedToOtherCallersAlone
+[       OK ] FormatTimeTest.LeavesTheStructLocaltimeReturnedToOtherCallersAlone (0 ms)
+[ RUN      ] FormatTimeTest.StillPrintsLocalTimeToTheSecond
+[       OK ] FormatTimeTest.StillPrintsLocalTimeToTheSecond (0 ms)
+[----------] 2 tests from FormatTimeTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 13 tests from 3 test suites ran. (9 ms total)
+[  PASSED  ] 13 tests.
+variant head TZ=UTC all rc=0
+end 2026-09-28T02:55:24+08:00

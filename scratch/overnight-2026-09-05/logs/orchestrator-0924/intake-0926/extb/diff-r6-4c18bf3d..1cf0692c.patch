@@ -1,0 +1,2144 @@
+diff --git a/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/06_thirteen.sh b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/06_thirteen.sh
+index 047be0ad..559e7194 100755
+--- a/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/06_thirteen.sh
++++ b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/06_thirteen.sh
+@@ -93,11 +93,17 @@ fi
+ # HEAD and its parents, the uncommitted tracked files, the kernel, bmv2 and helper binaries, both
+ # venvs (live-p1/code_identity.py) -- so external_evidence.py can refuse a treatment that is not
+ # its controls' code plus B. Recorded, never a refusal here.
+-if CTRL_PY="$VENV_PY" python3 "$HERE/code_identity.py" record "$REPO" "$RUN/00_identity.txt" > /dev/null 2>&1; then
+-    note "code identity -> 00_identity.txt"
+-else
+-    bad "the code identity was not recorded (live-p1/code_identity.py record)"
+-fi
++# [Co-developed with claude code -- Adam] (round 6) twice: as 06 starts (00_identity.before.txt) and
++# as it ends (00_identity.after.txt) -- external_evidence.py refuses a run whose two differ (the
++# code changed while it ran) and compares the after one.
++record_identity() {   # record_identity <before|after>
++    if CTRL_PY="$VENV_PY" python3 "$HERE/code_identity.py" record "$REPO" "$RUN/00_identity.$1.txt" > /dev/null 2>&1; then
++        note "code identity ($1 the rounds) -> 00_identity.$1.txt"
++    else
++        bad "the code identity was not recorded $1 the rounds (live-p1/code_identity.py record)"
++    fi
++}
++record_identity before
+ 
+ TABLE="$RUN/00_table.tsv"
+ printf 'exercise\twhich\trc\tverdict\treport\n' > "$TABLE"
+@@ -220,6 +226,7 @@ if [[ -e "$REPO/p4_proxy/mininet/app_package_override" ]]; then
+     FAILED=$((FAILED+1))
+ fi
+ 
++record_identity after
+ printf '\nraw: %s\n' "$RUN"
+ if (( FAILED == 0 )); then
+     printf 'PASS 06_thirteen -- %d arm(s), every arm as the exercise says it should be\n' "$ROWS"
+diff --git a/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh
+index ea2cd116..0dda2a55 100644
+--- a/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh
++++ b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh
+@@ -879,17 +879,47 @@ identity_gate() {
+ # for none), read from /proc. external_evidence.py refuses an external arm whose session did not
+ # hear every direction while its controller ran: a daemon that runs and hears nothing is no
+ # treatment.
+-SAMPLER_HEADER=$'wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches\twritten_wall\tstop_reason\tmisdelivered\tforeign_frames\theard\tcontrollers'
++# [Co-developed with claude code -- Adam] (round 6) and `ctrl_logs`: the size of every exercise
++# controller's log -- "<round dir>/driver-controller-<x>.log:<bytes>", joined by commas ("-" for
++# none) -- in the round directories of drive_exercise.py's runs/ ($SAMPLER_RUNS_DIR, argv 5) made
++# since the sampler started. external_evidence.py places the controller's pipeline push among the
++# samples by it: the first sample whose size reaches the push line's end opens the window the
++# session must hear every direction in, and the log's last write closes it.
++SAMPLER_HEADER=$'wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches\twritten_wall\tstop_reason\tmisdelivered\tforeign_frames\theard\tcontrollers\tctrl_logs'
+ SAMPLER_PY="$(cat <<'SAMPLER'
+ import json, os, sys, time
+ report, out, stop = sys.argv[1], sys.argv[2], sys.argv[3]
+ interval = float(sys.argv[4]) if len(sys.argv) > 4 else 1.0
+-end = time.time() + 5 * 3600
++runs = sys.argv[5] if len(sys.argv) > 5 else ""
++began = time.time()
++end = began + 5 * 3600
+ HEADER = ("wall", "status", "session", "pid", "forwarded_to_hosts", "forwarded_between_switches",
+-          "written_wall", "stop_reason", "misdelivered", "foreign_frames", "heard", "controllers")
++          "written_wall", "stop_reason", "misdelivered", "foreign_frames", "heard", "controllers",
++          "ctrl_logs")
+ CONTROLLER = b"run_external_controller.py"
+ 
+ 
++def ctrl_logs():
++    out = []
++    try:
++        rounds = sorted((e for e in os.scandir(runs) if e.is_dir() and e.stat().st_mtime >= began - 2),
++                        key=lambda e: e.name)
++    except OSError:
++        return "-"
++    for r in rounds:
++        try:
++            names = sorted(n for n in os.listdir(r.path)
++                           if n.startswith("driver-controller-") and n.endswith(".log"))
++        except OSError:
++            continue
++        for n in names:
++            try:
++                out.append("%s/%s:%d" % (r.name, n, os.stat(os.path.join(r.path, n)).st_size))
++            except OSError:
++                pass
++    return ",".join(out) or "-"
++
++
+ def controllers():
+     pids = []
+     for pid in os.listdir("/proc"):
+@@ -926,7 +956,7 @@ def row(fh):
+                   se.get("misdelivered"), se.get("foreign_frames"), heard(d))
+     except (OSError, ValueError, AttributeError):
+         values = (wall, "absent", "-", "-", 0, 0, "-", "", 0, 0, "-")
+-    fh.write("\t".join(str(v) for v in values + (controllers(),)) + "\n")
++    fh.write("\t".join(str(v) for v in values + (controllers(), ctrl_logs())) + "\n")
+ 
+ 
+ with open(out, "a", buffering=1) as fh:
+@@ -945,7 +975,7 @@ sampler_start() {
+     SAMPLER_STOP="$RUN/.sampler.stop"
+     SAMPLER_ERR="$RUN/50_sampler.err"
+     rm -f "$SAMPLER_STOP"
+-    setsid "$VPY" -I -c "$SAMPLER_PY" "$HB_REPORT_FILE" "$out" "$SAMPLER_STOP" "${SAMPLER_INTERVAL_S:-1.0}" \
++    setsid "$VPY" -I -c "$SAMPLER_PY" "$HB_REPORT_FILE" "$out" "$SAMPLER_STOP" "${SAMPLER_INTERVAL_S:-1.0}" "${SAMPLER_RUNS_DIR:-$LIVE_DIR/../runs}" \
+         > /dev/null 2> "$SAMPLER_ERR" &
+     SAMPLER_PID=$!
+     for (( i = 0; i < 50; i++ )); do
+@@ -1969,12 +1999,18 @@ doc = {"format": 1, "source": "heartbeat", "status": st, "session": se, "pid": 4
+                       {"id": 2, "heard": 5, "tx": {"dpid": 2, "port": 2}, "rx": {"dpid": 1, "port": 2}}]}
+ open(p + ".tmp", "w").write(json.dumps(doc)); os.replace(p + ".tmp", p)' "$rep" "$@"
+         }
++        # [Co-developed with claude code -- Adam] (round 6) a runs/ with a round from before the
++        # sampler started (its controller log must never appear) and one made while it reads
++        mkdir -p "$d/runs/old_round"; printf 'old\n' > "$d/runs/old_round/driver-controller-p4runtime.log"
++        touch -d '-1 hour' "$d/runs/old_round"
+         (   RUN="$d/run"; HB_REPORT_FILE="$rep"; SAMPLER_PID=""; SAMPLER_STOP=""; SAMPLER_INTERVAL_S=0.1
+-            VERDICT_RC=0; VERDICT_WHY=""
++            SAMPLER_RUNS_DIR="$d/runs"; VERDICT_RC=0; VERDICT_WHY=""
+             note() { echo "note: $*" >&3; }; fail() { echo "fail: $*" >&3; }; bad() { echo "bad: $*" >&3; }
+             sampler_start "$d/samples.tsv" && echo "started rc 0" >&3 || echo "started rc $?" >&3
+             sleep 0.5
++            mkdir -p "$d/runs/new_round"; printf 'push\n' > "$d/runs/new_round/driver-controller-flowcache.log"
+             wr running aaaa 0 0; sleep 0.5
++            printf 'entry entry\n' >> "$d/runs/new_round/driver-controller-flowcache.log"
+             # [Co-developed with claude code -- Adam] an exercise controller, as far as argv goes, for
+             # the next reads (M-3: the sampler records which ones are alive)
+             "$VPY" -c 'import time; time.sleep(1.2)' /x/tools/p4_exercise/run_external_controller.py pkg c.py &
+@@ -1995,10 +2031,10 @@ open(p + ".tmp", "w").write(json.dumps(doc)); os.replace(p + ".tmp", p)' "$rep"
+     # the daemon's other two counters are on every row too -- ten fields.
+     got="$(awk -F'\t' 'NR == 1 {next} {k = $2 " " $3 " " $5 " " $6 " " $7 " " $8 " " $11; if (k != last) {printf "%s|", k; last = k}}' "$d/samples.tsv" 2>/dev/null)" || true
+     want="absent - 0 0 -  -|running aaaa 0 0 1000.5  1:2>2:2=3,2:2>1:2=5|running aaaa 0 1 1000.5  1:2>2:2=4,2:2>1:2=5|stopped aaaa 2 3 1000.5 SIGTERM 1:2>2:2=6,2:2>1:2=5|absent - 0 0 -  -|running bbbb 0 0 1000.5  1:2>2:2=3,2:2>1:2=5|"
+-    local hdr=$'wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches\twritten_wall\tstop_reason\tmisdelivered\tforeign_frames\theard\tcontrollers'
++    local hdr=$'wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches\twritten_wall\tstop_reason\tmisdelivered\tforeign_frames\theard\tcontrollers\tctrl_logs'
+     if [[ "$(head -1 "$d/samples.tsv" 2>/dev/null)" == "$hdr" && "$got" == "$want" ]] \
+-       && awk -F'\t' 'NR > 1 && (NF != 12 || $1 !~ /^[0-9]+\.[0-9]$/) {bad = 1} END {exit bad}' "$d/samples.tsv"; then
+-        ok "H5 sampler: the real SAMPLER_PY writes its header and one 12-field row per read (written_wall, stop_reason and every direction's heard included), through missing, running, stopped (final counters) and a second session"
++       && awk -F'\t' 'NR > 1 && (NF != 13 || $1 !~ /^[0-9]+\.[0-9]$/) {bad = 1} END {exit bad}' "$d/samples.tsv"; then
++        ok "H5 sampler: the real SAMPLER_PY writes its header and one 13-field row per read (written_wall, stop_reason, every direction's heard and the controller logs' sizes included), through missing, running, stopped (final counters) and a second session"
+     else
+         red "H5 sampler rows: header '$(head -1 "$d/samples.tsv" 2>/dev/null)', rows '$got' (want '$want'); $(tr '\n' ' ' < "$d/notes.txt" 2>/dev/null)"
+     fi
+@@ -2008,6 +2044,12 @@ open(p + ".tmp", "w").write(json.dumps(doc)); os.replace(p + ".tmp", p)' "$rep"
+     [[ -n "$cpid" && "$got" =~ ^([1-9][0-9]*)\ of\ ([0-9]+)$ ]] && (( BASH_REMATCH[1] < BASH_REMATCH[2] )) \
+         && ok "🔴 H5 sampler: the exercise controller (pid $cpid) is in the controllers column while it lives, and only then ($got reads)" \
+         || red "🔴 H5 sampler controllers column: '$cpid' in $got reads"
++    # [Co-developed with claude code -- Adam] (round 6) the controller logs' sizes, as they grow: a
++    # round made after the sampler started is read; one from before it never is.
++    got="$(awk -F'\t' 'NR > 1 && $13 != last {printf "%s|", $13; last = $13}' "$d/samples.tsv" 2>/dev/null)" || true
++    [[ "$got" == "-|new_round/driver-controller-flowcache.log:5|new_round/driver-controller-flowcache.log:17|" ]] \
++        && ok "🔴 H5 sampler: ctrl_logs records the size of each controller log in a round made since it started, as it grows (5, then 17 bytes), and never a round from before it" \
++        || red "🔴 H5 sampler ctrl_logs column: '$got'"
+     got="$(tail -1 "$d/samples.tsv" 2>/dev/null | cut -f2,3)" || true
+     [[ "$got" == $'running\tbbbb' ]] && /usr/bin/grep -q '^started rc 0$' "$d/notes.txt" \
+         && ok "  sampler_start said it had started, and the stop path took a last sample of the report as it stood" \
+diff --git a/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/README.md b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/README.md
+index 66338d23..6bd3d05d 100644
+--- a/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/README.md
++++ b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/README.md
+@@ -324,8 +324,9 @@ FAIL。）
+   `OLD_06` 不是 26 臂就在開跑前拒絕，rc 2），並確認心跳只在 20 個多交換機、
+   有建出來的外來臂上跑過（09-27 前是 17 個：當時不含 3 個 external 臂）；接著跑 01。sampler 每一列也記報告的
+   `written_wall`、`stop_reason` 與 daemon 的四個計數器，`50_t06_end.txt` 記 06 結束的時間；第五輪起再加每個方向的
+-  `heard` 與當下活著的 exercise 控制器 pid。`C_IDENTITY`＋`B_SHA` 給了時，06 開跑前先確認這棵樹是對照組的程式
+-  加上 B（`code_identity.py verify`），不是就 rc 2。
++  `heard` 與當下活著的 exercise 控制器 pid，第六輪起再加每個控制器 log 的大小（`ctrl_logs`，sampler 開始之後
++  才建的 round 目錄裡的 `driver-controller-*.log`）。`C_IDENTITY`＋`B_SHA` 給了時，06 開跑前先確認這棵樹是對照組的
++  程式加上 B（`code_identity.py verify`），不是就 rc 2。
+ - 任何 `forwarded_to_hosts > 0`（心跳幀離開 host 埠）＝裁決 4，最後一行以 `STOP` 開頭。
+ 
+ [Co-developed with claude code -- Adam]
+@@ -389,7 +390,7 @@ flowcache/solution）上也啟動心跳：proxy 宣告 package 的連線、由
+   **現在回到不報任何路徑**（unknown，不是猜測）：轉發是 exercise 自己的控制器的事，proxy 不知道。宣告的連線
+   照樣進 topology（心跳要判它們）；NDTwin 自己的 pipeline 不變。
+ 
+-### 合併前的比對——可以照著跑的程序（預先登記；第五輪重寫，round-4 review 的 M-1、M-2、S-9）
++### 合併前的比對——可以照著跑的程序（預先登記；第五輪重寫，第六輪改：round-5 re-review 的 M-1..M-3、S-9）
+ 
+ [Co-developed with claude code -- Adam]
+ 
+@@ -397,131 +398,185 @@ flowcache/solution）上也啟動心跳：proxy 宣告 package 的連線、由
+ solution）**exercise 自己**的證據有沒有變。**不是**拿來和 074635Z 比：它跑的是 `5dc7fc9a` ＋ 95 個未提交的檔，
+ 沒有 venv 指紋，只能當參考。
+ 
+-**這一輪改了什麼、為什麼**（第四輪的程序照做會出錯）：
++**第五輪改了什麼**（第四輪的程序照做會出錯）：
+ - 第四輪的 C1／C2 是 `ONLY=p4runtime,flowcache`（4 臂），而 T 的 H5 拿 C1 當 `OLD_06` 比 26 臂——每一次 T 都會
+   以 `H5 06 against <C1>: the reference table has 4 arms, not 26` 收尾（M-1）。⇒ **對照組改成完整的 06**；08 的
+   `PART=h5` 在 `OLD_06` 不是 26 臂時，**什麼都還沒跑就拒絕**（rc 2）。對照組與處理組因此也跑同一個臂序。
+-- 本地 merge 沒有保護（M-2）。⇒ 每個 run 記下**程式身分**（`code_identity.py`）：HEAD 與它的 parents、
+-  未提交的追蹤檔（路徑、狀態、檔案內容的 sha256）、kernel／fabric 的 bmv2／drop check 的 stock bmv2／
+-  安裝的 helper 的 sha256、兩個 venv 的指紋 sha。`compare` 拒絕（rc 3）：對照組彼此不同、T 的第一個 parent
+-  不是對照組的 HEAD、第二個 parent 不是 `--b-sha`、未提交的檔不同或其中有 B 也改的檔、任何一個 binary 或
+-  venv 不同。08 在 `C_IDENTITY` 給了時，06 開跑前就做同一個檢查。
+-  - 未追蹤的檔**不記**：每個 live run 都在 `runs/` 底下加 raw，所以它們必然不同（揭露，不檢查）。
+-- 一個欄位的範圍規則撐不住小的誤判率（S-9，算式在下面）。⇒ 欄位分成**判定的**與**只描述的**，依據是 34 個
+-  更早、沒有心跳的同臂 round。
+-- 處理組的 session 必須在控制器活著的期間**每個方向都聽到幀**（M-3）：sampler 現在記每個方向的 `heard`
+-  與當下活著的 `run_external_controller.py` 的 pid，`compare` 用 round 報告裡的 `controller pid N` 找出控制器
+-  的那段時間，有任何一個方向沒增加就拒絕（rc 3）。daemon 在跑但什麼都沒聽到＝沒有處理。
+-
+-**在哪裡跑**：全部從主 checkout（`/home/adam/Desktop/NDTwin-Kernel`）跑。這台機器**沒有** `/etc/ndtwin-lab.conf`，
+-ndt 用它內建的 `LAB_DEFAULT_KERNEL_DIR`，就是主 checkout（`tools/test_workflow/ndt` 的 `LAB_DEFAULT_KERNEL_DIR`），
+-所以**不需要任何 root 步驟**。B 沒有改任何 C++，**不需要重建 kernel**（重建了，身分就不同，`compare` 會拒絕）。
+-每一步都要 `NDT_OWNER=<你>`，照常 claim（06／08 自己 claim）。下面 `B_WT` 是 B 的 worktree、`B_SHA` 是要
+-merge 的 B commit、`LP=doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1`。
+-
+-0. **凍結**：orchestrator 宣布從這一步到判定為止，trunk **不 push、不 merge**（ruling，round 5）。主 checkout 停在
+-   trunk 的 head，**還沒** merge B。
+-
+-1. **對照組 C1、C2（不含 B，完整的 06，不加 `ONLY=`）**：
++- 本地 merge 沒有保護（M-2）。⇒ 每個 run 記下**程式身分**（`code_identity.py`），`compare` 對不上就拒絕（rc 3）。
++- 一個欄位的範圍規則撐不住小的誤判率（S-9，算式在下面）。⇒ 欄位分成**判定的**與**只描述的**。
++
++**第六輪改了什麼**（round-5 re-review；orchestrator 第六輪的裁定）：
++- **身分多記四件事，而且每個 run 記兩次**：開跑前（`00_identity.before.txt`）與跑完（`00_identity.after.txt`），
++  兩份不同 ⇒ 拒絕（跑的途中程式變了）。身分是：HEAD、它的 parents 與 **tree**；未提交的追蹤檔（路徑、狀態、
++  內容的 sha256）；kernel／fabric 的 bmv2／**fabric bmv2 的 `lib/`（底下每個 shared object 的 sha256）**／drop
++  check 的 stock bmv2／安裝的 helper 的 sha256；兩個 venv 的指紋；**`~/tutorials`**（HEAD、未提交的追蹤檔與
++  sha256、`exercises/p4runtime`、`exercises/flowcache`、`utils` 底下每個檔的 digest——`build/`、`logs/`、`pcaps/`、
++  `__pycache__` 不算，每個 round 都會重寫它們）。T 的 tree 必須等於 `git merge-tree --write-tree <C 的 HEAD> <B>`
++  算出來的那棵：手動解衝突、amend 過的 merge 都不是「C 加 B」。
++- **未提交檔的比較只看程式路徑**（orchestrator 裁定）：`doc/**/*.md` 與 `doc/audit/**/*.tsv` 不比（別的 session
++  整天在主 checkout 改 ledger 與報告），**其餘每一個追蹤檔都比**。未追蹤的檔仍然不記：每個 live run 都在
++  `runs/` 底下加 raw，必然不同（揭露，不檢查）。
++- **編譯器與程式也要一樣**：每臂的 round 報告裡 p4c 的 sha256 與每個編出來的 JSON 的 sha256（§2 的表；控制器推的
++  就是那個 `build/*.json`），在 C1、C2、T 之間必須相同，否則拒絕；報告裡沒有這兩列 ⇒ 讀不到（rc 2）。
++- **「聽到」改用控制器自己的時間窗**（M-3）：sampler 多記一欄 `ctrl_logs`——每個 round 目錄裡
++  `driver-controller-*.log` 當下的大小。窗的起點＝第一個看到 log 長到「最後一行 pipeline push（`Installed P4 Program
++  using SetForwardingPipelineConfig`）的結尾」的 sample；沒有 push 行就用第一行 rule／cache entry；兩者都沒有 ⇒
++  讀不到。終點＝log 最後一次寫入（mtime）。session 在窗口起點那一刻之前（含）的最後一個 sample 與終點之前（含）的
++  最後一個 sample 之間，**每個方向都要至少多聽到一輪**，否則拒絕（rc 3）；起點時 session 還沒在跑也拒絕。
++  **窗口短於兩個心跳週期（10 s）⇒ UNDECIDED（rc 2，照樣印出整份比對）**，不是拒絕：那麼短的窗口證明不了有沒有
++  聽到。控制器的 pid 不再是依據（第五輪的版本靠 round 報告的 `controller pid N`；那一欄留在 samples 裡當背景）。
++  測試用的是真的節奏：每個方向每 5 s 加一、sampler 每秒讀一次。
++- **34 個依據 round 凍結了**：`external_survey_34.tsv` 記每個 round 報告與控制器 log 的路徑與 sha256；
++  `external_survey.py <主 checkout 的 prep 目錄>` 檔案不見、內容變了、或任何一個帶心跳痕跡（detect-only 行、
++  heartbeat block、running 列）就拒絕，其餘印出每臂每欄有幾種值（OBSERVED，2026-10-02：34 個都對得上、都沒有心跳，
++  輸出在 logs/gates-0910/extb6/survey.out）。
++- 程序本身（下面）：凍結從 C1 前到判定後；merge 之前的祖先檢查；H1–H4 在本地 merge 之下、判定之前跑；回復前檢查
++  HEAD 是 T 的 merge commit；每一種中途結果都預先登記。
++
++**在哪裡跑**：全部從主 checkout（`/home/adam/Desktop/NDTwin-Kernel`，下面寫成 `$M`）跑。這台機器**沒有**
++`/etc/ndtwin-lab.conf`，ndt 用它內建的 `LAB_DEFAULT_KERNEL_DIR`，就是主 checkout，所以**不需要任何 root 步驟**。
++B 沒有改任何 C++，**不需要重建 kernel**（重建了，身分就不同，`compare` 會拒絕）。每一步都要 `NDT_OWNER=<你>`，
++照常 claim（06／08 自己 claim）。`B_WT` 是 B 的 worktree（停在 `B_SHA`）、`B_SHA` 是要 merge 的 B commit、
++`LP=doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1`、`ID="python3 $B_WT/$LP/code_identity.py"`。
++
++0. **凍結與檢查**（orchestrator 宣布）：從這一步到第 7 步結束，trunk **不 commit、不 merge、不 push**。主 checkout
++   停在 trunk 的 head，**還沒** merge B：
+    ```
+-   cd /home/adam/Desktop/NDTwin-Kernel
+-   NDT_OWNER=<你> bash $LP/06_thirteen.sh        # C1：最後一行前一行印出 raw 目錄
+-   NDT_OWNER=<你> bash $LP/06_thirteen.sh        # C2
++   C_HEAD=$(git -C $M rev-parse HEAD); [[ "$C_HEAD" == "$(git -C $M rev-parse trunk)" ]] || echo STOP
++   git -C $M merge-base --is-ancestor $C_HEAD $B_SHA \
++     || [[ "$(git -C $M merge-tree --write-tree $C_HEAD $B_SHA | head -1)" == "$(git -C $M rev-parse $B_SHA^{tree})" ]] \
++     || echo STOP
+    ```
+-   trunk 的 06 不寫 `00_venv.txt`、`00_identity.txt`（那是 B 加的），所以**每一次跑完立刻**用 B 分支裡的兩支
+-   補記（它們只讀，不動 repo）：
++   第二行：trunk 的 head 是 B 的祖先，或兩者 merge 出來的 tree 就是 B 的 tree——否則 T 跑的不是 B 測過的那棵，
++   **停下**，B 先 merge trunk、重跑閘門，再從這一步開始。
++
++1. **對照組 C1、C2（不含 B，完整的 06，不加 `ONLY=`）**，每一個都在開跑前與跑完各記一次身分：
+    ```
+-   bash   $B_WT/$LP/venv_fingerprint.sh <C 的 run 目錄>/00_venv.txt /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/p4dev-python-venv/bin/python
+-   python3 $B_WT/$LP/code_identity.py record /home/adam/Desktop/NDTwin-Kernel <C 的 run 目錄>/00_identity.txt
++   S=$(mktemp -d); $ID record $M $S/before.json        # 開跑前
++   NDT_OWNER=<你> bash $M/$LP/06_thirteen.sh            # 最後一行前一行印出 raw 目錄 R
++   cp $S/before.json $R/00_identity.before.txt
++   $ID record $M $R/00_identity.after.txt               # 跑完
++   bash $B_WT/$LP/venv_fingerprint.sh $R/00_venv.txt $M/p4_proxy/venv/bin/python /home/adam/p4dev-python-venv/bin/python
+    ```
+-   C1 的 `00_identity.txt` 的 `head` 就是**回復點**（C_HEAD）。
++   （trunk 的 06 不寫這三個檔，那是 B 加的；B 的兩支只讀，不動 repo。）C1 的 `head` 就是回復點 C_HEAD。
+ 
+ 2. **merge B 進主 checkout 的 trunk，只在本地、不 push**（orchestrator 做）：
+    ```
+-   git -C /home/adam/Desktop/NDTwin-Kernel merge --no-ff --no-edit $B_SHA
++   git -C $M merge --no-ff --no-edit $B_SHA; T_MERGE=$(git -C $M rev-parse HEAD)
++   [[ "$(git -C $M rev-parse $T_MERGE^1)" == "$C_HEAD" && "$(git -C $M rev-parse $T_MERGE^2)" == "$(git -C $M rev-parse $B_SHA)" \
++      && "$(git -C $M rev-parse $T_MERGE^{tree})" == "$(git -C $M merge-tree --write-tree $C_HEAD $B_SHA | head -1)" ]] || echo STOP
+    ```
+-   有衝突就 `git -C /home/adam/Desktop/NDTwin-Kernel merge --abort`，回報，不跑 T。
+ 
+-3. **處理組 T（含 B）**：一次 `PART=h5`，`OLD_06` 指向 C1，身分對 C1 檢查：
++3. **處理組 T（含 B）**：一次 `PART=h5`，`OLD_06` 指向 C1，身分對 C1 跑完時的那份檢查：
+    ```
+-   NDT_OWNER=<你> OLD_06=<C1 的 run 目錄> C_IDENTITY=<C1 的 run 目錄>/00_identity.txt B_SHA=$B_SHA PART=h5 \
+-       bash $LP/08_heartbeat.sh
++   NDT_OWNER=<你> OLD_06=<C1> C_IDENTITY=<C1>/00_identity.after.txt B_SHA=$B_SHA PART=h5 bash $M/$LP/08_heartbeat.sh
+    ```
+-   它跑完整的 06（26 臂）一次、旁邊的 sampler 每秒讀一次 daemon 的報告（含 `written_wall`、`stop_reason`、四個
+-   計數器、每個方向的 `heard`、活著的控制器 pid），接著跑 01。T＝它印的 `06 rc …, raw …` 那個 06 run（B 的 06
+-   自己寫 `00_venv.txt` 與 `00_identity.txt`）；samples＝`<08 的 run 目錄>/50_samples.tsv`。**只有這一種處理組。**
++   它跑完整的 06（26 臂）一次、旁邊的 sampler 每秒讀一次 daemon 的報告與控制器 log 的大小，接著跑 01。T＝它印的
++   `06 rc …, raw …` 那個 06 run（B 的 06 自己寫 `00_venv.txt` 與兩份身分）；samples＝`<08 的 run 目錄>/50_samples.tsv`。
++
++4. **H1–H4，仍在本地 merge 之下、判定之前**：`NDT_OWNER=<你> bash $M/$LP/08_heartbeat.sh`（`PART` 預設 h1h4）。
+ 
+-4. **比對**：
++5. **比對**：
+    ```
+-   python3 $LP/external_evidence.py compare <C1> <T> --control2 <C2> --samples <08 的 run 目錄>/50_samples.tsv --b-sha $B_SHA
++   python3 $M/$LP/external_evidence.py compare <C1> <T> --control2 <C2> --samples <08 的 run 目錄>/50_samples.tsv --b-sha $B_SHA
+    ```
+ 
+-5. **結束**：判定是通過 ⇒ 照 orchestrator 的順序 push，解除凍結。判定是失敗、或程序中途放棄 ⇒ **回復本地 merge**：
++6. **結束**：判定是通過 ⇒ 照 orchestrator 的順序 push，解除凍結。其他每一種結果 ⇒ **回復本地 merge**，先確認 HEAD
++   還是 T 的 merge commit：
+    ```
+-   git -C /home/adam/Desktop/NDTwin-Kernel reset --keep <C_HEAD>
++   [[ "$(git -C $M rev-parse HEAD)" == "$T_MERGE" ]] && git -C $M reset --keep $C_HEAD || echo "STOP: HEAD is not T's merge"
+    ```
+-   **永遠是 `--keep`，不是 `--hard`**：主 checkout 帶著別人未提交的檔，`--keep` 遇到會被蓋掉的本地改動就停下來，
+-   `--hard` 會直接丟掉它們。回復後 `git -C /home/adam/Desktop/NDTwin-Kernel rev-parse HEAD` 應等於 C_HEAD，
+-   `status` 的未提交清單應等於 C1 身分裡的那份；然後解除凍結。
++   HEAD 不是 T_MERGE（凍結期間有人 commit 了）⇒ **不 reset**，回報。**永遠是 `--keep`，不是 `--hard`**：主
++   checkout 帶著別人未提交的檔，`--keep` 遇到會被蓋掉的本地改動就停下來，`--hard` 會直接丟掉它們。回復後
++   `git -C $M rev-parse HEAD` 應等於 C_HEAD、程式路徑的未提交清單應等於 C1 身分裡的那份。
++
++7. 解除凍結（orchestrator 宣布）。
+ 
+-**判定（預先登記，第五輪；只看下面這些，08 最後一行的 PASS／FAIL 不是 B 的判準）**：
++**判定（預先登記；只看下面這些，08 最後一行的 PASS／FAIL 不是 B 的判準）**：
+ - **H5 本身**：`H5 where the heartbeat ran` 必須是 OK（剛好 20 臂，含 3 個 external 臂——這就是 drop check 在
+   live 也通過的證據）；ruling 4 的 STOP ⇒ 停下回報。某個 external 臂的 drop check 沒過 ⇒ 那臂沒有心跳、這一行
+   會 BAD ⇒ T 無效，回報那臂的 drop check 輸出（每次 bring-up 一份 `.test_run/logs/heartbeat_drop_check.<UTC>.<pid>.log`，
+   檔名就在那一行）。`H5 06 against <C1>` 的 rc／verdict 差異**只回報**：verdict 在更早的 round 裡會自己翻（見下），
+-  不是判準；它讓 08 的最後一行變 FAIL 是可能的，不改變下面的判定。
++  不是判準。
++- **H1–H4**（第 4 步）：H4 **只**因為 `reported_to_kernel` 失敗 ⇒ kernel 處理 Down 交換機的發現（S4），不改變判定，
++  但要回報；H1–H3 任何一個 FAIL、或 H4 因為別的原因 FAIL ⇒ **不通過**，回復、回報。
+ - **`compare` rc 0** ⇒ **通過**。
+ - **rc 1**（判定欄位的差異）：
+   - `!! DAEMON`（該臂的 session 算到任何轉出、誤送或外來的幀）或任何 0x88B5 的 packet-in ⇒ **立刻失敗，停下回報**
+     （Adam 09-25 的條件），不補跑：這是心跳幀真的跑到哪裡去了，不是統計上的差異。
+-  - 其他判定欄位的 `DIFF`／`INV BAD` ⇒ **T 重跑一次**（第 3 步，同一棵樹），用同樣的對照組再比一次：**同一臂的同一個
+-    欄位或不變式再出現一次 ⇒ 失敗**，停下回報；重跑 rc 0 ⇒ 通過，並回報第一次的 DIFF。只重跑這一次。
+-- **rc 2**：`UNREADABLE` ⇒ 重跑出問題的那一個 run 一次，同樣原因再出現就回報。`UNDECIDED`（對照組在一個判定欄位上
+-  彼此不同：預先登記以為是確定的，結果不是）⇒ 再跑兩次對照組 C3、C4（第 1 步），`--control2 C2 --control2 C3
+-  --control2 C4` 重比一次；還是 UNDECIDED ⇒ 回報 Adam，**不算通過也不算失敗**。
+-- **rc 3**（拒絕）：程序沒照做（缺 samples／C2／`--b-sha`／身分、身分對不上、對照組有心跳痕跡、session 沒有從頭到尾
+-  在跑、在控制器活著時沒有每個方向都聽到）⇒ 修正後重跑；**心跳在某一臂中途停掉或什麼都沒聽到的處理組不算通過**。
+-- **H4 的風險（S4，不變）**：之後跑一次 H1–H4（`NDT_OWNER=<你> bash $LP/08_heartbeat.sh`）。H4 **只**因為
+-  `reported_to_kernel` 失敗 ⇒ kernel 處理 Down 交換機的發現，不改變上面的結論，但要回報。
++  - 其他判定欄位的 `DIFF`／`INV BAD` ⇒ **T 重跑一次**（第 3 步，同一棵樹），用同樣的對照組再比一次，**只重跑這一次**：
++    - 重跑 rc 0 ⇒ 通過，並回報第一次的 DIFF；
++    - 重跑 rc 1、**同一臂的同一個欄位或不變式**再出現 ⇒ **失敗**，回復、回報；
++    - 重跑 rc 1、但只在**別的**欄位 ⇒ **不通過、也不算失敗的定論**：回復、記錄兩次的 DIFF、回報 Adam，不跑第三次；
++    - 重跑 rc 2（讀不到或 UNDECIDED）⇒ 同上：不通過、回復、回報，不跑第三次；
++    - 重跑 rc 3（拒絕：程序出錯）⇒ 那次不算一次讀數；修正原因後**最多再做一次**這個重跑，再被拒絕 ⇒ 停下回報。
++- **rc 2**：
++  - `UNREADABLE` ⇒ 重跑出問題的那一個 run 一次，同樣原因再出現就回報。
++  - `UNDECIDED`，對照組在一個判定欄位上彼此不同（預先登記以為是確定的，結果不是）⇒ 再跑兩次對照組 C3、C4
++    （第 1 步；merge 之後要跑對照組就得先照第 6 步回復），`--control2 C2 --control2 C3 --control2 C4` 重比一次；
++    通過 ⇒ 照第 2 步再 merge 同一個 B_SHA，它的 tree 必須與 T_MERGE 的相同；還是 UNDECIDED ⇒ 回報 Adam，
++    **不算通過也不算失敗**。
++  - `UNDECIDED heard`，某臂控制器的窗口不到 10 s ⇒ T 重跑一次；還是 ⇒ 回報 Adam，不算通過也不算失敗。
++- **rc 3**（拒絕）：程序沒照做（缺 samples／C2／`--b-sha`／身分、對照組有心跳痕跡、session 沒有從頭到尾在跑、在
++  控制器的窗口裡沒有每個方向都聽到）⇒ 修正後重跑；**心跳在某一臂中途停掉或什麼都沒聽到的處理組不算通過**。
++  - **身分被拒絕而原因是別人的改動**（拒絕訊息裡不同的檔或 binary 不是這個程序動的：凍結期間別人改了主 checkout
++    的程式路徑、重編了 kernel、換了 `~/tutorials`）⇒ 先回復（若已 merge），**從第 0 步、C1 重新開始**；被拒的 run
++    留著當 raw，不再使用。
++  - **merge 被拒**（第 2 步：本地改動會被蓋掉，或有衝突）⇒ 有衝突就 `git -C $M merge --abort`；確認 HEAD 仍是 C_HEAD；
++    **不跑 T**，回報。C1、C2 只在之後的身分仍然相同時才能沿用。
+ - **這個 raw 答不了的**：「臂結束時 proxy 什麼都沒寫」——由 H4 的 `no_writes` 回答。
+ 
+-**判定的欄位與只描述的欄位，與誤判率的算式（S-9；預先登記）**
++**判定的欄位與只描述的欄位，與誤判率的算式（S-9；預先登記，orchestrator 第六輪接受）**
+ 
+ *範圍規則為什麼不行。*沒有效果時，處理組與 n 個對照組可交換；一個連續的噪音欄位落在 n 個對照組範圍之外的機率是
+ 2/(n+1)：n=2 是 67%，n=4 是 40%（每個欄位、每一次）。要壓到 5% 需要 n ≥ 39 個對照組。所以噪音欄位**不能**用
+ 範圍來判。
+ 
+ *依據。*主 checkout 的 `runs/` 裡，B 之前、沒有心跳的同臂 round（2026-09-19 到 09-27，別的程式版本，只用來分類，
+-不是這次比對的資料）：p4runtime/skeleton 11 個、p4runtime/solution 12 個、flowcache/solution 11 個，共 34 個。
+-`external_evidence.py` 的讀法逐欄數過（OBSERVED，2026-10-01；腳本與輸出在 logs/gates-0910/extb5/）：
++不是這次比對的資料）：p4runtime/skeleton 11 個、p4runtime/solution 12 個、flowcache/solution 11 個，共 34 個，
++凍結在 `external_survey_34.tsv`。`external_survey.py` 用 `external_evidence.py` 的讀法逐欄數（OBSERVED，2026-10-02，
++輸出在 logs/gates-0910/extb6/survey.out；第五輪 10-01 的計數與它相同）：
+ 
+ | 欄位 | p4runtime/skeleton (11) | p4runtime/solution (12) | flowcache/solution (11) |
+ |---|---|---|---|
+ | verdict | 2 種（1 個 ERROR：lab 沒還回） | 3 種（FAIL (1/5) ×3） | 4 種（FAIL ×3） |
++| p4c、編出的 JSON 的 sha256 | 1 種、1 種 | 1 種、1 種 | 1 種、1 種 |
+ | rules_installed | 1 種 | 1 種 | 1 種 |
+ | counters_final | 1 種 | 4 種 | 1 種（空） |
+ | packet_ins／cache_entries／grpc_errors | 0／0／0 | 0／0／0 | 3 種／4 種／2 種 |
+ | 0x88B5、非 IPv4 的 packet-in | 0、0 | 0、0 | 0、0 |
+-| 不變式 | 都成立 | s1 ingress 100＝pings＋datagrams **只 1 個成立**（6 個少 1）；s2 egress 100＝s1 ingress 100 11 個成立；200 那條 12 個都成立 | 都成立 |
++| 不變式 | 都成立 | s1 ingress 100＝pings＋datagrams **只 1 個成立**；s2 egress 100＝s1 ingress 100 11 個成立；200 那條 12 個都成立 | 都成立 |
+ 
+ *分類（寫在 `external_evidence.py` 的 `DESCRIPTIVE`／`DESCRIPTIVE_INVARIANTS`）。*有任何一個 round 變過的欄位與
+-不變式＝**只描述**：印出對照組的值、處理組在不在它們的範圍內，**不計**（rc、verdict 三臂都是；p4runtime/solution 的
+-counters_final 與它的兩條流量不變式；flowcache 的 packet_ins、cache_entries、grpc_errors）。其餘＝**判定**，對照組
+-必須一致、處理組必須等於它。
+-
+-*判定欄位的誤判率。*沒有效果、而一個判定檢查每一次以機率 q 自己變的話，「對照組一致、處理組不同」至多 q；加上
+-「重跑一次、同一處再出現才算」，至多 q²。34 個 round 裡**沒有一個判定檢查變過**，所以 q 的點估計是 0。保守地用
+-0/N 的 95% 上界（1 − 0.05^(1/N)）：N=11 時 q ≤ 23.8%、q² ≤ 5.7%；N=12 時 22.1%、4.9%；三臂共有的檢查
+-（rules_installed、0x88B5 與非 IPv4 的 packet-in，N=34）8.4%、0.7%；p4runtime 兩臂共有的（N=23）12.2%、1.5%。
+-⇒ 每個檢查在 N ≥ 12 時達到 ≤ 5% 的目標；只有 skeleton 那幾個（N=11）的保守上界是 5.7%，**略高於目標，揭露**。
+-整個 run 的 family-wise 保守上界是各檢查相加，**超過 5%**——我們能說的是：34 個 round 裡沒有一個判定檢查變過。
+-`!! DAEMON` 與 0x88B5 packet-in 不是統計判斷：沒有效果時那些幀根本不存在（drop check 離線、段 S 普查的 daemon
+-計數器在三臂都是 0），誤判率在設計上是 0。
++不變式＝**只描述**：印出對照組的值、處理組在不在它們的範圍內，**不計**——rc、verdict 三臂都是；p4runtime/solution 的
++counters_final 與它的兩條流量不變式；flowcache 的 packet_ins、cache_entries、grpc_errors。其餘＝**判定**，對照組
++必須一致、處理組必須等於它：skeleton 9 個、solution 7 個、flowcache 6 個，共 22 個檢查。
++
++*判定檢查的誤判率。*沒有效果、而一個判定檢查每一次以機率 q 自己變的話，「對照組一致、處理組不同」至多 q；加上
++「重跑一次、同一處再出現才算失敗」，至多 q²。
++- **點估計**：34 個 round 裡判定檢查**一次都沒有變過**（22 個檢查 × 各自的 round 數，0 次）⇒ q 的點估計是 0。
++- **每個檢查的保守上界**：0/N 的 95% 上界（1 − 0.05^(1/N)），平方：三臂共有的（rules_installed、0x88B5 與非 IPv4
++  的 packet-in，N=34）0.7%；p4runtime 兩臂共有的（packet_ins、cache_entries、grpc_errors，N=23）1.5%；
++  solution 自己的 200 那條（N=12）4.9%；skeleton 與 flowcache 自己的（N=11）5.7%——**略高於 5% 的目標，揭露**。
++- **整個 run 的 family-wise 上界**：把 22 個檢查的上界**相加**，skeleton 23.7%、solution 11.5%、flowcache 19.2%，
++  **共約 54%**（re-review 用略不同的 N 分配算出約 52%）。🔴 **這是上界的和，不是估計**：它假設每個檢查都以自己的
++  上界在變，而觀察到的是 0 次；把它當成「一半的機會誤判」是讀錯了。orchestrator 第六輪接受這個規則，附這段揭露。
++- **誤判的代價**：一個 FAIL 不是悄悄否決，而是一份記錄下來的調查，加上**那一次**預先登記的 T 重跑——**絕不**反覆重跑
++  直到通過。
++- **`!! DAEMON` 與 0x88B5 packet-in 不是統計判斷**：沒有效果時那些幀根本不存在（drop check 離線、段 S 普查的 daemon
++  計數器在三臂都是 0），誤判率在設計上是 0。
++
++*一個 PASS 不證明什麼。*
++- **只描述的欄位不判**：p4runtime/solution 的 tunnel counter 與兩條流量不變式、flowcache 的 packet-in、cache entry、
++  gRPC error 的數量。⇒ **PASS 排除不了「心跳改變了轉發的量」**——那些量本來就會自己變，這個比對分不出來。
++- **重跑規則的檢定力是 p²**：一個真的、但只以機率 p 出現的效果，要兩次都出現才算失敗，被抓到的機率只有 p²
++  （p=0.5 ⇒ 25%）。每次都出現的效果（p=1）一定抓得到；偶發的大多抓不到。
++- 一次 T、兩個對照組：只看得到這三臂、這一次的 06；別的 external package、別的程式不在裡面（見上面「看不到的地方」）。
+ 
+ *為什麼現在改預先登記是正當的。*（1）這次比對還沒有任何 live 資料：C1、C2、T 都沒跑過，所以這個改動不可能是
+ 看了結果才調的；（2）它用的只有規則本身的算術，和 B 之前、跑別的程式版本的舊 round——那些 round 只拿來決定
+-哪些欄位會自己變，不是比對的對象；（3）它是 orchestrator 第五輪的裁定要求的；（4）它在一個 commit 裡，時間戳早於
+-任何 live run，之後不再改——要再改，同樣得在下一次 live run 之前、寫明理由。
++哪些欄位會自己變，不是比對的對象，而且現在凍結了；（3）它是 orchestrator 第五、六輪的裁定要求的；（4）它在一個
++commit 裡，時間戳早於任何 live run，之後不再改——要再改，同樣得在下一次 live run 之前、寫明理由。
+ 
+ `external_evidence.py` 的細節（它的 docstring 是正本）：它從每臂自己的控制器 log、round 報告、`00_table.tsv`、
+ H5 的 samples 讀證據；拒絕／讀不到／比對／不變式的規則如上；N4 那份 switch_state 的 daemon 計數器是 pipeline
+diff --git a/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/code_identity.py b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/code_identity.py
+index 1accca73..d0216ba8 100644
+--- a/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/code_identity.py
++++ b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/code_identity.py
+@@ -20,6 +20,19 @@ B" is then four facts, and this file records them and checks them (the round-4 r
+   * the two interpreters (the proxy's venv and the controllers' / driver's): live-p1/
+     venv_fingerprint.sh's distribution sha256 for each.
+ 
++[Co-developed with claude code -- Adam] Round 6 (the round-5 re-review's M-2, and the orchestrator's
++ruling on it):
++  * the uncommitted comparison covers CODE paths only: doc/**/*.md and doc/audit/**/*.tsv are left
++    out (other sessions edit ledgers and reports in the shared checkout all day); every other
++    tracked file is compared;
++  * ~/tutorials, the compared arms' own code path (drive_exercise's TUT): its HEAD, its uncommitted
++    tracked files with sha256s, and a digest of every file under exercises/p4runtime,
++    exercises/flowcache and utils (build/, logs/, pcaps/ and byte-code left out: every round
++    rewrites them);
++  * the fabric bmv2's libraries (the shared objects under the fabric binary's ../lib), by digest;
++  * the tree: a merge's tree must be what `git merge-tree --write-tree <parent 1> <parent 2>`
++    gives -- an amended or hand-resolved merge is not "C plus B".
++
+ Usage:  code_identity.py record <repo> <out.json>
+         code_identity.py verify <controls' identity.json> <treatment's identity.json> <B sha>
+ Exit:   record: 0 written (a part that could not be read is written as such), 2 usage/unwritable;
+@@ -39,12 +52,18 @@ import tempfile
+ import time
+ 
+ HERE = os.path.dirname(os.path.abspath(__file__))
+-FORMAT = 1
++FORMAT = 2
+ CTRL_PY_DEFAULT = os.path.expanduser("~/p4dev-python-venv/bin/python")
+ HELPER = "/usr/local/sbin/ndtwin-lab"
+ STOCK = "/usr/local/bin/simple_switch"
+ #: The facts that must be equal between the controls, and between the controls and T.
+-SAME = ("uncommitted", "kernel", "bmv2_fabric", "bmv2_stock", "helper", "venv")
++SAME = ("uncommitted", "kernel", "bmv2_fabric", "bmv2_libs", "bmv2_stock", "helper", "venv",
++        "tutorials")
++#: Tracked files left out of the uncommitted comparison (the orchestrator's round-6 ruling): docs and
++#: audit tables, which other sessions edit while the comparison runs.
++NOT_CODE = (re.compile(r"^doc/.*\.md$"), re.compile(r"^doc/audit/.*\.tsv$"))
++TUTORIALS_PARTS = ("exercises/p4runtime", "exercises/flowcache", "utils")
++TUTORIALS_SKIP_DIRS = {"build", "logs", "pcaps", "__pycache__"}
+ 
+ 
+ def sha256_of(path):
+@@ -79,11 +98,58 @@ def uncommitted(repo):
+         status, path = item[:2], item[3:]
+         if status[0] in "RC":                  # a rename/copy carries its source next
+             i += 1
++        if any(rx.match(path) for rx in NOT_CODE):
++            continue
+         full = os.path.join(repo, path)
+         out.append([status, path, sha256_of(full) if os.path.isfile(full) else "-"])
+     return sorted(out, key=lambda e: e[1])
+ 
+ 
++def tree_digest(root, skip_dirs=TUTORIALS_SKIP_DIRS):
++    """sha256 over (relative path, sha256) of every file under root, skipping some directories and
++    byte-code; "absent" when root is not a directory."""
++    if not os.path.isdir(root):
++        return "absent"
++    h, n = hashlib.sha256(), 0
++    for d, dirs, files in os.walk(root):
++        dirs[:] = sorted(x for x in dirs if x not in skip_dirs)
++        for f in sorted(files):
++            if f.endswith((".pyc", ".pyo")):
++                continue
++            p = os.path.join(d, f)
++            h.update(f"{os.path.relpath(p, root)}\0{sha256_of(p)}\n".encode())
++            n += 1
++    return f"{n} files sha256 {h.hexdigest()}"
++
++
++def tutorials(path=None):
++    path = path or os.environ.get("TUTORIALS_DIR") or os.path.expanduser("~/tutorials")
++    out = {"path": path}
++    try:
++        out["head"] = git(path, "rev-parse", "HEAD").strip()
++        out["uncommitted"] = [[st, p, h] for st, p, h in uncommitted(path)]
++    except RuntimeError as exc:
++        out["git"] = f"not read: {exc}"
++    out["trees"] = {part: tree_digest(os.path.join(path, part)) for part in TUTORIALS_PARTS}
++    return out
++
++
++def libs_digest(binary):
++    """The shared objects under <binary>/../lib (p4_testbed_topo's LD_LIBRARY_PATH rule), by digest."""
++    if not binary:
++        return "no binary"
++    lib = os.path.normpath(os.path.join(os.path.dirname(os.path.realpath(binary)), "..", "lib"))
++    if not os.path.isdir(lib):
++        return f"{lib}: absent"
++    h, n = hashlib.sha256(), 0
++    for f in sorted(os.listdir(lib)):
++        p = os.path.join(lib, f)
++        if ".so" in f and os.path.isfile(p) and not os.path.islink(p):
++            h.update(f"{f}\0{sha256_of(p)}\n".encode())
++            n += 1
++    return f"{lib}: {n} shared objects sha256 {h.hexdigest()}"
++
++
+ def fabric_binary(repo):
+     try:
+         with open(os.path.join(repo, "p4_proxy", "mininet", "bmv2_binary_override")) as fh:
+@@ -125,16 +191,24 @@ def record(repo, out_path, ctrl_py=None):
+         ident["head"] = git(repo, "rev-parse", "HEAD").strip()
+         ident["parents"] = git(repo, "rev-list", "--parents", "-n", "1", "HEAD").split()[1:]
+         ident["uncommitted"] = uncommitted(repo)
++        ident["tree"] = git(repo, "rev-parse", "HEAD^{tree}").strip()
+         if len(ident["parents"]) == 2:
+             # what the merge brought in over its first parent: B's side of it
+             ident["merge_changes"] = sorted(git(repo, "diff", "--name-only", ident["parents"][0],
+                                                 ident["head"]).split())
++            # and what an automatic merge of the two parents gives: the merge's tree must be it
++            r = subprocess.run(["git", "-C", repo, "merge-tree", "--write-tree", *ident["parents"]],
++                               capture_output=True, text=True)
++            ident["merge_tree"] = (r.stdout.split() or ["?"])[0] if r.returncode == 0 else \
++                f"merge-tree rc {r.returncode}: {r.stdout.strip()[:120]}"
+     except RuntimeError as exc:
+         ident["git_error"] = str(exc)
+     kernel = os.path.join(repo, "build", "bin", "ndtwin_kernel")
+     fabric = fabric_binary(repo)
+     ident["kernel"] = [kernel, sha256_of(kernel)]
+     ident["bmv2_fabric"] = [fabric, sha256_of(fabric) if fabric else "no directive"]
++    ident["bmv2_libs"] = libs_digest(fabric)
++    ident["tutorials"] = tutorials()
+     ident["bmv2_stock"] = [STOCK, sha256_of(STOCK)]
+     ident["helper"] = [HELPER, sha256_of(HELPER)]
+     ident["venv"] = venv_shas(repo, ctrl_py or os.environ.get("CTRL_PY") or CTRL_PY_DEFAULT)
+@@ -154,6 +228,17 @@ def load(path):
+     return ident
+ 
+ 
++def unchanged_reasons(before, after, label):
++    """[Co-developed with claude code -- Adam] What changed between a run's identity before and after
++    it (round 6): the HEAD, its parents, its tree or any fact in SAME."""
++    out = []
++    for key in ("head", "parents", "tree"):
++        if before.get(key) != after.get(key):
++            out.append(f"{label}: {key} {json.dumps(before.get(key))[:80]} before the run, "
++                       f"{json.dumps(after.get(key))[:80]} after it")
++    return out + same_reasons(before, after, f"{label} before", f"{label} after")
++
++
+ def same_reasons(a, b, label_a, label_b):
+     """What differs between two identities on SAME, as sentences."""
+     out = []
+@@ -178,6 +263,9 @@ def verify(c, t, b_sha):
+                            f"trunk moved between C and T, or the merge went the other way")
+         if not re.fullmatch(r"[0-9a-f]{7,40}", b_sha or "") or not parents[1].startswith(b_sha):
+             reasons.append(f"T's second parent {parents[1]} is not the B commit under test {b_sha!r}")
++    if len(parents) == 2 and t.get("tree") != t.get("merge_tree"):
++        reasons.append(f"T's tree {t.get('tree')} is not what merging its two parents gives "
++                       f"({t.get('merge_tree')}): an amended or hand-resolved merge")
+     reasons += same_reasons(c, t, "controls", "T")
+     changed_by_b = t.get("merge_changes")
+     if changed_by_b is None and len(parents) == 2:
+diff --git a/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_evidence.py b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_evidence.py
+index 343f1754..f2912f6c 100644
+--- a/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_evidence.py
++++ b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_evidence.py
+@@ -23,10 +23,16 @@ WHAT IS READ, per external arm (p4runtime skeleton and solution, flowcache solut
+   * the treatment's H5 samples (--samples: live-p1/08 PART=h5's 50_samples.tsv, with its
+     50_t06_end.txt beside it): the daemon's report, read every second through the whole of 06 --
+     since round 5 with each direction's `heard` count and the pids of the exercise controllers
+-    (run_external_controller.py) alive at that read;
+-  * each run's 00_identity.txt (live-p1/code_identity.py): which commit, which uncommitted files,
+-    which kernel, bmv2 and venv. Every control must carry the same identity, and the treatment's
+-    must be that one plus B merged: refused otherwise (README, "合併前的比對", M-2).
++    (run_external_controller.py) alive at that read, since round 6 with the size of each
++    controller log (`ctrl_logs`), which places the controller's pipeline push among the samples;
++  * each run's 00_identity.before.txt and 00_identity.after.txt (live-p1/code_identity.py, taken
++    as 06 starts and as it ends): which commit and tree, which uncommitted code files, which
++    kernel, bmv2 (binaries and the fabric's lib/), helper, venv and ~/tutorials. Each run's two
++    must be equal (the code did not change while it ran); every control must carry the same
++    identity, and the treatment's must be that one plus B merged, its tree the one merging its two
++    parents gives: refused otherwise (README, "合併前的比對", M-2);
++  * [Co-developed with claude code -- Adam] (round 6) each round report's p4c sha256 and every
++    compiled JSON's sha256: refused unless each external arm's are the same in every run.
+ 
+ WHAT IS REFUSED (exit 3) -- a comparison about nothing (the external judge's F1 and M2, 09-28):
+   * no --samples: the round report's markers are all taken before the exercise's controller runs
+@@ -38,15 +44,21 @@ WHAT IS REFUSED (exit 3) -- a comparison about nothing (the external judge's F1
+   * [Co-developed with claude code -- Adam] a treatment arm whose session did not HEAR every one of
+     its directions while the exercise's controller ran (the round-4 review's M-3): a daemon that
+     runs but whose frames never arrive leaves the program nothing to drop, and the comparison
+-    would be about nothing. The controller's lifetime is where the sampler saw the controller's
+-    own pid (the round report's `controller pid N` line) -- at least two samples -- and each
+-    direction's `heard` count must grow between the first and the last of them;
++    would be about nothing. Since round 6 the window is the controller's OWN: it opens at the
++    first sample whose `ctrl_logs` size of the arm's controller log reaches the end of the log's
++    last pipeline push ("Installed P4 Program using SetForwardingPipelineConfig", or, with none,
++    its first "Installed"/cache-entry line), and closes at the log's last write. Every direction's
++    `heard` must grow by at least one round between the session's last sample at or before the
++    window's opening and its last sample at or before the close; a session not yet running when
++    the window opened is refused too. A window shorter than two heartbeat periods (10 s) cannot
++    show it and is UNDECIDED (exit 2, reported), not refused;
+   * a control arm with the detect-only line, a heartbeat block or a running row -- any trace of the
+     heartbeat -- and a --control2 that is the control itself or another control (no spread).
+ 
+ WHAT IS UNREADABLE (exit 2), never "same": a missing or unreadable table, row, report, log or
+-samples file (a sampler file without the round-5 columns included; a running sample of the arm's
+-session whose counters or `heard` are not numbers); a counter block cut short; a LAST counter block that had not settled (it neither
++samples file (a sampler file without the round-6 columns included; a running sample of the arm's
++session whose counters or `heard` are not numbers; a controller log the sampler never saw reach
++its push; a controller log with no push and no entry); a counter block cut short; a LAST counter block that had not settled (it neither
+ repeats the block before it nor already counts everything the round sent -- a read taken mid-
+ traffic); a packet-in whose frame cannot be parsed, an IPv4 one included.
+ 
+@@ -89,7 +101,8 @@ Usage:  external_evidence.py show <06 run dir>
+ Exit:   0 every decisive check the same as the controls', every decisive invariant kept, the
+           daemon forwarded nothing (descriptive differences are printed, not counted);
+         1 a decisive difference (each printed); 2 unreadable, or UNDECIDED (the controls disagree
+-          on a decisive check); 3 refused.
++          on a decisive check, or an arm's controller window is under two heartbeat periods --
++          printed with the rest, and a DIFF still exits 1); 3 refused.
+ """
+ 
+ from __future__ import annotations
+@@ -133,12 +146,20 @@ STALE_S = 10.0
+ MAX_GAP_S = 10.0
+ #: The daemon's four counters as the sampler records them (live-p1/08 SAMPLER_HEADER).
+ DAEMON = ("forwarded_to_hosts", "forwarded_between_switches", "misdelivered", "foreign_frames")
+-#: live-p1/08's SAMPLER_HEADER since round 5 (heard per direction, the controllers alive).
++#: live-p1/08's SAMPLER_HEADER since round 6 (heard per direction, the controllers alive -- context
++#: only since round 6 -- and the controller logs' sizes).
+ SAMPLER_COLUMNS = ["wall", "status", "session", "pid", "forwarded_to_hosts",
+                    "forwarded_between_switches", "written_wall", "stop_reason", "misdelivered",
+-                   "foreign_frames", "heard", "controllers"]
+-#: drive_exercise.py's line for the controller it started (run_external_controller.py's pid).
+-CTRL_PID = re.compile(r"^\s*controller pid (\d+) \(handed to the generic cell")
++                   "foreign_frames", "heard", "controllers", "ctrl_logs"]
++#: [Co-developed with claude code -- Adam] (round 6) the daemon's round period, and the shortest
++#: controller window that can show a direction heard: two periods.
++PERIOD_S = 5.0
++MIN_WINDOW_S = 2 * PERIOD_S
++#: The controller's pipeline push, as tutorials' p4runtime_lib/switch.py's callers print it.
++PUSH = re.compile(r"^Installed P4 Program using SetForwardingPipelineConfig on s\d+\s*$")
++#: drive_exercise's report tables: the toolchain row of p4c, and each compiled JSON with its sha256[:16].
++P4C_ROW = re.compile(r"^\|\s*`[^`]*p4c-bm2-ss`\s*\|\s*`([0-9a-f]{16})`\s*\|")
++JSON_ROW = re.compile(r"^\|\s*`([^`]+\.json)`\s*\|\s*\d+\s*\|\s*`([0-9a-f]{16})`\s*\|")
+ 
+ INSTALLED = re.compile(r"^Installed .* on s\d+\s*$")
+ COUNTER = re.compile(r"^(s\d+ \S+ \d+): (\d+) packets \((\d+) bytes\)\s*$")
+@@ -292,9 +313,11 @@ def report_evidence(report):
+     for name, n in SIDE_EFFECT.findall(text):
+         n4[name] = max(n4.get(name, 0), int(n))
+     stamp = STAMP.search(os.path.basename(report))
+-    ctrl = [int(m.group(1)) for m in map(CTRL_PID.match, text.splitlines()) if m]
++    p4c = sorted({m.group(1) for m in map(P4C_ROW.match, text.splitlines()) if m})
++    jsons = sorted({(os.path.basename(m.group(1)), m.group(2)) for m in map(JSON_ROW.match, text.splitlines()) if m})
+     return {
+-        "controller_pid": ctrl[0] if len(set(ctrl)) == 1 else None,
++        "p4c_sha": p4c[0] if len(p4c) == 1 else None,
++        "json_shas": [f"{n} {h}" for n, h in jsons],
+         "code": "; ".join(f"{sha} {rest}".strip() for sha, rest in codes) or "not recorded",
+         "hb_started": HB_UP in text,
+         "hb_block": bool(HB_BLOCK.search(text)),
+@@ -413,8 +436,8 @@ def read_samples(path):
+     head = lines[0].split("\t") if lines else []
+     want = SAMPLER_COLUMNS
+     if head[:len(want)] != want:
+-        raise Unreadable(f"{path}: header {head} -- a sampler from before round 5 (no per-direction "
+-                         f"`heard`, no controllers column), or not a sampler's file")
++        raise Unreadable(f"{path}: header {head} -- a sampler from before round 6 (no per-direction "
++                         f"`heard`, no controllers or ctrl_logs column), or not a sampler's file")
+     for line in lines[1:]:
+         f = line.split("\t")
+         if len(f) < len(want):
+@@ -432,10 +455,14 @@ def read_samples(path):
+             # [Co-developed with claude code -- Adam] None, not 0: a counter the report did not carry
+             # is not a counter that stayed at zero (the round-4 review's residual on M2).
+             counts[name] = int(v) if v.isdigit() else None
+-        ctrls = {int(x) for x in f[11].split(",") if x.isdigit()}
++        logs = {}
++        for item in f[12].split(","):
++            key, _, size = item.rpartition(":")
++            if key and size.isdigit():
++                logs[key] = int(size)
+         out.append({"wall": wall, "status": f[1], "session": f[2], "written": written,
+                     "stop_reason": f[7], "counts": counts, "heard": parse_heard(f[10]),
+-                    "heard_raw": f[10], "controllers": ctrls, "row": line[:120]})
++                    "heard_raw": f[10], "ctrl_logs": logs, "row": line[:120]})
+     if not out:
+         raise Unreadable(f"{path}: no samples")
+     return sorted(out, key=lambda s: s["wall"])
+@@ -488,36 +515,74 @@ def session_evidence(arm, ev, samples, end_06):
+                              f"{'counters ' + ', '.join(bad) if bad else 'heard column'} "
+                              f"{'are' if bad else 'is'} not numbers: {s['row']}")
+     counts = {k: max(s["counts"][k] for s in win if s["session"] == sess) for k in DAEMON}
+-    heard = heard_evidence(name, ev, sess, stretch)
++    heard = heard_evidence(name, ev, sess, stretch, samples)
+     return {"session": sess, "from": stretch[0]["wall"], "to": stopped_at, "samples": len(stretch),
+             "stop_reason": win[stop]["stop_reason"] if stop is not None else "(still running at the window's end)",
+             "counts": counts, "heard": heard}
+ 
+ 
+-def heard_evidence(name, ev, sess, stretch):
+-    """[Co-developed with claude code -- Adam] Every direction of the session HEARD while the exercise's
+-    controller ran (the round-4 review's M-3), or Refused. The controller's lifetime is the samples
+-    of the session's stretch that saw its pid alive."""
+-    pid = ev["controller_pid"]
+-    if pid is None:
+-        raise Refused(f"treatment {name}: the round report names no single `controller pid N` -- the "
+-                      f"controller's lifetime cannot be placed among the samples")
+-    life = [s for s in stretch if pid in s["controllers"]]
+-    if len(life) < 2:
+-        raise Refused(f"treatment {name}: the sampler saw the controller (pid {pid}) alive in "
+-                      f"{len(life)} sample(s) of session {sess} -- no lifetime to hear anything in")
+-    first, last = life[0]["heard"], life[-1]["heard"]
++def push_offset(log_path):
++    """[Co-developed with claude code -- Adam] The byte offset just past the controller log's last
++    pipeline push -- or, with none, past its first rule or cache entry -- or Unreadable."""
++    try:
++        with open(log_path, "rb") as fh:
++            data = fh.read()
++    except OSError as exc:
++        raise Unreadable(f"{log_path}: {type(exc).__name__}: {exc}") from exc
++    pos, push, entry = 0, None, None
++    for raw in data.splitlines(keepends=True):
++        pos += len(raw)
++        line = raw.decode("utf-8", "replace").rstrip("\r\n")
++        if PUSH.match(line):
++            push = pos
++        elif entry is None and (INSTALLED.match(line) or CACHE_ENTRY.match(line)):
++            entry = pos
++    if push is None and entry is None:
++        raise Unreadable(f"{log_path}: no pipeline push and no rule or cache entry -- the controller's "
++                         f"window has no start")
++    return push if push is not None else entry
++
++
++def heard_evidence(name, ev, sess, stretch, samples):
++    """[Co-developed with claude code -- Adam] Every direction of the session HEARD at least one round
++    inside the controller's own window (the round-4 review's M-3, round 6's rule): from the first
++    sample whose ctrl_logs size of the arm's log reaches the push's end, to the log's last write."""
++    log = ev["log"]
++    key = f"{os.path.basename(os.path.dirname(log))}/{os.path.basename(log)}"
++    offset = push_offset(log)
++    seen = [s for s in samples if key in s["ctrl_logs"]]
++    if not seen:
++        raise Unreadable(f"treatment {name}: the sampler never saw {key} -- the controller's window "
++                         f"cannot be placed among the samples")
++    opened = next((s for s in seen if s["ctrl_logs"][key] >= offset), None)
++    if opened is None:
++        raise Unreadable(f"treatment {name}: the sampler last saw {key} at {seen[-1]['ctrl_logs'][key]} "
++                         f"bytes, never at the push's end ({offset}) -- no window start")
++    t0, t1 = opened["wall"], ev["_last_write"]
++    if t1 - t0 < MIN_WINDOW_S:
++        # [Co-developed with claude code -- Adam] UNDECIDED, counted like a decisive check the
++        # controls disagree on (exit 2 unless a DIFF), and the rest of the arm still printed
++        return {"log": key, "push_offset": offset, "from": t0, "to": t1, "grew": {},
++                "undecided": f"the controller's window, push seen at {t0:.0f} to its last write at "
++                             f"{t1:.0f}, is {t1 - t0:.1f} s -- under two heartbeat periods "
++                             f"({MIN_WINDOW_S:.0f} s), too short to show a direction heard"}
++    before = [s for s in stretch if s["wall"] <= t0]
++    upto = [s for s in stretch if s["wall"] <= t1]
++    if not before:
++        raise Refused(f"treatment {name}: session {sess} was first sampled running at "
++                      f"{stretch[0]['wall']:.0f}, after the controller pushed its pipeline ({t0:.0f}) "
++                      f"-- the window was not watched from its start")
++    first, last = before[-1]["heard"], upto[-1]["heard"]
+     if not first or set(first) != set(last):
+-        raise Refused(f"treatment {name}: session {sess}'s directions changed or are none during the "
+-                      f"controller's lifetime ({sorted(first or {})} vs {sorted(last or {})})")
+-    deaf = sorted(d for d in first if last[d] <= first[d])
++        raise Refused(f"treatment {name}: session {sess}'s directions changed or are none in the "
++                      f"controller's window ({sorted(first or {})} vs {sorted(last or {})})")
++    deaf = sorted(d for d in first if last[d] - first[d] < 1)
+     if deaf:
+         raise Refused(f"treatment {name}: session {sess} did not hear {len(deaf)} of {len(first)} "
+-                      f"direction(s) while the controller (pid {pid}) ran, "
+-                      f"{life[0]['wall']:.0f}-{life[-1]['wall']:.0f}: "
++                      f"direction(s) in the controller's window, {t0:.0f}-{t1:.0f}: "
+                       + ", ".join(f"{d} stayed {first[d]}" for d in deaf[:4])
+                       + " -- no frame entered the program then, so the arm says nothing about it")
+-    return {"pid": pid, "from": life[0]["wall"], "to": life[-1]["wall"],
++    return {"log": key, "push_offset": offset, "from": t0, "to": t1, "undecided": None,
+             "grew": {d: last[d] - first[d] for d in sorted(first)}}
+ 
+ 
+@@ -614,14 +679,22 @@ def identities(control, controls2, treatment, b_sha):
+                       "apart from B' cannot be checked (README, 合併前的比對)")
+     ids = []
+     for run in [control] + list(controls2) + [treatment]:
+-        path = os.path.join(run, "00_identity.txt")
+-        if not os.path.exists(path):
+-            raise Refused(f"{run}: no 00_identity.txt -- which code it ran is not known "
+-                          f"(record it with live-p1/code_identity.py, README step 1)")
+-        try:
+-            ids.append(code_identity.load(path))
+-        except (OSError, ValueError) as exc:
+-            raise Unreadable(f"{path}: {type(exc).__name__}: {exc}") from exc
++        # [Co-developed with claude code -- Adam] round 6: recorded BEFORE and AFTER the run, and equal
++        pair = []
++        for name in ("00_identity.before.txt", "00_identity.after.txt"):
++            path = os.path.join(run, name)
++            if not os.path.exists(path):
++                raise Refused(f"{run}: no {name} -- which code it ran is not known "
++                              f"(record it with live-p1/code_identity.py before and after the run, "
++                              f"README step 1)")
++            try:
++                pair.append(code_identity.load(path))
++            except (OSError, ValueError) as exc:
++                raise Unreadable(f"{path}: {type(exc).__name__}: {exc}") from exc
++        why = code_identity.unchanged_reasons(pair[0], pair[1], os.path.basename(run))
++        if why:
++            raise Refused(f"the code changed while a run ran: {'; '.join(why)}")
++        ids.append(pair[1])
+     c, cs, t = ids[0], ids[1:-1], ids[-1]
+     for i, other in enumerate(cs):
+         why = ([f"HEAD {c.get('head')} vs {other.get('head')}"] if other.get("head") != c.get("head") else []) \
+@@ -634,6 +707,22 @@ def identities(control, controls2, treatment, b_sha):
+     return c, t
+ 
+ 
++def programs_same(runs):
++    """[Co-developed with claude code -- Adam] Round 6: each external arm compiled the same program with
++    the same compiler in every run (the round reports' p4c and compiled-JSON sha256s) -- or Refused."""
++    for arm in EXTERNAL_ARMS:
++        seen = []
++        for label, evs in runs:
++            ev = evs[arm]
++            if not ev["p4c_sha"] or not ev["json_shas"]:
++                raise Unreadable(f"{label} {arm[0]}/{arm[1]}: its round report names no p4c sha256 or "
++                                 f"no compiled JSON sha256")
++            seen.append((label, ev["p4c_sha"], tuple(ev["json_shas"])))
++        if len({(p, j) for _l, p, j in seen}) != 1:
++            raise Refused(f"{arm[0]}/{arm[1]}: not the same compiler and program in every run: "
++                          + "; ".join(f"{l} p4c {p} json {list(j)}" for l, p, j in seen))
++
++
+ def compare(control, treatment, controls2, samples_path, b_sha=None):
+     if not samples_path:
+         raise Refused("no --samples: every marker in a round report is taken before the exercise's "
+@@ -651,6 +740,8 @@ def compare(control, treatment, controls2, samples_path, b_sha=None):
+     a = arms(control)
+     cs2 = [arms(d) for d in controls2]
+     b = arms(treatment)
++    programs_same([("control", a)] + [(f"control2 #{i + 1}", c) for i, c in enumerate(cs2)]
++                  + [("treatment", b)])
+     samples, end_06 = read_samples(samples_path), t06_end(samples_path)
+     sessions = check_roles([("control", a)] + [(f"control2 #{i + 1}", c) for i, c in enumerate(cs2)],
+                            b, samples, end_06)
+@@ -670,9 +761,13 @@ def compare(control, treatment, controls2, samples_path, b_sha=None):
+               f"({se['samples']} samples, none stale, no gap over {MAX_GAP_S:g} s; stop: "
+               f"{se['stop_reason'] or '-'}); the controller last wrote at {b[arm]['_last_write']:.0f}")
+         hd = se["heard"]
+-        print(f"   heard   all {len(hd['grew'])} direction(s) while the controller (pid {hd['pid']}) ran, "
+-              f"{hd['from']:.0f}-{hd['to']:.0f}: "
+-              + ", ".join(f"{d} +{n}" for d, n in hd["grew"].items()))
++        if hd["undecided"]:
++            undecided += 1
++            print(f"   UNDECIDED heard     {hd['undecided']}")
++        else:
++            print(f"   heard   all {len(hd['grew'])} direction(s) in the controller's window ({hd['log']} "
++                  f"from its push to its last write), {hd['from']:.0f}-{hd['to']:.0f}: "
++                  + ", ".join(f"{d} +{n}" for d, n in hd["grew"].items()))
+         moved = {k: v for k, v in se["counts"].items() if v}
+         if moved:
+             diffs += 1
+@@ -720,7 +815,8 @@ def compare(control, treatment, controls2, samples_path, b_sha=None):
+                   f"ethertype 0x88B5: the frame reached the exercise's own controller")
+     print(f"\n{'NO DIFFERENCE' if not diffs else f'{diffs} DIFFERENCE(S)'} in the external arms' "
+           f"own evidence ({1 + len(cs2)} controls)"
+-          + (f"; {undecided} UNDECIDED: the controls disagree on a decisive check" if undecided else ""))
++          + (f"; {undecided} UNDECIDED: the controls disagree on a decisive check, or a controller's "
++             f"window was too short to show the heartbeat heard" if undecided else ""))
+     return 1 if diffs else 2 if undecided else 0
+ 
+ 
+diff --git a/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_survey.py b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_survey.py
+new file mode 100644
+index 00000000..6d9b7686
+--- /dev/null
++++ b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_survey.py
+@@ -0,0 +1,127 @@
++#!/usr/bin/env python3
++"""
++The 34 earlier no-heartbeat rounds that external_evidence.py's DECISIVE / DESCRIPTIVE split rests on,
++frozen: which files they are (external_survey_34.tsv: path and sha256 of each round report and its
++controller log), that none of them had the heartbeat, and how many distinct values each compared
++field took over them.
++
++[Co-developed with claude code -- Adam]
++
++Round 6 (the round-5 re-review's S-9 and the orchestrator's ruling on it): the split is pre-registered
++on these rounds, so the rounds themselves are pinned -- a file that is gone or whose bytes changed
++refuses the survey, and so does a round with any trace of the heartbeat (the detect-only start
++line, a heartbeat block on switch_state, a running row): such a round would not be a control.
++They live in the main checkout's runs/ (untracked raw); the manifest is tracked.
++
++Usage:  external_survey.py <prep dir holding runs/> [<manifest>]
++        (the prep dir: doc/audit/2026-09-04_p4-tutorial-exercise-prep of the checkout with the raw)
++Exit:   0 every file matched and none had the heartbeat (the table printed); 3 refused (each
++        reason printed); 2 usage or an unreadable manifest.
++"""
++
++from __future__ import annotations
++
++import collections
++import hashlib
++import os
++import re
++import sys
++
++HERE = os.path.dirname(os.path.abspath(__file__))
++sys.path.insert(0, HERE)
++import external_evidence as ev  # noqa: E402
++
++MANIFEST = os.path.join(HERE, "external_survey_34.tsv")
++COLUMNS = ["arm", "report", "report_sha256", "log", "log_sha256"]
++ARMS = {"p4runtime/skeleton": ("p4runtime", "skeleton"), "p4runtime/solution": ("p4runtime", "solution"),
++        "flowcache/solution": ("flowcache", "solution")}
++VERDICT = re.compile(r"^>>> (.*)$", re.M)
++FIELDS = ("verdict", "p4c_sha", "json_shas", "rules_installed", "counters_final", "packet_ins", "cache_entries",
++          "heartbeat_packet_ins", "non_ipv4_packet_ins", "grpc_errors")
++
++
++def sha256(path):
++    h = hashlib.sha256()
++    with open(path, "rb") as fh:
++        for block in iter(lambda: fh.read(1 << 20), b""):
++            h.update(block)
++    return h.hexdigest()
++
++
++def read_manifest(path):
++    with open(path, encoding="utf-8") as fh:
++        lines = [x.rstrip("\n") for x in fh if x.strip() and not x.startswith("#")]
++    if not lines or lines[0].split("\t") != COLUMNS:
++        raise ValueError(f"{path}: header {lines[:1]}, want {COLUMNS}")
++    rows = [dict(zip(COLUMNS, x.split("\t"))) for x in lines[1:]]
++    if any(len(r) != len(COLUMNS) or r["arm"] not in ARMS for r in rows):
++        raise ValueError(f"{path}: a row that is not {COLUMNS} with a known arm")
++    return rows
++
++
++def value(v):
++    """One hashable, printable form of a field's value."""
++    if isinstance(v, dict):
++        return repr(sorted(v.items()))
++    if isinstance(v, list):
++        return f"{len(v)} sha256 {hashlib.sha256(repr(v).encode()).hexdigest()[:12]}"
++    return repr(v)
++
++
++def survey(prep, manifest):
++    rows = read_manifest(manifest)
++    refused, per_arm = [], collections.defaultdict(list)
++    for r in rows:
++        for kind in ("report", "log"):
++            p = os.path.join(prep, r[kind])
++            try:
++                got = sha256(p)
++            except OSError as exc:
++                refused.append(f"{r[kind]}: {type(exc).__name__}")
++                continue
++            if got != r[kind + "_sha256"]:
++                refused.append(f"{r[kind]}: sha256 {got[:16]}, the manifest froze {r[kind + '_sha256'][:16]}")
++        if refused:
++            continue
++        rep = ev.report_evidence(os.path.join(prep, r["report"]))
++        trace = [w for w, hit in (("the detect-only start line", rep["hb_started"]),
++                                  ("a heartbeat block", rep["hb_block"]),
++                                  ("a running row", bool(rep["hb_running"]))) if hit]
++        if trace:
++            refused.append(f"{r['report']}: {', '.join(trace)} -- not a round without the heartbeat")
++            continue
++        c = ev.controller_evidence(os.path.join(prep, r["log"]))
++        both = dict(c, **rep)
++        m = VERDICT.search(ev.read_text(os.path.join(prep, r["report"])))
++        both["verdict"] = m.group(1)[:40] if m else "?"
++        both["invariants"] = {k: ok for k, (ok, _d) in ev.invariants(ARMS[r["arm"]], both).items()}
++        per_arm[r["arm"]].append(both)
++    if refused:
++        for x in refused:
++            print(f"REFUSED {x}")
++        return 3
++    print(f"{len(rows)} rounds, every report and controller log as frozen, none with the heartbeat")
++    for arm, evs in per_arm.items():
++        print(f"== {arm}: {len(evs)} rounds")
++        for k in FIELDS + ("invariants",):
++            cnt = collections.Counter(value(e[k]) for e in evs)
++            print(f"   {k:22} {len(cnt)} distinct: " + "; ".join(f"{x[:60]} x{m}" for x, m in cnt.most_common(4)))
++    return 0
++
++
++def main(argv):
++    if len(argv) not in (1, 2):
++        print(__doc__.split("Usage:")[1].split("Exit:")[0].rstrip(), file=sys.stderr)
++        return 2
++    try:
++        return survey(argv[0], argv[1] if len(argv) == 2 else MANIFEST)
++    except (OSError, ValueError) as exc:
++        print(f"UNREADABLE {exc}")
++        return 2
++    except ev.Unreadable as exc:
++        print(f"UNREADABLE {exc}")
++        return 2
++
++
++if __name__ == "__main__":
++    sys.exit(main(sys.argv[1:]))
+diff --git a/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_survey_34.tsv b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_survey_34.tsv
+new file mode 100644
+index 00000000..ef7994b4
+--- /dev/null
++++ b/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_survey_34.tsv
+@@ -0,0 +1,39 @@
++# [Co-developed with claude code -- Adam] The 34 no-heartbeat rounds external_evidence.py's DECISIVE / DESCRIPTIVE
++# split rests on (README, 合併前的比對, S-9): every p4runtime/skeleton, p4runtime/solution and flowcache/solution
++# round report in the main checkout's runs/ on 2026-10-02, with its controller log; paths relative to the prep
++# directory. Frozen: live-p1/external_survey.py refuses if any is gone or changed.
++arm	report	report_sha256	log	log_sha256
++p4runtime/skeleton	runs/2026-09-19T055118Z_p4runtime_skeleton_ndtwin.md	39ceb96ce271f1be8e619782212b8b6922ed1bad645da73a82b7ec3ee8080765	runs/2026-09-19T055118Z_p4runtime_skeleton_ndtwin/driver-controller-p4runtime.log	a9ab9aa61f233cf1ed38195faaced6c4b3651b53b2799b52b814e4dc6d2deb45
++p4runtime/skeleton	runs/2026-09-19T065529Z_p4runtime_skeleton_ndtwin.md	7fa677c9184770062b881d77b534edfa2ca751acd94445103b325b9f836ced71	runs/2026-09-19T065529Z_p4runtime_skeleton_ndtwin/driver-controller-p4runtime.log	a9ab9aa61f233cf1ed38195faaced6c4b3651b53b2799b52b814e4dc6d2deb45
++p4runtime/skeleton	runs/2026-09-19T085257Z_p4runtime_skeleton_ndtwin.md	5339d283c8c31b06acf159d44c28dac531e1d137e71eb0c44f3b8074d6d2dc5b	runs/2026-09-19T085257Z_p4runtime_skeleton_ndtwin/driver-controller-p4runtime.log	a9ab9aa61f233cf1ed38195faaced6c4b3651b53b2799b52b814e4dc6d2deb45
++p4runtime/skeleton	runs/2026-09-19T150954Z_p4runtime_skeleton_ndtwin.md	c58a13c66abb7d1fb78a7f308b53d07b674ba7d18a15977207cf9b459321fc32	runs/2026-09-19T150954Z_p4runtime_skeleton_ndtwin/driver-controller-p4runtime.log	a9ab9aa61f233cf1ed38195faaced6c4b3651b53b2799b52b814e4dc6d2deb45
++p4runtime/skeleton	runs/2026-09-24T162920Z_p4runtime_skeleton_ndtwin.md	f75d7d37446705f2df9f850b126a078068cfd2f7d158a731c4bce9183cf49660	runs/2026-09-24T162920Z_p4runtime_skeleton_ndtwin/driver-controller-p4runtime.log	a9ab9aa61f233cf1ed38195faaced6c4b3651b53b2799b52b814e4dc6d2deb45
++p4runtime/skeleton	runs/2026-09-24T191938Z_p4runtime_skeleton_ndtwin.md	805baa2b2f9aed8ab412570976664593d3c1952f077082a480fe9579e4310176	runs/2026-09-24T191938Z_p4runtime_skeleton_ndtwin/driver-controller-p4runtime.log	a9ab9aa61f233cf1ed38195faaced6c4b3651b53b2799b52b814e4dc6d2deb45
++p4runtime/skeleton	runs/2026-09-26T061608Z_p4runtime_skeleton_ndtwin.md	25db9fa5989107a8063d6e8df57e58ed8453c51723ce071d3495423893777f66	runs/2026-09-26T061608Z_p4runtime_skeleton_ndtwin/driver-controller-p4runtime.log	a9ab9aa61f233cf1ed38195faaced6c4b3651b53b2799b52b814e4dc6d2deb45
++p4runtime/skeleton	runs/2026-09-26T062404Z_p4runtime_skeleton_ndtwin.md	56c90993a8dba645d92f3442b910b792fb364d9495f3ebde28deadb25431879b	runs/2026-09-26T062404Z_p4runtime_skeleton_ndtwin/driver-controller-p4runtime.log	a9ab9aa61f233cf1ed38195faaced6c4b3651b53b2799b52b814e4dc6d2deb45
++p4runtime/skeleton	runs/2026-09-26T155740Z_p4runtime_skeleton_ndtwin.md	0c9aac468401d366bed2bca481612daa679d695bf16d7ba897a1a70d9cfc1400	runs/2026-09-26T155740Z_p4runtime_skeleton_ndtwin/driver-controller-p4runtime.log	a9ab9aa61f233cf1ed38195faaced6c4b3651b53b2799b52b814e4dc6d2deb45
++p4runtime/skeleton	runs/2026-09-26T175351Z_p4runtime_skeleton_ndtwin.md	fa28892af32a37cc7bf45e819c2149e465ab8b502b93647b89cbd8169c16375d	runs/2026-09-26T175351Z_p4runtime_skeleton_ndtwin/driver-controller-p4runtime.log	a9ab9aa61f233cf1ed38195faaced6c4b3651b53b2799b52b814e4dc6d2deb45
++p4runtime/skeleton	runs/2026-09-27T081131Z_p4runtime_skeleton_ndtwin.md	ad9c7ec9000a37db0fe79b3601840a773bd538cca789fca57cfd87ab2fa9066c	runs/2026-09-27T081131Z_p4runtime_skeleton_ndtwin/driver-controller-p4runtime.log	a9ab9aa61f233cf1ed38195faaced6c4b3651b53b2799b52b814e4dc6d2deb45
++p4runtime/solution	runs/2026-09-19T055210Z_p4runtime_solution_ndtwin.md	e8908fe9e8b0d873e5b29b612d3c44dbc6363337c090b0f3c897261b08027411	runs/2026-09-19T055210Z_p4runtime_solution_ndtwin/driver-controller-p4runtime.log	2777c922498f6fee137a856856cc80bb7280e50edfb7ead3e09a12adc1dd1a8b
++p4runtime/solution	runs/2026-09-19T065612Z_p4runtime_solution_ndtwin.md	37fbe7322444735b5571a0173792599f041ad06f1fa6762495f05fbacbe06a0f	runs/2026-09-19T065612Z_p4runtime_solution_ndtwin/driver-controller-p4runtime.log	2777c922498f6fee137a856856cc80bb7280e50edfb7ead3e09a12adc1dd1a8b
++p4runtime/solution	runs/2026-09-19T085331Z_p4runtime_solution_ndtwin.md	0b0efe18599ebb3a0d6a25d364865991c149f53e9ccd2d8b5ae3526897e88807	runs/2026-09-19T085331Z_p4runtime_solution_ndtwin/driver-controller-p4runtime.log	2777c922498f6fee137a856856cc80bb7280e50edfb7ead3e09a12adc1dd1a8b
++p4runtime/solution	runs/2026-09-19T085746Z_p4runtime_solution_ndtwin.md	54770190788a462c4fc783845fab2bf95325e343e853f4df83137f1a03856df4	runs/2026-09-19T085746Z_p4runtime_solution_ndtwin/driver-controller-p4runtime.log	2777c922498f6fee137a856856cc80bb7280e50edfb7ead3e09a12adc1dd1a8b
++p4runtime/solution	runs/2026-09-19T151037Z_p4runtime_solution_ndtwin.md	6f6eedd2b96bebb84b78aa32131ee388c86d999621586241aec6ec32e9ae75a3	runs/2026-09-19T151037Z_p4runtime_solution_ndtwin/driver-controller-p4runtime.log	a354bd06edd25a5da3af0a92e073703cfb0c3be93c8bb84d9490f451deb7bf69
++p4runtime/solution	runs/2026-09-24T162954Z_p4runtime_solution_ndtwin.md	9b3b78ddacc74d52405017e6e85f95e0e7def700641ee5f681520c724e835c5f	runs/2026-09-24T162954Z_p4runtime_solution_ndtwin/driver-controller-p4runtime.log	e20fe9da72841c65998c4f9c2a2c4af053f4e2989050be2fc641c92dec7ed663
++p4runtime/solution	runs/2026-09-24T192012Z_p4runtime_solution_ndtwin.md	cda85d052bc209e5c2da44ed3e51ed63824bd11d57eba3cf2833bda0ec2ee6ed	runs/2026-09-24T192012Z_p4runtime_solution_ndtwin/driver-controller-p4runtime.log	67a3a522c8deffd9292fab0b0a248d373688580db34556fc513efbbc94ce6e64
++p4runtime/solution	runs/2026-09-26T061642Z_p4runtime_solution_ndtwin.md	d1370249ae070d039c09dd29b6bca31960ddb89f2b7757573fd097156f6b3d5a	runs/2026-09-26T061642Z_p4runtime_solution_ndtwin/driver-controller-p4runtime.log	e99f77d43d2be62634264766eb02d897f456e68d3be63da72c3ad83ecbf2d715
++p4runtime/solution	runs/2026-09-26T062438Z_p4runtime_solution_ndtwin.md	fb9f352fa84338641044565af9f332b9189eeea99c14362ca72006a64568f10c	runs/2026-09-26T062438Z_p4runtime_solution_ndtwin/driver-controller-p4runtime.log	3607b6ca259523fdc16ee4739a7e5b68cfe66fd50483681da793a5af8a44e3d4
++p4runtime/solution	runs/2026-09-26T155814Z_p4runtime_solution_ndtwin.md	e880a952a53520f62e9da64a5f68b7df9485ecd0be594dc264b0aa04b24e777a	runs/2026-09-26T155814Z_p4runtime_solution_ndtwin/driver-controller-p4runtime.log	d67d512a87aaa0d319c2e5f03425219de8423db0d92188a2669edccc2f8e5d9c
++p4runtime/solution	runs/2026-09-26T175425Z_p4runtime_solution_ndtwin.md	2d40fc8e6f939ea71fd029941774e59c3d8984d5223bc4f8b05cde1e927bdbbf	runs/2026-09-26T175425Z_p4runtime_solution_ndtwin/driver-controller-p4runtime.log	f71925f85451123cf6ee08cd17b53d96971e275d296e255e841abe9dbc0b7a81
++p4runtime/solution	runs/2026-09-27T081205Z_p4runtime_solution_ndtwin.md	34a19c93d1296036246965cfd2255a8f2b9979b4c8ec3d498c70a80f41ab942d	runs/2026-09-27T081205Z_p4runtime_solution_ndtwin/driver-controller-p4runtime.log	13503ed075f2fc7f856cefcd0163c85c1db3f3bd25c904d607395c274de69404
++flowcache/solution	runs/2026-09-19T055312Z_flowcache_solution_ndtwin.md	62b9af7d6dcc701d95ac416fd8693dcb9c315b5ab22846d72c46233ed8dac122	runs/2026-09-19T055312Z_flowcache_solution_ndtwin/driver-controller-flowcache.log	7c1aca379ef5f408423ee5ad26f221d6c476090a9116e481cf8395d1bd947dea
++flowcache/solution	runs/2026-09-19T065705Z_flowcache_solution_ndtwin.md	f634c8733ade6e4c48482a4616ea16b21cfe7046ec141537c18e3fa1f19739db	runs/2026-09-19T065705Z_flowcache_solution_ndtwin/driver-controller-flowcache.log	2b667aecd3bdc6952974299f8b1c93ad9dbdcc77d7307a51adde3d895f2d1fc4
++flowcache/solution	runs/2026-09-19T085415Z_flowcache_solution_ndtwin.md	17c622a7d29a92a4131a68c18b4abf3cd85fa151386464371dac37fe3fe4768c	runs/2026-09-19T085415Z_flowcache_solution_ndtwin/driver-controller-flowcache.log	5202d18296b5528531265caec7ffddb4e293ee5f28ae36cb3de2a85f0e9f87a9
++flowcache/solution	runs/2026-09-19T085831Z_flowcache_solution_ndtwin.md	98cc7001394299c7e93fe565d414bbb0ab33025b3b672a111100e5f51032040a	runs/2026-09-19T085831Z_flowcache_solution_ndtwin/driver-controller-flowcache.log	41a0cd7a36aa90aca9c6cbb826ae291927af29efcc2d27c58cffc4c0a2dd1409
++flowcache/solution	runs/2026-09-19T151139Z_flowcache_solution_ndtwin.md	fbf9a16245c13c7ceb3c7610b0e83603e95c946b3574a4c93ae1d68b6a8513f2	runs/2026-09-19T151139Z_flowcache_solution_ndtwin/driver-controller-flowcache.log	67b9ddcd43ac38c673362016394e5a47fb1243116a38675a3365e22e6a9e2fd6
++flowcache/solution	runs/2026-09-24T163045Z_flowcache_solution_ndtwin.md	57758eb818e733ad9504bdf3613208eeca93e81a4715f6a285ede31b34ea2d7e	runs/2026-09-24T163045Z_flowcache_solution_ndtwin/driver-controller-flowcache.log	4c26b3a7d24d73128538bd5f066714bc2e8e7d2cd3587f66b62de57b09a53820
++flowcache/solution	runs/2026-09-24T192103Z_flowcache_solution_ndtwin.md	2e62a6eab99b4ee510ebb5ad9398cb0ab560ecac587842b9d200dee1b28a4853	runs/2026-09-24T192103Z_flowcache_solution_ndtwin/driver-controller-flowcache.log	ac80080d26eab89108da14d3cc6c6faaecbebbc875da3a11c9a3868e4b17e83c
++flowcache/solution	runs/2026-09-26T061733Z_flowcache_solution_ndtwin.md	432e93853b63f1494ca7cf471a4e8c7549438e11dbcd852aad1522f6c02269df	runs/2026-09-26T061733Z_flowcache_solution_ndtwin/driver-controller-flowcache.log	d67bac9f04318c6e78afa7414659e3e98e157c364505469da0333c02e872861b
++flowcache/solution	runs/2026-09-26T155905Z_flowcache_solution_ndtwin.md	03667dc8b4c763083a21e9fd97c0436cb0f7a6823dfbcf045af8553a8e094ff7	runs/2026-09-26T155905Z_flowcache_solution_ndtwin/driver-controller-flowcache.log	0a71b1ab3706deadca8582f44c86319877f7a244ff7263dc1fcbde6a5c3a8909
++flowcache/solution	runs/2026-09-26T175515Z_flowcache_solution_ndtwin.md	363c4fa87419c9cfa2ac35aae59d67bff757ac6b82a1a9ab39f4ee979a7762a1	runs/2026-09-26T175515Z_flowcache_solution_ndtwin/driver-controller-flowcache.log	cd344014158c7a55f0623ad635f69460108d1e0b47cc7428c8ffa1dfb156660f
++flowcache/solution	runs/2026-09-27T081256Z_flowcache_solution_ndtwin.md	8f649f8bdf4e2d57bb38310d97e379a9005f51bc709713623aa8455a7550104e	runs/2026-09-27T081256Z_flowcache_solution_ndtwin/driver-controller-flowcache.log	8f941a86d21359a581889390c04a3313b375fab1d6f55903f24319494f913175
+diff --git a/p4_proxy/proxy_agent/main.py b/p4_proxy/proxy_agent/main.py
+index 8543ae10..20a9d6ef 100644
+--- a/p4_proxy/proxy_agent/main.py
++++ b/p4_proxy/proxy_agent/main.py
+@@ -1380,8 +1380,9 @@ HEARTBEAT_CENSUS = {
+     # heartbeat on the external arms as well; the external judge's F6 (09-28) made "all 20 under
+     # ndt" an EXPECTATION until H5 measures it (this constant is otherwise measured numbers), and
+     # its F3 made the punt blind spot on external control planes part of what is served. Its S1
+-    # (round 2): the 3 external arms were NOT measured with their programs loaded -- segment S never
+-    # started their controllers -- so what is served is a reading of the P4 source, and says so.
++    # (round 2): segment S never started the 3 external arms' controllers, so the census saw each
++    # program's default actions only (no entries) -- what is served about them is that, plus a
++    # reading of the P4 source (round 5 corrected how the census itself is described, below).
+     # Adam's 09-28 ruling: on an external control plane the heartbeat starts only after the offline
+     # drop check proves the program drops the frame; its answer on the 3 programs is served too.
+     # [Co-developed with claude code -- Adam] Round 5 (the round-4 review's S-3): "no pipeline was
+diff --git a/tests/shell/mutate_l1_shell_scoring.sh b/tests/shell/mutate_l1_shell_scoring.sh
+index 3328069c..22810664 100755
+--- a/tests/shell/mutate_l1_shell_scoring.sh
++++ b/tests/shell/mutate_l1_shell_scoring.sh
+@@ -389,6 +389,18 @@ s = s.replace("# NDTWIN_L1_NEEDS: bmv2-stock\n", "\n")
+ mutate "the drop check suite runs on with no stock simple_switch" "$HBDROP_REL" '
+ s = s.replace("          f\"checked\")\n    sys.exit(0)\n", "          f\"checked\")\n")
+ ' "D30 🔴 with no stock simple_switch the drop check's suite skips: rc 0, one SKIP line, nothing ran"
++mutate "the drop check suite ignores a declared measurement" "$HBDROP_REL" '
++s = s.replace("    if fields.get(\"measuring\", \"\").strip():", "    if False:")
++' "D33 🔴 a declared measurement, even under my own claim: it skips"
++mutate "the drop check suite ignores somebody else's claim" "$HBDROP_REL" '
++s = s.replace("    if owner and owner != me:", "    if False:")
++' "D32 🔴 somebody else's live claim: the suite skips before anything"
++mutate "the drop check suite skips under my own claim too" "$HBDROP_REL" '
++s = s.replace("    if owner and owner != me:", "    if owner:")
++' "D35   my own live claim and no measurement do not stop it"
++mutate "the drop check suite takes an expired claim for a live one" "$HBDROP_REL" '
++s = s.replace("        live = int(fields.get(\"expires\", \"0\")) > (time.time() if now is None else now)", "        live = True")
++' "D34 🔴 an expired claim holds nothing (the other skip answers)"
+ mutate "the lane never probes bmv2-stock" "$DRIVER_REL" '
+ s = s.replace("L1_NEED_MET[bmv2-stock]=0\n", "").replace("&& L1_NEED_MET[bmv2-stock]=1", "&& :")
+ ' "D18 the lane probes the needs it can excuse (ryu, py-plot, bmv2-stock)"
+diff --git a/tests/shell/mutate_live_p1_external_evidence.sh b/tests/shell/mutate_live_p1_external_evidence.sh
+index 59f0390f..c3c7c78d 100644
+--- a/tests/shell/mutate_live_p1_external_evidence.sh
++++ b/tests/shell/mutate_live_p1_external_evidence.sh
+@@ -24,9 +24,13 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ REPO="$(cd "$HERE/../.." && pwd)"
+ TOOL="$REPO/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_evidence.py"
+ IDENT="$REPO/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/code_identity.py"
++# [Co-developed with claude code -- Adam] (round 6) the frozen survey and its manifest sit beside the tool too
++SURVEY="$REPO/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_survey.py"
++MANIFEST="$REPO/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_survey_34.tsv"
+ TEST="$HERE/test_live_p1_external_evidence.sh"
+ [[ -r "$TOOL" && -r "$TEST" && -r "$IDENT" ]] || { echo "refused: the tool, code_identity.py or the suite is missing"; exit 2; }
+ ID_SUM="$(sha256sum "$IDENT" | cut -d' ' -f1)"
++SV_SUM="$(sha256sum "$SURVEY" "$MANIFEST" | cut -d' ' -f1 | paste -sd,)"
+ BK="$(mktemp -d "${TMPDIR:-/tmp}/live-p1-evidence-mutate-XXXXXX")"
+ trap 'rm -rf "$BK"' EXIT
+ BASE_SUM="$(sha256sum "$TOOL" | cut -d' ' -f1)"
+@@ -58,7 +62,7 @@ PY
+     then
+         printf '  SURVIVED %-62s (anchor not unique or identity)\n' "$label"; SURVIVED=$((SURVIVED+1)); return
+     fi
+-    cp "$IDENT" "$d/code_identity.py"
++    cp "$IDENT" "$d/code_identity.py"; cp "$SURVEY" "$MANIFEST" "$d/"
+     if ! python3 -m py_compile "$d/external_evidence.py" 2>/dev/null; then
+         printf '  SURVIVED %-62s (the mutant does not compile)\n' "$label"; SURVIVED=$((SURVIVED+1)); return
+     fi
+@@ -286,7 +290,7 @@ mutate '        if et == IPV4_ETHERTYPE and len(payload) < 34:' \
+ mutate '    if head[:len(want)] != want:' \
+     '    if False:' \
+     "E43: a sampler file from before 09-28 is not named" \
+-    "  said as a sampler from before round 5"
++    "  said as a sampler from before round 6"
+ mutate '"(before the exercise'"'"'s pipeline was loaded: not evidence about the program)")' \
+     '"")' \
+     "E44: N4's counters are not labelled" \
+@@ -388,27 +392,107 @@ mutate '        return float(read_text(path).split()[0])' \
+     "🔴 samples without 06's end beside them: rc 2"
+ # --- [Co-developed with claude code -- Adam] round 5: heard during the controller's lifetime (M-3),
+ # counters that are not numbers, the code identity (M-2) ---------------------------------------
+-mutate '    heard = heard_evidence(name, ev, sess, stretch)' \
+-    '    heard = {"pid": 0, "from": 0, "to": 0, "grew": {}}' \
+-    "E61: whether the session heard anything is not asked" \
+-    "🔴 a direction not heard while the controller ran: rc 3" "🔴 a controller the sampler never saw alive: rc 3" \
+-    "🔴 a round report that names no controller pid: rc 3" "🔴 every direction heard while the controller ran, said per direction"
+-mutate '    deaf = sorted(d for d in first if last[d] <= first[d])' \
++mutate '    heard = heard_evidence(name, ev, sess, stretch, samples)' \
++    '    heard = {"log": "-", "push_offset": 0, "from": 0, "to": 0, "undecided": None, "grew": {}}' \
++    "E61: whether the session heard anything in the controller's window is not asked" \
++    "🔴 a direction heard only before the push (+1 per 5 s, 1-s reads): rc 3" \
++    "🔴 a direction heard only after the controller's last write: rc 3" \
++    "🔴 a controller window of 5 s (under two periods): UNDECIDED, rc 2, not refused" \
++    "🔴 a session first running after the push: rc 3" "🔴 a sampler that never saw the controller's log: rc 2" \
++    "🔴 a log the sampler never saw reach its push: rc 2" "🔴 a controller log with no push and no entry: rc 2" \
++    "🔴 every direction heard in the controller's window, said per direction"
++mutate '    deaf = sorted(d for d in first if last[d] - first[d] < 1)' \
+     '    deaf = []' \
+     "E62: a direction that heard nothing is let through" \
+-    "🔴 a direction not heard while the controller ran: rc 3" "  naming the direction and the controller" "  and which one"
+-mutate '    if len(life) < 2:' \
+-    '    if len(life) < 0:' \
+-    "E63: a controller the sampler never saw has a lifetime anyway" \
+-    "🔴 a controller the sampler never saw alive: rc 3" "  said as no lifetime"
+-mutate '    "controller_pid": ctrl[0] if len(set(ctrl)) == 1 else None,' \
+-    '    "controller_pid": ctrl[0] if ctrl else 7001,' \
+-    "E64: a report with no controller pid is given one" \
+-    "🔴 a round report that names no controller pid: rc 3" "  said as no controller pid in the report"
+-mutate 'CTRL_PID = re.compile(r"^\s*controller pid (\d+) \(handed to the generic cell")' \
+-    'CTRL_PID = re.compile(r"^\s*controller pid (\d+) \(given to the generic cell")' \
+-    "E65: drive_exercise's controller line is not read" \
+-    "🔴 controls vs treatment, the same evidence, H5's samples: rc 0"
++    "🔴 a direction heard only before the push (+1 per 5 s, 1-s reads): rc 3" "  naming the direction and the window" \
++    "  and which one" "🔴 a direction heard only after the controller's last write: rc 3" "  said as not heard in the window"
++# --- [Co-developed with claude code -- Adam] round 6: the controller's own window (push to last write)
++mutate '    if t1 - t0 < MIN_WINDOW_S:' \
++    '    if t1 - t0 <= MIN_WINDOW_S:' \
++    "E63: a window of exactly two periods is UNDECIDED" \
++    "🔴 a window of exactly two periods is decided: rc 0" "  heard +2 in it"
++mutate 'MIN_WINDOW_S = 2 * PERIOD_S' \
++    'MIN_WINDOW_S = 0' \
++    "E64: no window is too short" \
++    "🔴 a controller window of 5 s (under two periods): UNDECIDED, rc 2, not refused" "  said as too short, with its length" \
++    "  the rest of the comparison still printed"
++mutate '    before = [s for s in stretch if s["wall"] <= t0]' \
++    '    before = stretch[:1]' \
++    "E65: heard counted from the session's start, not the push" \
++    "🔴 a direction heard only before the push (+1 per 5 s, 1-s reads): rc 3" "🔴 a session first running after the push: rc 3" \
++    "  said as the window not watched from its start"
++mutate '    upto = [s for s in stretch if s["wall"] <= t1]' \
++    '    upto = stretch' \
++    "E81: heard counted to the session's end, not the controller's last write" \
++    "🔴 a direction heard only after the controller's last write: rc 3"
++mutate '        if PUSH.match(line):
++            push = pos' \
++    '        if PUSH.match(line):
++            push = pos if push is None else push' \
++    "E82: the window opens at the first push, not the last" \
++    "🔴 the window opens at the LAST push (s2's at 70 s), not the first"
++mutate '    return push if push is not None else entry' \
++    '    return push' \
++    "E83: a log with no push line has no window" \
++    "🔴 no push line: the window opens at the first rule installed"
++mutate '    if push is None and entry is None:' \
++    '    if False:' \
++    "E84: a log with neither push nor entry is not said as such" \
++    "🔴 a controller log with no push and no entry: rc 2" "  said as a window with no start"
++mutate '    if not seen:
++        raise Unreadable' \
++    '    if False:
++        raise Unreadable' \
++    "E85: a log the sampler never saw is not said as such" \
++    "🔴 a sampler that never saw the controller's log: rc 2" "  said as such"
++mutate '    if opened is None:' \
++    '    if False:' \
++    "E86: a log never seen at its push is not said as such" \
++    "🔴 a log the sampler never saw reach its push: rc 2" "  said as no window start"
++mutate '    if not before:' \
++    '    if False:' \
++    "E87: a session not running at the push is a traceback" \
++    "🔴 a session first running after the push: rc 3" "  said as the window not watched from its start"
++mutate '        if hd["undecided"]:
++            undecided += 1' \
++    '        if hd["undecided"]:
++            pass' \
++    "E88: a too-short window is not counted UNDECIDED" \
++    "🔴 a controller window of 5 s (under two periods): UNDECIDED, rc 2, not refused" "  the rest of the comparison still printed"
++mutate '            if key and size.isdigit():' \
++    '            if False:' \
++    "E89: the ctrl_logs column is not read" \
++    "🔴 controls vs treatment, the same evidence, H5's samples: rc 0" \
++    "🔴 every direction heard in the controller's window, said per direction"
++mutate '    want = SAMPLER_COLUMNS' \
++    '    want = SAMPLER_COLUMNS[:12]' \
++    "E90: round 5's sampler file (no ctrl_logs) is taken" \
++    "🔴 samples from round 5's sampler (no ctrl_logs): rc 2"
++# --- the same program and compiler in every run; the identity before and after each run
++mutate '    programs_same([("control", a)] + [(f"control2 #{i + 1}", c) for i, c in enumerate(cs2)]
++                  + [("treatment", b)])' \
++    '    pass' \
++    "E91: the compiler and program are not compared across runs" \
++    "🔴 a treatment compiled by another p4c: rc 3" "  said as not the same compiler and program" \
++    "🔴 a control whose flowcache JSON differs: rc 3" "  naming the JSON" "🔴 a report with no p4c or JSON sha: rc 2" \
++    "  said as such"
++mutate '        if len({(p, j) for _l, p, j in seen}) != 1:' \
++    '        if len({j for _l, p, j in seen}) != 1:' \
++    "E92: another p4c is the same compiler" \
++    "🔴 a treatment compiled by another p4c: rc 3"
++mutate '        if len({(p, j) for _l, p, j in seen}) != 1:' \
++    '        if len({p for _l, p, j in seen}) != 1:' \
++    "E93: another compiled JSON is the same program" \
++    "🔴 a control whose flowcache JSON differs: rc 3" "  naming the JSON"
++mutate '            if not ev["p4c_sha"] or not ev["json_shas"]:' \
++    '            if False:' \
++    "E94: a report with no shas is refused, not unreadable" \
++    "🔴 a report with no p4c or JSON sha: rc 2"
++mutate '        why = code_identity.unchanged_reasons(pair[0], pair[1], os.path.basename(run))' \
++    '        why = []' \
++    "E95: the code may change while a run runs" \
++    "  said as the code changing during the run" \
++    "🔴 a treatment whose HEAD moved while it ran: rc 3" "  said as its HEAD before and after"
+ mutate '            counts[name] = int(v) if v.isdigit() else None' \
+     '            counts[name] = int(v) if v.isdigit() else 0' \
+     "E66: a counter the report did not carry reads as 0" \
+@@ -438,10 +522,11 @@ mutate '    if not b_sha:
+         raise Refused("no --b-sha:' \
+     "E71: no B named is let through to the identity check" \
+     "  said as a missing --b-sha"
+-mutate '            raise Refused(f"{run}: no 00_identity.txt -- which code it ran is not known "' \
+-    '            continue; (f"{run}: no 00_identity.txt -- which code it ran is not known "' \
++mutate '                raise Refused(f"{run}: no {name} -- which code it ran is not known "' \
++    '                continue; (f"{run}: no {name} -- which code it ran is not known "' \
+     "E72: a run with no identity is skipped" \
+-    "🔴 a control with no identity: rc 3" "  said as no identity"
++    "🔴 a control with no identity: rc 3" "  said as no identity" "🔴 a control with no identity after it ran: rc 3" \
++    "  said as no after-identity"
+ 
+ # the pre-registered split (S-9): decisive keys and invariants held exactly, descriptive ones noted
+ mutate '    ("p4runtime", "solution"): {"rc", "verdict", "counters_final"},' \
+@@ -470,7 +555,8 @@ mutate '    ("p4runtime", "solution"): {"s1 ingress 100 = pings + iperf datagram
+     '    ("p4runtime", "solution"): {"s1 ingress 100 = never",' \
+     "E78: the traffic sum that broke before is decisive" \
+     "🔴 s1 ingress 100 one short of pings + datagrams (as 6 of 12 earlier rounds): noted, rc 0"
+-mutate '          + (f"; {undecided} UNDECIDED: the controls disagree on a decisive check" if undecided else ""))' \
++mutate '          + (f"; {undecided} UNDECIDED: the controls disagree on a decisive check, or a controller'"'"'s "
++             f"window was too short to show the heartbeat heard" if undecided else ""))' \
+     '          + "")' \
+     "E79: the conclusion does not say UNDECIDED" \
+     "  and in the conclusion"
+@@ -498,7 +584,7 @@ PY
+     then
+         printf '  SURVIVED %-62s (anchor not unique or identity)\n' "$label"; SURVIVED=$((SURVIVED+1)); return
+     fi
+-    cp "$TOOL" "$d/external_evidence.py"
++    cp "$TOOL" "$d/external_evidence.py"; cp "$SURVEY" "$MANIFEST" "$d/"
+     if ! python3 -m py_compile "$d/code_identity.py" 2>/dev/null; then
+         printf '  SURVIVED %-62s (the mutant does not compile)\n' "$label"; SURVIVED=$((SURVIVED+1)); return
+     fi
+@@ -529,12 +615,12 @@ mutate_id '    if c.get("head") == t.get("head"):' \
+     '    if False:' \
+     "I4: T on the controls' very HEAD is not said as B not merged" \
+     "  said as B not merged"
+-mutate_id 'SAME = ("uncommitted", "kernel", "bmv2_fabric", "bmv2_stock", "helper", "venv")' \
+-    'SAME = ("kernel", "bmv2_fabric", "bmv2_stock", "helper", "venv")' \
++mutate_id 'SAME = ("uncommitted", "kernel", "bmv2_fabric", "bmv2_libs", "bmv2_stock", "helper", "venv",' \
++    'SAME = ("kernel", "bmv2_fabric", "bmv2_libs", "bmv2_stock", "helper", "venv",' \
+     "I5: other uncommitted files are the same code" \
+     "🔴 a treatment with another uncommitted file: rc 3" "  said as other uncommitted files"
+-mutate_id 'SAME = ("uncommitted", "kernel", "bmv2_fabric", "bmv2_stock", "helper", "venv")' \
+-    'SAME = ("uncommitted", "bmv2_fabric", "bmv2_stock", "helper", "venv")' \
++mutate_id 'SAME = ("uncommitted", "kernel", "bmv2_fabric", "bmv2_libs", "bmv2_stock", "helper", "venv",' \
++    'SAME = ("uncommitted", "bmv2_fabric", "bmv2_libs", "bmv2_stock", "helper", "venv",' \
+     "I6: another kernel binary is the same code" \
+     "🔴 a treatment on another kernel binary: rc 3" "  said as another kernel"
+ mutate_id '    if touched:' \
+@@ -545,6 +631,132 @@ mutate_id '    if changed_by_b is None and len(parents) == 2:' \
+     '    if False:' \
+     "I8: an identity that does not say what its merge changed is let through" \
+     "🔴 a treatment whose identity does not say what its merge changed: rc 3" "  said as unknown merge changes"
++# [Co-developed with claude code -- Adam] round 6: the tree, ~/tutorials, the fabric's libraries, the
++# code paths compared, and the run's identity before against after
++mutate_id '    if len(parents) == 2 and t.get("tree") != t.get("merge_tree"):' \
++    '    if False:' \
++    "I9: an amended merge is C plus B" \
++    "🔴 a treatment whose tree is not the two parents' merge: rc 3" "  said as an amended or hand-resolved merge" \
++    "🔴 an amended merge is refused"
++mutate_id '            r = subprocess.run(["git", "-C", repo, "merge-tree", "--write-tree", *ident["parents"]],' \
++    '            r = subprocess.run(["git", "-C", repo, "merge-tree", "--write-tree", ident["parents"][0], ident["parents"][0]],' \
++    "I10: the merge's tree is checked against the wrong merge" \
++    "🔴 a clean merge: its tree is what merging its parents gives"
++mutate_id '        "tutorials")' \
++    '        )' \
++    "I11: another ~/tutorials is the same code" \
++    "🔴 a treatment on another ~/tutorials: rc 3" "  said as tutorials" "🔴 a changed exercise file in ~/tutorials does" \
++    "🔴 an untracked file in an exercise (git's porcelain does not show it) changes it too"
++mutate_id 'SAME = ("uncommitted", "kernel", "bmv2_fabric", "bmv2_libs", "bmv2_stock", "helper", "venv",' \
++    'SAME = ("uncommitted", "kernel", "bmv2_fabric", "bmv2_stock", "helper", "venv",' \
++    "I12: other bmv2 libraries are the same code" \
++    "🔴 a treatment on other bmv2 shared libraries: rc 3" "  said as bmv2_libs" "🔴 a rebuilt bmv2 shared library changes the identity"
++mutate_id 'TUTORIALS_SKIP_DIRS = {"build", "logs", "pcaps", "__pycache__"}' \
++    'TUTORIALS_SKIP_DIRS = {"logs", "pcaps", "__pycache__"}' \
++    "I13: a round's build/ output changes the identity" \
++    "🔴 a round rewriting build/ under an exercise does not change the identity"
++mutate_id '    out["trees"] = {part: tree_digest(os.path.join(path, part)) for part in TUTORIALS_PARTS}' \
++    '    out["trees"] = {}' \
++    "I14: the exercises' files are not digested" \
++    "🔴 an untracked file in an exercise (git's porcelain does not show it) changes it too" "  in that exercise's tree digest"
++mutate_id '        out["head"] = git(path, "rev-parse", "HEAD").strip()' \
++    '        out["head"] = "?"' \
++    "I15: the tutorials' HEAD is not recorded" \
++    "  the tutorials' HEAD is recorded"
++mutate_id '        if ".so" in f and os.path.isfile(p) and not os.path.islink(p):' \
++    '        if ".so" in f and os.path.isfile(p):' \
++    "I16: a library's symlinks are digested as libraries" \
++    "  the fabric's libraries: the one shared object, its symlink not counted"
++mutate_id '            h.update(f"{f}\0{sha256_of(p)}\n".encode())' \
++    '            h.update(f"{f}\n".encode())' \
++    "I17: a library is known by its name only" \
++    "🔴 a rebuilt bmv2 shared library changes the identity"
++mutate_id 'NOT_CODE = (re.compile(r"^doc/.*\.md$"), re.compile(r"^doc/audit/.*\.tsv$"))' \
++    'NOT_CODE = ()' \
++    "I18: docs and audit tables are compared as code" \
++    "🔴 uncommitted: a code file and an audit .json are recorded, a doc .md and an audit .tsv are not"
++mutate_id 'NOT_CODE = (re.compile(r"^doc/.*\.md$"), re.compile(r"^doc/audit/.*\.tsv$"))' \
++    'NOT_CODE = (re.compile(r"^doc/"),)' \
++    "I19: everything under doc/ is left out" \
++    "🔴 uncommitted: a code file and an audit .json are recorded, a doc .md and an audit .tsv are not"
++mutate_id '    for key in ("head", "parents", "tree"):' \
++    '    for key in ():' \
++    "I20: a HEAD that moved during a run goes unnoticed" \
++    "🔴 a treatment whose HEAD moved while it ran: rc 3" "  said as its HEAD before and after"
++
++# mutate_sv <old> <new> <label> <check>... -- the same, on the copy of external_survey.py beside the
++# (unchanged) tool. [Co-developed with claude code -- Adam]
++mutate_sv() {
++    local old="$1" new="$2" label="$3" d want out missing=()
++    shift 3
++    d="$BK/$(printf '%s' "$label" | cut -d: -f1)"; mkdir -p "$d"
++    # (the mutated file first: tests/shell/check_gate_anchors.py takes the first path a function
++    # names as the file its anchors are in)
++    if ! python3 - "$SURVEY" "$d/external_survey.py" "$old" "$new" <<'PY'
++import sys
++src, dst, a, b = sys.argv[1:5]
++s = open(src).read()
++if a == b or s.count(a) != 1:
++    print(f"ANCHOR:{s.count(a)}"); sys.exit(1)
++open(dst, "w").write(s.replace(a, b))
++PY
++    then
++        printf '  SURVIVED %-62s (anchor not unique or identity)\n' "$label"; SURVIVED=$((SURVIVED+1)); return
++    fi
++    cp "$TOOL" "$d/external_evidence.py"; cp "$IDENT" "$MANIFEST" "$d/"
++    if ! python3 -m py_compile "$d/external_survey.py" 2>/dev/null; then
++        printf '  SURVIVED %-62s (the mutant does not compile)\n' "$label"; SURVIVED=$((SURVIVED+1)); return
++    fi
++    out="$(run_test "$d/external_evidence.py")"
++    printf '%s\n' "$out" > "$d/suite.out"
++    for want in "$@"; do
++        /usr/bin/grep -qF -- "  FAILED   $want" <<<"$out" || missing+=("$want")
++    done
++    if (( ${#missing[@]} == 0 )); then
++        printf '  caught   %-62s (%s)\n' "$label" "$(tail -1 <<<"$out")"; CAUGHT=$((CAUGHT+1))
++    else
++        printf '  SURVIVED %-62s still green: %s\n' "$label" "${missing[0]}"; SURVIVED=$((SURVIVED+1))
++    fi
++}
++mutate_sv '            if got != r[kind + "_sha256"]:' \
++    '            if False:' \
++    "S1: a round whose bytes changed is surveyed anyway" \
++    "🔴 a round whose controller log changed since it was frozen: rc 3" "  said as not what the manifest froze"
++mutate_sv '            except OSError as exc:
++                refused.append' \
++    '            except OSError as exc:
++                continue
++                refused.append' \
++    "S2: a frozen round that is gone is skipped" \
++    "🔴 a frozen round that is gone: rc 3"
++mutate_sv '        if trace:
++            refused.append' \
++    '        if False:
++            refused.append' \
++    "S3: a round with the heartbeat is surveyed as a control" \
++    "🔴 a round that had the heartbeat: rc 3" "  said as not a round without it"
++mutate_sv '    if not lines or lines[0].split("\t") != COLUMNS:' \
++    '    if not lines:' \
++    "S4: any first line is a manifest's header" \
++    "  a manifest that is not one: rc 2"
++mutate_sv '    print(f"{len(rows)} rounds, every report and controller log as frozen, none with the heartbeat")' \
++    '    print(f"{len(rows)} rounds")' \
++    "S5: the survey does not say what it checked" \
++    "  said as such"
++mutate_sv '            cnt = collections.Counter(value(e[k]) for e in evs)' \
++    '            cnt = collections.Counter(value(e[k]) for e in evs[:0])' \
++    "S6: the counts are of nothing" \
++    "  with each field's count of values"
++mutate_sv '    return 0
++
++
++def main(argv):' \
++    '    return 1
++
++
++def main(argv):' \
++    "S7: a survey that found everything as frozen exits 1" \
++    "🔴 the frozen rounds as frozen, none with the heartbeat: rc 0"
+ 
+ echo
+ NOW_SUM="$(sha256sum "$TOOL" | cut -d' ' -f1)"
+@@ -554,7 +766,10 @@ fi
+ if [[ "$(sha256sum "$IDENT" | cut -d' ' -f1)" != "$ID_SUM" ]]; then
+     echo "🔴 code_identity.py CHANGED during the gate"; exit 3
+ fi
+-echo "source byte-identical: yes  external_evidence.py  sha256 $BASE_SUM; code_identity.py sha256 $ID_SUM"
++if [[ "$(sha256sum "$SURVEY" "$MANIFEST" | cut -d' ' -f1 | paste -sd,)" != "$SV_SUM" ]]; then
++    echo "🔴 external_survey.py or its manifest CHANGED during the gate"; exit 3
++fi
++echo "source byte-identical: yes  external_evidence.py  sha256 $BASE_SUM; code_identity.py sha256 $ID_SUM; survey and manifest $SV_SUM"
+ echo "mutation gate: $((CAUGHT+SURVIVED)) mutations, $SURVIVED survived"
+ # [Co-developed with claude code -- Adam] (09-28) every check, by position, red under some mutation
+ COV="$(python3 - "$BK" <<'COVERAGE'
+diff --git a/tests/shell/mutate_live_p1_thirteen.sh b/tests/shell/mutate_live_p1_thirteen.sh
+index 8d6ed40a..ff8cb6f5 100755
+--- a/tests/shell/mutate_live_p1_thirteen.sh
++++ b/tests/shell/mutate_live_p1_thirteen.sh
+@@ -354,13 +354,22 @@ check_fires "M12: 06 records no venv fingerprint" m12 \
+             "🔴 the raw records the venv fingerprint of both interpreters"
+ # [Co-developed with claude code -- Adam] M13 (the round-4 review's M-2): 06 records no code identity.
+ cat > "$A/m13.old" <<'EOF'
+-if CTRL_PY="$VENV_PY" python3 "$HERE/code_identity.py" record "$REPO" "$RUN/00_identity.txt" > /dev/null 2>&1; then
++record_identity before
+ EOF
+ cat > "$A/m13.new" <<'EOF'
+-if true; then
++:
++EOF
++check_fires "M13: 06 records no code identity as it starts" m13 \
++            "🔴 the raw records the code identity as 06 starts"
++# [Co-developed with claude code -- Adam] M14 (round 6): nor as it ends.
++cat > "$A/m14.old" <<'EOF'
++record_identity after
++EOF
++cat > "$A/m14.new" <<'EOF'
++:
+ EOF
+-check_fires "M13: 06 records no code identity" m13 \
+-            "🔴 the raw records the code identity"
++check_fires "M14: 06 records no code identity as it ends" m14 \
++            "🔴 and again as it ends, after the last round wrote its table row"
+ 
+ check_control "C1: a comment above expected_rc" c1
+ 
+diff --git a/tests/shell/mutate_p4_heartbeat_w.sh b/tests/shell/mutate_p4_heartbeat_w.sh
+index f8d2ef73..772ada90 100644
+--- a/tests/shell/mutate_p4_heartbeat_w.sh
++++ b/tests/shell/mutate_p4_heartbeat_w.sh
+@@ -1857,6 +1857,24 @@ m=$(lmutant l85 "$REPO/$LIVE_DIR_REL/code_identity.py" \
+     '        ident["parents"] = []')
+ lreport "L85: the identity records no parents" "$m" \
+         "  identity gate, the good case"
++# [Co-developed with claude code -- Adam] Round 6 (the round-5 re-review's M-3): the sampler's ctrl_logs
++# column, which places the controller's pipeline push among the samples. L86: no sizes; L87: rounds
++# from before the sampler started are listed; L88: the runs directory is not handed to it.
++m=$(lmutant l86 "$LIVE08" \
++    '                out.append("%s/%s:%d" % (r.name, n, os.stat(os.path.join(r.path, n)).st_size))' \
++    '                out.append("%s/%s:0" % (r.name, n))')
++lreport "L86: the sampler records no controller log sizes" "$m" \
++        "🔴 H5 sampler ctrl_logs column"
++m=$(lmutant l87 "$LIVE08" \
++    '        rounds = sorted((e for e in os.scandir(runs) if e.is_dir() and e.stat().st_mtime >= began - 2),' \
++    '        rounds = sorted((e for e in os.scandir(runs) if e.is_dir()),')
++lreport "L87: the sampler lists rounds from before it started" "$m" \
++        "🔴 H5 sampler ctrl_logs column"
++m=$(lmutant l88 "$LIVE08" \
++    '"${SAMPLER_INTERVAL_S:-1.0}" "${SAMPLER_RUNS_DIR:-$LIVE_DIR/../runs}" \' \
++    '"${SAMPLER_INTERVAL_S:-1.0}" \')
++lreport "L88: the sampler is not told where the rounds are" "$m" \
++        "🔴 H5 sampler ctrl_logs column"
+ m=$(lmutant l47 "$LIVE08" \
+     '    if d <= b:
+         return f"OK detection {d:.3f} s, within the strict {b:g} s"' \
+diff --git a/tests/shell/test_heartbeat_drop_check.py b/tests/shell/test_heartbeat_drop_check.py
+index 57d1b799..34a0d398 100644
+--- a/tests/shell/test_heartbeat_drop_check.py
++++ b/tests/shell/test_heartbeat_drop_check.py
+@@ -104,6 +104,46 @@ def section(title):
+     print(f"\n{title}")
+ 
+ 
++def lab_claim_says_wait(path, me, now=None):
++    """[Co-developed with claude code -- Adam] The orchestrator's round-6 ruling on S-8: this suite
++    starts throwaway switches on whatever machine runs it, and on the lab it must not add any while
++    somebody else holds the lab or a measurement is declared. The reason to skip, or None. The claim
++    file is ndt's (`owner=`, `expires=` in unix seconds, `measuring=`); one that is absent, expired
++    or unreadable does not hold the lab -- as ndt itself reads it ("malformed (no usable expires=)
++    -- treated as free")."""
++    try:
++        with open(path) as fh:
++            fields = dict(line.rstrip("\n").split("=", 1) for line in fh if "=" in line)
++    except OSError:
++        return None
++    try:
++        live = int(fields.get("expires", "0")) > (time.time() if now is None else now)
++    except ValueError:
++        return None
++    if not live:
++        return None
++    if fields.get("measuring", "").strip():
++        return f"a measurement is declared on the lab ({fields['measuring'].strip()[:80]})"
++    owner = fields.get("owner", "").strip()
++    if owner and owner != me:
++        return f"the lab is claimed by {owner}"
++    return None
++
++
++def lab_claim_file():
++    """ndt's own answer to "which tree holds the lab" (lab_kernel_dir), and its claim file there."""
++    r = subprocess.run(["bash", "-c", 'source "$1" >/dev/null 2>&1; lab_kernel_dir', "_",
++                        os.path.join(REPO, "tools/test_workflow/ndt")], capture_output=True, text=True)
++    return os.path.join(r.stdout.strip() or "/nonexistent", ".test_run", "lab.claim")
++
++
++LAB_CLAIM = os.environ.get("NDT_LAB_CLAIM_FILE") or lab_claim_file()
++_wait = lab_claim_says_wait(LAB_CLAIM, os.environ.get("NDT_OWNER", ""))
++if _wait:
++    print(f"SKIP: {_wait} ({LAB_CLAIM}) -- this suite starts throwaway switches and adds none while "
++          f"the lab is held or measured; nothing was checked")
++    sys.exit(0)
++# (the claim first: its cells in tests/shell/test_l1_shell_scoring.sh tell the two skips apart)
+ STOCK = os.environ.get("NDT_HB_CHECK_BMV2") or "/usr/local/bin/simple_switch"
+ if not (os.path.isfile(STOCK) and os.access(STOCK, os.X_OK)):
+     print(f"SKIP: no stock simple_switch at {STOCK} -- every cell drives one for real; nothing was "
+@@ -686,7 +726,9 @@ try:
+     words = out.split()
+     orphan = int(words[0]) if words and words[0].isdigit() else None
+     running = len(words) > 1 and words[1] == "True"
+-    deadline = time.monotonic() + 3
++    # [Co-developed with claude code -- Adam] 10 s, not 3 (round 5's re-review): a SIGKILLed process
++    # under MemoryHigh throttling can take seconds to go -- the likeliest cause of round 4's D10 crash.
++    deadline = time.monotonic() + 10
+     while orphan and alive(orphan) and time.monotonic() < deadline:
+         time.sleep(0.05)
+     survived = bool(orphan) and alive(orphan)
+diff --git a/tests/shell/test_l1_shell_scoring.sh b/tests/shell/test_l1_shell_scoring.sh
+index a425f06d..b3651865 100755
+--- a/tests/shell/test_l1_shell_scoring.sh
++++ b/tests/shell/test_l1_shell_scoring.sh
+@@ -342,7 +342,7 @@ check "D29 🔴 the drop check's suite declares the stock bmv2 it needs" "bmv2-s
+ # ...and, run with no stock simple_switch, it skips the way the lane can excuse: rc 0, one SKIP line,
+ # nothing ran -- DECLARED-SKIP on a hosted runner, FAIL-SKIP on the lab (which must have one).
+ HBT="$(mktemp -d)"
+-NDT_HB_CHECK_BMV2="$HBT/no-such-simple_switch" python3 "$SHELL_TESTS_DIR/test_heartbeat_drop_check.py" > "$HBT/skip.log" 2>&1
++NDT_LAB_CLAIM_FILE="$HBT/no-claim" NDT_HB_CHECK_BMV2="$HBT/no-such-simple_switch" python3 "$SHELL_TESTS_DIR/test_heartbeat_drop_check.py" > "$HBT/skip.log" 2>&1
+ hb_rc=$?
+ read -r hb_ran hb_failed <<<"$(shell_summary "$HBT/skip.log")"
+ hb_sk="$(grep -cE '^[[:space:]]*SKIP:' "$HBT/skip.log")"
+@@ -351,6 +351,24 @@ check "D30 🔴 with no stock simple_switch the drop check's suite skips: rc 0,
+ hb_excuse="$(L1_NEED_MET=([bmv2-stock]=0); l1_skip_excuse "$SHELL_TESTS_DIR/test_heartbeat_drop_check.py" "$HBT/skip.log" sh "$hb_ran" "$hb_sk")"
+ check "D31 🔴 ...which the lane scores DECLARED-SKIP on a hosted runner and FAIL-SKIP on the lab" "DECLARED-SKIP FAIL-SKIP" \
+       "$(l1_lane_verdict "$hb_rc" "$hb_ran" "$hb_failed" "$hb_sk" "$hb_excuse" 1) $(l1_lane_verdict "$hb_rc" "$hb_ran" "$hb_failed" "$hb_sk" "$hb_excuse" 0)"
++# [Co-developed with claude code -- Adam] (the orchestrator's round-6 ruling on S-8) on the lab the suite adds
++# no throwaway switch while somebody else holds the lab or a measurement is declared: it skips, before
++# anything. Run with no simple_switch as well, so a claim rule that fails still starts no switch -- and so
++# a claim that does NOT hold the lab is told by the OTHER skip.
++hb_claim() {   # hb_claim <owner> <expires> <measuring> <me> -> the suite's first line
++    printf 'owner=%s\nexpires=%s\nnote=x\nexclusive_cpu=no\nmeasuring=%s\n' "$1" "$2" "$3" > "$HBT/claim"
++    NDT_OWNER="$4" NDT_LAB_CLAIM_FILE="$HBT/claim" NDT_HB_CHECK_BMV2="$HBT/no-such-simple_switch" \
++        python3 "$SHELL_TESTS_DIR/test_heartbeat_drop_check.py" 2>&1 | head -1 | cut -c1-60
++}
++hb_now="$(date +%s)"
++check "D32 🔴 somebody else's live claim: the suite skips before anything" "SKIP: the lab is claimed by other (" \
++      "$(hb_claim other $((hb_now + 600)) "" me | cut -c1-35)"
++check "D33 🔴 a declared measurement, even under my own claim: it skips" "SKIP: a measurement is declared on the lab" \
++      "$(hb_claim me $((hb_now + 600)) "H5 run" me | cut -c1-42)"
++check "D34 🔴 an expired claim holds nothing (the other skip answers)" "SKIP: no stock simple_switch" \
++      "$(hb_claim other $((hb_now - 600)) "old" me | cut -c1-28)"
++check "D35   my own live claim and no measurement do not stop it" "SKIP: no stock simple_switch" \
++      "$(hb_claim me $((hb_now + 600)) "" me | cut -c1-28)"
+ rm -rf "$HBT"
+ 
+ echo
+diff --git a/tests/shell/test_live_p1_external_evidence.sh b/tests/shell/test_live_p1_external_evidence.sh
+index 219de32c..c6ef7f29 100644
+--- a/tests/shell/test_live_p1_external_evidence.sh
++++ b/tests/shell/test_live_p1_external_evidence.sh
+@@ -89,18 +89,23 @@ for i, (ex, which, key) in enumerate(order):
+         tbl.append(f"{ex}\t{which}\t{verdicts[key]}\t{paths[key]}")
+ open(os.path.join(run, "00_table.tsv"), "w").write("\n".join(tbl) + "\n")
+ hb = role == "treatment"
+-# [Co-developed with claude code -- Adam] 00_identity.txt (live-p1/code_identity.py): the controls on
+-# C, the treatment on C with B merged (the round-4 review's M-2). Options perturb one fact each.
++# [Co-developed with claude code -- Adam] 00_identity.before.txt and .after.txt (live-p1/code_identity.py,
++# format 2): the controls on C, the treatment on C with B merged (the round-4 review's M-2), its tree
++# the one merging its parents gives. Options perturb one fact each.
+ C, B, T = "c" * 40, "b" * 40, "d" * 40
+-ident = {"format": 1, "repo": "/r", "recorded_at": T0, "head": o.get("id_head", C), "parents": ["a" * 40],
++ident = {"format": 2, "repo": "/r", "recorded_at": T0, "head": o.get("id_head", C), "parents": ["a" * 40],
++         "tree": "e" * 40, "bmv2_libs": "/usr/local/bmv2-fast/lib: 9 shared objects sha256 " + o.get("id_libs", "11"),
++         "tutorials": {"path": "/h/tutorials", "head": o.get("id_tut", "7" * 40), "uncommitted": [],
++                       "trees": {"exercises/p4runtime": "12 file(s) sha256 aa", "exercises/flowcache": "9 file(s) sha256 bb",
++                                 "utils": "20 file(s) sha256 cc"}},
+          "uncommitted": [[" M", "p4_proxy/mininet/host_count_override", "11"]],
+          "kernel": ["/r/build/bin/ndtwin_kernel", o.get("id_kernel", "kk")],
+          "bmv2_fabric": ["/usr/local/bmv2-fast/bin/simple_switch_grpc", "ff"],
+          "bmv2_stock": ["/usr/local/bin/simple_switch", "ss"], "helper": ["/usr/local/sbin/ndtwin-lab", "hh"],
+          "venv": {"/r/p4_proxy/venv/bin/python": "distributions 28 sha256 d5fc", "/x/python": "distributions 39 sha256 69c4"}}
+ if role == "treatment" or o.get("id_role") == "treatment":
+-    ident.update(head=T, parents=[o.get("id_parent0", C), o.get("id_parent1", B)],
+-                 merge_changes=["tools/test_workflow/ndt"])
++    ident.update(head=T, parents=[o.get("id_parent0", C), o.get("id_parent1", B)], tree="f" * 40,
++                 merge_tree=o.get("id_merge_tree", "f" * 40), merge_changes=["tools/test_workflow/ndt"])
+     if o.get("id_nomerge") == "1":
+         ident.update(head=C, parents=["a" * 40]); ident.pop("merge_changes")
+     if o.get("id_single") == "1":
+@@ -111,14 +116,32 @@ if role == "treatment" or o.get("id_role") == "treatment":
+         ident["merge_changes"].append("p4_proxy/mininet/host_count_override")
+ if o.get("id_uncommitted") == "1":
+     ident["uncommitted"].append([" M", "README.md", "22"])
++after = json.loads(json.dumps(ident))
++if o.get("id_drift") == "kernel":        # the kernel rebuilt while the run ran
++    after["kernel"] = [after["kernel"][0], "k9"]
++if o.get("id_drift") == "head":          # a commit landed in the checkout while the run ran
++    after["head"] = "9" * 40
+ if o.get("id") != "none":
+-    open(os.path.join(run, "00_identity.txt"), "w").write(json.dumps(ident, indent=2) + "\n")
++    open(os.path.join(run, "00_identity.before.txt"), "w").write(json.dumps(ident, indent=2) + "\n")
++    if o.get("id_after") != "none":
++        open(os.path.join(run, "00_identity.after.txt"), "w").write(json.dumps(after, indent=2) + "\n")
+ ctl_pid = {"p4rt_skel": 7001, "p4rt_sol": 7002, "fc_sol": 7003}
+ for i, (ex, which, key) in enumerate(order):
+     if key in ("basic", "fc_skel"):
+         continue
+     d = paths[key][:-3]; os.makedirs(d)
+-    md = [f"# report {ex}/{which}", "", "### 3. N3  ndt up p4 --app", "```"]
++    md = [f"# report {ex}/{which}", ""]
++    # [Co-developed with claude code -- Adam] (round 6) drive_exercise's toolchain row and compiled
++    # program table, as in the real reports
++    if o.get("noshas") != key:
++        prog = "advanced_tunnel" if ex == "p4runtime" else "flowcache"
++        js = o.get("json_" + key, {"p4rt_skel": "ef1adeee9e769f26", "p4rt_sol": "ef1adeee9e769f26", "fc_sol": "6156e996ba5c3ec4"}[key])
++        md += ["| 執行檔 | sha256[:16] | --version |", "|---|---|---|",
++               f"| `/usr/local/bin/p4c-bm2-ss` | `{o.get('p4c', '226f3f66df515c9e')}` | Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release) |", "",
++               "| 產物 | bytes | sha256[:16] |", "|---|---|---|",
++               f"| `/h/tutorials/exercises/{ex}/build/{prog}.json` | 27957 | `{js}` |",
++               f"| `/h/tutorials/exercises/{ex}/build/{prog}.p4.p4info.txtpb` | 2285 | `4d986039017abeef` |", ""]
++    md += ["### 3. N3  ndt up p4 --app", "```"]
+     if o.get("hb_up", "1" if hb else "0") == "1":
+         md.append("  ok  heartbeat running on the inter-switch veths, detect only: a cut link is told to the twin")
+     md += ["```", "", "### 4. N4  GET /p4/switch_state", "```json"]
+@@ -138,14 +161,17 @@ for i, (ex, which, key) in enumerate(order):
+     md.append("```")
+     md += ["", "### 7. P1  h1 ping h2 with the controller running", "```", "$ ping -c 5 -W 2 10.0.2.2", "```",
+            "```", "5 packets transmitted, 5 received, 0% packet loss, time 4005ms", "```", ""]
+-    if o.get("noctlpid") != key:
++    if True:
+         md += ["## 8. 完整 transcript", "", "### stdout", "```",
+                f"   controller pid {ctl_pid[key]} (handed to the generic cell; stopped after it)", "```", ""]
+     if o.get("report_is_dir") == key:
+         os.makedirs(paths[key])
+     else:
+         open(paths[key], "w").write("\n".join(md) + "\n")
+-    log = ["Installed P4 Program using SetForwardingPipelineConfig on s1",
++    # [Co-developed with claude code -- Adam] (round 6) the adapter's header first, as in the real logs:
++    # the sampler's ctrl_logs sizes are read against where the pipeline push ends
++    log = ["[adapter] tutorials utils : /h/tutorials/utils", "[adapter] grpc base       : 30050 (device id = dpid)",
++           "Installed P4 Program using SetForwardingPipelineConfig on s1",
+            "Installed P4 Program using SetForwardingPipelineConfig on s2"]
+     if key.startswith("p4rt"):
+         log += ["Installed ingress tunnel rule on s1", "Installed egress tunnel rule on s2"]
+@@ -198,6 +224,10 @@ for i, (ex, which, key) in enumerate(order):
+         name_log = "driver-controller-flowcache.log"
+     if o.get("nolog") == key:
+         continue
++    if o.get("nopush") == key:        # no pipeline push line: the window opens at the first entry
++        log = [x for x in log if "SetForwardingPipelineConfig" not in x]
++    if o.get("bare") == key:          # neither a push nor a rule nor a cache entry
++        log = [x for x in log if not x.startswith(("Installed ", "For switch "))]
+     data = ("\n".join(log) + "\n").encode()
+     if o.get("nonutf8") == key:
+         data += b"\xff\xfe not utf-8\n"
+@@ -211,43 +241,87 @@ if o.get("venv"):
+         "protobuf 5.29.6 api_implementation upb\ngrpcio 1.82.1\ndistributions 28 sha256 d5fc\n\n")
+ MK
+ # ms <name> [key=value ...] -- H5's samples for a treatment made by mk (sessions 0a0a, 0b0b, 0c0c): a read every
+-# 2 s through 06 (arms 300 s apart from T0; 06 ends at T0+1500), each external arm's session running
++# second through 06 (arms 300 s apart from T0; 06 ends at T0+1500), each external arm's session running
+ # fresh from 30 s to 200 s into its arm, stopped by SIGTERM after; 50_t06_end.txt beside it.
++# [Co-developed with claude code -- Adam] (round 6) at the daemon's real cadence: each direction's heard
++# grows by one every 5 s (one round), and the sampler reads every second. The ctrl_logs column carries
++# the sizes of the treatment's own controller logs (mk's run, run=, default t1): the adapter's header
++# from 5 s before the push, the whole log from push_at (default 45 s) into the arm; each log is last
++# written at 150 s (mk's ctl_last), so the controller's window is 45-150 s.
+ cat > "$FIX/ms.py" <<'MS'
+-import os, sys
++import glob, os, sys
+ fix, name = sys.argv[1], sys.argv[2]
+ o = dict(a.split("=", 1) for a in sys.argv[3:])
+ T0 = 1790000000
+ d = os.path.join(fix, name); os.makedirs(d)
+ arms = {2: "0a0a", 3: "0b0b", 4: "0c0c"}
+-head = "wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches\twritten_wall\tstop_reason\tmisdelivered\tforeign_frames\theard\tcontrollers"
++which = {2: "p4runtime_skeleton", 3: "p4runtime_solution", 4: "flowcache_solution"}
++head = "wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches\twritten_wall\tstop_reason\tmisdelivered\tforeign_frames\theard\tcontrollers\tctrl_logs"
+ if o.get("old_header") == "1":
+     head = "wall\tstatus\tsession\tpid\tforwarded_to_hosts\tforwarded_between_switches"
+ if o.get("old_header") == "2":
+     head = "\t".join(head.split("\t")[:10])
+-# [Co-developed with claude code -- Adam] heard per direction (2 of them, one more per read) and the
+-# arm's controller pid (7001..7003, as mk's reports say) alive 40-160 s into its arm.
++if o.get("old_header") == "3":
++    head = "\t".join(head.split("\t")[:12])
++# each external arm's controller log: its key as the sampler names it, and the sizes it passes through
++logs = {}
++for i, w in which.items():
++    found = glob.glob(os.path.join(fix, o.get("run", "t1") + "-rounds", f"*_{w}_ndtwin", "driver-controller-*.log"))
++    if len(found) != 1:
++        sys.exit(f"ms: {len(found)} controller log(s) for {w} in {o.get('run', 't1')}")
++    data = open(found[0], "rb").read()
++    lines = data.splitlines(keepends=True)
++    header = sum(len(x) for x in lines if x.startswith(b"[adapter]"))
++    first = next((sum(len(x) for x in lines[:n + 1]) for n, x in enumerate(lines) if b"SetForwardingPipelineConfig" in x), header)
++    key = os.path.basename(os.path.dirname(found[0])) + "/" + os.path.basename(found[0])
++    logs[i] = (key, header, first, len(data))
++def ctrl_logs(t):
++    out = []
++    for i in sorted(logs):
++        key, header, first, full = logs[i]
++        k = t - T0 - 300 * i
++        target = o.get("arm") == arms[i]
++        push = int(o["push_at"]) if target and "push_at" in o else 45
++        mid = int(o["mid_at"]) if target and "mid_at" in o else None
++        if k < min(push, mid if mid is not None else push) - 5:
++            continue
++        size = header
++        if mid is not None and k >= mid:
++            size = first
++        if k >= push:
++            size = full
++        if target and o.get("short_sizes") == "1":
++            size = header
++        out.append(f"{key}:{size}")
++    if o.get("nolog_sizes") == "1":
++        return "-"
++    return ",".join(out) or "-"
++# heard per direction (2 of them, +1 per 5 s round from 30 s into the arm) and the arm's controller pid
++# (7001..7003) alive 40-160 s into its arm -- the pids are context now, not the window
+ ctl_pid = {"0a0a": 7001, "0b0b": 7002, "0c0c": 7003}
+ def heard(sess, k, target):
+-    a, b = k - 30, k - 30
+-    if target and o.get("deaf") == "1" and k >= 40:
+-        b = 10
++    a = b = (k - 30) // 5
++    if target and "deaf_from" in o:            # the second direction heard nothing from deaf_from on
++        b = (min(k, int(o["deaf_from"])) - 30) // 5
++    if target and "late_from" in o:            # ... and nothing until late_from
++        b = 0 if k < int(o["late_from"]) else (k - int(o["late_from"])) // 5 + 1
+     if target and o.get("heard_bad") == "1" and k == 100:
+         return "1:2>2:2=x"
+     return f"1:2>2:2={a},2:2>1:2={b}"
+ def ctls(sess, k, target):
+-    if sess is None or not 40 <= k <= 160 or (target and o.get("noctl") == "1"):
++    if sess is None or not 40 <= k <= 160:
+         return "-"
+     return str(ctl_pid[sess])
+-def tail(sess, k, target, running):
+-    return "\t" + (heard(sess, k, target) if running else "-") + "\t" + ctls(sess, k, target)
++def tail(t, sess, k, target, running):
++    return "\t" + (heard(sess, k, target) if running else "-") + "\t" + ctls(sess, k, target) + "\t" + ctrl_logs(t)
+ rows = [head]
+-for t in range(T0, T0 + 1500, 2):
++for t in range(T0, T0 + 1500):
+     i, k = divmod(t - T0, 300)
+     sess = arms.get(i)
+     target = o.get("arm") == sess
+-    if sess is None or k < 30:
+-        rows.append(f"{t}\tabsent\t-\t-\t0\t0\t-\t\t0\t0" + tail(sess, k, target, False)); continue
++    start_k = int(o["start_at"]) if target and "start_at" in o else 30
++    if sess is None or k < start_k:
++        rows.append(f"{t}\tabsent\t-\t-\t0\t0\t-\t\t0\t0" + tail(t, sess, k, target, False)); continue
+     stop_k = int(o["stop_at"]) if target and "stop_at" in o else 200
+     if target and "gap" in o and int(o["gap"]) <= k < int(o["gap"]) + 30:
+         continue
+@@ -258,11 +332,11 @@ for t in range(T0, T0 + 1500, 2):
+         hosts = o.get("hosts", "0") if target and k == 100 else "0"
+         between = o.get("between", "0") if target and k == 100 else "0"
+         mis = "None" if target and o.get("counts_none") == "1" and k == 100 else "0"
+-        rows.append(f"{t}\trunning\t{sess}\t4242\t{hosts}\t{between}\t{written}\t\t{mis}\t0" + tail(sess, k, target, True))
++        rows.append(f"{t}\trunning\t{sess}\t4242\t{hosts}\t{between}\t{written}\t\t{mis}\t0" + tail(t, sess, k, target, True))
+         if target and o.get("second") == "1" and k == 120:
+-            rows.append(f"{t}.5\trunning\t0d0d\t4343\t0\t0\t{t}\t\t0\t0\t1:2>2:2=1\t-")
++            rows.append(f"{t}.5\trunning\t0d0d\t4343\t0\t0\t{t}\t\t0\t0\t1:2>2:2=1\t-\t-")
+     else:
+-        rows.append(f"{t}\tstopped\t{sess}\t-\t0\t0\t{T0 + 300 * i + stop_k}\tSIGTERM\t0\t0" + tail(sess, k, target, False))
++        rows.append(f"{t}\tstopped\t{sess}\t-\t0\t0\t{T0 + 300 * i + stop_k}\tSIGTERM\t0\t0" + tail(t, sess, k, target, False))
+ open(os.path.join(d, "50_samples.tsv"), "w").write("\n".join(rows) + "\n")
+ if o.get("no_end") != "1":
+     open(os.path.join(d, "50_t06_end.txt"), "w").write(f"{T0 + 1500}\n")
+@@ -325,8 +399,8 @@ has   "  naming both traces"                               "the detect-only star
+ mk c_block control hb_block=1
+ OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c_block" --samples "$S")"
+ check "🔴 a second control with only a heartbeat block: rc 3" "3" "$(rc_of "$OUT")"
+-# [Co-developed with claude code -- Adam] (round 5) stopped at 120 s: after the controller had been heard
+-# for 80 s (so the heard check passes) and before its last write at 150 s -- this cell is that check's alone
++# [Co-developed with claude code -- Adam] (round 5) stopped at 120 s: after the controller's window had
++# opened (45 s) and before its last write at 150 s -- this cell is that check's alone
+ ms h5_once arm=0b0b stop_at=120
+ OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_once/50_samples.tsv")"
+ check "🔴 a session sampled running, then stopped before the controller: rc 3" "3" "$(rc_of "$OUT")"
+@@ -360,22 +434,39 @@ check "🔴 a session that forwarded between switches: rc 1"  "1" "$(rc_of "$OUT
+ OUT="$(ev show "$FIX/t1")"
+ has   "🔴 N4's counters are labelled as before the pipeline" "(before the exercise's pipeline was loaded: not evidence about the program)" "$OUT"
+ # [Co-developed with claude code -- Adam] The round-4 review's M-3: frames HEARD on every direction
+-# while the exercise's controller ran -- else the treatment arm is about nothing.
++# inside the exercise's controller's own window -- else the treatment arm is about nothing. Round 6: the
++# window runs from the sample that saw the log reach its last pipeline push to the log's last write.
+ OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$S")"
+-has   "🔴 every direction heard while the controller ran, said per direction" "heard   all 2 direction(s) while the controller (pid 7002) ran, 1790000940-1790001060: 1:2>2:2 +120, 2:2>1:2 +120" "$OUT"
+-ms h5_deaf arm=0b0b deaf=1
++has   "🔴 every direction heard in the controller's window, said per direction" "heard   all 2 direction(s) in the controller's window (2026-09-21T142820Z_p4runtime_solution_ndtwin/driver-controller-p4runtime.log from its push to its last write), 1790000945-1790001050: 1:2>2:2 +21, 2:2>1:2 +21" "$OUT"
++ms h5_deaf arm=0b0b deaf_from=46
+ OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_deaf/50_samples.tsv")"
+-check "🔴 a direction not heard while the controller ran: rc 3" "3" "$(rc_of "$OUT")"
+-has   "  naming the direction and the controller"          "did not hear 1 of 2 direction(s) while the controller (pid 7002) ran" "$OUT"
+-has   "  and which one"                                    "2:2>1:2 stayed 10" "$OUT"
+-ms h5_noctl arm=0c0c noctl=1
+-OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_noctl/50_samples.tsv")"
+-check "🔴 a controller the sampler never saw alive: rc 3"  "3" "$(rc_of "$OUT")"
+-has   "  said as no lifetime"                              "the sampler saw the controller (pid 7003) alive in 0 sample(s)" "$OUT"
+-mk t_noctl treatment noctlpid=p4rt_skel
+-OUT="$(ev compare "$FIX/c1" "$FIX/t_noctl" --control2 "$FIX/c2" --samples "$S")"
+-check "🔴 a round report that names no controller pid: rc 3" "3" "$(rc_of "$OUT")"
+-has   "  said as no controller pid in the report"         "names no single \`controller pid N\`" "$OUT"
++check "🔴 a direction heard only before the push (+1 per 5 s, 1-s reads): rc 3" "3" "$(rc_of "$OUT")"
++has   "  naming the direction and the window"              "did not hear 1 of 2 direction(s) in the controller's window, 1790000945-1790001050" "$OUT"
++has   "  and which one"                                    "2:2>1:2 stayed 3" "$OUT"
++ms h5_late arm=0c0c late_from=151
++OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_late/50_samples.tsv")"
++check "🔴 a direction heard only after the controller's last write: rc 3" "3" "$(rc_of "$OUT")"
++has   "  said as not heard in the window"                  "2:2>1:2 stayed 0" "$OUT"
++ms h5_short arm=0a0a push_at=145
++OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_short/50_samples.tsv")"
++check "🔴 a controller window of 5 s (under two periods): UNDECIDED, rc 2, not refused" "2" "$(rc_of "$OUT")"
++has   "  said as too short, with its length"               "UNDECIDED heard     the controller's window, push seen at 1790000745 to its last write at 1790000750, is 5.0 s -- under two heartbeat periods (10 s)" "$OUT"
++has   "  the rest of the comparison still printed"         "NO DIFFERENCE in the external arms' own evidence (2 controls); 1 UNDECIDED" "$OUT"
++ms h5_ten arm=0a0a push_at=140
++OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_ten/50_samples.tsv")"
++check "🔴 a window of exactly two periods is decided: rc 0" "0" "$(rc_of "$OUT")"
++has   "  heard +2 in it"                                   "1790000740-1790000750: 1:2>2:2 +2, 2:2>1:2 +2" "$OUT"
++ms h5_mid arm=0b0b mid_at=45 push_at=70
++OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_mid/50_samples.tsv")"
++has   "🔴 the window opens at the LAST push (s2's at 70 s), not the first" "1790000970-1790001050: 1:2>2:2 +16, 2:2>1:2 +16" "$OUT"
++ms h5_late_start arm=0b0b start_at=50
++OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_late_start/50_samples.tsv")"
++check "🔴 a session first running after the push: rc 3"    "3" "$(rc_of "$OUT")"
++has   "  said as the window not watched from its start"    "after the controller pushed its pipeline (1790000945) -- the window was not watched from its start" "$OUT"
++mk t_nopush treatment nopush=p4rt_sol
++ms h5_nopush run=t_nopush
++OUT="$(ev compare "$FIX/c1" "$FIX/t_nopush" --control2 "$FIX/c2" --samples "$FIX/h5_nopush/50_samples.tsv")"
++has   "🔴 no push line: the window opens at the first rule installed" "1790000945-1790001050: 1:2>2:2 +21" "$OUT"
+ # [Co-developed with claude code -- Adam] The round-4 review's M-2: the same code apart from B.
+ OUT="$(NO_BSHA=1 ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$S")"
+ check "🔴 no --b-sha: rc 3"                                 "3" "$(rc_of "$OUT")"
+@@ -384,7 +475,45 @@ has   "  the identities are said when they match"          "identity: the contro
+ mk c_noid control id=none
+ OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c_noid" --samples "$S")"
+ check "🔴 a control with no identity: rc 3"                 "3" "$(rc_of "$OUT")"
+-has   "  said as no identity"                              "no 00_identity.txt -- which code it ran is not known" "$OUT"
++has   "  said as no identity"                              "no 00_identity.before.txt -- which code it ran is not known" "$OUT"
++# [Co-developed with claude code -- Adam] (round 6) taken before AND after each run, and equal
++mk c_noafter control id_after=none
++OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c_noafter" --samples "$S")"
++check "🔴 a control with no identity after it ran: rc 3"   "3" "$(rc_of "$OUT")"
++has   "  said as no after-identity"                        "no 00_identity.after.txt" "$OUT"
++mk c_drift control id_drift=kernel
++OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c_drift" --samples "$S")"
++check "🔴 a control whose kernel was rebuilt while it ran: rc 3" "3" "$(rc_of "$OUT")"
++has   "  said as the code changing during the run"         "the code changed while a run ran: kernel: c_drift before" "$OUT"
++mk t_drift treatment id_drift=head
++OUT="$(ev compare "$FIX/c1" "$FIX/t_drift" --control2 "$FIX/c2" --samples "$S")"
++check "🔴 a treatment whose HEAD moved while it ran: rc 3" "3" "$(rc_of "$OUT")"
++has   "  said as its HEAD before and after"                "t_drift: head" "$OUT"
++mk t_amend treatment id_merge_tree=0123456789012345678901234567890123456789
++OUT="$(ev compare "$FIX/c1" "$FIX/t_amend" --control2 "$FIX/c2" --samples "$S")"
++check "🔴 a treatment whose tree is not the two parents' merge: rc 3" "3" "$(rc_of "$OUT")"
++has   "  said as an amended or hand-resolved merge"        "an amended or hand-resolved merge" "$OUT"
++mk t_tut treatment id_tut=8888888888888888888888888888888888888888
++OUT="$(ev compare "$FIX/c1" "$FIX/t_tut" --control2 "$FIX/c2" --samples "$S")"
++check "🔴 a treatment on another ~/tutorials: rc 3"        "3" "$(rc_of "$OUT")"
++has   "  said as tutorials"                                "tutorials: controls" "$OUT"
++mk t_libs treatment id_libs=22
++OUT="$(ev compare "$FIX/c1" "$FIX/t_libs" --control2 "$FIX/c2" --samples "$S")"
++check "🔴 a treatment on other bmv2 shared libraries: rc 3" "3" "$(rc_of "$OUT")"
++has   "  said as bmv2_libs"                                "bmv2_libs: controls" "$OUT"
++# [Co-developed with claude code -- Adam] (round 6) the same compiler and compiled program in every run
++mk t_p4c treatment p4c=0000000000000001
++OUT="$(ev compare "$FIX/c1" "$FIX/t_p4c" --control2 "$FIX/c2" --samples "$S")"
++check "🔴 a treatment compiled by another p4c: rc 3"       "3" "$(rc_of "$OUT")"
++has   "  said as not the same compiler and program"        "p4runtime/skeleton: not the same compiler and program in every run" "$OUT"
++mk c_json control json_fc_sol=0000000000000002
++OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c_json" --samples "$S")"
++check "🔴 a control whose flowcache JSON differs: rc 3"    "3" "$(rc_of "$OUT")"
++has   "  naming the JSON"                                  "json ['flowcache.json 0000000000000002']" "$OUT"
++mk t_noshas treatment noshas=p4rt_sol
++OUT="$(ev compare "$FIX/c1" "$FIX/t_noshas" --control2 "$FIX/c2" --samples "$S")"
++check "🔴 a report with no p4c or JSON sha: rc 2"          "2" "$(rc_of "$OUT")"
++has   "  said as such"                                     "names no p4c sha256 or no compiled JSON sha256" "$OUT"
+ mk c_head control id_head=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+ OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c_head" --samples "$S")"
+ check "🔴 controls on two different HEADs: rc 3"           "3" "$(rc_of "$OUT")"
+@@ -579,11 +708,28 @@ hasnt "🔴 and no traceback from it"                         "Traceback" "$OUT"
+ ms h5_old old_header=1
+ OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_old/50_samples.tsv")"
+ check "🔴 samples from a sampler before 09-28: rc 2"        "2" "$(rc_of "$OUT")"
+-has   "  said as a sampler from before round 5"            "a sampler from before round 5" "$OUT"
++has   "  said as a sampler from before round 6"            "a sampler from before round 6" "$OUT"
+ # [Co-developed with claude code -- Adam] round 5: the sampler's heard and controllers columns.
+ ms h5_r4 old_header=2
+ OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_r4/50_samples.tsv")"
+ check "🔴 samples from round 4's sampler (no heard, no controllers): rc 2" "2" "$(rc_of "$OUT")"
++# [Co-developed with claude code -- Adam] round 6: and its ctrl_logs column; logs it never saw grow
++ms h5_r5 old_header=3
++OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_r5/50_samples.tsv")"
++check "🔴 samples from round 5's sampler (no ctrl_logs): rc 2" "2" "$(rc_of "$OUT")"
++ms h5_nosizes nolog_sizes=1
++OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_nosizes/50_samples.tsv")"
++check "🔴 a sampler that never saw the controller's log: rc 2" "2" "$(rc_of "$OUT")"
++has   "  said as such"                                     "the sampler never saw 2026-09-21T142320Z_p4runtime_skeleton_ndtwin/driver-controller-p4runtime.log" "$OUT"
++ms h5_header arm=0c0c short_sizes=1
++OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_header/50_samples.tsv")"
++check "🔴 a log the sampler never saw reach its push: rc 2" "2" "$(rc_of "$OUT")"
++has   "  said as no window start"                          "never at the push's end" "$OUT"
++mk t_bare treatment bare=p4rt_skel
++ms h5_bare run=t_bare
++OUT="$(ev compare "$FIX/c1" "$FIX/t_bare" --control2 "$FIX/c2" --samples "$FIX/h5_bare/50_samples.tsv")"
++check "🔴 a controller log with no push and no entry: rc 2" "2" "$(rc_of "$OUT")"
++has   "  said as a window with no start"                   "no pipeline push and no rule or cache entry" "$OUT"
+ ms h5_none arm=0b0b counts_none=1
+ OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_none/50_samples.tsv")"
+ check "🔴 a running sample whose daemon counter is not a number: rc 2, not a zero" "2" "$(rc_of "$OUT")"
+@@ -613,6 +759,114 @@ OUT="$(ev show "$FIX/t_fp")"
+ check "  show: rc 0"                                       "0" "$(rc_of "$OUT")"
+ has   "  and lists the flowcache packet-ins"               "packet_ins            1" "$OUT"
+ 
++# =============================================================================================
++section "7. 🔴 code_identity.py record, on real repositories (round 6)"
++# =============================================================================================
++# [Co-developed with claude code -- Adam] What record writes, not what a fixture says it wrote: the
++# code paths it compares (docs and audit tables left out), ~/tutorials, the fabric's libraries, and a
++# merge's tree against what merging its parents gives. The copy beside the tool is the one run.
++IDPY="$(dirname "$TOOL")/code_identity.py"
++gi=(-c user.name=t -c user.email=t@example.invalid -c commit.gpgsign=false -c init.defaultBranch=trunk)
++G="$FIX/idrepo"; TUT="$FIX/tutorials"
++mkdir -p "$G/doc/audit" "$G/p4_proxy/mininet" "$FIX/bmv2/bin" "$FIX/bmv2/lib" \
++         "$TUT/exercises/p4runtime/build" "$TUT/exercises/flowcache" "$TUT/utils"
++printf 'a\n' > "$G/a.py"; printf 'n\n' > "$G/doc/notes.md"; printf 't\n' > "$G/doc/audit/agents.tsv"
++printf 'j\n' > "$G/doc/audit/raw.json"; printf '%s\n' "$FIX/bmv2/bin/simple_switch_grpc" > "$G/p4_proxy/mininet/bmv2_binary_override"
++printf 'bin\n' > "$FIX/bmv2/bin/simple_switch_grpc"; printf 'so1\n' > "$FIX/bmv2/lib/libbm.so.0.0.0"
++ln -s libbm.so.0.0.0 "$FIX/bmv2/lib/libbm.so"
++printf 'c\n' > "$TUT/exercises/p4runtime/mycontroller.py"; printf 'f\n' > "$TUT/exercises/flowcache/flowcache.p4"
++printf 'u\n' > "$TUT/utils/run.py"; printf 'build/\n' > "$TUT/.gitignore"
++{ git "${gi[@]}" init -q "$G" && git -C "$G" add -A && git "${gi[@]}" -C "$G" commit -q -m c \
++  && git "${gi[@]}" init -q "$TUT" && git -C "$TUT" add -A && git "${gi[@]}" -C "$TUT" commit -q -m t; } \
++    || echo "  (the identity repositories could not be built)"
++rec() { TUTORIALS_DIR="$TUT" CTRL_PY=/nonexistent "$EVIDENCE_PY" "$IDPY" record "$G" "$FIX/$1.json" > /dev/null 2>&1 || echo "record $1 failed"; }
++jq_() { "$EVIDENCE_PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); print(eval(sys.argv[2]))' "$FIX/$1.json" "$2" 2>&1 | tail -1; }
++why() { "$EVIDENCE_PY" -c 'import json, sys; sys.path.insert(0, sys.argv[1]); import code_identity as c
++a, b = (json.load(open(p)) for p in sys.argv[2:4]); print(sorted({r.split(":")[1].split()[0] if r.startswith("r ") else r.split(":")[0] for r in c.unchanged_reasons(a, b, "r")}))' \
++        "$(dirname "$IDPY")" "$FIX/$1.json" "$FIX/$2.json" 2>&1 | tail -1; }
++rec id0
++printf 'a2\n' > "$G/a.py"; printf 'n2\n' > "$G/doc/notes.md"; printf 't2\n' > "$G/doc/audit/agents.tsv"; printf 'j2\n' > "$G/doc/audit/raw.json"
++rec id1
++check "🔴 uncommitted: a code file and an audit .json are recorded, a doc .md and an audit .tsv are not" \
++      "['a.py', 'doc/audit/raw.json']" "$(jq_ id1 '[p for _s, p, _h in d["uncommitted"]]')"
++git -C "$G" checkout -q -- a.py doc
++check "  the tutorials' HEAD is recorded"                 "yes" "$(jq_ id0 '"yes" if d["tutorials"]["head"] == "'"$(git -C "$TUT" rev-parse HEAD)"'" else d["tutorials"]')"
++printf 'rebuilt\n' > "$TUT/exercises/p4runtime/build/advanced_tunnel.json"
++rec id2
++check "🔴 a round rewriting build/ under an exercise does not change the identity" "[]" "$(why id0 id2)"
++printf 'c2\n' > "$TUT/exercises/p4runtime/mycontroller.py"
++rec id3
++check "🔴 a changed exercise file in ~/tutorials does"   "['tutorials']" "$(why id0 id3)"
++check "  in that exercise's tree digest"                 "changed" "$(a="$(jq_ id0 'd["tutorials"]["trees"]["exercises/p4runtime"]')"; b="$(jq_ id3 'd["tutorials"]["trees"]["exercises/p4runtime"]')"; [[ -n "$a" && "$a" != "$b" ]] && echo changed || echo "same: $a")"
++git -C "$TUT" checkout -q -- exercises
++printf 'mine\n' > "$TUT/exercises/flowcache/new_helper.py"
++rec id3u
++check "🔴 an untracked file in an exercise (git's porcelain does not show it) changes it too" "['tutorials']" "$(why id0 id3u)"
++rm -f "$TUT/exercises/flowcache/new_helper.py"
++check "  the fabric's libraries: the one shared object, its symlink not counted" "yes" "$(jq_ id0 '"yes" if ": 1 shared objects sha256 " in d["bmv2_libs"] else d["bmv2_libs"]')"
++printf 'so2\n' > "$FIX/bmv2/lib/libbm.so.0.0.0"
++rec id4
++check "🔴 a rebuilt bmv2 shared library changes the identity" "['bmv2_libs']" "$(why id0 id4)"
++# a merge: C on trunk, B on a branch, T = B merged onto C -- then the same merge amended by hand
++bsha="$(git -C "$G" checkout -q -b b && printf 'b\n' > "$G/b.py" && git -C "$G" add b.py && git "${gi[@]}" -C "$G" commit -q -m b \
++        && git -C "$G" rev-parse HEAD && git -C "$G" checkout -q trunk)"
++rec idc
++git "${gi[@]}" -C "$G" merge -q --no-ff --no-edit b > /dev/null 2>&1
++rec idt
++vf() { "$EVIDENCE_PY" "$IDPY" verify "$FIX/idc.json" "$FIX/$1.json" "$bsha" 2>&1; }
++has   "🔴 a clean merge: its tree is what merging its parents gives" "SAME CODE APART FROM B" "$(vf idt)"
++printf 'hand\n' > "$G/hand.py"; git -C "$G" add hand.py; git "${gi[@]}" -C "$G" commit -q --amend --no-edit
++rec ida
++has   "🔴 an amended merge is refused"                     "an amended or hand-resolved merge" "$(vf ida)"
++
++# =============================================================================================
++section "8. 🔴 the 34 rounds the split rests on, frozen (external_survey.py, S-9)"
++# =============================================================================================
++# [Co-developed with claude code -- Adam] Round 6: the survey reads only the rounds its manifest names, by
++# sha256, and none of them may carry the heartbeat. Fixture: c1's two solution rounds in a prep dir of
++# their own, and t1's p4runtime/solution round (it has the heartbeat).
++SV="$(dirname "$TOOL")/external_survey.py"
++P="$FIX/prep"; mkdir -p "$P/runs"; cp -r "$FIX/c1-rounds/." "$P/runs/"
++mkdir -p "$P/hb"; cp -r "$FIX/t1-rounds/." "$P/hb/"
++manifest() {   # manifest <out> <dir under P> <stamp_ex_which>... -- the manifest of those rounds, as frozen now
++    local out="$1" sub="$2"; shift 2
++    "$EVIDENCE_PY" - "$P" "$out" "$sub" "$@" <<'PY'
++import glob, hashlib, os, sys
++p, out, sub, names = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4:]
++sha = lambda f: hashlib.sha256(open(f, "rb").read()).hexdigest()
++rows = ["arm\treport\treport_sha256\tlog\tlog_sha256"]
++for n in names:
++    md = os.path.join(p, sub, n + ".md")
++    log = glob.glob(os.path.join(p, sub, n, "driver-controller-*.log"))[0]
++    arm = "/".join(n.split("_")[1:3])
++    rows.append("\t".join([arm, os.path.relpath(md, p), sha(md), os.path.relpath(log, p), sha(log)]))
++open(out, "w").write("\n".join(rows) + "\n")
++PY
++}
++sv() { "$EVIDENCE_PY" "$SV" "$P" "$1" 2>&1; echo "RC=$?"; }
++SOL=2026-09-21T142820Z_p4runtime_solution_ndtwin; FC=2026-09-21T143320Z_flowcache_solution_ndtwin
++manifest "$FIX/m_ok.tsv" runs "$SOL" "$FC"
++OUT="$(sv "$FIX/m_ok.tsv")"
++check "🔴 the frozen rounds as frozen, none with the heartbeat: rc 0" "0" "$(rc_of "$OUT")"
++has   "  said as such"                                     "2 rounds, every report and controller log as frozen, none with the heartbeat" "$OUT"
++has   "  with each field's count of values"                "rules_installed        1 distinct" "$OUT"
++printf 'one more line\n' >> "$P/runs/$FC/driver-controller-flowcache.log"
++OUT="$(sv "$FIX/m_ok.tsv")"
++check "🔴 a round whose controller log changed since it was frozen: rc 3" "3" "$(rc_of "$OUT")"
++has   "  said as not what the manifest froze"              "the manifest froze" "$OUT"
++manifest "$FIX/m_ok.tsv" runs "$SOL" "$FC"
++mv "$P/runs/$SOL.md" "$P/runs/$SOL.md.gone"
++OUT="$(sv "$FIX/m_ok.tsv")"
++check "🔴 a frozen round that is gone: rc 3"               "3" "$(rc_of "$OUT")"
++mv "$P/runs/$SOL.md.gone" "$P/runs/$SOL.md"
++manifest "$FIX/m_hb.tsv" hb "$SOL"
++OUT="$(sv "$FIX/m_hb.tsv")"
++check "🔴 a round that had the heartbeat: rc 3"            "3" "$(rc_of "$OUT")"
++has   "  said as not a round without it"                   "not a round without the heartbeat" "$OUT"
++printf 'arm\treport\n' > "$FIX/m_bad.tsv"
++OUT="$(sv "$FIX/m_bad.tsv")"
++check "  a manifest that is not one: rc 2"                 "2" "$(rc_of "$OUT")"
++
+ printf '\n'
+ echo "Ran $((PASS+FAIL)) checks, $FAIL failed"
+ (( FAIL == 0 ))
+diff --git a/tests/shell/test_live_p1_thirteen.sh b/tests/shell/test_live_p1_thirteen.sh
+index 813459f6..83faea1d 100755
+--- a/tests/shell/test_live_p1_thirteen.sh
++++ b/tests/shell/test_live_p1_thirteen.sh
+@@ -113,9 +113,15 @@ has   "  the driver's interpreter among them"          "== interpreter /usr/bin/
+ has   "  with protobuf's version and implementation"   "api_implementation" "$(cat "$VENV13" 2>/dev/null)"
+ # [Co-developed with claude code -- Adam] M-2: and which code -- the identity external_evidence.py
+ # checks a treatment against.
+-ID13="$(dirname "$VENV13")/00_identity.txt"
+-check "🔴 the raw records the code identity" "1 yes" \
+-      "$(python3 -c 'import json, sys; d = json.load(open(sys.argv[1])); print(d.get("format"), "yes" if "head" in d and "uncommitted" in d and "kernel" in d and "venv" in d else "no")' "$ID13" 2>&1 | tail -1)"
++# [Co-developed with claude code -- Adam] (round 6) taken as 06 starts and again as it ends, the
++# second after every round (00_table.tsv, rewritten per arm, is older than it).
++ID13="$(dirname "$VENV13")/00_identity.before.txt"
++# (HEAD and tree, or git's error: a mutant copy of 06 sits outside any repository, and its record says so)
++idok() { python3 -c 'import json, sys; d = json.load(open(sys.argv[1])); print(d.get("format"), "yes" if all(k in d for k in ("kernel", "bmv2_libs", "venv", "tutorials")) and ("tree" in d or "git_error" in d) else "no")' "$1" 2>&1 | tail -1; }
++check "🔴 the raw records the code identity as 06 starts" "2 yes" "$(idok "$ID13")"
++ID13A="$(dirname "$VENV13")/00_identity.after.txt"
++check "🔴 and again as it ends, after the last round wrote its table row" "2 yes after" \
++      "$(idok "$ID13A") $([[ "$ID13A" -nt "$(dirname "$VENV13")/00_table.tsv" ]] && echo after || echo not-after)"
+ 
+ OUT="$(run13 basic RC_basic_skeleton=1)"; RC=$?
+ check "🔴 a skeleton arm that FAILED an expectation is the finding" "1" "$RC"

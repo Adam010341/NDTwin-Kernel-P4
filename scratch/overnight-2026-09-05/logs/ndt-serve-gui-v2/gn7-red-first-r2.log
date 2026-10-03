@@ -1,0 +1,20 @@
+head 0fde46787e03fca10c1fea2dc188be109bf36169 porcelain 1 2026-10-01T12:52:14+08:00
+python /usr/bin/python3.12 3.12.3
+test file sha256 bae0a90fc74971a4 (token assertions first; uncommitted at this run)
+
+== old: serve.py sha256 8932c2a1bd1711c3
+FAIL
+FAIL: test_url_sends_the_token_only_over_a_connection_the_pid_accepted (__main__.UrlCommand.test_url_sends_the_token_only_over_a_connection_the_pid_accepted)
+AssertionError: b'QfQPLcDOucjf9i45k2oshdput7Vg9-AxQCIFcoRHveg' unexpectedly found in b'POST /api/v1/session/new HTTP/1.1\r\nAccept-Encoding: identity\r\nContent-Length: 2\r\nHost: 127.0.0.1:41555\r\nX-NDT-Token: QfQPLcDOucjf9i45k2oshdput7Vg9-AxQCIFcoRHveg\r\nContent-Type: application/json\r\n\r\n{}' : the token went to a process that only shares the socket (the child received 198 bytes: b'POST /api/v1/session/new HTTP/1.1\r\nAccept-Encoding: identity\r\nContent-Length: 2\r\nHost: 127.0.0.1:41555\r\nX-NDT-Token: QfQPLcDOucjf9i45k2oshdput7Vg9-AxQCIFcoRHveg\r\nContent-Type: application/json\r\n\r\n{}')
+Ran 1 test in 0.182s
+FAILED (failures=1)
+
+== g48: serve.py sha256 f02221c99dc6e553
+FAIL
+FAIL: test_url_sends_the_token_only_over_a_connection_the_pid_accepted (__main__.UrlCommand.test_url_sends_the_token_only_over_a_connection_the_pid_accepted)
+AssertionError: b'pcZeJJZYah6raTkblOQgGgym4kTYXSVnrHc9Tfp--hc' unexpectedly found in b'POST /api/v1/session/new HTTP/1.1\r\nAccept-Encoding: identity\r\nContent-Length: 2\r\nHost: 127.0.0.1:58317\r\nX-NDT-Token: pcZeJJZYah6raTkblOQgGgym4kTYXSVnrHc9Tfp--hc\r\nContent-Type: application/json\r\n\r\n{}' : the token went to a process that only shares the socket (the child received 198 bytes: b'POST /api/v1/session/new HTTP/1.1\r\nAccept-Encoding: identity\r\nContent-Length: 2\r\nHost: 127.0.0.1:58317\r\nX-NDT-Token: pcZeJJZYah6raTkblOQgGgym4kTYXSVnrHc9Tfp--hc\r\nContent-Type: application/json\r\n\r\n{}')
+Ran 1 test in 0.205s
+FAILED (failures=1)
+
+== current serve.py (expected green)
+OK

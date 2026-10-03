@@ -1,0 +1,6 @@
+# written BEFORE pushing pr/ci-clang-tsan (d411e852c27a1443d940b54bc1674a53d65a68d5), 2026-09-28T03:04:29+08:00
+C++ only: include/ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp, include/utils/Utils.hpp, tests/test_IpToString.cpp, tests/test_KernelStopIsBounded.cpp.
+- clang: PASS. Observed locally with libstdc++ 13 only; the runner's libstdc++ 14 is NOT observed, so this is the one real unknown.
+- TSan: PASS. Observed with the same g++ 13.3.0 and the same libc/libtsan/libstdc++ BuildIds, 1368/1368, halt_on_error as in CI.
+- ASan+UBSan: PASS (inferred; it passed on #6-#8 and this change adds no new code path it would flag).
+- GCC: the job stays FAIL. Its C++ build and ctest steps pass as before. The L1 step's FAILED list is the same 29 lines as ci-36319541715-gcc.failed.txt (L1 is untouched here).

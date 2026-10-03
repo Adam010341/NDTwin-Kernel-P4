@@ -1,0 +1,11 @@
+# written BEFORE pushing pr/residue-one-clock (c22ca67be6e3ba1b916b004ef4169c7cfcee3164), 2026-10-01T12:55+08:00
+11 files, base main a7ff42ab: tools/test_workflow/ndt, tools/ndt_serve/{README.md,serve.py,verbs.py}, tests/shell/test_apps_residue.sh,
+new tests/shell/mutate_apps_residue_one_clock.sh, tests/shell/mutate_{apps_stop_lists_rules,ndt_helper_apps_window,ndt_serve}.sh,
+tests/python/test_ndt_serve.py, doc/KNOWN-ISSUES.md (G-62). No C++ change. Tree == trunk c9c84ea4 outside doc/audit md and REPORT md.
+- clang, TSan, ASan+UBSan: PASS (no C++ change; same as PR #17/#18).
+- GCC: ctest 1385/1385 (unchanged C++). L1 passed; 0 FAILED lines.
+  - test_apps_residue.sh: "Ran 145 checks, 0 failed" (was 131 on main). Both "DATED" checks green and "-> now" green; the 5N case lines
+    for young / old / scan each say "yes, try N of 5" with N in 1..5 (expect 1 on most runs; N > 1 is allowed and is a retry, not a failure).
+  - The new mutate_apps_residue_one_clock.sh is a mutation gate: CI does not run it; the gate-anchor check counts it (expect "gate anchors ok").
+  - test_ndt_serve.py OK (74 tests locally on 3.12 venv; CI count may differ by interpreter).
+- A red anywhere else is not predicted by this change; if GCC is red only on test_apps_residue.sh, quote the failing check names.

@@ -1,0 +1,11 @@
+# push ec8eb33ab7cfc9bffab58a36968b815524ede1fc as pr/kernel-capabilities 2026-09-28T11:41:58+08:00
+remote: 
+remote: Create a pull request for 'pr/kernel-capabilities' on GitHub by visiting:        
+remote:      https://github.com/Adam010341/NDTwin-Kernel-P4/pull/new/pr/kernel-capabilities        
+remote: 
+To github.com:Adam010341/NDTwin-Kernel-P4.git
+ * [new branch]        ec8eb33ab7cfc9bffab58a36968b815524ede1fc -> pr/kernel-capabilities
+# push rc=0
+Warning: 95 uncommitted changes
+https://github.com/Adam010341/NDTwin-Kernel-P4/pull/14
+# pr create rc=0

@@ -1,0 +1,10 @@
+test_ndt_sudo_surface # rc=0 |   ok       control, report: ovsdb down behind a warning is still rc 0, granted Ran 55 checks, 0 failed 
+test_ndt_status_check_baseline # rc=0 |   ok       control: every grant live (report rc 0) leaves --check at exit 0 Ran 112 checks, 0 failed 
+mutate_ndt_sudo_surface # rc=0 | Ran 55 checks, 0 failed mutation gate: 31 mutations, 0 survived 
+test_known_issues_references # rc=0 | Ran 44 tests in 0.749s 
+test_l1_shell_scoring # rc=0 |   ok       D22 every NDTWIN_L1_NEEDS in tests/shell and tests/python is one the lane probes Ran 147 checks, 0 failed 
+check_gate_anchors # rc=0 | 
+check_test_tmpdirs # rc=0 | 
+tripwire lines: 0
+tracked tree clean
+RERUN-DONE

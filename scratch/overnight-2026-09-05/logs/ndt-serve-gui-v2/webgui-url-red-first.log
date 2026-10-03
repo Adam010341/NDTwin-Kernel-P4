@@ -1,0 +1,34 @@
+# WebGuiUrl before the server change (fed37cff's serve.py)
+test_a_web_gui_url_that_is_not_http_is_refused_at_start (__main__.WebGuiUrl.test_a_web_gui_url_that_is_not_http_is_refused_at_start) ... FAIL
+test_meta_names_the_web_gui_url (__main__.WebGuiUrl.test_meta_names_the_web_gui_url) ... FAIL
+
+======================================================================
+FAIL: test_a_web_gui_url_that_is_not_http_is_refused_at_start (__main__.WebGuiUrl.test_a_web_gui_url_that_is_not_http_is_refused_at_start)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/tests/python/test_ndt_serve_gui.py", line 607, in test_a_web_gui_url_that_is_not_http_is_refused_at_start
+    self.assertIn("--webgui-url", base._read(s.out + ".err"), bad)
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: '--webgui-url' not found in "usage: ndt serve [-h] [--owner OWNER] [--port PORT] [--ndt NDT]\n                 [--state-dir STATE_DIR] [--token-file TOKEN_FILE]\n                 [--app-root APP_ROOT] [--read-timeout READ_TIMEOUT]\n                 [--read-queue-wait READ_QUEUE_WAIT]\n                 [--max-connections MAX_CONNECTIONS]\n                 [--max-waiters MAX_WAITERS] [--nonce-ttl NONCE_TTL]\n                 [{url}]\nndt serve: error: argument command: invalid choice: 'javascript:alert(1)' (choose from url)\n" : javascript:alert(1)
+
+======================================================================
+FAIL: test_meta_names_the_web_gui_url (__main__.WebGuiUrl.test_meta_names_the_web_gui_url)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/tests/python/test_ndt_serve_gui.py", line 596, in test_meta_names_the_web_gui_url
+    self.assertEqual((st, j.get("webgui_url")), (200, want), extra)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Tuples differ: (200, None) != (200, 'http://localhost:3000')
+
+First differing element 1:
+None
+'http://localhost:3000'
+
+- (200, None)
++ (200, 'http://localhost:3000') : []
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.264s
+
+FAILED (failures=2)
+rc=1

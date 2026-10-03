@@ -1,0 +1,16 @@
+cc798de22edbb0970182783dc23ed6900b85b598
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  2026-10-01T19:54:43Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  TMPDIR /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5b-cc798de2/tripwire_b5.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5-6163cef4/tripwire.log /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5a-6163cef4/tripwire.log /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5b-cc798de2/tripwire.log
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5b-cc798de2/shims (nolab); drop check through /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5b-cc798de2/hbwrap
+# disk: 2978 MB free on / when queued; floor 1536 MB, checked again under the lock
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c a=$(df --output=avail -BM / | tail -1 | tr -dc 0-9); echo "# disk under the lock: $a MB free"; (( a >= $0 )) || { echo "DISK-FLOOR: $a MB < $0 MB -- not run"; exit 97; }; exec "$@" 1536 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5b-cc798de2/tripwire_b5.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5-6163cef4/tripwire.log /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5a-6163cef4/tripwire.log /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5b-cc798de2/tripwire.log
+# disk under the lock: 2978 MB free
+log /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5-6163cef4/tripwire.log: 16 line(s)
+log /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5a-6163cef4/tripwire.log: 2 line(s)
+log /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5b-cc798de2/tripwire.log: 6208 line(s)
+NOLAB-TRIPWIRE: 0 lab call(s); 1254 allowed switch launch(es) and 2867 --version probe(s), each re-checked: 0 breaking a condition, 0 refused by the wrapper; 0 still running (by pid and start time); 6226 line(s) in all
+guarded_build: exit 0
+# rc=0

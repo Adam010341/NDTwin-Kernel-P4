@@ -1,0 +1,15 @@
+mutant                                               suite v1   suite v2   red cases (v2)
+M1 standard_metadata read without context returns 0  RED        RED        fc-2-noctx,ndt-2-noctx,syn-meta-noctx
+M2 parse_vset entry skipped instead of refused       RED        RED        syn-pvs-tun
+M3 stack .next does not advance                      RED        RED        lm-2-probe3-full,lm-1-probe0-full,sr-1-host,sr-2-core,sr-9-max,sr-10-overflow,syn-deep-2,syn-deep-5,syn-deep-6,syn-deep-8
+M4 transition mask ignored                           green      RED        syn-meta-ipv4-core
+M5 IPv4 version/ihl sanity check removed             RED        RED        mri-5-ihl-wrap,mri-ihl4,K3-tunnel-widened
+M6 verify ignored                                    RED        RED        mri-5-ihl-wrap,mri-ihl4
+M7 reachability exit removed                         RED        RED        lm-3-probe8-truncated
+M8 lookahead reads one byte late                     RED        RED        calc-1-full,calc-1-full-badmagic
+M9 IPv4 not recognised structurally                  RED        RED        basic-1,btun-1-tunnel,btun-1b-tunnel-egress,btun-2-plain,ecn-1,fw-1-s1,fw-2-s3,fw-3-s1-udp,fc-1-ctx,fc-2-noctx,lm-4-ipv4,lb-1,lb-2-udp,mri-0,mri-1,mri-3,mri-4,mri-5-ihl-wrap,mri-plain,mri-nop-opt,mri-ihl4,p4rt-1-hostlink,p4rt-2-tunnel,qos-1,qos-2,sr-1-host,sr-2-core,sr-9-max,sr-10-overflow,ndt-1-ctx,ndt-2-noctx,ndt-4-udp,ndt-5-icmp,ndt-6-ospf,ndt-7-fragment,ndt-8-pktout-tcp,ndt-9-pktout-udp,ndt-10-pktout-icmp,ndt-11-pktout-other,syn-pvs-ipv4,syn-pvs-tun,syn-varbit,syn-meta-noctx,syn-meta-ipv4-core,syn-meta-core,syn-ipip,syn-deep-2,syn-deep-5,syn-deep-6,syn-deep-8,K4-ipv4-renamed
+M10 L4 offset ignores ihl                            RED        RED        mri-0,mri-1,mri-3,mri-4,mri-nop-opt,syn-varbit
+M11 outermost IP instead of innermost                green      RED        syn-ipip
+M12 varbit length ignored (0)                        green      RED        syn-varbit
+M13 truncation reported as PacketTooShort            RED        RED        syn-deep-6,syn-deep-8
+survivors in suite v2: none

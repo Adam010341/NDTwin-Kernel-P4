@@ -1,0 +1,17 @@
+a8e9bfed9baed98f55211d97b49ce56273d8e681
+# 2026-09-28T00:53:00Z cmd bash tests/shell/mutate_p4_capabilities_wired.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_p4_capabilities_wired.sh
+baseline (must be green before any mutation):
+  3 passed, 0 failed
+
+  caught   W1: the old direct-fetch block is back in pingWorker               (pingWorker takes its bmv2 evidence from pollP4SwitchState())
+  caught   W2: a second caller of fetchP4SwitchState in the class             (fetchP4SwitchState is called from exactly one place, inside pollP4SwitchState)
+  caught   W3: the call to pollP4SwitchState() survives only in a comment     (pingWorker takes its bmv2 evidence from pollP4SwitchState())
+  caught   W4: the liveness verdicts are fed a fresh fetch, not the answer    (the liveness verdicts read the answer pollP4SwitchState() returned)
+  control  C1 (control): a comment in pingWorker naming both functions        (stayed green)
+
+  DeviceConfigurationAndPowerManager.cpp byte-identical: yes
+mutation gate: 4 mutations, 0 survived; control green
+guarded_build: exit 0
+# rc=0

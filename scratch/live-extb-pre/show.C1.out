@@ -1,0 +1,1 @@
+UNREADABLE /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-10-02T114342Z_p4runtime_solution_ndtwin/driver-controller-p4runtime.log: the last counter block had not settled -- it does not repeat the block before it, and s1 ingress 100 = 3504 is not yet every packet the round sent (3505): a read taken mid-traffic

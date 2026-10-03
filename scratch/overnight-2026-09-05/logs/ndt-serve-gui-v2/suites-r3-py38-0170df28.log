@@ -1,0 +1,9 @@
+head 0170df28d5560a91ec692d120c203e480e238751
+porcelain 0
+date 2026-10-02T01:20:07+08:00
+dir /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927
+python /home/adam/miniconda3/envs/ryu-env/bin/python3.8 3.8.20
+test_ndt_serve: Ran 75 tests in 59.289s, OK, rc=0
+test_ndt_serve_cells: Ran 35 tests in 34.773s, OK, rc=0
+test_ndt_serve_gui: Ran 39 tests in 28.982s, OK, rc=0
+test_ndt_serve_web: Ran 18 tests in 0.249s, OK, rc=0

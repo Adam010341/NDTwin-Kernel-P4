@@ -1,0 +1,75 @@
+add20e879e7af3b61dcdb65ce8196f9f752b7616
+# 2026-09-27T23:46:51Z cmd bash tests/shell/mutate_l1_shell_scoring.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_l1_shell_scoring.sh
+baseline (must be green before any mutation):
+  Ran 147 checks, 0 failed
+
+=== mutations: the 09-02 defect itself -- shell logs scored with unittest's vocabulary ===
+  KILLED   the pre-fix scorer at l1_unit_tests.sh:319, verbatim   (suite rc=1, 3 check(s) red)
+  KILLED   form B dropped, so '12 passed, 0 failed' counts as nothing   (suite rc=1, 15 check(s) red)
+  KILLED   form C dropped, so the check(s) banner counts as nothing   (suite rc=1, 3 check(s) red)
+  KILLED   form B loses its anchors, so a check NAME that quotes a summary invents tests   (suite rc=1, 1 check(s) red)
+  KILLED   form A reads the total as the failed count   (suite rc=1, 2 check(s) red)
+  KILLED   form B counts only the passes, so a red suite under-reports what it ran   (suite rc=1, 2 check(s) red)
+
+=== mutations: the WORSE bug -- 'no tests ran' quietly becoming 'passed' ===
+  KILLED   shell_summary answers 1 for a log it cannot read (absence scored as a pass)   (suite rc=1, 6 check(s) red)
+  KILLED   ran==0 verdict flipped to PASS   (suite rc=1, 2 check(s) red)
+  KILLED   the zero check deleted from the verdict entirely   (suite rc=1, 2 check(s) red)
+  KILLED   the NO-TESTS-RAN arm stops counting, so the lane prints red and exits 0   (suite rc=1, 1 check(s) red)
+
+=== mutations: the rest of the verdict order ===
+  KILLED   the rc check dropped, so a harness that exited nonzero can still pass   (suite rc=1, 2 check(s) red)
+  KILLED   the skip check dropped, so a skipping suite reads as no-tests-ran   (suite rc=1, 6 check(s) red)
+  KILLED   the failed-checks arm dropped, so exit 0 over a red summary passes   (suite rc=1, 1 check(s) red)
+
+=== mutations: declared skips (group D) -- the excuse must not grow ===
+  KILLED   the DECLARED-SKIP verdict is gone, so an excused skip is a failure again   (suite rc=1, 2 check(s) red, 'D4 a hosted runner's skip with an excuse is DECLARED-SKIP' among them)
+  KILLED   an excuse outranks a harness that exited non-zero   (suite rc=1, 1 check(s) red, 'D6 an excuse never outranks a harness that exited non-zero' among them)
+  KILLED   a need the machine HAS still excuses (the lab would go quiet)   (suite rc=1, 2 check(s) red, 'D8 🔴 a machine that HAS the need excuses nothing' among them)
+  KILLED   a need with no probe is read as missing   (suite rc=1, 2 check(s) red, 'D12 🔴 a need the lane has no probe for excuses nothing, even beside a missing one' among them)
+  KILLED   a shell suite with a red check before its SKIP is excused   (suite rc=1, 1 check(s) red, 'D13 🔴 a shell suite that printed a FAILED check before its SKIP is not excused' among them)
+  KILLED   the py-plot probe lets round.env mkdir   (suite rc=1, 1 check(s) red, 'D16 ... and round.env's mkdir did not run' among them)
+  KILLED   the DECLARED-SKIP arm counts a failure after all   (suite rc=1, 1 check(s) red, 'D20 🔴 the DECLARED-SKIP arm records the file and does NOT count a failure' among them)
+  KILLED   the DECLARED-SKIP arm records nothing, so the end of the lane never lists it   (suite rc=1, 1 check(s) red, 'D20 🔴 the DECLARED-SKIP arm records the file and does NOT count a failure' among them)
+  KILLED   the hosted-runner condition is dropped, so a lab that lost a need reads as excused   (suite rc=1, 3 check(s) red, 'D4b 🔴 the same skip anywhere else is FAIL-SKIP (a lab that lost the need is red)' among them)
+  KILLED   every machine is taken for a hosted runner   (suite rc=1, 2 check(s) red, 'D23 🔴 lab env (CI, GITHUB_ACTIONS unset) + a missing declared need -> FAIL-SKIP' among them)
+  KILLED   a failed count no longer vetoes the excuse   (suite rc=1, 1 check(s) red, 'D6b 🔴 a summary that counts failed checks vetoes the excuse, whatever its lines say' among them)
+  KILLED   a Python file that ran some of its tests is excused   (suite rc=1, 1 check(s) red, 'D9b 🔴 a Python file that ran some of its tests is not excused (only a whole-file skip is)' among them)
+  KILLED   a .py file is read line by line, so a docstring declares   (suite rc=1, 1 check(s) red, 'D3b 🔴 a declaration quoted inside a Python docstring is not one' among them)
+  KILLED   a heredoc body is read as the script   (suite rc=1, 1 check(s) red, 'D3d 🔴 a line inside a shell heredoc is not one; the declaration after it is' among them)
+  KILLED   the FAIL-SKIP line stops naming the missing need   (suite rc=1, 1 check(s) red, 'D26 🔴 the FAIL-SKIP arm names a declared need that is missing (the lab is told what it lost)' among them)
+  KILLED   a declaration in the corpus names a need the lane has no probe for   (suite rc=1, 1 check(s) red, 'D22 every NDTWIN_L1_NEEDS in tests/shell and tests/python is one the lane probes' among them)
+  KILLED   the ryu probe is lost   (suite rc=1, 1 check(s) red, 'D18 the lane probes the needs it can excuse (ryu, py-plot)' among them)
+
+=== mutations: the corpus check (group C) actually reads the corpus ===
+  KILLED   a suite stops printing its GREEN-path summary (its failure one, followed by a bare exit, is left)   (suite rc=1, 1 check(s) red, 'C  test_faults.sh prints' among them, because 'followed by a bare exit at line')
+  KILLED   a suite stops printing any summary the lane understands   (suite rc=1, 1 check(s) red, 'C  test_faults.sh prints' among them, because 'zero:')
+  KILLED   a printf-summary suite stops printing a summary the lane understands   (suite rc=1, 1 check(s) red, 'C  test_stack_log_rotation.sh prints' among them, because 'zero:')
+  KILLED   a printf-summary suite prints it only on the failure path, followed by a bare exit   (suite rc=1, 1 check(s) red, 'C  test_stack_log_rotation.sh prints' among them, because 'followed by a bare exit at line')
+  KILLED   a one-line-failure-branch suite stops printing its green summary   (suite rc=1, 1 check(s) red, 'C  test_faults_topo_pid.sh prints' among them, because 'exit <non-zero> after it on the same line')
+  KILLED   a suite whose other summaries are all "|| { ...; exit 1; }" loses its final one   (suite rc=1, 1 check(s) red, 'C  test_ndt_down_stops_only_ours.sh prints' among them, because 'exit <non-zero> after it on the same line')
+  KILLED   a summary whose $(( )) the renderer cannot evaluate (09)   (suite rc=1, 1 check(s) red, 'C  test_faults.sh prints' among them, because 'instrument failed')
+  KILLED   a suite whose summary is a function loses its last, bare call (only `summary; exit 1` is left)   (suite rc=1, 1 check(s) red, 'C  test_ndt_ovs_topo_script.sh prints' among them, because 'every call of which has an exit <non-zero> after the call')
+
+=== mutations: group C's readings, each broken in the suite's own reader (group R must see it) ===
+  KILLED   (2a) && after a print is no longer certain   (suite rc=1, 1 check(s) red, 'R7   `echo ... && exit 1` in a failure branch' among them, because 'nonzero')
+  KILLED   (2a) the command after || is read as reached   (suite rc=1, 1 check(s) red, 'R6   `echo ... || exit 1`' among them, because 'exit <non-zero> after it on the same line')
+  KILLED   (2a) an exit behind && after a test is read as certain (B)   (suite rc=1, 1 check(s) red, 'R4 * `echo ...; (( FAIL )) && exit 1`' among them, because 'exit <non-zero> after it on the same line')
+  KILLED   (2a) a conditional exit 0 is no longer a way to the end (B)   (suite rc=1, 1 check(s) red, 'R5 * `echo ...; [[ $FAIL -eq 0 ]] && exit 0; exit 1`' among them, because 'exit <non-zero> after it on the same line')
+  KILLED   (2a) an exit inside an if opened after the print is read as certain   (suite rc=1, 1 check(s) red, 'R16   `echo ...; if (( FAIL )); then exit 1; fi`' among them, because 'exit <non-zero> after it on the same line')
+  KILLED   (2a) a function's calls are not read, only its definition line (A)   (suite rc=1, 2 check(s) red, 'R1 * a function summary whose every call is `summary; exit 1`' among them, because 'nonzero')
+  KILLED   (2a) a function's own body is not read (A)   (suite rc=1, 1 check(s) red, 'R3 * a function that exits 1 later in its body' among them, because 'nonzero')
+  KILLED   (2a) the end of the block the print is in stops the reading (H)   (suite rc=1, 1 check(s) red, 'R13 * `{ echo ...; }; exit 1`' among them, because 'nonzero')
+  KILLED   (2a) a pipe stops the reading (G)   (suite rc=1, 1 check(s) red, 'R12 * `echo ... | tee -a $LOG; exit 1`' among them, because 'nonzero')
+  KILLED   (1) a print written to a file is rendered as if it reached the log (G)   (suite rc=1, 1 check(s) red, 'R10 * a summary written to a FILE' among them, because 'nonzero')
+  KILLED   (1) a print written to stderr is dropped with the ones written to files (G)   (suite rc=1, 1 check(s) red, 'R11   ... and one written to stderr' among them, because 'zero:')
+  KILLED   (1) `name(){` -- no space -- is not a function head (F)   (suite rc=1, 1 check(s) red, 'R8 * `summary(){ echo ...; }`' among them, because 'zero:')
+  KILLED   (1) a case pattern is not taken off the front of a print (F)   (suite rc=1, 2 check(s) red, 'R9 * a print behind a case pattern' among them, because 'zero:')
+  KILLED   (2a) the next ;; pattern is read as the print's path   (suite rc=1, 1 check(s) red, 'R15 * `case ... in 0) echo ... ;; *) exit 1 ;; esac`' among them, because 'exit <non-zero> after it on the same line')
+  KILLED   (2a) the else branch is read as the print's path   (suite rc=1, 1 check(s) red, 'R14   `then echo ...; else exit 1; fi`' among them, because 'exit <non-zero> after it on the same line')
+
+===== 53 mutation(s): 53 killed, 0 survived =====
+guarded_build: exit 0
+# rc=0

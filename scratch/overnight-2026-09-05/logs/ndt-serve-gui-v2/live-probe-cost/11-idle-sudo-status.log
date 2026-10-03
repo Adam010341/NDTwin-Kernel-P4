@@ -1,0 +1,8 @@
+2991911	-n ovs-vsctl list-br
+2992039	-n /usr/local/sbin/ndtwin-lab status
+2992122	-n /usr/local/sbin/ndtwin-lab status
+2992122	-n ovs-vsctl list-br
+2992122	-n mnexec -a 1 true
+2992188	-n /usr/local/sbin/ndtwin-lab status
+2992225	-n /usr/local/sbin/ndtwin-lab status
+2992320	-n ovs-vsctl list-br

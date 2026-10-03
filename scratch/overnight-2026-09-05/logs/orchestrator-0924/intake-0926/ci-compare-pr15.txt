@@ -1,0 +1,15 @@
+# PR #15 runs 36389119721 / 36389126411 (head 47b8fb9c): clang, TSan, ASan+UBSan SUCCESS on both; GCC FAILED on both.
+# GCC raw logs (API; 7086 and 7099 lines): ctest 1385/1385; L1 FAILED (1 problem group): tests/shell/test_apps_residue.sh FAIL (exit 1, ran=131),
+#   the two checks "sec=0 with nsec set is a real just-installed rule, and is DATED" / "and it is counted as dated".
+# => prediction NOT met for GCC. Not caused by this PR: trunk fc25112e (same code outside doc/audit .md) passed GCC on both repos at 06:57Z;
+#    f253ed08 (before KJL) failed the same two checks once on Adam010341 while ndtwin-lab passed. A flaky check; a worker is on it.
+# Action: rerun the two failed GCC jobs once; squash only if both come back green with the same 1385 and L1 passed.
+# 15:45 rerun of the failed jobs: 108827317011 FAILED (same two checks), 108827321891 PASSED (L1 passed, 1385). 3 of 4 GCC runs red on this head.
+# Before: ~1 failure in ~12 runs. A change-linked rate is plausible (KJL changed ndt's link_emitter_row). PR #15 HELD until the worker answers
+# (a) did KJL make it worse and why, (b) is real `ndt` residue reporting affected. Q-N1 PR goes first on be01cc7a as a control.
+# 16:1x worker (residue ticket) measured the cause: a second-boundary race between two `date +%s` reads in ndt's residue_report / app_started_at
+#   (ndt:9766 vs :9294). The KJL change is off that path; red rates at 85bec430 and fc25112e are not different (loaded 29/150 vs 18/150, Fisher p=0.11);
+#   f253ed08 carries the pre-KJL ndt. => hold lifted. Re-running the one red GCC job (run 36389119721) once; squash when it is green.
+# 16:2x second rerun of run 36389119721's GCC: job 108839888617 PASSED (7087 lines, ctest 1385/1385, 0 FAILED lines, L1 passed,
+#   test_ndt_app_package.sh 396, test_apps_residue.sh 131). With 108827321891 (PASSED), both runs' latest GCC are green; prediction met on the green
+#   attempts. The red attempts (3) are the ndt clock race, measured independent of this PR. Squash-merging.

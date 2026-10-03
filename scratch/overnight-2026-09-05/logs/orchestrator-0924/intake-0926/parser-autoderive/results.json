@@ -1,0 +1,7511 @@
+{
+ "static": {
+  "basic": [
+   {
+    "path": "start -[0x0800]-> parse_ipv4 -[default]-> accept",
+    "class": "D1",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[default]-> accept",
+    "class": "X",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": false
+   }
+  ],
+  "basic_tunnel": [
+   {
+    "path": "start -[0x1212]-> parse_myTunnel -[0x0800]-> parse_ipv4 -[default]-> accept",
+    "class": "D1",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 18,
+    "ip_offset_max": 18,
+    "also_N": false
+   },
+   {
+    "path": "start -[0x1212]-> parse_myTunnel -[default]-> accept",
+    "class": "X",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": false
+   },
+   {
+    "path": "start -[0x0800]-> parse_ipv4 -[default]-> accept",
+    "class": "D1",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[default]-> accept",
+    "class": "X",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": false
+   }
+  ],
+  "calc": [
+   {
+    "path": "start -[0x1234]-> check_p4calc -[0x503401]-> parse_p4calc -[default]-> accept",
+    "class": "X",
+    "n_constructs": [],
+    "tags": [
+     "lookahead"
+    ],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": false
+   },
+   {
+    "path": "start -[0x1234]-> check_p4calc -[default]-> accept",
+    "class": "X",
+    "n_constructs": [],
+    "tags": [
+     "lookahead"
+    ],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": false
+   },
+   {
+    "path": "start -[default]-> accept",
+    "class": "X",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": false
+   }
+  ],
+  "ecn": [
+   {
+    "path": "start -[0x0800]-> parse_ipv4 -[default]-> accept",
+    "class": "D1",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[default]-> accept",
+    "class": "X",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": false
+   }
+  ],
+  "firewall_basic": [
+   {
+    "path": "start -[0x0800]-> parse_ipv4 -[default]-> accept",
+    "class": "D1",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[default]-> accept",
+    "class": "X",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": false
+   }
+  ],
+  "firewall_fw": [
+   {
+    "path": "start -[0x0800]-> parse_ipv4 -[0x06]-> tcp -[default]-> accept",
+    "class": "D1",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[0x0800]-> parse_ipv4 -[default]-> accept",
+    "class": "D1",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[default]-> accept",
+    "class": "X",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": false
+   }
+  ],
+  "flowcache": [
+   {
+    "path": "start -[0x01fe]-> parse_controller_packet_out_header -[default]-> accept",
+    "class": "X",
+    "n_constructs": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "tags": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": true
+   },
+   {
+    "path": "start -[default]-> parse_ethernet -[0x0800]-> parse_ipv4 -[default]-> accept",
+    "class": "N",
+    "n_constructs": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "tags": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[default]-> parse_ethernet -[default]-> accept",
+    "class": "X",
+    "n_constructs": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "tags": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": true
+   }
+  ],
+  "link_monitor": [
+   {
+    "path": "start -[0x0800]-> parse_ipv4 -[default]-> accept",
+    "class": "D1",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[0x0812]-> parse_probe -[0x00]-> parse_probe_fwd -[0x00]-> accept  loops: parse_probe_fwd-[default]->parse_probe_fwd",
+    "class": "X",
+    "n_constructs": [],
+    "tags": [
+     "stack"
+    ],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": false
+   },
+   {
+    "path": "start -[0x0812]-> parse_probe -[default]-> parse_probe_data -[0x01]-> parse_probe_fwd -[0x00]-> accept  loops: parse_probe_fwd-[default]->parse_probe_fwd, parse_probe_data-[default]->parse_probe_data",
+    "class": "X",
+    "n_constructs": [],
+    "tags": [
+     "stack"
+    ],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": false
+   },
+   {
+    "path": "start -[default]-> accept",
+    "class": "X",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": false
+   }
+  ],
+  "load_balance": [
+   {
+    "path": "start -[0x0800]-> parse_ipv4 -[0x06]-> parse_tcp -[default]-> accept",
+    "class": "D1",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[0x0800]-> parse_ipv4 -[default]-> accept",
+    "class": "D1",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[default]-> accept",
+    "class": "X",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": false
+   }
+  ],
+  "mri": [
+   {
+    "path": "start -[0x0800]-> parse_ipv4 -[0x05]-> accept",
+    "class": "D1",
+    "n_constructs": [],
+    "tags": [
+     "verify"
+    ],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[0x0800]-> parse_ipv4 -[default]-> parse_ipv4_option -[0x1f]-> parse_mri -[0x0000]-> accept",
+    "class": "D1",
+    "n_constructs": [],
+    "tags": [
+     "verify"
+    ],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[0x0800]-> parse_ipv4 -[default]-> parse_ipv4_option -[0x1f]-> parse_mri -[default]-> parse_swtrace -[0x0000]-> accept  loops: parse_swtrace-[default]->parse_swtrace",
+    "class": "D2",
+    "n_constructs": [],
+    "tags": [
+     "stack",
+     "verify"
+    ],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[0x0800]-> parse_ipv4 -[default]-> parse_ipv4_option -[default]-> accept",
+    "class": "D1",
+    "n_constructs": [],
+    "tags": [
+     "verify"
+    ],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[default]-> accept",
+    "class": "X",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": false
+   }
+  ],
+  "multicast": [
+   {
+    "path": "start -[default]-> accept",
+    "class": "X",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": false
+   }
+  ],
+  "p4runtime": [
+   {
+    "path": "start -[0x1212]-> parse_myTunnel -[0x0800]-> parse_ipv4 -[default]-> accept",
+    "class": "D1",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 18,
+    "ip_offset_max": 18,
+    "also_N": false
+   },
+   {
+    "path": "start -[0x1212]-> parse_myTunnel -[default]-> accept",
+    "class": "X",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": false
+   },
+   {
+    "path": "start -[0x0800]-> parse_ipv4 -[default]-> accept",
+    "class": "D1",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[default]-> accept",
+    "class": "X",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": false
+   }
+  ],
+  "qos": [
+   {
+    "path": "start -[0x0800]-> parse_ipv4 -[default]-> accept",
+    "class": "D1",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[default]-> accept",
+    "class": "X",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": false
+   }
+  ],
+  "source_routing": [
+   {
+    "path": "start -[0x1234]-> parse_srcRouting -[0x01]-> parse_ipv4 -[default]-> accept  loops: parse_srcRouting-[default]->parse_srcRouting",
+    "class": "D2",
+    "n_constructs": [],
+    "tags": [
+     "stack"
+    ],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 16,
+    "ip_offset_max": 32,
+    "also_N": false
+   },
+   {
+    "path": "start -[default]-> accept",
+    "class": "X",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": false
+   }
+  ],
+  "ndtwin_switch": [
+   {
+    "path": "start -[0x00ff]-> parse_packet_out -[default]-> parse_ethernet -[0x0800]-> parse_ipv4 -[0x000006]-> parse_tcp -[default]-> accept",
+    "class": "N",
+    "n_constructs": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "tags": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 16,
+    "ip_offset_max": 16,
+    "also_N": false
+   },
+   {
+    "path": "start -[0x00ff]-> parse_packet_out -[default]-> parse_ethernet -[0x0800]-> parse_ipv4 -[0x000011]-> parse_udp -[default]-> accept",
+    "class": "N",
+    "n_constructs": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "tags": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 16,
+    "ip_offset_max": 16,
+    "also_N": false
+   },
+   {
+    "path": "start -[0x00ff]-> parse_packet_out -[default]-> parse_ethernet -[0x0800]-> parse_ipv4 -[0x000001]-> parse_icmp -[default]-> accept",
+    "class": "N",
+    "n_constructs": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "tags": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 16,
+    "ip_offset_max": 16,
+    "also_N": false
+   },
+   {
+    "path": "start -[0x00ff]-> parse_packet_out -[default]-> parse_ethernet -[0x0800]-> parse_ipv4 -[default]-> accept",
+    "class": "N",
+    "n_constructs": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "tags": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 16,
+    "ip_offset_max": 16,
+    "also_N": false
+   },
+   {
+    "path": "start -[0x00ff]-> parse_packet_out -[default]-> parse_ethernet -[default]-> accept",
+    "class": "X",
+    "n_constructs": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "tags": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": true
+   },
+   {
+    "path": "start -[default]-> parse_ethernet -[0x0800]-> parse_ipv4 -[0x000006]-> parse_tcp -[default]-> accept",
+    "class": "N",
+    "n_constructs": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "tags": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[default]-> parse_ethernet -[0x0800]-> parse_ipv4 -[0x000011]-> parse_udp -[default]-> accept",
+    "class": "N",
+    "n_constructs": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "tags": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[default]-> parse_ethernet -[0x0800]-> parse_ipv4 -[0x000001]-> parse_icmp -[default]-> accept",
+    "class": "N",
+    "n_constructs": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "tags": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[default]-> parse_ethernet -[0x0800]-> parse_ipv4 -[default]-> accept",
+    "class": "N",
+    "n_constructs": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "tags": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[default]-> parse_ethernet -[default]-> accept",
+    "class": "X",
+    "n_constructs": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "tags": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": true
+   }
+  ],
+  "syn_pvs": [
+   {
+    "path": "start -[0x0800]-> parse_ipv4 -[default]-> accept",
+    "class": "D1",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[vset:P.tunnel_types{vset-dependent}]-> parse_tun -[0x0800]-> parse_ipv4 -[default]-> accept",
+    "class": "N",
+    "n_constructs": [
+     "N:parse_vset"
+    ],
+    "tags": [
+     "N:parse_vset"
+    ],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 18,
+    "ip_offset_max": 18,
+    "also_N": false
+   },
+   {
+    "path": "start -[vset:P.tunnel_types{vset-dependent}]-> parse_tun -[default]-> accept",
+    "class": "X",
+    "n_constructs": [
+     "N:parse_vset"
+    ],
+    "tags": [
+     "N:parse_vset"
+    ],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": true
+   },
+   {
+    "path": "start -[0x0bad{vset-dependent}]-> accept",
+    "class": "X",
+    "n_constructs": [
+     "N:parse_vset"
+    ],
+    "tags": [
+     "N:parse_vset"
+    ],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": true
+   },
+   {
+    "path": "start -[default{vset-dependent}]-> accept",
+    "class": "X",
+    "n_constructs": [
+     "N:parse_vset"
+    ],
+    "tags": [
+     "N:parse_vset"
+    ],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": true
+   }
+  ],
+  "syn_varbit_ok": [
+   {
+    "path": "start -[0x0800]-> parse_ipv4 -[0x06]-> parse_tcp -[default]-> accept",
+    "class": "D2",
+    "n_constructs": [],
+    "tags": [
+     "varbit"
+    ],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[0x0800]-> parse_ipv4 -[0x11]-> parse_udp -[default]-> accept",
+    "class": "D2",
+    "n_constructs": [],
+    "tags": [
+     "varbit"
+    ],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[0x0800]-> parse_ipv4 -[default]-> accept",
+    "class": "D2",
+    "n_constructs": [],
+    "tags": [
+     "varbit"
+    ],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[default]-> accept",
+    "class": "X",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": false
+   }
+  ],
+  "syn_meta_key": [
+   {
+    "path": "start -[0x01]-> start_true -[default]-> start_join -[0x0188b5]-> parse_tun -[default]-> parse_ipv4 -[default]-> accept",
+    "class": "N",
+    "n_constructs": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "tags": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 18,
+    "ip_offset_max": 18,
+    "also_N": false
+   },
+   {
+    "path": "start -[0x01]-> start_true -[default]-> start_join -[0x000800&0x00ffff]-> parse_ipv4 -[default]-> accept",
+    "class": "N",
+    "n_constructs": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "tags": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[0x01]-> start_true -[default]-> start_join -[default]-> accept",
+    "class": "X",
+    "n_constructs": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "tags": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": true
+   },
+   {
+    "path": "start -[0x00]-> start_false -[default]-> start_join -[0x0188b5]-> parse_tun -[default]-> parse_ipv4 -[default]-> accept",
+    "class": "N",
+    "n_constructs": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "tags": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 18,
+    "ip_offset_max": 18,
+    "also_N": false
+   },
+   {
+    "path": "start -[0x00]-> start_false -[default]-> start_join -[0x000800&0x00ffff]-> parse_ipv4 -[default]-> accept",
+    "class": "N",
+    "n_constructs": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "tags": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[0x00]-> start_false -[default]-> start_join -[default]-> accept",
+    "class": "X",
+    "n_constructs": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "tags": [
+     "N:standard_metadata.ingress_port"
+    ],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": true
+   }
+  ],
+  "syn_deep_stack": [
+   {
+    "path": "start -[0x0800]-> parse_ipv4 -[0x11]-> parse_l4 -[default]-> accept",
+    "class": "D1",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[0x0800]-> parse_ipv4 -[default]-> accept",
+    "class": "D1",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[0x1235]-> parse_hop -[0x01]-> parse_ipv4 -[0x11]-> parse_l4 -[default]-> accept  loops: parse_hop-[default]->parse_hop",
+    "class": "D2",
+    "n_constructs": [],
+    "tags": [
+     "stack"
+    ],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 30,
+    "ip_offset_max": 142,
+    "also_N": false
+   },
+   {
+    "path": "start -[0x1235]-> parse_hop -[0x01]-> parse_ipv4 -[default]-> accept  loops: parse_hop-[default]->parse_hop",
+    "class": "D2",
+    "n_constructs": [],
+    "tags": [
+     "stack"
+    ],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 30,
+    "ip_offset_max": 142,
+    "also_N": false
+   },
+   {
+    "path": "start -[default]-> accept",
+    "class": "X",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": false
+   }
+  ],
+  "syn_ipip": [
+   {
+    "path": "start -[0x0800]-> parse_outer -[0x04]-> parse_inner -[0x11]-> parse_udp -[default]-> accept",
+    "class": "D1",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [
+     "ipv4",
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[0x0800]-> parse_outer -[0x04]-> parse_inner -[default]-> accept",
+    "class": "D1",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [
+     "ipv4",
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[0x0800]-> parse_outer -[0x11]-> parse_udp -[default]-> accept",
+    "class": "D1",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[0x0800]-> parse_outer -[default]-> accept",
+    "class": "D1",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [
+     "ipv4"
+    ],
+    "ip_offset_min": 14,
+    "ip_offset_max": 14,
+    "also_N": false
+   },
+   {
+    "path": "start -[default]-> accept",
+    "class": "X",
+    "n_constructs": [],
+    "tags": [],
+    "ip": [],
+    "ip_offset_min": null,
+    "ip_offset_max": null,
+    "also_N": false
+   }
+  ]
+ },
+ "cases": [
+  {
+   "id": "basic-1",
+   "prog": "basic",
+   "link": "h1->s1 ingress",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "IP",
+    14
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=6 50001->1234",
+   "states": [
+    "start",
+    "parse_ipv4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     50001,
+     1234
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     50001,
+     1234
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     50001,
+     1234
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P1",
+   "expect_path": null
+  },
+  {
+   "id": "basic-2-arp",
+   "prog": "basic",
+   "link": "ARP",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "NO_IP"
+   ],
+   "got": "NO_IP",
+   "got_short": "NO_IP",
+   "states": [
+    "start"
+   ],
+   "verdict": "PASS",
+   "wire": null,
+   "proto_vs_wire": true,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x806"
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x806"
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "none",
+    "l2"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P2",
+   "expect_path": null
+  },
+  {
+   "id": "btun-1-tunnel",
+   "prog": "basic_tunnel",
+   "link": "h1->s1 ingress (host sends the tunnel header)",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "IP",
+    18
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@18 tuple=10.0.1.1->10.0.2.2 proto=6 50002->1234",
+   "states": [
+    "start",
+    "parse_myTunnel",
+    "parse_ipv4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    18,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     50002,
+     1234
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x1212"
+    ]
+   ],
+   "native_vs_wire": false,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     50002,
+     1234
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "program",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P1",
+   "expect_path": null
+  },
+  {
+   "id": "btun-1b-tunnel-egress",
+   "prog": "basic_tunnel",
+   "link": "s2->h2 egress (tunnel header kept to host)",
+   "ctx": {
+    "standard_metadata.ingress_port": 2
+   },
+   "expect": [
+    "IP",
+    18
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@18 tuple=10.0.1.1->10.0.2.2 proto=6 50002->1234",
+   "states": [
+    "start",
+    "parse_myTunnel",
+    "parse_ipv4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    18,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     50002,
+     1234
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x1212"
+    ]
+   ],
+   "native_vs_wire": false,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     50002,
+     1234
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "program",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "egress sample; switch never pops myTunnel (basic_tunnel.p4:147-157)",
+   "path": "P1",
+   "expect_path": null
+  },
+  {
+   "id": "btun-2-plain",
+   "prog": "basic_tunnel",
+   "link": "h1->s1 ingress, no --dst_id",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "IP",
+    14
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=6 50003->1234",
+   "states": [
+    "start",
+    "parse_ipv4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     50003,
+     1234
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     50003,
+     1234
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     50003,
+     1234
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P3",
+   "expect_path": null
+  },
+  {
+   "id": "btun-3-tunnel-v6",
+   "prog": "basic_tunnel",
+   "link": "tunnel carrying IPv6 (not in send.py)",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "NO_IP"
+   ],
+   "got": "NO_IP",
+   "got_short": "NO_IP",
+   "states": [
+    "start",
+    "parse_myTunnel"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    18,
+    "IPV6"
+   ],
+   "proto_vs_wire": false,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x1212"
+    ]
+   ],
+   "native_vs_wire": false,
+   "hints": [
+    "ipv6",
+    [
+     "fe800000000000000000000000000001",
+     "fe800000000000000000000000000002",
+     17,
+     0,
+     0
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "none",
+    "l2"
+   ],
+   "combined_vs_wire": false,
+   "l4_program_offset": null,
+   "note": "program parses only proto_id 0x0800 behind myTunnel: X by the program, IPv6 on wire",
+   "path": "P2",
+   "expect_path": null
+  },
+  {
+   "id": "calc-1",
+   "prog": "calc",
+   "link": "h1->s1",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "NO_IP"
+   ],
+   "got": "NO_IP",
+   "got_short": "NO_IP no IP-extracting state reachable from start",
+   "states": [
+    "start"
+   ],
+   "verdict": "PASS",
+   "wire": null,
+   "proto_vs_wire": true,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "080000000000",
+     "0x1234"
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "l2",
+    [
+     "080000000011",
+     "080000000000",
+     "0x1234"
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "none",
+    "l2"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "x-early:P1|P2|P3",
+   "expect_path": null
+  },
+  {
+   "id": "calc-1-full",
+   "prog": "calc",
+   "link": "h1->s1, reachability exit OFF: lookahead select must pick P1",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "NO_IP"
+   ],
+   "got": "NO_IP",
+   "got_short": "NO_IP",
+   "states": [
+    "start",
+    "check_p4calc",
+    "parse_p4calc"
+   ],
+   "verdict": "PASS",
+   "wire": null,
+   "proto_vs_wire": true,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "080000000000",
+     "0x1234"
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "l2",
+    [
+     "080000000011",
+     "080000000000",
+     "0x1234"
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "none",
+    "l2"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "runs check_p4calc's lookahead<p4calc_t> and its 3-field select",
+   "path": "P1",
+   "expect_path": "P1"
+  },
+  {
+   "id": "calc-1-full-badmagic",
+   "prog": "calc",
+   "link": "reachability exit OFF, first byte 'Q'",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "NO_IP"
+   ],
+   "got": "NO_IP",
+   "got_short": "NO_IP",
+   "states": [
+    "start",
+    "check_p4calc"
+   ],
+   "verdict": "PASS",
+   "wire": null,
+   "proto_vs_wire": true,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "080000000000",
+     "0x1234"
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "l2",
+    [
+     "080000000011",
+     "080000000000",
+     "0x1234"
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "none",
+    "l2"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P2",
+   "expect_path": "P2"
+  },
+  {
+   "id": "calc-2-badmagic",
+   "prog": "calc",
+   "link": "h1->s1, not 'P4'",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "NO_IP"
+   ],
+   "got": "NO_IP",
+   "got_short": "NO_IP no IP-extracting state reachable from start",
+   "states": [
+    "start"
+   ],
+   "verdict": "PASS",
+   "wire": null,
+   "proto_vs_wire": true,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "080000000000",
+     "0x1234"
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "l2",
+    [
+     "080000000011",
+     "080000000000",
+     "0x1234"
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "none",
+    "l2"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "x-early:P1|P2|P3",
+   "expect_path": null
+  },
+  {
+   "id": "ecn-1",
+   "prog": "ecn",
+   "link": "h1->s1",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "IP",
+    14
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=17 1234->4321",
+   "states": [
+    "start",
+    "parse_ipv4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P1",
+   "expect_path": null
+  },
+  {
+   "id": "fw-1-s1",
+   "prog": "firewall_fw",
+   "link": "h1->s1 ingress (firewall.p4)",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "IP",
+    14
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@14 tuple=10.0.1.1->10.0.3.3 proto=6 40000->80",
+   "states": [
+    "start",
+    "parse_ipv4",
+    "tcp"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.3.3",
+     6,
+     40000,
+     80
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.3.3",
+     6,
+     40000,
+     80
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.3.3",
+     6,
+     40000,
+     80
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": 34,
+   "note": "",
+   "path": "P1",
+   "expect_path": null
+  },
+  {
+   "id": "fw-2-s3",
+   "prog": "firewall_basic",
+   "link": "s1->s3 ingress at s3 (basic.p4)",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "IP",
+    14
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@14 tuple=10.0.1.1->10.0.3.3 proto=6 40000->80",
+   "states": [
+    "start",
+    "parse_ipv4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.3.3",
+     6,
+     40000,
+     80
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.3.3",
+     6,
+     40000,
+     80
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.3.3",
+     6,
+     40000,
+     80
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P1",
+   "expect_path": null
+  },
+  {
+   "id": "fw-3-s1-udp",
+   "prog": "firewall_fw",
+   "link": "h1->s1 UDP (non-TCP branch)",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "IP",
+    14
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@14 tuple=10.0.1.1->10.0.3.3 proto=17 5353->53",
+   "states": [
+    "start",
+    "parse_ipv4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.3.3",
+     17,
+     5353,
+     53
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.3.3",
+     17,
+     5353,
+     53
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.3.3",
+     17,
+     5353,
+     53
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P2",
+   "expect_path": null
+  },
+  {
+   "id": "fc-1-ctx",
+   "prog": "flowcache",
+   "link": "h1->s1 ingress, port given",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "IP",
+    14
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=1 8->0",
+   "states": [
+    "start",
+    "parse_ethernet",
+    "parse_ipv4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     1,
+     8,
+     0
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     1,
+     8,
+     0
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     1,
+     8,
+     0
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P2",
+   "expect_path": null
+  },
+  {
+   "id": "fc-2-noctx",
+   "prog": "flowcache",
+   "link": "same frame, no port context",
+   "ctx": null,
+   "expect": [
+    "REFUSE",
+    "standard_metadata.ingress_port"
+   ],
+   "got": "REFUSE",
+   "got_short": "REFUSE [standard_metadata key] standard_metadata.ingress_port is not in the packet bytes and no context was given",
+   "states": [
+    "start"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     1,
+     8,
+     0
+    ]
+   ],
+   "proto_vs_wire": false,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     1,
+     8,
+     0
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     1,
+     8,
+     0
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "NEGATIVE: class N construct",
+   "path": "refuse:P1|P2|P3",
+   "expect_path": null
+  },
+  {
+   "id": "lm-1-probe0",
+   "prog": "link_monitor",
+   "link": "h1->s1",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "NO_IP"
+   ],
+   "got": "NO_IP",
+   "got_short": "NO_IP no IP-extracting state reachable from parse_probe",
+   "states": [
+    "start",
+    "parse_probe"
+   ],
+   "verdict": "PASS",
+   "wire": null,
+   "proto_vs_wire": true,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x812"
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x812"
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "none",
+    "l2"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "x-early:P2|P3",
+   "expect_path": null
+  },
+  {
+   "id": "lm-2-probe3",
+   "prog": "link_monitor",
+   "link": "after 3 hops",
+   "ctx": {
+    "standard_metadata.ingress_port": 2
+   },
+   "expect": [
+    "NO_IP"
+   ],
+   "got": "NO_IP",
+   "got_short": "NO_IP no IP-extracting state reachable from parse_probe",
+   "states": [
+    "start",
+    "parse_probe"
+   ],
+   "verdict": "PASS",
+   "wire": null,
+   "proto_vs_wire": true,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x812"
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x812"
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "none",
+    "l2"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "x-early:P2|P3",
+   "expect_path": null
+  },
+  {
+   "id": "lm-2-probe3-full",
+   "prog": "link_monitor",
+   "link": "after 3 hops, reachability exit OFF",
+   "ctx": {
+    "standard_metadata.ingress_port": 2
+   },
+   "expect": [
+    "NO_IP"
+   ],
+   "got": "NO_IP",
+   "got_short": "NO_IP",
+   "states": [
+    "start",
+    "parse_probe",
+    "parse_probe_data",
+    "parse_probe_data",
+    "parse_probe_data",
+    "parse_probe_fwd",
+    "parse_probe_fwd",
+    "parse_probe_fwd",
+    "parse_probe_fwd"
+   ],
+   "verdict": "PASS",
+   "wire": null,
+   "proto_vs_wire": true,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x812"
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x812"
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "none",
+    "l2"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "runs both stacks: probe_data until bos, probe_fwd for hop_cnt+1 entries",
+   "path": "P3",
+   "expect_path": "P3"
+  },
+  {
+   "id": "lm-1-probe0-full",
+   "prog": "link_monitor",
+   "link": "hop_cnt=0, reachability exit OFF",
+   "ctx": {
+    "standard_metadata.ingress_port": 2
+   },
+   "expect": [
+    "NO_IP"
+   ],
+   "got": "NO_IP",
+   "got_short": "NO_IP",
+   "states": [
+    "start",
+    "parse_probe",
+    "parse_probe_fwd"
+   ],
+   "verdict": "PASS",
+   "wire": null,
+   "proto_vs_wire": true,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x812"
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x812"
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "none",
+    "l2"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P2",
+   "expect_path": "P2"
+  },
+  {
+   "id": "lm-3-probe8-truncated",
+   "prog": "link_monitor",
+   "link": "after 8 hops, 167 B > 128 B capture",
+   "ctx": {
+    "standard_metadata.ingress_port": 2
+   },
+   "expect": [
+    "NO_IP"
+   ],
+   "got": "NO_IP",
+   "got_short": "NO_IP no IP-extracting state reachable from parse_probe",
+   "states": [
+    "start",
+    "parse_probe"
+   ],
+   "verdict": "PASS",
+   "wire": null,
+   "proto_vs_wire": true,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x812"
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x812"
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "none",
+    "l2"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "decided by reachability before the truncation bites",
+   "path": "x-early:P2|P3",
+   "expect_path": null
+  },
+  {
+   "id": "lm-4-ipv4",
+   "prog": "link_monitor",
+   "link": "plain IPv4",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "IP",
+    14
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=17 5000->6000",
+   "states": [
+    "start",
+    "parse_ipv4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     5000,
+     6000
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     5000,
+     6000
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     5000,
+     6000
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P1",
+   "expect_path": null
+  },
+  {
+   "id": "lb-1",
+   "prog": "load_balance",
+   "link": "h1->s1",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "IP",
+    14
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@14 tuple=10.0.1.1->10.0.0.1 proto=6 50004->1234",
+   "states": [
+    "start",
+    "parse_ipv4",
+    "parse_tcp"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.0.1",
+     6,
+     50004,
+     1234
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.0.1",
+     6,
+     50004,
+     1234
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.0.1",
+     6,
+     50004,
+     1234
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": 34,
+   "note": "",
+   "path": "P1",
+   "expect_path": null
+  },
+  {
+   "id": "lb-2-udp",
+   "prog": "load_balance",
+   "link": "h1->s1 UDP (non-TCP branch)",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "IP",
+    14
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@14 tuple=10.0.1.1->10.0.0.1 proto=17 5000->1234",
+   "states": [
+    "start",
+    "parse_ipv4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.0.1",
+     17,
+     5000,
+     1234
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.0.1",
+     17,
+     5000,
+     1234
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.0.1",
+     17,
+     5000,
+     1234
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P2",
+   "expect_path": null
+  },
+  {
+   "id": "mri-0",
+   "prog": "mri",
+   "link": "h1->s1 (count=0, ihl=6)",
+   "ctx": {
+    "standard_metadata.ingress_port": 2
+   },
+   "expect": [
+    "IP",
+    14
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=17 1234->4321",
+   "states": [
+    "start",
+    "parse_ipv4",
+    "parse_ipv4_option",
+    "parse_mri"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P2",
+   "expect_path": null
+  },
+  {
+   "id": "mri-1",
+   "prog": "mri",
+   "link": "s1->s2 (count=1, ihl=8)",
+   "ctx": {
+    "standard_metadata.ingress_port": 3
+   },
+   "expect": [
+    "IP",
+    14
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=17 1234->4321",
+   "states": [
+    "start",
+    "parse_ipv4",
+    "parse_ipv4_option",
+    "parse_mri",
+    "parse_swtrace"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P3",
+   "expect_path": null
+  },
+  {
+   "id": "mri-3",
+   "prog": "mri",
+   "link": "s2->h2 via s3 (count=3, ihl=12)",
+   "ctx": {
+    "standard_metadata.ingress_port": 2
+   },
+   "expect": [
+    "IP",
+    14
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=17 1234->4321",
+   "states": [
+    "start",
+    "parse_ipv4",
+    "parse_ipv4_option",
+    "parse_mri",
+    "parse_swtrace",
+    "parse_swtrace",
+    "parse_swtrace"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P3",
+   "expect_path": null
+  },
+  {
+   "id": "mri-4",
+   "prog": "mri",
+   "link": "count=4, ihl=14 (most that fits ihl's 4 bits)",
+   "ctx": {
+    "standard_metadata.ingress_port": 2
+   },
+   "expect": [
+    "IP",
+    14
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=17 1234->4321",
+   "states": [
+    "start",
+    "parse_ipv4",
+    "parse_ipv4_option",
+    "parse_mri",
+    "parse_swtrace",
+    "parse_swtrace",
+    "parse_swtrace",
+    "parse_swtrace"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P3",
+   "expect_path": null
+  },
+  {
+   "id": "mri-5-ihl-wrap",
+   "prog": "mri",
+   "link": "5th hop: add_swtrace's ihl+2 wraps the 4-bit field to 0",
+   "ctx": {
+    "standard_metadata.ingress_port": 2
+   },
+   "expect": [
+    "PARSER_ERROR",
+    "IPHeaderTooShort"
+   ],
+   "got": "PARSER_ERROR",
+   "got_short": "PARSER_ERROR IPHeaderTooShort: verify failed",
+   "states": [
+    "start",
+    "parse_ipv4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "proto_vs_wire": false,
+   "native": [
+    "ipv4-malformed-ihl",
+    null
+   ],
+   "native_vs_wire": false,
+   "hints": [
+    "ipv4-malformed-ihl",
+    null
+   ],
+   "hints_vs_wire": false,
+   "combined": [
+    "none",
+    "ipv4-malformed-ihl"
+   ],
+   "combined_vs_wire": false,
+   "l4_program_offset": null,
+   "note": "LIMIT (an app bug, mri.p4:206): nothing in the header says where L4 is any more",
+   "path": "parser_error:P1|P2|P3|P4",
+   "expect_path": null
+  },
+  {
+   "id": "mri-plain",
+   "prog": "mri",
+   "link": "IPv4 ihl=5",
+   "ctx": {
+    "standard_metadata.ingress_port": 2
+   },
+   "expect": [
+    "IP",
+    14
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=17 1234->4321",
+   "states": [
+    "start",
+    "parse_ipv4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P1",
+   "expect_path": null
+  },
+  {
+   "id": "mri-nop-opt",
+   "prog": "mri",
+   "link": "IPv4 with a non-MRI option (NOP,NOP,NOP,EOL)",
+   "ctx": {
+    "standard_metadata.ingress_port": 2
+   },
+   "expect": [
+    "IP",
+    14
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=17 1234->4321",
+   "states": [
+    "start",
+    "parse_ipv4",
+    "parse_ipv4_option"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P4",
+   "expect_path": null
+  },
+  {
+   "id": "mri-ihl4",
+   "prog": "mri",
+   "link": "malformed ihl=4",
+   "ctx": {
+    "standard_metadata.ingress_port": 2
+   },
+   "expect": [
+    "PARSER_ERROR",
+    "IPHeaderTooShort"
+   ],
+   "got": "PARSER_ERROR",
+   "got_short": "PARSER_ERROR IPHeaderTooShort: verify failed",
+   "states": [
+    "start",
+    "parse_ipv4"
+   ],
+   "verdict": "PASS",
+   "wire": null,
+   "proto_vs_wire": true,
+   "native": [
+    "ipv4-malformed-ihl",
+    null
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4-malformed-ihl",
+    null
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "none",
+    "ipv4-malformed-ihl"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "verify(ihl>=5) evaluated from the bytes",
+   "path": "parser_error:P1|P2|P3|P4",
+   "expect_path": null
+  },
+  {
+   "id": "mc-1",
+   "prog": "multicast",
+   "link": "h1->s1 ping",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "NO_IP"
+   ],
+   "got": "NO_IP",
+   "got_short": "NO_IP no IP-extracting state reachable from start",
+   "states": [
+    "start"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     1,
+     8,
+     0
+    ]
+   ],
+   "proto_vs_wire": false,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     1,
+     8,
+     0
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     1,
+     8,
+     0
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "X by the program, IPv4 on the wire",
+   "path": "x-early:P1",
+   "expect_path": null
+  },
+  {
+   "id": "p4rt-1-hostlink",
+   "prog": "p4runtime",
+   "link": "h1->s1 ingress (plain IPv4)",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "IP",
+    14
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=1 8->0",
+   "states": [
+    "start",
+    "parse_ipv4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     1,
+     8,
+     0
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     1,
+     8,
+     0
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     1,
+     8,
+     0
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P3",
+   "expect_path": null
+  },
+  {
+   "id": "p4rt-2-tunnel",
+   "prog": "p4runtime",
+   "link": "s1->s2 ingress at s2 (tunnel)",
+   "ctx": {
+    "standard_metadata.ingress_port": 2
+   },
+   "expect": [
+    "IP",
+    18
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@18 tuple=10.0.1.1->10.0.2.2 proto=1 8->0",
+   "states": [
+    "start",
+    "parse_myTunnel",
+    "parse_ipv4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    18,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     1,
+     8,
+     0
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x1212"
+    ]
+   ],
+   "native_vs_wire": false,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     1,
+     8,
+     0
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "program",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P1",
+   "expect_path": null
+  },
+  {
+   "id": "qos-1",
+   "prog": "qos",
+   "link": "h1->s1 UDP",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "IP",
+    14
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=17 1234->4321",
+   "states": [
+    "start",
+    "parse_ipv4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P1",
+   "expect_path": null
+  },
+  {
+   "id": "qos-2",
+   "prog": "qos",
+   "link": "h1->s1 TCP",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "IP",
+    14
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=6 20->80",
+   "states": [
+    "start",
+    "parse_ipv4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     20,
+     80
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     20,
+     80
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     20,
+     80
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P1",
+   "expect_path": null
+  },
+  {
+   "id": "sr-1-host",
+   "prog": "source_routing",
+   "link": "h1->s1 ingress, route '2 3 1'",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "IP",
+    20
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@20 tuple=10.0.1.1->10.0.2.2 proto=17 1234->4321",
+   "states": [
+    "start",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_ipv4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    20,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x1234"
+    ]
+   ],
+   "native_vs_wire": false,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "program",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P1",
+   "expect_path": null
+  },
+  {
+   "id": "sr-2-core",
+   "prog": "source_routing",
+   "link": "s1->s2 ingress after one pop",
+   "ctx": {
+    "standard_metadata.ingress_port": 2
+   },
+   "expect": [
+    "IP",
+    18
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@18 tuple=10.0.1.1->10.0.2.2 proto=17 1234->4321",
+   "states": [
+    "start",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_ipv4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    18,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x1234"
+    ]
+   ],
+   "native_vs_wire": false,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "program",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P1",
+   "expect_path": null
+  },
+  {
+   "id": "sr-9-max",
+   "prog": "source_routing",
+   "link": "9 entries (stack size)",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "IP",
+    32
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@32 tuple=10.0.1.1->10.0.2.2 proto=17 1234->4321",
+   "states": [
+    "start",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_ipv4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    32,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x1234"
+    ]
+   ],
+   "native_vs_wire": false,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "program",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P1",
+   "expect_path": null
+  },
+  {
+   "id": "sr-last-hop",
+   "prog": "source_routing",
+   "link": "s->h2 egress: plain 0x0800 after srcRoute_finish",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "NO_IP"
+   ],
+   "got": "NO_IP",
+   "got_short": "NO_IP",
+   "states": [
+    "start"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "proto_vs_wire": false,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "the program's parser has no 0x0800 branch: X by the program, IPv4 on the wire",
+   "path": "P2",
+   "expect_path": null
+  },
+  {
+   "id": "sr-10-overflow",
+   "prog": "source_routing",
+   "link": "10 entries > stack size 9",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "PARSER_ERROR",
+    "StackOutOfBounds"
+   ],
+   "got": "PARSER_ERROR",
+   "got_short": "PARSER_ERROR StackOutOfBounds: srcRoutes.next with 9 already extracted",
+   "states": [
+    "start",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    34,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "proto_vs_wire": false,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x1234"
+    ]
+   ],
+   "native_vs_wire": false,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "none",
+    "l2"
+   ],
+   "combined_vs_wire": false,
+   "l4_program_offset": null,
+   "note": "bmv2 would also raise StackOutOfBounds; the wire still has IPv4 at 34",
+   "path": "parser_error:P1",
+   "expect_path": null
+  },
+  {
+   "id": "ndt-1-ctx",
+   "prog": "ndtwin_switch",
+   "link": "host->switch ingress, port 1",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "IP",
+    14
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=6 33000->5201",
+   "states": [
+    "start",
+    "parse_ethernet",
+    "parse_ipv4",
+    "parse_tcp"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     33000,
+     5201
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     33000,
+     5201
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     33000,
+     5201
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": 34,
+   "note": "",
+   "path": "P6",
+   "expect_path": null
+  },
+  {
+   "id": "ndt-2-noctx",
+   "prog": "ndtwin_switch",
+   "link": "same frame, no port context",
+   "ctx": null,
+   "expect": [
+    "REFUSE",
+    "standard_metadata.ingress_port"
+   ],
+   "got": "REFUSE",
+   "got_short": "REFUSE [standard_metadata key] standard_metadata.ingress_port is not in the packet bytes and no context was given",
+   "states": [
+    "start"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     33000,
+     5201
+    ]
+   ],
+   "proto_vs_wire": false,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     33000,
+     5201
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     33000,
+     5201
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "NEGATIVE: NDTwin's own program is class N on every path without port context",
+   "path": "refuse:P1|P2|P3|P4|P5|P6|P7|P8|P9|P10",
+   "expect_path": null
+  },
+  {
+   "id": "ndt-3-wrongctx",
+   "prog": "ndtwin_switch",
+   "link": "same frame, port context 255 (wrong)",
+   "ctx": {
+    "standard_metadata.ingress_port": 255
+   },
+   "expect": [
+    "SAFE",
+    14
+   ],
+   "got": "NO_IP",
+   "got_short": "NO_IP",
+   "states": [
+    "start",
+    "parse_packet_out",
+    "parse_ethernet"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     33000,
+     5201
+    ]
+   ],
+   "proto_vs_wire": false,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     33000,
+     5201
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     33000,
+     5201
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "NEGATIVE: wrong context must not yield the right answer",
+   "path": "P5",
+   "expect_path": null
+  },
+  {
+   "id": "ndt-4-udp",
+   "prog": "ndtwin_switch",
+   "link": "host->switch ingress, port 1",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "IP",
+    14
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=17 4000->4001",
+   "states": [
+    "start",
+    "parse_ethernet",
+    "parse_ipv4",
+    "parse_udp"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     4000,
+     4001
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     4000,
+     4001
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     4000,
+     4001
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": 34,
+   "note": "",
+   "path": "P7",
+   "expect_path": null
+  },
+  {
+   "id": "ndt-5-icmp",
+   "prog": "ndtwin_switch",
+   "link": "host->switch ingress, port 1",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "IP",
+    14
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=1 8->0",
+   "states": [
+    "start",
+    "parse_ethernet",
+    "parse_ipv4",
+    "parse_icmp"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     1,
+     8,
+     0
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     1,
+     8,
+     0
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     1,
+     8,
+     0
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P8",
+   "expect_path": null
+  },
+  {
+   "id": "ndt-6-ospf",
+   "prog": "ndtwin_switch",
+   "link": "host->switch ingress, port 1",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "IP",
+    14
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=89 0->0",
+   "states": [
+    "start",
+    "parse_ethernet",
+    "parse_ipv4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     89,
+     0,
+     0
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     89,
+     0,
+     0
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     89,
+     0,
+     0
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P9",
+   "expect_path": null
+  },
+  {
+   "id": "ndt-7-fragment",
+   "prog": "ndtwin_switch",
+   "link": "non-first fragment (offset 185) of TCP",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "IP",
+    14
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=6 0->0",
+   "states": [
+    "start",
+    "parse_ethernet",
+    "parse_ipv4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     0,
+     0
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     0,
+     0
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     0,
+     0
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "parse_ipv4 selects on (fragOffset, protocol)",
+   "path": "P9",
+   "expect_path": null
+  },
+  {
+   "id": "ndt-8-pktout-tcp",
+   "prog": "ndtwin_switch",
+   "link": "CPU port 255 (packet_out) -- never on a sampled veth",
+   "ctx": {
+    "standard_metadata.ingress_port": 255
+   },
+   "expect": [
+    "IP",
+    16
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@16 tuple=10.0.1.1->10.0.2.2 proto=6 1->2",
+   "states": [
+    "start",
+    "parse_packet_out",
+    "parse_ethernet",
+    "parse_ipv4",
+    "parse_tcp"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    16,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     1,
+     2
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "l2",
+    [
+     "ffff08000000",
+     "0100ffffffff",
+     "0x11"
+    ]
+   ],
+   "native_vs_wire": false,
+   "hints": [
+    "l2",
+    [
+     "ffff08000000",
+     "0100ffffffff",
+     "0x11"
+    ]
+   ],
+   "hints_vs_wire": false,
+   "combined": [
+    "program",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": 36,
+   "note": "exists only on the P4Runtime stream channel; run for path coverage only",
+   "path": "P1",
+   "expect_path": null
+  },
+  {
+   "id": "ndt-9-pktout-udp",
+   "prog": "ndtwin_switch",
+   "link": "CPU port 255 (packet_out) -- never on a sampled veth",
+   "ctx": {
+    "standard_metadata.ingress_port": 255
+   },
+   "expect": [
+    "IP",
+    16
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@16 tuple=10.0.1.1->10.0.2.2 proto=17 3->4",
+   "states": [
+    "start",
+    "parse_packet_out",
+    "parse_ethernet",
+    "parse_ipv4",
+    "parse_udp"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    16,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     3,
+     4
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "l2",
+    [
+     "ffff08000000",
+     "0100ffffffff",
+     "0x11"
+    ]
+   ],
+   "native_vs_wire": false,
+   "hints": [
+    "l2",
+    [
+     "ffff08000000",
+     "0100ffffffff",
+     "0x11"
+    ]
+   ],
+   "hints_vs_wire": false,
+   "combined": [
+    "program",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": 36,
+   "note": "exists only on the P4Runtime stream channel; run for path coverage only",
+   "path": "P2",
+   "expect_path": null
+  },
+  {
+   "id": "ndt-10-pktout-icmp",
+   "prog": "ndtwin_switch",
+   "link": "CPU port 255 (packet_out) -- never on a sampled veth",
+   "ctx": {
+    "standard_metadata.ingress_port": 255
+   },
+   "expect": [
+    "IP",
+    16
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@16 tuple=10.0.1.1->10.0.2.2 proto=1 8->0",
+   "states": [
+    "start",
+    "parse_packet_out",
+    "parse_ethernet",
+    "parse_ipv4",
+    "parse_icmp"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    16,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     1,
+     8,
+     0
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "l2",
+    [
+     "ffff08000000",
+     "0100ffffffff",
+     "0x11"
+    ]
+   ],
+   "native_vs_wire": false,
+   "hints": [
+    "l2",
+    [
+     "ffff08000000",
+     "0100ffffffff",
+     "0x11"
+    ]
+   ],
+   "hints_vs_wire": false,
+   "combined": [
+    "program",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "exists only on the P4Runtime stream channel; run for path coverage only",
+   "path": "P3",
+   "expect_path": null
+  },
+  {
+   "id": "ndt-11-pktout-other",
+   "prog": "ndtwin_switch",
+   "link": "CPU port 255 (packet_out) -- never on a sampled veth",
+   "ctx": {
+    "standard_metadata.ingress_port": 255
+   },
+   "expect": [
+    "IP",
+    16
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@16 tuple=10.0.1.1->10.0.2.2 proto=89 0->0",
+   "states": [
+    "start",
+    "parse_packet_out",
+    "parse_ethernet",
+    "parse_ipv4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    16,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     89,
+     0,
+     0
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "l2",
+    [
+     "ffff08000000",
+     "0100ffffffff",
+     "0x11"
+    ]
+   ],
+   "native_vs_wire": false,
+   "hints": [
+    "l2",
+    [
+     "ffff08000000",
+     "0100ffffffff",
+     "0x11"
+    ]
+   ],
+   "hints_vs_wire": false,
+   "combined": [
+    "program",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "exists only on the P4Runtime stream channel; run for path coverage only",
+   "path": "P4",
+   "expect_path": null
+  },
+  {
+   "id": "syn-pvs-ipv4",
+   "prog": "syn_pvs",
+   "link": "0x0800 is matched before the value set",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "IP",
+    14
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=17 1->2",
+   "states": [
+    "start",
+    "parse_ipv4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1,
+     2
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1,
+     2
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1,
+     2
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P1",
+   "expect_path": null
+  },
+  {
+   "id": "syn-pvs-tun",
+   "prog": "syn_pvs",
+   "link": "ethertype that may or may not be in the runtime vset",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "REFUSE",
+    "parse_vset"
+   ],
+   "got": "REFUSE",
+   "got_short": "REFUSE [parse_vset] P.tunnel_types (members are written at runtime)",
+   "states": [
+    "start"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    18,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1,
+     2
+    ]
+   ],
+   "proto_vs_wire": false,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x88b6"
+    ]
+   ],
+   "native_vs_wire": false,
+   "hints": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x88b6"
+    ]
+   ],
+   "hints_vs_wire": false,
+   "combined": [
+    "none",
+    "l2"
+   ],
+   "combined_vs_wire": false,
+   "l4_program_offset": null,
+   "note": "NEGATIVE",
+   "path": "refuse:P1|P2|P3|P4|P5",
+   "expect_path": null
+  },
+  {
+   "id": "syn-varbit",
+   "prog": "syn_varbit_ok",
+   "link": "IPv4 + 8 B options parsed as varbit",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "IP",
+    14
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=6 7->8",
+   "states": [
+    "start",
+    "parse_ipv4",
+    "parse_tcp"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     7,
+     8
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     7,
+     8
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     7,
+     8
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": 42,
+   "note": "extract_VL length evaluated from ihl",
+   "path": "P1",
+   "expect_path": null
+  },
+  {
+   "id": "syn-meta-noctx",
+   "prog": "syn_meta_key",
+   "link": "no port context",
+   "ctx": null,
+   "expect": [
+    "REFUSE",
+    "standard_metadata.ingress_port"
+   ],
+   "got": "REFUSE",
+   "got_short": "REFUSE [standard_metadata key] standard_metadata.ingress_port is not in the packet bytes and no context was given",
+   "states": [
+    "start"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    18,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1,
+     2
+    ]
+   ],
+   "proto_vs_wire": false,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x88b5"
+    ]
+   ],
+   "native_vs_wire": false,
+   "hints": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x88b5"
+    ]
+   ],
+   "hints_vs_wire": false,
+   "combined": [
+    "none",
+    "l2"
+   ],
+   "combined_vs_wire": false,
+   "l4_program_offset": null,
+   "note": "NEGATIVE: key is a scalar computed from ingress_port",
+   "path": "refuse:P1|P2|P3|P4|P5|P6",
+   "expect_path": null
+  },
+  {
+   "id": "syn-meta-ipv4-core",
+   "prog": "syn_meta_key",
+   "link": "IPv4 on port 4: needs the (_, 0x0800) mask",
+   "ctx": {
+    "standard_metadata.ingress_port": 4
+   },
+   "expect": [
+    "IP",
+    14
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=17 1->2",
+   "states": [
+    "start",
+    "start_true",
+    "start_join",
+    "parse_ipv4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    14,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1,
+     2
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1,
+     2
+    ]
+   ],
+   "native_vs_wire": true,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1,
+     2
+    ]
+   ],
+   "hints_vs_wire": true,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "added after mutant M4 (mask ignored) survived suite v1",
+   "path": "P2",
+   "expect_path": "P2"
+  },
+  {
+   "id": "syn-meta-core",
+   "prog": "syn_meta_key",
+   "link": "port 4 (core): tunnel parsed",
+   "ctx": {
+    "standard_metadata.ingress_port": 4
+   },
+   "expect": [
+    "IP",
+    18
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@18 tuple=10.0.1.1->10.0.2.2 proto=17 1->2",
+   "states": [
+    "start",
+    "start_true",
+    "start_join",
+    "parse_tun",
+    "parse_ipv4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    18,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1,
+     2
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x88b5"
+    ]
+   ],
+   "native_vs_wire": false,
+   "hints": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x88b5"
+    ]
+   ],
+   "hints_vs_wire": false,
+   "combined": [
+    "program",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P1",
+   "expect_path": null
+  },
+  {
+   "id": "syn-meta-edge",
+   "prog": "syn_meta_key",
+   "link": "port 1 (edge): same bytes, tunnel not parsed",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "NO_IP"
+   ],
+   "got": "NO_IP",
+   "got_short": "NO_IP",
+   "states": [
+    "start",
+    "start_false",
+    "start_join"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    18,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1,
+     2
+    ]
+   ],
+   "proto_vs_wire": false,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x88b5"
+    ]
+   ],
+   "native_vs_wire": false,
+   "hints": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x88b5"
+    ]
+   ],
+   "hints_vs_wire": false,
+   "combined": [
+    "none",
+    "l2"
+   ],
+   "combined_vs_wire": false,
+   "l4_program_offset": null,
+   "note": "same bytes, different program answer: the definition of class N",
+   "path": "P6",
+   "expect_path": null
+  },
+  {
+   "id": "syn-ipip",
+   "prog": "syn_ipip",
+   "link": "IPv4-in-IPv4: innermost IP is the identity (design choice)",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "IP",
+    34
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@34 tuple=192.168.0.1->192.168.0.2 proto=17 7000->7001",
+   "states": [
+    "start",
+    "parse_outer",
+    "parse_inner",
+    "parse_udp"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    34,
+    [
+     "192.168.0.1",
+     "192.168.0.2",
+     17,
+     7000,
+     7001
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     4,
+     0,
+     0
+    ]
+   ],
+   "native_vs_wire": false,
+   "hints": [
+    "ipv4",
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     4,
+     0,
+     0
+    ]
+   ],
+   "hints_vs_wire": false,
+   "combined": [
+    "native",
+    "ipv4"
+   ],
+   "combined_vs_wire": false,
+   "l4_program_offset": 54,
+   "note": "native today reports the OUTER header (proto 4, no ports); policy question",
+   "path": "P1",
+   "expect_path": null
+  },
+  {
+   "id": "syn-deep-2",
+   "prog": "syn_deep_stack",
+   "link": "2 x 16 B entries",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "IP",
+    46
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@46 tuple=10.0.1.1->10.0.2.2 proto=17 9->10",
+   "states": [
+    "start",
+    "parse_hop",
+    "parse_hop",
+    "parse_ipv4",
+    "parse_l4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    46,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     9,
+     10
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x1235"
+    ]
+   ],
+   "native_vs_wire": false,
+   "hints": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x1235"
+    ]
+   ],
+   "hints_vs_wire": false,
+   "combined": [
+    "program",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P3",
+   "expect_path": null
+  },
+  {
+   "id": "syn-deep-5",
+   "prog": "syn_deep_stack",
+   "link": "5 x 16 B entries (IP@94, ports end at 118)",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "IP",
+    94
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@94 tuple=10.0.1.1->10.0.2.2 proto=17 9->10",
+   "states": [
+    "start",
+    "parse_hop",
+    "parse_hop",
+    "parse_hop",
+    "parse_hop",
+    "parse_hop",
+    "parse_ipv4",
+    "parse_l4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    94,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     9,
+     10
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x1235"
+    ]
+   ],
+   "native_vs_wire": false,
+   "hints": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x1235"
+    ]
+   ],
+   "hints_vs_wire": false,
+   "combined": [
+    "program",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "",
+   "path": "P3",
+   "expect_path": null
+  },
+  {
+   "id": "syn-deep-6",
+   "prog": "syn_deep_stack",
+   "link": "6 x 16 B entries (IP@110, header ends at 130)",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "TRUNCATED"
+   ],
+   "got": "TRUNCATED",
+   "got_short": "TRUNCATED TRUNCATED: need bit 1040, capture has 1024",
+   "states": [
+    "start",
+    "parse_hop",
+    "parse_hop",
+    "parse_hop",
+    "parse_hop",
+    "parse_hop",
+    "parse_hop",
+    "parse_ipv4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    110,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     9,
+     10
+    ]
+   ],
+   "proto_vs_wire": false,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x1235"
+    ]
+   ],
+   "native_vs_wire": false,
+   "hints": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x1235"
+    ]
+   ],
+   "hints_vs_wire": false,
+   "combined": [
+    "none",
+    "l2"
+   ],
+   "combined_vs_wire": false,
+   "l4_program_offset": null,
+   "note": "LIMIT: 128-byte capture",
+   "path": "truncated:P3|P4",
+   "expect_path": null
+  },
+  {
+   "id": "syn-deep-8",
+   "prog": "syn_deep_stack",
+   "link": "8 x 16 B entries (IP@142)",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "TRUNCATED"
+   ],
+   "got": "TRUNCATED",
+   "got_short": "TRUNCATED TRUNCATED: need bit 1040, capture has 1024",
+   "states": [
+    "start",
+    "parse_hop",
+    "parse_hop",
+    "parse_hop",
+    "parse_hop",
+    "parse_hop",
+    "parse_hop",
+    "parse_hop",
+    "parse_hop"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    142,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     9,
+     10
+    ]
+   ],
+   "proto_vs_wire": false,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x1235"
+    ]
+   ],
+   "native_vs_wire": false,
+   "hints": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x1235"
+    ]
+   ],
+   "hints_vs_wire": false,
+   "combined": [
+    "none",
+    "l2"
+   ],
+   "combined_vs_wire": false,
+   "l4_program_offset": null,
+   "note": "LIMIT: 128-byte capture",
+   "path": "truncated:P3|P4",
+   "expect_path": null
+  }
+ ],
+ "corrupt": [
+  {
+   "id": "K1-srcroute-24bit",
+   "prog": "<dict>",
+   "link": "-",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "SAFE",
+    20
+   ],
+   "got": "PARSER_ERROR",
+   "got_short": "PARSER_ERROR StackOutOfBounds: srcRoutes.next with 9 already extracted",
+   "states": [
+    "start",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    20,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "proto_vs_wire": false,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x1234"
+    ]
+   ],
+   "native_vs_wire": false,
+   "hints": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x1234"
+    ]
+   ],
+   "hints_vs_wire": false,
+   "combined": [
+    "none",
+    "l2"
+   ],
+   "combined_vs_wire": false,
+   "l4_program_offset": null,
+   "note": "srcRoute_t widened 16->24 bits; sanity check on",
+   "path": "-",
+   "expect_path": null,
+   "safety": "SAFE (refused / no identity)"
+  },
+  {
+   "id": "K1b-srcroute-24bit-nosanity",
+   "prog": "<dict>",
+   "link": "-",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "NOT",
+    20
+   ],
+   "got": "PARSER_ERROR",
+   "got_short": "PARSER_ERROR StackOutOfBounds: srcRoutes.next with 9 already extracted",
+   "states": [
+    "start",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting",
+    "parse_srcRouting"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    20,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     17,
+     1234,
+     4321
+    ]
+   ],
+   "proto_vs_wire": false,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x1234"
+    ]
+   ],
+   "native_vs_wire": false,
+   "hints": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x1234"
+    ]
+   ],
+   "hints_vs_wire": false,
+   "combined": [
+    "none",
+    "l2"
+   ],
+   "combined_vs_wire": false,
+   "l4_program_offset": null,
+   "note": "same, version/ihl sanity check OFF",
+   "path": "-",
+   "expect_path": null,
+   "safety": "SAFE (refused / no identity)"
+  },
+  {
+   "id": "K2-tunnel-fields-swapped",
+   "prog": "<dict>",
+   "link": "-",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "SAFE",
+    18
+   ],
+   "got": "NO_IP",
+   "got_short": "NO_IP",
+   "states": [
+    "start",
+    "parse_myTunnel"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    18,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     50002,
+     1234
+    ]
+   ],
+   "proto_vs_wire": false,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x1212"
+    ]
+   ],
+   "native_vs_wire": false,
+   "hints": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x1212"
+    ]
+   ],
+   "hints_vs_wire": false,
+   "combined": [
+    "none",
+    "l2"
+   ],
+   "combined_vs_wire": false,
+   "l4_program_offset": null,
+   "note": "myTunnel_t field order swapped: key reads dst_id",
+   "path": "-",
+   "expect_path": null,
+   "safety": "SAFE (refused / no identity)"
+  },
+  {
+   "id": "K3-tunnel-widened",
+   "prog": "<dict>",
+   "link": "-",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "SAFE",
+    18
+   ],
+   "got": "SANITY",
+   "got_short": "SANITY structural IPv4 at 20 has version=0 ihl=0; refusing (the JSON and the wire disagree)",
+   "states": [
+    "start",
+    "parse_myTunnel",
+    "parse_ipv4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    18,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     50002,
+     1234
+    ]
+   ],
+   "proto_vs_wire": false,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x1212"
+    ]
+   ],
+   "native_vs_wire": false,
+   "hints": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x1212"
+    ]
+   ],
+   "hints_vs_wire": false,
+   "combined": [
+    "none",
+    "l2"
+   ],
+   "combined_vs_wire": false,
+   "l4_program_offset": null,
+   "note": "myTunnel_t dst_id 16->32 bits; sanity check on",
+   "path": "-",
+   "expect_path": null,
+   "safety": "SAFE (refused / no identity)"
+  },
+  {
+   "id": "K3b-tunnel-widened-nosanity",
+   "prog": "<dict>",
+   "link": "-",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "NOT",
+    18
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@20 tuple=1.1.10.0->2.2.195.82 proto=203 0->0",
+   "states": [
+    "start",
+    "parse_myTunnel",
+    "parse_ipv4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    18,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     50002,
+     1234
+    ]
+   ],
+   "proto_vs_wire": false,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x1212"
+    ]
+   ],
+   "native_vs_wire": false,
+   "hints": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x1212"
+    ]
+   ],
+   "hints_vs_wire": false,
+   "combined": [
+    "program",
+    "ipv4"
+   ],
+   "combined_vs_wire": false,
+   "l4_program_offset": null,
+   "note": "same, sanity check OFF",
+   "path": "-",
+   "expect_path": null,
+   "safety": "UNSAFE (wrong identity, no refusal)"
+  },
+  {
+   "id": "K4-ipv4-renamed",
+   "prog": "<dict>",
+   "link": "-",
+   "ctx": {
+    "standard_metadata.ingress_port": 1
+   },
+   "expect": [
+    "IP",
+    18
+   ],
+   "got": "IP",
+   "got_short": "IP ipv4@18 tuple=10.0.1.1->10.0.2.2 proto=6 50002->1234",
+   "states": [
+    "start",
+    "parse_myTunnel",
+    "parse_ipv4"
+   ],
+   "verdict": "PASS",
+   "wire": [
+    18,
+    [
+     "10.0.1.1",
+     "10.0.2.2",
+     6,
+     50002,
+     1234
+    ]
+   ],
+   "proto_vs_wire": true,
+   "native": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x1212"
+    ]
+   ],
+   "native_vs_wire": false,
+   "hints": [
+    "l2",
+    [
+     "080000000011",
+     "ffffffffffff",
+     "0x1212"
+    ]
+   ],
+   "hints_vs_wire": false,
+   "combined": [
+    "program",
+    "ipv4"
+   ],
+   "combined_vs_wire": true,
+   "l4_program_offset": null,
+   "note": "POSITIVE control: IPv4 header type and every field renamed; structure unchanged",
+   "path": "-",
+   "expect_path": null,
+   "safety": "CORRECT"
+  }
+ ],
+ "pcap": {
+  "basic": {
+   "run": "2026-09-18T110845Z solution",
+   "files_sha256_12": {
+    "s1-eth1_in": "f3217c33f44a",
+    "s1-eth1_out": "821960b0b201",
+    "s1-eth2_in": "8239184a789a",
+    "s1-eth2_out": "3c59c7a38d90",
+    "s1-eth3_in": "9665047c8b57",
+    "s1-eth4_in": "c6cdc0f0354d",
+    "s2-eth1_in": "578681053a76",
+    "s2-eth1_out": "f632651579cd",
+    "s2-eth2_in": "52a8e40c6d59",
+    "s2-eth2_out": "afb25d1750ec",
+    "s2-eth3_in": "5c304cc952c9",
+    "s2-eth4_in": "b2303ede53cc",
+    "s3-eth1_in": "7c2c547767d2",
+    "s3-eth2_in": "706a7a864c8f",
+    "s4-eth1_in": "e08e86ec94ac",
+    "s4-eth2_in": "a2fcd0db1a8c"
+   },
+   "paths": [
+    [
+     [
+      "basic",
+      "P1",
+      "IP"
+     ],
+     496
+    ],
+    [
+     [
+      "basic",
+      "P2",
+      "NO_IP"
+     ],
+     374
+    ]
+   ],
+   "tally": [
+    [
+     [
+      "in",
+      "0800",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     344
+    ],
+    [
+     [
+      "in",
+      "86dd",
+      "miss(NO_IP)",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     374
+    ],
+    [
+     [
+      "out",
+      "0800",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     152
+    ]
+   ],
+   "examples": {
+    "in|86dd|miss(NO_IP)|agree-ip|agree-ip|agree-ip": [
+     "s1-eth1_in",
+     "NO_IP",
+     "ipv6",
+     14
+    ],
+    "in|0800|agree-ip|agree-ip|agree-ip|agree-ip": [
+     "s1-eth1_in",
+     "IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=1 8->0",
+     "ipv4",
+     14
+    ],
+    "out|0800|agree-ip|agree-ip|agree-ip|agree-ip": [
+     "s1-eth1_out",
+     "IP ipv4@14 tuple=10.0.2.2->10.0.1.1 proto=1 0->0",
+     "ipv4",
+     14
+    ]
+   }
+  },
+  "basic_tunnel": {
+   "run": "2026-09-24T095344Z solution",
+   "files_sha256_12": {
+    "s1-eth1_in": "d9664650072e",
+    "s1-eth1_out": "e3b0c44298fc",
+    "s1-eth2_in": "c35e86d7e5ec",
+    "s1-eth3_in": "2b9b2ae57611",
+    "s2-eth1_in": "dd9003fd7ef9",
+    "s2-eth1_out": "11a870cc2679",
+    "s2-eth2_in": "76437c66747d",
+    "s2-eth3_in": "87bfa2999db8",
+    "s3-eth1_in": "c6053fe27b63",
+    "s3-eth1_out": "a957b0e2ede2",
+    "s3-eth2_in": "30b38b022b12",
+    "s3-eth3_in": "a7f17739a1c0"
+   },
+   "paths": [
+    [
+     [
+      "basic_tunnel",
+      "P1",
+      "IP"
+     ],
+     6
+    ],
+    [
+     [
+      "basic_tunnel",
+      "P4",
+      "NO_IP"
+     ],
+     272
+    ]
+   ],
+   "tally": [
+    [
+     [
+      "in",
+      "1212",
+      "agree-ip",
+      "miss",
+      "agree-ip",
+      "agree-ip"
+     ],
+     4
+    ],
+    [
+     [
+      "in",
+      "86dd",
+      "miss(NO_IP)",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     272
+    ],
+    [
+     [
+      "out",
+      "1212",
+      "agree-ip",
+      "miss",
+      "agree-ip",
+      "agree-ip"
+     ],
+     2
+    ]
+   ],
+   "examples": {
+    "in|86dd|miss(NO_IP)|agree-ip|agree-ip|agree-ip": [
+     "s1-eth1_in",
+     "NO_IP",
+     "ipv6",
+     14
+    ],
+    "in|1212|agree-ip|miss|agree-ip|agree-ip": [
+     "s1-eth1_in",
+     "IP ipv4@18 tuple=10.0.1.1->10.0.2.2 proto=6 49206->1234",
+     "l2",
+     18
+    ],
+    "out|1212|agree-ip|miss|agree-ip|agree-ip": [
+     "s2-eth1_out",
+     "IP ipv4@18 tuple=10.0.1.1->10.0.2.2 proto=6 49206->1234",
+     "l2",
+     18
+    ]
+   }
+  },
+  "calc": {
+   "run": "2026-09-24T095418Z solution",
+   "files_sha256_12": {
+    "s1-eth1_in": "09b40433cfa6",
+    "s1-eth1_out": "25bd7cc42b03",
+    "s1-eth2_in": "a0ce6d8e4f9b",
+    "s1-eth2_out": "e3b0c44298fc"
+   },
+   "paths": [
+    [
+     [
+      "calc",
+      "x-early:P1|P2|P3",
+      "NO_IP"
+     ],
+     26
+    ]
+   ],
+   "tally": [
+    [
+     [
+      "in",
+      "1234",
+      "agree-no-ip",
+      "agree-no-ip",
+      "agree-no-ip",
+      "agree-no-ip"
+     ],
+     1
+    ],
+    [
+     [
+      "in",
+      "86dd",
+      "miss(NO_IP)",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     24
+    ],
+    [
+     [
+      "out",
+      "1234",
+      "agree-no-ip",
+      "agree-no-ip",
+      "agree-no-ip",
+      "agree-no-ip"
+     ],
+     1
+    ]
+   ],
+   "examples": {
+    "in|86dd|miss(NO_IP)|agree-ip|agree-ip|agree-ip": [
+     "s1-eth1_in",
+     "NO_IP no IP-extracting state reachable from start",
+     "ipv6",
+     14
+    ],
+    "in|1234|agree-no-ip|agree-no-ip|agree-no-ip|agree-no-ip": [
+     "s1-eth1_in",
+     "NO_IP no IP-extracting state reachable from start",
+     "l2",
+     null
+    ],
+    "out|1234|agree-no-ip|agree-no-ip|agree-no-ip|agree-no-ip": [
+     "s1-eth1_out",
+     "NO_IP no IP-extracting state reachable from start",
+     "l2",
+     null
+    ]
+   }
+  },
+  "ecn": {
+   "run": "2026-09-25T045407Z solution",
+   "files_sha256_12": {
+    "s1-eth1_in": "32a145428ed3",
+    "s1-eth1_out": "c385e0c5c21c",
+    "s1-eth2_in": "e9824f30c6cc",
+    "s1-eth2_out": "74bf9f65ae87",
+    "s1-eth3_in": "61ae521f780d",
+    "s1-eth4_in": "cfe86a40ef3d",
+    "s2-eth1_in": "b8362072d906",
+    "s2-eth1_out": "c8728730e473",
+    "s2-eth2_in": "45a7d574f54f",
+    "s2-eth2_out": "175d77f7d237",
+    "s2-eth3_in": "7865df082e1b",
+    "s2-eth4_in": "dfeb7f828d16",
+    "s3-eth1_in": "b04980571cc5",
+    "s3-eth1_out": "e3b0c44298fc",
+    "s3-eth2_in": "c096d4909397",
+    "s3-eth3_in": "4254de1206fb"
+   },
+   "paths": [
+    [
+     [
+      "ecn",
+      "P1",
+      "IP"
+     ],
+     12199
+    ],
+    [
+     [
+      "ecn",
+      "P2",
+      "NO_IP"
+     ],
+     375
+    ]
+   ],
+   "tally": [
+    [
+     [
+      "in",
+      "0800",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     9245
+    ],
+    [
+     [
+      "in",
+      "86dd",
+      "miss(NO_IP)",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     375
+    ],
+    [
+     [
+      "out",
+      "0800",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     2954
+    ]
+   ],
+   "examples": {
+    "in|86dd|miss(NO_IP)|agree-ip|agree-ip|agree-ip": [
+     "s1-eth1_in",
+     "NO_IP",
+     "ipv6",
+     14
+    ],
+    "in|0800|agree-ip|agree-ip|agree-ip|agree-ip": [
+     "s1-eth1_in",
+     "IP ipv4@14 tuple=10.0.1.11->10.0.2.22 proto=17 38363->5001",
+     "ipv4",
+     14
+    ],
+    "out|0800|agree-ip|agree-ip|agree-ip|agree-ip": [
+     "s1-eth1_out",
+     "IP ipv4@14 tuple=10.0.2.22->10.0.1.11 proto=17 5001->38363",
+     "ipv4",
+     14
+    ]
+   }
+  },
+  "firewall": {
+   "run": "2026-09-18T111149Z SKELETON (parser identical to solution)",
+   "files_sha256_12": {
+    "s1-eth1_in": "297fa658f5e2",
+    "s1-eth1_out": "5466099547db",
+    "s1-eth2_in": "a892d7908493",
+    "s1-eth2_out": "6966b50438a0",
+    "s1-eth3_in": "31c6bfdad4a2",
+    "s1-eth4_in": "8dbb9eb9fcb2",
+    "s2-eth1_in": "eef0164dd6b2",
+    "s2-eth1_out": "d93cd43df8d6",
+    "s2-eth2_in": "dc847ab997f4",
+    "s2-eth2_out": "796ee91df7f9",
+    "s2-eth3_in": "d72d7bb7b801",
+    "s2-eth4_in": "174fdbf95e22",
+    "s3-eth1_in": "91e7db626ea1",
+    "s3-eth2_in": "b07e617f125f",
+    "s4-eth1_in": "8bf4d6ddecf2",
+    "s4-eth2_in": "0571e4b048ec"
+   },
+   "paths": [
+    [
+     [
+      "firewall_basic",
+      "P1",
+      "IP"
+     ],
+     33325
+    ],
+    [
+     [
+      "firewall_basic",
+      "P2",
+      "NO_IP"
+     ],
+     272
+    ],
+    [
+     [
+      "firewall_fw",
+      "P1",
+      "IP"
+     ],
+     19127
+    ],
+    [
+     [
+      "firewall_fw",
+      "P2",
+      "IP"
+     ],
+     160
+    ],
+    [
+     [
+      "firewall_fw",
+      "P3",
+      "NO_IP"
+     ],
+     130
+    ]
+   ],
+   "tally": [
+    [
+     [
+      "in",
+      "0800",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     39439
+    ],
+    [
+     [
+      "in",
+      "86dd",
+      "miss(NO_IP)",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     402
+    ],
+    [
+     [
+      "out",
+      "0800",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     13173
+    ]
+   ],
+   "examples": {
+    "in|86dd|miss(NO_IP)|agree-ip|agree-ip|agree-ip": [
+     "s1-eth1_in",
+     "NO_IP",
+     "ipv6",
+     14
+    ],
+    "in|0800|agree-ip|agree-ip|agree-ip|agree-ip": [
+     "s1-eth1_in",
+     "IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=1 8->0",
+     "ipv4",
+     14
+    ],
+    "out|0800|agree-ip|agree-ip|agree-ip|agree-ip": [
+     "s1-eth1_out",
+     "IP ipv4@14 tuple=10.0.2.2->10.0.1.1 proto=1 0->0",
+     "ipv4",
+     14
+    ]
+   }
+  },
+  "flowcache": {
+   "run": "2026-09-24T131516Z solution",
+   "files_sha256_12": {
+    "s1-eth1_in": "cac822305137",
+    "s1-eth1_out": "c001f3040b1d",
+    "s1-eth2_in": "595412b817d0",
+    "s1-eth3_in": "5416b286a1af",
+    "s2-eth1_in": "39ee4e25e054",
+    "s2-eth1_out": "a90bf1c948cb",
+    "s2-eth2_in": "0f200730be0b",
+    "s2-eth3_in": "9bb8f04ff396",
+    "s3-eth1_in": "c90f643ca13b",
+    "s3-eth1_out": "e3b0c44298fc",
+    "s3-eth2_in": "9afe80cce190",
+    "s3-eth3_in": "30812a254da5"
+   },
+   "paths": [
+    [
+     [
+      "flowcache",
+      "P2",
+      "IP"
+     ],
+     45
+    ],
+    [
+     [
+      "flowcache",
+      "P3",
+      "NO_IP"
+     ],
+     259
+    ]
+   ],
+   "tally": [
+    [
+     [
+      "in",
+      "0800",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     30
+    ],
+    [
+     [
+      "in",
+      "86dd",
+      "miss(NO_IP)",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     259
+    ],
+    [
+     [
+      "out",
+      "0800",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     15
+    ]
+   ],
+   "examples": {
+    "in|86dd|miss(NO_IP)|agree-ip|agree-ip|agree-ip": [
+     "s1-eth1_in",
+     "NO_IP",
+     "ipv6",
+     14
+    ],
+    "in|0800|agree-ip|agree-ip|agree-ip|agree-ip": [
+     "s1-eth1_in",
+     "IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=1 8->0",
+     "ipv4",
+     14
+    ],
+    "out|0800|agree-ip|agree-ip|agree-ip|agree-ip": [
+     "s1-eth1_out",
+     "IP ipv4@14 tuple=10.0.2.2->10.0.1.1 proto=1 0->0",
+     "ipv4",
+     14
+    ]
+   }
+  },
+  "link_monitor": {
+   "run": "2026-09-18T113038Z SKELETON (parser identical to solution)",
+   "files_sha256_12": {
+    "s1-eth1_in": "5768e5135781",
+    "s1-eth1_out": "8a2c44d1f81d",
+    "s1-eth2_in": "b14c8ed8baf4",
+    "s1-eth2_out": "e3b0c44298fc",
+    "s1-eth3_in": "e314cde173d1",
+    "s1-eth4_in": "1ee8df9775df",
+    "s2-eth1_in": "d5a27e9d99c8",
+    "s2-eth1_out": "e3b0c44298fc",
+    "s2-eth2_in": "1e75ecd07e82",
+    "s2-eth2_out": "e3b0c44298fc",
+    "s2-eth3_in": "8f9fd407e2d8",
+    "s2-eth4_in": "b3657f299ba0",
+    "s3-eth1_in": "1260d95b9421",
+    "s3-eth2_in": "2285a5162ad3",
+    "s4-eth1_in": "b09d55a409ab",
+    "s4-eth2_in": "31eab3bec53f"
+   },
+   "paths": [
+    [
+     [
+      "link_monitor",
+      "P4",
+      "NO_IP"
+     ],
+     328
+    ],
+    [
+     [
+      "link_monitor",
+      "x-early:P2|P3",
+      "NO_IP"
+     ],
+     80
+    ]
+   ],
+   "tally": [
+    [
+     [
+      "in",
+      "0812",
+      "agree-no-ip",
+      "agree-no-ip",
+      "agree-no-ip",
+      "agree-no-ip"
+     ],
+     72
+    ],
+    [
+     [
+      "in",
+      "86dd",
+      "miss(NO_IP)",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     328
+    ],
+    [
+     [
+      "out",
+      "0812",
+      "agree-no-ip",
+      "agree-no-ip",
+      "agree-no-ip",
+      "agree-no-ip"
+     ],
+     8
+    ]
+   ],
+   "examples": {
+    "in|86dd|miss(NO_IP)|agree-ip|agree-ip|agree-ip": [
+     "s1-eth1_in",
+     "NO_IP",
+     "ipv6",
+     14
+    ],
+    "in|0812|agree-no-ip|agree-no-ip|agree-no-ip|agree-no-ip": [
+     "s1-eth1_in",
+     "NO_IP no IP-extracting state reachable from parse_probe",
+     "l2",
+     null
+    ],
+    "out|0812|agree-no-ip|agree-no-ip|agree-no-ip|agree-no-ip": [
+     "s1-eth1_out",
+     "NO_IP no IP-extracting state reachable from parse_probe",
+     "l2",
+     null
+    ]
+   }
+  },
+  "load_balance": {
+   "run": "2026-09-24T095641Z solution",
+   "files_sha256_12": {
+    "s1-eth1_in": "24ea88d613b6",
+    "s1-eth1_out": "e3b0c44298fc",
+    "s1-eth2_in": "94248244c2c3",
+    "s1-eth3_in": "d14b2ba1828a",
+    "s2-eth1_in": "4d43b5126fc8",
+    "s2-eth1_out": "7974e7ff7388",
+    "s2-eth2_in": "29f88ec6a795",
+    "s2-eth3_in": "3fdcbbc1f0bf",
+    "s3-eth1_in": "c77c8454cefd",
+    "s3-eth1_out": "af59914f54bd",
+    "s3-eth2_in": "d127400d0fb2",
+    "s3-eth3_in": "3998bead07dd"
+   },
+   "paths": [
+    [
+     [
+      "load_balance",
+      "P1",
+      "IP"
+     ],
+     30
+    ],
+    [
+     [
+      "load_balance",
+      "P3",
+      "NO_IP"
+     ],
+     273
+    ]
+   ],
+   "tally": [
+    [
+     [
+      "in",
+      "0800",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     20
+    ],
+    [
+     [
+      "in",
+      "86dd",
+      "miss(NO_IP)",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     273
+    ],
+    [
+     [
+      "out",
+      "0800",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     10
+    ]
+   ],
+   "examples": {
+    "in|86dd|miss(NO_IP)|agree-ip|agree-ip|agree-ip": [
+     "s1-eth1_in",
+     "NO_IP",
+     "ipv6",
+     14
+    ],
+    "in|0800|agree-ip|agree-ip|agree-ip|agree-ip": [
+     "s1-eth1_in",
+     "IP ipv4@14 tuple=10.0.1.1->10.0.0.1 proto=6 54849->1234",
+     "ipv4",
+     14
+    ],
+    "out|0800|agree-ip|agree-ip|agree-ip|agree-ip": [
+     "s2-eth1_out",
+     "IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=6 54849->1234",
+     "ipv4",
+     14
+    ]
+   }
+  },
+  "mri": {
+   "run": "2026-09-24T095524Z solution",
+   "files_sha256_12": {
+    "s1-eth1_in": "fb231bf1a889",
+    "s1-eth1_out": "ee7ec55c36eb",
+    "s1-eth2_in": "1321eb148110",
+    "s1-eth2_out": "e3b0c44298fc",
+    "s1-eth3_in": "22259f4ad192",
+    "s1-eth4_in": "389cea95fc8f",
+    "s2-eth1_in": "bf6dbce608dd",
+    "s2-eth1_out": "99f8d0d80c4a",
+    "s2-eth2_in": "46ac09a1de81",
+    "s2-eth2_out": "d3f082dfccf1",
+    "s2-eth3_in": "fbe2c00101f0",
+    "s2-eth4_in": "79f30e10326e",
+    "s3-eth1_in": "dc851e9fa629",
+    "s3-eth1_out": "e3b0c44298fc",
+    "s3-eth2_in": "5cc4b2a117cf",
+    "s3-eth3_in": "85d6a9a45f70"
+   },
+   "paths": [
+    [
+     [
+      "mri",
+      "P1",
+      "IP"
+     ],
+     2576
+    ],
+    [
+     [
+      "mri",
+      "P2",
+      "IP"
+     ],
+     6
+    ],
+    [
+     [
+      "mri",
+      "P3",
+      "IP"
+     ],
+     6
+    ],
+    [
+     [
+      "mri",
+      "P5",
+      "NO_IP"
+     ],
+     289
+    ]
+   ],
+   "tally": [
+    [
+     [
+      "in",
+      "0800",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     1957
+    ],
+    [
+     [
+      "in",
+      "86dd",
+      "miss(NO_IP)",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     289
+    ],
+    [
+     [
+      "out",
+      "0800",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     631
+    ]
+   ],
+   "examples": {
+    "in|86dd|miss(NO_IP)|agree-ip|agree-ip|agree-ip": [
+     "s1-eth1_in",
+     "NO_IP",
+     "ipv6",
+     14
+    ],
+    "in|0800|agree-ip|agree-ip|agree-ip|agree-ip": [
+     "s1-eth1_in",
+     "IP ipv4@14 tuple=10.0.1.11->10.0.2.22 proto=17 47882->5001",
+     "ipv4",
+     14
+    ],
+    "out|0800|agree-ip|agree-ip|agree-ip|agree-ip": [
+     "s1-eth1_out",
+     "IP ipv4@14 tuple=10.0.2.22->10.0.1.11 proto=17 5001->47882",
+     "ipv4",
+     14
+    ]
+   }
+  },
+  "multicast": {
+   "run": "2026-09-24T095816Z solution",
+   "files_sha256_12": {
+    "s1-eth1_in": "f7db961d4bb7",
+    "s1-eth1_out": "d76b3fc0f03d",
+    "s1-eth2_in": "6509f6d1cdfb",
+    "s1-eth2_out": "46db96b26239",
+    "s1-eth3_in": "a8853e9cf667",
+    "s1-eth3_out": "df646daf09f8",
+    "s1-eth4_in": "170deae47c65",
+    "s1-eth4_out": "658a54611148"
+   },
+   "paths": [
+    [
+     [
+      "multicast",
+      "x-early:P1",
+      "NO_IP"
+     ],
+     610
+    ]
+   ],
+   "tally": [
+    [
+     [
+      "in",
+      "0800",
+      "miss(NO_IP)",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     94
+    ],
+    [
+     [
+      "in",
+      "0806",
+      "agree-no-ip",
+      "agree-no-ip",
+      "agree-no-ip",
+      "agree-no-ip"
+     ],
+     60
+    ],
+    [
+     [
+      "in",
+      "86dd",
+      "miss(NO_IP)",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     96
+    ],
+    [
+     [
+      "out",
+      "0800",
+      "miss(NO_IP)",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     94
+    ],
+    [
+     [
+      "out",
+      "0806",
+      "agree-no-ip",
+      "agree-no-ip",
+      "agree-no-ip",
+      "agree-no-ip"
+     ],
+     105
+    ],
+    [
+     [
+      "out",
+      "86dd",
+      "miss(NO_IP)",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     161
+    ]
+   ],
+   "examples": {
+    "in|86dd|miss(NO_IP)|agree-ip|agree-ip|agree-ip": [
+     "s1-eth1_in",
+     "NO_IP no IP-extracting state reachable from start",
+     "ipv6",
+     14
+    ],
+    "in|0806|agree-no-ip|agree-no-ip|agree-no-ip|agree-no-ip": [
+     "s1-eth1_in",
+     "NO_IP no IP-extracting state reachable from start",
+     "l2",
+     null
+    ],
+    "in|0800|miss(NO_IP)|agree-ip|agree-ip|agree-ip": [
+     "s1-eth1_in",
+     "NO_IP no IP-extracting state reachable from start",
+     "ipv4",
+     14
+    ],
+    "out|86dd|miss(NO_IP)|agree-ip|agree-ip|agree-ip": [
+     "s1-eth1_out",
+     "NO_IP no IP-extracting state reachable from start",
+     "ipv6",
+     14
+    ],
+    "out|0806|agree-no-ip|agree-no-ip|agree-no-ip|agree-no-ip": [
+     "s1-eth1_out",
+     "NO_IP no IP-extracting state reachable from start",
+     "l2",
+     null
+    ],
+    "out|0800|miss(NO_IP)|agree-ip|agree-ip|agree-ip": [
+     "s1-eth1_out",
+     "NO_IP no IP-extracting state reachable from start",
+     "ipv4",
+     14
+    ]
+   }
+  },
+  "p4runtime": {
+   "run": "2026-09-24T131543Z solution",
+   "files_sha256_12": {
+    "s1-eth1_in": "93884774d18d",
+    "s1-eth1_out": "d64e81461a80",
+    "s1-eth2_in": "9f792c22926c",
+    "s1-eth3_in": "f65231c955e5",
+    "s2-eth1_in": "bea62e79c8c6",
+    "s2-eth1_out": "340576d74546",
+    "s2-eth2_in": "e7bcc9809f59",
+    "s2-eth3_in": "a10b3abdc2e2",
+    "s3-eth1_in": "53bbd2146ec3",
+    "s3-eth1_out": "e3b0c44298fc",
+    "s3-eth2_in": "4fe9d1f5195c",
+    "s3-eth3_in": "bcb4c08adfa1"
+   },
+   "paths": [
+    [
+     [
+      "p4runtime",
+      "P1",
+      "IP"
+     ],
+     10
+    ],
+    [
+     [
+      "p4runtime",
+      "P3",
+      "IP"
+     ],
+     20
+    ],
+    [
+     [
+      "p4runtime",
+      "P4",
+      "NO_IP"
+     ],
+     290
+    ]
+   ],
+   "tally": [
+    [
+     [
+      "in",
+      "0800",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     10
+    ],
+    [
+     [
+      "in",
+      "1212",
+      "agree-ip",
+      "miss",
+      "agree-ip",
+      "agree-ip"
+     ],
+     10
+    ],
+    [
+     [
+      "in",
+      "86dd",
+      "miss(NO_IP)",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     290
+    ],
+    [
+     [
+      "out",
+      "0800",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     10
+    ]
+   ],
+   "examples": {
+    "in|86dd|miss(NO_IP)|agree-ip|agree-ip|agree-ip": [
+     "s1-eth1_in",
+     "NO_IP",
+     "ipv6",
+     14
+    ],
+    "in|0800|agree-ip|agree-ip|agree-ip|agree-ip": [
+     "s1-eth1_in",
+     "IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=1 8->0",
+     "ipv4",
+     14
+    ],
+    "out|0800|agree-ip|agree-ip|agree-ip|agree-ip": [
+     "s1-eth1_out",
+     "IP ipv4@14 tuple=10.0.2.2->10.0.1.1 proto=1 0->0",
+     "ipv4",
+     14
+    ],
+    "in|1212|agree-ip|miss|agree-ip|agree-ip": [
+     "s1-eth2_in",
+     "IP ipv4@18 tuple=10.0.2.2->10.0.1.1 proto=1 0->0",
+     "l2",
+     18
+    ]
+   }
+  },
+  "qos": {
+   "run": "2026-09-24T100048Z solution",
+   "files_sha256_12": {
+    "s1-eth1_in": "55f57a51cf58",
+    "s1-eth1_out": "e3b0c44298fc",
+    "s1-eth2_in": "9887e393e3bb",
+    "s1-eth2_out": "ad900643ace9",
+    "s1-eth3_in": "3a76f16552fc",
+    "s1-eth4_in": "fc1119c41c76",
+    "s2-eth1_in": "570c46ab17a5",
+    "s2-eth1_out": "e3b0c44298fc",
+    "s2-eth2_in": "0f5f68c3cdcf",
+    "s2-eth2_out": "fa1f64040957",
+    "s2-eth3_in": "cf822a861128",
+    "s2-eth4_in": "1ae2b681b9d3",
+    "s3-eth1_in": "81ce5214edd6",
+    "s3-eth1_out": "e3b0c44298fc",
+    "s3-eth2_in": "9035ac823698",
+    "s3-eth3_in": "90a6a90c56b6"
+   },
+   "paths": [
+    [
+     [
+      "qos",
+      "P1",
+      "IP"
+     ],
+     72
+    ],
+    [
+     [
+      "qos",
+      "P2",
+      "NO_IP"
+     ],
+     317
+    ]
+   ],
+   "tally": [
+    [
+     [
+      "in",
+      "0800",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     48
+    ],
+    [
+     [
+      "in",
+      "86dd",
+      "miss(NO_IP)",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     317
+    ],
+    [
+     [
+      "out",
+      "0800",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     24
+    ]
+   ],
+   "examples": {
+    "in|86dd|miss(NO_IP)|agree-ip|agree-ip|agree-ip": [
+     "s1-eth1_in",
+     "NO_IP",
+     "ipv6",
+     14
+    ],
+    "in|0800|agree-ip|agree-ip|agree-ip|agree-ip": [
+     "s1-eth2_in",
+     "IP ipv4@14 tuple=10.0.1.1->10.0.2.2 proto=17 1234->4321",
+     "ipv4",
+     14
+    ],
+    "out|0800|agree-ip|agree-ip|agree-ip|agree-ip": [
+     "s1-eth2_out",
+     "IP ipv4@14 tuple=10.0.2.2->10.0.1.1 proto=1 3->3",
+     "ipv4",
+     14
+    ]
+   }
+  },
+  "source_routing": {
+   "run": "2026-09-18T110948Z solution",
+   "files_sha256_12": {
+    "s1-eth1_in": "29b13722df42",
+    "s1-eth1_out": "e3b0c44298fc",
+    "s1-eth2_in": "c0de88ebd106",
+    "s1-eth3_in": "f6ef306e0452",
+    "s2-eth1_in": "359856d5f051",
+    "s2-eth1_out": "54d89e9ee17d",
+    "s2-eth2_in": "b950024e0a37",
+    "s2-eth3_in": "005b58041d9d",
+    "s3-eth1_in": "c02da5cd3cf4",
+    "s3-eth1_out": "e3b0c44298fc",
+    "s3-eth2_in": "1d71adaab210",
+    "s3-eth3_in": "352218b2bcda"
+   },
+   "paths": [
+    [
+     [
+      "source_routing",
+      "P1",
+      "IP"
+     ],
+     7
+    ],
+    [
+     [
+      "source_routing",
+      "P2",
+      "NO_IP"
+     ],
+     233
+    ]
+   ],
+   "tally": [
+    [
+     [
+      "in",
+      "1234",
+      "agree-ip",
+      "miss",
+      "agree-ip",
+      "agree-ip"
+     ],
+     7
+    ],
+    [
+     [
+      "in",
+      "86dd",
+      "miss(NO_IP)",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     231
+    ],
+    [
+     [
+      "out",
+      "0800",
+      "miss(NO_IP)",
+      "agree-ip",
+      "agree-ip",
+      "agree-ip"
+     ],
+     2
+    ]
+   ],
+   "examples": {
+    "in|86dd|miss(NO_IP)|agree-ip|agree-ip|agree-ip": [
+     "s1-eth1_in",
+     "NO_IP",
+     "ipv6",
+     14
+    ],
+    "in|1234|agree-ip|miss|agree-ip|agree-ip": [
+     "s1-eth1_in",
+     "IP ipv4@24 tuple=10.0.1.1->10.0.2.2 proto=17 1234->4321",
+     "l2",
+     24
+    ],
+    "out|0800|miss(NO_IP)|agree-ip|agree-ip|agree-ip": [
+     "s2-eth1_out",
+     "NO_IP",
+     "ipv4",
+     14
+    ]
+   }
+  }
+ },
+ "pcap_grand": [
+  [
+   [
+    "basic",
+    "in",
+    "86dd",
+    "miss(NO_IP)",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   374
+  ],
+  [
+   [
+    "basic",
+    "in",
+    "0800",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   344
+  ],
+  [
+   [
+    "basic",
+    "out",
+    "0800",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   152
+  ],
+  [
+   [
+    "basic_tunnel",
+    "in",
+    "86dd",
+    "miss(NO_IP)",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   272
+  ],
+  [
+   [
+    "basic_tunnel",
+    "in",
+    "1212",
+    "agree-ip",
+    "miss",
+    "agree-ip",
+    "agree-ip"
+   ],
+   4
+  ],
+  [
+   [
+    "basic_tunnel",
+    "out",
+    "1212",
+    "agree-ip",
+    "miss",
+    "agree-ip",
+    "agree-ip"
+   ],
+   2
+  ],
+  [
+   [
+    "calc",
+    "in",
+    "86dd",
+    "miss(NO_IP)",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   24
+  ],
+  [
+   [
+    "calc",
+    "in",
+    "1234",
+    "agree-no-ip",
+    "agree-no-ip",
+    "agree-no-ip",
+    "agree-no-ip"
+   ],
+   1
+  ],
+  [
+   [
+    "calc",
+    "out",
+    "1234",
+    "agree-no-ip",
+    "agree-no-ip",
+    "agree-no-ip",
+    "agree-no-ip"
+   ],
+   1
+  ],
+  [
+   [
+    "ecn",
+    "in",
+    "0800",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   9245
+  ],
+  [
+   [
+    "ecn",
+    "out",
+    "0800",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   2954
+  ],
+  [
+   [
+    "ecn",
+    "in",
+    "86dd",
+    "miss(NO_IP)",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   375
+  ],
+  [
+   [
+    "firewall",
+    "in",
+    "0800",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   39439
+  ],
+  [
+   [
+    "firewall",
+    "out",
+    "0800",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   13173
+  ],
+  [
+   [
+    "firewall",
+    "in",
+    "86dd",
+    "miss(NO_IP)",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   402
+  ],
+  [
+   [
+    "flowcache",
+    "in",
+    "86dd",
+    "miss(NO_IP)",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   259
+  ],
+  [
+   [
+    "flowcache",
+    "in",
+    "0800",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   30
+  ],
+  [
+   [
+    "flowcache",
+    "out",
+    "0800",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   15
+  ],
+  [
+   [
+    "link_monitor",
+    "in",
+    "86dd",
+    "miss(NO_IP)",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   328
+  ],
+  [
+   [
+    "link_monitor",
+    "in",
+    "0812",
+    "agree-no-ip",
+    "agree-no-ip",
+    "agree-no-ip",
+    "agree-no-ip"
+   ],
+   72
+  ],
+  [
+   [
+    "link_monitor",
+    "out",
+    "0812",
+    "agree-no-ip",
+    "agree-no-ip",
+    "agree-no-ip",
+    "agree-no-ip"
+   ],
+   8
+  ],
+  [
+   [
+    "load_balance",
+    "in",
+    "86dd",
+    "miss(NO_IP)",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   273
+  ],
+  [
+   [
+    "load_balance",
+    "in",
+    "0800",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   20
+  ],
+  [
+   [
+    "load_balance",
+    "out",
+    "0800",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   10
+  ],
+  [
+   [
+    "mri",
+    "in",
+    "0800",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   1957
+  ],
+  [
+   [
+    "mri",
+    "out",
+    "0800",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   631
+  ],
+  [
+   [
+    "mri",
+    "in",
+    "86dd",
+    "miss(NO_IP)",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   289
+  ],
+  [
+   [
+    "multicast",
+    "out",
+    "86dd",
+    "miss(NO_IP)",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   161
+  ],
+  [
+   [
+    "multicast",
+    "out",
+    "0806",
+    "agree-no-ip",
+    "agree-no-ip",
+    "agree-no-ip",
+    "agree-no-ip"
+   ],
+   105
+  ],
+  [
+   [
+    "multicast",
+    "in",
+    "86dd",
+    "miss(NO_IP)",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   96
+  ],
+  [
+   [
+    "multicast",
+    "in",
+    "0800",
+    "miss(NO_IP)",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   94
+  ],
+  [
+   [
+    "multicast",
+    "out",
+    "0800",
+    "miss(NO_IP)",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   94
+  ],
+  [
+   [
+    "multicast",
+    "in",
+    "0806",
+    "agree-no-ip",
+    "agree-no-ip",
+    "agree-no-ip",
+    "agree-no-ip"
+   ],
+   60
+  ],
+  [
+   [
+    "p4runtime",
+    "in",
+    "86dd",
+    "miss(NO_IP)",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   290
+  ],
+  [
+   [
+    "p4runtime",
+    "in",
+    "0800",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   10
+  ],
+  [
+   [
+    "p4runtime",
+    "in",
+    "1212",
+    "agree-ip",
+    "miss",
+    "agree-ip",
+    "agree-ip"
+   ],
+   10
+  ],
+  [
+   [
+    "p4runtime",
+    "out",
+    "0800",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   10
+  ],
+  [
+   [
+    "qos",
+    "in",
+    "86dd",
+    "miss(NO_IP)",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   317
+  ],
+  [
+   [
+    "qos",
+    "in",
+    "0800",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   48
+  ],
+  [
+   [
+    "qos",
+    "out",
+    "0800",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   24
+  ],
+  [
+   [
+    "source_routing",
+    "in",
+    "86dd",
+    "miss(NO_IP)",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   231
+  ],
+  [
+   [
+    "source_routing",
+    "in",
+    "1234",
+    "agree-ip",
+    "miss",
+    "agree-ip",
+    "agree-ip"
+   ],
+   7
+  ],
+  [
+   [
+    "source_routing",
+    "out",
+    "0800",
+    "miss(NO_IP)",
+    "agree-ip",
+    "agree-ip",
+    "agree-ip"
+   ],
+   2
+  ]
+ ],
+ "path_table": [
+  {
+   "prog": "basic",
+   "pid": "P1",
+   "klass": "D1",
+   "cpu_only": false,
+   "ran_case": true,
+   "pcap_frames": 496
+  },
+  {
+   "prog": "basic",
+   "pid": "P2",
+   "klass": "X",
+   "cpu_only": false,
+   "ran_case": true,
+   "pcap_frames": 374
+  },
+  {
+   "prog": "basic_tunnel",
+   "pid": "P1",
+   "klass": "D1",
+   "cpu_only": false,
+   "ran_case": true,
+   "pcap_frames": 6
+  },
+  {
+   "prog": "basic_tunnel",
+   "pid": "P2",
+   "klass": "X",
+   "cpu_only": false,
+   "ran_case": true,
+   "pcap_frames": 0
+  },
+  {
+   "prog": "basic_tunnel",
+   "pid": "P3",
+   "klass": "D1",
+   "cpu_only": false,
+   "ran_case": true,
+   "pcap_frames": 0
+  },
+  {
+   "prog": "basic_tunnel",
+   "pid": "P4",
+   "klass": "X",
+   "cpu_only": false,
+   "ran_case": false,
+   "pcap_frames": 272
+  },
+  {
+   "prog": "calc",
+   "pid": "P1",
+   "klass": "X",
+   "cpu_only": false,
+   "ran_case": true,
+   "pcap_frames": 0
+  },
+  {
+   "prog": "calc",
+   "pid": "P2",
+   "klass": "X",
+   "cpu_only": false,
+   "ran_case": true,
+   "pcap_frames": 0
+  },
+  {
+   "prog": "calc",
+   "pid": "P3",
+   "klass": "X",
+   "cpu_only": false,
+   "ran_case": false,
+   "pcap_frames": 0
+  },
+  {
+   "prog": "ecn",
+   "pid": "P1",
+   "klass": "D1",
+   "cpu_only": false,
+   "ran_case": true,
+   "pcap_frames": 12199
+  },
+  {
+   "prog": "ecn",
+   "pid": "P2",
+   "klass": "X",
+   "cpu_only": false,
+   "ran_case": false,
+   "pcap_frames": 375
+  },
+  {
+   "prog": "firewall_basic",
+   "pid": "P1",
+   "klass": "D1",
+   "cpu_only": false,
+   "ran_case": true,
+   "pcap_frames": 33325
+  },
+  {
+   "prog": "firewall_basic",
+   "pid": "P2",
+   "klass": "X",
+   "cpu_only": false,
+   "ran_case": false,
+   "pcap_frames": 272
+  },
+  {
+   "prog": "firewall_fw",
+   "pid": "P1",
+   "klass": "D1",
+   "cpu_only": false,
+   "ran_case": true,
+   "pcap_frames": 19127
+  },
+  {
+   "prog": "firewall_fw",
+   "pid": "P2",
+   "klass": "D1",
+   "cpu_only": false,
+   "ran_case": true,
+   "pcap_frames": 160
+  },
+  {
+   "prog": "firewall_fw",
+   "pid": "P3",
+   "klass": "X",
+   "cpu_only": false,
+   "ran_case": false,
+   "pcap_frames": 130
+  },
+  {
+   "prog": "flowcache",
+   "pid": "P1",
+   "klass": "X",
+   "cpu_only": true,
+   "ran_case": false,
+   "pcap_frames": 0
+  },
+  {
+   "prog": "flowcache",
+   "pid": "P2",
+   "klass": "N",
+   "cpu_only": false,
+   "ran_case": true,
+   "pcap_frames": 45
+  },
+  {
+   "prog": "flowcache",
+   "pid": "P3",
+   "klass": "X",
+   "cpu_only": false,
+   "ran_case": false,
+   "pcap_frames": 259
+  },
+  {
+   "prog": "link_monitor",
+   "pid": "P1",
+   "klass": "D1",
+   "cpu_only": false,
+   "ran_case": true,
+   "pcap_frames": 0
+  },
+  {
+   "prog": "link_monitor",
+   "pid": "P2",
+   "klass": "X",
+   "cpu_only": false,
+   "ran_case": true,
+   "pcap_frames": 0
+  },
+  {
+   "prog": "link_monitor",
+   "pid": "P3",
+   "klass": "X",
+   "cpu_only": false,
+   "ran_case": true,
+   "pcap_frames": 0
+  },
+  {
+   "prog": "link_monitor",
+   "pid": "P4",
+   "klass": "X",
+   "cpu_only": false,
+   "ran_case": false,
+   "pcap_frames": 328
+  },
+  {
+   "prog": "load_balance",
+   "pid": "P1",
+   "klass": "D1",
+   "cpu_only": false,
+   "ran_case": true,
+   "pcap_frames": 30
+  },
+  {
+   "prog": "load_balance",
+   "pid": "P2",
+   "klass": "D1",
+   "cpu_only": false,
+   "ran_case": true,
+   "pcap_frames": 0
+  },
+  {
+   "prog": "load_balance",
+   "pid": "P3",
+   "klass": "X",
+   "cpu_only": false,
+   "ran_case": false,
+   "pcap_frames": 273
+  },
+  {
+   "prog": "mri",
+   "pid": "P1",
+   "klass": "D1",
+   "cpu_only": false,
+   "ran_case": true,
+   "pcap_frames": 2576
+  },
+  {
+   "prog": "mri",
+   "pid": "P2",
+   "klass": "D1",
+   "cpu_only": false,
+   "ran_case": true,
+   "pcap_frames": 6
+  },
+  {
+   "prog": "mri",
+   "pid": "P3",
+   "klass": "D2",
+   "cpu_only": false,
+   "ran_case": true,
+   "pcap_frames": 6
+  },
+  {
+   "prog": "mri",
+   "pid": "P4",
+   "klass": "D1",
+   "cpu_only": false,
+   "ran_case": true,
+   "pcap_frames": 0
+  },
+  {
+   "prog": "mri",
+   "pid": "P5",
+   "klass": "X",
+   "cpu_only": false,
+   "ran_case": false,
+   "pcap_frames": 289
+  },
+  {
+   "prog": "multicast",
+   "pid": "P1",
+   "klass": "X",
+   "cpu_only": false,
+   "ran_case": false,
+   "pcap_frames": 0
+  },
+  {
+   "prog": "p4runtime",
+   "pid": "P1",
+   "klass": "D1",
+   "cpu_only": false,
+   "ran_case": true,
+   "pcap_frames": 10
+  },
+  {
+   "prog": "p4runtime",
+   "pid": "P2",
+   "klass": "X",
+   "cpu_only": false,
+   "ran_case": false,
+   "pcap_frames": 0
+  },
+  {
+   "prog": "p4runtime",
+   "pid": "P3",
+   "klass": "D1",
+   "cpu_only": false,
+   "ran_case": true,
+   "pcap_frames": 20
+  },
+  {
+   "prog": "p4runtime",
+   "pid": "P4",
+   "klass": "X",
+   "cpu_only": false,
+   "ran_case": false,
+   "pcap_frames": 290
+  },
+  {
+   "prog": "qos",
+   "pid": "P1",
+   "klass": "D1",
+   "cpu_only": false,
+   "ran_case": true,
+   "pcap_frames": 72
+  },
+  {
+   "prog": "qos",
+   "pid": "P2",
+   "klass": "X",
+   "cpu_only": false,
+   "ran_case": false,
+   "pcap_frames": 317
+  },
+  {
+   "prog": "source_routing",
+   "pid": "P1",
+   "klass": "D2",
+   "cpu_only": false,
+   "ran_case": true,
+   "pcap_frames": 7
+  },
+  {
+   "prog": "source_routing",
+   "pid": "P2",
+   "klass": "X",
+   "cpu_only": false,
+   "ran_case": true,
+   "pcap_frames": 233
+  },
+  {
+   "prog": "ndtwin_switch",
+   "pid": "P1",
+   "klass": "N",
+   "cpu_only": true,
+   "ran_case": true,
+   "pcap_frames": 0
+  },
+  {
+   "prog": "ndtwin_switch",
+   "pid": "P2",
+   "klass": "N",
+   "cpu_only": true,
+   "ran_case": true,
+   "pcap_frames": 0
+  },
+  {
+   "prog": "ndtwin_switch",
+   "pid": "P3",
+   "klass": "N",
+   "cpu_only": true,
+   "ran_case": true,
+   "pcap_frames": 0
+  },
+  {
+   "prog": "ndtwin_switch",
+   "pid": "P4",
+   "klass": "N",
+   "cpu_only": true,
+   "ran_case": true,
+   "pcap_frames": 0
+  },
+  {
+   "prog": "ndtwin_switch",
+   "pid": "P5",
+   "klass": "X",
+   "cpu_only": true,
+   "ran_case": true,
+   "pcap_frames": 0
+  },
+  {
+   "prog": "ndtwin_switch",
+   "pid": "P6",
+   "klass": "N",
+   "cpu_only": false,
+   "ran_case": true,
+   "pcap_frames": 0
+  },
+  {
+   "prog": "ndtwin_switch",
+   "pid": "P7",
+   "klass": "N",
+   "cpu_only": false,
+   "ran_case": true,
+   "pcap_frames": 0
+  },
+  {
+   "prog": "ndtwin_switch",
+   "pid": "P8",
+   "klass": "N",
+   "cpu_only": false,
+   "ran_case": true,
+   "pcap_frames": 0
+  },
+  {
+   "prog": "ndtwin_switch",
+   "pid": "P9",
+   "klass": "N",
+   "cpu_only": false,
+   "ran_case": true,
+   "pcap_frames": 0
+  },
+  {
+   "prog": "ndtwin_switch",
+   "pid": "P10",
+   "klass": "X",
+   "cpu_only": false,
+   "ran_case": false,
+   "pcap_frames": 0
+  }
+ ],
+ "rates": {
+  "corpus": {
+   "paths": 50,
+   "x": 23,
+   "ip": 27,
+   "strict": 18,
+   "wire": 23,
+   "wire_strict": 18
+  },
+  "custom7": {
+   "paths": 25,
+   "x": 14,
+   "ip": 11,
+   "strict": 10,
+   "wire": 11,
+   "wire_strict": 10
+  }
+ },
+ "perprog": {
+  "basic": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "basic_tunnel": [
+   2,
+   2,
+   2,
+   2
+  ],
+  "calc": [
+   0,
+   0,
+   0,
+   3
+  ],
+  "ecn": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "firewall_basic": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "firewall_fw": [
+   2,
+   2,
+   2,
+   1
+  ],
+  "flowcache": [
+   0,
+   1,
+   1,
+   2
+  ],
+  "link_monitor": [
+   1,
+   1,
+   1,
+   3
+  ],
+  "load_balance": [
+   2,
+   2,
+   2,
+   1
+  ],
+  "mri": [
+   4,
+   4,
+   4,
+   1
+  ],
+  "multicast": [
+   0,
+   0,
+   0,
+   1
+  ],
+  "p4runtime": [
+   2,
+   2,
+   2,
+   2
+  ],
+  "qos": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "source_routing": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "ndtwin_switch": [
+   0,
+   8,
+   8,
+   2
+  ]
+ },
+ "frame_rates": {
+  "frames": 72213,
+  "ip_on_wire": 71966,
+  "prog_ok": 68085,
+  "native_ok": 71943,
+  "hints_ok": 71966,
+  "comb_ok": 71966,
+  "ipv6": 3691,
+  "wrong": 0,
+  "prog_adds": 23,
+  "no_ip": 247
+ }
+}

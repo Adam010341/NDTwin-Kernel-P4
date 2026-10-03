@@ -1,0 +1,22 @@
+8d79dacd0e40e9ddd20d7c8e9af6185b4ef8e482
+porcelain-lines: 0
+# dir: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/t4-sig-base = d452d111f243b4f05225d16b5773f39076675fb4 + tests/shell/test_fixture_suites_end_on_signal.sh from /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-spawn-traps-1001/tests/shell/test_fixture_suites_end_on_signal.sh (sha256 e1c614c950540a9f)
+# sha256 e1c614c950540a9fc47e726e22501444d5677dc9a940d1052e12ba7aae8d9f80  tests/shell/test_fixture_suites_end_on_signal.sh
+# tripwire lines before: 0
+# $ bash tests/shell/test_fixture_suites_end_on_signal.sh down
+# started 2026-10-01T21:49:23+08:00
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/claude-1000/spawn-traps-1001.lock
+guarded_build: $ bash tests/shell/test_fixture_suites_end_on_signal.sh down
+down, TERM
+  FAILED   down TERM: within 30s, a pid in its own fixture register is alive, the suite still running
+             expected: yes
+             actual:   no (gone; 0 other process(es) of the run alive; last line: ### FIXTURE 3585247 after kill: /proc/3585247 exists = no)
+down, INT
+  FAILED   down INT: within 30s, a pid in its own fixture register is alive, the suite still running
+             expected: yes
+             actual:   no (gone; 0 other process(es) of the run alive; last line: ### FIXTURE 3586134 after kill: /proc/3586134 exists = no)
+
+Ran 2 checks, 2 failed
+guarded_build: exit 1
+# ended 2026-10-01T21:49:28+08:00; tripwire lines after: 0
+rc=1

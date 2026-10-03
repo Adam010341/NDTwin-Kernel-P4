@@ -1,0 +1,339 @@
+
+1. 🔴 roles: only a treatment the samples show running, against controls with no trace of it
+  FAILED   🔴 controls vs treatment, the same evidence, H5's samples: rc 0
+             expected: [0]
+             actual:   [2]
+  FAILED     and says so
+             no match for: [NO DIFFERENCE in the external arms' own evidence (2 controls)]
+  FAILED     naming each arm's session and how long it ran
+             no match for: [hb      session 0b0b running from 1790000930 to 1790001100]
+  FAILED     with the daemon's own counters, all 0
+             no match for: [daemon  foreign_frames = 0; forwarded_between_switches = 0; forwarded_to_hosts = 0; misdelivered = 0 (the session's own counters, sampled, all 0)]
+  FAILED     every compared key of every arm said same
+             expected: [27]
+             actual:   [0]
+  FAILED   🔴 no --samples: rc 3
+             expected: [3]
+             actual:   [2]
+  FAILED     said as such
+             no match for: [REFUSED no --samples]
+  FAILED   🔴 no --control2: rc 3
+             expected: [3]
+             actual:   [2]
+  FAILED   🔴 --control2 that is the control itself: rc 3
+             expected: [3]
+             actual:   [2]
+  FAILED     said as no spread
+             no match for: [a control compared with itself has no spread]
+  FAILED   🔴 a treatment also given as a control: refused as such
+             no match for: [REFUSED the treatment is one of the controls]
+  FAILED   🔴 A/A (a control as the treatment): rc 3
+             expected: [3]
+             actual:   [2]
+  FAILED     refused for what it is, not for its identity
+             no match for: [did not say it started the heartbeat detect-only]
+  FAILED   🔴 a treatment with no detect-only start line: rc 3
+             expected: [3]
+             actual:   [2]
+  FAILED   🔴 a treatment whose status row is not running: rc 3
+             expected: [3]
+             actual:   [2]
+  FAILED   🔴 a control with a running row: rc 3
+             expected: [3]
+             actual:   [2]
+  FAILED     said as not a control
+             no match for: [that is not a control]
+  FAILED   🔴 a control with the detect-only line and a heartbeat block, N5 STALE: rc 3
+             expected: [3]
+             actual:   [2]
+  FAILED     naming both traces
+             no match for: [the detect-only start line, a heartbeat block on switch_state]
+  FAILED   🔴 a second control with only a heartbeat block: rc 3
+             expected: [3]
+             actual:   [2]
+  FAILED   🔴 a session sampled running, then stopped before the controller: rc 3
+             expected: [3]
+             actual:   [2]
+  FAILED     said as stopped before the controller's last write
+             no match for: [before the exercise's controller last wrote its log]
+  FAILED   🔴 a stale 'running' left by a killed daemon: rc 3
+             expected: [3]
+             actual:   [2]
+  FAILED     said as STALE
+             no match for: [STALE: a daemon that died leaves 'running' behind]
+  FAILED   🔴 a second session inside the arm window: rc 3
+             expected: [3]
+             actual:   [2]
+  FAILED     naming it
+             no match for: [another heartbeat session ran inside the arm window: ['0d0d']]
+  FAILED   🔴 a stretch of the session with no sample: rc 3
+             expected: [3]
+             actual:   [2]
+  FAILED     said as not watched throughout
+             no match for: [was not watched throughout]
+  FAILED   🔴 a session that stopped and ran again: rc 3
+             expected: [3]
+             actual:   [2]
+  FAILED     said as such
+             no match for: [stopped at 1790001060 and ran again]
+  FAILED   🔴 a session never sampled running: rc 3
+             expected: [3]
+             actual:   [2]
+  FAILED   🔴 a session whose daemon counted a frame to a host: rc 1
+             expected: [1]
+             actual:   [2]
+  FAILED     said as ruling 4
+             no match for: [!! DAEMON the heartbeat daemon counted, for this arm's session: {'forwarded_to_hosts': 2} -- ruling 4]
+  FAILED   🔴 a session that forwarded between switches: rc 1
+             expected: [1]
+             actual:   [2]
+  ok       🔴 N4's counters are labelled as before the pipeline
+  FAILED   🔴 every direction heard while the controller ran, said per direction
+             no match for: [heard   all 2 direction(s) while the controller (pid 7002) ran, 1790000940-1790001060: 1:2>2:2 +120, 2:2>1:2 +120]
+  FAILED   🔴 a direction not heard while the controller ran: rc 3
+             expected: [3]
+             actual:   [2]
+  FAILED     naming the direction and the controller
+             no match for: [did not hear 1 of 2 direction(s) while the controller (pid 7002) ran]
+  FAILED     and which one
+             no match for: [2:2>1:2 stayed 10]
+  FAILED   🔴 a controller the sampler never saw alive: rc 3
+             expected: [3]
+             actual:   [2]
+  FAILED     said as no lifetime
+             no match for: [the sampler saw the controller (pid 7003) alive in 0 sample(s)]
+  FAILED   🔴 a round report that names no controller pid: rc 3
+             expected: [3]
+             actual:   [2]
+  FAILED     said as no controller pid in the report
+             no match for: [names no single `controller pid N`]
+  FAILED   🔴 no --b-sha: rc 3
+             expected: [3]
+             actual:   [0]
+  FAILED     said as a missing --b-sha
+             no match for: [REFUSED no --b-sha]
+  FAILED     the identities are said when they match
+             no match for: [identity: the controls ran cccccccccccc with 1 uncommitted tracked file(s); the treatment ran dddddddddddd = that + B bbbbbbbbbbbb]
+  FAILED   🔴 a control with no identity: rc 3
+             expected: [3]
+             actual:   [2]
+  FAILED     said as no identity
+             no match for: [no 00_identity.txt -- which code it ran is not known]
+  FAILED   🔴 controls on two different HEADs: rc 3
+             expected: [3]
+             actual:   [2]
+  FAILED     said as the controls' code differing
+             no match for: [the controls did not run the same code: HEAD]
+  FAILED   🔴 a treatment merged onto another trunk: rc 3
+             expected: [3]
+             actual:   [2]
+  FAILED     said as trunk moved
+             no match for: [is not the controls' HEAD cccccccccccccccccccccccccccccccccccccccc: trunk moved between C and T]
+  FAILED   🔴 a treatment that merged another commit than B: rc 3
+             expected: [3]
+             actual:   [2]
+  FAILED     said as another B
+             no match for: [is not the B commit under test]
+  FAILED   🔴 a treatment that is not a merge: rc 3
+             expected: [3]
+             actual:   [2]
+  FAILED     said as B not merged
+             no match for: [is the controls' HEAD: B was not merged]
+  FAILED   🔴 a treatment with another uncommitted file: rc 3
+             expected: [3]
+             actual:   [2]
+  FAILED     said as other uncommitted files
+             no match for: [uncommitted: controls]
+  FAILED   🔴 a treatment on another kernel binary: rc 3
+             expected: [3]
+             actual:   [2]
+  FAILED     said as another kernel
+             no match for: [kernel: controls]
+  FAILED   🔴 a treatment that is a commit on the controls' HEAD, not a merge: rc 3
+             expected: [3]
+             actual:   [2]
+  FAILED     said as not a merge
+             no match for: [has 1 parent(s), not a merge of two]
+  FAILED   🔴 a treatment whose identity does not say what its merge changed: rc 3
+             expected: [3]
+             actual:   [2]
+  FAILED     said as unknown merge changes
+             no match for: [does not say which files its merge changed]
+  FAILED   🔴 an uncommitted file that B's merge changes too: rc 3
+             expected: [3]
+             actual:   [2]
+  FAILED     said as a file B changes
+             no match for: [uncommitted file(s) B also changes: ['p4_proxy/mininet/host_count_override']]
+
+2. 🔴 each kind of DECISIVE difference is named (rc 1); a descriptive one is noted, not counted
+  FAILED   🔴 one counter read more, same last values: rc 0
+             expected: [0]
+             actual:   [2]
+  FAILED     the read count is printed, as not compared
+             no match for: [counter_reads         3 (control 2; not compared]
+  FAILED   🔴 p4runtime/solution's counters ending elsewhere, invariants kept: noted, rc 0
+             expected: [0]
+             actual:   [2]
+  FAILED     noted as counters_final
+             no match for: [note    counters_final]
+  FAILED     with the control beside it
+             no match for: [control: s1 MyIngress.egressTunnelCounter 200 = 7 packets]
+  FAILED     said as outside the spread, not counted
+             no match for: [OUTSIDE the controls' spread -- descriptive, not counted (pre-registered)]
+  FAILED   🔴 the skeleton's counters, which never varied, ending elsewhere: rc 1
+             expected: [1]
+             actual:   [2]
+  FAILED     named as a DIFF in counters_final
+             no match for: [DIFF    counters_final]
+  FAILED   🔴 a rule the controller did not install: rc 1
+             expected: [1]
+             actual:   [2]
+  FAILED     named as rules_installed
+             no match for: [DIFF    rules_installed]
+  FAILED   🔴 a flowcache packet-in more (an IPv4 one; that count varied before): noted, rc 0
+             expected: [0]
+             actual:   [2]
+  FAILED     noted as packet_ins
+             no match for: [note    packet_ins]
+  ok         and NOT as the heartbeat's
+  FAILED   🔴 a packet-in on p4runtime, where there never was one: rc 1
+             expected: [1]
+             actual:   [2]
+  FAILED     named as a DIFF in packet_ins
+             no match for: [DIFF    packet_ins]
+  FAILED   🔴 a heartbeat frame at the exercise's controller: rc 1
+             expected: [1]
+             actual:   [2]
+  FAILED   🔴 named as heartbeat_packet_ins
+             no match for: [DIFF    heartbeat_packet_ins  1]
+  FAILED   🔴 and as a non-IPv4 packet-in
+             no match for: [DIFF    non_ipv4_packet_ins   1]
+  FAILED   🔴 and said in words
+             no match for: [1 packet-in(s) carried the heartbeat's ethertype 0x88B5: the frame reached the exercise's own controller]
+  FAILED   🔴 an arm whose verdict changed (verdicts were flaky before): noted, rc 0
+             expected: [0]
+             actual:   [2]
+  FAILED     noted as verdict
+             no match for: [note    verdict]
+  FAILED     and as rc
+             no match for: [note    rc]
+  FAILED   🔴 a gRPC error more: rc 1
+             expected: [1]
+             actual:   [2]
+  FAILED     named as grpc_errors
+             no match for: [DIFF    grpc_errors]
+
+3. 🔴 descriptive: noted inside or OUTSIDE the controls' spread; decisive: controls that disagree are UNDECIDED
+  FAILED   🔴 a packet-in count between the controls': rc 0
+             expected: [0]
+             actual:   [2]
+  FAILED     noted as inside the spread
+             no match for: [inside the controls' spread -- descriptive, not counted]
+  ok         and not decided either way (descriptive)
+  FAILED   🔴 a packet-in count outside the controls': noted, still rc 0
+             expected: [0]
+             actual:   [2]
+  FAILED     noted as OUTSIDE the spread
+             no match for: [OUTSIDE the controls' spread -- descriptive, not counted]
+  FAILED   🔴 a third control that widens the spread: rc 0
+             expected: [0]
+             actual:   [2]
+  FAILED     said with its count of controls
+             no match for: [(3 controls)]
+  FAILED     and the treatment now inside it
+             no match for: [inside the controls' spread -- descriptive, not counted]
+  FAILED   🔴 tunnel counters between the controls': rc 0
+             expected: [0]
+             actual:   [2]
+  FAILED     noted as inside the counters' spread
+             no match for: [inside the controls' spread -- descriptive, not counted (pre-registered); control: s1]
+  FAILED   🔴 tunnel counters outside the controls': noted, rc 0
+             expected: [0]
+             actual:   [2]
+  FAILED     noted as OUTSIDE the counters' spread
+             no match for: [OUTSIDE the controls' spread -- descriptive, not counted (pre-registered); control: s1]
+  ok       🔴 controls that disagree on a decisive key (rules installed): UNDECIDED, rc 2
+  FAILED     said as such
+             no match for: [UNDECIDED rules_installed]
+  FAILED     and in the conclusion
+             no match for: [1 UNDECIDED: the controls disagree on a decisive check]
+
+4. 🔴 invariants on each arm's own numbers, counted only when every control keeps them
+  FAILED   🔴 s1 ingress 100 one short of pings + datagrams (as 6 of 12 earlier rounds): noted, rc 0
+             expected: [0]
+             actual:   [2]
+  FAILED     noted as the invariant, descriptive
+             no match for: [inv ..  s1 ingress 100 = pings + iperf datagrams: s1 ingress 100 = 3504; pings h1->h2 5 + datagrams to 10.0.2.2 3500 = 3505 (descriptive, not counted: pre-registered)]
+  FAILED   🔴 s2 egress 100 not s1 ingress 100: noted
+             no match for: [inv ..  s2 egress 100 = s1 ingress 100: 3504 vs 3505]
+  FAILED   🔴 the 200 tunnel's sum broken (it never broke before): rc 1
+             expected: [1]
+             actual:   [2]
+  FAILED     said as INV BAD
+             no match for: [INV BAD s1 egress 200 = s2 ingress 200: 8 vs 7 (every control keeps it)]
+  ok       🔴 a decisive invariant broken in a control too: UNDECIDED, rc 2
+  FAILED     said as a decisive invariant that is not one
+             no match for: [UNDECIDED inv every packet-in is IPv4: broken in a control too]
+  FAILED   🔴 a skeleton counter that should be 0: INV BAD
+             no match for: [INV BAD every other tunnel counter 0]
+  ok         up to 10 FIN retries when the client got no ack
+  FAILED   🔴 a cache entry that is no packet-in's flow: INV BAD
+             no match for: [INV BAD every cache entry is an IPv4 packet-in's flow: not a packet-in's flow: [('10.0.1.1', '10.0.3.3', 17)]]
+  FAILED     and a note on cache_entries (descriptive)
+             no match for: [note    cache_entries]
+
+5. 🔴 evidence that cannot be read is UNREADABLE (rc 2), never 'same', never a traceback
+  ok       🔴 an arm with no controller log: rc 2
+  FAILED     and says which
+             no match for: [UNREADABLE]
+  ok         and does not print a conclusion either way
+  ok       🔴 a run without the flowcache/solution row: rc 2
+  FAILED     naming the arm
+             no match for: [no flowcache/solution row]
+  ok       🔴 a counter block cut short: rc 2
+  FAILED     said as cut short
+             no match for: [has 1 of 4 counters -- cut short]
+  ok       🔴 a last counter block that had not settled: rc 2
+  FAILED     said as not settled
+             no match for: [the last counter block had not settled]
+  ok         the same numbers read twice are settled: show rc 0
+  ok       🔴 a packet-in that cannot be parsed: rc 2
+  FAILED     said as such
+             no match for: [a packet-in whose frame cannot be parsed]
+  ok       🔴 an IPv4 packet-in shorter than its header: rc 2
+  ok         and no traceback
+  ok       🔴 a controller log that is not UTF-8: rc 2
+  ok         and no traceback
+  ok       🔴 a report that cannot be read: rc 2
+  ok       🔴 and no traceback from it
+  ok       🔴 samples from a sampler before 09-28: rc 2
+  FAILED     said as a sampler from before round 5
+             no match for: [a sampler from before round 5]
+  ok       🔴 samples from round 4's sampler (no heard, no controllers): rc 2
+  ok       🔴 a running sample whose daemon counter is not a number: rc 2, not a zero
+  FAILED     naming the counter
+             no match for: [counters misdelivered are not numbers]
+  ok       🔴 a running sample whose heard column is not counts: rc 2
+  FAILED     said as a heard column that is not counts
+             no match for: [heard column is not numbers]
+  ok       🔴 samples without 06's end beside them: rc 2
+  ok       🔴 a compare with one run: usage, rc 2
+
+6. which code and which venv each run was
+  FAILED   🔴 the control's code is printed
+             no match for: [code  5dc7fc9a +95 file(s) with uncommitted changes]
+  FAILED   🔴 and the treatment's
+             no match for: [code  f7e2a128 +95 file(s) with uncommitted changes]
+  FAILED   🔴 the treatment's protobuf is printed
+             no match for: [/x/venv/bin/python: protobuf 5.29.6 api_implementation upb]
+  FAILED     with the installed set's sha
+             no match for: [/x/venv/bin/python: distributions 28 sha256 d5fc]
+  FAILED   🔴 and the control's absence is said
+             no match for: [venv  not recorded (no 00_venv.txt)]
+  FAILED     identity is not evidence: still rc 0
+             expected: [0]
+             actual:   [2]
+  ok         show: rc 0
+  ok         and lists the flowcache packet-ins
+
+Ran 151 checks, 124 failed

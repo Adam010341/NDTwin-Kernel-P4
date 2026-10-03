@@ -1,0 +1,6 @@
+# PR #11 runs 36361627323 / 36361624221 (head d4b96ea6): clang, TSan and ASan+UBSan PASS on both.
+# GCC: the C++ steps pass. L1 FAILED list (raw logs via the API) = exactly 1 line, "L1 FAILED (1 problem group(s))", on both runs, as predicted.
+# The one group is test_cell_gate_suspect_wiring.sh FAIL-SKIP (fixed by N7).
+# PROVED LESS: fabric_bring_up 112/82, route_binding 47/2, plus the 4 already on CI. DECLARED SKIP: topology x2, gate_exit_code_not_tee.
+# The venv step and fetch-depth 0 both ran fine on GitHub (the N7/N8 risks are resolved).
+# => prediction met.

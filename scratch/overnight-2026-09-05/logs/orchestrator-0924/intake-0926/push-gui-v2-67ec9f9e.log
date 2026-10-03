@@ -1,0 +1,9 @@
+# push trunk 67ec9f9ecf9caf9d7df8cc92c4166cd04b79af34 to both P4 repos 2026-10-02T11:38:06+08:00
+To https://github.com/Adam010341/NDTwin-Kernel-P4.git
+   1e350bf2..67ec9f9e  67ec9f9ecf9caf9d7df8cc92c4166cd04b79af34 -> trunk
+# Adam010341 rc=0
+To https://github.com/ndtwin-lab/NDTwin-Kernel-P4.git
+   1e350bf2..67ec9f9e  67ec9f9ecf9caf9d7df8cc92c4166cd04b79af34 -> trunk
+# ndtwin-lab rc=0
+Adam010341 67ec9f9ecf9caf9d7df8cc92c4166cd04b79af34	refs/heads/trunk
+ndtwin-lab 67ec9f9ecf9caf9d7df8cc92c4166cd04b79af34	refs/heads/trunk

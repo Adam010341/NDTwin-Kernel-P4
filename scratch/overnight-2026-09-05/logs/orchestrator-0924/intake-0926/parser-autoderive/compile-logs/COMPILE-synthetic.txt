@@ -1,0 +1,8 @@
+syn_pvs rc=0 9424 817eccd987b7
+syn_pvs.p4(16): [--Wwarn=unsupported] warning: Explicit transition to reject not supported on this target
+...et.etherType) { 0x0800: parse_ipv4; tunnel_types: parse_tun; 0x0bad: reject; default: accept; } }
+                                                                        ^^^^^^
+syn_varbit_ok rc=0 13913 81a686ccd859  (second version: real tcp_t/udp_t so the L4 cross-check has something to find)
+syn_meta_key rc=0 12568 947c773b48f7
+syn_deep_stack rc=0 11351 b43da6e684b6
+syn_ipip rc=0 9931 9c272a0a512a  (added for mutant M11)

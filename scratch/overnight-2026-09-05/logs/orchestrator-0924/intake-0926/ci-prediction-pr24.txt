@@ -1,0 +1,15 @@
+# written BEFORE pushing pr/ndt-serve-gui-v2 (969251eb1fa5eedc08eed6a6bbd78a439f821fbf), 2026-10-02T11:39:03+08:00
+Base main a1f1bc3d. 66 files (tools/ndt_serve/** incl. web/ sources, static/ bundle and package-lock.json; tools/test_workflow/ndt +23 lines
+for 'status --measuring'; tests/python 3 suites; tests/shell 5 files incl. new test_ndt_status_measuring.sh and its gate). No C++ change.
+trunk 67ec9f9e (merge of fb18f59c onto 1e350bf2; tree = reviewed 3e8148ab + SUMMARY).
+- clang, TSan, ASan+UBSan: PASS. GCC: ctest 1385/1385; L1 passed; 0 FAILED lines.
+- ndt serve suites (local counts on the merge, 3.12): test_ndt_serve.py 75, test_ndt_serve_cells.py 35, test_ndt_serve_gui.py 39,
+  test_ndt_serve_web.py 18 (new on main). CI's main baseline was 74 / 35 / 40 (PR #23 log :7010-7012); the deltas are the branch's
+  (+1, 0, -1). A difference of the local-vs-CI kind seen in #22 (one environment-dependent case) would show as a constant offset.
+- New test_ndt_status_measuring.sh: PASS 102. Risk: first run on a runner. If unprivileged user namespaces are blocked (unshare -rn), it
+  falls back to host ports 8000/8080/8081; if neither works the check is FAILED (a CI-environment finding, never a pass). The command
+  allowlist was derived on this laptop.
+- Unchanged suites as in PR #23: orphans 111, liveness 57, sweep 33, window 156, topo_pid 61, ovs_claim 174, down 32, residue 145,
+  fixture_suites_end_on_signal 84, status_check_baseline 112, status_residue_row 27.
+- gate anchors ok 129/129 (one new gate file: mutate_ndt_status_measuring.sh). CI does not run the mutation gates or the browser suite.
+- GCC job wall time: about the PR #23 level (22m32s / 21m51s) plus a few seconds.

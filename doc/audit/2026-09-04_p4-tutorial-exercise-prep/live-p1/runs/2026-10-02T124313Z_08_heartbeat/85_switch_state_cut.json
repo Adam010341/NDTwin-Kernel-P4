@@ -1,0 +1,336 @@
+{
+  "boot_at": 1790945353.1417553,
+  "boot_id": "d6bebbd116ae4a96ae903bba57721e4a",
+  "control_plane": {
+    "mode": "external",
+    "package": "/home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hb_p4runtime_solution",
+    "skipped": [
+      "clone_session",
+      "install_initial_routes",
+      "lldp_discovery",
+      "pipeline_push",
+      "sflow_telemetry"
+    ],
+    "telemetry": {
+      "knob": "absent",
+      "link_emitter": {
+        "alive": true,
+        "manifest": "/tmp/ndtwin_link_telemetry.json",
+        "pid": 970794,
+        "rate": 256,
+        "switches": [
+          1,
+          2,
+          3
+        ]
+      },
+      "package": "auto"
+    }
+  },
+  "declared_links": {
+    "directions": 6,
+    "error": null
+  },
+  "external_link_reports": {
+    "last": {
+      "link": [
+        3,
+        3,
+        2,
+        3
+      ],
+      "source": "heartbeat",
+      "up": true
+    },
+    "received": 18,
+    "recorded_only": 0,
+    "routed_through_watchdog": 18
+  },
+  "heartbeat": {
+    "census": {
+      "arms": 26,
+      "arms_where_a_host_saw_a_frame": 0,
+      "heartbeat_ran": 20,
+      "measured": "2026-09-26, TICKET-P4-heartbeat segment S (census part)",
+      "no_inter_switch_link": 4,
+      "not_built": 2,
+      "raw": "doc/audit/2026-09-25_p4-heartbeat/spike/runs/2026-09-26T052148Z_S_heartbeat/40_census.tsv",
+      "summary": "13 tutorials exercises x skeleton/solution. On the 20 arms where the heartbeat ran, no host received a heartbeat frame, and the daemon counted none leaving a host-facing port and none forwarded to another switch. calc and multicast are one switch (no inter-switch link, nothing sent); basic_tunnel and flowcache skeletons do not build. Segment S's census started the heartbeat by hand (the helper, not ndt) on all 20. Since 2026-09-27 `ndt up p4 --app` is EXPECTED to start it on all 20 too -- on the 3 external control planes among them (p4runtime skeleton and solution, flowcache solution) detect only, and since 2026-09-28 only after ndt's offline drop check proves the program drops the frame -- which is inferred from ndt's rule and not yet measured under ndt (live-p1/08 PART=h5 checks it per arm). On an external control plane a frame the program punts to ITS OWN controller is seen neither by this proxy (it has no stream there) nor by the daemon (it counts frames leaving switch ports); the drop check (tools/test_workflow/heartbeat_drop_check.py) is what keeps the heartbeat off a program that does that. The P4 SOURCE of these 3 programs drops it (flowcache drops every non-IPv4 frame at ingress; advanced_tunnel applies no table to it, so egress_spec stays 0 -- that no port 0 exists is inferred from bmv2), and the drop check agrees on a throwaway bmv2 with each program loaded and no controller (flowcache drops it at ingress; advanced_tunnel sends it to port 0, which no switch of the fabric has). Segment S's census ran them with no controller: each switch ran the package's compiled program (the daemon's report names advanced_tunnel.json or flowcache.json for every switch) with no table entry, every direction heard all 5 frames sent and no host saw one -- the programs' default actions, the drop check's question. P4Runtime had no pipeline config pushed (the FAILED_PRECONDITION ndt's verify reports as 'no pipeline loaded'); live-p1/08 PART=h5 is the first measurement with these programs loaded by their controllers, entries and all. Any other external program is checked the same way before the heartbeat starts on it; what its controller does later -- entries it installs, a pipeline it pushes itself, a default action it changes -- is not covered."
+    },
+    "detail": "running, written 0.9 s ago, 6 declared direction(s)",
+    "directions": 6,
+    "error": null,
+    "frame": {
+      "bytes": 60,
+      "ethertype": "0x88B5",
+      "one_per_direction_every_s": 5.0
+    },
+    "frames_reached_hosts": false,
+    "missing_directions": [],
+    "note": "the heartbeat proves a veth carries frames, not that a switch is alive (a switch powered off by P4PowerStrategy is still heard); its frames are also what link telemetry samples, 1 in 256, on those veths",
+    "period_s": 5.0,
+    "pid": 970959,
+    "report": "/run/ndtwin-lab/heartbeat.json",
+    "report_age_s": 0.915,
+    "session": "850664829406c7ca",
+    "side_effects": {
+      "foreign_frames": 0,
+      "forwarded_between_switches": 0,
+      "forwarded_to_hosts": 0,
+      "misdelivered": 0
+    },
+    "state": "usable",
+    "undeclared_directions": [],
+    "watchdog": "running",
+    "watchdog_passes": [
+      {
+        "down": 0,
+        "end_mono": 123352.143481481,
+        "start_mono": 123352.143168549,
+        "up": 0
+      },
+      {
+        "down": 0,
+        "end_mono": 123357.144133299,
+        "start_mono": 123357.143638965,
+        "up": 0
+      },
+      {
+        "down": 2,
+        "end_mono": 123362.147141277,
+        "start_mono": 123362.144240121,
+        "up": 0
+      }
+    ]
+  },
+  "links": {
+    "1:2->2:2": {
+      "down": true,
+      "last_beacon_age_s": 17.013,
+      "reported_to_kernel": true,
+      "source": "heartbeat"
+    },
+    "1:3->3:2": {
+      "down": false,
+      "last_beacon_age_s": 2.009,
+      "reported_to_kernel": true,
+      "source": "heartbeat"
+    },
+    "2:2->1:2": {
+      "down": true,
+      "last_beacon_age_s": 17.014,
+      "reported_to_kernel": true,
+      "source": "heartbeat"
+    },
+    "2:3->3:3": {
+      "down": false,
+      "last_beacon_age_s": 2.009,
+      "reported_to_kernel": true,
+      "source": "heartbeat"
+    },
+    "3:2->1:3": {
+      "down": false,
+      "last_beacon_age_s": 2.009,
+      "reported_to_kernel": true,
+      "source": "heartbeat"
+    },
+    "3:3->2:3": {
+      "down": false,
+      "last_beacon_age_s": 2.009,
+      "reported_to_kernel": true,
+      "source": "heartbeat"
+    }
+  },
+  "probe_interval_s": 2.0,
+  "reroute": {
+    "available": false,
+    "detail": "the package declares an external control plane: its own controller owns every table and this proxy writes nothing. A cut link is detected by the heartbeat and told to the kernel, and no route is rewritten.",
+    "reason": "external_control_plane"
+  },
+  "status": "success",
+  "switches": {
+    "1": {
+      "capabilities": {
+        "binding_source": null,
+        "five_tuple": false,
+        "ipv4_route": "unbound",
+        "link_discovery": "heartbeat",
+        "reroute": false
+      },
+      "entries_recorded": 0,
+      "flow_stats": {
+        "unrendered_entries": null
+      },
+      "grpc_addr": "localhost:30051",
+      "last_lldp_age_s": null,
+      "last_packet_in_age_s": null,
+      "oldest_rule_installed_at": null,
+      "pipeline": {
+        "ndtwin": false,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hb_p4runtime_solution/build/advanced_tunnel.p4.p4info.txtpb",
+        "p4info_sha256": "4d986039017abeef",
+        "skipped": [
+          "clone_session",
+          "sflow_telemetry"
+        ]
+      },
+      "pipeline_commits": 0,
+      "pre_entries": {
+        "clone": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        },
+        "multicast": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        }
+      },
+      "probe_age_s": 1.572,
+      "probe_detail": "FAILED_PRECONDITION: No forwarding pipeline config set for this device",
+      "probe_ok": false,
+      "rules_timed": 0,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": false,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 0,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 0
+      },
+      "table_generation": null,
+      "telemetry": {
+        "clone_session": false,
+        "packet_in_ids": null,
+        "reason": "the app package declares an external control plane: this proxy writes nothing, so no clone session was programmed whatever the telemetry source says",
+        "sflow_registered": false,
+        "source": "link"
+      }
+    },
+    "2": {
+      "capabilities": {
+        "binding_source": null,
+        "five_tuple": false,
+        "ipv4_route": "unbound",
+        "link_discovery": "heartbeat",
+        "reroute": false
+      },
+      "entries_recorded": 0,
+      "flow_stats": {
+        "unrendered_entries": null
+      },
+      "grpc_addr": "localhost:30052",
+      "last_lldp_age_s": null,
+      "last_packet_in_age_s": null,
+      "oldest_rule_installed_at": null,
+      "pipeline": {
+        "ndtwin": false,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hb_p4runtime_solution/build/advanced_tunnel.p4.p4info.txtpb",
+        "p4info_sha256": "4d986039017abeef",
+        "skipped": [
+          "clone_session",
+          "sflow_telemetry"
+        ]
+      },
+      "pipeline_commits": 0,
+      "pre_entries": {
+        "clone": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        },
+        "multicast": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        }
+      },
+      "probe_age_s": 1.571,
+      "probe_detail": "FAILED_PRECONDITION: No forwarding pipeline config set for this device",
+      "probe_ok": false,
+      "rules_timed": 0,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": false,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 0,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 0
+      },
+      "table_generation": null,
+      "telemetry": {
+        "clone_session": false,
+        "packet_in_ids": null,
+        "reason": "the app package declares an external control plane: this proxy writes nothing, so no clone session was programmed whatever the telemetry source says",
+        "sflow_registered": false,
+        "source": "link"
+      }
+    },
+    "3": {
+      "capabilities": {
+        "binding_source": null,
+        "five_tuple": false,
+        "ipv4_route": "unbound",
+        "link_discovery": "heartbeat",
+        "reroute": false
+      },
+      "entries_recorded": 0,
+      "flow_stats": {
+        "unrendered_entries": null
+      },
+      "grpc_addr": "localhost:30053",
+      "last_lldp_age_s": null,
+      "last_packet_in_age_s": null,
+      "oldest_rule_installed_at": null,
+      "pipeline": {
+        "ndtwin": false,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/.test_run/packages/hb_p4runtime_solution/build/advanced_tunnel.p4.p4info.txtpb",
+        "p4info_sha256": "4d986039017abeef",
+        "skipped": [
+          "clone_session",
+          "sflow_telemetry"
+        ]
+      },
+      "pipeline_commits": 0,
+      "pre_entries": {
+        "clone": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        },
+        "multicast": {
+          "applied": 0,
+          "failed": 0,
+          "recorded": 0
+        }
+      },
+      "probe_age_s": 1.571,
+      "probe_detail": "FAILED_PRECONDITION: No forwarding pipeline config set for this device",
+      "probe_ok": false,
+      "rules_timed": 0,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": false,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 0,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 0
+      },
+      "table_generation": null,
+      "telemetry": {
+        "clone_session": false,
+        "packet_in_ids": null,
+        "reason": "the app package declares an external control plane: this proxy writes nothing, so no clone session was programmed whatever the telemetry source says",
+        "sflow_registered": false,
+        "source": "link"
+      }
+    }
+  }
+}

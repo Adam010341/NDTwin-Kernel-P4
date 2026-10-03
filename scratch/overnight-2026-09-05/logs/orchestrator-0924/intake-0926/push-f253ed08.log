@@ -1,0 +1,13 @@
+# push trunk f253ed08f27aebe27b29dd57f57cd3234864d9ec 2026-09-28T11:17:23+08:00
+To github.com:Adam010341/NDTwin-Kernel-P4.git
+   8d622ea4..f253ed08  f253ed08f27aebe27b29dd57f57cd3234864d9ec -> trunk
+# push git@github.com:Adam010341/NDTwin-Kernel-P4.git rc=0 (try 1)
+To github.com:ndtwin-lab/NDTwin-Kernel-P4.git
+   8d622ea4..f253ed08  f253ed08f27aebe27b29dd57f57cd3234864d9ec -> trunk
+# push git@github.com:ndtwin-lab/NDTwin-Kernel-P4.git rc=0 (try 1)
+$ unauthenticated ndtwin-lab
+f186ce98c7643cf1e7a9e7e402e4193bd0d72805	refs/heads/main
+f253ed08f27aebe27b29dd57f57cd3234864d9ec	refs/heads/trunk
+$ unauthenticated Adam010341
+4a3d7f396e2ced77c7cfe81593e500655cb2090b	refs/heads/main
+f253ed08f27aebe27b29dd57f57cd3234864d9ec	refs/heads/trunk

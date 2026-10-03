@@ -1,0 +1,4 @@
+meas status run 1: 6 sudo call(s):  1 -n mnexec -a 1 true; 1 -n ovs-vsctl list-br; 4 -n /usr/local/sbin/ndtwin-lab status;
+meas status run 2: 6 sudo call(s):  1 -n mnexec -a 1 true; 1 -n ovs-vsctl list-br; 4 -n /usr/local/sbin/ndtwin-lab status;
+meas status run 3: 6 sudo call(s):  1 -n mnexec -a 1 true; 1 -n ovs-vsctl list-br; 4 -n /usr/local/sbin/ndtwin-lab status;
+meas apps status: 2 sudo:  2 -n /usr/local/sbin/ndtwin-lab status;

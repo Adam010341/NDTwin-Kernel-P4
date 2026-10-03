@@ -1,0 +1,7 @@
+redfirst_b                         rc=0  REDFIRST-B: ALL-AS-EXPECTED
+redfirst_b2                        rc=0  REDFIRST-B2: ALL-AS-EXPECTED
+redfirst_b3                        rc=0  REDFIRST-B3: ALL-AS-EXPECTED
+redfirst_b5                        rc=0  REDFIRST-B5: ALL-AS-EXPECTED
+redfirst_b6                        rc=0  REDFIRST-B6: ALL-AS-EXPECTED
+trunk: 67ec9f9ecf9caf9d7df8cc92c4166cd04b79af34 throughout (not moved)
+GATES-extb10 bcdeca0e: ALL-AS-EXPECTED

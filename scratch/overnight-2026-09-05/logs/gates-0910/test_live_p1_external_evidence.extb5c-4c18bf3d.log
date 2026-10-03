@@ -1,0 +1,177 @@
+4c18bf3da29efed3d2f36abd2db67d8f780a222b
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  2026-10-01T20:16:21Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  TMPDIR /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp
+# cmd bash tests/shell/test_live_p1_external_evidence.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5c-4c18bf3d/shims (nolab); drop check through /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5c-4c18bf3d/hbwrap
+# disk: 2932 MB free on / when queued; floor 1536 MB, checked again under the lock
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c a=$(df --output=avail -BM / | tail -1 | tr -dc 0-9); echo "# disk under the lock: $a MB free"; (( a >= $0 )) || { echo "DISK-FLOOR: $a MB < $0 MB -- not run"; exit 97; }; exec "$@" 1536 bash tests/shell/test_live_p1_external_evidence.sh
+# disk under the lock: 2932 MB free
+
+1. 🔴 roles: only a treatment the samples show running, against controls with no trace of it
+  ok       🔴 controls vs treatment, the same evidence, H5's samples: rc 0
+  ok         and says so
+  ok         naming each arm's session and how long it ran
+  ok         with the daemon's own counters, all 0
+  ok         every compared key of every arm said same
+  ok       🔴 no --samples: rc 3
+  ok         said as such
+  ok       🔴 no --control2: rc 3
+  ok       🔴 --control2 that is the control itself: rc 3
+  ok         said as no spread
+  ok       🔴 a treatment also given as a control: refused as such
+  ok       🔴 A/A (a control as the treatment): rc 3
+  ok         refused for what it is, not for its identity
+  ok       🔴 a treatment with no detect-only start line: rc 3
+  ok       🔴 a treatment whose status row is not running: rc 3
+  ok       🔴 a control with a running row: rc 3
+  ok         said as not a control
+  ok       🔴 a control with the detect-only line and a heartbeat block, N5 STALE: rc 3
+  ok         naming both traces
+  ok       🔴 a second control with only a heartbeat block: rc 3
+  ok       🔴 a session sampled running, then stopped before the controller: rc 3
+  ok         said as stopped before the controller's last write
+  ok       🔴 a stale 'running' left by a killed daemon: rc 3
+  ok         said as STALE
+  ok       🔴 a second session inside the arm window: rc 3
+  ok         naming it
+  ok       🔴 a stretch of the session with no sample: rc 3
+  ok         said as not watched throughout
+  ok       🔴 a session that stopped and ran again: rc 3
+  ok         said as such
+  ok       🔴 a session never sampled running: rc 3
+  ok       🔴 a session whose daemon counted a frame to a host: rc 1
+  ok         said as ruling 4
+  ok       🔴 a session that forwarded between switches: rc 1
+  ok       🔴 N4's counters are labelled as before the pipeline
+  ok       🔴 every direction heard while the controller ran, said per direction
+  ok       🔴 a direction not heard while the controller ran: rc 3
+  ok         naming the direction and the controller
+  ok         and which one
+  ok       🔴 a controller the sampler never saw alive: rc 3
+  ok         said as no lifetime
+  ok       🔴 a round report that names no controller pid: rc 3
+  ok         said as no controller pid in the report
+  ok       🔴 no --b-sha: rc 3
+  ok         said as a missing --b-sha
+  ok         the identities are said when they match
+  ok       🔴 a control with no identity: rc 3
+  ok         said as no identity
+  ok       🔴 controls on two different HEADs: rc 3
+  ok         said as the controls' code differing
+  ok       🔴 a treatment merged onto another trunk: rc 3
+  ok         said as trunk moved
+  ok       🔴 a treatment that merged another commit than B: rc 3
+  ok         said as another B
+  ok       🔴 a treatment that is not a merge: rc 3
+  ok         said as B not merged
+  ok       🔴 a treatment with another uncommitted file: rc 3
+  ok         said as other uncommitted files
+  ok       🔴 a treatment on another kernel binary: rc 3
+  ok         said as another kernel
+  ok       🔴 a treatment that is a commit on the controls' HEAD, not a merge: rc 3
+  ok         said as not a merge
+  ok       🔴 a treatment whose identity does not say what its merge changed: rc 3
+  ok         said as unknown merge changes
+  ok       🔴 an uncommitted file that B's merge changes too: rc 3
+  ok         said as a file B changes
+
+2. 🔴 each kind of DECISIVE difference is named (rc 1); a descriptive one is noted, not counted
+  ok       🔴 one counter read more, same last values: rc 0
+  ok         the read count is printed, as not compared
+  ok       🔴 p4runtime/solution's counters ending elsewhere, invariants kept: noted, rc 0
+  ok         noted as counters_final
+  ok         with the control beside it
+  ok         said as outside the spread, not counted
+  ok       🔴 the skeleton's counters, which never varied, ending elsewhere: rc 1
+  ok         named as a DIFF in counters_final
+  ok       🔴 a rule the controller did not install: rc 1
+  ok         named as rules_installed
+  ok       🔴 a flowcache packet-in more (an IPv4 one; that count varied before): noted, rc 0
+  ok         noted as packet_ins
+  ok         and NOT as the heartbeat's
+  ok       🔴 a packet-in on p4runtime, where there never was one: rc 1
+  ok         named as a DIFF in packet_ins
+  ok       🔴 a heartbeat frame at the exercise's controller: rc 1
+  ok       🔴 named as heartbeat_packet_ins
+  ok       🔴 and as a non-IPv4 packet-in
+  ok       🔴 and said in words
+  ok       🔴 an arm whose verdict changed (verdicts were flaky before): noted, rc 0
+  ok         noted as verdict
+  ok         and as rc
+  ok       🔴 a gRPC error more: rc 1
+  ok         named as grpc_errors
+
+3. 🔴 descriptive: noted inside or OUTSIDE the controls' spread; decisive: controls that disagree are UNDECIDED
+  ok       🔴 a packet-in count between the controls': rc 0
+  ok         noted as inside the spread
+  ok         and not decided either way (descriptive)
+  ok       🔴 a packet-in count outside the controls': noted, still rc 0
+  ok         noted as OUTSIDE the spread
+  ok       🔴 a third control that widens the spread: rc 0
+  ok         said with its count of controls
+  ok         and the treatment now inside it
+  ok       🔴 tunnel counters between the controls': rc 0
+  ok         noted as inside the counters' spread
+  ok       🔴 tunnel counters outside the controls': noted, rc 0
+  ok         noted as OUTSIDE the counters' spread
+  ok       🔴 controls that disagree on a decisive key (rules installed): UNDECIDED, rc 2
+  ok         said as such
+  ok         and in the conclusion
+
+4. 🔴 invariants on each arm's own numbers, counted only when every control keeps them
+  ok       🔴 s1 ingress 100 one short of pings + datagrams (as 6 of 12 earlier rounds): noted, rc 0
+  ok         noted as the invariant, descriptive
+  ok       🔴 s2 egress 100 not s1 ingress 100: noted
+  ok       🔴 the 200 tunnel's sum broken (it never broke before): rc 1
+  ok         said as INV BAD
+  ok       🔴 a decisive invariant broken in a control too: UNDECIDED, rc 2
+  ok         said as a decisive invariant that is not one
+  ok       🔴 a skeleton counter that should be 0: INV BAD
+  ok         up to 10 FIN retries when the client got no ack
+  ok       🔴 a cache entry that is no packet-in's flow: INV BAD
+  ok         and a note on cache_entries (descriptive)
+
+5. 🔴 evidence that cannot be read is UNREADABLE (rc 2), never 'same', never a traceback
+  ok       🔴 an arm with no controller log: rc 2
+  ok         and says which
+  ok         and does not print a conclusion either way
+  ok       🔴 a run without the flowcache/solution row: rc 2
+  ok         naming the arm
+  ok       🔴 a counter block cut short: rc 2
+  ok         said as cut short
+  ok       🔴 a last counter block that had not settled: rc 2
+  ok         said as not settled
+  ok         the same numbers read twice are settled: show rc 0
+  ok       🔴 a packet-in that cannot be parsed: rc 2
+  ok         said as such
+  ok       🔴 an IPv4 packet-in shorter than its header: rc 2
+  ok         and no traceback
+  ok       🔴 a controller log that is not UTF-8: rc 2
+  ok         and no traceback
+  ok       🔴 a report that cannot be read: rc 2
+  ok       🔴 and no traceback from it
+  ok       🔴 samples from a sampler before 09-28: rc 2
+  ok         said as a sampler from before round 5
+  ok       🔴 samples from round 4's sampler (no heard, no controllers): rc 2
+  ok       🔴 a running sample whose daemon counter is not a number: rc 2, not a zero
+  ok         naming the counter
+  ok       🔴 a running sample whose heard column is not counts: rc 2
+  ok         said as a heard column that is not counts
+  ok       🔴 samples without 06's end beside them: rc 2
+  ok       🔴 a compare with one run: usage, rc 2
+
+6. which code and which venv each run was
+  ok       🔴 the control's code is printed
+  ok       🔴 and the treatment's
+  ok       🔴 the treatment's protobuf is printed
+  ok         with the installed set's sha
+  ok       🔴 and the control's absence is said
+  ok         identity is not evidence: still rc 0
+  ok         show: rc 0
+  ok         and lists the flowcache packet-ins
+
+Ran 151 checks, 0 failed
+guarded_build: exit 0
+# rc=0

@@ -1,0 +1,11 @@
+# push audit-raw 797c34ab8379a591dab91239a1292e05094dee7f to both P4 repos 2026-09-28T00:59:04+08:00
+To github.com:ndtwin-lab/NDTwin-Kernel-P4.git
+   36f8dd8d..797c34ab  797c34ab8379a591dab91239a1292e05094dee7f -> audit-raw
+# push git@github.com:ndtwin-lab/NDTwin-Kernel-P4.git rc=0
+To github.com:Adam010341/NDTwin-Kernel-P4.git
+   36f8dd8d..797c34ab  797c34ab8379a591dab91239a1292e05094dee7f -> audit-raw
+# push git@github.com:Adam010341/NDTwin-Kernel-P4.git rc=0
+$ unauthenticated ndtwin-lab audit-raw
+797c34ab8379a591dab91239a1292e05094dee7f	refs/heads/audit-raw
+$ unauthenticated Adam010341 audit-raw
+797c34ab8379a591dab91239a1292e05094dee7f	refs/heads/audit-raw

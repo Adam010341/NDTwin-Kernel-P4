@@ -1,0 +1,11 @@
+# DISCLOSURE: this file was written AFTER the PR branch was pushed (09:4x +08). The heredoc that should have written it at 09:26
+# contained `dash` in backticks, unquoted, so the shell ran dash and the file stayed empty. When I killed my own stuck command
+# group, the push and the PR creation went ahead. The prediction below is the one I stated in the session transcript at 09:2x,
+# BEFORE the push, and it is written here before any CI result was read.
+# PR #12 = fcb9664a on main 5d0f442c: both round.env files, lib_e.sh, run_f5.sh, gates_e.sh, the checklist, and 6 tests/shell files. No C++.
+- clang, TSan, ASan+UBSan: PASS.
+- GCC: PASS, the whole job. The only L1 group left after PR #11, test_cell_gate_suspect_wiring.sh, now runs: round.env derives
+  KERNEL_DIR from the runner's checkout, so PY_PROXY is the p4_proxy/venv CI builds. The FAILED list is EMPTY.
+- The new suites test_round_env_kernel_dir.sh and test_live_round_lab_tree.sh PASS; they stub sudo and need no lab.
+  test_gate_exit_code_not_tee stays DECLARED SKIP (py-plot).
+- Risk: one case uses the dash shell; if the runner has none, that case prints NOT RUN, which is not a failure.

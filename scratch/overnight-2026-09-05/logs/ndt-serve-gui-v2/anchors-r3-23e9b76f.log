@@ -1,0 +1,23 @@
+head 23e9b76fe64a6ecc659fb40961f95faf090f6b3f
+porcelain 0
+date 2026-10-01T21:44:32+08:00
+python /usr/bin/python3.12
+cmd check_gate_anchors.py --gates-from HEAD --gates mutate_ndt_serve.sh mutate_ndt_serve_page.sh mutate_ndt_status_measuring.sh mutate_ndt_honesty.sh -- HEAD
+anchors of each gate, counted in each rev's own files; gates read from HEAD
+columns:
+  c0   HEAD
+
+                                c0            
+mutate_ndt_honesty.sh           ok(67)        
+mutate_ndt_serve.sh             ok(170)       
+mutate_ndt_serve_page.sh        ok(44)        
+mutate_ndt_status_measuring.sh  ok(12)        
+
+4/4 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+rc=0
+
+cmd check_gate_anchors.py HEAD   (every gate)
+mutate_withdrawal_needs_observed_failure.sh    ok(32)        
+
+123/123 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+rc=0

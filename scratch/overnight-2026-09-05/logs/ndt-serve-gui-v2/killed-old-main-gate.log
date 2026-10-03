@@ -1,0 +1,17 @@
+date 2026-10-02T00:55:01+08:00
+head 23e9b76fe64a6ecc659fb40961f95faf090f6b3f
+porcelain 0
+gate tests/shell/mutate_ndt_serve.sh sha256 c6a8eeac358c1107
+gate log /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/killed-old-main-gate.gate.log
+/dev/nvme0n1p5   98G   90G  3.3G  97% /
+gate pid 1367655, pgid 1367655
+marker seen after ~2 s: baseline (must be green before any mutation):
+2026-10-02T00:55:12+08:00 kill -TERM -- -1367655
+gate exit status: 143
+left in its process group 3 s later: none
+--- last 4 lines of the gate's log:
+  | date 2026-10-02T00:55:01+08:00
+  | python /usr/bin/python3.12 3.12.3
+  | baseline (must be green before any mutation):
+  | rc=0
+--- verdict-shaped lines: rc=0 1, totals 0, INCOMPLETE 0

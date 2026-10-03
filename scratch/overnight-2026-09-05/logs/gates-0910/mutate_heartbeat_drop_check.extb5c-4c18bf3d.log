@@ -1,0 +1,84 @@
+4c18bf3da29efed3d2f36abd2db67d8f780a222b
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  2026-10-02T00:10:53Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  TMPDIR /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp
+# cmd bash tests/shell/mutate_heartbeat_drop_check.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5c-4c18bf3d/shims (nolab); drop check through /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5c-4c18bf3d/hbwrap
+# disk: 2639 MB free on / when queued; floor 1536 MB, checked again under the lock
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c a=$(df --output=avail -BM / | tail -1 | tr -dc 0-9); echo "# disk under the lock: $a MB free"; (( a >= $0 )) || { echo "DISK-FLOOR: $a MB < $0 MB -- not run"; exit 97; }; exec "$@" 1536 bash tests/shell/mutate_heartbeat_drop_check.sh
+# disk under the lock: 2639 MB free
+baseline (must be green before any mutation):
+  Ran 112 checks, 0 failed
+
+  caught   D1: the check is skipped and every program passes              (Ran 112 checks, 13 failed)
+  caught   D2: a frame punted to the CPU port counts as dropped           (Ran 112 checks, 2 failed)
+  caught   D3: a frame forwarded out of a fabric port (a flood) counts as dropped (Ran 112 checks, 3 failed)
+  caught   D4: a frame in an output pcap is ignored                       (Ran 112 checks, 3 failed)
+  caught   D5: a digest to the controller is ignored                      (Ran 112 checks, 3 failed)
+  caught   D6: a clone's primitive is ignored                             (Ran 112 checks, 1 failed)
+  caught   D6b: bmv2's own clone line is ignored                          (Ran 112 checks, 1 failed)
+  caught   D7: a multicast request is ignored                             (Ran 112 checks, 2 failed)
+  caught   D8: a frame never processed is taken as dropped                (Ran 112 checks, 1 failed)
+  caught   D9: a copy of the frame with no logged fate is taken as dropped (Ran 112 checks, 1 failed)
+  caught   D10: a missing output pcap is taken as empty                   (Ran 112 checks, 1 failed)
+  caught   D11: a switch that exited early is judged as if it had run     (Ran 112 checks, 1 failed)
+  caught   D11b: could-not-tell exits 0                                   (Ran 112 checks, 3 failed)
+  caught   D11c: an unreadable package exits 0                            (Ran 112 checks, 1 failed)
+  caught   D12: an UNKNOWN answer is cached                               (Ran 112 checks, 1 failed)
+  caught   D13: a cached answer is reused for other ports                 (Ran 112 checks, 1 failed)
+  caught   D13b: the cache is never read                                  (Ran 112 checks, 1 failed)
+  caught   D14: the Thrift port is chosen inside the lab's                (Ran 112 checks, 63 failed)
+  caught   D14b: the lab's port list leaves out the proxy's 8081          (Ran 112 checks, 1 failed)
+  caught   D15: a held port is chosen anyway                              (Ran 112 checks, 3 failed)
+  caught   D15b: the port is not checked again right before the launch    (Ran 112 checks, 2 failed)
+  caught   D16: the throwaway switch is named like a fabric switch        (Ran 112 checks, 55 failed)
+  caught   D16b: argv[0] is the fabric's own binary                       (Ran 112 checks, 58 failed)
+  caught   D17: its nanomsg socket goes where the fabric's do             (Ran 112 checks, 51 failed)
+  caught   D18: its device id can be a fabric's                           (Ran 112 checks, 50 failed)
+  caught   D19: the switch outlives a checker killed outright             (Ran 112 checks, 1 failed)
+  caught   D20: the switch is never stopped                               (Ran 112 checks, 2 failed)
+  caught   D21: its directory is left behind                              (Ran 112 checks, 2 failed)
+  caught   D22: the injected frame is not the daemon's                    (Ran 112 checks, 3 failed)
+  caught   D23: the hosts' ports are left out of the ports a frame could leave by (Ran 112 checks, 6 failed)
+  caught   D24: the limit is not said with the answer                     (Ran 112 checks, 1 failed)
+  caught   D25: a frame sent to a port no switch has is called not dropped (Ran 112 checks, 11 failed)
+  caught   D25b: where a frame was sent to is not said                    (Ran 112 checks, 1 failed)
+  caught   D26: a drop is not said as one                                 (Ran 112 checks, 2 failed)
+  caught   D27: nothing is ever proven dropped                            (Ran 112 checks, 14 failed)
+  caught   D28: a package on NDTwin's pipeline is checked as if it ran its own (Ran 112 checks, 1 failed)
+  caught   D29: what bmv2 logged a program doing with it is not held against it (Ran 112 checks, 9 failed)
+  caught   D30: what does not drop it passes anyway                       (Ran 112 checks, 14 failed)
+  caught   D31: whatever the check could not tell is reported as dropped  (Ran 112 checks, 3 failed)
+  caught   D32: a run that did not settle can still be DROPPED            (Ran 112 checks, 2 failed)
+  caught   D33: settled before bmv2 has read its input to the end         (Ran 112 checks, 1 failed)
+  caught   D33b: settled with an injected frame unread                    (Ran 112 checks, 1 failed)
+  caught   D33c: settled with a copy that has no fate                     (Ran 112 checks, 1 failed)
+  caught   D33d: nothing ever settles                                     (Ran 112 checks, 12 failed)
+  caught   D34: NDT_HB_CHECK_BMV2 is ignored (the gates' wrapper with it) (Ran 112 checks, 52 failed)
+  caught   D34b: the default is the gRPC build                            (Ran 112 checks, 1 failed)
+  caught   D35: the CPU port is not attached                              (Ran 112 checks, 2 failed)
+  caught   D36: a crash is Python's own traceback and rc 1                (Ran 112 checks, 2 failed)
+  caught   D37: the command runs as root                                  (Ran 112 checks, 2 failed)
+  caught   D37b: a switch is launched as root                             (Ran 112 checks, 1 failed)
+  caught   D38: modules it could not load are not said                    (Ran 112 checks, 1 failed)
+  caught   D38b: a module it cannot load is a traceback                   (Ran 112 checks, 2 failed)
+  caught   D39: a program with no port to inject on is planned anyway     (Ran 112 checks, 2 failed)
+  caught   D39b: no frame injected is a drop (vacuous)                    (Ran 112 checks, 2 failed)
+  caught   D40: another bmv2 version than the fabric's is fine            (Ran 112 checks, 4 failed)
+  caught   D40b: the fabric's binary is not read from p4_testbed_topo's override (Ran 112 checks, 1 failed)
+  caught   D40c: NDT_HB_CHECK_FABRIC_BMV2 is ignored                      (Ran 112 checks, 21 failed)
+  caught   D41: a signal kills the check without its finally              (Ran 112 checks, 2 failed)
+  caught   D42: executed by its own name: comm simple_switch(_g)          (Ran 112 checks, 2 failed)
+  caught   D43: its log is named outside its own directory's terms        (Ran 112 checks, 51 failed)
+  caught   D44: its directory is not named as its own                     (Ran 112 checks, 50 failed)
+  caught   NE1: ndt does not wait for the check: its switch runs when the fabric starts (Ran 112 checks, 6 failed)
+  caught   NE2: ndt's step does not run the checker                       (Ran 112 checks, 4 failed)
+  caught   NE3: ndt prints the checker's whole answer                     (Ran 112 checks, 1 failed)
+
+source byte-identical: yes  heartbeat_drop_check.py  sha256 49fa1eaf9d592bc290f567f84f943c9ee7f356d97c0e988159ee1cf39fb7cbc1; ndt sha256 aac7457390e97065f47b514e2915899cdede6e0df43e16b10ae6bdb7ccd8734f
+mutant runs that did not reach their summary line: 0
+mutation gate: 64 mutations, 0 survived
+every non-control check seen red: 103/103 (over 64 mutant runs); 9 control(s), 8 of them red too: ['and it is still rc 0', '(the run under observation still judged)', '🔴 it runs as the caller, not root', "🔴 ndt's bmv2_count does not count it", 'nor does its identity rule take it for a switch', "(section 9's topo-start probe sees a running throwaway switch)", '(the switch was found running before the signal)', '🔴 and its switch is gone']
+guarded_build: exit 0
+# rc=0

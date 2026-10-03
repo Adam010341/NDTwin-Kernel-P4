@@ -1,0 +1,3 @@
+# PR #13 runs 36373189008 / 36373185198 (head 27766535): all four jobs SUCCESS on both runs.
+# GCC raw logs (API; 7017 and 7004 lines): 0 FAILED/FAIL: lines; test_ndt_sudo_surface.sh PASS 55; test_ndt_status_check_baseline.sh PASS 112; "L1 passed".
+# => prediction met.

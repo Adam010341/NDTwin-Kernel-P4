@@ -1,0 +1,41 @@
+9054d0c4a21322c06d6c0fff51d052dba5ebcc7d
+# 2026-10-02T09:31:30Z cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927 TMPDIR /tmp/claude-1000/g7 via bare; disk 2648 MB
+# cmd env NODE_BIN=/home/adam/.local/node/bin bash tests/shell/mutate_ndt_serve_page.sh
+# date -Is: 2026-10-02T17:31:30+08:00
+# argv: tests/shell/mutate_ndt_serve_page.sh 
+# git rev-parse HEAD: 9054d0c4a21322c06d6c0fff51d052dba5ebcc7d
+# git status --porcelain | wc -l: 0
+# python3: /home/adam/miniconda3/bin/python3 3.13.13 | packaged by Anaconda, Inc. | (main, Apr 14 2026, 06:19:41) [GCC 14.3.0]
+# node -v: v24.20.0   npm -v: 11.19.0
+# this gate: 7e71944f0bbc2388da36afbda5a575ab4906e72a8f6a4328242fbcd6fb438e1c
+# changed paths under test vs HEAD: 0
+  Filesystem      Size  Used Avail Use% Mounted on
+  /dev/nvme0n1p5   98G   91G  2.6G  98% /
+  /dev/nvme0n1p5   98G   91G  2.6G  98% /
+
+baseline 1 -- the whole suite on the committed page (green, every case run ok, none skipped, no leftover):
+  setUpClass ... ERROR
+  setUpClass ... ERROR
+  setUpClass ... ERROR
+  setUpClass ... ERROR
+  setUpClass ... ERROR
+  setUpClass ... ERROR
+  test_ndt_serve_page.py: Ran 0 tests in 0.001s / FAILED (errors=6) (1 s)
+             leftovers: no chrome line  /proc after the run: none
+             ^^^ LEFTOVER (or no leftover line at all): this gate will exit 2
+  baseline is RED -- fix that first, mutations prove nothing on a red baseline
+    ERROR: setUpClass (__main__.Confirm)
+    RuntimeError: TMPDIR is too long for Chrome's SingletonSocket (108 > 107 bytes): /tmp/claude-1000/g7/ndt-page-gate-aMSzTN/base/tmp/ndt-page-yt0xr7vs/com.google.Chrome.XXXXXX/SingletonSocket -- use a shorter TMPDIR
+    ERROR: setUpClass (__main__.JobLog)
+    RuntimeError: TMPDIR is too long for Chrome's SingletonSocket (108 > 107 bytes): /tmp/claude-1000/g7/ndt-page-gate-aMSzTN/base/tmp/ndt-page-7tql0xwm/com.google.Chrome.XXXXXX/SingletonSocket -- use a shorter TMPDIR
+    ERROR: setUpClass (__main__.Load)
+    RuntimeError: TMPDIR is too long for Chrome's SingletonSocket (108 > 107 bytes): /tmp/claude-1000/g7/ndt-page-gate-aMSzTN/base/tmp/ndt-page-rabaqfrc/com.google.Chrome.XXXXXX/SingletonSocket -- use a shorter TMPDIR
+    ERROR: setUpClass (__main__.ProbeTimeout)
+    RuntimeError: TMPDIR is too long for Chrome's SingletonSocket (108 > 107 bytes): /tmp/claude-1000/g7/ndt-page-gate-aMSzTN/base/tmp/ndt-page-t6obqbh4/com.google.Chrome.XXXXXX/SingletonSocket -- use a shorter TMPDIR
+    ERROR: setUpClass (__main__.Profile)
+    RuntimeError: TMPDIR is too long for Chrome's SingletonSocket (108 > 107 bytes): /tmp/claude-1000/g7/ndt-page-gate-aMSzTN/base/tmp/ndt-page-qvjgab_o/com.google.Chrome.XXXXXX/SingletonSocket -- use a shorter TMPDIR
+    ERROR: setUpClass (__main__.Refresh)
+    RuntimeError: TMPDIR is too long for Chrome's SingletonSocket (108 > 107 bytes): /tmp/claude-1000/g7/ndt-page-gate-aMSzTN/base/tmp/ndt-page-w4f7ygeq/com.google.Chrome.XXXXXX/SingletonSocket -- use a shorter TMPDIR
+INCOMPLETE: ended before its verdict line -- not a verdict
+rc=2
+# rc=2

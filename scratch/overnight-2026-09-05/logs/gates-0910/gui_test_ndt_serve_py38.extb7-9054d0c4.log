@@ -1,0 +1,140 @@
+9054d0c4a21322c06d6c0fff51d052dba5ebcc7d
+# 2026-10-02T09:17:26Z cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927 TMPDIR /tmp/claude-1000/g7 via guard; disk 2651 MB
+# cmd env PYTHONDONTWRITEBYTECODE=1 /home/adam/miniconda3/envs/ryu-env/bin/python3.8 tests/python/test_ndt_serve.py
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env PYTHONDONTWRITEBYTECODE=1 /home/adam/miniconda3/envs/ryu-env/bin/python3.8 tests/python/test_ndt_serve.py
+test_connections_are_bounded (__main__.Bounded) ... ok
+test_listen_backlog_holds_a_burst (__main__.Bounded)
+Found by the final run of 09-24 23:3x: 20 concurrent POSTs, one reset by the kernel ... ok
+test_waiters_are_bounded (__main__.Bounded) ... ok
+test_own_claim_is_what_claim_line_prints_for_yours_and_nothing_else (__main__.ClaimFormProvenance) ... ok
+test_cross_origin_read_is_refused (__main__.Csrf) ... ok
+test_cross_origin_write_is_refused_with_token (__main__.Csrf) ... ok
+test_form_shaped_write_is_refused (__main__.Csrf) ... ok
+test_get_runs_only_read_verbs (__main__.Csrf) ... ok
+test_open_directories_left_by_someone_else_are_tightened (__main__.Csrf)
+Judge finding 8: a state or token directory that already exists 0777, an old 0644 ... ok
+test_reads_need_the_token_except_health (__main__.Csrf)
+Judge 09-24 finding 1: GET /status?check=1 runs `ndt status --check`, whose lock probes ... ok
+test_same_origin_write_is_accepted (__main__.Csrf) ... ok
+test_status_check_without_token_runs_nothing (__main__.Csrf)
+The <img src=".../status?check=1"> of finding 1: no token, no Origin -- refused, and ... ok
+test_token_file_is_private (__main__.Csrf) ... ok
+test_token_in_query_is_not_accepted (__main__.Csrf) ... ok
+test_token_is_new_on_every_start (__main__.Csrf) ... ok
+test_wait_is_capped (__main__.Csrf) ... ok
+test_write_with_wrong_token_runs_nothing (__main__.Csrf) ... ok
+test_write_without_token_runs_nothing (__main__.Csrf) ... ok
+test_demo_probes_cannot_touch_the_lab (__main__.DemoProbes)
+Judge finding 3: a probe that carries the token and names a writer IS a writer the ... ok
+test_ndt_help_lists_serve (__main__.Entry) ... ok
+test_ndt_serve_execs_this_server (__main__.Entry) ... ok
+test_outside_the_api_there_is_only_the_page (__main__.Entry) ... ok
+test_second_server_on_the_same_state_refuses (__main__.Entry) ... ok
+test_every_ndt_call_carries_the_owner (__main__.Identity) ... ok
+test_inherited_ndt_variables_are_not_passed (__main__.Identity) ... ok
+test_jobs_run_the_ndt_resolved_at_start (__main__.Identity)
+Judge finding 6: the record names the sha of the file that ran. Re-pointing the symlink ... ok
+test_server_refuses_to_start_without_an_owner (__main__.Identity) ... ok
+test_a_job_nobody_recorded_is_lost_not_finished (__main__.Jobs) ... ok
+test_a_zombie_is_not_alive (__main__.Jobs)
+Judge finding 8: a runner that has exited but not been reaped is still in /proc. ... ok
+test_an_orphaned_ndt_still_holds_the_slot (__main__.Jobs)
+The runner is gone and ndt is still building: that is not a free slot. ... ok
+test_concurrent_writes_get_exactly_one_slot (__main__.Jobs)
+Judge finding 8: without `with SLOT:` two requests can both see a free slot. ... ok
+test_job_outlives_the_server (__main__.Jobs) ... ok
+test_jobs_are_listed_newest_first_within_one_second (__main__.Jobs) ... ok
+test_ndt_runs_in_a_session_of_its_own (__main__.Jobs) ... ok
+test_restarted_server_still_honours_a_running_job (__main__.Jobs) ... ok
+test_second_write_is_refused_while_one_runs (__main__.Jobs) ... ok
+test_slot_is_free_again_after_the_job (__main__.Jobs) ... ok
+test_write_returns_before_the_job_ends (__main__.Jobs) ... ok
+test_foreign_host_header_is_refused (__main__.LoopbackOnly) ... ok
+test_host_with_another_port_is_refused (__main__.LoopbackOnly) ... ok
+test_listens_on_127_0_0_1_only (__main__.LoopbackOnly) ... ok
+test_localhost_and_ip_hosts_are_served (__main__.LoopbackOnly) ... ok
+test_missing_host_header_is_refused (__main__.LoopbackOnly) ... ok
+test_no_cors_header_anywhere (__main__.LoopbackOnly) ... ok
+test_no_process_is_found_or_signalled_by_name (__main__.NoPatternKill)
+Through the tree's own instrument, not a word list of this file's: a word list here ... ok
+test_the_only_signal_sent_is_to_a_group_this_service_created (__main__.NoPatternKill)
+The timeout paths of run_read (serve.py) and Grid._run (cells.py) are the two places a ... ok
+test_code_sourced_tables_are_in_ndt (__main__.RcProvenance)
+Each anchor is its line, the text on it AND the function it lies in (intake judge 09-26, ... FAIL
+test_every_table_names_its_source (__main__.RcProvenance) ... ok
+test_help_sourced_tables_are_in_ndt_help (__main__.RcProvenance) ... ok
+test_lock_probe_citations_are_lock_probe (__main__.RcProvenance)
+The opus judge's N1-1 (09-27): the README still sent a reader to ndt lines 9292-9307 for ... FAIL
+test_status_check_rc1_names_any_problem (__main__.RcProvenance) ... ok
+test_the_function_finder_reads_ndt (__main__.RcProvenance)
+The finder above, on the real ndt's claim_line: a finder that answered the cited name ... ok
+test_a_pipe_held_outside_the_group_does_not_hang_the_read (__main__.ReadTimeout) ... ok
+test_a_read_past_its_timeout_is_stopped_and_frees_its_slot (__main__.ReadTimeout) ... ok
+test_reads_beyond_the_slots_wait_then_503 (__main__.ReadTimeout) ... ok
+test_each_verb_reads_its_own_rc_table (__main__.ThinShell) ... ok
+test_output_is_kept_byte_for_byte (__main__.ThinShell) ... ok
+test_plain_status_is_not_a_verdict (__main__.ThinShell)
+Plain `ndt status` answers 0 whatever it found (ndt: `return 0` after the report); only ... ok
+test_rc5_is_refused_and_not_dirty (__main__.ThinShell) ... ok
+test_read_output_is_kept_byte_for_byte (__main__.ThinShell)
+Judge finding 4: ndt cuts claim notes with `cut -c1-72`, which counts bytes, so a ... ok
+test_status_answers_with_rc_and_full_output (__main__.ThinShell) ... ok
+test_unknown_rc_is_not_folded (__main__.ThinShell) ... ok
+test_app_dir_inside_the_root_is_passed_resolved (__main__.Whitelist) ... ok
+test_app_dir_outside_the_root_is_refused (__main__.Whitelist) ... ok
+test_app_dir_symlink_out_of_the_root_is_refused (__main__.Whitelist) ... ok
+test_app_name_must_be_one_of_ndts (__main__.Whitelist) ... ok
+test_app_names_come_from_ndt_itself (__main__.Whitelist) ... ok
+test_app_root_is_a_directory_not_a_prefix (__main__.Whitelist)
+Judge finding 8: commonpath, not startswith -- <root>2/x shares the root's prefix. ... ok
+test_claim_minutes_are_bounded (__main__.Whitelist) ... ok
+test_claim_note_reaches_ndt_as_one_argv_element (__main__.Whitelist) ... ok
+test_claim_note_with_a_newline_is_refused (__main__.Whitelist) ... ok
+test_no_shell_anywhere_in_the_service (__main__.Whitelist) ... ok
+test_up_argv_is_one_of_the_fixed_forms (__main__.Whitelist) ... ok
+test_up_refuses_unknown_fields (__main__.Whitelist) ... ok
+test_up_refuses_values_outside_the_enums (__main__.Whitelist) ... ok
+
+======================================================================
+FAIL: test_code_sourced_tables_are_in_ndt (__main__.RcProvenance)
+Each anchor is its line, the text on it AND the function it lies in (intake judge 09-26,
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "tests/python/test_ndt_serve.py", line 1135, in test_code_sourced_tables_are_in_ndt
+    self.assertEqual(bad, [])
+AssertionError: Lists differ: ['status.check rc 3: ndt:7086 is \'printf [1748 chars]pps'] != []
+
+First list contains 12 additional elements.
+First extra element 0:
+'status.check rc 3: ndt:7086 is \'printf \\\'  %-14s %s\\\\n\\\' "apps" "${appson:-none running}"\' in cmd_status, cited as \'return 3\' in cmd_status'
+
+Diff is 1951 characters long. Set self.maxDiff to None to see it.
+
+======================================================================
+FAIL: test_lock_probe_citations_are_lock_probe (__main__.RcProvenance)
+The opus judge's N1-1 (09-27): the README still sent a reader to ndt lines 9292-9307 for
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "tests/python/test_ndt_serve.py", line 1176, in test_lock_probe_citations_are_lock_probe
+    self.assertEqual(bad, [])
+AssertionError: Lists differ: ["README.md:78 cites ndt:9452-9467; lock_p[294 chars]592"] != []
+
+First list contains 3 additional elements.
+First extra element 0:
+"README.md:78 cites ndt:9452-9467; lock_probe's comment starts at 9567, its POST is at 9584, it ends at 9592"
+
++ []
+- ["README.md:78 cites ndt:9452-9467; lock_probe's comment starts at 9567, its "
+-  'POST is at 9584, it ends at 9592',
+-  "serve.py:28 cites ndt:9452-9467; lock_probe's comment starts at 9567, its "
+-  'POST is at 9584, it ends at 9592',
+-  "test_ndt_serve.py:423 cites ndt:9452-9467; lock_probe's comment starts at "
+-  '9567, its POST is at 9584, it ends at 9592']
+
+----------------------------------------------------------------------
+Ran 75 tests in 50.887s
+
+FAILED (failures=2)
+guarded_build: exit 1
+# rc=1

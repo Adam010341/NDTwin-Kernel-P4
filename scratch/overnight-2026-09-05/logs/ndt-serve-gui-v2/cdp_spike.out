@@ -1,0 +1,11 @@
+# 2026-09-27 ~21:4x, under JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh (from the GUI worktree)
+version: Chrome/153.0.8010.36
+a fresh target: visible
+after creating a 2nd target: first=hidden second=visible
+after activateTarget(2nd): first=hidden
+setWebLifecycleState frozen: ok
+setFocusEmulationEnabled: ok vis: visible
+after the page-side override: hidden
+Input.dispatchMouseEvent available: True
+rc 0 left in session: []
+guarded_build: exit 0

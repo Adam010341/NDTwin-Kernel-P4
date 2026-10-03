@@ -1,0 +1,93 @@
+head 23e9b76fe64a6ecc659fb40961f95faf090f6b3f
+porcelain 0
+date 2026-10-01T21:00:12+08:00
+dir /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927
+bash GNU bash, version 5.2.21(1)-release (x86_64-pc-linux-gnu)
+cmd bash tests/shell/test_ndt_status_measuring.sh
+ndt status --measuring: the same answer as plain status
+  ok       nothing: --measuring answers rc 0
+  ok       nothing: --measuring's rows are plain status's, line for line
+  ok       nothing: the same declared row as plain status
+  ok       nothing: the same measuring row as plain status
+  ok       nothing: the same orphaned row as plain status
+  ok       nothing: the declared row
+  ok       nothing: the measuring row
+  ok       nothing: the orphaned row
+  ok       nothing: --measuring prints the measuring rows and nothing else
+  ok       declared only: --measuring answers rc 0
+  ok       declared only: --measuring's rows are plain status's, line for line
+  ok       declared only: the same declared row as plain status
+  ok       declared only: the same measuring row as plain status
+  ok       declared only: the same orphaned row as plain status
+  ok       declared only: the declared row
+  ok       declared only: the measuring row
+  ok       declared only: the orphaned row
+  ok       declared only: --measuring prints the measuring rows and nothing else
+  ok       in_flight only: --measuring answers rc 0
+  ok       in_flight only: --measuring's rows are plain status's, line for line
+  ok       in_flight only: the same declared row as plain status
+  ok       in_flight only: the same measuring row as plain status
+  ok       in_flight only: the same orphaned row as plain status
+  ok       in_flight only: the declared row
+  ok       in_flight only: the measuring row
+  ok       in_flight only: the orphaned row
+  ok       in_flight only: --measuring prints the measuring rows and nothing else
+  ok       declared and in_flight: --measuring answers rc 0
+  ok       declared and in_flight: --measuring's rows are plain status's, line for line
+  ok       declared and in_flight: the same declared row as plain status
+  ok       declared and in_flight: the same measuring row as plain status
+  ok       declared and in_flight: the same orphaned row as plain status
+  ok       declared and in_flight: the declared row
+  ok       declared and in_flight: the measuring row
+  ok       declared and in_flight: the orphaned row
+  ok       declared and in_flight: --measuring prints the measuring rows and nothing else
+  ok       expired claim: --measuring answers rc 0
+  ok       expired claim: --measuring's rows are plain status's, line for line
+  ok       expired claim: the same declared row as plain status
+  ok       expired claim: the same measuring row as plain status
+  ok       expired claim: the same orphaned row as plain status
+  ok       expired claim: the declared row
+  ok       expired claim: the measuring row
+  ok       expired claim: the orphaned row
+  ok       expired claim: --measuring prints the measuring rows and nothing else
+  ok       somebody else's claim: --measuring answers rc 0
+  ok       somebody else's claim: --measuring's rows are plain status's, line for line
+  ok       somebody else's claim: the same declared row as plain status
+  ok       somebody else's claim: the same measuring row as plain status
+  ok       somebody else's claim: the same orphaned row as plain status
+  ok       somebody else's claim: the declared row
+  ok       somebody else's claim: the measuring row
+  ok       somebody else's claim: the orphaned row
+  ok       somebody else's claim: --measuring prints the measuring rows and nothing else
+  ok       orphaned (no fabric): --measuring answers rc 0
+  ok       orphaned (no fabric): --measuring's rows are plain status's, line for line
+  ok       orphaned (no fabric): the same declared row as plain status
+  ok       orphaned (no fabric): the same measuring row as plain status
+  ok       orphaned (no fabric): the same orphaned row as plain status
+  ok       orphaned (no fabric): the declared row
+  ok       orphaned (no fabric): the measuring row
+  ok       orphaned (no fabric): the orphaned row
+  ok       orphaned (no fabric): --measuring prints the measuring rows and nothing else
+  ok       orphaned (no fabric): says they are leftovers
+  ok       two drivers: --measuring answers rc 0
+  ok       two drivers: --measuring's rows are plain status's, line for line
+  ok       two drivers: the same declared row as plain status
+  ok       two drivers: the same measuring row as plain status
+  ok       two drivers: the same orphaned row as plain status
+  ok       two drivers: the declared row
+  ok       two drivers: the measuring row
+  ok       two drivers: the orphaned row
+  ok       two drivers: --measuring prints the measuring rows and nothing else
+  ok       two drivers: the '+ 1 more' row, as plain status prints it
+
+ndt status --measuring: no sudo, no kernel request, no OVS or bmv2 query
+  ok       🔴 --measuring ran no sudo, curl, OVS or bmv2 command (8 states)
+  ok         control: plain status, through the same shims, calls sudo
+  ok         control: the process table both read is the fixture
+
+ndt help
+  ok       ndt help names status --measuring
+  ok         and says what it reads and what it does not
+
+Ran 79 checks, 0 failed
+rc=0

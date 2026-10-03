@@ -1,0 +1,19 @@
+8d79dacd0e40e9ddd20d7c8e9af6185b4ef8e482
+porcelain-lines: 0
+# dir: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-spawn-traps-1001
+# tripwire lines before: 0
+# $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/spawn-traps-1001/scripts/leftovers.sh
+# started 2026-10-01T21:49:28+08:00
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/claude-1000/spawn-traps-1001.lock
+guarded_build: $ bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/spawn-traps-1001/scripts/leftovers.sh
+## processes carrying NDT_SIGNAL_TEST_TOKEN= (pid comm cmdline):
+  count: 0
+## .spawn-gate-* copies:
+  (none)
+  count: 0
+## temp trees (the signal test's own, and the /tmp suites' prefixes), owner and mtime:
+  (none)
+  count: 0
+guarded_build: exit 0
+# ended 2026-10-01T21:49:29+08:00; tripwire lines after: 0
+rc=0

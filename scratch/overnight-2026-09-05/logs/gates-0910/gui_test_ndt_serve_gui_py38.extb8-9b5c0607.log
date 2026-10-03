@@ -1,0 +1,57 @@
+9b5c06078d367b67d95521361da651e50ae08794
+# 2026-10-02T10:18:16Z cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927 TMPDIR /tmp/r8 via guard; disk 2651 MB
+# cmd env PYTHONDONTWRITEBYTECODE=1 /home/adam/miniconda3/envs/ryu-env/bin/python3.8 tests/python/test_ndt_serve_gui.py
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env PYTHONDONTWRITEBYTECODE=1 /home/adam/miniconda3/envs/ryu-env/bin/python3.8 tests/python/test_ndt_serve_gui.py
+test_apps_start_and_stop_run_only_under_your_claim (__main__.AppsNeedYourClaim) ... ok
+test_a_dry_run_runs_nothing_and_answers_the_argv_that_would_run (__main__.DryRun) ... ok
+test_dry_run_is_true_or_false (__main__.DryRun) ... ok
+test_the_dialogs_strength_is_the_servers (__main__.DryRun) ... ok
+test_a_cell_dry_run_makes_nothing_and_asks_nothing (__main__.DryRunCells) ... ok
+test_a_walks_dry_run_moves_nothing (__main__.DryRunCells) ... ok
+test_the_dry_run_is_refused_where_it_is_not_offered (__main__.DryRunCells) ... ok
+test_a_stopped_measuring_read_is_not_a_reading (__main__.Lab) ... ok
+test_a_stopped_read_is_not_a_reading (__main__.Lab) ... ok
+test_lab_and_meta_need_the_token (__main__.Lab) ... ok
+test_lab_claim_is_yours_only_in_ndts_own_form_whole (__main__.Lab) ... ok
+test_lab_is_plain_status_with_its_rows_verbatim (__main__.Lab) ... ok
+test_lab_names_the_job_holding_the_slot (__main__.Lab) ... ok
+test_measuring_is_nothing_only_when_ndt_says_nothing (__main__.Lab) ... ok
+test_measuring_is_status_measuring_and_nothing_else (__main__.Lab) ... ok
+test_measuring_reads_the_rows_as_lab_does (__main__.Lab) ... ok
+test_meta_is_the_servers_own_tables (__main__.Lab) ... ok
+test_every_answer_carries_a_csp_with_no_inline_script_and_no_other_origin (__main__.Page) ... ok
+test_no_answer_sets_a_cookie (__main__.Page) ... ok
+test_page_files_need_no_token_and_run_nothing (__main__.Page) ... ok
+test_the_page_cannot_be_framed (__main__.Page) ... ok
+test_the_page_is_get_only (__main__.Page) ... ok
+test_the_page_obeys_the_host_check (__main__.Page) ... ok
+test_a_key_expires (__main__.Session) ... ok
+test_a_key_is_good_once (__main__.Session) ... ok
+test_a_new_key_needs_the_token (__main__.Session) ... ok
+test_only_the_newest_keys_are_kept (__main__.Session) ... ok
+test_the_key_is_traded_only_from_this_very_origin (__main__.Session) ... ok
+test_the_url_goes_to_a_0600_file_when_stdout_is_not_a_terminal (__main__.StartupUrl) ... ok
+test_the_url_is_printed_to_a_terminal_and_written_nowhere (__main__.StartupUrl) ... ok
+test_ndt_help_lists_serve_url (__main__.UrlCommand) ... ok
+test_ndt_serve_url_is_the_same_command (__main__.UrlCommand) ... ok
+test_url_prints_a_new_key_of_the_running_server (__main__.UrlCommand) ... ok
+test_url_refuses_a_serve_json_whose_pid_is_gone (__main__.UrlCommand) ... ok
+test_url_sends_the_token_only_over_a_connection_the_pid_accepted (__main__.UrlCommand) ... tests/python/test_ndt_serve_gui.py:496: ResourceWarning: unclosed file <_io.BufferedReader name='/tmp/r8/ndt-serve-test-yw7wsvcl/child-got'>
+  sent = open(got, "rb").read() if os.path.exists(got) else b""
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/adam/miniconda3/envs/ryu-env/lib/python3.8/unittest/case.py:633: ResourceWarning: unclosed file <_io.TextIOWrapper name=3 encoding='UTF-8'>
+  method()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_url_sends_the_token_only_to_the_pid_that_holds_the_port (__main__.UrlCommand) ... ok
+test_url_with_no_server_says_so (__main__.UrlCommand) ... ok
+test_a_web_gui_url_that_is_not_http_is_refused_at_start (__main__.WebGuiUrl) ... ok
+test_meta_names_the_web_gui_url (__main__.WebGuiUrl) ... ok
+
+----------------------------------------------------------------------
+Ran 39 tests in 21.293s
+
+OK
+guarded_build: exit 0
+# rc=0

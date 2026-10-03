@@ -1,0 +1,8 @@
+head 73889e5494d22f32b39f4a43021db389a92fe742
+porcelain 0 tracked file(s) differ from HEAD
+date 2026-10-02T10:00:46+08:00
+python /usr/bin/python3.12 3.12.3
+gate 673d5164b9500c80081ce7459352a9bf12f4dceefe30aa431906dd376c519c7b
+baseline (must be green before any mutation):
+INCOMPLETE: stopped by SIGTERM before its verdict -- not a verdict
+rc=143

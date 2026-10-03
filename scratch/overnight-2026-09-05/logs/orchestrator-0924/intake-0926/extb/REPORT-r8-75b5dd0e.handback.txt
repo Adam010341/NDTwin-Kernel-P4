@@ -1,0 +1,104 @@
+## settled() fix: committed, every gate came out as expected (one commit, not pushed)
+
+**New head:** `75b5dd0e817e5cf7367e29158fbeaa0b88990322` on feat/external-detect-only-0927 in /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927. No lab use, no push, trunk and the main checkout untouched (main checkout's runs/ only read).
+
+**Diff stat (`git diff --stat 9b5c0607..HEAD`), only the three allowed files:**
+```
+ .../live-p1/external_evidence.py                   |  97 ++++--
+ tests/shell/mutate_live_p1_external_evidence.sh    |  57 +++-
+ tests/shell/test_live_p1_external_evidence.sh      | 345 ++++++++++++++++++++-
+ 3 files changed, 462 insertions(+), 37 deletions(-)
+```
+README is unchanged: its "判定" section never described the settled rule. The commit message has no forbidden words and no trailer.
+
+### What changed (OBSERVED)
+- **EE:**
+  - `report_evidence` now reads the client file's `Server Report:` lost/total into `iperf["server_total"]` (new `SERVER_REPORT` and `LOST_TOTAL`, same style as `SENT`).
+  - `expected_s1_in` is removed.
+  - `settled()` now accepts a last block if (i) it repeats the block before it, or (ii) one of:
+    - skeleton: s1 == pings exactly (as before);
+    - solution: ack received (a Server Report total and no "did not receive ack"), s2e == s1 in the same block, and pings+D ≤ s1 ≤ pings+D+IPERF_FIN_RETRIES.
+  - Each Unreadable message names the condition that failed (no ack / no Server Report, s2e ≠ s1, under the low bound, over the high bound, skeleton ≠ pings).
+  - The docstring says plainly that with no server report only (i) settles, and that no earlier round supports that case with data.
+  - `invariants()` is untouched, so the survey output is unchanged.
+- **TS:**
+  - mk's default iperf client file now carries 081205Z's three Server Report lines (`0/3499`). `no_ack=1` leaves them out by default; `server_report=0|1` forces either way.
+  - `real.txt` freezes, verbatim, the last two counter blocks and the iperf client lines of the 12 frozen rounds. Each section cites its source path and lines (log `:54-65` or `:114-125`, iperf_client `:6,9,10[,11,12]`, and the report's pings line). Today's three rounds are not in it.
+  - New cells: the 12 real rounds; one cell per condition (t_eg2, t_over, t_top, t_ackwarn, t_noreport, t_noreport2, t_skel_unset); and a low-bound message check on t_unset.
+  - The stale comment and cell name at TS:642-645 are rewritten.
+- **MG:** E41's anchor is moved to the new code and E78 follows the renamed cell. New mutants E96–E106:
+  - the repeat;
+  - ack ignoring "did not receive ack";
+  - no report read as Sent−1;
+  - s2e == s1;
+  - low bound made `<`, and low bound removed;
+  - high bound with no FIN slack, and high bound removed;
+  - Sent used instead of Total;
+  - the lost count read as the total;
+  - the skeleton's pings check.
+
+### Existing cells
+No existing cell's expected rc or expected string changed. Three fixtures did, for these reasons:
+- **t_lost:** dropped `reads_extra=1`. A single 3504 block now settles through (ii), which is what real data looks like. This cell is now red on the old EE.
+- **t_eg (3505/3504):** added `reads_extra=1`. Under the new rule a single last block with s2e ≠ s1 is UNREADABLE (t_eg2 tests that), so the cell's invariant line would no longer print without the repeat.
+- **t_trunc:** moved `p4rt_sol` → `p4rt_skel`.
+  - On my first commit `d08713cc`, **E21 survived** (`logs/gates-0910/mutate_live_p1_external_evidence.extb9-d08713cc.log:31`, 231/232 seen red at :147-148).
+  - The cause: a cut-short solution block has no s2e, so the new s2e == s1 condition rejects it anyway, and turning off the cut-short check left rc at 2.
+  - After the move E21 is killed. I amended to `75b5dd0e` and re-ran every gate. The d08713cc logs are kept but do not count.
+
+### Red/green evidence (log:line, all under logs/gates-0910/)
+- `redfirst_b9.extb9-75b5dd0e.log` runs the new TS against 9b5c0607's EE: rc 1, `Ran 232 checks, 21 failed` (:287).
+  - The six 3504 rounds are red at :194, :197, :200, :203, :206, :209; t_lost is red at :146.
+  - 081205Z is green on the old EE (:212), as expected, since the old rule already settles it.
+  - 175425Z is rc 2 on the old EE too (:213); only its reason check is red (:214).
+- On the new head: `test_live_p1_external_evidence.extb9-75b5dd0e.log:256` reads `Ran 232 checks, 0 failed`.
+- Mutants, in `mutate_live_p1_external_evidence.extb9-75b5dd0e.log`: E21 caught (:31), E41 (:51), E96–E106 (:106-116); `134 mutations, 0 survived` (:146); `every check seen red: 232/232` (:147).
+
+### Gate table
+Driver: `logs/gates-0910/extb9/gates_b9.frozen.sh` (sha256 bc9a1379…). One guard per gate, JOBS=1, LOCK_WAIT=10800, disk floor 1536 MB checked before queueing and again under the lock, nolab shims on PATH (tripwire: 0 lines). Driver result: `GATES-extb9 75b5dd0e: ALL-AS-EXPECTED`.
+
+| gate | first line | last line | result (log:line) | vs extb6m |
+|---|---|---|---|---|
+| redfirst_b9 (expected rc 1) | 75b5dd0e | # rc=1 | 232 checks, 21 failed (:287) | new |
+| test_live_p1_external_evidence | 75b5dd0e | # rc=0 | 232 checks, 0 failed (:256) | 202 → 232 |
+| survey_34 | 75b5dd0e | # rc=0 | `34 rounds, every report and controller log as frozen, none with the heartbeat` (:7) | body identical |
+| check_gate_anchors 75b5dd0e | 75b5dd0e | # rc=0 | 131/131 cells ok, 0 not checked (:144); this gate's cell `ok(129)` (:75) | same |
+| mutate_live_p1_external_evidence | 75b5dd0e | # rc=0 | 134 mutations, 0 survived (:146); 232/232 seen red (:147) | 123 → 134; 202/202 → 232/232 |
+
+- **Other gates that read EE (git grep):** only `external_survey.py` imports it. TS runs it, MG runs it through TS, and check_gate_anchors reads MG's anchors. `06_thirteen.sh`, `08_heartbeat.sh`, `code_identity.py`, `test_live_p1_thirteen.sh`, `tools/test_workflow/ndt` and the README mention it only in comments or text, so I did not run them. The other 40 gates of R6.7 were not re-run.
+- **Survey re-check:** `external_survey.py` and its manifest are unchanged since 5311f3f6 (`git diff` is empty). `diff` of the survey log bodies, extb6m vs extb9, shows no difference.
+
+### Settled check on the 15 rounds
+Log: `logs/gates-0910/settled15.extb9-75b5dd0e.log`; script: `extb9/settled15.py`.
+
+| round | new settled() | reason (frozen rounds only) | old (9b5c0607) |
+|---|---|---|---|
+| 09-19T055210Z, 065612Z, 085331Z, 085746Z | UNREADABLE | no ack ("did not receive ack") | UNREADABLE |
+| 09-19T151037Z | settled | | UNREADABLE |
+| 09-24T162954Z | settled | | UNREADABLE |
+| 09-24T192012Z | settled | | UNREADABLE |
+| 09-26T061642Z | settled | | UNREADABLE |
+| 09-26T062438Z | settled | | UNREADABLE |
+| 09-26T155814Z | settled | | UNREADABLE |
+| 09-26T175425Z | UNREADABLE | s2 egress 3821 ≠ s1 ingress 3820 | UNREADABLE |
+| 09-27T081205Z | settled | | settled |
+| 10-02T114342Z (under test) | settled | — | UNREADABLE |
+| 10-02T121113Z (under test) | settled | — | UNREADABLE |
+| 10-02T124023Z (under test) | settled | — | UNREADABLE |
+
+- The 12 frozen rounds match the investigator's `proposed.out` one for one. I found nothing in the data that makes the rule wrong or ambiguous.
+- For today's three I printed only settled / UNREADABLE and did not run `compare`.
+- One caveat: to call `settled()`, `controller_evidence` and `report_evidence` parse each whole log in memory. Nothing else from today's rounds was printed, kept or compared.
+
+### INFERRED, not verified
+- That iperf's "Sent" counts one extra datagram (the FIN or an extra id) is not checked against iperf's source.
+- The "no server report" branch rests on no real data.
+- The +10 slack when acked is borrowed from the no-ack FIN retry count; acked rounds have only ever shown +1 (081205Z).
+- D = 0 when iperf's target is not 10.0.2.2 follows the old code's handling; there is no data for it.
+
+### Housekeeping
+- §R8 (OBSERVED and INFERRED separated) is appended to /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/hunt-0911/fix/EXTERNAL-DETECT-ONLY-SUMMARY.md, lines 1270-1363.
+- All my background loops are stopped. I removed my scratchpad files (old EE copy, subset gate copy, real.txt draft) and `extb9/tmp`. The driver, its shims and settled15.py stay in `logs/gates-0910/extb9/` as the record.
+- One `sleep 10` / `until ! pgrep …` loop still running is not mine: parent pid 2981250, about 29 h old, another session's. I left it alone.
+
+DELIVERED 75b5dd0e817e5cf7367e29158fbeaa0b88990322

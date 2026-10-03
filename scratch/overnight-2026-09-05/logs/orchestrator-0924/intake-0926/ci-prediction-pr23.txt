@@ -1,0 +1,9 @@
+# written BEFORE pushing pr/spawn-helper-signals (23dee9c41d1983c63dbe461db0d349fafc9e3980), 2026-10-01T22:00:08+08:00
+Base main 546fd33b. 9 files, tests/shell only (one new: test_fixture_suites_end_on_signal.sh). No C++ change. trunk 1e350bf2 (same tree as branch 8d79dacd).
+- clang, TSan, ASan+UBSan: PASS. GCC: ctest 1385/1385; L1 passed; 0 FAILED lines.
+- L1 suite counts, from CI's main baseline (PR #22 logs) plus this branch's delta (0 for each existing suite):
+  orphans 111, liveness 57, sweep 33, window 156, topo_pid 61, ovs_claim 174, down_stops_only_ours 32, test_apps_residue 145.
+- New suite test_fixture_suites_end_on_signal.sh: PASS 84 (14 runs x 6 checks; local green 22-23 s). Risk: first run on a CI runner
+  (env --default-signal, setsid, /proc scans); a premise FAILED there would be a CI-environment finding, not a pass.
+- gate anchors ok 128/128 (no new gate file; mutate_fixture_spawn_helpers.sh ok(22) locally). CI does not run the mutation gates.
+- GCC job wall time: PR #22 took 22m11s / 21m30s; expect about +25 s.

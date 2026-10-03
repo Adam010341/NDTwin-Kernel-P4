@@ -1,0 +1,17 @@
+int.json sha256[:12] 2c4dba92b858
+structural classes {'ipv4_t': 'ipv4', 'tcp_t': 'tcp', 'udp_t': 'udp'} parse_vsets {} unions False
+varbit header types [('int_data_t', 240)]
+P1 D2 ip_off=[14,14] tags=['varbit'] N=[]
+    start -[0x0800]-> parse_ipv4 -[0x06]-> parse_tcp -[0x17]-> parse_int_shim -[default]-> accept
+P2 D1 ip_off=[14,14] tags=[] N=[]
+    start -[0x0800]-> parse_ipv4 -[0x06]-> parse_tcp -[default]-> accept
+P3 D2 ip_off=[14,14] tags=['varbit'] N=[]
+    start -[0x0800]-> parse_ipv4 -[0x11]-> parse_udp -[0x17]-> parse_int_shim -[default]-> accept
+P4 D1 ip_off=[14,14] tags=[] N=[]
+    start -[0x0800]-> parse_ipv4 -[0x11]-> parse_udp -[default]-> accept
+P5 D1 ip_off=[14,14] tags=[] N=[]
+    start -[0x0800]-> parse_ipv4 -[default]-> accept
+P6 X ip_off=[None,None] tags=[] N=[]
+    start -[default]-> accept
+extern_instances [] learn_lists []
+actions using clone/resubmit/recirculate: []

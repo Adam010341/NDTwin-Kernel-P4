@@ -1,0 +1,16 @@
+gates extb5 curl -s --max-time 5 file:///home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/b-red-7hEZT0/lt/tmp/live-p1-08-selftest-M1WEgO/k2/ndt/get_graph_data
+gates extb5 curl -s --max-time 5 file:///home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/b-red-7hEZT0/lt/tmp/live-p1-08-selftest-M1WEgO/k/ndt/get_graph_data
+gates extb5 curl -s --max-time 5 file:///home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/b2-red-ZAI8lX/lt/tmp/live-p1-08-selftest-mLvdXH/k2/ndt/get_graph_data
+gates extb5 curl -s --max-time 5 file:///home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/b2-red-ZAI8lX/lt/tmp/live-p1-08-selftest-mLvdXH/k/ndt/get_graph_data
+gates extb5 curl -s --max-time 5 file:///home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/b2-red-ZAI8lX/lt/tmp/live-p1-08-selftest-4kS13p/k2/ndt/get_graph_data
+gates extb5 curl -s --max-time 5 file:///home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/b2-red-ZAI8lX/lt/tmp/live-p1-08-selftest-4kS13p/k/ndt/get_graph_data
+gates extb5 curl -s --max-time 5 file:///home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/b2-red-ZAI8lX/lt/tmp/live-p1-08-selftest-DZV8dC/k2/ndt/get_graph_data
+gates extb5 curl -s --max-time 5 file:///home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/b2-red-ZAI8lX/lt/tmp/live-p1-08-selftest-DZV8dC/k/ndt/get_graph_data
+gates extb5 curl -s --max-time 5 file:///home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/b2-red-ZAI8lX/lt/tmp/live-p1-08-selftest-ElfV5N/k2/ndt/get_graph_data
+gates extb5 curl -s --max-time 5 file:///home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/b2-red-ZAI8lX/lt/tmp/live-p1-08-selftest-ElfV5N/k/ndt/get_graph_data
+gates extb5 curl -s --max-time 5 file:///home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/b3-red-JSSPXP/lt/tmp/live-p1-08-selftest-TSrXFT/k2/ndt/get_graph_data
+gates extb5 curl -s --max-time 5 file:///home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/b3-red-JSSPXP/lt/tmp/live-p1-08-selftest-TSrXFT/k/ndt/get_graph_data
+gates extb5 curl -s --max-time 5 file:///home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/b3-red-JSSPXP/lt/tmp/live-p1-08-selftest-QpoFNq/k2/ndt/get_graph_data
+gates extb5 curl -s --max-time 5 file:///home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/b3-red-JSSPXP/lt/tmp/live-p1-08-selftest-QpoFNq/k/ndt/get_graph_data
+gates extb5 curl -s --max-time 5 file:///home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/b3-red-JSSPXP/lt/tmp/live-p1-08-selftest-SuXnBw/k2/ndt/get_graph_data
+gates extb5 curl -s --max-time 5 file:///home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/b3-red-JSSPXP/lt/tmp/live-p1-08-selftest-SuXnBw/k/ndt/get_graph_data

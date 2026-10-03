@@ -1,0 +1,19 @@
+gui_test_ndt_serve_py312           rc=0  OK
+gui_test_ndt_serve_py38            rc=0  OK
+gui_test_ndt_serve_cells_py312     rc=0  OK
+gui_test_ndt_serve_cells_py38      rc=0  OK
+gui_test_ndt_serve_gui_py312       rc=0  OK
+gui_test_ndt_serve_gui_py38        rc=0  OK
+gui_test_ndt_serve_web_py312       rc=0  OK
+gui_test_ndt_serve_web_py38        rc=0  OK
+check_gate_anchors                 rc=0  131/131 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+check_gate_anchors_gui             rc=0  2/2 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+test_ndt_status_measuring          rc=0  Ran 102 checks, 0 failed
+mutate_ndt_status_measuring        rc=0  rc=0
+gui_mutate_ndt_serve_py312         rc=0  rc=0
+gui_mutate_ndt_serve_py38          rc=0  rc=0
+gui_page_suite                     rc=0  # processes naming this run's 38 temp dir(s) after the run: 0 
+gui_mutate_ndt_serve_page          rc=0  rc=0
+tripwire lines: 21
+GUI-GATES-extb8 9b5c0607 done
+exit 0

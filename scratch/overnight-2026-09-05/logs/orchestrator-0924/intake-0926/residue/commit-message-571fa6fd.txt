@@ -1,0 +1,19 @@
+ndt: date apps and rules against one clock read per residue report
+
+residue_report read `now` once and app_started_at read the clock again for a
+live app, so a second boundary between the two dated the app a second late:
+a rule an app had just installed, or one from its first second, fell outside
+its window. This is the intermittent test_apps_residue failure on CI.
+
+The report now reads `now` once, after the flow table, and dates every app
+right after it with that same value, before the lock probes, so a slow
+acquire cannot open a window early either. The stop-path capture and the
+windows whose edges are recorded instants are not covered by this and are
+recorded as G-62.
+
+test_apps_residue keeps a young fixture in 5K and waits for its argv instead
+of carrying on, and gains 5N, which forces a boundary between the reads, slow
+lock probes and a fetch that straddles a second. A mutation gate covers both
+the product and the test's own premises; the gates and ndt_serve citations
+that quote the moved lines are updated.
+

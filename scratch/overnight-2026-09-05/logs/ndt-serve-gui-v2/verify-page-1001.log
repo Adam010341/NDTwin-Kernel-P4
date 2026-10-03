@@ -1,0 +1,17 @@
+/dev/nvme0n1p5   98G   90G  3.3G  97% /
+== suite
+chrome leftovers (Confirm): 0
+chrome leftovers (JobLog): 0
+chrome leftovers (Load): 0
+chrome leftovers (Profile): 0
+chrome leftovers (Refresh): 0
+Ran 25 tests in 112.941s
+OK
+suite rc=0
+/dev/nvme0n1p5   98G   90G  3.3G  97% /
+== gate
+gate rc=0
+  total 450 s
+
+31 mutation(s), 0 survivor(s)
+/dev/nvme0n1p5   98G   90G  3.0G  97% /

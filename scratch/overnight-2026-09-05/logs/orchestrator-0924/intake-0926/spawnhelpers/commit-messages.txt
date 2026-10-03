@@ -1,0 +1,13 @@
+--- dfdb2121 tests/shell: count a fixture that never takes its argv as a failed check
+Six suites started their fixtures with X="$(spawn_fixture ...)", so the
+helper's exit 1 on a failed exec only left the command substitution: the
+suite ran on with the helper's text in place of a pid and never counted the
+failure, and test_ndtwin_lab_sweep.sh, under the errexit its sourced
+ndtwin-lab leaves on, stopped without any summary line.
+
+The helpers are now plain calls that leave the pid in FIXTURE_PID. The
+premise is a counted check, a failure prints the summary and exits 1, and
+the argv poll waits up to 30 s instead of 1-2 s. The new
+mutate_fixture_spawn_helpers.sh makes each helper never match and requires
+the failure to be counted.
+

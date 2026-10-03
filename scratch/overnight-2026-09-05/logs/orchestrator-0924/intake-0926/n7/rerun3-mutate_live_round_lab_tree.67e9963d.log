@@ -1,0 +1,35 @@
+67e9963d03732ea833137c248dbc4642979aa6ff
+# 2026-09-28T00:40:22Z cmd bash tests/shell/mutate_live_round_lab_tree.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_live_round_lab_tree.sh
+baseline (must be green before any mutation):
+  Ran 93 checks, 0 failed
+
+  caught   M1: E preflight no longer asks which tree (the defect)         (2 named check(s) went red)
+  caught   M2: F5 preflight no longer asks which tree (the defect)        (2 named check(s) went red)
+  caught   M3: E compares paths without resolving symlinks                (1 named check(s) went red)
+  caught   M4: F5 asks the lab in a dry run                               (1 named check(s) went red)
+  caught   M5: E takes a failed config query for an answer                (1 named check(s) went red)
+  caught   M6: F5 takes a config that names no tree for agreement         (1 named check(s) went red)
+  caught   M7: E inverts the comparison                                   (2 named check(s) went red)
+  caught   M8: F5 compares paths without resolving symlinks               (1 named check(s) went red)
+  caught   M9: E fails open when the config query fails                   (1 named check(s) went red)
+  caught   M10: F5 resolves symlinks on its own side only                 (1 named check(s) went red)
+  caught   M11: run_f5.sh arm arms its restore trap before the tree check (2 named check(s) went red)
+  caught   M12: run_f5.sh q3 arms its restore trap before the tree check  (2 named check(s) went red)
+  caught   M13: run_f5.sh restore arms its restore trap before the tree check (2 named check(s) went red)
+  caught   M14: gates_e.sh logs its start line before preflight           (1 named check(s) went red)
+  caught   M15: gates_e.sh baseline logs before preflight                 (1 named check(s) went red)
+  caught   M16: E takes an unset or relative KERNEL_DIR to the lab        (2 named check(s) went red)
+  caught   M17: F5 takes an unset or relative KERNEL_DIR to the lab       (2 named check(s) went red)
+  caught   M18: E reads a KERNEL_DIR: line out of the refused-conf preamble (1 named check(s) went red)
+  caught   M19: F5 resolves with readlink -f (a missing path resolves too) (1 named check(s) went red)
+  control  C1 (control): E declares its locals in another order           (stayed green, as it must)
+  control  C2 (control): a comment in F5's copy is reworded               (stayed green, as it must)
+  control  C3 (control): E resolves with readlink -e (existing paths only, like cd -P) (stayed green, as it must)
+  control  C4 (control): a comment in gates_e.sh is reworded              (stayed green, as it must)
+
+baseline byte-identical: yes
+mutation gate: 19 mutations, 0 survived; controls green
+guarded_build: exit 0
+# rc=0

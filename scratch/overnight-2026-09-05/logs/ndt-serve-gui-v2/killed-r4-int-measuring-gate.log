@@ -1,0 +1,22 @@
+date 2026-10-02T10:02:42+08:00
+head 73889e5494d22f32b39f4a43021db389a92fe742
+porcelain 0
+gate tests/shell/mutate_ndt_status_measuring.sh sha256 edcd5ddc2c54e67a
+gate log /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/killed-r4-int-measuring-gate.gate.log
+signal SIGINT
+/dev/nvme0n1p5   98G   91G  2.6G  98% /
+gate pid 1012544, pgid 1012497
+marker seen after ~46 s:   caught   L1: --measuring is the full report (sudo and the kernel graph on every probe) (🔴 --mea
+made in /tmp while it ran (this gate's prefixes): ndt-measuring-mutate-NvKtte ndt-status-measuring-iYx8US
+other new /tmp entries of this user (not counted): 0
+2026-10-02T10:03:30+08:00 kill -INT -- -1012544
+gate exit status: 130
+left in its process group 3 s later: none
+its /tmp entries still there: none
+processes naming them (cmdline or cwd): none
+--- last 4 lines of the gate's log:
+  | 
+  |   caught   L1: --measuring is the full report (sudo and the kernel graph on every probe) (🔴 --measuring ran no sudo, curl, OVS or bmv2 command (8 states) wen
+  | INCOMPLETE: stopped by SIGINT before its verdict -- not a verdict
+  | rc=130
+--- verdict-shaped lines: rc=0 0, totals 0, INCOMPLETE 1

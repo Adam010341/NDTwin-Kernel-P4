@@ -1,0 +1,35 @@
+14c490c3b2e3dc0c39fe5c8147c8f97d5af40ed5
+porcelain-lines: 0
+# dir: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/tb-review1 = d452d111f243b4f05225d16b5773f39076675fb4
+# sha256 32c00a130dd4904d1b5c12c35e45fcfa02c556a299f9c615ba9ddcd97911d3f1  tests/shell/mutate_fixture_spawn_helpers.sh
+# tripwire lines before: 0
+# $ bash tests/shell/mutate_fixture_spawn_helpers.sh topo_pid
+# started 2026-10-01T17:43:05+08:00
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/claude-1000/spawn-traps-1001.lock
+guarded_build: $ bash tests/shell/mutate_fixture_spawn_helpers.sh topo_pid
+the judge, on synthetic runs:
+  ok       J1: a FAILED fixture line the summary does not count -> SURVIVED (1 FAILED line(s) printed, the summary counts 0: Ran 3 checks, 0 failed)
+  ok       J2: no summary line at all -> SURVIVED (rc 1, and no "Ran N checks" line at all)
+  ok       J3: rc 0 -> SURVIVED (rc 0)
+  ok       J4: a counted failure that is not the fixture's -> SURVIVED (no FAILED line names the fixture; Ran 2 checks, 1 failed)
+  ok       J5: the fixture's failure, counted -> caught (rc 1; Ran 2 checks, 1 failed; FAILED   fixture took argv0=x)
+  ok       J6: the fixture's failure, counted, but the fixture is still running -> SURVIVED (the fixture it gave up on is still running: pid 3817776)
+
+1. every call site, read from the source
+  ok       topo_pid   spawn() called at 3 line(s), every one a plain call: 114 120 128
+
+2. each suite's unmutated copy: green, and one counted premise per call site
+3. then its helper made unable to recognise its fixture: NEVER (the poll's bound), GONE (/proc empty)
+  control  topo_pid   Ran 60 checks, all passed (0 skipped)  (3s)
+  ok       topo_pid   3 fixture premise(s) counted in this shell, one per call site
+  caught   topo_pid   never  (rc 1; Ran 3 checks, 1 failed (0 skipped); FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/NDT-TEST-FIXTURE-topo.)  (30s)
+             its fixture FAILED line: FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/NDT-TEST-FIXTURE-topo.py
+             its last line:           Ran 3 checks, 1 failed (0 skipped)
+  caught   topo_pid   gone   (rc 1; Ran 3 checks, 1 failed (0 skipped); FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/NDT-TEST-FIXTURE-topo.)  (30s)
+             its fixture FAILED line: FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/NDT-TEST-FIXTURE-topo.py
+             its last line:           Ran 3 checks, 1 failed (0 skipped)
+
+2 mutation(s), 0 survivor(s); 0 control(s) whose premise count is not its call-site count
+guarded_build: exit 0
+# ended 2026-10-01T17:46:10+08:00; tripwire lines after: 0
+rc=0

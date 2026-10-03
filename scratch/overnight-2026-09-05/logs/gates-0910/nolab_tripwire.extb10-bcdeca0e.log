@@ -1,0 +1,5 @@
+bcdeca0e3c025c93005c2c0963981b705cca8cdc
+# 2026-10-02T14:46:27Z cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb10-bcdeca0e/tripwire_b6.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb10-bcdeca0e/tripwire.log (TRIPWIRE_TMP_ROOT=HBWRAP_ROOT=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb6/tmp, as gates_b6 exports)
+log /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb10-bcdeca0e/tripwire.log: 141 line(s)
+NOLAB-TRIPWIRE: 0 lab call(s); 42 allowed switch launch(es) and 79 --version probe(s), each re-checked: 0 breaking a condition, 0 refused by the wrapper; 0 still running (by pid and start time); 141 line(s) in all
+# rc=0

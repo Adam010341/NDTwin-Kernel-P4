@@ -1,0 +1,540 @@
+test_a_heartbeat_watchdog_that_did_not_start_names_all_six (tests.test_heartbeat_fabric.AnExternalControlPlaneOnItsOwnPipelineDetectsOnlyTest.test_a_heartbeat_watchdog_that_did_not_start_names_all_six) ... ok
+test_an_unusable_heartbeat_is_declared_and_still_external (tests.test_heartbeat_fabric.AnExternalControlPlaneOnItsOwnPipelineDetectsOnlyTest.test_an_unusable_heartbeat_is_declared_and_still_external) ... ok
+test_even_with_every_table_bound_to_ndtwin_it_does_not_reroute (tests.test_heartbeat_fabric.AnExternalControlPlaneOnItsOwnPipelineDetectsOnlyTest.test_even_with_every_table_bound_to_ndtwin_it_does_not_reroute) ... ok
+test_it_declares_its_links_and_starts_the_heartbeat_watchdog (tests.test_heartbeat_fabric.AnExternalControlPlaneOnItsOwnPipelineDetectsOnlyTest.test_it_declares_its_links_and_starts_the_heartbeat_watchdog) ... ok
+test_link_watchdog_leaves_the_list_while_the_heartbeat_drives_it (tests.test_heartbeat_fabric.AnExternalControlPlaneOnItsOwnPipelineDetectsOnlyTest.test_link_watchdog_leaves_the_list_while_the_heartbeat_drives_it) ... ok
+test_no_client_is_asked_to_write_anything (tests.test_heartbeat_fabric.AnExternalControlPlaneOnItsOwnPipelineDetectsOnlyTest.test_no_client_is_asked_to_write_anything) ... ok
+test_reroute_is_false_for_the_external_reason_even_when_the_heartbeat_is_usable (tests.test_heartbeat_fabric.AnExternalControlPlaneOnItsOwnPipelineDetectsOnlyTest.test_reroute_is_false_for_the_external_reason_even_when_the_heartbeat_is_usable) ... [Proxy Agent] app package: baseline (mode ndtwin, election_id 0,1)
+[Proxy Agent] Starting up...
+[Proxy Agent] app package p4runtime declares an EXTERNAL control plane: this proxy will not push pipelines, program clone sessions, send LLDP beacons or install routes on any of the 1 switches it connected to. It reads only. Its declared links are watched by the root helper's heartbeat, detect only: a cut is told to the kernel and no route is rewritten. What it skipped follows once startup has decided it. Reported on GET /p4/switch_state.
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] the heartbeat watchdog did not start (OSError: the report cannot be read); a cut link on this fabric is not detected
+[Proxy Agent] external control plane, skipped: clone_session, install_initial_routes, link_watchdog, lldp_discovery, pipeline_push, sflow_telemetry. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] app package p4runtime declares an EXTERNAL control plane: this proxy will not push pipelines, program clone sessions, send LLDP beacons or install routes on any of the 2 switches it connected to. It reads only. Its declared links are watched by the root helper's heartbeat, detect only: a cut is told to the kernel and no route is rewritten. What it skipped follows once startup has decided it. Reported on GET /p4/switch_state.
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (heartbeat_not_running); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] external control plane, skipped: clone_session, install_initial_routes, lldp_discovery, pipeline_push, sflow_telemetry. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] app package p4runtime declares an EXTERNAL control plane: this proxy will not push pipelines, program clone sessions, send LLDP beacons or install routes on any of the 2 switches it connected to. It reads only. Its declared links are watched by the root helper's heartbeat, detect only: a cut is told to the kernel and no route is rewritten. What it skipped follows once startup has decided it. Reported on GET /p4/switch_state.
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (usable); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] external control plane, skipped: clone_session, install_initial_routes, lldp_discovery, pipeline_push, sflow_telemetry. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] app package p4runtime declares an EXTERNAL control plane: this proxy will not push pipelines, program clone sessions, send LLDP beacons or install routes on any of the 2 switches it connected to. It reads only. Its declared links are watched by the root helper's heartbeat, detect only: a cut is told to the kernel and no route is rewritten. What it skipped follows once startup has decided it. Reported on GET /p4/switch_state.
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (usable); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] external control plane, skipped: clone_session, install_initial_routes, lldp_discovery, pipeline_push, sflow_telemetry. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] app package p4runtime declares an EXTERNAL control plane: this proxy will not push pipelines, program clone sessions, send LLDP beacons or install routes on any of the 2 switches it connected to. It reads only. Its declared links are watched by the root helper's heartbeat, detect only: a cut is told to the kernel and no route is rewritten. What it skipped follows once startup has decided it. Reported on GET /p4/switch_state.
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (usable); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] external control plane, skipped: clone_session, install_initial_routes, lldp_discovery, pipeline_push, sflow_telemetry. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] app package p4runtime declares an EXTERNAL control plane: this proxy will not push pipelines, program clone sessions, send LLDP beacons or install routes on any of the 2 switches it connected to. It reads only. Its declared links are watched by the root helper's heartbeat, detect only: a cut is told to the kernel and no route is rewritten. What it skipped follows once startup has decided it. Reported on GET /p4/switch_state.
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (usable); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] external control plane, skipped: clone_session, install_initial_routes, lldp_discovery, pipeline_push, sflow_telemetry. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] app package p4runtime declares an EXTERNAL control plane: this proxy will not push pipelines, program clone sessions, send LLDP beacons or install routes on any of the 2 switches it connected to. It reads only. Its declared links are watched by the root helper's heartbeat, detect only: a cut is told to the kernel and no route is rewritten. What it skipped follows once startup has decided it. Reported on GET /p4/switch_state.
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).ok
+test_the_prediction_before_startup_says_declared (tests.test_heartbeat_fabric.AnExternalControlPlaneOnItsOwnPipelineDetectsOnlyTest.test_the_prediction_before_startup_says_declared) ... ok
+test_the_route_writer_is_left_skipping_so_a_cut_rewrites_nothing (tests.test_heartbeat_fabric.AnExternalControlPlaneOnItsOwnPipelineDetectsOnlyTest.test_the_route_writer_is_left_skipping_so_a_cut_rewrites_nothing) ... ok
+test_the_startup_log_names_the_skipped_list_switch_state_serves (tests.test_heartbeat_fabric.AnExternalControlPlaneOnItsOwnPipelineDetectsOnlyTest.test_the_startup_log_names_the_skipped_list_switch_state_serves) ... ok
+test_a_cut_on_an_external_fabric_pushes_no_path (tests.test_heartbeat_fabric.AnExternalFabricReportsNoGuessedPathsTest.test_a_cut_on_an_external_fabric_pushes_no_path) ... ok
+test_an_external_fabric_serves_no_path_over_its_declared_links (tests.test_heartbeat_fabric.AnExternalFabricReportsNoGuessedPathsTest.test_an_external_fabric_serves_no_path_over_its_declared_links) ... ok
+test_startup_marks_an_external_fabric_on_its_own_pipeline_only (tests.test_heartbeat_fabric.AnExternalFabricReportsNoGuessedPathsTest.test_startup_marks_an_external_fabric_on_its_own_pipeline_only) ... ok
+test_the_declared_links_still_seed_the_graph (tests.test_heartbeat_fabric.AnExternalFabricReportsNoGuessedPathsTest.test_the_declared_links_still_seed_the_graph) ... 
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (usable); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] external control plane, skipped: clone_session, install_initial_routes, lldp_discovery, pipeline_push, sflow_telemetry. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] app package p4runtime declares an EXTERNAL control plane: this proxy will not push pipelines, program clone sessions, send LLDP beacons or install routes on any of the 2 switches it connected to. It reads only. Its declared links are watched by the root helper's heartbeat, detect only: a cut is told to the kernel and no route is rewritten. What it skipped follows once startup has decided it. Reported on GET /p4/switch_state.
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (usable); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] external control plane, skipped: clone_session, install_initial_routes, lldp_discovery, pipeline_push, sflow_telemetry. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[TopologyManager] link down (no beacon for 15s): (1, 3, 3, 1)
+[TopologyManager] link down (no beacon for 15s): (3, 1, 1, 3)
+[TopologyManager] link transition reported to the kernel and NOT rerouted: this fabric skips install_initial_routes (a switch on it is unbound or keeps its own route table, or the package's own controller owns every table -- an external control plane)
+[TopologyManager] destination paths not pushed: this fabric's forwarding belongs to its external controller, so no path is known here
+[TopologyManager] link down (no beacon for 15s): (1, 3, 3, 1)
+[TopologyManager] link down (no beacon for 15s): (3, 1, 1, 3)
+[TopologyManager] link transition reported to the kernel and NOT rerouted: this fabric skips install_initial_routes (a switch on it is unbound or keeps its own route table, or the package's own controller owns every table -- an external control plane)
+[Proxy Agent] Starting up...
+[Proxy Agent] app package p4runtime declares an EXTERNAL control plane: this proxy will not push pipelines, program clone sessions, send LLDP beacons or install routes on any of the 2 switches it connected to. It reads only. Its declared links are watched by the root helper's heartbeat, detect only: a cut is told to the kernel and no route is rewritten. What it skipped follows once startup has decided it. Reported on GET /p4/switch_state.
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (usable); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] external control plane, skipped: clone_session, install_initial_routes, lldp_discovery, pipeline_push, sflow_telemetry. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] app package p4runtime declares an EXTERNAL control plane: this proxy will not push pipelines, program clone sessions, send LLDP beacons or install routes on any of the 2 switches it connected to. It reads only. Its declared links are watched by the root helper's heartbeat, detect only: a cut is told to the kernel and no route is rewritten. What it skipped follows once startup has decided it. Reported on GET /p4/switch_state.
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (usable); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] external control plane, skipped: clone_session, install_initial_routes, lldp_discovery, pipeline_push, sflow_telemetry. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Switch 2 sampling to sFlow as 192.168.123.12
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (usable); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, run the LLDP beacon watchdog or install routes on ANY switch of this fabric. Skipped: install_initial_routes, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] app package p4runtime declares an EXTERNAL control plane: this proxy will not push pipelines, program clone sessions, send LLDP beacons or install routes on any of the 2 switches it connected to. It reads only. What it skipped follows once startup has decided it. Reported on GET /p4/switch_state.
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] external control plane, skipped: clone_session, install_initial_routes, link_watchdog, lldp_discovery, pipeline_push, sflow_telemetry. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] app package p4runtime declares an EXTERNAL control plane: this proxy will not push pipelines, program clone sessions, send LLDP beacons or install routes on any of the 2 switches it connected to. It reads only. Its declared links are watched by the root helper's heartbeat, detect only: a cut is told to the kernel and no route is rewritten. What it skipped follows once startup has decided it. Reported on GET /p4/switch_state.ok
+test_the_same_graph_without_the_flag_does_have_a_path_to_withhold (tests.test_heartbeat_fabric.AnExternalFabricReportsNoGuessedPathsTest.test_the_same_graph_without_the_flag_does_have_a_path_to_withhold) ... ok
+test_the_cut_is_told_to_the_kernel_and_no_route_is_rewritten (tests.test_heartbeat_fabric.AnExternalFabricsCutIsToldAndRewritesNothingTest.test_the_cut_is_told_to_the_kernel_and_no_route_is_rewritten) ... ok
+test_a_package_owned_table_says_owned_by_package (tests.test_heartbeat_fabric.RerouteNeedsTheHeartbeatAndEveryTableOwnedTest.test_a_package_owned_table_says_owned_by_package) ... ok
+test_an_all_ndtwin_fabric_is_what_it_was (tests.test_heartbeat_fabric.RerouteNeedsTheHeartbeatAndEveryTableOwnedTest.test_an_all_ndtwin_fabric_is_what_it_was) ... ok
+test_an_external_fabric_says_external_control_plane (tests.test_heartbeat_fabric.RerouteNeedsTheHeartbeatAndEveryTableOwnedTest.test_an_external_fabric_says_external_control_plane) ... ok
+test_one_unbound_switch_is_enough (tests.test_heartbeat_fabric.RerouteNeedsTheHeartbeatAndEveryTableOwnedTest.test_one_unbound_switch_is_enough) ... 
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (usable); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] external control plane, skipped: clone_session, install_initial_routes, lldp_discovery, pipeline_push, sflow_telemetry. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Switch 2 sampling to sFlow as 192.168.123.12
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (usable); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, run the LLDP beacon watchdog or install routes on ANY switch of this fabric. Skipped: install_initial_routes, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] app package p4runtime declares an EXTERNAL control plane: this proxy will not push pipelines, program clone sessions, send LLDP beacons or install routes on any of the 2 switches it connected to. It reads only. Its declared links are watched by the root helper's heartbeat, detect only: a cut is told to the kernel and no route is rewritten. What it skipped follows once startup has decided it. Reported on GET /p4/switch_state.
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (usable); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] external control plane, skipped: clone_session, install_initial_routes, lldp_discovery, pipeline_push, sflow_telemetry. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[TopologyManager] link down (no beacon for 15s): (1, 3, 3, 1)
+[TopologyManager] link down (no beacon for 15s): (3, 1, 1, 3)
+[TopologyManager] link transition reported to the kernel and NOT rerouted: this fabric skips install_initial_routes (a switch on it is unbound or keeps its own route table, or the package's own controller owns every table -- an external control plane)
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (usable); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, run the LLDP beacon watchdog or install routes on ANY switch of this fabric. Skipped: install_initial_routes, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Switch 2 sampling to sFlow as 192.168.123.12
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] app package p4runtime declares an EXTERNAL control plane: this proxy will not push pipelines, program clone sessions, send LLDP beacons or install routes on any of the 1 switches it connected to. It reads only. What it skipped follows once startup has decided it. Reported on GET /p4/switch_state.
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] external control plane, skipped: clone_session, install_initial_routes, link_watchdog, lldp_discovery, pipeline_push, sflow_telemetry. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switchesok
+test_owned_and_usable_reroutes_and_discovers_by_heartbeat (tests.test_heartbeat_fabric.RerouteNeedsTheHeartbeatAndEveryTableOwnedTest.test_owned_and_usable_reroutes_and_discovers_by_heartbeat) ... ok
+test_owned_with_a_period_mismatch_does_not_reroute (tests.test_heartbeat_fabric.RerouteNeedsTheHeartbeatAndEveryTableOwnedTest.test_owned_with_a_period_mismatch_does_not_reroute) ... ok
+test_owned_without_a_running_heartbeat_does_not_reroute_and_is_declared (tests.test_heartbeat_fabric.RerouteNeedsTheHeartbeatAndEveryTableOwnedTest.test_owned_without_a_running_heartbeat_does_not_reroute_and_is_declared) ... ok
+test_owned_without_the_watchdog_does_not_reroute (tests.test_heartbeat_fabric.RerouteNeedsTheHeartbeatAndEveryTableOwnedTest.test_owned_without_the_watchdog_does_not_reroute) ... 
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (usable); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, run the LLDP beacon watchdog or install routes on ANY switch of this fabric. Skipped: install_initial_routes, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] every foreign switch binds roles.ipv4_route with owner ndtwin: 12 of 12 initial routes written into the package's route tables (again on every link transition the heartbeat watchdog reports, while it runs)
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (usable); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons or run the LLDP beacon watchdog on ANY switch of this fabric. Skipped: lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] every foreign switch binds roles.ipv4_route with owner ndtwin: 12 of 12 initial routes written into the package's route tables (again on every link transition the heartbeat watchdog reports, while it runs)
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (heartbeat_period_mismatch); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons or run the LLDP beacon watchdog on ANY switch of this fabric. Skipped: lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] every foreign switch binds roles.ipv4_route with owner ndtwin: 12 of 12 initial routes written into the package's route tables (again on every link transition the heartbeat watchdog reports, while it runs)
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (heartbeat_not_running); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons or run the LLDP beacon watchdog on ANY switch of this fabric. Skipped: lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] every foreign switch binds roles.ipv4_route with owner ndtwin: 12 of 12 initial routes written into the package's route tables (again on every link transition the heartbeat watchdog reports, while it runs)ok
+test_the_answer_follows_the_heartbeat_after_startup (tests.test_heartbeat_fabric.RerouteNeedsTheHeartbeatAndEveryTableOwnedTest.test_the_answer_follows_the_heartbeat_after_startup) ... ok
+test_the_capabilities_keep_their_five_keys (tests.test_heartbeat_fabric.RerouteNeedsTheHeartbeatAndEveryTableOwnedTest.test_the_capabilities_keep_their_five_keys) ... ok
+test_unbound_detects_by_heartbeat_and_does_not_reroute_and_says_why (tests.test_heartbeat_fabric.RerouteNeedsTheHeartbeatAndEveryTableOwnedTest.test_unbound_detects_by_heartbeat_and_does_not_reroute_and_says_why) ... ok
+test_a_frame_that_reached_a_host_is_named (tests.test_heartbeat_fabric.TheHeartbeatIsDisclosedOnSwitchStateTest.test_a_frame_that_reached_a_host_is_named) ... 
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons or run the LLDP beacon watchdog on ANY switch of this fabric. Skipped: link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] every foreign switch binds roles.ipv4_route with owner ndtwin: 12 of 12 initial routes written into the package's route tables (again on every link transition the heartbeat watchdog reports, while it runs)
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (usable); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons or run the LLDP beacon watchdog on ANY switch of this fabric. Skipped: lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] every foreign switch binds roles.ipv4_route with owner ndtwin: 12 of 12 initial routes written into the package's route tables (again on every link transition the heartbeat watchdog reports, while it runs)
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (usable); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons or run the LLDP beacon watchdog on ANY switch of this fabric. Skipped: lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (usable); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, run the LLDP beacon watchdog or install routes on ANY switch of this fabric. Skipped: install_initial_routes, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] every foreign switch binds roles.ipv4_route with owner ndtwin: 12 of 12 initial routes written into the package's route tables (again on every link transition the heartbeat watchdog reports, while it runs)
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (usable); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons or run the LLDP beacon watchdog on ANY switch of this fabric. Skipped: lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...ok
+test_a_stopped_heartbeat_is_reported_as_what_it_is (tests.test_heartbeat_fabric.TheHeartbeatIsDisclosedOnSwitchStateTest.test_a_stopped_heartbeat_is_reported_as_what_it_is) ... ok
+test_an_uninjected_reporter_adds_no_key (tests.test_heartbeat_fabric.TheHeartbeatIsDisclosedOnSwitchStateTest.test_an_uninjected_reporter_adds_no_key) ... ok
+test_both_blocks_reach_the_endpoint_at_the_top_level (tests.test_heartbeat_fabric.TheHeartbeatIsDisclosedOnSwitchStateTest.test_both_blocks_reach_the_endpoint_at_the_top_level) ... ok
+test_main_injects_both (tests.test_heartbeat_fabric.TheHeartbeatIsDisclosedOnSwitchStateTest.test_main_injects_both) ... ok
+test_the_block_carries_the_live_counters_and_segment_s_census (tests.test_heartbeat_fabric.TheHeartbeatIsDisclosedOnSwitchStateTest.test_the_block_carries_the_live_counters_and_segment_s_census) ... ok
+test_the_census_names_the_punt_blind_spot_on_external_control_planes (tests.test_heartbeat_fabric.TheHeartbeatIsDisclosedOnSwitchStateTest.test_the_census_names_the_punt_blind_spot_on_external_control_planes) ... FAIL
+test_the_census_says_which_of_its_arms_ndt_up_starts_the_heartbeat_on (tests.test_heartbeat_fabric.TheHeartbeatIsDisclosedOnSwitchStateTest.test_the_census_says_which_of_its_arms_ndt_up_starts_the_heartbeat_on) ... 
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] every foreign switch binds roles.ipv4_route with owner ndtwin: 12 of 12 initial routes written into the package's route tables (again on every link transition the heartbeat watchdog reports, while it runs)
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (heartbeat_not_running); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons or run the LLDP beacon watchdog on ANY switch of this fabric. Skipped: lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] every foreign switch binds roles.ipv4_route with owner ndtwin: 12 of 12 initial routes written into the package's route tables (again on every link transition the heartbeat watchdog reports, while it runs)
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (usable); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons or run the LLDP beacon watchdog on ANY switch of this fabric. Skipped: lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] every foreign switch binds roles.ipv4_route with owner ndtwin: 12 of 12 initial routes written into the package's route tables (again on every link transition the heartbeat watchdog reports, while it runs)
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (usable); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons or run the LLDP beacon watchdog on ANY switch of this fabric. Skipped: lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] every foreign switch binds roles.ipv4_route with owner ndtwin: 12 of 12 initial routes written into the package's route tables (again on every link transition the heartbeat watchdog reports, while it runs)
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (usable); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons or run the LLDP beacon watchdog on ANY switch of this fabric. Skipped: lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refusedok
+test_the_watchdogs_passes_are_served (tests.test_heartbeat_fabric.TheHeartbeatIsDisclosedOnSwitchStateTest.test_the_watchdogs_passes_are_served) ... ok
+test_a_foreign_fabric_starts_it_on_the_helpers_report (tests.test_heartbeat_fabric.WhichFabricGetsTheHeartbeatWatchdogTest.test_a_foreign_fabric_starts_it_on_the_helpers_report) ... ok
+test_a_heartbeat_watchdog_that_did_not_start_leaves_the_watchdog_named_skipped (tests.test_heartbeat_fabric.WhichFabricGetsTheHeartbeatWatchdogTest.test_a_heartbeat_watchdog_that_did_not_start_leaves_the_watchdog_named_skipped) ... 
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] every foreign switch binds roles.ipv4_route with owner ndtwin: 12 of 12 initial routes written into the package's route tables (again on every link transition the heartbeat watchdog reports, while it runs)
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (usable); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons or run the LLDP beacon watchdog on ANY switch of this fabric. Skipped: lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] every foreign switch binds roles.ipv4_route with owner ndtwin: 12 of 12 initial routes written into the package's route tables (again on every link transition the heartbeat watchdog reports, while it runs)
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (usable); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons or run the LLDP beacon watchdog on ANY switch of this fabric. Skipped: lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] every foreign switch binds roles.ipv4_route with owner ndtwin: 12 of 12 initial routes written into the package's route tables (again on every link transition the heartbeat watchdog reports, while it runs)
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (usable); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons or run the LLDP beacon watchdog on ANY switch of this fabric. Skipped: lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] every foreign switch binds roles.ipv4_route with owner ndtwin: 12 of 12 initial routes written into the package's route tables (again on every link transition the heartbeat watchdog reports, while it runs)
+[Proxy Agent] the heartbeat watchdog did not start (OSError: the report cannot be read); a cut link on this fabric is not detected
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons or run the LLDP beacon watchdog on ANY switch of this fabric. Skipped: link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)ok
+test_a_topology_without_the_entry_does_not_stop_startup_and_says_so (tests.test_heartbeat_fabric.WhichFabricGetsTheHeartbeatWatchdogTest.test_a_topology_without_the_entry_does_not_stop_startup_and_says_so) ... ok
+test_an_all_ndtwin_fabric_does_not_start_it (tests.test_heartbeat_fabric.WhichFabricGetsTheHeartbeatWatchdogTest.test_an_all_ndtwin_fabric_does_not_start_it) ... ok
+test_an_entry_that_raises_does_not_stop_startup (tests.test_heartbeat_fabric.WhichFabricGetsTheHeartbeatWatchdogTest.test_an_entry_that_raises_does_not_stop_startup) ... ok
+test_an_external_fabric_on_ndtwins_own_pipeline_does_not_start_it (tests.test_heartbeat_fabric.WhichFabricGetsTheHeartbeatWatchdogTest.test_an_external_fabric_on_ndtwins_own_pipeline_does_not_start_it) ... ok
+test_an_unbound_fabric_reports_its_watchdog_running_too (tests.test_heartbeat_fabric.WhichFabricGetsTheHeartbeatWatchdogTest.test_an_unbound_fabric_reports_its_watchdog_running_too) ... ok
+test_an_unbound_foreign_fabric_starts_it_too_detection_is_not_rerouting (tests.test_heartbeat_fabric.WhichFabricGetsTheHeartbeatWatchdogTest.test_an_unbound_foreign_fabric_starts_it_too_detection_is_not_rerouting) ... 
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] every foreign switch binds roles.ipv4_route with owner ndtwin: 12 of 12 initial routes written into the package's route tables (again on every link transition the heartbeat watchdog reports, while it runs)
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons or run the LLDP beacon watchdog on ANY switch of this fabric. Skipped: link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] every foreign switch binds roles.ipv4_route with owner ndtwin: 12 of 12 initial routes written into the package's route tables (again on every link transition the heartbeat watchdog reports, while it runs)
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons or run the LLDP beacon watchdog on ANY switch of this fabric. Skipped: link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[Proxy Agent] Switch 2 sampling to sFlow as 192.168.123.12
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] every foreign switch binds roles.ipv4_route with owner ndtwin: 12 of 12 initial routes written into the package's route tables (again on every link transition the heartbeat watchdog reports, while it runs)
+[Proxy Agent] the heartbeat watchdog did not start (OSError: no /run); a cut link on this fabric is not detected
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons or run the LLDP beacon watchdog on ANY switch of this fabric. Skipped: link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] app package p4runtime declares an EXTERNAL control plane: this proxy will not push pipelines, program clone sessions, send LLDP beacons or install routes on any of the 1 switches it connected to. It reads only. What it skipped follows once startup has decided it. Reported on GET /p4/switch_state.
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[Proxy Agent] external control plane, skipped: clone_session, install_initial_routes, link_watchdog, lldp_discovery, pipeline_push, sflow_telemetry. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (usable); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, run the LLDP beacon watchdog or install routes on ANY switch of this fabric. Skipped: install_initial_routes, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)ok
+test_the_lldp_beacons_stay_off_and_named_skipped_but_the_watchdog_runs (tests.test_heartbeat_fabric.WhichFabricGetsTheHeartbeatWatchdogTest.test_the_lldp_beacons_stay_off_and_named_skipped_but_the_watchdog_runs) ... ok
+test_the_startup_log_names_the_same_skipped_list_switch_state_serves (tests.test_heartbeat_fabric.WhichFabricGetsTheHeartbeatWatchdogTest.test_the_startup_log_names_the_same_skipped_list_switch_state_serves) ... ok
+
+======================================================================
+FAIL: test_the_census_names_the_punt_blind_spot_on_external_control_planes (tests.test_heartbeat_fabric.TheHeartbeatIsDisclosedOnSwitchStateTest.test_the_census_names_the_punt_blind_spot_on_external_control_planes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/b5-red-CqtE6X/px/p4_proxy/tests/test_heartbeat_fabric.py", line 608, in test_the_census_names_the_punt_blind_spot_on_external_control_planes
+    self.assertIn("Any other external program is checked the same way before the heartbeat "
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                  "starts on it; what its controller does later -- entries it installs, a "
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                  "pipeline it pushes itself, a default action it changes -- is not covered",
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                  text)
+                  ^^^^^
+AssertionError: 'Any other external program is checked the same way before the heartbeat starts on it; what its controller does later -- entries it installs, a pipeline it pushes itself, a default action it changes -- is not covered' not found in "13 tutorials exercises x skeleton/solution. On the 20 arms where the heartbeat ran, no host received a heartbeat frame, and the daemon counted none leaving a host-facing port and none forwarded to another switch. calc and multicast are one switch (no inter-switch link, nothing sent); basic_tunnel and flowcache skeletons do not build. Segment S's census started the heartbeat by hand (the helper, not ndt) on all 20. Since 2026-09-27 `ndt up p4 --app` is EXPECTED to start it on all 20 too -- on the 3 external control planes among them (p4runtime skeleton and solution, flowcache solution) detect only, and since 2026-09-28 only after ndt's offline drop check proves the program drops the frame -- which is inferred from ndt's rule and not yet measured under ndt (live-p1/08 PART=h5 checks it per arm). On an external control plane a frame the program punts to ITS OWN controller is seen neither by this proxy (it has no stream there) nor by the daemon (it counts frames leaving switch ports); the drop check (tools/test_workflow/heartbeat_drop_check.py) is what keeps the heartbeat off a program that does that. The P4 SOURCE of these 3 programs drops it (flowcache drops every non-IPv4 frame at ingress; advanced_tunnel applies no table to it, so egress_spec stays 0 -- that no port 0 exists is inferred from bmv2), and the drop check agrees on a throwaway bmv2 with each program loaded and no controller (flowcache drops it at ingress; advanced_tunnel sends it to port 0, which no switch of the fabric has). Segment S's census ran them with no controller, so no pipeline was loaded, and live-p1/08 PART=h5 is the first measurement with these programs loaded and their controllers running. Any other external program is checked the same way before the heartbeat starts on it; what its controller installs later is not covered."
+
+----------------------------------------------------------------------
+Ran 46 tests in 0.084s
+
+FAILED (failures=1)
+
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (usable); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, run the LLDP beacon watchdog or install routes on ANY switch of this fabric. Skipped: install_initial_routes, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Switch 1 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline: 0 of 0 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 2 usable switches
+[Proxy Agent] 8 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] every foreign switch binds roles.ipv4_route with owner ndtwin: 12 of 12 initial routes written into the package's route tables (again on every link transition the heartbeat watchdog reports, while it runs)
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (usable); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] 2 of 2 switches ([1, 2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons or run the LLDP beacon watchdog on ANY switch of this fabric. Skipped: lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...

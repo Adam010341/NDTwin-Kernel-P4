@@ -1,0 +1,119 @@
+# written by: git commands below, 2026-10-01T15:34:54+08:00
+head 3b6e533c4764aafa5916e75dc089ffccd60b59d3
+trunk 584905d8433f6c4c32aa92c2f1630646db6b9520
+base fed37cff5d70209235f6f4458ed7294b4ef542b4
+
+== git merge-tree --write-tree --name-only trunk 3b6e533c
+539c85fdef93d9b7910efae1fad117a16f3c25dd
+merge-tree rc=0
+
+== trunk changes since the base under ndt serve paths (expect none)
+ tests/python/test_ndt_serve.py  |  2 +-
+ tests/shell/mutate_ndt_serve.sh | 10 ++++++----
+ tools/ndt_serve/README.md       |  2 +-
+ tools/ndt_serve/serve.py        |  2 +-
+ tools/ndt_serve/verbs.py        |  8 +++++---
+ 5 files changed, 14 insertions(+), 10 deletions(-)
+(end)
+
+== git diff --stat fed37cff 3b6e533c
+ doc/audit/2026-09-27_ndt-serve-gui/SCOPE-v2.md     |  309 +++
+ doc/audit/2026-09-27_ndt-serve-gui/SUMMARY-v2.md   |  131 +
+ tests/browser/cdp_pipe.py                          |  216 ++
+ tests/browser/test_ndt_serve_page.py               | 1004 +++++--
+ tests/python/test_ndt_serve.py                     |   44 +-
+ tests/python/test_ndt_serve_gui.py                 |  241 +-
+ tests/python/test_ndt_serve_web.py                 |  315 +++
+ tests/shell/mutate_ndt_serve.sh                    |  517 +++-
+ tests/shell/mutate_ndt_serve_page.sh               |  853 +++++-
+ tests/shell/rebuild_ndt_serve_web.sh               |  102 +
+ tools/ndt_serve/README.md                          |   58 +-
+ tools/ndt_serve/serve.py                           |   94 +-
+ tools/ndt_serve/static/BUILD.json                  |   62 +
+ tools/ndt_serve/static/app.css                     |   51 +-
+ tools/ndt_serve/static/app.js                      |  689 +----
+ tools/ndt_serve/static/index.html                  |  136 +-
+ tools/ndt_serve/static/manual.html                 |  360 +++
+ tools/ndt_serve/web/.gitignore                     |    2 +
+ tools/ndt_serve/web/THIRD_PARTY.md                 |   83 +
+ tools/ndt_serve/web/index.html                     |   15 +
+ tools/ndt_serve/web/manual/style.json              |    4 +
+ tools/ndt_serve/web/manual/zh.md                   |  250 ++
+ tools/ndt_serve/web/package-lock.json              | 2914 ++++++++++++++++++++
+ tools/ndt_serve/web/package.json                   |   29 +
+ tools/ndt_serve/web/postcss.config.js              |    8 +
+ tools/ndt_serve/web/scripts/build-manual.mjs       |   60 +
+ .../ndt_serve/web/scripts/write-build-manifest.mjs |   79 +
+ tools/ndt_serve/web/src/NdtServeApp.tsx            |  290 ++
+ tools/ndt_serve/web/src/api/client.ts              |   71 +
+ tools/ndt_serve/web/src/api/session.ts             |   40 +
+ tools/ndt_serve/web/src/components/Answer.tsx      |   34 +
+ tools/ndt_serve/web/src/components/Badge.tsx       |   57 +
+ .../ndt_serve/web/src/components/ConfirmDialog.tsx |  310 +++
+ tools/ndt_serve/web/src/components/DataTable.tsx   |   48 +
+ tools/ndt_serve/web/src/components/Explain.tsx     |   12 +
+ .../ndt_serve/web/src/components/FixturePanel.tsx  |  123 +
+ tools/ndt_serve/web/src/components/JobPanel.tsx    |   71 +
+ tools/ndt_serve/web/src/components/ShortId.tsx     |   48 +
+ tools/ndt_serve/web/src/components/StatusRows.tsx  |   30 +
+ tools/ndt_serve/web/src/components/TabBar.tsx      |   39 +
+ tools/ndt_serve/web/src/components/TopBar.tsx      |  127 +
+ tools/ndt_serve/web/src/components/WalkPanel.tsx   |  156 ++
+ .../web/src/components/common/ErrorBoundary.tsx    |   79 +
+ .../web/src/components/common/LoadingSpinner.tsx   |   35 +
+ .../web/src/components/tabs/ActionsTab.tsx         |  160 ++
+ .../ndt_serve/web/src/components/tabs/AppsTab.tsx  |   75 +
+ .../ndt_serve/web/src/components/tabs/CellsTab.tsx |  274 ++
+ .../ndt_serve/web/src/components/tabs/JobsTab.tsx  |   68 +
+ tools/ndt_serve/web/src/components/tabs/LabTab.tsx |   97 +
+ tools/ndt_serve/web/src/hooks/useAutoRefresh.ts    |  144 +
+ tools/ndt_serve/web/src/hooks/useJobLog.ts         |  103 +
+ tools/ndt_serve/web/src/i18n/index.ts              |   21 +
+ tools/ndt_serve/web/src/i18n/zh.json               |  318 +++
+ tools/ndt_serve/web/src/index.css                  |    5 +
+ tools/ndt_serve/web/src/lib/format.ts              |   24 +
+ tools/ndt_serve/web/src/lib/shortId.ts             |   14 +
+ tools/ndt_serve/web/src/lib/ui.ts                  |   47 +
+ tools/ndt_serve/web/src/main.tsx                   |   39 +
+ tools/ndt_serve/web/src/testhooks.ts               |   30 +
+ tools/ndt_serve/web/src/types.ts                   |  188 ++
+ tools/ndt_serve/web/src/vite-env.d.ts              |   12 +
+ tools/ndt_serve/web/tailwind.config.js             |   16 +
+ tools/ndt_serve/web/tsconfig.json                  |   23 +
+ tools/ndt_serve/web/vite.config.ts                 |   48 +
+ 64 files changed, 10451 insertions(+), 1451 deletions(-)
+
+== git ls-tree -r --name-only 3b6e533c | grep -E 'node_modules|/dist/' (expect nothing)
+grep rc=1 (1 = nothing found)
+
+== ndt itself: git diff --stat fed37cff 3b6e533c -- tools/test_workflow/ndt (expect nothing)
+(end)
+ndt lines at fed37cff: 11042, at 3b6e533c: 11042
+
+== static/app.js at 3b6e533c: 51 lines, 291374 bytes
+== web/src at 3b6e533c: 34 files, 3189 lines
+
+== 0.0.0.0:3000 in the tree at 3b6e533c (expect nothing) and in branch history
+tree grep rc=1
+e74d0a63 doc: ndt serve v2 scope says what the page needs from a host app
+0d7f6ce8 doc: scope draft for the ndt serve page rebuilt on the Web-GUI stack
+
+== git merge-tree --write-tree --name-only da10d3a3 3b6e533c (the trunk the orchestrator named)
+00776efa8f44eda337019e8edad821cd71b5734a
+merge-tree rc=0
+
+== trunk commits since da10d3a3
+584905d8 Stop tracking the .claude directory
+75c28ce7 Stop tracking CLAUDE.md
+64c89e1c CLAUDE.md: hand mechanical subagent work to Sonnet 5.5
+c9c84ea4 Merge fix/residue-live-pid-wait-0928: ndt dates apps and rules against one clock read
+571fa6fd ndt: date apps and rules against one clock read per residue report
+== of them, touching ndt serve paths
+571fa6fd ndt: date apps and rules against one clock read per residue report
+
+== git diff --stat 3b6e533c 189e89a0 (the delivered head adds only the summary)
+ .../2026-09-27_ndt-serve-gui/SUMMARY-v2-r2.md      | 107 +++++++++++++++++++++
+ 1 file changed, 107 insertions(+)
+== merged tree used for the merged-tree runs: git merge-tree --write-tree trunk 3b6e533c
+trunk d452d111f243b4f05225d16b5773f39076675fb4
+3a186b15a01dd520bc36f7287dd3d243ec964c4b

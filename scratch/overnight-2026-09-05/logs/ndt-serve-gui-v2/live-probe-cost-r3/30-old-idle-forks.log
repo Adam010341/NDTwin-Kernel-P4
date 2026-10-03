@@ -1,0 +1,8 @@
+{"rep": 0, "rc": 0, "wall_s": 2.225, "run_forks": 487, "idle_forks": 89, "net": 398}
+{"rep": 1, "rc": 0, "wall_s": 2.244, "run_forks": 480, "idle_forks": 85, "net": 395}
+{"rep": 2, "rc": 0, "wall_s": 2.191, "run_forks": 481, "idle_forks": 63, "net": 418}
+{"rep": 3, "rc": 0, "wall_s": 2.221, "run_forks": 516, "idle_forks": 87, "net": 429}
+{"rep": 4, "rc": 0, "wall_s": 2.179, "run_forks": 488, "idle_forks": 99, "net": 389}
+{"rep": 5, "rc": 0, "wall_s": 2.204, "run_forks": 477, "idle_forks": 93, "net": 384}
+{"rep": 6, "rc": 0, "wall_s": 2.187, "run_forks": 487, "idle_forks": 90, "net": 397}
+{"label": "r3-idle-old-probe", "cmd": "/home/adam/.local/bin/ndt status", "reps": 7, "net_median": 397, "net_min": 384, "net_max": 429, "wall_median_s": 2.204, "rcs": [0]}

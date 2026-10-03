@@ -1,0 +1,32 @@
+1cf0692cde958c3a02a329d7990423a6bc5d5c3f
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  2026-10-02T03:11:37Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  TMPDIR /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb6/tmp
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb6-1cf0692c/redfirst_b4.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/redfirst_b4.extb6-1cf0692c.kept
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb6-1cf0692c/shims (nolab); drop check through /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb6-1cf0692c/hbwrap
+# disk: 2686 MB free on / when queued; floor 1536 MB, checked again under the lock
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c a=$(df --output=avail -BM / | tail -1 | tr -dc 0-9); echo "# disk under the lock: $a MB free"; (( a >= $0 )) || { echo "DISK-FLOOR: $a MB < $0 MB -- not run"; exit 97; }; exec "$@" 1536 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb6-1cf0692c/redfirst_b4.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/redfirst_b4.extb6-1cf0692c.kept
+# disk under the lock: 2686 MB free
+HEAD 1cf0692cde958c3a02a329d7990423a6bc5d5c3f; base 35b196630dddb4b9f7333ccf82cb54b3edea68ee
+== A: test_heartbeat_fabric over the base's proxy (item 1, and item 2's census text)
+  ok    base proxy: exactly the 5 expected red
+    (green over the base, and why: 'the declared links still seed the graph' guards what the base did
+     (X1 kills it); 'the same graph without the flag does have a path' is the control (X14 kills it))
+  ok      HEAD's proxy in the same tree: OK
+== B: test_ndt_app_package over the base's ndt (item 1's status row)
+  ok    base ndt, the status row: exactly the 6 expected red
+    (round 5, the nit: a path count on an external plane is flagged; zero is quiet -- red over every base before round 5, whose status row has neither)
+== C: test_ndt_heartbeat over the base's ndt (item 2's wiring)
+  ok    base ndt, the drop check: exactly the 19 expected red
+    (round 5, S-5: one drop-check log per bring-up -- 'the whole of it is kept' is now '... in the log the line names', and three cells pin a second bring-up's own log; red over every base before round 5)
+    (green over the base, each a guard of what the base already did, killed by the gate's N mutant:
+     'proven dropped: the heartbeat starts' N43, 'nothing is recorded as withheld' N43, 'NOT dropped: the
+     bring-up still succeeds' N45, 'the proxy and kernel were still started' N45, the not-external and
+     NDTwin-pipeline cells N50/N50b/N51, 'and not when there is no record' N55)
+== D: test_heartbeat_drop_check.py with no tool
+  ok      without the tool the suite fails (rc 1): FileNotFoundError: [Errno 2] No such file or directory: '/home/adam/Desktop/NDTwin-Kernel/scratch/ov
+    (the tool is new: each of its cells is seen red one by one by mutate_heartbeat_drop_check.sh)
+REDFIRST-B4: ALL-AS-EXPECTED
+guarded_build: exit 0
+# rc=0

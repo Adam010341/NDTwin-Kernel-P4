@@ -1,0 +1,123 @@
+4c18bf3da29efed3d2f36abd2db67d8f780a222b
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  2026-10-01T20:08:58Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  TMPDIR /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp
+# cmd bash tests/shell/test_ndt_heartbeat.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5c-4c18bf3d/shims (nolab); drop check through /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5c-4c18bf3d/hbwrap
+# disk: 2919 MB free on / when queued; floor 1536 MB, checked again under the lock
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c a=$(df --output=avail -BM / | tail -1 | tr -dc 0-9); echo "# disk under the lock: $a MB free"; (( a >= $0 )) || { echo "DISK-FLOOR: $a MB < $0 MB -- not run"; exit 97; }; exec "$@" 1536 bash tests/shell/test_ndt_heartbeat.sh
+# disk under the lock: 2919 MB free
+
+1. a foreign package fabric starts the heartbeat -- after the fabric, before the proxy
+  ok       🔴 the bring-up succeeds
+  ok       🔴 exactly one 'heartbeat start'
+  ok       🔴 after topo-start
+  ok       🔴 before stack.sh starts the proxy
+  ok         the helper's answer is printed
+  ok         and ndt says what it is for
+  ok         nothing was stopped on the way up
+  ok         a reused fabric: rc 0
+  ok         (it did take the reuse branch)
+  ok       🔴 a reused foreign fabric asks for the heartbeat too
+
+2. 🔴 NOT on NDTwin's own pipeline, NOT on the baseline
+  ok         a package on NDTwin's pipeline comes up
+  ok         (the pipeline kind was read as ndtwin)
+  ok       🔴 and never asks for a heartbeat (it has LLDP)
+  ok         the baseline fabric comes up
+  ok       🔴 and never asks for a heartbeat
+
+2b. 🔴 an external control plane on its own pipeline: started, detect only (09-27)
+  ok         an external package comes up
+  ok         (the pipeline kind was read as foreign)
+  ok       🔴 exactly one 'heartbeat start' on an external plane
+  ok       🔴 after topo-start, before the proxy, as anywhere
+  ok       🔴 and ndt says it detects only
+  ok       🔴 and not that it routes around
+  ok       🔴 a non-external foreign fabric is not called detect-only
+  ok       🔴 a failed start on an external plane names external_control_plane
+  ok         and not the reason a foreign fabric serves
+
+2c. 🔴 external: started ONLY when the drop check proves its program drops the frame (09-28)
+  ok       🔴 the check ran once, on the package
+  ok       🔴 before anything touched the machine
+  ok       🔴 proven dropped: the heartbeat starts
+  ok         the check's answer is said, in one line
+  ok         and the whole of it is kept, in the log the line names
+  ok         and nothing is recorded as withheld
+  ok       🔴 NOT dropped: the bring-up still succeeds
+  ok       🔴 and the heartbeat is NOT started
+  ok       🔴 saying so
+  ok         with the check's own reason
+  ok         the proxy and kernel were still started
+  ok       🔴 and the record names it for 'ndt status'
+  ok       🔴 could not tell: NOT started either (unknown is not a drop)
+  ok       🔴 a second bring-up keeps its own log: the first one's is still there
+  ok         and this one's says what this check said
+  ok         in another file
+  ok         saying it could not tell
+  ok         and why
+  ok       🔴 a check that never ran is not proof: NOT started
+  ok         saying so
+  ok       🔴 a foreign fabric that is not external: no check
+  ok         and its heartbeat starts as before
+  ok         NDTwin's own pipeline: no check either
+  ok       🔴 a later bring-up that starts it clears the record
+  ok       🔴 'ndt down' clears it with the fabric
+
+3. 🔴 a heartbeat that does not start does not fail the bring-up
+  ok       🔴 rc 0 -- the fabric IS up
+  ok         the proxy and kernel were still started
+  ok       🔴 and it says detection is off
+  ok         with the helper's reason
+  ok         and no rollback happened
+  ok         rc 3 (no inter-switch link): rc 0
+  ok         said as what it is, in ndt's own words
+  ok       🔴 and not as a failure
+
+4. 🔴 'ndt down' stops it before the topology, and a stop that fails is a failed teardown
+  ok         the teardown succeeds
+  ok       🔴 one 'heartbeat stop'
+  ok       🔴 before topo-stop
+  ok         after stack.sh down (the proxy reading it is gone first)
+  ok         the helper's stop answer is printed
+  ok       🔴 no pidfile: the helper is not asked at all
+  ok         and the teardown's own two sudo calls are the only ones
+  ok       🔴 a stop that failed: rc 1
+  ok         it says so
+  ok       🔴 and the claim note says what was not verified
+  ok         and the teardown still went on to the topology
+
+5. 🔴 a rollback stops it, and so does replacing a running topology
+  ok         a proxy that never came up: rc 1
+  ok       🔴 the rollback stopped the heartbeat
+  ok       🔴 before it stopped the topology
+  ok         and after the stack
+  ok         the replacement comes up
+  ok       🔴 the old heartbeat was stopped before the old topology
+  ok         and a new one started after the new topology
+
+6. 'ndt status' shows it, from the report file (no sudo)
+  ok         no report at all
+  ok       🔴 a fresh running report reads running, with its pid
+  ok         and its directions
+  ok       🔴 a running report nobody rewrote reads STALE
+  ok         a stopped report reads stopped, with why
+  ok       🔴 a frame that reached a host is named
+  ok         an unreadable report says so
+  ok       🔴 a heartbeat the last bring-up withheld is said, with why
+  ok         and why
+  ok         and not when there is no record
+  ok       🔴 reading it needs no sudo
+  ok       🔴 cmd_status prints the heartbeat row
+
+7. the paths are the root helper's own
+  ok       🔴 ndt's pidfile is the helper's HB_PIDFILE
+  ok         (which the helper spells that way)
+  ok       🔴 ndt's report is the file the helper's daemon writes
+  ok         (which the helper names that way)
+
+Ran 91 checks, 0 failed
+guarded_build: exit 0
+# rc=0

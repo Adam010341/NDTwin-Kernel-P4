@@ -1,0 +1,15 @@
+# date -Is: 2026-10-02T10:04:00+08:00
+# argv: tests/shell/mutate_ndt_serve_page.sh 
+# git rev-parse HEAD: 73889e5494d22f32b39f4a43021db389a92fe742
+# git status --porcelain | wc -l: 0
+# python3: /home/adam/miniconda3/bin/python3 3.13.13 | packaged by Anaconda, Inc. | (main, Apr 14 2026, 06:19:41) [GCC 14.3.0]
+# node -v: v24.20.0   npm -v: 11.19.0
+# this gate: 7e71944f0bbc2388da36afbda5a575ab4906e72a8f6a4328242fbcd6fb438e1c
+# changed paths under test vs HEAD: 0
+  Filesystem      Size  Used Avail Use% Mounted on
+  /dev/nvme0n1p5   98G   91G  2.6G  98% /
+  /dev/nvme0n1p5   98G   91G  2.6G  98% /
+
+baseline 1 -- the whole suite on the committed page (green, every case run ok, none skipped, no leftover):
+INCOMPLETE: stopped by SIGTERM before its verdict -- not a verdict
+rc=143

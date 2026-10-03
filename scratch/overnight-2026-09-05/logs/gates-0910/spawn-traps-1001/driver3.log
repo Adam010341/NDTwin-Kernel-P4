@@ -1,0 +1,19 @@
+# driver3 started 2026-10-01T20:35:01+08:00 at e0bb7d7f4beb7719c50a61f52b502948a4cb3179
+trees ready (trees3.log)
+r3-red-signal-test-d452d111        rc=1  Ran 112 checks, 22 failed
+r3-d1a-no-exit-trap                rc=1  Ran 32 checks, 7 failed
+r3-d1b-cleanup-skips-reap          rc=1  Ran 32 checks, 3 failed
+r3-d1c-cleanup-skips-tree          rc=1  Ran 32 checks, 4 failed
+r3-d2-hung-suite                   rc=1  Ran 16 checks, 8 failed
+r3-d2-total-limit                  rc=1  Ran 11 checks, 3 failed
+r3-green-signal-test-head-1        rc=0  Ran 112 checks, all passed
+r3-green-signal-test-head-2        rc=0  Ran 112 checks, all passed
+r3-green-signal-test-head-3        rc=0  Ran 112 checks, all passed
+r3-suite-orphans                   rc=0  Ran 111 checks, all passed
+r3-gate-orphans                    rc=0  3 mutation(s), 0 survivor(s); 0 control(s) whose premise count is not its call-site count
+r3-g-l1-scoring                    rc=0  
+r3-l1-scoring                      rc=0  Ran 151 checks, 0 failed
+r3-tmpdirs                         rc=0  
+r3-anchors-head                    rc=0  128/128 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+r3-leftovers                       rc=0  
+# driver3 ended 2026-10-01T20:59:35+08:00

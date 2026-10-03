@@ -1,0 +1,42 @@
+5311f3f60add32e9b92b2bf964db68a38419ae2a
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  2026-10-02T03:57:07Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  TMPDIR /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb6/tmp
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb6m-5311f3f6/redfirst_b5.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/redfirst_b5.extb6m-5311f3f6.kept
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb6m-5311f3f6/shims (nolab); drop check through /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb6m-5311f3f6/hbwrap
+# disk: 2706 MB free on / when queued; floor 1536 MB, checked again under the lock
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c a=$(df --output=avail -BM / | tail -1 | tr -dc 0-9); echo "# disk under the lock: $a MB free"; (( a >= $0 )) || { echo "DISK-FLOOR: $a MB < $0 MB -- not run"; exit 97; }; exec "$@" 1536 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb6m-5311f3f6/redfirst_b5.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/redfirst_b5.extb6m-5311f3f6.kept
+# disk under the lock: 2706 MB free
+HEAD 5311f3f60add32e9b92b2bf964db68a38419ae2a; base faf6eb410c2cb0b38b06c86000bdc65b21c8ac7a
+== A: test_heartbeat_drop_check.py over the base's tool
+  ok    base tool: exactly the 31 expected red
+    (red over the base for want of what round 5 added -- the version check, fabric_binary, rc 2 on a crash, the
+     root refusal, comm through a link, no-port refusal; the SIGTERM and end-to-end cells are NOT RUN there, as
+     the base has no fabric_binary for section 7 to vet -- degenerate, so their own reds are the gate's D41, NE1-NE3,
+     D1, D27. Green over the base, and why: the recorder's argv cells, settled()'s cells, the tripwire-conditions
+     and every-launch cells guard what the base already did right; each is red under a D mutant (the gate's
+     coverage report, every non-control check seen red)
+  ok      HEAD's tool: Ran 112 checks, 0 failed
+== B: test_ndt_heartbeat over the base's ndt
+  ok    base ndt, the drop check's log: exactly the 5 expected red
+== C: test_ndt_app_package over the base's ndt
+  ok    base ndt, the external path count: exactly the 3 expected red
+== D: test_heartbeat_fabric over the base's main.py
+  ok    base proxy, the census: exactly the 1 expected red
+== E: test_live_p1_thirteen over the base's 06
+  ok    base 06: exactly the 2 expected red
+    (round 6, M-2: 06 records its identity as it starts and as it ends -- the one round-5 cell is now two, red over every base before round 6)
+== F: test_l1_shell_scoring over the base's l1_unit_tests.sh
+  ok    base l1: exactly the 7 expected red
+== G: test_live_p1_external_evidence over the base's tool
+  ok      the base tool fails 167 of 202 cells (degenerate: no --b-sha; the evidence gate's coverage report is each cell's red)
+  ok      red: 🔴 every direction heard in the controller's window, said per direction
+  ok      red: 🔴 no --b-sha: rc 3
+  ok      red: 🔴 a treatment merged onto another trunk: rc 3
+  ok      red:   and in the conclusion
+    (round 6, M-3: the heard cells are now about the controller's own window; the one named here is a
+     has-check, red over this base, which answers usage to every compare)
+REDFIRST-B5: ALL-AS-EXPECTED
+guarded_build: exit 0
+# rc=0

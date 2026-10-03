@@ -1,0 +1,21 @@
+date 2026-10-02T01:43:40+08:00
+merge commit 1ee0089f0bbd2ffad771475b0691a948db352fb0: tree f2522f6a28df1445dbe96a52ea00012a35f46671, parents 1e350bf278ab1907b335ef1b141423d4ff77b13b (trunk 1e350bf278ab1907b335ef1b141423d4ff77b13b) and 0170df28d5560a91ec692d120c203e480e238751 (branch head 0170df28d5560a91ec692d120c203e480e238751)
+extracted: git archive 1ee0089f0bbd2ffad771475b0691a948db352fb0 tools/ndt_serve tools/test_workflow tests/python tests/shell tests/browser | tar -C /tmp/mergedc-XV9KFy -xf -
+dir /tmp/mergedc-XV9KFy
+cmd check_gate_anchors.py --gates-from 1ee0089f0bbd2ffad771475b0691a948db352fb0 --gates mutate_ndt_serve.sh mutate_ndt_serve_page.sh mutate_ndt_status_measuring.sh mutate_ndt_honesty.sh -- 1ee0089f0bbd2ffad771475b0691a948db352fb0
+anchors of each gate, counted in each rev's own files; gates read from 1ee0089f0bbd2ffad771475b0691a948db352fb0
+columns:
+  c0   1ee0089f0bbd2ffad771475b0691a948db352fb0
+
+                                c0            
+mutate_ndt_honesty.sh           ok(67)        
+mutate_ndt_serve.sh             ok(170)       
+mutate_ndt_serve_page.sh        ok(44)        
+mutate_ndt_status_measuring.sh  ok(12)        
+
+4/4 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+rc=0
+cmd check_gate_anchors.py 1ee0089f0bbd2ffad771475b0691a948db352fb0  (every gate)
+
+129/129 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+rc=0

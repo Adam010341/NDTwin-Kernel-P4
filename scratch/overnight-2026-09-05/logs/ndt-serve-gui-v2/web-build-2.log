@@ -1,0 +1,34 @@
+2026-09-28T01:10:47+08:00
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/nvme0n1p5   98G   89G  4.4G  96% /
+before:
+780f0a54807c1edb0ceaa7d626bc58ff68001493110eebd4030f71816febc482  tools/ndt_serve/static/app.css
+a7c539322bfaae1d97000bb105aa9a4e6b4ba7a464d8bbd14bb2a140d4171b30  tools/ndt_serve/static/app.js
+c98e7ae5b95a7159b4fa45e5c43ecca389206ff0bc74916a97aaa78bd1c45032  tools/ndt_serve/static/BUILD.json
+ba7f56b21e294bf5852dd8a35478a58a271b7ff0abbb8a431291cc581daef732  tools/ndt_serve/static/index.html
+ea3741ed4962b6fa46393691204f8b39d2a04b49e68ee008a17b127c581332b0  tools/ndt_serve/static/manual.html
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env PATH=/home/adam/.local/node/bin:/home/adam/.local/bin:/home/adam/.local/bin:/home/adam/.grok/bin:/home/adam/.local/bin:/home/adam/miniconda3/bin:/home/adam/miniconda3/condabin:/home/adam/.local/bin:/home/adam/.local/bin:/home/adam/.local/bin:/home/adam/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/adam/.config/Claude/local-agent-mode-sessions/740b7c88-df32-4eb9-b383-248b5d7648c1/c7bf5182-caa3-411b-9b68-3914b9e29fe2/rpm/plugin_0155zZVATbJU3jHUmPP9NvMC/bin:/home/adam/.config/Claude/local-agent-mode-sessions/skills-plugin/c7bf5182-caa3-411b-9b68-3914b9e29fe2/740b7c88-df32-4eb9-b383-248b5d7648c1/bin:/home/adam/.claude/plugins/cache/claude-plugins-official/mattpocock-skills/1.2.3/bin:/home/adam/.claude/plugins/cache/claude-community/eli5/1.0.0/bin:/home/adam/.claude/skills/easy-summarize/bin npm --prefix tools/ndt_serve/web run build
+
+> ndt-serve-web@2.0.0 build
+> tsc --noEmit && vite build && node scripts/build-manual.mjs && node scripts/write-build-manifest.mjs
+
+vite v6.3.5 building for production...
+transforming...
+✓ 76 modules transformed.
+rendering chunks...
+../static/index.html    0.63 kB
+../static/app.css      19.80 kB
+../static/app.js      290.84 kB
+✓ built in 1.19s
+build-manual: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/tools/ndt_serve/static/manual.html (23827 bytes)
+write-build-manifest: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/tools/ndt_serve/static/BUILD.json (47 source files, 4 bundle files)
+guarded_build: exit 0
+exit=0
+2026-09-28T01:33:32+08:00
+after:
+780f0a54807c1edb0ceaa7d626bc58ff68001493110eebd4030f71816febc482  tools/ndt_serve/static/app.css
+a7c539322bfaae1d97000bb105aa9a4e6b4ba7a464d8bbd14bb2a140d4171b30  tools/ndt_serve/static/app.js
+c98e7ae5b95a7159b4fa45e5c43ecca389206ff0bc74916a97aaa78bd1c45032  tools/ndt_serve/static/BUILD.json
+ba7f56b21e294bf5852dd8a35478a58a271b7ff0abbb8a431291cc581daef732  tools/ndt_serve/static/index.html
+ea3741ed4962b6fa46393691204f8b39d2a04b49e68ee008a17b127c581332b0  tools/ndt_serve/static/manual.html

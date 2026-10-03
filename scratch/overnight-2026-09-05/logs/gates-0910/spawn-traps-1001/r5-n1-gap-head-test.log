@@ -1,0 +1,22 @@
+8d79dacd0e40e9ddd20d7c8e9af6185b4ef8e482
+porcelain-lines: 0
+# dir: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/t5-gap-head = 8d79dacd0e40e9ddd20d7c8e9af6185b4ef8e482
+# sha256 e1c614c950540a9fc47e726e22501444d5677dc9a940d1052e12ba7aae8d9f80  tests/shell/test_fixture_suites_end_on_signal.sh
+# tripwire lines before: 0
+# $ env SIGNAL_FIRST_FIXTURE_WAIT=25 bash tests/shell/test_fixture_suites_end_on_signal.sh ovs_claim
+# started 2026-10-01T21:48:33+08:00
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/claude-1000/spawn-traps-1001.lock
+guarded_build: $ env SIGNAL_FIRST_FIXTURE_WAIT=25 bash tests/shell/test_fixture_suites_end_on_signal.sh ovs_claim
+ovs_claim, TERM
+  FAILED   ovs_claim TERM: within 25s, a pid in its own fixture register is alive, the suite still running
+             expected: yes
+             actual:   no (S; 1 other process(es) of the run alive; last line:   ok       fixture took argv0=/tmp/ndt-signal-ends-run-CeCMCr/tmp-ovs_claim-TERM)
+ovs_claim, INT
+  FAILED   ovs_claim INT: within 25s, a pid in its own fixture register is alive, the suite still running
+             expected: yes
+             actual:   no (S; 1 other process(es) of the run alive; last line:   ok       fixture took argv0=/tmp/ndt-signal-ends-run-CeCMCr/tmp-ovs_claim-INT/)
+
+Ran 2 checks, 2 failed
+guarded_build: exit 1
+# ended 2026-10-01T21:49:23+08:00; tripwire lines after: 0
+rc=1

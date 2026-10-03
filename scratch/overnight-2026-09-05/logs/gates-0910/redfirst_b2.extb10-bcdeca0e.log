@@ -1,0 +1,94 @@
+bcdeca0e3c025c93005c2c0963981b705cca8cdc
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  2026-10-02T14:39:38Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  TMPDIR /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb6/tmp
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb10-bcdeca0e/redfirst_b2.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/redfirst_b2.extb10-bcdeca0e.kept
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb10-bcdeca0e/shims (nolab); drop check through /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb10-bcdeca0e/hbwrap
+# disk: 2633 MB free on / when queued; floor 1536 MB, checked again under the lock
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c a=$(df --output=avail -BM / | tail -1 | tr -dc 0-9); echo "# disk under the lock: $a MB free"; (( a >= $0 )) || { echo "DISK-FLOOR: $a MB < $0 MB -- not run"; exit 97; }; exec "$@" 1536 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb10-bcdeca0e/redfirst_b2.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/redfirst_b2.extb10-bcdeca0e.kept
+# disk under the lock: 2633 MB free
+HEAD bcdeca0e3c025c93005c2c0963981b705cca8cdc; base 17e40e2972f9d82f4ad9eea7fc7e421393ad7830
+== A: 08's new cells, one hybrid per fix
+  ok    08, INT/TERM on w_finish (N-1): exactly the 2 expected red
+    (round 3: the rc cell is new -- M3 carries 143 through finish; red here because w_finish exits the verdict's 0)
+    base behaviour:   🔴    TERM mid-H1 with nothing failed before it ended: 'PASS 08_heartbeat' (rc 0)
+  ok    08, the base's v_strict (N-4): exactly the 1 expected red
+  ok    08, the base's v_links and no v_no_writes (F4): exactly the 3 expected red
+    (round 3: 'H4 up at the proxy, not accepted by the kernel' is new (m3) and red here -- the base's v_links
+     answers OK for an up with reported_to_kernel False; L73b turns it red against HEAD's)
+    (the base's v_links answers BAD for a want it does not know, so the two BAD cells and the up-told OK cell
+     are green there; L73, L74 and L75 are what turn each of them red)
+  ok      HEAD's own 08 in the same tree: SELF-TEST PASS
+    (the H3 cut-short, all-within and clean-run cells guard what the base already does -- F1 of the AEG round is in it; L69, L70 and L72 kill them)
+== B: test_live_p1_common over the base's _common.sh (N-5), and 02's consumer pin
+  ok    base _common.sh: exactly the 6 expected red
+    (round 3: section 19's four cells are red over every base before fdae10a9)
+  ok      02 without its consumer line: the pin reads '    # Every switch is on the exercise's program, and says so', not the consumer (RED)
+== C: test_heartbeat_fabric over the base's main.py (F3/F6)
+  ok    base main.py: exactly the 4 expected red
+    (added at round 4, 09-28: the destination-path cells of test_heartbeat_fabric -- red over every older base for that reason)
+== D: test_ndt_heartbeat over the base's ndt (F5)
+  ok    base ndt: exactly the 21 expected red
+    (round 5, S-5: one drop-check log per bring-up -- 'the whole of it is kept' is now '... in the log the line names', and three cells pin a second bring-up's own log; red over every base before round 5)
+    (added at round 4, 09-28: test_ndt_heartbeat's drop-check cells (section 2c and the withheld row) -- red over every older base for that reason)
+== E: test_live_p1_external_evidence over the base's tool (F1/F2/F7)
+    Ran 232 checks, 190 failed
+  ok      base tool: '🔴 A/A (a control as the treatment): rc 3' RED
+  ok      base tool: '🔴 a treatment with no detect-only start line: rc 3' RED
+  ok      base tool: '🔴 a second control with only a heartbeat block: rc 3' RED
+  ok      base tool: '  naming both traces' RED
+  ok      base tool: '🔴 a packet-in count between the controls': rc 0' RED
+  ok      base tool: '  noted as the invariant, descriptive' RED
+  ok      base tool: '  said as cut short' RED
+  ok      base tool: '🔴 a session whose daemon counted a frame to a host: rc 1' RED
+  ok      base tool: '  said as ruling 4' RED
+  ok      base tool: the unparseable packet-in's 'said as such' RED
+    (renamed in round 3: 'a control whose heartbeat was running' is now the two control-refusal cells above;
+     'kept by the control' is 'kept by every control'; 'a daemon that counted' is 'a session whose daemon counted'.
+     'a controller log that is not UTF-8: rc 2' has no cause cell and is green over this base by the argparse
+     accident; it was seen red in extb2's redfirst_b2 log against this same base, with the round-2 suite)
+    cells green over the base tool (guards of what it already did; the evidence gate kills each):
+        ok       🔴 a controller window of 5 s (under two periods): UNDECIDED, rc 2, not refused
+        ok       🔴 a report with no p4c or JSON sha: rc 2
+        ok         and NOT as the heartbeat's
+        ok         and not decided either way (descriptive)
+        ok       🔴 controls that disagree on a decisive key (rules installed): UNDECIDED, rc 2
+        ok       🔴 a decisive invariant broken in a control too: UNDECIDED, rc 2
+        ok       🔴 an arm with no controller log: rc 2
+        ok         and does not print a conclusion either way
+        ok       🔴 a run without the flowcache/solution row: rc 2
+        ok       🔴 a counter block cut short: rc 2
+        ok       🔴 a last counter block that had not settled: rc 2
+        ok       🔴 s1 ingress 100 at pings + the server's + 10 FIN retries: settled, show rc 0
+        ok         no server report, the last block read twice: settled, show rc 0
+        ok       🔴 real 2026-09-19T151037Z: the last block settled, show rc 0
+        ok       🔴 real 2026-09-24T162954Z: the last block settled, show rc 0
+        ok       🔴 real 2026-09-24T192012Z: the last block settled, show rc 0
+        ok       🔴 real 2026-09-26T061642Z: the last block settled, show rc 0
+        ok       🔴 real 2026-09-26T062438Z: the last block settled, show rc 0
+        ok       🔴 real 2026-09-26T155814Z: the last block settled, show rc 0
+        ok       🔴 real 2026-09-27T081205Z: the last block settled, show rc 0
+        ok         the same numbers read twice are settled: show rc 0
+        ok       🔴 a packet-in that cannot be parsed: rc 2
+        ok       🔴 an IPv4 packet-in shorter than its header: rc 2
+        ok         and no traceback
+        ok       🔴 a controller log that is not UTF-8: rc 2
+        ok         and no traceback
+        ok       🔴 a report that cannot be read: rc 2
+        ok       🔴 and no traceback from it
+        ok       🔴 samples from a sampler before 09-28: rc 2
+        ok       🔴 samples from round 4's sampler (no heard, no controllers): rc 2
+        ok       🔴 samples from round 5's sampler (no ctrl_logs): rc 2
+        ok       🔴 a sampler that never saw the controller's log: rc 2
+        ok       🔴 a log the sampler never saw reach its push: rc 2
+        ok       🔴 a controller log with no push and no entry: rc 2
+        ok       🔴 a running sample whose daemon counter is not a number: rc 2, not a zero
+        ok       🔴 a running sample whose heard column is not counts: rc 2
+        ok       🔴 samples without 06's end beside them: rc 2
+        ok       🔴 a compare with one run: usage, rc 2
+        ok         show: rc 0
+        ok         and lists the flowcache packet-ins
+REDFIRST-B2: ALL-AS-EXPECTED
+guarded_build: exit 0
+# rc=0

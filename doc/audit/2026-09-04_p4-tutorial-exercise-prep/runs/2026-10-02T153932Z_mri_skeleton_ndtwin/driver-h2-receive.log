@@ -1,0 +1,69 @@
+sniffing on eth0
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 6
+     tos       = 0x0
+     len       = 47
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = udp
+     chksum    = 0x64bb
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+      |###[ MRI ]### 
+      |  copy_flag = 0
+      |  optclass  = control
+      |  option    = 31
+      |  length    = 4
+      |  count     = 0
+      |  \swtraces  \
+###[ UDP ]### 
+        sport     = 1234
+        dport     = 4321
+        len       = 23
+        chksum    = 0xc2ad
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 6
+     tos       = 0x0
+     len       = 47
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = udp
+     chksum    = 0x64bb
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+      |###[ MRI ]### 
+      |  copy_flag = 0
+      |  optclass  = control
+      |  option    = 31
+      |  length    = 4
+      |  count     = 0
+      |  \swtraces  \
+###[ UDP ]### 
+        sport     = 1234
+        dport     = 4321
+        len       = 23
+        chksum    = 0xc2ad
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+

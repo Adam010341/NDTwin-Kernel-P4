@@ -1,0 +1,9 @@
+selftest_08                    rc=0  SELF-TEST PASS
+proxy_unit                     rc=0  PROXY-UNIT: 46 file(s), 1661 test(s): 1660 passed, 1 skipped -- all OK
+mutate_p4_heartbeat_w          rc=0  mutation gate: 202 mutations, 0 survived
+mutate_roles_binding           rc=0  mutation gate: 179 mutations, 0 survived
+test_live_p1_common            rc=0  Ran 191 checks, 0 failed
+mutate_live_p1_common          rc=0  mutation gate: 54 mutations, 0 survived; 4 control(s), 0 went red
+check_gate_anchors             rc=0  121/121 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+nolab_tripwire                 rc=0  NOLAB-TRIPWIRE: 0 lab call(s) (all refused)
+GATES-AEG6 f7e2a128: ALL-AS-EXPECTED

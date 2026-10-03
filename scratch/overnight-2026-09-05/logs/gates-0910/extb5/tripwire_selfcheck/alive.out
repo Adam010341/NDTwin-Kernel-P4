@@ -1,0 +1,3 @@
+log /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tripwire_selfcheck/alive.log: 1 line(s)
+  🔴 ALLOWED-LAUNCH pid 2351624 (start 3923383) is STILL running: b'/bin/bash\x00-c\x00source /home/adam/.claude/shell-snapshots/snapshot-bash-1790825758141-pmdgno.sh 2>/dev/null || true && shop'
+NOLAB-TRIPWIRE: 0 lab call(s); 1 allowed switch launch(es) and 0 --version probe(s), each re-checked: 0 breaking a condition, 0 refused by the wrapper; 1 still running (by pid and start time); 1 line(s) in all

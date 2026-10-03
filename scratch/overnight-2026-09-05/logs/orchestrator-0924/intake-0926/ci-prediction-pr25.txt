@@ -1,0 +1,128 @@
+# written BEFORE pushing pr/external-detect-only (tree 27eef08d987c2cd67a471ec82c5a2af0778572e6), 2026-10-03T00:31:44+08:00
+Base main 0965ccaa (= PR #24 squash). 49 files, no C++ (git diff --stat 0965ccaa 27eef08d over src/, include/, CMakeLists.txt, .github/ is empty).
+Tree = trunk 995bdfd0 minus 7 doc/audit .md (GAP-2b, live-p1/README, TICKET-P4-heartbeat, SCOPE-v2, SUMMARY-v2 x3). Nothing CI runs reads
+those 7: the only mentions in tests/tools/p4_proxy are comments (grep of 27eef08d).
+Baseline = PR #24's two GCC logs (ci-pr24-gcc-110694749607.log push; -110694762896.log pull_request, whose L1 lines sit 13 lines lower).
+Line numbers below are the push log's. Local counts are from gates-0910/ and are used only for the DELTA against the same suite's earlier local count,
+never as the CI count of an unchanged suite.
+
+1. What L1 runs on the PR tree (read: git show 27eef08d:tools/test_workflow/l1_unit_tests.sh vs 0965ccaa; diff is 21 lines)
+   - New lane input: KERNEL_TESTS now also globs tests/shell/test_*.py (l1_unit_tests.sh:591). Only ONE file matches: tests/shell/test_heartbeat_drop_check.py
+     (check_test_tmpdirs.py does not match test_*.py). It is run by plain `python3` from the repo root (:603-604) and scored as a shell suite (kind=sh,
+     :602), i.e. by its "Ran N checks, F failed" and "SKIP:" lines. It prints LAST, after test_wait_for_port.sh (baseline :7107).
+   - New probe: L1_NEED_MET[bmv2-stock]=1 only if -x ${NDT_HB_CHECK_BMV2:-/usr/local/bin/simple_switch} (:582-583).
+   - New or changed suites against the baseline:
+       NEW      test_heartbeat_drop_check.py           (declares `# NDTWIN_L1_NEEDS: bmv2-stock`)
+       NEW      test_live_p1_external_evidence.sh      (printed between test_live_p1_common.sh and test_live_p1_thirteen.sh)
+       CHANGED  test_live_p1_common.sh, test_live_p1_thirteen.sh, test_l1_shell_scoring.sh, test_ndt_app_package.sh, test_ndt_heartbeat.sh
+       CHANGED  p4_proxy/tests/test_heartbeat_fabric.py (count) and test_declared_links.py (one test renamed, count same)
+       CHANGED  tests/python/test_ndt_serve.py, test_ndt_serve_cells.py (comments only: ndt line citations; count same)
+   - Unchanged files: no other test_* file under tests/python, tests/shell, p4_proxy/tests is in the diff (git diff --name-status). The mutate_*.sh files in the diff
+     (9 changed or new) are mutation gates, which CI does not run (only the anchor check reads them, see item 2).
+
+2. Counts (CI prediction = CI baseline + the suite's own local delta; "local before" is the log of an earlier tree of the same suite)
+   suite                                  CI baseline (push)         local on PR tree (log:line)                          delta source                         CI PREDICTION
+   test_heartbeat_drop_check.py           (absent)                   112 (extb6m: test_heartbeat_drop_check.extb6m-5311f3f6.log:142)   not applicable: SKIPS in CI (item 3)   no count; DECLARED SKIP
+   test_live_p1_external_evidence.sh      (absent)                   232 (extb9: test_live_p1_external_evidence.extb9-75b5dd0e.log:256)  new                                   PASS 232
+   test_live_p1_common.sh                 PASS 191 (:7056)           220 (test_live_p1_common.extb6m-5311f3f6.log:264)    local 191 at 3368412d (residue-0928/round4/l1-nobuild-control-3368412d-r2.log, "ran=191") = CI 191, so +29   PASS 220
+   test_live_p1_thirteen.sh               PASS 42 (:7057)            47 (test_live_p1_thirteen.extb6m-5311f3f6.log:71)    local 42 at 3368412d (same round4 log:184) = CI 42, so +5   PASS 47
+   test_l1_shell_scoring.sh               PASS 152 (:7054)           162 (test_l1_shell_scoring.extb6m-5311f3f6.log:194)  diff adds D27-D35 = 9 checks + 1 corpus check for the new .sh suite (group C is one check per tests/shell/test_*.sh) = +10   PASS 162
+   test_ndt_app_package.sh                PASS 396 (:7066)           404 (test_ndt_app_package.extb6m-5311f3f6.log:458)   local 396 at 3368412d (round4 log:195) = CI 396, so +8   PASS 404
+   test_ndt_heartbeat.sh                  PASS 57 (:7071)            91 (test_ndt_heartbeat.extb6m-5311f3f6.log:121)      local 57 at 3368412d (round4 log:200) = CI 57, so +34   PASS 91
+   test_ndt_serve.py                      PASS 75 (:7011)            75 (gui_test_ndt_serve_py312.extb8-9b5c0607.log:100)   0 (comment-only diff)             PASS 75
+   test_ndt_serve_cells.py                PASS 35 (:7012)            35 (gui_test_ndt_serve_cells_py312.extb8-9b5c0607.log:50)  0                             PASS 35
+   test_ndt_serve_gui.py                  PASS 39 (:7013)            39 (gui_test_ndt_serve_gui_py312.extb8-9b5c0607.log:53)   file untouched                   PASS 39
+   test_ndt_serve_web.py                  PASS 18 (:7014)            18 (gui_test_ndt_serve_web_py312.extb8-9b5c0607.log:26)   file untouched                  PASS 18
+   (The ndt_serve counts were also read on 3.8: gui_test_ndt_serve_py38.extb8-9b5c0607.log:100 = 75. CI uses 3.12.)
+   Other lines of the L1 output that move:
+   - gate anchors: 129/129 -> "gate anchors ok  (131/131 cells ok)" (:6926 baseline). Two new gate files (mutate_heartbeat_drop_check.sh,
+     mutate_live_p1_external_evidence.sh); local check_gate_anchors.extb9-75b5dd0e.log tail = "131/131 cells ok (0 not ok ...)".
+   - test temp paths: "404 file(s) scanned" (:6929) -> 408, 0 fixed temp paths. INFERRED from a read-only scan of `git archive` copies of the two trees' tests/
+     with the PR's check_test_tmpdirs.py: 348 files (0965ccaa) vs 352 (27eef08d), 0 fixed temp paths in both; the +4 are the 4 new .sh/.py under tests/shell.
+     Not in any gate log, so it is my reading, not a gate's.
+   - Everything not listed above is unchanged from #24, with the exact baseline counts: test_apps_residue 145, faults_topo_pid 61, fixture_suites_end_on_signal 84,
+     ndt_app_orphans 111, apps_liveness 57, down_stops_only_ours 32, helper_apps_window 156, ovs_claim 174, status_check_baseline 112, status_measuring 102,
+     status_residue_row 27, ndtwin_lab_sweep 33, sudo_surface 55, up_down_robust 424. INFERRED for the ones with no gate log on this tree (no full local L1 was run
+     on the PR tree: grep "L1 passed" in gates-0910 finds only p3a logs); the 13 of them that do have an extb6m log equal the CI baseline, except one known offset:
+     test_ndt_helper_apps_window is 157 locally (test_ndt_helper_apps_window.extb6m-5311f3f6.log:199) vs 156 in CI (:7072); the file is not in this diff, so CI stays 156.
+   - ctest cases=1385 / gtest tests=1389 "mismatch" note (baseline :7110) stays, and does not fail L1.
+
+3. test_heartbeat_drop_check.py in CI: PREDICT a DECLARED SKIP, not a pass
+   - Does the runner have simple_switch? INFERRED NO. The workflow installs only g++ cmake ninja-build libboost-system-dev libboost-url-dev libssl-dev libssh-dev
+     (.github/workflows/ci.yml env.APT_PACKAGES), no step builds or fetches bmv2/p4c, and the PR #24 log has no simple_switch/bmv2 mention outside gtest names
+     (grep: only :817, :1006, :2923, :3077, :3784, all RUN/OK lines of C++ tests). The suite looks at ${NDT_HB_CHECK_BMV2:-/usr/local/bin/simple_switch} only.
+   - Path taken: the suite first asks for a lab claim (lab_claim_file() sources ndt in a subshell; no .test_run/lab.claim on a fresh checkout, so it does not hold),
+     then prints `SKIP: no stock simple_switch at /usr/local/bin/simple_switch -- every cell drives one for real; nothing was checked` and exits 0 (test file, lines
+     138-150 of the PR version). If a claim file did exist the other SKIP line would print; either way one SKIP line, rc 0, no "Ran" line.
+   - L1 scoring (l1_unit_tests.sh): ran=0 failed=0 skipped=1 (shell_summary; grep ^[[:space:]]*SKIP:). l1_skip_excuse (kind=sh): no FAILED line, declared need
+     bmv2-stock, L1_NEED_MET[bmv2-stock]=0 (:582), so excuse="bmv2-stock". L1_HOSTED=1 because GitHub sets CI=true (:229-230). l1_lane_verdict (:138-146):
+     rc 0, `[[ "$skipped" -gt 0 && -n "$excuse" && "$hosted" == 1 && "$failed" -eq 0 ]]` -> DECLARED-SKIP. It does not add to FAILURES.
+   - Expected L1 lines (the same shape as the baseline's :7049-7050 for test_gate_exit_code_not_tee.sh):
+       test_heartbeat_drop_check.py   DECLARED SKIP 1 skip(s); needs bmv2-stock, which this machine lacks -- proved nothing here
+             SKIP: no stock simple_switch at /usr/local/bin/simple_switch -- every cell drives one for real; nothing was checked
+     and the closing block (baseline :7113-7117, was "3 file(s)") becomes
+       4 file(s) skipped for a need this machine lacks -- not counted as passes:
+         test_topology_read_timeouts.py (needs ryu) / test_topology_worker_coalescing.py (needs ryu) / test_gate_exit_code_not_tee.sh (needs py-plot) /
+         test_heartbeat_drop_check.py (needs bmv2-stock)      [this order: tests/python, then tests/shell/*.sh, then tests/shell/*.py]
+       L1 passed: 2 test binary/binaries, clean under ctest and direct execution.
+   - If the runner DID have a simple_switch (I say it does not): the suite would run its 112 cells for real and it is not known to pass there (every local run used
+     /usr/local/bin/simple_switch built on the laptop); that is the case to look for if the line reads PASS instead of DECLARED SKIP.
+   - Locally the suite is checked three ways without bmv2 by test_l1_shell_scoring.sh D29-D35 (declares the need; skip rc 0 + one SKIP line + ran 0; DECLARED-SKIP on
+     hosted, FAIL-SKIP on the lab; the claim and measurement skips). They use NDT_HB_CHECK_BMV2=<nonexistent> and NDT_LAB_CLAIM_FILE, so they do not depend on the runner.
+
+4. p4_proxy/tests: BOTH files are run by CI (l1_unit_tests.sh runs $PROXY_DIR/tests/test_*.py; the baseline prints both, :6948 and :6958)
+   - test_heartbeat_fabric.py: PASS 29 (:6958) -> PASS 46. def test_ count 29 at 0965ccaa, 46 at 27eef08d (git show | grep); proxy_unit.extb6m-5311f3f6.log:26 = 46 passed,
+     0 skipped. The file skips only if fastapi/grpc/networkx are missing (HAVE_PROXY); the baseline ran all 29 in CI, so it will run all 46. All fakes, no compiled p4info.
+   - test_declared_links.py: PASS 25 (:6948) -> PASS 25 (one test renamed; def test_ count 25 and 25; proxy_unit.extb6m-5311f3f6.log:16 = 25).
+   - All other 44 proxy files: same ran/skipped as the baseline, compared file by file with proxy_unit.extb6m-5311f3f6.log. The PROVED LESS lines stay (no compiled p4info on
+     the runner): app_package_proxy 36/4, fabric_bring_up 116/86, foreign_pipeline 17/3, packet_in_by_name 21/1, route_binding 47/2, sflow_emitter 49/2;
+     test_p4_client.py stays SKIPPED (NDTWIN_L1_OPT_IN). The proxy_agent code changed (main.py +153, topology_manager.py, api_routes.py), the counts did not.
+
+5. ctest and the sanitizer jobs: unchanged from #24
+   - ctest 1385/1385 (baseline :6649/:6935 in the push log, as ci-compare-pr24.txt records "ctest 1385/1385: MATCH"), "[  PASSED  ] 1385 tests" (:3869), L1 direct execution
+     1385/1385 (:6938) and 4/4 (:6939). No file under src/, include/, tests/*.cpp or CMake changed, and no C++ test reads a changed file (INFERRED from a grep of the
+     tests/*.cpp hits for proxy_agent/test_workflow/p4_proxy: strings in comments and paths only, not reads of the changed Python).
+   - clang, TSan, ASan+UBSan: success in both runs, as ci-compare-pr24.txt records them (conclusions only; they run only ./build-*/bin/test_routing_strategy, so nothing Python
+     or shell touches them). Expect 8/8 jobs green in 2 runs (push on pr/external-detect-only, pull_request on the PR), the same tree in both.
+
+6. GCC job wall time: baseline push 23m03s, pull_request 22m04s (ci-compare-pr24.txt); timeout-minutes 30 (ci.yml build-and-test)
+   Per-suite baseline cost is the gap to the previous L1 line: shell_scoring 12.0 s (:7053-7054), common 4.7 s, thirteen 1.2 s, app_package 25.4 s (:7065-7066), ndt_heartbeat 3.4 s,
+   heartbeat_fabric 0.7 s. Local durations (guard-log start header to file mtime, includes lock waits so only an upper bound; the CI runner ran about 0.5-0.6x of local
+   on the suites that exist in both, e.g. app_package 51 s local vs 25 s CI, shell_scoring 20-22 s vs 12 s):
+     test_live_p1_external_evidence.sh   10 s (extb9) / 17 s (extb6m)     -> about +6 to +15 s in CI
+     test_live_p1_thirteen.sh            4 s (extb4, before the code identity record) -> 42-44 s (extb6, extb6m); 18 run13 calls, each now records the venv fingerprint
+                                         and the code identity twice; CI also hashes a real build/bin/ndtwin_kernel that the local worktree did not have
+                                         -> about +15 to +60 s in CI (INFERRED; the least certain line)
+     test_live_p1_common.sh              18 s (extb6); sections 17 and 19 add 3 x `sleep 2` and 5 fingerprint runs   -> about +8 to +15 s
+     test_l1_shell_scoring.sh            +1 to +3 s;  test_ndt_heartbeat.sh +34 checks: +2 s;  test_ndt_app_package.sh +1 s;  test_heartbeat_fabric.py +17 tests: +0.5 s
+     test_heartbeat_drop_check.py        skips: under 1 s (one python start and one sourcing of ndt)
+   Prediction: about +45 s typical, +25 s to +120 s range, so GCC about 23m to 25m (baseline band 22m04s-23m03s). Worst case 23m03s + 2m = about 25m, i.e. 5 minutes of
+   headroom against 30; comfortably under. The other three jobs are unchanged (clang/TSan/ASan do not run L1).
+
+7. What could turn CI red that the local gates would not show (all INFERRED from reading, none observed)
+   a. /home/adam/p4dev-python-venv/bin/python is the default CTRL_PY in live-p1/_common.sh record_venvs. The laptop has it (symlink, Jul 13); the runner does not. Effect: every
+      start_step in a CI run records "NOT RECORDED: not an executable file" and DISCLOSES a NOTE above the last line (the run still passes, by design). I checked the checks
+      that start a real start_step without setting CTRL_PY: test_live_p1_common.sh sections 16 and 19. Section 16's control only needs `STARTED as owner [someone]` in the output;
+      section 19 reads tail -2 | head -1 and tail -1, and finish() prints the NOTE above those. So no red expected, but this is the one environment difference no local run exercised.
+      Section 17 sets CTRL_PY on both runs. test_live_p1_thirteen.sh runs 06 with VENV_PY=/usr/bin/python3.
+   b. Sections 17 and thirteen expect the word api_implementation from /usr/bin/python3. venv_fingerprint.sh prints that word also when protobuf is not installed
+      ("protobuf not installed api_implementation unreadable (...)"), so a bare system python is enough; the interpreter only has to answer. Section 17's block count is 2.
+   c. code_identity.py record writes every key (kernel, bmv2_libs, tutorials, venv) as "absent"/"unreadable" when the laptop-only files are missing (/usr/local/bmv2-fast,
+      ~/tutorials, /usr/local/sbin/ndtwin-lab, /usr/local/bin/simple_switch), and writes "tree" from the checkout (fetch-depth 0), so thirteen's idok check ("2 yes") holds.
+      test_live_p1_external_evidence.sh points TUTORIALS_DIR and CTRL_PY at fixtures; no check asserts the stock bmv2 or the helper exist.
+   d. Tools the new suites call: git (init -c init.defaultBranch, merge-tree --write-tree; git 2.38+; the runner's is 2.5x), /usr/bin/python3 (3.12 on the runner, and 3.12 is
+      what the local ndt_serve gates used), /usr/bin/grep, timeout, mktemp. No jq, nc, ss, sudo, unshare, bwrap, or network in the diff (grep of the added lines).
+   e. Absolute /home/adam paths in the added lines: only the CTRL_PY default (a) and 06_thirteen.sh's VENV_PY default (always overridden by thirteen's test). No /home/adam in the
+      new test files.
+   f. 108-byte socket path: none of the new CI-run suites makes a unix socket (no AF_UNIX/.sock in test_live_p1_external_evidence.sh or the changed tests). The only one is the
+      drop check's ipc://notif.ipc inside a tempfile.mkdtemp directory, and that suite skips in CI. TMPDIR on the runner is /tmp, so paths are short anyway.
+   g. test_live_p1_external_evidence.sh has NO local-vs-CI cross-check: it ran only on the laptop (python 3.12.3 = /usr/bin/python3, the same as the runner's apt python). If it
+      reads other than 232 in CI, look first at section 7 (real git repositories under $TMPDIR) and section 8 (hashes of fixture files).
+   h. A constant local-vs-CI offset like helper_apps_window's 157/156 could appear in any new suite; I know of none and cannot rule it out. It would show as a PASS count off by one
+      with no FAILED line.
+   i. The pull_request run builds the merge ref of the PR head into main. Since 27eef08d is main + this diff with no other differences, that tree is the same as the push run's.
+   j. The excluded .md files: test_known_issues_references.py (44) scans doc/audit .md for KNOWN-ISSUES line-number citations and test_manual_no_stale_in_progress.sh (19) asks
+      git about merges; neither names the 7 files (grep above), and leaving files out of the PR can only remove findings from the first, not add any. Same 44 and 19 (INFERRED).
+      The added-lines grep for jq/nc/ss/socat/sudo/curl/ssh/unshare/bwrap finds only function stubs inside tests (sudo() and curl() redefined in test_ndt_heartbeat.sh and
+      a markdown-table regex), no real call of those tools.
+Summary line expected at the end: 0 FAILED lines (grep -c FAILED = 0 in both logs), "L1 passed", ctest 1385/1385.

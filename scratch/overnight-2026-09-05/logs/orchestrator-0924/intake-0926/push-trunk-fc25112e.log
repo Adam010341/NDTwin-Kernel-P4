@@ -1,0 +1,10 @@
+p4 retry 1
+ssh_dispatch_run_fatal: Connection to 20.27.177.113 port 22: Connection timed out
+p4 retry 2
+To github.com:ndtwin-lab/NDTwin-Kernel-P4.git
+   85bec430..fc25112e  fc25112ecc2ff1261fe0f24419c4eb2d8a625c03 -> trunk
+lab ok
+# 14:57:40 https retry to Adam010341
+To https://github.com/Adam010341/NDTwin-Kernel-P4.git
+   85bec430..fc25112e  fc25112ecc2ff1261fe0f24419c4eb2d8a625c03 -> trunk
+rc=0

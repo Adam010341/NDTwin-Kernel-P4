@@ -1,0 +1,6 @@
+# written BEFORE pushing pr/suite-term-trap (1e1c26ee201365a2d3fa8f58bbd8fb2281366f03), 2026-09-28T15:56:27+08:00
+5 files, tests/shell only: lib_probe_stub.sh, mutate_probe_stubs.sh, test_apps_stop_kills_the_group.sh, test_live_p1_common.sh, test_ndt_app_orphans.sh.
+Base is main be01cc7a (WITHOUT the KJL change, which is held as PR #15). This PR doubles as the control for the test_apps_residue.sh failures.
+- clang, TSan, ASan+UBSan: PASS, unchanged (no C++).
+- GCC: ctest 1385/1385. L1: test_apps_stop_kills_the_group.sh 72, test_ndt_app_orphans.sh 104, test_live_p1_common.sh 191 (observed on rerun2, 6893a9ba).
+  test_apps_residue.sh: expected PASS on both runs; its flake (~1 in 12 before KJL) can still hit, and a red here says the flake is not KJL-linked.

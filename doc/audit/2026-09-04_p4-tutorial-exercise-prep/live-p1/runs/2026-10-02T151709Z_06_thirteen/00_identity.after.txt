@@ -1,0 +1,158 @@
+{
+  "bmv2_fabric": [
+    "/usr/local/bmv2-fast/bin/simple_switch_grpc",
+    "3ff54b5c1901c9d3ffd80ac05dc3dc7d0e696e3df73174c1616fb87ac9aedb4a"
+  ],
+  "bmv2_libs": "/usr/local/bmv2-fast/lib: 9 shared objects sha256 33e8acdf3f3a8ac48310059dda55216f72a61540ba4a0a09be3328ad84cac567",
+  "bmv2_stock": [
+    "/usr/local/bin/simple_switch",
+    "4c5e5ad31b0a8b4bf323c40bc4ba2f6dce90404bf9cfe0ec3e2712d5f573c604"
+  ],
+  "format": 2,
+  "head": "67ec9f9ecf9caf9d7df8cc92c4166cd04b79af34",
+  "helper": [
+    "/usr/local/sbin/ndtwin-lab",
+    "6a558fe452955de358fd1a3b4e730fe2be55368a6c90b93675c5442c036fd4fb"
+  ],
+  "kernel": [
+    "/home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel",
+    "be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49"
+  ],
+  "merge_changes": [
+    "doc/audit/2026-09-27_ndt-serve-gui/SCOPE-v2.md",
+    "doc/audit/2026-09-27_ndt-serve-gui/SUMMARY-v2-r2.md",
+    "doc/audit/2026-09-27_ndt-serve-gui/SUMMARY-v2-r3.md",
+    "doc/audit/2026-09-27_ndt-serve-gui/SUMMARY-v2.md",
+    "tests/browser/cdp_pipe.py",
+    "tests/browser/test_ndt_serve_page.py",
+    "tests/python/test_ndt_serve.py",
+    "tests/python/test_ndt_serve_gui.py",
+    "tests/python/test_ndt_serve_web.py",
+    "tests/shell/mutate_ndt_serve.sh",
+    "tests/shell/mutate_ndt_serve_page.sh",
+    "tests/shell/mutate_ndt_status_measuring.sh",
+    "tests/shell/rebuild_ndt_serve_web.sh",
+    "tests/shell/test_ndt_status_measuring.sh",
+    "tools/ndt_serve/README.md",
+    "tools/ndt_serve/serve.py",
+    "tools/ndt_serve/static/BUILD.json",
+    "tools/ndt_serve/static/app.css",
+    "tools/ndt_serve/static/app.js",
+    "tools/ndt_serve/static/index.html",
+    "tools/ndt_serve/static/manual.html",
+    "tools/ndt_serve/verbs.py",
+    "tools/ndt_serve/web/.gitignore",
+    "tools/ndt_serve/web/THIRD_PARTY.md",
+    "tools/ndt_serve/web/index.html",
+    "tools/ndt_serve/web/manual/style.json",
+    "tools/ndt_serve/web/manual/zh.md",
+    "tools/ndt_serve/web/package-lock.json",
+    "tools/ndt_serve/web/package.json",
+    "tools/ndt_serve/web/postcss.config.js",
+    "tools/ndt_serve/web/scripts/build-manual.mjs",
+    "tools/ndt_serve/web/scripts/write-build-manifest.mjs",
+    "tools/ndt_serve/web/src/NdtServeApp.tsx",
+    "tools/ndt_serve/web/src/api/client.ts",
+    "tools/ndt_serve/web/src/api/session.ts",
+    "tools/ndt_serve/web/src/components/Answer.tsx",
+    "tools/ndt_serve/web/src/components/Badge.tsx",
+    "tools/ndt_serve/web/src/components/ConfirmDialog.tsx",
+    "tools/ndt_serve/web/src/components/DataTable.tsx",
+    "tools/ndt_serve/web/src/components/Explain.tsx",
+    "tools/ndt_serve/web/src/components/FixturePanel.tsx",
+    "tools/ndt_serve/web/src/components/JobPanel.tsx",
+    "tools/ndt_serve/web/src/components/ShortId.tsx",
+    "tools/ndt_serve/web/src/components/StatusRows.tsx",
+    "tools/ndt_serve/web/src/components/TabBar.tsx",
+    "tools/ndt_serve/web/src/components/TopBar.tsx",
+    "tools/ndt_serve/web/src/components/WalkPanel.tsx",
+    "tools/ndt_serve/web/src/components/common/ErrorBoundary.tsx",
+    "tools/ndt_serve/web/src/components/common/LoadingSpinner.tsx",
+    "tools/ndt_serve/web/src/components/tabs/ActionsTab.tsx",
+    "tools/ndt_serve/web/src/components/tabs/AppsTab.tsx",
+    "tools/ndt_serve/web/src/components/tabs/CellsTab.tsx",
+    "tools/ndt_serve/web/src/components/tabs/JobsTab.tsx",
+    "tools/ndt_serve/web/src/components/tabs/LabTab.tsx",
+    "tools/ndt_serve/web/src/hooks/useAutoRefresh.ts",
+    "tools/ndt_serve/web/src/hooks/useJobLog.ts",
+    "tools/ndt_serve/web/src/i18n/index.ts",
+    "tools/ndt_serve/web/src/i18n/zh.json",
+    "tools/ndt_serve/web/src/index.css",
+    "tools/ndt_serve/web/src/lib/format.ts",
+    "tools/ndt_serve/web/src/lib/shortId.ts",
+    "tools/ndt_serve/web/src/lib/ui.ts",
+    "tools/ndt_serve/web/src/main.tsx",
+    "tools/ndt_serve/web/src/testhooks.ts",
+    "tools/ndt_serve/web/src/types.ts",
+    "tools/ndt_serve/web/src/vite-env.d.ts",
+    "tools/ndt_serve/web/tailwind.config.js",
+    "tools/ndt_serve/web/tsconfig.json",
+    "tools/ndt_serve/web/vite.config.ts",
+    "tools/test_workflow/ndt"
+  ],
+  "merge_tree": "merge-tree rc 1: c6dca78073149727ecff8fd2e2b3c86cde04726f\n100644 a58a2d5952fe4be32fbd2e2a8aca6f82f3e5e877 1\ttests/python/test_ndt_serve.p",
+  "parents": [
+    "1e350bf278ab1907b335ef1b141423d4ff77b13b",
+    "fb18f59cfa8ba0870ecacc9d3aaf22df9676ccaf"
+  ],
+  "recorded_at": 1790955857,
+  "repo": "/home/adam/Desktop/NDTwin-Kernel",
+  "tree": "274a9e4cc35daa1c37098361d8319d3e929f6d83",
+  "tutorials": {
+    "head": "c80d83e986291889b3238c52d919c307a0c0a813",
+    "path": "/home/adam/tutorials",
+    "trees": {
+      "exercises/flowcache": "8 files sha256 dea06d99ef27250efa544d729fab8533fad8ecc5b93c690cb4fb10505e9f3914",
+      "exercises/p4runtime": "7 files sha256 10c9e63b4c1a34fb4624af2f312546c4e7042a06e5d37c327f04d41597c820c3",
+      "utils": "51 files sha256 0deb43fc2ab17c485f24b04b952898fc13c7197dc136e7b1423b634f8237254c"
+    },
+    "uncommitted": [
+      [
+        " M",
+        "exercises/basic/basic.p4",
+        "de8d163b9ed85603ad4258a3e931774f0ede8bdc1925c3985e6f64daac6e3279"
+      ]
+    ]
+  },
+  "uncommitted": [
+    [
+      " M",
+      "doc/2026-08-29_bmv2-performance-study-figs/fig6_twelve_numbers_one_axis.pdf",
+      "dffabc50b9bb36942d341d17ba17d0f3f6f94a295e9179eb52b155bc7962659d"
+    ],
+    [
+      " M",
+      "doc/2026-08-29_bmv2-performance-study-figs/fig7_aggregate_two_planes.pdf",
+      "38a3a1bffd929814aa9130834228a7b913a1a19ba912955379a581a1cae036fb"
+    ],
+    [
+      " M",
+      "doc/2026-08-29_bmv2-performance-study-figs/fig7_aggregate_two_planes.png",
+      "f7aeeede4f66d321831dfcfee4f0d7af1b51adc80647fdb75c05ab641ed75740"
+    ],
+    [
+      " M",
+      "doc/2026-08-29_bmv2-performance-study-figs/fig8_known_but_never_reported.pdf",
+      "6907ddc674a8370191bf62c2a4f944b4c57dd730492b60f5a6b626d98873cfc8"
+    ],
+    [
+      " M",
+      "doc/audit/2026-08-31_sampling-ceiling-after-merge/gates_e.dryrun.log",
+      "c2d820abe90a690c5e09e9eb2095b6b722bcb74dd24dbb3e5b82a82011eb5464"
+    ],
+    [
+      " M",
+      "doc/audit/2026-08-31_sampling-ceiling-after-merge/run_e.dryrun.log",
+      "b7ac9294ed28ad595a7d3704a969a7faeb3c441aed5cf04f44ce3b262b5d3c8c"
+    ],
+    [
+      " M",
+      "p4_proxy/mininet/host_count_override",
+      "7de1555df0c2700329e815b93b32c571c3ea54dc967b89e81ab73b9972b72d1d"
+    ]
+  ],
+  "venv": {
+    "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python": "distributions 28 sha256 d5fc18e12968a343453f008108d4f6bcd81f788ae72a58e8fc547f8e2eaa03ce",
+    "/home/adam/p4dev-python-venv/bin/python": "distributions 39 sha256 69c4cfd5752c4b301d343e41df7befb179dda45406f21f34b4d87e65817722da"
+  }
+}

@@ -1,0 +1,305 @@
+add20e879e7af3b61dcdb65ce8196f9f752b7616
+# 2026-09-27T23:56:57Z cmd bash -c cd p4_proxy && venv/bin/python tests/test_fabric_bring_up.py
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c cd p4_proxy && venv/bin/python tests/test_fabric_bring_up.py
+...............................................................app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-cil1-ca233796/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: link (knob) -> 10 link
+bmv2 binary: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/prefix/bin/simple_switch_grpc
+
+======================================================================
+FATAL: link telemetry could not be brought up: s2-eth1 (ifindex 131073) and s1-eth1 collide in the low 16 bits psample reports (both 1); every sample from one would be attributed to the other's port
+======================================================================
+
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-cil1-ca233796/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: link (knob) -> 10 link
+bmv2 binary: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/prefix/bin/simple_switch_grpc
+
+======================================================================
+FATAL: link telemetry could not be brought up: s2-eth1 (ifindex 131073) and s1-eth1 collide in the low 16 bits psample reports (both 1); every sample from one would be attributed to the other's port
+======================================================================
+
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-cil1-ca233796/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: link (knob) -> 10 link
+bmv2 binary: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/prefix/bin/simple_switch_grpc
+
+======================================================================
+FATAL: link telemetry could not be brought up: s2-eth1 (ifindex 131073) and s1-eth1 collide in the low 16 bits psample reports (both 1); every sample from one would be attributed to the other's port
+======================================================================
+
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-cil1-ca233796/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: link (knob) -> 10 link
+bmv2 binary: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/prefix/bin/simple_switch_grpc
+link telemetry: 10 switch(es), 36 ingress + 4 egress filters, emitter pid 777
+
+======================================================================
+FATAL: the link-telemetry emitter exited with 9 within 0s of starting. 36 ingress and 4 egress sampling filters are attached and nothing is listening to them, so this fabric would report zero link usage while forwarding normally. Its stderr says why.
+======================================================================
+
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-cil1-ca233796/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: link (knob) -> 10 link
+bmv2 binary: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/prefix/bin/simple_switch_grpc
+link telemetry: 10 switch(es), 36 ingress + 4 egress filters, emitter pid 4242
+
+======================================================================
+Multi-Switch Network Started.
+All 10 BMv2 switches verified listening on gRPC 30051 ~ 30060
+Switch manifest: /home/adam/.cache/cil1i/fabric_bring_up_case.ky5zooj_/ndtwin_p4_switches.json
+======================================================================
+
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-cil1-ca233796/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: link (knob) -> 10 link
+bmv2 binary: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/prefix/bin/simple_switch_grpc
+link telemetry: 10 switch(es), 36 ingress + 4 egress filters, emitter pid 4242
+
+======================================================================
+Multi-Switch Network Started.
+All 10 BMv2 switches verified listening on gRPC 30051 ~ 30060
+Switch manifest: /home/adam/.cache/cil1i/fabric_bring_up_case.1y7f7hw5/ndtwin_p4_switches.json
+======================================================================
+
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-cil1-ca233796/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: link (knob) -> 10 link
+bmv2 binary: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/prefix/bin/simple_switch_grpc
+link telemetry: 10 switch(es), 36 ingress + 4 egress filters, emitter pid 4242
+
+======================================================================
+All 10 BMv2 switches listening on gRPC 30051 ~ 30060.
+Switch manifest: /home/adam/.cache/cil1i/fabric_bring_up_case.89g1ibv4/ndtwin_p4_switches.json
+Start the P4 proxy + kernel now (stack.sh up p4 answers its Mininet prompt),
+then use the NTG prompt below. Low-rate template (the CLI needs the flag AND an
+absolute path -- the cwd moves to NTG's repo before the prompt appears):
+    flow --config /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-cil1-ca233796/p4_proxy/mininet/flow_bmv2_low.json
+NTG cannot interrupt an experiment -- let flows finish.
+======================================================================
+
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-cil1-ca233796/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: link (knob) -> 10 link
+bmv2 binary: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/prefix/bin/simple_switch_grpc
+link telemetry: 10 switch(es), 36 ingress + 4 egress filters, emitter pid 4242
+
+======================================================================
+All 10 BMv2 switches listening on gRPC 30051 ~ 30060.
+Switch manifest: /home/adam/.cache/cil1i/fabric_bring_up_case.qog1y051/ndtwin_p4_switches.json
+Start the P4 proxy + kernel now (stack.sh up p4 answers its Mininet prompt),
+then use the NTG prompt below. Low-rate template (the CLI needs the flag AND an
+absolute path -- the cwd moves to NTG's repo before the prompt appears):
+    flow --config /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-cil1-ca233796/p4_proxy/mininet/flow_bmv2_low.json
+NTG cannot interrupt an experiment -- let flows finish.
+======================================================================
+
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-cil1-ca233796/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: link (knob) -> 10 link
+bmv2 binary: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/prefix/bin/simple_switch_grpc
+link telemetry: 10 switch(es), 36 ingress + 4 egress filters, emitter pid 4242
+
+======================================================================
+Multi-Switch Network Started.
+All 10 BMv2 switches verified listening on gRPC 30051 ~ 30060
+Switch manifest: /home/adam/.cache/cil1i/fabric_bring_up_case.3e2puew5/ndtwin_p4_switches.json
+======================================================================
+
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-cil1-ca233796/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: link (knob) -> 10 link
+bmv2 binary: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/prefix/bin/simple_switch_grpc
+link telemetry: 10 switch(es), 36 ingress + 4 egress filters, emitter pid 4242
+
+======================================================================
+Multi-Switch Network Started.
+All 10 BMv2 switches verified listening on gRPC 30051 ~ 30060
+Switch manifest: /home/adam/.cache/cil1i/fabric_bring_up_case.bzais54o/ndtwin_p4_switches.json
+======================================================================
+
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-cil1-ca233796/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+Error: /home/adam/.cache/cil1i/fabric_bring_up_case.xykyemeo/telemetry_override: telemetry source must be one of ['auto', 'none', 'cooperative', 'link'], got 'nonsense'.................................
+app package: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/basic
+topology model: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/basic/ndtwin/topology.json
+telemetry: auto (no knob) -> 4 cooperative
+bmv2 binary: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/prefix/bin/simple_switch_grpc
+link telemetry: off (no switch is on the link path (4 cooperative))
+
+======================================================================
+All 4 BMv2 switches listening on gRPC 30051 ~ 30054.
+Switch manifest: /home/adam/.cache/cil1i/fabric_bring_up_case.c6rmadc6/ndtwin_p4_switches.json
+Start the P4 proxy + kernel now (stack.sh up p4 answers its Mininet prompt),
+then use the NTG prompt below. Low-rate template (the CLI needs the flag AND an
+absolute path -- the cwd moves to NTG's repo before the prompt appears):
+    flow --config /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-cil1-ca233796/p4_proxy/mininet/flow_bmv2_low.json
+NTG cannot interrupt an experiment -- let flows finish.
+======================================================================
+
+app package: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/basic
+topology model: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/basic/ndtwin/topology.json
+telemetry: auto (no knob) -> 4 cooperative
+bmv2 binary: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/prefix/bin/simple_switch_grpc
+link telemetry: off (no switch is on the link path (4 cooperative))
+
+======================================================================
+Multi-Switch Network Started.
+All 4 BMv2 switches verified listening on gRPC 30051 ~ 30054
+Switch manifest: /home/adam/.cache/cil1i/fabric_bring_up_case.4pejuyaa/ndtwin_p4_switches.json
+======================================================================
+
+app package: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/basic
+topology model: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/basic/ndtwin/topology.json
+telemetry: auto (no knob) -> 4 cooperative
+bmv2 binary: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/prefix/bin/simple_switch_grpc
+link telemetry: off (no switch is on the link path (4 cooperative))
+
+======================================================================
+All 4 BMv2 switches listening on gRPC 30051 ~ 30054.
+Switch manifest: /home/adam/.cache/cil1i/fabric_bring_up_case.85tzlusf/ndtwin_p4_switches.json
+Start the P4 proxy + kernel now (stack.sh up p4 answers its Mininet prompt),
+then use the NTG prompt below. Low-rate template (the CLI needs the flag AND an
+absolute path -- the cwd moves to NTG's repo before the prompt appears):
+    flow --config /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-cil1-ca233796/p4_proxy/mininet/flow_bmv2_low.json
+NTG cannot interrupt an experiment -- let flows finish.
+======================================================================
+
+app package: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/basic
+topology model: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/basic/ndtwin/topology.json
+telemetry: auto (no knob) -> 4 cooperative
+bmv2 binary: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/prefix/bin/simple_switch_grpc
+link telemetry: off (no switch is on the link path (4 cooperative))
+
+======================================================================
+All 4 BMv2 switches listening on gRPC 30051 ~ 30054.
+Switch manifest: /home/adam/.cache/cil1i/fabric_bring_up_case.sgl2b6t_/ndtwin_p4_switches.json
+Start the P4 proxy + kernel now (stack.sh up p4 answers its Mininet prompt),
+then use the NTG prompt below. Low-rate template (the CLI needs the flag AND an
+absolute path -- the cwd moves to NTG's repo before the prompt appears):
+    flow --config /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-cil1-ca233796/p4_proxy/mininet/flow_bmv2_low.json
+NTG cannot interrupt an experiment -- let flows finish.
+======================================================================
+
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-cil1-ca233796/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: link (knob) -> 10 link
+bmv2 binary: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/prefix/bin/simple_switch_grpc
+link telemetry: 10 switch(es), 36 ingress + 4 egress filters, emitter pid 4242
+
+======================================================================
+Multi-Switch Network Started.
+All 10 BMv2 switches verified listening on gRPC 30051 ~ 30060
+Switch manifest: /home/adam/.cache/cil1i/fabric_bring_up_case.gcoguvri/ndtwin_p4_switches.json
+======================================================================
+
+link telemetry: emitter pid 4242 absent, 36 of 36 clsact qdisc(s) removed
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-cil1-ca233796/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: link (knob) -> 10 link
+bmv2 binary: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/prefix/bin/simple_switch_grpc
+link telemetry: 10 switch(es), 36 ingress + 4 egress filters, emitter pid 4242
+
+======================================================================
+All 10 BMv2 switches listening on gRPC 30051 ~ 30060.
+Switch manifest: /home/adam/.cache/cil1i/fabric_bring_up_case.gcoguvri/ndtwin_p4_switches.json
+Start the P4 proxy + kernel now (stack.sh up p4 answers its Mininet prompt),
+then use the NTG prompt below. Low-rate template (the CLI needs the flag AND an
+absolute path -- the cwd moves to NTG's repo before the prompt appears):
+    flow --config /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-cil1-ca233796/p4_proxy/mininet/flow_bmv2_low.json
+NTG cannot interrupt an experiment -- let flows finish.
+======================================================================
+
+link telemetry: emitter pid 4242 absent, 36 of 36 clsact qdisc(s) removed
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-cil1-ca233796/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: auto (no knob) -> 10 cooperative
+bmv2 binary: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/prefix/bin/simple_switch_grpc
+link telemetry: off (no switch is on the link path (10 cooperative))
+
+======================================================================
+Multi-Switch Network Started.
+All 10 BMv2 switches verified listening on gRPC 30051 ~ 30060
+Switch manifest: /home/adam/.cache/cil1i/fabric_bring_up_case.2vewwvda/ndtwin_p4_switches.json
+======================================================================
+
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-cil1-ca233796/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: auto (no knob) -> 10 cooperative
+bmv2 binary: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/prefix/bin/simple_switch_grpc
+link telemetry: off (no switch is on the link path (10 cooperative))
+
+======================================================================
+All 10 BMv2 switches listening on gRPC 30051 ~ 30060.
+Switch manifest: /home/adam/.cache/cil1i/fabric_bring_up_case.2vewwvda/ndtwin_p4_switches.json
+Start the P4 proxy + kernel now (stack.sh up p4 answers its Mininet prompt),
+then use the NTG prompt below. Low-rate template (the CLI needs the flag AND an
+absolute path -- the cwd moves to NTG's repo before the prompt appears):
+    flow --config /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-cil1-ca233796/p4_proxy/mininet/flow_bmv2_low.json
+NTG cannot interrupt an experiment -- let flows finish.
+======================================================================
+
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-cil1-ca233796/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: auto (no knob) -> 10 cooperative
+bmv2 binary: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/prefix/bin/simple_switch_grpc................
+----------------------------------------------------------------------
+Ran 112 tests in 0.564s
+
+OK
+
+link telemetry: off (no switch is on the link path (10 cooperative))
+
+======================================================================
+Multi-Switch Network Started.
+All 10 BMv2 switches verified listening on gRPC 30051 ~ 30060
+Switch manifest: /home/adam/.cache/cil1i/fabric_bring_up_case.uvo8onnx/ndtwin_p4_switches.json
+======================================================================
+
+app package: baseline (no knob file)
+topology model: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-cil1-ca233796/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+telemetry: auto (no knob) -> 10 cooperative
+bmv2 binary: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/prefix/bin/simple_switch_grpc
+link telemetry: off (no switch is on the link path (10 cooperative))
+
+======================================================================
+All 10 BMv2 switches listening on gRPC 30051 ~ 30060.
+Switch manifest: /home/adam/.cache/cil1i/fabric_bring_up_case.uvo8onnx/ndtwin_p4_switches.json
+Start the P4 proxy + kernel now (stack.sh up p4 answers its Mininet prompt),
+then use the NTG prompt below. Low-rate template (the CLI needs the flag AND an
+absolute path -- the cwd moves to NTG's repo before the prompt appears):
+    flow --config /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-cil1-ca233796/p4_proxy/mininet/flow_bmv2_low.json
+NTG cannot interrupt an experiment -- let flows finish.
+======================================================================
+
+app package: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/basic
+topology model: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/basic/ndtwin/topology.json
+telemetry: auto (no knob) -> 4 cooperative
+bmv2 binary: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/prefix/bin/simple_switch_grpc
+link telemetry: off (no switch is on the link path (4 cooperative))
+
+======================================================================
+Multi-Switch Network Started.
+All 4 BMv2 switches verified listening on gRPC 30051 ~ 30054
+Switch manifest: /home/adam/.cache/cil1i/fabric_bring_up_case.rwk2y0a6/ndtwin_p4_switches.json
+======================================================================
+
+app package: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/basic
+topology model: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/basic/ndtwin/topology.json
+telemetry: auto (no knob) -> 4 cooperative
+bmv2 binary: /home/adam/.cache/cil1i/fabric_bring_up_test.ry1tivao/prefix/bin/simple_switch_grpc
+link telemetry: off (no switch is on the link path (4 cooperative))
+
+======================================================================
+All 4 BMv2 switches listening on gRPC 30051 ~ 30054.
+Switch manifest: /home/adam/.cache/cil1i/fabric_bring_up_case.rwk2y0a6/ndtwin_p4_switches.json
+Start the P4 proxy + kernel now (stack.sh up p4 answers its Mininet prompt),
+then use the NTG prompt below. Low-rate template (the CLI needs the flag AND an
+absolute path -- the cwd moves to NTG's repo before the prompt appears):
+    flow --config /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-cil1-ca233796/p4_proxy/mininet/flow_bmv2_low.json
+NTG cannot interrupt an experiment -- let flows finish.
+======================================================================
+
+guarded_build: exit 0
+# rc=0

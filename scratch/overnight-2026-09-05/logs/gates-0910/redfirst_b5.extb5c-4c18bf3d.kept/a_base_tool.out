@@ -1,0 +1,164 @@
+
+1. the injected frame is the daemon's frame
+  ok       🔴 byte for byte the daemon's encode()
+  ok         its ethertype, destination and length
+  ok         and the daemon decodes it as one of its own
+
+2. 🔴 the three programs live-p1/06's external arms load drop it
+  ok       🔴 advanced_tunnel (p4runtime skeleton and solution): DROPPED
+  ok         sent to port 0, which no switch of the fabric has
+  ok       🔴 flowcache's solution: DROPPED
+  ok         dropped by the program itself
+  ok       🔴 the converted p4runtime package: rc 0
+  ok         one program, on all three switches
+  ok         and the limit is said with the answer
+
+3. 🔴 a program that does not drop it is named for what it did
+  ok         the control: a program that drops it: dropped
+  ok         said as 'port 1: dropped'
+  ok       🔴 hb_flood: not_dropped
+  ok         said as 'FORWARDED out of fabric port'
+  ok       🔴 hb_punt: not_dropped
+  ok         said as 'PUNTED to the CPU port 255'
+  ok       🔴 hb_digest: not_dropped
+  ok         said as 'A DIGEST TO THE CONTROLLER'
+  ok       🔴 hb_clone: not_dropped
+  ok         said as 'A CLONE TO A MIRROR SESSION'
+  ok       🔴 hb_mcast: not_dropped
+  ok         said as 'MULTICAST requested'
+  ok         a clone is seen in bmv2's own log too
+  ok         a flood is seen in the pcaps too
+  ok       🔴 a package whose program floods it: rc 1
+  ok         naming the program
+
+4. the judgement: a pcap outranks the log, and unread is UNKNOWN
+  ok         a dropped frame and empty pcaps: dropped
+  ok       🔴 the log says dropped, the CPU port's pcap holds a frame: NOT dropped
+  ok         saying where it left
+  ok       🔴 a frame never processed: unknown, not dropped
+  ok       🔴 a copy of the frame with no logged fate: unknown, though the original dropped
+  ok       🔴 an output pcap that is not there: unknown
+  ok         sent to a port no switch of the fabric has: dropped
+  ok       🔴 sent to the CPU port (not a data port): punted, NOT dropped
+  ok       🔴 sent back out of a fabric port: NOT dropped
+  ok       🔴 dropped after a digest: NOT dropped
+
+5. rc 2 when it cannot tell, rc 3 when there is nothing to check
+  ok       🔴 an unreadable package: rc 2
+  ok       🔴 a program bmv2 will not load: unknown
+  ok         saying the switch exited
+  ok         a package on NDTwin's own pipeline: rc 3
+  ok       🔴 a package whose program bmv2 will not load: rc 2
+
+6. the cache: one program, the same ports; UNKNOWN never kept
+  ok       🔴 the second run reads the first one's answer
+  ok         and it is still rc 0
+  ok       🔴 other ports are not the same question
+  ok       🔴 an UNKNOWN answer is not kept
+
+7. 🔴 not the lab: its own directory, its own port, stopped by pid, invisible to by-name
+  ok       🔴 every port ports.sh names is one the check treats as the lab's
+  ok         and no candidate is one of them
+  ok       🔴 a candidate somebody holds is skipped
+  ok       🔴 checked free again right before the launch: taken there is UNKNOWN
+  ok         saying so
+  ok       🔴 argv[0] is not a switch's name
+  ok       🔴 the helper's sweep does not match it
+  ok       🔴 p4_testbed_topo's switch name is not its argv[0]
+  ok       🔴 the kernel's capacity scan does not either (argv[0] does not start simple_switch)
+  ok         (that scan's rule, as the kernel has it)
+  ok       🔴 no argv element names simple_switch_grpc (ndt's running-binary line)
+  ok       🔴 its nanomsg socket is named relative to its own directory
+  ok       🔴 its pcaps and its log are relative to it too
+  ok       🔴 and that directory is its own, under the caller's temporary directory
+  ok       🔴 the CPU port is attached as well (a punt has a port to leave by)
+  ok       🔴 its Thrift port is outside the lab's
+  ok       🔴 its device id is no fabric's (900000 and above)
+  ok       🔴 every condition the gates' tripwire enforces holds for it
+  ok         (the run under observation still judged)
+  ok       🔴 it runs as the caller, not root
+  FAILED   🔴 its comm is not a switch's either
+             expected: [ndt-hbdrop-bmv2] / actual: [simple_switch]
+  ok       🔴 ndt's bmv2_count does not count it
+  ok         nor does its identity rule take it for a switch
+  ok       🔴 its nanomsg socket is in its own directory
+  ok       🔴 stopped by the time the check returns
+  ok         and its directory is gone
+  ok         (section 9's topo-start probe sees a running throwaway switch)
+  ok       🔴 a checker killed outright takes its RUNNING switch with it
+
+8. the command: a signal, a crash, root, no port, another bmv2 -- never a pass, never rc 1
+  FAILED     (the switch was found running before the signal)
+             not run: section 7 found the tool's launch breaks a condition
+  FAILED   🔴 main() SIGTERM'd mid-check: rc 143
+             not run: section 7 found the tool's launch breaks a condition
+  FAILED   🔴 and its switch is gone
+             not run: section 7 found the tool's launch breaks a condition
+  FAILED     and so is its directory
+             not run: section 7 found the tool's launch breaks a condition
+  FAILED   🔴 a crash of the check is rc 2
+             expected: [2] / actual: [raised FileNotFoundError]
+  FAILED     saying it crashed
+             no match for: [could not tell -- the check itself crashed (FileNotFoundError] in: [heartbeat drop check (cached): advanced_tunnel.json (sha256 a1e89cd9ec16, dpid 1,2,3, ports 1,2,3, CPU port 255): DROPPED -- every injected frame was dropped: port 1: sent to port 0, which no switch of this fabric has (nothing leaves); port 2: sent to port 0, which no switch of this fabric has (noth]
+  FAILED   🔴 run as root (euid 0): rc 2
+             expected: [2] / actual: [0]
+  FAILED     saying it refuses
+             no match for: [refusing to run as root] in: [heartbeat drop check (cached): advanced_tunnel.json (sha256 a1e89cd9ec16, dpid 1,2,3, ports 1,2,3, CPU port 255): DROPPED -- every injected frame was dropped: port 1: sent to port 0, which no switch of this fabric has (nothing leaves); port 2: sent to port 0, which no switch of this fabric has (noth]
+  FAILED   🔴 and a launch as root is refused
+             expected: [refused] / actual: [launched]
+  FAILED   🔴 its own modules missing: rc 2
+             expected: [2] / actual: [1]
+  FAILED     saying what it could not load
+             no match for: [could not load its modules] in: []
+  FAILED   🔴 a program with no data port to inject on: not dropped-by-default
+             expected: [unknown] / actual: [dropped]
+  FAILED     saying nothing was asked
+             no match for: [no data port to inject a frame on] in: [every injected frame was dropped: ]
+  FAILED   🔴 a package whose switches the model gives no port: rc 3
+             expected: [3] / actual: [0]
+  FAILED     saying there is no frame to inject
+             no match for: [no data port -- no frame to inject] in: [heartbeat drop check (checked): advanced_tunnel.json (sha256 a1e89cd9ec16, dpid 1, ports , CPU port 255): DROPPED -- every injected frame was dropped: 
+  limit: only the program's default (table-miss) behaviour was checked: no controller, no table entries, no clone session, no multicast group. Entri]
+  FAILED   🔴 a fabric on another bmv2 version: rc 2
+             expected: [2] / actual: [0]
+  FAILED     saying the two are not the same switch
+             no match for: [not the same switch] in: [heartbeat drop check (checked): advanced_tunnel.json (sha256 a1e89cd9ec16, dpid 1,2,3, ports 1,2,3, CPU port 255): DROPPED -- every injected frame was dropped: port 1: sent to port 0, which no switch of this fabric has (nothing leaves); port 2: sent to port 0, which no switch of this fabric has (not]
+  FAILED     naming both versions
+             no match for: ['9.9.9-deadbeef'] in: [heartbeat drop check (checked): advanced_tunnel.json (sha256 a1e89cd9ec16, dpid 1,2,3, ports 1,2,3, CPU port 255): DROPPED -- every injected frame was dropped: port 1: sent to port 0, which no switch of this fabric has (nothing leaves); port 2: sent to port 0, which no switch of this fabric has (not]
+  FAILED   🔴 a fabric binary that answers no version: rc 2
+             expected: [2] / actual: [0]
+  FAILED   🔴 a --version run's comm is ndt-hbdrop-bmv2 too (bmv2_count counts comm)
+             expected: [ndt-hbdrop-bmv2] / actual: [prints_its_comm]
+  FAILED   🔴 the fabric's binary is p4_testbed_topo's override when nothing overrides it
+             expected: [/usr/local/bmv2-fast/bin/simple_switch_grpc] / actual: [None]
+  ok       🔴 a run that never settles: unknown, though every frame it logged was dropped
+  ok         saying it did not settle
+  ok         settled: every frame read, every copy with a fate, the input at its end
+  ok       🔴 not settled before bmv2 says its input files ended
+  ok       🔴 not settled while an injected frame is unread
+  ok       🔴 not settled while a copy has no fate
+  ok       🔴 NDT_HB_CHECK_BMV2 names the switch it runs
+  ok         and the stock build is the default
+
+9. 🔴 end to end: ndt's own drop-check step, this checker, a real throwaway switch
+  FAILED   🔴 end to end: the converted p4runtime package's one-line answer
+             not run: section 7 found the tool's launch breaks a condition
+  FAILED   🔴 the heartbeat is asked to start, once
+             not run: section 7 found the tool's launch breaks a condition
+  FAILED   🔴 no throwaway switch is left when the fabric starts
+             not run: section 7 found the tool's launch breaks a condition
+  FAILED     the whole answer is in the bring-up's own log, named on the line
+             not run: section 7 found the tool's launch breaks a condition
+  FAILED     and it is one short line (06 keeps 6000 characters of `ndt up`)
+             not run: section 7 found the tool's launch breaks a condition
+  FAILED   🔴 end to end: a package whose program floods it -- NOT dropped, said
+             not run: section 7 found the tool's launch breaks a condition
+  FAILED   🔴 and its heartbeat is NOT started
+             not run: section 7 found the tool's launch breaks a condition
+  FAILED     the record names what it did
+             not run: section 7 found the tool's launch breaks a condition
+  FAILED     no throwaway switch is left there either
+             not run: section 7 found the tool's launch breaks a condition
+  ok       🔴 every launch this suite asked for met the orchestrator's conditions
+
+Ran 112 checks, 31 failed

@@ -1,0 +1,11 @@
+67e9963d03732ea833137c248dbc4642979aa6ff
+# 2026-09-28T00:40:51Z cmd bash tests/shell/test_cell_gate_suspect_wiring.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/test_cell_gate_suspect_wiring.sh
+  ok       round.env resolved KERNEL_DIR to this checkout
+  FAILED   no interpreter at PY_PROXY=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-n7-5734f32f/p4_proxy/venv/bin/python: the reader cannot parse records.
+           This tree has no p4_proxy/venv. Export PY_PROXY=<a python with the proxy's deps>
+           (e.g. the main checkout's p4_proxy/venv/bin/python) and run again.
+  1 passed, 1 failed
+guarded_build: exit 1
+# rc=1

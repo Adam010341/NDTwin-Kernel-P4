@@ -1,0 +1,5 @@
+# written BEFORE pushing pr/claude-md-lab-sync (2e1aef4c86c966a0c186fe5bf85ffdad22a5ecbe), 2026-09-28T16:29:13+08:00
+1 file, CLAUDE.md only (docs). Base main 299c9e23.
+- clang, TSan, ASan+UBSan: PASS. GCC: ctest 1385/1385; L1 passed; 0 FAILED lines.
+- Known exception: the ndt clock race (test_apps_residue.sh, two "DATED" checks) can turn GCC red on a loaded runner; fix in progress. A red there
+  is that race only if the two checks are exactly those.

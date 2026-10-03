@@ -1,0 +1,29 @@
+2026-10-01T10:42:58+08:00
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/nvme0n1p5   98G   90G  3.3G  97% /
+avail=3438968832
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env PATH=/home/adam/.local/node/bin:/home/adam/.local/bin:/home/adam/.local/bin:/home/adam/.grok/bin:/home/adam/.local/bin:/home/adam/miniconda3/bin:/home/adam/miniconda3/condabin:/home/adam/.local/bin:/home/adam/.local/bin:/home/adam/.local/bin:/home/adam/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin npm --prefix tools/ndt_serve/web run build
+
+> ndt-serve-web@2.0.0 build
+> tsc --noEmit && vite build && node scripts/build-manual.mjs && node scripts/write-build-manifest.mjs
+
+vite v6.3.5 building for production...
+transforming...
+✓ 76 modules transformed.
+rendering chunks...
+../static/index.html    0.63 kB
+../static/app.css      19.80 kB
+../static/app.js      290.87 kB
+✓ built in 1.36s
+build-manual: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/tools/ndt_serve/static/manual.html (23827 bytes)
+write-build-manifest: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/tools/ndt_serve/static/BUILD.json (47 source files, 4 bundle files)
+guarded_build: exit 0
+exit=0
+2026-10-01T10:43:02+08:00
+after:
+780f0a54807c1edb0ceaa7d626bc58ff68001493110eebd4030f71816febc482  tools/ndt_serve/static/app.css
+db950b461ad492583ca937cc883a6a299d322cb8f478ff7267550f79769eb331  tools/ndt_serve/static/app.js
+781369038a8ea97739b272729f3d09073ab2abc4ce29e11918ea7965d75515e6  tools/ndt_serve/static/BUILD.json
+ba7f56b21e294bf5852dd8a35478a58a271b7ff0abbb8a431291cc581daef732  tools/ndt_serve/static/index.html
+ea3741ed4962b6fa46393691204f8b39d2a04b49e68ee008a17b127c581332b0  tools/ndt_serve/static/manual.html

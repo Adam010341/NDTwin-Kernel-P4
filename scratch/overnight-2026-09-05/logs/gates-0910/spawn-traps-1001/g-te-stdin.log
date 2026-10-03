@@ -1,0 +1,27 @@
+14c490c3b2e3dc0c39fe5c8147c8f97d5af40ed5
+porcelain-lines: 0
+# dir: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-spawn-traps-1001
+# sha256 7d8aab811c17b0cb5364c019e05a10c62c75ae5a5815310c58cbfb3e7a3e31c6  tests/shell/mutate_te_launcher_stdin.sh
+# tripwire lines before: 0
+# $ bash tests/shell/mutate_te_launcher_stdin.sh
+# started 2026-10-01T18:02:49+08:00
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/claude-1000/spawn-traps-1001.lock
+guarded_build: $ bash tests/shell/mutate_te_launcher_stdin.sh
+baseline (must be green before any mutation):
+Ran 57 checks, all passed
+
+  caught   M1: the feed is not applied (= the state te died in)       (app_spawn feeds APP_STDIN to the program went red)
+  caught   M2: a bash -c wrapper feeds it (and buries its argv)       (pid_is_app still matches a fed app went red)
+  caught   M3: the feed is piped from inside, so $! is the subshell   (a fed app is still its own session leader went red)
+  caught   M4: te is started in mode 1, whose trigger is then dead    (the te branch requests mode 2 went red)
+  caught   M5: every app is fed, including the ones that never asked  (app_spawn without APP_STDIN behaves as before went red)
+  caught   C1 (control): -n written as ! -z                           (control: stayed green, as it must)
+  caught   C2 (control): the comment is reworded                      (control: stayed green, as it must)
+  caught   C3 (control): the herestring is written before the log     (control: stayed green, as it must)
+  caught   C4 (control): printf | ( ... ) & -- equivalent, not broken (control: stayed green, as it must)
+
+baseline byte-identical: yes (tools/test_workflow/ndt)
+mutation gate: 9 mutations, 0 survived
+guarded_build: exit 0
+# ended 2026-10-01T18:05:48+08:00; tripwire lines after: 0
+rc=0

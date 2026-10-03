@@ -1,0 +1,228 @@
+14c490c3b2e3dc0c39fe5c8147c8f97d5af40ed5
+porcelain-lines: 0
+# dir: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/tb-sig = d452d111f243b4f05225d16b5773f39076675fb4 + tests/shell/test_fixture_suites_end_on_signal.sh from /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-spawn-traps-1001/tests/shell/test_fixture_suites_end_on_signal.sh (sha256 0f78e39ef023820d)
+# sha256 0f78e39ef023820d0aa536621581280b3c277aa52f748c37087231822784311e  tests/shell/test_fixture_suites_end_on_signal.sh
+# tripwire lines before: 0
+# $ bash tests/shell/test_fixture_suites_end_on_signal.sh
+# started 2026-10-01T17:30:16+08:00
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/claude-1000/spawn-traps-1001.lock
+guarded_build: $ bash tests/shell/test_fixture_suites_end_on_signal.sh
+orphans, TERM
+  ok       orphans TERM: the pid signalled is the shell running the suite
+  ok       orphans TERM: and it leads its own process group
+  ok       orphans TERM: a process of this run besides the suite is alive when it is signalled
+  ok       orphans TERM: its temp tree is found while it runs
+  ok       orphans TERM: the run ends with 143
+  ok       orphans TERM: within 20s of the signal
+  ok       orphans TERM: no process of this run is left
+  ok       orphans TERM: its temp tree is gone
+orphans, INT
+  ok       orphans INT: the pid signalled is the shell running the suite
+  ok       orphans INT: and it leads its own process group
+  ok       orphans INT: a process of this run besides the suite is alive when it is signalled
+  ok       orphans INT: its temp tree is found while it runs
+  ok       orphans INT: the run ends with 130
+  ok       orphans INT: within 20s of the signal
+  ok       orphans INT: no process of this run is left
+  ok       orphans INT: its temp tree is gone
+liveness, TERM
+  ok       liveness TERM: the pid signalled is the shell running the suite
+  ok       liveness TERM: and it leads its own process group
+  ok       liveness TERM: a process of this run besides the suite is alive when it is signalled
+  ok       liveness TERM: its temp tree is found while it runs
+  FAILED   liveness TERM: the run ends with 143
+             expected: 143
+             actual:   1
+  FAILED   liveness TERM: within 20s of the signal
+             expected: yes
+             actual:   no (21s)
+  ok       liveness TERM: no process of this run is left
+  ok       liveness TERM: its temp tree is gone
+             the suite's last lines:
+                 ok       no spawned app survives this run
+               
+               Ran 57 checks, 6 failed
+liveness, INT
+  ok       liveness INT: the pid signalled is the shell running the suite
+  ok       liveness INT: and it leads its own process group
+  ok       liveness INT: a process of this run besides the suite is alive when it is signalled
+  ok       liveness INT: its temp tree is found while it runs
+  FAILED   liveness INT: the run ends with 130
+             expected: 130
+             actual:   1
+  FAILED   liveness INT: within 20s of the signal
+             expected: yes
+             actual:   no (21s)
+  ok       liveness INT: no process of this run is left
+  ok       liveness INT: its temp tree is gone
+             the suite's last lines:
+                 ok       no spawned app survives this run
+               
+               Ran 57 checks, 7 failed
+sweep, TERM
+  ok       sweep TERM: the pid signalled is the shell running the suite
+  ok       sweep TERM: and it leads its own process group
+  ok       sweep TERM: a process of this run besides the suite is alive when it is signalled
+  ok       sweep TERM: its temp tree is found while it runs
+  FAILED   sweep TERM: the run ends with 143
+             expected: 143
+             actual:   1
+  ok       sweep TERM: within 20s of the signal
+  ok       sweep TERM: no process of this run is left
+  ok       sweep TERM: its temp tree is gone
+             the suite's last lines:
+                 ok       the real scan does not find this shell
+               self-match (the failure that makes a guard report a clean machine)
+               /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/tb-sig/tests/she
+sweep, INT
+  ok       sweep INT: the pid signalled is the shell running the suite
+  ok       sweep INT: and it leads its own process group
+  ok       sweep INT: a process of this run besides the suite is alive when it is signalled
+  ok       sweep INT: its temp tree is found while it runs
+  FAILED   sweep INT: the run ends with 130
+             expected: 130
+             actual:   1
+  ok       sweep INT: within 20s of the signal
+  ok       sweep INT: no process of this run is left
+  ok       sweep INT: its temp tree is gone
+             the suite's last lines:
+                 ok       the real scan does not find this shell
+               self-match (the failure that makes a guard report a clean machine)
+               /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/tb-sig/tests/she
+window, TERM
+  ok       window TERM: the pid signalled is the shell running the suite
+  ok       window TERM: and it leads its own process group
+  ok       window TERM: a process of this run besides the suite is alive when it is signalled
+  ok       window TERM: its temp tree is found while it runs
+  FAILED   window TERM: the run ends with 143
+             expected: 143
+             actual:   1
+  ok       window TERM: within 20s of the signal
+  ok       window TERM: no process of this run is left
+  ok       window TERM: its temp tree is gone
+             the suite's last lines:
+                 ok         and neither layer of the two-layer one does
+               
+               Ran 157 checks, 10 failed
+window, INT
+  ok       window INT: the pid signalled is the shell running the suite
+  ok       window INT: and it leads its own process group
+  ok       window INT: a process of this run besides the suite is alive when it is signalled
+  ok       window INT: its temp tree is found while it runs
+  FAILED   window INT: the run ends with 130
+             expected: 130
+             actual:   1
+  ok       window INT: within 20s of the signal
+  ok       window INT: no process of this run is left
+  ok       window INT: its temp tree is gone
+             the suite's last lines:
+                 ok         and neither layer of the two-layer one does
+               
+               Ran 157 checks, 10 failed
+topo_pid, TERM
+  ok       topo_pid TERM: the pid signalled is the shell running the suite
+  ok       topo_pid TERM: and it leads its own process group
+  ok       topo_pid TERM: a process of this run besides the suite is alive when it is signalled
+  ok       topo_pid TERM: its temp tree is found while it runs
+  FAILED   topo_pid TERM: the run ends with 143
+             expected: 143
+             actual:   1
+  FAILED   topo_pid TERM: within 20s of the signal
+             expected: yes
+             actual:   no (29s)
+  ok       topo_pid TERM: no process of this run is left
+  ok       topo_pid TERM: its temp tree is gone
+             the suite's last lines:
+                            actual:   nothing readable (pid 3451641, after 30s)
+               
+               Ran 6 checks, 1 failed (0 skipped)
+topo_pid, INT
+  ok       topo_pid INT: the pid signalled is the shell running the suite
+  ok       topo_pid INT: and it leads its own process group
+  ok       topo_pid INT: a process of this run besides the suite is alive when it is signalled
+  ok       topo_pid INT: its temp tree is found while it runs
+  FAILED   topo_pid INT: the run ends with 130
+             expected: 130
+             actual:   1
+  FAILED   topo_pid INT: within 20s of the signal
+             expected: yes
+             actual:   no (29s)
+  ok       topo_pid INT: no process of this run is left
+  ok       topo_pid INT: its temp tree is gone
+             the suite's last lines:
+                            actual:   nothing readable (pid 3465637, after 30s)
+               
+               Ran 6 checks, 1 failed (0 skipped)
+ovs_claim, TERM
+  ok       ovs_claim TERM: the pid signalled is the shell running the suite
+  ok       ovs_claim TERM: and it leads its own process group
+  ok       ovs_claim TERM: a process of this run besides the suite is alive when it is signalled
+  ok       ovs_claim TERM: its temp tree is found while it runs
+  FAILED   ovs_claim TERM: the run ends with 143
+             expected: 143
+             actual:   1
+  FAILED   ovs_claim TERM: within 20s of the signal
+             expected: yes
+             actual:   no (29s)
+  ok       ovs_claim TERM: no process of this run is left
+  ok       ovs_claim TERM: its temp tree is gone
+             the suite's last lines:
+                            expected: [java-child-of-viz]  actual: [nothing readable (pid 3482143, after 30s)]
+               
+               Ran 86 checks, 1 failed
+ovs_claim, INT
+  ok       ovs_claim INT: the pid signalled is the shell running the suite
+  ok       ovs_claim INT: and it leads its own process group
+  ok       ovs_claim INT: a process of this run besides the suite is alive when it is signalled
+  ok       ovs_claim INT: its temp tree is found while it runs
+  FAILED   ovs_claim INT: the run ends with 130
+             expected: 130
+             actual:   1
+  FAILED   ovs_claim INT: within 20s of the signal
+             expected: yes
+             actual:   no (29s)
+  ok       ovs_claim INT: no process of this run is left
+  ok       ovs_claim INT: its temp tree is gone
+             the suite's last lines:
+                            expected: [java-child-of-viz]  actual: [nothing readable (pid 3498312, after 30s)]
+               
+               Ran 86 checks, 1 failed
+down, TERM
+  ok       down TERM: the pid signalled is the shell running the suite
+  ok       down TERM: and it leads its own process group
+  ok       down TERM: a process of this run besides the suite is alive when it is signalled
+  ok       down TERM: its temp tree is found while it runs
+  FAILED   down TERM: the run ends with 143
+             expected: 143
+             actual:   1
+  FAILED   down TERM: within 20s of the signal
+             expected: yes
+             actual:   no (30s)
+  ok       down TERM: no process of this run is left
+  ok       down TERM: its temp tree is gone
+             the suite's last lines:
+               ### FIXTURE 3512297 after kill: /proc/3512297 exists = no
+               ### FIXTURE 3512334 after kill: /proc/3512334 exists = no
+               ### FIXTURE 3512686 after kill: /proc/3512686 exists = no
+down, INT
+  ok       down INT: the pid signalled is the shell running the suite
+  ok       down INT: and it leads its own process group
+  ok       down INT: a process of this run besides the suite is alive when it is signalled
+  ok       down INT: its temp tree is found while it runs
+  FAILED   down INT: the run ends with 130
+             expected: 130
+             actual:   1
+  FAILED   down INT: within 20s of the signal
+             expected: yes
+             actual:   no (30s)
+  ok       down INT: no process of this run is left
+  ok       down INT: its temp tree is gone
+             the suite's last lines:
+               ### FIXTURE 3525416 after kill: /proc/3525416 exists = no
+               ### FIXTURE 3525488 after kill: /proc/3525488 exists = no
+               ### FIXTURE 3525863 after kill: /proc/3525863 exists = no
+
+Ran 112 checks, 20 failed
+guarded_build: exit 1
+# ended 2026-10-01T17:34:33+08:00; tripwire lines after: 0
+rc=1

@@ -1,0 +1,2 @@
+  declared       r3 cost fixture   (claim measuring=; 'ndt check' refuses while set)
+  measuring      nothing

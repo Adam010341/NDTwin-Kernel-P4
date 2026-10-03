@@ -1,0 +1,148 @@
+Round 7: B can go to the live run, but it must not be pushed yet. On B's merged head, 2 of the 75 GUI v2 tests in `test_ndt_serve.py` fail, because B's changes to `ndt` moved line numbers that the GUI code cites. The README fixes are committed as `9054d0c4a21322c06d6c0fff51d052dba5ebcc7d`, and the rehearsal shows the old text going wrong in each case and the new text right. No lab was used, nothing was pushed, and trunk was not touched.
+
+**1. README fixes F1–F4 and N1–N5.**
+- One commit, `9054d0c4`: "live-p1: make the pre-merge procedure safe to run step by step". `git diff --stat 5311f3f6..HEAD` shows only `live-p1/README.md` (+140 / −35). The message contains none of the forbidden words and has no trailer.
+- **F4**: values go into `V=/home/adam/Desktop/NDTwin-Kernel/scratch/live-extb/vars`. Every step sources it and guards each value it uses with `: "${X:?}"`. The README says how to recover `C_HEAD` and `T_MERGE` from the `00_identity.after.txt` files, and that `HEAD` only counts if its two parents are `C_HEAD` and `B_SHA`.
+- **F2** (step 2): no merge if HEAD is not `C_HEAD` (restart from step 0) or if anything is staged. A refused merge runs `merge --abort`, checks HEAD is still `C_HEAD`, and skips T. A merge that fails the post-merge check goes to step 6, with no T.
+- **F1** (step 6): your block, with two changes.
+  - I added a staged-changes branch. The rehearsal showed `reset --keep` quietly unstaging someone else's staged file that B doesn't touch (rc 0, contents kept), and your block would not stop there.
+  - I added an "already at C_HEAD, nothing to reset" branch, so running step 6 a second time doesn't print the false "HEAD is not T's merge".
+  - The outcomes are written in as you described. Step 7 happens only after `ROLLED-BACK` or after a passing push.
+- **F3**: a wrong command means fix it and compare again, with no new run. A run refused for its own content is redone once; for a control, roll back first, re-run it, then re-merge and check the tree against the old `T_MERGE`. The same refusal twice means stop and report, neither pass nor fail.
+- **N1–N5**:
+  - N1: the freeze announcement includes B's file list and the no-figures / no-claims / no-gate-drivers / separate-`NDT_OWNER` rules.
+  - N2: C1's before and after identities are compared before C2 starts.
+  - N3: tools always come from `$B_WT`.
+  - N4: an unreadable control means roll back, re-run it, re-merge.
+  - N5: one sentence.
+
+**2. Rehearsal of steps 0, 2 and 6** (`logs/gates-0910/extb7-rehearsal.log`; harness in `logs/gates-0910/extb7/`).
+- Done in a fresh `git clone` of `$M` (at trunk `67ec9f9e`) for each case, with the step text extracted word for word from the old and new README. The new README's sha256 `986c51a0…` is the committed one. Clones removed.
+
+| case | old README | new README |
+|---|---|---|
+| A: someone edits `ndt` (a file B changes) after the merge | wrong: false "HEAD is not T's merge", B stays merged, nothing says keep the freeze | right: "reset --keep refused" and "do not unfreeze"; after the owner stashes, ROLLED-BACK |
+| B: someone commits to trunk between steps 0 and 2 | wrong: step 6 drops that commit from trunk | right: "trunk moved since step 0 -- no merge"; the commit is kept |
+| C: someone stages a file B doesn't touch, after the merge | wrong: their file gets unstaged | right: "staged changes -- no reset", still staged; after a stash, ROLLED-BACK |
+| D (extra): empty `C_HEAD` at step 6 | wrong: bare `reset --keep`, rc 0, no STOP, B stays merged | right: the `C_HEAD` guard fires, rc 1, nothing reset |
+
+- A staged-before-merge variant is in the log for reference only: the old text's refused-merge outcome would not actually have run step 6.
+
+**3. Identity pre-flight** (`logs/gates-0910/extb7-preflight.log`).
+- Two `record`s on `$M` with nothing in between: `unchanged_reasons` is empty.
+- `$M` has 7 uncommitted tracked files (four figures, two dryrun logs, `host_count_override`), none of which B changes. This is an observation of someone else's working tree.
+
+**4. GUI v2 tests on `9054d0c4`** (`logs/gates-0910/gui_*.extb7-9054d0c4.log`, summary in `extb7-gui.out`).
+
+| run | result (Python 3.12 and 3.8) | handoff expects |
+|---|---|---|
+| `test_ndt_serve.py` | 75 run, **2 failed** | 75 OK |
+| cells / gui / web suites | 35 / 39 / 18 OK | 35 / 39 / 18 |
+| page suite | 32 OK, no Chrome left behind | 32 OK |
+| page gate | 58 / 0, 3 equivalents, rc 0 (`…extb7b…log:294-296`) | 58 / 0 + 3 |
+| `mutate_ndt_serve.sh` (main gate) | refused to start, rc 2: its baseline run of the suite is red | 198 / 0 |
+
+- The two failures are the GUI's line-number checks on its `ndt` citations: `RcProvenance.test_code_sourced_tables_are_in_ndt` (12 citations, e.g. `ndt:7086`) and `RcProvenance.test_lock_probe_citations_are_lock_probe` (the GUI README's line 78 cites `ndt:9452-9467`; `lock_probe` now spans 9567–9592).
+- The same suite on a clone at trunk `67ec9f9e` passes 75 OK. `ndt` is 11110 lines on trunk and 11227 on B, from B's round-5 changes. This is the trap section 5 of the handoff describes.
+- The fix belongs in GUI files: `tools/ndt_serve/verbs.py` (`RC_SOURCE`), `tools/ndt_serve/README.md`, the `serve.py` comments, and the M61/M64/M65 anchors in `mutate_ndt_serve.sh`. I did not touch them, because this round was README-only. Decision for you: who fixes them, and whether it lands on B or on trunk after the merge. It doesn't affect the live comparison (inferred: live never touches `ndt_serve`).
+- My first page-gate attempt failed because my temp-directory path was too long for Chrome's socket path (108 > 107 bytes). I re-ran it with `TMPDIR=/tmp/r7`. I had copied the GUI worktree's `node_modules` into mine (identical lockfile) and have removed it again.
+
+**5. Wall time (inferred from earlier runs in `$M`).**
+- A full 06 takes 22–29 min (the last four runs 26.7–27.3). 08 with `PART=h5` takes about 27.5 min, H1–H4 6.1 min, and 01 under a minute.
+- One clean run of the procedure is about 88 min of running, roughly **1.7 h** with the handoffs between steps. That is inside your one-to-two-hour window, near the top.
+- **Any rerun path is clearly longer**: plus the one T rerun about 2.2 h; via C3/C4 about 2.7 h; both about 3.2 h. If the first compare calls for a rerun, Adam should be asked again rather than continuing on the same authorisation.
+
+§R7 is appended to `/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/hunt-0911/fix/EXTERNAL-DETECT-ONLY-SUMMARY.md` (lines 1142 onward). Findings continue in `logs/gates-0910/extb6-notes.log` (line 11). No background loops are left running and the scratch trees are removed; `/` has 2.7 GB free. I'm stopping here until you send the go-ahead.
+
+**Live command list, as it will run.** Word for word from README `9054d0c4`. Each block is a separate call; any line printing `STOP` means don't do the next step and follow the README's pre-registered outcome. `X` is `C1` or `C2`. Run 06 and 08 in the background: each takes about 27 min.
+
+```
+# setup
+V=/home/adam/Desktop/NDTwin-Kernel/scratch/live-extb/vars
+mkdir -p "$(dirname "$V")"
+[[ -e "$V" ]] && echo "STOP: $V exists -- another run of this procedure, or an old one not archived" || cat > "$V" <<'EOF'
+M=/home/adam/Desktop/NDTwin-Kernel
+B_WT=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927
+B_SHA=9054d0c4a21322c06d6c0fff51d052dba5ebcc7d
+LP=doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1
+EOF
+```
+```
+# 0. you announce the freeze (N1 list); then
+V=/home/adam/Desktop/NDTwin-Kernel/scratch/live-extb/vars; source "$V"; : "${M:?}" "${B_WT:?}" "${B_SHA:?}" "${LP:?}"
+[[ "$(git -C $B_WT rev-parse HEAD)" == "$B_SHA" ]] || echo "STOP: B_WT is not at B_SHA"
+C_HEAD=$(git -C $M rev-parse HEAD)
+[[ "$(git -C $M symbolic-ref --short HEAD)" == trunk && "$C_HEAD" == "$(git -C $M rev-parse trunk)" ]] || echo "STOP: $M is not on trunk's head"
+git -C $M diff --cached --quiet || echo "STOP: staged changes in $M -- the merge would refuse them; ask their owner"
+git -C $M merge-base --is-ancestor $C_HEAD $B_SHA \
+  || [[ "$(git -C $M merge-tree --write-tree $C_HEAD $B_SHA | head -1)" == "$(git -C $M rev-parse $B_SHA^{tree})" ]] \
+  || echo "STOP: B was not built on this trunk"
+echo "C_HEAD=$C_HEAD" >> "$V"; git -C $M diff --name-only $C_HEAD $B_SHA
+```
+```
+# 1a. C1, then the same for C2
+V=/home/adam/Desktop/NDTwin-Kernel/scratch/live-extb/vars; source "$V"; : "${M:?}" "${B_WT:?}" "${LP:?}" "${C_HEAD:?}"
+[[ "$(git -C $M rev-parse HEAD)" == "$C_HEAD" ]] || echo "STOP: HEAD moved since step 0"
+python3 $B_WT/$LP/code_identity.py record $M "$(dirname "$V")/X.before.json"
+NDT_OWNER=<you> bash $M/$LP/06_thirteen.sh
+```
+```
+# 1b. after each control (C1's must pass before C2 starts)
+V=/home/adam/Desktop/NDTwin-Kernel/scratch/live-extb/vars; source "$V"; R=<raw dir printed by 06>
+cp "$(dirname "$V")/X.before.json" $R/00_identity.before.txt
+python3 $B_WT/$LP/code_identity.py record $M $R/00_identity.after.txt
+bash $B_WT/$LP/venv_fingerprint.sh $R/00_venv.txt $M/p4_proxy/venv/bin/python /home/adam/p4dev-python-venv/bin/python
+echo "X=$R" >> "$V"
+python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import code_identity as c
+r = c.unchanged_reasons(c.load(sys.argv[2]), c.load(sys.argv[3]), "X"); print("\n".join("STOP: " + x for x in r) or "X: the code did not change while it ran")' \
+    $B_WT/$LP $R/00_identity.before.txt $R/00_identity.after.txt
+```
+```
+# 2. merge (you do this step)
+V=/home/adam/Desktop/NDTwin-Kernel/scratch/live-extb/vars; source "$V"; : "${M:?}" "${B_SHA:?}" "${C_HEAD:?}" "${C1:?}" "${C2:?}"
+if [[ "$(git -C $M rev-parse HEAD)" != "$C_HEAD" ]]; then echo "STOP: trunk moved since step 0 -- no merge"
+elif ! git -C $M diff --cached --quiet; then echo "STOP: staged changes in $M -- no merge"
+elif ! git -C $M merge --no-ff --no-edit $B_SHA; then
+    git -C $M merge --abort 2>/dev/null
+    [[ "$(git -C $M rev-parse HEAD)" == "$C_HEAD" ]] && echo "STOP: merge refused (git said why, above) -- no T; HEAD is still C_HEAD" \
+        || echo "STOP: merge refused and HEAD is not C_HEAD"
+else
+    T_MERGE=$(git -C $M rev-parse HEAD); echo "T_MERGE=$T_MERGE" >> "$V"
+    [[ "$(git -C $M rev-parse $T_MERGE^1)" == "$C_HEAD" && "$(git -C $M rev-parse $T_MERGE^2)" == "$(git -C $M rev-parse $B_SHA)" \
+       && "$(git -C $M rev-parse $T_MERGE^{tree})" == "$(git -C $M merge-tree --write-tree $C_HEAD $B_SHA | head -1)" ]] \
+       && echo MERGED || echo "STOP: the merge is not C plus B -- step 6, no T"
+fi
+```
+```
+# 3. T; afterwards: echo "T=<06 raw>" >> "$V"; echo "H5=<08 raw>" >> "$V"
+V=/home/adam/Desktop/NDTwin-Kernel/scratch/live-extb/vars; source "$V"; : "${M:?}" "${LP:?}" "${B_SHA:?}" "${C1:?}" "${T_MERGE:?}"
+[[ "$(git -C $M rev-parse HEAD)" == "$T_MERGE" ]] || echo "STOP: HEAD is not T's merge"
+NDT_OWNER=<you> OLD_06=$C1 C_IDENTITY=$C1/00_identity.after.txt B_SHA=$B_SHA PART=h5 bash $M/$LP/08_heartbeat.sh
+```
+```
+# 4. H1-H4, still under the local merge
+V=/home/adam/Desktop/NDTwin-Kernel/scratch/live-extb/vars; source "$V"; : "${M:?}" "${LP:?}" "${T_MERGE:?}"
+[[ "$(git -C $M rev-parse HEAD)" == "$T_MERGE" ]] || echo "STOP: HEAD is not T's merge"
+NDT_OWNER=<you> bash $M/$LP/08_heartbeat.sh
+```
+```
+# 5. compare
+V=/home/adam/Desktop/NDTwin-Kernel/scratch/live-extb/vars; source "$V"; : "${B_WT:?}" "${LP:?}" "${C1:?}" "${C2:?}" "${T:?}" "${H5:?}" "${B_SHA:?}"
+python3 $B_WT/$LP/external_evidence.py compare $C1 $T --control2 $C2 --samples $H5/50_samples.tsv --b-sha $B_SHA
+```
+```
+# 6. roll back (every outcome except a pass)
+V=/home/adam/Desktop/NDTwin-Kernel/scratch/live-extb/vars; source "$V"; : "${M:?}" "${C_HEAD:?}" "${T_MERGE:?}"
+H=$(git -C $M rev-parse HEAD)
+if [[ "$H" == "$C_HEAD" ]]; then echo "HEAD is already C_HEAD -- nothing to reset"
+elif [[ "$H" != "$T_MERGE" ]]; then echo "STOP: HEAD is not T's merge -- no reset"
+elif ! git -C $M diff --cached --quiet; then echo "STOP: staged changes in $M -- reset --keep would unstage them; no reset"
+elif ! git -C $M reset --keep "$T_MERGE^1"; then echo "STOP: reset --keep refused -- local edits to files B changes (listed above)"
+fi
+[[ "$(git -C $M rev-parse HEAD)" == "$C_HEAD" ]] && echo ROLLED-BACK || echo "STOP: HEAD is not C_HEAD -- do not unfreeze"
+```
+```
+# 7. unfreeze only after ROLLED-BACK, or after a passing push (which also needs the two GUI test failures fixed first); then
+V=/home/adam/Desktop/NDTwin-Kernel/scratch/live-extb/vars; source "$V"; : "${T:?}"
+mv "$V" $T/00_procedure.vars
+```

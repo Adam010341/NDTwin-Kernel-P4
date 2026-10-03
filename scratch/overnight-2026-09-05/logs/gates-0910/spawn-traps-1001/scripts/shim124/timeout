@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Forced-timeout shim: a run of a gone-without-true copy is reported as timed out (rc 124) after it
+# has run for real; every other call is the real timeout. [Co-developed with claude code -- Adam]
+for a in "$@"; do
+    case "$a" in *-gone-without-true-*) /usr/bin/timeout "$@"; echo "FORCED-TIMEOUT SHIM: real rc $?, reporting 124" >&2; exit 124 ;; esac
+done
+exec /usr/bin/timeout "$@"

@@ -1,0 +1,17 @@
+# 2026-10-01T16:57:19+08:00 IDLE (lab down: no fabric, kernel :8000 closed); measure.py, untraced
+{"rep": 0, "rc": 0, "wall_s": 1.039, "run_forks": 448, "idle_forks": 0, "net": 448}
+{"rep": 1, "rc": 0, "wall_s": 1.024, "run_forks": 448, "idle_forks": 0, "net": 448}
+{"rep": 2, "rc": 0, "wall_s": 1.083, "run_forks": 448, "idle_forks": 1, "net": 447}
+{"rep": 3, "rc": 0, "wall_s": 1.097, "run_forks": 452, "idle_forks": 7, "net": 445}
+{"rep": 4, "rc": 0, "wall_s": 1.06, "run_forks": 450, "idle_forks": 0, "net": 450}
+{"rep": 5, "rc": 0, "wall_s": 1.07, "run_forks": 448, "idle_forks": 2, "net": 446}
+{"rep": 6, "rc": 0, "wall_s": 1.069, "run_forks": 448, "idle_forks": 0, "net": 448}
+{"label": "idle-probe", "cmd": "/home/adam/.local/bin/ndt status", "reps": 7, "net_median": 448, "net_min": 445, "net_max": 450, "wall_median_s": 1.069, "rcs": [0]}
+{"rep": 0, "rc": 0, "wall_s": 1.029, "run_forks": 598, "idle_forks": 0, "net": 598}
+{"rep": 1, "rc": 0, "wall_s": 1.087, "run_forks": 603, "idle_forks": 0, "net": 603}
+{"rep": 2, "rc": 0, "wall_s": 1.017, "run_forks": 596, "idle_forks": 0, "net": 596}
+{"rep": 3, "rc": 0, "wall_s": 1.086, "run_forks": 596, "idle_forks": 2, "net": 594}
+{"rep": 4, "rc": 0, "wall_s": 1.014, "run_forks": 596, "idle_forks": 0, "net": 596}
+{"rep": 5, "rc": 0, "wall_s": 1.051, "run_forks": 596, "idle_forks": 14, "net": 582}
+{"rep": 6, "rc": 0, "wall_s": 0.989, "run_forks": 603, "idle_forks": 0, "net": 603}
+{"label": "idle-tick", "cmd": "/home/adam/.local/bin/ndt status & /home/adam/.local/bin/ndt apps status & wait", "reps": 7, "net_median": 596, "net_min": 582, "net_max": 603, "wall_median_s": 1.029, "rcs": [0]}

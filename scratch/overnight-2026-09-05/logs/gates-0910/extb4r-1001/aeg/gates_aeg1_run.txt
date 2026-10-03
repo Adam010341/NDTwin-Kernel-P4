@@ -1,0 +1,3 @@
+redfirst_aeg                   rc=1  AEG-RED-FIRST: BROKEN
+selftest_07                    rc=0  SELF-TEST PASS
+test_live_p1_common            rc=0  Ran 184 checks, 0 failed

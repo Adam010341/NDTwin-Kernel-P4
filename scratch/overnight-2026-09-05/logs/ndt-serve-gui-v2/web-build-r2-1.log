@@ -1,0 +1,20 @@
+6c82b9f85cbafc20147dbb4780c6fcf867c5a1f3
+2026-10-01T12:46:37+08:00
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env PATH=/home/adam/.local/node/bin:/home/adam/.local/bin:/home/adam/.local/bin:/home/adam/.grok/bin:/home/adam/.local/bin:/home/adam/miniconda3/bin:/home/adam/miniconda3/condabin:/home/adam/.local/bin:/home/adam/.local/bin:/home/adam/.local/bin:/home/adam/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin npm --prefix tools/ndt_serve/web run build
+
+> ndt-serve-web@2.0.0 build
+> tsc --noEmit && vite build && node scripts/build-manual.mjs && node scripts/write-build-manifest.mjs
+
+vite v6.3.5 building for production...
+transforming...
+✓ 76 modules transformed.
+rendering chunks...
+../static/index.html    0.63 kB
+../static/app.css      19.80 kB
+../static/app.js      291.37 kB
+✓ built in 1.16s
+build-manual: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/tools/ndt_serve/static/manual.html (24368 bytes)
+write-build-manifest: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/tools/ndt_serve/static/BUILD.json (47 source files, 4 bundle files)
+guarded_build: exit 0
+rc=0

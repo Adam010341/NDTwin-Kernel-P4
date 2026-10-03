@@ -1,0 +1,8 @@
+# written BEFORE pushing pr/spawn-helper-call-sites (eea1173db9691d07d597778e26d255e9428111c3), 2026-10-01T15:56:09+08:00
+Base main c1f59394. 10 files: .gitignore (+6), tests/shell/{check_process_by_name.py, mutate_fixture_spawn_helpers.sh (new),
+test_faults_topo_pid.sh, test_ndt_app_orphans.sh, test_ndt_apps_liveness.sh, test_ndt_down_stops_only_ours.sh,
+test_ndt_helper_apps_window.sh, test_ndt_ovs_claim.sh, test_ndtwin_lab_sweep.sh}. No C++ change.
+- clang, TSan, ASan+UBSan: PASS. GCC: ctest 1385/1385; L1 passed; 0 FAILED lines.
+- L1 suite counts (local unmutated runs): orphans PASS 111, liveness 57, sweep 33, window 157 (156 if 12C does not run), topo_pid 61,
+  ovs_claim 174, down_stops_only_ours 32; test_apps_residue 145 unchanged.
+- gate anchors ok 128/128 (127 on main + the new mutate_fixture_spawn_helpers.sh; CI does not run the mutation gates).

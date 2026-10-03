@@ -1,0 +1,12 @@
+test_l1_shell_scoring # rc=0 |   ok       D22 every NDTWIN_L1_NEEDS in tests/shell and tests/python is one the lane probes Ran 147 checks, 0 failed 
+mutate_l1_shell_scoring # rc=0 |   KILLED   a shell suite with a red check before its SKIP is excused   (suite rc=1, 1 check(s) red, 'D13 🔴 a shell suite that printed a FAILED check before its SKIP is not excused' among them) ===== 53 mutation(s): 53
+test_ndt_ovs_topo_script # rc=0 |   ok       it imports under /home/adam/miniconda3/envs/ntg-env/bin/python Ran 43 checks, 0 failed 
+test_grpc_port_block # rc=0 | Ran 32 tests in 0.232s 
+test_ovs4_sflow # rc=0 | Ran 20 tests in 0.014s 
+p4_route_binding_lab # rc=0 | Ran 47 tests in 0.197s 
+p4_fabric_bring_up_lab # rc=0 | Ran 112 tests in 0.564s 
+check_gate_anchors # rc=0 | 
+check_test_tmpdirs # rc=0 | 
+tripwire lines: 0
+tracked tree clean
+RERUN-DONE

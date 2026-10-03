@@ -1,0 +1,59 @@
+bcdeca0e3c025c93005c2c0963981b705cca8cdc
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  2026-10-02T14:44:49Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  TMPDIR /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb6/tmp
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb10-bcdeca0e/redfirst_b6.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/redfirst_b6.extb10-bcdeca0e.kept
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb10-bcdeca0e/shims (nolab); drop check through /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb10-bcdeca0e/hbwrap
+# disk: 2637 MB free on / when queued; floor 1536 MB, checked again under the lock
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c a=$(df --output=avail -BM / | tail -1 | tr -dc 0-9); echo "# disk under the lock: $a MB free"; (( a >= $0 )) || { echo "DISK-FLOOR: $a MB < $0 MB -- not run"; exit 97; }; exec "$@" 1536 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb10-bcdeca0e/redfirst_b6.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/redfirst_b6.extb10-bcdeca0e.kept
+# disk under the lock: 2637 MB free
+HEAD bcdeca0e3c025c93005c2c0963981b705cca8cdc; base 4c18bf3da29efed3d2f36abd2db67d8f780a222b
+== A: test_live_p1_external_evidence over the base's tool and code_identity.py, no survey tool
+  ok      the base tool fails 166 of 232 cells (degenerate: it reads 00_identity.txt only)
+  ok      red: 🔴 every direction heard in the controller's window, said per direction
+  ok      red: 🔴 a controller window of 5 s (under two periods): UNDECIDED, rc 2, not refused
+  ok      red: 🔴 a window of exactly two periods is decided: rc 0
+  ok      red: 🔴 the window opens at the LAST push (s2's at 70 s), not the first
+  ok      red: 🔴 no push line: the window opens at the first rule installed
+  ok      red: 🔴 a report with no p4c or JSON sha: rc 2
+  ok      red: 🔴 samples from round 5's sampler (no ctrl_logs): rc 2
+  ok      red: 🔴 a sampler that never saw the controller's log: rc 2
+  ok      red: 🔴 a log the sampler never saw reach its push: rc 2
+  ok      red: 🔴 a controller log with no push and no entry: rc 2
+  ok      red: 🔴 uncommitted: a code file and an audit .json are recorded, a doc .md and an audit .tsv are not
+  ok      red: 🔴 a round rewriting build/ under an exercise does not change the identity
+  ok      red: 🔴 a changed exercise file in ~/tutorials does
+  ok      red: 🔴 an untracked file in an exercise (git's porcelain does not show it) changes it too
+  ok      red: 🔴 a rebuilt bmv2 shared library changes the identity
+  ok      red: 🔴 an amended merge is refused
+  ok      red: 🔴 the frozen rounds as frozen, none with the heartbeat: rc 0
+  ok      red: 🔴 a round whose controller log changed since it was frozen: rc 3
+  ok      red: 🔴 a frozen round that is gone: rc 3
+  ok      red: 🔴 a round that had the heartbeat: rc 3
+    (green over the base, by accident: it refuses every compare for want of 00_identity.txt (rc 3), so the
+     round's rc-3 cells -- heard only before the push or after the last write, a session first running after
+     the push, no after-identity, code changed during a run, the tree, ~/tutorials, bmv2 libs, p4c, JSON --
+     answer rc 3 there for the wrong reason. Each is seen red under its own mutant in the evidence gate:
+     E62 E65 E81 E87 E72 E95 I20 I9 I11 I12 E91 E92 E93; and every cell's red is its coverage report)
+  ok      HEAD's tool: Ran 232 checks, 0 failed
+== B: test_live_p1_thirteen over the base's 06
+  ok    base 06: exactly the 2 expected red
+== C: 08's self-test with the base's sampler
+      🔴    H5 sampler rows: header 'wall	status	session	pid	forwarded_to_hosts	forwarded_between_switches	written_wall	stop_reason	misdelivered	foreign_frames	heard	controllers', rows 'absent
+      🔴    🔴 H5 sampler ctrl_logs column: ''
+  ok    08 with the base's sampler: 2 red line(s), as many as expected
+  ok    08 with the base's sampler: red once -- H5 sampler rows
+  ok    08 with the base's sampler: red once -- 🔴 H5 sampler ctrl_logs column
+  ok    08 with the base's sampler: SELF-TEST FAIL, the last line
+  ok    HEAD's own 08: SELF-TEST PASS, the last line (171 ok, 0 red)
+== D: test_l1_shell_scoring over the base's test_heartbeat_drop_check.py
+  ok    base drop-check suite, the lab claim: exactly the 2 expected red
+    (D34 and D35 are green over the base: a claim that does not hold the lab is told by the other skip,
+     which the base also gives; the gate's D34/D35 mutants turn them red)
+== E: selfcheck_b6 over round 5's tripwire and wrappers (real binaries -> /bin/true)
+  ok    round 5's tripwire and wrappers: exactly the 2 expected red
+  ok      round 6's: SELFCHECK-B6: 35 fixture(s), every one as expected
+REDFIRST-B6: ALL-AS-EXPECTED
+guarded_build: exit 0
+# rc=0

@@ -1,0 +1,54 @@
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env PYTHONDONTWRITEBYTECODE=1 timeout 1200 python3 tests/browser/test_ndt_serve_page.py Confirm Refresh
+# date -Is: 2026-10-01T13:01:01+08:00
+# argv: tests/browser/test_ndt_serve_page.py Confirm Refresh
+# git rev-parse HEAD: e74d0a637ea515a55040b1898a73af54f49754ca
+# git status --porcelain | wc -l: 2
+# python: /home/adam/miniconda3/bin/python3 3.13.13 | packaged by Anaconda, Inc. | (main, Apr 14 2026, 06:19:41) [GCC 14.3.0]
+# chrome: Google Chrome 153.0.8010.36
+# NDTWIN_GUARD_HELD: /tmp/ndtwin-build.lock
+# page under test: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/tools/ndt_serve/static
+#   081d5b8c787f42d330b3f47cec3bf0c7838d61a67db3369001f52aafd7af33fd  BUILD.json
+#   780f0a54807c1edb0ceaa7d626bc58ff68001493110eebd4030f71816febc482  app.css
+#   108591256761cf666e741ee373afbcf8e6b3ecf437abb2a48ac7b4e8ae6981e2  app.js
+#   ba7f56b21e294bf5852dd8a35478a58a271b7ff0abbb8a431291cc581daef732  index.html
+#   772d41bc9eaad7bb592fe6e2547eb054b132b0c9042379b00f58319a1bf688c3  manual.html
+test_a_claim_not_yours_puts_claim_first (__main__.Confirm.test_a_claim_not_yours_puts_claim_first) ... ok
+test_a_double_click_posts_once (__main__.Confirm.test_a_double_click_posts_once) ... ok
+test_an_app_start_shows_the_dry_run_and_claim_first (__main__.Confirm.test_an_app_start_shows_the_dry_run_and_claim_first) ... ok
+test_claim_asks_for_no_typed_word (__main__.Confirm.test_claim_asks_for_no_typed_word) ... ok
+test_enter_on_confirm_does_not_confirm (__main__.Confirm.test_enter_on_confirm_does_not_confirm) ... ok
+test_measuring_or_declared_makes_it_typed (__main__.Confirm.test_measuring_or_declared_makes_it_typed) ... ok
+test_no_claim_puts_claim_first (__main__.Confirm.test_no_claim_puts_claim_first) ... ok
+test_the_dialog_shows_the_argv_the_dry_run_answered (__main__.Confirm.test_the_dialog_shows_the_argv_the_dry_run_answered) ... ok
+test_the_focus_starts_on_cancel (__main__.Confirm.test_the_focus_starts_on_cancel) ... ok
+test_the_write_is_posted_after_its_dry_run (__main__.Confirm.test_the_write_is_posted_after_its_dry_run) ... ok
+test_up_asks_for_the_typed_word (__main__.Confirm.test_up_asks_for_the_typed_word) ... ok
+chrome leftovers (Confirm): 0
+test_a_measuring_pause_probes_the_lab_alone (__main__.Refresh.test_a_measuring_pause_probes_the_lab_alone) ... ok
+test_a_measuring_pause_reads_nothing_while_hidden (__main__.Refresh.test_a_measuring_pause_reads_nothing_while_hidden) ... ok
+test_refresh_reads_while_shown_and_idle (__main__.Refresh.test_refresh_reads_while_shown_and_idle) ... ok
+test_refresh_stops_while_declared (__main__.Refresh.test_refresh_stops_while_declared) ... ok
+test_refresh_stops_while_hidden_and_resumes_when_shown (__main__.Refresh.test_refresh_stops_while_hidden_and_resumes_when_shown) ... ok
+test_refresh_stops_while_measuring (__main__.Refresh.test_refresh_stops_while_measuring) ... FAIL
+chrome leftovers (Refresh): 0
+
+======================================================================
+FAIL: test_refresh_stops_while_measuring (__main__.Refresh.test_refresh_stops_while_measuring)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/tests/browser/test_ndt_serve_page.py", line 689, in test_refresh_stops_while_measuring
+    self.paused_by_the_lab(MEASURING, "ndt status said measuring", refresh_now_while_measuring=True)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/tests/browser/test_ndt_serve_page.py", line 686, in paused_by_the_lab
+    self.assertEqual(self.tick_reads()["lab"], after["lab"] + 1, "立即更新 read /lab other than once")
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 3 != 2 : 立即更新 read /lab other than once
+
+----------------------------------------------------------------------
+Ran 17 tests in 289.193s
+
+FAILED (failures=1)
+# processes naming this run's 19 temp dir(s) after the run: 0 
+guarded_build: exit 1
+rc=1

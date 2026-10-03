@@ -1,0 +1,53 @@
+4c18bf3da29efed3d2f36abd2db67d8f780a222b
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  2026-10-01T20:13:51Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  TMPDIR /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp
+# cmd bash tests/shell/test_ndtwin_lab_sweep.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5c-4c18bf3d/shims (nolab); drop check through /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5c-4c18bf3d/hbwrap
+# disk: 2932 MB free on / when queued; floor 1536 MB, checked again under the lock
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c a=$(df --output=avail -BM / | tail -1 | tr -dc 0-9); echo "# disk under the lock: $a MB free"; (( a >= $0 )) || { echo "DISK-FLOOR: $a MB < $0 MB -- not run"; exit 97; }; exec "$@" 1536 bash tests/shell/test_ndtwin_lab_sweep.sh
+# disk under the lock: 2932 MB free
+  ok       sourcing it as a non-root user is allowed
+identity (an argv element IS the program; a mention is not)
+  ok       a compiled switch by absolute path
+  ok       an interpreted topo as argv[1]
+  ok       the path-suffix form
+  ok       an echo that MENTIONS a switch
+  ok       a log file named after the topo
+  ok       an editor holding the file open
+  ok       the operator's own cleanup command
+  ok       a different testbed_topo.py
+  ok       no argv at all
+machine-wide scan (real ps, read-only)
+  ok       fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/bin/simple_switch_grpc
+  ok       fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/bin/reporter-restarting-simple_switch_grpc-and-ntg_bmv2_topo.py
+  ok       the real scan finds the switch fixture
+  ok       the real scan does not find the decoy
+  ok       the real scan does not find this shell
+self-match (the failure that makes a guard report a clean machine)
+  ok       the scanner really looks like a switch
+  ok       and it does not find ITSELF
+  ok       a matching ANCESTOR is not a candidate
+  ok       the real switch fixture still is found
+  ok         even though it shares our group
+counting (what 'ndtwin-lab status' prints)
+  ok       no switches, and we are looking -> 0
+  ok       fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/bin2/simple_switch_grpc
+  ok       two switches, and we are looking -> 2
+kill (what actually happened, not what was requested)
+  ok       fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/ntg_bmv2_topo.py
+  ok       killing a real topo -> rc 0
+  ok         it names the pid it stopped
+  ok         and /proc agrees it is gone
+  ok         the decoy was left alone
+  ok       nothing to kill -> rc 0
+  ok         and it says 'none', not 'done'
+  ok       a pid that does not exist is not alive
+  ok       a live pid that is not the program
+the suite reaps its own fixtures
+  ok       no fixture survives this run
+
+Ran 33 checks, all passed
+guarded_build: exit 0
+# rc=0

@@ -1,0 +1,225 @@
+$ tests/shell/mutate_ndt_serve_page.sh   (worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927, branch feat/ndt-serve-gui-v2-0927, HEAD 2156786b470ae7ae51f204e503f377afc7943d00; the gate and the suite uncommitted)
+  sha256 067d3cf91a244eb894cf0e641f57b07feea0801d4b17efe480a35b0143118eda  tests/shell/mutate_ndt_serve_page.sh
+  sha256 18f85fc5d26f721eab4ad5b4bcb837ff250c29bd7ea95b1797da1d8e2e2d3f02  tests/browser/test_ndt_serve_page.py
+2026-10-01T11:34:02+08:00  2156786b 1 changed path(s) under test vs HEAD; node v24.20.0
+  Filesystem      Size  Used Avail Use% Mounted on
+  /dev/nvme0n1p5   98G   90G  3.3G  97% /
+  /dev/nvme0n1p5   98G   90G  3.3G  97% /
+
+baseline 1 -- the whole suite on the committed page (green, every case run ok, none skipped, no leftover):
+  test_a_claim_not_yours_puts_claim_first ... ok
+  test_a_double_click_posts_once ... ok
+  test_claim_asks_for_no_typed_word ... ok
+  test_enter_on_confirm_does_not_confirm ... ok
+  test_measuring_or_declared_makes_it_typed ... ok
+  test_the_dialog_shows_the_argv_the_dry_run_answered ... ok
+  test_the_focus_starts_on_cancel ... ok
+  test_the_write_is_posted_after_its_dry_run ... ok
+  test_up_asks_for_the_typed_word ... ok
+  test_job_log_stops_on_close ... ok
+  test_job_log_stops_when_the_job_ends ... ok
+  test_job_log_stops_while_hidden_and_resumes ... ok
+  test_a_url_without_a_key_opens_nothing ... ok
+  test_a_used_key_opens_nothing ... ok
+  test_loading_the_page_writes_nothing ... ok
+  test_the_key_is_traded_exactly_once ... ok
+  test_the_key_leaves_the_address_bar ... ok
+  test_the_page_sees_no_csp_violation ... ok
+  test_the_token_is_not_in_browser_storage ... ok
+  test_the_token_is_not_in_the_dom ... ok
+  test_the_token_is_in_no_file_of_the_profile ... ok
+  test_refresh_reads_while_shown_and_idle ... ok
+  test_refresh_stops_while_declared ... ok
+  test_refresh_stops_while_hidden_and_resumes_when_shown ... ok
+  test_refresh_stops_while_measuring ... ok
+  test_ndt_serve_page.py: Ran 25 tests in 111.596s / OK (112 s)
+             leftovers: chrome leftovers (Confirm): 0 chrome leftovers (JobLog): 0 chrome leftovers (Load): 0 chrome leftovers (Profile): 0 chrome leftovers (Refresh): 0  /proc after the run: none
+
+baseline 2 -- web/ copied and built the way every page mutant is, with no edit, is the committed static/:
+  same     BUILD.json   781369038a8ea977
+  same     app.css      780f0a54807c1edb
+  same     app.js       db950b461ad49258
+  same     index.html   ba7f56b21e294bf5
+  same     manual.html  ea3741ed4962b6fa
+  (built in 3 s)
+
+  caught   T1: the token is written into a data-* attribute of <body> (DOM)       (test_the_token_is_not_in_the_dom went red, 5 s)
+             AssertionError: 'dZWLZ0S93GsiYiRIUrx2O44pPtSlQ4Ei1K9F48RlAgU' unexpectedly found in '<html lang="zh-Hant"><head>\n    <meta charset="utf-8">\n    <meta name="viewport" content="width=device-width, initial-scale=1">\n    <title>ndt serve</ti
+             self.assertNotIn(token, html, "the token is in the page's DOM")
+             leftovers: chrome leftovers (Load): 0  /proc after the run: none
+  caught   T2: the token is put in IndexedDB (only the profile's files hold it; G-N8) (test_the_token_is_in_no_file_of_the_profile went red, 5 s)
+             AssertionError: Lists differ: ['Default/IndexedDB/http_127.0.0.1_33543.indexeddb.leveldb/000003.log'] != []
+             self.assertEqual(files_holding(self.profile, token), [], "the token is in a file of the browser profile")
+             leftovers: chrome leftovers (Profile): 0  /proc after the run: none
+  SURVIVED T3: the token is also put in sessionStorage (spelled past a static lint) (test_the_token_is_not_in_browser_storage stayed green -- that case proves nothing)
+             ERROR: setUpClass (__main__.Load)
+             Ran 0 tests in 0.001s
+             FAILED (errors=1)
+             leftovers: no chrome line  /proc after the run: none
+             ^^^ LEFTOVER (or no leftover line at all): this gate will exit 2
+  SURVIVED T4: the page remembers its open tab in localStorage (no token in it)   (test_the_token_is_not_in_browser_storage stayed green -- that case proves nothing)
+             ERROR: setUpClass (__main__.Load)
+             Ran 0 tests in 0.001s
+             FAILED (errors=1)
+             leftovers: no chrome line  /proc after the run: none
+             ^^^ LEFTOVER (or no leftover line at all): this gate will exit 2
+  SURVIVED S1: the session module trades the key a second time (G-N10)            (test_the_key_is_traded_exactly_once stayed green -- that case proves nothing)
+             ERROR: setUpClass (__main__.Load)
+             Ran 0 tests in 0.001s
+             FAILED (errors=1)
+             leftovers: no chrome line  /proc after the run: none
+             ^^^ LEFTOVER (or no leftover line at all): this gate will exit 2
+  SURVIVED F1: history.replaceState is gone (the key stays in the address bar)    (test_the_key_leaves_the_address_bar stayed green -- that case proves nothing)
+             ERROR: setUpClass (__main__.Load)
+             Ran 0 tests in 0.001s
+             FAILED (errors=1)
+             leftovers: no chrome line  /proc after the run: none
+             ^^^ LEFTOVER (or no leftover line at all): this gate will exit 2
+  caught   P1: the server keeps a used key (serve.py Nonces.take)                 (test_a_used_key_opens_nothing went red, 1 s)
+             AssertionError: Tuples differ: ('ok', 'yes') != ('refused', 'no-session')
+             "the second load of a used key opened a session")
+             leftovers: chrome leftovers (Load): 0  /proc after the run: none
+  caught   P2: the page trades a key it does not have (an empty hash)             (test_a_url_without_a_key_opens_nothing went red, 5 s)
+             AssertionError: Tuples differ: ('refused', 'no-session', [], [('POST', '/api/v1/session', 400)]) != ('no-key', 'no-session', [], [])
+             "a URL with no key: (data-session, data-loaded, ndt calls, non-GET requests)")
+             leftovers: chrome leftovers (Load): 0  /proc after the run: none
+  SURVIVED L1: the page releases the lab the moment it has the token (v1 G14)     (test_loading_the_page_writes_nothing stayed green -- that case proves nothing)
+             ERROR: setUpClass (__main__.Load)
+             Ran 0 tests in 0.001s
+             FAILED (errors=1)
+             leftovers: no chrome line  /proc after the run: none
+             ^^^ LEFTOVER (or no leftover line at all): this gate will exit 2
+  SURVIVED X1: an inline <script> in the built index.html (CSP positive control)  (test_the_page_sees_no_csp_violation stayed green -- that case proves nothing)
+             ERROR: setUpClass (__main__.Load)
+             Ran 0 tests in 0.001s
+             FAILED (errors=1)
+             leftovers: no chrome line  /proc after the run: none
+             ^^^ LEFTOVER (or no leftover line at all): this gate will exit 2
+  caught   C1: serve.py confirm_policy says plain for up/down                     (test_up_asks_for_the_typed_word went red, 1 s)
+             AssertionError: False is not true : the Up dialog asks for no typed word (the server's confirm_policy says typed): {'open': True, 'phase': 'ready', 'typed': False, 'word': '', 'go_disabled': False, 'focus': 'c-cancel', 'blockers': [], 'argv
+             self.assertTrue(d["typed"], "the Up dialog asks for no typed word (the server's confirm_policy says typed): "
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  SURVIVED C5: the page ignores the server's confirm === "typed"                  (test_up_asks_for_the_typed_word stayed green -- that case proves nothing)
+             ERROR: setUpClass (__main__.Confirm)
+             Ran 0 tests in 0.001s
+             FAILED (errors=1)
+             leftovers: no chrome line  /proc after the run: none
+             ^^^ LEFTOVER (or no leftover line at all): this gate will exit 2
+  SURVIVED C2: the page ignores needs_own_claim (blocks only when /lab did not answer) (test_a_claim_not_yours_puts_claim_first stayed green -- that case proves nothing)
+             ERROR: setUpClass (__main__.Confirm)
+             Ran 0 tests in 0.001s
+             FAILED (errors=1)
+             leftovers: no chrome line  /proc after the run: none
+             ^^^ LEFTOVER (or no leftover line at all): this gate will exit 2
+  SURVIVED C2b: serve.py confirm_policy says up/down need no claim of your own    (test_a_claim_not_yours_puts_claim_first stayed green -- that case proves nothing)
+             ERROR: setUpClass (__main__.Confirm)
+             Ran 0 tests in 0.001s
+             FAILED (errors=1)
+             leftovers: no chrome line  /proc after the run: none
+             ^^^ LEFTOVER (or no leftover line at all): this gate will exit 2
+  SURVIVED C3: the page does not upgrade to typed while measuring                 (test_measuring_or_declared_makes_it_typed stayed green -- that case proves nothing)
+             ERROR: setUpClass (__main__.Confirm)
+             Ran 0 tests in 0.001s
+             FAILED (errors=1)
+             leftovers: no chrome line  /proc after the run: none
+             ^^^ LEFTOVER (or no leftover line at all): this gate will exit 2
+  SURVIVED C3b: the page does not upgrade to typed while a measurement is declared (test_measuring_or_declared_makes_it_typed stayed green -- that case proves nothing)
+             ERROR: setUpClass (__main__.Confirm)
+             Ran 0 tests in 0.001s
+             FAILED (errors=1)
+             leftovers: no chrome line  /proc after the run: none
+             ^^^ LEFTOVER (or no leftover line at all): this gate will exit 2
+  SURVIVED C4: serve.py confirm_policy says typed for claim                       (test_claim_asks_for_no_typed_word stayed green -- that case proves nothing)
+             ERROR: setUpClass (__main__.Confirm)
+             Ran 0 tests in 0.001s
+             FAILED (errors=1)
+             leftovers: no chrome line  /proc after the run: none
+             ^^^ LEFTOVER (or no leftover line at all): this gate will exit 2
+  SURVIVED C6: Confirm takes the focus once the dialog is ready                   (test_the_focus_starts_on_cancel stayed green -- that case proves nothing)
+             ERROR: setUpClass (__main__.Confirm)
+             Ran 0 tests in 0.001s
+             FAILED (errors=1)
+             leftovers: no chrome line  /proc after the run: none
+             ^^^ LEFTOVER (or no leftover line at all): this gate will exit 2
+  SURVIVED C7: Enter on Confirm is not stopped (it clicks Confirm)                (test_enter_on_confirm_does_not_confirm stayed green -- that case proves nothing)
+             ERROR: setUpClass (__main__.Confirm)
+             Ran 0 tests in 0.001s
+             FAILED (errors=1)
+             leftovers: no chrome line  /proc after the run: none
+             ^^^ LEFTOVER (or no leftover line at all): this gate will exit 2
+  SURVIVED C8: Confirm works twice (no fired ref, no disabled at once, no sent)   (test_a_double_click_posts_once stayed green -- that case proves nothing)
+             ERROR: setUpClass (__main__.Confirm)
+             Ran 0 tests in 0.001s
+             FAILED (errors=1)
+             leftovers: no chrome line  /proc after the run: none
+             ^^^ LEFTOVER (or no leftover line at all): this gate will exit 2
+  caught   D1: the dialog shows an argv the page built (path and body), not the dry run's (test_the_dialog_shows_the_argv_the_dry_run_answered went red, 3 s)
+             AssertionError: Lists differ: ['claim', '30'] != ['/tmp/ndt-page-gate-tF2bxh/d1-own-argv/tmp[65 chars]'30']
+             self.assertEqual(d["argv"], answers[0]["argv"], "the dialog's argv is not the argv the dry run answered")
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  SURVIVED D2: the page sends the write without its dry run first                 (test_the_write_is_posted_after_its_dry_run stayed green -- that case proves nothing)
+             ERROR: setUpClass (__main__.Confirm)
+             Ran 0 tests in 0.001s
+             FAILED (errors=1)
+             leftovers: no chrome line  /proc after the run: none
+             ^^^ LEFTOVER (or no leftover line at all): this gate will exit 2
+  caught   R0: the auto-refresh timer is never armed (the load's read only)       (test_refresh_reads_while_shown_and_idle went red, 28 s)
+             AssertionError: 0 not greater than or equal to 2 : 0 timer read(s) of /lab in 25 s of a shown page with nothing measuring
+             self.assertGreaterEqual(n, 2, "%d timer read(s) of /lab in %d s of a shown page with nothing measuring"
+             leftovers: chrome leftovers (Refresh): 0  /proc after the run: none
+  SURVIVED R1: the auto-refresh never sees the page hidden (all three checks)     (test_refresh_stops_while_hidden_and_resumes_when_shown stayed green -- that case proves nothing)
+             ERROR: setUpClass (__main__.Refresh)
+             Ran 0 tests in 0.001s
+             FAILED (errors=1)
+             leftovers: no chrome line  /proc after the run: none
+             ^^^ LEFTOVER (or no leftover line at all): this gate will exit 2
+  SURVIVED R1b: shown again, the page does not read and re-arm                    (test_refresh_stops_while_hidden_and_resumes_when_shown stayed green -- that case proves nothing)
+             ERROR: setUpClass (__main__.Refresh)
+             Ran 0 tests in 0.001s
+             FAILED (errors=1)
+             leftovers: no chrome line  /proc after the run: none
+             ^^^ LEFTOVER (or no leftover line at all): this gate will exit 2
+  SURVIVED R2: arm() does not pause on measuring/declared                         (test_refresh_stops_while_measuring stayed green -- that case proves nothing)
+             ERROR: setUpClass (__main__.Refresh)
+             Ran 0 tests in 0.001s
+             FAILED (errors=1)
+             leftovers: no chrome line  /proc after the run: none
+             ^^^ LEFTOVER (or no leftover line at all): this gate will exit 2
+  SURVIVED R2a: only a declared measurement pauses (measuring_is_nothing ignored) (test_refresh_stops_while_measuring stayed green -- that case proves nothing)
+             ERROR: setUpClass (__main__.Refresh)
+             Ran 0 tests in 0.001s
+             FAILED (errors=1)
+             leftovers: no chrome line  /proc after the run: none
+             ^^^ LEFTOVER (or no leftover line at all): this gate will exit 2
+  SURVIVED R2b: a declared measurement does not pause                             (test_refresh_stops_while_declared stayed green -- that case proves nothing)
+             ERROR: setUpClass (__main__.Refresh)
+             Ran 0 tests in 0.001s
+             FAILED (errors=1)
+             leftovers: no chrome line  /proc after the run: none
+             ^^^ LEFTOVER (or no leftover line at all): this gate will exit 2
+  SURVIVED R3: Close does not stop the log (only opening another job does)        (test_job_log_stops_on_close stayed green -- that case proves nothing)
+             ERROR: setUpClass (__main__.JobLog)
+             Ran 0 tests in 0.001s
+             FAILED (errors=1)
+             leftovers: no chrome line  /proc after the run: none
+             ^^^ LEFTOVER (or no leftover line at all): this gate will exit 2
+  SURVIVED R4: the job's end does not stop the log                                (test_job_log_stops_when_the_job_ends stayed green -- that case proves nothing)
+             ERROR: setUpClass (__main__.JobLog)
+             Ran 0 tests in 0.001s
+             FAILED (errors=1)
+             leftovers: no chrome line  /proc after the run: none
+             ^^^ LEFTOVER (or no leftover line at all): this gate will exit 2
+  SURVIVED R5: the job log reads on while the page is hidden                      (test_job_log_stops_while_hidden_and_resumes stayed green -- that case proves nothing)
+             ERROR: setUpClass (__main__.JobLog)
+             Ran 0 tests in 0.001s
+             FAILED (errors=1)
+             leftovers: no chrome line  /proc after the run: none
+             ^^^ LEFTOVER (or no leftover line at all): this gate will exit 2
+
+files under test unchanged by this gate (68 files; node_modules excluded, see baseline 2):
+  sha256 of their sha256sum lines: 6b6b605998e9db94832ff4381b6106829734157e8abbd29a33abfc86cacaf311
+  total 221 s
+
+31 mutation(s), 24 survivor(s)
+REFUSED: 24 run(s) left processes behind (see 'leftovers:' above)
+gate exit=2

@@ -1,0 +1,30 @@
+== p4runtime_skeleton: 11 rounds readable, 0 not ()
+   verdict                2 distinct: PASS (4/4) x10; ERROR -- LAB NOT RETURNED: `ndt down` ex x1
+   rules_installed        1 distinct: 6:308935 x11
+   counters_final         1 distinct: [('s1 MyIngress.egressTunnelCounter 200', (0, 0)), ('s1 MyIngress.ingr x11
+   packet_ins             1 distinct: 0 x11
+   cache_entries          1 distinct: 0:72187 x11
+   heartbeat_packet_ins   1 distinct: 0 x11
+   non_ipv4_packet_ins    1 distinct: 0 x11
+   grpc_errors            1 distinct: 0 x11
+   invariants             1 distinct: ok|ok x11
+== p4runtime_solution: 12 rounds readable, 0 not ()
+   verdict                3 distinct: PASS (5/5) x8; FAIL (1/5) x3; ERROR -- LAB NOT RETURNED: `ndt down` ex x1
+   rules_installed        1 distinct: 8:564350 x12
+   counters_final         4 distinct: [('s1 MyIngress.egressTunnelCounter 200', (6, 684)), ('s1 MyIngress.in x6; [('s1 MyIngress.egressTunnelCounter 200', (3, 306)), ('s1 MyIngress.in x4; [('s1 MyIngress.egressTunnelCounter 200', (6, 684)), ('s1 MyIngress.in x1; [('s1 MyIngress.egressTunnelCounter 200', (7, 858)), ('s1 MyIngress.in x1
+   packet_ins             1 distinct: 0 x12
+   cache_entries          1 distinct: 0:72187 x12
+   heartbeat_packet_ins   1 distinct: 0 x12
+   non_ipv4_packet_ins    1 distinct: 0 x12
+   grpc_errors            1 distinct: 0 x12
+   invariants             3 distinct: BAD|ok|ok x10; BAD|BAD|ok x1; ok|ok|ok x1
+== flowcache_solution: 11 rounds readable, 0 not ()
+   verdict                4 distinct: PASS (5/5) x7; FAIL (2/5) x2; ERROR -- LAB NOT RETURNED: `ndt down` ex x1; FAIL (1/5) x1
+   rules_installed        1 distinct: 3:886319 x11
+   counters_final         1 distinct: [] x11
+   packet_ins             3 distinct: 7 x6; 4 x3; 6 x2
+   cache_entries          4 distinct: 6:788282 x5; 4:487855 x3; 5:737577 x2; 6:815067 x1
+   heartbeat_packet_ins   1 distinct: 0 x11
+   non_ipv4_packet_ins    1 distinct: 0 x11
+   grpc_errors            2 distinct: 1 x8; 0 x3
+   invariants             1 distinct: ok|ok x11

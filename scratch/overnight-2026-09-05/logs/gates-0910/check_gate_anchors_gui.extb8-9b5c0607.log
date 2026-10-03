@@ -1,0 +1,16 @@
+9b5c06078d367b67d95521361da651e50ae08794
+# 2026-10-02T10:18:40Z cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927 TMPDIR /tmp/r8 via guard; disk 2651 MB
+# cmd env PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3.12 tests/shell/check_gate_anchors.py --gates-from HEAD --gates mutate_ndt_serve.sh mutate_ndt_serve_page.sh -- HEAD
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3.12 tests/shell/check_gate_anchors.py --gates-from HEAD --gates mutate_ndt_serve.sh mutate_ndt_serve_page.sh -- HEAD
+anchors of each gate, counted in each rev's own files; gates read from HEAD
+columns:
+  c0   HEAD
+
+                          c0            
+mutate_ndt_serve.sh       ok(170)       
+mutate_ndt_serve_page.sh  ok(44)        
+
+2/2 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+guarded_build: exit 0
+# rc=0

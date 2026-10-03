@@ -1,0 +1,27 @@
+head 23e9b76fe64a6ecc659fb40961f95faf090f6b3f
+porcelain 4 tracked file(s) differ from HEAD
+date 2026-10-02T01:02:04+08:00
+baseline (must be green before any mutation):
+  Ran 79 checks, 0 failed
+
+  caught   L1: --measuring is the full report (sudo and the kernel graph on every probe) (🔴 --measuring ran no sudo, curl, OVS or bmv2 command (8 states) went red)
+  caught   L2: --measuring answers from its own copy (always nothing)     (in_flight only: the same measuring row as plain status went red)
+  caught   L3: plain status stops using the shared rows                   (in_flight only: --measuring's rows are plain status's, line for line went red)
+  caught   L4: a sudo OVS query on the measuring rows' path               (🔴 --measuring ran no sudo, curl, OVS or bmv2 command (8 states) went red)
+  caught   L5: a kernel get_graph_data request on the measuring rows' path (🔴 --measuring ran no sudo, curl, OVS or bmv2 command (8 states) went red)
+  caught   L5b: a bmv2 CLI query on the measuring rows' path              (🔴 --measuring ran no sudo, curl, OVS or bmv2 command (8 states) went red)
+  caught   L6: --measuring answers 1 (ndt serve would read a failure, not a report) (nothing: --measuring answers rc 0 went red)
+  caught   L7: the measuring rows drop the declaration                    (declared only: the declared row went red)
+  caught   L8: somebody else's claim declares nothing                     (somebody else's claim: the declared row went red)
+  caught   L9: an expired claim still declares a measurement              (expired claim: the declared row went red)
+  caught   L10: an orphaned driver reads as a measurement                 (orphaned (no fabric): the measuring row went red)
+  caught   L11: the measuring rows stop reading the process table         (in_flight only: the measuring row went red)
+  caught   L12: the '+ N more' row of a measurement is lost               (two drivers: the '+ 1 more' row, as plain status prints it went red)
+  caught   L13: ndt help does not name --measuring                        (ndt help names status --measuring went red)
+
+files under test unchanged by this gate:
+  408310c7667af5e616421db114895fe4e9ab7bfed5ea6c1e951503686aeb7fc2  tools/test_workflow/ndt
+  e10a136dc100a59a3d9b78cd6cbedc12429eec0947188ffd61034fb360b80e62  tests/shell/test_ndt_status_measuring.sh
+
+14 mutation(s), 0 survivor(s)
+rc=0

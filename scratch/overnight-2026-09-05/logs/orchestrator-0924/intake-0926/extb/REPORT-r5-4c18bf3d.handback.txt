@@ -1,0 +1,129 @@
+Round 5 of feat/external-detect-only-0927 is finished. Every M and S item and every nit is either fixed or explicitly left with a reason. All 39 gates pass (rc 0) on the merged head. §R5 is appended to the SUMMARY: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/hunt-0911/fix/EXTERNAL-DETECT-ONLY-SUMMARY.md (OBSERVED and INFERRED kept apart, each claim cited as log:line). Findings log: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5-notes.log.
+
+**Head:** `4c18bf3da29efed3d2f36abd2db67d8f780a222b` (worktree clean, nothing pushed, no sudo, no lab).
+
+**Merge-tree base:** trunk `1e350bf2`.
+- First merge: trunk `d452d111` → `2469c2a2`, tree `62979b4d`, which is what merge-tree predicted.
+- Trunk then moved to `1e350bf2` at 13:59Z: 7 commits touching 9 tests/shell files, none of them B's. I did not re-check trunk before starting the official driver; that was my miss.
+- So after the extb5b run passed on `cc798de2`, I merged again → `4c18bf3d`, tree `24286ec3` (predicted), and reran the full set as extb5c.
+- At delivery, `git merge-tree --write-tree trunk HEAD` = `24286ec3`.
+
+**Commits** (`faf6eb41..HEAD`, first parent):
+- `4c18bf3d` Merge trunk 1e350bf2
+- `cc798de2` l1 scoring suite: the drop check's suite skips, declared, without a stock simple_switch
+- `6163cef4` 08 self-test: phase_for's range check includes its two reachable ends
+- `79235fac` 08 self-test: the controllers-column case names its pid as a quoted value
+- `9020a496` live-p1 evidence suite: cells each mutation can reach under the decisive split
+- `960d555b` l1 gate: the ryu-probe mutation names D18 as it reads now
+- `52049946` gates: anchors the anchor checker can find for the new mutations
+- `7a82f317` l1: run tests/shell's Python suites, scored as shell suites
+- `868e4ed0` live-p1: record each run's code, hear every direction, decide only on fields that hold still
+- `f4b2e377` proxy: describe segment S's census of the external programs as its raw shows it
+- `639695da` ndt: keep one drop-check log per bring-up and flag paths on an external plane
+- `bdc1a12f` heartbeat drop check: never a pass or rc 1 on a crash, root, a port-less program or another bmv2
+- `2469c2a2` Merge trunk d452d111
+
+**Items, with red/green evidence.** Gate logs are in `logs/gates-0910/` and are green on 4c18bf3d.
+
+- **M-1** — full-06 controls:
+  - The controls C1/C2 are now full 06 runs.
+  - 08 with `PART=h5` refuses before anything runs (rc 2) when `OLD_06` is not 26 arms.
+  - New self-test cells cover a 26-arm C1-shaped reference (OK) and a 4-arm one (BAD).
+  - The README pre-registers that H5's "06 against C1" line is reported, not decided on.
+  - Red: L79 and L79b (mutate_p4_heartbeat_w, :276-277).
+- **M-2** — the local-merge protocol:
+  - New `live-p1/code_identity.py` records HEAD and parents, the files the merge changed, uncommitted tracked files with their sha256s, the kernel, fabric bmv2, stock bmv2 and installed-helper sha256s, and both venv shas. Untracked files are not recorded (disclosed).
+  - B's 06 writes `00_identity.txt`.
+  - `compare` requires `--b-sha` and refuses (rc 3) unless all controls match and T is a merge with C's HEAD first and B second, the same uncommitted set (none of it touched by B), and identical binaries and venvs.
+  - 08 with `C_IDENTITY` + `B_SHA` checks this before 06 starts.
+  - README: freeze trunk, record, `merge --no-ff`, T, compare; rollback is `git reset --keep <C_HEAD>`, never `--hard`.
+  - Red: E69–E72 and I1–I8 (evidence gate), L82–L85 (on a real git repository), M13 (06 records no identity), redfirst_b5 section E.
+- **M-3** — every direction must be heard:
+  - The sampler now records per-direction `heard` and the pids of live `run_external_controller.py` processes.
+  - `compare` finds the controller's lifetime from the report's `controller pid N` line (at least 2 samples) and refuses (rc 3) if any direction's heard count did not grow during it.
+  - Non-numeric counters or heard values are now rc 2 instead of 0.
+  - Red: E61–E68, L80, L81, redfirst_b3 (base sampler).
+- **M-4** — no mutant launches a switch that breaks the conditions:
+  - The suite asserts argv on a recorder that launches nothing.
+  - Every real launch goes through a guard that checks: argv[0], no `simple_switch*` argument, Thrift 29400–29499, device id ≥ 900000, `ipc://notif.ipc`, relative pcaps and log, its own `ndt-hbdrop-*` directory, not root, and in gates the wrapper as executable.
+  - The gate wrappers (`extb5/make_hbwrap.sh`) refuse a bad launch (rc 97, logged `REFUSED-LAUNCH`).
+  - The tripwire (`extb5/aeg/tripwire_b5.sh`) re-validates every launch line, fails on any refusal, and checks liveness by pid plus start time. Self-checks: `extb5/tripwire_selfcheck.log` and `extb5/wrapper_selfcheck.log` — every condition red.
+  - D16/D16b/D17/D18 are caught (:35-38) with 0 violations in the same driver's tripwire.
+- **M-5** — two trunk merges, full reruns: extb5b on `cc798de2` (38 gates) and extb5c on `4c18bf3d` (39 gates).
+- **S-1:**
+  - Counts corrected in place in the SUMMARY: 22+5=27 gates; 1585 = 625 switches + 960 probes (recounted, notes:23).
+  - Also corrected: SUM:135 (the fixture README also had a /home/adam line), SUM:591, SUM:678, and that the round-4 plan is in §R3.10 only.
+  - INTAKE and the frozen b4r header are left alone.
+- **S-2** — LIMITS, the ndt line, the census and the README now say that a pipeline the controller pushes and a default action it changes at runtime are not covered. Red: M28b.
+- **S-3** — the sentence is rewritten to what segment S's raw shows:
+  - Every switch ran the package's program (30_report.json), with no entries.
+  - "no pipeline loaded" is P4Runtime's FAILED_PRECONDITION, not an empty data plane.
+  - Red: M28d, plus the new `assertNotIn`.
+- **S-4:**
+  - Any crash is rc 2 (an import failure too); root is refused (rc 2 and `PermissionError`).
+  - A program with no data port is not applicable (rc 3); `check_program(ports=[])` is unknown.
+  - The stock `--version` must equal the fabric binary's (from the override file).
+  - Both the switch and the version runs are executed via a link named `ndt-hbdrop-bmv2`, so comm is not a fabric switch's.
+  - New cell: `main()` SIGTERM'd mid-check → rc 143, switch gone, directory gone.
+  - Mutants D32–D44, plus the settled and env-override ones.
+  - mutate_heartbeat_drop_check: 64 mutations, 0 survived, 103/103 non-control checks seen red.
+- **S-5** — one drop-check log per bring-up, named on the line ndt prints. Red: N44c.
+- **S-6** — end to end, ndt → the real checker → a throwaway switch:
+  - Covers the one-line answer, exactly one heartbeat start, no throwaway switch alive at topo-start, and the flood variant withheld.
+  - Red: NE1–NE3 (:75-77).
+  - 6000-character margin (INFERRED): the detect-only line ends at about character 5109, about 891 to spare.
+- **S-7:**
+  - Mutant runs that never reach their summary line are kept (this time: 0).
+  - D10 cause (INFERRED, not reproduced): the switch took more than 3 s to die under MemoryHigh throttling, so the final kill missed. The kill now tolerates that, and the SIGKILL probe now waits for `notif.ipc`, so a real switch is running when the checker is killed.
+- **S-8:**
+  - l1 now collects `tests/shell/test_*.py` as shell-style suites, with a new need `bmv2-stock`.
+  - New cells D27–D31: D30/D31 run the suite with no simple_switch and check it skips, declared — DECLARED-SKIP on a hosted runner, FAIL-SKIP on the lab.
+  - mutate_l1_shell_scoring: 58 killed, 0 survived.
+- **S-9** — pre-registered decision rule in the tool and README:
+  - Arithmetic: a range rule's false-fail rate is 2/(n+1).
+  - A survey of 34 earlier no-heartbeat rounds (`extb5/survey.out`) splits the fields into DESCRIPTIVE (varied before) and DECISIVE (never varied, held exactly). Controls that disagree on a decisive check make it UNDECIDED (rc 2).
+  - A decisive DIFF gets one rerun of T; DAEMON counts and 0x88B5 packet-ins fail at once.
+  - Disclosed: with the rerun the per-check bound is q² ≤ 4.9% at N=12 but 5.7% at N=11, and the family-wise bound exceeds 5%.
+  - Red: E73–E80.
+- **Nits:**
+  - A nonzero path count on an external plane is now flagged and is a `--check` problem (M28c).
+  - The fixture README path is now `~/`.
+  - The advanced_tunnel fixture equals the ~/tutorials build (notes:19).
+  - The phase_for flake is fixed.
+
+**Gate table, extb5c on 4c18bf3d** — every log's first line is the sha, every last line is `# rc=0`, and the driver ends `GATES-extb5c 4c18bf3d: ALL-AS-EXPECTED`. All 39 rc 0.
+- redfirst_b, b2, b3, b4, b5: ALL-AS-EXPECTED
+- proxy_unit: 1733 passed, 1 skipped
+- test_ndt_heartbeat 91/0; test_ndt_app_package 404/0; test_ndt_up_down_robust 424/0; test_ndt_sudo_surface 55/0; test_ndt_status_check_baseline 112/0
+- trunk merge checks: test_apps_residue 145/0, test_ndt_app_orphans 111/0, test_ndt_apps_liveness 57/0, test_ndt_down_stops_only_ours 32/0, test_ndt_helper_apps_window 157/0, test_ndt_ovs_claim 174/0, test_ndtwin_lab_sweep 33/0, test_faults_topo_pid 61/0, test_fixture_suites_end_on_signal 84/0
+- selftest_08 PASS; selftest_07 PASS
+- test_live_p1_common 220/0; test_live_p1_thirteen 46/0; test_live_p1_external_evidence 151/0; test_heartbeat_drop_check 112/0; test_l1_shell_scoring 157/0; test_drive_exercise OK
+- mutate_p4_heartbeat_w 266/0 (123/123); mutate_live_p1_common 59/0; mutate_live_p1_thirteen 13/0; mutate_live_p1_external_evidence 89/0 (151/151); mutate_roles_binding 179/0; mutate_app_package 48/0; mutate_ndt_app_package 78/0; mutate_heartbeat_drop_check 64/0 (103/103); mutate_l1_shell_scoring 58/0
+- check_gate_anchors 130/130
+- nolab_tripwire over 4 extb5 driver logs: 0 lab calls; 2508 launches and 5734 probes re-checked; 0 breaking a condition, 0 refused, 0 still running
+
+extb5b on cc798de2 (38 gates) is identical except the extra trunk suite (l1 scoring 156 checks there). Stopped drivers extb5 and extb5a have their partial logs marked `# rc=stopped`.
+
+**Live run** — ready, not run; needs Adam's lab authorisation in this session. Run from `/home/adam/Desktop/NDTwin-Kernel` with `LP=doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1`, `B_WT=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927`, `B_SHA=4c18bf3da29efed3d2f36abd2db67d8f780a222b`. Step 0: you freeze trunk pushes and merges.
+```
+NDT_OWNER=<you> bash $LP/06_thirteen.sh        # C1, then after it:
+bash $B_WT/$LP/venv_fingerprint.sh <C1>/00_venv.txt /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/p4dev-python-venv/bin/python
+python3 $B_WT/$LP/code_identity.py record /home/adam/Desktop/NDTwin-Kernel <C1>/00_identity.txt
+NDT_OWNER=<you> bash $LP/06_thirteen.sh        # C2, then the same two lines for <C2>
+git -C /home/adam/Desktop/NDTwin-Kernel merge --no-ff --no-edit $B_SHA      # local only
+NDT_OWNER=<you> OLD_06=<C1> C_IDENTITY=<C1>/00_identity.txt B_SHA=$B_SHA PART=h5 bash $LP/08_heartbeat.sh
+python3 $LP/external_evidence.py compare <C1> <T> --control2 <C2> --samples <08 run>/50_samples.tsv --b-sha $B_SHA
+# pass -> push and unfreeze; fail or abandon ->
+git -C /home/adam/Desktop/NDTwin-Kernel reset --keep <head from C1/00_identity.txt>
+NDT_OWNER=<you> bash $LP/08_heartbeat.sh       # H1-H4 afterwards
+```
+The decision rules are in the README section 「判定（預先登記，第五輪）」.
+
+**Not done, and why:**
+- The live comparison: excluded from this round by the ruling.
+- The four D21 leftover directories in `extb4r-1001/tmp/ndt-hbdrop-*` and `/tmp/bmv2-951150-notifications.ipc` (a round-4 D17 leftover): not mine, so not deleted.
+- The injected frame's field values (rx_dpid 0, synthetic MAC and session) and the withheld reason in switch_state: not in this round's list; disclosed.
+- Family-wise false-fail rate below 5%: not achievable with the earlier rounds available; disclosed.
+- One known limit, written into the README: two checks picking the same Thrift port at once gives UNKNOWN, never a pass.
+
+DELIVERED 4c18bf3da29efed3d2f36abd2db67d8f780a222b

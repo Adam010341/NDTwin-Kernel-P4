@@ -1,0 +1,116 @@
+# date -Is: 2026-10-01T20:13:22+08:00
+# argv: tests/shell/mutate_ndt_serve_page.sh 
+# git rev-parse HEAD: 23e9b76fe64a6ecc659fb40961f95faf090f6b3f
+# git status --porcelain | wc -l: 0
+# python3: /home/adam/miniconda3/bin/python3 3.13.13 | packaged by Anaconda, Inc. | (main, Apr 14 2026, 06:19:41) [GCC 14.3.0]
+# node -v: v24.20.0   npm -v: 11.19.0
+# this gate: 9ae9ca7d44730148df88a8c8f17404cf13f5b3c9f1872c594b88daae5fade3f9
+# ONLY=q1-no-probe q2-probe-reads-everything q3-probe-every-20-s q4-probe-reads-apps q5-probe-result-ignored q4b-probe-reads-lab q12-probe-sets-last-read q8-shown-probes-at-once q8b-shown-arms-nothing q9-declared-sticks q10-probe-parses-the-row q7-probe-while-hidden q7a-armed-while-hidden q7b-reads-while-hidden -- a PARTIAL run of the named mutation(s): not this gate's verdict on the page
+# changed paths under test vs HEAD: 0
+  Filesystem      Size  Used Avail Use% Mounted on
+  /dev/nvme0n1p5   98G   89G  4.1G  96% /
+  /dev/nvme0n1p5   98G   89G  4.1G  96% /
+
+baseline 1 -- the whole suite on the committed page (green, every case run ok, none skipped, no leftover):
+  test_a_claim_not_yours_puts_claim_first ... ok
+  test_a_double_click_posts_once ... ok
+  test_an_app_start_shows_the_dry_run_and_claim_first ... ok
+  test_claim_asks_for_no_typed_word ... ok
+  test_enter_on_confirm_does_not_confirm ... ok
+  test_measuring_or_declared_makes_it_typed ... ok
+  test_no_claim_puts_claim_first ... ok
+  test_the_dialog_shows_the_argv_the_dry_run_answered ... ok
+  test_the_focus_starts_on_cancel ... ok
+  test_the_write_is_posted_after_its_dry_run ... ok
+  test_up_asks_for_the_typed_word ... ok
+  test_job_log_stops_on_close ... ok
+  test_job_log_stops_when_the_job_ends ... ok
+  test_job_log_stops_while_hidden_and_resumes ... ok
+  test_a_url_without_a_key_opens_nothing ... ok
+  test_a_used_key_opens_nothing ... ok
+  test_loading_the_page_writes_nothing ... ok
+  test_the_key_is_traded_exactly_once ... ok
+  test_the_key_leaves_the_address_bar ... ok
+  test_the_page_sees_no_csp_violation ... ok
+  test_the_token_is_not_in_browser_storage ... ok
+  test_the_token_is_not_in_the_dom ... ok
+  test_a_probe_that_times_out_keeps_the_pause_and_the_next_one_ends_it ... ok
+  test_the_token_is_in_no_file_of_the_profile ... ok
+  test_a_declared_pause_is_resumed_by_the_probe ... ok
+  test_a_measuring_pause_probes_measuring_alone ... ok
+  test_a_measuring_pause_reads_nothing_while_hidden ... ok
+  test_refresh_reads_while_shown_and_idle ... ok
+  test_refresh_stops_while_declared ... ok
+  test_refresh_stops_while_hidden_and_resumes_when_shown ... ok
+  test_refresh_stops_while_measuring ... ok
+  test_shown_again_while_measuring_probes_once_60_s_later ... ok
+  test_ndt_serve_page.py: Ran 32 tests in 617.402s / OK (618 s)
+             leftovers: chrome leftovers (Confirm): 0 chrome leftovers (JobLog): 0 chrome leftovers (Load): 0 chrome leftovers (ProbeTimeout): 0 chrome leftovers (Profile): 0 chrome leftovers (Refresh): 0  /proc after the run: none
+
+baseline 2 -- web/ copied and built the way every page mutant is, with no edit, is the committed static/:
+  same     BUILD.json   4c98675f9d7fb25b
+  same     app.css      780f0a54807c1edb
+  same     app.js       75f6255d2abed426
+  same     index.html   ba7f56b21e294bf5
+  same     manual.html  a97624cad205d8fa
+  (built in 7 s)
+
+  caught   Q1: the probe is never armed                                           (test_a_measuring_pause_probes_measuring_alone went red, 74 s)
+             AssertionError: {'lab': 1, 'apps': 1, 'health': 1, 'jobs': 1, 'measuring': 0} != {'lab': 1, 'apps': 1, 'health': 1, 'jobs': 1, 'measuring': 1}
+             self.assertEqual(got, want, "the measuring pause read %r in %d s, not /measuring alone once (before %r)"
+             leftovers: chrome leftovers (Refresh): 0  /proc after the run: none
+  caught   Q2: the probe reads everything (readRef, not probeRef)                 (test_a_measuring_pause_probes_measuring_alone went red, 75 s)
+             AssertionError: {'lab': 2, 'apps': 2, 'health': 2, 'jobs': 2, 'measuring': 0} != {'lab': 1, 'apps': 1, 'health': 1, 'jobs': 1, 'measuring': 1}
+             self.assertEqual(got, want, "the measuring pause read %r in %d s, not /measuring alone once (before %r)"
+             leftovers: chrome leftovers (Refresh): 0  /proc after the run: none
+  caught   Q3: the probe interval is 20 s, not 60 s                               (test_a_measuring_pause_probes_measuring_alone went red, 75 s)
+             AssertionError: {'lab': 1, 'apps': 1, 'health': 1, 'jobs': 1, 'measuring': 3} != {'lab': 1, 'apps': 1, 'health': 1, 'jobs': 1, 'measuring': 1}
+             self.assertEqual(got, want, "the measuring pause read %r in %d s, not /measuring alone once (before %r)"
+             leftovers: chrome leftovers (Refresh): 0  /proc after the run: none
+  caught   Q4: readProbe also GETs /apps                                          (test_a_measuring_pause_probes_measuring_alone went red, 73 s)
+             AssertionError: {'lab': 1, 'apps': 2, 'health': 1, 'jobs': 1, 'measuring': 1} != {'lab': 1, 'apps': 1, 'health': 1, 'jobs': 1, 'measuring': 1}
+             self.assertEqual(got, want, "the measuring pause read %r in %d s, not /measuring alone once (before %r)"
+             leftovers: chrome leftovers (Refresh): 0  /proc after the run: none
+  caught   Q5: the probe reads /measuring but its answer never ends the pause     (test_a_measuring_pause_probes_measuring_alone went red, 145 s)
+             AssertionError: False is not true : the refresh did not resume by the next probe and a tick after nothing measured: {'lab': 1, 'apps': 1, 'health': 1, 'jobs': 1, 'measuring': 2}
+             "the refresh did not resume by the next probe and a tick after nothing measured: %r"
+             leftovers: chrome leftovers (Refresh): 0  /proc after the run: none
+  caught   Q4b: the probe is /lab again (plain ndt status: sudo and the kernel graph) (test_a_measuring_pause_probes_measuring_alone went red, 74 s)
+             AssertionError: {'lab': 2, 'apps': 1, 'health': 1, 'jobs': 1, 'measuring': 0} != {'lab': 1, 'apps': 1, 'health': 1, 'jobs': 1, 'measuring': 1}
+             self.assertEqual(got, want, "the measuring pause read %r in %d s, not /measuring alone once (before %r)"
+             leftovers: chrome leftovers (Refresh): 0  /proc after the run: none
+  caught   Q12: the probe moves the full read's time (the tabs would read fresher than they are) (test_a_measuring_pause_probes_measuring_alone went red, 74 s)
+             AssertionError: '上次讀取 8:33:31 PM' != '上次讀取 8:32:31 PM'
+             "the probe changed the full read's time (the tabs are as old as the last full read)")
+             leftovers: chrome leftovers (Refresh): 0  /proc after the run: none
+  caught   Q8: shown again while measuring, the probe reads at once (not 60 s later) (test_shown_again_while_measuring_probes_once_60_s_later went red, 68 s)
+             AssertionError: {'lab': 1, 'apps': 1, 'health': 1, 'jobs': 1, 'measuring': 1} != {'lab': 1, 'apps': 1, 'health': 1, 'jobs': 1, 'measuring': 0}
+             : shown again while measuring, the page read before its 60 s probe: {'lab': 1, 'apps': 1, 'health': 1, 'jobs': 1, 'measuring': 1} (before {'lab': 1, 'apps': 1, 'health': 1, 'jobs': 1, 'measuring': 0})
+             leftovers: chrome leftovers (Refresh): 0  /proc after the run: none
+  caught   Q8b: shown again while measuring, no probe is armed again              (test_shown_again_while_measuring_probes_once_60_s_later went red, 79 s)
+             AssertionError: False is not true : shown again while measuring, no probe within 66 s
+             "shown again while measuring, no probe within %d s" % (PROBE_S + 6))
+             leftovers: chrome leftovers (Refresh): 0  /proc after the run: none
+  caught   Q9: a declared pause never ends (null read as a declaration)           (test_a_declared_pause_is_resumed_by_the_probe went red, 86 s)
+             AssertionError: False is not true : the declared pause did not resume by the probe and a tick: {'lab': 1, 'apps': 1, 'health': 1, 'jobs': 1, 'measuring': 1} (before {'lab': 1, 'apps': 1, 'health': 1, 'jobs': 1, 'measuring': 0})
+             "the declared pause did not resume by the probe and a tick: %r (before %r)"
+             leftovers: chrome leftovers (Refresh): 0  /proc after the run: none
+  caught   Q10: the page reads the row itself, so a timed-out probe reads as nothing measuring (test_a_probe_that_times_out_keeps_the_pause_and_the_next_one_ends_it went red, 83 s)
+             AssertionError: Tuples differ: ({'lab': 2, 'apps': 2, 'health': 2, 'jobs': 2, 'me[28 chars]ing') != ({'lab': 1, 'apps': 1, 'health': 1, 'jobs': 1, 'me[28 chars]ing')
+             "a probe that timed out brought the 10 s tick back")
+             leftovers: chrome leftovers (ProbeTimeout): 0  /proc after the run: none
+  caught   Q7: the probe is armed while hidden AND reads while hidden             (test_a_measuring_pause_reads_nothing_while_hidden went red, 77 s)
+             AssertionError: {'lab': 1, 'apps': 1, 'health': 1, 'jobs': 1, 'measuring': 1} != {'lab': 1, 'apps': 1, 'health': 1, 'jobs': 1, 'measuring': 0}
+             self.assertEqual(after, before, "the page read %r in %d s while measuring and hidden (before %r)"
+             leftovers: chrome leftovers (Refresh): 0  /proc after the run: none
+  equiv.   Q7a: the probe is armed while hidden (probe() still checks)            (test_a_measuring_pause_reads_nothing_while_hidden stayed green, 82 s: probe() reads nothing while hidden)
+             leftovers: chrome leftovers (Refresh): 0  /proc after the run: none
+  equiv.   Q7b: probe() has no hidden check (arm() still arms none while hidden)  (test_a_measuring_pause_reads_nothing_while_hidden stayed green, 83 s: arm() arms no probe while hidden)
+             leftovers: chrome leftovers (Refresh): 0  /proc after the run: none
+
+files under test unchanged by this gate (68 files; node_modules excluded, see baseline 2):
+  sha256 of their sha256sum lines: 8595b74dffc893fd2f1cb320405b3c34c72a116da3128153d1a17ae0c37a3f5e
+  total 1774 s
+
+12 mutation(s), 0 survivor(s); 2 documented equivalent(s), 0 broken (ONLY: a partial run)
+rc=0

@@ -1,0 +1,4 @@
+# PR #14 runs 36375273810 / 36375270576 (head ec8eb33a): all four jobs SUCCESS on both runs; clang is now OBSERVED on the full build.
+# GCC raw logs (API; 7098 and 7085 lines, the second after a refetch): ctest 1385/1385 (1368 + 17 P4Capabilities*), 0 FAILED/FAIL: lines, "L1 passed";
+# test_contract_spec.py PASS 261; test_p4_capabilities_wired.sh PASS 3.
+# => prediction met.

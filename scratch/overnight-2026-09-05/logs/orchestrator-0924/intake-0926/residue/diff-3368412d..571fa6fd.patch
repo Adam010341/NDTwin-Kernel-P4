@@ -1,0 +1,731 @@
+diff --git a/doc/KNOWN-ISSUES.md b/doc/KNOWN-ISSUES.md
+index 5da93a71..6838daa4 100644
+--- a/doc/KNOWN-ISSUES.md
++++ b/doc/KNOWN-ISSUES.md
+@@ -5365,6 +5365,36 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際
+   `NDTWIN_L1_NEEDS: ryu` 的檔交給 ryu-env、其餘用與 CI 同版的 python3，就同時解掉這 8 個；
+   逐檔改寫成 3.8 相容是另一條路，但每加一個新測試就要再守一次。
+ 
++### G-62 🔴 residue 視窗「記錄下來的那條邊」會把 app 自己的規則排除：stop 記下的起點可晚 1 s，封口與紀錄檔的終點被快取表的年齡推過去
++
++- **狀態**：🔴 OPEN（登記，未修；2026-09-28）。同一輪修掉的是另一半：`residue_report` 內部現在只讀一次
++  `now`、讀在流表之後、每個 app 緊接著就定年（`app_started_at` 拿這個 `now`），活著的 app 的視窗不再錯一秒
++  （`tests/shell/test_apps_residue.sh` 5K／5N）。本條是一次 `now` 管不到的三條路：它們的邊是**事先記下來的時刻**，
++  不是這一次報告讀的鐘。
++- **實測（決定性擺位：在秒內選定的位置啟動，每格 3 次，MISS 3/3、對照 3/3 列出；新舊 `ndt` 同結果）**：
++  `scratch/overnight-2026-09-05/logs/gates-0910/residue-0928/measure-windows-3368412d.log` 與
++  `measure-windows-74d1383f.log`，腳本在同目錄 `scripts/measure_windows.sh`（假交換機按規則的安裝時刻回
++  `duration_sec`；`app_stop` 以 stub 依指定時刻殺掉夾具；其餘是真的 `cmd_apps stop`／`residue_report`）：
++  - **S1 stop 路徑的起點**：`cmd_apps stop` 在停之前用 `app_started_at` 記下 `RESIDUE_WINDOW`，這時沒有報告的
++    `now`，它自己讀鐘，而整秒的 `etimes` 換成絕對時刻**最多晚 1 s** ⇒ app 第一個不滿一秒裡裝的規則被排除，
++    報告印 `no flow entry arrived during that window`。**同一個起點也寫進磁碟**：`app_stop` 開頭的
++    `wstart="$(app_started_at "$name")"` → `app_window_record`，之後的 `ndt apps orphans`／`ndt status --check`
++    讀的就是這份紀錄。
++  - **S2 封口窗的右端**（pidfile 的行程已死，右端＝app log 的 mtime）與 **S3 紀錄窗的右端**
++    （`.test_run/apps/<app>.window` 的 `end`）：一條在右端**之前**裝上的規則，只要它的 `now - duration_sec`
++    落在右端之後就被排除。
++- **界線（讀碼）**：`/ndt/get_switch_openflow_table_entries` 回的是 kernel 的快取表
++  （`HttpSession.cpp` 的 `handleGetSwitchOpenflowEntries` → `DeviceConfigurationAndPowerManager::getOpenFlowTables`），
++  大約每 10 s 輪詢一次，輪詢失敗時沿用上一張（`stale_since`／`stale_polls` 標在被沿用的那台交換機上）。
++  ⇒ `now - duration_sec` **永遠不早於**規則裝上的那一秒，但**可以晚到快取的年齡**：S2／S3 的誤差不是整秒進位，
++  而是 **0–10 s，表被沿用時沒有上界**。S1 的 1 s 才是整秒 `etimes` 換絕對時刻的進位。
++  量測腳本的假交換機在抓取當下作答，是最緊的情形；實機上 S2／S3 的窗口更寬。
++- **失效方向：樂觀**。漏掉的是 app 自己的規則，報告說那個視窗裡沒有規則，rc 0。
++- **修法方向（2026-09-28 審核裁定：走 (a)，不用容忍值）**：(a) 次秒精度比較——規則用 `duration_sec`＋`duration_nsec`
++  從**表的輪詢時刻**往回推（kernel 目前只在被沿用的表上帶 `stale_since`，一般的表沒有輪詢時刻，要先補），
++  起點用 `/proc/<pid>/stat` 的 starttime 與 `/proc/uptime` 換出的次秒時刻，記錄下來的邊也存次秒。
++  不採：在記錄下來的邊外放寬 1 s（會把視窗外的底座規則算進來，而且擋不住 0–10 s 的快取年齡）。
++
+ ## 證據索引
+ 
+ | 輪次 | 位置 | 內容 |
+diff --git a/tests/python/test_ndt_serve.py b/tests/python/test_ndt_serve.py
+index a58a2d59..9ed93857 100644
+--- a/tests/python/test_ndt_serve.py
++++ b/tests/python/test_ndt_serve.py
+@@ -419,7 +419,7 @@ class Csrf(ServeCase):
+ 
+     def test_reads_need_the_token_except_health(self):
+         """Judge 09-24 finding 1: GET /status?check=1 runs `ndt status --check`, whose lock probes
+-        POST /ndt/acquire_lock to the kernel (ndt:9416-9431). A read is not side-effect free, so
++        POST /ndt/acquire_lock to the kernel (ndt:9429-9444). A read is not side-effect free, so
+         every GET but /health is gated the way a write is."""
+         paths = ["/status", "/status?check=1", "/apps", "/jobs", "/jobs/20260101T000000Z-abcdef",
+                  "/jobs/20260101T000000Z-abcdef/log/stdout", "/cells", "/cells/x", "/cells/x/old",
+diff --git a/tests/shell/mutate_apps_residue_one_clock.sh b/tests/shell/mutate_apps_residue_one_clock.sh
+new file mode 100755
+index 00000000..6e70dfc6
+--- /dev/null
++++ b/tests/shell/mutate_apps_residue_one_clock.sh
+@@ -0,0 +1,190 @@
++#!/usr/bin/env bash
++#
++# Mutation gate for "one clock per residue report": tests/shell/test_apps_residue.sh groups 5K
++# and 5N, against tools/test_workflow/ndt's residue_report and app_started_at.
++#
++# [Co-developed with claude code -- Adam]
++#
++# residue_report dates every rule as `now - duration_sec` and every live app as `now - etimes`,
++# both against the SAME `now`, read after the flow table, with every app dated right after it.
++# Each product mutation below puts back one way of breaking that, and must turn the 5N case
++# written for it red:
++#   M3  app_started_at's pidfile source reads the clock again   (the CI failure itself)
++#   M4  app_started_at's scan source reads the clock again
++#   M5  the report reads `now` before the table instead of after it
++#   M6  the report stops handing its `now` to app_started_at
++#   M9  apps are dated after the lock probes instead of right after `now`
++# 5N makes each race CERTAIN rather than likely (a `ps` that waits for the next second before the
++# dating's etimes query, a switch that answers from the rule's install instant, lock probes that
++# take 1.2 s each), and asserts that the race was set up. The test mutations take that set-up
++# away and must turn the PREMISE checks red -- a premise that cannot fail is a regression test
++# that can pass without its race:
++#   M7  the dating's `ps` no longer waits for a boundary   -> the three live premises
++#   M8  the switch no longer straddles one                 -> the dead-app premise
++#   M10 the lock probes no longer take their time          -> the early-window premise
++#   M2  5K's argv wait is back to the one second it had    -> 5K's argv premise (under `late`)
++# `late` is a harness, not a mutation: the fixture execs 1.5 s after it forks, longer than the old
++# one-second wait and far shorter than the 30 s the suite allows. It must leave the suite green on
++# its own, or everything under it would look caught.
++#
++# Guards its own baseline: every edit is made to COPIES in a temp dir (ndt and its siblings, and
++# the suite), the files under test are never written, and the sha256 lines at the bottom say so.
++# A mutation that will not apply, or a named case that stays green, counts as SURVIVED -- never
++# as skipped.
++#
++# Exit: 0 every mutation caught, 1 a mutation survived, 2 refused (baseline or harness red),
++#       3 a file under test changed while the gate ran.
++set -uo pipefail
++HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
++REPO="$(cd "$HERE/../.." && pwd)"
++NDT="$REPO/tools/test_workflow/ndt"
++SH_TEST="$HERE/test_apps_residue.sh"
++BK=$(mktemp -d "${TMPDIR:-/tmp}/apps-residue-clock-mutate-XXXXXX")
++trap 'rm -rf "$BK"' EXIT
++BASE_SH=$(sha256sum "$SH_TEST" | cut -d' ' -f1)
++BASE_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
++
++SURVIVORS=0
++MUTATIONS=0
++
++run_sh() { NDT_UNDER_TEST="$1/ndt" timeout 900 bash "$1/$(basename "$SH_TEST")" 2>&1; }
++reds()   { grep -E '^  FAILED ' <<<"$1" | sed 's/^  FAILED *//' | paste -sd'|'; }
++
++report() {   # $1 = mutation name, $2 = mutant dir, $3 = the case(s) that must fail, '|'-separated
++    local out rc c miss=""
++    local -a want=()
++    MUTATIONS=$((MUTATIONS+1))
++    if [[ -z "$2" || ! -d "$2" ]]; then
++        SURVIVORS=$((SURVIVORS+1))
++        printf '  SURVIVED %-50s (the mutation did not apply -- nothing was tested)\n' "$1"
++        return
++    fi
++    out=$(run_sh "$2"); rc=$?
++    IFS='|' read -r -a want <<<"$3"
++    for c in "${want[@]}"; do grep -qF "FAILED   $c" <<<"$out" || miss="${miss:+$miss | }$c"; done
++    if [[ "$rc" -ne 0 && -z "$miss" ]]; then
++        printf '  caught   %-50s (%d named case(s) went red)\n' "$1" "${#want[@]}"
++        printf '           all red: %s\n' "$(reds "$out")"
++    else
++        SURVIVORS=$((SURVIVORS+1))
++        printf '  SURVIVED %-50s (stayed green: %s)\n' "$1" "${miss:-rc 0}"
++        grep -E '^  FAILED|^Ran ' <<<"$out" | sed 's/^/             /'
++    fi
++}
++
++# The parameters are NAMED rather than used positionally so tests/shell/check_gate_anchors.py can
++# read this gate. `base` (optional) is a mutant dir to build on, which is how a mutation is stacked
++# on a harness or on another edit: the anchor must then be unique in that dir's copy as well.
++mutant() {   # $1 = label, $2 = file to mutate, $3 = the anchor, $4 = its replacement, [$5 = base]
++    local label="$1" file="$2" old="$3" new="$4" base="${5:-}"
++    local d="$BK/$label" src f
++    mkdir -p "$d"
++    for f in ndt ports.sh sudo_surface.sh components.env; do
++        src="$REPO/tools/test_workflow/$f"; [[ -n "$base" ]] && src="$base/$f"
++        cp "$src" "$d/$f" || return 1
++    done
++    chmod +x "$d/ndt"
++    src="$SH_TEST"; [[ -n "$base" ]] && src="$base/$(basename "$SH_TEST")"
++    cp "$src" "$d/$(basename "$SH_TEST")" || return 1
++    python3 - "$d/$(basename "$file")" "$old" "$new" <<'PY' || return 1
++import sys
++p, a, b = sys.argv[1], sys.argv[2], sys.argv[3]
++s = open(p).read()
++assert s.count(a) == 1, "anchor not unique (%d hits): %s" % (s.count(a), a[:70])
++open(p, "w").write(s.replace(a, b))
++PY
++    echo "$d"
++}
++
++echo "baseline (the suite must be green before any mutation):"
++base="$BK/base"; mkdir -p "$base"
++for f in ndt ports.sh sudo_surface.sh components.env; do cp "$REPO/tools/test_workflow/$f" "$base/$f"; done
++cp "$SH_TEST" "$base/"
++out=$(run_sh "$base"); rc=$?
++echo "  $(grep -E '^Ran ' <<<"$out" | tail -1)"
++[[ "$rc" -eq 0 ]] || { echo "  shell baseline is RED -- mutations prove nothing"; exit 2; }
++
++late=$(mutant late "$SH_TEST" \
++    'LIVE_TE_ARGV="/nonexistent/NDT-TEST-FIXTURE/Traffic-engineering-App.py"
++( exec -a "$LIVE_TE_ARGV" sleep 120 ) >/dev/null 2>&1 </dev/null &' \
++    'LIVE_TE_ARGV="/nonexistent/NDT-TEST-FIXTURE/Traffic-engineering-App.py"
++( sleep 1.5; exec -a "$LIVE_TE_ARGV" sleep 120 ) >/dev/null 2>&1 </dev/null &')
++if [[ -z "$late" ]]; then echo "  harness late did not apply -- refused"; exit 2; fi
++out=$(run_sh "$late"); rc=$?
++echo "  harness late on the unmutated suite: $(grep -E '^Ran ' <<<"$out" | tail -1)"
++[[ "$rc" -eq 0 ]] || { echo "  harness late turns the suite red by itself -- refused"; exit 2; }
++echo
++
++# --- the product: one clock per report -----------------------------------------------------------
++m=$(mutant m3 "$NDT" \
++    '        if [[ "$et" =~ ^[0-9]+$ ]]; then echo "$(( ${now:-$(date +%s)} - et ))"; return 0; fi' \
++    '        if [[ "$et" =~ ^[0-9]+$ ]]; then echo "$(( $(date +%s) - et ))"; return 0; fi')
++report "M3: the pidfile source reads the clock again" "$m" \
++       "🔴 young app: its rule is DATED, 0s old, across a boundary between now and the dating|  young app: its window starts at the report's now, not a second after it|🔴 2s-old app: the rule from its first second is DATED, 2s old, across the boundary|  2s-old app: its window opens where it started, two seconds back"
++
++m=$(mutant m4 "$NDT" \
++    '    [[ -n "$best" ]] && { echo "$(( ${now:-$(date +%s)} - best ))"; return 0; }' \
++    '    [[ -n "$best" ]] && { echo "$(( $(date +%s) - best ))"; return 0; }')
++report "M4: the scan source reads the clock again" "$m" \
++       "🔴 an app found by the scan, no pidfile: its young rule is DATED, 0s old"
++
++m5a=$(mutant m5a "$NDT" \
++    '    plane="$(live_dataplane_kind)"
++    entries="$(http_get_flow_entries)"' \
++    '    now="$(date +%s)"
++    plane="$(live_dataplane_kind)"
++    entries="$(http_get_flow_entries)"')
++m=""; [[ -n "$m5a" ]] && m=$(mutant m5 "$NDT" \
++    '    now="$(date +%s)"
++    # 🔴 AND EVERY APP IS DATED HERE' \
++    '    # 🔴 AND EVERY APP IS DATED HERE' "$m5a")
++report "M5: now is read before the flow table" "$m" \
++       "🔴 dead app: a rule from its pidfile's own second is DATED across a straddling fetch"
++
++m=$(mutant m6 "$NDT" \
++    '        dated[$a]="$(app_started_at "$a" "$now")" || dated[$a]=""' \
++    '        dated[$a]="$(app_started_at "$a")" || dated[$a]=""')
++report "M6: the report stops handing its now to the dating" "$m" \
++       "🔴 young app: its rule is DATED, 0s old, across a boundary between now and the dating|🔴 2s-old app: the rule from its first second is DATED, 2s old, across the boundary|🔴 an app found by the scan, no pidfile: its young rule is DATED, 0s old"
++
++m=$(mutant m9 "$NDT" \
++    '        [[ -n "$started" ]] || started="${dated[$a]:-}"' \
++    '        [[ -n "$started" ]] || started="$(app_started_at "$a" "$now")" || started=""')
++report "M9: apps are dated after the lock probes" "$m" \
++       "🔴 early window: a rule from 2s before the app started is NOT in its window|  early window: the window's age is the app's, not the app's plus the probes'"
++
++# --- the suite's own premises --------------------------------------------------------------------
++m=$(mutant m7 "$SH_TEST" \
++    '                for _w in {1..400}; do s1=${EPOCHREALTIME%.*}; (( s1 > s0 )) && break; sleep 0.005; done' \
++    '                :')
++report "M7: the dating's ps no longer waits for a boundary" "$m" \
++       "🔴 premise (young): one second boundary between the report's now and the dating, app < 1s old|🔴 premise (old): one second boundary between the report's now and the dating, app 2s old|🔴 premise (scan): one second boundary between the report's now and the dating, app < 1s old"
++
++m=$(mutant m8 "$SH_TEST" \
++    '    while int(time.time()) == s0:
++        time.sleep(0.005)
++    time.sleep(0.05)' \
++    '    pass')
++report "M8: the switch no longer straddles a boundary" "$m" \
++       "🔴 premise (dead): the flow-table fetch straddled a second boundary"
++
++m=$(mutant m10 "$SH_TEST" \
++    '        sleep 1.2
++        echo x >> "$REPO/.test_run/probes_slept"' \
++    '        :')
++report "M10: the lock probes no longer take their time" "$m" \
++       "🔴 premise (early): the three lock probes each took 1.2s"
++
++m=$(mutant m2 "$SH_TEST" \
++    'for _i in {1..300}; do                  # up to 30 s for the exec to land' \
++    'for _i in 1 2 3 4 5 6 7 8 9 10; do' "$late")
++report "M2: 5K's argv wait back to one second (under late)" "$m" \
++       "🔴 premise: /proc shows the live fixture's argv, so ndt can recognise the pid"
++
++echo
++[[ "$(sha256sum "$SH_TEST" | cut -d' ' -f1)" == "$BASE_SH" && "$(sha256sum "$NDT" | cut -d' ' -f1)" == "$BASE_NDT" ]] \
++    || { echo "a file under test CHANGED while the gate ran -- result void"; exit 3; }
++echo "suite untouched (sha256 ${BASE_SH:0:16}...), ndt untouched (sha256 ${BASE_NDT:0:16}...)"
++printf '%d mutation(s), %d survived\n' "$MUTATIONS" "$SURVIVORS"
++[[ "$SURVIVORS" -eq 0 ]] || exit 1
++exit 0
+diff --git a/tests/shell/mutate_apps_stop_lists_rules.sh b/tests/shell/mutate_apps_stop_lists_rules.sh
+index 6e286ccb..723699ef 100755
+--- a/tests/shell/mutate_apps_stop_lists_rules.sh
++++ b/tests/shell/mutate_apps_stop_lists_rules.sh
+@@ -196,12 +196,13 @@ report "M9: the report starts deleting what it finds" "$m" \
+ # printed `SURVIVED M10 ... that case proves nothing`. `check_gate_anchors.py HEAD` said
+ # `MISSING:1` for this file in the same round, which is how it was found rather than believed.
+ # The anchor is now app_started_at's own last two lines: same function, same statement, and it
+-# does not depend on what follows the closing brace.
++# does not depend on what follows the closing brace. [Co-developed with claude code -- Adam]
++# 2026-09-28: the line now reads the caller's `now` first (one clock per residue report).
+ m=$(mutant m10 "$NDT" \
+-    '    [[ -n "$best" ]] && { echo "$(( $(date +%s) - best ))"; return 0; }
++    '    [[ -n "$best" ]] && { echo "$(( ${now:-$(date +%s)} - best ))"; return 0; }
+     return 1
+ }' \
+-    '    [[ -n "$best" ]] && { echo "$(( $(date +%s) - best ))"; return 0; }
++    '    [[ -n "$best" ]] && { echo "$(( ${now:-$(date +%s)} - best ))"; return 0; }
+     echo 0
+ }')
+ report "M10: an app with no record gets a window of all time" "$m" \
+diff --git a/tests/shell/mutate_ndt_helper_apps_window.sh b/tests/shell/mutate_ndt_helper_apps_window.sh
+index 42549e53..0ef26bfc 100755
+--- a/tests/shell/mutate_ndt_helper_apps_window.sh
++++ b/tests/shell/mutate_ndt_helper_apps_window.sh
+@@ -133,6 +133,8 @@ report "M2 (widening): the pidfile records the request, not the program" "$m" \
+ # to read the machine-wide scan directly; it now goes through app_scan_here, which drops the pids
+ # that belong to ANOTHER checkout on this machine before they can date a window. The mutation is
+ # the same one -- delete the scan half and leave app_started_at reading the pidfile alone.
++# [Co-developed with claude code -- Adam] 2026-09-28: its last line now reads the caller's `now`
++# first (one clock per residue report); the mutation is unchanged.
+ m=$(mutant m3 "$NDT" \
+     '    app_scan_here "$name"
+     for pid in ${APP_SCAN_HERE[@]+"${APP_SCAN_HERE[@]}"}; do
+@@ -141,7 +143,7 @@ m=$(mutant m3 "$NDT" \
+         [[ "$et" =~ ^[0-9]+$ ]] || continue
+         if [[ -z "$best" ]] || (( et > best )); then best="$et"; fi
+     done
+-    [[ -n "$best" ]] && { echo "$(( $(date +%s) - best ))"; return 0; }' \
++    [[ -n "$best" ]] && { echo "$(( ${now:-$(date +%s)} - best ))"; return 0; }' \
+     '    :')
+ report "M3: app_started_at asks the pidfile and nothing else" "$m" \
+        "🔴 a live process with no pidfile still has a window"
+diff --git a/tests/shell/mutate_ndt_serve.sh b/tests/shell/mutate_ndt_serve.sh
+index 8ce16874..a7bce5fa 100755
+--- a/tests/shell/mutate_ndt_serve.sh
++++ b/tests/shell/mutate_ndt_serve.sh
+@@ -523,8 +523,10 @@ m=$(mutant m60 "$DEMO_PY" \
+ report "M60: the demo's slot probe is a real POST /down with the token" "$m" \
+        DemoProbes.test_demo_probes_cannot_touch_the_lab
+ 
++# [Co-developed with claude code -- Adam] 2026-09-28: M61, M64 and M65 re-anchored on the lines
++# ndt's one-clock residue change moved (apps.status 10346 -> 10382, lock_probe +13).
+ m=$(mutant m61 "$VERBS_PY" \
+-    '    "apps.status": {"code": [(10346, 0, "return 0", "cmd_apps")]},' \
++    '    "apps.status": {"code": [(10382, 0, "return 0", "cmd_apps")]},' \
+     '')
+ report "M61: an rc table with no source" "$m" \
+        RcProvenance.test_every_table_names_its_source
+@@ -735,13 +737,13 @@ report "M63: apps.start rc 1 cites proc_checkout's return 1 (09-24's line 8315,
+ # [Co-developed with claude code -- Adam] The opus judge's N1-1 (09-27): the README's lock probe
+ # citation was left at its pre-segment-W lines; the suite now holds every such citation to ndt.
+ m=$(mutant m64 "$README_MD" \
+-    'lock probes to the kernel (ndt:9416-9431)' \
++    'lock probes to the kernel (ndt:9429-9444)' \
+     'lock probes to the kernel (ndt:9292-9307)')
+ report "M64: the README cites the lock probes where they were before segment W (ndt:9292-9307)" "$m" \
+        RcProvenance.test_lock_probe_citations_are_lock_probe
+ m=$(mutant m65 "$SERVE_PY" \
+-    'probes to the kernel (ndt:9416-9431)' \
+-    'probes to the kernel (ndt:9416-9420)')
++    'probes to the kernel (ndt:9429-9444)' \
++    'probes to the kernel (ndt:9429-9433)')
+ report "M65: serve.py's docstring cites lock_probe's comment but not its POST" "$m" \
+        RcProvenance.test_lock_probe_citations_are_lock_probe
+ 
+diff --git a/tests/shell/test_apps_residue.sh b/tests/shell/test_apps_residue.sh
+index 5b94713b..40c5fa9a 100755
+--- a/tests/shell/test_apps_residue.sh
++++ b/tests/shell/test_apps_residue.sh
+@@ -323,13 +323,31 @@ PY
+ # in this run, so the dead-pid fixture excluded the rule by a second or two of wall clock. The
+ # app that just installed a rule is the app that is still running; the fixture now says so, and
+ # /proc is the witness. Killed immediately afterwards, by pid, never by name.
++#
++# [Co-developed with claude code -- Adam]
++# 🔴 A YOUNG pid, on purpose. This fixture is well under a second old when the report dates it,
++# which is the case that failed CI (run 36373153486 and others): residue_report used to read
++# `now` once and app_started_at read the clock again, so a second boundary between the two put
++# the window's left edge one second after `now` and dropped the rule installed at `now`
++# (`-> now (-1s)`, the two "dated" checks red, "-> now" green). ndt now dates the app against
++# the report's own `now`, so this is deterministic at any age -- and making the fixture wait until
++# it is older would hide exactly that regression. 5N below puts a boundary between the two reads
++# on purpose; this group keeps the ordinary young case.
++#
++# The argv IS waited for, on the condition itself, and asserted: the wait this replaced gave up
++# after one second and carried on, so a fixture that never became the app failed four lines
++# further down with nothing naming why.
+ LIVE_TE_ARGV="/nonexistent/NDT-TEST-FIXTURE/Traffic-engineering-App.py"
+-( exec -a "$LIVE_TE_ARGV" sleep 60 ) >/dev/null 2>&1 </dev/null &
++( exec -a "$LIVE_TE_ARGV" sleep 120 ) >/dev/null 2>&1 </dev/null &
+ LIVE_TE=$!
+-for _i in 1 2 3 4 5 6 7 8 9 10; do
+-    [[ "$(tr '\0' '\n' 2>/dev/null < "/proc/$LIVE_TE/cmdline" | head -1)" == "$LIVE_TE_ARGV" ]] && break
++live_argv0=""
++for _i in {1..300}; do                  # up to 30 s for the exec to land
++    live_argv0="$(tr '\0' '\n' 2>/dev/null < "/proc/$LIVE_TE/cmdline" | head -1)"
++    [[ "$live_argv0" == "$LIVE_TE_ARGV" ]] && break
+     sleep 0.1
+ done
++check "🔴 premise: /proc shows the live fixture's argv, so ndt can recognise the pid" \
++      "$LIVE_TE_ARGV" "$live_argv0"
+ echo "$LIVE_TE" > "$FIX/.test_run/pids/app_te.pid"
+ OUT="$(FX_PLANE=ovs run_residue "$LOCKS_FREE" te)"
+ has   "🔴 sec=0 with nsec set is a real just-installed rule, and is DATED" "installed 0s ago" "$OUT"
+@@ -341,6 +359,216 @@ kill -KILL "$LIVE_TE" 2>/dev/null
+ started_ago te 600
+ mk_entries 300
+ 
++section "5N. one clock per report: an app's age and a rule's age are read against the same 'now'"
++# [Co-developed with claude code -- Adam]
++# 🔴 Before the fix residue_report read `now` once and app_started_at read the clock again for a
++# live app, so a second boundary between the two reads dated the app one second late. An app
++# younger than a second then had a window that started AFTER `now`, and the rule it had just
++# installed was reported as "no flow entry arrived during that window"; an app two seconds old
++# lost the rules of its first second the same way. 5K above is the case CI hit.
++#
++# Nothing in the dating is stubbed: residue_report, app_started_at and residue_rule_lines run for
++# real, against real processes. What stands in for the kernel is chosen to make each race CERTAIN
++# instead of likely:
++#   * a fake switch answers duration_sec/nsec from the instant its rule was "installed". The real
++#     kernel serves a table it polled up to ~10 s earlier; answering at the fetch is the tightest
++#     case, and the one where a late window edge loses a rule soonest;
++#   * `ps`, on its first `etimes` query in a case, waits for the wall clock to enter the next
++#     second and then runs the real ps. That query is the app's dating, so a boundary falls
++#     between the report's `now` and the dating on every run.
++# The three live cases assert that their race really was set up -- one boundary, at the age the
++# case needs, with the fork where the case put it -- and retry when it was not (at most 5 tries
++# and 30 s of wall clock each): a stall can move the fork into another second, and a case that
++# ran without its race would pass on the code it is here to catch. The try count is printed.
++# The early-window and dead-app cases need no retry: their set-up does not depend on where in a
++# second anything lands.
++cat > "$FIX/fake_switch.py" <<'PY'
++# The switch for 5N: one rule installed at the instant in argv[1]'s file, one baseline rule. When
++# argv[2] exists it answers only after the wall clock has entered the next second, plus 50 ms --
++# a fetch that straddles a boundary -- and writes "<second called> <second answered>" into it.
++import json, os, sys, time
++at = float(open(sys.argv[1]).read())
++if os.path.exists(sys.argv[2]):
++    s0 = int(time.time())
++    while int(time.time()) == s0:
++        time.sleep(0.005)
++    time.sleep(0.05)
++    open(sys.argv[2], "w").write("%d %d\n" % (s0, int(time.time())))
++el = max(0.0, time.time() - at)
++sec = int(el)
++nsec = int((el - sec) * 1e9) or 1
++def row(dur, ns, pri, acts):
++    return {"actions": acts, "byte_count": 0, "cookie": 0, "duration_sec": dur,
++            "duration_nsec": ns, "flags": 0, "hard_timeout": 0, "idle_timeout": 0,
++            "length": 96, "match": {"in_port": 1}, "packet_count": 0,
++            "priority": pri, "table_id": 0}
++json.dump([{"dpid": 5, "flows": {"5": [row(sec, nsec, 96, ["OUTPUT:9"]),
++                                       row(9000, 91000000, 10, ["OUTPUT:1"])]}}], sys.stdout)
++PY
++CLOCK_STUBS='
++http_get_flow_entries() { python3 "$REPO/fake_switch.py" "$REPO/.test_run/rule_at" "$REPO/.test_run/fetch_straddles"; }
++ps() {
++    local s0 s1 _w
++    case " $* " in
++        *" etimes= "*)
++            if [[ -e "$REPO/.test_run/ps_waits" ]]; then
++                rm -f "$REPO/.test_run/ps_waits"
++                s0=${EPOCHREALTIME%.*}; s1=$s0
++                for _w in {1..400}; do s1=${EPOCHREALTIME%.*}; (( s1 > s0 )) && break; sleep 0.005; done
++                echo "$s0 $s1" > "$REPO/.test_run/tick"
++            fi ;;
++    esac
++    command ps "$@"
++}
++lock_probe() {
++    if [[ -e "$REPO/.test_run/probes_slow" ]]; then
++        sleep 1.2
++        echo x >> "$REPO/.test_run/probes_slept"
++    fi
++    echo free
++}'
++wait_phase() {   # <lo-us> <hi-us> -- until the wall clock's fraction of a second is in [lo, hi)
++    local _w t
++    for _w in {1..3000}; do
++        t=$EPOCHREALTIME
++        (( 10#${t#*.} >= $1 && 10#${t#*.} < $2 )) && return 0
++        sleep 0.001
++    done
++    return 1
++}
++wait_until() {   # <second> <fraction-us> -- until that instant (a few seconds ahead at most)
++    local _w t
++    for _w in {1..5000}; do
++        t=$EPOCHREALTIME
++        (( ${t%.*} > $1 || ( ${t%.*} == $1 && 10#${t#*.} >= $2 ) )) && return 0
++        sleep 0.002
++    done
++    return 1
++}
++# clock_case <young|old|scan> -> CLOCK_OUT; rc 1 and CLOCK_WHY when the race was not set up.
++#   young  a pidfile'd app under a second old, its rule installed once it was running
++#   old    a pidfile'd app 2 s old, its rule installed 0.1 s after the fork
++#   scan   young, with NO pidfile: found by the scan, in this suite's REPO so it is claimed
++CLOCK_OUT=""; CLOCK_WHY=""
++clock_case() {
++    local kind="$1" pid t k us a0 _i s0 s1 et want_s0 want_et
++    CLOCK_OUT=""; CLOCK_WHY=""
++    rm -f "$FIX/.test_run/tick" "$FIX/.test_run/fetch_straddles" "$FIX/.test_run/pids/app_te.pid"
++    wait_phase 400000 430000 || { CLOCK_WHY="the clock never showed .40-.43 of a second"; return 1; }
++    if [[ "$kind" == scan ]]; then
++        ( cd "$FIX" && exec -a "$LIVE_TE_ARGV" sleep 120 ) >/dev/null 2>&1 </dev/null &
++    else
++        ( exec -a "$LIVE_TE_ARGV" sleep 120 ) >/dev/null 2>&1 </dev/null &
++    fi
++    pid=$!; t=$EPOCHREALTIME; k=${t%.*}
++    a0=""
++    for _i in {1..300}; do
++        a0="$(tr '\0' '\n' 2>/dev/null < "/proc/$pid/cmdline" | head -1)"
++        [[ "$a0" == "$LIVE_TE_ARGV" ]] && break
++        sleep 0.01
++    done
++    if [[ "$a0" != "$LIVE_TE_ARGV" ]]; then
++        kill -KILL "$pid" 2>/dev/null; wait "$pid" 2>/dev/null
++        CLOCK_WHY="the fixture never took its argv"; return 1
++    fi
++    if (( 10#${t#*.} >= 430000 )); then
++        kill -KILL "$pid" 2>/dev/null; wait "$pid" 2>/dev/null
++        CLOCK_WHY="the fork returned at .${t#*.}, after .43"; return 1
++    fi
++    if [[ "$kind" == old ]]; then
++        us=$(( k * 1000000 + 10#${t#*.} + 100000 ))
++        want_s0=$(( k + 2 )); want_et=2
++    else
++        t=$EPOCHREALTIME; us=$(( ${t%.*} * 1000000 + 10#${t#*.} ))
++        want_s0=$k; want_et=0
++    fi
++    printf '%d.%06d\n' $(( us / 1000000 )) $(( us % 1000000 )) > "$FIX/.test_run/rule_at"
++    [[ "$kind" == scan ]] || echo "$pid" > "$FIX/.test_run/pids/app_te.pid"
++    [[ "$kind" == old ]] && wait_until "$(( k + 2 ))" 580000
++    : > "$FIX/.test_run/ps_waits"
++    CLOCK_OUT="$(FX_PLANE=ovs run_residue "$CLOCK_STUBS" te)"
++    et="$(command ps -o etimes= -p "$pid" 2>/dev/null | tr -d ' ')"
++    kill -KILL "$pid" 2>/dev/null; wait "$pid" 2>/dev/null
++    rm -f "$FIX/.test_run/pids/app_te.pid" "$FIX/.test_run/ps_waits"
++    read -r s0 s1 2>/dev/null < "$FIX/.test_run/tick" || { CLOCK_WHY="the app was never dated"; return 1; }
++    (( s1 == s0 + 1 )) || { CLOCK_WHY="the dating did not see exactly one second boundary ($s0 -> $s1)"; return 1; }
++    (( s0 == want_s0 )) || { CLOCK_WHY="the report's now was in second $s0, not $want_s0 (a stall?)"; return 1; }
++    [[ "$et" == "$want_et" ]] || { CLOCK_WHY="the app was ${et:-?}s old after the report, not $want_et"; return 1; }
++    return 0
++}
++CLOCK_R=""
++clock_try() {   # <kind> -> CLOCK_R "yes, try N of 5 (Ms)" or why not. Not in $(...): CLOCK_OUT must survive.
++    local _try t0=${EPOCHREALTIME%.*}
++    for _try in 1 2 3 4 5; do
++        if clock_case "$1"; then CLOCK_R="yes, try $_try of 5 ($(( ${EPOCHREALTIME%.*} - t0 ))s)"; return; fi
++        (( ${EPOCHREALTIME%.*} - t0 >= 30 )) && break
++    done
++    CLOCK_R="no after $_try tries and $(( ${EPOCHREALTIME%.*} - t0 ))s: $CLOCK_WHY"
++}
++
++clock_try young
++check "🔴 premise (young): one second boundary between the report's now and the dating, app < 1s old" "yes" "${CLOCK_R%%,*}"
++printf '             (young: %s)\n' "$CLOCK_R"
++has   "🔴 young app: its rule is DATED, 0s old, across a boundary between now and the dating" "installed 0s ago" "$CLOCK_OUT"
++has   "  young app: its window starts at the report's now, not a second after it" "-> now (0s)" "$CLOCK_OUT"
++
++clock_try old
++check "🔴 premise (old): one second boundary between the report's now and the dating, app 2s old" "yes" "${CLOCK_R%%,*}"
++printf '             (old: %s)\n' "$CLOCK_R"
++has   "🔴 2s-old app: the rule from its first second is DATED, 2s old, across the boundary" "installed 2s ago" "$CLOCK_OUT"
++has   "  2s-old app: its window opens where it started, two seconds back" "-> now (2s)" "$CLOCK_OUT"
++
++clock_try scan
++check "🔴 premise (scan): one second boundary between the report's now and the dating, app < 1s old" "yes" "${CLOCK_R%%,*}"
++printf '             (scan: %s)\n' "$CLOCK_R"
++has   "🔴 an app found by the scan, no pidfile: its young rule is DATED, 0s old" "installed 0s ago" "$CLOCK_OUT"
++
++# An app dated AFTER slow lock probes: three acquire POSTs, 1.2 s each here, stand between the
++# report's `now` and the rest of the report. A rule installed 2 s before the app forked is the
++# fabric's, not the app's. Dated right after `now`, the window opens where the app started and
++# that rule is outside it; dated after the probes, `now - etimes` opens the window ~3.6 s early
++# and swallows it. No retry: this holds wherever in a second the fork lands.
++rm -f "$FIX/.test_run/tick" "$FIX/.test_run/fetch_straddles" "$FIX/.test_run/probes_slept" "$FIX/.test_run/ps_waits"
++t=$EPOCHREALTIME; us=$(( ${t%.*} * 1000000 + 10#${t#*.} - 2000000 ))
++printf '%d.%06d\n' $(( us / 1000000 )) $(( us % 1000000 )) > "$FIX/.test_run/rule_at"
++( exec -a "$LIVE_TE_ARGV" sleep 120 ) >/dev/null 2>&1 </dev/null &
++EARLY_TE=$!
++for _i in {1..300}; do
++    [[ "$(tr '\0' '\n' 2>/dev/null < "/proc/$EARLY_TE/cmdline" | head -1)" == "$LIVE_TE_ARGV" ]] && break
++    sleep 0.01
++done
++echo "$EARLY_TE" > "$FIX/.test_run/pids/app_te.pid"
++: > "$FIX/.test_run/probes_slow"
++OUT="$(FX_PLANE=ovs run_residue "$CLOCK_STUBS" te)"
++kill -KILL "$EARLY_TE" 2>/dev/null; wait "$EARLY_TE" 2>/dev/null
++rm -f "$FIX/.test_run/probes_slow" "$FIX/.test_run/pids/app_te.pid"
++check "🔴 premise (early): the three lock probes each took 1.2s" "3" "$(wc -l 2>/dev/null < "$FIX/.test_run/probes_slept" | tr -d ' ')"
++hasnt "🔴 early window: a rule from 2s before the app started is NOT in its window" "rule  dpid=5 table=0 pri=96" "$OUT"
++EARLY_AGE="$(grep -oE -- '-> now \((-?[0-9]+)s\)' <<<"$OUT" | head -1 | grep -oE -- '-?[0-9]+')"
++check "  early window: the window's age is the app's, not the app's plus the probes'" "yes" \
++      "$([[ "$EARLY_AGE" =~ ^[0-9]+$ ]] && (( EARLY_AGE < 3 )) && echo yes || echo "no, (${EARLY_AGE:-?}s)")"
++
++# A DEAD app, dated by its pidfile's mtime, whose first rule went in during that same second --
++# and a fetch that straddles a boundary. `now - duration_sec` is never earlier than the rule's
++# own second only if `now` is read after the table; read before it, this rule is dated a second
++# before the pidfile and falls out of a window that plainly contains it. Against the real kernel
++# this needs a poll to land between the report's `now` and its fetch, so it is in principle only
++# there (the table is cached); here the switch answers at the fetch, which makes it certain.
++# No retry: the straddle is built in, not waited for.
++t=$EPOCHREALTIME; k=$(( ${t%.*} - 5 ))
++: > "$FIX/.test_run/pids/app_te.pid";  touch -d "@$k.005" "$FIX/.test_run/pids/app_te.pid"
++printf 'the app wrote this\n' > "$FIX/.test_run/logs/app_te.log"; touch -d "@$(( k + 2 ))" "$FIX/.test_run/logs/app_te.log"
++printf '%d.020000\n' "$k" > "$FIX/.test_run/rule_at"
++: > "$FIX/.test_run/fetch_straddles"; rm -f "$FIX/.test_run/ps_waits" "$FIX/.test_run/tick"
++OUT="$(FX_PLANE=ovs run_residue "$CLOCK_STUBS" te)"
++s0=""; s1=""; read -r s0 s1 2>/dev/null < "$FIX/.test_run/fetch_straddles"
++check "🔴 premise (dead): the flow-table fetch straddled a second boundary" "yes" \
++      "$([[ "$s0" =~ ^[0-9]+$ && "$s1" =~ ^[0-9]+$ ]] && (( s1 == s0 + 1 )) && echo yes || echo "no: [$s0] [$s1]")"
++has   "🔴 dead app: a rule from its pidfile's own second is DATED across a straddling fetch" "rule  dpid=5 table=0 pri=96" "$OUT"
++rm -f "$FIX/.test_run/rule_at" "$FIX/.test_run/fetch_straddles" "$FIX/.test_run/tick" "$FIX/.test_run/ps_waits" "$FIX/.test_run/probes_slept"
++started_ago te 600
++mk_entries 300
++
+ section "5L. an app with no window: a LOST record counts against the code, an absent one does not"
+ # 🔴 Five apps have no pidfile on a machine where nobody started them. Counting that as "could
+ # not check" would make `ndt apps orphans` answer 5 on every clean machine, and a gate that can
+diff --git a/tools/ndt_serve/README.md b/tools/ndt_serve/README.md
+index 13c8639a..6069cfcc 100644
+--- a/tools/ndt_serve/README.md
++++ b/tools/ndt_serve/README.md
+@@ -71,7 +71,7 @@ keeps running if the server dies; a restarted server finds it again from disk.
+ an `Origin` -- this server's own origin; a POST also needs `Content-Type: application/json`.
+ The Host header must be `127.0.0.1:<port>` or `localhost:<port>`. No CORS header is ever sent.
+ Reads are gated too because a read is not side-effect free: `ndt status --check` POSTs three
+-lock probes to the kernel (ndt:9416-9431), and without the token any page in the browser could
++lock probes to the kernel (ndt:9429-9444), and without the token any page in the browser could
+ start one with an `<img>` (judge 09-24, finding 1).
+ 
+ Two read-only ndt calls run at a time; a third waits up to `--read-queue-wait` seconds and then
+diff --git a/tools/ndt_serve/serve.py b/tools/ndt_serve/serve.py
+index 7e1060e6..b2258142 100644
+--- a/tools/ndt_serve/serve.py
++++ b/tools/ndt_serve/serve.py
+@@ -24,7 +24,7 @@ The design red lines (TICKET section 3), and where each one lives:
+                        answers -- and an Origin header, when present, must be this server's; a POST
+                        also needs a JSON body. 🔴 GETs are gated too (judge 09-24, finding 1): a
+                        "read" is not side-effect free -- `ndt status --check` POSTs three lock
+-                       probes to the kernel (ndt:9416-9431) -- so an <img> in any page must not be
++                       probes to the kernel (ndt:9429-9444) -- so an <img> in any page must not be
+                        able to start one.
+   3. whitelist         verbs.py builds every argv; there is no shell on any path.
+   4. thin shell        ndt's rc is passed through untouched, with a sentence from ndt help beside
+diff --git a/tools/ndt_serve/verbs.py b/tools/ndt_serve/verbs.py
+index 6a8c70b5..ace39315 100644
+--- a/tools/ndt_serve/verbs.py
++++ b/tools/ndt_serve/verbs.py
+@@ -256,6 +256,8 @@ RC_TABLE = {
+ # below every anchor. 🔴 The function is half the anchor (intake judge 09-26, finding 3): `return
+ # 1` is on 187 lines of this tree's ndt, and 09-24's apps.start line 8315 was one of them --
+ # proc_checkout's, 8439 since segment W. [Co-developed with claude code -- Adam]
++# 2026-09-28: the one-clock residue change put 36 lines above the apps.stop and apps.status rows
++# (app_started_at and residue_report); nothing above cmd_apps' own rows moved otherwise.
+ RC_SOURCE = {
+     "up": {"help": {0: "exit 0 the fabric came up and verified",
+                     1: "1 something was MEASURED and it was dirty",
+@@ -279,9 +281,9 @@ RC_SOURCE = {
+                          (899, 1, "return 1", "cmd_release")]},
+     "apps.start": {"code": [(8895, 0, "return 0", "app_start"), (8899, 1, "return 1", "app_start"),
+                             (8972, 1, "return 1", "app_start")]},
+-    "apps.stop": {"code": [(10413, 1, "return 1", "cmd_apps"), (10416, 2, "return 2", "cmd_apps"),
+-                           (10419, 0, "return 0", "cmd_apps")]},
+-    "apps.status": {"code": [(10346, 0, "return 0", "cmd_apps")]},
++    "apps.stop": {"code": [(10449, 1, "return 1", "cmd_apps"), (10452, 2, "return 2", "cmd_apps"),
++                           (10455, 0, "return 0", "cmd_apps")]},
++    "apps.status": {"code": [(10382, 0, "return 0", "cmd_apps")]},
+ }
+ 
+ 
+diff --git a/tools/test_workflow/ndt b/tools/test_workflow/ndt
+index 98bb4b32..07b709b8 100755
+--- a/tools/test_workflow/ndt
++++ b/tools/test_workflow/ndt
+@@ -9262,7 +9262,7 @@ app_stop() {
+ # a human with curl. It is still worth printing: it excludes the fabric's own baseline, which
+ # is installed at `ndt up` and is the overwhelming majority of the table.
+ 
+-# app_started_at <name> -- unix seconds when this app was started, or nothing.
++# app_started_at <name> [now] -- unix seconds when this app was started, or nothing.
+ #
+ # THREE sources, most precise first, and none is invented: the pidfile's live process is asked
+ # how long it has been running; a dead one is dated by the pidfile app_spawn wrote immediately
+@@ -9287,11 +9287,24 @@ app_stop() {
+ # it execs) and a child is younger than its parent; taking the first would open the window
+ # after the app had already installed rules, and a window that starts too late reports "no flow
+ # entry arrived during that window" -- a clean answer, arrived at by looking at the wrong hour.
++#
++# [Co-developed with claude code -- Adam]
++# 🔴 `now` IS THE CALLER'S WHEN IT HAS ONE, and residue_report always passes its own. It dates
++# every rule as `now - duration_sec`; a live app dated here against a SECOND read of the clock
++# lands in a different second whenever a boundary falls between the two reads, and for an app
++# younger than a second that puts the window's left edge AFTER `now` -- the rule it installed a
++# moment ago falls outside, and the report says "no flow entry arrived during that window" over
++# `-> now (-1s)`. An older app loses the rules of its first second the same way. Against one
++# `now` the test is duration_sec <= etimes, and the table's durations were taken before etimes
++# is read, so for a rule the app installed it cannot invert. A caller with no report around it
++# (the stop path's capture) gets a fresh read, as before; what that one still gets wrong is
++# KNOWN-ISSUES G-62.
+ app_started_at() {
+-    local name="$1" pid et p best=""
++    local name="$1" now="${2:-}" pid et p best=""
++    [[ "$now" =~ ^[0-9]+$ ]] || now=""
+     if pid="$(app_pidfile_pid "$name" 2>/dev/null)" && [[ -n "$pid" ]]; then
+         et="$(ps -o etimes= -p "$pid" 2>/dev/null | tr -d ' ')"
+-        if [[ "$et" =~ ^[0-9]+$ ]]; then echo "$(( $(date +%s) - et ))"; return 0; fi
++        if [[ "$et" =~ ^[0-9]+$ ]]; then echo "$(( ${now:-$(date +%s)} - et ))"; return 0; fi
+     fi
+     p="$(app_pidfile "$name")"
+     if [[ -f "$p" ]]; then
+@@ -9305,7 +9318,7 @@ app_started_at() {
+         [[ "$et" =~ ^[0-9]+$ ]] || continue
+         if [[ -z "$best" ]] || (( et > best )); then best="$et"; fi
+     done
+-    [[ -n "$best" ]] && { echo "$(( $(date +%s) - best ))"; return 0; }
++    [[ -n "$best" ]] && { echo "$(( ${now:-$(date +%s)} - best ))"; return 0; }
+     return 1
+ }
+ 
+@@ -9763,7 +9776,6 @@ residue_report() {
+     local wend wrec wwhy wseal
+     local plane blind_said="" elog rpid
+     local -a live=()
+-    now="$(date +%s)"
+     RESIDUE_RULES=0; RESIDUE_LOCKS=0; RESIDUE_UNDATABLE=0; RESIDUE_BLIND=0
+     RESIDUE_UNKNOWABLE=0; RESIDUE_UNKNOWABLE_APPS=""
+     RESIDUE_EMPTY_TABLE=0; RESIDUE_TABLE_ROWS=""
+@@ -9779,6 +9791,30 @@ residue_report() {
+     # stats are synthesised and have no time axis -- so it is read once, here, and passed down.
+     plane="$(live_dataplane_kind)"
+     entries="$(http_get_flow_entries)"
++    # [Co-developed with claude code -- Adam]
++    # 🔴 THE REPORT'S ONE CLOCK READ, taken after the table. Every age below is measured against
++    # it: a rule's (`now - duration_sec`) and a live app's (`now - etimes`: app_started_at is
++    # handed this value instead of reading its own).
++    #
++    # duration_sec is NOT the switch's answer at this fetch. The endpoint serves the kernel's
++    # cached table (HttpSession.cpp handleGetSwitchOpenflowEntries -> DeviceConfigurationAndPower-
++    # Manager::getOpenFlowTables), polled about every 10 s and carried forward when a poll fails.
++    # So `now - duration_sec` is never earlier than the second a rule went in -- its poll came
++    # before `now` -- but can be later by up to the cache's age (KNOWN-ISSUES G-62). Reading `now`
++    # after the fetch rather than before it matters only when a poll lands between the two, which
++    # against this kernel is possible in principle and no more; the order is kept because it is
++    # the one that is right whatever serves the table.
++    now="$(date +%s)"
++    # 🔴 AND EVERY APP IS DATED HERE, right after `now` and before the lock probes. etimes read
++    # after three acquire POSTs (curl allows each 5 s) is older than `now` by however long they
++    # took, and `now - etimes` would open the window that much early -- in front of the app's own
++    # start, where the fabric's baseline lives. Still after the table, so duration_sec <= etimes
++    # still holds. A window captured before a stop (RESIDUE_WINDOW) needs no dating.
++    local -A dated=()
++    for a in "$@"; do
++        [[ -n "${RESIDUE_WINDOW[$a]:-}" ]] && continue
++        dated[$a]="$(app_started_at "$a" "$now")" || dated[$a]=""
++    done
+     if [[ -z "$entries" ]]; then
+         warn "the kernel gave no flow table on :8000 -- rules NOT checked (not 'none found')."
+         RESIDUE_BLIND=$(( RESIDUE_BLIND + 1 ))
+@@ -9851,7 +9887,7 @@ residue_report() {
+         # report. Empty for every other caller, which is why `apps orphans` and `--check` still
+         # answer from the machine's own state.
+         started="${RESIDUE_WINDOW[$a]:-}"
+-        [[ -n "$started" ]] || started="$(app_started_at "$a")" || started=""
++        [[ -n "$started" ]] || started="${dated[$a]:-}"
+         # [Co-developed with claude code -- Adam]
+         # F3. The fourth source, and the only one that survives the process that read it: the
+         # record a verified stop left on disk. Asked LAST, after the pidfile and the live

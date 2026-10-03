@@ -1,0 +1,16 @@
+== 1. CI's manifest check on the hand-edited bundle (expected: green -- it cannot see this)
+Ran 7 tests in 0.015s
+
+OK
+== 2. rebuild gate on the hand-edited bundle (expected: FAIL, rc 1)
+rebuilding /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/tools/ndt_serve/web in /tmp/ndt-serve-rebuild-MJEaFu (node v24.20.0, npm 11.19.0)
+  DIFFERS  BUILD.json   committed db0c8d1ef9f18442, rebuilt 781369038a8ea977
+  same     app.css      780f0a54807c1edb
+  DIFFERS  app.js       committed cfb413086c3e0a70, rebuilt db950b461ad49258
+  same     index.html   ba7f56b21e294bf5
+  same     manual.html  ea3741ed4962b6fa
+FAIL: the committed bundle is not what these sources build into
+rc=1
+== 3. rebuild gate when BUILD.json names another node (expected: REFUSED, rc 2)
+REFUSED: node v24.20.0 here, the bundle was built with v22.0.0
+rc=2

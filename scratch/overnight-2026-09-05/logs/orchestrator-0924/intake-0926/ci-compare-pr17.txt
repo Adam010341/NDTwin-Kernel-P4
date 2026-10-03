@@ -1,0 +1,1 @@
+# PR #17 (head 2e1aef4c): all four jobs SUCCESS on both runs; GCC logs 7088/7101 lines, ctest 1385/1385, 0 FAILED lines, L1 passed. => prediction met.

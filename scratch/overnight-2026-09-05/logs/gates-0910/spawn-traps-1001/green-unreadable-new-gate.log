@@ -1,0 +1,47 @@
+14c490c3b2e3dc0c39fe5c8147c8f97d5af40ed5
+porcelain-lines: 0
+# dir: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/th-unreadable = 14c490c3b2e3dc0c39fe5c8147c8f97d5af40ed5 + tests/shell/mutate_fixture_spawn_helpers.d452d111.sh from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/gate-d452d111.sh (sha256 32c00a130dd4904d)
+# sha256 bf2bad4e05b22d67087af1056c8c3c4f28316590128e8d4ecc09515e8918068e  tests/shell/mutate_fixture_spawn_helpers.sh
+# tripwire lines before: 0
+# $ bash tests/shell/mutate_fixture_spawn_helpers.sh sweep
+# started 2026-10-01T17:58:03+08:00
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/claude-1000/spawn-traps-1001.lock
+guarded_build: $ bash tests/shell/mutate_fixture_spawn_helpers.sh sweep
+the judge, on synthetic runs:
+  ok       J1: a FAILED fixture line the summary does not count -> SURVIVED (1 FAILED line(s) printed, the summary counts 0: Ran 3 checks, 0 failed)
+  ok       J2: no summary line at all -> SURVIVED (rc 1, and no "Ran N checks" line at all)
+  ok       J3: rc 0 -> SURVIVED (rc 0)
+  ok       J4: a counted failure that is not the fixture's -> SURVIVED (no FAILED line names the fixture; Ran 2 checks, 1 failed)
+  ok       J5: the fixture's failure, counted -> caught (rc 1; Ran 2 checks, 1 failed; FAILED   fixture took argv0=x)
+  ok       J6: the fixture's failure, counted, but the fixture is still running -> SURVIVED (the fixture it gave up on is still running: pid 3870225)
+  ok       J7: gone-without-true timed out (rc 124), no summary -> rejected: SURVIVED (rc 124, and no "Ran N checks" line at all)
+  ok       J8: gone-without-true ended by errexit (rc 1), no summary -> accepted: SURVIVED (rc 1, and no "Ran N checks" line at all)
+  ok       J9: a fixture block whose read came up empty -> yes
+  ok       J10: a fixture block that read an argv0, "nothing readable" only in a later block -> no
+  ok       J11: the guard's FAILED line once, then rc 143 -> caught (rc 143; FAILED   spawn called outside this suite's own shell (BASHPID 9, suite 8): endin)
+  ok       J12: red with a summary, but no guard line -> SURVIVED (0 line(s) say the helper was called outside this suite's own shell, not 1; rc 1)
+
+1. every call site, read from the source
+  ok       sweep      spawn_fixture() called at 4 line(s), every one a plain call: 183 187 270 280
+
+2. each suite's unmutated copy: green, and one counted premise per call site
+3. then its helper made unable to recognise its fixture: NEVER (the poll's bound), GONE (/proc empty)
+4. and one call wrapped in ( ... ): SUBSHELL, which only the helper's own guard can catch
+  control  sweep      Ran 33 checks, all passed  (1s)
+  ok       sweep      4 fixture premise(s) counted in this shell, one per call site
+  caught   sweep      never    (rc 1; Ran 11 checks, 1 failed; FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/bin/simple_switch_grpc)  (30s)
+             its fixture FAILED line: FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/bin/simple_switch_grpc
+             its last line:           Ran 11 checks, 1 failed
+  SURVIVED sweep      gone     (caught, but its FAILED block does not say "nothing readable": not the read GONE is for)  (30s)
+             its fixture FAILED line: FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/bin/simple_switch_grpc
+             its last line:           Ran 11 checks, 1 failed
+  caught   sweep      subshell (rc 143; FAILED   spawn_fixture called outside this suite's own shell (BASHPID 3871616, s)  (0s)
+             its guard FAILED line: FAILED   spawn_fixture called outside this suite's own shell (BASHPID 3871616, suite 3871602): ending the run
+             its last line:             FAILED   spawn_fixture called outside this suite's own shell (BASHPID 3871616, suite 3871602): ending the ru
+  ok       sweep      gone-without-true survives as it must: SURVIVED (rc 1, and no "Ran N checks" line at all)  (1s)
+             its last line:           machine-wide scan (real ps, read-only)
+
+3 mutation(s), 1 survivor(s); 0 control(s) whose premise count is not its call-site count
+guarded_build: exit 1
+# ended 2026-10-01T17:59:08+08:00; tripwire lines after: 0
+rc=1

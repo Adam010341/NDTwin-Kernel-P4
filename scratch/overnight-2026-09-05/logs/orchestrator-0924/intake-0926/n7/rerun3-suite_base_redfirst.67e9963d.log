@@ -1,0 +1,272 @@
+67e9963d03732ea833137c248dbc4642979aa6ff
+# 2026-09-28T00:39:32Z cmd env E_ROUND_ENV_UNDER_TEST=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/n7/base-env/e.env F5_ROUND_ENV_UNDER_TEST=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/n7/base-env/f.env bash tests/shell/test_round_env_kernel_dir.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env E_ROUND_ENV_UNDER_TEST=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/n7/base-env/e.env F5_ROUND_ENV_UNDER_TEST=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/n7/base-env/f.env bash tests/shell/test_round_env_kernel_dir.sh
+E round: doc/audit/2026-08-31_sampling-ceiling-after-merge/round.env
+  FAILED   🔴 E: KERNEL_DIR is the tree the file sits in
+             expected: [/home/adam/.cache/n7j/round-env-kdir-7UrUSr/E/tree-a]
+             actual:   [/home/adam/Desktop/NDTwin-Kernel]
+  FAILED   🔴 E: every absolute path it exports is inside that tree
+             expected: []
+             actual:   [CPU_BASELINE_FILE=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cpu_baseline.json
+KBIN=/home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel
+KBIN_1HZ=/home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz
+KBIN_1KHZ=/home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz
+KBIN_BACKUP=/home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.production-backup
+KBIN_STAGE=/home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round
+KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel
+LOG=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/run_e.log
+LOG_BASE=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/run_e.log
+OUT=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw
+P4BUILD=/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/build
+P4SRC=/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/ndtwin_switch.p4
+PRIOR=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu
+PRIOR_RAW=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw
+PROXY_TREE_BLTRUE=/home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/proxy-a3bb761-parent
+PY_PROXY=/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+ROUND=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge
+ROUND25=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-25_sampling-rounds
+TOPO=/home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json]
+  FAILED   🔴 E: every write it asks for is inside that tree
+             expected: []
+             actual:   [/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw
+/home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round]
+  ok         E: and it did ask for its directories (2 mkdir argument(s))
+  ok         E: and it exported the round's core variables
+  ok         E: (the write shims were in force)
+  FAILED   🔴 E: a second checkout gets its own KERNEL_DIR
+             expected: [/home/adam/.cache/n7j/round-env-kdir-7UrUSr/E/tree-b]
+             actual:   [/home/adam/Desktop/NDTwin-Kernel]
+  FAILED     E: and its own ROUND
+             expected: [/home/adam/.cache/n7j/round-env-kdir-7UrUSr/E/tree-b/doc/audit/2026-08-31_sampling-ceiling-after-merge]
+             actual:   [/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge]
+  FAILED   🔴 E: sourced as ./round.env from its own directory
+             expected: [/home/adam/.cache/n7j/round-env-kdir-7UrUSr/E/tree-a]
+             actual:   [/home/adam/Desktop/NDTwin-Kernel]
+  FAILED   🔴 E: sourced from inside ANOTHER checkout, it still names its own
+             expected: [/home/adam/.cache/n7j/round-env-kdir-7UrUSr/E/tree-a]
+             actual:   [/home/adam/Desktop/NDTwin-Kernel]
+  FAILED   🔴 E: the documented relative form ignores CDPATH
+             expected: [/home/adam/.cache/n7j/round-env-kdir-7UrUSr/E/tree-a]
+             actual:   [/home/adam/Desktop/NDTwin-Kernel]
+  FAILED   E: an exported KERNEL_DIR is honoured
+             expected: [/home/adam/.cache/n7j/round-env-kdir-7UrUSr/E/explicit]
+             actual:   [/home/adam/Desktop/NDTwin-Kernel]
+  FAILED     E: and ROUND follows it
+             expected: [/home/adam/.cache/n7j/round-env-kdir-7UrUSr/E/explicit/doc/audit/2026-08-31_sampling-ceiling-after-merge]
+             actual:   [/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge]
+  FAILED   🔴 E: an exported KERNEL_DIR that is no checkout is refused
+             no match for: [is not a checkout]
+             in: 
+  FAILED     E: and nothing is written
+             expected: [0]
+             actual:   [1]
+  FAILED   🔴 E: a relative exported KERNEL_DIR is refused, even from inside a checkout
+             no match for: [is not a checkout (an absolute path]
+             in: 
+  FAILED     E: and derives nothing from it
+             expected: []
+             actual:   [/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge]
+  FAILED     E: and nothing is written
+             expected: [0]
+             actual:   [1]
+  (a copy directly in /home/adam/.cache/n7j/round-env-kdir-7UrUSr: ../../.. of it is /home/adam)
+  FAILED   🔴 E: a copy outside any checkout refuses
+             no match for: [is not a checkout]
+             in: 
+  FAILED     E: and derives no KERNEL_DIR (the old file derived that parent)
+             expected: []
+             actual:   [/home/adam/Desktop/NDTwin-Kernel]
+  FAILED     E: and writes nothing
+             expected: [0]
+             actual:   [1]
+  FAILED   🔴 E: a copy in a directory that is no checkout refuses
+             no match for: [is not a checkout]
+             in: 
+  FAILED   🔴 E: dash is told to use bash
+             no match for: [round.env: source this file with bash]
+             in: 
+  FAILED     E: and the source fails
+             no match for: [rc=1]
+             in: rc=0
+             in: KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel
+  FAILED     E: and derives nothing
+             no match for: [KERNEL_DIR=UNSET]
+             in: rc=0
+             in: KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel
+  FAILED     E: and writes nothing
+             expected: [0]
+             actual:   [1]
+  FAILED   🔴 E: sourced as text (empty BASH_SOURCE) it refuses
+             no match for: [round.env: source this file by its path]
+             in: 
+  FAILED     E: and exits 1
+             no match for: [exit=1]
+             in: KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel
+             in: exit=0
+  FAILED     E: and derives nothing (was / before)
+             no match for: [KERNEL_DIR=UNSET]
+             in: KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel
+             in: exit=0
+  FAILED     E: and writes nothing
+             expected: [0]
+             actual:   [1]
+  FAILED   🔴 E: eval'd in an interactive bash it refuses
+             no match for: [round.env: source this file by its path]
+             in: bash: cannot set terminal process group (4067700): Inappropriate ioctl for device
+             in: bash: no job control in this shell
+             in: bash-5.2$ <2026-08-31_sampling-ceiling-after-merge/round.env)"
+             in: bash-5.2$ echo "NEXT $((6*7)) KD=${KERNEL_DIR-UNSET}"
+  ok       🔴 E: and the interactive shell survives (its next command runs)
+  FAILED     E: and the rest of the file did not run
+             no match for: [NEXT 42 KD=UNSET]
+             in: NEXT 42 KD=/home/adam/Desktop/NDTwin-Kernel
+  FAILED     E: and writes nothing
+             expected: [0]
+             actual:   [1]
+  ok       🔴 E: pasted line by line into an interactive bash, the shell survives every refusal
+  FAILED     E: (pasted) and the KERNEL_DIR left behind is empty, which lab_tree_check refuses
+             no match for: [NEXT 42 KD=[]]
+             in: NEXT 42 KD=[/home/adam/Desktop/NDTwin-Kernel]
+  FAILED     E: (inherited) B sourced after A in one shell names A throughout
+             expected: [/home/adam/.cache/n7j/round-env-kdir-7UrUSr/E/tree-a /home/adam/.cache/n7j/round-env-kdir-7UrUSr/E/tree-a/doc/audit/2026-08-31_sampling-ceiling-after-merge /home/adam/.cache/n7j/round-env-kdir-7UrUSr/E/tree-a/p4_proxy/venv/bin/python]
+             actual:   [/home/adam/Desktop/NDTwin-Kernel /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python]
+  FAILED     E: (inherited) with KERNEL_DIR and ROUND unset first, B is named but PY_PROXY stays A's
+             expected: [/home/adam/.cache/n7j/round-env-kdir-7UrUSr/E/tree-b /home/adam/.cache/n7j/round-env-kdir-7UrUSr/E/tree-b/doc/audit/2026-08-31_sampling-ceiling-after-merge /home/adam/.cache/n7j/round-env-kdir-7UrUSr/E/tree-a/p4_proxy/venv/bin/python]
+             actual:   [/home/adam/Desktop/NDTwin-Kernel /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python]
+  FAILED     E: (inherited) and so does CPU_BASELINE_FILE
+             expected: [/home/adam/.cache/n7j/round-env-kdir-7UrUSr/E/tree-a/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cpu_baseline.json]
+             actual:   [/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cpu_baseline.json]
+F5 round: doc/audit/2026-08-31_f5-fine-grid-round/round.env
+  FAILED   🔴 F5: KERNEL_DIR is the tree the file sits in
+             expected: [/home/adam/.cache/n7j/round-env-kdir-7UrUSr/F5/tree-a]
+             actual:   [/home/adam/Desktop/NDTwin-Kernel]
+  FAILED   🔴 F5: every absolute path it exports is inside that tree
+             expected: []
+             actual:   [KBIN=/home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel
+KBIN_BACKUP=/home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/f5-round/ndtwin_kernel.production-backup
+KBIN_PRE_T11=/home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/ndtwin_kernel.a40e04ce
+KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel
+LOG=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/run_f5.log
+LOG_BASE=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/run_f5.log
+OUT=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post
+PY_PROXY=/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+ROUND=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round
+TRH=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness]
+  FAILED   🔴 F5: every write it asks for is inside that tree
+             expected: []
+             actual:   [/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post]
+  ok         F5: and it did ask for its directories (1 mkdir argument(s))
+  ok         F5: and it exported the round's core variables
+  ok         F5: (the write shims were in force)
+  FAILED   🔴 F5: a second checkout gets its own KERNEL_DIR
+             expected: [/home/adam/.cache/n7j/round-env-kdir-7UrUSr/F5/tree-b]
+             actual:   [/home/adam/Desktop/NDTwin-Kernel]
+  FAILED     F5: and its own ROUND
+             expected: [/home/adam/.cache/n7j/round-env-kdir-7UrUSr/F5/tree-b/doc/audit/2026-08-31_f5-fine-grid-round]
+             actual:   [/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round]
+  FAILED   🔴 F5: sourced as ./round.env from its own directory
+             expected: [/home/adam/.cache/n7j/round-env-kdir-7UrUSr/F5/tree-a]
+             actual:   [/home/adam/Desktop/NDTwin-Kernel]
+  FAILED   🔴 F5: sourced from inside ANOTHER checkout, it still names its own
+             expected: [/home/adam/.cache/n7j/round-env-kdir-7UrUSr/F5/tree-a]
+             actual:   [/home/adam/Desktop/NDTwin-Kernel]
+  FAILED   🔴 F5: the documented relative form ignores CDPATH
+             expected: [/home/adam/.cache/n7j/round-env-kdir-7UrUSr/F5/tree-a]
+             actual:   [/home/adam/Desktop/NDTwin-Kernel]
+  FAILED   F5: an exported KERNEL_DIR is honoured
+             expected: [/home/adam/.cache/n7j/round-env-kdir-7UrUSr/F5/explicit]
+             actual:   [/home/adam/Desktop/NDTwin-Kernel]
+  FAILED     F5: and ROUND follows it
+             expected: [/home/adam/.cache/n7j/round-env-kdir-7UrUSr/F5/explicit/doc/audit/2026-08-31_f5-fine-grid-round]
+             actual:   [/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round]
+  FAILED   🔴 F5: an exported KERNEL_DIR that is no checkout is refused
+             no match for: [is not a checkout]
+             in: 
+  FAILED     F5: and nothing is written
+             expected: [0]
+             actual:   [1]
+  FAILED   🔴 F5: a relative exported KERNEL_DIR is refused, even from inside a checkout
+             no match for: [is not a checkout (an absolute path]
+             in: 
+  FAILED     F5: and derives nothing from it
+             expected: []
+             actual:   [/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round]
+  FAILED     F5: and nothing is written
+             expected: [0]
+             actual:   [1]
+  (a copy directly in /home/adam/.cache/n7j/round-env-kdir-7UrUSr: ../../.. of it is /home/adam)
+  FAILED   🔴 F5: a copy outside any checkout refuses
+             no match for: [is not a checkout]
+             in: 
+  FAILED     F5: and derives no KERNEL_DIR (the old file derived that parent)
+             expected: []
+             actual:   [/home/adam/Desktop/NDTwin-Kernel]
+  FAILED     F5: and writes nothing
+             expected: [0]
+             actual:   [1]
+  FAILED   🔴 F5: a copy in a directory that is no checkout refuses
+             no match for: [is not a checkout]
+             in: 
+  FAILED   🔴 F5: dash is told to use bash
+             no match for: [round.env: source this file with bash]
+             in: 
+  FAILED     F5: and the source fails
+             no match for: [rc=1]
+             in: rc=0
+             in: KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel
+  FAILED     F5: and derives nothing
+             no match for: [KERNEL_DIR=UNSET]
+             in: rc=0
+             in: KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel
+  FAILED     F5: and writes nothing
+             expected: [0]
+             actual:   [1]
+  FAILED   🔴 F5: sourced as text (empty BASH_SOURCE) it refuses
+             no match for: [round.env: source this file by its path]
+             in: 
+  FAILED     F5: and exits 1
+             no match for: [exit=1]
+             in: KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel
+             in: exit=0
+  FAILED     F5: and derives nothing (was / before)
+             no match for: [KERNEL_DIR=UNSET]
+             in: KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel
+             in: exit=0
+  FAILED     F5: and writes nothing
+             expected: [0]
+             actual:   [1]
+  FAILED   🔴 F5: eval'd in an interactive bash it refuses
+             no match for: [round.env: source this file by its path]
+             in: bash: cannot set terminal process group (4067700): Inappropriate ioctl for device
+             in: bash: no job control in this shell
+             in: bash-5.2$ <doc/audit/2026-08-31_f5-fine-grid-round/round.env)"
+             in: bash-5.2$ echo "NEXT $((6*7)) KD=${KERNEL_DIR-UNSET}"
+  ok       🔴 F5: and the interactive shell survives (its next command runs)
+  FAILED     F5: and the rest of the file did not run
+             no match for: [NEXT 42 KD=UNSET]
+             in: NEXT 42 KD=/home/adam/Desktop/NDTwin-Kernel
+  FAILED     F5: and writes nothing
+             expected: [0]
+             actual:   [1]
+  ok       🔴 F5: pasted line by line into an interactive bash, the shell survives every refusal
+  FAILED     F5: (pasted) and the KERNEL_DIR left behind is empty, which lab_tree_check refuses
+             no match for: [NEXT 42 KD=[]]
+             in: NEXT 42 KD=[/home/adam/Desktop/NDTwin-Kernel]
+  FAILED     F5: (inherited) B sourced after A in one shell names A throughout
+             expected: [/home/adam/.cache/n7j/round-env-kdir-7UrUSr/F5/tree-a /home/adam/.cache/n7j/round-env-kdir-7UrUSr/F5/tree-a/doc/audit/2026-08-31_f5-fine-grid-round /home/adam/.cache/n7j/round-env-kdir-7UrUSr/F5/tree-a/p4_proxy/venv/bin/python]
+             actual:   [/home/adam/Desktop/NDTwin-Kernel /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python]
+  FAILED     F5: (inherited) with KERNEL_DIR and ROUND unset first, B is named but PY_PROXY stays A's
+             expected: [/home/adam/.cache/n7j/round-env-kdir-7UrUSr/F5/tree-b /home/adam/.cache/n7j/round-env-kdir-7UrUSr/F5/tree-b/doc/audit/2026-08-31_f5-fine-grid-round /home/adam/.cache/n7j/round-env-kdir-7UrUSr/F5/tree-a/p4_proxy/venv/bin/python]
+             actual:   [/home/adam/Desktop/NDTwin-Kernel /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python]
+consumers
+  ok       🔴 test_gate_exit_code_not_tee: under an inherited KERNEL_DIR it still tests this checkout
+  ok         test_gate_exit_code_not_tee: and nothing it creates is in the inherited tree
+  ok       🔴 test_cell_gate_suspect_wiring: under an inherited KERNEL_DIR it still tests this checkout
+  ok         test_cell_gate_suspect_wiring: and nothing it creates is in the inherited tree
+  ok       🔴 test_cell_gate_suspect_wiring: a missing interpreter is a failure, not a green skip (rc)
+  ok         test_cell_gate_suspect_wiring: and it says what is missing
+
+Ran 83 checks, 67 failed
+guarded_build: exit 1
+# rc=1

@@ -1,0 +1,4 @@
+phi_target	cut_a_start_mono	cut_a_end_mono	cut_b_start_mono	cut_b_end_mono	last_heard_ab_mono	last_heard_ba_mono	phi_s	graph_down_mono	detect_s	pass_prev_start_mono	pass_start_mono	pass_end_mono	watchdog_phase_s	pass_lateness_s	pass_to_graph_s	cut_window_s	clock_drift_ms	cut_flags	strict_20s
+0.02	135877.087	135877.096	135877.096	135877.104	135877.070	135877.070	0.017	135893.627	16.540	135888.537	135893.538	135893.543	1.468	0.000	0.089	0.000	0.0	-	yes
+restore_a_start_mono	restore_a_end_mono	restore_b_start_mono	restore_b_end_mono	first_heard_ab_mono	first_heard_ba_mono	restore_daemon_s	restore_report_s	pass_up_start_mono	pass_up_after_report_s	graph_up_mono	restore_s	pass_to_graph_up_s	restore_drift_ms	restore_flags
+135899.014	135899.037	135899.037	135899.056	135902.069	135902.069	3.055	3.556	135903.544	0.974	135903.778	4.764	0.234	0.0	-

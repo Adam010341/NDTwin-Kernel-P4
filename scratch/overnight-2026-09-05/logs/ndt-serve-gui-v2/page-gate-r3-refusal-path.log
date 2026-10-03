@@ -1,0 +1,10 @@
+# date -Is: 2026-10-02T01:00:25+08:00
+# argv: tests/shell/mutate_ndt_serve_page.sh 
+# git rev-parse HEAD: 23e9b76fe64a6ecc659fb40961f95faf090f6b3f
+# git status --porcelain | wc -l: 4
+# python3: /home/adam/miniconda3/bin/python3 3.13.13 | packaged by Anaconda, Inc. | (main, Apr 14 2026, 06:19:41) [GCC 14.3.0]
+# node -v: v24.20.0   npm -v: 11.19.0
+# this gate: 7e71944f0bbc2388da36afbda5a575ab4906e72a8f6a4328242fbcd6fb438e1c
+REFUSED: ONLY names no-such-label, which is no mutation of this gate
+INCOMPLETE: ended before its verdict line -- not a verdict
+rc=2

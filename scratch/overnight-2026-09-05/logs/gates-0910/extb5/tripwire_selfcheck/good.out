@@ -1,0 +1,2 @@
+log /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tripwire_selfcheck/good.log: 1 line(s)
+NOLAB-TRIPWIRE: 0 lab call(s); 1 allowed switch launch(es) and 0 --version probe(s), each re-checked: 0 breaking a condition, 0 refused by the wrapper; 0 still running (by pid and start time); 1 line(s) in all

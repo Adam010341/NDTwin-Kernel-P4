@@ -1,0 +1,18 @@
+/dev/nvme0n1p5   98G   89G  4.0G  96% /
+visible: visible
+after a 2nd page: hidden
+/dev/nvme0n1p5   98G   89G  4.3G  96% /
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ python3 /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4b9701b1-39f4-403b-859d-67977bec986b/scratchpad/cdp_selftest.py
+session: yes ok http://127.0.0.1:38549/
+visible: visible
+after a 2nd page: hidden
+after activate: visible
+dialog open; typed row hidden: True
+dialog open, focus: c-cancel
+after Enter on Confirm, still open: True
+after click: 202 -- job 20260927T163612Z-7ed888 started
+leftovers: []
+guarded_build: exit 0
+
+[exited with code 0]

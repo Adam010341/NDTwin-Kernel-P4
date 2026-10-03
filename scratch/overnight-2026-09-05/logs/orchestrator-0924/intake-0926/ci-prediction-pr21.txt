@@ -1,0 +1,8 @@
+# written BEFORE pushing pr/untrack-claude-md (d8d744ebd115e4b201bd44602a602f29ecefd39c), 2026-10-01T15:17:52+08:00
+2 files: CLAUDE.md deleted, .gitignore +3 lines. Base main 6722c298. No code or test change.
+- clang, TSan, ASan+UBSan: PASS. GCC: ctest 1385/1385; L1 passed; 0 FAILED lines; test_apps_residue.sh PASS 145; gate anchors 127/127.
+- Risk checked: nothing in CI reads CLAUDE.md (grep of .github/ and tests/ below).
+- checked: CLAUDE.md is only named in comments/prose (18 files outside doc/), nothing opens it.
+# appended BEFORE pushing the second PR commit (c40182d55f13f38f861dd60f6ca3b8ee48f8f44a), 2026-10-01T15:21:46+08:00: also untracks .claude/agents/fable-judge.md and
+# .claude/skills/overnight-hunt/SKILL.md, .gitignore ignores .claude/. Still no code or test change; same prediction. Both files are only
+# named in comments (git grep), nothing reads them.

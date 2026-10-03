@@ -1,0 +1,68 @@
+add20e879e7af3b61dcdb65ce8196f9f752b7616
+# 2026-09-27T23:56:40Z cmd bash -c cd p4_proxy && venv/bin/python tests/test_route_binding.py
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c cd p4_proxy && venv/bin/python tests/test_route_binding.py
+test_a_bound_ndtwin_owned_switch_is_written_through_its_binding (__main__.AWriteWithNoBindingIs501OnTheRenamedFixtureTest.test_a_bound_ndtwin_owned_switch_is_written_through_its_binding) ... ok
+test_a_five_tuple_delete_on_a_foreign_switch_answers_501 (__main__.AWriteWithNoBindingIs501OnTheRenamedFixtureTest.test_a_five_tuple_delete_on_a_foreign_switch_answers_501) ... ok
+test_a_five_tuple_modify_on_a_foreign_switch_answers_501 (__main__.AWriteWithNoBindingIs501OnTheRenamedFixtureTest.test_a_five_tuple_modify_on_a_foreign_switch_answers_501) ... ok
+test_a_five_tuple_write_on_a_foreign_switch_answers_501 (__main__.AWriteWithNoBindingIs501OnTheRenamedFixtureTest.test_a_five_tuple_write_on_a_foreign_switch_answers_501) ... ok
+test_an_external_control_plane_refuses_first_as_it_always_did (__main__.AWriteWithNoBindingIs501OnTheRenamedFixtureTest.test_an_external_control_plane_refuses_first_as_it_always_did) ... ok
+test_an_owner_package_switch_answers_501_owned_by_package (__main__.AWriteWithNoBindingIs501OnTheRenamedFixtureTest.test_an_owner_package_switch_answers_501_owned_by_package) ... ok
+test_an_unbound_switch_answers_501_unbound_on_all_three_verbs (__main__.AWriteWithNoBindingIs501OnTheRenamedFixtureTest.test_an_unbound_switch_answers_501_unbound_on_all_three_verbs) ... ok
+test_the_body_keeps_the_shape_the_other_501s_use_and_the_remedy_fits_the_window (__main__.AWriteWithNoBindingIs501OnTheRenamedFixtureTest.test_the_body_keeps_the_shape_the_other_501s_use_and_the_remedy_fits_the_window) ... ok
+test_a_dst_mac_parameter_the_action_does_not_take (__main__.ResolveRefusesOnTheRenamedFixtureTest.test_a_dst_mac_parameter_the_action_does_not_take) ... ok
+test_a_dst_mac_that_is_not_48_bits (__main__.ResolveRefusesOnTheRenamedFixtureTest.test_a_dst_mac_that_is_not_48_bits) ... ok
+test_a_match_field_the_table_does_not_have (__main__.ResolveRefusesOnTheRenamedFixtureTest.test_a_match_field_the_table_does_not_have) ... ok
+test_a_match_that_is_not_32_bits (__main__.ResolveRefusesOnTheRenamedFixtureTest.test_a_match_that_is_not_32_bits) ... ok
+test_a_match_that_is_not_lpm (__main__.ResolveRefusesOnTheRenamedFixtureTest.test_a_match_that_is_not_lpm) ... ok
+test_a_port_parameter_the_action_does_not_take (__main__.ResolveRefusesOnTheRenamedFixtureTest.test_a_port_parameter_the_action_does_not_take) ... ok
+test_a_port_that_fits_is_not_refused (__main__.ResolveRefusesOnTheRenamedFixtureTest.test_a_port_that_fits_is_not_refused) ... ok
+test_a_port_too_narrow_for_the_topologys_largest_port (__main__.ResolveRefusesOnTheRenamedFixtureTest.test_a_port_too_narrow_for_the_topologys_largest_port) ... ok
+test_a_table_the_pipeline_does_not_have (__main__.ResolveRefusesOnTheRenamedFixtureTest.test_a_table_the_pipeline_does_not_have) ... ok
+test_an_action_the_pipeline_does_not_have (__main__.ResolveRefusesOnTheRenamedFixtureTest.test_an_action_the_pipeline_does_not_have) ... ok
+test_an_action_the_table_does_not_list (__main__.ResolveRefusesOnTheRenamedFixtureTest.test_an_action_the_table_does_not_list) ... ok
+test_an_action_with_a_third_parameter (__main__.ResolveRefusesOnTheRenamedFixtureTest.test_an_action_with_a_third_parameter) ... ok
+test_an_owner_outside_the_two_words (__main__.ResolveRefusesOnTheRenamedFixtureTest.test_an_owner_outside_the_two_words) ... ok
+test_every_problem_is_reported_not_just_the_first (__main__.ResolveRefusesOnTheRenamedFixtureTest.test_every_problem_is_reported_not_just_the_first) ... ok
+test_the_message_names_the_switch_it_is_about (__main__.ResolveRefusesOnTheRenamedFixtureTest.test_the_message_names_the_switch_it_is_about) ... ok
+test_basics_role_resolves_to_the_baseline_names_but_is_the_packages (__main__.ResolvingBasicTest.test_basics_role_resolves_to_the_baseline_names_but_is_the_packages) ... ok
+test_a_resolved_binding_says_where_it_came_from_and_who_owns_it (__main__.ResolvingTheRenamedFixtureTest.test_a_resolved_binding_says_where_it_came_from_and_who_owns_it) ... ok
+test_an_alias_resolves_to_the_full_name_read_table_entries_reports (__main__.ResolvingTheRenamedFixtureTest.test_an_alias_resolves_to_the_full_name_read_table_entries_reports) ... ok
+test_the_renamed_port_width_comes_from_the_p4info (__main__.ResolvingTheRenamedFixtureTest.test_the_renamed_port_width_comes_from_the_p4info) ... ok
+test_the_renamed_role_resolves_to_the_renamed_names (__main__.ResolvingTheRenamedFixtureTest.test_the_renamed_role_resolves_to_the_renamed_names) ... ok
+test_every_client_that_was_never_bound_writes_through_the_baseline (__main__.TheBaselineIsTheLiteralsTest.test_every_client_that_was_never_bound_writes_through_the_baseline) ... ok
+test_the_baseline_binding_is_ndtwin_switchs_own_five_names (__main__.TheBaselineIsTheLiteralsTest.test_the_baseline_binding_is_ndtwin_switchs_own_five_names) ... ok
+test_the_baseline_is_ndtwin_owned_from_the_baseline_and_two_bytes_of_port (__main__.TheBaselineIsTheLiteralsTest.test_the_baseline_is_ndtwin_owned_from_the_baseline_and_two_bytes_of_port) ... ok
+test_the_loader_and_the_resolver_agree_on_the_shape (__main__.TheBaselineIsTheLiteralsTest.test_the_loader_and_the_resolver_agree_on_the_shape) ... ok
+test_a_foreign_pipeline_without_roles_is_unbound (__main__.TheFactoryBindsEveryClientTest.test_a_foreign_pipeline_without_roles_is_unbound) ... ok
+test_a_renamed_foreign_pipeline_with_roles_is_bound_to_the_renamed_names (__main__.TheFactoryBindsEveryClientTest.test_a_renamed_foreign_pipeline_with_roles_is_bound_to_the_renamed_names) ... ok
+test_a_role_that_does_not_fit_refuses_rather_than_falling_back_to_unbound (__main__.TheFactoryBindsEveryClientTest.test_a_role_that_does_not_fit_refuses_rather_than_falling_back_to_unbound) ... ok
+test_a_second_build_of_the_same_switch_is_resolved_again_not_remembered (__main__.TheFactoryBindsEveryClientTest.test_a_second_build_of_the_same_switch_is_resolved_again_not_remembered) ... ok
+test_an_owner_package_role_is_bound_but_owned_by_the_package (__main__.TheFactoryBindsEveryClientTest.test_an_owner_package_role_is_bound_but_owned_by_the_package) ... ok
+test_ndtwins_own_pipeline_is_bound_to_the_baseline (__main__.TheFactoryBindsEveryClientTest.test_ndtwins_own_pipeline_is_bound_to_the_baseline) ... ok
+test_readopt_builds_its_client_through_the_same_factory (__main__.TheFactoryBindsEveryClientTest.test_readopt_builds_its_client_through_the_same_factory) ... ok
+test_the_install_time_record_keys_by_the_renamed_table (__main__.TheFactoryBindsEveryClientTest.test_the_install_time_record_keys_by_the_renamed_table) ... ok
+test_the_install_time_record_keys_ndtwins_own_pipeline_by_the_baseline_table (__main__.TheFactoryBindsEveryClientTest.test_the_install_time_record_keys_ndtwins_own_pipeline_by_the_baseline_table) ... ok
+test_the_startup_loop_does_not_swallow_the_refusal_as_a_down_switch (__main__.TheFactoryBindsEveryClientTest.test_the_startup_loop_does_not_swallow_the_refusal_as_a_down_switch) ... ok
+test_no_module_spells_the_four_route_names_outside_baseline_and_the_named_exceptions (__main__.TheLiteralsLiveOnlyInTheBaselineTest.test_no_module_spells_the_four_route_names_outside_baseline_and_the_named_exceptions) ... ok
+test_no_route_write_spells_any_of_the_five_names (__main__.TheLiteralsLiveOnlyInTheBaselineTest.test_no_route_write_spells_any_of_the_five_names) ... ok
+test_the_one_disclosed_exception_is_the_baselines_own_table_name (__main__.TheLiteralsLiveOnlyInTheBaselineTest.test_the_one_disclosed_exception_is_the_baselines_own_table_name) ... ok
+test_the_renderer_reads_the_route_match_field_back_as_nw_dst (__main__.TheLiteralsLiveOnlyInTheBaselineTest.test_the_renderer_reads_the_route_match_field_back_as_nw_dst) ... ok
+test_the_renderer_takes_the_route_action_from_the_baseline (__main__.TheLiteralsLiveOnlyInTheBaselineTest.test_the_renderer_takes_the_route_action_from_the_baseline) ... ok
+
+----------------------------------------------------------------------
+Ran 47 tests in 0.197s
+
+OK
+[Proxy Agent] app package: baseline (mode ndtwin, election_id 0,1)
+[TopologyManager] Pushing P4 rule to DPID 1: 10.0.1.1/32 -> Port 1 (MAC: 08:00:00:00:01:11)
+[1] Added route: 10.0.1.1/32 -> port 1, mac 08:00:00:00:01:11
+[TopologyManager] Deleting 5-tuple rule on DPID 1 prio=102 keys=['hdr.ipv4.dstAddr', 'hdr.ipv4.protocol', 'hdr.ipv4.srcAddr']
+[TopologyManager] Pushing 5-tuple rule to DPID 1 prio=1 keys=['hdr.ipv4.dstAddr', 'hdr.ipv4.protocol', 'hdr.ipv4.srcAddr'] -> port 1
+[TopologyManager] Pushing P4 rule to DPID 1: 10.0.1.1/32 -> Port 1 (MAC: 08:00:00:00:01:11)
+[TopologyManager] Pushing P4 rule to DPID 1: 10.0.1.1/32 -> Port 1 (MAC: 08:00:00:00:01:11)
+[TopologyManager] Pushing P4 rule to DPID 1: 10.0.1.1/32 -> Port 1 (MAC: 08:00:00:00:01:11)
+[TopologyManager] Pushing P4 rule to DPID 1: 10.0.1.1/32 -> Port 1 (MAC: 08:00:00:00:01:11)
+[Proxy Agent] REFUSING to start: s1: roles.ipv4_route.action: 'Nope.a' is not an action of this pipeline
+guarded_build: exit 0
+# rc=0

@@ -1,0 +1,3 @@
+/home/adam/tutorials/exercises/ecn/solution/ecn.p4(7): [--Wwarn=unused] warning: 'TCP_PROTOCOL' is unused
+const bit<8> TCP_PROTOCOL = 0x06;
+             ^^^^^^^^^^^^

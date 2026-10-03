@@ -1,0 +1,34 @@
+7b4a48b9e7b0062e0d086d3db38d48141f164f4f
+# 2026-09-27T18:52:42Z cmd bash tests/shell/test_round_env_kernel_dir.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/test_round_env_kernel_dir.sh
+E round: doc/audit/2026-08-31_sampling-ceiling-after-merge/round.env
+  ok       🔴 E: KERNEL_DIR is the tree the file sits in
+  ok       🔴 E: every path it exports is inside that tree
+  ok       🔴 E: every directory it creates is inside that tree
+  ok         E: and it did ask to create them (2)
+  ok         E: and every variable was set
+  ok       🔴 E: a second checkout gets its own KERNEL_DIR
+  ok         E: and its own ROUND
+  ok       🔴 E: sourced relatively from its own directory
+  ok       🔴 E: sourced from inside ANOTHER checkout, it still names its own
+  ok       E: an exported KERNEL_DIR is honoured
+  ok         E: and ROUND follows it
+  ok         E: (the mkdir shim was in force)
+F5 round: doc/audit/2026-08-31_f5-fine-grid-round/round.env
+  ok       🔴 F5: KERNEL_DIR is the tree the file sits in
+  ok       🔴 F5: every path it exports is inside that tree
+  ok       🔴 F5: every directory it creates is inside that tree
+  ok         F5: and it did ask to create them (1)
+  ok         F5: and every variable was set
+  ok       🔴 F5: a second checkout gets its own KERNEL_DIR
+  ok         F5: and its own ROUND
+  ok       🔴 F5: sourced relatively from its own directory
+  ok       🔴 F5: sourced from inside ANOTHER checkout, it still names its own
+  ok       F5: an exported KERNEL_DIR is honoured
+  ok         F5: and ROUND follows it
+  ok         F5: (the mkdir shim was in force)
+
+Ran 24 checks, 0 failed
+guarded_build: exit 0
+# rc=0

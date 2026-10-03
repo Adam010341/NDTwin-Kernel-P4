@@ -1,0 +1,11 @@
+2026-09-28T00:05:47+08:00
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/nvme0n1p5   98G   90G  3.9G  96% /
+avail=4109012992
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env PATH=/home/adam/.local/node/bin:/home/adam/.local/bin:/home/adam/.local/bin:/home/adam/.grok/bin:/home/adam/.local/bin:/home/adam/miniconda3/bin:/home/adam/miniconda3/condabin:/home/adam/.local/bin:/home/adam/.local/bin:/home/adam/.local/bin:/home/adam/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/adam/.config/Claude/local-agent-mode-sessions/740b7c88-df32-4eb9-b383-248b5d7648c1/c7bf5182-caa3-411b-9b68-3914b9e29fe2/rpm/plugin_0155zZVATbJU3jHUmPP9NvMC/bin:/home/adam/.config/Claude/local-agent-mode-sessions/skills-plugin/c7bf5182-caa3-411b-9b68-3914b9e29fe2/740b7c88-df32-4eb9-b383-248b5d7648c1/bin:/home/adam/.claude/plugins/cache/claude-plugins-official/mattpocock-skills/1.2.3/bin:/home/adam/.claude/plugins/cache/claude-community/eli5/1.0.0/bin:/home/adam/.claude/skills/easy-summarize/bin npm --prefix tools/ndt_serve/web install --ignore-scripts --save-exact --save-dev --no-audit --no-fund --registry=https://registry.npmjs.org/ marked@18.0.14
+
+added 141 packages in 12s
+guarded_build: exit 0
+exit=0
+2026-09-28T00:18:44+08:00

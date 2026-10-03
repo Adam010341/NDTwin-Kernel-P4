@@ -1,0 +1,22 @@
+# PR #22 head eea1173d, compared 2026-10-01 by sonnet-worker, key lines spot-checked by the orchestrator
+8/8 jobs pass in 2 runs: 36833254147 (push, branch pr/spawn-helper-call-sites, GCC 110274499246) and 36833258936 (pull_request, GCC 110274514834); no cancelled runs. clang, TSan, ASan+UBSan: success in both runs.
+Logs: ci-pr22-gcc-110274499246.log (push), ci-pr22-gcc-110274514834.log (pull_request)
+ctest 1385/1385: MATCH (push :6647, :6933; PR :6660, :6946)
+L1 passed: MATCH (push :7112; PR :7125)
+0 FAILED lines: MATCH (grep -c FAILED = 0 in both logs)
+test_ndt_app_orphans PASS 111: MATCH (push :7061; PR :7074)
+test_ndt_apps_liveness PASS 57: MATCH (push :7063; PR :7076)
+test_ndtwin_lab_sweep PASS 33: MATCH (push :7081; PR :7094)
+test_ndt_helper_apps_window PASS 156: DEVIATION from the predicted 157 (push :7068; PR :7081). See note.
+test_faults_topo_pid PASS 61: MATCH (push :7044; PR :7057)
+test_ndt_ovs_claim PASS 174: MATCH (push :7070; PR :7083)
+test_ndt_down_stops_only_ours PASS 32: MATCH (push :7066; PR :7079)
+test_apps_residue PASS 145: MATCH (push :7036; PR :7049)
+gate anchors ok 128/128: MATCH (push :6924; PR :6937)
+clang / TSan / ASan+UBSan: success (conclusion only), MATCH, both runs.
+Note on window 156: the prediction's 157 came from the local unmutated run, whose baseline is 150
+(redfirst2-gate-trunk-3368412d.log, cited in spawnhelpers/judge-dfdb2121-r1.md:54); CI's main baseline is 149
+(ci-pr19-gcc-110224586333.log:7066). Both grew by +7, the call-site count, so 12C ran in both places. The
+prediction's alternative "156 if 12C does not run" was the wrong explanation: the one-check gap is the local/CI
+baseline difference, which predates this PR. Orchestrator spot-check: re-grepped ctest, anchors, window, L1 and
+the FAILED count in both logs; all as quoted.

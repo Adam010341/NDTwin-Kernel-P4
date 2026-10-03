@@ -1,0 +1,38 @@
+date 2026-10-02T09:56:01+08:00
+head 73889e5494d22f32b39f4a43021db389a92fe742
+porcelain 0
+gate tests/shell/mutate_ndt_status_measuring.sh sha256 edcd5ddc2c54e67a
+gate log /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/killed-r4-int-measuring-gate.gate.log
+signal SIGINT
+/dev/nvme0n1p5   98G   91G  2.6G  98% /
+gate pid 781756, pgid 781756
+marker seen after ~45 s:   caught   L1: --measuring is the full report (sudo and the kernel graph on every probe) (🔴 --mea
+made in /tmp while it ran (this gate's prefixes): ndt-measuring-mutate-GBASl2 ndt-status-measuring-XQ6N27
+other new /tmp entries of this user (not counted): 0
+2026-10-02T09:56:48+08:00 kill -INT -- -781756
+gate exit status: 0
+left in its process group 3 s later: none
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/957349/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/957350/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/957352/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/957353/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/957354/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/957355/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/949926/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/949927/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/949928/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/954107/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/960042/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/960045/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/960046/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/960049/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/960084/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/960087/cmdline: No such file or directory
+its /tmp entries still there: none
+processes naming them (cmdline or cwd): none
+--- last 4 lines of the gate's log:
+  |   965620345606d0e103b65ea0d97cd4a8bca3cbb766f5c4ce7809b7fd6fcec1c2  tests/shell/test_ndt_status_measuring.sh
+  | 
+  | 19 mutation(s), 0 survivor(s)
+  | rc=0
+--- verdict-shaped lines: rc=0 1, totals 1, INCOMPLETE 0

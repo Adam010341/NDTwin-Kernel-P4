@@ -1,0 +1,7 @@
+d94b55477e473f166a3b135a16217d16e87a9c79
+# 2026-09-27T19:19:47Z cmd bash -c cd p4_proxy; bad=0; n=0; for f in tests/test_*.py; do out=$(timeout 900 venv/bin/python "$f" 2>&1); rc=$?; k=$(sed -n -E "s/^Ran ([0-9]+) tests?.*/\1/p" <<<"$out" | tail -1); n=$((n+${k:-0})); l=$(grep -E "^(OK|FAILED)" <<<"$out" | tail -1); if [[ $rc != 0 || $l != OK* || ${k:-0} == 0 ]]; then bad=1; echo "FAILED $f rc=$rc ran=${k:-0} $l"; fi; done; echo "PROXY-UNIT ran $n bad=$bad"; exit $bad
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c cd p4_proxy; bad=0; n=0; for f in tests/test_*.py; do out=$(timeout 900 venv/bin/python "$f" 2>&1); rc=$?; k=$(sed -n -E "s/^Ran ([0-9]+) tests?.*/\1/p" <<<"$out" | tail -1); n=$((n+${k:-0})); l=$(grep -E "^(OK|FAILED)" <<<"$out" | tail -1); if [[ $rc != 0 || $l != OK* || ${k:-0} == 0 ]]; then bad=1; echo "FAILED $f rc=$rc ran=${k:-0} $l"; fi; done; echo "PROXY-UNIT ran $n bad=$bad"; exit $bad
+PROXY-UNIT ran 1661 bad=0
+guarded_build: exit 0
+# rc=0

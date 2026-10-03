@@ -1,0 +1,96 @@
+67e9963d03732ea833137c248dbc4642979aa6ff
+# 2026-09-28T00:39:28Z cmd bash tests/shell/test_round_env_kernel_dir.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/test_round_env_kernel_dir.sh
+E round: doc/audit/2026-08-31_sampling-ceiling-after-merge/round.env
+  ok       🔴 E: KERNEL_DIR is the tree the file sits in
+  ok       🔴 E: every absolute path it exports is inside that tree
+  ok       🔴 E: every write it asks for is inside that tree
+  ok         E: and it did ask for its directories (2 mkdir argument(s))
+  ok         E: and it exported the round's core variables
+  ok         E: (the write shims were in force)
+  ok       🔴 E: a second checkout gets its own KERNEL_DIR
+  ok         E: and its own ROUND
+  ok       🔴 E: sourced as ./round.env from its own directory
+  ok       🔴 E: sourced from inside ANOTHER checkout, it still names its own
+  ok       🔴 E: the documented relative form ignores CDPATH
+  ok       E: an exported KERNEL_DIR is honoured
+  ok         E: and ROUND follows it
+  ok       🔴 E: an exported KERNEL_DIR that is no checkout is refused
+  ok         E: and nothing is written
+  ok       🔴 E: a relative exported KERNEL_DIR is refused, even from inside a checkout
+  ok         E: and derives nothing from it
+  ok         E: and nothing is written
+  (a copy directly in /home/adam/.cache/n7j/round-env-kdir-QrBSLY: ../../.. of it is /home/adam)
+  ok       🔴 E: a copy outside any checkout refuses
+  ok         E: and derives no KERNEL_DIR (the old file derived that parent)
+  ok         E: and writes nothing
+  ok       🔴 E: a copy in a directory that is no checkout refuses
+  ok       🔴 E: dash is told to use bash
+  ok         E: and the source fails
+  ok         E: and derives nothing
+  ok         E: and writes nothing
+  ok       🔴 E: sourced as text (empty BASH_SOURCE) it refuses
+  ok         E: and exits 1
+  ok         E: and derives nothing (was / before)
+  ok         E: and writes nothing
+  ok       🔴 E: eval'd in an interactive bash it refuses
+  ok       🔴 E: and the interactive shell survives (its next command runs)
+  ok         E: and the rest of the file did not run
+  ok         E: and writes nothing
+  ok       🔴 E: pasted line by line into an interactive bash, the shell survives every refusal
+  ok         E: (pasted) and the KERNEL_DIR left behind is empty, which lab_tree_check refuses
+  ok         E: (inherited) B sourced after A in one shell names A throughout
+  ok         E: (inherited) with KERNEL_DIR and ROUND unset first, B is named but PY_PROXY stays A's
+  ok         E: (inherited) and so does CPU_BASELINE_FILE
+F5 round: doc/audit/2026-08-31_f5-fine-grid-round/round.env
+  ok       🔴 F5: KERNEL_DIR is the tree the file sits in
+  ok       🔴 F5: every absolute path it exports is inside that tree
+  ok       🔴 F5: every write it asks for is inside that tree
+  ok         F5: and it did ask for its directories (1 mkdir argument(s))
+  ok         F5: and it exported the round's core variables
+  ok         F5: (the write shims were in force)
+  ok       🔴 F5: a second checkout gets its own KERNEL_DIR
+  ok         F5: and its own ROUND
+  ok       🔴 F5: sourced as ./round.env from its own directory
+  ok       🔴 F5: sourced from inside ANOTHER checkout, it still names its own
+  ok       🔴 F5: the documented relative form ignores CDPATH
+  ok       F5: an exported KERNEL_DIR is honoured
+  ok         F5: and ROUND follows it
+  ok       🔴 F5: an exported KERNEL_DIR that is no checkout is refused
+  ok         F5: and nothing is written
+  ok       🔴 F5: a relative exported KERNEL_DIR is refused, even from inside a checkout
+  ok         F5: and derives nothing from it
+  ok         F5: and nothing is written
+  (a copy directly in /home/adam/.cache/n7j/round-env-kdir-QrBSLY: ../../.. of it is /home/adam)
+  ok       🔴 F5: a copy outside any checkout refuses
+  ok         F5: and derives no KERNEL_DIR (the old file derived that parent)
+  ok         F5: and writes nothing
+  ok       🔴 F5: a copy in a directory that is no checkout refuses
+  ok       🔴 F5: dash is told to use bash
+  ok         F5: and the source fails
+  ok         F5: and derives nothing
+  ok         F5: and writes nothing
+  ok       🔴 F5: sourced as text (empty BASH_SOURCE) it refuses
+  ok         F5: and exits 1
+  ok         F5: and derives nothing (was / before)
+  ok         F5: and writes nothing
+  ok       🔴 F5: eval'd in an interactive bash it refuses
+  ok       🔴 F5: and the interactive shell survives (its next command runs)
+  ok         F5: and the rest of the file did not run
+  ok         F5: and writes nothing
+  ok       🔴 F5: pasted line by line into an interactive bash, the shell survives every refusal
+  ok         F5: (pasted) and the KERNEL_DIR left behind is empty, which lab_tree_check refuses
+  ok         F5: (inherited) B sourced after A in one shell names A throughout
+  ok         F5: (inherited) with KERNEL_DIR and ROUND unset first, B is named but PY_PROXY stays A's
+consumers
+  ok       🔴 test_gate_exit_code_not_tee: under an inherited KERNEL_DIR it still tests this checkout
+  ok         test_gate_exit_code_not_tee: and nothing it creates is in the inherited tree
+  ok       🔴 test_cell_gate_suspect_wiring: under an inherited KERNEL_DIR it still tests this checkout
+  ok         test_cell_gate_suspect_wiring: and nothing it creates is in the inherited tree
+  ok       🔴 test_cell_gate_suspect_wiring: a missing interpreter is a failure, not a green skip (rc)
+  ok         test_cell_gate_suspect_wiring: and it says what is missing
+
+Ran 83 checks, 0 failed
+guarded_build: exit 0
+# rc=0

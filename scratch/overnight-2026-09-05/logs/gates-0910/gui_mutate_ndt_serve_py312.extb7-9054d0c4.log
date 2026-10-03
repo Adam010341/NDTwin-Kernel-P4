@@ -1,0 +1,17 @@
+9054d0c4a21322c06d6c0fff51d052dba5ebcc7d
+# 2026-10-02T09:19:44Z cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927 TMPDIR /tmp/claude-1000/g7 via guard; disk 2651 MB
+# cmd env PYTHON=/usr/bin/python3.12 PYTHONDONTWRITEBYTECODE=1 bash tests/shell/mutate_ndt_serve.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env PYTHON=/usr/bin/python3.12 PYTHONDONTWRITEBYTECODE=1 bash tests/shell/mutate_ndt_serve.sh
+head 9054d0c4a21322c06d6c0fff51d052dba5ebcc7d
+porcelain 0 tracked file(s) differ from HEAD
+date 2026-10-02T17:19:44+08:00
+python /usr/bin/python3.12 3.12.3
+gate dd7ab3d5a0e2c253507712fdc48b6d4eeff6c29cbf9426c98ebcc85e3d65f823
+baseline (must be green before any mutation):
+  test_ndt_serve.py: Ran 75 tests in 50.389s, FAILED (failures=2)
+  baseline is RED -- fix that first, mutations prove nothing on a red baseline
+INCOMPLETE: ended before its verdict line -- not a verdict
+rc=2
+guarded_build: exit 2
+# rc=2

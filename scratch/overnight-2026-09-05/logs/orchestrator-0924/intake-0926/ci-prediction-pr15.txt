@@ -1,0 +1,8 @@
+# written BEFORE pushing pr/kjl-manifest-trust (47b8fb9cfbd81d8728a94bad92cafdfd0b73ebc9), 2026-09-28T14:40:25+08:00
+18 files, NO C++: p4_proxy/mininet/{link_telemetry,p4_testbed_topo,psample_sflow_emitter}.py, proxy_agent/main.py, five p4_proxy tests,
+five tests/shell mutation gates, test_ndt_app_package.sh, tools/p4_exercise/tests/{fixtures/README,test_convert.py}, tools/test_workflow/ndt.
+- clang, TSan, ASan+UBSan: PASS, unchanged from #14 (no C++ touched).
+- GCC: PASS, the whole job. ctest 1385/1385 (unchanged). L1 passes; 0 FAILED/FAIL: lines.
+  test_ndt_app_package.sh "Ran 396 checks, 0 failed" (observed on rerun4, d694fba3). The p4_proxy tests that changed pass
+  wherever the lane's P4 lane runs them (rerun4: p4_proxy suite 0 bad under umask 0002 and 0022). Mutation gates are not in the L1 lane.
+- Evidence reused: the PR tree equals trunk fc25112e outside doc/audit/**/*.md and REPORT*.md; fc25112e's tree equals d694fba3's (rerun4 green).

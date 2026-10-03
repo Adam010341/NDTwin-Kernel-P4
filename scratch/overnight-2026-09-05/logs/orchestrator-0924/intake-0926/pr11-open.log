@@ -1,0 +1,21 @@
+# push d4b96ea64d0cd6b2739c5e5ac08bb3f24aaba5a0 as pr/ci-l1-lane 2026-09-28T08:06:13+08:00
+Connection closed by 20.27.177.113 port 22
+fatal: Could not read from remote repository.
+
+Please make sure you have the correct access rights
+and the repository exists.
+# push rc=128
+Warning: 95 uncommitted changes
+pull request create failed: GraphQL: Head sha can't be blank, Base sha can't be blank, No commits between main and pr/ci-l1-lane, Head ref must be a branch (createPullRequest)
+# pr create rc=1
+# retry 2026-09-28T08:16:38+08:00
+remote: 
+remote: Create a pull request for 'pr/ci-l1-lane' on GitHub by visiting:        
+remote:      https://github.com/Adam010341/NDTwin-Kernel-P4/pull/new/pr/ci-l1-lane        
+remote: 
+To github.com:Adam010341/NDTwin-Kernel-P4.git
+ * [new branch]        d4b96ea64d0cd6b2739c5e5ac08bb3f24aaba5a0 -> pr/ci-l1-lane
+# push rc=0
+Warning: 95 uncommitted changes
+https://github.com/Adam010341/NDTwin-Kernel-P4/pull/11
+# pr create rc=0

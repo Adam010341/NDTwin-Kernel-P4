@@ -1,0 +1,47 @@
+055acd84fa1214b8468665966425bdcfccb7e339
+porcelain-lines: 0
+# dir: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/th-test2 = 055acd84fa1214b8468665966425bdcfccb7e339
+# sha256 519ebdc1bb9a545a58ac21d235e6b6a4efe09adc748f6cc927681dbaebefe55c  tests/shell/mutate_fixture_spawn_helpers.sh
+# tripwire lines before: 0
+# $ bash tests/shell/mutate_fixture_spawn_helpers.sh down
+# started 2026-10-01T19:56:34+08:00
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/claude-1000/spawn-traps-1001.lock
+guarded_build: $ bash tests/shell/mutate_fixture_spawn_helpers.sh down
+the judge, on synthetic runs:
+  ok       J1: a FAILED fixture line the summary does not count -> SURVIVED (1 FAILED line(s) printed, the summary counts 0: Ran 3 checks, 0 failed)
+  ok       J2: no summary line at all -> SURVIVED (rc 1, and no "Ran N checks" line at all)
+  ok       J3: rc 0 -> SURVIVED (rc 0)
+  ok       J4: a counted failure that is not the fixture's -> SURVIVED (no FAILED line names the fixture; Ran 2 checks, 1 failed)
+  ok       J5: the fixture's failure, counted -> caught (rc 1; Ran 2 checks, 1 failed; FAILED   fixture took argv0=x)
+  ok       J6: the fixture's failure, counted, but the fixture is still running -> SURVIVED (the fixture it gave up on is still running: pid 591965)
+  ok       J7: gone-without-true timed out (rc 124), no summary -> rejected: SURVIVED (rc 124, and no "Ran N checks" line at all)
+  ok       J8: gone-without-true ended by errexit (rc 1), no summary -> accepted: SURVIVED (rc 1, and no "Ran N checks" line at all)
+  ok       J9: a fixture block whose read came up empty -> yes
+  ok       J10: a fixture block that read an argv0, "nothing readable" only in a later block -> no
+  ok       J11: the guard's FAILED line once, then rc 143 -> caught (rc 143; FAILED   spawn called outside this suite's own shell (BASHPID 9, suite 8): endin)
+  ok       J12: red with a summary, but no guard line -> SURVIVED (0 line(s) say the helper was called outside this suite's own shell, not 1; rc 1)
+  ok       J13: the guard's FAILED line once, but rc 1 -> SURVIVED (rc 1, not the 143 of the TERM the guard sends)
+  ok       J14: the guard's FAILED line once, rc 143, then a green summary -> SURVIVED (a green summary after the guard fired)
+
+1. every call site, read from the source
+  ok       down       spawn() called at 3 line(s), every one a plain call: 167 168 272
+
+2. each suite's unmutated copy: green, and one counted premise per call site
+3. then its helper made unable to recognise its fixture: NEVER (the poll's bound), GONE (/proc empty)
+4. and one call wrapped in ( ... ): SUBSHELL, which only the helper's own guard can catch
+  control  down       Ran 32 checks, 0 failed  (3s)
+  ok       down       3 fixture premise(s) counted in this shell, one per call site
+  caught   down       never    (rc 1; Ran 1 checks, 1 failed; FAILED   fixture took argv0=python3 /nonexistent/NDT-TEST-FIXTURE-NDT11-OURS/Tra)  (30s)
+             its fixture FAILED line: FAILED   fixture took argv0=python3 /nonexistent/NDT-TEST-FIXTURE-NDT11-OURS/Traffic-engineering-App.py
+             its last line:           ### FIXTURE 592693 after kill: /proc/592693 exists = no
+  caught   down       gone     (rc 1; Ran 1 checks, 1 failed; FAILED   fixture took argv0=python3 /nonexistent/NDT-TEST-FIXTURE-NDT11-OURS/Tra)  (30s)
+             its fixture FAILED line: FAILED   fixture took argv0=python3 /nonexistent/NDT-TEST-FIXTURE-NDT11-OURS/Traffic-engineering-App.py
+             its last line:           ### FIXTURE 593254 after kill: /proc/593254 exists = no
+  SURVIVED down       subshell (rc 1, not the 143 of the TERM the guard sends)  (30s)
+             its guard FAILED line: FAILED   spawn called outside this suite's own shell (BASHPID 593709, suite 593701): ending the run
+             its last line:           Ran 1 checks, 1 failed
+
+3 mutation(s), 1 survivor(s); 0 control(s) whose premise count is not its call-site count
+guarded_build: exit 1
+# ended 2026-10-01T19:58:10+08:00; tripwire lines after: 0
+rc=1

@@ -1,0 +1,53 @@
+# 2026-10-01T16:57:02+08:00 pre-run state; ndt /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt sha256 81c1326aee348e19; main checkout HEAD d452d111f243b4f05225d16b5773f39076675fb4; ndt uncommitted diff lines: 0; branch head 59e3ba1fc1a04fd910c8d001968f7f31be4b5465
+lab
+  claim          none
+  prev claim     adam (until 21:26:28), superseded 2026-09-27 21:00:45  (.test_run/lab.claim.prev)
+                 nothing holds the lab now: that claim was released or replaced
+                 it said: down at 2026-09-27 21:00:45; verified clean; claim kept
+  measuring      nothing
+  code           d452d111  +93 file(s) with uncommitted changes
+                 2 of them can change behaviour:
+                 p4_proxy/mininet/host_count_override
+                 tools/remote-lab/dorm_lab/
+  knob baseline  4 (the default; no round baseline recorded -- 'ndt claim' writes one)
+  tree vs round  no baseline in .test_run/round.baseline -- nothing here can say what this round changed ('ndt claim' records one)
+  ok  helper: /usr/local/sbin/ndtwin-lab is tools/test_workflow/ndtwin-lab (sha256 6a558fe4)
+
+configuration
+  hosts          4   (what the last 'ndt up' asked for: p4)
+  topology       setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+  p4 host knob   4   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')
+  app package    none   (p4_proxy/mininet/app_package_override absent -- the baseline fabric)
+  bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc
+  telemetry      auto   (p4_proxy/mininet/telemetry_override absent -- auto, then the package)
+                 every switch: cooperative
+                 link emitter: none (/tmp/ndtwin_link_telemetry.json absent)
+  link shaping   off (no package link asks for one)
+  sample rate    1/256
+  rate source    no fabric running -- this is the COMPILED P4 pipeline, not a reading
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  0       topo session   absent
+  host/switch    0       manifest       absent
+  :8000 kernel   closed  :8081 proxy    closed  :8080 ryu closed
+  heartbeat      none -- no report at /run/ndtwin-lab/heartbeat.json (no heartbeat has run since boot)
+  pidfiles       none recorded
+
+network health
+  switches       kernel not answering; no graph
+  tc netem       none
+  sudo grants    all 3 granted
+  apps           none running
+
+
+up target
+  asked for      p4, 4 hosts   (recorded 2026-09-30 13:39:11 by unset)
+  topology       setting/StaticNetworkTopologyP4_10Switches_4Hosts.json   (declares 4 hosts / 40 edges)
+  dataplane      none                   != p4   MISMATCH
+  fabric hosts   no host namespaces found (fabric_host_count gave '0') -- NOT COMPARED
+  kernel graph   the kernel gave no graph on :8000 -- NOT COMPARED
+  topology file  sha256 50a3246390a6    == recorded   ok
+  device names   no overlay file at .test_run/nickname_overlay/StaticNetworkTopologyP4_10Switches_4Hosts.names.json
+                 that is where this checkout's kernel writes them; not a claim that none are set
+rc=0

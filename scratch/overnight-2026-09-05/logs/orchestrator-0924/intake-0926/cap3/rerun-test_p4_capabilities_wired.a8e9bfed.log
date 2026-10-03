@@ -1,0 +1,10 @@
+a8e9bfed9baed98f55211d97b49ce56273d8e681
+# 2026-09-28T00:43:44Z cmd bash tests/shell/test_p4_capabilities_wired.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/test_p4_capabilities_wired.sh
+  ok       fetchP4SwitchState is called from exactly one place, inside pollP4SwitchState
+  ok       pingWorker takes its bmv2 evidence from pollP4SwitchState()
+  ok       the liveness verdicts read the answer pollP4SwitchState() returned
+3 passed, 0 failed
+guarded_build: exit 0
+# rc=0

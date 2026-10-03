@@ -1,0 +1,60 @@
+055acd84fa1214b8468665966425bdcfccb7e339
+porcelain-lines: 0
+# dir: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/th-hung = 055acd84fa1214b8468665966425bdcfccb7e339
+# sha256 cf814e4bb21426d3899daf735b1d780102db94ffc9a84b4bd4ff8a516be7e8d6  tests/shell/test_fixture_suites_end_on_signal.sh
+# tripwire lines before: 0
+# $ bash tests/shell/test_fixture_suites_end_on_signal.sh topo_pid
+# started 2026-10-01T19:55:27+08:00
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/claude-1000/spawn-traps-1001.lock
+guarded_build: $ bash tests/shell/test_fixture_suites_end_on_signal.sh topo_pid
+topo_pid, TERM
+  ok       topo_pid TERM: the pid signalled is the shell running the suite
+  ok       topo_pid TERM: and it leads its own process group
+  ok       topo_pid TERM: a process of this run besides the suite is alive when it is signalled
+  ok       topo_pid TERM: its temp tree is found while it runs
+             still running 30s after the signal: killed (SIGNAL_HARD_LIMIT)
+tests/shell/test_fixture_suites_end_on_signal.sh: line 164: 584377 Killed                  TMPDIR="$tmpd" NDT_SIGNAL_TEST_TOKEN="$tok" setsid env --default-signal=INT bash "$SFILE" < /dev/null > "$out" 2>&1
+  FAILED   topo_pid TERM: the run ends with 143
+             expected: 143
+             actual:   137
+  FAILED   topo_pid TERM: within 20s of the signal
+             expected: yes
+             actual:   no (29s)
+  FAILED   topo_pid TERM: no process of this run is left
+             expected: 
+             actual:   584392 584411
+  FAILED   topo_pid TERM: its temp tree is gone
+             expected: no
+             actual:   yes (/tmp/faults-topo-pid-dvFH4w)
+             the suite's last lines:
+                 ok       nothing running -> rc 1
+                 ok         and it prints nothing
+                 ok       fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/NDT-TEST-FIXTURE-topo.py
+topo_pid, INT
+  ok       topo_pid INT: the pid signalled is the shell running the suite
+  ok       topo_pid INT: and it leads its own process group
+  ok       topo_pid INT: a process of this run besides the suite is alive when it is signalled
+  ok       topo_pid INT: its temp tree is found while it runs
+             still running 30s after the signal: killed (SIGNAL_HARD_LIMIT)
+tests/shell/test_fixture_suites_end_on_signal.sh: line 164: 587233 Killed                  TMPDIR="$tmpd" NDT_SIGNAL_TEST_TOKEN="$tok" setsid env --default-signal=INT bash "$SFILE" < /dev/null > "$out" 2>&1
+  FAILED   topo_pid INT: the run ends with 130
+             expected: 130
+             actual:   137
+  FAILED   topo_pid INT: within 20s of the signal
+             expected: yes
+             actual:   no (29s)
+  FAILED   topo_pid INT: no process of this run is left
+             expected: 
+             actual:   587344
+  FAILED   topo_pid INT: its temp tree is gone
+             expected: no
+             actual:   yes (/tmp/faults-topo-pid-IvmBWI)
+             the suite's last lines:
+                 ok       nothing running -> rc 1
+                 ok         and it prints nothing
+                 ok       fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/NDT-TEST-FIXTURE-topo.py
+
+Ran 16 checks, 8 failed
+guarded_build: exit 1
+# ended 2026-10-01T19:56:33+08:00; tripwire lines after: 0
+rc=1

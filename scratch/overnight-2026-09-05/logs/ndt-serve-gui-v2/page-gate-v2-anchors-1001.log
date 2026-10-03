@@ -1,0 +1,8 @@
+2026-10-01T11:40:43+08:00 scratch commit 1fbefdcde9d2fcef4f95756e7c1b28bdfd497ada = HEAD 2156786b + the two files (gate sha256 c5e8db40271b4966); objects only in a scratch GIT_OBJECT_DIRECTORY, removed after
+  c0   1fbefdcde9d2fcef4f95756e7c1b28bdfd497ada
+
+                          c0            
+mutate_ndt_serve_page.sh  ok(27)        
+
+1/1 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+check_gate_anchors rc=0

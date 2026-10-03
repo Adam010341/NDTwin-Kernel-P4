@@ -1,0 +1,5 @@
+# PR #9 runs 36343021331 / 36343017674 (head d411e852): clang PASS, TSan PASS, ASan+UBSan PASS on both.
+# GCC: the build, direct unit tests and ctest pass (1368/1368). The Python L1 step fails, and its FAILED list
+# (from the raw job logs via `gh api .../actions/jobs/<id>/logs`) is 29 lines, IDENTICAL to ci-36319541715-gcc.failed.txt, on both runs.
+# => prediction met. clang is now OBSERVED with the runner's libstdc++ 14.
+# Note: `gh run view --job <id> --log` truncated the Python step at 19:15:47Z (no FAILED lines); use the API.

@@ -1,0 +1,22 @@
+# push trunk 18c83aba to both P4 repos (p4 has two push URLs) 2026-09-28T03:03:53+08:00
+To github.com:Adam010341/NDTwin-Kernel-P4.git
+   fed37cff..18c83aba  trunk -> trunk
+client_loop: send disconnect: Broken pipe
+send-pack: unexpected disconnect while reading sideband packet
+fatal: the remote end hung up unexpectedly
+# push rc=128
+$ unauthenticated ndtwin-lab trunk
+f186ce98c7643cf1e7a9e7e402e4193bd0d72805	refs/heads/main
+fed37cff5d70209235f6f4458ed7294b4ef542b4	refs/heads/trunk
+$ unauthenticated Adam010341 trunk
+bad4cc7ad984a77eaeaf3875e8319784f6353be3	refs/heads/main
+18c83abae38fb9ce2abe353b91eb51efe230e2ea	refs/heads/trunk
+
+[exited with code 0]
+# retry ndtwin-lab only 2026-09-28T03:25:28+08:00
+To github.com:ndtwin-lab/NDTwin-Kernel-P4.git
+   fed37cff..18c83aba  18c83abae38fb9ce2abe353b91eb51efe230e2ea -> trunk
+# retry rc=0
+$ unauthenticated ndtwin-lab
+f186ce98c7643cf1e7a9e7e402e4193bd0d72805	refs/heads/main
+18c83abae38fb9ce2abe353b91eb51efe230e2ea	refs/heads/trunk

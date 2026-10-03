@@ -1,0 +1,13 @@
+e0bb7d7f4beb7719c50a61f52b502948a4cb3179
+porcelain-lines: 0
+# dir: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-spawn-traps-1001
+# sha256 99986fe5891c472261f6f67c5c3f30cd2f4a2f6fb265db0fb4a2213741914b42  tests/shell/check_test_tmpdirs.py
+# tripwire lines before: 0
+# $ python3 tests/shell/check_test_tmpdirs.py
+# started 2026-10-01T20:59:27+08:00
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/claude-1000/spawn-traps-1001.lock
+guarded_build: $ python3 tests/shell/check_test_tmpdirs.py
+check_test_tmpdirs: 399 file(s) scanned, 0 fixed temp paths
+guarded_build: exit 0
+# ended 2026-10-01T20:59:29+08:00; tripwire lines after: 0
+rc=0

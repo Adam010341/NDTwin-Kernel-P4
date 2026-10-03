@@ -1,0 +1,6 @@
+test_l1_shell_scoring # rc=0 |   ok       D22 every NDTWIN_L1_NEEDS in tests/shell and tests/python is one the lane probes Ran 150 checks, 0 failed 
+check_gate_anchors # rc=0 | 
+check_test_tmpdirs # rc=0 | 
+tripwire lines: 0
+tracked tree clean
+RERUN-DONE

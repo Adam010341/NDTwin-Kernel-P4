@@ -1,0 +1,15 @@
+# sudo probe (fix/sudo-probe-unknown-0927) — round 3 intake
+- **07:4x Delivered** 995eeb69 (F1–F3) on top of d57f90f1: 3 commits, 6 files, +94/−6.
+  - Diff read: tests, a header comment, and KNOWN-ISSUES G-59. Secret scan 0/3.
+- **Conflict check:**
+  - trunk 149c8234 + 995eeb69 is clean;
+  - with CI-L1 (add20e87) there is a doc/KNOWN-ISSUES.md conflict: both add sections after the same line (G-59 vs G-60/G-61).
+  - Plan: CI-L1 merges first, then the sudo worker merges trunk and resolves (keep both, G-59 before G-60).
+- **Re-judge launched** with F1–F3 pasted in.
+- The worker has moved on to Q-N1 (fix/suite-term-trap-0928 @85befc7d).
+- **08:1x Judge: MERGE AFTER FIXES** (`judge-SUDOPROBE-995eeb69.md`). Doc-only: R1 (G-59 wording), R2 (KIREF), R3 (SUMMARY header). No privilege consequence: the guard uses the exit status. Sent R1–R3, notes 4/5/6/7/10, the sudo-rs ticket and the conflict plan.
+- **08:4x Round 4 delivered** as d70e4a49 (R1–R3 plus notes 4/5/6/10 and the pinned control). Gates probe6/probe6r green per the worker. Asked it to merge trunk 9ef10250 now and resolve KNOWN-ISSUES (G-59 before G-60).
+- **09:0x** Merged trunk 9ef10250 as 6583c089. KNOWN-ISSUES resolution read: G-59 before G-60, with a one-clause note. Secret scan 0/3; probe7/probe7b ALL-AS-EXPECTED per the worker. My rerun `rerun-sudo6583.frozen.sh` runs on the head (trunk is its ancestor).
+- **11:1x Merged into trunk** as f253ed08. Files are disjoint from N7's, so the rerun on 6583c089 still stands. Secret scan 0/3.
+  - Pushed to both repos; unauthenticated trunk is f253ed08 on both.
+  - PR #13 = 27766535 on main 4a3d7f39, opened with the prediction written first (`ci-prediction-pr13.txt`, all green).

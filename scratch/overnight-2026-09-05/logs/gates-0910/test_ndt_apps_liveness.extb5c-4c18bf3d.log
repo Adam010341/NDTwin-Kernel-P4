@@ -1,0 +1,78 @@
+4c18bf3da29efed3d2f36abd2db67d8f780a222b
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  2026-10-01T20:12:35Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  TMPDIR /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp
+# cmd bash tests/shell/test_ndt_apps_liveness.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5c-4c18bf3d/shims (nolab); drop check through /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5c-4c18bf3d/hbwrap
+# disk: 2920 MB free on / when queued; floor 1536 MB, checked again under the lock
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c a=$(df --output=avail -BM / | tail -1 | tr -dc 0-9); echo "# disk under the lock: $a MB free"; (( a >= $0 )) || { echo "DISK-FLOOR: $a MB < $0 MB -- not run"; exit 97; }; exec "$@" 1536 bash tests/shell/test_ndt_apps_liveness.sh
+# disk under the lock: 2919 MB free
+identity (energy and sim are recognisable at all)
+  ok       fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/simulation_platform_manager
+  ok       fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/energy_saving_app
+  ok       sim has a signature
+  ok       energy has a signature
+  ok       sim is not energy
+  ok       real ps finds the live sim fixture
+  ok       real ps does not report this shell
+state (a session is not a program; a program is not a session)
+  ok       session up + process alive  -> running
+  ok         and it names the pid
+  ok       session up + NO process     -> not-running
+  ok         and the reason is recorded
+  ok       no session + process alive  -> orphan
+  ok       no session + no process     -> not-running
+  ok         with no false reason attached
+start (the rc of 'tmux new-session; echo' is not evidence)
+  ok       start of an app that never came up -> rc 1
+  ok         does NOT say ok ... started
+  ok         says it did not start
+  ok         names the empty session as the reason
+  ok         and points at the app's own output
+  ok       start of an app that does come up -> rc 0
+  ok         says it started
+  ok         names the pid it verified
+  ok         and it asked the lab to start it
+  ok       lab refuses the request -> rc 1
+  ok         and the rc is reported
+stop (the D1 shape: rc 0 for apps that were never started)
+  ok       stop of a never-started lab app -> rc 2
+  ok         does NOT say ok sim stopped
+  ok         says it is not running
+  ok       stop of a never-started pidfile app -> rc 2
+  ok         still says not running
+  ok       fixture took argv0=python3 /nonexistent/NDT-TEST-FIXTURE/Traffic-engineering-App.py
+  ok       stop of a running app -> rc 0
+  ok         says it stopped it
+  ok       stop with an empty session -> rc 2
+  ok         says the session was still there
+  ok         and clears it
+  ok       fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/energy_saving_app
+  ok       stop that did not stop it -> rc 1
+  ok         does NOT claim success
+  ok         says it is still running
+  ok         names the pid to kill
+  ok       fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/simulation_platform_manager
+  ok       lab stop of a lab-owned app -> rc 0
+  ok         says it stopped it
+apps stop all (what D1 recorded as APPS_STOP_ALL_RC=0)
+  ok       nothing was running -> rc 2
+  ok         and it says nothing was stopped
+  ok       fixture took argv0=python3 /nonexistent/NDT-TEST-FIXTURE/Traffic-engineering-App.py
+  ok       one of five was running -> rc 0
+  ok         and the mix is stated
+app_spawn stdin (W7: te died of EOFError one second in)
+  ok       app_spawn feeds APP_STDIN to the program
+  ok       a fed app is still its own session leader
+  ok         and its group was recorded for stop
+  ok       pid_is_app still matches a fed app
+  ok       app_spawn without APP_STDIN behaves as before
+  ok       the te branch requests mode 2
+the suite reaps its own fixtures
+  ok       no fixture survives this run
+  ok       no spawned app survives this run
+
+Ran 57 checks, all passed
+guarded_build: exit 0
+# rc=0

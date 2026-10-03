@@ -1,0 +1,33 @@
+6163cef4827212baf2c8c0f94077c718d3e7e5c8
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  2026-10-01T14:35:19Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  TMPDIR /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp
+# cmd bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5-6163cef4/redfirst_b3.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/redfirst_b3.extb5-6163cef4.kept
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5-6163cef4/shims (nolab); drop check through /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5-6163cef4/hbwrap
+# disk: 2092 MB free on / when queued; floor 1536 MB, checked again under the lock
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c a=$(df --output=avail -BM / | tail -1 | tr -dc 0-9); echo "# disk under the lock: $a MB free"; (( a >= $0 )) || { echo "DISK-FLOOR: $a MB < $0 MB -- not run"; exit 97; }; exec "$@" 1536 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5-6163cef4/redfirst_b3.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/redfirst_b3.extb5-6163cef4.kept
+# disk under the lock: 2093 MB free
+HEAD 6163cef4827212baf2c8c0f94077c718d3e7e5c8; base 14921f9887cc59e665cc5926358b063c9bbb772b
+== A: 08's new cells
+  ok    08 over the base's _common.sh (M3): exactly the 3 expected red
+    base behaviour:   🔴    TERM before arm_traps ended: 'doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh: line 2208: arm_step_traps: command not found' (r
+  ok    08 with the base's sampler and no v_restore_strict (M2, F9): exactly the 3 expected red
+    (round 5, M-3: the sampler records the exercise controllers alive -- red over the base's sampler, which has no such column)
+    (the up-told BAD and table_generation-only cells are green over the base: its v_links and v_no_writes already
+     answer them; L73b and L77 turn them red. The restore's BAD cell is green over a missing verdict; L76 turns it red)
+  ok      HEAD's own 08 and _common.sh in the same tree: SELF-TEST PASS
+== B: test_live_p1_common over the base's _common.sh (M3), and the 03/04 consumer pins
+  ok    base _common.sh: exactly the 4 expected red
+  ok      03_app_p4runtime without its consumer line: the pin reads 'fi' (RED)
+  ok      04_diag_p4runtime without its consumer line: the pin reads 'fi' (RED)
+== C: test_heartbeat_fabric over the base's main.py (S1)
+  ok    base main.py: exactly the 4 expected red
+    (added at round 4, 09-28: the destination-path cells of test_heartbeat_fabric and its census cell's drop-check sentence -- red over every older base for that reason)
+== D: test_ndt_app_package over the base's ndt (S3)
+  ok    base ndt: exactly the 7 expected red
+    (round 5, the nit: a path count on an external plane is flagged; zero is quiet -- red over every base before round 5, whose status row has neither)
+    (added at round 4, 09-28: the external no-path status cell; and trunk 08f67b7a's emitter-liveness cell, red over any ndt before that merge -- red over every older base for that reason)
+== E: test_live_p1_external_evidence over the base's tool (M2, m1)
+# STOPPED BY THE WORKER at 2026-10-01T14:38:33Z: not a result. Its frozen redfirst_b3.sh still had the F section that a round-5 dev run showed can no longer go red (151/151 without E66); the corrected script runs under TAG extb5a.
+# rc=stopped

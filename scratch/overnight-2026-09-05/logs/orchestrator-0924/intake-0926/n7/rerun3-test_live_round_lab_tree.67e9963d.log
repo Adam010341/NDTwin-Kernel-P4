@@ -1,0 +1,105 @@
+67e9963d03732ea833137c248dbc4642979aa6ff
+# 2026-09-28T00:39:35Z cmd bash tests/shell/test_live_round_lab_tree.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/test_live_round_lab_tree.sh
+E: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-n7-5734f32f/doc/audit/2026-08-31_sampling-ceiling-after-merge/lib_e.sh
+  ok       🔴 E: a live preflight from another tree is refused with rc 2
+  ok         E: the refusal names this round's tree
+  ok         E: and the lab's tree
+  ok         E: and says live rounds run only from the lab's tree
+  ok       🔴 E: and it refused before writing anything (no preflight log)
+  ok         E: the only thing it ran was the config query
+  ok       E: the lab's own tree passes the check
+  ok       🔴 E: the lab's tree reached through a symlink passes too
+  ok       🔴 E: and so does a lab config that names this tree through a symlink
+  ok       🔴 E: a dry run is exempt
+  ok         E: and does not call sudo at all
+  ok       🔴 E: a lab that cannot be asked is a refusal (rc 2)
+  ok         E: and says it could not ask
+  ok       🔴 E: a config that names no KERNEL_DIR is a refusal (rc 2)
+  ok         E: a lab tree that does not exist is a refusal (rc 2)
+  ok         E: the same missing path on both sides is no agreement (rc 2)
+  ok         E: a refused-conf preamble naming another tree does not decide it (rc 0)
+  ok       🔴 E: nor does one naming THIS tree while the lab runs another (rc 2)
+  ok       🔴 E: an unset KERNEL_DIR is a refusal (rc 2)
+  ok         E: and it says KERNEL_DIR is not an absolute path
+  ok         E: and does not ask the lab
+  ok       🔴 E: a relative KERNEL_DIR is refused even from inside the lab's tree (rc 2)
+  ok         E: (the sudo on PATH was this suite's stub)
+F5: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-n7-5734f32f/doc/audit/2026-08-31_f5-fine-grid-round/run_f5.sh
+  ok       🔴 F5: a live preflight from another tree is refused with rc 2
+  ok         F5: the refusal names this round's tree
+  ok         F5: and the lab's tree
+  ok         F5: and says live rounds run only from the lab's tree
+  ok       🔴 F5: and it refused before writing anything (no preflight log)
+  ok         F5: the only thing it ran was the config query
+  ok       F5: the lab's own tree passes the check
+  ok       🔴 F5: the lab's tree reached through a symlink passes too
+  ok       🔴 F5: and so does a lab config that names this tree through a symlink
+  ok       🔴 F5: a dry run is exempt
+  ok         F5: and does not call sudo at all
+  ok       🔴 F5: a lab that cannot be asked is a refusal (rc 2)
+  ok         F5: and says it could not ask
+  ok       🔴 F5: a config that names no KERNEL_DIR is a refusal (rc 2)
+  ok         F5: a lab tree that does not exist is a refusal (rc 2)
+  ok         F5: the same missing path on both sides is no agreement (rc 2)
+  ok         F5: a refused-conf preamble naming another tree does not decide it (rc 0)
+  ok       🔴 F5: nor does one naming THIS tree while the lab runs another (rc 2)
+  ok       🔴 F5: an unset KERNEL_DIR is a refusal (rc 2)
+  ok         F5: and it says KERNEL_DIR is not an absolute path
+  ok         F5: and does not ask the lab
+  ok       🔴 F5: a relative KERNEL_DIR is refused even from inside the lab's tree (rc 2)
+  ok         F5: (the sudo on PATH was this suite's stub)
+entry points (DRY_RUN=0, a checkout-shaped temp tree, the lab on another tree)
+  ok         (sourcing both round.env files creates directories only)
+    round.env's own directories: ./.test_run ./.test_run/binaries ./.test_run/binaries/e-round ./doc/audit/2026-08-31_f5-fine-grid-round/raw ./doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post ./doc/audit/2026-08-31_sampling-ceiling-after-merge/raw 
+  ok         (the sudo an operator's shell finds here is this suite's stub)
+  ok       🔴 gates_e.sh: refused with rc 2
+  ok       🔴 gates_e.sh: no file created or changed in the tree
+  ok         gates_e.sh: no directory but round.env's own
+  ok         gates_e.sh: the refusal names the lab's tree
+  ok       🔴 gates_e.sh: no restore alarm (nothing was armed)
+  ok         gates_e.sh: sudo was asked the config query and nothing else
+  ok       🔴 gates_e.sh baseline: refused with rc 2
+  ok       🔴 gates_e.sh baseline: no file created or changed in the tree
+  ok         gates_e.sh baseline: no directory but round.env's own
+  ok         gates_e.sh baseline: the refusal names the lab's tree
+  ok       🔴 gates_e.sh baseline: no restore alarm (nothing was armed)
+  ok         gates_e.sh baseline: sudo was asked the config query and nothing else
+  ok       🔴 run_e.sh ladder: refused with rc 2
+  ok       🔴 run_e.sh ladder: no file created or changed in the tree
+  ok         run_e.sh ladder: no directory but round.env's own
+  ok         run_e.sh ladder: the refusal names the lab's tree
+  ok       🔴 run_e.sh ladder: no restore alarm (nothing was armed)
+  ok         run_e.sh ladder: sudo was asked the config query and nothing else
+  ok       🔴 run_f5.sh arm: refused with rc 2
+  ok       🔴 run_f5.sh arm: no file created or changed in the tree
+  ok         run_f5.sh arm: no directory but round.env's own
+  ok         run_f5.sh arm: the refusal names the lab's tree
+  ok       🔴 run_f5.sh arm: no restore alarm (nothing was armed)
+  ok         run_f5.sh arm: sudo was asked the config query and nothing else
+  ok       🔴 run_f5.sh q3: refused with rc 2
+  ok       🔴 run_f5.sh q3: no file created or changed in the tree
+  ok         run_f5.sh q3: no directory but round.env's own
+  ok         run_f5.sh q3: the refusal names the lab's tree
+  ok       🔴 run_f5.sh q3: no restore alarm (nothing was armed)
+  ok         run_f5.sh q3: sudo was asked the config query and nothing else
+  ok       🔴 run_f5.sh restore: refused with rc 2
+  ok       🔴 run_f5.sh restore: no file created or changed in the tree
+  ok         run_f5.sh restore: no directory but round.env's own
+  ok         run_f5.sh restore: the refusal names the lab's tree
+  ok       🔴 run_f5.sh restore: no restore alarm (nothing was armed)
+  ok         run_f5.sh restore: sudo was asked the config query and nothing else
+  ok       🔴 N-9 run_f5.sh arm: ROUND exported without KERNEL_DIR -- refused with rc 2
+  ok         N-9 run_f5.sh arm: and says KERNEL_DIR is not set
+  ok         N-9 run_f5.sh arm: and nothing was created or changed
+  ok       🔴 N-9 run_e.sh ladder: ROUND exported without KERNEL_DIR -- refused with rc 2
+  ok         N-9 run_e.sh ladder: and says KERNEL_DIR is not set
+  ok         N-9 run_e.sh ladder: and nothing was created or changed
+  ok         control: with the lab on this tree, arm passes the tree check and is refused later (rc 2)
+  ok         control: by a later preflight refusal
+  ok       🔴 control: and the restore trap fired and wrote its marker in this harness
+
+Ran 93 checks, 0 failed
+guarded_build: exit 0
+# rc=0

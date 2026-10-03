@@ -1,0 +1,138 @@
+{
+  "bmv2_fabric": [
+    "/usr/local/bmv2-fast/bin/simple_switch_grpc",
+    "3ff54b5c1901c9d3ffd80ac05dc3dc7d0e696e3df73174c1616fb87ac9aedb4a"
+  ],
+  "bmv2_libs": "/usr/local/bmv2-fast/lib: 9 shared objects sha256 33e8acdf3f3a8ac48310059dda55216f72a61540ba4a0a09be3328ad84cac567",
+  "bmv2_stock": [
+    "/usr/local/bin/simple_switch",
+    "4c5e5ad31b0a8b4bf323c40bc4ba2f6dce90404bf9cfe0ec3e2712d5f573c604"
+  ],
+  "format": 2,
+  "head": "acd84fdcdd4b447da25f7a14fedfb627a1cb46e9",
+  "helper": [
+    "/usr/local/sbin/ndtwin-lab",
+    "6a558fe452955de358fd1a3b4e730fe2be55368a6c90b93675c5442c036fd4fb"
+  ],
+  "kernel": [
+    "/home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel",
+    "be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49"
+  ],
+  "merge_changes": [
+    "doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/02_app_basic.sh",
+    "doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/03_app_p4runtime.sh",
+    "doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/04_diag_p4runtime.sh",
+    "doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/06_thirteen.sh",
+    "doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh",
+    "doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/README.md",
+    "doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/_common.sh",
+    "doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/code_identity.py",
+    "doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_evidence.py",
+    "doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_survey.py",
+    "doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_survey_34.tsv",
+    "doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/venv_fingerprint.sh",
+    "p4_proxy/proxy_agent/api_routes.py",
+    "p4_proxy/proxy_agent/main.py",
+    "p4_proxy/proxy_agent/topology_manager.py",
+    "p4_proxy/tests/test_declared_links.py",
+    "p4_proxy/tests/test_heartbeat_fabric.py",
+    "tests/fixtures/heartbeat_drop/README",
+    "tests/fixtures/heartbeat_drop/flowcache_solution.json",
+    "tests/fixtures/heartbeat_drop/hb_clone.json",
+    "tests/fixtures/heartbeat_drop/hb_digest.json",
+    "tests/fixtures/heartbeat_drop/hb_drop.json",
+    "tests/fixtures/heartbeat_drop/hb_fixture.p4",
+    "tests/fixtures/heartbeat_drop/hb_flood.json",
+    "tests/fixtures/heartbeat_drop/hb_mcast.json",
+    "tests/fixtures/heartbeat_drop/hb_punt.json",
+    "tests/python/test_ndt_serve.py",
+    "tests/python/test_ndt_serve_cells.py",
+    "tests/shell/mutate_heartbeat_drop_check.sh",
+    "tests/shell/mutate_l1_shell_scoring.sh",
+    "tests/shell/mutate_live_p1_common.sh",
+    "tests/shell/mutate_live_p1_external_evidence.sh",
+    "tests/shell/mutate_live_p1_thirteen.sh",
+    "tests/shell/mutate_ndt_app_package.sh",
+    "tests/shell/mutate_ndt_serve.sh",
+    "tests/shell/mutate_p4_heartbeat_w.sh",
+    "tests/shell/mutate_roles_binding.sh",
+    "tests/shell/test_heartbeat_drop_check.py",
+    "tests/shell/test_l1_shell_scoring.sh",
+    "tests/shell/test_live_p1_common.sh",
+    "tests/shell/test_live_p1_external_evidence.sh",
+    "tests/shell/test_live_p1_thirteen.sh",
+    "tests/shell/test_ndt_app_package.sh",
+    "tests/shell/test_ndt_heartbeat.sh",
+    "tools/ndt_serve/README.md",
+    "tools/ndt_serve/serve.py",
+    "tools/ndt_serve/verbs.py",
+    "tools/test_workflow/heartbeat_drop_check.py",
+    "tools/test_workflow/l1_unit_tests.sh",
+    "tools/test_workflow/ndt"
+  ],
+  "merge_tree": "8a996a6542d13c4321601c8ff0f70346dc2baac8",
+  "parents": [
+    "67ec9f9ecf9caf9d7df8cc92c4166cd04b79af34",
+    "9b5c06078d367b67d95521361da651e50ae08794"
+  ],
+  "recorded_at": 1790943304,
+  "repo": "/home/adam/Desktop/NDTwin-Kernel",
+  "tree": "8a996a6542d13c4321601c8ff0f70346dc2baac8",
+  "tutorials": {
+    "head": "c80d83e986291889b3238c52d919c307a0c0a813",
+    "path": "/home/adam/tutorials",
+    "trees": {
+      "exercises/flowcache": "8 files sha256 dea06d99ef27250efa544d729fab8533fad8ecc5b93c690cb4fb10505e9f3914",
+      "exercises/p4runtime": "7 files sha256 10c9e63b4c1a34fb4624af2f312546c4e7042a06e5d37c327f04d41597c820c3",
+      "utils": "51 files sha256 0deb43fc2ab17c485f24b04b952898fc13c7197dc136e7b1423b634f8237254c"
+    },
+    "uncommitted": [
+      [
+        " M",
+        "exercises/basic/basic.p4",
+        "de8d163b9ed85603ad4258a3e931774f0ede8bdc1925c3985e6f64daac6e3279"
+      ]
+    ]
+  },
+  "uncommitted": [
+    [
+      " M",
+      "doc/2026-08-29_bmv2-performance-study-figs/fig6_twelve_numbers_one_axis.pdf",
+      "dffabc50b9bb36942d341d17ba17d0f3f6f94a295e9179eb52b155bc7962659d"
+    ],
+    [
+      " M",
+      "doc/2026-08-29_bmv2-performance-study-figs/fig7_aggregate_two_planes.pdf",
+      "38a3a1bffd929814aa9130834228a7b913a1a19ba912955379a581a1cae036fb"
+    ],
+    [
+      " M",
+      "doc/2026-08-29_bmv2-performance-study-figs/fig7_aggregate_two_planes.png",
+      "f7aeeede4f66d321831dfcfee4f0d7af1b51adc80647fdb75c05ab641ed75740"
+    ],
+    [
+      " M",
+      "doc/2026-08-29_bmv2-performance-study-figs/fig8_known_but_never_reported.pdf",
+      "6907ddc674a8370191bf62c2a4f944b4c57dd730492b60f5a6b626d98873cfc8"
+    ],
+    [
+      " M",
+      "doc/audit/2026-08-31_sampling-ceiling-after-merge/gates_e.dryrun.log",
+      "c2d820abe90a690c5e09e9eb2095b6b722bcb74dd24dbb3e5b82a82011eb5464"
+    ],
+    [
+      " M",
+      "doc/audit/2026-08-31_sampling-ceiling-after-merge/run_e.dryrun.log",
+      "b7ac9294ed28ad595a7d3704a969a7faeb3c441aed5cf04f44ce3b262b5d3c8c"
+    ],
+    [
+      " M",
+      "p4_proxy/mininet/host_count_override",
+      "7de1555df0c2700329e815b93b32c571c3ea54dc967b89e81ab73b9972b72d1d"
+    ]
+  ],
+  "venv": {
+    "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python": "distributions 28 sha256 d5fc18e12968a343453f008108d4f6bcd81f788ae72a58e8fc547f8e2eaa03ce",
+    "/home/adam/p4dev-python-venv/bin/python": "distributions 39 sha256 69c4cfd5752c4b301d343e41df7befb179dda45406f21f34b4d87e65817722da"
+  }
+}

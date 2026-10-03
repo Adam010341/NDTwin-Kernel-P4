@@ -1,0 +1,38 @@
+add20e879e7af3b61dcdb65ce8196f9f752b7616
+# 2026-09-27T23:56:12Z cmd bash -c p4_proxy/venv/bin/python tests/python/test_ovs4_sflow.py
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c p4_proxy/venv/bin/python tests/python/test_ovs4_sflow.py
+test_a_name_the_topology_does_not_build_is_refused (__main__.AgentAddressMatchesTheKernelModel.test_a_name_the_topology_does_not_build_is_refused) ... ok
+test_a_switch_with_no_usable_interface_is_refused (__main__.AgentAddressMatchesTheKernelModel.test_a_switch_with_no_usable_interface_is_refused)
+Not configured-with-a-blank-agent: that is the fallback shape above, and it looks ... ok
+test_each_switch_gets_the_address_the_model_declares (__main__.AgentAddressMatchesTheKernelModel.test_each_switch_gets_the_address_the_model_declares) ... ok
+test_the_address_is_assigned_before_the_record_is_created (__main__.AgentAddressMatchesTheKernelModel.test_the_address_is_assigned_before_the_record_is_created)
+OVS reads the agent address off the interface when the record is created. An ... ok
+test_the_agent_is_the_bridges_own_interface (__main__.AgentAddressMatchesTheKernelModel.test_the_agent_is_the_bridges_own_interface) ... ok
+test_the_helper_agrees_with_the_model_on_every_switch (__main__.AgentAddressMatchesTheKernelModel.test_the_helper_agrees_with_the_model_on_every_switch) ... ok
+test_ndt_verifies_against_the_same_port (__main__.CollectorPortAgreesEverywhere.test_ndt_verifies_against_the_same_port) ... ok
+test_the_ports_table_names_the_same_port (__main__.CollectorPortAgreesEverywhere.test_the_ports_table_names_the_same_port) ... ok
+test_the_target_is_a_loopback_address (__main__.CollectorPortAgreesEverywhere.test_the_target_is_a_loopback_address)
+The collector binds 0.0.0.0:6343 on this host, so loopback reaches it and needs no ... ok
+test_the_target_is_the_kernels_collector (__main__.CollectorPortAgreesEverywhere.test_the_target_is_the_kernels_collector) ... ok
+test_every_bridge_is_configured (__main__.EveryBridgeSamples.test_every_bridge_is_configured) ... ok
+test_no_bridge_is_configured_twice (__main__.EveryBridgeSamples.test_no_bridge_is_configured_twice)
+The loosening shape: OVS accepts a second `create sflow` and leaves the first ... ok
+test_no_bridge_outside_the_fabric (__main__.EveryBridgeSamples.test_no_bridge_outside_the_fabric)
+`set bridge s11 sflow=@sflow` fails at the switch and used to be invisible: the ... ok
+test_one_record_per_bridge (__main__.EveryBridgeSamples.test_one_record_per_bridge) ... ok
+test_a_failing_command_propagates (__main__.FailuresAreNotSwallowed.test_a_failing_command_propagates) ... ok
+test_the_default_runner_checks_the_exit_status (__main__.FailuresAreNotSwallowed.test_the_default_runner_checks_the_exit_status) ... ok
+test_header_sampling_polling_match_the_reference (__main__.ParametersComeFromTheReferenceTopology.test_header_sampling_polling_match_the_reference) ... ok
+test_polling_is_off (__main__.ParametersComeFromTheReferenceTopology.test_polling_is_off)
+Stated separately because it is the one a reader is most likely to 'fix': in ... ok
+test_it_is_configured_before_the_discovery_burst (__main__.WiredIntoTheBringUp.test_it_is_configured_before_the_discovery_burst)
+The burst is the first traffic on the fabric; a bridge not sampling yet contributes ... ok
+test_main_configures_sflow (__main__.WiredIntoTheBringUp.test_main_configures_sflow) ... ok
+
+----------------------------------------------------------------------
+Ran 20 tests in 0.014s
+
+OK
+guarded_build: exit 0
+# rc=0

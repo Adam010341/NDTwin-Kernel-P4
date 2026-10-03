@@ -1,0 +1,27 @@
+# driver4 started 2026-10-01T21:18:12+08:00 at 8d79dacd0e40e9ddd20d7c8e9af6185b4ef8e482
+trees ready (trees4.log)
+r4-n1-gap-prev-test                rc=1  Ran 2 checks, 2 failed
+r4-n1-gap-head-test                rc=1  Ran 2 checks, 2 failed
+r4-red-signal-test-d452d111        rc=1  Ran 74 checks, 18 failed
+r4-d1a-no-exit-trap                rc=1  Ran 24 checks, 7 failed
+r4-d1b-cleanup-skips-reap          rc=1  Ran 24 checks, 3 failed
+r4-d1c-cleanup-skips-tree          rc=1  Ran 24 checks, 4 failed
+r4-d2-hung-suite                   rc=1  Ran 12 checks, 8 failed
+r4-d2-total-limit                  rc=1  Ran 9 checks, 3 failed
+r4-green-signal-test-head-1        rc=0  Ran 84 checks, all passed
+r4-green-signal-test-head-2        rc=0  Ran 84 checks, all passed
+r4-green-signal-test-head-3        rc=0  Ran 84 checks, all passed
+r4-green-gate-head                 rc=0  21 mutation(s), 0 survivor(s); 0 control(s) whose premise count is not its call-site count
+r4-suite-test_ndt_app_orphans      rc=0  Ran 111 checks, all passed
+r4-suite-test_ndt_apps_liveness    rc=0  Ran 57 checks, all passed
+r4-suite-test_ndtwin_lab_sweep     rc=0  Ran 33 checks, all passed
+r4-suite-test_ndt_helper_apps_window rc=0  Ran 157 checks, 0 failed
+r4-suite-test_faults_topo_pid      rc=0  Ran 61 checks, all passed (0 skipped)
+r4-suite-test_ndt_ovs_claim        rc=0  Ran 174 checks, 0 failed
+r4-suite-test_ndt_down_stops_only_ours rc=0  Ran 32 checks, 0 failed
+r4-l1-scoring                      rc=0  Ran 151 checks, 0 failed
+r4-g-l1-scoring                    rc=0  
+r4-tmpdirs                         rc=0  
+r4-anchors-head                    rc=0  128/128 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+r4-leftovers                       rc=0  
+# driver4 ended 2026-10-01T21:48:12+08:00

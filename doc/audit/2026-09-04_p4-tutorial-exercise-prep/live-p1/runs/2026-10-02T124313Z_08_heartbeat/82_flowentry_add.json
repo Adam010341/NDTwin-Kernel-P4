@@ -1,0 +1,1 @@
+{"detail":{"error":"external control plane","dpid":1,"message":"switch 1 (localhost:30051): refusing an ipv4_lpm route insert -- this fabric's app package declares an external control plane, so the exercise's own controller holds mastership and this proxy reads only"}}

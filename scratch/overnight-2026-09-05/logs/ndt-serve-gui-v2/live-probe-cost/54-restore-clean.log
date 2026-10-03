@@ -1,0 +1,13 @@
+# 2026-10-01T17:11:45+08:00 ndt clean
+  ok  bmv2 switches: 0
+  ok  host/switch processes: 0
+  ok  no topo session
+  ok  no switch manifest
+  ok  ports closed: 8000/8080/8081/6653/6633/6343/30051-30060/9091-9100/9000
+
+nothing to judge
+    no fabric, nothing live in .test_run/pids/, and no port in ports.sh's table is held,
+    so this command measured NOTHING -- rc 3. That is not the same statement as
+    'clean', which is what it printed here until 09-12 on a machine with no lab on
+    it at all. A teardown that removed a fabric and proved it gone still says clean.
+clean rc=3

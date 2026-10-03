@@ -1,0 +1,65 @@
+6583c089e72fd028d0fcb1939af1efe2450b5c8d
+# 2026-09-28T01:05:07Z cmd bash -c p4_proxy/venv/bin/python tests/python/test_known_issues_references.py
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c p4_proxy/venv/bin/python tests/python/test_known_issues_references.py
+test_a_bare_code_that_is_an_entry_is_left_alone (__main__.ABareCodeMustNameSomethingThisDocumentDefines.test_a_bare_code_that_is_an_entry_is_left_alone) ... ok
+test_a_bare_code_with_no_entry_is_reported (__main__.ABareCodeMustNameSomethingThisDocumentDefines.test_a_bare_code_with_no_entry_is_reported) ... ok
+test_a_code_beyond_the_window_is_not_claimed_by_this_document (__main__.ABareCodeMustNameSomethingThisDocumentDefines.test_a_code_beyond_the_window_is_not_claimed_by_this_document)
+The widening direction. Another document's code, far enough away on the same line, ... ok
+test_a_sub_entry_code_counts_as_defined (__main__.ABareCodeMustNameSomethingThisDocumentDefines.test_a_sub_entry_code_counts_as_defined)
+`#### A-4b` is A-4's sub-entry. entry_of() gives its lines to A-4 -- deliberately, ... ok
+test_the_line_number_half_is_unchanged_by_this_one (__main__.ABareCodeMustNameSomethingThisDocumentDefines.test_the_line_number_half_is_unchanged_by_this_one)
+Both halves see the same citation when it carries a code AND a line number, and they ... ok
+test_a_blockquoted_table_is_not_an_entry_index (__main__.TheEntryIndex.test_a_blockquoted_table_is_not_an_entry_index) ... ok
+test_a_hash3_heading_owns_up_to_the_next_hash3 (__main__.TheEntryIndex.test_a_hash3_heading_owns_up_to_the_next_hash3) ... ok
+test_a_status_marker_and_a_gloss_do_not_hide_the_row (__main__.TheEntryIndex.test_a_status_marker_and_a_gloss_do_not_hide_the_row) ... ok
+test_a_table_row_is_an_entry_too (__main__.TheEntryIndex.test_a_table_row_is_an_entry_too) ... ok
+test_the_narrowest_owner_wins (__main__.TheEntryIndex.test_the_narrowest_owner_wins) ... ok
+test_the_real_document_parses_into_entries (__main__.TheEntryIndex.test_the_real_document_parses_into_entries) ... ok
+test_every_bare_code_citation_names_a_code_this_document_defines (__main__.TheRepositoryAsItStands.test_every_bare_code_citation_names_a_code_this_document_defines) ... ok
+test_every_line_number_citation_names_the_entry_it_lands_in (__main__.TheRepositoryAsItStands.test_every_line_number_citation_names_the_entry_it_lands_in) ... ok
+test_the_scan_actually_read_the_repository (__main__.TheRepositoryAsItStands.test_the_scan_actually_read_the_repository)
+A green scan of nothing is the failure mode this whole family of gates exists to ... ok
+test_this_file_and_its_gate_are_inside_the_scanned_tree (__main__.TheRepositoryAsItStands.test_this_file_and_its_gate_are_inside_the_scanned_tree)
+No self-exemption. If either ever stops being scanned, the reason it contains no ... ok
+test_a_citation_with_no_code_is_reported_in_every_spelling_too (__main__.TheSpellingOfTheCitationIsNotThePoint.test_a_citation_with_no_code_is_reported_in_every_spelling_too) ... ok
+test_each_spelling_of_a_wrong_line_is_reported (__main__.TheSpellingOfTheCitationIsNotThePoint.test_each_spelling_of_a_wrong_line_is_reported) ... ok
+test_two_line_numbers_cited_together_are_both_checked (__main__.TheSpellingOfTheCitationIsNotThePoint.test_two_line_numbers_cited_together_are_both_checked)
+NDT-HARNESS.md:52's shape: two lines joined by a fullwidth solidus. The near end is ... ok
+test_a_bare_entry_code_is_still_invisible (__main__.TheWideningStillHoldsItsFire.test_a_bare_entry_code_is_still_invisible)
+The ruling's whole point: `KNOWN-ISSUES B-11` with no line number is the CORRECT ... ok
+test_a_chapter_number_is_not_a_line_number (__main__.TheWideningStillHoldsItsFire.test_a_chapter_number_is_not_a_line_number)
+`第 N 章` is a chapter, `第 N 行` is a line. The lookahead reads the marker that ... ok
+test_a_correct_citation_in_each_spelling_is_left_alone (__main__.TheWideningStillHoldsItsFire.test_a_correct_citation_in_each_spelling_is_left_alone) ... ok
+test_a_row_label_is_not_a_line_number (__main__.TheWideningStillHoldsItsFire.test_a_row_label_is_not_a_line_number)
+🔴 The case that pays for the Chinese spelling. §L of the document numbers its ROWS ... ok
+test_another_document_with_a_line_number_is_not_this_document (__main__.TheWideningStillHoldsItsFire.test_another_document_with_a_line_number_is_not_this_document) ... ok
+test_a_citation_with_no_code_is_reported_and_says_what_to_do (__main__.WhatIsAViolation.test_a_citation_with_no_code_is_reported_and_says_what_to_do) ... ok
+test_a_code_in_a_different_paragraph_does_not_count (__main__.WhatIsAViolation.test_a_code_in_a_different_paragraph_does_not_count) ... ok
+test_a_code_with_no_entry_at_all_is_not_silently_accepted (__main__.WhatIsAViolation.test_a_code_with_no_entry_at_all_is_not_silently_accepted) ... ok
+test_a_correct_range_is_not_a_violation (__main__.WhatIsAViolation.test_a_correct_range_is_not_a_violation) ... ok
+test_a_correct_reference_is_not_a_violation (__main__.WhatIsAViolation.test_a_correct_reference_is_not_a_violation)
+🔴 THE CONTROL. Everything above is about firing; this is the only case that says ... ok
+test_a_line_in_another_entry_is_reported (__main__.WhatIsAViolation.test_a_line_in_another_entry_is_reported) ... ok
+test_a_line_past_the_end_of_the_document_is_its_own_verdict (__main__.WhatIsAViolation.test_a_line_past_the_end_of_the_document_is_its_own_verdict) ... ok
+test_the_code_may_sit_one_line_above (__main__.WhatIsAViolation.test_the_code_may_sit_one_line_above) ... ok
+test_the_far_end_of_a_range_is_checked_too (__main__.WhatIsAViolation.test_the_far_end_of_a_range_is_checked_too) ... ok
+test_the_md_less_spelling_is_read_too (__main__.WhatIsAViolation.test_the_md_less_spelling_is_read_too) ... ok
+test_the_nearest_code_on_the_line_is_the_one_claimed (__main__.WhatIsAViolation.test_the_nearest_code_on_the_line_is_the_one_claimed) ... ok
+test_a_binary_suffix_is_not_read (__main__.WhichFilesAreRead.test_a_binary_suffix_is_not_read) ... ok
+test_a_build_tree_is_not_read (__main__.WhichFilesAreRead.test_a_build_tree_is_not_read) ... ok
+test_a_cpp_comment_is_scanned (__main__.WhichFilesAreRead.test_a_cpp_comment_is_scanned) ... ok
+test_a_diff_and_a_patch_are_not_read_either (__main__.WhichFilesAreRead.test_a_diff_and_a_patch_are_not_read_either) ... ok
+test_a_header_is_scanned (__main__.WhichFilesAreRead.test_a_header_is_scanned) ... ok
+test_a_log_is_a_verbatim_record_and_is_not_read (__main__.WhichFilesAreRead.test_a_log_is_a_verbatim_record_and_is_not_read) ... ok
+test_a_python_comment_is_scanned (__main__.WhichFilesAreRead.test_a_python_comment_is_scanned) ... ok
+test_a_root_level_markdown_file_is_scanned (__main__.WhichFilesAreRead.test_a_root_level_markdown_file_is_scanned) ... ok
+test_a_shell_script_is_scanned (__main__.WhichFilesAreRead.test_a_shell_script_is_scanned) ... ok
+test_scratch_is_not_read (__main__.WhichFilesAreRead.test_scratch_is_not_read) ... ok
+
+----------------------------------------------------------------------
+Ran 44 tests in 0.749s
+
+OK
+guarded_build: exit 0
+# rc=0

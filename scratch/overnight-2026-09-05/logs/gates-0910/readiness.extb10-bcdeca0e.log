@@ -1,0 +1,27 @@
+bcdeca0e3c025c93005c2c0963981b705cca8cdc
+# 2026-10-02T14:38:41Z readiness check of the never-live compare stages on 10-02's C1/C2/T/H5 (read only); disk 2634 MB
+# cmd python3 extb10/readiness.py <wt>/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_evidence.py  (sha256 69bccf77d23782e40e2f4d9ed14c827eabfb8513d96c035ff6ab865dcdfffbdf); readiness.py sha256 0fe819e20498a6f87312709b657c1955ad5e96394d682c3c8d24e88b97460323
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env PYTHONDONTWRITEBYTECODE=1 python3 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb10/readiness.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_evidence.py
+settled p4runtime/skeleton	C1	ok
+settled p4runtime/solution	C1	ok
+settled flowcache/solution	C1	ok
+settled p4runtime/skeleton	C2	ok
+settled p4runtime/solution	C2	ok
+settled flowcache/solution	C2	ok
+settled p4runtime/skeleton	T	ok
+settled p4runtime/solution	T	ok
+settled flowcache/solution	T	ok
+arms	C1	ok
+arms	C2	ok
+arms	T	ok
+programs_same	C1,C2,T	ok
+read_samples	H5	ok
+t06_end	H5	ok
+check_roles (controls C1,C2; treatment T; heard window)	C1,C2,T,H5	ok
+heard window p4runtime/skeleton	T,H5	ok
+heard window p4runtime/solution	T,H5	ok
+heard window flowcache/solution	T,H5	ok
+readiness: 0 FAIL
+guarded_build: exit 0
+# rc=0

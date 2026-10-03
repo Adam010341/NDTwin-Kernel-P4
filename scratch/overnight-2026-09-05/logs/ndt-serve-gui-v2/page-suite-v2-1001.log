@@ -1,0 +1,57 @@
+2026-10-01T11:38:36+08:00
+worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927, HEAD 2156786b470ae7ae51f204e503f377afc7943d00 (branch feat/ndt-serve-gui-v2-0927); uncommitted:  M tests/browser/test_ndt_serve_page.py  M tests/shell/mutate_ndt_serve_page.sh 
+Google Chrome 153.0.8010.36 
+/dev/nvme0n1p5   98G   90G  3.3G  97% /
+files under test (the committed bundle as it is in the worktree):
+  780f0a54807c1edb0ceaa7d626bc58ff68001493110eebd4030f71816febc482  tools/ndt_serve/static/app.css
+  db950b461ad492583ca937cc883a6a299d322cb8f478ff7267550f79769eb331  tools/ndt_serve/static/app.js
+  781369038a8ea97739b272729f3d09073ab2abc4ce29e11918ea7965d75515e6  tools/ndt_serve/static/BUILD.json
+  ba7f56b21e294bf5852dd8a35478a58a271b7ff0abbb8a431291cc581daef732  tools/ndt_serve/static/index.html
+  ea3741ed4962b6fa46393691204f8b39d2a04b49e68ee008a17b127c581332b0  tools/ndt_serve/static/manual.html
+  ea1ce440c032486d69052838ff29081280c1a908be6335fb02f8c9100d1c5ab1  tools/ndt_serve/serve.py
+  fc5ab057622e51c08c0fc84a5967962f1a2c7baf4452f10398b4ef0539163325  tests/browser/test_ndt_serve_page.py
+  24c520c521526eb1f97711a3f5f7baa0d46ba91edfb40482bddc781f3dbab688  tests/browser/cdp_pipe.py
+--- JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh env TMPDIR=/tmp/ndt-page-suite-IrzBsw PYTHONDONTWRITEBYTECODE=1 timeout 900 python3 tests/browser/test_ndt_serve_page.py
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env TMPDIR=/tmp/ndt-page-suite-IrzBsw PYTHONDONTWRITEBYTECODE=1 timeout 900 python3 tests/browser/test_ndt_serve_page.py
+test_a_claim_not_yours_puts_claim_first (__main__.Confirm.test_a_claim_not_yours_puts_claim_first) ... ok
+test_a_double_click_posts_once (__main__.Confirm.test_a_double_click_posts_once) ... ok
+test_claim_asks_for_no_typed_word (__main__.Confirm.test_claim_asks_for_no_typed_word) ... ok
+test_enter_on_confirm_does_not_confirm (__main__.Confirm.test_enter_on_confirm_does_not_confirm) ... ok
+test_measuring_or_declared_makes_it_typed (__main__.Confirm.test_measuring_or_declared_makes_it_typed) ... ok
+test_the_dialog_shows_the_argv_the_dry_run_answered (__main__.Confirm.test_the_dialog_shows_the_argv_the_dry_run_answered) ... ok
+test_the_focus_starts_on_cancel (__main__.Confirm.test_the_focus_starts_on_cancel) ... ok
+test_the_write_is_posted_after_its_dry_run (__main__.Confirm.test_the_write_is_posted_after_its_dry_run) ... ok
+test_up_asks_for_the_typed_word (__main__.Confirm.test_up_asks_for_the_typed_word) ... ok
+chrome leftovers (Confirm): 0
+test_job_log_stops_on_close (__main__.JobLog.test_job_log_stops_on_close) ... ok
+test_job_log_stops_when_the_job_ends (__main__.JobLog.test_job_log_stops_when_the_job_ends) ... ok
+test_job_log_stops_while_hidden_and_resumes (__main__.JobLog.test_job_log_stops_while_hidden_and_resumes) ... ok
+chrome leftovers (JobLog): 0
+test_a_url_without_a_key_opens_nothing (__main__.Load.test_a_url_without_a_key_opens_nothing) ... ok
+test_a_used_key_opens_nothing (__main__.Load.test_a_used_key_opens_nothing) ... ok
+test_loading_the_page_writes_nothing (__main__.Load.test_loading_the_page_writes_nothing) ... ok
+test_the_key_is_traded_exactly_once (__main__.Load.test_the_key_is_traded_exactly_once) ... ok
+test_the_key_leaves_the_address_bar (__main__.Load.test_the_key_leaves_the_address_bar) ... ok
+test_the_page_sees_no_csp_violation (__main__.Load.test_the_page_sees_no_csp_violation) ... ok
+test_the_token_is_not_in_browser_storage (__main__.Load.test_the_token_is_not_in_browser_storage) ... ok
+test_the_token_is_not_in_the_dom (__main__.Load.test_the_token_is_not_in_the_dom) ... ok
+chrome leftovers (Load): 0
+test_the_token_is_in_no_file_of_the_profile (__main__.Profile.test_the_token_is_in_no_file_of_the_profile) ... ok
+chrome leftovers (Profile): 0
+test_refresh_reads_while_shown_and_idle (__main__.Refresh.test_refresh_reads_while_shown_and_idle) ... ok
+test_refresh_stops_while_declared (__main__.Refresh.test_refresh_stops_while_declared) ... ok
+test_refresh_stops_while_hidden_and_resumes_when_shown (__main__.Refresh.test_refresh_stops_while_hidden_and_resumes_when_shown) ... ok
+test_refresh_stops_while_measuring (__main__.Refresh.test_refresh_stops_while_measuring) ... ok
+chrome leftovers (Refresh): 0
+
+----------------------------------------------------------------------
+Ran 25 tests in 112.253s
+
+OK
+guarded_build: exit 0
+--- rc=0, wall 113 s
+processes whose cmdline names /tmp/ndt-page-suite-IrzBsw/ after the run: 0 []
+entries left in /tmp/ndt-page-suite-IrzBsw: 0 
+/dev/nvme0n1p5   98G   90G  3.3G  97% /
+2026-10-01T11:40:29+08:00

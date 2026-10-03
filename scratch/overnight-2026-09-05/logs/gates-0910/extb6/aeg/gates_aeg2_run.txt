@@ -1,0 +1,3 @@
+redfirst_aeg                   rc=0  AEG-RED-FIRST: A, E and G red at b005bf50's code, green at HEAD
+nolab_tripwire                 rc=0  NOLAB-TRIPWIRE: 0 lab call(s) (all refused)
+GATES-AEG2 d4d630c3: ALL-AS-EXPECTED

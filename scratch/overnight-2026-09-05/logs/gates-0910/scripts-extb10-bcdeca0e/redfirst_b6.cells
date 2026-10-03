@@ -1,0 +1,20 @@
+🔴 every direction heard in the controller's window, said per direction
+🔴 a controller window of 5 s (under two periods): UNDECIDED, rc 2, not refused
+🔴 a window of exactly two periods is decided: rc 0
+🔴 the window opens at the LAST push (s2's at 70 s), not the first
+🔴 no push line: the window opens at the first rule installed
+🔴 a report with no p4c or JSON sha: rc 2
+🔴 samples from round 5's sampler (no ctrl_logs): rc 2
+🔴 a sampler that never saw the controller's log: rc 2
+🔴 a log the sampler never saw reach its push: rc 2
+🔴 a controller log with no push and no entry: rc 2
+🔴 uncommitted: a code file and an audit .json are recorded, a doc .md and an audit .tsv are not
+🔴 a round rewriting build/ under an exercise does not change the identity
+🔴 a changed exercise file in ~/tutorials does
+🔴 an untracked file in an exercise (git's porcelain does not show it) changes it too
+🔴 a rebuilt bmv2 shared library changes the identity
+🔴 an amended merge is refused
+🔴 the frozen rounds as frozen, none with the heartbeat: rc 0
+🔴 a round whose controller log changed since it was frozen: rc 3
+🔴 a frozen round that is gone: rc 3
+🔴 a round that had the heartbeat: rc 3

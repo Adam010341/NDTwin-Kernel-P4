@@ -1,0 +1,14 @@
+2026-10-01T11:46:37+08:00
+observation, not a gate: ConfirmDialog.tsx with only 'cancelRef.current?.focus();' removed, built and run against Confirm.test_the_focus_starts_on_cancel
+anchor count 1
+write-build-manifest: /tmp/ndt-page-eq-fGQBxO/tools/ndt_serve/static/BUILD.json (47 source files, 4 bundle files)
+guarded_build: exit 0
+app.js differs from committed (the mutation is in the bundle)
+chrome leftovers (Confirm): 0
+
+----------------------------------------------------------------------
+Ran 1 test in 1.670s
+
+OK
+guarded_build: exit 0
+2026-10-01T11:46:42+08:00

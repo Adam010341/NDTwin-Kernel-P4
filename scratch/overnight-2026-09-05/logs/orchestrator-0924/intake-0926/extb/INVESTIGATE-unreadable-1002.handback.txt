@@ -1,0 +1,117 @@
+## External B compare came back UNREADABLE: diagnosis (read-only)
+
+**Short answer: (a).** The rule that decides whether the last counter block has "settled" expects one datagram that never goes on the wire. It was checked against real data only once, on the one earlier round that happened to pass. On the old data it reads 11 of the 12 frozen p4runtime/solution rounds as UNREADABLE too. Nothing changed today.
+
+Scope:
+- I changed no file in any repo or worktree. B's worktree `git status` is clean.
+- I didn't touch the lab and ran no 06/08.
+- I started no background loops.
+- My notes and scripts are in `/home/adam/Desktop/NDTwin-Kernel/scratch/live-extb-pre/investigate/` (`NOTES.txt`, `table.py`/`.out`, `skel.py`/`.out`, `proposed.py`/`.out`). The scripts import B's code with `PYTHONDONTWRITEBYTECODE=1`, so nothing was written into B.
+- For today's rounds I printed only what the settled check reads. Their 200-tunnel values are masked, and I compared no decision field between C and T.
+
+Paths below:
+- `EE` = `$B_WT/$LP/external_evidence.py`
+- `TS` = `$B_WT/tests/shell/test_live_p1_external_evidence.sh`
+- `R` = `/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs`
+
+### 1. The rule
+- **The expected count (OBSERVED, EE:333-341).** It is `expected_s1_in`. For p4runtime/solution: `base = pings_h1_h2 + (iperf sent if target == 10.0.2.2)` (EE:337), and it returns `(base, base + 10 if no_ack else base)` (EE:338). "sent" is the iperf client's `Sent (\d+) datagrams` (EE:176, 306-311).
+- **The settled condition (OBSERVED, EE:344-357).** The load-bearing line is EE:352:
+  `if before == last or (exp[0] == exp[1] and s1 == exp[0]):`
+  It is called on every arm from `arms()` (EE:369). For flowcache/solution `expected_s1_in` returns None, so there is no check on that arm (EE:340-348; also `skel.out`, last line).
+- **Where it came from (OBSERVED).** Added in `a8d11f02`, 2026-09-28 12:12 +0800, round 3 (§R3.1 of the worker summary). Its only real-data check is summary lines 176-177: "074635Z … 剛好等於送出的數目（… solution 3505）". 074635Z is the 06 run whose p4runtime/solution round is 09-27T081205Z. No later commit touched the rule; the edits in `868e4ed0` and `c1b1c22f` changed only the docstring.
+- **The fixtures (OBSERVED).**
+  - Defaults: 5 pings (TS:163), `Sent 3500` (TS:199), final counters `3505,3505,7,7` (TS:180). The fixture's client file has no Server Report line.
+  - The default run is preceded only by an all-zero block (TS:189-191), so it settles only through the exact 3505 match — the one-of-twelve shape.
+  - `t_lost` (3504) passes settled only because `reads_extra=1` repeats the last block (TS:642-645). The comment there even says "one short … as 6 of 12 earlier rounds".
+  - `c_ack` uses 3508 with no_ack and `reads_extra=1` (TS:660-663).
+  - `t_unset` (3000) is UNREADABLE; `t_eq` (3000, repeated) is settled (TS:685-691).
+  - The mutant E41 targets EE:352 (`mutate_live_p1_external_evidence.sh:280-285`).
+- **Note (OBSERVED).** A repeated last block never occurs in real data: `final==before` is False in all 15 real rounds (`table.out`).
+
+### 2. Every p4runtime/solution round in runs/
+
+The 12 frozen in `external_survey_34.tsv` plus today's 3. This is all of them: the only other copy of a controller log is `slides930/.../p4rt_sol`, with the same sha as 081205Z. "Total" is the server report's total datagram count. Source: `table.out`, `proposed.out`, and each round's `link_usage/iperf_*.txt`.
+
+| round | verdict | before s1 / s2e | final s1 / s2e (s1 bytes) | Sent | Total | no_ack | pings | expected now | current rule | proposed rule |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 09-19T055210Z | ERROR | 1 / 1 | 3 / 3 (294) | 1431 | – | yes | 5 | 1436..1446 | UNREADABLE | UNREADABLE |
+| 09-19T065612Z | FAIL | 1 / 1 | 3 / 3 | 1431 | – | yes | 5 | 1436..1446 | UNREADABLE | UNREADABLE |
+| 09-19T085331Z | FAIL | 1 / 1 | 3 / 3 | 1431 | – | yes | 5 | 1436..1446 | UNREADABLE | UNREADABLE |
+| 09-19T085746Z | (not in a 06 table) | 1 / 1 | 3 / 3 | 1431 | – | yes | 5 | 1436..1446 | UNREADABLE | UNREADABLE |
+| 09-19T151037Z | PASS | 3244 / 3245 | 3504 / 3504 (4346248) | 3500 | 3499 | no | 5 | 3505 | **UNREADABLE** | settled |
+| 09-24T162954Z | PASS | 3270 / 3270 | 3504 / 3504 (4346248) | 3500 | 3499 | no | 5 | 3505 | **UNREADABLE** | settled |
+| 09-24T192012Z | PASS | 3257 / 3257 | 3504 / 3504 (4346248) | 3500 | 3499 | no | 5 | 3505 | **UNREADABLE** | settled |
+| 09-26T061642Z | PASS | 3263 / 3264 | 3504 / 3504 (4346248) | 3500 | 3499 | no | 5 | 3505 | **UNREADABLE** | settled |
+| 09-26T062438Z | PASS | 3258 / 3258 | 3504 / 3504 (4346248) | 3500 | 3499 | no | 5 | 3505 | **UNREADABLE** | settled |
+| 09-26T155814Z | PASS | 3250 / 3251 | 3504 / 3504 (4346248) | 3500 | 3499 | no | 5 | 3505 | **UNREADABLE** | settled |
+| 09-26T175425Z | PASS | 3269 / 3270 | 3820 / **3821** (4738720) | 3500 | 3499 | no | 5 | 3505 | UNREADABLE | UNREADABLE |
+| 09-27T081205Z | PASS | 3267 / 3267 | 3505 / 3505 (4347490) | 3500 | 3499 | no | 5 | 3505 | settled | settled |
+| 10-02T114342Z (C1) | PASS | 3268 / 3268 | 3504 / 3504 (4346248) | 3500 | 3499 | no | 5 | 3505 | UNREADABLE | settled |
+| 10-02T121113Z (C2) | PASS | 3246 / 3246 | 3504 / 3504 (4346248) | 3500 | 3499 | no | 5 | 3505 | UNREADABLE | settled |
+| 10-02T124023Z (T) | PASS | 3254 / 3255 | 3504 / 3504 (4346248) | 3500 | 3499 | no | 5 | 3505 | UNREADABLE | settled |
+
+The 11 p4runtime/skeleton rounds all read s1 = 5 = pings and are settled under the current rule (`skel.out`). The off-by-one only bites on the arm that runs iperf.
+
+**Did the survey apply this rule? No (OBSERVED).** `external_survey.py` calls `report_evidence` (line 86), `controller_evidence` (93) and `invariants` (97), but never `settled()` or `arms()`. So the 34 rounds "passing" the survey says nothing about this check. The survey did measure the same arithmetic as an invariant:
+- it found `s1 ingress 100 = pings + datagrams` held in only 1 of 12 rounds (EE:79; summary §R5.14, line 806, "只 1／12 成立（6 個少 1）");
+- for that reason it made the invariant descriptive (EE:138);
+- but the identical expression stayed in `settled()` as an exact gate.
+
+There was nothing different about the earlier rounds; the gate was simply never run on them.
+
+### 3. Diagnosis: (a)
+
+**What the "3505th packet" is: none goes on the wire.**
+- In iperf 2.1.9 (`iperf -v`), "Sent 3500" is one more than the datagrams actually sent. OBSERVED in all 8 acked rounds: the client says Sent 3500 and the server reports 0/3499.
+- Three independent counters agree on 3499 datagrams:
+  - **s1 ingress bytes.** Bytes = 5×98 + 3499×1242 exactly (`table.out`, bytes column = 3499.000). A datagram is 1200 + 8 + 20 + 14 = 1242 bytes; a ping is 98.
+  - **s2 egress 100** equals s1.
+  - **h2's link.** The netdev delta on s2-eth1 is 4346031 = 3499×1242 + the 273-byte background seen on every idle port (OBSERVED, `$R/2026-09-26T155814Z_p4runtime_solution_ndtwin/link_usage/netdev.*`).
+- **INFERRED:** the client counts the FIN (or one extra id) in "Sent". I could not check this against iperf's source.
+- There are no pcaps in the round directories.
+
+**Why 081205Z alone reads 3505: one FIN retransmission.**
+- s2 ingress 200 = 7 packets / 830 bytes = 5×98 + 2×170, i.e. two server reports instead of one (OBSERVED, `table.out`).
+- h2's link got exactly +1242 bytes more than usual (s2-eth1 delta 4347273 vs 4346031).
+- h1's link got exactly +170 bytes (s1-eth1 613 vs 443).
+
+It matched "pings + Sent" by coincidence.
+
+**The last block is the read after traffic ended (INFERRED, from timing and counts).**
+- The controller reads every 2 s (`~/tutorials/exercises/p4runtime/solution/mycontroller.py:204-210`) and writes unbuffered (`drive_exercise.py:1623`).
+- The step between the last two reads is about 234-250 packets, against about 437 per full interval, so traffic stopped inside that interval.
+- s1 = pings + the server's Total, and s2e = s1.
+- The controller log's last write is about 0.9 s after the iperf files (mtimes in `R/2026-09-26T155814Z…`).
+- The controller is stopped right after the link-usage cell, so a repeated block never gets printed.
+
+**Not (b).** Today's final block is byte-identical to the 6 earlier 3504 rounds, from 09-19 to 09-26, which ran on other code and without B. Both trunk-only controls show it too.
+
+**The outliers fit (a) as well:**
+- **175425Z is genuinely mid-traffic.** s2e is 3821 while s1 is 3820, and 315 extra 1242-byte frames reached h2's link (+301×1242 bytes in netdev). The source is unexplained (INFERRED).
+- **The four 09-19 rounds are failed rounds.** Forwarding broke, the counter stopped at 3, and there is no server report.
+
+### 4. Would the registered "UNREADABLE ⇒ rerun that run once" path help? No.
+- Under the current rule only 1 of 8 earlier PASS-era rounds settled (1 of 11 including today's). So a rerun of C1 has roughly a 1-in-8 chance to settle (INFERRED from that rate).
+- Even then, `compare` reads C1, then C2, then T (EE:740-742), and C2 and T are already UNREADABLE for the same reason.
+- README:609 says "同樣原因再出現就回報", so the path ends in a report, not a reading, almost surely. All three would have to settle independently.
+
+### 5. A correct rule (described only, not written into any code)
+Derived from the 12 frozen rounds alone. The last block is settled iff:
+- (i) it repeats the block before it; **or**
+- (ii) the client got the server's ack (a Server Report present, no "did not receive ack"), **and** s2 egress 100 = s1 ingress 100 in that same block (nothing between the two switches), **and** pings + D ≤ s1 ingress 100 ≤ pings + D + 10.
+  - D = the server report's Total, which equals Sent − 1 in 8 of 8 acked rounds.
+  - The +10 allows FIN retransmissions, which can happen even when acked, as in 081205Z.
+  - With no server report, only (i) can settle the block. There is no earlier no-ack round with traffic flowing, so that case rests on no data (stated as such).
+
+**Compared with the current rule: neither tighter nor looser.**
+- Looser on the count: it accepts 3504..3514, not exactly 3505.
+- Tighter in that it adds s2e = s1, and with no ack it accepts only a repeat.
+
+**On the 12 frozen rounds (`proposed.out`):**
+- It settles the 7 rounds that ended after traffic: six at 3504 plus 081205Z.
+- It still rejects 175425Z and the four failed 09-19 rounds, which are the ones that really are mid-traffic or have no reading after traffic.
+
+**Today's three logs:** all three would pass the settled check under this rule (s1 3504 in [3504, 3514], s2e = s1, acked). Nothing beyond that was computed or looked at.
+
+DELIVERED — no commit (a read-only ticket; notes only, under `/home/adam/Desktop/NDTwin-Kernel/scratch/live-extb-pre/investigate/`). The code was read at B `9b5c0607`.

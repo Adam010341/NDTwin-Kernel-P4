@@ -1,0 +1,27 @@
+14c490c3b2e3dc0c39fe5c8147c8f97d5af40ed5
+porcelain-lines: 0
+# dir: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-spawn-traps-1001
+# sha256 74c33f050cf3fa192b204aef4eb697d08e23428fa087d9b48cf302185eb479a4  tests/shell/mutate_g9_cleanup_no_pkill_f.sh
+# tripwire lines before: 0
+# $ bash tests/shell/mutate_g9_cleanup_no_pkill_f.sh
+# started 2026-10-01T18:22:16+08:00
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/claude-1000/spawn-traps-1001.lock
+guarded_build: $ bash tests/shell/mutate_g9_cleanup_no_pkill_f.sh
+=== baseline (the fix, unmutated) ===
+  rc=0  red=
+
+=== mutations ===
+  match-anywhere-in-line     caught by: an echo that MENTIONS a switch
+  no-self-exclusion          caught by: and it does not find ITSELF
+  self-is-only-this-pid      caught by: a matching ANCESTOR is not a candidate
+  ps-is-the-authority        caught by: the real scan does not find the decoy
+  count-includes-the-counter caught by: no switches, and we are looking -> 0
+  kill-without-verifying     caught by: it names the pid it stopped
+  control-comment-only       SURVIVED (control, as required)
+
+restore: tools/test_workflow/ndtwin-lab is byte-identical to the pre-gate snapshot
+
+VERDICT: every mutation was caught by the check named for it; the control survived
+guarded_build: exit 0
+# ended 2026-10-01T18:22:28+08:00; tripwire lines after: 0
+rc=0

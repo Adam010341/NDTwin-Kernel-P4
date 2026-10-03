@@ -1,0 +1,14 @@
+14c490c3b2e3dc0c39fe5c8147c8f97d5af40ed5
+porcelain-lines: 0
+# dir: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-spawn-traps-1001
+# sha256 05b29e4576c9c56da4fc54e2ca13917b33c8db0594ba5424f1af808f9e79789c  tests/shell/check_process_by_name.py
+# tripwire lines before: 0
+# $ python3 tests/shell/check_process_by_name.py
+# started 2026-10-01T18:34:42+08:00
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/claude-1000/spawn-traps-1001.lock
+guarded_build: $ python3 tests/shell/check_process_by_name.py
+check_process_by_name: 2 registered audit exceptions scanned (7 file(s) under them); doc/audit/** is not a scan surface otherwise
+check_process_by_name: 348 file(s) scanned, 0 site(s), 0 registered, 0 new, 0 stale
+guarded_build: exit 0
+# ended 2026-10-01T18:34:43+08:00; tripwire lines after: 0
+rc=0

@@ -1,0 +1,24 @@
+# 2026-10-01T19:57:59+08:00 web build r3 at c4247ca25596b4d0fec67d9e2077868a97b3b70f + uncommitted web/src and manual edits; df: /dev/nvme0n1p5   98G   89G  4.1G  96% /
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env PATH=/home/adam/.local/node/bin:/home/adam/.local/bin:/home/adam/.local/bin:/home/adam/.grok/bin:/home/adam/.local/bin:/home/adam/miniconda3/bin:/home/adam/miniconda3/condabin:/home/adam/.local/bin:/home/adam/.local/bin:/home/adam/.local/bin:/home/adam/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin npm --prefix tools/ndt_serve/web run build
+
+> ndt-serve-web@2.0.0 build
+> tsc --noEmit && vite build && node scripts/build-manual.mjs && node scripts/write-build-manifest.mjs
+
+vite v6.3.5 building for production...
+transforming...
+✓ 76 modules transformed.
+rendering chunks...
+../static/index.html    0.63 kB
+../static/app.css      19.80 kB
+../static/app.js      291.73 kB
+✓ built in 2.58s
+build-manual: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/tools/ndt_serve/static/manual.html (26168 bytes)
+write-build-manifest: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/tools/ndt_serve/static/BUILD.json (47 source files, 4 bundle files)
+npm notice
+npm notice New major version of npm available! 11.19.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+guarded_build: exit 0
+rc=0

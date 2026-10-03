@@ -1,0 +1,12 @@
+# /home/adam/miniconda3/envs/ryu-env/bin/python3.8 3.8.20 test_ndt_serve_web
+Ran 18 tests in 0.099s
+OK
+# /home/adam/miniconda3/envs/ryu-env/bin/python3.8 3.8.20 test_ndt_serve
+Ran 75 tests in 49.914s
+OK
+# /home/adam/miniconda3/envs/ryu-env/bin/python3.8 3.8.20 test_ndt_serve_gui
+Ran 36 tests in 17.961s
+OK
+# /home/adam/miniconda3/envs/ryu-env/bin/python3.8 3.8.20 test_ndt_serve_cells
+Ran 35 tests in 22.754s
+OK

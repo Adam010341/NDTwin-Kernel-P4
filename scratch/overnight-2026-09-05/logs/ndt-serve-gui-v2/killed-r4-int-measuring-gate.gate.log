@@ -1,0 +1,10 @@
+head 73889e5494d22f32b39f4a43021db389a92fe742
+porcelain 0 tracked file(s) differ from HEAD
+date 2026-10-02T10:02:42+08:00
+gate edcd5ddc2c54e67a88fc434c36f815b2a5a1272eeb69757d98bfd8a76a56db90
+baseline (must be green before any mutation):
+  Ran 102 checks, 0 failed
+
+  caught   L1: --measuring is the full report (sudo and the kernel graph on every probe) (🔴 --measuring ran no sudo, curl, OVS or bmv2 command (8 states) went red)
+INCOMPLETE: stopped by SIGINT before its verdict -- not a verdict
+rc=130

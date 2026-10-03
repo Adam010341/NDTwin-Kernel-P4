@@ -1,0 +1,17 @@
+date 2026-10-02T00:55:37+08:00
+head 23e9b76fe64a6ecc659fb40961f95faf090f6b3f
+porcelain 0
+gate tests/shell/rebuild_ndt_serve_web.sh sha256 39505233c908962d
+gate log /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/killed-old-rebuild-gate.gate.log
+/dev/nvme0n1p5   98G   90G  3.3G  97% /
+gate pid 1369016, pgid 1369016
+marker seen after ~2 s: rebuilding /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/to
+2026-10-02T00:55:43+08:00 kill -TERM -- -1369016
+gate exit status: 143
+left in its process group 3 s later: none
+--- last 4 lines of the gate's log:
+  | porcelain 0 tracked file(s) differ from HEAD
+  | date 2026-10-02T00:55:37+08:00
+  | static /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/tools/ndt_serve/static
+  | rebuilding /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/tools/ndt_serve/web in /tmp/ndt-serve-rebuild-dhaUwL (node v24
+--- verdict-shaped lines: rc=0 0, totals 0, INCOMPLETE 0

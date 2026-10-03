@@ -1,0 +1,10 @@
+# written BEFORE pushing pr/ci-l1-lane (d4b96ea64d0cd6b2739c5e5ac08bb3f24aaba5a0), 2026-09-28T08:06:13+08:00
+15 files: ci.yml (fetch-depth 0, a "Create p4_proxy/venv" step), the L1 lane, and tests/docs. No C++.
+- clang, TSan, ASan+UBSan: PASS (no C++ change).
+- GCC: the C++ build and ctest pass. L1 = "L1 FAILED (1 problem group(s))", the one being test_cell_gate_suspect_wiring.sh as FAIL-SKIP:
+  trunk's round.env still hard-codes KERNEL_DIR, so PY_PROXY points at /home/adam/... and the suite SKIPs. That is fixed by N7, not merged yet.
+- FAILED-list extraction (grep 'FAILED|FAIL:'): exactly ONE line, "L1 FAILED (1 problem group(s))   logs: ...". The FAIL-SKIP line carries "FAIL " without "ED"/":".
+- Expected group states: fabric_bring_up and route_binding PROVED LESS (112/82, 47/2); grpc, live_p1_common, manual_no_stale, mutate_gate_dead_mutant, ndt_ovs_topo_script (41 checks on a real runner) and ovs4_sflow PASS; topology x2 and gate_exit_code_not_tee DECLARED SKIP.
+- RISKS never observed on GitHub:
+  - the venv step (it would fail the job at that step, not in L1);
+  - fetch-depth 0 time against the 30-minute job timeout.

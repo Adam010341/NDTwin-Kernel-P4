@@ -1,0 +1,75 @@
+/home/adam/tutorials/exercises/qos/solution/qos.p4(10): [--Wwarn=unused] warning: 'IP_PROTOCOLS_ICMP' is unused
+const bit<8> IP_PROTOCOLS_ICMP = 1;
+             ^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(11): [--Wwarn=unused] warning: 'IP_PROTOCOLS_IGMP' is unused
+const bit<8> IP_PROTOCOLS_IGMP = 2;
+             ^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(12): [--Wwarn=unused] warning: 'IP_PROTOCOLS_IPV4' is unused
+const bit<8> IP_PROTOCOLS_IPV4 = 4;
+             ^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(15): [--Wwarn=unused] warning: 'IP_PROTOCOLS_IPV6' is unused
+const bit<8> IP_PROTOCOLS_IPV6 = 41;
+             ^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(16): [--Wwarn=unused] warning: 'IP_PROTOCOLS_GRE' is unused
+const bit<8> IP_PROTOCOLS_GRE = 47;
+             ^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(17): [--Wwarn=unused] warning: 'IP_PROTOCOLS_IPSEC_ESP' is unused
+const bit<8> IP_PROTOCOLS_IPSEC_ESP = 50;
+             ^^^^^^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(18): [--Wwarn=unused] warning: 'IP_PROTOCOLS_IPSEC_AH' is unused
+const bit<8> IP_PROTOCOLS_IPSEC_AH = 51;
+             ^^^^^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(19): [--Wwarn=unused] warning: 'IP_PROTOCOLS_ICMPV6' is unused
+const bit<8> IP_PROTOCOLS_ICMPV6 = 58;
+             ^^^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(20): [--Wwarn=unused] warning: 'IP_PROTOCOLS_EIGRP' is unused
+const bit<8> IP_PROTOCOLS_EIGRP = 88;
+             ^^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(21): [--Wwarn=unused] warning: 'IP_PROTOCOLS_OSPF' is unused
+const bit<8> IP_PROTOCOLS_OSPF = 89;
+             ^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(22): [--Wwarn=unused] warning: 'IP_PROTOCOLS_PIM' is unused
+const bit<8> IP_PROTOCOLS_PIM = 103;
+             ^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(23): [--Wwarn=unused] warning: 'IP_PROTOCOLS_VRRP' is unused
+const bit<8> IP_PROTOCOLS_VRRP = 112;
+             ^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(120): [--Wwarn=unused] warning: 'default_forwarding' is unused
+    action default_forwarding() {
+           ^^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(136): [--Wwarn=unused] warning: 'af_11' is unused
+    action af_11() {
+           ^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(141): [--Wwarn=unused] warning: 'af_12' is unused
+    action af_12() {
+           ^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(146): [--Wwarn=unused] warning: 'af_13' is unused
+    action af_13() {
+           ^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(151): [--Wwarn=unused] warning: 'af_21' is unused
+    action af_21() {
+           ^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(156): [--Wwarn=unused] warning: 'af_22' is unused
+    action af_22() {
+           ^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(161): [--Wwarn=unused] warning: 'af_23' is unused
+    action af_23() {
+           ^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(166): [--Wwarn=unused] warning: 'af_31' is unused
+    action af_31() {
+           ^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(171): [--Wwarn=unused] warning: 'af_32' is unused
+    action af_32() {
+           ^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(176): [--Wwarn=unused] warning: 'af_33' is unused
+    action af_33() {
+           ^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(181): [--Wwarn=unused] warning: 'af_41' is unused
+    action af_41() {
+           ^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(186): [--Wwarn=unused] warning: 'af_42' is unused
+    action af_42() {
+           ^^^^^
+/home/adam/tutorials/exercises/qos/solution/qos.p4(191): [--Wwarn=unused] warning: 'af_43' is unused
+    action af_43() {
+           ^^^^^

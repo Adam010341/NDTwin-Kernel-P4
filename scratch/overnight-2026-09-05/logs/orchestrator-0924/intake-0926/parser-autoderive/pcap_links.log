@@ -1,0 +1,59 @@
+===== basic_tunnel links: [['h1', 's1-p1'], ['s1-p2', 's2-p2'], ['s1-p3', 's3-p2'], ['s3-p3', 's2-p3'], ['h2', 's2-p1'], ['h3', 's3-p1']]
+   s1-eth1_in.pcap {'1212': 2} max_frame 73 sha256[:12] d9664650072e
+   s1-eth2_out.pcap {'1212': 1} max_frame 73 sha256[:12] 7b3ccaaedacf
+   s1-eth3_out.pcap {'1212': 1} max_frame 73 sha256[:12] 7f923e74dd5e
+   s2-eth1_out.pcap {'1212': 1} max_frame 73 sha256[:12] 11a870cc2679
+   s2-eth2_in.pcap {'1212': 1} max_frame 73 sha256[:12] 76437c66747d
+   s3-eth1_out.pcap {'1212': 1} max_frame 73 sha256[:12] a957b0e2ede2
+   s3-eth2_in.pcap {'1212': 1} max_frame 73 sha256[:12] 30b38b022b12
+===== p4runtime links: [['h1', 's1-p1'], ['s1-p2', 's2-p2'], ['s1-p3', 's3-p2'], ['s3-p3', 's2-p3'], ['h2', 's2-p1'], ['h3', 's3-p1']]
+   s1-eth1_in.pcap {'0800': 5} max_frame 98 sha256[:12] 93884774d18d
+   s1-eth1_out.pcap {'0800': 5} max_frame 98 sha256[:12] d64e81461a80
+   s1-eth2_in.pcap {'1212': 5} max_frame 102 sha256[:12] 9f792c22926c
+   s1-eth2_out.pcap {'1212': 5} max_frame 102 sha256[:12] 757f7e207f96
+   s2-eth1_in.pcap {'0800': 5} max_frame 98 sha256[:12] bea62e79c8c6
+   s2-eth1_out.pcap {'0800': 5} max_frame 98 sha256[:12] 340576d74546
+   s2-eth2_in.pcap {'1212': 5} max_frame 102 sha256[:12] e7bcc9809f59
+   s2-eth2_out.pcap {'1212': 5} max_frame 102 sha256[:12] e403b285b509
+===== source_routing links: [['h1', 's1-p1'], ['s1-p2', 's2-p2'], ['s1-p3', 's3-p2'], ['s3-p3', 's2-p3'], ['h2', 's2-p1'], ['h3', 's3-p1']]
+   s1-eth1_in.pcap {'1234/5entries': 1, '1234/2entries': 1} max_frame 52 sha256[:12] 29b13722df42
+   s1-eth2_out.pcap {'1234/4entries': 1, '1234/1entries': 2} max_frame 50 sha256[:12] ccac1ff27bf8
+   s1-eth3_in.pcap {'1234/2entries': 1} max_frame 46 sha256[:12] f6ef306e0452
+   s2-eth1_out.pcap {'0800': 2} max_frame 42 sha256[:12] 54d89e9ee17d
+   s2-eth2_in.pcap {'1234/4entries': 1, '1234/1entries': 2} max_frame 50 sha256[:12] b950024e0a37
+   s2-eth3_out.pcap {'1234/3entries': 1} max_frame 48 sha256[:12] 86b559462883
+   s3-eth2_out.pcap {'1234/2entries': 1} max_frame 46 sha256[:12] addf50c3829d
+   s3-eth3_in.pcap {'1234/3entries': 1} max_frame 48 sha256[:12] 352218b2bcda
+===== mri links: [['h1', 's1-p2'], ['h11', 's1-p1'], ['s1-p3', 's2-p3'], ['s1-p4', 's3-p2'], ['s3-p3', 's2-p4'], ['h2', 's2-p2'], ['h22', 's2-p1'], ['h3', 's3-p1']]
+   s1-eth1_in.pcap {'0800/ihl5': 1306} max_frame 1512 sha256[:12] fb231bf1a889
+   s1-eth1_out.pcap {'0800/ihl5': 14} max_frame 590 sha256[:12] ee7ec55c36eb
+   s1-eth2_in.pcap {'0800/ihl6': 6} max_frame 61 sha256[:12] 1321eb148110
+   s1-eth3_in.pcap {'0800/ihl5': 14} max_frame 590 sha256[:12] 22259f4ad192
+   s1-eth3_out.pcap {'0800/ihl5': 833, '0800/ihl8': 3} max_frame 1512 sha256[:12] 2b35ba548b20
+   s2-eth1_in.pcap {'0800/ihl5': 14} max_frame 590 sha256[:12] bf6dbce608dd
+   s2-eth1_out.pcap {'0800/ihl5': 614} max_frame 1512 sha256[:12] 99f8d0d80c4a
+   s2-eth2_out.pcap {'0800/ihl10': 3} max_frame 77 sha256[:12] d3f082dfccf1
+   s2-eth3_in.pcap {'0800/ihl5': 614, '0800/ihl8': 3} max_frame 1512 sha256[:12] fbe2c00101f0
+   s2-eth3_out.pcap {'0800/ihl5': 14} max_frame 590 sha256[:12] 910ef687eb03
+===== link_monitor links: [['h1', 's1-p1'], ['h2', 's1-p2'], ['s1-p3', 's3-p1'], ['s1-p4', 's4-p2'], ['h3', 's2-p1'], ['h4', 's2-p2'], ['s2-p3', 's4-p1'], ['s2-p4', 's3-p2']]
+   s1-eth1_in.pcap {'0812/hop_cnt0/len24': 8} max_frame 24 sha256[:12] 5768e5135781
+   s1-eth1_out.pcap {'0812/hop_cnt9/len186': 8} max_frame 186 sha256[:12] 8a2c44d1f81d
+   s1-eth3_in.pcap {'0812/hop_cnt4/len96': 8} max_frame 96 sha256[:12] e314cde173d1
+   s1-eth3_out.pcap {'0812/hop_cnt5/len114': 8} max_frame 114 sha256[:12] db7ede3cf605
+   s1-eth4_in.pcap {'0812/hop_cnt8/len168': 8} max_frame 168 sha256[:12] 1ee8df9775df
+   s1-eth4_out.pcap {'0812/hop_cnt1/len42': 8} max_frame 42 sha256[:12] 741e498c37d0
+   s2-eth3_in.pcap {'0812/hop_cnt2/len60': 8} max_frame 60 sha256[:12] 8f9fd407e2d8
+   s2-eth3_out.pcap {'0812/hop_cnt7/len150': 8} max_frame 150 sha256[:12] fdd7568d0b24
+   s2-eth4_in.pcap {'0812/hop_cnt6/len132': 8} max_frame 132 sha256[:12] b3657f299ba0
+   s2-eth4_out.pcap {'0812/hop_cnt3/len78': 8} max_frame 78 sha256[:12] 8bb79dfc5646
+   s3-eth1_in.pcap {'0812/hop_cnt5/len114': 8} max_frame 114 sha256[:12] 1260d95b9421
+   s3-eth1_out.pcap {'0812/hop_cnt4/len96': 8} max_frame 96 sha256[:12] 7f6a7574ebbd
+   s3-eth2_in.pcap {'0812/hop_cnt3/len78': 8} max_frame 78 sha256[:12] 2285a5162ad3
+   s3-eth2_out.pcap {'0812/hop_cnt6/len132': 8} max_frame 132 sha256[:12] 1992bb077961
+   s4-eth1_in.pcap {'0812/hop_cnt7/len150': 8} max_frame 150 sha256[:12] b09d55a409ab
+   s4-eth1_out.pcap {'0812/hop_cnt2/len60': 8} max_frame 60 sha256[:12] b426a3fbf4a7
+   s4-eth2_in.pcap {'0812/hop_cnt1/len42': 8} max_frame 42 sha256[:12] 31eab3bec53f
+   s4-eth2_out.pcap {'0812/hop_cnt8/len168': 8} max_frame 168 sha256[:12] a22602ed2b96
+===== calc links: [['h1', 's1-p1'], ['h2', 's1-p2']]
+   s1-eth1_in.pcap {'1234': 1} max_frame 31 sha256[:12] 09b40433cfa6
+   s1-eth1_out.pcap {'1234': 1} max_frame 31 sha256[:12] 25bd7cc42b03

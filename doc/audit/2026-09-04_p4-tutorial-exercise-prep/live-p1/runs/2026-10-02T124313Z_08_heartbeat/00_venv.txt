@@ -1,0 +1,81 @@
+== interpreter /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+resolves_to /home/adam/miniconda3/bin/python3.13
+python 3.13.13 prefix /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv
+protobuf 5.29.6 api_implementation upb
+grpcio 1.82.1
+distributions 28 sha256 d5fc18e12968a343453f008108d4f6bcd81f788ae72a58e8fc547f8e2eaa03ce
+  annotated-doc==0.0.5
+  annotated-types==0.8.0
+  anyio==4.15.1
+  certifi==2026.7.22
+  charset-normalizer==3.5.1
+  click==8.5.0
+  fastapi==0.139.2
+  googleapis-common-protos==1.75.0
+  grpcio-tools==1.71.2
+  grpcio==1.82.1
+  h11==0.16.0
+  hypothesis==6.165.5
+  idna==3.20
+  networkx==3.6.1
+  p4runtime==1.5.0
+  pip==26.0.1
+  protobuf==5.29.6
+  pydantic==2.13.5
+  pydantic_core==2.46.5
+  requests==2.34.2
+  setuptools==84.0.0
+  sortedcontainers==2.4.0
+  starlette==1.3.1
+  thrift==0.24.0
+  typing-inspection==0.4.4
+  typing_extensions==4.16.0
+  urllib3==2.8.0
+  uvicorn==0.51.0
+
+== interpreter /home/adam/p4dev-python-venv/bin/python
+resolves_to /usr/bin/python3.12
+python 3.12.3 prefix /home/adam/p4dev-python-venv
+protobuf 3.20.3 api_implementation python
+grpcio 1.59.3
+distributions 39 sha256 69c4cfd5752c4b301d343e41df7befb179dda45406f21f34b4d87e65817722da
+  backcall==0.2.0
+  cffi==2.1.0
+  crcmod==1.7
+  decorator==5.3.1
+  getmac==0.9.5
+  googleapis-common-protos==1.73.0
+  grpcio==1.59.3
+  ipython==7.31.1
+  jedi==0.17.2
+  matplotlib-inline==0.2.2
+  mininet==2.3.1b4
+  netifaces==0.11.0
+  p4runtime-shell==0.0.6.post26+g4b69a672b.d20260713
+  p4runtime==1.4.1
+  packaging==26.2
+  parso==0.7.1
+  pexpect==4.9.0
+  pickleshare==0.7.5
+  pip==24.0
+  ply==3.11
+  prompt_toolkit==3.0.52
+  protobuf==3.20.3
+  psutil==7.2.2
+  ptf==0.12.1.post8+gfe62f401d
+  ptyprocess==0.7.0
+  pycparser==3.0
+  Pygments==2.20.0
+  pynng==0.9.0
+  pyperclip==1.8.2
+  scapy-helper==0.14.8
+  scapy==2.5.0
+  setuptools==83.0.0
+  six==1.17.0
+  sniffio==1.3.1
+  tabulate==0.8.10
+  thrift==0.24.0
+  traitlets==5.15.1
+  wcwidth==0.8.2
+  wheel==0.47.0
+

@@ -1,0 +1,20 @@
+# G-N7 red first: the fork case against fed37cff's url_command (listener check only)
+test_url_sends_the_token_only_over_a_connection_the_pid_accepted (__main__.UrlCommand.test_url_sends_the_token_only_over_a_connection_the_pid_accepted) ... FAIL
+/home/adam/miniconda3/lib/python3.13/unittest/case.py:650: ResourceWarning: unclosed file <_io.TextIOWrapper name=3 encoding='UTF-8'>
+  with outcome.testPartExecutor(self):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+
+======================================================================
+FAIL: test_url_sends_the_token_only_over_a_connection_the_pid_accepted (__main__.UrlCommand.test_url_sends_the_token_only_over_a_connection_the_pid_accepted)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/tests/python/test_ndt_serve_gui.py", line 473, in test_url_sends_the_token_only_over_a_connection_the_pid_accepted
+    self.assertIn("the token was not sent", r.stderr.lower())
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'the token was not sent' not found in 'ndt serve url: 127.0.0.1:57265 did not answer: remote end closed connection without response\n'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.191s
+
+FAILED (failures=1)
+rc=1

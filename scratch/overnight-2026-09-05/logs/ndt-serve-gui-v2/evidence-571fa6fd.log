@@ -1,0 +1,116 @@
+# 2026-10-01T16:50:25+08:00 -- written once by the commands below, in this worktree
+# git show --stat 571fa6fd; then git diff 571fa6fd^ 571fa6fd -- <ndt serve paths>
+571fa6fdb8ab8f70cd2857a68df036bdab79172a ndt: date apps and rules against one clock read per residue report
+
+ doc/KNOWN-ISSUES.md                          |  30 ++++
+ tests/python/test_ndt_serve.py               |   2 +-
+ tests/shell/mutate_apps_residue_one_clock.sh | 190 ++++++++++++++++++++++
+ tests/shell/mutate_apps_stop_lists_rules.sh  |   7 +-
+ tests/shell/mutate_ndt_helper_apps_window.sh |   4 +-
+ tests/shell/mutate_ndt_serve.sh              |  10 +-
+ tests/shell/test_apps_residue.sh             | 234 ++++++++++++++++++++++++++-
+ tools/ndt_serve/README.md                    |   2 +-
+ tools/ndt_serve/serve.py                     |   2 +-
+ tools/ndt_serve/verbs.py                     |   8 +-
+ tools/test_workflow/ndt                      |  48 +++++-
+ 11 files changed, 514 insertions(+), 23 deletions(-)
+
+diff --git a/tests/python/test_ndt_serve.py b/tests/python/test_ndt_serve.py
+index a58a2d59..9ed93857 100644
+--- a/tests/python/test_ndt_serve.py
++++ b/tests/python/test_ndt_serve.py
+@@ -419,7 +419,7 @@ class Csrf(ServeCase):
+ 
+     def test_reads_need_the_token_except_health(self):
+         """Judge 09-24 finding 1: GET /status?check=1 runs `ndt status --check`, whose lock probes
+-        POST /ndt/acquire_lock to the kernel (ndt:9416-9431). A read is not side-effect free, so
++        POST /ndt/acquire_lock to the kernel (ndt:9429-9444). A read is not side-effect free, so
+         every GET but /health is gated the way a write is."""
+         paths = ["/status", "/status?check=1", "/apps", "/jobs", "/jobs/20260101T000000Z-abcdef",
+                  "/jobs/20260101T000000Z-abcdef/log/stdout", "/cells", "/cells/x", "/cells/x/old",
+diff --git a/tests/shell/mutate_ndt_serve.sh b/tests/shell/mutate_ndt_serve.sh
+index 8ce16874..a7bce5fa 100755
+--- a/tests/shell/mutate_ndt_serve.sh
++++ b/tests/shell/mutate_ndt_serve.sh
+@@ -523,8 +523,10 @@ m=$(mutant m60 "$DEMO_PY" \
+ report "M60: the demo's slot probe is a real POST /down with the token" "$m" \
+        DemoProbes.test_demo_probes_cannot_touch_the_lab
+ 
++# [Co-developed with claude code -- Adam] 2026-09-28: M61, M64 and M65 re-anchored on the lines
++# ndt's one-clock residue change moved (apps.status 10346 -> 10382, lock_probe +13).
+ m=$(mutant m61 "$VERBS_PY" \
+-    '    "apps.status": {"code": [(10346, 0, "return 0", "cmd_apps")]},' \
++    '    "apps.status": {"code": [(10382, 0, "return 0", "cmd_apps")]},' \
+     '')
+ report "M61: an rc table with no source" "$m" \
+        RcProvenance.test_every_table_names_its_source
+@@ -735,13 +737,13 @@ report "M63: apps.start rc 1 cites proc_checkout's return 1 (09-24's line 8315,
+ # [Co-developed with claude code -- Adam] The opus judge's N1-1 (09-27): the README's lock probe
+ # citation was left at its pre-segment-W lines; the suite now holds every such citation to ndt.
+ m=$(mutant m64 "$README_MD" \
+-    'lock probes to the kernel (ndt:9416-9431)' \
++    'lock probes to the kernel (ndt:9429-9444)' \
+     'lock probes to the kernel (ndt:9292-9307)')
+ report "M64: the README cites the lock probes where they were before segment W (ndt:9292-9307)" "$m" \
+        RcProvenance.test_lock_probe_citations_are_lock_probe
+ m=$(mutant m65 "$SERVE_PY" \
+-    'probes to the kernel (ndt:9416-9431)' \
+-    'probes to the kernel (ndt:9416-9420)')
++    'probes to the kernel (ndt:9429-9444)' \
++    'probes to the kernel (ndt:9429-9433)')
+ report "M65: serve.py's docstring cites lock_probe's comment but not its POST" "$m" \
+        RcProvenance.test_lock_probe_citations_are_lock_probe
+ 
+diff --git a/tools/ndt_serve/README.md b/tools/ndt_serve/README.md
+index 13c8639a..6069cfcc 100644
+--- a/tools/ndt_serve/README.md
++++ b/tools/ndt_serve/README.md
+@@ -71,7 +71,7 @@ keeps running if the server dies; a restarted server finds it again from disk.
+ an `Origin` -- this server's own origin; a POST also needs `Content-Type: application/json`.
+ The Host header must be `127.0.0.1:<port>` or `localhost:<port>`. No CORS header is ever sent.
+ Reads are gated too because a read is not side-effect free: `ndt status --check` POSTs three
+-lock probes to the kernel (ndt:9416-9431), and without the token any page in the browser could
++lock probes to the kernel (ndt:9429-9444), and without the token any page in the browser could
+ start one with an `<img>` (judge 09-24, finding 1).
+ 
+ Two read-only ndt calls run at a time; a third waits up to `--read-queue-wait` seconds and then
+diff --git a/tools/ndt_serve/serve.py b/tools/ndt_serve/serve.py
+index 7e1060e6..b2258142 100644
+--- a/tools/ndt_serve/serve.py
++++ b/tools/ndt_serve/serve.py
+@@ -24,7 +24,7 @@ The design red lines (TICKET section 3), and where each one lives:
+                        answers -- and an Origin header, when present, must be this server's; a POST
+                        also needs a JSON body. 🔴 GETs are gated too (judge 09-24, finding 1): a
+                        "read" is not side-effect free -- `ndt status --check` POSTs three lock
+-                       probes to the kernel (ndt:9416-9431) -- so an <img> in any page must not be
++                       probes to the kernel (ndt:9429-9444) -- so an <img> in any page must not be
+                        able to start one.
+   3. whitelist         verbs.py builds every argv; there is no shell on any path.
+   4. thin shell        ndt's rc is passed through untouched, with a sentence from ndt help beside
+diff --git a/tools/ndt_serve/verbs.py b/tools/ndt_serve/verbs.py
+index 6a8c70b5..ace39315 100644
+--- a/tools/ndt_serve/verbs.py
++++ b/tools/ndt_serve/verbs.py
+@@ -256,6 +256,8 @@ RC_TABLE = {
+ # below every anchor. 🔴 The function is half the anchor (intake judge 09-26, finding 3): `return
+ # 1` is on 187 lines of this tree's ndt, and 09-24's apps.start line 8315 was one of them --
+ # proc_checkout's, 8439 since segment W. [Co-developed with claude code -- Adam]
++# 2026-09-28: the one-clock residue change put 36 lines above the apps.stop and apps.status rows
++# (app_started_at and residue_report); nothing above cmd_apps' own rows moved otherwise.
+ RC_SOURCE = {
+     "up": {"help": {0: "exit 0 the fabric came up and verified",
+                     1: "1 something was MEASURED and it was dirty",
+@@ -279,9 +281,9 @@ RC_SOURCE = {
+                          (899, 1, "return 1", "cmd_release")]},
+     "apps.start": {"code": [(8895, 0, "return 0", "app_start"), (8899, 1, "return 1", "app_start"),
+                             (8972, 1, "return 1", "app_start")]},
+-    "apps.stop": {"code": [(10413, 1, "return 1", "cmd_apps"), (10416, 2, "return 2", "cmd_apps"),
+-                           (10419, 0, "return 0", "cmd_apps")]},
+-    "apps.status": {"code": [(10346, 0, "return 0", "cmd_apps")]},
++    "apps.stop": {"code": [(10449, 1, "return 1", "cmd_apps"), (10452, 2, "return 2", "cmd_apps"),
++                           (10455, 0, "return 0", "cmd_apps")]},
++    "apps.status": {"code": [(10382, 0, "return 0", "cmd_apps")]},
+ }
+ 
+ 
+rc=0

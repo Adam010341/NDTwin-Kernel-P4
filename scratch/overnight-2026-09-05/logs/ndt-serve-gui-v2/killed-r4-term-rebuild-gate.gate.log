@@ -1,0 +1,8 @@
+head 73889e5494d22f32b39f4a43021db389a92fe742
+porcelain 0 tracked file(s) differ from HEAD
+date 2026-10-02T10:01:56+08:00
+static /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/tools/ndt_serve/static
+gate fe873d70eeb2cb2662764eea0ba02343bf02a3fa8abdfa7fec984ab3b43b4a18
+rebuilding /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/tools/ndt_serve/web in /tmp/ndt-serve-rebuild-LABQL7 (node v24.20.0, npm 11.19.0)
+INCOMPLETE: stopped by SIGTERM before its verdict -- not a verdict
+rc=143

@@ -1,0 +1,9 @@
+# written BEFORE pushing pr/kernel-capabilities (ec8eb33ab7cfc9bffab58a36968b815524ede1fc), 2026-09-28T11:41:47+08:00
+16 files, INCLUDING C++: P4Capabilities.{hpp,cpp} (new), DeviceConfigurationAndPowerManager.{hpp,cpp} (fetchP4SwitchState is now virtual; pollP4SwitchState; a mutex-guarded record),
+HttpSession.{hpp,cpp} (attach on get_graph_data), CMake, tests/test_P4Capabilities.cpp (new), the API doc, tools/contract_test/{spec.py,baseline_diff_allowlist.txt},
+tests/python/test_contract_spec.py, and the wiring suite and gate.
+- clang: PASS. OBSERVED locally only as -fsyntax-only on the 4 new/changed TUs with CI flags + -Werror (clang 18.1.3, libstdc++ 13); the full clang build is not observed.
+- TSan: PASS (inferred). The new mutex is exercised only single-threaded by the unit tests, so TSan has nothing new to race on.
+- ASan+UBSan: PASS (inferred).
+- GCC: PASS, the whole job. ctest 1385/1385 (1368 + 17 P4Capabilities*, as observed locally on the merged tree). L1 passes:
+  test_contract_spec.py 261; test_p4_capabilities_wired.sh "Ran 3 checks, 0 failed"; test_l1_shell_scoring group C reads it.

@@ -1,0 +1,24 @@
+== push pr branch 2026-10-03T00:34:42+08:00 d00276bfae10c545e6f09f3215b96516a94bacab
+remote: 
+remote: Create a pull request for 'pr/external-detect-only' on GitHub by visiting:        
+remote:      https://github.com/Adam010341/NDTwin-Kernel-P4/pull/new/pr/external-detect-only        
+remote: 
+To https://github.com/Adam010341/NDTwin-Kernel-P4.git
+ * [new branch]        d00276bfae10c545e6f09f3215b96516a94bacab -> pr/external-detect-only
+rc=0
+Warning: 105 uncommitted changes
+https://github.com/Adam010341/NDTwin-Kernel-P4/pull/25
+pr rc=0
+== squash 2026-10-03T13:32:48+08:00
+merge rc=0
+9d5ebd068548a9afcc0183a1028e8ecaca00cfb4 proxy, ndt: detect link cuts on external control planes (#25)
+== lab main ff 2026-10-03T13:33:08+08:00
+remote: 
+remote: GitHub found 11 vulnerabilities on ndtwin-lab/NDTwin-Kernel-P4's default branch (4 high, 5 moderate, 2 low). To find out more, visit:        
+remote:      https://github.com/ndtwin-lab/NDTwin-Kernel-P4/security/dependabot        
+remote: 
+To https://github.com/ndtwin-lab/NDTwin-Kernel-P4.git
+   0965ccaa..9d5ebd06  9d5ebd068548a9afcc0183a1028e8ecaca00cfb4 -> main
+rc=0
+Adam010341 9d5ebd068548a9afcc0183a1028e8ecaca00cfb4	refs/heads/main 995bdfd0b7f2a81a357a480551ff82df4f6fc9b4	refs/heads/trunk 
+ndtwin-lab 9d5ebd068548a9afcc0183a1028e8ecaca00cfb4	refs/heads/main 995bdfd0b7f2a81a357a480551ff82df4f6fc9b4	refs/heads/trunk 

@@ -1,0 +1,22 @@
+8d79dacd0e40e9ddd20d7c8e9af6185b4ef8e482
+porcelain-lines: 0
+# dir: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/t4-gap-prev = 664500d3a8e4cbe4700648c4ebbf2c16ab519049
+# sha256 200e115eb7dfb9d6753dc59bb8a896768e3163695124fe35d19f6a4da2a89f7f  tests/shell/test_fixture_suites_end_on_signal.sh
+# tripwire lines before: 0
+# $ env SIGNAL_FIRST_FIXTURE_WAIT=5 bash tests/shell/test_fixture_suites_end_on_signal.sh ovs_claim
+# started 2026-10-01T21:18:16+08:00
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/claude-1000/spawn-traps-1001.lock
+guarded_build: $ env SIGNAL_FIRST_FIXTURE_WAIT=5 bash tests/shell/test_fixture_suites_end_on_signal.sh ovs_claim
+ovs_claim, TERM
+  FAILED   ovs_claim TERM: the suite reaches a live fixture within 5s, still running
+             expected: yes
+             actual:   no (S, 0 process(es) of its own; last line:   ok         in any position)
+ovs_claim, INT
+  FAILED   ovs_claim INT: the suite reaches a live fixture within 5s, still running
+             expected: yes
+             actual:   no (S, 0 process(es) of its own; last line:   ok         and what removes it)
+
+Ran 2 checks, 2 failed
+guarded_build: exit 1
+# ended 2026-10-01T21:18:26+08:00; tripwire lines after: 0
+rc=1

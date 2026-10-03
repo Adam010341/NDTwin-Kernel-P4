@@ -1,0 +1,4 @@
+#!/bin/bash
+# logging shim: one line per curl call (a request to the kernel or anything else), then the real curl
+printf '%s\t%s\n' "$PPID" "$*" >> "${CURL_SHIM_LOG:-/dev/null}"
+exec /usr/bin/curl "$@"

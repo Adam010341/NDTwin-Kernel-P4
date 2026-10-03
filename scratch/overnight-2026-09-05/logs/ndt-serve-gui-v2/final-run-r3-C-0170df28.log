@@ -1,0 +1,16 @@
+# final-run-r3 phase C at 0170df28d5560a91ec692d120c203e480e238751, porcelain 0, df /dev/nvme0n1p5   98G   90G  3.3G  97% /
+2026-10-02T01:06:05+08:00 start main-gate-r3-py312-0170df28.log: env PYTHON=/usr/bin/python3.12 bash tests/shell/mutate_ndt_serve.sh
+2026-10-02T01:12:08+08:00 end   main-gate-r3-py312-0170df28.log: rc=0
+2026-10-02T01:12:08+08:00 start main-gate-r3-py38-0170df28.log: env PYTHON=/home/adam/miniconda3/envs/ryu-env/bin/python3.8 bash tests/shell/mutate_ndt_serve.sh
+2026-10-02T01:18:08+08:00 end   main-gate-r3-py38-0170df28.log: rc=0
+2026-10-02T01:18:08+08:00 start suites-r3-py312-0170df28.log: suites /usr/bin/python3.12
+2026-10-02T01:20:07+08:00 end   suites-r3-py312-0170df28.log: rc=0
+2026-10-02T01:20:07+08:00 start suites-r3-py38-0170df28.log: suites /home/adam/miniconda3/envs/ryu-env/bin/python3.8
+2026-10-02T01:22:11+08:00 end   suites-r3-py38-0170df28.log: rc=0
+2026-10-02T01:22:11+08:00 start ndt-measuring-test-r3-0170df28.log: shellgate tests/shell/test_ndt_status_measuring.sh
+2026-10-02T01:22:20+08:00 end   ndt-measuring-test-r3-0170df28.log: rc=0
+2026-10-02T01:22:20+08:00 start ndt-measuring-gate-r3-0170df28.log: shellgate tests/shell/mutate_ndt_status_measuring.sh
+2026-10-02T01:24:50+08:00 end   ndt-measuring-gate-r3-0170df28.log: rc=0
+2026-10-02T01:24:50+08:00 start anchors-r3-0170df28.log: anchors
+2026-10-02T01:24:55+08:00 end   anchors-r3-0170df28.log: rc=0
+# 2026-10-02T01:24:55+08:00 phase C done; head now 0170df28d5560a91ec692d120c203e480e238751, porcelain 0

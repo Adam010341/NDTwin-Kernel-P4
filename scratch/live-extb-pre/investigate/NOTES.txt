@@ -1,0 +1,8 @@
+Read-only investigation, 2026-10-02. Code read at B 9b5c0607 (worktree clean, not modified).
+Scripts here import external_evidence.py with PYTHONDONTWRITEBYTECODE=1 (nothing written into B).
+  table.py    -> table.out    current settled() on every p4runtime/solution round in runs/ (today's 200-tunnel values masked)
+  skel.py     -> skel.out     current settled() on the 11 p4runtime/skeleton rounds (all settled; flowcache has no check)
+  proposed.py -> proposed.out the proposed rule (not written into any code) on the same rounds
+Finding: current rule reads 11 of the 12 frozen p4runtime/solution rounds UNREADABLE too; only 09-27T081205Z
+(one FIN retransmission) passes. iperf 2.1.9 "Sent 3500" = server Total 3499 + 1 in every acked round;
+s1 ingress 100 bytes = 5*98 + 3499*1242 exactly. No 3505th packet exists on the wire.

@@ -1,0 +1,17 @@
+# manual.html route, red first (serve.py at f3a20447)
+test_page_files_need_no_token_and_run_nothing (__main__.Page.test_page_files_need_no_token_and_run_nothing) ... FAIL
+
+======================================================================
+FAIL: test_page_files_need_no_token_and_run_nothing (__main__.Page.test_page_files_need_no_token_and_run_nothing)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/tests/python/test_ndt_serve_gui.py", line 175, in test_page_files_need_no_token_and_run_nothing
+    self.assertEqual(st, 200, path)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+AssertionError: 404 != 200 : /manual.html
+
+----------------------------------------------------------------------
+Ran 1 test in 0.112s
+
+FAILED (failures=1)
+rc=1

@@ -1,0 +1,12 @@
+# /usr/bin/python3.12 3.12.3 test_ndt_serve_web
+Ran 18 tests in 0.074s
+OK
+# /usr/bin/python3.12 3.12.3 test_ndt_serve
+Ran 75 tests in 50.396s
+OK
+# /usr/bin/python3.12 3.12.3 test_ndt_serve_gui
+Ran 36 tests in 17.933s
+OK
+# /usr/bin/python3.12 3.12.3 test_ndt_serve_cells
+Ran 35 tests in 22.489s
+OK

@@ -1,0 +1,8 @@
+# written BEFORE pushing pr/heartbeat-rulings (0c08673e3d03217adb2a153be0bce1a5df67a8df), 2026-09-28T06:35:42+08:00
+18 files: live-p1 scripts (01-08, _common.sh), p4_proxy main.py and test_heartbeat_fabric.py, and tests/shell suites/gates. No C++.
+- clang, TSan, ASan+UBSan: PASS (no C++ change since PR #9, where all three passed).
+- GCC: the C++ build and ctest pass. The job FAILS on L1 with the SAME 29 FAILED lines as ci-36319541715-gcc.failed.txt:
+  - test_live_p1_common prints only its first 8 FAILED lines (l1 lane head -8). This PR's new cells start at line 1072, after them. The suite still fails without p4_proxy/venv, since CI-L1's venv step is not merged.
+  - test_live_p1_thirteen's new no-owner cell uses /usr/bin/python3 and a stub driver, so it should pass in CI.
+  - p4_proxy test_heartbeat_fabric.py is in the P4 lane: PASS (proxy_unit 1661/0 locally).
+- The ran= counts for live_p1_common/thirteen will change; they are not part of the FAILED list.

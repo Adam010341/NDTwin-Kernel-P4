@@ -1,0 +1,11 @@
+# push d411e852c27a1443d940b54bc1674a53d65a68d5 as pr/ci-clang-tsan to Adam010341 2026-09-28T03:04:39+08:00
+remote: 
+remote: Create a pull request for 'pr/ci-clang-tsan' on GitHub by visiting:        
+remote:      https://github.com/Adam010341/NDTwin-Kernel-P4/pull/new/pr/ci-clang-tsan        
+remote: 
+To github.com:Adam010341/NDTwin-Kernel-P4.git
+ * [new branch]        d411e852c27a1443d940b54bc1674a53d65a68d5 -> pr/ci-clang-tsan
+# push rc=0
+Warning: 95 uncommitted changes
+https://github.com/Adam010341/NDTwin-Kernel-P4/pull/9
+# pr create rc=0

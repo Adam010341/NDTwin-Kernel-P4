@@ -1,0 +1,14 @@
+# code_identity record twice on adam-Yoga-7-2-in-1-16IML9, nothing in between -- 2026-10-02T09:15:24Z
+identity -> /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/r7/pf1.json: HEAD 67ec9f9ecf9caf9d7df8cc92c4166cd04b79af34, 7 uncommitted tracked file(s)
+record 1: 1.97 s
+identity -> /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/r7/pf2.json: HEAD 67ec9f9ecf9caf9d7df8cc92c4166cd04b79af34, 7 uncommitted tracked file(s)
+record 2: 0.43 s
+unchanged_reasons: [] (empty)
+head 67ec9f9ecf9c tree 274a9e4cc35d uncommitted 7 tutorials head c80d83e98629 tutorials uncommitted 1
+bmv2_libs /usr/local/bmv2-fast/lib: 9 shared objects sha256 33e8acdf3f3a8ac48310059dda55216f72a61540
+bmv2_fabric /usr/local/bmv2-fast/bin/simple_switch_grpc 3ff54b5c1901
+kernel /home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel be70b5dd3235
+venv {'/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python': 'distributions 28 sha256 d5fc18e12968a343', '/home/adam/p4dev-python-venv/bin/python': 'distributions 39 sha256 69c4cfd5752c4b30'}
+recorded_at 1790932524 1790932526
+630b6da02c7a9706f248413d08a9c4bf4a9a9c22c174166b6dfdac5e9e92ce12  /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/r7/pf1.json
+3aafb08ce65d317b8af1bc982222e240721581b850fe928e007376c537799ecf  /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/r7/pf2.json

@@ -1,0 +1,5 @@
+suite_head # rc=0 | Ran 24 checks, 0 failed 
+suite_base_redfirst # rc=1 |   FAILED     F5: and ROUND follows it Ran 24 checks, 18 failed 
+mutate_round_env_kernel_dir # rc=0 |   Ran 24 checks, 0 failed mutation gate: 8 mutations, 0 survived; control green 
+test_gate_exit_code_not_tee # rc=0 |   ok       case 1b the gate read the synthetic fixture (ratio 1.0000), not a raw/ on disk 
+ABORTED 2026-09-28T03:17:09+08:00: the head will change (judge MERGE AFTER FIXES, B1-B3); the 2 finished cells stand for 7b4a48b9

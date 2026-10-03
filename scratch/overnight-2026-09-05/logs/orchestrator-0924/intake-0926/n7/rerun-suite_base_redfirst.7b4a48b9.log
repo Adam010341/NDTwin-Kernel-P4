@@ -1,0 +1,96 @@
+7b4a48b9e7b0062e0d086d3db38d48141f164f4f
+# 2026-09-27T18:57:02Z cmd env E_ROUND_ENV_UNDER_TEST=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/n7/base-env/e.env F5_ROUND_ENV_UNDER_TEST=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/n7/base-env/f.env bash tests/shell/test_round_env_kernel_dir.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env E_ROUND_ENV_UNDER_TEST=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/n7/base-env/e.env F5_ROUND_ENV_UNDER_TEST=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/n7/base-env/f.env bash tests/shell/test_round_env_kernel_dir.sh
+E round: doc/audit/2026-08-31_sampling-ceiling-after-merge/round.env
+  FAILED   🔴 E: KERNEL_DIR is the tree the file sits in
+             expected: [KERNEL_DIR=/home/adam/.cache/n7i/round-env-kdir-BB64MH/E/tree-a]
+             actual:   [KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel]
+  FAILED   🔴 E: every path it exports is inside that tree
+             expected: []
+             actual:   [KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel
+ROUND=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge
+PRIOR=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu
+PRIOR_RAW=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu/raw
+ROUND25=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-25_sampling-rounds
+TOPO=/home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+P4SRC=/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/ndtwin_switch.p4
+P4BUILD=/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/build
+KBIN=/home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel
+KBIN_BACKUP=/home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.production-backup
+KBIN_STAGE=/home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round
+KBIN_1KHZ=/home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1khz
+KBIN_1HZ=/home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/ndtwin_kernel.recompute-1hz
+PROXY_TREE_BLTRUE=/home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round/proxy-a3bb761-parent
+PY_PROXY=/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+OUT=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw
+LOG_BASE=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/run_e.log
+CPU_BASELINE_FILE=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw/cpu_baseline.json]
+  FAILED   🔴 E: every directory it creates is inside that tree
+             expected: []
+             actual:   [MKDIR /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge/raw
+MKDIR /home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round]
+  ok         E: and it did ask to create them (2)
+  ok         E: and every variable was set
+  FAILED   🔴 E: a second checkout gets its own KERNEL_DIR
+             expected: [KERNEL_DIR=/home/adam/.cache/n7i/round-env-kdir-BB64MH/E/tree-b]
+             actual:   [KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel]
+  FAILED     E: and its own ROUND
+             expected: [ROUND=/home/adam/.cache/n7i/round-env-kdir-BB64MH/E/tree-b/doc/audit/2026-08-31_sampling-ceiling-after-merge]
+             actual:   [ROUND=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge]
+  FAILED   🔴 E: sourced relatively from its own directory
+             expected: [KERNEL_DIR=/home/adam/.cache/n7i/round-env-kdir-BB64MH/E/tree-a]
+             actual:   [KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel]
+  FAILED   🔴 E: sourced from inside ANOTHER checkout, it still names its own
+             expected: [KERNEL_DIR=/home/adam/.cache/n7i/round-env-kdir-BB64MH/E/tree-a]
+             actual:   [KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel]
+  FAILED   E: an exported KERNEL_DIR is honoured
+             expected: [KERNEL_DIR=/home/adam/.cache/n7i/round-env-kdir-BB64MH/E/explicit]
+             actual:   [KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel]
+  FAILED     E: and ROUND follows it
+             expected: [ROUND=/home/adam/.cache/n7i/round-env-kdir-BB64MH/E/explicit/doc/audit/2026-08-31_sampling-ceiling-after-merge]
+             actual:   [ROUND=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_sampling-ceiling-after-merge]
+  ok         E: (the mkdir shim was in force)
+F5 round: doc/audit/2026-08-31_f5-fine-grid-round/round.env
+  FAILED   🔴 F5: KERNEL_DIR is the tree the file sits in
+             expected: [KERNEL_DIR=/home/adam/.cache/n7i/round-env-kdir-BB64MH/F5/tree-a]
+             actual:   [KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel]
+  FAILED   🔴 F5: every path it exports is inside that tree
+             expected: []
+             actual:   [KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel
+ROUND=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round
+TRH=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness
+OUT=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post
+KBIN=/home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel
+KBIN_PRE_T11=/home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/ndtwin_kernel.a40e04ce
+KBIN_BACKUP=/home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/f5-round/ndtwin_kernel.production-backup
+PY_PROXY=/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+LOG_BASE=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/run_f5.log]
+  FAILED   🔴 F5: every directory it creates is inside that tree
+             expected: []
+             actual:   [MKDIR /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/q1-p4-post]
+  ok         F5: and it did ask to create them (1)
+  ok         F5: and every variable was set
+  FAILED   🔴 F5: a second checkout gets its own KERNEL_DIR
+             expected: [KERNEL_DIR=/home/adam/.cache/n7i/round-env-kdir-BB64MH/F5/tree-b]
+             actual:   [KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel]
+  FAILED     F5: and its own ROUND
+             expected: [ROUND=/home/adam/.cache/n7i/round-env-kdir-BB64MH/F5/tree-b/doc/audit/2026-08-31_f5-fine-grid-round]
+             actual:   [ROUND=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round]
+  FAILED   🔴 F5: sourced relatively from its own directory
+             expected: [KERNEL_DIR=/home/adam/.cache/n7i/round-env-kdir-BB64MH/F5/tree-a]
+             actual:   [KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel]
+  FAILED   🔴 F5: sourced from inside ANOTHER checkout, it still names its own
+             expected: [KERNEL_DIR=/home/adam/.cache/n7i/round-env-kdir-BB64MH/F5/tree-a]
+             actual:   [KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel]
+  FAILED   F5: an exported KERNEL_DIR is honoured
+             expected: [KERNEL_DIR=/home/adam/.cache/n7i/round-env-kdir-BB64MH/F5/explicit]
+             actual:   [KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel]
+  FAILED     F5: and ROUND follows it
+             expected: [ROUND=/home/adam/.cache/n7i/round-env-kdir-BB64MH/F5/explicit/doc/audit/2026-08-31_f5-fine-grid-round]
+             actual:   [ROUND=/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round]
+  ok         F5: (the mkdir shim was in force)
+
+Ran 24 checks, 18 failed
+guarded_build: exit 1
+# rc=1

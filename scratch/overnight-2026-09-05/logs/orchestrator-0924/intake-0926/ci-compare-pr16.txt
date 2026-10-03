@@ -1,0 +1,4 @@
+# PR #16 runs 36394430416 / 36394435398 (head 1e1c26ee): all four jobs SUCCESS on both runs.
+# GCC raw logs (API; 7087 and 7100 lines): ctest 1385/1385; 0 FAILED/FAIL: lines; "L1 passed";
+# test_apps_stop_kills_the_group.sh 72, test_ndt_app_orphans.sh 104, test_live_p1_common.sh 191 (as predicted); test_apps_residue.sh PASS 131 on both.
+# => prediction met. As a control for the residue flake: 2/2 green on main without KJL (consistent with the worker's measurement that it is load-driven).

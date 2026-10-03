@@ -1,0 +1,72 @@
+2026-09-28T00:40:53+08:00
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/nvme0n1p5   98G   89G  4.8G  95% /
+780f0a54807c1edb0ceaa7d626bc58ff68001493110eebd4030f71816febc482  tools/ndt_serve/static/app.css
+a7c539322bfaae1d97000bb105aa9a4e6b4ba7a464d8bbd14bb2a140d4171b30  tools/ndt_serve/static/app.js
+c98e7ae5b95a7159b4fa45e5c43ecca389206ff0bc74916a97aaa78bd1c45032  tools/ndt_serve/static/BUILD.json
+ba7f56b21e294bf5852dd8a35478a58a271b7ff0abbb8a431291cc581daef732  tools/ndt_serve/static/index.html
+ea3741ed4962b6fa46393691204f8b39d2a04b49e68ee008a17b127c581332b0  tools/ndt_serve/static/manual.html
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ timeout 900 python3 /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/4b9701b1-39f4-403b-859d-67977bec986b/scratchpad/web-v2-smoke/smoke.py
+PASS loaded=yes -- 'yes'
+PASS session=ok -- 'ok'
+PASS href has no fragment -- 'http://127.0.0.1:46219/'
+PASS location has no fragment -- 'http://127.0.0.1:46219/'
+PASS storage empty -- '{"local":0,"session":0,"cookie":""}'
+PASS csp violations 0 -- '0'
+PASS refresh running -- 'running'
+PASS title
+PASS h1 rendered (no error boundary) -- 'ndt serve'
+PASS open-webgui -- ['http://localhost:3000/', '_blank', 'noopener noreferrer']
+PASS open-manual -- ['./manual.html', '_blank', 'noopener noreferrer']
+PASS lab-claim verbatim -- 'yours -- 30m left (until 23:59:00)'
+PASS lab-yours
+PASS declared row hidden
+PASS apps-out -- 'energy  stopped\n\n--- stderr ---\nstub stderr: apps status\n'
+PASS ndt calls at load are status + apps status only -- [['status'], ['apps', 'status']]
+PASS tab-lab visible panel
+PASS other panels hidden
+PASS actions panel shown
+PASS claim-min default
+PASS focus on cancel -- 'c-cancel'
+PASS argv from dry run -- ['/tmp/ndt-serve-test-9hrv7aby/repo/tools/test_workflow/ndt', 'claim', '30']
+PASS typed row hidden for claim
+PASS Enter on Confirm does not confirm
+PASS no claim job yet
+PASS answer 202 -- '202 -- job 1729·8b4189 已開始'
+PASS dialog closed
+PASS job log read
+PASS log following stopped after the job ended
+PASS short id rule -- ('20260927T172948Z-8b4189', '1729·8b4189')
+PASS short id title
+PASS exactly one claim ran -- [{'argv': ['claim', '30'], 'owner': 'serve-test', 'ndt_env': ['NDT_OWNER'], 'sid': 3347777, 'pid': 3347777, 'cwd': '/tmp/ndt-serve-test-9hrv7aby/repo', 't': 1790530188.9957783}]
+FAIL typed row shown for up
+FAIL word is up
+PASS confirm off before typing
+FAIL confirm on after typing
+PASS cancel closes
+PASS no up ran
+PASS job panel hidden after close
+PASS jobs table has the claim -- 1
+PASS cells tab shows
+PASS legend has four buttons
+PASS first page hidden
+PASS no /lab while hidden -- (3, 3)
+PASS one read on coming back -- (3, 4)
+PASS timer ticks while visible -- (4, 5)
+PASS banner -- '已暫停（量測中）量測結束後按「立即更新」才會恢復'
+PASS no /lab while measuring -- (6, 6)
+PASS stays paused-measuring after visible -- 'paused-measuring'
+PASS no read on coming back while measuring -- (6, 6)
+PASS release typed while measuring
+PASS claim first for up under a foreign claim -- '請先 claim：claim 不是你的'
+PASS confirm stays off with a blocker
+PASS 立即更新 resumes when nothing measures
+PASS csp violations still 0 -- '0'
+PASS storage still empty
+PASS token not in DOM
+chrome leftovers: []
+SMOKE RED: 3 failed ['typed row shown for up', 'word is up', 'confirm on after typing']
+guarded_build: exit 1
+exit=1
+2026-09-28T01:30:33+08:00

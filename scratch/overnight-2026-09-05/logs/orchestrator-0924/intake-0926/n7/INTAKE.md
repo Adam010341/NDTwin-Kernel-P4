@@ -1,0 +1,30 @@
+# N7 round.env KERNEL_DIR (fix/round-env-kernel-dir-0927) — intake
+- **02:5x** Delivered 7b4a48b9 (1 commit on fed37cff, 5 files).
+  - Diff read; secret scan 0/3.
+  - Intake worktree wt-intake-n7-7b4a48b9, with the venv and p4_src/build symlinks.
+- **Rerun** (`rerun-n7.frozen.sh`), 4 cells done:
+  - suite on head 24/24;
+  - base red-first 18/24;
+  - mutate 8/0;
+  - test_gate_exit_code_not_tee rc 0.
+  - Aborted at 03:2x because the head will change.
+- **Judge: MERGE AFTER FIXES** (`judge-N7-7b4a48b9.md`), with 3 blocking findings:
+  - B1: live runs split between trees;
+  - B2: a silent green SKIP when there is no venv;
+  - B3: the `:?` guard is ineffective.
+- **My ruling on B1:** live preflights refuse when KERNEL_DIR ≠ `ndtwin-lab config`'s tree (NOPASSWD verified: `sudo -n -l /usr/local/sbin/ndtwin-lab`), and the rule is written into both headers. Also sent: B2, B3 and notes N1–N7.
+- **Merge order is now:** CI-cxx (PR #9) → AEG → CI-L1 → N7. The CI-L1 PR keeps #11 red until N7.
+- **07:1x Round 2 delivered** as 261b2d9d; I read the diff (LAB is "sudo -n /usr/local/sbin/ndtwin-lab" from round.env).
+- **Re-judge: MERGE AFTER FIXES** (`judge-N7-261b2d9d.md`).
+  - F-1: the entry points write before the refusal, and F5's trap raises a false "not restored" alarm in the refused tree.
+  - F-2: PF and G2 timestamps look inconsistent with an exclusive lock. This is a memory-safety question.
+- **Sent:** F-1 with an entry-level red-first test, F-2 with per-step timestamps, and N-1..N-11.
+- **09:0x Round 3 delivered** as 5734f32f: F-1 (entry points check the tree before the trap and the first log line, with an entry-level test), F-2 (the lock did serialize PF and G2; G2 ran 57 s), N-1..N-13.
+  - Diff read (guards: `return` else, only when interactive, `kill -INT $$`; relative KERNEL_DIR refused). Accepted without a new judge.
+- **Rerun3** on test merge 67e9963d (trunk 9ef10250 + 5734f32f, **no venv** on purpose):
+  - suite 83/0; base red-first 67 failed (expected); lab-tree 93/0; round_env gate 24/0; lab_tree gate 19/0;
+  - not_tee OK; cell_gate without venv rc 1 (expected: FAILED "no interpreter"); with PY_PROXY green;
+  - l1 scoring 149/0; gate_exit 6/0; log_suffix 7/0;
+  - anchors 246/248 (only the two new gates absent at trunk); lints OK; tripwire 0; the main checkout's round.env unchanged.
+  - **Ready to merge.**
+- **10:0x** PR #12 CI ALL GREEN (the first fully green CI); squash-merged; main 4a3d7f39 (the first fetch after the merge got "Connection closed"; the refetch verified the invariant holds and unauthenticated main = 4a3d7f39).

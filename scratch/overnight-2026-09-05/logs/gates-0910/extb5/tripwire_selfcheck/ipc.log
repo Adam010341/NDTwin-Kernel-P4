@@ -1,0 +1,1 @@
+1.0 ALLOWED-LAUNCH simple_switch pid=1 start=1 uid=1000 argv0=ndt-hbdrop-bmv2 cwd=/t/ndt-hbdrop-a exe=x args=--use-files 0 -i 1@p1 -i 255@p255 --thrift-port 29400 --device-id 900001 --log-file bmv2 --log-level debug --log-flush /x/a.json

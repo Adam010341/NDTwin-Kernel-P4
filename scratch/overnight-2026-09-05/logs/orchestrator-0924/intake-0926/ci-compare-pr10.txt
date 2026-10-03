@@ -1,0 +1,4 @@
+# PR #10 runs 36355837441 / 36355835109 (head 0c08673e): clang, TSan and ASan+UBSan PASS on both.
+# GCC: C++ steps pass. L1 FAILED list (raw job logs via the API; each has 'L1 FAILED' plus ##[error]) is 29 lines, IDENTICAL to ci-36319541715-gcc.failed.txt, on both runs.
+# test_live_p1_common FAIL ran=191 (the same first 8 lines); test_live_p1_thirteen PASS 42; test_heartbeat_fabric.py PASS 29.
+# => prediction met.

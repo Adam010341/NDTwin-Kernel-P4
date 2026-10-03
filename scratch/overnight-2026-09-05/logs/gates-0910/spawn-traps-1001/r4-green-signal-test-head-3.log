@@ -1,0 +1,126 @@
+8d79dacd0e40e9ddd20d7c8e9af6185b4ef8e482
+porcelain-lines: 0
+# dir: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-spawn-traps-1001
+# sha256 e1c614c950540a9fc47e726e22501444d5677dc9a940d1052e12ba7aae8d9f80  tests/shell/test_fixture_suites_end_on_signal.sh
+# tripwire lines before: 0
+# $ bash tests/shell/test_fixture_suites_end_on_signal.sh
+# started 2026-10-01T21:23:48+08:00
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/claude-1000/spawn-traps-1001.lock
+guarded_build: $ bash tests/shell/test_fixture_suites_end_on_signal.sh
+orphans, TERM
+  ok       orphans TERM: the pid signalled is the shell running the suite
+  ok       orphans TERM: and it leads its own process group
+  note     signalled with fixture pid(s) 2188114 2188177 alive, listed in /tmp/ndt-app-orphans-odklHK/fixtures
+  ok       orphans TERM: the run ends with 143
+  ok       orphans TERM: within 20s of the signal
+  ok       orphans TERM: no process of this run is left
+  ok       orphans TERM: its temp tree is gone
+orphans, INT
+  ok       orphans INT: the pid signalled is the shell running the suite
+  ok       orphans INT: and it leads its own process group
+  note     signalled with fixture pid(s) 2188587 2188613 alive, listed in /tmp/ndt-app-orphans-HHS23b/fixtures
+  ok       orphans INT: the run ends with 130
+  ok       orphans INT: within 20s of the signal
+  ok       orphans INT: no process of this run is left
+  ok       orphans INT: its temp tree is gone
+liveness, TERM
+  ok       liveness TERM: the pid signalled is the shell running the suite
+  ok       liveness TERM: and it leads its own process group
+  note     signalled with fixture pid(s) 2188972 2189046 alive, listed in /tmp/ndt-apps-liveness-5cC0kt/fixtures
+  ok       liveness TERM: the run ends with 143
+  ok       liveness TERM: within 20s of the signal
+  ok       liveness TERM: no process of this run is left
+  ok       liveness TERM: its temp tree is gone
+liveness, INT
+  ok       liveness INT: the pid signalled is the shell running the suite
+  ok       liveness INT: and it leads its own process group
+  note     signalled with fixture pid(s) 2189656 2189718 alive, listed in /tmp/ndt-apps-liveness-VKgezu/fixtures
+  ok       liveness INT: the run ends with 130
+  ok       liveness INT: within 20s of the signal
+  ok       liveness INT: no process of this run is left
+  ok       liveness INT: its temp tree is gone
+sweep, TERM
+  ok       sweep TERM: the pid signalled is the shell running the suite
+  ok       sweep TERM: and it leads its own process group
+  note     signalled with fixture pid(s) 2190187 2190242 alive, listed in /tmp/ndtwin-lab-sweep-YHlO7t/fixtures
+  ok       sweep TERM: the run ends with 143
+  ok       sweep TERM: within 20s of the signal
+  ok       sweep TERM: no process of this run is left
+  ok       sweep TERM: its temp tree is gone
+sweep, INT
+  ok       sweep INT: the pid signalled is the shell running the suite
+  ok       sweep INT: and it leads its own process group
+  note     signalled with fixture pid(s) 2190692 2190787 alive, listed in /tmp/ndtwin-lab-sweep-gHO6jk/fixtures
+  ok       sweep INT: the run ends with 130
+  ok       sweep INT: within 20s of the signal
+  ok       sweep INT: no process of this run is left
+  ok       sweep INT: its temp tree is gone
+window, TERM
+  ok       window TERM: the pid signalled is the shell running the suite
+  ok       window TERM: and it leads its own process group
+  note     signalled with fixture pid(s) 2192498 alive, listed in /tmp/ndt-signal-ends-run-cF32Wo/tmp-window-TERM/ndt-helper-window-JPpTG6/fixtures
+  ok       window TERM: the run ends with 143
+  ok       window TERM: within 20s of the signal
+  ok       window TERM: no process of this run is left
+  ok       window TERM: its temp tree is gone
+window, INT
+  ok       window INT: the pid signalled is the shell running the suite
+  ok       window INT: and it leads its own process group
+  note     signalled with fixture pid(s) 2194288 alive, listed in /tmp/ndt-signal-ends-run-cF32Wo/tmp-window-INT/ndt-helper-window-tIBtDv/fixtures
+  ok       window INT: the run ends with 130
+  ok       window INT: within 20s of the signal
+  ok       window INT: no process of this run is left
+  ok       window INT: its temp tree is gone
+topo_pid, TERM
+  ok       topo_pid TERM: the pid signalled is the shell running the suite
+  ok       topo_pid TERM: and it leads its own process group
+  note     signalled with fixture pid(s) 2195036 alive, listed in /tmp/faults-topo-pid-Pnt9Jp/fixtures
+  ok       topo_pid TERM: the run ends with 143
+  ok       topo_pid TERM: within 20s of the signal
+  ok       topo_pid TERM: no process of this run is left
+  ok       topo_pid TERM: its temp tree is gone
+topo_pid, INT
+  ok       topo_pid INT: the pid signalled is the shell running the suite
+  ok       topo_pid INT: and it leads its own process group
+  note     signalled with fixture pid(s) 2195248 alive, listed in /tmp/faults-topo-pid-8aaYLd/fixtures
+  ok       topo_pid INT: the run ends with 130
+  ok       topo_pid INT: within 20s of the signal
+  ok       topo_pid INT: no process of this run is left
+  ok       topo_pid INT: its temp tree is gone
+ovs_claim, TERM
+  ok       ovs_claim TERM: the pid signalled is the shell running the suite
+  ok       ovs_claim TERM: and it leads its own process group
+  note     signalled with fixture pid(s) 2202017 alive, listed in /tmp/ndt-signal-ends-run-cF32Wo/tmp-ovs_claim-TERM/ndt-ovs-claim-jBS7kc/fixture.pids
+  ok       ovs_claim TERM: the run ends with 143
+  ok       ovs_claim TERM: within 20s of the signal
+  ok       ovs_claim TERM: no process of this run is left
+  ok       ovs_claim TERM: its temp tree is gone
+ovs_claim, INT
+  ok       ovs_claim INT: the pid signalled is the shell running the suite
+  ok       ovs_claim INT: and it leads its own process group
+  note     signalled with fixture pid(s) 2207893 alive, listed in /tmp/ndt-signal-ends-run-cF32Wo/tmp-ovs_claim-INT/ndt-ovs-claim-yVhaDx/fixture.pids
+  ok       ovs_claim INT: the run ends with 130
+  ok       ovs_claim INT: within 20s of the signal
+  ok       ovs_claim INT: no process of this run is left
+  ok       ovs_claim INT: its temp tree is gone
+down, TERM
+  ok       down TERM: the pid signalled is the shell running the suite
+  ok       down TERM: and it leads its own process group
+  note     signalled with fixture pid(s) 2208116 2208208 alive, listed in /tmp/ndt-signal-ends-run-cF32Wo/tmp-down-TERM/ndt-down-ours-0NpQsL/spawned.pids
+  ok       down TERM: the run ends with 143
+  ok       down TERM: within 20s of the signal
+  ok       down TERM: no process of this run is left
+  ok       down TERM: its temp tree is gone
+down, INT
+  ok       down INT: the pid signalled is the shell running the suite
+  ok       down INT: and it leads its own process group
+  note     signalled with fixture pid(s) 2208610 2208691 alive, listed in /tmp/ndt-signal-ends-run-cF32Wo/tmp-down-INT/ndt-down-ours-JPq605/spawned.pids
+  ok       down INT: the run ends with 130
+  ok       down INT: within 20s of the signal
+  ok       down INT: no process of this run is left
+  ok       down INT: its temp tree is gone
+
+Ran 84 checks, all passed
+guarded_build: exit 0
+# ended 2026-10-01T21:24:11+08:00; tripwire lines after: 0
+rc=0

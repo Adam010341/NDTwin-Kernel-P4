@@ -1,0 +1,35 @@
+14c490c3b2e3dc0c39fe5c8147c8f97d5af40ed5
+porcelain-lines: 0
+# dir: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/th-anchor-missing = 14c490c3b2e3dc0c39fe5c8147c8f97d5af40ed5
+# sha256 bf2bad4e05b22d67087af1056c8c3c4f28316590128e8d4ecc09515e8918068e  tests/shell/mutate_fixture_spawn_helpers.sh
+# tripwire lines before: 0
+# $ bash tests/shell/mutate_fixture_spawn_helpers.sh topo_pid
+# started 2026-10-01T17:48:19+08:00
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/claude-1000/spawn-traps-1001.lock
+guarded_build: $ bash tests/shell/mutate_fixture_spawn_helpers.sh topo_pid
+the judge, on synthetic runs:
+  ok       J1: a FAILED fixture line the summary does not count -> SURVIVED (1 FAILED line(s) printed, the summary counts 0: Ran 3 checks, 0 failed)
+  ok       J2: no summary line at all -> SURVIVED (rc 1, and no "Ran N checks" line at all)
+  ok       J3: rc 0 -> SURVIVED (rc 0)
+  ok       J4: a counted failure that is not the fixture's -> SURVIVED (no FAILED line names the fixture; Ran 2 checks, 1 failed)
+  ok       J5: the fixture's failure, counted -> caught (rc 1; Ran 2 checks, 1 failed; FAILED   fixture took argv0=x)
+  ok       J6: the fixture's failure, counted, but the fixture is still running -> SURVIVED (the fixture it gave up on is still running: pid 3832247)
+  ok       J7: gone-without-true timed out (rc 124), no summary -> rejected: SURVIVED (rc 124, and no "Ran N checks" line at all)
+  ok       J8: gone-without-true ended by errexit (rc 1), no summary -> accepted: SURVIVED (rc 1, and no "Ran N checks" line at all)
+  ok       J9: a fixture block whose read came up empty -> yes
+  ok       J10: a fixture block that read an argv0, "nothing readable" only in a later block -> no
+  ok       J11: the guard's FAILED line once, then rc 143 -> caught (rc 143; FAILED   spawn called outside this suite's own shell (BASHPID 9, suite 8): endin)
+  ok       J12: red with a summary, but no guard line -> SURVIVED (0 line(s) say the helper was called outside this suite's own shell, not 1; rc 1)
+
+1. every call site, read from the source
+  ok       topo_pid   spawn() called at 3 line(s), every one a plain call: 124 129 136
+
+2. each suite's unmutated copy: green, and one counted premise per call site
+3. then its helper made unable to recognise its fixture: NEVER (the poll's bound), GONE (/proc empty)
+4. and one call wrapped in ( ... ): SUBSHELL, which only the helper's own guard can catch
+  control  topo_pid   Ran 61 checks, all passed (0 skipped)  (3s)
+  ok       topo_pid   3 fixture premise(s) counted in this shell, one per call site
+  refused: never topo_pid -- an anchor occurs 0 time(s) in test_faults_topo_pid.sh, not once
+guarded_build: exit 2
+# ended 2026-10-01T17:48:26+08:00; tripwire lines after: 0
+rc=2

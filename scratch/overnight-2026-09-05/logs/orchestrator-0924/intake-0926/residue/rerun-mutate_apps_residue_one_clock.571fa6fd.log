@@ -1,0 +1,31 @@
+571fa6fdb8ab8f70cd2857a68df036bdab79172a
+# 2026-10-01T04:22:37Z cmd bash tests/shell/mutate_apps_residue_one_clock.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_apps_residue_one_clock.sh
+baseline (the suite must be green before any mutation):
+  Ran 145 checks, 0 failed
+  harness late on the unmutated suite: Ran 145 checks, 0 failed
+
+  caught   M3: the pidfile source reads the clock again       (4 named case(s) went red)
+           all red: 🔴 young app: its rule is DATED, 0s old, across a boundary between now and the dating|young app: its window starts at the report's now, not a second after it|🔴 2s-old app: the rule from its first second is DATED, 2s old, across the boundary|2s-old app: its window opens where it started, two seconds back
+  caught   M4: the scan source reads the clock again          (1 named case(s) went red)
+           all red: 🔴 an app found by the scan, no pidfile: its young rule is DATED, 0s old
+  caught   M5: now is read before the flow table              (1 named case(s) went red)
+           all red: 🔴 dead app: a rule from its pidfile's own second is DATED across a straddling fetch
+  caught   M6: the report stops handing its now to the dating (3 named case(s) went red)
+           all red: 🔴 young app: its rule is DATED, 0s old, across a boundary between now and the dating|young app: its window starts at the report's now, not a second after it|🔴 2s-old app: the rule from its first second is DATED, 2s old, across the boundary|2s-old app: its window opens where it started, two seconds back|🔴 an app found by the scan, no pidfile: its young rule is DATED, 0s old
+  caught   M9: apps are dated after the lock probes           (2 named case(s) went red)
+           all red: 🔴 early window: a rule from 2s before the app started is NOT in its window|early window: the window's age is the app's, not the app's plus the probes'
+  caught   M7: the dating's ps no longer waits for a boundary (3 named case(s) went red)
+           all red: 🔴 premise (young): one second boundary between the report's now and the dating, app < 1s old|🔴 premise (old): one second boundary between the report's now and the dating, app 2s old|🔴 premise (scan): one second boundary between the report's now and the dating, app < 1s old
+  caught   M8: the switch no longer straddles a boundary      (1 named case(s) went red)
+           all red: 🔴 premise (dead): the flow-table fetch straddled a second boundary
+  caught   M10: the lock probes no longer take their time     (1 named case(s) went red)
+           all red: 🔴 premise (early): the three lock probes each took 1.2s
+  caught   M2: 5K's argv wait back to one second (under late) (1 named case(s) went red)
+           all red: 🔴 premise: /proc shows the live fixture's argv, so ndt can recognise the pid|🔴 and a live pid's window still runs to now
+
+suite untouched (sha256 7e5c0ade9be315db...), ndt untouched (sha256 81c1326aee348e19...)
+9 mutation(s), 0 survived
+guarded_build: exit 0
+# rc=0

@@ -1,0 +1,20 @@
+75b5dd0e817e5cf7367e29158fbeaa0b88990322
+# 2026-10-02T13:51:19Z settled() of HEAD's external_evidence.py on every p4runtime/solution round in the main checkout's runs/ (read only); today's: verdict only
+# cmd python3 extb9/settled15.py <wt>/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_evidence.py <wt>/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_survey_34.tsv
+# live-p1 == HEAD
+2026-09-19T055210Z	frozen	UNREADABLE	the iperf client got no ack from the server (it says it did not receive ack of the last datagram), so only a repeated block can show the traffic over
+2026-09-19T065612Z	frozen	UNREADABLE	the iperf client got no ack from the server (it says it did not receive ack of the last datagram), so only a repeated block can show the traffic over
+2026-09-19T085331Z	frozen	UNREADABLE	the iperf client got no ack from the server (it says it did not receive ack of the last datagram), so only a repeated block can show the traffic over
+2026-09-19T085746Z	frozen	UNREADABLE	the iperf client got no ack from the server (it says it did not receive ack of the last datagram), so only a repeated block can show the traffic over
+2026-09-19T151037Z	frozen	settled	
+2026-09-24T162954Z	frozen	settled	
+2026-09-24T192012Z	frozen	settled	
+2026-09-26T061642Z	frozen	settled	
+2026-09-26T062438Z	frozen	settled	
+2026-09-26T155814Z	frozen	settled	
+2026-09-26T175425Z	frozen	UNREADABLE	s2 egress 100 = 3821 is not s1 ingress 100 = 3820 in that block: a read taken mid-traffic
+2026-09-27T081205Z	frozen	settled	
+2026-10-02T114342Z	today	settled
+2026-10-02T121113Z	today	settled
+2026-10-02T124023Z	today	settled
+# rc=0

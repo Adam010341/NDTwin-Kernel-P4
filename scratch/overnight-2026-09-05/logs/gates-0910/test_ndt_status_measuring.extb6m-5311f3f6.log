@@ -1,0 +1,123 @@
+5311f3f60add32e9b92b2bf964db68a38419ae2a
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  2026-10-02T04:06:58Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  TMPDIR /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb6/tmp
+# cmd bash tests/shell/test_ndt_status_measuring.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb6m-5311f3f6/shims (nolab); drop check through /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb6m-5311f3f6/hbwrap
+# disk: 2705 MB free on / when queued; floor 1536 MB, checked again under the lock
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c a=$(df --output=avail -BM / | tail -1 | tr -dc 0-9); echo "# disk under the lock: $a MB free"; (( a >= $0 )) || { echo "DISK-FLOOR: $a MB < $0 MB -- not run"; exit 97; }; exec "$@" 1536 bash tests/shell/test_ndt_status_measuring.sh
+# disk under the lock: 2705 MB free
+ndt status --measuring: the same answer as plain status
+  ok       nothing: --measuring answers rc 0
+  ok       nothing: --measuring's rows are plain status's, line for line
+  ok       nothing: the same declared row as plain status
+  ok       nothing: the same measuring row as plain status
+  ok       nothing: the same orphaned row as plain status
+  ok       nothing: the declared row
+  ok       nothing: the measuring row
+  ok       nothing: the orphaned row
+  ok       nothing: --measuring prints the measuring rows and nothing else
+  ok       nothing: the allowlist-only PATH gives the same rows
+  ok       nothing: the run through the listeners gives the same rows
+  ok       declared only: --measuring answers rc 0
+  ok       declared only: --measuring's rows are plain status's, line for line
+  ok       declared only: the same declared row as plain status
+  ok       declared only: the same measuring row as plain status
+  ok       declared only: the same orphaned row as plain status
+  ok       declared only: the declared row
+  ok       declared only: the measuring row
+  ok       declared only: the orphaned row
+  ok       declared only: --measuring prints the measuring rows and nothing else
+  ok       declared only: the allowlist-only PATH gives the same rows
+  ok       declared only: the run through the listeners gives the same rows
+  ok       in_flight only: --measuring answers rc 0
+  ok       in_flight only: --measuring's rows are plain status's, line for line
+  ok       in_flight only: the same declared row as plain status
+  ok       in_flight only: the same measuring row as plain status
+  ok       in_flight only: the same orphaned row as plain status
+  ok       in_flight only: the declared row
+  ok       in_flight only: the measuring row
+  ok       in_flight only: the orphaned row
+  ok       in_flight only: --measuring prints the measuring rows and nothing else
+  ok       in_flight only: the allowlist-only PATH gives the same rows
+  ok       in_flight only: the run through the listeners gives the same rows
+  ok       declared and in_flight: --measuring answers rc 0
+  ok       declared and in_flight: --measuring's rows are plain status's, line for line
+  ok       declared and in_flight: the same declared row as plain status
+  ok       declared and in_flight: the same measuring row as plain status
+  ok       declared and in_flight: the same orphaned row as plain status
+  ok       declared and in_flight: the declared row
+  ok       declared and in_flight: the measuring row
+  ok       declared and in_flight: the orphaned row
+  ok       declared and in_flight: --measuring prints the measuring rows and nothing else
+  ok       declared and in_flight: the allowlist-only PATH gives the same rows
+  ok       declared and in_flight: the run through the listeners gives the same rows
+  ok       expired claim: --measuring answers rc 0
+  ok       expired claim: --measuring's rows are plain status's, line for line
+  ok       expired claim: the same declared row as plain status
+  ok       expired claim: the same measuring row as plain status
+  ok       expired claim: the same orphaned row as plain status
+  ok       expired claim: the declared row
+  ok       expired claim: the measuring row
+  ok       expired claim: the orphaned row
+  ok       expired claim: --measuring prints the measuring rows and nothing else
+  ok       expired claim: the allowlist-only PATH gives the same rows
+  ok       expired claim: the run through the listeners gives the same rows
+  ok       somebody else's claim: --measuring answers rc 0
+  ok       somebody else's claim: --measuring's rows are plain status's, line for line
+  ok       somebody else's claim: the same declared row as plain status
+  ok       somebody else's claim: the same measuring row as plain status
+  ok       somebody else's claim: the same orphaned row as plain status
+  ok       somebody else's claim: the declared row
+  ok       somebody else's claim: the measuring row
+  ok       somebody else's claim: the orphaned row
+  ok       somebody else's claim: --measuring prints the measuring rows and nothing else
+  ok       somebody else's claim: the allowlist-only PATH gives the same rows
+  ok       somebody else's claim: the run through the listeners gives the same rows
+  ok       orphaned (no fabric): --measuring answers rc 0
+  ok       orphaned (no fabric): --measuring's rows are plain status's, line for line
+  ok       orphaned (no fabric): the same declared row as plain status
+  ok       orphaned (no fabric): the same measuring row as plain status
+  ok       orphaned (no fabric): the same orphaned row as plain status
+  ok       orphaned (no fabric): the declared row
+  ok       orphaned (no fabric): the measuring row
+  ok       orphaned (no fabric): the orphaned row
+  ok       orphaned (no fabric): --measuring prints the measuring rows and nothing else
+  ok       orphaned (no fabric): the allowlist-only PATH gives the same rows
+  ok       orphaned (no fabric): the run through the listeners gives the same rows
+  ok       orphaned (no fabric): says they are leftovers
+  ok       two drivers: --measuring answers rc 0
+  ok       two drivers: --measuring's rows are plain status's, line for line
+  ok       two drivers: the same declared row as plain status
+  ok       two drivers: the same measuring row as plain status
+  ok       two drivers: the same orphaned row as plain status
+  ok       two drivers: the declared row
+  ok       two drivers: the measuring row
+  ok       two drivers: the orphaned row
+  ok       two drivers: --measuring prints the measuring rows and nothing else
+  ok       two drivers: the allowlist-only PATH gives the same rows
+  ok       two drivers: the run through the listeners gives the same rows
+  ok       two drivers: the '+ 1 more' row, as plain status prints it
+
+ndt status --measuring: no sudo, no kernel request, no OVS or bmv2 query
+  ok       🔴 --measuring ran no sudo, curl, OVS or bmv2 command (8 states)
+  ok         control: plain status, through the same shims, calls sudo
+  ok         control: the process table both read is the fixture
+
+ndt status --measuring: nothing outside its allowlist, no connection, no absolute path
+  ok       🔴 --measuring ran nothing outside its allowlist on PATH (8 states)
+  ok         control: plain status on the same PATH is recorded asking for more
+  ok       the listeners ran (in a namespace of their own, or on free host ports)
+  ok       🔴 --measuring opened no TCP connection to the lab's ports (8 states, host)
+  ok         control: a bash /dev/tcp connect and a python3 urllib GET are counted
+  ok       🔴 --measuring reaches only the five functions that read a file or ps
+  ok       🔴 no absolute-path command and no /dev/tcp on --measuring's path
+
+ndt help
+  ok       ndt help names status --measuring
+  ok         and says what it reads and what it does not
+
+Ran 102 checks, 0 failed
+guarded_build: exit 0
+# rc=0

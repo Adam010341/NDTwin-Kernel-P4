@@ -1,0 +1,8 @@
+redfirst_aeg                   rc=0  AEG-RED-FIRST: A, E and G red at 7746832e's code, green at HEAD
+test_live_p1_thirteen          rc=0  Ran 42 checks, 0 failed
+mutate_live_p1_thirteen        rc=0  mutation gate: 11 mutations, 0 survived; 1 control(s), 0 went red
+proxy_unit                     rc=0  PROXY-UNIT: 46 file(s), 1660 test(s), all OK
+mutate_p4_heartbeat_w          rc=0  mutation gate: 200 mutations, 0 survived
+check_gate_anchors             rc=0  121/121 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+nolab_tripwire                 rc=0  NOLAB-TRIPWIRE: 0 lab call(s) (all refused)
+GATES-AEG4 ebe17f7c: ALL-AS-EXPECTED

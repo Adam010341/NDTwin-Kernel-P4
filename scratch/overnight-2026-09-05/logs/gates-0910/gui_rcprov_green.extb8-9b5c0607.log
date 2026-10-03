@@ -1,0 +1,25 @@
+9b5c06078d367b67d95521361da651e50ae08794
+# 2026-10-02T10:15:12Z green side: the two RcProvenance tests on the fix commit, python3.12 then python3.8; porcelain tracked: 0
+# cmd env PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3.12 tests/python/test_ndt_serve.py RcProvenance.test_code_sourced_tables_are_in_ndt RcProvenance.test_lock_probe_citations_are_lock_probe
+test_code_sourced_tables_are_in_ndt (__main__.RcProvenance.test_code_sourced_tables_are_in_ndt)
+Each anchor is its line, the text on it AND the function it lies in (intake judge 09-26, ... ok
+test_lock_probe_citations_are_lock_probe (__main__.RcProvenance.test_lock_probe_citations_are_lock_probe)
+The opus judge's N1-1 (09-27): the README still sent a reader to ndt lines 9292-9307 for ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.043s
+
+OK
+# /usr/bin/python3.12 rc=0
+# cmd env PYTHONDONTWRITEBYTECODE=1 /home/adam/miniconda3/envs/ryu-env/bin/python3.8 tests/python/test_ndt_serve.py RcProvenance.test_code_sourced_tables_are_in_ndt RcProvenance.test_lock_probe_citations_are_lock_probe
+test_code_sourced_tables_are_in_ndt (__main__.RcProvenance)
+Each anchor is its line, the text on it AND the function it lies in (intake judge 09-26, ... ok
+test_lock_probe_citations_are_lock_probe (__main__.RcProvenance)
+The opus judge's N1-1 (09-27): the README still sent a reader to ndt lines 9292-9307 for ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.045s
+
+OK
+# /home/adam/miniconda3/envs/ryu-env/bin/python3.8 rc=0
+# rc=0

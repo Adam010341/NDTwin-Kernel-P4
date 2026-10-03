@@ -1,0 +1,18 @@
+suite_head # rc=0 |   ok         F5: and derives nothing (was / before) Ran 83 checks, 0 failed 
+suite_base_redfirst # rc=1 |   FAILED     F5: (inherited) with KERNEL_DIR and ROUND unset first, B is named but PY_PROXY stays A's Ran 83 checks, 67 failed 
+test_live_round_lab_tree # rc=0 |   ok         F5: a refused-conf preamble naming another tree does not decide it (rc 0) Ran 93 checks, 0 failed 
+mutate_round_env_kernel_dir # rc=0 |   Ran 83 checks, 0 failed mutation gate: 24 mutations, 0 survived; controls green 
+mutate_live_round_lab_tree # rc=0 |   Ran 93 checks, 0 failed mutation gate: 19 mutations, 0 survived; controls green 
+test_gate_exit_code_not_tee # rc=0 |   ok       case 1b the gate read the synthetic fixture (ratio 1.0000), not a raw/ on disk 
+test_cell_gate_suspect_wiring_novenv # rc=1 |   FAILED   no interpreter at PY_PROXY=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-intake-n7-5734f32f/p4_proxy/venv/bin/python: the reader cannot parse records. 
+test_cell_gate_suspect_wiring_pyproxy # rc=0 |   ok       case 1c suspect=true -> the cell is listed in cell_cpu/SUSPECT_CELLS 
+test_l1_shell_scoring # rc=0 |   ok       D22 every NDTWIN_L1_NEEDS in tests/shell and tests/python is one the lane probes Ran 149 checks, 0 failed 
+mutate_gate_exit_code # rc=0 | 6 mutations, 0 survived 
+mutate_log_suffix_idempotent # rc=0 | 7 mutations, 0 survived 
+check_gate_anchors # rc=1 | 
+check_process_by_name # rc=0 | 
+check_test_tmpdirs # rc=0 | 
+main checkout round.env unchanged
+tripwire lines: 0
+tracked tree clean
+RERUN-DONE

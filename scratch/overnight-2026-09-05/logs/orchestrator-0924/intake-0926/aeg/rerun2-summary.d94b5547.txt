@@ -1,0 +1,13 @@
+test_live_p1_common # rc=0 |   ok       🔴 with a failure, the last line is still the FAIL Ran 191 checks, 0 failed 
+test_live_p1_thirteen # rc=0 |   ok       🔴 a FAIL that merely mentions RED ARM is still a failure Ran 42 checks, 0 failed 
+live07_selftest # rc=0 | SELF-TEST PASS 
+live08_selftest # rc=0 |   ok      a clean down of a fabric that is up: PASS, released (the control) SELF-TEST PASS 
+proxy_unit # rc=0 | guarded_build: $ bash -c cd p4_proxy; bad=0; n=0; for f in tests/test_*.py; do out=$(timeout 900 venv/bin/python "$f" 2>&1); rc=$?; k=$(sed -n -E "s/^Ran ([0-9]+) tests?.*/\1/p" <<<"$out" | tail -1); n=$((n+${k:-0})); l=
+mutate_live_p1_common # rc=0 |              also red: 🔴 and the LAST line is FAIL, not PASS              also red:   naming the floor it passed 
+mutate_live_p1_thirteen # rc=0 |              red: 🔴 a FAIL that merely mentions RED ARM is still a failure              also red: 🔴 a FAIL that merely mentions RED ARM is still a failure 
+mutate_roles_binding # rc=0 |              also red: tests.test_ryu_flow_stats.MatchTranslationTest.test_unknown_p4_fields_are_dropped_rather_than_passed_through   07 self-test baseline: SELF-TEST PASS 
+mutate_p4_heartbeat_w # rc=0 |   08 self-test baseline: SELF-TEST PASS   caught   L43: an OVER cycle FAILS H1 again (the pre-ruling F1 path)             (self-test case "H1's last line with an OVER cycle was" went red) 
+check_gate_anchors (outside guard) # rc=0 | 122/122 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+tripwire lines: 0
+tracked tree clean
+RERUN-DONE (anchors cell finished by hand, see its log)

@@ -1,0 +1,44 @@
+faf6eb410c2cb0b38b06c86000bdc65b21c8ac7a
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  2026-10-01T09:50:03Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  TMPDIR /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb4r-1001/tmp
+# cmd bash -c 
+echo "lab commands the gates above made past their own stubs:"
+pat=" (sudo|mnexec|iperf|iperf3|ping|cmake|ninja|make|gcc|g\+\+|c\+\+|cc|clang|clang\+\+) |localhost:80[08][01]|127\.0\.0\.1:80[08][01]"
+/usr/bin/grep -v " ALLOWED-LAUNCH " "$1" | /usr/bin/grep -E "$pat" | sed "s/^/  /"
+n=$(/usr/bin/grep -v " ALLOWED-LAUNCH " "$1" | /usr/bin/grep -cE "$pat")
+a=$(/usr/bin/grep -c " ALLOWED-LAUNCH " "$1")
+echo "  ($(/usr/bin/grep -c "" "$1") line(s) in the shims log in all; $a of them the drop check's allowed simple_switch launches)"
+alive=0
+for pid in $(sed -n "s/.* ALLOWED-LAUNCH simple_switch pid=\([0-9]*\) .*/\1/p" "$1" | sort -un); do
+    if [[ -r /proc/$pid/cmdline ]] && [[ "$(tr "\0" " " < /proc/$pid/cmdline)" == ndt-hbdrop-bmv2* ]]; then
+        echo "  🔴 allowed launch pid $pid is STILL running: $(tr "\0" " " < /proc/$pid/cmdline | cut -c1-120)"; alive=$((alive+1))
+    fi
+done
+echo "  allowed launches still running at the end: $alive"
+echo "NOLAB-TRIPWIRE: $n lab call(s) (all refused); $a allowed launch(es), $alive left running"; (( n == 0 && alive == 0 )) _ /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb4r-faf6eb41/tripwire.log
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb4r-faf6eb41/shims (nolab)
+# disk: 2482 MB free on / when queued; floor 1536 MB, checked again under the lock
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c a=$(df --output=avail -BM / | tail -1 | tr -dc 0-9); echo "# disk under the lock: $a MB free"; (( a >= $0 )) || { echo "DISK-FLOOR: $a MB < $0 MB -- not run"; exit 97; }; exec "$@" 1536 bash -c 
+echo "lab commands the gates above made past their own stubs:"
+pat=" (sudo|mnexec|iperf|iperf3|ping|cmake|ninja|make|gcc|g\+\+|c\+\+|cc|clang|clang\+\+) |localhost:80[08][01]|127\.0\.0\.1:80[08][01]"
+/usr/bin/grep -v " ALLOWED-LAUNCH " "$1" | /usr/bin/grep -E "$pat" | sed "s/^/  /"
+n=$(/usr/bin/grep -v " ALLOWED-LAUNCH " "$1" | /usr/bin/grep -cE "$pat")
+a=$(/usr/bin/grep -c " ALLOWED-LAUNCH " "$1")
+echo "  ($(/usr/bin/grep -c "" "$1") line(s) in the shims log in all; $a of them the drop check's allowed simple_switch launches)"
+alive=0
+for pid in $(sed -n "s/.* ALLOWED-LAUNCH simple_switch pid=\([0-9]*\) .*/\1/p" "$1" | sort -un); do
+    if [[ -r /proc/$pid/cmdline ]] && [[ "$(tr "\0" " " < /proc/$pid/cmdline)" == ndt-hbdrop-bmv2* ]]; then
+        echo "  🔴 allowed launch pid $pid is STILL running: $(tr "\0" " " < /proc/$pid/cmdline | cut -c1-120)"; alive=$((alive+1))
+    fi
+done
+echo "  allowed launches still running at the end: $alive"
+echo "NOLAB-TRIPWIRE: $n lab call(s) (all refused); $a allowed launch(es), $alive left running"; (( n == 0 && alive == 0 )) _ /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb4r-faf6eb41/tripwire.log
+# disk under the lock: 2482 MB free
+lab commands the gates above made past their own stubs:
+  (1585 line(s) in the shims log in all; 1585 of them the drop check's allowed simple_switch launches)
+  allowed launches still running at the end: 0
+NOLAB-TRIPWIRE: 0 lab call(s) (all refused); 1585 allowed launch(es), 0 left running
+guarded_build: exit 0
+# rc=0

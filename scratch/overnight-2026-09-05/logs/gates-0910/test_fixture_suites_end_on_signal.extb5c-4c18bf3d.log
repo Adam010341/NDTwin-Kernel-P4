@@ -1,0 +1,126 @@
+4c18bf3da29efed3d2f36abd2db67d8f780a222b
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  2026-10-01T20:14:08Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  TMPDIR /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp
+# cmd bash tests/shell/test_fixture_suites_end_on_signal.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5c-4c18bf3d/shims (nolab); drop check through /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5c-4c18bf3d/hbwrap
+# disk: 2933 MB free on / when queued; floor 1536 MB, checked again under the lock
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c a=$(df --output=avail -BM / | tail -1 | tr -dc 0-9); echo "# disk under the lock: $a MB free"; (( a >= $0 )) || { echo "DISK-FLOOR: $a MB < $0 MB -- not run"; exit 97; }; exec "$@" 1536 bash tests/shell/test_fixture_suites_end_on_signal.sh
+# disk under the lock: 2933 MB free
+orphans, TERM
+  ok       orphans TERM: the pid signalled is the shell running the suite
+  ok       orphans TERM: and it leads its own process group
+  note     signalled with fixture pid(s) 2978610 2978618 alive, listed in /tmp/ndt-app-orphans-A9KUl6/fixtures
+  ok       orphans TERM: the run ends with 143
+  ok       orphans TERM: within 20s of the signal
+  ok       orphans TERM: no process of this run is left
+  ok       orphans TERM: its temp tree is gone
+orphans, INT
+  ok       orphans INT: the pid signalled is the shell running the suite
+  ok       orphans INT: and it leads its own process group
+  note     signalled with fixture pid(s) 2978707 2978715 alive, listed in /tmp/ndt-app-orphans-dgGu4o/fixtures
+  ok       orphans INT: the run ends with 130
+  ok       orphans INT: within 20s of the signal
+  ok       orphans INT: no process of this run is left
+  ok       orphans INT: its temp tree is gone
+liveness, TERM
+  ok       liveness TERM: the pid signalled is the shell running the suite
+  ok       liveness TERM: and it leads its own process group
+  note     signalled with fixture pid(s) 2978809 2978819 alive, listed in /tmp/ndt-apps-liveness-xAoIiO/fixtures
+  ok       liveness TERM: the run ends with 143
+  ok       liveness TERM: within 20s of the signal
+  ok       liveness TERM: no process of this run is left
+  ok       liveness TERM: its temp tree is gone
+liveness, INT
+  ok       liveness INT: the pid signalled is the shell running the suite
+  ok       liveness INT: and it leads its own process group
+  note     signalled with fixture pid(s) 2978918 2978926 alive, listed in /tmp/ndt-apps-liveness-UAcJhE/fixtures
+  ok       liveness INT: the run ends with 130
+  ok       liveness INT: within 20s of the signal
+  ok       liveness INT: no process of this run is left
+  ok       liveness INT: its temp tree is gone
+sweep, TERM
+  ok       sweep TERM: the pid signalled is the shell running the suite
+  ok       sweep TERM: and it leads its own process group
+  note     signalled with fixture pid(s) 2979018 2979033 alive, listed in /tmp/ndtwin-lab-sweep-uwTuYQ/fixtures
+  ok       sweep TERM: the run ends with 143
+  ok       sweep TERM: within 20s of the signal
+  ok       sweep TERM: no process of this run is left
+  ok       sweep TERM: its temp tree is gone
+sweep, INT
+  ok       sweep INT: the pid signalled is the shell running the suite
+  ok       sweep INT: and it leads its own process group
+  note     signalled with fixture pid(s) 2979145 2979153 alive, listed in /tmp/ndtwin-lab-sweep-nIZ0HB/fixtures
+  ok       sweep INT: the run ends with 130
+  ok       sweep INT: within 20s of the signal
+  ok       sweep INT: no process of this run is left
+  ok       sweep INT: its temp tree is gone
+window, TERM
+  ok       window TERM: the pid signalled is the shell running the suite
+  ok       window TERM: and it leads its own process group
+  note     signalled with fixture pid(s) 2979605 alive, listed in /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/ndt-signal-ends-run-333MNS/tmp-window-TERM/ndt-helper-window-1EyZAF/fixtures
+  ok       window TERM: the run ends with 143
+  ok       window TERM: within 20s of the signal
+  ok       window TERM: no process of this run is left
+  ok       window TERM: its temp tree is gone
+window, INT
+  ok       window INT: the pid signalled is the shell running the suite
+  ok       window INT: and it leads its own process group
+  note     signalled with fixture pid(s) 2980057 alive, listed in /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/ndt-signal-ends-run-333MNS/tmp-window-INT/ndt-helper-window-QcSyld/fixtures
+  ok       window INT: the run ends with 130
+  ok       window INT: within 20s of the signal
+  ok       window INT: no process of this run is left
+  ok       window INT: its temp tree is gone
+topo_pid, TERM
+  ok       topo_pid TERM: the pid signalled is the shell running the suite
+  ok       topo_pid TERM: and it leads its own process group
+  note     signalled with fixture pid(s) 2980173 alive, listed in /tmp/faults-topo-pid-BN1mxy/fixtures
+  ok       topo_pid TERM: the run ends with 143
+  ok       topo_pid TERM: within 20s of the signal
+  ok       topo_pid TERM: no process of this run is left
+  ok       topo_pid TERM: its temp tree is gone
+topo_pid, INT
+  ok       topo_pid INT: the pid signalled is the shell running the suite
+  ok       topo_pid INT: and it leads its own process group
+  note     signalled with fixture pid(s) 2980263 alive, listed in /tmp/faults-topo-pid-a6NvS1/fixtures
+  ok       topo_pid INT: the run ends with 130
+  ok       topo_pid INT: within 20s of the signal
+  ok       topo_pid INT: no process of this run is left
+  ok       topo_pid INT: its temp tree is gone
+ovs_claim, TERM
+  ok       ovs_claim TERM: the pid signalled is the shell running the suite
+  ok       ovs_claim TERM: and it leads its own process group
+  note     signalled with fixture pid(s) 2982508 alive, listed in /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/ndt-signal-ends-run-333MNS/tmp-ovs_claim-TERM/ndt-ovs-claim-3iARko/fixture.pids
+  ok       ovs_claim TERM: the run ends with 143
+  ok       ovs_claim TERM: within 20s of the signal
+  ok       ovs_claim TERM: no process of this run is left
+  ok       ovs_claim TERM: its temp tree is gone
+ovs_claim, INT
+  ok       ovs_claim INT: the pid signalled is the shell running the suite
+  ok       ovs_claim INT: and it leads its own process group
+  note     signalled with fixture pid(s) 2984705 alive, listed in /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/ndt-signal-ends-run-333MNS/tmp-ovs_claim-INT/ndt-ovs-claim-UCSCVa/fixture.pids
+  ok       ovs_claim INT: the run ends with 130
+  ok       ovs_claim INT: within 20s of the signal
+  ok       ovs_claim INT: no process of this run is left
+  ok       ovs_claim INT: its temp tree is gone
+down, TERM
+  ok       down TERM: the pid signalled is the shell running the suite
+  ok       down TERM: and it leads its own process group
+  note     signalled with fixture pid(s) 2984782 2984790 alive, listed in /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/ndt-signal-ends-run-333MNS/tmp-down-TERM/ndt-down-ours-DcaQuC/spawned.pids
+  ok       down TERM: the run ends with 143
+  ok       down TERM: within 20s of the signal
+  ok       down TERM: no process of this run is left
+  ok       down TERM: its temp tree is gone
+down, INT
+  ok       down INT: the pid signalled is the shell running the suite
+  ok       down INT: and it leads its own process group
+  note     signalled with fixture pid(s) 2984885 2984893 alive, listed in /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/ndt-signal-ends-run-333MNS/tmp-down-INT/ndt-down-ours-2yPpuE/spawned.pids
+  ok       down INT: the run ends with 130
+  ok       down INT: within 20s of the signal
+  ok       down INT: no process of this run is left
+  ok       down INT: its temp tree is gone
+
+Ran 84 checks, all passed
+guarded_build: exit 0
+# rc=0

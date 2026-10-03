@@ -1,0 +1,68 @@
+e0bb7d7f4beb7719c50a61f52b502948a4cb3179
+porcelain-lines: 0
+# dir: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/th3-d1b = e0bb7d7f4beb7719c50a61f52b502948a4cb3179
+# sha256 200e115eb7dfb9d6753dc59bb8a896768e3163695124fe35d19f6a4da2a89f7f  tests/shell/test_fixture_suites_end_on_signal.sh
+# tripwire lines before: 0
+# $ bash tests/shell/test_fixture_suites_end_on_signal.sh topo_pid down
+# started 2026-10-01T20:39:19+08:00
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/claude-1000/spawn-traps-1001.lock
+guarded_build: $ bash tests/shell/test_fixture_suites_end_on_signal.sh topo_pid down
+topo_pid, TERM
+  ok       topo_pid TERM: the pid signalled is the shell running the suite
+  ok       topo_pid TERM: and it leads its own process group
+  ok       topo_pid TERM: a process of this run besides the suite is alive when it is signalled
+  ok       topo_pid TERM: its temp tree is found while it runs
+  ok       topo_pid TERM: the run ends with 143
+  ok       topo_pid TERM: within 20s of the signal
+  FAILED   topo_pid TERM: no process of this run is left
+             expected: 
+             actual:   1075522
+  ok       topo_pid TERM: its temp tree is gone
+             the suite's last lines:
+                 ok       nothing running -> rc 1
+                 ok         and it prints nothing
+                 ok       fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/NDT-TEST-FIXTURE-topo.py
+topo_pid, INT
+  ok       topo_pid INT: the pid signalled is the shell running the suite
+  ok       topo_pid INT: and it leads its own process group
+  ok       topo_pid INT: a process of this run besides the suite is alive when it is signalled
+  ok       topo_pid INT: its temp tree is found while it runs
+  ok       topo_pid INT: the run ends with 130
+  ok       topo_pid INT: within 20s of the signal
+  ok       topo_pid INT: no process of this run is left
+  ok       topo_pid INT: its temp tree is gone
+down, TERM
+  ok       down TERM: the pid signalled is the shell running the suite
+  ok       down TERM: and it leads its own process group
+  ok       down TERM: a process of this run besides the suite is alive when it is signalled
+  ok       down TERM: its temp tree is found while it runs
+  ok       down TERM: the run ends with 143
+  ok       down TERM: within 20s of the signal
+  FAILED   down TERM: no process of this run is left
+             expected: 
+             actual:   1075765 1075773
+  ok       down TERM: its temp tree is gone
+             the suite's last lines:
+                 ok       theirs is alive before the teardown
+               ### FIXTURE 1075765 after kill: /proc/1075765 exists = yes
+               ### FIXTURE 1075773 after kill: /proc/1075773 exists = yes
+down, INT
+  ok       down INT: the pid signalled is the shell running the suite
+  ok       down INT: and it leads its own process group
+  ok       down INT: a process of this run besides the suite is alive when it is signalled
+  ok       down INT: its temp tree is found while it runs
+  ok       down INT: the run ends with 130
+  ok       down INT: within 20s of the signal
+  FAILED   down INT: no process of this run is left
+             expected: 
+             actual:   1075969 1075977
+  ok       down INT: its temp tree is gone
+             the suite's last lines:
+                 ok       theirs is alive before the teardown
+               ### FIXTURE 1075969 after kill: /proc/1075969 exists = yes
+               ### FIXTURE 1075977 after kill: /proc/1075977 exists = yes
+
+Ran 32 checks, 3 failed
+guarded_build: exit 1
+# ended 2026-10-01T20:39:32+08:00; tripwire lines after: 0
+rc=1

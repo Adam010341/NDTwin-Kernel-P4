@@ -1,0 +1,100 @@
+{
+ "status": {
+  "processes_created": 221,
+  "execve_ok": 53,
+  "threads": 18,
+  "distinct_pids": 165,
+  "top_programs": [
+   [
+    "ps",
+    10
+   ],
+   [
+    "sudo",
+    7
+   ],
+   [
+    "cat",
+    6
+   ],
+   [
+    "cut",
+    5
+   ],
+   [
+    "mktemp",
+    4
+   ],
+   [
+    "rm",
+    4
+   ],
+   [
+    "python3",
+    3
+   ],
+   [
+    "date",
+    2
+   ],
+   [
+    "git",
+    2
+   ],
+   [
+    "wc",
+    2
+   ],
+   [
+    "ndt",
+    1
+   ],
+   [
+    "bash",
+    1
+   ]
+  ],
+  "sudo_execs": 7
+ },
+ "apps_status": {
+  "processes_created": 66,
+  "execve_ok": 18,
+  "threads": 0,
+  "distinct_pids": 37,
+  "top_programs": [
+   [
+    "ps",
+    5
+   ],
+   [
+    "stat",
+    5
+   ],
+   [
+    "cat",
+    2
+   ],
+   [
+    "sudo",
+    2
+   ],
+   [
+    "ndt",
+    1
+   ],
+   [
+    "bash",
+    1
+   ],
+   [
+    "readlink",
+    1
+   ],
+   [
+    "dirname",
+    1
+   ]
+  ],
+  "sudo_execs": 2
+ }
+}

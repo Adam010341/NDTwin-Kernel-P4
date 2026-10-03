@@ -1,0 +1,3 @@
+log /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tripwire_selfcheck/refused.log: 1 line(s)
+  🔴 1.0 REFUSED-LAUNCH simple_switch why=device-id-1 pid=1 start=1 uid=1000 argv0=ndt-hbdrop-bmv2 cwd=/t args=x
+NOLAB-TRIPWIRE: 0 lab call(s); 0 allowed switch launch(es) and 0 --version probe(s), each re-checked: 0 breaking a condition, 1 refused by the wrapper; 0 still running (by pid and start time); 1 line(s) in all

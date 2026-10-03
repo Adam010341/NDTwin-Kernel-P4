@@ -1,0 +1,10 @@
+date 2026-10-02T10:24:48+08:00
+merge commit 3e8148ab4560d78d2c7ed52e6a501d7ae7049f59: tree dcdc238055b0e666f529cbf31ff13fde912ed6f1, parents 1e350bf278ab1907b335ef1b141423d4ff77b13b and 73889e5494d22f32b39f4a43021db389a92fe742
+trunk now 1e350bf278ab1907b335ef1b141423d4ff77b13b; branch head now 73889e5494d22f32b39f4a43021db389a92fe742
+extracted: git archive 3e8148ab4560d78d2c7ed52e6a501d7ae7049f59 | tar -C /tmp/mergedc-n2bb9g -xf -
+dir /tmp/mergedc-n2bb9g
+python /home/adam/miniconda3/envs/ryu-env/bin/python3.8 3.8.20
+test_ndt_serve_web: Ran 18 tests in 0.250s, OK, rc=0
+test_ndt_serve: Ran 75 tests in 57.497s, OK, rc=0
+test_ndt_serve_gui: Ran 39 tests in 27.416s, OK, rc=0
+test_ndt_serve_cells: Ran 35 tests in 33.878s, OK, rc=0

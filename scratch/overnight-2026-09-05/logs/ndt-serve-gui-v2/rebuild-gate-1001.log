@@ -1,0 +1,8 @@
+rebuilding /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/tools/ndt_serve/web in /tmp/ndt-serve-rebuild-demIzh (node v24.20.0, npm 11.19.0)
+  same     BUILD.json   781369038a8ea977
+  same     app.css      780f0a54807c1edb
+  same     app.js       db950b461ad49258
+  same     index.html   ba7f56b21e294bf5
+  same     manual.html  ea3741ed4962b6fa
+OK: the committed bundle is byte for byte what these sources build into
+rc=0

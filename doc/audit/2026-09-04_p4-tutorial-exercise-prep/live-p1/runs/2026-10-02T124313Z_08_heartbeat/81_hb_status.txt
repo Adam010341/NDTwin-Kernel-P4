@@ -1,0 +1,10 @@
+heartbeat: running (pid 970959)
+report: status running, pid 970959, period 5 s, ethertype 0x88b5, session 850664829406c7ca
+  written 1.8 s ago
+  s1-eth2 -> s2-eth2  sent 1  heard 1  last heard 2.3 s ago
+  s1-eth3 -> s3-eth2  sent 1  heard 1  last heard 2.3 s ago
+  s2-eth2 -> s1-eth2  sent 1  heard 1  last heard 2.3 s ago
+  s2-eth3 -> s3-eth3  sent 1  heard 1  last heard 2.3 s ago
+  s3-eth2 -> s1-eth3  sent 1  heard 1  last heard 2.3 s ago
+  s3-eth3 -> s2-eth3  sent 1  heard 1  last heard 2.3 s ago
+  side effects: foreign_frames 0, forwarded_between_switches 0, forwarded_to_hosts 0, misdelivered 0

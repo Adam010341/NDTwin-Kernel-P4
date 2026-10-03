@@ -1,0 +1,16 @@
+== py38 test_ndt_serve_web
+Ran 16 tests in 0.088s
+
+OK
+== py38 test_ndt_serve
+Ran 75 tests in 50.000s
+
+OK
+== py38 test_ndt_serve_gui
+Ran 35 tests in 18.876s
+
+OK
+== py38 test_ndt_serve_cells
+Ran 35 tests in 24.007s
+
+OK

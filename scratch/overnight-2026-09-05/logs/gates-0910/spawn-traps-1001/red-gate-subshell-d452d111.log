@@ -1,0 +1,119 @@
+14c490c3b2e3dc0c39fe5c8147c8f97d5af40ed5
+porcelain-lines: 0
+# dir: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/tb-newgate = d452d111f243b4f05225d16b5773f39076675fb4 + tests/shell/mutate_fixture_spawn_helpers.sh from /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-spawn-traps-1001/tests/shell/mutate_fixture_spawn_helpers.sh (sha256 bf2bad4e05b22d67)
+# sha256 bf2bad4e05b22d67087af1056c8c3c4f28316590128e8d4ecc09515e8918068e  tests/shell/mutate_fixture_spawn_helpers.sh
+# tripwire lines before: 0
+# $ bash tests/shell/mutate_fixture_spawn_helpers.sh
+# started 2026-10-01T17:34:33+08:00
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/claude-1000/spawn-traps-1001.lock
+guarded_build: $ bash tests/shell/mutate_fixture_spawn_helpers.sh
+the judge, on synthetic runs:
+  ok       J1: a FAILED fixture line the summary does not count -> SURVIVED (1 FAILED line(s) printed, the summary counts 0: Ran 3 checks, 0 failed)
+  ok       J2: no summary line at all -> SURVIVED (rc 1, and no "Ran N checks" line at all)
+  ok       J3: rc 0 -> SURVIVED (rc 0)
+  ok       J4: a counted failure that is not the fixture's -> SURVIVED (no FAILED line names the fixture; Ran 2 checks, 1 failed)
+  ok       J5: the fixture's failure, counted -> caught (rc 1; Ran 2 checks, 1 failed; FAILED   fixture took argv0=x)
+  ok       J6: the fixture's failure, counted, but the fixture is still running -> SURVIVED (the fixture it gave up on is still running: pid 3540269)
+  ok       J7: gone-without-true timed out (rc 124), no summary -> rejected: SURVIVED (rc 124, and no "Ran N checks" line at all)
+  ok       J8: gone-without-true ended by errexit (rc 1), no summary -> accepted: SURVIVED (rc 1, and no "Ran N checks" line at all)
+  ok       J9: a fixture block whose read came up empty -> yes
+  ok       J10: a fixture block that read an argv0, "nothing readable" only in a later block -> no
+  ok       J11: the guard's FAILED line once, then rc 143 -> caught (rc 143; FAILED   spawn called outside this suite's own shell (BASHPID 9, suite 8): endin)
+  ok       J12: red with a summary, but no guard line -> SURVIVED (0 line(s) say the helper was called outside this suite's own shell, not 1; rc 1)
+
+1. every call site, read from the source
+  ok       orphans    spawn_fixture() called at 7 line(s), every one a plain call: 199 200 201 324 347 416 530
+  ok       liveness   spawn_fixture() called at 6 line(s), every one a plain call: 230 231 326 345 356 375
+  ok       sweep      spawn_fixture() called at 4 line(s), every one a plain call: 173 177 260 270
+  ok       window     spawn_fixture() called at 7 line(s), every one a plain call: 331 368 441 700 746 789 856 (inside the conditional block: 856)
+  ok       topo_pid   spawn() called at 3 line(s), every one a plain call: 114 119 126
+  ok       ovs_claim  spawn() called at 8 line(s), every one a plain call: 523 532 542 588 596 679 701 850
+  ok       down       spawn() called at 3 line(s), every one a plain call: 153 154 258
+
+2. each suite's unmutated copy: green, and one counted premise per call site
+3. then its helper made unable to recognise its fixture: NEVER (the poll's bound), GONE (/proc empty)
+4. and one call wrapped in ( ... ): SUBSHELL, which only the helper's own guard can catch
+  control  orphans    Ran 111 checks, all passed  (5s)
+  ok       orphans    7 fixture premise(s) counted in this shell, one per call site
+  caught   orphans    never    (rc 1; Ran 1 checks, 1 failed; FAILED   fixture took argv0=python3 /nonexistent/NDT-TEST-FIXTURE/Traffic-engine)  (30s)
+             its fixture FAILED line: FAILED   fixture took argv0=python3 /nonexistent/NDT-TEST-FIXTURE/Traffic-engineering-App.py
+             its last line:           Ran 1 checks, 1 failed
+  caught   orphans    gone     (rc 1; Ran 1 checks, 1 failed; FAILED   fixture took argv0=python3 /nonexistent/NDT-TEST-FIXTURE/Traffic-engine)  (30s)
+             its fixture FAILED line: FAILED   fixture took argv0=python3 /nonexistent/NDT-TEST-FIXTURE/Traffic-engineering-App.py
+             its last line:           Ran 1 checks, 1 failed
+  SURVIVED orphans    subshell (0 line(s) say the helper was called outside this suite's own shell, not 1; rc 1)  (1s)
+             its guard FAILED line: 
+             its last line:           /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/tb-new
+  control  liveness   Ran 57 checks, all passed  (16s)
+  ok       liveness   6 fixture premise(s) counted in this shell, one per call site
+  caught   liveness   never    (rc 1; Ran 1 checks, 1 failed; FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/simulation_platform_ma)  (30s)
+             its fixture FAILED line: FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/simulation_platform_manager
+             its last line:           Ran 1 checks, 1 failed
+  caught   liveness   gone     (rc 1; Ran 1 checks, 1 failed; FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/simulation_platform_ma)  (30s)
+             its fixture FAILED line: FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/simulation_platform_manager
+             its last line:           Ran 1 checks, 1 failed
+  SURVIVED liveness   subshell (0 line(s) say the helper was called outside this suite's own shell, not 1; rc 1)  (21s)
+             its guard FAILED line: 
+             its last line:           Ran 56 checks, 8 failed
+  control  sweep      Ran 33 checks, all passed  (1s)
+  ok       sweep      4 fixture premise(s) counted in this shell, one per call site
+  caught   sweep      never    (rc 1; Ran 11 checks, 1 failed; FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/bin/simple_switch_grpc)  (31s)
+             its fixture FAILED line: FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/bin/simple_switch_grpc
+             its last line:           Ran 11 checks, 1 failed
+  caught   sweep      gone     (rc 1; Ran 11 checks, 1 failed; FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/bin/simple_switch_grpc)  (30s)
+             its fixture FAILED line: FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/bin/simple_switch_grpc
+             its last line:           Ran 11 checks, 1 failed
+  SURVIVED sweep      subshell (0 line(s) say the helper was called outside this suite's own shell, not 1; rc 1)  (1s)
+             its guard FAILED line: 
+             its last line:           /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/tb-new
+  ok       sweep      gone-without-true survives as it must: SURVIVED (rc 1, and no "Ran N checks" line at all)  (0s)
+             its last line:           machine-wide scan (real ps, read-only)
+  control  window     Ran 157 checks, 0 failed  (15s)
+  ok       window     7 fixture premise(s) counted in this shell, one per call site
+  caught   window     never    (rc 1; Ran 28 checks, 1 failed; FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/simulation_platform_ma)  (31s)
+             its fixture FAILED line: FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/simulation_platform_manager
+             its last line:           Ran 28 checks, 1 failed
+  caught   window     gone     (rc 1; Ran 28 checks, 1 failed; FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/simulation_platform_ma)  (31s)
+             its fixture FAILED line: FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/simulation_platform_manager
+             its last line:           Ran 28 checks, 1 failed
+  SURVIVED window     subshell (0 line(s) say the helper was called outside this suite's own shell, not 1; rc 1)  (1s)
+             its guard FAILED line: 
+             its last line:           /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/tb-new
+  control  topo_pid   Ran 61 checks, all passed (0 skipped)  (3s)
+  ok       topo_pid   3 fixture premise(s) counted in this shell, one per call site
+  caught   topo_pid   never    (rc 1; Ran 3 checks, 1 failed (0 skipped); FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/NDT-TEST-FIXTURE-topo.)  (30s)
+             its fixture FAILED line: FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/NDT-TEST-FIXTURE-topo.py
+             its last line:           Ran 3 checks, 1 failed (0 skipped)
+  caught   topo_pid   gone     (rc 1; Ran 3 checks, 1 failed (0 skipped); FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/NDT-TEST-FIXTURE-topo.)  (30s)
+             its fixture FAILED line: FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/NDT-TEST-FIXTURE-topo.py
+             its last line:           Ran 3 checks, 1 failed (0 skipped)
+  SURVIVED topo_pid   subshell (rc 0)  (3s)
+             its guard FAILED line: 
+             its last line:           Ran 60 checks, all passed (0 skipped)
+  control  ovs_claim  Ran 174 checks, 0 failed  (8s)
+  ok       ovs_claim  8 fixture premise(s) counted in this shell, one per call site
+  caught   ovs_claim  never    (rc 1; Ran 84 checks, 1 failed; FAILED   fixture took argv0=/tmp/ndt-ovs-claim-DS7hNU/network_traffic_visualizer)  (33s)
+             its fixture FAILED line: FAILED   fixture took argv0=/tmp/ndt-ovs-claim-DS7hNU/network_traffic_visualizer.sh
+             its last line:           Ran 84 checks, 1 failed
+  caught   ovs_claim  gone     (rc 1; Ran 84 checks, 1 failed; FAILED   fixture took argv0=/tmp/ndt-ovs-claim-cGjOni/network_traffic_visualizer)  (32s)
+             its fixture FAILED line: FAILED   fixture took argv0=/tmp/ndt-ovs-claim-cGjOni/network_traffic_visualizer.sh
+             its last line:           Ran 84 checks, 1 failed
+  SURVIVED ovs_claim  subshell (0 line(s) say the helper was called outside this suite's own shell, not 1; rc 1)  (3s)
+             its guard FAILED line: 
+             its last line:           /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/tb-new
+  control  down       Ran 32 checks, 0 failed  (2s)
+  ok       down       3 fixture premise(s) counted in this shell, one per call site
+  caught   down       never    (rc 1; Ran 1 checks, 1 failed; FAILED   fixture took argv0=python3 /nonexistent/NDT-TEST-FIXTURE-NDT11-OURS/Tra)  (30s)
+             its fixture FAILED line: FAILED   fixture took argv0=python3 /nonexistent/NDT-TEST-FIXTURE-NDT11-OURS/Traffic-engineering-App.py
+             its last line:           ### FIXTURE 3743995 after kill: /proc/3743995 exists = no
+  caught   down       gone     (rc 1; Ran 1 checks, 1 failed; FAILED   fixture took argv0=python3 /nonexistent/NDT-TEST-FIXTURE-NDT11-OURS/Tra)  (30s)
+             its fixture FAILED line: FAILED   fixture took argv0=python3 /nonexistent/NDT-TEST-FIXTURE-NDT11-OURS/Traffic-engineering-App.py
+             its last line:           ### FIXTURE 3756108 after kill: /proc/3756108 exists = no
+  SURVIVED down       subshell (0 line(s) say the helper was called outside this suite's own shell, not 1; rc 1)  (1s)
+             its guard FAILED line: 
+             its last line:           ### FIXTURE 3769756 after kill: /proc/3769756 exists = no
+
+21 mutation(s), 7 survivor(s); 0 control(s) whose premise count is not its call-site count
+guarded_build: exit 1
+# ended 2026-10-01T17:43:05+08:00; tripwire lines after: 0
+rc=1

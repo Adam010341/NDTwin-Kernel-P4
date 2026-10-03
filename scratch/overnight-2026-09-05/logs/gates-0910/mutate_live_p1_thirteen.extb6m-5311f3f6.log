@@ -1,0 +1,133 @@
+5311f3f60add32e9b92b2bf964db68a38419ae2a
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  2026-10-02T05:47:51Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  TMPDIR /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb6/tmp
+# cmd bash tests/shell/mutate_live_p1_thirteen.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb6m-5311f3f6/shims (nolab); drop check through /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb6m-5311f3f6/hbwrap
+# disk: 3205 MB free on / when queued; floor 1536 MB, checked again under the lock
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c a=$(df --output=avail -BM / | tail -1 | tr -dc 0-9); echo "# disk under the lock: $a MB free"; (( a >= $0 )) || { echo "DISK-FLOOR: $a MB < $0 MB -- not run"; exit 97; }; exec "$@" 1536 bash tests/shell/mutate_live_p1_thirteen.sh
+# disk under the lock: 3205 MB free
+baseline (must be green before any mutation):
+  Ran 47 checks, 0 failed
+
+  caught   M1: a correct skeleton arm is expected to fail           (2 named check(s) went red)
+             red:   a correct pair of arms passes
+             red: 🔴 neither arm of a correct pair wants a non-zero rc
+             also red:   a correct pair of arms passes
+             also red:   and says so
+             also red: 🔴 neither arm of a correct pair wants a non-zero rc
+             also red:   named as the red arm not being red
+             also red:   a want-0 arm is not asked for a RED ARM verdict
+             also red:   two exercises is four arms
+  caught   M2 (widening): every arm is expected to do whatever it did (2 named check(s) went red)
+             red: 🔴 a flowcache skeleton that exits 0 is the finding
+             red: 🔴 and one that exits 0 is the finding
+             also red:   named as the red arm not being red
+             also red: 🔴 a flowcache skeleton that exits 0 is the finding
+             also red:   because p4c was supposed to refuse it
+             also red: 🔴 and one that exits 0 is the finding
+             also red:   a round that never ran fails the step
+             also red:   and says it is not a result about the exercise
+  caught   M3: the designed-refusal arms lose their exception       (2 named check(s) went red)
+             red:   flowcache's skeleton is expected to exit 1
+             red:   basic_tunnel's skeleton is expected to exit 1 here
+             also red:   flowcache's skeleton is expected to exit 1
+             also red: 🔴 a flowcache skeleton that exits 0 is the finding
+             also red:   because p4c was supposed to refuse it
+             also red:   basic_tunnel's skeleton is expected to exit 1 here
+             also red: 🔴 and one that exits 0 is the finding
+             also red:   named as the refusal not having happened
+             also red:   and it says the red arm is not red
+             also red:   and is named as one
+  caught   M4 (widening): every skeleton may exit 1                 (1 named check(s) went red)
+             red:   a correct pair of arms passes
+             also red:   a correct pair of arms passes
+             also red:   and says so
+             also red: 🔴 neither arm of a correct pair wants a non-zero rc
+             also red:   named as the red arm not being red
+             also red:   a want-0 arm is not asked for a RED ARM verdict
+             also red:   two exercises is four arms
+  caught   M5: a round that never ran is reported like any other failure (1 named check(s) went red)
+             red:   and says it is not a result about the exercise
+             also red:   and says it is not a result about the exercise
+  caught   M6: the loop stops at the first failing arm (the instrument) (1 named check(s) went red)
+             red: 🔴 a failure does not stop the loop
+             also red: 🔴 a failure does not stop the loop
+  caught   M7: the set -u local hazard comes back                   (2 named check(s) went red)
+             red:   a correct pair of arms passes
+             red:   the table names each arm
+             also red:   a correct pair of arms passes
+             also red:   and says so
+             also red: 🔴 and again as it ends, after the last round wrote its table row
+             also red:   named as the red arm not being red
+             also red:   flowcache's skeleton is expected to exit 1
+             also red:   and the table carries the by-design verdict
+             also red:   because p4c was supposed to refuse it
+             also red:   basic_tunnel's skeleton is expected to exit 1 here
+             also red:   named as the refusal not having happened
+             also red:   and the verdict itself is quoted
+             also red:   and it says the red arm is not red
+             also red:   and is named as one
+             also red:   a want-0 arm is not asked for a RED ARM verdict
+             also red:   and says it is not a result about the exercise
+             also red:   two exercises is four arms
+             also red:   the table names each arm
+             also red:   with the verdict the driver printed
+             also red:   and the report path
+             also red:   the count is arms, not exercises
+             also red: 🔴 a failure does not stop the loop
+  caught   M8: rc 1 is accepted without a by-design verdict         (2 named check(s) went red)
+             red: 🔴 rc 1 with a NON-refusal verdict is the finding, not a pass
+             red: 🔴 same for basic_tunnel's entries actually installing
+             also red: 🔴 rc 1 with a NON-refusal verdict is the finding, not a pass
+             also red:   named as the refusal not having happened
+             also red: 🔴 same for basic_tunnel's entries actually installing
+             also red:   and it says the red arm is not red
+             also red: 🔴 a FAIL that merely mentions RED ARM is still a failure
+             also red:   and is named as one
+  caught   M9 (widening): every arm must print a RED ARM verdict    (2 named check(s) went red)
+             red:   a correct pair of arms passes
+             red:   a want-0 arm is not asked for a RED ARM verdict
+             also red:   a correct pair of arms passes
+             also red:   and says so
+             also red:   flowcache's skeleton is expected to exit 1
+             also red:   basic_tunnel's skeleton is expected to exit 1 here
+             also red:   a want-0 arm is not asked for a RED ARM verdict
+             also red:   two exercises is four arms
+  caught   M10: the by-design check becomes a substring match       (2 named check(s) went red)
+             red: 🔴 a FAIL that merely mentions RED ARM is still a failure
+             red:   and is named as one
+             also red: 🔴 a FAIL that merely mentions RED ARM is still a failure
+             also red:   and is named as one
+  caught   M11: 06 defaults NDT_OWNER to live-p1 again              (5 named check(s) went red)
+             red: 🔴 no NDT_OWNER is rc 2
+             red:   refused, saying what to set
+             red: 🔴 no round ran as a default owner
+             red:   and no verdict was reached
+             red: 🔴 and no run directory was made
+             also red: 🔴 no NDT_OWNER is rc 2
+             also red:   refused, saying what to set
+             also red:   and that nothing was started
+             also red: 🔴 no round ran as a default owner
+             also red:   and no verdict was reached
+             also red: 🔴 and no run directory was made
+  caught   M12: 06 records no venv fingerprint                      (1 named check(s) went red)
+             red: 🔴 the raw records the venv fingerprint of both interpreters
+             also red: 🔴 the raw records the venv fingerprint of both interpreters
+             also red:   the driver's interpreter among them
+             also red:   with protobuf's version and implementation
+             also red: 🔴 the raw records the code identity as 06 starts
+             also red: 🔴 and again as it ends, after the last round wrote its table row
+  caught   M13: 06 records no code identity as it starts            (1 named check(s) went red)
+             red: 🔴 the raw records the code identity as 06 starts
+             also red: 🔴 the raw records the code identity as 06 starts
+  caught   M14: 06 records no code identity as it ends              (1 named check(s) went red)
+             red: 🔴 and again as it ends, after the last round wrote its table row
+             also red: 🔴 and again as it ends, after the last round wrote its table row
+  control  C1: a comment above expected_rc                          (stayed green, as it must)
+
+baseline byte-identical: yes  live-p1/06_thirteen.sh  sha256 2c6d12607ad07669df282288818285032844587981a4c16cad03936befae87f8
+mutation gate: 14 mutations, 0 survived; 1 control(s), 0 went red
+guarded_build: exit 0
+# rc=0

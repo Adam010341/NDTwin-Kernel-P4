@@ -1,0 +1,41 @@
+date 2026-10-02T10:33:17+08:00
+merge commit 3e8148ab4560d78d2c7ed52e6a501d7ae7049f59: tree dcdc238055b0e666f529cbf31ff13fde912ed6f1, parents 1e350bf278ab1907b335ef1b141423d4ff77b13b and 73889e5494d22f32b39f4a43021db389a92fe742
+trunk now 1e350bf278ab1907b335ef1b141423d4ff77b13b; branch head now 73889e5494d22f32b39f4a43021db389a92fe742
+extracted: git archive 3e8148ab4560d78d2c7ed52e6a501d7ae7049f59 | tar -C /tmp/mergedc-n2bb9g -xf -
+dir /tmp/mergedc-n2bb9g
+bash GNU bash, version 5.2.21(1)-release (x86_64-pc-linux-gnu)
+cmd bash tests/shell/mutate_ndt_status_measuring.sh
+head ?
+porcelain ? tracked file(s) differ from HEAD
+date 2026-10-02T10:33:17+08:00
+gate edcd5ddc2c54e67a88fc434c36f815b2a5a1272eeb69757d98bfd8a76a56db90
+baseline (must be green before any mutation):
+  Ran 102 checks, 0 failed
+
+  caught   L1: --measuring is the full report (sudo and the kernel graph on every probe) (🔴 --measuring ran no sudo, curl, OVS or bmv2 command (8 states) went red)
+  caught   L2: --measuring answers from its own copy (always nothing)     (in_flight only: the same measuring row as plain status went red)
+  caught   L3: plain status stops using the shared rows                   (in_flight only: --measuring's rows are plain status's, line for line went red)
+  caught   L4: a sudo OVS query on the measuring rows' path               (🔴 --measuring ran no sudo, curl, OVS or bmv2 command (8 states) went red)
+  caught   L5: a kernel get_graph_data request on the measuring rows' path (🔴 --measuring ran no sudo, curl, OVS or bmv2 command (8 states) went red)
+  caught   L5b: a bmv2 CLI query on the measuring rows' path              (🔴 --measuring ran no sudo, curl, OVS or bmv2 command (8 states) went red)
+  caught   L6: --measuring answers 1 (ndt serve would read a failure, not a report) (nothing: --measuring answers rc 0 went red)
+  caught   L14: ndt's own port_open (bash /dev/tcp) to the kernel on the shared path (🔴 --measuring opened no TCP connection to the lab's ports went red)
+  caught   L14b: a literal /dev/tcp connect to Ryu's port on the shared path (🔴 no absolute-path command and no /dev/tcp on --measuring's path went red)
+  caught   L15: a python3 urllib GET of the kernel's graph on the shared path (🔴 --measuring ran nothing outside its allowlist on PATH went red)
+  caught   L16: an OVS query by absolute path (past every PATH shim)      (🔴 no absolute-path command and no /dev/tcp on --measuring's path went red)
+  caught   L16b: curl by absolute path to the kernel (past the curl shim) (🔴 --measuring opened no TCP connection to the lab's ports went red)
+  caught   L7: the measuring rows drop the declaration                    (declared only: the declared row went red)
+  caught   L8: somebody else's claim declares nothing                     (somebody else's claim: the declared row went red)
+  caught   L9: an expired claim still declares a measurement              (expired claim: the declared row went red)
+  caught   L10: an orphaned driver reads as a measurement                 (orphaned (no fabric): the measuring row went red)
+  caught   L11: the measuring rows stop reading the process table         (in_flight only: the measuring row went red)
+  caught   L12: the '+ N more' row of a measurement is lost               (two drivers: the '+ 1 more' row, as plain status prints it went red)
+  caught   L13: ndt help does not name --measuring                        (ndt help names status --measuring went red)
+
+files under test unchanged by this gate:
+  581c236ea63d9d5ee4cd4f2da02276caaf1828c35a282555e83843dec0c9b033  tools/test_workflow/ndt
+  965620345606d0e103b65ea0d97cd4a8bca3cbb766f5c4ce7809b7fd6fcec1c2  tests/shell/test_ndt_status_measuring.sh
+
+19 mutation(s), 0 survivor(s)
+rc=0
+exit rc=0

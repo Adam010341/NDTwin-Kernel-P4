@@ -1,0 +1,9 @@
+test_contract_spec # rc=0 | Ran 261 tests in 0.042s 
+test_p4_capabilities_wired # rc=0 | 
+mutate_p4_capabilities_wired # rc=0 | mutation gate: 4 mutations, 0 survived; control green 
+test_l1_shell_scoring # rc=1 |   FAILED   C  test_p4_capabilities_wired.sh prints a summary this scorer reads on its green path Ran 148 checks, 1 failed 
+check_gate_anchors # rc=1 | 
+check_test_tmpdirs # rc=0 | 
+tripwire lines: 0
+tracked tree clean
+RERUN-DONE

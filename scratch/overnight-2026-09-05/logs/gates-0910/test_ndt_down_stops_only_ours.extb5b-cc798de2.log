@@ -1,0 +1,58 @@
+cc798de22edbb0970182783dc23ed6900b85b598
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  2026-10-01T14:56:58Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  TMPDIR /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp
+# cmd bash tests/shell/test_ndt_down_stops_only_ours.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5b-cc798de2/shims (nolab); drop check through /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5b-cc798de2/hbwrap
+# disk: 2080 MB free on / when queued; floor 1536 MB, checked again under the lock
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c a=$(df --output=avail -BM / | tail -1 | tr -dc 0-9); echo "# disk under the lock: $a MB free"; (( a >= $0 )) || { echo "DISK-FLOOR: $a MB < $0 MB -- not run"; exit 97; }; exec "$@" 1536 bash tests/shell/test_ndt_down_stops_only_ours.sh
+# disk under the lock: 2080 MB free
+  ok       fixture took argv0=python3 /nonexistent/NDT-TEST-FIXTURE-NDT11-OURS/Traffic-engineering-App.py
+  ok       fixture took argv0=python3 /nonexistent/NDT-TEST-FIXTURE-NDT11-THEIRS/Traffic-engineering-App.py
+
+0. the premises -- without these the run below discriminates nothing
+  ok       the two fixtures are different processes
+  ok       ours is alive before the teardown
+  ok       theirs is alive before the teardown
+  ok       🔴 both wear an app's signature (argv alone cannot tell them apart)
+  ok         proc_checkout says ours is ours
+  ok         and theirs belongs to another tree
+  ok       🔴 ours has a process group of its own
+  ok       🔴 theirs has one too
+
+1. 🔴 one teardown, two processes: ours is stopped, theirs is listed and left alive
+  ok       the apps step ran
+  ok       🔴 ours is named as untracked and stopped by pid
+  ok         and the teardown says it stopped it
+  ok       🔴 OURS IS GONE
+  ok       🔴 THEIRS IS STILL ALIVE
+  ok       🔴 theirs is named in the elsewhere column
+  ok         with its pid
+  ok         and why it was not counted
+  ok         and that this teardown will not stop it
+  ok       🔴 theirs was never called untracked
+  ok         and the teardown never says it could not stop it
+  ok         and theirs is still the process it was
+  ok         the teardown carried on to [1/3]
+  ok         and reached the sweep
+  ok       🔴 and a foreign process is not a refusal (rc is not 5)
+
+2. the control -- with ONLY the foreign process on the field, nothing is stopped
+  ok       fixture took argv0=python3 /nonexistent/NDT-TEST-FIXTURE-NDT11-THEIRS/Traffic-engineering-App.py
+  ok       🔴 the other tree's process survives a teardown
+  ok         and nothing claims to have stopped te
+  ok         it is listed instead
+### CONTROL FIXTURE 506899 after kill: /proc/506899 exists = no
+
+3. the other control -- a clean field is not a teardown that stopped something
+  ok       nothing is stopped when nothing is running
+  ok         and no elsewhere column is printed
+  ok         the teardown still ran
+
+Ran 32 checks, 0 failed
+### FIXTURE 505974 after kill: /proc/505974 exists = no
+### FIXTURE 506036 after kill: /proc/506036 exists = no
+### FIXTURE 506899 after kill: /proc/506899 exists = no
+guarded_build: exit 0
+# rc=0

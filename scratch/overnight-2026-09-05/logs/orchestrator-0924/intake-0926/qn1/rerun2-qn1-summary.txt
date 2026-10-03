@@ -1,0 +1,11 @@
+test_apps_stop_kills_the_group # rc=0 |   ok       a clean machine has no orphans (rc 0) Ran 72 checks, 0 failed 
+test_ndt_app_orphans # rc=0 |   ok       🔴 another checkout's process -> rc 0 Ran 104 checks, all passed 
+test_live_p1_common # rc=0 |   ok         rc 0 Ran 191 checks, 0 failed 
+test_ndt_sudo_surface # rc=0 |   ok       control, report: ovsdb down behind a warning is still rc 0, granted Ran 55 checks, 0 failed 
+mutate_probe_stubs # rc=0 |   ok       test_ndt_sample_rate_reads_both_bounds.sh: Ran 7 checks, 0 failed   caught   T1: the tc stub answers rc 0 to every argv                         (tc qdisc add ...: rc 0 (want a refusal);tc qdisc del ...: rc 0 (
+test_l1_shell_scoring # rc=0 |   ok       D22 every NDTWIN_L1_NEEDS in tests/shell and tests/python is one the lane probes Ran 150 checks, 0 failed 
+check_gate_anchors # rc=0 | 
+check_test_tmpdirs # rc=0 | 
+tripwire lines: 0
+tracked tree clean
+RERUN-DONE

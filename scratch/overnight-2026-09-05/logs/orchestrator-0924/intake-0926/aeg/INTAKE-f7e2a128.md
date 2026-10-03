@@ -1,0 +1,29 @@
+# AEG fix round f7e2a128 — intake (09-28)
+- **Delivered:** 2 commits on ebe17f7c; 9 files, +236/−32.
+  - Diff read hunk by hunk. My own note: `_common.sh`'s jqp comment now sits above the new function.
+  - Secret scan 0/3.
+- **Re-judge:** MERGE (`judge-AEG-f7e2a128.md`). Notes N-1..N-11.
+  - **N-1 must be fixed before the next live 08:** a run stopped by TERM can end `PASS 08_heartbeat`.
+- **Rerun** on the test merge d94b5547 (trunk 18c83aba + f7e2a128): `rerun2-aeg.frozen.sh`, TMPDIR aegj.
+- **Follow-up ticket** (to the same worker, after B is delivered):
+  - N-1: INT/TERM traps force rc 130/143.
+  - N-3: comment.
+  - N-4: v_strict BAD when d > b+15, and the cycle heading.
+  - N-5: catch inside python, one BAD line.
+  - N-6: jqp comment.
+  - N-7: 02:184 comment, fixtures for not_started/no-block with the two-name list, a pin on 02:187.
+  - N-9: the gate driver counts failures as passed (the script is outside the commit).
+  - N-11: main:1804-1805 docstring.
+  - Tests: TERM mid-H1, an H3 cut-short cell, an early exit with all cycles within 20 s plus a clean run, one BAD line for bad JSON, F2 on the unbound fabric.
+- **06:3x Rerun complete** on d94b5547, all rc 0:
+  - test_live_p1_common 191/0; thirteen 42/0;
+  - 07/08 self-tests PASS; proxy_unit 1661 bad=0;
+  - mutate_live_p1_common, thirteen, roles_binding 179/0 and p4_heartbeat_w 202/0 all rc 0;
+  - check_gate_anchors 122/122, run by hand outside the guard (read-only python, after 55 min in the lock queue; disclosed in its log);
+  - tripwire 0; tree clean.
+- **Merged into trunk** as 149c8234 (tree == d94b5547). Secret scan 0/3.
+  - Pushed to both repos; unauthenticated check: trunk 149c8234 on both, ndtwin-lab main still f186ce98.
+  - The push log has one rejected line: I hand-typed a full sha that does not exist, and the fallback pushed the `rev-parse` sha. Never hand-type a full sha.
+- **PR #10:** 0c08673e on main bad4cc7a, 18 files; prediction `ci-prediction-pr10.txt`.
+- **Still open:** B (external-detect-only 17e40e29) gates running under pgid 210993. Then my live 06 + H4 comparison before merging B. The N-1 follow-up comes before any live 08.
+- **06:5x** PR #10 CI: all as predicted (29/29 IDENTICAL on both runs; see ci-compare-pr10.txt). Squash-merged; main now 847acc7d. Invariant checked above.

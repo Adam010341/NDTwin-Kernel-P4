@@ -1,0 +1,8 @@
+{"rep": 0, "rc": 0, "wall_s": 0.15, "run_forks": 25, "idle_forks": 8, "net": 17}
+{"rep": 1, "rc": 0, "wall_s": 0.156, "run_forks": 25, "idle_forks": 8, "net": 17}
+{"rep": 2, "rc": 0, "wall_s": 0.154, "run_forks": 29, "idle_forks": 5, "net": 24}
+{"rep": 3, "rc": 0, "wall_s": 0.166, "run_forks": 30, "idle_forks": 4, "net": 26}
+{"rep": 4, "rc": 0, "wall_s": 0.154, "run_forks": 25, "idle_forks": 4, "net": 21}
+{"rep": 5, "rc": 0, "wall_s": 0.153, "run_forks": 25, "idle_forks": 8, "net": 17}
+{"rep": 6, "rc": 0, "wall_s": 0.155, "run_forks": 25, "idle_forks": 8, "net": 17}
+{"label": "r3-declared-measuring", "cmd": "/tmp/r3-probe-sb-2Sp14T/tools/test_workflow/ndt status --measuring", "reps": 7, "net_median": 17, "net_min": 17, "net_max": 26, "wall_median_s": 0.154, "rcs": [0]}

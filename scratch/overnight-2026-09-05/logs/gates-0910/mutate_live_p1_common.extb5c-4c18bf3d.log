@@ -1,0 +1,382 @@
+4c18bf3da29efed3d2f36abd2db67d8f780a222b
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  2026-10-01T21:32:45Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  TMPDIR /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp
+# cmd bash tests/shell/mutate_live_p1_common.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5c-4c18bf3d/shims (nolab); drop check through /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb5c-4c18bf3d/hbwrap
+# disk: 2762 MB free on / when queued; floor 1536 MB, checked again under the lock
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c a=$(df --output=avail -BM / | tail -1 | tr -dc 0-9); echo "# disk under the lock: $a MB free"; (( a >= $0 )) || { echo "DISK-FLOOR: $a MB < $0 MB -- not run"; exit 97; }; exec "$@" 1536 bash tests/shell/mutate_live_p1_common.sh
+# disk under the lock: 2762 MB free
+baseline (must be green before any mutation):
+  Ran 220 checks, 0 failed
+
+  caught   M1: an empty expected set is accepted                    (3 named check(s) went red)
+             red: 🔴 an EMPTY expected set is refused, not satisfied
+             red: 🔴 and it refuses WITHOUT reading the graph at all
+             red: 🔴 a controller that programmed nothing fails the step
+             also red: 🔴 an EMPTY expected set is refused, not satisfied
+             also red:   saying why an empty-to-empty match proves nothing
+             also red: 🔴 and it refuses WITHOUT reading the graph at all
+             also red:   the file records the refusal too
+             also red: 🔴 a controller that programmed nothing fails the step
+  caught   M2 (widening): any non-empty up set counts as a match    (2 named check(s) went red)
+             red: 🔴 a THIRD switch reported up is not a match
+             red:   s3 up while 1,2 were expected is not a match
+             also red: 🔴 a THIRD switch reported up is not a match
+             also red:   and the failure says what it saw
+             also red:   with the last reading in it
+             also red:   the file keeps both sides
+             also red:   s3 up while 1,2 were expected is not a match
+  caught   M3: giving up is reported as agreement                   (2 named check(s) went red)
+             red: 🔴 a set that never arrives is a failure
+             red: 🔴 a THIRD switch reported up is not a match
+             also red: 🔴 a THIRD switch reported up is not a match
+             also red: 🔴 a set that never arrives is a failure
+             also red:   s3 up while 1,2 were expected is not a match
+  caught   M4: s10 is parsed as dpid 1                              (1 named check(s) went red)
+             red: 🔴 s10 is dpid 10, not dpid 1
+             also red: 🔴 s10 is dpid 10, not dpid 1
+  caught   M5: the wait is one look (the instrument)                (2 named check(s) went red)
+             red: 🔴 it waits until the up set becomes the expected one
+             red:   which took three polls, not one
+             also red: 🔴 it waits until the up set becomes the expected one
+             also red:   which took three polls, not one
+             also red:   and it says how long it took
+             also red:   after polling for the whole timeout (+1 for the capture)
+             also red: 🔴 end to end: log -> expectation -> twin agrees
+  caught   M6: a graph with no switches reads as an empty up set    (1 named check(s) went red)
+             red: 🔴 a graph with no switches in it is rc 1 too
+             also red: 🔴 a graph with no switches in it is rc 1 too
+  caught   M7 (widening): the expected set only has to be a subset  (1 named check(s) went red)
+             red: 🔴 a THIRD switch reported up is not a match
+             also red: 🔴 a THIRD switch reported up is not a match
+             also red:   and the failure says what it saw
+             also red:   with the last reading in it
+             also red:   the file keeps both sides
+  caught   M8: the probe universe is hardcoded again                (2 named check(s) went red)
+             red: 🔴 the fourth switch of a four-switch package IS checked
+             red:   and it is the one named
+             also red: 🔴 the fourth switch of a four-switch package IS checked
+             also red:   and it is the one named
+             also red: 🔴 an unreadable model is refused, not assumed
+             also red:   saying there is no universe to check against
+  caught   M9: the switches nobody programmed are not checked       (2 named check(s) went red)
+             red: 🔴 a switch answering that nobody programmed is red
+             red: 🔴 the fourth switch of a four-switch package IS checked
+             also red: 🔴 a switch answering that nobody programmed is red
+             also red:   naming it too
+             also red: 🔴 the fourth switch of a four-switch package IS checked
+             also red:   and it is the one named
+  caught   M10: an empty expected set is accepted by the probe half (2 named check(s) went red)
+             red:   for the same reason
+             red: 🔴 and it refuses without reading a single probe
+             also red:   for the same reason
+             also red: 🔴 and it refuses without reading a single probe
+  caught   M11: an unreadable model checks nothing and passes       (2 named check(s) went red)
+             red: 🔴 an unreadable model is refused, not assumed
+             red:   saying there is no universe to check against
+             also red: 🔴 an unreadable model is refused, not assumed
+             also red:   saying there is no universe to check against
+  control  C1: a comment beside the refusal                         (stayed green, as it must)
+  control  C2: the parameters unpacked one per line                 (stayed green, as it must)
+  caught   M12: every interface with a byte on it is on the path    (1 named check(s) went red)
+             red: 🔴 only the interfaces that moved bytes are on the path
+             also red: 🔴 only the interfaces that moved bytes are on the path
+             also red:   and the 340 B interface is not listed at all
+             also red:   nor the 170 B ones
+             also red:   273 B on every interface is nobody on the path
+             also red:   saying nothing carried the flow
+             also red: 🔴 and NAMING the datagram size it chose
+  caught   M13 (M-D5): links OFF the path are not checked at all    (2 named check(s) went red)
+             red: 🔴 an inter-switch link off the path carrying the FLOW is red
+             red:   naming it, the bits and the floor
+             also red: 🔴 an inter-switch link off the path carrying the FLOW is red
+             also red:   naming it, the bits and the floor
+             also red: 🔴 and 10 Mbit off the path is red against it
+             also red:   naming the floor the smallest on-path edge set
+             also red: 🔴 and in a quiet window the floor is one sample
+             also red:   naming that floor
+             also red: 🔴 and one over it is red
+             also red:   naming the floor it passed
+  caught   M14: an unmodelled on-path link is skipped instead of red (2 named check(s) went red)
+             red: 🔴 an on-path interface with NO twin edge is red
+             red:   and says the link is not modelled
+             also red: 🔴 an on-path interface with NO twin edge is red
+             also red:   and says the link is not modelled
+  caught   M15: an EMPTY on-path set passes the cell                (2 named check(s) went red)
+             red: 🔴 an EMPTY on-path set is refused, not satisfied
+             red:   saying why
+             also red: 🔴 an EMPTY on-path set is refused, not satisfied
+             also red:   saying why
+             also red: 🔴 the cell refuses rather than measuring nothing
+             also red:   saying nothing carried the flow
+             also red: 🔴 and NAMING the datagram size it chose
+  caught   M16 (M-D6): the positive control accepts a twin that still reports (2 named check(s) went red)
+             red: 🔴 telemetry off and the twin still reporting is RED
+             red:   because the cell above would then prove nothing
+             also red: 🔴 telemetry off and the twin still reporting is RED
+             also red:   because the cell above would then prove nothing
+  caught   M17 (widening): the off-path floor becomes the whole flow (2 named check(s) went red)
+             red: 🔴 an inter-switch link off the path carrying the FLOW is red
+             red:   naming it, the bits and the floor
+             also red:   and a 16 Mbit flow does not raise it: 2% is 320 kbit, under one sample
+             also red: 🔴 above 153.6 Mbit the 2% term decides again
+             also red:   and the floor it was judged against is in the raw
+             also red: 🔴 an inter-switch link off the path carrying the FLOW is red
+             also red:   naming it, the bits and the floor
+             also red:   the floor follows the SMALLEST on-path integral
+             also red: 🔴 and 10 Mbit off the path is red against it
+             also red:   naming the floor the smallest on-path edge set
+  caught   M18: a graph that never answered reads as an empty integral (2 named check(s) went red)
+             red: 🔴 a graph that never answered is rc 1, not an empty integral
+             red:   saying there is no twin reading for the window
+             also red: 🔴 a graph that never answered is rc 1, not an empty integral
+             also red:   saying there is no twin reading for the window
+  caught   M19: the host->switch direction gets an sN-ethP key      (1 named check(s) went red)
+             red: 🔴 the host->switch direction has no sN-ethP to be
+             also red: 🔴 the host->switch direction has no sN-ethP to be
+  caught   M20: host-facing edges are classified as inter-switch    (1 named check(s) went red)
+             red:   a host-facing edge integrates its rate over the window
+             also red:   a host-facing edge integrates its rate over the window
+  caught   M21: an interface seen once is measured from zero        (1 named check(s) went red)
+             red:   and it is not on the path
+             also red:   and it is not on the path
+  caught   M22: the caller's destination host is ignored            (1 named check(s) went red)
+             red:   a named destination is the one the flow runs to
+             also red:   a named destination is the one the flow runs to
+             also red: 🔴 a destination the model does not declare is refused
+             also red:   rather than silently falling back to another host
+  caught   M23: an unknown destination falls back to the last host  (2 named check(s) went red)
+             red: 🔴 a destination the model does not declare is refused
+             red:   rather than silently falling back to another host
+             also red: 🔴 a destination the model does not declare is refused
+             also red:   rather than silently falling back to another host
+  caught   M24: the floor loses its relative term                   (1 named check(s) went red)
+             red: 🔴 above 153.6 Mbit the 2% term decides again
+             also red: 🔴 above 153.6 Mbit the 2% term decides again
+             also red:   the floor follows the SMALLEST on-path integral
+             also red:   naming the floor the smallest on-path edge set
+  caught   M26: the floor is taken from the largest on-path integral (2 named check(s) went red)
+             red:   the floor follows the SMALLEST on-path integral
+             red: 🔴 and 10 Mbit off the path is red against it
+             also red:   the floor follows the SMALLEST on-path integral
+             also red: 🔴 and 10 Mbit off the path is red against it
+             also red:   naming the floor the smallest on-path edge set
+  caught   M27: the off-path edges' raw integrals are not recorded  (1 named check(s) went red)
+             red:   with the edge's own integral beside it
+             also red:   with the edge's own integral beside it
+  caught   M28: the floor the verdict used is not in the raw        (1 named check(s) went red)
+             red:   and the floor it was judged against is in the raw
+             also red:   and the floor it was judged against is in the raw
+             also red:   and the raw says how that number was reached
+  caught   M29: finish() runs under set -e again                    (2 named check(s) went red)
+             red: 🔴 'ndt release' still ran -- the lab is not left claimed
+             red: 🔴 and the LAST line is the verdict, as the README promises
+             also red:   the 'ndt down rc=' line is printed
+             also red: 🔴 its rc is folded into the verdict
+             also red:   the raw path is printed
+             also red: 🔴 and the LAST line is the verdict, as the README promises
+             also red: 🔴 'ndt release' still ran -- the lab is not left claimed
+  caught   M30: a non-zero 'ndt down' is not folded into the verdict (1 named check(s) went red)
+             red: 🔴 its rc is folded into the verdict
+             also red: 🔴 a failing 'ndt down' still produces a verdict
+             also red: 🔴 its rc is folded into the verdict
+  caught   M31: every interface over the byte threshold is primary again (2 named check(s) went red)
+             red: 🔴 s1-eth4 is MINOR, not primary
+             red: 🔴 the real qos/solution reading PASSES
+             also red: 🔴 only the interfaces that moved bytes are on the path
+             also red:   and onpath_primary gives the old one-name shape
+             also red:   a threshold of 1 byte puts the noise on the path too
+             also red: 🔴 s1-eth4 is MINOR, not primary
+             also red: 🔴 s3-eth1 is MINOR, not primary
+             also red: 🔴 the real qos/solution reading PASSES
+             also red: 🔴 the minor rows are printed, not asserted
+             also red: 🔴 with the expected sample count beside them
+             also red:   and said to be NOT asserted
+  caught   M32 (widening): the share is so high nothing is primary  (2 named check(s) went red)
+             red: 🔴 s1-eth3 is PRIMARY
+             red: 🔴 s2-eth1 is PRIMARY
+             also red: 🔴 only the interfaces that moved bytes are on the path
+             also red:   and onpath_primary gives the old one-name shape
+             also red:   a threshold of 1 byte puts the noise on the path too
+             also red: 🔴 s1-eth3 is PRIMARY
+             also red: 🔴 s2-eth1 is PRIMARY
+             also red:   the two primaries are asserted and named
+             also red: 🔴 a PRIMARY interface with a zero integral is still red
+             also red:   naming it as primary, with its byte count
+  caught   M33: a failed 'ndt release' only warns                   (2 named check(s) went red)
+             red: 🔴 a failing 'ndt release' fails the round
+             red: 🔴 and the LAST line is FAIL, not PASS
+             also red: 🔴 a failing 'ndt release' fails the round
+             also red: 🔴 and the LAST line is FAIL, not PASS
+             also red:   saying the lab is still claimed
+  caught   M34: the window ignores the path's slowest link          (2 named check(s) went red)
+             red: 🔴 the slowest declared link is the 500 kbit/s bottleneck
+             red: 🔴 so the window grows to 62 s
+             also red: 🔴 the slowest declared link is the 500 kbit/s bottleneck
+             also red: 🔴 at the old 8 s window only ~1.3 samples were expected
+             also red: 🔴 so the window grows to 62 s
+             also red:   while ecn's bottleneck is below the offer, so it carries 500 kbit/s
+             also red: 🔴 the window it needs is computed and printed
+             also red: 🔴 and the refusal names both numbers
+             also red:   saying why a shorter window would be a lie
+             also red:   and the summary line says WINDOW-TOO-LONG
+             also red: 🔴 the over-long window has its own rc, not 1
+  caught   M35: the off-path floor falls back below one sample      (2 named check(s) went red)
+             red: 🔴 the floor is at least ONE sample's worth of bits
+             red:   the floor is one sample even for a small on-path integral
+             also red:   the floor is one sample even for a small on-path integral
+             also red:   and a 16 Mbit flow does not raise it: 2% is 320 kbit, under one sample
+             also red:   and the floor it was judged against is in the raw
+             also red:   naming it, the bits and the floor
+             also red:   naming that floor
+             also red:   naming the floor it passed
+             also red: 🔴 the floor is at least ONE sample's worth of bits
+             also red: 🔴 one sampled frame off the path is NOT a failure
+  caught   M36: the iperf datagram is the 1470-byte default again   (1 named check(s) went red)
+             red: 🔴 and NAMING the datagram size it chose
+             also red: 🔴 and NAMING the datagram size it chose
+  caught   M37: G1 runs with the exercise controller dead           (2 named check(s) went red)
+             red: 🔴 a dead exercise controller makes G1 NOT RUN
+             red:   and the summary line says NOT-RUN
+             also red: 🔴 a dead exercise controller makes G1 NOT RUN
+             also red:   naming the pid it checked
+             also red:   and the summary line says NOT-RUN
+             also red: 🔴 NOT RUN has its own rc, not 0 and not 2
+  caught   M38: NOT RUN returns 0 again, which callers read as a pass (1 named check(s) went red)
+             red: 🔴 NOT RUN has its own rc, not 0 and not 2
+             also red: 🔴 NOT RUN has its own rc, not 0 and not 2
+  caught   M39: sourcing the file discards the caller's controller pid (2 named check(s) went red)
+             red: 🔴 a dead exercise controller makes G1 NOT RUN
+             red: 🔴 NOT RUN has its own rc, not 0 and not 2
+             also red: 🔴 a dead exercise controller makes G1 NOT RUN
+             also red:   naming the pid it checked
+             also red:   and the summary line says NOT-RUN
+             also red: 🔴 NOT RUN has its own rc, not 0 and not 2
+  caught   M40: the window uses the link speed, not the offered rate (2 named check(s) went red)
+             red: 🔴 a 1 Gbit/s path gets 16 s, because iperf offers only 2 Mbit/s
+             red:   and the carried rate is the offered one, not the link's
+             also red: 🔴 a 1 Gbit/s path gets 16 s, because iperf offers only 2 Mbit/s
+             also red:   and the carried rate is the offered one, not the link's
+  caught   M41: an over-long window is measured instead of refused  (2 named check(s) went red)
+             red: 🔴 and the refusal names both numbers
+             red: 🔴 the over-long window has its own rc, not 1
+             also red: 🔴 and the refusal names both numbers
+             also red:   saying why a shorter window would be a lie
+             also red:   and the summary line says WINDOW-TOO-LONG
+             also red: 🔴 the over-long window has its own rc, not 1
+  caught   M42: link_usage_round goes on without a namespace        (2 named check(s) went red)
+             red:   and, zz2 having no namespace, it stopped there (rc 2)
+             red: 🔴 and no cell reached the shared stubs either (no flow was attempted)
+             also red: 🔴 a host with no namespace is rc 2, a refusal
+             also red:   named as the permission answer it is
+             also red:   and, zz2 having no namespace, it stopped there (rc 2)
+             also red:   stopping at the same refusal (rc 2)
+             also red: 🔴 and no cell reached the shared stubs either (no flow was attempted)
+  caught   M43: the flow's sudo gets past every stub                (1 named check(s) went red)
+             red: 🔴 NOTHING reached for sudo, mnexec or iperf past a stub
+             also red: 🔴 a host with no namespace is rc 2, a refusal
+             also red:   named as the permission answer it is
+             also red:   and, zz2 having no namespace, it stopped there (rc 2)
+             also red:   stopping at the same refusal (rc 2)
+             also red: 🔴 NOTHING reached for sudo, mnexec or iperf past a stub
+             also red: 🔴 and no cell reached the shared stubs either (no flow was attempted)
+  caught   M44: a sudo past every stub, the refusal otherwise intact (exactly the named check(s) went red)
+             red: 🔴 NOTHING reached for sudo, mnexec or iperf past a stub
+  caught   M45: finish does not print the disclosures               (2 named check(s) went red)
+             red: 🔴 and the line right above it is the disclosure, verbatim
+             red:   and the disclosure is still right above it
+             also red: 🔴 and the line right above it is the disclosure, verbatim
+             also red:   and the disclosure is still right above it
+             also red: 🔴 and disclosed above the last line
+  caught   M46: disclose only notes, it records nothing             (2 named check(s) went red)
+             red: 🔴 and the line right above it is the disclosure, verbatim
+             red:   and the disclosure is still right above it
+             also red: 🔴 and the line right above it is the disclosure, verbatim
+             also red:   and the disclosure is still right above it
+             also red: 🔴 and disclosed above the last line
+  caught   M47: NDT_OWNER defaults to live-p1 again (the line as it was) (4 named check(s) went red)
+             red: 🔴 no NDT_OWNER: start_step refuses with rc 2
+             red: 🔴 it did not go on as a default owner
+             red: 🔴 and made no run directory
+             red: 🔴 sourcing the file does not invent an owner
+             also red: 🔴 no NDT_OWNER: start_step refuses with rc 2
+             also red:   and says so on the last line
+             also red:   naming what to set
+             also red: 🔴 it did not go on as a default owner
+             also red: 🔴 and made no run directory
+             also red: 🔴 sourcing the file does not invent an owner
+  caught   M48: start_step no longer refuses without an owner       (2 named check(s) went red)
+             red: 🔴 no NDT_OWNER: start_step refuses with rc 2
+             red: 🔴 and made no run directory
+             also red: 🔴 no NDT_OWNER: start_step refuses with rc 2
+             also red:   and says so on the last line
+             also red:   naming what to set
+             also red: 🔴 and made no run directory
+  caught   M49: the refusal comes after the run directory is made   (exactly the named check(s) went red)
+             red: 🔴 and made no run directory
+  caught   M50: a heartbeat watchdog that did not start is accepted (2 named check(s) went red)
+             red: 🔴 not_started is a failure, not the other list
+             red: 🔴 not_started with the two names is still BAD
+             also red: 🔴 not_started is a failure, not the other list
+             also red:   and it names the proxy's own heartbeat.error
+             also red: 🔴 not_started with the two names is still BAD
+  caught   M51: the proxy's heartbeat.error is not named            (1 named check(s) went red)
+             red:   and it names the proxy's own heartbeat.error
+             also red:   and it names the proxy's own heartbeat.error
+  caught   M52: no heartbeat block reads as running                 (2 named check(s) went red)
+             red: 🔴 no heartbeat block is a failure too
+             red: 🔴 no heartbeat block with the two names is still BAD
+             also red: 🔴 no heartbeat block is a failure too
+             also red: 🔴 no heartbeat block with the two names is still BAD
+  caught   M56: the verdict catches only what it expected           (1 named check(s) went red)
+             red:   a BAD one, naming the cause
+             also red:   a BAD one, naming the cause
+  caught   M53: the skipped list is not compared                    (1 named check(s) went red)
+             red: 🔴 running with link_watchdog still named: BAD
+             also red: 🔴 running with link_watchdog still named: BAD
+             also red: 🔴 external, running, link_watchdog still named: BAD
+  caught   M54: start_step records no venv fingerprint              (2 named check(s) went red)
+             red: 🔴 the raw has 00_venv.txt
+             red: 🔴 a missing interpreter is written down as such
+             also red: 🔴 the raw has 00_venv.txt
+             also red:   one block per interpreter (proxy and controllers)
+             also red: 🔴 naming protobuf and its implementation
+             also red:   and the installed set's sha
+             also red: 🔴 a missing interpreter is written down as such
+             also red: 🔴 and disclosed above the last line
+  caught   M55: a fingerprint that could not be taken is not disclosed (1 named check(s) went red)
+             red: 🔴 and disclosed above the last line
+             also red: 🔴 and disclosed above the last line
+  caught   M57: INT and TERM run finish with the interrupted command's rc (2 named check(s) went red)
+             red: 🔴 TERM mid-step: the last verdict line is a FAIL
+             red: 🔴 INT mid-step: FAIL
+             also red: 🔴 TERM mid-step: the last verdict line is a FAIL
+             also red: 🔴 and the step exits 143
+             also red: 🔴 INT mid-step: FAIL
+             also red: 🔴 and the step exits 130
+  caught   M58: a signalled step exits 1, not the signal's code     (2 named check(s) went red)
+             red: 🔴 and the step exits 143
+             red: 🔴 and the step exits 130
+             also red: 🔴 and the step exits 143
+             also red: 🔴 and the step exits 130
+  caught   T1: 5e's to-zz2 cell back on $PKG3 (h1 -> h2)            (2 named check(s) went red)
+             red:   and, zz2 having no namespace, it stopped there (rc 2)
+             red: 🔴 and no cell reached the shared stubs either (no flow was attempted)
+             also red:   a named destination is the one the flow runs to
+             also red:   and, zz2 having no namespace, it stopped there (rc 2)
+             also red: 🔴 and no cell reached the shared stubs either (no flow was attempted)
+  caught   T2: 5e's default cell back on $PKG3 (h1 -> h3)           (2 named check(s) went red)
+             red:   stopping at the same refusal (rc 2)
+             red: 🔴 and no cell reached the shared stubs either (no flow was attempted)
+             also red:   and with none named it is the model's LAST host
+             also red:   stopping at the same refusal (rc 2)
+             also red: 🔴 and no cell reached the shared stubs either (no flow was attempted)
+  control  C3: a comment above the cell's verdict                   (stayed green, as it must)
+  control  C4: the cell's locals declared on two lines              (stayed green, as it must)
+
+baseline byte-identical: yes  live-p1/_common.sh  sha256 c2b544fd92402db785955678c33b43e388b1c5b0b4f76ba3d8c2fce338c843b0
+mutation gate: 59 mutations, 0 survived; 4 control(s), 0 went red
+guarded_build: exit 0
+# rc=0

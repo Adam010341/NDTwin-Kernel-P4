@@ -1,0 +1,7 @@
+# written BEFORE pushing pr/sudo-probe (27766535eb918701db5b8f8743cb648aa0b35133), 2026-09-28T11:17:40+08:00
+8 files: tools/test_workflow/sudo_surface.sh, doc/KNOWN-ISSUES.md (G-59), tests/shell/check_test_tmpdirs.py, lib_probe_stub.sh,
+and the sudo_surface / status_check suites and gates. No C++.
+- clang, TSan, ASan+UBSan: PASS.
+- GCC: PASS, the whole job (same as PR #12). L1 "L1 passed" with an empty FAILED list:
+  test_ndt_sudo_surface.sh PASS 55 and test_ndt_status_check_baseline.sh PASS 112. The measured case puts a fake sudo first on PATH,
+  so it never reaches the runner's sudo. check_test_tmpdirs is clean. test_known_issues_references.py PASS.

@@ -1,0 +1,2 @@
+gates extb5a curl -s --max-time 5 file:///home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/b-red-uAU8Xy/lt/tmp/live-p1-08-selftest-lipBhm/k2/ndt/get_graph_data
+gates extb5a curl -s --max-time 5 file:///home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tmp/b-red-uAU8Xy/lt/tmp/live-p1-08-selftest-lipBhm/k/ndt/get_graph_data

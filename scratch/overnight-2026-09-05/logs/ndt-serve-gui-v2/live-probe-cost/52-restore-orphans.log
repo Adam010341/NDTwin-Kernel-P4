@@ -1,0 +1,138 @@
+# 2026-10-01T17:11:21+08:00 ndt apps orphans
+  ok  no untracked app processes
+
+stack
+    stack: kernel=up dataplane=p4 bmv2=10 mininet=14 proxy=up verdict=whole-up
+    the stack is up. that is not residue -- 'apps orphans' is asked before a
+    teardown as well as after it.
+
+rules-in-window (nothing below is deleted)
+    lock  routing_lock free
+    lock  graph_lock free
+    lock  power_lock free
+          field (LockManager.hpp), and the kernel has no lock-status endpoint, so the
+          three lines above come from an acquire probe with ttl 0, which excludes nobody.
+    energy: no pidfile and no live process -- no window, so no rule can be dated
+        against it. NOT 'this app left nothing'. (G-12)
+  !!        and whether it ran here CANNOT BE ASKED: the helper keeps no log for energy
+  !!        ('/usr/local/sbin/ndtwin-lab energy-start' gives it no 'script -f', so its output only ever
+  !!        exists in a tmux pane). That is 'nobody could ask', not 'it never ran'.
+  sim    window 2026-09-12 04:09:14 -> 04:09:26 (window closed 1688516s ago; from /home/adam/Desktop/NDTwin-Kernel/.test_run/apps/sim.window)
+  !!        CANNOT WINDOW -- the P4 plane synthesises flow stats (proxy_agent/ryu_flow_stats.py) and they carry NO install time.
+  !!        every rule below is age=UNKNOWN and NONE is attributed to an app;
+  !!        this is the whole flow table, not a rules-in-window list. (W16-3, measured
+  !!        2026-09-07: a rule installed on P4 still read duration 0/0 32s later)
+  XX        rule  dpid=1 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:3"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=1 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:2"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=1 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:2"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=1 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:2"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=2 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:3"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=2 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:1"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=2 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:2"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=2 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:2"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=3 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:3"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=3 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:1"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=3 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:1"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=3 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:2"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=4 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:3"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=4 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:1"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=4 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:1"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=4 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:2"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=5 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:1"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=5 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:2"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=5 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:4"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=5 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:3"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=6 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:1"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=6 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:2"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=6 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:3"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=6 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:4"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=7 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:1"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=7 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:2"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=7 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:4"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=7 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:4"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=8 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:1"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=8 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:2"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=8 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:4"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=8 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:3"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=9 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:2"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=9 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:2"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=9 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:3"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=9 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:3"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=10 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:1"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=10 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:2"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=10 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:4"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=10 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:4"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        40 rule(s) listed: 0 dated inside the window,
+  XX        40 with age=UNKNOWN. the dated ones are SUSPECTED by time only -- a
+  XX        rule has no owner and its cookie is 0 everywhere, so anything installed
+  XX        in that window is listed, whoever installed it. an UNKNOWN one is not a
+  XX        finding at all: it is a rule this tool could not place.
+  nsr    window 2026-09-24 22:52:44 -> 22:52:57 (window closed 584305s ago; from /home/adam/Desktop/NDTwin-Kernel/.test_run/apps/nsr.window)
+  XX        rule  dpid=1 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:3"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=1 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:2"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=1 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:2"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=1 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:2"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=2 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:3"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=2 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:1"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=2 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:2"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=2 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:2"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=3 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:3"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=3 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:1"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=3 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:1"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=3 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:2"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=4 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:3"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=4 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:1"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=4 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:1"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=4 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:2"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=5 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:1"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=5 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:2"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=5 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:4"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=5 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:3"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=6 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:1"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=6 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:2"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=6 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:3"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=6 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:4"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=7 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:1"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=7 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:2"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=7 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:4"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=7 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:4"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=8 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:1"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=8 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:2"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=8 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:4"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=8 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:3"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=9 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:2"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=9 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:2"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=9 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:3"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=9 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:3"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=10 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:1"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=10 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:2"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=10 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:4"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        rule  dpid=10 table=0 pri=0 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:4"]  age=UNKNOWN (P4 plane: synthesised flow stats carry no install time)
+  XX        40 rule(s) listed: 0 dated inside the window,
+  XX        40 with age=UNKNOWN. the dated ones are SUSPECTED by time only -- a
+  XX        rule has no owner and its cookie is 0 everywhere, so anything installed
+  XX        in that window is listed, whoever installed it. an UNKNOWN one is not a
+  XX        finding at all: it is a rule this tool could not place.
+    viz: no pidfile and no live process -- no window, so no rule can be dated
+        against it. NOT 'this app left nothing'. (G-12)
+  !!        and its log is NOT empty, so it did run here: the window is LOST,
+  !!        not absent. rules it installed cannot be found by this tool.
+        (log read: /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/app_viz.log)
+    te: no pidfile and no live process -- no window, so no rule can be dated
+        against it. NOT 'this app left nothing'. (G-12)
+  !!        and its log is NOT empty, so it did run here: the window is LOST,
+  !!        not absent. rules it installed cannot be found by this tool.
+        (log read: /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/app_te.log)
+
+    NOT deleted, and nothing here deletes them.
+    a lock heals: it expires at its TTL and the next acquire is told it reclaimed it.
+    a rule does not: no TTL, no owner, no cleanup path. to remove one, by hand:
+      curl -s -X POST -H 'Content-Type: application/json' \
+        -d '{"dpid": <dpid>, "priority": <pri>, "match": <match>}' \
+        http://localhost:8000/ndt/delete_flow_entry
+    tally: 0 dated rule(s) in a window, 0 lock(s) held, 80 rule(s) that could not be dated, 2 question(s) not answerable
+    and 1 app(s) could not be asked whether they ran here at all: energy (no log channel exists for them -- see above)
+  !!  NOT CHECKED: the rules-in-window question could not be answered -- rc 5.
+  !!    this is not 'the network is clean'. see the lines above for which
+  !!    reading failed. (KNOWN-ISSUES G-12)
+orphans rc=5

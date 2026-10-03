@@ -1,0 +1,121 @@
+8d79dacd0e40e9ddd20d7c8e9af6185b4ef8e482
+porcelain-lines: 0
+# dir: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-spawn-traps-1001
+# sha256 519ebdc1bb9a545a58ac21d235e6b6a4efe09adc748f6cc927681dbaebefe55c  tests/shell/mutate_fixture_spawn_helpers.sh
+# tripwire lines before: 0
+# $ bash tests/shell/mutate_fixture_spawn_helpers.sh
+# started 2026-10-01T21:24:11+08:00
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/claude-1000/spawn-traps-1001.lock
+guarded_build: $ bash tests/shell/mutate_fixture_spawn_helpers.sh
+the judge, on synthetic runs:
+  ok       J1: a FAILED fixture line the summary does not count -> SURVIVED (1 FAILED line(s) printed, the summary counts 0: Ran 3 checks, 0 failed)
+  ok       J2: no summary line at all -> SURVIVED (rc 1, and no "Ran N checks" line at all)
+  ok       J3: rc 0 -> SURVIVED (rc 0)
+  ok       J4: a counted failure that is not the fixture's -> SURVIVED (no FAILED line names the fixture; Ran 2 checks, 1 failed)
+  ok       J5: the fixture's failure, counted -> caught (rc 1; Ran 2 checks, 1 failed; FAILED   fixture took argv0=x)
+  ok       J6: the fixture's failure, counted, but the fixture is still running -> SURVIVED (the fixture it gave up on is still running: pid 2209481)
+  ok       J7: gone-without-true timed out (rc 124), no summary -> rejected: SURVIVED (rc 124, and no "Ran N checks" line at all)
+  ok       J8: gone-without-true ended by errexit (rc 1), no summary -> accepted: SURVIVED (rc 1, and no "Ran N checks" line at all)
+  ok       J9: a fixture block whose read came up empty -> yes
+  ok       J10: a fixture block that read an argv0, "nothing readable" only in a later block -> no
+  ok       J11: the guard's FAILED line once, then rc 143 -> caught (rc 143; FAILED   spawn called outside this suite's own shell (BASHPID 9, suite 8): endin)
+  ok       J12: red with a summary, but no guard line -> SURVIVED (0 line(s) say the helper was called outside this suite's own shell, not 1; rc 1)
+  ok       J13: the guard's FAILED line once, but rc 1 -> SURVIVED (rc 1, not the 143 of the TERM the guard sends)
+  ok       J14: the guard's FAILED line once, rc 143, then a green summary -> SURVIVED (a green summary after the guard fired)
+
+1. every call site, read from the source
+  ok       orphans    spawn_fixture() called at 7 line(s), every one a plain call: 209 210 211 334 357 426 540
+  ok       liveness   spawn_fixture() called at 6 line(s), every one a plain call: 240 241 336 355 366 385
+  ok       sweep      spawn_fixture() called at 4 line(s), every one a plain call: 184 188 271 281
+  ok       window     spawn_fixture() called at 7 line(s), every one a plain call: 342 379 452 711 757 800 867 (inside the conditional block: 867)
+  ok       topo_pid   spawn() called at 3 line(s), every one a plain call: 125 130 137
+  ok       ovs_claim  spawn() called at 8 line(s), every one a plain call: 534 543 553 599 607 690 712 861
+  ok       down       spawn() called at 3 line(s), every one a plain call: 169 170 274
+
+2. each suite's unmutated copy: green, and one counted premise per call site
+3. then its helper made unable to recognise its fixture: NEVER (the poll's bound), GONE (/proc empty)
+4. and one call wrapped in ( ... ): SUBSHELL, which only the helper's own guard can catch
+  control  orphans    Ran 111 checks, all passed  (7s)
+  ok       orphans    7 fixture premise(s) counted in this shell, one per call site
+  caught   orphans    never    (rc 1; Ran 1 checks, 1 failed; FAILED   fixture took argv0=python3 /nonexistent/NDT-TEST-FIXTURE/Traffic-engine)  (30s)
+             its fixture FAILED line: FAILED   fixture took argv0=python3 /nonexistent/NDT-TEST-FIXTURE/Traffic-engineering-App.py
+             its last line:           Ran 1 checks, 1 failed
+  caught   orphans    gone     (rc 1; Ran 1 checks, 1 failed; FAILED   fixture took argv0=python3 /nonexistent/NDT-TEST-FIXTURE/Traffic-engine)  (30s)
+             its fixture FAILED line: FAILED   fixture took argv0=python3 /nonexistent/NDT-TEST-FIXTURE/Traffic-engineering-App.py
+             its last line:           Ran 1 checks, 1 failed
+  caught   orphans    subshell (rc 143; FAILED   spawn_fixture called outside this suite's own shell (BASHPID 2255165, s)  (0s)
+             its guard FAILED line: FAILED   spawn_fixture called outside this suite's own shell (BASHPID 2255165, suite 2255119): ending the run
+             its last line:             FAILED   spawn_fixture called outside this suite's own shell (BASHPID 2255165, suite 2255119): ending the ru
+  control  liveness   Ran 57 checks, all passed  (18s)
+  ok       liveness   6 fixture premise(s) counted in this shell, one per call site
+  caught   liveness   never    (rc 1; Ran 1 checks, 1 failed; FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/simulation_platform_ma)  (30s)
+             its fixture FAILED line: FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/simulation_platform_manager
+             its last line:           Ran 1 checks, 1 failed
+  caught   liveness   gone     (rc 1; Ran 1 checks, 1 failed; FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/simulation_platform_ma)  (30s)
+             its fixture FAILED line: FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/simulation_platform_manager
+             its last line:           Ran 1 checks, 1 failed
+  caught   liveness   subshell (rc 143; FAILED   spawn_fixture called outside this suite's own shell (BASHPID 2311497, s)  (0s)
+             its guard FAILED line: FAILED   spawn_fixture called outside this suite's own shell (BASHPID 2311497, suite 2311381): ending the run
+             its last line:             FAILED   spawn_fixture called outside this suite's own shell (BASHPID 2311497, suite 2311381): ending the ru
+  control  sweep      Ran 33 checks, all passed  (2s)
+  ok       sweep      4 fixture premise(s) counted in this shell, one per call site
+  caught   sweep      never    (rc 1; Ran 11 checks, 1 failed; FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/bin/simple_switch_grpc)  (30s)
+             its fixture FAILED line: FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/bin/simple_switch_grpc
+             its last line:           Ran 11 checks, 1 failed
+  caught   sweep      gone     (rc 1; Ran 11 checks, 1 failed; FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/bin/simple_switch_grpc)  (30s)
+             its fixture FAILED line: FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/bin/simple_switch_grpc
+             its last line:           Ran 11 checks, 1 failed
+  caught   sweep      subshell (rc 143; FAILED   spawn_fixture called outside this suite's own shell (BASHPID 2366083, s)  (0s)
+             its guard FAILED line: FAILED   spawn_fixture called outside this suite's own shell (BASHPID 2366083, suite 2366065): ending the run
+             its last line:             FAILED   spawn_fixture called outside this suite's own shell (BASHPID 2366083, suite 2366065): ending the ru
+  ok       sweep      gone-without-true survives as it must: SURVIVED (rc 1, and no "Ran N checks" line at all)  (1s)
+             its last line:           machine-wide scan (real ps, read-only)
+  control  window     Ran 157 checks, 0 failed  (20s)
+  ok       window     7 fixture premise(s) counted in this shell, one per call site
+  caught   window     never    (rc 1; Ran 28 checks, 1 failed; FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/simulation_platform_ma)  (31s)
+             its fixture FAILED line: FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/simulation_platform_manager
+             its last line:           Ran 28 checks, 1 failed
+  caught   window     gone     (rc 1; Ran 28 checks, 1 failed; FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/simulation_platform_ma)  (31s)
+             its fixture FAILED line: FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/simulation_platform_manager
+             its last line:           Ran 28 checks, 1 failed
+  caught   window     subshell (rc 143; FAILED   spawn_fixture called outside this suite's own shell (BASHPID 2424148, s)  (1s)
+             its guard FAILED line: FAILED   spawn_fixture called outside this suite's own shell (BASHPID 2424148, suite 2423162): ending the run
+             its last line:             FAILED   spawn_fixture called outside this suite's own shell (BASHPID 2424148, suite 2423162): ending the ru
+  control  topo_pid   Ran 61 checks, all passed (0 skipped)  (7s)
+  ok       topo_pid   3 fixture premise(s) counted in this shell, one per call site
+  caught   topo_pid   never    (rc 1; Ran 3 checks, 1 failed (0 skipped); FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/NDT-TEST-FIXTURE-topo.)  (30s)
+             its fixture FAILED line: FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/NDT-TEST-FIXTURE-topo.py
+             its last line:           Ran 3 checks, 1 failed (0 skipped)
+  caught   topo_pid   gone     (rc 1; Ran 3 checks, 1 failed (0 skipped); FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/NDT-TEST-FIXTURE-topo.)  (30s)
+             its fixture FAILED line: FAILED   fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/NDT-TEST-FIXTURE-topo.py
+             its last line:           Ran 3 checks, 1 failed (0 skipped)
+  caught   topo_pid   subshell (rc 143; FAILED   spawn called outside this suite's own shell (BASHPID 2465777, suite 246)  (1s)
+             its guard FAILED line: FAILED   spawn called outside this suite's own shell (BASHPID 2465777, suite 2465440): ending the run
+             its last line:             FAILED   spawn called outside this suite's own shell (BASHPID 2465777, suite 2465440): ending the run
+  control  ovs_claim  Ran 174 checks, 0 failed  (13s)
+  ok       ovs_claim  8 fixture premise(s) counted in this shell, one per call site
+  caught   ovs_claim  never    (rc 1; Ran 84 checks, 1 failed; FAILED   fixture took argv0=/tmp/ndt-ovs-claim-W3n8cC/network_traffic_visualizer)  (36s)
+             its fixture FAILED line: FAILED   fixture took argv0=/tmp/ndt-ovs-claim-W3n8cC/network_traffic_visualizer.sh
+             its last line:           Ran 84 checks, 1 failed
+  caught   ovs_claim  gone     (rc 1; Ran 84 checks, 1 failed; FAILED   fixture took argv0=/tmp/ndt-ovs-claim-qJl3ko/network_traffic_visualizer)  (36s)
+             its fixture FAILED line: FAILED   fixture took argv0=/tmp/ndt-ovs-claim-qJl3ko/network_traffic_visualizer.sh
+             its last line:           Ran 84 checks, 1 failed
+  caught   ovs_claim  subshell (rc 143; FAILED   spawn called outside this suite's own shell (BASHPID 2520157, suite 251)  (6s)
+             its guard FAILED line: FAILED   spawn called outside this suite's own shell (BASHPID 2520157, suite 2514630): ending the run
+             its last line:             FAILED   spawn called outside this suite's own shell (BASHPID 2520157, suite 2514630): ending the run
+  control  down       Ran 32 checks, 0 failed  (2s)
+  ok       down       3 fixture premise(s) counted in this shell, one per call site
+  caught   down       never    (rc 1; Ran 1 checks, 1 failed; FAILED   fixture took argv0=python3 /nonexistent/NDT-TEST-FIXTURE-NDT11-OURS/Tra)  (30s)
+             its fixture FAILED line: FAILED   fixture took argv0=python3 /nonexistent/NDT-TEST-FIXTURE-NDT11-OURS/Traffic-engineering-App.py
+             its last line:           ### FIXTURE 2522191 after kill: /proc/2522191 exists = no
+  caught   down       gone     (rc 1; Ran 1 checks, 1 failed; FAILED   fixture took argv0=python3 /nonexistent/NDT-TEST-FIXTURE-NDT11-OURS/Tra)  (30s)
+             its fixture FAILED line: FAILED   fixture took argv0=python3 /nonexistent/NDT-TEST-FIXTURE-NDT11-OURS/Traffic-engineering-App.py
+             its last line:           ### FIXTURE 2541987 after kill: /proc/2541987 exists = no
+  caught   down       subshell (rc 143; FAILED   spawn called outside this suite's own shell (BASHPID 2566592, suite 256)  (0s)
+             its guard FAILED line: FAILED   spawn called outside this suite's own shell (BASHPID 2566592, suite 2566572): ending the run
+             its last line:             FAILED   spawn called outside this suite's own shell (BASHPID 2566592, suite 2566572): ending the run
+
+21 mutation(s), 0 survivor(s); 0 control(s) whose premise count is not its call-site count
+guarded_build: exit 0
+# ended 2026-10-01T21:32:47+08:00; tripwire lines after: 0
+rc=0

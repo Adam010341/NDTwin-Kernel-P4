@@ -1,0 +1,1055 @@
+=== mutate_live_p1_thirteen
+baseline (must be green before any mutation):
+  Ran 46 checks, 0 failed
+
+  caught   M1: a correct skeleton arm is expected to fail           (2 named check(s) went red)
+             red:   a correct pair of arms passes
+             red: 🔴 neither arm of a correct pair wants a non-zero rc
+             also red:   a correct pair of arms passes
+             also red:   and says so
+             also red: 🔴 neither arm of a correct pair wants a non-zero rc
+             also red:   named as the red arm not being red
+             also red:   a want-0 arm is not asked for a RED ARM verdict
+             also red:   two exercises is four arms
+  caught   M2 (widening): every arm is expected to do whatever it did (2 named check(s) went red)
+             red: 🔴 a flowcache skeleton that exits 0 is the finding
+             red: 🔴 and one that exits 0 is the finding
+             also red:   named as the red arm not being red
+             also red: 🔴 a flowcache skeleton that exits 0 is the finding
+             also red:   because p4c was supposed to refuse it
+             also red: 🔴 and one that exits 0 is the finding
+             also red:   a round that never ran fails the step
+             also red:   and says it is not a result about the exercise
+  caught   M3: the designed-refusal arms lose their exception       (2 named check(s) went red)
+             red:   flowcache's skeleton is expected to exit 1
+             red:   basic_tunnel's skeleton is expected to exit 1 here
+             also red:   flowcache's skeleton is expected to exit 1
+             also red: 🔴 a flowcache skeleton that exits 0 is the finding
+             also red:   because p4c was supposed to refuse it
+             also red:   basic_tunnel's skeleton is expected to exit 1 here
+             also red: 🔴 and one that exits 0 is the finding
+             also red:   named as the refusal not having happened
+             also red:   and it says the red arm is not red
+             also red:   and is named as one
+  caught   M4 (widening): every skeleton may exit 1                 (1 named check(s) went red)
+             red:   a correct pair of arms passes
+             also red:   a correct pair of arms passes
+             also red:   and says so
+             also red: 🔴 neither arm of a correct pair wants a non-zero rc
+             also red:   named as the red arm not being red
+             also red:   a want-0 arm is not asked for a RED ARM verdict
+             also red:   two exercises is four arms
+  caught   M5: a round that never ran is reported like any other failure (1 named check(s) went red)
+             red:   and says it is not a result about the exercise
+             also red:   and says it is not a result about the exercise
+  caught   M6: the loop stops at the first failing arm (the instrument) (1 named check(s) went red)
+             red: 🔴 a failure does not stop the loop
+             also red: 🔴 a failure does not stop the loop
+  caught   M7: the set -u local hazard comes back                   (2 named check(s) went red)
+             red:   a correct pair of arms passes
+             red:   the table names each arm
+             also red:   a correct pair of arms passes
+             also red:   and says so
+             also red:   named as the red arm not being red
+             also red:   flowcache's skeleton is expected to exit 1
+             also red:   and the table carries the by-design verdict
+             also red:   because p4c was supposed to refuse it
+             also red:   basic_tunnel's skeleton is expected to exit 1 here
+             also red:   named as the refusal not having happened
+             also red:   and the verdict itself is quoted
+             also red:   and it says the red arm is not red
+             also red:   and is named as one
+             also red:   a want-0 arm is not asked for a RED ARM verdict
+             also red:   and says it is not a result about the exercise
+             also red:   two exercises is four arms
+             also red:   the table names each arm
+             also red:   with the verdict the driver printed
+             also red:   and the report path
+             also red:   the count is arms, not exercises
+             also red: 🔴 a failure does not stop the loop
+  caught   M8: rc 1 is accepted without a by-design verdict         (2 named check(s) went red)
+             red: 🔴 rc 1 with a NON-refusal verdict is the finding, not a pass
+             red: 🔴 same for basic_tunnel's entries actually installing
+             also red: 🔴 rc 1 with a NON-refusal verdict is the finding, not a pass
+             also red:   named as the refusal not having happened
+             also red: 🔴 same for basic_tunnel's entries actually installing
+             also red:   and it says the red arm is not red
+             also red: 🔴 a FAIL that merely mentions RED ARM is still a failure
+             also red:   and is named as one
+  caught   M9 (widening): every arm must print a RED ARM verdict    (2 named check(s) went red)
+             red:   a correct pair of arms passes
+             red:   a want-0 arm is not asked for a RED ARM verdict
+             also red:   a correct pair of arms passes
+             also red:   and says so
+             also red:   flowcache's skeleton is expected to exit 1
+             also red:   basic_tunnel's skeleton is expected to exit 1 here
+             also red:   a want-0 arm is not asked for a RED ARM verdict
+             also red:   two exercises is four arms
+  caught   M10: the by-design check becomes a substring match       (2 named check(s) went red)
+             red: 🔴 a FAIL that merely mentions RED ARM is still a failure
+             red:   and is named as one
+             also red: 🔴 a FAIL that merely mentions RED ARM is still a failure
+             also red:   and is named as one
+  caught   M11: 06 defaults NDT_OWNER to live-p1 again              (5 named check(s) went red)
+             red: 🔴 no NDT_OWNER is rc 2
+             red:   refused, saying what to set
+             red: 🔴 no round ran as a default owner
+             red:   and no verdict was reached
+             red: 🔴 and no run directory was made
+             also red: 🔴 no NDT_OWNER is rc 2
+             also red:   refused, saying what to set
+             also red:   and that nothing was started
+             also red: 🔴 no round ran as a default owner
+             also red:   and no verdict was reached
+             also red: 🔴 and no run directory was made
+  caught   M12: 06 records no venv fingerprint                      (1 named check(s) went red)
+             red: 🔴 the raw records the venv fingerprint of both interpreters
+             also red: 🔴 the raw records the venv fingerprint of both interpreters
+             also red:   the driver's interpreter among them
+             also red:   with protobuf's version and implementation
+             also red: 🔴 the raw records the code identity
+  caught   M13: 06 records no code identity                         (1 named check(s) went red)
+             red: 🔴 the raw records the code identity
+             also red: 🔴 the raw records the code identity
+  control  C1: a comment above expected_rc                          (stayed green, as it must)
+
+baseline byte-identical: yes  live-p1/06_thirteen.sh  sha256 6c28fefa30ad162844ca476c118385b9e824fd7879c52ed1392a8b79aac10ac0
+mutation gate: 13 mutations, 0 survived; 1 control(s), 0 went red
+# rc=0
+=== mutate_ndt_app_package
+baseline (must be green before any mutation):
+  Ran 404 checks, 0 failed
+
+  caught   M1: a FAILED pre-flight is built anyway                  (1 named check(s) went red)
+             red: 🔴 the knob was NOT written
+             also red: 🔴 rc 5 -- a GUARD REFUSED and nothing was built
+             also red:   it says so
+             also red: 🔴 the knob was NOT written
+             also red:   and the refusal SAYS the knob is unchanged
+             also red: 🔴 NOTHING on the machine was reached
+             also red:   and no up.target was recorded
+             also red: 🔴 a FAILED pre-flight leaves the telemetry knob alone
+  caught   M2 (widening): the splitter rule is applied to packages  (1 named check(s) went red)
+             red: 🔴 a three-host package is built, not refused
+             also red: 🔴 a three-host package is built, not refused
+             also red:   and the knob names it
+             also red: 🔴 host_count_override is 3, which the splitter rule forbids
+             also red:   and the mode reached verify_p4
+             also red:   and the package path takes it
+             also red: 🔴 an external plane on its own pipeline expects no path
+             also red:   nor a shortfall --check problem
+             also red: 🔴 a nonzero count on an external plane is flagged
+             also red: 🔴 and is a --check problem
+             also red:   zero paths on an external plane: the designed answer
+             also red: 🔴 and says they are a reading
+             also red: 🔴 and --check does NOT call the fabric broken
+  caught   M3: a baseline 'ndt up p4' keeps somebody's package      (1 named check(s) went red)
+             red: 🔴 'ndt up p4 4' with no --app clears it
+             also red: 🔴 'ndt up p4 4' with no --app clears it
+             also red:   and names what it removed
+  caught   M4: the teardown side leaves the knob behind             (1 named check(s) went red)
+             red: 🔴 'ndt down' clears it
+             also red: 🔴 'ndt down' clears it
+             also red:   and names what it removed
+             also red: 🔴 'ndt clean' clears it
+             also red:   and names what it removed
+             also red: 🔴 'ndt down' removes an empty knob too
+             also red:   saying what that state was
+  caught   M5: the bring-up stops calling sudo (the instrument)     (1 named check(s) went red)
+             red: 🔴 and the machine WAS reached -- the instrument can read non-zero
+             also red: 🔴 a package that passes pre-flight comes up
+             also red: 🔴 and the knob names it
+             also red: 🔴 the line is absolute
+             also red:   and it carries the note saying who wrote it
+             also red:   the note is a comment, so the reader skips it
+             also red:   the kernel is handed the package's model
+             also red:   and so is verify_p4
+             also red:   which is told the control-plane mode
+             also red: 🔴 and the machine WAS reached -- the instrument can read non-zero
+             also red: 🔴 a three-host package is built, not refused
+             also red:   and the knob names it
+             also red: 🔴 host_count_override is 3, which the splitter rule forbids
+             also red:   and the mode reached verify_p4
+             also red: after a write the knob names a package
+             also red:   NDT_TOPO pointed at the package is fine
+             also red:   and says so
+             also red: 🔴 the PROXY's own last words are printed
+             also red:   named as the proxy's log
+             also red:   with no proxy log, the absence is reported
+             also red:   and says so
+             also red: 🔴 labelled as possibly the PREVIOUS round's
+             also red:   a foreign-pipeline package comes up and writes the knob
+             also red: 🔴 and the pipeline question is then answered off the knob
+             also red:   the foreign package is the knob cmd_status will read
+             also red: 🔴 the whole report says the rate is n/a
+             also red: 🔴 and never prints the built json's number
+             also red:   the source row names the dpid and the file
+             also red: 🔴 --check does not raise the stale-pipeline problem
+             also red:   nor any problem about the compiled rate
+             also red:   and --check exits 0 over a healthy package fabric
+             also red: 🔴 up_p4 passes the package's pipeline kind on
+             also red:   an all-NDTwin package passes 'ndtwin'
+             also red: 🔴 and a baseline round passes no kind at all
+             also red: 🔴 a package fabric is told the count is not a reading
+             also red:   naming the dpid and the step the proxy skipped
+             also red: 🔴 and the shortfall is NOT a --check problem
+             also red:   so --check still exits 0
+             also red: 🔴 an external plane on its own pipeline expects no path
+             also red:   nor a shortfall --check problem
+             also red: 🔴 a nonzero count on an external plane is flagged
+             also red: 🔴 and is a --check problem
+             also red:   zero paths on an external plane: the designed answer
+             also red: 🔴 and says they are a reading
+             also red: 🔴 and --check does NOT call the fabric broken
+             also red:   and the app package
+             also red: 🔴 auto over a mixed package splits switch by switch
+             also red: 🔴 only the links that ask for shaping are listed
+             also red:   including one that asks only for delay
+  caught   M6: the switch count stays at the literal 10             (1 named check(s) went red)
+             red:   the switch count came from the model too
+             also red:   the banner names the package and its mode
+             also red:   the switch count came from the model too
+             also red:   and says how far it got
+  caught   M7: the hardcoded ping pair comes back                   (1 named check(s) went red)
+             red: ndtwin mode pings the pair the model names
+             also red: ndtwin mode pings the pair the model names
+             also red:   and still pings through verify_dataplane
+             also red:   and still pings through verify_dataplane
+             also red:   and still pings through verify_dataplane
+             also red:   and still pings through verify_dataplane
+  caught   M8: external mode is judged by NDTwin's own routes       (1 named check(s) went red)
+             red: 🔴 and NAMES the path count as not checked
+             also red: 🔴 external mode still ends green
+             also red: 🔴 and NAMES the path count as not checked
+             also red:   saying what would have to run first
+             also red: 🔴 and that the fabric is EMPTY, under an unchanged verdict word
+             also red: 🔴 external outranks foreign, and is unchanged
+             also red:   the external sentence, not the package one
+             also red:   and the EMPTY caveat
+             also red: 🔴 an external fabric with 0 up is GREEN
+             also red: 🔴 because the probe is what was gated
+             also red:   and it says why none of them has a pipeline
+             also red:   the verdict word is unchanged
+             also red: 🔴 and NOTHING calls the fabric broken
+             also red:   naming the dpid
+             also red:   naming the dpid and what it said
+             also red:   and says which question went unanswered
+             also red: 🔴 after the bounded re-read, not one look
+             also red: 🔴 a probe that lands on the third read is GREEN
+             also red:   and the fabric is reported as answered
+             also red: 🔴 which took exactly three reads
+             also red:   and says the question could not be asked
+             also red:   and why that is a failure
+             also red:   three switches already carrying a program pass
+             also red: 🔴 and the line says so instead of 'by design'
+  caught   M9 (widening): rollback clears any knob it finds         (1 named check(s) went red)
+             red: 🔴 but NOT one this run did not write
+             also red: 🔴 but NOT one this run did not write
+  caught   M10: NDT_TOPO may disagree with the package              (1 named check(s) went red)
+             red: 🔴 NDT_TOPO naming another model is refused
+             also red: 🔴 NDT_TOPO naming another model is refused
+             also red:   naming both files
+             also red:   and nothing was written
+             also red: 🔴 so is NDTWIN_P4_TOPO_FILE -- the proxy's own override
+  caught   M11: a missing package directory is no longer a problem  (1 named check(s) went red)
+             red:   and --check has a problem to exit 1 on
+             also red:   and --check has a problem to exit 1 on
+  caught   M12: 'ndt up ovs 4' keeps somebody's package             (1 named check(s) went red)
+             red: 🔴 'ndt up ovs 4' clears it as well
+             also red: 🔴 'ndt up ovs 4' clears it as well
+             also red:   and names what it removed
+             also red:   saying it is this plane that does not use one
+  caught   M13: an empty --app value silently means baseline        (1 named check(s) went red)
+             red: 🔴 --app= with an empty value is a usage error
+             also red: 🔴 --app= with an empty value is a usage error
+             also red:   and says why an empty value is not the default
+             also red: 🔴 so is --app with an empty argument
+             also red:   the real dispatch refuses it too
+  caught   M14: the proxy's own last words are not printed          (1 named check(s) went red)
+             red: 🔴 the PROXY's own last words are printed
+             also red: 🔴 the PROXY's own last words are printed
+             also red:   named as the proxy's log
+             also red:   with no proxy log, the absence is reported
+  caught   M15: the bridge's own last words are not printed         (1 named check(s) went red)
+             red: 🔴 the BRIDGE's own last words are printed
+             also red: 🔴 the BRIDGE's own last words are printed
+             also red:   named as the topology log
+             also red: 🔴 the cause is printed ABOVE the rollback
+             also red:   with no topology log, the absence is reported
+             also red: 🔴 the same tail on a bring-up with NO package
+  caught   M16: the cause is printed underneath the rollback        (1 named check(s) went red)
+             red: 🔴 the cause is printed ABOVE the rollback
+             also red: 🔴 the cause is printed ABOVE the rollback
+  caught   M17: a refused topo-start says nothing about the bridge  (1 named check(s) went red)
+             red: 🔴 the topology log is printed here too
+             also red: 🔴 the topology log is printed here too
+             also red: 🔴 labelled as possibly the PREVIOUS round's
+  caught   M18: the switch count comes off the global ten again     (1 named check(s) went red)
+             red: 🔴 a 4-switch package makes the want 4, not 10
+             also red: 🔴 a 4-switch package makes the want 4, not 10
+             also red: 🔴 the literal ten is gone
+             also red:   and so is is_enabled=4/10
+             also red:   naming the model's number as the want
+             also red:   and says the check did not run
+             also red: 🔴 an external fabric with 0 up is GREEN
+             also red:   the verdict word is unchanged
+             also red: 🔴 and NOTHING calls the fabric broken
+             also red: 🔴 verify_p4_graph under external is green at 0 up
+             also red: 🔴 and up/enabled are named a READING
+             also red: 🔴 BOTH numbers, because it took the pair to see it
+             also red:   naming both numbers
+             also red:   and three under three passes
+             also red:   in the words it always had
+             also red: 🔴 a probe that lands on the third read is GREEN
+             also red:   three switches already carrying a program pass
+  caught   M19: a package pipeline is given the built json's rate   (2 named check(s) went red)
+             red: 🔴 a package pipeline has no rate here
+             red: 🔴 the whole report says the rate is n/a
+             also red: 🔴 a package pipeline has no rate here
+             also red: 🔴 and the built json's number is NOT printed for it
+             also red:   the source row names the dpid
+             also red:   and which file is not what those switches loaded
+             also red:   two foreign switches are both named
+             also red: 🔴 the whole report says the rate is n/a
+             also red: 🔴 and never prints the built json's number
+             also red:   the source row names the dpid and the file
+  caught   M20: a foreign pipeline is judged stale after all        (2 named check(s) went red)
+             red: 🔴 a foreign pipeline is never stale
+             red: 🔴 --check does not raise the stale-pipeline problem
+             also red: 🔴 a foreign pipeline is never stale
+             also red: 🔴 --check does not raise the stale-pipeline problem
+             also red:   and --check exits 0 over a healthy package fabric
+             also red:   so --check still exits 0
+  caught   M21: an unparsable package reads as NDTwin's own pipeline (1 named check(s) went red)
+             red: 🔴 a package that will not load is 'unreadable', NOT 'ndtwin'
+             also red: 🔴 a package that will not load is 'unreadable', NOT 'ndtwin'
+  caught   M22: per-switch pipelines are not consulted at all       (1 named check(s) went red)
+             red: 🔴 one switch on somebody else's program names the dpid
+             also red: 🔴 one switch on somebody else's program names the dpid
+             also red: 🔴 and the pipeline question is then answered off the knob
+             also red: 🔴 the whole report says the rate is n/a
+             also red: 🔴 and never prints the built json's number
+             also red:   the source row names the dpid and the file
+             also red: 🔴 --check does not raise the stale-pipeline problem
+             also red:   nor any problem about the compiled rate
+             also red:   and --check exits 0 over a healthy package fabric
+             also red: 🔴 up_p4 passes the package's pipeline kind on
+             also red: 🔴 a package fabric is told the count is not a reading
+             also red:   naming the dpid and the step the proxy skipped
+             also red: 🔴 and the shortfall is NOT a --check problem
+             also red:   so --check still exits 0
+             also red: 🔴 an external plane on its own pipeline expects no path
+             also red:   nor a shortfall --check problem
+             also red: 🔴 a nonzero count on an external plane is flagged
+             also red: 🔴 and is a --check problem
+             also red:   zero paths on an external plane: the designed answer
+  caught   M23: a foreign pipeline raises the built json's rate problems (2 named check(s) went red)
+             red: 🔴 a foreign pipeline raises none of the rate problems
+             red:   nor any problem about the compiled rate
+             also red: 🔴 a foreign pipeline raises none of the rate problems
+             also red:   not even the OVS ones
+             also red:   nor any problem about the compiled rate
+             also red:   and --check exits 0 over a healthy package fabric
+             also red:   so --check still exits 0
+  caught   M24: 'NOT CHECKED' without asking the proxy at all       (4 named check(s) went red)
+             red: 🔴 a proxy that did NOT skip discovery is red
+             red: 🔴 an endpoint with no control_plane is red too
+             red: 🔴 'skipped: null' is NOT 'nothing was skipped'
+             red:   saying which question went unanswered
+             also red:   and quoting what the proxy said it skipped
+             also red: 🔴 a proxy that did NOT skip discovery is red
+             also red:   and says the expectation was not confirmed
+             also red:   quoting the list that does not name it
+             also red:   under the unverified verdict
+             also red: 🔴 an endpoint with no control_plane is red too
+             also red:   and says the proxy gave no skipped list
+             also red: 🔴 'skipped: null' is NOT 'nothing was skipped'
+             also red:   saying which question went unanswered
+  caught   M24c: an unanswerable endpoint is quoted as having answered (1 named check(s) went red)
+             red:   and says the proxy gave no skipped list
+             also red:   and says the proxy gave no skipped list
+             also red:   saying which question went unanswered
+  caught   M24b (widening): any skip list at all is enough          (1 named check(s) went red)
+             red: 🔴 a proxy that did NOT skip discovery is red
+             also red: 🔴 a proxy that did NOT skip discovery is red
+             also red:   and says the expectation was not confirmed
+             also red:   quoting the list that does not name it
+             also red:   under the unverified verdict
+  caught   M25: refused table entries no longer fail the bring-up   (2 named check(s) went red)
+             red: 🔴 refusals are red even when the counts add up
+             red: 🔴 and not the counts-disagree sentence, which is a different fault
+             also red: 🔴 and not the counts-disagree sentence, which is a different fault
+             also red: 🔴 refusals are red even when the counts add up
+             also red:   naming the refused count and the dpid
+  caught   M26: a package fabric is failed for not forwarding       (1 named check(s) went red)
+             red: 🔴 a silent data plane does NOT fail a package fabric
+             also red: 🔴 a silent data plane does NOT fail a package fabric
+             also red:   it is reported as a reading
+             also red:   naming the program it is a reading of
+             also red:   and saying who judges it
+             also red:   the verdict is still ready
+             also red:   an unanswerable ping is still NOT tested
+  caught   M27: a package pipeline is reported as an external plane (2 named check(s) went red)
+             red:   naming the dpids the package's program is on
+             red: 🔴 the entries the proxy applied are reported
+             also red:   naming the dpids the package's program is on
+             also red:   and quoting what the proxy said it skipped
+             also red: 🔴 a proxy that did NOT skip discovery is red
+             also red:   and says the expectation was not confirmed
+             also red:   quoting the list that does not name it
+             also red:   under the unverified verdict
+             also red: 🔴 an endpoint with no control_plane is red too
+             also red:   and says the proxy gave no skipped list
+             also red: 🔴 'skipped: null' is NOT 'nothing was skipped'
+             also red:   saying which question went unanswered
+             also red: 🔴 the entries the proxy applied are reported
+             also red: 🔴 one refused entry fails the bring-up
+             also red:   naming how many, of how many, on which dpid
+             also red:   naming the refused count and the dpid
+             also red: 🔴 applied < recorded with 0 failed is red too
+             also red:   and says the counts themselves disagree
+             also red:   because an unchecked gate is not a passed one
+             also red:   a package with no entries at all is NOT red
+             also red:   but is told that nothing will forward
+             also red:   switches carrying different counts still pass
+             also red: 🔴 and the totals say so in a different word
+  caught   M28: status wants paths nobody was ever going to install (2 named check(s) went red)
+             red: 🔴 a package fabric is told the count is not a reading
+             red: 🔴 and the shortfall is NOT a --check problem
+             also red: 🔴 a package fabric is told the count is not a reading
+             also red:   naming the dpid and the step the proxy skipped
+             also red: 🔴 and the shortfall is NOT a --check problem
+             also red:   so --check still exits 0
+             also red: 🔴 an external plane on its own pipeline expects no path
+             also red:   nor a shortfall --check problem
+             also red: 🔴 a nonzero count on an external plane is flagged
+             also red: 🔴 and is a --check problem
+             also red:   zero paths on an external plane: the designed answer
+  caught   M28b: an external plane's no-path row is read as a guess (1 named check(s) went red)
+             red: 🔴 an external plane on its own pipeline expects no path
+             also red: 🔴 an external plane on its own pipeline expects no path
+             also red:   and does not call its count the twin's guess
+             also red: 🔴 a nonzero count on an external plane is flagged
+             also red: 🔴 and is a --check problem
+             also red:   so --check exits 1 on it
+             also red:   zero paths on an external plane: the designed answer
+  caught   M28c: a path count on an external plane is not flagged   (2 named check(s) went red)
+             red: 🔴 a nonzero count on an external plane is flagged
+             red: 🔴 and is a --check problem
+             also red: 🔴 a nonzero count on an external plane is flagged
+             also red: 🔴 and is a --check problem
+             also red:   so --check exits 1 on it
+  caught   M29: the bring-up stops passing the pipeline kind on     (1 named check(s) went red)
+             red: 🔴 up_p4 passes the package's pipeline kind on
+             also red: 🔴 up_p4 passes the package's pipeline kind on
+             also red:   an all-NDTwin package passes 'ndtwin'
+  caught   M30: entries that vanished between recorded and applied are fine (1 named check(s) went red)
+             red: 🔴 applied < recorded with 0 failed is red too
+             also red: 🔴 applied < recorded with 0 failed is red too
+             also red:   and says the counts themselves disagree
+  caught   M31: a missing entry count is read as zero entries       (1 named check(s) went red)
+             red: 🔴 a switch that reports no table_entries is red
+             also red: 🔴 a switch that reports no table_entries is red
+             also red:   because an unchecked gate is not a passed one
+  caught   M32: the ready line loses the paragraph that qualifies it (1 named check(s) went red)
+             red: 🔴 and the caveat says what NDTwin did not do
+             also red: 🔴 and the caveat says what NDTwin did not do
+  caught   M33: an unreadable package is treated as somebody else's pipeline (1 named check(s) went red)
+             red:   pipeline kind 'unreadable' still counts paths
+             also red:   pipeline kind 'none' still counts paths
+             also red:   and still pings through verify_dataplane
+             also red:   and says nothing about a package pipeline
+             also red:   pipeline kind 'unreadable' still counts paths
+             also red:   and still pings through verify_dataplane
+             also red:   and says nothing about a package pipeline
+  caught   M34: the live defect -- a package fabric is counted after all (4 named check(s) went red)
+             red: 🔴 a package pipeline ends ready, not 'never settled'
+             red: 🔴 it does NOT count paths and call four of twelve a failure
+             red: 🔴 and NAMES the package fabric's path count as not checked
+             red: 🔴 the entries the proxy applied are reported
+             also red: 🔴 a package pipeline ends ready, not 'never settled'
+             also red: 🔴 and NAMES the package fabric's path count as not checked
+             also red:   naming the dpids the package's program is on
+             also red:   and quoting what the proxy said it skipped
+             also red: 🔴 it does NOT count paths and call four of twelve a failure
+             also red:   the verdict word is the same one
+             also red:   with the entry points under it
+             also red: 🔴 and the caveat says what NDTwin did not do
+             also red:   and says the expectation was not confirmed
+             also red:   quoting the list that does not name it
+             also red:   and says the proxy gave no skipped list
+             also red:   saying which question went unanswered
+             also red: 🔴 the entries the proxy applied are reported
+             also red:   naming how many, of how many, on which dpid
+             also red:   naming the refused count and the dpid
+             also red:   and says the counts themselves disagree
+             also red:   because an unchecked gate is not a passed one
+             also red:   a package with no entries at all is NOT red
+             also red:   but is told that nothing will forward
+             also red:   switches carrying different counts still pass
+             also red: 🔴 and the totals say so in a different word
+             also red: 🔴 a silent data plane does NOT fail a package fabric
+             also red:   the verdict is still ready
+             also red:   and does not fail the bring-up either
+  caught   M35: the entries gate's verdict is ignored               (4 named check(s) went red)
+             red: 🔴 one refused entry fails the bring-up
+             red: 🔴 applied < recorded with 0 failed is red too
+             red: 🔴 a switch that reports no table_entries is red
+             red: 🔴 refusals are red even when the counts add up
+             also red: 🔴 one refused entry fails the bring-up
+             also red: 🔴 refusals are red even when the counts add up
+             also red: 🔴 applied < recorded with 0 failed is red too
+             also red: 🔴 a switch that reports no table_entries is red
+  caught   M36: external is judged on 'N up' again (the lottery)    (3 named check(s) went red)
+             red: 🔴 an external fabric with 0 up is GREEN
+             red: 🔴 verify_p4_graph under external is green at 0 up
+             red: 🔴 and up/enabled are named a READING
+             also red: 🔴 an external fabric with 0 up is GREEN
+             also red:   the verdict word is unchanged
+             also red: 🔴 and NOTHING calls the fabric broken
+             also red: 🔴 verify_p4_graph under external is green at 0 up
+             also red:   the switch COUNT is still reported as a gate
+             also red: 🔴 and up/enabled are named a READING
+             also red: 🔴 BOTH numbers, because it took the pair to see it
+             also red:   naming the policy that decides it
+             also red:   and what would change it
+             also red:   naming both numbers
+             also red:   and three under three passes
+             also red: 🔴 a probe that lands on the third read is GREEN
+             also red:   three switches already carrying a program pass
+  caught   M37: the probe gate's verdict is ignored                 (3 named check(s) went red)
+             red: 🔴 a switch that could not be reached is red
+             red: 🔴 a dpid the proxy never built a client for is red
+             red: 🔴 a probe that never completes is red, not green
+             also red: 🔴 a dpid the proxy never built a client for is red
+             also red:   and the bring-up is not verified
+             also red: 🔴 a switch that could not be reached is red
+             also red: 🔴 a probe that never completes is red, not green
+             also red: 🔴 an unreadable switch_state is RED, not a pass
+  caught   M38: a switch with no program counts as unreachable      (2 named check(s) went red)
+             red: 🔴 an external fabric with 0 up is GREEN
+             red: 🔴 because the probe is what was gated
+             also red: 🔴 external mode still ends green
+             also red: 🔴 and that the fabric is EMPTY, under an unchanged verdict word
+             also red: 🔴 external outranks foreign, and is unchanged
+             also red:   and the EMPTY caveat
+             also red: 🔴 an external fabric with 0 up is GREEN
+             also red: 🔴 because the probe is what was gated
+             also red:   and it says why none of them has a pipeline
+             also red:   the verdict word is unchanged
+             also red: 🔴 and NOTHING calls the fabric broken
+             also red: 🔴 a probe that lands on the third read is GREEN
+             also red:   and the fabric is reported as answered
+  caught   M39 (widening): external asserts nothing about the graph (1 named check(s) went red)
+             red: 🔴 two switches under a three-switch model still FAILS
+             also red: 🔴 two switches under a three-switch model still FAILS
+             also red:   naming both numbers
+  caught   M40: the probe is read once, not up to five times        (2 named check(s) went red)
+             red: 🔴 a probe that lands on the third read is GREEN
+             red: 🔴 which took exactly three reads
+             also red: 🔴 after the bounded re-read, not one look
+             also red: 🔴 a probe that lands on the third read is GREEN
+             also red:   and the fabric is reported as answered
+             also red: 🔴 which took exactly three reads
+  caught   M41 (widening): an unanswered probe counts as answered   (2 named check(s) went red)
+             red: 🔴 a probe that never completes is red, not green
+             red:   and says which question went unanswered
+             also red: 🔴 a probe that never completes is red, not green
+             also red:   and says which question went unanswered
+  caught   M42: --check reports an external fabric as down          (2 named check(s) went red)
+             red: 🔴 and --check does NOT call the fabric broken
+             red: 🔴 and says they are a reading
+             also red: 🔴 and says they are a reading
+             also red: 🔴 and --check does NOT call the fabric broken
+  caught   M43 (widening): every plane gets the liveness reading    (2 named check(s) went red)
+             red: 🔴 the SAME graph on the baseline path is still red
+             red:   in the words it always had
+             also red:   and says so positively
+             also red:   naming the model's number as the want
+             also red:   and says ten
+             also red:   naming ten as the want
+             also red: 🔴 the SAME graph on the baseline path is still red
+             also red:   in the words it always had
+             also red:   and says nothing about a reading
+  caught   M44 (widening): no fabric is ever reported as down       (3 named check(s) went red)
+             red: 🔴 while an NDTwin-pipeline fabric with 0 up IS a problem
+             red:   and gets no reading line
+             red:   and so is the baseline fabric with no package
+             also red: 🔴 while an NDTwin-pipeline fabric with 0 up IS a problem
+             also red:   and gets no reading line
+             also red:   and so is the baseline fabric with no package
+  caught   M45: an unreadable switch_state passes the probe gate    (1 named check(s) went red)
+             red: 🔴 an unreadable switch_state is RED, not a pass
+             also red: 🔴 an unreadable switch_state is RED, not a pass
+  caught   M46: an uncountable model passes the probe gate          (1 named check(s) went red)
+             red: 🔴 a model whose dpids cannot be read is RED too
+             also red: 🔴 a model whose dpids cannot be read is RED too
+  caught   M47: the bring-up stops telling the graph check the mode (1 named check(s) went red)
+             red: 🔴 an external fabric with 0 up is GREEN
+             also red: 🔴 an external fabric with 0 up is GREEN
+             also red:   the verdict word is unchanged
+             also red: 🔴 and NOTHING calls the fabric broken
+             also red: 🔴 a probe that lands on the third read is GREEN
+             also red:   three switches already carrying a program pass
+  control  C1: app_knob_clear's early return, written the long way  (stayed green, as it must)
+  control  C2: --app=<dir> stripped by offset instead of prefix     (stayed green, as it must)
+  caught   M48: --telemetry never reaches the knob                  (3 named check(s) went red)
+             red: 🔴 the flag is what lands in the knob
+             red: 🔴 and the flag outranks the package
+             red: 🔴 the start_bg fingerprint carries the telemetry source
+             also red: 🔴 the flag is what lands in the knob
+             also red:   and the bring-up says so on its own banner
+             also red: 🔴 and the flag outranks the package
+             also red: 🔴 the start_bg fingerprint carries the telemetry source
+  caught   M49 (widening): no flag means auto, overruling the package (1 named check(s) went red)
+             red: 🔴 with no flag the PACKAGE decides
+             also red: 🔴 a package that passes pre-flight comes up
+             also red:   the kernel is handed the package's model
+             also red:   and so is verify_p4
+             also red:   which is told the control-plane mode
+             also red: 🔴 and the machine WAS reached -- the instrument can read non-zero
+             also red: 🔴 a three-host package is built, not refused
+             also red: 🔴 host_count_override is 3, which the splitter rule forbids
+             also red:   and the mode reached verify_p4
+             also red:   NDT_TOPO pointed at the package is fine
+             also red:   and says so
+             also red: 🔴 the PROXY's own last words are printed
+             also red:   named as the proxy's log
+             also red:   and the bring-up was rolled back
+             also red: 🔴 the knob THIS run wrote does not outlive it
+             also red:   saying why it went
+             also red:   with no proxy log, the absence is reported
+             also red:   and says how far it got
+             also red: 🔴 the BRIDGE's own last words are printed
+             also red:   named as the topology log
+             also red:   the pane is still offered for the live case
+             also red:   and the bring-up was rolled back
+             also red: 🔴 the knob THIS run wrote does not outlive it
+             also red: 🔴 the cause is printed ABOVE the rollback
+             also red:   with no topology log, the absence is reported
+             also red: 🔴 the same tail on a bring-up with NO package
+             also red:   and says so
+             also red: 🔴 the topology log is printed here too
+             also red: 🔴 labelled as possibly the PREVIOUS round's
+             also red:   and the bring-up was rolled back
+             also red: 🔴 up_p4 passes the package's pipeline kind on
+             also red:   an all-NDTwin package passes 'ndtwin'
+             also red: 🔴 and a baseline round passes no kind at all
+             also red: 🔴 with no flag the PACKAGE decides
+             also red:   and the banner says which state that is
+             also red: 🔴 a stale knob does NOT survive a bring-up that asked for nothing
+             also red:   and the removal is said out loud
+             also red:   naming the word and the four it accepts
+  caught   M50: an unknown declared source falls back to auto       (2 named check(s) went red)
+             red: 🔴 a package declaring a word nobody knows refuses
+             red:   naming the word and the four it accepts
+             also red: 🔴 a package declaring a word nobody knows refuses
+             also red:   naming the word and the four it accepts
+             also red:   and no fabric was started
+  caught   M51: a bring-up that asked for nothing leaves the last round's word (1 named check(s) went red)
+             red: 🔴 a stale knob does NOT survive a bring-up that asked for nothing
+             also red: 🔴 a package that passes pre-flight comes up
+             also red:   the kernel is handed the package's model
+             also red:   and so is verify_p4
+             also red:   which is told the control-plane mode
+             also red: 🔴 and the machine WAS reached -- the instrument can read non-zero
+             also red: 🔴 a three-host package is built, not refused
+             also red: 🔴 host_count_override is 3, which the splitter rule forbids
+             also red:   and the mode reached verify_p4
+             also red:   NDT_TOPO pointed at the package is fine
+             also red:   and says so
+             also red: 🔴 the PROXY's own last words are printed
+             also red:   named as the proxy's log
+             also red:   and the bring-up was rolled back
+             also red: 🔴 the knob THIS run wrote does not outlive it
+             also red:   saying why it went
+             also red:   with no proxy log, the absence is reported
+             also red:   and says how far it got
+             also red: 🔴 the BRIDGE's own last words are printed
+             also red:   named as the topology log
+             also red:   the pane is still offered for the live case
+             also red:   and the bring-up was rolled back
+             also red: 🔴 the knob THIS run wrote does not outlive it
+             also red: 🔴 the cause is printed ABOVE the rollback
+             also red:   with no topology log, the absence is reported
+             also red: 🔴 the same tail on a bring-up with NO package
+             also red:   and says so
+             also red: 🔴 the topology log is printed here too
+             also red: 🔴 labelled as possibly the PREVIOUS round's
+             also red:   and the bring-up was rolled back
+             also red: 🔴 up_p4 passes the package's pipeline kind on
+             also red:   an all-NDTwin package passes 'ndtwin'
+             also red: 🔴 and a baseline round passes no kind at all
+             also red: 🔴 with no flag the PACKAGE decides
+             also red:   and the banner says which state that is
+             also red: 🔴 a stale knob does NOT survive a bring-up that asked for nothing
+             also red:   and the removal is said out loud
+  caught   M72: applying auto writes a file instead of removing one (2 named check(s) went red)
+             red:   a package that declares nothing leaves no knob
+             red: 🔴 a stale knob does NOT survive a bring-up that asked for nothing
+             also red:   a package that declares nothing leaves no knob
+             also red:   and so does the baseline fabric
+             also red: 🔴 a stale knob does NOT survive a bring-up that asked for nothing
+             also red:   and the removal is said out loud
+             also red:   --telemetry auto clears it too
+  caught   M52: a refused bring-up has already chosen a source      (1 named check(s) went red)
+             red: 🔴 a FAILED pre-flight leaves the telemetry knob alone
+             also red: 🔴 a FAILED pre-flight leaves the telemetry knob alone
+  caught   M53: --telemetry= is read as 'no flag'                   (1 named check(s) went red)
+             red:   saying why an empty value is not 'no flag'
+             also red:   saying why an empty value is not 'no flag'
+  caught   M54: any word is accepted as a telemetry source          (1 named check(s) went red)
+             red: 🔴 a word that is not a source is a usage error
+             also red: 🔴 a word that is not a source is a usage error
+             also red:   naming the four it accepts
+  caught   M55: --telemetry is accepted on the OVS plane            (1 named check(s) went red)
+             red: 🔴 --telemetry on the OVS plane is refused
+             also red: 🔴 --telemetry on the OVS plane is refused
+             also red:   saying it is a P4 flag
+             also red:   and what to type instead
+  caught   M56: a DEAD link emitter is printed but not a problem    (1 named check(s) went red)
+             red: 🔴 and it is a --check problem
+             also red: 🔴 and it is a --check problem
+  caught   M57 (widening): an absent manifest reads as a dead emitter (1 named check(s) went red)
+             red: 🔴 and NO manifest is not a problem at all
+             also red:   and --check exits 0 over a healthy package fabric
+             also red:   so --check still exits 0
+             also red:   with no emitter, which is the ordinary state
+             also red:   and raises no telemetry problem
+             also red: 🔴 and NO manifest is not a problem at all
+  caught   M58: an unusable telemetry knob is not a --check problem (1 named check(s) went red)
+             red:   and --check lists it as a problem
+             also red:   and --check lists it as a problem
+  caught   M59: a link fabric with no emitter passes the gate       (1 named check(s) went red)
+             red: 🔴 a link fabric with no emitter behind it is red
+             also red: 🔴 a link fabric with no emitter behind it is red
+             also red:   saying where the samples go
+  caught   M60: a switch with no telemetry object passes the gate   (1 named check(s) went red)
+             red:   and 'it did not say' is not 'as usual'
+             also red:   and 'it did not say' is not 'as usual'
+  caught   M61 (widening): the proxy's source is never compared to this one (1 named check(s) went red)
+             red:   naming both answers
+             also red:   naming both answers
+  caught   M62: a cooperative switch that clones nothing passes     (1 named check(s) went red)
+             red: 🔴 a cooperative switch with no clone session is red
+             also red: 🔴 a cooperative switch with no clone session is red
+             also red:   saying it samples nothing
+  caught   M63: an unreadable switch_state passes the telemetry gate (1 named check(s) went red)
+             red: 🔴 an unreadable switch_state is red, not a pass
+             also red: 🔴 an unreadable switch_state is red, not a pass
+  caught   M64: the bring-up never runs the telemetry gate          (2 named check(s) went red)
+             red: 🔴 verify_p4 runs the telemetry gate
+             red: 🔴 and its verdict reaches the bring-up's rc
+             also red: 🔴 verify_p4 runs the telemetry gate
+             also red:   on the external plane too
+             also red: 🔴 and its verdict reaches the bring-up's rc
+             also red:   under the unverified verdict
+  caught   M65: the telemetry gate is run and its verdict ignored   (1 named check(s) went red)
+             red: 🔴 and its verdict reaches the bring-up's rc
+             also red: 🔴 and its verdict reaches the bring-up's rc
+             also red:   under the unverified verdict
+  caught   M66: auto puts a foreign switch on the cooperative source (1 named check(s) went red)
+             red: 🔴 auto over a mixed package splits switch by switch
+             also red: 🔴 auto over a mixed package splits switch by switch
+  caught   M67: an unreadable package is resolved as cooperative    (1 named check(s) went red)
+             red: 🔴 an unreadable package resolves to NOTHING, not to a default
+             also red: 🔴 an unreadable package resolves to NOTHING, not to a default
+  caught   M68: the teardown clears the telemetry knob too          (1 named check(s) went red)
+             red:   and so does 'ndt clean'
+             also red: 🔴 'ndt down' leaves the telemetry knob where it is
+             also red:   and so does 'ndt clean'
+  caught   M69: a surviving link emitter is not called residue      (1 named check(s) went red)
+             red: 🔴 an emitter that outlived the teardown is residue
+             also red: 🔴 an emitter that outlived the teardown is residue
+  caught   M70: a stale link-telemetry manifest is left in place, silently (2 named check(s) went red)
+             red: 🔴 a stale manifest is REMOVED, not reported
+             red: 🔴 and the file really is gone
+             also red: 🔴 a stale manifest is REMOVED, not reported
+             also red: 🔴 and the file really is gone
+  caught   M74: a provably stale link manifest is reported, not removed (2 named check(s) went red)
+             red: 🔴 a stale manifest is REMOVED, not reported
+             red: 🔴 and the file really is gone
+             also red: 🔴 a stale manifest is REMOVED, not reported
+             also red: 🔴 and the file really is gone
+             also red: 🔴 and the verdict is the same as with no manifest at all
+             also red: 🔴 in particular it is NOT 1 ('this ran and something was wrong')
+  caught   M75 (widening): a live emitter's manifest is deleted as well (1 named check(s) went red)
+             red:   the manifest is left exactly where it was
+             also red:   the manifest is left exactly where it was
+  caught   M76 (K): ndt asks whether the emitter is alive by its pid alone (1 named check(s) went red)
+             red: 🔴 its own pid with a start it never had is DEAD, not alive
+             also red: 🔴 its own pid with a start it never had is DEAD, not alive
+  control  C3: telemetry_word_valid written the long way            (stayed green, as it must)
+  control  C4: the shaped-links read split over two lines           (stayed green, as it must)
+
+baseline byte-identical: yes  tools/test_workflow/ndt  sha256 aac7457390e97065f47b514e2915899cdede6e0df43e16b10ae6bdb7ccd8734f
+mutation gate: 78 mutations, 0 survived; 4 control(s), 0 went red
+# rc=0
+=== mutate_p4_heartbeat_w
+interpreter: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/p4_proxy/venv/bin/python
+08's mutant tree: only p4_proxy/proxy_agent and p4_proxy/venv lead out of it, and no lab-state knob is in it
+proxy baseline (must be green before any mutation):
+  Ran 429 tests in 7.250s
+  OK
+  new proxy tests to be seen red: 123
+  NEW_CLASSES names every TestCase class added between 580767a8 and f8309d02 (the scan's control, one module left off, named its classes)
+
+the report: trusted, alive, this fabric, this period
+  caught   P01: the owner is not checked (file or directory)                      (test_a_report_owned_by_somebody_else_is_not_evidence went red)
+  caught   P02: group/other-writable is not checked                               (test_an_other_writable_report_is_not_evidence went red)
+  caught   P03: only the directory is checked, not the report itself              (test_a_group_writable_report_is_not_evidence went red)
+  caught   P04: the directory is not checked                                      (test_a_directory_somebody_else_can_write_is_not_trusted went red)
+  caught   P05: a symlink is followed                                             (test_a_symlink_is_not_followed went red)
+  caught   P06: a FIFO (anything not regular) is read                             (test_a_fifo_is_refused_without_blocking went red)
+  caught   P07: no size cap                                                       (test_a_report_larger_than_any_heartbeat_writes_is_refused went red)
+  caught   P08: a stopped report is evidence                                      (test_a_stopped_heartbeat_is_not_running went red)
+  caught   P09: a report nobody rewrote is alive                                  (test_written_longer_ago_than_two_periods_is_stale went red)
+  caught   P09b: a report from another clock (the future) is alive                (test_written_in_the_future_is_not_this_clock went red)
+  caught   P09c: one period of lag is already stale                               (test_written_two_periods_ago_is_still_alive went red)
+  caught   P10: another period is judged with this proxy's timeout                (test_another_period_is_a_mismatch_the_timeout_would_be_wrong_for went red)
+  caught   P11: a report missing a declared direction is usable                   (test_a_declared_direction_the_report_does_not_carry_is_a_fabric_mismatch went red)
+  caught   P11b: nothing declared is usable                                       (test_no_declared_direction_at_all_is_not_usable went red)
+  caught   P12: an undeclared direction is entered as evidence                    (test_a_direction_the_package_does_not_declare_is_disclosed_and_ignored went red)
+  caught   P13: format and source are not checked                                 (test_something_else_s_json_is_unreadable went red)
+  caught   P14: a non-integer endpoint is accepted                                (test_a_malformed_direction_is_unreadable went red)
+  caught   P15: a new session keeps the old epoch                                 (test_a_new_session_after_a_stop_counts_from_its_own_start went red)
+  caught   P15b: a new session counts from its report, not its start              (test_a_new_session_counts_from_the_daemons_own_start went red)
+  caught   P16: a gap in the same session does not restart the epoch              (test_a_gap_in_the_same_session_restarts_the_epoch_at_the_report_that_ended_it went red)
+  caught   P17: heard before the epoch counts as heard                            (test_heard_before_the_epoch_is_not_heard went red)
+  caught   P18: an unusable report is empty evidence, not none                    (test_an_unusable_report_is_no_evidence_at_all went red)
+  caught   P18b: no report reads as every direction silent (the network-wide false alarm) (test_a_heartbeat_that_never_ran_judges_nothing went red)
+  caught   P19: the period is read from the wrong key                             (test_a_well_formed_report_of_this_fabric_is_usable went red)
+  caught   P20: no report reads as unreadable, not as not running                 (test_no_report_at_all_is_a_heartbeat_that_is_not_running went red)
+  caught   P21: a report that does not parse raises                               (test_a_report_that_does_not_parse_is_unreadable_not_a_crash went red)
+  caught   P22: the side-effect counters are dropped                              (test_the_side_effect_counters_travel_with_the_reading went red)
+  caught   P23: the proxy reads a file the helper does not write                  (test_the_report_path_is_the_one_the_root_helper_writes went red)
+  caught   P24: the report may be owned by a user                                 (test_the_owner_is_the_uid_the_helper_expects_of_its_daemon went red)
+the evidence, the one rule, the freeze
+  caught   T01: heard evidence is dated now, not when it was heard                (test_a_heard_report_enters_the_time_it_was_heard_not_now went red)
+  caught   T02: evidence can move backwards                                       (test_evidence_only_moves_forward went red)
+  caught   T03: silence revives a direction believed down                         (test_a_not_heard_report_on_a_down_direction_moves_nothing went red)
+  caught   T04: a never-heard direction gets no startup grace                     (test_a_not_heard_report_on_a_new_direction_gives_it_the_startup_grace went red)
+  caught   T05: the evidence's source is not recorded                             (test_the_source_is_recorded_on_the_evidence went red)
+  caught   T06: timed evidence is entered with no watchdog running                (test_without_a_watchdog_it_is_recorded_only_whatever_the_time went red)
+  caught   T07: the pass never reads the heartbeat                                (test_a_tenth_past_the_beacon_timeout_both_directions_go_down_and_the_kernel_is_told went red)
+  caught   T08: a dead heartbeat is judged at the clock (no freeze)               (test_a_stale_report_freezes_every_link_where_it_was went red)
+  caught   T08b: evidence never usable yet is judged at the clock                 (test_evidence_attached_anew_judges_nothing_until_it_is_usable went red)
+  caught   T09: the evidence is dated a second early (a stricter second rule)     (test_a_cable_silent_for_exactly_the_beacon_timeout_is_still_up went red)
+  caught   T10: one silent cable ages every direction                             (test_the_other_six_directions_stay_up went red)
+  caught   T11: the evidence bypasses the reserved entry                          (test_its_one_caller_is_the_watchdog_pass_ingesting_the_heartbeat went red)
+  caught   T12: a fabric that skips its routes is rerouted anyway                 (test_a_fabric_that_skips_its_routes_detects_and_does_not_reroute went red)
+  caught   T13: no fabric is ever rerouted                                        (test_an_owned_fabric_reroutes_on_the_transition went red)
+  caught   T14: link_liveness hides the heartbeat as the source                   (test_link_liveness_names_the_heartbeat_as_the_source went red)
+  caught   T15: an LLDP entry grows a source key                                  (test_a_beacon_that_stops_still_times_out_on_the_proxys_clock went red)
+  caught   T16: the heartbeat watchdog seeds from the topology file               (test_it_watches_the_declared_links_and_runs_the_one_watchdog_thread went red)
+  caught   T17: nothing is read until the first pass                              (test_it_reads_the_report_once_at_once_so_the_state_is_known_before_the_first_pass went red)
+  caught   T18: the evidence's period is a literal 5                              (test_the_topology_manager_reads_its_period_from_the_lldp_constant went red)
+  caught   T19: a packet-in refreshes the link it arrived on                      (test_punted_heartbeat_frames_do_not_keep_a_cut_link_alive went red)
+  caught   T21: no pass is recorded                                               (test_every_pass_is_recorded_with_its_times_and_its_transitions went red)
+  caught   T22: the pass log grows without bound                                  (test_the_log_is_bounded went red)
+  caught   T23: a pass with nothing to judge is not on record                     (test_a_frozen_pass_is_recorded_too went red)
+  caught   T20: every manager gets heartbeat evidence attached                    (test_no_evidence_is_attached_by_default went red)
+which fabric, reroute, and what switch_state says
+  caught   M01: NDTwin's own pipeline starts the heartbeat watchdog               (test_an_all_ndtwin_fabric_does_not_start_it went red)
+  caught   M01b: an external control plane on NDTwin's own pipeline starts it     (test_an_external_fabric_on_ndtwins_own_pipeline_does_not_start_it went red)
+  caught   M02: a foreign fabric never starts it                                  (test_a_foreign_fabric_starts_it_on_the_helpers_report went red)
+  caught   M03: only an owned fabric starts it (no detection without reroute)     (test_an_unbound_foreign_fabric_starts_it_too_detection_is_not_rerouting went red)
+  caught   M04: the LLDP beacon watchdog is started beside it                     (test_the_lldp_beacons_stay_off_and_named_skipped_but_the_watchdog_runs went red)
+  caught   M05: the watchdog is not pointed at the helper's report                (test_a_foreign_fabric_starts_it_on_the_helpers_report went red)
+  caught   M06: the report may be a user's                                        (test_a_foreign_fabric_starts_it_on_the_helpers_report went red)
+  caught   M07: a topology without the entry is called anyway                     (test_a_topology_without_the_entry_does_not_stop_startup_and_says_so went red)
+  caught   M08: an entry that raises stops startup                                (test_an_entry_that_raises_does_not_stop_startup went red)
+  caught   M09: an unbound fabric says reroute true                               (test_unbound_detects_by_heartbeat_and_does_not_reroute_and_says_why went red)
+  caught   M10: a stopped heartbeat still reroutes                                (test_owned_without_a_running_heartbeat_does_not_reroute_and_is_declared went red)
+  caught   M11: a watchdog that never started is not the reason                   (test_owned_without_the_watchdog_does_not_reroute went red)
+  caught   M12: unbound is named owned_by_package                                 (test_one_unbound_switch_is_enough went red)
+  caught   M13: a package-owned table does not block the reroute                  (test_a_package_owned_table_says_owned_by_package went red)
+  caught   M14: link_discovery never says heartbeat                               (test_owned_and_usable_reroutes_and_discovers_by_heartbeat went red)
+  caught   M15: capabilities never follow the heartbeat                           (test_owned_and_usable_reroutes_and_discovers_by_heartbeat went red)
+  caught   M16: the capabilities grow a sixth key                                 (test_the_capabilities_keep_their_five_keys went red)
+  caught   E1: link_watchdog stays named skipped while the heartbeat drives it    (test_the_lldp_beacons_stay_off_and_named_skipped_but_the_watchdog_runs went red)
+  caught   E1b: link_watchdog leaves the list only where the routes are NDTwin's  (test_an_unbound_fabric_reports_its_watchdog_running_too went red)
+  caught   F2: the startup log names link_watchdog skipped while the heartbeat drives it (test_the_startup_log_names_the_same_skipped_list_switch_state_serves went red)
+  caught   X1: an external control plane on its own pipeline declares nothing     (test_it_declares_its_links_and_starts_the_heartbeat_watchdog went red)
+  caught   X2: the external fabric's watchdog pass may reroute                    (test_the_route_writer_is_left_skipping_so_a_cut_rewrites_nothing went red)
+  caught   X2b: (the same, end to end: a real TopologyManager's cut)              (test_the_cut_is_told_to_the_kernel_and_no_route_is_rewritten went red)
+  caught   X3: the heartbeat is asked before external                             (test_even_with_every_table_bound_to_ndtwin_it_does_not_reroute went red)
+  caught   X3b: (the same, seen as the reason on a usable heartbeat)              (test_reroute_is_false_for_the_external_reason_even_when_the_heartbeat_is_usable went red)
+  caught   X5: the prediction says an external fabric declares nothing            (test_the_prediction_before_startup_says_declared went red)
+  caught   X6: the detail says cuts are detected when the heartbeat is not usable (test_an_unusable_heartbeat_is_declared_and_still_external went red)
+  caught   X7: the external detail never mentions the heartbeat                   (test_reroute_is_false_for_the_external_reason_even_when_the_heartbeat_is_usable went red)
+  caught   X8: a pipeline is pushed on an external control plane                  (test_no_client_is_asked_to_write_anything went red)
+  caught   X9: the external line names link_watchdog skipped while the heartbeat drives it (test_the_startup_log_names_the_skipped_list_switch_state_serves went red)
+  caught   X10: link_watchdog stays named skipped on an external fabric the heartbeat watches (test_link_watchdog_leaves_the_list_while_the_heartbeat_drives_it went red)
+  caught   X11: startup leaves an external fabric's paths to the shortest-path guess (test_startup_marks_an_external_fabric_on_its_own_pipeline_only went red)
+  caught   X11b: (the same, seen as the paths the pull serves)                    (test_an_external_fabric_serves_no_path_over_its_declared_links went red)
+  caught   X12: the pull renders the guess on an external fabric                  (test_an_external_fabric_serves_no_path_over_its_declared_links went red)
+  caught   X13: a cut on an external fabric pushes the guess                      (test_a_cut_on_an_external_fabric_pushes_no_path went red)
+  caught   X14: the pull withholds the paths of every fabric                      (test_the_same_graph_without_the_flag_does_have_a_path_to_withhold went red)
+  caught   E2: link_watchdog leaves the list even when the heartbeat watchdog did not start (test_a_heartbeat_watchdog_that_did_not_start_leaves_the_watchdog_named_skipped went red)
+  caught   M17: the answer is the one startup saw                                 (test_the_answer_follows_the_heartbeat_after_startup went red)
+  caught   M18: external is not named as the reason                               (test_an_external_fabric_says_external_control_plane went red)
+  caught   M19: startup forgets the fabric is external                            (test_an_external_fabric_says_external_control_plane went red)
+  caught   M20: an all-NDTwin fabric stops rerouting                              (test_an_all_ndtwin_fabric_is_what_it_was went red)
+  caught   M21: a frame at a host is never named                                  (test_a_frame_that_reached_a_host_is_named went red)
+  caught   M22: segment S's census is not served                                  (test_the_block_carries_the_live_counters_and_segment_s_census went red)
+  caught   M23: a fabric with no heartbeat serves a heartbeat block               (test_an_all_ndtwin_fabric_does_not_start_it went red)
+  caught   M24: a stopped heartbeat is reported usable                            (test_a_stopped_heartbeat_is_reported_as_what_it_is went red)
+  caught   M25: main never injects the two reports                                (test_main_injects_both went red)
+  caught   M26: the passes are not served                                         (test_the_watchdogs_passes_are_served went red)
+  caught   M27: the passes are not read from the topology                         (test_the_watchdogs_passes_are_served went red)
+the endpoint and ruling 5(a)
+  caught   A01: switch_state never carries reroute                                (test_both_blocks_reach_the_endpoint_at_the_top_level went red)
+  caught   A02: an uninjected reporter still adds a key                           (test_an_uninjected_reporter_adds_no_key went red)
+  caught   A03: add on an external control plane is 500 again                     (test_add_is_409 went red)
+  caught   A04: delete on an external control plane is 500 again                  (test_delete_is_409 went red)
+  caught   A05: modify on an external control plane is 500 again                  (test_modify_is_409 went red)
+  caught   A06: the 409 body is not /p4/table_entry's                             (test_the_body_is_the_table_entry_endpoints_own went red)
+  caught   A07: delete_strict is not the delete handler                           (test_both_delete_routes_are_that_handler went red)
+round 2: the census, and the helper's report as the proxy reads it
+  caught   M28: the census does not say which arms ndt up starts it on            (test_the_census_says_which_of_its_arms_ndt_up_starts_the_heartbeat_on went red)
+  caught   M28b: the census stops saying what the drop check does not cover       (test_the_census_names_the_punt_blind_spot_on_external_control_planes went red)
+  caught   M28d: the census says segment S loaded no pipeline                     (test_the_census_names_the_punt_blind_spot_on_external_control_planes went red)
+  caught   K01: the writer renames an endpoint's dpid                             (test_a_running_daemon_that_heard_every_direction_is_usable_evidence went red)
+  caught   K02: the writer renames written_mono                                   (test_a_running_daemon_that_heard_every_direction_is_usable_evidence went red)
+  caught   K03: the writer renames period_s                                       (test_a_running_daemon_that_heard_every_direction_is_usable_evidence went red)
+  caught   K04: the writer renames forwarded_to_hosts (ruling 4 would read zero)  (test_a_frame_leaving_a_host_port_reaches_the_proxy_as_forwarded_to_hosts went red)
+  caught   K05: the writer renames stop_reason                                    (test_a_stopped_daemons_last_report_is_not_evidence_and_says_why went red)
+  caught   K06: the writer leaves a group-writable report                         (test_the_file_the_daemons_writer_leaves_is_one_the_proxy_trusts went red)
+  caught   K07: the writer records a heard frame under another key                (test_a_running_daemon_that_heard_every_direction_is_usable_evidence went red)
+
+ndt
+  ndt baseline: Ran 91 checks, 0 failed
+  caught   N01: ndt up never starts the heartbeat                                 (check "🔴 exactly one 'heartbeat start'" went red)
+  caught   N02: every bring-up starts it (NDTwin's pipeline too)                  (check "🔴 and never asks for a heartbeat (it has LLDP)" went red)
+  caught   N03: an external control plane gets none again                         (check "🔴 exactly one 'heartbeat start' on an external plane" went red)
+  caught   N03b: an external fabric is told its cuts are routed around            (check "🔴 and ndt says it detects only" went red)
+  caught   N03c: every foreign fabric is called detect-only                       (check "🔴 a non-external foreign fabric is not called detect-only" went red)
+  caught   N03d: a failed start on an external plane names the foreign reason     (check "🔴 a failed start on an external plane names external_control_plane" went red)
+  caught   N40: the heartbeat starts on an external plane whatever the check said (check "🔴 and the heartbeat is NOT started" went red)
+  caught   N41: could-not-tell is taken as proof                                  (check "🔴 could not tell: NOT started either (unknown is not a drop)" went red)
+  caught   N42: the check never runs                                              (check "🔴 the check ran once, on the package" went red)
+  caught   N43: the heartbeat is withheld on every external plane, proven or not  (check "🔴 proven dropped: the heartbeat starts" went red)
+  caught   N44: the check's answer and its limit are not said                     (check "  the check's answer is said, in one line" went red)
+  caught   N44b: the whole answer is not kept                                     (check "  and the whole of it is kept, in the log the line names" went red)
+  caught   N44c: every bring-up writes the same log                               (check "🔴 a second bring-up keeps its own log: the first one's is still there" went red)
+  caught   N48: could-not-tell is not said                                        (check "  saying it could not tell" went red)
+  caught   N45: a withheld heartbeat fails the bring-up                           (check "🔴 NOT dropped: the bring-up still succeeds" went red)
+  caught   N46: the check's reason is not carried to the warning                  (check "  with the check's own reason" went red)
+  caught   N47: no record is written for 'ndt status'                             (check "🔴 and the record names it for 'ndt status'" went red)
+  caught   N49: a check that never ran is taken as proof                          (check "🔴 a check that never ran is not proof: NOT started" went red)
+  caught   N50: the check runs on every package                                   (check "🔴 a foreign fabric that is not external: no check" went red)
+  caught   N50b: (the same, on NDTwin's own pipeline)                             (check "  NDTwin's own pipeline: no check either" went red)
+  caught   N51: a foreign fabric that is not external is held to the check too    (check "  and its heartbeat starts as before" went red)
+  caught   N52: a later bring-up leaves the last one's record                     (check "🔴 a later bring-up that starts it clears the record" went red)
+  caught   N53: 'ndt down' leaves the record behind                               (check "🔴 'ndt down' clears it with the fabric" went red)
+  caught   N54: 'ndt status' does not say a heartbeat was withheld                (check "🔴 a heartbeat the last bring-up withheld is said, with why" went red)
+  caught   N55: 'ndt status' says withheld with no record                         (check "  and not when there is no record" went red)
+  caught   N04: a heartbeat that does not start fails the bring-up                (check "🔴 rc 0 -- the fabric IS up" went red)
+  caught   N05: rc 3 is warned about as a failure                                 (check "🔴 and not as a failure" went red)
+  caught   N06: the heartbeat starts after the proxy                              (check "🔴 before stack.sh starts the proxy" went red)
+  caught   N07: ndt down never stops the heartbeat                                (check "🔴 one 'heartbeat stop'" went red)
+  caught   N08: ndt down stops it after the topology                              (check "🔴 before topo-stop" went red)
+  caught   N09: a stop that failed is not a failed teardown                       (check "🔴 a stop that failed: rc 1" went red)
+  caught   N09b: the claim note does not say what was not verified                (check "🔴 and the claim note says what was not verified" went red)
+  caught   N10: the helper is asked to stop whatever the pidfile says             (check "🔴 no pidfile: the helper is not asked at all" went red)
+  caught   N11: replacing a topology leaves its heartbeat running                 (check "🔴 the old heartbeat was stopped before the old topology" went red)
+  caught   N12: the bring-up stops the heartbeat it just started                  (check "  nothing was stopped on the way up" went red)
+  caught   N13: a rollback leaves the heartbeat running                           (check "🔴 the rollback stopped the heartbeat" went red)
+  caught   N14: a rollback stops the heartbeat after the fabric                   (check "🔴 before it stopped the topology" went red)
+  caught   N15: ndt status has no heartbeat row                                   (check "🔴 cmd_status prints the heartbeat row" went red)
+  caught   N16: a report nobody rewrote reads running                             (check "🔴 a running report nobody rewrote reads STALE" went red)
+  caught   N17: a frame at a host is not named                                    (check "🔴 a frame that reached a host is named" went red)
+  caught   N18: no report reads as unreadable                                     (check "  no report at all" went red)
+  caught   N19: the row asks sudo                                                 (check "🔴 reading it needs no sudo" went red)
+  caught   N20: the running row loses its pid                                     (check "🔴 a fresh running report reads running, with its pid" went red)
+  caught   N21: the running row miscounts its directions                          (check "  and its directions" went red)
+  caught   N22: a stopped row loses why                                           (check "  a stopped report reads stopped, with why" went red)
+  caught   N23: an unreadable report is not said                                  (check "  an unreadable report says so" went red)
+  caught   N24: ndt's pidfile is not the helper's                                 (check "🔴 ndt's pidfile is the helper's HB_PIDFILE" went red)
+  caught   N25: ndt reads a report the helper does not write                      (check "🔴 ndt's report is the file the helper's daemon writes" went red)
+  caught   N26: (a helper COPY) spells its pidfile otherwise                      (check "  (which the helper spells that way)" went red)
+  caught   N27: (a helper COPY) names its report otherwise                        (check "  (which the helper names that way)" went red)
+  caught   N28: the helper's start answer is not printed                          (check "  the helper's answer is printed" went red)
+  caught   N29: ndt does not say what the heartbeat is for                        (check "  and ndt says what it is for" went red)
+  caught   N30: a heartbeat that did not start is not said                        (check "🔴 and it says detection is off" went red)
+  caught   N31: the helper's reason for refusing is dropped                       (check "  with the helper's reason" went red)
+  caught   N32: the helper's stop answer is not printed                           (check "  the helper's stop answer is printed" went red)
+  caught   N33: a failed stop is not said                                         (check "  it says so" went red)
+  caught   N34: a successful bring-up is rolled back after its heartbeat          (check "  and no rollback happened" went red)
+  caught   N35: rc 3 is not said as what it is                                    (check "  said as what it is, in ndt's own words" went red)
+  caught   N36: (control of the counter) the teardown asks sudo once more         (check "  and the teardown's own two sudo calls are the only ones" went red)
+  caught   N37: a rollback does not stop the stack first                          (check "  and after the stack" went red)
+  caught   N38: the heartbeat starts before the new fabric is up                  (check "  and a new one started after the new topology" went red)
+every ndt check seen red except the 12 named controls (89 checks)
+  (controls that went red anyway:   a package on NDTwin's pipeline comes up;  the baseline fabric comes up;  (the pipeline kind was read as ndtwin))
+
+08_heartbeat.sh --self-test
+  08 self-test baseline: SELF-TEST PASS
+  caught   L01: caps accepts any reroute                                          (self-test case "H1 one switch says reroute false" went red)
+  caught   L02: reroute accepts any answer                                        (self-test case "H1 unavailable is not available" went red)
+  caught   L03: hb_state accepts any state                                        (self-test case "H1 a stopped heartbeat is not usable" went red)
+  caught   L04: ruling 4 is never a STOP                                          (self-test case "ruling 4: the daemon counted one (report)" went red)
+  caught   L05: one direction down counts as the cut                              (self-test case "H1 only one direction down" went red)
+  caught   L06: one direction back up counts as recovered                         (self-test case "H1 only one direction back up" went red)
+  caught   L07: a route still into the cut is not a failure                       (self-test case "H1 s3 still routes into the cut" went red)
+  caught   L08: a lost destination is not a failure                               (self-test case "H1 a destination lost its route" went red)
+  caught   L09: a cut nothing routed over passes                                  (self-test case "H1 a cut nothing routed over proves nothing" went red)
+  caught   L10: pick_cut takes the first cable whether used or not                (self-test case "  pick_cut on unused s1-s3 chose" went red)
+  caught   L11: the 20 s bound has a second of slack                              (self-test case "H1 over 20 s" went red)
+  caught   L12: H2 does not see the cut go down                                   (self-test case "H2 went down once" went red)
+  caught   L13: any 501 is the unbound refusal                                    (self-test case "H3 501 for another reason" went red)
+  caught   L14: the old 500 passes H4                                             (self-test case "H4 the 500 of before" went red)
+  caught   L15: H5 compares arms by presence only                                 (self-test case "H5 one arm differs" went red)
+  caught   L16: H5 misses a heartbeat on an arm that should have none             (self-test case "H5 an arm that should have none had one" went red)
+  caught   L17: H5 never STOPs for ruling 4                                       (self-test case "H5 ruling 4 in a sample" went red)
+  caught   L18: a refused down is released anyway (segment S round 7)             (self-test case "🔴 a refused down ended" went red)
+  caught   L19: a phase's down runs under the caller's measuring=                 (self-test case "🔴 nd_down:" went red)
+  caught   L20: no NDT_OWNER is not refused                                       (self-test case "🔴 no NDT_OWNER:" went red)
+  caught   L21: the claim's minutes are _common.sh's 45                           (self-test case "🔴 CLAIM_MINUTES after the prelude" went red)
+  caught   L22: a caller's NDT_MEASURING survives the prelude                     (self-test case "  NDT_MEASURING after the prelude" went red)
+  caught   L23: a run that took its own fabric down fails on finish's rc 3        (self-test case "a run already down ended" went red)
+  caught   L24: the cut is planned for a round already past                       (self-test case "  too close gave" went red)
+  caught   L25: no cycle is cut at the worst phase                                (self-test case "phase_for gave" went red)
+  caught   L26: the cut's phase is measured from the EARLIER direction            (self-test case "report_last gave" went red)
+  caught   L27: a worst-phase cycle that missed its phase counts                  (self-test case "cycle: a worst-phase cut that landed before the round" went red)
+  caught   L28: any pass is taken as the one that reported                        (self-test case "cycle: no reporting pass served" went red)
+  caught   L29: the budget is the bare 20 s (nothing measured counts)             (self-test case "budget: over the strict 20 s by what was measured gave" went red)
+  caught   L30: a frame heard inside a cut window is not flagged                  (self-test case "cycle: a frame heard inside a cut window gave" went red)
+  caught   L31: a frame inside the restore window is dropped as a leak (the spike's artefact) (self-test case "restore with a frame inside its window gave" went red)
+  caught   L32: the cut's instant comes from a forked date                        (self-test case "cut_link/restore_link instants are not $EPOCHREALTIME" went red)
+  caught   L33: a pass after the timeout that missed the cut passes               (self-test case "cycle: a pass after the timeout that did not report the cut" went red)
+  caught   L34: the watcher keeps the LATEST frame, not the first                 (self-test case "restore_watch gave" went red)
+  caught   L35: an end the restore could not clean is forgotten                   (self-test case "restore_link left" went red)
+  caught   L36: detection counted from the second end's return (the shortest)     (self-test case "cycle gave" went red)
+  caught   L37: the first pass with a down is taken, not the one that made both down (self-test case "cycle with two reporting passes gave" went red)
+  caught   L38: graph_until reads T_CUT before any cut (unbound under set -u)     (self-test case "graph_until before any cut gave" went red)
+  caught   L39: the cut does not wait for its planned instant                     (self-test case "cut_link: the first call started off the plan" went red)
+  caught   L40: both directions judged against end A's restore window             (self-test case "restore: b->a heard before ITS end's restore started is a leak too" went red)
+  caught   L41: the strict answer is always yes                                   (self-test case "cut_cycle gave" went red)
+  caught   L42: the recovery time is the poll's, not the record's                 (self-test case "restore_cycle gave" went red)
+  caught   L43: an OVER cycle FAILS H1 again (the pre-ruling F1 path)             (self-test case "H1's last line with an OVER cycle was" went red)
+  caught   L44: the cycle's strict line is judged again                           (self-test case "cut_cycle gave" went red)
+  caught   L45: an OVER cycle is not counted                                      (self-test case "H1's last line with an OVER cycle was" went red)
+  caught   L46: the disclosure names the cycle but not its own line (not verbatim) (self-test case "H1's last line with an OVER cycle was" went red)
+  caught   L61: an over-cycle is disclosed only when nothing else failed          (self-test case "  H1's last line after an earlier failure was" went red)
+  caught   L62: H3's one cycle is never concluded (its OVER never reaches the last lines) (self-test case "  a live cut_cycle with no strict_conclude after it" went red)
+  caught   L63: an early exit drops the over-cycles measured before it            (self-test case "  H1's last lines after an early exit following an OVER cycle were" went red)
+  caught   L64: the proxy's cut is read without its down flag                     (self-test case "H4 one direction still up" went red)
+  caught   L65: only one direction of the cut is read                             (self-test case "H4 one direction still up" went red)
+  caught   L66: any cable is one the package declares                             (self-test case "H4 a cable the package does not declare" went red)
+  caught   L67: HB_ARMS without the external arms (17, as before)                 (self-test case "HB_ARMS names 17 arms, not 20" went red)
+  caught   L68: INT and TERM run w_finish with the interrupted command's rc       (self-test case "TERM mid-H1 with nothing failed before it ended" went red)
+  caught   L69: a cut-short conclusion always says H1                             (self-test case "  H3's last lines after an early exit following an OVER cycle were" went red)
+  caught   L70: w_finish concludes with nothing pending                           (self-test case "  a clean run's output said 'cut short' or did not PASS" went red)
+  caught   L71: no hard ceiling -- a 36 s detection is a NOTE                     (self-test case "strict 36 s is past the 35 s ceiling: a FAIL" went red)
+  caught   L72: a tally with every cycle within 20 s is disclosed anyway          (self-test case "  an early exit with every cycle within 20 s ended" went red)
+  caught   L73: H4 does not ask whether the kernel accepted the cut               (self-test case "H4 down at the proxy, not accepted by the kernel" went red)
+  caught   L74: H4 does not look at pipeline commits across the cut               (self-test case "H4 a pipeline commit across the cut" went red)
+  caught   L75: H4 never believes the kernel accepted anything                    (self-test case "H4 restored and the kernel accepted it" went red)
+  caught   L73b: H4 does not ask whether the kernel accepted the restore          (self-test case "H4 up at the proxy, not accepted by the kernel" went red)
+  caught   L76: H4's restore judged at the poll's 35 s, not the strict 20 s       (self-test case "H4 restore 20.5 s is over the strict 20 s" went red)
+  caught   L77: H4 does not look at table_generation across the cut               (self-test case "H4 only table_generation moved" went red)
+  caught   L78: the sampler records no written_wall                               (self-test case "H5 sampler rows" went red)
+  caught   L79: PART=h5 accepts a 4-arm OLD_06                                    (self-test case "🔴 PART=h5 OLD_06=<4 arms>" went red)
+  caught   L79b: H5's reference must be the v

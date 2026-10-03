@@ -1,0 +1,69 @@
+6583c089e72fd028d0fcb1939af1efe2450b5c8d
+# 2026-09-28T00:55:45Z cmd bash tests/shell/test_ndt_sudo_surface.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/test_ndt_sudo_surface.sh
+the table
+  ok       ovs-vsctl has a row (ovs_bridge_count, in no page of the manual)
+  ok       mnexec has a row (dataplane_ok, in no page of the manual)
+  ok       every row declares a probe, an absolute target, where it is taught, and the consequence
+  ok       the rule for a key is a complete sudoers line naming the absolute path
+  ok       explain() prints the sudoers line that fixes it
+  ok       explain() prints what the refusal costs
+  ok       every privileged command ndt names has a row (nothing new can go unlisted)
+a refusal is not a measurement: ovs_bridge_count
+  ok       injection took effect: sudo really refuses ovs-vsctl (rc 1, sudo's own wording)
+  ok       refused: ovs_bridge_count returns 2 and prints no number
+  ok       control, permitted: ovs_bridge_count returns 0 and the real count
+  ok       same three bridges: permitted reads 3, refused does NOT read 0
+  ok       control, no ovs-vswitchd: a definite 0, answered without sudo
+the guard: 'I could not tell' stops ndt up p4
+  ok       a live OVS fabric stops the bring-up (unchanged)
+  ok       refused: the guard stops the bring-up
+  ok       refused: and says it could not tell
+  ok       refused: and blames sudo, not OVS
+  ok       refused: and prints the line that fixes it
+  ok       control, permitted and no bridges: the guard PASSES and the bring-up proceeds
+  ok       control, a machine with no OVS: the guard PASSES
+  ok       control, no topo session: the guard does not ask and PASSES
+the other call site: a permission error is not a routing failure
+  ok       refused: dataplane_ok returns 2 (not tested), and says why
+  ok       refused: the message says NOT tested
+  ok       refused: no XX line claiming the host cannot be reached
+  ok       refused: returns 0 -- not tested is not a routing failure
+  ok       refused: and prints the mnexec sudoers line
+  ok       control, permitted and the ping really fails: 'not forwarding' is still said
+  ok       control, permitted and the ping really fails: verify_dataplane returns 1
+  ok       control, permitted and forwarding: dataplane_ok returns 0
+  ok       no namespace is still its own reason, not folded into the sudo one
+the probe: what sudo's own words decide (ndt_sudo_probe -> the 'sudo grants' line of ndt status)
+  ok       injection took effect: the fake prints the warning, then the refusal it is given
+  ok       probe: a refusal ndt_sudo_refused knows ('a password is required') is 1, refused
+  ok       probe: requiretty ('sorry, you must have a tty to run sudo') is 1, refused
+  ok       probe: an unknown sudo: line (PAM) is 2, could not tell -- not granted
+  ok       probe: secure_path's 'sudo: <cmd>: command not found' is 2, could not tell
+  ok       probe: the gates' nolab shim wording is 2, could not tell (it was read as granted)
+  ok       control, probe: rc!=0 with no sudo: line (ovsdb down, ovs-vsctl's own words) is 0, granted
+  ok       control, probe: the grant is live and the probe succeeds -- 0
+  ok       control, probe: a refusal that prints nothing is read as granted -- the rule's known limit
+  ok       control, probe: warning 'unable to resolve host' + ovsdb down is 0, granted
+  ok       control, probe: warning 'setrlimit(RLIMIT_CORE)' + ovsdb down is 0, granted
+  ok       probe: a warning AND an unknown sudo: refusal together is 2 -- the list hides only itself
+  ok       probe: a warning AND a known refusal is 1, refused
+  ok       probe: a fatal 'sudo: unable to execute ...' is 2 -- a warning entry is matched whole, from 'sudo: '
+  ok       probe: a fatal sudo: line with a warning entry further on is 2 -- entries match only right after 'sudo: '
+  ok       probe: a fatal sudo: line naming a command before a warning entry is 2 -- not matched after any ': '
+  ok       control, probe: a listed warning followed by a silent refusal is read as granted -- the rule's known limit
+  ok       control, probe: a refusal worded without a 'sudo:' prefix (sudo-rs) is read as granted -- the rule's known limit
+  ok       report: an unknown sudo: line is rc 2, 'could NOT be tested', and quotes what sudo said
+  ok       control, report: a known refusal is still rc 1, REFUSED
+  ok       control, report: ovsdb down behind a warning is still rc 0, granted
+  ok       report, two rows: an unknown sudo: line, then a program that is not installed -- each row its own reason
+the wiring: the callers read the table rather than keeping a copy
+  ok       up_p4 asks guard_no_live_ovs
+  ok       up_p4 stops when the guard says stop
+  ok       cmd_status --check reads ndt_sudo_report
+  ok       a refused grant is a --check problem, not a cosmetic line
+
+Ran 55 checks, 0 failed
+guarded_build: exit 0
+# rc=0

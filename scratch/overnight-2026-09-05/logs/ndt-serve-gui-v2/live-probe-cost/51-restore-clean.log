@@ -1,0 +1,101 @@
+# 2026-10-01T17:11:19+08:00 ndt clean
+  XX  bmv2 switches: 10 still running
+  XX  host/switch processes: 14 still running
+  XX  topo tmux session still present
+  XX  switch manifest still present: /tmp/ndtwin_p4_switches.json
+  XX  residue: ndtwin_kernel pid 2996267 holding :8000 (tcp)
+  XX           -> owner: the kernel's northbound API (ndtwin_kernel)
+  XX           -> if something else holds it: the next 'up' measures the stray kernel while the one it started is dead of EADDRINUSE -- a P4 session reported the OVS topology's 288 edges and 128 hosts this way
+  XX  residue: python pid 2996072 holding :8081 (tcp)
+  XX           -> owner: the P4 proxy agent (uvicorn)
+  XX           -> if something else holds it: the next 'up' measures the previous round's proxy; the one it started never opened the port
+  XX  residue: ndtwin_kernel pid 2996267 holding :6343 (udp)
+  XX           -> owner: the kernel's sFlow collector (FlowLinkUsageCollector, SFLOW_PORT)
+  XX           -> if something else holds it: the next kernel's bind() fails with `bind() to sFlow port 6343 failed`, and every flow rate and link utilisation then reads zero -- indistinguishable from an idle network
+  XX  residue: a process this user cannot see (probably root-owned) holding :30051 (tcp)
+  XX           -> owner: bmv2 simple_switch_grpc, one port per device (grpc_ports.py GRPC_PORT_BASE + N)
+  XX           -> if something else holds it: an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+  XX  residue: a process this user cannot see (probably root-owned) holding :30052 (tcp)
+  XX           -> owner: bmv2 simple_switch_grpc, one port per device (grpc_ports.py GRPC_PORT_BASE + N)
+  XX           -> if something else holds it: an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+  XX  residue: a process this user cannot see (probably root-owned) holding :30053 (tcp)
+  XX           -> owner: bmv2 simple_switch_grpc, one port per device (grpc_ports.py GRPC_PORT_BASE + N)
+  XX           -> if something else holds it: an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+  XX  residue: a process this user cannot see (probably root-owned) holding :30054 (tcp)
+  XX           -> owner: bmv2 simple_switch_grpc, one port per device (grpc_ports.py GRPC_PORT_BASE + N)
+  XX           -> if something else holds it: an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+  XX  residue: a process this user cannot see (probably root-owned) holding :30055 (tcp)
+  XX           -> owner: bmv2 simple_switch_grpc, one port per device (grpc_ports.py GRPC_PORT_BASE + N)
+  XX           -> if something else holds it: an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+  XX  residue: a process this user cannot see (probably root-owned) holding :30056 (tcp)
+  XX           -> owner: bmv2 simple_switch_grpc, one port per device (grpc_ports.py GRPC_PORT_BASE + N)
+  XX           -> if something else holds it: an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+  XX  residue: a process this user cannot see (probably root-owned) holding :30057 (tcp)
+  XX           -> owner: bmv2 simple_switch_grpc, one port per device (grpc_ports.py GRPC_PORT_BASE + N)
+  XX           -> if something else holds it: an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+  XX  residue: a process this user cannot see (probably root-owned) holding :30058 (tcp)
+  XX           -> owner: bmv2 simple_switch_grpc, one port per device (grpc_ports.py GRPC_PORT_BASE + N)
+  XX           -> if something else holds it: an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+  XX  residue: a process this user cannot see (probably root-owned) holding :30059 (tcp)
+  XX           -> owner: bmv2 simple_switch_grpc, one port per device (grpc_ports.py GRPC_PORT_BASE + N)
+  XX           -> if something else holds it: an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+  XX  residue: a process this user cannot see (probably root-owned) holding :30060 (tcp)
+  XX           -> owner: bmv2 simple_switch_grpc, one port per device (grpc_ports.py GRPC_PORT_BASE + N)
+  XX           -> if something else holds it: an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+  XX  residue: a process this user cannot see (probably root-owned) holding :9091 (tcp)
+  XX           -> owner: bmv2 Thrift, one port per device (grpc_ports.py THRIFT_PORT_BASE + N)
+  XX           -> if something else holds it: the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+  XX  residue: a process this user cannot see (probably root-owned) holding :9092 (tcp)
+  XX           -> owner: bmv2 Thrift, one port per device (grpc_ports.py THRIFT_PORT_BASE + N)
+  XX           -> if something else holds it: the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+  XX  residue: a process this user cannot see (probably root-owned) holding :9093 (tcp)
+  XX           -> owner: bmv2 Thrift, one port per device (grpc_ports.py THRIFT_PORT_BASE + N)
+  XX           -> if something else holds it: the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+  XX  residue: a process this user cannot see (probably root-owned) holding :9094 (tcp)
+  XX           -> owner: bmv2 Thrift, one port per device (grpc_ports.py THRIFT_PORT_BASE + N)
+  XX           -> if something else holds it: the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+  XX  residue: a process this user cannot see (probably root-owned) holding :9095 (tcp)
+  XX           -> owner: bmv2 Thrift, one port per device (grpc_ports.py THRIFT_PORT_BASE + N)
+  XX           -> if something else holds it: the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+  XX  residue: a process this user cannot see (probably root-owned) holding :9096 (tcp)
+  XX           -> owner: bmv2 Thrift, one port per device (grpc_ports.py THRIFT_PORT_BASE + N)
+  XX           -> if something else holds it: the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+  XX  residue: a process this user cannot see (probably root-owned) holding :9097 (tcp)
+  XX           -> owner: bmv2 Thrift, one port per device (grpc_ports.py THRIFT_PORT_BASE + N)
+  XX           -> if something else holds it: the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+  XX  residue: a process this user cannot see (probably root-owned) holding :9098 (tcp)
+  XX           -> owner: bmv2 Thrift, one port per device (grpc_ports.py THRIFT_PORT_BASE + N)
+  XX           -> if something else holds it: the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+  XX  residue: a process this user cannot see (probably root-owned) holding :9099 (tcp)
+  XX           -> owner: bmv2 Thrift, one port per device (grpc_ports.py THRIFT_PORT_BASE + N)
+  XX           -> if something else holds it: the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+  XX  residue: a process this user cannot see (probably root-owned) holding :9100 (tcp)
+  XX           -> owner: bmv2 Thrift, one port per device (grpc_ports.py THRIFT_PORT_BASE + N)
+  XX           -> if something else holds it: the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+  XX     the fabric this stack started is still up. Take it down with:  ndt down
+  XX       :8000 (ndtwin_kernel pid 2996267) -- its pid is in .test_run/pids/
+  XX       :8081 (python pid 2996072) -- its pid is in .test_run/pids/
+  XX       :6343 (ndtwin_kernel pid 2996267) -- its pid is in .test_run/pids/
+  XX       :30051 -- root-owned, so its pid is invisible here, and the switch manifest this stack wrote is still present
+  XX       :30052 -- root-owned, so its pid is invisible here, and the switch manifest this stack wrote is still present
+  XX       :30053 -- root-owned, so its pid is invisible here, and the switch manifest this stack wrote is still present
+  XX       :30054 -- root-owned, so its pid is invisible here, and the switch manifest this stack wrote is still present
+  XX       :30055 -- root-owned, so its pid is invisible here, and the switch manifest this stack wrote is still present
+  XX       :30056 -- root-owned, so its pid is invisible here, and the switch manifest this stack wrote is still present
+  XX       :30057 -- root-owned, so its pid is invisible here, and the switch manifest this stack wrote is still present
+  XX       :30058 -- root-owned, so its pid is invisible here, and the switch manifest this stack wrote is still present
+  XX       :30059 -- root-owned, so its pid is invisible here, and the switch manifest this stack wrote is still present
+  XX       :30060 -- root-owned, so its pid is invisible here, and the switch manifest this stack wrote is still present
+  XX       :9091 -- root-owned, so its pid is invisible here, and the switch manifest this stack wrote is still present
+  XX       :9092 -- root-owned, so its pid is invisible here, and the switch manifest this stack wrote is still present
+  XX       :9093 -- root-owned, so its pid is invisible here, and the switch manifest this stack wrote is still present
+  XX       :9094 -- root-owned, so its pid is invisible here, and the switch manifest this stack wrote is still present
+  XX       :9095 -- root-owned, so its pid is invisible here, and the switch manifest this stack wrote is still present
+  XX       :9096 -- root-owned, so its pid is invisible here, and the switch manifest this stack wrote is still present
+  XX       :9097 -- root-owned, so its pid is invisible here, and the switch manifest this stack wrote is still present
+  XX       :9098 -- root-owned, so its pid is invisible here, and the switch manifest this stack wrote is still present
+  XX       :9099 -- root-owned, so its pid is invisible here, and the switch manifest this stack wrote is still present
+  XX       :9100 -- root-owned, so its pid is invisible here, and the switch manifest this stack wrote is still present
+
+not clean
+clean rc=1

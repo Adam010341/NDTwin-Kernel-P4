@@ -1,0 +1,30 @@
+date 2026-10-02T11:16:54+08:00
+merge commit 3e8148ab4560d78d2c7ed52e6a501d7ae7049f59: tree dcdc238055b0e666f529cbf31ff13fde912ed6f1, parents 1e350bf278ab1907b335ef1b141423d4ff77b13b and 73889e5494d22f32b39f4a43021db389a92fe742
+trunk now 1e350bf278ab1907b335ef1b141423d4ff77b13b; branch head now 73889e5494d22f32b39f4a43021db389a92fe742
+extracted: git archive 3e8148ab4560d78d2c7ed52e6a501d7ae7049f59 | tar -C /tmp/mergedc-n2bb9g -xf -
+dir /tmp/mergedc-n2bb9g
+bash GNU bash, version 5.2.21(1)-release (x86_64-pc-linux-gnu)
+cmd bash tests/shell/test_lab_handoff.sh
+ndt status handoff line
+  ok       no handoff file, no handoff line
+  ok       handoff shown when the lab is unclaimed
+  ok       it says who left it
+  ok       it says what state the fabric is in
+  ok       it carries the free-text note
+  ok       it states the rule, so the reader need not remember it
+  ok       a live claim suppresses the handoff line
+  ok       and the claim itself is still reported
+  ok       the fixture is not mistakable for a real handoff
+  ok       an expired claim does not hide the handoff
+  ok       claiming removes the handoff
+  ok       and keeps it as .prev, so an interrupted handover survives
+  ok       so status shows no handoff once someone owns the lab
+  ok       releasing does not bring the old note back
+  ok       claiming with no handoff present is fine
+  ok       and does not create one
+  ok       a handoff missing every optional field still prints
+  ok       an empty handoff file does not crash status
+  ok       🔴 every sudo went to this suite's stub and was an allow-listed read-only probe
+
+Ran 19 checks, all passed
+exit rc=0

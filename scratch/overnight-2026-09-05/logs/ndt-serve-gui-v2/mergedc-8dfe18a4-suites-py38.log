@@ -1,0 +1,9 @@
+date 2026-10-01T21:59:43+08:00
+merge commit 8dfe18a43156694e7d4ffc51313a80258710699c: tree b9fd0f7837c41d4666de6aac56d78179b28f1fd1, parents d452d111f243b4f05225d16b5773f39076675fb4 (trunk 1e350bf278ab1907b335ef1b141423d4ff77b13b) and 23e9b76fe64a6ecc659fb40961f95faf090f6b3f (branch head 23e9b76fe64a6ecc659fb40961f95faf090f6b3f)
+extracted: git archive 8dfe18a43156694e7d4ffc51313a80258710699c tools/ndt_serve tools/test_workflow tests/python tests/shell tests/browser | tar -C /tmp/mergedc-yMDQHR -xf -
+dir /tmp/mergedc-yMDQHR
+python /home/adam/miniconda3/envs/ryu-env/bin/python3.8 3.8.20
+test_ndt_serve_web: Ran 18 tests in 0.258s, OK, rc=0
+test_ndt_serve: Ran 75 tests in 64.356s, OK, rc=0
+test_ndt_serve_gui: Ran 39 tests in 28.386s, OK, rc=0
+test_ndt_serve_cells: Ran 35 tests in 34.584s, OK, rc=0

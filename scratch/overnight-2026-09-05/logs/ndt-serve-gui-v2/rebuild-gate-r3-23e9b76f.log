@@ -1,0 +1,7 @@
+head 23e9b76fe64a6ecc659fb40961f95faf090f6b3f
+porcelain 0 tracked file(s) differ from HEAD
+date 2026-10-01T22:10:37+08:00
+static /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/tools/ndt_serve/static
+rebuilding /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/tools/ndt_serve/web in /tmp/ndt-serve-rebuild-0CiSYA (node v24.20.0, npm 11.19.0)
+REFUSED: 1978 MB free, the gate wants 2048 MB
+rc=2

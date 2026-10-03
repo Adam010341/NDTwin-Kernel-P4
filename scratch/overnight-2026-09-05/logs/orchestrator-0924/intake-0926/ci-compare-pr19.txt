@@ -1,0 +1,7 @@
+# PR #19 head c22ca67b, compared 2026-10-01 by a Sonnet 5.5 worker (trial #2), checked by the orchestrator
+8/8 pass: runs 36817147504 (branch ref, GCC job 110224586333) and 36817151403 (merge ref 955c7ae3 on a7ff42ab, GCC job 110224598328).
+- ctest 1385/1385 (A:6645, B:6658) MATCH; L1 passed (A:7110, B:7123) MATCH; 0 FAILED lines MATCH; gate anchors 127/127 (A:6922) MATCH.
+- test_apps_residue.sh "PASS 145 ran and passed" (A:7034, B:7047) MATCH on count; test_ndt_serve.py PASS 74 (A:7007) MATCH.
+- NOT VISIBLE: the per-check lines (two DATED checks, "-> now", the 5N "try N of 5" lines). The L1 runner prints one summary line per suite
+  on a pass, so the round-2 judge's "record the 5N try lines from the CI log" cannot be met from CI; my prediction wrongly expected them.
+  145/145 passing on both refs is the CI evidence; the try lines exist in the local robustness runs (round4/robust-*.log, all try 1).

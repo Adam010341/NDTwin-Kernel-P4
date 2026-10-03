@@ -1,0 +1,2 @@
+untraced ndt status rc=0 wall=1.2s
+untraced ndt apps status rc=0 wall=0.47s

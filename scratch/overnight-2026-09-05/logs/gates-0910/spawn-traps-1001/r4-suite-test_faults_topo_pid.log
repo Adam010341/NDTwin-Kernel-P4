@@ -1,0 +1,89 @@
+8d79dacd0e40e9ddd20d7c8e9af6185b4ef8e482
+porcelain-lines: 0
+# dir: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-spawn-traps-1001
+# sha256 dffb68107c8aeb478629cb8842166d571f028957dfc993f9ff235ee8e98e2faf  tests/shell/test_faults_topo_pid.sh
+# tripwire lines before: 0
+# $ bash tests/shell/test_faults_topo_pid.sh
+# started 2026-10-01T21:33:32+08:00
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/claude-1000/spawn-traps-1001.lock
+guarded_build: $ bash tests/shell/test_faults_topo_pid.sh
+topo_pid (the value that gets handed to 'mnexec -a')
+  ok       nothing running -> rc 1
+  ok         and it prints nothing
+  ok       fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/NDT-TEST-FIXTURE-topo.py
+  ok       one topology -> rc 0
+  ok         and it is the right pid
+  ok       fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/tail-of-NDT-TEST-FIXTURE-topo.py.log
+  ok       a log file named after it is not it
+  ok         still rc 0
+  ok       fixture took argv0=/nonexistent/NDT-TEST-FIXTURE/NDT-TEST-FIXTURE-topo.py
+  ok       two topologies -> refuses, rc 1
+  ok         and prints no pid at all
+  ok         and says why
+a name-based lookup is caught however it is spelled
+  ok       control: pgrep -f in a substitution
+  ok       (3)b --full instead of -f
+  ok       (3)c two spaces before -f
+  ok       (3)d pkill instead of pgrep
+  ok       -x is still by name
+  ok       killall
+  ok       pidof
+  ok       ps read for a name, not for a pid
+and so is the advice, whoever prints it
+  ok       control: printed by echo
+  ok       (3)e printed by warn, not err
+quoting the forbidden form is not doing it
+  ok       a comment is not an executable line
+  ok         nor something it prints
+  ok       a single-quoted anchor is data
+  ok       a heredoc body belongs to its own file
+  ok       ps read for a pid is not by name
+python: a name-based lookup is a spawner's argument, however it is spelled
+  ok       os.system with the shell one-liner
+  ok       an argv list, with no shell at all
+  ok       check_output, shell=True
+  ok       an f-string handed to os.system
+  ok       an f-string through a Mininet node
+  ok       python: ps read for a name
+python: and so is the advice
+  ok       printed at the operator
+  ok       raised as the way to clean up
+python: quoting the forbidden form is not doing it
+  ok       a python comment is not executable
+  ok         nor a python string it prints
+  ok       a docstring is prose
+  ok       a string used as a block comment
+  ok       signalling a pid is not by name
+  ok       a variable merely NAMED after it
+  ok         and it is not advice either
+  ok       unparseable python is NOT CHECKED
+  ok         and it says so rather than nothing
+the advice strings no longer teach pgrep -f
+  ok       no pgrep -f on an executable line
+  ok       no pgrep -f inside anything it prints
+the replacements for the two name-based lookups (#16)
+  ok       two host/switch shells are counted
+  ok         an empty process table counts zero
+  ok       🔴 no kernel pidfile at all -> 2, CANNOT TELL (a hand-started kernel records none)
+  ok       🔴 a recorded pid that is gone -> 1, stale (that IS a record)
+  ok         a recorded pid that is alive but does not hold the log -> 1
+  ok       🔴 the pid holding the log is found through the child pidfile -> 0
+  ok         and the reason is named, not left to the caller to guess
+the whole scan surface, not one hard-coded path
+  ok       no unregistered name-based site
+  ok         and it looked at more than one file
+  ok         and python is in the surface
+           | check_process_by_name: 2 registered audit exceptions scanned (7 file(s) under them); doc/audit/** is not a scan surface otherwise
+           | check_process_by_name: 348 file(s) scanned, 0 site(s), 0 registered, 0 new, 0 stale
+doc/audit is a record, not a scan surface -- except what is registered
+  ok       a registered audit exception IS scanned
+  ok         and the rest of doc/audit is not
+  ok         and the run says how many it scanned
+  ok       an exception matching nothing is reported
+the suite reaps its own fixtures
+  ok       no fixture survives this run
+
+Ran 61 checks, all passed (0 skipped)
+guarded_build: exit 0
+# ended 2026-10-01T21:33:37+08:00; tripwire lines after: 0
+rc=0

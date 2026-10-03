@@ -1,0 +1,95 @@
+# rehearsal of steps 0, 2, 6 -- 2026-10-02T09:14:50Z; README old = 5311f3f6's, new = the round-7 working copy (sha256 986c51a059657e25); df / 2738M; script: rehearse.sh (sha256 e1ea1a9d9e7fbaad), extract.py
+== old case A: clone at 67ec9f9e, B 5311f3f60add32e9b92b2bf964db68a38419ae2a
+   |    [event] uncommitted edit to tools/test_workflow/ndt (B changes it)
+   | error: Entry 'tools/test_workflow/ndt' not uptodate. Cannot merge.
+   | fatal: Could not reset index file to revision '67ec9f9ecf9caf9d7df8cc92c4166cd04b79af34'.
+   | STOP: HEAD is not T's merge
+   state: HEAD e402b05e Merge commit '5311f3f60add32e9b92b2bf964db68a38419a; parents 2
+   B merged into trunk: YES
+   index: |  worktree edits: tools/test_workflow/ndt 
+== new case A: clone at 67ec9f9e, B 5311f3f60add32e9b92b2bf964db68a38419ae2a
+   | MERGED
+   |    [event] uncommitted edit to tools/test_workflow/ndt (B changes it)
+   | error: Entry 'tools/test_workflow/ndt' not uptodate. Cannot merge.
+   | fatal: Could not reset index file to revision 'e402b05eaa9d1b9412980c5ad93ff9a3cdcdbf26^1'.
+   | STOP: reset --keep refused -- local edits to files B changes (listed above)
+   | STOP: HEAD is not C_HEAD -- do not unfreeze
+   |    (step 6 rc 0)
+   state: HEAD e402b05e Merge commit '5311f3f60add32e9b92b2bf964db68a38419a; parents 2
+   B merged into trunk: YES
+   index: |  worktree edits: tools/test_workflow/ndt 
+   -- the owner moves the edit off (git stash), then step 6 again:
+   | ROLLED-BACK
+== old case B: clone at 67ec9f9e, B 5311f3f60add32e9b92b2bf964db68a38419ae2a
+   |    [event] someone commits to trunk: 19fbbc4262a821e92bac64fc65d3c1b9390dc2b0
+   | STOP
+   state: HEAD 67ec9f9e Merge feat/ndt-serve-gui-v2-0927: ndt serve GUI v2; parents 2
+   B merged into trunk: no
+   someone's commit on trunk: DROPPED
+   index: |  worktree edits: 
+== new case B: clone at 67ec9f9e, B 5311f3f60add32e9b92b2bf964db68a38419ae2a
+   |    [event] someone commits to trunk: 836d87eb7fd161026f69d09936f0f66c2e9ef587
+   | STOP: trunk moved since step 0 -- no merge
+   | /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/r7/clone-aAOP/step6.sh: line 1: T_MERGE: parameter null or not set
+   |    (step 6 rc 1)
+   state: HEAD 836d87eb someone else's commit; parents 1
+   B merged into trunk: no
+   someone's commit on trunk: kept
+   index: |  worktree edits: 
+== old case C: clone at 67ec9f9e, B 5311f3f60add32e9b92b2bf964db68a38419ae2a
+   |    [event] someone stages README.md (a file B does not change)
+   state: HEAD 67ec9f9e Merge feat/ndt-serve-gui-v2-0927: ndt serve GUI v2; parents 2
+   B merged into trunk: no
+   index: |  worktree edits: README.md 
+== new case C: clone at 67ec9f9e, B 5311f3f60add32e9b92b2bf964db68a38419ae2a
+   | MERGED
+   |    [event] someone stages README.md (a file B does not change)
+   | STOP: staged changes in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/r7/clone-O22a/main -- reset --keep would unstage them; no reset
+   | STOP: HEAD is not C_HEAD -- do not unfreeze
+   |    (step 6 rc 0)
+   state: HEAD f6085c53 Merge commit '5311f3f60add32e9b92b2bf964db68a38419a; parents 2
+   B merged into trunk: YES
+   index: README.md |  worktree edits: 
+   -- the owner moves the edit off (git stash), then step 6 again:
+   | ROLLED-BACK
+== old case C0: clone at 67ec9f9e, B 5311f3f60add32e9b92b2bf964db68a38419ae2a
+   |    [event] someone stages README.md before the merge
+   | error: Your local changes to the following files would be overwritten by merge:
+   |   README.md
+   | Merge with strategy ort failed.
+   | STOP
+   state: HEAD 67ec9f9e Merge feat/ndt-serve-gui-v2-0927: ndt serve GUI v2; parents 2
+   B merged into trunk: no
+   index: |  worktree edits: README.md 
+== new case C0: clone at 67ec9f9e, B 5311f3f60add32e9b92b2bf964db68a38419ae2a
+   |    [event] someone stages README.md before the merge
+   | STOP: staged changes in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/r7/clone-Zp4Z/main -- no merge
+   | /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/r7/clone-Zp4Z/step6.sh: line 1: T_MERGE: parameter null or not set
+   |    (step 6 rc 1)
+   state: HEAD 67ec9f9e Merge feat/ndt-serve-gui-v2-0927: ndt serve GUI v2; parents 2
+   B merged into trunk: no
+   index: README.md |  worktree edits: 
+== old case D: clone at 67ec9f9e, B 5311f3f60add32e9b92b2bf964db68a38419ae2a
+   |    [event] a fresh shell for step 6: T_MERGE recovered, C_HEAD not
+   state: HEAD a3c688b4 Merge commit '5311f3f60add32e9b92b2bf964db68a38419a; parents 2
+   B merged into trunk: YES
+   index: |  worktree edits: 
+== new case D: clone at 67ec9f9e, B 5311f3f60add32e9b92b2bf964db68a38419ae2a
+   | MERGED
+   |    [event] the vars file lost its C_HEAD line
+   | /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/r7/clone-Vdfh/step6.sh: line 1: C_HEAD: parameter null or not set
+   |    (step 6 rc 1)
+   state: HEAD 4a7fc0bd Merge commit '5311f3f60add32e9b92b2bf964db68a38419a; parents 2
+   B merged into trunk: YES
+   index: |  worktree edits: 
+# verdicts (what each run above shows; lines refer to this log)
+# A  old RED (:2-9): reset --keep refused, the message said "HEAD is not T's merge" (false: HEAD was the merge), B stayed merged, nothing said keep the freeze.
+#    new GREEN (:10-22): "reset --keep refused" + "HEAD is not C_HEAD -- do not unfreeze"; the edit kept; after the owner's stash, step 6 again: ROLLED-BACK.
+# B  old RED (:23-29): step 2 merged on top of someone's commit and printed a bare STOP; step 6 (the old outcome's "先回復") reset to C_HEAD and DROPPED that commit from trunk.
+#    new GREEN (:30-38): "trunk moved since step 0 -- no merge"; the commit kept; B not merged. (step 6's T_MERGE guard fires: nothing to roll back.)
+# C  old RED (:39-43): someone's staged README.md came out of step 6 UNSTAGED (reset --keep succeeded and dropped the index entry; content kept).
+#    new GREEN (:44-54): "staged changes ... no reset" + "do not unfreeze"; still staged; after the owner's stash, ROLLED-BACK.
+# C0 informational: staged before the merge. old (:55-63) the merge refused with a bare STOP; this harness then ran step 6, which unstaged it (the old text's
+#    refused-merge outcome would not have run step 6). new (:64-71): "staged changes ... no merge"; still staged.
+# D  old RED (:72-76): step 6 in a fresh shell with C_HEAD empty: `git reset --keep` with no target, rc 0, no STOP printed, B stayed merged.
+#    new GREEN (:77-84): `C_HEAD: parameter null or not set`, step 6 rc 1, nothing reset (B still merged and the operator stopped).

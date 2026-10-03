@@ -1,0 +1,6 @@
+mutate_app_package             rc=0  mutation gate: 48 mutations, 0 survived
+mutate_ndt_app_package         rc=0  mutation gate: 77 mutations, 0 survived; 4 control(s), 0 went red
+mutate_heartbeat_drop_check    rc=0  every non-control check seen red: 61/61 (over 39 mutant runs); 6 control(s), 5 of them red too: ['and it is still rc 0', '(the run under observation s
+check_gate_anchors             rc=0  128/128 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+nolab_tripwire                 rc=0  NOLAB-TRIPWIRE: 0 lab call(s) (all refused); 1585 allowed launch(es), 0 left running
+GATES-extb4r faf6eb41: ALL-AS-EXPECTED

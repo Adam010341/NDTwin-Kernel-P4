@@ -1,0 +1,22 @@
+67e9963d03732ea833137c248dbc4642979aa6ff
+# 2026-09-28T00:41:10Z cmd env PY_PROXY=/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python bash tests/shell/test_cell_gate_suspect_wiring.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env PY_PROXY=/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python bash tests/shell/test_cell_gate_suspect_wiring.sh
+  ok       round.env resolved KERNEL_DIR to this checkout
+  ok       case 1a suspect=true -> the reader returns 0 (suspect is not an abort)
+  ok       case 1b suspect=true -> a SUSPECT line reaches the log
+  ok       case 1c suspect=true -> the cell is listed in cell_cpu/SUSPECT_CELLS
+  ok       case 2a suspect=false -> returns 0
+  ok       case 2b suspect=false -> no SUSPECT line
+  ok       case 2c suspect=false -> not listed
+  ok       case 3a no suspect field -> returns 0
+  ok       case 3b no suspect field -> readout says UNKNOWN, not false
+  ok       case 3c no suspect field -> listed as UNKNOWN (absence is not a clean bill)
+  ok       case 4  RED -> abort (exit 9), unchanged by the wiring
+  ok       case 5  UNREADABLE -> abort (exit 9), unchanged by the wiring
+  ok       case 6  the suspect line carries unattributed_cores
+  ok       🔴 every sudo went to this suite's stub and was an allow-listed read-only probe
+
+14 passed, 0 failed
+guarded_build: exit 0
+# rc=0

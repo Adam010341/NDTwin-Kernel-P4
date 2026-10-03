@@ -1,0 +1,7 @@
+a8e9bfed9baed98f55211d97b49ce56273d8e681
+# 2026-09-28T00:58:11Z cmd python3 tests/shell/check_test_tmpdirs.py
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ python3 tests/shell/check_test_tmpdirs.py
+check_test_tmpdirs: 392 file(s) scanned, 0 fixed temp paths
+guarded_build: exit 0
+# rc=0

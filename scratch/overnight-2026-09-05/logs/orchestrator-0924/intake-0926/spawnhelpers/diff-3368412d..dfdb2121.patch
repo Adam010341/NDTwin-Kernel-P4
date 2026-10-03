@@ -1,0 +1,830 @@
+diff --git a/tests/shell/mutate_fixture_spawn_helpers.sh b/tests/shell/mutate_fixture_spawn_helpers.sh
+new file mode 100644
+index 00000000..5e839bce
+--- /dev/null
++++ b/tests/shell/mutate_fixture_spawn_helpers.sh
+@@ -0,0 +1,151 @@
++#!/usr/bin/env bash
++#
++# Mutation gate for the fixture-spawn helpers of six suites: a fixture that never takes its argv0
++# must be a FAILED check the suite COUNTS, followed by a summary line and a non-zero exit.
++#
++# [Co-developed with claude code -- Adam]
++#
++# WHAT WENT WRONG (measured 2026-09-28). Each helper polled /proc for 1-2 s and then ran `exit 1`,
++# but every caller wrote X="$(spawn_fixture ...)", so that exit left only the command substitution.
++# The variable then held the helper's own "Ran N checks" text, the FAILED line the helper printed
++# was never counted (test_ndt_apps_liveness.sh printed 23 FAILED lines under "Ran 51 checks, 17
++# failed"), and test_ndtwin_lab_sweep.sh -- errexit is on there, left behind by the ndtwin-lab it
++# sources -- stopped at the assignment without printing any summary.
++#
++# EACH MUTATION makes one suite's helper unable to recognise its fixture: the argv0 comparison gets
++# a suffix no fixture wears, so the poll runs to its bound and gives up, the way it would for a
++# fixture too slow to exec. The mutant must then
++#   1. exit non-zero,
++#   2. print a "Ran N checks, M failed" summary,
++#   3. print a FAILED line for the fixture itself,
++#   4. COUNT it -- M equals the number of FAILED lines it printed --
++#   5. and not leave the fixture it gave up on running (every pid named after that FAILED line).
++#
++# A mutant is a copy BESIDE its suite (tests/shell/.spawn-gate-<pid>-<label>-<suite>), so every path
++# the suite derives from its own location -- lib_probe_stub.sh, check_process_by_name.py,
++# ../../tools -- is the real one; a copy anywhere else cannot find them, which is why two of these
++# six went unmeasured the first time. Each copy is removed after its run and on exit. Each suite's
++# CONTROL is an unmutated copy made the same way, and it must be green: a copy that lost a sibling
++# would go red for that reason and read as a catch. The judge itself is held first to five synthetic
++# runs, each built to come out one way.
++#
++# Usage: bash tests/shell/mutate_fixture_spawn_helpers.sh
++#   TEST_TIMEOUT=600   seconds allowed per suite run
++# Exit: 0 every mutation caught, every control green; 1 a mutation survived; 2 refused (a control
++#       that did not come out as it must, an anchor not exactly once, harness)
++set -uo pipefail
++HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
++ORPHANS="$HERE/test_ndt_app_orphans.sh"
++LIVENESS="$HERE/test_ndt_apps_liveness.sh"
++SWEEP="$HERE/test_ndtwin_lab_sweep.sh"
++WINDOW="$HERE/test_ndt_helper_apps_window.sh"
++TOPO_PID="$HERE/test_faults_topo_pid.sh"
++OVS_CLAIM="$HERE/test_ndt_ovs_claim.sh"
++TEST_TIMEOUT="${TEST_TIMEOUT:-600}"
++command -v timeout >/dev/null 2>&1 || { echo "refused: GNU timeout is required"; exit 2; }
++cd "$HERE/../.." || { echo "refused: cannot cd to the repo root"; exit 2; }
++trap 'rm -f "$HERE"/.spawn-gate-$$-*' EXIT
++SURVIVORS=0; MUTATIONS=0
++
++# --- one run, and the rule that reads it -------------------------------------------------------
++run_one() {   # run_one <file> -> RUN_OUT, RUN_RC, RUN_S
++    local t0=$SECONDS
++    RUN_OUT="$(timeout "$TEST_TIMEOUT" bash "$1" </dev/null 2>&1)"; RUN_RC=$?
++    RUN_S=$(( SECONDS - t0 ))
++}
++# A fixture is still there if /proc has it, it is not a zombie, and it is still a `sleep`.
++fixture_alive() { [[ "$(cat "/proc/$1/comm" 2>/dev/null)" == sleep ]] \
++                  && [[ "$(sed 's/^.*) //' "/proc/$1/stat" 2>/dev/null | cut -d' ' -f1)" != Z ]]; }
++judge() {   # judge -> "caught (...)" or "SURVIVED (...)", read from RUN_OUT and RUN_RC
++    local ran m printed fixline pid i left=""
++    ran="$(grep -E '^Ran [0-9]+ checks' <<<"$RUN_OUT" | tail -1)"
++    printed="$(grep -cE '^ *FAILED ' <<<"$RUN_OUT")"
++    fixline="$(grep -m1 -E '^ *FAILED +fixture .*argv0' <<<"$RUN_OUT" | sed 's/^ *//')"
++    m=""
++    [[ "$ran" =~ ^Ran\ [0-9]+\ checks,\ ([0-9]+)\ failed ]] && m="${BASH_REMATCH[1]}"
++    [[ "$ran" =~ ^Ran\ [0-9]+\ checks,\ all\ passed ]] && m=0
++    (( RUN_RC != 0 )) || { echo "SURVIVED (rc 0)"; return; }
++    [[ -n "$ran" ]] || { echo "SURVIVED (rc $RUN_RC, and no \"Ran N checks\" line at all)"; return; }
++    [[ -n "$m" ]] || { echo "SURVIVED (a summary this gate cannot read: $ran)"; return; }
++    [[ -n "$fixline" ]] || { echo "SURVIVED (no FAILED line names the fixture; $ran)"; return; }
++    (( m == printed )) || { echo "SURVIVED ($printed FAILED line(s) printed, the summary counts $m: $ran)"; return; }
++    for pid in $(sed -n '/^ *FAILED  *fixture .*argv0/,$p' <<<"$RUN_OUT" | grep -oE 'pid [0-9]+' | cut -d' ' -f2); do
++        for i in 1 2 3 4 5 6 7 8 9 10; do fixture_alive "$pid" || break; sleep 0.3; done
++        fixture_alive "$pid" && left="$left $pid"
++    done
++    [[ -z "$left" ]] || { echo "SURVIVED (the fixture it gave up on is still running: pid$left)"; return; }
++    echo "caught (rc $RUN_RC; $ran; ${fixline:0:80})"
++}
++
++# --- the judge's own controls: each must come out as stated, or nothing below means anything ----
++echo "the judge, on synthetic runs:"
++jcontrol() {   # jcontrol <name> <rc> <output> <the glob the verdict must match>
++    local v
++    RUN_RC="$2"; RUN_OUT="$3"; v="$(judge)"
++    # shellcheck disable=SC2053  # $4 IS a glob
++    if [[ "$v" == $4 ]]; then printf '  ok       %s -> %s\n' "$1" "${v:0:100}"
++    else printf '  refused: control "%s" answered "%s", not "%s"\n' "$1" "${v:0:100}" "$4"; exit 2; fi
++}
++jcontrol "J1: a FAILED fixture line the summary does not count" 1 \
++    $'  FAILED   fixture never took argv0=x\nRan 3 checks, 0 failed' 'SURVIVED (1 FAILED line(s) printed, the summary counts 0*'
++jcontrol "J2: no summary line at all" 1 \
++    $'  FAILED   fixture never took argv0=x' 'SURVIVED (rc 1, and no "Ran N checks" line at all)'
++jcontrol "J3: rc 0" 0 \
++    $'  FAILED   fixture took argv0=x\nRan 2 checks, 1 failed' 'SURVIVED (rc 0)'
++jcontrol "J4: a counted failure that is not the fixture's" 1 \
++    $'  FAILED   something else\nRan 2 checks, 1 failed' 'SURVIVED (no FAILED line names the fixture*'
++jcontrol "J5: the fixture's failure, counted" 1 \
++    $'  ok       before\n  FAILED   fixture took argv0=x\n             expected: x\nRan 2 checks, 1 failed' 'caught (rc 1; Ran 2 checks, 1 failed;*'
++
++# --- the suites --------------------------------------------------------------------------------
++# The parameters are NAMED so tests/shell/check_gate_anchors.py can read this gate. The control is
++# the same copy without the replacement; both need the anchor exactly once.
++gate_suite() {   # $1 = label, $2 = file (the suite), $3 = the anchor, $4 = its replacement
++    local label="$1" file="$2" old="$3" new="$4"
++    local ctl="$HERE/.spawn-gate-$$-control-$label-$(basename "$file")"
++    local mut="$HERE/.spawn-gate-$$-$label-$(basename "$file")"
++    local n r
++    n="$(python3 - "$file" "$ctl" "$mut" "$old" "$new" <<'PY'
++import sys
++src, ctl, mut, a, b = sys.argv[1:6]
++s = open(src).read()
++if s.count(a) == 1:
++    open(ctl, "w").write(s)
++    open(mut, "w").write(s.replace(a, b, 1))
++print(s.count(a))
++PY
++)"
++    MUTATIONS=$((MUTATIONS+1))
++    if [[ "$n" != 1 ]]; then
++        printf '  refused: %s -- the anchor occurs %s time(s) in %s, not once\n' "$label" "${n:-?}" "${file#"$HERE/"}"
++        exit 2
++    fi
++    run_one "$ctl"; rm -f "$ctl"
++    if (( RUN_RC != 0 )) || ! grep -qE '^Ran [0-9]+ checks, (0 failed|all passed)' <<<"$(grep -E '^Ran ' <<<"$RUN_OUT" | tail -1)" \
++            || grep -qE '^ *FAILED ' <<<"$RUN_OUT"; then
++        printf '  refused: %s -- the unmutated copy is not green (rc %s): %s\n' "$label" "$RUN_RC" \
++               "$(grep -E '^ *FAILED |^Ran ' <<<"$RUN_OUT" | head -3 | paste -sd'|' -)"
++        exit 2
++    fi
++    printf '  control  %-10s %s  (%ss)\n' "$label" "$(grep -E '^Ran ' <<<"$RUN_OUT" | tail -1)" "$RUN_S"
++    run_one "$mut"; rm -f "$mut"
++    r="$(judge)"
++    [[ "$r" == SURVIVED* ]] && SURVIVORS=$((SURVIVORS+1))
++    printf '  %-8s %-10s %s  (%ss)\n' "${r%% (*}" "$label" "(${r#* (}" "$RUN_S"
++    printf '             its fixture FAILED line: %s\n' \
++           "$(grep -m1 -E '^ *FAILED +fixture .*argv0' <<<"$RUN_OUT" | sed 's/^ *//' | cut -c1-110)"
++    printf '             its last line:           %s\n' "$(tail -1 <<<"$RUN_OUT" | cut -c1-110)"
++}
++
++echo
++echo "each suite: its unmutated copy green, then its helper made to never match (the poll's bound)"
++gate_suite orphans   "$ORPHANS"   '[[ "${argv[0]:-}" == "$want" ]]' '[[ "${argv[0]:-}" == "$want/NDT-GATE-NEVER" ]]'
++gate_suite liveness  "$LIVENESS"  '[[ "${argv[0]:-}" == "$want" ]]' '[[ "${argv[0]:-}" == "$want/NDT-GATE-NEVER" ]]'
++gate_suite sweep     "$SWEEP"     '[[ "${argv[0]:-}" == "$want" ]]' '[[ "${argv[0]:-}" == "$want/NDT-GATE-NEVER" ]]'
++gate_suite window    "$WINDOW"    '[[ "${argv[0]:-}" == "$want" ]]' '[[ "${argv[0]:-}" == "$want/NDT-GATE-NEVER" ]]'
++gate_suite topo_pid  "$TOPO_PID"  '[[ "${argv[0]:-}" == "$want" ]]' '[[ "${argv[0]:-}" == "$want/NDT-GATE-NEVER" ]]'
++gate_suite ovs_claim "$OVS_CLAIM" '[[ "${argv[0]:-}" == "$want" ]]' '[[ "${argv[0]:-}" == "$want/NDT-GATE-NEVER" ]]'
++
++echo
++echo "$MUTATIONS mutation(s), $SURVIVORS survivor(s)"
++(( SURVIVORS == 0 ))
+diff --git a/tests/shell/test_faults_topo_pid.sh b/tests/shell/test_faults_topo_pid.sh
+index 244570d1..14fc912a 100755
+--- a/tests/shell/test_faults_topo_pid.sh
++++ b/tests/shell/test_faults_topo_pid.sh
+@@ -59,16 +59,40 @@ cleanup() {
+ }
+ trap cleanup EXIT INT TERM
+ 
++# spawn <argv0> -- a `sleep` wearing that argv0; its pid is left in FIXTURE_PID.
++#
++# [Co-developed with claude code -- Adam]
++# 🔴 CALLED AS A PLAIN COMMAND, NEVER AS X="$(spawn ...)" (2026-09-28). Inside a command substitution
++# the `exit 1` below left only that subshell: the suite ran on with an empty pid and never counted
++# the FAILED line -- measured on 3368412d by tests/shell/mutate_fixture_spawn_helpers.sh, 5 FAILED
++# lines under "Ran 58 checks, 2 failed". The premise is a check THIS shell counts, on success too,
++# and a failure ends the run with its summary. The poll waits up to FIXTURE_ARGV_WAIT seconds: a
++# slow exec on a loaded machine is not a defect in topo_pid.
++FIXTURE_ARGV_WAIT=30
++FIXTURE_PID=""
+ spawn() {
+-    local want="$1" pid i; local -a argv=()
+-    ( exec -a "$want" sleep "$FIXTURE_TTL" ) >/dev/null 2>&1 </dev/null &
+-    pid=$!; echo "$pid" >> "$FIXTURE_REG"
+-    for i in 1 2 3 4 5 6 7 8 9 10; do
+-        argv=(); mapfile -d '' -t argv < "/proc/$pid/cmdline" 2>/dev/null
+-        [[ "${argv[0]:-}" == "$want" ]] && { echo "$pid"; return 0; }
++    local want="$1" pid deadline; local -a argv=()
++    FIXTURE_PID=""
++    # From a command substitution of its own, so the fixture is never a job of this shell; the
++    # redirections keep it off that substitution's pipe, which it would otherwise hold open.
++    pid="$( ( exec -a "$want" sleep "$FIXTURE_TTL" ) \
++            >/dev/null 2>&1 </dev/null & echo "$!" )"
++    echo "$pid" >> "$FIXTURE_REG"
++    deadline=$(( SECONDS + FIXTURE_ARGV_WAIT ))
++    while :; do
++        argv=(); mapfile -d '' -t argv 2>/dev/null < "/proc/$pid/cmdline" || true
++        if [[ "${argv[0]:-}" == "$want" ]]; then
++            check "fixture took argv0=$want" "$want" "${argv[0]}"
++            FIXTURE_PID="$pid"; return 0
++        fi
++        (( SECONDS < deadline )) || break
+         sleep 0.1
+     done
+-    echo "  FAILED   fixture never took argv0=$want" >&2; exit 1
++    check "fixture took argv0=$want" "$want" \
++          "${argv[0]:-nothing readable} (pid $pid, after ${FIXTURE_ARGV_WAIT}s)"
++    echo
++    echo "Ran $((PASS+FAIL)) checks, $FAIL failed${SKIP:+ ($SKIP skipped)}"
++    exit 1
+ }
+ 
+ SCRIPT=NDT-TEST-FIXTURE-topo.py
+@@ -87,19 +111,19 @@ else
+     skip "nothing running (something already matches $SCRIPT on this machine)"
+ fi
+ 
+-FIX="$(spawn "$FIXP")"
++spawn "$FIXP"; FIX="$FIXTURE_PID"
+ out="$(topo_pid "$SCRIPT" 2>/dev/null)"; rc=$?
+ check "one topology -> rc 0"                     0 "$rc"
+ check "  and it is the right pid"                "$FIX" "$out"
+ 
+-DECOY="$(spawn "$DECOYP")"
++spawn "$DECOYP"; DECOY="$FIXTURE_PID"
+ out="$(topo_pid "$SCRIPT" 2>/dev/null)"; rc=$?
+ check "a log file named after it is not it"      "$FIX" "$out"
+ check "  still rc 0"                             0 "$rc"
+ 
+ # Two of them is the case where guessing is worst: `| head -1` silently picked one, and mnexec
+ # would have run tc as root in whichever namespace won the race.
+-FIX2="$(spawn "$FIXP")"
++spawn "$FIXP"; FIX2="$FIXTURE_PID"
+ out="$(topo_pid "$SCRIPT" 2>/dev/null)"; rc=$?
+ check "two topologies -> refuses, rc 1"          1 "$rc"
+ check "  and prints no pid at all"               "" "$out"
+diff --git a/tests/shell/test_ndt_app_orphans.sh b/tests/shell/test_ndt_app_orphans.sh
+index 27dede4f..7783b651 100755
+--- a/tests/shell/test_ndt_app_orphans.sh
++++ b/tests/shell/test_ndt_app_orphans.sh
+@@ -89,11 +89,11 @@ PIDDIR="$TMPROOT/.test_run/pids"
+ mkdir -p "$PIDDIR"
+ 
+ FIXTURE_TTL=90                        # self-reaps even if this script is SIGKILLed
+-# The fixture register is a FILE, not an array. spawn_fixture is called from inside a command
+-# substitution, so `FIXTURE_PIDS+=(...)` appends in a subshell and the parent's trap sees an
+-# empty list -- measured here: an earlier draft leaked every fixture it started, and `ndt apps
+-# orphans` found fourteen of them still running. A suite that tests orphan detection must not be
+-# a source of orphans.
++# The fixture register is a FILE, not an array. spawn_fixture was called from inside a command
++# substitution until 2026-09-28, so `FIXTURE_PIDS+=(...)` appended in a subshell and the parent's
++# trap saw an empty list -- measured here: an earlier draft leaked every fixture it started, and
++# `ndt apps orphans` found fourteen of them still running. A suite that tests orphan detection
++# must not be a source of orphans.
+ FIXTURE_REG="$TMPROOT/fixtures"
+ : > "$FIXTURE_REG"
+ 
+@@ -129,7 +129,8 @@ trap cleanup_fixtures EXIT
+ trap 'exit 130' INT
+ trap 'exit 143' TERM
+ 
+-# spawn_fixture <argv0> [cwd] -- start a process wearing that command line; echo its pid.
++# spawn_fixture <argv0> [cwd] -- start a process wearing that command line; its pid is left in
++# FIXTURE_PID.
+ #
+ # Asserts its own success before returning. A fixture that silently failed to take the fake argv
+ # would make every "not found" check below pass for the wrong reason, which is the one way this
+@@ -142,24 +143,45 @@ trap 'exit 143' TERM
+ # this suite is whatever tree it was launched from. Defaulting to $TMPROOT, the REPO every check
+ # below runs against, is what makes these fixtures orphans OF THIS CHECKOUT; section 8 passes a
+ # directory outside it on purpose and is the control for the other side.
++#
++# [Co-developed with claude code -- Adam]
++# 🔴 CALLED AS A PLAIN COMMAND, NEVER AS X="$(spawn_fixture ...)" (2026-09-28). Inside a command
++# substitution the `exit 1` below left only that subshell: the suite ran on with the helper's own
++# summary text where a pid should be, and the FAILED line was never counted -- measured on 3368412d
++# by tests/shell/mutate_fixture_spawn_helpers.sh, 59 FAILED lines under "Ran 104 checks, 52 failed".
++# The premise is now a check THIS shell counts, on success too, and a failure ends the run with its
++# summary. The poll waits up to FIXTURE_ARGV_WAIT seconds rather than one: a slow exec on a loaded
++# machine is not a defect in the code under test.
++FIXTURE_ARGV_WAIT=30
++FIXTURE_PID=""
+ spawn_fixture() {
+-    local want="$1" dir="${2:-$TMPROOT}" pid i
++    local want="$1" dir="${2:-$TMPROOT}" pid deadline
+     local -a argv=()
+-    # The redirections are load-bearing, not tidiness. spawn_fixture is called inside a command
+-    # substitution, and a background child that inherits that substitution's pipe keeps it open:
+-    # without these the caller blocks for the fixture's whole lifetime (measured here -- the
+-    # first draft hung for FIXTURE_TTL seconds per fixture and had to be killed).
+-    ( cd "$dir" && exec -a "$want" sleep "$FIXTURE_TTL" ) >/dev/null 2>&1 </dev/null &
+-    pid=$!
++    FIXTURE_PID=""
++    # Started from a command substitution of its own, so the fixture is never a job of this shell.
++    # The redirections are load-bearing, not tidiness: a background child that inherits that
++    # substitution's pipe keeps it open, and the caller blocks for the fixture's whole lifetime
++    # (measured here -- the first draft hung for FIXTURE_TTL seconds per fixture and had to be
++    # killed).
++    pid="$( ( cd "$dir" && exec -a "$want" sleep "$FIXTURE_TTL" ) \
++            >/dev/null 2>&1 </dev/null & echo "$!" )"
+     echo "$pid" >> "$FIXTURE_REG"
+-    for i in 1 2 3 4 5 6 7 8 9 10; do
++    deadline=$(( SECONDS + FIXTURE_ARGV_WAIT ))
++    while :; do
+         argv=()
+-        mapfile -d '' -t argv 2>/dev/null < "/proc/$pid/cmdline"
+-        [[ "${argv[0]:-}" == "$want" ]] && { echo "$pid"; return 0; }
++        mapfile -d '' -t argv 2>/dev/null < "/proc/$pid/cmdline" || true
++        if [[ "${argv[0]:-}" == "$want" ]]; then
++            check "fixture took argv0=$want" "$want" "${argv[0]}"
++            FIXTURE_PID="$pid"
++            return 0
++        fi
++        (( SECONDS < deadline )) || break
+         sleep 0.1
+     done
+-    echo "  FAILED   fixture never took argv0=$want (pid $pid)" >&2
+-    echo "Ran $((PASS + FAIL + 1)) checks, $((FAIL + 1)) failed"
++    check "fixture took argv0=$want" "$want" \
++          "${argv[0]:-nothing readable} (pid $pid, after ${FIXTURE_ARGV_WAIT}s)"
++    echo
++    echo "Ran $((PASS + FAIL)) checks, $FAIL failed"
+     exit 1
+ }
+ 
+@@ -174,9 +196,9 @@ DECOY_ARGV="bash -c echo restarting $TE_SIG now"
+ # --- 1. identity: /proc decides, and it decides argument-wise ----------------------
+ echo "identity (pid_is_app reads /proc; a mention is not a match)"
+ 
+-FIX="$(spawn_fixture "$FIX_ARGV")"
+-DECOY="$(spawn_fixture "$DECOY_ARGV")"
+-PLAIN="$(spawn_fixture "sleep-with-no-signature-at-all")"
++spawn_fixture "$FIX_ARGV"; FIX="$FIXTURE_PID"
++spawn_fixture "$DECOY_ARGV"; DECOY="$FIXTURE_PID"
++spawn_fixture "sleep-with-no-signature-at-all"; PLAIN="$FIXTURE_PID"
+ 
+ check "the fixture is te"                        yes "$(yn pid_is_app "$FIX" te)"
+ check "the fixture is NOT nsr"                   no  "$(yn pid_is_app "$FIX" nsr)"
+@@ -299,7 +321,7 @@ check "  says not running"                        yes "$(has "not running" "$out
+ # are the two that would have seen them.
+ check "  and says how it knows"                   yes "$(has "nothing found by pid, by scan, by process group or by log" "$out")"
+ 
+-VICTIM="$(spawn_fixture "python3 /nonexistent/NDT-TEST-FIXTURE-VICTIM/$TE_SIG")"
++spawn_fixture "python3 /nonexistent/NDT-TEST-FIXTURE-VICTIM/$TE_SIG"; VICTIM="$FIXTURE_PID"
+ SNAPSHOT_LINES="$(fix_line "$VICTIM" "python3 /nonexistent/NDT-TEST-FIXTURE-VICTIM/$TE_SIG")"
+ rm -f "$PIDDIR/app_te.pid"
+ out="$(app_stop te 2>&1)"; rc=$?
+@@ -322,7 +344,7 @@ check "  and the bad pidfile was discarded"       no  "$(yn test -e "$PIDDIR/app
+ # A poisoned pidfile must not be followed, must not be deleted -- and must no longer stop the
+ # app from being found. The old code returned 1 here before looking at anything, so the live app
+ # survived behind the bad link.
+-VICTIM2="$(spawn_fixture "python3 /nonexistent/NDT-TEST-FIXTURE-LINKED/$TE_SIG")"
++spawn_fixture "python3 /nonexistent/NDT-TEST-FIXTURE-LINKED/$TE_SIG"; VICTIM2="$FIXTURE_PID"
+ SNAPSHOT_LINES="$(fix_line "$VICTIM2" "python3 /nonexistent/NDT-TEST-FIXTURE-LINKED/$TE_SIG")"
+ ln -sf /etc/hostname "$PIDDIR/app_te.pid"
+ out="$(app_stop te 2>&1)"; rc=$?
+@@ -391,7 +413,7 @@ check "  while the directory above it still is"   yes "$(yn path_under_this_chec
+ 
+ # A fixture that belongs to that other tree: same argv shape as ours, running in ITS directory.
+ OTHER_ARGV="python3 /nonexistent/NDT-TEST-FIXTURE-OTHERTREE/$TE_SIG"
+-OTHERFIX="$(spawn_fixture "$OTHER_ARGV" "$TMPROOT/scratch/wt-other")"
++spawn_fixture "$OTHER_ARGV" "$TMPROOT/scratch/wt-other"; OTHERFIX="$FIXTURE_PID"
+ check "the other tree's fixture is still te by argv" yes "$(yn pid_is_app "$OTHERFIX" te)"
+ check "  but proc_checkout says it is not ours"   1   "$(proc_checkout "$OTHERFIX"; echo $?)"
+ check "  and our own fixture is ours"             0   "$(proc_checkout "$FIX"; echo $?)"
+@@ -505,7 +527,7 @@ check "  and the report prints the fail-closed line"  yes "$(has "who owns these
+ check "  it is not in the elsewhere column"           no  "$(has "seen elsewhere (not this checkout)" "$OUT10")"
+ 
+ # --- the controls. Each one is an input that must NOT produce "could not tell".
+-OTHER10="$(spawn_fixture "python3 /nonexistent/NDT-TEST-FIXTURE-BLIND-CONTROL/$TE_SIG" "$TMPROOT/scratch/wt-other")"
++spawn_fixture "python3 /nonexistent/NDT-TEST-FIXTURE-BLIND-CONTROL/$TE_SIG" "$TMPROOT/scratch/wt-other"; OTHER10="$FIXTURE_PID"
+ check "🔴 CONTROL: the same code, seam intact, other tree -> 1" 1 \
+       "$(in_ndt "" "proc_checkout $OTHER10 >/dev/null; echo \$?")"
+ check "  and that one IS filed under elsewhere"        1 \
+diff --git a/tests/shell/test_ndt_apps_liveness.sh b/tests/shell/test_ndt_apps_liveness.sh
+index ef14f4e7..581ce851 100755
+--- a/tests/shell/test_ndt_apps_liveness.sh
++++ b/tests/shell/test_ndt_apps_liveness.sh
+@@ -105,27 +105,49 @@ cleanup_fixtures() {
+ }
+ trap cleanup_fixtures EXIT INT TERM
+ 
+-# spawn_fixture <argv0> [cwd] -- a process wearing that command line; echo its pid.
++# spawn_fixture <argv0> [cwd] -- a process wearing that command line; its pid is left in
++# FIXTURE_PID.
+ #
+ # [Co-developed with claude code -- Adam]
+ # 🔴 C10-8 (2026-09-12): the cwd defaults to $TMPROOT, which is this suite's $REPO, and that is
+ # load-bearing rather than tidy. `ndt` now asks whether a scanned pid belongs to THIS checkout
+ # before it may be counted or signalled (proc_checkout), and a fixture inherits the cwd of the
+ # tree this suite was launched from -- which is another checkout as far as $REPO is concerned.
++#
++# [Co-developed with claude code -- Adam]
++# 🔴 CALLED AS A PLAIN COMMAND, NEVER AS X="$(spawn_fixture ...)" (2026-09-28). Inside a command
++# substitution the `exit 1` below left only that subshell: measured on 3368412d by
++# tests/shell/mutate_fixture_spawn_helpers.sh, this suite then printed 23 FAILED lines under "Ran 51
++# checks, 17 failed". The premise is a check THIS shell counts, on success too, and a failure ends
++# the run with its summary. The poll waits up to FIXTURE_ARGV_WAIT seconds: a slow exec on a loaded
++# machine is not a defect in `ndt`.
++FIXTURE_ARGV_WAIT=30
++FIXTURE_PID=""
+ spawn_fixture() {
+-    local want="$1" dir="${2:-$TMPROOT}" pid i
++    local want="$1" dir="${2:-$TMPROOT}" pid deadline
+     local -a argv=()
+-    ( cd "$dir" && exec -a "$want" sleep "$FIXTURE_TTL" ) >/dev/null 2>&1 </dev/null &
+-    pid=$!
++    FIXTURE_PID=""
++    # From a command substitution of its own, so the fixture is never a job of this shell; the
++    # redirections keep it off that substitution's pipe, which it would otherwise hold open.
++    pid="$( ( cd "$dir" && exec -a "$want" sleep "$FIXTURE_TTL" ) \
++            >/dev/null 2>&1 </dev/null & echo "$!" )"
+     echo "$pid" >> "$FIXTURE_REG"
+-    for i in 1 2 3 4 5 6 7 8 9 10; do
++    deadline=$(( SECONDS + FIXTURE_ARGV_WAIT ))
++    while :; do
+         argv=()
+-        mapfile -d '' -t argv < "/proc/$pid/cmdline" 2>/dev/null
+-        [[ "${argv[0]:-}" == "$want" ]] && { echo "$pid"; return 0; }
++        mapfile -d '' -t argv 2>/dev/null < "/proc/$pid/cmdline" || true
++        if [[ "${argv[0]:-}" == "$want" ]]; then
++            check "fixture took argv0=$want" "$want" "${argv[0]}"
++            FIXTURE_PID="$pid"
++            return 0
++        fi
++        (( SECONDS < deadline )) || break
+         sleep 0.1
+     done
+-    echo "  FAILED   fixture never took argv0=$want (pid $pid)" >&2
+-    echo "Ran $((PASS + FAIL + 1)) checks, $((FAIL + 1)) failed"
++    check "fixture took argv0=$want" "$want" \
++          "${argv[0]:-nothing readable} (pid $pid, after ${FIXTURE_ARGV_WAIT}s)"
++    echo
++    echo "Ran $((PASS + FAIL)) checks, $FAIL failed"
+     exit 1
+ }
+ 
+@@ -205,8 +227,8 @@ TE_ARGV="python3 /nonexistent/NDT-TEST-FIXTURE/Traffic-engineering-App.py"
+ # Paired with a real-ps read so that "the scan found nothing" can never pass by accident.
+ echo "identity (energy and sim are recognisable at all)"
+ 
+-SIMFIX="$(spawn_fixture "$SIM_ARGV")"
+-ENFIX="$(spawn_fixture "$ENERGY_ARGV")"
++spawn_fixture "$SIM_ARGV"; SIMFIX="$FIXTURE_PID"
++spawn_fixture "$ENERGY_ARGV"; ENFIX="$FIXTURE_PID"
+ 
+ check "sim has a signature"                       yes "$(yn pid_is_app "$SIMFIX" sim)"
+ check "energy has a signature"                    yes "$(yn pid_is_app "$ENFIX" energy)"
+@@ -301,7 +323,7 @@ check "stop of a never-started pidfile app -> rc 2" 2 "$rc"
+ check "  still says not running"                  yes "$(has "te not running" "$out")"
+ 
+ # Really running, really stopped: rc 0 is reserved for this.
+-TEFIX="$(spawn_fixture "$TE_ARGV")"
++spawn_fixture "$TE_ARGV"; TEFIX="$FIXTURE_PID"
+ SNAPSHOT_LINES="$(fix_line "$TEFIX" "$TE_ARGV")"
+ echo "$TEFIX" > "$PIDDIR/app_te.pid"
+ out="$(app_stop te 2>&1)"; rc=$?
+@@ -320,7 +342,7 @@ check "  and clears it"                           yes "$(has "energy-stop" " $(s
+ 
+ # A lab app the lab cannot reach: `energy-stop` kills a SESSION, and this one is not in a
+ # session. Reporting success here is the failure this whole area exists to stop.
+-ENFIX2="$(spawn_fixture "$ENERGY_ARGV")"
++spawn_fixture "$ENERGY_ARGV"; ENFIX2="$FIXTURE_PID"
+ SNAPSHOT_LINES="$(fix_line "$ENFIX2" "$ENERGY_ARGV")"
+ LAB_SESSIONS=""
+ out="$(app_stop energy 2>&1)"; rc=$?
+@@ -331,7 +353,7 @@ check "  names the pid to kill"                   yes "$(has "$ENFIX2" "$out")"
+ kill_fixture "$ENFIX2"
+ 
+ # The lab's own stop does work when the lab owns the pane.
+-SIMFIX2="$(spawn_fixture "$SIM_ARGV")"
++spawn_fixture "$SIM_ARGV"; SIMFIX2="$FIXTURE_PID"
+ SNAPSHOT_LINES="$(fix_line "$SIMFIX2" "$SIM_ARGV")"
+ LAB_SESSIONS="sim"
+ LAB_PANE_PID[sim]="$SIMFIX2"
+@@ -350,7 +372,7 @@ out="$(cmd_apps stop all 2>&1)"; rc=$?
+ check "nothing was running -> rc 2"               2 "$rc"
+ check "  and it says nothing was stopped"         yes "$(has "nothing to stop" "$out")"
+ 
+-TEFIX2="$(spawn_fixture "$TE_ARGV")"
++spawn_fixture "$TE_ARGV"; TEFIX2="$FIXTURE_PID"
+ SNAPSHOT_LINES="$(fix_line "$TEFIX2" "$TE_ARGV")"
+ echo "$TEFIX2" > "$PIDDIR/app_te.pid"
+ out="$(cmd_apps stop all 2>&1)"; rc=$?
+diff --git a/tests/shell/test_ndt_helper_apps_window.sh b/tests/shell/test_ndt_helper_apps_window.sh
+index 55acab7f..342f762b 100755
+--- a/tests/shell/test_ndt_helper_apps_window.sh
++++ b/tests/shell/test_ndt_helper_apps_window.sh
+@@ -124,19 +124,41 @@ trap cleanup EXIT INT TERM
+ # on the machine at 15:05:14. `ndt` now asks whether a scanned pid belongs to this checkout
+ # (proc_checkout), so a fixture that is meant to stand for THIS $REPO's app has to run in it --
+ # hence the cwd, which defaults to $FIX and is not scenery.
++#
++# [Co-developed with claude code -- Adam]
++# 🔴 CALLED AS A PLAIN COMMAND, NEVER AS X="$(spawn_fixture ...)"; the pid is left in FIXTURE_PID
++# (2026-09-28). Inside a command substitution the `exit 1` below left only that subshell: measured
++# on 3368412d by tests/shell/mutate_fixture_spawn_helpers.sh, this suite then printed 28 FAILED
++# lines under "Ran 150 checks, 21 failed". The premise is a check THIS shell counts, on success too,
++# and a failure ends the run with its summary. The poll waits up to FIXTURE_ARGV_WAIT seconds: a
++# slow exec on a loaded machine is not a defect in `ndt`.
++FIXTURE_ARGV_WAIT=30
++FIXTURE_PID=""
+ spawn_fixture() {
+-    local want="$1" dir="${2:-$FIX}" pid i
++    local want="$1" dir="${2:-$FIX}" pid deadline
+     local -a argv=()
+-    ( cd "$dir" && exec -a "$want" sleep "$FIXTURE_TTL" ) >/dev/null 2>&1 </dev/null &
+-    pid=$!
++    FIXTURE_PID=""
++    # From a command substitution of its own, so the fixture is never a job of this shell; the
++    # redirections keep it off that substitution's pipe, which it would otherwise hold open.
++    pid="$( ( cd "$dir" && exec -a "$want" sleep "$FIXTURE_TTL" ) \
++            >/dev/null 2>&1 </dev/null & echo "$!" )"
+     echo "$pid" >> "$FIXTURE_REG"
+-    for i in 1 2 3 4 5 6 7 8 9 10; do
++    deadline=$(( SECONDS + FIXTURE_ARGV_WAIT ))
++    while :; do
+         argv=()
+-        mapfile -d '' -t argv < "/proc/$pid/cmdline" 2>/dev/null
+-        [[ "${argv[0]:-}" == "$want" ]] && { echo "$pid"; return 0; }
++        mapfile -d '' -t argv 2>/dev/null < "/proc/$pid/cmdline" || true
++        if [[ "${argv[0]:-}" == "$want" ]]; then
++            check "fixture took argv0=$want" "$want" "${argv[0]}"
++            FIXTURE_PID="$pid"
++            return 0
++        fi
++        (( SECONDS < deadline )) || break
+         sleep 0.1
+     done
+-    echo "  FAILED   fixture never took argv0=$want (pid $pid)" >&2
++    check "fixture took argv0=$want" "$want" \
++          "${argv[0]:-nothing readable} (pid $pid, after ${FIXTURE_ARGV_WAIT}s)"
++    echo
++    echo "Ran $((PASS+FAIL)) checks, $FAIL failed"
+     exit 1
+ }
+ # Only sim gets a process fixture: every energy case below is about a channel that does not
+@@ -306,7 +328,7 @@ check "🔴 energy has NO log channel at all -> rc 1" "1" \
+ check "  and prints nothing to be mistaken for a path" "" "$(inner 'app_evidence_log energy')"
+ 
+ section "4. app_start writes the pidfile it just verified (E-8 point 1)"
+-SIMFIX="$(spawn_fixture "$SIM_ARGV")"
++spawn_fixture "$SIM_ARGV"; SIMFIX="$FIXTURE_PID"
+ rm -f "$FIX/.test_run/pids/app_sim.pid" "$FIX/sudo_calls"
+ OUT="$(FX_START_PS="$SIMFIX $SIM_ARGV" inner 'app_start sim; echo "RC=$?"')"
+ check "start of a helper app that comes up -> rc 0" "0" "$(rc_of "$OUT")"
+@@ -343,7 +365,7 @@ check "🔴 nothing running and no pidfile -> still no window, not a made-up one
+ # arrived during that window", which is a clean answer arrived at by looking at the wrong hour.
+ OLDFIX="$SIMFIX"
+ sleep 4
+-NEWFIX="$(spawn_fixture "$SIM_ARGV")"
++spawn_fixture "$SIM_ARGV"; NEWFIX="$FIXTURE_PID"
+ # 🔴 The younger pid is listed FIRST, so "take the first one" and "take the oldest" differ here.
+ # Compared against the YOUNGER-ONLY answer with a >= 2s margin rather than against the older-only
+ # answer for equality: `ps -o etimes=` is whole seconds and each call re-reads the clock, so two
+@@ -416,7 +438,7 @@ section "9. 'apps stop sim' reports on a window it can still see"
+ # 🔴 lw16pw's headline: `ndt apps stop sim` verified the app was gone and then printed
+ # "no window, so no rule can be dated" about the app it had just stopped. The stop deletes the
+ # record; the window has to be read before it does.
+-SIMFIX2="$(spawn_fixture "$SIM_ARGV")"
++spawn_fixture "$SIM_ARGV"; SIMFIX2="$FIXTURE_PID"
+ rm -f "$FIX/.test_run/pids"/app_*.pid
+ echo "$SIMFIX2" > "$FIX/.test_run/pids/app_sim.pid"
+ # The window here is the fixture's own age, which is seconds. The rule has to be inside it, so
+@@ -675,7 +697,7 @@ for _pass in cmdline any; do
+     done
+ done
+ OUR_ARGV="/nonexistent/NDT-TEST-FIXTURE/ordinary_process"
+-OURPID="$(spawn_fixture "$OUR_ARGV")"
++spawn_fixture "$OUR_ARGV"; OURPID="$FIXTURE_PID"
+ check "the control process is ours and alive"             "yes" \
+       "$(if [[ -d "/proc/$OURPID" && -r "/proc/$OURPID/fd" ]]; then echo yes; else echo no; fi)"
+ check "🔴 app_fd_readable is true for a process this user owns" "0" \
+@@ -721,7 +743,7 @@ rm -f "$FIX/.test_run/pids"/app_*.pid; rm -rf "$WINDIR"
+ mkdir -p "$FIX/othertree/.test_run/logs"
+ echo "the helper wrote this" > "$FIX/othertree/.test_run/logs/app_sim.log"
+ # --- the writer: a verified stop leaves the window behind ---------------------------------
+-SIMFIX3="$(spawn_fixture "$SIM_ARGV")"
++spawn_fixture "$SIM_ARGV"; SIMFIX3="$FIXTURE_PID"
+ echo "$SIMFIX3" > "$FIX/.test_run/pids/app_sim.pid"
+ mk_entries 0
+ OUT="$(FX_DEFAULT_KERNEL_DIR="$FIX/othertree" FX_PS="$SIMFIX3 $SIM_ARGV" FX_SESSIONS="sim" \
+@@ -764,7 +786,7 @@ check "  and the verdict is clean -- rc 0"               "0" "$(rc_of "$OUT")"
+ # --- who clears it -------------------------------------------------------------------------
+ # A start supersedes the window its own last stop left: the record exists to answer for an app
+ # that is NOT running, and a bounded set of five files is the whole of the cleanup question.
+-SIMFIX4="$(spawn_fixture "$SIM_ARGV")"
++spawn_fixture "$SIM_ARGV"; SIMFIX4="$FIXTURE_PID"
+ rm -f "$FIX/.test_run/pids"/app_*.pid
+ OUT="$(FX_START_PS="$SIMFIX4 $SIM_ARGV" inner 'app_start sim; echo "RC=$?"')"
+ check "a start of the same app -> rc 0"                  "0" "$(rc_of "$OUT")"
+@@ -831,7 +853,7 @@ if [[ "$DEAD_TE" =~ ^[0-9]+$ ]] && [[ ! -d "/proc/$DEAD_TE" ]]; then
+     # to now. Sealing a running app would report "nothing arrived" about an app that is
+     # installing rules this second.
+     TE_ARGV="/nonexistent/NDT-TEST-FIXTURE/Traffic-engineering-App.py"
+-    TEFIX="$(spawn_fixture "$TE_ARGV")"
++    spawn_fixture "$TE_ARGV"; TEFIX="$FIXTURE_PID"
+     echo "$TEFIX" > "$FIX/.test_run/pids/app_te.pid"
+     OUT="$(FX_PS="$TEFIX $TE_ARGV" FX_PORT_PIDS="" inner 'residue_report te')"
+     has   "🔴 control: a LIVE pid still windows to now"      "-> now" "$OUT"
+diff --git a/tests/shell/test_ndt_ovs_claim.sh b/tests/shell/test_ndt_ovs_claim.sh
+index 6dd9265a..c2134cbc 100644
+--- a/tests/shell/test_ndt_ovs_claim.sh
++++ b/tests/shell/test_ndt_ovs_claim.sh
+@@ -250,26 +250,49 @@ dead_pid() {
+     [[ -d "/proc/$p" ]] && { echo 0; return 1; }
+     echo "$p"
+ }
+-# spawn <argv0> [setsid] -- a `sleep` wearing that argv0, in $FIX; echo its pid. With `setsid`
+-# it leads a process group of its own, which is how a live group is planted.
++# spawn <argv0> [setsid] -- a `sleep` wearing that argv0, in $FIX; its pid is left in FIXTURE_PID.
++# With `setsid` it leads a process group of its own, which is how a live group is planted.
++#
++# [Co-developed with claude code -- Adam]
++# 🔴 CALLED AS A PLAIN COMMAND, NEVER AS X="$(spawn ...)" (2026-09-28). Inside a command substitution
++# the `exit 1` below left only that subshell: the suite ran on with the helper's own summary text
++# where a pid should be, and the FAILED line was never counted -- measured on 3368412d by
++# tests/shell/mutate_fixture_spawn_helpers.sh, 26 FAILED lines under "Ran 166 checks, 18 failed".
++# The premise is a check THIS shell counts, on success too, and a failure ends the run with its
++# summary. The poll waits up to FIXTURE_ARGV_WAIT seconds: a slow exec on a loaded machine is not a
++# defect in `ndt`.
++FIXTURE_ARGV_WAIT=30
++FIXTURE_PID=""
+ spawn() {
+-    local want="$1" how="${2:-}" pid i
++    local want="$1" how="${2:-}" pid deadline
+     local -a argv=()
++    FIXTURE_PID=""
++    # From a command substitution of its own, so the fixture is never a job of this shell; the
++    # redirections keep it off that substitution's pipe, which it would otherwise hold open.
+     if [[ "$how" == setsid ]]; then
+-        ( cd "$FIX" && exec setsid bash -c 'exec -a "$0" sleep 120' "$want" ) >/dev/null 2>&1 </dev/null &
++        pid="$( ( cd "$FIX" && exec setsid bash -c 'exec -a "$0" sleep 120' "$want" ) \
++                >/dev/null 2>&1 </dev/null & echo "$!" )"
+     else
+-        ( cd "$FIX" && exec -a "$want" sleep 120 ) >/dev/null 2>&1 </dev/null &
++        pid="$( ( cd "$FIX" && exec -a "$want" sleep 120 ) \
++                >/dev/null 2>&1 </dev/null & echo "$!" )"
+     fi
+-    pid=$!
+     echo "$pid" >> "$FIXTURES"
+-    for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
++    deadline=$(( SECONDS + FIXTURE_ARGV_WAIT ))
++    while :; do
+         argv=()
+-        mapfile -d '' -t argv < "/proc/$pid/cmdline" 2>/dev/null
+-        [[ "${argv[0]:-}" == "$want" ]] && { echo "$pid"; return 0; }
++        mapfile -d '' -t argv 2>/dev/null < "/proc/$pid/cmdline" || true
++        if [[ "${argv[0]:-}" == "$want" ]]; then
++            check "fixture took argv0=$want" "$want" "${argv[0]}"
++            FIXTURE_PID="$pid"
++            return 0
++        fi
++        (( SECONDS < deadline )) || break
+         command sleep 0.1
+     done
+-    echo "  FAILED   fixture never took argv0=$want (pid $pid)" >&2
+-    echo "Ran $((PASS + FAIL + 1)) checks, $((FAIL + 1)) failed"
++    check "fixture took argv0=$want" "$want" \
++          "${argv[0]:-nothing readable} (pid $pid, after ${FIXTURE_ARGV_WAIT}s)"
++    echo
++    echo "Ran $((PASS+FAIL)) checks, $FAIL failed"
+     exit 1
+ }
+ kill_fixture() {
+@@ -497,7 +520,7 @@ has   "a dead stack pidfile is still marked stale"          "kernel.pid: stale p
+ 
+ # The controls, one per way "the file exists" differs from "the process is gone".
+ reset_fix
+-LIVE_VIZ="$(spawn "$FIX/network_traffic_visualizer.sh")"
++spawn "$FIX/network_traffic_visualizer.sh"; LIVE_VIZ="$FIXTURE_PID"
+ pidf app_viz.pid "$LIVE_VIZ"
+ OUT="$(drive 'app_pidfile_stale_row')"
+ hasnt "🔴 a pidfile naming a LIVE viz is not stale"          "STALE" "$OUT"
+@@ -506,7 +529,7 @@ kill_fixture "$LIVE_VIZ"
+ # pid gone, but the process group the app was started in still has a member: the FINDINGS #6/#48
+ # shape (viz's launcher dead, its JVMs running on). NOT stale.
+ reset_fix
+-GROUP="$(spawn "java-child-of-viz" setsid)"
++spawn "java-child-of-viz" setsid; GROUP="$FIXTURE_PID"
+ DEAD="$(dead_pid)"
+ pidf app_viz.pid "$DEAD"; pidf app_viz.pgid "$GROUP"
+ OUT="$(drive 'app_pidfile_stale_row')"
+@@ -516,7 +539,7 @@ kill_fixture "$GROUP"
+ 
+ # pid alive, but it is not viz any more -- a recycled number. Identity is pid + argv.
+ reset_fix
+-STRANGER="$(spawn "some-unrelated-program")"
++spawn "some-unrelated-program"; STRANGER="$FIXTURE_PID"
+ pidf app_viz.pid "$STRANGER"
+ OUT="$(drive 'app_pidfile_stale_row')"
+ has   "🔴 a pid alive as somebody else is STALE (pid + argv, not the number)" "STALE" "$OUT"
+@@ -562,7 +585,7 @@ check "  and it is removed"                                  "absent" "$(present
+ 
+ # 🔴 THE CONTROLS: the sweep removes only what is provably stale.
+ reset_fix; rm -f "$FIX/manifest.json"
+-LIVE_VIZ="$(spawn "$FIX/network_traffic_visualizer.sh")"
++spawn "$FIX/network_traffic_visualizer.sh"; LIVE_VIZ="$FIXTURE_PID"
+ pidf app_viz.pid "$LIVE_VIZ"
+ OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
+ check "🔴 a LIVE pidfile is kept"                            "present" "$(present app_viz.pid)"
+@@ -570,7 +593,7 @@ check "  and is a subject: rc 0, not 3"                      "0" "$(rc_of "$OUT"
+ kill_fixture "$LIVE_VIZ"
+ 
+ reset_fix; rm -f "$FIX/manifest.json"
+-GROUP="$(spawn "java-child-of-viz" setsid)"
++spawn "java-child-of-viz" setsid; GROUP="$FIXTURE_PID"
+ DEAD="$(dead_pid)"
+ pidf app_viz.pid "$DEAD"; pidf app_viz.pgid "$GROUP"
+ OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
+@@ -653,7 +676,7 @@ section "12. 🔴 F2/F8: a recycled number that leads its own group is STALE (st
+ # own member and called the record "NOT stale". The real shape: a setsid-spawned stranger, the
+ # .pgid naming it, the pidfile written BEFORE the stranger started.
+ reset_fix; rm -f "$FIX/manifest.json"
+-STR="$(spawn "stranger-group-leader" setsid)"
++spawn "stranger-group-leader" setsid; STR="$FIXTURE_PID"
+ pidf app_viz.pid "$STR"; pidf app_viz.pgid "$STR"
+ touch -d "@$(( $(date +%s) - 600 ))" "$FIX/.test_run/pids/app_viz.pid"
+ OUT="$(drive 'app_pidfile_stale_row')"
+@@ -675,7 +698,7 @@ kill_fixture "$STR"
+ # F8: the stack's own files take the same test. They carry no argv to compare, so a live number
+ # was always LIVE; one whose process started after the file was written is somebody else's.
+ reset_fix; rm -f "$FIX/manifest.json"
+-DAEMON="$(spawn "some-daemon")"
++spawn "some-daemon"; DAEMON="$FIXTURE_PID"
+ pidf kernel.pid "$DAEMON"
+ touch -d "@$(( $(date +%s) - 600 ))" "$FIX/.test_run/pids/kernel.pid"
+ OUT="$(drive 'stack_pidfile_row')"
+@@ -824,7 +847,7 @@ section "17. 🔴 a recycled stack number is a --check problem: rc 1 with a base
+ # answers only "is there a baseline" (0) or "none" (3), from the file, and everything else in
+ # cmd_status runs for real.
+ CHECK_STUB='check_up_target() { UP_TARGET_PROBLEMS=(); [[ -f "$REPO/.test_run/up.target" ]] || return 3; return 0; }'
+-DAEMON="$(spawn "some-daemon")"
++spawn "some-daemon"; DAEMON="$FIXTURE_PID"
+ reset_fix; rm -f "$KNOB"
+ printf 'plane=ovs\n' > "$FIX/.test_run/up.target"
+ pidf kernel.pid "$DAEMON"
+diff --git a/tests/shell/test_ndtwin_lab_sweep.sh b/tests/shell/test_ndtwin_lab_sweep.sh
+index 8f055ab2..aff42649 100755
+--- a/tests/shell/test_ndtwin_lab_sweep.sh
++++ b/tests/shell/test_ndtwin_lab_sweep.sh
+@@ -90,25 +90,51 @@ cleanup_fixtures() {
+ }
+ trap cleanup_fixtures EXIT INT TERM
+ 
+-# spawn_fixture <argv0> -- a real process wearing that command line; echoes its pid.
++# spawn_fixture <argv0> -- a real process wearing that command line; its pid is left in
++# FIXTURE_PID.
+ #
+ # argv0 only: the fixture is a `sleep`, and every extra argument would have to be a duration for
+ # it to survive. That is not a limitation here -- argv0 is exactly where the identity question
+ # lives, and a decoy carries its mention in argv0 too.
++#
++# [Co-developed with claude code -- Adam]
++# 🔴 CALLED AS A PLAIN COMMAND, NEVER AS X="$(spawn_fixture ...)" (2026-09-28). Inside a command
++# substitution the `exit 1` below left only that subshell -- and this suite runs under errexit,
++# which `set -euo pipefail` in the ndtwin-lab it sources leaves on, so the failed assignment then
++# ended the run with no summary at all (measured on 3368412d; with `set +e` after the source the
++# same run printed "Ran 29 checks, 6 failed" over 10 FAILED lines). The premise is a check THIS
++# shell counts, on success too, and a failure ends the run with its summary. Every command in here
++# is written for errexit: the mapfile of a pid that is already gone must not end the run by itself.
++# The poll waits up to FIXTURE_ARGV_WAIT seconds: a slow exec on a loaded machine is not a defect in
++# the sweep.
++FIXTURE_ARGV_WAIT=30
++FIXTURE_PID=""
+ spawn_fixture() {
+-    local want="$1" pid i
++    local want="$1" pid deadline
+     local -a argv=()
+-    ( exec -a "$want" sleep "$FIXTURE_TTL" ) >/dev/null 2>&1 </dev/null &
+-    pid=$!
++    FIXTURE_PID=""
++    # From a command substitution of its own, so the fixture is never a job of this shell (it
++    # still shares this shell's process group -- section 3 depends on that); the redirections
++    # keep it off that substitution's pipe, which it would otherwise hold open.
++    pid="$( ( exec -a "$want" sleep "$FIXTURE_TTL" ) \
++            >/dev/null 2>&1 </dev/null & echo "$!" )"
+     echo "$pid" >> "$FIXTURE_REG"
+-    for i in 1 2 3 4 5 6 7 8 9 10; do
++    deadline=$(( SECONDS + FIXTURE_ARGV_WAIT ))
++    while :; do
+         argv=()
+-        mapfile -d '' -t argv < "/proc/$pid/cmdline" 2>/dev/null
+-        [[ "${argv[0]:-}" == "$want" ]] && { echo "$pid"; return 0; }
++        mapfile -d '' -t argv 2>/dev/null < "/proc/$pid/cmdline" || true
++        if [[ "${argv[0]:-}" == "$want" ]]; then
++            check "fixture took argv0=$want" "$want" "${argv[0]}"
++            FIXTURE_PID="$pid"
++            return 0
++        fi
++        (( SECONDS < deadline )) || break
+         sleep 0.1
+     done
+-    echo "  FAILED   fixture never took argv0=$want (pid $pid)" >&2
+-    echo "Ran $((PASS + FAIL + 1)) checks, $((FAIL + 1)) failed"
++    check "fixture took argv0=$want" "$want" \
++          "${argv[0]:-nothing readable} (pid $pid, after ${FIXTURE_ARGV_WAIT}s)"
++    echo
++    echo "Ran $((PASS + FAIL)) checks, $FAIL failed"
+     exit 1
+ }
+ 
+@@ -144,11 +170,11 @@ check "no argv at all"                       no  "$(yn sweep_matches "$SW")"
+ # is not". Both stay true however busy the machine is, so a live round cannot turn this red.
+ echo "machine-wide scan (real ps, read-only)"
+ 
+-SWFIX="$(spawn_fixture "$FIX_SW")"
++spawn_fixture "$FIX_SW"; SWFIX="$FIXTURE_PID"
+ # The decoy's command line CONTAINS both patterns -- `pkill -f simple_switch_grpc` and
+ # `pkill -f ntg_bmv2_topo.py` would each signal it -- while no argv element IS either program.
+ DECOY_ARGV0="/nonexistent/NDT-TEST-FIXTURE/bin/reporter-restarting-$SW-and-$TOPO"
+-DECOY="$(spawn_fixture "$DECOY_ARGV0")"
++spawn_fixture "$DECOY_ARGV0"; DECOY="$FIXTURE_PID"
+ 
+ check "the real scan finds the switch fixture"  yes "$(has "$SWFIX" $'\n'"$(sweep_find "$SW")"$'\n')"
+ check "the real scan does not find the decoy"   no  "$(has "$DECOY" $'\n'"$(sweep_find "$SW")"$'\n')"
+@@ -230,7 +256,7 @@ echo "counting (what 'ndtwin-lab status' prints)"
+ SNAP_LINES="$(printf '%s %s' "$$" "bash tests/shell/test_ndtwin_lab_sweep.sh $SW")"
+ check "no switches, and we are looking -> 0"   0 "$(sweep_count "$SW")"
+ 
+-SWFIX2="$(spawn_fixture "/nonexistent/NDT-TEST-FIXTURE/bin2/$SW")"
++spawn_fixture "/nonexistent/NDT-TEST-FIXTURE/bin2/$SW"; SWFIX2="$FIXTURE_PID"
+ SNAP_LINES="$(printf '%s %s\n%s %s\n%s %s' \
+     "$$"      "bash tests/shell/test_ndtwin_lab_sweep.sh $SW" \
+     "$SWFIX"  "$FIX_SW --name s1" \
+@@ -240,7 +266,7 @@ check "two switches, and we are looking -> 2"  2 "$(sweep_count "$SW")"
+ # --- 5. signalling, and reading /proc afterwards ---------------------------------------
+ echo "kill (what actually happened, not what was requested)"
+ 
+-TOPOFIX="$(spawn_fixture "$FIX_TOPO")"
++spawn_fixture "$FIX_TOPO"; TOPOFIX="$FIXTURE_PID"
+ SNAP_LINES="$(printf '%s %s\n%s %s' \
+     "$TOPOFIX" "$FIX_TOPO" \
+     "$DECOY"   "$DECOY_ARGV0")"

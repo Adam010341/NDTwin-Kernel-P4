@@ -1,0 +1,40 @@
+redfirst_b                         rc=0  REDFIRST-B: ALL-AS-EXPECTED
+redfirst_b2                        rc=0  REDFIRST-B2: ALL-AS-EXPECTED
+redfirst_b3                        rc=0  REDFIRST-B3: ALL-AS-EXPECTED
+redfirst_b4                        rc=0  REDFIRST-B4: ALL-AS-EXPECTED
+redfirst_b5                        rc=0  REDFIRST-B5: ALL-AS-EXPECTED
+proxy_unit                         rc=0  PROXY-UNIT: 46 file(s), 1734 test(s): 1733 passed in OK files, 1 skipped, 0 file(s) FAILED -- all OK
+test_ndt_heartbeat                 rc=0  Ran 91 checks, 0 failed
+test_ndt_app_package               rc=0  Ran 404 checks, 0 failed
+test_ndt_up_down_robust            rc=0  424 passed, 0 failed
+test_ndt_sudo_surface              rc=0  Ran 55 checks, 0 failed
+test_ndt_status_check_baseline     rc=0  Ran 112 checks, 0 failed
+test_apps_residue                  rc=0  Ran 145 checks, 0 failed
+test_ndt_app_orphans               rc=0  Ran 111 checks, all passed
+test_ndt_apps_liveness             rc=0  Ran 57 checks, all passed
+test_ndt_down_stops_only_ours      rc=0  ### FIXTURE 2968475 after kill: /proc/2968475 exists = no
+test_ndt_helper_apps_window        rc=0  Ran 157 checks, 0 failed
+test_ndt_ovs_claim                 rc=0  Ran 174 checks, 0 failed
+test_ndtwin_lab_sweep              rc=0  Ran 33 checks, all passed
+test_faults_topo_pid               rc=0  Ran 61 checks, all passed (0 skipped)
+test_fixture_suites_end_on_signal  rc=0  Ran 84 checks, all passed
+selftest_08                        rc=0  SELF-TEST PASS
+selftest_07                        rc=0  SELF-TEST PASS
+test_live_p1_common                rc=0  Ran 220 checks, 0 failed
+test_live_p1_thirteen              rc=0  Ran 46 checks, 0 failed
+test_live_p1_external_evidence     rc=0  Ran 151 checks, 0 failed
+test_heartbeat_drop_check          rc=0  Ran 112 checks, 0 failed
+test_l1_shell_scoring              rc=0  Ran 157 checks, 0 failed
+test_drive_exercise                rc=0  OK
+mutate_p4_heartbeat_w              rc=0  mutation gate: 266 mutations, 0 survived
+mutate_live_p1_common              rc=0  mutation gate: 59 mutations, 0 survived; 4 control(s), 0 went red
+mutate_live_p1_thirteen            rc=0  mutation gate: 13 mutations, 0 survived; 1 control(s), 0 went red
+mutate_live_p1_external_evidence   rc=0  every check seen red: 151/151 (over 89 mutant runs)
+mutate_roles_binding               rc=0  mutation gate: 179 mutations, 0 survived
+mutate_app_package                 rc=0  mutation gate: 48 mutations, 0 survived
+mutate_ndt_app_package             rc=0  mutation gate: 78 mutations, 0 survived; 4 control(s), 0 went red
+mutate_heartbeat_drop_check        rc=0  every non-control check seen red: 103/103 (over 64 mutant runs); 9 control(s), 8 of them red too: ['and it is still rc 0', '(the run under observation
+mutate_l1_shell_scoring            rc=0  ===== 58 mutation(s): 58 killed, 0 survived =====
+check_gate_anchors                 rc=0  130/130 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+nolab_tripwire                     rc=0  NOLAB-TRIPWIRE: 0 lab call(s); 2508 allowed switch launch(es) and 5734 --version probe(s), each re-checked: 0 breaking a condition, 0 refused by the w
+GATES-extb5c 4c18bf3d: ALL-AS-EXPECTED

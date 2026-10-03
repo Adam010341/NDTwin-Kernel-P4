@@ -1,0 +1,9 @@
+date 2026-10-02T01:24:55+08:00
+merge commit 1ee0089f0bbd2ffad771475b0691a948db352fb0: tree f2522f6a28df1445dbe96a52ea00012a35f46671, parents 1e350bf278ab1907b335ef1b141423d4ff77b13b (trunk 1e350bf278ab1907b335ef1b141423d4ff77b13b) and 0170df28d5560a91ec692d120c203e480e238751 (branch head 0170df28d5560a91ec692d120c203e480e238751)
+extracted: git archive 1ee0089f0bbd2ffad771475b0691a948db352fb0 tools/ndt_serve tools/test_workflow tests/python tests/shell tests/browser | tar -C /tmp/mergedc-XV9KFy -xf -
+dir /tmp/mergedc-XV9KFy
+python /usr/bin/python3.12 3.12.3
+test_ndt_serve_web: Ran 18 tests in 0.191s, OK, rc=0
+test_ndt_serve: Ran 75 tests in 58.708s, OK, rc=0
+test_ndt_serve_gui: Ran 39 tests in 28.367s, OK, rc=0
+test_ndt_serve_cells: Ran 35 tests in 34.895s, OK, rc=0

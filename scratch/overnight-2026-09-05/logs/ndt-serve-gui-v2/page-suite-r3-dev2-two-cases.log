@@ -1,0 +1,27 @@
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env PYTHONDONTWRITEBYTECODE=1 python3 tests/browser/test_ndt_serve_page.py Refresh.test_refresh_stops_while_measuring ProbeTimeout
+# date -Is: 2026-10-01T20:09:57+08:00
+# argv: tests/browser/test_ndt_serve_page.py Refresh.test_refresh_stops_while_measuring ProbeTimeout
+# git rev-parse HEAD: c4247ca25596b4d0fec67d9e2077868a97b3b70f
+# git status --porcelain | wc -l: 15
+# python: /home/adam/miniconda3/bin/python3 3.13.13 | packaged by Anaconda, Inc. | (main, Apr 14 2026, 06:19:41) [GCC 14.3.0]
+# chrome: Google Chrome 153.0.8010.36
+# NDTWIN_GUARD_HELD: /tmp/ndtwin-build.lock
+# page under test: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/tools/ndt_serve/static
+#   4c98675f9d7fb25bf5a387c955ed0681ca68cb06de80b8d7f7e980e104193233  BUILD.json
+#   780f0a54807c1edb0ceaa7d626bc58ff68001493110eebd4030f71816febc482  app.css
+#   75f6255d2abed426e702eacac01ca7d5e23ce9e0e52f87ba12615dc8beea3dc3  app.js
+#   ba7f56b21e294bf5852dd8a35478a58a271b7ff0abbb8a431291cc581daef732  index.html
+#   a97624cad205d8fa2437d846c66da75a249a4fb50f735533943a2995fd15a378  manual.html
+test_refresh_stops_while_measuring (__main__.Refresh.test_refresh_stops_while_measuring) ... ok
+chrome leftovers (Refresh): 0
+test_a_probe_that_times_out_keeps_the_pause_and_the_next_one_ends_it (__main__.ProbeTimeout.test_a_probe_that_times_out_keeps_the_pause_and_the_next_one_ends_it) ... ok
+chrome leftovers (ProbeTimeout): 0
+
+----------------------------------------------------------------------
+Ran 2 tests in 159.714s
+
+OK
+# processes naming this run's 4 temp dir(s) after the run: 0 
+guarded_build: exit 0
+rc=0

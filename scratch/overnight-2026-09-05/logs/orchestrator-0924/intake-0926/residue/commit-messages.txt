@@ -1,0 +1,34 @@
+--- 600f0ca0 ndt_serve: move ndt line citations past the one-clock residue change
+app_started_at and residue_report grew by 21 lines above cmd_apps and 13
+above lock_probe, so the rc table rows for apps.stop and apps.status and the
+lock probe range cited in the README, serve.py and its test pointed at the
+wrong lines. Move them, and re-anchor the three serve gate mutations that
+quote them.
+
+--- 74d1383f ndt: date apps and rules against one clock read per residue report
+residue_report read `now` once and app_started_at read the clock again for a
+live app, so a second boundary between the two dated the app a second late:
+a rule an app had just installed, or one from its first second, fell outside
+its window. app_started_at now takes the report's `now`, and the report reads
+it after the flow table so a rule is never dated before the second it went in.
+
+test_apps_residue goes back to a young fixture in 5K (keeping the argv wait)
+and gains 5N, which forces a boundary between the reads and a fetch that
+straddles one. The mutation gate covers both sides; two gates are re-anchored
+on the changed app_started_at line.
+
+--- ca16700a Merge trunk 3368412d into fix/residue-live-pid-wait-0928
+
+--- c2c9293d test_apps_residue: let the live te fixture age before dating a 0s rule
+The 5K live-pid case spawns a fake te and runs residue_report right away.
+residue_report reads `now` first and app_started_at later dates the pid as
+`date +%s - etimes`; for a pid under a second old, a second boundary between
+the two reads puts the window start one second after `now`, so the rule
+installed at `now` is dropped and two checks fail. This is the intermittent
+CI failure on the GCC job.
+
+Wait until the fixture's argv is visible in /proc (up to 30 s instead of 1 s)
+and until it is two seconds old, and assert both instead of carrying on. Add
+a mutation gate that removes each wait under a harness that makes the race
+certain.
+

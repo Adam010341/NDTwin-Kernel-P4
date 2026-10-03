@@ -1,0 +1,46 @@
+6583c089e72fd028d0fcb1939af1efe2450b5c8d
+# 2026-09-28T01:00:42Z cmd bash tests/shell/mutate_ndt_sudo_surface.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_ndt_sudo_surface.sh
+baseline (must be green before any mutation):
+Ran 55 checks, 0 failed
+
+  caught   M1: ovs_bridge_count discards sudo's exit status again     (refused: ovs_bridge_count returns 2 and prints no number went red)
+  caught   M2: ndt_sudo_capture throws sudo's exit status away        (refused: ovs_bridge_count returns 2 and prints no number went red)
+  caught   M3: the guard reads 'could not tell' as 'nothing there'    (refused: the guard stops the bring-up went red)
+  caught   M4: a refusal is reported as 'does not forward' again      (refused: dataplane_ok returns 2 (not tested), and says why went red)
+  caught   M5: the classifier stops recognising sudo's measured wording (refused: dataplane_ok returns 2 (not tested), and says why went red)
+  caught   M6: the exit status is kept but the message is dropped     (refused: dataplane_ok returns 2 (not tested), and says why went red)
+  caught   M7: the mnexec row leaves the table (a call with no row again) (every privileged command ndt names has a row (nothing new can go unlisted) went red)
+  caught   M8: explain() names the problem but not the line that fixes it (explain() prints the sudoers line that fixes it went red)
+  caught   M9: up_p4 stops asking the guard                           (up_p4 asks guard_no_live_ovs went red)
+  caught   M10: cmd_status --check stops reading the sudo table       (cmd_status --check reads ndt_sudo_report went red)
+  caught   S1: an unknown sudo: line falls through to 'granted' again (probe: an unknown sudo: line (PAM) is 2, could not tell -- not granted went red)
+  caught   S2 (control): any stderr line counts, so the program's own failure is 'could not tell' (control, probe: rc!=0 with no sudo: line (ovsdb down, ovs-vsctl's own words) is 0, granted went red)
+  caught   S3: requiretty's wording is not a known refusal            (probe: requiretty ('sorry, you must have a tty to run sudo') is 1, refused went red)
+  caught   S4 (control): 'unable to resolve host' dropped from the warning list (control, probe: warning 'unable to resolve host' + ovsdb down is 0, granted went red)
+  caught   S5 (control): 'setrlimit(RLIMIT_CORE)' dropped from the warning list (control, probe: warning 'setrlimit(RLIMIT_CORE)' + ovsdb down is 0, granted went red)
+  caught   S6: a warning hides every sudo: line after it, a refusal included (probe: a warning AND an unknown sudo: refusal together is 2 -- the list hides only itself went red)
+  caught   S7: the report says 'no sudo, or not installed' when sudo said something else (report: an unknown sudo: line is rc 2, 'could NOT be tested', and quotes what sudo said went red)
+  caught   S8: the probe keeps the last row's unread line past its early returns (report, two rows: an unknown sudo: line, then a program that is not installed -- each row its own reason went red)
+  caught   S9: an unread sudo: line is asked for before a known refusal (3 named cases went red)
+             red: probe: a refusal ndt_sudo_refused knows ('a password is required') is 1, refused
+             red: probe: a warning AND a known refusal is 1, refused
+             red: control, report: a known refusal is still rc 1, REFUSED
+  caught   S10 (control): a probe that succeeds is 'could not tell'   (control, probe: the grant is live and the probe succeeds -- 0 went red)
+  caught   S11: a refusal that prints nothing is 'could not tell' too (control, probe: a refusal that prints nothing is read as granted -- the rule's known limit went red)
+  caught   S12: a warning entry widened into a pattern ('unable to')  (probe: a fatal 'sudo: unable to execute ...' is 2 -- a warning entry is matched whole, from 'sudo: ' went red)
+  caught   S13: a warning entry is matched anywhere in the line, not right after 'sudo: ' (probe: a fatal sudo: line with a warning entry further on is 2 -- entries match only right after 'sudo: ' went red)
+  caught   S14 (control): any line that starts 'sudo' is sudo's own, sudo-rs's included (control, probe: a refusal worded without a 'sudo:' prefix (sudo-rs) is read as granted -- the rule's known limit went red)
+  caught   S15: a warning entry is matched after any ': ' in the line (probe: a fatal sudo: line naming a command before a warning entry is 2 -- not matched after any ': ' went red)
+  caught   S16 (control): a listed warning is itself read as a line ndt cannot read (control, probe: a listed warning followed by a silent refusal is read as granted -- the rule's known limit went red)
+  caught   T1: the suite's fake sudo stops printing the warning it is given (injection took effect: the fake prints the warning, then the refusal it is given went red)
+  caught   N1 (control): ovs_bridge_count always says 'cannot tell'   (control, permitted: ovs_bridge_count returns 0 and the real count went red)
+  caught   N2 (control): the guard refuses whenever a topo session exists (control, permitted and no bridges: the guard PASSES and the bring-up proceeds went red)
+  caught   N3 (control): no unprivileged early-out, so a P4-only machine cannot start (control, no ovs-vswitchd: a definite 0, answered without sudo went red)
+  caught   N4 (control): dataplane_ok never tests, so a real outage is never seen (control, permitted and the ping really fails: 'not forwarding' is still said went red)
+
+baseline byte-identical: yes (sudo_surface.sh and ndt)
+mutation gate: 31 mutations, 0 survived
+guarded_build: exit 0
+# rc=0

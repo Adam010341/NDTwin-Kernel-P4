@@ -1,0 +1,4 @@
+600f0ca04328b9bf3463b859bc4f77edb56dda26
+# 2026-09-28T09:21:40Z cmd bash tests/shell/test_apps_residue.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/test_apps_residue.sh

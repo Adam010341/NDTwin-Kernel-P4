@@ -1,0 +1,2 @@
+tree /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/t6-down-rc = 8d79dacd0e40e9ddd20d7c8e9af6185b4ef8e482
+variant: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/t6-down-rc/tests/shell/test_ndt_down_stops_only_ours.sh: replaced "trap cleanup EXIT\ntrap 'exit 130' INT\ntrap 'exit 143' TERM\n" -> 'trap cleanup EXIT INT TERM\n'

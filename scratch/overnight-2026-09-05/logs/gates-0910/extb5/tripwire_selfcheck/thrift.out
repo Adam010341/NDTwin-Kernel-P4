@@ -1,0 +1,3 @@
+log /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/tripwire_selfcheck/thrift.log: 1 line(s)
+  🔴 ALLOWED-LAUNCH pid 1 breaks a condition (thrift 9091): 1.0 ALLOWED-LAUNCH simple_switch pid=1 start=1 uid=1000 argv0=ndt-hbdrop-bmv2 cwd=/t/ndt-hbdrop-a exe=x args=--use-files 0 -i 1@p1 -i 255@p255 --thrift-port 909
+NOLAB-TRIPWIRE: 0 lab call(s); 1 allowed switch launch(es) and 0 --version probe(s), each re-checked: 1 breaking a condition, 0 refused by the wrapper; 0 still running (by pid and start time); 1 line(s) in all

@@ -1,0 +1,22 @@
+# CI-L1 (fix/ci-l1-0927) — intake
+- **03:0x** Delivered e9c004f3: 8 commits on fed37cff, 14 files, +541/−32.
+  - Diff read hunk by hunk (ci.yml, lane, decorators, allowlist, G-60/G-61, suites); secret scan 0/3.
+  - My view on ruling 5: `fetch-depth: 0` and the venv step in the same job are accepted; neither is a job-structure change.
+- **Judge: MERGE** (`judge-CIL1-e9c004f3.md`), 14 notes.
+- **03:3x** Sent a fix round before merging:
+  - N4: DECLARED-SKIP only on a hosted runner (GITHUB_ACTIONS/CI); the lab stays strict.
+  - N1, N2, N3, N5, N6, N14, N12.
+  - mutate_roles_binding at HEAD (N9), plus the SUMMARY number fixes.
+- **07:1x Fix round delivered** as ca233796: 6 commits on e9c004f3; secret scan 0/3.
+  - Lane diff read: DECLARED-SKIP needs hosted + no failed + a whole-file skip for .py; declarations read via tokenizer and heredoc-aware awk; the py-plot probe sources by path.
+  - Accepted without a new judge (the prior verdict was MERGE; every item has red evidence).
+  - Rerun `rerun-cil1.frozen.sh` on the test merge add20e87 (trunk 149c8234 + ca233796): scoring suite and gate, ovs_topo, grpc, ovs4, route_binding and fabric (lab shape), anchors, tmpdirs.
+  - The full CI lane is left to the PR's CI.
+- **New finding for Adam:** the lab L1 lane runs all of tests/python under ryu-env 3.8, so 8 files are red on trunk too (G-61 extended in ca233796). Fixing it needs a ruling on how the lane picks interpreters.
+- **08:0x Rerun done** on add20e87, all rc 0:
+  - scoring 147/0; mutate 53/53 killed; ovs_topo 43/0; grpc 32; ovs4 20;
+  - route_binding (lab) 47; fabric_bring_up (lab) 112; anchors 244/244; tmpdirs 388/0;
+  - tripwire 0; tree clean.
+- **Merged into trunk** as 9ef10250 (tree == add20e87); secret scan 0/3. Pushed to both repos; unauthenticated trunk is 9ef10250 on both.
+- **PR #11:** d4b96ea6 on main 847acc7d. The first push got "Connection closed"; the retry went through. Prediction in `ci-prediction-pr11.txt` (a 1-line FAILED list: L1 FAILED (1), cell_gate as FAIL-SKIP until N7).
+- **08:4x** PR #11 CI as predicted (see ci-compare-pr11.txt). Squash-merged; main is now 5d0f442c.

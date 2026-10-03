@@ -1,0 +1,37 @@
+34 rounds, every report and controller log as frozen, none with the heartbeat
+== p4runtime/skeleton: 11 rounds
+   verdict                2 distinct: 'PASS (4/4)' x10; 'ERROR -- LAB NOT RETURNED: `ndt down` ex' x1
+   p4c_sha                1 distinct: '226f3f66df515c9e' x11
+   json_shas              1 distinct: 1 sha256 c9f82e23cc31 x11
+   rules_installed        1 distinct: 6 sha256 db0a09d41f13 x11
+   counters_final         1 distinct: [('s1 MyIngress.egressTunnelCounter 200', (0, 0)), ('s1 MyIn x11
+   packet_ins             1 distinct: 0 x11
+   cache_entries          1 distinct: 0 sha256 4f53cda18c2b x11
+   heartbeat_packet_ins   1 distinct: 0 x11
+   non_ipv4_packet_ins    1 distinct: 0 x11
+   grpc_errors            1 distinct: 0 x11
+   invariants             1 distinct: [('every other tunnel counter 0', True), ('s1 ingress 100 =  x11
+== p4runtime/solution: 12 rounds
+   verdict                3 distinct: 'PASS (5/5)' x8; 'FAIL (1/5)' x3; 'ERROR -- LAB NOT RETURNED: `ndt down` ex' x1
+   p4c_sha                1 distinct: '226f3f66df515c9e' x12
+   json_shas              1 distinct: 1 sha256 c9f82e23cc31 x12
+   rules_installed        1 distinct: 8 sha256 ba94b1da6811 x12
+   counters_final         4 distinct: [('s1 MyIngress.egressTunnelCounter 200', (6, 684)), ('s1 My x6; [('s1 MyIngress.egressTunnelCounter 200', (3, 306)), ('s1 My x4; [('s1 MyIngress.egressTunnelCounter 200', (6, 684)), ('s1 My x1; [('s1 MyIngress.egressTunnelCounter 200', (7, 858)), ('s1 My x1
+   packet_ins             1 distinct: 0 x12
+   cache_entries          1 distinct: 0 sha256 4f53cda18c2b x12
+   heartbeat_packet_ins   1 distinct: 0 x12
+   non_ipv4_packet_ins    1 distinct: 0 x12
+   grpc_errors            1 distinct: 0 x12
+   invariants             3 distinct: [('s1 egress 200 = s2 ingress 200', True), ('s1 ingress 100  x10; [('s1 egress 200 = s2 ingress 200', True), ('s1 ingress 100  x1; [('s1 egress 200 = s2 ingress 200', True), ('s1 ingress 100  x1
+== flowcache/solution: 11 rounds
+   verdict                4 distinct: 'PASS (5/5)' x7; 'FAIL (2/5)' x2; 'ERROR -- LAB NOT RETURNED: `ndt down` ex' x1; 'FAIL (1/5)' x1
+   p4c_sha                1 distinct: '226f3f66df515c9e' x11
+   json_shas              1 distinct: 1 sha256 bc879f1df8f9 x11
+   rules_installed        1 distinct: 3 sha256 36d1c1d60381 x11
+   counters_final         1 distinct: [] x11
+   packet_ins             3 distinct: 7 x6; 4 x3; 6 x2
+   cache_entries          4 distinct: 6 sha256 dc68b86fa1f5 x5; 4 sha256 399c090ab607 x3; 5 sha256 2671857db9c3 x2; 6 sha256 42a94ed14f0a x1
+   heartbeat_packet_ins   1 distinct: 0 x11
+   non_ipv4_packet_ins    1 distinct: 0 x11
+   grpc_errors            2 distinct: 1 x8; 0 x3
+   invariants             1 distinct: [("every cache entry is an IPv4 packet-in's flow", True), (' x11

@@ -1,0 +1,30 @@
+9b5c06078d367b67d95521361da651e50ae08794
+# 2026-10-02T10:18:37Z cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927 TMPDIR /tmp/r8 via guard; disk 2651 MB
+# cmd env PYTHONDONTWRITEBYTECODE=1 /home/adam/miniconda3/envs/ryu-env/bin/python3.8 tests/python/test_ndt_serve_web.py
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ env PYTHONDONTWRITEBYTECODE=1 /home/adam/miniconda3/envs/ryu-env/bin/python3.8 tests/python/test_ndt_serve_web.py
+test_every_source_file_is_in_the_manifest_with_its_hash (__main__.BuildManifest) ... ok
+test_the_bundle_is_the_one_the_manifest_names (__main__.BuildManifest) ... ok
+test_the_manifest_says_how_it_was_built (__main__.BuildManifest) ... ok
+test_the_manual_is_a_page_without_script_or_inline_style (__main__.BundleLint) ... ok
+test_the_page_html_loads_only_its_own_two_files (__main__.BundleLint) ... ok
+test_the_script_calls_no_eval (__main__.BundleLint) ... ok
+test_the_styles_load_nothing (__main__.BundleLint) ... ok
+test_a_measuring_pause_probes_measuring_alone_once_a_minute (__main__.SourceLint) ... ok
+test_csp_violations_are_counted_for_the_browser_tests (__main__.SourceLint) ... ok
+test_every_ui_string_is_in_the_string_table (__main__.SourceLint) ... ok
+test_every_write_goes_through_the_confirm_dialog (__main__.SourceLint) ... ok
+test_every_write_the_server_can_preview_is_previewed (__main__.SourceLint) ... ok
+test_no_html_from_strings_no_eval_no_inline_style (__main__.SourceLint) ... ok
+test_nothing_is_kept_outside_memory (__main__.SourceLint) ... ok
+test_the_job_log_stops_when_the_job_ends_the_view_closes_or_the_page_hides (__main__.SourceLint) ... ok
+test_the_key_leaves_the_address_bar_before_it_is_traded (__main__.SourceLint) ... ok
+test_the_refresh_pauses_while_measuring_and_while_hidden (__main__.SourceLint) ... ok
+test_there_is_one_door_out_and_the_token_is_set_at_it (__main__.SourceLint) ... ok
+
+----------------------------------------------------------------------
+Ran 18 tests in 0.102s
+
+OK
+guarded_build: exit 0
+# rc=0

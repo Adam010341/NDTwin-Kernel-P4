@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# nolab tripwire: this run must not reach the lab or root
+printf '%s NOLAB TRIPWIRE: curl %s (ppid %s)\n' "$(date -Is)" "$*" "$PPID" >> /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/spawn-traps-1001/tripwire.log
+echo "NOLAB TRIPWIRE: refused curl $*" >&2
+exit 97

@@ -1,0 +1,233 @@
+baseline (must be green before any mutation):
+  Ran 232 checks, 0 failed
+
+  caught   E1: the counters' last values are not compared                 (Ran 232 checks, 7 failed)
+
+source byte-identical: yes  external_evidence.py  sha256 69bccf77d23782e40e2f4d9ed14c827eabfb8513d96c035ff6ab865dcdfffbdf; code_identity.py sha256 0ef1aeb4fcc23f3bcc3403f50e07cf451de7bcbcedb1a7456351586f72ba00a5; survey and manifest e6afd3f4e4cf08c703bc705695e715546110f8006d14d4f35229fa3998e63561,dd92a7c406d986a3eea60927712350e604346952374f852ffd11484a2f62a83a
+mutation gate: 1 mutations, 0 survived
+every check seen red: 7/232 (over 1 mutant runs)
+  NEVER RED under any mutation: #1 🔴 controls vs treatment, the same evidence, H5's samples: rc 0
+  NEVER RED under any mutation: #2 and says so
+  NEVER RED under any mutation: #3 naming each arm's session and how long it ran
+  NEVER RED under any mutation: #4 with the daemon's own counters, all 0
+  NEVER RED under any mutation: #6 🔴 no --samples: rc 3
+  NEVER RED under any mutation: #7 said as such
+  NEVER RED under any mutation: #8 🔴 no --control2: rc 3
+  NEVER RED under any mutation: #9 🔴 --control2 that is the control itself: rc 3
+  NEVER RED under any mutation: #10 said as no spread
+  NEVER RED under any mutation: #11 🔴 a treatment also given as a control: refused as such
+  NEVER RED under any mutation: #12 🔴 A/A (a control as the treatment): rc 3
+  NEVER RED under any mutation: #13 refused for what it is, not for its identity
+  NEVER RED under any mutation: #14 🔴 a treatment with no detect-only start line: rc 3
+  NEVER RED under any mutation: #15 🔴 a treatment whose status row is not running: rc 3
+  NEVER RED under any mutation: #16 🔴 a control with a running row: rc 3
+  NEVER RED under any mutation: #17 said as not a control
+  NEVER RED under any mutation: #18 🔴 a control with the detect-only line and a heartbeat block, N5 STALE: rc 3
+  NEVER RED under any mutation: #19 naming both traces
+  NEVER RED under any mutation: #20 🔴 a second control with only a heartbeat block: rc 3
+  NEVER RED under any mutation: #21 🔴 a session sampled running, then stopped before the controller: rc 3
+  NEVER RED under any mutation: #22 said as stopped before the controller's last write
+  NEVER RED under any mutation: #23 🔴 a stale 'running' left by a killed daemon: rc 3
+  NEVER RED under any mutation: #24 said as STALE
+  NEVER RED under any mutation: #25 🔴 a second session inside the arm window: rc 3
+  NEVER RED under any mutation: #26 naming it
+  NEVER RED under any mutation: #27 🔴 a stretch of the session with no sample: rc 3
+  NEVER RED under any mutation: #28 said as not watched throughout
+  NEVER RED under any mutation: #29 🔴 a session that stopped and ran again: rc 3
+  NEVER RED under any mutation: #30 said as such
+  NEVER RED under any mutation: #31 🔴 a session never sampled running: rc 3
+  NEVER RED under any mutation: #32 🔴 a session whose daemon counted a frame to a host: rc 1
+  NEVER RED under any mutation: #33 said as ruling 4
+  NEVER RED under any mutation: #34 🔴 a session that forwarded between switches: rc 1
+  NEVER RED under any mutation: #35 🔴 N4's counters are labelled as before the pipeline
+  NEVER RED under any mutation: #36 🔴 every direction heard in the controller's window, said per direction
+  NEVER RED under any mutation: #37 🔴 a direction heard only before the push (+1 per 5 s, 1-s reads): rc 3
+  NEVER RED under any mutation: #38 naming the direction and the window
+  NEVER RED under any mutation: #39 and which one
+  NEVER RED under any mutation: #40 🔴 a direction heard only after the controller's last write: rc 3
+  NEVER RED under any mutation: #41 said as not heard in the window
+  NEVER RED under any mutation: #42 🔴 a controller window of 5 s (under two periods): UNDECIDED, rc 2, not refused
+  NEVER RED under any mutation: #43 said as too short, with its length
+  NEVER RED under any mutation: #44 the rest of the comparison still printed
+  NEVER RED under any mutation: #45 🔴 a window of exactly two periods is decided: rc 0
+  NEVER RED under any mutation: #46 heard +2 in it
+  NEVER RED under any mutation: #47 🔴 the window opens at the LAST push (s2's at 70 s), not the first
+  NEVER RED under any mutation: #48 🔴 a session first running after the push: rc 3
+  NEVER RED under any mutation: #49 said as the window not watched from its start
+  NEVER RED under any mutation: #50 🔴 no push line: the window opens at the first rule installed
+  NEVER RED under any mutation: #51 🔴 no --b-sha: rc 3
+  NEVER RED under any mutation: #52 said as a missing --b-sha
+  NEVER RED under any mutation: #53 the identities are said when they match
+  NEVER RED under any mutation: #54 🔴 a control with no identity: rc 3
+  NEVER RED under any mutation: #55 said as no identity
+  NEVER RED under any mutation: #56 🔴 a control with no identity after it ran: rc 3
+  NEVER RED under any mutation: #57 said as no after-identity
+  NEVER RED under any mutation: #58 🔴 a control whose kernel was rebuilt while it ran: rc 3
+  NEVER RED under any mutation: #59 said as the code changing during the run
+  NEVER RED under any mutation: #60 🔴 a treatment whose HEAD moved while it ran: rc 3
+  NEVER RED under any mutation: #61 said as its HEAD before and after
+  NEVER RED under any mutation: #62 🔴 a treatment whose tree is not the two parents' merge: rc 3
+  NEVER RED under any mutation: #63 said as an amended or hand-resolved merge
+  NEVER RED under any mutation: #64 🔴 a treatment on another ~/tutorials: rc 3
+  NEVER RED under any mutation: #65 said as tutorials
+  NEVER RED under any mutation: #66 🔴 a treatment on other bmv2 shared libraries: rc 3
+  NEVER RED under any mutation: #67 said as bmv2_libs
+  NEVER RED under any mutation: #68 🔴 a treatment compiled by another p4c: rc 3
+  NEVER RED under any mutation: #69 said as not the same compiler and program
+  NEVER RED under any mutation: #70 🔴 a control whose flowcache JSON differs: rc 3
+  NEVER RED under any mutation: #71 naming the JSON
+  NEVER RED under any mutation: #72 🔴 a report with no p4c or JSON sha: rc 2
+  NEVER RED under any mutation: #73 said as such
+  NEVER RED under any mutation: #74 🔴 controls on two different HEADs: rc 3
+  NEVER RED under any mutation: #75 said as the controls' code differing
+  NEVER RED under any mutation: #76 🔴 a treatment merged onto another trunk: rc 3
+  NEVER RED under any mutation: #77 said as trunk moved
+  NEVER RED under any mutation: #78 🔴 a treatment that merged another commit than B: rc 3
+  NEVER RED under any mutation: #79 said as another B
+  NEVER RED under any mutation: #80 🔴 a treatment that is not a merge: rc 3
+  NEVER RED under any mutation: #81 said as B not merged
+  NEVER RED under any mutation: #82 🔴 a treatment with another uncommitted file: rc 3
+  NEVER RED under any mutation: #83 said as other uncommitted files
+  NEVER RED under any mutation: #84 🔴 a treatment on another kernel binary: rc 3
+  NEVER RED under any mutation: #85 said as another kernel
+  NEVER RED under any mutation: #86 🔴 a treatment that is a commit on the controls' HEAD, not a merge: rc 3
+  NEVER RED under any mutation: #87 said as not a merge
+  NEVER RED under any mutation: #88 🔴 a treatment whose identity does not say what its merge changed: rc 3
+  NEVER RED under any mutation: #89 said as unknown merge changes
+  NEVER RED under any mutation: #90 🔴 an uncommitted file that B's merge changes too: rc 3
+  NEVER RED under any mutation: #91 said as a file B changes
+  NEVER RED under any mutation: #92 🔴 one counter read more, same last values: rc 0
+  NEVER RED under any mutation: #93 the read count is printed, as not compared
+  NEVER RED under any mutation: #94 🔴 p4runtime/solution's counters ending elsewhere, invariants kept: noted, rc 0
+  NEVER RED under any mutation: #98 🔴 the skeleton's counters, which never varied, ending elsewhere: rc 1
+  NEVER RED under any mutation: #100 🔴 a rule the controller did not install: rc 1
+  NEVER RED under any mutation: #101 named as rules_installed
+  NEVER RED under any mutation: #102 🔴 a flowcache packet-in more (an IPv4 one; that count varied before): noted, rc 0
+  NEVER RED under any mutation: #103 noted as packet_ins
+  NEVER RED under any mutation: #104 and NOT as the heartbeat's
+  NEVER RED under any mutation: #105 🔴 a packet-in on p4runtime, where there never was one: rc 1
+  NEVER RED under any mutation: #106 named as a DIFF in packet_ins
+  NEVER RED under any mutation: #107 🔴 a heartbeat frame at the exercise's controller: rc 1
+  NEVER RED under any mutation: #108 🔴 named as heartbeat_packet_ins
+  NEVER RED under any mutation: #109 🔴 and as a non-IPv4 packet-in
+  NEVER RED under any mutation: #110 🔴 and said in words
+  NEVER RED under any mutation: #111 🔴 an arm whose verdict changed (verdicts were flaky before): noted, rc 0
+  NEVER RED under any mutation: #112 noted as verdict
+  NEVER RED under any mutation: #113 and as rc
+  NEVER RED under any mutation: #114 🔴 a gRPC error more: rc 1
+  NEVER RED under any mutation: #115 named as grpc_errors
+  NEVER RED under any mutation: #116 🔴 a packet-in count between the controls': rc 0
+  NEVER RED under any mutation: #117 noted as inside the spread
+  NEVER RED under any mutation: #118 and not decided either way (descriptive)
+  NEVER RED under any mutation: #119 🔴 a packet-in count outside the controls': noted, still rc 0
+  NEVER RED under any mutation: #120 noted as OUTSIDE the spread
+  NEVER RED under any mutation: #121 🔴 a third control that widens the spread: rc 0
+  NEVER RED under any mutation: #122 said with its count of controls
+  NEVER RED under any mutation: #123 and the treatment now inside it
+  NEVER RED under any mutation: #124 🔴 tunnel counters between the controls': rc 0
+  NEVER RED under any mutation: #126 🔴 tunnel counters outside the controls': noted, rc 0
+  NEVER RED under any mutation: #128 🔴 controls that disagree on a decisive key (rules installed): UNDECIDED, rc 2
+  NEVER RED under any mutation: #129 said as such
+  NEVER RED under any mutation: #130 and in the conclusion
+  NEVER RED under any mutation: #131 🔴 s1 ingress 100 = pings + the server's 3499, one under pings + Sent (as 6 of 12 earlier rounds): noted, rc 0
+  NEVER RED under any mutation: #132 noted as the invariant, descriptive
+  NEVER RED under any mutation: #133 🔴 s2 egress 100 not s1 ingress 100: noted
+  NEVER RED under any mutation: #134 🔴 the 200 tunnel's sum broken (it never broke before): rc 1
+  NEVER RED under any mutation: #135 said as INV BAD
+  NEVER RED under any mutation: #136 🔴 a decisive invariant broken in a control too: UNDECIDED, rc 2
+  NEVER RED under any mutation: #137 said as a decisive invariant that is not one
+  NEVER RED under any mutation: #138 🔴 a skeleton counter that should be 0: INV BAD
+  NEVER RED under any mutation: #139 up to 10 FIN retries when the client got no ack
+  NEVER RED under any mutation: #140 🔴 a cache entry that is no packet-in's flow: INV BAD
+  NEVER RED under any mutation: #141 and a note on cache_entries (descriptive)
+  NEVER RED under any mutation: #142 🔴 an arm with no controller log: rc 2
+  NEVER RED under any mutation: #143 and says which
+  NEVER RED under any mutation: #144 and does not print a conclusion either way
+  NEVER RED under any mutation: #145 🔴 a run without the flowcache/solution row: rc 2
+  NEVER RED under any mutation: #146 naming the arm
+  NEVER RED under any mutation: #147 🔴 a counter block cut short: rc 2
+  NEVER RED under any mutation: #148 said as cut short
+  NEVER RED under any mutation: #149 🔴 a last counter block that had not settled: rc 2
+  NEVER RED under any mutation: #150 said as not settled
+  NEVER RED under any mutation: #151 naming the low bound
+  NEVER RED under any mutation: #152 🔴 s2 egress 100 not s1 ingress 100 in the last block, s1 in range: rc 2
+  NEVER RED under any mutation: #153 naming the two counters
+  NEVER RED under any mutation: #154 🔴 s1 ingress 100 over pings + the server's + 10 FIN retries: rc 2
+  NEVER RED under any mutation: #155 naming the high bound
+  NEVER RED under any mutation: #156 🔴 s1 ingress 100 at pings + the server's + 10 FIN retries: settled, show rc 0
+  NEVER RED under any mutation: #157 🔴 a server report but 'did not receive ack', in range: rc 2
+  NEVER RED under any mutation: #158 said as no ack
+  NEVER RED under any mutation: #159 🔴 no server report (and no warning), in range: rc 2
+  NEVER RED under any mutation: #160 said as no server report
+  NEVER RED under any mutation: #161 no server report, the last block read twice: settled, show rc 0
+  NEVER RED under any mutation: #162 🔴 the skeleton's s1 ingress 100 not the pings, read once: rc 2
+  NEVER RED under any mutation: #163 said as not the pings
+  NEVER RED under any mutation: #164 🔴 real 2026-09-19T151037Z: the last block settled, show rc 0
+  NEVER RED under any mutation: #165 🔴 real 2026-09-24T162954Z: the last block settled, show rc 0
+  NEVER RED under any mutation: #166 🔴 real 2026-09-24T192012Z: the last block settled, show rc 0
+  NEVER RED under any mutation: #167 🔴 real 2026-09-26T061642Z: the last block settled, show rc 0
+  NEVER RED under any mutation: #168 🔴 real 2026-09-26T062438Z: the last block settled, show rc 0
+  NEVER RED under any mutation: #169 🔴 real 2026-09-26T155814Z: the last block settled, show rc 0
+  NEVER RED under any mutation: #170 🔴 real 2026-09-27T081205Z: the last block settled, show rc 0
+  NEVER RED under any mutation: #171 🔴 real 2026-09-26T175425Z: not settled, rc 2
+  NEVER RED under any mutation: #172 named as s2 egress 100 not s1 ingress 100
+  NEVER RED under any mutation: #173 🔴 real 2026-09-19T055210Z: not settled, rc 2
+  NEVER RED under any mutation: #174 named as no ack (only a repeat could settle it)
+  NEVER RED under any mutation: #175 🔴 real 2026-09-19T065612Z: not settled, rc 2
+  NEVER RED under any mutation: #176 named as no ack (only a repeat could settle it)
+  NEVER RED under any mutation: #177 🔴 real 2026-09-19T085331Z: not settled, rc 2
+  NEVER RED under any mutation: #178 named as no ack (only a repeat could settle it)
+  NEVER RED under any mutation: #179 🔴 real 2026-09-19T085746Z: not settled, rc 2
+  NEVER RED under any mutation: #180 named as no ack (only a repeat could settle it)
+  NEVER RED under any mutation: #181 the same numbers read twice are settled: show rc 0
+  NEVER RED under any mutation: #182 🔴 a packet-in that cannot be parsed: rc 2
+  NEVER RED under any mutation: #183 said as such
+  NEVER RED under any mutation: #184 🔴 an IPv4 packet-in shorter than its header: rc 2
+  NEVER RED under any mutation: #185 and no traceback
+  NEVER RED under any mutation: #186 🔴 a controller log that is not UTF-8: rc 2
+  NEVER RED under any mutation: #187 and no traceback
+  NEVER RED under any mutation: #188 🔴 a report that cannot be read: rc 2
+  NEVER RED under any mutation: #189 🔴 and no traceback from it
+  NEVER RED under any mutation: #190 🔴 samples from a sampler before 09-28: rc 2
+  NEVER RED under any mutation: #191 said as a sampler from before round 6
+  NEVER RED under any mutation: #192 🔴 samples from round 4's sampler (no heard, no controllers): rc 2
+  NEVER RED under any mutation: #193 🔴 samples from round 5's sampler (no ctrl_logs): rc 2
+  NEVER RED under any mutation: #194 🔴 a sampler that never saw the controller's log: rc 2
+  NEVER RED under any mutation: #195 said as such
+  NEVER RED under any mutation: #196 🔴 a log the sampler never saw reach its push: rc 2
+  NEVER RED under any mutation: #197 said as no window start
+  NEVER RED under any mutation: #198 🔴 a controller log with no push and no entry: rc 2
+  NEVER RED under any mutation: #199 said as a window with no start
+  NEVER RED under any mutation: #200 🔴 a running sample whose daemon counter is not a number: rc 2, not a zero
+  NEVER RED under any mutation: #201 naming the counter
+  NEVER RED under any mutation: #202 🔴 a running sample whose heard column is not counts: rc 2
+  NEVER RED under any mutation: #203 said as a heard column that is not counts
+  NEVER RED under any mutation: #204 🔴 samples without 06's end beside them: rc 2
+  NEVER RED under any mutation: #205 🔴 a compare with one run: usage, rc 2
+  NEVER RED under any mutation: #206 🔴 the control's code is printed
+  NEVER RED under any mutation: #207 🔴 and the treatment's
+  NEVER RED under any mutation: #208 🔴 the treatment's protobuf is printed
+  NEVER RED under any mutation: #209 with the installed set's sha
+  NEVER RED under any mutation: #210 🔴 and the control's absence is said
+  NEVER RED under any mutation: #211 identity is not evidence: still rc 0
+  NEVER RED under any mutation: #212 show: rc 0
+  NEVER RED under any mutation: #213 and lists the flowcache packet-ins
+  NEVER RED under any mutation: #214 🔴 uncommitted: a code file and an audit .json are recorded, a doc .md and an audit .tsv are not
+  NEVER RED under any mutation: #215 the tutorials' HEAD is recorded
+  NEVER RED under any mutation: #216 🔴 a round rewriting build/ under an exercise does not change the identity
+  NEVER RED under any mutation: #217 🔴 a changed exercise file in ~/tutorials does
+  NEVER RED under any mutation: #218 in that exercise's tree digest
+  NEVER RED under any mutation: #219 🔴 an untracked file in an exercise (git's porcelain does not show it) changes it too
+  NEVER RED under any mutation: #220 the fabric's libraries: the one shared object, its symlink not counted
+  NEVER RED under any mutation: #221 🔴 a rebuilt bmv2 shared library changes the identity
+  NEVER RED under any mutation: #222 🔴 a clean merge: its tree is what merging its parents gives
+  NEVER RED under any mutation: #223 🔴 an amended merge is refused
+  NEVER RED under any mutation: #224 🔴 the frozen rounds as frozen, none with the heartbeat: rc 0
+  NEVER RED under any mutation: #225 said as such
+  NEVER RED under any mutation: #226 with each field's count of values
+  NEVER RED under any mutation: #227 🔴 a round whose controller log changed since it was frozen: rc 3
+  NEVER RED under any mutation: #228 said as not what the manifest froze
+  NEVER RED under any mutation: #229 🔴 a frozen round that is gone: rc 3
+  NEVER RED under any mutation: #230 🔴 a round that had the heartbeat: rc 3
+  NEVER RED under any mutation: #231 said as not a round without it
+  NEVER RED under any mutation: #232 a manifest that is not one: rc 2

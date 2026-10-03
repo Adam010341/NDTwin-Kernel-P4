@@ -1,0 +1,36 @@
+# Third cut (kernel capabilities) — intake
+- **Gates finished at 04:38** (waiter brsh6odzs): mutate_p4_capabilities 15/0 with the control green, rc 0; webgui-build rc 0.
+- **Kernel branch:** feat/kernel-capabilities-0927 @ 86890c6a, 3 commits on 3d740be0, 11 files, +1350/−8.
+  - Product diff read hunk by hunk: P4Capabilities.{hpp,cpp}, pollP4SwitchState, a mutex-protected snapshot, HttpSession attach, CMake.
+  - Secret scan 0/3. Test merge onto trunk 18c83aba = 49214a2b, no conflict.
+- **Judge launched** (kernel plus a separate GUI verdict).
+- **Rerun** (`rerun-cap3.frozen.sh`):
+  - build (NoDebugInfo -O0, local googletest), unit_full, unit_caps, check_gate_anchors: one guard call each;
+  - mutate_p4_capabilities runs unwrapped, because it guards each of its own cells;
+  - the build dir is removed at the end.
+- **The Web-GUI branch (4494473) is not merged here:** push/PR in another repo is Adam's call (MORNING-QUESTIONS 3).
+- **05:0x Judge: MERGE AFTER FIXES** (`judge-CAP3-86890c6a.md`). Blocking:
+  - B1: the L4 differential allowlist line is missing;
+  - B2: the merged tree has no evidence.
+- The GUI draft is sound. Not for merge now: rerun at the commit, and check node_modules/dist hygiene.
+- My rerun on 49214a2b was aborted (it never got the lock) because the head will change.
+- Sent to worker a652809f: merge trunk 18c83aba in; B1 with red/green; B2 gates on the merged tree; N3–N10; SUMMARY fixes.
+- **08:5x Round 2 delivered** as 9b288e77. B2 on the merged tree (with 18c83aba):
+  - build rc 0; unit 1385/1385; mutate 18/0;
+  - anchors: head-only 124/124 (two-revision 246/248, where the only not-ok cells are the new gates being absent at base);
+  - clang -fsyntax-only 4/4; the clang control at 86890c6a is red for the right reason (the v3 log; v1/v2 were red for the wrong reason and are kept as a record).
+  - B1: allowlist red then green. N3/N4/N6 are done.
+  - Secret scan 0/3. merge-tree onto 9ef10250 is clean.
+- **Accepted without a new judge:** the blocking items were verified by logs.
+  - Rerun `rerun2-cap3.frozen.sh` covers only the non-C++ cells, on test merge a8e9bfed: contract spec, wiring suite and gate, L1 scoring, anchors, tmpdirs.
+  - Reason: no C++ or CMake file changed on trunk between 18c83aba and 9ef10250. clang, TSan and ASan are left to the PR's CI.
+- **Web-GUI 65eecf6:** not merged; push/PR is Adam's call (Q3). node_modules, dist and the conda env remain for a possible pre-PR build.
+- **09:1x Rerun on a8e9bfed:**
+  - contract spec 261 OK; wiring suite 3/0; wiring gate 4/0; tmpdirs OK; tripwire 0;
+  - anchors 246/248, with only the two new gates absent at trunk (expected).
+  - **test_l1_shell_scoring FAILED 1:** group C — `test_p4_capabilities_wired.sh` prints `3 passed, 0 failed`, a form the L1 scorer can't read. That would make CI L1 red after the merge. Sent back: merge trunk, fix the summary format, rerun the scoring suite, its gate, and the wiring suite and gate.
+- **10:4x Round 3 delivered** as 3426f9dd: merged trunk 9ef10250; the wired suite now prints `Ran %d checks, %d failed`.
+  - l1 scoring 148/0, mutate_l1 53/53, wiring suite 3/0 and gate 4/0, anchors head-only 124/124, contract 261.
+  - No C++ change since 9b288e77. Disjoint from N7 and sudo; merges cleanly onto trunk 8d622ea4.
+  - Next after PR #13: merge, then PR #14.
+- **12:1x** PR #14 CI all green (ctest 1385/1385; clang full build observed); squash-merged; main be01cc7a; invariant holds.

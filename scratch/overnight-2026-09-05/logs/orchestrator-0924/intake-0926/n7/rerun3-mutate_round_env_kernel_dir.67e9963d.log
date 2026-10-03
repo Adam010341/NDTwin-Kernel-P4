@@ -1,0 +1,39 @@
+67e9963d03732ea833137c248dbc4642979aa6ff
+# 2026-09-28T00:39:56Z cmd bash tests/shell/mutate_round_env_kernel_dir.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_round_env_kernel_dir.sh
+baseline (must be green before any mutation, consumers included):
+  Ran 83 checks, 0 failed
+
+  caught   M1: E names the main checkout again (the defect)               (2 named check(s) went red)
+  caught   M2: E derives from the caller's working directory              (2 named check(s) went red)
+  caught   M3: E stops one directory short of the checkout                (1 named check(s) went red)
+  caught   M4: E ignores an exported KERNEL_DIR                           (2 named check(s) went red)
+  caught   M5: one exported E path still names a fixed tree               (1 named check(s) went red)
+  caught   M6: E creates one directory in a fixed tree                    (1 named check(s) went red)
+  caught   M13: E drops the bash guard                                    (1 named check(s) went red)
+  caught   M14: E drops the no-file-behind-BASH_SOURCE guard              (1 named check(s) went red)
+  caught   M15: E drops the is-it-a-checkout check                        (2 named check(s) went red)
+  caught   M16: E derives from $0 instead of its own path                 (1 named check(s) went red)
+  caught   M18: E lets CDPATH steer the relative form                     (1 named check(s) went red)
+  caught   M22: E's no-file guard exits an interactive shell again        (1 named check(s) went red)
+  caught   M24: E's checkout guard exits an interactive shell again (a paste) (1 named check(s) went red)
+  caught   M7: F5 names the main checkout again (the defect)              (2 named check(s) went red)
+  caught   M8: F5 climbs one directory past the checkout                  (1 named check(s) went red)
+  caught   M9: F5 derives from the caller's working directory             (1 named check(s) went red)
+  caught   M10: F5 ignores an exported KERNEL_DIR                         (1 named check(s) went red)
+  caught   M11: one exported F5 path still names a fixed tree             (1 named check(s) went red)
+  caught   M12: F5 creates its directory in a fixed tree                  (1 named check(s) went red)
+  caught   M17: F5 drops the bash guard                                   (1 named check(s) went red)
+  caught   M23: F5 takes a relative KERNEL_DIR again                      (1 named check(s) went red)
+  caught   M19: test_gate_exit_code_not_tee keeps an inherited KERNEL_DIR (1 named check(s) went red)
+  caught   M20: test_cell_gate_suspect_wiring keeps an inherited KERNEL_DIR (1 named check(s) went red)
+  caught   M21: test_cell_gate_suspect_wiring skips green without an interpreter (1 named check(s) went red)
+  control  C1 (control): a comment in E's header is reworded              (stayed green, as it must)
+  control  C2 (control): E resolves with cd -P (no symlinks in the temp trees) (stayed green, as it must)
+  control  C3 (control): a comment in the not_tee consumer is reworded    (stayed green, as it must)
+
+baseline byte-identical: yes
+mutation gate: 24 mutations, 0 survived; controls green
+guarded_build: exit 0
+# rc=0

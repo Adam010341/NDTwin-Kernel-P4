@@ -1,0 +1,6 @@
+# PR #12 runs 36366738972 / 36366735218 (head fcb9664a): ALL FOUR JOBS SUCCESS on both runs -- the first fully green CI.
+# GCC: ctest 1368/1368; L1 "L1 passed", with 0 FAILED/FAIL: lines in both raw logs. (The first API fetch of job 108754530931
+# failed at the blob download and returned a one-line error; refetched, 7003 lines.)
+# test_cell_gate_suspect_wiring.sh PASS 14; test_round_env_kernel_dir.sh PASS 83; test_live_round_lab_tree.sh PASS 93;
+# test_gate_exit_code_not_tee.sh DECLARED SKIP (py-plot).
+# => prediction met. The prediction file was written after the push but before any result (disclosed in its header).

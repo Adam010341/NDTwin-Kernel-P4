@@ -1,0 +1,12 @@
+redfirst_aeg                   rc=0  AEG-RED-FIRST: A, E and G red at 7746832e's code, green at HEAD
+selftest_07                    rc=0  SELF-TEST PASS
+test_live_p1_common            rc=0  Ran 184 checks, 0 failed
+mutate_live_p1_common          rc=0  mutation gate: 50 mutations, 0 survived; 4 control(s), 0 went red
+test_live_p1_thirteen          rc=0  Ran 41 checks, 0 failed
+mutate_live_p1_thirteen        rc=1  mutation gate: 11 mutations, 1 survived; 1 control(s), 0 went red
+proxy_unit                     rc=1  ImportError: Start directory is not importable: '/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-rulings-aeg-0927/p4_proxy/tests'
+mutate_p4_heartbeat_w          rc=0  mutation gate: 200 mutations, 0 survived
+mutate_roles_binding           rc=0  mutation gate: 179 mutations, 0 survived
+check_gate_anchors             rc=0  121/121 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+nolab_tripwire                 rc=0  NOLAB-TRIPWIRE: 0 lab call(s) (all refused)
+GATES-AEG3 5dcf704b: RED

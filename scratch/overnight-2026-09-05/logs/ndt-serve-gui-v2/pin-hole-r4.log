@@ -1,0 +1,10 @@
+date 2026-10-02T09:53:12+08:00
+head 51f61eead3c9beff7f24c902c5c40e25eba5c46a
+porcelain 4
+r3 test: git show 51f61eea:tests/shell/test_ndt_status_measuring.sh (sha256 e10a136dc100a59a)
+r4 test: tests/shell/test_ndt_status_measuring.sh (sha256 965620345606d0e1)
+L14: r3 test rc=0 (Ran 79 checks, 0 failed); r4 test rc=1 (Ran 102 checks, 3 failed): 🔴 --measuring opened no TCP connection to the lab's ports (8 states, netns);🔴 --measuring reaches only the five functions that read a file or ps;🔴 no absolute-path command and no /dev/tcp on --measuring's path;
+L14b: r3 test rc=0 (Ran 79 checks, 0 failed); r4 test rc=1 (Ran 102 checks, 2 failed): 🔴 --measuring opened no TCP connection to the lab's ports (8 states, netns);🔴 no absolute-path command and no /dev/tcp on --measuring's path;
+L15: r3 test rc=0 (Ran 79 checks, 0 failed); r4 test rc=1 (Ran 102 checks, 2 failed): 🔴 --measuring ran nothing outside its allowlist on PATH (8 states);🔴 --measuring opened no TCP connection to the lab's ports (8 states, netns);
+L16: r3 test rc=0 (Ran 79 checks, 0 failed); r4 test rc=1 (Ran 102 checks, 1 failed): 🔴 no absolute-path command and no /dev/tcp on --measuring's path;
+L16b: r3 test rc=0 (Ran 79 checks, 0 failed); r4 test rc=1 (Ran 102 checks, 2 failed): 🔴 --measuring opened no TCP connection to the lab's ports (8 states, netns);🔴 no absolute-path command and no /dev/tcp on --measuring's path;

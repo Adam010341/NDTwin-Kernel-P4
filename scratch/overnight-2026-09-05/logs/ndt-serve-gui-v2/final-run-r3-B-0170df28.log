@@ -1,0 +1,9 @@
+# final-run-r3 phase B at 0170df28d5560a91ec692d120c203e480e238751, porcelain 0, df /dev/nvme0n1p5   98G   90G  3.3G  97% /
+/dev/nvme0n1p5   98G   90G  3.3G  97% /
+2026-10-02T01:06:05+08:00 start rebuild-gate-r3-0170df28.log: bash tests/shell/rebuild_ndt_serve_web.sh
+2026-10-02T01:42:10+08:00 end   rebuild-gate-r3-0170df28.log: rc=0
+2026-10-02T01:42:10+08:00 start page-suite-r3-0170df28.log: env JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh env PYTHONDONTWRITEBYTECODE=1 python3 tests/browser/test_ndt_serve_page.py
+2026-10-02T03:04:07+08:00 end   page-suite-r3-0170df28.log: rc=0
+2026-10-02T03:04:07+08:00 start page-gate-r3-0170df28.log: bash tests/shell/mutate_ndt_serve_page.sh
+2026-10-02T09:16:03+08:00 end   page-gate-r3-0170df28.log: rc=0
+# 2026-10-02T09:16:03+08:00 phase B done; head now 0170df28d5560a91ec692d120c203e480e238751, porcelain 0

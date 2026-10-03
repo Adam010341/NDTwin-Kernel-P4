@@ -1,0 +1,73 @@
+1cf0692cde958c3a02a329d7990423a6bc5d5c3f
+# worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  2026-10-02T03:34:03Z
+# cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927  TMPDIR /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb6/tmp
+# cmd bash tests/shell/test_live_p1_thirteen.sh
+# via JOBS=1 LOCK_WAIT=10800 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/tools/build_guard/guarded_build.sh
+# PATH starts /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb6-1cf0692c/shims (nolab); drop check through /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb6-1cf0692c/hbwrap
+# disk: 2797 MB free on / when queued; floor 1536 MB, checked again under the lock
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash -c a=$(df --output=avail -BM / | tail -1 | tr -dc 0-9); echo "# disk under the lock: $a MB free"; (( a >= $0 )) || { echo "DISK-FLOOR: $a MB < $0 MB -- not run"; exit 97; }; exec "$@" 1536 bash tests/shell/test_live_p1_thirteen.sh
+# disk under the lock: 2797 MB free
+
+1. 🔴 a correct SKELETON arm exits 0, and the step expects that
+  ok         a correct pair of arms passes
+  ok         and says so
+  ok       🔴 neither arm of a correct pair wants a non-zero rc
+  ok       🔴 the raw records the venv fingerprint of both interpreters
+  ok         the driver's interpreter among them
+  ok         with protobuf's version and implementation
+  ok       🔴 the raw records the code identity as 06 starts
+  ok       🔴 and again as it ends, after the last round wrote its table row
+  ok       🔴 a skeleton arm that FAILED an expectation is the finding
+  ok         named as the red arm not being red
+  ok         and a solution arm that failed is a failure too
+
+2. 🔴 the two arms whose red is a REFUSAL are the exceptions
+  ok         flowcache's skeleton is expected to exit 1
+  ok         and the table carries the by-design verdict
+  ok       🔴 a flowcache skeleton that exits 0 is the finding
+  ok         because p4c was supposed to refuse it
+  ok         basic_tunnel's skeleton is expected to exit 1 here
+  ok       🔴 and one that exits 0 is the finding
+  ok       🔴 rc 1 with a NON-refusal verdict is the finding, not a pass
+  ok         named as the refusal not having happened
+  ok         and the verdict itself is quoted
+  ok       🔴 same for basic_tunnel's entries actually installing
+  ok         and it says the red arm is not red
+  ok       🔴 a FAIL that merely mentions RED ARM is still a failure
+  ok         and is named as one
+  ok         a want-0 arm is not asked for a RED ARM verdict
+  ok       🔴 qos's skeleton exiting 1 is still a failure
+
+3. 🔴 rc 2 is not evidence either way
+  ok         a round that never ran fails the step
+  ok         and says it is not a result about the exercise
+
+4. the table, and what the step reads out of each run
+  ok         two exercises is four arms
+  ok         the table names each arm
+  ok         with the verdict the driver printed
+  ok         and the report path
+  ok         the count is arms, not exercises
+  ok       🔴 a failure does not stop the loop
+
+5. the refusals, before anything is written
+  ok       🔴 no interpreter with scapy is rc 2
+  ok         naming it
+  ok       🔴 no NDT_OWNER is rc 2
+  ok         refused, saying what to set
+  ok         and that nothing was started
+  ok       🔴 no round ran as a default owner
+  ok         and no verdict was reached
+  ok       🔴 and no run directory was made
+
+6. 🔴 this suite leaves nothing in the checkout
+  ok       🔴 this suite wrote no run directory into the checkout
+  ok         and the raw really went to the fixture instead
+  ok       🔴 our own decoy IS visible to the listing
+  ok       🔴 a PREVIOUS real run's directory is not counted as ours
+  ok         (and a count, rather than a difference, would have seen it)
+
+Ran 47 checks, 0 failed
+guarded_build: exit 0
+# rc=0

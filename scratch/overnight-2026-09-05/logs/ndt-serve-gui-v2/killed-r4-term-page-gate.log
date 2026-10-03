@@ -1,0 +1,22 @@
+date 2026-10-02T10:04:00+08:00
+head 73889e5494d22f32b39f4a43021db389a92fe742
+porcelain 0
+gate tests/shell/mutate_ndt_serve_page.sh sha256 7e71944f0bbc2388
+gate log /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/killed-r4-term-page-gate.gate.log
+signal SIGTERM
+/dev/nvme0n1p5   98G   91G  2.6G  98% /
+gate pid 1062813, pgid 1062790
+marker seen after ~2 s: baseline 1 -- the whole suite on the committed page (green, every case run ok, none skipped, no left
+made in /tmp while it ran (this gate's prefixes): ndt-page-gate-jHf7Cu
+other new /tmp entries of this user (not counted): 0
+2026-10-02T10:05:01+08:00 kill -TERM -- -1062813
+gate exit status: 143
+left in its process group 3 s later: none
+its /tmp entries still there: none
+processes naming them (cmdline or cwd): none
+--- last 4 lines of the gate's log:
+  | 
+  | baseline 1 -- the whole suite on the committed page (green, every case run ok, none skipped, no leftover):
+  | INCOMPLETE: stopped by SIGTERM before its verdict -- not a verdict
+  | rc=143
+--- verdict-shaped lines: rc=0 0, totals 0, INCOMPLETE 1

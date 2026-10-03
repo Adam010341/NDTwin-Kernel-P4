@@ -1,0 +1,98 @@
+diff --git a/tests/python/test_ndt_serve.py b/tests/python/test_ndt_serve.py
+index e5d896c4..17ed0559 100644
+--- a/tests/python/test_ndt_serve.py
++++ b/tests/python/test_ndt_serve.py
+@@ -420,7 +420,7 @@ class Csrf(ServeCase):
+ 
+     def test_reads_need_the_token_except_health(self):
+         """Judge 09-24 finding 1: GET /status?check=1 runs `ndt status --check`, whose lock probes
+-        POST /ndt/acquire_lock to the kernel (ndt:9439-9454). A read is not side-effect free, so
++        POST /ndt/acquire_lock to the kernel (ndt:9452-9467). A read is not side-effect free, so
+         every GET but /health is gated the way a write is."""
+         paths = ["/status", "/status?check=1", "/apps", "/jobs", "/jobs/20260101T000000Z-abcdef",
+                  "/jobs/20260101T000000Z-abcdef/log/stdout", "/cells", "/cells/x", "/cells/x/old",
+diff --git a/tests/shell/mutate_ndt_serve.sh b/tests/shell/mutate_ndt_serve.sh
+index 28033f37..0f4df670 100755
+--- a/tests/shell/mutate_ndt_serve.sh
++++ b/tests/shell/mutate_ndt_serve.sh
+@@ -600,8 +600,10 @@ m=$(mutant m60 "$DEMO_PY" \
+ report "M60: the demo's slot probe is a real POST /down with the token" "$m" \
+        DemoProbes.test_demo_probes_cannot_touch_the_lab
+ 
++# [Co-developed with claude code -- Adam] 2026-09-28: M61, M64 and M65 re-anchored on the lines
++# ndt's one-clock residue change moved (apps.status 10346 -> 10382, lock_probe +13).
+ m=$(mutant m61 "$VERBS_PY" \
+-    '    "apps.status": {"code": [(10369, 0, "return 0", "cmd_apps")]},' \
++    '    "apps.status": {"code": [(10405, 0, "return 0", "cmd_apps")]},' \
+     '')
+ report "M61: an rc table with no source" "$m" \
+        RcProvenance.test_every_table_names_its_source
+@@ -812,13 +814,13 @@ report "M63: apps.start rc 1 cites proc_checkout's return 1 (09-24's line 8315,
+ # [Co-developed with claude code -- Adam] The opus judge's N1-1 (09-27): the README's lock probe
+ # citation was left at its pre-segment-W lines; the suite now holds every such citation to ndt.
+ m=$(mutant m64 "$README_MD" \
+-    'lock probes to the kernel (ndt:9439-9454)' \
++    'lock probes to the kernel (ndt:9452-9467)' \
+     'lock probes to the kernel (ndt:9292-9307)')
+ report "M64: the README cites the lock probes where they were before segment W (ndt:9292-9307)" "$m" \
+        RcProvenance.test_lock_probe_citations_are_lock_probe
+ m=$(mutant m65 "$SERVE_PY" \
+-    'probes to the kernel (ndt:9439-9454)' \
+-    'probes to the kernel (ndt:9439-9443)')
++    'probes to the kernel (ndt:9452-9467)' \
++    'probes to the kernel (ndt:9452-9456)')
+ report "M65: serve.py's docstring cites lock_probe's comment but not its POST" "$m" \
+        RcProvenance.test_lock_probe_citations_are_lock_probe
+ 
+diff --git a/tools/ndt_serve/README.md b/tools/ndt_serve/README.md
+index 1737bef7..264d9f69 100644
+--- a/tools/ndt_serve/README.md
++++ b/tools/ndt_serve/README.md
+@@ -75,7 +75,7 @@ keeps running if the server dies; a restarted server finds it again from disk.
+ an `Origin` -- this server's own origin; a POST also needs `Content-Type: application/json`.
+ The Host header must be `127.0.0.1:<port>` or `localhost:<port>`. No CORS header is ever sent.
+ Reads are gated too because a read is not side-effect free: `ndt status --check` POSTs three
+-lock probes to the kernel (ndt:9439-9454), and without the token any page in the browser could
++lock probes to the kernel (ndt:9452-9467), and without the token any page in the browser could
+ start one with an `<img>` (judge 09-24, finding 1).
+ 
+ Two read-only ndt calls run at a time; a third waits up to `--read-queue-wait` seconds and then
+diff --git a/tools/ndt_serve/serve.py b/tools/ndt_serve/serve.py
+index c7c8f256..dd685e0c 100644
+--- a/tools/ndt_serve/serve.py
++++ b/tools/ndt_serve/serve.py
+@@ -25,7 +25,7 @@ The design red lines (TICKET section 3), and where each one lives:
+                        answers -- and an Origin header, when present, must be this server's; a POST
+                        also needs a JSON body. 🔴 GETs are gated too (judge 09-24, finding 1): a
+                        "read" is not side-effect free -- `ndt status --check` POSTs three lock
+-                       probes to the kernel (ndt:9439-9454) -- so an <img> in any page must not be
++                       probes to the kernel (ndt:9452-9467) -- so an <img> in any page must not be
+                        able to start one.
+   3. whitelist         verbs.py builds every argv; there is no shell on any path.
+   4. thin shell        ndt's rc is passed through untouched, with a sentence from ndt help beside
+diff --git a/tools/ndt_serve/verbs.py b/tools/ndt_serve/verbs.py
+index d04f8cdf..9cb97993 100644
+--- a/tools/ndt_serve/verbs.py
++++ b/tools/ndt_serve/verbs.py
+@@ -269,6 +269,8 @@ RC_TABLE = {
+ # below every anchor. 🔴 The function is half the anchor (intake judge 09-26, finding 3): `return
+ # 1` is on 187 lines of this tree's ndt, and 09-24's apps.start line 8315 was one of them --
+ # proc_checkout's, 8439 since segment W. [Co-developed with claude code -- Adam]
++# 2026-09-28: the one-clock residue change put 36 lines above the apps.stop and apps.status rows
++# (app_started_at and residue_report); nothing above cmd_apps' own rows moved otherwise.
+ RC_SOURCE = {
+     "up": {"help": {0: "exit 0 the fabric came up and verified",
+                     1: "1 something was MEASURED and it was dirty",
+@@ -294,9 +296,9 @@ RC_SOURCE = {
+                          (899, 1, "return 1", "cmd_release")]},
+     "apps.start": {"code": [(8918, 0, "return 0", "app_start"), (8922, 1, "return 1", "app_start"),
+                             (8995, 1, "return 1", "app_start")]},
+-    "apps.stop": {"code": [(10436, 1, "return 1", "cmd_apps"), (10439, 2, "return 2", "cmd_apps"),
+-                           (10442, 0, "return 0", "cmd_apps")]},
+-    "apps.status": {"code": [(10369, 0, "return 0", "cmd_apps")]},
++    "apps.stop": {"code": [(10472, 1, "return 1", "cmd_apps"), (10475, 2, "return 2", "cmd_apps"),
++                           (10478, 0, "return 0", "cmd_apps")]},
++    "apps.status": {"code": [(10405, 0, "return 0", "cmd_apps")]},
+ }
+ 
+ 

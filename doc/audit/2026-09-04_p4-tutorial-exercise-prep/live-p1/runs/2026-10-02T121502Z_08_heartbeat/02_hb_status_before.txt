@@ -1,0 +1,10 @@
+heartbeat: not running
+report: status stopped (stopped by SIGTERM), pid 857436, period 5 s, ethertype 0x88b5, session 7f1bd58ee39bfa19
+  written 268.0 s ago
+  s1-eth3 -> s2-eth3  sent 18  heard 18  last heard 271.1 s ago
+  s1-eth4 -> s3-eth2  sent 18  heard 18  last heard 272.5 s ago
+  s2-eth3 -> s1-eth3  sent 18  heard 18  last heard 272.5 s ago
+  s2-eth4 -> s3-eth3  sent 18  heard 18  last heard 272.5 s ago
+  s3-eth2 -> s1-eth4  sent 18  heard 18  last heard 272.5 s ago
+  s3-eth3 -> s2-eth4  sent 18  heard 18  last heard 272.5 s ago
+  side effects: foreign_frames 0, forwarded_between_switches 0, forwarded_to_hosts 0, misdelivered 0

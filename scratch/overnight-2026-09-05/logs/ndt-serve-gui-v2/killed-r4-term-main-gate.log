@@ -1,0 +1,36 @@
+date 2026-10-02T10:00:46+08:00
+head 73889e5494d22f32b39f4a43021db389a92fe742
+porcelain 0
+gate tests/shell/mutate_ndt_serve.sh sha256 673d5164b9500c80
+gate log /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/killed-r4-term-main-gate.gate.log
+signal SIGTERM
+/dev/nvme0n1p5   98G   91G  2.6G  98% /
+gate pid 963080, pgid 963080
+marker seen after ~2 s: baseline (must be green before any mutation):
+made in /tmp while it ran (this gate's prefixes): ndt-serve-mutate-bbiJ1y ndt-serve-test-po0xo2c_
+other new /tmp entries of this user (not counted): 0
+2026-10-02T10:01:02+08:00 kill -TERM -- -963080
+gate exit status: 143
+left in its process group 3 s later: none
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/976555/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/987974/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/988052/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/988074/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/988075/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/988076/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/988077/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/985790/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/990888/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/990890/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/990899/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/990901/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/990903/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/990904/cmdline: No such file or directory
+its /tmp entries still there: none
+processes naming them (cmdline or cwd): none
+--- last 4 lines of the gate's log:
+  | gate 673d5164b9500c80081ce7459352a9bf12f4dceefe30aa431906dd376c519c7b
+  | baseline (must be green before any mutation):
+  | INCOMPLETE: stopped by SIGTERM before its verdict -- not a verdict
+  | rc=143
+--- verdict-shaped lines: rc=0 0, totals 0, INCOMPLETE 1

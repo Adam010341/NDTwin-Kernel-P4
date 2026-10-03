@@ -1,0 +1,22 @@
+ tests/shell/mutate_fixture_spawn_helpers.sh      | 124 ++++++++++++--
+ tests/shell/test_faults_topo_pid.sh              |  19 ++-
+ tests/shell/test_fixture_suites_end_on_signal.sh | 200 +++++++++++++++++++++++
+ tests/shell/test_ndt_app_orphans.sh              |  16 +-
+ tests/shell/test_ndt_apps_liveness.sh            |  18 +-
+ tests/shell/test_ndt_down_stops_only_ours.sh     |  32 +++-
+ tests/shell/test_ndt_helper_apps_window.sh       |  19 ++-
+ tests/shell/test_ndt_ovs_claim.sh                |  21 ++-
+ tests/shell/test_ndtwin_lab_sweep.sh             |  19 ++-
+ 9 files changed, 418 insertions(+), 50 deletions(-)
+tree /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/tb-sig3 = d452d111f243b4f05225d16b5773f39076675fb4 + tests/shell/test_fixture_suites_end_on_signal.sh from /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-spawn-traps-1001/tests/shell/test_fixture_suites_end_on_signal.sh (sha256 200e115eb7dfb9d6)
+tree /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/th3-d1a = e0bb7d7f4beb7719c50a61f52b502948a4cb3179
+variant: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/th3-d1a/tests/shell/test_faults_topo_pid.sh: replaced "trap cleanup EXIT\ntrap 'exit 130' INT" -> "trap 'exit 130' INT"
+variant: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/th3-d1a/tests/shell/test_ndt_down_stops_only_ours.sh: replaced "trap cleanup EXIT\ntrap 'exit 130' INT" -> "trap 'exit 130' INT"
+tree /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/th3-d1b = e0bb7d7f4beb7719c50a61f52b502948a4cb3179
+variant: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/th3-d1b/tests/shell/test_faults_topo_pid.sh: replaced '    [[ -f "$FIXTURE_REG" ]] && reap >/dev/null\n' -> '    : no reap\n'
+variant: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/th3-d1b/tests/shell/test_ndt_down_stops_only_ours.sh: replaced '[[ "$(cat "/proc/$p/comm" 2>/dev/null)" == sleep ]] && kill -KILL "$p"' -> ': no kill'
+tree /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/th3-d1c = e0bb7d7f4beb7719c50a61f52b502948a4cb3179
+variant: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/th3-d1c/tests/shell/test_faults_topo_pid.sh: replaced '[[ -n "${TMPROOT:-}" && "$TMPROOT" == /tmp/faults-topo-pid-* ]] && rm ' -> ': no rm'
+variant: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/th3-d1c/tests/shell/test_ndt_down_stops_only_ours.sh: replaced '[[ -n "${FIX:-}" && "$FIX" == "${TMPDIR:-/tmp}/ndt-down-ours-"* ]] && ' -> ': no rm'
+tree /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/th3-hung = e0bb7d7f4beb7719c50a61f52b502948a4cb3179
+variant: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/th3-hung/tests/shell/test_faults_topo_pid.sh: replaced 'spawn "$FIXP"; FIX="$FIXTURE_PID"\n' -> 'spawn "$FIXP"; FIX="$FIXTURE_PID"\ntrap \'\' INT TERM; sleep 1000\n'

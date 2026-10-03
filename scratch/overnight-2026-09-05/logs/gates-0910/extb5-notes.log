@@ -1,0 +1,54 @@
+# extb5 findings log -- round 5 of feat/external-detect-only-0927, start head faf6eb41
+2026-10-01T12:08:57Z start; df / avail 4.0G
+2026-10-01T12:09:29Z merged trunk d452d111 -> 2469c2a2676568121dcf9675111c12eaf1a23d49 tree 62979b4d61457ffa67acc8fdefdea474bc37a372 (merge-tree predicted 62979b4d)
+# plan (worker extb5):
+#  M-5 first: trunk d452d111 merged (no conflicts, tree == merge-tree prediction 62979b4d).
+#  checker (S-2 LIMITS, S-4 rc2/euid0/empty ports/fabric version/main()+signal), test guard (M-4), gate (M-4, S-7, new mutants)
+#  ndt (S-5 per-bring-up log, status nit), e2e cell (S-6), l1 (S-8)
+#  08 (M-1 26-arm OLD_06 + prelude refusal, M-3 sampler heard/controllers, M-2 identity verify), evidence (M-3 heard, M-2 identity)
+#  README/main.py text (M-1, M-2, S-2, S-3, S-9), fixture README ~/
+#  then redfirst_b5 vs faf6eb41, driver gates_b5 with enforcing tripwire, all gates.
+2026-10-01T12:49:19Z dev gate run of mutate_heartbeat_drop_check stopped by me at D14 (pgid 1123802): skipped sections emit fewer cells, fixing
+2026-10-01T13:05Z OBSERVED: my first dev run of mutate_heartbeat_drop_check was NOT stopped at 12:5x -- I signalled the
+  pgid of the setsid wrapper (1123802), not the gate's own group (1123804); it ran in parallel with the second dev run
+  (pgid 1285069) for ~15 min, both writing the same .out (NUL bytes) and racing on Thrift ports 29400/29401
+  (ss -ltnp showed both suites' switches listening at once). Both dev runs discarded (killed by pgid 1123804, 1431087,
+  1285069, 1542316). Their survivors D20/D15b/D32 are NOT evidence. INFERRED: a checker whose port is taken between
+  choose and bind gets a switch that cannot bind Thrift (bmv2 exits SIGSEGV after "Could not bind", reproduced by
+  hand at 12:55 while the gate held 29400) -> UNKNOWN, never a pass; disclosed as a limit (concurrent checks).
+# 2026-10-01T13:16:24Z OBSERVED advanced_tunnel fixture vs ~/tutorials build, program+source_info stripped: equal=True (0d155ce4b7c02f70 / 0d155ce4b7c02f70)
+2026-10-01T13:31:01Z OBSERVED: dev run of mutate_live_p1_external_evidence died at its line 408 because I edited the gate file while bash was reading it; discarded. Rule kept from here: no edit to a gate script while any run of it is in flight.
+2026-10-01T13:37:13Z removed my own two temp leftovers in extb5/tmp (hbdrop-test-t3pr02i8 from the killed dev gate, ndt-hbdrop-ly1t_1wg from my 12:55 manual Launch probe). NOT removed: extb4r-1001/tmp/ndt-hbdrop-{035ber3a,clhl5hf3,j8lycb1y,xylo4dps} (round 4's D21 leftovers, 24-40K each) -- not my files; left for a human (the nit).
+== /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb4-faf6eb41/tripwire.log: 2115 lines, 40 ALLOWED-LAUNCH, of them args=--version: 24, argv0 != ndt-hbdrop-bmv2: 0, device-id 1: 0, no notifications-addr (switch lines): 0
+== /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/scripts-extb4r-faf6eb41/tripwire.log: 1585 lines, 1585 ALLOWED-LAUNCH, of them args=--version: 960, argv0 != ndt-hbdrop-bmv2: 80, device-id 1: 16, no notifications-addr (switch lines): 16
+de6c016b4a254b916428f450aff81c1893fca067f72ee5eb0107ee9380a0f939  /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/frozen/gates_b5.sh
+2026-10-01T14:19:25Z official driver gates_b5.sh (TAG extb5) started on 6163cef4827212baf2c8c0f94077c718d3e7e5c8, pgid 4079639
+2026-10-01T14:31:05Z OBSERVED: /tmp/bmv2-951150-notifications.ipc (adam, 2026-10-01 17:48 +0800 = 09:48Z) -- bmv2's DEFAULT notifications socket for device id 951150 (>= 900000, a throwaway check's id); its time is inside round 4's extb4r mutate_heartbeat_drop_check run (09:45-09:50Z), whose D17 mutant launched without --notifications-addr: a leftover of that. Not mine, not removed.
+2026-10-01T14:38:33Z stopped driver extb5 (sid 4079639) during redfirst_b3 (its F section superseded); redfirst_b/b2.extb5 rc 0 are complete but the whole set reruns under TAG extb5a
+de6c016b4a254b916428f450aff81c1893fca067f72ee5eb0107ee9380a0f939  /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/frozen/gates_b5.sh
+9d5bfcdfee3372421fdbeec616c3645b004707fe018262c2e156e930ee801e59  /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/aeg/redfirst_b2.r2.sh
+55a9822185ec1d341de96c42dca12a0a96d69dfcef7226b6f5bad2fc23d38dc0  /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/aeg/redfirst_b2.r3.sh
+2026-10-01T14:38:36Z official driver started: TAG extb5a, pgid/sid 179753
+2026-10-01T14:41:26Z official driver started: TAG extb5b on cc798de22edbb0970182783dc23ed6900b85b598, sid 
+2026-10-01T14:41:42Z (correction to the line above: extb5b driver sid 233063, head cc798de2)
+2026-10-01T14:40Z stopped driver extb5a (sid 179753) during its first gate (redfirst_b) to add the l1 SKIP cells (D30/D31); redfirst_b.extb5a log marked "# rc=stopped"; the whole set runs under extb5b on cc798de2.
+# dev runs (NOT gates; OBSERVED, outputs in extb5/):
+#   dev-gate-hbdrop.out   mutate_heartbeat_drop_check at bdc1a12f-equivalent tree: 64 mutations, 0 survived, non-control 103/103 seen red;
+#                         its tripwire log (dev-gate-hbdrop.tripwire.log) through tripwire_b5.sh: 1191 launches, 2743 probes, 0 breaking, 0 refused, 0 alive
+#   dev-gate-ev.out       mutate_live_p1_external_evidence (frozen copy): 89 mutations, 0 survived, 149/151 seen red -> cells #21, #93 fixed in 9020a496
+#   dev-gate-l1.out       mutate_l1_shell_scoring: 57 mutations, 57 killed (before cc798de2's D30 mutant)
+#   tripwire_selfcheck.log, wrapper_selfcheck.log   each condition seen red / refused
+#   survey.py, survey.out  34 earlier no-heartbeat external rounds (main checkout runs/, read only) -- the S-9 classification
+#   dev-rfold2.out        redfirst_b5 ALL-AS-EXPECTED; redfirst_b2, b4 ALL-AS-EXPECTED; redfirst_b red only on the phase_for flake
+#                         ('... 1.30 4.95', fixed 6163cef4); redfirst_b3 red only in F (redesigned: E1 alone; checked by hand: rc 1, 1 mutation, 0 survived, 144 never red)
+# measured for the 6000-character trim (INFERRED total): 074635Z p4runtime/solution N3 'running binary' line ends at char 4087
+#   (flowcache/solution 3477); + drop-check line 286 + helper answer 510 (segment S 11_hb_start.txt, 6 lines) + detect-only 226 -> ~5109, margin ~891
+2026-10-01T16:16:59Z stopped my dev run of mutate_p4_heartbeat_w (sid 3590332): the official extb5b run of it finished first (266 mutations, 0 survived)
+2026-10-01T17:30:36Z OBSERVED: trunk moved d452d111 -> 1e350bf2 (merge committed 2026-10-01T21:59:25+08:00): 7 commits, 9 files, all tests/shell (fixture-spawn signal handling); none is a file B changes; git merge-tree --write-tree 1e350bf2 cc798de2: clean, tree 24286ec3. Not merged (R4.6 step 4: the orchestrator decides; merging reruns every gate).
+2026-10-01T19:55:58Z merged trunk 1e350bf2 -> 4c18bf3da29efed3d2f36abd2db67d8f780a222b, tree 24286ec35d311f0a9a694a67be03e04ac636e8d4 (merge-tree predicted 24286ec3)
+0a442e8fcfdfc29ddc73cddb8602c7cc2a2289c6a3eff9839d7fd47d517ee35c  /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/extb5/frozen/gates_b5c.sh
+2026-10-01T19:57:21Z official driver started: TAG extb5c on 4c18bf3d, sid 2858891
+2026-10-02T00:55:20Z (recorded late; observed ~13:00Z, terminal output not saved to a file) dev: HEAD's drop-check suite over the D16, D18 and D14 mutants, one run each, wrapper log dev-m16.tripwire.log: 112 checks each (55/50/63 failed), 76 lines in the wrapper log, all ALLOWED-PROBE --version (64 stock, 12 fabric), 0 ALLOWED-LAUNCH, 0 REFUSED -- no switch was started under any of the three
+2026-10-02T00:55:49Z secret scan of the round's added lines (git diff 2469c2a2 cc798de2, pattern secret|token|passw|api[_-]?key|BEGIN (RSA|OPENSSH|PRIVATE)|ghp_|sk-...|AKIA...): 0 hits; added /home/adam lines: README.md 8, no other file
+2026-10-02T00:55:49Z final: HEAD 4c18bf3da29efed3d2f36abd2db67d8f780a222b, trunk 1e350bf278ab1907b335ef1b141423d4ff77b13b, merge-tree trunk HEAD = 24286ec35d311f0a9a694a67be03e04ac636e8d4, status clean (0 lines), ndt-hbdrop-bmv2 processes: 3
+2026-10-02T00:56:00Z correction to the line above: the 3 matched this shell's own command text; by argv[0], 0 process(es) run as ndt-hbdrop-bmv2

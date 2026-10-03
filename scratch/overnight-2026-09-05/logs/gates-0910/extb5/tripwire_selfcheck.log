@@ -1,0 +1,10 @@
+# tripwire_b5.sh self-check 2026-10-01T13:27:20Z: each fixture must be red, good.log green
+good rc=0 NOLAB-TRIPWIRE: 0 lab call(s); 1 allowed switch launch(es) and 0 --version probe(s), each re-checked: 0 breaking a condition, 0 refused by the wrapper; 0 still running (b
+argv0 rc=1 NOLAB-TRIPWIRE: 0 lab call(s); 1 allowed switch launch(es) and 0 --version probe(s), each re-checked: 1 breaking a condition, 0 refused by the wrapper; 0 still running (b
+thrift rc=1 NOLAB-TRIPWIRE: 0 lab call(s); 1 allowed switch launch(es) and 0 --version probe(s), each re-checked: 1 breaking a condition, 0 refused by the wrapper; 0 still running (b
+devid rc=1 NOLAB-TRIPWIRE: 0 lab call(s); 1 allowed switch launch(es) and 0 --version probe(s), each re-checked: 1 breaking a condition, 0 refused by the wrapper; 0 still running (b
+ipc rc=1 NOLAB-TRIPWIRE: 0 lab call(s); 1 allowed switch launch(es) and 0 --version probe(s), each re-checked: 1 breaking a condition, 0 refused by the wrapper; 0 still running (b
+cwd rc=1 NOLAB-TRIPWIRE: 0 lab call(s); 1 allowed switch launch(es) and 0 --version probe(s), each re-checked: 1 breaking a condition, 0 refused by the wrapper; 0 still running (b
+refused rc=1 NOLAB-TRIPWIRE: 0 lab call(s); 0 allowed switch launch(es) and 0 --version probe(s), each re-checked: 0 breaking a condition, 1 refused by the wrapper; 0 still running (b
+alive rc=1 NOLAB-TRIPWIRE: 0 lab call(s); 1 allowed switch launch(es) and 0 --version probe(s), each re-checked: 0 breaking a condition, 0 refused by the wrapper; 1 still running (b
+lab rc=1 NOLAB-TRIPWIRE: 1 lab call(s); 0 allowed switch launch(es) and 0 --version probe(s), each re-checked: 0 breaking a condition, 0 refused by the wrapper; 0 still running (b

@@ -1,0 +1,97 @@
+9054d0c4a21322c06d6c0fff51d052dba5ebcc7d
+# 2026-10-02T10:12:39Z red side: the two RcProvenance tests on 9054d0c4, python3.12 then python3.8; porcelain: 0 lines
+# cmd env PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3.12 tests/python/test_ndt_serve.py RcProvenance.test_code_sourced_tables_are_in_ndt RcProvenance.test_lock_probe_citations_are_lock_probe
+test_code_sourced_tables_are_in_ndt (__main__.RcProvenance.test_code_sourced_tables_are_in_ndt)
+Each anchor is its line, the text on it AND the function it lies in (intake judge 09-26, ... FAIL
+test_lock_probe_citations_are_lock_probe (__main__.RcProvenance.test_lock_probe_citations_are_lock_probe)
+The opus judge's N1-1 (09-27): the README still sent a reader to ndt lines 9292-9307 for ... FAIL
+
+======================================================================
+FAIL: test_code_sourced_tables_are_in_ndt (__main__.RcProvenance.test_code_sourced_tables_are_in_ndt)
+Each anchor is its line, the text on it AND the function it lies in (intake judge 09-26,
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/tests/python/test_ndt_serve.py", line 1135, in test_code_sourced_tables_are_in_ndt
+    self.assertEqual(bad, [])
+AssertionError: Lists differ: ['status.check rc 3: ndt:7086 is \'printf [1748 chars]pps'] != []
+
+First list contains 12 additional elements.
+First extra element 0:
+'status.check rc 3: ndt:7086 is \'printf \\\'  %-14s %s\\\\n\\\' "apps" "${appson:-none running}"\' in cmd_status, cited as \'return 3\' in cmd_status'
+
+Diff is 1951 characters long. Set self.maxDiff to None to see it.
+
+======================================================================
+FAIL: test_lock_probe_citations_are_lock_probe (__main__.RcProvenance.test_lock_probe_citations_are_lock_probe)
+The opus judge's N1-1 (09-27): the README still sent a reader to ndt lines 9292-9307 for
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-external-detect-0927/tests/python/test_ndt_serve.py", line 1176, in test_lock_probe_citations_are_lock_probe
+    self.assertEqual(bad, [])
+AssertionError: Lists differ: ["README.md:78 cites ndt:9452-9467; lock_p[294 chars]592"] != []
+
+First list contains 3 additional elements.
+First extra element 0:
+"README.md:78 cites ndt:9452-9467; lock_probe's comment starts at 9567, its POST is at 9584, it ends at 9592"
+
++ []
+- ["README.md:78 cites ndt:9452-9467; lock_probe's comment starts at 9567, its "
+-  'POST is at 9584, it ends at 9592',
+-  "serve.py:28 cites ndt:9452-9467; lock_probe's comment starts at 9567, its "
+-  'POST is at 9584, it ends at 9592',
+-  "test_ndt_serve.py:423 cites ndt:9452-9467; lock_probe's comment starts at "
+-  '9567, its POST is at 9584, it ends at 9592']
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.053s
+
+FAILED (failures=2)
+# /usr/bin/python3.12 rc=1
+# cmd env PYTHONDONTWRITEBYTECODE=1 /home/adam/miniconda3/envs/ryu-env/bin/python3.8 tests/python/test_ndt_serve.py RcProvenance.test_code_sourced_tables_are_in_ndt RcProvenance.test_lock_probe_citations_are_lock_probe
+test_code_sourced_tables_are_in_ndt (__main__.RcProvenance)
+Each anchor is its line, the text on it AND the function it lies in (intake judge 09-26, ... FAIL
+test_lock_probe_citations_are_lock_probe (__main__.RcProvenance)
+The opus judge's N1-1 (09-27): the README still sent a reader to ndt lines 9292-9307 for ... FAIL
+
+======================================================================
+FAIL: test_code_sourced_tables_are_in_ndt (__main__.RcProvenance)
+Each anchor is its line, the text on it AND the function it lies in (intake judge 09-26,
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "tests/python/test_ndt_serve.py", line 1135, in test_code_sourced_tables_are_in_ndt
+    self.assertEqual(bad, [])
+AssertionError: Lists differ: ['status.check rc 3: ndt:7086 is \'printf [1748 chars]pps'] != []
+
+First list contains 12 additional elements.
+First extra element 0:
+'status.check rc 3: ndt:7086 is \'printf \\\'  %-14s %s\\\\n\\\' "apps" "${appson:-none running}"\' in cmd_status, cited as \'return 3\' in cmd_status'
+
+Diff is 1951 characters long. Set self.maxDiff to None to see it.
+
+======================================================================
+FAIL: test_lock_probe_citations_are_lock_probe (__main__.RcProvenance)
+The opus judge's N1-1 (09-27): the README still sent a reader to ndt lines 9292-9307 for
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "tests/python/test_ndt_serve.py", line 1176, in test_lock_probe_citations_are_lock_probe
+    self.assertEqual(bad, [])
+AssertionError: Lists differ: ["README.md:78 cites ndt:9452-9467; lock_p[294 chars]592"] != []
+
+First list contains 3 additional elements.
+First extra element 0:
+"README.md:78 cites ndt:9452-9467; lock_probe's comment starts at 9567, its POST is at 9584, it ends at 9592"
+
++ []
+- ["README.md:78 cites ndt:9452-9467; lock_probe's comment starts at 9567, its "
+-  'POST is at 9584, it ends at 9592',
+-  "serve.py:28 cites ndt:9452-9467; lock_probe's comment starts at 9567, its "
+-  'POST is at 9584, it ends at 9592',
+-  "test_ndt_serve.py:423 cites ndt:9452-9467; lock_probe's comment starts at "
+-  '9567, its POST is at 9584, it ends at 9592']
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.045s
+
+FAILED (failures=2)
+# /home/adam/miniconda3/envs/ryu-env/bin/python3.8 rc=1
+# rc=1

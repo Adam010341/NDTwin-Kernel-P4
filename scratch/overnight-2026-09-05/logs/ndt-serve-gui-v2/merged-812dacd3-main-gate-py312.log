@@ -1,0 +1,13 @@
+date 2026-10-01T21:45:26+08:00
+merge-tree: git merge-tree --write-tree trunk 23e9b76fe64a6ecc659fb40961f95faf090f6b3f -> tree 812dacd39a121b30fe28a9555daef1a0a490a151 (rc=1); trunk d452d111f243b4f05225d16b5773f39076675fb4
+extracted: git archive 812dacd39a121b30fe28a9555daef1a0a490a151 tools/ndt_serve tools/test_workflow tests/python tests/shell tests/browser | tar -C /tmp/merged-zIRwUI -xf -
+dir /tmp/merged-zIRwUI
+head ?
+porcelain ? tracked file(s) differ from HEAD
+date 2026-10-01T21:45:26+08:00
+python /usr/bin/python3.12 3.12.3
+baseline (must be green before any mutation):
+  test_ndt_serve.py: Ran 69 tests in 17.690s, FAILED (failures=65, errors=3)
+  baseline is RED -- fix that first, mutations prove nothing on a red baseline
+rc=2
+gate exit rc=2

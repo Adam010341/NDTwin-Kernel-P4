@@ -1,0 +1,11 @@
+# check_gate_anchors.py --gates-from 3b6e533c --gates mutate_ndt_serve.sh mutate_ndt_serve_page.sh -- 3b6e533c (2026-10-01T16:14:44+08:00); column c0 = rev 3b6e533c
+anchors of each gate, counted in each rev's own files; gates read from 3b6e533c
+columns:
+  c0   3b6e533c
+
+                          c0            
+mutate_ndt_serve.sh       ok(162)       
+mutate_ndt_serve_page.sh  ok(39)        
+
+2/2 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+rc=0

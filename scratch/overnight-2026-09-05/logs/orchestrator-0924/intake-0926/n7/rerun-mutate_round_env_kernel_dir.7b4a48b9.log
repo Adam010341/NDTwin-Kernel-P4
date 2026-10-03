@@ -1,0 +1,21 @@
+7b4a48b9e7b0062e0d086d3db38d48141f164f4f
+# 2026-09-27T19:01:26Z cmd bash tests/shell/mutate_round_env_kernel_dir.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_round_env_kernel_dir.sh
+baseline (must be green before any mutation):
+  Ran 24 checks, 0 failed
+
+  caught   M1: E names the main checkout again (the defect)             (2 named check(s) went red)
+  caught   M2: E derives from the caller's working directory            (2 named check(s) went red)
+  caught   M3: E stops one directory short of the checkout              (1 named check(s) went red)
+  caught   M4: E ignores an exported KERNEL_DIR                         (2 named check(s) went red)
+  caught   M5: one exported E path still names a fixed tree             (1 named check(s) went red)
+  caught   M6: E creates one directory in a fixed tree                  (1 named check(s) went red)
+  caught   M7: F5 names the main checkout again (the defect)            (2 named check(s) went red)
+  caught   M8: F5 climbs one directory past the checkout                (1 named check(s) went red)
+  control  C1 (control): the comment on E's KERNEL_DIR line is reworded (stayed green, as it must)
+
+baseline byte-identical: yes
+mutation gate: 8 mutations, 0 survived; control green
+guarded_build: exit 0
+# rc=0

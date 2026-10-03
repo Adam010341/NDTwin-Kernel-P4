@@ -1,0 +1,15 @@
+# final-run-r3 phase D at 73889e5494d22f32b39f4a43021db389a92fe742, porcelain 0, df /dev/nvme0n1p5   98G   91G  2.6G  98% /
+2026-10-02T10:16:12+08:00 start ndt-measuring-test-r4-73889e54.log: shellgate tests/shell/test_ndt_status_measuring.sh
+2026-10-02T10:16:25+08:00 end   ndt-measuring-test-r4-73889e54.log: rc=0
+2026-10-02T10:16:25+08:00 start ndt-measuring-gate-r4-73889e54.log: shellgate tests/shell/mutate_ndt_status_measuring.sh
+2026-10-02T10:21:10+08:00 end   ndt-measuring-gate-r4-73889e54.log: rc=0
+2026-10-02T10:21:10+08:00 start main-gate-r4-py312-73889e54.log: env PYTHON=/usr/bin/python3.12 bash tests/shell/mutate_ndt_serve.sh
+2026-10-02T10:27:34+08:00 end   main-gate-r4-py312-73889e54.log: rc=0
+2026-10-02T10:27:34+08:00 start main-gate-r4-py38-73889e54.log: env PYTHON=/home/adam/miniconda3/envs/ryu-env/bin/python3.8 bash tests/shell/mutate_ndt_serve.sh
+2026-10-02T10:33:49+08:00 end   main-gate-r4-py38-73889e54.log: rc=0
+2026-10-02T10:33:49+08:00 start anchors-r4-73889e54.log: anchors
+2026-10-02T10:33:54+08:00 end   anchors-r4-73889e54.log: rc=0
+/dev/nvme0n1p5   98G   91G  2.6G  98% /
+2026-10-02T10:33:54+08:00 start rebuild-gate-r4-73889e54.log: bash tests/shell/rebuild_ndt_serve_web.sh
+2026-10-02T10:34:04+08:00 end   rebuild-gate-r4-73889e54.log: rc=0
+# 2026-10-02T10:34:04+08:00 phase D done; head now 73889e5494d22f32b39f4a43021db389a92fe742, porcelain 0

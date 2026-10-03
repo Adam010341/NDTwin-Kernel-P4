@@ -1,0 +1,11 @@
+# state 2026-10-01T17:03:19+08:00:  declared ndt serve probe-cost measurement (claim measuring=; 'ndt check' refuses while set)| measuring iperf3 -c 10.0.0.2 -p 5201 -t 480 -i 30| bmv2 switches 10 topo session present|
+# a. per probe (plain ndt status), measure.py, untraced
+{"rep": 0, "rc": 0, "wall_s": 1.557, "run_forks": 576, "idle_forks": 12, "net": 564}
+{"rep": 1, "rc": 0, "wall_s": 1.542, "run_forks": 574, "idle_forks": 50, "net": 524}
+{"rep": 2, "rc": 0, "wall_s": 1.584, "run_forks": 577, "idle_forks": 17, "net": 560}
+{"rep": 3, "rc": 0, "wall_s": 1.52, "run_forks": 569, "idle_forks": 10, "net": 559}
+{"rep": 4, "rc": 0, "wall_s": 1.889, "run_forks": 594, "idle_forks": 22, "net": 572}
+{"rep": 5, "rc": 0, "wall_s": 1.909, "run_forks": 596, "idle_forks": 10, "net": 586}
+{"rep": 6, "rc": 0, "wall_s": 1.846, "run_forks": 600, "idle_forks": 5, "net": 595}
+{"label": "meas-probe", "cmd": "/home/adam/.local/bin/ndt status", "reps": 7, "net_median": 564, "net_min": 524, "net_max": 595, "wall_median_s": 1.584, "rcs": [0]}
+# state 2026-10-01T17:03:52+08:00:  declared ndt serve probe-cost measurement (claim measuring=; 'ndt check' refuses while set)| measuring iperf3 -c 10.0.0.2 -p 5201 -t 480 -i 30| bmv2 switches 10 topo session present|

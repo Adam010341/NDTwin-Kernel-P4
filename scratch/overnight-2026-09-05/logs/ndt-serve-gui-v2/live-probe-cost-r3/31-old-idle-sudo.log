@@ -1,0 +1,21 @@
+589676	-n ovs-vsctl list-br
+589823	-n /usr/local/sbin/ndtwin-lab status
+589904	-n /usr/local/sbin/ndtwin-lab status
+589904	-n ovs-vsctl list-br
+589904	-n mnexec -a 1 true
+589988	-n /usr/local/sbin/ndtwin-lab status
+590041	-n /usr/local/sbin/ndtwin-lab status
+590149	-n ovs-vsctl list-br
+590296	-n /usr/local/sbin/ndtwin-lab status
+590378	-n /usr/local/sbin/ndtwin-lab status
+590378	-n ovs-vsctl list-br
+590378	-n mnexec -a 1 true
+590458	-n /usr/local/sbin/ndtwin-lab status
+590520	-n /usr/local/sbin/ndtwin-lab status
+590628	-n ovs-vsctl list-br
+590775	-n /usr/local/sbin/ndtwin-lab status
+590859	-n /usr/local/sbin/ndtwin-lab status
+590859	-n ovs-vsctl list-br
+590859	-n mnexec -a 1 true
+590939	-n /usr/local/sbin/ndtwin-lab status
+590990	-n /usr/local/sbin/ndtwin-lab status

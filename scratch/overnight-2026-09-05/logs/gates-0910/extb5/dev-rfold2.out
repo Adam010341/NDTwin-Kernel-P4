@@ -1,0 +1,266 @@
+=== redfirst_b5
+HEAD 9020a4960f229b3ea5e22451c6ccbab46821611a; base faf6eb410c2cb0b38b06c86000bdc65b21c8ac7a
+== A: test_heartbeat_drop_check.py over the base's tool
+  ok    base tool: exactly the 31 expected red
+    (red over the base for want of what round 5 added -- the version check, fabric_binary, rc 2 on a crash, the
+     root refusal, comm through a link, no-port refusal; the SIGTERM and end-to-end cells are NOT RUN there, as
+     the base has no fabric_binary for section 7 to vet -- degenerate, so their own reds are the gate's D41, NE1-NE3,
+     D1, D27. Green over the base, and why: the recorder's argv cells, settled()'s cells, the tripwire-conditions
+     and every-launch cells guard what the base already did right; each is red under a D mutant (the gate's
+     coverage report, every non-control check seen red)
+  ok      HEAD's tool: Ran 112 checks, 0 failed
+== B: test_ndt_heartbeat over the base's ndt
+  ok    base ndt, the drop check's log: exactly the 5 expected red
+== C: test_ndt_app_package over the base's ndt
+  ok    base ndt, the external path count: exactly the 3 expected red
+== D: test_heartbeat_fabric over the base's main.py
+  ok    base proxy, the census: exactly the 1 expected red
+== E: test_live_p1_thirteen over the base's 06
+  ok    base 06: exactly the 1 expected red
+== F: test_l1_shell_scoring over the base's l1_unit_tests.sh
+  ok    base l1: exactly the 7 expected red
+== G: test_live_p1_external_evidence over the base's tool
+  ok      the base tool fails 124 of 151 cells (degenerate: no --b-sha; the evidence gate's coverage report is each cell's red)
+  ok      red: 🔴 a direction not heard while the controller ran: rc 3
+  ok      red: 🔴 no --b-sha: rc 3
+  ok      red: 🔴 a treatment merged onto another trunk: rc 3
+  ok      red:   and in the conclusion
+REDFIRST-B5: ALL-AS-EXPECTED
+# rc=0
+=== redfirst_b
+HEAD 79235fac6146750452f282da05b39585affccd6f; base f7e2a12874d2218d72b10769e1cf3967c51b5c5f
+== P: HEAD's test_heartbeat_fabric.py over the base's main.py
+    Ran 46 tests in 0.065s
+    FAILED (failures=12, errors=1)
+  ok    base main.py: exactly the 12 expected
+    (added at round 4, 09-28: the destination-path cells of test_heartbeat_fabric (and, over f7e2a128, its seeding cell) -- red over every older base for that reason)
+  ok      guard green at the base (external already did not do it): test_the_route_writer_is_left_skipping_so_a_cut_rewrites_nothing
+  ok      guard green at the base (external already did not do it): test_no_client_is_asked_to_write_anything
+  ok      guard green at the base (external already did not do it): test_even_with_every_table_bound_to_ndtwin_it_does_not_reroute
+  ok      guard green at the base (external already did not do it): test_the_cut_is_told_to_the_kernel_and_no_route_is_rewritten
+  ok      guard green at the base (external already did not do it): test_an_external_fabric_on_ndtwins_own_pipeline_does_not_start_it
+  ok      the same tree with HEAD's main.py: Ran 46 tests in 0.057s
+== N: HEAD's test_ndt_heartbeat.sh over the base's ndt
+  ok    base ndt: exactly the 21 expected
+    (round 5, S-5: one drop-check log per bring-up -- 'the whole of it is kept' is now '... in the log the line names', and three cells pin a second bring-up's own log; red over every base before round 5)
+    (added at round 4, 09-28: test_ndt_heartbeat's drop-check cells (section 2c and the withheld row) -- red over every older base for that reason)
+  ok      HEAD's ndt: Ran 91 checks, 0 failed
+== L: HEAD's 08 self-test with the base's HB_ARMS and without H4's new verdicts
+    red: H4 the proxy holds the cut down
+    red: H4 restored: both up again
+    red: H4 the cut is down and the kernel accepted it
+    red: H4 restored and the kernel accepted it
+    red: H4 the cut is a cable the package declares
+    red: H5 heartbeat on exactly the expected arms
+    red: phase_for gave: 0.05 0.05 0.05 4.51 3.63 3.83 4.38 2.45 1.30 4.95
+    red: HB_ARMS names 17 arms, not 20
+    red: HB_ARMS does not name p4runtime/skeleton, p4runtime/solution and flowcache/solution
+  BAD   08 over the base's HB_ARMS and verdicts: red set differs
+      8a9
+      > phase_for gave: 0.05 0.05 0.05 4.51 3.63 3.83 4.38 2.45 1.30 4.95
+== C: HEAD's test_live_p1_common.sh over the base's _common.sh; the 03/04 pins over the base's 03/04
+  ok    base _common.sh: exactly the 12 expected
+    (round 3, 09-28: section 19's four cells -- INT/TERM fail the step with 130/143 -- are red over every base
+     before fdae10a9; redfirst_b3 sees them red against 14921f98 too)
+  ok      the base's 03_app_p4runtime does not ask the verdict (its pin would read 0, want 1: RED)
+  ok      the base's 04_diag_p4runtime does not ask the verdict (its pin would read 0, want 1: RED)
+== T: HEAD's test_live_p1_thirteen.sh over the base's 06
+  ok    base 06: exactly the 4 expected
+    (round 5, M-2: 06 records 00_identity.txt -- red over every base before round 5)
+== E: HEAD's test_live_p1_external_evidence.sh with no tool
+    Ran 151 checks, 129 failed; 22 ok
+    green without a tool:   ok         and NOT as the heartbeat's
+    green without a tool:   ok         and not decided either way (descriptive)
+    green without a tool:   ok       🔴 controls that disagree on a decisive key (rules installed): UNDECIDED, rc 2
+    green without a tool:   ok       🔴 a decisive invariant broken in a control too: UNDECIDED, rc 2
+    green without a tool:   ok       🔴 an arm with no controller log: rc 2
+    green without a tool:   ok         and does not print a conclusion either way
+    green without a tool:   ok       🔴 a run without the flowcache/solution row: rc 2
+    green without a tool:   ok       🔴 a counter block cut short: rc 2
+    green without a tool:   ok       🔴 a last counter block that had not settled: rc 2
+    green without a tool:   ok       🔴 a packet-in that cannot be parsed: rc 2
+    green without a tool:   ok       🔴 an IPv4 packet-in shorter than its header: rc 2
+    green without a tool:   ok         and no traceback
+    green without a tool:   ok       🔴 a controller log that is not UTF-8: rc 2
+    green without a tool:   ok         and no traceback
+    green without a tool:   ok       🔴 a report that cannot be read: rc 2
+    green without a tool:   ok       🔴 and no traceback from it
+    green without a tool:   ok       🔴 samples from a sampler before 09-28: rc 2
+    green without a tool:   ok       🔴 samples from round 4's sampler (no heard, no controllers): rc 2
+    green without a tool:   ok       🔴 a running sample whose daemon counter is not a number: rc 2, not a zero
+    green without a tool:   ok       🔴 a running sample whose heard column is not counts: rc 2
+    green without a tool:   ok       🔴 samples without 06's end beside them: rc 2
+    green without a tool:   ok       🔴 a compare with one run: usage, rc 2
+REDFIRST-B: UNEXPECTED
+# rc=1
+=== redfirst_b2
+HEAD 79235fac6146750452f282da05b39585affccd6f; base 17e40e2972f9d82f4ad9eea7fc7e421393ad7830
+== A: 08's new cells, one hybrid per fix
+  ok    08, INT/TERM on w_finish (N-1): exactly the 2 expected red
+    (round 3: the rc cell is new -- M3 carries 143 through finish; red here because w_finish exits the verdict's 0)
+    base behaviour:   🔴    TERM mid-H1 with nothing failed before it ended: 'PASS 08_heartbeat' (rc 0)
+  ok    08, the base's v_strict (N-4): exactly the 1 expected red
+  ok    08, the base's v_links and no v_no_writes (F4): exactly the 3 expected red
+    (round 3: 'H4 up at the proxy, not accepted by the kernel' is new (m3) and red here -- the base's v_links
+     answers OK for an up with reported_to_kernel False; L73b turns it red against HEAD's)
+    (the base's v_links answers BAD for a want it does not know, so the two BAD cells and the up-told OK cell
+     are green there; L73, L74 and L75 are what turn each of them red)
+  ok      HEAD's own 08 in the same tree: SELF-TEST PASS
+    (the H3 cut-short, all-within and clean-run cells guard what the base already does -- F1 of the AEG round is in it; L69, L70 and L72 kill them)
+== B: test_live_p1_common over the base's _common.sh (N-5), and 02's consumer pin
+  ok    base _common.sh: exactly the 6 expected red
+    (round 3: section 19's four cells are red over every base before fdae10a9)
+  ok      02 without its consumer line: the pin reads '    # Every switch is on the exercise's program, and says so', not the consumer (RED)
+== C: test_heartbeat_fabric over the base's main.py (F3/F6)
+  ok    base main.py: exactly the 4 expected red
+    (added at round 4, 09-28: the destination-path cells of test_heartbeat_fabric -- red over every older base for that reason)
+== D: test_ndt_heartbeat over the base's ndt (F5)
+  ok    base ndt: exactly the 21 expected red
+    (round 5, S-5: one drop-check log per bring-up -- 'the whole of it is kept' is now '... in the log the line names', and three cells pin a second bring-up's own log; red over every base before round 5)
+    (added at round 4, 09-28: test_ndt_heartbeat's drop-check cells (section 2c and the withheld row) -- red over every older base for that reason)
+== E: test_live_p1_external_evidence over the base's tool (F1/F2/F7)
+    Ran 151 checks, 126 failed
+  ok      base tool: '🔴 A/A (a control as the treatment): rc 3' RED
+  ok      base tool: '🔴 a treatment with no detect-only start line: rc 3' RED
+  ok      base tool: '🔴 a second control with only a heartbeat block: rc 3' RED
+  ok      base tool: '  naming both traces' RED
+  ok      base tool: '🔴 a packet-in count between the controls': rc 0' RED
+  ok      base tool: '  noted as the invariant, descriptive' RED
+  ok      base tool: '  said as cut short' RED
+  ok      base tool: '🔴 a session whose daemon counted a frame to a host: rc 1' RED
+  ok      base tool: '  said as ruling 4' RED
+  ok      base tool: the unparseable packet-in's 'said as such' RED
+    (renamed in round 3: 'a control whose heartbeat was running' is now the two control-refusal cells above;
+     'kept by the control' is 'kept by every control'; 'a daemon that counted' is 'a session whose daemon counted'.
+     'a controller log that is not UTF-8: rc 2' has no cause cell and is green over this base by the argparse
+     accident; it was seen red in extb2's redfirst_b2 log against this same base, with the round-2 suite)
+    cells green over the base tool (guards of what it already did; the evidence gate kills each):
+        ok         and NOT as the heartbeat's
+        ok         and not decided either way (descriptive)
+        ok       🔴 controls that disagree on a decisive key (rules installed): UNDECIDED, rc 2
+        ok       🔴 a decisive invariant broken in a control too: UNDECIDED, rc 2
+        ok       🔴 an arm with no controller log: rc 2
+        ok         and does not print a conclusion either way
+        ok       🔴 a run without the flowcache/solution row: rc 2
+        ok       🔴 a counter block cut short: rc 2
+        ok       🔴 a last counter block that had not settled: rc 2
+        ok         the same numbers read twice are settled: show rc 0
+        ok       🔴 a packet-in that cannot be parsed: rc 2
+        ok       🔴 an IPv4 packet-in shorter than its header: rc 2
+        ok         and no traceback
+        ok       🔴 a controller log that is not UTF-8: rc 2
+        ok         and no traceback
+        ok       🔴 a report that cannot be read: rc 2
+        ok       🔴 and no traceback from it
+        ok       🔴 samples from a sampler before 09-28: rc 2
+        ok       🔴 samples from round 4's sampler (no heard, no controllers): rc 2
+        ok       🔴 a running sample whose daemon counter is not a number: rc 2, not a zero
+        ok       🔴 a running sample whose heard column is not counts: rc 2
+        ok       🔴 samples without 06's end beside them: rc 2
+        ok       🔴 a compare with one run: usage, rc 2
+        ok         show: rc 0
+        ok         and lists the flowcache packet-ins
+REDFIRST-B2: ALL-AS-EXPECTED
+# rc=0
+=== redfirst_b3
+HEAD 79235fac6146750452f282da05b39585affccd6f; base 14921f9887cc59e665cc5926358b063c9bbb772b
+== A: 08's new cells
+  ok    08 over the base's _common.sh (M3): exactly the 3 expected red
+    base behaviour:   🔴    TERM before arm_traps ended: 'doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh: line 2205: arm_step_traps: command not found' (r
+  ok    08 with the base's sampler and no v_restore_strict (M2, F9): exactly the 3 expected red
+    (round 5, M-3: the sampler records the exercise controllers alive -- red over the base's sampler, which has no such column)
+    (the up-told BAD and table_generation-only cells are green over the base: its v_links and v_no_writes already
+     answer them; L73b and L77 turn them red. The restore's BAD cell is green over a missing verdict; L76 turns it red)
+  ok      HEAD's own 08 and _common.sh in the same tree: SELF-TEST PASS
+== B: test_live_p1_common over the base's _common.sh (M3), and the 03/04 consumer pins
+  ok    base _common.sh: exactly the 4 expected red
+  ok      03_app_p4runtime without its consumer line: the pin reads 'fi' (RED)
+  ok      04_diag_p4runtime without its consumer line: the pin reads 'fi' (RED)
+== C: test_heartbeat_fabric over the base's main.py (S1)
+  ok    base main.py: exactly the 4 expected red
+    (added at round 4, 09-28: the destination-path cells of test_heartbeat_fabric and its census cell's drop-check sentence -- red over every older base for that reason)
+== D: test_ndt_app_package over the base's ndt (S3)
+  ok    base ndt: exactly the 7 expected red
+    (round 5, the nit: a path count on an external plane is flagged; zero is quiet -- red over every base before round 5, whose status row has neither)
+    (added at round 4, 09-28: the external no-path status cell; and trunk 08f67b7a's emitter-liveness cell, red over any ndt before that merge -- red over every older base for that reason)
+== E: test_live_p1_external_evidence over the base's tool (M2, m1)
+    Ran 151 checks, 125 failed
+  ok      base tool: '🔴 no --samples: rc 3' RED
+  ok      base tool: '🔴 no --control2: rc 3' RED
+  ok      base tool: '🔴 --control2 that is the control itself: rc 3' RED
+  ok      base tool: '🔴 a control with the detect-only line and a heartbeat block, N5 STALE: rc 3' RED
+  ok      base tool: '🔴 a second control with only a heartbeat block: rc 3' RED
+  ok      base tool: '🔴 a session sampled running, then stopped before the controller: rc 3' RED
+  ok      base tool: '🔴 a stale 'running' left by a killed daemon: rc 3' RED
+  ok      base tool: '🔴 a second session inside the arm window: rc 3' RED
+  ok      base tool: '🔴 a stretch of the session with no sample: rc 3' RED
+  ok      base tool: '🔴 a session that stopped and ran again: rc 3' RED
+  ok      base tool: '🔴 a session whose daemon counted a frame to a host: rc 1' RED
+  ok      base tool: '🔴 a session that forwarded between switches: rc 1' RED
+  ok      base tool: '🔴 N4's counters are labelled as before the pipeline' RED
+  ok      base tool: '  said as not settled' RED
+  ok      base tool: '  said as a sampler from before round 5' RED
+  ok      base tool: '🔴 a treatment also given as a control: refused as such' RED
+    (round 5: every compare in HEAD's suite names --b-sha, which this base does not take -- it answers usage, rc 2.
+     So the cells that only read an rc 2 are green over it by accident: 'a last counter block that had not settled',
+     'an IPv4 packet-in shorter than its header', 'samples from a sampler before 09-28', 'samples without 06's end
+     beside them'. The first and third are asked through their reason cells instead; the other two have none, and
+     their red is the evidence gate's coverage report. 'broken in the second control only' is gone: round 5 made
+     that invariant descriptive, and a decisive one broken in a control is UNDECIDED.)
+    cells green over the base tool (guards of what it already did; the evidence gate's coverage report
+    shows every check of the suite red under some mutation -- F checks that report can fail):
+        ok         and NOT as the heartbeat's
+        ok         and not decided either way (descriptive)
+        ok       🔴 controls that disagree on a decisive key (rules installed): UNDECIDED, rc 2
+        ok       🔴 a decisive invariant broken in a control too: UNDECIDED, rc 2
+        ok         up to 10 FIN retries when the client got no ack
+        ok       🔴 an arm with no controller log: rc 2
+        ok         and does not print a conclusion either way
+        ok       🔴 a run without the flowcache/solution row: rc 2
+        ok       🔴 a counter block cut short: rc 2
+        ok       🔴 a last counter block that had not settled: rc 2
+        ok         the same numbers read twice are settled: show rc 0
+        ok       🔴 a packet-in that cannot be parsed: rc 2
+        ok       🔴 an IPv4 packet-in shorter than its header: rc 2
+        ok         and no traceback
+        ok       🔴 a controller log that is not UTF-8: rc 2
+        ok         and no traceback
+        ok       🔴 a report that cannot be read: rc 2
+        ok       🔴 and no traceback from it
+        ok       🔴 samples from a sampler before 09-28: rc 2
+        ok       🔴 samples from round 4's sampler (no heard, no controllers): rc 2
+        ok       🔴 a running sample whose daemon counter is not a number: rc 2, not a zero
+        ok       🔴 a running sample whose heard column is not counts: rc 2
+        ok       🔴 samples without 06's end beside them: rc 2
+        ok       🔴 a compare with one run: usage, rc 2
+        ok         show: rc 0
+        ok         and lists the flowcache packet-ins
+== F: the evidence gate's coverage report, red on its own
+    mutation gate: 88 mutations, 0 survived
+    every check seen red: 151/151 (over 88 mutant runs)
+    (HEAD's gate has 89 mutations; without E56, 88)
+  BAD   the gate without E56: rc 0, 0 never-red line(s)
+REDFIRST-B3: UNEXPECTED
+# rc=1
+=== redfirst_b4
+HEAD 6163cef4827212baf2c8c0f94077c718d3e7e5c8; base 35b196630dddb4b9f7333ccf82cb54b3edea68ee
+== A: test_heartbeat_fabric over the base's proxy (item 1, and item 2's census text)
+  ok    base proxy: exactly the 5 expected red
+    (green over the base, and why: 'the declared links still seed the graph' guards what the base did
+     (X1 kills it); 'the same graph without the flag does have a path' is the control (X14 kills it))
+  ok      HEAD's proxy in the same tree: OK
+== B: test_ndt_app_package over the base's ndt (item 1's status row)
+  ok    base ndt, the status row: exactly the 6 expected red
+    (round 5, the nit: a path count on an external plane is flagged; zero is quiet -- red over every base before round 5, whose status row has neither)
+== C: test_ndt_heartbeat over the base's ndt (item 2's wiring)
+  ok    base ndt, the drop check: exactly the 19 expected red
+    (round 5, S-5: one drop-check log per bring-up -- 'the whole of it is kept' is now '... in the log the line names', and three cells pin a second bring-up's own log; red over every base before round 5)
+    (green over the base, each a guard of what the base already did, killed by the gate's N mutant:
+     'proven dropped: the heartbeat starts' N43, 'nothing is recorded as withheld' N43, 'NOT dropped: the
+     bring-up still succeeds' N45, 'the proxy and kernel were still started' N45, the not-external and
+     NDTwin-pipeline cells N50/N50b/N51, 'and not when there is no record' N55)
+== D: test_heartbeat_drop_check.py with no tool
+  ok      without the tool the suite fails (rc 1): FileNotFoundError: [Errno 2] No such file or directory: '/home/adam/Desktop/NDTwin-Kernel/scratch/ov
+    (the tool is new: each of its cells is seen red one by one by mutate_heartbeat_drop_check.sh)
+REDFIRST-B4: ALL-AS-EXPECTED
+# rc=0

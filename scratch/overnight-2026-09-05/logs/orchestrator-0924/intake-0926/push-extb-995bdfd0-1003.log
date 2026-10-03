@@ -1,0 +1,20 @@
+== Adam010341
+67ec9f9ecf9caf9d7df8cc92c4166cd04b79af34	refs/heads/trunk
+== ndtwin-lab
+67ec9f9ecf9caf9d7df8cc92c4166cd04b79af34	refs/heads/trunk
+== push Adam010341 2026-10-03T00:22:32+08:00
+To https://github.com/Adam010341/NDTwin-Kernel-P4.git
+   67ec9f9e..995bdfd0  995bdfd0b7f2a81a357a480551ff82df4f6fc9b4 -> trunk
+rc=0
+== push ndtwin-lab 2026-10-03T00:22:35+08:00
+remote: 
+remote: GitHub found 11 vulnerabilities on ndtwin-lab/NDTwin-Kernel-P4's default branch (4 high, 5 moderate, 2 low). To find out more, visit:        
+remote:      https://github.com/ndtwin-lab/NDTwin-Kernel-P4/security/dependabot        
+remote: 
+To https://github.com/ndtwin-lab/NDTwin-Kernel-P4.git
+   67ec9f9e..995bdfd0  995bdfd0b7f2a81a357a480551ff82df4f6fc9b4 -> trunk
+rc=0
+== verify (unauthenticated) Adam010341
+995bdfd0b7f2a81a357a480551ff82df4f6fc9b4	refs/heads/trunk
+== verify (unauthenticated) ndtwin-lab
+995bdfd0b7f2a81a357a480551ff82df4f6fc9b4	refs/heads/trunk

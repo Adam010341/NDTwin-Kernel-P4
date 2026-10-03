@@ -1,0 +1,32 @@
+8d79dacd0e40e9ddd20d7c8e9af6185b4ef8e482
+porcelain-lines: 0
+# dir: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/traps/t5-gap-prev = 664500d3a8e4cbe4700648c4ebbf2c16ab519049
+# sha256 200e115eb7dfb9d6753dc59bb8a896768e3163695124fe35d19f6a4da2a89f7f  tests/shell/test_fixture_suites_end_on_signal.sh
+# tripwire lines before: 0
+# $ env SIGNAL_FIRST_FIXTURE_WAIT=25 bash tests/shell/test_fixture_suites_end_on_signal.sh ovs_claim
+# started 2026-10-01T21:48:20+08:00
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/claude-1000/spawn-traps-1001.lock
+guarded_build: $ env SIGNAL_FIRST_FIXTURE_WAIT=25 bash tests/shell/test_fixture_suites_end_on_signal.sh ovs_claim
+ovs_claim, TERM
+  ok       ovs_claim TERM: the pid signalled is the shell running the suite
+  ok       ovs_claim TERM: and it leads its own process group
+  ok       ovs_claim TERM: a process of this run besides the suite is alive when it is signalled
+  ok       ovs_claim TERM: its temp tree is found while it runs
+  ok       ovs_claim TERM: the run ends with 143
+  ok       ovs_claim TERM: within 20s of the signal
+  ok       ovs_claim TERM: no process of this run is left
+  ok       ovs_claim TERM: its temp tree is gone
+ovs_claim, INT
+  ok       ovs_claim INT: the pid signalled is the shell running the suite
+  ok       ovs_claim INT: and it leads its own process group
+  ok       ovs_claim INT: a process of this run besides the suite is alive when it is signalled
+  ok       ovs_claim INT: its temp tree is found while it runs
+  ok       ovs_claim INT: the run ends with 130
+  ok       ovs_claim INT: within 20s of the signal
+  ok       ovs_claim INT: no process of this run is left
+  ok       ovs_claim INT: its temp tree is gone
+
+Ran 16 checks, all passed
+guarded_build: exit 0
+# ended 2026-10-01T21:48:33+08:00; tripwire lines after: 0
+rc=0

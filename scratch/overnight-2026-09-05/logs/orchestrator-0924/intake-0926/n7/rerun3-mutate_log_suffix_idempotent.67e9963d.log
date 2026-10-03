@@ -1,0 +1,22 @@
+67e9963d03732ea833137c248dbc4642979aa6ff
+# 2026-09-28T00:42:09Z cmd bash tests/shell/mutate_log_suffix_idempotent.sh
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_log_suffix_idempotent.sh
+baseline (unmutated) must be green:
+  ok       baseline green
+
+mutations:
+  caught   derive_log builds from $LOG instead of the base        (case 3 went red)
+  caught   derive_log stops composing suffixes in order           (case 2 went red)
+  caught   assert_log_is_derived warns instead of stopping        (case 9b went red)
+  caught   run_f5.sh's copy of derive_log drifts from lib_e.sh's  (case 6 went red)
+  caught   run_f5.sh appends the mode suffix to the inherited LOG (case 7 went red)
+  caught   the same append respelled ${LOG%%.log} ((6)b)          (case 7 went red)
+  caught   F5 round.env stops exporting LOG_BASE                  (case 8 went red)
+
+baseline restored: all four files byte-identical to the pre-run snapshot
+after restore: the suite is green again
+
+7 mutations, 0 survived
+guarded_build: exit 0
+# rc=0

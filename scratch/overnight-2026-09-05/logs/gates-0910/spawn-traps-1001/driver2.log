@@ -1,0 +1,24 @@
+# driver2 started 2026-10-01T19:54:56+08:00 at 055acd84fa1214b8468665966425bdcfccb7e339
+trees ready (trees2.log)
+d1a-no-exit-trap                   rc=1  Ran 32 checks, 7 failed
+d1b-cleanup-skips-reap             rc=1  Ran 32 checks, 3 failed
+d1c-cleanup-skips-tree             rc=1  Ran 32 checks, 4 failed
+d2-hung-suite                      rc=1  Ran 16 checks, 8 failed
+d2-total-limit                     rc=1  Ran 11 checks, 3 failed
+d4-test2-returning-trap            rc=1  3 mutation(s), 1 survivor(s); 0 control(s) whose premise count is not its call-site count
+d5-old-gate-full-d452d111          rc=0  14 mutation(s), 0 survivor(s); 0 control(s) whose premise count is not its call-site count
+r2-green-signal-test-head          rc=1  Ran 112 checks, 1 failed
+r2-green-gate-head                 rc=0  21 mutation(s), 0 survivor(s); 0 control(s) whose premise count is not its call-site count
+r2-suite-test_ndt_app_orphans      rc=0  Ran 111 checks, all passed
+r2-suite-test_ndt_apps_liveness    rc=0  Ran 57 checks, all passed
+r2-suite-test_ndtwin_lab_sweep     rc=0  Ran 33 checks, all passed
+r2-suite-test_ndt_helper_apps_window rc=0  Ran 157 checks, 0 failed
+r2-suite-test_faults_topo_pid      rc=0  Ran 61 checks, all passed (0 skipped)
+r2-suite-test_ndt_ovs_claim        rc=0  Ran 174 checks, 0 failed
+r2-suite-test_ndt_down_stops_only_ours rc=0  Ran 32 checks, 0 failed
+r2-g-l1-scoring                    rc=0  
+r2-l1-scoring                      rc=0  Ran 151 checks, 0 failed
+r2-tmpdirs                         rc=0  
+r2-anchors-head                    rc=0  128/128 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+r2-leftovers                       rc=0  
+# driver2 ended 2026-10-01T20:34:11+08:00

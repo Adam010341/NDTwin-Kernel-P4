@@ -1,0 +1,702 @@
+diff --git a/doc/audit/2026-09-27_ndt-serve-gui/SUMMARY-v2-r3.md b/doc/audit/2026-09-27_ndt-serve-gui/SUMMARY-v2-r3.md
+index e0b54939..e8c028f3 100644
+--- a/doc/audit/2026-09-27_ndt-serve-gui/SUMMARY-v2-r3.md
++++ b/doc/audit/2026-09-27_ndt-serve-gui/SUMMARY-v2-r3.md
+@@ -1,196 +1,252 @@
+-# ndt serve GUI v2 — 第三輪交付（更輕的探測、被中斷的閘門，以及 r2 沒做完的清單）
++# ndt serve GUI v2 — 第三輪交付（更輕的探測、被中斷的閘門、r2 剩下的清單；含第四輪的修正）
+ 
+ [Co-developed with claude code -- Adam]
+ 
+-- **程式的 head**：`feat/ndt-serve-gui-v2-0927` `0170df28`。第 4 節的正式閘門都在這顆 head 上跑，porcelain 0，跑的期間沒有改檔。這份 SUMMARY 由 orchestrator commit 在它上面，是唯一多出來的 commit。
+-- **trunk 合併**：功能分支和 trunk 已經不能乾淨合併（第 3.3 節）。解好衝突的 merge commit 是 `1ee0089f`，放在本機分支 `feat/ndt-serve-gui-v2-0927-r3-merge-1e350bf2`，功能分支本身沒動。
++- **程式的 head**：`feat/ndt-serve-gui-v2-0927` `73889e54`。這份 SUMMARY 由 orchestrator commit 在它之上。
++- **正式閘門**（第 5 節）：
++  - 頁面套件和頁面閘門在 `0170df28` 上跑。之後頁面和頁面閘門都沒動過。
++  - 其餘在 `73889e54` 上跑。
++  - 兩次都是 porcelain 0，跑的期間沒有改檔。
++- **trunk 合併**：功能分支和 trunk 已經不能乾淨合併（第 3.3 節）。解好的 merge commit 是 `3e8148ab`，放在本機分支 `feat/ndt-serve-gui-v2-0927-r4-merge-1e350bf2`。功能分支本身沒動。
+ - **範圍**：沒有併進 trunk、沒有 push、沒用 sudo、沒 claim、沒開 fabric。
+-- **標記**：OBSERVED＝這一輪實際跑過，引用的 log 印得出 head 或 commit。INFERRED＝推論、計算，或沒有在這顆 head 上跑過。
++- **標記**：OBSERVED＝本輪實際跑過，引用的 log 會印出 head 或 commit。INFERRED＝推論、計算，或沒有在這顆 head 上跑。
+ - **raw**：`L/`＝`scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/`。過程筆記在 `L/r3-notes.log`。
+ 
+ ## 1. Adam 的裁定：探測只問「有沒有人在量測」（RULINGS-1001 表單 7）
+ 
+ ### 1.1 做了什麼
+ 
+-**ndt：新增 `ndt status --measuring`**
+-- 只印 plain status 裡回答這個問題的那幾列：`declared`，以及 `measuring`；沒有 fabric 時則是 `orphaned`。
+-- 原本 `cmd_status` 裡的那 34 行，原封不動移進 `status_measuring_rows`（`ndt:6682-6717`）。plain status 和 `--measuring` 都呼叫它，所以兩者不會答得不一樣。
+-- 這個函式只用 `measuring_declared`、`in_flight`、`mn_count`，也就是只讀 claim 檔和 `ps`。
+-- `--measuring` 在 `cmd_status` 一開頭就 return（`ndt:6721-6726`），rc 一律是 0。
+-- `ndt help` 改成 `status [--check | --measuring]`，並附一段說明。
++**ndt：`ndt status --measuring`**
++- 只印 plain status 回答這個問題的那幾列：`declared`、`measuring`；沒有 fabric 時改印 `orphaned`。
++- `cmd_status` 裡原本那 34 行，原封不動移進 `status_measuring_rows`（`ndt:6682-6717`）。plain status 和 `--measuring` 都呼叫它，兩邊不會答得不一樣。
++- 它只用 `measuring_declared`、`in_flight`、`mn_count`、`claim_field`，也就是只讀 claim 檔和 `ps`。
++- `--measuring` 在 `cmd_status` 的最前面就 return（`ndt:6720-6726`），rc 一律是 0。
++- `ndt help` 改成 `status [--check | --measuring]`，並加了一段說明。
+ 
+-**serve：新增 `GET /measuring`**
++**serve：`GET /measuring`**
+ - 執行 `ndt status --measuring`。
+-- `measuring`、`declared`、`measuring_is_nothing` 和 `/lab` 用同一段 `measuring_fields` 讀；回應裡沒有 `claim`。
+-- 要 token、佔一個讀取槽、有逾時。
+-- verbs 加了 `ARGV_STATUS_MEASURING` 和 rc 表 `status.measuring`；RC_SOURCE 引用 help 片語和 `ndt:6725`。
++- 回應的 `measuring`、`declared`、`measuring_is_nothing` 和 `/lab` 用同一段 `measuring_fields` 讀；沒有 `claim` 欄。
++- 要 token，佔一個讀取槽，有逾時。
++- verbs 加了 `ARGV_STATUS_MEASURING` 和 rc 表 `status.measuring`。RC_SOURCE 的出處是 help 片語和 `ndt:6725`。
+ 
+ **頁面**
+ - 量測中暫停時，探測只讀 `/measuring`（`readProbe`），不改任何分頁。
+-- 「上次讀取」一直是最後一次完整讀取的時間；暫停時旁邊另外顯示「上次探測」。
++- 「上次讀取」永遠是最後一次完整讀取的時間；暫停時旁邊另外顯示「上次探測」。
+ - 探測讀到沒在量測、也沒有 declared，就恢復每 10 秒一次的完整讀取。
++- 探測失敗或逾時時，「上次探測」照樣更新。這一點 orchestrator 延到下一次 GUI 交付處理。
+ 
+-**沒有改的保證**：loopback、token、CSP、不設 cookie、`preview:true`、claim-first。
++**不變的保證**：loopback、token、CSP、不設 cookie、`preview:true`、claim-first。
+ 
+ ### 1.2 釘住它的測試（每一條都看過紅）
+ 
+-| 釘什麼 | 測試 | 紅燈 |
+-|---|---|---|
+-| 答案和 plain status 相同。8 種 fixture：只有 declared、只有 in_flight、兩者都有、兩者都無、claim 過期、別人的 claim、orphaned、兩個 driver。每種都檢查兩件事：輸出是 plain status 裡連續的一段且三列的值相同，以及那幾列寫的內容本身是對的 | `tests/shell/test_ndt_status_measuring.sh`，79 個 check | 對 `59e3ba1f` 的 ndt 跑，11 個失敗、rc 1（`L/ndt-measuring-red-first-r3.log:478-479`） |
+-| 不用 sudo、curl，不查 OVS／bmv2。PATH 上放 15 個記錄後拒絕的 shim，8 種狀態跑下來紀錄必須是空的。對照組：plain status 經過同一組 shim，要記到 sudo | 同上 | 舊的 `--measuring` 會掉進完整報告，記到 sudo |
+-| ndt 端的變異：L1 退回完整報告；L2、L3 兩邊各留一份副本；L4／L5／L5b 在共用路徑上加 sudo、kernel 請求、bmv2 查詢；L6 改 rc；L7–L12 改答案；L13 改 help | `tests/shell/mutate_ndt_status_measuring.sh`，14 個變異 | 14 個全抓到（`L/ndt-measuring-gate-r3-0170df28.log:32`） |
+-| serve：真的跑 `--measuring`、讀法和 `/lab` 相同、逾時不算讀到、要 token、rc 表和出處 | `test_ndt_serve_gui.py` 新增 3 個案例、擴充 2 個 | G62–G62h（`L/main-gate-r3-py312-0170df28.log:201-208`） |
+-| 頁面靜態檢查：只讀 `/measuring`、不寫分頁 | SourceLint | G59 系列，加上 G59g、G59h（`:173-174`） |
+-| 頁面（真的瀏覽器）：66 秒內 `/measuring` 剛好多一次、其他四個是 0；stub 只看到一次 `status --measuring`；「上次讀取」不變 | `Refresh.test_a_measuring_pause_probes_measuring_alone` | 頁面閘門 Q1–Q5、Q4b、Q12（`L/page-gate-r3-0170df28.log`） |
++`tests/shell/test_ndt_status_measuring.sh`，102 個 check，用 8 種 fixture 狀態：只有 declared、只有 in_flight、兩者都有、兩者都無、claim 過期、別人的 claim、orphaned、兩個 driver。
++
++**答案和 plain status 相同**
++- 每種狀態都比兩件事：
++  - 輸出是 plain status 裡連續的一段，三列的值都相同；
++  - 這幾列寫的內容本身是對的。
++- 紅燈：拿 `59e3ba1f` 的 ndt 跑，11 個失敗、rc 1（`L/ndt-measuring-red-first-r3.log:478-479`）。
++
++**「不用 sudo、不打 kernel、不查 OVS／bmv2」分四層**。第三輪只靠 PATH 黑名單，第四輪的判官指出 ndt 自己的 `port_open`（bash `/dev/tcp`，`ndt:148`）、python3 urllib、絕對路徑都繞得過去，所以補了後三層：
++- **a. 黑名單**：15 個 PATH shim（sudo、curl、OVS、bmv2……），8 種狀態下記錄都必須是空的。對照組：plain status 經過同樣的 shim，確實會記到 sudo。
++- **b. 白名單 PATH**：PATH 上只放 `--measuring` 需要的 cat、cut、date、dirname、head、readlink、sed、wc 和 ps shim（10-02 在空 PATH 上逐一找出）。export 一個 `command_not_found_handle`，它要別的指令就記下來。8 種狀態都要記錄為空。對照組：plain status 在同一個 PATH 上會被記到要更多指令。
++- **c. 網路**：在自己的 network namespace（`unshare -rn`）裡，127.0.0.1:8000、:8080、:8081 上的 listener 數 `--measuring` 跑的期間有幾條連線，8 種狀態都必須是 0。對照組：同樣方式跑 bash `/dev/tcp` 和 python3 urllib，都會被數到。
++  - 沒有 namespace、而且 port 被佔時，這一條是 FAILED，不是通過。
++  - 這台機器走的是 namespace；「沒有 namespace 時改用 host 上空著的 port」那條路沒有實際跑過（INFERRED）。
++- **d. 靜態**：從 `status_measuring_rows` 出發，能到的函式必須剛好是那五個；其中任何一個都不能出現 `/dev/tcp`、`/dev/udp`，也不能用絕對路徑跑指令。
++
++**ndt 端的變異閘門**：`tests/shell/mutate_ndt_status_measuring.sh`，19 個，全抓到（`L/ndt-measuring-gate-r4-73889e54.log:38`）。
++- L1：退回完整報告。
++- L2、L3：兩邊各留一份副本。
++- L4、L5、L5b：PATH 上的 sudo、kernel 請求、bmv2 查詢。
++- L6：rc。
++- L7–L12：答案。
++- L13：help。
++- L14：`port_open 8000`。
++- L14b：直接寫 `/dev/tcp`。
++- L15：python3 urllib GET。
++- L16：`/usr/bin/ovs-vsctl list-br`。為了不讓閘門自己發出 sudo，用它代替 `/usr/bin/sudo -n true`；靜態檢查看的是文字，兩者抓法一樣。
++- L16b：`/usr/bin/curl` 打 :8000。
++
++**第三輪的漏洞實際示範**（`L/pin-hole-r4.log`）：同樣 5 個繞過的變異，第三輪的測試（`51f61eea`）全是綠的（79/0），第四輪的測試每個都紅。
++
++**serve 和頁面**
++- serve：測試是 `test_ndt_serve_gui.py` 新增 3 個案例、擴充 2 個。主閘門 G62–G62h 全抓到（`L/main-gate-r4-py312-73889e54.log`）。
++- 頁面靜態檢查：SourceLint，加上 G59 系列和 G59g、G59h。
++- 頁面瀏覽器：`Refresh.test_a_measuring_pause_probes_measuring_alone`，頁面閘門的 Q1–Q5、Q4b、Q12（`L/page-gate-r3-0170df28.log`）。
+ 
+ ### 1.3 動 ndt 之後跟著搬的錨點
+ 
+-`cmd_status` 的判定之前多了 23 行，下方每一列都往後移。每一條都依函式加文字重新定位：
+-- **RC_SOURCE**：status.check 7086／7091／7095、status 7097、apps.start 8918／8922／8995、apps.stop 10436／10439／10442、apps.status 10369、status.measuring 6725。
+-- **lock probe**：9439-9454（README、serve.py、test_ndt_serve.py）。
+-- **主閘門的變異**：M61＝10369；M63＝8922，替換成 8462；M64＝9439-9454；M65＝9439-9443。
+-- **註解**：serve.py 和 verbs.py 的註解跟著改。
+-- **不用動**：`claim_line` 的 printf 沒有改，所以 G49 和 ClaimFormProvenance 都不用動。
++`cmd_status` 的判定之前多了 23 行，下方每一列都要跟著改：
++- **RC_SOURCE**：status.check 7086／7091／7095；status 7097；apps.start 8918／8922／8995；apps.stop 10436／10439／10442；apps.status 10369；status.measuring 6725。
++- **lock probe**：9439-9454。
++- **主閘門**：M61、M63（8922，替換成 8462）、M64、M65。
++- **註解**：serve.py、verbs.py 的註解。
++- **不用動的**：`claim_line` 沒改，G49 和 ClaimFormProvenance 不受影響。
+ 
+-我自己的重構一度弄壞 G11、G11b、G24、G25 的錨點（MISSING:3，`L/anchors-all-r3-51087860.log`），修好後 amend 成 `c4247ca2`。
++我自己的重構一度弄壞了 G11、G11b、G24、G25 的錨點（`L/anchors-all-r3-51087860.log`），修好後 amend 成 `c4247ca2`。
+ 
+-最終錨點：主閘門 ok(170)、頁面閘門 ok(44)、measuring 閘門 ok(12)、honesty ok(67)；所有閘門 123/123（`L/anchors-r3-0170df28.log`）。
++最終錨點（`L/anchors-r4-73889e54.log`）：主閘門 ok(170)、頁面閘門 ok(44)、measuring ok(12)、honesty ok(67)；所有閘門 123/123。
+ 
+ ## 2. 成本：新探測和舊探測
+ 
+-**量法**和 RESULTS.md 相同：`/proc/stat` 的程序數差，減掉等長的閒置窗口；7 次取中位數；sudo、curl 走記錄用的 shim；不用 strace。腳本是 `L/live-probe-cost-r3/run.sh`。
++**量法**和 RESULTS.md 一樣：
++- `/proc/stat` 程序數的差，減掉等長的閒置窗口；
++- 7 次取中位數；
++- sudo、curl 走記錄 shim；
++- 不用 strace。
+ 
+-**條件**：
+-- 量測前後 lab 都閒置：claim none、measuring nothing、0 bmv2、0 mininet、:8000 沒開（`00-header.log:4-15`）。
+-- 新 ndt 的 sha256 是 `408310c7…`，就是 `c4247ca2` 的 blob。之後 ndt 沒再改過。
++腳本：`L/live-probe-cost-r3/run.sh`。量測前後 lab 都閒置（`00-header.log:4-15`）。新 ndt 的 sha256 是 `408310c7…`；從這次量測到現在，ndt 沒再改過。
+ 
+ | | 淨 task | 牆鐘 | sudo | kernel 請求 | 出處 |
+ |---|---|---|---|---|---|
+ | 新 `--measuring`，閒置 | **12**（9–24） | 0.139 s | **0** | **0** | OBSERVED `10-*.log:8`、`11-*` |
+-| 新，有 declared（用 sandbox 的 claim 檔） | 17（17–26） | 0.154 s | 0 | 0 | OBSERVED `20-*.log:8`、`21-*` |
+-| 新，量測中 | 沒量 | | 0 | 0 | INFERRED：讀程式碼，只多一次 `mn_count` 的 ps 和三次 printf；0 sudo、0 curl 由 fixture 測試釘住 |
++| 新，有 declared（sandbox 的 claim 檔） | 17（17–26） | 0.154 s | 0 | 0 | OBSERVED `20-*.log:8`、`21-*` |
++| 新，量測中 | 沒量 | | 0 | 0 | INFERRED：看程式碼只多一次 `mn_count` 的 ps 和三次 printf；0 sudo、0 連線由測試的四層在 fixture 下釘住 |
+ | 舊 plain status，量測中 | 564（524–595） | 1.58 s | 6 | 1（約 6 ms） | RESULTS.md:27-30 |
+ | 舊，閒置（RESULTS.md） | 448（445–450） | 1.07 s | 8 | 0 | RESULTS.md:27-29 |
+ | 舊，閒置（本輪重量） | 397（384–429） | 2.204 s | 7 | 0 | OBSERVED `30-*.log:8`、`31-*` |
+ 
+-- **換算**（INFERRED）：量測中每分鐘一次的探測，從 564 個 task、6 次 sudo、1 次 kernel 請求，降到約 12–20 個 task、0 次 sudo、0 次請求。
+-- **和 RESULTS.md 對帳**：同一個 ndt（sha `81c1326a…`），閒置的舊探測這次量到 397 個 task、7 次 sudo、2.2 秒；RESULTS.md 是 448 個、8 次、1.07 秒。原因沒追。這不影響新舊的比較。
+-- **空檔恢復**的行為不變：量測沒有 declared 時，空檔裡會有一輪完整讀取（719 個 task、8 次 sudo、1 次 graph 請求，RESULTS.md:32-34）。有 declared 就一直保持暫停。
++**換算**（INFERRED）：量測中每分鐘一次的探測，從 564 個 task、6 次 sudo、1 次 kernel 請求，降到約 12–20 個 task、0、0。
++
++**兩次閒置量測為什麼不同**：用的是同一個 ndt（`81c1326a…`），差別在 lab 的狀態。
++- RESULTS.md 的閒置那次在 16:57:19。當時 `.test_run/up.target` 還留著 09-30 的舊紀錄：16:57:02 的 plain status 還印出完整的 up target 比對（`live-probe-cost/00-pre-status.txt:44-52`）。那段比對多呼叫一次 `ovs-vsctl list-br`（`11-idle-sudo-status.log:8`），所以是 8 次 sudo，task 也比較多。
++- 這筆紀錄在 17:11:35 被 `ndt down` 清掉（`57-pre-vs-after.diff:24-29`）。19:55 重量時已經沒有它，每次 7 次 sudo（`live-probe-cost-r3/31-old-idle-sudo.log`）。
++- 19:55 時機器也比較忙：閒置窗口有 63–99 個 fork（`30-old-idle-forks.log`），先前那次是 0–14（`10-idle-forks.log`）。牆鐘 2.2 秒、範圍比較寬，都是這個原因。
++- README 的「閒置一輪 596 個 task、10 次 sudo」，是留著舊 up.target 時的數字。
++- 這些差別不影響新舊探測的比較。
++
++**空檔恢復**：量測沒有 declared 時，兩段量測之間的空檔裡可能有一輪完整讀取（719 個 task、8 次 sudo、一次 graph 請求，RESULTS.md:32-34）。有 declared 就一直暫停。
+ 
+-## 3. r2 沒做完的清單
++## 3. r2 剩下的清單
+ 
+-### 3.1 改用實測的數字
++### 3.1 數字改用實測值
+ 
+-- **README 自動更新那一節**（原 183-189 行）：
+-  - 閒置一輪 596 個 task、10 次 sudo；量測中一輪 719 個、8 次，外加 1 次 graph 請求；
+-  - 新探測的成本；
+-  - 空檔恢復的行為。
+-- **README 其他**：測試數改成 39／18／198，加上 ndt 的測試和閘門；頁面閘門改成直接跑，不再包 guard。
++- **README 自動更新一節**：閒置一輪 596／10、量測中 719／8 加一次 graph 請求、新探測的成本、空檔恢復。
++- **README 其他**：測試數 39／18／198，列出 ndt 的測試和閘門；頁面閘門改成直接跑。
+ - **手冊 §9**：同上，並重建 bundle（`a6d443c0`）。
+-- **SUMMARY-v2-r2**：§1.1 和 §2 那一列標成「被推翻」（`23e9b76f`）。
++- **SUMMARY-v2-r2**：§1.1 和 §2 那一列標為被推翻（`23e9b76f`）。
+ 
+-### 3.2 G-N7 在最終程式上先看紅
++### 3.2 G-N7 先看紅
+ 
+-`L/gn7-red-first-r3-23e9b76f.log`：head 是 `23e9b76f`，porcelain 0，python 3.12.3，測試檔在 `c4247ca2`。之後 serve 的程式沒有再改過。
+-- **old**（`git show fed37cff…:tools/ndt_serve/serve.py`）：失敗在 token 斷言上，子程序收到 198 bytes，裡面有 `X-NDT-Token`，rc 1。
++`L/gn7-red-first-r3-23e9b76f.log`：head `23e9b76f`、porcelain 0、python 3.12.3。之後 serve 的程式沒有改過。
++- **old**（`fed37cff` 的 serve.py）：失敗在 token 斷言，子程序收到 198 bytes，含 `X-NDT-Token`，rc 1。
+ - **g48**：同樣失敗，rc 1。
+ - **now**：OK，rc 0。
+ 
+-### 3.3 合併樹：🔴 不再乾淨
++### 3.3 合併：🔴 不能乾淨合併
+ 
+-**衝突**（OBSERVED）：
+-- `git merge-tree --write-tree trunk <head>` 回 rc 1，trunk 是 `d452d111` 和 `1e350bf2` 時都一樣。
+-- 衝突在 5 個檔：`test_ndt_serve.py`、`mutate_ndt_serve.sh`、`README.md`、`serve.py`、`verbs.py`，全部是 ndt 行號的引用：trunk 的 `571fa6fd` 改過同一批引用，這條分支又改了一次。
+-- ndt 本身自動合併成功。
+-- 帶著衝突的樹 `812dacd3` 是紅的（`L/merged-812dacd3-*.log`）。
++**merge-tree 的 rc**：都是指令輸出，見 `L/mergedc-3e8148ab-merge-tree.log`。
++- `git merge-tree --write-tree trunk 73889e54`（trunk `1e350bf2`）：rc=1（第 19 行）。
++  - 衝突在 5 個檔：`test_ndt_serve.py`、`mutate_ndt_serve.sh`、`README.md`、`serve.py`、`verbs.py`，全部是 ndt 行號的引用。trunk 的 `571fa6fd` 改過同一批，這條分支又改了一次。
++  - ndt 本身自動合併成功。
++- 同一份 log 裡，`git merge-tree --write-tree trunk 3e8148ab`：rc=0（第 22 行）。
++- 更早 `d452d111` 那次的衝突樹 `812dacd3` 是紅的（`L/merged-812dacd3-*.log`）。
+ 
+ **解法**：
+ - 對著合併後的 ndt 重算引用：lock probe 9452-9467；apps.stop 10472／10475／10478；apps.status 10405；M61、M64、M65 跟著改。
+-- 用私有 index 寫出 tree，再用 `commit-tree` 做成 merge commit。工作目錄沒有動。
++- `mutate_ndt_serve.sh` 裡 trunk 那句過時的註解「10346 -> 10382」，補上這條分支多加的 23 行。
++- 用私有 index 寫出 tree，再用 `commit-tree` 做出 `3e8148ab`：parents 是 `1e350bf2` 和 `73889e54`，tree 是 `dcdc2380`。
++- 四個引用檔和上一顆候選 `1ee0089f` 逐 byte 相同。
+ 
+-**`1ee0089f`**：
+-- parents 是 trunk `1e350bf2` 和 `0170df28`，tree `f2522f6a`。
+-- trunk 從 `d452d111` 以來只動了 `tests/shell`，ndt 沒動。合併後的 ndt 和上一顆候選 `8dfe18a4` 逐 byte 相同，那 4 個引用檔也相同；`mutate_ndt_serve.sh` 只多了閘門的修正。
+-- `merge-tree trunk 1ee0089f` 回 rc 0。
++**在 `3e8148ab` 上跑（OBSERVED）**：腳本 `L/merged-commit-run-r4.sh`。每個 log 都印 commit、parents、tree、`git archive <mc> | tar`（整棵樹）、目錄，每一步都印 rc。
+ 
+-**在 `1ee0089f` 上跑**（`L/merged-commit-run-r3.sh`，每個 log 都印出 commit、parents、tree、archive 指令、目錄、rc；OBSERVED）：
+-- 四個套件：3.12、3.8 都是 18／75／39／35，全部 OK；
+-- 主閘門：兩個直譯器都是 198／0；
+-- ndt 測試 79／0，閘門 14／0；
+-- 錨點 4／4、129／129。
+-- log：`L/mergedc-1ee0089f-*.log`。
++| 項目 | 結果 | log |
++|---|---|---|
++| 四個套件，3.12 和 3.8 | 18／75／39／35 OK | `mergedc-3e8148ab-suites-py312.log`、`-py38.log` |
++| 主閘門，3.12 和 3.8 | 198／0 | `mergedc-3e8148ab-main-gate-py312.log:280`、`-py38.log:280` |
++| measuring 測試、閘門 | 102／0、19／0 | `mergedc-3e8148ab-measuring-test.log:119`、`-measuring-gate.log:41` |
++| status_check 閘門 | 24／0（trunk 那一版有 24 個變異） | `mergedc-3e8148ab-status-check-gate.log:38` |
++| honesty 閘門 | 67／0 | `mergedc-3e8148ab-honesty-gate.log:81` |
++| residue_row、lab_handoff 測試 | 27／0、19／19 | `mergedc-3e8148ab-residue-row-test.log:47`、`-lab-handoff-test.log:30` |
++| 錨點 | 4／4、129／129 | `mergedc-3e8148ab-anchors.log` |
++| 頁面套件（從抽出來的樹跑，guard 內） | 32 個 OK，619.051 s，殘留 0 | `mergedc-3e8148ab-page-suite.log:67` |
++
++**沒在合併樹上跑的**：
++- 頁面閘門、rebuild 閘門；
++- round_baseline、sudo_surface 兩個閘門；
++- G-N7。
+ 
+-`8dfe18a4`（對 `d452d111` 的那一顆）已被 `1ee0089f` 取代。
++**被取代的候選**：`8dfe18a4`、`1ee0089f`。
+ 
+-**沒在合併樹上跑的**：頁面套件。trunk 沒碰 `web/` 和 `static/`（INFERRED）。
++**注意**：這份 SUMMARY commit 之後，分支 head 就比 `3e8148ab` 的第二個 parent 多一顆，合併時要重做一次。
+ 
+-### 3.4 r2 判官的測試 4–6，對著新的探測
++### 3.4 r2 判官的測試 4–6，對新的探測
+ 
+ | # | 案例 | 紅燈 |
+ |---|---|---|
+-| 4 | `Refresh.test_shown_again_while_measuring_probes_once_60_s_later`：顯示回來後 54 秒內什麼都不讀，66 秒內剛好一次 `/measuring`，沒有 tick | Q8：一顯示就探測；Q8b：顯示後不再排探測 |
+-| 5 | `Refresh.test_a_declared_pause_is_resumed_by_the_probe`：只有 declared 的暫停，由一次 `/measuring` 結束，接著一次 tick | Q9：把 null 當成 declaration |
+-| 6 | `ProbeTimeout.test_a_probe_that_times_out_keeps_the_pause_and_the_next_one_ends_it`：`--read-timeout 3`；探測先印出 `measuring nothing` 再卡住，被逾時砍掉。之後 12 秒內沒有 tick、仍是暫停；下一次正常回答的探測才結束暫停，探測計數是 2 | Q10：頁面自己解析那一列 |
+-
+-三列的紅燈都在 `L/page-gate-r3-0170df28.log` 裡，也在先跑的 ONLY 那一輪裡（`L/page-gate-r3-dev-probe-only.log:86-101`）。
++| 4 | `Refresh.test_shown_again_while_measuring_probes_once_60_s_later` | Q8、Q8b |
++| 5 | `Refresh.test_a_declared_pause_is_resumed_by_the_probe` | Q9 |
++| 6 | `ProbeTimeout.test_a_probe_that_times_out_keeps_the_pause_and_the_next_one_ends_it` | Q10 |
+ 
+-開發時另外抓到兩個測試本身的錯，修好了：立即更新的期望值把 `/measuring` 也算了進去；逾時案例恢復時，`/lab` 的 stub 還是 MEASURING。
++都在 `L/page-gate-r3-0170df28.log` 裡。
+ 
+-## 4. 被中斷的閘門不再印出 rc=0（`0170df28`）
++## 4. 被中斷的閘門不再印出 rc=0（`0170df28`，第四輪補強）
+ 
+-**問題**：前一次最終一輪磁碟不夠時，我用 SIGTERM 停掉頁面閘門，它的最後一行是 `rc=0`。那只是 EXIT trap 在 SIGTERM 後印出的 `$?`，不是判定，卻會被看成過了。
+-
+-**有這個問題的閘門**：主閘門、頁面閘門、rebuild 閘門、measuring 閘門，四支都有。rebuild 閘門還有第二個問題：trap 在 `guarded … > ci.log` 裡觸發，`rc` 那一行寫進了 ci.log，而 trap 接著就把 ci.log 刪了。
++**問題**：主閘門、頁面閘門、rebuild 閘門、measuring 閘門被 SIGTERM 停掉時，最後一行是 EXIT trap 印的 `rc=0`，看起來像通過。rebuild 閘門的 trap 在 `guarded … > ci.log` 裡觸發，那一行寫進 ci.log，接著 ci.log 又被 trap 自己刪掉。
+ 
+ **現在的做法**：
+-- 攔 TERM／INT／HUP，以 143／130／129 結束；
+-- 沒走到判定那一行，就印 `INCOMPLETE: … -- not a verdict`，而且絕不會回 0；
+-- 結尾的那幾行寫到閘門啟動時的 stdout（fd 7）。
+-
+-**先紅後綠**（OBSERVED，`L/kill-midrun-r3.sh` 在跑到一半時，對閘門自己的 process group 送 SIGTERM）：
+-- 舊程式（`23e9b76f`）：主閘門、measuring 閘門、頁面閘門的 exit status 都是 143，但最後一行是 `rc=0`；rebuild 閘門既沒有 rc 行，也沒有 INCOMPLETE（`L/killed-old-*.log`）。
+-- 新程式：四支都以 `INCOMPLETE: stopped by SIGTERM before its verdict -- not a verdict` 加 `rc=143` 結束，process group 裡沒有殘留（`L/killed-new-*.log`；log 裡印的閘門 sha256 和 commit 進去的檔案相同）。
+-- 正常路徑：measuring 閘門完整跑完，14／0，rc=0（`L/ndt-measuring-gate-r3-trapfix-dev.log`）。
+-- 拒跑路徑：頁面閘門 `ONLY=no-such-label` 印出 REFUSED，接著 INCOMPLETE、rc=2（`L/page-gate-r3-refusal-path.log`）。
++- 攔 TERM、INT、HUP，以 143、130、129 結束；
++- 沒走到判定那一行，就印 `INCOMPLETE: … -- not a verdict`，而且不回 0；
++- 結尾的那幾行寫到閘門啟動時的 stdout（fd 7）；
++- 第四輪起，主閘門、measuring 閘門、rebuild 閘門開頭都會印出自己的 sha256。
++
++**先紅後綠**（OBSERVED）：
++- **舊程式**（`23e9b76f`）：三支閘門 exit 143，但最後一行是 `rc=0`；rebuild 閘門什麼都沒印（`L/killed-old-*.log`）。
++- **新程式**：四支都印 INCOMPLETE 加 `rc=143`（`L/killed-new-*.log`）。
++
++**第四輪在 `73889e54` 上補的**（`L/kill-midrun-r4.sh`，`L/killed-r4-*.log`）：
++- INT：measuring 閘門 exit 130，加 INCOMPLETE。
++  - 第一次試 INT 被忽略了：非互動 shell 用 `&` 起的程序，一開始就忽略 SIGINT，bash 無法攔一個進來時就被忽略的訊號。launcher 改成先把 INT 恢復成預設再 exec。
++  - 那次的 log 保留為 `killed-r4-int-measuring-gate.IGNORED-launcher.log`。
++- TERM：主閘門、rebuild 閘門、頁面閘門（baseline 1 跑到 60 秒時）都是 143 加 INCOMPLETE。
++- 殺掉之後掃 /tmp 和 /proc：閘門自己建的暫存目錄都不在了，也沒有任何程序的 cmdline 或 cwd 還指著它們。
++- 其他路徑：
++  - 正常結束：measuring 閘門 rc=0；
++  - 拒跑：頁面閘門加 `ONLY=no-such-label`，印 REFUSED、INCOMPLETE、rc=2（`L/page-gate-r3-refusal-path.log`）。
++
++## 5. 最終一輪
++
++全部 OBSERVED。每個 log 都只由它的指令寫入，開頭印 head、porcelain、日期、直譯器。
++
++| 項目 | r2（`3b6e533c`） | 最終 | log |
++|---|---|---|---|
++| 主閘門，python3.12 3.12.3 | 188／0；baseline 75／35／36／18 | `73889e54`：**198／0**，rc 0；baseline 75／35／39／18 | `main-gate-r4-py312-73889e54.log:273-274` |
++| 主閘門，ryu-env 3.8.20 | 188／0 | `73889e54`：**198／0**，rc 0 | `main-gate-r4-py38-73889e54.log:273-274` |
++| 四個套件，3.12 和 3.8 | 75／35／36／18 | `0170df28`：75／35／39／18，各自 rc 0（之後這些套件和它們測的程式都沒改） | `suites-r3-py312-0170df28.log`、`-py38-…` |
++| 頁面套件 | 29 | `0170df28`：**32 個 OK**，617.823 s，殘留 0 | `page-suite-r3-0170df28.log:56` |
++| 頁面閘門（完整） | **48／0**，3 個等價變異 | `0170df28`：**58／0**；E1、Q7a、Q7b 維持綠；61 次執行殘留都是 0；rc 0 | `page-gate-r3-0170df28.log:292-293` |
++| rebuild 閘門 | 5 個檔逐 byte 相同 | `73889e54`：從乾淨的 `npm ci` 重建，5 個檔逐 byte 相同 | `rebuild-gate-r4-73889e54.log` |
++| 錨點 | ok(162)／**ok(39)** | `73889e54`：ok(170)／ok(44)／measuring ok(12)／honesty ok(67)；所有閘門 123/123 | `anchors-r4-73889e54.log` |
++| measuring 測試、閘門 | （新） | `73889e54`：102／0、19／0 | `ndt-measuring-test-r4-…:117`、`-gate-r4-…:38` |
++| honesty、status_check、round_baseline、sudo_surface 閘門；lab_handoff、residue_row 測試 | — | `23e9b76f`：67／0、20／0、26／0、14／0；19／19、27／0。ndt 和這些測試之後都沒改；honesty 和 status_check 在合併樹上又跑了一次（第 3.3 節） | `*-r3-23e9b76f.log` |
++| G-N7 | `0fde4678` 加上未 commit 的檔 | old 紅、g48 紅、now 綠 | `gn7-red-first-r3-23e9b76f.log` |
+ 
+-## 5. 最終一輪（`0170df28`，porcelain 0）
++**兩次頁面套件的秒數一模一樣**：獨立跑的頁面套件和頁面閘門的 baseline 1，都是 `Ran 32 tests in 617.823s`。兩次是先後分開跑的：
++- 頁面套件的 log 開頭時間是 02:53:49，03:04:07 結束；
++- 頁面閘門 03:04:07 開始，baseline 1 含等鎖共 1,938 s。
+ 
+-全部是 OBSERVED。每個 log 都只由它的指令寫入，開頭印出 head、porcelain、日期、直譯器。順序、起訖時間、rc 在 `L/final-run-r3-C-0170df28.log` 和 `L/final-run-r3-B-0170df28.log`。
++時間沒有重疊，所以秒數相同只是巧合。這個套件大約 600 秒都是固定的即時等待，各次只差 615.0–619.1 秒。合併樹上那次是 619.051 s。
+ 
+-| 項目 | r2（`3b6e533c`） | r3（`0170df28`） | log |
+-|---|---|---|---|
+-| 主閘門，python3.12 3.12.3 | 188／0；baseline 75／35／36／18 | **198／0**，rc 0；baseline 75／35／**39**／18 | `main-gate-r3-py312-0170df28.log:272-273` |
+-| 主閘門，ryu-env 3.8.20 | 188／0 | **198／0**，rc 0 | `main-gate-r3-py38-0170df28.log:272-273` |
+-| 四個套件，3.12 和 3.8 | 75／35／36／18 | 75／35／39／18，各自 rc 0 | `suites-r3-py312-…`、`suites-r3-py38-…` |
+-| 頁面套件（guard 內，miniconda 3.13.13，Chrome 153） | 29 個案例 | **32 個 OK**，617.8 s；6 個類別的殘留都是 0 | `page-suite-r3-0170df28.log` |
+-| 頁面閘門（完整） | 52／0；3 個等價變異 | **58／0**；E1、Q7a、Q7b 維持綠，0 個被推翻；baseline 2 的 5 個檔逐 byte 相同；61 次執行的殘留都是 0；rc 0；22,315 s，大部分在等 build guard 的鎖（另一個 session 的閘門佔著） | `page-gate-r3-0170df28.log:46-54,292-293` |
+-| rebuild 閘門 | 5 個檔逐 byte 相同 | 從乾淨的 `npm ci` 重建，**5 個檔逐 byte 相同**，rc 0 | `rebuild-gate-r3-0170df28.log:11-12` |
+-| 錨點 | ok(162)／ok(42) | ok(170)／ok(44)／ok(12)／honesty ok(67)；全部 123／123 | `anchors-r3-0170df28.log` |
+-| ndt measuring 測試／閘門 | （新） | 79／0；14／0 | `ndt-measuring-test-r3-0170df28.log:92`、`ndt-measuring-gate-r3-0170df28.log:32` |
+-| ndt honesty／status_check／round_baseline／sudo_surface 閘門；lab_handoff、residue_row 測試 | — | 67／0、20／0、26／0、14／0；19／19、27／0 | `*-r3-23e9b76f.log`（從 `23e9b76f` 到 `0170df28`，ndt 和這些測試都沒有改，只改了 serve 的四支閘門） |
+-| G-N7 先看紅 | `0fde4678` 加上未 commit 的檔 | old 紅、g48 紅、now 綠 | `gn7-red-first-r3-23e9b76f.log` |
+-| 合併樹 | 乾淨（`3a186b15`） | 有衝突；`1ee0089f` 全綠 | `merged-812dacd3-*`、`mergedc-1ee0089f-*` |
++頁面閘門花了 22,315 s，大部分在等 build guard 的鎖，另一個 session 的閘門佔著它。
+ 
+ ## 6. commit
+ 
+ | commit | 內容 |
+ |---|---|
+-| `c4247ca2` | ndt `--measuring` 和 `status_measuring_rows`；serve 的 `/measuring` 和 `measuring_fields`；verbs；行號引用；新的 shell 測試和閘門；G62–G62h；修好 G11、G11b、G24、G25 的錨點 |
+-| `a6d443c0` | 頁面探測改讀 `/measuring`，加上「上次探測」；SourceLint，加 G59g、G59h；瀏覽器案例和測試 4–6；頁面閘門加 Q4b、Q8、Q8b、Q9、Q10、Q12；README、手冊 §9、bundle |
+-| `23e9b76f` | 更正 SUMMARY-v2-r2 §1.1 的數字 |
+-| `0170df28` | 四支 ndt serve 閘門：被中斷時不會以 rc=0 結束 |
+-| （這份） | SUMMARY-v2-r3.md |
+-| `1ee0089f`（不在功能分支上） | 和 trunk `1e350bf2` 的合併 |
++| `c4247ca2` | ndt `--measuring`、`status_measuring_rows`；serve 的 `/measuring`、`measuring_fields`；verbs；行號引用；shell 測試和閘門；G62–G62h；修好 G11、G11b、G24、G25 的錨點 |
++| `a6d443c0` | 頁面探測改讀 `/measuring`、加「上次探測」；SourceLint、G59g、G59h；瀏覽器案例和測試 4–6；頁面閘門 Q4b、Q8、Q8b、Q9、Q10、Q12；README、手冊 §9、bundle |
++| `23e9b76f` | 更正 SUMMARY-v2-r2 §1.1 |
++| `0170df28` | 四支閘門被中斷時不會以 rc=0 結束 |
++| `51f61eea` | SUMMARY-v2-r3（orchestrator commit） |
++| `73889e54` | 讓 `--measuring` 的「不打網路」規則不只靠 PATH 把關（第 1.2 節）；三支閘門印出自己的 sha256 |
++| （這份更正） | SUMMARY-v2-r3.md |
++| `3e8148ab`（不在功能分支上） | 和 trunk `1e350bf2` 的合併 |
+ 
+ ## 7. 已知、沒有處理
+ 
+-**沒量、沒追的**
+-- 新探測在量測中狀態下的成本沒有量，因為不能開 fabric（第 2 節）。
+-- 閒置時的舊探測，重量的結果和 RESULTS.md 對不上，原因沒追。
+-
+-**要 orchestrator 決定的**
+-- 用不用 `1ee0089f` 來併 trunk；Adam 的規則是 `--no-ff`。
+-- `8dfe18a4` 那個分支可以刪掉。
+-
+-**不在這張工單裡、沒動的**
+-- HANDOFF §6 的開放題目：G-N9、SLOT 沒有上限、SCOPE-v2 §9。
++- 新探測在量測中狀態下的成本沒有量，因為不能開 fabric。
++- 探測失敗或逾時時「上次探測」照樣更新：延到下一次 GUI 交付。
++- 網路那一層「沒有 namespace 時改用 host 上空著的 port」的退路，在這台機器上沒有實際跑過。
++- trunk 合併：要不要用 `3e8148ab`（commit SUMMARY 之後要重做），由 orchestrator 決定；`8dfe18a4`、`1ee0089f` 的分支可以刪。
++- HANDOFF §6 的開放題目沒動：G-N9、SLOT 沒有上限、SCOPE-v2 §9。
+diff --git a/tests/shell/mutate_ndt_serve.sh b/tests/shell/mutate_ndt_serve.sh
+index 28033f37..6723be3e 100755
+--- a/tests/shell/mutate_ndt_serve.sh
++++ b/tests/shell/mutate_ndt_serve.sh
+@@ -118,6 +118,7 @@ echo "head $git_head"
+ echo "porcelain $git_dirty tracked file(s) differ from HEAD"
+ echo "date $(date -Is)"
+ echo "python $(command -v "$PY") $("$PY" -c 'import sys; print(sys.version.split()[0])')"
++echo "gate $(sha256sum "${BASH_SOURCE[0]}" | cut -c1-64)"
+ BASE_SHA=$(sha256sum "${SUBJECTS[@]}")
+ 
+ SURVIVORS=0
+diff --git a/tests/shell/mutate_ndt_status_measuring.sh b/tests/shell/mutate_ndt_status_measuring.sh
+index 8d593a5d..82d8b571 100755
+--- a/tests/shell/mutate_ndt_status_measuring.sh
++++ b/tests/shell/mutate_ndt_status_measuring.sh
+@@ -60,6 +60,7 @@ fi
+ echo "head $git_head"
+ echo "porcelain $git_dirty tracked file(s) differ from HEAD"
+ echo "date $(date -Is)"
++echo "gate $(sha256sum "${BASH_SOURCE[0]}" | cut -c1-64)"
+ BASE_SHA=$(sha256sum "$NDT" "$TEST")
+ 
+ SURVIVORS=0
+@@ -194,6 +195,57 @@ m=$(mutant L6 "$NDT" \
+ report "L6: --measuring answers 1 (ndt serve would read a failure, not a report)" "$m" \
+        "nothing: --measuring answers rc 0"
+ 
++# 10-02 (the round-3 review): the four ways around a PATH denylist. Each would reach the kernel or
++# a switch under measurement without one PATH shim seeing it.
++m=$(mutant L14 "$NDT" \
++    'status_measuring_rows() {
++    # Declared beside observed' \
++    'status_measuring_rows() {
++    port_open 8000 >/dev/null
++    # Declared beside observed')
++report "L14: ndt's own port_open (bash /dev/tcp) to the kernel on the shared path" "$m" \
++       "🔴 --measuring opened no TCP connection to the lab's ports"
++
++m=$(mutant L14b "$NDT" \
++    'status_measuring_rows() {
++    # Declared beside observed' \
++    'status_measuring_rows() {
++    (exec 3<>/dev/tcp/127.0.0.1/8080) 2>/dev/null
++    # Declared beside observed')
++report "L14b: a literal /dev/tcp connect to Ryu's port on the shared path" "$m" \
++       "🔴 no absolute-path command and no /dev/tcp on --measuring's path"
++
++m=$(mutant L15 "$NDT" \
++    'status_measuring_rows() {
++    # Declared beside observed' \
++    'status_measuring_rows() {
++    python3 -c '\''import urllib.request
++try: urllib.request.urlopen("http://127.0.0.1:8000/ndt/get_graph_data", timeout=2)
++except Exception: pass'\'' >/dev/null 2>&1
++    # Declared beside observed')
++report "L15: a python3 urllib GET of the kernel's graph on the shared path" "$m" \
++       "🔴 --measuring ran nothing outside its allowlist on PATH"
++
++# /usr/bin/sudo -n true in the ticket's wording: an OVS query by absolute path stands in for it, so
++# that running this gate makes no sudo call of its own; the check reads the text, not the binary.
++m=$(mutant L16 "$NDT" \
++    'status_measuring_rows() {
++    # Declared beside observed' \
++    'status_measuring_rows() {
++    /usr/bin/ovs-vsctl list-br >/dev/null 2>&1
++    # Declared beside observed')
++report "L16: an OVS query by absolute path (past every PATH shim)" "$m" \
++       "🔴 no absolute-path command and no /dev/tcp on --measuring's path"
++
++m=$(mutant L16b "$NDT" \
++    'status_measuring_rows() {
++    # Declared beside observed' \
++    'status_measuring_rows() {
++    /usr/bin/curl -s --max-time 1 http://127.0.0.1:8000/ndt/get_graph_data >/dev/null 2>&1
++    # Declared beside observed')
++report "L16b: curl by absolute path to the kernel (past the curl shim)" "$m" \
++       "🔴 --measuring opened no TCP connection to the lab's ports"
++
+ # --- the answer itself, as both print it ------------------------------------------------------
+ 
+ # Both lose the declaration: the two agree, so only the "what they must say" check sees it.
+diff --git a/tests/shell/rebuild_ndt_serve_web.sh b/tests/shell/rebuild_ndt_serve_web.sh
+index f710726e..6f7434ea 100755
+--- a/tests/shell/rebuild_ndt_serve_web.sh
++++ b/tests/shell/rebuild_ndt_serve_web.sh
+@@ -67,6 +67,7 @@ echo "head $git_head"
+ echo "porcelain $git_dirty tracked file(s) differ from HEAD"
+ echo "date $(date -Is)"
+ echo "static $STATIC"
++echo "gate $(sha256sum "${BASH_SOURCE[0]}" | cut -c1-64)"
+ 
+ refuse() { echo "REFUSED: $*"; exit 2; }
+ 
+diff --git a/tests/shell/test_ndt_status_measuring.sh b/tests/shell/test_ndt_status_measuring.sh
+index eb1dfd4c..60d96b3d 100755
+--- a/tests/shell/test_ndt_status_measuring.sh
++++ b/tests/shell/test_ndt_status_measuring.sh
+@@ -16,9 +16,22 @@
+ #      -- `declared`, `measuring`, or `orphaned` -- line for line, in every fixture state below,
+ #      and each state's rows are also checked against what they must say (two copies that agree
+ #      on a wrong answer would pass the first check alone).
+-#   2. NOTHING HEAVY. Every command the ruling names is a recording shim on PATH, and `--measuring`
+-#      calls none of them in any state; plain `ndt status`, run with the same shims, does call them
+-#      -- the control that says the shims are on PATH and recording.
++#   2. NOTHING HEAVY, in four layers, because a PATH denylist alone is not a pin (the round-3
++#      review): ndt's own port_open is bash /dev/tcp, ndt already fetches with python3 urllib, and an
++#      absolute path never looks at PATH.
++#        a. every command the ruling names is a recording shim on PATH, and `--measuring` calls none
++#           of them; plain `ndt status` through the same shims does (the control);
++#        b. `--measuring` also runs on an ALLOWLIST-only PATH, with an exported
++#           command_not_found_handle recording anything else it asks for -- python3, curl, ip, git,
++#           anything; plain status on the same PATH asks for plenty (the control);
++#        c. in a network namespace of its own (`unshare -rn`, or the host when that is not possible
++#           and the ports are free), listeners on 127.0.0.1:8000, :8080 and :8081 count every
++#           connection while `--measuring` runs: it must make none, whatever the means; a bash
++#           /dev/tcp connect and a python3 urllib GET made the same way are counted (the control);
++#        d. statically: the functions `--measuring` reaches from status_measuring_rows are exactly
++#           the five that read a file or `ps`, and none of them names /dev/tcp, /dev/udp or runs a
++#           command by absolute path.
++#      A layer that cannot run (no unshare and a port taken) is a FAILED check, never a pass.
+ #
+ # The process table is a fixture: a `ps` shim answers the three listings ndt's scans read
+ # (in_flight: pid,comm,args; mn_count and the host count: args; bmv2_count: comm) from a file, and
+@@ -68,16 +81,18 @@ FULL_CALLS="$SANDBOX/full.calls"
+ : > "$LIGHT_CALLS"; : > "$FULL_CALLS"
+ 
+ # --- the shims -------------------------------------------------------------------------------
+-REAL_PS="$(type -P ps)"
+-[[ -n "$REAL_PS" ]] || { echo "  FAILED   no ps on PATH"; echo "Ran 1 checks, 1 failed"; exit 1; }
++REAL_PS="$(type -P ps)"; REAL_AWK="$(type -P awk)"; REAL_CUT="$(type -P cut)"; REAL_BASH="$(type -P bash)"
++[[ -n "$REAL_PS" && -n "$REAL_AWK" && -n "$REAL_CUT" && -n "$REAL_BASH" ]] \
++    || { echo "  FAILED   no ps, awk, cut or bash on PATH"; echo "Ran 1 checks, 1 failed"; exit 1; }
++# (absolute paths inside the shim: it also runs on the allowlist-only PATH below)
+ cat > "$SANDBOX/shim/ps" <<EOF
+-#!/bin/bash
++#!$REAL_BASH
+ # the process table of the fixture, for the three listings ndt's scans read; the rest is real
+ if [[ -f '$FIXTURE' ]]; then
+     case "\$*" in
+-        "-eo pid=,comm=,args=") awk -F'\t' '{ printf "%7s %s %s\n", \$1, \$2, \$3 }' '$FIXTURE'; exit 0 ;;
+-        "-eo args=")            cut -f3 '$FIXTURE'; exit 0 ;;
+-        "-eo comm=")            cut -f2 '$FIXTURE'; exit 0 ;;
++        "-eo pid=,comm=,args=") '$REAL_AWK' -F'\t' '{ printf "%7s %s %s\n", \$1, \$2, \$3 }' '$FIXTURE'; exit 0 ;;
++        "-eo args=")            '$REAL_CUT' -f3 '$FIXTURE'; exit 0 ;;
++        "-eo comm=")            '$REAL_CUT' -f2 '$FIXTURE'; exit 0 ;;
+     esac
+ fi
+ exec '$REAL_PS' "\$@"
+@@ -99,7 +114,93 @@ done
+ chmod +x "$SANDBOX/shim"/*
+ SHIMMED_PATH="$SANDBOX/shim:$PATH"
+ 
++# b. the allowlist: what `--measuring` needs and nothing else (found by running it on an empty
++# PATH, 10-02: ndt's preamble needs dirname and readlink, the sourced files cat, the claim reader
++# sed, head and date, the rows cut and wc; ps is the fixture's). Anything else it asks for lands in
++# STRICT_LOG through command_not_found_handle, exported into the bash that runs ndt.
++ALLOW_DIR="$SANDBOX/allow"; mkdir -p "$ALLOW_DIR"
++for c in cat cut date dirname head readlink sed wc; do
++    t="$(type -P "$c")" || { echo "  FAILED   no $c on PATH"; echo "Ran 1 checks, 1 failed"; exit 1; }
++    ln -s "$t" "$ALLOW_DIR/$c"
++done
++ln -s "$SANDBOX/shim/ps" "$ALLOW_DIR/ps"
++STRICT_LOG="$SANDBOX/strict.calls"; STRICT_CONTROL_LOG="$SANDBOX/strict-control.calls"
++: > "$STRICT_LOG"; : > "$STRICT_CONTROL_LOG"
++command_not_found_handle() { printf '%s\n' "$1" >> "${STRICT_CALLS:-/dev/null}"; return 127; }
++export -f command_not_found_handle
++
++# c. the listeners. One python3 process, run by absolute path, accepting on the three ports and
++# writing "port:count ..." after every accept; started and stopped around ONE command, in a network
++# namespace of its own when `unshare -rn` works (nothing else on the machine sees the ports), else
++# on the host if all three ports are free, else not at all (NET_MODE none: the checks fail).
++REAL_PY="$(type -P python3)"
++LISTENER="$SANDBOX/listener.py"
++cat > "$LISTENER" <<'EOF'
++import os, select, socket, sys
++out, ready = sys.argv[1], sys.argv[2]
++ports = (8000, 8080, 8081)
++socks, counts = [], {p: 0 for p in ports}
++for p in ports:
++    s = socket.socket()
++    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
++    s.bind(("127.0.0.1", p))
++    s.listen(16)
++    socks.append(s)
++def dump():
++    with open(out + ".tmp", "w") as f:
++        f.write(" ".join("%d:%d" % (p, counts[p]) for p in ports))
++    os.replace(out + ".tmp", out)
++dump()
++open(ready, "w").write("ok")
++while True:
++    for s in select.select(socks, [], [])[0]:
++        c, _ = s.accept()
++        counts[s.getsockname()[1]] += 1
++        c.close()
++        dump()
++EOF
++NET_RUN="$SANDBOX/net-run.sh"
++cat > "$NET_RUN" <<EOF
++#!$REAL_BASH
++# net-run.sh <counts file> <stdout file> <command...> -- the listeners up, the command, the listeners down
++counts="\$1" out="\$2"; shift 2
++if [[ "\${NET_IN_NS:-}" == 1 ]]; then ip link set lo up || exit 97; fi
++rm -f "\$counts" "\$counts.ready"
++'$REAL_PY' '$LISTENER' "\$counts" "\$counts.ready" 2>/dev/null &
++lp=\$!
++for i in \$(seq 1 100); do [[ -f "\$counts.ready" ]] && break; sleep 0.05; done
++[[ -f "\$counts.ready" ]] || { kill \$lp 2>/dev/null; exit 98; }
++"\$@" > "\$out" 2>/dev/null
++sleep 0.2
++kill \$lp 2>/dev/null; wait \$lp 2>/dev/null
++exit 0
++EOF
++chmod +x "$NET_RUN"
++NET_MODE=none
++if command -v unshare >/dev/null && command -v ip >/dev/null \
++        && NET_IN_NS=1 unshare -rn "$REAL_BASH" -c 'ip link set lo up' 2>/dev/null; then
++    NET_MODE=netns
++elif "$REAL_PY" -c '
++import socket
++for p in (8000, 8080, 8081):
++    s = socket.socket(); s.bind(("127.0.0.1", p)); s.close()' 2>/dev/null; then
++    NET_MODE=host
++fi
++net() {   # <counts file> <stdout file> <command...>
++    case "$NET_MODE" in
++        netns) NET_IN_NS=1 unshare -rn "$NET_RUN" "$@" ;;
++        host)  "$NET_RUN" "$@" ;;
++        *)     echo "8000:? 8080:? 8081:?" > "$1"; return 99 ;;
++    esac
++}
++NET_COUNTS_ALL=""
++
+ export NDT_OWNER=fixture-me
++light_strict() { (cd "$SANDBOX" && STRICT_CALLS="$STRICT_LOG" PATH="$ALLOW_DIR" NO_COLOR=1 "$REAL_BASH" "$NDT" status --measuring 2>/dev/null); }
++light_net() {   # <counts file> -- the light call, through the listeners
++    (cd "$SANDBOX" && net "$1" "$SANDBOX/net.out" env CALLS_LOG="$LIGHT_CALLS" PATH="$SHIMMED_PATH" NO_COLOR=1 \
++        "$REAL_BASH" "$NDT" status --measuring) && cat "$SANDBOX/net.out"
++}
+ light() { (cd "$SANDBOX" && CALLS_LOG="$LIGHT_CALLS" PATH="$SHIMMED_PATH" NO_COLOR=1 bash "$NDT" status --measuring 2>/dev/null); }
+ full()  { (cd "$SANDBOX" && CALLS_LOG="$FULL_CALLS" PATH="$SHIMMED_PATH" NO_COLOR=1 bash "$NDT" status 2>/dev/null); }
+ 
+@@ -145,6 +246,10 @@ state() {
+     # 2. the measuring rows and nothing else (17 blanks: a row's continuation, printf "  %-14s %s" with an empty name)
+     bad="$(printf '%s\n' "$L" | grep -vE '^  (declared|measuring|orphaned) |^ {17}[^ ]' || true)"
+     check "$label: --measuring prints the measuring rows and nothing else" "" "$bad"
++    # 3. the same answer on the allowlist-only PATH, and through the listeners
++    check "$label: the allowlist-only PATH gives the same rows" "$L" "$(light_strict)"
++    check "$label: the run through the listeners gives the same rows" "$L" "$(light_net "$SANDBOX/net.counts")"
++    NET_COUNTS_ALL+="$(cat "$SANDBOX/net.counts" 2>/dev/null || echo '?')|"
+     LAST_LIGHT="$L"; LAST_FULL="$F"
+ }
+ 
+@@ -192,6 +297,68 @@ check "  control: plain status, through the same shims, calls sudo" "yes" \
+       "$(grep -q '^sudo ' "$FULL_CALLS" && echo yes || echo no)"
+ check "  control: the process table both read is the fixture" "$IPERF_ROW" "$(row measuring "$LAST_FULL")"
+ 
++echo
++echo "ndt status --measuring: nothing outside its allowlist, no connection, no absolute path"
++check "🔴 --measuring ran nothing outside its allowlist on PATH (8 states)" "" "$(sort -u "$STRICT_LOG" | tr '\n' ' ')"
++# the control: plain status on the same PATH asks for commands the allowlist does not have
++(cd "$SANDBOX" && STRICT_CALLS="$STRICT_CONTROL_LOG" PATH="$ALLOW_DIR" NO_COLOR=1 timeout 60 "$REAL_BASH" "$NDT" status >/dev/null 2>&1)
++check "  control: plain status on the same PATH is recorded asking for more" "yes" \
++      "$([[ -s "$STRICT_CONTROL_LOG" ]] && echo yes || echo no)"
++
++check "the listeners ran (in a namespace of their own, or on free host ports)" "yes" \
++      "$([[ "$NET_MODE" != none ]] && echo yes || echo "no: no unshare -rn and a port of 8000/8080/8081 is taken -- NOT CHECKED")"
++want_net="$(printf '8000:0 8080:0 8081:0|%.0s' 1 2 3 4 5 6 7 8)"
++check "🔴 --measuring opened no TCP connection to the lab's ports (8 states, $NET_MODE)" "$want_net" "$NET_COUNTS_ALL"
++# the control: the two idioms ndt itself has, run the same way, are counted
++net "$SANDBOX/ctl.counts" "$SANDBOX/ctl.out" "$REAL_BASH" -c \
++    '(exec 3<>/dev/tcp/127.0.0.1/8000) 2>/dev/null; '"'$REAL_PY'"' -c "import urllib.request
++try: urllib.request.urlopen(\"http://127.0.0.1:8081/\", timeout=2)
++except Exception: pass"'
++check "  control: a bash /dev/tcp connect and a python3 urllib GET are counted" "8000:1 8080:0 8081:1" \
++      "$(cat "$SANDBOX/ctl.counts" 2>/dev/null)"
++
++# d. statically, from ndt itself: the functions --measuring reaches, and what they contain
++CLOSURE_DIR="$SANDBOX/closure"; mkdir -p "$CLOSURE_DIR"
++closure="$("$REAL_BASH" -c '
++    source "$1" >/dev/null 2>&1 || true
++    declare -F | awk "{print \$3}" | sort > "$2/all"
++    todo=(status_measuring_rows); seen=" "
++    while (( ${#todo[@]} )); do
++        f=${todo[0]}; todo=("${todo[@]:1}")
++        [[ "$seen" == *" $f "* ]] && continue
++        seen+="$f "
++        declare -f "$f" > "$2/fn.$f"
++        for w in $(tail -n +2 "$2/fn.$f" | grep -oE "[A-Za-z_][A-Za-z0-9_]*" | sort -u); do
++            grep -qx "$w" "$2/all" && todo+=("$w")
++        done
++    done
++    printf "%s\n" $seen | sort | tr "\n" " "' _ "$NDT" "$CLOSURE_DIR")"
++check "🔴 --measuring reaches only the five functions that read a file or ps" \
++      "claim_field in_flight measuring_declared mn_count status_measuring_rows " "$closure"
++# a word in command position that starts with "/" (declare -f puts each command on its line), or
++# /dev/tcp and /dev/udp anywhere
++abs="$("$REAL_PY" - "$CLOSURE_DIR" <<'EOF'
++import glob, re, sys
++bad = []
++sep = re.compile(r"\$\(|<\(|>\(|`|&&|\|\||[;|&]")
++skip = {"if", "then", "else", "elif", "do", "while", "until", "for", "case", "!", "{", "}", "(", "((", "time",
++        "exec", "command", "builtin", "env", "nohup", "timeout"}
++for p in sorted(glob.glob(sys.argv[1] + "/fn.*")):
++    fn = p.rsplit("fn.", 1)[1]
++    for n, line in enumerate(open(p), 1):
++        if re.search(r"/dev/(tcp|udp)/", line):
++            bad.append("%s:%d /dev/tcp|udp: %s" % (fn, n, line.strip()))
++        for part in sep.split(line):
++            words = part.split()
++            while words and (words[0] in skip or re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", words[0])):
++                words = words[1:]
++            if words and words[0].startswith("/"):
++                bad.append("%s:%d absolute path: %s" % (fn, n, line.strip()))
++print("; ".join(sorted(set(bad))))
++EOF
++)"
++check "🔴 no absolute-path command and no /dev/tcp on --measuring's path" "" "$abs"
++
+ echo
+ echo "ndt help"
+ HELP="$(bash "$NDT" help 2>&1)"

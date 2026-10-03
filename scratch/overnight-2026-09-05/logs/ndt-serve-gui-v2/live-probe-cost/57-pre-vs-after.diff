@@ -1,0 +1,29 @@
+3c3
+<   prev claim     adam (until 21:26:28), superseded 2026-09-27 21:00:45  (.test_run/lab.claim.prev)
+---
+>   prev claim     ndt-serve-gui (until 17:41:33), superseded 2026-10-01 17:11:40  (.test_run/lab.claim.prev)
+5c5
+<                  it said: down at 2026-09-27 21:00:45; verified clean; claim kept
+---
+>                  it said: down at 2026-10-01 17:11:40; verified clean; claim kept
+16,17c16,17
+<   hosts          4   (what the last 'ndt up' asked for: p4)
+<   topology       setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+---
+>   hosts          unknown (no up.target) -- nothing here records what the running fabric was asked for
+>   topology       unknown (no up.target); last kernel.exit ran p4
+44,51c44,48
+<   asked for      p4, 4 hosts   (recorded 2026-09-30 13:39:11 by unset)
+<   topology       setting/StaticNetworkTopologyP4_10Switches_4Hosts.json   (declares 4 hosts / 40 edges)
+<   dataplane      none                   != p4   MISMATCH
+<   fabric hosts   no host namespaces found (fabric_host_count gave '0') -- NOT COMPARED
+<   kernel graph   the kernel gave no graph on :8000 -- NOT COMPARED
+<   topology file  sha256 50a3246390a6    == recorded   ok
+<   device names   no overlay file at .test_run/nickname_overlay/StaticNetworkTopologyP4_10Switches_4Hosts.names.json
+<                  that is where this checkout's kernel writes them; not a claim that none are set
+---
+>   record         none -- the last 'ndt up' record was cleared by 'ndt down' at 2026-10-01T17:11:35+08:00; history is in .test_run/pids/*.exit  (.test_run/up.target)
+>                  that run was p4, per the --topology argument in .test_run/pids/kernel.exit -- NOT a baseline, just what ran
+>                  there is no baseline, so --check did NOT check. this is not 'checked and matched'.
+>                  bring the lab up from this checkout first:  ndt up <target>
+>                  .test_run/ is per checkout, so another checkout's 'up' is invisible here (finding #79)

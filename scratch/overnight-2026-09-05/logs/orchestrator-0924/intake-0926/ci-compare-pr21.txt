@@ -1,0 +1,3 @@
+# PR #21 head c40182d5, compared 2026-10-01 by sonnet-worker, key lines spot-checked by the orchestrator
+8/8 pass: runs 36829885525 (branch, GCC 110264147744) and 36829889522 (merge f1d44fba on 6722c298, GCC 110264167283); d8d744eb runs cancelled.
+ctest 1385/1385, L1 passed, 0 FAILED, test_apps_residue PASS 145, gate anchors 127/127: all MATCH. No deviation.

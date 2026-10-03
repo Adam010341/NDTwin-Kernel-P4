@@ -1,0 +1,27 @@
+date 2026-10-02T10:01:56+08:00
+head 73889e5494d22f32b39f4a43021db389a92fe742
+porcelain 0
+gate tests/shell/rebuild_ndt_serve_web.sh sha256 fe873d70eeb2cb26
+gate log /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/killed-r4-term-rebuild-gate.gate.log
+signal SIGTERM
+/dev/nvme0n1p5   98G   91G  2.6G  98% /
+gate pid 993895, pgid 993895
+marker seen after ~2 s: rebuilding /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/to
+made in /tmp while it ran (this gate's prefixes): ndt-serve-rebuild-LABQL7
+other new /tmp entries of this user (not counted): 0
+2026-10-02T10:02:02+08:00 kill -TERM -- -993895
+gate exit status: 143
+left in its process group 3 s later: none
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/993009/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/996240/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/996289/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/996290/cmdline: No such file or directory
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/ndt-serve-gui-v2/kill-midrun-r4.sh: line 39: /proc/996307/cmdline: No such file or directory
+its /tmp entries still there: none
+processes naming them (cmdline or cwd): none
+--- last 4 lines of the gate's log:
+  | gate fe873d70eeb2cb2662764eea0ba02343bf02a3fa8abdfa7fec984ab3b43b4a18
+  | rebuilding /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/tools/ndt_serve/web in /tmp/ndt-serve-rebuild-LABQL7 (node v24
+  | INCOMPLETE: stopped by SIGTERM before its verdict -- not a verdict
+  | rc=143
+--- verdict-shaped lines: rc=0 0, totals 0, INCOMPLETE 1

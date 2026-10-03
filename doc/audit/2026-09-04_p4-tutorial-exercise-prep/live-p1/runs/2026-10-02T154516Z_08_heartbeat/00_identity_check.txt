@@ -1,0 +1,2 @@
+identity -> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-10-02T154516Z_08_heartbeat/00_identity.txt: HEAD 995bdfd0b7f2a81a357a480551ff82df4f6fc9b4, 7 uncommitted tracked file(s)
+SAME CODE APART FROM B: T 995bdfd0b7f2 = controls' 67ec9f9ecf9c + B bcdeca0e3c02; uncommitted, kernel, bmv2, helper and venv identical

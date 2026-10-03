@@ -1,0 +1,73 @@
+# date -Is: 2026-10-01T16:50:22+08:00
+# argv: tests/shell/mutate_ndt_serve_page.sh 
+# git rev-parse HEAD: 9186afe5fe1ad1267207992512b52d365237b1d4
+# git status --porcelain | wc -l: 2
+# python3: /home/adam/miniconda3/bin/python3 3.13.13 | packaged by Anaconda, Inc. | (main, Apr 14 2026, 06:19:41) [GCC 14.3.0]
+# node -v: v24.20.0   npm -v: 11.19.0
+# this gate: 69caca2b1608991bdeb0f28e2eb1ac9c91014a09deb2372a83d3c1aa5af580a0
+# ONLY=cf3-down-no-preview cf4-blocker-does-not-disable a2-apps-skip-own-claim a2b-server-apps-no-own-claim -- a PARTIAL run of the named mutation(s): not this gate's verdict on the page
+# changed paths under test vs HEAD: 1
+  Filesystem      Size  Used Avail Use% Mounted on
+  /dev/nvme0n1p5   98G   90G  3.0G  97% /
+  /dev/nvme0n1p5   98G   90G  3.0G  97% /
+
+baseline 1 -- the whole suite on the committed page (green, every case run ok, none skipped, no leftover):
+  test_a_claim_not_yours_puts_claim_first ... ok
+  test_a_double_click_posts_once ... ok
+  test_an_app_start_shows_the_dry_run_and_claim_first ... ok
+  test_claim_asks_for_no_typed_word ... ok
+  test_enter_on_confirm_does_not_confirm ... ok
+  test_measuring_or_declared_makes_it_typed ... ok
+  test_no_claim_puts_claim_first ... ok
+  test_the_dialog_shows_the_argv_the_dry_run_answered ... ok
+  test_the_focus_starts_on_cancel ... ok
+  test_the_write_is_posted_after_its_dry_run ... ok
+  test_up_asks_for_the_typed_word ... ok
+  test_job_log_stops_on_close ... ok
+  test_job_log_stops_when_the_job_ends ... ok
+  test_job_log_stops_while_hidden_and_resumes ... ok
+  test_a_url_without_a_key_opens_nothing ... ok
+  test_a_used_key_opens_nothing ... ok
+  test_loading_the_page_writes_nothing ... ok
+  test_the_key_is_traded_exactly_once ... ok
+  test_the_key_leaves_the_address_bar ... ok
+  test_the_page_sees_no_csp_violation ... ok
+  test_the_token_is_not_in_browser_storage ... ok
+  test_the_token_is_not_in_the_dom ... ok
+  test_the_token_is_in_no_file_of_the_profile ... ok
+  test_a_measuring_pause_probes_the_lab_alone ... ok
+  test_a_measuring_pause_reads_nothing_while_hidden ... ok
+  test_refresh_reads_while_shown_and_idle ... ok
+  test_refresh_stops_while_declared ... ok
+  test_refresh_stops_while_hidden_and_resumes_when_shown ... ok
+  test_refresh_stops_while_measuring ... ok
+  test_ndt_serve_page.py: Ran 29 tests in 333.227s / OK (334 s)
+             leftovers: chrome leftovers (Confirm): 0 chrome leftovers (JobLog): 0 chrome leftovers (Load): 0 chrome leftovers (Profile): 0 chrome leftovers (Refresh): 0  /proc after the run: none
+
+baseline 2 -- web/ copied and built the way every page mutant is, with no edit, is the committed static/:
+  same     BUILD.json   5f11b9a314459dce
+  same     app.css      780f0a54807c1edb
+  same     app.js       108591256761cf66
+  same     index.html   ba7f56b21e294bf5
+  same     manual.html  b873dcd616825b76
+  (built in 2 s)
+
+  caught   CF3: Down asks the server for no dry run (ActionsTab), so no claim-first check for it (test_no_claim_puts_claim_first went red, 5 s)
+             AssertionError: '請先 claim：claim 不是你的' not found in [] : no "claim first" blocker for down with `claim none`: {'open': True, 'phase': 'ready', 'typed': False, 'word': '', 'go_disabled': False, 'focus': 'c-cancel', 'blockers': [
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   CF4: a claim-first blocker is shown but does not keep Confirm off      (test_no_claim_puts_claim_first went red, 4 s)
+             AssertionError: False is not true : Confirm is on for up with `claim none`
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   A2: the page skips the claim-first check for an app start or stop      (test_an_app_start_shows_the_dry_run_and_claim_first went red, 4 s)
+             AssertionError: '請先 claim：claim 不是你的' not found in [] : no "claim first" blocker for an app start under somebody else's claim: {'open': True, 'phase': 'ready', 'typed': False, 'word': '', 'go_disabled': False, 'focus': 'c-canc
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+  caught   A2b: serve.py confirm_policy says an app start or stop needs no claim of your own (test_an_app_start_shows_the_dry_run_and_claim_first went red, 1 s)
+             AssertionError: '請先 claim：claim 不是你的' not found in [] : no "claim first" blocker for an app start under somebody else's claim: {'open': True, 'phase': 'ready', 'typed': False, 'word': '', 'go_disabled': False, 'focus': 'c-canc
+             leftovers: chrome leftovers (Confirm): 0  /proc after the run: none
+
+files under test unchanged by this gate (68 files; node_modules excluded, see baseline 2):
+  sha256 of their sha256sum lines: f0a11af4468e10a742f76db4f4cdfc6551cd79378726caec367d7dd829f6b736
+  total 350 s
+
+4 mutation(s), 0 survivor(s); 0 documented equivalent(s), 0 broken (ONLY: a partial run)
+rc=0

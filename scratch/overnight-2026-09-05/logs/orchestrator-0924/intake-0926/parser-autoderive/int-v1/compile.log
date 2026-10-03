@@ -1,0 +1,7 @@
+include/defines.p4(43): [--Wwarn=unused] warning: 'l4_port_t' is unused
+typedef bit<16> l4_port_t;
+                ^^^^^^^^^
+include/defines.p4(44): [--Wwarn=unused] warning: 'port_t' is unused
+typedef bit<9> port_t;
+               ^^^^^^
+rc=0

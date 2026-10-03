@@ -1,0 +1,12 @@
+head 3b6e533c4764aafa5916e75dc089ffccd60b59d3
+porcelain 0 tracked file(s) differ from HEAD
+date 2026-10-01T16:14:07+08:00
+static /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/tools/ndt_serve/static
+rebuilding /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt-serve-gui-v2-0927/tools/ndt_serve/web in /tmp/ndt-serve-rebuild-f5Exd1 (node v24.20.0, npm 11.19.0)
+  same     BUILD.json   081d5b8c787f42d3
+  same     app.css      780f0a54807c1edb
+  same     app.js       108591256761cf66
+  same     index.html   ba7f56b21e294bf5
+  same     manual.html  772d41bc9eaad7bb
+OK: the committed bundle is byte for byte what these sources build into
+rc=0
