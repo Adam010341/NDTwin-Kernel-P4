@@ -46,9 +46,13 @@ PHASES = ("pre-claim", "claiming", "up", "cells", "teardown", "released", "down-
           "claim-refused", "lab-busy", "claim-unverified")
 
 
-class SignalAbort(Exception):
+class SignalAbort(BaseException):
+    """SIGTERM / SIGINT / SIGHUP, raised where the probe was. A BaseException on purpose (Cut 2
+    review N1): the reading layer's `except Exception` blocks (an unreachable HTTP answer, a
+    sniffer that will not end) must not swallow a stop and let the round carry on."""
+
     def __init__(self, signum):
-        Exception.__init__(self, "signal %d" % signum)
+        BaseException.__init__(self, "signal %d" % signum)
         self.signum = signum
 
 

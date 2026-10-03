@@ -60,6 +60,9 @@ class BRound(object):
         self.ready_timeout_s, self.exit_timeout_s = ready_timeout_s, exit_timeout_s
         self.confirmed = None
         self.problems = []
+        #: (Cut 2 review N2) why B's controller did not do its part, or None: the run is then
+        #: INCOMPLETE, not COMPLETE with every bmv2 attribution quietly missing
+        self.failed = None
 
     def path(self, name):
         return os.path.join(self.out_dir, name)
@@ -101,6 +104,7 @@ class BRound(object):
         if mode != "external":
             self.problems.append("the fabric's control_plane.mode is %r, not external: B's controller "
                                  "not started" % (mode,))
+            self.failed = self.problems[-1]
             return self.finish(None, None)
         conf_path = self.path("controller.conf.json")
         with open(conf_path, "w", encoding="utf-8") as fh:
@@ -109,6 +113,7 @@ class BRound(object):
         proc = self.runner.spawn(argv, self.path("controller.log"), env={"P4H_CTRL_CONFIG": conf_path})
         if proc is None:
             self.problems.append("B's controller could not be started")
+            self.failed = self.problems[-1]
             return self.finish(None, None)
         try:
             # the marker is the run directory: the package path in the argv lies inside it
@@ -117,6 +122,7 @@ class BRound(object):
             self.problems.append("controller not recorded: %s" % exc)
         if not self._wait_file(self.path("controller.ready.json"), proc, self.ready_timeout_s):
             self.problems.append("B's controller never wrote its ready file (rc %s)" % proc.poll())
+            self.failed = self.problems[-1]
             return self.finish(None, None)
         sent = {}
 
@@ -129,6 +135,7 @@ class BRound(object):
             open(self.path("controller.go"), "w").close()
             if not self._wait_file(self.path("controller.result.json"), proc, self.exit_timeout_s):
                 self.problems.append("B's controller wrote no result")
+                self.failed = self.problems[-1]
             return ""
         _out, rx = self.hosts.window([(SRC, ["P3"], P3_DPORT)], stimulate, seconds=180.0, until=5)
         if proc.poll() is None:

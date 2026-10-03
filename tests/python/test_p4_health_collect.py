@@ -1177,6 +1177,22 @@ class TestLabRound(Sealed):
         self.assertIsNone(LR.proc_identity(889, self.proc))
 
 
+class TestASignalIsNeverSwallowed(Sealed):
+    """N1: the stop signal lab_round raises must get through every `except Exception`."""
+
+    def test_an_http_call_lets_a_signal_through(self):
+        from p4_health.collect import config as CF
+        with mock.patch.object(CF._urlreq, "urlopen", side_effect=LR.SignalAbort(15)):
+            with self.assertRaises(LR.SignalAbort):
+                CF.HttpClient("http://p4h.invalid").get("/p4/switch_state")
+        with mock.patch.object(CF._urlreq, "urlopen", side_effect=OSError("down")):
+            self.assertIsNone(CF.HttpClient("http://p4h.invalid").get("/x").status)
+
+    def test_it_is_not_an_exception(self):
+        self.assertFalse(issubclass(LR.SignalAbort, Exception))
+        self.assertTrue(issubclass(LR.SignalAbort, BaseException))
+
+
 class TestTheStateFileIsNotOverwritten(Sealed):
     """MAJOR-3: a round never overwrites a LAB_STATE.json recover.sh still needs."""
 
@@ -1332,6 +1348,9 @@ class FakeFabric(object):
         self.graph_drop_switch_edges = False
         self.mode = "ndtwin"              # control_plane.mode in switch_state (B's fabric: external)
         self.sniffer_hangs = None         # a cell: its sniffer never ends (its process stays)
+        self.signal_in_sniffer = None     # a cell: a SIGTERM arrives while its sniffer is waited for
+        self.force_mode = None            # control_plane.mode whatever package came up
+        self.ctrl_never_ready = False     # B's controller never writes its ready file
         self.switch_peer_form = "name"    # "name": iproute2's real form; "none": a parser's blind spot
         self.pipelines = dict(PIPES4)
         self.ctrl_register_ok = False      # bmv2's P4Runtime refuses register writes today
@@ -1706,6 +1725,9 @@ class FakeSniffer(object):
         return self.returncode
 
     def wait(self, timeout=None):
+        if self.returncode is None and self.fab.signal_in_sniffer in self.cells:
+            self.fab.signal_in_sniffer = None
+            raise LR.SignalAbort(15)                        # what lab_round's handler raises
         if self.returncode is None and self.fab.sniffer_hangs in self.cells:
             self.fab.sniffer_hangs = None
             raise RuntimeError("fake: this sniffer does not end")          # its /proc entry stays
@@ -1770,8 +1792,9 @@ class FakeController(object):
         else:
             calls["register"] = {"ok": False, "error": "UNKNOWN:  [canonical_code 12: Register writes are not supported yet]"}
         self.calls = calls
-        with open(self.conf["ready"], "w") as fh:
-            json.dump({"attributions": calls}, fh)
+        if not fab.ctrl_never_ready:
+            with open(self.conf["ready"], "w") as fh:
+                json.dump({"attributions": calls}, fh)
 
     def poll(self):
         if self.returncode is None and os.path.exists(self.conf["go"]):
@@ -2287,7 +2310,8 @@ class TestTheLabRun(Cut2):
             return (0, "")
 
         def up(argv, env, inp):
-            test.fab.mode = "external" if argv[-1].rstrip("/").endswith("/B") else "ndtwin"
+            test.fab.mode = test.fab.force_mode or (
+                "external" if argv[-1].rstrip("/").endswith("/B") else "ndtwin")
             if expire_on_up:      # our own claim, expired under the round: the teardown stops early
                 with open(test.claim, "w") as fh:
                     fh.write("owner=p4h-test\nexpires=%d\nnote=x\n" % (int(__import__("time").time()) - 5))
@@ -2304,6 +2328,11 @@ class TestTheLabRun(Cut2):
         r.add(("ndt", "release"), release)
         r.add(("qdisc_snapshot.sh",), (0, ""))
         r.add(("sudo", "-n", "mnexec", "-a", "1", "kill"), (kill_rc, ""))
+
+        def kill(argv, env, inp):                       # B's controller, stopped by its pid
+            shutil.rmtree(os.path.join(test.proc, argv[-1]), ignore_errors=True)
+            return (0, "")
+        r.add(("kill",), kill)
         return self.fab.runner(r)
 
     def fake_time(self):
@@ -2390,6 +2419,68 @@ class TestTheLabRun(Cut2):
             with open(os.path.join(self.cfg.run_dir, "LAB_STATE.%s.json" % x)) as fh:
                 st = json.load(fh)
             self.assertEqual((st["bring_up"], st["phase"]), (x, "released"))
+
+    # --- N1: a stop signal ends the run; N2: a B that did nothing is not COMPLETE -----------
+    def assert_signal_ended_the_run(self, r, rc, doc):
+        ndt = [c["argv"][1] for c in r.calls if c["argv"][0] == "ndt"]
+        self.assertEqual((ndt.count("claim"), ndt.count("up")), (1, 1), ndt)
+        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
+        self.assertTrue(any("aborted by signal" in p_ for p_ in doc["bringups"][0]["problems"]), doc["bringups"])
+        self.assertTrue(any("stop signal" in p_ for p_ in doc["problems"]), doc["problems"])
+        self.assertTrue(os.path.isfile(os.path.join(self.cfg.run_dir, "health.json")))
+
+    def test_a_signal_in_an_observer_ends_the_run(self):
+        def sig(*a, **kw):
+            raise LR.SignalAbort(15)
+        with mock.patch.object(OA, "observe_t2", sig):
+            rc, doc, r = self.run_lab()
+        self.assert_signal_ended_the_run(r, rc, doc)
+
+    def test_a_signal_while_a_sniffer_is_waited_for_ends_the_round_there(self):
+        self.fab.signal_in_sniffer = "K1"
+        rc, doc, r = self.run_lab()
+        self.assert_signal_ended_the_run(r, rc, doc)
+        with open(os.path.join(self.cfg.run_dir, "observations.json")) as fh:
+            seen = set(json.load(fh)["cells"])
+        later = set(RA.ACTIVE[RA.ACTIVE.index("K1") + 1:])
+        self.assertEqual(seen & later, set(), "steps after the signal were still observed")
+        self.assertNotIn("K1", seen)
+
+    def test_a_signal_between_the_rounds_ends_the_run(self):
+        """N1's window: from A's teardown to B's claim no round's handler is in place. run_lab's
+        own handler turns a SIGTERM there into a stop too (a safety handler stands in for the
+        default action, so the test process survives on code without it)."""
+        seen = []
+        safety = signal.signal(signal.SIGTERM, lambda n, f: seen.append(n))
+        real_keep = LAB.keep_state
+
+        def keep_then_kill(cfg, bringup):
+            real_keep(cfg, bringup)
+            if bringup == "A":
+                os.kill(os.getpid(), signal.SIGTERM)
+        try:
+            with mock.patch.object(LAB, "keep_state", keep_then_kill):
+                rc, doc, r = self.run_lab()
+        finally:
+            restored = signal.signal(signal.SIGTERM, safety)
+        ndt = [c["argv"][1] for c in r.calls if c["argv"][0] == "ndt"]
+        self.assertEqual((ndt.count("claim"), ndt.count("up")), (1, 1), ndt)
+        self.assertEqual(seen, [])                       # run_lab's handler took it, not the safety one
+        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
+        self.assertTrue(any("stop signal 15" in p_ for p_ in doc["problems"]), doc["problems"])
+        self.assertNotEqual(getattr(restored, "__name__", ""), "raiser")   # the caller's handler is back
+
+    def test_b_on_a_fabric_that_is_not_external_is_incomplete(self):
+        self.fab.force_mode = "ndtwin"
+        rc, doc, r = self.run_lab()
+        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
+        self.assertTrue(any("B's controller" in p_ for p_ in doc["problems"]), doc["problems"])
+
+    def test_a_controller_that_never_gets_ready_is_incomplete(self):
+        self.fab.ctrl_never_ready = True
+        rc, doc, r = self.run_lab()
+        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
+        self.assertTrue(any("B's controller" in p_ for p_ in doc["problems"]), doc["problems"])
 
     def test_an_incomplete_s0_touches_nothing(self):
         self.s0["verdict"] = "PROBE-BROKEN"

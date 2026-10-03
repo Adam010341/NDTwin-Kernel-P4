@@ -17,6 +17,7 @@ import importlib.util
 import json
 import os
 import shutil
+import signal
 
 from . import attribution as AT
 from . import expected as E
@@ -24,7 +25,7 @@ from . import report as R
 from . import runtime_cli as RC
 from .cells import table as T
 from .cells import verdict as V
-from .lab_round import LabRound
+from .lab_round import LabRound, SignalAbort
 from .round_a import ARound
 from .round_b import BRound
 
@@ -96,9 +97,64 @@ def keep_state(cfg, bringup):
                                                          "LAB_STATE.%s.json" % bringup))
 
 
+def signalled(rec):
+    """The round was stopped by SIGTERM / SIGINT / SIGHUP (lab_round records it so)."""
+    return any(str(p).startswith("aborted by signal") for p in (rec or {}).get("problems") or [])
+
+
+def _stop_on_signals():
+    """(Cut 2 review N1) For the whole run, not only inside a round: a stop signal between A's
+    teardown and B's claim raises SignalAbort here too, instead of killing the probe with its
+    default action. Returns the handlers it replaced."""
+    def raiser(signum, _frame):
+        raise SignalAbort(signum)
+    return {s: signal.signal(s, raiser) for s in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)}
+
+
+def _rounds(cfg, runner, run_id, model, pipelines, runtimes, orders, only, mutant, bringups,
+            packages, round_cls, a_kwargs, b_kwargs, tutorials_utils, run_dir, recs, problems,
+            log, holder):
+    """Bring-up A, then -- only if A ended clean and was not stopped -- bring-up B."""
+    if "A" in bringups:
+        a = holder["A"] = ARound(cfg, runner, run_id, model, pipelines, runtimes, orders, only=only,
+                                 **(a_kwargs or {}))
+        pkg = os.path.join(packages, "A-MUT" if mutant else "A")
+        log("bring-up A (%s): %d cell(s)" % (os.path.basename(pkg), len(a.selected)))
+        lr_a = round_cls(cfg, runner, "A", pkg, run_id)
+        recs.append(lr_a.run(a.body))
+        keep_state(cfg, "A")
+        log("  A: complete=%s problems=%s" % (recs[-1]["complete"], recs[-1]["problems"]))
+        if signalled(recs[-1]):
+            # (Cut 2 review N1) a stop is a stop: no further claim, whatever A's teardown did
+            problems.append("stop signal during bring-up A: the run ends here, B not brought up")
+            log("  " + problems[-1])
+            return
+        why = ended_clean(lr_a, recs[-1])
+        if why and "B" in bringups:
+            problems.append("B not brought up: A did not end clean (%s); finish with recover.sh %s"
+                            % ("; ".join(why), run_dir))
+            log("  " + problems[-1])
+            return
+    if "B" in bringups:
+        b = holder["B"] = BRound(cfg, runner, run_id, model, os.path.join(run_dir, "exercise", "build"),
+                                 runtimes, tutorials_utils or os.path.join(os.path.expanduser("~"),
+                                                                           "tutorials", "utils"),
+                                 **(b_kwargs or {}))
+        log("bring-up B (external): the eleven attributions")
+        recs.append(round_cls(cfg, runner, "B", os.path.join(packages, "B"), run_id).run(b.body))
+        keep_state(cfg, "B")
+        log("  B: complete=%s problems=%s" % (recs[-1]["complete"], recs[-1]["problems"]))
+        if signalled(recs[-1]):
+            problems.append("stop signal during bring-up B")
+        elif b.failed:
+            # (Cut 2 review N2) a B that claimed the lab but whose controller did nothing
+            problems.append("B's controller did not do its part: %s" % b.failed)
+            log("  " + problems[-1])
+
+
 def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None, mutant=False,
             tutorials_utils=None, round_cls=LabRound, a_kwargs=None, b_kwargs=None,
-            expected_tsv=None, log=print, identity=None):
+            expected_tsv=None, log=print, identity=None, signals=True):
     """Returns (rc, health document). rc: 0 COMPLETE, 1 PROBE-BROKEN, 2 INCOMPLETE."""
     if s0_out.get("verdict") != "COMPLETE":
         log("S0 is %s: the lab is not touched" % s0_out.get("verdict"))
@@ -106,29 +162,22 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
     model = load_model(os.path.join(run_dir, "exercise"))
     pipelines, runtimes, orders = expectations(s0_out, run_dir, model)
     packages = os.path.join(run_dir, "packages")
-    recs, a, b, problems = [], None, None, []
-    if "A" in bringups:
-        a = ARound(cfg, runner, run_id, model, pipelines, runtimes, orders, only=only, **(a_kwargs or {}))
-        pkg = os.path.join(packages, "A-MUT" if mutant else "A")
-        log("bring-up A (%s): %d cell(s)" % (os.path.basename(pkg), len(a.selected)))
-        lr_a = round_cls(cfg, runner, "A", pkg, run_id)
-        recs.append(lr_a.run(a.body))
-        keep_state(cfg, "A")
-        log("  A: complete=%s problems=%s" % (recs[-1]["complete"], recs[-1]["problems"]))
-        why = ended_clean(lr_a, recs[-1])
-        if why and "B" in bringups:
-            problems.append("B not brought up: A did not end clean (%s); finish with recover.sh %s"
-                            % ("; ".join(why), run_dir))
-            log("  " + problems[-1])
-            bringups = tuple(x for x in bringups if x != "B")
-    if "B" in bringups:
-        b = BRound(cfg, runner, run_id, model, os.path.join(run_dir, "exercise", "build"), runtimes,
-                   tutorials_utils or os.path.join(os.path.expanduser("~"), "tutorials", "utils"),
-                   **(b_kwargs or {}))
-        log("bring-up B (external): the eleven attributions")
-        recs.append(round_cls(cfg, runner, "B", os.path.join(packages, "B"), run_id).run(b.body))
-        keep_state(cfg, "B")
-        log("  B: complete=%s problems=%s" % (recs[-1]["complete"], recs[-1]["problems"]))
+    recs, problems, holder = [], [], {}
+    old_handlers = _stop_on_signals() if signals else None
+    try:
+        _rounds(cfg, runner, run_id, model, pipelines, runtimes, orders, only, mutant, bringups,
+                packages, round_cls, a_kwargs, b_kwargs, tutorials_utils, run_dir, recs, problems,
+                log, holder)
+    except SignalAbort as exc:
+        # (Cut 2 review N1) between rounds, or before a round's own handlers are in place
+        problems.append("stop signal %d outside a round's teardown: the run ends here; finish with "
+                        "recover.sh %s if a round was under way" % (exc.signum, run_dir))
+        log("  " + problems[-1])
+    finally:
+        if old_handlers is not None:
+            for sig, h in old_handlers.items():
+                signal.signal(sig, h)
+    a, b = holder.get("A"), holder.get("B")
     observations = merge(a.observations if a else {}, b.confirmed if b else None)
     observations["PF-T"] = pft_observation(s0_out)
     ctx = V.judge_all(T.TABLE, observations, a.sc_observations if a else {})
