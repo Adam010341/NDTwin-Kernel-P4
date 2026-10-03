@@ -246,17 +246,25 @@ class S0(object):
             shutil.rmtree(fwd_ex)
         shutil.copytree(self.ex, fwd_ex, ignore=shutil.ignore_patterns("build", "build-mutant"))
         os.rename(os.path.join(fwd_ex, "build-fwd"), os.path.join(fwd_ex, "build"))
+        # (Cut 2) A with the mutant artefact, for the live see-red run (design 5.2-④: --only
+        # K1,TTL1 must give PROBE-BROKEN by SC-count and SC-ttl). Its p4info is the plain one.
+        mut_ex = os.path.join(self.run_dir, "exercise-mutant")
+        if os.path.exists(mut_ex):
+            shutil.rmtree(mut_ex)
+        shutil.copytree(self.ex, mut_ex, ignore=shutil.ignore_patterns("build", "build-fwd"))
+        os.rename(os.path.join(mut_ex, "build-mutant"), os.path.join(mut_ex, "build"))
         self.pkgs = {
             "A": self.convert("A", "topology.json", "ndtwin"),
             "B": self.convert("B", "topology-b.json", "external"),
             "C": self.convert("C", "topology.json", "ndtwin", role=ROLE_C),
             "PF-T": self.convert("PF-T", "topology-pft.json", "ndtwin"),
             "FWD": self.convert("FWD", "topology.json", "ndtwin", exercise=fwd_ex),
+            "A-MUT": self.convert("A-MUT", "topology.json", "ndtwin", exercise=mut_ex),
         }
 
     def preflight(self):
         script = os.path.join(REPO, "tools", "p4_exercise", "preflight.py")
-        for name in ("A", "B", "C", "PF-T"):
+        for name in ("A", "B", "C", "PF-T", "A-MUT"):
             pkg = self.pkgs.get(name)
             if pkg is None:
                 self.check("pre-flight %s" % name, False, "no package")
@@ -280,7 +288,7 @@ class S0(object):
         script = os.path.join(REPO, "tools", "test_workflow", "heartbeat_drop_check.py")
         os.makedirs(self.hb_cache, exist_ok=True)
         env = {"NDT_HB_CHECK_CACHE": self.hb_cache}
-        want = {"A": 0, "B": 0, "C": 0, "FWD": 1}
+        want = {"A": 0, "B": 0, "C": 0, "FWD": 1, "A-MUT": 0}
         for name, rc_want in sorted(want.items()):
             pkg = self.pkgs.get(name)
             if pkg is None:
@@ -560,6 +568,33 @@ class S0(object):
                                                    (r.get("write_errors") or [{}])[0].get("message"),
                                                    r.get("alive_after_write")) for r in results))
 
+    def ctrl_trial(self):
+        """(Cut 2) B's controller and attribution.confirm on throwaway simple_switch_grpc
+        switches, stock and fabric build: every attribution confirmed except the RegisterEntry
+        write, which bmv2's P4Runtime refuses ("Register writes are not supported yet", seen in
+        Cut 2) -- R3's bmv2 half therefore cannot be established and R3 reads UNATTRIBUTED."""
+        want_false = {"register"}
+        try:
+            from . import ctrl_trial as CT
+            from .vs_trial import fabric_binary
+            utils = os.path.join(os.path.expanduser("~"), "tutorials", "utils")
+            results = [CT.trial(os.path.join(self.ex, "build"), b, self.thrift_cli,
+                                os.path.join(self.run_dir, "ctrl_trial_work", "%d" % i),
+                                default_p4dev_python(), utils)
+                       for i, b in enumerate(("/usr/local/bin/simple_switch_grpc", fabric_binary()))]
+        except Exception as exc:  # noqa: BLE001
+            self.check("B's controller on throwaway simple_switch_grpc", False,
+                       "%s: %s" % (type(exc).__name__, exc))
+            return
+        self.out["ctrl_trial"] = results
+        for r in results:
+            failed = {k for k, v in r["confirmed"].items() if not v["ok"]}
+            self.check("B's controller on throwaway %s: 11 attributions" % os.path.basename(
+                           os.path.dirname(os.path.dirname(r["bmv2"]))),
+                       failed == want_false and r.get("controller_rc") == 0 and r.get("alive"),
+                       "unconfirmed %s (expected %s), controller rc %s"
+                       % (sorted(failed), sorted(want_false), r.get("controller_rc")))
+
     def openapi(self):
         res = self.run_cmd([self.py, os.path.join(HERE, "openapi_probe.py"), "--repo", REPO], timeout=120)
         try:
@@ -592,6 +627,7 @@ class S0(object):
             self.drop_check()
             self.self_checks()
             self.vs_trial()
+            self.ctrl_trial()
         self.identity()
         self.openapi()
         self.pft_verdict()

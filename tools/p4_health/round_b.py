@@ -1,0 +1,140 @@
+"""Bring-up B, minimal (Cut 2): run B's controller and confirm its eleven attributions.
+
+[Co-developed with claude code -- Adam]
+
+`BRound(...).body(lab_round)` is what probe.py hands LabRound.run for bring-up B (the external
+package). In order:
+
+  1. write the controller's instructions (controller_ext.py reads $P4H_CTRL_CONFIG);
+  2. start it through tools/p4_exercise/run_external_controller.py <B package> controller_ext.py
+     (design 4.2: the adapter rewrites tutorials' 127.0.0.1:5005<i> / device i-1 onto the
+     fabric's 30050+i / device i), as the caller, under the p4dev interpreter (the one with
+     p4runtime_lib's p4.tmp); record it in LAB_STATE.json (its argv carries the run id through
+     the package path);
+  3. wait for its `ready` file (the writes are done), then send the markers it needs -- K2's
+     direct-counter markers, D1's digest markers and P2's packet-in markers, h4 -> h6 -- with a
+     sniffer on h4 for the packet-out;
+  4. touch `go`; the controller reads the direct counter, sends the packet-out and writes its
+     result; wait for it to exit (the teardown stops it if it does not);
+  5. confirm each attribution from thrift on s2 and the sniffer (attribution.confirm).
+
+B's own cells (PL2, K3, P4, TP4, CP2) are Cut 4's and are not observed here.
+"""
+from __future__ import annotations
+
+import json
+import os
+import time
+
+from . import attribution as AT
+from .collect import sniff as S
+from .collect import thrift as TH
+from .collect.hosts import Hosts
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(os.path.dirname(HERE))
+ADAPTER = os.path.join(REPO, "tools", "p4_exercise", "run_external_controller.py")
+CONTROLLER = os.path.join(HERE, "controller_ext.py")
+SRC, DST, ATTR_DPID = "h4", "h6", 2
+D1_SPORT = 40041
+
+
+class BRound(object):
+    def __init__(self, cfg, runner, run_id, model, build_dir, runtimes, tutorials_utils,
+                 out_dir=None, hosts=None, sleep=time.sleep, clock=time.monotonic,
+                 ready_timeout_s=120.0, exit_timeout_s=120.0):
+        self.cfg, self.runner, self.run_id, self.model = cfg, runner, run_id, model
+        self.build_dir, self.runtimes = build_dir, runtimes
+        self.tutorials_utils = tutorials_utils
+        self.out_dir = out_dir or os.path.join(cfg.run_dir, "B")
+        self.hosts = hosts
+        self.sleep, self.clock = sleep, clock
+        self.ready_timeout_s, self.exit_timeout_s = ready_timeout_s, exit_timeout_s
+        self.confirmed = None
+        self.problems = []
+
+    def path(self, name):
+        return os.path.join(self.out_dir, name)
+
+    def config(self):
+        return {"out": self.path("controller.result.json"), "ready": self.path("controller.ready.json"),
+                "go": self.path("controller.go"), "build": self.build_dir,
+                "programs": {str(d): self.model.program(d) for d in (1, 2, 3, 4)},
+                "runtimes": {str(d): self.runtimes[d] for d in (1, 2, 3, 4)},
+                "attr_dpid": ATTR_DPID, "token": self.hosts.token, "go_timeout_s": 120,
+                "packet_out": {"port": self.model.HOST_PORT[4], "dst_mac": self.hosts.mac(SRC),
+                               "src_mac": "08:00:00:00:ff:02", "src_ip": self.hosts.ip(DST),
+                               "dst_ip": self.hosts.ip(SRC), "count": 5},
+                "tutorials_utils": self.tutorials_utils}
+
+    def _wait_file(self, path, proc, timeout):
+        deadline = self.clock() + timeout
+        while not os.path.exists(path):
+            if proc.poll() is not None or self.clock() >= deadline:
+                return os.path.exists(path)
+            self.sleep(0.2)
+        return True
+
+    def _load(self, path):
+        try:
+            with open(path, encoding="utf-8") as fh:
+                return json.load(fh)
+        except (OSError, ValueError):
+            return None
+
+    def body(self, lab_round):
+        os.makedirs(self.out_dir, exist_ok=True)
+        if self.hosts is None:
+            self.hosts = Hosts(self.cfg, self.runner, self.run_id, self.out_dir, self.model,
+                               register=lab_round.register)
+        conf_path = self.path("controller.conf.json")
+        with open(conf_path, "w", encoding="utf-8") as fh:
+            json.dump(self.config(), fh, indent=2, sort_keys=True)
+        argv = [self.cfg.p4dev_python, ADAPTER, lab_round.package_dir, CONTROLLER,
+                "--tutorials-utils", self.tutorials_utils]
+        proc = self.runner.spawn(argv, self.path("controller.log"), env={"P4H_CTRL_CONFIG": conf_path})
+        if proc is None:
+            self.problems.append("B's controller could not be started")
+            return self.finish(None, None)
+        try:
+            lab_round.register("controller", proc.pid, self.run_id)
+        except ValueError as exc:
+            self.problems.append("controller not recorded: %s" % exc)
+        if not self._wait_file(self.path("controller.ready.json"), proc, self.ready_timeout_s):
+            self.problems.append("B's controller never wrote its ready file (rc %s)" % proc.poll())
+            return self.finish(None, None)
+        sent = {}
+
+        def stimulate():
+            outs = [self.hosts.send(SRC, DST, "K2", 40012, 200),
+                    self.hosts.send(SRC, DST, "D1", 40041, 5, sport=D1_SPORT),
+                    self.hosts.send(SRC, DST, "P2", 40050, 5)]
+            for cell, out in zip(("K2", "D1", "P2"), outs):
+                sent[cell] = S.sent(out, cell)
+            open(self.path("controller.go"), "w").close()
+            if not self._wait_file(self.path("controller.result.json"), proc, self.exit_timeout_s):
+                self.problems.append("B's controller wrote no result")
+            return ""
+        _out, rx = self.hosts.window([(SRC, ["P3"])], stimulate, seconds=30.0, until=5)
+        if proc.poll() is None:
+            try:
+                proc.wait(timeout=30)
+            except Exception:  # noqa: BLE001 -- left for the teardown, which stops it by pid
+                self.problems.append("B's controller did not exit")
+        p3 = None if rx.get(SRC) is None else len(S.received(rx[SRC], "P3"))
+        return self.finish(self._load(self.path("controller.result.json")), p3, sent)
+
+    def finish(self, result, p3, sent=None):
+        reader = TH.ThriftReader(self.cfg, self.runner)
+        expect = {"digest": [AT.ip_int(self.model.host_ip(4)), D1_SPORT, 40041],
+                  "packet_in_port": self.model.HOST_PORT[4], "packet_in_cell": "P2",
+                  "token": self.hosts.token if self.hosts else None}
+        self.confirmed = AT.confirm(result, lambda cmd: reader.read(ATTR_DPID, cmd), p3, expect)
+        if result is None:
+            self.problems.append("no controller result: every attribution is unconfirmed")
+        doc = {"confirmed": self.confirmed, "sent": sent or {}, "p3_received": p3,
+               "controller": result, "problems": self.problems + (self.hosts.problems if self.hosts else [])}
+        with open(self.path("attributions.json"), "w", encoding="utf-8") as fh:
+            json.dump(doc, fh, indent=2, sort_keys=True, default=sorted)
+            fh.write("\n")
+        return self.confirmed

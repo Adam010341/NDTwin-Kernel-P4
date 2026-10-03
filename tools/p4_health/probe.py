@@ -5,7 +5,8 @@
 
     probe.py s0 --run-dir <dir> [--py-p4 PY]      S0, no lab (Cut 1)
     probe.py judge --observations OBS.json --run-dir DIR           verdicts from recorded readings
-    probe.py lab ...                                               refused: Cut 2 builds it
+    probe.py lab --run-dir DIR --owner O [--bringups A,B] [--only K1,TTL1] [--mutant]
+                                                                   S0, then bring-ups A and B (Cut 2)
 
 Exit: 0 COMPLETE, 1 PROBE-BROKEN (not publishable), 2 INCOMPLETE / refused.
 Refuses to run as root (design 7.3). Wrap in run.sh (setsid, nice) for anything long.
@@ -89,6 +90,34 @@ def cmd_judge(args):
     return rc
 
 
+def cmd_lab(args):
+    """S0 in the run directory, then the lab (lab.run_lab). The owner is required: every ndt
+    call carries it (CLAUDE.md), and claims are made in its name."""
+    from p4_health import lab as L
+    from p4_health.collect.config import Config
+    from p4_health.s0 import S0
+    owner = args.owner or os.environ.get("NDT_OWNER")
+    if not owner:
+        print("refused: --owner (or NDT_OWNER) is required for a lab run", file=sys.stderr)
+        return 2
+    run_dir = os.path.abspath(args.run_dir)
+    run_id = os.path.basename(run_dir.rstrip("/"))
+    py = args.py_p4 or os.environ.get("P4_PROXY_PY") or os.path.join(REPO, "p4_proxy", "venv", "bin", "python")
+    runner = Runner()
+    ident = repo_identity()
+    print("lab run %s -> %s  (HEAD %s, probe tree %s)" % (run_id, run_dir, ident["head"], ident["probe_tree"]))
+    s0 = S0(run_dir, runner, py)
+    s0.out["repo"] = ident
+    s0.run()
+    print("S0 %s" % s0.out["verdict"])
+    cfg = Config(run_dir, owner=owner)
+    bringups = tuple(b for b in (args.bringups or "A,B").split(",") if b)
+    only = [c for c in (args.only or "").split(",") if c] or None
+    rc, _doc = L.run_lab(cfg, runner, s0.out, run_dir, run_id, bringups=bringups, only=only,
+                         mutant=args.mutant)
+    return rc
+
+
 def main(argv=None):
     if os.geteuid() == 0:
         print("refusing to run as root (design 7.3)", file=sys.stderr)
@@ -102,15 +131,20 @@ def main(argv=None):
     j.add_argument("--observations", required=True)
     j.add_argument("--run-dir", required=True)
     j.add_argument("--expected", default=None)
-    sub.add_parser("lab")
+    lab = sub.add_parser("lab")
+    lab.add_argument("--run-dir", required=True)
+    lab.add_argument("--owner", default=None)
+    lab.add_argument("--bringups", default="A,B")
+    lab.add_argument("--only", default=None)
+    lab.add_argument("--mutant", action="store_true")
+    lab.add_argument("--py-p4", default=None)
     args = ap.parse_args(argv)
     if args.cmd == "s0":
         return cmd_s0(args)
     if args.cmd == "judge":
         return cmd_judge(args)
     if args.cmd == "lab":
-        print("refused: the lab half of the health check is Cut 2 and is not built", file=sys.stderr)
-        return 2
+        return cmd_lab(args)
     ap.print_help()
     return 2
 

@@ -195,7 +195,10 @@ def decide(spec, obs, ctx):
         attribution  {"bmv2": bool, "wire": bool, "static": bool}
         pre          {"ok": bool, "why": str} -- the cell's stated precondition
     """
-    obs = obs or {}
+    # (Cut 2) a cell this run never observed -- a later Cut's cell, or one `--only` left out --
+    # is NOT RUN for that reason, not for an "unreadable" answer nobody asked for
+    if obs is None:
+        return Verdict(NOT_RUN, "not observed in this run", phase="unobserved")
     # 0. NDTwin's answer unreadable (r2)
     if spec.needs_answer and obs.get("answer") is None:
         return Verdict(NOT_RUN, "NDTwin's answer unreadable", phase="answer")
