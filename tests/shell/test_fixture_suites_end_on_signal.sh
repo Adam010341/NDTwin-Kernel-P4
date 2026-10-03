@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# A signal ENDS each of the seven fixture-spawning suites: sent TERM (and INT) mid-run, a suite must
+# A signal ENDS each of the eight fixture-spawning suites: sent TERM (and INT) mid-run, a suite must
 # stop at once with the shell's 128+signal status, its fixtures gone and its temp tree removed.
 #
 # [Co-developed with claude code -- Adam]
@@ -10,7 +10,8 @@
 # RETURNED, and the suite went on running without them: test_ndt_down_stops_only_ours.sh spawned
 # into the deleted directory and waited out its poll, the others ran their checks against a tree
 # that was no longer there. test_ndt_app_orphans.sh was converted first (2026-09-28): EXIT does
-# the cleaning, INT and TERM only end the run. This test holds all seven to that.
+# the cleaning, INT and TERM only end the run. This test holds all eight to that (the eighth,
+# test_apps_stop_kills_the_group.sh, joined on 2026-10-03; test_live_p1_common.sh is not in it yet).
 #
 # AND THREE MORE WAYS (2026-10-03).
 #   * A suite that EXITS 130 on INT has, to a calling bash, handled the Ctrl-C, and the caller
@@ -20,8 +21,9 @@
 #   * A second signal arriving while the cleanup runs cut it short. The `cleanup` runs send a
 #     second signal while the cleanup's own `sleep 0.3` is running, three ways per suite: INT
 #     then INT (Ctrl-C twice), TERM then TERM, INT then TERM. Six suites have that sleep between
-#     reaping their fixtures and removing their tree; test_ndt_ovs_claim.sh has none, and runs as
-#     a copy with one inserted before its `rm -rf` (a copy that changes when, not what).
+#     reaping their fixtures and removing their tree; test_ndt_ovs_claim.sh and
+#     test_apps_stop_kills_the_group.sh have none, and run as a copy with one inserted before
+#     their `rm -rf` (a copy that changes when, not what).
 #   * Two spawners had a window between starting a fixture and writing its pid down. `app`
 #     signals test_ndt_apps_liveness.sh during app_spawn's `sleep 1`, which comes after the app
 #     is started and before spawn_app_fixture records it -- a second, so it is hit as it is.
@@ -33,7 +35,8 @@
 #     when it runs -- the window suite's held parent, in the suite's own group -- through a copy
 #     with a `sleep 1` after HELD=$!. A cleanup that killed that child's group would kill the
 #     suite (and, under INT, its caller): 137, not 143 or 130. That is why every run is checked
-#     to lead a session of its own, and its session is printed beside this test's.
+#     to lead a session of its own, its session is printed beside this test's, and a run that does
+#     not is NOT signalled: it is reaped by its token and the next run starts.
 #
 # HOW. Each suite is started in the background with a token in its environment that every
 # process it starts inherits, so "a process of this run" is read from /proc/<pid>/environ, not
@@ -55,7 +58,10 @@
 #   two      the inserted `sleep 1` is a child of the suite's shell AND the two-layer fixture's
 #            child is alive (its pid is in the tree's twolayer_child).
 #   held     the inserted `sleep 1` is a child of the suite's shell AND so is the held parent,
-#            known by its stdin: the tree's `hold` fifo.
+#            known by its stdin: the tree's `hold` fifo. Its premise is read too: the held parent's
+#            process group is the suite's, and is not its own pid.
+# apps_group has no check that announces a fixture: its moment is the suite's register of process
+# GROUPS (`groups`) naming a live process of the run, the app it has just started.
 # TERM goes to the suite's own pid, INT to its whole process group, the way a terminal's Ctrl-C
 # arrives (bash runs an INT trap once the foreground child it is waiting for has died of INT too).
 # Then:
@@ -69,23 +75,23 @@
 # with INT ignored, and bash cannot trap a signal that was ignored when it started.
 #
 # Run:  bash tests/shell/test_fixture_suites_end_on_signal.sh [label...]
-#   labels: orphans liveness sweep window topo_pid ovs_claim down (default: all seven); a label
+#   labels: orphans liveness sweep window topo_pid ovs_claim down apps_group (default: all eight); a label
 #   selects every run of that suite.
 #   SIGNAL_END_WITHIN=20  SIGNAL_FIRST_FIXTURE_WAIT=30  SIGNAL_CLEANUP_WAIT=10  SIGNAL_HARD_LIMIT=30
-#   SIGNAL_TOTAL_LIMIT=210 (seconds). Green, the thirty-nine runs take about 105 s in all on the
-#   development machine; about half of that is the four `app`/`two`/`held` runs, which wait for a
-#   point 11-13 s into their suite.
+#   SIGNAL_TOTAL_LIMIT=210 (seconds). Green, the forty-three runs take 92-103 s in all on the
+#   development machine (measured 2026-10-03, five runs); about a third of that is the three
+#   `app`/`two`/`held` runs, which wait for a point 11-13 s into their suite.
 # THE BOUND. The limits keep a HUNG suite a red line rather than a killed CI job. ci.yml's
 #   build-and-test has timeout-minutes 30, and on PR #22 that job took 22 min 11 s and 21 min 30 s
 #   (GitHub Actions jobs 110274499246 and 110274514834: 07:56:17Z-08:18:28Z and
 #   07:56:19Z-08:17:49Z), so about 7.8 min are left. One run is at most FIRST_WAIT + CLEANUP_WAIT
 #   + HARD_LIMIT + about 5 s of /proc scans = 75 s, and no run starts after TOTAL_LIMIT, so this
 #   whole test ends within 210 + 75 = 285 s (4.75 min) -- 22 min 11 s + 4.75 min = 26.9 min,
-#   inside the 30. Without the total limit it would be 39 x 75 = 2925 s. The limit is about twice
+#   inside the 30. Without the total limit it would be 43 x 75 = 3225 s. The limit is about twice
 #   the green time, so a host half as fast still runs every run.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ALL_LABELS=(orphans liveness sweep window topo_pid ovs_claim down)
+ALL_LABELS=(orphans liveness sweep window topo_pid ovs_claim down apps_group)
 END_WITHIN="${SIGNAL_END_WITHIN:-20}"
 FIRST_WAIT="${SIGNAL_FIRST_FIXTURE_WAIT:-30}"
 CLEANUP_WAIT="${SIGNAL_CLEANUP_WAIT:-10}"
@@ -113,8 +119,10 @@ done
 selected() { [[ " ${LABELS[*]} " == *" $1 "* ]]; }
 
 # suite_info <label> -> SFILE, SPREFIX (its temp tree's mktemp prefix), SPRIVATE (1: it honours
-# TMPDIR), SREG (its fixture register, one pid per line, relative to that tree)
+# TMPDIR), SREG (its fixture register, one pid per line, relative to that tree), SPREMISE (a line
+# of its output that must be there before the signal: by default, a fixture that took its argv0)
 suite_info() {
+    SPREMISE='^ *ok +fixture took argv0='
     case "$1" in
         orphans)   SFILE="$HERE/test_ndt_app_orphans.sh";           SPREFIX=ndt-app-orphans-;     SPRIVATE=0; SREG=fixtures ;;
         liveness)  SFILE="$HERE/test_ndt_apps_liveness.sh";         SPREFIX=ndt-apps-liveness-;   SPRIVATE=0; SREG=fixtures ;;
@@ -123,6 +131,9 @@ suite_info() {
         window)    SFILE="$HERE/test_ndt_helper_apps_window.sh";    SPREFIX=ndt-helper-window-;   SPRIVATE=1; SREG=fixtures ;;
         ovs_claim) SFILE="$HERE/test_ndt_ovs_claim.sh";             SPREFIX=ndt-ovs-claim-;       SPRIVATE=1; SREG=fixture.pids ;;
         down)      SFILE="$HERE/test_ndt_down_stops_only_ours.sh";  SPREFIX=ndt-down-ours-;       SPRIVATE=1; SREG=spawned.pids ;;
+        # Its fixtures are not `sleep`s a check announces: the moment is the register of process
+        # GROUPS, which the suite writes once the app it started is up -- any check printed before.
+        apps_group) SFILE="$HERE/test_apps_stop_kills_the_group.sh"; SPREFIX=ndt-appsgroup-;       SPRIVATE=0; SREG=groups; SPREMISE='^ *ok ' ;;
     esac
 }
 # variant_of <label> <mode> -> VOLD, VNEW: the one edit a run's copy of the suite makes, or none.
@@ -132,6 +143,10 @@ variant_of() {
         "ovs_claim cleanup")
             VOLD='[[ -n "${FIX:-}" && -d "$FIX" ]] && rm -rf "$FIX"'
             VNEW='sleep 0.3; [[ -n "${FIX:-}" && -d "$FIX" ]] && rm -rf "$FIX"'
+            VDESC="a sleep 0.3 before the cleanup's rm -rf" ;;
+        "apps_group cleanup")
+            VOLD='[[ -n "${TMPROOT:-}" && "$TMPROOT" == /tmp/ndt-appsgroup-* ]] && rm -rf "$TMPROOT"'
+            VNEW='sleep 0.3; [[ -n "${TMPROOT:-}" && "$TMPROOT" == /tmp/ndt-appsgroup-* ]] && rm -rf "$TMPROOT"'
             VDESC="a sleep 0.3 before the cleanup's rm -rf" ;;
         "window two")
             VOLD=$'    TWO_PARENT=$!\n'
@@ -230,7 +245,7 @@ send() {   # send <TERM|INT> <the pid signalled>: TERM to the pid, INT to its gr
 # one <label> <mode> <SIG> <expected rc> [<the second signal, for mode cleanup>]
 one() {
     local label="$1" mode="$2" sig="$3" want="$4" second="${5:-}" tok tmpd out spid suite="" t0 t1 rc i tree="" d p f0="$FAIL"
-    local deadline runfile name moment="" what n sid start_t sent_t left_ms
+    local deadline runfile name moment="" what n sid pg start_t sent_t left_ms held=""
     local -a before=() fixtures=() left=() live=() kids=()
     suite_info "$label"
     variant_of "$label" "$mode"
@@ -279,7 +294,7 @@ print(n)' "$SFILE" "$runfile" "$VOLD" "$VNEW")"
         fi
         if [[ -n "$suite" ]]; then case "$mode" in
         fixture|cleanup)
-            if grep -qE '^ *ok +fixture took argv0=' "$out" 2>/dev/null; then
+            if grep -qE "$SPREMISE" "$out" 2>/dev/null; then
                 mapfile -t live < <(token_pids "$tok" | grep -vx -e "$spid" -e "$suite")
                 for d in "$( (( SPRIVATE )) && echo "$tmpd" || echo /tmp)/$SPREFIX"*; do
                     [[ -f "$d/$SREG" ]] || continue
@@ -310,7 +325,7 @@ print(n)' "$SFILE" "$runfile" "$VOLD" "$VNEW")"
                 for d in "$tmpd/$SPREFIX"*; do
                     for p in $(children_of "$suite"); do
                         [[ "$(readlink "/proc/$p/fd/0" 2>/dev/null)" == "$d/hold" ]] || continue
-                        tree="$d"; moment="the inserted sleep 1 is pid $CHILD; the held parent $p, a child of the suite in its group, waits on $d/hold"
+                        tree="$d"; held="$p"; moment="the inserted sleep 1 is pid $CHILD; the held parent $p, a child of the suite in its group, waits on $d/hold"
                         break 2
                     done
                 done
@@ -343,8 +358,28 @@ print(n)' "$SFILE" "$runfile" "$VOLD" "$VNEW")"
     # [Co-developed with claude code -- Adam] Its own session, too (2026-10-03): whatever a suite's
     # cleanup kills by group then cannot reach this test or whatever runs it.
     sid="$(ps -o sid= -p "$spid" 2>/dev/null | tr -d ' ')"
-    check "$name: and that pid leads its own process group and session" "$spid $spid" \
-          "$(ps -o pgid= -p "$spid" 2>/dev/null | tr -d ' ') $sid"
+    pg="$(ps -o pgid= -p "$spid" 2>/dev/null | tr -d ' ')"
+    check "$name: and that pid leads its own process group and session" "$spid $spid" "$pg $sid"
+    if [[ "$pg $sid" != "$spid $spid" ]]; then
+        # [Co-developed with claude code -- Adam] Not signalled (2026-10-03): the run is not in a
+        # group of its own, so a cleanup that kills a group could reach this test and whatever
+        # runs it, and the signal itself (INT goes to the group) could too.
+        echo "  note     not signalled: the run does not lead a process group and session of its own"
+        kill -KILL "$spid" 2>/dev/null; wait "$spid" 2>/dev/null; reap_token "$tok"
+        [[ -d "$tree" && "${tree##*/}" == "$SPREFIX"* ]] && rm -rf "$tree"
+        [[ "$runfile" != "$SFILE" ]] && rm -f "$runfile"
+        return
+    fi
+    if [[ "$mode" == held ]]; then
+        # [Co-developed with claude code -- Adam] The premise `held` is there for (2026-10-03): the
+        # parent leads no group of its own, so it is in the suite's. Were it a leader, a cleanup
+        # that killed "its" group would kill only what it should, and the cell would pass
+        # whatever the cleanup did.
+        check "$name: the held parent is in the suite's group" "$(ps -o pgid= -p "$suite" 2>/dev/null | tr -d ' ')" \
+              "$(ps -o pgid= -p "$held" 2>/dev/null | tr -d ' ')"
+        check "$name:   and that group is not its own pid" no \
+              "$([[ "$(ps -o pgid= -p "$held" 2>/dev/null | tr -d ' ')" == "$held" ]] && echo yes || echo no)"
+    fi
     echo "  note     signalled with $moment"
     echo "  note     the run's session $sid; this test's session $(ps -o sid= -p $$ | tr -d ' ')"
     mapfile -t kids < <(children_of "$suite")
@@ -408,11 +443,13 @@ print(n)' "$SFILE" "$runfile" "$VOLD" "$VNEW")"
 PLAN=()
 for l in "${LABELS[@]}"; do PLAN+=("$l fixture TERM 143" "$l fixture INT 130"); done
 for l in "${LABELS[@]}"; do PLAN+=("$l cleanup INT 130 INT" "$l cleanup TERM 143 TERM" "$l cleanup INT 130 TERM"); done
-# app and two only under INT: the reaper does not ask which signal ended the run, and each run
-# waits 11-13 s for its moment. held under both, since the child it leaves is the same either way
-# but INT is the one whose caller a wrong group kill would take with it.
+# app, two and held only under INT: the reaper does not ask which signal ended the run, and each
+# run waits 11-13 s for its moment. INT is the one whose caller a wrong group kill would take with
+# it, and held under INT alone fails each of the three ways the reaper can be got wrong that held
+# is there for (a group kill of the child's real group, kill 0, no reaper call -- measured
+# 2026-10-03, r2/red-M2a..c). A held TERM run was dropped for the 12 s it cost.
 selected liveness && PLAN+=("liveness app INT 130")
-selected window && PLAN+=("window two INT 130" "window held TERM 143" "window held INT 130")
+selected window && PLAN+=("window two INT 130" "window held INT 130")
 for run in "${PLAN[@]}"; do
     read -r l mode sig want second <<<"$run"
     if (( SECONDS >= TOTAL_LIMIT )); then
