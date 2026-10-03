@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""The P4 health check's verdict functions, on fixtures (DESIGN 5.2-①).
+"""The P4 health check's verdict functions, on fixtures (design 5.2-①).
 
 [Co-developed with claude code -- Adam]
 
 Pure functions, no I/O. The package under test is tools/p4_health, or the copy that
 $P4_HEALTH_UNDER_TEST names (tests/shell/mutate_p4_health.sh points it at a mutated copy).
 
-Every active cell gets: green, red, sent=0 -> NOT RUN, oracle unreadable -> NOT RUN, attribution
-failing -> UNATTRIBUTED (where the cell's attribution can fail at all), self-check failing ->
-PROBE-BROKEN. Every static cell: oracle unreadable -> NOT RUN, and a thrift reply that is an
-error or empty never reads GREEN (its negative read fails). Then the named fixtures: rule D,
-expected refusals, the decision order, Q1, CH7, K1's N vs N+1, and the rest of M1-M18.
+Every judged cell gets: green; red; NDTwin's answer unreadable -> NOT RUN; an answer or oracle
+that is readable but EMPTY -> NOT RUN, never GREEN; sent=0 -> NOT RUN (active); oracle
+unreadable -> NOT RUN; attribution failing -> UNATTRIBUTED (where it can fail); self-check
+failing -> PROBE-BROKEN. Static thrift-match cells: a thrift reply read as a match fails the
+negative read. Then the named fixtures: rule D, the controls, expected refusals, the decision
+order, every compare branch the Cut 1 review listed, the three rollups, and the predictions.
 """
 import copy
 import os
@@ -23,6 +24,7 @@ sys.path.insert(0, os.environ.get("P4_HEALTH_UNDER_TEST") or os.path.join(REPO, 
 
 from p4_health import expected as E  # noqa: E402
 from p4_health import frames as F  # noqa: E402
+from p4_health import report as R  # noqa: E402
 from p4_health.cells import table as T  # noqa: E402
 from p4_health.cells import verdict as V  # noqa: E402
 
@@ -33,12 +35,13 @@ P4_SRC = os.path.join(os.path.dirname(PKG), "exercise", "src", "hc_main.p4")
 ALL_ATTR = {"bmv2": True, "wire": True, "static": True}
 #: The best a cell can read today by its own definition (P4: section 12 item 8).
 BEST = {"P4": V.PARTIAL}
+CONTROL_OK = {"answer": {"http": 404, "error": "not in this pipeline"}}
 
 
 def ctx_green(**over):
-    """A context in which every gate is GREEN and every self-check passed."""
+    """A context in which every gate and control is GREEN and every self-check passed."""
     ctx = V.Context()
-    for c in T.TABLE.cells:
+    for c in T.TABLE.cells + T.TABLE.controls:
         ctx.cells[c.id] = V.Verdict(V.GREEN, "fixture")
     for s in T.TABLE.self_checks:
         ctx.self_checks[s.id] = V.Verdict(V.GREEN, "fixture")
@@ -58,6 +61,8 @@ def decide(cid, obs, ctx=None):
 NEG_OK = {"absent": True}
 PAIR = {"src_mac": "08:00:00:00:01:11", "dst_mac": "08:00:00:00:04:44"}
 G1_OK = {"on_path": ["s1-s2"], "main_integral": 12.0, "off_path_max": 0}
+S4 = ("1", "2", "3", "4")
+PIPES = {"1": "alt", "2": "main", "3": "main", "4": "main"}
 
 
 def side(ethertype, before, after, pair=PAIR):
@@ -70,18 +75,30 @@ def hb(state="usable", missing=()):
     return {"state": state, "missing_directions": list(missing)}
 
 
+def win(eth4, eth5, base=100):
+    return {"s1-eth4": {"base": base, "during": base + eth4}, "s1-eth5": {"base": base, "during": base + eth5}}
+
+
+def ident(ethertype, g1=G1_OK, flow=True, before=3, after=9):
+    a = dict(side(ethertype, before, after), g1=dict(g1), flow_identity=flow)
+    return {"answer": a, "sent": 5000, "oracle": {"sampled": 4}}
+
+
+COUNTS = {d: {"recorded": 3, "applied": 3, "failed": 0} for d in S4}
+DUMPS = {d: ["a%s" % d, "b%s" % d] for d in S4}
+
 # (green obs, red obs) per cell. Each observation carries everything its cell reads.
 FIX = {
-    "PL1": ({"answer": {"pipelines": {"1": "alt", "2": "main"}}, "expect": {"pipelines": {"1": "alt", "2": "main"}},
+    "PL1": ({"answer": {"pipelines": dict(PIPES)}, "expect": {"pipelines": dict(PIPES)},
              "oracle": {"alt_table": {"1": True}}, "negative": NEG_OK},
-            {"answer": {"pipelines": {"1": "main", "2": "main"}}, "expect": {"pipelines": {"1": "alt", "2": "main"}},
+            {"answer": {"pipelines": dict(PIPES, **{"1": "main"})}, "expect": {"pipelines": dict(PIPES)},
              "oracle": {"alt_table": {"1": True}}, "negative": NEG_OK}),
     "PL2": ({"answer": {"skipped": ["pipeline_push"]}, "sent": 1, "oracle": {"primary": True, "set_pipeline_ok": True}},
             {"answer": {"skipped": []}, "sent": 1, "oracle": {"primary": True, "set_pipeline_ok": True}}),
-    "T1": ({"answer": {"counts": {"1": {"recorded": 3, "applied": 3, "failed": 0}}}, "sent": 3,
-            "expect": {"entries": {"1": ["a", "b"]}}, "oracle": {"dumps": {"1": ["a", "b"]}}, "negative": NEG_OK},
-           {"answer": {"counts": {"1": {"recorded": 3, "applied": 2, "failed": 1}}}, "sent": 3,
-            "expect": {"entries": {"1": ["a", "b"]}}, "oracle": {"dumps": {"1": ["a"]}}, "negative": NEG_OK}),
+    "T1": ({"answer": {"counts": copy.deepcopy(COUNTS)}, "sent": 3, "expect": {"entries": copy.deepcopy(DUMPS)},
+            "oracle": {"dumps": copy.deepcopy(DUMPS)}, "negative": NEG_OK},
+           {"answer": {"counts": dict(COUNTS, **{"2": {"recorded": 3, "applied": 2, "failed": 1}})}, "sent": 3,
+            "expect": {"entries": copy.deepcopy(DUMPS)}, "oracle": {"dumps": copy.deepcopy(DUMPS)}, "negative": NEG_OK}),
     "T2": ({"answer": {"applied": True}, "oracle": {"s2_default": ["HcIngress.stamp", [42]]}, "negative": NEG_OK},
            {"answer": {"applied": True}, "oracle": {"s2_default": ["HcIngress.stamp", [0]]}, "negative": NEG_OK}),
     "T3": ({"answer": {"http": 200}, "sent": 1, "oracle": {"present_after": True}, "negative": NEG_OK},
@@ -89,9 +106,9 @@ FIX = {
     "T4": ({"answer": {"http": 200}, "sent": 1, "oracle": {"present_after": True, "mask_ok": True, "priority_ok": True},
             "negative": NEG_OK},
            {"answer": {"http": 501}, "sent": 1, "oracle": {"present_after": False}, "attribution": {"bmv2": True}}),
-    "T5": ({"answer": {"http": 200}, "sent": 1, "oracle": {"present_after": True}, "negative": NEG_OK},
+    "T5": ({"answer": {"http": 200}, "sent": 1, "oracle": {"present_after": True, "priority_ok": True}, "negative": NEG_OK},
            {"answer": {"http": 501}, "sent": 1, "oracle": {}, "attribution": {"bmv2": True}}),
-    "T6": ({"answer": {"http": 200}, "sent": 1, "oracle": {"present_after": True}, "negative": NEG_OK},
+    "T6": ({"answer": {"http": 200}, "sent": 1, "oracle": {"present_after": True, "priority_ok": True}, "negative": NEG_OK},
            {"answer": {"http": 501}, "sent": 1, "oracle": {}, "attribution": {"bmv2": True}}),
     "T7": ({"answer": {"http": 200}, "sent": 2, "oracle": {"order_ok": True}, "negative": NEG_OK},
            {"answer": {"http": 200}, "sent": 2, "oracle": {"order_ok": False}, "attribution": {"bmv2": True}}),
@@ -101,52 +118,49 @@ FIX = {
            {"answer": {"applied": 1, "recorded": 1}, "oracle": {"s1_group1": frozenset({1})}, "negative": NEG_OK}),
     "M2": ({"answer": {"http": 200}, "sent": 1, "oracle": {"group2_after": frozenset({1, 3}), "declared": [1, 3]},
             "negative": NEG_OK},
-           {"answer": {"http": 502}, "sent": 1, "oracle": {"group2_after": None, "declared": [1, 3]}}),
+           {"answer": {"http": 502}, "sent": 1, "oracle": {"group2_after": frozenset(), "declared": [1, 3]}}),
     "C1": ({"answer": {"applied": 1}, "oracle": {"ports": frozenset({1})}, "negative": NEG_OK},
            {"answer": {"applied": 1}, "oracle": {"ports": frozenset()}, "negative": NEG_OK}),
-    "C2": ({"answer": {"route": True}, "oracle": {"present_after": True, "ports_ok": True}, "negative": NEG_OK},
+    "C2": ({"answer": {"route": True, "http": 200}, "oracle": {"present_after": True, "ports_ok": True}, "negative": NEG_OK},
            {"answer": {"route": False}, "oracle": {"present_after": True}, "attribution": {"bmv2": True}}),
     "K1": ({"answer": {"http": 200, "delta": 5}, "sent": 5, "oracle": {"delta": 5}},
            {"answer": {"http": 404}, "sent": 5, "oracle": {"delta": 5}}),
-    "K2": ({"answer": {"http": 200, "delta": 5}, "sent": 5, "oracle": {"delta": 5}, "pre": {"ok": True}},
-           {"answer": {"http": 404}, "sent": 5, "oracle": {"delta": 5}, "pre": {"ok": True}, "attribution": {"bmv2": True}}),
+    "K2": ({"answer": {"http": 200, "delta": 5}, "sent": 5, "oracle": {"delta": 5}},
+           {"answer": {"http": 404}, "sent": 5, "oracle": {"delta": 5}, "attribution": {"bmv2": True}}),
     "K3": ({"answer": {"http": 200, "delta": 5}, "sent": 5, "oracle": {"delta": 5}},
            {"answer": {"http": 200, "delta": 4}, "sent": 5, "oracle": {"delta": 5}}),
     "MT1": ({"answer": {"http": 200}, "sent": 1, "oracle": {"rates_after": [[1, 2]], "target": [[1, 2]]}, "negative": NEG_OK},
             {"answer": {"http": 501}, "sent": 1, "oracle": {"rates_after": [], "target": [[1, 2]]}, "attribution": {"bmv2": True}}),
-    "MT2": ({"answer": {"route": True}, "oracle": {"rates_after": [[1, 2]], "target": [[1, 2]]}, "negative": NEG_OK},
+    "MT2": ({"answer": {"route": True, "http": 200}, "oracle": {"rates_after": [[1, 2]], "target": [[1, 2]]}, "negative": NEG_OK},
             {"answer": {"route": False}, "oracle": {}, "attribution": {"bmv2": True}}),
-    "MT3": ({"answer": {"route": True}, "oracle": {"rates_after": [[1, 2]], "target": [[1, 2]]}, "negative": NEG_OK},
+    "MT3": ({"answer": {"route": True, "http": 200}, "oracle": {"rates_after": [[1, 2]], "target": [[1, 2]]}, "negative": NEG_OK},
             {"answer": {"route": False}, "oracle": {}, "attribution": {"bmv2": True}}),
     "R2": ({"answer": {"route": True, "value": 4660}, "sent": 1, "oracle": {"value": 4660}},
            {"answer": {"route": False}, "sent": 1, "oracle": {"value": 4660}}),
-    "R3": ({"answer": {"route": True}, "oracle": {"value_after": 7, "target": 7}, "negative": NEG_OK},
+    "R3": ({"answer": {"route": True, "http": 200}, "oracle": {"value_after": 7, "target": 7}, "negative": NEG_OK},
            {"answer": {"route": False}, "oracle": {}, "attribution": {"bmv2": True}}),
     "D1": ({"answer": {"exit": True, "fields": [1, 2]}, "sent": 1, "oracle": {"fields": [1, 2]}},
            {"answer": {"exit": False}, "sent": 1, "oracle": {"fields": [1, 2]}, "attribution": {"bmv2": True}}),
     "P1": ({"oracle": {"argv_has": True}}, {"oracle": {"argv_has": False}}),
     "P2": ({"answer": {"exit": True}, "sent": 1, "oracle": {"received": 1}},
            {"answer": {"exit": False}, "sent": 1, "oracle": {"received": 0}, "attribution": {"bmv2": True}}),
-    "P3": ({"answer": {"route": True}, "sent": 1, "oracle": {"received": 1}},
+    "P3": ({"answer": {"route": True, "http": 200}, "sent": 1, "oracle": {"received": 1}},
            {"answer": {"route": False}, "sent": 1, "oracle": {}, "attribution": {"bmv2": True}}),
-    "P4": ({"answer": {}, "sent": 1, "oracle": {"received": True}},
-           {"answer": {}, "sent": 1, "oracle": {"received": False}, "attribution": {"bmv2": True}}),
-    "CH1": (dict({"answer": dict(side(0x1212, 3, 9), g1=G1_OK, flow_identity=True)}, sent=5000, oracle={}),
-            dict({"answer": dict(side(0x9999, 3, 9), g1=G1_OK)}, sent=5000, oracle={})),
-    "CH2": (dict({"answer": dict(side(0x1234, 3, 9), g1=G1_OK, flow_identity=True)}, sent=5000, oracle={}),
-            dict({"answer": dict(side(0x1234, 3, 9), g1={"on_path": []})}, sent=5000, oracle={})),
-    "CH3": ({"answer": {"flow_identity": True}, "sent": 5000, "oracle": {}},
-            {"answer": {"flow_identity": False}, "sent": 5000, "oracle": {}}),
-    "CH4": ({"answer": {"identity": "disclosed"}, "sent": 5000, "oracle": {}},
-            {"answer": {"identity": "wrong"}, "sent": 5000, "oracle": {}, "attribution": {"wire": True}}),
-    "CH5": ({"answer": {"flow_identity": True}, "sent": 5000, "oracle": {}},
-            {"answer": {"flow_identity": False}, "sent": 5000, "oracle": {}}),
-    "CH6": ({"answer": {"flow_identity": True}, "sent": 5000, "oracle": {}},
-            {"answer": {"flow_identity": False}, "sent": 5000, "oracle": {}}),
-    "CH7": (dict({"answer": dict(side(0x1236, 3, 9), g1=G1_OK)}, sent=5000, oracle={}),
-            dict({"answer": dict(side(0x1234, 3, 9), g1=G1_OK)}, sent=5000, oracle={})),
-    "CH8": ({"answer": {"flow_identity": True}, "sent": 5000, "oracle": {}},
-            {"answer": {"flow_identity": False}, "sent": 5000, "oracle": {}}),
+    "P4": ({"sent": 1, "oracle": {"received": True}},
+           {"sent": 1, "oracle": {"received": False}, "attribution": {"bmv2": True}}),
+    "CH1": (ident(0x1212), ident(0x9999, flow=False)),
+    "CH2": (ident(0x1234), ident(0x1234, g1={"on_path": [], "main_integral": 0, "off_path_max": 0})),
+    "CH3": ({"answer": {"flow_identity": True}, "sent": 5000, "oracle": {"sampled": 4}},
+            {"answer": {"flow_identity": False}, "sent": 5000, "oracle": {"sampled": 4}}),
+    "CH4": ({"answer": {"identity": "disclosed"}, "sent": 5000, "oracle": {"sampled": 4}},
+            {"answer": {"identity": "wrong"}, "sent": 5000, "oracle": {"sampled": 4}, "attribution": {"wire": True}}),
+    "CH5": ({"answer": {"flow_identity": True}, "sent": 5000, "oracle": {"sampled": 4}},
+            {"answer": {"flow_identity": False}, "sent": 5000, "oracle": {"sampled": 4}}),
+    "CH6": ({"answer": {"flow_identity": True}, "sent": 5000, "oracle": {"sampled": 4}},
+            {"answer": {"flow_identity": False}, "sent": 5000, "oracle": {"sampled": 4}}),
+    "CH7": (ident(0x1236, flow=None), ident(0x1234, flow=None)),
+    "CH8": ({"answer": {"flow_identity": True, "pair": PAIR, "side_after": []}, "sent": 5000, "oracle": {"sampled": 4}},
+            {"answer": {"flow_identity": False, "pair": PAIR, "side_after": []}, "sent": 5000, "oracle": {"sampled": 4}}),
     "Q1": ({"answer": {"sent_idents": [0]}, "sent": 100,
             "oracle": {"shaped": True, "received": [{"ident": 0x8003}, {"ident": 0x8000}]}},
            {"answer": {"sent_idents": [0]}, "sent": 100, "oracle": {"shaped": False, "received": []}}),
@@ -158,43 +172,43 @@ FIX = {
              "oracle": {"switches": [1], "hosts": [["h1", "10.0.1.1"]], "edges": [1], "ports": [1]}},
             {"answer": {"switches": [1], "hosts": [["h1", "10.0.1.9"]], "edges": [1], "ports": [1]},
              "oracle": {"switches": [1], "hosts": [["h1", "10.0.1.1"]], "edges": [1], "ports": [1]}}),
-    "TP2": ({"answer": {"heartbeat": hb(), "down_after_s": 6.0, "recovered": True}, "sent": 1, "oracle": {}},
-            {"answer": {"heartbeat": hb(), "down_after_s": 25.0, "recovered": True}, "sent": 1, "oracle": {}}),
+    "TP2": ({"answer": {"heartbeat": hb(), "down_after_s": 6.0, "recovered": True}, "sent": 1},
+            {"answer": {"heartbeat": hb(), "down_after_s": 25.0, "recovered": True}, "sent": 1}),
     "TP4": ({"answer": {"heartbeat": hb(), "drop_check_rc": 0, "withheld": False, "down_after_s": 6.0,
-                        "recovered": True}, "sent": 1, "oracle": {}},
-            {"answer": {"heartbeat": hb(), "drop_check_rc": 0, "withheld": False, "down_after_s": None,
-                        "recovered": False}, "sent": 1, "oracle": {}}),
+                        "recovered": True}, "sent": 1},
+            {"answer": {"heartbeat": hb(), "drop_check_rc": 0, "withheld": False, "down_after_s": 6.0,
+                        "recovered": False}, "sent": 1}),
     "CP2": ({"answer": {"http": 409}, "sent": 1, "oracle": {"entry_present": False, "controller_entry_present": True}},
             {"answer": {"http": 200}, "sent": 1, "oracle": {"entry_present": True, "controller_entry_present": True}}),
     "CP4": ({"answer": {"heartbeat": hb(), "capabilities": {"ipv4_route": "ndtwin", "binding_source": "package",
                                                            "reroute": True}, "rerouted_after_s": 8.0},
              "sent": 1, "oracle": {"kernel_route_present": True, "port_after_cut": 5}, "negative": NEG_OK},
-            {"answer": {"heartbeat": hb(), "capabilities": {"ipv4_route": "unbound"}, "rerouted_after_s": None},
+            {"answer": {"heartbeat": hb(), "capabilities": {"ipv4_route": "unbound"}, "rerouted_after_s": 8.0},
              "sent": 1, "oracle": {"kernel_route_present": True, "port_after_cut": 4}}),
-    "V1": ({"answer": {"g1": G1_OK}, "sent": 1, "oracle": {}}, {"answer": {"g1": {"on_path": []}}, "sent": 1, "oracle": {}}),
-    "V2": ({"answer": {"bytes_match": True, "flow_identity": True}, "sent": 1, "oracle": {}},
-           {"answer": {"bytes_match": False}, "sent": 1, "oracle": {}}),
+    "V1": ({"answer": {"g1": G1_OK}, "sent": 1, "oracle": {"sampled": 4}},
+           {"answer": {"g1": {"on_path": [], "main_integral": 0, "off_path_max": 0}}, "sent": 1, "oracle": {"sampled": 4}}),
+    "V2": ({"answer": {"bytes_match": True, "flow_identity": True}, "sent": 1},
+           {"answer": {"bytes_match": False, "flow_identity": True}, "sent": 1}),
     "AP1": ({"answer": {"route": True, "http": 200}, "sent": 1, "oracle": {"present_after": True, "points_to_member": True},
              "negative": NEG_OK},
             {"answer": {"route": False}, "sent": 1, "oracle": {}, "attribution": {"bmv2": True}}),
-    "AS1": ({"answer": {"route": True, "http": 200}, "sent": 1, "oracle": {"present_after": True}, "negative": NEG_OK},
+    "AS1": ({"answer": {"route": True, "http": 200}, "sent": 1, "oracle": {"present_after": True, "points_to_group": True},
+             "negative": NEG_OK},
             {"answer": {"route": False}, "sent": 1, "oracle": {}, "attribution": {"bmv2": True}}),
-    "IT1": ({"answer": {"idle_field": True, "notification_exit": True, "timeout_reported": True}, "sent": 1, "oracle": {}},
+    "IT1": ({"answer": {"idle_field": True, "notification_exit": True, "requested_timeout_ms": 5000,
+                        "timeout_reported": True}, "sent": 1, "oracle": {"timeout_ms": 5000, "since_hit_ms": 9000},
+             "negative": NEG_OK},
             {"answer": {"idle_field": False, "notification_exit": False}, "sent": 1, "oracle": {}, "attribution": {"bmv2": True}}),
     "VS1": ({"answer": {"route": True, "http": 200}, "sent": 1, "oracle": {"present_after": True}, "negative": NEG_OK},
             {"answer": {"route": False}, "sent": 1, "oracle": {}, "attribution": {"bmv2": True}}),
-    "RC1": ({"answer": {"g1": G1_OK, "bytes_match": True, "flow_identity": True}, "sent": 5000, "oracle": {}},
-            {"answer": {"g1": G1_OK, "bytes_match": False, "flow_identity": True}, "sent": 5000, "oracle": {}}),
-    "HR1": ({"answer": {"seen": {"s1-eth4": True, "s1-eth5": False}}, "sent": 16,
-             "oracle": {"carried": {"s1-eth4": True, "s1-eth5": False}}},
-            {"answer": {"seen": {"s1-eth4": True, "s1-eth5": False}}, "sent": 16,
-             "oracle": {"carried": {"s1-eth4": False, "s1-eth5": True}}}),
-    "HR2": ({"answer": {"seen": {"s1-eth4": True, "s1-eth5": True}}, "sent": 16,
-             "oracle": {"carried": {"s1-eth4": True, "s1-eth5": True}}},
-            {"answer": {"seen": {"s1-eth4": True, "s1-eth5": False}}, "sent": 16,
-             "oracle": {"carried": {"s1-eth4": True, "s1-eth5": True}}}),
-    "HU1": (dict({"answer": dict(side(0x86DD, 1, 4), g1=G1_OK, flow_identity=True)}, sent=5000, oracle={}),
-            dict({"answer": dict(side(0x0800, 1, 4), g1=G1_OK)}, sent=5000, oracle={})),
+    "HR1": ({"answer": {"uplinks": win(100000, 50)}, "sent": 16, "oracle": {"uplinks": win(100000, 50), "flow_bytes": 100000}},
+            {"answer": {"uplinks": win(50, 100000)}, "sent": 16, "oracle": {"uplinks": win(100000, 50), "flow_bytes": 100000}}),
+    "HR2": ({"answer": {"uplinks": win(50000, 50000)}, "sent": 16, "oracle": {"uplinks": win(50000, 50000), "flow_bytes": 100000}},
+            {"answer": {"uplinks": win(100000, 0)}, "sent": 16, "oracle": {"uplinks": win(50000, 50000), "flow_bytes": 100000}}),
+    "HU1": ({"answer": {"v6": dict(side(0x86DD, 1, 4), g1=G1_OK, flow_identity=True), "x": side(0x1238, 1, 4),
+                        "side_size": 10}, "sent": 5000, "oracle": {"sampled": 3, "sampled_x": 2}},
+            {"answer": {"v6": dict(side(0x86DD, 1, 4), g1=G1_OK, flow_identity=True), "x": side(0x9999, 1, 4),
+                        "side_size": 10}, "sent": 5000, "oracle": {"sampled": 3, "sampled_x": 2}}),
 }
 
 #: Cells whose RED needs nothing beyond NDTwin's own declaration (and, where noted, the oracle
@@ -202,21 +216,29 @@ FIX = {
 #: they have no UNATTRIBUTED fixture. Listed so a new cell cannot silently join them.
 STRUCTURAL_ONLY = {"PL1", "PL2", "T1", "T2", "T3", "T8", "M1", "M2", "C1", "K3", "P1", "CH1", "CH2",
                    "CH3", "CH5", "CH6", "CH7", "CH8", "Q1", "CS1", "TP1", "TP2", "TP4", "CP2", "CP4",
-                   "V1", "V2", "RC1", "HR1", "HR2", "HU1", "TTL1"}
+                   "V1", "V2", "HR1", "HR2", "HU1", "TTL1"}
+#: Design 2.1 / 5.2: every cell whose GREEN rests on a thrift match reads "absent" in the same
+#: window. Pinned here, so dropping the flag from a row is a red test, not a silent change.
+NEGATIVE_READ_CELLS = {"PL1", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "M1", "M2", "C1", "C2", "MT1",
+                       "MT2", "MT3", "R3", "CP4", "AP1", "AS1", "IT1", "VS1"}
+
+
+def judged():
+    return [c for c in T.TABLE.cells if c.alias_of is None]
 
 
 class TestEveryCellHasItsFixtures(unittest.TestCase):
 
     def test_every_judged_cell_has_a_green_and_a_red_fixture(self):
-        judged = {c.id for c in T.TABLE.cells if c.alias_of is None and c.by_design is None}
-        self.assertEqual(judged, set(FIX))
+        self.assertEqual({c.id for c in judged()}, set(FIX))
 
     def test_green_fixtures_are_green(self):
         for cid, (g, _r) in sorted(FIX.items()):
             with self.subTest(cell=cid):
-                self.assertEqual(decide(cid, copy.deepcopy(g)).verdict, BEST.get(cid, V.GREEN), cid)
+                self.assertEqual(decide(cid, copy.deepcopy(g)).verdict, BEST.get(cid, V.GREEN),
+                                 (cid, decide(cid, copy.deepcopy(g))))
 
-    def test_red_fixtures_are_red_or_partial(self):
+    def test_red_fixtures_are_red(self):
         for cid, (_g, r) in sorted(FIX.items()):
             if r is None:
                 continue
@@ -225,32 +247,66 @@ class TestEveryCellHasItsFixtures(unittest.TestCase):
                 obs.setdefault("attribution", dict(ALL_ATTR))
                 self.assertEqual(decide(cid, obs).verdict, V.RED, (cid, decide(cid, obs)))
 
+    def test_an_unreadable_answer_is_not_run(self):
+        """Step 0 (review MAJ-2): no answer is no verdict, never RED and never GREEN."""
+        for c in judged():
+            if not c.needs_answer:
+                continue
+            for which in (0, 1):
+                obs = copy.deepcopy(FIX[c.id][which])
+                if obs is None:
+                    continue
+                with self.subTest(cell=c.id, fixture=which):
+                    obs["answer"] = None
+                    v = decide(c.id, obs)
+                    self.assertEqual((v.verdict, v.phase), (V.NOT_RUN, "answer"))
+
+    def test_an_empty_answer_or_oracle_is_never_green(self):
+        """Review MAJ-1: a readable but empty reply is a reading not taken."""
+        for c in judged():
+            for side_ in ("answer", "oracle"):
+                if not any(n.startswith(side_[0] + ":") for n in c.need):
+                    continue
+                with self.subTest(cell=c.id, side=side_):
+                    obs = copy.deepcopy(FIX[c.id][0])
+                    obs[side_] = {}
+                    v = decide(c.id, obs)
+                    self.assertEqual(v.verdict, V.NOT_RUN, (c.id, side_, v))
+
+    def test_every_need_key_is_needed(self):
+        """Each declared reading, removed alone from the green fixture, makes the cell NOT RUN."""
+        for c in judged():
+            for need in c.need:
+                part, key = need.split(":")
+                with self.subTest(cell=c.id, need=need):
+                    obs = copy.deepcopy(FIX[c.id][0])
+                    doc = obs["answer" if part == "a" else "oracle"]
+                    doc.pop(key, None)
+                    v = decide(c.id, obs)
+                    self.assertEqual((v.verdict, v.phase), (V.NOT_RUN, "reading"), (c.id, need, v))
+
     def test_an_active_cell_with_nothing_sent_is_not_run(self):
-        for c in T.TABLE.cells:
-            if c.kind != "active" or c.id not in FIX:
+        for c in judged():
+            if c.kind != "active":
                 continue
             with self.subTest(cell=c.id):
                 obs = copy.deepcopy(FIX[c.id][0])
                 obs["sent"] = 0
                 v = decide(c.id, obs)
-                self.assertEqual(v.verdict, V.NOT_RUN, (c.id, v))
-                self.assertEqual(v.phase, "stimulus")
+                self.assertEqual((v.verdict, v.phase), (V.NOT_RUN, "stimulus"), (c.id, v))
 
     def test_an_unreadable_oracle_is_not_run_never_green(self):
-        for c in T.TABLE.cells:
-            if not c.needs_oracle or c.id not in FIX:
+        for c in judged():
+            if not c.needs_oracle:
                 continue
             with self.subTest(cell=c.id):
                 obs = copy.deepcopy(FIX[c.id][0])
                 obs["oracle"] = None
-                v = decide(c.id, obs)
-                self.assertEqual(v.verdict, V.NOT_RUN, (c.id, v))
+                self.assertEqual(decide(c.id, obs).verdict, V.NOT_RUN, c.id)
 
     def test_attribution_that_fails_is_unattributed_never_red(self):
-        can_fail = [c for c in T.TABLE.cells if c.id in FIX and FIX[c.id][1] is not None
-                    and c.id not in STRUCTURAL_ONLY]
-        self.assertEqual({c.id for c in T.TABLE.cells if c.id in FIX} - STRUCTURAL_ONLY,
-                         {c.id for c in can_fail})
+        can_fail = [c for c in judged() if FIX[c.id][1] is not None and c.id not in STRUCTURAL_ONLY]
+        self.assertEqual({c.id for c in judged()} - STRUCTURAL_ONLY, {c.id for c in can_fail})
         for c in can_fail:
             with self.subTest(cell=c.id):
                 obs = copy.deepcopy(FIX[c.id][1])
@@ -266,9 +322,7 @@ class TestEveryCellHasItsFixtures(unittest.TestCase):
                 self.assertTrue(set(T.TABLE.cell(cid).red_attribution) <= {"structural", "thrift"})
 
     def test_a_failed_self_check_makes_its_cells_probe_broken_not_red(self):
-        for c in T.TABLE.cells:
-            if not c.self_checks or c.id not in FIX:
-                continue
+        for c in judged():
             for sc in c.self_checks:
                 with self.subTest(cell=c.id, sc=sc):
                     ctx = ctx_green(**{sc: V.Verdict(V.PROBE_BROKEN, "fixture: failed")})
@@ -277,9 +331,8 @@ class TestEveryCellHasItsFixtures(unittest.TestCase):
 
 
 class TestStaticCells(unittest.TestCase):
-    """DESIGN 5.2-① for T2, M1, C1, PL1, T1's dump half, P1, Q2, CS1, TP1."""
+    """Design 5.2-① for T2, M1, C1, PL1, T1's dump half, P1, Q2, CS1, TP1."""
     STATIC = ("T2", "M1", "C1", "PL1", "T1", "P1", "Q2", "CS1", "TP1")
-    THRIFT_MATCH = ("T2", "M1", "C1", "PL1", "T1")
 
     def test_oracle_unreadable_is_not_run(self):
         for cid in self.STATIC:
@@ -291,95 +344,139 @@ class TestStaticCells(unittest.TestCase):
     def test_an_error_read_as_a_match_fails_the_negative_read(self):
         """A thrift layer that turned an error or an empty reply into "present" makes the
         same-window negative read find the absent object present -> PROBE-BROKEN, never GREEN."""
-        for cid in self.THRIFT_MATCH:
+        for cid in sorted(NEGATIVE_READ_CELLS):
             with self.subTest(cell=cid):
                 obs = copy.deepcopy(FIX[cid][0])
                 obs["negative"] = {"absent": False, "why": "fixture: the error reply read as present"}
                 self.assertEqual(decide(cid, obs).verdict, V.PROBE_BROKEN)
 
     def test_no_negative_read_no_green(self):
-        for c in T.TABLE.cells:
-            if not c.negative_read or c.id not in FIX:
-                continue
-            with self.subTest(cell=c.id):
-                obs = copy.deepcopy(FIX[c.id][0])
+        for cid in sorted(NEGATIVE_READ_CELLS):
+            with self.subTest(cell=cid):
+                obs = copy.deepcopy(FIX[cid][0])
                 obs.pop("negative", None)
-                self.assertEqual(decide(c.id, obs).verdict, V.NOT_RUN)
+                self.assertEqual(decide(cid, obs).verdict, V.NOT_RUN)
 
-    def test_every_write_then_read_cell_has_a_negative_read(self):
-        """DESIGN 2.1 (r5): every 'matches after the write' cell reads 'absent before' too."""
-        for cid in ("T3", "T4", "T5", "T6", "T7", "M2", "C2", "MT1", "MT2", "MT3", "R3", "AP1", "AS1", "VS1"):
-            self.assertTrue(T.TABLE.cell(cid).negative_read, cid)
+    def test_the_negative_read_cells_are_exactly_the_pinned_ones(self):
+        self.assertEqual({c.id for c in T.TABLE.cells if c.negative_read}, NEGATIVE_READ_CELLS)
+
+    def test_empty_fabric_or_ethtool_oracles_are_not_green(self):
+        obs = copy.deepcopy(FIX["TP1"][0])
+        obs["answer"] = dict.fromkeys(T.TP1_ITEMS, [])
+        obs["oracle"] = dict.fromkeys(T.TP1_ITEMS, [])
+        self.assertEqual(decide("TP1", obs).verdict, V.NOT_RUN)
+        self.assertEqual(decide("CS1", {"oracle": {"tx_checksum_off": {}}}).verdict, V.NOT_RUN)
 
 
 class TestRuleD(unittest.TestCase):
 
-    def judge(self, cells, scs):
-        return V.judge_all(T.TABLE, cells, scs)
-
     def base_obs(self):
         cells = {cid: copy.deepcopy(g) for cid, (g, _r) in FIX.items()}
+        cells["K1-neg"] = copy.deepcopy(CONTROL_OK)
+        cells["T3-neg"] = copy.deepcopy(CONTROL_OK)
         scs = {"SC-fwd": {"pingall": (30, 30), "dump_ok": True},
                "SC-count": {"thrift_delta": 5, "sent": 5, "received": 5},
                "SC-reg": {"chosen": 4660, "register": 4660},
                "SC-qstamp": {"sent_idents": {0}, "stamped": 2},
                "SC-ttl": {"hops_lpm": 2, "ttls": [62, 62]},
                "SC-recirc": {"flags": [0x0C]},
-               "SC-union": {"hops": 2, "hop_limits": [62]}}
+               "SC-union": {"hops_v6": 2, "hop_limits": [62]}}
         return cells, scs
 
     def test_a_red_gate_makes_its_dependants_not_run_and_the_round_publishable(self):
         cells, scs = self.base_obs()
         cells["PL1"] = copy.deepcopy(FIX["PL1"][1])
-        ctx = self.judge(cells, scs)
+        ctx = V.judge_all(T.TABLE, cells, scs)
         self.assertEqual(ctx.cells["PL1"].verdict, V.RED)
         self.assertEqual(ctx.self_checks["SC-fwd"].verdict, V.NOT_RUN)
         self.assertIn("gate PL1 RED", ctx.self_checks["SC-fwd"].reason)
-        for cid in ("K1", "R2", "Q1", "TTL1", "K3"):
+        for cid in ("K1", "R2", "Q1", "TTL1", "K3", "HU1"):
             self.assertEqual(ctx.cells[cid].verdict, V.NOT_RUN, cid)
             self.assertIn("gate PL1 RED", ctx.cells[cid].reason, cid)
-        self.assertEqual(V.run_verdict(ctx)[0], "COMPLETE")
+        self.assertEqual(V.run_verdict(ctx, True)[0], "COMPLETE")
 
     def test_every_gate_green_and_sc_fwd_failing_is_probe_broken(self):
         cells, scs = self.base_obs()
         scs["SC-fwd"] = {"pingall": (29, 30), "dump_ok": True}
-        ctx = self.judge(cells, scs)
+        ctx = V.judge_all(T.TABLE, cells, scs)
         self.assertEqual(ctx.self_checks["SC-fwd"].verdict, V.PROBE_BROKEN)
         self.assertEqual(ctx.cells["K1"].verdict, V.PROBE_BROKEN)
-        self.assertEqual(V.run_verdict(ctx), ("PROBE-BROKEN", 1))
+        self.assertEqual(V.run_verdict(ctx, True), ("PROBE-BROKEN", 1))
+
+    def test_an_incomplete_round_is_incomplete(self):
+        cells, scs = self.base_obs()
+        ctx = V.judge_all(T.TABLE, cells, scs)
+        self.assertEqual(V.run_verdict(ctx, False), ("INCOMPLETE", 2))
+        self.assertEqual(V.run_verdict(ctx, True), ("COMPLETE", 0))
 
     def test_t7_is_not_run_while_t4_is_red(self):
         cells, scs = self.base_obs()
         cells["T4"] = dict(copy.deepcopy(FIX["T4"][1]), attribution={"bmv2": True})
-        ctx = self.judge(cells, scs)
+        ctx = V.judge_all(T.TABLE, cells, scs)
         self.assertEqual(ctx.cells["T4"].verdict, V.RED)
         self.assertEqual(ctx.cells["T7"].verdict, V.NOT_RUN)
         self.assertIn("gate T4 RED", ctx.cells["T7"].reason)
 
-    def test_the_whole_table_judges_green_from_green_fixtures(self):
+    def test_the_whole_table_reads_green_from_green_fixtures(self):
         cells, scs = self.base_obs()
-        cells["K1-neg"] = {"answer": {"http": 404}}
-        cells["T3-neg"] = {"answer": {"http": 404}}
-        ctx = self.judge(cells, scs)
-        bad = {k: v.label for k, v in ctx.cells.items()
-               if v.verdict != BEST.get(k, V.GREEN) and k != "VB1"}
+        ctx = V.judge_all(T.TABLE, cells, scs)
+        bad = {k: v.label for k, v in ctx.cells.items() if v.verdict != BEST.get(k, V.GREEN)}
         self.assertEqual(bad, {})
         self.assertEqual(ctx.cells["CP1"].verdict, ctx.cells["T1"].verdict)
+
+    def test_aliases_carry_their_sources_verdict(self):
+        """VB1 = CH3 and RC1 = V1 (Cut 1 review, MAJ-9), CP1 = T1 (design 2.3)."""
+        cells, scs = self.base_obs()
+        cells["CH3"] = copy.deepcopy(FIX["CH3"][1])
+        ctx = V.judge_all(T.TABLE, cells, scs)
+        for alias, src in (("VB1", "CH3"), ("RC1", "V1"), ("CP1", "T1")):
+            self.assertEqual(T.TABLE.cell(alias).alias_of, src)
+            self.assertEqual(ctx.cells[alias].label, ctx.cells[src].label, alias)
+            self.assertTrue(ctx.cells[alias].reason.startswith("= %s" % src), alias)
+        self.assertEqual(ctx.cells["VB1"].verdict, V.RED)
+        self.assertIn("varbit", T.TABLE.cell("VB1").alias_why)
+        self.assertIn("recirculated", T.TABLE.cell("RC1").alias_why)
+
+    # MAJ-3: the controls gate their cells
+    def test_k1_and_t3_follow_their_controls(self):
+        for cell, ctl in (("K1", "K1-neg"), ("T3", "T3-neg")):
+            for answer, want in (({"http": 200, "error": None}, V.PROBE_BROKEN),
+                                 ({"http": 404, "error": "Not Found"}, V.PROBE_BROKEN),
+                                 ({"http": 404, "error": "unknown switch"}, V.PROBE_BROKEN),
+                                 (None, V.NOT_RUN)):
+                with self.subTest(cell=cell, answer=answer):
+                    cells, scs = self.base_obs()
+                    if answer is None:
+                        cells.pop(ctl)
+                    else:
+                        cells[ctl] = {"answer": answer}
+                    ctx = V.judge_all(T.TABLE, cells, scs)
+                    self.assertEqual(ctx.cells[cell].verdict, want)
+                    self.assertEqual(ctx.cells[cell].phase, "control")
+
+    def test_controls_are_in_health_json(self):
+        cells, scs = self.base_obs()
+        ctx = V.judge_all(T.TABLE, cells, scs)
+        doc = R.health("r", "t", {}, {}, [], T.TABLE, ctx, E.annotate(ctx, E.load(EXPECTED_TSV)),
+                       {s: V.rollup(T.TABLE, ctx, s) for s in V.SCOPES}, "COMPLETE")
+        self.assertEqual([c["id"] for c in doc["controls"]], ["K1-neg", "T3-neg"])
+        self.assertEqual({c["expected_today"] for c in doc["controls"]}, {"GREEN"})
+        self.assertEqual(set(doc["rollup"]), set(V.SCOPES))
 
 
 class TestNamedFixtures(unittest.TestCase):
 
-    # expected refusals (DESIGN 2.1 step 1, r4 L03)
     def test_cp2s_409_is_the_pass_and_not_a_red_candidate(self):
         v = decide("CP2", copy.deepcopy(FIX["CP2"][0]))
-        self.assertEqual(v.verdict, V.GREEN)
-        self.assertEqual(v.phase, "compare")
+        self.assertEqual((v.verdict, v.phase), (V.GREEN, "compare"))
 
     def test_k1_neg_and_t3_neg_404_pass(self):
         for ctl in T.TABLE.controls:
-            self.assertEqual(ctl.judge({"answer": {"http": 404}}).verdict, V.GREEN, ctl.id)
+            self.assertEqual(ctl.judge(copy.deepcopy(CONTROL_OK)).verdict, V.GREEN, ctl.id)
             self.assertEqual(ctl.judge({"answer": {"http": 200}}).verdict, V.PROBE_BROKEN, ctl.id)
-            self.assertNotEqual(ctl.judge({"answer": {"http": 404}}).verdict, V.RED)
+            self.assertEqual(ctl.judge({"answer": {"http": 404, "error": "Not Found"}}).verdict,
+                             V.PROBE_BROKEN, ctl.id)
+            self.assertEqual(ctl.judge({}).verdict, V.NOT_RUN, ctl.id)
 
     # the decision order (M11)
     def test_a_cannot_answer_with_the_oracle_unreadable_is_a_red_candidate_not_not_run(self):
@@ -394,44 +491,69 @@ class TestNamedFixtures(unittest.TestCase):
         v = decide("R2", copy.deepcopy(FIX["R2"][1]), ctx)
         self.assertEqual((v.verdict, v.phase), (V.RED, "cannot"))
 
-    # M1, M5: K1
     def test_k1_thrift_n_ndtwin_n_plus_1_is_red(self):
         v = decide("K1", {"answer": {"http": 200, "delta": 6}, "sent": 5, "oracle": {"delta": 5}})
-        self.assertEqual(v.verdict, V.RED)
+        self.assertEqual((v.verdict, v.phase), (V.RED, "compare"))
 
     def test_k1_503_is_not_a_zero(self):
         v = decide("K1", {"answer": {"http": 503, "delta": None}, "sent": 5, "oracle": {"delta": 0}})
         self.assertEqual(v.verdict, V.RED)
 
-    # M2: R2's openapi fixture
+    def test_k2_needs_thrift_to_move_by_what_was_sent(self):
+        for delta in (0, 4):
+            obs = copy.deepcopy(FIX["K2"][0])
+            obs["oracle"]["delta"] = delta
+            self.assertEqual(decide("K2", obs).phase, "precondition", delta)
+
     def test_r2_with_no_route_is_a_structural_red_not_an_absent_value(self):
         v = decide("R2", {"answer": {"route": False}, "sent": 1, "oracle": {"value": 4660}})
         self.assertEqual((v.verdict, v.phase), (V.RED, "cannot"))
         self.assertIn("no route", v.reason)
 
-    # M8, section 12 item 6: CH7
     def test_ch7_is_not_satisfied_by_another_ethertypes_row(self):
         for et in (0x1234, 0x0806, 0x86DD, 0x88B5):
             with self.subTest(ethertype=hex(et)):
-                obs = {"answer": dict(side(et, 3, 9), g1=G1_OK), "sent": 5000, "oracle": {}}
-                self.assertNotEqual(decide("CH7", obs).verdict, V.GREEN)
+                self.assertNotEqual(decide("CH7", ident(et, flow=None)).verdict, V.GREEN)
 
     def test_ch7_row_with_the_wrong_mac_pair_or_no_new_samples_is_not_green(self):
-        wrong_pair = {"answer": dict(side(0x1236, 3, 9, pair={"src_mac": "08:00:00:00:01:11",
-                                                             "dst_mac": "08:00:00:00:05:55"}),
-                                     g1=G1_OK, pair=PAIR), "sent": 5000, "oracle": {}}
-        self.assertNotEqual(decide("CH7", wrong_pair).verdict, V.GREEN)
-        stale = {"answer": dict(side(0x1236, 9, 9), g1=G1_OK), "sent": 5000, "oracle": {}}
-        self.assertNotEqual(decide("CH7", stale).verdict, V.GREEN)
+        wrong = ident(0x1236, flow=None)
+        wrong["answer"].update(side(0x1236, 3, 9, pair={"src_mac": "08:00:00:00:01:11",
+                                                         "dst_mac": "08:00:00:00:05:55"}))
+        wrong["answer"]["pair"] = dict(PAIR)
+        self.assertNotEqual(decide("CH7", wrong).verdict, V.GREEN)
+        self.assertNotEqual(decide("CH7", ident(0x1236, flow=None, before=9, after=9)).verdict, V.GREEN)
 
-    # M9: T8
+    def test_g1_needs_a_positive_integral_and_a_quiet_off_path(self):
+        for g1 in ({"on_path": ["x"], "main_integral": 0, "off_path_max": 0},
+                   {"on_path": ["x"], "main_integral": 5, "off_path_max": 1},
+                   {"on_path": [], "main_integral": 5, "off_path_max": 0}):
+            for cid in ("CH1", "CH7", "V1"):
+                with self.subTest(cell=cid, g1=g1):
+                    obs = copy.deepcopy(FIX[cid][0])
+                    obs["answer"]["g1"] = dict(g1)
+                    self.assertEqual(decide(cid, obs).verdict, V.RED)
+
+    def test_g1_not_read_is_not_run(self):
+        obs = copy.deepcopy(FIX["V1"][0])
+        obs["answer"]["g1"] = {"on_path": ["x"], "main_integral": 5}
+        self.assertEqual(decide("V1", obs).verdict, V.NOT_RUN)
+
+    def test_no_sample_in_the_window_is_not_run_not_red(self):
+        """Design 2.3 (review MINOR 23)."""
+        for cid in ("CH1", "CH3", "CH4", "CH7", "V1"):
+            obs = copy.deepcopy(FIX[cid][1])
+            obs["oracle"]["sampled"] = 0
+            self.assertEqual(decide(cid, obs).verdict, V.NOT_RUN, cid)
+
     def test_t8_journaled_false_is_red(self):
         self.assertEqual(decide("T8", {"answer": {"journaled": False}}).verdict, V.RED)
 
-    # M10: TP2's deadline
     def test_tp2_past_the_deadline_is_red(self):
         v = decide("TP2", copy.deepcopy(FIX["TP2"][1]))
         self.assertEqual(v.verdict, V.RED)
+        obs = copy.deepcopy(FIX["TP2"][0])
+        obs["answer"]["down_after_s"] = 25.0
+        self.assertEqual(decide("TP2", obs).verdict, V.RED)
         self.assertEqual(T.LINK_DOWN_DEADLINE_S, 20.0)
 
     def test_tp2_without_a_usable_heartbeat_is_not_run(self):
@@ -439,7 +561,6 @@ class TestNamedFixtures(unittest.TestCase):
         obs["answer"]["heartbeat"] = hb(missing=["1:4->2:2"])
         self.assertEqual(decide("TP2", obs).verdict, V.NOT_RUN)
 
-    # M15: TP4's heartbeat is "usable", not "not null"
     def test_tp4_with_a_heartbeat_that_is_there_but_not_usable_is_not_run(self):
         for state in ("not_read", "stale", "no_report"):
             with self.subTest(state=state):
@@ -448,12 +569,18 @@ class TestNamedFixtures(unittest.TestCase):
                 v = decide("TP4", obs)
                 self.assertEqual((v.verdict, v.phase), (V.NOT_RUN, "precondition"))
 
+    def test_tp4_needs_the_drop_check_and_no_withheld_file(self):
+        for key, value in (("drop_check_rc", 1), ("drop_check_rc", None), ("withheld", True), ("withheld", None)):
+            with self.subTest(key=key, value=value):
+                obs = copy.deepcopy(FIX["TP4"][0])
+                obs["answer"][key] = value
+                self.assertEqual(decide("TP4", obs).phase, "precondition")
+
     def test_cp4_without_a_usable_heartbeat_is_not_run(self):
         obs = copy.deepcopy(FIX["CP4"][0])
         obs["answer"]["heartbeat"] = {"state": "not_read"}
         self.assertEqual(decide("CP4", obs).verdict, V.NOT_RUN)
 
-    # M16: Q1
     def test_q1_with_id_1_and_no_stamp_is_not_green(self):
         obs = {"answer": {"sent_idents": [1]}, "sent": 100,
                "oracle": {"shaped": True, "received": [{"ident": 0x0005}]}}
@@ -467,38 +594,129 @@ class TestNamedFixtures(unittest.TestCase):
                "oracle": {"shaped": True, "received": [{"ident": 0x8000}]}}
         self.assertEqual(decide("Q1", obs).verdict, V.UNATTRIBUTED)
 
-    # M13
     def test_a_red_whose_bmv2_attribution_failed_is_unattributed(self):
         v = decide("T4", {"answer": {"http": 501}, "sent": 1, "oracle": {}, "attribution": {"bmv2": False}})
         self.assertEqual(v.verdict, V.UNATTRIBUTED)
         self.assertFalse(v.attribution["ok"])
 
     def test_pft_static_attribution_counts_for_bmv2(self):
-        v = decide("PF-T", copy.deepcopy(FIX["PF-T"][1]))
-        self.assertEqual(v.verdict, V.RED)
-        v = decide("PF-T", {"answer": {"rc": 1, "g5_rows": 1, "other_fail_rows": 0}})
-        self.assertEqual(v.verdict, V.UNATTRIBUTED)
-        v = decide("PF-T", {"answer": {"rc": 1, "g5_rows": 1, "other_fail_rows": 1}})
-        self.assertEqual(v.verdict, V.PROBE_BROKEN)
+        self.assertEqual(decide("PF-T", copy.deepcopy(FIX["PF-T"][1])).verdict, V.RED)
+        self.assertEqual(decide("PF-T", {"answer": {"rc": 1, "g5_rows": 1, "other_fail_rows": 0}}).verdict,
+                         V.UNATTRIBUTED)
+        self.assertEqual(decide("PF-T", {"answer": {"rc": 1, "g5_rows": 1, "other_fail_rows": 1}}).verdict,
+                         V.PROBE_BROKEN)
+
+    def test_pft_with_no_observation_is_not_run(self):
+        """Review MINOR 2."""
+        self.assertEqual(decide("PF-T", {}).verdict, V.NOT_RUN)
+        self.assertEqual(decide("PF-T", None).verdict, V.NOT_RUN)
 
     def test_p4_received_is_partial_b(self):
-        v = decide("P4", copy.deepcopy(FIX["P4"][0]))
-        self.assertEqual(v.label, "PARTIAL(b)")
+        self.assertEqual(decide("P4", copy.deepcopy(FIX["P4"][0])).label, "PARTIAL(b)")
 
-    def test_vb1_is_not_run_by_design(self):
-        v = decide("VB1", {"answer": {"flow_identity": True}, "sent": 5000, "oracle": {}})
-        self.assertEqual((v.verdict, v.phase), (V.NOT_RUN, "design"))
-        self.assertIn("CH6", v.reason)
+    # MAJ-4: the compare branches, each with a fixture where it is the one that decides
+    def test_t1s_dump_half_decides_on_its_own(self):
+        obs = copy.deepcopy(FIX["T1"][0])
+        obs["oracle"]["dumps"]["3"] = ["a3"]
+        v = decide("T1", obs)
+        self.assertEqual(v.verdict, V.RED)
+        self.assertIn("s3: the thrift dump", v.reason)
+
+    def test_t1_and_pl1_need_all_four_switches(self):
+        obs = copy.deepcopy(FIX["T1"][0])
+        del obs["answer"]["counts"]["4"]
+        self.assertEqual(decide("T1", obs).verdict, V.RED)
+        obs = copy.deepcopy(FIX["T1"][0])
+        del obs["expect"]["entries"]["4"]
+        self.assertEqual(decide("T1", obs).verdict, V.PROBE_BROKEN)
+        obs = copy.deepcopy(FIX["T1"][0])
+        del obs["oracle"]["dumps"]["4"]
+        self.assertEqual(decide("T1", obs).verdict, V.NOT_RUN)
+        obs = copy.deepcopy(FIX["PL1"][0])
+        del obs["expect"]["pipelines"]["4"]
+        self.assertEqual(decide("PL1", obs).verdict, V.PROBE_BROKEN)
+        obs = copy.deepcopy(FIX["PL1"][0])
+        del obs["answer"]["pipelines"]["3"]
+        self.assertEqual(decide("PL1", obs).verdict, V.RED)
+
+    def test_pl1s_thrift_half_decides_on_its_own(self):
+        obs = copy.deepcopy(FIX["PL1"][0])
+        obs["oracle"]["alt_table"] = {"1": False}
+        v = decide("PL1", obs)
+        self.assertEqual(v.verdict, V.RED)
+        self.assertIn("thrift: s1", v.reason)
+
+    def test_compare_branches_after_a_route_exists(self):
+        cases = [("MT2", "oracle", "rates_after", [[9, 9]]), ("MT2", "answer", "http", 500),
+                 ("MT1", "oracle", "rates_after", [[9, 9]]), ("R2", "answer", "value", 1),
+                 ("R3", "oracle", "value_after", 8), ("R3", "answer", "http", 500),
+                 ("D1", "answer", "fields", [9]), ("P2", "oracle", "received", 0),
+                 ("P3", "oracle", "received", 0), ("P3", "answer", "http", 500),
+                 ("C2", "oracle", "ports_ok", False), ("C2", "answer", "http", 500),
+                 ("AP1", "oracle", "points_to_member", False), ("AS1", "oracle", "points_to_group", False),
+                 ("VS1", "oracle", "present_after", False), ("T4", "oracle", "mask_ok", False),
+                 ("T5", "oracle", "priority_ok", False), ("M2", "oracle", "group2_after", frozenset({1})),
+                 ("V2", "answer", "bytes_match", False), ("CP4", "oracle", "port_after_cut", 4),
+                 ("CP2", "answer", "http", 500), ("PL2", "oracle", "primary", False)]
+        for cid, part, key, value in cases:
+            with self.subTest(cell=cid, key=key):
+                obs = copy.deepcopy(FIX[cid][0])
+                obs[part][key] = value
+                obs["attribution"] = dict(ALL_ATTR)
+                v = decide(cid, obs)
+                self.assertEqual((v.verdict, v.phase), (V.RED, "compare"), (cid, key, v))
 
     def test_it1_today_is_a_structural_cannot(self):
         v = decide("IT1", copy.deepcopy(FIX["IT1"][1]))
         self.assertEqual((v.verdict, v.phase), (V.RED, "cannot"))
         self.assertIn("IdleTimeoutNotification", v.reason)
 
-    def test_hr2_needs_both_uplinks_carrying(self):
-        obs = copy.deepcopy(FIX["HR2"][0])
-        obs["oracle"]["carried"]["s1-eth5"] = False
-        self.assertEqual(decide("HR2", obs).verdict, V.NOT_RUN)
+    def test_it1_reads_the_switchs_own_aging(self):
+        obs = copy.deepcopy(FIX["IT1"][0])
+        obs["oracle"]["since_hit_ms"] = 3000
+        self.assertEqual(decide("IT1", obs).phase, "precondition")
+        obs = copy.deepcopy(FIX["IT1"][0])
+        obs["answer"]["timeout_reported"] = False
+        obs["attribution"] = dict(ALL_ATTR)
+        self.assertEqual(decide("IT1", obs).verdict, V.RED)
+        obs = copy.deepcopy(FIX["IT1"][0])
+        obs["oracle"]["timeout_ms"] = 1000
+        obs["oracle"]["since_hit_ms"] = 9000
+        obs["attribution"] = dict(ALL_ATTR)
+        v = decide("IT1", obs)
+        self.assertEqual(v.verdict, V.RED)
+        self.assertIn("thrift shows timeout 1000", v.reason)
+
+    def test_hr1_needs_exactly_one_uplink_and_hr2_both(self):
+        for cid, eth4, eth5 in (("HR1", 50, 50), ("HR1", 60000, 60000), ("HR2", 100000, 50), ("HR2", 0, 0)):
+            with self.subTest(cell=cid, eth4=eth4, eth5=eth5):
+                obs = copy.deepcopy(FIX[cid][0])
+                obs["oracle"]["uplinks"] = win(eth4, eth5)
+                obs["answer"]["uplinks"] = win(eth4, eth5)
+                self.assertEqual(decide(cid, obs).phase, "precondition")
+
+    def test_hr_quiet_window_is_subtracted(self):
+        """Heartbeat bytes on both uplinks (a high base) do not make an uplink 'carry' the flow."""
+        obs = copy.deepcopy(FIX["HR1"][0])
+        obs["oracle"]["uplinks"] = {"s1-eth4": {"base": 900000, "during": 1000000},
+                                    "s1-eth5": {"base": 900000, "during": 900100}}
+        obs["answer"]["uplinks"] = copy.deepcopy(obs["oracle"]["uplinks"])
+        self.assertEqual(decide("HR1", obs).verdict, V.GREEN)
+        obs["answer"]["uplinks"]["s1-eth5"]["during"] = 1000000
+        self.assertEqual(decide("HR1", obs).verdict, V.RED)
+
+    def test_hu1_judges_both_members_and_the_side_table_cap(self):
+        obs = copy.deepcopy(FIX["HU1"][0])
+        obs["answer"]["v6"]["flow_identity"] = False
+        self.assertEqual(decide("HU1", obs).label, "PARTIAL(a)")
+        obs = copy.deepcopy(FIX["HU1"][1])
+        self.assertIn("0x1238", decide("HU1", obs).reason)
+        obs = copy.deepcopy(FIX["HU1"][0])
+        obs["answer"]["side_size"] = 1020
+        self.assertEqual(decide("HU1", obs).phase, "precondition")
+        obs = copy.deepcopy(FIX["HU1"][0])
+        obs["oracle"]["sampled_x"] = 0
+        self.assertEqual(decide("HU1", obs).verdict, V.NOT_RUN)
 
 
 class TestSelfChecks(unittest.TestCase):
@@ -506,29 +724,21 @@ class TestSelfChecks(unittest.TestCase):
     def sc(self, sid):
         return [s for s in T.TABLE.self_checks if s.id == sid][0]
 
-    # M18
     def test_a_self_check_is_never_red(self):
         for s in T.TABLE.self_checks:
-            ctx = ctx_green()
-            v = V.decide_self_check(s, {}, ctx)
+            v = V.decide_self_check(s, {}, ctx_green())
             self.assertIn(v.verdict, (V.PROBE_BROKEN, V.NOT_RUN), s.id)
 
-    def test_sc_count_uses_the_switchs_ingress_count_when_known(self):
-        ok, _ = self.sc("SC-count").check({"thrift_delta": 5, "netdev_in": 5, "sent": 9, "received": 3})
-        self.assertTrue(ok)
-        ok, _ = self.sc("SC-count").check({"thrift_delta": 5, "netdev_in": 6, "sent": 5, "received": 5})
-        self.assertFalse(ok)
-
-    def test_sc_count_without_netdev_needs_zero_loss(self):
-        """Section 12 item 1: with loss on the path the count is not judged at all (NOT RUN,
-        never PROBE-BROKEN) -- and an equal count over a lossy path is not a pass either."""
+    def test_sc_count_without_loss_and_with_it(self):
+        """Section 12 item 1, zero-loss form: with loss the count is not decided at all (NOT
+        RUN, never PROBE-BROKEN); an equal count over a lossy path is not a pass either."""
         for delta in (3, 5):
             ok, _ = self.sc("SC-count").check({"thrift_delta": delta, "sent": 5, "received": 3})
             self.assertIsNone(ok, delta)
-        ok, _ = self.sc("SC-count").check({"thrift_delta": 4, "sent": 5, "received": 5})
-        self.assertIs(ok, False)
-        ok, _ = self.sc("SC-count").check({"thrift_delta": 5, "sent": 5, "received": 5})
-        self.assertIs(ok, True)
+        self.assertIs(self.sc("SC-count").check({"thrift_delta": 4, "sent": 5, "received": 5})[0], False)
+        self.assertIs(self.sc("SC-count").check({"thrift_delta": 5, "sent": 5, "received": 5})[0], True)
+        self.assertIs(self.sc("SC-count").check({"thrift_delta": 5, "netdev_in": 9, "sent": 5,
+                                                 "received": 5})[0], True)
         v = V.decide_self_check(self.sc("SC-count"), {"thrift_delta": 3, "sent": 5, "received": 3},
                                 ctx_green())
         self.assertEqual(v.verdict, V.NOT_RUN)
@@ -557,8 +767,9 @@ class TestSelfChecks(unittest.TestCase):
     def test_sc_recirc_and_sc_union(self):
         self.assertFalse(self.sc("SC-recirc").check({"flags": [0x08]})[0])
         self.assertTrue(self.sc("SC-recirc").check({"flags": [0x0C]})[0])
-        self.assertFalse(self.sc("SC-union").check({"hops": 1, "hop_limits": [64]})[0])
-        self.assertTrue(self.sc("SC-union").check({"hops": 1, "hop_limits": [63]})[0])
+        self.assertFalse(self.sc("SC-union").check({"hops_v6": 1, "hop_limits": [64]})[0])
+        self.assertTrue(self.sc("SC-union").check({"hops_v6": 1, "hop_limits": [63]})[0])
+        self.assertFalse(self.sc("SC-union").check({"hops": 1, "hop_limits": [63]})[0])
 
 
 class TestRollup(unittest.TestCase):
@@ -571,13 +782,11 @@ class TestRollup(unittest.TestCase):
             ctx.cells[cid] = V.Verdict(v, "")
         return ctx
 
-    # M6
     def test_a_dimension_with_only_not_run_cells_is_undecided(self):
         r = V.rollup(T.TABLE, self.ctx_of({}), "core")
         self.assertEqual(r["dimensions"]["meters"], V.UNDECIDED)
         self.assertEqual(r["totals"][V.CAN], 0)
 
-    # M7
     def test_green_and_red_in_one_dimension_is_partial_not_the_best(self):
         r = V.rollup(T.TABLE, self.ctx_of({"MT1": V.GREEN, "MT2": V.RED}), "core")
         self.assertEqual(r["dimensions"]["meters"], V.PART)
@@ -586,30 +795,39 @@ class TestRollup(unittest.TestCase):
         r = V.rollup(T.TABLE, self.ctx_of({"MT1": V.GREEN, "MT2": V.UNATTRIBUTED}), "core")
         self.assertEqual(r["dimensions"]["meters"], V.CAN)
 
-    def test_core_counts_core_cells_and_sixteen_keys_full_counts_twenty_two(self):
-        r = V.rollup(T.TABLE, self.ctx_of({"MT1": V.RED, "MT2": V.RED, "MT3": V.GREEN}), "core")
-        self.assertEqual(r["dimensions"]["meters"], V.CANNOT)
-        self.assertEqual(len(r["dimensions"]), 16)
-        r = V.rollup(T.TABLE, self.ctx_of({"MT1": V.RED, "MT2": V.RED, "MT3": V.GREEN}), "full")
-        self.assertEqual(r["dimensions"]["meters"], V.PART)
-        self.assertEqual(len(r["dimensions"]), 22)
+    def test_three_rollups_sixteen_sixteen_and_six(self):
+        """Q2(a) keeps core and full at the 16 dimensions; Q3(b)'s six categories are a third
+        rollup reported beside them (Cut 1 review, MAJ-10)."""
+        ctx = self.ctx_of({"MT1": V.RED, "MT2": V.RED, "MT3": V.GREEN, "AP1": V.RED})
+        core, full, q3b = (V.rollup(T.TABLE, ctx, s) for s in ("core", "full", "q3b"))
+        self.assertEqual(core["dimensions"]["meters"], V.CANNOT)
+        self.assertEqual(full["dimensions"]["meters"], V.PART)
+        self.assertEqual(list(core["dimensions"]), list(T.CORE_DIMENSIONS))
+        self.assertEqual(list(full["dimensions"]), list(T.CORE_DIMENSIONS))
+        self.assertEqual(list(q3b["dimensions"]), list(T.Q3B_DIMENSIONS))
+        self.assertEqual(sum(core["totals"].values()), 16)
+        self.assertEqual(sum(full["totals"].values()), 16)
+        self.assertEqual(sum(q3b["totals"].values()), 6)
+        self.assertEqual(q3b["dimensions"]["action_profile"], V.CANNOT)
+        self.assertNotIn("action_profile", full["dimensions"])
+        with self.assertRaises(ValueError):
+            V.rollup(T.TABLE, ctx, "all")
 
-    def test_the_predictions_give_the_designs_rollups(self):
-        """DESIGN 5.1: core most likely 10 / 3 / 3 / 0, full (16 keys) 6 / 7 / 3 / 0."""
+    def test_the_predictions_give_the_three_rollups(self):
+        """Design 5.1: core most likely 10 / 3 / 3 / 0, full 6 / 7 / 3 / 0; the q3b rollup
+        (design 14) 2 / 1 / 2 / 1."""
         exp = E.load(EXPECTED_TSV)
         verdicts = {cid: re.sub(r"\(.\)$", "", row["expected"]) for cid, row in exp.items()
                     if cid in {c.id for c in T.TABLE.cells}}
         ctx = self.ctx_of(verdicts)
-        core = V.rollup(T.TABLE, ctx, "core")["totals"]
-        self.assertEqual((core[V.CAN], core[V.PART], core[V.CANNOT], core[V.UNDECIDED]), (10, 3, 3, 0))
-        full = V.rollup(T.TABLE, ctx, "full")["dimensions"]
-        sixteen = [full[d] for d in T.CORE_DIMENSIONS]
-        self.assertEqual((sixteen.count(V.CAN), sixteen.count(V.PART), sixteen.count(V.CANNOT),
-                          sixteen.count(V.UNDECIDED)), (6, 7, 3, 0))
+        got = {}
+        for scope in V.SCOPES:
+            t = V.rollup(T.TABLE, ctx, scope)["totals"]
+            got[scope] = (t[V.CAN], t[V.PART], t[V.CANNOT], t[V.UNDECIDED])
+        self.assertEqual(got, {"core": (10, 3, 3, 0), "full": (6, 7, 3, 0), "q3b": (2, 1, 2, 1)})
 
     def test_telemetry_none_needs_v1_ch1_ch7_red_and_no_link_usage(self):
-        ok, _ = V.telemetry_none_check({"V1": V.RED, "CH1": V.RED, "CH7": V.RED}, True)
-        self.assertTrue(ok)
+        self.assertTrue(V.telemetry_none_check({"V1": V.RED, "CH1": V.RED, "CH7": V.RED}, True)[0])
         self.assertFalse(V.telemetry_none_check({"V1": V.RED, "CH1": V.GREEN, "CH7": V.RED}, True)[0])
         self.assertFalse(V.telemetry_none_check({"V1": V.RED, "CH1": V.RED, "CH7": V.RED}, False)[0])
 
@@ -626,8 +844,9 @@ class TestExpectedFile(unittest.TestCase):
                              (c.dimension, c.scope, c.bringup, str(c.cut)), c.id)
             self.assertEqual(row["added"], "cut1-q3b" if c.q3b else "r6", c.id)
             self.assertTrue(row["basis"].strip(), c.id)
+            if c.alias_of:
+                self.assertEqual(row["expected"], exp[c.alias_of]["expected"], c.id)
 
-    # M12
     def test_the_prediction_comes_from_the_file_not_from_the_run(self):
         exp = E.load(EXPECTED_TSV)
         self.assertEqual(exp["T4"]["expected"], "RED")
@@ -639,6 +858,7 @@ class TestExpectedFile(unittest.TestCase):
         self.assertEqual(ann["T1"], ("GREEN", "same"))
 
     def test_a_malformed_file_is_refused(self):
+        import shutil
         import tempfile
         d = tempfile.mkdtemp(prefix="p4h-expected-%d-" % os.getpid())
         path = os.path.join(d, "bad.tsv")
@@ -646,7 +866,6 @@ class TestExpectedFile(unittest.TestCase):
             fh.write("cell\texpected\nT4\tRED\n")
         with self.assertRaises(E.ExpectedError):
             E.load(path)
-        import shutil
         shutil.rmtree(d)
 
 
@@ -656,7 +875,8 @@ class TestTheTableAgainstTheDesign(unittest.TestCase):
         t = T.TABLE
         self.assertEqual(len(t.counted("core")), 34)
         self.assertEqual(len(t.counted("ext", q3b=False)), 13)
-        self.assertEqual(len(t.counted(q3b=True)), 9)
+        self.assertEqual(len(t.counted(q3b=True)), 7)
+        self.assertEqual(sorted(c.id for c in t.cells if c.alias_of), ["CP1", "RC1", "VB1"])
         by = {}
         for c in t.counted(q3b=False):
             by[c.bringup] = by.get(c.bringup, 0) + 1
@@ -667,10 +887,15 @@ class TestTheTableAgainstTheDesign(unittest.TestCase):
     def test_rule_d_edges_are_the_designs(self):
         sc = {s.id: (set(s.gates), set(s.self_checks)) for s in T.TABLE.self_checks}
         self.assertEqual(sc["SC-fwd"], ({"PL1", "T1", "TP1"}, set()))
-        for sid in ("SC-count", "SC-reg", "SC-qstamp"):
+        for sid in ("SC-count", "SC-reg", "SC-qstamp", "SC-recirc"):
             self.assertEqual(sc[sid], (set(), {"SC-fwd"}))
         self.assertEqual(sc["SC-ttl"], ({"TP1"}, {"SC-fwd"}))
-        self.assertEqual(T.TABLE.cell("K3").self_checks, ("SC-count",))   # section 12 item 7
+        self.assertEqual(sc["SC-union"], ({"TP1"}, {"SC-fwd"}))
+        cells = {c.id: (c.gates, c.self_checks, c.controls) for c in T.TABLE.cells if c.gates or c.self_checks or c.controls}
+        self.assertEqual(cells, {"T3": ((), (), ("T3-neg",)), "T7": (("T4",), (), ()),
+                                 "K1": ((), ("SC-count",), ("K1-neg",)), "K3": ((), ("SC-count",), ()),
+                                 "R2": ((), ("SC-reg",), ()), "Q1": ((), ("SC-qstamp",), ()),
+                                 "TTL1": ((), ("SC-ttl",), ()), "HU1": ((), ("SC-union",), ())})
 
     def test_the_dports_are_the_programs(self):
         with open(P4_SRC) as fh:
@@ -709,6 +934,49 @@ class TestTheTableAgainstTheDesign(unittest.TestCase):
                          (40011, 64, ("run1", "K1", 7), True))
 
 
+class TestProbeJudge(unittest.TestCase):
+
+    def test_a_recording_that_does_not_say_it_completed_is_incomplete(self):
+        """Review MINOR 19: `probe.py judge` fails closed."""
+        import io
+        import json as _json
+        import shutil
+        import tempfile
+        from contextlib import redirect_stdout
+        from p4_health import probe
+        d = tempfile.mkdtemp(prefix="p4h-judge-%d-" % os.getpid())
+        try:
+            obs = os.path.join(d, "obs.json")
+            for doc, rc in (({"cells": {}}, 2), ({"cells": {}, "bringups_complete": True}, 0)):
+                with open(obs, "w") as fh:
+                    _json.dump(doc, fh)
+                with redirect_stdout(io.StringIO()):
+                    got = probe.main(["judge", "--observations", obs, "--run-dir", d,
+                                      "--expected", EXPECTED_TSV])
+                self.assertEqual(got, rc, doc)
+            with open(os.path.join(d, "health.json")) as fh:
+                health = _json.load(fh)
+            self.assertEqual(set(health["rollup"]), {"core", "full", "q3b"})
+            self.assertEqual(len(health["controls"]), 2)
+        finally:
+            shutil.rmtree(d)
+
+
+class TestNoMachineLiterals(unittest.TestCase):
+
+    def test_no_home_directory_literal_in_the_tool(self):
+        """Review MINOR 15: no /home/<user> path in tools/p4_health (derive or configure it)."""
+        bad = []
+        for root, _dirs, files in os.walk(os.path.dirname(PKG)):
+            for f in files:
+                if f.endswith((".py", ".sh", ".p4")):
+                    path = os.path.join(root, f)
+                    with open(path, encoding="utf-8") as fh:
+                        if re.search(r"/home/[a-z]", fh.read()):
+                            bad.append(os.path.relpath(path, REPO))
+        self.assertEqual(bad, [])
+
+
 class TestS0Pieces(unittest.TestCase):
     """The parts of S0 that decide something from text (the rest is seen live, in the S0 log)."""
 
@@ -743,6 +1011,41 @@ class TestS0Pieces(unittest.TestCase):
             "mc_mgrp_create 1", "mc_node_create 1 1 2", "mc_node_associate 1 0", "mirroring_add 7 1"])
         with self.assertRaises(RC.Untranslatable):
             RC.commands({"table_entries": [dict(rt["table_entries"][0], priority=1)]}, keys, params)
+
+    def test_the_inventory_needles_need_a_use_not_a_declaration(self):
+        """Review MINOR 12: standard_metadata DECLARES mcast_grp and enq_qdepth in every
+        program, so the inventory must look for an assignment / a read inside an action."""
+        import json as _json
+        import shutil
+        import tempfile
+        from p4_health import s0
+        d = tempfile.mkdtemp(prefix="p4h-inv-%d-" % os.getpid())
+        try:
+            info = os.path.join(d, "x.p4info.txtpb")
+            open(info, "w").write("")
+            prog = {"header_types": [{"name": "standard_metadata", "fields": [["mcast_grp", 16, False],
+                                                                                 ["enq_qdepth", 19, False]]}],
+                    "actions": [{"name": "a", "primitives": [
+                        {"op": "assign", "parameters": [{"type": "field", "value": ["meta", "x"]},
+                                                        {"type": "field", "value": ["meta", "y"]}]}]}]}
+            js = os.path.join(d, "x.json")
+            open(js, "w").write(_json.dumps(prog))
+            inv = s0.inventory(js, info)
+            self.assertFalse(inv["mcast_grp"])
+            self.assertFalse(inv["enq_qdepth"])
+            prog["actions"][0]["primitives"] += [
+                {"op": "assign", "parameters": [{"type": "field", "value": ["standard_metadata", "mcast_grp"]},
+                                                {"type": "hexstr", "value": "0x1"}]},
+                {"op": "assign", "parameters": [{"type": "field", "value": ["ipv4", "identification"]},
+                                                {"type": "expression", "value": {"op": "&", "left": {
+                                                    "type": "field", "value": ["standard_metadata", "enq_qdepth"]},
+                                                    "right": None}}]}]
+            open(js, "w").write(_json.dumps(prog))
+            inv = s0.inventory(js, info)
+            self.assertTrue(inv["mcast_grp"])
+            self.assertTrue(inv["enq_qdepth"])
+        finally:
+            shutil.rmtree(d)
 
 
 if __name__ == "__main__":

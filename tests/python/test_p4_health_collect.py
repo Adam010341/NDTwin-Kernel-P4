@@ -1,24 +1,29 @@
 #!/usr/bin/env python3
-"""The P4 health check's reading layer and lab lifecycle, sealed off from the lab (DESIGN 5.2-②).
+"""The P4 health check's reading layer and lab lifecycle, sealed off from the lab (design 5.2-②).
 
 [Co-developed with claude code -- Adam]
 
-HERMETIC BY CONSTRUCTION, and checked after every test:
+HERMETIC BY CONSTRUCTION -- a breach is REFUSED when it happens, recorded, and every test ends by
+asserting nothing was attempted (hardened in the Cut 1 review, MAJ-7):
 
-  * PATH starts with a directory whose `sudo`, `tc`, `ndt`, `mnexec` and `simple_switch_CLI` exit
-    99 and append a line to a TRIPWIRE file. Every test ends by asserting that file does not
-    exist -- anything that reached one of them, by any route, is a red test.
-  * `socket.socket.connect`, `connect_ex` and `socket.create_connection` are wrapped: a connect to
-    127.0.0.1, ::1, localhost or 0.0.0.0 on 8000, 8081, 30051-30060 or 9091-9100 is refused and
-    recorded, and every test asserts none was attempted (section 12 item 9).
+  * PATH starts with a directory whose `sudo`, `tc`, `ndt`, `mnexec` and `simple_switch_CLI`
+    exit 99 and append to a TRIPWIRE file; every test asserts that file does not exist.
+  * `subprocess.Popen` refuses (PermissionError) anything whose executable is not one of those
+    stubs, and `os.system`, `os.popen`, `os.exec*`, `os.spawn*`, `os.posix_spawn*`, `os.fork*`
+    refuse everything.
+  * Every AF_INET / AF_INET6 `connect`, `connect_ex`, `sendto`, `sendmsg` and
+    `socket.create_connection` is refused -- whatever the address: 127.0.0.1, the rest of
+    127/8, ::1, IPv4-mapped loopback, the host's own addresses and the lab's ports all included.
   * `grpc` is replaced in sys.modules by a stub that raises on any use.
-  * `subprocess.Popen` is wrapped to record every spawn (it still spawns, so the PATH stubs can
-    fire); every test asserts nothing was spawned at all.
+  * The real knob files and claim file -- this checkout's and its main checkout's -- are
+    fingerprinted at import and after every test; any change is a red test.
+  * P4H_HERMETIC=1: a Config that would default anything to the real machine is refused.
 
 The code under test is handed ONE RecordingRunner and ONE Config whose HTTP clients are
 in-process fakes. The package is tools/p4_health, or $P4_HEALTH_UNDER_TEST's copy.
 """
 import base64
+import hashlib
 import json
 import os
 import shutil
@@ -34,6 +39,42 @@ from unittest import mock
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.environ.get("P4_HEALTH_UNDER_TEST") or os.path.join(REPO, "tools"))
 FIXTURES = os.path.join(REPO, "tests", "python", "fixtures", "p4_health", "thrift")
+os.environ["P4H_HERMETIC"] = "1"
+
+
+def _checkouts():
+    """This checkout, and -- when it is a git worktree -- the main checkout its .git file names
+    (read from the file, not from `git`: nothing is spawned)."""
+    out = [REPO]
+    try:
+        with open(os.path.join(REPO, ".git")) as fh:
+            line = fh.read().strip()
+        if line.startswith("gitdir:"):
+            gitdir = line.split(":", 1)[1].strip()
+            common = os.path.dirname(os.path.dirname(gitdir))       # <main>/.git/worktrees/x
+            out.append(os.path.dirname(common))
+    except OSError:
+        pass
+    return out
+
+
+REAL_FILES = sorted({os.path.join(c, rel) for c in _checkouts() for rel in (
+    "p4_proxy/mininet/host_count_override", "p4_proxy/mininet/telemetry_override",
+    "p4_proxy/mininet/app_package_override", ".test_run/lab.claim")})
+
+
+def _fingerprint():
+    out = {}
+    for path in REAL_FILES:
+        try:
+            with open(path, "rb") as fh:
+                out[path] = hashlib.sha256(fh.read()).hexdigest()
+        except OSError:
+            out[path] = None
+    return out
+
+
+REAL_BEFORE = _fingerprint()
 
 # --- the seal ---------------------------------------------------------------------------------------
 SEAL = tempfile.mkdtemp(prefix="p4h-collect-seal-%d-" % os.getpid())
@@ -47,51 +88,81 @@ for _name in ("sudo", "tc", "ndt", "mnexec", "simple_switch_CLI"):
     os.chmod(_path, 0o755)
 os.environ["PATH"] = STUBS + os.pathsep + os.environ.get("PATH", "")
 
-LAB_PORTS = {8000, 8081} | set(range(30051, 30061)) | set(range(9091, 9101))
-LAB_HOSTS = {"127.0.0.1", "::1", "localhost", "0.0.0.0", "::"}
-ATTEMPTS = []
-SPAWNS = []
+ATTEMPTS = []          # network: every inet connect / send, refused
+SPAWNS = []            # processes: every spawn, refused unless it is a stub (which then trips)
 _orig_connect = socket.socket.connect
 _orig_connect_ex = socket.socket.connect_ex
+_orig_sendto = socket.socket.sendto
+_orig_sendmsg = socket.socket.sendmsg
 _orig_create = socket.create_connection
 _orig_popen_init = subprocess.Popen.__init__
+INET = (socket.AF_INET, socket.AF_INET6)
 
 
-def _lab(address):
-    return (isinstance(address, tuple) and len(address) >= 2 and str(address[0]) in LAB_HOSTS
-            and address[1] in LAB_PORTS)
+def _refuse_net(what, address):
+    ATTEMPTS.append((what, tuple(address[:2]) if isinstance(address, tuple) else address))
+    raise ConnectionRefusedError("hermetic test: %s to %r refused" % (what, address))
 
 
 def _connect(self, address):
-    if _lab(address):
-        ATTEMPTS.append(tuple(address[:2]))
-        raise ConnectionRefusedError("hermetic test: lab port %r refused" % (address,))
+    if self.family in INET:
+        _refuse_net("connect", address)
     return _orig_connect(self, address)
 
 
 def _connect_ex(self, address):
-    if _lab(address):
-        ATTEMPTS.append(tuple(address[:2]))
+    if self.family in INET:
+        ATTEMPTS.append(("connect_ex", tuple(address[:2]) if isinstance(address, tuple) else address))
         return 111
     return _orig_connect_ex(self, address)
 
 
+def _sendto(self, data, *args):
+    if self.family in INET:
+        _refuse_net("sendto", args[-1])
+    return _orig_sendto(self, data, *args)
+
+
+def _sendmsg(self, buffers, *args):
+    if self.family in INET:
+        _refuse_net("sendmsg", args[-1] if args else None)
+    return _orig_sendmsg(self, buffers, *args)
+
+
 def _create(address, *a, **kw):
-    if _lab(address):
-        ATTEMPTS.append(tuple(address[:2]))
-        raise ConnectionRefusedError("hermetic test: lab port %r refused" % (address,))
-    return _orig_create(address, *a, **kw)
+    _refuse_net("create_connection", address)
 
 
 def _popen_init(self, *a, **kw):
-    SPAWNS.append(a[0] if a else kw.get("args"))
+    args = a[0] if a else kw.get("args")
+    SPAWNS.append(args)
+    argv0 = (args if isinstance(args, str) else (list(args) or [""])[0]).split()[0] if args else ""
+    exe = kw.get("executable") or argv0
+    resolved = exe if os.sep in str(exe) else shutil.which(str(exe))
+    if not resolved or not os.path.realpath(resolved).startswith(os.path.realpath(STUBS) + os.sep):
+        raise PermissionError("hermetic test: spawning %r refused (only the fail-loud stubs run)" % (args,))
     return _orig_popen_init(self, *a, **kw)
+
+
+def _os_refuser(name):
+    def refuse(*a, **kw):
+        SPAWNS.append((name,) + tuple(str(x) for x in a[:2]))
+        raise PermissionError("hermetic test: os.%s refused" % name)
+    return refuse
 
 
 socket.socket.connect = _connect
 socket.socket.connect_ex = _connect_ex
+socket.socket.sendto = _sendto
+socket.socket.sendmsg = _sendmsg
 socket.create_connection = _create
 subprocess.Popen.__init__ = _popen_init
+OS_REFUSED = [n for n in ("system", "popen", "execv", "execve", "execvp", "execvpe", "execl", "execle",
+                          "execlp", "execlpe", "spawnv", "spawnve", "spawnvp", "spawnvpe", "spawnl",
+                          "spawnle", "spawnlp", "spawnlpe", "posix_spawn", "posix_spawnp", "fork",
+                          "forkpty") if hasattr(os, n)]
+for _n in OS_REFUSED:
+    setattr(os, _n, _os_refuser(_n))
 
 
 class _GrpcStub(types.ModuleType):
@@ -103,6 +174,7 @@ sys.modules["grpc"] = _GrpcStub("grpc")
 
 from p4_health import lab_round as LR  # noqa: E402
 from p4_health import observe as OB  # noqa: E402
+from p4_health import throwaway as TW  # noqa: E402
 from p4_health.cells import table as T  # noqa: E402
 from p4_health.cells import verdict as V  # noqa: E402
 from p4_health.collect import fabric as FB  # noqa: E402
@@ -111,13 +183,14 @@ from p4_health.collect import ps as PS  # noqa: E402
 from p4_health.collect import sniff as S  # noqa: E402
 from p4_health.collect import tc as TC  # noqa: E402
 from p4_health.collect import thrift as TH  # noqa: E402
-from p4_health.collect.config import Config, HttpReply  # noqa: E402
+from p4_health.collect.config import Config, HermeticViolation, HttpReply  # noqa: E402
 from p4_health.collect.runner import RecordingRunner  # noqa: E402
 
 
 #: What every test's tearDown checked, for $P4H_SEAL_REPORT (an audit of the seal itself).
-SEAL_LOG = {"tests_checked": 0, "tripwire_hits": [], "lab_port_attempts": [], "spawns": [],
-            "path_head": STUBS, "stubs": sorted(os.listdir(STUBS))}
+SEAL_LOG = {"tests_checked": 0, "tripwire_hits": [], "network_attempts": [], "spawns": [],
+            "real_files_changed": [], "path_head": STUBS, "stubs": sorted(os.listdir(STUBS)),
+            "os_refused": OS_REFUSED, "real_files": REAL_FILES}
 
 
 def tearDownModule():
@@ -157,7 +230,7 @@ class FakeHttp(object):
 
 
 class Sealed(unittest.TestCase):
-    """Every test: no tripwire, no lab port, no spawn."""
+    """Every test: no tripwire, no network, no spawn, no real file changed."""
 
     def setUp(self):
         del ATTEMPTS[:]
@@ -182,28 +255,45 @@ class Sealed(unittest.TestCase):
             with open(TRIPWIRE) as fh:
                 detail = fh.read()
             os.remove(TRIPWIRE)
+        changed = sorted(p for p, h in _fingerprint().items() if h != REAL_BEFORE[p])
         SEAL_LOG["tests_checked"] += 1
         if tripped:
             SEAL_LOG["tripwire_hits"].append([self.id(), detail])
-        SEAL_LOG["lab_port_attempts"] += [[self.id(), a] for a in ATTEMPTS]
+        SEAL_LOG["network_attempts"] += [[self.id(), a] for a in ATTEMPTS]
         SEAL_LOG["spawns"] += [[self.id(), sp] for sp in SPAWNS]
+        SEAL_LOG["real_files_changed"] += [[self.id(), c] for c in changed]
         self.assertFalse(tripped, "a fail-loud stub was run: %s" % detail)
-        self.assertEqual(ATTEMPTS, [], "a lab port was dialled")
+        self.assertEqual(ATTEMPTS, [], "a lab port was dialled (or any network)")
         self.assertEqual(SPAWNS, [], "a process was spawned")
+        self.assertEqual(changed, [], "a real knob or claim file changed")
 
 
 # --- the seal checks itself ----------------------------------------------------------------------------
 
 class TestTheSealHolds(Sealed):
 
-    def test_a_lab_port_is_refused_and_recorded(self):
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    def test_every_loopback_and_lab_address_is_refused(self):
+        for family, addr in ((socket.AF_INET, ("127.0.0.1", 8081)), (socket.AF_INET, ("127.0.1.1", 8081)),
+                             (socket.AF_INET, ("127.255.0.9", 9091)), (socket.AF_INET, ("0.0.0.0", 8000)),
+                             (socket.AF_INET6, ("::1", 30051)), (socket.AF_INET6, ("::ffff:127.0.0.1", 8081)),
+                             (socket.AF_INET, ("10.0.0.1", 80))):
+            with self.subTest(addr=addr):
+                s = socket.socket(family, socket.SOCK_STREAM)
+                try:
+                    with self.assertRaises(ConnectionRefusedError):
+                        s.connect(addr)
+                finally:
+                    s.close()
+        u = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
             with self.assertRaises(ConnectionRefusedError):
-                s.connect(("127.0.0.1", 8081))
+                u.sendto(b"x", ("127.0.1.1", 6343))
         finally:
-            s.close()
-        self.assertEqual(ATTEMPTS, [("127.0.0.1", 8081)])
+            u.close()
+        with self.assertRaises(ConnectionRefusedError):
+            socket.create_connection(("localhost", 8081))
+        self.assertEqual(len(ATTEMPTS), 9)
+        self.assertIn(("connect", ("127.0.1.1", 8081)), ATTEMPTS)
         del ATTEMPTS[:]
 
     def test_the_stubs_are_first_on_path_and_trip(self):
@@ -215,10 +305,37 @@ class TestTheSealHolds(Sealed):
         os.remove(TRIPWIRE)
         del SPAWNS[:]
 
+    def test_anything_but_a_stub_is_refused_before_it_runs(self):
+        for argv in (["true"], ["/usr/bin/env", "true"], [sys.executable, "-c", "pass"]):
+            with self.subTest(argv=argv):
+                with self.assertRaises(PermissionError):
+                    subprocess.run(argv)
+        with self.assertRaises(PermissionError):
+            subprocess.Popen(["ndt"], executable="/bin/true")
+        for name in ("system", "popen", "execv", "spawnv", "posix_spawn"):
+            with self.subTest(os_call=name):
+                with self.assertRaises(PermissionError):
+                    getattr(os, name)("/bin/true", ["/bin/true"]) if name != "system" and name != "popen" \
+                        else getattr(os, name)("true")
+        self.assertTrue(len(SPAWNS) >= 9)
+        self.assertFalse(os.path.exists(TRIPWIRE))
+        del SPAWNS[:]
+
     def test_grpc_is_a_stub(self):
         import grpc
         with self.assertRaises(RuntimeError):
             grpc.insecure_channel("localhost:30051")
+
+    def test_a_config_that_would_default_to_the_machine_is_refused(self):
+        with self.assertRaises(HermeticViolation):
+            Config(run_dir=self.tmp)
+        with self.assertRaises(HermeticViolation):
+            Config(run_dir=self.tmp, proxy=self.proxy, kernel=self.kernel, ndt="ndt",
+                   test_run_dir=self.tmp, thrift_cli=["x"], qdisc_snapshot="q", expected_tsv="e")
+
+    def test_the_real_files_are_watched(self):
+        self.assertTrue(any(p.endswith("p4_proxy/mininet/host_count_override") for p in REAL_FILES))
+        self.assertTrue(any(p.endswith(".test_run/lab.claim") for p in REAL_FILES))
 
 
 # --- thrift: the real formats ---------------------------------------------------------------------------
@@ -288,7 +405,9 @@ class TestThriftParsers(Sealed):
         self.assertEqual(r.calls[0]["argv"], ["simple_switch_CLI", "--thrift-port", "9092"])
         self.assertEqual(r.calls[0]["input"], "counter_read HcIngress.c_in 0\n")
         for cmd in ("table_add HcIngress.port_exact x 1 => 2", "register_write HcIngress.r_mark 0 1",
-                    "mirroring_add 9 1", "pvs_add HcParser.vs_ports 1", "table_clear HcIngress.t_ap"):
+                    "mirroring_add 9 1", "pvs_add HcParser.vs_ports 1", "table_clear HcIngress.t_ap",
+                    "counter_read HcIngress.c_in 0\nregister_write HcIngress.r_mark 0 1",
+                    "show_tables; table_clear HcIngress.t_ap", "table_num_entries HcIngress.t_ap"):
             with self.subTest(cmd=cmd):
                 with self.assertRaises(TH.WriteRefused):
                     reader.read(1, cmd)
@@ -320,6 +439,7 @@ class TestWhereTheNumbersComeFrom(Sealed):
         self.assertEqual(obs["sent"], 5)
         ctx = V.Context()
         ctx.self_checks["SC-count"] = V.Verdict(V.GREEN, "fixture")
+        ctx.cells["K1-neg"] = V.Verdict(V.GREEN, "fixture")
         v = V.decide(T.TABLE.cell("K1"), obs, ctx)
         self.assertEqual(v.verdict, V.RED)
         self.assertIn("NDTwin read 7, thrift 5", v.reason)
@@ -362,10 +482,43 @@ class TestWhereTheNumbersComeFrom(Sealed):
         self.assertIsNone(P.openapi_paths(self.cfg))
 
     def test_the_counter_endpoints_three_answers(self):
-        self.proxy.routes[("GET", "/p4/counter/HcIngress.c_in?dpid=1&index=0")] = (503, {"detail": "x"})
-        self.assertEqual(P.counter(self.cfg, "HcIngress.c_in", 1), (503, None))
-        self.proxy.routes[("GET", "/p4/counter/HcIngress.c_in?dpid=1&index=0")] = (200, {"packets": 0, "bytes": 0})
-        self.assertEqual(P.counter(self.cfg, "HcIngress.c_in", 1), (200, 0))
+        path = ("GET", "/p4/counter/HcIngress.c_in?dpid=1&index=0")
+        self.proxy.routes[path] = (503, {"detail": {"error": "counter not read"}})
+        self.assertEqual(P.counter(self.cfg, "HcIngress.c_in", 1), (503, None, "counter not read"))
+        self.proxy.routes[path] = (200, {"packets": 0, "bytes": 0})
+        self.assertEqual(P.counter(self.cfg, "HcIngress.c_in", 1), (200, 0, None))
+
+    def test_post_table_entry_goes_through_the_config_client(self):
+        self.proxy.routes[("POST", "/p4/table_entry")] = (501, {"detail": {"error": "unsupported match"}})
+        self.assertEqual(P.post_table_entry(self.cfg, {"table": "t"})[0], 501)
+        self.assertEqual(self.proxy.calls[-1], ("POST", "/p4/table_entry", {"table": "t"}))
+
+    # review MAJ-2: an unreadable switch_state is no answer, never a RED and never a GREEN
+    def test_unreadable_switch_state_is_no_answer(self):
+        self.proxy.routes[("GET", "/p4/switch_state")] = (500, None)
+        good = fixture("mc_dump_group").replace("mgrp(2)", "mgrp(1)").replace("[1, 3]", "[1, 2]")
+        r = RecordingRunner().add(("simple_switch_CLI",), lambda a, e, i: (
+            0, good if a[2] == "9091" else fixture("mc_dump_empty")))
+        obs = OB.observe_m1(self.cfg, r)
+        self.assertIsNone(obs["answer"])
+        v = V.decide(T.TABLE.cell("M1"), obs, V.Context())
+        self.assertEqual((v.verdict, v.phase), (V.NOT_RUN, "answer"))
+        alt = fixture("show_tables").replace("HcIngress.t_ap ", "HcIngress.alt_port_stamp [implementation=None, mk=]\nHcIngress.t_ap ")
+        r = RecordingRunner().add(("simple_switch_CLI",), lambda a, e, i: (
+            0, alt if a[2] == "9091" else fixture("show_tables")))
+        obs = OB.observe_pl1(self.cfg, r, {"1": "alt", "2": "main", "3": "main", "4": "main"})
+        self.assertIsNone(obs["answer"])
+        v = V.decide(T.TABLE.cell("PL1"), obs, V.Context())
+        self.assertEqual((v.verdict, v.phase), (V.NOT_RUN, "answer"))
+
+    # review MAJ-3 / MINOR 21: the control keeps the endpoint's own error word
+    def test_the_counter_control_needs_the_endpoints_own_refusal(self):
+        path = ("GET", "/p4/counter/HcIngress.no_such_counter?dpid=2&index=0")
+        ctl = T.TABLE.controls[0]
+        self.proxy.routes[path] = (404, {"detail": {"error": "not in this pipeline", "counter": "x"}})
+        self.assertEqual(ctl.judge(OB.observe_counter_control(self.cfg, 2)).verdict, V.GREEN)
+        del self.proxy.routes[path]            # FakeHttp answers FastAPI's own {"detail": "Not Found"}
+        self.assertEqual(ctl.judge(OB.observe_counter_control(self.cfg, 2)).verdict, V.PROBE_BROKEN)
 
 
 class TestSmallOracles(Sealed):
@@ -393,7 +546,55 @@ class TestSmallOracles(Sealed):
                          ("10.0.1.1", "08:00:00:00:01:11"))
 
 
-# --- the lifecycle (M14, M17; section 12 items 10 and 12) ----------------------------------------------
+class TestUnreadableIsNotEmpty(Sealed):
+    """Review MINOR 10: an unreadable document or file is None, never "no rows" / "no frames"."""
+
+    def test_side_rows_and_pcaps(self):
+        from p4_health import frames as F
+        from p4_health.collect import kernel as K
+        self.assertIsNone(K.side_rows(None))
+        self.assertIsNone(K.side_rows({"flows": []}))
+        self.assertEqual(K.side_rows({"non_ipv4_flows": []}), [])
+        self.assertIsNone(F.read_pcap(os.path.join(self.tmp, "missing.pcap")))
+        junk = os.path.join(self.tmp, "junk.pcap")
+        with open(junk, "wb") as fh:
+            fh.write(b"not a pcap at all, not even close....")
+        self.assertIsNone(F.read_pcap(junk))
+        empty = os.path.join(self.tmp, "empty.pcap")
+        F.write_pcap(empty, [])
+        self.assertEqual(F.read_pcap(empty), [])
+
+
+class TestThrowawayGuard(Sealed):
+
+    def test_the_throwaway_cli_only_ever_dials_its_own_port(self):
+        """The only thrift writes in tools/p4_health go to a switch the probe started; a lab port,
+        or no port, is refused before the runner is called (review MAJ-4)."""
+        r = RecordingRunner().add(("simple_switch_CLI",), (0, "RuntimeCmd: "))
+        sw = TW.Throwaway(os.path.join(self.tmp, "x.json"), {1: []}, 510, ["simple_switch_CLI"],
+                          workdir=self.tmp, runner=r)
+        for port in (None, 9090, 9092, 9100, 30051, 8081):
+            with self.subTest(port=port):
+                sw.thrift_port = port
+                with self.assertRaises(TW.ThrowawayError):
+                    sw.cli(["table_add HcIngress.t_ternary x 1 => 2"])
+        self.assertEqual(r.calls, [])
+        sw.thrift_port = 29501
+        sw.cli(["show_tables"])
+        self.assertEqual(r.calls[0]["argv"], ["simple_switch_CLI", "--thrift-port", "29501"])
+        with self.assertRaises(TW.ThrowawayError):
+            TW.Throwaway("x.json", {}, 510, ["c"], workdir=self.tmp, argv0="simple_switch")
+
+    def test_the_lab_ports_come_from_grpc_ports(self):
+        self.assertIn((9090, 9090 + 512), TW.LAB_PORT_RANGES)
+        self.assertIn((30050, 30050 + 512), TW.LAB_PORT_RANGES)
+        self.assertFalse(any(lo <= 29500 < hi for lo, hi in TW.LAB_PORT_RANGES))
+
+
+# --- the lifecycle (M14, M17; section 12 items 10 and 12; review MAJ-6) ---------------------------------
+
+UP_NOTE = "in use: ndt up p4 6 at 2026-10-03 18:00:00 by p4h-test"
+
 
 class TestLabRound(Sealed):
 
@@ -408,30 +609,66 @@ class TestLabRound(Sealed):
         self.proxy.routes[("GET", "/p4/switch_state")] = (200, {"heartbeat": {"state": "usable",
                                                                             "frames_reached_hosts": False}})
         self.pkg = os.path.join(self.tmp, "pkgA")
+        self.proc = os.path.join(self.tmp, "proc")
+        self.fake_proc(555, 777001, "python3\0sniff.py\0--run-id\0run-x\0")
+        self.fake_proc(666, 777002, "python3\0controller_ext.py\0run-x\0")
 
-    def runner(self, down_rc=0, release_rc=0, claim_rc=0, diff_rc=0,
+    def fake_proc(self, pid, start, cmdline, comm="python3"):
+        d = os.path.join(self.proc, str(pid))
+        os.makedirs(d, exist_ok=True)
+        with open(os.path.join(d, "stat"), "w") as fh:
+            fh.write("%d (%s) S %s %d 0 0\n" % (pid, comm, " ".join(str(i) for i in range(1, 19)), start))
+        with open(os.path.join(d, "cmdline"), "w") as fh:
+            fh.write(cmdline)
+
+    def write_claim(self, owner="p4h-test", expires=None, note=""):
+        expires = expires if expires is not None else int(__import__("time").time()) + 600
+        with open(self.cfg.claim_file, "w") as fh:
+            fh.write("owner=%s\nexpires=%d\nnote=%s\nexclusive_cpu=no\nmeasuring=\n" % (owner, expires, note))
+
+    def runner(self, down_rc=0, release_rc=0, claim_rc=0, diff_rc=0, tc_add_rc=0,
                status="  measuring      nothing\n"):
-        knob = self.host_knob
+        knob, test = self.host_knob, self
+
+        def claim(argv, env, inp):
+            if claim_rc == 0:
+                test.write_claim(note=argv[3])
+            return (claim_rc, "")
 
         def up(argv, env, inp):
-            with open(knob, "wb") as fh:          # `ndt up p4 --app` rewrites the host knob
+            with open(knob, "wb") as fh:          # `ndt up p4 --app` rewrites the host knob ...
                 fh.write(b"6\n")
+            test.write_claim(note=UP_NOTE)         # ... and the claim's note (ndt:3486)
             return (0, "up")
+
+        def down(argv, env, inp):
+            test.write_claim(note="down at 2026-10-03 18:20:00; verified clean; claim kept")
+            return (down_rc, "")
+
+        def release(argv, env, inp):
+            if release_rc == 0 and os.path.exists(test.cfg.claim_file):
+                os.remove(test.cfg.claim_file)
+            return (release_rc, "")
         r = RecordingRunner()
         r.add(("ndt", "status", "--measuring"), (0, status))
-        r.add(("ndt", "claim"), (claim_rc, ""))
+        r.add(("ndt", "claim"), claim)
         r.add(("ndt", "up"), up)
-        r.add(("ndt", "down"), (down_rc, ""))
-        r.add(("ndt", "release"), (release_rc, ""))
+        r.add(("ndt", "down"), down)
+        r.add(("ndt", "release"), release)
         r.add(("qdisc_snapshot.sh", "save"), (0, "saved"))
         r.add(("qdisc_snapshot.sh", "diff"), (diff_rc, "" if diff_rc == 0 else "-qdisc htb\n"))
+        r.add(("sudo", "-n", "tc", "qdisc", "add"), (tc_add_rc, ""))
         r.add(("sudo", "-n", "tc"), (0, ""))
         r.add(("sudo", "-n", "mnexec", "-a", "1", "kill"), (0, ""))
         r.add(("kill",), (0, ""))
         return r
 
+    def lab(self, r, **kw):
+        return LR.LabRound(self.cfg, r, "A", self.pkg, "run-x", pid=4242, proc_root=self.proc,
+                           install_signals=kw.pop("signals", False))
+
     def round(self, r, body=None, **kw):
-        lr = LR.LabRound(self.cfg, r, "A", self.pkg, "run-x", pid=4242, install_signals=kw.pop("signals", False))
+        lr = self.lab(r, **kw)
 
         def default_body(lab):
             lab.register("sniffer", 555)
@@ -453,6 +690,10 @@ class TestLabRound(Sealed):
             else:
                 out.append(os.path.basename(a[0]) + " " + a[1])
         return out
+
+    def state(self):
+        with open(self.cfg.lab_state_path) as fh:
+            return json.load(fh)
 
     def test_the_round_in_order(self):
         r = self.runner()
@@ -496,15 +737,47 @@ class TestLabRound(Sealed):
         self.assertLess(ev.index(("state", "claiming")), ev.index(("ndt", "claim")))
         self.assertLess(ev.index(("state", "up")), ev.index(("ndt", "up")))
         self.assertLess(ev.index(("state", "teardown")), ev.index(("ndt", "down")))
-        with open(self.cfg.lab_state_path) as fh:
-            st = json.load(fh)
+        st = self.state()
         self.assertEqual((st["pid"], st["owner"], st["bring_up"], st["phase"]), (4242, "p4h-test", "A", "released"))
-        self.assertEqual(st["netem"], ["s2-eth3"])
-        self.assertEqual((st["sniffers"], st["controllers"]), ([555], [666]))
         self.assertEqual(base64.b64decode(st["knob_snapshot"]["host_count_override"]),
                          b"4  # uncommitted value, kept as bytes\n")
         self.assertIsNone(st["knob_snapshot"]["telemetry_override"])
         self.assertTrue(st["qdisc_before"].endswith("qdisc.A.before"))
+
+    def test_processes_are_recorded_by_pid_start_and_marker_and_leave_once_stopped(self):
+        seen = {}
+        r = self.runner()
+
+        def body(lab):
+            lab.register("sniffer", 555)
+            lab.register("controller", 666)
+            seen.update(self.state())
+        lr, _rec = self.round(r, body)
+        self.assertEqual(seen["sniffers"], [{"pid": 555, "start": 777001, "marker": "run-x"}])
+        self.assertEqual(seen["controllers"], [{"pid": 666, "start": 777002, "marker": "run-x"}])
+        self.assertEqual((self.state()["sniffers"], self.state()["controllers"]), ([], []))
+
+    def test_a_pid_without_the_marker_is_not_registered(self):
+        self.fake_proc(777, 5, "bash\0-c\0something else\0")
+        lr = self.lab(self.runner())
+        with self.assertRaises(ValueError):
+            lr.register("sniffer", 777)
+        with self.assertRaises(ValueError):
+            lr.register("sniffer", 778)            # no such pid
+
+    def test_a_recycled_or_vanished_pid_is_never_signalled(self):
+        r = self.runner()
+
+        def body(lab):
+            lab.register("sniffer", 555)
+            lab.register("controller", 666)
+            self.fake_proc(555, 999999, "python3\0sniff.py\0--run-id\0run-x\0")   # same pid, new process
+            shutil.rmtree(os.path.join(self.proc, "666"))                        # gone
+        lr, _rec = self.round(r, body)
+        self.assertFalse([n for n in self.names(r) if n.startswith("kill")])
+        outcomes = {e[1]: e[2] for e in lr.events if e[0] in ("stop-sniffer", "stop-controller")}
+        self.assertEqual(outcomes, {555: "not ours any more", 666: "gone"})
+        self.assertEqual(self.names(r)[-2:], ["ndt down", "ndt release"])
 
     def test_netem_is_recorded_before_it_is_applied(self):
         seen = {}
@@ -519,12 +792,53 @@ class TestLabRound(Sealed):
         self.round(r)
         self.assertEqual(seen["netem"], ["s2-eth3"])
 
+    def test_a_netem_whose_add_failed_is_not_deleted(self):
+        r = self.runner(tc_add_rc=2)
+        self.round(r)
+        self.assertIn("tc add", self.names(r))
+        self.assertNotIn("tc del", self.names(r))
+
     def test_the_qdisc_snapshot_is_taken_after_up(self):
         r = self.runner()
         self.round(r)
         names = self.names(r)
         self.assertLess(names.index("ndt up"), names.index("qdisc_snapshot.sh save"))
         self.assertLess(names.index("qdisc_snapshot.sh save"), names.index("tc add"))
+
+    def test_a_lost_claim_stops_the_teardown_before_anything_shared_changes(self):
+        for case in ("foreign", "expired"):
+            with self.subTest(case=case):
+                if os.path.exists(self.cfg.claim_file):
+                    os.remove(self.cfg.claim_file)
+                r = self.runner()
+                knob = self.host_knob
+
+                def body(lab, case=case):
+                    lab.register("sniffer", 555)
+                    lab.add_netem("s2-eth3")
+                    if case == "foreign":
+                        self.write_claim(owner="somebody-else")
+                    else:
+                        self.write_claim(expires=1)
+                lr, rec = self.round(r, body)
+                names = self.names(r)
+                self.assertIn("kill-sniffer 555", names)          # our own verified process: stopped
+                for step in ("tc del", "ndt down", "ndt release"):
+                    self.assertNotIn(step, names)
+                with open(knob, "rb") as fh:
+                    self.assertEqual(fh.read(), b"6\n")           # not written over a lost claim
+                self.assertEqual(self.state()["phase"], "claim-lost")
+                self.assertTrue(any("no longer ours" in p for p in rec["problems"]))
+                self.assertFalse(rec["complete"])
+                with open(knob, "wb") as fh:
+                    fh.write(b"4  # uncommitted value, kept as bytes\n")
+
+    def test_a_claim_lost_during_the_down_stops_the_restore_and_the_release(self):
+        r = self.runner()
+        r.replies.insert(0, (("ndt", "down"), lambda a, e, i: (self.write_claim(owner="x"), (0, ""))[1]))
+        _lr, rec = self.round(r)
+        self.assertEqual(self.names(r)[-1], "ndt down")
+        self.assertIsNone(rec["knobs_restored"])
 
     def test_a_failed_down_is_not_released(self):
         r = self.runner(down_rc=3)
@@ -594,13 +908,20 @@ class TestLabRound(Sealed):
     def test_root_is_refused(self):
         with mock.patch("os.geteuid", return_value=0):
             with self.assertRaises(LR.RootRefused):
-                LR.LabRound(self.cfg, self.runner(), "A", self.pkg, "r").run(lambda lab: None)
+                self.lab(self.runner()).run(lambda lab: None)
+
+    def test_the_real_proc_reader(self):
+        """proc_identity reads field 22 after the LAST ')' of comm (which may hold spaces)."""
+        self.fake_proc(888, 4242, "x\0run-x\0", comm="a b) c")
+        self.assertEqual(LR.proc_identity(888, self.proc), (4242, "x run-x"))
+        self.assertIsNone(LR.proc_identity(889, self.proc))
 
 
 class TestConfig(Sealed):
 
     def test_ndt_needs_an_owner(self):
-        cfg = Config(run_dir=self.tmp, proxy=self.proxy, kernel=self.kernel)
+        cfg = Config(run_dir=self.tmp, proxy=self.proxy, kernel=self.kernel, ndt="ndt", knob_dir=self.tmp,
+                     test_run_dir=self.tmp, thrift_cli=["x"], qdisc_snapshot="q", expected_tsv="e")
         with self.assertRaises(ValueError):
             cfg.ndt_env()
 
