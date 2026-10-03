@@ -295,6 +295,26 @@ def _word_at(line, j, word):
     return before in " \t;&|(" and after in " \t;&|)"
 
 
+def _command_position(line, j):
+    """True when line[j] starts a command: first on its line, or right after `;`, `&`, `|`, `(`,
+    `{`, `)` (a case pattern's), `!`, or a keyword that is followed by a command.
+
+    `case` and `esac` are keywords only there. After a command name they are plain words --
+    `"$(echo case)"` -- and counting them as keywords left a case open that nothing closed.
+    """
+    k = j
+    while k > 0 and line[k - 1] in " \t":
+        k -= 1
+    if k == 0:
+        return True
+    if line[k - 1] in ";&|({)!":
+        return True
+    e = k
+    while k > 0 and (line[k - 1].isalnum() or line[k - 1] == "_"):
+        k -= 1
+    return line[k:e] in ("then", "do", "else", "elif", "if", "while", "until", "time")
+
+
 def _regions(text):
     """[(line, code, printed)] -- one entry per line, with the data parts blanked out.
 
@@ -308,7 +328,7 @@ def _regions(text):
     lines = text.split("\n")
     out = []
     quote = None
-    substitutions = []          # one frame per open "$(": [suspended quote, paren depth, case bases]
+    substitutions = []          # one frame per open "$(": [suspended quote, paren depth, case bases, ${ depth]
     pending = []                # heredoc terminators still to be consumed
     unreadable = None
     i = 0
@@ -325,7 +345,7 @@ def _regions(text):
                 continue
             if quote == '"':
                 if line[j:j + 2] == "$(":
-                    substitutions.append([quote, 0, []])
+                    substitutions.append([quote, 0, [], 0])
                     quote = None
                     code.append("$(")
                     j += 2
@@ -343,7 +363,16 @@ def _regions(text):
                 continue
             if substitutions:
                 frame = substitutions[-1]
-                if c == "(":
+                if line.startswith("${", j):
+                    frame[3] += 1                       # a parameter expansion: its parens are text
+                    code.append("${")
+                    j += 2
+                    continue
+                if c == "}" and frame[3]:
+                    frame[3] -= 1
+                elif frame[3]:
+                    pass                                # a `(` or `)` inside ${ }, e.g. ${v%(*}
+                elif c == "(":
                     frame[1] += 1
                 elif c == ")":
                     if frame[2] and frame[1] == frame[2][-1]:
@@ -352,9 +381,9 @@ def _regions(text):
                         frame[1] -= 1                   # closes a `(`, `$(` or `((` of its own
                     else:
                         quote = substitutions.pop()[0]  # the one that closes the substitution
-                elif _word_at(line, j, "case"):
+                elif _word_at(line, j, "case") and _command_position(line, j):
                     frame[2].append(frame[1])
-                elif _word_at(line, j, "esac") and frame[2]:
+                elif _word_at(line, j, "esac") and frame[2] and _command_position(line, j):
                     frame[2].pop()
                 if c in "()":
                     code.append(c)

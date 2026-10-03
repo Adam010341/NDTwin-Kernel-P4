@@ -293,6 +293,37 @@ check "a case arm inside a substitution"         1 "$(by_name RUNS "$for_case")"
 check "the substitution still ends at its own )" 1 "$(by_name TEACHES "$for_closed")"
 check "  and what follows it is not code"        0 "$(by_name RUNS "$for_closed")"
 
+# 🔴 2026-10-03, and the two ways the depth was still wrong. `case` and `esac` are keywords only
+# where a command starts: `"$(echo case)"` has the word as an argument, and counting it as a case
+# left one open that nothing closed, so the substitution never ended. And a `(` inside a `${ }` --
+# `${v%(*}` -- is part of a pattern, not a group, and was counted all the same. Each ends with the
+# same by-name lookup behind an even number of apostrophes as the cases above; where the old
+# reader lost the end of the substitution it reported nothing.
+for_case_word='#!/usr/bin/env bash
+x="$(echo case)"; echo "it'"'"'s"; pgrep -f foo; echo "x'"'"'y"
+'
+for_case_word_in='#!/usr/bin/env bash
+x="$( echo case; echo "it'"'"'s"; pgrep -f foo; echo "x'"'"'y" )"
+'
+for_esac_word='#!/usr/bin/env bash
+x="$( case "$1" in a) echo esac ;; esac; echo "it'"'"'s"; pgrep -f foo; echo "x'"'"'y" )"
+'
+for_param_paren='#!/usr/bin/env bash
+x="$( echo ${v%(*}; echo "it'"'"'s"; pgrep -f foo; echo "x'"'"'y" )"
+'
+for_param_close='#!/usr/bin/env bash
+x="$( echo ${v%)*}; echo "it'"'"'s"; pgrep -f foo; echo "x'"'"'y" )"
+'
+for_case_after_then='#!/usr/bin/env bash
+x="$( if true; then case "$1" in a) true ;; esac; fi; echo "it'"'"'s"; pgrep -f foo; echo "x'"'"'y" )"
+'
+check "the word case as an argument, in a substitution"    1 "$(by_name RUNS "$for_case_word")"
+check "  and the same with the substitution closing later" 1 "$(by_name RUNS "$for_case_word_in")"
+check "the word esac as an argument inside a case"         1 "$(by_name RUNS "$for_esac_word")"
+check "a ( inside a \${ } in a substitution"               1 "$(by_name RUNS "$for_param_paren")"
+check "a ) inside a \${ } in a substitution"               1 "$(by_name RUNS "$for_param_close")"
+check "a case after then is still a case"                  1 "$(by_name RUNS "$for_case_after_then")"
+
 # 🔴 2026-09-11, FIX-PROXY-1. The limit this checker wrote down on day one -- "shell only" --
 # was not a limit, it was where the two LIVE violations were: both mininet topologies ran
 # `os.system('sudo pkill -f simple_switch_grpc')` as root on every bring-up while the shell half
