@@ -4,9 +4,10 @@
 
 design section 2.1 "marker": every active stimulus carries the sender's MAC, the cell's own UDP
 dport (40001-40099), and a payload that starts b"NDTHC" + run id + cell id + sequence number.
-S0's offline self-checks run the program on a throwaway bmv2 in pcap mode and need the same
-frames without scapy (the p4_proxy venv has none); the live sender (Cut 2) uses scapy in the
-p4dev venv and must produce byte-identical markers -- test_p4_health_cells pins the layout.
+S0's offline self-checks run the program on a throwaway bmv2 in pcap mode, and the live sender
+and sniffer (hostside.py, Cut 2, inside a host's namespace) use this same module rather than
+scapy, so the live markers are byte-identical to the offline ones by construction --
+test_p4_health_cells pins the layout.
 """
 from __future__ import annotations
 
