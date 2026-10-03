@@ -161,10 +161,10 @@ class LabRound(object):
             raise PackageOutsideRunDir("package_dir %r is not inside the run dir %r: each round's package "
                                        "is its own copy there" % (package_dir, cfg.run_dir))
         # (Cut 2) Nor over a state file a round that did not finish left for recover.sh.
-        busy = state_in_use(cfg.lab_state_path)
-        if busy:
+        in_use = state_in_use(cfg.lab_state_path)
+        if in_use:
             raise StateInUse("%s: %s; run recover.sh on this run before another round"
-                             % (cfg.lab_state_path, busy))
+                             % (cfg.lab_state_path, in_use))
         self.cfg, self.runner = cfg, runner
         self.bringup, self.package_dir, self.run_id = bringup, package_dir, run_id
         self.minutes = minutes

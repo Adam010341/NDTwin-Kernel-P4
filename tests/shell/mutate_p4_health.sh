@@ -1648,8 +1648,8 @@ add "R2-M3b. ended_clean looks at the phase only" \
 
 add "R2-M3c. a round overwrites a state file recover.sh still needs" \
     "$LABROUND" \
-    '        busy = state_in_use(cfg.lab_state_path)' \
-    '        busy = None  # MUTANT' \
+    '        in_use = state_in_use(cfg.lab_state_path)' \
+    '        in_use = None  # MUTANT' \
     'test_an_unfinished_round_refuses_the_next'
 
 add "R2-M3d. a released round that left a process counts as finished" \
