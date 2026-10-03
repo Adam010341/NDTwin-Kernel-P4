@@ -60,6 +60,14 @@ FIELD_TO_RYU = {
     "hdr.ethernet.dstAddr": "dl_dst",
 }
 
+# Bit width of the field behind each Ryu name above. Needed to tell a FULL ternary mask from one
+# whose leading zero bytes P4Runtime stripped on the way back (ternary-a0 item 10): a 0x00ff mask
+# on a 16-bit port and an 0xff mask on an 8-bit protocol read back as the same byte.
+RYU_WIDTH = {
+    "nw_dst": 32, "nw_src": 32, "nw_proto": 8, "tp_src": 16, "tp_dst": 16,
+    "in_port": 9, "dl_dst": 48,
+}
+
 # Actions that forward out of a port, and which parameter carries it.
 #
 # [Co-developed with claude code -- Adam] TICKET-P4-roles 2.2-1: the route action's name and its
@@ -97,18 +105,48 @@ def _prefix_to_netmask_suffix(prefix_len: int) -> str:
     return "" if prefix_len >= 32 else f"/{prefix_len}"
 
 
-def _match_to_ryu(match: dict, field_to_ryu=None) -> dict:
+def _ternary_as_ryu(ryu_name: str, spec: dict):
     """
-    One entry's match fields under Ryu's names.
+    `("exact", value)` / `("prefix", n)` for a ternary field Ryu can express, else None.
 
-    Ternary fields whose mask is zero are omitted: a zero mask means "don't care", and emitting
-    it as a concrete value would turn a wildcard into a specific match.
+    A mask with every bit of the field set is an exact match. On an address field a mask that is
+    a run of leading ones is a prefix, rendered like an lpm field (value/n). Any other mask has
+    no Ryu spelling: rendering its value alone would describe a rule matching ONE address where
+    the switch matches a pattern, which is the wrong-description failure this module refuses.
+    A mask of 0 never gets here (`is_dont_care` drops the field first).
+    """
+    width = RYU_WIDTH.get(ryu_name)
+    if width is None:
+        return None
+    full = (1 << width) - 1
+    mask = _int(spec.get("mask", b"")) & full
+    if mask == full:
+        return ("exact", _int(spec.get("value", b"")))
+    if ryu_name in ("nw_dst", "nw_src"):
+        wild = full ^ mask
+        if wild & (wild + 1) == 0:       # the wild bits are a run of ones at the bottom
+            return ("prefix", width - wild.bit_length())
+    return None
+
+
+def _translate_match(match: dict, field_to_ryu=None):
+    """
+    `(Ryu match dict, untranslatable)` for one entry's match fields.
+
+    `untranslatable` is True when a field this module maps has a form Ryu cannot say: a ternary
+    mask that is not full and, on an address, not a run of leading ones; or any range. The row is
+    then not to be listed at all (the dict is whatever was translated and must not be used):
+    listing the fields that did translate would widen the rule.
+
+    Ternary fields whose mask is zero are omitted: a zero mask means "don't care". Emitting the
+    value would turn a wildcard into a specific match.
 
     `field_to_ryu` is FIELD_TO_RYU plus a bound switch's route match field (see `_vocabulary`);
     None is FIELD_TO_RYU itself. [Co-developed with claude code -- Adam]
     """
     field_to_ryu = FIELD_TO_RYU if field_to_ryu is None else field_to_ryu
     out: dict[str, Any] = {}
+    untranslatable = False
     for p4_name, spec in (match or {}).items():
         ryu_name = field_to_ryu.get(p4_name)
         if ryu_name is None:
@@ -121,6 +159,18 @@ def _match_to_ryu(match: dict, field_to_ryu=None) -> dict:
         # never look up. [Co-developed with claude code -- Adam]
         if rule_install_times.is_dont_care(spec):
             continue
+
+        if kind == "range":
+            untranslatable = True
+            continue
+        if kind == "ternary":
+            shaped = _ternary_as_ryu(ryu_name, spec)
+            if shaped is None:
+                untranslatable = True
+                continue
+            if shaped[0] == "prefix":
+                out[ryu_name] = _ipv4(spec.get("value", b"")) + _prefix_to_netmask_suffix(shaped[1])
+                continue
 
         if ryu_name in ("nw_dst", "nw_src"):
             text = _ipv4(spec.get("value", b""))
@@ -135,7 +185,17 @@ def _match_to_ryu(match: dict, field_to_ryu=None) -> dict:
     # The Classifier keys IPv4 rules off dl_type, so a rule matching on an IP field must say so.
     if any(k in out for k in ("nw_dst", "nw_src", "nw_proto", "tp_src", "tp_dst")):
         out.setdefault("dl_type", ETH_TYPE_IPV4)
-    return out
+    return out, untranslatable
+
+
+def _match_to_ryu(match: dict, field_to_ryu=None) -> dict:
+    """One entry's match fields under Ryu's names (see `_translate_match`)."""
+    return _translate_match(match, field_to_ryu)[0]
+
+
+def match_is_untranslatable(entry: dict, field_to_ryu=None) -> bool:
+    """Whether a non-default entry has a field Ryu cannot express, so the row is left out."""
+    return _translate_match(entry.get("match") or {}, field_to_ryu)[1]
 
 
 def _actions_to_ryu(action: Optional[dict], forwarding_actions=None) -> list:
@@ -206,7 +266,11 @@ def entry_to_ryu(entry: dict, age_seconds: Optional[float] = None, field_to_ryu=
     if entry.get("is_default"):
         return None
 
-    match = _match_to_ryu(entry.get("match") or {}, field_to_ryu)
+    match, untranslatable = _translate_match(entry.get("match") or {}, field_to_ryu)
+    if untranslatable:
+        # A field with no Ryu spelling (a partial ternary mask, a range): listing the row with
+        # that field missing or flattened would describe a different rule.
+        return None
     if not match:
         # No usable match. Reporting it would be a match-everything rule, as above.
         return None
@@ -269,8 +333,20 @@ def entry_to_ryu(entry: dict, age_seconds: Optional[float] = None, field_to_ryu=
 # rule, so it is not listed on any pipeline). Round 1 counted only unknown-action rows whose match
 # it could translate -- and a foreign program's non-route tables match on the program's own
 # field names (renamed_route's proto_tags: `hdr.ip4.proto`), so its real rows were neither listed
-# nor counted. A default row is not a rule and is never counted. NDTwin's own pipeline is not
-# counted at all: its body is the base's, byte for byte, and its count stays 0.
+# nor counted. A default row is not a rule and is never counted.
+#
+# 🔴 A MATCH RYU CANNOT SAY IS THE SAME CASE, ON EVERY PIPELINE (the ternary writer, Adam's
+# ruling). A ternary field whose mask is a run of leading ones on an address renders as
+# value/prefix like an lpm field; a full mask is an exact value; any other mask, and any range
+# field, has no Ryu spelling, so the row is NOT LISTED and IS COUNTED. Listing it with the value
+# alone would describe a rule matching one address where the switch matches a pattern.
+#
+# NDTwin's own pipeline is not counted for unknown ACTIONS or unmapped matches: its body is the
+# base's, byte for byte, and for the rows NDTwin writes itself its count stays 0. That holds only
+# while NDTwin is the only writer of the baseline tables -- NDTwin's own 5-tuple writer always
+# uses full masks. The generic `POST /p4/table_entry` can write a partial mask or a range into
+# them, and until the owner check keeps it out (Q2 (a), which makes the contract true again)
+# such a row is counted here instead of being described wrongly.
 #
 # The route action is recognised through the switch's binding: a package's roles add its own
 # route action and match field to NDTwin's vocabulary. An UNBOUND foreign switch is rendered in
@@ -319,6 +395,10 @@ def render_flow_stats_counted(dpid: int, entries, install_times=None,
     for entry in entries or []:
         counts = foreign and not entry.get("is_default")
         if counts and not recognises_action(entry.get("action"), forwarding_actions):
+            unrendered += 1
+            continue
+        if not entry.get("is_default") and match_is_untranslatable(entry, field_to_ryu):
+            # On EVERY pipeline, NDTwin's own included: see the paragraph on the baseline count.
             unrendered += 1
             continue
         age = None

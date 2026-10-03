@@ -905,6 +905,85 @@ m=$(mutant fs_nobase "$STATS" \
 report "FS5: the renderer loses NDTwin's own route action" "$m" \
        "test_the_renderer_takes_the_route_action_from_the_baseline"
 
+# [Co-developed with claude code -- Adam]
+# The ternary writer's ruling: a match Ryu cannot say (a ternary mask that is neither full nor, on
+# an address, a run of leading ones; any range) is NOT LISTED and IS COUNTED, on every pipeline.
+# Each branch of that rule has a mutation, and each is named for the single test that must see it.
+m=$(mutant fs_cidr "$STATS" \
+    '        if wild & (wild + 1) == 0:       # the wild bits are a run of ones at the bottom' \
+    '        if False:       # MUTANT')
+report "FS6: a CIDR-shaped ternary mask is no longer rendered as a prefix" "$m" \
+       "test_a_cidr_shaped_mask_renders_as_a_prefix_like_lpm"
+
+m=$(mutant fs_cidrlen "$STATS" \
+    '            return ("prefix", width - wild.bit_length())' \
+    '            return ("prefix", width - 1)')
+report "FS6b: the prefix length is not the run of leading ones" "$m" \
+       "test_a_cidr_shaped_mask_renders_as_a_prefix_like_lpm"
+
+m=$(mutant fs_noncidr "$STATS" \
+    '        if wild & (wild + 1) == 0:       # the wild bits are a run of ones at the bottom' \
+    '        if True:       # MUTANT')
+report "FS7: a non-CIDR mask on an address is rendered as a prefix of the wrong length" "$m" \
+       "test_a_non_cidr_mask_on_an_address_is_absent_and_counted"
+
+m=$(mutant fs_fullwide "$STATS" \
+    '    mask = _int(spec.get("mask", b"")) & full' \
+    '    mask = _int(spec.get("mask", b""))')
+report "FS8: a full mask written wider than the field is taken for a partial one" "$m" \
+       "test_a_full_mask_is_still_an_exact_value_whatever_its_width_on_the_wire"
+
+m=$(mutant fs_width_inport "$STATS" \
+    '    "in_port": 9, "dl_dst": 48,' \
+    '    "in_port": 8, "dl_dst": 48,')
+report "FS9: the low eight bits of the nine-bit in_port are taken for the whole field" "$m" \
+       "test_a_partial_in_port_mask_is_absent_and_counted"
+
+m=$(mutant fs_width_port "$STATS" \
+    '"nw_proto": 8, "tp_src": 16, "tp_dst": 16,' \
+    '"nw_proto": 8, "tp_src": 8, "tp_dst": 8,')
+report "FS9b: a stripped 0xff mask on a sixteen-bit port is taken for the whole field" "$m" \
+       "test_a_low_bits_mask_is_not_mistaken_for_a_full_one_once_leading_zeros_are_stripped"
+
+m=$(mutant fs_range "$STATS" \
+    '        if kind == "range":
+            untranslatable = True
+            continue' \
+    '        if kind == "range":
+            continue')
+report "FS10: a range field is silently dropped from the row it narrows" "$m" \
+       "test_one_untranslatable_field_takes_the_whole_row_out_not_just_itself"
+
+m=$(mutant fs_rangezero "$STATS" \
+    '        if kind == "range":
+            untranslatable = True
+            continue' \
+    '        if False:
+            untranslatable = True
+            continue')
+report "FS10b: a range field is rendered as 0 again" "$m" \
+       "test_a_range_field_is_absent_and_counted_not_rendered_as_zero"
+
+m=$(mutant fs_countbase "$STATS" \
+    '        if not entry.get("is_default") and match_is_untranslatable(entry, field_to_ryu):' \
+    '        if foreign and not entry.get("is_default") and match_is_untranslatable(entry, field_to_ryu):')
+report "FS11: NDTwin's own pipeline leaves an untranslatable row out without counting it" "$m" \
+       "test_a_non_cidr_mask_on_an_address_is_absent_and_counted"
+
+m=$(mutant fs_countdef2 "$STATS" \
+    '        if not entry.get("is_default") and match_is_untranslatable(entry, field_to_ryu):' \
+    '        if match_is_untranslatable(entry, field_to_ryu):')
+report "FS11b: a default row holding a range is counted as left out" "$m" \
+       "test_a_default_row_is_not_counted_whatever_it_holds"
+
+m=$(mutant fs_entryrefuse "$STATS" \
+    '    if untranslatable:
+        # A field with no Ryu spelling' \
+    '    if False:
+        # A field with no Ryu spelling')
+report "FS12: the single-entry translator lists a row with a field missing" "$m" \
+       "test_the_single_entry_translator_also_refuses_the_row"
+
 # app_package -- the loader's shape checks
 
 m=$(mutant ap_required "$PKG" \

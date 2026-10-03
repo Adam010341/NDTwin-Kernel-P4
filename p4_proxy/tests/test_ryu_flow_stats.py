@@ -17,6 +17,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
+from proxy_agent import route_binding  # noqa: E402
 from proxy_agent import ryu_flow_stats as rf  # noqa: E402
 from proxy_agent.rule_install_times import RuleInstallTimes  # noqa: E402
 
@@ -45,7 +46,12 @@ def an_lpm_route(dst=b"\x0a\x00\x00\x04", prefix=32, port=6, priority=0, default
     }
 
 
-def a_ternary_rule(priority=100, port=9, in_port_mask=b"\xff"):
+# [Co-developed with claude code -- Adam] `in_port_mask` defaults to the FULL mask of a bit<9> field,
+# 0x01ff. It used to be b"\xff", which is only the low eight bits of that field: the renderer
+# ignored masks, so the difference was invisible, and it stopped being invisible when a partial
+# mask became a row that is left out (see the ternary-mask tests below). The rendered bytes the
+# base capture pins are the same for both inputs.
+def a_ternary_rule(priority=100, port=9, in_port_mask=b"\x01\xff"):
     return {
         "table": "MyIngress.flow_5tuple",
         "priority": priority,
@@ -106,7 +112,7 @@ class MatchTranslationTest(unittest.TestCase):
         self.assertNotIn("in_port", m)
 
     def test_a_fully_masked_ternary_field_is_kept(self):
-        m = self.flows([a_ternary_rule(in_port_mask=b"\xff")])[0]["match"]
+        m = self.flows([a_ternary_rule(in_port_mask=b"\x01\xff")])[0]["match"]
         self.assertEqual(m["in_port"], 3)
 
     def test_five_tuple_fields_use_ryu_names(self):
@@ -618,6 +624,124 @@ class OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTest(unittest.TestCase
         body, left_out = rf.render_flow_stats_counted(1, ndtwin_pipeline_rows())
         self.assertEqual(left_out, 0)
         self.assertEqual(json.dumps(body, sort_keys=True), BASELINE_NDTWIN_RENDER)
+
+
+class AMatchRyuCannotSayIsLeftOutAndCountedOnEveryPipelineTest(unittest.TestCase):
+    """
+    The ternary writer's ruling: "a rule the twin cannot describe is absent and counted, never
+    described wrongly" applies to the new match kinds as well.
+
+    [Co-developed with claude code -- Adam]
+    A ternary field whose mask is a run of leading ones on an address renders as value/prefix; a
+    full mask is an exact value; any other mask, and any range, has no Ryu spelling. Before this
+    the renderer printed a ternary field's VALUE and dropped its mask (a /16 pattern became one
+    address) and printed a range as 0, on NDTwin's own pipeline too, where the generic writer can
+    now put such rows.
+    """
+
+    def row(self, **fields):
+        return {"table": "MyIngress.flow_5tuple", "priority": 7, "is_default": False,
+                "match": fields,
+                "action": {"name": "MyIngress.ipv4_forward", "params": {"port": b"\x02"}}}
+
+    def ternary(self, value, mask):
+        return {"type": "ternary", "value": value, "mask": mask}
+
+    def counted(self, *rows, binding=route_binding.BASELINE):
+        body, left_out = rf.render_flow_stats_counted(1, list(rows), binding=binding)
+        return body["1"], left_out
+
+    def test_a_cidr_shaped_mask_renders_as_a_prefix_like_lpm(self):
+        flows, left_out = self.counted(self.row(**{
+            "hdr.ipv4.dstAddr": self.ternary(b"\x0a\x01\x00\x00", b"\xff\xff\x00\x00")}))
+        self.assertEqual(flows[0]["match"]["nw_dst"], "10.1.0.0/16")
+        self.assertEqual(left_out, 0)
+
+    def test_a_cidr_mask_on_the_source_address_and_a_slash_one_mask(self):
+        flows, _ = self.counted(self.row(**{
+            "hdr.ipv4.srcAddr": self.ternary(b"\x80\x00\x00\x00", b"\x80\x00\x00\x00")}))
+        self.assertEqual(flows[0]["match"]["nw_src"], "128.0.0.0/1")
+
+    def test_a_full_mask_is_still_an_exact_value_whatever_its_width_on_the_wire(self):
+        # 0xffff on a bit<9> field is how NDTwin's own 5-tuple writer spells "full".
+        flows, left_out = self.counted(self.row(**{
+            "standard_metadata.ingress_port": self.ternary(b"\x03", b"\xff\xff"),
+            "meta.l4_dst_port": self.ternary(b"\x00\x50", b"\xff\xff")}))
+        self.assertEqual((flows[0]["match"]["in_port"], flows[0]["match"]["tp_dst"]), (3, 80))
+        self.assertEqual(left_out, 0)
+
+    def test_a_non_cidr_mask_on_an_address_is_absent_and_counted(self):
+        flows, left_out = self.counted(self.row(**{
+            "hdr.ipv4.dstAddr": self.ternary(b"\x0a\x00\x01\x00", b"\xff\x00\xff\x00")}))
+        self.assertEqual((flows, left_out), ([], 1))
+
+    def test_a_low_bits_mask_is_not_mistaken_for_a_full_one_once_leading_zeros_are_stripped(self):
+        # bmv2 reads 0x00ff back as the single byte ff. On a 16-bit port that is a partial
+        # mask; on an 8-bit protocol it is the whole field.
+        flows, left_out = self.counted(
+            self.row(**{"meta.l4_dst_port": self.ternary(b"\x50", b"\xff")}),
+            self.row(**{"hdr.ipv4.protocol": self.ternary(b"\x06", b"\xff")}))
+        self.assertEqual([f["match"].get("nw_proto") for f in flows], [6])
+        self.assertEqual(left_out, 1)
+
+    def test_a_partial_mask_on_a_port_field_is_absent_and_counted(self):
+        flows, left_out = self.counted(self.row(**{
+            "meta.l4_dst_port": self.ternary(b"\x04\x00", b"\xfc\x00")}))
+        self.assertEqual((flows, left_out), ([], 1))
+
+    def test_a_partial_in_port_mask_is_absent_and_counted(self):
+        # 0xff is the low EIGHT bits of the nine.
+        flows, left_out = self.counted(self.row(**{
+            "standard_metadata.ingress_port": self.ternary(b"\x03", b"\xff")}))
+        self.assertEqual((flows, left_out), ([], 1))
+
+    def test_a_range_field_is_absent_and_counted_not_rendered_as_zero(self):
+        flows, left_out = self.counted(self.row(**{
+            "meta.l4_dst_port": {"type": "range", "low": b"\x04\x00", "high": b"\x0b\xb8"}}))
+        self.assertEqual((flows, left_out), ([], 1))
+
+    def test_one_untranslatable_field_takes_the_whole_row_out_not_just_itself(self):
+        # Listing the nw_dst alone would widen the rule to every port.
+        flows, left_out = self.counted(self.row(**{
+            "hdr.ipv4.dstAddr": self.ternary(b"\x0a\x00\x00\x04", b"\xff\xff\xff\xff"),
+            "meta.l4_dst_port": {"type": "range", "low": b"\x04\x00", "high": b"\x0b\xb8"}}))
+        self.assertEqual((flows, left_out), ([], 1))
+
+    def test_a_range_on_a_field_the_renderer_does_not_translate_is_dropped_as_before(self):
+        flows, left_out = self.counted(self.row(**{
+            "hdr.ipv4.dstAddr": self.ternary(b"\x0a\x00\x00\x04", b"\xff\xff\xff\xff"),
+            "meta.nothing_ryu_knows": {"type": "range", "low": b"\x01", "high": b"\x05"}}))
+        self.assertEqual(flows[0]["match"]["nw_dst"], "10.0.0.4")
+        self.assertEqual(left_out, 0)
+
+    def test_a_default_row_is_not_counted_whatever_it_holds(self):
+        row = self.row(**{"meta.l4_dst_port": {"type": "range", "low": b"\x01",
+                                                "high": b"\x05"}})
+        row["is_default"] = True
+        self.assertEqual(self.counted(row), ([], 0))
+
+    def test_on_a_foreign_switch_a_row_with_an_unknown_action_and_a_range_is_counted_once(self):
+        row = self.row(**{"meta.l4_dst_port": {"type": "range", "low": b"\x01",
+                                                "high": b"\x05"}})
+        row["action"] = {"name": "MyIngress.set_ecmp_select", "params": {}}
+        self.assertEqual(self.counted(row, binding=None), ([], 1))
+
+    def test_the_single_entry_translator_also_refuses_the_row(self):
+        # entry_to_ryu is public; a caller that skips the count must still not get a row with
+        # the field missing or flattened. Each row also holds a field that DOES translate, so
+        # listing it without the other one would be a usable-looking, wrong rule.
+        exact = self.ternary(b"\x0a\x00\x00\x04", b"\xff\xff\xff\xff")
+        self.assertIsNone(rf.entry_to_ryu(self.row(**{
+            "hdr.ipv4.dstAddr": exact,
+            "meta.l4_dst_port": {"type": "range", "low": b"\x04\x00", "high": b"\x0b\xb8"}})))
+        self.assertIsNone(rf.entry_to_ryu(self.row(**{
+            "hdr.ipv4.srcAddr": exact,
+            "hdr.ipv4.dstAddr": self.ternary(b"\x0a\x00\x01\x00", b"\xff\x00\xff\x00")})))
+
+    def test_a_partial_mask_row_is_absent_from_the_http_shaped_body_too(self):
+        body = rf.render_flow_stats(1, [self.row(**{
+            "hdr.ipv4.dstAddr": self.ternary(b"\x0a\x00\x01\x00", b"\xff\x00\xff\x00")})])
+        self.assertEqual(body, {"1": []})
 
 
 if __name__ == "__main__":
