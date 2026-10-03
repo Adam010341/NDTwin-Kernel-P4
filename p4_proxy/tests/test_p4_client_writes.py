@@ -620,6 +620,25 @@ class ProbeTest(unittest.TestCase):
         self.assertIn("UNAVAILABLE", result["detail"])
         self.assertIn("failed to connect", result["detail"])
 
+    def test_a_switch_with_no_pipeline_is_not_ok_and_the_detail_says_why(self):
+        # [Co-developed with claude code -- Adam]
+        # Measured on stock and bmv2-fast simple_switch_grpc, started with no pipeline pushed
+        # (scratch/overnight-2026-09-05/logs/gates-0910/cookie-probe/run-stock.out and
+        # run-fast.out, phase A): COOKIE_ONLY is answered with FAILED_PRECONDITION, "No
+        # forwarding pipeline config set for this device". That is a switch that is alive but
+        # has nothing to forward with, and the probe reports it as not ok -- the same value as a
+        # dead process, told apart only by the detail. Reading it as ok would hand a restarted,
+        # empty bmv2 the amnesty reroutable_down_endpoints gives a stalled-but-answering one.
+        self.client.stub = RecordingStub(
+            probe_error=FakeRpcError(grpc.StatusCode.FAILED_PRECONDITION,
+                                     details="No forwarding pipeline config set for this device"))
+        result = self.client.probe()
+
+        self.assertIs(result["ok"], False,
+                      "a switch that answered FAILED_PRECONDITION has no pipeline and was "
+                      "reported as a switch that is serving")
+        self.assertTrue(result["detail"].startswith("FAILED_PRECONDITION"), result["detail"])
+
     def test_an_empty_details_string_still_produces_something_actionable(self):
         # A report of "" is unactionable, and that already cost a real investigation once with a
         # clone session.

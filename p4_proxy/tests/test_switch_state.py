@@ -45,8 +45,20 @@ from proxy_agent.rule_install_times import RuleInstallTimes  # noqa: E402
 from proxy_agent.topology_manager import (  # noqa: E402
     LIVENESS_PROBE_INTERVAL_S,
     LIVENESS_PROBE_TIMEOUT_S,
+    LINK_BEACON_TIMEOUT_S,
     TopologyManager,
 )
+
+# [Co-developed with claude code -- Adam]
+# The real P4RuntimeClient.probe is what ASwitchWithNoPipelineIsNotAliveTest drives, so it needs the
+# P4Runtime protobufs. A module-level raise would turn a missing interpreter into an import error
+# for the whole file; the flag lets that one class skip instead.
+try:
+    from tests import test_p4_client_writes as client_tests  # noqa: E402
+    HAVE_REAL_CLIENT = client_tests.HAVE_P4RUNTIME
+except ImportError:  # pragma: no cover - depends on the interpreter L1 picks
+    client_tests = None
+    HAVE_REAL_CLIENT = False
 
 
 class FakeClock:
@@ -653,6 +665,93 @@ class ConnectedSwitchListTest(unittest.TestCase):
 
         topo._last_probe[6] = {"ok": True, "detail": "answered", "at": time.monotonic()}
         self.assertEqual(self.listed(topo), [6])
+
+
+# --- a bmv2 with no pipeline pushed -----------------------------------------------------------
+
+
+@unittest.skipUnless(HAVE_REAL_CLIENT, "P4Runtime protobufs not available in this interpreter")
+class ASwitchWithNoPipelineIsNotAliveTest(unittest.TestCase):
+    """What the proxy says about a bmv2 that is running but has no pipeline.
+
+    [Co-developed with claude code -- Adam]
+    Measured on stock and bmv2-fast simple_switch_grpc (phase A of run-stock.out and
+    run-fast.out under scratch/overnight-2026-09-05/logs/gates-0910/cookie-probe/): a bmv2
+    with no pipeline pushed answers the COOKIE_ONLY probe with FAILED_PRECONDITION, so
+    liveness reads probe_ok false -- the same value as a dead process. Liveness does not see
+    empty tables, a missing clone session or a lost stream, which is why readopt is still needed.
+
+    These drive the real P4RuntimeClient.probe through the real poller, not a FakeClient that
+    is told ok=False, so a probe that started treating that answer as success would show here.
+    Read as success, a restarted and empty switch would be listed as connected and would be
+    forgiven by reroutable_down_endpoints, which sends traffic into it.
+    """
+
+    NO_PIPELINE = "No forwarding pipeline config set for this device"
+
+    def setUp(self):
+        self.clock = FakeClock(1000.0)
+
+    def topology(self, probe_error):
+        """A topology with switch 1 behind the real client, probed once by the real poller."""
+        topo = TopologyManager(clock=self.clock)
+        # Links first, switch after: add_switch only wires the packet-in callback, and a link
+        # discovered while a client is registered would also make the proxy write routes to it.
+        for dpid in (5, 9):
+            topo.net.add_node(dpid, type="switch")
+        topo.add_link(5, 1, 1, 1)
+        topo.add_link(9, 1, 2, 2)
+        topo.add_switch(1, client_tests.a_client(client_tests.RecordingStub(probe_error=probe_error)))
+        topo.start_liveness_polling()
+        try:
+            wait_until(lambda: topo.switch_liveness()["switches"]["1"]["probe_ok"] is not None)
+        finally:
+            topo.stop_liveness_polling()
+        return topo
+
+    def no_pipeline(self):
+        return client_tests.FakeRpcError(client_tests.grpc.StatusCode.FAILED_PRECONDITION,
+                                         details=self.NO_PIPELINE)
+
+    def silence_everything_into_s1(self, topo):
+        """Every link into s1 beacons once and then falls silent: the stalled-switch signature."""
+        topo.handle_packet_in(1, 1, topo.create_lldp_packet(5, 1))
+        topo.handle_packet_in(1, 2, topo.create_lldp_packet(9, 2))
+        self.clock.advance(LINK_BEACON_TIMEOUT_S + 1)
+        topo.check_link_beacons()
+
+    def test_liveness_reports_probe_ok_false_with_the_status_name(self):
+        entry = self.topology(self.no_pipeline()).switch_liveness()["switches"]["1"]
+
+        self.assertIs(entry["probe_ok"], False,
+                      "a switch with no pipeline was served as one whose probe succeeded")
+        self.assertTrue(entry["probe_detail"].startswith("FAILED_PRECONDITION"),
+                        entry["probe_detail"])
+
+    def test_it_is_left_out_of_the_connected_switches(self):
+        self.assertEqual(self.topology(self.no_pipeline()).connected_switch_dpids(), [],
+                         "a switch with no pipeline was offered to the kernel as connected")
+
+    def test_it_gets_no_amnesty_from_the_stalled_switch_rule(self):
+        topo = self.topology(self.no_pipeline())
+        self.silence_everything_into_s1(topo)
+
+        self.assertTrue(topo.down_link_endpoints(), "the links did not go quiet; nothing was tested")
+        self.assertTrue(topo.reroutable_down_endpoints(),
+                        "an empty switch was forgiven as stalled-but-answering, so traffic would "
+                        "keep being routed into it")
+
+    def test_control_a_switch_that_answers_is_listed_and_does_get_the_amnesty(self):
+        # The same fixture with a stub that answers, so the three cases above are red for the
+        # probe's answer and not for something the fixture does to every switch.
+        topo = self.topology(None)
+        self.silence_everything_into_s1(topo)
+
+        entry = topo.switch_liveness()["switches"]["1"]
+        self.assertIs(entry["probe_ok"], True)
+        self.assertEqual(topo.connected_switch_dpids(), [1])
+        self.assertTrue(topo.down_link_endpoints())
+        self.assertEqual(topo.reroutable_down_endpoints(), set())
 
 
 # --- the telemetry disclosure on GET /p4/switch_state. TICKET-P3 2.6 --------------------------
