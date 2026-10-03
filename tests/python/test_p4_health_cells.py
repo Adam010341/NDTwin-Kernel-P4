@@ -1343,6 +1343,14 @@ class TestS0Cut2Checks(unittest.TestCase):
         x.pkgs = {n: os.path.join(d, "packages", n) for n in ("A", "B", "C", "PF-T", "FWD", "A-MUT")}
         return x, r
 
+    def test_show_ports_with_a_cpu_port_is_judged_on_the_data_ports(self):
+        from p4_health import s0
+        self.assertTrue(s0.show_ports_ok({1: "p1", 2: "p2", 3: "p3"}))
+        self.assertTrue(s0.show_ports_ok({1: "p1", 2: "p2", 3: "p3", 510: "p510"}))
+        self.assertFalse(s0.show_ports_ok({1: "p1", 2: "p2"}))
+        self.assertFalse(s0.show_ports_ok({1: "p1", 2: "p2", 3: "p3", 4: "p4"}))
+        self.assertFalse(s0.show_ports_ok(None))
+
     def test_the_mutant_package_is_drop_checked(self):
         """The A-MUT package is the one the see-red run brings up: it must pass the drop check."""
         x, r = self.s0([(lambda a: "heartbeat_drop_check.py" in " ".join(a),

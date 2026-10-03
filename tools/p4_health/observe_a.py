@@ -601,7 +601,10 @@ def graph_view(graph):
     return {"switches": switches_, "hosts": hosts_, "edges": edges, "ports": ports}
 
 
-def fabric_view(cfg, runner, hosts, names, dpids=DPIDS):
+CPU_PORT = 510
+
+
+def fabric_view(cfg, runner, hosts, names, dpids=DPIDS, diag=None):
     """The fabric as the same four sets: thrift show_ports per switch, veth peers in the root
     namespace, and each host's own interface (its address, MAC and peer) inside its namespace.
 
@@ -610,19 +613,38 @@ def fabric_view(cfg, runner, hosts, names, dpids=DPIDS):
     switch lists must end up on a link -- to another switch's port, or claimed by a host's eth0 --
     or the oracle is unreadable (None): a peer this reader cannot place is a reading not taken,
     never "no link there", so a parser blind to one form cannot agree with a graph that lacks the
-    same links."""
+    same links.
+
+    (Cut 2 second review N4) `diag`, when given, keeps everything read -- the raw `ip -o link
+    show`, every show_ports, every host's link and address text -- plus the ports nothing placed,
+    the CPU ports a switch listed (not fabric ports; bmv2 started as BMv2Switch starts it lists
+    only its -i ports, r3/show_ports_cpu510.log, so this is a guard) and which read failed: a TP1
+    NOT RUN has to be diagnosable after `ndt down` removed the fabric."""
+    d_ = diag if diag is not None else {}
+    d_.update({"ip_link": None, "show_ports": {}, "hosts": {}, "unplaced": [], "cpu_port_listed": [],
+               "failed": None})
+
+    def fail(why):
+        d_["failed"] = why
+        return None
     reader = TH.ThriftReader(cfg, runner)
     res = runner.run(["ip", "-o", "link", "show"], timeout=10)
+    d_["ip_link"] = res.stdout
     if res.rc != 0:
-        return None
+        return fail("ip -o link show rc %s" % res.rc)
     peers, index = FB.veth_peers(res.stdout), FB.ifindex(res.stdout)
     by_index = {i: n for n, i in index.items()}
     port_of = {}
     for d in dpids:
-        sp = reader.read(d, "show_ports")
+        raw = reader.raw(d, "show_ports")
+        d_["show_ports"][str(d)] = raw
+        sp = TH.parse_show_ports(TH.body(raw))
         if sp is None:
-            return None
+            return fail("show_ports on s%d unreadable" % d)
         for port, iface in sp.items():
+            if port == CPU_PORT:
+                d_["cpu_port_listed"].append(d)
+                continue
             port_of[iface] = (d, port)
     edges, ports, hosts_ = set(), set(port_of.values()), set()
     linked = set()
@@ -634,25 +656,29 @@ def fabric_view(cfg, runner, hosts, names, dpids=DPIDS):
     for h in names:
         link = hosts.run_in(h, ["ip", "-o", "link", "show", "dev", "eth0"])
         addr = hosts.run_in(h, ["ip", "-o", "addr", "show", "dev", "eth0"])
+        d_["hosts"][h] = {"link": link, "addr": addr}
         got = FB.host_addr((addr or "") + "\n" + (link or "")) if link and addr else None
         hpeer = FB.veth_peers(link or "")
         if got is None or not hpeer:
-            return None
+            return fail("%s: its eth0 link or address unreadable" % h)
         hosts_.add(got)
         sw_iface = by_index.get(list(hpeer.values())[0])
         if sw_iface not in port_of:
-            return None
+            return fail("%s: its eth0's peer (ifindex %s) is no switch port show_ports listed"
+                        % (h, list(hpeer.values())[0]))
         edges.add(frozenset([("h", got[0], 0), ("s",) + port_of[sw_iface]]))
         linked.add(sw_iface)
-    if set(port_of) - linked:
-        return None
+    d_["unplaced"] = sorted(set(port_of) - linked)
+    if d_["unplaced"]:
+        return fail("unplaced switch ports: %s" % ", ".join(d_["unplaced"]))
     return {"switches": set(dpids), "hosts": hosts_, "edges": edges, "ports": ports}
 
 
 def observe_tp1(cfg, runner, hosts, names):
-    oracle = fabric_view(cfg, runner, hosts, names)
+    diag = {}
+    oracle = fabric_view(cfg, runner, hosts, names, diag=diag)
     answer = graph_view(K.graph(cfg))
-    return {"answer": answer, "oracle": oracle}
+    return {"answer": answer, "oracle": oracle, "diagnostics": diag}
 
 
 def links_from(view):

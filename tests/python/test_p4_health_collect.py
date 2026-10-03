@@ -1351,6 +1351,8 @@ class FakeFabric(object):
         self.signal_in_sniffer = None     # a cell: a SIGTERM arrives while its sniffer is waited for
         self.force_mode = None            # control_plane.mode whatever package came up
         self.ctrl_never_ready = False     # B's controller never writes its ready file
+        self.extra_ports = {}             # {dpid: [ports show_ports lists that no link uses]}
+        self.cpu_port_listed = False
         self.switch_peer_form = "name"    # "name": iproute2's real form; "none": a parser's blind spot
         self.pipelines = dict(PIPES4)
         self.ctrl_register_ok = False      # bmv2's P4Runtime refuses register writes today
@@ -1571,8 +1573,11 @@ class FakeFabric(object):
             return "\n".join("%s [implementation=None, mk=]" % n for n in names)
         if word == "show_ports":
             ports = sorted(p_ for (d, p_) in self.iface_list() if d == s.dpid)
-            return "  port #  iface name  status  extra info\n" + "\n".join(
-                "    %d   s%d-eth%d   UP   " % (p_, s.dpid, p_) for p_ in ports)
+            ports += self.extra_ports.get(s.dpid, [])
+            rows = ["    %d   s%d-eth%d   UP   " % (p_, s.dpid, p_) for p_ in ports]
+            if self.cpu_port_listed:                    # not what bmv2 does (r3/show_ports_cpu510.log)
+                rows.append("    510   s%d-cpu   UP   " % s.dpid)
+            return "  port #  iface name  status  extra info\n" + "\n".join(rows)
         if word == "counter_read":
             key = (cmd[1], int(cmd[2]))
             if key not in s.counters:
@@ -2111,6 +2116,32 @@ class TestBringUpARedPaths(Cut2):
         v, _c, a = self.verdict("TP1")
         self.assertIsNone(a.observations["TP1"]["oracle"])
         self.assertEqual(v.verdict, V.NOT_RUN, v)
+
+    def test_an_unplaced_port_is_not_run_and_tp1_keeps_what_it_read(self):
+        """N4: TP1's NOT RUN must be diagnosable after `ndt down` has removed the fabric."""
+        self.fab.extra_ports = {2: [9]}
+        v, _c, a = self.verdict("TP1")
+        self.assertEqual(v.verdict, V.NOT_RUN, v)
+        d = a.observations["TP1"]["diagnostics"]
+        self.assertEqual(d["unplaced"], ["s2-eth9"])
+        self.assertIn("s1-eth4@s2-eth2", d["ip_link"])
+        self.assertEqual(sorted(d["show_ports"]), ["1", "2", "3", "4"])
+        self.assertIn("s2-eth9", d["show_ports"]["2"])
+        self.assertEqual(sorted(d["hosts"]), ["h%d" % i for i in range(1, 7)])
+        self.assertIn("inet 10.0.1.1/24", d["hosts"]["h1"]["addr"])
+        self.assertIn("unplaced", d["failed"])
+
+    def test_a_read_that_failed_is_named(self):
+        self.fab.thrift_down = {3}
+        _v, _c, a = self.verdict("TP1")
+        self.assertIsNone(a.observations["TP1"]["oracle"])
+        self.assertIn("show_ports on s3", a.observations["TP1"]["diagnostics"]["failed"])
+
+    def test_a_listed_cpu_port_is_not_a_fabric_port(self):
+        self.fab.cpu_port_listed = True
+        v, _c, a = self.verdict("TP1")
+        self.assertEqual(v.verdict, V.GREEN, v)
+        self.assertEqual(a.observations["TP1"]["diagnostics"]["cpu_port_listed"], [1, 2, 3, 4])
 
     def test_a_missing_edge_is_tp1_red(self):
         self.fab.graph_drop_edge = True

@@ -140,6 +140,12 @@ def _delta(before, after):
     return after[1] - before[1]
 
 
+def show_ports_ok(parsed, data_ports=(1, 2, 3), cpu_port=510):
+    """show_ports of a switch given `data_ports` as -i and `cpu_port` as --cpu-port: exactly the
+    data ports, with the CPU port allowed beside them (fabric_view skips it)."""
+    return parsed is not None and set(parsed) - {cpu_port} == set(data_ports)
+
+
 def preflight_rows(stdout):
     """(FAIL rows, the problem lines under them) out of preflight.py's table."""
     return [line for line in (stdout or "").splitlines() if line.startswith("  FAIL")]
@@ -595,6 +601,37 @@ class S0(object):
                        "unconfirmed %s (expected %s), controller rc %s"
                        % (sorted(failed), sorted(want_false), r.get("controller_rc")))
 
+    def show_ports_trial(self):
+        """(Cut 2 second review N4, r1's test 10) What show_ports lists on a simple_switch_grpc
+        started the way BMv2Switch starts a fabric switch -- data ports as -i, then
+        `-- --grpc-server-addr ... --cpu-port 510` -- on throwaway switches, stock and fabric
+        build. TP1's oracle must place every port listed, so a listed CPU port would matter;
+        observe_a.fabric_view skips port 510 either way, and this records which it is."""
+        try:
+            from .vs_trial import fabric_binary
+            got = {}
+            for i, b in enumerate(("/usr/local/bin/simple_switch_grpc", fabric_binary())):
+                work = os.path.join(self.run_dir, "show_ports_trial", "%d" % i)
+                os.makedirs(work, exist_ok=True)
+                sw = TW.Throwaway(os.path.join(self.ex, "build", "hc_main.json"), {1: [], 2: [], 3: []},
+                                  510, self.thrift_cli, wait_s=2, bmv2=b, workdir=work,
+                                  argv0="ndt-hc-ports-bmv2", grpc=True, runner=self.runner)
+                sw.start()
+                try:
+                    from .collect import thrift as TH
+                    got[b] = TH.parse_show_ports(TH.body(sw.cli(["show_ports"])))
+                finally:
+                    sw.stop()
+        except Exception as exc:  # noqa: BLE001
+            self.check("show_ports on throwaway simple_switch_grpc with --cpu-port 510", False,
+                       "%s: %s" % (type(exc).__name__, exc))
+            return
+        self.out["show_ports_trial"] = {b: sorted(p) if p else None for b, p in got.items()}
+        self.check("show_ports with --cpu-port 510 lists the -i data ports (510 only if at all)",
+                   all(show_ports_ok(p) for p in got.values()),
+                   "; ".join("%s: %s" % (os.path.basename(os.path.dirname(os.path.dirname(b))),
+                                         sorted(p) if p else p) for b, p in got.items()))
+
     def adapter_dry_run(self):
         """(Cut 2 review m5) The live B path through the adapter, without running anything: the
         same argv bring-up B spawns, with --dry-run. It must name controller_ext.py and rewrite
@@ -649,6 +686,7 @@ class S0(object):
             self.vs_trial()
             self.ctrl_trial()
             self.adapter_dry_run()
+            self.show_ports_trial()
         self.identity()
         self.openapi()
         self.pft_verdict()

@@ -1803,6 +1803,30 @@ add "R7-N3c. the lab starts on an incomplete fingerprint" \
     '    if sut is None:  # MUTANT' \
     'test_a_missing_identity_record_stops_the_run_before_the_lab'
 
+add "R7-N4a. a listed CPU port is taken for a fabric port" \
+    "$OBSA" \
+    '            if port == CPU_PORT:' \
+    '            if False:  # MUTANT' \
+    'test_a_listed_cpu_port_is_not_a_fabric_port'
+
+add "R7-N4b. TP1 keeps no raw ip link text" \
+    "$OBSA" \
+    '    d_["ip_link"] = res.stdout' \
+    '    d_["ip_link"] = None  # MUTANT' \
+    'test_an_unplaced_port_is_not_run_and_tp1_keeps_what_it_read'
+
+add "R7-N4c. TP1 does not say which read failed" \
+    "$OBSA" \
+    '            return fail("show_ports on s%d unreadable" % d)' \
+    '            return None  # MUTANT' \
+    'test_a_read_that_failed_is_named'
+
+add "R7-N4d. S0's show_ports check rejects a listed CPU port" \
+    "$S0PY" \
+    '    return parsed is not None and set(parsed) - {cpu_port} == set(data_ports)' \
+    '    return parsed is not None and set(parsed) == set(data_ports)  # MUTANT' \
+    'test_show_ports_with_a_cpu_port_is_judged_on_the_data_ports'
+
 
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'
