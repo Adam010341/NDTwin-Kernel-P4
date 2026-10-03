@@ -127,9 +127,10 @@ def a_p4info():
 
     # 🔴 SYNTHETIC, and named so nobody mistakes them for ndtwin_switch.p4's. No pipeline in
     # this repository declares a RANGE or an OPTIONAL match -- ndtwin_switch has exact, lpm and
-    # ternary, and so do `basic` and `source_routing` -- so the only way to reach the 501 that
-    # TICKET-P2 2.3 (:63) promises for those two is a descriptor written here. Same fixture and
-    # same reasoning as test_p4_client_writes.a_p4info(). [Co-developed with claude code -- Adam]
+    # ternary, and so do `basic` and `source_routing` -- so the only way to exercise the range and
+    # optional branches (the 501 that TICKET-P2 2.3 (:63) promised for them, until the ternary
+    # writer built them) is a descriptor written here. Same fixture and same reasoning as
+    # test_p4_client_writes.a_p4info(). [Co-developed with claude code -- Adam]
     for table_id, table_name, kind in ((900000001, "Synthetic.range_table",
                                         p4info_pb2.MatchField.RANGE),
                                        (900000002, "Synthetic.optional_table",
@@ -469,6 +470,14 @@ class EveryRefusalIsItsOwnStatusCodeTest(TableEntryRouteTestBase):
         error = self.refused(table="MyIngress.flow_5tuple", match={})
         self.assertEqual(error.status_code, 400)
         self.assertIn("names a priority", error.detail["message"])
+        self.assertEqual(self.stub.requests, [])
+
+    def test_a_priority_above_int32_is_400_and_nothing_was_written(self):
+        # It used to reach the protobuf, which raises a bare ValueError: a 500.
+        error = self.refused(table="MyIngress.flow_5tuple",
+                             match={"hdr.ipv4.protocol": [6, 255]}, priority=2 ** 31)
+        self.assertEqual(error.status_code, 400)
+        self.assertIn("1..2147483647", error.detail["message"])
         self.assertEqual(self.stub.requests, [])
 
     def test_a_default_entry_with_a_priority_is_400(self):

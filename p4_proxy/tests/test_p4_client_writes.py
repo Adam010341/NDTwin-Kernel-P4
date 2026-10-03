@@ -193,14 +193,14 @@ def a_p4info():
 
     # 🔴 SYNTHETIC, and named so nobody mistakes them for ndtwin_switch.p4's.
     # [Co-developed with claude code -- Adam]
-    # TICKET-P2 2.3 (:63) says range and optional answer 501 too, and NO pipeline in this
-    # repository declares either match type -- ndtwin_switch has exact, lpm and ternary and
-    # nothing else, and neither does `basic` or `source_routing`. So the only way to exercise
-    # those two branches at all is a descriptor written here. The ids are deliberately outside
-    # p4c's range so a real id can never collide with one, and the only thing the code under
-    # test reads off them is `match_type` -- which it resolves through the generated enum, so
-    # what is being asserted is that MatchField.RANGE and MatchField.OPTIONAL reach the refusal,
-    # not that some number does.
+    # NO pipeline in this repository declares a RANGE or an OPTIONAL match -- ndtwin_switch has
+    # exact, lpm and ternary and nothing else, and neither does `basic` or `source_routing`. So
+    # the only way to exercise the writer's range and optional branches at all is a descriptor
+    # written here (they were the 501 branches before the ternary writer, and are built now).
+    # The ids are deliberately outside p4c's range so a real id can never collide with one, and
+    # the only thing the code under test reads off them is `match_type` -- which it resolves
+    # through the generated enum, so what is being asserted is that MatchField.RANGE and
+    # MatchField.OPTIONAL are built as range and optional, not that some number is.
     for table_id, table_name, kind in ((900000001, "Synthetic.range_table",
                                         p4info_pb2.MatchField.RANGE),
                                        (900000002, "Synthetic.optional_table",
@@ -229,6 +229,19 @@ def a_p4info():
     field.name = "meta.probe_key"
     field.bitwidth = 16
     field.match_type = p4info_pb2.MatchField.UNSPECIFIED
+
+    # [Co-developed with claude code -- Adam]
+    # An LPM table that is not NDTwin's `ipv4_lpm`, for the one shape property that has to hold
+    # on a table nobody owns: leaving the lpm field out is "any address".
+    table = p4info.tables.add()
+    table.preamble.id = 900000005
+    table.preamble.name = "Synthetic.lpm_table"
+    table.preamble.alias = "lpm_table"
+    field = table.match_fields.add()
+    field.id = 1
+    field.name = "meta.probe_addr"
+    field.bitwidth = 32
+    field.match_type = p4info_pb2.MatchField.LPM
 
     # [Co-developed with claude code -- Adam]
     # One EXACT and one TERNARY field in the same table, which no pipeline here has and V8 needs:
@@ -2102,9 +2115,13 @@ class TheShapeRulesTest(unittest.TestCase):
                         "omit the field")
 
     def test_leaving_the_lpm_field_out_is_the_way_to_say_any_address(self):
-        sent = self.accept({"table": "MyIngress.ipv4_lpm", "match": {},
-                            "action_name": "MyIngress.send_to_cpu", "action_params": {}})
-        self.assertEqual(len(sent.match), 0)
+        # The shape-rule property, on a table that is not NDTwin's and through the builder, so it
+        # does not depend on who is allowed to WRITE a table (the owner check, V7, is a different
+        # layer and is not decided yet).
+        entry, kinds = self.client.build_table_entry(
+            {"table": "Synthetic.lpm_table", "match": {},
+             "action_name": "MyIngress.send_to_cpu", "action_params": {}})
+        self.assertEqual((len(entry.match), kinds), (0, {}))
 
     # --- V9 ------------------------------------------------------------------------------------
 
@@ -2149,11 +2166,18 @@ class TheShapeRulesTest(unittest.TestCase):
     # --- V2, for the three new types -----------------------------------------------------------
 
     def test_a_ternary_value_or_mask_that_does_not_fit_is_refused(self):
+        # Each case below is one that TRUNCATION would turn into an ACCEPTED entry (0x106 -> 6,
+        # 0x1ff -> 0xff), so a writer that narrowed instead of refusing would show up as an
+        # entry on the wire and not merely as a different sentence.
         self.refuse(self.ternary(**{"hdr.ipv4.protocol": [256, 255]}), "does not fit")
+        self.refuse(self.ternary(**{"hdr.ipv4.protocol": [0x106, 255]}), "does not fit")
         self.refuse(self.ternary(**{"hdr.ipv4.protocol": [6, 256]}), "does not fit")
+        self.refuse(self.ternary(**{"hdr.ipv4.protocol": [6, 0x1ff]}), "does not fit")
 
     def test_a_range_bound_that_does_not_fit_is_refused(self):
+        # 70000 truncated to 16 bits is 4464: either bound narrowed would be an accepted range.
         self.refuse(self.range_spec([1, 70000]), "does not fit")
+        self.refuse(self.range_spec([70000, 65535]), "does not fit")
         self.refuse(self.range_spec([70000, 70001]), "does not fit")
 
     def test_an_optional_value_that_does_not_fit_is_refused(self):
@@ -2242,19 +2266,19 @@ class ThePriorityRulesTest(unittest.TestCase):
             self.client.stub.requests.clear()
             self.refuse(self.spec(match={"hdr.ipv4.protocol": [6, 255]}), "names a priority", op)
 
-    def test_an_empty_match_with_a_priority_is_a_catch_all_and_is_accepted(self):
-        # Every field omitted is "any value". bmv2 takes it (ternary-a0 item 13), and it is a
-        # legitimate entry on a table whose owner wants one -- it is refused elsewhere (V7), not
-        # by the shape rules.
-        self.client.write_table_entry(self.spec(priority=1))
-        sent = only_update(self.client.stub.requests[0]).entity.table_entry
-        self.assertEqual((len(sent.match), sent.priority), (0, 1))
+    def test_every_field_omitted_with_a_priority_passes_the_shape_rules_on_any_table(self):
+        # Every field omitted is "any value" (bmv2 takes it: ternary-a0 item 13). Asserted on the
+        # synthetic tables, which belong to nobody, and through the builder, so the property
+        # stands whatever the owner check later decides about NDTwin's own tables.
+        for table in ("Synthetic.range_table", "Synthetic.optional_table"):
+            entry, kinds = self.client.build_table_entry(
+                {"table": table, "match": {}, "priority": 1,
+                 "action_name": "MyIngress.send_to_cpu", "action_params": {}})
+            self.assertEqual((len(entry.match), entry.priority, kinds), (0, 1, {}), table)
 
     def test_the_largest_int32_priority_is_accepted_and_one_past_it_is_not(self):
-        self.client.write_table_entry(self.spec(priority=2 ** 31 - 1))
-        self.assertEqual(only_update(self.client.stub.requests[0]).entity.table_entry.priority,
-                         2 ** 31 - 1)
-        self.client.stub.requests.clear()
+        entry, _ = self.client.build_table_entry(self.spec(priority=2 ** 31 - 1))
+        self.assertEqual(entry.priority, 2 ** 31 - 1)
         self.refuse(self.spec(priority=2 ** 31), "1..2147483647")
 
     def test_a_negative_priority_is_refused(self):
@@ -2304,6 +2328,36 @@ class ThePriorityRulesTest(unittest.TestCase):
         sent = only_update(self.client.stub.requests[0])
         self.assertEqual(sent.type, p4runtime_pb2.Update.DELETE)
         self.assertEqual(sent.entity.table_entry.priority, 42)
+
+
+@unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
+class TheSection15DefectIsPinnedPendingQ2Test(unittest.TestCase):
+    """
+    DESIGN 1.5, pinned as it stands at this head: the generic writer puts a catch-all in front of
+    NDTwin's own tables.
+
+    [Co-developed with claude code -- Adam]
+    These tests assert a DEFECT, not a feature. An empty match on `MyIngress.flow_5tuple` at any
+    priority >= 1, or an omitted lpm field on `MyIngress.ipv4_lpm`, goes on the wire and is
+    accepted by the switch (ternary-a0 item 13 and 04) -- a rule that matches every packet, in
+    front of NDTwin's routes. The design's answer is the owner check (V7, Q2 (a)), which makes
+    both a 409; it is not implemented and Q2 is open. When V7 lands these two tests flip with
+    it, on purpose. The shape-rule property they used to carry ("every field omitted passes the
+    shape rules") is asserted on tables nobody owns, further up.
+    """
+
+    def test_an_empty_match_on_flow_5tuple_still_goes_on_the_wire(self):
+        client = a_client()
+        client.write_table_entry({"table": "MyIngress.flow_5tuple", "match": {}, "priority": 1,
+                                  "action_name": "MyIngress.send_to_cpu", "action_params": {}})
+        sent = only_update(client.stub.requests[0]).entity.table_entry
+        self.assertEqual((len(sent.match), sent.priority), (0, 1))
+
+    def test_an_omitted_lpm_field_on_ipv4_lpm_still_goes_on_the_wire(self):
+        client = a_client()
+        client.write_table_entry({"table": "MyIngress.ipv4_lpm", "match": {},
+                                  "action_name": "MyIngress.send_to_cpu", "action_params": {}})
+        self.assertEqual(len(only_update(client.stub.requests[0]).entity.table_entry.match), 0)
 
 
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")

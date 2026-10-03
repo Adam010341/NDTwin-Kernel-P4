@@ -26,8 +26,11 @@ binding, which pre-flight reaches by its own road):
   V8  an EXACT field may not be omitted from a non-default entry.
   V9  an lpm value has no bit set beyond its prefix.
 
-Each of them repeats a refusal bmv2 already makes (measured on a throwaway simple_switch_grpc,
-2026-10-04, ternary-a0 items 01-15). They are made here so the answer is a 400 with a sentence
+Except V1, which refuses input that has no wire form at all (a ternary field given three
+elements), and a priority above int32, which the protobuf cannot hold, each of them repeats a
+refusal bmv2 already makes (measured on a throwaway simple_switch_grpc, 2026-10-04, ternary-a0
+items 01-15, and ternary-cut-a/agree-*: 52 cases, an over-wide mask included: "Bytestring
+provided does not fit within 9 bits"). They are made here so the answer is a 400 with a sentence
 instead of a 502 UNKNOWN, so nothing reaches the wire, and so pre-flight can say the same thing
 before the fabric exists.
 

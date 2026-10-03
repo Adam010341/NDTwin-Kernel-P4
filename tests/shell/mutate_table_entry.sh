@@ -631,8 +631,20 @@ report "M-S1c: an optional field given two elements takes the first and drops th
 m=$(mutant j2a "$SHAPE" \
     '        mask = _encode_in_field(where, raw[1], bitwidth)' \
     '        mask = _encode_in_field(where, raw[1] & 0xff if isinstance(raw[1], int) else raw[1], bitwidth)')
-report "M-S2a: a ternary mask too wide for its field is truncated instead of refused" "$m" \
+report "M-S2a: a ternary mask too wide for its field (0x1ff) is truncated to 0xff and accepted" "$m" \
        "test_a_ternary_value_or_mask_that_does_not_fit_is_refused"
+
+m=$(mutant j2e "$SHAPE" \
+    '        value = _encode_in_field(where, raw[0], bitwidth)' \
+    '        value = _encode_in_field(where, raw[0] & 0xff if isinstance(raw[0], int) else raw[0], bitwidth)')
+report "M-S2e: a ternary value too wide for its field is truncated instead of refused" "$m" \
+       "test_a_ternary_value_or_mask_that_does_not_fit_is_refused"
+
+m=$(mutant j2f "$SHAPE" \
+    '        low = _encode_in_field(where, raw[0], bitwidth)' \
+    '        low = _encode_in_field(where, raw[0] & 0xffff if isinstance(raw[0], int) else raw[0], bitwidth)')
+report "M-S2f: a range low bound too wide for its field is truncated instead of refused" "$m" \
+       "test_a_range_bound_that_does_not_fit_is_refused"
 
 m=$(mutant j2b "$SHAPE" \
     '        high = _encode_in_field(where, raw[1], bitwidth)' \

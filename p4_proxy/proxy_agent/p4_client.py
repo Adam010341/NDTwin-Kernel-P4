@@ -1210,7 +1210,8 @@ class P4RuntimeClient:
         [Co-developed with claude code -- Adam]
         Returns what went on the wire:
 
-            {"dpid", "op", "table", "match_types", "priority_honoured", "is_default_action"}
+            {"dpid", "op", "table", "match_types", "priority", "priority_honoured",
+             "is_default_action", "op_substituted"}
 
         🔴 NO MODIFY FALLBACK, deliberately, and this is the one place in this class that has
         none. `insert_ipv4_route` and `insert_5tuple_rule` retry an ALREADY_EXISTS/UNKNOWN as a

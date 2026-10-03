@@ -205,8 +205,8 @@ class AgainstARealTutorialsPipelineTest(unittest.TestCase):
         self.assertEqual(sent.priority, 10)
 
     def test_the_same_real_p4info_still_builds_its_exact_and_lpm_tables(self):
-        # The negative half: the refusal above is about the match type, not about this being a
-        # real p4info or this table being unfamiliar.
+        # The control for the test above: the ternary table builds, and the exact and lpm tables
+        # still build the way they always did from the same real p4info.
         client = a_client()
         client.p4info = self.real_ndtwin_p4info()
         entry, kinds = client.build_table_entry({
