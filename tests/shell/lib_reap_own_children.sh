@@ -7,7 +7,7 @@
 # Both suites used to carry the same functions, and only the window suite had checks on them, so a
 # regression in the liveness copy would have stayed green (2026-10-03). One file now, and
 # reap_own_children_selftest, which both suites call, puts the reaper and kill_group_if_leader to
-# seventeen checks in a shell of its own. tests/shell/mutate_reap_own_children.sh holds those checks
+# eighteen checks in a shell of its own. tests/shell/mutate_reap_own_children.sh holds those checks
 # to it: each way of getting either wrong must turn a named check red in BOTH suites.
 #
 # Source it from a suite's own shell, after anything else that defines functions (ndt does), so
@@ -42,12 +42,15 @@ own_child() {
 # here, with nothing forked in between.
 # 🔴 Refuses (returns 1, signals nothing) a pid that is not above 1 -- `kill -- -1` is a broadcast
 # to everything the user may signal -- this shell, the shell it runs in, its parent, and the
-# process group this shell is in: whatever the caller meant, those are never its to kill.
+# process group this shell is in: whatever the caller meant, those are never its to kill. And when
+# it cannot read its own stat (or /proc is another PID namespace's), it cannot tell which group is its
+# own, and refuses everything.
 kill_group_if_leader() {
     local p s mine=""
     [[ "$1" =~ ^[0-9]{1,10}$ ]] || { echo "kill_group_if_leader: '$1' is not a pid: refused" >&2; return 1; }
     p=$((10#$1))
     { read -r mine < "/proc/$BASHPID/stat"; } 2>/dev/null
+    [[ "${mine%% *}" == "$BASHPID" ]] || { echo "kill_group_if_leader: cannot read this shell's own process group: refused" >&2; return 1; }
     mine="${mine##*) }"; mine="${mine#* }"; mine="${mine#* }"; mine="${mine%% *}"      # this shell's own pgrp
     (( p > 1 )) || { echo "kill_group_if_leader: refusing pid $p" >&2; return 1; }
     [[ "$p" == "$$" || "$p" == "$BASHPID" || "$p" == "$PPID" ]] && { echo "kill_group_if_leader: refusing $p, this shell or its parent" >&2; return 1; }
@@ -105,6 +108,12 @@ out="$(kill_group_if_leader $$ 2>/dev/null)"; refused REFSELF $? "$out"
 out="$(kill_group_if_leader "$BASHPID" 2>/dev/null)"; refused REFSUB $? "$out"
 out="$(kill_group_if_leader "$PPID" 2>/dev/null)"; refused REFPARENT $? "$out"
 out="$(kill_group_if_leader "$2" 2>/dev/null)"; refused REFGROUP $? "$out"
+# its own stat cannot be read (the first read it makes fails): it cannot tell which group is its own
+# and refuses, even a leader that is neither this shell, its parent nor a subshell
+FAIL_FIRST_READ=1
+read() { if [[ -n "${FAIL_FIRST_READ:-}" ]]; then FAIL_FIRST_READ=""; return 1; fi; builtin read "$@"; }
+out="$(kill_group_if_leader "$2" 2>/dev/null)"; refused REFNOPGRP $? "$out"
+unset -f read
 # the stub is wired: a process that does lead a group is asked for by that group
 setsid sleep 30 >/dev/null 2>&1 & P=$!
 for ((i = 0; i < 100; i++)); do [[ "$(own_pgrp $P)" == "$P" ]] && break; sleep 0.05; done
@@ -187,6 +196,7 @@ reap_own_children_selftest() {
     # function of the same name, they differ and nothing above would say so.
     mine="$(declare -f own_child kill_group_if_leader reap_own_children)"
     theirs="$(bash -c 'source "$1"; declare -f own_child kill_group_if_leader reap_own_children' _ "$_REAP_OWN_CHILDREN_LIB" 2>&1)"
+    check "kill_group_if_leader: it refuses a leader when it cannot read its own group" refused "$(_reap_selftest_line "$out" REFNOPGRP)"
     check "reaper: the functions this suite calls are the lib's own, nothing defined after it shadows them" same \
           "$([[ "$mine" == "$theirs" ]] && echo same || echo "different: $(diff <(echo "$mine") <(echo "$theirs") | head -n 3 | tr '\n' ' ')")"
 }

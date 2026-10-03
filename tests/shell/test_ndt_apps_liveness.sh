@@ -533,8 +533,8 @@ check "the te branch requests mode 2"             yes \
       "$(has "APP_STDIN=\$'2\\n5\\n' app_spawn te" "$(grep -F 'app_spawn te ' "$NDT")")"
 
 # --- 7. this suite does not become the thing it tests --------------------------------
-# [Co-developed with claude code -- Adam] The reaper cleanup_fixtures() ends with is put to six
-# checks first, in a shell of its own (lib_reap_own_children.sh): until 2026-10-03 this suite
+# [Co-developed with claude code -- Adam] The reaper cleanup_fixtures() ends with is put to eighteen
+# checks (it and kill_group_if_leader) first, in a shell of its own (lib_reap_own_children.sh): until 2026-10-03 this suite
 # carried a copy that nothing here ever held to anything.
 echo "the reaper that kills what this shell forked and did not write down"
 reap_own_children_selftest

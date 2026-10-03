@@ -659,7 +659,7 @@ check "  and signals a parent that leads no group by its pid alone" "-KILL $HELD
 own_child "$HELD" && kill_group_if_leader "$HELD"
 # [Co-developed with claude code -- Adam] (2026-10-03) And the reaper itself, which cleanup() calls
 # for whatever this shell forked and has not yet written down: lib_reap_own_children.sh holds it to
-# seventeen checks (it and kill_group_if_leader), in a shell of its own, and this suite and
+# eighteen checks (it and kill_group_if_leader), in a shell of its own, and this suite and
 # test_ndt_apps_liveness.sh both run them.
 reap_own_children_selftest
 
@@ -872,7 +872,7 @@ section "12C. RESIDUE-1: a pidfile whose process is gone does NOT window to now"
 #
 #     residue        60 rule(s) inside an app window, 0 lock(s) HELD      -> rc 1
 #
-# The 60 were the fabric's OWN forwarding rules, installed by that same `ndt up` seventeen
+# The 60 were the fabric's OWN forwarding rules, installed by that same `ndt up` eighteen
 # seconds earlier: app_started_at dated the app by the pidfile's mtime, residue_report left the
 # right edge OPEN, and the report says in as many words that "anything installed in that window
 # is listed, whoever installed it". A window with no right edge attributes the whole table.

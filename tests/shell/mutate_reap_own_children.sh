@@ -24,6 +24,8 @@
 #   M8a/b/c  it does not refuse its own pid / the pid of the subshell it runs in / its parent
 #   M9  it does not refuse the process group its own shell is in
 #   M10 the reaper kills a child that leads no group with `kill -KILL 0`, its caller's own group
+#   M11 kill_group_if_leader does not refuse when it cannot read its own stat, and a group leader
+#       that is neither it, its parent nor a subshell can then take the caller's group with it
 # and a control, a reworded comment, that must change nothing.
 #
 # 🔴 Mutants that kill groups. Each mutation goes to a COPY of the lib in a temp dir (the suites
@@ -195,6 +197,10 @@ report "M9: the group its own shell is in is not refused" "$m9" "kill_group_if_l
 m10=$(mutant m10 'else kill -KILL "$c" 2>/dev/null; fi'$'\x1f''else kill -KILL 0 2>/dev/null; fi')
 report "M10: a child that leads no group is killed with kill -KILL 0" "$m10" \
        "reaper: a child that does not lead one goes, by its pid"
+
+m11=$(mutant m11 '    [[ "${mine%% *}" == "$BASHPID" ]] || { echo "kill_group_if_leader: cannot read this shell'"'"'s own process group: refused" >&2; return 1; }'$'\x1f''    :')
+report "M11: no refusal when its own group cannot be read" "$m11" \
+       "kill_group_if_leader: it refuses a leader when it cannot read its own group"
 
 c1=$(mutant c1 '# reap_own_children -- KILL whatever this shell forked that is still there.'$'\x1f''# reap_own_children -- KILL whatever this shell forked and that is still there.')
 control "C1 (control): a comment is reworded" "$c1"
