@@ -761,8 +761,8 @@ add "R2. recover.sh releases after a failed down" \
 
 add "R3. recover.sh takes over an expired claim of somebody else" \
     "$RECOVER" \
-    'elif [[ ( -z "$c_owner" || "$c_owner" == "$OWNER" ) && "$c_exp" -le "$now" && "$override_ours" -eq 1 && "$PHASE" != released ]]; then' \
-    'elif [[ "$c_exp" -le "$now" && "$override_ours" -eq 1 && "$PHASE" != released ]]; then' \
+    'elif [[ ( -z "$c_owner" || "$c_owner" == "$OWNER" ) && "$c_exp" -le "$now" \' \
+    'elif [[ "$c_exp" -le "$now" \' \
     'an expired foreign claim: rc 3, no re-claim'
 
 add "R4. recover.sh re-claims over a measurement" \
@@ -933,15 +933,47 @@ add "R3-m6c. recover.sh measuring check fails open" \
 # K1/T3 route, HU1's key, the timed-reading encodings, a failed kill, measuring_now).
 add "R4-1a. recover.sh re-claims only while the override names the package (follow-up 1)" \
     "$RECOVER" \
-    '&& "$override_ours" -eq 1 && "$PHASE" != released ]]; then' \
-    '&& "$ov" == "$PKG" && "$PHASE" != released ]]; then' \
+    '( -z "$ov" && "$PHASE" == down-done && "$c_owner" == "$OWNER" )' \
+    'false' \
     'down-done, own claim expired, override absent: rc 0'
 
-add "R4-1b. recover.sh re-claims a run that was already released" \
+add "R5-1a. an absent override is evidence in every phase, not only down-done (r5 follow-up 1)" \
     "$RECOVER" \
-    ' && "$PHASE" != released ]]; then' \
-    ' ]]; then  # MUTANT' \
-    'released, no claim, override absent: rc 3, nothing run (a finished run is not re-claimed)'
+    '( -z "$ov" && "$PHASE" == down-done && "$c_owner" == "$OWNER" )' \
+    '( -z "$ov" && "$c_owner" == "$OWNER" )' \
+    'teardown, own claim expired, override absent: rc 3, no stub called'
+
+add "R5-1b. a down-done run with no claim file is re-claimed" \
+    "$RECOVER" \
+    '( -z "$ov" && "$PHASE" == down-done && "$c_owner" == "$OWNER" )' \
+    '( -z "$ov" && "$PHASE" == down-done )' \
+    'down-done, no lab.claim: rc 3, nothing written'
+
+add "R5-1c. the fabric is checked after the re-claim, not before (r5 follow-up 1b)" \
+    "$RECOVER" \
+    '    # the expired claim file is OUR owner'"'"'s. The fabric check comes first: it writes nothing.
+    down_done_fabric_check' \
+    '    # MUTANT: no fabric check before the claim' \
+    'down-done, own claim expired, fabric up: rc 4 and the claim stub never called'
+
+add "R5-2a. a released run falls through to the claim branches (r5 follow-up 2)" \
+    "$RECOVER" \
+    'if [[ "$PHASE" == released ]]; then' \
+    'if false; then  # MUTANT' \
+    'released with recorded live processes: rc 0, only the two kills'
+
+add "R5-2b. a released run whose kill failed exits 0" \
+    "$RECOVER" \
+    '(above); a person stops them."; exit 7' \
+    '(above); a person stops them."; exit 0' \
+    'released with a kill that fails: rc 7, only the kills'
+
+add "R5-3. a failed kill ends the recovery as done (r5 follow-up 3)" \
+    "$RECOVER" \
+    '(kill failed above): rc 7"
+    exit 7' \
+    '(kill failed above): rc 7"' \
+    'a controller kill fails in a live recovery: the recovery finishes, then rc 7'
 
 add "R4-2a. recover.sh skips the process step in down-done (follow-up 2)" \
     "$RECOVER" \

@@ -83,12 +83,17 @@ to_down_done() {  # to_down_done <dir> [keep] -- what the probe leaves after a s
     # phase down-done, the claim's note ndt down wrote, app_package_override REMOVED (ndt:1597-1601).
     # With `keep` the recorded sniffer and controller stay listed (a kill that failed).
     claim_set "$1" note "down at 2026-10-03 18:20:00; verified clean; claim kept"
-    : > "$1/knobs/app_package_override"
+    rm -f "$1/knobs/app_package_override"
     KEEP="${2:-}" python3 -c "import json,os,sys; p=sys.argv[1]; s=json.load(open(p)); s['phase']='down-done'
 if not os.environ['KEEP']: s['sniffers']=[]; s['controllers']=[]; s['netem']=[]
 json.dump(s,open(p,'w'))" "$1/run/LAB_STATE.json"
 }
+set_phase() { python3 -c "import json,sys; p=sys.argv[1]; s=json.load(open(p)); s['phase']=sys.argv[2]; json.dump(s,open(p,'w'))" "$1/run/LAB_STATE.json" "$2"; }
+no_line_out() { ! grep -q "$2" "$1/out"; }
+rc4_noclaim() { [ "$1" -eq 4 ] && ! grep -q "^ndt claim" "$2/calls"; }
 nocalls() { [ ! -s "$1/calls" ]; }
+rc3_nocalls() { [ "$1" -eq 3 ] && nocalls "$2"; }                         # rc 3 and no stub called
+rc_calls() { [ "$1" -eq "$2" ] && [[ "$(cat "$3/calls")" == "$4" ]]; }    # rc and the exact stub calls
 no_line() { ! grep -q "$2" "$1/calls"; }
 
 echo "subject: $SUBJECT"
@@ -196,10 +201,10 @@ echo "--- (r4, Cut 1 follow-ups) down-done: our own claim expired while ndt down
 # the claim is still this owner's, nothing is measuring, and the recovery must finish.
 d="$(setup downdoneexpired)"; to_down_done "$d"; claim_set "$d" expires "$(past)"; rc="$(run "$d")"
 check "down-done, own claim expired, override absent: rc 0" [ "$rc" -eq 0 ]
-check "  ... asked what measures, re-claimed, checked no fabric, restored the knobs, released" \
-    [ "$(cat "$d/calls")" == "ndt status --measuring
+check "  ... checked no fabric first, asked what measures, re-claimed, restored the knobs, released" \
+    [ "$(cat "$d/calls")" == "ndt status
+ndt status --measuring
 ndt claim 30 p4-health run-x A recover state=$d/run/LAB_STATE.json
-ndt status
 ndt release
 ndt status" ]
 check "  ... the host knob is its snapshot's bytes" [ "$(cat "$d/knobs/host_count_override")" == "4  # kept as bytes" ]
@@ -211,12 +216,6 @@ d="$(setup downdoneexpireddeclared)"; to_down_done "$d"; claim_set "$d" expires 
 rc="$(run "$d")"
 check "down-done, an expired claim that declares a measurement: rc 3" [ "$rc" -eq 3 ]
 check "  ... no claim, no release" no_line "$d" '^ndt claim\|^ndt release'
-d="$(setup releasedgone)"; to_down_done "$d"; rm -f "$d/test_run/lab.claim"
-python3 -c "import json,sys; p=sys.argv[1]; s=json.load(open(p)); s['phase']='released'; json.dump(s,open(p,'w'))" "$d/run/LAB_STATE.json"
-rc="$(run "$d")"
-check "released, no claim, override absent: rc 3, nothing run (a finished run is not re-claimed)" [ "$rc" -eq 3 ]
-check "  ... and nothing run" nocalls "$d"
-
 echo "--- (r4) down-done: stopping a process needs no fabric"
 d="$(setup downdonekept)"; to_down_done "$d" keep; rc="$(run "$d")"
 check "down-done with a kept sniffer and controller: rc 0" [ "$rc" -eq 0 ]
@@ -242,6 +241,49 @@ printf '  orphaned       iperf3 -c 10.0.6.6 -t 200\n                 no fabric i
 rc="$(run "$d")"
 check "an expired claim and only an orphaned row (leftovers, no fabric): rc 0, re-claimed" [ "$rc" -eq 0 ]
 check "  ... the claim was taken" [ "$(sed -n 2p "$d/calls")" == "ndt claim 30 p4-health run-x A recover state=$d/run/LAB_STATE.json" ]
+
+echo "--- (r5) an absent override is evidence only in down-done: anywhere else it may be somebody else's down"
+for ph in teardown claim-lost down-failed; do
+    d="$(setup "absent$ph")"; claim_set "$d" expires "$(past)"; rm -f "$d/knobs/app_package_override"; set_phase "$d" "$ph"
+    rc="$(run "$d")"
+    check "$ph, own claim expired, override absent: rc 3, no stub called" rc3_nocalls "$rc" "$d"
+done
+d="$(setup downdonenoclaim)"; to_down_done "$d"; rm -f "$d/test_run/lab.claim"; rc="$(run "$d")"
+check "down-done, no lab.claim: rc 3, nothing written" rc3_nocalls "$rc" "$d"
+d="$(setup downdonefabricup)"; to_down_done "$d"; claim_set "$d" expires "$(past)"
+printf '  bmv2 switches  4       \n  host/switch    10      \n' > "$d/status_full"
+rc="$(run "$d")"
+check "down-done, own claim expired, fabric up: rc 4 and the claim stub never called" \
+    rc4_noclaim "$rc" "$d"
+check "  ... nothing released, no down" no_line "$d" '^ndt release\|^ndt down'
+check "  ... knob untouched" [ "$(cat "$d/knobs/host_count_override")" == "6" ]
+
+echo "--- (r5) phase released: only the identity-checked kills, never a claim, a knob, netem or ndt down"
+d="$(setup releasedlive)"; set_phase "$d" released; rm -f "$d/test_run/lab.claim" "$d/knobs/app_package_override"; rc="$(run "$d")"
+check "released with recorded live processes: rc 0, only the two kills" \
+    rc_calls "$rc" 0 "$d" "sudo -n mnexec -a 1 kill -TERM 555
+kill -TERM 666"
+check "  ... the knob is untouched" [ "$(cat "$d/knobs/host_count_override")" == "6" ]
+d="$(setup releasednothing)"; to_down_done "$d"; set_phase "$d" released; rm -f "$d/test_run/lab.claim"; rc="$(run "$d")"
+check "released with nothing recorded: rc 0 and no stub called" rc_calls "$rc" 0 "$d" ""
+d="$(setup releasedlater)"; set_phase "$d" released      # the same owner holds a LIVE claim on a later round's fabric
+rc="$(run "$d")"
+check "released while the same owner holds a later round's live claim: rc 0, only the kills" \
+    rc_calls "$rc" 0 "$d" "sudo -n mnexec -a 1 kill -TERM 555
+kill -TERM 666"
+check "  ... no ndt down, no claim, no release, no qdisc, no netem" no_line "$d" '^ndt\|^qdisc\|tc qdisc'
+d="$(setup releasedkillfails)"; set_phase "$d" released; rm -f "$d/test_run/lab.claim"; echo 1 > "$d/rc.sudo.-n"; rc="$(run "$d")"
+check "released with a kill that fails: rc 7, only the kills" \
+    rc_calls "$rc" 7 "$d" "sudo -n mnexec -a 1 kill -TERM 555
+kill -TERM 666"
+
+echo "--- (r5) a kill that failed is never a quiet \"done\""
+d="$(setup killfails)"; echo 1 > "$d/rc.kill.-TERM"; rc="$(run "$d")"
+check "a controller kill fails in a live recovery: the recovery finishes, then rc 7" [ "$rc" -eq 7 ] 
+check "  ... it did finish: down, release, status" [ "$(tail -3 "$d/calls")" == "ndt down
+ndt release
+ndt status" ]
+check "  ... and it did not say done" no_line_out "$d" 'recover: done'
 
 echo "--- a recycled pid is left alone"
 d="$(setup recycled)"
