@@ -185,6 +185,11 @@ alive_count() {   # how many of the pids on stdin still exist
 }
 
 cleanup_fixtures() {
+    # [Co-developed with claude code -- Adam] First, so a second signal cannot cut the cleaning
+    # short (2026-10-03): an INT or TERM arriving in here would run its trap, and the shell would
+    # exit with the rest of this undone. The price: a signal that lands while a run that was
+    # ending anyway cleans up is ignored, and that run still ends 0 or 1, not 130 or 143.
+    trap '' INT TERM
     local pid pg mine
     mine="$(proc_pgid "$$" 2>/dev/null || echo 0)"
     while read -r pg; do
@@ -207,7 +212,12 @@ cleanup_fixtures() {
 # to root. The EXIT trap does the cleaning on the way out; INT and TERM only exit, with the
 # shell's usual 128+signal status.
 trap cleanup_fixtures EXIT
-trap 'exit 130' INT
+# [Co-developed with claude code -- Adam] INT kills the shell with INT again rather than exiting
+# 130 (2026-10-03), as in test_ndt_app_orphans.sh: the status is still 130, and a script that
+# called this one stops too (tools/test_workflow/l1_unit_tests.sh would otherwise run the next
+# suite after a Ctrl-C). Checked by tests/shell/test_fixture_suites_end_on_signal.sh, label
+# apps_group.
+trap 'trap - INT; kill -INT $$' INT
 trap 'exit 143' TERM
 
 # start_app -- start the fake app through the REAL app_spawn; echo the recorded pid.
@@ -251,12 +261,19 @@ chmod +x "$FIXDIR/we ird) name"
 ODD=$!
 echo "$ODD" >> "$FIXTURE_REG"
 sleep 0.3
+# [Co-developed with claude code -- Adam] Its `sleep` is the script's child, not this shell's, and
+# killing the script leaves it running for FIXTURE_TTL (2026-10-03): every run of this suite left
+# one behind, and a signal test that asks "is anything of this run left" found it. Written down
+# now, and killed with the script below.
+ODD_KID="$(descendants "$ODD" | grep -vx "$ODD")"
+[[ -n "$ODD_KID" ]] && printf '%s\n' $ODD_KID >> "$FIXTURE_REG"
 check "a comm containing ') ' does not fool the parser" \
       "$(ps -o pgid= -p "$ODD" 2>/dev/null | tr -d ' ')" "$(proc_pgid "$ODD")"
 # Reaped here, and waited for, so that the "no fixtures leaked" check at the bottom is about
 # leaks and not about this one still serving its purpose -- and so bash does not print the job's
 # death notice after the summary line, where a log scraper would read it as output of the run.
 kill -TERM "$ODD" 2>/dev/null; wait "$ODD" 2>/dev/null
+[[ -n "$ODD_KID" ]] && kill -KILL $ODD_KID 2>/dev/null
 
 # --- 2. app_spawn gives the app a session of its own ------------------------------
 echo "app_spawn (the property, not the word 'setsid')"

@@ -263,6 +263,36 @@ check "ps read for a pid is not by name"         0 "$(by_name RUNS '#!/usr/bin/e
 ps -o etimes= -p "$pid"
 ')"
 
+# 🔴 2026-10-03. Inside a "$( ... )" every `)` used to close the substitution, so a `( ... )`
+# group, a `$(( ... ))`, a nested `$( ... )` or a case arm ended it early and the rest of the
+# line was read as STRING for as long as the quote parity happened to say so. Each case below
+# puts a by-name lookup after such a `)` and behind an even number of apostrophes -- two of them
+# sit inside double quotes, so the shell reads them as letters. The old parser took them for a
+# single-quoted region and reported nothing at all: not the wrong kind, no site. 14b47143 broke
+# on the odd-numbered variant of this, which is how it was found.
+echo "a ) that is not the end of the substitution does not end it"
+for_group='#!/usr/bin/env bash
+x="$( (true); echo "it'"'"'s"; pgrep -f foo; echo "x'"'"'y" )"
+'
+for_arith='#!/usr/bin/env bash
+x="$( echo $((1+2)); echo "it'"'"'s"; pgrep -f foo; echo "x'"'"'y" )"
+'
+for_nested='#!/usr/bin/env bash
+x="$( echo $(date); echo "it'"'"'s"; pgrep -f foo; echo "x'"'"'y" )"
+'
+for_case='#!/usr/bin/env bash
+x="$( case "$1" in a) true ;; esac; echo "it'"'"'s"; pgrep -f foo; echo "x'"'"'y" )"
+'
+for_closed='#!/usr/bin/env bash
+echo "$( (true) ) try pgrep -f foo"
+'
+check "a ( ) group inside a substitution"        1 "$(by_name RUNS "$for_group")"
+check "a \$(( )) inside a substitution"          1 "$(by_name RUNS "$for_arith")"
+check "a nested \$( ) inside a substitution"     1 "$(by_name RUNS "$for_nested")"
+check "a case arm inside a substitution"         1 "$(by_name RUNS "$for_case")"
+check "the substitution still ends at its own )" 1 "$(by_name TEACHES "$for_closed")"
+check "  and what follows it is not code"        0 "$(by_name RUNS "$for_closed")"
+
 # 🔴 2026-09-11, FIX-PROXY-1. The limit this checker wrote down on day one -- "shell only" --
 # was not a limit, it was where the two LIVE violations were: both mininet topologies ran
 # `os.system('sudo pkill -f simple_switch_grpc')` as root on every bring-up while the shell half

@@ -286,6 +286,15 @@ ABOUT_THE_RULE = frozenset((
 REGISTERED = frozenset()
 
 
+def _word_at(line, j, word):
+    """True when `word` stands at line[j] as a whole shell word (keyword position, not a name part)."""
+    if not line.startswith(word, j):
+        return False
+    before = line[j - 1] if j else " "
+    after = line[j + len(word)] if j + len(word) < len(line) else " "
+    return before in " \t;&|(" and after in " \t;&|)"
+
+
 def _regions(text):
     """[(line, code, printed)] -- one entry per line, with the data parts blanked out.
 
@@ -299,7 +308,7 @@ def _regions(text):
     lines = text.split("\n")
     out = []
     quote = None
-    substitutions = []          # double-quote contexts suspended by a "$("
+    substitutions = []          # one frame per open "$(": [suspended quote, paren depth, case bases]
     pending = []                # heredoc terminators still to be consumed
     unreadable = None
     i = 0
@@ -316,7 +325,7 @@ def _regions(text):
                 continue
             if quote == '"':
                 if line[j:j + 2] == "$(":
-                    substitutions.append(quote)
+                    substitutions.append([quote, 0, []])
                     quote = None
                     code.append("$(")
                     j += 2
@@ -332,11 +341,25 @@ def _regions(text):
                 printed.append(c)
                 j += 1
                 continue
-            if c == ")" and substitutions:
-                quote = substitutions.pop()
-                code.append(c)
-                j += 1
-                continue
+            if substitutions:
+                frame = substitutions[-1]
+                if c == "(":
+                    frame[1] += 1
+                elif c == ")":
+                    if frame[2] and frame[1] == frame[2][-1]:
+                        pass                            # the `)` that ends a case pattern
+                    elif frame[1] > 0:
+                        frame[1] -= 1                   # closes a `(`, `$(` or `((` of its own
+                    else:
+                        quote = substitutions.pop()[0]  # the one that closes the substitution
+                elif _word_at(line, j, "case"):
+                    frame[2].append(frame[1])
+                elif _word_at(line, j, "esac") and frame[2]:
+                    frame[2].pop()
+                if c in "()":
+                    code.append(c)
+                    j += 1
+                    continue
             if c in "'\"":
                 quote = c
                 j += 1
