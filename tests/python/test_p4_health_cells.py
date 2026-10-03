@@ -1363,8 +1363,7 @@ class TestCut2Decisions(unittest.TestCase):
         self.assertEqual(RA.expand(["SC-reg"]), {"R2", "PL1", "T1", "TP1"})
 
     def test_bring_up_as_cells_are_the_cut_2_rows_of_the_table(self):
-        rows = {c.id for c in T.TABLE.cells if c.cut == 2 and c.bringup == "A" and not c.q3b
-                and c.alias_of is None}
+        rows = {c.id for c in T.TABLE.cells if c.cut == 2 and c.bringup == "A" and c.alias_of is None}
         self.assertEqual(set(RA.CUT2_CELLS) - {"K1-neg", "T3-neg"}, rows)
 
 

@@ -371,6 +371,23 @@ def observe_c2(cfg, runner):
     return {"answer": answer, "oracle": oracle, "negative": negative}
 
 
+VS1_VALUE = 40055
+
+
+def observe_vs1(cfg, runner):
+    """VS1 (Q3(b)): a value in the parser value set through NDTwin. Today there is no route, so
+    the answer is route False; the before and after reads are thrift's READ-ONLY `pvs_get` (the
+    write `pvs_add` aborts the stock bmv2, vs_trial). B makes no ValueSetEntry attribution --
+    bmv2's P4Runtime refuses the write (S0's vs_trial) -- so the RED stays UNATTRIBUTED."""
+    reader = TH.ThriftReader(cfg, runner)
+    before = reader.read(2, "pvs_get HcParser.vs_ports")
+    answer = OB.with_route({"http": None}, cfg, "VS1")
+    after = reader.read(2, "pvs_get HcParser.vs_ports")
+    return {"answer": answer,
+            "oracle": None if after is None else {"present_after": VS1_VALUE in after},
+            "negative": None if before is None else {"absent": VS1_VALUE not in before}}
+
+
 # --- counters ------------------------------------------------------------------------------------
 
 def handle_of(dump, key):

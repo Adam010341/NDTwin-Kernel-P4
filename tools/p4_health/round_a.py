@@ -14,7 +14,8 @@ self-checks' readings -- so `--only K1,TTL1` on the mutant artefact runs PL1, T1
 pingall, K1-neg, K1 and TTL1 (design 5.2-④, Cut 2's see-red run).
 
 Bring-up A's Cut 2 cells: PL1 T1 T2 T3 T4 T5 T6 T7 T8 M1 M2 C1 C2 K1 K2 MT1 MT2 MT3 R2 R3 D1 P1
-P2 P3 CS1 TTL1 TP1 (CP1 is T1's alias), the controls K1-neg and T3-neg, and the self-checks
+P2 P3 CS1 TTL1 TP1 (CP1 is T1's alias), VS1 (Q3(b); AP1, AS1 and IT1 are cut 3), the controls
+K1-neg and T3-neg, and the self-checks
 SC-fwd SC-count SC-reg SC-ttl. Cut 3-5 cells are not observed here; they judge NOT RUN.
 """
 from __future__ import annotations
@@ -44,7 +45,7 @@ PING_DPORT = 40001
 #: What each self-check's readings come from (the cell whose step takes them).
 SC_PRODUCER = {"SC-fwd": "T1", "SC-count": "K1", "SC-reg": "R2", "SC-ttl": "TTL1"}
 #: The cells this round observes, in the order it runs them: static, then active.
-STATIC = ("PL1", "TP1", "T2", "M1", "C1", "C2", "P1", "CS1", "MT2", "MT3", "R3", "P3")
+STATIC = ("PL1", "TP1", "T2", "M1", "C1", "C2", "P1", "CS1", "MT2", "MT3", "R3", "P3", "VS1")
 ACTIVE = ("T1", "K1-neg", "K1", "K2", "R2", "D1", "P2", "TTL1", "T3-neg", "T3", "T4", "T5", "T6",
           "T7", "T8", "M2", "MT1")
 CUT2_CELLS = STATIC + ACTIVE
@@ -194,6 +195,9 @@ class ARound(object):
 
     def step_R3(self):
         self.keep("R3", OA.observe_r3(self.cfg, self.runner))
+
+    def step_VS1(self):
+        self.keep("VS1", OA.observe_vs1(self.cfg, self.runner))
 
     def step_P3(self):
         self.keep("P3", OA.observe_p3(self.cfg))

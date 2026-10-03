@@ -1696,6 +1696,12 @@ add "R2-m2b. the step guard swallows a signal" \
             raise' \
     'test_a_signal_still_ends_the_round'
 
+add "R2-m7. VS1's negative read reads after the write" \
+    "$OBSA" \
+    '            "negative": None if before is None else {"absent": VS1_VALUE not in before}}' \
+    '            "negative": None if before is None else {"absent": VS1_VALUE in before}}  # MUTANT' \
+    'test_bring_up_a_reads_as_predicted'
+
 
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'

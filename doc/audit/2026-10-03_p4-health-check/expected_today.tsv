@@ -2,6 +2,7 @@
 # [Co-developed with claude code -- Adam]
 # expected = the verdict label predicted for today's trunk (995bdfd0). added: r6 = from the reviewed
 # design; cut1-q3b = added in Cut 1 for Q3(b), not yet reviewed (DESIGN.md sections 13 and 14). Rows whose basis starts "r2 (Cut 1 review)", "r3 (Cut 1 review)" or "r4 (Cut 1 follow-ups)" changed in those review rounds (r4: the basis now cites code, not a relayed record).
+# Cut 2 review: R3 now predicts UNATTRIBUTED (the ctrl_trial observation, before any live run); AP1, AS1 and IT1 moved to cut 3.
 # Cited records: GAP-2b = doc/audit/2026-09-04_p4-tutorial-exercise-prep/GAP-2b-ndtwin-p4-capabilities-2026-09-27.md and DESIGN.md = doc/audit/2026-10-03_p4-health-check/DESIGN.md; both live on the trunk branch of this repository, not on main.
 cell	dimension	scope	bringup	cut	expected	basis	added
 PL1	pipeline_load	core	A	2	GREEN	§5.1 pipeline_load always can: each switch gets its own program (main.py:2012-2016); p4info sha in switch_state (api_routes.py:758-761)	r6
@@ -26,7 +27,7 @@ MT1	meters	core	A	2	RED	501 unsupported_on_p4 (HttpSession.cpp:279-281,416-427,2
 MT2	meters	core	A	2	RED	no meter route on the proxy	r6
 MT3	meters	ext	A	2	RED	no direct-meter route on the proxy	r6
 R2	registers	core	A	2	RED	no register read route (GAP-2b:94)	r6
-R3	registers	core	A	2	RED	no register write route	r6
+R3	registers	core	A	2	UNATTRIBUTED	Cut 2 review, before any live run: no register write route (structural), but bmv2's P4Runtime refuses RegisterEntry writes too (canonical_code 12 'Register writes are not supported yet', controller_ext.register in ctrl_trial on throwaway simple_switch_grpc, stock and bmv2-fast) -- the bmv2 half of the attribution cannot be established, so by DESIGN 2.3's R3 row it is UNATTRIBUTED	r6
 D1	digest	core	A	2	RED	the stream drops digests (p4_client.py:544-545)	r6
 P1	packet_io	core	A	2	GREEN	bmv2 started with the package cpu_port 510	r6
 P2	packet_io	core	A	2	RED	packet-in split only between telemetry and LLDP (p4_client.py:553-586)	r6
@@ -53,9 +54,9 @@ CP2	control_plane_mode	core	B	4	GREEN	external refuses writes with 409 (_refuse_
 CP4	control_plane_mode	core	C	4	GREEN	owner ndtwin binds the route table and reroute follows the heartbeat (route_binding.py:51-56,312-319; main.py:1236-1249)	r6
 V1	verification	core	A	3	GREEN	G1 on plain IPv4 iperf	r6
 V2	verification	core	A	3	PARTIAL(a)	CH1/CH2 bytes match netdev; identity only in the side table	r6
-AP1	action_profile	ext	A	2	RED	no action-profile route; the writer builds direct EXACT/LPM entries only (p4_client.py:133,1204-1208)	cut1-q3b
-AS1	action_profile	ext	A	2	RED	no action-selector route (same writer)	cut1-q3b
-IT1	idle_timeout	ext	A	2	RED	no idle-timeout field on POST /p4/table_entry; the stream handles packet and arbitration only (p4_client.py:526-551); r2: thrift's Life: line is the aging oracle	cut1-q3b
+AP1	action_profile	ext	A	3	RED	no action-profile route; the writer builds direct EXACT/LPM entries only (p4_client.py:133,1204-1208); Cut 2 review: moved to cut 3 -- B's eleven attributions do not cover action profiles, selectors or idle timeouts, so the RED could not be attributed in Cut 2	cut1-q3b
+AS1	action_profile	ext	A	3	RED	no action-selector route (same writer); Cut 2 review: moved to cut 3 -- B's eleven attributions do not cover action profiles, selectors or idle timeouts, so the RED could not be attributed in Cut 2	cut1-q3b
+IT1	idle_timeout	ext	A	3	RED	no idle-timeout field on POST /p4/table_entry; the stream handles packet and arbitration only (p4_client.py:526-551); r2: thrift's Life: line is the aging oracle; Cut 2 review: moved to cut 3 -- B's eleven attributions do not cover action profiles, selectors or idle timeouts, so the RED could not be attributed in Cut 2	cut1-q3b
 VS1	value_set	ext	A	2	UNATTRIBUTED	r2 (Cut 1 review): no value-set route (structural), but bmv2's P4Runtime refuses ValueSetEntry writes too (UNIMPLEMENTED 'ValueSet writes are not supported yet', vs_trial on throwaway simple_switch_grpc, stock and fast) and thrift pvs_add aborts the stock bmv2 -- the bmv2 half of the attribution cannot be established	cut1-q3b
 RC1	recirculate	ext	A	3	GREEN	r3 (Cut 1 review): V1's G1 check on RC1's own marker flow (dport 40091, which the program resubmits and recirculates), self-check SC-recirc; inferred GREEN: with telemetry.source=link a recirculated pass enters no port (link_telemetry.py:312,329-338), so the twin should count the flow once, on its path	cut1-q3b
 HR1	hash_random	ext	A	3	GREEN	r2 (Cut 1 review), inferred: one 5-tuple flow hashes to one uplink; link usage is measured per link from samples, read against a quiet window	cut1-q3b

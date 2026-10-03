@@ -1545,6 +1545,8 @@ class FakeFabric(object):
             dflt = s.defaults.get(t, ("NoAction", []))
             lines += ["Action entry: %s - %s" % (dflt[0], ", ".join("%x" % p_ for p_ in dflt[1])), "=========="]
             return "\n".join(lines)
+        if word == "pvs_get":
+            return ""                                   # an empty value set (pvs_empty.txt's shape)
         if word == "show_tables":
             names = sorted(KEYS) + (["HcIngress.alt_port_stamp"] if s.dpid == 1 else [])
             return "\n".join("%s [implementation=None, mk=]" % n for n in names)
@@ -1869,10 +1871,12 @@ class TestBringUpAOnTodaysFabric(Cut2):
         confirmed["register"] = {"ok": False, "why": "Register writes are not supported yet"}
         ctx = self.judge(a, confirmed)
         rows = expected_rows()
-        got = {c: ctx.cells[c].label for c in RA.CUT2_CELLS + ("CP1",)}
+        got = {c: ctx.cells[c].label for c in set(RA.CUT2_CELLS) | {"CP1", "VS1"}}
         want = {c: rows[c][5] for c in got}
-        want["R3"] = V.UNATTRIBUTED
+        self.assertEqual(want["R3"], V.UNATTRIBUTED)            # m7: the tsv itself says so now
+        self.assertEqual(want["VS1"], V.UNATTRIBUTED)
         self.assertEqual(got, want, {c: ctx.cells[c].reason for c in got if got[c] != want[c]})
+        self.assertIs(a.observations["VS1"]["negative"]["absent"], True)
         self.assertEqual({k: v.verdict for k, v in ctx.self_checks.items() if k in a.sc_observations},
                          {"SC-fwd": V.GREEN, "SC-count": V.GREEN, "SC-reg": V.GREEN, "SC-ttl": V.GREEN})
         for cid in ("PL1", "T1", "T2", "M1", "M2", "C1", "T3"):
