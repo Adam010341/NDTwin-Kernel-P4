@@ -441,6 +441,12 @@ def records_from_net(net, now=None):
              "outcome": "ok"} for item in net]
 
 
+def _jsonl(obj):
+    """One journal line as bytes. Named, so the table-entry journal does not repeat the spelling
+    the routing journal's anchors (tests/shell/mutate_rule_journal_is_wired.sh) are unique on."""
+    return (json.dumps(obj, separators=(",", ":"), sort_keys=True) + "\n").encode("utf-8")
+
+
 def _fsync_directory(directory):
     """Make a create or rename in `directory` durable. Best effort: a filesystem that cannot
     open a directory for fsync has no stronger guarantee to offer."""
@@ -497,7 +503,7 @@ class TableEntryJournal:
         header = {"v": 1, "header": True, "dpid": self.dpid, "fabric_cookie": None,
                   "p4info_sha256": None, "entries_sha256": None, "boot_id": None}
         header.update({k: v for k, v in fields.items() if k in header and k not in ("v", "header")})
-        return json.dumps(header, separators=(",", ":"), sort_keys=True) + "\n"
+        return _jsonl(header)
 
     def record(self, op, spec, key, outcome="ok"):
         """
@@ -510,7 +516,7 @@ class TableEntryJournal:
         entry = {"v": 1, "t": time.time(), "op": op, "key": key, "spec": spec,
                  "outcome": outcome}
         try:
-            line = json.dumps(entry, separators=(",", ":"), sort_keys=True) + "\n"
+            encoded = _jsonl(entry)
             directory = os.path.dirname(self.path)
             if directory:
                 os.makedirs(directory, exist_ok=True)
@@ -518,14 +524,14 @@ class TableEntryJournal:
             with open(self.path, "a+b") as fh:
                 size = fh.seek(0, os.SEEK_END)
                 if size == 0:
-                    fh.write(self._header_line().encode("utf-8"))
+                    fh.write(self._header_line())
                 else:
                     # A crash can leave a last line with no newline. Appending straight after it
                     # would glue the new record onto the torn one and lose both.
                     fh.seek(-1, os.SEEK_END)
                     if fh.read(1) != b"\n":
                         fh.write(b"\n")
-                fh.write(line.encode("utf-8"))
+                fh.write(encoded)
                 fh.flush()
                 os.fsync(fh.fileno())
             if created:
@@ -553,11 +559,9 @@ class TableEntryJournal:
             with os.fdopen(fd, "wb") as fh:
                 head = dict(header)
                 head.update({"v": 1, "header": True, "dpid": self.dpid})
-                fh.write((json.dumps(head, separators=(",", ":"), sort_keys=True)
-                          + "\n").encode("utf-8"))
+                fh.write(_jsonl(head))
                 for rec in records:
-                    fh.write((json.dumps(rec, separators=(",", ":"), sort_keys=True)
-                              + "\n").encode("utf-8"))
+                    fh.write(_jsonl(rec))
                 fh.flush()
                 os.fsync(fh.fileno())
             quarantined = None

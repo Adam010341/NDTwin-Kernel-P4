@@ -748,17 +748,16 @@ m=$(mutant n6 "$INSTALL" \
 control 'N6 (control): a comment-only edit beside the default key' "$m" "the whole suite stays green"
 
 echo
-check() { [[ "$(sha256sum "$2" | cut -d' ' -f1)" == "$3" ]] || { echo "🔴 baseline CHANGED -- $1 was written during the gate"; exit 3; }; }
-check rule_journal.py "$JOURNAL" "$BASE_JOURNAL"
-check p4_client.py "$CLIENT" "$BASE_CLIENT"
-check rule_install_times.py "$INSTALL" "$BASE_INSTALL"
-check main.py "$MAIN" "$BASE_MAIN"
-check api_routes.py "$ROUTES" "$BASE_ROUTES"
-check test_table_entry_journal.py "$TEST_JOURNAL" "$BASE_TEST_JOURNAL"
-check test_table_entry_route.py "$TEST_ROUTE" "$BASE_TEST_ROUTE"
-check test_p4_client_writes.py "$TEST_WRITES" "$BASE_TEST_WRITES"
-check test_rule_install_times.py "$TEST_INSTALL" "$BASE_TEST_INSTALL"
-check test_app_package_proxy.py "$TEST_PROXY" "$BASE_TEST_PROXY"
+[[ "$(sha256sum "$JOURNAL" | cut -d' ' -f1)" == "$BASE_JOURNAL" ]] || { echo "🔴 baseline CHANGED -- rule_journal.py was written during the gate"; exit 3; }
+[[ "$(sha256sum "$CLIENT" | cut -d' ' -f1)" == "$BASE_CLIENT" ]] || { echo "🔴 baseline CHANGED -- p4_client.py was written during the gate"; exit 3; }
+[[ "$(sha256sum "$INSTALL" | cut -d' ' -f1)" == "$BASE_INSTALL" ]] || { echo "🔴 baseline CHANGED -- rule_install_times.py was written during the gate"; exit 3; }
+[[ "$(sha256sum "$MAIN" | cut -d' ' -f1)" == "$BASE_MAIN" ]] || { echo "🔴 baseline CHANGED -- main.py was written during the gate"; exit 3; }
+[[ "$(sha256sum "$ROUTES" | cut -d' ' -f1)" == "$BASE_ROUTES" ]] || { echo "🔴 baseline CHANGED -- api_routes.py was written during the gate"; exit 3; }
+[[ "$(sha256sum "$TEST_JOURNAL" | cut -d' ' -f1)" == "$BASE_TEST_JOURNAL" ]] || { echo "🔴 baseline CHANGED -- test_table_entry_journal.py was written during the gate"; exit 3; }
+[[ "$(sha256sum "$TEST_ROUTE" | cut -d' ' -f1)" == "$BASE_TEST_ROUTE" ]] || { echo "🔴 baseline CHANGED -- test_table_entry_route.py was written during the gate"; exit 3; }
+[[ "$(sha256sum "$TEST_WRITES" | cut -d' ' -f1)" == "$BASE_TEST_WRITES" ]] || { echo "🔴 baseline CHANGED -- test_p4_client_writes.py was written during the gate"; exit 3; }
+[[ "$(sha256sum "$TEST_INSTALL" | cut -d' ' -f1)" == "$BASE_TEST_INSTALL" ]] || { echo "🔴 baseline CHANGED -- test_rule_install_times.py was written during the gate"; exit 3; }
+[[ "$(sha256sum "$TEST_PROXY" | cut -d' ' -f1)" == "$BASE_TEST_PROXY" ]] || { echo "🔴 baseline CHANGED -- test_app_package_proxy.py was written during the gate"; exit 3; }
 echo "baseline byte-identical: yes (5 sources, 5 test files)"
 if [[ "$SURVIVORS" -eq 0 ]]; then
     echo "mutation gate: $MUTATIONS mutations, 0 survived"; exit 0
