@@ -1,0 +1,64 @@
+# P4 health check -- predictions, committed before any live run (DESIGN 5.1).
+# [Co-developed with claude code -- Adam]
+# expected = the verdict label predicted for today's trunk (995bdfd0). added: r6 = from the reviewed
+# design; cut1-q3b = added in Cut 1 for Q3(b), not yet reviewed (DESIGN.md section 13).
+cell	dimension	scope	bringup	cut	expected	basis	added
+PL1	pipeline_load	core	A	2	GREEN	§5.1 pipeline_load always can: each switch gets its own program (main.py:2012-2016); p4info sha in switch_state (api_routes.py:758-761)	r6
+PL2	pipeline_load	core	B	4	GREEN	external skips pipeline_push (main.py:337); the controller pushes its own	r6
+T1	tables	core	A	2	GREEN	package exact/lpm entries applied at boot (p4_client.py:133,1204-1208); recorded==applied	r6
+T2	tables	core	A	2	GREEN	runtime default of a keyless table is an ordinary default_action write	r6
+T3	tables	core	A	2	GREEN	POST /p4/table_entry writes EXACT (api_routes.py:841-957)	r6
+T4	tables	ext	A	2	RED	501 for ternary (api_routes.py:925-930); bmv2 holds ternary (B attribution, Cut 2)	r6
+T5	tables	ext	A	2	RED	501 for range (api_routes.py:925-930)	r6
+T6	tables	ext	A	2	RED	501 for optional (api_routes.py:925-930)	r6
+T7	tables	ext	A	2	NOT RUN	gate T4 is RED (DESIGN 7.6)	r6
+T8	tables	ext	A	2	RED	journaled is the constant false (api_routes.py:765-767,837-838,957)	r6
+PF-T	tables	ext	S0	1	RED	pre-flight refuses a boot ternary entry, G5 not done (preflight.py:218-234); static attribution from S0's throwaway bmv2	r6
+M1	pre_multicast	core	A	2	GREEN	package multicast groups written at boot (main.py:1011-1075)	r6
+M2	pre_multicast	core	A	2	GREEN	POST /p4/multicast_group (api_routes.py:1035-1130)	r6
+C1	pre_clone	core	A	2	GREEN	first run; clone id from the package for a foreign pipeline (main.py:1057-1062), mgid 0x8000+7 (p4_client.py:780-786); GAP-2b:91 was (c)	r6
+C2	pre_clone	ext	A	2	RED	no clone-session route (clone written only at boot and readopt, main.py:1011-1075)	r6
+K1	counters	core	A	2	GREEN	first run; GET /p4/counter reads p4info.counters (p4_client.py:1598)	r6
+K2	counters	ext	A	2	RED	inferred 404: only p4info.counters is scanned, not direct_counters (p4_client.py:1598)	r6
+K3	counters	core	B	4	GREEN	the counter read works under external (api_routes.py:987-990)	r6
+MT1	meters	core	A	2	RED	501 unsupported_on_p4 (HttpSession.cpp:279-281,416-427,2019-2024; P4RoutingStrategy.cpp:10-33)	r6
+MT2	meters	core	A	2	RED	no meter route on the proxy	r6
+MT3	meters	ext	A	2	RED	no direct-meter route on the proxy	r6
+R2	registers	core	A	2	RED	no register read route (GAP-2b:94)	r6
+R3	registers	core	A	2	RED	no register write route	r6
+D1	digest	core	A	2	RED	the stream drops digests (p4_client.py:544-545)	r6
+P1	packet_io	core	A	2	GREEN	bmv2 started with the package cpu_port 510	r6
+P2	packet_io	core	A	2	RED	packet-in split only between telemetry and LLDP (p4_client.py:553-586)	r6
+P3	packet_io	core	A	2	RED	no packet-out route	r6
+P4	packet_io	core	B	4	PARTIAL(b)	section 12 item 8 decided in Cut 1: the controller's own packet-in is the exercise's controller doing NDTwin's half (GAP-2b 0.3 (b))	r6
+CH1	custom_headers	core	A	3	PARTIAL(a)	0x1212 lands only in the side table (FlowLinkUsageCollector.cpp:1134-1161)	r6
+CH2	custom_headers	core	A	3	PARTIAL(a)	0x1234 lands only in the side table	r6
+CH3	custom_headers	core	A	3	GREEN	IPv4 options parsed (SFlowType.hpp:343-369); modelled [relayed parser-autoderive REPORT.md:233]	r6
+CH4	custom_headers	ext	A	3	RED	inferred: a shim between IPv4 and UDP reads as the wrong port [relayed RULINGS-1001.md:59-64]	r6
+CH5	custom_headers	core	A	3	GREEN	one VLAN tag is stripped natively (SFlowType.hpp:305-311)	r6
+CH6	custom_headers	ext	A	3	GREEN	a shim after L4 does not move the 5-tuple	r6
+CH7	custom_headers	core	A	3	GREEN	the side table keys ethertype and both MACs and counts samples (SFlowType.hpp:587-589)	r6
+CH8	custom_headers	ext	A	3	PARTIAL(a)	tunnel traffic through s1's port-keyed parser lands only in the side table	r6
+VB1	custom_headers	ext	A	3	NOT RUN	by design: NDTwin's half of a varbit tail is CH6's (DESIGN 13)	cut1-q3b
+Q1	queue_metadata	core	A	3	GREEN	most likely per DESIGN 5.1: links[] shaping makes a queue at s1-eth5; UNATTRIBUTED if qdepth stays 0	r6
+Q2	queue_metadata	ext	A	3	RED	no --priority-queues anywhere in p4_proxy/mininet (0 hits); the fabric binary has the string	r6
+CS1	checksum	core	A	2	GREEN	tx-checksumming turned off per host (p4_testbed_topo.py:474-491)	r6
+TTL1	ttl_or_hop	core	A	2	GREEN	no NDTwin half (GAP-2b:39); the marker only has to arrive	r6
+TP1	topology	core	A	2	GREEN	the graph is built from the same model the fabric is	r6
+TP2	topology	core	A	3	GREEN	the heartbeat watchdog marks a cut veth down (main.py:1290-1304)	r6
+TP4	topology	core	B	4	GREEN	inferred from code: external runs the watchdog after the drop check (ndt:2959-2971); GAP-2b judged it red	r6
+CP1	control_plane_mode	core	A	2	GREEN	= T1	r6
+CP2	control_plane_mode	core	B	4	GREEN	external refuses writes with 409 (_refuse_write)	r6
+CP4	control_plane_mode	core	C	4	GREEN	owner ndtwin binds the route table and reroute follows the heartbeat (route_binding.py:51-56,312-319; main.py:1236-1249)	r6
+V1	verification	core	A	3	GREEN	G1 on plain IPv4 iperf	r6
+V2	verification	core	A	3	PARTIAL(a)	CH1/CH2 bytes match netdev; identity only in the side table	r6
+AP1	action_profile	ext	A	2	RED	no action-profile route; the writer builds direct EXACT/LPM entries only (p4_client.py:133,1204-1208)	cut1-q3b
+AS1	action_profile	ext	A	2	RED	no action-selector route (same writer)	cut1-q3b
+IT1	idle_timeout	ext	A	2	RED	no idle-timeout field on POST /p4/table_entry; the stream handles packet and arbitration only (p4_client.py:526-551)	cut1-q3b
+VS1	value_set	ext	A	2	RED	no value-set route	cut1-q3b
+RC1	recirculate	ext	A	3	GREEN	inferred: link telemetry samples each port's ingress (link_telemetry.py:312,329-338) and a recirculated or resubmitted pass crosses no veth	cut1-q3b
+HR1	hash_random	ext	A	3	GREEN	inferred: link usage is measured per link from samples, not computed from NDTwin's own routing	cut1-q3b
+HR2	hash_random	ext	A	3	GREEN	inferred: as HR1	cut1-q3b
+HU1	header_union	ext	A	3	PARTIAL(a)	inferred: IPv6 goes to the non_ipv4_flows side table (FlowLinkUsageCollector.cpp:1134-1161); no IPv6 flow identity	cut1-q3b
+K1-neg	control	-	A	2	GREEN	control: an unknown counter answers 404 (api_routes.py:963-1029)	r6
+T3-neg	control	-	A	2	GREEN	control: a table not in the pipeline answers 404	r6

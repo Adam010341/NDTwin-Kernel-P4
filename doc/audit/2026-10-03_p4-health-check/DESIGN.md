@@ -1020,3 +1020,38 @@ S0（不用 lab，約 2 分鐘）
 11. **recover.sh**：claim 已經過期、`app_package_override` 仍指向這個 run 時，以同一個 owner 重新 claim 再收拾。
 12. **`qdisc_before` 的時機**：改在 up 之後、下 netem 之前寫進 `LAB_STATE.json`。
 
+
+---
+
+## 13. Q3(b) 的新格（added in Cut 1 for Q3(b)，未經審查）
+
+> **以下每一列都是 added in Cut 1 for Q3(b)**：決策者 2026-10-03 對 Q3 選了 (b)，不是本稿建議的 (a)。
+> r6 只為 (b) 估了價（約多 10 格、lab 多約 4 分鐘），沒有寫格。這一節由 Cut 1 的實作補上，
+> **是設計，要審；不是已審的內容**。程式碼：`tools/p4_health/cells/table.py` 裡 `q3b=True` 的列；
+> 預測：`expected_today.tsv` 裡 `added=cut1-q3b` 的列。
+
+- **規則照舊**：§2.1 的判定順序、繞過 NDTwin 的 oracle、每個 thrift 相符的 GREEN 配同窗負讀、規則 D；
+  NDTwin 沒有 route 的就是 structural 答案。
+- **rollup**：core 仍是 16 維。full 從 16 維變成 **22 維**：16 維加下面六個新鍵。
+- **構造都編進同一支 `hc_main.p4`**（S0 證明編得過，見 SUMMARY-cut1.md），不另開第二支程式。
+
+| 新鍵（added in Cut 1 for Q3(b)） | 格 | scope／種類 | GREEN（NDTwin 那一半） | RED（歸因） | oracle |
+|---|---|---|---|---|---|
+| `action_profile` | AP1 action profile | ext／active | 負讀：寫入前 `act_prof_dump` 沒有這個 member。NDTwin 寫 member 與指向它的 entry；寫入後 `act_prof_dump` 有 member，`table_dump` 的 entry 指向它 | **今天預測**：沒有 route；writer 只建直接 action 的 EXACT／LPM（`p4_client.py:133,1204-1208`）（`structural`＋`bmv2`） | thrift；B |
+| | AS1 action selector | ext／active | 同 AP1，對象是 group（`act_prof_dump` 的 GROUPS） | 今天同上 | 同上 |
+| `idle_timeout` | IT1 | ext／active | NDTwin 寫一筆帶 idle timeout 的 entry（`table_dump` 顯示 `timeout is …ms`），entry 老化後 NDTwin 把 IdleTimeoutNotification 報出來 | **今天預測**：POST 沒有 idle timeout 欄位；stream 只處理 packet 與 arbitration（`p4_client.py:526-551`）（`structural`＋`bmv2`：B 收到 notification） | thrift；B |
+| `value_set` | VS1 | ext／active | 負讀：寫入前 `pvs_get` 沒有這個值。NDTwin 寫 ValueSetEntry；寫入後 `pvs_get` 有 | **今天預測**：沒有 route（`structural`＋`bmv2`） | thrift `pvs_get`（唯讀；`pvs_add` 會讓 stock bmv2 abort，見 SUMMARY）；B |
+| `recirculate` | RC1（依賴 SC-recirc） | ext／active | 程式對 dport 40091 resubmit 一次、recirculate 一次。twin 只算一次：G1 成立、鏈路位元組＝netdev、流表身份正確 | 位元組被重複計算，或身份丟失（`structural`；netdev 是證據） | netdev＋sender argv |
+| `hash_random` | HR1 hash | ext／active | s1 以 5-tuple 的 hash 在 p4／p5 兩條上行之間選。twin 有用量的上行＝netdev 有位元組的上行 | 不一致（`structural`） | netdev |
+| | HR2 random | ext／active | 前提：netdev 顯示兩條上行都有位元組（否則 NOT RUN）。twin 兩條都有用量 | twin 只看到一條（`structural`） | netdev |
+| `header_union` | HU1（依賴 SC-union） | ext／active | `header_union l3alt_t { ipv6_t v6; alt6_t x; }`，0x86DD／0x1238 選成員。G1，加上側表一列：ethertype 0x86DD、MAC 對＝這對 host、`samples` 窗內增加 → PARTIAL(a)；流表也有 IPv6 身份 → GREEN | 連側表那一列都沒有 | netdev |
+| `custom_headers`（既有鍵） | VB1 varbit | ext／active | **NOT RUN by design**：varbit 尾段在線上就是 UDP payload，twin 從不解析到 L4 之後，所以 NDTwin 那一半與 CH6 相同；p4c／bmv2 吃得下由 S0 的編譯與離線 probe 證明，那不是 NDTwin 的一半 | — | — |
+
+**新自檢（added in Cut 1 for Q3(b)）**：
+
+| 自檢 | 內容 | 依賴 |
+|---|---|---|
+| SC-recirc | 收到的 RC1 marker，diffserv 帶 0x04（resubmit）與 0x08（recirculate） | SC-fwd |
+| SC-union | 收到的 IPv6 marker，hop limit＝64−跳數 | SC-fwd、TP1 |
+
+**歸屬 Cut**：AP1、AS1、IT1、VS1 需要 B 的歸因，排在 Cut 2；RC1、HR1、HR2、HU1 要流量與 G1，排在 Cut 3。
