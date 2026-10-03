@@ -9,8 +9,8 @@ package). In order:
   2. start it through tools/p4_exercise/run_external_controller.py <B package> controller_ext.py
      (design 4.2: the adapter rewrites tutorials' 127.0.0.1:5005<i> / device i-1 onto the
      fabric's 30050+i / device i), as the caller, under the p4dev interpreter (the one with
-     p4runtime_lib's p4.tmp); record it in LAB_STATE.json (its argv carries the run id through
-     the package path);
+     p4runtime_lib's p4.tmp); record it in LAB_STATE.json, its marker the run directory (the
+     round's package lies inside it, so the argv carries it);
   3. wait for its `ready` file (the writes are done), then send the markers it needs -- K2's
      direct-counter markers, D1's digest markers and P2's packet-in markers, h4 -> h6 -- with a
      sniffer on h4 for the packet-out;
@@ -97,7 +97,8 @@ class BRound(object):
             self.problems.append("B's controller could not be started")
             return self.finish(None, None)
         try:
-            lab_round.register("controller", proc.pid, self.run_id)
+            # the marker is the run directory: the package path in the argv lies inside it
+            lab_round.register("controller", proc.pid, self.cfg.run_dir)
         except ValueError as exc:
             self.problems.append("controller not recorded: %s" % exc)
         if not self._wait_file(self.path("controller.ready.json"), proc, self.ready_timeout_s):

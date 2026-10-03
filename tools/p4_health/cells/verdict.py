@@ -199,6 +199,7 @@ def decide(spec, obs, ctx):
     # is NOT RUN for that reason, not for an "unreadable" answer nobody asked for
     if obs is None:
         return Verdict(NOT_RUN, "not observed in this run", phase="unobserved")
+    obs = obs or {}
     # 0. NDTwin's answer unreadable (r2)
     if spec.needs_answer and obs.get("answer") is None:
         return Verdict(NOT_RUN, "NDTwin's answer unreadable", phase="answer")
