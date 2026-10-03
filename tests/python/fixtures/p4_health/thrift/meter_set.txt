@@ -1,0 +1,6 @@
+Obtaining JSON from switch...
+Done
+Control utility for runtime P4 table manipulation
+RuntimeCmd: 0: info rate = 0.001, burst size = 1000
+1: info rate = 0.002, burst size = 2000
+RuntimeCmd: 

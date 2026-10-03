@@ -1,0 +1,10 @@
+Obtaining JSON from switch...
+Done
+Control utility for runtime P4 table manipulation
+RuntimeCmd:   port #       iface name       status  extra info
+==================================================
+    1              p1             UP    in_pcap=p1_in.pcap; out_pcap=p1_out.pcap
+    2              p2             UP    in_pcap=p2_in.pcap; out_pcap=p2_out.pcap
+    3              p3             UP    in_pcap=p3_in.pcap; out_pcap=p3_out.pcap
+   510            p510            UP    in_pcap=p510_in.pcap; out_pcap=p510_out.pcap
+RuntimeCmd: 
