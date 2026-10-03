@@ -1682,6 +1682,12 @@ add "R2-m1. an unobserved cell reads as a flip of its prediction" \
         return NOT_OBSERVED' \
     'test_a_cell_this_run_did_not_observe_has_no_delta'
 
+add "R2-m1b. an alias of an unobserved cell reads as a flip" \
+    "$VERDICT" \
+    '                                         phase="unobserved" if src.phase == "unobserved" else "alias",' \
+    '                                         phase="alias",  # MUTANT' \
+    'test_a_then_b_then_the_verdicts'
+
 add "R2-m2a. one observer raising ends the round's observing" \
     "$ROUNDA" \
     '        except Exception as exc:  # noqa: BLE001 -- recorded in problems and in the observation' \

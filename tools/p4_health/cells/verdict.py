@@ -306,9 +306,11 @@ def judge_all(table, observations, sc_observations):
     for spec in table.cells:
         if spec.alias_of is not None:
             src = ctx.cells[spec.alias_of]
+            # an alias of a cell this run did not observe is itself unobserved (review m1)
             ctx.cells[spec.id] = Verdict(src.verdict, "= %s: %s" % (spec.alias_of, src.reason),
                                          partial=src.partial, attribution=src.attribution,
-                                         phase="alias", evidence=src.evidence)
+                                         phase="unobserved" if src.phase == "unobserved" else "alias",
+                                         evidence=src.evidence)
     return ctx
 
 

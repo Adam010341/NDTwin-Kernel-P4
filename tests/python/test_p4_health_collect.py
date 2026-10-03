@@ -2347,6 +2347,10 @@ class TestTheLabRun(Cut2):
         self.assertEqual(cells["R3"]["verdict"], V.UNATTRIBUTED)
         self.assertEqual(cells["PF-T"]["verdict"], V.RED)
         self.assertEqual(cells["CH1"]["phase"], "unobserved")
+        # m1: nothing this run did not observe reads as a flip -- an alias of such a cell neither
+        deltas = {c["id"]: c["delta"] for c in doc["cells"]}
+        self.assertEqual(deltas["VB1"], "not observed")
+        self.assertEqual(sorted(c for c, d in deltas.items() if d == "flipped"), [])
         self.assertEqual((doc["verdict"], rc), ("COMPLETE", 0))
         self.assertTrue(os.path.isfile(os.path.join(self.cfg.run_dir, "health.json")))
         self.assertIn("gate_fingerprint", doc)
