@@ -368,8 +368,11 @@ print(n)' "$SFILE" "$runfile" "$VOLD" "$VNEW")"
             sent_t="$(uptime_ms)"
             left_ms=$(( 300 - (sent_t - start_t * 1000 / CLK_TCK) ))
         fi
-        check "$name: a second $second, sent while its cleanup is in its sleep 0.3" yes \
-              "$([[ -n "$left_ms" ]] && (( left_ms >= 20 )) && echo yes || echo "no (${left_ms:-not sent} ms of the sleep left; the suite's shell: $(state_of "$suite"))")"
+        # (Worked out first, not inside the check's argument: check_process_by_name.py's reader
+        # cannot follow that many nested quotes, and then refuses the whole file.)
+        what="no (${left_ms:-not sent} ms of the sleep left; the suite's shell: $(state_of "$suite"))"
+        [[ -n "$left_ms" ]] && (( left_ms >= 20 )) && what=yes
+        check "$name: a second $second, sent while its cleanup is in its sleep 0.3" yes "$what"
         [[ -n "$left_ms" ]] && echo "  note     the second $second went with about $left_ms ms of that sleep left"
     fi
     deadline=$(( SECONDS + HARD_LIMIT ))
