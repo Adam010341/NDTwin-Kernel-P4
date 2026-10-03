@@ -1697,9 +1697,9 @@ add "R2-m2a. one observer raising ends the round's observing" \
 add "R2-m2b. the step guard swallows a signal" \
     "$ROUNDA" \
     '        except SignalAbort:
-            raise                                   # a signal still ends the round (lab_round)' \
-    '        except ZeroDivisionError:  # MUTANT
-            raise' \
+            raise                                   # a signal still ends the round (lab_round)
+        except Exception as exc:' \
+    '        except BaseException as exc:  # MUTANT: catches the signal too' \
     'test_a_signal_still_ends_the_round'
 
 add "R2-m7. VS1's negative read reads after the write" \

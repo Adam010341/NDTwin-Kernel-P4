@@ -140,10 +140,14 @@ def cmd_lab(args):
     from p4_health.vs_trial import fabric_binary
     live = os.path.join(REPO, "doc", "audit", "2026-09-04_p4-tutorial-exercise-prep", "live-p1")
     sut = ID.system_under_test(runner, REPO, run_dir, py, os.path.join(live, "code_identity.py"))
+    try:
+        fabric = fabric_binary()
+    except OSError:
+        fabric = None                   # unreadable override: the fingerprint says incomplete
     gate = ID.fingerprint(runner, REPO, run_dir,
                           [py, cfg.p4dev_python, os.path.join(os.path.expanduser("~"), "miniconda3", "envs",
                                                               "ntg-env", "bin", "python")],
-                          fabric_bmv2=fabric_binary(), fp_script=os.path.join(live, "venv_fingerprint.sh"))
+                          fabric_bmv2=fabric, fp_script=os.path.join(live, "venv_fingerprint.sh"))
     ID.dump(os.path.join(run_dir, "gate_fingerprint.json"), gate)
     print("gate fingerprint %s; system under test %s" % (gate["sha256"], sut))
     if sut is None or gate.get("sha256") in (None, "incomplete"):
