@@ -128,20 +128,23 @@ P4PowerStrategy::powerOn(Graph::vertex_descriptor node,
     // would go on declining to mark a live switch up.
     topoMonitor->clearVertexAdminPowerOff(node);
 
-    // Step 2, the relationship. A restarted bmv2 comes back with no pipeline, no clone
-    // session, no table entries and no P4Runtime mastership. The liveness probe sees only
-    // the first of these: it is a unary RPC on a channel gRPC reconnects on its own, and a
-    // bmv2 with no pipeline answers it FAILED_PRECONDITION, which reads as not alive
-    // (measured 2026-10-04, doc/audit/2026-10-04_p4-cookie-probe/). It cannot see empty
-    // tables, a missing clone session or a lost stream, so once the pipeline is committed
-    // the twin would certify Up a switch that cannot forward one packet. Without this step
-    // nothing would re-adopt the switch at all.
+    // Step 2, the relationship. A restarted bmv2 comes back with nothing pushed through
+    // P4Runtime: no pipeline, no clone session, no table entries and no mastership. The
+    // liveness probe is a unary RPC on a channel gRPC reconnects on its own, and it sees only
+    // the first of these. MEASURED 2026-10-04 (phases A-E of
+    // doc/audit/2026-10-04_p4-cookie-probe/run-*.out): a bmv2 that has been pushed no pipeline
+    // answers it FAILED_PRECONDITION, which the proxy serves as probe_ok false. INFERRED from
+    // reading the code, not run: that p4LivenessFor then answers Down (Unknown while a fresh
+    // LLDP is still arriving). The probe cannot see empty tables, a missing clone session or
+    // a lost stream (the proxy serves stream_alive, but the kernel never reads it), so once
+    // the pipeline is committed the twin would certify Up a switch that cannot forward one
+    // packet. Without this step nothing would re-adopt the switch at all.
     //
     // [Co-developed with claude code -- Adam]
     // `--fail-with-body`, not `-f`. Both turn a non-2xx into exit 22, which is what lets this
     // one seam observe both steps -- but plain `-f` *discards the response body*, and the
     // readopt endpoint's whole 502 contract is that it names the step that broke
-    // (mastership/pipeline/clone/routes). This comment used to claim "the response body lands
+    // (build/control_plane/mastership/pipeline/routes). This comment used to claim "the response body lands
     // in the kernel log" while `-f` was guaranteeing it did not. Measured on a live fabric
     // (2026-08-12): the kernel log held only `curl: (22) ... error: 502`, and the actual
     // `step: "pipeline"` had to be recovered by re-running the endpoint by hand without `-f`.
@@ -153,25 +156,32 @@ P4PowerStrategy::powerOn(Graph::vertex_descriptor node,
                               std::to_string(dpid)))
     {
         // Not marked up: powerOn did not deliver a usable switch. Said plainly because the
-        // state is awkward -- the process *is* running. Whether the 1 Hz probe reports it Up
-        // depends on how far the readopt got: with no pipeline committed (steps build,
-        // control_plane, mastership, pipeline) it answers FAILED_PRECONDITION and reads as not
-        // alive; once the pipeline is committed (step routes, or curl's 30 s timeout while the
-        // proxy finishes) it reads Up although tables or clone session may be missing (the
-        // known residual in the design doc, corrected 2026-10-04). The honest signal that
-        // remains is this failure and the proxy's log.
+        // state is awkward -- the process *is* running. Whether the proxy's probe (every 2 s)
+        // reads it as alive depends on how far the readopt got. INFERRED from reading the
+        // readopt, not run: normally no pipeline is committed when it fails at build,
+        // control_plane, mastership or pipeline, and the probe answers FAILED_PRECONDITION
+        // (measured) and reads as not alive; once the pipeline is committed (step routes, or
+        // curl's 30 s timeout while the proxy finishes the readopt) it reads alive although
+        // the routes may be missing (the known residual in the design doc, corrected
+        // 2026-10-04). Two exceptions to "normally": a pipeline push whose 5 s deadline expires
+        // after bmv2 committed leaves a pipeline although the step is `pipeline`, and the
+        // curl-timeout case can also end at `pipeline`, because every readopt queues on the
+        // proxy's single _readopt_lock. A failed clone session is not a failure here: the
+        // endpoint answers 200 with clone_session false and powerOn marks the switch up. The
+        // honest signal that remains is this failure and the proxy's log.
         //
         // [Co-developed with claude code -- Adam]
         // Two corrections live here, and the second was found by running the first.
         //
         // The message once ended "retrying this power-on retries the readopt." It does not:
         // helper-on succeeded, so bmv2 is serving. If the readopt got past the pipeline commit,
-        // p4LivenessFor answers Up on probe_ok and the 1 Hz pingWorker calls setVertexUp within
-        // a second; a retry then hits the `getVertexIsUp` early-return at the top of this
-        // function and reports success without touching the readopt. If it failed earlier, the
-        // probe reads FAILED_PRECONDITION, the vertex stays down, and the retry reaches the
-        // helper, which refuses to start a second instance and the failure names the wrong
-        // step. Either way the retry does not re-attempt the readopt.
+        // p4LivenessFor answers Up on probe_ok and the kernel's 1 Hz pingWorker calls
+        // setVertexUp, normally 2-3 s after the swap because the proxy polls every 2 s; a retry
+        // then hits the `getVertexIsUp` early-return at the top of this function and reports
+        // success without touching the readopt. If it failed earlier, the probe reads
+        // FAILED_PRECONDITION, the vertex stays down, and the retry reaches the helper, which
+        // refuses to start a second instance and the failure names the wrong step. Either way
+        // the retry does not re-attempt the readopt. (Read from the code; not run.)
         //
         // The replacement -- "power off and then power on" -- was never run against a live
         // fabric, and when it finally was (2026-08-12) it returned 500 too. So the first fix
@@ -188,9 +198,10 @@ P4PowerStrategy::powerOn(Graph::vertex_descriptor node,
         // one built with grpc.use_local_subchannel_pool reached it in 0.00s. Retrying readopt
         // works because the backoff decays; off-then-on does not because it adds to it.
         return OpResult::failure(502,
-                                 "bmv2 for " + swName + " is running again, but the proxy "
-                                     "could not re-adopt it (mastership/pipeline/clone/"
-                                     "routes); it cannot forward traffic. The failing step is "
+                                 "bmv2 for " + swName + " is running again, but the proxy's "
+                                     "readopt of it did not finish (it can fail at build, "
+                                     "control_plane, mastership, pipeline or routes), so it "
+                                     "may not be able to forward traffic. The failing step is "
                                      "in the readopt response body in the kernel log above. "
                                      "Recover by retrying the readopt directly: POST http://" +
                                      AppConfig::P4_PROXY_IP_AND_PORT + "/p4/readopt/" +
@@ -199,9 +210,9 @@ P4PowerStrategy::powerOn(Graph::vertex_descriptor node,
                                      "and it may need several tries. Do NOT repeat this "
                                      "power-on: it never re-attempts the readopt. The helper "
                                      "may refuse to start a second instance, or the switch may "
-                                     "already be marked up (liveness reads a bmv2 as up once "
-                                     "its pipeline is committed) and the retry returns success "
-                                     "without readopting. Power off then power on does "
+                                     "already be marked up (the proxy reads a bmv2 as alive "
+                                     "once its pipeline is committed) and the retry returns "
+                                     "success without readopting. Power off then power on does "
                                      "not work either; measured on a live fabric, it returned "
                                      "500 as well.");
     }

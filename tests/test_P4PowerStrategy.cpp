@@ -374,11 +374,11 @@ TEST(P4PowerStrategyTest, PowerOnHelperFailureIsA500AndReadoptNeverRuns)
 TEST(P4PowerStrategyTest, PowerOnReadoptFailureIsA502AndDoesNotMarkUp)
 {
     // The dangerous half-state: the process is alive, but the readopt did not finish, so it may
-    // lack a pipeline, a clone session, mastership or routes. Reporting failure here is what
-    // keeps the twin honest. Liveness sees only part of it: a bmv2 with no pipeline answers the
-    // COOKIE_ONLY probe with FAILED_PRECONDITION and reads as not alive (measured,
-    // doc/audit/2026-10-04_p4-cookie-probe/), but one whose pipeline is committed and whose
-    // clone session or routes are missing reads as alive. So this OpResult is the witness.
+    // lack mastership, a pipeline or routes. Reporting failure here is what keeps the twin
+    // honest. Liveness sees only part of it: a bmv2 that has been pushed no pipeline answers the
+    // COOKIE_ONLY probe with FAILED_PRECONDITION and reads as not alive (the probe reading was
+    // measured, doc/audit/2026-10-04_p4-cookie-probe/), but one whose pipeline is committed and
+    // whose routes are missing reads as alive. So this OpResult is the witness.
     // [Co-developed with claude code -- Adam]
     Fixture fix;
     (*fix.graph)[fix.sw].isUp = false;
@@ -575,13 +575,15 @@ TEST(P4PowerStrategyTest, TheReadoptFailureNamesARecoveryThatCanActuallyRun)
     // This message has now named two recoveries that do not work, so the assertions name both.
     //
     // First it ended "retrying this power-on retries the readopt." It does not: helper-on has
-    // already succeeded at this point, so bmv2 is serving. If the readopt got past the pipeline
-    // commit (it failed at clone or routes, or curl timed out while the proxy finished), the
-    // probe answers OK, p4LivenessFor answers Up and the 1 Hz pingWorker calls setVertexUp
-    // within a second; the retry then hits powerOn's own getVertexIsUp early-return and
-    // answers 200 without going near the readopt. If it failed earlier (build, control plane,
-    // mastership, pipeline), a bmv2 with no pipeline answers the probe FAILED_PRECONDITION, the
-    // vertex stays down, and the retry reaches the helper, which refuses a second instance.
+    // already succeeded at this point, so bmv2 is serving. Read from the code, not run: if the
+    // readopt got past the pipeline commit (it failed at routes, or curl timed out while the
+    // proxy finished -- a failed clone session is not a failure, the endpoint answers 200), the
+    // probe answers OK, p4LivenessFor answers Up and the kernel's 1 Hz pingWorker calls
+    // setVertexUp, normally 2-3 s after the swap because the proxy polls every 2 s; the retry
+    // then hits powerOn's own getVertexIsUp early-return and answers 200 without going near the
+    // readopt. If it failed earlier (build, control_plane, mastership, normally pipeline), a
+    // bmv2 that has been pushed no pipeline answers the probe FAILED_PRECONDITION (measured),
+    // the vertex stays down, and the retry reaches the helper, which refuses a second instance.
     // Either way the retry does not re-attempt the readopt, so the message says "may" for both.
     //
     // Its replacement said "power off and then power on". Run against a live fabric on
@@ -589,7 +591,7 @@ TEST(P4PowerStrategyTest, TheReadoptFailureNamesARecoveryThatCanActuallyRun)
     // dead port, and grpc's process-global subchannel pool hands the accumulated backoff to the
     // fresh channel readopt builds. Calling the readopt endpoint directly is what recovered the
     // switch. So the earlier repair swapped unworkable advice for untested advice, and this
-    // test now pins the property both versions failed rather than the wording of either.
+    // test now pins the property both versions failed, through the phrases that carry it.
     //
     // Asserted as message content because the message *is* the deliverable here: this OpResult
     // is the only honest witness to the half-state, so what it tells the operator to do next is
@@ -617,6 +619,15 @@ TEST(P4PowerStrategyTest, TheReadoptFailureNamesARecoveryThatCanActuallyRun)
         << "the helper-refusal outcome is missing: " << msg;
     EXPECT_NE(msg.find("may already be marked up"), std::string::npos)
         << "the already-marked-up outcome is missing: " << msg;
+    // [Co-developed with claude code -- Adam]
+    // The readopt has no "clone" step (a failed clone session answers 200), and it can fail at
+    // build and control_plane as well; and a curl timeout can leave a readopt that finished, so
+    // the message may not say the switch cannot forward.
+    EXPECT_EQ(msg.find("clone"), std::string::npos) << "there is no clone step: " << msg;
+    EXPECT_NE(msg.find("control_plane"), std::string::npos)
+        << "the list of steps that can fail is incomplete: " << msg;
+    EXPECT_EQ(msg.find("it cannot forward traffic"), std::string::npos)
+        << "false when curl timed out and the proxy finished the readopt: " << msg;
     EXPECT_NE(msg.find("not work either"), std::string::npos)
         << "off-then-on was measured to fail, so the message must warn against it rather than "
            "leave it looking like the obvious thing to try: " << msg;

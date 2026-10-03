@@ -77,16 +77,19 @@ probe 是 unary RPC，gRPC channel 自動重連，bmv2 沒有 pipeline 也答得
 所以「只重啟 process」的 powerOn 會做出 twin 說 Up、dataplane 死的——本 repo 一直在
 消滅的那種謊，而且這次是 liveness 自己作的證。
 
-> **更正（2026-10-04，實測）**：上一段「bmv2 沒有 pipeline 也答得出 COOKIE_ONLY」不成立。
-> 沒有 pipeline 的 bmv2 對 COOKIE_ONLY 回 `FAILED_PRECONDITION`（"No forwarding pipeline
-> config set for this device"）；proxy 的 `probe()` 把它讀成 `ok: false`，與 process 已死
-> 同值，所以 liveness **不會**把它判成 Up，`connected_switch_dpids()` 也不列它。stock 與
-> bmv2-fast 兩種 `simple_switch_grpc` 都量到同樣結果
-> （`doc/audit/2026-10-04_p4-cookie-probe/run-stock.out`、`run-fast.out`，phase A 與 D；
-> 釘在 `p4_proxy/tests/test_switch_state.py` 的 `ASwitchWithNoPipelineIsNotAliveTest`）。
-> liveness 看不到的是：pipeline 已推但 table 為空、clone session 缺、stream 已死。所以
+> **更正（2026-10-04）**：上一段「bmv2 沒有 pipeline 也答得出 COOKIE_ONLY」不成立。
+> **實測**（`doc/audit/2026-10-04_p4-cookie-probe/run-stock.out`、`run-fast.out`，phase A–E，
+> stock 與 bmv2-fast 兩種 `simple_switch_grpc`）：從未經 P4Runtime 推入 pipeline 的 bmv2
+> 對 COOKIE_ONLY 回 `FAILED_PRECONDITION`（"No forwarding pipeline config set for this
+> device"）；proxy 的 `probe()` 把它讀成 `ok: false`，與 process 已死同值，
+> `connected_switch_dpids()` 也不列它；`switch_liveness` 同時服務 `stream_alive`（實測為
+> false）。釘在 `p4_proxy/tests/test_switch_state.py` 的 `ASwitchWithNoPipelineIsNotAliveTest`。
+> **讀 code 推得、沒跑**：kernel 的 `p4LivenessFor` 因此判 Down（或最後一個 LLDP 夠新時判
+> Unknown）。probe 看不到的是：pipeline 已推但 table 為空、clone session 缺、stream 已死
+> （`stream_alive` 有被回報，但 kernel 的判定只讀 `probe_ok`、`probe_age_s`、
+> `last_lldp_age_s`，見 `DeviceConfigurationAndPowerManager.cpp` 的 `p4LivenessFor`）。所以
 > readopt 仍然必要，「兩者缺一即失敗」的決定不變；只是「liveness 會掩蓋」要縮小成
-> 「會掩蓋 pipeline 之後的那幾樣」。
+> 「會掩蓋 pipeline 提交之後的那幾樣」。
 
 因此新增 proxy 端點 `POST /p4/readopt/{dpid}`：
 
@@ -129,7 +132,9 @@ kernel 側 powerOn 順序：helper on（process 起來、port 開）→ curl rea
 
 ## 已知殘餘與界外
 
-- **readopt 失敗後的 Up 假象**：helper on 成功、readopt 失敗時，process 活著，
+- **readopt 失敗後的 Up 假象**（2026-10-04 更正：只在 pipeline **已提交之後**才成立，
+  見下面的再更正；沒推過 pipeline 的 bmv2 會被 probe 讀成非 alive，所以下面「probe 加
+  pipeline cookie 檢查」的補法已無必要）：helper on 成功、readopt 失敗時，process 活著，
   pingWorker 的 probe 仍會把它標 Up——但它沒有 pipeline。powerOn 回 failure 是誠實的，
   可是 twin 的 is_up 會跟著 probe 走。根治要動 `p4LivenessFor` 的政策（例如 probe 加
   pipeline cookie 檢查），那是 liveness 政策變更，界外。記錄，不處理。
@@ -153,14 +158,27 @@ kernel 側 powerOn 順序：helper on（process 起來、port 開）→ curl rea
   > > 能再次抵達 readopt 的路徑、並警告那條不行的），不是釘當下那句話的字面。
   > > 這個殘餘本身在 `949fcba` 之後應該極少發生，但訊息還是要對。
   >
-  > **再更正（2026-10-04，實測，證據在 `doc/audit/2026-10-04_p4-cookie-probe/`）**：上面
+  > **再更正（2026-10-04，證據在 `doc/audit/2026-10-04_p4-cookie-probe/`）**：上面
   > 兩段共同的前提「process 起來後 probe 一秒內就標 Up」只在 readopt 失敗於 pipeline
-  > **已提交之後**才成立（步驟 `routes`，或 curl 30 秒逾時而 proxy 稍後才做完）。失敗在
-  > `build`、`control_plane`、`mastership`、`pipeline` 時，bmv2 沒有 pipeline，probe 回
-  > `FAILED_PRECONDITION`，vertex 維持 down；此時重跑 powerOn 會走到 helper，helper 以
-  > 「已經在跑」拒絕，回 500。08-12 的 live 失敗卡在 `pipeline`，正是這一類。建議
-  > （不要重跑 powerOn、直接 `POST /p4/readopt/{dpid}`）仍然正確，錯的是理由；502 訊息已
-  > 改成兩種結果都講（可能被 helper 拒絕，也可能已被標 Up 而回 success）。
+  > **已提交之後**才成立。分兩層標示：
+  >
+  > - **實測**：phase A–E 只量了 probe 的讀數（沒推過 pipeline → `FAILED_PRECONDITION`、
+  >   推過 → ok）。沒有跑過失敗的 readopt、kernel 或重試的 powerOn。
+  > - **讀 code 推得、沒跑**：readopt 的失敗步驟只有 `build`、`control_plane`、
+  >   `mastership`、`pipeline`、`routes`（clone session 失敗不算失敗，回 200 且
+  >   `clone_session: false`）。**通常**失敗在前四步時 pipeline 尚未提交，probe 回
+  >   `FAILED_PRECONDITION`，vertex 維持 down，此時重跑 powerOn 會走到 helper，helper 以
+  >   「已經在跑」拒絕，回 500；失敗在 `routes`（或 curl 30 秒逾時而 proxy 稍後才做完）
+  >   時 pipeline 已提交，proxy 的 poller 每 2 秒探一次，kernel 約 2–3 秒內標 Up（不是一秒
+  >   內），重跑 powerOn 撞 early-return 回 success。兩處「通常」的例外：`pipeline` 步驟
+  >   的 5 秒 client deadline 若在 bmv2 已提交之後到期，會留下 pipeline；而所有 readopt
+  >   共用一把 `_readopt_lock`，排隊的 readopt 可能在輪到自己之前就被 curl 逾時，卻仍然
+  >   在 `pipeline` 步驟結束。08-12 的 live 失敗卡在 `pipeline`，依此推論屬前一類，但
+  >   那次沒有量 probe。
+  > - 建議（不要重跑 powerOn、直接 `POST /p4/readopt/{dpid}`）對 `control_plane` 以外的
+  >   步驟仍然正確，錯的是理由；外部 control plane 下 readopt 在 `control_plane` 一律失敗，
+  >   重打沒有用。502 訊息已改成兩種結果都講（可能被 helper 拒絕，也可能已被標 Up 而回
+  >   success）。
 - **0186#1（Tier 2）**：關掉的 switch 的 dpid 在某些端點回 success/0 而非錯誤，
   Energy-Saving-App 若拿它當閒置判準會誤讀。機制本身不消費它。Tier 2 依 Adam 指示不動。
 - **關機期間的 watchdog 行為**：殺掉 bmv2 → stream 死 + probe 失敗，赦免邏輯
