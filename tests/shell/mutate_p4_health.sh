@@ -1872,9 +1872,9 @@ add "R2-m4d. the fingerprint ignores uncommitted edits (HEAD's blob instead of t
     'test_the_fingerprint_moves_with_what_must_be_the_same_only'
 
 
-# --- Cut 2 second review (labels R7-) ------------------------------------------------------------------------
+# --- Cut 2 second review (labels C2R3-) ------------------------------------------------------------------------
 
-add "R7-N1a. a round stopped by a signal lets B claim the lab" \
+add "C2R3-N1a. a round stopped by a signal lets B claim the lab" \
     "$LABPY" \
     '        if signalled(recs[-1]):
             # (Cut 2 review N1) a stop is a stop' \
@@ -1882,25 +1882,25 @@ add "R7-N1a. a round stopped by a signal lets B claim the lab" \
             # (Cut 2 review N1) a stop is a stop' \
     'test_a_signal_in_an_observer_ends_the_run'
 
-add "R7-N1b. the stop signal is an Exception again (every except Exception swallows it)" \
+add "C2R3-N1b. the stop signal is an Exception again (every except Exception swallows it)" \
     "$LABROUND" \
     'class SignalAbort(BaseException):' \
     'class SignalAbort(Exception):  # MUTANT' \
     'test_a_signal_while_a_sniffer_is_waited_for_ends_the_round_there'
 
-add "R7-N1c. no handler between the rounds" \
+add "C2R3-N1c. no handler between the rounds" \
     "$LABPY" \
     '    old_handlers = _stop_on_signals() if signals else None' \
     '    old_handlers = None  # MUTANT' \
     'test_a_signal_between_the_rounds_ends_the_run'
 
-add "R7-N2. a B whose controller did nothing leaves the run complete" \
+add "C2R3-N2. a B whose controller did nothing leaves the run complete" \
     "$LABPY" \
     '        elif b.failed:' \
     '        elif False:  # MUTANT' \
     'test_b_on_a_fabric_that_is_not_external_is_incomplete'
 
-add "R7-N3a. a git that could not answer reads as a clean tree" \
+add "C2R3-N3a. a git that could not answer reads as a clean tree" \
     "$PROBEPY" \
     '    if git_rc != 0:
         # (Cut 2 review N3) no answer is not "clean"' \
@@ -1908,43 +1908,43 @@ add "R7-N3a. a git that could not answer reads as a clean tree" \
         # (Cut 2 review N3) no answer is not "clean"' \
     'test_a_git_that_cannot_answer_is_refused_before_s0'
 
-add "R7-N3b. the lab starts without a system-under-test record" \
+add "C2R3-N3b. the lab starts without a system-under-test record" \
     "$PROBEPY" \
     '    if sut is None or gate.get("sha256") in (None, "incomplete"):' \
     '    if gate.get("sha256") in (None, "incomplete"):  # MUTANT' \
     'test_a_missing_identity_record_stops_the_run_before_the_lab'
 
-add "R7-N3c. the lab starts on an incomplete fingerprint" \
+add "C2R3-N3c. the lab starts on an incomplete fingerprint" \
     "$PROBEPY" \
     '    if sut is None or gate.get("sha256") in (None, "incomplete"):' \
     '    if sut is None:  # MUTANT' \
     'test_a_missing_identity_record_stops_the_run_before_the_lab'
 
-add "R7-N4a. a listed CPU port is taken for a fabric port" \
+add "C2R3-N4a. a listed CPU port is taken for a fabric port" \
     "$OBSA" \
     '            if port == CPU_PORT:' \
     '            if False:  # MUTANT' \
     'test_a_listed_cpu_port_is_not_a_fabric_port'
 
-add "R7-N4b. TP1 keeps no raw ip link text" \
+add "C2R3-N4b. TP1 keeps no raw ip link text" \
     "$OBSA" \
     '    d_["ip_link"] = res.stdout' \
     '    d_["ip_link"] = None  # MUTANT' \
     'test_an_unplaced_port_is_not_run_and_tp1_keeps_what_it_read'
 
-add "R7-N4c. TP1 does not say which read failed" \
+add "C2R3-N4c. TP1 does not say which read failed" \
     "$OBSA" \
     '            return fail("show_ports on s%d unreadable" % d)' \
     '            return None  # MUTANT' \
     'test_a_read_that_failed_is_named'
 
-add "R7-N4d. S0's show_ports check rejects a listed CPU port" \
+add "C2R3-N4d. S0's show_ports check rejects a listed CPU port" \
     "$S0PY" \
     '    return parsed is not None and set(parsed) - {cpu_port} == set(data_ports)' \
     '    return parsed is not None and set(parsed) == set(data_ports)  # MUTANT' \
     'test_show_ports_with_a_cpu_port_is_judged_on_the_data_ports'
 
-add "R7-N7. an unobserved control reads as a flip" \
+add "C2R3-N7. an unobserved control reads as a flip" \
     "$TABLE" \
     '        if obs is None:
             # (Cut 2 second review N7)' \
@@ -1952,13 +1952,13 @@ add "R7-N7. an unobserved control reads as a flip" \
             # (Cut 2 second review N7)' \
     'test_a_cell_this_run_did_not_observe_has_no_delta'
 
-add "R7-N8a. root runs the shared tree's hostside.py, not the run's frozen copy" \
+add "C2R3-N8a. root runs the shared tree's hostside.py, not the run's frozen copy" \
     "$LABPY" \
     '    a_kwargs = dict({"hostside": frozen}, **(a_kwargs or {}))' \
     '    a_kwargs = dict(a_kwargs or {})  # MUTANT' \
     'test_root_runs_a_frozen_copy_of_its_code_from_the_run_dir'
 
-add "R7-N8b. the frozen copy's record is not of the copy root runs" \
+add "C2R3-N8b. the frozen copy's record is not of the copy root runs" \
     "$HOSTSPY" \
     '        with open(os.path.join(dst, name), "rb") as fh:
             sums[name] = hashlib.sha256(fh.read()).hexdigest()' \
