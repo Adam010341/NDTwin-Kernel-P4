@@ -17,9 +17,11 @@ def table_rows(table, ctx, annotated):
             continue
         exp, d = annotated.get(c.id, (None, "unpredicted"))
         attr = v.attribution or {}
-        rows.append([c.dimension, c.id, c.scope, v.label,
-                     "+".join(attr.get("kind") or []) + ("" if attr.get("ok", True) else " (not established)"),
-                     exp or "-", d, v.reason])
+        attribution = "+".join(attr.get("kind") or []) + ("" if attr.get("ok", True) else " (not established)")
+        if c.alias_of:
+            # (r3) an alias row says whose verdict it is: VB1's varbit verdict is CH3's
+            attribution = "ALIAS of %s%s" % (c.alias_of, ("; " + attribution) if attribution else "")
+        rows.append([c.dimension, c.id, c.scope, v.label, attribution, exp or "-", d, v.reason])
     for ctl in table.controls:
         v = ctx.cells.get(ctl.id)
         if v is not None:
@@ -46,6 +48,8 @@ def render(rows, rollups):
         lines.append("rollup %-4s  can %d  partial %d  cannot %d  undecided %d  (of %d dimensions)"
                      % (scope, t[V.CAN], t[V.PART], t[V.CANNOT], t[V.UNDECIDED],
                         len(rollups[scope]["dimensions"])))
+        for dim, via in sorted((rollups[scope].get("alias_only") or {}).items()):
+            lines.append("  %s rests only on an alias: %s" % (dim, ", ".join(via)))
     return "\n".join(lines)
 
 
@@ -64,6 +68,7 @@ def health(run_id, probe_version, lab_surface, s0, bringups, table, ctx, annotat
                           delta=annotated.get(c.id, (None, "unpredicted"))[1])
                      for c in table.controls if c.id in ctx.cells],
         "rollup": rollups, "verdict": verdict,
+        "aliases": {c.id: c.alias_of for c in table.cells if c.alias_of},
     }
 
 

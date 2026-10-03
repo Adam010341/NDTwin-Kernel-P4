@@ -22,6 +22,10 @@
 #   3. stop the recorded sniffers and controllers -- each only while its pid, its start time
 #      (/proc/<pid>/stat field 22) and the marker in its command line all still match what the
 #      probe recorded; a recycled pid is left alone;
+#   (r3, review NEW-C) phase `down-done` -- the probe's `ndt down` already succeeded: `ndt status`
+#      must show no bmv2 switch and no host/switch process (else STOP, rc 4); steps 3-5 are skipped
+#      (the interfaces they would touch are gone, and a qdisc diff against them always differs);
+#      the recovery goes straight to the knobs and the release;
 #   4. take netem off the recorded interfaces; the qdisc tree must equal the snapshot taken after
 #      `ndt up` -- if it does not, print the difference and stop for a person (rc 4);
 #   5. `ndt down` as the same owner (rc 5 if it fails: nothing is released over a fabric still up);
@@ -57,15 +61,22 @@ PY
 
 PID="$(field pid)"; OWNER="$(field owner)"; RUNID="$(field run)"; BRINGUP="$(field bring_up)"
 PKG="$(field package)"; NETEM="$(field netem)"; QBEFORE="$(field qdisc_before)"; PHASE="$(field phase)"
+PID_START="$(field pid_start)"
 CLAIM_FILE="$(field claim_file)"; OVERRIDE="$(field app_package_override)"
 NDT="${P4H_NDT:-$(field ndt)}"; NDT="${NDT:-$REPO/tools/test_workflow/ndt}"
 QDISC="${P4H_QDISC_SNAPSHOT:-$REPO/tools/test_workflow/qdisc_snapshot.sh}"
 SUDO="${P4H_SUDO:-sudo}"; KILL="${P4H_KILL:-kill}"; PROC="${P4H_PROC:-/proc}"
 echo "recover: run $RUNID bring-up $BRINGUP phase $PHASE owner $OWNER"
 
-# 1. the probe is gone
+# 1. the probe is gone -- its pid alive WITH the start time it recorded is the probe still
+#    running; the same pid with another start time is a recycled pid (review MINOR 6)
+proc_start() { local stat; stat="$(cat "$PROC/$1/stat" 2>/dev/null)" || return 1; printf '%s' "${stat##*) }" | awk '{print $20}'; }
 if [[ -n "$PID" ]] && kill -0 "$PID" 2>/dev/null; then
-    echo "STOP: the probe (pid $PID) is still running -- stop it first (kill -TERM $PID)."; exit 3
+    now_start="$(proc_start "$PID")"
+    if [[ -z "$PID_START" || -z "$now_start" || "$now_start" == "$PID_START" ]]; then
+        echo "STOP: the probe (pid $PID) is still running -- stop it first (kill -TERM $PID)."; exit 3
+    fi
+    echo "  pid $PID is alive but started at $now_start, not $PID_START: a recycled pid, not the probe"
 fi
 
 # 2. the lab is still ours
@@ -77,7 +88,7 @@ now="$(date +%s)"
 ov=""; [[ -f "$OVERRIDE" ]] && ov="$(head -1 "$OVERRIDE")"
 override_ours=0
 if [[ "$ov" == "$PKG" ]]; then override_ours=1
-elif [[ -z "$ov" && "$PHASE" =~ ^(teardown|down-failed|claim-lost|released)$ ]]; then override_ours=1
+elif [[ -z "$ov" && "$PHASE" =~ ^(teardown|down-failed|down-done|claim-lost|released)$ ]]; then override_ours=1
 fi
 note_ours=0
 case "$c_note" in
@@ -85,9 +96,13 @@ case "$c_note" in
     "in use: ndt up p4 "*" by $OWNER")          note_ours=1 ;;
     "down at "*)                                note_ours=1 ;;
 esac
-measuring_now() {  # a declaration or a measurement in flight, per ndt's own rows; empty if none
-    NDT_OWNER="$OWNER" "$NDT" status --measuring 2>/dev/null \
-        | awk '$1 == "declared" || ($1 == "measuring" && $2 != "nothing") { print; exit }'
+measuring_now() {  # a declaration or a measurement in flight, per ndt's own rows; empty if none.
+    # Fails CLOSED (review MINOR 6): an `ndt status --measuring` that does not answer is busy.
+    local out
+    if ! out="$(NDT_OWNER="$OWNER" "$NDT" status --measuring 2>/dev/null)"; then
+        echo "ndt status --measuring did not answer"; return
+    fi
+    printf '%s\n' "$out" | awk '$1 == "declared" || ($1 == "measuring" && $2 != "nothing") { print; exit }'
 }
 if [[ "$c_owner" == "$OWNER" && "$c_exp" -gt "$now" && "$override_ours" -eq 1 && "$note_ours" -eq 1 ]]; then
     echo "  the claim, its note and the override are this run's"
@@ -111,6 +126,20 @@ else
     exit 3
 fi
 
+if [[ "$PHASE" == down-done ]]; then
+    # (r3, review NEW-C) the fabric was torn down already; prove it, then only knobs + release
+    st_out="$(NDT_OWNER="$OWNER" "$NDT" status 2>/dev/null)"
+    n_bmv2="$(printf '%s\n' "$st_out" | awk '$1 == "bmv2" && $2 == "switches" { print $3; exit }')"
+    n_mn="$(printf '%s\n' "$st_out" | awk '$1 == "host/switch" { print $2; exit }')"
+    if [[ "$n_bmv2" != 0 || "$n_mn" != 0 ]]; then
+        echo "STOP: phase is down-done but ndt status shows bmv2 switches '${n_bmv2:-?}', host/switch"
+        echo "      '${n_mn:-?}' -- a fabric is up. A person decides; nothing written."
+        exit 4
+    fi
+    echo "  the probe's ndt down had completed and ndt status shows no fabric: knobs and release only"
+fi
+
+if [[ "$PHASE" != down-done ]]; then
 # 3. sniffers (root, in a host namespace) and controllers (the user's): pid + start + marker
 procs() {  # procs <key> -- "pid start marker" per recorded process
     python3 - "$STATE" "$1" <<'PY'
@@ -152,6 +181,7 @@ fi
 if ! NDT_OWNER="$OWNER" "$NDT" down; then
     echo "STOP: ndt down failed; NOT releasing over a fabric that may still be up."; exit 5
 fi
+fi   # not down-done
 
 # 6. the knobs, as bytes
 python3 - "$STATE" <<'PY' || { echo "STOP: could not put the knobs back"; exit 5; }

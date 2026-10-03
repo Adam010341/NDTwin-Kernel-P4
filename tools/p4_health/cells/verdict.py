@@ -134,10 +134,19 @@ def _finish(spec, out, obs, phase):
                    evidence=out.evidence)
 
 
-def control_problem(spec, ctx):
-    """Step 0b: the cell's known-answer controls. (verdict, reason) or None."""
+def control_problem(spec, ctx, obs=None):
+    """Step 0b: the cell's known-answer controls. (verdict, reason) or None.
+
+    (r3, review MINOR 3) A control that found NO ROUTE (the endpoint is missing from openapi)
+    does not make the round PROBE-BROKEN: the cell's own answer must then say "no route" too,
+    and step 1 makes the cell RED for it. A cell whose answer claims a route the control did not
+    find is an inconsistent reading -> PROBE-BROKEN."""
     for ctl in spec.controls:
         v = ctx.cell(ctl)
+        if v is not None and v.phase == "control-no-route":
+            if ((obs or {}).get("answer") or {}).get("route") is False:
+                continue
+            return PROBE_BROKEN, "control %s found no route, the cell's own answer does not say so" % ctl
         if v is None or v.verdict == NOT_RUN:
             return NOT_RUN, "control %s not observed" % ctl
         if v.verdict != GREEN:
@@ -191,7 +200,7 @@ def decide(spec, obs, ctx):
     if spec.needs_answer and obs.get("answer") is None:
         return Verdict(NOT_RUN, "NDTwin's answer unreadable", phase="answer")
     # 0b. the cell's known-answer control (r2)
-    problem = control_problem(spec, ctx)
+    problem = control_problem(spec, ctx, obs)
     if problem is not None:
         return Verdict(problem[0], problem[1], phase="control")
     # 1. NDTwin's own "cannot"
@@ -208,6 +217,10 @@ def decide(spec, obs, ctx):
         sent = obs.get("sent")
         if not sent:
             return Verdict(NOT_RUN, "stimulus: the sender reported %s sent" % (sent,), phase="stimulus")
+        # (r3, review NEW-A) the floor is the SENDER's count; NDTwin's own emitter never gates
+        if spec.min_sent is not None and sent < spec.min_sent:
+            return Verdict(NOT_RUN, "stimulus: the sender reported %s sent, under this cell's floor of %d"
+                           % (sent, spec.min_sent), phase="stimulus")
     # 4. oracle
     if spec.needs_oracle and obs.get("oracle") is None:
         return Verdict(NOT_RUN, "oracle unreadable", phase="oracle")
@@ -328,13 +341,18 @@ def rollup(table, ctx, scope):
     if scope not in SCOPES:
         raise ValueError("rollup scope %r is not one of %s" % (scope, SCOPES))
     dims = table.q3b_dimensions if scope == "q3b" else table.core_dimensions
-    per = {}
+    per, alias_only = {}, {}
     for dim in dims:
-        vs = [ctx.cells[c.id].verdict for c in table.cells
-              if c.dimension == dim and c.id in ctx.cells and (scope != "core" or c.scope == "core")]
-        per[dim] = dimension_answer(vs)
+        cells = [c for c in table.cells
+                 if c.dimension == dim and c.id in ctx.cells and (scope != "core" or c.scope == "core")]
+        per[dim] = dimension_answer([ctx.cells[c.id].verdict for c in cells])
+        # (r3) a dimension whose every counted verdict is an alias carries another cell's
+        # evidence, and the output says whose (e.g. control_plane_mode = T1 through CP1)
+        counted = [c for c in cells if ctx.cells[c.id].verdict in COUNTED]
+        if counted and all(c.alias_of for c in counted):
+            alias_only[dim] = ["%s=%s" % (c.id, c.alias_of) for c in counted]
     totals = {k: sum(1 for a in per.values() if a == k) for k in (CAN, PART, CANNOT, UNDECIDED)}
-    return {"dimensions": per, "totals": totals}
+    return {"dimensions": per, "totals": totals, "alias_only": alias_only}
 
 
 def run_verdict(ctx, bringups_complete=True):

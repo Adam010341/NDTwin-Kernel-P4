@@ -30,6 +30,31 @@ ETHERTYPES = {"CH1": 0x1212, "CH2": 0x1234, "CH7": 0x1236, "HU1": 0x86DD, "HU1x"
 
 #: TP2 / TP4 / CP4: how long a cut link may take to read `is_up=false` (design 2.3).
 LINK_DOWN_DEADLINE_S = 20.0
+#: (r3) How a timed reading says "it never happened": the observer watched the whole window and
+#: the event did not come. Spelled as a value, never as a missing key -- a missing key is a
+#: reading not taken (step 4b) and must not be confused with an observation of absence.
+NEVER = "never"
+#: (r3) CP4: the route the kernel wrote is not in s1's thrift dump at all after the cut.
+GONE = "gone"
+#: (r3) IT1: how long after the switch shows the entry aged NDTwin may take to report it.
+IT1_REPORT_DEADLINE_S = 10.0
+#: (r3, review NEW-A) The no-sample floor is computed from the SENDER's own count, never from
+#: NDTwin's emitter: link telemetry samples 1 in 256 (link_telemetry.py:69), and a cell whose
+#: stimulus expects fewer than 19 samples is NOT RUN (P(0 samples | 19 expected) ~ 6e-9). At or
+#: above the floor a twin that saw nothing is RED -- a broken emitter is NDTwin's fault, not luck.
+SAMPLE_ONE_IN = 256
+MIN_EXPECTED_SAMPLES = 19
+IDENTITY_MIN_SENT = SAMPLE_ONE_IN * MIN_EXPECTED_SAMPLES        # 4864 frames
+#: (r3, review MINOR 4) HR1 / HR2's stimulus: 20000 frames of 64 bytes at 800 kbit/s in all --
+#: under the 0.5 Mbit/s shaped uplink for HR2's half -- so each uplink half expects ~39 samples
+#: and a fair coin falls under CARRY_SHARE on one half with probability below 1e-5 (the test
+#: computes it). They run after TP2, whose heartbeat they would otherwise load, and before Q1,
+#: which floods s1-eth5 and stays last (design 2.4).
+HR_FRAMES = 20000
+HR_FRAME_BYTES = 64
+HR_RATE_KBIT = 800
+#: (r3) The order the active cells of bring-up A run in where it matters: (earlier, later).
+ORDER = (("TP2", "HR1"), ("TP2", "HR2"), ("HR1", "Q1"), ("HR2", "Q1"), ("TP2", "Q1"))
 #: Q1: the shaped link's rate, kbit/s, on both of its interfaces.
 SHAPED_KBIT = 500.0
 SHAPED_IFACES = ("s1-eth5", "s3-eth2")
@@ -54,7 +79,7 @@ class Cell(object):
     def __init__(self, id, dimension, scope, kind, bringup, cut, compare=None, cannot=None,
                  gates=(), self_checks=(), controls=(), red_attribution=("structural",),
                  negative_read=False, needs_oracle=True, needs_answer=True, need=(),
-                 precondition=None, alias_of=None, alias_why=None, q3b=False):
+                 precondition=None, alias_of=None, alias_why=None, q3b=False, min_sent=None):
         self.id, self.dimension, self.scope, self.kind = id, dimension, scope, kind
         self.bringup, self.cut = bringup, cut
         self.compare, self.cannot = compare, cannot
@@ -64,6 +89,7 @@ class Cell(object):
         self.need = tuple(need)
         self.precondition = precondition          # obs -> (ok, why), or None
         self.alias_of, self.alias_why, self.q3b = alias_of, alias_why, q3b
+        self.min_sent = min_sent                  # (r3) step 3's floor, from the sender's count
 
 
 class SelfCheck(object):
@@ -86,6 +112,12 @@ class Control(object):
 
     def judge(self, obs):
         a = (obs or {}).get("answer")
+        if isinstance(a, dict) and a.get("route") is False:
+            # (r3, review MINOR 3) the endpoint itself is missing from openapi: there is nothing
+            # to ask, so the control is not run -- and the cell goes RED for "no route" at step 1
+            # instead of the whole round going PROBE-BROKEN.
+            return Verdict(NOT_RUN, "no route: the endpoint is not in the proxy's openapi",
+                           phase="control-no-route")
         if not isinstance(a, dict) or a.get("http") is None:
             return Verdict(NOT_RUN, "control not observed", phase="control")
         if a["http"] == self.expect_http and a.get("error") == self.ERROR:
@@ -126,6 +158,8 @@ def no_route(what):
 
 def http_cannot(codes, what):
     def cannot(obs):
+        if route_missing(obs):
+            return red("no route: the proxy's openapi has no %s" % what, "structural", *thrift_ev(obs))
         http = A(obs).get("http")
         if http in codes:
             return red("%s answered %d" % (what, http), "structural", *thrift_ev(obs))
@@ -193,8 +227,18 @@ def side_row_grew(a, ethertype):
     return int(after.get("samples") or 0) > int((before or {}).get("samples") or 0)
 
 
-def deadline_met(seconds):
-    return seconds is not None and seconds <= LINK_DOWN_DEADLINE_S
+def deadline_met(seconds, deadline=LINK_DOWN_DEADLINE_S):
+    """A number of seconds within the deadline. NEVER (watched the window, it did not happen) is
+    not met; neither is anything else."""
+    if seconds == NEVER:
+        return False
+    return isinstance(seconds, (int, float)) and not isinstance(seconds, bool) and seconds <= deadline
+
+
+def watched_enough(a, deadline=LINK_DOWN_DEADLINE_S):
+    """A NEVER is an observation only if the observer watched at least the whole deadline."""
+    w = a.get("watched_s")
+    return isinstance(w, (int, float)) and w >= deadline
 
 
 def nonempty(*values):
@@ -330,9 +374,11 @@ def m1(obs):
 
 def m2(obs):
     a, o = A(obs), O(obs)
+    if not o["declared"]:
+        return broken("the probe declared no ports for group 2")
     if a["http"] != 200:
         return red("POST /p4/multicast_group answered %s" % a["http"], "structural")
-    if not o["declared"] or o["group2_after"] != frozenset(o["declared"]):
+    if o["group2_after"] != frozenset(o["declared"]):
         return red("thrift: group 2 is %r after the write" % (o["group2_after"],), "structural", "thrift")
     return green("group 2 written and replicating to the declared ports")
 
@@ -348,6 +394,8 @@ def c1(obs):
 
 
 def k1_cannot(obs):
+    if route_missing(obs):
+        return red("no route: the proxy's openapi has no GET /p4/counter", "structural", *thrift_ev(obs))
     if A(obs).get("http") == 404:
         return red("GET /p4/counter answered 404 (not in this pipeline)", "structural",
                    *thrift_ev(obs))
@@ -375,9 +423,11 @@ def k2_pre(obs):
 
 def rates_written(obs):
     a, o = A(obs), O(obs)
+    if not o["target"]:
+        return broken("the probe's own target rates are empty")
     if a["http"] != 200:
         return red("the meter write answered %s" % a["http"], "structural")
-    if not o["target"] or o["rates_after"] != o["target"]:
+    if o["rates_after"] != o["target"]:
         return red("thrift: the meter's rates are %r, not %r" % (o["rates_after"], o["target"]),
                    "structural", "thrift")
     return green("the rates written are the rates thrift reads")
@@ -410,7 +460,9 @@ def exit_cannot(what, cite):
 
 def d1(obs):
     a, o = A(obs), O(obs)
-    if not o["fields"] or a["fields"] != o["fields"]:
+    if not o["fields"]:
+        return broken("the marker's own fields are empty")
+    if a["fields"] != o["fields"]:
         return red("NDTwin's digest content %r is not the marker's %r" % (a["fields"], o["fields"]),
                    "structural")
     return green("NDTwin's digest equals the marker's fields")
@@ -444,20 +496,25 @@ def p4(obs):
     return red("no packet-in on dport 40050 reached the external controller")
 
 
-def sampled_or_not_run(obs):
-    """Design 2.3: a window in which link telemetry sampled none of the cell's frames is NOT RUN,
-    not RED (review MINOR 23). `sampled` is the emitter's count, not the kernel's."""
-    if O(obs)["sampled"] < 1:
-        return not_run("link telemetry sampled none of the cell's frames")
+def expected_samples(sent):
+    return (sent or 0) / float(SAMPLE_ONE_IN)
+
+
+def sampled_or_not_run(obs, sent_key="sent"):
+    """Design 2.3 (r3, review NEW-A): too small a stimulus to expect a sample is NOT RUN. The
+    expectation comes from the SENDER's own count at 1/256; NDTwin's emitter count plays no part,
+    so an emitter that sampled nothing over a big enough stimulus leaves the cell to go RED."""
+    if expected_samples(obs.get(sent_key)) < MIN_EXPECTED_SAMPLES:
+        return not_run("stimulus: %s frames expect %.1f samples at 1/%d, under the floor of %d"
+                       % (obs.get(sent_key), expected_samples(obs.get(sent_key)), SAMPLE_ONE_IN,
+                          MIN_EXPECTED_SAMPLES))
     return None
 
 
 def identity_cell(ethertype=None, partial_ok=False, g1=True):
-    """CH1/CH2/CH7/CH8/V1-shaped cells: sampled, then G1, then flow identity, then the side table."""
+    """CH1/CH2/CH7/CH8/V1/RC1-shaped cells: G1, then flow identity, then the side table. (The
+    stimulus floor is step 3's, from the sender's count: Cell.min_sent.)"""
     def compare(obs):
-        skip = sampled_or_not_run(obs)
-        if skip:
-            return skip
         a = A(obs)
         if g1 and not g1_complete(a.get("g1")):
             return not_run("G1's on-path set, main-path integral or off-path maximum was not read")
@@ -478,7 +535,7 @@ def identity_cell(ethertype=None, partial_ok=False, g1=True):
 
 
 def ident_need(g1=True, side=False):
-    need = ("o:sampled", "a:flow_identity")
+    need = ("a:flow_identity",)
     if g1:
         need += ("a:g1",)
     if side:
@@ -487,18 +544,12 @@ def ident_need(g1=True, side=False):
 
 
 def flow_correct(obs):
-    skip = sampled_or_not_run(obs)
-    if skip:
-        return skip
     if A(obs)["flow_identity"] is True:
         return green("the flow table has the right identity")
     return red("the flow table's identity is wrong or missing", "structural")
 
 
 def ch4(obs):
-    skip = sampled_or_not_run(obs)
-    if skip:
-        return skip
     if A(obs)["identity"] in ("correct", "disclosed"):
         return green("flow port is the real port, or NDTwin says it cannot decode the shim")
     return red("the flow table shows a port that is not the real one", "structural")
@@ -549,6 +600,8 @@ def tp1(obs):
 
 def link_cut(obs):
     a = A(obs)
+    if a["down_after_s"] == NEVER and not watched_enough(a):
+        return not_run("the edge was watched for %s s, less than the %d s deadline" % (a.get("watched_s"), LINK_DOWN_DEADLINE_S))
     if not deadline_met(a["down_after_s"]):
         return red("the cut edge read is_up=false after %s s (deadline %d s)"
                    % (a["down_after_s"], LINK_DOWN_DEADLINE_S), "structural")
@@ -602,7 +655,11 @@ def cp4(obs):
         return red("capabilities are %r" % (caps,), "structural")
     if o["kernel_route_present"] is not True:
         return red("thrift: no kernel-written route on s1", "structural", "thrift")
-    if o["port_after_cut"] != 5 or not deadline_met(a.get("rerouted_after_s")):
+    if o["port_after_cut"] == GONE:
+        return red("thrift: s1's route to h6 is gone after the cut", "structural", "thrift")
+    if a["rerouted_after_s"] == NEVER and not watched_enough(a):
+        return not_run("the route was watched for %s s, less than the %d s deadline" % (a.get("watched_s"), LINK_DOWN_DEADLINE_S))
+    if o["port_after_cut"] != 5 or not deadline_met(a["rerouted_after_s"]):
         return red("s1's route to h6 did not move to p5 within the deadline", "structural", "thrift")
     return green("roles bound, the kernel's route moved to p5 after the cut")
 
@@ -640,9 +697,13 @@ def it1(obs):
     if o["timeout_ms"] != a["requested_timeout_ms"]:
         return red("thrift shows timeout %s ms, NDTwin was asked for %s ms"
                    % (o["timeout_ms"], a["requested_timeout_ms"]), "structural", "thrift")
-    if a["timeout_reported"] is True:
-        return green("the entry aged on the switch and NDTwin reported its idle timeout")
-    return red("the entry aged on the switch and NDTwin said nothing", "structural", "thrift")
+    if a["reported_after_s"] == NEVER and not watched_enough(a, IT1_REPORT_DEADLINE_S):
+        return not_run("watched for %s s after the entry aged, less than the %d s deadline"
+                       % (a.get("watched_s"), IT1_REPORT_DEADLINE_S))
+    if deadline_met(a["reported_after_s"], IT1_REPORT_DEADLINE_S):
+        return green("the entry aged on the switch and NDTwin reported its idle timeout in time")
+    return red("the entry aged on the switch and NDTwin did not report it within %d s (%s)"
+               % (IT1_REPORT_DEADLINE_S, a["reported_after_s"]), "structural", "thrift")
 
 
 def _carried(win, flow_bytes):
@@ -696,10 +757,17 @@ def hu1(obs):
     """HU1: BOTH members of the header union. The 0x1238 member is non-IP, so its only NDTwin
     half is the side table (CH7's rule); the IPv6 member needs flow identity for GREEN and is
     PARTIAL(a) with only a side-table row."""
-    a, o = A(obs), O(obs)
-    if o["sampled"] < 1 or o["sampled_x"] < 1:
-        return not_run("link telemetry sampled none of one member's frames")
+    a = A(obs)
+    for key in ("sent", "sent_x"):
+        skip = sampled_or_not_run(obs, key)
+        if skip:
+            return skip
     v6, x = a["v6"], a["x"]
+    # (r3, review MINOR 2) the nested readings, the same rule as step 4b
+    for member, doc, keys in (("v6", v6, ("g1", "pair", "side_after")), ("x", x, ("pair", "side_after"))):
+        lacking = [k for k in keys if not isinstance(doc, dict) or doc.get(k) is None]
+        if lacking:
+            return not_run("reading not taken: answer.%s.%s" % (member, lacking[0]))
     if not g1_complete(v6.get("g1")):
         return not_run("G1 was not read for the IPv6 member")
     if not g1_holds(v6.get("g1")):
@@ -830,6 +898,9 @@ SELF_CHECKS = [
 ]
 
 NEG = dict(negative_read=True)
+#: identity cells: the oracle is the sender's own report and the configured path, so no thrift
+#: oracle; the stimulus floor is the sender-side sample expectation (r3, NEW-A)
+IDENT = dict(needs_oracle=False, min_sent=IDENTITY_MIN_SENT)
 BM = ("structural", "bmv2")
 
 CELLS = [
@@ -902,18 +973,19 @@ CELLS = [
          needs_answer=False, need=("o:received",)),
     # custom_headers
     Cell("CH1", "custom_headers", "core", "active", "A", 3,
-         identity_cell(ETHERTYPES["CH1"], partial_ok=True), need=ident_need(side=True)),
+         identity_cell(ETHERTYPES["CH1"], partial_ok=True), need=ident_need(side=True), **IDENT),
     Cell("CH2", "custom_headers", "core", "active", "A", 3,
-         identity_cell(ETHERTYPES["CH2"], partial_ok=True), need=ident_need(side=True)),
-    Cell("CH3", "custom_headers", "core", "active", "A", 3, flow_correct, need=("o:sampled", "a:flow_identity")),
+         identity_cell(ETHERTYPES["CH2"], partial_ok=True), need=ident_need(side=True), **IDENT),
+    Cell("CH3", "custom_headers", "core", "active", "A", 3, flow_correct, need=("a:flow_identity",), **IDENT),
     Cell("CH4", "custom_headers", "ext", "active", "A", 3, ch4,
-         red_attribution=("structural", "wire"), need=("o:sampled", "a:identity")),
-    Cell("CH5", "custom_headers", "core", "active", "A", 3, flow_correct, need=("o:sampled", "a:flow_identity")),
-    Cell("CH6", "custom_headers", "ext", "active", "A", 3, flow_correct, need=("o:sampled", "a:flow_identity")),
+         red_attribution=("structural", "wire"), need=("a:identity",), **IDENT),
+    Cell("CH5", "custom_headers", "core", "active", "A", 3, flow_correct, need=("a:flow_identity",), **IDENT),
+    Cell("CH6", "custom_headers", "ext", "active", "A", 3, flow_correct, need=("a:flow_identity",), **IDENT),
     Cell("CH7", "custom_headers", "core", "active", "A", 3, identity_cell(ETHERTYPES["CH7"]),
-         need=("o:sampled", "a:g1", "a:pair", "a:side_after")),
+         need=("a:g1", "a:pair", "a:side_after"), **IDENT),
     Cell("CH8", "custom_headers", "ext", "active", "A", 3,
-         identity_cell(ETHERTYPES["CH1"], partial_ok=True, g1=False), need=ident_need(g1=False, side=True)),
+         identity_cell(ETHERTYPES["CH1"], partial_ok=True, g1=False), need=ident_need(g1=False, side=True),
+         **IDENT),
     Cell("VB1", "custom_headers", "ext", "active", "A", 3, q3b=True, alias_of="CH3",
          alias_why="the varbit NDTwin must parse through is the IPv4 options header "
                    "(hc_main.p4 ipv4_opt_t, varbit<320>): CH3's marker carries those options and "
@@ -933,18 +1005,19 @@ CELLS = [
     Cell("TP1", "topology", "core", "static", "A", 2, tp1,
          need=tuple("a:" + i for i in TP1_ITEMS) + tuple("o:" + i for i in TP1_ITEMS)),
     Cell("TP2", "topology", "core", "active", "A", 3, link_cut, precondition=tp2_pre,
-         needs_oracle=False, need=("a:down_after_s", "a:recovered")),
+         needs_oracle=False, need=("a:down_after_s", "a:recovered", "a:watched_s")),
     Cell("TP4", "topology", "core", "active", "B", 4, link_cut, precondition=tp4_pre,
-         needs_oracle=False, need=("a:down_after_s", "a:recovered")),
+         needs_oracle=False, need=("a:down_after_s", "a:recovered", "a:watched_s")),
     # control_plane_mode
     Cell("CP1", "control_plane_mode", "core", "active", "A", 2, alias_of="T1",
          alias_why="design 2.3: CP1 = T1"),
     Cell("CP2", "control_plane_mode", "core", "active", "B", 4, cp2,
          need=("a:http", "o:entry_present", "o:controller_entry_present")),
     Cell("CP4", "control_plane_mode", "core", "active", "C", 4, cp4, precondition=cp4_pre,
-         need=("a:capabilities", "o:kernel_route_present", "o:port_after_cut"), **NEG),
+         need=("a:capabilities", "a:rerouted_after_s", "a:watched_s", "o:kernel_route_present",
+               "o:port_after_cut"), **NEG),
     # verification
-    Cell("V1", "verification", "core", "active", "A", 3, identity_cell(None), need=("o:sampled", "a:g1")),
+    Cell("V1", "verification", "core", "active", "A", 3, identity_cell(None), need=("a:g1",), **IDENT),
     Cell("V2", "verification", "core", "active", "A", 3, v2, needs_oracle=False,
          need=("a:bytes_match", "a:flow_identity")),
     # Q3(b): the six categories outside the 16 dimensions (design 13, reworked in 14)
@@ -956,19 +1029,18 @@ CELLS = [
          **wtr("AS1", "the action-selector write", ("present_after", "points_to_group"), **NEG)),
     Cell("IT1", "idle_timeout", "ext", "active", "A", 2, it1, cannot=it1_cannot, precondition=it1_pre,
          red_attribution=BM, q3b=True,
-         need=("a:requested_timeout_ms", "a:timeout_reported", "o:timeout_ms", "o:since_hit_ms"), **NEG),
+         need=("a:requested_timeout_ms", "a:reported_after_s", "a:watched_s", "o:timeout_ms",
+               "o:since_hit_ms"), **NEG),
     Cell("VS1", "value_set", "ext", "active", "A", 2, cannot=no_route("value-set"),
          red_attribution=BM, q3b=True, **wtr("VS1", "the value-set write", ("present_after",), **NEG)),
-    Cell("RC1", "recirculate", "ext", "active", "A", 3, q3b=True, alias_of="V1",
-         alias_why="with telemetry.source=link every package declares, the twin samples frames "
-                   "as they enter a port (link_telemetry.py:312,329-338); a resubmitted or "
-                   "recirculated pass enters no port, so NDTwin's half of recirculation is V1's"),
+    Cell("RC1", "recirculate", "ext", "active", "A", 3, identity_cell(None), self_checks=("SC-recirc",),
+         q3b=True, need=("a:g1",), **IDENT),
     Cell("HR1", "hash_random", "ext", "active", "A", 3, multipath, precondition=hr_pre(1), q3b=True,
-         need=("a:uplinks", "o:uplinks", "o:flow_bytes")),
+         need=("a:uplinks", "o:uplinks", "o:flow_bytes"), min_sent=HR_FRAMES),
     Cell("HR2", "hash_random", "ext", "active", "A", 3, multipath, precondition=hr_pre(2), q3b=True,
-         need=("a:uplinks", "o:uplinks", "o:flow_bytes")),
+         need=("a:uplinks", "o:uplinks", "o:flow_bytes"), min_sent=HR_FRAMES),
     Cell("HU1", "header_union", "ext", "active", "A", 3, hu1, precondition=hu1_pre,
-         self_checks=("SC-union",), q3b=True, need=("a:v6", "a:x", "o:sampled", "o:sampled_x")),
+         self_checks=("SC-union",), q3b=True, need=("a:v6", "a:x"), **IDENT),
 ]
 
 CONTROLS = [Control("K1-neg", "K1", 404), Control("T3-neg", "T3", 404)]

@@ -121,7 +121,8 @@ class LabRound(object):
         self.clock = clock
         self.install_signals = install_signals
         self.proc_root = proc_root
-        self.state = {"pid": self.pid, "owner": cfg.owner, "run": run_id, "bring_up": bringup,
+        me = proc_identity(self.pid, proc_root)
+        self.state = {"pid": self.pid, "pid_start": me[0] if me else None, "owner": cfg.owner, "run": run_id, "bring_up": bringup,
                       "package": os.path.abspath(package_dir), "phase": "pre-claim",
                       "knob_snapshot": {}, "netem": [], "sniffers": [], "controllers": [],
                       "qdisc_before": None, "knob_paths": dict(cfg.knobs),
@@ -318,6 +319,10 @@ class LabRound(object):
                     else ["kill", "-TERM", str(pid)])
             res = self.runner.run(argv, timeout=15)
             outcome = "stopped" if res.rc == 0 else "kill rc %s" % res.rc
+        if outcome.startswith("kill rc"):
+            # (r3, review MINOR 6) a kill that failed leaves the entry for recover.sh to retry
+            self.events.append(("stop-%s" % key[:-1], pid, outcome))
+            return outcome
         self.write_state(**{key: [e for e in self.state[key] if e["pid"] != pid]})
         self.events.append(("stop-%s" % key[:-1], pid, outcome))
         return outcome
@@ -328,7 +333,11 @@ class LabRound(object):
             return False
         rec["problems"].append("the claim is no longer ours (%s): stopped before %s; finish with "
                                "recover.sh %s" % (why, before, self.cfg.run_dir))
-        self.write_state(phase="claim-lost")
+        # After a successful down the phase stays "down-done": that is the fact recover.sh needs.
+        if self.state["phase"] == "down-done":
+            self.write_state(claim_lost=True)
+        else:
+            self.write_state(phase="claim-lost", claim_lost=True)
         return True
 
     def teardown(self, rec):
@@ -355,6 +364,11 @@ class LabRound(object):
             return
         down = self.ndt(["down"], timeout=900)
         rec["down_rc"] = down.rc
+        if down.rc == 0:
+            # (r3, review NEW-C) the fabric is gone: from here a crash leaves only the knobs and
+            # the release, and recover.sh must not compare qdiscs against interfaces that no
+            # longer exist.
+            self.write_state(phase="down-done")
         if self._claim_lost(rec, "restoring the knobs"):
             return
         ok, why = self.restore_knobs()
