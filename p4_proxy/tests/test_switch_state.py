@@ -676,7 +676,7 @@ class ASwitchWithNoPipelineIsNotAliveTest(unittest.TestCase):
 
     [Co-developed with claude code -- Adam]
     Measured on stock and bmv2-fast simple_switch_grpc (phase A of run-stock.out and
-    run-fast.out under scratch/overnight-2026-09-05/logs/gates-0910/cookie-probe/): a bmv2
+    run-fast.out under doc/audit/2026-10-04_p4-cookie-probe/): a bmv2
     with no pipeline pushed answers the COOKIE_ONLY probe with FAILED_PRECONDITION, so
     liveness reads probe_ok false -- the same value as a dead process. Liveness does not see
     empty tables, a missing clone session or a lost stream, which is why readopt is still needed.

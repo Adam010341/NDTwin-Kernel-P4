@@ -706,7 +706,7 @@ class P4RuntimeClient:
         answers it; one with no pipeline pushed answers FAILED_PRECONDITION ("No forwarding
         pipeline config set for this device"), which lands below as ok False, the same value as
         a dead process, told apart only by `detail` (measured on stock and bmv2-fast
-        simple_switch_grpc, scratch/overnight-2026-09-05/logs/gates-0910/cookie-probe/run-stock.out
+        simple_switch_grpc, doc/audit/2026-10-04_p4-cookie-probe/run-stock.out
         and run-fast.out, phase A).
 
         @return {"ok": bool, "detail": str}. `detail` carries the gRPC status *name* as well as its

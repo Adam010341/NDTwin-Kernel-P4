@@ -9,7 +9,7 @@ restarted bmv2 has no pipeline, no clone session, no mastership and no routes --
 of doc/2026-07-27_p4_bmv2_support_plan.md. Liveness sees one of those four: a bmv2 with no pipeline
 answers COOKIE_ONLY with FAILED_PRECONDITION, so probe_ok reads false, the same value as a dead
 process (measured in run-stock.out and run-fast.out under
-scratch/overnight-2026-09-05/logs/gates-0910/cookie-probe/). It does not see empty tables, a missing
+doc/audit/2026-10-04_p4-cookie-probe/). It does not see empty tables, a missing
 clone session or a lost stream, which is why readopt is still needed. Not from reading
 readopt_switch and writing down what it does. The required sequence is the design's:
 callbacks wired before start, a mastership settle before the pipeline push, the clone

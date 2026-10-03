@@ -1376,7 +1376,7 @@ class TopologyManager:
         FAILED_PRECONDITION, so liveness reads `probe_ok` false for it -- the same value as a
         dead process (measured on stock and bmv2-fast simple_switch_grpc, phases A and D of
         run-stock.out and run-fast.out under
-        scratch/overnight-2026-09-05/logs/gates-0910/cookie-probe/). Liveness does not see
+        doc/audit/2026-10-04_p4-cookie-probe/). Liveness does not see
         empty tables, a missing clone session or a lost stream, which is why readopt is still
         needed. This method is what makes "powered on" true rather than merely reported:
         doc/2026-08-11_phase7_power_mechanism_design.md, decision 2.
