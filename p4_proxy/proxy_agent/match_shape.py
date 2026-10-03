@@ -191,16 +191,46 @@ def _as_int(raw: bytes) -> int:
 
 
 def _encode_in_field(where, value, bitwidth):
-    """`encode_value`, with the field's name on the message."""
+    """`encode_value`, plus: the bytes may not carry a bit above the field's own width.
+
+    `encode_value` takes a bytes value as already encoded and only checks its length, which for
+    a bit<9> field lets 0xffff through. For a ternary mask or a range bound that is a value
+    bmv2 would refuse or read differently; refused here, with the field's name on it.
+    """
     try:
-        return encode_value(value, bitwidth)
+        raw = encode_value(value, bitwidth)
     except TableEntryInvalid as exc:
         raise TableEntryInvalid(f"{where}: {exc}", rule=exc.rule)
+    if _as_int(raw) >= (1 << int(bitwidth)):
+        raise TableEntryInvalid(
+            f"{where}: {value!r} does not fit in bit<{bitwidth}> (max "
+            f"{(1 << int(bitwidth)) - 1})", rule="V2")
+    return raw
 
 
 def table_has_priority_column(kinds) -> bool:
     """Whether a table whose fields have these match-type NAMES carries a priority column."""
     return any(kind in PRIORITY_MATCH_TYPES for kind in kinds)
+
+
+def check_lpm(where, value_bytes, prefix_len, bitwidth):
+    """V5 and V9 for one lpm field whose value is already encoded. Raises TableEntryInvalid.
+
+    A prefix of 0 is "don't care" spelled the second way (V5); a value with a bit set beyond
+    its prefix is not its own network address (V9). bmv2 refuses both and does not canonicalise
+    (ternary-a0 items 04 and 09), so accepting the second would only move the refusal to the
+    switch and turn it into a 502.
+    """
+    if prefix_len == 0:
+        raise TableEntryInvalid(
+            f"{where}: an lpm prefix of 0 matches everything, which an entry says by leaving the "
+            f"field out -- {OMIT_THE_FIELD}", rule="V5")
+    host_bits = int(bitwidth) - prefix_len
+    if host_bits > 0 and _as_int(value_bytes) & ((1 << host_bits) - 1):
+        raise TableEntryInvalid(
+            f"{where}: the value has bits set beyond its /{prefix_len} prefix; bmv2 refuses an "
+            f"lpm value that is not its own network address and does not mask it for you",
+            rule="V9")
 
 
 def shape_field(where, kind, bitwidth, raw):
@@ -256,20 +286,49 @@ def shape_field(where, kind, bitwidth, raw):
             raise TableEntryInvalid(
                 f"{where}: prefix length {prefix_len} is outside 0..{bitwidth}", rule="V1")
         encoded = encode_value(value, bitwidth)
+        check_lpm(where, encoded, prefix_len, bitwidth)
         return ("LPM", encoded, prefix_len)
 
     if kind == "TERNARY":
+        if not isinstance(raw, (list, tuple)) or len(raw) != 2:
+            raise TableEntryInvalid(
+                f"{where} is a TERNARY match, so its value is [value, mask]; got {raw!r}",
+                rule="V1")
         value = _encode_in_field(where, raw[0], bitwidth)
         mask = _encode_in_field(where, raw[1], bitwidth)
+        if _as_int(mask) == 0:
+            raise TableEntryInvalid(
+                f"{where}: a mask of 0 matches everything, which an entry says by leaving the "
+                f"field out -- {OMIT_THE_FIELD}", rule="V5")
+        if _as_int(value) & ~_as_int(mask):
+            raise TableEntryInvalid(
+                f"{where}: the value {raw[0]!r} has bits set outside its mask {raw[1]!r}; the "
+                f"entry would never match what its author meant, and the value is not masked "
+                f"for you", rule="V3")
         return ("TERNARY", value, mask)
 
     if kind == "RANGE":
+        if not isinstance(raw, (list, tuple)) or len(raw) != 2:
+            raise TableEntryInvalid(
+                f"{where} is a RANGE match, so its value is [low, high]; got {raw!r}", rule="V1")
         low = _encode_in_field(where, raw[0], bitwidth)
         high = _encode_in_field(where, raw[1], bitwidth)
+        if _as_int(low) > _as_int(high):
+            raise TableEntryInvalid(
+                f"{where}: the range [{raw[0]!r}, {raw[1]!r}] has low above high", rule="V4")
+        if _as_int(low) == 0 and _as_int(high) == (1 << int(bitwidth)) - 1:
+            raise TableEntryInvalid(
+                f"{where}: [0, {(1 << int(bitwidth)) - 1}] is the whole range and matches "
+                f"everything, which an entry says by leaving the field out -- {OMIT_THE_FIELD}",
+                rule="V5")
         return ("RANGE", low, high)
 
     if kind == "OPTIONAL":
         if isinstance(raw, (list, tuple)):
+            if len(raw) != 1:
+                raise TableEntryInvalid(
+                    f"{where} is an OPTIONAL match, so its value is a plain value or a "
+                    f"one-element list, not {list(raw)!r}", rule="V1")
             raw = raw[0]
         return ("OPTIONAL", _encode_in_field(where, raw, bitwidth))
 
@@ -293,24 +352,47 @@ def shape_match(table_name, fields, match, is_default=False):
     for name, raw in (match or {}).items():
         kind, bitwidth = by_name[name]
         shaped[name] = shape_field(f"{table_name}.{name}", kind, bitwidth, raw)
+    if not is_default:
+        missing = [name for name, kind, _bw in fields
+                   if kind == "EXACT" and name not in shaped]
+        if missing:
+            raise TableEntryInvalid(
+                f"{table_name}: {missing} is an EXACT field and an entry cannot leave one out; "
+                f"only TERNARY, RANGE, OPTIONAL and LPM fields mean 'any value' when omitted",
+                rule="V8")
     return shaped
 
 
 def shape_priority(table_name, kinds, priority, is_default=False):
-    """The priority an entry may carry on this table, as the int that goes on the wire.
+    """
+    V6: the priority an entry may carry on this table, as the int that goes on the wire.
 
-    `kinds` is the match-type names of the table's fields. A non-zero priority on a table with
-    no priority column is refused; everything else is passed through.
+    `kinds` is the match-type names of the table's fields. `priority` is whatever the request
+    said (None, an int, or something that is not). Returns 0 for "no priority".
     """
     if priority is not None and (isinstance(priority, bool) or not isinstance(priority, int)):
         raise TableEntryInvalid(
             f"{table_name}: 'priority' must be an integer or null, got {priority!r}", rule="V6")
     value = priority or 0
-    if value and not table_has_priority_column(kinds):
+    if not table_has_priority_column(kinds):
+        if value:
+            raise TableEntryInvalid(
+                f"priority not honourable on this table: {table_name} matches only on "
+                f"{list(kinds)} fields, which have no priority column -- precedence there is the "
+                f"prefix length and the table holds one entry per key, so priority {priority} "
+                f"cannot select an entry. Omit it, or write to a table with a ternary field.",
+                rule="V6")
+        return 0
+    if is_default:
+        if value:
+            raise TableEntryInvalid(
+                f"{table_name}: a default entry takes no priority (got {priority}); the switch "
+                f"refuses a non-zero one", rule="V6")
+        return 0
+    if not 1 <= value <= PRIORITY_MAX:
         raise TableEntryInvalid(
-            f"priority not honourable on this table: {table_name} matches only on "
-            f"{list(kinds)} fields, which have no priority column -- precedence there is the "
-            f"prefix length and the table holds one entry per key, so priority {priority} "
-            f"cannot select an entry. Omit it, or write to a table with a ternary field.",
-            rule="V6")
+            f"{table_name} has a TERNARY, RANGE or OPTIONAL field, so every insert, modify and "
+            f"delete names a priority in 1..{PRIORITY_MAX} (got {priority!r}). The number is part "
+            f"of the entry's identity: a modify or a delete repeats the one the insert used, and "
+            f"the switch answers a different one with NOT_FOUND.", rule="V6")
     return value

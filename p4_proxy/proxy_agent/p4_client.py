@@ -1718,9 +1718,13 @@ class P4RuntimeClient:
 
         [Co-developed with claude code -- Adam]
         The key set AND the priority must match the installed entry: on a ternary table the
-        priority is part of the entry's identity, so deleting with the wrong one removes nothing
-        and reports success. That is the same shape as the OVS-side defect where
-        modify_flow_entry ignored priority and edited a different rule.
+        priority is part of the entry's identity, so deleting with the wrong one removes nothing.
+        Measured on a throwaway simple_switch_grpc (2026-10-04, ternary-a0 item 01): the switch
+        answers NOT_FOUND "Cannot find match entry" for a priority that is not there and leaves
+        the entry alone, and this method returns False. (An earlier version of this note said it
+        "reports success"; that was another target's behaviour or an older one, not this one's.)
+        It is not the OVS-side defect where modify_flow_entry ignored priority and edited a
+        different rule.
         """
         self._refuse_write("a 5-tuple rule delete")
         self._writable_five_tuple_binding("a 5-tuple rule delete")

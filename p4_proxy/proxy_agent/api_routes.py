@@ -3,6 +3,8 @@ from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 import json
 import time
+from google.rpc import code_pb2, status_pb2
+from p4.v1 import p4runtime_pb2
 from proxy_agent.topology_manager import TopologyManager, UnsupportedMatchError, needs_five_tuple
 from proxy_agent import ryu_topology, ryu_flow_stats
 # [Co-developed with claude code -- Adam]
@@ -240,6 +242,45 @@ def _grpc_status_name(exc):
     except Exception:  # noqa: BLE001 -- reporting an error must not raise a second one
         return None
     return getattr(status, "name", None)
+
+def _p4rt_error(exc):
+    """
+    The switch's own reason for refusing a write, or None when the error does not carry one.
+
+    [Co-developed with claude code -- Adam]
+    A failed P4Runtime Write comes back at the gRPC top level as UNKNOWN with an empty message.
+    The real code and text are in the `grpc-status-details-bin` trailer, one `p4.v1.Error` per
+    update (measured on a throwaway simple_switch_grpc, ternary-a0 `stock/01`). `code()` alone
+    therefore reports NOT_FOUND, INVALID_ARGUMENT and ALREADY_EXISTS all as UNKNOWN, and a
+    caller cannot tell "that entry is not there" from "the switch is broken".
+
+    Returns `{"code": "<google.rpc.Code name>", "message": "..."}` for the first update that was
+    not OK. Never raises: this runs while an error is already being reported, and a second
+    exception from a malformed trailer would replace the 502 with a 500.
+    """
+    try:
+        trailers = exc.trailing_metadata()
+    except Exception:  # noqa: BLE001 -- not a gRPC error, or a stub without trailers
+        return None
+    try:
+        for key, value in trailers or ():
+            if key != "grpc-status-details-bin":
+                continue
+            status = status_pb2.Status()
+            status.ParseFromString(value)
+            for detail in status.details:
+                error = p4runtime_pb2.Error()
+                if not detail.Unpack(error) or error.canonical_code == 0:
+                    continue
+                try:
+                    name = code_pb2.Code.Name(error.canonical_code)
+                except ValueError:
+                    name = str(error.canonical_code)
+                return {"code": name, "message": error.message}
+    except Exception:  # noqa: BLE001 -- see above
+        return None
+    return None
+
 
 # --- Ryu-shaped topology, polled by the kernel -------------------------------------------
 # [Co-developed with claude code -- Adam]
@@ -856,6 +897,15 @@ async def table_entry(request: Request):
          "action_params": {"dstAddr": "08:00:00:00:01:11", "port": 1},
          "default_action": false, "priority": null}
 
+    A match value is read by the p4info's declared type for that field, never by its shape:
+    EXACT a plain value (or a one-element list); LPM `[value, prefix_len]`; TERNARY
+    `[value, mask]`; RANGE `[low, high]`; OPTIONAL a plain value. A TERNARY, RANGE, OPTIONAL or
+    LPM field that is left out means "any value" -- there is no second spelling of that (a zero
+    mask, the whole range, an lpm /0 are 400, "omit the field"). A table with a TERNARY, RANGE or
+    OPTIONAL field has a priority and every insert, modify and delete names it, 1..2147483647;
+    it is part of the entry's identity, so a modify or delete at another priority is the switch's
+    NOT_FOUND (502, `p4rt_error.code`), not a change to some other entry.
+
     🔴 NOT JOURNALED, AND THE RESPONSE SAYS SO. `rule_journal` records what the kernel's routing
     asks for so a restart has something to fall back on; a rule POSTed here is recorded nowhere
     and is gone with the process. Adam ruled that phase 2 ships it that way (option a), so the
@@ -867,18 +917,27 @@ async def table_entry(request: Request):
 
         200  the switch accepted the write.
         400  the request cannot be represented in this pipeline -- a value wider than its field,
-             an lpm prefix out of range, a default action carrying a match, a priority on a
-             table with no priority column, an unknown `op`. NOTHING was written.
+             an lpm prefix out of range, a ternary value with a bit outside its mask, a range
+             with low above high, a don't-care written as a zero mask / the whole range / an lpm
+             /0 (say it by leaving the field out), an EXACT field left out, an lpm value with
+             host bits, a missing or zero priority on a table that has a priority column, a
+             non-zero one on a table that has none or on a default entry, a default action
+             carrying a match, an unknown `op`. NOTHING was written.
         404  an unknown dpid, or a table / field / action / parameter this switch's p4info does
              not describe. NOTHING was written.
         409  this fabric's package declares an external control plane, so the proxy reads only.
              NOTHING was written.
-        501  the entry needs a ternary, range or optional match, which this phase does not
-             build. NOTHING was written.
-        502  the switch itself refused it; the body carries the gRPC status name. 🔴 THIS ONE
+        501  a field of the table has a match type the P4Runtime enum names and no writer can
+             build (UNSPECIFIED). TERNARY, RANGE and OPTIONAL are built. NOTHING was written.
+        502  the switch itself refused it; the body carries the gRPC status name, and
+             `p4rt_error` -- `{"code", "message"}` -- the per-update reason the switch gave
+             (NOT_FOUND for a modify or delete at a priority that does not exist, say), because
+             the top-level status of a failed Write is UNKNOWN whatever went wrong. 🔴 THIS ONE
              DID REACH THE SWITCH -- it is the switch's answer, so the WriteRequest necessarily
              went out. What it did not do is take effect; whether a partially-applied batch is
              possible is P4Runtime's business and not something this body can claim either way.
+
+    The body of a 200 also carries `priority`, the number that went on the wire.
 
     The 400 / 404 / 409 / 501 rows are the ones reached BEFORE `stub.Write`, and
     tests/test_table_entry_route.py asserts `stub.requests == []` for each of them --
@@ -945,11 +1004,16 @@ async def table_entry(request: Request):
         reason = _grpc_status_name(err)
         if reason is None:
             raise
-        raise HTTPException(
-            status_code=502,
-            detail={"error": "the switch refused the write", "dpid": raw_dpid,
-                    "grpc_status": reason,
-                    "message": f"switch {raw_dpid} refused this entry: {reason}"})
+        detail = {"error": "the switch refused the write", "dpid": raw_dpid,
+                  "grpc_status": reason,
+                  "message": f"switch {raw_dpid} refused this entry: {reason}"}
+        # E1: the per-update error, which is the switch's actual answer. `grpc_status` stays,
+        # for every caller that already reads it.
+        p4rt = _p4rt_error(err)
+        if p4rt is not None:
+            detail["p4rt_error"] = p4rt
+            detail["message"] += f" ({p4rt['code']}: {p4rt['message']})"
+        raise HTTPException(status_code=502, detail=detail)
 
     if note_api_table_entry_write is not None:
         note_api_table_entry_write(raw_dpid)
