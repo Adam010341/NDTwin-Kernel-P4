@@ -617,9 +617,13 @@ def sc_count(obs):
             return True, "c_in delta %s == markers in at the switch" % delta
         return False, "c_in delta %s != %s markers in at the switch" % (delta, obs["netdev_in"])
     sent, got = obs.get("sent"), obs.get("received")
-    if sent and got == sent and delta == sent:
+    if not sent or got != sent:
+        # Loss somewhere on the path: the counting switch may have seen fewer than were sent, so
+        # neither "equal" nor "unequal" says anything about the program. Not judged -> NOT RUN.
+        return None, "the receiver got %s of %s sent: with loss on the path the count cannot be judged" % (got, sent)
+    if delta == sent:
         return True, "c_in delta %s == sent == received" % delta
-    return False, "c_in delta %s, sent %s, received %s" % (delta, sent, got)
+    return False, "c_in delta %s, sent and received %s" % (delta, sent)
 
 
 def sc_reg(obs):

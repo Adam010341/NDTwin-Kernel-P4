@@ -520,10 +520,18 @@ class TestSelfChecks(unittest.TestCase):
         self.assertFalse(ok)
 
     def test_sc_count_without_netdev_needs_zero_loss(self):
-        ok, _ = self.sc("SC-count").check({"thrift_delta": 4, "sent": 5, "received": 4})
-        self.assertFalse(ok)
+        """Section 12 item 1: with loss on the path the count is not judged at all (NOT RUN,
+        never PROBE-BROKEN) -- and an equal count over a lossy path is not a pass either."""
+        for delta in (3, 5):
+            ok, _ = self.sc("SC-count").check({"thrift_delta": delta, "sent": 5, "received": 3})
+            self.assertIsNone(ok, delta)
+        ok, _ = self.sc("SC-count").check({"thrift_delta": 4, "sent": 5, "received": 5})
+        self.assertIs(ok, False)
         ok, _ = self.sc("SC-count").check({"thrift_delta": 5, "sent": 5, "received": 5})
-        self.assertTrue(ok)
+        self.assertIs(ok, True)
+        v = V.decide_self_check(self.sc("SC-count"), {"thrift_delta": 3, "sent": 5, "received": 3},
+                                ctx_green())
+        self.assertEqual(v.verdict, V.NOT_RUN)
 
     def test_sc_reg_needs_the_markers_own_nonzero_value(self):
         self.assertFalse(self.sc("SC-reg").check({"chosen": 4660, "register": 1})[0])

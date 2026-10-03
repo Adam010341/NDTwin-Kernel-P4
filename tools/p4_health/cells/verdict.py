@@ -199,6 +199,8 @@ def decide_self_check(sc, obs, ctx):
     if obs is None:
         return Verdict(NOT_RUN, "not observed", phase="oracle")
     ok, why = sc.check(obs)
+    if ok is None:
+        return Verdict(NOT_RUN, "self-check %s not judged: %s" % (sc.id, why), phase="compare")
     if ok:
         return Verdict(GREEN, why or "ok", phase="compare")
     return Verdict(PROBE_BROKEN, why, phase="compare")

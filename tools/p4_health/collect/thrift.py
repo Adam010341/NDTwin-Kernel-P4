@@ -49,9 +49,7 @@ def body(out):
     could not talk to the switch or the switch refused the name."""
     if out is None:
         return None
-    if "Could not connect to thrift client" in out:
-        return None
-    if "RuntimeCmd: " not in out:
+    if "RuntimeCmd: " not in out:          # "Could not connect ...": the CLI never got a prompt
         return None
     text = out.split("RuntimeCmd: ", 1)[1]
     if text.rstrip().endswith("RuntimeCmd:"):

@@ -115,7 +115,16 @@ from p4_health.collect.config import Config, HttpReply  # noqa: E402
 from p4_health.collect.runner import RecordingRunner  # noqa: E402
 
 
+#: What every test's tearDown checked, for $P4H_SEAL_REPORT (an audit of the seal itself).
+SEAL_LOG = {"tests_checked": 0, "tripwire_hits": [], "lab_port_attempts": [], "spawns": [],
+            "path_head": STUBS, "stubs": sorted(os.listdir(STUBS))}
+
+
 def tearDownModule():
+    report = os.environ.get("P4H_SEAL_REPORT")
+    if report:
+        with open(report, "w") as fh:
+            json.dump(SEAL_LOG, fh, indent=2, default=str)
     shutil.rmtree(SEAL, ignore_errors=True)
 
 
@@ -168,9 +177,16 @@ class Sealed(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmp, ignore_errors=True)
         tripped = os.path.exists(TRIPWIRE)
-        detail = open(TRIPWIRE).read() if tripped else ""
+        detail = ""
         if tripped:
+            with open(TRIPWIRE) as fh:
+                detail = fh.read()
             os.remove(TRIPWIRE)
+        SEAL_LOG["tests_checked"] += 1
+        if tripped:
+            SEAL_LOG["tripwire_hits"].append([self.id(), detail])
+        SEAL_LOG["lab_port_attempts"] += [[self.id(), a] for a in ATTEMPTS]
+        SEAL_LOG["spawns"] += [[self.id(), sp] for sp in SPAWNS]
         self.assertFalse(tripped, "a fail-loud stub was run: %s" % detail)
         self.assertEqual(ATTEMPTS, [], "a lab port was dialled")
         self.assertEqual(SPAWNS, [], "a process was spawned")
