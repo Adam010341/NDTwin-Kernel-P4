@@ -805,6 +805,9 @@ class TestLabRound(Sealed):
         return r
 
     def lab(self, r, **kw):
+        # one round per call: a state file an earlier call of the same test left is not this one's
+        if os.path.exists(self.cfg.lab_state_path):
+            os.remove(self.cfg.lab_state_path)
         return LR.LabRound(self.cfg, r, "A", self.pkg, "run-x", pid=4242, proc_root=self.proc,
                            install_signals=kw.pop("signals", False))
 
@@ -1174,6 +1177,41 @@ class TestLabRound(Sealed):
         self.assertIsNone(LR.proc_identity(889, self.proc))
 
 
+class TestTheStateFileIsNotOverwritten(Sealed):
+    """MAJOR-3: a round never overwrites a LAB_STATE.json recover.sh still needs."""
+
+    def make(self):
+        return LR.LabRound(self.cfg, RecordingRunner(), "B", os.path.join(self.cfg.run_dir, "packages", "B"),
+                           "run-x", pid=4242, install_signals=False)
+
+    def put(self, **st):
+        os.makedirs(self.cfg.run_dir, exist_ok=True)
+        doc = {"phase": "released", "bring_up": "A", "sniffers": [], "controllers": [], "netem": []}
+        doc.update(st)
+        with open(self.cfg.lab_state_path, "w") as fh:
+            json.dump(doc, fh)
+
+    def test_an_unfinished_round_refuses_the_next(self):
+        for st in ({"phase": "down-failed"}, {"phase": "claim-lost"}, {"phase": "teardown"},
+                   {"phase": "cells"}, {"phase": "down-done"}, {"phase": "claim-unverified"},
+                   {"sniffers": [{"pid": 5, "start": 1, "marker": "x"}]},
+                   {"controllers": [{"pid": 6, "start": 1, "marker": "x"}]}, {"netem": ["s2-eth3"]}):
+            with self.subTest(st=st):
+                self.put(**st)
+                with self.assertRaises(LR.StateInUse):
+                    self.make()
+        with open(self.cfg.lab_state_path, "w") as fh:
+            fh.write("{not json")
+        with self.assertRaises(LR.StateInUse):
+            self.make()
+
+    def test_a_finished_or_absent_state_is_fine(self):
+        self.make()
+        for phase in ("released", "claim-refused", "lab-busy"):
+            self.put(phase=phase)
+            self.make()
+
+
 class TestConfig(Sealed):
 
     def test_ndt_needs_an_owner(self):
@@ -1292,6 +1330,8 @@ class FakeFabric(object):
         self.tx_checksum = "off"
         self.graph_drop_edge = False
         self.graph_drop_switch_edges = False
+        self.mode = "ndtwin"              # control_plane.mode in switch_state (B's fabric: external)
+        self.sniffer_hangs = None         # a cell: its sniffer never ends (its process stays)
         self.switch_peer_form = "name"    # "name": iproute2's real form; "none": a parser's blind spot
         self.pipelines = dict(PIPES4)
         self.ctrl_register_ok = False      # bmv2's P4Runtime refuses register writes today
@@ -1343,7 +1383,8 @@ class FakeFabric(object):
                                                             "applied": len(RUNTIMES[d].get("multicast_group_entries") or []), "failed": 0},
                                               "clone": {"recorded": len(RUNTIMES[d].get("clone_session_entries") or []),
                                                         "applied": len(RUNTIMES[d].get("clone_session_entries") or []), "failed": 0}}}
-            return (200, {"switches": sw, "heartbeat": {"state": "usable", "frames_reached_hosts": False}})
+            return (200, {"switches": sw, "heartbeat": {"state": "usable", "frames_reached_hosts": False},
+                          "control_plane": {"mode": self.mode, "package": None, "skipped": []}})
         pr[("GET", "/p4/switch_state")] = state
         pr[("GET", "/openapi.json")] = (200, {"paths": {p_: {"get": {}} for p_ in (
             "/p4/switch_state", "/p4/counter/{name}", "/p4/table_entry", "/p4/multicast_group",
@@ -1663,6 +1704,9 @@ class FakeSniffer(object):
         return self.returncode
 
     def wait(self, timeout=None):
+        if self.returncode is None and self.fab.sniffer_hangs in self.cells:
+            self.fab.sniffer_hangs = None
+            raise RuntimeError("fake: this sniffer does not end")          # its /proc entry stays
         if self.returncode is None:
             got = []
             for frame in self.fab.delivered[self.host][self.mark:]:
@@ -1778,7 +1822,14 @@ class Cut2(Sealed):
         os.makedirs(out, exist_ok=True)
         return HO.Hosts(self.cfg, r, "run-x", out, GEN, register=register, sleep=lambda s: None)
 
+    def fresh_state(self):
+        """These helpers build a LabRound and drive its body without running the round, so the
+        state file a previous helper left is not a round's: start each from none."""
+        if os.path.exists(self.cfg.lab_state_path):
+            os.remove(self.cfg.lab_state_path)
+
     def a_round(self, only=None, register=True):
+        self.fresh_state()
         r = self.fab.runner()
         lr = LR.LabRound(self.cfg, r, "A", os.path.join(self.cfg.run_dir, "packages", "A"), "run-x",
                          pid=4242, proc_root=self.proc, install_signals=False)
@@ -2123,7 +2174,9 @@ def ctx_cell(ctx, cid):
 
 class TestBringUpB(Cut2):
 
-    def b_round(self):
+    def b_round(self, mode="external"):
+        self.fresh_state()
+        self.fab.mode = mode
         r = self.fab.runner()
         pkg = os.path.join(self.cfg.run_dir, "packages", "B")
         lr = LR.LabRound(self.cfg, r, "B", pkg, "run-x", pid=4242, proc_root=self.proc, install_signals=False)
@@ -2164,6 +2217,13 @@ class TestBringUpB(Cut2):
         self.assertEqual({c: ctx.cells[c].verdict for c in ("T4", "MT1", "MT2", "T5")},
                          {"T4": V.UNATTRIBUTED, "MT1": V.UNATTRIBUTED, "MT2": V.UNATTRIBUTED, "T5": V.RED})
 
+    def test_b_spawns_no_controller_on_a_fabric_that_is_not_external(self):
+        """MAJOR-3: the adapter checks only the package file; what is UP must say external."""
+        b, r, _p = self.b_round(mode="ndtwin")
+        self.assertEqual([c for c in r.calls if c.get("spawn") and RB.ADAPTER in c["argv"]], [])
+        self.assertFalse(any(v["ok"] for v in b.confirmed.values()))
+        self.assertTrue(any("external" in p_ for p_ in b.problems), b.problems)
+
     def test_no_result_file_confirms_nothing(self):
         self.fab.ctrl_no_result = True
         b, _r, _p = self.b_round()
@@ -2190,7 +2250,7 @@ class TestTheLabRun(Cut2):
         self.claim = self.cfg.claim_file
         self.expected = os.path.join(REPO, "doc", "audit", "2026-10-03_p4-health-check", "expected_today.tsv")
 
-    def ndt_runner(self):
+    def ndt_runner(self, down_rc=0, expire_on_up=False, kill_rc=0):
         test = self
 
         def claim(argv, env, inp):
@@ -2198,17 +2258,24 @@ class TestTheLabRun(Cut2):
                 fh.write("owner=p4h-test\nexpires=%d\nnote=%s\n" % (int(__import__("time").time()) + 900, argv[3]))
             return (0, "")
 
+        def up(argv, env, inp):
+            test.fab.mode = "external" if argv[-1].rstrip("/").endswith("/B") else "ndtwin"
+            if expire_on_up:      # our own claim, expired under the round: the teardown stops early
+                with open(test.claim, "w") as fh:
+                    fh.write("owner=p4h-test\nexpires=%d\nnote=x\n" % (int(__import__("time").time()) - 5))
+            return (0, "up")
+
         def release(argv, env, inp):
             os.remove(test.claim)
             return (0, "")
         r = RecordingRunner()
         r.add(("ndt", "status", "--measuring"), (0, "  measuring      nothing\n"))
         r.add(("ndt", "claim"), claim)
-        r.add(("ndt", "up"), (0, "up"))
-        r.add(("ndt", "down"), (0, ""))
+        r.add(("ndt", "up"), up)
+        r.add(("ndt", "down"), (down_rc, ""))
         r.add(("ndt", "release"), release)
         r.add(("qdisc_snapshot.sh",), (0, ""))
-        r.add(("sudo", "-n", "mnexec", "-a", "1", "kill"), (0, ""))
+        r.add(("sudo", "-n", "mnexec", "-a", "1", "kill"), (kill_rc, ""))
         return self.fab.runner(r)
 
     def fake_time(self):
@@ -2222,8 +2289,8 @@ class TestTheLabRun(Cut2):
             return LR.LabRound(cfg, runner, bringup, pkg, run_id, pid=4242, proc_root=proc, install_signals=False)
         return make
 
-    def run_lab(self, **kw):
-        r = self.ndt_runner()
+    def run_lab(self, runner=None, **kw):
+        r = runner or self.ndt_runner()
         rc, doc = LAB.run_lab(self.cfg, r, self.s0, self.cfg.run_dir, "run-x", round_cls=self.rounds(),
                               tutorials_utils="/tutorials/utils", expected_tsv=self.expected,
                               a_kwargs={"hosts": None}, b_kwargs=self.fake_time(),
@@ -2245,6 +2312,40 @@ class TestTheLabRun(Cut2):
         self.assertEqual((doc["verdict"], rc), ("COMPLETE", 0))
         self.assertTrue(os.path.isfile(os.path.join(self.cfg.run_dir, "health.json")))
         self.assertTrue(os.path.isfile(os.path.join(self.cfg.run_dir, "A", "K1.json")))
+
+    # --- MAJOR-3: B only after A ended clean, and A's record survives -------------------------
+    def assert_b_kept_out(self, r, rc, doc, a_phase):
+        ndt = [c["argv"][1] for c in r.calls if c["argv"][0] == "ndt"]
+        self.assertEqual((ndt.count("claim"), ndt.count("up")), (1, 1), ndt)
+        self.assertEqual([c for c in r.calls if c.get("spawn") and RB.ADAPTER in c["argv"]], [])
+        with open(self.cfg.lab_state_path) as fh:
+            st = json.load(fh)
+        self.assertEqual((st["bring_up"], st["phase"]), ("A", a_phase))
+        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
+        self.assertTrue(any("B not brought up" in p_ for p_ in doc["problems"]), doc["problems"])
+        self.assertEqual([b["id"] for b in doc["bringups"]], ["A"])
+        return st
+
+    def test_a_failed_down_in_a_keeps_b_out(self):
+        rc, doc, r = self.run_lab(runner=self.ndt_runner(down_rc=1))
+        self.assert_b_kept_out(r, rc, doc, "down-failed")
+
+    def test_a_claim_lost_in_a_keeps_b_out(self):
+        rc, doc, r = self.run_lab(runner=self.ndt_runner(expire_on_up=True))
+        self.assert_b_kept_out(r, rc, doc, "claim-lost")
+
+    def test_a_failed_kill_in_a_keeps_b_out(self):
+        self.fab.sniffer_hangs = "K1"
+        rc, doc, r = self.run_lab(runner=self.ndt_runner(kill_rc=1))
+        st = self.assert_b_kept_out(r, rc, doc, "released")
+        self.assertEqual(len(st["sniffers"]), 1)              # left for recover.sh
+
+    def test_each_bring_ups_last_state_is_kept(self):
+        _rc, _doc, _r = self.run_lab()
+        for x in ("A", "B"):
+            with open(os.path.join(self.cfg.run_dir, "LAB_STATE.%s.json" % x)) as fh:
+                st = json.load(fh)
+            self.assertEqual((st["bring_up"], st["phase"]), (x, "released"))
 
     def test_an_incomplete_s0_touches_nothing(self):
         self.s0["verdict"] = "PROBE-BROKEN"

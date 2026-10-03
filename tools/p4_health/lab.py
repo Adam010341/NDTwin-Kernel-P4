@@ -16,6 +16,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import shutil
 
 from . import attribution as AT
 from . import expected as E
@@ -69,6 +70,32 @@ def merge(observations, confirmed):
     return out
 
 
+def ended_clean(lab_round, rec):
+    """Why a round did NOT end clean, or [] (Cut 2 review MAJOR-3): released, `ndt down` and
+    `ndt release` rc 0, no process it failed to stop, nothing left in its state file. Only then
+    may the next bring-up claim the lab -- anything else is recover.sh's to finish first."""
+    st, why = lab_round.state, []
+    if st.get("phase") != "released":
+        why.append("phase %s" % st.get("phase"))
+    if rec.get("down_rc") != 0:
+        why.append("ndt down rc %s" % rec.get("down_rc"))
+    if rec.get("release_rc") != 0:
+        why.append("ndt release rc %s" % rec.get("release_rc"))
+    if any("could not stop" in p for p in rec.get("problems") or []):
+        why.append("a process it could not stop")
+    left = [k for k in ("sniffers", "controllers", "netem") if st.get(k)]
+    if left:
+        why.append("%s left in LAB_STATE.json" % ", ".join(left))
+    return why
+
+
+def keep_state(cfg, bringup):
+    """A copy of the state file as this bring-up left it (the next round rewrites the file)."""
+    if os.path.exists(cfg.lab_state_path):
+        shutil.copyfile(cfg.lab_state_path, os.path.join(os.path.dirname(cfg.lab_state_path),
+                                                         "LAB_STATE.%s.json" % bringup))
+
+
 def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None, mutant=False,
             tutorials_utils=None, round_cls=LabRound, a_kwargs=None, b_kwargs=None,
             expected_tsv=None, log=print):
@@ -79,19 +106,28 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
     model = load_model(os.path.join(run_dir, "exercise"))
     pipelines, runtimes, orders = expectations(s0_out, run_dir, model)
     packages = os.path.join(run_dir, "packages")
-    recs, a, b = [], None, None
+    recs, a, b, problems = [], None, None, []
     if "A" in bringups:
         a = ARound(cfg, runner, run_id, model, pipelines, runtimes, orders, only=only, **(a_kwargs or {}))
         pkg = os.path.join(packages, "A-MUT" if mutant else "A")
         log("bring-up A (%s): %d cell(s)" % (os.path.basename(pkg), len(a.selected)))
-        recs.append(round_cls(cfg, runner, "A", pkg, run_id).run(a.body))
+        lr_a = round_cls(cfg, runner, "A", pkg, run_id)
+        recs.append(lr_a.run(a.body))
+        keep_state(cfg, "A")
         log("  A: complete=%s problems=%s" % (recs[-1]["complete"], recs[-1]["problems"]))
+        why = ended_clean(lr_a, recs[-1])
+        if why and "B" in bringups:
+            problems.append("B not brought up: A did not end clean (%s); finish with recover.sh %s"
+                            % ("; ".join(why), run_dir))
+            log("  " + problems[-1])
+            bringups = tuple(x for x in bringups if x != "B")
     if "B" in bringups:
         b = BRound(cfg, runner, run_id, model, os.path.join(run_dir, "exercise", "build"), runtimes,
                    tutorials_utils or os.path.join(os.path.expanduser("~"), "tutorials", "utils"),
                    **(b_kwargs or {}))
         log("bring-up B (external): the eleven attributions")
         recs.append(round_cls(cfg, runner, "B", os.path.join(packages, "B"), run_id).run(b.body))
+        keep_state(cfg, "B")
         log("  B: complete=%s problems=%s" % (recs[-1]["complete"], recs[-1]["problems"]))
     observations = merge(a.observations if a else {}, b.confirmed if b else None)
     observations["PF-T"] = pft_observation(s0_out)
@@ -99,7 +135,7 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
     expected = E.load(expected_tsv or cfg.expected_tsv)
     ann = E.annotate(ctx, expected)
     rollups = {s: V.rollup(T.TABLE, ctx, s) for s in V.SCOPES}
-    complete = bool(recs) and all(r.get("complete") is True for r in recs)
+    complete = bool(recs) and all(r.get("complete") is True for r in recs) and not problems
     verdict, rc = V.run_verdict(ctx, bringups_complete=complete)
     rows = R.table_rows(T.TABLE, ctx, ann)
     with open(os.path.join(run_dir, "00_table.tsv"), "w", encoding="utf-8") as fh:
@@ -110,6 +146,7 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
     doc["attributions"] = b.confirmed if b else None
     doc["only"] = sorted(a.selected) if a else []
     doc["mutant"] = bool(mutant)
+    doc["problems"] = problems
     R.dump(os.path.join(run_dir, "health.json"), doc)
     with open(os.path.join(run_dir, "observations.json"), "w", encoding="utf-8") as fh:
         json.dump({"cells": observations, "self_checks": a.sc_observations if a else {}}, fh,

@@ -28,6 +28,7 @@ import time
 
 from . import attribution as AT
 from . import controller_ext as CX
+from .collect import proxy as P
 from .collect import sniff as S
 from .collect import thrift as TH
 from .collect.hosts import Hosts
@@ -89,6 +90,13 @@ class BRound(object):
         if self.hosts is None:
             self.hosts = Hosts(self.cfg, self.runner, self.run_id, self.out_dir, self.model,
                                register=lab_round.register)
+        # (Cut 2 review MAJOR-3) the adapter checks the package FILE; the fabric that is up must
+        # itself say external, or this controller would be a second writer on NDTwin's tables
+        mode = (((P.switch_state(self.cfg) or {}).get("control_plane")) or {}).get("mode")
+        if mode != "external":
+            self.problems.append("the fabric's control_plane.mode is %r, not external: B's controller "
+                                 "not started" % (mode,))
+            return self.finish(None, None)
         conf_path = self.path("controller.conf.json")
         with open(conf_path, "w", encoding="utf-8") as fh:
             json.dump(self.config(), fh, indent=2, sort_keys=True)

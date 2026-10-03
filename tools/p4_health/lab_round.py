@@ -60,6 +60,33 @@ class PackageOutsideRunDir(ValueError):
     """(r6) A round's package must live inside that round's own run dir."""
 
 
+class StateInUse(RuntimeError):
+    """(Cut 2) The run dir's LAB_STATE.json belongs to a round that did not finish: it is what
+    recover.sh reads, and a new round would overwrite it."""
+
+
+#: Phases after which a round left nothing for recover.sh: released, or nothing was touched.
+TERMINAL_PHASES = ("released", "claim-refused", "lab-busy")
+
+
+def state_in_use(path):
+    """Why the state file at `path` must not be overwritten, or None (absent, or a round that
+    finished with no process and no netem left in it)."""
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as fh:
+            st = json.load(fh)
+    except (OSError, ValueError) as exc:
+        return "unreadable (%s)" % exc
+    if st.get("phase") not in TERMINAL_PHASES:
+        return "bring-up %s stopped at phase %r" % (st.get("bring_up"), st.get("phase"))
+    left = [k for k in ("sniffers", "controllers", "netem") if st.get(k)]
+    if left:
+        return "bring-up %s left %s for recover.sh" % (st.get("bring_up"), ", ".join(left))
+    return None
+
+
 def package_inside(package_dir, run_dir):
     """True when package_dir resolves (links followed) to a path strictly inside run_dir."""
     pkg, run = os.path.realpath(package_dir), os.path.realpath(run_dir)
@@ -133,6 +160,11 @@ class LabRound(object):
         if not package_inside(package_dir, cfg.run_dir):
             raise PackageOutsideRunDir("package_dir %r is not inside the run dir %r: each round's package "
                                        "is its own copy there" % (package_dir, cfg.run_dir))
+        # (Cut 2) Nor over a state file a round that did not finish left for recover.sh.
+        busy = state_in_use(cfg.lab_state_path)
+        if busy:
+            raise StateInUse("%s: %s; run recover.sh on this run before another round"
+                             % (cfg.lab_state_path, busy))
         self.cfg, self.runner = cfg, runner
         self.bringup, self.package_dir, self.run_id = bringup, package_dir, run_id
         self.minutes = minutes

@@ -1630,6 +1630,50 @@ add "R2-w1. the root python writes .pyc beside the sources" \
     '        return [self.cfg.p4dev_python, "-X",  # MUTANT' \
     'test_the_root_python_writes_nothing_beside_the_sources'
 
+add "R2-M3a. B is brought up whatever A's teardown left (MAJOR-3)" \
+    "$LABPY" \
+    '        if why and "B" in bringups:' \
+    '        if False:  # MUTANT' \
+    'test_a_failed_down_in_a_keeps_b_out'
+
+add "R2-M3b. ended_clean looks at the phase only" \
+    "$LABPY" \
+    '    if any("could not stop" in p for p in rec.get("problems") or []):
+        why.append("a process it could not stop")
+    left = [k for k in ("sniffers", "controllers", "netem") if st.get(k)]
+    if left:' \
+    '    left = []  # MUTANT
+    if left:' \
+    'test_a_failed_kill_in_a_keeps_b_out'
+
+add "R2-M3c. a round overwrites a state file recover.sh still needs" \
+    "$LABROUND" \
+    '        busy = state_in_use(cfg.lab_state_path)' \
+    '        busy = None  # MUTANT' \
+    'test_an_unfinished_round_refuses_the_next'
+
+add "R2-M3d. a released round that left a process counts as finished" \
+    "$LABROUND" \
+    '    left = [k for k in ("sniffers", "controllers", "netem") if st.get(k)]
+    if left:
+        return "bring-up' \
+    '    left = []  # MUTANT
+    if left:
+        return "bring-up' \
+    'test_an_unfinished_round_refuses_the_next'
+
+add "R2-M3e. B starts its controller on a fabric that is not external" \
+    "$ROUNDB" \
+    '        if mode != "external":' \
+    '        if False:  # MUTANT' \
+    'test_b_spawns_no_controller_on_a_fabric_that_is_not_external'
+
+add "R2-m4f. only the last bring-up's state file is kept" \
+    "$LABPY" \
+    '        keep_state(cfg, "A")' \
+    '        pass  # MUTANT' \
+    'test_each_bring_ups_last_state_is_kept'
+
 
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'
