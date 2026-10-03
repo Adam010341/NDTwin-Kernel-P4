@@ -1674,6 +1674,28 @@ add "R2-m4f. only the last bring-up's state file is kept" \
     '        pass  # MUTANT' \
     'test_each_bring_ups_last_state_is_kept'
 
+add "R2-m1. an unobserved cell reads as a flip of its prediction" \
+    "$EXPECTEDPY" \
+    '    if phase == "unobserved":
+        return NOT_OBSERVED' \
+    '    if False:  # MUTANT
+        return NOT_OBSERVED' \
+    'test_a_cell_this_run_did_not_observe_has_no_delta'
+
+add "R2-m2a. one observer raising ends the round's observing" \
+    "$ROUNDA" \
+    '        except Exception as exc:  # noqa: BLE001 -- recorded in problems and in the observation' \
+    '        except ZeroDivisionError as exc:  # MUTANT' \
+    'test_the_rest_of_the_round_is_still_observed'
+
+add "R2-m2b. the step guard swallows a signal" \
+    "$ROUNDA" \
+    '        except SignalAbort:
+            raise                                   # a signal still ends the round (lab_round)' \
+    '        except ZeroDivisionError:  # MUTANT
+            raise' \
+    'test_a_signal_still_ends_the_round'
+
 
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'

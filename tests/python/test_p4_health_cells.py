@@ -1339,6 +1339,18 @@ class TestCut2Decisions(unittest.TestCase):
         v = decide("T4", {})
         self.assertEqual((v.verdict, v.phase), (V.NOT_RUN, "answer"))
 
+    def test_a_cell_this_run_did_not_observe_has_no_delta(self):
+        """m1: an unobserved cell is not a flip of its prediction: its delta says so."""
+        ctx = V.Context()
+        ctx.cells["CH1"] = decide("CH1", None)
+        ctx.cells["T8"] = V.Verdict(V.RED, "x", phase="cannot")
+        ctx.cells["PL1"] = V.Verdict(V.RED, "x", phase="compare")
+        ann = E.annotate(ctx, {"CH1": {"expected": "PARTIAL(a)"}, "T8": {"expected": "RED"},
+                               "PL1": {"expected": "GREEN"}})
+        self.assertEqual(ann["CH1"], ("PARTIAL(a)", "not observed"))
+        self.assertEqual(ann["T8"], ("RED", "same"))
+        self.assertEqual(ann["PL1"], ("GREEN", "flipped"))
+
     def test_only_expands_to_the_gates_controls_and_self_check_producers(self):
         self.assertEqual(RA.expand(["K1", "TTL1"]), {"PL1", "T1", "TP1", "K1-neg", "K1", "TTL1"})
         self.assertEqual(RA.expand(["T7"]), {"T7", "T4"})

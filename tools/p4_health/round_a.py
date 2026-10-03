@@ -27,6 +27,7 @@ from . import observe_a as OA
 from .cells import table as T
 from .collect import sniff as S
 from .collect.hosts import Hosts
+from .lab_round import SignalAbort
 
 HOSTS = ("h1", "h2", "h3", "h4", "h5", "h6")
 #: Where the active markers go: from h4 (on s2, where the counter, register and meters are
@@ -140,10 +141,23 @@ class ARound(object):
                                register=lab_round.register)
         for cid in STATIC + ACTIVE:
             if cid in self.selected:
-                getattr(self, "step_" + cid.replace("-", "_"))()
+                self.run_step(cid)
         self.problems += self.hosts.problems
         with open(os.path.join(self.out_dir, "problems.json"), "w", encoding="utf-8") as fh:
             json.dump(self.problems, fh, indent=2)
+
+    def run_step(self, cid):
+        """One cell's step. (Cut 2 review m2) An observer that raises on a live shape it did not
+        expect costs its own cell only: the exception is recorded, the observation is left
+        UNREADABLE (answer and oracle None -> NOT RUN), and the round goes on with the next."""
+        try:
+            getattr(self, "step_" + cid.replace("-", "_"))()
+        except SignalAbort:
+            raise                                   # a signal still ends the round (lab_round)
+        except Exception as exc:  # noqa: BLE001 -- recorded in problems and in the observation
+            why = "%s: %s" % (type(exc).__name__, exc)
+            self.problems.append("step %s raised %s" % (cid, why))
+            self.keep(cid, {"answer": None, "oracle": None, "negative": None, "sent": None, "error": why})
 
     # static
     def step_PL1(self):

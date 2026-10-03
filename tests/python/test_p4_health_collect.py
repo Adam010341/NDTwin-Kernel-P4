@@ -1925,6 +1925,30 @@ class TestBringUpAOnTodaysFabric(Cut2):
         self.assertEqual(ctx.cells["T4"].phase, "unobserved")
 
 
+class TestOneObserverFailing(Cut2):
+    """m2: an observer that raises on a live shape it did not expect costs its own cell only."""
+
+    def test_the_rest_of_the_round_is_still_observed(self):
+        def boom(*a, **kw):
+            raise TypeError("an unexpected live shape")
+        with mock.patch.object(OA, "observe_tp1", boom):
+            a, _r = self.a_round()
+        self.assertEqual(a.observations["TP1"]["answer"], None)
+        self.assertIn("TypeError", a.observations["TP1"]["error"])
+        self.assertTrue(any("TP1" in p_ and "TypeError" in p_ for p_ in a.problems), a.problems)
+        self.assertIn("MT1", a.observations)                     # the last step still ran
+        ctx = self.judge(a, self.all_confirmed())
+        self.assertEqual(ctx.cells["TP1"].verdict, V.NOT_RUN)
+        self.assertEqual(ctx.cells["T8"].verdict, V.RED)
+
+    def test_a_signal_still_ends_the_round(self):
+        def sig(*a, **kw):
+            raise LR.SignalAbort(15)
+        with mock.patch.object(OA, "observe_t2", sig):
+            with self.assertRaises(LR.SignalAbort):
+                self.a_round()
+
+
 class TestBringUpARedPaths(Cut2):
     """One fault at a time; the cell that owns it must change, for the stated reason."""
 
