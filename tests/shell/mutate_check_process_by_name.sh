@@ -19,7 +19,7 @@
 # to pin is not "it crashed" -- it is that a shell parser pointed at python parses fine and
 # reports nothing.
 #
-# Fifteen mutations, in five families:
+# Nineteen mutations, in six families:
 #   M1        the SURFACE goes back to shell-only -- the exact state that hid the two live sites.
 #   M2, M5,   the spawner set forgets a way to start a process: os.system, Mininet's Node.cmd,
 #   M6        subprocess.check_output. Each is one line of one file in this tree.
@@ -34,6 +34,10 @@
 #             something a lint can demand edits to; the count is not printed, so the carve-out is
 #             back to being invisible; and an entry that has stopped matching anything is passed
 #             over in silence, which is how a rotted carve-out goes on standing for a live one.
+#   M16-M19   the PAREN DEPTH inside a shell `$( )` (2026-10-03): the checker stops counting `(`,
+#             stops uncounting `)`, stops noticing a `case` arm, or never sees `esac`. Before the
+#             depth existed every `)` closed the substitution, and text behind an even number of
+#             apostrophes after such a `)` was read as single-quoted and reported as nothing.
 #
 # A mutation that makes the WRONG check go red is a SURVIVOR, not a kill: the case it targets was
 # never put to the test. Every check name in the suite is unique for exactly this reason.
@@ -226,6 +230,28 @@ report "M14: the run stops saying how many exceptions it scanned" "$m14" \
 m15=$(mutant m15 '    for pattern, why, since in rotted:'$'\x1f''    for pattern, why, since in ():')
 report "M15: an exception that matches nothing is passed over" "$m15" \
        "an exception matching nothing is reported"
+
+# --- family 6: the paren depth inside a "$( )" --------------------------------------------------
+# Each case in the suite puts a by-name lookup after an inner `)` and behind an even number of
+# apostrophes, so a substitution closed early hides it altogether instead of mis-sorting it.
+
+m16=$(mutant m16 '                if c == "(":
+                    frame[1] += 1'$'\x1f''                if c == "(":
+                    pass')
+report "M16: a ( inside a substitution is not counted" "$m16" \
+       "a ( ) group inside a substitution"
+
+m17=$(mutant m17 '                    frame[2].append(frame[1])'$'\x1f''                    pass')
+report "M17: a case arm's ) closes the substitution" "$m17" \
+       "a case arm inside a substitution"
+
+m18=$(mutant m18 '                        frame[1] -= 1                   # closes a `(`, `$(` or `((` of its own'$'\x1f''                        pass')
+report "M18: a ) never gives its ( back" "$m18" \
+       "the substitution still ends at its own )"
+
+m19=$(mutant m19 '                    frame[2].pop()'$'\x1f''                    pass')
+report "M19: esac does not end a case" "$m19" \
+       "a case arm inside a substitution"
 
 # --- the control ---------------------------------------------------------------------------------
 # Rewording a comment must change nothing. Without this, every line above could be measuring
