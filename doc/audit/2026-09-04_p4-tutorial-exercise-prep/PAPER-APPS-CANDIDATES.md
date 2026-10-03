@@ -48,7 +48,7 @@
 - **最後提交**：2023-04-09
 - **target**：P4_16 ＋ v1model。無 Tofino 成分。（`int_source.p4` 的結構與 GEANT 那份同源。）
 - **它帶什麼**：`linear-topo/` 與 `triangle-topo/` **兩份** `topology.json` ＋ `sX-runtime.json`（P4Runtime，開機灌）、`send.py`／`receive.py`（scapy，**可判 pass**）、`runtime_cmds/s1.sh`（thrift `simple_switch_CLI table_add`，寫 **ternary ＋ priority** 的 `tb_int_source`）。無外部控制器。
-- **阻擋的 gap**：G5（**ternary ＋ priority** writer，beyond 階段二範圍）；G6——而且是 GAP-ANALYSIS §2b 講的 **mri 那個「看得見但讀錯」**的更糟版本：INT 把 shim 插在 IPv4 與 UDP 之間並改 `ipv4.len`／`udp.length_`，NDTwin 用固定字組位移讀 L4 port（`FlowLinkUsageCollector.cpp:1299-1300`）會讀到 INT 欄位當 port。
+- **阻擋的 gap**：G5（**ternary ＋ priority** writer，beyond 階段二範圍）；G6——而且是 GAP-ANALYSIS §2b 講的 **mri 那個「看得見但讀錯」**的更糟版本：~~INT 把 shim 插在 IPv4 與 UDP 之間並改 `ipv4.len`／`udp.length_`，NDTwin 用固定字組位移讀 L4 port（`FlowLinkUsageCollector.cpp:1299-1300`）會讀到 INT 欄位當 port。~~（2026-10-03 更正：int-v1 @84a3ebe8 的 INT shim 不在 IPv4 與 UDP 之間，而是在 **TCP／UDP 之後**，由 IPv4 DSCP `0x17` 標示——`parse_tcp`／`parse_udp` 先抽完 L4 header，才依 DSCP 轉進 `parse_int_shim`，見 `/home/adam/paper-apps/int-v1/include/parser.p4:36-70`；交叉對照 `scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/RULINGS-1001.md:59-63`。所以 5-tuple 仍在固定位移上，用固定字組位移讀 L4 port 不會讀到 INT 欄位；上面「讀到 INT 欄位當 port」的推論不成立。該處的結論是從程式碼推出來的、沒有跑 bmv2／pcap；`ipv4.len`／`udp.length_` 被改這一點本節沒重驗。）
 - **為什麼選它給教授**：「網路數位分身 × 遙測」是教授最可能點名的交集，而它天然是 **NDTwin 自己遙測路線 A／B 的對照組**——app 自報的逐跳資料可以跟 twin 的鏈路使用率互相對帳。
 - **難度**：★★★☆☆
 
@@ -60,7 +60,7 @@
 - **最後提交**：2022-10-20
 - **target**：P4_16。⚠️ **同一份 `.p4` 用 `#ifdef BMV2 / #elif TOFINO` 同時支援 v1model 與 tna** ⇒ 有 Tofino 成分，但被前處理器隔開，編 bmv2 不受影響（**不是 Tofino-only，不用淘汰**）。bmv2 路徑走 **p4lang/p4app（Docker）**，不是 tutorials 的 `run_exercise.py`。
 - **它帶什麼**：`p4src/int_v0.4/`（README 自稱最成熟）與 `int_v1.0/`；`platforms/bmv2-mininet/int.p4app/` 裡有 `topo.py`／`topo.txt`（3 台交換機）、`commands/commands{1,2,3}.txt`（thrift）、`host/` 下 send／receive／流量產生器、`utils/int_collector_influx.py`（**收集端寫 InfluxDB**）、以及 vendored 的整棵 Mininet。
-- **阻擋的 gap**：G5（**大量 ternary**：`tb_forward` 對 MAC、`tb_int_source` 四欄、`tb_int_inst_0003/0407` 對 instruction_mask）；**G9a**——`int_sink.p4:34` 是 `clone3(CloneType.I2E, INT_REPORT_MIRROR_SESSION_ID, meta)` 且 **session id ＝ 1 由 CLI 建**，NDTwin 今天寫死 250；G6。外加**環境成本**：Docker ＋ p4app ＋ InfluxDB 三件外掛。
+- **阻擋的 gap**：G5（**大量 ternary**：`tb_forward` 對 MAC、`tb_int_source` 四欄、`tb_int_inst_0003/0407` 對 instruction_mask）；**G9a**——`int_sink.p4:34` 是 `clone3(CloneType.I2E, INT_REPORT_MIRROR_SESSION_ID, meta)` 且 **session id ＝ 1 由 CLI 建**，~~NDTwin 今天寫死 250~~（2026-10-03 更正：「寫死 250」已過時。250 現在只是預設值——`p4_proxy/proxy_agent/p4_client.py:36`（`SAMPLE_SESSION_ID`）與 `:764`（`write_clone_session` 的 `session_id` 預設）；package 的 `clone` 項目帶自己的 session id 進去（`p4_proxy/proxy_agent/main.py:1057-1062`），pre-flight 接受任何正整數（`tools/p4_exercise/preflight.py:696-698`）。只有 NDTwin 自己的 pipeline 仍固定用 250（`p4_client.py:31-36`，必須與 `ndtwin_switch.p4` 一致）；若 package 宣告了同一個 id，代理自己的 clone session 會覆蓋 package 的（`main.py:2033-2036`）。照程式碼讀，`int_sink.p4:34` 要的 session 1 由 package 宣告即可（讀碼推論，未實跑）。）；G6。外加**環境成本**：Docker ＋ p4app ＋ InfluxDB 三件外掛。
 - **為什麼選它給教授**：唯一一份同時活在 bmv2 與 Tofino 的 INT 參考碼——拿它驗收，順手證明 package 格式沒有綁死 bmv2-only 的寫法。
 - **難度**：★★★★☆（P4 不難，外掛環境最貴）
 
