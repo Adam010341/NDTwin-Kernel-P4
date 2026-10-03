@@ -1076,6 +1076,32 @@ class TestExpectedFile(unittest.TestCase):
             if c.alias_of:
                 self.assertEqual(row["expected"], exp[c.alias_of]["expected"], c.id)
 
+    #: Records that stay private (the review rounds' files, the rulings file, the agents' reports): a
+    #: file that goes to the public main must not cite them. A basis cites the code it was read from.
+    PRIVATE_CITATION = re.compile(r"RULINGS|\bintake\b|\bjudge-[A-Za-z0-9_.-]+|REPORT[A-Za-z0-9_.-]*\.md"
+                                  r"|\[relayed|scratch/overnight|DESIGN-r\d", re.IGNORECASE)
+
+    def test_nothing_public_cites_a_private_record(self):
+        """Cut 1 follow-up 11: expected_today.tsv and tools/p4_health go to the public main; neither
+        may cite a rulings, intake, judge or report file. CH4 and CH3 cite hc_main.p4 and the
+        kernel's L4 read instead."""
+        paths = [EXPECTED_TSV]
+        for root, _dirs, files in os.walk(os.path.dirname(PKG) if os.path.basename(PKG) != "p4_health" else PKG):
+            paths += [os.path.join(root, f) for f in files if f.endswith((".py", ".sh", ".p4", ".tsv", ".json"))]
+        hits = []
+        for path in paths:
+            with open(path, encoding="utf-8", errors="replace") as fh:
+                for n, line in enumerate(fh, 1):
+                    m = self.PRIVATE_CITATION.search(line)
+                    if m:
+                        hits.append("%s:%d: %s" % (os.path.relpath(path, REPO), n, m.group(0)))
+        self.assertEqual(hits, [])
+        exp = E.load(EXPECTED_TSV)
+        for cid in ("CH3", "CH4"):
+            self.assertTrue(exp[cid]["basis"].startswith("r4 (Cut 1 follow-ups)"), cid)
+            self.assertRegex(exp[cid]["basis"], r"SFlowType\.hpp:\d+")
+            self.assertRegex(exp[cid]["basis"], r"hc_main\.p4:\d+")
+
     def test_the_prediction_comes_from_the_file_not_from_the_run(self):
         exp = E.load(EXPECTED_TSV)
         self.assertEqual(exp["T4"]["expected"], "RED")
