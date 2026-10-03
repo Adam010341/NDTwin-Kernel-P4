@@ -95,7 +95,10 @@ grpcio==1.82.1
 protobuf==5.29.6
 p4runtime==1.5.0
 
-# Not imported by the proxy: p4runtime's _pb2 modules import google.rpc.status_pb2 from it. 1.75.0
+# Imported by p4runtime's _pb2 modules (google.rpc.status_pb2) and, since the ternary writer, by
+# proxy_agent/api_routes.py itself (google.rpc.status_pb2 and code_pb2, to unpack the per-update
+# error a failed Write carries in its trailer). Already installed by p4runtime; pinned here
+# because the proxy now names it. 1.75.0
 # is also what the development machine's 3.20.3 venv carries, there against its own declared
 # range, protobuf>=4.25.8, which 5.29.6 satisfies. (While protobuf was 3.20.3 this file pinned
 # 1.73.0, the newest release admitting it: pip will not install a declared conflict from a file.)
