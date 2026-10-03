@@ -1084,14 +1084,14 @@ S0（不用 lab，約 2 分鐘）
   - 比較函式只對已經讀到的值下判斷。
   - 例子：TP1 的 fabric oracle 是空的 → NOT RUN；T1、PL1 的 expect 沒涵蓋 s1–s4 → PROBE-BROKEN；HR1 要恰好一條上行。
 - **G1 沒讀全**（on_path、主路徑積分、off-path 最大值缺任一）→ NOT RUN。G1 讀全但不成立 → RED。
-- **取樣**：身份格的窗裡，link telemetry 一個樣本都沒抽到（`sampled`＝emitter 的計數）→ NOT RUN（§2.3「刺激量」那條）。
+- ~~**取樣**：身份格的窗裡，link telemetry 一個樣本都沒抽到（`sampled`＝emitter 的計數）→ NOT RUN（§2.3「刺激量」那條）。~~ **r3 (Cut 1 review)** 撤回，改見 §14.6：「沒有樣本」不准由 NDTwin 自己的 emitter 計數決定。
 
 ### 14.2 Q3(b) 的格（取代 §13 的對應列）
 
 | 鍵 | 格 | 改了什麼 |
 |---|---|---|
 | `custom_headers` | VB1 varbit | **改成 CH3 的 alias**（同 CP1＝T1）。理由：NDTwin 必須解析穿過的 varbit 是 IPv4 options（`ipv4_opt_t`，`varbit<320>`）。CH3 的 marker 帶著 options，CH3 的 oracle 就是 options 後面的 5-tuple，另開一格只會是同樣的幀、同一個 oracle。UDP 之後的 varbit 尾段仍編進程式，S0 證明 p4c／bmv2 吃得下。不再有「NOT RUN by design」 |
-| `recirculate` | RC1 | **改成 V1 的 alias**。理由：每個 package 都宣告 `telemetry.source=link`，twin 在幀進埠的時候取樣（`link_telemetry.py:312,329-338`），resubmit 與 recirculate 的那一趟不進任何埠，所以 NDTwin 在 recirculate 這一維的那一半就是 V1。SC-recirc 仍是 S0 的程式自檢，不再有依賴它的格 |
+| `recirculate` | RC1 | ~~**改成 V1 的 alias**~~（**r3 (Cut 1 review)** 撤回，改見 §14.6）。理由：每個 package 都宣告 `telemetry.source=link`，twin 在幀進埠的時候取樣（`link_telemetry.py:312,329-338`），resubmit 與 recirculate 的那一趟不進任何埠，所以 NDTwin 在 recirculate 這一維的那一半就是 V1。SC-recirc 仍是 S0 的程式自檢，不再有依賴它的格 |
 | `hash_random` | HR1 hash | 用**單一 5-tuple** 的流。每條上行讀兩個等長的窗：安靜窗（只有心跳與 telemetry）與流量窗。某條上行「承載」＝流量窗位元組減安靜窗位元組 ≥ 送出位元組的 0.2。前提：netdev 顯示恰好一條承載，否則 NOT RUN。twin 依同一規則讀自己的 link usage：承載集合相同 → GREEN，不同 → RED |
 | | HR2 random | 同樣的兩個窗與規則。前提：netdev 顯示兩條都承載，否則 NOT RUN。twin 的承載集合相同 → GREEN |
 | `idle_timeout` | IT1 | oracle 改成 thrift 的 `Life: <since hit>ms since hit, timeout is <t>ms`。加上**同窗負讀**：寫入前 `table_dump` 沒有這一筆。前提：since hit > timeout（entry 真的在交換機上老化了），否則 NOT RUN。thrift 的 timeout ≠ 要求的值 → RED；老化了但 NDTwin 沒報 → RED；有報 → GREEN。今天仍是 structural RED：沒有欄位、沒有 notification 出口 |
@@ -1118,3 +1118,57 @@ S0（不用 lab，約 2 分鐘）
 - **SC-count**：拿掉 netdev 那種比法。介面計數包含心跳的幀，不可能等於 marker 數。只留「收端零掉包」那一種，有掉包就不判（NOT RUN）。
 - **PF-T 的 static 歸因**：證據是拋棄式 stock bmv2 經 thrift 收下並 dump 回一筆 ternary entry。這和 PF-T 列寫的「同 T4 的 bmv2」（B 經 P4Runtime）不是同一條路，已揭露；Cut 2 的 B 會補上 P4Runtime 那一條。
 - **CS1**：仍列為 gate 格，但沒有任何依賴邊。這不一致留給設計審查決定，表是 row-driven，加一條邊只改一行。
+
+
+### 14.6 r3 (Cut 1 review)：第二次審查之後改的（未經審查）
+
+> 這一節每一條都是 **r3 (Cut 1 review)**：Cut 1 第二次審查判 MERGE AFTER FIXES，下面三個 MAJOR 加上決策者對 alias 的裁示，照做後的設計。**是設計，要審。**
+
+- **取樣的下限（NEW-A）**：
+  - 「刺激太小、抽不到樣本」的 NOT RUN，只看 **sender 自己回報的送出數**：
+    - link telemetry 取樣 1/256，下限定為期望樣本數 ≥ 19；
+    - 換算成送出幀數：19 × 256 ＝ **4864 幀**；
+    - 期望 19 個樣本時，一個都抽不到的機率約 6e-9。
+  - 低於下限：該格在步驟 3 判 NOT RUN。
+  - 達到下限：twin 什麼都沒看到就是 **RED**。emitter 壞了是 NDTwin 的錯，不是運氣。
+  - NDTwin 自己 emitter 的計數完全不參與這個判斷。
+  - telemetry-none 那一次因此照設計得到 V1、CH1、CH7 都是 RED。這一點有一個測試，把 telemetry-none 的觀測送進真的格子檢查。
+  - HU1 的兩個成員各自要過下限（`sent`、`sent_x`）。
+- **「從沒發生」的編碼（NEW-B）**：
+  - 計時讀數用一個**值**表示「整個窗都盯著、事情沒發生」：`never`，另外附 `watched_s`。
+    - 用在 TP2／TP4 的 `down_after_s`、CP4 的 `rerouted_after_s`、IT1 的 `reported_after_s`。
+    - `watched_s` 小於期限 → NOT RUN（沒盯滿）。
+    - `never` 加上盯滿 → RED。
+    - 鍵本身不在 → 讀數沒取到（步驟 4b）→ NOT RUN。
+  - CP4 的 `port_after_cut` 多一個值 `gone`：剪線後 s1 的 thrift dump 裡沒有那一筆 → RED。
+  - `rerouted_after_s` 與 `watched_s` 都列進 CP4 的 `need`，和其他鍵一致。
+- **`down-done`（NEW-C）**：
+  - `lab_round` 在 `ndt down` 成功之後寫 phase `down-done`。之後若 claim 掉了，phase 仍是 `down-done`，另外記 `claim_lost`。
+  - `recover.sh` 在 `down-done` 下：
+    - 先用 `ndt status` 確認 `bmv2 switches` 與 `host/switch` 都是 0，否則停（rc 4）；
+    - 跳過第 3–5 步（sniffer、netem、qdisc 比對、down）；
+    - 直接還原 knob、release。
+- **RC1（決策者裁示）**：
+  - 改成真的格：把 V1 的 G1 檢查用在 **RC1 自己的 marker 流**上（dport 40091，程式會 resubmit 一次、recirculate 一次）。
+  - 自檢是 SC-recirc，也是它的依賴，所以 SC-recirc 有了依賴它的格（MINOR 8）。
+  - 預測 GREEN（推論）。
+- **VB1＝CH3 維持 alias。**
+  - 輸出上，alias 那一列的歸因欄寫「ALIAS of CH3」。
+  - 某一維**所有**被計數的格都是 alias 時，rollup 標出「rests only on an alias: CP1=T1」這樣的字樣（`alias_only`）。
+  - `health.json` 另有 `aliases` 欄。
+- **對照找不到 route（MINOR 3，決定）**：
+  - endpoint 本身不在 openapi 時，對照判 NOT RUN（沒有東西可問）；K1／T3 在步驟 1 判 RED「no route」；整輪仍可發佈。
+  - 格自己的答案若聲稱有 route，而對照說沒有 → 讀數不一致 → PROBE-BROKEN。
+- **HR 的刺激量與順序（MINOR 4）**：
+  - 刺激量：20000 幀、每幀 64 B、總速率 800 kbit/s。
+    - HR2 分到 s1-eth5 的那一半是 400 kbit/s，低於 0.5 Mbit/s 的整形。
+    - 每一半的期望樣本數約 39。
+    - 公平硬幣讓其中一半低於 CARRY_SHARE 的機率小於 1e-5。
+  - 順序：TP2 → HR1／HR2 → Q1（Q1 仍是最後一個）。
+- **其他**：
+  - IT1 的報告期限是 entry 老化後 10 s（MINOR 5）。
+  - 探針那一方給的輸入（目標速率、宣告的埠、marker 欄位）若是空的 → PROBE-BROKEN（MINOR 1）。
+  - HU1 巢狀的讀數缺了 → NOT RUN（MINOR 2）。
+  - kill 失敗的行程留在 LAB_STATE 裡（MINOR 6）。
+  - `recover.sh` 判斷探測器是否還活著時，用 pid 加 start time（MINOR 6）。
+  - `recover.sh` 的 measuring 檢查讀不到時當成忙碌，不放行（MINOR 6）。

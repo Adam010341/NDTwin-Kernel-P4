@@ -1,7 +1,7 @@
 # P4 health check -- predictions, committed before any live run (DESIGN 5.1).
 # [Co-developed with claude code -- Adam]
 # expected = the verdict label predicted for today's trunk (995bdfd0). added: r6 = from the reviewed
-# design; cut1-q3b = added in Cut 1 for Q3(b), not yet reviewed (DESIGN.md sections 13 and 14). Rows whose basis starts "r2 (Cut 1 review)" changed in the review round.
+# design; cut1-q3b = added in Cut 1 for Q3(b), not yet reviewed (DESIGN.md sections 13 and 14). Rows whose basis starts "r2 (Cut 1 review)" or "r3 (Cut 1 review)" changed in those review rounds.
 cell	dimension	scope	bringup	cut	expected	basis	added
 PL1	pipeline_load	core	A	2	GREEN	§5.1 pipeline_load always can: each switch gets its own program (main.py:2012-2016); p4info sha in switch_state (api_routes.py:758-761)	r6
 PL2	pipeline_load	core	B	4	GREEN	external skips pipeline_push (main.py:337); the controller pushes its own	r6
@@ -56,7 +56,7 @@ AP1	action_profile	ext	A	2	RED	no action-profile route; the writer builds direct
 AS1	action_profile	ext	A	2	RED	no action-selector route (same writer)	cut1-q3b
 IT1	idle_timeout	ext	A	2	RED	no idle-timeout field on POST /p4/table_entry; the stream handles packet and arbitration only (p4_client.py:526-551); r2: thrift's Life: line is the aging oracle	cut1-q3b
 VS1	value_set	ext	A	2	UNATTRIBUTED	r2 (Cut 1 review): no value-set route (structural), but bmv2's P4Runtime refuses ValueSetEntry writes too (UNIMPLEMENTED 'ValueSet writes are not supported yet', vs_trial on throwaway simple_switch_grpc, stock and fast) and thrift pvs_add aborts the stock bmv2 -- the bmv2 half of the attribution cannot be established	cut1-q3b
-RC1	recirculate	ext	A	3	GREEN	r2 (Cut 1 review): alias of V1 -- with telemetry.source=link a recirculated pass enters no port (link_telemetry.py:312,329-338); = V1's prediction	cut1-q3b
+RC1	recirculate	ext	A	3	GREEN	r3 (Cut 1 review): V1's G1 check on RC1's own marker flow (dport 40091, which the program resubmits and recirculates), self-check SC-recirc; inferred GREEN: with telemetry.source=link a recirculated pass enters no port (link_telemetry.py:312,329-338), so the twin should count the flow once, on its path	cut1-q3b
 HR1	hash_random	ext	A	3	GREEN	r2 (Cut 1 review), inferred: one 5-tuple flow hashes to one uplink; link usage is measured per link from samples, read against a quiet window	cut1-q3b
 HR2	hash_random	ext	A	3	GREEN	r2 (Cut 1 review), inferred: the coin splits the flow over both uplinks; per-link usage from samples, read against a quiet window	cut1-q3b
 HU1	header_union	ext	A	3	PARTIAL(a)	r2 (Cut 1 review), inferred: the IPv6 member goes to the non_ipv4_flows side table (FlowLinkUsageCollector.cpp:1134-1161), the 0x1238 member too; no IPv6 flow identity	cut1-q3b
