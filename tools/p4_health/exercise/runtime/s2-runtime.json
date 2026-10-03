@@ -1,0 +1,269 @@
+{
+  "bmv2_json": "build/hc_main.json",
+  "clone_session_entries": [
+    {
+      "clone_session_id": 7,
+      "replicas": [
+        {
+          "egress_port": 1,
+          "instance": 1
+        }
+      ]
+    }
+  ],
+  "p4info": "build/hc_main.p4.p4info.txtpb",
+  "table_entries": [
+    {
+      "action_name": "HcIngress.drop",
+      "action_params": {},
+      "default_action": true,
+      "table": "HcIngress.ipv4_lpm"
+    },
+    {
+      "action_name": "HcIngress.ipv4_forward",
+      "action_params": {
+        "dstAddr": "08:00:00:00:ff:01",
+        "port": 2
+      },
+      "match": {
+        "hdr.ipv4.dstAddr": [
+          "10.0.1.1",
+          32
+        ]
+      },
+      "table": "HcIngress.ipv4_lpm"
+    },
+    {
+      "action_name": "HcIngress.ipv4_forward",
+      "action_params": {
+        "dstAddr": "08:00:00:00:ff:01",
+        "port": 2
+      },
+      "match": {
+        "hdr.ipv4.dstAddr": [
+          "10.0.2.2",
+          32
+        ]
+      },
+      "table": "HcIngress.ipv4_lpm"
+    },
+    {
+      "action_name": "HcIngress.ipv4_forward",
+      "action_params": {
+        "dstAddr": "08:00:00:00:ff:01",
+        "port": 2
+      },
+      "match": {
+        "hdr.ipv4.dstAddr": [
+          "10.0.3.3",
+          32
+        ]
+      },
+      "table": "HcIngress.ipv4_lpm"
+    },
+    {
+      "action_name": "HcIngress.ipv4_forward",
+      "action_params": {
+        "dstAddr": "08:00:00:00:04:44",
+        "port": 1
+      },
+      "match": {
+        "hdr.ipv4.dstAddr": [
+          "10.0.4.4",
+          32
+        ]
+      },
+      "table": "HcIngress.ipv4_lpm"
+    },
+    {
+      "action_name": "HcIngress.ipv4_forward",
+      "action_params": {
+        "dstAddr": "08:00:00:00:ff:04",
+        "port": 3
+      },
+      "match": {
+        "hdr.ipv4.dstAddr": [
+          "10.0.5.5",
+          32
+        ]
+      },
+      "table": "HcIngress.ipv4_lpm"
+    },
+    {
+      "action_name": "HcIngress.ipv4_forward",
+      "action_params": {
+        "dstAddr": "08:00:00:00:ff:04",
+        "port": 3
+      },
+      "match": {
+        "hdr.ipv4.dstAddr": [
+          "10.0.6.6",
+          32
+        ]
+      },
+      "table": "HcIngress.ipv4_lpm"
+    },
+    {
+      "action_name": "HcIngress.drop",
+      "action_params": {},
+      "match": {
+        "hdr.ipv4.dstAddr": [
+          "10.0.99.2",
+          32
+        ]
+      },
+      "table": "HcIngress.ipv4_lpm"
+    },
+    {
+      "action_name": "HcIngress.tunnel_forward",
+      "action_params": {
+        "port": 2
+      },
+      "match": {
+        "meta.dst_id": 1
+      },
+      "table": "HcIngress.tunnel_exact"
+    },
+    {
+      "action_name": "HcIngress.tunnel_forward",
+      "action_params": {
+        "port": 2
+      },
+      "match": {
+        "meta.dst_id": 2
+      },
+      "table": "HcIngress.tunnel_exact"
+    },
+    {
+      "action_name": "HcIngress.tunnel_forward",
+      "action_params": {
+        "port": 2
+      },
+      "match": {
+        "meta.dst_id": 3
+      },
+      "table": "HcIngress.tunnel_exact"
+    },
+    {
+      "action_name": "HcIngress.tunnel_forward",
+      "action_params": {
+        "port": 1
+      },
+      "match": {
+        "meta.dst_id": 4
+      },
+      "table": "HcIngress.tunnel_exact"
+    },
+    {
+      "action_name": "HcIngress.tunnel_forward",
+      "action_params": {
+        "port": 3
+      },
+      "match": {
+        "meta.dst_id": 5
+      },
+      "table": "HcIngress.tunnel_exact"
+    },
+    {
+      "action_name": "HcIngress.tunnel_forward",
+      "action_params": {
+        "port": 3
+      },
+      "match": {
+        "meta.dst_id": 6
+      },
+      "table": "HcIngress.tunnel_exact"
+    },
+    {
+      "action_name": "HcIngress.v6_forward",
+      "action_params": {
+        "dstAddr": "08:00:00:00:ff:01",
+        "port": 2
+      },
+      "match": {
+        "meta.v6_lo": 1
+      },
+      "table": "HcIngress.v6_host"
+    },
+    {
+      "action_name": "HcIngress.v6_forward",
+      "action_params": {
+        "dstAddr": "08:00:00:00:ff:01",
+        "port": 2
+      },
+      "match": {
+        "meta.v6_lo": 2
+      },
+      "table": "HcIngress.v6_host"
+    },
+    {
+      "action_name": "HcIngress.v6_forward",
+      "action_params": {
+        "dstAddr": "08:00:00:00:ff:01",
+        "port": 2
+      },
+      "match": {
+        "meta.v6_lo": 3
+      },
+      "table": "HcIngress.v6_host"
+    },
+    {
+      "action_name": "HcIngress.v6_forward",
+      "action_params": {
+        "dstAddr": "08:00:00:00:04:44",
+        "port": 1
+      },
+      "match": {
+        "meta.v6_lo": 4
+      },
+      "table": "HcIngress.v6_host"
+    },
+    {
+      "action_name": "HcIngress.v6_forward",
+      "action_params": {
+        "dstAddr": "08:00:00:00:ff:04",
+        "port": 3
+      },
+      "match": {
+        "meta.v6_lo": 5
+      },
+      "table": "HcIngress.v6_host"
+    },
+    {
+      "action_name": "HcIngress.v6_forward",
+      "action_params": {
+        "dstAddr": "08:00:00:00:ff:04",
+        "port": 3
+      },
+      "match": {
+        "meta.v6_lo": 6
+      },
+      "table": "HcIngress.v6_host"
+    },
+    {
+      "action_name": "HcIngress.dc_hit",
+      "action_params": {},
+      "match": {
+        "hdr.udp.dstPort": 40012
+      },
+      "table": "HcIngress.t_dcount"
+    },
+    {
+      "action_name": "HcIngress.dm_read",
+      "action_params": {},
+      "match": {
+        "hdr.udp.dstPort": 40023
+      },
+      "table": "HcIngress.t_dmeter"
+    },
+    {
+      "action_name": "HcIngress.stamp",
+      "action_params": {
+        "v": 42
+      },
+      "default_action": true,
+      "table": "HcIngress.t_default_only"
+    }
+  ],
+  "target": "bmv2"
+}
