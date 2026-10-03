@@ -245,6 +245,14 @@ def shape_field(where, kind, bitwidth, raw):
     Raises TableEntryUnsupported for a match type this module does not shape, and
     TableEntryInvalid (carrying the V-rule that refused it) for everything else.
     """
+    # The ONE guard for the 501. Everything below the dispatch assumes it held, so a type that
+    # got past it would be shaped as OPTIONAL -- which is why the branches end in an `else`
+    # and not in a second refusal that would hide this one's removal.
+    if kind not in BUILDABLE_MATCH_TYPES:
+        raise TableEntryUnsupported(
+            f"{where} is a {kind} match, and this proxy builds {', '.join(BUILDABLE_MATCH_TYPES)} "
+            f"entries only. Nothing was written.")
+
     if kind == "EXACT":
         # 🔴 ONE ELEMENT IS UNWRAPPED, TWO ARE STILL REFUSED (TICKET-P3 section 9 ruling 23②).
         # [Co-developed with claude code -- Adam]
@@ -323,18 +331,14 @@ def shape_field(where, kind, bitwidth, raw):
                 rule="V5")
         return ("RANGE", low, high)
 
-    if kind == "OPTIONAL":
-        if isinstance(raw, (list, tuple)):
-            if len(raw) != 1:
-                raise TableEntryInvalid(
-                    f"{where} is an OPTIONAL match, so its value is a plain value or a "
-                    f"one-element list, not {list(raw)!r}", rule="V1")
-            raw = raw[0]
-        return ("OPTIONAL", _encode_in_field(where, raw, bitwidth))
-
-    raise TableEntryUnsupported(
-        f"{where} is a {kind} match, and this proxy builds {', '.join(BUILDABLE_MATCH_TYPES)} "
-        f"entries only. Nothing was written.")
+    # OPTIONAL: a plain value, or a one-element list.
+    if isinstance(raw, (list, tuple)):
+        if len(raw) != 1:
+            raise TableEntryInvalid(
+                f"{where} is an OPTIONAL match, so its value is a plain value or a "
+                f"one-element list, not {list(raw)!r}", rule="V1")
+        raw = raw[0]
+    return ("OPTIONAL", _encode_in_field(where, raw, bitwidth))
 
 
 def shape_match(table_name, fields, match, is_default=False):

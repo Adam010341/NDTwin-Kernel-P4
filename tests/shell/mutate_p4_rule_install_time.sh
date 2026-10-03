@@ -220,6 +220,17 @@ m=$(mutant m10 "$CLIENT" \
 report "M10: the 5-tuple record drops the priority the entry is identified by" "$m" \
        "test_an_accepted_five_tuple_install_is_dated"
 
+# [Co-developed with claude code -- Adam]
+# The ternary writer builds optional entries and reads them back. A match type the key does not
+# model falls into its "unknown" branch, which keys it by a repr of the field's dict -- stable
+# only while the write side and the read side build that dict identically, and blind to bmv2
+# stripping the value's leading zero bytes. M10b removes the explicit optional branch.
+m=$(mutant m10b "$TIMES" \
+    '    if kind == "optional":' \
+    '    if False:')
+report "M10b: an optional field falls into the unknown branch, keyed by a repr instead of its value" "$m" \
+       "test_an_optional_field_is_modelled_and_keyed_by_its_value_without_leading_zeros"
+
 # --- 🔴 the other direction: record MORE, claim MORE, in seven shapes -------------------------
 # Each of these passes every mutation above. Without them this gate would sign off on a record
 # that is diligently kept and reports numbers nobody should believe.
