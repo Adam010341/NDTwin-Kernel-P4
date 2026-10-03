@@ -2,6 +2,7 @@
 # [Co-developed with claude code -- Adam]
 # expected = the verdict label predicted for today's trunk (995bdfd0). added: r6 = from the reviewed
 # design; cut1-q3b = added in Cut 1 for Q3(b), not yet reviewed (DESIGN.md sections 13 and 14). Rows whose basis starts "r2 (Cut 1 review)", "r3 (Cut 1 review)" or "r4 (Cut 1 follow-ups)" changed in those review rounds (r4: the basis now cites code, not a relayed record).
+# Cited records: GAP-2b = doc/audit/2026-09-04_p4-tutorial-exercise-prep/GAP-2b-ndtwin-p4-capabilities-2026-09-27.md and DESIGN.md = doc/audit/2026-10-03_p4-health-check/DESIGN.md; both live on the trunk branch of this repository, not on main.
 cell	dimension	scope	bringup	cut	expected	basis	added
 PL1	pipeline_load	core	A	2	GREEN	§5.1 pipeline_load always can: each switch gets its own program (main.py:2012-2016); p4info sha in switch_state (api_routes.py:758-761)	r6
 PL2	pipeline_load	core	B	4	GREEN	external skips pipeline_push (main.py:337); the controller pushes its own	r6
@@ -46,7 +47,7 @@ CS1	checksum	core	A	2	GREEN	tx-checksumming turned off per host (p4_testbed_topo
 TTL1	ttl_or_hop	core	A	2	GREEN	no NDTwin half (GAP-2b:39); the marker only has to arrive	r6
 TP1	topology	core	A	2	GREEN	the graph is built from the same model the fabric is	r6
 TP2	topology	core	A	3	GREEN	the heartbeat watchdog marks a cut veth down (main.py:1290-1304)	r6
-TP4	topology	core	B	4	GREEN	inferred from code: external runs the watchdog after the drop check (ndt:2959-2971); GAP-2b judged it red	r6
+TP4	topology	core	B	4	GREEN	inferred from code: external runs the watchdog after the drop check (ndt:2959-2971); GAP-2b found it red	r6
 CP1	control_plane_mode	core	A	2	GREEN	= T1	r6
 CP2	control_plane_mode	core	B	4	GREEN	external refuses writes with 409 (_refuse_write)	r6
 CP4	control_plane_mode	core	C	4	GREEN	owner ndtwin binds the route table and reroute follows the heartbeat (route_binding.py:51-56,312-319; main.py:1236-1249)	r6

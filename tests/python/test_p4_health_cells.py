@@ -1076,15 +1076,16 @@ class TestExpectedFile(unittest.TestCase):
             if c.alias_of:
                 self.assertEqual(row["expected"], exp[c.alias_of]["expected"], c.id)
 
-    #: Records that stay private (the review rounds' files, the rulings file, the agents' reports): a
-    #: file that goes to the public main must not cite them. A basis cites the code it was read from.
-    PRIVATE_CITATION = re.compile(r"RULINGS|\bintake\b|\bjudge-[A-Za-z0-9_.-]+|REPORT[A-Za-z0-9_.-]*\.md"
-                                  r"|\[relayed|scratch/overnight|DESIGN-r\d", re.IGNORECASE)
+    #: The names of the review, rulings and report records (their files stay out of the public main).
+    #: This is ALL the scan checks. GAP-2b and DESIGN.md are cited on purpose: the tsv header says where
+    #: they live (the trunk branch), and a test below pins that note.
+    RECORD_NAMES = re.compile(r"RULINGS|\bintake\b|\bjudge-[A-Za-z0-9_.-]+|REPORT[A-Za-z0-9_.-]*\.md"
+                              r"|\[relayed|scratch/overnight|DESIGN-r\d", re.IGNORECASE)
 
-    def test_nothing_public_cites_a_private_record(self):
+    def test_no_rulings_intake_judge_or_report_record_is_named_in_public_files(self):
         """Cut 1 follow-up 11: expected_today.tsv and tools/p4_health go to the public main; neither
-        may cite a rulings, intake, judge or report file. CH4 and CH3 cite hc_main.p4 and the
-        kernel's L4 read instead."""
+        may name a RULINGS, intake, judge-*, REPORT*.md, "[relayed", DESIGN-r<N> or scratch/overnight
+        record. (Only those names are scanned; it says nothing about any other citation.)"""
         paths = [EXPECTED_TSV]
         for root, _dirs, files in os.walk(os.path.dirname(PKG) if os.path.basename(PKG) != "p4_health" else PKG):
             paths += [os.path.join(root, f) for f in files if f.endswith((".py", ".sh", ".p4", ".tsv", ".json"))]
@@ -1092,7 +1093,7 @@ class TestExpectedFile(unittest.TestCase):
         for path in paths:
             with open(path, encoding="utf-8", errors="replace") as fh:
                 for n, line in enumerate(fh, 1):
-                    m = self.PRIVATE_CITATION.search(line)
+                    m = self.RECORD_NAMES.search(line)
                     if m:
                         hits.append("%s:%d: %s" % (os.path.relpath(path, REPO), n, m.group(0)))
         self.assertEqual(hits, [])
@@ -1101,6 +1102,19 @@ class TestExpectedFile(unittest.TestCase):
             self.assertTrue(exp[cid]["basis"].startswith("r4 (Cut 1 follow-ups)"), cid)
             self.assertRegex(exp[cid]["basis"], r"SFlowType\.hpp:\d+")
             self.assertRegex(exp[cid]["basis"], r"hc_main\.p4:\d+")
+
+    def test_the_header_says_where_the_cited_records_live(self):
+        """Cut 1 follow-up 4 (r5): GAP-2b and DESIGN.md are cited and are not on main; the header says
+        what they are and that they live on the trunk branch."""
+        with open(EXPECTED_TSV, encoding="utf-8") as fh:
+            head = [l for l in fh if l.startswith("#")]
+        note = [l for l in head if "GAP-2b" in l]
+        self.assertEqual(len(note), 1)
+        for needle in ("doc/audit/2026-09-04_p4-tutorial-exercise-prep/GAP-2b-ndtwin-p4-capabilities-2026-09-27.md",
+                       "doc/audit/2026-10-03_p4-health-check/DESIGN.md", "trunk branch"):
+            self.assertIn(needle, note[0])
+        with open(T.__file__, encoding="utf-8") as fh:
+            self.assertIn("GAP-2b-ndtwin-p4-capabilities-2026-09-27.md, on the trunk branch", fh.read())
 
     def test_the_prediction_comes_from_the_file_not_from_the_run(self):
         exp = E.load(EXPECTED_TSV)

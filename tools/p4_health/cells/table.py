@@ -526,6 +526,7 @@ def delivered(obs):
     return red("nothing arrived where NDTwin's endpoint said it would", "structural")
 
 
+# GAP-2b = doc/audit/2026-09-04_p4-tutorial-exercise-prep/GAP-2b-ndtwin-p4-capabilities-2026-09-27.md, on the trunk branch (not on main).
 def p4(obs):
     """Section 12 item 8, decided in Cut 1: the controller receiving its packet-in is PARTIAL(b)
     -- the exercise's own controller did NDTwin's half of packet_io (GAP-2b 0.3 (b)). Nothing
