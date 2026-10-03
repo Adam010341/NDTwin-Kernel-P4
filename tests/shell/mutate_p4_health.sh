@@ -755,8 +755,8 @@ add "R1. recover.sh does not check that the lab is this run" \
 
 add "R2. recover.sh releases after a failed down" \
     "$RECOVER" \
-    'if ! NDT_OWNER="$OWNER" "$NDT" down; then' \
-    'if ! NDT_OWNER="$OWNER" "$NDT" down && false; then' \
+    'if [[ "$down_rc" -ne 0 ]]; then' \
+    'if false; then  # MUTANT' \
     'no release'
 
 add "R3. recover.sh takes over an expired claim of somebody else" \
@@ -832,7 +832,7 @@ add "R3-C1. lab_round records no down-done (NEW-C)" \
 
 add "R3-C2. recover.sh in down-done still compares qdiscs" \
     "$RECOVER" \
-    'if [[ "$PHASE" != down-done ]]; then' \
+    'if [[ "$SKIP_DOWN" -eq 0 ]]; then' \
     'if true; then  # MUTANT' \
     'down-done: rc 0'
 
@@ -1304,8 +1304,10 @@ add "R7-1d. the knob reader keeps the CR of a CR-LF path" \
 
 add "R7-4a. recover.sh does not record down-done after its own ndt down" \
     "$RECOVER" \
-    'state_set phase down-done' \
-    ': # MUTANT' \
+    'state_set phase down-done
+fi   # steps 4-5' \
+    ': # MUTANT
+fi   # steps 4-5' \
     "after its own ndt down the state says down-done"
 
 add "R7-4b. recover.sh does not record down-failed after its own failed ndt down" \
@@ -1334,8 +1336,10 @@ add "R7-2c. a forced up past this run's claim is not looked at" \
 
 add "R7-2d. any forced up on record counts, not only one past this run's claim" \
     "$RECOVER" \
-    '{ for (i = 1; i <= NF; i++) if ($i == e) f = 1 } END { exit !f }' \
-    '{ for (i = 1; i <= NF; i++) if (index($i, "claim_expires=") == 1) f = 1 } END { exit !f }' \
+    '
+        '"'"'{ for (i = 1; i <= NF; i++) if ($i == e) f = 1 } END { exit !f }'"'"' "$CLAIM_FILE.overrides"; then' \
+    '
+        '"'"'{ for (i = 1; i <= NF; i++) if (index($i, "claim_expires=") == 1) f = 1 } END { exit !f }'"'"' "$CLAIM_FILE.overrides"; then' \
     "a forced up past ANOTHER claim is on record: no effect, rc 0"
 
 add "R7-3a. the claim is not looked at again after the down" \
@@ -1391,6 +1395,71 @@ add "R7-L3. LabRound takes str.isdigit for a time" \
     '        if mine.get("owner") != self.cfg.owner or not re.match(r"[1-9][0-9]*\Z", exp):' \
     '        if mine.get("owner") != self.cfg.owner or not exp.isdigit() or int(exp) <= 0:  # MUTANT' \
     'test_a_claim_the_file_does_not_show_as_ours_is_not_brought_up_on'
+
+# Round 8 (a down that already ran leaves no interfaces; recover.sh's own re-claim records the round's host
+# count as the release baseline; the unrecorded-claim hint). The stubs follow ndt: see the test.
+add "R8-1a. a down is taken for done without asking ndt status" \
+    "$RECOVER" \
+    '    if [[ "$n_bmv2" == 0 && "$n_mn" == 0 ]]; then' \
+    '    if true; then  # MUTANT' \
+    "teardown, knob absent, our live claim with this run's own note: rc 0 (tc, down, release)"
+
+add "R8-1b. an absent knob does not ask ndt status: the qdisc diff runs against a fabric that is gone" \
+    "$RECOVER" \
+    'elif [[ -z "$ov" ]]; then' \
+    'elif false; then  # MUTANT' \
+    "  ... the retry finds no fabric and finishes: rc 0"
+
+add "R8-1c. ndt down exiting 3 (measured nothing) is a failure" \
+    "$RECOVER" \
+    'if [[ "$down_rc" -eq 3 ]]; then' \
+    'if false; then' \
+    "ndt down exits 3 (measured nothing, the lab was down): the down is done, rc 0"
+
+add "R8-1d. a down found already done is not recorded" \
+    "$RECOVER" \
+    '        echo "  the override is gone and ndt status shows no fabric: a down already ran; steps 4-5 skipped (their interfaces are gone)"
+        state_set phase down-done
+        SKIP_DOWN=1' \
+    '        echo "  the override is gone and ndt status shows no fabric: a down already ran; steps 4-5 skipped (their interfaces are gone)"
+        SKIP_DOWN=1' \
+    "  ... and it recorded down-done"
+
+add "R8-2a. every recovery releases with --force" \
+    "$RECOVER" \
+    'if [[ -n "$recover_exp" && "$recover_exp" == "$(claim_get expires)" ]] && knobs_match_snapshot; then' \
+    'if true; then  # MUTANT' \
+    "stop sniffer, stop controller, netem off, qdisc diff, down, release, status"
+
+add "R8-2b. recover.sh's own re-claim is released plainly" \
+    "$RECOVER" \
+    'if [[ -n "$recover_exp" && "$recover_exp" == "$(claim_get expires)" ]] && knobs_match_snapshot; then' \
+    'if false; then  # MUTANT' \
+    "an expired claim, the package changed the host count: rc 0 and the host knob at its pre-round value"
+
+add "R8-2c. recover.sh does not record which claim is its own re-claim" \
+    "$RECOVER" \
+    '&& state_set recover_claim_expires "$new_exp"' \
+    '&& true  # MUTANT' \
+    "  ... and the retry under that live claim finishes: rc 0"
+
+add "R8-2d. a refused release tells the person to do what ndt printed (write the baseline back)" \
+    "$RECOVER" \
+    '    echo "STOP: ndt release refused (above). The knobs were put back to their pre-round snapshot in step 6: do NOT write"' \
+    '    echo "STOP: ndt release refused (above); do what it printed (pre-round snapshot)"' \
+    "a release refused for another reason: rc 6 and the output says what was restored, not to write the baseline back"
+
+add "R8-3a. the unrecorded-claim hint ignores the forced-up record" \
+    "$RECOVER" \
+    '-v e="claim_expires=$(claim_get expires)" \' \
+    '-v e="claim_expires=nomatch" \' \
+    "a forced up on record over the unrecorded claim: rc 2, the output warns and does not say nothing was brought up"
+
+add "R8-3b. the unrecorded-claim hint never says nothing was brought up" \
+    "$RECOVER" \
+    '            echo "  Nothing was brought up under it (no forced up is on record for it)."' \
+    '            :  # MUTANT' \
+    "no forced up on record over it: rc 2 and the output says nothing was brought up under it"
 
 
 CTRL_SRC="$TABLE"

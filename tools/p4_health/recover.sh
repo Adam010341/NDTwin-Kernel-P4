@@ -43,8 +43,11 @@
 #      owner, still the recorded expires, else rc 3 (`ndt down` takes minutes).
 #      What is still not proven: a claim another session makes for the same owner that ends in the same
 #      second (start + 60*minutes, ndt:824) has the same expires; a person who runs `ndt up --app` by
-#      hand on this run's package directory looks like the probe; and a run killed between its own
-#      `ndt down` and the phase write leaves the old phase with the knob gone (rc 3 on the next run).
+#      hand on this run's package directory looks like the probe; a run killed between its own
+#      `ndt down` and the phase write leaves phase up or cells with the knob gone (rc 3 on the next run);
+#      and the probe's own `ndt down`, killed between removing the knob (cmd_clean, ndt:5605) and writing its
+#      note (ndt:5538), leaves the knob gone and the note still "in use: ndt up ...": the note rule refuses
+#      it (rc 3), which fails safe.
 #   3. stop the recorded sniffers and controllers -- each only while its pid, its start time
 #      (/proc/<pid>/stat field 22) and the marker in its command line all still match what the
 #      probe recorded; a recycled pid is left alone;
@@ -67,10 +70,19 @@
 #      failed. A released run dir must never drive steps 4-5 against a later round's fabric.
 #   4. take netem off the recorded interfaces; the qdisc tree must equal the snapshot taken after
 #      `ndt up` -- if it does not, print the difference and stop for a person (rc 4);
-#   5. `ndt down` as the same owner (rc 5 if it fails: nothing is released over a fabric still up);
+#      (r8) Not when the knob is absent and `ndt status` shows no switch and no host/switch process: a
+#      `ndt down` already ran (its interfaces are gone, the qdisc diff would always differ). That records
+#      phase down-done and goes on to the re-check, the knobs and the release; with a fabric up, steps 4-5 run;
+#   5. `ndt down` as the same owner (rc 5 if it fails: nothing is released over a fabric still up). (r8)
+#      Its rc 3 -- it measured nothing, the lab was already down (ndt:5524-5537) -- counts as done;
 #   6. both knobs back to their snapshot BYTES;
-#   7. `ndt release`; if it refuses over a knob, do what it prints (ndt:888-899), never
-#      `git checkout --` (rc 6);
+#   7. `ndt release`. (r8) `ndt claim` records the round baseline (the host knob's value then, ndt:447-460) and
+#      `ndt release` refuses while the knob differs (ndt:890-903): this script's own re-claim recorded the
+#      ROUND's value, so after step 6 the refusal is certain, and the value it tells you to write back would
+#      undo the restore. When the claim held is this script's own re-claim (recover_claim_expires in the state is
+#      its expires) and every knob is its snapshot, the release is `--force`, with a line saying why; otherwise
+#      it is plain. rc 6 if refused: the knobs were restored, do NOT write a printed value back, a person reads
+#      ndt status (never `git checkout --`);
 #   8. `ndt status`, printed for the person to read: no bmv2, no heartbeat, no claim.
 #      (r5) rc 7 at the very end if any kill in step 3 failed: the lab is put right, a process is not.
 #
@@ -175,6 +187,26 @@ if [[ -n "$PID" ]] && kill -0 "$PID" 2>/dev/null; then
     echo "  pid $PID is alive but started at $now_start, not $PID_START: a recycled pid, not the probe"
 fi
 
+# knobs_match_snapshot -- every knob in LAB_STATE.json is now exactly its snapshot (r8)
+knobs_match_snapshot() {
+    python3 - "$STATE" <<'PY'
+import base64, json, os, sys
+st = json.load(open(sys.argv[1]))
+for name, b64 in (st.get("knob_snapshot") or {}).items():
+    path = (st.get("knob_paths") or {})[name]
+    if b64 is None:
+        if os.path.exists(path):
+            sys.exit(1)
+    else:
+        try:
+            with open(path, "rb") as fh:
+                if fh.read() != base64.b64decode(b64):
+                    sys.exit(1)
+        except OSError:
+            sys.exit(1)
+PY
+}
+
 # 0. (r6; r7: after the probe-alive check, so a probe still running is told so) a state file that leaves
 #    out what the proof rests on proves nothing: with an empty package and an absent override
 #    "$ov" == "$PKG" would hold in every phase. A person looks at it (rc 2).
@@ -194,8 +226,17 @@ if ! [[ "$CLAIM_EXPIRES" =~ ^[1-9][0-9]*$ ]]; then
     # (r7) Until `ndt up` rewrites it, the probe's claim note "p4-health <run> <bring-up> state=<this file>"
     # is unique to this run: a claim with that note and our owner is the one the probe took and never recorded.
     if [[ "$(claim_get owner)" == "$OWNER" && "$(claim_get note)" == "p4-health $RUNID $BRINGUP state=$STATE" ]]; then
-        echo "  The claim in $CLAIM_FILE is this run's: its note names this state file. Nothing was brought up under it."
-        echo "  Release it with:  NDT_OWNER=$OWNER $NDT release"
+        echo "  The claim in $CLAIM_FILE is this run's: its note names this state file."
+        # (r8) "nothing was brought up" is only known when nobody forced an ndt up past that claim
+        # (a forced up leaves the note as it found it, ndt:1131; the override record names the claim's expires).
+        if [[ -f "$CLAIM_FILE.overrides" ]] && awk -F'\t' -v e="claim_expires=$(claim_get expires)" \
+                '{ for (i = 1; i <= NF; i++) if ($i == e) f = 1 } END { exit !f }' "$CLAIM_FILE.overrides"; then
+            echo "  WARNING: $CLAIM_FILE.overrides records an ndt up --force past this claim: a fabric may be up under it."
+            echo "  Look at ndt status before releasing:  NDT_OWNER=$OWNER $NDT release"
+        else
+            echo "  Nothing was brought up under it (no forced up is on record for it)."
+            echo "  Release it with:  NDT_OWNER=$OWNER $NDT release"
+        fi
     fi
     exit 2
 fi
@@ -311,7 +352,7 @@ elif [[ ( -z "$c_owner" || "$c_owner" == "$OWNER" ) && "$c_exp" -le "$now" && "$
     # (r6) the claim is a new one now: record its expires, or a second run after a failed step would
     # stop at rc 3 on a claim that is ours. Read the way the script reads every claim field.
     new_exp="$(claim_get expires)"
-    if [[ "$new_exp" =~ ^[1-9][0-9]*$ ]] && state_set claim_expires "$new_exp"
+    if [[ "$new_exp" =~ ^[1-9][0-9]*$ ]] && state_set claim_expires "$new_exp" && state_set recover_claim_expires "$new_exp"
     then echo "  recorded the new claim's expires ($new_exp) in $STATE"
     else echo "  WARNING: could not record the new claim's expires; a second run of this script will stop at rc 3"
     fi
@@ -336,7 +377,25 @@ fi
 
 stop_recorded
 
-if [[ "$PHASE" != down-done ]]; then
+# (r8, N1) With the knob absent outside down-done, a `ndt down` may already have run -- the probe's, a person's,
+# or a failed one of this script's own (ndt clears the knob as down's last step, ndt:5605, and an `ndt down` that
+# exits 1 after tearing everything down is documented, ndt:5312-5318). Its interfaces are gone then, so
+# qdisc_snapshot.sh diff (it diffs `tc qdisc show` of every interface, qdisc_snapshot.sh:24,37-44) always differs
+# and would stop at "the fabric is still up". Ask ndt status first, as down_done_fabric_check does: no switches
+# and no host/switch process -> the down is done (record it); anything else -> steps 4-5 as before.
+SKIP_DOWN=0
+if [[ "$PHASE" == down-done ]]; then SKIP_DOWN=1
+elif [[ -z "$ov" ]]; then
+    st_out="$(NDT_OWNER="$OWNER" "$NDT" status 2>/dev/null)"
+    n_bmv2="$(printf '%s\n' "$st_out" | awk '$1 == "bmv2" && $2 == "switches" { print $3; exit }')"
+    n_mn="$(printf '%s\n' "$st_out" | awk '$1 == "host/switch" { print $2; exit }')"
+    if [[ "$n_bmv2" == 0 && "$n_mn" == 0 ]]; then
+        echo "  the override is gone and ndt status shows no fabric: a down already ran; steps 4-5 skipped (their interfaces are gone)"
+        state_set phase down-done
+        SKIP_DOWN=1
+    fi
+fi
+if [[ "$SKIP_DOWN" -eq 0 ]]; then
 # 4. netem off, and the qdisc tree must be what it was right after `ndt up`
 for i in $NETEM; do "$SUDO" -n tc qdisc del dev "$i" root || echo "  $i: no netem to remove?"; done
 if [[ -n "$QBEFORE" ]]; then
@@ -348,14 +407,17 @@ if [[ -n "$QBEFORE" ]]; then
 fi
 
 # 5. down, as the same owner
-if ! NDT_OWNER="$OWNER" "$NDT" down; then
+NDT_OWNER="$OWNER" "$NDT" down; down_rc=$?
+# (r8) rc 3 is "this command measured nothing" -- the lab was already down (ndt:5524-5537): the down is done.
+if [[ "$down_rc" -eq 3 ]]; then echo "  ndt down exited 3: nothing was up to tear down -- done"; down_rc=0; fi
+if [[ "$down_rc" -ne 0 ]]; then
     # (r7) real ndt clears the knob as down's last step even when it exits non-zero (ndt:5233-5246, 5605),
     # so a retry no longer finds the knob: the phase says what the knob can no longer say, as LabRound's does.
     state_set phase down-failed
     echo "STOP: ndt down failed; NOT releasing over a fabric that may still be up."; exit 5
 fi
 state_set phase down-done
-fi   # not down-done
+fi   # steps 4-5
 
 # (r7) The claim again, before anything is written back or released: `ndt down` took minutes, and a claim of
 # the same owner taken meanwhile must not be released here. (The release follows the knob restore with no
@@ -382,9 +444,25 @@ for name, b64 in sorted((st.get("knob_snapshot") or {}).items()):
 PY
 
 # 7. release
-if ! out="$(NDT_OWNER="$OWNER" "$NDT" release 2>&1)"; then
+# (r8, N2) `ndt claim` records the round baseline: the host knob's value at that moment (ndt:447-460, 849), and
+# `ndt release` refuses while the knob differs from it (ndt:890-903). This script's own re-claim ran while the
+# round's values were still in the knobs, so its baseline is the round's value, and step 6 has just put the
+# pre-round value back: the refusal would be certain, and the fix it prints (write the baseline value back)
+# would undo the restore. So when the claim held is this script's own re-claim (its expires is the one this
+# script wrote into the state as recover_claim_expires -- also on a later run, after a step failed), and every
+# knob now is its snapshot, release with --force and say why. In every other case the release is plain.
+rel_force=()
+recover_exp="$(field recover_claim_expires)"
+if [[ -n "$recover_exp" && "$recover_exp" == "$(claim_get expires)" ]] && knobs_match_snapshot; then
+    echo "  releasing with --force: the claim held is this script's own re-claim, whose round baseline was recorded while"
+    echo "  the round's values were still in the knobs; they are back at the pre-round snapshot, which that baseline would refuse."
+    rel_force=(--force)
+fi
+if ! out="$(NDT_OWNER="$OWNER" "$NDT" release ${rel_force[@]+"${rel_force[@]}"} 2>&1)"; then
     echo "$out"
-    echo "STOP: ndt release refused; do what it printed above (never 'git checkout --')."; exit 6
+    echo "STOP: ndt release refused (above). The knobs were put back to their pre-round snapshot in step 6: do NOT write"
+    echo "      a value ndt prints back into them -- that would undo the restore. The lab is still claimed and may need"
+    echo "      a person: read ndt status (never 'git checkout --')."; exit 6
 fi
 echo "$out"
 

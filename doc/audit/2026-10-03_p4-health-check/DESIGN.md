@@ -523,6 +523,11 @@ S0（不用 lab，約 2 分鐘）
        - **訊息**：claim 檔不見時印出 `lab.claim.prev` 的 owner 與 `expires`（`ndt:920`），並說那是不是這一輪記下的 claim；沒記到 `claim_expires` 但 claim 的 note 是這一輪獨有的 "p4-health <run> <bring-up> state=…" 時，印出 `ndt release` 的指令。
        - 探測器還活著的檢查在欄位檢查之前，所以 `claiming` 階段還在跑的探測器得到 rc 3「還在跑」，不是 rc 2。
        - `LabRound` 把 package 路徑解析一次（跟隨連結），檢查、LAB_STATE 與 `ndt up --app` 都用同一條；`expires` 用 `^[1-9][0-9]*$` 判斷，不再用 `isdigit`。
+     - **r8 (Cut 1 follow-ups r8)**：測試的 stub 一律照 `ndt` 與 `qdisc_snapshot.sh` 真的行為寫，每一處行為旁邊註明出處（`ndt:447-460, 849, 890-903, 920, 1245-1277, 5233-5246, 5312-5318, 5524-5537`、`qdisc_snapshot.sh:24, 37-44`）。照著寫之後，r7 的兩個舊洞才現形：
+       - **N1：`ndt down` 跑過之後沒有介面了，qdisc diff 一定不同**。knob 不在、phase 不是 `down-done` 時，`recover.sh` 先問 `ndt status`：沒有 bmv2、沒有 host/switch → 這個 down 已經做完，記 `down-done`，跳過第 4–5 步，接著重讀 claim、還原 knob、release；還有 fabric → 第 4–5 步照舊。`ndt down` 的 rc 3（沒有東西可以拆，`ndt:5524-5537`）算做完。這是 `ndt down` 在 component 被 SIGKILL 之後「拆乾淨卻回 1」那個一次性的紅（`ndt:5312-5318`）之後，重試能走完的條件。
+       - **N2：`recover.sh` 自己重新 claim 之後，release 會被自己的 baseline 擋住**。`ndt claim` 把當下的 host knob 值記成 round baseline（`ndt:447-460, 849`），`ndt release` 在 knob 不等於 baseline 時拒絕（`ndt:890-903`）；重新 claim 時 knob 裡還是這一輪的值，第 6 步還原成輪前的值之後 release 必被拒，而 ndt 印出的補救（把 baseline 的值寫回去）會把還原蓋掉。現在 `recover.sh` 把重新 claim 的 `expires` 同時記在 `recover_claim_expires`；release 時若手上的 claim 就是那一個，而且每個 knob 都等於 snapshot，就用 `ndt release --force` 並印一行原因；其他情形照舊用普通 release。rc 6 的訊息不再叫人照 ndt 印的去寫 baseline 值，改成說明 knob 已還原到輪前的快照、不要把印出的值寫回去、lab 可能需要人看。
+       - **提示**：沒記到 `claim_expires` 時，只有在 `<claim>.overrides` 沒有針對那個 claim 的行時，才說「沒有東西被帶起來」；有就改成警告。
+       - **殘餘風險補上**：探測器自己的 `ndt down` 若在清掉 knob（`ndt:5605`）與寫 note（`ndt:5538`）之間被殺，knob 不在、note 還是 "in use: ndt up …"，note 規則會拒絕（rc 3），安全。「在 `ndt down` 之後、寫 phase 之前被殺」只在 phase 是 up 或 cells 時才是下一次 rc 3；teardown、down-failed、claim-lost 現在由 N1 的 `ndt status` 處理。
      - **r6**：`recover.sh` 一開始（在 pid 檢查之前）要求 `owner`、`run`、`package`、`claim_file`、`app_package_override`、`claim_expires` 都在而且不是空的（`claim_expires` 是正整數），否則 rc 2、什麼都不做。package 為空、override 不見時，`"$ov" == "$PKG"` 在每個 phase 都成立。探測器若在 `ndt claim` 與寫入 `claim_expires` 之間死掉，`claim_expires` 是 null，也是 rc 2，由人看過再處理。
   3'. **r2 (Cut 1 review)**：sniffer 與控制器記錄成 pid＋start time（`/proc/<pid>/stat` 第 22 欄）＋cmdline marker（run id），三者都對得上才送訊號；停掉之後從 `LAB_STATE.json` 移除，之後不會被殺第二次。`lab_round` 的 teardown 在每個會動共用狀態的步驟（netem、`ndt down`、knob、release）之前重讀 claim：不再是自己的、或已過期，就停在那裡，剩下的交給 `recover.sh`。netem 加失敗的介面會移出清單。
   3. 停掉列出的 sniffer 與控制器 pid。
@@ -1234,3 +1239,8 @@ S0（不用 lab，約 2 分鐘）
     - F2：knob 不在時的 live claim 只認這一輪自己的 note 或 `ndt down` 的 note；`.overrides` 裡有我們的 `expires` 就不動。
     - 順帶：`ndt down` 之後再讀一次 claim、claim 檔不見與沒記到 `claim_expires` 的訊息、殘餘風險的措辭（同一個結束秒）、`LabRound` 的路徑只解析一次、`expires` 的判斷。
     - 沒做：每輪自己的 owner 或 claim 的 nonce（會關掉整個「同 owner」類，要在 Cut 2 的驅動程式裡做）。
+14. **r8 (Cut 1 follow-ups r8)**：重新審查找到的兩個 `recover.sh` 收尾的舊洞，都因為 stub 不像 `ndt` 而一直是假綠；詳見 §4.5 第 2 項的 r8 註記。
+    - N1：knob 不在時先問 `ndt status`，沒有 fabric 就跳過第 4–5 步；`ndt down` rc 3 算做完。
+    - N2：`recover.sh` 自己重新 claim 的那一個 claim，release 用 `--force`（原因印出來）；rc 6 的訊息不再叫人把 baseline 值寫回去。
+    - 規則：每一個修法所依賴的 stub 行為都必須來自 `ndt`／`qdisc_snapshot.sh` 的真實程式，並在旁邊註明行號。
+    - 沒做：`knobs_match_snapshot` 的條件沒有變異體——第 6 步成功之後它必然成立，沒有測試能讓它不成立。
