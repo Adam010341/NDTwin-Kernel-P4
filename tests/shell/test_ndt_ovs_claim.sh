@@ -72,13 +72,22 @@ reap_fixtures() {
     done < "$FIXTURES"
     return 0
 }
-cleanup() { reap_fixtures; [[ -n "${FIX:-}" && -d "$FIX" ]] && rm -rf "$FIX"; return 0; }
+cleanup() {
+    # [Co-developed with claude code -- Adam] First, so a second signal cannot cut the cleaning
+    # short (2026-10-03): an INT or TERM arriving in here would run its trap, and the shell would
+    # exit with the rest of this undone.
+    trap '' INT TERM
+    reap_fixtures; [[ -n "${FIX:-}" && -d "$FIX" ]] && rm -rf "$FIX"; return 0
+}
 # [Co-developed with claude code -- Adam] A signal ENDS the run (2026-10-01), as in
 # test_ndt_app_orphans.sh. The handler used to clean up and return, so on INT or TERM the suite
 # went on running with its fixtures reaped and $FIX deleted. The EXIT trap does the cleaning on
 # the way out; INT and TERM only exit, 128+signal.
 trap cleanup EXIT
-trap 'exit 130' INT
+# [Co-developed with claude code -- Adam] INT kills the shell with INT again rather than exiting
+# 130 (2026-10-03), as in test_ndt_app_orphans.sh: the status is still 130, and a script that
+# called this one stops too.
+trap 'trap - INT; kill -INT $$' INT
 trap 'exit 143' TERM
 export FIX
 mkdir -p "$FIX/.test_run/pids" "$FIX/.test_run/logs" "$FIX/setting" "$FIX/p4_proxy/mininet" \

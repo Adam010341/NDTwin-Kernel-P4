@@ -116,6 +116,10 @@ reap_fixtures() {
 }
 
 cleanup_fixtures() {
+    # [Co-developed with claude code -- Adam] First, so a second signal cannot cut the cleaning
+    # short (2026-10-03): an INT or TERM arriving in here would run its trap, and the shell would
+    # exit with the rest of this undone.
+    trap '' INT TERM
     [[ -f "$FIXTURE_REG" ]] && reap_fixtures >/dev/null
     [[ -n "${TMPROOT:-}" && "$TMPROOT" == /tmp/ndt-app-orphans-* ]] && rm -rf "$TMPROOT"
     return 0
@@ -126,7 +130,12 @@ cleanup_fixtures() {
 # to root. The EXIT trap does the cleaning on the way out; INT and TERM only exit, with the
 # shell's usual 128+signal status.
 trap cleanup_fixtures EXIT
-trap 'exit 130' INT
+# [Co-developed with claude code -- Adam] INT kills the shell with INT again rather than exiting
+# 130 (2026-10-03). A shell that EXITS 130 has, as far as a calling bash can tell, handled the
+# Ctrl-C itself, so a script running suites one after another (tools/test_workflow/
+# l1_unit_tests.sh) went on to the next one. Killed by the signal, this shell still ends with
+# 130 and runs its EXIT trap, and the caller stops as well.
+trap 'trap - INT; kill -INT $$' INT
 trap 'exit 143' TERM
 
 # spawn_fixture <argv0> [cwd] -- start a process wearing that command line; its pid is left in

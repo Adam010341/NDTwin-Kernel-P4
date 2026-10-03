@@ -109,6 +109,10 @@ reap_two_layer() {
     echo "$left"
 }
 cleanup() {
+    # [Co-developed with claude code -- Adam] First, so a second signal cannot cut the cleaning
+    # short (2026-10-03): an INT or TERM arriving in here would run its trap, and the shell would
+    # exit with the rest of this undone.
+    trap '' INT TERM
     [[ -f "$FIXTURE_REG" ]] && reap_fixtures >/dev/null
     declare -F reap_two_layer >/dev/null && reap_two_layer >/dev/null
     rm -rf "$FIX"
@@ -119,7 +123,10 @@ cleanup() {
 # went on running with its fixtures reaped and $FIX deleted. The EXIT trap does the cleaning on
 # the way out; INT and TERM only exit, 128+signal.
 trap cleanup EXIT
-trap 'exit 130' INT
+# [Co-developed with claude code -- Adam] INT kills the shell with INT again rather than exiting
+# 130 (2026-10-03), as in test_ndt_app_orphans.sh: the status is still 130, and a script that
+# called this one stops too.
+trap 'trap - INT; kill -INT $$' INT
 trap 'exit 143' TERM
 
 # Same construction as tests/shell/test_ndt_apps_liveness.sh: the pid really is the process

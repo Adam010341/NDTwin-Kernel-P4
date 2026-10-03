@@ -143,6 +143,10 @@ spawn() {
 # taken BEFORE the kill. This kills by exact pid, re-reads /proc afterwards, and prints both.
 # Every pid spawn() started is in SPAWNED_REG, including one it gave up on and the section-2 control.
 cleanup() {
+    # [Co-developed with claude code -- Adam] First, so a second signal cannot cut the cleaning
+    # short (2026-10-03): an INT or TERM arriving in here would run its trap, and the shell would
+    # exit with the rest of this undone.
+    trap '' INT TERM
     local p
     local -a spawned=()
     [[ -f "${SPAWNED_REG:-}" ]] && mapfile -t spawned < "$SPAWNED_REG"
@@ -163,7 +167,10 @@ cleanup() {
 # went on running with its fixtures reaped and $FIX deleted. The EXIT trap does the cleaning on
 # the way out; INT and TERM only exit, 128+signal.
 trap cleanup EXIT
-trap 'exit 130' INT
+# [Co-developed with claude code -- Adam] INT kills the shell with INT again rather than exiting
+# 130 (2026-10-03), as in test_ndt_app_orphans.sh: the status is still 130, and a script that
+# called this one stops too.
+trap 'trap - INT; kill -INT $$' INT
 trap 'exit 143' TERM
 
 spawn "$OURS_ARGV" "$FIX"; OURS="$FIXTURE_PID"
