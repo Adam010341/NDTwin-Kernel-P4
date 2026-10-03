@@ -1,10 +1,10 @@
-# P4 generic table writer：ternary／range／optional＋priority，與 API 寫入的 journal — 設計稿 r2
+# P4 generic table writer：ternary／range／optional＋priority，與 API 寫入的 journal — 設計稿 r3
 
 [Co-developed with claude code -- Adam]
 
 - **範圍**：Adam 2026-10-01 選的下一刀。只有設計：不改碼、不上 lab、不 sudo。
 - **基準**：分支 `design/p4-ternary-journal`，從 trunk `229ed30c` 開；以下行號都是這顆的。
-  - r1＝`521a95d1`。r2 依第一輪審查（READY AFTER FIXES）改寫，對照表在 §11。
+  - r1＝`521a95d1`；r2＝`a3c46bb0`，依第一輪審查（READY AFTER FIXES）改寫，對照表在 §11。r3 只改第二輪審查（`judge-ternary-design-a3c46bb0-r2.md`）指定的 N1–N3 與 A0 措辭，對照在 §12。
 - **證據等級**（不混用）：
   - 【讀】：這次 session 親自讀過的碼或檔。
   - 【觀測】：這次 session 跑了指令、看到輸出，原始輸出在 `scratch/overnight-2026-09-05/logs/gates-0910/ternary-design/`，每份第一行都是 commit。
@@ -24,7 +24,7 @@
 - optional 一個值；
 - 外加頂層 `priority`。
 
-**在 bmv2 會拒絕的地方，本機先回 400，什麼都不寫**（這些拒絕都已經在 bmv2 上量到過，【A0】）。交換機真的拒絕時，502 會帶上 per-update 的真正原因（E1）。
+**在 bmv2 會拒絕的地方，本機先回 400，什麼都不寫。** 大部分拒絕已在 bmv2 上量到【A0】；沒量到的是 V3（`value & ~mask`）與 exact／lpm 表上的非 0 priority（§2.2）。交換機真的拒絕時，502 會帶上 per-update 的真正原因（E1）。
 
 **generic writer 不寫 NDTwin 擁有的表**（Q2 建議）。這會順便修掉 trunk 今天的一個缺陷：對 baseline 的 `flow_5tuple` POST 一筆空 match 的 entry，會在 `ipv4_lpm` 前面裝上一條 catch-all，而且回 200（§1.5）。
 
@@ -179,7 +179,7 @@ PF-T fixture：
 - 交換機會怎樣：
   - 省略欄位是 bmv2 接受的 don't-care 寫法【A0 04：省略 lpm 欄位 OK】【A0 05：要求「omit」】；
   - 把六個欄位全部省略的 ternary entry 沒有直接量過【推論】：它會被接受，等於在 `ipv4_lpm` 前面裝一條 catch-all drop，回 200。
-- 把 priority 拿掉，同一條路會帶著 priority 0 上線。bmv2 會拒絕：per-update INVALID_ARGUMENT「Zero priority for ternary match」【A0 01、07】。
+- 把 priority 拿掉，同一條路會帶著 priority 0 上線。match 裡**有** ternary 欄位、priority 0 時，bmv2 回 per-update INVALID_ARGUMENT「Zero priority for ternary match」【A0 01、07】。**一個欄位都沒有、priority 0** 的情況沒有量過【推論：同樣被拒】，併入 Cut A 的補量（§7）。
   - 這個 proxy 會把它報成 **502 `grpc_status: UNKNOWN`**（§1.8）。
 - ⇒ r1 說「`flow_5tuple` 今天被 501 擋著」**是錯的**；說「priority 0 在有 priority 欄的表上今天走不到」**也是錯的**。
 
@@ -189,15 +189,15 @@ PF-T fixture：
 |---|---|
 | `TableEntry.priority` 是 int32；MatchType 的編號：EXACT=2、LPM=3、TERNARY=4、RANGE=5、OPTIONAL=6；`Ternary{value,mask}`、`Range{low,high}`、`Optional{value}`；`ForwardingPipelineConfig.cookie` 是 uint64；有 `COOKIE_ONLY` 這個 response type | 【觀測 `descriptor.log`】venv 的 p4runtime 1.5.0 |
 | `libpifeproto.so.0`（sha16 `987b243193959872`）含 PI 的拒絕字串 | 【觀測 `pi_strings.log`】 |
-| 以下這些**實際會觸發**，都是 per-update INVALID_ARGUMENT，而且什麼都沒寫進去：priority 0 打 ternary 表；default entry 帶非 0 priority；INSERT 一筆 default entry；省略 EXACT 欄位；lpm /0；遮罩 0；整段 range；low > high；LPM 帶 host bit（insert 與 delete 都會拒） | 【A0 01、03、04、05、06、07、09】 |
+| 以下這些**實際會觸發**，都是 per-update INVALID_ARGUMENT，而且什麼都沒寫進去（例外：INSERT default entry 那兩次之後 stock/06 沒有 read-back，「沒寫進去」是推出來的）：priority 0 打 ternary 表；default entry 帶非 0 priority；INSERT 一筆 default entry；省略 EXACT 欄位；lpm /0；遮罩 0；整段 range；low > high；LPM 帶 host bit（insert 與 delete 都會拒） | 【A0 01、03、04、05、06、07、09】 |
 | `value & ~mask ≠ 0` | **沒量**。那句字串存在【觀測】，會不會觸發是【推論】 |
-| priority 1 到 2^31-1 全部 OK、沒有 abort；bm 內部的 priority = 2147483647 − p4rt priority；-1 被拒（UNKNOWN「Error when adding match entry」） | 【A0 07】⇒ BM_MAX 相當於 2^31-1【推論，A0 從對應關係推出來】 |
+| 量了 13 個 priority 值，從 1 到 2^31-1，兩端都含：全部 OK、沒有 abort；bm 內部的 priority = 2147483647 − p4rt priority；-1 被拒（UNKNOWN「Error when adding match entry」） | 【A0 07】⇒ BM_MAX 相當於 2^31-1【推論，A0 從對應關係推出來】 |
 | 「數字大的贏」 | 【A0 11】同一個 match、priority 10 與 20，封包命中 20 那一筆；只在 stock 量到 |
 | priority 是身分的一部分：priority 錯的 delete／modify 回 NOT_FOUND「Cannot find match entry」，entry 不動；兩筆同 match、不同 priority 都 insert 得進去 | 【A0 01、02、11】 |
 | 讀回來的值會去掉前導零（全 0 變成一個 byte 00）；過長、但多出來的是前導零的值會被接受再去掉；optional 經 P4Runtime 讀回來仍是 optional，thrift 顯示成 `TERNARY 06 &&& ff`；Read 依 insertion 順序回傳 | 【A0 10】 |
 | wildcard Read 不回 default entry，只有 `is_default_action=true` 的 Read 才回 | 【A0 06】 |
 | 兩個 `simple_switch_grpc` 都 NEEDED `libpifeproto.so.0`；bmv2-fast 的 RUNPATH 底下沒有這個檔 | 【觀測 `readelf.log`】⇒ 兩者用的都是 `/usr/local/lib` 那一份【推論】 |
-| `libbmpi.so.0` 的 `PriorityInverter` 字串；fast build 少了 assert 運算式 | 【觀測 `pi_strings.log`】。在 int32 範圍內不重要：兩個 build 對每個 priority 都沒有 abort【A0 07】 |
+| `libbmpi.so.0` 的 `PriorityInverter` 字串；fast build 少了 assert 運算式 | 【觀測 `pi_strings.log`】。就量過的 13 個值（含 1 與 2^31-1 兩端）而言不重要：兩個 build 都沒有 abort【A0 07】 |
 | cookie：push 時帶 cookie，COOKIE_ONLY 讀得回來；不帶 cookie 再 push 一次 ⇒ `has_cookie=False`；全新 bmv2（命令列給 JSON，或 `--no-p4`）在還沒 push 之前 ⇒ **FAILED_PRECONDITION**「No forwarding pipeline config set」 | 【A0 08】⇒ cookie **活不過 bmv2 重啟**，Q1 (a) 需要的就是這一點 |
 | 🔴 碼裡的註解與 A0 08 不一致：`topology_manager.py:1373-1375` 說 bmv2 沒有 pipeline 也回 COOKIE_ONLY；`probe` 送的是 COOKIE_ONLY（`p4_client.py:704-717`）；push 沒設 cookie（`:732-739`） | 【讀】vs【A0 08】⇒ 依量測，剛重啟、還沒 push 的 bmv2，`probe` 會得到 `ok: False`。這一刀不處理（§10-13） |
 | 「數字大的贏」 | 【轉述】P4Runtime spec（沒讀）；碼裡的說法：`p4_client.py:1759-1763`、`topology_manager.py:319` |
@@ -270,16 +270,18 @@ body 照舊（`api_routes.py:852-857`）。值怎麼讀由 p4info 的 `match_typ
   - insert／modify／delete 都**必須**帶 priority，而且 `1 ≤ p ≤ PRIORITY_MAX`。
   - exact／lpm 的表帶非 0 priority → 400（照舊）。
   - **default entry 帶非 0 priority → 400。**
-  - `PRIORITY_MAX` = 2^31-1：等於 int32 上限，A0 量過整段範圍都 OK、沒有 abort【A0 07】。
+  - `PRIORITY_MAX` = 2^31-1：等於 int32 上限。A0 量了 13 個值（兩端 1 與 2^31-1 都含），全部 OK、沒有 abort【A0 07】。
   - 不做 `p4_priority` 的 +1 平移（`topology_manager.py:314-333`）：這個 endpoint 講的是 P4Runtime 自己的數字。
 - **V7 owner**（Q2）：寫進 NDTwin 擁有的表 → 409，`error: "owned by NDTwin"`，`outcome: "owned_by_ndtwin"`。
   - `remedy` 放在前 200 bytes 內（理由同 `api_routes.py:448-457`）。
   - **V7 放在 `write_table_entry` 裡，不放在 route。** 這樣開機與重放也會再過一次，而 §5.2「重放再走一次 `write_table_entry`」才是真的。
-  - 帶 ruling 8-1 的 default-action 例外（Q2 子題）。
+  - 帶 ruling 8-1 的 default-action 例外（Q2 (a-i)），**範圍只限**：`roles.ipv4_route` 綁定、owner ndtwin 的 package 表；**只限開機**的 package entries。
+    - `write_table_entry` 為此多一個參數 `source`，值是 `"boot"`、`"api"` 或 `"replay"`；replay 視同 api。
+    - baseline 表的 default 不在例外裡，開機（baseline 不套 package entries）與 API 都是 409。
   - ⇒ bring-up C 的 package default 照常裝上，**不會**出現 `failed > 0`。若 Q2 子題選「不留例外」，C 就會 `failed = 1`，要記進健檢預測。
 - **V8**：EXACT 欄位省略 → 400。
 - **V9**：LPM 的 value 在 prefix 之外有 host bit → 400。bmv2 自己就拒絕、不正規化，delete 也一樣【A0 09】，所以本機這條只是提早拒絕、把訊息講清楚。
-- **V4、V5、V6、V8、V9 都只是重複 bmv2 本來就會做的拒絕**【A0 01-07、09】。在本機做的理由有兩個：
+- **V4、V5、V8、V9，以及 V6 在有 priority 欄的表上的部分（缺漏或 0、default 帶 priority），都只是重複 bmv2 本來就會做的拒絕**【A0 01-07、09】。V6 在 exact／lpm 表上拒絕非 0 priority 那一半沒有量過【推論：依 PI 字串「Non-zero priority for non-ternary match」】。在本機做的理由有兩個：
   - 回 400 而不是 502 UNKNOWN，而且 wire 上什麼都沒送；
   - pre-flight 在 fabric 起來之前就能用同一句話拒絕。
 - 只有 V3 沒有量過【推論】。
@@ -397,6 +399,9 @@ V7 不在這裡：它需要 binding，pre-flight 已經有自己的 8-1 檢查�
  "entries_sha256":"<16 hex 或 null>","boot_id":"<BOOT_ID>"}
 ```
 
+- `fabric_cookie` 是**整個 fabric 共用的一個世代號 G**，不是每台各鑄一個。這是 r3 的定案，取代 r2 §5.4「每台新鑄」的寫法。
+- `boot_id` 是寫入或確認這份 header 的那一次開機（§5.4 步驟 0）。readopt 靠它判斷要不要重放（§5.5）。
+
 **之後每行一筆：**
 
 ```
@@ -443,16 +448,26 @@ def _write_and_journal(dpid, spec, op):            # route: await run_in_threadp
 
 ### 5.4 重放：proxy 重啟（startup）
 
-- 位置：`startup` 的 entries 迴圈裡（`main.py:2009-2020`），每台在 `apply_package_entries` 之後、PRE 之前。
-- 條件：`i not in broken and not read_only`，而且 journal 開著。
+- 位置分兩段：
+  - **步驟 0** 在 push 迴圈（`main.py:1977-1986`）**之前**，對**每一台** client 都做，不管它之後會不會變成 broken；
+  - 步驟 1、3–6 在 entries 迴圈裡（`main.py:2009-2020`），每台在 `apply_package_entries` 之後、PRE 之前。
+- 步驟 1、3–6 的條件：`i not in broken and not read_only`，而且 journal 開著。步驟 0 只要求 `not read_only`（external 一個 byte 都不動，§5.7）。
 - startup 期間 uvicorn 還沒開始服務：startup 在 lifespan 裡被 await（`main.py:2441-2443`），uvicorn 是在 lifespan 完成之後才服務（`:2469-2511`）。**所以這裡不需要 503**（修正 r1）。
 - 步驟：
+  0. **cookie 確認（Q1），在 push 迴圈之前、每一台都做**：用 COOKIE_ONLY 讀交換機上的 cookie，跟這台檔案 header 的 `fabric_cookie` 比。
+     - **確認**：讀回來的 cookie 和 header 相同。
+     - **未確認**，以下任何一種：
+       - FAILED_PRECONDITION，也就是新起的 bmv2【A0 08】；
+       - `has_cookie=False`；
+       - cookie 不同；
+       - **RPC 失敗**：交換機連不上、沒有回應；
+       - 沒有檔、header 讀不出來。
+     - **世代 G**：所有確認的交換機的 cookie 必須是同一個值，G 就取那個值。沒有任何一台確認，或確認的值不一致，就新鑄一個 u64 當 G；不一致時，全部都當作未確認。
+     - **未確認的交換機，現在就隔離**：hard link 舊檔成隔離名，再寫入只有 header 的新檔（G、本次 `boot_id`、sha）；報 `fresh_fabric`。**連不上的交換機也一樣隔離。**
+     - **確認的交換機**：用 snapshot 改寫 header 的 `boot_id`，紀錄原樣保留。就算它之後 push 失敗變成 broken，這份檔也標明「本次開機確認過」。
+     - 之後 startup 與 readopt 的**每一次** push 都帶 G。不帶 cookie 的 push 會把它清掉【A0 08】。
   1. **讀檔**：讀這台的 `s<dpid>.jsonl`，得到 header、紀錄與 unreadable 的行數。
-  2. **cookie 判斷（Q1）**：在 push 之前，用 COOKIE_ONLY 讀交換機上的 cookie。
-     - 和 header 的 `fabric_cookie` 相同：同一個 bmv2，繼續。
-     - 新起的 bmv2 會回 FAILED_PRECONDITION「No forwarding pipeline config set」【A0 08】。這種情況，或 `has_cookie=False`，或 cookie 不同，都表示這是新的 fabric：整檔隔離，報 `fresh_fabric`，**不重放**。
-     - 然後 push 的時候**一定**帶上 cookie：相符就沿用舊值，否則新鑄一個 u64。
-       - 不帶 cookie 的 push 會把它清掉【A0 08】。⇒ `set_forwarding_pipeline_config` 的每一個呼叫點都要帶，包括 readopt。
+  2. （r2 的 cookie 判斷已經搬到步驟 0；這一步留空，只是為了保留步驟編號。）
   3. **sha 防護**：檢查 p4info 與 entries 的 sha（§5.2）。
   4. **折疊**：依 `key` 與檔案順序算淨效果。
      - 第一個 op 決定「API 之前在不在」：insert ⇒ 不在；modify／delete ⇒ 在，例如開機 entry 或 default。
@@ -466,7 +481,7 @@ def _write_and_journal(dpid, spec, op):            # route: await run_in_threadp
   5. **套用**：依 key 第一次出現的順序，逐筆呼叫 `write_table_entry`。
      - 這是直接呼叫，不經 `_write_and_journal`，所以**不會追加紀錄**；也不做 MODIFY fallback。
      - 失敗的那筆進 `failed`，附上理由，例如 bmv2 回的 UNKNOWN（`p4_client.py:1802-1804`）或 NOT_FOUND。
-  6. **snapshot**：新檔＝header（新的 cookie 與 sha）＋成功重放的淨紀錄。
+  6. **snapshot**：新檔＝header（G、本次 `boot_id`、sha）＋成功重放的淨紀錄。
      - 失敗與 stale 的紀錄只留在隔離檔與報告裡，不進新檔。理由：它們不在交換機上，API 也刪不掉（§10-4 讓 NOT_FOUND 的 delete 也記，但記了也只是從折疊裡消掉）。
      - 每台一檔，所以不必替其他交換機保留紀錄。
   - **步驟 6 中途當掉**：hard link 做了、replace 還沒做時當掉，live 檔就是完整的舊 log。下次重新折疊一次，結果相同。
@@ -480,7 +495,11 @@ def _write_and_journal(dpid, spec, op):            # route: await run_in_threadp
 拿著鎖依序做這些事：
 - push 與換 client（`topology_manager.py:1503-1506`）；
 - `apply_package_entries`（`main.py:1757`）；
-- **從檔案重新讀一次**，做 §5.4 的步驟 3–6。readopt 的情況下跳過步驟 2 的 cookie 判斷：readopt 就是「同一個 fabric 上這一台剛 power-cycle」，push 時沿用 header 的 cookie。
+- **從檔案重新讀一次**，然後：
+  - header 的 `boot_id` 等於本次 `BOOT_ID`，表示這份檔在本次開機寫過或確認過（§5.4 步驟 0）。⇒ 做 §5.4 的步驟 3–6。
+  - 不等於（照步驟 0 不該發生，但仍要防）⇒ 隔離、不重放，報 `unconfirmed_header`。
+  - push 帶的是本次的 G，**不是**舊 header 裡的 cookie。
+  - ⇒ startup 時連不上的交換機，檔在步驟 0 就被隔離了，之後 readopt 讀到的是只有 header 的空檔，什麼都不重放。舊 fabric 的紀錄不會被裝回去，也不會把舊 cookie 帶到交換機上。
 
 做完才清掉 `pending`、放開鎖。
 
@@ -488,7 +507,7 @@ def _write_and_journal(dpid, spec, op):            # route: await run_in_threadp
 - 報告放進 `result["table_entries"]["replay"]`。
 - 失敗的 readopt 也一定要清 `pending`：放在 `finally` 裡。
 - 適用範圍：外來 pipeline 的分支（`:1754` 之後）。baseline 在 `:1743` 就 return 了。
-  - Q2 (a) 底下 baseline 沒有能寫的表，所以不需要。
+  - Q2 (a) 底下，baseline 交換機上的每一筆 API 寫入都回 409，default 也包含在內（(a-i) 只涵蓋 package 綁定的表、而且只限開機）。⇒ baseline 交換機的檔永遠沒有紀錄，startup 那邊重放的是空的，readopt 不需要補。
   - **Q2 若選 (b) 或 (c)，必須在 `:1743` 之前也補一次**（審查 M2.5）。
 
 ### 5.6 揭露
@@ -551,12 +570,14 @@ def _write_and_journal(dpid, spec, op):            # route: await run_in_threadp
 | R16 | external ⇒ 不重放，檔案 byte 不變 | M-J6 |
 | R17 | readopt：在 package entries 之後重放；readopt 兩次，計數一樣；**從檔案重讀**（startup 之後的 POST 也會被重放） | 229ed30c：readopt 不重放；M-J10、M-J17（改用 startup 時的清單） |
 | R18 | pre-flight：PF-T 的 fixture 通過；缺 priority 的 ternary、`value & ~mask`，FAIL 的**新句子** | 229ed30c：句子是「G5 not done」，所以斷言新句子會紅 |
-| R19 | V7：baseline 上空 match 打 `flow_5tuple` 與 `ipv4_lpm` 都是 409；owner ndtwin 表的 package default 仍裝得上（C） | 229ed30c：今天都是 200 |
+| R19 | V7：baseline 上空 match 打 `flow_5tuple` 與 `ipv4_lpm` 都是 409；owner ndtwin 表的 package default 開機仍裝得上（C）；同一張表用 API 改 default 是 409 | 229ed30c：今天都是 200 |
+| R19b | V7：API 改 baseline 表的 default（`ipv4_lpm` 改成 `drop`）⇒ 409，`stub.requests == []` | 229ed30c：今天是 200（default 的 insert 換成 modify 之後送上 wire，`p4_client.py:1353-1356`） |
 | R20 | readopt 期間 POST 同一台 ⇒ 503，什麼都沒寫、什麼都沒記 | M-J18（拿掉 pending） |
 | R21 | readopt A 的時候 POST B ⇒ B 的那一行在 A 做完 snapshot 之後還在 | M-J19（改回單檔加每台一把鎖） |
 | R22 | 換完 client 之後、重放之前的 POST 會被擋 | M-J20（把鎖移到換 client 之後） |
 | R23 | 剩下的 501：`UNSPECIFIED` 欄位 ⇒ 501，`stub.requests == []` | M-J21 |
-| R24 | cookie：相符就重放；FAILED_PRECONDITION、沒有 cookie、或 cookie 不同 ⇒ `fresh_fabric`、隔離、不重放；push 一律帶 cookie | M-J22；M-J25（push 不帶 cookie）。假 stub 的行為照【A0 08】 |
+| R24 | cookie：相符就重放；FAILED_PRECONDITION、沒有 cookie、或 cookie 不同 ⇒ `fresh_fabric`、隔離、不重放；push 一律帶 G | M-J22；M-J25（push 不帶 cookie）。假 stub 的行為照【A0 08】 |
+| R26 | startup 時連不上的交換機（COOKIE_ONLY 丟 RpcError，push 失敗）：檔在步驟 0 就被隔離；之後 readopt 什麼都不重放，push 帶的是本次 G，不是舊 cookie | M-J26（步驟 0 只對 non-broken 做，也就是 r2 的行為）；M-J27（readopt 不檢查 `boot_id`）；M-J28（readopt push 舊 header 的 cookie） |
 | R25 | E1：交換機拒絕時，502 body 帶 `p4rt_error.code`（例如 NOT_FOUND） | 229ed30c：只有 `grpc_status: UNKNOWN`；M-J24 |
 
 ### 6.2 要退役或反轉的既有 gate
@@ -601,7 +622,9 @@ def _write_and_journal(dpid, spec, op):            # route: await run_in_threadp
   - M-J22 拿掉 cookie 檢查；
   - M-J23 在鎖外查 client；
   - M-J24 502 不拆 per-update error（E1，放在 Cut A）；
-  - M-J25 push 不帶 cookie。
+  - M-J25 push 不帶 cookie；
+  - M-J26 步驟 0 只對 non-broken 的交換機做；M-J27 readopt 不檢查 `boot_id`；M-J28 readopt push 舊 header 的 cookie；
+  - M-J29 V7 的 default 例外擴大到 baseline 表或 API（R19b）。
 
 兩支都要：
 - 一個只改註解的負對照；
@@ -624,7 +647,7 @@ def _write_and_journal(dpid, spec, op):            # route: await run_in_threadp
 
 | Cut | 內容 | 大小 | 驗收 | 依賴 |
 |---|---|---|---|---|
-| A0 | **已完成**（`ternary-a0/INDEX.txt`，11 項，stock 與 fast 相同）。還沒量的有兩項：`value & ~mask ≠ 0`，以及六個欄位全省略的 ternary entry。⇒ 兩項併進 Cut A 的第一步，用同一支 `ternary_a0.py` 補量 | — | 已填進本稿 | — |
+| A0 | **已完成**（`ternary-a0/INDEX.txt`，11 項，stock 與 fast 相同）。還沒量的有四項：`value & ~mask ≠ 0`；六個欄位全省略的 ternary entry；同樣全省略、但 priority 0；exact／lpm 表帶非 0 priority。⇒ 四項併進 Cut A 的第一步，用同一支 `ternary_a0.py` 補量 | — | 已填進本稿 | — |
 | A＋D | **A**：`match_shape`；A1／A2 兩步；V1–V9；讀取側；`_built_entry_match`；錯誤碼；pre-flight 的 G5；退役與反轉（§6.2）；§6.3 的 Cut A 部分。**D**：和健檢那條線協調，同一個合併窗口：S0 的兩條 PF-T 檢查（`s0.py:275-277,574-583`）、`expected_today.tsv`、PF-T 格的 RED 路徑、T4–T7 oracle 的反轉。D 的那些檔案屬於健檢線 | A：程式約 350 行、測試約 500 行、gate 約 150 行；D：由健檢線估 | R1–R9、R18、R19、R23、R25 先紅後綠；Cut A 的 mutant 0 survivor；健檢 S0 COMPLETE | A0 |
 | B | `TableEntryJournal`（record／fold／snapshot）、`_write_and_journal`、§5.6 的揭露、拆開常數 | 程式約 250 行、測試約 350 行 | R10–R13；M-J1–M-J3、M-J12–M-J14 | A（要用 key） |
 | C | startup 與 readopt 的重放、cookie、sha、pending／503、`boot_identity` 的 docstring | 程式約 300 行、測試約 450 行 | R14–R17、R20–R22、R24；其餘的 M-J | B、A0（cookie） |
@@ -638,11 +661,12 @@ def _write_and_journal(dpid, spec, op):            # route: await run_in_threadp
 
 - 今天的 proxy 分不出來，但其實**可以分**，有好幾種訊號：
 - **(a)【建議】pipeline cookie。**
-  - 做法：push 的時候在 `ForwardingPipelineConfig.cookie` 寫入 fabric 世代號，也記進 journal 的 header；下次 push 之前先用 COOKIE_ONLY 讀回來比對（§5.4 步驟 2）。
+  - 做法：push 的時候在 `ForwardingPipelineConfig.cookie` 寫入 fabric 世代號，也記進 journal 的 header；下次 startup 時，在 push 迴圈之前、對每一台都先用 COOKIE_ONLY 讀回來比對（§5.4 步驟 0）。
   - 後果：
     - 只改 proxy，不用 shell、不用 manifest、不用 root；
-    - 每台交換機各自判斷；
-    - `ndt up` 與 `stack.sh` 這兩條 bring-up 路徑都涵蓋。
+    - 每台交換機各自判斷是否確認，世代號 G 則是整個 fabric 一個（§5.2）；
+    - `ndt up` 與 `stack.sh` 這兩條 bring-up 路徑都涵蓋，**但前提是交換機在 startup 時連得上**（見下一點）。
+    - **startup 時連不上的交換機**（或 COOKIE_ONLY 失敗的），它的 cookie 無法確認，檔會被隔離（§5.4 步驟 0）。就算它是 warm fabric 上的同一個 bmv2、稍後經 readopt 回來，它的 API entry 也**不會**還原，報 `fresh_fabric`。
     - power-cycle 但還沒 readopt 的交換機，如果 proxy 正好這時重啟，它會回 FAILED_PRECONDITION，被當成新的 fabric：那台的 API entry 會被隔離、不重放，報 `fresh_fabric`。
     - 代價：每一次 push 都必須帶 cookie，因為不帶就會被清掉。
   - **前提已量到**【A0 08】：cookie 讀得回來；不帶 cookie 的 push 會清掉它；新起的 bmv2 在 push 之前回 FAILED_PRECONDITION，命令列給了 JSON 也一樣。
@@ -672,14 +696,16 @@ def _write_and_journal(dpid, spec, op):            # route: await run_in_threadp
   - 都回 409 `owned_by_ndtwin`（V7，放在 `write_table_entry` 裡）。
   - 後果：
     - **修掉 §1.5 那個空 match 的 catch-all 缺陷**；
-    - journal 和 kernel routing 永遠不在同一張表上；
+    - API 寫入（也就是 journal）永遠不會落在 NDTwin 擁有的表上。package 的開機 default 和 kernel routing 雖然在同一張表上，但**永遠不是同一筆 entry**【推論：NDTwin 的寫入者從不寫 default，`install_initial_routes`／`insert_*` 寫的都是 match entry】；
     - ruling 8-1 延伸到 runtime。
   - 代價：
     - 今天打 baseline 的 `ipv4_lpm`、以及空 match 打 `flow_5tuple`，都回 200，之後變 409。這是行為變更。
     - `a_client` 是 baseline 的替身（§1.5），所以 `test_table_entry_route.py` 每一顆 POST `AN_LPM_ENTRY` 的成功路徑測試都會變 409。
     - `test_p4_client_writes.py` 的替身也會翻。
-  - **子題 (a-i)【建議】保留 8-1 的 default-action 例外**：owner 為 ndtwin 的表上，default action 開機與 API 都可以寫。
-    - 理由：NDTwin 的寫入者不寫 default【推論】，而 C 依賴它（§1.7）。
+  - **子題 (a-i)【建議】保留 8-1 的 default-action 例外，範圍只限 `roles.ipv4_route` 綁定的 package 表，而且只限開機的 package entries。**
+    - baseline 表（`ipv4_lpm`、`l2_forward` 的 default 是 `send_to_cpu`，`ndtwin_switch.p4:361,380`，餵的是 NDTwin 的 packet-in 路徑）的 default 一律 409。
+    - API 改 default 也是 409。r2 寫的「API 也可以寫」沒有理由支撐，已刪掉。
+    - 理由：C 依賴開機 default（§1.7）；而 NDTwin 的寫入者不寫 default【推論】，所以兩邊不會碰到同一筆。
   - **子題 (a-ii) 不留例外。**
     - 後果：C 起來會 `failed = 1`，`main.py:1770` 的前提不再成立。
   - **子題 (a-iii) roles ticket「不准改既有測試 fixture」那條規矩**（`p4_client.py:255-257`），這一刀還適用嗎？
@@ -699,7 +725,7 @@ def _write_and_journal(dpid, spec, op):            # route: await run_in_threadp
 - **(a)【建議】400，訊息寫「omit the field」。**
   - 後果：
     - 一個 entry 只有一種 wire 形狀。**bmv2 自己就拒絕這三種寫法**，回 INVALID_ARGUMENT「omit match field instead…」，什麼都不存【A0 04、05】。
-    - ⇒ 這條只是把 bmv2 的拒絕提前到本機：今天是 502 UNKNOWN（§1.8），之後是 400，而且訊息講得清楚。
+    - ⇒ 這條只是把 bmv2 的拒絕提前到本機，之後一律是 400，訊息也講得清楚。今天的情況：lpm /0 建得出來，回 502 UNKNOWN（`p4_client.py:1249`；§1.8）；遮罩 0 與整段 range 是有寫出來的 TERNARY／RANGE 欄位，今天回 501（`:1199-1208`）。
     - **就現有證據來說，沒有任何既有檔案要改**：健檢 DESIGN 寫 int-v1 的 P4Runtime 形式本來就省略 don't-care 欄位、只留兩個 IP 欄位（`:829-831`），遮罩 `0x0000` 只出現在 thrift script（`:828`）【轉述】。
 - **(b) 正規化成「省略」，用 `normalised: [...]` 揭露。**
   - 後果：NDTwin 會接受 **bmv2 自己拒絕的寫法**【A0 04、05】，也比 tutorials 自己的 controller 更寬鬆：那支 controller 會把遮罩 0 原樣送出，然後被 bmv2 拒絕【推論，依 A0 05】。這和 ruling 23② 擔心的方向相反。
@@ -774,7 +800,7 @@ def _write_and_journal(dpid, spec, op):            # route: await run_in_threadp
    - modify 沒有對應的安全做法，寫進 API 文件。
 5. **Q4(a) 的缺行風險**：寫進回應的 note 與 API 文件（Q4 的後果）。
 6. **LPM host bit**：定為拒絕（V9）。bmv2 自己也拒絕【A0 09】。
-7. **`PRIORITY_MAX`**：定為 2^31-1。整段 int32 都 OK、沒有 abort；-1 被拒（UNKNOWN）【A0 07】。V6 的下限 1 已經擋住 -1。
+7. **`PRIORITY_MAX`**：定為 2^31-1。量過的 13 個值（兩端都含）都 OK、沒有 abort；-1 被拒（UNKNOWN）【A0 07】。V6 的下限 1 已經擋住 -1。
 8. **pre-flight 與 writer 對齊**：
    - 「空 match、有 priority 欄」的 entry 放行（§4）；
    - V8 進 `match_shape`，pre-flight 也查。
@@ -845,3 +871,16 @@ def _write_and_journal(dpid, spec, op):            # route: await run_in_threadp
 | ⑧ 「priority 0 今天走不到」 | §1.1、§1.5 |
 
 **另外**：r1 對 `insert_ipv4_route` 的行號引用錯了，改成 `:1903-1913`（§1.1）。
+
+## 12. r2 → r3 對照（審查 `judge-ternary-design-a3c46bb0-r2.md`）
+
+| 審查項 | 處理位置 |
+|---|---|
+| N1：(a-i) 的範圍 | §2.2 V7（只限 package 綁定的表、只限開機；新增 `source` 參數）；Q2 (a-i)（baseline default 一律 409；刪掉 API 那一半）；Q2 (a) 的後果改成「永遠不是同一筆 entry」並標【推論】；§5.5 的 baseline 句改寫；新增 R19b |
+| N2：cookie 與停機的交換機 | §5.2 header（一個 fabric 共用的世代 G、`boot_id`）；§5.4 步驟 0（push 迴圈之前、每台都做、連不上也隔離）、步驟 2 留空、步驟 6；§5.5（只重放本次開機確認過的檔，push 帶 G）；Q1 (a) 的後果；新增 R26，以及 M-J26–M-J28 |
+| N3：Q3(a) 今天的回應碼 | Q3 (a) 的後果：lpm /0 今天是 502 UNKNOWN，遮罩 0 與整段 range 今天是 501 |
+| §4-1：13 個 priority 值 | §1.6 的兩列、§2.2 V6、§10-7 |
+| §4-2：空 match 時的 priority 0 | §1.5（標成沒量過）、§7 A0 的補量清單 |
+| §4-3：exact／lpm 表上的 V6 | §2.2（標成沒量過）、§7 補量清單、§0 |
+| §4-4：§0 不能說全部都量過 | §0 |
+| stock/06 的 read-back | §1.6 那一列 |
