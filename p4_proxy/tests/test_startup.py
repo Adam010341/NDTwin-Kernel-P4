@@ -680,7 +680,12 @@ class AForeignPipelineTest(unittest.TestCase):
         client = FakeClient(1)
         summary, _ = run_startup({1: client}, package=self.package(pipeline=None, entries=5))
         self.assertEqual(client.written, [])
-        self.assertEqual(summary["table_entries"]["1"],
+        # `journal` (what the table-entry journal has recorded, which is none of these package
+        # entries) is checked in test_table_entry_journal.py; the counts are what this one is
+        # about. [Co-developed with claude code -- Adam]
+        counts = dict(summary["table_entries"]["1"])
+        counts.pop("journal")
+        self.assertEqual(counts,
                          {"recorded": 5, "applied": 0, "failed": 0, "api_writes": 0,
                           "journaled": False})
 

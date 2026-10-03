@@ -14,7 +14,9 @@ from proxy_agent.p4_client import P4RuntimeClient
 from proxy_agent import p4_client as p4_client_module
 from proxy_agent.sflow_emitter import SFlowEmitter, load_switch_agent_ips
 from proxy_agent.kernel_notifier import KernelNotifier
-from proxy_agent.rule_journal import RuleJournal
+from proxy_agent.rule_journal import (RuleJournal, TableJournals, TABLE_JOURNAL_DIR_ENV_VAR,
+                                      table_journal_enabled)
+from proxy_agent import boot_identity
 from proxy_agent import api_routes
 from proxy_agent import kernel_notifier
 # TICKET-P4-roles: which table a destination route is written into, per switch.
@@ -732,10 +734,11 @@ def entries_recorded_report():
 #   pipeline       {"ndtwin": bool, "p4info": <abs>, "p4info_sha256": <16 hex>}
 #   table_entries  {"recorded", "applied", "failed", "api_writes", "journaled"}
 #
-# `journaled` is a constant `False` and is emitted anyway (Adam 2026-09-18, option a): entries
-# applied here are NOT written to the rule journal, so they are gone after a proxy restart and
-# nothing replays them. A field that says so is the difference between an operator who knows to
-# re-run `ndt up p4 --app` and one who finds an empty table with no explanation.
+# `journaled` is False and is emitted anyway (Adam 2026-09-18, option a): nothing replays an entry
+# after a proxy restart, so it is gone. A field that says so is the difference between an operator
+# who knows to re-run `ndt up p4 --app` and one who finds an empty table with no explanation. It
+# is now COMPUTED (`table_journals.journaled`) rather than a literal, and stays False until the
+# journal is replayed; `journal` beside it says what is recorded.
 
 #: Accepted `POST /p4/table_entry` writes, per switch, for the life of this process. Separate
 #: from `applied`, which counts only what the package's own entries file put on the switch: an
@@ -750,6 +753,55 @@ _api_writes = {}
 #: read-modify-write in the file. Three lines, no test: a lock has no observable behaviour to
 #: assert that would not just be re-running the race. [Co-developed with claude code -- Adam]
 _api_writes_lock = threading.Lock()
+
+
+# --- the table-entry journal. [Co-developed with claude code -- Adam] -----------------------
+#
+# POST /p4/table_entry records every accepted write here, one file per switch. 🔴 NOTHING REPLAYS
+# IT YET, and `table_entries.journaled` stays False for that reason (rule_journal's
+# TABLE_JOURNAL_REPLAYS): this block builds the recorder and says what it holds, `journal` beside
+# `journaled` below. DESIGN.md section 5; the replay is the next cut.
+
+#: Under `.run/` for the reason the routing journal is: per-machine state, gitignored there.
+DEFAULT_TABLE_JOURNAL_RELPATH = os.path.join(".run", "table_entry_journal")
+
+
+def table_journal_header(dpid):
+    """
+    What a switch's journal file says it was made against: its p4info and entries-file digests
+    and this boot. Allowed to come back thin -- a header that cannot be built must not lose the
+    record that triggered it -- so every field degrades to None on its own.
+    """
+    out = {"boot_id": boot_identity.BOOT_ID}
+    try:
+        package = profile.current()
+        p4info_path, _json_path = package.pipeline_for(dpid, proxy_root())
+        out["p4info_sha256"] = _p4info_fingerprint(p4info_path)
+        entries = package_entries_path(package, dpid)
+        out["entries_sha256"] = _p4info_fingerprint(entries) if entries else None
+    except Exception:  # noqa: BLE001
+        pass
+    return out
+
+
+def build_table_journals(env=None):
+    """
+    The per-switch table-entry journals this proxy records API writes into.
+
+    `env` is injectable for the reason `build_rule_journal`'s is. The directory is derived with
+    `proxy_root()`, not by repeating `default_journal_path`'s own derivation, so a change to where
+    the routing journal lives cannot move this one.
+    """
+    if env is None:
+        env = os.environ
+    directory = (str(env.get(TABLE_JOURNAL_DIR_ENV_VAR, "")).strip()
+                 or os.path.join(proxy_root(), DEFAULT_TABLE_JOURNAL_RELPATH))
+    return TableJournals(directory, enabled=table_journal_enabled(env),
+                         read_only=lambda: profile.current().read_only,
+                         header_for=table_journal_header)
+
+
+table_journals = build_table_journals()
 
 
 def _describe_pipelines(package, dpids):
@@ -794,16 +846,20 @@ def _dpid_order(key):
 def table_entries_report():
     """{dpid as string: how many entries were declared, applied, refused and POSTed}."""
     out = {}
-    for dpid in sorted(set(_table_entries) | set(_api_writes), key=_dpid_order):
+    for dpid in sorted(set(_table_entries) | set(_api_writes) | table_journals.known_dpids(),
+                       key=_dpid_order):
         counts = _table_entries.get(dpid, {"recorded": 0, "applied": 0, "failed": 0})
         out[dpid] = {"recorded": counts.get("recorded", 0),
                      "applied": counts.get("applied", 0),
                      "failed": counts.get("failed", 0),
                      "api_writes": _api_writes.get(dpid, 0),
-                     # Not a variable. Nothing in this proxy journals a table entry, and the
-                     # constant is emitted so that "these rules do not survive a restart" is
-                     # something the endpoint SAYS rather than something a reader has to know.
-                     "journaled": False}
+                     # `journaled` is a CLAIM that an entry survives a restart, and it is False
+                     # because nothing replays the journal: the answer comes from
+                     # `table_journals.journaled`, which is False until rule_journal's
+                     # TABLE_JOURNAL_REPLAYS is flipped by the change that replays. What IS true
+                     # today -- API writes are being recorded -- is `journal`, beside it.
+                     "journaled": table_journals.journaled(dpid),
+                     "journal": table_journals.report(dpid)}
     return out
 
 
@@ -1811,6 +1867,7 @@ api_routes.inject_readopt(build_p4_client, sflow.handle_sample, readopt_switch)
 api_routes.inject_control_plane(control_plane_report, entries_recorded_report)
 api_routes.inject_package_reports(pipelines_report, table_entries_report,
                                   note_api_table_entry_write)
+api_routes.inject_table_journals(table_journals)
 api_routes.inject_telemetry_reports(telemetry_report, pre_entries_report,
                                     control_plane_telemetry)
 # TICKET-P4-roles 2.5: per-switch `capabilities` and `flow_stats`. [Co-developed with claude
