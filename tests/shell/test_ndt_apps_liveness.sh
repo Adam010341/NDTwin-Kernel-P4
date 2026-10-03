@@ -68,6 +68,12 @@ check() {
 yn() { if "$@"; then echo yes; else echo no; fi; }
 has() { case "$2" in *"$1"*) echo yes ;; *) echo no ;; esac; }
 
+# [Co-developed with claude code -- Adam] The reaper cleanup_fixtures() uses is shared with
+# test_ndt_helper_apps_window.sh, and so are its checks (reap_own_children_selftest, section 7).
+# Sourced first: ndt rebinds HERE.
+source "${REAP_OWN_CHILDREN_LIB_UNDER_TEST:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_reap_own_children.sh}" \
+    || { echo "  FAILED   no tests/shell/lib_reap_own_children.sh beside this suite"; echo "Ran 1 checks, 1 failed"; exit 1; }
+
 # shellcheck source=/dev/null
 source "$NDT" || { echo "  FAILED   could not source $NDT"; echo "Ran 1 checks, 1 failed"; exit 1; }
 
@@ -93,41 +99,6 @@ reap_fixtures() {
         [[ "$(cat "/proc/$pid/comm" 2>/dev/null)" == sleep ]] && left=$((left + 1))
     done < "$FIXTURE_REG"
     echo "$left"
-}
-# own_child <pid> -- true if that process is one this shell forked itself: its parent is $$. Its
-# process group is left in OWN_PGID. A child's number is not given to another process until bash
-# has reaped it, and bash reaps on its own schedule, so whatever is done with the answer is done at
-# once, with nothing forked in between. Before the child has exec'd its argv is still this
-# suite's own, and this still knows it.
-# [Co-developed with claude code -- Adam] (2026-10-03)
-own_child() {
-    local s
-    OWN_PGID=""
-    { read -r s < "/proc/$1/stat"; } 2>/dev/null || return 1
-    s="${s##*) }"; s="${s#* }"          # "<ppid> <pgrp> ..."
-    [[ "${s%% *}" == "$$" ]] || return 1
-    s="${s#* }"; OWN_PGID="${s%% *}"
-}
-# reap_own_children -- KILL whatever this shell forked that is still there. On the way out the
-# suite's own foreground commands have all been waited for, so its remaining children are what it
-# started in the background, and nothing needs to have been written down first: a signal that
-# lands between a fork and the line that records its pid still finds it (2026-10-03; here,
-# the second or more between app_spawn's fork and spawn_app_fixture adding the pid to SPAWNED,
-# which waits out app_spawn's `sleep 1`).
-# A child that leads its own process group is killed BY that group, which holds it and anything
-# it forked; any other child by its pid alone, because its group is this suite's -- and the
-# caller's. Only from this suite's own shell: in a subshell, $$ names a parent whose children
-# include that subshell.
-# [Co-developed with claude code -- Adam]
-reap_own_children() {
-    [[ $BASHPID == "$$" ]] || { echo "  FAILED   ${FUNCNAME[0]} called outside this suite's own shell (BASHPID $BASHPID, suite $$): not reaping" >&2; return 1; }
-    local f c
-    for f in /proc/[0-9]*/stat; do
-        c="${f#/proc/}"; c="${c%/stat}"
-        own_child "$c" || continue
-        if [[ "$OWN_PGID" == "$c" ]]; then kill -KILL -- "-$c" 2>/dev/null; else kill -KILL "$c" 2>/dev/null; fi
-    done
-    return 0
 }
 cleanup_fixtures() {
     # [Co-developed with claude code -- Adam] First, so a second signal cannot cut the cleaning
@@ -559,6 +530,11 @@ check "the te branch requests mode 2"             yes \
       "$(has "APP_STDIN=\$'2\\n5\\n' app_spawn te" "$(grep -F 'app_spawn te ' "$NDT")")"
 
 # --- 7. this suite does not become the thing it tests --------------------------------
+# [Co-developed with claude code -- Adam] The reaper cleanup_fixtures() ends with is put to six
+# checks first, in a shell of its own (lib_reap_own_children.sh): until 2026-10-03 this suite
+# carried a copy that nothing here ever held to anything.
+echo "the reaper that kills what this shell forked and did not write down"
+reap_own_children_selftest
 echo "the suite reaps its own fixtures"
 check "no fixture survives this run"              0 "$(reap_fixtures)"
 check "no spawned app survives this run"          0 "$(reap_spawned)"
