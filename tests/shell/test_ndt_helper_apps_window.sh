@@ -675,6 +675,11 @@ check "🔴 reap_two_layer reaps it all the same"           "0" "$(TWO_PARENT="$
 if own_child "$HELD"; then
     if [[ "$OWN_PGID" == "$HELD" ]]; then kill -KILL -- "-$HELD" 2>/dev/null; else kill -KILL "$HELD" 2>/dev/null; fi
 fi
+# [Co-developed with claude code -- Adam] (2026-10-03) And the reaper refuses a subshell: there
+# $$ is still this shell, the substitution is one of its children, and the reaper would KILL the
+# substitution it runs in -- and with it the answer -- before reaching anything else.
+check "reap_own_children refuses to run outside this suite's own shell" yes \
+      "$(r="$(reap_own_children 2>&1)"; [[ "$r" == *"outside this suite's own shell"* ]] && echo yes || echo no)"
 
 section "11. 3-51c: reading a log, truncating it, and looking into a process are three permissions"
 # 🔴 WHAT THIS GROUP CAN AND CANNOT BUILD -- said here so no reader has to infer it.
