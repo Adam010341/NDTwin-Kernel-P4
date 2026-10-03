@@ -586,7 +586,14 @@ def graph_view(graph):
 
 def fabric_view(cfg, runner, hosts, names, dpids=DPIDS):
     """The fabric as the same four sets: thrift show_ports per switch, veth peers in the root
-    namespace, and each host's own interface (its address, MAC and peer) inside its namespace."""
+    namespace, and each host's own interface (its address, MAC and peer) inside its namespace.
+
+    (Cut 2 review MAJOR-1) A switch-to-switch peer is printed by NAME (same namespace), a
+    host-facing one by its index in the host's namespace (collect/fabric.veth_peers). EVERY port a
+    switch lists must end up on a link -- to another switch's port, or claimed by a host's eth0 --
+    or the oracle is unreadable (None): a peer this reader cannot place is a reading not taken,
+    never "no link there", so a parser blind to one form cannot agree with a graph that lacks the
+    same links."""
     reader = TH.ThriftReader(cfg, runner)
     res = runner.run(["ip", "-o", "link", "show"], timeout=10)
     if res.rc != 0:
@@ -601,10 +608,12 @@ def fabric_view(cfg, runner, hosts, names, dpids=DPIDS):
         for port, iface in sp.items():
             port_of[iface] = (d, port)
     edges, ports, hosts_ = set(), set(port_of.values()), set()
+    linked = set()
     for iface, (d, port) in port_of.items():
-        peer = by_index.get(peers.get(iface))
-        if peer in port_of:
+        peer = peers.get(iface)
+        if isinstance(peer, str) and peer in port_of:
             edges.add(frozenset([("s",) + port_of[iface], ("s",) + port_of[peer]]))
+            linked.add(iface)
     for h in names:
         link = hosts.run_in(h, ["ip", "-o", "link", "show", "dev", "eth0"])
         addr = hosts.run_in(h, ["ip", "-o", "addr", "show", "dev", "eth0"])
@@ -617,6 +626,9 @@ def fabric_view(cfg, runner, hosts, names, dpids=DPIDS):
         if sw_iface not in port_of:
             return None
         edges.add(frozenset([("h", got[0], 0), ("s",) + port_of[sw_iface]]))
+        linked.add(sw_iface)
+    if set(port_of) - linked:
+        return None
     return {"switches": set(dpids), "hosts": hosts_, "edges": edges, "ports": ports}
 
 

@@ -585,6 +585,18 @@ class TestSmallOracles(Sealed):
         self.assertEqual(FB.host_pid(["77 bash --norc -is mininet:h1", "78 grep mininet:h1 x"], "h1"), "77")
         self.assertIsNone(FB.host_pid(["77 bash mininet:h1", "79 bash mininet:h1"], "h1"))
         self.assertEqual(FB.veth_peers("7: s1-eth1@if8: <BROADCAST> mtu 1500\n"), {"s1-eth1": 8})
+
+    def test_veth_peers_reads_both_iproute2_forms(self):
+        """MAJOR-1: a peer in the same namespace is printed by NAME, one in another namespace by
+        its INDEX there (r2/veth_format.log, iproute2-6.1.0). A switch-to-switch link of a Mininet
+        fabric is the first kind, a host-facing port the second."""
+        text = ("1: lo: <LOOPBACK> mtu 65536 qdisc noop state DOWN\\    link/loopback 00:00:00:00:00:00\n"
+                "2: s2-eth2@s1-eth4: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc noop\\    link/ether 8a:5d\n"
+                "3: s1-eth4@s2-eth2: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc noop\\    link/ether b6:74\n"
+                "5: s1-eth1@if2: <BROADCAST,MULTICAST> mtu 1500 qdisc noop link-netnsid 0\n"
+                "6: eth9: <BROADCAST> mtu 1500\n")
+        self.assertEqual(FB.veth_peers(text), {"s2-eth2": "s1-eth4", "s1-eth4": "s2-eth2", "s1-eth1": 2})
+        self.assertEqual(FB.ifindex(text)["s1-eth4"], 3)
         self.assertTrue(FB.checksum_offload_off("Features for eth0:\ntx-checksumming: off\n"))
         self.assertEqual(FB.host_addr("2: eth0    inet 10.0.1.1/24 brd x\n link/ether 08:00:00:00:01:11 brd"),
                          ("10.0.1.1", "08:00:00:00:01:11"))
@@ -1199,6 +1211,8 @@ class FakeFabric(object):
         self.ndtwin_priority = None       # what the proxy's future writer would store, or None
         self.tx_checksum = "off"
         self.graph_drop_edge = False
+        self.graph_drop_switch_edges = False
+        self.switch_peer_form = "name"    # "name": iproute2's real form; "none": a parser's blind spot
         self.pipelines = dict(PIPES4)
         self.ctrl_register_ok = False      # bmv2's P4Runtime refuses register writes today
         self.ctrl_fail = set()
@@ -1312,6 +1326,8 @@ class FakeFabric(object):
             edges.append({"src_dpid": GEN.HOSTS[h], "src_ip": sw_ip, "src_interface": GEN.HOST_PORT[h],
                           "dst_dpid": 0, "dst_interface": 1, "dst_ip": [ipn]})
         links = GEN.SWITCH_LINKS[1:] if self.graph_drop_edge else GEN.SWITCH_LINKS
+        if self.graph_drop_switch_edges:
+            links = []
         for a, ap, b, bp, _bw in links:
             edges.append({"src_dpid": a, "src_interface": ap, "dst_dpid": b, "dst_interface": bp, "src_ip": [], "dst_ip": []})
             edges.append({"src_dpid": b, "src_interface": bp, "dst_dpid": a, "dst_interface": ap, "src_ip": [], "dst_ip": []})
@@ -1351,10 +1367,25 @@ class FakeFabric(object):
         return out
 
     def root_links(self):
-        lines = []
+        """`ip -o link show` in the root namespace, as iproute2 prints it (r2/veth_format.log):
+        a peer in the SAME namespace by its name (`s1-eth4@s2-eth2:`, every switch-to-switch
+        link, since Mininet's switches live in the root netns), a peer in another namespace by
+        its index there (`s1-eth1@if2:`, every host-facing port; the host's eth0 is index 2)."""
+        lines = ["1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT\\"
+                 "    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00"]
         for (d, port), far in sorted(self.iface_list().items()):
-            peer = 2 if far[0] == "h" else self.ifindex(far[1], far[2])
-            lines.append("%d: s%d-eth%d@if%d: <BROADCAST,MULTICAST,UP> mtu 1500" % (self.ifindex(d, port), d, port, peer))
+            if far[0] == "h":
+                peer = "if2"
+            elif self.switch_peer_form == "name":
+                peer = "s%d-eth%d" % (far[1], far[2])
+            elif self.switch_peer_form == "none":
+                lines.append("%d: s%d-eth%d: <BROADCAST,MULTICAST,UP> mtu 1500" % (self.ifindex(d, port), d, port))
+                continue
+            else:
+                peer = "if%d" % self.ifindex(far[1], far[2])
+            lines.append("%d: s%d-eth%d@%s: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc htb state UP "
+                         "mode DEFAULT\\    link/ether 4e:4e:38:93:49:%02x brd ff:ff:ff:ff:ff:ff"
+                         % (self.ifindex(d, port), d, port, peer, port))
         return "\n".join(lines) + "\n"
 
     def cli(self, argv, env, inp):
@@ -1855,6 +1886,15 @@ class TestBringUpARedPaths(Cut2):
         s2.meters[("HcIngress.m_in", 0)] = list(OA.METER_TARGET)       # already there before
         v, _c, _a = self.verdict("MT1")
         self.assertEqual(v.verdict, V.PROBE_BROKEN, v)
+
+    def test_switch_links_lost_on_both_sides_are_not_a_green(self):
+        """MAJOR-1's mirror image: a fabric oracle that cannot read the switch-to-switch peers,
+        against a graph that has no switch links either, must not agree its way to GREEN."""
+        self.fab.switch_peer_form = "none"
+        self.fab.graph_drop_switch_edges = True
+        v, _c, a = self.verdict("TP1")
+        self.assertIsNone(a.observations["TP1"]["oracle"])
+        self.assertEqual(v.verdict, V.NOT_RUN, v)
 
     def test_a_missing_edge_is_tp1_red(self):
         self.fab.graph_drop_edge = True

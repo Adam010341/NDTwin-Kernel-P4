@@ -1553,6 +1553,25 @@ add "C2-LAB4. a run with an incomplete bring-up reads as complete" \
     '    complete = True  # MUTANT' \
     'test_a_refused_claim_makes_the_run_incomplete'
 
+# --- Cut 2 review fixes (r2) -----------------------------------------------------------------------
+FABRIC="$PKG/collect/fabric.py"
+HOSTSIDE="$PKG/hostside.py"
+
+add "R2-M1a. a veth peer printed by name is dropped (MAJOR-1)" \
+    "$FABRIC" \
+    '        out[m.group(2)] = int(idx.group(1)) if idx else peer' \
+    '        if idx:  # MUTANT: only the @ifK form
+            out[m.group(2)] = int(idx.group(1))' \
+    'test_bring_up_a_reads_as_predicted'
+
+add "R2-M1b. a switch port nobody could place is not an unread oracle (MAJOR-1's mirror)" \
+    "$OBSA" \
+    '    if set(port_of) - linked:
+        return None' \
+    '    if False:  # MUTANT
+        return None' \
+    'test_switch_links_lost_on_both_sides_are_not_a_green'
+
 
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'
