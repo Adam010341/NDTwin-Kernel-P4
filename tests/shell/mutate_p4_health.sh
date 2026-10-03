@@ -1720,6 +1720,34 @@ add "R2-m5c. the adapter dry run passes any rewrite" \
     '              and len(rewrites) == 4  # MUTANT' \
     'test_the_adapter_dry_run_names_our_controller_and_four_rewrites'
 
+IDPY="$PKG/identity.py"
+
+add "R2-m4a. a lab run starts on a dirty probe tree" \
+    "$PROBEPY" \
+    '    if dirty:
+        print("refused: tools/p4_health has uncommitted changes' \
+    '    if False:  # MUTANT
+        print("refused: tools/p4_health has uncommitted changes' \
+    'test_a_dirty_probe_tree_is_refused_before_anything_runs'
+
+add "R2-m4b. the root-run sflow_emitter.py may differ" \
+    "$IDPY" \
+    'MAY_DIFFER = (re.compile(r"^p4_proxy/proxy_agent/(?!sflow_emitter\.py$)"),' \
+    'MAY_DIFFER = (re.compile(r"^p4_proxy/proxy_agent/"),  # MUTANT' \
+    'test_the_may_differ_classes_are_the_designs'
+
+add "R2-m4c. an unread part of the fingerprint still gives a digest" \
+    "$IDPY" \
+    '    total = UNREAD if any(v == UNREAD for v in parts.values()) else digest(parts.items())' \
+    '    total = digest(parts.items())  # MUTANT' \
+    'test_the_fingerprint_moves_with_what_must_be_the_same_only'
+
+add "R2-m4d. the fingerprint ignores uncommitted edits (HEAD's blob instead of the file)" \
+    "$IDPY" \
+    '    return {"repo_tracked": digest((p, file_sha(os.path.join(repo, p)) or "absent") for p in keep_t),' \
+    '    return {"repo_tracked": digest((p, "x") for p in keep_t),  # MUTANT' \
+    'test_the_fingerprint_moves_with_what_must_be_the_same_only'
+
 
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'

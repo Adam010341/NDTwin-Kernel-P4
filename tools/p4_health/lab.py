@@ -98,7 +98,7 @@ def keep_state(cfg, bringup):
 
 def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None, mutant=False,
             tutorials_utils=None, round_cls=LabRound, a_kwargs=None, b_kwargs=None,
-            expected_tsv=None, log=print):
+            expected_tsv=None, log=print, identity=None):
     """Returns (rc, health document). rc: 0 COMPLETE, 1 PROBE-BROKEN, 2 INCOMPLETE."""
     if s0_out.get("verdict") != "COMPLETE":
         log("S0 is %s: the lab is not touched" % s0_out.get("verdict"))
@@ -147,6 +147,9 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
     doc["only"] = sorted(a.selected) if a else []
     doc["mutant"] = bool(mutant)
     doc["problems"] = problems
+    # (Cut 2 review m4) design 4.3's system_under_test and the Q6(a) gate fingerprint
+    doc["system_under_test"] = (identity or {}).get("system_under_test")
+    doc["gate_fingerprint"] = (identity or {}).get("gate_fingerprint")
     R.dump(os.path.join(run_dir, "health.json"), doc)
     with open(os.path.join(run_dir, "observations.json"), "w", encoding="utf-8") as fh:
         json.dump({"cells": observations, "self_checks": a.sc_observations if a else {}}, fh,

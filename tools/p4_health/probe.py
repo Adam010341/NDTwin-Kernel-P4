@@ -100,6 +100,13 @@ def cmd_lab(args):
     if not owner:
         print("refused: --owner (or NDT_OWNER) is required for a lab run", file=sys.stderr)
         return 2
+    # (Cut 2 review m4) root runs hostside.py, frames.py and __init__.py from this working tree:
+    # a lab run is refused unless tools/p4_health is exactly what HEAD says (no edit, no new file)
+    dirty = _git("status", "--porcelain", "--", "tools/p4_health")
+    if dirty:
+        print("refused: tools/p4_health has uncommitted changes; a lab run runs only committed "
+              "code:\n%s" % dirty, file=sys.stderr)
+        return 2
     run_dir = os.path.abspath(args.run_dir)
     run_id = os.path.basename(run_dir.rstrip("/"))
     py = args.py_p4 or os.environ.get("P4_PROXY_PY") or os.path.join(REPO, "p4_proxy", "venv", "bin", "python")
@@ -110,11 +117,25 @@ def cmd_lab(args):
     s0.out["repo"] = ident
     s0.run()
     print("S0 %s" % s0.out["verdict"])
+    if s0.out["verdict"] != "COMPLETE":
+        print("S0 is %s: the lab is not touched" % s0.out["verdict"])
+        return 1
     cfg = Config(run_dir, owner=owner)
+    # (Cut 2 review m4) DESIGN 4.3 and Q6(a): what this run ran, recorded before the lab
+    from p4_health import identity as ID
+    from p4_health.vs_trial import fabric_binary
+    live = os.path.join(REPO, "doc", "audit", "2026-09-04_p4-tutorial-exercise-prep", "live-p1")
+    sut = ID.system_under_test(runner, REPO, run_dir, py, os.path.join(live, "code_identity.py"))
+    gate = ID.fingerprint(runner, REPO, run_dir,
+                          [py, cfg.p4dev_python, os.path.join(os.path.expanduser("~"), "miniconda3", "envs",
+                                                              "ntg-env", "bin", "python")],
+                          fabric_bmv2=fabric_binary(), fp_script=os.path.join(live, "venv_fingerprint.sh"))
+    ID.dump(os.path.join(run_dir, "gate_fingerprint.json"), gate)
+    print("gate fingerprint %s; system under test %s" % (gate["sha256"], sut))
     bringups = tuple(b for b in (args.bringups or "A,B").split(",") if b)
     only = [c for c in (args.only or "").split(",") if c] or None
     rc, _doc = L.run_lab(cfg, runner, s0.out, run_dir, run_id, bringups=bringups, only=only,
-                         mutant=args.mutant)
+                         mutant=args.mutant, identity={"gate_fingerprint": gate, "system_under_test": sut})
     return rc
 
 

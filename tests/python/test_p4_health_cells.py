@@ -1377,6 +1377,63 @@ class TestS0Cut2Checks(unittest.TestCase):
         self.assertFalse(x.out["checks"][-1]["ok"])
 
 
+class TestTheLiveRunsIdentity(unittest.TestCase):
+    """m4: a lab run refuses a dirty probe, and records the Q6(a) fingerprint and the system
+    under test."""
+
+    def test_a_dirty_probe_tree_is_refused_before_anything_runs(self):
+        from unittest import mock
+        from p4_health import probe
+        asked = []
+
+        def git(*args):
+            asked.append(args)
+            return " M tools/p4_health/hostside.py" if args[0] == "status" else "x"
+        with mock.patch.object(probe, "_git", git), \
+                mock.patch("p4_health.s0.S0", side_effect=AssertionError("S0 must not start")):
+            rc = probe.main(["lab", "--run-dir", "/nonexistent/run", "--owner", "o"])
+        self.assertEqual(rc, 2)
+        self.assertIn(("status", "--porcelain", "--", "tools/p4_health"), asked)
+
+    def test_the_may_differ_classes_are_the_designs(self):
+        from p4_health import identity as ID
+        for path in ("p4_proxy/proxy_agent/main.py", "src/ndt_core/x.cpp", "include/a.hpp", "libs/x",
+                     "cmake/x.cmake", "CMakeLists.txt", "build/bin/ndtwin_kernel", "tests/python/t.py",
+                     "doc/x.md", "doc/audit/y/expected_today.tsv"):
+            self.assertTrue(ID.may_differ(path), path)
+        for path in ("p4_proxy/proxy_agent/sflow_emitter.py", "p4_proxy/mininet/p4_testbed_topo.py",
+                     "tools/p4_health/hostside.py", "tools/test_workflow/ndt", "doc/x.py",
+                     "doc/audit/y/code.sh", "CMakeLists.txt.bak"):
+            self.assertFalse(ID.may_differ(path), path)
+
+    def test_the_fingerprint_moves_with_what_must_be_the_same_only(self):
+        import tempfile
+        from p4_health import identity as ID
+        from p4_health.collect.runner import RecordingRunner
+        d = tempfile.mkdtemp(prefix="p4h-fp-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, d, True)
+        files = {"tools/p4_health/a.py": "1", "src/k.cpp": "2", "doc/n.md": "3",
+                 "p4_proxy/proxy_agent/sflow_emitter.py": "4"}
+        for rel, text in files.items():
+            os.makedirs(os.path.dirname(os.path.join(d, rel)), exist_ok=True)
+            open(os.path.join(d, rel), "w").write(text)
+        r = RecordingRunner([(lambda a: a[:4] == ["git", "-C", d, "ls-files"] and "--others" not in a,
+                              (0, "\0".join(files) + "\0")),
+                             (lambda a: "--others" in a, (0, "")),
+                             (("git",), (1, "")), (("bash",), (1, ""))])
+
+        def fp():
+            return ID.repo_parts(r, d, os.path.join(d, ".test_run", "run"))["repo_tracked"]
+        base = fp()
+        open(os.path.join(d, "src/k.cpp"), "w").write("changed")
+        open(os.path.join(d, "doc/n.md"), "w").write("changed")
+        self.assertEqual(fp(), base)
+        open(os.path.join(d, "p4_proxy/proxy_agent/sflow_emitter.py"), "w").write("changed")
+        self.assertNotEqual(fp(), base)
+        whole = ID.fingerprint(r, d, d, ["/no/python"], ntg=os.path.join(d, "no-ntg"))
+        self.assertEqual(whole["sha256"], "incomplete")          # an unread part is not a match
+
+
 class TestCut2Decisions(unittest.TestCase):
 
     def test_a_cell_never_observed_is_not_run_for_that_reason(self):

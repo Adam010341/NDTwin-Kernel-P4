@@ -2325,6 +2325,16 @@ class TestTheLabRun(Cut2):
                               log=lambda *a: None, **kw)
         return rc, doc, r
 
+    def test_the_identity_goes_into_health_json(self):
+        r = self.ndt_runner()
+        ident = {"gate_fingerprint": {"sha256": "f" * 64, "parts": {}}, "system_under_test": "/r/code_identity.json"}
+        _rc, doc = LAB.run_lab(self.cfg, r, self.s0, self.cfg.run_dir, "run-x", round_cls=self.rounds(),
+                               tutorials_utils="/tutorials/utils", expected_tsv=self.expected,
+                               b_kwargs=self.fake_time(), log=lambda *a: None, identity=ident)
+        with open(os.path.join(self.cfg.run_dir, "health.json")) as fh:
+            h = json.load(fh)
+        self.assertEqual((h["gate_fingerprint"]["sha256"], h["system_under_test"]), ("f" * 64, "/r/code_identity.json"))
+
     def test_a_then_b_then_the_verdicts(self):
         rc, doc, r = self.run_lab()
         ndt = [(c["argv"][1], c["argv"][-1] if c["argv"][1] == "up" else "") for c in r.calls if c["argv"][0] == "ndt"]
@@ -2339,6 +2349,8 @@ class TestTheLabRun(Cut2):
         self.assertEqual(cells["CH1"]["phase"], "unobserved")
         self.assertEqual((doc["verdict"], rc), ("COMPLETE", 0))
         self.assertTrue(os.path.isfile(os.path.join(self.cfg.run_dir, "health.json")))
+        self.assertIn("gate_fingerprint", doc)
+        self.assertIn("system_under_test", doc)
         self.assertTrue(os.path.isfile(os.path.join(self.cfg.run_dir, "A", "K1.json")))
 
     # --- MAJOR-3: B only after A ended clean, and A's record survives -------------------------
