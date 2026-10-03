@@ -1755,9 +1755,9 @@ add "R2-m4d. the fingerprint ignores uncommitted edits (HEAD's blob instead of t
     'test_the_fingerprint_moves_with_what_must_be_the_same_only'
 
 
-# --- Cut 2 second review (r3) ------------------------------------------------------------------------
+# --- Cut 2 second review (labels R7-) ------------------------------------------------------------------------
 
-add "R3-N1a. a round stopped by a signal lets B claim the lab" \
+add "R7-N1a. a round stopped by a signal lets B claim the lab" \
     "$LABPY" \
     '        if signalled(recs[-1]):
             # (Cut 2 review N1) a stop is a stop' \
@@ -1765,19 +1765,19 @@ add "R3-N1a. a round stopped by a signal lets B claim the lab" \
             # (Cut 2 review N1) a stop is a stop' \
     'test_a_signal_in_an_observer_ends_the_run'
 
-add "R3-N1b. the stop signal is an Exception again (every except Exception swallows it)" \
+add "R7-N1b. the stop signal is an Exception again (every except Exception swallows it)" \
     "$LABROUND" \
     'class SignalAbort(BaseException):' \
     'class SignalAbort(Exception):  # MUTANT' \
     'test_a_signal_while_a_sniffer_is_waited_for_ends_the_round_there'
 
-add "R3-N1c. no handler between the rounds" \
+add "R7-N1c. no handler between the rounds" \
     "$LABPY" \
     '    old_handlers = _stop_on_signals() if signals else None' \
     '    old_handlers = None  # MUTANT' \
     'test_a_signal_between_the_rounds_ends_the_run'
 
-add "R3-N2. a B whose controller did nothing leaves the run complete" \
+add "R7-N2. a B whose controller did nothing leaves the run complete" \
     "$LABPY" \
     '        elif b.failed:' \
     '        elif False:  # MUTANT' \
