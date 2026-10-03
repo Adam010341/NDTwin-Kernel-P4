@@ -1566,10 +1566,10 @@ add "R2-M1a. a veth peer printed by name is dropped (MAJOR-1)" \
 
 add "R2-M1b. a switch port nobody could place is not an unread oracle (MAJOR-1's mirror)" \
     "$OBSA" \
-    '    if set(port_of) - linked:
-        return None' \
+    '    if d_["unplaced"]:
+        return fail(' \
     '    if False:  # MUTANT
-        return None' \
+        return fail(' \
     'test_switch_links_lost_on_both_sides_are_not_a_green'
 
 add "R2-M2a. the sniffer takes any frame that quotes a marker (MAJOR-2)" \
