@@ -3,7 +3,7 @@
 
 [Co-developed with claude code -- Adam]
 
-DESIGN 2.1 says a route's absence is read from /openapi.json, and marks "FastAPI serves it by
+design 2.1 says a route's absence is read from /openapi.json, and marks "FastAPI serves it by
 default (main.py:38 does not turn it off)" as an inference for Cut 1 to verify. This verifies it
 without starting the proxy: it reads main.py's `app = FastAPI(...)` call with `ast` (no
 `openapi_url` / `docs_url` keyword may be there), builds an app with exactly those keywords,

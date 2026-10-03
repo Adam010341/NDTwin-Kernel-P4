@@ -8,7 +8,7 @@
     probe.py lab ...                                               refused: Cut 2 builds it
 
 Exit: 0 COMPLETE, 1 PROBE-BROKEN (not publishable), 2 INCOMPLETE / refused.
-Refuses to run as root (DESIGN 7.3). Wrap in run.sh (setsid, nice) for anything long.
+Refuses to run as root (design 7.3). Wrap in run.sh (setsid, nice) for anything long.
 """
 from __future__ import annotations
 
@@ -32,25 +32,35 @@ from p4_health.collect.runner import Runner  # noqa: E402
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
+def _git(*args):
+    try:
+        return subprocess.run(["git", "-C", REPO] + list(args), stdout=subprocess.PIPE,
+                              stderr=subprocess.DEVNULL, universal_newlines=True, timeout=10).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
 def probe_version():
     """The git tree sha of tools/p4_health at HEAD, plus whether the working copy differs."""
-    try:
-        tree = subprocess.run(["git", "-C", REPO, "rev-parse", "HEAD:tools/p4_health"],
-                              stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                              universal_newlines=True, timeout=10).stdout.strip()
-        dirty = subprocess.run(["git", "-C", REPO, "status", "--porcelain", "--", "tools/p4_health"],
-                               stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                               universal_newlines=True, timeout=10).stdout.strip()
-    except (OSError, subprocess.SubprocessError):
-        return "unknown"
+    tree = _git("rev-parse", "HEAD:tools/p4_health") or "unknown"
+    dirty = _git("status", "--porcelain", "--", "tools/p4_health")
     return tree + ("+uncommitted" if dirty else "")
+
+
+def repo_identity():
+    """HEAD (a commit sha), the probe's tree, and whether either is dirty (review MINOR 14)."""
+    return {"head": _git("rev-parse", "HEAD") or "unknown", "probe_tree": probe_version(),
+            "dirty_paths": len([l for l in _git("status", "--porcelain").splitlines() if l.strip()])}
 
 
 def cmd_s0(args):
     from p4_health.s0 import S0
     py = args.py_p4 or os.environ.get("P4_PROXY_PY") or os.path.join(REPO, "p4_proxy", "venv", "bin", "python")
     s0 = S0(args.run_dir, Runner(), py)
-    print("S0 -> %s  (probe %s)" % (os.path.abspath(args.run_dir), probe_version()))
+    ident = repo_identity()
+    print("S0 -> %s  (HEAD %s, probe tree %s)" % (os.path.abspath(args.run_dir), ident["head"],
+                                                  ident["probe_tree"]))
+    s0.out["repo"] = ident
     rc = s0.run()
     print("S0 %s" % s0.out["verdict"])
     return rc
@@ -63,8 +73,9 @@ def cmd_judge(args):
     expected = E.load(args.expected or os.path.join(
         REPO, "doc", "audit", "2026-10-03_p4-health-check", "expected_today.tsv"))
     ann = E.annotate(ctx, expected)
-    rollups = {s: V.rollup(T.TABLE, ctx, s) for s in ("core", "full")}
-    verdict, rc = V.run_verdict(ctx, bringups_complete=doc.get("bringups_complete", True))
+    rollups = {s: V.rollup(T.TABLE, ctx, s) for s in V.SCOPES}
+    # A recording that does not say its bring-ups completed did not complete (review MINOR 19).
+    verdict, rc = V.run_verdict(ctx, bringups_complete=doc.get("bringups_complete") is True)
     rows = R.table_rows(T.TABLE, ctx, ann)
     os.makedirs(args.run_dir, exist_ok=True)
     with open(os.path.join(args.run_dir, "00_table.tsv"), "w", encoding="utf-8") as fh:
@@ -80,7 +91,7 @@ def cmd_judge(args):
 
 def main(argv=None):
     if os.geteuid() == 0:
-        print("refusing to run as root (DESIGN 7.3)", file=sys.stderr)
+        print("refusing to run as root (design 7.3)", file=sys.stderr)
         return 2
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = ap.add_subparsers(dest="cmd")

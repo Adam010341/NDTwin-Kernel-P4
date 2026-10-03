@@ -22,7 +22,9 @@ from p4_health import runtime_cli as RC  # noqa: E402
 from p4_health import throwaway as TW  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CLI = ["/home/adam/p4dev-python-venv/bin/python", "/usr/local/bin/simple_switch_CLI"]
+from p4_health.collect.config import default_p4dev_python  # noqa: E402
+
+CLI = [default_p4dev_python(), "/usr/local/bin/simple_switch_CLI"]
 
 WRITES = [
     "table_add HcIngress.t_ternary HcIngress.set_mark 10.0.1.1&&&255.255.255.0 => 7 10",

@@ -2,7 +2,7 @@
 
 [Co-developed with claude code -- Adam]
 
-DESIGN section 2.1 "marker": every active stimulus carries the sender's MAC, the cell's own UDP
+design section 2.1 "marker": every active stimulus carries the sender's MAC, the cell's own UDP
 dport (40001-40099), and a payload that starts b"NDTHC" + run id + cell id + sequence number.
 S0's offline self-checks run the program on a throwaway bmv2 in pcap mode and need the same
 frames without scapy (the p4_proxy venv has none); the live sender (Cut 2) uses scapy in the
@@ -195,12 +195,15 @@ def write_pcap(path, frames):
 
 
 def read_pcap(path):
-    """Every frame in a pcap file, in order; [] when the file is missing or empty."""
+    """Every frame in a pcap file, in order; None when the file is missing or is not a pcap
+    (unreadable is not "no frames")."""
     try:
         with open(path, "rb") as fh:
             data = fh.read()
     except OSError:
-        return []
+        return None
+    if len(data) < 24 or data[:4] not in (b"\xd4\xc3\xb2\xa1", b"\xa1\xb2\xc3\xd4"):
+        return None
     frames, off = [], 24
     while off + 16 <= len(data):
         incl = struct.unpack_from("<I", data, off + 8)[0]

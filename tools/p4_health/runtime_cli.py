@@ -2,9 +2,10 @@
 
 [Co-developed with claude code -- Adam]
 
-Used ONLY by S0's offline self-checks, to give a throwaway bmv2 the same entries, groups and
-clone session a bring-up would. The lab never sees these commands: on a fabric the entries go in
-through the proxy's P4Runtime writer, and the probe never writes through thrift (DESIGN 7.1).
+Used ONLY by S0's offline self-checks, to give a throwaway bmv2 (throwaway.py) the same entries,
+groups and clone session a bring-up would. The lab never sees these commands: on a fabric the
+entries go in through the proxy's P4Runtime writer, and the probe never writes through thrift to
+a fabric switch (design 7.1).
 Exact and lpm, default actions, multicast groups and clone sessions -- the kinds the package
 format carries; anything else is refused rather than translated by guess.
 """

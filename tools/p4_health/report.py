@@ -1,4 +1,4 @@
-"""health.json, 00_table.tsv and the terminal table (DESIGN 4.3).
+"""health.json, 00_table.tsv and the terminal table (design 4.3), with the three rollups.
 
 [Co-developed with claude code -- Adam]
 """
@@ -23,7 +23,8 @@ def table_rows(table, ctx, annotated):
     for ctl in table.controls:
         v = ctx.cells.get(ctl.id)
         if v is not None:
-            rows.append(["control", ctl.id, "-", v.label, "-", "GREEN", "-", v.reason])
+            exp, d = annotated.get(ctl.id, (None, "unpredicted"))
+            rows.append(["control", ctl.id, "-", v.label, "-", exp or "-", d, v.reason])
     return rows
 
 
@@ -40,7 +41,7 @@ def render(rows, rollups):
     lines = ["  ".join(str(h).ljust(w) for h, w in zip(HEADER, widths)) + "  reason"]
     for r in rows:
         lines.append("  ".join(str(x).ljust(w) for x, w in zip(r, widths)) + "  " + str(r[-1]))
-    for scope in ("core", "full"):
+    for scope in V.SCOPES:
         t = rollups[scope]["totals"]
         lines.append("rollup %-4s  can %d  partial %d  cannot %d  undecided %d  (of %d dimensions)"
                      % (scope, t[V.CAN], t[V.PART], t[V.CANNOT], t[V.UNDECIDED],
@@ -58,6 +59,10 @@ def health(run_id, probe_version, lab_surface, s0, bringups, table, ctx, annotat
                        expected_today=annotated.get(c.id, (None,))[0],
                        delta=annotated.get(c.id, (None, "unpredicted"))[1])
                   for c in table.cells if c.id in ctx.cells],
+        "controls": [dict(ctx.cells[c.id].as_dict(), id=c.id, of=c.of,
+                          expected_today=annotated.get(c.id, (None,))[0],
+                          delta=annotated.get(c.id, (None, "unpredicted"))[1])
+                     for c in table.controls if c.id in ctx.cells],
         "rollup": rollups, "verdict": verdict,
     }
 

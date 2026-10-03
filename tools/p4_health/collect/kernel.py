@@ -25,23 +25,23 @@ def flows(cfg):
 
 
 def side_rows(flow_doc):
-    """The non-IPv4 side table's rows out of a get_detected_flow_data document ([] if none)."""
-    if isinstance(flow_doc, dict):
-        rows = flow_doc.get("non_ipv4_flows")
-        return list(rows) if isinstance(rows, list) else []
-    return []
+    """The non-IPv4 side table's rows out of a get_detected_flow_data document; None when the
+    document is unreadable or carries no such list -- unreadable is not "no rows"."""
+    if isinstance(flow_doc, dict) and isinstance(flow_doc.get("non_ipv4_flows"), list):
+        return list(flow_doc["non_ipv4_flows"])
+    return None
 
 
 def side_row_for(rows, ethertype, src_mac, dst_mac):
     """The side-table row for exactly this ethertype AND this MAC pair, or None.
 
-    🔴 ALL THREE KEYS (DESIGN 2.3 CH7, judge r2 K01). Matching on the ethertype alone lets CH2's
+    🔴 ALL THREE KEYS (design 2.3 CH7). Matching on the ethertype alone lets CH2's
     0x1234 row, or any host's ARP, answer for CH7; matching without the destination MAC lets a
     row from another pair answer for this one.
     """
     def norm(m):
         return str(m or "").lower()
-    for row in rows:
+    for row in rows or ():
         if not isinstance(row, dict):
             continue
         et = row.get("ethertype")

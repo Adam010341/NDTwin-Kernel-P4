@@ -3,9 +3,13 @@
 [Co-developed with claude code -- Adam]
 
 sudo, mnexec, tc, ndt, simple_switch_CLI, ps, ip, ethtool: every one of them is run through a
-`Runner` the caller hands in (DESIGN section 4.1). Nothing under tools/p4_health calls
-`subprocess` itself, so a test that injects a `RecordingRunner` has seen every command the code
-would have run -- and the hermetic test proves it by putting fail-loud stubs first on PATH.
+`Runner` the caller hands in (design 4.1), so a test that injects a `RecordingRunner` has seen
+every command the reading layer and the lifecycle would have run -- and the hermetic test proves
+it with fail-loud stubs first on PATH and a refusal of every other spawn.
+
+The exceptions are outside the reading layer and the lifecycle, and none of them touches the
+lab: probe.py's `git` identity calls, the throwaway switch's own long-lived child (throwaway.py,
+stopped by its pid), and the two offline helpers capture_thrift_fixtures.py and vs_trial.py.
 """
 from __future__ import annotations
 

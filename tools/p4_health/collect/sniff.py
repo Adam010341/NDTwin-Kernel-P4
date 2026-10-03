@@ -2,7 +2,7 @@
 
 [Co-developed with claude code -- Adam]
 
-DESIGN 2.1 step 3: the stimulus count is what the sender REPORTS it sent, never what it was
+design 2.1 step 3: the stimulus count is what the sender REPORTS it sent, never what it was
 asked to send (mutation M3). The sender prints one line per run,
 
     SENT cell=<id> n=<frames actually sent> ident=<ip id used> requested=<n asked for>

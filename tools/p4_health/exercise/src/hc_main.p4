@@ -6,7 +6,7 @@
  * that selects on the ingress port). -DHC_MUTANT_NO_COUNT / _NO_TTL / _NO_QSTAMP change action
  * bodies only, so their p4info is byte-identical to the plain build (S0 asserts that);
  * -DHC_MUTANT_FWD_88B5 forwards the heartbeat frame instead of dropping it and exists only for
- * S0's drop-check control. Design: doc/audit/2026-10-03_p4-health-check/DESIGN.md section 3.
+ * S0's drop-check control (design section 3).
  *
  * Every UDP marker uses the dport of its cell; the HC_DPORT_* values are mirrored in
  * tools/p4_health/cells/table.py and a test compares the two.

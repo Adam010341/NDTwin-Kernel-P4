@@ -7,7 +7,7 @@
     python3 tools/p4_health/exercise/gen_runtime.py --check    # rc 1 if any committed file differs
 
 The files are committed; this script is how they were made and how a test proves they still
-match one table (tests/python/test_p4_health_cells.py). DESIGN section 2.2:
+match one table (tests/python/test_p4_health_cells.py). design section 2.2:
 
        h1 h2 h3                h4
         \\ | /                  |

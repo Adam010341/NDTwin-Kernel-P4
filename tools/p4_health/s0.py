@@ -1,4 +1,4 @@
-"""S0: everything the health check can establish without the lab. (DESIGN 4.2, Cut 1)
+"""S0: everything the health check can establish without the lab. (design 4.2, Cut 1)
 
 [Co-developed with claude code -- Adam]
 
@@ -24,6 +24,7 @@ from . import runtime_cli as RC
 from . import throwaway as TW
 from .cells import table as T
 from .cells import verdict as V
+from .collect.config import default_p4dev_python
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
@@ -49,7 +50,7 @@ ALT_ONLY_TABLE = "HcIngress.alt_port_stamp"
 ROLE_C = ("owner=ndtwin,table=HcIngress.ipv4_lpm,match_field=hdr.ipv4.dstAddr,"
           "action=HcIngress.ipv4_forward,dst_mac=dstAddr,port=port")
 
-#: What the program must carry (DESIGN 3 and the Q3(b) constructs) -> how S0 sees it.
+#: What the program must carry (design 3 and the Q3(b) constructs) -> how S0 sees it.
 INVENTORY = {
     "match_exact": ("p4info", "match_type: EXACT"), "match_lpm": ("p4info", "match_type: LPM"),
     "match_ternary": ("p4info", "match_type: TERNARY"), "match_range": ("p4info", "match_type: RANGE"),
@@ -64,10 +65,24 @@ INVENTORY = {
     "clone_i2e": ("json-op", "clone_ingress_pkt_to_egress"), "recirculate": ("json-op", "recirculate"),
     "resubmit": ("json-op", "resubmit"), "hash": ("json-op", "modify_field_with_hash_based_offset"),
     "random": ("json-op", "modify_field_rng_uniform"), "digest_op": ("json-op", "generate_digest"),
-    "mcast_grp": ("json-text", '"mcast_grp"'), "enq_qdepth": ("json-text", '"enq_qdepth"'),
+    # standard_metadata always DECLARES these two fields, so the needle is a use inside an action
+    # (review MINOR 12): an assignment to mcast_grp, a read of enq_qdepth.
+    "mcast_grp": ("json-assign", ["standard_metadata", "mcast_grp"]),
+    "enq_qdepth": ("json-read", ["standard_metadata", "enq_qdepth"]),
     "header_union": ("json-union", None), "varbit": ("json-varbit", None),
     "header_stack": ("json-stack", None), "ipv4_checksum": ("json-checksum", None),
 }
+
+
+def _uses_field(node, field):
+    """Whether a bmv2-JSON expression tree reads `field` (["header", "field"])."""
+    if isinstance(node, dict):
+        if node.get("type") == "field" and node.get("value") == field:
+            return True
+        return any(_uses_field(v, field) for v in node.values())
+    if isinstance(node, list):
+        return any(_uses_field(v, field) for v in node)
+    return False
 
 
 def sha16(path):
@@ -88,8 +103,13 @@ def inventory(json_path, p4info_path):
             found[name] = needle in p4info
         elif where == "json-op":
             found[name] = needle in ops
-        elif where == "json-text":
-            found[name] = needle in text
+        elif where == "json-assign":
+            found[name] = any(p.get("op") == "assign" and (p.get("parameters") or [{}])[0].get("value") == needle
+                              for a in j.get("actions", []) for p in a.get("primitives", []))
+        elif where == "json-read":
+            found[name] = any(_uses_field(p.get("parameters", [])[1:] if p.get("op") == "assign"
+                                          else p.get("parameters", []), needle)
+                              for a in j.get("actions", []) for p in a.get("primitives", []))
         elif where == "json-union":
             found[name] = bool(j.get("header_union_types"))
         elif where == "json-varbit":
@@ -105,7 +125,7 @@ def classify_pft(stdout):
     """(lines that are the G5 refusal, FAIL rows that are about anything else) in pre-flight's
     table. A continuation row (`  FAIL        <detail>`, no label) belongs to the row above it, so
     only labelled rows are classified; PF-T is the G5 answer only when the one labelled FAIL row
-    is "entries match p4info" and it carries the G5 sentence (DESIGN 2.3 PF-T)."""
+    is "entries match p4info" and it carries the G5 sentence (design 2.3 PF-T)."""
     g5 = sum(1 for line in (stdout or "").splitlines() if "G5 not done" in line)
     labelled = [line for line in (stdout or "").splitlines()
                 if line.startswith("  FAIL  ") and line[8:9] not in (" ", "")]
@@ -122,19 +142,18 @@ def _delta(before, after):
 
 def preflight_rows(stdout):
     """(FAIL rows, the problem lines under them) out of preflight.py's table."""
-    fails = [line for line in (stdout or "").splitlines() if line.startswith("  FAIL")]
-    return fails
+    return [line for line in (stdout or "").splitlines() if line.startswith("  FAIL")]
 
 
 class S0(object):
     def __init__(self, run_dir, runner, py_p4, bmv2=TW.DEFAULT_BMV2,
-                 thrift_cli=("/home/adam/p4dev-python-venv/bin/python", "/usr/local/bin/simple_switch_CLI"),
+                 thrift_cli=None,
                  p4c="p4c-bm2-ss", hb_cache=None, log=print):
         self.run_dir = os.path.abspath(run_dir)
         self.runner = runner
         self.py = py_p4
         self.bmv2 = bmv2
-        self.thrift_cli = list(thrift_cli)
+        self.thrift_cli = list(thrift_cli or [default_p4dev_python(), "/usr/local/bin/simple_switch_CLI"])
         self.p4c = p4c
         self.hb_cache = hb_cache or os.path.join(self.run_dir, "hb-cache")
         self.log = log
@@ -210,7 +229,7 @@ class S0(object):
         res = self.run_cmd(argv)
         ok = res.rc == 0 and os.path.isfile(os.path.join(pkg, "package.json"))
         if ok:
-            # DESIGN 2.2: every package states telemetry.source = link (convert has no flag for it).
+            # design 2.2: every package states telemetry.source = link (convert has no flag for it).
             path = os.path.join(pkg, "package.json")
             with open(path, encoding="utf-8") as fh:
                 doc = json.load(fh)
@@ -346,7 +365,7 @@ class S0(object):
             sw.wait_processed()
             reads = {}
             for cmd in ("counter_read HcIngress.c_in 0", "register_read HcIngress.r_mark 0",
-                        "table_dump HcIngress.ipv4_lpm", "show_tables"):
+                        "table_dump HcIngress.ipv4_lpm", "table_dump HcIngress.v6_host", "show_tables"):
                 reads[cmd] = sw.cli([cmd])
             # PF-T's static attribution: this bmv2 holds a ternary entry and dumps it back.
             sw.cli(["table_add HcIngress.t_ternary HcIngress.set_mark 10.0.1.1&&&255.255.255.255 => 7 10"])
@@ -355,11 +374,13 @@ class S0(object):
         finally:
             res["stop_rc"] = sw.stop()
         from .collect import thrift as TH
+        from . import observe as OB
         res["reads"] = reads
         res["c_in_before"] = TH.parse_counter(TH.body(before))
+        res["missing_outputs"] = sorted(p for p, fs in outs.items() if fs is None)
         parsed = {p: [F.parse(f) if p != gen.CPU_PORT else dict(F.parse(F.packet_in_split(f)[1]),
                                                                   packet_in_port=F.packet_in_split(f)[0])
-                      for f in fs] for p, fs in outs.items()}
+                      for f in (fs or [])] for p, fs in outs.items()}
         res["outputs"] = {str(p): len(v) for p, v in parsed.items()}
 
         def marked(cell):
@@ -384,11 +405,14 @@ class S0(object):
                          "sent": len(k), "received": len(marked("K1"))},
             "SC-reg": {"chosen": 4660, "register": TH.parse_register(TH.body(reads["register_read HcIngress.r_mark 0"]))},
             "SC-qstamp": {"sent_idents": {0}, "stamped": sum(1 for _p, x in marked("Q1") if x.get("ident", 0) & 0x8000)},
-            "SC-ttl": {"hops_lpm": T.hops_from_lpm({dpid: {gen.host_ip(local): out_port}}, {}, dpid, gen.host_ip(local)),
+            "SC-ttl": {"hops_lpm": T.hops_from_lpm({dpid: OB.lpm_routes(dump)}, {}, dpid, gen.host_ip(local)),
                        "ttls": [x.get("ttl") for _p, x in marked("TTL1")], "sent_ttl": 64},
             "SC-recirc": {"flags": [x.get("diffserv", 0) for _p, x in marked("RC1")]},
-            "SC-union": {"hops": 1, "hop_limits": [x.get("hop_limit") for xs in parsed.values() for x in xs
-                                                   if x.get("ethertype") == F.ETH_IPV6]},
+            "SC-union": {"hops_v6": T.hops_from_lpm(
+                             {dpid: OB.v6_routes(TH.parse_table_dump(TH.body(reads["table_dump HcIngress.v6_host"])))},
+                             {}, dpid, local),
+                         "hop_limits": [x.get("hop_limit") for xs in parsed.values() for x in xs
+                                        if x.get("ethertype") == F.ETH_IPV6]},
         }
         states = {}
         for sc in T.SELF_CHECKS:
@@ -426,8 +450,11 @@ class S0(object):
         return res
 
     def self_checks(self):
-        want_fail = {"main": set(), "alt": set(), "mutant": {"SC-count", "SC-ttl", "SC-qstamp"}}
-        runs = {"main": ("build", 2), "alt": ("build", 1), "mutant": ("build-mutant", 2)}
+        want_fail = {"main": set(), "alt": set(), "mutant": {"SC-count", "SC-ttl", "SC-qstamp"},
+                     "fwd": set()}
+        # fwd: the heartbeat check below must be seen red once (review MINOR 13)
+        runs = {"main": ("build", 2), "alt": ("build", 1), "mutant": ("build-mutant", 2),
+                "fwd": ("build-fwd", 2)}
         for label, (bdir, dpid) in sorted(runs.items()):
             try:
                 r = self.selfcheck_run(label, bdir, dpid)
@@ -439,9 +466,16 @@ class S0(object):
             self.check("self-checks on the throwaway (%s, s%d)" % (label, dpid), failed == want_fail[label],
                        "failed %s, expected %s" % (sorted(failed), sorted(want_fail[label])))
             pr = r["probes"]
-            self.check("  %s: 0x88B5 dropped with every entry installed" % label,
-                       pr["heartbeat_frames_out_with_entries"] == 0,
-                       "%d heartbeat frame(s) left the switch" % pr["heartbeat_frames_out_with_entries"])
+            self.check("  %s: every output pcap readable" % label, not r["missing_outputs"],
+                       "missing %s" % r["missing_outputs"])
+            if label == "fwd":
+                self.check("  fwd: the 0x88B5 check goes red on the forwarding build",
+                           pr["heartbeat_frames_out_with_entries"] > 0,
+                           "%d heartbeat frame(s) left the switch" % pr["heartbeat_frames_out_with_entries"])
+            else:
+                self.check("  %s: 0x88B5 dropped with every entry installed" % label,
+                           pr["heartbeat_frames_out_with_entries"] == 0,
+                           "%d heartbeat frame(s) left the switch" % pr["heartbeat_frames_out_with_entries"])
             if label == "main":
                 lp = r["local_port"]
                 self.check("  main: custom headers parsed and forwarded to the host port",
@@ -467,6 +501,64 @@ class S0(object):
                            pr["hash_uplinks"] == [4, 5] and pr["random_uplinks"] == [4, 5],
                            "hash %s random %s" % (pr["hash_uplinks"], pr["random_uplinks"]))
                 self.check("  alt: show_tables lists the hc_alt-only table", pr["alt_table_listed"])
+
+    def identity(self):
+        """What binaries this S0 ran (review MINOR 14): sha256[:16] of each, and `--version` run
+        through a symlink named ndt-hc-version (so not even a version run reads as a switch)."""
+        vdir = os.path.join(self.run_dir, ".version-bin")
+        os.makedirs(vdir, exist_ok=True)
+        out = {}
+        fabric = None
+        try:
+            from .vs_trial import fabric_binary
+            fabric = fabric_binary()
+        except Exception:  # noqa: BLE001
+            pass
+        p4c = shutil.which(self.p4c) or self.p4c
+        for name, path in (("p4c", p4c), ("simple_switch", self.bmv2),
+                           ("simple_switch_grpc_stock", "/usr/local/bin/simple_switch_grpc"),
+                           ("simple_switch_grpc_fabric", fabric),
+                           ("simple_switch_CLI", self.thrift_cli[-1])):
+            if not path or not os.path.isfile(path):
+                out[name] = {"path": path, "sha16": None, "version": None}
+                continue
+            link = os.path.join(vdir, "ndt-hc-version-%s" % name)
+            if not os.path.lexists(link):
+                os.symlink(os.path.realpath(path), link)
+            ver = None
+            if name != "simple_switch_CLI":
+                env = None
+                lib = os.path.normpath(os.path.join(os.path.dirname(os.path.realpath(path)), "..", "lib"))
+                if name.endswith("_fabric") and os.path.isdir(lib):
+                    env = {"LD_LIBRARY_PATH": lib}
+                res = self.runner.run([link, "--version"], timeout=20, env=env)
+                ver = ((res.stdout or res.stderr).strip().splitlines() or [None])[-1]
+            out[name] = {"path": os.path.realpath(path), "sha16": sha16(path), "version": ver}
+        self.out["identity"] = out
+        self.check("identity of p4c and the bmv2 binaries recorded",
+                   all(out[k]["sha16"] for k in ("p4c", "simple_switch", "simple_switch_CLI")),
+                   " ".join("%s=%s" % (k, (v["sha16"] or "-")) for k, v in sorted(out.items())))
+
+    def vs_trial(self):
+        """VS1's Cut 2 safety question (review MAJ-8), asked of throwaway simple_switch_grpc."""
+        try:
+            from . import vs_trial as VT
+            results = [VT.trial(os.path.join(self.ex, "build"), b, self.thrift_cli,
+                                os.path.join(self.run_dir, "vs_trial_work"))
+                       for b in ("/usr/local/bin/simple_switch_grpc", VT.fabric_binary())]
+        except Exception as exc:  # noqa: BLE001
+            self.check("ValueSetEntry trial on throwaway simple_switch_grpc", False,
+                       "%s: %s" % (type(exc).__name__, exc))
+            return
+        self.out["vs_trial"] = results
+        alive = all(r.get("alive_after_write") and r.get("alive_after_read") for r in results)
+        refused = all(any(e.get("canonical_code") == 12 for e in (r.get("write_errors") or []))
+                      for r in results)
+        self.check("ValueSetEntry write: switch survives, write UNIMPLEMENTED (both builds)",
+                   alive and refused,
+                   "; ".join("%s: %s alive=%s" % (os.path.basename(os.path.dirname(os.path.dirname(r["bmv2"]))),
+                                                   (r.get("write_errors") or [{}])[0].get("message"),
+                                                   r.get("alive_after_write")) for r in results))
 
     def openapi(self):
         res = self.run_cmd([self.py, os.path.join(HERE, "openapi_probe.py"), "--repo", REPO], timeout=120)
@@ -499,6 +591,8 @@ class S0(object):
             self.preflight()
             self.drop_check()
             self.self_checks()
+            self.vs_trial()
+        self.identity()
         self.openapi()
         self.pft_verdict()
         ok = all(c["ok"] for c in self.out["checks"])

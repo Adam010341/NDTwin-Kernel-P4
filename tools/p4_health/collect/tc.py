@@ -4,7 +4,7 @@
 
 The netem commands are the ones tools/test_workflow/faults.sh uses (`sudo -n tc qdisc ... dev
 <if> root netem loss 100%`), on the s2-s4 interfaces, which carry no shaping of their own --
-DESIGN 4.2. Before any of them runs, lab_round records the interface in LAB_STATE.json.
+design 4.2. Before any of them runs, lab_round records the interface in LAB_STATE.json.
 """
 from __future__ import annotations
 

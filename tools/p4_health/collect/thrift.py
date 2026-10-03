@@ -2,14 +2,17 @@
 
 [Co-developed with claude code -- Adam]
 
-DESIGN 2.1 "oracle": `table_dump`, `show_tables`, `counter_read`, `register_read`,
+design 2.1 "oracle": `table_dump`, `show_tables`, `counter_read`, `register_read`,
 `meter_get_rates`, `mc_dump`, `mirroring_get`, `show_ports` -- plus, for the Q3(b) cells,
-`act_prof_dump` and `pvs_get`. Nothing here writes: WRITE_WORDS is checked on every command.
+`act_prof_dump` and `pvs_get`. Nothing here writes: `check_read_only` admits a command only
+when its first word is one of READ_COMMANDS and it is a single line (a newline would hand the
+CLI a second command on its stdin). The only thrift writes in tools/p4_health go to throwaway
+switches the probe started itself (throwaway.py); a fabric switch is only ever read.
 
 🔴 UNREADABLE IS None, AND IS NEVER "PRESENT". Every parser returns None for output it does not
 recognise -- a switch that is not there ("Could not connect"), a name the switch does not have
 ("Error: Invalid ... name"), an empty reply. A reader that turned those into a match is exactly
-what the same-window negative reads exist to catch (DESIGN 2.1), and a reader that turns them
+what the same-window negative reads exist to catch (design 2.1), and a reader that turns them
 into "absent" would hand the negative read a pass it did not earn -- so "absent" is a positive
 statement that only a recognised reply can make (`mirroring_get`'s SESSION_NOT_FOUND, a dump
 with no such entry, a `pvs_get` that printed its prompt and nothing else).
@@ -19,18 +22,16 @@ p4c 1.2.5.15) on 2026-10-03; tests/python/fixtures/p4_health/thrift/ holds those
 
 Observed while capturing: `pvs_add` through simple_switch_CLI aborts the stock bmv2
 (parser.cpp:535, `new_v.size() == width`), for 40055 and 0x9c97 alike. Read-only `pvs_get` on an
-empty set did not. The probe never writes through thrift (DESIGN 7.1), so this only matters as a
-reason never to try.
+empty set did not. P4Runtime's ValueSetEntry write is refused instead (UNIMPLEMENTED, "ValueSet
+writes are not supported yet") and the switch lives -- vs_trial.py, on throwaway switches.
 """
 from __future__ import annotations
 
 import re
 
-WRITE_WORDS = ("add", "delete", "modify", "set", "write", "reset", "create", "destroy",
-               "associate", "dissociate", "clear", "remove", "load", "swap", "update", "serialize")
 READ_COMMANDS = ("table_dump", "table_dump_entry_from_key", "show_tables", "counter_read",
                  "register_read", "meter_get_rates", "mc_dump", "mirroring_get", "show_ports",
-                 "act_prof_dump", "pvs_get", "table_num_entries")
+                 "act_prof_dump", "pvs_get")
 
 
 class WriteRefused(ValueError):
@@ -38,8 +39,11 @@ class WriteRefused(ValueError):
 
 
 def check_read_only(command):
-    word = command.split()[0] if command.split() else ""
-    if word not in READ_COMMANDS or any(w in word for w in ("_add", "_delete", "_set", "_write")):
+    if "\n" in command or "\r" in command or ";" in command:
+        raise WriteRefused("one command per call, no line breaks: %r" % (command,))
+    words = command.split()
+    word = words[0] if words else ""
+    if word not in READ_COMMANDS:
         raise WriteRefused("not a read-only thrift command: %r" % (command,))
     return word
 

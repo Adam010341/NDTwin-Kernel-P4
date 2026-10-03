@@ -2,7 +2,7 @@
 
 [Co-developed with claude code -- Adam]
 
-DESIGN 4.2 and 4.5, with section 12 items 10 and 12. In Cut 1 this is exercised ONLY offline,
+design 4.2 and 4.5, with section 12 items 10 and 12. In Cut 1 this is exercised ONLY offline,
 through a RecordingRunner (tests/python/test_p4_health_collect.py); nothing in Cut 1 calls it
 against the lab.
 
@@ -20,6 +20,12 @@ against the lab.
     still up is a lab the next session tears down blind (12-10).
   * `app_package_override` is never touched: `ndt down` clears it (ndt:1597-1601).
   * A claim that is refused makes the round INCOMPLETE; there is no --force.
+  * (Cut 1 review, MAJ-6) A sniffer or controller is recorded as pid + start time
+    (/proc/<pid>/stat field 22) + a marker its command line carries (the run id), and is signalled
+    only while all three still match; once stopped it leaves LAB_STATE.json, so nothing kills it
+    again later. Before every teardown step that changes shared state (netem, `ndt down`, the
+    knobs, the release) the claim is re-read: if it is no longer ours and live, the teardown
+    stops there and leaves the rest to recover.sh. A netem whose add failed leaves the list.
 """
 from __future__ import annotations
 
@@ -74,15 +80,47 @@ def lab_busy(status_text, claim_text, owner, now):
     return None
 
 
+def read_claim(path):
+    """The claim file's fields ({} when there is none)."""
+    fields = {}
+    try:
+        with open(path, encoding="utf-8") as fh:
+            for line in fh:
+                if "=" in line:
+                    k, v = line.rstrip("\n").split("=", 1)
+                    fields.setdefault(k.strip(), v.strip())
+    except OSError:
+        pass
+    return fields
+
+
+def proc_identity(pid, proc_root="/proc"):
+    """(start time in clock ticks, command line) of a live pid, or None when it is gone."""
+    try:
+        with open(os.path.join(proc_root, str(pid), "stat"), encoding="utf-8", errors="replace") as fh:
+            stat = fh.read()
+        with open(os.path.join(proc_root, str(pid), "cmdline"), "rb") as fh:
+            cmdline = fh.read().replace(b"\0", b" ").decode("utf-8", "replace").strip()
+    except OSError:
+        return None
+    # field 2 (comm) may hold spaces; everything after its closing ")" splits cleanly
+    rest = stat[stat.rfind(")") + 2:].split()
+    try:
+        return int(rest[19]), cmdline          # field 22 = index 19 after pid and comm
+    except (IndexError, ValueError):
+        return None
+
+
 class LabRound(object):
     def __init__(self, cfg, runner, bringup, package_dir, run_id, minutes=45, pid=None,
-                 clock=time.time, install_signals=True):
+                 clock=time.time, install_signals=True, proc_root="/proc"):
         self.cfg, self.runner = cfg, runner
         self.bringup, self.package_dir, self.run_id = bringup, package_dir, run_id
         self.minutes = minutes
         self.pid = pid if pid is not None else os.getpid()
         self.clock = clock
         self.install_signals = install_signals
+        self.proc_root = proc_root
         self.state = {"pid": self.pid, "owner": cfg.owner, "run": run_id, "bring_up": bringup,
                       "package": os.path.abspath(package_dir), "phase": "pre-claim",
                       "knob_snapshot": {}, "netem": [], "sniffers": [], "controllers": [],
@@ -154,16 +192,40 @@ class LabRound(object):
         return lab_busy(st.stdout, claim, self.cfg.owner, int(self.clock()))
 
     def add_netem(self, iface):
-        """Record the interface FIRST, then cut it."""
+        """Record the interface FIRST, then cut it; an add that failed is taken off the list
+        again, so the teardown never runs `del root` on an interface it did not change."""
         self.write_state(netem=self.state["netem"] + [iface])
         res = self.runner.run(TC.netem_add_argv(iface), timeout=30)
         self.events.append(("netem-add", iface))
+        if res.rc != 0:
+            self.write_state(netem=[i for i in self.state["netem"] if i != iface])
         return res
 
-    def register(self, kind, pid):
-        """A sniffer or controller pid, recorded the moment it is known."""
+    def register(self, kind, pid, marker=None):
+        """A sniffer or controller, recorded the moment it is known, by pid + start time +
+        command-line marker (the run id unless given). Refused when the pid's command line does
+        not carry the marker: that process is not ours to stop later."""
         key = {"sniffer": "sniffers", "controller": "controllers"}[kind]
-        self.write_state(**{key: self.state[key] + [int(pid)]})
+        marker = marker or self.run_id
+        ident = proc_identity(pid, self.proc_root)
+        if ident is None or marker not in ident[1]:
+            raise ValueError("pid %s is not a process carrying %r" % (pid, marker))
+        entry = {"pid": int(pid), "start": ident[0], "marker": marker}
+        self.write_state(**{key: self.state[key] + [entry]})
+        return entry
+
+    def claim_ours(self):
+        """(ours?, why) for the claim as it is NOW: our owner, and not expired."""
+        f = read_claim(self.cfg.claim_file)
+        try:
+            expires = int(f.get("expires", "0"))
+        except ValueError:
+            expires = 0
+        if f.get("owner") != self.cfg.owner:
+            return False, "the claim's owner is %r" % (f.get("owner"),)
+        if expires <= int(self.clock()):
+            return False, "the claim expired at %d" % expires
+        return True, ""
 
     # --- the round ------------------------------------------------------------------------------------
     def _handlers(self, on):
@@ -188,7 +250,7 @@ class LabRound(object):
 
     def run(self, body):
         if os.geteuid() == 0:
-            raise RootRefused("the probe refuses to run as root (DESIGN 7.3)")
+            raise RootRefused("the probe refuses to run as root (design 7.3)")
         rec = {"id": self.bringup, "up_rc": None, "down_rc": None, "release_rc": None,
                "claim_rc": None, "knobs_restored": None, "qdisc_same": None,
                "heartbeat_state": None, "frames_reached_hosts": None, "seconds": None,
@@ -243,26 +305,44 @@ class LabRound(object):
             rec["complete"] = False
         return rec
 
-    def _stop_pid(self, pid, root):
-        argv = (["sudo", "-n", "mnexec", "-a", "1", "kill", "-TERM", str(pid)] if root
-                else ["kill", "-TERM", str(pid)])
-        return self.runner.run(argv, timeout=15)
+    def _stop(self, key, entry, root):
+        """Signal one recorded process if it is still the one we started; then forget it."""
+        pid = entry["pid"]
+        ident = proc_identity(pid, self.proc_root)
+        if ident is None:
+            outcome = "gone"
+        elif ident[0] != entry["start"] or entry["marker"] not in ident[1]:
+            outcome = "not ours any more"
+        else:
+            argv = (["sudo", "-n", "mnexec", "-a", "1", "kill", "-TERM", str(pid)] if root
+                    else ["kill", "-TERM", str(pid)])
+            res = self.runner.run(argv, timeout=15)
+            outcome = "stopped" if res.rc == 0 else "kill rc %s" % res.rc
+        self.write_state(**{key: [e for e in self.state[key] if e["pid"] != pid]})
+        self.events.append(("stop-%s" % key[:-1], pid, outcome))
+        return outcome
+
+    def _claim_lost(self, rec, before):
+        ours, why = self.claim_ours()
+        if ours:
+            return False
+        rec["problems"].append("the claim is no longer ours (%s): stopped before %s; finish with "
+                               "recover.sh %s" % (why, before, self.cfg.run_dir))
+        self.write_state(phase="claim-lost")
+        return True
 
     def teardown(self, rec):
         self.write_state(phase="teardown")
-        steps = []
-        for pid in self.state["sniffers"]:
-            steps.append(("stop-sniffer", lambda p=pid: self._stop_pid(p, root=True)))
-        for pid in self.state["controllers"]:
-            steps.append(("stop-controller", lambda p=pid: self._stop_pid(p, root=False)))
-        for iface in self.state["netem"]:
-            steps.append(("netem-del", lambda i=iface: self.runner.run(TC.netem_del_argv(i), timeout=30)))
-        for name, step in steps:
-            try:
-                step()
-                self.events.append((name, "done"))
-            except Exception as exc:  # noqa: BLE001
-                rec["problems"].append("%s: %s" % (name, exc))
+        for entry in list(self.state["sniffers"]):
+            self._stop("sniffers", entry, root=True)
+        for entry in list(self.state["controllers"]):
+            self._stop("controllers", entry, root=False)
+        for iface in list(self.state["netem"]):
+            if self._claim_lost(rec, "taking netem off %s" % iface):
+                return
+            self.runner.run(TC.netem_del_argv(iface), timeout=30)
+            self.events.append(("netem-del", iface))
+            self.write_state(netem=[i for i in self.state["netem"] if i != iface])
         if self.state.get("qdisc_before"):
             diff = self.runner.run([self.cfg.qdisc_snapshot, "diff", self.state["qdisc_before"]],
                                    timeout=60)
@@ -271,8 +351,12 @@ class LabRound(object):
                 # 12-10: recorded, and it does NOT block the down, the restore or the release.
                 rec["problems"].append("qdisc state differs from the snapshot after up: %s"
                                        % diff.stdout.strip()[:200])
+        if self._claim_lost(rec, "ndt down"):
+            return
         down = self.ndt(["down"], timeout=900)
         rec["down_rc"] = down.rc
+        if self._claim_lost(rec, "restoring the knobs"):
+            return
         ok, why = self.restore_knobs()
         rec["knobs_restored"] = ok
         if not ok:
@@ -281,6 +365,8 @@ class LabRound(object):
             rec["problems"].append("ndt down exited %s: NOT releasing -- run recover.sh %s"
                                    % (down.rc, self.run_id))
             self.write_state(phase="down-failed")
+            return
+        if self._claim_lost(rec, "ndt release"):
             return
         rel = self.ndt(["release"], timeout=60)
         rec["release_rc"] = rel.rc
