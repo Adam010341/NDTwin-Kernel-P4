@@ -521,6 +521,44 @@ class TestWhereTheNumbersComeFrom(Sealed):
         self.assertEqual(ctl.judge(OB.observe_counter_control(self.cfg, 2)).verdict, V.PROBE_BROKEN)
 
 
+    def test_a_missing_counter_route_is_red_no_route_through_the_observers(self):
+        """Cut 1 follow-up 4: FastAPI's own 404 for /p4/counter, pushed through K1's two observers
+        and the real cells, must give K1 RED "no route" -- not a PROBE-BROKEN control."""
+        r = RecordingRunner().add(("simple_switch_CLI",), lambda a, e, i: (0, fixture("counter_c_in")))
+
+        def run_k1():
+            obs = OB.observe_counter(self.cfg, r, 2, "c_in", 0,
+                                     lambda: "SENT cell=K1 n=5 ident=0 requested=5000\n", "K1")
+            ctl = OB.observe_counter_control(self.cfg, 2)
+            ctx = V.Context()
+            ctx.self_checks["SC-count"] = V.Verdict(V.GREEN, "fixture")
+            ctx.cells["K1-neg"] = T.TABLE.controls[0].judge(ctl)
+            return obs, ctl, ctx, V.decide(T.TABLE.cell("K1"), obs, ctx)
+        # openapi readable, with no /p4/counter; every counter read is FastAPI's {"detail": "Not Found"}
+        self.proxy.routes[("GET", "/openapi.json")] = (200, {"paths": {"/p4/table_entry": {"post": {}}}})
+        obs, ctl, ctx, v = run_k1()
+        self.assertEqual((v.verdict, v.phase), (V.RED, "cannot"), v)
+        self.assertIn("no route", v.reason)
+        self.assertEqual(ctx.cells["K1-neg"].verdict, V.NOT_RUN)
+        self.assertIs(obs["answer"]["route"], False)
+        self.assertIs(ctl["answer"]["route"], False)
+        # openapi unreadable: that is not a missing route -- the control stays the probe's problem
+        del self.proxy.routes[("GET", "/openapi.json")]
+        obs, ctl, ctx, v = run_k1()
+        self.assertEqual((v.verdict, v.phase), (V.PROBE_BROKEN, "control"), v)
+        self.assertNotIn("route", obs["answer"])
+        self.assertNotIn("route", ctl["answer"])
+        # the route is there and the control gets the endpoint's own refusal: no route claim at all
+        self.proxy.routes[("GET", "/openapi.json")] = (200, {"paths": {"/p4/counter/{name}": {"get": {}}}})
+        self.proxy.routes[("GET", "/p4/counter/HcIngress.no_such_counter?dpid=2&index=0")] = (
+            404, {"detail": {"error": "not in this pipeline"}})
+        self.proxy.routes[("GET", "/p4/counter/HcIngress.c_in?dpid=2&index=0")] = (200, {"packets": 10})
+        obs, ctl, ctx, v = run_k1()
+        self.assertEqual((v.verdict, v.phase), (V.GREEN, "compare"), v)
+        self.assertEqual(ctx.cells["K1-neg"].verdict, V.GREEN)
+        self.assertIs(ctl["answer"]["route"], True)
+
+
 class TestSmallOracles(Sealed):
 
     def test_ps_finds_the_switch_by_its_exact_thrift_port(self):

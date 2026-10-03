@@ -964,6 +964,24 @@ add "R4-2c. a failed kill is a problem but the round stays complete" \
     '                               "recover.sh" % (what, entry["pid"], outcome))  # MUTANT' \
     'test_a_failed_kill_is_a_problem_and_the_round_is_not_complete'
 
+add "R4-4a. K1's counter observer says nothing about the route (follow-up 4)" \
+    "$OBSERVE" \
+    '    return {"answer": with_route(answer, cfg, cell), "oracle": oracle, "sent": S.sent(out, cell)}' \
+    '    return {"answer": answer, "oracle": oracle, "sent": S.sent(out, cell)}  # MUTANT' \
+    'test_a_missing_counter_route_is_red_no_route_through_the_observers'
+
+add "R4-4b. K1-neg's observer says nothing about the route" \
+    "$OBSERVE" \
+    '    return {"answer": with_route(answer_or_none(status, {"http": status, "error": error}), cfg, "K1-neg")}' \
+    '    return {"answer": answer_or_none(status, {"http": status, "error": error})}  # MUTANT' \
+    'test_a_missing_counter_route_is_red_no_route_through_the_observers'
+
+add "R4-4c. an unreadable openapi reads as a missing route" \
+    "$OBSERVE" \
+    '    route = route_answer(P.openapi_paths(cfg), cell)' \
+    '    route = bool(route_answer(P.openapi_paths(cfg), cell))  # MUTANT' \
+    'test_a_missing_counter_route_is_red_no_route_through_the_observers'
+
 add "R4-8a. recover.sh takes an answer with no measuring or orphaned row for idle (follow-up 8)" \
     "$RECOVER" \
     "    if ! printf '%s\n' \"\$out\" | awk '\$1 == \"measuring\" || \$1 == \"orphaned\" { found = 1 } END { exit !found }'; then" \
