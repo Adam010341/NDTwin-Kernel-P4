@@ -18,16 +18,22 @@
 #     has a caller -- `bash -c 'bash <suite>; echo ...'` -- and must end with the caller's 130:
 #     the suite killed by INT, and the caller with it.
 #   * A second signal arriving while the cleanup runs cut it short. The `cleanup` runs send a
-#     second INT to the group while the cleanup's own `sleep 0.3` is running. Six suites have that
-#     sleep between reaping their fixtures and removing their tree; test_ndt_ovs_claim.sh has
-#     none, and runs as a copy with one inserted before its `rm -rf` (the only copy in the plain
-#     sense of the word: it changes when, not what).
+#     second signal while the cleanup's own `sleep 0.3` is running, three ways per suite: INT
+#     then INT (Ctrl-C twice), TERM then TERM, INT then TERM. Six suites have that sleep between
+#     reaping their fixtures and removing their tree; test_ndt_ovs_claim.sh has none, and runs as
+#     a copy with one inserted before its `rm -rf` (a copy that changes when, not what).
 #   * Two spawners had a window between starting a fixture and writing its pid down. `app`
 #     signals test_ndt_apps_liveness.sh during app_spawn's `sleep 1`, which comes after the app
 #     is started and before spawn_app_fixture records it -- a second, so it is hit as it is.
 #     `two` signals test_ndt_helper_apps_window.sh between spawn_two_layer's `&` and its
 #     TWO_PARENT=$!, which is far under a millisecond; it runs as a copy with a `sleep 1`
 #     inserted there, so the signal can be put inside it.
+#   * The cleanup of those two suites now kills every child of the suite's shell, by its group
+#     only where the child leads one. `held` makes sure a child that does NOT lead one is there
+#     when it runs -- the window suite's held parent, in the suite's own group -- through a copy
+#     with a `sleep 1` after HELD=$!. A cleanup that killed that child's group would kill the
+#     suite (and, under INT, its caller): 137, not 143 or 130. That is why every run is checked
+#     to lead a session of its own, and its session is printed beside this test's.
 #
 # HOW. Each suite is started in the background with a token in its environment that every
 # process it starts inherits, so "a process of this run" is read from /proc/<pid>/environ, not
@@ -40,12 +46,16 @@
 #            cleanup must reap. That register also names the suite's temp tree: three suites
 #            honour TMPDIR, which is pointed at a directory of this test's own; the other four
 #            write under /tmp, and their tree is the new one whose register lists such a pid.
-#   cleanup  the same, and then, once the cleanup that INT started is in its `sleep 0.3` (a child
-#            of the suite's shell that was not there before the signal), a second INT.
+#   cleanup  the same, and then, once the cleanup the first signal started is in its `sleep 0.3`
+#            (a child of the suite's shell that was not there before the signal), the second:
+#            INT to the group, TERM to the suite's shell. Its premise is the clock -- how much of
+#            that sleep was left when the second signal went, from the sleep's start time.
 #   app      app_spawn's `sleep 1` is a child of the suite's shell AND the pidfile it has just
 #            written names a live process of this run.
 #   two      the inserted `sleep 1` is a child of the suite's shell AND the two-layer fixture's
 #            child is alive (its pid is in the tree's twolayer_child).
+#   held     the inserted `sleep 1` is a child of the suite's shell AND so is the held parent,
+#            known by its stdin: the tree's `hold` fifo.
 # TERM goes to the suite's own pid, INT to its whole process group, the way a terminal's Ctrl-C
 # arrives (bash runs an INT trap once the foreground child it is waiting for has died of INT too).
 # Then:
@@ -62,16 +72,17 @@
 #   labels: orphans liveness sweep window topo_pid ovs_claim down (default: all seven); a label
 #   selects every run of that suite.
 #   SIGNAL_END_WITHIN=20  SIGNAL_FIRST_FIXTURE_WAIT=30  SIGNAL_CLEANUP_WAIT=10  SIGNAL_HARD_LIMIT=30
-#   SIGNAL_TOTAL_LIMIT=150 (seconds). Green, the twenty-five runs take about 90 s in all on the
-#   development machine; most of that is the four `app`/`two` runs, which wait for a point 11-13 s
-#   into their suite.
+#   SIGNAL_TOTAL_LIMIT=210 (seconds). Green, the thirty-nine runs take about 105 s in all on the
+#   development machine; about half of that is the four `app`/`two`/`held` runs, which wait for a
+#   point 11-13 s into their suite.
 # THE BOUND. The limits keep a HUNG suite a red line rather than a killed CI job. ci.yml's
 #   build-and-test has timeout-minutes 30, and on PR #22 that job took 22 min 11 s and 21 min 30 s
 #   (GitHub Actions jobs 110274499246 and 110274514834: 07:56:17Z-08:18:28Z and
 #   07:56:19Z-08:17:49Z), so about 7.8 min are left. One run is at most FIRST_WAIT + CLEANUP_WAIT
 #   + HARD_LIMIT + about 5 s of /proc scans = 75 s, and no run starts after TOTAL_LIMIT, so this
-#   whole test ends within 150 + 75 = 225 s (3.75 min) -- 22 min 11 s + 3.75 min = 25.9 min,
-#   inside the 30. Without the total limit it would be 25 x 75 = 1875 s.
+#   whole test ends within 210 + 75 = 285 s (4.75 min) -- 22 min 11 s + 4.75 min = 26.9 min,
+#   inside the 30. Without the total limit it would be 39 x 75 = 2925 s. The limit is about twice
+#   the green time, so a host half as fast still runs every run.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ALL_LABELS=(orphans liveness sweep window topo_pid ovs_claim down)
@@ -79,7 +90,7 @@ END_WITHIN="${SIGNAL_END_WITHIN:-20}"
 FIRST_WAIT="${SIGNAL_FIRST_FIXTURE_WAIT:-30}"
 CLEANUP_WAIT="${SIGNAL_CLEANUP_WAIT:-10}"
 HARD_LIMIT="${SIGNAL_HARD_LIMIT:-30}"
-TOTAL_LIMIT="${SIGNAL_TOTAL_LIMIT:-150}"
+TOTAL_LIMIT="${SIGNAL_TOTAL_LIMIT:-210}"
 
 PASS=0; FAIL=0
 check() {
@@ -126,6 +137,10 @@ variant_of() {
             VOLD=$'    TWO_PARENT=$!\n'
             VNEW=$'    sleep 1\n    TWO_PARENT=$!\n'
             VDESC="a sleep 1 between spawn_two_layer's & and TWO_PARENT=\$!" ;;
+        "window held")
+            VOLD=$'HELD=$!\n'
+            VNEW=$'HELD=$!\nsleep 1\n'
+            VDESC="a sleep 1 after the held parent's HELD=\$!" ;;
     esac
 }
 
@@ -204,26 +219,30 @@ file_names_live() {
     p="$(head -1 "$1" 2>/dev/null)"
     [[ "$p" =~ ^[0-9]+$ ]] && grep -qasF -- "NDT_SIGNAL_TEST_TOKEN=$2" "/proc/$p/environ" 2>/dev/null
 }
+# start_ticks <pid> -- its start time, in clock ticks since boot; uptime_ms -- now, in ms since boot.
+CLK_TCK="$(getconf CLK_TCK 2>/dev/null)"; [[ "$CLK_TCK" =~ ^[0-9]+$ ]] || CLK_TCK=100
+start_ticks() { local s; { read -r s < "/proc/$1/stat"; } 2>/dev/null || return 1; s="${s##*) }"; read -r -a s <<<"$s"; echo "${s[19]}"; }
+uptime_ms() { local u; read -r u _ < /proc/uptime; echo $(( ${u%.*} * 1000 + 10#${u#*.} * 10 )); }
 send() {   # send <TERM|INT> <the pid signalled>: TERM to the pid, INT to its group
     if [[ "$1" == INT ]]; then kill -s INT -- "-$2"; else kill -s "$1" "$2"; fi
 }
 
-# one <label> <mode> <SIG> <expected rc>
+# one <label> <mode> <SIG> <expected rc> [<the second signal, for mode cleanup>]
 one() {
-    local label="$1" mode="$2" sig="$3" want="$4" tok tmpd out spid suite="" t0 t1 rc i tree="" d p f0="$FAIL"
-    local deadline runfile name moment="" what n
+    local label="$1" mode="$2" sig="$3" want="$4" second="${5:-}" tok tmpd out spid suite="" t0 t1 rc i tree="" d p f0="$FAIL"
+    local deadline runfile name moment="" what n sid start_t sent_t left_ms
     local -a before=() fixtures=() left=() live=() kids=()
     suite_info "$label"
     variant_of "$label" "$mode"
-    name="$label $mode $sig"
-    tok="$label-$mode-$sig-$$-$RANDOM$RANDOM"; TOKENS+=("$tok")
-    tmpd="$WORK/tmp-$label-$mode-$sig"; out="$WORK/out-$label-$mode-$sig.log"
+    name="$label $mode $sig${second:++$second}"
+    tok="$label-$mode-$sig$second-$$-$RANDOM$RANDOM"; TOKENS+=("$tok")
+    tmpd="$WORK/tmp-$label-$mode-$sig$second"; out="$WORK/out-$label-$mode-$sig$second.log"
     mkdir -p "$tmpd"
     runfile="$SFILE"
     if [[ -n "$VOLD" ]]; then
         # Beside the suite, so every path it derives from its own location is the real one; the
         # name is one .gitignore keeps out of a commit, and cleanup removes it.
-        runfile="$HERE/.spawn-gate-$$-signal-$label-$mode-$sig-$(basename "$SFILE")"
+        runfile="$HERE/.spawn-gate-$$-signal-$label-$mode-$sig$second-$(basename "$SFILE")"
         n="$(python3 -c 'import sys
 s = open(sys.argv[1]).read(); n = s.count(sys.argv[3])
 if n == 1: open(sys.argv[2], "w").write(s.replace(sys.argv[3], sys.argv[4], 1))
@@ -286,6 +305,16 @@ print(n)' "$SFILE" "$runfile" "$VOLD" "$VNEW")"
                     break
                 done
             fi ;;
+        held)
+            if child_running "$suite" "sleep 1"; then
+                for d in "$tmpd/$SPREFIX"*; do
+                    for p in $(children_of "$suite"); do
+                        [[ "$(readlink "/proc/$p/fd/0" 2>/dev/null)" == "$d/hold" ]] || continue
+                        tree="$d"; moment="the inserted sleep 1 is pid $CHILD; the held parent $p, a child of the suite in its group, waits on $d/hold"
+                        break 2
+                    done
+                done
+            fi ;;
         esac; fi
         [[ -n "$tree" ]] && break
         if [[ "$mode" == fixture || "$mode" == cleanup ]]; then sleep 0.1; else sleep 0.02; fi
@@ -294,6 +323,7 @@ print(n)' "$SFILE" "$runfile" "$VOLD" "$VNEW")"
         fixture|cleanup) what="a pid in its own fixture register is alive" ;;
         app) what="app_spawn is in its sleep 1, the app it started alive" ;;
         two) what="spawn_two_layer is in the inserted sleep 1, its fixture alive" ;;
+        held) what="the held parent, not a group leader, is alive and the suite in the inserted sleep 1" ;;
     esac
     if ended "$spid" || [[ -z "$tree" ]]; then
         check "$name: within ${FIRST_WAIT}s, $what, the suite still running" yes \
@@ -310,24 +340,37 @@ print(n)' "$SFILE" "$runfile" "$VOLD" "$VNEW")"
         check "$name: the suite runs in a child of the pid whose group is signalled, its caller" yes \
               "$([[ "$suite" != "$spid" && "$(argv_of "$spid")" == "bash -c "* ]] && echo yes || echo no)"
     fi
-    check "$name: and that pid leads its own process group" "$spid" "$(ps -o pgid= -p "$spid" 2>/dev/null | tr -d ' ')"
+    # [Co-developed with claude code -- Adam] Its own session, too (2026-10-03): whatever a suite's
+    # cleanup kills by group then cannot reach this test or whatever runs it.
+    sid="$(ps -o sid= -p "$spid" 2>/dev/null | tr -d ' ')"
+    check "$name: and that pid leads its own process group and session" "$spid $spid" \
+          "$(ps -o pgid= -p "$spid" 2>/dev/null | tr -d ' ') $sid"
     echo "  note     signalled with $moment"
+    echo "  note     the run's session $sid; this test's session $(ps -o sid= -p $$ | tr -d ' ')"
     mapfile -t kids < <(children_of "$suite")
     t0="$(now_ms)"
     send "$sig" "$spid"
     if [[ "$mode" == cleanup ]]; then
-        # The second INT, once the cleanup that the first one started is in its `sleep 0.3` -- a
-        # child of the suite's shell that was not one before the first signal.
-        CHILD=""
+        # The second signal, once the cleanup that the first one started is in its `sleep 0.3` -- a
+        # child of the suite's shell that was not one before the first signal. A second INT goes to
+        # the group, a second TERM to the suite's own shell. The premise is read from the clock:
+        # the sleep's start time against the moment the signal went, so it says whether the
+        # signal landed inside the sleep whatever the signal then did to it.
+        CHILD=""; start_t=""; left_ms=""
         deadline=$(( SECONDS + CLEANUP_WAIT ))
         while (( SECONDS < deadline )); do
             ended "$suite" && break
-            child_running "$suite" "sleep 0.3" "${kids[*]}" && break
+            child_running "$suite" "sleep 0.3" "${kids[*]}" && { start_t="$(start_ticks "$CHILD")"; break; }
             sleep 0.02
         done
-        check "$name: a second INT, sent while its cleanup is in its sleep 0.3" yes \
-              "$([[ -n "$CHILD" ]] && ! ended "$suite" && echo yes || echo "no (the suite's shell: $(state_of "$suite"))")"
-        [[ -n "$CHILD" ]] && send INT "$spid"
+        if [[ -n "$CHILD" && -n "$start_t" ]] && ! ended "$suite"; then
+            if [[ "$second" == INT ]]; then send INT "$spid"; else send TERM "$suite"; fi
+            sent_t="$(uptime_ms)"
+            left_ms=$(( 300 - (sent_t - start_t * 1000 / CLK_TCK) ))
+        fi
+        check "$name: a second $second, sent while its cleanup is in its sleep 0.3" yes \
+              "$([[ -n "$left_ms" ]] && (( left_ms >= 20 )) && echo yes || echo "no (${left_ms:-not sent} ms of the sleep left; the suite's shell: $(state_of "$suite"))")"
+        [[ -n "$left_ms" ]] && echo "  note     the second $second went with about $left_ms ms of that sleep left"
     fi
     deadline=$(( SECONDS + HARD_LIMIT ))
     while (( SECONDS < deadline )); do ended "$spid" && break; sleep 0.1; done
@@ -361,16 +404,19 @@ print(n)' "$SFILE" "$runfile" "$VOLD" "$VNEW")"
 
 PLAN=()
 for l in "${LABELS[@]}"; do PLAN+=("$l fixture TERM 143" "$l fixture INT 130"); done
-for l in "${LABELS[@]}"; do PLAN+=("$l cleanup INT 130"); done
-selected liveness && PLAN+=("liveness app TERM 143" "liveness app INT 130")
-selected window && PLAN+=("window two TERM 143" "window two INT 130")
+for l in "${LABELS[@]}"; do PLAN+=("$l cleanup INT 130 INT" "$l cleanup TERM 143 TERM" "$l cleanup INT 130 TERM"); done
+# app and two only under INT: the reaper does not ask which signal ended the run, and each run
+# waits 11-13 s for its moment. held under both, since the child it leaves is the same either way
+# but INT is the one whose caller a wrong group kill would take with it.
+selected liveness && PLAN+=("liveness app INT 130")
+selected window && PLAN+=("window two INT 130" "window held TERM 143" "window held INT 130")
 for run in "${PLAN[@]}"; do
-    read -r l mode sig want <<<"$run"
+    read -r l mode sig want second <<<"$run"
     if (( SECONDS >= TOTAL_LIMIT )); then
-        check "$l $mode $sig: run, before SIGNAL_TOTAL_LIMIT (${TOTAL_LIMIT}s) was used up" yes "no (${SECONDS}s used)"
+        check "$l $mode $sig${second:++$second}: run, before SIGNAL_TOTAL_LIMIT (${TOTAL_LIMIT}s) was used up" yes "no (${SECONDS}s used)"
         continue
     fi
-    one "$l" "$mode" "$sig" "$want"
+    one "$l" "$mode" "$sig" "$want" "$second"
 done
 
 echo
