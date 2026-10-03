@@ -63,6 +63,8 @@ HELPER="$HERE/../../tools/test_workflow/ndtwin-lab"
 # test_ndt_apps_liveness.sh, and so are its checks (reap_own_children_selftest, section 10).
 source "${REAP_OWN_CHILDREN_LIB_UNDER_TEST:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_reap_own_children.sh}" \
     || { echo "no tests/shell/lib_reap_own_children.sh beside this suite"; exit 2; }
+[[ -z "${REAP_OWN_CHILDREN_LIB_UNDER_TEST:-}" ]] \
+    || echo "  note     REAP_OWN_CHILDREN_LIB_UNDER_TEST is set: this run uses $REAP_OWN_CHILDREN_LIB_UNDER_TEST, not the lib beside the suite" >&2
 
 PASS=0; FAIL=0
 t_ok()  { PASS=$((PASS+1)); printf '  ok       %s\n' "$1"; }
@@ -657,7 +659,8 @@ check "  and signals a parent that leads no group by its pid alone" "-KILL $HELD
 own_child "$HELD" && kill_group_if_leader "$HELD"
 # [Co-developed with claude code -- Adam] (2026-10-03) And the reaper itself, which cleanup() calls
 # for whatever this shell forked and has not yet written down: lib_reap_own_children.sh holds it to
-# six checks, in a shell of its own, and this suite and test_ndt_apps_liveness.sh both run them.
+# seventeen checks (it and kill_group_if_leader), in a shell of its own, and this suite and
+# test_ndt_apps_liveness.sh both run them.
 reap_own_children_selftest
 
 section "11. 3-51c: reading a log, truncating it, and looking into a process are three permissions"
