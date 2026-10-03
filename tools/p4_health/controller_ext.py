@@ -59,6 +59,8 @@ DIRECT_METER_DPORT = 40023
 DIRECT_COUNTER_DPORT = 40012
 CLONE = {"session": 9, "port": 1}
 REGISTER = {"name": "HcIngress.r_mark", "index": 1, "value": 0xBEEF}
+#: the packet-out's marker port: the receiving host's sniffer counts only UDP to it
+PACKET_OUT_DPORT = 40051
 
 
 def load_config():
@@ -297,11 +299,9 @@ class Controller(object):
     def packet_out(self, d):
         from p4_health import frames as F
         po = self.conf["packet_out"]
-        frame = F.udp_marker(po["src_mac"], po["dst_mac"], po["src_ip"], po["dst_ip"], 40051,
-                             run_id=self.conf["token"], cell="P3", seq=0)
         sw = self.conns[d]
         for seq in range(int(po.get("count", 5))):
-            frame = F.udp_marker(po["src_mac"], po["dst_mac"], po["src_ip"], po["dst_ip"], 40051,
+            frame = F.udp_marker(po["src_mac"], po["dst_mac"], po["src_ip"], po["dst_ip"], PACKET_OUT_DPORT,
                                  run_id=self.conf["token"], cell="P3", seq=seq)
             sw.PacketOut(frame, [{"value": int(po["port"]), "bitwidth": 2}, {"value": 0, "bitwidth": 1}])
         return {"frames": int(po.get("count", 5)), "port": int(po["port"])}

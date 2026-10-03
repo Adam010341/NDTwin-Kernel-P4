@@ -27,6 +27,7 @@ import os
 import time
 
 from . import attribution as AT
+from . import controller_ext as CX
 from .collect import sniff as S
 from .collect import thrift as TH
 from .collect.hosts import Hosts
@@ -37,6 +38,7 @@ ADAPTER = os.path.join(REPO, "tools", "p4_exercise", "run_external_controller.py
 CONTROLLER = os.path.join(HERE, "controller_ext.py")
 SRC, DST, ATTR_DPID = "h4", "h6", 2
 D1_SPORT = 40041
+P3_DPORT = CX.PACKET_OUT_DPORT
 
 
 class BRound(object):
@@ -116,7 +118,7 @@ class BRound(object):
             if not self._wait_file(self.path("controller.result.json"), proc, self.exit_timeout_s):
                 self.problems.append("B's controller wrote no result")
             return ""
-        _out, rx = self.hosts.window([(SRC, ["P3"])], stimulate, seconds=180.0, until=5)
+        _out, rx = self.hosts.window([(SRC, ["P3"], P3_DPORT)], stimulate, seconds=180.0, until=5)
         if proc.poll() is None:
             try:
                 proc.wait(timeout=30)

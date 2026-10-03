@@ -66,6 +66,13 @@ class Hosts(object):
             self._pids = {"h%d" % h: FB.host_pid(lines, "h%d" % h) for h in sorted(self.model.HOSTS)}
         return self._pids
 
+    def root_python(self):
+        """The p4dev interpreter as root runs it: -B writes no .pyc beside the probe's sources,
+        -X pycache_prefix keeps any read cache under the run, -I takes nothing from the
+        environment or the user's site (Cut 2 review w1)."""
+        return [self.cfg.p4dev_python, "-B", "-X", "pycache_prefix=%s" % os.path.join(self.out_dir, "pycache"),
+                "-I"]
+
     def in_ns(self, host, argv):
         pid = self.pids().get(host)
         if pid is None:
@@ -83,7 +90,7 @@ class Hosts(object):
     # --- markers -----------------------------------------------------------------------------
     def send(self, src, dst, cell, dport, count, sport=40000, ttl=64, ident=1, pps=500.0):
         """The sender's stdout (its SENT line is the count), or "" when it could not run."""
-        argv = self.in_ns(src, [self.cfg.p4dev_python, self.hostside, "send", "--run", self.token,
+        argv = self.in_ns(src, self.root_python() + [self.hostside, "send", "--run", self.token,
                                 "--cell", cell, "--count", str(int(count)), "--pps", str(pps),
                                 "--src-mac", self.mac(src), "--dst-mac", self.gw_mac(src),
                                 "--src-ip", self.ip(src), "--dst-ip", self.ip(dst),
@@ -95,10 +102,13 @@ class Hosts(object):
         res = self.runner.run(argv, timeout=60 + count / max(pps, 1.0))
         return res.stdout
 
-    def sniff_start(self, host, cells, seconds, until=0):
-        argv = self.in_ns(host, [self.cfg.p4dev_python, self.hostside, "sniff", "--run", self.token,
-                                 "--cells", ",".join(cells), "--seconds", str(seconds),
-                                 "--until", str(int(until))])
+    def sniff_start(self, host, cells, dport, seconds, until=0):
+        """A sniffer on `host` for this run's markers of `cells` -- UDP to `dport` addressed to
+        the host itself (MAJOR-2: not the ICMP errors that quote them)."""
+        argv = self.in_ns(host, self.root_python() + [self.hostside, "sniff", "--run", self.token,
+                                                      "--cells", ",".join(cells), "--seconds", str(seconds),
+                                                      "--until", str(int(until)), "--dport", str(int(dport)),
+                                                      "--ip", self.ip(host)])
         if argv is None:
             self.problems.append("no namespace pid for %s" % host)
             return None
@@ -148,14 +158,14 @@ class Hosts(object):
         return text
 
     def window(self, sniffs, stimulate, seconds=4.0, until=0):
-        """Start a sniffer per (host, cells), wait until each listens, run `stimulate()` (the
-        sender stdout it returns is kept), and collect every sniffer. A sniffer ends after
+        """Start a sniffer per (host, cells, dport), wait until each listens, run `stimulate()`
+        (the sender stdout it returns is kept), and collect every sniffer. A sniffer ends after
         `seconds`, or as soon as it has `until` records (0: no early end). -> (sent stdout,
         {host: sniffer stdout or None})."""
-        handles = [self.sniff_start(h, cells, seconds, until) for h, cells in sniffs]
+        handles = [self.sniff_start(h, cells, dport, seconds, until) for h, cells, dport in sniffs]
         ready = [h is not None and self.wait_ready(h) for h in handles]
         out = stimulate() if all(ready) else ""
         got = {}
-        for (host, _cells), handle, ok in zip(sniffs, handles, ready):
+        for (host, _cells, _dport), handle, ok in zip(sniffs, handles, ready):
             got[host] = self.sniff_wait(handle) if ok else None
         return out, got

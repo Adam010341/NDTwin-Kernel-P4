@@ -1572,6 +1572,64 @@ add "R2-M1b. a switch port nobody could place is not an unread oracle (MAJOR-1's
         return None' \
     'test_switch_links_lost_on_both_sides_are_not_a_green'
 
+add "R2-M2a. the sniffer takes any frame that quotes a marker (MAJOR-2)" \
+    "$HOSTSIDE" \
+    '    if p.get("proto") != F.PROTO_UDP or p.get("dport") != dport or p.get("ip_dst") != ip:
+        return None' \
+    '    if False:  # MUTANT
+        return None' \
+    'test_bring_up_a_reads_as_predicted'
+
+add "R2-M2b. the sniffer checks only the destination address, not that it is UDP to the cell's port" \
+    "$HOSTSIDE" \
+    '    if p.get("proto") != F.PROTO_UDP or p.get("dport") != dport or p.get("ip_dst") != ip:' \
+    '    if p.get("ip_dst") != ip:  # MUTANT' \
+    'test_an_icmp_error_quoting_a_marker_is_not_a_received_marker'
+
+add "R2-M2c. the sniffer ignores the destination address" \
+    "$HOSTSIDE" \
+    '    if p.get("proto") != F.PROTO_UDP or p.get("dport") != dport or p.get("ip_dst") != ip:' \
+    '    if p.get("proto") != F.PROTO_UDP or p.get("dport") != dport:  # MUTANT' \
+    'test_record_filters_on_every_field'
+
+add "R2-M2d. the sniffer on a host is not told its own address" \
+    "$HOSTSPY" \
+    '                                                      "--ip", self.ip(host)])' \
+    '                                                      "--ip", self.ip("h1")])  # MUTANT' \
+    'test_bring_up_a_reads_as_predicted'
+
+add "R2-m3a. the sniffer counts the host's own outgoing frames" \
+    "$HOSTSIDE" \
+    '    return len(addr) > 2 and addr[2] == PACKET_OUTGOING' \
+    '    return False  # MUTANT' \
+    'test_the_sniff_loop_skips_outgoing_frames_and_stops_at_until'
+
+add "R2-m3b. the sniffer never stops early" \
+    "$HOSTSIDE" \
+    '            if until and n >= until:
+                break' \
+    '            if False:  # MUTANT
+                break' \
+    'test_the_sniff_loop_skips_outgoing_frames_and_stops_at_until'
+
+add "R2-m3c. the SENT line reports what was asked for" \
+    "$HOSTSIDE" \
+    '    return "SENT cell=%s n=%d ident=%d requested=%d" % (cell, n, ident, requested)' \
+    '    return "SENT cell=%s n=%d ident=%d requested=%d" % (cell, requested, ident, requested)  # MUTANT' \
+    'test_its_lines_are_the_ones_collect_sniff_reads'
+
+add "R2-m3d. pick_iface guesses among several interfaces" \
+    "$HOSTSIDE" \
+    '    if len(names) != 1:' \
+    '    if not names:  # MUTANT' \
+    'test_pick_iface'
+
+add "R2-w1. the root python writes .pyc beside the sources" \
+    "$HOSTSPY" \
+    '        return [self.cfg.p4dev_python, "-B", "-X",' \
+    '        return [self.cfg.p4dev_python, "-X",  # MUTANT' \
+    'test_the_root_python_writes_nothing_beside_the_sources'
+
 
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'

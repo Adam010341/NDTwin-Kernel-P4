@@ -38,6 +38,7 @@ R2_CHOSEN = 0x1234 + 0x4D      # the non-zero value the R2 marker writes (its sp
 MARKER_FRAMES = 50
 PINGALL_EXPECTED = len(HOSTS) * (len(HOSTS) - 1)
 PING_FRAMES = 3
+PING_DPORT = 40001
 
 #: What each self-check's readings come from (the cell whose step takes them).
 SC_PRODUCER = {"SC-fwd": "T1", "SC-count": "K1", "SC-reg": "R2", "SC-ttl": "TTL1"}
@@ -101,7 +102,7 @@ class ARound(object):
     # --- one window: markers from SRC to DST, sniffed at DST ------------------------------------
     def markers(self, cell, dport, count, sport=40000, src=SRC, dst=DST):
         seconds = 8.0 + count / 500.0
-        return self.hosts.window([(dst, [cell])],
+        return self.hosts.window([(dst, [cell], dport)],
                                  lambda: self.hosts.send(src, dst, cell, dport, count, sport=sport),
                                  seconds=seconds, until=count)
 
@@ -109,14 +110,14 @@ class ARound(object):
         """SC-fwd's marker pingall: PING_FRAMES markers from every host to every other, each
         receiver sniffed. A pair counts as sent when its sender reported >= 1 frame and as
         received when the receiver saw >= 1 of them. -> ((received pairs, sent pairs), frames)."""
-        sniffs = [(h, ["SCfwd"]) for h in HOSTS]
+        sniffs = [(h, ["SCfwd"], PING_DPORT) for h in HOSTS]
         outs = []
 
         def stimulate():
             for src in HOSTS:
                 for dst in HOSTS:
                     if dst != src:
-                        outs.append(self.hosts.send(src, dst, "SCfwd", 40001, PING_FRAMES,
+                        outs.append(self.hosts.send(src, dst, "SCfwd", PING_DPORT, PING_FRAMES,
                                                     sport=40000 + self.hosts.num(src)))
             return "\n".join(outs)
         sent_out, rx = self.hosts.window(sniffs, stimulate, seconds=120.0,

@@ -9,13 +9,15 @@
 The design names scapy for this; the frames are built by frames.py instead (struct only) and
 sent on an AF_PACKET socket, so the live markers are byte-identical to the ones S0's offline
 self-checks put through a throwaway bmv2 -- the same function builds both. Standard library only.
+It runs as root (`-B -I`, collect/hosts.py): no .pyc is written next to it, nothing from the
+environment or the script's directory is put on sys.path but its own package.
 
 What it prints is the contract collect/sniff.py reads (design 2.1 step 3: the stimulus count is
 the sender's own report):
 
     SENT cell=<id> n=<frames actually sent> ident=<ip id> requested=<n asked for>
     READY iface=<name>                                   (the sniffer is listening)
-    RX {"cell": .., "run": .., "seq": .., "ttl": .., "ident": .., ...}
+    RX {"cell": .., "run": .., "seq": .., "ttl": .., "ident": .., ...}   (UDP to --dport and --ip only)
     DONE received=<n>
 
 The run id in a marker is 8 bytes (frames.payload); the probe passes an 8-character token.
@@ -38,10 +40,12 @@ ETH_P_ALL = 0x0003
 PACKET_OUTGOING = 4
 
 
-def pick_iface(name):
+def pick_iface(name, listdir=os.listdir):
+    """The interface to use: the one named, else the host's only non-loopback interface. A host
+    with none or several is refused rather than guessed at."""
     if name and name != "auto":
         return name
-    names = sorted(n for n in os.listdir("/sys/class/net") if n != "lo")
+    names = sorted(n for n in listdir("/sys/class/net") if n != "lo")
     if len(names) != 1:
         raise SystemExit("hostside: cannot pick the host interface among %s" % names)
     return names[0]
@@ -54,6 +58,24 @@ def build(args, seq):
                             run_id=args.run, cell=args.cell, seq=seq, sport=args.sport,
                             ttl=args.ttl, ident=args.ident)
     raise SystemExit("hostside: unknown frame kind %r" % kind)
+
+
+# --- the four lines collect/sniff.py reads ------------------------------------------------------
+
+def sent_line(cell, n, ident, requested):
+    return "SENT cell=%s n=%d ident=%d requested=%d" % (cell, n, ident, requested)
+
+
+def ready_line(iface):
+    return "READY iface=%s" % iface
+
+
+def rx_line(rec):
+    return "RX " + json.dumps(rec, sort_keys=True)
+
+
+def done_line(n):
+    return "DONE received=%d" % n
 
 
 def cmd_send(args):
@@ -76,15 +98,23 @@ def cmd_send(args):
             if due > now:
                 time.sleep(due - now)
     s.close()
-    print("SENT cell=%s n=%d ident=%d requested=%d" % (args.cell, sent, args.ident, args.count))
+    print(sent_line(args.cell, sent, args.ident, args.count))
     sys.stdout.flush()
     return 0 if sent == args.count else 1
 
 
-def record(frame, run, cells):
+def record(frame, run, cells, dport, ip):
+    """The RX record for a frame that IS one of this window's markers, else None: magic, this
+    run's token and one of `cells` in the payload, AND an IPv4/UDP datagram to `dport` addressed
+    to `ip` (the receiver itself). (Cut 2 review MAJOR-2) A host that gets a marker on a closed
+    port answers with an ICMP port unreachable quoting the whole datagram -- marker included --
+    to the sender, which may be sniffing for the same cell; only the UDP/dport/ip_dst test tells
+    that quote from a marker. frames.parse sets `dport` only for UDP."""
     p = F.parse(frame)
     mark = p.get("marker")
     if not mark or mark[0] != run[:8] or mark[1] not in cells:
+        return None
+    if p.get("proto") != F.PROTO_UDP or p.get("dport") != dport or p.get("ip_dst") != ip:
         return None
     rec = {"run": mark[0], "cell": mark[1], "seq": mark[2], "ethertype": p.get("ethertype"),
            "src": p.get("src"), "dst": p.get("dst")}
@@ -94,32 +124,53 @@ def record(frame, run, cells):
     return rec
 
 
+def outgoing(addr):
+    """An AF_PACKET address tuple of a frame this host SENT (its own ICMP errors, its markers)."""
+    return len(addr) > 2 and addr[2] == PACKET_OUTGOING
+
+
+def sniff_loop(recv, run, cells, dport, ip, deadline, until, clock=time.monotonic, emit=print):
+    """Receive until `deadline` (or `until` records); `recv()` -> (frame, addr), or None on a
+    timeout. Emits one RX line per record and returns how many there were."""
+    n = 0
+    while clock() < deadline:
+        got = recv()
+        if got is None:
+            continue
+        frame, addr = got
+        if outgoing(addr):
+            continue
+        rec = record(frame, run, cells, dport, ip)
+        if rec is not None:
+            n += 1
+            emit(rx_line(rec))
+            if until and n >= until:
+                break
+    return n
+
+
 def cmd_sniff(args):
     iface = pick_iface(args.iface)
     cells = set(c for c in args.cells.split(",") if c)
     s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(ETH_P_ALL))
     s.bind((iface, 0))
     s.settimeout(0.2)
-    print("READY iface=%s" % iface)
+    print(ready_line(iface))
     sys.stdout.flush()
-    deadline = time.monotonic() + args.seconds
-    n = 0
-    while time.monotonic() < deadline:
+
+    def recv():
         try:
-            frame, addr = s.recvfrom(65535)
+            return s.recvfrom(65535)
         except socket.timeout:
-            continue
-        if len(addr) > 2 and addr[2] == PACKET_OUTGOING:
-            continue
-        rec = record(frame, args.run, cells)
-        if rec is not None:
-            n += 1
-            print("RX " + json.dumps(rec, sort_keys=True))
-            sys.stdout.flush()
-            if args.until and n >= args.until:
-                break
+            return None
+
+    def emit(line):
+        print(line)
+        sys.stdout.flush()
+    n = sniff_loop(recv, args.run, cells, args.dport, args.ip, time.monotonic() + args.seconds,
+                   args.until, emit=emit)
     s.close()
-    print("DONE received=%d" % n)
+    print(done_line(n))
     return 0
 
 
@@ -147,6 +198,8 @@ def main(argv=None):
     b.add_argument("--iface", default="auto")
     b.add_argument("--seconds", type=float, required=True)
     b.add_argument("--until", type=int, default=0, help="stop early after this many records")
+    b.add_argument("--dport", type=int, required=True, help="the cell's UDP destination port")
+    b.add_argument("--ip", required=True, help="this host's own IPv4 address (the markers' ip_dst)")
     args = ap.parse_args(argv)
     if args.cmd == "send":
         return cmd_send(args)

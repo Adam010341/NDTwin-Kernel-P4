@@ -191,6 +191,8 @@ from p4_health import observe_a as OA  # noqa: E402
 from p4_health import round_a as RA  # noqa: E402
 from p4_health import round_b as RB  # noqa: E402
 from p4_health.collect import hosts as HO  # noqa: E402
+from p4_health import frames as F  # noqa: E402
+from p4_health import hostside as HS  # noqa: E402
 
 
 #: What every test's tearDown checked, for $P4H_SEAL_REPORT (an audit of the seal itself).
@@ -600,6 +602,84 @@ class TestSmallOracles(Sealed):
         self.assertTrue(FB.checksum_offload_off("Features for eth0:\ntx-checksumming: off\n"))
         self.assertEqual(FB.host_addr("2: eth0    inet 10.0.1.1/24 brd x\n link/ether 08:00:00:00:01:11 brd"),
                          ("10.0.1.1", "08:00:00:00:01:11"))
+
+
+class TestHostside(Sealed):
+    """MAJOR-2 / m3: hostside.py is the one module of the probe that runs as root."""
+
+    TOK = "abcd1234"
+
+    def marker(self, **kw):
+        args = dict(run_id=self.TOK, cell="SCfwd", seq=0, sport=40001)
+        args.update(kw)
+        return F.udp_marker("08:00:00:00:01:11", "08:00:00:00:01:00", "10.0.1.1", "10.0.2.2", 40001, **args)
+
+    def rec(self, frame, cells=("SCfwd",), dport=40001, ip="10.0.2.2", run=None):
+        return HS.record(frame, run or self.TOK, set(cells), dport, ip)
+
+    def test_an_icmp_error_quoting_a_marker_is_not_a_received_marker(self):
+        icmp = icmp_unreachable(self.marker())
+        self.assertIsNotNone(F.parse(icmp).get("marker"))           # the quote does carry it
+        self.assertIsNone(self.rec(icmp, ip="10.0.1.1"))            # ...even at the sender it quotes
+        self.assertIsNone(self.rec(icmp))
+        got = self.rec(self.marker())
+        self.assertEqual((got["cell"], got["seq"], got["dport"], got["ip_dst"]), ("SCfwd", 0, 40001, "10.0.2.2"))
+
+    def test_record_filters_on_every_field(self):
+        m = self.marker()
+        self.assertIsNotNone(self.rec(m))
+        self.assertIsNone(self.rec(m, run="otherrun"))
+        self.assertIsNone(self.rec(m, cells=("K1",)))
+        self.assertIsNone(self.rec(m, dport=40011))
+        self.assertIsNone(self.rec(m, ip="10.0.3.3"))
+        self.assertIsNone(self.rec(m[:30]))                          # truncated: no marker
+        tcp = bytearray(m)
+        tcp[23] = F.PROTO_TCP                                        # IPv4 protocol byte
+        self.assertIsNone(self.rec(bytes(tcp)))
+
+    def test_the_sniff_loop_skips_outgoing_frames_and_stops_at_until(self):
+        frames = [(self.marker(seq=0), ("eth0", 0x0800, HS.PACKET_OUTGOING, 1, b"")),
+                  None,
+                  (self.marker(seq=1), ("eth0", 0x0800, 0, 1, b"")),
+                  (icmp_unreachable(self.marker(seq=9)), ("eth0", 0x0800, 0, 1, b"")),
+                  (self.marker(seq=2), ("eth0", 0x0800, 0, 1, b"")),
+                  (self.marker(seq=3), ("eth0", 0x0800, 0, 1, b""))]
+        it, lines, t = iter(frames), [], [0.0]
+
+        def clock():
+            t[0] += 0.01
+            return t[0]
+        n = HS.sniff_loop(lambda: next(it), self.TOK, {"SCfwd"}, 40001, "10.0.2.2", 100.0, 2,
+                          clock=clock, emit=lines.append)
+        self.assertEqual(n, 2)
+        self.assertEqual([S.received(l, "SCfwd")[0]["seq"] for l in lines], [1, 2])
+        lines2 = []
+        n = HS.sniff_loop(lambda: None, self.TOK, {"SCfwd"}, 40001, "10.0.2.2", 0.05, 0,
+                          clock=clock, emit=lines2.append)
+        self.assertEqual((n, lines2), (0, []))
+
+    def test_its_lines_are_the_ones_collect_sniff_reads(self):
+        out = "\n".join([HS.ready_line("eth0"), HS.sent_line("K1", 7, 0, 9),
+                         HS.rx_line(self.rec(self.marker())), HS.done_line(1)])
+        self.assertEqual(S.sent(out, "K1"), 7)
+        self.assertEqual(S.sent_idents(out, "K1"), {0})
+        self.assertEqual(len(S.received(out, "SCfwd", self.TOK)), 1)
+        self.assertTrue(HS.ready_line("eth0").startswith("READY"))
+
+    def test_pick_iface(self):
+        self.assertEqual(HS.pick_iface("eth3"), "eth3")
+        self.assertEqual(HS.pick_iface("auto", listdir=lambda d: ["lo", "eth0"]), "eth0")
+        for names in (["lo"], ["lo", "eth0", "eth1"]):
+            with self.assertRaises(SystemExit):
+                HS.pick_iface("auto", listdir=lambda d, n=names: n)
+
+    def test_the_root_python_writes_nothing_beside_the_sources(self):
+        h = HO.Hosts(self.cfg, RecordingRunner(), "run-x", self.tmp, GEN)
+        py = h.root_python()
+        self.assertEqual(py[0], self.cfg.p4dev_python)
+        self.assertIn("-B", py)
+        self.assertIn("-I", py)
+        self.assertIn("pycache_prefix=%s" % os.path.join(self.tmp, "pycache"), py)
 
 
 class TestUnreadableIsNotEmpty(Sealed):
@@ -1481,7 +1561,7 @@ class FakeFabric(object):
                     % (self.ifindex(GEN.HOSTS[n], GEN.HOST_PORT[n]), GEN.host_mac(n)))
         if rest[:4] == ["ip", "-o", "addr", "show"]:
             return (0, "2: eth0    inet %s/24 brd 10.0.%s.255 scope global eth0\n" % (GEN.host_ip(int(h[1:])), h[1:]))
-        if len(rest) > 2 and rest[2] == "send":
+        if "send" in rest and rest[rest.index("send") - 1].endswith("hostside.py"):
             return (0, self.send(h, self.opts(rest)))
         return (127, "")
 
@@ -1516,10 +1596,16 @@ class FakeFabric(object):
                 continue
             if dport == 40041:
                 self.digests.append({"digest_id": 1, "members": [ival(o["src-ip"]), sport, dport]})
-            self.delivered[dst].append({"run": o["run"], "cell": cell, "seq": seq,
-                                        "ttl": int(o["ttl"]) - (hops if self.ttl_decrements else 0),
-                                        "ip_src": o["src-ip"], "ip_dst": o["dst-ip"], "dport": dport})
-        return "SENT cell=%s n=%d ident=%s requested=%d\n" % (cell, n, o["ident"], n)
+            frame = F.udp_marker(transit_mac(dst), GEN.host_mac(int(dst[1:])), o["src-ip"], o["dst-ip"],
+                                 dport, run_id=o["run"], cell=cell, seq=seq, sport=sport,
+                                 ttl=int(o["ttl"]) - (hops if self.ttl_decrements else 0),
+                                 ident=int(o["ident"]))
+            self.delivered[dst].append(frame)
+            # (Cut 2 review MAJOR-2) the receiver has no socket on that port: Linux answers with an
+            # ICMP port unreachable that quotes the whole datagram, marker included, back to the
+            # sender -- which is also sniffing for its cell in the pingall
+            self.delivered[src].append(icmp_unreachable(frame))
+        return HS.sent_line(cell, n, int(o["ident"]), n) + "\n"
 
     # --- spawned children ---------------------------------------------------------------------------
     def fake_proc(self, pid, argv):
@@ -1541,28 +1627,54 @@ class FakeFabric(object):
         return None
 
 
+def transit_mac(host):
+    return "08:00:00:00:ff:%02x" % GEN.HOSTS[int(host[1:])]
+
+
+def icmp_unreachable(frame):
+    """What a Linux host sends back for a UDP datagram to a closed port: ICMP type 3 code 3 from
+    the receiver to the sender, quoting the original IP datagram (RFC 1812 4.3.2.3; Linux quotes
+    as much as fits in 576 bytes, so all of a marker)."""
+    total = int.from_bytes(frame[16:18], "big")
+    quoted = frame[14:14 + total]
+    body = bytes([3, 3, 0, 0, 0, 0, 0, 0]) + quoted
+    csum = F.checksum16(body)
+    body = body[:2] + csum.to_bytes(2, "big") + body[4:]
+    src_ip, dst_ip = F.ip_str(frame[26:30]), F.ip_str(frame[30:34])
+    ip = F.ipv4_header(dst_ip, src_ip, 1, len(body))
+    return F.ethernet(F.mac_str(frame[6:12]), F.mac_str(frame[0:6]), F.ETH_IPV4, ip + body)
+
+
 class FakeSniffer(object):
     def __init__(self, fab, pid, argv, path):
         self.fab, self.pid, self.path = fab, pid, path
         self.host = fab.host_of(argv)
         o = fab.opts(argv)
         self.cells, self.run = o["cells"].split(","), o["run"]
+        self.until = int(o.get("until") or 0)
+        self.dport, self.ip = int(o["dport"]), o["ip"]
+        fab.test.assertEqual(self.ip, GEN.host_ip(int(self.host[1:])))     # the receiver's own
         self.mark = len(fab.delivered[self.host])
         self.returncode = None
         with open(path, "w") as fh:
-            fh.write("READY iface=eth0\n")
+            fh.write(HS.ready_line("eth0") + "\n")
 
     def poll(self):
         return self.returncode
 
     def wait(self, timeout=None):
         if self.returncode is None:
-            got = [r for r in self.fab.delivered[self.host][self.mark:]
-                   if r["cell"] in self.cells and r["run"] == self.run]
+            got = []
+            for frame in self.fab.delivered[self.host][self.mark:]:
+                rec = HS.record(frame, self.run, set(self.cells), self.dport, self.ip)   # hostside's own filter
+                if rec is not None:
+                    got.append(rec)
+                    if self.until and len(got) >= self.until:
+                        break
             with open(self.path, "a") as fh:
                 for r in got:
-                    fh.write("RX %s\n" % json.dumps(r, sort_keys=True))
-                fh.write("DONE received=%d\n" % len(got))
+                    fh.write(HS.rx_line(r) + "\n")
+                fh.write(HS.done_line(len(got)) + "\n")
             shutil.rmtree(os.path.join(self.fab.proc, str(self.pid)), ignore_errors=True)
             self.returncode = 0
         return self.returncode
@@ -1622,7 +1734,9 @@ class FakeController(object):
             self.calls["direct_counter"] = {"ok": True, "detail": {"packets": s.counters[("HcIngress.dc_k2", h)]}}
             po = self.conf["packet_out"]
             for seq in range(po["count"]):
-                self.fab.delivered["h4"].append({"run": self.conf["token"], "cell": "P3", "seq": seq})
+                self.fab.delivered["h4"].append(F.udp_marker(
+                    po["src_mac"], po["dst_mac"], po["src_ip"], po["dst_ip"], 40051,
+                    run_id=self.conf["token"], cell="P3", seq=seq))
             self.calls["packet_out"] = {"ok": True, "detail": {"frames": po["count"]}}
             if not self.fab.ctrl_no_result:
                 with open(self.conf["out"], "w") as fh:
