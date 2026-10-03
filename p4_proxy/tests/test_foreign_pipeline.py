@@ -177,29 +177,32 @@ class AgainstARealTutorialsPipelineTest(unittest.TestCase):
         text_format.Merge(open(path).read(), p4info)
         return p4info
 
-    def test_a_ternary_table_in_a_real_compiled_p4info_answers_unsupported(self):
+    def test_a_ternary_table_in_a_real_compiled_p4info_is_built(self):
         # 🔴 The only REAL ternary table this repository has, and until round 3 nothing pointed
-        # the writer at it. The 501 path was covered twice over -- by the in-file p4info subset
-        # and by a synthetic descriptor -- and both of those are declarations this suite wrote
-        # itself. `MyIngress.flow_5tuple` is p4c's output from ndtwin_switch.p4: six TERNARY
-        # fields it decided the numbering of. None of the tutorials fixtures has one (asserted
-        # in test_no_fixture_pipeline_declares_a_ternary_range_or_optional_match), so this is
-        # where "a real compiler said TERNARY and the writer refused" gets checked.
+        # the writer at it. `MyIngress.flow_5tuple` is p4c's output from ndtwin_switch.p4: six
+        # TERNARY fields it decided the numbering of. None of the tutorials fixtures has one
+        # (asserted in test_no_fixture_pipeline_declares_a_ternary_range_or_optional_match), so
+        # this is where "a real compiler said TERNARY and the writer built it" gets checked.
+        # It used to be where the writer REFUSED it (501); the ternary writer reversed that.
+        # [Co-developed with claude code -- Adam]
         client = a_client()
         client.p4info = self.real_ndtwin_p4info()
         table = client._table_by_name("MyIngress.flow_5tuple")
         self.assertEqual({client._match_type_name(f) for f in table.match_fields}, {"TERNARY"})
 
-        with self.assertRaises(p4_client_module.TableEntryUnsupported) as caught:
-            client.write_table_entry({
-                "table": "MyIngress.flow_5tuple",
-                "match": {"hdr.ipv4.dstAddr": ["10.0.1.1", "255.255.255.255"]},
-                "action_name": "MyIngress.ipv4_forward",
-                "action_params": {"dstAddr": "08:00:00:00:01:11", "port": 1}})
-        self.assertIn("TERNARY", str(caught.exception))
-        self.assertIn("flow_5tuple", str(caught.exception))
-        self.assertEqual(client.stub.requests, [],
-                         "a refusal this proxy makes itself must not reach the switch")
+        client.write_table_entry({
+            "table": "MyIngress.flow_5tuple",
+            "match": {"hdr.ipv4.dstAddr": ["10.0.1.1", "255.255.255.255"]},
+            "action_name": "MyIngress.ipv4_forward",
+            "action_params": {"dstAddr": "08:00:00:00:01:11", "port": 1},
+            "priority": 10})
+        self.assertEqual(len(client.stub.requests), 1)
+        sent = client.stub.requests[0].updates[0].entity.table_entry
+        field = sent.match[0]
+        self.assertEqual(field.WhichOneof("field_match_type"), "ternary")
+        self.assertEqual(field.ternary.value, bytes([10, 0, 1, 1]))
+        self.assertEqual(field.ternary.mask, b"\xff\xff\xff\xff")
+        self.assertEqual(sent.priority, 10)
 
     def test_the_same_real_p4info_still_builds_its_exact_and_lpm_tables(self):
         # The negative half: the refusal above is about the match type, not about this being a

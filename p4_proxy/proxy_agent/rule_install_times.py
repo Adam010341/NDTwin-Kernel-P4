@@ -112,6 +112,11 @@ def _spec_key(spec):
         return ("ternary", _value_key(spec.get("value")), _value_key(spec.get("mask")))
     if kind == "range":
         return ("range", _value_key(spec.get("low")), _value_key(spec.get("high")))
+    if kind == "optional":
+        # Named, not left to the "unknown" branch below: an optional field that falls through
+        # is keyed by a repr of its dict, which only agrees with itself while both sides of the
+        # lookup build that dict identically. [Co-developed with claude code -- Adam]
+        return ("optional", _value_key(spec.get("value")))
     # A match type this proxy does not model. Kept, rather than dropped, so two entries that
     # differ only in it cannot collide onto one install time -- an unknown field is a reason to
     # be more careful, not less.

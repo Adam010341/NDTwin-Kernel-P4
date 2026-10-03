@@ -926,7 +926,9 @@ async def table_entry(request: Request):
         raise HTTPException(
             status_code=501,
             detail={"error": "match type not supported", "outcome": "unsupported_on_p4",
-                    "remedy": "use an exact or lpm match, or wait for the ternary writer",
+                    "remedy": "this table has a match field of a type the P4Runtime enum "
+                              "names and no writer can build (UNSPECIFIED); nothing in this "
+                              "proxy can write that table",
                     "dpid": raw_dpid, "message": str(err)})
     except TableEntryInvalid as err:
         raise HTTPException(
@@ -953,6 +955,7 @@ async def table_entry(request: Request):
         note_api_table_entry_write(raw_dpid)
     return {"status": "success", "dpid": raw_dpid, "op": written["op"],
             "table": written["table"], "match_types": written["match_types"],
+            "priority": written["priority"],
             "priority_honoured": written["priority_honoured"],
             "journaled": False, "note": TABLE_ENTRY_NOT_JOURNALED}
 

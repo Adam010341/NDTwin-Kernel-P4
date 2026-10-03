@@ -127,6 +127,19 @@ def a_p4info():
         field.bitwidth = 16
         field.match_type = kind
 
+    # [Co-developed with claude code -- Adam]
+    # UNSPECIFIED: the one match type left that this writer cannot build, so the only 501 left.
+    # Synthetic, like the two above.
+    table = p4info.tables.add()
+    table.preamble.id = 900000003
+    table.preamble.name = "Synthetic.unspecified_table"
+    table.preamble.alias = "unspecified_table"
+    field = table.match_fields.add()
+    field.id = 1
+    field.name = "meta.probe_key"
+    field.bitwidth = 16
+    field.match_type = p4info_pb2.MatchField.UNSPECIFIED
+
     forward = p4info.actions.add()
     forward.preamble.id = IPV4_FORWARD_ID
     forward.preamble.name = "MyIngress.ipv4_forward"
@@ -265,6 +278,34 @@ class AnAcceptedEntryTest(TableEntryRouteTestBase):
         self.assertEqual(body["table"], "MyIngress.ipv4_lpm")
         self.assertEqual(only_table_id(self.stub.requests[0]), IPV4_LPM_ID)
 
+    def test_a_ternary_entry_is_accepted_and_the_response_says_which_priority_went_out(self):
+        # R1 at the route. [Co-developed with claude code -- Adam]
+        body = self.post(table="MyIngress.flow_5tuple", match={"hdr.ipv4.protocol": [6, 255]},
+                         priority=10)
+        self.assertEqual(body["status"], "success")
+        self.assertEqual(body["match_types"], {"hdr.ipv4.protocol": "TERNARY"})
+        self.assertEqual(body["priority"], 10)
+        self.assertTrue(body["priority_honoured"])
+        sent = self.stub.requests[0].updates[0].entity.table_entry
+        self.assertEqual((sent.match[0].ternary.value, sent.match[0].ternary.mask),
+                         (b"\x06", b"\xff"))
+        self.assertEqual(sent.priority, 10)
+
+    def test_a_range_entry_is_accepted(self):
+        body = self.post(table="Synthetic.range_table", match={"meta.probe_key": [1024, 3000]},
+                         action_name="MyIngress.ipv4_forward", priority=5)
+        self.assertEqual(body["match_types"], {"meta.probe_key": "RANGE"})
+        sent = self.stub.requests[0].updates[0].entity.table_entry
+        self.assertEqual((sent.match[0].range.low, sent.match[0].range.high),
+                         (b"\x04\x00", b"\x0b\xb8"))
+
+    def test_an_optional_entry_is_accepted(self):
+        body = self.post(table="Synthetic.optional_table", match={"meta.probe_key": 7},
+                         action_name="MyIngress.ipv4_forward", priority=5)
+        self.assertEqual(body["match_types"], {"meta.probe_key": "OPTIONAL"})
+        sent = self.stub.requests[0].updates[0].entity.table_entry
+        self.assertEqual(sent.match[0].optional.value, b"\x00\x07")
+
     def test_modify_and_delete_are_accepted_verbs(self):
         self.assertEqual(self.post(op="modify")["op"], "modify")
         self.assertEqual(self.post(op="delete")["op"], "delete")
@@ -340,34 +381,17 @@ class EveryRefusalIsItsOwnStatusCodeTest(TableEntryRouteTestBase):
         self.assertEqual(caught.exception.status_code, 400)
         self.assertEqual(self.stub.requests, [])
 
-    def test_a_ternary_match_is_501_and_names_the_match_type(self):
-        error = self.refused(table="MyIngress.flow_5tuple",
-                             match={"hdr.ipv4.protocol": [6, 255]})
-        self.assertEqual(error.status_code, 501)
-        self.assertIn("TERNARY", error.detail["message"])
-        self.assertEqual(error.detail["outcome"], "unsupported_on_p4")
-        self.assertEqual(self.stub.requests, [])
-
-    def test_a_range_match_is_501_and_names_RANGE(self):
-        # TICKET-P2 2.3 (:63) promises 501 for all three, and this one had no test until round 2.
-        # It matters more than the ternary case, not less: a range value is `[lo, hi]`, the same
-        # shape an lpm entry uses for `[value, prefix_len]`, so this is the one a writer that
-        # guessed from the value would build as a real rule instead of refusing.
-        error = self.refused(table="Synthetic.range_table",
-                             match={"meta.probe_key": [1024, 3000]},
-                             action_name="MyIngress.ipv4_forward")
-        self.assertEqual(error.status_code, 501)
-        self.assertIn("RANGE", error.detail["message"])
-        self.assertEqual(error.detail["outcome"], "unsupported_on_p4")
-        self.assertEqual(self.stub.requests, [])
-
-    def test_an_optional_match_is_501_and_names_OPTIONAL(self):
-        # An optional value is a plain value, indistinguishable by shape from an exact one.
-        error = self.refused(table="Synthetic.optional_table",
+    def test_a_match_type_no_writer_can_build_is_501_and_names_it(self):
+        # The only 501 left (R23). TERNARY, RANGE and OPTIONAL used to answer it here; they are
+        # built now (AnAcceptedEntryTest). UNSPECIFIED is a match type the P4Runtime enum names
+        # and nothing can write. [Co-developed with claude code -- Adam]
+        error = self.refused(table="Synthetic.unspecified_table",
                              match={"meta.probe_key": 7},
                              action_name="MyIngress.ipv4_forward")
         self.assertEqual(error.status_code, 501)
-        self.assertIn("OPTIONAL", error.detail["message"])
+        self.assertIn("UNSPECIFIED", error.detail["message"])
+        self.assertEqual(error.detail["outcome"], "unsupported_on_p4")
+        self.assertNotIn("wait for the ternary writer", error.detail["remedy"])
         self.assertEqual(self.stub.requests, [])
 
     def test_an_external_control_plane_is_409(self):

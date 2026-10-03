@@ -216,6 +216,21 @@ def a_p4info():
         field.match_type = kind
 
     # [Co-developed with claude code -- Adam]
+    # A match type the P4Runtime enum names and no writer can build: UNSPECIFIED (0), which is
+    # what a field carries when p4c wrote a target-specific `other` or nothing at all. Since the
+    # writer learned TERNARY, RANGE and OPTIONAL this is the only 501 left, so it needs a table
+    # of its own. Synthetic for the same reason as the two above.
+    table = p4info.tables.add()
+    table.preamble.id = 900000003
+    table.preamble.name = "Synthetic.unspecified_table"
+    table.preamble.alias = "unspecified_table"
+    field = table.match_fields.add()
+    field.id = 1
+    field.name = "meta.probe_key"
+    field.bitwidth = 16
+    field.match_type = p4info_pb2.MatchField.UNSPECIFIED
+
+    # [Co-developed with claude code -- Adam]
     # The two controller headers, added for TICKET-P3 2.6 (G1). The proxy resolves the metadata
     # ids BY NAME out of this message now, so a double without them makes every packet-in and
     # packet-out path raise -- which is the correct failure for a double that has stopped
@@ -1701,44 +1716,74 @@ class BuildTableEntryTest(unittest.TestCase):
             self.build(**self.lpm_spec(action_params={"port": 1}))
         self.assertIn("dstAddr", str(caught.exception))
 
-    def test_a_ternary_field_is_unsupported_and_says_which_match_type_it_is(self):
-        with self.assertRaises(p4_client_module.TableEntryUnsupported) as caught:
-            self.build(table="MyIngress.flow_5tuple",
-                       match={"hdr.ipv4.dstAddr": ["10.0.1.1", "255.255.255.255"]},
-                       action_name="MyIngress.ipv4_forward",
-                       action_params={"dstAddr": "08:00:00:00:01:11", "port": 1})
-        self.assertIn("TERNARY", str(caught.exception))
+    def test_a_ternary_field_is_built_with_its_value_and_mask(self):
+        # R1. [Co-developed with claude code -- Adam]
+        entry, kinds = self.build(table="MyIngress.flow_5tuple",
+                                  match={"hdr.ipv4.dstAddr": ["10.0.1.1", "255.255.255.255"]},
+                                  action_name="MyIngress.ipv4_forward",
+                                  action_params={"dstAddr": "08:00:00:00:01:11", "port": 1},
+                                  priority=10)
+        self.assertEqual(entry.table_id, FLOW_5TUPLE_ID)
+        self.assertEqual(len(entry.match), 1)
+        self.assertEqual(entry.match[0].field_id, 3, "dstAddr is flow_5tuple's third field")
+        self.assertEqual(entry.match[0].WhichOneof("field_match_type"), "ternary")
+        self.assertEqual(entry.match[0].ternary.value, socket.inet_aton("10.0.1.1"))
+        self.assertEqual(entry.match[0].ternary.mask, b"\xff\xff\xff\xff")
+        self.assertEqual(entry.priority, 10)
+        self.assertEqual(kinds, {"hdr.ipv4.dstAddr": "TERNARY"})
 
-    def test_a_range_field_is_unsupported_and_says_RANGE(self):
-        # 🔴 A range value is `[lo, hi]` -- the same two-element list an lpm entry uses for
-        # `[value, prefix_len]`. So a writer that decided the shape from the VALUE would build
-        # this as an lpm entry with a prefix length of `hi`, and 3000 is not a prefix length:
-        # it would either be rejected by bmv2 with an opaque status or truncated into a mask
-        # that matches traffic nobody asked about. The p4info is what says which it is.
-        with self.assertRaises(p4_client_module.TableEntryUnsupported) as caught:
-            self.build(table="Synthetic.range_table",
-                       match={"meta.probe_key": [1024, 3000]},
-                       action_name="MyIngress.send_to_cpu", action_params={})
-        self.assertIn("RANGE", str(caught.exception))
+    def test_a_ternary_mask_is_kept_as_written_and_not_widened_to_the_whole_field(self):
+        entry, _ = self.build(table="MyIngress.flow_5tuple",
+                              match={"hdr.ipv4.dstAddr": ["10.0.0.0", "255.0.0.0"],
+                                     "hdr.ipv4.protocol": [6, 255]},
+                              action_name="MyIngress.send_to_cpu", action_params={}, priority=3)
+        by_id = {m.field_id: m.ternary for m in entry.match}
+        self.assertEqual(by_id[3].mask, b"\xff\x00\x00\x00")
+        self.assertEqual((by_id[4].value, by_id[4].mask), (b"\x06", b"\xff"))
 
-    def test_an_optional_field_is_unsupported_and_says_OPTIONAL(self):
-        # An optional value is a plain value -- indistinguishable from an exact one by shape.
-        # Same argument as RANGE, from the other direction.
+    def test_a_range_field_is_built_with_its_low_and_high(self):
+        # R2. A range value is `[lo, hi]` -- the same two-element list an lpm entry uses for
+        # `[value, prefix_len]`. The p4info is what says which it is, so 3000 here is a bound
+        # and not a prefix length. [Co-developed with claude code -- Adam]
+        entry, kinds = self.build(table="Synthetic.range_table",
+                                  match={"meta.probe_key": [1024, 3000]},
+                                  action_name="MyIngress.send_to_cpu", action_params={},
+                                  priority=5)
+        self.assertEqual(entry.match[0].WhichOneof("field_match_type"), "range")
+        self.assertEqual(entry.match[0].range.low, b"\x04\x00")
+        self.assertEqual(entry.match[0].range.high, b"\x0b\xb8")
+        self.assertEqual(entry.priority, 5)
+        self.assertEqual(kinds, {"meta.probe_key": "RANGE"})
+
+    def test_an_optional_field_is_built_from_a_plain_value_or_a_one_element_list(self):
+        # R3. An optional value is a plain value -- indistinguishable from an exact one by
+        # shape, which is why the p4info decides. [Co-developed with claude code -- Adam]
+        for raw in (7, [7]):
+            entry, kinds = self.build(table="Synthetic.optional_table",
+                                      match={"meta.probe_key": raw},
+                                      action_name="MyIngress.send_to_cpu", action_params={},
+                                      priority=5)
+            self.assertEqual(entry.match[0].WhichOneof("field_match_type"), "optional")
+            self.assertEqual(entry.match[0].optional.value, b"\x00\x07")
+            self.assertEqual(kinds, {"meta.probe_key": "OPTIONAL"})
+
+    def test_a_match_type_no_writer_can_build_is_unsupported_and_says_which_it_is(self):
+        # R23. The only 501 left: UNSPECIFIED. [Co-developed with claude code -- Adam]
         with self.assertRaises(p4_client_module.TableEntryUnsupported) as caught:
-            self.build(table="Synthetic.optional_table",
+            self.build(table="Synthetic.unspecified_table",
                        match={"meta.probe_key": 7},
                        action_name="MyIngress.send_to_cpu", action_params={})
-        self.assertIn("OPTIONAL", str(caught.exception))
+        self.assertIn("UNSPECIFIED", str(caught.exception))
+        self.assertIn("unspecified_table", str(caught.exception))
 
-    def test_neither_range_nor_optional_reaches_the_switch(self):
-        for table, value in (("Synthetic.range_table", [1024, 3000]),
-                             ("Synthetic.optional_table", 7)):
-            client = a_client()
-            with self.assertRaises(p4_client_module.TableEntryUnsupported):
-                client.write_table_entry({"table": table, "match": {"meta.probe_key": value},
-                                          "action_name": "MyIngress.send_to_cpu",
-                                          "action_params": {}})
-            self.assertEqual(client.stub.requests, [], f"{table} put a request on the wire")
+    def test_an_unsupported_match_type_reaches_no_switch(self):
+        client = a_client()
+        with self.assertRaises(p4_client_module.TableEntryUnsupported):
+            client.write_table_entry({"table": "Synthetic.unspecified_table",
+                                      "match": {"meta.probe_key": 7},
+                                      "action_name": "MyIngress.send_to_cpu",
+                                      "action_params": {}})
+        self.assertEqual(client.stub.requests, [], "an unsupported table put a request on the wire")
 
     def test_the_match_type_name_comes_from_the_generated_enum(self):
         # 🔴 P4Runtime's MatchType skips 1: UNSPECIFIED=0, EXACT=2, LPM=3, TERNARY=4, RANGE=5,
@@ -1906,14 +1951,19 @@ class WriteTableEntryTest(unittest.TestCase):
             self.client.write_table_entry(self.spec())
         self.assertEqual(len(self.client.rule_install_times), 0)
 
-    def test_an_unsupported_match_reaches_no_switch(self):
-        with self.assertRaises(p4_client_module.TableEntryUnsupported):
-            self.client.write_table_entry(
-                {"table": "MyIngress.flow_5tuple",
-                 "match": {"hdr.ipv4.protocol": [6, 255]},
-                 "action_name": "MyIngress.ipv4_forward",
-                 "action_params": {"dstAddr": "08:00:00:00:01:11", "port": 1}})
-        self.assertEqual(self.client.stub.requests, [])
+    def test_a_ternary_entry_goes_on_the_wire_with_its_mask_and_its_priority(self):
+        result = self.client.write_table_entry(
+            {"table": "MyIngress.flow_5tuple",
+             "match": {"hdr.ipv4.protocol": [6, 255]},
+             "action_name": "MyIngress.ipv4_forward",
+             "action_params": {"dstAddr": "08:00:00:00:01:11", "port": 1},
+             "priority": 100})
+        sent = only_update(self.client.stub.requests[0]).entity.table_entry
+        self.assertEqual(sent.match[0].ternary.value, b"\x06")
+        self.assertEqual(sent.match[0].ternary.mask, b"\xff")
+        self.assertEqual(sent.priority, 100)
+        self.assertEqual(result["priority"], 100)
+        self.assertTrue(result["priority_honoured"])
 
     def test_an_over_wide_value_reaches_no_switch(self):
         with self.assertRaises(p4_client_module.TableEntryInvalid):
