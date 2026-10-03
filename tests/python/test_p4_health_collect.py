@@ -839,6 +839,43 @@ class TestLabRound(Sealed):
         _lr, rec = self.round(r)
         self.assertEqual(self.names(r)[-1], "ndt down")
         self.assertIsNone(rec["knobs_restored"])
+        st = self.state()
+        self.assertEqual((st["phase"], st["claim_lost"]), ("down-done", True))   # recover.sh's cue
+
+    def test_a_successful_down_is_recorded_before_the_knobs_and_the_release(self):
+        """Review NEW-C: a crash after the down leaves phase down-done for recover.sh."""
+        seen = {}
+        r = self.runner()
+
+        def release(argv, env, inp):
+            seen["phase"] = self.state()["phase"]
+            if os.path.exists(self.cfg.claim_file):
+                os.remove(self.cfg.claim_file)
+            return (0, "")
+        r.replies.insert(0, (("ndt", "release"), release))
+        lr, _rec = self.round(r)
+        self.assertEqual(seen["phase"], "down-done")
+        ev = lr.events
+        self.assertLess(ev.index(("ndt", "down")), ev.index(("state", "down-done")))
+        self.assertLess(ev.index(("state", "down-done")), ev.index(("knobs", "restored")))
+        r = self.runner(down_rc=3)
+        lr, _rec = self.round(r)
+        self.assertNotIn(("state", "down-done"), lr.events)
+
+    def test_a_failed_kill_keeps_the_process_for_recover(self):
+        """Review MINOR 6: only a stopped (or gone, or recycled) process leaves LAB_STATE."""
+        r = self.runner()
+        r.replies.insert(0, (("sudo", "-n", "mnexec", "-a", "1", "kill"), (1, "")))
+
+        def body(lab):
+            lab.register("sniffer", 555)
+        self.round(r, body)
+        self.assertEqual([e["pid"] for e in self.state()["sniffers"]], [555])
+
+    def test_the_probe_records_its_own_start_time(self):
+        self.fake_proc(4242, 31337, "python3\0probe.py\0")
+        lr = self.lab(self.runner())
+        self.assertEqual(lr.state["pid_start"], 31337)
 
     def test_a_failed_down_is_not_released(self):
         r = self.runner(down_rc=3)

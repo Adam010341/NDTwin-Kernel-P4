@@ -480,19 +480,19 @@ add "B5. TP4 runs with the heartbeat withheld" \
 
 add "B6. CP4 loses its negative read" \
     "$TABLE" \
-    '         need=("a:capabilities", "o:kernel_route_present", "o:port_after_cut"), **NEG),' \
-    '         need=("a:capabilities", "o:kernel_route_present", "o:port_after_cut")),  # MUTANT' \
+    '               "o:port_after_cut"), **NEG),' \
+    '               "o:port_after_cut")),  # MUTANT' \
     'test_the_negative_read_cells_are_exactly_the_pinned_ones'
 
 add "B7. HU1 loses its SC-union edge" \
     "$TABLE" \
-    '         self_checks=("SC-union",), q3b=True, need=("a:v6", "a:x", "o:sampled", "o:sampled_x")),' \
-    '         q3b=True, need=("a:v6", "a:x", "o:sampled", "o:sampled_x")),  # MUTANT' \
+    '         self_checks=("SC-union",), q3b=True, need=("a:v6", "a:x"), **IDENT),' \
+    '         q3b=True, need=("a:v6", "a:x"), **IDENT),  # MUTANT' \
     'test_rule_d_edges_are_the_designs'
 
 add "B8. the meter rates are never compared" \
     "$TABLE" \
-    '    if not o["target"] or o["rates_after"] != o["target"]:' \
+    '    if o["rates_after"] != o["target"]:' \
     '    if False:  # MUTANT' \
     'test_compare_branches_after_a_route_exists'
 
@@ -510,7 +510,7 @@ add "B10. R3 never compares what it wrote" \
 
 add "B11. D1 never compares the digest" \
     "$TABLE" \
-    '    if not o["fields"] or a["fields"] != o["fields"]:' \
+    '    if a["fields"] != o["fields"]:' \
     '    if False:  # MUTANT' \
     'test_compare_branches_after_a_route_exists'
 
@@ -524,7 +524,7 @@ add "B12. delivered without anything arriving" \
 
 add "B13. IT1 green without a report" \
     "$TABLE" \
-    '    if a["timeout_reported"] is True:' \
+    '    if deadline_met(a["reported_after_s"], IT1_REPORT_DEADLINE_S):' \
     '    if True:  # MUTANT' \
     'test_it1_reads_the_switchs_own_aging'
 
@@ -681,12 +681,6 @@ add "Q11. VB1 aliases the wrong cell" \
     'alias_of="CH6",' \
     'test_aliases_carry_their_sources_verdict'
 
-add "Q12. RC1 aliases the wrong cell" \
-    "$TABLE" \
-    'alias_of="V1",' \
-    'alias_of="CH5",' \
-    'test_aliases_carry_their_sources_verdict'
-
 add "Q13. SC-recirc accepts a packet that was not resubmitted" \
     "$TABLE" \
     '    bad = [f for f in flags if f & 0x0C != 0x0C]' \
@@ -735,12 +729,6 @@ add "m19. probe judge assumes the bring-ups completed" \
     'bringups_complete=doc.get("bringups_complete") is True)' \
     'bringups_complete=doc.get("bringups_complete", True))  # MUTANT' \
     'test_a_recording_that_does_not_say_it_completed_is_incomplete'
-
-add "m23. a window with no sample is RED" \
-    "$TABLE" \
-    '    if O(obs)["sampled"] < 1:' \
-    '    if False:  # MUTANT' \
-    'test_no_sample_in_the_window_is_not_run_not_red'
 
 add "m2. a PF-T with no observation is decided" \
     "$VERDICT" \
@@ -794,6 +782,152 @@ add "R6. recover.sh accepts an up note written for another owner" \
     '    "in use: ndt up p4 "*" by $OWNER")          note_ours=1 ;;' \
     '    "in use: ndt up p4 "*)          note_ours=1 ;;' \
     'an up note written for another owner: rc 3, nothing run'
+
+# Round 3 (the Cut 1 re-review: NEW-A, NEW-B, NEW-C, the RC1 cell, the alias marks, MINORs).
+add "R3-A1. the sample floor gates on NDTwin's emitter count again (NEW-A)" \
+    "$VERDICT" \
+    '        if spec.min_sent is not None and sent < spec.min_sent:' \
+    '        if spec.min_sent is not None and (obs.get("oracle") or {}).get("sampled", 0) < 1:  # MUTANT' \
+    'test_telemetry_none_through_the_real_cells'
+
+add "R3-A2. the floor is one expected sample" \
+    "$TABLE" \
+    'MIN_EXPECTED_SAMPLES = 19' \
+    'MIN_EXPECTED_SAMPLES = 1  # MUTANT' \
+    'test_the_sample_floor_comes_from_the_sender_not_the_emitter'
+
+add "R3-B1. a link that never went down meets the deadline (NEW-B)" \
+    "$TABLE" \
+    '    if seconds == NEVER:
+        return False' \
+    '    if seconds == NEVER:
+        return True  # MUTANT' \
+    'test_a_link_that_never_went_down_is_red_not_not_read'
+
+add "R3-B2. never-went-down reads as not read" \
+    "$TABLE" \
+    '    if a["down_after_s"] == NEVER and not watched_enough(a):' \
+    '    if a["down_after_s"] == NEVER:  # MUTANT' \
+    'test_a_link_that_never_went_down_is_red_not_not_read'
+
+add "R3-B3. a route gone after the cut reads as not read" \
+    "$TABLE" \
+    '        return red("thrift: s1'"'"'s route to h6 is gone after the cut", "structural", "thrift")' \
+    '        return not_run("MUTANT: route not read")' \
+    'test_a_route_gone_after_the_cut_is_red'
+
+add "R3-B4. never-rerouted reads as not read" \
+    "$TABLE" \
+    '    if a["rerouted_after_s"] == NEVER and not watched_enough(a):' \
+    '    if a["rerouted_after_s"] == NEVER:  # MUTANT' \
+    'test_a_route_gone_after_the_cut_is_red'
+
+add "R3-C1. lab_round records no down-done (NEW-C)" \
+    "$LABROUND" \
+    '        if down.rc == 0:
+            # (r3, review NEW-C)' \
+    '        if False:  # MUTANT
+            # (r3, review NEW-C)' \
+    'test_a_successful_down_is_recorded_before_the_knobs_and_the_release'
+
+add "R3-C2. recover.sh in down-done still compares qdiscs" \
+    "$RECOVER" \
+    'if [[ "$PHASE" != down-done ]]; then' \
+    'if true; then  # MUTANT' \
+    'down-done: rc 0'
+
+add "R3-C3. recover.sh in down-done does not check that no fabric is up" \
+    "$RECOVER" \
+    '    if [[ "$n_bmv2" != 0 || "$n_mn" != 0 ]]; then' \
+    '    if false; then  # MUTANT' \
+    'down-done but ndt status shows a fabric: rc 4'
+
+add "R3-D1. RC1 loses its SC-recirc dependency" \
+    "$TABLE" \
+    '    Cell("RC1", "recirculate", "ext", "active", "A", 3, identity_cell(None), self_checks=("SC-recirc",),' \
+    '    Cell("RC1", "recirculate", "ext", "active", "A", 3, identity_cell(None),  # MUTANT' \
+    'test_rule_d_edges_are_the_designs'
+
+add "R3-D2. alias-only dimensions are not marked" \
+    "$VERDICT" \
+    '        if counted and all(c.alias_of for c in counted):' \
+    '        if False:  # MUTANT' \
+    'test_alias_only_dimensions_are_marked'
+
+add "R3-D3. an alias row does not say whose verdict it carries" \
+    "$REPORTPY" \
+    '            attribution = "ALIAS of %s%s" % (c.alias_of, ("; " + attribution) if attribution else "")' \
+    '            pass  # MUTANT' \
+    'test_alias_only_dimensions_are_marked'
+
+add "R3-m3a. a control with no route is PROBE-BROKEN (MINOR 3)" \
+    "$TABLE" \
+    '        if isinstance(a, dict) and a.get("route") is False:' \
+    '        if False:  # MUTANT' \
+    'test_a_missing_route_makes_the_cell_red_and_the_round_publishable'
+
+add "R3-m3b. a cell may claim a route its control did not find" \
+    "$VERDICT" \
+    '            return PROBE_BROKEN, "control %s found no route, the cell'"'"'s own answer does not say so" % ctl' \
+    '            continue  # MUTANT' \
+    'test_a_missing_route_makes_the_cell_red_and_the_round_publishable'
+
+add "R3-m3c. K1 ignores a missing route" \
+    "$TABLE" \
+    '        return red("no route: the proxy'"'"'s openapi has no GET /p4/counter", "structural", *thrift_ev(obs))' \
+    '        pass  # MUTANT' \
+    'test_a_missing_route_makes_the_cell_red_and_the_round_publishable'
+
+add "R3-m1a. empty target rates are a RED, not the probe's fault (MINOR 1)" \
+    "$TABLE" \
+    '        return broken("the probe'"'"'s own target rates are empty")' \
+    '        pass  # MUTANT' \
+    'test_empty_probe_side_inputs_are_probe_broken'
+
+add "R3-m1b. an empty marker field list is a RED" \
+    "$TABLE" \
+    '        return broken("the marker'"'"'s own fields are empty")' \
+    '        pass  # MUTANT' \
+    'test_empty_probe_side_inputs_are_probe_broken'
+
+add "R3-m2. HU1 decides without its nested readings (MINOR 2)" \
+    "$TABLE" \
+    '        if lacking:
+            return not_run("reading not taken: answer.%s.%s"' \
+    '        if False:  # MUTANT
+            return not_run("reading not taken: answer.%s.%s"' \
+    'test_hu1s_nested_readings_are_needed'
+
+add "R3-m4. HR stimulus too small to trust (MINOR 4)" \
+    "$TABLE" \
+    'HR_FRAMES = 20000' \
+    'HR_FRAMES = 2000  # MUTANT' \
+    'test_hr_stimulus_size_and_order'
+
+add "R3-m5. IT1 accepts a report after its deadline (MINOR 5)" \
+    "$TABLE" \
+    '    if deadline_met(a["reported_after_s"], IT1_REPORT_DEADLINE_S):' \
+    '    if a["reported_after_s"] != NEVER:  # MUTANT' \
+    'test_it1_reads_the_switchs_own_aging'
+
+add "R3-m6a. a failed kill drops the process from the state file (MINOR 6)" \
+    "$LABROUND" \
+    '        if outcome.startswith("kill rc"):' \
+    '        if False:  # MUTANT' \
+    'test_a_failed_kill_keeps_the_process_for_recover'
+
+add "R3-m6b. recover.sh takes a recycled pid for the probe" \
+    "$RECOVER" \
+    '    if [[ -z "$PID_START" || -z "$now_start" || "$now_start" == "$PID_START" ]]; then' \
+    '    if true; then  # MUTANT' \
+    'rc 0: a live pid with another start time is a recycled pid'
+
+add "R3-m6c. recover.sh measuring check fails open" \
+    "$RECOVER" \
+    '        echo "ndt status --measuring did not answer"; return' \
+    '        return  # MUTANT' \
+    'an expired claim and ndt status --measuring not answering: rc 3 (fails closed)'
+
 
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'

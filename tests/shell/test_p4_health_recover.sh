@@ -28,11 +28,13 @@ setup() {  # setup <case> -- a fresh run dir, knobs, claim, override, fake /proc
     local d="$WORK/$1"; mkdir -p "$d/run" "$d/knobs" "$d/test_run" "$d/bin" "$d/proc/555" "$d/proc/666"
     : > "$d/calls"
     printf '  measuring      nothing\n' > "$d/status_measuring"
+    printf '  bmv2 switches  0       \n  host/switch    0       \n' > "$d/status_full"
     for s in ndt qdisc sudo kill; do
         cat > "$d/bin/$s" <<STUB
 #!/usr/bin/env bash
 echo "$s \$*" >> "$d/calls"
-if [[ "$s" == ndt && "\${1:-}" == status && "\${2:-}" == --measuring ]]; then cat "$d/status_measuring"; fi
+if [[ "$s" == ndt && "\${1:-}" == status && "\${2:-}" == --measuring ]]; then cat "$d/status_measuring"
+elif [[ "$s" == ndt && "\${1:-}" == status ]]; then cat "$d/status_full"; fi
 rc_file="$d/rc.$s.\${1:-}"
 [[ -f "\$rc_file" ]] && exit "\$(cat "\$rc_file")"
 exit 0
@@ -94,12 +96,27 @@ check "stop sniffer, stop controller, netem off, qdisc diff, down, release, stat
 check "the host knob is its snapshot's bytes" [ "$(cat "$d/knobs/host_count_override")" == "4  # kept as bytes" ]
 check "the telemetry knob that was absent is absent again" [ ! -e "$d/knobs/telemetry_override" ]
 
-echo "--- the note ndt down wrote, with the override already cleared"
+echo "--- a crash after the probe's own ndt down (phase down-done; review NEW-C)"
+# The qdisc stub reports DRIFT here, as the real snapshot would once the fabric's interfaces are
+# gone: a recovery that still compared qdiscs would stop at rc 4 and never release.
 d="$(setup afterdown)"; claim_set "$d" note "down at 2026-10-03 18:20:00; verified clean; claim kept"
-: > "$d/knobs/app_package_override"
-python3 -c "import json,sys; p=sys.argv[1]; s=json.load(open(p)); s['phase']='down-failed'; json.dump(s,open(p,'w'))" "$d/run/LAB_STATE.json"
+: > "$d/knobs/app_package_override"; echo 1 > "$d/rc.qdisc.diff"
+python3 -c "import json,sys; p=sys.argv[1]; s=json.load(open(p)); s['phase']='down-done'; s['sniffers']=[]; s['controllers']=[]; s['netem']=[]; json.dump(s,open(p,'w'))" "$d/run/LAB_STATE.json"
 rc="$(run "$d")"
-check "rc 0, and it ran ndt down and release" [ "$rc" -eq 0 -a "$(grep -c '^ndt down\|^ndt release' "$d/calls")" -eq 2 ]
+check "down-done: rc 0" [ "$rc" -eq 0 ]
+check "down-done: asked ndt status, then released -- no qdisc, no netem, no second down" \
+    [ "$(cat "$d/calls")" == "ndt status
+ndt release
+ndt status" ]
+check "down-done: the host knob is its snapshot's bytes" [ "$(cat "$d/knobs/host_count_override")" == "4  # kept as bytes" ]
+d="$(setup afterdownup)"; claim_set "$d" note "down at 2026-10-03 18:20:00; verified clean; claim kept"
+: > "$d/knobs/app_package_override"
+python3 -c "import json,sys; p=sys.argv[1]; s=json.load(open(p)); s['phase']='down-done'; json.dump(s,open(p,'w'))" "$d/run/LAB_STATE.json"
+printf '  bmv2 switches  4       \n  host/switch    10      \n' > "$d/status_full"
+rc="$(run "$d")"
+check "down-done but ndt status shows a fabric: rc 4" [ "$rc" -eq 4 ]
+check "  ... no release, no knob write" no_line "$d" '^ndt release'
+check "  ... knob untouched" [ "$(cat "$d/knobs/host_count_override")" == "6" ]
 
 echo "--- not our lab"
 d="$(setup foreign)"; claim_set "$d" owner somebody-else; rc="$(run "$d")"
@@ -121,6 +138,22 @@ rc="$(run "$d")"
 check "rc 3 and nothing run" [ "$rc" -eq 3 ]
 check "  ... and nothing run" nocalls "$d"
 
+d="$(setup alivesame)"
+mkdir -p "$d/proc/$$"; printf '%s (bash) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 4242 0 0\n' "$$" > "$d/proc/$$/stat"
+python3 -c "import json,sys; p=sys.argv[1]; s=json.load(open(p)); s['pid']=int(sys.argv[2]); s['pid_start']=4242; json.dump(s,open(p,'w'))" \
+    "$d/run/LAB_STATE.json" "$$"
+rc="$(run "$d")"
+check "the probe's pid alive with its own start time: rc 3" [ "$rc" -eq 3 ]
+check "  ... and nothing run" nocalls "$d"
+
+echo "--- the probe's pid alive but recycled (another start time) is not the probe"
+d="$(setup recycledprobe)"
+mkdir -p "$d/proc/$$"; printf '%s (bash) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 5 0 0\n' "$$" > "$d/proc/$$/stat"
+python3 -c "import json,sys; p=sys.argv[1]; s=json.load(open(p)); s['pid']=int(sys.argv[2]); s['pid_start']=999; json.dump(s,open(p,'w'))" \
+    "$d/run/LAB_STATE.json" "$$"
+rc="$(run "$d")"
+check "rc 0: a live pid with another start time is a recycled pid" [ "$rc" -eq 0 ]
+
 echo "--- section 12 item 11: an expired claim of ours, the override still ours"
 d="$(setup expired)"; claim_set "$d" expires "$(( $(date +%s) - 60 ))"; rc="$(run "$d")"
 check "rc 0" [ "$rc" -eq 0 ]
@@ -137,6 +170,10 @@ check "  ... nothing run" nocalls "$d"
 d="$(setup expireddeclared)"; claim_set "$d" expires "$(( $(date +%s) - 60 ))"; claim_set "$d" measuring "nsr reader, do not tear down"
 rc="$(run "$d")"
 check "an expired claim that declares a measurement: rc 3" [ "$rc" -eq 3 ]
+check "  ... no claim, no down" no_line "$d" '^ndt claim\|^ndt down'
+d="$(setup expiredstatusfails)"; claim_set "$d" expires "$(( $(date +%s) - 60 ))"; echo 2 > "$d/rc.ndt.status"
+rc="$(run "$d")"
+check "an expired claim and ndt status --measuring not answering: rc 3 (fails closed)" [ "$rc" -eq 3 ]
 check "  ... no claim, no down" no_line "$d" '^ndt claim\|^ndt down'
 d="$(setup expiredbusy)"; claim_set "$d" expires "$(( $(date +%s) - 60 ))"
 printf '  measuring      iperf3 -c 10.0.6.6 -t 200\n' > "$d/status_measuring"
