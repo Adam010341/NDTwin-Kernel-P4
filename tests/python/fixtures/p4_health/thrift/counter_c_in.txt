@@ -1,0 +1,5 @@
+Obtaining JSON from switch...
+Done
+Control utility for runtime P4 table manipulation
+RuntimeCmd: HcIngress.c_in[0]= (0 bytes, 0 packets)
+RuntimeCmd: 

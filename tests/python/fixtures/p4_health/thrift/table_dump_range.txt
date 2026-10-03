@@ -1,0 +1,16 @@
+Obtaining JSON from switch...
+Done
+Control utility for runtime P4 table manipulation
+RuntimeCmd: ==========
+TABLE ENTRIES
+**********
+Dumping entry 0x0
+Match key:
+* udp.dstPort         : RANGE     9c40 -> 9c4a
+Priority: 1
+Action entry: HcIngress.set_mark - 05
+==========
+Dumping default entry
+Action entry: NoAction - 
+==========
+RuntimeCmd: 

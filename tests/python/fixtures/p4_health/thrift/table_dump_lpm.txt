@@ -1,0 +1,45 @@
+Obtaining JSON from switch...
+Done
+Control utility for runtime P4 table manipulation
+RuntimeCmd: ==========
+TABLE ENTRIES
+**********
+Dumping entry 0x0
+Match key:
+* ipv4.dstAddr        : LPM       0a000101/32
+Action entry: HcIngress.ipv4_forward - 08000000ff01, 02
+**********
+Dumping entry 0x1
+Match key:
+* ipv4.dstAddr        : LPM       0a000202/32
+Action entry: HcIngress.ipv4_forward - 08000000ff01, 02
+**********
+Dumping entry 0x2
+Match key:
+* ipv4.dstAddr        : LPM       0a000303/32
+Action entry: HcIngress.ipv4_forward - 08000000ff01, 02
+**********
+Dumping entry 0x3
+Match key:
+* ipv4.dstAddr        : LPM       0a000404/32
+Action entry: HcIngress.ipv4_forward - 080000000444, 01
+**********
+Dumping entry 0x4
+Match key:
+* ipv4.dstAddr        : LPM       0a000505/32
+Action entry: HcIngress.ipv4_forward - 08000000ff04, 03
+**********
+Dumping entry 0x5
+Match key:
+* ipv4.dstAddr        : LPM       0a000606/32
+Action entry: HcIngress.ipv4_forward - 08000000ff04, 03
+**********
+Dumping entry 0x6
+Match key:
+* ipv4.dstAddr        : LPM       0a006302/32
+Action entry: HcIngress.drop - 
+==========
+Dumping default entry
+Action entry: HcIngress.drop - 
+==========
+RuntimeCmd: 

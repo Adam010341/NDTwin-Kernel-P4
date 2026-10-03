@@ -1,0 +1,12 @@
+Obtaining JSON from switch...
+Done
+Control utility for runtime P4 table manipulation
+RuntimeCmd: ==========
+MC ENTRIES
+**********
+mgrp(2)
+  -> (L1h=0, rid=0) -> (ports=[1, 3], lags=[])
+==========
+LAGS
+==========
+RuntimeCmd: 

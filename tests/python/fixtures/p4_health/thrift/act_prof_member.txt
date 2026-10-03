@@ -1,0 +1,9 @@
+Obtaining JSON from switch...
+Done
+Control utility for runtime P4 table manipulation
+RuntimeCmd: ==========
+MEMBERS
+**********
+Dumping member 0
+Action entry: HcIngress.set_mark - 09
+RuntimeCmd: 

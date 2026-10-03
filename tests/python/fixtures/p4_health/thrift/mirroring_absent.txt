@@ -1,0 +1,5 @@
+Obtaining JSON from switch...
+Done
+Control utility for runtime P4 table manipulation
+RuntimeCmd: Invalid mirroring operation (SESSION_NOT_FOUND)
+RuntimeCmd: 
