@@ -505,8 +505,10 @@ S0（不用 lab，約 2 分鐘）
      - **r2 (Cut 1 review)**：`ndt up` 一開始改機器就會把 note 改成「in use: ndt up p4 … by <owner>」（`ndt:1207-1215`），`ndt down` 也會改（`ndt:1245-1277`），所以只認探測器自己的 note 會讓每次當機都 rc 3。改成：claim owner＝這個 run 的 owner 且沒過期；`app_package_override`＝這個 run 的 package（teardown 已走到 `ndt down` 之後可以是空的）；note 是三種之一：探測器自己的、ndt up 為這個 owner 寫的、ndt down 寫的。
      - **r2**：§12 第 11 項的重新 claim 只在兩個條件下做：過期 claim 的 owner 是空的或是這個 run 的；而且 `ndt status --measuring` 與 claim 的 `measuring=` 都沒有量測。別人過期的 claim 不接手。
      - **r4 (Cut 1 follow-ups)**：
-       - 這個重新 claim 在 phase `down-done` 也要成立。`ndt down` 會把 `app_package_override` 刪掉（`ndt:1597-1601`），所以條件不能是「override 等於這個 run 的 package」，要用 recover.sh 自己算出的 `override_ours`（override 是這個 run 的，或在 teardown 之後的 phase 為空）。過期的 claim 是自己的、沒有量測、override 為空時，會重新 claim、確認沒有 fabric、還原 knob、release。
-       - phase `released` 不重新 claim：那個 run 已經收完，claim 也已經 release 掉。
+       - ~~這個重新 claim 在 phase `down-done` 也要成立……要用 recover.sh 自己算出的 `override_ours`（……在 teardown 之後的 phase 為空）~~ **r5 (Cut 1 follow-ups)** 收窄：`app_package_override` 不見了，只有 phase 是 `down-done` 才算證據（探測器自己成功的 `ndt down` 刪掉它，`ndt:1597-1601`）。重新 claim 只在 override 等於這個 run 的 package，或「override 為空，而且 phase 是 `down-done`，而且過期的 claim 檔還在、owner 是自己」時做。其他 phase（teardown、down-failed、claim-lost）override 不見了，可能是別人的 up／down／clean 刪的，現場不能證明還是自己的 → rc 3，什麼都不寫（和 r3 一樣）。
+       - ~~phase `released` 不重新 claim~~ **r5 (Cut 1 follow-ups)**：phase `released` 只做第 3 步（認得出身分的 kill，停掉探測器記下、停不掉的行程）：不 claim、不動 knob／netem、不 `ndt down`；全部停掉（或本來就沒有）rc 0，有 kill 失敗 rc 7。一個已經 release 的 run 目錄不能再拿去對後來一輪的 fabric 跑第 4–5 步。
+       - **r5 (Cut 1 follow-ups)**：`down-done` 的「`ndt status` 確認沒有 fabric」改在任何 claim 分支**寫入之前**做（唯讀）：fabric 還在 → rc 4，`ndt claim` 不會被呼叫。
+       - **r5 (Cut 1 follow-ups)**：第 3 步有 kill 失敗時，不論 phase，整個流程做完之後以 rc 7 結束，不再印「done」、不再 rc 0。
        - `ndt status --measuring` 的輸出必須有 `measuring` 或 `orphaned` 其中一列（`ndt:6803-6815` 一定會印其中一列）；兩列都沒有就當忙碌，不放行（和讀不到時一樣，往關的方向失敗）。
   3'. **r2 (Cut 1 review)**：sniffer 與控制器記錄成 pid＋start time（`/proc/<pid>/stat` 第 22 欄）＋cmdline marker（run id），三者都對得上才送訊號；停掉之後從 `LAB_STATE.json` 移除，之後不會被殺第二次。`lab_round` 的 teardown 在每個會動共用狀態的步驟（netem、`ndt down`、knob、release）之前重讀 claim：不再是自己的、或已過期，就停在那裡，剩下的交給 `recover.sh`。netem 加失敗的介面會移出清單。
   3. 停掉列出的 sniffer 與控制器 pid。
@@ -1194,6 +1196,8 @@ S0（不用 lab，約 2 分鐘）
 > 這一節每一條都是 **r4 (Cut 1 follow-ups)**。第三次審查判 MERGE，留下十個 MINOR；本輪全做，另加一項衛生（第 11 項）。**是設計，要審。** 分支 `fix/p4-health-cut1-followups`，從 trunk `73cff685` 開。
 
 1. **recover.sh 在 `down-done` 的重新 claim**：`ndt down` 會刪 `app_package_override`（`ndt:1597-1601`），所以原來的「override 等於 package」條件在這個 phase 永遠不成立，過期的 claim 會被誤判成「現場不是這個 run 的」（rc 3），而那個 run 已經 down 完。現在用 `override_ours`；phase `released` 另外排除。見 §4.5。
+   - **r5 (Cut 1 follow-ups)** 收窄上面這句：不是「`override_ours`」一律成立，而是 override 等於 package，或 override 為空 ∧ phase 是 `down-done` ∧ 過期的 claim 檔是自己的 owner；其他 phase 維持 r3 的 rc 3。`down-done` 的 fabric 檢查先於任何寫入。phase `released` 只做第 3 步（rc 0／7），見 §4.5。kill 失敗的流程以 rc 7 結束。
+   - r5 取代 r4 在這裡的「`released` 另外排除」。
 2. **`down-done` 保留停行程這一步**：kill 不需要 fabric；kill 失敗的行程是留給這一次重試的。lab_round 的 teardown 也把 kill 失敗記進 `rec["problems"]`，那一輪不算 complete。
 3. **HR 的界**：門檻是絕對的，樣本當 Poisson。24000 幀時任一半不夠的機率約 2.6e-6（見 §14.6）。HR1 的 5-tuple 要落在**沒整形的**上行（`table.HR1_UPLINK` ＝ s1-eth4）：HR1 把整個 800 kbit/s 送在同一條上，高於 s1-eth5 的 500 kbit/s 整形。選 5-tuple 是 Cut 3 刺激端的事（S0 已經能為兩條上行各找一個，`probe.log:32`）；格的前提 `hr_pre(1)` 保證選錯時是 NOT RUN，不是一個判定。
 4. **K1／T3 的 `route`**：觀測器現在設 `answer.route`，見 §14.6 的 MINOR 3。
