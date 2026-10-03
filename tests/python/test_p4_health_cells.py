@@ -206,10 +206,10 @@ FIX = {
             {"answer": {"idle_field": False, "notification_exit": False}, "sent": 1, "oracle": {}, "attribution": {"bmv2": True}}),
     "VS1": ({"answer": {"route": True, "http": 200}, "sent": 1, "oracle": {"present_after": True}, "negative": NEG_OK},
             {"answer": {"route": False}, "sent": 1, "oracle": {}, "attribution": {"bmv2": True}}),
-    "HR1": ({"answer": {"uplinks": win(100000, 50)}, "sent": 20000, "oracle": {"uplinks": win(100000, 50), "flow_bytes": 100000}},
-            {"answer": {"uplinks": win(50, 100000)}, "sent": 20000, "oracle": {"uplinks": win(100000, 50), "flow_bytes": 100000}}),
-    "HR2": ({"answer": {"uplinks": win(50000, 50000)}, "sent": 20000, "oracle": {"uplinks": win(50000, 50000), "flow_bytes": 100000}},
-            {"answer": {"uplinks": win(100000, 0)}, "sent": 20000, "oracle": {"uplinks": win(50000, 50000), "flow_bytes": 100000}}),
+    "HR1": ({"answer": {"uplinks": win(100000, 50)}, "sent": T.HR_FRAMES, "oracle": {"uplinks": win(100000, 50), "flow_bytes": 100000}},
+            {"answer": {"uplinks": win(50, 100000)}, "sent": T.HR_FRAMES, "oracle": {"uplinks": win(100000, 50), "flow_bytes": 100000}}),
+    "HR2": ({"answer": {"uplinks": win(50000, 50000)}, "sent": T.HR_FRAMES, "oracle": {"uplinks": win(50000, 50000), "flow_bytes": 100000}},
+            {"answer": {"uplinks": win(100000, 0)}, "sent": T.HR_FRAMES, "oracle": {"uplinks": win(50000, 50000), "flow_bytes": 100000}}),
     "HU1": ({"answer": {"v6": dict(side(0x86DD, 1, 4), g1=G1_OK, flow_identity=True), "x": side(0x1238, 1, 4),
                         "side_size": 10}, "sent": 5000, "sent_x": 5000},
             {"answer": {"v6": dict(side(0x86DD, 1, 4), g1=G1_OK, flow_identity=True), "x": side(0x9999, 1, 4),
@@ -645,6 +645,48 @@ class TestNamedFixtures(unittest.TestCase):
         del obs["answer"]["rerouted_after_s"]
         self.assertEqual(decide("CP4", obs).phase, "reading")
 
+    def test_malformed_timed_readings_are_probe_broken(self):
+        """Cut 1 follow-up 6: the never / watched_s encoding is validated. A negative time, a
+        "Never" that is not the canonical value, and a time larger than the observer's own watch
+        are the observer's bug -- PROBE-BROKEN, not GREEN, not RED."""
+        cells = (("TP2", "down_after_s"), ("TP4", "down_after_s"), ("CP4", "rerouted_after_s"),
+                 ("IT1", "reported_after_s"))
+        cases = (("a negative time", -1, 30), ("a non-canonical Never", "Never", 30),
+                 ("an upper-case NEVER", "NEVER", 30), ("a boolean", True, 30),
+                 ("a time past its own watched_s", 25.0, 12), ("a negative watched_s", 3.0, -5),
+                 ("a watched_s that is a string", T.NEVER, "30"), ("a watched_s that is a boolean", T.NEVER, True))
+        for cid, key in cells:
+            for what, value, watched in cases:
+                with self.subTest(cell=cid, case=what):
+                    obs = copy.deepcopy(FIX[cid][0])
+                    obs["attribution"] = dict(ALL_ATTR)
+                    obs["answer"][key] = value
+                    obs["answer"]["watched_s"] = watched
+                    v = decide(cid, obs)
+                    self.assertEqual((v.verdict, v.phase), (V.PROBE_BROKEN, "compare"), (cid, what, v))
+            with self.subTest(cell=cid, case="deadline_met takes no negative time"):
+                self.assertFalse(T.deadline_met(-1))
+                self.assertTrue(T.deadline_met(0))
+            with self.subTest(cell=cid, case="the valid encodings still decide"):
+                obs = copy.deepcopy(FIX[cid][0])
+                obs["attribution"] = dict(ALL_ATTR)
+                obs["answer"][key] = 0.0                       # zero seconds is a time
+                self.assertEqual(decide(cid, obs).verdict, V.GREEN)
+                obs["answer"][key], obs["answer"]["watched_s"] = T.NEVER, 30
+                self.assertEqual(decide(cid, obs).verdict, V.RED)
+
+    def test_a_route_read_as_gone_during_a_short_watch_is_not_run(self):
+        """Cut 1 follow-up 6: CP4 checks how long the observer watched BEFORE it reads `gone`."""
+        obs = copy.deepcopy(FIX["CP4"][0])
+        obs["oracle"]["port_after_cut"] = T.GONE
+        obs["answer"]["rerouted_after_s"] = T.NEVER
+        obs["answer"]["watched_s"] = 5
+        v = decide("CP4", obs)
+        self.assertEqual((v.verdict, v.phase), (V.NOT_RUN, "compare"), v)
+        obs["answer"]["watched_s"] = 30                        # the whole deadline watched: RED, as before
+        obs["attribution"] = dict(ALL_ATTR)
+        self.assertEqual(decide("CP4", obs).verdict, V.RED)
+
     def test_tp2_without_a_usable_heartbeat_is_not_run(self):
         obs = copy.deepcopy(FIX["TP2"][0])
         obs["answer"]["heartbeat"] = hb(missing=["1:4->2:2"])
@@ -767,11 +809,17 @@ class TestNamedFixtures(unittest.TestCase):
 
     def test_hu1s_nested_readings_are_needed(self):
         """Review MINOR 2."""
-        for member, key in (("v6", "g1"), ("v6", "pair"), ("x", "pair"), ("x", "side_after")):
+        for member, key in (("v6", "g1"), ("v6", "pair"), ("v6", "flow_identity"), ("x", "pair"),
+                            ("x", "side_after")):
             with self.subTest(member=member, key=key):
                 obs = copy.deepcopy(FIX["HU1"][0])
                 del obs["answer"][member][key]
                 self.assertEqual(decide("HU1", obs).verdict, V.NOT_RUN)
+        # Cut 1 follow-up 5: "looked, no flow identity" is False and still decides (PARTIAL(a),
+        # the prediction); only a MISSING key is a reading not taken
+        obs = copy.deepcopy(FIX["HU1"][0])
+        obs["answer"]["v6"]["flow_identity"] = False
+        self.assertEqual(decide("HU1", obs).verdict, V.PARTIAL)
 
     def test_it1_today_is_a_structural_cannot(self):
         v = decide("IT1", copy.deepcopy(FIX["IT1"][1]))
@@ -787,6 +835,7 @@ class TestNamedFixtures(unittest.TestCase):
         obs["attribution"] = dict(ALL_ATTR)
         self.assertEqual(decide("IT1", obs).verdict, V.RED)
         obs["answer"]["reported_after_s"] = 25.0          # review MINOR 5: a report past the deadline
+        obs["answer"]["watched_s"] = 30                   # (r4) ... seen, so the watch reached it
         self.assertEqual(decide("IT1", obs).verdict, V.RED)
         obs["answer"]["reported_after_s"] = T.NEVER
         obs["answer"]["watched_s"] = 4
@@ -807,16 +856,31 @@ class TestNamedFixtures(unittest.TestCase):
                 obs["answer"]["uplinks"] = win(eth4, eth5)
                 self.assertEqual(decide(cid, obs).phase, "precondition")
 
-    def test_hr_stimulus_size_and_order(self):
-        """Review MINOR 4: HR's stimulus makes a false RED from sampling rare, fits the shaped
-        uplink, and runs after TP2 and before Q1."""
+    @staticmethod
+    def _poisson_cdf(k, lam):
+        """P(X <= k) for X ~ Poisson(lam)."""
         import math
-        half = T.HR_FRAMES / 2.0 / T.SAMPLE_ONE_IN               # expected samples per uplink half
-        self.assertGreaterEqual(half, 30)
-        n, k = int(round(2 * half)), int(T.CARRY_SHARE * 2 * half)
-        p_low = sum(math.comb(n, i) for i in range(k + 1)) / 2.0 ** n if hasattr(math, "comb") else \
-            sum(math.factorial(n) // (math.factorial(i) * math.factorial(n - i)) for i in range(k + 1)) / 2.0 ** n
-        self.assertLess(2 * p_low, 1e-5)                          # either half under CARRY_SHARE
+        term = total = math.exp(-lam)
+        for i in range(1, k + 1):
+            term *= lam / i
+            total += term
+        return total
+
+    def test_hr_stimulus_size_and_order(self):
+        """Review MINOR 4, redone in Cut 1 follow-up 3: HR's stimulus makes a false RED from
+        sampling rare AGAINST THE CELL'S OWN ABSOLUTE THRESHOLD, fits the shaped uplink, and runs
+        after TP2 and before Q1."""
+        import math
+        # the threshold is CARRY_SHARE x the sender's flow_bytes; one sample books SAMPLE_ONE_IN
+        # frames' bytes, so a half needs this many samples to count as carrying the flow
+        need = math.ceil(T.CARRY_SHARE * T.HR_FRAMES / T.SAMPLE_ONE_IN - 1e-9)
+        lam_half = T.HR_FRAMES / 2.0 / T.SAMPLE_ONE_IN           # HR2: the coin's half, thinned 1/256
+        p_half = self._poisson_cdf(need - 1, lam_half)             # a half under the threshold
+        self.assertLess(2 * p_half, 1e-5, "false-RED probability of HR2 (either half)")
+        p_hr1 = self._poisson_cdf(need - 1, T.HR_FRAMES / float(T.SAMPLE_ONE_IN))
+        self.assertLess(p_hr1, 1e-5)                               # HR1's one loaded uplink
+        # the model is the one the review computed: 20000 frames is 2.0e-5, and so is not enough
+        self.assertAlmostEqual(2 * self._poisson_cdf(16 - 1, 20000 / 2.0 / 256), 1.98e-5, delta=0.05e-5)
         self.assertLess(T.HR_RATE_KBIT / 2.0, T.SHAPED_KBIT)      # HR2's half fits s1-eth5
         seconds = T.HR_FRAMES * T.HR_FRAME_BYTES * 8 / (T.HR_RATE_KBIT * 1000.0)
         self.assertLess(seconds, 30)
@@ -828,6 +892,37 @@ class TestNamedFixtures(unittest.TestCase):
         for before, after in (("TP2", "HR1"), ("TP2", "HR2"), ("HR1", "Q1"), ("HR2", "Q1"), ("TP2", "Q1")):
             self.assertIn((before, after), order)
         self.assertFalse(any(b == "Q1" for b, _a in T.ORDER))      # Q1 last
+
+    def test_hr1_is_pinned_to_the_unshaped_uplink(self):
+        """Cut 1 follow-up 3: HR1 sends HR_RATE_KBIT on one uplink; on the shaped one the shaper,
+        not the program, decides what arrives -- NOT RUN, not a verdict."""
+        obs = copy.deepcopy(FIX["HR1"][0])
+        self.assertEqual(decide("HR1", obs).verdict, V.GREEN)
+        obs["oracle"]["uplinks"] = win(50, 100000)                 # netdev: the flow went out s1-eth5
+        obs["answer"]["uplinks"] = win(50, 100000)                 # ... and the twin agrees
+        v = decide("HR1", obs)
+        self.assertEqual((v.verdict, v.phase), (V.NOT_RUN, "precondition"), v)
+        self.assertIn("shaped", v.reason)
+        obs = copy.deepcopy(FIX["HR2"][0])                         # HR2 uses both, shaped one included
+        self.assertEqual(decide("HR2", obs).verdict, V.GREEN)
+        self.assertGreater(T.HR_RATE_KBIT, T.SHAPED_KBIT)          # why the pin matters
+        self.assertNotIn(T.HR1_UPLINK, T.SHAPED_IFACES)
+
+    def test_order_has_no_consumer_yet_and_the_comment_says_so(self):
+        """Cut 1 follow-up 10: table.ORDER is read by no scheduler. If one now reads it, the comment
+        beside ORDER and design 14.7 are stale -- change them with the scheduler."""
+        users = []
+        for root, _dirs, files in os.walk(PKG if os.path.basename(PKG) == "p4_health" else os.path.dirname(PKG)):
+            for f in files:
+                path = os.path.join(root, f)
+                if f.endswith(".py") and os.path.abspath(path) != os.path.abspath(T.__file__):
+                    with open(path, encoding="utf-8") as fh:
+                        if re.search(r"\bORDER\b", fh.read()):
+                            users.append(path)
+        self.assertEqual(users, [], "something reads table.ORDER: update its comment and design 14.7")
+        with open(T.__file__, encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertIn("NOTHING CONSUMES THIS YET", src)
 
     def test_hr_quiet_window_is_subtracted(self):
         """Heartbeat bytes on both uplinks (a high base) do not make an uplink 'carry' the flow."""

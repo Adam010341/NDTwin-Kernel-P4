@@ -900,7 +900,7 @@ add "R3-m2. HU1 decides without its nested readings (MINOR 2)" \
 
 add "R3-m4. HR stimulus too small to trust (MINOR 4)" \
     "$TABLE" \
-    'HR_FRAMES = 20000' \
+    'HR_FRAMES = 24000' \
     'HR_FRAMES = 2000  # MUTANT' \
     'test_hr_stimulus_size_and_order'
 
@@ -964,6 +964,24 @@ add "R4-2c. a failed kill is a problem but the round stays complete" \
     '                               "recover.sh" % (what, entry["pid"], outcome))  # MUTANT' \
     'test_a_failed_kill_is_a_problem_and_the_round_is_not_complete'
 
+add "R4-3a. HR stimulus back to 20000 frames, whose false-RED rate is 2e-5 (follow-up 3)" \
+    "$TABLE" \
+    'HR_FRAMES = 24000' \
+    'HR_FRAMES = 20000  # MUTANT' \
+    'test_hr_stimulus_size_and_order'
+
+add "R4-3b. HR1 may go out the shaped uplink" \
+    "$TABLE" \
+    '        if want == 1 and not carried[HR1_UPLINK]:' \
+    '        if False:  # MUTANT' \
+    'test_hr1_is_pinned_to_the_unshaped_uplink'
+
+add "R4-3c. HR1 is pinned to the shaped uplink" \
+    "$TABLE" \
+    'HR1_UPLINK = [u for u in UPLINKS if u not in SHAPED_IFACES][0]' \
+    'HR1_UPLINK = [u for u in UPLINKS if u in SHAPED_IFACES][0]  # MUTANT' \
+    'test_hr1_is_pinned_to_the_unshaped_uplink'
+
 add "R4-4a. K1's counter observer says nothing about the route (follow-up 4)" \
     "$OBSERVE" \
     '    return {"answer": with_route(answer, cfg, cell), "oracle": oracle, "sent": S.sent(out, cell)}' \
@@ -981,6 +999,76 @@ add "R4-4c. an unreadable openapi reads as a missing route" \
     '    route = route_answer(P.openapi_paths(cfg), cell)' \
     '    route = bool(route_answer(P.openapi_paths(cfg), cell))  # MUTANT' \
     'test_a_missing_counter_route_is_red_no_route_through_the_observers'
+
+add "R4-5. HU1 decides without the IPv6 member's flow_identity (follow-up 5)" \
+    "$TABLE" \
+    '("v6", v6, ("g1", "pair", "side_after", "flow_identity")),' \
+    '("v6", v6, ("g1", "pair", "side_after")),  # MUTANT' \
+    'test_hu1s_nested_readings_are_needed'
+
+add "R4-6a. a negative time is a time (follow-up 6)" \
+    "$TABLE" \
+    '    if not _real(value) or value < 0:' \
+    '    if not _real(value):  # MUTANT' \
+    'test_malformed_timed_readings_are_probe_broken'
+
+add "R4-6b. Never in any case is NEVER" \
+    "$TABLE" \
+    '    if value == NEVER:
+        return None
+    if not _real(value)' \
+    '    if str(value).lower() == NEVER:  # MUTANT
+        return None
+    if not _real(value)' \
+    'test_malformed_timed_readings_are_probe_broken'
+
+add "R4-6c. a time larger than its own watched_s is a time" \
+    "$TABLE" \
+    '    if value > watched:' \
+    '    if False:  # MUTANT' \
+    'test_malformed_timed_readings_are_probe_broken'
+
+add "R4-6d. watched_s is not validated" \
+    "$TABLE" \
+    '    if not _real(watched) or watched < 0:' \
+    '    if False:  # MUTANT' \
+    'test_malformed_timed_readings_are_probe_broken'
+
+add "R4-6e. deadline_met takes a negative time" \
+    "$TABLE" \
+    '    return _real(seconds) and 0 <= seconds <= deadline' \
+    '    return _real(seconds) and seconds <= deadline  # MUTANT' \
+    'test_malformed_timed_readings_are_probe_broken'
+
+add "R4-6f. TP2 / TP4 do not validate the encoding" \
+    "$TABLE" \
+    '    bad = timing_problem(a, "down_after_s")' \
+    '    bad = None  # MUTANT' \
+    'test_malformed_timed_readings_are_probe_broken'
+
+add "R4-6g. CP4 does not validate the encoding" \
+    "$TABLE" \
+    '    bad = timing_problem(a, "rerouted_after_s")' \
+    '    bad = None  # MUTANT' \
+    'test_malformed_timed_readings_are_probe_broken'
+
+add "R4-6h. IT1 does not validate the encoding" \
+    "$TABLE" \
+    '    bad = timing_problem(a, "reported_after_s")' \
+    '    bad = None  # MUTANT' \
+    'test_malformed_timed_readings_are_probe_broken'
+
+add "R4-6i. CP4 reads gone before it checks how long it watched" \
+    "$TABLE" \
+    '    if a["rerouted_after_s"] == NEVER and not watched_enough(a):
+        return not_run("the route was watched for %s s, less than the %d s deadline" % (a.get("watched_s"), LINK_DOWN_DEADLINE_S))
+    if o["port_after_cut"] == GONE:
+        return red("thrift: s1'"'"'s route to h6 is gone after the cut", "structural", "thrift")' \
+    '    if o["port_after_cut"] == GONE:  # MUTANT: gone first
+        return red("thrift: s1'"'"'s route to h6 is gone after the cut", "structural", "thrift")
+    if a["rerouted_after_s"] == NEVER and not watched_enough(a):
+        return not_run("the route was watched for %s s, less than the %d s deadline" % (a.get("watched_s"), LINK_DOWN_DEADLINE_S))' \
+    'test_a_route_read_as_gone_during_a_short_watch_is_not_run'
 
 add "R4-8a. recover.sh takes an answer with no measuring or orphaned row for idle (follow-up 8)" \
     "$RECOVER" \

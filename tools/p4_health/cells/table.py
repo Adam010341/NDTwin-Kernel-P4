@@ -18,6 +18,8 @@ only on readings that exist.
 """
 from __future__ import annotations
 
+import math
+
 from .verdict import (GREEN, NOT_RUN, PROBE_BROKEN, Verdict, broken, green, not_run,
                       partial, red, unattributed)
 
@@ -34,6 +36,10 @@ LINK_DOWN_DEADLINE_S = 20.0
 #: the event did not come. Spelled as a value, never as a missing key -- a missing key is a
 #: reading not taken (step 4b) and must not be confused with an observation of absence.
 NEVER = "never"
+#: (r4, Cut 1 follow-ups) The encoding is validated, never repaired: a timed reading is NEVER or a
+#: real number of seconds, 0 <= s <= its own `watched_s` (an event cannot be seen after the
+#: observer stopped looking), and `watched_s` is itself a real number >= 0. Anything else is a
+#: reading the observer got wrong -- PROBE-BROKEN (timing_problem), never RED and never GREEN.
 #: (r3) CP4: the route the kernel wrote is not in s1's thrift dump at all after the cut.
 GONE = "gone"
 #: (r3) IT1: how long after the switch shows the entry aged NDTwin may take to report it.
@@ -45,15 +51,25 @@ IT1_REPORT_DEADLINE_S = 10.0
 SAMPLE_ONE_IN = 256
 MIN_EXPECTED_SAMPLES = 19
 IDENTITY_MIN_SENT = SAMPLE_ONE_IN * MIN_EXPECTED_SAMPLES        # 4864 frames
-#: (r3, review MINOR 4) HR1 / HR2's stimulus: 20000 frames of 64 bytes at 800 kbit/s in all --
-#: under the 0.5 Mbit/s shaped uplink for HR2's half -- so each uplink half expects ~39 samples
-#: and a fair coin falls under CARRY_SHARE on one half with probability below 1e-5 (the test
-#: computes it). They run after TP2, whose heartbeat they would otherwise load, and before Q1,
-#: which floods s1-eth5 and stays last (design 2.4).
-HR_FRAMES = 20000
+#: (r3, review MINOR 4; r4, Cut 1 follow-ups) HR1 / HR2's stimulus: 24000 frames of 64 bytes at
+#: 800 kbit/s in all, 15.4 s -- under the 0.5 Mbit/s shaped uplink for HR2's half. The bound is
+#: computed against the cell's ABSOLUTE threshold, CARRY_SHARE x the sender's flow_bytes, which is
+#: CARRY_SHARE x HR_FRAMES / SAMPLE_ONE_IN = 18.75 samples' worth, so a half needs 19 samples.
+#: Each uplink half of HR2 gets about Poisson(HR_FRAMES / 2 / SAMPLE_ONE_IN) = 46.9 samples (the
+#: coin splits the frames, the 1-in-256 sampling thins them: two independent Poissons), and a half
+#: with 18 or fewer fails: P ~ 1.3e-6 per half, 2.6e-6 for either (the test computes it, and
+#: rejects anything above 1e-5; 20000 frames gave 2.0e-5). Assumed, as the test assumes: every
+#: sample books SAMPLE_ONE_IN x its frame's bytes, and the quiet-window noise is zero. They run
+#: after TP2, whose heartbeat they would otherwise load, and before Q1, which floods s1-eth5 and
+#: stays last (design 2.4).
+HR_FRAMES = 24000
 HR_FRAME_BYTES = 64
 HR_RATE_KBIT = 800
 #: (r3) The order the active cells of bring-up A run in where it matters: (earlier, later).
+#: (r4) NOTHING CONSUMES THIS YET. No scheduler for the active cells exists in Cut 1; the Cut 3
+#: scheduler must read it, and the one test that touches it checks only the constant. A run order
+#: that is written down here and enforced nowhere is a promise, not a fact -- do not read the
+#: table as saying the order is kept (design 14.7).
 ORDER = (("TP2", "HR1"), ("TP2", "HR2"), ("HR1", "Q1"), ("HR2", "Q1"), ("TP2", "Q1"))
 #: Q1: the shaped link's rate, kbit/s, on both of its interfaces.
 SHAPED_KBIT = 500.0
@@ -63,6 +79,11 @@ SHAPED_IFACES = ("s1-eth5", "s3-eth2")
 #: of the bytes the sender sent. The same rule reads the twin's link usage.
 CARRY_SHARE = 0.2
 UPLINKS = ("s1-eth4", "s1-eth5")
+#: (r4) HR1 sends all of HR_RATE_KBIT on ONE uplink, and HR_RATE_KBIT is above SHAPED_KBIT: its
+#: 5-tuple must hash to the UNSHAPED uplink, or the shaper, not the program, decides how many
+#: frames arrive. The Cut 3 stimulus picks a tuple that hashes there (S0 already finds tuples for
+#: both uplinks); hr_pre(1) makes a wrong pick NOT RUN instead of a verdict.
+HR1_UPLINK = [u for u in UPLINKS if u not in SHAPED_IFACES][0]
 #: HU1: the side table holds at most 1024 keys (FlowLinkUsageCollector.hpp:740-747); a window
 #: that starts this close to the cap could lose its row to the cap, not to NDTwin.
 SIDE_TABLE_ROOM = 1000
@@ -227,12 +248,31 @@ def side_row_grew(a, ethertype):
     return int(after.get("samples") or 0) > int((before or {}).get("samples") or 0)
 
 
+def _real(x):
+    return isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x)
+
+
+def timing_problem(a, key):
+    """Why the timed reading a[key] and a["watched_s"] are not a valid encoding (see NEVER), or
+    None. Called by the cell BEFORE it uses either value (r4, Cut 1 follow-ups)."""
+    watched, value = a.get("watched_s"), a.get(key)
+    if not _real(watched) or watched < 0:
+        return "watched_s is %r, not a number of seconds >= 0" % (watched,)
+    if value == NEVER:
+        return None
+    if not _real(value) or value < 0:
+        return "%s is %r: neither %r nor a number of seconds >= 0" % (key, value, NEVER)
+    if value > watched:
+        return "%s is %s s but the observer only watched %s s" % (key, value, watched)
+    return None
+
+
 def deadline_met(seconds, deadline=LINK_DOWN_DEADLINE_S):
-    """A number of seconds within the deadline. NEVER (watched the window, it did not happen) is
-    not met; neither is anything else."""
+    """A number of seconds, 0 <= s <= the deadline. NEVER (watched the window, it did not happen)
+    is not met; neither is anything else."""
     if seconds == NEVER:
         return False
-    return isinstance(seconds, (int, float)) and not isinstance(seconds, bool) and seconds <= deadline
+    return _real(seconds) and 0 <= seconds <= deadline
 
 
 def watched_enough(a, deadline=LINK_DOWN_DEADLINE_S):
@@ -600,6 +640,9 @@ def tp1(obs):
 
 def link_cut(obs):
     a = A(obs)
+    bad = timing_problem(a, "down_after_s")
+    if bad:
+        return broken("the observer's timing is not a valid reading: %s" % bad)
     if a["down_after_s"] == NEVER and not watched_enough(a):
         return not_run("the edge was watched for %s s, less than the %d s deadline" % (a.get("watched_s"), LINK_DOWN_DEADLINE_S))
     if not deadline_met(a["down_after_s"]):
@@ -655,10 +698,15 @@ def cp4(obs):
         return red("capabilities are %r" % (caps,), "structural")
     if o["kernel_route_present"] is not True:
         return red("thrift: no kernel-written route on s1", "structural", "thrift")
-    if o["port_after_cut"] == GONE:
-        return red("thrift: s1's route to h6 is gone after the cut", "structural", "thrift")
+    bad = timing_problem(a, "rerouted_after_s")
+    if bad:
+        return broken("the observer's timing is not a valid reading: %s" % bad)
+    # (r4) the watch length comes BEFORE `gone`: a route read as gone while the observer had not
+    # yet watched the whole deadline is not an observation of the end state
     if a["rerouted_after_s"] == NEVER and not watched_enough(a):
         return not_run("the route was watched for %s s, less than the %d s deadline" % (a.get("watched_s"), LINK_DOWN_DEADLINE_S))
+    if o["port_after_cut"] == GONE:
+        return red("thrift: s1's route to h6 is gone after the cut", "structural", "thrift")
     if o["port_after_cut"] != 5 or not deadline_met(a["rerouted_after_s"]):
         return red("s1's route to h6 did not move to p5 within the deadline", "structural", "thrift")
     return green("roles bound, the kernel's route moved to p5 after the cut")
@@ -697,6 +745,9 @@ def it1(obs):
     if o["timeout_ms"] != a["requested_timeout_ms"]:
         return red("thrift shows timeout %s ms, NDTwin was asked for %s ms"
                    % (o["timeout_ms"], a["requested_timeout_ms"]), "structural", "thrift")
+    bad = timing_problem(a, "reported_after_s")
+    if bad:
+        return broken("the observer's timing is not a valid reading: %s" % bad)
     if a["reported_after_s"] == NEVER and not watched_enough(a, IT1_REPORT_DEADLINE_S):
         return not_run("watched for %s s after the entry aged, less than the %d s deadline"
                        % (a.get("watched_s"), IT1_REPORT_DEADLINE_S))
@@ -742,6 +793,9 @@ def hr_pre(want):
         n = sum(1 for v in carried.values() if v)
         if n != want:
             return False, "netdev shows the flow on %d uplink(s), the cell needs %d" % (n, want)
+        if want == 1 and not carried[HR1_UPLINK]:
+            return False, ("the flow went to the shaped uplink, not %s: its %d kbit/s exceeds the "
+                           "%d kbit/s shaping" % (HR1_UPLINK, HR_RATE_KBIT, SHAPED_KBIT))
         return True, ""
     return pre
 
@@ -764,7 +818,9 @@ def hu1(obs):
             return skip
     v6, x = a["v6"], a["x"]
     # (r3, review MINOR 2) the nested readings, the same rule as step 4b
-    for member, doc, keys in (("v6", v6, ("g1", "pair", "side_after")), ("x", x, ("pair", "side_after"))):
+    # (r4) v6.flow_identity too: False is a reading ("looked, nothing there"), a missing key is not
+    for member, doc, keys in (("v6", v6, ("g1", "pair", "side_after", "flow_identity")),
+                              ("x", x, ("pair", "side_after"))):
         lacking = [k for k in keys if not isinstance(doc, dict) or doc.get(k) is None]
         if lacking:
             return not_run("reading not taken: answer.%s.%s" % (member, lacking[0]))
@@ -900,6 +956,13 @@ SELF_CHECKS = [
 NEG = dict(negative_read=True)
 #: identity cells: the oracle is the sender's own report and the configured path, so no thrift
 #: oracle; the stimulus floor is the sender-side sample expectation (r3, NEW-A)
+#:
+#: (r4, Cut 1 follow-ups) THE OBSERVER CONTRACT these cells rest on. A reading the observer TOOK
+#: and found nothing in is False or 0 (flow_identity False, no side-table row [], usage 0,
+#: samples 0) -- NEVER None and never a missing key. None or a missing key is "not read": step 4b
+#: turns it into NOT RUN, and (verdict.has) the identity cells' G1 and flow_identity fields count
+#: as missing too. An observer that encodes "looked, nothing there" as None therefore turns the
+#: RED a broken emitter owes into NOT RUN. Cut 2-4 observers must be written to this rule.
 IDENT = dict(needs_oracle=False, min_sent=IDENTITY_MIN_SENT)
 BM = ("structural", "bmv2")
 
