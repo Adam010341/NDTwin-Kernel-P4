@@ -185,6 +185,10 @@
 > - **0b. 該格的對照**（K1 的 K1-neg、T3 的 T3-neg）不是 GREEN → 沒觀測到就 NOT RUN，答錯就 PROBE-BROKEN。對照要的是端點自己的 404 `{"error": "not in this pipeline"}`；FastAPI 的路由不存在 404 不算。
 > - **4b. 該格需要的讀數缺了**（答案或 oracle 裡沒有那個鍵）→ NOT RUN。缺鍵是沒讀到，不是相符。
 
+> **r4 (Cut 1 follow-ups)**：判定順序本身沒動，但兩條讀數規則寫明了（細節見 §14.7）：
+> - **計時讀數的編碼要先驗**（TP2／TP4／CP4／IT1 在比較之前）：值必須是 `never`，或 0 ≤ s ≤ 自己的 `watched_s` 的數字；`watched_s` 本身必須是 ≥ 0 的數字。負數、不是正本拼法的 `Never`／`NEVER`、比自己的 `watched_s` 大的數字、布林，一律 **PROBE-BROKEN**（觀測器的錯，不是 NDTwin 的，也不是綠）。
+> - **觀測器的契約**：觀測器「讀了、那裡什麼都沒有」要寫成 `False` 或 `0`（或空 list），**不能寫成 `None`、也不能省略那個鍵**。`None`／缺鍵是「沒讀到」，步驟 4b 會把它變成 NOT RUN；一個把「讀了沒有」編成 `None` 的觀測器，會把壞掉的 emitter 該得的 RED 變成 NOT RUN。Cut 2–4 的觀測器照這條寫。
+
 **程式自檢**（不進 rollup；失敗就 PROBE-BROKEN，不判 RED）：
 
 | 自檢 | 內容 |
@@ -500,8 +504,15 @@ S0（不用 lab，約 2 分鐘）
   2. **先確認現場還是探測器的**：`ndt status` 的 claim owner 與 note 都對得上這個 run，`app_package_override` 指的是這個 run 的 package。任何一項不符就印出來、什麼都不寫，停。
      - **r2 (Cut 1 review)**：`ndt up` 一開始改機器就會把 note 改成「in use: ndt up p4 … by <owner>」（`ndt:1207-1215`），`ndt down` 也會改（`ndt:1245-1277`），所以只認探測器自己的 note 會讓每次當機都 rc 3。改成：claim owner＝這個 run 的 owner 且沒過期；`app_package_override`＝這個 run 的 package（teardown 已走到 `ndt down` 之後可以是空的）；note 是三種之一：探測器自己的、ndt up 為這個 owner 寫的、ndt down 寫的。
      - **r2**：§12 第 11 項的重新 claim 只在兩個條件下做：過期 claim 的 owner 是空的或是這個 run 的；而且 `ndt status --measuring` 與 claim 的 `measuring=` 都沒有量測。別人過期的 claim 不接手。
+     - **r4 (Cut 1 follow-ups)**：
+       - ~~這個重新 claim 在 phase `down-done` 也要成立……要用 recover.sh 自己算出的 `override_ours`（……在 teardown 之後的 phase 為空）~~ **r5 (Cut 1 follow-ups)** 收窄：`app_package_override` 不見了，只有 phase 是 `down-done` 才算證據（探測器自己成功的 `ndt down` 刪掉它，`ndt:1597-1601`）。重新 claim 只在 override 等於這個 run 的 package，或「override 為空，而且 phase 是 `down-done`，而且過期的 claim 檔還在、owner 是自己」時做。其他 phase（teardown、down-failed、claim-lost）override 不見了，可能是別人的 up／down／clean 刪的，現場不能證明還是自己的 → rc 3，什麼都不寫（和 r3 一樣）。
+       - ~~phase `released` 不重新 claim~~ **r5 (Cut 1 follow-ups)**：phase `released` 只做第 3 步（認得出身分的 kill，停掉探測器記下、停不掉的行程）：不 claim、不動 knob／netem、不 `ndt down`；全部停掉（或本來就沒有）rc 0，有 kill 失敗 rc 7。一個已經 release 的 run 目錄不能再拿去對後來一輪的 fabric 跑第 4–5 步。
+       - **r5 (Cut 1 follow-ups)**：`down-done` 的「`ndt status` 確認沒有 fabric」改在任何 claim 分支**寫入之前**做（唯讀）：fabric 還在 → rc 4，`ndt claim` 不會被呼叫。
+       - **r5 (Cut 1 follow-ups)**：第 3 步有 kill 失敗時，不論 phase，整個流程做完之後以 rc 7 結束，不再印「done」、不再 rc 0。
+       - `ndt status --measuring` 的輸出必須有 `measuring` 或 `orphaned` 其中一列（`ndt:6803-6815` 一定會印其中一列）；兩列都沒有就當忙碌，不放行（和讀不到時一樣，往關的方向失敗）。
   3'. **r2 (Cut 1 review)**：sniffer 與控制器記錄成 pid＋start time（`/proc/<pid>/stat` 第 22 欄）＋cmdline marker（run id），三者都對得上才送訊號；停掉之後從 `LAB_STATE.json` 移除，之後不會被殺第二次。`lab_round` 的 teardown 在每個會動共用狀態的步驟（netem、`ndt down`、knob、release）之前重讀 claim：不再是自己的、或已過期，就停在那裡，剩下的交給 `recover.sh`。netem 加失敗的介面會移出清單。
   3. 停掉列出的 sniffer 與控制器 pid。
+     - **r4 (Cut 1 follow-ups)**：phase 是 `down-done` 時**也做這一步**。停行程不需要 fabric；lab_round 在 kill 失敗時把那筆留在 `LAB_STATE.json` 就是留給這一次重試的，過了 `ndt down` 之後不能再跳過它。
   4. 對列出的介面拿掉 netem，再拿 `qdisc_snapshot.sh` 和 `qdisc_before` 比對，必須相同；不同就印出差異、停下來給人看。
   5. `NDT_OWNER=<同一個 owner> ndt down`。
   6. 兩個 knob 寫回 snapshot 的 bytes。
@@ -1092,12 +1103,12 @@ S0（不用 lab，約 2 分鐘）
 |---|---|---|
 | `custom_headers` | VB1 varbit | **改成 CH3 的 alias**（同 CP1＝T1）。理由：NDTwin 必須解析穿過的 varbit 是 IPv4 options（`ipv4_opt_t`，`varbit<320>`）。CH3 的 marker 帶著 options，CH3 的 oracle 就是 options 後面的 5-tuple，另開一格只會是同樣的幀、同一個 oracle。UDP 之後的 varbit 尾段仍編進程式，S0 證明 p4c／bmv2 吃得下。不再有「NOT RUN by design」 |
 | `recirculate` | RC1 | ~~**改成 V1 的 alias**~~（**r3 (Cut 1 review)** 撤回，改見 §14.6）。理由：每個 package 都宣告 `telemetry.source=link`，twin 在幀進埠的時候取樣（`link_telemetry.py:312,329-338`），resubmit 與 recirculate 的那一趟不進任何埠，所以 NDTwin 在 recirculate 這一維的那一半就是 V1。SC-recirc 仍是 S0 的程式自檢，不再有依賴它的格 |
-| `hash_random` | HR1 hash | 用**單一 5-tuple** 的流。每條上行讀兩個等長的窗：安靜窗（只有心跳與 telemetry）與流量窗。某條上行「承載」＝流量窗位元組減安靜窗位元組 ≥ 送出位元組的 0.2。前提：netdev 顯示恰好一條承載，否則 NOT RUN。twin 依同一規則讀自己的 link usage：承載集合相同 → GREEN，不同 → RED |
-| | HR2 random | 同樣的兩個窗與規則。前提：netdev 顯示兩條都承載，否則 NOT RUN。twin 的承載集合相同 → GREEN |
-| `idle_timeout` | IT1 | oracle 改成 thrift 的 `Life: <since hit>ms since hit, timeout is <t>ms`。加上**同窗負讀**：寫入前 `table_dump` 沒有這一筆。前提：since hit > timeout（entry 真的在交換機上老化了），否則 NOT RUN。thrift 的 timeout ≠ 要求的值 → RED；老化了但 NDTwin 沒報 → RED；有報 → GREEN。今天仍是 structural RED：沒有欄位、沒有 notification 出口 |
+| `hash_random` | HR1 hash | 用**單一 5-tuple** 的流。每條上行讀兩個等長的窗：安靜窗（只有心跳與 telemetry）與流量窗。某條上行「承載」＝流量窗位元組減安靜窗位元組 ≥ 送出位元組的 0.2。前提：netdev 顯示恰好一條承載，否則 NOT RUN。twin 依同一規則讀自己的 link usage：承載集合相同 → GREEN，不同 → RED | **r4 (Cut 1 follow-ups)**：前提再加一條——那一條承載的上行必須是沒整形的 s1-eth4（HR1 把整個 800 kbit/s 送在同一條上，高於 s1-eth5 的 0.5 Mbit/s），否則 NOT RUN；刺激量改 24000 幀，見 §14.6、§14.7。
+| | HR2 random | 同樣的兩個窗與規則。前提：netdev 顯示兩條都承載，否則 NOT RUN。twin 的承載集合相同 → GREEN | **r4 (Cut 1 follow-ups)**：刺激量 24000 幀（假 RED 約 2.6e-6），見 §14.6。
+| `idle_timeout` | IT1 | oracle 改成 thrift 的 `Life: <since hit>ms since hit, timeout is <t>ms`。加上**同窗負讀**：寫入前 `table_dump` 沒有這一筆。前提：since hit > timeout（entry 真的在交換機上老化了），否則 NOT RUN。thrift 的 timeout ≠ 要求的值 → RED；老化了但 NDTwin 沒報 → RED；有報 → GREEN。今天仍是 structural RED：沒有欄位、沒有 notification 出口 | **r4 (Cut 1 follow-ups)**：`reported_after_s` 與 `watched_s` 的編碼先驗，不合法 → PROBE-BROKEN（§2.1、§14.7）。
 | `value_set` | VS1 | **在拋棄式 `simple_switch_grpc` 上試過 ValueSetEntry**：stock 與 fabric 的 fast build 兩支都試了，pcap 模式、argv[0] `ndt-hc-vstrial-bmv2`、gRPC 埠 29650 起。Write 回 UNIMPLEMENTED（「ValueSet writes are not supported yet」），Read 也是 UNIMPLEMENTED，兩支交換機都沒死。⇒ Cut 2 在 fabric 上寫 ValueSetEntry **不會**弄死交換機，但 bmv2 這一半的歸因經 P4Runtime 永遠成立不了；thrift 的 `pvs_add` 又會讓 stock bmv2 abort。所以 VS1 今天預測 **UNATTRIBUTED**，value_set 這一維在 q3b rollup 是未判。B 的這一項歸因要改成「記錄 UNIMPLEMENTED」，不當作成功 |
 | `action_profile` | AS1 | oracle 改成 entry 指向 **group**（`points_to_group`）；AP1 指向 member |
-| `header_union` | HU1 | **兩個成員都要判**。前提：側表的 key 數 ≤ 1000，否則 NOT RUN（上限 1024，`FlowLinkUsageCollector.hpp:740-747`）。0x1238 成員是非 IP，它的 NDTwin 那一半只有側表（同 CH7 的規則），沒有那一列 → RED。IPv6 成員：有流表身份 → GREEN；只有側表 → PARTIAL(a)。自檢 SC-union 的跳數改從 thrift 讀到的 `v6_host` entries 走 |
+| `header_union` | HU1 | **兩個成員都要判**。前提：側表的 key 數 ≤ 1000，否則 NOT RUN（上限 1024，`FlowLinkUsageCollector.hpp:740-747`）。0x1238 成員是非 IP，它的 NDTwin 那一半只有側表（同 CH7 的規則），沒有那一列 → RED。IPv6 成員：有流表身份 → GREEN；只有側表 → PARTIAL(a)。自檢 SC-union 的跳數改從 thrift 讀到的 `v6_host` entries 走 | **r4 (Cut 1 follow-ups)**：IPv6 成員的 `flow_identity` 也列進必要的巢狀讀數（缺鍵 NOT RUN；`False` 照判），見 §14.6。
 
 ### 14.3 rollup（MAJ-10）
 
@@ -1146,8 +1157,9 @@ S0（不用 lab，約 2 分鐘）
   - `lab_round` 在 `ndt down` 成功之後寫 phase `down-done`。之後若 claim 掉了，phase 仍是 `down-done`，另外記 `claim_lost`。
   - `recover.sh` 在 `down-done` 下：
     - 先用 `ndt status` 確認 `bmv2 switches` 與 `host/switch` 都是 0，否則停（rc 4）；
-    - 跳過第 3–5 步（sniffer、netem、qdisc 比對、down）；
+    - ~~跳過第 3–5 步（sniffer、netem、qdisc 比對、down）~~ **r4 (Cut 1 follow-ups)**：跳過第 4–5 步（netem、qdisc 比對、down）；第 3 步（停行程）照做，見 §4.5 與 §14.7；
     - 直接還原 knob、release。
+    - **r4 (Cut 1 follow-ups)**：過期的 claim 是自己的時，也會重新 claim（見 §4.5 的 r4 註記與 §14.7）。
 - **RC1（決策者裁示）**：
   - 改成真的格：把 V1 的 G1 檢查用在 **RC1 自己的 marker 流**上（dport 40091，程式會 resubmit 一次、recirculate 一次）。
   - 自檢是 SC-recirc，也是它的依賴，所以 SC-recirc 有了依賴它的格（MINOR 8）。
@@ -1159,16 +1171,41 @@ S0（不用 lab，約 2 分鐘）
 - **對照找不到 route（MINOR 3，決定）**：
   - endpoint 本身不在 openapi 時，對照判 NOT RUN（沒有東西可問）；K1／T3 在步驟 1 判 RED「no route」；整輪仍可發佈。
   - 格自己的答案若聲稱有 route，而對照說沒有 → 讀數不一致 → PROBE-BROKEN。
+  - **r4 (Cut 1 follow-ups)**：這個決定在 r3 只寫在格與判定函式裡，觀測器從來沒有設過 `route`，所以真的缺 route 時，FastAPI 自己的 404 讓對照判 PROBE-BROKEN，K1 跟著壞，不是這裡寫的 RED「no route」。現在 `observe_counter` 與 `observe_counter_control` 都讀 openapi 並設 `answer.route`（`ROUTE_PREFIXES` 加了 K1／K2／K3／K1-neg／T3／T3-neg）；openapi 讀不到時**不設** `route`（讀不到不等於缺 route）。T3 與 T3-neg 目前沒有觀測器（Cut 2 才寫），只有 `ROUTE_PREFIXES` 先備好。
 - **HR 的刺激量與順序（MINOR 4）**：
-  - 刺激量：20000 幀、每幀 64 B、總速率 800 kbit/s。
-    - HR2 分到 s1-eth5 的那一半是 400 kbit/s，低於 0.5 Mbit/s 的整形。
-    - 每一半的期望樣本數約 39。
-    - 公平硬幣讓其中一半低於 CARRY_SHARE 的機率小於 1e-5。
-  - 順序：TP2 → HR1／HR2 → Q1（Q1 仍是最後一個）。
+  - ~~刺激量：20000 幀、每幀 64 B、總速率 800 kbit/s。每一半的期望樣本數約 39。公平硬幣讓其中一半低於 CARRY_SHARE 的機率小於 1e-5。~~ **r4 (Cut 1 follow-ups)**：這個「小於 1e-5」不成立（見下面與 §14.7），刺激量改成 24000 幀：
+    - 24000 幀、每幀 64 B、總速率 800 kbit/s，15.4 s。HR2 分到 s1-eth5 的那一半仍是 400 kbit/s，低於 0.5 Mbit/s 的整形。
+    - 門檻是**絕對的**：`CARRY_SHARE × sender 的 flow_bytes`，也就是 `CARRY_SHARE × 幀數 / 256` 個樣本（24000 幀是 18.75，所以一半要有 19 個樣本）。
+    - 把樣本當 Poisson：HR2 每一半約 Poisson(46.9)，少於 19 個的機率約 1.3e-6，任一半少於的機率約 2.6e-6，低於 1e-5。（20000 幀時是每半 9.9e-6、任一半 2.0e-5，所以原來的說法不成立。）
+    - 假設：每個樣本記入 256 × 該幀的位元組；安靜窗的雜訊算 0。
+  - 順序：TP2 → HR1／HR2 → Q1（Q1 仍是最後一個）。**r4 (Cut 1 follow-ups)**：`table.ORDER` 目前**沒有任何東西讀它**——Cut 1 沒有 active 格的排程器，Cut 3 的排程器必須消費它；這裡只是寫下來的約定，不是已經被執行的事實（§14.7）。
 - **其他**：
   - IT1 的報告期限是 entry 老化後 10 s（MINOR 5）。
   - 探針那一方給的輸入（目標速率、宣告的埠、marker 欄位）若是空的 → PROBE-BROKEN（MINOR 1）。
   - HU1 巢狀的讀數缺了 → NOT RUN（MINOR 2）。
+    - **r4 (Cut 1 follow-ups)**：巢狀的鍵清單補上 `v6.flow_identity`；「讀了、沒有流表身份」是 `False`，仍然判（PARTIAL(a)）；只有鍵缺才是 NOT RUN。
   - kill 失敗的行程留在 LAB_STATE 裡（MINOR 6）。
+    - **r4 (Cut 1 follow-ups)**：kill 失敗現在也記進 `rec["problems"]`，那一輪不算 complete（r3 只留在 LAB_STATE，那一輪仍讀作完整）。
   - `recover.sh` 判斷探測器是否還活著時，用 pid 加 start time（MINOR 6）。
   - `recover.sh` 的 measuring 檢查讀不到時當成忙碌，不放行（MINOR 6）。
+    - **r4 (Cut 1 follow-ups)**：輸出裡沒有 `measuring` 或 `orphaned` 其中一列，也當成忙碌。
+
+
+### 14.7 r4 (Cut 1 follow-ups)：第三次審查留下的 MINOR 與一項衛生（未經審查）
+
+> 這一節每一條都是 **r4 (Cut 1 follow-ups)**。第三次審查判 MERGE，留下十個 MINOR；本輪全做，另加一項衛生（第 11 項）。**是設計，要審。** 分支 `fix/p4-health-cut1-followups`，從 trunk `73cff685` 開。
+
+1. **recover.sh 在 `down-done` 的重新 claim**：`ndt down` 會刪 `app_package_override`（`ndt:1597-1601`），所以原來的「override 等於 package」條件在這個 phase 永遠不成立，過期的 claim 會被誤判成「現場不是這個 run 的」（rc 3），而那個 run 已經 down 完。現在用 `override_ours`；phase `released` 另外排除。見 §4.5。
+   - **r5 (Cut 1 follow-ups)** 收窄上面這句：不是「`override_ours`」一律成立，而是 override 等於 package，或 override 為空 ∧ phase 是 `down-done` ∧ 過期的 claim 檔是自己的 owner；其他 phase 維持 r3 的 rc 3。`down-done` 的 fabric 檢查先於任何寫入。phase `released` 只做第 3 步（rc 0／7），見 §4.5。kill 失敗的流程以 rc 7 結束。
+   - r5 取代 r4 在這裡的「`released` 另外排除」。
+2. **`down-done` 保留停行程這一步**：kill 不需要 fabric；kill 失敗的行程是留給這一次重試的。lab_round 的 teardown 也把 kill 失敗記進 `rec["problems"]`，那一輪不算 complete。
+3. **HR 的界**：門檻是絕對的，樣本當 Poisson。24000 幀時任一半不夠的機率約 2.6e-6（見 §14.6）。HR1 的 5-tuple 要落在**沒整形的**上行（`table.HR1_UPLINK` ＝ s1-eth4）：HR1 把整個 800 kbit/s 送在同一條上，高於 s1-eth5 的 500 kbit/s 整形。選 5-tuple 是 Cut 3 刺激端的事（S0 已經能為兩條上行各找一個，`probe.log:32`）；格的前提 `hr_pre(1)` 保證選錯時是 NOT RUN，不是一個判定。
+4. **K1／T3 的 `route`**：觀測器現在設 `answer.route`，見 §14.6 的 MINOR 3。
+5. **HU1 的 `v6.flow_identity`**：列進巢狀必要鍵。
+6. **計時讀數的編碼要驗證**：見 §2.1 的 r4 註記。CP4 的 watch 長度改在 `gone` 之前檢查：一條在還沒盯滿期限的時候被讀成 `gone` 的路由，是 NOT RUN，不是 RED。
+7. **觀測器契約**：「讀了、沒有」是 `False`／`0`，不是 `None`。見 §2.1 的 r4 註記與 `table.IDENT` 的註解。
+8. **`measuring_now`**：必須有 `measuring` 或 `orphaned` 其中一列。見 §4.5。
+9. **舊碼的身分**：任何舊碼對新碼的 log，表頭都記舊碼的 git tree sha、檔案的 blob sha 與副本的 sha256（本輪的紅燈 log 也是）。
+10. **`ORDER`**：沒有任何東西消費它。排程器是 Cut 3 的；這裡不發明一個。`table.py` 的註解與一個測試（`test_order_has_no_consumer_yet_and_the_comment_says_so`）都寫明這一點：真的有東西開始讀它的時候，這個測試會紅，逼著改註解與本節。
+11. **衛生——公開檔案不引用私有紀錄**：`expected_today.tsv` 與 `tools/p4_health` 會進公開的 main。CH4 的 basis 原本引的 `RULINGS-1001.md`（和 CH3 的 `REPORT.md`）是私有紀錄；改成引碼本身：`hc_main.p4` 把 shim 放在 IPv4 與 UDP 之間（`:87-88`、`:249`、`:254-260`），kernel 讀 L4 的位置由 IPv4 header 長度算出、而且只在 protocol 是 TCP／UDP 時才讀 port（`SFlowType.hpp:364,369,386,390-391`），所以 protocol 0xFD 的幀 key 是 protocol 253、port 0。一個測試掃這兩處，不允許再出現 rulings／intake／judge／report 檔名。**沒動的**：`expected_today.tsv` 裡還有 `GAP-2b` 的引用（C1、R2、P4、TTL1、TP4），那是 `doc/audit` 底下的 .md，同樣不在公開 main 上；這不在本輪的範圍，留給決定者。
+

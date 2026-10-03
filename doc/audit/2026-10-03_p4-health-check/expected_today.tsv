@@ -1,7 +1,8 @@
 # P4 health check -- predictions, committed before any live run (DESIGN 5.1).
 # [Co-developed with claude code -- Adam]
 # expected = the verdict label predicted for today's trunk (995bdfd0). added: r6 = from the reviewed
-# design; cut1-q3b = added in Cut 1 for Q3(b), not yet reviewed (DESIGN.md sections 13 and 14). Rows whose basis starts "r2 (Cut 1 review)" or "r3 (Cut 1 review)" changed in those review rounds.
+# design; cut1-q3b = added in Cut 1 for Q3(b), not yet reviewed (DESIGN.md sections 13 and 14). Rows whose basis starts "r2 (Cut 1 review)", "r3 (Cut 1 review)" or "r4 (Cut 1 follow-ups)" changed in those review rounds (r4: the basis now cites code, not a relayed record).
+# Cited records: GAP-2b = doc/audit/2026-09-04_p4-tutorial-exercise-prep/GAP-2b-ndtwin-p4-capabilities-2026-09-27.md and DESIGN.md = doc/audit/2026-10-03_p4-health-check/DESIGN.md; both live on the trunk branch of this repository, not on main.
 cell	dimension	scope	bringup	cut	expected	basis	added
 PL1	pipeline_load	core	A	2	GREEN	§5.1 pipeline_load always can: each switch gets its own program (main.py:2012-2016); p4info sha in switch_state (api_routes.py:758-761)	r6
 PL2	pipeline_load	core	B	4	GREEN	external skips pipeline_push (main.py:337); the controller pushes its own	r6
@@ -33,8 +34,8 @@ P3	packet_io	core	A	2	RED	no packet-out route	r6
 P4	packet_io	core	B	4	PARTIAL(b)	section 12 item 8 decided in Cut 1: the controller's own packet-in is the exercise's controller doing NDTwin's half (GAP-2b 0.3 (b))	r6
 CH1	custom_headers	core	A	3	PARTIAL(a)	0x1212 lands only in the side table (FlowLinkUsageCollector.cpp:1134-1161)	r6
 CH2	custom_headers	core	A	3	PARTIAL(a)	0x1234 lands only in the side table	r6
-CH3	custom_headers	core	A	3	GREEN	IPv4 options parsed (SFlowType.hpp:343-369); modelled [relayed parser-autoderive REPORT.md:233]	r6
-CH4	custom_headers	ext	A	3	RED	inferred: a shim between IPv4 and UDP reads as the wrong port [relayed RULINGS-1001.md:59-64]	r6
+CH3	custom_headers	core	A	3	GREEN	r4 (Cut 1 follow-ups): IPv4 options parsed -- the kernel finds L4 at the IP header length x 4 (SFlowType.hpp:343-369, offsets at :353 and :369), and CH3's marker carries exactly those options (hc_main.p4:86 ipv4_opt_t varbit<320>, extracted by IHL at :240-241); read from the code, not run	r6
+CH4	custom_headers	ext	A	3	RED	r4 (Cut 1 follow-ups): inferred from code, not run: CH4's frame is IPv4 protocol 0xFD with a shim between IPv4 and UDP (hc_main.p4:87-88 shim_t, parsed at :249 and :254-260; frames.py:135-138), and the kernel reads ports only when the IPv4 protocol is TCP or UDP, at the IHL-computed offset (SFlowType.hpp:364,369,386,390-391), so its key reads protocol 253 and port 0, not the real UDP port	r6
 CH5	custom_headers	core	A	3	GREEN	one VLAN tag is stripped natively (SFlowType.hpp:305-311)	r6
 CH6	custom_headers	ext	A	3	GREEN	a shim after L4 does not move the 5-tuple	r6
 CH7	custom_headers	core	A	3	GREEN	the side table keys ethertype and both MACs and counts samples (SFlowType.hpp:587-589)	r6
@@ -46,7 +47,7 @@ CS1	checksum	core	A	2	GREEN	tx-checksumming turned off per host (p4_testbed_topo
 TTL1	ttl_or_hop	core	A	2	GREEN	no NDTwin half (GAP-2b:39); the marker only has to arrive	r6
 TP1	topology	core	A	2	GREEN	the graph is built from the same model the fabric is	r6
 TP2	topology	core	A	3	GREEN	the heartbeat watchdog marks a cut veth down (main.py:1290-1304)	r6
-TP4	topology	core	B	4	GREEN	inferred from code: external runs the watchdog after the drop check (ndt:2959-2971); GAP-2b judged it red	r6
+TP4	topology	core	B	4	GREEN	inferred from code: external runs the watchdog after the drop check (ndt:2959-2971); GAP-2b found it red	r6
 CP1	control_plane_mode	core	A	2	GREEN	= T1	r6
 CP2	control_plane_mode	core	B	4	GREEN	external refuses writes with 409 (_refuse_write)	r6
 CP4	control_plane_mode	core	C	4	GREEN	owner ndtwin binds the route table and reroute follows the heartbeat (route_binding.py:51-56,312-319; main.py:1236-1249)	r6
