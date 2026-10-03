@@ -1369,16 +1369,17 @@ class TopologyManager:
         Re-adopt one bmv2 switch after its process was restarted (Phase 7 powerOn).
 
         [Co-developed with claude code -- Adam]
-        A restarted bmv2 comes back with nothing: no pipeline, no clone session, no table
-        entries, and no P4Runtime mastership -- the old client's stream died with the old
-        process and nothing re-establishes it. The liveness probe is a unary RPC on a channel
-        gRPC quietly reconnects, and a bmv2 with no pipeline answers COOKIE_ONLY with
-        FAILED_PRECONDITION, so liveness reads `probe_ok` false for it -- the same value as a
-        dead process (measured on stock and bmv2-fast simple_switch_grpc, phases A and D of
-        run-stock.out and run-fast.out under
-        doc/audit/2026-10-04_p4-cookie-probe/). Liveness does not see
-        empty tables, a missing clone session or a lost stream, which is why readopt is still
-        needed. This method is what makes "powered on" true rather than merely reported:
+        A restarted bmv2 comes back with nothing pushed through P4Runtime: no pipeline, no
+        clone session, no table entries, and no P4Runtime mastership -- the old client's stream
+        died with the old process and nothing re-establishes it. The liveness probe is a unary
+        RPC on a channel gRPC quietly reconnects, and a bmv2 that has been pushed no pipeline
+        answers COOKIE_ONLY with FAILED_PRECONDITION, so liveness reads `probe_ok` false for it
+        -- the same value as a dead process (measured on stock and bmv2-fast simple_switch_grpc,
+        phases A and D of run-stock.out and run-fast.out under
+        doc/audit/2026-10-04_p4-cookie-probe/). The probe cannot see empty tables, a missing
+        clone session or a lost stream (switch_liveness does serve `stream_alive`, but the
+        kernel's verdict reads only probe_ok, probe_age_s and last_lldp_age_s), which is why
+        readopt is still needed. This method is what makes "powered on" true rather than merely reported:
         doc/2026-08-11_phase7_power_mechanism_design.md, decision 2.
 
         A *new* client rather than restarting the old one: stop() closes the channel, poisons

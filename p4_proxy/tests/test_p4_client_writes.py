@@ -622,13 +622,13 @@ class ProbeTest(unittest.TestCase):
 
     def test_a_switch_with_no_pipeline_is_not_ok_and_the_detail_says_why(self):
         # [Co-developed with claude code -- Adam]
-        # Measured on stock and bmv2-fast simple_switch_grpc, started with no pipeline pushed
+        # Measured on stock and bmv2-fast simple_switch_grpc, started with nothing pushed through P4Runtime
         # (doc/audit/2026-10-04_p4-cookie-probe/run-stock.out and
         # run-fast.out, phase A): COOKIE_ONLY is answered with FAILED_PRECONDITION, "No
         # forwarding pipeline config set for this device". That is a switch that is alive but
         # has nothing to forward with, and the probe reports it as not ok -- the same value as a
-        # dead process, told apart only by the detail. Reading it as ok would hand a restarted,
-        # empty bmv2 the amnesty reroutable_down_endpoints gives a stalled-but-answering one.
+        # dead process, told apart only by the detail. Reading it as ok would list a restarted,
+        # empty bmv2 as connected, and the kernel's p4LivenessFor would answer Up for it.
         self.client.stub = RecordingStub(
             probe_error=FakeRpcError(grpc.StatusCode.FAILED_PRECONDITION,
                                      details="No forwarding pipeline config set for this device"))

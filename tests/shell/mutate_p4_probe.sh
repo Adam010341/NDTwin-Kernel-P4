@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for what the proxy says about a bmv2 with no pipeline pushed: the ProbeTest case in
+# Mutation gate for what the proxy says about a bmv2 that has been pushed no pipeline: the ProbeTest case in
 # p4_proxy/tests/test_p4_client_writes.py and ASwitchWithNoPipelineIsNotAliveTest in
 # p4_proxy/tests/test_switch_state.py.
 #
@@ -9,14 +9,21 @@
 # Measured on stock and bmv2-fast simple_switch_grpc (run-stock.out / run-fast.out, phase A, under
 # doc/audit/2026-10-04_p4-cookie-probe/): a bmv2 with no pipeline answers the
 # COOKIE_ONLY probe with FAILED_PRECONDITION. P4RuntimeClient.probe() turns that into ok False, so
-# GET /p4/switch_state shows probe_ok false, connected_switch_dpids() leaves the switch out, and
-# reroutable_down_endpoints() grants it no stalled-switch amnesty. Before these tests a probe that
-# read FAILED_PRECONDITION as ok survived the whole p4_proxy suite (1734 ran, 0 red).
+# switch_liveness() (which GET /p4/switch_state serves) shows probe_ok false and
+# connected_switch_dpids() leaves the switch out; reroutable_down_endpoints() grants no amnesty on
+# the `probe_ok is True` clause. Before these tests a probe that read FAILED_PRECONDITION as ok
+# survived the whole p4_proxy suite (1734 ran, 0 red).
 #
-# M1 is that mutant. M2-M5 are the other links of the same chain (the endpoint's list, the amnesty
-# test, the payload, the poller's record): each one, alone, would hand a restarted empty switch the
-# treatment of a healthy one while the probe itself stays right. C1 is a comment-only edit of the
-# probe and every test must stay green on it.
+# What would follow if a no-pipeline switch read as alive is that it is listed as connected and the
+# kernel's p4LivenessFor answers Up. The amnesty case pins its one clause and nothing more: in the
+# deployed configuration both directions of every link are seeded and a restarted bmv2 behind the
+# old client sends no beacons, so every link of it is reroutable whatever probe_ok says.
+#
+# M1 is that mutant. M2-M5 break the other links of the same chain (the list, the amnesty clause,
+# the payload, the poller's record), each alone while the probe itself stays right. C1 is a
+# comment-only edit of the probe and every test must stay green on it; a mutation whose anchor is
+# missing is a SURVIVOR, the control included, and the control case (a switch that answers) must
+# stay green under every mutation.
 #
 # 🔴 Guards its own baseline: every mutation is applied to a COPY of p4_proxy under a temp dir and
 # the tests are run there. Nothing under p4_proxy/ is written -- another session may be executing
@@ -68,6 +75,7 @@ BASE_TEST_STATE=$(sha256sum "$TEST_STATE" | cut -d' ' -f1)
 
 SURVIVORS=0
 MUTATIONS=0
+CONTROL_CASE="test_control_a_switch_that_answers_is_listed_and_does_get_the_amnesty"
 
 # PYTHONDONTWRITEBYTECODE so a mutant cannot be run from a .pyc of its unmutated self.
 run_against() {
@@ -80,10 +88,18 @@ report() {
     local name="$1" dir="$2"; shift 2
     local out rc t missed=""
     MUTATIONS=$((MUTATIONS+1))
+    if [[ ! -d "$dir/proxy_agent" ]]; then
+        SURVIVORS=$((SURVIVORS+1))
+        printf '  SURVIVED %-70s (the anchor is missing or not unique: nothing was mutated)\n' "$name"
+        return
+    fi
     out=$(run_against "$dir"); rc=$?
     for t in "$@"; do
         grep -qE "^(FAIL|ERROR): $t " <<<"$out" || missed="$missed $t"
     done
+    # The control case (a switch that answers) must stay green under every mutation, or a mutant
+    # that breaks every switch alike would also redden the cases above and look caught.
+    grep -qE "^$CONTROL_CASE .*ok$" <<<"$out" || missed="$missed $CONTROL_CASE(went red or did not run)"
     if [[ "$rc" -ne 0 && -z "$missed" ]]; then
         printf '  caught   %-70s (%d case(s) went red)\n' "$name" "$#"
     else
@@ -98,6 +114,11 @@ report_green() {
     local name="$1" dir="$2"
     local out rc
     MUTATIONS=$((MUTATIONS+1))
+    if [[ ! -d "$dir/proxy_agent" ]]; then
+        SURVIVORS=$((SURVIVORS+1))
+        printf '  RED      %-70s (the anchor is missing or not unique: nothing was mutated)\n' "$name"
+        return
+    fi
     out=$(run_against "$dir"); rc=$?
     if [[ "$rc" -eq 0 ]]; then
         printf '  green    %-70s (as it must be)\n' "$name"
@@ -123,6 +144,7 @@ s = open(p).read()
 assert s.count(a) == 1, "anchor not unique (%d hits): %s" % (s.count(a), a[:70])
 open(p, "w").write(s.replace(a, b))
 PY
+    [[ $? -eq 0 ]] || rm -rf "$d"    # no mutated copy: report / report_green count that as a survivor
     echo "$d"
 }
 

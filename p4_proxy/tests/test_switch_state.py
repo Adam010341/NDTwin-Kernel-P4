@@ -677,14 +677,19 @@ class ASwitchWithNoPipelineIsNotAliveTest(unittest.TestCase):
     [Co-developed with claude code -- Adam]
     Measured on stock and bmv2-fast simple_switch_grpc (phase A of run-stock.out and
     run-fast.out under doc/audit/2026-10-04_p4-cookie-probe/): a bmv2
-    with no pipeline pushed answers the COOKIE_ONLY probe with FAILED_PRECONDITION, so
-    liveness reads probe_ok false -- the same value as a dead process. Liveness does not see
-    empty tables, a missing clone session or a lost stream, which is why readopt is still needed.
+    that has been pushed no pipeline answers the COOKIE_ONLY probe with FAILED_PRECONDITION, so
+    liveness reads probe_ok false -- the same value as a dead process. The probe cannot see
+    empty tables, a missing clone session or a lost stream (switch_liveness serves stream_alive,
+    but the kernel never reads it), which is why readopt is still needed.
 
     These drive the real P4RuntimeClient.probe through the real poller, not a FakeClient that
     is told ok=False, so a probe that started treating that answer as success would show here.
-    Read as success, a restarted and empty switch would be listed as connected and would be
-    forgiven by reroutable_down_endpoints, which sends traffic into it.
+    Read as success, a restarted and empty switch would be listed as connected, and the
+    kernel's p4LivenessFor would answer Up for it. The amnesty case pins the `probe_ok is True`
+    clause of reroutable_down_endpoints on its own; it does not claim that traffic would be sent
+    into the switch in the deployed configuration, where both directions of every link are
+    seeded and a restarted bmv2 behind the old client sends no beacons, so every link of it is
+    reroutable whatever probe_ok says (this fixture creates one direction only, on purpose).
     """
 
     NO_PIPELINE = "No forwarding pipeline config set for this device"
@@ -738,8 +743,8 @@ class ASwitchWithNoPipelineIsNotAliveTest(unittest.TestCase):
 
         self.assertTrue(topo.down_link_endpoints(), "the links did not go quiet; nothing was tested")
         self.assertTrue(topo.reroutable_down_endpoints(),
-                        "an empty switch was forgiven as stalled-but-answering, so traffic would "
-                        "keep being routed into it")
+                        "an empty switch was forgiven as stalled-but-answering: the probe_ok "
+                        "clause of the amnesty is not holding")
 
     def test_control_a_switch_that_answers_is_listed_and_does_get_the_amnesty(self):
         # The same fixture with a stub that answers, so the three cases above are red for the
