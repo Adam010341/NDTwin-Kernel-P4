@@ -59,6 +59,11 @@ done
 HELPER="$HERE/../../tools/test_workflow/ndtwin-lab"
 [[ -r "$HELPER" ]] || { echo "no ndtwin-lab at $HELPER"; exit 2; }
 
+# [Co-developed with claude code -- Adam] The reaper cleanup() uses is shared with
+# test_ndt_apps_liveness.sh, and so are its checks (reap_own_children_selftest, section 10).
+source "${REAP_OWN_CHILDREN_LIB_UNDER_TEST:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_reap_own_children.sh}" \
+    || { echo "no tests/shell/lib_reap_own_children.sh beside this suite"; exit 2; }
+
 PASS=0; FAIL=0
 t_ok()  { PASS=$((PASS+1)); printf '  ok       %s\n' "$1"; }
 t_bad() { FAIL=$((FAIL+1)); printf '  FAILED   %s\n             %s\n' "$1" "$2"; }
@@ -104,46 +109,15 @@ reap_two_layer() {
     # exec'd, the parent's argv is still this suite's own, and the argv test alone let it live.
     if [[ "$(tr '\0' ' ' 2>/dev/null < "/proc/$TWO_PARENT/cmdline")" == *"$FIX/twolayer"* ]] \
             || own_child "$TWO_PARENT"; then
-        kill -KILL -"$TWO_PARENT" 2>/dev/null || kill -KILL "$TWO_PARENT" 2>/dev/null
+        # [Co-developed with claude code -- Adam] By its group only if it leads one (2026-10-03), as
+        # reap_own_children does: a parent caught before its exec is a child of this shell in the
+        # suite's group, which is not its to kill.
+        kill_group_if_leader "$TWO_PARENT"
         sleep 0.3
     fi
     [[ -d "/proc/$TWO_PARENT" ]] && left=$((left + 1))
     [[ "${TWO_CHILD:-}" =~ ^[0-9]+$ && -d "/proc/${TWO_CHILD:-x}" ]] && left=$((left + 1))
     echo "$left"
-}
-# own_child <pid> -- true if that process is one this shell forked itself: its parent is $$. Its
-# process group is left in OWN_PGID. A child's number is not given to another process until bash
-# has reaped it, and bash reaps on its own schedule, so whatever is done with the answer is done at
-# once, with nothing forked in between. Before the child has exec'd its argv is still this
-# suite's own, and this still knows it.
-# [Co-developed with claude code -- Adam] (2026-10-03)
-own_child() {
-    local s
-    OWN_PGID=""
-    { read -r s < "/proc/$1/stat"; } 2>/dev/null || return 1
-    s="${s##*) }"; s="${s#* }"          # "<ppid> <pgrp> ..."
-    [[ "${s%% *}" == "$$" ]] || return 1
-    s="${s#* }"; OWN_PGID="${s%% *}"
-}
-# reap_own_children -- KILL whatever this shell forked that is still there. On the way out the
-# suite's own foreground commands have all been waited for, so its remaining children are what it
-# started in the background, and nothing needs to have been written down first: a signal that
-# lands between a fork and the line that records its pid still finds it (2026-10-03; here,
-# between spawn_two_layer's `&` and its TWO_PARENT=$!, and the held parent below).
-# A child that leads its own process group is killed BY that group, which holds it and anything
-# it forked; any other child by its pid alone, because its group is this suite's -- and the
-# caller's. Only from this suite's own shell: in a subshell, $$ names a parent whose children
-# include that subshell.
-# [Co-developed with claude code -- Adam]
-reap_own_children() {
-    [[ $BASHPID == "$$" ]] || { echo "  FAILED   ${FUNCNAME[0]} called outside this suite's own shell (BASHPID $BASHPID, suite $$): not reaping" >&2; return 1; }
-    local f c
-    for f in /proc/[0-9]*/stat; do
-        c="${f#/proc/}"; c="${c%/stat}"
-        own_child "$c" || continue
-        if [[ "$OWN_PGID" == "$c" ]]; then kill -KILL -- "-$c" 2>/dev/null; else kill -KILL "$c" 2>/dev/null; fi
-    done
-    return 0
 }
 cleanup() {
     # [Co-developed with claude code -- Adam] First, so a second signal cannot cut the cleaning
@@ -670,16 +644,21 @@ HELD=$!
 disown "$HELD" 2>/dev/null || true
 check "a parent held before its exec still wears this suite's argv" "$(tr '\0' ' ' < /proc/$$/cmdline)" \
       "$(tr '\0' ' ' 2>/dev/null < "/proc/$HELD/cmdline")"
+# [Co-developed with claude code -- Adam] (2026-10-03) Every kill the reaper makes is written down,
+# because the group form of a kill aimed at a process that leads no group fails (no group has that
+# number) and the pid form after it works: the reaping looks the same either way, and only what was
+# SENT tells the two apart.
+KILL_LOG="$FIX/kills"; : > "$KILL_LOG"
+kill() { printf '%s\n' "$*" >> "$KILL_LOG"; builtin kill "$@"; }
 check "🔴 reap_two_layer reaps it all the same"           "0" "$(TWO_PARENT="$HELD" TWO_CHILD="" reap_two_layer)"
+unset -f kill
+check "  and signals a parent that leads no group by its pid alone" "-KILL $HELD" "$(cat "$KILL_LOG")"
 # By its group if it got as far as its exec and the setsid in it, else by its pid.
-if own_child "$HELD"; then
-    if [[ "$OWN_PGID" == "$HELD" ]]; then kill -KILL -- "-$HELD" 2>/dev/null; else kill -KILL "$HELD" 2>/dev/null; fi
-fi
-# [Co-developed with claude code -- Adam] (2026-10-03) And the reaper refuses a subshell: there
-# $$ is still this shell, the substitution is one of its children, and the reaper would KILL the
-# substitution it runs in -- and with it the answer -- before reaching anything else.
-check "reap_own_children refuses to run outside this suite's own shell" yes \
-      "$(r="$(reap_own_children 2>&1)"; [[ "$r" == *"outside this suite's own shell"* ]] && echo yes || echo no)"
+own_child "$HELD" && kill_group_if_leader "$HELD"
+# [Co-developed with claude code -- Adam] (2026-10-03) And the reaper itself, which cleanup() calls
+# for whatever this shell forked and has not yet written down: lib_reap_own_children.sh holds it to
+# six checks, in a shell of its own, and this suite and test_ndt_apps_liveness.sh both run them.
+reap_own_children_selftest
 
 section "11. 3-51c: reading a log, truncating it, and looking into a process are three permissions"
 # 🔴 WHAT THIS GROUP CAN AND CANNOT BUILD -- said here so no reader has to infer it.
