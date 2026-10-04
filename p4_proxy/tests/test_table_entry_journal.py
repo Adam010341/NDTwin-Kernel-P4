@@ -1215,7 +1215,7 @@ class TheLockIsBoundedTest(TempDirCase):
         journals = TableJournals(self.dir)
         slow = ABlockingSwitch()
         first = threading.Thread(target=lambda: journals.write_and_journal(
-            lambda: slow, 1, {"table": "a"}, "insert"))
+            lambda: slow, 1, {"table": "a"}, "insert"), daemon=True)
         first.start()
         self.addCleanup(first.join, 5)
         self.addCleanup(slow.release.set)
@@ -1229,7 +1229,7 @@ class TheLockIsBoundedTest(TempDirCase):
                                            lock_timeout=0.2)
             except Exception as exc:  # noqa: BLE001
                 outcome.append(exc)
-        waiter = threading.Thread(target=go)
+        waiter = threading.Thread(target=go, daemon=True)
         waiter.start()
         waiter.join(3)
         self.assertFalse(waiter.is_alive(), "the second write is still waiting: no timeout")
@@ -1253,9 +1253,21 @@ class TheLockIsBoundedTest(TempDirCase):
         journals = TableJournals(self.dir)
         journal = journals.journal_for(1)
         journal.lock.acquire()
-        with self.assertRaises(rule_journal.SwitchBusy):
-            journals.write_and_journal(lambda: AFakeSwitch(), 1, {"table": "a"}, "insert",
-                                       lock_timeout=0.05)
+        self.addCleanup(lambda: journal.lock.locked() and journal.lock.release())
+        outcome = []
+
+        def go():
+            try:
+                journals.write_and_journal(lambda: AFakeSwitch(), 1, {"table": "a"}, "insert",
+                                           lock_timeout=0.05)
+            except Exception as exc:  # noqa: BLE001
+                outcome.append(exc)
+        # In a thread, so that code with no timeout fails this test instead of hanging it.
+        waiter = threading.Thread(target=go, daemon=True)
+        waiter.start()
+        waiter.join(3)
+        self.assertFalse(waiter.is_alive(), "the write is still waiting: no timeout")
+        self.assertEqual([type(e) for e in outcome], [rule_journal.SwitchBusy])
         journal.lock.release()
         written, recorded = journals.write_and_journal(lambda: AFakeSwitch(), 1, {"table": "a"},
                                                        "insert", lock_timeout=0.05)
@@ -1299,7 +1311,7 @@ class TheRouteAnswers503WhenTheSwitchIsBusyTest(TempDirCase):
 
     def test_the_second_post_to_a_switch_that_does_not_answer_is_503_and_writes_nothing(self):
         first = []
-        thread = threading.Thread(target=lambda: first.append(self.post()))
+        thread = threading.Thread(target=lambda: first.append(self.post()), daemon=True)
         thread.start()
         self.addCleanup(thread.join, 5)
         self.assertTrue(self.entered.wait(2))
@@ -1310,7 +1322,7 @@ class TheRouteAnswers503WhenTheSwitchIsBusyTest(TempDirCase):
                 self.post(match={"hdr.ipv4.dstAddr": ["10.0.2.2", 32]})
             except HTTPException as err:
                 result.append(err)
-        waiter = threading.Thread(target=second)
+        waiter = threading.Thread(target=second, daemon=True)
         waiter.start()
         waiter.join(3)
         self.assertFalse(waiter.is_alive(), "the second POST is still waiting: no timeout")
