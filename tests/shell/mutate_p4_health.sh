@@ -1206,7 +1206,7 @@ add "R6-2c. the claim is the same when it merely has some expires" \
 add "R6-2d. recover.sh forgets the new expires after its own re-claim" \
     "$RECOVER" \
     '&& state_set claim_expires "$new_exp"' \
-    '&& true  # MUTANT' \
+    '&& true' \
     'after the re-claim the state records the new claim'"'"'s expires'
 
 add "R6-2e. LabRound records no expires after the claim" \
@@ -1416,14 +1416,11 @@ add "R8-1c. ndt down exiting 3 (measured nothing) is a failure" \
     'if false; then' \
     "ndt down exits 3 (measured nothing, the lab was down): the down is done, rc 0"
 
-add "R8-1d. a down found already done is not recorded" \
+add "R9-1. the down-already-ran branch skips ndt down too, and releases without any down having succeeded" \
     "$RECOVER" \
-    '        echo "  the override is gone and ndt status shows no fabric: a down already ran; steps 4-5 skipped (their interfaces are gone)"
-        state_set phase down-done
-        SKIP_DOWN=1' \
-    '        echo "  the override is gone and ndt status shows no fabric: a down already ran; steps 4-5 skipped (their interfaces are gone)"
-        SKIP_DOWN=1' \
-    "  ... and it recorded down-done"
+    '        SKIP_NETEM=1' \
+    '        SKIP_NETEM=1; SKIP_DOWN=1' \
+    "down-failed, knob absent, status 0/0, the probe's did-NOT-verify-clean note, the retry's ndt down exits 1: rc 5"
 
 add "R8-2a. every recovery releases with --force" \
     "$RECOVER" \
@@ -1460,6 +1457,30 @@ add "R8-3b. the unrecorded-claim hint never says nothing was brought up" \
     '            echo "  Nothing was brought up under it (no forced up is on record for it)."' \
     '            :  # MUTANT' \
     "no forced up on record over it: rc 2 and the output says nothing was brought up under it"
+
+add "R9-3a. a status with a missing row is read as 0 in the down-already-ran branch" \
+    "$RECOVER" \
+    '    if [[ "$n_bmv2" == 0 && "$n_mn" == 0 ]]; then' \
+    '    if [[ "${n_bmv2:-0}" == 0 && "${n_mn:-0}" == 0 ]]; then' \
+    "knob absent and ndt status printed nothing: steps 4-5 as before (qdisc drift: rc 4), no release"
+
+add "R9-3b. a status with a missing row is read as 0 in the down-done fabric check" \
+    "$RECOVER" \
+    '    if [[ "$n_bmv2" != 0 || "$n_mn" != 0 ]]; then' \
+    '    if [[ "${n_bmv2:-0}" != 0 || "${n_mn:-0}" != 0 ]]; then' \
+    "down-done and ndt status printed nothing: rc 4, nothing released (the fabric is not shown to be gone)"
+
+add "R9-4. a claim that is not live now is adopted as this script's own re-claim" \
+    "$RECOVER" \
+    '(( new_exp > $(date +%s) )) && ' \
+    '' \
+    "an expired claim, ndt claim exits 0 and writes nothing: the probe's old expires is not adopted, plain release, rc 0"
+
+add "R9-5. the second look at the claim reads only the expires" \
+    "$RECOVER" \
+    'if [[ "$(claim_get owner)" != "$OWNER" || "$(claim_get expires)" != "$CLAIM_EXPIRES" ]]; then' \
+    'if [[ "$(claim_get expires)" != "$CLAIM_EXPIRES" ]]; then' \
+    "another owner takes the claim during ndt down (the expires stays): rc 3, nothing released, the knob not written"
 
 
 # --- Cut 2: bring-up A's observers, B's attributions, the lab run ----------------------------------
