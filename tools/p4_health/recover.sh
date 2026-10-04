@@ -47,7 +47,9 @@
 #      `ndt down` and the phase write leaves phase up or cells with the knob gone (rc 3 on the next run);
 #      and the probe's own `ndt down`, killed between removing the knob (cmd_clean, ndt:5605) and writing its
 #      note (ndt:5538), leaves the knob gone and the note still "in use: ndt up ...": the note rule refuses
-#      it (rc 3), which fails safe.
+#      it (rc 3), which fails safe; a knob that is still there with the data plane gone (a down killed between its
+#      [3/3] and the knob clear, ndt:5243-5246) stops at the qdisc diff saying the fabric is up, which is false and
+#      safe; and this script never writes phase released, so a second run on a finished run dir stops at rc 3.
 #   3. stop the recorded sniffers and controllers -- each only while its pid, its start time
 #      (/proc/<pid>/stat field 22) and the marker in its command line all still match what the
 #      probe recorded; a recycled pid is left alone;
@@ -71,8 +73,9 @@
 #   4. take netem off the recorded interfaces; the qdisc tree must equal the snapshot taken after
 #      `ndt up` -- if it does not, print the difference and stop for a person (rc 4);
 #      (r8) Not when the knob is absent and `ndt status` shows no switch and no host/switch process: a
-#      `ndt down` already ran (its interfaces are gone, the qdisc diff would always differ). That records
-#      phase down-done and goes on to the re-check, the knobs and the release; with a fabric up, steps 4-5 run;
+#      `ndt down` already ran (its interfaces are gone, the qdisc diff would always differ). (r9) Then step 4
+#      alone is skipped: step 5 still runs, since those two rows are not all there is to tear down and a
+#      `ndt down` that exited 1 can leave processes behind; with a fabric up, steps 4-5 run;
 #   5. `ndt down` as the same owner (rc 5 if it fails: nothing is released over a fabric still up). (r8)
 #      Its rc 3 -- it measured nothing, the lab was already down (ndt:5524-5537) -- counts as done;
 #   6. both knobs back to their snapshot BYTES;
@@ -352,7 +355,9 @@ elif [[ ( -z "$c_owner" || "$c_owner" == "$OWNER" ) && "$c_exp" -le "$now" && "$
     # (r6) the claim is a new one now: record its expires, or a second run after a failed step would
     # stop at rc 3 on a claim that is ours. Read the way the script reads every claim field.
     new_exp="$(claim_get expires)"
-    if [[ "$new_exp" =~ ^[1-9][0-9]*$ ]] && state_set claim_expires "$new_exp" && state_set recover_claim_expires "$new_exp"
+    # (r9) only a claim that is live now counts as ours: one that exits 0 without writing a fresh claim leaves
+    # the probe's old expires in the file, and must not be adopted as this script's own re-claim.
+    if [[ "$new_exp" =~ ^[1-9][0-9]*$ ]] && (( new_exp > $(date +%s) )) && state_set claim_expires "$new_exp" && state_set recover_claim_expires "$new_exp"
     then echo "  recorded the new claim's expires ($new_exp) in $STATE"
     else echo "  WARNING: could not record the new claim's expires; a second run of this script will stop at rc 3"
     fi
@@ -382,20 +387,28 @@ stop_recorded
 # exits 1 after tearing everything down is documented, ndt:5312-5318). Its interfaces are gone then, so
 # qdisc_snapshot.sh diff (it diffs `tc qdisc show` of every interface, qdisc_snapshot.sh:24,37-44) always differs
 # and would stop at "the fabric is still up". Ask ndt status first, as down_done_fabric_check does: no switches
-# and no host/switch process -> the down is done (record it); anything else -> steps 4-5 as before.
+# and no host/switch process -> skip step 4 only (netem off and the qdisc diff need the interfaces); anything
+# else -> steps 4-5 as before. (r9) Step 5 still runs: those two rows are not all there is to tear down (ndt's
+# own subject also counts the topo session, the manifest, registry entries and held ports, ndt:5112-5124), and a
+# `ndt down` that exited 1 can leave live processes behind (ndt:5338-5342, 5349-5352, 5429, 5474-5481) while the
+# knob is gone (ndt:5605) and the note says "did NOT verify clean" (ndt:1276). `ndt down` is idempotent (rc 3
+# on an empty lab, counted as done below), a down that fails again is down-failed (rc 5) and releases nothing,
+# and the phase is written by step 5, not here.
 SKIP_DOWN=0
+SKIP_NETEM=0
 if [[ "$PHASE" == down-done ]]; then SKIP_DOWN=1
 elif [[ -z "$ov" ]]; then
     st_out="$(NDT_OWNER="$OWNER" "$NDT" status 2>/dev/null)"
     n_bmv2="$(printf '%s\n' "$st_out" | awk '$1 == "bmv2" && $2 == "switches" { print $3; exit }')"
     n_mn="$(printf '%s\n' "$st_out" | awk '$1 == "host/switch" { print $2; exit }')"
     if [[ "$n_bmv2" == 0 && "$n_mn" == 0 ]]; then
-        echo "  the override is gone and ndt status shows no fabric: a down already ran; steps 4-5 skipped (their interfaces are gone)"
-        state_set phase down-done
-        SKIP_DOWN=1
+        echo "  the override is gone and ndt status shows no switch and no host/switch process: a down already ran;"
+        echo "  step 4 skipped (its interfaces are gone), step 5 (ndt down) still runs"
+        SKIP_NETEM=1
     fi
 fi
 if [[ "$SKIP_DOWN" -eq 0 ]]; then
+if [[ "$SKIP_NETEM" -eq 0 ]]; then
 # 4. netem off, and the qdisc tree must be what it was right after `ndt up`
 for i in $NETEM; do "$SUDO" -n tc qdisc del dev "$i" root || echo "  $i: no netem to remove?"; done
 if [[ -n "$QBEFORE" ]]; then
@@ -405,6 +418,7 @@ if [[ -n "$QBEFORE" ]]; then
         exit 4
     fi
 fi
+fi   # step 4
 
 # 5. down, as the same owner
 NDT_OWNER="$OWNER" "$NDT" down; down_rc=$?
