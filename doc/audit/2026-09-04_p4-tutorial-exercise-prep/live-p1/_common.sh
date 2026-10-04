@@ -27,13 +27,6 @@ LIVE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$LIVE_DIR/../../../.." && pwd)"
 NDT="$REPO/tools/test_workflow/ndt"
 PY="$REPO/p4_proxy/venv/bin/python"
-# The venv is git-excluded, so a linked worktree has none; fall back to the main worktree's, found as
-# tests/shell/mutate_p4_heartbeat_w.sh finds it. Nothing changes where $PY exists (the main checkout).
-if [[ ! -e "$PY" ]]; then
-    _main_wt="$(git -C "$REPO" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2; exit}')"
-    [[ -n "$_main_wt" && -x "$_main_wt/p4_proxy/venv/bin/python" ]] && PY="$_main_wt/p4_proxy/venv/bin/python"
-    unset _main_wt
-fi
 KNOB="$REPO/p4_proxy/mininet/host_count_override"
 APP_KNOB="$REPO/p4_proxy/mininet/app_package_override"
 PKG_ROOT="$REPO/.test_run/packages"
