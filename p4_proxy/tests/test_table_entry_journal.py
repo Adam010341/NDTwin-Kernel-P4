@@ -424,9 +424,10 @@ class TheSnapshotTest(TempDirCase):
         self.assertNotEqual(quarantined, journal.path)
         self.assertEqual(self.read_bytes(quarantined), old)
 
-    def test_the_old_name_is_a_hard_link_so_there_is_never_a_moment_with_no_live_file(self):
-        # Not rename-then-write: a crash between those two leaves no live journal at all. The
-        # link is made BEFORE the replace, so the live path names a complete file at every step.
+    def test_the_set_aside_generation_is_the_old_file_itself_and_the_live_one_is_new(self):
+        # The set-aside name is the old inode (a link or a rename both give that). What tells a
+        # LINK from a rename is the crash test below: with a rename the live path names nothing
+        # between the two steps.
         journal = self.a_journal()
         before = os.stat(journal.path).st_ino
         quarantined = journal.write_snapshot({}, [])
@@ -587,7 +588,33 @@ class TheOrderOfTheWriteTest(TempDirCase):
         self.assertIs(caught.exception, error)
         (record,) = self.records()
         self.assertEqual((record["op"], record["outcome"]), ("delete", "not_found"))
-        self.assertEqual(journals.report(1)["recorded"], 1)
+        # `recorded` is ACCEPTED writes that reached the file -- what `api_writes` counts. This
+        # was a refused write (a 502), so it is counted on its own and `recorded` does not move.
+        report = journals.report(1)
+        self.assertEqual((report["recorded"], report["not_found"]), (0, 1))
+        self.assertIs(report["record_complete"], True,
+                      "a not_found record that reached the file is not a failure")
+
+    def test_an_accepted_write_and_a_not_found_delete_are_counted_apart(self):
+        journals = self.journals()
+        journals.write_and_journal(lambda: AFakeSwitch(), 1, {"table": "t"}, "insert")
+        with self.assertRaises(RuntimeError):
+            journals.write_and_journal(lambda: AFakeSwitch(error=RuntimeError("x")), 1,
+                                       {"table": "t"}, "delete",
+                                       refusal_is_not_found=lambda e: True)
+        report = journals.report(1)
+        self.assertEqual((report["recorded"], report["not_found"], report["failures"]),
+                         (1, 1, 0))
+
+    def test_a_not_found_record_the_disk_would_not_take_is_a_failure_not_a_not_found(self):
+        journals = TableJournals(self.dir)
+        journals.journal_for(1).record = lambda *a, **kw: False
+        with self.assertRaises(RuntimeError):
+            journals.write_and_journal(lambda: AFakeSwitch(error=RuntimeError("x")), 1,
+                                       {"table": "t"}, "delete",
+                                       refusal_is_not_found=lambda e: True)
+        report = journals.report(1)
+        self.assertEqual((report["not_found"], report["failures"]), (0, 1))
 
     def test_no_other_refusal_is_recorded(self):
         error = RuntimeError("INVALID_ARGUMENT")
@@ -914,6 +941,20 @@ class TheRouteRecordsTest(TempDirCase):
         (record,) = self.records()
         self.assertEqual((record["op"], record["outcome"]), ("delete", "not_found"))
 
+    def test_an_upper_case_delete_the_switch_answers_NOT_FOUND_is_recorded_too(self):
+        # The writer reads "DELETE" and " Delete" as deletes (it lower-cases and strips), so the
+        # journal must too: the route normalises the op once and passes the same word to both.
+        self.stub.write_error = FakeRpcError(grpc.StatusCode.UNKNOWN,
+                                             per_update_trailer(code_pb2.NOT_FOUND, "gone"))
+        self.assertEqual(self.refused(op=" DELETE").status_code, 502)
+        (record,) = self.records()
+        self.assertEqual((record["op"], record["outcome"]), ("delete", "not_found"))
+
+    def test_an_upper_case_insert_is_recorded_under_the_normalised_op(self):
+        self.post(op="INSERT")
+        (record,) = self.records()
+        self.assertEqual(record["op"], "insert")
+
     def test_a_modify_the_switch_answers_NOT_FOUND_is_not_recorded(self):
         self.stub.write_error = FakeRpcError(grpc.StatusCode.UNKNOWN,
                                              per_update_trailer(code_pb2.NOT_FOUND, "gone"))
@@ -1030,6 +1071,28 @@ class SwitchStateSaysWhatIsTrueTest(TempDirCase):
         self.assertEqual(entry["journal"]["recorded"], 0)
         self.assertEqual(entry["journal"]["replay"], "not implemented")
 
+    def test_a_switch_the_report_does_not_list_gets_its_journaled_through_the_constant(self):
+        # The fallback in switch_state is a second place `journaled` is written. It must flip
+        # with rule_journal.TABLE_JOURNAL_REPLAYS like the first, or a switch nobody has written
+        # to would say false beside `record_complete: true` after the replay lands. Dpid 77: no
+        # other test gives it a counts entry, so it is always the fallback.
+        api_routes.topology = FakeTopology({77: a_client(device_id=77)})
+        self.assertIs(self.state()["77"]["table_entries"]["journaled"], False)
+        original = rule_journal.TABLE_JOURNAL_REPLAYS
+        self.addCleanup(setattr, rule_journal, "TABLE_JOURNAL_REPLAYS", original)
+        rule_journal.TABLE_JOURNAL_REPLAYS = True
+        entry = self.state()["77"]["table_entries"]
+        self.assertIs(entry["journal"]["record_complete"], True)
+        self.assertIs(entry["journaled"], True)
+
+    def test_the_fallback_still_says_false_when_there_are_no_journals_at_all(self):
+        original = rule_journal.TABLE_JOURNAL_REPLAYS
+        self.addCleanup(setattr, rule_journal, "TABLE_JOURNAL_REPLAYS", original)
+        rule_journal.TABLE_JOURNAL_REPLAYS = True
+        api_routes.table_journals = None
+        api_routes.topology = FakeTopology({77: a_client(device_id=77)})
+        self.assertIs(self.state()["77"]["table_entries"]["journaled"], False)
+
     def test_the_report_in_main_carries_the_same_two_fields(self):
         self.write(3)
         entry = main.table_entries_report()["3"]
@@ -1128,6 +1191,145 @@ class TheResponseFlipsToo(TempDirCase):
 
 
 # =============================================================================================
+# The lock is bounded: a write behind a hung switch gives up instead of waiting for ever.
+# =============================================================================================
+
+
+class ABlockingSwitch(AFakeSwitch):
+    """A switch whose write does not return until `release` is set; `entered` says it started."""
+
+    def __init__(self):
+        super().__init__()
+        self.entered = threading.Event()
+        self.release = threading.Event()
+
+    def write_table_entry(self, spec, op):
+        self.calls.append((op, spec))
+        self.entered.set()
+        self.release.wait(5)
+        return {"op": op, "entry_key": self.key}
+
+
+class TheLockIsBoundedTest(TempDirCase):
+    def test_a_write_behind_a_write_that_does_not_return_is_SwitchBusy_and_writes_nothing(self):
+        journals = TableJournals(self.dir)
+        slow = ABlockingSwitch()
+        first = threading.Thread(target=lambda: journals.write_and_journal(
+            lambda: slow, 1, {"table": "a"}, "insert"))
+        first.start()
+        self.addCleanup(first.join, 5)
+        self.addCleanup(slow.release.set)
+        self.assertTrue(slow.entered.wait(2))
+        second = AFakeSwitch()
+        outcome = []
+
+        def go():
+            try:
+                journals.write_and_journal(lambda: second, 1, {"table": "b"}, "insert",
+                                           lock_timeout=0.2)
+            except Exception as exc:  # noqa: BLE001
+                outcome.append(exc)
+        waiter = threading.Thread(target=go)
+        waiter.start()
+        waiter.join(3)
+        self.assertFalse(waiter.is_alive(), "the second write is still waiting: no timeout")
+        self.assertEqual([type(e) for e in outcome], [rule_journal.SwitchBusy])
+        self.assertEqual(second.calls, [], "a write that gave up must not have touched the switch")
+
+    def test_a_write_that_is_not_blocked_ignores_the_timeout(self):
+        journals = TableJournals(self.dir)
+        written, recorded = journals.write_and_journal(lambda: AFakeSwitch(), 1, {"table": "a"},
+                                                       "insert", lock_timeout=0.2)
+        self.assertTrue(recorded)
+
+    def test_the_lock_is_free_again_after_a_write_that_raised(self):
+        journals = TableJournals(self.dir)
+        with self.assertRaises(RuntimeError):
+            journals.write_and_journal(lambda: AFakeSwitch(error=RuntimeError("x")), 1,
+                                       {"table": "a"}, "insert", lock_timeout=0.2)
+        self.assertFalse(journals.journal_for(1).lock.locked())
+
+    def test_the_lock_is_free_again_after_a_write_that_gave_up_waiting(self):
+        journals = TableJournals(self.dir)
+        journal = journals.journal_for(1)
+        journal.lock.acquire()
+        with self.assertRaises(rule_journal.SwitchBusy):
+            journals.write_and_journal(lambda: AFakeSwitch(), 1, {"table": "a"}, "insert",
+                                       lock_timeout=0.05)
+        journal.lock.release()
+        written, recorded = journals.write_and_journal(lambda: AFakeSwitch(), 1, {"table": "a"},
+                                                       "insert", lock_timeout=0.05)
+        self.assertTrue(recorded)
+
+
+@unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
+class TheRouteAnswers503WhenTheSwitchIsBusyTest(TempDirCase):
+    def setUp(self):
+        super().setUp()
+        # getattr: the wait is a module constant the route reads; a tree without it must fail
+        # these tests on the behaviour (the second POST never gives up), not on the lookup.
+        self.saved = (api_routes.topology, api_routes.note_api_table_entry_write,
+                      api_routes.table_journals,
+                      getattr(api_routes, "TABLE_ENTRY_LOCK_TIMEOUT_S", None))
+        self.addCleanup(self.restore)
+        self.release = threading.Event()
+        self.entered = threading.Event()
+        outer = self
+
+        class BlockingStub(RecordingStub):
+            def Write(self, request, timeout=None):
+                self.requests.append(request)
+                outer.entered.set()
+                outer.release.wait(5)
+        self.stub = BlockingStub()
+        api_routes.topology = FakeTopology({1: a_client(self.stub)})
+        api_routes.note_api_table_entry_write = None
+        api_routes.table_journals = TableJournals(self.dir)
+        api_routes.TABLE_ENTRY_LOCK_TIMEOUT_S = 0.2
+
+    def restore(self):
+        self.release.set()
+        (api_routes.topology, api_routes.note_api_table_entry_write,
+         api_routes.table_journals, api_routes.TABLE_ENTRY_LOCK_TIMEOUT_S) = self.saved
+
+    def post(self, **overrides):
+        payload = dict(AN_LPM_ENTRY)
+        payload.update(overrides)
+        return asyncio.run(api_routes.table_entry(a_request(payload)))
+
+    def test_the_second_post_to_a_switch_that_does_not_answer_is_503_and_writes_nothing(self):
+        first = []
+        thread = threading.Thread(target=lambda: first.append(self.post()))
+        thread.start()
+        self.addCleanup(thread.join, 5)
+        self.assertTrue(self.entered.wait(2))
+        result = []
+
+        def second():
+            try:
+                self.post(match={"hdr.ipv4.dstAddr": ["10.0.2.2", 32]})
+            except HTTPException as err:
+                result.append(err)
+        waiter = threading.Thread(target=second)
+        waiter.start()
+        waiter.join(3)
+        self.assertFalse(waiter.is_alive(), "the second POST is still waiting: no timeout")
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].status_code, 503)
+        self.assertEqual(result[0].detail["error"], "switch busy")
+        self.assertIn("nothing was written", result[0].detail["message"])
+        self.assertEqual(len(self.stub.requests), 1, "only the first write reached the wire")
+        self.release.set()
+        thread.join(5)
+        self.assertEqual(first[0]["status"], "success")
+        self.assertEqual(len(self.records()), 1, "and only the first was recorded")
+
+    def test_the_wait_is_bounded_by_one_grpc_deadline(self):
+        from proxy_agent import p4_client
+        self.assertEqual(self.saved[3], p4_client.RPC_TIMEOUT_S)
+
+
+# =============================================================================================
 # The identity of a default entry (DESIGN 10-2).
 # =============================================================================================
 
@@ -1214,6 +1416,45 @@ class TheJournalIsWiredInMainTest(unittest.TestCase):
         self.assertIsNotNone(WIRED_AT_IMPORT, "main.py never injected the table-entry journals: "
                                               "every POST would run with the journal off")
         self.assertIs(WIRED_AT_IMPORT, main.table_journals)
+
+    def test_the_headers_main_builds_are_written_with_this_boot_and_the_p4info_digest(self):
+        # The header provider reaches a file through three links: main passes `header_for=`,
+        # TableJournals wraps it per switch, TableEntryJournal calls it when it creates the file.
+        # Every other test builds its journals without one, so each link could break and leave
+        # every production header all-null (probe-r10-new.log showed that shape).
+        from proxy_agent import boot_identity
+        directory = tempfile.mkdtemp(prefix="ndt-table-journal-")
+        self.addCleanup(shutil.rmtree, directory, True)
+        p4info = os.path.join(directory, "a.p4info.txt")
+        entries = os.path.join(directory, "s1-runtime.json")
+        for path, text in ((p4info, "p4info"), (entries, "entries")):
+            with open(path, "w") as fh:
+                fh.write(text)
+
+        class Spec:
+            dpid = 1
+
+        class Package:
+            read_only = False
+            switches = [Spec()]
+
+            def pipeline_for(self, dpid, base):
+                return p4info, None
+        Spec.entries = entries
+        journals_dir = os.path.join(directory, "journals")
+        saved = main.profile.current
+        main.profile.current = lambda: Package()
+        try:
+            journals = main.build_table_journals({"NDTWIN_TABLE_JOURNAL_DIR": journals_dir})
+            journals.write_and_journal(lambda: AFakeSwitch(), 1, {"table": "t"}, "insert")
+        finally:
+            main.profile.current = saved
+        header, records, _bad = journals.journal_for(1).read()
+        self.assertEqual(header["boot_id"], boot_identity.BOOT_ID)
+        self.assertEqual(header["p4info_sha256"], main._p4info_fingerprint(p4info))
+        self.assertEqual(header["entries_sha256"], main._p4info_fingerprint(entries))
+        self.assertIsNotNone(header["p4info_sha256"])
+        self.assertEqual(len(records), 1)
 
     def test_the_default_directory_is_absolute_inside_this_checkout_and_stable(self):
         directory = main.build_table_journals({}).directory

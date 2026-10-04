@@ -45,6 +45,7 @@ something nobody can name, and "complete" is the wrong word for it.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
@@ -366,6 +367,23 @@ def key_digest(key):
     return hashlib.sha256(repr(key).encode("utf-8")).hexdigest()[:32]
 
 
+class SwitchBusy(RuntimeError):
+    """Another write to the same switch held its lock for longer than the caller was willing to
+    wait. Nothing was written. The route answers 503: the switch is not wrong, it is busy, and
+    the same request is worth sending again."""
+
+
+@contextlib.contextmanager
+def _held(lock, timeout, what):
+    """`with lock:` that gives up after `timeout` seconds (None waits for ever) and says so."""
+    if not lock.acquire(timeout=-1 if timeout is None else timeout):
+        raise SwitchBusy(f"{what} is busy: another write to it held the lock for {timeout}s")
+    try:
+        yield
+    finally:
+        lock.release()
+
+
 class SwitchGone(LookupError):
     """The switch a write was addressed to left the proxy's table between the route's check and
     the lock. The route answers it exactly as it answers an unknown dpid."""
@@ -654,6 +672,7 @@ class TableJournals:
         self._journals = {}
         self._failures = {}
         self._recorded = {}
+        self._not_found = {}
         self._registry_lock = threading.Lock()
 
     def journal_for(self, dpid):
@@ -667,6 +686,7 @@ class TableJournals:
                     os.path.join(self.directory, f"s{key}.jsonl"), dpid, header=header)
                 self._failures.setdefault(key, 0)
                 self._recorded.setdefault(key, 0)
+                self._not_found.setdefault(key, 0)
             return self._journals[key]
 
     def known_dpids(self):
@@ -676,7 +696,8 @@ class TableJournals:
 
     # --- the write ----------------------------------------------------------------
 
-    def write_and_journal(self, get_client, dpid, spec, op, refusal_is_not_found=None):
+    def write_and_journal(self, get_client, dpid, spec, op, refusal_is_not_found=None,
+                          lock_timeout=None):
         """
         Put one entry on the switch, then record it. Returns `(written, recorded)`.
 
@@ -695,7 +716,7 @@ class TableJournals:
         `not_found` and then re-raised, so the caller still sees the 502.
         """
         journal = self.journal_for(dpid)
-        with journal.lock:
+        with _held(journal.lock, lock_timeout, f"switch {dpid}"):
             client = get_client()
             if client is None:
                 raise SwitchGone(f"switch {dpid} is no longer connected")
@@ -717,7 +738,11 @@ class TableJournals:
     def _record(self, journal, op, spec, digest, outcome):
         ok = journal.record(op, spec, digest, outcome)
         key = str(journal.dpid)
-        if ok:
+        if ok and outcome == "not_found":
+            # Counted on its own: this record is of a write the switch REFUSED (a 502), so
+            # folding it into `recorded` would make that number disagree with `api_writes`.
+            self._not_found[key] = self._not_found.get(key, 0) + 1
+        elif ok:
             self._recorded[key] = self._recorded.get(key, 0) + 1
         else:
             self._failures[key] = self._failures.get(key, 0) + 1
@@ -744,15 +769,19 @@ class TableJournals:
         `table_entries.journal` for one switch.
 
             enabled          recording is on (NDTWIN_TABLE_JOURNAL is not `off`)
-            recorded         accepted API writes of this boot that reached the file
-            failures         accepted API writes of this boot that did NOT -- once this is above
-                             zero `record_complete` stays false until the proxy restarts
+            recorded         ACCEPTED API writes of this boot that reached the file (the same
+                             writes `api_writes` counts)
+            not_found        NOT_FOUND deletes of this boot that reached the file as `not_found`
+                             records (DESIGN 10-4) -- refused writes, so not in `recorded`
+            failures         records of this boot that did NOT reach the file -- once this is
+                             above zero `record_complete` stays false until the proxy restarts
             record_complete  every accepted write of this boot is in the file
             replay           "not implemented": nothing puts a record back on the switch
         """
         key = str(dpid)
         return {"enabled": self.enabled,
                 "recorded": self._recorded.get(key, 0),
+                "not_found": self._not_found.get(key, 0),
                 "failures": self._failures.get(key, 0),
                 "record_complete": self.record_complete(key),
                 "replay": REPLAY_NOT_IMPLEMENTED if not TABLE_JOURNAL_REPLAYS else "implemented"}

@@ -13,7 +13,8 @@ from proxy_agent import ryu_topology, ryu_flow_stats
 # status code derived from one would silently become a 500 the day they did. No cycle:
 # p4_client imports boot_identity, rule_install_times and sflow_emitter, none of which reach
 # back here.
-from proxy_agent.p4_client import (ControlPlaneReadOnly, CounterNotFound, TableEntryInvalid,
+from proxy_agent.p4_client import (ControlPlaneReadOnly, CounterNotFound, RPC_TIMEOUT_S,
+                                   TableEntryInvalid,
                                    TableEntryUnsupported)
 # TICKET-P4-roles: the binding a route is written through, and the 501 when there is none.
 # [Co-developed with claude code -- Adam]
@@ -23,7 +24,7 @@ from proxy_agent.route_binding import RouteWriteUnsupported
 # place that decides whether a record may be called "journaled". No cycle: rule_journal imports
 # only the standard library.
 from proxy_agent import rule_journal
-from proxy_agent.rule_journal import SwitchGone
+from proxy_agent.rule_journal import SwitchBusy, SwitchGone
 
 # We will attach the topology manager instance to the router later
 router = APIRouter()
@@ -828,10 +829,13 @@ async def switch_state():
         for dpid, entry in state.get("switches", {}).items():
             entry["table_entries"] = written.get(
                 str(dpid), {"recorded": 0, "applied": 0, "failed": 0, "api_writes": 0,
-                            "journaled": False,
+                            # Through the journals like every other `journaled`, so the one
+                            # constant that flips it flips this too.
+                            "journaled": (table_journals.journaled(dpid)
+                                          if table_journals is not None else False),
                             "journal": (table_journals.report(dpid) if table_journals is not None
-                                        else {"enabled": False, "recorded": 0, "failures": 0,
-                                              "record_complete": False,
+                                        else {"enabled": False, "recorded": 0, "not_found": 0,
+                                              "failures": 0, "record_complete": False,
                                               "replay": rule_journal.REPLAY_NOT_IMPLEMENTED})})
     # [Co-developed with claude code -- Adam]
     # TICKET-P3 2.6. Three more keys, in loops of their own for the reason the pair above is:
@@ -917,6 +921,13 @@ TABLE_ENTRY_RECORDED_NOT_REPLAYED = (
 TABLE_ENTRY_JOURNAL_WRITE_FAILED = (
     "the entry is on the switch but the journal write failed: it is lost when the proxy "
     "restarts, and this switch's journal is incomplete until then")
+
+
+#: How long a POST waits for the switch's lock before it answers 503 `switch busy`. One write holds
+#: the lock for at most one gRPC round trip, so waiting longer than a round trip's own deadline is
+#: waiting for a switch that is not answering -- and every waiter holds a threadpool thread that
+#: the other endpoints share.
+TABLE_ENTRY_LOCK_TIMEOUT_S = RPC_TIMEOUT_S
 
 
 def _is_not_found(err):
@@ -1009,10 +1020,13 @@ async def table_entry(request: Request):
              DID REACH THE SWITCH -- it is the switch's answer, so the WriteRequest necessarily
              went out. What it did not do is take effect; whether a partially-applied batch is
              possible is P4Runtime's business and not something this body can claim either way.
+        503  another write to the same switch held its lock for longer than one gRPC deadline
+             (`TABLE_ENTRY_LOCK_TIMEOUT_S`): the switch is busy or not answering. NOTHING was
+             written; the same request is worth sending again.
 
     The body of a 200 also carries `priority`, the number that went on the wire.
 
-    The 400 / 404 / 409 / 501 rows are the ones reached BEFORE `stub.Write`, and
+    The 400 / 404 / 409 / 501 / 503 rows are the ones reached BEFORE `stub.Write`, and
     tests/test_table_entry_route.py asserts `stub.requests == []` for each of them --
     "nothing was written" is a claim about the wire, so it is checked on the wire. The 502 row
     is deliberately excluded from that assertion, there and here.
@@ -1042,7 +1056,10 @@ async def table_entry(request: Request):
                     "message": f"switch {raw_dpid} is not connected to the proxy",
                     "dpid": raw_dpid})
 
-    op = data.get("op", "insert")
+    # Normalised here, once, the way the writer does (p4_client.write_table_entry): the journal
+    # decides on the op's spelling (a DELETE answered NOT_FOUND is recorded), and "DELETE" is a
+    # delete to the writer.
+    op = str(data.get("op", "insert") or "insert").strip().lower()
     spec = {key: data.get(key) for key in
             ("table", "match", "action_name", "action_params", "default_action", "priority")
             if key in data}
@@ -1057,7 +1074,13 @@ async def table_entry(request: Request):
             # through the one that was replaced.
             written, recorded = await run_in_threadpool(
                 table_journals.write_and_journal,
-                lambda: topology.switches.get(raw_dpid), raw_dpid, spec, op, _is_not_found)
+                lambda: topology.switches.get(raw_dpid), raw_dpid, spec, op, _is_not_found,
+                TABLE_ENTRY_LOCK_TIMEOUT_S)
+    except SwitchBusy as err:
+        raise HTTPException(
+            status_code=503,
+            detail={"error": "switch busy", "dpid": raw_dpid,
+                    "message": f"{err}; nothing was written, try again"})
     except SwitchGone:
         raise HTTPException(
             status_code=404,
@@ -1283,9 +1306,9 @@ async def multicast_group(request: Request):
     return {"status": "success", "dpid": raw_dpid, "op": str(op or "insert").lower(),
             "multicast_group_id": group_id,
             "replicas": len(replicas or []),
-            # The same warning `POST /p4/table_entry` carries, for the same reason: nothing
-            # journals a PRE entry either, and a group that vanishes on a proxy restart is a
-            # forwarding change nobody will connect to the restart.
+            # The same not-journaled warning `POST /p4/table_entry` carried before its own journal:
+            # nothing records a PRE entry (Q5 a), and a group that vanishes on a proxy restart
+            # is a forwarding change nobody will connect to the restart.
             "journaled": False, "note": TABLE_ENTRY_NOT_JOURNALED}
 
 
