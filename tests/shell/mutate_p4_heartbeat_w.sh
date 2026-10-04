@@ -110,7 +110,9 @@ ltree() {   # ltree <dir>
     cp "$REPO/doc/audit/2026-09-25_p4-heartbeat/spike/census_prepare.py" "$d/doc/audit/2026-09-25_p4-heartbeat/spike/"
     mkdir -p "$d/p4_proxy"   # a real directory: its mininet/ (the knobs) is simply not there
     ln -s "$REPO/p4_proxy/proxy_agent" "$d/p4_proxy/proxy_agent"
-    ln -s "$REPO/p4_proxy/venv" "$d/p4_proxy/venv"
+    # the venv is git-excluded: a linked worktree has none, so link the main worktree's (as PY is found above)
+    if [[ -e "$REPO/p4_proxy/venv" ]]; then ln -s "$REPO/p4_proxy/venv" "$d/p4_proxy/venv"
+    else ln -s "${MAIN_WT:-/nonexistent}/p4_proxy/venv" "$d/p4_proxy/venv"; fi
 }
 ltree_leaks() {   # ltree_leaks <dir> -> one line per way out of the tree; nothing when sealed
     local d="$1" k l
