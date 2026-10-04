@@ -37,24 +37,77 @@ setup() {  # setup <case> -- a fresh run dir, knobs, claim, override, fake /proc
     local d="$WORK/$1"; mkdir -p "$d/run" "$d/knobs" "$d/test_run" "$d/bin" "$d/proc/555" "$d/proc/666"
     : > "$d/calls"
     printf '  measuring      nothing\n' > "$d/status_measuring"
-    printf '  bmv2 switches  0       \n  host/switch    0       \n' > "$d/status_full"
+    printf '  bmv2 switches  4       \n  host/switch    10      \n' > "$d/status_full"      # a fabric is up (ndt status, cmd_status)
+    # The probe's own claim recorded the round baseline at the round's start: the knob's value THEN (ndt:447-460).
+    printf 'at=1\nby=p4h-test\nhead=0000000\nhost_count=4  # kept as bytes\n' > "$d/round.baseline"
     for s in ndt qdisc sudo kill; do
-        cat > "$d/bin/$s" <<STUB
+        { printf 'd=%q; s=%s\n' "$d" "$s"; cat <<'STUB'
 #!/usr/bin/env bash
-echo "$s \$*" >> "$d/calls"
-if [[ "$s" == ndt && "\${1:-}" == status && "\${2:-}" == --measuring ]]; then cat "$d/status_measuring"
-elif [[ "$s" == ndt && "\${1:-}" == status ]]; then cat "$d/status_full"; fi
-if [[ "$s" == ndt && "\${1:-}" == claim && -f "$d/claim_new_expires" ]]; then
-    printf 'owner=p4h-test\nexpires=%s\nnote=p4-health run-x A recover\nexclusive_cpu=no\nmeasuring=\n' "\$(cat "$d/claim_new_expires")" > "$d/test_run/lab.claim"
+# Every behaviour a recovery's outcome depends on follows the real tool; the lines are cited next to it.
+echo "$s $*" >> "$d/calls"
+host_count() {  # a copy of host_count_in, tools/test_workflow/ndt:1569-1578: the first line that is not blank, not a comment; 4 if none
+    local f="$d/knobs/host_count_override" line
+    [[ -f "$f" ]] || { echo 4; return; }
+    while read -r line; do
+        line="${line%%$'\r'}"; line="${line#"${line%%[![:space:]]*}"}"
+        [[ -z "$line" || "$line" == \#* ]] && continue
+        echo "$line"; return
+    done < "$f"
+    echo 4
+}
+rc_file="$d/rc.$s.${1:-}"
+if [[ "$s" == ndt ]]; then
+    case "${1:-}" in
+    status)
+        if [[ "${2:-}" == --measuring ]]; then cat "$d/status_measuring"
+        elif [[ -f "$d/down_ran" ]]; then printf '  bmv2 switches  0       \n  host/switch    0       \n'   # nothing left once a down has run
+        else cat "$d/status_full"; fi ;;
+    claim)
+        [[ -f "$rc_file" && "$(cat "$rc_file")" != 0 ]] && exit "$(cat "$rc_file")"
+        if [[ -f "$d/claim_new_expires" ]]; then
+            printf 'owner=p4h-test\nexpires=%s\nnote=p4-health run-x A recover\nexclusive_cpu=no\nmeasuring=\n' "$(cat "$d/claim_new_expires")" > "$d/test_run/lab.claim"
+        fi
+        # a claim records the round baseline: the host knob as it is NOW (record_round_baseline, ndt:447-460; called at ndt:849)
+        printf 'at=%s\nby=%s\nhead=0000000\nhost_count=%s\n' "$(date +%s)" "${NDT_OWNER:-unset}" "$(host_count)" > "$d/round.baseline" ;;
+    down)
+        rm -f "$d/knobs/app_package_override"   # ndt clears the knob as down's last step, even when it exits non-zero (ndt:5233-5246, 5605)
+        # claim_note_down (ndt:1245-1277) rewrites the claim's note whatever the exit status: "verified clean" when the
+        # teardown had something to tear down, "nothing was up to tear down" when it did not; the claim's owner and
+        # expires stay (set_claim_note, ndt:1119-1131), and a note is written only into a live claim of the caller
+        drc=0; [[ -f "$rc_file" ]] && drc="$(cat "$rc_file")"
+        also=""; [[ "$drc" != 0 && "$drc" != 3 ]] && also="; this teardown still exits $drc, for something other than residue"
+        if grep -q 'bmv2 switches  0 ' "$d/status_full" && grep -q 'host/switch    0 ' "$d/status_full"; then
+            sentence="down at 2026-10-03 18:20:00; nothing was up to tear down${also}; claim kept"
+        else sentence="down at 2026-10-03 18:20:00; verified clean${also}; claim kept"; fi
+        exp_now="$(sed -n 's/^expires=//p' "$d/test_run/lab.claim" 2>/dev/null | head -1)"
+        if [[ "$exp_now" -gt "$(date +%s)" ]] 2>/dev/null; then sed -i "s|^note=.*|note=$sentence|" "$d/test_run/lab.claim"; fi
+        : > "$d/down_ran"                       # the fabric is gone from here on, whatever the exit status
+        [[ -f "$d/down_claim_expires" ]] && sed -i "s|^expires=.*|expires=$(cat "$d/down_claim_expires")|" "$d/test_run/lab.claim" ;;
+    release)
+        if [[ -f "$rc_file" && "$(cat "$rc_file")" != 0 ]]; then echo "refusing: (a stub refusal for another reason)"; exit "$(cat "$rc_file")"; fi
+        # cmd_release, ndt:890-903: the knob must be at the round baseline, or the release is refused; --force releases anyway
+        base="$(sed -n 's/^host_count=//p' "$d/round.baseline" 2>/dev/null | head -1)"
+        if [[ -n "$base" && "$(host_count)" != "$base" ]]; then
+            if [[ "${2:-}" != --force ]]; then
+                echo "refusing: the P4 host knob is $(host_count)"
+                echo "this round started at $base, and the claim is not released with it moved"
+                echo "  echo $base > p4_proxy/mininet/host_count_override      # write it; NOT 'git checkout --'"
+                echo "release anyway (it stays at $(host_count)):  ndt release --force"
+                exit 1
+            fi
+            echo "released with the knob left at $(host_count) (round started at $base) -- '--force'"
+        fi
+        mv -f "$d/test_run/lab.claim" "$d/test_run/lab.claim.prev" 2>/dev/null     # ndt:920: the claim is kept as .prev
+        rm -f "$d/round.baseline" ;;
+    esac
 fi
-if [[ "$s" == ndt && "\${1:-}" == down ]]; then
-    rm -f "$d/knobs/app_package_override"       # real ndt clears the knob as down's last step, even when it exits non-zero
-    [[ -f "$d/down_claim_expires" ]] && sed -i "s|^expires=.*|expires=\$(cat "$d/down_claim_expires")|" "$d/test_run/lab.claim"
-fi
-rc_file="$d/rc.$s.\${1:-}"
-[[ -f "\$rc_file" ]] && exit "\$(cat "\$rc_file")"
+# qdisc_snapshot.sh diff compares `tc qdisc show` of every interface (qdisc_snapshot.sh:24, 37-44): once a down has
+# run, the fabric's interfaces are gone and it differs, exit 1
+if [[ "$s" == qdisc && "${1:-}" == diff && -f "$d/down_ran" ]]; then echo "QDISC STATE CHANGED since the snapshot" >&2; exit 1; fi
+[[ -f "$rc_file" ]] && exit "$(cat "$rc_file")"
 exit 0
 STUB
+        } > "$d/bin/$s"
         chmod +x "$d/bin/$s"
     done
     # the two recorded processes, alive, with the start times and markers the probe recorded
@@ -103,16 +156,19 @@ state_set() {  # state_set <dir> <key> <json value> -- one field of LAB_STATE.js
 state_del() { python3 -c "import json,sys; p=sys.argv[1]; s=json.load(open(p)); s.pop(sys.argv[2],None); json.dump(s,open(p,'w'))" "$1/run/LAB_STATE.json" "$2"; }
 # expire <dir> -- the probe's own claim ran out: the file AND the state's record of it say the same past time
 expire() { local t; t="$(past)"; claim_set "$1" expires "$t"; state_set "$1" claim_expires "$t"; }
+fabric_gone() { printf '  bmv2 switches  0       \n  host/switch    0       \n' > "$1/status_full"; }
+fabric_up() { printf '  bmv2 switches  4       \n  host/switch    10      \n' > "$1/status_full"; }
 to_down_done() {  # to_down_done <dir> [keep] -- what the probe leaves after a successful `ndt down`:
     # phase down-done, the claim's note ndt down wrote, app_package_override REMOVED (ndt:1597-1601).
     # With `keep` the recorded sniffer and controller stay listed (a kill that failed).
     claim_set "$1" note "down at 2026-10-03 18:20:00; verified clean; claim kept"
-    rm -f "$1/knobs/app_package_override"
+    rm -f "$1/knobs/app_package_override"; fabric_gone "$1"
     KEEP="${2:-}" python3 -c "import json,os,sys; p=sys.argv[1]; s=json.load(open(p)); s['phase']='down-done'
 if not os.environ['KEEP']: s['sniffers']=[]; s['controllers']=[]; s['netem']=[]
 json.dump(s,open(p,'w'))" "$1/run/LAB_STATE.json"
 }
 set_phase() { python3 -c "import json,sys; p=sys.argv[1]; s=json.load(open(p)); s['phase']=sys.argv[2]; json.dump(s,open(p,'w'))" "$1/run/LAB_STATE.json" "$2"; }
+claim_get_exp() { sed -n 's/^expires=//p' "$1/test_run/lab.claim" | head -1; }
 state_get() { python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get(sys.argv[2]))" "$1/run/LAB_STATE.json" "$2"; }
 no_line_out() { ! grep -q "$2" "$1/out"; }
 rc4_noclaim() { [ "$1" -eq 4 ] && ! grep -q "^ndt claim" "$2/calls"; }
@@ -140,7 +196,7 @@ check "after its own ndt down the state says down-done" [ "$(state_get "$d" phas
 echo "--- a crash after the probe's own ndt down (phase down-done; review NEW-C)"
 # The qdisc stub reports DRIFT here, as the real snapshot would once the fabric's interfaces are
 # gone: a recovery that still compared qdiscs would stop at rc 4 and never release.
-d="$(setup afterdown)"; claim_set "$d" note "down at 2026-10-03 18:20:00; verified clean; claim kept"
+d="$(setup afterdown)"; claim_set "$d" note "down at 2026-10-03 18:20:00; verified clean; claim kept"; fabric_gone "$d"
 : > "$d/knobs/app_package_override"; echo 1 > "$d/rc.qdisc.diff"
 python3 -c "import json,sys; p=sys.argv[1]; s=json.load(open(p)); s['phase']='down-done'; s['sniffers']=[]; s['controllers']=[]; s['netem']=[]; json.dump(s,open(p,'w'))" "$d/run/LAB_STATE.json"
 rc="$(run "$d")"
@@ -232,7 +288,7 @@ check "  ... checked no fabric first, asked what measures, re-claimed, restored 
     [ "$(cat "$d/calls")" == "ndt status
 ndt status --measuring
 ndt claim 30 p4-health run-x A recover state=$d/run/LAB_STATE.json
-ndt release
+ndt release --force
 ndt status" ]
 check "  ... the host knob is its snapshot's bytes" [ "$(cat "$d/knobs/host_count_override")" == "4  # kept as bytes" ]
 d="$(setup downdoneexpiredforeign)"; to_down_done "$d"; expire "$d"; claim_set "$d" owner somebody-else
@@ -386,7 +442,12 @@ check "after the re-claim the state records the new claim's expires" \
     [ "$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['claim_expires'])" "$d/run/LAB_STATE.json")" == "$(cat "$d/claim_new_expires")" ]
 rm -f "$d/rc.ndt.down" "$d/claim_new_expires"; : > "$d/calls"; rc="$(run "$d")"
 check "  ... and the retry under that live claim finishes: rc 0" [ "$rc" -eq 0 ]
-check "  ... it went on to ndt down and the release" bash -c 'grep -q "^ndt down" "$1/calls" && grep -q "^ndt release" "$1/calls"' _ "$d"
+check "  ... the down had run, ndt status showed no fabric, so it skipped tc and ndt down and released (--force: the re-claim's baseline)" \
+    [ "$(cat "$d/calls")" == "sudo -n mnexec -a 1 kill -TERM 555
+kill -TERM 666
+ndt status
+ndt release --force
+ndt status" ]
 
 echo "--- (r6) a state file that leaves out what the recovery trusts stops at rc 2"
 for f in owner run package claim_file app_package_override claim_expires; do
@@ -465,6 +526,65 @@ check "no claim_expires and a claim that is not this run's: rc 2 and no release 
     bash -c '[ "$2" -eq 2 ] && ! grep -q "ndt release" "$1/out"' _ "$d" "$rc"
 d="$(setup aliveunrecorded)"; state_set "$d" claim_expires null; state_set "$d" pid "$$"; rc="$(run "$d")"
 check "the probe is still running with no claim_expires recorded yet: rc 3 (still running), not rc 2" rc3_nocalls "$rc" "$d"
+
+echo "--- (r8) a down that already ran leaves no interfaces: the retry asks ndt status, not the qdisc diff"
+# The stubs follow ndt: after a down the fabric is gone (status shows 0) and `qdisc diff` exits 1 (qdisc_snapshot.sh:37-44);
+# ndt down can exit 1 after tearing everything down (ndt:5312-5318) and exits 3 on an empty lab (ndt:5524-5537).
+d="$(setup oneshotred)"; echo 1 > "$d/rc.ndt.down"; rc="$(run "$d")"
+check "ndt down exits 1 after tearing everything down: rc 5, down-failed" [ "$rc" -eq 5 ] 
+rm -f "$d/rc.ndt.down"; : > "$d/calls"; rc="$(run "$d")"
+check "  ... the retry finds no fabric and finishes: rc 0" [ "$rc" -eq 0 ]
+check "  ... it asked ndt status, skipped tc, the qdisc diff and ndt down, then released" \
+    [ "$(cat "$d/calls")" == "sudo -n mnexec -a 1 kill -TERM 555
+kill -TERM 666
+ndt status
+ndt release
+ndt status" ]
+check "  ... and it recorded down-done" [ "$(state_get "$d" phase)" == "down-done" ]
+check "  ... the host knob is its snapshot's bytes" [ "$(cat "$d/knobs/host_count_override")" == "4  # kept as bytes" ]
+d="$(setup probedownfailed)"; rm -f "$d/knobs/app_package_override"; : > "$d/down_ran"; set_phase "$d" down-failed
+claim_set "$d" note "down at 2026-10-03 18:20:00; verified clean; claim kept"; rc="$(run "$d")"
+check "the probe's own down-failed after a down that completed: rc 0 through the knobs and the release" \
+    rc_calls "$rc" 0 "$d" "sudo -n mnexec -a 1 kill -TERM 555
+kill -TERM 666
+ndt status
+ndt release
+ndt status"
+d="$(setup downrc3)"; echo 3 > "$d/rc.ndt.down"; rc="$(run "$d")"
+check "ndt down exits 3 (measured nothing, the lab was down): the down is done, rc 0" [ "$rc" -eq 0 ]
+check "  ... it went on to the release" bash -c 'grep -q "^ndt down" "$1/calls" && grep -q "^ndt release" "$1/calls"' _ "$d"
+d="$(setup stillup)"; rm -f "$d/knobs/app_package_override"; set_phase "$d" teardown; echo 1 > "$d/rc.qdisc.diff"
+claim_set "$d" note "p4-health run-x A recover state=x"; rc="$(run "$d")"
+check "knob absent but ndt status shows a fabric: steps 4-5 as before (qdisc drift stops at rc 4)" [ "$rc" -eq 4 ]
+check "  ... no ndt down, no release" no_line "$d" '^ndt down\|^ndt release'
+
+echo "--- (r8) recover.sh's own re-claim records the round's host count as the baseline: its release is --force"
+d="$(setup expiredpkgchangedhosts)"; expire "$d"; rc="$(run "$d")"
+check "an expired claim, the package changed the host count: rc 0 and the host knob at its pre-round value" \
+    bash -c '[ "$2" -eq 0 ] && [ "$(cat "$1/knobs/host_count_override")" == "4  # kept as bytes" ]' _ "$d" "$rc"
+check "  ... released with --force and the output says why" \
+    bash -c 'grep -q "^ndt release --force" "$1/calls" && grep -q "releasing with --force" "$1/out"' _ "$d"
+check "  ... the state records the claim recover.sh took" \
+    [ "$(state_get "$d" recover_claim_expires)" == "$(state_get "$d" claim_expires)" ]
+d="$(setup releaserefused)"; echo 1 > "$d/rc.ndt.release"; rc="$(run "$d")"
+check "a release refused for another reason: rc 6 and the output says what was restored, not to write the baseline back" \
+    bash -c '[ "$2" -eq 6 ] && grep -q "do NOT write" "$1/out" && ! grep -q "do what it printed" "$1/out" && grep -q "pre-round snapshot" "$1/out"' _ "$d" "$rc"
+check "  ... the host knob stays at its restored value" [ "$(cat "$d/knobs/host_count_override")" == "4  # kept as bytes" ]
+check "  ... and a plain release was tried (the claim is the probe's own)" no_line "$d" '^ndt release --force'
+d="$(setup reclaimrefused)"; expire "$d"; echo 1 > "$d/rc.ndt.release"; rc="$(run "$d")"
+check "recover's own re-claim and a release refused for another reason: rc 6 with the same message" \
+    bash -c '[ "$2" -eq 6 ] && grep -q "do NOT write" "$1/out"' _ "$d" "$rc"
+
+echo "--- (r8) the unrecorded-claim hint says nothing was brought up only when no forced up is on record for that claim"
+d="$(setup unrecordedforced)"; state_set "$d" claim_expires null; state_set "$d" phase '"claiming"'
+claim_set "$d" note "p4-health run-x A state=$d/run/LAB_STATE.json"
+ovr_line "$(claim_get_exp "$d")" > "$d/test_run/lab.claim.overrides"; rc="$(run "$d")"
+check "a forced up on record over the unrecorded claim: rc 2, the output warns and does not say nothing was brought up" \
+    bash -c '[ "$2" -eq 2 ] && grep -q "WARNING.*ndt up --force" "$1/out" && ! grep -q "Nothing was brought up" "$1/out"' _ "$d" "$rc"
+d="$(setup unrecordedclean)"; state_set "$d" claim_expires null; state_set "$d" phase '"claiming"'
+claim_set "$d" note "p4-health run-x A state=$d/run/LAB_STATE.json"; rc="$(run "$d")"
+check "no forced up on record over it: rc 2 and the output says nothing was brought up under it" \
+    bash -c '[ "$2" -eq 2 ] && grep -q "Nothing was brought up under it" "$1/out"' _ "$d" "$rc"
 
 echo
 echo "Ran $CHECKS checks, $FAILED failed"
