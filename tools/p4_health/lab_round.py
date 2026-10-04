@@ -26,12 +26,17 @@ against the lab.
     again later. Before every teardown step that changes shared state (netem, `ndt down`, the
     knobs, the release) the claim is re-read: if it is no longer ours and live, the teardown
     stops there and leaves the rest to recover.sh. A netem whose add failed leaves the list.
+  * (r6) The round's identity is its own: `package_dir` must lie inside `cfg.run_dir` (each round
+    ups a copy of the package made there, so app_package_override names this round only), and the
+    claim's `expires`, read from the claim file right after `ndt claim` succeeded, is recorded in
+    LAB_STATE.json as `claim_expires` for recover.sh to compare.
 """
 from __future__ import annotations
 
 import base64
 import json
 import os
+import re
 import signal
 import time
 
@@ -39,7 +44,7 @@ from .collect import proxy as P
 from .collect import tc as TC
 
 PHASES = ("pre-claim", "claiming", "up", "cells", "teardown", "released", "down-failed",
-          "claim-refused", "lab-busy")
+          "claim-refused", "lab-busy", "claim-unverified")
 
 
 class SignalAbort(Exception):
@@ -50,6 +55,16 @@ class SignalAbort(Exception):
 
 class RootRefused(RuntimeError):
     pass
+
+
+class PackageOutsideRunDir(ValueError):
+    """(r6) A round's package must live inside that round's own run dir."""
+
+
+def package_inside(package_real, run_dir):
+    """True when package_real, a path already resolved (links followed), is strictly inside run_dir."""
+    pkg, run = package_real, os.path.realpath(run_dir)
+    return pkg != run and pkg.startswith(run.rstrip(os.sep) + os.sep)
 
 
 def lab_busy(status_text, claim_text, owner, now):
@@ -114,8 +129,16 @@ def proc_identity(pid, proc_root="/proc"):
 class LabRound(object):
     def __init__(self, cfg, runner, bringup, package_dir, run_id, minutes=45, pid=None,
                  clock=time.time, install_signals=True, proc_root="/proc"):
+        # (r6) Every round has its own package directory, inside its own run dir: what makes
+        # app_package_override name THIS round for recover.sh. Refused before anything is touched.
+        # (r7) Resolved ONCE (links followed): that one path is checked, recorded in LAB_STATE and given to
+        # `ndt up --app`, so recover.sh compares the very string ndt wrote into the override.
+        package_real = os.path.realpath(package_dir)
+        if not package_inside(package_real, cfg.run_dir):
+            raise PackageOutsideRunDir("package_dir %r is not inside the run dir %r: each round's package "
+                                       "is its own copy there" % (package_dir, cfg.run_dir))
         self.cfg, self.runner = cfg, runner
-        self.bringup, self.package_dir, self.run_id = bringup, package_dir, run_id
+        self.bringup, self.package_dir, self.run_id = bringup, package_real, run_id
         self.minutes = minutes
         self.pid = pid if pid is not None else os.getpid()
         self.clock = clock
@@ -123,11 +146,11 @@ class LabRound(object):
         self.proc_root = proc_root
         me = proc_identity(self.pid, proc_root)
         self.state = {"pid": self.pid, "pid_start": me[0] if me else None, "owner": cfg.owner, "run": run_id, "bring_up": bringup,
-                      "package": os.path.abspath(package_dir), "phase": "pre-claim",
+                      "package": self.package_dir, "phase": "pre-claim",
                       "knob_snapshot": {}, "netem": [], "sniffers": [], "controllers": [],
                       "qdisc_before": None, "knob_paths": dict(cfg.knobs),
                       "app_package_override": cfg.app_package_override,
-                      "claim_file": cfg.claim_file, "ndt": cfg.ndt}
+                      "claim_file": cfg.claim_file, "claim_expires": None, "ndt": cfg.ndt}
         self.knobs = {}
         self.events = []
 
@@ -272,6 +295,18 @@ class LabRound(object):
             rec["problems"].append("claim refused (rc %s); no --force" % claim.rc)
             self.write_state(phase="claim-refused")
             return rec
+        # (r6) Right after the claim: its `expires`, as the claim file shows it, goes into LAB_STATE
+        # so recover.sh can tell this claim from any later one. A claim the file does not show as
+        # ours is not brought up on; nothing was recorded that recover.sh could rest on.
+        mine = read_claim(self.cfg.claim_file)
+        exp = mine.get("expires", "")
+        if mine.get("owner") != self.cfg.owner or not re.match(r"[1-9][0-9]*\Z", exp):
+            rec["problems"].append("ndt claim exited 0 but the claim file does not show our claim "
+                                   "(owner %r, expires %r): nothing brought up, nothing released; look at "
+                                   "ndt status" % (mine.get("owner"), exp))
+            self.write_state(phase="claim-unverified")
+            return rec
+        self.write_state(claim_expires=int(exp))
         self._handlers(True)
         try:
             self.write_state(phase="up")

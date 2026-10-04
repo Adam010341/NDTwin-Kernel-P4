@@ -427,7 +427,8 @@ S0（不用 lab，約 2 分鐘）
    寫 LAB_STATE.json {pid, owner, bring_up, phase:"pre-claim", knob_snapshot, netem:[], qdisc_before}
    snapshot 兩個 knob（這一次的 bytes）
    ndt claim 45 "p4-health <run> <X> state=<LAB_STATE.json>"   拿不到 -> 整輪 INCOMPLETE（不用 --force）
-   ndt up p4 --app <pkg> -> 讀 switch_state、openapi、fabric、`qdisc_snapshot.sh save`
+   **r6**：claim 成功後立刻從 claim 檔讀 `expires`，寫進 `LAB_STATE.claim_expires`（讀不到、或 owner 不是自己 → phase `claim-unverified`，不往下 up）
+   ndt up p4 --app <pkg>（**r6**：<pkg> 是這一輪自己的副本，放在這一輪的 run 目錄裡）-> 讀 switch_state、openapi、fabric、`qdisc_snapshot.sh save`
    逐格（順序：static -> active，TP2 在 Q1 之前，Q1 最後）
    結束前查 frames_reached_hosts
    finally（例外、SIGTERM、SIGINT、SIGHUP）：
@@ -510,6 +511,28 @@ S0（不用 lab，約 2 分鐘）
        - **r5 (Cut 1 follow-ups)**：`down-done` 的「`ndt status` 確認沒有 fabric」改在任何 claim 分支**寫入之前**做（唯讀）：fabric 還在 → rc 4，`ndt claim` 不會被呼叫。
        - **r5 (Cut 1 follow-ups)**：第 3 步有 kill 失敗時，不論 phase，整個流程做完之後以 rc 7 結束，不再印「done」、不再 rc 0。
        - `ndt status --measuring` 的輸出必須有 `measuring` 或 `orphaned` 其中一列（`ndt:6803-6815` 一定會印其中一列）；兩列都沒有就當忙碌，不放行（和讀不到時一樣，往關的方向失敗）。
+     - **r6 (Cut 1 follow-ups r6)**：「現場是這個 run 的」過去只靠 owner 加 package 路徑，這兩樣在兩輪之間都可以相同：先前某個 run 目錄的 `recover.sh`，會在後來同 owner、同 package 路徑那一輪的 live claim 之下通過、對那一輪的介面下 `tc qdisc del`、符合快照時再 `ndt down`。改成兩件事一起成立：
+       - **package 是這一輪自己的**：每一輪把 S0 建好的 package 複製進**這一輪的 run 目錄**（`<run>/pkg…`），`ndt up p4 --app` 用那一份；`LabRound` 拒絕 run 目錄以外的 `package_dir`（`..`、符號連結、名字開頭相同的鄰居、run 目錄本身都算外面），在動任何東西之前就丟 `PackageOutsideRunDir`。`recover.sh` 同樣要求 `package`（`readlink -m` 之後）在 run 目錄裡面，否則 rc 3、什麼都不寫。這讓 `app_package_override` ＝ 這個 package 成為只屬於這一輪的事實。
+       - **claim 是探測器自己那一個**：探測器在 `ndt claim` 成功後立刻把 claim 檔的 `expires` 記進 `LAB_STATE.claim_expires`。live claim 分支要求 claim 檔的 `expires` ＝ 記下的；過期 claim 分支要求過期的 claim **檔**的 `expires` ＝ 記下的（檔不見了就沒有東西可以對，rc 3）。任何一個不符：rc 3、什麼都不寫。`recover.sh` 自己重新 claim 成功之後，把新的 `expires` 寫回 `LAB_STATE.json`，否則失敗後第二次執行會在自己的 claim 上 rc 3。
+       - 還沒證明的：同一個 owner 的另一個 claim，只要結束的那一秒相同（開始時間＋60×分鐘，`ndt:824`）就有相同的 `expires`；人手動對這一輪的 package 目錄下 `ndt up --app`，看起來就像探測器；`recover.sh` 在自己的 `ndt down` 之後、寫 phase 之前被殺，下一次會是舊 phase 加上已清掉的 knob（rc 3）。
+     - **r7 (Cut 1 follow-ups r7)**：
+       - **knob 的讀法**：真的 `ndt` 把 `app_package_override` 寫成兩行——`# written by ndt up p4 --app at …` 註解，再是路徑（`ndt:1642-1643`）。`recover.sh` 原本讀第一行，所以對真的 knob 每個「knob 還在」的當機狀態都 rc 3，而測試的 fixture 寫的是一行（ndt 從不這樣寫）所以一直綠。現在讀第一個不是空白、不是 `#` 的行（同 `app_knob_dir`，`ndt:1606-1615`）；fixture 改成 ndt 的兩行格式。
+       - **recover 自己的 `ndt down` 之後記 phase**：成功寫 `down-done`，失敗寫 `down-failed`（和 `LabRound` 一樣）。真的 `ndt down` 不論結果都會清掉 knob（`ndt:5233-5246, 5605`），沒有 phase，重跑時 knob 不在、phase 還是 cells，會對自己的 live claim rc 3。
+       - **live claim 加上 knob 不在**：只認這一輪自己的 note 或 `ndt down` 的 "down at …"，不認 "in use: ndt up …"（同 owner 的 baseline `ndt up` 清掉 knob 並寫下這個 note，`ndt:3454, 3486`）。`<claim>.overrides` 裡有一行 `claim_expires=` 等於記下的值（`ndt up --force` 越過了這一輪的 claim，`ndt:1058, 1071`），不論哪個分支都不行動。
+       - **`ndt down` 之後、還原 knob 與 release 之前**再讀一次 claim：owner 與記下的 `expires` 都要還在，否則 rc 3。
+       - **訊息**：claim 檔不見時印出 `lab.claim.prev` 的 owner 與 `expires`（`ndt:920`），並說那是不是這一輪記下的 claim；沒記到 `claim_expires` 但 claim 的 note 是這一輪獨有的 "p4-health <run> <bring-up> state=…" 時，印出 `ndt release` 的指令。
+       - 探測器還活著的檢查在欄位檢查之前，所以 `claiming` 階段還在跑的探測器得到 rc 3「還在跑」，不是 rc 2。
+       - `LabRound` 把 package 路徑解析一次（跟隨連結），檢查、LAB_STATE 與 `ndt up --app` 都用同一條；`expires` 用 `^[1-9][0-9]*$` 判斷，不再用 `isdigit`。
+     - **r8 (Cut 1 follow-ups r8)**：測試的 stub 一律照 `ndt` 與 `qdisc_snapshot.sh` 真的行為寫，每一處行為旁邊註明出處（`ndt:447-460, 849, 890-903, 920, 1245-1277, 5233-5246, 5312-5318, 5524-5537`、`qdisc_snapshot.sh:24, 37-44`）。照著寫之後，r7 的兩個舊洞才現形：
+       - **N1：`ndt down` 跑過之後沒有介面了，qdisc diff 一定不同**。knob 不在、phase 不是 `down-done` 時，`recover.sh` 先問 `ndt status`：沒有 bmv2、沒有 host/switch → 這個 down 已經做完，記 `down-done`，跳過第 4–5 步，接著重讀 claim、還原 knob、release；還有 fabric → 第 4–5 步照舊。`ndt down` 的 rc 3（沒有東西可以拆，`ndt:5524-5537`）算做完。這是 `ndt down` 在 component 被 SIGKILL 之後「拆乾淨卻回 1」那個一次性的紅（`ndt:5312-5318`）之後，重試能走完的條件。
+       - **N2：`recover.sh` 自己重新 claim 之後，release 會被自己的 baseline 擋住**。`ndt claim` 把當下的 host knob 值記成 round baseline（`ndt:447-460, 849`），`ndt release` 在 knob 不等於 baseline 時拒絕（`ndt:890-903`）；重新 claim 時 knob 裡還是這一輪的值，第 6 步還原成輪前的值之後 release 必被拒，而 ndt 印出的補救（把 baseline 的值寫回去）會把還原蓋掉。現在 `recover.sh` 把重新 claim 的 `expires` 同時記在 `recover_claim_expires`；release 時若手上的 claim 就是那一個，而且每個 knob 都等於 snapshot，就用 `ndt release --force` 並印一行原因；其他情形照舊用普通 release。rc 6 的訊息不再叫人照 ndt 印的去寫 baseline 值，改成說明 knob 已還原到輪前的快照、不要把印出的值寫回去、lab 可能需要人看。
+       - **r9 更正 N1**：「沒有 bmv2、沒有 host/switch → 這個 down 已經做完」不成立。那兩列不是 `ndt down` 要拆的全部（`ndt` 自己的對象還包括 topo session、manifest、registry、被占用的 port，`ndt:5112-5124`），`ndt down` 回 1 時也可能留下活著的行程、同時 knob 已清掉（`ndt:5338-5342, 5349-5352, 5429, 5474-5481, 5605`），note 寫的是 "did NOT verify clean"（`ndt:1276`）。所以 N1 的分支**只跳過第 4 步**（netem、qdisc diff：它們需要介面），第 5 步 `ndt down` 照跑：`ndt down` 冪等、空 lab 回 3（算做完）、再失敗就是 down-failed（rc 5，什麼都不 release）；N1 分支自己不寫 phase，第 5 步的寫入就是紀錄。
+       - **r9 測試的做法**：`ndt claim`、`ndt release` 是檔案操作（claim_take、record_round_baseline、release 的 baseline 與外來 claim 檢查、.prev），測試改成跑**真的** `tools/test_workflow/ndt` 的暫存副本（自己的 `.test_run` 與 `p4_proxy/mininet`）；只有碰行程與介面的部分用 stub（`ndt down` 的拆除、`ndt status` 的行程列、`qdisc_snapshot.sh`、sudo、kill）。探測器自己的 claim 也是真的 `ndt claim`。
+       - **r9 硬化**：重新 claim 的 `expires` 必須大於現在才記成 `recover_claim_expires`（一個回 0 卻沒寫新 claim 的 `ndt claim` 不會被當成自己的）。
+       - **r9 殘餘風險補上**：knob 還在但 data plane 已經沒了（down 在 [3/3] 與清 knob 之間被殺）時，會停在 qdisc diff 說「fabric 還在」，不實但安全；`recover.sh` 從不寫 phase `released`，所以對已完成的 run 目錄再跑一次會 rc 3。
+       - **提示**：沒記到 `claim_expires` 時，只有在 `<claim>.overrides` 沒有針對那個 claim 的行時，才說「沒有東西被帶起來」；有就改成警告。
+       - **殘餘風險補上**：探測器自己的 `ndt down` 若在清掉 knob（`ndt:5605`）與寫 note（`ndt:5538`）之間被殺，knob 不在、note 還是 "in use: ndt up …"，note 規則會拒絕（rc 3），安全。「在 `ndt down` 之後、寫 phase 之前被殺」只在 phase 是 up 或 cells 時才是下一次 rc 3；teardown、down-failed、claim-lost 現在由 N1 的 `ndt status` 處理。
+     - **r6**：`recover.sh` 一開始（在 pid 檢查之前）要求 `owner`、`run`、`package`、`claim_file`、`app_package_override`、`claim_expires` 都在而且不是空的（`claim_expires` 是正整數），否則 rc 2、什麼都不做。package 為空、override 不見時，`"$ov" == "$PKG"` 在每個 phase 都成立。探測器若在 `ndt claim` 與寫入 `claim_expires` 之間死掉，`claim_expires` 是 null，也是 rc 2，由人看過再處理。
   3'. **r2 (Cut 1 review)**：sniffer 與控制器記錄成 pid＋start time（`/proc/<pid>/stat` 第 22 欄）＋cmdline marker（run id），三者都對得上才送訊號；停掉之後從 `LAB_STATE.json` 移除，之後不會被殺第二次。`lab_round` 的 teardown 在每個會動共用狀態的步驟（netem、`ndt down`、knob、release）之前重讀 claim：不再是自己的、或已過期，就停在那裡，剩下的交給 `recover.sh`。netem 加失敗的介面會移出清單。
   3. 停掉列出的 sniffer 與控制器 pid。
      - **r4 (Cut 1 follow-ups)**：phase 是 `down-done` 時**也做這一步**。停行程不需要 fabric；lab_round 在 kill 失敗時把那筆留在 `LAB_STATE.json` 就是留給這一次重試的，過了 `ndt down` 之後不能再跳過它。
@@ -1208,4 +1231,21 @@ S0（不用 lab，約 2 分鐘）
 9. **舊碼的身分**：任何舊碼對新碼的 log，表頭都記舊碼的 git tree sha、檔案的 blob sha 與副本的 sha256（本輪的紅燈 log 也是）。
 10. **`ORDER`**：沒有任何東西消費它。排程器是 Cut 3 的；這裡不發明一個。`table.py` 的註解與一個測試（`test_order_has_no_consumer_yet_and_the_comment_says_so`）都寫明這一點：真的有東西開始讀它的時候，這個測試會紅，逼著改註解與本節。
 11. **衛生——公開檔案不引用私有紀錄**：`expected_today.tsv` 與 `tools/p4_health` 會進公開的 main。CH4 的 basis 原本引的 `RULINGS-1001.md`（和 CH3 的 `REPORT.md`）是私有紀錄；改成引碼本身：`hc_main.p4` 把 shim 放在 IPv4 與 UDP 之間（`:87-88`、`:249`、`:254-260`），kernel 讀 L4 的位置由 IPv4 header 長度算出、而且只在 protocol 是 TCP／UDP 時才讀 port（`SFlowType.hpp:364,369,386,390-391`），所以 protocol 0xFD 的幀 key 是 protocol 253、port 0。一個測試掃這兩處，不允許再出現 rulings／intake／judge／report 檔名。**沒動的**：`expected_today.tsv` 裡還有 `GAP-2b` 的引用（C1、R2、P4、TTL1、TP4），那是 `doc/audit` 底下的 .md，同樣不在公開 main 上；這不在本輪的範圍，留給決定者。
-
+12. **r6 (Cut 1 follow-ups r6)：這一輪的身分是這一輪自己的**（細節與理由在 §4.5 第 2 項的 r6 註記）：
+    - 每一輪的 package 是 run 目錄裡的副本；`LabRound` 拒絕 run 目錄以外的 `package_dir`，`recover.sh` 也要求 `package` 在 run 目錄裡。Cut 1 沒有 `lab` 的驅動程式（Cut 2 才有），所以「把 S0 建好的 package 複製進 run 目錄」是 Cut 2 驅動程式要做的事；Cut 1 只能擋住不照做的情況。
+    - `LAB_STATE.claim_expires`：claim 成功後立刻記；`recover.sh` 在 live 與過期兩個分支都要求相等。過期分支從此不再接手「檔案不見」的 claim（沒有東西可對，rc 3）。`recover.sh` 重新 claim 後把新的 `expires` 寫回。
+    - `recover.sh` 對缺欄位的 state 檔 rc 2（見 §4.5）。
+    - `recover.sh` 第 9 行的「先證明現場還是探測器的」，現在的依據是上面兩樣；剩下沒證明的寫在 §4.5 與該檔表頭。
+    - `claim-unverified` 是新的 phase：`ndt claim` 回 0、claim 檔卻不顯示是自己的，不 up、不 release。
+13. **r7 (Cut 1 follow-ups r7)**：第 12 項上線前的審查找到的三件事，詳見 §4.5 第 2 項的 r7 註記。
+    - F1：knob 的讀法和 fixture 的格式（對真的 `ndt` 是假綠）。
+    - F4：`recover.sh` 自己的 `ndt down` 之後記 phase。
+    - F2：knob 不在時的 live claim 只認這一輪自己的 note 或 `ndt down` 的 note；`.overrides` 裡有我們的 `expires` 就不動。
+    - 順帶：`ndt down` 之後再讀一次 claim、claim 檔不見與沒記到 `claim_expires` 的訊息、殘餘風險的措辭（同一個結束秒）、`LabRound` 的路徑只解析一次、`expires` 的判斷。
+    - 沒做：每輪自己的 owner 或 claim 的 nonce（會關掉整個「同 owner」類，要在 Cut 2 的驅動程式裡做）。
+14. **r8 (Cut 1 follow-ups r8)**：重新審查找到的兩個 `recover.sh` 收尾的舊洞，都因為 stub 不像 `ndt` 而一直是假綠；詳見 §4.5 第 2 項的 r8 註記。
+    - N1：knob 不在時先問 `ndt status`，沒有 fabric 就跳過第 4–5 步；`ndt down` rc 3 算做完。
+    - N2：`recover.sh` 自己重新 claim 的那一個 claim，release 用 `--force`（原因印出來）；rc 6 的訊息不再叫人把 baseline 值寫回去。
+    - 規則：每一個修法所依賴的 stub 行為都必須來自 `ndt`／`qdisc_snapshot.sh` 的真實程式，並在旁邊註明行號。
+    - 沒做：`knobs_match_snapshot` 的條件沒有變異體——第 6 步成功之後它必然成立，沒有測試能讓它不成立。
+15. **r9 (Cut 1 follow-ups r9)**：N1 的分支只跳過第 4 步，第 5 步（`ndt down`）照跑；`ndt claim`／`ndt release` 在測試裡跑真的 `ndt`（暫存副本）；ndt status 沒有回答、缺列時不當成空 lab（兩處都有測試與變異體）；`recover_claim_expires` 只在新 claim 的 `expires` 大於現在時才記。見 §4.5 第 2 項的 r9 註記。
