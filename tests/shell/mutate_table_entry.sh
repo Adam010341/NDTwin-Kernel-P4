@@ -911,9 +911,9 @@ control "N2 (control): a comment-only edit inside the entry-applying loop" "$m" 
         "the whole suite stays green"
 
 m=$(mutant n3 "$ROUTES" \
-    '    op = data.get("op", "insert")
+    '    op = str(data.get("op", "insert") or "insert").strip().lower()
     spec = {key: data.get(key) for key in' \
-    '    op = data.get("op") if "op" in data else "insert"
+    '    op = str((data.get("op") if "op" in data else "insert") or "insert").strip().lower()
     spec = {key: data.get(key) for key in')
 control "N3 (control): the same default written the long way" "$m" "the whole suite stays green"
 

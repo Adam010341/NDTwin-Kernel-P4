@@ -165,11 +165,11 @@ m=$(mutant j1b "$JOURNAL" \
             if not self.enabled:' \
     '                return None, False
             if not self.enabled:')
-report 'M-J1b: a refused write is swallowed instead of raised, so the route answers 200 for it' "$m" \
+report 'M-J1b: a refused write is swallowed instead of raised (the route would then fail with a 500 on the empty result)' "$m" \
        'test_a_write_the_switch_refuses_is_not_recorded'
 
 m=$(mutant j2a "$JOURNAL" \
-    '        with journal.lock:
+    '        with _held(journal.lock, lock_timeout, f"switch {dpid}"):
             client = get_client()' \
     '        if True:
             client = get_client()')
@@ -191,10 +191,10 @@ report 'M-J2b: the lock covers the switch write but not the record, so two write
        'test_two_writes_to_one_switch_never_interleave_with_each_others_record'
 
 m=$(mutant j23 "$JOURNAL" \
-    '        with journal.lock:
+    '        with _held(journal.lock, lock_timeout, f"switch {dpid}"):
             client = get_client()' \
     '        client = get_client()
-        with journal.lock:')
+        with _held(journal.lock, lock_timeout, f"switch {dpid}"):')
 report 'M-J23: the client is looked up before the lock, so a readopt'\''s new client is missed' "$m" \
        'test_the_client_is_looked_up_inside_the_lock'
 
@@ -260,10 +260,10 @@ report 'M-J12: a record that never reached the disk still answers True' "$m" \
        'test_record_never_raises_and_says_false_when_the_disk_will_not_take_it'
 
 m=$(mutant j12b "$JOURNAL" \
-    '        key = str(journal.dpid)
-        if ok:' \
-    '        key = str(journal.dpid)
-        if True:')
+    '        elif ok:
+            self._recorded[key]' \
+    '        elif True:
+            self._recorded[key]')
 report 'M-J12b: a failed record is counted as a success, so `failures` never moves' "$m" \
        'test_each_failure_is_counted_and_a_success_does_not_hide_it'
 
@@ -378,7 +378,7 @@ m=$(mutant s1 "$JOURNAL" \
     '            with open(tmp, "rb") as src, open(self.path, "wb") as dst:
                 dst.write(src.read())
             tmp = None')
-report 'M-J11: the snapshot overwrites the live file in place, so a crash in it leaves a half-written journal' "$m" \
+report 'M-J11: the snapshot copies over the live file in place, so the os.replace fault hook never fires and the old content is gone' "$m" \
        'test_a_crash_before_the_replace_leaves_the_old_file_whole'
 
 m=$(mutant s2 "$JOURNAL" \
@@ -470,7 +470,7 @@ report 'M-J44: the key digest is eight characters' "$m" \
 m=$(mutant c8 "$ROUTES" \
     '            "journaled": journaled, "journal": journal}' \
     '            "journaled": True, "journal": journal}')
-report 'M-B20b: the response claims the entry is journaled, next to a journal block that says nothing replays it' "$m" \
+report 'M-B20b: the response claims the entry is journaled, next to a journal block that says nothing replays it (also M-B20 in mutate_table_entry.sh)' "$m" \
        'test_an_accepted_write_is_recorded_and_the_response_says_so_under_journal'
 
 m=$(mutant c9 "$ROUTES" \
@@ -482,7 +482,7 @@ report 'M-J30e: the response'\''s `journaled` ignores whether anything replays' 
 m=$(mutant c10 "$MAIN" \
     '                     "journaled": table_journals.journaled(dpid),' \
     '                     "journaled": True,')
-report 'M-B14b: switch_state claims these entries survive a proxy restart' "$m" \
+report 'M-B14b: switch_state claims these entries survive a proxy restart (also M-B14 in mutate_table_entry.sh)' "$m" \
        'test_a_recorded_write_shows_under_journal_and_journaled_stays_false'
 
 # --- what the route says -----------------------------------------------------------------------
@@ -532,8 +532,8 @@ report 'M-J50: any per-update refusal of a delete is treated as NOT_FOUND' "$m" 
        'test_a_delete_refused_for_another_reason_is_not_recorded'
 
 m=$(mutant r7 "$ROUTES" \
-    'lambda: topology.switches.get(raw_dpid), raw_dpid, spec, op, _is_not_found)' \
-    'lambda: topology.switches.get(raw_dpid), raw_dpid, spec, op, None)')
+    'lambda: topology.switches.get(raw_dpid), raw_dpid, spec, op, _is_not_found,' \
+    'lambda: topology.switches.get(raw_dpid), raw_dpid, spec, op, None,')
 report 'M-J51: the route does not tell the journal how to recognise NOT_FOUND' "$m" \
        'test_a_delete_that_the_switch_answers_NOT_FOUND_is_a_502_with_a_not_found_record'
 
@@ -544,9 +544,9 @@ report 'M-J52: a switch that left between the check and the lock is a 500' "$m" 
        'test_a_switch_that_left_between_the_check_and_the_lock_is_a_404'
 
 m=$(mutant r9 "$ROUTES" \
-    '                            "journaled": False,
+    '                                          if table_journals is not None else False),
                             "journal": (table_journals.report(dpid)' \
-    '                            "journaled": False,
+    '                                          if table_journals is not None else False),
                             "journal_gone": (table_journals.report(dpid)')
 report 'M-J53: switch_state'\''s entry for a switch nobody reported on has no journal block' "$m" \
        'test_every_switch_reports_what_was_written_and_that_none_of_it_is_journaled'
@@ -568,7 +568,7 @@ report 'M-J55: the table-entries report carries no journal block' "$m" \
 m=$(mutant m3 "$MAIN" \
     ' | table_journals.known_dpids(),' \
     ',')
-report 'M-J56: a switch that was only ever written through the API has no entry in the report' "$m" \
+report 'M-J56: a switch known only to the journals has no entry in the report (a guard of the union; an accepted write is also in api_writes)' "$m" \
        'test_the_report_in_main_carries_the_same_two_fields'
 
 m=$(mutant m4 "$MAIN" \
@@ -772,6 +772,85 @@ m=$(mutant x11 "$JOURNAL" \
     '                and self._failures.get(key, 0) == 1)')
 report 'M-J83: a journal with no failures is not complete' "$m" \
        'test_all_three_true_is_complete'
+
+# --- review fixes: the fallback's claim, the op's spelling, the header's wiring, what recorded counts, the lock's bound ----
+
+m=$(mutant y1 "$ROUTES" \
+    '"journaled": (table_journals.journaled(dpid)
+                                          if table_journals is not None else False),' \
+    '"journaled": False,')
+report 'M-J84: switch_state'\''s fallback says journaled false whatever the replay constant is' "$m" \
+       'test_a_switch_the_report_does_not_list_gets_its_journaled_through_the_constant'
+
+m=$(mutant y1b "$ROUTES" \
+    '"journaled": (table_journals.journaled(dpid)
+                                          if table_journals is not None else False),' \
+    '"journaled": (table_journals.journaled(dpid)
+                                          if True else False),')
+report 'M-J84b: the fallback asks journals that do not exist' "$m" \
+       'test_the_fallback_still_says_false_when_there_are_no_journals_at_all'
+
+m=$(mutant y2 "$ROUTES" \
+    '    op = str(data.get("op", "insert") or "insert").strip().lower()' \
+    '    op = data.get("op", "insert")')
+report 'M-J85: the route passes the op as the caller spelled it, so an upper-case DELETE answered NOT_FOUND is not recorded' "$m" \
+       'test_an_upper_case_delete_the_switch_answers_NOT_FOUND_is_recorded_too'
+
+m=$(mutant y3 "$MAIN" \
+    '                         header_for=table_journal_header)' \
+    '                         header_for=None)')
+report 'M-J86: main does not hand the journals a header provider, so every header is all null' "$m" \
+       'test_the_headers_main_builds_are_written_with_this_boot_and_the_p4info_digest'
+
+m=$(mutant y3b "$JOURNAL" \
+    '                if self._header_for is not None:' \
+    '                if False:')
+report 'M-J87: TableJournals drops the header provider before the journal gets it' "$m" \
+       'test_the_headers_main_builds_are_written_with_this_boot_and_the_p4info_digest'
+
+m=$(mutant y4 "$JOURNAL" \
+    '        if ok and outcome == "not_found":' \
+    '        if False:')
+report 'M-J88: a not_found record is counted as an accepted write, so `recorded` disagrees with `api_writes`' "$m" \
+       'test_a_delete_the_switch_answered_NOT_FOUND_is_recorded_as_not_found_and_still_raised'
+
+m=$(mutant y4b "$JOURNAL" \
+    '            self._not_found[key] = self._not_found.get(key, 0) + 1' \
+    '            pass')
+report 'M-J88b: a not_found record is not counted anywhere' "$m" \
+       'test_an_accepted_write_and_a_not_found_delete_are_counted_apart'
+
+m=$(mutant y5 "$JOURNAL" \
+    '    if not lock.acquire(timeout=-1 if timeout is None else timeout):' \
+    '    if not lock.acquire():')
+report 'M-J89: the lock wait has no timeout, so a write behind a hung switch waits for ever' "$m" \
+       'test_a_write_behind_a_write_that_does_not_return_is_SwitchBusy_and_writes_nothing'
+
+m=$(mutant y5b "$ROUTES" \
+    '                TABLE_ENTRY_LOCK_TIMEOUT_S)
+    except SwitchBusy as err:' \
+    '                None)
+    except SwitchBusy as err:')
+report 'M-J89b: the route does not pass the timeout, so every POST waits for ever for a busy switch' "$m" \
+       'test_the_second_post_to_a_switch_that_does_not_answer_is_503_and_writes_nothing'
+
+m=$(mutant y5c "$ROUTES" \
+    'TABLE_ENTRY_LOCK_TIMEOUT_S = RPC_TIMEOUT_S' \
+    'TABLE_ENTRY_LOCK_TIMEOUT_S = 0.0')
+report 'M-J89c: the wait is not one gRPC deadline' "$m" \
+       'test_the_wait_is_bounded_by_one_grpc_deadline'
+
+m=$(mutant y5d "$ROUTES" \
+    '    except SwitchBusy as err:' \
+    '    except KeyboardInterrupt as err:')
+report 'M-J89d: a busy switch is a 500, not a 503' "$m" \
+       'test_the_second_post_to_a_switch_that_does_not_answer_is_503_and_writes_nothing'
+
+m=$(mutant y5e "$JOURNAL" \
+    '        raise SwitchBusy(f"{what} is busy: another write to it held the lock for {timeout}s")' \
+    '        pass')
+report 'M-J89e: a lock that timed out is used anyway, so the write goes out unprotected' "$m" \
+       'test_a_write_behind_a_write_that_does_not_return_is_SwitchBusy_and_writes_nothing'
 
 # --- negative controls ------------------------------------------------------------
 #
