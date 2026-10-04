@@ -846,6 +846,12 @@ m=$(mutant y5d "$ROUTES" \
 report 'M-J89d: a busy switch is a 500, not a 503' "$m" \
        'test_the_second_post_to_a_switch_that_does_not_answer_is_503_and_writes_nothing'
 
+m=$(mutant y5f "$JOURNAL" \
+    '    if not lock.acquire(timeout=-1 if timeout is None else timeout):' \
+    '    if timeout is not None or not lock.acquire():')
+report 'M-J89f: a write that names a timeout is refused even when the lock is free' "$m" \
+       'test_a_write_that_is_not_blocked_ignores_the_timeout'
+
 m=$(mutant y5e "$JOURNAL" \
     '        raise SwitchBusy(f"{what} is busy: another write to it held the lock for {timeout}s")' \
     '        pass')
