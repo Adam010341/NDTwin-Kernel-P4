@@ -2,7 +2,7 @@
 
 # Cut B 摘要：P4 table entry journal 的記錄、折疊、快照（不含重放）
 
-**結論**：Cut B 已完成並 commit，分支 `feat/p4-ternary-journal-b`，頭是 `adcb9081`，未推送。前提：Q1–Q5 尚未答覆，照建議答案 Q4 (a)、Q5 (a) 做；V7 沒做；重放（Cut C）沒做。
+**結論**：Cut B 已完成並 commit，分支 `feat/p4-ternary-journal-b`，頭在第二輪之後見最下面「第二輪」；第一輪的頭是 `adcb9081`，未推送。前提：Q1–Q5 尚未答覆，照建議答案 Q4 (a)、Q5 (a) 做；V7 沒做；重放（Cut C）沒做。
 
 🔴 **最重要的一條：重放不存在，所以 `journaled` 一律是 false。**
 - 沒有重放，proxy 重啟或 readopt 之後，journal 裡的 entry 還是不會回來。
@@ -30,3 +30,31 @@
 - §6.4 的 T8 預測；§5.3 的 key 來源與 NOT_FOUND delete 的 key；default insert 要記 wire 上的 op；snapshot 要有 records_from_net；Cut B 沒有 startup 的隔離步驟，journal 檔會跨開機累積，Cut C 的步驟 0 要把 `fabric_cookie: null` 當未確認；`fold`／`write_snapshot` 在 Cut C 之前沒有 production 呼叫點；鎖跨 gRPC 寫入，交換機卡住時會佔住 threadpool；任何 import 過 main 的測試之後，route 測試的 POST 會寫進 checkout 的 .run/（已在 TableEntryRouteTestBase 隔離）。
 
 **還沒做**：V7、Q5(b)、重放、cookie／sha 檢查、readopt 的 pending／503、M-J4–10、M-J15–22、M-J24–29。
+
+
+---
+
+## 第二輪（審查後）的修正
+
+審查結論 MERGE AFTER FIXES（到分支的 hold）。處理如下，每項都有先在 `166b11ac` 的碼上為自己的理由紅過的測試，和一個 mutant。
+
+- **m1**：switch_state 對「報告沒列的交換機」的 fallback 原本寫死 `journaled: false`；改成走 `table_journals.journaled(dpid)`（沒有 journal 就 false）。測試用 dpid 77（別的測試不會給它 counts 項）、常數補丁成 True。
+- **m2**：route 現在把 op 正規化一次（`str(op or "insert").strip().lower()`，與 writer 相同），所以 `" DELETE"` 被交換機回 NOT_FOUND 也記成 `not_found`。
+- **m3**：新測試用 `main.build_table_journals`（env 指到暫存目錄）寫一筆，讀 header，斷言 `boot_id == BOOT_ID` 與 p4info／entries 的 sha；兩個 mutant：main 不傳 `header_for=`、`TableJournals.journal_for` 丟掉 provider。
+- **m4**：選「分開算」：`journal.recorded` 只算被接受的寫入（與 `api_writes` 對得上）；新欄位 `journal.not_found` 算 NOT_FOUND delete 的記錄；記不進去的仍算 `failures`。docstring 與測試同步改。
+- **m5**（裁定）：每台的鎖改成帶 timeout 取得，上限 `TABLE_ENTRY_LOCK_TIMEOUT_S = RPC_TIMEOUT_S`；逾時回 503 `switch busy`，什麼都不寫。測試用一個會卡住的 stub Write；mutant：沒有 timeout、route 不傳、常數不是一個 gRPC deadline、503 變 500、逾時還是照寫、帶 timeout 就拒絕。
+- 便宜的措辭項：m11 的測試／mutant 名稱、m15 multicast 的過時註解已改；報告標籤的筆誤改在 r2 的 INDEX。
+
+## 給 Cut C 的清單（審查的可以等項目，加上我自己記下的）
+
+1. **fold／write_snapshot／records_from_net／read 沒有 production 呼叫點**（Cut C 才是呼叫端）：驗收要有測試證明 startup 與 readopt 各自呼叫它們，並各有一個刪掉那個呼叫的 mutant。這個分支不可在沒有 Cut C 的情況下進 trunk。
+2. **write_snapshot 的缺口（m6）**：(a) 沒有取鎖也沒寫明，設計 §5.2 說鎖要蓋住 append 與 snapshot，否則 record 會落在舊 inode；(b) 兩種 header 格式（snapshot 只留呼叫者給的鍵，`_header_line` 補 null）；(c) link 之後、replace 之前當機，隔離名會與 live 檔同一個 inode 而持續增長；(d) 當機留下的 temp 檔沒人掃；(e) snapshot 之後 live 檔是 mkstemp 的 0600；(f) 預設 keep=10 沒有測試。
+3. **fold 丟掉 unreadable 計數（m7）**：「有讀不出來的行就不能報 complete」要靠 Cut C 記得另外呼叫 read()。
+4. **fold 對 default 的處理與設計 §5.4 不同（m8）**：最後一筆是 delete 的 default 淨效果記為「無」，設計寫「一律 modify」；理由「交換機會拒絕 delete default」沒驗證，writer 其實會送出那個 DELETE。
+5. **孤立的 not_found delete 淨效果是 delete（m9）**：Cut C 的重放要把「淨 delete 遇到 NOT_FOUND」當成已達目標狀態。
+6. **install-time 的副作用（m10）**：`switch_state.rules_timed` 現在把 default 與 priority 0 的 catch-all 算成兩筆；default 的 stamp 沒人讀（ryu_flow_stats 不傳 default 旗標）；`entry_key` docstring 的例子不對（ternary 的 catch-all 需要 priority ≥ 1，真正的撞 key 發生在沒有 priority 欄的表）。
+7. **測試釘住了佔位字串（m12）**：TheClaimFlipsInOnePlace 釘 `replay == "implemented"`；Cut C 要改成「不是 Cut B 的字串」並換成真正的重放報告。
+8. **`.run/` 隔離只靠慣例（m13）**：Cut C 之前加防護（測試啟動時設 `NDTWIN_TABLE_JOURNAL_DIR`，或套件前後比對 `.run/table_entry_journal`）。
+9. **gate 的 `mutant()` 吞掉失敗的 anchor assert（m14）**：目前靠 check_gate_anchors 擋住；控制組的 anchor 消失時仍會印 green。
+10. **T8**：沒有任何 observer 產生 `a:journaled`，現在跑一輪會是 NOT RUN 而不是 RED；T8 的 RED 文字（cells/table.py:379）過時，屬健檢線。
+11. 其他：`record_complete` 對沒有任何寫入的交換機是空洞的 true，也不代表檔案本身；header 的 sha 是檔案第一次建立時的；readopt 還沒取這把表鎖（Cut C 的 pending／503 要接上）；步驟 0 的隔離檔名要沿用 `.q<ns>`，否則 prune 掃不到；被刪掉的 REFUSE 記錄原始檔沒有保留。
