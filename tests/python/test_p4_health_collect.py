@@ -1169,6 +1169,7 @@ class TestLabRound(Sealed):
 
         def down(argv, env, inp):
             os.kill(os.getpid(), signal.SIGTERM)
+            os.kill(os.getpid(), signal.SIGINT)             # a second stop: the first is the one kept
             return (0, "")
         r.replies.insert(0, (("ndt", "down"), down))
         try:
@@ -1177,7 +1178,8 @@ class TestLabRound(Sealed):
             signal.signal(signal.SIGTERM, safety)
         self.assertEqual(seen, [])                          # LabRound's handler took it
         self.assertEqual(self.names(r)[-2:], ["ndt down", "ndt release"])
-        self.assertIn("aborted by signal %d (during the teardown)" % signal.SIGTERM, rec["problems"])
+        self.assertEqual([p_ for p_ in rec["problems"] if "aborted by signal" in p_],
+                         ["aborted by signal %d (during the teardown)" % signal.SIGTERM])
         self.assertFalse(rec["complete"])
 
     def test_a_busy_lab_is_not_claimed(self):
