@@ -2918,7 +2918,27 @@ class TestTheLabRun(Cut2):
         self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
         self.assertEqual([b["id"] for b in doc["bringups"]], ["A"])
         self.assertEqual((doc["bringups"][0]["down_rc"], doc["bringups"][0]["release_rc"]), (0, 0))
+        self.assertIsNotNone(doc["bringups"][0]["seconds"])         # the record is final, not caught half-way
         self.assertTrue(any("stop signal" in p_ for p_ in doc["problems"]), doc["problems"])
+
+    def test_an_exception_after_a_rounds_record_is_final_keeps_that_rounds_record(self):
+        """The same for an exception rather than a stop (round 5, #2 and NIT 10)."""
+        proc = self.proc
+
+        def make(cfg, runner, bringup, pkg, run_id):
+            class Late(LR.LabRound):
+                def _restore_handlers(self):
+                    LR.LabRound._restore_handlers(self)
+                    if bringup == "A":
+                        raise RuntimeError("boom after the record was final")
+            return Late(cfg, runner, bringup, pkg, run_id, pid=4242, proc_root=proc, install_signals=False)
+        rc, doc = LAB.run_lab(self.cfg, self.ndt_runner(), self.s0, self.cfg.run_dir, "run-x", round_cls=make,
+                              tutorials_utils="/tutorials/utils", expected_tsv=self.expected,
+                              b_kwargs=self.fake_time(), log=lambda *a: None)
+        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
+        self.assertEqual([b["id"] for b in doc["bringups"]], ["A"])
+        self.assertIsNotNone(doc["bringups"][0]["seconds"])
+        self.assertTrue(any("RuntimeError" in p_ and "boom" in p_ for p_ in doc["problems"]), doc["problems"])
 
     def test_an_incomplete_s0_touches_nothing(self):
         """(Round 5, #2) S0 with one failing check: INCOMPLETE rc 2 (not rc 1, which is the see-red
