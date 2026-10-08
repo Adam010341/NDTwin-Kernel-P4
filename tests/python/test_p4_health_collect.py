@@ -1403,6 +1403,8 @@ class FakeFabric(object):
         self.switch_peer_form = "name"    # "name": iproute2's real form; "none": a parser's blind spot
         self.pipelines = dict(PIPES4)
         self.ctrl_register_ok = False      # bmv2's P4Runtime refuses register writes today
+        self.ctrl_connect_error = False    # (round 5, #4) no switch answers the controller's arbitration
+        self.ctrl_s2_not_primary = False   # (round 5, #4) s2 grants the pipeline but not primary
         self.ctrl_fail = set()
         self.ctrl_no_result = False
         self.fail_entry = None
@@ -1820,8 +1822,12 @@ class FakeController(object):
         from p4_health import controller_ext as CX
         self.CX = CX
         calls = {}
+        self.switches = self.switches_record()
 
         def ok(name, fn):
+            if fab.ctrl_connect_error:
+                calls[name] = {"ok": False, "error": self.UNREACHABLE}
+                return
             if name in fab.ctrl_fail:
                 calls[name] = {"ok": False, "error": "UNKNOWN: refused"}
                 return
@@ -1846,7 +1852,9 @@ class FakeController(object):
             s.mirroring[9] = 0x8009
             s.mc[0x8009] = frozenset([1])
         ok("clone", clone)
-        if fab.ctrl_register_ok:
+        if fab.ctrl_connect_error:
+            calls["register"] = {"ok": False, "error": self.UNREACHABLE}
+        elif fab.ctrl_register_ok:
             ok("register", lambda: s.registers.__setitem__(("HcIngress.r_mark", 1), CX.REGISTER["value"]))
         else:
             calls["register"] = {"ok": False, "error": "UNKNOWN:  [canonical_code 12: Register writes are not supported yet]"}
@@ -1855,24 +1863,53 @@ class FakeController(object):
             with open(self.conf["ready"], "w") as fh:
                 json.dump({"attributions": calls}, fh)
 
+    #: what a step records when the switch never answers (controller_ext.py:121-127, `step`, with the
+    #: gRPC error `_rpc_error` formats, :384-392)
+    UNREACHABLE = "UNAVAILABLE: failed to connect to all addresses"
+
+    def switches_record(self):
+        """The `switches` document of controller.result.json, shaped as controller_ext.py writes it.
+        A switch that answered: `connect()` (:130-157) -- address, device_id, program, primary,
+        arbitration_status, set_pipeline_ok -- and `write_routes` (:205) -- routes_written,
+        routes_failed. One that did not answer the arbitration: `run()` (:336-339) -- only
+        connect_error, formatted by `_rpc_error` (here queue.Empty from `arbitration_queue.get`,
+        :147, which has no message)."""
+        out = {}
+        for d in (1, 2, 3, 4):
+            if self.fab.ctrl_connect_error:
+                out[str(d)] = {"connect_error": "Empty: "}
+                continue
+            rec = {"address": "localhost:%d" % (30050 + d), "device_id": d,
+                   "program": self.conf["programs"][str(d)], "primary": True, "arbitration_status": 0,
+                   "set_pipeline_ok": True, "routes_written": len(RUNTIMES[d]["table_entries"]),
+                   "routes_failed": 0}
+            if d == 2 and self.fab.ctrl_s2_not_primary:
+                rec.update({"primary": False, "arbitration_status": 6})      # ALREADY_EXISTS: another election id holds it
+            out[str(d)] = rec
+        return out
+
     def poll(self):
         if self.returncode is None and os.path.exists(self.conf["go"]):
             s = self.fab.sw[2]
-            h = [e["handle"] for e in s.tables["HcIngress.t_dcount"]][0]
-            self.calls["direct_counter"] = {"ok": True, "detail": {"packets": s.counters[("HcIngress.dc_k2", h)]}}
-            po = self.conf["packet_out"]
-            for seq in range(po["count"]):
-                self.fab.delivered["h4"].append(F.udp_marker(
-                    po["src_mac"], po["dst_mac"], po["src_ip"], po["dst_ip"], 40051,
-                    run_id=self.conf["token"], cell="P3", seq=seq))
-            self.calls["packet_out"] = {"ok": True, "detail": {"frames": po["count"]}}
+            if self.fab.ctrl_connect_error:
+                self.calls["direct_counter"] = {"ok": False, "error": self.UNREACHABLE}
+                self.calls["packet_out"] = {"ok": False, "error": self.UNREACHABLE}
+            else:
+                h = [e["handle"] for e in s.tables["HcIngress.t_dcount"]][0]
+                self.calls["direct_counter"] = {"ok": True, "detail": {"packets": s.counters[("HcIngress.dc_k2", h)]}}
+                po = self.conf["packet_out"]
+                for seq in range(po["count"]):
+                    self.fab.delivered["h4"].append(F.udp_marker(
+                        po["src_mac"], po["dst_mac"], po["src_ip"], po["dst_ip"], 40051,
+                        run_id=self.conf["token"], cell="P3", seq=seq))
+                self.calls["packet_out"] = {"ok": True, "detail": {"frames": po["count"]}}
             if self.fab.ctrl_garbage_result:
                 with open(self.conf["out"], "w") as fh:
                     fh.write("{\"attributions\": ")             # cut off mid-write
             elif not self.fab.ctrl_no_result:
                 with open(self.conf["out"], "w") as fh:
                     json.dump({"attributions": self.calls, "digests": self.fab.digests,
-                               "packet_ins": self.fab.packet_ins, "switches": {}}, fh)
+                               "packet_ins": self.fab.packet_ins, "switches": self.switches}, fh)
             shutil.rmtree(os.path.join(self.fab.proc, str(self.pid)), ignore_errors=True)
             self.returncode = 0
         return self.returncode
@@ -2756,6 +2793,43 @@ class TestTheLabRun(Cut2):
         for w in why:
             self.assertTrue(any(w in p_ for p_ in h["problems"]), (w, h["problems"]))
         return h
+
+    # --- round 5, #4: a B that ran, wrote a result and confirmed nothing is a failed B ---------------
+    def test_b_whose_controller_reached_no_switch_is_a_failed_b(self):
+        """The result file is there and well-formed, every switch carries a connect_error and every step
+        failed (controller_ext.py:121-127, 336-339): used to read COMPLETE rc 0 with no problems."""
+        self.fab.ctrl_connect_error = True
+        rc, doc, _r = self.run_lab()
+        self.assert_b_failed(rc, doc, "confirmed nothing")
+        self.assertTrue(any("connect_error" in p_ for p_ in doc["problems"]), doc["problems"])
+        self.assertEqual(doc["attributions"]["ternary"]["ok"], False)
+
+    def test_b_whose_controller_is_not_primary_on_s2_is_a_failed_b(self):
+        """s2 granted the pipeline (set_pipeline_ok) but not primary (controller_ext.py:148-157), and the
+        attributions that followed all confirmed: B still did not do its part."""
+        self.fab.ctrl_s2_not_primary = True
+        rc, doc, _r = self.run_lab()
+        self.assertTrue(sum(1 for k, v in doc["attributions"].items() if v["ok"]) > 1, doc["attributions"])
+        self.assert_b_failed_only_by(rc, doc, "not primary")
+
+    def assert_b_failed_only_by(self, rc, doc, why):
+        """As assert_b_failed, for a B some of whose attributions DID confirm."""
+        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
+        self.assertTrue(any(p_.startswith("B's controller did not do its part") and why in p_
+                            for p_ in doc["problems"]), doc["problems"])
+
+    def test_a_b_that_confirmed_most_of_its_attributions_is_not_a_failed_b(self):
+        """The control of the two above: the usual B -- everything but register confirmed, all four
+        switches primary -- reads COMPLETE with no problems."""
+        rc, doc, _r = self.run_lab()
+        self.assertEqual((doc["verdict"], rc, doc["problems"]), ("COMPLETE", 0, []))
+
+    def test_a_b_that_lost_two_calls_is_not_a_failed_b(self):
+        """... and so does one whose controller lost two calls: those cells read UNATTRIBUTED, which is
+        the answer, not a failure of B."""
+        self.fab.ctrl_fail = {"ternary", "meter"}
+        rc, doc, _r = self.run_lab()
+        self.assertEqual((doc["verdict"], rc, doc["problems"]), ("COMPLETE", 0, []))
 
     def test_an_incomplete_s0_touches_nothing(self):
         """(Round 5, #2) S0 with one failing check: INCOMPLETE rc 2 (not rc 1, which is the see-red
