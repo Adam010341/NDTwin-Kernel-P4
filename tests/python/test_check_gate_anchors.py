@@ -1122,6 +1122,58 @@ class LeavesNoTempDirBehind(unittest.TestCase):
         self.assertEqual(1, p.returncode, p.stdout + p.stderr)
         self.assertEqual([], left, "left behind in TMPDIR: %s" % left)
 
+    # The two above never put a file in the directory: only --merge-with-base does (merged_body
+    # writes the three merge inputs there). These run the checker IN-PROCESS with that path taken,
+    # watching merged_body, so the directory is known to be populated when it has to go -- once on
+    # a normal return, once when an exception escapes after the files were written.
+    def _merge_run(self, after_merge):
+        import contextlib
+        import io
+        f = Fixture()
+        self.addCleanup(f.close)
+        for rel in TARGETS:                     # a second commit, so HEAD~1 and HEAD differ
+            with open(os.path.join(f.dir, rel), "a") as fh:
+                fh.write("\n# changed in the second commit\n")
+        git(f.dir, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qam", "second")
+        own = tempfile.mkdtemp(prefix="anchorcheck_tmpdir_")
+        self.addCleanup(shutil.rmtree, own, True)
+        mod = load_checker()
+        real, seen = mod.merged_body, []
+
+        def watched(repo, path, ours, base, theirs, tmpdir):
+            out = real(repo, path, ours, base, theirs, tmpdir)
+            seen.append(sorted(os.listdir(tmpdir)))
+            after_merge()
+            return out
+        mod.merged_body = watched
+        saved = tempfile.tempdir, sys.argv
+        tempfile.tempdir = own
+        sys.argv = [CHECKER, "HEAD~1", "--repo", f.dir, "--gates-from", "HEAD",
+                    "--merge-with-base", "HEAD~1"]
+        raised = None
+        try:
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                mod.main()
+        except RuntimeError as e:
+            raised = e
+        finally:
+            tempfile.tempdir, sys.argv = saved
+        return raised, seen, sorted(os.listdir(own))
+
+    def test_a_populated_directory_is_removed(self):
+        raised, seen, left = self._merge_run(lambda: None)
+        self.assertIsNone(raised)
+        self.assertTrue(any(seen), "merged_body never wrote into the directory: %s" % seen)
+        self.assertEqual([], left, "left behind in TMPDIR: %s" % left)
+
+    def test_an_exception_after_the_files_were_written_still_removes_it(self):
+        def boom():
+            raise RuntimeError("raised after merged_body wrote its inputs")
+        raised, seen, left = self._merge_run(boom)
+        self.assertIsNotNone(raised, "the injected exception did not escape")
+        self.assertTrue(any(seen), "merged_body never wrote into the directory: %s" % seen)
+        self.assertEqual([], left, "left behind in TMPDIR: %s" % left)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
