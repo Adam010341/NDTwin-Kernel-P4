@@ -26,6 +26,10 @@ ROUTE_PREFIXES = {
     "R2": ("/p4/register",), "R3": ("/p4/register",), "P3": ("/p4/packet_out",),
     "AP1": ("/p4/action_profile",), "AS1": ("/p4/action_profile", "/p4/action_selector"),
     "VS1": ("/p4/value_set",),
+    # (Cut 2) the ternary / range / optional / priority writes go to the same endpoint as T3; the
+    # digest and packet-in "exits" are endpoints NDTwin would have to add
+    "T4": ("/p4/table_entry",), "T5": ("/p4/table_entry",), "T6": ("/p4/table_entry",),
+    "T7": ("/p4/table_entry",), "D1": ("/p4/digest",), "P2": ("/p4/packet_in",),
 }
 
 

@@ -132,6 +132,10 @@ class Control(object):
         self.id, self.of, self.expect_http = id, of, expect_http
 
     def judge(self, obs):
+        if obs is None:
+            # (Cut 2 second review N7) a control this run did not observe, as a cell is (verdict
+            # step "unobserved"): its delta then reads "not observed", not "flipped"
+            return Verdict(NOT_RUN, "not observed in this run", phase="unobserved")
         a = (obs or {}).get("answer")
         if isinstance(a, dict) and a.get("route") is False:
             # (r3, review MINOR 3) the endpoint itself is missing from openapi: there is nothing
@@ -1085,13 +1089,13 @@ CELLS = [
     Cell("V2", "verification", "core", "active", "A", 3, v2, needs_oracle=False,
          need=("a:bytes_match", "a:flow_identity")),
     # Q3(b): the six categories outside the 16 dimensions (design 13, reworked in 14)
-    Cell("AP1", "action_profile", "ext", "active", "A", 2, cannot=no_route("action-profile member"),
+    Cell("AP1", "action_profile", "ext", "active", "A", 3, cannot=no_route("action-profile member"),
          red_attribution=BM, q3b=True,
          **wtr("AP1", "the action-profile write", ("present_after", "points_to_member"), **NEG)),
-    Cell("AS1", "action_profile", "ext", "active", "A", 2, cannot=no_route("action-selector group"),
+    Cell("AS1", "action_profile", "ext", "active", "A", 3, cannot=no_route("action-selector group"),
          red_attribution=BM, q3b=True,
          **wtr("AS1", "the action-selector write", ("present_after", "points_to_group"), **NEG)),
-    Cell("IT1", "idle_timeout", "ext", "active", "A", 2, it1, cannot=it1_cannot, precondition=it1_pre,
+    Cell("IT1", "idle_timeout", "ext", "active", "A", 3, it1, cannot=it1_cannot, precondition=it1_pre,
          red_attribution=BM, q3b=True,
          need=("a:requested_timeout_ms", "a:reported_after_s", "a:watched_s", "o:timeout_ms",
                "o:since_hit_ms"), **NEG),

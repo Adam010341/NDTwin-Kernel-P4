@@ -28,6 +28,24 @@ from p4_health import frames as F  # noqa: E402
 from p4_health import report as R  # noqa: E402
 from p4_health.cells import table as T  # noqa: E402
 from p4_health.cells import verdict as V  # noqa: E402
+from p4_health import attribution as AT  # noqa: E402
+from p4_health import controller_ext as CX  # noqa: E402
+from p4_health import round_a as RA  # noqa: E402
+
+
+
+class MustNotRun(BaseException):
+    """What a test double raises where the code under test must not get to. Not an Exception:
+    `probe.py lab` turns any Exception into rc 2 (round 5, #2), which would let a test that expects
+    rc 2 pass even though the double was reached."""
+
+
+class FrozenStub(object):
+    """What a test hands `probe.py lab` where the freeze is not under test."""
+    head = None
+    sums = {}
+    root_code = {}
+
 
 PKG = os.path.dirname(os.path.abspath(T.__file__))
 EXPECTED_TSV = os.path.join(REPO, "doc", "audit", "2026-10-03_p4-health-check", "expected_today.tsv")
@@ -484,6 +502,34 @@ class TestRuleD(unittest.TestCase):
         ctx = V.judge_all(T.TABLE, cells, scs)
         self.assertEqual(V.run_verdict(ctx, False), ("INCOMPLETE", 2))
         self.assertEqual(V.run_verdict(ctx, True), ("COMPLETE", 0))
+
+    def test_a_stop_overrides_probe_broken_and_a_see_red_pass_needs_a_complete_run(self):
+        """(Cut 2 review, round 4 F3) PROBE-BROKEN is checked first, so it used to hide both a
+        recorded stop and a round that did not end clean."""
+        cells, scs = self.base_obs()
+        scs["SC-fwd"] = {"pingall": (29, 30), "dump_ok": True}
+        ctx = V.judge_all(T.TABLE, cells, scs)
+        self.assertEqual(V.run_verdict(ctx, True), ("PROBE-BROKEN", 1))
+        self.assertEqual(V.run_verdict(ctx, True, stopped=True), ("INCOMPLETE", 2))
+        self.assertEqual(V.run_verdict(ctx, False, stopped=True), ("INCOMPLETE", 2))
+        # a see-red run: PROBE-BROKEN is the pass only when the run was complete and clean
+        self.assertEqual(V.run_verdict(ctx, True, see_red=True), ("PROBE-BROKEN", 1))
+        self.assertEqual(V.run_verdict(ctx, False, see_red=True), ("INCOMPLETE", 2))
+        # and any other run keeps reporting what it found, complete or not
+        self.assertEqual(V.run_verdict(ctx, False), ("PROBE-BROKEN", 1))
+        clean_ctx = V.judge_all(T.TABLE, *self.base_obs())
+        self.assertEqual(V.run_verdict(clean_ctx, True, stopped=True), ("INCOMPLETE", 2))
+
+    def test_a_see_red_run_that_sees_no_red_is_not_a_pass(self):
+        """(Round 5, #3) A see-red run's pass is PROBE-BROKEN. One where no cell is PROBE-BROKEN (the
+        mutant went unnoticed: the probe cannot see red) is SEE-RED-NOT-SEEN, rc 2 -- not the
+        COMPLETE rc 0 that run.sh and anything reading rc takes for success."""
+        clean_ctx = V.judge_all(T.TABLE, *self.base_obs())
+        self.assertEqual(V.run_verdict(clean_ctx, True, see_red=True), ("SEE-RED-NOT-SEEN", 2))
+        # unchanged: an unfinished see-red run is INCOMPLETE, and a run that is not see-red is COMPLETE
+        self.assertEqual(V.run_verdict(clean_ctx, False, see_red=True), ("INCOMPLETE", 2))
+        self.assertEqual(V.run_verdict(clean_ctx, True), ("COMPLETE", 0))
+        self.assertEqual(V.run_verdict(clean_ctx, True, stopped=True, see_red=True), ("INCOMPLETE", 2))
 
     def test_t7_is_not_run_while_t4_is_red(self):
         cells, scs = self.base_obs()
@@ -1343,6 +1389,47 @@ class TestProbeJudge(unittest.TestCase):
         finally:
             shutil.rmtree(d)
 
+    # --- round 5, NIT 11: the offline judge reads a stop and a see-red run as the live run does ---------
+    def judged(self, doc, tmp_prefix):
+        import io
+        import json as _json
+        import shutil
+        import tempfile
+        from contextlib import redirect_stdout
+        from p4_health import probe
+        d = tempfile.mkdtemp(prefix=tmp_prefix)
+        self.addCleanup(shutil.rmtree, d, True)
+        obs = os.path.join(d, "obs.json")
+        with open(obs, "w") as fh:
+            _json.dump(doc, fh, default=lambda o: sorted(o))
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = probe.main(["judge", "--observations", obs, "--run-dir", d, "--expected", EXPECTED_TSV])
+        with open(os.path.join(d, "health.json")) as fh:
+            return rc, _json.load(fh)["verdict"]
+
+    def test_a_stopped_recording_reads_incomplete_offline(self):
+        cells, scs = TestRuleD.base_obs(None)
+        scs["SC-fwd"] = {"pingall": (29, 30), "dump_ok": True}         # K1 and others: PROBE-BROKEN
+        base = {"cells": cells, "self_checks": scs, "bringups_complete": True}
+        self.assertEqual(self.judged(base, "p4h-judge-a-"), (1, "PROBE-BROKEN"))
+        for what, extra in (("a round's record", {"bringups": [{"id": "A", "problems": ["aborted by signal 15"]}]}),
+                            ("the run's problems", {"problems": ["stop signal 15 outside a bring-up's body: x"]}),
+                            ("the flag", {"stopped": True})):
+            with self.subTest(stop=what):
+                self.assertEqual(self.judged(dict(base, **extra), "p4h-judge-b-"), (2, "INCOMPLETE"))
+
+    def test_a_see_red_recording_that_sees_no_red_reads_so_offline(self):
+        cells, scs = TestRuleD.base_obs(None)
+        clean = {"cells": cells, "self_checks": scs, "bringups_complete": True}
+        self.assertEqual(self.judged(clean, "p4h-judge-c-"), (0, "COMPLETE"))
+        self.assertEqual(self.judged(dict(clean, mutant=True), "p4h-judge-d-"), (2, "SEE-RED-NOT-SEEN"))
+        self.assertEqual(self.judged(dict(clean, see_red=True), "p4h-judge-e-"), (2, "SEE-RED-NOT-SEEN"))
+        scs2 = dict(scs, **{"SC-fwd": {"pingall": (29, 30), "dump_ok": True}})
+        broken = {"cells": cells, "self_checks": scs2, "bringups_complete": False, "mutant": True}
+        self.assertEqual(self.judged(broken, "p4h-judge-f-"), (2, "INCOMPLETE"))
+        self.assertEqual(self.judged(dict(broken, bringups_complete=True), "p4h-judge-g-"), (1, "PROBE-BROKEN"))
+
 
 class TestNoMachineLiterals(unittest.TestCase):
 
@@ -1428,6 +1515,1149 @@ class TestS0Pieces(unittest.TestCase):
             self.assertTrue(inv["enq_qdepth"])
         finally:
             shutil.rmtree(d)
+
+
+# --- Cut 2 -----------------------------------------------------------------------------------------
+
+class TestS0Cut2Checks(unittest.TestCase):
+    """m5: S0's two new safety checks decide something, so each is pinned."""
+
+    def s0(self, replies):
+        import tempfile
+        from p4_health import s0
+        from p4_health.collect.runner import RecordingRunner
+        d = tempfile.mkdtemp(prefix="p4h-s0c2-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, d, True)
+        r = RecordingRunner(replies)
+        x = s0.S0(d, r, "py", log=lambda *a: None)
+        x.pkgs = {n: os.path.join(d, "packages", n) for n in ("A", "B", "C", "PF-T", "FWD", "A-MUT")}
+        return x, r
+
+    def test_show_ports_with_a_cpu_port_is_judged_on_the_data_ports(self):
+        from p4_health import s0
+        self.assertTrue(s0.show_ports_ok({1: "p1", 2: "p2", 3: "p3"}))
+        self.assertTrue(s0.show_ports_ok({1: "p1", 2: "p2", 3: "p3", 510: "p510"}))
+        self.assertFalse(s0.show_ports_ok({1: "p1", 2: "p2"}))
+        self.assertFalse(s0.show_ports_ok({1: "p1", 2: "p2", 3: "p3", 4: "p4"}))
+        self.assertFalse(s0.show_ports_ok(None))
+
+    def test_the_mutant_package_is_drop_checked(self):
+        """The A-MUT package is the one the see-red run brings up: it must pass the drop check."""
+        x, r = self.s0([(lambda a: "heartbeat_drop_check.py" in " ".join(a),
+                         lambda a, e, i: (1 if a[2].endswith("/FWD") else 0, ""))])
+        x.drop_check()
+        checked = sorted(os.path.basename(c["argv"][2]) for c in r.calls)
+        self.assertEqual(checked, ["A", "A-MUT", "B", "C", "FWD"])
+        self.assertTrue(all(c["ok"] for c in x.out["checks"]), x.out["checks"])
+        self.assertIn("drop check A-MUT rc 0", [c["name"] for c in x.out["checks"]])
+
+    DRY = ("package  : p4-health-B  (mode external, grpc_base 30050)\ncontroller: %s\ncwd : x\n"
+           "rewrites this package's switches would receive:\n"
+           + "".join("  s%d: 127.0.0.1:%d device_id=%d  ->  localhost:%d device_id=%d\n" % (d, 50050 + d, d - 1, 30050 + d, d)
+                     for d in (1, 2, 3, 4))
+           + "(--dry-run: nothing was imported, patched or run)\n")
+
+    def test_the_adapter_dry_run_names_our_controller_and_four_rewrites(self):
+        from p4_health import round_b as RB
+        good = self.DRY % RB.CONTROLLER
+        x, r = self.s0([(lambda a: "--dry-run" in a, (0, good))])
+        x.adapter_dry_run()
+        self.assertEqual(r.calls[0]["argv"][:4], [r.calls[0]["argv"][0], RB.ADAPTER, x.pkgs["B"], RB.CONTROLLER])
+        self.assertTrue(x.out["checks"][-1]["ok"], x.out["checks"])
+        for bad in (good.replace("localhost:30053 device_id=3", "localhost:30053 device_id=2"),
+                    good.replace(RB.CONTROLLER, "/elsewhere/mycontroller.py"),
+                    good.replace("  s4: ", "  sX: ")):
+            x, r = self.s0([(lambda a: "--dry-run" in a, (0, bad))])
+            x.adapter_dry_run()
+            self.assertFalse(x.out["checks"][-1]["ok"])
+        x, r = self.s0([(lambda a: "--dry-run" in a, (1, good))])
+        x.adapter_dry_run()
+        self.assertFalse(x.out["checks"][-1]["ok"])
+
+
+    # --- round 5, #5: S0 runs the frozen copies, not the shared tree's files ----------------------
+    def frozen_copies(self):
+        import tempfile
+        from p4_health import frozen as FZ
+        d = tempfile.mkdtemp(prefix="p4h-s0-frozen-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, d, True)
+        return FZ.Frozen(os.path.join(d, "frozen"), {})
+
+    def test_s0_takes_the_frozen_copies_it_is_given(self):
+        from p4_health import s0
+        from p4_health.collect.runner import RecordingRunner
+        fz = self.frozen_copies()
+        x = s0.S0("/nonexistent/s0", RecordingRunner([]), "py", log=lambda *a: None, frozen=fz)
+        self.assertIs(x.frozen, fz)
+
+    def test_the_adapter_dry_run_runs_the_frozen_adapter_with_the_frozen_controller(self):
+        from p4_health import round_b as RB
+        fz = self.frozen_copies()
+        x, r = self.s0([(lambda a: "--dry-run" in a, (0, self.DRY % fz.controller))])
+        x.frozen = fz
+        x.adapter_dry_run()
+        argv = r.calls[0]["argv"]
+        self.assertEqual((argv[1], argv[3]), (fz.adapter, fz.controller))
+        self.assertTrue(x.out["checks"][-1]["ok"], x.out["checks"])
+        # and a dry run that names the shared tree's controller is not the check passing
+        x, r = self.s0([(lambda a: "--dry-run" in a, (0, self.DRY % RB.CONTROLLER))])
+        x.frozen = fz
+        x.adapter_dry_run()
+        self.assertFalse(x.out["checks"][-1]["ok"])
+
+    def test_the_controller_trial_runs_the_frozen_controller(self):
+        from unittest import mock
+        fz = self.frozen_copies()
+        x, _r = self.s0([])
+        x.frozen = fz
+        got = []
+
+        def trial(*a, **kw):
+            got.append((a, kw))
+            return {"bmv2": "/x/bin/simple_switch_grpc", "confirmed": {}, "controller_rc": 0, "alive": True}
+        with mock.patch("p4_health.ctrl_trial.trial", trial), \
+                mock.patch("p4_health.vs_trial.fabric_binary", return_value="/y/bin/simple_switch_grpc"):
+            x.ctrl_trial()
+        self.assertEqual(len(got), 2)                       # the stock build and the fabric's
+        for _a, kw in got:
+            self.assertEqual(kw.get("controller"), fz.controller)
+
+    def test_the_controller_trial_starts_the_controller_it_is_given(self):
+        """ctrl_trial.trial's argv: [python, <controller>] -- a copy it is handed, else the tree's own."""
+        import tempfile
+        from unittest import mock
+        from p4_health import ctrl_trial as CT
+
+        class Stop(BaseException):
+            pass
+
+        class FakeSwitch(object):
+            def __init__(self, *a, **kw):
+                self.workdir, self.grpc_port, self.started_at = kw.get("workdir"), 29650, 0
+
+            def start(self):
+                pass
+
+            def stop(self):
+                return 0
+        argvs = []
+
+        def popen(argv, **kw):
+            argvs.append(argv)
+            raise Stop()
+        d = tempfile.mkdtemp(prefix="p4h-ctrltrial-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, d, True)
+        for given, want in (("/run/frozen/p4_health/controller_ext.py", "/run/frozen/p4_health/controller_ext.py"),
+                            (None, os.path.join(CT.HERE, "controller_ext.py"))):
+            kw = {"controller": given} if given else {}
+            with mock.patch.object(CT.TW, "Throwaway", FakeSwitch), mock.patch.object(CT.subprocess, "Popen", popen):
+                try:
+                    CT.trial(os.path.join(d, "build"), "/x/bmv2", ["cli"], os.path.join(d, "work"), "py-ctrl",
+                             "/tutorials/utils", **kw)
+                except Stop:
+                    pass
+            self.assertEqual(argvs[-1], ["py-ctrl", want])
+
+
+class TestTheLiveRunsIdentity(unittest.TestCase):
+    """m4: a lab run refuses a dirty probe, and records the Q6(a) fingerprint and the system
+    under test."""
+
+    def test_a_dirty_probe_tree_is_refused_before_anything_runs(self):
+        from unittest import mock
+        from p4_health import probe
+        asked = []
+
+        import subprocess as sp
+
+        def git(argv, **kw):
+            asked.append(tuple(argv[3:]))
+            out = " M tools/p4_health/hostside.py\n" if argv[3] == "status" else "x\n"
+            return sp.CompletedProcess(argv, 0, stdout=out, stderr="")
+        # the freeze is stubbed to fail loudly: it would refuse this run dir too (round 4), and a
+        # test that only sees rc 2 could not tell which check said no
+        with mock.patch.object(probe.subprocess, "run", git), \
+                mock.patch("p4_health.frozen.freeze", side_effect=MustNotRun("the freeze must not start")), \
+                mock.patch("p4_health.s0.S0", side_effect=MustNotRun("S0 must not start")):
+            rc = probe.main(["lab", "--run-dir", "/nonexistent/run", "--owner", "o"])
+        self.assertEqual(rc, 2)
+        self.assertIn(("status", "--porcelain", "--", "tools/p4_health"), asked)
+
+    @staticmethod
+    def git_answering(rc, out="", exc=None):
+        import subprocess as sp
+
+        def run(argv, **kw):
+            if argv[:1] != ["git"]:
+                raise MustNotRun("unexpected spawn %r" % (argv,))
+            if exc is not None:
+                raise exc
+            return sp.CompletedProcess(argv, rc, stdout=out, stderr="")
+        return run
+
+    def test_a_git_that_cannot_answer_is_refused_before_s0(self):
+        """N3: a failed, timed-out or missing git is no answer about the tree -- not 'clean'."""
+        import subprocess as sp
+        from unittest import mock
+        from p4_health import probe
+        for kw in ({"rc": 128}, {"rc": 0, "exc": sp.TimeoutExpired("git", 10)},
+                   {"rc": 0, "exc": FileNotFoundError("git")}):
+            with self.subTest(kw=kw):
+                with mock.patch.object(probe.subprocess, "run", self.git_answering(**kw)), \
+                        mock.patch("p4_health.frozen.freeze", side_effect=MustNotRun("the freeze must not start")), \
+                        mock.patch("p4_health.s0.S0", side_effect=MustNotRun("S0 must not start")):
+                    rc = probe.main(["lab", "--run-dir", "/nonexistent/run", "--owner", "o"])
+                self.assertEqual(rc, 2)
+
+    def test_a_missing_identity_record_stops_the_run_before_the_lab(self):
+        """N3: the first authorized run's record is the baseline of the standing authorization;
+        without it, or with an incomplete fingerprint, the lab is not touched."""
+        import tempfile
+        from unittest import mock
+        from p4_health import probe
+        d = tempfile.mkdtemp(prefix="p4h-ident-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, d, True)
+
+        class FakeS0(object):
+            def __init__(self, *a, **kw):
+                self.out = {"verdict": "COMPLETE"}
+
+            def run(self):
+                return 0
+        good = {"sha256": "a" * 64, "parts": {}}
+        for sut, gate in ((None, good), (os.path.join(d, "code_identity.json"), dict(good, sha256="incomplete"))):
+            with self.subTest(sut=sut, gate=gate["sha256"]):
+                # fabric_binary and the freeze are stubbed: this test must not read the real
+                # bmv2_binary_override (absent from a mutant's copy), nor stop at the freeze, whose git
+                # here answers nothing (round 4, F8)
+                with mock.patch.object(probe.subprocess, "run", self.git_answering(0)), \
+                        mock.patch("p4_health.s0.S0", FakeS0), \
+                        mock.patch("p4_health.vs_trial.fabric_binary", return_value="/x/simple_switch_grpc"), \
+                        mock.patch("p4_health.frozen.freeze", return_value=FrozenStub()), \
+                        mock.patch("p4_health.identity.system_under_test", return_value=sut), \
+                        mock.patch("p4_health.identity.fingerprint", return_value=gate) as fp, \
+                        mock.patch("p4_health.lab.run_lab", side_effect=MustNotRun("the lab must not start")):
+                    rc = probe.main(["lab", "--run-dir", d, "--owner", "o"])
+                self.assertEqual(rc, 2)
+                fp.assert_called_once()                 # refused by the identity check, not by something before it
+
+    def test_an_s0_with_a_failing_check_is_rc_2_with_a_health_json_and_no_identity_work(self):
+        """(Round 5, #2) `probe.py lab` returned 1 and wrote no health.json when S0 was not
+        COMPLETE; on the see-red path rc 1 is the pass. Now INCOMPLETE rc 2, with the reason in
+        health.json, and neither the identity record nor the lab is started."""
+        import contextlib
+        import json
+        import tempfile
+        from unittest import mock
+        from p4_health import frozen as FZ
+        from p4_health import probe
+        from p4_health.collect.config import Config as RealConfig
+        real_freeze = FZ.freeze
+
+        class FakeS0(object):
+            def __init__(self, *a, **kw):
+                self.out = {"verdict": "PROBE-BROKEN",
+                            "checks": [{"name": "preflight A", "ok": False, "detail": "FAIL x"}]}
+
+            def run(self):
+                return 1
+        d = tempfile.mkdtemp(prefix="p4h-s0bad-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, d, True)
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(mock.patch.object(probe.subprocess, "run", self.git_answering(0)))
+            stack.enter_context(mock.patch("p4_health.s0.S0", FakeS0))
+            stack.enter_context(mock.patch("p4_health.frozen.freeze",
+                                           lambda run_dir, repo=None, git=None: real_freeze(run_dir)))
+            # the mutation gate's copy of the package has no doc/ beside it: the predictions file is the repo's
+            stack.enter_context(mock.patch("p4_health.collect.config.Config",
+                                           lambda run_dir, owner=None: RealConfig(run_dir, owner=owner,
+                                                                                  expected_tsv=EXPECTED_TSV)))
+            fp = stack.enter_context(mock.patch("p4_health.identity.fingerprint",
+                                                side_effect=MustNotRun("no identity work")))
+            sut = stack.enter_context(mock.patch("p4_health.identity.system_under_test",
+                                                 side_effect=MustNotRun("no identity work")))
+            rc = probe.main(["lab", "--run-dir", d, "--owner", "o"])
+        self.assertEqual(rc, 2)
+        fp.assert_not_called()
+        sut.assert_not_called()
+        with open(os.path.join(d, "health.json")) as fh:
+            h = json.load(fh)
+        self.assertEqual(h["verdict"], "INCOMPLETE")
+        self.assertTrue(any("S0 is PROBE-BROKEN" in p_ and "preflight A" in p_ for p_ in h["problems"]),
+                        h["problems"])
+
+    def test_an_exception_out_of_the_lab_path_is_rc_2_not_pythons_status_1(self):
+        """(Round 5, #2) Anything `probe.py lab` does not foresee -- here S0 itself raising -- used
+        to leave the process as an uncaught exception: status 1, the see-red run's pass. It is rc 2,
+        with the traceback on stderr."""
+        import io
+        from unittest import mock
+        from p4_health import frozen as FZ
+        from p4_health import probe
+
+        class BrokenS0(object):
+            def __init__(self, *a, **kw):
+                self.out = {}
+
+            def run(self):
+                raise RuntimeError("S0 fell over")
+        err = io.StringIO()
+        with mock.patch.object(probe.subprocess, "run", self.git_answering(0)), \
+                mock.patch("p4_health.s0.S0", BrokenS0), \
+                mock.patch("p4_health.frozen.freeze", lambda run_dir, repo=None, git=None: FZ.Frozen(run_dir, {})), \
+                mock.patch("sys.stderr", err):
+            rc = probe.main(["lab", "--run-dir", "/nonexistent/run", "--owner", "o"])
+        self.assertEqual(rc, 2)
+        self.assertIn("RuntimeError", err.getvalue())
+        self.assertIn("S0 fell over", err.getvalue())
+
+    # --- round 4, F8: an unreadable bmv2 override, with the REAL fingerprint ------------------
+    def readable_machine(self, frozen=None):
+        """Every part of the fingerprint except the fabric's bmv2 reads fine, so that part alone
+        decides whether it says 'incomplete'. The real ID.fingerprint runs."""
+        from unittest import mock
+        from p4_health import identity as ID
+        from p4_health.collect.runner import RecordingRunner
+        return [mock.patch.object(ID, "git_lines", lambda runner, repo, *a: ["a b"]),
+                mock.patch.object(ID, "file_sha", lambda p: "f" * 64),
+                mock.patch.object(ID, "tree_digest", lambda *a, **k: "t" * 64),
+                mock.patch.object(ID, "_which", lambda tool: "/bin/" + tool),
+                mock.patch("os.path.isdir", lambda p: True),
+                mock.patch("p4_health.probe.Runner", lambda: RecordingRunner([(("bash",), (0, ""))])),
+                mock.patch("p4_health.identity.system_under_test", return_value="/x/code_identity.json"),
+                mock.patch("p4_health.frozen.freeze", return_value=frozen or FrozenStub())]
+
+    def lab_with_the_real_fingerprint(self, fabric, frozen=None):
+        import contextlib
+        import json
+        import tempfile
+        from unittest import mock
+        from p4_health import probe
+
+        class FakeS0(object):
+            def __init__(self, *a, **kw):
+                self.out = {"verdict": "COMPLETE"}
+
+            def run(self):
+                return 0
+        d = tempfile.mkdtemp(prefix="p4h-f8-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, d, True)
+        with contextlib.ExitStack() as stack:
+            for patch in self.readable_machine(frozen):
+                stack.enter_context(patch)
+            stack.enter_context(mock.patch.object(probe.subprocess, "run", self.git_answering(0)))
+            stack.enter_context(mock.patch("p4_health.s0.S0", FakeS0))
+            stack.enter_context(mock.patch("p4_health.vs_trial.fabric_binary", **fabric))
+            ran = stack.enter_context(mock.patch("p4_health.lab.run_lab", return_value=(0, {})))
+            rc = probe.main(["lab", "--run-dir", d, "--owner", "o"])
+        with open(os.path.join(d, "gate_fingerprint.json")) as fh:
+            return rc, ran, json.load(fh)
+
+    def test_a_readable_override_gives_a_complete_fingerprint_and_the_lab_runs(self):
+        """The control of the next test: with the override readable the same stubbed machine gives
+        a fingerprint, so the next test's 'incomplete' is the override's doing alone."""
+        rc, ran, gate = self.lab_with_the_real_fingerprint({"return_value": "/x/simple_switch_grpc"})
+        self.assertNotEqual(gate["sha256"], "incomplete", gate)
+        self.assertEqual(gate["parts"]["bmv2_fabric"], "f" * 64)
+        self.assertEqual(rc, 0)
+        ran.assert_called_once()
+
+    def test_an_unreadable_bmv2_override_is_an_incomplete_fingerprint_and_stops_the_run(self):
+        """probe.py's `except OSError: fabric = None`: not a traceback, and not a run either."""
+        rc, ran, gate = self.lab_with_the_real_fingerprint({"side_effect": PermissionError("bmv2_binary_override")})
+        self.assertEqual(gate["sha256"], "incomplete")
+        self.assertEqual(gate["parts"]["bmv2_fabric"], "unreadable")
+        self.assertEqual(rc, 2)
+        ran.assert_not_called()
+
+    # --- round 4, F4: the code a run executes is frozen early and checked against HEAD ---------
+    FROZEN = ("p4_health/hostside.py", "p4_health/frames.py", "p4_health/__init__.py",
+              "p4_health/controller_ext.py", "p4_exercise/run_external_controller.py",
+              "p4_exercise/common.py", "p4_exercise/__init__.py")
+
+    def scratch_repo(self):
+        """A git repo of its own holding the files a lab run executes, committed."""
+        import shutil
+        import tempfile
+        d = tempfile.mkdtemp(prefix="p4h-freeze-%d-" % os.getpid())
+        self.addCleanup(shutil.rmtree, d, True)
+        for rel in self.FROZEN:
+            os.makedirs(os.path.dirname(os.path.join(d, "tools", rel)), exist_ok=True)
+            with open(os.path.join(d, "tools", rel), "w") as fh:
+                fh.write("# %s, as committed\n" % rel)
+        git = ["git", "-C", d, "-c", "user.name=t", "-c", "user.email=t@example.invalid", "-c", "commit.gpgsign=false"]
+        subprocess.run(["git", "-C", d, "init", "-q"], check=True)
+        subprocess.run(git + ["add", "."], check=True)
+        subprocess.run(git + ["commit", "-q", "-m", "files"], check=True)
+        return d
+
+    def lab_in(self, repo, edit_after_status=None, edit_before_status=None):
+        """probe.py lab in `repo` with S0 replaced by a marker. Returns (rc, S0 started?, stderr).
+        `edit_after_status`: a callable run right after the clean check answered (the edit that
+        lands between the check and the freeze)."""
+        import io
+        import tempfile
+        from unittest import mock
+        from p4_health import probe
+
+        class Reached(BaseException):       # not an Exception: probe.py lab turns those into rc 2 (round 5, #2)
+            pass
+
+        def s0(*a, **kw):
+            raise Reached()
+        real = probe._git_run
+
+        def git(*args):
+            out = real(*args)
+            if args[0] == "status" and edit_after_status:
+                edit_after_status()
+            return out
+        run_dir = tempfile.mkdtemp(prefix="p4h-freeze-run-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, run_dir, True)
+        err = io.StringIO()
+        reached = False
+        with mock.patch.object(probe, "REPO", repo), mock.patch.object(probe, "_git_run", git), \
+                mock.patch("p4_health.s0.S0", s0), mock.patch("sys.stderr", err):
+            try:
+                rc = probe.main(["lab", "--run-dir", run_dir, "--owner", "o"])
+            except Reached:
+                rc, reached = None, True
+        return rc, reached, err.getvalue()
+
+    def assert_refused_cleanly(self, rc, reached, err):
+        """rc 2, S0 not reached, and the way it got there is the refusal: `refused: ...` on stderr and no
+        traceback. (Round 5: `probe.py lab` turns any exception into rc 2 as well, so rc 2 alone no longer
+        tells a refusal from a crash -- and a mutant that lets the run go on after a refusal crashed into
+        that rc 2 and went unnoticed.)"""
+        self.assertEqual((rc, reached), (2, False))
+        self.assertIn("refused:", err)
+        self.assertNotIn("Traceback", err)
+
+    def edit(self, repo, rel):
+        with open(os.path.join(repo, "tools", rel), "a") as fh:
+            fh.write("# an edit nobody committed\n")
+
+    def test_a_clean_tree_is_frozen_and_the_run_goes_on_to_s0(self):
+        """The control of the next tests: the same repo with no edit reaches S0."""
+        _rc, reached, _err = self.lab_in(self.scratch_repo())
+        self.assertTrue(reached)
+
+    def test_an_edit_between_the_clean_check_and_the_freeze_is_refused_before_s0(self):
+        repo = self.scratch_repo()
+        rc, reached, err = self.lab_in(repo, edit_after_status=lambda: self.edit(repo, "p4_health/hostside.py"))
+        self.assert_refused_cleanly(rc, reached, err)
+        self.assertIn("hostside.py", err)
+
+    def test_every_file_a_round_executes_is_checked_against_head(self):
+        for rel in self.FROZEN:
+            with self.subTest(file=rel):
+                repo = self.scratch_repo()
+                rc, reached, err = self.lab_in(repo, edit_after_status=lambda rel=rel, repo=repo: self.edit(repo, rel))
+                self.assert_refused_cleanly(rc, reached, err)
+                self.assertIn(os.path.basename(rel), err)
+
+    def test_a_git_that_cannot_confirm_a_copy_refuses_the_freeze(self):
+        """Two empty answers are not two equal hashes; a failed hash-object is no answer."""
+        from unittest import mock
+        from p4_health import probe
+        repo = self.scratch_repo()
+        real = probe._git_run
+        for what, answer in (("hash-object fails", {"hash-object": (128, "")}),
+                             ("rev-parse fails", {"rev-parse": (128, "")}),
+                             ("both answer nothing", {"hash-object": (0, ""), "rev-parse": (0, "")})):
+            with self.subTest(what=what):
+                def wrapped(*args, answer=answer):
+                    # only the questions about a copy: `rev-parse --verify HEAD` is answered by the real git
+                    if args[:2] == ("rev-parse", "--verify"):
+                        return real(*args)
+                    return answer.get(args[0]) or real(*args)
+                with mock.patch.object(probe, "_git_run", wrapped):
+                    rc, reached, err = self.lab_in(repo)
+                self.assert_refused_cleanly(rc, reached, err)
+
+    def test_the_frozen_set_runs_by_itself_and_takes_frames_from_the_copy(self):
+        """Root's hostside.py, B's controller_ext.py (its `from p4_health import frames` inside a
+        method) and the adapter run from the copy with -I: nothing is read from the shared tree."""
+        import tempfile
+        from p4_health import frozen as FZ
+        run = tempfile.mkdtemp(prefix="p4h-freeze-self-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, run, True)
+        fz = FZ.freeze(run)
+        probe_code = ("import importlib.util, sys; s = importlib.util.spec_from_file_location('cx', %r); "
+                      "m = importlib.util.module_from_spec(s); s.loader.exec_module(m); "
+                      "from p4_health import frames; print(frames.__file__)" % fz.controller)
+        out = subprocess.run([sys.executable, "-I", "-c", probe_code], capture_output=True, text=True, timeout=60)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(os.path.realpath(out.stdout.strip()), os.path.realpath(fz.path("p4_health/frames.py")))
+        for argv in ([fz.hostside, "--help"], [fz.adapter, "--help"]):
+            res = subprocess.run([sys.executable, "-I"] + argv, capture_output=True, text=True, timeout=60)
+            self.assertEqual(res.returncode, 0, (argv, res.stderr))
+
+    def test_the_recorded_hash_is_of_the_copy_not_of_the_source(self):
+        """(Round 4, F9) a copy that differs from its source (the case the HEAD check exists for)
+        is recorded as it is: the record is what root runs."""
+        import hashlib
+        import shutil
+        import tempfile
+        from unittest import mock
+        from p4_health import frozen as FZ
+        run = tempfile.mkdtemp(prefix="p4h-freeze-copy-%d-" % os.getpid())
+        self.addCleanup(shutil.rmtree, run, True)
+        real_copy = FZ.copy_file
+
+        def drifting_copy(src, dst):
+            real_copy(src, dst)
+            with open(dst, "a") as fh:
+                fh.write("# drifted after the copy\n")
+        with mock.patch.object(FZ, "copy_file", drifting_copy):
+            fz = FZ.freeze(run)
+        for rel, recorded in fz.sums.items():
+            with open(fz.path(rel), "rb") as fh:
+                self.assertEqual(recorded, hashlib.sha256(fh.read()).hexdigest(), rel)
+
+    # --- round 5: the freeze pins one commit, hashes bytes as they are, and writes only what is new -------
+    def git_in(self, repo, *args):
+        return subprocess.run(["git", "-C", repo, "-c", "user.name=t", "-c", "user.email=t@example.invalid",
+                               "-c", "commit.gpgsign=false"] + list(args), check=True, capture_output=True,
+                              text=True).stdout.strip()
+
+    def freeze_in(self, repo, run_dir=None, git=None):
+        """FZ.freeze against a scratch repo with probe.py's own git helper. Returns (Frozen, run dir)."""
+        import tempfile
+        from unittest import mock
+        from p4_health import frozen as FZ
+        from p4_health import probe
+        run = run_dir or tempfile.mkdtemp(prefix="p4h-freeze-r5-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, run, True)
+        with mock.patch.object(probe, "REPO", repo):
+            return FZ.freeze(run, repo=repo, git=git or probe._git_run), run
+
+    def test_head_is_resolved_once_and_every_blob_is_asked_for_by_that_sha(self):
+        """(NIT 7) `git rev-parse --verify HEAD` once; the blobs are `<sha>:tools/<path>`, never
+        `HEAD:...`; the Frozen carries that sha."""
+        from p4_health import probe
+        repo = self.scratch_repo()
+        real, calls = probe._git_run, []
+
+        def git(*a):
+            calls.append(a)
+            return real(*a)
+        fz, _run = self.freeze_in(repo, git=git)
+        sha = self.git_in(repo, "rev-parse", "HEAD")
+        self.assertEqual([c for c in calls if c[:2] == ("rev-parse", "--verify")], [("rev-parse", "--verify", "HEAD")])
+        blobs = [c for c in calls if c[0] == "rev-parse" and c[1] != "--verify"]
+        self.assertEqual(len(blobs), len(self.FROZEN))
+        self.assertTrue(all(c[1].startswith(sha + ":tools/") for c in blobs), blobs)
+        self.assertEqual(fz.head, sha)
+
+    def commit_during_the_freeze(self, repo, rel, append):
+        """A git helper that, right after the first copy was hashed, commits a change to tools/<rel>
+        (or an unrelated file when rel is None)."""
+        from p4_health import probe
+        real, done = probe._git_run, []
+
+        def git(*a):
+            out = real(*a)
+            if a[0] == "hash-object" and not done:
+                done.append(1)
+                target = os.path.join(repo, "tools", rel) if rel else os.path.join(repo, "unrelated.txt")
+                with open(target, "a") as fh:
+                    fh.write(append)
+                self.git_in(repo, "add", ".")
+                self.git_in(repo, "commit", "-q", "-m", "lands mid-freeze")
+            return out
+        return git
+
+    def test_a_commit_that_lands_mid_freeze_cannot_give_a_set_that_matches_no_commit(self):
+        """(NIT 7) A commit changing a file the freeze has not copied yet: checked against the HEAD of
+        each moment, the set would match no single commit and still pass. Pinned to the first HEAD,
+        the late copy is not what that commit has and the freeze is refused."""
+        from p4_health import frozen as FZ
+        repo = self.scratch_repo()
+        git = self.commit_during_the_freeze(repo, self.FROZEN[-1], "# changed by the commit that landed\n")
+        with self.assertRaises(FZ.Refused):
+            self.freeze_in(repo, git=git)
+
+    def test_a_commit_that_changes_none_of_the_files_leaves_the_freeze_pinned_to_the_head_it_started_with(self):
+        repo = self.scratch_repo()
+        before = self.git_in(repo, "rev-parse", "HEAD")
+        git = self.commit_during_the_freeze(repo, None, "x\n")
+        fz, _run = self.freeze_in(repo, git=git)
+        self.assertNotEqual(self.git_in(repo, "rev-parse", "HEAD"), before)
+        self.assertEqual(fz.head, before)
+
+    def test_the_identity_of_a_run_names_the_head_the_freeze_pinned(self):
+        """(NIT 7) repo_identity takes the pinned sha: head and probe tree come from it, whatever HEAD
+        is by the time the identity is written."""
+        from unittest import mock
+        from p4_health import probe
+        repo = self.scratch_repo()
+        pinned = self.git_in(repo, "rev-parse", "HEAD")
+        tree = self.git_in(repo, "rev-parse", pinned + ":tools/p4_health")
+        with open(os.path.join(repo, "later.txt"), "w") as fh:
+            fh.write("a later commit\n")
+        self.git_in(repo, "add", ".")
+        self.git_in(repo, "commit", "-q", "-m", "later")
+        with mock.patch.object(probe, "REPO", repo):
+            ident = probe.repo_identity(head=pinned)
+            moved = probe.repo_identity()
+        self.assertEqual((ident["head"], ident["probe_tree"]), (pinned, tree))
+        self.assertNotEqual(moved["head"], pinned)
+
+    def test_probe_lab_records_the_frozen_head_in_the_identity_and_in_health_json(self):
+        import contextlib
+        import json
+        import tempfile
+        from unittest import mock
+        from p4_health import frozen as FZ
+        from p4_health import probe
+        real_freeze, seen = FZ.freeze, []
+
+        class FakeS0(object):
+            def __init__(self, *a, **kw):
+                self.out = {"verdict": "PROBE-BROKEN", "checks": []}
+                seen.append(self)
+
+            def run(self):
+                return 1
+
+        def freeze(run_dir, repo=None, git=None):
+            fz = real_freeze(run_dir)
+            fz.head = "ab" * 20
+            return fz
+        d = tempfile.mkdtemp(prefix="p4h-pinned-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, d, True)
+        from p4_health.collect.config import Config as RealConfig
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(mock.patch.object(probe.subprocess, "run", self.git_answering(0)))
+            stack.enter_context(mock.patch("p4_health.s0.S0", FakeS0))
+            stack.enter_context(mock.patch("p4_health.frozen.freeze", freeze))
+            stack.enter_context(mock.patch("p4_health.collect.config.Config",
+                                           lambda run_dir, owner=None: RealConfig(run_dir, owner=owner,
+                                                                                  expected_tsv=EXPECTED_TSV)))
+            probe.main(["lab", "--run-dir", d, "--owner", "o"])
+        self.assertEqual(seen[0].out["repo"]["head"], "ab" * 20)
+        with open(os.path.join(d, "health.json")) as fh:
+            self.assertEqual(json.load(fh)["frozen_head"], "ab" * 20)
+
+    def test_a_copy_is_hashed_as_its_bytes_not_as_a_filter_would_see_them(self):
+        """(NIT 8) `git hash-object` applies the input filters its path selects. A run dir inside the
+        repo (.test_run/...) is such a path: with `*.py text` a copy with CRLF endings would hash to
+        the LF blob HEAD has, and pass. The bytes root would run differ from the commit's."""
+        from p4_health import frozen as FZ
+        repo = self.scratch_repo()
+        with open(os.path.join(repo, ".gitattributes"), "w") as fh:
+            fh.write("*.py text\n")
+        self.git_in(repo, "add", ".")
+        self.git_in(repo, "commit", "-q", "-m", "attributes")
+        os.makedirs(os.path.join(repo, ".test_run", "r1"))
+        with open(os.path.join(repo, "tools", self.FROZEN[0]), "wb") as fh:
+            fh.write(("# %s, as committed\n" % self.FROZEN[0]).replace("\n", "\r\n").encode())
+        with self.assertRaises(FZ.Refused) as ctx:
+            self.freeze_in(repo, run_dir=os.path.join(repo, ".test_run", "r1"))
+        self.assertIn(os.path.basename(self.FROZEN[0]), str(ctx.exception))
+
+    def test_a_frozen_directory_that_is_already_there_is_refused_and_left_alone(self):
+        """(NIT 9) A reused run dir used to lose its earlier frozen evidence without a word."""
+        import tempfile
+        from p4_health import frozen as FZ
+        repo = self.scratch_repo()
+        run = tempfile.mkdtemp(prefix="p4h-freeze-again-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, run, True)
+        os.makedirs(os.path.join(run, "frozen", "p4_health"))
+        old = os.path.join(run, "frozen", "p4_health", "hostside.py")
+        with open(old, "w") as fh:
+            fh.write("evidence of an earlier run\n")
+        with self.assertRaises(FZ.Refused) as ctx:
+            self.freeze_in(repo, run_dir=run)
+        self.assertIn("already exists", str(ctx.exception))      # said so, not 'cannot create' from mkdir
+        with open(old) as fh:
+            self.assertEqual(fh.read(), "evidence of an earlier run\n")
+
+    def test_a_planted_symlink_for_the_frozen_directory_is_refused(self):
+        import tempfile
+        from p4_health import frozen as FZ
+        repo = self.scratch_repo()
+        run = tempfile.mkdtemp(prefix="p4h-freeze-link-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, run, True)
+        os.symlink(os.path.join(run, "nowhere"), os.path.join(run, "frozen"))      # dangling
+        with self.assertRaises(FZ.Refused):
+            self.freeze_in(repo, run_dir=run)
+        self.assertFalse(os.path.exists(os.path.join(run, "nowhere")))
+
+    def test_a_symlink_planted_at_a_destination_is_not_written_through(self):
+        """(NIT 9) Something plants <run>/frozen/p4_health/hostside.py -> a file outside, after the
+        directory exists and before the copy: the copy used to be written through the link (the target
+        overwritten, the run then executing a file that stays editable). Now refused, target intact."""
+        import tempfile
+        from unittest import mock
+        from p4_health import frozen as FZ
+        repo = self.scratch_repo()
+        run = tempfile.mkdtemp(prefix="p4h-freeze-plant-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, run, True)
+        victim = os.path.join(run, "victim.py")
+        with open(victim, "w") as fh:
+            fh.write("# the target: must stay as it is\n")
+        planted = os.path.join(os.path.realpath(run), "frozen", "p4_health", "hostside.py")
+        real_mkdir = os.mkdir
+
+        def mkdir(path, *a, **kw):
+            real_mkdir(path, *a, **kw)
+            if os.path.realpath(path) == os.path.dirname(planted):
+                os.symlink(victim, planted)
+        with mock.patch.object(FZ.os, "mkdir", mkdir):
+            with self.assertRaises(FZ.Refused):
+                self.freeze_in(repo, run_dir=run)
+        with open(victim) as fh:
+            self.assertEqual(fh.read(), "# the target: must stay as it is\n")
+
+    def test_a_symlink_planted_for_a_subdirectory_is_not_followed(self):
+        """(NIT 9) The same one level up: <run>/frozen/p4_health planted as a link to a directory outside.
+        makedirs(exist_ok=True) accepted it and every copy landed in the target."""
+        import tempfile
+        from unittest import mock
+        from p4_health import frozen as FZ
+        repo = self.scratch_repo()
+        run = tempfile.mkdtemp(prefix="p4h-freeze-dirlink-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, run, True)
+        elsewhere = os.path.join(run, "elsewhere")
+        os.makedirs(elsewhere)
+        link = os.path.join(os.path.realpath(run), "frozen", "p4_health")
+        real_mkdir = os.mkdir
+
+        def mkdir(path, *a, **kw):
+            if os.path.realpath(path) == link or path == link:
+                os.symlink(elsewhere, link)
+            real_mkdir(path, *a, **kw)
+        with mock.patch.object(FZ.os, "mkdir", mkdir):
+            with self.assertRaises(FZ.Refused):
+                self.freeze_in(repo, run_dir=run)
+        self.assertEqual(os.listdir(elsewhere), [])
+
+    def test_probe_lab_hands_its_frozen_code_to_s0(self):
+        import contextlib
+        import tempfile
+        from unittest import mock
+        from p4_health import probe
+        from p4_health.collect.config import Config as RealConfig
+        seen = []
+        fz = FrozenStub()
+
+        class FakeS0(object):
+            def __init__(self, *a, **kw):
+                self.out = {"verdict": "PROBE-BROKEN", "checks": []}
+                seen.append(kw)
+
+            def run(self):
+                return 1
+        d = tempfile.mkdtemp(prefix="p4h-s0frozen-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, d, True)
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(mock.patch.object(probe.subprocess, "run", self.git_answering(0)))
+            stack.enter_context(mock.patch("p4_health.s0.S0", FakeS0))
+            stack.enter_context(mock.patch("p4_health.frozen.freeze", return_value=fz))
+            stack.enter_context(mock.patch("p4_health.lab.run_lab", return_value=(2, {})))
+            stack.enter_context(mock.patch("p4_health.collect.config.Config",
+                                           lambda run_dir, owner=None: RealConfig(run_dir, owner=owner,
+                                                                                  expected_tsv=EXPECTED_TSV)))
+            probe.main(["lab", "--run-dir", d, "--owner", "o"])
+        self.assertIs(seen[0].get("frozen"), fz)
+
+    # --- round 5, #5: every module the lab path loads is loaded before the clean check ----------
+    LAB_DRIVER = (
+        "import json, os, sys, types\n"
+        "tools, run = sys.argv[1], sys.argv[2]\n"
+        "sys.path.insert(0, tools)\n"
+        "from p4_health import probe\n"
+        "class Reached(BaseException):\n"
+        "    pass\n"
+        "class FakeS0(object):\n"
+        "    def __init__(self, *a, **kw):\n"
+        "        self.out = {'verdict': 'COMPLETE'}\n"
+        "    def run(self):\n"
+        "        # an edit that lands while S0 runs\n"
+        "        with open(os.path.join(tools, 'p4_health', 'identity.py'), 'a') as fh:\n"
+        "            fh.write('\\nEDITED_DURING_S0 = True\\n')\n"
+        "        ident = sys.modules.get('p4_health.identity')\n"
+        "        raise Reached(json.dumps({'loaded': sorted(m for m in sys.modules if m.startswith('p4_health')),\n"
+        "                                  'at_the_clean_check': at_check[0],\n"
+        "                                  'identity_has_the_edit': hasattr(ident, 'EDITED_DURING_S0')}))\n"
+        "at_check = []\n"
+        "real_git = probe._git_run\n"
+        "def git(*args):\n"
+        "    if args[0] == 'status' and not at_check:\n"
+        "        at_check.append(sorted(m for m in sys.modules if m.startswith('p4_health')))\n"
+        "    return real_git(*args)\n"
+        "probe._git_run = git\n"
+        "stub = types.ModuleType('p4_health.s0')\n"
+        "stub.S0 = FakeS0\n"
+        "sys.modules['p4_health.s0'] = stub\n"
+        "try:\n"
+        "    probe.main(['lab', '--run-dir', run, '--owner', 'o'])\n"
+        "except Reached as r:\n"
+        "    print(r.args[0])\n")
+
+    def scratch_tools(self):
+        """A git repo holding a copy of the package under test and the three p4_exercise files, committed."""
+        import shutil
+        import tempfile
+        d = tempfile.mkdtemp(prefix="p4h-preload-%d-" % os.getpid())
+        self.addCleanup(shutil.rmtree, d, True)
+        tools = os.path.dirname(os.path.dirname(PKG))
+        shutil.copytree(os.path.join(tools, "p4_health"), os.path.join(d, "tools", "p4_health"),
+                        ignore=shutil.ignore_patterns("__pycache__"))
+        os.makedirs(os.path.join(d, "tools", "p4_exercise"))
+        for f in ("__init__.py", "common.py", "run_external_controller.py"):
+            shutil.copy(os.path.join(tools, "p4_exercise", f), os.path.join(d, "tools", "p4_exercise", f))
+        subprocess.run(["git", "-C", d, "init", "-q"], check=True)
+        self.git_in(d, "add", ".")
+        self.git_in(d, "commit", "-q", "-m", "tools")
+        return d
+
+    def test_an_edit_to_identity_during_s0_cannot_reach_the_probe_process(self):
+        """(#5) identity.py computes the gate fingerprint that becomes the standing authorization's
+        baseline, and used to be imported only after S0 (~2 minutes after the clean check). Run
+        `probe.py lab` in a scratch copy with S0 replaced by a stub that edits identity.py: the module
+        must already be loaded, so the edit is on disk and nowhere else. Likewise every other module
+        S0 and the identity step import lazily."""
+        import json
+        import tempfile
+        d = self.scratch_tools()
+        run = tempfile.mkdtemp(prefix="p4h-preload-run-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, run, True)
+        res = subprocess.run([sys.executable, "-c", self.LAB_DRIVER, os.path.join(d, "tools"), run],
+                             capture_output=True, text=True, timeout=120, cwd=d,
+                             env=dict(os.environ, PYTHONDONTWRITEBYTECODE="1", PYTHONPATH=""))
+        self.assertEqual(res.returncode, 0, res.stderr)
+        got = json.loads(res.stdout.strip().splitlines()[-1])
+        for name in ("identity", "vs_trial", "ctrl_trial", "round_b", "round_a", "lab", "lab_round",
+                     "frozen", "attribution", "controller_ext", "observe_a", "throwaway"):
+            self.assertIn("p4_health." + name, got["loaded"], name)
+            self.assertIn("p4_health." + name, got["at_the_clean_check"], name + " (at the clean check)")
+        self.assertFalse(got["identity_has_the_edit"])
+
+    def test_the_lab_path_list_covers_every_module_of_the_package(self):
+        """The list `probe.py lab` loads up front is the package's whole module list, less the files that
+        only ever run as scripts; and none of those is imported by a module that is loaded."""
+        import re
+        from p4_health import probe
+        pkg = os.path.dirname(PKG)
+        scripts = {"probe", "hostside", "capture_thrift_fixtures", "openapi_probe"}
+        found = set()
+        for dirpath, dirs, files in os.walk(pkg):
+            dirs[:] = [d_ for d_ in dirs if d_ not in ("__pycache__", "exercise")]
+            for f in files:
+                if f.endswith(".py") and f != "__init__.py":
+                    rel = os.path.relpath(os.path.join(dirpath, f), pkg)[:-3].replace(os.sep, ".")
+                    found.add(rel)
+        self.assertEqual(sorted("p4_health." + m for m in found - scripts), sorted(probe.LAB_PATH_MODULES))
+        # a script-only module that a loaded one imports would be loaded lazily after the check
+        for rel in sorted(found - scripts):
+            with open(os.path.join(pkg, rel.replace(".", os.sep) + ".py"), encoding="utf-8") as fh:
+                text = fh.read()
+            for name in scripts - {"probe"}:
+                self.assertIsNone(re.search(r"^\s*(from|import)\s+(p4_health\.|\.)?(%s)\b" % name, text, re.M),
+                                  (rel, name))
+
+    def test_the_frozen_adapter_and_controller_launched_as_b_launches_them_load_nothing_from_the_shared_tree(self):
+        """(NIT 12) B starts `<p4dev python> <adapter> <package> <controller> --tutorials-utils <dir>` with
+        no -I, the adapter importing p4_exercise.common and running the controller through runpy. Here
+        that very argv runs against a stub p4runtime_lib (no switch answers: every connect raises, which
+        the controller records), and the files of everything loaded are listed at exit, with
+        `p4_health.frames` resolved the way the controller's lazy import would resolve it. The frozen
+        launch loads nothing from the shared tree; the same launch of the shared tree's files does (the
+        control: the detector is live)."""
+        import json
+        import shutil
+        import tempfile
+        from p4_health import frozen as FZ
+        d = tempfile.mkdtemp(prefix="p4h-launch-%d-" % os.getpid())
+        self.addCleanup(shutil.rmtree, d, True)
+        tools = os.path.dirname(os.path.dirname(PKG))
+        utils = os.path.join(d, "utils")
+        for rel, text in (("p4runtime_lib/__init__.py", ""),
+                          ("p4runtime_lib/bmv2.py", "class Bmv2SwitchConnection(object):\n"
+                           "    def __init__(self, name=None, address=None, device_id=0, *a, **kw):\n"
+                           "        raise RuntimeError('stub: no switch at %s device %s' % (address, device_id))\n"),
+                          ("p4runtime_lib/helper.py", ""),
+                          ("p4runtime_lib/switch.py", "class StreamDispatcher(object):\n    pass\n"),
+                          ("p4/__init__.py", ""), ("p4/v1/__init__.py", ""), ("p4/v1/p4runtime_pb2.py", "")):
+            os.makedirs(os.path.dirname(os.path.join(utils, rel)), exist_ok=True)
+            with open(os.path.join(utils, rel), "w") as fh:
+                fh.write(text)
+        site = os.path.join(d, "site")
+        os.makedirs(site)
+        with open(os.path.join(site, "sitecustomize.py"), "w") as fh:
+            fh.write("import atexit, json, os, sys\n"
+                     "def _dump():\n"
+                     "    try:\n"
+                     "        import p4_health.frames as fr\n"
+                     "        frames = fr.__file__\n"
+                     "    except Exception as exc:\n"
+                     "        frames = repr(exc)\n"
+                     "    files = sorted({getattr(m, '__file__', None) for m in sys.modules.values()\n"
+                     "                    if getattr(m, '__file__', None)})\n"
+                     "    json.dump({'files': files, 'frames': frames}, open(os.environ['SEEN_OUT'], 'w'))\n"
+                     "atexit.register(_dump)\n")
+        pkg = os.path.join(d, "run", "packages", "B")
+        os.makedirs(pkg)
+        with open(os.path.join(pkg, "package.json"), "w") as fh:
+            json.dump({"name": "p4-health-B", "control_plane": {"mode": "external", "grpc_base": 30050},
+                       "switches": {"1": {}, "2": {}, "3": {}, "4": {}}, "source": {"exercise_dir": pkg}}, fh)
+        fz = FZ.freeze(os.path.join(d, "run"))
+
+        def launch(adapter, controller, tag):
+            work = os.path.join(d, tag)
+            os.makedirs(work)
+            conf = {"out": os.path.join(work, "result.json"), "ready": os.path.join(work, "ready.json"),
+                    "go": os.path.join(work, "go"), "build": work, "go_timeout_s": 0, "attr_dpid": 2,
+                    "programs": {str(i): "hc_main" for i in (1, 2, 3, 4)}, "runtimes": {}}
+            with open(os.path.join(work, "conf.json"), "w") as fh:
+                json.dump(conf, fh)
+            env = dict(os.environ, PYTHONPATH=site, P4H_CTRL_CONFIG=os.path.join(work, "conf.json"),
+                       SEEN_OUT=os.path.join(work, "seen.json"), PYTHONDONTWRITEBYTECODE="1")
+            res = subprocess.run([sys.executable, adapter, pkg, controller, "--tutorials-utils", utils],
+                                 capture_output=True, text=True, timeout=120, cwd=work, env=env)
+            self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+            with open(os.path.join(work, "result.json")) as fh:
+                result = json.load(fh)
+            with open(os.path.join(work, "seen.json")) as fh:
+                return result, json.load(fh), res.stdout
+
+        def shared(seen):
+            root = os.path.realpath(tools) + os.sep
+            return [f for f in seen["files"] + [seen["frames"]] if os.path.realpath(f).startswith(root)]
+        result, seen, out = launch(fz.adapter, fz.controller, "frozen")
+        self.assertIn("[adapter] running", out)
+        self.assertEqual(sorted(result["switches"]), ["1", "2", "3", "4"])
+        # the adapter's rewrite is what the stub saw: the fabric's port and device id, not tutorials'
+        self.assertIn("localhost:30051 device %s" % 1, result["switches"]["1"]["connect_error"])
+        self.assertEqual(shared(seen), [])
+        self.assertEqual(os.path.realpath(seen["frames"]), os.path.realpath(fz.path("p4_health/frames.py")))
+        # the control: the shared tree's own files, launched the same way, are seen
+        _res, seen2, _out = launch(os.path.join(tools, "p4_exercise", "run_external_controller.py"),
+                                   os.path.join(tools, "p4_health", "controller_ext.py"), "shared")
+        self.assertTrue(shared(seen2), "the detector saw nothing even when the shared tree was launched")
+
+    def test_the_run_gets_the_frozen_code_that_probe_froze(self):
+        """cmd_lab hands run_lab the Frozen it froze before S0, not a second one."""
+        sentinel = FrozenStub()
+        rc, ran, _gate = self.lab_with_the_real_fingerprint({"return_value": "/x/b"}, frozen=sentinel)
+        self.assertEqual(rc, 0)
+        self.assertIs(ran.call_args[1]["frozen"], sentinel)
+
+    def test_the_may_differ_classes_are_the_designs(self):
+        from p4_health import identity as ID
+        for path in ("p4_proxy/proxy_agent/main.py", "src/ndt_core/x.cpp", "include/a.hpp", "libs/x",
+                     "cmake/x.cmake", "CMakeLists.txt", "build/bin/ndtwin_kernel", "tests/python/t.py",
+                     "doc/x.md", "doc/audit/y/expected_today.tsv"):
+            self.assertTrue(ID.may_differ(path), path)
+        for path in ("p4_proxy/proxy_agent/sflow_emitter.py", "p4_proxy/mininet/p4_testbed_topo.py",
+                     "tools/p4_health/hostside.py", "tools/test_workflow/ndt", "doc/x.py",
+                     "doc/audit/y/code.sh", "CMakeLists.txt.bak"):
+            self.assertFalse(ID.may_differ(path), path)
+
+    def test_the_fingerprint_moves_with_what_must_be_the_same_only(self):
+        import tempfile
+        from p4_health import identity as ID
+        from p4_health.collect.runner import RecordingRunner
+        d = tempfile.mkdtemp(prefix="p4h-fp-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, d, True)
+        files = {"tools/p4_health/a.py": "1", "src/k.cpp": "2", "doc/n.md": "3",
+                 "p4_proxy/proxy_agent/sflow_emitter.py": "4"}
+        for rel, text in files.items():
+            os.makedirs(os.path.dirname(os.path.join(d, rel)), exist_ok=True)
+            open(os.path.join(d, rel), "w").write(text)
+        r = RecordingRunner([(lambda a: a[:4] == ["git", "-C", d, "ls-files"] and "--others" not in a,
+                              (0, "\0".join(files) + "\0")),
+                             (lambda a: "--others" in a, (0, "")),
+                             (("git",), (1, "")), (("bash",), (1, ""))])
+
+        def fp():
+            return ID.repo_parts(r, d, os.path.join(d, ".test_run", "run"))["repo_tracked"]
+        base = fp()
+        open(os.path.join(d, "src/k.cpp"), "w").write("changed")
+        open(os.path.join(d, "doc/n.md"), "w").write("changed")
+        self.assertEqual(fp(), base)
+        open(os.path.join(d, "p4_proxy/proxy_agent/sflow_emitter.py"), "w").write("changed")
+        self.assertNotEqual(fp(), base)
+        whole = ID.fingerprint(r, d, d, ["/no/python"], ntg=os.path.join(d, "no-ntg"))
+        self.assertEqual(whole["sha256"], "incomplete")          # an unread part is not a match
+
+
+class TestCut2Decisions(unittest.TestCase):
+
+    def test_a_cell_never_observed_is_not_run_for_that_reason(self):
+        v = decide("CH1", None)
+        self.assertEqual((v.verdict, v.phase), (V.NOT_RUN, "unobserved"))
+        self.assertIn("not observed", v.reason)
+        # an observation that exists but carries no answer is still the "unreadable" step
+        v = decide("T4", {})
+        self.assertEqual((v.verdict, v.phase), (V.NOT_RUN, "answer"))
+
+    def test_a_cell_this_run_did_not_observe_has_no_delta(self):
+        """m1: an unobserved cell is not a flip of its prediction: its delta says so."""
+        ctx = V.Context()
+        ctx.cells["CH1"] = decide("CH1", None)
+        ctx.cells["T8"] = V.Verdict(V.RED, "x", phase="cannot")
+        ctx.cells["PL1"] = V.Verdict(V.RED, "x", phase="compare")
+        ann = E.annotate(ctx, {"CH1": {"expected": "PARTIAL(a)"}, "T8": {"expected": "RED"},
+                               "PL1": {"expected": "GREEN"}})
+        self.assertEqual(ann["CH1"], ("PARTIAL(a)", "not observed"))
+        self.assertEqual(ann["T8"], ("RED", "same"))
+        self.assertEqual(ann["PL1"], ("GREEN", "flipped"))
+        # N7: a control this run did not observe (T3-neg in --only K1,TTL1) is no flip either
+        t3neg = [c for c in T.TABLE.controls if c.id == "T3-neg"][0]
+        ctx.cells["T3-neg"] = t3neg.judge(None)
+        ctx.cells["K1-neg"] = T.TABLE.controls[0].judge({"answer": None})
+        ann = E.annotate(ctx, {"T3-neg": {"expected": "GREEN"}, "K1-neg": {"expected": "GREEN"}})
+        self.assertEqual(ann["T3-neg"], ("GREEN", "not observed"))
+        self.assertEqual(ann["K1-neg"], ("GREEN", "flipped"))      # observed, and no answer: a flip
+
+    def test_only_expands_to_the_gates_controls_and_self_check_producers(self):
+        self.assertEqual(RA.expand(["K1", "TTL1"]), {"PL1", "T1", "TP1", "K1-neg", "K1", "TTL1"})
+        self.assertEqual(RA.expand(["T7"]), {"T7", "T4"})
+        self.assertEqual(RA.expand(["CP1"]), {"T1"})
+        self.assertEqual(RA.expand(["R2"]), {"R2", "T1", "PL1", "TP1"})
+        self.assertEqual(RA.expand(None), set(RA.CUT2_CELLS))
+        self.assertEqual(RA.expand(["CH1"]), set())        # a Cut 3 cell is not this round's
+        # a self-check named on its own brings the cell whose step takes its readings
+        self.assertEqual(RA.expand(["SC-count"]), {"K1", "K1-neg", "PL1", "T1", "TP1"})
+        self.assertEqual(RA.expand(["SC-reg"]), {"R2", "PL1", "T1", "TP1"})
+
+    def test_bring_up_as_cells_are_the_cut_2_rows_of_the_table(self):
+        rows = {c.id for c in T.TABLE.cells if c.cut == 2 and c.bringup == "A" and c.alias_of is None}
+        self.assertEqual(set(RA.CUT2_CELLS) - {"K1-neg", "T3-neg"}, rows)
+
+
+TOK = "abcd1234"
+
+
+def ctrl_result(fail=(), **over):
+    calls = {i: {"ok": i not in fail, "detail": None, "error": "refused" if i in fail else None}
+             for i in AT.ITEMS if i != "packet_in"}
+    calls["direct_counter"]["detail"] = {"packets": 200}
+    res = {"attributions": calls, "digests": [{"members": [AT.ip_int("10.0.4.4"), 40041, 40041]}],
+           "packet_ins": [{"ingress_port": 1, "marker": [TOK, "P2", 0]}]}
+    res.update(over)
+    return res
+
+
+TOP = 2 ** 31 - 1
+
+
+def dump(*entries):
+    return {"entries": [dict(handle=i, keys=[("f", k[0], k[1])], priority=p, action="HcIngress.set_mark",
+                             params=prm, member=None, group=None, life=None)
+                        for i, (k, p, prm) in enumerate(entries)], "default": None}
+
+
+def thrift_ok(over=None):
+    t, r, o = CX.TERNARY, CX.RANGE, CX.OPTIONAL
+    reads = {
+        "table_dump HcIngress.t_ternary": dump((("TERNARY", "0a000400 &&& ffffff00"), TOP - 10, [41]),
+                                               (("TERNARY", "0a000606 &&& ffffffff"), TOP - 30, [71]),
+                                               (("TERNARY", "0a000600 &&& ffffff00"), TOP - 20, [72])),
+        "table_dump HcIngress.t_range": dump((("RANGE", "9ca4 -> 9cae"), TOP - 10, [51])),
+        "table_dump HcIngress.t_optional": dump((("TERNARY", "11 &&& ff"), TOP - 10, [61])),
+        "meter_get_rates HcIngress.m_in 0": [(0.125, 12500), (0.125, 12500)],
+        "table_dump HcIngress.t_dmeter": {"entries": [{"handle": 3, "keys": [("f", "EXACT", "9c57")]}]},
+        "meter_get_rates HcIngress.dm_mt3 3": [(0.125, 12500), (0.125, 12500)],
+        "mirroring_get 9": {"present": True, "port": None, "mgid": 0x8009},
+        "mc_dump": {0x8009: frozenset([1])},
+        "register_read HcIngress.r_mark 1": 0xBEEF,
+        "table_dump HcIngress.t_dcount": {"entries": [{"handle": 5, "keys": [("f", "EXACT", "9c4c")]}]},
+        "counter_read HcIngress.dc_k2 5": (0, 200),
+    }
+    reads.update(over or {})
+    return lambda cmd: reads.get(cmd)
+
+
+EXPECT = {"digest": [AT.ip_int("10.0.4.4"), 40041, 40041], "packet_in_port": 1, "packet_in_cell": "P2",
+          "token": TOK}
+
+
+class TestAttributionConfirm(unittest.TestCase):
+    """design 4.2: a call that succeeded AND an independent reading, or the attribution fails."""
+
+    def ok(self, result=None, read=None, p3=5, expect=EXPECT):
+        got = AT.confirm(ctrl_result() if result is None else result, read or thrift_ok(), p3, expect)
+        return {k: v["ok"] for k, v in got.items()}, got
+
+    def test_every_item_confirmed(self):
+        ok, got = self.ok()
+        self.assertEqual(ok, {i: True for i in AT.ITEMS}, got)
+
+    def test_a_failed_call_fails_its_item_whatever_thrift_shows(self):
+        for item in AT.ITEMS:
+            if item == "packet_in":
+                continue
+            with self.subTest(item=item):
+                ok, _ = self.ok(ctrl_result(fail=(item,)))
+                self.assertEqual({k for k, v in ok.items() if not v}, {item})
+
+    def test_no_result_confirms_nothing(self):
+        ok, _ = self.ok({})
+        self.assertFalse(any(ok.values()))
+        got = AT.confirm(None, thrift_ok(), 5, EXPECT)
+        self.assertFalse(any(v["ok"] for v in got.values()))
+
+    def test_thrift_that_does_not_show_the_effect_fails_the_item(self):
+        cases = {
+            "ternary": {"table_dump HcIngress.t_ternary": dump(
+                (("TERNARY", "0a000400 &&& ffffff00"), 10, [41]),                 # P4Runtime's number kept
+                (("TERNARY", "0a000606 &&& ffffffff"), TOP - 30, [71]),
+                (("TERNARY", "0a000600 &&& ffffff00"), TOP - 20, [72]))},
+            "range": {"table_dump HcIngress.t_range": dump()},
+            "optional": {"table_dump HcIngress.t_optional": None},
+            "meter": {"meter_get_rates HcIngress.m_in 0": []},
+            "direct_meter": {"meter_get_rates HcIngress.dm_mt3 3": [(0.25, 12500), (0.125, 12500)]},
+            "clone": {"mc_dump": {0x8009: frozenset([2])}},
+            "register": {"register_read HcIngress.r_mark 1": 0},
+            "direct_counter": {"counter_read HcIngress.dc_k2 5": (0, 199)},
+        }
+        for item, over in cases.items():
+            with self.subTest(item=item):
+                ok, got = self.ok(read=thrift_ok(over))
+                self.assertFalse(ok[item], got[item])
+
+    def test_priority_needs_the_requested_order_in_thrifts_numbers(self):
+        swapped = dump((("TERNARY", "0a000400 &&& ffffff00"), TOP - 10, [41]),
+                       (("TERNARY", "0a000606 &&& ffffffff"), TOP - 20, [71]),
+                       (("TERNARY", "0a000600 &&& ffffff00"), TOP - 30, [72]))
+        ok, _ = self.ok(read=thrift_ok({"table_dump HcIngress.t_ternary": swapped}))
+        self.assertFalse(ok["priority"])
+        self.assertTrue(ok["ternary"])
+
+    def test_the_stream_messages_must_carry_what_the_probe_sent(self):
+        ok, _ = self.ok(ctrl_result(digests=[{"members": [AT.ip_int("10.0.4.4"), 40042, 40041]}]))
+        self.assertFalse(ok["digest"])
+        ok, _ = self.ok(ctrl_result(packet_ins=[{"ingress_port": 2, "marker": [TOK, "P2", 0]}]))
+        self.assertFalse(ok["packet_in"])
+        ok, _ = self.ok(ctrl_result(packet_ins=[{"ingress_port": 1, "marker": ["otherrun", "P2", 0]}]))
+        self.assertFalse(ok["packet_in"])
+        ok, _ = self.ok(ctrl_result(), expect=dict(EXPECT, digest=[]))
+        self.assertFalse(ok["digest"])
+
+    def test_the_packet_out_needs_the_receiving_host(self):
+        for p3 in (0, None):
+            ok, _ = self.ok(p3=p3)
+            self.assertFalse(ok["packet_out"])
+
+    def test_the_direct_counter_needs_traffic(self):
+        res = ctrl_result()
+        res["attributions"]["direct_counter"]["detail"] = {"packets": 0}
+        ok, _ = self.ok(res, read=thrift_ok({"counter_read HcIngress.dc_k2 5": (0, 0)}))
+        self.assertFalse(ok["direct_counter"])
+
+    def test_each_cell_gets_its_items_attribution(self):
+        cells = AT.for_cells({"ternary": {"ok": True}, "meter": {"ok": False}})
+        self.assertEqual((cells["T4"], cells["MT1"], cells["MT2"], cells["R3"]),
+                         ({"bmv2": True}, {"bmv2": False}, {"bmv2": False}, {"bmv2": False}))
+        self.assertEqual(set(cells), set(AT.CELL_ITEMS))
+        self.assertEqual(set(AT.CELL_ITEMS.values()), set(AT.ITEMS))
+        for cell in AT.CELL_ITEMS:
+            self.assertIn("bmv2", T.TABLE.cell(cell).red_attribution, cell)
 
 
 if __name__ == "__main__":

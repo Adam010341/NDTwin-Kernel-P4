@@ -12,7 +12,11 @@ against the lab.
     can finish what a crash left. The claim note carries the file's path.
   * The qdisc snapshot is taken AFTER `ndt up` and before any netem (12-12): before the up there
     is no fabric to snapshot.
-  * SIGTERM, SIGINT and SIGHUP become an exception, so they take the `finally`.
+  * SIGTERM, SIGINT and SIGHUP become an exception inside the round, so they take the `finally`
+    and the teardown runs. A signal that arrives DURING the teardown does not cut the cleanup
+    short: the first one is kept, and `run()` adds "aborted by signal N (during the teardown)" to
+    the record's problems once the cleanup is done, so the run ends there like any other stop
+    (lab.py reads that sentence) and no later bring-up claims the lab (Cut 2 round 4, F1).
   * The teardown, in order: stop sniffers -> stop controllers -> remove netem -> compare qdisc
     -> `ndt down` -> put the two knobs back as BYTES -> `ndt release`. A qdisc mismatch is
     recorded and does NOT stop the down, the restore or the release -- only recover.sh stops
@@ -47,9 +51,13 @@ PHASES = ("pre-claim", "claiming", "up", "cells", "teardown", "released", "down-
           "claim-refused", "lab-busy", "claim-unverified")
 
 
-class SignalAbort(Exception):
+class SignalAbort(BaseException):
+    """SIGTERM / SIGINT / SIGHUP, raised where the probe was. A BaseException on purpose (Cut 2
+    review N1): the reading layer's `except Exception` blocks (an unreachable HTTP answer, a
+    sniffer that will not end) must not swallow a stop and let the round carry on."""
+
     def __init__(self, signum):
-        Exception.__init__(self, "signal %d" % signum)
+        BaseException.__init__(self, "signal %d" % signum)
         self.signum = signum
 
 
@@ -59,6 +67,33 @@ class RootRefused(RuntimeError):
 
 class PackageOutsideRunDir(ValueError):
     """(r6) A round's package must live inside that round's own run dir."""
+
+
+class StateInUse(RuntimeError):
+    """(Cut 2) The run dir's LAB_STATE.json belongs to a round that did not finish: it is what
+    recover.sh reads, and a new round would overwrite it."""
+
+
+#: Phases after which a round left nothing for recover.sh: released, or nothing was touched.
+TERMINAL_PHASES = ("released", "claim-refused", "lab-busy")
+
+
+def state_in_use(path):
+    """Why the state file at `path` must not be overwritten, or None (absent, or a round that
+    finished with no process and no netem left in it)."""
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as fh:
+            st = json.load(fh)
+    except (OSError, ValueError) as exc:
+        return "unreadable (%s)" % exc
+    if st.get("phase") not in TERMINAL_PHASES:
+        return "bring-up %s stopped at phase %r" % (st.get("bring_up"), st.get("phase"))
+    left = [k for k in ("sniffers", "controllers", "netem") if st.get(k)]
+    if left:
+        return "bring-up %s left %s for recover.sh" % (st.get("bring_up"), ", ".join(left))
+    return None
 
 
 def package_inside(package_real, run_dir):
@@ -137,6 +172,11 @@ class LabRound(object):
         if not package_inside(package_real, cfg.run_dir):
             raise PackageOutsideRunDir("package_dir %r is not inside the run dir %r: each round's package "
                                        "is its own copy there" % (package_dir, cfg.run_dir))
+        # (Cut 2) Nor over a state file a round that did not finish left for recover.sh.
+        in_use = state_in_use(cfg.lab_state_path)
+        if in_use:
+            raise StateInUse("%s: %s; run recover.sh on this run before another round"
+                             % (cfg.lab_state_path, in_use))
         self.cfg, self.runner = cfg, runner
         self.bringup, self.package_dir, self.run_id = bringup, package_real, run_id
         self.minutes = minutes
@@ -153,6 +193,8 @@ class LabRound(object):
                       "claim_file": cfg.claim_file, "claim_expires": None, "ndt": cfg.ndt}
         self.knobs = {}
         self.events = []
+        self.teardown_signal = None          # the first stop signal that arrived during the teardown
+        self.rec = None                      # the record run() is filling in, for lab.py (round 5, NIT 10)
 
     # --- LAB_STATE.json ---------------------------------------------------------------------------
     def write_state(self, **changes):
@@ -252,25 +294,43 @@ class LabRound(object):
         return True, ""
 
     # --- the round ------------------------------------------------------------------------------------
+    SIGS = (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)
+
+    def _noter(self, signum, _frame):
+        # During the teardown a signal must not abort the cleanup: the first is kept, and run()
+        # records it once the cleanup is over (it must still end the run).
+        self.events.append(("signal-during-teardown", signum))
+        if self.teardown_signal is None:
+            self.teardown_signal = signum
+
+    def _swap_handlers(self, handlers):
+        """Install `handlers` ({signal: handler}) with the three signals blocked meanwhile, so that no
+        stop arrives between two of the switches (round 5, NIT 10); a stop that came in while they were
+        blocked is delivered when the mask is put back, to the handler that is then in place. Returns
+        the handlers replaced."""
+        old_mask = signal.pthread_sigmask(signal.SIG_BLOCK, self.SIGS)
+        try:
+            return {s: signal.signal(s, h) for s, h in handlers.items()}
+        finally:
+            signal.pthread_sigmask(signal.SIG_SETMASK, old_mask)
+
     def _handlers(self, on):
         if not self.install_signals:
             return
-        sigs = (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)
         if on:
             def raiser(signum, _frame):
+                # (round 5, NIT 10) The first stop ends the body, and from here on a further one is only
+                # noted: the teardown's handler goes in BEFORE this raises, not later in `finally`, where
+                # a second stop used to raise again over the first and skip the whole teardown.
+                self._swap_handlers({s: self._noter for s in self.SIGS})
                 raise SignalAbort(signum)
-            self._old = {s: signal.signal(s, raiser) for s in sigs}
+            self._old = self._swap_handlers({s: raiser for s in self.SIGS})
         else:
-            # During the teardown a second signal must not abort the cleanup: noted, ignored.
-            def noter(signum, _frame):
-                self.events.append(("signal-during-teardown", signum))
-            for s in sigs:
-                signal.signal(s, noter)
+            self._swap_handlers({s: self._noter for s in self.SIGS})
 
     def _restore_handlers(self):
         if self.install_signals and getattr(self, "_old", None):
-            for s, h in self._old.items():
-                signal.signal(s, h)
+            self._swap_handlers(self._old)
 
     def run(self, body):
         if os.geteuid() == 0:
@@ -279,6 +339,7 @@ class LabRound(object):
                "claim_rc": None, "knobs_restored": None, "qdisc_same": None,
                "heartbeat_state": None, "frames_reached_hosts": None, "seconds": None,
                "complete": False, "problems": []}
+        self.rec = rec          # lab.py takes it from here if a stop leaves run() before it returns
         t0 = self.clock()
         busy = self.check_lab()
         if busy:
@@ -335,11 +396,21 @@ class LabRound(object):
             try:
                 self.teardown(rec)
             finally:
+                # (round 5, NIT 10) the record is final BEFORE the run-level handlers come back: a stop
+                # that arrives from then on raises out of this method, and the record is whole for
+                # lab.py to take (self.rec). (NIT 13) A knob that was not put back is not a complete round.
+                self._finish(rec, t0)
                 self._restore_handlers()
-        rec["seconds"] = round(self.clock() - t0, 1)
-        if rec["frames_reached_hosts"] is True or rec["release_rc"] != 0 or rec["down_rc"] != 0:
-            rec["complete"] = False
         return rec
+
+    def _finish(self, rec, t0):
+        if self.teardown_signal is not None:
+            rec["problems"].append("aborted by signal %d (during the teardown)" % self.teardown_signal)
+            rec["complete"] = False
+        rec["seconds"] = round(self.clock() - t0, 1)
+        if (rec["frames_reached_hosts"] is True or rec["release_rc"] != 0 or rec["down_rc"] != 0
+                or rec["knobs_restored"] is not True):
+            rec["complete"] = False
 
     def _stop(self, key, entry, root):
         """Signal one recorded process if it is still the one we started; then forget it."""

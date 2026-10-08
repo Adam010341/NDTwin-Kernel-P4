@@ -35,8 +35,15 @@ def load(path):
     return out
 
 
-def delta(expected_label, observed_label):
-    """same | flipped | unpredicted."""
+NOT_OBSERVED = "not observed"
+
+
+def delta(expected_label, observed_label, phase=None):
+    """same | flipped | unpredicted | not observed. A cell this run never observed (verdict
+    phase "unobserved": a later Cut's cell, or one --only left out) is no evidence about its
+    prediction either way (Cut 2 review m1)."""
+    if phase == "unobserved":
+        return NOT_OBSERVED
     if expected_label is None:
         return "unpredicted"
     return "same" if expected_label == observed_label else "flipped"
@@ -47,5 +54,5 @@ def annotate(ctx, expected):
     out = {}
     for cid, verdict in ctx.cells.items():
         exp = (expected.get(cid) or {}).get("expected")
-        out[cid] = (exp, delta(exp, verdict.label))
+        out[cid] = (exp, delta(exp, verdict.label, verdict.phase))
     return out
