@@ -1093,5 +1093,35 @@ class TheRealGatesAreRead(unittest.TestCase):
             self.assertTrue(d.startswith("tests/shell/mutate_"), d)
 
 
+class LeavesNoTempDirBehind(unittest.TestCase):
+    """The checker's gate_anchors_* scratch directory is removed when it exits.
+
+    [Co-developed with claude code -- Adam]
+    It used to be created with mkdtemp and never removed, so every run left one in $TMPDIR. The
+    run here gets a TMPDIR of its own, so another session's leftovers cannot pass or fail it.
+    """
+
+    def _run_in_own_tmpdir(self, **fixture):
+        f = Fixture(**fixture)
+        self.addCleanup(f.close)
+        tmp = tempfile.mkdtemp(prefix="anchorcheck_tmpdir_")
+        self.addCleanup(shutil.rmtree, tmp, True)
+        env = dict(os.environ, TMPDIR=tmp)
+        p = subprocess.run([sys.executable, CHECKER, "HEAD", "--repo", f.dir],
+                           capture_output=True, text=True, env=env)
+        return p, sorted(os.listdir(tmp))
+
+    def test_an_ordinary_run_leaves_nothing(self):
+        p, left = self._run_in_own_tmpdir()
+        self.assertEqual(0, p.returncode, p.stdout + p.stderr)
+        self.assertEqual([], left, "left behind in TMPDIR: %s" % left)
+
+    def test_a_failing_run_leaves_nothing_either(self):
+        # A drifted anchor: the run ends with exit 1 after the directory was made.
+        p, left = self._run_in_own_tmpdir(alpha="2")
+        self.assertEqual(1, p.returncode, p.stdout + p.stderr)
+        self.assertEqual([], left, "left behind in TMPDIR: %s" % left)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
