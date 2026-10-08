@@ -1182,6 +1182,54 @@ class TestLabRound(Sealed):
                          ["aborted by signal %d (during the teardown)" % signal.SIGTERM])
         self.assertFalse(rec["complete"])
 
+    # --- round 5, NIT 10: the two windows around the handler switches ------------------------------
+    def test_a_second_stop_before_the_teardown_handler_is_in_place_does_not_skip_the_teardown(self):
+        """(NIT 10, window 1) The body is stopped (SignalAbort propagating); a second stop arrives
+        before `_handlers(False)` has put the teardown's handler in. With the body's raiser still
+        installed it raised again, inside `finally`, and the teardown never ran. The first stop's raiser
+        now puts the teardown handler in before it raises. Real handlers; the second stop is sent from
+        the hook where the window is (the switch itself)."""
+        seen = []
+        safety = signal.signal(signal.SIGTERM, lambda n, f: seen.append(n))
+        r = self.runner()
+
+        class Twice(LR.LabRound):
+            def _handlers(self, on):
+                if not on:
+                    os.kill(os.getpid(), signal.SIGTERM)        # the second stop, in the window
+                LR.LabRound._handlers(self, on)
+
+        def body(lab):
+            lab.register("sniffer", 555)
+            os.kill(os.getpid(), signal.SIGTERM)                # the first
+        if os.path.exists(self.cfg.lab_state_path):
+            os.remove(self.cfg.lab_state_path)
+        lr = Twice(self.cfg, r, "A", self.pkg, "run-x", pid=4242, proc_root=self.proc, install_signals=True)
+        try:
+            try:
+                rec = lr.run(body)
+            except LR.SignalAbort:
+                self.fail("the second stop escaped run(): %r" % (self.names(r),))
+        finally:
+            signal.signal(signal.SIGTERM, safety)
+        self.assertEqual(seen, [])
+        self.assertEqual(self.names(r)[-3:], ["kill-sniffer 555", "ndt down", "ndt release"])
+        self.assertIn("aborted by signal %d" % signal.SIGTERM, rec["problems"])
+        self.assertFalse(rec["complete"])
+
+    def test_a_knob_that_does_not_go_back_makes_the_round_incomplete_even_when_the_release_succeeds(self):
+        """(NIT 13) rec["complete"] ignored knobs_restored: a telemetry knob that could not be put back
+        (here a directory where the file was) with the down and the release both rc 0 read complete."""
+        r = self.runner()
+        tele = os.path.join(self.knobs, "telemetry_override")
+
+        def body(lab):
+            os.mkdir(tele)                                      # os.remove cannot undo this
+        _lr, rec = self.round(r, body)
+        self.assertEqual((rec["down_rc"], rec["release_rc"], rec["knobs_restored"]), (0, 0, False))
+        self.assertFalse(rec["complete"])
+        self.assertTrue(any(p_.startswith("knob restore") for p_ in rec["problems"]), rec["problems"])
+
     def test_a_busy_lab_is_not_claimed(self):
         r = self.runner(status="  measuring      iperf3 -c 10.0.0.3 -t 200\n")
         _lr, rec = self.round(r)
@@ -2843,6 +2891,33 @@ class TestTheLabRun(Cut2):
         self.fab.ctrl_fail = {"ternary", "meter"}
         rc, doc, _r = self.run_lab()
         self.assertEqual((doc["verdict"], rc, doc["problems"]), ("COMPLETE", 0, []))
+
+    def test_a_stop_just_after_a_rounds_handlers_are_restored_keeps_that_rounds_record(self):
+        """(NIT 10, window 2) A stop that arrives after `_restore_handlers` -- the run-level handler is
+        back and raises -- used to leave run() before `return rec`: the round's record was missing
+        from health.json. It is now final before the handlers are restored, and run_lab collects it."""
+        seen = []
+        safety = signal.signal(signal.SIGTERM, lambda n, f: seen.append(n))
+        proc = self.proc
+
+        def make(cfg, runner, bringup, pkg, run_id):
+            class Late(LR.LabRound):
+                def _restore_handlers(self):
+                    LR.LabRound._restore_handlers(self)
+                    if bringup == "A":
+                        os.kill(os.getpid(), signal.SIGTERM)
+            return Late(cfg, runner, bringup, pkg, run_id, pid=4242, proc_root=proc, install_signals=True)
+        try:
+            rc, doc = LAB.run_lab(self.cfg, self.ndt_runner(), self.s0, self.cfg.run_dir, "run-x", round_cls=make,
+                                  tutorials_utils="/tutorials/utils", expected_tsv=self.expected,
+                                  b_kwargs=self.fake_time(), log=lambda *a: None)
+        finally:
+            signal.signal(signal.SIGTERM, safety)
+        self.assertEqual(seen, [])
+        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
+        self.assertEqual([b["id"] for b in doc["bringups"]], ["A"])
+        self.assertEqual((doc["bringups"][0]["down_rc"], doc["bringups"][0]["release_rc"]), (0, 0))
+        self.assertTrue(any("stop signal" in p_ for p_ in doc["problems"]), doc["problems"])
 
     def test_an_incomplete_s0_touches_nothing(self):
         """(Round 5, #2) S0 with one failing check: INCOMPLETE rc 2 (not rc 1, which is the see-red
