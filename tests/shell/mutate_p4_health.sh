@@ -47,6 +47,9 @@ PROBEPY="$PKG/probe.py"
 CELLS_TEST="$REPO/tests/python/test_p4_health_cells.py"
 COLLECT_TEST="$REPO/tests/python/test_p4_health_collect.py"
 RECOVER_TEST="$REPO/tests/shell/test_p4_health_recover.sh"
+GATE_TEST="$HERE/test_p4_health_gate_scripts.sh"
+GATEPY="$HERE/mutate_p4_health.sh"
+SUMPY="$HERE/mutate_p4_health_shards_sum.sh"
 
 printf 'gate       : %s\n' "${BASH_SOURCE[0]}"
 printf 'cwd        : %s\n' "$PWD"
@@ -2542,6 +2545,174 @@ add "C2R5-11f. observations.json does not carry the rounds' records" \
     '                   "bringups": [], "problems": problems}, fh,  # MUTANT' \
     'test_the_observations_a_run_writes_carry_what_the_offline_judge_reads'
 
+add "C2R5-12. the frozen set leaves out the adapter's common.py" \
+    "$FROZENPY" \
+    '"p4_exercise/run_external_controller.py", "p4_exercise/common.py", "p4_exercise/__init__.py")' \
+    '"p4_exercise/run_external_controller.py", "p4_exercise/__init__.py")  # MUTANT' \
+    'test_the_frozen_adapter_and_controller_launched_as_b_launches_them_load_nothing_from_the_shared_tree'
+
+# --- #6: the gate script and the shard-sum script, mutated as copies and tested by test_p4_health_gate_scripts.sh
+# (its check names, in brackets, are what must go red). The banner printed at the END of a real shard log is
+# not reached by any check that does not run a whole shard: it is the banner at the top, and the synthetic logs
+# the shard-sum tests read, that are pinned.
+add "C2R5-6a. the gate script lets k reach n" \
+    "$GATEPY" \
+    '    (( SHARD_K ''< SHARD_N )) || refuse_config' \
+    '    (( 1 )) || refuse_config  # MUTANT' \
+    '[MUT_SHARD with k equal to n is refused]'
+
+add "C2R5-6b. the gate script lets n exceed the table" \
+    "$GATEPY" \
+    '    (( SHARD_N ''<= ${#MUT_LABEL[@]} )) \' \
+    '    (( 1 )) \' \
+    '[MUT_SHARD with n just above the table size is refused too]'
+
+add "C2R5-6c. the gate script runs when no mutation is selected" \
+    "$GATEPY" \
+    '(( SELECTED ''> 0 )) \' \
+    '(( 1 )) \' \
+    '[an ONLY_LABEL_PREFIX that matches nothing is refused (no mutation is selected)]'
+
+add "C2R5-6d. the gate script takes a shard with a leading zero" \
+    "$GATEPY" \
+    '=~ ^(0|[1-9]''[0-9]*)/([1-9][0-9]*)$ ]]' \
+    '=~ ^([0-9]+)/([1-9][0-9]*)$ ]]  # MUTANT' \
+    '[MUT_SHARD with a leading zero is refused]'
+
+add "C2R5-6e. the gate script does not say a shard is not the gate" \
+    "$GATEPY" \
+    'NOT THE GATE BY ITSELF: shard %s/''%s (%s of %s mutations;' \
+    'a shard: %s/%s (%s of %s mutations;' \
+    '[a shard log opens with NOT THE GATE BY ITSELF: shard k/n]'
+
+add "C2R5-6f. the gate script announces a banner for the whole gate" \
+    "$GATEPY" \
+    'if [[ -n "$SHARD_N" '']]; then
+    printf ' \
+    'if true; then
+    printf ' \
+    '[the whole gate does not]'
+
+add "C2R5-6g. the shard-sum script takes shards of different commits" \
+    "$SUMPY" \
+    '        if len({f[key] for f in facts}) != 1:' \
+    '        if False:  # MUTANT' \
+    '[a shard of another commit (first line and HEAD line)]'
+
+add "C2R5-6h. the shard-sum script lets n exceed the table" \
+    "$SUMPY" \
+    '        if n > labels:' \
+    '        if False:  # MUTANT' \
+    '[n larger than the table (two shards would have run nothing)]'
+
+add "C2R5-6i. the shard-sum script does not compare the first line with the HEAD line" \
+    "$SUMPY" \
+    '    elif first and first.group(1) != head[0]:' \
+    '    elif False:  # MUTANT' \
+    '[a shard whose first line is not the commit HEAD says]'
+
+add "C2R5-6j. the shard-sum script accepts uncommitted changes" \
+    "$SUMPY" \
+    '    elif tree[1].strip():' \
+    '    elif False:  # MUTANT' \
+    '[a shard of a tree with uncommitted changes]'
+
+add "C2R5-6k. the shard-sum script does not look at the rc line" \
+    "$SUMPY" \
+    '    if last != "rc=0":' \
+    '    if False:  # MUTANT' \
+    '[a shard that ended rc=1]'
+
+add "C2R5-6l. the shard-sum script accepts a survivor" \
+    "$SUMPY" \
+    '    if m_s is not None and int(m_s[1]) != 0:' \
+    '    if False:  # MUTANT' \
+    '[a shard that survived a mutation, even with rc 0 written]'
+
+add "C2R5-6m. the shard-sum script accepts a partial run" \
+    "$SUMPY" \
+    '    if "PARTIAL RUN" in "\n".join(lines):' \
+    '    if False:  # MUTANT' \
+    '[a partial run]'
+
+add "C2R5-6n. the shard-sum script does not look for the banner" \
+    "$SUMPY" \
+    '    elif not (len([l for l in lines if l ==' \
+    '    elif False and not (len([l for l in lines if l ==' \
+    '[a shard without the not-the-gate banner (not a log of this script)]'
+
+add "C2R5-6o. the shard-sum script does not look at the baseline" \
+    "$SUMPY" \
+    '    if len(bi) != 1 or lines[bi[0] + 1:bi[0] + 2]' \
+    '    if False and len(bi) != 1 or lines[bi[0] + 1:bi[0] + 2]' \
+    '[a shard whose baseline is not green]'
+
+add "C2R5-6p. the shard-sum script does not look at the negative control" \
+    "$SUMPY" \
+    '    if text.count("  ✅ green: the suites do not react to a comment") != 1:' \
+    '    if False:  # MUTANT' \
+    '[a shard whose negative control is not green]'
+
+add "C2R5-6q. the shard-sum script does not look at the byte-identical line" \
+    "$SUMPY" \
+    '    if len(re.findall(r"^  byte-identical  tools/p4_health  ", text, re.M)) != 1:' \
+    '    if False:  # MUTANT' \
+    '[a shard that does not say the original is byte-identical]'
+
+add "C2R5-6r. the shard-sum script does not look at the after-check" \
+    "$SUMPY" \
+    '    if text.count("  suites green against the real files") != 1:' \
+    '    if False:  # MUTANT' \
+    '[a shard whose after-check is not green]'
+
+add "C2R5-6s. the shard-sum script lets a shard be given twice" \
+    "$SUMPY" \
+    '        if k in shards:' \
+    '        if False:  # MUTANT' \
+    '[the same shard twice in place of another]'
+
+add "C2R5-6t. the shard-sum script does not check that the shards are 0..n-1" \
+    "$SUMPY" \
+    '        if sorted(shards) != list(range(n)):' \
+    '        if False:  # MUTANT' \
+    '[three shards of four]'
+
+add "C2R5-6u. the shard-sum script does not check each shard's share" \
+    "$SUMPY" \
+    '            if f["m"] != share:' \
+    '            if False:  # MUTANT' \
+    '[a shard that ran more mutations than its share (the counts no longer add up)]'
+
+add "C2R5-6v. the shard-sum script lets n differ between the logs" \
+    "$SUMPY" \
+    '    if len(ns) != 1:' \
+    '    if False:  # MUTANT' \
+    '[shards of different n]'
+
+add "C2R5-6w. the shard-sum script lets the size of the table differ" \
+    "$SUMPY" \
+    '    if len(ls) != 1:' \
+    '    if False:  # MUTANT' \
+    '[shards that disagree on the size of the table]'
+
+add "C2R5-6x. the shard-sum script takes no logs" \
+    "$SUMPY" \
+    'if not logs:' \
+    'if False:' \
+    '[no logs at all is refused, with a reason]'
+
+add "C2R5-6y. the shard-sum script takes a refused run's log" \
+    "$SUMPY" \
+    '        if "REFUSED" in l or "\U0001f534" in l:' \
+    '        if False:  # MUTANT' \
+    '[a log of a refused run]'
+
+add "C2R5-6z. the shard-sum script prints another line when all is well" \
+    "$SUMPY" \
+    'print("GATE: %d mutations, %d survived, shards %d/%d ok"' \
+    'print("GATE ok: %d mutations, %d survived, shards %d/%d"' \
+    '[four good shards of ten: the one GATE line, rc 0]'
+
 
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'
@@ -2559,12 +2730,46 @@ if [[ "$ANCHOR_CHECK" == 1 ]]; then
     exit 2
 fi
 
+# --- refusing what cannot be the gate, or a shard of it, BEFORE the baseline (round 5, #6) -------------
+
+# MUT_SHARD=k/n  runs only the mutations whose position in the table is k modulo n (k from 0): n shards
+# started side by side, with the same head, cover the table once between them. Each shard runs its own
+# baseline and negative control. A shard is never the gate by itself: the gate is the sum of all n, and
+# tests/shell/mutate_p4_health_shards_sum.sh adds them up (one commit, tree and subject sha; every
+# baseline, control and after-check green; every rc 0; the counts adding up to the table).
+# ONLY_LABEL_PREFIX=C2R5-  runs only the mutations whose label starts so: a PARTIAL run, never the gate.
+refuse_config() { echo "REFUSED: $1"; exit 2; }
+SHARD_K=""; SHARD_N=""
+if [[ -n "${MUT_SHARD:-}" ]]; then
+    [[ "$MUT_SHARD" =~ ^(0|[1-9][0-9]*)/([1-9][0-9]*)$ ]] \
+        || refuse_config "MUT_SHARD=$MUT_SHARD is not k/n (whole numbers, n >= 1, no leading zeros)"
+    SHARD_K="${BASH_REMATCH[1]}"; SHARD_N="${BASH_REMATCH[2]}"
+    (( SHARD_K < SHARD_N )) || refuse_config "MUT_SHARD=$MUT_SHARD: k must be below n (shards are numbered from 0)"
+    (( SHARD_N <= ${#MUT_LABEL[@]} )) \
+        || refuse_config "MUT_SHARD=$MUT_SHARD: n is larger than the ${#MUT_LABEL[@]} mutations in the table, so a shard would run nothing"
+fi
+selected() {    # selected <index>: is mutation <index> in this run?
+    if [[ -n "${ONLY_LABEL_PREFIX:-}" && "${MUT_LABEL[$1]}" != "$ONLY_LABEL_PREFIX"* ]]; then return 1; fi
+    if [[ -n "$SHARD_N" ]] && (( $1 % SHARD_N != SHARD_K )); then return 1; fi
+    return 0
+}
+SELECTED=0
+for i in "${!MUT_LABEL[@]}"; do selected "$i" && SELECTED=$((SELECTED + 1)); done
+(( SELECTED > 0 )) \
+    || refuse_config "no mutation is selected (MUT_SHARD=${MUT_SHARD:-}, ONLY_LABEL_PREFIX=${ONLY_LABEL_PREFIX:-}): a run of none is not a result"
+if [[ -n "$SHARD_N" ]]; then
+    printf 'NOT THE GATE BY ITSELF: shard %s/%s (%s of %s mutations; the gate is the sum of all %s shards)\n\n' \
+        "$SHARD_K" "$SHARD_N" "$SELECTED" "${#MUT_LABEL[@]}" "$SHARD_N"
+fi
+[[ -n "${ONLY_LABEL_PREFIX:-}" ]] && printf 'NOT THE GATE: only labels starting %s (%s mutations)\n\n' "$ONLY_LABEL_PREFIX" "$SELECTED"
+
 # --- running --------------------------------------------------------------------------------------
 
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/p4-health-mutate-XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 SURVIVORS=0; MUTATIONS=0
 BASE_SUM="$(cd "$PKG" && find . -type f \( -name '*.py' -o -name '*.sh' -o -name '*.p4' \) | sort | xargs sha256sum | sha256sum)"
+GATES_SUM="$(sha256sum "$GATEPY" "$SUMPY" "$GATE_TEST" | sha256sum)"
 
 fresh_copy() {
     rm -rf "$WORK/tools"; mkdir -p "$WORK/tools"
@@ -2576,7 +2781,7 @@ fresh_copy() {
     find "$WORK/tools" -name __pycache__ -prune -exec rm -rf {} +
 }
 
-# red_tests [package root] [recover.sh] -- names of the tests that went red, space-separated;
+# red_tests [package root] [recover.sh] [dir of the gate scripts] -- names of the tests that went red, space-separated;
 # NO-SUITE when a python suite printed no `Ran N tests`; HUNG on a timeout.
 red_tests() {
     local root="${1:-$REPO/tools}" rec="${2:-$RECOVER}" out rc names="" f
@@ -2587,6 +2792,11 @@ red_tests() {
         [[ $rc -ne 0 ]] && names+=" $(sed -n 's/^\(FAIL\|ERROR\): \([A-Za-z_][A-Za-z0-9_]*\) .*/\2/p' <<<"$out" | sort -u | tr '\n' ' ')"
     done
     out=$(P4_HEALTH_RECOVER_UNDER_TEST="$rec" timeout 300 bash "$RECOVER_TEST" 2>&1); rc=$?
+    [[ $rc -eq 124 ]] && { echo "HUNG"; return; }
+    /usr/bin/grep -qE '^Ran [0-9]+ checks' <<<"$out" || { echo "NO-SUITE"; return; }
+    [[ $rc -ne 0 ]] && names+=" $(sed -n 's/^  FAIL  \(.*\)$/[\1]/p' <<<"$out" | tr '\n' ' ')"
+    # (round 5, #6) the gate's own refusals and the shard-sum script, run against the scripts in "$3"
+    out=$(P4_HEALTH_GATE_UNDER_TEST="${3:-$HERE}" timeout 300 bash "$GATE_TEST" 2>&1); rc=$?
     [[ $rc -eq 124 ]] && { echo "HUNG"; return; }
     /usr/bin/grep -qE '^Ran [0-9]+ checks' <<<"$out" || { echo "NO-SUITE"; return; }
     [[ $rc -ne 0 ]] && names+=" $(sed -n 's/^  FAIL  \(.*\)$/[\1]/p' <<<"$out" | tr '\n' ' ')"
@@ -2606,7 +2816,14 @@ mutate() {
         echo "  🔴 ANCHOR IS NOT UNIQUE ($n matches) -- SURVIVOR"; SURVIVORS=$((SURVIVORS + 1)); return
     fi
     fresh_copy
-    local target="$WORK/tools/p4_health/${src#"$PKG"/}"
+    local target="$WORK/tools/p4_health/${src#"$PKG"/}" gates=""
+    if [[ "$src" == "$HERE/"* ]]; then
+        # (round 5, #6) a mutation of one of the gate's own scripts: all three are copied, the one is mutated,
+        # and the suite that tests them is pointed at the copies
+        gates="$WORK/tests/shell"; mkdir -p "$gates"
+        cp "$GATEPY" "$SUMPY" "$GATE_TEST" "$gates/"
+        target="$gates/$(basename "$src")"
+    fi
     if ! ANCHOR="$anchor" REPL="$repl" "$PYTHON" - "$target" <<'PY'
 import os, pathlib, sys
 p = pathlib.Path(sys.argv[1]); s = p.read_text()
@@ -2622,7 +2839,8 @@ PY
         bash -n "$target" || { echo "  🔴 MUTANT DOES NOT PARSE -- SURVIVOR"; SURVIVORS=$((SURVIVORS + 1)); return; }
     fi
     local failed
-    if [[ "$target" == *.sh ]]; then failed=$(red_tests "$REPO/tools" "$target")
+    if [[ -n "$gates" ]]; then failed=$(red_tests "$REPO/tools" "$RECOVER" "$gates")
+    elif [[ "$target" == *.sh ]]; then failed=$(red_tests "$REPO/tools" "$target")
     else failed=$(red_tests "$WORK/tools"); fi
     if [[ "$failed" == "NO-SUITE" ]]; then
         echo "🔴 REFUSED: a suite did not run at all while measuring: $label. No verdict."; exit 2
@@ -2647,20 +2865,8 @@ BASE_RED=$(red_tests)
 [[ -n "$BASE_RED" ]] && { echo "🔴 REFUSED: baseline is red: $BASE_RED"; exit 2; }
 echo "  ok       baseline green"
 
-# ONLY_LABEL_PREFIX=C2R4-  runs only the mutations whose label starts so (baseline and control still
-# run). A PARTIAL run: it says so on its last line and is never the gate.
-# MUT_SHARD=k/n  runs only the mutations whose position in the table is k modulo n (k from 0): n shards
-# started side by side, with the same head, cover the table once between them. Each shard runs its
-# own baseline and negative control and says SHARD on its last line; the gate is the sum of all n.
-SHARD_K=""; SHARD_N=""
-if [[ -n "${MUT_SHARD:-}" ]]; then
-    SHARD_K="${MUT_SHARD%/*}"; SHARD_N="${MUT_SHARD#*/}"
-    [[ "$SHARD_K" =~ ^[0-9]+$ && "$SHARD_N" =~ ^[1-9][0-9]*$ && "$SHARD_K" -lt "$SHARD_N" ]] \
-        || { echo "REFUSED: MUT_SHARD=$MUT_SHARD is not k/n with 0 <= k < n"; exit 2; }
-fi
 for i in "${!MUT_LABEL[@]}"; do
-    if [[ -n "${ONLY_LABEL_PREFIX:-}" && "${MUT_LABEL[$i]}" != "$ONLY_LABEL_PREFIX"* ]]; then continue; fi
-    if [[ -n "$SHARD_N" ]] && (( i % SHARD_N != SHARD_K )); then continue; fi
+    selected "$i" || continue
     mutate "${MUT_LABEL[$i]}" "${MUT_SRC[$i]}" "${MUT_ANCHOR[$i]}" "${MUT_REPL[$i]}" "${MUT_EXPECT[$i]}"
 done
 
@@ -2685,11 +2891,16 @@ printf '\n--- was the original written? ---\n'
 NOW_SUM="$(cd "$PKG" && find . -type f \( -name '*.py' -o -name '*.sh' -o -name '*.p4' \) | sort | xargs sha256sum | sha256sum)"
 if [[ "$NOW_SUM" != "$BASE_SUM" ]]; then echo "  🔴 tools/p4_health CHANGED DURING THE GATE"; exit 2; fi
 echo "  byte-identical  tools/p4_health  ${BASE_SUM:0:16}"
+if [[ "$(sha256sum "$GATEPY" "$SUMPY" "$GATE_TEST" | sha256sum)" != "$GATES_SUM" ]]; then
+    echo "  🔴 THE GATE'S OWN SCRIPTS CHANGED DURING THE GATE"; exit 2; fi
+echo "  byte-identical  the gate's own scripts  ${GATES_SUM:0:16}"
 after_red=$(red_tests)
 [[ -n "$after_red" ]] && { echo "🔴 a suite is red against the real files: $after_red"; exit 2; }
 echo "  suites green against the real files"
 
+(( MUTATIONS == SELECTED )) || { echo "REFUSED: $MUTATIONS mutations ran, $SELECTED were selected"; exit 2; }
 printf '\n%s mutations, %s survived\n' "$MUTATIONS" "$SURVIVORS"
-[[ -n "$SHARD_N" ]] && printf 'SHARD %s/%s of %s mutations in the table\n' "$SHARD_K" "$SHARD_N" "${#MUT_LABEL[@]}"
+[[ -n "$SHARD_N" ]] && printf 'SHARD %s/%s of %s mutations in the table\nNOT THE GATE BY ITSELF: shard %s/%s\n' \
+    "$SHARD_K" "$SHARD_N" "${#MUT_LABEL[@]}" "$SHARD_K" "$SHARD_N"
 [[ -n "${ONLY_LABEL_PREFIX:-}" ]] && printf 'PARTIAL RUN: only labels starting %s -- this is not the gate\n' "$ONLY_LABEL_PREFIX"
 [[ "$SURVIVORS" -eq 0 ]]
