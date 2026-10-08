@@ -361,10 +361,19 @@ def rollup(table, ctx, scope):
     return {"dimensions": per, "totals": totals, "alias_only": alias_only}
 
 
-def run_verdict(ctx, bringups_complete=True):
-    """COMPLETE | PROBE-BROKEN | INCOMPLETE, and the rc (0, 1, 2)."""
+def run_verdict(ctx, bringups_complete=True, stopped=False, see_red=False):
+    """COMPLETE | PROBE-BROKEN | INCOMPLETE, and the rc (0, 1, 2).
+
+    (Cut 2 round 4, F3) PROBE-BROKEN is looked at first, so two things must come before it:
+    a run that was stopped (a record carries "aborted by signal", or the run itself was stopped)
+    is INCOMPLETE whatever the cells say, and a see-red run -- whose PROBE-BROKEN is the pass --
+    counts as that pass only if its bring-ups were complete and clean."""
+    if stopped:
+        return "INCOMPLETE", 2
     if any(v.verdict == PROBE_BROKEN for v in ctx.cells.values()) or \
             any(v.verdict == PROBE_BROKEN for v in ctx.self_checks.values()):
+        if see_red and not bringups_complete:
+            return "INCOMPLETE", 2
         return "PROBE-BROKEN", 1
     if not bringups_complete:
         return "INCOMPLETE", 2
