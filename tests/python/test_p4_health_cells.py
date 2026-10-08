@@ -40,6 +40,13 @@ class MustNotRun(BaseException):
     rc 2 pass even though the double was reached."""
 
 
+class FrozenStub(object):
+    """What a test hands `probe.py lab` where the freeze is not under test."""
+    head = None
+    sums = {}
+    root_code = {}
+
+
 PKG = os.path.dirname(os.path.abspath(T.__file__))
 EXPECTED_TSV = os.path.join(REPO, "doc", "audit", "2026-10-03_p4-health-check", "expected_today.tsv")
 P4_SRC = os.path.join(os.path.dirname(PKG), "exercise", "src", "hc_main.p4")
@@ -1601,7 +1608,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
                 with mock.patch.object(probe.subprocess, "run", self.git_answering(0)), \
                         mock.patch("p4_health.s0.S0", FakeS0), \
                         mock.patch("p4_health.vs_trial.fabric_binary", return_value="/x/simple_switch_grpc"), \
-                        mock.patch("p4_health.frozen.freeze", return_value=object()), \
+                        mock.patch("p4_health.frozen.freeze", return_value=FrozenStub()), \
                         mock.patch("p4_health.identity.system_under_test", return_value=sut), \
                         mock.patch("p4_health.identity.fingerprint", return_value=gate) as fp, \
                         mock.patch("p4_health.lab.run_lab", side_effect=MustNotRun("the lab must not start")):
@@ -1693,7 +1700,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
                 mock.patch("os.path.isdir", lambda p: True),
                 mock.patch("p4_health.probe.Runner", lambda: RecordingRunner([(("bash",), (0, ""))])),
                 mock.patch("p4_health.identity.system_under_test", return_value="/x/code_identity.json"),
-                mock.patch("p4_health.frozen.freeze", return_value=frozen or object())]
+                mock.patch("p4_health.frozen.freeze", return_value=frozen or FrozenStub())]
 
     def lab_with_the_real_fingerprint(self, fabric, frozen=None):
         import contextlib
@@ -1871,9 +1878,204 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
             with open(fz.path(rel), "rb") as fh:
                 self.assertEqual(recorded, hashlib.sha256(fh.read()).hexdigest(), rel)
 
+    # --- round 5: the freeze pins one commit, hashes bytes as they are, and writes only what is new -------
+    def git_in(self, repo, *args):
+        return subprocess.run(["git", "-C", repo, "-c", "user.name=t", "-c", "user.email=t@example.invalid",
+                               "-c", "commit.gpgsign=false"] + list(args), check=True, capture_output=True,
+                              text=True).stdout.strip()
+
+    def freeze_in(self, repo, run_dir=None, git=None):
+        """FZ.freeze against a scratch repo with probe.py's own git helper. Returns (Frozen, run dir)."""
+        import tempfile
+        from unittest import mock
+        from p4_health import frozen as FZ
+        from p4_health import probe
+        run = run_dir or tempfile.mkdtemp(prefix="p4h-freeze-r5-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, run, True)
+        with mock.patch.object(probe, "REPO", repo):
+            return FZ.freeze(run, repo=repo, git=git or probe._git_run), run
+
+    def test_head_is_resolved_once_and_every_blob_is_asked_for_by_that_sha(self):
+        """(NIT 7) `git rev-parse --verify HEAD` once; the blobs are `<sha>:tools/<path>`, never
+        `HEAD:...`; the Frozen carries that sha."""
+        from p4_health import probe
+        repo = self.scratch_repo()
+        real, calls = probe._git_run, []
+
+        def git(*a):
+            calls.append(a)
+            return real(*a)
+        fz, _run = self.freeze_in(repo, git=git)
+        sha = self.git_in(repo, "rev-parse", "HEAD")
+        self.assertEqual([c for c in calls if c[:2] == ("rev-parse", "--verify")], [("rev-parse", "--verify", "HEAD")])
+        blobs = [c for c in calls if c[0] == "rev-parse" and c[1] != "--verify"]
+        self.assertEqual(len(blobs), len(self.FROZEN))
+        self.assertTrue(all(c[1].startswith(sha + ":tools/") for c in blobs), blobs)
+        self.assertEqual(fz.head, sha)
+
+    def commit_during_the_freeze(self, repo, rel, append):
+        """A git helper that, right after the first copy was hashed, commits a change to tools/<rel>
+        (or an unrelated file when rel is None)."""
+        from p4_health import probe
+        real, done = probe._git_run, []
+
+        def git(*a):
+            out = real(*a)
+            if a[0] == "hash-object" and not done:
+                done.append(1)
+                target = os.path.join(repo, "tools", rel) if rel else os.path.join(repo, "unrelated.txt")
+                with open(target, "a") as fh:
+                    fh.write(append)
+                self.git_in(repo, "add", ".")
+                self.git_in(repo, "commit", "-q", "-m", "lands mid-freeze")
+            return out
+        return git
+
+    def test_a_commit_that_lands_mid_freeze_cannot_give_a_set_that_matches_no_commit(self):
+        """(NIT 7) A commit changing a file the freeze has not copied yet: checked against the HEAD of
+        each moment, the set would match no single commit and still pass. Pinned to the first HEAD,
+        the late copy is not what that commit has and the freeze is refused."""
+        from p4_health import frozen as FZ
+        repo = self.scratch_repo()
+        git = self.commit_during_the_freeze(repo, self.FROZEN[-1], "# changed by the commit that landed\n")
+        with self.assertRaises(FZ.Refused):
+            self.freeze_in(repo, git=git)
+
+    def test_a_commit_that_changes_none_of_the_files_leaves_the_freeze_pinned_to_the_head_it_started_with(self):
+        repo = self.scratch_repo()
+        before = self.git_in(repo, "rev-parse", "HEAD")
+        git = self.commit_during_the_freeze(repo, None, "x\n")
+        fz, _run = self.freeze_in(repo, git=git)
+        self.assertNotEqual(self.git_in(repo, "rev-parse", "HEAD"), before)
+        self.assertEqual(fz.head, before)
+
+    def test_the_identity_of_a_run_names_the_head_the_freeze_pinned(self):
+        """(NIT 7) repo_identity takes the pinned sha: head and probe tree come from it, whatever HEAD
+        is by the time the identity is written."""
+        from unittest import mock
+        from p4_health import probe
+        repo = self.scratch_repo()
+        pinned = self.git_in(repo, "rev-parse", "HEAD")
+        tree = self.git_in(repo, "rev-parse", pinned + ":tools/p4_health")
+        with open(os.path.join(repo, "later.txt"), "w") as fh:
+            fh.write("a later commit\n")
+        self.git_in(repo, "add", ".")
+        self.git_in(repo, "commit", "-q", "-m", "later")
+        with mock.patch.object(probe, "REPO", repo):
+            ident = probe.repo_identity(head=pinned)
+            moved = probe.repo_identity()
+        self.assertEqual((ident["head"], ident["probe_tree"]), (pinned, tree))
+        self.assertNotEqual(moved["head"], pinned)
+
+    def test_probe_lab_records_the_frozen_head_in_the_identity_and_in_health_json(self):
+        import contextlib
+        import json
+        import tempfile
+        from unittest import mock
+        from p4_health import frozen as FZ
+        from p4_health import probe
+        real_freeze, seen = FZ.freeze, []
+
+        class FakeS0(object):
+            def __init__(self, *a, **kw):
+                self.out = {"verdict": "PROBE-BROKEN", "checks": []}
+                seen.append(self)
+
+            def run(self):
+                return 1
+
+        def freeze(run_dir, repo=None, git=None):
+            fz = real_freeze(run_dir)
+            fz.head = "ab" * 20
+            return fz
+        d = tempfile.mkdtemp(prefix="p4h-pinned-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, d, True)
+        from p4_health.collect.config import Config as RealConfig
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(mock.patch.object(probe.subprocess, "run", self.git_answering(0)))
+            stack.enter_context(mock.patch("p4_health.s0.S0", FakeS0))
+            stack.enter_context(mock.patch("p4_health.frozen.freeze", freeze))
+            stack.enter_context(mock.patch("p4_health.collect.config.Config",
+                                           lambda run_dir, owner=None: RealConfig(run_dir, owner=owner,
+                                                                                  expected_tsv=EXPECTED_TSV)))
+            probe.main(["lab", "--run-dir", d, "--owner", "o"])
+        self.assertEqual(seen[0].out["repo"]["head"], "ab" * 20)
+        with open(os.path.join(d, "health.json")) as fh:
+            self.assertEqual(json.load(fh)["frozen_head"], "ab" * 20)
+
+    def test_a_copy_is_hashed_as_its_bytes_not_as_a_filter_would_see_them(self):
+        """(NIT 8) `git hash-object` applies the input filters its path selects. A run dir inside the
+        repo (.test_run/...) is such a path: with `*.py text` a copy with CRLF endings would hash to
+        the LF blob HEAD has, and pass. The bytes root would run differ from the commit's."""
+        from p4_health import frozen as FZ
+        repo = self.scratch_repo()
+        with open(os.path.join(repo, ".gitattributes"), "w") as fh:
+            fh.write("*.py text\n")
+        self.git_in(repo, "add", ".")
+        self.git_in(repo, "commit", "-q", "-m", "attributes")
+        os.makedirs(os.path.join(repo, ".test_run", "r1"))
+        with open(os.path.join(repo, "tools", self.FROZEN[0]), "wb") as fh:
+            fh.write(("# %s, as committed\n" % self.FROZEN[0]).replace("\n", "\r\n").encode())
+        with self.assertRaises(FZ.Refused) as ctx:
+            self.freeze_in(repo, run_dir=os.path.join(repo, ".test_run", "r1"))
+        self.assertIn(os.path.basename(self.FROZEN[0]), str(ctx.exception))
+
+    def test_a_frozen_directory_that_is_already_there_is_refused_and_left_alone(self):
+        """(NIT 9) A reused run dir used to lose its earlier frozen evidence without a word."""
+        import tempfile
+        from p4_health import frozen as FZ
+        repo = self.scratch_repo()
+        run = tempfile.mkdtemp(prefix="p4h-freeze-again-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, run, True)
+        os.makedirs(os.path.join(run, "frozen", "p4_health"))
+        old = os.path.join(run, "frozen", "p4_health", "hostside.py")
+        with open(old, "w") as fh:
+            fh.write("evidence of an earlier run\n")
+        with self.assertRaises(FZ.Refused):
+            self.freeze_in(repo, run_dir=run)
+        with open(old) as fh:
+            self.assertEqual(fh.read(), "evidence of an earlier run\n")
+
+    def test_a_planted_symlink_for_the_frozen_directory_is_refused(self):
+        import tempfile
+        from p4_health import frozen as FZ
+        repo = self.scratch_repo()
+        run = tempfile.mkdtemp(prefix="p4h-freeze-link-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, run, True)
+        os.symlink(os.path.join(run, "nowhere"), os.path.join(run, "frozen"))      # dangling
+        with self.assertRaises(FZ.Refused):
+            self.freeze_in(repo, run_dir=run)
+        self.assertFalse(os.path.exists(os.path.join(run, "nowhere")))
+
+    def test_a_symlink_planted_at_a_destination_is_not_written_through(self):
+        """(NIT 9) Something plants <run>/frozen/p4_health/hostside.py -> a file outside, after the
+        directory exists and before the copy: the copy used to be written through the link (the target
+        overwritten, the run then executing a file that stays editable). Now refused, target intact."""
+        import tempfile
+        from unittest import mock
+        from p4_health import frozen as FZ
+        repo = self.scratch_repo()
+        run = tempfile.mkdtemp(prefix="p4h-freeze-plant-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, run, True)
+        victim = os.path.join(run, "victim.py")
+        with open(victim, "w") as fh:
+            fh.write("# the target: must stay as it is\n")
+        planted = os.path.join(os.path.realpath(run), "frozen", "p4_health", "hostside.py")
+        real_mkdir = os.mkdir
+
+        def mkdir(path, *a, **kw):
+            real_mkdir(path, *a, **kw)
+            if os.path.realpath(path) == os.path.dirname(planted):
+                os.symlink(victim, planted)
+        with mock.patch.object(FZ.os, "mkdir", mkdir):
+            with self.assertRaises(FZ.Refused):
+                self.freeze_in(repo, run_dir=run)
+        with open(victim) as fh:
+            self.assertEqual(fh.read(), "# the target: must stay as it is\n")
+
     def test_the_run_gets_the_frozen_code_that_probe_froze(self):
         """cmd_lab hands run_lab the Frozen it froze before S0, not a second one."""
-        sentinel = object()
+        sentinel = FrozenStub()
         rc, ran, _gate = self.lab_with_the_real_fingerprint({"return_value": "/x/b"}, frozen=sentinel)
         self.assertEqual(rc, 0)
         self.assertIs(ran.call_args[1]["frozen"], sentinel)
