@@ -1908,8 +1908,10 @@ class FakeController(object):
                     fh.write("{\"attributions\": ")             # cut off mid-write
             elif not self.fab.ctrl_no_result:
                 with open(self.conf["out"], "w") as fh:
-                    json.dump({"attributions": self.calls, "digests": self.fab.digests,
-                               "packet_ins": self.fab.packet_ins, "switches": self.switches}, fh)
+                    # a controller no switch answered receives nothing: no DigestList, no packet-in
+                    gone = self.fab.ctrl_connect_error
+                    json.dump({"attributions": self.calls, "digests": [] if gone else self.fab.digests,
+                               "packet_ins": [] if gone else self.fab.packet_ins, "switches": self.switches}, fh)
             shutil.rmtree(os.path.join(self.fab.proc, str(self.pid)), ignore_errors=True)
             self.returncode = 0
         return self.returncode
