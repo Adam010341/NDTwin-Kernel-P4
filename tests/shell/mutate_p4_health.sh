@@ -2056,6 +2056,121 @@ add "C2R3-N8b. the frozen copy's record is not of the copy root runs" \
     'test_root_runs_a_frozen_copy_of_its_code_from_the_run_dir'
 
 
+# --- Cut 2, round 4 -----------------------------------------------------------------------------
+ROUNDB="$PKG/round_b.py"
+
+add "C2R4-F1a. a stop signal during the teardown is not kept" \
+    "$LABROUND" \
+    '                if self.teardown_signal is None:
+                    self.teardown_signal = signum' \
+    '                pass  # MUTANT' \
+    'test_a_stop_during_a_teardown_ends_the_run_before_b_claims'
+
+add "C2R4-F1b. the last stop signal of a teardown is kept, not the first" \
+    "$LABROUND" \
+    '                if self.teardown_signal is None:' \
+    '                if True:  # MUTANT' \
+    'test_a_stop_during_the_teardown_finishes_the_cleanup_and_is_recorded'
+
+add "C2R4-F1c. the round does not record a stop that came during its teardown" \
+    "$LABROUND" \
+    '            rec["problems"].append("aborted by signal %d (during the teardown)" % self.teardown_signal)' \
+    '            pass  # MUTANT' \
+    'test_a_stop_during_b_teardown_is_not_complete'
+
+add "C2R4-F1d. a round stopped during its teardown still reads complete" \
+    "$LABROUND" \
+    '% self.teardown_signal)
+            rec["complete"] = False' \
+    '% self.teardown_signal)
+            pass  # MUTANT' \
+    'test_a_stop_during_the_teardown_finishes_the_cleanup_and_is_recorded'
+
+add "C2R4-F2a. a B whose result file cannot be read is not a failed B" \
+    "$ROUNDB" \
+    '            # a result file that cannot be read -- a B without a result is a failed B
+            self.failed = self.failed or self.problems[-1]' \
+    '            # a result file that cannot be read -- a B without a result is a failed B
+            pass  # MUTANT' \
+    'test_b_whose_result_file_is_unreadable_is_a_failed_b'
+
+add "C2R4-F2b. a B whose sniffer never listened gives no reason of its own" \
+    "$ROUNDB" \
+    '                                 "controller was never told to go" % SRC)
+            self.failed = self.failed or self.problems[-1]' \
+    '                                 "controller was never told to go" % SRC)
+            pass  # MUTANT' \
+    'test_b_whose_sniffer_is_not_ready_is_a_failed_b'
+
+add "C2R4-F2c. a controller that could not be started gives no reason of its own" \
+    "$ROUNDB" \
+    '            self.problems.append("B'"'"'s controller could not be started")
+            self.failed = self.problems[-1]' \
+    '            self.problems.append("B'"'"'s controller could not be started")  # MUTANT' \
+    'test_b_whose_controller_cannot_be_started_is_a_failed_b'
+
+add "C2R4-F2d. a controller that wrote no result gives no reason of its own" \
+    "$ROUNDB" \
+    '                self.problems.append("B'"'"'s controller wrote no result")
+                self.failed = self.problems[-1]' \
+    '                self.problems.append("B'"'"'s controller wrote no result")  # MUTANT' \
+    'test_b_whose_controller_writes_no_result_is_a_failed_b'
+
+add "C2R4-F2e. a controller that never got ready gives no reason of its own" \
+    "$ROUNDB" \
+    '            self.problems.append("B'"'"'s controller never wrote its ready file (rc %s)" % proc.poll())
+            self.failed = self.problems[-1]' \
+    '            self.problems.append("B'"'"'s controller never wrote its ready file (rc %s)" % proc.poll())  # MUTANT' \
+    'test_b_whose_controller_never_gets_ready_is_a_failed_b'
+
+add "C2R4-F2f. a fabric that is not external gives no reason of its own" \
+    "$ROUNDB" \
+    '                                 "not started" % (mode,))
+            self.failed = self.problems[-1]' \
+    '                                 "not started" % (mode,))  # MUTANT' \
+    'test_b_whose_fabric_is_not_external_is_a_failed_b'
+
+add "C2R4-F3a. a recorded stop does not override PROBE-BROKEN" \
+    "$VERDICT" \
+    '    if stopped:
+        return "INCOMPLETE", 2' \
+    '    if False:  # MUTANT
+        return "INCOMPLETE", 2' \
+    'test_a_recorded_stop_overrides_a_probe_broken_cell'
+
+add "C2R4-F3b. the run ignores a stop that no round carries" \
+    "$LABPY" \
+    '    stopped = any(signalled(r) for r in recs) or bool(run_stopped)' \
+    '    stopped = any(signalled(r) for r in recs)  # MUTANT' \
+    'test_a_stop_between_the_rounds_overrides_a_probe_broken_cell'
+
+add "C2R4-F3c. the run ignores a stop that a round carries" \
+    "$LABPY" \
+    '    stopped = any(signalled(r) for r in recs) or bool(run_stopped)' \
+    '    stopped = bool(run_stopped)  # MUTANT' \
+    'test_a_recorded_stop_overrides_a_probe_broken_cell'
+
+add "C2R4-F3d. a see-red run that was not complete still passes on PROBE-BROKEN" \
+    "$VERDICT" \
+    '        if see_red and not bringups_complete:
+            return "INCOMPLETE", 2' \
+    '        if False:  # MUTANT
+            return "INCOMPLETE", 2' \
+    'test_a_see_red_run_whose_round_did_not_end_clean_is_incomplete'
+
+add "C2R4-F3e. the run does not tell run_verdict that it is a see-red run" \
+    "$LABPY" \
+    'stopped=stopped, see_red=bool(mutant))' \
+    'stopped=stopped, see_red=False)  # MUTANT' \
+    'test_a_see_red_run_stopped_after_k1_is_incomplete_not_a_pass'
+
+add "C2R4-F3f. a see-red pass ignores the run's own problems" \
+    "$LABPY" \
+    '    complete = bool(recs) and all(r.get("complete") is True for r in recs) and not problems' \
+    '    complete = bool(recs) and all(r.get("complete") is True for r in recs)  # MUTANT' \
+    'test_a_see_red_run_with_a_problem_of_the_run_is_incomplete'
+
+
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'
 CTRL_REPL='# MUTANT: a comment, and nothing else.
@@ -2158,7 +2273,10 @@ BASE_RED=$(red_tests)
 [[ -n "$BASE_RED" ]] && { echo "🔴 REFUSED: baseline is red: $BASE_RED"; exit 2; }
 echo "  ok       baseline green"
 
+# ONLY_LABEL_PREFIX=C2R4-  runs only the mutations whose label starts so (baseline and control still
+# run). A PARTIAL run: it says so on its last line and is never the gate.
 for i in "${!MUT_LABEL[@]}"; do
+    if [[ -n "${ONLY_LABEL_PREFIX:-}" && "${MUT_LABEL[$i]}" != "$ONLY_LABEL_PREFIX"* ]]; then continue; fi
     mutate "${MUT_LABEL[$i]}" "${MUT_SRC[$i]}" "${MUT_ANCHOR[$i]}" "${MUT_REPL[$i]}" "${MUT_EXPECT[$i]}"
 done
 
@@ -2188,4 +2306,5 @@ after_red=$(red_tests)
 echo "  suites green against the real files"
 
 printf '\n%s mutations, %s survived\n' "$MUTATIONS" "$SURVIVORS"
+[[ -n "${ONLY_LABEL_PREFIX:-}" ]] && printf 'PARTIAL RUN: only labels starting %s -- this is not the gate\n' "$ONLY_LABEL_PREFIX"
 [[ "$SURVIVORS" -eq 0 ]]
