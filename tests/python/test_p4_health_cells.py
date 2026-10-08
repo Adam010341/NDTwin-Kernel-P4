@@ -1641,7 +1641,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
 
         class BrokenS0(object):
             def __init__(self, *a, **kw):
-                pass
+                self.out = {}
 
             def run(self):
                 raise RuntimeError("S0 fell over")
