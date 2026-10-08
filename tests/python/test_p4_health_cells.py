@@ -2346,6 +2346,86 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
                 self.assertIsNone(re.search(r"^\s*(from|import)\s+(p4_health\.|\.)?(%s)\b" % name, text, re.M),
                                   (rel, name))
 
+    def test_the_frozen_adapter_and_controller_launched_as_b_launches_them_load_nothing_from_the_shared_tree(self):
+        """(NIT 12) B starts `<p4dev python> <adapter> <package> <controller> --tutorials-utils <dir>` with
+        no -I, the adapter importing p4_exercise.common and running the controller through runpy. Here
+        that very argv runs against a stub p4runtime_lib (no switch answers: every connect raises, which
+        the controller records), and the files of everything loaded are listed at exit, with
+        `p4_health.frames` resolved the way the controller's lazy import would resolve it. The frozen
+        launch loads nothing from the shared tree; the same launch of the shared tree's files does (the
+        control: the detector is live)."""
+        import json
+        import shutil
+        import tempfile
+        from p4_health import frozen as FZ
+        d = tempfile.mkdtemp(prefix="p4h-launch-%d-" % os.getpid())
+        self.addCleanup(shutil.rmtree, d, True)
+        tools = os.path.dirname(os.path.dirname(PKG))
+        utils = os.path.join(d, "utils")
+        for rel, text in (("p4runtime_lib/__init__.py", ""),
+                          ("p4runtime_lib/bmv2.py", "class Bmv2SwitchConnection(object):\n"
+                           "    def __init__(self, name=None, address=None, device_id=0, *a, **kw):\n"
+                           "        raise RuntimeError('stub: no switch at %s device %s' % (address, device_id))\n"),
+                          ("p4runtime_lib/helper.py", ""),
+                          ("p4runtime_lib/switch.py", "class StreamDispatcher(object):\n    pass\n"),
+                          ("p4/__init__.py", ""), ("p4/v1/__init__.py", ""), ("p4/v1/p4runtime_pb2.py", "")):
+            os.makedirs(os.path.dirname(os.path.join(utils, rel)), exist_ok=True)
+            with open(os.path.join(utils, rel), "w") as fh:
+                fh.write(text)
+        site = os.path.join(d, "site")
+        os.makedirs(site)
+        with open(os.path.join(site, "sitecustomize.py"), "w") as fh:
+            fh.write("import atexit, json, os, sys\n"
+                     "def _dump():\n"
+                     "    try:\n"
+                     "        import p4_health.frames as fr\n"
+                     "        frames = fr.__file__\n"
+                     "    except Exception as exc:\n"
+                     "        frames = repr(exc)\n"
+                     "    files = sorted({getattr(m, '__file__', None) for m in sys.modules.values()\n"
+                     "                    if getattr(m, '__file__', None)})\n"
+                     "    json.dump({'files': files, 'frames': frames}, open(os.environ['SEEN_OUT'], 'w'))\n"
+                     "atexit.register(_dump)\n")
+        pkg = os.path.join(d, "run", "packages", "B")
+        os.makedirs(pkg)
+        with open(os.path.join(pkg, "package.json"), "w") as fh:
+            json.dump({"name": "p4-health-B", "control_plane": {"mode": "external", "grpc_base": 30050},
+                       "switches": {"1": {}, "2": {}, "3": {}, "4": {}}, "source": {"exercise_dir": pkg}}, fh)
+        fz = FZ.freeze(os.path.join(d, "run"))
+
+        def launch(adapter, controller, tag):
+            work = os.path.join(d, tag)
+            os.makedirs(work)
+            conf = {"out": os.path.join(work, "result.json"), "ready": os.path.join(work, "ready.json"),
+                    "go": os.path.join(work, "go"), "build": work, "go_timeout_s": 0, "attr_dpid": 2,
+                    "programs": {str(i): "hc_main" for i in (1, 2, 3, 4)}, "runtimes": {}}
+            with open(os.path.join(work, "conf.json"), "w") as fh:
+                json.dump(conf, fh)
+            env = dict(os.environ, PYTHONPATH=site, P4H_CTRL_CONFIG=os.path.join(work, "conf.json"),
+                       SEEN_OUT=os.path.join(work, "seen.json"), PYTHONDONTWRITEBYTECODE="1")
+            res = subprocess.run([sys.executable, adapter, pkg, controller, "--tutorials-utils", utils],
+                                 capture_output=True, text=True, timeout=120, cwd=work, env=env)
+            self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+            with open(os.path.join(work, "result.json")) as fh:
+                result = json.load(fh)
+            with open(os.path.join(work, "seen.json")) as fh:
+                return result, json.load(fh), res.stdout
+
+        def shared(seen):
+            root = os.path.realpath(tools) + os.sep
+            return [f for f in seen["files"] + [seen["frames"]] if os.path.realpath(f).startswith(root)]
+        result, seen, out = launch(fz.adapter, fz.controller, "frozen")
+        self.assertIn("[adapter] running", out)
+        self.assertEqual(sorted(result["switches"]), ["1", "2", "3", "4"])
+        # the adapter's rewrite is what the stub saw: the fabric's port and device id, not tutorials'
+        self.assertIn("localhost:30051 device %s" % 1, result["switches"]["1"]["connect_error"])
+        self.assertEqual(shared(seen), [])
+        self.assertEqual(os.path.realpath(seen["frames"]), os.path.realpath(fz.path("p4_health/frames.py")))
+        # the control: the shared tree's own files, launched the same way, are seen
+        _res, seen2, _out = launch(os.path.join(tools, "p4_exercise", "run_external_controller.py"),
+                                   os.path.join(tools, "p4_health", "controller_ext.py"), "shared")
+        self.assertTrue(shared(seen2), "the detector saw nothing even when the shared tree was launched")
+
     def test_the_run_gets_the_frozen_code_that_probe_froze(self):
         """cmd_lab hands run_lab the Frozen it froze before S0, not a second one."""
         sentinel = FrozenStub()

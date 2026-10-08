@@ -1445,8 +1445,12 @@ class FakeFabric(object):
         self.signal_in_sniffer = None     # a cell: a SIGTERM arrives while its sniffer is waited for
         self.force_mode = None            # control_plane.mode whatever package came up
         self.ctrl_never_ready = False     # B's controller never writes its ready file
-        self.ctrl_spawn_fails = False     # the adapter cannot be started (Runner.spawn: OSError -> None, runner.py:62-65)
-        self.ctrl_garbage_result = False  # B's controller writes a result file that is not JSON
+        self.ctrl_spawn_fails = False     # the adapter cannot be started (Runner.spawn: OSError -> None, runner.py:66-71)
+        # HYPOTHETICAL, not a behaviour of the real controller: controller_ext.py writes its result through
+        # a tmp file and os.replace (_write_json, controller_ext.py:399-404), so a half-written result file
+        # cannot be left by it. It stands for "a result file the probe cannot read" (disk trouble, a
+        # different writer), which round_b._load turns into None.
+        self.ctrl_garbage_result = False
         self.extra_ports = {}             # {dpid: [ports show_ports lists that no link uses]}
         self.cpu_port_listed = False
         self.switch_peer_form = "name"    # "name": iproute2's real form; "none": a parser's blind spot
@@ -1954,7 +1958,7 @@ class FakeController(object):
                 self.calls["packet_out"] = {"ok": True, "detail": {"frames": po["count"]}}
             if self.fab.ctrl_garbage_result:
                 with open(self.conf["out"], "w") as fh:
-                    fh.write("{\"attributions\": ")             # cut off mid-write
+                    fh.write("{\"attributions\": ")             # unreadable (hypothetical: see ctrl_garbage_result)
             elif not self.fab.ctrl_no_result:
                 with open(self.conf["out"], "w") as fh:
                     # a controller no switch answered receives nothing: no DigestList, no packet-in
@@ -2829,6 +2833,9 @@ class TestTheLabRun(Cut2):
         self.assert_b_failed(rc, doc, "wrote no result")
 
     def test_b_whose_result_file_is_unreadable_is_a_failed_b(self):                 # exit 6 of 6
+        """The unreadable file is a HYPOTHETICAL case (see FakeFabric.ctrl_garbage_result): the real
+        controller writes via tmp + os.replace. What is pinned is the probe's side: a result it cannot
+        read is no result."""
         self.fab.ctrl_garbage_result = True
         rc, doc, _r = self.run_lab()
         self.assert_b_failed(rc, doc, "no controller result")
