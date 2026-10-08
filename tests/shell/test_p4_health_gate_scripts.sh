@@ -32,7 +32,8 @@ check() {  # check <name> <condition...>
 # --- the gate script's refusals -----------------------------------------------------------------------
 gate() {  # gate <out file> <VAR=value>... -- run the gate script; its output goes to <out>, its rc is printed
     local out="$1"; shift
-    env "$@" PYTHON=/bin/true timeout 60 bash "$GATE" > "$out" 2>&1
+    # the gate may itself be running this suite with MUT_SHARD / ONLY_LABEL_PREFIX set: not for these runs
+    env -u MUT_SHARD -u ONLY_LABEL_PREFIX -u ANCHOR_CHECK "$@" PYTHON=/bin/true timeout 60 bash "$GATE" > "$out" 2>&1
     echo $?
 }
 refused_before_baseline() {  # refused_before_baseline <name> <message fragment> <VAR=value>...
