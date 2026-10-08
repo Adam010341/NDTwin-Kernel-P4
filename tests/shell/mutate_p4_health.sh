@@ -2643,8 +2643,8 @@ add "C2R5-6n. the shard-sum script does not look for the banner" \
 
 add "C2R5-6o. the shard-sum script does not look at the baseline" \
     "$SUMPY" \
-    '    if len(bi) != 1 or lines[bi[0] + 1:bi[0] + 2]' \
-    '    if False and len(bi) != 1 or lines[bi[0] + 1:bi[0] + 2]' \
+    '    if len(bi) != 1 or lines[bi[0] + 1:bi[0] + 2] != ["  ok       baseline green"]:' \
+    '    if False:' \
     '[a shard whose baseline is not green]'
 
 add "C2R5-6p. the shard-sum script does not look at the negative control" \
