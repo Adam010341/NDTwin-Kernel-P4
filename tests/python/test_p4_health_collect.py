@@ -2814,6 +2814,17 @@ class TestTheLabRun(Cut2):
         self.assertTrue(sum(1 for k, v in doc["attributions"].items() if v["ok"]) > 1, doc["attributions"])
         self.assert_b_failed_only_by(rc, doc, "not primary")
 
+    def test_b_that_confirmed_only_register_is_a_failed_b(self):
+        """`register` is the one attribution bmv2 refuses today; it is expected to be missing, so it is not
+        what makes a B that did its part: with register the ONLY confirmed item, B did nothing. (The
+        unit under test is the rule, with the result shapes controller_ext.py writes.)"""
+        primary = {"2": {"primary": True, "arbitration_status": 0, "set_pipeline_ok": True}}
+        only_register = {i: {"ok": i == "register", "why": "x"} for i in AT.ITEMS}
+        self.assertEqual(len(RB.BRound.did_nothing({"switches": primary}, only_register)), 1)
+        self.assertEqual(RB.BRound.did_nothing({"switches": primary}, dict(only_register, packet_out={"ok": True})), [])
+        self.assertEqual(RB.BRound.did_nothing({"switches": {}}, {i: {"ok": False} for i in AT.ITEMS})[0][:36],
+                         "B's controller confirmed nothing but")
+
     def assert_b_failed_only_by(self, rc, doc, why):
         """As assert_b_failed, for a B some of whose attributions DID confirm."""
         self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
