@@ -239,10 +239,13 @@ deep_sweep() {
     while IFS='|' read -r spec proto rowplane owner consequence; do
       [[ -z "$spec" ]] && continue
       for port in $(ndt_port_expand "$spec"); do
+        # rc 2 ("cannot tell") is named with its reason and keeps "nothing left" from being said;
+        # it does not change this function's rc, which is always 0 -- the verdict on the ports
+        # is cmd_clean's, and it fails on "cannot tell". [Co-developed with claude code -- Adam]
         ndt_port_open "$port" "$proto"
         case $? in
             0) ;;
-            2) err "  :$port ($proto) could not be probed -- --deep cannot address it"; blind=1; continue ;;
+            2) err "  :$port ($proto) could not be probed ($(ndt_port_blind_why)) -- --deep cannot address it"; blind=1; continue ;;
             *) continue ;;
         esac
         pids="$(ndt_port_listener_pids "$port" "$proto")"
@@ -2738,7 +2741,21 @@ preflight() {
     while IFS='|' read -r spec proto rowplane owner consequence; do
         [[ -z "$spec" ]] && continue
         for p in $(ndt_port_expand "$spec"); do
-            ndt_port_open "$p" "$proto" || continue
+            # [Co-developed with claude code -- Adam]
+            # rc 2 ("cannot tell", a UDP row with no ss) used to be skipped like "closed", so this
+            # step said nothing about the port. It is the `unknown` case one step earlier -- we
+            # cannot attribute what we cannot see -- so it is named and, like `unknown`, not
+            # refused: refusing would refuse every bring-up on a machine without ss.
+            ndt_port_open "$p" "$proto"
+            case $? in
+                0) ;;
+                2)
+                    info "  :$p ($proto) could not be probed ($(ndt_port_blind_why)): whether it is held,"
+                    info "     and by whom, is NOT checked. not refused, as for a holder we cannot see."
+                    continue
+                    ;;
+                *) continue ;;
+            esac
             case "$(port_owner_local "$p" "$proto")" in
                 ours) ;;
                 unknown)
@@ -5432,14 +5449,22 @@ cmd_down() {
     # inherited from clean_rc -- `cmd_clean` is red about a held port for its own reasons, so a
     # reader that leaned on its rc would look identical here while deciding nothing.
     if [[ -n "$ports_deferred" ]]; then
-        local dp dproto dstill="" dblind="" dn=0
+        local dp dproto dstill="" dblind="" dunk="" dn=0
         for dp in $ports_deferred; do
             dn=$(( dn + 1 ))
             if ! dproto="$(ndt_port_proto "$dp")"; then
                 dblind="${dblind:+$dblind }$dp"
                 continue
             fi
-            ndt_port_open "$dp" "$dproto" && dstill="${dstill:+$dstill }$dp"
+            # [Co-developed with claude code -- Adam]
+            # rc 2 ("cannot tell") used to fall through as closed, and the ok line below then said
+            # [3/3] had closed a port nobody re-read. It fails the teardown, like a port no row
+            # declares (just above) and like cmd_clean's own "cannot tell": unknown is not a pass.
+            ndt_port_open "$dp" "$dproto"
+            case $? in
+                0) dstill="${dstill:+$dstill }$dp" ;;
+                2) dunk="${dunk:+$dunk }$dp" ;;
+            esac
         done
         if [[ -n "$dblind" ]]; then
             err "cannot re-read :$dblind after the sweep -- no row in ports.sh declares it, so"
@@ -5447,12 +5472,18 @@ cmd_down() {
             down_rc=1
             not_verified "port(s) no row in ports.sh could re-read: $dblind"
         fi
+        if [[ -n "$dunk" ]]; then
+            err "could not re-read :$dunk after the sweep ($(ndt_port_blind_why)), so whether"
+            err "  [3/3] closed it is unknown, and unknown is not a pass."
+            down_rc=1
+            not_verified "port(s) the probe could not re-read: $dunk"
+        fi
         if [[ -n "$dstill" ]]; then
             err "the port(s) [1/3] named are STILL held after [3/3]: $dstill"
             err "  that is this teardown failing, and not the order of its own steps."
             down_rc=1
             not_verified "port(s) still held after the sweep: $dstill"
-        elif [[ -z "$dblind" ]]; then
+        elif [[ -z "$dblind" && -z "$dunk" ]]; then
             ok "the $dn port(s) [1/3] called 'still listening' were closed by [3/3]: $ports_deferred"
             info "  so stack.sh's exit $src was a reading from the MIDDLE of this teardown, not"
             info "  its ending, and it is not carried to the exit code. (ROLE-12, 2026-09-12)"
@@ -5651,6 +5682,10 @@ cmd_clean() {
         while IFS='|' read -r cspec cproto cplane crest; do
             [[ -z "$cspec" ]] && continue
             for cport in $(ndt_port_expand "$cspec"); do
+                # rc 2 ("cannot tell") skips the ours/stranger split on purpose: the residue
+                # above has already named the port as "could NOT be probed -- not a pass", and
+                # prc == 2 below makes this not clean. Classifying an unseen port would invent
+                # a holder. [Co-developed with claude code -- Adam]
                 ndt_port_open "$cport" "$cproto" || continue
                 if [[ "$(port_owner_local "$cport" "$cproto")" == ours ]]; then
                     mine+=(":$cport ($(ndt_port_holder "$cport" "$cproto")) -- its pid is in .test_run/pids/")

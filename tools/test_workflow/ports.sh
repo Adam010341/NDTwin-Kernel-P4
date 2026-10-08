@@ -101,6 +101,17 @@ ndt_port_open() {
     return 1
 }
 
+# ndt_port_blind_why -- why ndt_port_open answered 2, for the line that names the port
+# a caller could not check. One place for the reason, so no caller has to guess it.
+# [Co-developed with claude code -- Adam]
+ndt_port_blind_why() {
+    if ! command -v ss &>/dev/null; then
+        echo "no ss on PATH, and UDP can only be probed through ss"
+    else
+        echo "the probe could not tell"
+    fi
+}
+
 # ndt_port_listener_pids <port> [proto] -- pids holding it, one per line. Empty when the
 # socket belongs to another user (root-owned listeners are invisible to us) or `ss` is absent.
 ndt_port_listener_pids() {

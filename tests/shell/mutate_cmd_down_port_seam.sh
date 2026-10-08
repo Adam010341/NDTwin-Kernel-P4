@@ -25,8 +25,14 @@
 #   M4  the table expands to nothing (0 probes == 0 expected, green without the want_probes>0 check)
 #   M5  the leftovers branch returns 0 instead of failing down
 #   M6  the ours/stray verdict is inverted (an owned holder is reported as a stranger)
-#   M7  port_owner_verdict's identity test becomes "any registered pid is ours" (stack.sh:779);
-#       only the registered-but-not-the-holder variant of test_cmd_down_leftovers.sh sees it
+#   M7  port_owner_verdict's identity test becomes "any registered pid is ours"; only the
+#       registered-but-not-the-holder variant of test_cmd_down_leftovers.sh sees it
+#   M8  rc 2 ("cannot tell") is folded back into closed at the probe site -- the original O1 shape,
+#       `ndt_port_open ... || continue`
+#   M9  the closing line says plain "done" even when a port could not be checked
+#   M10 the verdict bypasses the shared start-time test (a reused number is "ours" again)
+#   M11 the verdict follows a symlinked pidfile again (stop_one refuses it; the verdict reads it)
+#   M12 the verdict's pgid branch is gone (a child of the recorded group leader is not "ours")
 #
 # Not covered, and said so: a probe added through another route (ss, /dev/tcp, curl) passes the guard.
 #
@@ -137,18 +143,18 @@ m=$(mutant m1 "$SUPT" \
 report "M1: the ndt_port_open stub is removed from the test" "$m" test_supervise_exit_status.sh "$GUARD"
 
 m=$(mutant m2 "$STK" \
-    'ndt_port_open "$port" "$proto" || continue' \
-    'port_open "$port" || continue') || harness_fail m2
+    'ndt_port_open "$port" "$proto"' \
+    'port_open "$port"') || harness_fail m2
 report "M2: stack.sh probes with port_open instead of ndt_port_open" "$m" test_supervise_exit_status.sh "$GUARD" "$STRAYTXT"
 
 m=$(mutant m2b "$STK" \
-    'ndt_port_open "$port" "$proto" || continue' \
-    'port_open "$port" >/dev/null; ndt_port_open "$port" "$proto" || continue') || harness_fail m2b
+    'ndt_port_open "$port" "$proto"' \
+    'port_open "$port" >/dev/null; ndt_port_open "$port" "$proto"') || harness_fail m2b
 report "M2b: stack.sh ADDS a port_open call next to the real probe" "$m" test_supervise_exit_status.sh "$GUARD" "$STRAYTXT"
 
 m=$(mutant m3 "$STK" \
-    'ndt_port_open "$port" "$proto" || continue' \
-    'ndt_port_open "$port" || continue') || harness_fail m3
+    'ndt_port_open "$port" "$proto"' \
+    'ndt_port_open "$port"') || harness_fail m3
 report "M3: stack.sh drops the proto argument" "$m" test_supervise_exit_status.sh "$GUARD"
 
 m=$(mutant m4 "$PRT" \
@@ -174,6 +180,39 @@ m=$(mutant m7 "$STK" \
     'if [[ -n "$ours" ]]; then') || harness_fail m7
 report "M7: any registered pid is called ours (identity test gone)" "$m" test_cmd_down_leftovers.sh \
        "not-holder: it names the real holder and says this script did not start it"
+
+# [Co-developed with claude code -- Adam]
+# M8: the brace group is the original `|| continue` -- rc 2 continues as if closed, rc 0 falls
+# through to the case with status 0.
+m=$(mutant m8 "$STK" \
+    'ndt_port_open "$port" "$proto"' \
+    '{ ndt_port_open "$port" "$proto" || continue; }') || harness_fail m8
+report "M8: rc 2 is folded back into closed at the probe" "$m" test_cmd_down_leftovers.sh \
+       "cannot tell: it names the port as not checked, and why"
+
+m=$(mutant m9 "$STK" \
+    '    if [[ -n "$unchecked" ]]; then' \
+    '    if false; then') || harness_fail m9
+report "M9: plain 'done' although a port was not checked" "$m" test_cmd_down_leftovers.sh \
+       "cannot tell: the closing line is not a plain 'done'"
+
+m=$(mutant m10 "$STK" \
+    '    pidfile_vouches "$PID_DIR/$component.pid"; vrc=$?' \
+    '    pidfile_vouches "$PID_DIR/$component.pid"; vrc=$?; (( vrc == 4 )) && vrc=0') || harness_fail m10
+report "M10: the verdict skips the start-time test stop_one applies" "$m" test_cmd_down_leftovers.sh \
+       "reused: it does not call the holder ours (stop_one just said it is not)"
+
+m=$(mutant m11 "$STK" \
+    '    pidfile_vouches "$PID_DIR/$component.pid"; vrc=$?' \
+    '    pidfile_vouches "$PID_DIR/$component.pid"; vrc=$?; (( vrc == 2 )) && { PIDFILE_PID="$(cat "$PID_DIR/$component.pid")"; vrc=0; }') || harness_fail m11
+report "M11: the verdict follows the symlink stop_one refuses" "$m" test_cmd_down_leftovers.sh \
+       "symlink: it does not call the holder ours through the symlink"
+
+m=$(mutant m12 "$STK" \
+    '        if [[ -n "$pgid" && "$pgid" == "$ours" ]]; then' \
+    '        if false; then') || harness_fail m12
+report "M12: the verdict's pgid branch is gone" "$m" test_cmd_down_leftovers.sh \
+       "pgid: it says a process this script started holds it, naming the child"
 
 echo
 NOW_SHA=$(sha_all)

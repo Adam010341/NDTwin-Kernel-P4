@@ -726,7 +726,11 @@ report "M43: a mid-teardown port reading is the verdict again (ROLE-12)" "$m" \
 # is the mutation the stubbed-green cmd_clean cell exists for: with clean_rc inherited instead,
 # this mutant would look identical to the fix.
 m=$(mutant m44 "$NDT" \
-    '            ndt_port_open "$dp" "$dproto" && dstill="${dstill:+$dstill }$dp"' \
+    '            ndt_port_open "$dp" "$dproto"
+            case $? in
+                0) dstill="${dstill:+$dstill }$dp" ;;
+                2) dunk="${dunk:+$dunk }$dp" ;;
+            esac' \
     '            :')
 report "M44 (widening): the deferred ports are never re-read" "$m" \
        "🔴 a port STILL held after [3/3] keeps the teardown red"
@@ -1240,6 +1244,49 @@ m=$(mutant m87 "$NDT" \
     '        ovs) info "proxy :8081   kernel :8000   Mininet CLI: $(lab_attach_cmd)" ;;')
 report "M87 (widening): the OVS line names a proxy that is not there" "$m" \
        "  and Ryu's, which is the OVS plane's control plane"
+
+# --- ndt_port_open rc 2, "cannot tell", at each caller (section 25) ---------------------------
+# [Co-developed with claude code -- Adam]
+# ports.sh says callers must not fold 2 into "closed". Each mutation puts one fold back.
+
+# M88: the ROLE-12 re-read reads 2 as closed again, and then says [3/3] closed the port.
+m=$(mutant m88 "$NDT" \
+    '                2) dunk="${dunk:+$dunk }$dp" ;;' \
+    '                2) ;;')
+report "M88: the deferred re-read folds 'cannot tell' into closed" "$m" \
+       "🔴 down: a deferred port the re-read cannot tell about keeps the teardown red"
+
+# M89: preflight's ownership step skips 2 in silence again.
+m=$(mutant m89 "$NDT" \
+    '                    info "  :$p ($proto) could not be probed ($(ndt_port_blind_why)): whether it is held,"
+                    info "     and by whom, is NOT checked. not refused, as for a holder we cannot see."' \
+    '                    :')
+report "M89: preflight skips a port it cannot probe without a word" "$m" \
+       "  but the ownership step names it, with a reason"
+
+# M90: the other direction -- preflight refuses on 2, which would refuse every bring-up on a
+# machine without ss.
+m=$(mutant m90 "$NDT" \
+    '                    info "     and by whom, is NOT checked. not refused, as for a holder we cannot see."
+                    continue' \
+    '                    info "     and by whom, is NOT checked. not refused, as for a holder we cannot see."
+                    foreign=1; continue')
+report "M90: preflight refuses a port it cannot probe" "$m" \
+       "🔴 preflight: a port that cannot be probed is not a refusal"
+
+# M91: --deep names the port but no longer says why it could not look.
+m=$(mutant m91 "$NDT" \
+    'could not be probed ($(ndt_port_blind_why)) -- --deep cannot address it' \
+    'could not be probed -- --deep cannot address it')
+report "M91: deep_sweep drops the reason a port could not be probed" "$m" \
+       "  deep_sweep: the port is named, with a reason"
+
+# M92: ndt clean's ours/stranger split treats 2 as open and invents a stranger for it.
+m=$(mutant m92 "$NDT" \
+    '                ndt_port_open "$cport" "$cproto" || continue' \
+    '                ndt_port_open "$cport" "$cproto"; (( $? == 1 )) && continue')
+report "M92: ndt clean calls a port it could not probe a stranger's" "$m" \
+       "🔴 clean: and it does not call it a stranger's"
 
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
