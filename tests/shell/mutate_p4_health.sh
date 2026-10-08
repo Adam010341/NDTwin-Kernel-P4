@@ -729,8 +729,8 @@ add "m12. the inventory counts a declared field as used" \
 
 add "m19. probe judge assumes the bring-ups completed" \
     "$PROBEPY" \
-    'bringups_complete=doc.get("bringups_complete") is True)' \
-    'bringups_complete=doc.get("bringups_complete", True))  # MUTANT' \
+    'bringups_complete=doc.get("bringups_complete") is True,' \
+    'bringups_complete=doc.get("bringups_complete", True),  # MUTANT' \
     'test_a_recording_that_does_not_say_it_completed_is_incomplete'
 
 add "m2. a PF-T with no observation is decided" \
