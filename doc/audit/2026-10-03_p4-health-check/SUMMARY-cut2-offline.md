@@ -37,7 +37,12 @@
   - SC-fwd：30 對主機的 marker pingall，加上 T1 的 dump；
   - SC-count、SC-reg、SC-ttl。
 - **順序**：先 static 再 active。
-  - 每一步各自包住：某一步拋出例外，只影響它自己那一格（讀數記成讀不到）；收到訊號仍然結束這一輪。
+  - 每一步各自包住：某一步拋出例外，只影響它自己那一格（讀數記成讀不到）。
+  - 停止訊號（SIGTERM、SIGINT、SIGHUP）的處理（第 3、4 輪修正後）：
+    - 在輪內：結束這一輪，收拾照跑；觀測的 `except Exception` 不會吞掉它（`SignalAbort` 是 `BaseException`）。
+    - 在收拾期間：收拾不中斷，第一個訊號被記下，收拾做完後寫進該輪的 problems（「aborted by signal N (during the teardown)」）。
+    - 兩輪之間：由 run 層的 handler 接。
+    - 任何一種都讓整個 run 結束：B 不起，整輪 INCOMPLETE、rc 2（見第 4 輪 F1、F3）。
 - **`--only`**：會帶上該格的對照、gate 格，以及產生它所需自檢讀數的格。
 - **刺激**：`hostside.py` 在主機的 namespace 裡送、收 marker（`sudo -n mnexec -a <pid>`）。
   - 以 root 跑的 p4dev 直譯器加上 `-B -X pycache_prefix=<run> -I`。
@@ -70,6 +75,8 @@
 ### 1.3 接線（`lab.py`、`probe.py lab`、`s0.py`、`identity.py`）
 
 - **前置**：`probe.py lab` 在 `tools/p4_health` 有任何未提交的改動時拒絕（rc 2）。
+  - 第 4 輪起，乾淨檢查之後、S0 之前，立刻把各輪會執行的檔案複製進 `<run>/frozen/`，並逐一比對 HEAD 的 blob（`git hash-object <副本>` 對 `git rev-parse HEAD:<路徑>`）；對不上就 rc 2，什麼 lab 動作都還沒做。
+  - root 的 `hostside.py`、B 的 controller 與 adapter 都執行副本，不執行共用的 working tree；各檔的 sha256 記在 health.json 的 `frozen_code`（root 那三個另外在 `root_code`）。
 - **S0**：在 run 目錄跑 S0，不是 COMPLETE 就停（rc 1）。
 - **記錄這一輪跑的是什麼**：
   - `system_under_test`：用 `code_identity.py` 記錄；
@@ -87,7 +94,7 @@
 - **判定新增一步**：這一輪沒觀測的格判 NOT RUN，理由是「not observed in this run」。
   - 它的 delta 寫「not observed」，不寫「flipped」；以這種格為來源的 alias 也一樣。
 
-## 2. 觀測到的（OBSERVED，都在 fa7fcb83）
+## 2. 觀測到的（OBSERVED；除表中註明的 commit 外，都在 fa7fcb83）
 
 | 檢查 | 結果 | log（`LOG/r2/`） |
 |---|---|---|
@@ -99,11 +106,13 @@
 | S0 | rc 0、55 個 ok、COMPLETE、112 s；adapter dry run 通過 | `s0.run.log:4-5`、`s0-final/probe.log:53,57` |
 | check_gate_anchors HEAD | ok(242)；133/133 | `check_gate_anchors.HEAD.log:109,142` |
 | check_test_tmpdirs／test_l1_shell_scoring | 414 個檔 0 個／163 checks 0 failed | 各自的 log |
-| veth 的兩種寫法 | 同一個 namespace 寫 `@名字`，跨 namespace 寫 `@if<index>`（iproute2-6.1.0） | `veth_format.log:5,10` |
-| gate fingerprint（離線、唯讀） | 約 5 s；各部分都讀得到 | `fingerprint_offline.log` |
-| ok(N) 與突變數為什麼不同 | `ok(n)` 數的是不同的 anchor 加上對照：197＝196＋1（50c3379d），242＝241＋1（fa7fcb83） | `anchors_197_vs_201.log` |
+| veth 的兩種寫法（在 1340729f） | 同一個 namespace 寫 `@名字`，跨 namespace 寫 `@if<index>`（iproute2-6.1.0） | `veth_format.log:5,10` |
+| gate fingerprint（離線、唯讀；在 91ec19c0，`identity.py` 在那之後沒有再改） | 約 5 s；各部分都讀得到 | `fingerprint_offline.log` |
+| ok(N) 與突變數為什麼不同（在 91ec19c0） | `ok(n)` 數的是不同的 anchor 加上對照：197＝196＋1（50c3379d），242＝241＋1（fa7fcb83） | `anchors_197_vs_201.log` |
 
-- **審查三個 MAJOR 與 m1–m7，每一項**都有在舊碼上看到紅的 log（`r2/*.OLD_red.log`）與綠的 log（`*.NEW_green.log`），也都有 mutant。
+- **審查三個 MAJOR 與 m1–m7**：除了下面兩類，每一項都有在舊碼上看到紅的 log（`r2/*.OLD_red.log`）與綠的 log（`*.NEW_green.log`），也都有 mutant。
+  - m6 只改措辭，沒有紅 log，也沒有 mutant。
+  - m3 與 m5 的紅是介面錯誤（引數、import），不是行為上的紅；行為由它們的 mutant 承擔。
 - **拋棄式 simple_switch_grpc 上的事實**（stock 與 bmv2-fast 兩支）：
   - 11 項歸因有 10 項確認；
   - RegisterEntry 寫入回 `canonical_code 12: Register writes are not supported yet`；
@@ -156,14 +165,17 @@
 **前提**
 
 - Adam 對這一次逐次授權（§9 Q6(a)：第一次 live，含看過紅那一次）。
-- 建議併進 trunk 之後在主 checkout 跑。
+- 在**專用的乾淨 worktree** 跑（建在併好的 trunk sha 上），**不要在主 checkout 跑**（第 4 輪 N8）。
+  - 原因一：乾淨檢查與 frozen 比對都只看 HEAD；主 checkout 常有別的 session 的未追蹤檔，而 gate fingerprint 會算進未追蹤檔（`identity.py` 的 `repo_untracked`），每一輪的指紋因此不同，第一輪的紀錄永遠換不成常設授權。
+  - 原因二：共用的 working tree 在 13–18 分鐘的 run 裡可能被別人改。現在 root 與 B 都執行複本，但 `repo_tracked`／`repo_untracked` 與 `system_under_test` 仍只記 run 開始時的狀態。
 
 **命令**
 
 ```
 cd <checkout>
 git status --porcelain -- tools/p4_health           # 必須是空的（不是空的，probe.py lab 會 rc 2 拒絕）
-NDT_OWNER=<owner> tools/test_workflow/ndt status --measuring   # 必須是 measuring nothing、沒有 claim、bmv2 switches 0
+NDT_OWNER=<owner> tools/test_workflow/ndt status                # 必須是 claim none、measuring nothing、bmv2 switches 0（claim 列 ndt:6849-6850，bmv2 switches 列 ndt:6992）
+                                                                # 不要用 --measuring：它只印 declared／measuring 兩種列（ndt:6818-6824），看不到 claim 與 bmv2
 df -m /                                             # > 2500 MB
 RUN=$PWD/.test_run/p4_health/$(date -u +%Y-%m-%dT%H%M%SZ)_p4_health
 P4_HEALTH_RUN_DIR=$RUN tools/p4_health/run.sh lab --owner <owner>        # S0 → identity → A → B → 判格
@@ -194,33 +206,37 @@ P4_HEALTH_RUN_DIR=$RUN2 tools/p4_health/run.sh lab --owner <owner> --bringups A 
 - T7：NOT RUN（gate T4 RED）；
 - UNATTRIBUTED：R3、VS1；
 - 其餘格：NOT RUN「not observed in this run」，delta 寫「not observed」；
-- delta：same 30、not observed 26、**flipped 0**；
+- delta：57 格裡 same 30、not observed 27、**flipped 0**（假 fabric 的端對端測試實測；兩列對照 K1-neg、T3-neg 另外各是 same）；
 - rollup：
   - core：can 9、partial 1、cannot 3、undecided 3；
   - full：6、4、3、3；
   - q3b：0、0、0、6；
-- 整輪：COMPLETE，rc 0。
+- 整輪：COMPLETE，rc 0，**而且** health.json 的 `problems` 是空的、B 的 controller 有做完。
+  - 只看 COMPLETE rc 0 不夠：第 4 輪之前，B 的 sniffer 沒起來、或結果檔讀不了，整輪仍會是 COMPLETE（第 4 輪 F2 已修）。
 
 **看過紅那一次預測會看到的**
 
 - K1 是 PROBE-BROKEN，原因 SC-count；TTL1 是 PROBE-BROKEN，原因 SC-ttl；
 - PL1、T1、TP1 都是 GREEN；
-- PROBE-BROKEN，rc 1——這正是 §5.2-④ 要的。
+- PROBE-BROKEN，rc 1——這正是 §5.2-④ 要的，**但只在 A 完整、乾淨結束，而且 health.json 的 `problems` 是空的時候**才算數。
+  - 第 4 輪起程式自己強制這一點：see-red 這一輪沒完成、有 problem、或被停止訊號打斷，標題是 INCOMPLETE、rc 2，不是 PROBE-BROKEN（F3）。
+  - 這一輪的步驟 2 也要照做（見下）。
 
 **先看什麼（照順序）**
 
 1. `probe.log`：
-   - 有「S0 COMPLETE」；
+   - 有「S0 COMPLETE」；health.json 有 `frozen_code`；
    - 兩行 B controller trial 與 adapter dry run 都是 ok；
    - 有「gate fingerprint <sha>」那一行，而且不是 `incomplete`。
-2. 收拾乾淨了沒有：
+2. 收拾乾淨了沒有（全輪與看過紅那一次都要做；看過紅那一次只有 A，沒有 `LAB_STATE.B.json`）：
    - `LAB_STATE.A.json`、`LAB_STATE.B.json` 的 phase 都是 `released`，sniffers／controllers／netem 都是空的；
    - health.json 的 bringups 每一筆：complete、down_rc 0、release_rc 0、knobs_restored、frames_reached_hosts false；
    - `ndt status`：沒有 claim、沒有 bmv2。
 3. **rc 2（INCOMPLETE）時**：先讀 health.json 的 `problems` 與 `bringups` 每一筆，以及每一份 `LAB_STATE.<X>.json`。
    - 如果寫著「B not brought up」：先對 `$RUN` 跑 `recover.sh`，不要直接再跑一輪。
 4. **TP1**：`A/TP1.json` 的 answer 與 oracle 逐集合比。
-   - oracle 是 null，代表有一個交換機的埠落不到任何鏈路上：看 `ip -o link show` 的寫法。
+   - oracle 是 null，代表有一個交換機的埠落不到任何鏈路上，或某一個讀取失敗。
+   - 這時不要去跑 `ip -o link show`：`ndt down` 之後 fabric 已經不在了。看 `A/TP1.json` 的 `diagnostics`：它留著原始的 `ip -o link show` 文字、每一台的 show_ports、每個主機的 link 與位址、對不上的埠、列出的 CPU 埠，以及哪一個讀取失敗。
 5. `A/SC-fwd.json` 的 pingall 是 (30, 30)；`A/problems.json` 是空的。
 6. B 那一輪：
    - `B/attributions.json`：除了 register，其餘都是 ok；
