@@ -1156,6 +1156,30 @@ class TestLabRound(Sealed):
         self.assertIn("aborted by signal %d" % signal.SIGTERM, rec["problems"])
         self.assertEqual(self.names(r)[-4:], ["tc del", "qdisc_snapshot.sh diff", "ndt down", "ndt release"])
 
+    def test_a_stop_during_the_teardown_finishes_the_cleanup_and_is_recorded(self):
+        """(Cut 2 review, round 4 F1) A stop that arrives while `ndt down` runs must not abort the
+        cleanup (the release still follows) and must not vanish: the record says the round was
+        stopped, because lab.py ends the run on exactly that sentence. Real handlers
+        (install_signals), a `ndt down` that sends SIGTERM to the probe -- this process -- as
+        `kill -TERM <pid>` from outside does while subprocess.run waits for it (the handler runs,
+        the wait resumes: PEP 475)."""
+        seen = []
+        safety = signal.signal(signal.SIGTERM, lambda n, f: seen.append(n))
+        r = self.runner()
+
+        def down(argv, env, inp):
+            os.kill(os.getpid(), signal.SIGTERM)
+            return (0, "")
+        r.replies.insert(0, (("ndt", "down"), down))
+        try:
+            _lr, rec = self.round(r, signals=True)
+        finally:
+            signal.signal(signal.SIGTERM, safety)
+        self.assertEqual(seen, [])                          # LabRound's handler took it
+        self.assertEqual(self.names(r)[-2:], ["ndt down", "ndt release"])
+        self.assertIn("aborted by signal %d (during the teardown)" % signal.SIGTERM, rec["problems"])
+        self.assertFalse(rec["complete"])
+
     def test_a_busy_lab_is_not_claimed(self):
         r = self.runner(status="  measuring      iperf3 -c 10.0.0.3 -t 200\n")
         _lr, rec = self.round(r)
@@ -1370,6 +1394,8 @@ class FakeFabric(object):
         self.signal_in_sniffer = None     # a cell: a SIGTERM arrives while its sniffer is waited for
         self.force_mode = None            # control_plane.mode whatever package came up
         self.ctrl_never_ready = False     # B's controller never writes its ready file
+        self.ctrl_spawn_fails = False     # the adapter cannot be started (Runner.spawn: OSError -> None, runner.py:62-65)
+        self.ctrl_garbage_result = False  # B's controller writes a result file that is not JSON
         self.extra_ports = {}             # {dpid: [ports show_ports lists that no link uses]}
         self.cpu_port_listed = False
         self.switch_peer_form = "name"    # "name": iproute2's real form; "none": a parser's blind spot
@@ -1703,14 +1729,21 @@ class FakeFabric(object):
             fh.write("\0".join(argv) + "\0")
 
     def spawn(self, argv, out_path, env):
+        if self.ctrl_spawn_fails and is_adapter_argv(argv):
+            return None                                  # what Runner.spawn answers when Popen raises OSError
         self.next_pid += 1
         pid = self.next_pid
         self.fake_proc(pid, argv)
         if "sniff" in argv:
             return FakeSniffer(self, pid, argv, out_path)
-        if RB.ADAPTER in argv:
+        if is_adapter_argv(argv):
             return FakeController(self, pid, argv, out_path, env)
         return None
+
+
+def is_adapter_argv(argv):
+    """B's controller is started through tools/p4_exercise/run_external_controller.py, whichever copy of it."""
+    return any(os.path.basename(a) == "run_external_controller.py" for a in argv)
 
 
 def transit_mac(host):
@@ -1831,7 +1864,10 @@ class FakeController(object):
                     po["src_mac"], po["dst_mac"], po["src_ip"], po["dst_ip"], 40051,
                     run_id=self.conf["token"], cell="P3", seq=seq))
             self.calls["packet_out"] = {"ok": True, "detail": {"frames": po["count"]}}
-            if not self.fab.ctrl_no_result:
+            if self.fab.ctrl_garbage_result:
+                with open(self.conf["out"], "w") as fh:
+                    fh.write("{\"attributions\": ")             # cut off mid-write
+            elif not self.fab.ctrl_no_result:
                 with open(self.conf["out"], "w") as fh:
                     json.dump({"attributions": self.calls, "digests": self.fab.digests,
                                "packet_ins": self.fab.packet_ins, "switches": {}}, fh)
@@ -2294,7 +2330,7 @@ class TestBringUpB(Cut2):
         b, r, pkg = self.b_round()
         self.assertEqual({k: v["ok"] for k, v in b.confirmed.items()},
                          dict({i: True for i in AT.ITEMS}, register=False), b.confirmed)
-        spawn = [c for c in r.calls if c.get("spawn") and RB.ADAPTER in c["argv"]][0]
+        spawn = [c for c in r.calls if c.get("spawn") and is_adapter_argv(c["argv"])][0]
         self.assertEqual(spawn["argv"], [self.cfg.p4dev_python, RB.ADAPTER, pkg, RB.CONTROLLER,
                                          "--tutorials-utils", "/tutorials/utils"])
         self.assertIn("P4H_CTRL_CONFIG", spawn["env"])
@@ -2321,7 +2357,7 @@ class TestBringUpB(Cut2):
     def test_b_spawns_no_controller_on_a_fabric_that_is_not_external(self):
         """MAJOR-3: the adapter checks only the package file; what is UP must say external."""
         b, r, _p = self.b_round(mode="ndtwin")
-        self.assertEqual([c for c in r.calls if c.get("spawn") and RB.ADAPTER in c["argv"]], [])
+        self.assertEqual([c for c in r.calls if c.get("spawn") and is_adapter_argv(c["argv"])], [])
         self.assertFalse(any(v["ok"] for v in b.confirmed.values()))
         self.assertTrue(any("external" in p_ for p_ in b.problems), b.problems)
 
@@ -2389,16 +2425,21 @@ class TestTheLabRun(Cut2):
         t = FakeTime()
         return {"sleep": t.sleep, "clock": t.clock}
 
-    def rounds(self):
+    def rounds(self, real_signals=False):
         proc = self.proc
 
         def make(cfg, runner, bringup, pkg, run_id):
-            return LR.LabRound(cfg, runner, bringup, pkg, run_id, pid=4242, proc_root=proc, install_signals=False)
+            return LR.LabRound(cfg, runner, bringup, pkg, run_id, pid=4242, proc_root=proc,
+                               install_signals=real_signals)
         return make
 
-    def run_lab(self, runner=None, **kw):
+    def run_lab(self, runner=None, real_signals=False, **kw):
+        """`real_signals`: every round installs its own SIGTERM / SIGINT / SIGHUP handlers, as in
+        production. The default leaves them off (a test that signals itself from inside a body
+        has run_lab's own handler and the reading layer's, and nothing else)."""
         r = runner or self.ndt_runner()
-        rc, doc = LAB.run_lab(self.cfg, r, self.s0, self.cfg.run_dir, "run-x", round_cls=self.rounds(),
+        rc, doc = LAB.run_lab(self.cfg, r, self.s0, self.cfg.run_dir, "run-x",
+                              round_cls=self.rounds(real_signals),
                               tutorials_utils="/tutorials/utils", expected_tsv=self.expected,
                               a_kwargs={"hosts": None}, b_kwargs=self.fake_time(),
                               log=lambda *a: None, **kw)
@@ -2440,7 +2481,7 @@ class TestTheLabRun(Cut2):
     def assert_b_kept_out(self, r, rc, doc, a_phase):
         ndt = [c["argv"][1] for c in r.calls if c["argv"][0] == "ndt"]
         self.assertEqual((ndt.count("claim"), ndt.count("up")), (1, 1), ndt)
-        self.assertEqual([c for c in r.calls if c.get("spawn") and RB.ADAPTER in c["argv"]], [])
+        self.assertEqual([c for c in r.calls if c.get("spawn") and is_adapter_argv(c["argv"])], [])
         with open(self.cfg.lab_state_path) as fh:
             st = json.load(fh)
         self.assertEqual((st["bring_up"], st["phase"]), ("A", a_phase))
@@ -2520,6 +2561,54 @@ class TestTheLabRun(Cut2):
         self.assertTrue(any("stop signal 15" in p_ for p_ in doc["problems"]), doc["problems"])
         self.assertNotEqual(getattr(restored, "__name__", ""), "raiser")   # the caller's handler is back
 
+    # --- round 4, F1: a stop during a teardown ends the run too -------------------------------
+    def stop_in_down(self, nth):
+        """A runner whose `nth` `ndt down` sends SIGTERM to the probe (this process), as a
+        `kill -TERM <pid>` from outside does while subprocess.run waits for ndt: the handler
+        runs and the wait resumes (PEP 475). Returns (runner, what the safety handler got)."""
+        r = self.ndt_runner()
+        downs, seen = [], []
+
+        def down(argv, env, inp):
+            downs.append(argv)
+            if len(downs) == nth:
+                os.kill(os.getpid(), signal.SIGTERM)
+            return (0, "")
+        r.replies = [(m, down if m == ("ndt", "down") else rep) for m, rep in r.replies]
+        return r, seen
+
+    def run_with_a_stop_in_down(self, nth):
+        r, seen = self.stop_in_down(nth)
+        safety = signal.signal(signal.SIGTERM, lambda n, f: seen.append(n))
+        try:
+            rc, doc, r = self.run_lab(runner=r, real_signals=True)
+        finally:
+            signal.signal(signal.SIGTERM, safety)
+        self.assertEqual(seen, [], "the signal reached the safety handler: no handler of the probe took it")
+        return rc, doc, r
+
+    def test_a_stop_during_a_teardown_ends_the_run_before_b_claims(self):
+        """The review's F1: with the teardown handler only noting the signal, B was claimed and
+        brought up after a stop. REAL LabRound handlers: the factory of the other run_lab tests
+        turns them off, which is why nothing saw this."""
+        rc, doc, r = self.run_with_a_stop_in_down(1)
+        ndt = [c["argv"][1] for c in r.calls if c["argv"][0] == "ndt"]
+        self.assertEqual((ndt.count("claim"), ndt.count("up")), (1, 1), ndt)
+        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
+        self.assertTrue(any("aborted by signal 15 (during the teardown)" in p_
+                            for p_ in doc["bringups"][0]["problems"]), doc["bringups"])
+        self.assertTrue(any("stop signal" in p_ for p_ in doc["problems"]), doc["problems"])
+        self.assertEqual(ndt[-2:], ["down", "release"])         # A's cleanup was finished, not cut short
+
+    def test_a_stop_during_b_teardown_is_not_complete(self):
+        rc, doc, r = self.run_with_a_stop_in_down(2)
+        ndt = [c["argv"][1] for c in r.calls if c["argv"][0] == "ndt"]
+        self.assertEqual((ndt.count("claim"), ndt.count("up"), ndt.count("release")), (2, 2, 2), ndt)
+        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
+        self.assertTrue(any("aborted by signal 15 (during the teardown)" in p_
+                            for p_ in doc["bringups"][1]["problems"]), doc["bringups"])
+        self.assertTrue(any("stop signal" in p_ for p_ in doc["problems"]), doc["problems"])
+
     def test_root_runs_a_frozen_copy_of_its_code_from_the_run_dir(self):
         """N8: root executes hostside.py, frames.py and __init__.py; it runs copies taken into the
         run dir at the start, so the shared tree can change under a 15-minute run and root still
@@ -2550,6 +2639,57 @@ class TestTheLabRun(Cut2):
         rc, doc, r = self.run_lab()
         self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
         self.assertTrue(any("B's controller" in p_ for p_ in doc["problems"]), doc["problems"])
+
+    # --- round 4, F2: every exit of B without a controller result is a failed B --------------
+    def assert_b_failed(self, rc, doc, why):
+        """INCOMPLETE rc 2, and the run's problems say B's controller did not do its part, and why."""
+        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
+        self.assertTrue(any(p_.startswith("B's controller did not do its part") and why in p_
+                            for p_ in doc["problems"]), doc["problems"])
+        self.assertFalse(any(v["ok"] for v in doc["attributions"].values()), doc["attributions"])
+
+    def test_b_whose_fabric_is_not_external_is_a_failed_b(self):                    # exit 1 of 6
+        self.fab.force_mode = "ndtwin"
+        rc, doc, _r = self.run_lab()
+        self.assert_b_failed(rc, doc, "not external")
+
+    def test_b_whose_controller_never_gets_ready_is_a_failed_b(self):               # exit 2 of 6
+        self.fab.ctrl_never_ready = True
+        rc, doc, _r = self.run_lab()
+        self.assert_b_failed(rc, doc, "never wrote its ready file")
+
+    def test_b_whose_controller_cannot_be_started_is_a_failed_b(self):              # exit 3 of 6
+        self.fab.ctrl_spawn_fails = True
+        rc, doc, _r = self.run_lab()
+        self.assert_b_failed(rc, doc, "could not be started")
+
+    def test_b_whose_sniffer_is_not_ready_is_a_failed_b(self):                      # exit 4 of 6
+        """h4's P3 sniffer never prints READY: hosts.window runs no stimulate(), so no marker is
+        sent and controller.go is never written. The controller waits for `go` and the probe
+        gives up; the run used to read COMPLETE with every bmv2 attribution unconfirmed."""
+        orig = self.fab.spawn
+
+        def deaf(argv, out_path, env):
+            proc = orig(argv, out_path, env)
+            if "sniff" in argv and self.fab.opts(argv)["cells"] == "P3":
+                with open(out_path, "w") as fh:
+                    fh.write("")
+                proc.returncode = 1
+            return proc
+        self.fab.spawn = deaf
+        rc, doc, _r = self.run_lab()
+        self.assert_b_failed(rc, doc, "sniffer")
+        self.assertFalse(os.path.exists(os.path.join(self.cfg.run_dir, "B", "controller.go")))
+
+    def test_b_whose_controller_writes_no_result_is_a_failed_b(self):               # exit 5 of 6
+        self.fab.ctrl_no_result = True
+        rc, doc, _r = self.run_lab()
+        self.assert_b_failed(rc, doc, "wrote no result")
+
+    def test_b_whose_result_file_is_unreadable_is_a_failed_b(self):                 # exit 6 of 6
+        self.fab.ctrl_garbage_result = True
+        rc, doc, _r = self.run_lab()
+        self.assert_b_failed(rc, doc, "no controller result")
 
     def test_an_incomplete_s0_touches_nothing(self):
         self.s0["verdict"] = "PROBE-BROKEN"
@@ -2588,7 +2728,78 @@ class TestTheLabRun(Cut2):
                           "TP1": V.GREEN})
         self.assertIn("SC-count", cells["K1"]["reason"])
         self.assertIn("SC-ttl", cells["TTL1"]["reason"])
+        # the one run whose PROBE-BROKEN is the success: A came up, was read, went down clean
+        self.assertEqual(([b["complete"] for b in doc["bringups"]], doc["problems"]), ([True], []))
         self.assertEqual((doc["verdict"], rc), ("PROBE-BROKEN", 1))
+
+    # --- round 4, F3: PROBE-BROKEN does not hide a stop or an unclean round ------------------
+    def test_a_see_red_run_stopped_after_k1_is_incomplete_not_a_pass(self):
+        """The review's scenario: --mutant --only K1,TTL1 --bringups A, stopped while TTL1 is
+        read. K1 is PROBE-BROKEN by SC-count and TTL1 was never observed; the headline used to
+        read PROBE-BROKEN rc 1, which is what a see-red PASS reads."""
+        self.fab.count_k1 = False
+        self.fab.signal_in_sniffer = "TTL1"
+        rc, doc, _r = self.run_lab(bringups=("A",), only=["K1", "TTL1"], mutant=True)
+        cells = {c["id"]: c for c in doc["cells"]}
+        self.assertEqual(cells["K1"]["verdict"], V.PROBE_BROKEN)
+        self.assertEqual(cells["TTL1"]["verdict"], V.NOT_RUN)
+        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
+
+    def test_a_recorded_stop_overrides_a_probe_broken_cell(self):
+        """F3(a): any run whose record carries 'aborted by signal' is INCOMPLETE rc 2, whatever
+        the cell verdicts say (a full run here, so the see-red rule has no part in it)."""
+        self.fab.count_k1 = False
+        self.fab.signal_in_sniffer = "TTL1"
+        rc, doc, _r = self.run_lab()
+        cells = {c["id"]: c for c in doc["cells"]}
+        self.assertEqual(cells["K1"]["verdict"], V.PROBE_BROKEN)
+        self.assertTrue(any("aborted by signal" in p_ for p_ in doc["bringups"][0]["problems"]))
+        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
+
+    def test_a_stop_between_the_rounds_overrides_a_probe_broken_cell(self):
+        """The same for the run-level stop, which no round's record carries."""
+        self.fab.count_k1 = False
+        seen = []
+        safety = signal.signal(signal.SIGTERM, lambda n, f: seen.append(n))
+        real_keep = LAB.keep_state
+
+        def keep_then_kill(cfg, bringup):
+            real_keep(cfg, bringup)
+            if bringup == "A":
+                os.kill(os.getpid(), signal.SIGTERM)
+        try:
+            with mock.patch.object(LAB, "keep_state", keep_then_kill):
+                rc, doc, _r = self.run_lab()
+        finally:
+            signal.signal(signal.SIGTERM, safety)
+        self.assertEqual(seen, [])
+        cells = {c["id"]: c for c in doc["cells"]}
+        self.assertEqual(cells["K1"]["verdict"], V.PROBE_BROKEN)
+        self.assertTrue(any("stop signal 15" in p_ for p_ in doc["problems"]), doc["problems"])
+        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
+
+    def test_a_see_red_run_whose_round_did_not_end_clean_is_incomplete(self):
+        """F3(b): the see-red pass needs a complete, clean run. A's `ndt down` failed here (the
+        lab was left up), and the headline used to be the same PROBE-BROKEN rc 1."""
+        self.fab.count_k1 = False
+        self.fab.ttl_decrements = False
+        rc, doc, _r = self.run_lab(runner=self.ndt_runner(down_rc=1), bringups=("A",), only=["K1", "TTL1"],
+                                   mutant=True)
+        cells = {c["id"]: c for c in doc["cells"]}
+        self.assertEqual((cells["K1"]["verdict"], cells["TTL1"]["verdict"]), (V.PROBE_BROKEN, V.PROBE_BROKEN))
+        self.assertFalse(doc["bringups"][0]["complete"])
+        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
+
+    def test_a_see_red_run_with_a_problem_of_the_run_is_incomplete(self):
+        """F3(b), the other half: bringups[0] is complete, but the run has a problem of its own
+        (here B kept out because A left something behind)."""
+        self.fab.count_k1 = False
+        self.fab.ttl_decrements = False
+        with mock.patch.object(LAB, "ended_clean", lambda lr, rec: ["a leftover"]):
+            rc, doc, _r = self.run_lab(bringups=("A", "B"), only=["K1", "TTL1"], mutant=True)
+        self.assertTrue(doc["bringups"][0]["complete"])
+        self.assertTrue(any("B not brought up" in p_ for p_ in doc["problems"]), doc["problems"])
+        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
 
 
 if __name__ == "__main__":

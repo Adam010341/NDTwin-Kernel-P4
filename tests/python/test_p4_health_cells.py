@@ -442,6 +442,23 @@ class TestRuleD(unittest.TestCase):
         self.assertEqual(V.run_verdict(ctx, False), ("INCOMPLETE", 2))
         self.assertEqual(V.run_verdict(ctx, True), ("COMPLETE", 0))
 
+    def test_a_stop_overrides_probe_broken_and_a_see_red_pass_needs_a_complete_run(self):
+        """(Cut 2 review, round 4 F3) PROBE-BROKEN is checked first, so it used to hide both a
+        recorded stop and a round that did not end clean."""
+        cells, scs = self.base_obs()
+        scs["SC-fwd"] = {"pingall": (29, 30), "dump_ok": True}
+        ctx = V.judge_all(T.TABLE, cells, scs)
+        self.assertEqual(V.run_verdict(ctx, True), ("PROBE-BROKEN", 1))
+        self.assertEqual(V.run_verdict(ctx, True, stopped=True), ("INCOMPLETE", 2))
+        self.assertEqual(V.run_verdict(ctx, False, stopped=True), ("INCOMPLETE", 2))
+        # a see-red run: PROBE-BROKEN is the pass only when the run was complete and clean
+        self.assertEqual(V.run_verdict(ctx, True, see_red=True), ("PROBE-BROKEN", 1))
+        self.assertEqual(V.run_verdict(ctx, False, see_red=True), ("INCOMPLETE", 2))
+        # and any other run keeps reporting what it found, complete or not
+        self.assertEqual(V.run_verdict(ctx, False), ("PROBE-BROKEN", 1))
+        clean_ctx = V.judge_all(T.TABLE, *self.base_obs())
+        self.assertEqual(V.run_verdict(clean_ctx, True, stopped=True), ("INCOMPLETE", 2))
+
     def test_t7_is_not_run_while_t4_is_red(self):
         cells, scs = self.base_obs()
         cells["T4"] = dict(copy.deepcopy(FIX["T4"][1]), attribution={"bmv2": True})
