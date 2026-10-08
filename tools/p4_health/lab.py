@@ -158,44 +158,69 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
             expected_tsv=None, log=print, identity=None, signals=True, frozen=None):
     """Returns (rc, health document). rc: 0 COMPLETE, 1 PROBE-BROKEN, 2 INCOMPLETE.
 
+    (Cut 2 round 5, #2) Whatever ends the run early -- S0 not COMPLETE, a set-up that fails
+    (load_model, expectations), a round that cannot start (LAB_STATE.json left by an unfinished
+    round, a package outside the run dir) -- is INCOMPLETE rc 2 with a health.json that says why:
+    rc 1 is PROBE-BROKEN only, which on the see-red run is the pass.
+
     `frozen`: the code copies `probe.py lab` froze before S0 and checked against HEAD
     (frozen.freeze). Without it -- the offline tests -- the files are copied here, unchecked."""
-    if s0_out.get("verdict") != "COMPLETE":
-        log("S0 is %s: the lab is not touched" % s0_out.get("verdict"))
-        return 1, None
-    model = load_model(os.path.join(run_dir, "exercise"))
-    pipelines, runtimes, orders = expectations(s0_out, run_dir, model)
-    packages = os.path.join(run_dir, "packages")
     recs, problems, holder, run_stopped = [], [], {}, []
     frozen = frozen or FZ.freeze(run_dir)
-    a_kwargs = dict({"hostside": frozen.hostside}, **(a_kwargs or {}))
-    b_kwargs = dict({"hostside": frozen.hostside, "controller": frozen.controller,
-                     "adapter": frozen.adapter}, **(b_kwargs or {}))
-    old_handlers = _stop_on_signals() if signals else None
-    try:
-        _rounds(cfg, runner, run_id, model, pipelines, runtimes, orders, only, mutant, bringups,
-                packages, round_cls, a_kwargs, b_kwargs, tutorials_utils, run_dir, recs, problems,
-                log, holder)
-    except SignalAbort as exc:
-        # (Cut 2 review N1) between rounds, or before a round's own handlers are in place
-        problems.append("stop signal %d outside a bring-up's body: the run ends here; finish with "
-                        "recover.sh %s if a round was under way" % (exc.signum, run_dir))
-        run_stopped.append(exc.signum)
-        log("  " + problems[-1])
-    finally:
-        if old_handlers is not None:
-            for sig, h in old_handlers.items():
-                signal.signal(sig, h)
+    ended_early = False                 # an exception ended the rounds (a signal is `run_stopped`)
+    prepared = None
+    if s0_out.get("verdict") != "COMPLETE":
+        bad = [c.get("name") for c in s0_out.get("checks") or [] if not c.get("ok")]
+        problems.append("S0 is %s: the lab is not touched%s" % (
+            s0_out.get("verdict"), (" (failed: %s)" % "; ".join(str(n) for n in bad)) if bad else ""))
+        log(problems[-1])
+    else:
+        try:
+            model = load_model(os.path.join(run_dir, "exercise"))
+            pipelines, runtimes, orders = expectations(s0_out, run_dir, model)
+            prepared = (model, pipelines, runtimes, orders)
+        except Exception as exc:  # noqa: BLE001 -- a run that cannot be set up is INCOMPLETE, with the reason
+            problems.append("the run could not be set up: %s: %s" % (type(exc).__name__, exc))
+            log("  " + problems[-1])
+    if prepared is not None:
+        model, pipelines, runtimes, orders = prepared
+        packages = os.path.join(run_dir, "packages")
+        a_kwargs = dict({"hostside": frozen.hostside}, **(a_kwargs or {}))
+        b_kwargs = dict({"hostside": frozen.hostside, "controller": frozen.controller,
+                         "adapter": frozen.adapter}, **(b_kwargs or {}))
+        old_handlers = _stop_on_signals() if signals else None
+        try:
+            _rounds(cfg, runner, run_id, model, pipelines, runtimes, orders, only, mutant, bringups,
+                    packages, round_cls, a_kwargs, b_kwargs, tutorials_utils, run_dir, recs, problems,
+                    log, holder)
+        except SignalAbort as exc:
+            # (Cut 2 review N1) between rounds, or before a round's own handlers are in place
+            problems.append("stop signal %d outside a bring-up's body: the run ends here; finish with "
+                            "recover.sh %s if a round was under way" % (exc.signum, run_dir))
+            run_stopped.append(exc.signum)
+            log("  " + problems[-1])
+        except Exception as exc:  # noqa: BLE001 -- (round 5, #2) StateInUse, a package outside the run dir, ...
+            problems.append("the run ended on %s: %s; finish with recover.sh %s if a round was under way"
+                            % (type(exc).__name__, exc, run_dir))
+            ended_early = True
+            log("  " + problems[-1])
+        finally:
+            if old_handlers is not None:
+                for sig, h in old_handlers.items():
+                    signal.signal(sig, h)
     a, b = holder.get("A"), holder.get("B")
     observations = merge(a.observations if a else {}, b.confirmed if b else None)
-    observations["PF-T"] = pft_observation(s0_out)
+    if s0_out.get("verdict") == "COMPLETE":
+        observations["PF-T"] = pft_observation(s0_out)       # S0's answer, when S0 is whole
     ctx = V.judge_all(T.TABLE, observations, a.sc_observations if a else {})
     expected = E.load(expected_tsv or cfg.expected_tsv)
     ann = E.annotate(ctx, expected)
     rollups = {s: V.rollup(T.TABLE, ctx, s) for s in V.SCOPES}
     complete = bool(recs) and all(r.get("complete") is True for r in recs) and not problems
-    # (round 4, F3) a recorded stop overrides the headline; a see-red pass needs a complete, clean run
-    stopped = any(signalled(r) for r in recs) or bool(run_stopped)
+    # (round 4, F3) a recorded stop overrides the headline; a see-red pass needs a complete, clean run.
+    # (round 5, #2) So does a run that ended early on an exception, or never started: it is
+    # INCOMPLETE whatever the cells that did get read say.
+    stopped = any(signalled(r) for r in recs) or bool(run_stopped) or ended_early
     verdict, rc = V.run_verdict(ctx, bringups_complete=complete, stopped=stopped, see_red=bool(mutant))
     rows = R.table_rows(T.TABLE, ctx, ann)
     with open(os.path.join(run_dir, "00_table.tsv"), "w", encoding="utf-8") as fh:

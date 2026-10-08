@@ -2262,6 +2262,65 @@ add "C2R4-F9. C2R3-N8b tightened: the record is of the source, not of the copy" 
                 sums[rel] = hashlib.sha256(fh.read()).hexdigest()' \
     'test_the_recorded_hash_is_of_the_copy_not_of_the_source'
 
+# --- round 5 (C2R5-): the second review of the fourth round's fixes ------------------------------------
+add "C2R5-2a. probe.py lab answers rc 1 for an S0 that is not complete" \
+    "$PROBEPY" \
+    '                             mutant=args.mutant, frozen=frozen)
+        return rc' \
+    '                             mutant=args.mutant, frozen=frozen)
+        return 1  # MUTANT' \
+    'test_an_s0_with_a_failing_check_is_rc_2_with_a_health_json_and_no_identity_work'
+
+add "C2R5-2b. probe.py lab does the identity work after an S0 that is not complete" \
+    "$PROBEPY" \
+    '    if s0.out["verdict"] != "COMPLETE":
+        # (Cut 2 round 5' \
+    '    if False:  # MUTANT
+        # (Cut 2 round 5' \
+    'test_an_s0_with_a_failing_check_is_rc_2_with_a_health_json_and_no_identity_work'
+
+add "C2R5-2c. run_lab does not say why S0 is not complete" \
+    "$LABPY" \
+    '        bad = [c.get("name") for c in s0_out.get("checks") or [] if not c.get("ok")]' \
+    '        bad = []  # MUTANT' \
+    'test_an_incomplete_s0_touches_nothing'
+
+add "C2R5-2d. an exception out of a round (StateInUse) leaves run_lab" \
+    "$LABPY" \
+    '        except Exception as exc:  # noqa: BLE001 -- (round 5, #2) StateInUse' \
+    '        except ZeroDivisionError as exc:  # MUTANT: (round 5, #2) StateInUse' \
+    'test_a_leftover_lab_state_is_incomplete_rc_2_and_stays_for_recover'
+
+add "C2R5-2e. a run that ended on an exception reads PROBE-BROKEN when a cell is" \
+    "$LABPY" \
+    '    stopped = any(signalled(r) for r in recs) or bool(run_stopped) or ended_early' \
+    '    stopped = any(signalled(r) for r in recs) or bool(run_stopped)  # MUTANT' \
+    'test_a_round_that_cannot_be_built_ends_the_run_incomplete_with_the_earlier_rounds_kept'
+
+add "C2R5-2f. a load_model failure leaves run_lab" \
+    "$LABPY" \
+    '        except Exception as exc:  # noqa: BLE001 -- a run that cannot be set up' \
+    '        except ZeroDivisionError as exc:  # MUTANT: a run that cannot be set up' \
+    'test_a_load_model_failure_is_incomplete_rc_2'
+
+add "C2R5-2g. an expectations failure leaves run_lab" \
+    "$LABPY" \
+    '            pipelines, runtimes, orders = expectations(s0_out, run_dir, model)
+            prepared = (model, pipelines, runtimes, orders)
+        except Exception' \
+    '            pipelines, runtimes, orders = (None, None, None)  # MUTANT: expectations not asked for
+            prepared = (model, pipelines, runtimes, orders)
+        except Exception' \
+    'test_an_expectations_failure_is_incomplete_rc_2'
+
+add "C2R5-2h. probe.py lab lets an exception out as Python's status 1" \
+    "$PROBEPY" \
+    '        except Exception:  # noqa: BLE001
+            # (Cut 2 round 5, #2) Python' \
+    '        except ZeroDivisionError:  # noqa: BLE001  MUTANT
+            # (Cut 2 round 5, #2) Python' \
+    'test_an_exception_out_of_the_lab_path_is_rc_2_not_pythons_status_1'
+
 
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'

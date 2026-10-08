@@ -32,6 +32,14 @@ from p4_health import attribution as AT  # noqa: E402
 from p4_health import controller_ext as CX  # noqa: E402
 from p4_health import round_a as RA  # noqa: E402
 
+
+
+class MustNotRun(BaseException):
+    """What a test double raises where the code under test must not get to. Not an Exception:
+    `probe.py lab` turns any Exception into rc 2 (round 5, #2), which would let a test that expects
+    rc 2 pass even though the double was reached."""
+
+
 PKG = os.path.dirname(os.path.abspath(T.__file__))
 EXPECTED_TSV = os.path.join(REPO, "doc", "audit", "2026-10-03_p4-health-check", "expected_today.tsv")
 P4_SRC = os.path.join(os.path.dirname(PKG), "exercise", "src", "hc_main.p4")
@@ -1526,8 +1534,8 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         # the freeze is stubbed to fail loudly: it would refuse this run dir too (round 4), and a
         # test that only sees rc 2 could not tell which check said no
         with mock.patch.object(probe.subprocess, "run", git), \
-                mock.patch("p4_health.frozen.freeze", side_effect=AssertionError("the freeze must not start")), \
-                mock.patch("p4_health.s0.S0", side_effect=AssertionError("S0 must not start")):
+                mock.patch("p4_health.frozen.freeze", side_effect=MustNotRun("the freeze must not start")), \
+                mock.patch("p4_health.s0.S0", side_effect=MustNotRun("S0 must not start")):
             rc = probe.main(["lab", "--run-dir", "/nonexistent/run", "--owner", "o"])
         self.assertEqual(rc, 2)
         self.assertIn(("status", "--porcelain", "--", "tools/p4_health"), asked)
@@ -1538,7 +1546,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
 
         def run(argv, **kw):
             if argv[:1] != ["git"]:
-                raise AssertionError("unexpected spawn %r" % (argv,))
+                raise MustNotRun("unexpected spawn %r" % (argv,))
             if exc is not None:
                 raise exc
             return sp.CompletedProcess(argv, rc, stdout=out, stderr="")
@@ -1553,8 +1561,8 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
                    {"rc": 0, "exc": FileNotFoundError("git")}):
             with self.subTest(kw=kw):
                 with mock.patch.object(probe.subprocess, "run", self.git_answering(**kw)), \
-                        mock.patch("p4_health.frozen.freeze", side_effect=AssertionError("the freeze must not start")), \
-                        mock.patch("p4_health.s0.S0", side_effect=AssertionError("S0 must not start")):
+                        mock.patch("p4_health.frozen.freeze", side_effect=MustNotRun("the freeze must not start")), \
+                        mock.patch("p4_health.s0.S0", side_effect=MustNotRun("S0 must not start")):
                     rc = probe.main(["lab", "--run-dir", "/nonexistent/run", "--owner", "o"])
                 self.assertEqual(rc, 2)
 
@@ -1585,7 +1593,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
                         mock.patch("p4_health.frozen.freeze", return_value=object()), \
                         mock.patch("p4_health.identity.system_under_test", return_value=sut), \
                         mock.patch("p4_health.identity.fingerprint", return_value=gate) as fp, \
-                        mock.patch("p4_health.lab.run_lab", side_effect=AssertionError("the lab must not start")):
+                        mock.patch("p4_health.lab.run_lab", side_effect=MustNotRun("the lab must not start")):
                     rc = probe.main(["lab", "--run-dir", d, "--owner", "o"])
                 self.assertEqual(rc, 2)
                 fp.assert_called_once()                 # refused by the identity check, not by something before it
@@ -1600,6 +1608,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         from unittest import mock
         from p4_health import frozen as FZ
         from p4_health import probe
+        from p4_health.collect.config import Config as RealConfig
         real_freeze = FZ.freeze
 
         class FakeS0(object):
@@ -1616,10 +1625,14 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
             stack.enter_context(mock.patch("p4_health.s0.S0", FakeS0))
             stack.enter_context(mock.patch("p4_health.frozen.freeze",
                                            lambda run_dir, repo=None, git=None: real_freeze(run_dir)))
+            # the mutation gate's copy of the package has no doc/ beside it: the predictions file is the repo's
+            stack.enter_context(mock.patch("p4_health.collect.config.Config",
+                                           lambda run_dir, owner=None: RealConfig(run_dir, owner=owner,
+                                                                                  expected_tsv=EXPECTED_TSV)))
             fp = stack.enter_context(mock.patch("p4_health.identity.fingerprint",
-                                                side_effect=AssertionError("no identity work")))
+                                                side_effect=MustNotRun("no identity work")))
             sut = stack.enter_context(mock.patch("p4_health.identity.system_under_test",
-                                                 side_effect=AssertionError("no identity work")))
+                                                 side_effect=MustNotRun("no identity work")))
             rc = probe.main(["lab", "--run-dir", d, "--owner", "o"])
         self.assertEqual(rc, 2)
         fp.assert_not_called()
@@ -1744,7 +1757,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         from unittest import mock
         from p4_health import probe
 
-        class Reached(Exception):
+        class Reached(BaseException):       # not an Exception: probe.py lab turns those into rc 2 (round 5, #2)
             pass
 
         def s0(*a, **kw):

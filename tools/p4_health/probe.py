@@ -8,7 +8,8 @@
     probe.py lab --run-dir DIR --owner O [--bringups A,B] [--only K1,TTL1] [--mutant]
                                                                    S0, then bring-ups A and B (Cut 2)
 
-Exit: 0 COMPLETE, 1 PROBE-BROKEN (not publishable), 2 INCOMPLETE / refused.
+Exit: 0 COMPLETE, 1 PROBE-BROKEN (not publishable), 2 INCOMPLETE / refused. On `lab`, 1 is PROBE-BROKEN and nothing
+else (round 5): an S0 that is not whole, a run that cannot start and an exception are all 2.
 Refuses to run as root (design 7.3). Wrap in run.sh (setsid, nice) for anything long.
 """
 from __future__ import annotations
@@ -140,10 +141,16 @@ def cmd_lab(args):
     s0.out["repo"] = ident
     s0.run()
     print("S0 %s" % s0.out["verdict"])
-    if s0.out["verdict"] != "COMPLETE":
-        print("S0 is %s: the lab is not touched" % s0.out["verdict"])
-        return 1
     cfg = Config(run_dir, owner=owner)
+    bringups = tuple(b for b in (args.bringups or "A,B").split(",") if b)
+    only = [c for c in (args.only or "").split(",") if c] or None
+    if s0.out["verdict"] != "COMPLETE":
+        # (Cut 2 round 5, #2) rc 1 is PROBE-BROKEN, the see-red run's pass: an S0 that is not whole is
+        # INCOMPLETE rc 2, and run_lab writes the health.json that says which check failed. No identity
+        # work, no lab.
+        rc, _doc = L.run_lab(cfg, runner, s0.out, run_dir, run_id, bringups=bringups, only=only,
+                             mutant=args.mutant, frozen=frozen)
+        return rc
     # (Cut 2 review m4) DESIGN 4.3 and Q6(a): what this run ran, recorded before the lab
     from p4_health import identity as ID
     from p4_health.vs_trial import fabric_binary
@@ -165,8 +172,6 @@ def cmd_lab(args):
         print("refused: the identity record is incomplete (system under test %s, fingerprint %s); "
               "see %s/gate_fingerprint.json" % (sut, gate.get("sha256"), run_dir), file=sys.stderr)
         return 2
-    bringups = tuple(b for b in (args.bringups or "A,B").split(",") if b)
-    only = [c for c in (args.only or "").split(",") if c] or None
     rc, _doc = L.run_lab(cfg, runner, s0.out, run_dir, run_id, bringups=bringups, only=only,
                          mutant=args.mutant, identity={"gate_fingerprint": gate, "system_under_test": sut},
                          frozen=frozen)
@@ -199,7 +204,16 @@ def main(argv=None):
     if args.cmd == "judge":
         return cmd_judge(args)
     if args.cmd == "lab":
-        return cmd_lab(args)
+        try:
+            return cmd_lab(args)
+        except Exception:  # noqa: BLE001
+            # (Cut 2 round 5, #2) Python's status for an uncaught exception is 1 -- PROBE-BROKEN, which on
+            # the see-red run is the pass. Whatever the lab path did not foresee is INCOMPLETE rc 2.
+            import traceback
+            traceback.print_exc()
+            print("refused: the lab run ended on an exception (above); it is INCOMPLETE, not a verdict. "
+                  "If a round was under way, finish with recover.sh on the run dir.", file=sys.stderr)
+            return 2
     ap.print_help()
     return 2
 
