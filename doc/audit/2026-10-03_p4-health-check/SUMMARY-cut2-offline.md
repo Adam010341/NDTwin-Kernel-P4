@@ -77,7 +77,7 @@
 - **前置**：`probe.py lab` 在 `tools/p4_health` 有任何未提交的改動時拒絕（rc 2）。
   - 第 4 輪起，乾淨檢查之後、S0 之前，立刻把各輪會執行的檔案複製進 `<run>/frozen/`，並逐一比對 HEAD 的 blob（`git hash-object <副本>` 對 `git rev-parse HEAD:<路徑>`）；對不上就 rc 2，什麼 lab 動作都還沒做。
   - root 的 `hostside.py`、B 的 controller 與 adapter 都執行副本，不執行共用的 working tree；各檔的 sha256 記在 health.json 的 `frozen_code`（root 那三個另外在 `root_code`）。
-- **S0**：在 run 目錄跑 S0，不是 COMPLETE 就停（rc 1）。
+- **S0**：在 run 目錄跑 S0，不是 COMPLETE 就停：第 5 輪起是 **rc 2**（INCOMPLETE），health.json 的 `problems` 寫哪幾個檢查沒過，不碰 lab、不做 identity。（第 4 輪以前是 rc 1、沒有 health.json；rc 1 在 see-red 那一輪是「過」，見 §8。）
 - **記錄這一輪跑的是什麼**：
   - `system_under_test`：用 `code_identity.py` 記錄；
   - `gate_fingerprint`：Q6(a)「必須相同」那一側，每一部分一個 digest；
@@ -112,7 +112,7 @@
 
 - **審查三個 MAJOR 與 m1–m7**：除了下面兩類，每一項都有在舊碼上看到紅的 log（`r2/*.OLD_red.log`）與綠的 log（`*.NEW_green.log`），也都有 mutant。
   - m6 只改措辭，沒有紅 log，也沒有 mutant。
-  - m3 與 m5 的紅是介面錯誤（引數、import），不是行為上的紅；行為由它們的 mutant 承擔。
+  - m5 的紅是介面錯誤（`r2/m5.OLD_red.log:2-3`）。m3 的紅 log 與 MAJOR-2 共用（`r2/major2_m3.OLD_red.log:58-61`，有兩行 FAIL），單看那份 log 不能證明它是介面錯誤；m3 的行為由它的 mutant 承擔。（第 4 輪 SUMMARY 寫成「m3 的紅是介面錯誤」，第 5 輪更正。）
 - **拋棄式 simple_switch_grpc 上的事實**（stock 與 bmv2-fast 兩支）：
   - 11 項歸因有 10 項確認；
   - RegisterEntry 寫入回 `canonical_code 12: Register writes are not supported yet`；
@@ -175,7 +175,7 @@
 cd <checkout>
 git status --porcelain -- tools/p4_health           # 必須是空的（不是空的，probe.py lab 會 rc 2 拒絕）
 NDT_OWNER=<owner> tools/test_workflow/ndt status                # 必須是 claim none、measuring nothing、bmv2 switches 0（claim 列 ndt:6849-6850，bmv2 switches 列 ndt:6992）
-                                                                # 不要用 --measuring：它只印 declared／measuring 兩種列（ndt:6818-6824），看不到 claim 與 bmv2
+                                                                # 不要用 --measuring：它只印 declared、measuring（或 orphaned，ndt:6803-6807；recover.sh:309-316 靠這一列）幾種列（ndt:6818-6824），看不到 claim 與 bmv2
 df -m /                                             # > 2500 MB
 RUN=$PWD/.test_run/p4_health/$(date -u +%Y-%m-%dT%H%M%SZ)_p4_health
 P4_HEALTH_RUN_DIR=$RUN tools/p4_health/run.sh lab --owner <owner>        # S0 → identity → A → B → 判格
@@ -206,19 +206,19 @@ P4_HEALTH_RUN_DIR=$RUN2 tools/p4_health/run.sh lab --owner <owner> --bringups A 
 - T7：NOT RUN（gate T4 RED）；
 - UNATTRIBUTED：R3、VS1；
 - 其餘格：NOT RUN「not observed in this run」，delta 寫「not observed」；
-- delta：57 格裡 same 30、not observed 27、**flipped 0**（假 fabric 的端對端測試實測；兩列對照 K1-neg、T3-neg 另外各是 same）；
+- delta：57 格裡 same 30、not observed 27、**flipped 0**（假 fabric 的端對端測試實測，第 5 輪補存了 log：`LOG/r5/delta_counts.log`，rollup 也在裡面；兩列對照 K1-neg、T3-neg 另外各是 same）；
 - rollup：
   - core：can 9、partial 1、cannot 3、undecided 3；
   - full：6、4、3、3；
   - q3b：0、0、0、6；
 - 整輪：COMPLETE，rc 0，**而且** health.json 的 `problems` 是空的、B 的 controller 有做完。
-  - 只看 COMPLETE rc 0 不夠：第 4 輪之前，B 的 sniffer 沒起來、或結果檔讀不了，整輪仍會是 COMPLETE（第 4 輪 F2 已修）。
+  - 只看 COMPLETE rc 0 不夠：第 4 輪之前，B 的 sniffer 沒起來、或結果檔讀不了，整輪仍會是 COMPLETE（第 4 輪 F2 修了「沒有結果」的六個出口）；第 5 輪 #4 又補上「有結果、但什麼都沒確認」（只有 register 確認、或 s2 不是 primary）。這些都由程式標成 failed B、整輪 INCOMPLETE；仍要照步驟 6 看 `controller.result.json`。
 
 **看過紅那一次預測會看到的**
 
 - K1 是 PROBE-BROKEN，原因 SC-count；TTL1 是 PROBE-BROKEN，原因 SC-ttl；
 - PL1、T1、TP1 都是 GREEN；
-- PROBE-BROKEN，rc 1——這正是 §5.2-④ 要的，**但只在 A 完整、乾淨結束，而且 health.json 的 `problems` 是空的時候**才算數。
+- PROBE-BROKEN，rc 1——這正是 §5.2-④ 要的，**但只在 A 完整、乾淨結束，而且 health.json 的 `problems` 是空的時候**才算數。**看 health.json 的 `verdict`（PROBE-BROKEN）和 K1、TTL1 的理由（SC-count、SC-ttl），不要只看 rc**：第 5 輪起 `probe.py lab` 的 rc 1 只代表 PROBE-BROKEN；S0 沒過、run 目錄留著沒結束的 LAB_STATE.json、準備階段出錯、任何例外，都是 rc 2。mutant 沒被發現（沒有任何格 PROBE-BROKEN）是 `SEE-RED-NOT-SEEN`、rc 2，不再是 COMPLETE rc 0。
   - 第 4 輪起程式自己強制這一點：see-red 這一輪沒完成、有 problem、或被停止訊號打斷，標題是 INCOMPLETE、rc 2，不是 PROBE-BROKEN（F3）。
   - 這一輪的步驟 2 也要照做（見下）。
 
@@ -249,7 +249,7 @@ P4_HEALTH_RUN_DIR=$RUN2 tools/p4_health/run.sh lab --owner <owner> --bringups A 
 
 - **基底**：`b1efe699`；中途合併了 `fix/p4-health-run-identity` 兩次：`79e13808`（在 `196c8340`）、`65491ceb`（在 `eac246cb`）。那個分支只動 `test_p4_health_cells.py`，兩次都合併乾淨。
 - **code 的 head**：`2e630d34`（`tools/p4_health` 的 tree＝`e42f47f9`）。之後只有這份文件的 commit，tools 與 tests 沒有再動。
-- **LOG4** 指 `LOG/r4/`；每份 log 第 1 行是 `commit <sha> tree <tree>`，最後一行是 `rc=`。
+- **LOG4** 指 `LOG/r4/`；每份 log 第 1 行是 `commit <sha> tree <tree>`，最後一行是 `rc=`——**除了** `mutate_p4_health.stopped_by_me_*.log` 兩份（被我中途停掉的，不是結果；`stopped_by_me_at_18_to_shard.log` 停在 M18 的標題，沒有 `rc=`）。
   - 紅：F1–F3 跑在 `5391a7f4`，F4、F6、F8、F9 跑在 `66043c74`；兩者都是**先 commit 測試、再跑**，沒有未提交的測試文字。
   - 綠：F1–F3 跑在 `0fa6902a`，F4、F6、F8、F9 跑在 `6a7954e2`；整份套件的綠與 gate 在 `2e630d34`。
 - **新 mutant 的前綴**：`C2R4-`（30 個，另有 `C2R3-N8a/b` 與 `C2-RB2` 跟著搬了位置的程式改了 anchor）。
@@ -261,12 +261,12 @@ P4_HEALTH_RUN_DIR=$RUN2 tools/p4_health/run.sh lab --owner <owner> --bringups A 
 | F1（MAJOR）收拾期間的停止訊號 | `lab_round.py`：收拾 handler 記下第一個訊號，收拾做完後 `run()` 把「aborted by signal N (during the teardown)」寫進該輪的 problems、`complete` 設 false；docstring 改成和程式一致 | `f1.RED.log`：3 個失敗，含審查預測的「2 次 claim、2 次 up」與「COMPLETE rc 0」 | `f1.GREEN.log` | `C2R4-F1a`–`F1d`（不記下訊號、留最後一個而非第一個、`run()` 不寫、`complete` 不清） |
 | F2 每一個沒有 controller 結果的 B 出口都是 failed | `round_b.py`：`finish()` 在結果是 None 時一律設 `failed`；sniffer 沒起來（沒有 stimulate、沒有 `go`）有自己的理由 | `f2.RED.log`：2 個失敗（sniffer 沒起來、結果檔讀不了）；其餘四個出口原本就對，補的是測試 | `f2.GREEN.log`（6 個出口各一個 run_lab 測試） | `C2R4-F2a`–`F2f`（六個出口各一個，各自的理由被拿掉） |
 | F3 停止訊號蓋過標題；see-red 要完整乾淨 | `cells/verdict.py` 的 `run_verdict(…, stopped, see_red)`；`lab.py` 依任何一輪的紀錄或 run 自己的停止（旗標，不是比字串）傳入 | `f3.RED.log`：5 個行為上的失敗；`f3.cells.RED.log` 是介面錯誤（`TypeError`，引數還不存在） | `f3.GREEN.log`、`f3.cells.GREEN.log` | `C2R4-F3a`–`F3f` |
-| F4 早凍結、對 HEAD 驗、B 也用副本 | 新的 `frozen.py`；`probe.py lab` 在乾淨檢查之後、S0 之前凍結；7 個檔（root 3 個、B 的 controller、adapter 與它 import 的 `common.py`、`__init__.py`）都比對 `git hash-object` 對 `git rev-parse HEAD:<路徑>`，對不上、git 答不出、兩個答案都是空的，都 rc 2；B 的 argv 用副本；health.json 多 `frozen_code` | `f4.RED.log`、`f4.collect.RED.log`：行為上的失敗（改動在檢查與凍結之間，S0 照樣起；B 的 argv 指向共用的 tree）；其中兩個測試因為 `frozen` 模組還不存在而是 import 錯誤 | `f4.GREEN.log`、`f4.collect.GREEN.log` | `C2R4-F4a`–`F4j`；`C2R3-N8a/b` 搬到新程式 |
+| F4 早凍結、對 HEAD 驗、B 也用副本 | 新的 `frozen.py`；`probe.py lab` 在乾淨檢查之後、S0 之前凍結；7 個檔（root 3 個、B 的 controller、adapter 與它 import 的 `common.py`、`__init__.py`）都比對 `git hash-object` 對 `git rev-parse HEAD:<路徑>`，對不上、git 答不出、兩個答案都是空的，都 rc 2；B 的 argv 用副本；health.json 多 `frozen_code` | `f4.RED.log`、`f4.collect.RED.log`：行為上的失敗（改動在檢查與凍結之間，S0 照樣起；B 的 argv 指向共用的 tree）：cells 3 個測試共 11 個失敗的 subtest（`f4.RED.log:3`、`:215`），collect 2 個測試；另有 3 個測試因為 `frozen` 模組還不存在而是 import 錯誤（`f4.RED.log:5-31` 兩個、`f4.collect.RED.log:5-11` 一個） | `f4.GREEN.log`、`f4.collect.GREEN.log` | `C2R4-F4a`–`F4j`；`C2R3-N8a/b` 搬到新程式 |
 | F6 用真實路徑登記 controller | `round_b.py`：`os.path.realpath(self.cfg.run_dir)`；凍結的目錄也用解析後的路徑 | `f6.RED.log`（LAB_STATE.B.json 的 controllers 是空的） | `f6.GREEN.log` | `C2R4-F6`（`C2-RB2` 的 anchor 跟著改） |
 | F8 讀不了 override 的分支 | 測試：`fabric_binary` 被 mock；真的 `ID.fingerprint` 在「其他部分都讀得到」的機器上，對照組是可讀的 override（有指紋、lab 起）、OSError 組是 `incomplete`＋rc 2＋lab 不起；原本的「缺少 identity 記錄」測試不再讀真的 `bmv2_binary_override`，並斷言是 identity 檢查擋下的 | `f8.RED.log` 是 import 錯誤（測試要 patch 還不存在的 `frozen`）；這個分支的程式本來就對，**行為上的紅由 mutant 承擔** | `f8.GREEN.log` | `C2R4-F8a/b` |
 | F9 C2R3-N8b 收緊 | 測試比對的是**副本**的位元組；另一個測試讓副本和來源不同，紀錄必須是副本的 | `f9.RED.log` 是 import 錯誤；**行為上的紅由 mutant 承擔** | `f9.GREEN.log` | `C2R4-F9`（hash 來源而非副本）被 `test_the_recorded_hash_is_of_the_copy_not_of_the_source` 殺死（`mutate_p4_health.partial_F4-F9.log`） |
 
-- **紅 log 的限制**：F3 的 cells 測試、F4 的兩個、F8、F9 的紅是介面錯誤，不是行為紅；它們的行為由對應的 mutant 承擔。F1、F2、F3（collect）、F4（cells 的 5 個、collect 的 2 個）、F6 的紅是行為上的。
+- **紅 log 的限制**：F3 的 cells 測試、F4 的兩個、F8、F9 的紅是介面錯誤，不是行為紅；它們的行為由對應的 mutant 承擔。F1、F2、F3（collect）、F4（cells 的 3 個測試〔11 個 subtest〕、collect 的 2 個測試）、F6 的紅是行為上的。（第 4 輪的 SUMMARY 寫成「兩個 import 錯誤、cells 5 個」，第 5 輪照 log 更正。）
 - **模擬 stub 照真實工具**：
   - F1 的假 `ndt down` 對自己（探測器）送 SIGTERM，等於 `kill -TERM <pid>` 在 `subprocess.run` 等 ndt 的時候到達；Python 的 handler 跑完，等待繼續（PEP 475）。這次用的是各輪**真實**的 handler（`install_signals=True`）。
   - F2 的 spawn 失敗照 `Runner.spawn`：Popen 丟 OSError 就回 None（`collect/runner.py:62-65`）。
@@ -288,8 +288,8 @@ P4_HEALTH_RUN_DIR=$RUN2 tools/p4_health/run.sh lab --owner <owner> --bringups A 
   - **結論**：這個窗口不會讓 B 起來，也不會留下 recover.sh 看不懂的狀態；人要照 recover.sh 印的指令（或 `ndt release`）放掉 claim。這不是新的缺口，我沒有改程式。
 - **F5**：不在這一輪的範圍；`test_p4_health_cells.py` 的「引用的記錄」檢查已經由 `fix/p4-health-run-identity` 的 `9cf3e0b7`、`79e13808` 改成只看文字與單一 trunk ref，合併進來了。
 - **F10**、**`show_ports_trial` 沒有單元測試**：沒有動。
-- **S0 的 adapter dry-run** 仍然執行共用 tree 的 adapter（它只印改寫，不是一輪；它在凍結之後跑，所以和 B 實際執行的副本是同一個 HEAD 的內容，但不是同一份檔）。
-- **see-red 那一輪如果沒有任何格 PROBE-BROKEN**（mutant 沒被抓到）仍然讀 COMPLETE、rc 0；這不在這一輪的要求內，沒有改。
+- **S0 的 adapter dry-run** 在第 4 輪執行共用 tree 的 adapter；原來寫的「它在凍結之後跑，所以是同一個 HEAD 的內容」推不出來（HEAD 檢查驗的是副本，不是 S0 之後才跑的那份共用檔），而且漏了 S0 的 controller trial（`ctrl_trial.py` 也跑共用 tree 的 `controller_ext.py`）。第 5 輪 #5 已修：兩者都用凍結的副本，見 §8。
+- **see-red 那一輪如果沒有任何格 PROBE-BROKEN**（mutant 沒被抓到）在第 4 輪仍然讀 COMPLETE、rc 0；第 5 輪 #3 已修，改讀 `SEE-RED-NOT-SEEN`、rc 2（§8）。
 
 ### 7.3 gate
 
@@ -301,7 +301,7 @@ P4_HEALTH_RUN_DIR=$RUN2 tools/p4_health/run.sh lab --owner <owner> --bringups A 
 - **gate 怎麼跑的（照實寫）**：
   - 單一程序的 gate 在這台機器上約每個突變 1 分鐘（recover 測試最久），328 個要 5 小時以上，超過任務指定的 `timeout 10800`。
   - 我停掉了前兩次（`mutate_p4_health.stopped_by_me_at_59_slow_machine.log`、`…_at_18_to_shard.log`，**不是結果**），給 `tests/shell/mutate_p4_health.sh` 加了 `MUT_SHARD=k/n`（位置對 n 取餘數），同一個 head 上並行跑 4 份，各自有基線與負對照，合起來剛好蓋過整張表一次；timeout 改成 21600。
-  - 第一輪 4 份（`mutate_p4_health.run1_56b27f60.shard*of4.log`，在 `56b27f60`）有 2 個存活：`R2-m4a`、`C2R3-N3a`。原因：早凍結放在乾淨檢查之後，這兩個測試用不存在的 run 目錄，突變讓檢查放行後，凍結照樣 rc 2，測試只看 rc 2，分不出是哪個檢查擋的。已修（`2e630d34`：測試把凍結換成一碰就失敗的 stub），單獨重跑兩個突變都被抓到，然後整張表在 `2e630d34` 重跑一遍，就是上面的結果。
+  - 第一輪 4 份（`mutate_p4_health.run1_56b27f60.shard*of4.log`，在 `56b27f60`）有 2 個存活：`R2-m4a`、`C2R3-N3a`。原因：早凍結放在乾淨檢查之後，這兩個測試用不存在的 run 目錄，突變讓檢查放行後，凍結照樣 rc 2，測試只看 rc 2，分不出是哪個檢查擋的。已修（`2e630d34`：測試把凍結換成一碰就失敗的 stub），然後整張表在 `2e630d34` 重跑一遍，就是上面的結果：這兩個突變在最終的 shard 0 被抓到（`mutate_p4_health.shard0of4.log:433-437`、`:445-449`）。（原來寫的「單獨重跑兩個突變都被抓到」沒有 log，第 5 輪刪掉。）
   - 起 gate 之前，兩次都查了 `fix/p4-health-run-identity` 的 head：第一次是 `79e13808`（不是 `9cf3e0b7`），合併後才跑；第二次是 `65491ceb`，也合併了（`eac246cb`），再跑。最後一次起跑前那個分支的 head 仍是 `65491ceb`。
 
 ### 7.4 r2、r3 審查指為矛盾的句子，已改
