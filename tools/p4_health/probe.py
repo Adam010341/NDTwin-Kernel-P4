@@ -35,6 +35,33 @@ from p4_health.collect.runner import Runner  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
+#: (Cut 2 round 5, #5) Every module of the package that the probe process can load on a lab run. `cmd_lab`
+#: imports them all BEFORE its clean check, so that no probe code is read from the shared tree after the
+#: check: identity.py (the gate fingerprint, the standing authorization's baseline) and the modules S0
+#: imports lazily (vs_trial, ctrl_trial, round_b, ...) used to be first imported ~2 minutes later, from
+#: whatever the tree held then. Chosen over re-verifying each loaded module's file against HEAD just before
+#: run_lab because the check would compare the FILE, not the code the process loaded (an edit made and
+#: undone in between passes it), and because it could not cover a module loaded after it. What stays
+#: outside: the files run as scripts (probe.py itself, hostside.py -- root runs the frozen copy --,
+#: openapi_probe.py, capture_thrift_fixtures.py), and the window between the process's start and the check,
+#: in which the package's top-level imports (cells, collect.config, expected, report, runner) were read.
+#: tests: the list is the package's module list, less those script-only files.
+LAB_PATH_MODULES = (
+    "p4_health.attribution", "p4_health.cells.table", "p4_health.cells.verdict", "p4_health.collect.config",
+    "p4_health.collect.fabric", "p4_health.collect.hosts", "p4_health.collect.kernel",
+    "p4_health.collect.proxy", "p4_health.collect.ps", "p4_health.collect.runner", "p4_health.collect.sniff",
+    "p4_health.collect.tc", "p4_health.collect.thrift", "p4_health.controller_ext", "p4_health.ctrl_trial",
+    "p4_health.expected", "p4_health.frames", "p4_health.frozen", "p4_health.identity", "p4_health.lab",
+    "p4_health.lab_round", "p4_health.observe", "p4_health.observe_a", "p4_health.report",
+    "p4_health.round_a", "p4_health.round_b", "p4_health.runtime_cli", "p4_health.s0",
+    "p4_health.throwaway", "p4_health.vs_trial")
+
+
+def load_lab_path():
+    import importlib
+    for name in LAB_PATH_MODULES:
+        importlib.import_module(name)
+
 
 def _git_run(*args):
     """(rc, stdout) of one git call; rc None when git could not run at all (missing, timeout)."""
@@ -108,6 +135,7 @@ def cmd_judge(args):
 def cmd_lab(args):
     """S0 in the run directory, then the lab (lab.run_lab). The owner is required: every ndt
     call carries it (CLAUDE.md), and claims are made in its name."""
+    load_lab_path()
     from p4_health import lab as L
     from p4_health.collect.config import Config
     from p4_health.s0 import S0
@@ -142,7 +170,7 @@ def cmd_lab(args):
     runner = Runner()
     ident = repo_identity(head=frozen.head)
     print("lab run %s -> %s  (HEAD %s, probe tree %s)" % (run_id, run_dir, ident["head"], ident["probe_tree"]))
-    s0 = S0(run_dir, runner, py)
+    s0 = S0(run_dir, runner, py, frozen=frozen)
     s0.out["repo"] = ident
     s0.run()
     print("S0 %s" % s0.out["verdict"])

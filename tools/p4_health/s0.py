@@ -154,7 +154,10 @@ def preflight_rows(stdout):
 class S0(object):
     def __init__(self, run_dir, runner, py_p4, bmv2=TW.DEFAULT_BMV2,
                  thrift_cli=None,
-                 p4c="p4c-bm2-ss", hb_cache=None, log=print):
+                 p4c="p4c-bm2-ss", hb_cache=None, log=print, frozen=None):
+        #: (Cut 2 round 5, #5) the copies `probe.py lab` froze and checked against HEAD: the controller trial
+        #: and the adapter dry-run run those, not the shared tree's files. None (S0 on its own): the tree's.
+        self.frozen = frozen
         self.run_dir = os.path.abspath(run_dir)
         self.runner = runner
         self.py = py_p4
@@ -584,9 +587,10 @@ class S0(object):
             from . import ctrl_trial as CT
             from .vs_trial import fabric_binary
             utils = os.path.join(os.path.expanduser("~"), "tutorials", "utils")
+            ctrl = {"controller": self.frozen.controller} if self.frozen else {}
             results = [CT.trial(os.path.join(self.ex, "build"), b, self.thrift_cli,
                                 os.path.join(self.run_dir, "ctrl_trial_work", "%d" % i),
-                                default_p4dev_python(), utils)
+                                default_p4dev_python(), utils, **ctrl)
                        for i, b in enumerate(("/usr/local/bin/simple_switch_grpc", fabric_binary()))]
         except Exception as exc:  # noqa: BLE001
             self.check("B's controller on throwaway simple_switch_grpc", False,
@@ -642,11 +646,14 @@ class S0(object):
             self.check("adapter --dry-run on package B", False, "no package")
             return
         utils = os.path.join(os.path.expanduser("~"), "tutorials", "utils")
-        res = self.run_cmd(RB.adapter_argv(default_p4dev_python(), pkg, utils) + ["--dry-run"], timeout=60)
+        fz = self.frozen
+        adapter, controller = (fz.adapter, fz.controller) if fz else (RB.ADAPTER, RB.CONTROLLER)
+        res = self.run_cmd(RB.adapter_argv(default_p4dev_python(), pkg, utils, adapter=adapter,
+                                           controller=controller) + ["--dry-run"], timeout=60)
         out = res.stdout or ""
         want = ["localhost:%d device_id=%d" % (30050 + d, d) for d in (1, 2, 3, 4)]
         rewrites = [l for l in out.splitlines() if "  ->  " in l]
-        ok = (res.rc == 0 and ("controller: %s" % RB.CONTROLLER) in out
+        ok = (res.rc == 0 and ("controller: %s" % controller) in out
               and sorted(l.split("  ->  ")[1].strip() for l in rewrites) == want
               and all(l.strip().startswith("s%d:" % d) for l, d in zip(rewrites, (1, 2, 3, 4))))
         self.check("adapter --dry-run on package B: controller_ext.py, s1-s4 onto 30051-30054", ok,

@@ -43,7 +43,9 @@ P3_DPORT = CX.PACKET_OUT_DPORT
 
 
 def adapter_argv(python, package_dir, tutorials_utils, adapter=ADAPTER, controller=CONTROLLER):
-    """How bring-up B starts its controller; S0 runs the same argv with --dry-run. A lab run hands
+    """How bring-up B starts its controller, through the adapter. S0's dry-run uses the same argv plus
+    --dry-run and the same adapter and controller; S0's controller trial (ctrl_trial.py) does NOT go
+    through the adapter -- it starts the controller directly, against a throwaway switch. A lab run hands
     the copies it froze (frozen.py); the defaults are the shared tree's own."""
     return [python, adapter, package_dir, controller, "--tutorials-utils", tutorials_utils]
 

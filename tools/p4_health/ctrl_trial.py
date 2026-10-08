@@ -41,7 +41,9 @@ def gen():
     return mod
 
 
-def trial(build, bmv2, cli_argv, work, ctrl_python, tutorials_utils, wait_s=15):
+def trial(build, bmv2, cli_argv, work, ctrl_python, tutorials_utils, wait_s=15, controller=None):
+    """`controller`: the controller_ext.py to start -- S0 hands the copy the lab run froze (round 5, #5);
+    None: the shared tree's own."""
     g = gen()
     os.makedirs(work, exist_ok=True)
     h4m, h4ip, h6ip, gw = g.host_mac(4), g.host_ip(4), g.host_ip(6), "08:00:00:00:04:00"
@@ -74,7 +76,7 @@ def trial(build, bmv2, cli_argv, work, ctrl_python, tutorials_utils, wait_s=15):
             json.dump(conf, fh)
         env = dict(os.environ, P4H_CTRL_CONFIG=paths["conf.json"])
         with open(paths["ctl.out"], "w") as log:
-            ctl = subprocess.Popen([ctrl_python, os.path.join(HERE, "controller_ext.py")], env=env,
+            ctl = subprocess.Popen([ctrl_python, controller or os.path.join(HERE, "controller_ext.py")], env=env,
                                    stdout=log, stderr=subprocess.STDOUT)
         t0 = time.monotonic()
         while not os.path.exists(paths["ready.json"]) and ctl.poll() is None and time.monotonic() - t0 < 60:

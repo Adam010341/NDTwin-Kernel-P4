@@ -2425,6 +2425,50 @@ add "C2R5-9c. a link planted for a subdirectory is followed" \
     '                os.makedirs(sub, exist_ok=True)  # MUTANT' \
     'test_a_symlink_planted_for_a_subdirectory_is_not_followed'
 
+CTRLTRIAL="$PKG/ctrl_trial.py"
+add "C2R5-5a. probe.py lab does not load the lab path's modules up front" \
+    "$PROBEPY" \
+    '    load_lab_path()
+    from p4_health import lab as L' \
+    '    from p4_health import lab as L  # MUTANT' \
+    'test_an_edit_to_identity_during_s0_cannot_reach_the_probe_process'
+
+add "C2R5-5b. identity.py is left out of the modules loaded up front" \
+    "$PROBEPY" \
+    '"p4_health.frames", "p4_health.frozen", "p4_health.identity", "p4_health.lab",' \
+    '"p4_health.frames", "p4_health.frozen", "p4_health.lab",  # MUTANT' \
+    'test_an_edit_to_identity_during_s0_cannot_reach_the_probe_process'
+
+add "C2R5-5c. probe.py lab does not hand its frozen copies to S0" \
+    "$PROBEPY" \
+    '    s0 = S0(run_dir, runner, py, frozen=frozen)' \
+    '    s0 = S0(run_dir, runner, py)  # MUTANT' \
+    'test_probe_lab_hands_its_frozen_code_to_s0'
+
+add "C2R5-5d. S0's adapter dry-run runs the shared tree's adapter" \
+    "$S0PY" \
+    '        adapter, controller = (fz.adapter, fz.controller) if fz else (RB.ADAPTER, RB.CONTROLLER)' \
+    '        adapter, controller = (RB.ADAPTER, RB.CONTROLLER)  # MUTANT' \
+    'test_the_adapter_dry_run_runs_the_frozen_adapter_with_the_frozen_controller'
+
+add "C2R5-5e. S0's controller trial runs the shared tree's controller" \
+    "$S0PY" \
+    '            ctrl = {"controller": self.frozen.controller} if self.frozen else {}' \
+    '            ctrl = {}  # MUTANT' \
+    'test_the_controller_trial_runs_the_frozen_controller'
+
+add "C2R5-5f. the controller trial ignores the controller it is given" \
+    "$CTRLTRIAL" \
+    'controller or os.path.join(HERE, "controller_ext.py")], env=env,' \
+    'os.path.join(HERE, "controller_ext.py")], env=env,  # MUTANT' \
+    'test_the_controller_trial_starts_the_controller_it_is_given'
+
+add "C2R5-5g. the dry-run check accepts a controller that is not the one it was handed" \
+    "$S0PY" \
+    '        ok = (res.rc == 0 and ("controller: %s" % controller) in out' \
+    '        ok = (res.rc == 0 and ("controller: %s" % RB.CONTROLLER) in out  # MUTANT' \
+    'test_the_adapter_dry_run_runs_the_frozen_adapter_with_the_frozen_controller'
+
 
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'
