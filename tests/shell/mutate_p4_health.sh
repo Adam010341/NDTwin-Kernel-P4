@@ -1490,6 +1490,7 @@ ROUNDB="$PKG/round_b.py"
 ATTR="$PKG/attribution.py"
 LABPY="$PKG/lab.py"
 HOSTSPY="$PKG/collect/hosts.py"
+FROZENPY="$PKG/frozen.py"
 
 add "C2-V1. a cell never observed reads as an unreadable answer" \
     "$VERDICT" \
@@ -2049,7 +2050,7 @@ add "C2R3-N8a. root runs the shared tree's hostside.py, not the run's frozen cop
     'test_root_runs_a_frozen_copy_of_its_code_from_the_run_dir'
 
 add "C2R3-N8b. the frozen copy's record is not of the copy root runs" \
-    "$PKG/frozen.py" \
+    "$FROZENPY" \
     '            with open(dst, "rb") as fh:
                 sums[rel] = hashlib.sha256(fh.read()).hexdigest()' \
     '            sums[rel] = "not recorded"  # MUTANT' \
@@ -2168,8 +2169,6 @@ add "C2R4-F3f. a see-red pass ignores the run's own problems" \
     '    complete = bool(recs) and all(r.get("complete") is True for r in recs) and not problems' \
     '    complete = bool(recs) and all(r.get("complete") is True for r in recs)  # MUTANT' \
     'test_a_see_red_run_with_a_problem_of_the_run_is_incomplete'
-
-FROZENPY="$PKG/frozen.py"
 
 add "C2R4-F4a. the freeze does not compare a copy with HEAD's blob" \
     "$FROZENPY" \
