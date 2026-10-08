@@ -4,7 +4,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-#   tests/shell/mutate_p4_health_shards_sum.sh <shard log>...
+#   tests/shell/sum_p4_health_gate_shards.sh <shard log>...
 #
 # One shard (MUT_SHARD=k/n) is never the gate by itself: its rc=0 says only that the mutations IT ran were
 # caught. The gate is the n shards of one head together, so this checks, over the logs given:

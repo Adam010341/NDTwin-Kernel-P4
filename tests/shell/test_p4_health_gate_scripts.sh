@@ -7,7 +7,7 @@
 # tests/shell/mutate_p4_health.sh refuses, BEFORE its baseline, a MUT_SHARD with k >= n or with n larger than
 # the table, a malformed one, and any run in which no mutation is selected (an ONLY_LABEL_PREFIX that matches
 # nothing): such a run measured nothing and used to end rc=0. Every shard log says it is not the gate by
-# itself. tests/shell/mutate_p4_health_shards_sum.sh reads the n shard logs and prints the one line
+# itself. tests/shell/sum_p4_health_gate_shards.sh reads the n shard logs and prints the one line
 #   GATE: N mutations, S survived, shards k/n ok
 # only if they share one commit, tree and subject sha, every baseline, control and after-check is green, every
 # rc is 0 and the counts add up to the table; anything else exits non-zero.
@@ -19,7 +19,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DIR="${P4_HEALTH_GATE_UNDER_TEST:-$HERE}"
 GATE="$DIR/mutate_p4_health.sh"
-SUM="$DIR/mutate_p4_health_shards_sum.sh"
+SUM="$DIR/sum_p4_health_gate_shards.sh"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/p4h-gatescripts-XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 CHECKS=0; FAILED=0

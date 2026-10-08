@@ -49,7 +49,7 @@ COLLECT_TEST="$REPO/tests/python/test_p4_health_collect.py"
 RECOVER_TEST="$REPO/tests/shell/test_p4_health_recover.sh"
 GATE_TEST="$HERE/test_p4_health_gate_scripts.sh"
 GATEPY="$HERE/mutate_p4_health.sh"
-SUMPY="$HERE/mutate_p4_health_shards_sum.sh"
+SUMPY="$HERE/sum_p4_health_gate_shards.sh"
 
 printf 'gate       : %s\n' "${BASH_SOURCE[0]}"
 printf 'cwd        : %s\n' "$PWD"
@@ -2735,7 +2735,7 @@ fi
 # MUT_SHARD=k/n  runs only the mutations whose position in the table is k modulo n (k from 0): n shards
 # started side by side, with the same head, cover the table once between them. Each shard runs its own
 # baseline and negative control. A shard is never the gate by itself: the gate is the sum of all n, and
-# tests/shell/mutate_p4_health_shards_sum.sh adds them up (one commit, tree and subject sha; every
+# tests/shell/sum_p4_health_gate_shards.sh adds them up (one commit, tree and subject sha; every
 # baseline, control and after-check green; every rc 0; the counts adding up to the table).
 # ONLY_LABEL_PREFIX=C2R5-  runs only the mutations whose label starts so: a PARTIAL run, never the gate.
 refuse_config() { echo "REFUSED: $1"; exit 2; }
