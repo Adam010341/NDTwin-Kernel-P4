@@ -16,6 +16,7 @@ order, every compare branch the Cut 1 review listed, the three rollups, and the 
 import copy
 import os
 import re
+import subprocess
 import sys
 import unittest
 
@@ -31,6 +32,76 @@ from p4_health.cells import verdict as V  # noqa: E402
 PKG = os.path.dirname(os.path.abspath(T.__file__))
 EXPECTED_TSV = os.path.join(REPO, "doc", "audit", "2026-10-03_p4-health-check", "expected_today.tsv")
 P4_SRC = os.path.join(os.path.dirname(PKG), "exercise", "src", "hc_main.p4")
+
+#: The two records expected_today.tsv's header cites; they live on the trunk branch, not on main.
+CITED_RECORDS = ("doc/audit/2026-09-04_p4-tutorial-exercise-prep/GAP-2b-ndtwin-p4-capabilities-2026-09-27.md",
+                 "doc/audit/2026-10-03_p4-health-check/DESIGN.md")
+
+
+class _NoGit(Exception):
+    """git cannot answer for this tree; the message says why, in git's own words where it has any."""
+
+
+def _git(repo, *args):
+    """git -C repo args: the CompletedProcess, or _NoGit when git is missing or times out."""
+    try:
+        return subprocess.run(["git", "-C", repo] + list(args), capture_output=True, text=True, timeout=60)
+    except subprocess.TimeoutExpired:
+        raise _NoGit("git %s timed out after 60 s" % " ".join(args))
+    except OSError as e:
+        raise _NoGit("git is not available (%s)" % e)
+
+
+def _git_checkout_head(repo):
+    """Check that repo is itself a git checkout with a HEAD commit, else raise _NoGit with git's stderr.
+    The toplevel must be repo itself: a tree extracted inside some other repository is not a checkout."""
+    top = _git(repo, "rev-parse", "--show-toplevel")
+    if top.returncode != 0:
+        raise _NoGit("git could not open this tree as a checkout (git said: %s)" % (top.stderr.strip() or "nothing"))
+    if os.path.realpath(top.stdout.strip()) != os.path.realpath(repo):
+        raise _NoGit("this tree is inside another git repository (%s), not a checkout of its own" % top.stdout.strip())
+    head = _git(repo, "rev-parse", "--verify", "-q", "HEAD^{commit}")
+    if head.returncode != 0:
+        raise _NoGit("this checkout has no HEAD commit (git said: %s)" % (head.stderr.strip() or "nothing"))
+
+
+def _ref_list(names, cap=10):
+    """The refs for a message, at most cap of them, then "... and N more"."""
+    names = list(names)
+    return ", ".join(names[:cap]) + (" ... and %d more" % (len(names) - cap) if len(names) > cap else "")
+
+
+def _trunk_ref_names(repo):
+    """Every trunk ref of the checkout: refs/heads/trunk, then refs/remotes/<remote>/trunk."""
+    out = _git(repo, "for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes")
+    if out.returncode != 0:
+        raise _NoGit("git could not list the refs of this tree (git said: %s)" % (out.stderr.strip() or "nothing"))
+    names = out.stdout.split()
+    return ([n for n in names if n == "refs/heads/trunk"]
+            + [n for n in names if re.fullmatch(r"refs/remotes/[^/]+/trunk", n)]), names
+
+
+def _in_tree(repo, ref, rel):
+    """Whether ref's tree holds the path rel."""
+    return _git(repo, "cat-file", "-e", "%s:%s" % (ref, rel)).returncode == 0
+
+
+def _decisive_trunk_ref(repo):
+    """(ref, why_not): the ONE ref that decides what trunk holds. refs/heads/trunk when it exists, else the
+    only refs/remotes/<remote>/trunk; with none, or several of those and no local trunk, (None, reason
+    saying the test declined to choose, naming the refs found). Refs are never pooled: a stale remote must
+    not vouch for a path trunk dropped."""
+    trunks, names = _trunk_ref_names(repo)
+    if "refs/heads/trunk" in trunks:
+        return "refs/heads/trunk", ""
+    if len(trunks) == 1:
+        return trunks[0], ""
+    if not trunks:
+        return None, ("the test declined to choose a ref: this checkout has no trunk ref (refs found: %s)"
+                      % (_ref_list(names) or "none"))
+    return None, ("the test declined to choose a ref: this checkout has no local trunk and several remote trunk"
+                  " refs, so none is decisive (%s)" % _ref_list(trunks))
+
 
 ALL_ATTR = {"bmv2": True, "wire": True, "static": True}
 #: The best a cell can read today by its own definition (P4: section 12 item 8).
@@ -1106,21 +1177,56 @@ class TestExpectedFile(unittest.TestCase):
 
     def test_the_header_says_where_the_cited_records_live(self):
         """Cut 1 follow-up 4 (r5): GAP-2b and DESIGN.md are cited and are not on main; the header says
-        what they are and that they live on the trunk branch."""
+        what they are and that they live on the trunk branch. Text only, so it runs on every tree,
+        including a PR tree that has had doc/audit/**/*.md removed."""
         with open(EXPECTED_TSV, encoding="utf-8") as fh:
             head = [l for l in fh if l.startswith("#")]
         note = [l for l in head if "GAP-2b" in l]
         self.assertEqual(len(note), 1)
-        for needle in ("doc/audit/2026-09-04_p4-tutorial-exercise-prep/GAP-2b-ndtwin-p4-capabilities-2026-09-27.md",
-                       "doc/audit/2026-10-03_p4-health-check/DESIGN.md", "trunk branch"):
+        for needle in CITED_RECORDS + ("trunk branch",):
             self.assertIn(needle, note[0])
-        # r6: "both live in this repository" is a fact the note states; the two files are here (that
-        # they are not on main is the PR rule and cannot be checked from a checkout).
-        for rel in ("doc/audit/2026-09-04_p4-tutorial-exercise-prep/GAP-2b-ndtwin-p4-capabilities-2026-09-27.md",
-                    "doc/audit/2026-10-03_p4-health-check/DESIGN.md"):
-            self.assertTrue(os.path.isfile(os.path.join(REPO, rel)), "the header note names %s, which is not here" % rel)
         with open(T.__file__, encoding="utf-8") as fh:
-            self.assertIn("GAP-2b-ndtwin-p4-capabilities-2026-09-27.md, on the trunk branch", fh.read())
+            self.assertIn(os.path.basename(CITED_RECORDS[0]) + ", on the trunk branch", fh.read())
+
+    def test_the_cited_records_exist_in_this_checkout_or_on_trunk(self):
+        """r6: "both live in this repository" is a fact the note states. For each cited path, in order:
+        (1) the file is in the working tree: pass. Otherwise git decides, and with no usable git (not a
+        checkout of its own, no HEAD commit, git missing or timing out) nothing was checked and the test
+        skips, with git's words as the reason. (2) HEAD's tree holds the path but the file is gone from the
+        working tree: FAIL, "deleted from the working tree". (3) HEAD's tree lacks it (PRs to main strip
+        doc/audit md; a squash on main; CI's checkout): ONE ref decides, refs/heads/trunk if it exists, else
+        the only refs/remotes/*/trunk, else (none, or several and no local trunk) skip naming the refs. That
+        ref must hold the path or the test FAILS; no other ref decides (the failure message only names
+        the other trunk refs that do hold the path, as a hint). Known gap: a branch that itself deletes or
+        moves a cited record passes while trunk still holds it; the first trunk run after the merge fails."""
+        missing = [rel for rel in CITED_RECORDS if not os.path.isfile(os.path.join(REPO, rel))]
+        if not missing:
+            return
+        why = "nothing was checked: %s not in the working tree, and whether trunk holds them is unknown: %s"
+        try:
+            _git_checkout_head(REPO)
+            deleted = [rel for rel in missing if _in_tree(REPO, "HEAD", rel)]
+            stripped = [rel for rel in missing if rel not in deleted]
+            if deleted:
+                self.fail("%s is in HEAD's tree but was deleted from the working tree" % ", ".join(deleted))
+            ref, nodecisive = _decisive_trunk_ref(REPO)
+            if ref is None:
+                self.skipTest(why % (", ".join(stripped), nodecisive))
+            absent = [rel for rel in stripped if not _in_tree(REPO, ref, rel)]
+            hints = []
+            if absent:
+                try:  # a hint only: it must never turn the FAIL into a skip
+                    for other in [r for r in _trunk_ref_names(REPO)[0] if r != ref]:
+                        held = [rel for rel in absent if _in_tree(REPO, other, rel)]
+                        if held:
+                            hints.append("%s holds %s; is %s stale?" % (other, ", ".join(held), ref))
+                except _NoGit:
+                    pass
+        except _NoGit as e:
+            self.skipTest(why % (", ".join(missing), e))
+        if absent:
+            self.fail("the header note names %s, which is neither in the working tree, nor in HEAD, nor in %s%s"
+                      % (", ".join(absent), ref, "".join(" -- " + h for h in hints)))
 
     def test_the_prediction_comes_from_the_file_not_from_the_run(self):
         exp = E.load(EXPECTED_TSV)
