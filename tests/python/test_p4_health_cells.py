@@ -1590,6 +1590,46 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
                 self.assertEqual(rc, 2)
                 fp.assert_called_once()                 # refused by the identity check, not by something before it
 
+    def test_an_s0_with_a_failing_check_is_rc_2_with_a_health_json_and_no_identity_work(self):
+        """(Round 5, #2) `probe.py lab` returned 1 and wrote no health.json when S0 was not
+        COMPLETE; on the see-red path rc 1 is the pass. Now INCOMPLETE rc 2, with the reason in
+        health.json, and neither the identity record nor the lab is started."""
+        import contextlib
+        import json
+        import tempfile
+        from unittest import mock
+        from p4_health import frozen as FZ
+        from p4_health import probe
+        real_freeze = FZ.freeze
+
+        class FakeS0(object):
+            def __init__(self, *a, **kw):
+                self.out = {"verdict": "PROBE-BROKEN",
+                            "checks": [{"name": "preflight A", "ok": False, "detail": "FAIL x"}]}
+
+            def run(self):
+                return 1
+        d = tempfile.mkdtemp(prefix="p4h-s0bad-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, d, True)
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(mock.patch.object(probe.subprocess, "run", self.git_answering(0)))
+            stack.enter_context(mock.patch("p4_health.s0.S0", FakeS0))
+            stack.enter_context(mock.patch("p4_health.frozen.freeze",
+                                           lambda run_dir, repo=None, git=None: real_freeze(run_dir)))
+            fp = stack.enter_context(mock.patch("p4_health.identity.fingerprint",
+                                                side_effect=AssertionError("no identity work")))
+            sut = stack.enter_context(mock.patch("p4_health.identity.system_under_test",
+                                                 side_effect=AssertionError("no identity work")))
+            rc = probe.main(["lab", "--run-dir", d, "--owner", "o"])
+        self.assertEqual(rc, 2)
+        fp.assert_not_called()
+        sut.assert_not_called()
+        with open(os.path.join(d, "health.json")) as fh:
+            h = json.load(fh)
+        self.assertEqual(h["verdict"], "INCOMPLETE")
+        self.assertTrue(any("S0 is PROBE-BROKEN" in p_ and "preflight A" in p_ for p_ in h["problems"]),
+                        h["problems"])
+
     # --- round 4, F8: an unreadable bmv2 override, with the REAL fingerprint ------------------
     def readable_machine(self, frozen=None):
         """Every part of the fingerprint except the fabric's bmv2 reads fine, so that part alone

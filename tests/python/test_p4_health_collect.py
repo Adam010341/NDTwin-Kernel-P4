@@ -2745,11 +2745,73 @@ class TestTheLabRun(Cut2):
         rc, doc, _r = self.run_lab()
         self.assert_b_failed(rc, doc, "no controller result")
 
+    # --- round 5, #2: on the lab path rc 1 means PROBE-BROKEN and nothing else ---------------
+    def assert_incomplete_with_reason(self, rc, doc, *why):
+        """INCOMPLETE rc 2, and the health.json on disk carries the reason(s)."""
+        self.assertEqual(rc, 2)
+        with open(os.path.join(self.cfg.run_dir, "health.json")) as fh:
+            h = json.load(fh)
+        self.assertEqual(h["verdict"], "INCOMPLETE")
+        self.assertEqual(doc["verdict"], "INCOMPLETE")
+        for w in why:
+            self.assertTrue(any(w in p_ for p_ in h["problems"]), (w, h["problems"]))
+        return h
+
     def test_an_incomplete_s0_touches_nothing(self):
+        """(Round 5, #2) S0 with one failing check: INCOMPLETE rc 2 (not rc 1, which is the see-red
+        run's pass), no lab action, and a health.json that names the check."""
         self.s0["verdict"] = "PROBE-BROKEN"
+        self.s0["checks"] = [{"name": "compile build/hc_main", "ok": True, "detail": ""},
+                             {"name": "preflight A", "ok": False, "detail": "FAIL x"}]
         rc, doc, r = self.run_lab()
-        self.assertEqual((rc, doc), (1, None))
+        self.assert_incomplete_with_reason(rc, doc, "S0 is PROBE-BROKEN", "preflight A")
         self.assertEqual(r.calls, [])
+
+    def test_a_leftover_lab_state_is_incomplete_rc_2_and_stays_for_recover(self):
+        """(Round 5, #2) --mutant --only K1,TTL1 --bringups A in a run dir whose LAB_STATE.json
+        belongs to a round that did not finish: StateInUse used to leave run_lab as an exception
+        (Python's exit status 1, no health.json). The file is recover.sh's: it is not touched."""
+        left = {"bring_up": "A", "phase": "up", "sniffers": [], "controllers": [], "netem": []}
+        os.makedirs(os.path.dirname(self.cfg.lab_state_path), exist_ok=True)
+        with open(self.cfg.lab_state_path, "w") as fh:
+            json.dump(left, fh)
+        rc, doc, r = self.run_lab(bringups=("A",), only=["K1", "TTL1"], mutant=True)
+        self.assert_incomplete_with_reason(rc, doc, "StateInUse", "LAB_STATE.json")
+        self.assertEqual(r.calls, [])
+        with open(self.cfg.lab_state_path) as fh:
+            self.assertEqual(json.load(fh), left)
+
+    def test_a_load_model_failure_is_incomplete_rc_2(self):
+        with mock.patch.object(LAB, "load_model", side_effect=OSError("gen_runtime.py: no such file")):
+            rc, doc, r = self.run_lab()
+        self.assert_incomplete_with_reason(rc, doc, "gen_runtime.py: no such file")
+        self.assertEqual(r.calls, [])
+
+    def test_an_expectations_failure_is_incomplete_rc_2(self):
+        with mock.patch.object(LAB, "expectations", side_effect=KeyError("build/hc_alt")):
+            rc, doc, r = self.run_lab()
+        self.assert_incomplete_with_reason(rc, doc, "KeyError", "build/hc_alt")
+        self.assertEqual(r.calls, [])
+
+    def test_a_round_that_cannot_be_built_ends_the_run_incomplete_with_the_earlier_rounds_kept(self):
+        """An exception out of B's LabRound constructor, after A went through, with a PROBE-BROKEN
+        cell in A: the headline is INCOMPLETE rc 2 (the run ended early), A's record is in
+        health.json, and the reason is a problem of the run."""
+        self.fab.count_k1 = False
+        proc = self.proc
+
+        def make(cfg, runner, bringup, pkg, run_id):
+            if bringup == "B":
+                raise LR.StateInUse("planted")
+            return LR.LabRound(cfg, runner, bringup, pkg, run_id, pid=4242, proc_root=proc,
+                               install_signals=False)
+        rc, doc = LAB.run_lab(self.cfg, self.ndt_runner(), self.s0, self.cfg.run_dir, "run-x", round_cls=make,
+                              tutorials_utils="/tutorials/utils", expected_tsv=self.expected,
+                              b_kwargs=self.fake_time(), log=lambda *a: None)
+        h = self.assert_incomplete_with_reason(rc, doc, "StateInUse", "planted")
+        self.assertEqual([b["id"] for b in h["bringups"]], ["A"])
+        cells = {c["id"]: c for c in h["cells"]}
+        self.assertEqual(cells["K1"]["verdict"], V.PROBE_BROKEN)
 
     def test_a_refused_claim_makes_the_run_incomplete(self):
         r = self.ndt_runner()
