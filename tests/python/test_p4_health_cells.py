@@ -2156,8 +2156,9 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         old = os.path.join(run, "frozen", "p4_health", "hostside.py")
         with open(old, "w") as fh:
             fh.write("evidence of an earlier run\n")
-        with self.assertRaises(FZ.Refused):
+        with self.assertRaises(FZ.Refused) as ctx:
             self.freeze_in(repo, run_dir=run)
+        self.assertIn("already exists", str(ctx.exception))      # said so, not 'cannot create' from mkdir
         with open(old) as fh:
             self.assertEqual(fh.read(), "evidence of an earlier run\n")
 

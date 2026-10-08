@@ -2576,7 +2576,7 @@ add "C2R5-6c. the gate script runs when no mutation is selected" \
 add "C2R5-6d. the gate script takes a shard with a leading zero" \
     "$GATEPY" \
     '=~ ^(0|[1-9]''[0-9]*)/([1-9][0-9]*)$ ]]' \
-    '=~ ^([0-9]+)/([1-9][0-9]*)$ ]]  # MUTANT' \
+    '=~ ^([0-9]+)/([1-9][0-9]*)$ ]]' \
     '[MUT_SHARD with a leading zero is refused]'
 
 add "C2R5-6e. the gate script does not say a shard is not the gate" \
