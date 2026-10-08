@@ -2064,15 +2064,15 @@ add "C2R3-N8b. the frozen copy's record is not of the copy root runs" \
 
 add "C2R4-F1a. a stop signal during the teardown is not kept" \
     "$LABROUND" \
-    '                if self.teardown_signal is None:
-                    self.teardown_signal = signum' \
-    '                pass  # MUTANT' \
+    '        if self.teardown_signal is None:
+            self.teardown_signal = signum' \
+    '        pass  # MUTANT' \
     'test_a_stop_during_a_teardown_ends_the_run_before_b_claims'
 
 add "C2R4-F1b. the last stop signal of a teardown is kept, not the first" \
     "$LABROUND" \
-    '                if self.teardown_signal is None:' \
-    '                if True:  # MUTANT' \
+    '        if self.teardown_signal is None:' \
+    '        if True:  # MUTANT' \
     'test_a_stop_during_the_teardown_finishes_the_cleanup_and_is_recorded'
 
 add "C2R4-F1c. the round does not record a stop that came during its teardown" \
