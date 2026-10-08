@@ -1927,7 +1927,7 @@ add "R2-m5a. the see-red run's package is not drop-checked" \
 
 add "R2-m5b. the adapter dry run passes whatever controller it names" \
     "$S0PY" \
-    '        ok = (res.rc == 0 and ("controller: %s" % RB.CONTROLLER) in out' \
+    '        ok = (res.rc == 0 and ("controller: %s" % controller) in out' \
     '        ok = (res.rc == 0  # MUTANT' \
     'test_the_adapter_dry_run_names_our_controller_and_four_rewrites'
 
