@@ -1507,13 +1507,218 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         good = {"sha256": "a" * 64, "parts": {}}
         for sut, gate in ((None, good), (os.path.join(d, "code_identity.json"), dict(good, sha256="incomplete"))):
             with self.subTest(sut=sut, gate=gate["sha256"]):
+                # fabric_binary and the freeze are stubbed: this test must not read the real
+                # bmv2_binary_override (absent from a mutant's copy), nor stop at the freeze, whose git
+                # here answers nothing (round 4, F8)
                 with mock.patch.object(probe.subprocess, "run", self.git_answering(0)), \
                         mock.patch("p4_health.s0.S0", FakeS0), \
+                        mock.patch("p4_health.vs_trial.fabric_binary", return_value="/x/simple_switch_grpc"), \
+                        mock.patch("p4_health.frozen.freeze", return_value=object()), \
                         mock.patch("p4_health.identity.system_under_test", return_value=sut), \
-                        mock.patch("p4_health.identity.fingerprint", return_value=gate), \
+                        mock.patch("p4_health.identity.fingerprint", return_value=gate) as fp, \
                         mock.patch("p4_health.lab.run_lab", side_effect=AssertionError("the lab must not start")):
                     rc = probe.main(["lab", "--run-dir", d, "--owner", "o"])
                 self.assertEqual(rc, 2)
+                fp.assert_called_once()                 # refused by the identity check, not by something before it
+
+    # --- round 4, F8: an unreadable bmv2 override, with the REAL fingerprint ------------------
+    def readable_machine(self, frozen=None):
+        """Every part of the fingerprint except the fabric's bmv2 reads fine, so that part alone
+        decides whether it says 'incomplete'. The real ID.fingerprint runs."""
+        from unittest import mock
+        from p4_health import identity as ID
+        from p4_health.collect.runner import RecordingRunner
+        return [mock.patch.object(ID, "git_lines", lambda runner, repo, *a: ["a b"]),
+                mock.patch.object(ID, "file_sha", lambda p: "f" * 64),
+                mock.patch.object(ID, "tree_digest", lambda *a, **k: "t" * 64),
+                mock.patch.object(ID, "_which", lambda tool: "/bin/" + tool),
+                mock.patch("os.path.isdir", lambda p: True),
+                mock.patch("p4_health.probe.Runner", lambda: RecordingRunner([(("bash",), (0, ""))])),
+                mock.patch("p4_health.identity.system_under_test", return_value="/x/code_identity.json"),
+                mock.patch("p4_health.frozen.freeze", return_value=frozen or object())]
+
+    def lab_with_the_real_fingerprint(self, fabric, frozen=None):
+        import contextlib
+        import json
+        import tempfile
+        from unittest import mock
+        from p4_health import probe
+
+        class FakeS0(object):
+            def __init__(self, *a, **kw):
+                self.out = {"verdict": "COMPLETE"}
+
+            def run(self):
+                return 0
+        d = tempfile.mkdtemp(prefix="p4h-f8-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, d, True)
+        with contextlib.ExitStack() as stack:
+            for patch in self.readable_machine(frozen):
+                stack.enter_context(patch)
+            stack.enter_context(mock.patch.object(probe.subprocess, "run", self.git_answering(0)))
+            stack.enter_context(mock.patch("p4_health.s0.S0", FakeS0))
+            stack.enter_context(mock.patch("p4_health.vs_trial.fabric_binary", **fabric))
+            ran = stack.enter_context(mock.patch("p4_health.lab.run_lab", return_value=(0, {})))
+            rc = probe.main(["lab", "--run-dir", d, "--owner", "o"])
+        with open(os.path.join(d, "gate_fingerprint.json")) as fh:
+            return rc, ran, json.load(fh)
+
+    def test_a_readable_override_gives_a_complete_fingerprint_and_the_lab_runs(self):
+        """The control of the next test: with the override readable the same stubbed machine gives
+        a fingerprint, so the next test's 'incomplete' is the override's doing alone."""
+        rc, ran, gate = self.lab_with_the_real_fingerprint({"return_value": "/x/simple_switch_grpc"})
+        self.assertNotEqual(gate["sha256"], "incomplete", gate)
+        self.assertEqual(gate["parts"]["bmv2_fabric"], "f" * 64)
+        self.assertEqual(rc, 0)
+        ran.assert_called_once()
+
+    def test_an_unreadable_bmv2_override_is_an_incomplete_fingerprint_and_stops_the_run(self):
+        """probe.py's `except OSError: fabric = None`: not a traceback, and not a run either."""
+        rc, ran, gate = self.lab_with_the_real_fingerprint({"side_effect": PermissionError("bmv2_binary_override")})
+        self.assertEqual(gate["sha256"], "incomplete")
+        self.assertEqual(gate["parts"]["bmv2_fabric"], "unreadable")
+        self.assertEqual(rc, 2)
+        ran.assert_not_called()
+
+    # --- round 4, F4: the code a run executes is frozen early and checked against HEAD ---------
+    FROZEN = ("p4_health/hostside.py", "p4_health/frames.py", "p4_health/__init__.py",
+              "p4_health/controller_ext.py", "p4_exercise/run_external_controller.py",
+              "p4_exercise/common.py", "p4_exercise/__init__.py")
+
+    def scratch_repo(self):
+        """A git repo of its own holding the files a lab run executes, committed."""
+        import shutil
+        import tempfile
+        d = tempfile.mkdtemp(prefix="p4h-freeze-%d-" % os.getpid())
+        self.addCleanup(shutil.rmtree, d, True)
+        for rel in self.FROZEN:
+            os.makedirs(os.path.dirname(os.path.join(d, "tools", rel)), exist_ok=True)
+            with open(os.path.join(d, "tools", rel), "w") as fh:
+                fh.write("# %s, as committed\n" % rel)
+        git = ["git", "-C", d, "-c", "user.name=t", "-c", "user.email=t@example.invalid", "-c", "commit.gpgsign=false"]
+        subprocess.run(["git", "-C", d, "init", "-q"], check=True)
+        subprocess.run(git + ["add", "."], check=True)
+        subprocess.run(git + ["commit", "-q", "-m", "files"], check=True)
+        return d
+
+    def lab_in(self, repo, edit_after_status=None, edit_before_status=None):
+        """probe.py lab in `repo` with S0 replaced by a marker. Returns (rc, S0 started?, stderr).
+        `edit_after_status`: a callable run right after the clean check answered (the edit that
+        lands between the check and the freeze)."""
+        import io
+        import tempfile
+        from unittest import mock
+        from p4_health import probe
+
+        class Reached(Exception):
+            pass
+
+        def s0(*a, **kw):
+            raise Reached()
+        real = probe._git_run
+
+        def git(*args):
+            out = real(*args)
+            if args[0] == "status" and edit_after_status:
+                edit_after_status()
+            return out
+        run_dir = tempfile.mkdtemp(prefix="p4h-freeze-run-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, run_dir, True)
+        err = io.StringIO()
+        reached = False
+        with mock.patch.object(probe, "REPO", repo), mock.patch.object(probe, "_git_run", git), \
+                mock.patch("p4_health.s0.S0", s0), mock.patch("sys.stderr", err):
+            try:
+                rc = probe.main(["lab", "--run-dir", run_dir, "--owner", "o"])
+            except Reached:
+                rc, reached = None, True
+        return rc, reached, err.getvalue()
+
+    def edit(self, repo, rel):
+        with open(os.path.join(repo, "tools", rel), "a") as fh:
+            fh.write("# an edit nobody committed\n")
+
+    def test_a_clean_tree_is_frozen_and_the_run_goes_on_to_s0(self):
+        """The control of the next tests: the same repo with no edit reaches S0."""
+        _rc, reached, _err = self.lab_in(self.scratch_repo())
+        self.assertTrue(reached)
+
+    def test_an_edit_between_the_clean_check_and_the_freeze_is_refused_before_s0(self):
+        repo = self.scratch_repo()
+        rc, reached, err = self.lab_in(repo, edit_after_status=lambda: self.edit(repo, "p4_health/hostside.py"))
+        self.assertEqual((rc, reached), (2, False))
+        self.assertIn("hostside.py", err)
+
+    def test_every_file_a_round_executes_is_checked_against_head(self):
+        for rel in self.FROZEN:
+            with self.subTest(file=rel):
+                repo = self.scratch_repo()
+                rc, reached, err = self.lab_in(repo, edit_after_status=lambda rel=rel, repo=repo: self.edit(repo, rel))
+                self.assertEqual((rc, reached), (2, False))
+                self.assertIn(os.path.basename(rel), err)
+
+    def test_a_git_that_cannot_confirm_a_copy_refuses_the_freeze(self):
+        """Two empty answers are not two equal hashes; a failed hash-object is no answer."""
+        from unittest import mock
+        from p4_health import probe
+        repo = self.scratch_repo()
+        real = probe._git_run
+        for what, answer in (("hash-object fails", {"hash-object": (128, "")}),
+                             ("rev-parse fails", {"rev-parse": (128, "")}),
+                             ("both answer nothing", {"hash-object": (0, ""), "rev-parse": (0, "")})):
+            with self.subTest(what=what):
+                def wrapped(*args, answer=answer):
+                    return answer.get(args[0]) or real(*args)
+                with mock.patch.object(probe, "_git_run", wrapped):
+                    rc, reached, _err = self.lab_in(repo)
+                self.assertEqual((rc, reached), (2, False))
+
+    def test_the_frozen_set_runs_by_itself_and_takes_frames_from_the_copy(self):
+        """Root's hostside.py, B's controller_ext.py (its `from p4_health import frames` inside a
+        method) and the adapter run from the copy with -I: nothing is read from the shared tree."""
+        import tempfile
+        from p4_health import frozen as FZ
+        run = tempfile.mkdtemp(prefix="p4h-freeze-self-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, run, True)
+        fz = FZ.freeze(run)
+        probe_code = ("import importlib.util, sys; s = importlib.util.spec_from_file_location('cx', %r); "
+                      "m = importlib.util.module_from_spec(s); s.loader.exec_module(m); "
+                      "from p4_health import frames; print(frames.__file__)" % fz.controller)
+        out = subprocess.run([sys.executable, "-I", "-c", probe_code], capture_output=True, text=True, timeout=60)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(os.path.realpath(out.stdout.strip()), os.path.realpath(fz.path("p4_health/frames.py")))
+        for argv in ([fz.hostside, "--help"], [fz.adapter, "--help"]):
+            res = subprocess.run([sys.executable, "-I"] + argv, capture_output=True, text=True, timeout=60)
+            self.assertEqual(res.returncode, 0, (argv, res.stderr))
+
+    def test_the_recorded_hash_is_of_the_copy_not_of_the_source(self):
+        """(Round 4, F9) a copy that differs from its source (the case the HEAD check exists for)
+        is recorded as it is: the record is what root runs."""
+        import hashlib
+        import shutil
+        import tempfile
+        from unittest import mock
+        from p4_health import frozen as FZ
+        run = tempfile.mkdtemp(prefix="p4h-freeze-copy-%d-" % os.getpid())
+        self.addCleanup(shutil.rmtree, run, True)
+        real_copy = shutil.copyfile
+
+        def drifting_copy(src, dst, *a, **kw):
+            real_copy(src, dst, *a, **kw)
+            with open(dst, "a") as fh:
+                fh.write("# drifted after the copy\n")
+        with mock.patch.object(FZ.shutil, "copyfile", drifting_copy):
+            fz = FZ.freeze(run)
+        for rel, recorded in fz.sums.items():
+            with open(fz.path(rel), "rb") as fh:
+                self.assertEqual(recorded, hashlib.sha256(fh.read()).hexdigest(), rel)
+
+    def test_the_run_gets_the_frozen_code_that_probe_froze(self):
+        """cmd_lab hands run_lab the Frozen it froze before S0, not a second one."""
+        sentinel = object()
+        rc, ran, _gate = self.lab_with_the_real_fingerprint({"return_value": "/x/b"}, frozen=sentinel)
+        self.assertEqual(rc, 0)
+        self.assertIs(ran.call_args[1]["frozen"], sentinel)
 
     def test_the_may_differ_classes_are_the_designs(self):
         from p4_health import identity as ID

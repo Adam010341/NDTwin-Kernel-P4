@@ -2613,22 +2613,57 @@ class TestTheLabRun(Cut2):
 
     def test_root_runs_a_frozen_copy_of_its_code_from_the_run_dir(self):
         """N8: root executes hostside.py, frames.py and __init__.py; it runs copies taken into the
-        run dir at the start, so the shared tree can change under a 15-minute run and root still
-        runs what was recorded."""
+        run dir before S0, so the shared tree can change under a 15-minute run and root still
+        runs what was recorded. (Round 4, F9) The record is of the COPY's bytes."""
         rc, doc, r = self.run_lab()
-        frozen = os.path.join(self.cfg.run_dir, "rootcode", "p4_health", "hostside.py")
+        base = os.path.join(os.path.realpath(self.cfg.run_dir), "frozen", "p4_health")
         root_argvs = [c["argv"] for c in r.calls if c["argv"][:4] == ["sudo", "-n", "mnexec", "-a"]
                       and any(a.endswith("hostside.py") for a in c["argv"])]
         self.assertTrue(root_argvs)
         for argv in root_argvs:
-            self.assertIn(frozen, argv)
+            self.assertIn(os.path.join(base, "hostside.py"), argv)
         import hashlib
-        src = os.path.dirname(os.path.abspath(HS.__file__))
         for name in ("hostside.py", "frames.py", "__init__.py"):
-            with open(os.path.join(src, name), "rb") as fh:
+            with open(os.path.join(base, name), "rb") as fh:
                 want = hashlib.sha256(fh.read()).hexdigest()
             self.assertEqual(doc["root_code"][name], want, name)
-            self.assertTrue(os.path.isfile(os.path.join(self.cfg.run_dir, "rootcode", "p4_health", name)))
+
+    def test_b_runs_its_controller_and_the_adapter_from_the_frozen_copy(self):
+        """(Round 4, F4b) B's controller and the adapter run as the caller, but they write P4Runtime
+        state on the fabric: they too run the run dir's copies, not the shared tree, and the
+        record carries their hashes (of the copies' bytes)."""
+        rc, doc, r = self.run_lab()
+        base = os.path.join(os.path.realpath(self.cfg.run_dir), "frozen")
+        spawn = [c for c in r.calls if c.get("spawn") and is_adapter_argv(c["argv"])]
+        self.assertEqual(len(spawn), 1)
+        self.assertEqual(spawn[0]["argv"], [
+            self.cfg.p4dev_python, os.path.join(base, "p4_exercise", "run_external_controller.py"),
+            os.path.join(os.path.realpath(self.cfg.run_dir), "packages", "B"),
+            os.path.join(base, "p4_health", "controller_ext.py"),
+            "--tutorials-utils", "/tutorials/utils"])
+        import hashlib
+        for rel in ("p4_health/controller_ext.py", "p4_exercise/run_external_controller.py",
+                    "p4_exercise/common.py", "p4_exercise/__init__.py", "p4_health/frames.py"):
+            with open(os.path.join(base, rel), "rb") as fh:
+                self.assertEqual(doc["frozen_code"][rel], hashlib.sha256(fh.read()).hexdigest(), rel)
+
+    def test_b_controller_is_recorded_when_the_run_dir_path_has_a_link(self):
+        """(Round 4, F6) LabRound hands out the RESOLVED package path, so the controller's argv
+        carries the resolved run dir. The marker it is registered by must be that path too, or
+        `register` refuses it: neither the teardown nor recover.sh could then stop it. The kill
+        fails here, so the entry stays in B's state file to be seen."""
+        real = self.cfg.run_dir
+        link = os.path.join(self.tmp, "runlink")
+        os.symlink(real, link)
+        self.cfg.run_dir = link
+        self.fab.ctrl_never_ready = True            # the controller is still running when B ends
+        r = self.ndt_runner()
+        r.replies.insert(0, (("kill",), (1, "")))      # ... and cannot be stopped
+        rc, doc, _r = self.run_lab(runner=r)
+        with open(os.path.join(link, "LAB_STATE.B.json")) as fh:
+            ctrls = json.load(fh)["controllers"]
+        self.assertEqual([c["marker"] for c in ctrls], [os.path.realpath(real)])
+        self.assertFalse(any("not recorded" in p_ for b in doc["bringups"] for p_ in b["problems"]), doc["bringups"])
 
     def test_b_on_a_fabric_that_is_not_external_is_incomplete(self):
         self.fab.force_mode = "ndtwin"
