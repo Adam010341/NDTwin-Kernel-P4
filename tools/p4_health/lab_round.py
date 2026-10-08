@@ -12,7 +12,11 @@ against the lab.
     can finish what a crash left. The claim note carries the file's path.
   * The qdisc snapshot is taken AFTER `ndt up` and before any netem (12-12): before the up there
     is no fabric to snapshot.
-  * SIGTERM, SIGINT and SIGHUP become an exception, so they take the `finally`.
+  * SIGTERM, SIGINT and SIGHUP become an exception inside the round, so they take the `finally`
+    and the teardown runs. A signal that arrives DURING the teardown does not cut the cleanup
+    short: the first one is kept, and `run()` adds "aborted by signal N (during the teardown)" to
+    the record's problems once the cleanup is done, so the run ends there like any other stop
+    (lab.py reads that sentence) and no later bring-up claims the lab (Cut 2 round 4, F1).
   * The teardown, in order: stop sniffers -> stop controllers -> remove netem -> compare qdisc
     -> `ndt down` -> put the two knobs back as BYTES -> `ndt release`. A qdisc mismatch is
     recorded and does NOT stop the down, the restore or the release -- only recover.sh stops
@@ -189,6 +193,7 @@ class LabRound(object):
                       "claim_file": cfg.claim_file, "claim_expires": None, "ndt": cfg.ndt}
         self.knobs = {}
         self.events = []
+        self.teardown_signal = None          # the first stop signal that arrived during the teardown
 
     # --- LAB_STATE.json ---------------------------------------------------------------------------
     def write_state(self, **changes):
@@ -297,9 +302,12 @@ class LabRound(object):
                 raise SignalAbort(signum)
             self._old = {s: signal.signal(s, raiser) for s in sigs}
         else:
-            # During the teardown a second signal must not abort the cleanup: noted, ignored.
+            # During the teardown a signal must not abort the cleanup: the first is kept, and run()
+            # records it once the cleanup is over (it must still end the run).
             def noter(signum, _frame):
                 self.events.append(("signal-during-teardown", signum))
+                if self.teardown_signal is None:
+                    self.teardown_signal = signum
             for s in sigs:
                 signal.signal(s, noter)
 
@@ -372,6 +380,9 @@ class LabRound(object):
                 self.teardown(rec)
             finally:
                 self._restore_handlers()
+        if self.teardown_signal is not None:
+            rec["problems"].append("aborted by signal %d (during the teardown)" % self.teardown_signal)
+            rec["complete"] = False
         rec["seconds"] = round(self.clock() - t0, 1)
         if rec["frames_reached_hosts"] is True or rec["release_rc"] != 0 or rec["down_rc"] != 0:
             rec["complete"] = False
