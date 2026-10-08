@@ -1732,7 +1732,7 @@ add "C2-RB1. B never tells its controller the stimuli are done" \
 
 add "C2-RB2. B's controller is not recorded in LAB_STATE" \
     "$ROUNDB" \
-    '            lab_round.register("controller", proc.pid, self.cfg.run_dir)' \
+    '            lab_round.register("controller", proc.pid, os.path.realpath(self.cfg.run_dir))' \
     '            pass  # MUTANT' \
     'test_the_eleven_attributions_confirmed_from_thrift_and_the_receiver'
 
@@ -2044,20 +2044,19 @@ add "C2R3-N7. an unobserved control reads as a flip" \
 
 add "C2R3-N8a. root runs the shared tree's hostside.py, not the run's frozen copy" \
     "$LABPY" \
-    '    a_kwargs = dict({"hostside": frozen}, **(a_kwargs or {}))' \
+    '    a_kwargs = dict({"hostside": frozen.hostside}, **(a_kwargs or {}))' \
     '    a_kwargs = dict(a_kwargs or {})  # MUTANT' \
     'test_root_runs_a_frozen_copy_of_its_code_from_the_run_dir'
 
 add "C2R3-N8b. the frozen copy's record is not of the copy root runs" \
-    "$HOSTSPY" \
-    '        with open(os.path.join(dst, name), "rb") as fh:
-            sums[name] = hashlib.sha256(fh.read()).hexdigest()' \
-    '        sums[name] = "not recorded"  # MUTANT' \
+    "$PKG/frozen.py" \
+    '            with open(dst, "rb") as fh:
+                sums[rel] = hashlib.sha256(fh.read()).hexdigest()' \
+    '            sums[rel] = "not recorded"  # MUTANT' \
     'test_root_runs_a_frozen_copy_of_its_code_from_the_run_dir'
 
 
 # --- Cut 2, round 4 -----------------------------------------------------------------------------
-ROUNDB="$PKG/round_b.py"
 
 add "C2R4-F1a. a stop signal during the teardown is not kept" \
     "$LABROUND" \
@@ -2170,6 +2169,100 @@ add "C2R4-F3f. a see-red pass ignores the run's own problems" \
     '    complete = bool(recs) and all(r.get("complete") is True for r in recs)  # MUTANT' \
     'test_a_see_red_run_with_a_problem_of_the_run_is_incomplete'
 
+FROZENPY="$PKG/frozen.py"
+
+add "C2R4-F4a. the freeze does not compare a copy with HEAD's blob" \
+    "$FROZENPY" \
+    '            if h != blob:' \
+    '            if False:  # MUTANT' \
+    'test_an_edit_between_the_clean_check_and_the_freeze_is_refused_before_s0'
+
+add "C2R4-F4b. two empty answers from git count as equal hashes" \
+    "$FROZENPY" \
+    '            if h_rc != 0 or b_rc != 0 or not h or not blob:' \
+    '            if h_rc != 0 or b_rc != 0:  # MUTANT' \
+    'test_a_git_that_cannot_confirm_a_copy_refuses_the_freeze'
+
+add "C2R4-F4c. probe.py freezes without asking git" \
+    "$PROBEPY" \
+    '        frozen = FZ.freeze(run_dir, repo=REPO, git=_git_run)' \
+    '        frozen = FZ.freeze(run_dir, repo=REPO, git=None)  # MUTANT' \
+    'test_an_edit_between_the_clean_check_and_the_freeze_is_refused_before_s0'
+
+add "C2R4-F4d. a refused freeze does not stop the run" \
+    "$PROBEPY" \
+    '        print("refused: %s" % exc, file=sys.stderr)
+        return 2
+    py = args.py_p4' \
+    '        print("refused: %s" % exc, file=sys.stderr)
+        frozen = None  # MUTANT
+    py = args.py_p4' \
+    'test_an_edit_between_the_clean_check_and_the_freeze_is_refused_before_s0'
+
+add "C2R4-F4e. the freeze leaves out B's controller and the adapter" \
+    "$FROZENPY" \
+    '    for rel in ROOT_FILES + B_FILES:' \
+    '    for rel in ROOT_FILES:  # MUTANT' \
+    'test_b_runs_its_controller_and_the_adapter_from_the_frozen_copy'
+
+add "C2R4-F4f. B's controller runs from the shared tree" \
+    "$LABPY" \
+    '    b_kwargs = dict({"hostside": frozen.hostside, "controller": frozen.controller,' \
+    '    b_kwargs = dict({"hostside": frozen.hostside,  # MUTANT' \
+    'test_b_runs_its_controller_and_the_adapter_from_the_frozen_copy'
+
+add "C2R4-F4g. the adapter runs from the shared tree" \
+    "$LABPY" \
+    '                     "adapter": frozen.adapter}, **(b_kwargs or {}))' \
+    '                     }, **(b_kwargs or {}))  # MUTANT' \
+    'test_b_runs_its_controller_and_the_adapter_from_the_frozen_copy'
+
+add "C2R4-F4h. run_lab freezes a second set instead of running the one it is given" \
+    "$LABPY" \
+    '    frozen = frozen or FZ.freeze(run_dir)' \
+    '    frozen = FZ.freeze(run_dir)  # MUTANT' \
+    'test_run_lab_runs_the_frozen_code_it_is_given'
+
+add "C2R4-F4i. probe.py does not hand its frozen code to run_lab" \
+    "$PROBEPY" \
+    '                         frozen=frozen)' \
+    '                         )  # MUTANT' \
+    'test_the_run_gets_the_frozen_code_that_probe_froze'
+
+add "C2R4-F4j. health.json does not record the hashes of B's files" \
+    "$LABPY" \
+    '    doc["frozen_code"] = frozen.sums ' \
+    '    doc["frozen_code"] = {}  # MUTANT ' \
+    'test_b_runs_its_controller_and_the_adapter_from_the_frozen_copy'
+
+add "C2R4-F6. B's controller is registered by the unresolved run dir" \
+    "$ROUNDB" \
+    '            lab_round.register("controller", proc.pid, os.path.realpath(self.cfg.run_dir))' \
+    '            lab_round.register("controller", proc.pid, self.cfg.run_dir)  # MUTANT' \
+    'test_b_controller_is_recorded_when_the_run_dir_path_has_a_link'
+
+add "C2R4-F8a. an unreadable bmv2 override is not caught" \
+    "$PROBEPY" \
+    '    except OSError:
+        fabric = None' \
+    '    except ZeroDivisionError:  # MUTANT
+        fabric = None' \
+    'test_an_unreadable_bmv2_override_is_an_incomplete_fingerprint_and_stops_the_run'
+
+add "C2R4-F8b. an unreadable bmv2 override reads as a binary" \
+    "$PROBEPY" \
+    '        fabric = None                   # unreadable override: the fingerprint says incomplete' \
+    '        fabric = "/bin/sh"  # MUTANT' \
+    'test_an_unreadable_bmv2_override_is_an_incomplete_fingerprint_and_stops_the_run'
+
+add "C2R4-F9. C2R3-N8b tightened: the record is of the source, not of the copy" \
+    "$FROZENPY" \
+    '            with open(dst, "rb") as fh:
+                sums[rel] = hashlib.sha256(fh.read()).hexdigest()' \
+    '            with open(os.path.join(repo, "tools", rel), "rb") as fh:  # MUTANT
+                sums[rel] = hashlib.sha256(fh.read()).hexdigest()' \
+    'test_the_recorded_hash_is_of_the_copy_not_of_the_source'
+
 
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'
@@ -2199,6 +2292,8 @@ fresh_copy() {
     cp -r "$PKG" "$WORK/tools/p4_health"
     # the one repo file the package reads by its own path (throwaway.py's lab port list)
     mkdir -p "$WORK/p4_proxy/mininet" && cp "$REPO/p4_proxy/mininet/grpc_ports.py" "$WORK/p4_proxy/mininet/"
+    # (round 4, F4) the three p4_exercise files a lab run freezes next to its own (frozen.py)
+    mkdir -p "$WORK/tools/p4_exercise" && cp "$REPO/tools/p4_exercise/"{__init__,common,run_external_controller}.py "$WORK/tools/p4_exercise/"
     find "$WORK/tools" -name __pycache__ -prune -exec rm -rf {} +
 }
 
