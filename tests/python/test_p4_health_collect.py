@@ -3056,6 +3056,21 @@ class TestTheLabRun(Cut2):
         with open(os.path.join(self.cfg.run_dir, "health.json")) as fh:
             self.assertEqual(json.load(fh)["verdict"], "SEE-RED-NOT-SEEN")
 
+    def test_the_observations_a_run_writes_carry_what_the_offline_judge_reads(self):
+        """(NIT 11) observations.json says whether the bring-ups were complete, whether the run was
+        stopped and whether it was a see-red run, and carries the rounds' records and the run's
+        problems: `probe.py judge` reads exactly those fields (tested in the cells suite)."""
+        self.fab.count_k1 = False
+        self.fab.signal_in_sniffer = "TTL1"
+        rc, doc, _r = self.run_lab()
+        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
+        with open(os.path.join(self.cfg.run_dir, "observations.json")) as fh:
+            obs = json.load(fh)
+        self.assertEqual((obs["bringups_complete"], obs["stopped"], obs["see_red"]), (False, True, False))
+        self.assertEqual([b["id"] for b in obs["bringups"]], ["A"])
+        self.assertTrue(any("aborted by signal" in p_ for p_ in obs["bringups"][0]["problems"]))
+        self.assertEqual(obs["problems"], doc["problems"])
+
     def test_a_recorded_stop_overrides_a_probe_broken_cell(self):
         """F3(a): any run whose record carries 'aborted by signal' is INCOMPLETE rc 2, whatever
         the cell verdicts say (a full run here, so the see-red rule has no part in it)."""

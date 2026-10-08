@@ -1389,6 +1389,47 @@ class TestProbeJudge(unittest.TestCase):
         finally:
             shutil.rmtree(d)
 
+    # --- round 5, NIT 11: the offline judge reads a stop and a see-red run as the live run does ---------
+    def judged(self, doc, tmp_prefix):
+        import io
+        import json as _json
+        import shutil
+        import tempfile
+        from contextlib import redirect_stdout
+        from p4_health import probe
+        d = tempfile.mkdtemp(prefix=tmp_prefix)
+        self.addCleanup(shutil.rmtree, d, True)
+        obs = os.path.join(d, "obs.json")
+        with open(obs, "w") as fh:
+            _json.dump(doc, fh, default=lambda o: sorted(o))
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = probe.main(["judge", "--observations", obs, "--run-dir", d, "--expected", EXPECTED_TSV])
+        with open(os.path.join(d, "health.json")) as fh:
+            return rc, _json.load(fh)["verdict"]
+
+    def test_a_stopped_recording_reads_incomplete_offline(self):
+        cells, scs = TestRuleD.base_obs(None)
+        scs["SC-fwd"] = {"pingall": (29, 30), "dump_ok": True}         # K1 and others: PROBE-BROKEN
+        base = {"cells": cells, "self_checks": scs, "bringups_complete": True}
+        self.assertEqual(self.judged(base, "p4h-judge-a-"), (1, "PROBE-BROKEN"))
+        for what, extra in (("a round's record", {"bringups": [{"id": "A", "problems": ["aborted by signal 15"]}]}),
+                            ("the run's problems", {"problems": ["stop signal 15 outside a bring-up's body: x"]}),
+                            ("the flag", {"stopped": True})):
+            with self.subTest(stop=what):
+                self.assertEqual(self.judged(dict(base, **extra), "p4h-judge-b-"), (2, "INCOMPLETE"))
+
+    def test_a_see_red_recording_that_sees_no_red_reads_so_offline(self):
+        cells, scs = TestRuleD.base_obs(None)
+        clean = {"cells": cells, "self_checks": scs, "bringups_complete": True}
+        self.assertEqual(self.judged(clean, "p4h-judge-c-"), (0, "COMPLETE"))
+        self.assertEqual(self.judged(dict(clean, mutant=True), "p4h-judge-d-"), (2, "SEE-RED-NOT-SEEN"))
+        self.assertEqual(self.judged(dict(clean, see_red=True), "p4h-judge-e-"), (2, "SEE-RED-NOT-SEEN"))
+        scs2 = dict(scs, **{"SC-fwd": {"pingall": (29, 30), "dump_ok": True}})
+        broken = {"cells": cells, "self_checks": scs2, "bringups_complete": False, "mutant": True}
+        self.assertEqual(self.judged(broken, "p4h-judge-f-"), (2, "INCOMPLETE"))
+        self.assertEqual(self.judged(dict(broken, bringups_complete=True), "p4h-judge-g-"), (1, "PROBE-BROKEN"))
+
 
 class TestNoMachineLiterals(unittest.TestCase):
 
