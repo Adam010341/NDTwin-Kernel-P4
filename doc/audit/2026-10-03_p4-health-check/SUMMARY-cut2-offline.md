@@ -275,14 +275,13 @@ P4_HEALTH_RUN_DIR=$RUN2 tools/p4_health/run.sh lab --owner <owner> --bringups A 
 ### 7.2 沒有改、或只回報的
 
 - **審查項目 11（SIGTERM 落在 `ndt claim` 期間）：只查、沒修。**
-  - **claim 檔長什麼樣（實測，OBSERVED）**：暫存複本的 `tools/test_workflow`、真的 `ndt claim`，300 次隨機 0–90 ms 後 SIGKILL（`subprocess.run` 在例外時做的就是 `process.kill()`）：
-    - 187 次：ndt 還沒寫任何東西（沒有 claim 檔，沒有 baseline）；
-    - 39 次：claim 檔完整（5 行），`round.baseline` 也有；
-    - 18 次：claim 檔完整，**沒有 `round.baseline`**；
-    - 56 次：殺的時候已經結束；
-    - **空的或只寫一半的 claim 檔：0 次。**寫入是 `claim_write … > "$CLAIM"`（`ndt:824-826`）一次小的 printf，空檔的窗口只有截斷到寫入之間的幾個微秒，這 300 次沒碰到；我沒有證明它不可能。
+  - **claim 檔長什麼樣（實測，OBSERVED；`LOG/r4/item11/claim_kill_300.log`）**：暫存複本的 `tools/test_workflow`、真的 `ndt claim`，300 次隨機 0–90 ms 後 SIGKILL（`subprocess.run` 在例外時做的就是 `process.kill()`）：
+    - 241 次：ndt 還沒寫任何東西（沒有 claim 檔，沒有 baseline）；
+    - 35 次：claim 檔完整（5 行），`round.baseline` 也有；
+    - 24 次：claim 檔完整，**沒有 `round.baseline`**；
+    - **空的或只寫一半的 claim 檔：0 次。**之前另跑過一次 300 次（187／39／18，另有 56 次殺的時候已經結束），同樣是 0 次，沒有存檔。寫入是 `claim_write … > "$CLAIM"`（`ndt:824-826`）一次小的 printf，空檔的窗口只有截斷到寫入之間的幾個微秒，沒碰到；我沒有證明它不可能。
     - 每次殺完緊接著再 `ndt claim` 都成功（300/300），鎖不會卡住。
-  - **recover.sh 對 phase `claiming`（實測）**：四種狀態（完整＋baseline、完整無 baseline、沒有 claim 檔、**空檔——人工造的，沒有真的觀測到**）都是 rc 2，印「has claim_expires '', not a time -- the probe did not record its claim. Nothing done.」，不呼叫任何 stub。
+  - **recover.sh 對 phase `claiming`（實測；`recover_claiming.log`、`release_states.log`）**：四種狀態（完整＋baseline、完整無 baseline、沒有 claim 檔、**空檔——人工造的，沒有真的觀測到**）都是 rc 2，印「has claim_expires '', not a time -- the probe did not record its claim. Nothing done.」，不呼叫任何 stub。
     - claim 檔完整、note 指名這一輪的 state 檔時，多印「The claim … is this run's」「Nothing was brought up under it」和 `NDT_OWNER=<owner> <ndt> release`；沒有 claim 或空檔時只有那一行 STOP，沒有 release 指令。
     - 真的 `ndt release`：完整無 baseline 的 claim 可以放掉（rc 0，留 `.prev`）；空的 claim 檔也可以（rc 0）；空檔之後再 `ndt claim` 也成功。
   - **探測器這一側（OBSERVED，假 runner、真 handler）**：claim 寫好之後 SIGTERM 到達：`ndt claim` 在 `LabRound.run` 的 try 之外（`lab_round.py` 的 claim 在 try 之前），所以沒有收拾；`run_lab` 的 `except SignalAbort` 記下「stop signal 15 outside a bring-up's body」，INCOMPLETE rc 2，`bringups` 是空的（這一輪沒有紀錄），LAB_STATE 停在 `claiming`、`claim_expires` 是 null。
