@@ -2469,6 +2469,43 @@ add "C2R5-5g. the dry-run check accepts a controller that is not the one it was 
     '        ok = (res.rc == 0 and ("controller: %s" % RB.CONTROLLER) in out  # MUTANT' \
     'test_the_adapter_dry_run_runs_the_frozen_adapter_with_the_frozen_controller'
 
+add "C2R5-10a. the body's stop handler does not put the teardown's handler in before it raises" \
+    "$LABROUND" \
+    '                self._swap_handlers({s: self._noter for s in self.SIGS})
+                raise SignalAbort(signum)' \
+    '                raise SignalAbort(signum)  # MUTANT' \
+    'test_a_second_stop_before_the_teardown_handler_is_in_place_does_not_skip_the_teardown'
+
+add "C2R5-10b. the record is finished after the run-level handlers are back" \
+    "$LABROUND" \
+    '                self._finish(rec, t0)
+                self._restore_handlers()' \
+    '                self._restore_handlers()
+                self._finish(rec, t0)  # MUTANT' \
+    'test_a_stop_just_after_a_rounds_handlers_are_restored_keeps_that_rounds_record'
+
+add "C2R5-10c. a stop between a round and its record being appended loses the record" \
+    "$LABPY" \
+    '        except SignalAbort as exc:
+            take_unrecorded(cfg, holder, recs)' \
+    '        except SignalAbort as exc:
+            pass  # MUTANT' \
+    'test_a_stop_just_after_a_rounds_handlers_are_restored_keeps_that_rounds_record'
+
+add "C2R5-10d. an exception between a round and its record being appended loses the record" \
+    "$LABPY" \
+    '        except Exception as exc:  # noqa: BLE001 -- (round 5, #2) StateInUse, a package outside the run dir, ...
+            take_unrecorded(cfg, holder, recs)' \
+    '        except Exception as exc:  # noqa: BLE001 -- (round 5, #2) StateInUse, a package outside the run dir, ...
+            pass  # MUTANT' \
+    'test_an_exception_after_a_rounds_record_is_final_keeps_that_rounds_record'
+
+add "C2R5-13. a knob that was not put back does not make the round incomplete" \
+    "$LABROUND" \
+    '                or rec["knobs_restored"] is not True):' \
+    '                ):  # MUTANT' \
+    'test_a_knob_that_does_not_go_back_makes_the_round_incomplete_even_when_the_release_succeeds'
+
 
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'

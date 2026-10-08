@@ -194,6 +194,7 @@ class LabRound(object):
         self.knobs = {}
         self.events = []
         self.teardown_signal = None          # the first stop signal that arrived during the teardown
+        self.rec = None                      # the record run() is filling in, for lab.py (round 5, NIT 10)
 
     # --- LAB_STATE.json ---------------------------------------------------------------------------
     def write_state(self, **changes):
@@ -293,28 +294,43 @@ class LabRound(object):
         return True, ""
 
     # --- the round ------------------------------------------------------------------------------------
+    SIGS = (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)
+
+    def _noter(self, signum, _frame):
+        # During the teardown a signal must not abort the cleanup: the first is kept, and run()
+        # records it once the cleanup is over (it must still end the run).
+        self.events.append(("signal-during-teardown", signum))
+        if self.teardown_signal is None:
+            self.teardown_signal = signum
+
+    def _swap_handlers(self, handlers):
+        """Install `handlers` ({signal: handler}) with the three signals blocked meanwhile, so that no
+        stop arrives between two of the switches (round 5, NIT 10); a stop that came in while they were
+        blocked is delivered when the mask is put back, to the handler that is then in place. Returns
+        the handlers replaced."""
+        old_mask = signal.pthread_sigmask(signal.SIG_BLOCK, self.SIGS)
+        try:
+            return {s: signal.signal(s, h) for s, h in handlers.items()}
+        finally:
+            signal.pthread_sigmask(signal.SIG_SETMASK, old_mask)
+
     def _handlers(self, on):
         if not self.install_signals:
             return
-        sigs = (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)
         if on:
             def raiser(signum, _frame):
+                # (round 5, NIT 10) The first stop ends the body, and from here on a further one is only
+                # noted: the teardown's handler goes in BEFORE this raises, not later in `finally`, where
+                # a second stop used to raise again over the first and skip the whole teardown.
+                self._swap_handlers({s: self._noter for s in self.SIGS})
                 raise SignalAbort(signum)
-            self._old = {s: signal.signal(s, raiser) for s in sigs}
+            self._old = self._swap_handlers({s: raiser for s in self.SIGS})
         else:
-            # During the teardown a signal must not abort the cleanup: the first is kept, and run()
-            # records it once the cleanup is over (it must still end the run).
-            def noter(signum, _frame):
-                self.events.append(("signal-during-teardown", signum))
-                if self.teardown_signal is None:
-                    self.teardown_signal = signum
-            for s in sigs:
-                signal.signal(s, noter)
+            self._swap_handlers({s: self._noter for s in self.SIGS})
 
     def _restore_handlers(self):
         if self.install_signals and getattr(self, "_old", None):
-            for s, h in self._old.items():
-                signal.signal(s, h)
+            self._swap_handlers(self._old)
 
     def run(self, body):
         if os.geteuid() == 0:
@@ -323,6 +339,7 @@ class LabRound(object):
                "claim_rc": None, "knobs_restored": None, "qdisc_same": None,
                "heartbeat_state": None, "frames_reached_hosts": None, "seconds": None,
                "complete": False, "problems": []}
+        self.rec = rec          # lab.py takes it from here if a stop leaves run() before it returns
         t0 = self.clock()
         busy = self.check_lab()
         if busy:
@@ -379,14 +396,21 @@ class LabRound(object):
             try:
                 self.teardown(rec)
             finally:
+                # (round 5, NIT 10) the record is final BEFORE the run-level handlers come back: a stop
+                # that arrives from then on raises out of this method, and the record is whole for
+                # lab.py to take (self.rec). (NIT 13) A knob that was not put back is not a complete round.
+                self._finish(rec, t0)
                 self._restore_handlers()
+        return rec
+
+    def _finish(self, rec, t0):
         if self.teardown_signal is not None:
             rec["problems"].append("aborted by signal %d (during the teardown)" % self.teardown_signal)
             rec["complete"] = False
         rec["seconds"] = round(self.clock() - t0, 1)
-        if rec["frames_reached_hosts"] is True or rec["release_rc"] != 0 or rec["down_rc"] != 0:
+        if (rec["frames_reached_hosts"] is True or rec["release_rc"] != 0 or rec["down_rc"] != 0
+                or rec["knobs_restored"] is not True):
             rec["complete"] = False
-        return rec
 
     def _stop(self, key, entry, root):
         """Signal one recorded process if it is still the one we started; then forget it."""

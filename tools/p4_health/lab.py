@@ -98,6 +98,17 @@ def keep_state(cfg, bringup):
                                                          "LAB_STATE.%s.json" % bringup))
 
 
+def take_unrecorded(cfg, holder, recs):
+    """(Cut 2 round 5, NIT 10) A stop (or any exception) that leaves a round's `run()` after the record is
+    final but before `recs.append` has run leaves that round out of health.json. Every round that was
+    started keeps its record in `.rec`: add the ones missing, and the state file as that round left it."""
+    for lr in holder.get("rounds") or []:
+        rec = getattr(lr, "rec", None)
+        if rec is not None and not any(rec is r for r in recs):
+            recs.append(rec)
+            keep_state(cfg, lr.bringup)
+
+
 def signalled(rec):
     """The round was stopped by SIGTERM / SIGINT / SIGHUP (lab_round records it so)."""
     return any(str(p).startswith("aborted by signal") for p in (rec or {}).get("problems") or [])
@@ -122,6 +133,7 @@ def _rounds(cfg, runner, run_id, model, pipelines, runtimes, orders, only, mutan
         pkg = os.path.join(packages, "A-MUT" if mutant else "A")
         log("bring-up A (%s): %d cell(s)" % (os.path.basename(pkg), len(a.selected)))
         lr_a = round_cls(cfg, runner, "A", pkg, run_id)
+        holder.setdefault("rounds", []).append(lr_a)
         recs.append(lr_a.run(a.body))
         keep_state(cfg, "A")
         log("  A: complete=%s problems=%s" % (recs[-1]["complete"], recs[-1]["problems"]))
@@ -142,7 +154,9 @@ def _rounds(cfg, runner, run_id, model, pipelines, runtimes, orders, only, mutan
                                                                            "tutorials", "utils"),
                                  **(b_kwargs or {}))
         log("bring-up B (external): the eleven attributions")
-        recs.append(round_cls(cfg, runner, "B", os.path.join(packages, "B"), run_id).run(b.body))
+        lr_b = round_cls(cfg, runner, "B", os.path.join(packages, "B"), run_id)
+        holder.setdefault("rounds", []).append(lr_b)
+        recs.append(lr_b.run(b.body))
         keep_state(cfg, "B")
         log("  B: complete=%s problems=%s" % (recs[-1]["complete"], recs[-1]["problems"]))
         if signalled(recs[-1]):
@@ -194,12 +208,14 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
                     packages, round_cls, a_kwargs, b_kwargs, tutorials_utils, run_dir, recs, problems,
                     log, holder)
         except SignalAbort as exc:
+            take_unrecorded(cfg, holder, recs)
             # (Cut 2 review N1) between rounds, or before a round's own handlers are in place
             problems.append("stop signal %d outside a bring-up's body: the run ends here; finish with "
                             "recover.sh %s if a round was under way" % (exc.signum, run_dir))
             run_stopped.append(exc.signum)
             log("  " + problems[-1])
         except Exception as exc:  # noqa: BLE001 -- (round 5, #2) StateInUse, a package outside the run dir, ...
+            take_unrecorded(cfg, holder, recs)
             problems.append("the run ended on %s: %s; finish with recover.sh %s if a round was under way"
                             % (type(exc).__name__, exc, run_dir))
             ended_early = True
