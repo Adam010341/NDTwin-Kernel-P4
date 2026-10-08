@@ -248,10 +248,12 @@ done
 # does NOT cover that branch -- it replaces stack.sh with a fake.)
 #
 # [Co-developed with claude code -- Adam]
-# The probe cmd_down calls is ndt_port_open (ports.sh), not port_open, and has been since
-# 5c64d432. This seam used to stub only port_open, so any listener on a ports.sh port -- another
-# session's stack on :6653/:8000/:8080 -- made cmd_down report leftovers and fail five checks
-# here; GitHub CI has no stack, so it stayed green there. Every probe records its call in a
+# The probe cmd_down calls is ndt_port_open (ports.sh), not port_open. This seam used to stub only
+# port_open, so a listener on a port ports.sh probes (TCP rows at 127.0.0.1, plus the udp row) --
+# another session's stack on :6653/:8000/:8080, say -- made cmd_down report leftovers: five checks
+# went red and two more passed for the wrong reason (their rc 1 came from the leftovers return,
+# not from the ending they name). GitHub CI has no stack, so it stayed green there. Every probe
+# records its call in a
 # file (cmd_down runs in $(...), so a variable would not survive), and the check below asserts
 # that cmd_down probed the table's (port, proto) pairs through the stubbed ndt_port_open and that
 # none of the four tripwired helpers below (port_open, ndt_port_holder, ndt_port_listener_pids,
@@ -262,7 +264,8 @@ PROBE_CALLS="$TMP/port_probe.calls"
 PROBE_STRAY="$TMP/port_probe.stray"
 : >"$PROBE_CALLS"; : >"$PROBE_STRAY"
 ndt_port_open() { echo "$1 ${2:-tcp}" >>"$PROBE_CALLS"; return 1; }
-# Only reached for a port reported open, which the stub above never does; any call is a stray.
+# The three holder helpers are reached only for a port reported open, which the stub above never
+# does; cmd_down never calls port_open at all. Any call to any of the four is a stray.
 port_open()               { echo "port_open $*" >>"$PROBE_STRAY"; return 1; }
 ndt_port_holder()         { echo "ndt_port_holder $*" >>"$PROBE_STRAY"; echo "stub"; }
 ndt_port_listener_pids()  { echo "ndt_port_listener_pids $*" >>"$PROBE_STRAY"; return 0; }
@@ -426,7 +429,9 @@ rm -f "$PID_DIR"/*
 STACK_FATAL_ENDINGS=""; STACK_EXITS_REPORTED=""
 write_exit ryu 7
 # This section runs on the ndt_port_open stub and the four tripwires defined in the section
-# above; reset their records so the check after the call speaks about this cmd_down only.
+# above; reset their records so the check after the call speaks about this cmd_down only. First
+# check that nothing fired in the cmd_down calls in between, which the reset would discard.
+check "no tripwire fired in the earlier cmd_down calls" "0" "$(wc -l <"$PROBE_STRAY")"
 : >"$PROBE_CALLS"; : >"$PROBE_STRAY"
 out="$(cmd_down 2>&1)"; rc=$?
 check "🔴 cmd_down names the orphaned ending" "yes" \
