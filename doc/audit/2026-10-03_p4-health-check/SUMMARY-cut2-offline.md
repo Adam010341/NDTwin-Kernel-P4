@@ -330,7 +330,7 @@ P4_HEALTH_RUN_DIR=$RUN2 tools/p4_health/run.sh lab --owner <owner> --bringups A 
 
 ## 8. 第 5 輪（r4 審查的修正）
 
-- **基底**：`ed6dce9b`（code 的 head `2e630d34`）。code 與測試的最後一個 commit 見檔尾「gate」一節；之後只有文件的 commit。
+- **基底**：`ed6dce9b`（code 的 head `2e630d34`）。**code 與測試的 head：`59d6b014`**（`tools/p4_health` 的 tree＝`fbf5a13c`）；之後只有這份文件的 commit，tools 與 tests 沒有再動。
 - **LOG5** 指 `LOG/r5/`。每份 log 第 1 行是 `commit <sha> tree <tree> …`，最後一行是 `rc=`。紅都是**先 commit 測試、再跑**；r5 的 commit 在跑完之後改寫過一次（只改訊息，tree 不變），log 第 1 行是改寫前的 sha，對照在 `LOG/r5/SHA-MAP.txt`（紅 log 的 commit 是只有測試、還沒有修的那一個；第 1 行的 `tracked-dirty=0`）。
 - **新 mutant 的前綴**：`C2R5-`，共 69 個（表現在 397 個＝328＋69）。
 - **#1（which tree）**：Adam 裁示 (A)，§6 已照改（在主 checkout 跑，前提與殘餘寫在 §6 前提）。「專用的乾淨 worktree」已從 SUMMARY 拿掉。
@@ -376,3 +376,14 @@ P4_HEALTH_RUN_DIR=$RUN2 tools/p4_health/run.sh lab --owner <owner> --bringups A 
 - `f3.GREEN.log`（`0fa6902a`）早於 `3b283c48` 把 stop 改成旗標：出貨的碼由 `2e630d34` 的整份綠與 mutant `F3b`、`F3c` 涵蓋，不是那份 log。
 - cells：`b1efe699` 的 `Ran` 是 120（第 5 輪把那個 commit 的封存檔跑了一遍：cells 120、collect 130），+10 ＝ 130，不是「119＋10＝129」。
 - §6 的 delta 數字（30／27／0 flipped）和 rollup：補存了 `LOG/r5/delta_counts.log`（假 fabric 的端對端測試，`COMPLETE` rc 0，57 格：same 30、not observed 27；對照 2 列 same；core 9／1／3／3、full 6／4／3／3、q3b 0／0／0／6）。
+
+### 8.5 gate 與最後的檢查（在 `59d6b014`，LOG5）
+
+- `check_gate_anchors.py HEAD`：133/133 cells ok，`mutate_p4_health.sh` ok(373)（`check_gate_anchors.HEAD.log`）；`check_test_tmpdirs.py`：416 個檔，0 個固定暫存路徑（`check_test_tmpdirs.log`）。
+- `p4_proxy/venv/bin/python`：collect 162 個 OK、cells 153 個 OK、`test_p4_health_recover.sh` 163 checks 0 failed、`test_p4_health_gate_scripts.sh` 43 checks 0 failed（`test_collect.log`、`test_cells.log`、`test_recover.log`、`test_gate_scripts.log`）。
+- **mutation gate：397 個突變（328＋69），0 存活**，4 份 shard 各自有基線、負對照、byte-identical 與之後的檢查，全綠、`rc=0`（`mutate_p4_health.shard{0,1,2,3}of4.log`，各 100／99／99／99 個）。
+  - **加起來的那一行**（`tests/shell/sum_p4_health_gate_shards.sh`，`LOG/r5/GATE.log`）：`GATE: 397 mutations, 0 survived, shards 4/4 ok`。
+  - 同一支 script 讀第一輪（`mutate_p4_health.run1_61c19eab.shard*of4.log`，不是結果）：`NOT THE GATE`，原因是兩個存活與 `rc=1`（`GATE.run1_61c19eab.log`）。
+- **第一輪 4 份在 `61c19eab`（不是結果）有 2 個存活：`C2R4-F4b`、`C2R4-F4d`。** 原因：`probe.py lab` 現在把任何例外變成 rc 2，這兩個舊測試只看 rc 2——F4d（拒絕之後繼續跑）撞上 `frozen.head` 的例外、F4b 的 git double 把 `rev-parse --verify HEAD` 也答成空——都是「rc 2 分不出是拒絕還是當掉」。已修（`59d6b014`：測試要求 stderr 有 `refused:`、沒有 traceback；double 把 HEAD 的問題留給真的 git），兩個在修好之後被抓到（`mutate_p4_health.partial_C2R4-F4_after_fix.log`，F4a–j 全抓到），然後整張表在 `59d6b014` 重跑一遍，就是上面的結果。
+- **前一輪（`mutate_p4_health.partial_*`）的分段檢查**：本輪另在較早的 head 上用 `ONLY_LABEL_PREFIX` 分段跑過 `C2R5-` 的 mutant（沒有存檔，取代它的是上面的整張表）；其間抓到 3 個 mutant 自己的錯（`9a` 等價〔`mkdir` 本來就會擋〕改成要求訊息、`6d` 的註解吃掉續行、`6o` 的改法錯了），都已修。
+- **磁碟**：`df -m /` 一開始就低於 brief 的 2600，且沒有任何我的行程在跑時停在 2485 超過 25 分鐘不回升；我在 2485 MB 起跑，另放一個看門狗（`disk_watchdog.log`；低於 1500 MB 就停四份 shard、高於 1800 才繼續），它沒有動過。跑的時候最低到 1915 MB（`disk_watchdog.log`）——四份 shard 同時跑自己大約吃掉 500 MB 左右的暫存（空閒時 2485，跑起來掉到約 1915–2400 之間擺盪）。這違反了「保持在 2500 以上」，已照實寫。
