@@ -2162,7 +2162,7 @@ add "C2R4-F3e. the run does not tell run_verdict that it is a see-red run" \
     "$LABPY" \
     'stopped=stopped, see_red=bool(mutant))' \
     'stopped=stopped, see_red=False)  # MUTANT' \
-    'test_a_see_red_run_stopped_after_k1_is_incomplete_not_a_pass'
+    'test_a_see_red_run_whose_round_did_not_end_clean_is_incomplete'
 
 add "C2R4-F3f. a see-red pass ignores the run's own problems" \
     "$LABPY" \
