@@ -16,6 +16,7 @@ order, every compare branch the Cut 1 review listed, the three rollups, and the 
 import copy
 import os
 import re
+import subprocess
 import sys
 import unittest
 
@@ -34,6 +35,30 @@ from p4_health import round_a as RA  # noqa: E402
 PKG = os.path.dirname(os.path.abspath(T.__file__))
 EXPECTED_TSV = os.path.join(REPO, "doc", "audit", "2026-10-03_p4-health-check", "expected_today.tsv")
 P4_SRC = os.path.join(os.path.dirname(PKG), "exercise", "src", "hc_main.p4")
+
+#: The two records expected_today.tsv's header cites; they live on the trunk branch, not on main.
+CITED_RECORDS = ("doc/audit/2026-09-04_p4-tutorial-exercise-prep/GAP-2b-ndtwin-p4-capabilities-2026-09-27.md",
+                 "doc/audit/2026-10-03_p4-health-check/DESIGN.md")
+
+
+def _trunk_refs(repo):
+    """(refs, why_not): the trunk refs of the git checkout at repo (local trunk first, then
+    refs/remotes/*/trunk), or ([], reason) when repo is not a git checkout or git is missing."""
+    try:
+        top = subprocess.run(["git", "-C", repo, "rev-parse", "--show-toplevel"], capture_output=True,
+                             text=True, timeout=60)
+        if top.returncode != 0 or os.path.realpath(top.stdout.strip()) != os.path.realpath(repo):
+            return [], "this tree is not a git checkout"
+        out = subprocess.run(["git", "-C", repo, "for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes"],
+                             capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return [], "git is not available"
+    if out.returncode != 0:
+        return [], "git could not list the refs of this tree"
+    names = out.stdout.split()
+    return ([n for n in names if n == "refs/heads/trunk"]
+            + [n for n in names if re.fullmatch(r"refs/remotes/[^/]+/trunk", n)]), ""
+
 
 ALL_ATTR = {"bmv2": True, "wire": True, "static": True}
 #: The best a cell can read today by its own definition (P4: section 12 item 8).
@@ -1109,21 +1134,37 @@ class TestExpectedFile(unittest.TestCase):
 
     def test_the_header_says_where_the_cited_records_live(self):
         """Cut 1 follow-up 4 (r5): GAP-2b and DESIGN.md are cited and are not on main; the header says
-        what they are and that they live on the trunk branch."""
+        what they are and that they live on the trunk branch. Text only, so it runs on every tree,
+        including a PR tree that has had doc/audit/**/*.md removed."""
         with open(EXPECTED_TSV, encoding="utf-8") as fh:
             head = [l for l in fh if l.startswith("#")]
         note = [l for l in head if "GAP-2b" in l]
         self.assertEqual(len(note), 1)
-        for needle in ("doc/audit/2026-09-04_p4-tutorial-exercise-prep/GAP-2b-ndtwin-p4-capabilities-2026-09-27.md",
-                       "doc/audit/2026-10-03_p4-health-check/DESIGN.md", "trunk branch"):
+        for needle in CITED_RECORDS + ("trunk branch",):
             self.assertIn(needle, note[0])
-        # r6: "both live in this repository" is a fact the note states; the two files are here (that
-        # they are not on main is the PR rule and cannot be checked from a checkout).
-        for rel in ("doc/audit/2026-09-04_p4-tutorial-exercise-prep/GAP-2b-ndtwin-p4-capabilities-2026-09-27.md",
-                    "doc/audit/2026-10-03_p4-health-check/DESIGN.md"):
-            self.assertTrue(os.path.isfile(os.path.join(REPO, rel)), "the header note names %s, which is not here" % rel)
         with open(T.__file__, encoding="utf-8") as fh:
-            self.assertIn("GAP-2b-ndtwin-p4-capabilities-2026-09-27.md, on the trunk branch", fh.read())
+            self.assertIn(os.path.basename(CITED_RECORDS[0]) + ", on the trunk branch", fh.read())
+
+    def test_the_cited_records_exist_in_this_checkout_or_on_trunk(self):
+        """r6: "both live in this repository" is a fact the note states. PRs to main strip every
+        doc/audit/**/*.md, so on a PR tree the files are absent by design: then they must be on a
+        trunk ref of this checkout, and with no such ref nothing was checked and the test skips."""
+        missing = [rel for rel in CITED_RECORDS if not os.path.isfile(os.path.join(REPO, rel))]
+        if not missing:
+            return
+        why = ("the cited records live only on the trunk branch (PRs to main strip doc/audit md) and %s"
+               " (missing here: %s)")
+        refs, nogit = _trunk_refs(REPO)
+        if nogit:
+            self.skipTest(why % (nogit, ", ".join(missing)))
+        if not refs:
+            self.skipTest(why % ("this checkout has no trunk ref", ", ".join(missing)))
+        for rel in missing:
+            found = [r for r in refs if subprocess.run(
+                ["git", "-C", REPO, "cat-file", "-e", "%s:%s" % (r, rel)],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60).returncode == 0]
+            self.assertTrue(found, "the header note names %s, which is neither here nor in any of %s"
+                            % (rel, ", ".join(refs)))
 
     def test_the_prediction_comes_from_the_file_not_from_the_run(self):
         exp = E.load(EXPECTED_TSV)
