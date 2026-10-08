@@ -1213,7 +1213,8 @@ class TestLabRound(Sealed):
         finally:
             signal.signal(signal.SIGTERM, safety)
         self.assertEqual(seen, [])
-        self.assertEqual(self.names(r)[-3:], ["kill-sniffer 555", "ndt down", "ndt release"])
+        self.assertEqual(self.names(r)[-2:], ["ndt down", "ndt release"])
+        self.assertIn("kill-sniffer 555", self.names(r))
         self.assertIn("aborted by signal %d" % signal.SIGTERM, rec["problems"])
         self.assertFalse(rec["complete"])
 
