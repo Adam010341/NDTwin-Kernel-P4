@@ -165,14 +165,26 @@
 **前提**
 
 - Adam 對這一次逐次授權（§9 Q6(a)：第一次 live，含看過紅那一次）。
-- 在**專用的乾淨 worktree** 跑（建在併好的 trunk sha 上），**不要在主 checkout 跑**（第 4 輪 N8）。
-  - 原因一：乾淨檢查與 frozen 比對都只看 HEAD；主 checkout 常有別的 session 的未追蹤檔，而 gate fingerprint 會算進未追蹤檔（`identity.py` 的 `repo_untracked`），每一輪的指紋因此不同，第一輪的紀錄永遠換不成常設授權。
-  - 原因二：共用的 working tree 在 13–18 分鐘的 run 裡可能被別人改。現在 root 與 B 都執行複本，但 `repo_tracked`／`repo_untracked` 與 `system_under_test` 仍只記 run 開始時的狀態。
+- **在 ndtwin-lab 作用的那一棵 tree 跑，也就是主 checkout `/home/adam/Desktop/NDTwin-Kernel`**（Adam 對 r4 審查 #1 的裁示 (A)）。第 4 輪寫的「專用的乾淨 worktree」做不到，已拿掉：
+  - **為什麼不是別的 checkout**：
+    - claim 是每個 checkout 各一份：`CLAIM="$REPO/.test_run/lab.claim"`（`ndt:341`），`.test_run/` 是 per checkout（`ndt:6513`）。在 worktree 裡 claim，主 checkout 上的人看到的是 `claim none`。
+    - root 的 helper 只指一棵 tree（`ndt:1526-1561`，「It names ONE tree, so two worktrees cannot both be live at the same time」）：`ndt up p4` 的 preflight 在別的 checkout 會拒絕，而 teardown 的 `ndt down` 從任何 checkout 跑都會 `topo-stop` lab 那棵 tree 的 fabric（`ndt:5356`），不看本地 claim。
+    - `run.sh` 要有 `<checkout>/p4_proxy/venv/bin/python`（或 `P4_PROXY_PY`），kernel binary、venv、編好的 pipeline 也只在那一棵 tree 裡。
+  - **前提與為什麼夠**：`git status --porcelain -- tools/p4_health` 必須是空的（`probe.py` 的乾淨檢查，`probe.py:155`；不是空的就 rc 2，什麼 lab 動作都還沒做）。主 checkout 其他地方別的 session 的未提交改動**不影響這一輪**，因為：
+    - 乾淨檢查之後、S0 之前，root 與 B 會執行的 7 個檔先複製進 `<run>/frozen/`，逐一對同一個 pin 住的 HEAD blob 驗過（`git hash-object --no-filters`），root、B 的 controller 與 adapter，以及 S0 的 controller trial 與 adapter dry-run 都執行副本（第 4 輪 F4、第 5 輪 NIT 7–9、#5）；
+    - 探測器行程自己用到的 `p4_health` 模組，在乾淨檢查**之前**就全部載入（第 5 輪 #5，`probe.LAB_PATH_MODULES`），之後不再從共用 tree 讀 probe 程式。
+  - **run 期間沒有人可以改主 checkout 的 `tools/p4_health`**（也請不要動 `tools/p4_exercise/` 的 `convert.py`、`preflight.py`、`common.py`、`run_external_controller.py`，和 `tools/test_workflow/heartbeat_drop_check.py`）。如果有人改了：
+    - 在乾淨檢查**之前**：rc 2，拒絕；
+    - 在乾淨檢查**之後、凍結之前**：凍結時副本對不上 HEAD 的 blob，rc 2，拒絕（`frozen.py`），lab 還沒碰；
+    - 在凍結**之後**：**不會被拒絕、也不會被偵測**——這一輪照舊跑，執行的是凍結的副本和已載入的模組，所以結果不受影響；但 `gate_fingerprint` 的 tracked 部分（`repo_tracked`，約第 3 分鐘算）和 `system_under_test` 只記算的那一刻的狀態，之後的改動不在紀錄裡。
+    - 已知沒有蓋到的：S0（約前 2–3 分鐘）還是從共用 tree 讀 `tools/p4_health/exercise/`（P4 原始碼，編成被測的 pipeline）、跑 `tools/p4_exercise/convert.py`、`preflight.py` 和 `heartbeat_drop_check.py`、`openapi_probe.py`；這幾個不在凍結的 7 個檔裡（第 5 輪沒動）。
+  - **已知的殘餘（第 5 輪不修）**：gate fingerprint 會算進主 checkout 的未追蹤檔（`identity.py:91-97` 的 `repo_untracked`，除了 `.test_run/`、`scratch/`、run 目錄和 may-differ 那幾類），而主 checkout 常有別的 session 的未追蹤檔，所以兩輪之間這一項可能不同。第一輪的紀錄換成常設授權前，要先把「`repo_untracked` 的變動算不算相符」定下來（Adam 另外決定）。
+  - 這一輪的 HEAD 是凍結時 pin 住的那一個（health.json 的 `frozen_head`，也是 `repo_identity` 的 head）；主 checkout 上別的 session 之後再 commit，不改變這一輪執行的是什麼。
 
 **命令**
 
 ```
-cd <checkout>
+cd /home/adam/Desktop/NDTwin-Kernel                          # ndtwin-lab 作用的那一棵 tree
 git status --porcelain -- tools/p4_health           # 必須是空的（不是空的，probe.py lab 會 rc 2 拒絕）
 NDT_OWNER=<owner> tools/test_workflow/ndt status                # 必須是 claim none、measuring nothing、bmv2 switches 0（claim 列 ndt:6849-6850，bmv2 switches 列 ndt:6992）
                                                                 # 不要用 --measuring：它只印 declared、measuring（或 orphaned，ndt:6803-6807；recover.sh:309-316 靠這一列）幾種列（ndt:6818-6824），看不到 claim 與 bmv2
@@ -269,7 +281,7 @@ P4_HEALTH_RUN_DIR=$RUN2 tools/p4_health/run.sh lab --owner <owner> --bringups A 
 - **紅 log 的限制**：F3 的 cells 測試、F4 的兩個、F8、F9 的紅是介面錯誤，不是行為紅；它們的行為由對應的 mutant 承擔。F1、F2、F3（collect）、F4（cells 的 3 個測試〔11 個 subtest〕、collect 的 2 個測試）、F6 的紅是行為上的。（第 4 輪的 SUMMARY 寫成「兩個 import 錯誤、cells 5 個」，第 5 輪照 log 更正。）
 - **模擬 stub 照真實工具**：
   - F1 的假 `ndt down` 對自己（探測器）送 SIGTERM，等於 `kill -TERM <pid>` 在 `subprocess.run` 等 ndt 的時候到達；Python 的 handler 跑完，等待繼續（PEP 475）。這次用的是各輪**真實**的 handler（`install_signals=True`）。
-  - F2 的 spawn 失敗照 `Runner.spawn`：Popen 丟 OSError 就回 None（`collect/runner.py:62-65`）。
+  - F2 的 spawn 失敗照 `Runner.spawn`：Popen 丟 OSError 就回 None（`collect/runner.py:66-71`；第 4 輪寫的 62-65 是環境變數那幾行）。
   - F4 的 git 是真的 git（暫存的 repo）。
 
 ### 7.2 沒有改、或只回報的
@@ -312,6 +324,6 @@ P4_HEALTH_RUN_DIR=$RUN2 tools/p4_health/run.sh lab --owner <owner> --bringups A 
 - §6 的 delta 數字：27，不是 26（N6）。
 - §6 的前置命令：用 `ndt status`，不是 `--measuring`（N6）。
 - §6 的步驟 4：看 `A/TP1.json` 的 `diagnostics`，不是 `ip -o link show`（N4、N6）。
-- §6 的「在主 checkout 跑」：改成專用的乾淨 worktree（N8、F4(c)）。
+- §6 的「在主 checkout 跑」：第 4 輪改成專用的乾淨 worktree（N8、F4(c)）；r4 審查 #1 指出那一步做不到，第 5 輪依 Adam 的裁示 (A) 改回「在 ndtwin-lab 作用的主 checkout 跑」，並寫明前提與殘餘（§6 前提）。
 - §6 的「COMPLETE rc 0」：加上 problems 空、B 有做完（N2、F2）。
 - §6 的 see-red 判讀和步驟 2：延伸到 see-red 那一輪（N5、F3）。
