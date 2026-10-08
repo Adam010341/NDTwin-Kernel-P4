@@ -1924,6 +1924,15 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
                 rc, reached = None, True
         return rc, reached, err.getvalue()
 
+    def assert_refused_cleanly(self, rc, reached, err):
+        """rc 2, S0 not reached, and the way it got there is the refusal: `refused: ...` on stderr and no
+        traceback. (Round 5: `probe.py lab` turns any exception into rc 2 as well, so rc 2 alone no longer
+        tells a refusal from a crash -- and a mutant that lets the run go on after a refusal crashed into
+        that rc 2 and went unnoticed.)"""
+        self.assertEqual((rc, reached), (2, False))
+        self.assertIn("refused:", err)
+        self.assertNotIn("Traceback", err)
+
     def edit(self, repo, rel):
         with open(os.path.join(repo, "tools", rel), "a") as fh:
             fh.write("# an edit nobody committed\n")
@@ -1936,7 +1945,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
     def test_an_edit_between_the_clean_check_and_the_freeze_is_refused_before_s0(self):
         repo = self.scratch_repo()
         rc, reached, err = self.lab_in(repo, edit_after_status=lambda: self.edit(repo, "p4_health/hostside.py"))
-        self.assertEqual((rc, reached), (2, False))
+        self.assert_refused_cleanly(rc, reached, err)
         self.assertIn("hostside.py", err)
 
     def test_every_file_a_round_executes_is_checked_against_head(self):
@@ -1944,7 +1953,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
             with self.subTest(file=rel):
                 repo = self.scratch_repo()
                 rc, reached, err = self.lab_in(repo, edit_after_status=lambda rel=rel, repo=repo: self.edit(repo, rel))
-                self.assertEqual((rc, reached), (2, False))
+                self.assert_refused_cleanly(rc, reached, err)
                 self.assertIn(os.path.basename(rel), err)
 
     def test_a_git_that_cannot_confirm_a_copy_refuses_the_freeze(self):
@@ -1958,10 +1967,13 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
                              ("both answer nothing", {"hash-object": (0, ""), "rev-parse": (0, "")})):
             with self.subTest(what=what):
                 def wrapped(*args, answer=answer):
+                    # only the questions about a copy: `rev-parse --verify HEAD` is answered by the real git
+                    if args[:2] == ("rev-parse", "--verify"):
+                        return real(*args)
                     return answer.get(args[0]) or real(*args)
                 with mock.patch.object(probe, "_git_run", wrapped):
-                    rc, reached, _err = self.lab_in(repo)
-                self.assertEqual((rc, reached), (2, False))
+                    rc, reached, err = self.lab_in(repo)
+                self.assert_refused_cleanly(rc, reached, err)
 
     def test_the_frozen_set_runs_by_itself_and_takes_frames_from_the_copy(self):
         """Root's hostside.py, B's controller_ext.py (its `from p4_health import frames` inside a
