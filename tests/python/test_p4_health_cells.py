@@ -1866,13 +1866,13 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         from p4_health import frozen as FZ
         run = tempfile.mkdtemp(prefix="p4h-freeze-copy-%d-" % os.getpid())
         self.addCleanup(shutil.rmtree, run, True)
-        real_copy = shutil.copyfile
+        real_copy = FZ.copy_file
 
-        def drifting_copy(src, dst, *a, **kw):
-            real_copy(src, dst, *a, **kw)
+        def drifting_copy(src, dst):
+            real_copy(src, dst)
             with open(dst, "a") as fh:
                 fh.write("# drifted after the copy\n")
-        with mock.patch.object(FZ.shutil, "copyfile", drifting_copy):
+        with mock.patch.object(FZ, "copy_file", drifting_copy):
             fz = FZ.freeze(run)
         for rel, recorded in fz.sums.items():
             with open(fz.path(rel), "rb") as fh:
@@ -2072,6 +2072,29 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
                 self.freeze_in(repo, run_dir=run)
         with open(victim) as fh:
             self.assertEqual(fh.read(), "# the target: must stay as it is\n")
+
+    def test_a_symlink_planted_for_a_subdirectory_is_not_followed(self):
+        """(NIT 9) The same one level up: <run>/frozen/p4_health planted as a link to a directory outside.
+        makedirs(exist_ok=True) accepted it and every copy landed in the target."""
+        import tempfile
+        from unittest import mock
+        from p4_health import frozen as FZ
+        repo = self.scratch_repo()
+        run = tempfile.mkdtemp(prefix="p4h-freeze-dirlink-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, run, True)
+        elsewhere = os.path.join(run, "elsewhere")
+        os.makedirs(elsewhere)
+        link = os.path.join(os.path.realpath(run), "frozen", "p4_health")
+        real_mkdir = os.mkdir
+
+        def mkdir(path, *a, **kw):
+            if os.path.realpath(path) == link or path == link:
+                os.symlink(elsewhere, link)
+            real_mkdir(path, *a, **kw)
+        with mock.patch.object(FZ.os, "mkdir", mkdir):
+            with self.assertRaises(FZ.Refused):
+                self.freeze_in(repo, run_dir=run)
+        self.assertEqual(os.listdir(elsewhere), [])
 
     def test_the_run_gets_the_frozen_code_that_probe_froze(self):
         """cmd_lab hands run_lab the Frozen it froze before S0, not a second one."""
