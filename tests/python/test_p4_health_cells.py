@@ -1523,7 +1523,10 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
             asked.append(tuple(argv[3:]))
             out = " M tools/p4_health/hostside.py\n" if argv[3] == "status" else "x\n"
             return sp.CompletedProcess(argv, 0, stdout=out, stderr="")
+        # the freeze is stubbed to fail loudly: it would refuse this run dir too (round 4), and a
+        # test that only sees rc 2 could not tell which check said no
         with mock.patch.object(probe.subprocess, "run", git), \
+                mock.patch("p4_health.frozen.freeze", side_effect=AssertionError("the freeze must not start")), \
                 mock.patch("p4_health.s0.S0", side_effect=AssertionError("S0 must not start")):
             rc = probe.main(["lab", "--run-dir", "/nonexistent/run", "--owner", "o"])
         self.assertEqual(rc, 2)
@@ -1550,6 +1553,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
                    {"rc": 0, "exc": FileNotFoundError("git")}):
             with self.subTest(kw=kw):
                 with mock.patch.object(probe.subprocess, "run", self.git_answering(**kw)), \
+                        mock.patch("p4_health.frozen.freeze", side_effect=AssertionError("the freeze must not start")), \
                         mock.patch("p4_health.s0.S0", side_effect=AssertionError("S0 must not start")):
                     rc = probe.main(["lab", "--run-dir", "/nonexistent/run", "--owner", "o"])
                 self.assertEqual(rc, 2)
