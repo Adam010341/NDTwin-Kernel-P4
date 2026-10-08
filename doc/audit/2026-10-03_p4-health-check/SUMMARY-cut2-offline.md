@@ -327,3 +327,52 @@ P4_HEALTH_RUN_DIR=$RUN2 tools/p4_health/run.sh lab --owner <owner> --bringups A 
 - §6 的「在主 checkout 跑」：第 4 輪改成專用的乾淨 worktree（N8、F4(c)）；r4 審查 #1 指出那一步做不到，第 5 輪依 Adam 的裁示 (A) 改回「在 ndtwin-lab 作用的主 checkout 跑」，並寫明前提與殘餘（§6 前提）。
 - §6 的「COMPLETE rc 0」：加上 problems 空、B 有做完（N2、F2）。
 - §6 的 see-red 判讀和步驟 2：延伸到 see-red 那一輪（N5、F3）。
+
+## 8. 第 5 輪（r4 審查的修正）
+
+- **基底**：`ed6dce9b`（code 的 head `2e630d34`）。code 與測試的最後一個 commit 見檔尾「gate」一節；之後只有文件的 commit。
+- **LOG5** 指 `LOG/r5/`。每份 log 第 1 行是 `commit <sha> tree <tree> …`，最後一行是 `rc=`。紅都是**先 commit 測試、再跑**（紅 log 的 commit 是只有測試、還沒有修的那一個；第 1 行的 `tracked-dirty=0`）。
+- **新 mutant 的前綴**：`C2R5-`，共 69 個（表現在 397 個＝328＋69）。
+- **#1（which tree）**：Adam 裁示 (A)，§6 已照改（在主 checkout 跑，前提與殘餘寫在 §6 前提）。「專用的乾淨 worktree」已從 SUMMARY 拿掉。
+
+### 8.1 每一項
+
+| 項 | 改了什麼 | 紅（LOG5） | 綠（LOG5） | mutant |
+|---|---|---|---|---|
+| #2 rc 1 不再兼代三件事 | `lab.run_lab`：S0 不是 COMPLETE、準備階段出錯（load_model、expectations）、`_rounds` 丟出的 Exception（StateInUse 等）都是 INCOMPLETE rc 2，health.json 的 `problems` 寫原因；`probe.py lab` 的 S0 不是 COMPLETE 也走 run_lab（不做 identity、不碰 lab）；`main()` 接住 `cmd_lab` 的任何 Exception，印 traceback、rc 2（這種情況沒有 health.json）。測試用的假 `Reached` 改成 BaseException（`MustNotRun`），不然「一碰就失敗」的 double 會被這個 handler 吞掉 | `n2.collect.RED.log`、`n2.cells.RED.log`（`296d8eb8`；4 個 ERROR 是例外跑出 run_lab、1 個 FAIL 是 rc 1 ≠ 2）、`n2b.cells.RED.log`（`8437dba4`；S0 丟例外時 `main` 讓它跑出去） | `n2.collect.GREEN.log`、`n2.cells.GREEN.log`（`d4fb721e`） | `C2R5-2a`–`2h` |
+| #3 看不到紅的 see-red 不是過 | `cells/verdict.py`：`see_red`、完整乾淨、沒有任何 PROBE-BROKEN → **`SEE-RED-NOT-SEEN`、rc 2**（不是 COMPLETE rc 0；也不是 rc 1，因為 rc 1 是 see-red 的過） | `n3.collect.RED.log`、`n3.cells.RED.log`（`ba539085`；`('COMPLETE', 0) != ('SEE-RED-NOT-SEEN', 2)`） | `n3.collect.GREEN.log`、`n3.cells.GREEN.log` | `C2R5-3a`–`3c` |
+| #4 B 跑了但什麼都沒確認 | `round_b.BRound.did_nothing`：除了預期的 `register`，什麼都沒確認，或 s2 不是 primary（只要 s2 的記錄有、沒有 `connect_error`、而 `primary` 不是 true；比審查寫的「且 set_pipeline_ok」更嚴，是它的超集）→ failed B。假 controller 的 `switches` 照 `controller_ext.py:130-157`、`205`、`336-339` 的形狀寫；「沒有交換機回應」時 digest／packet-in 也是空的（控制器收不到） | `n4.RED.log`（`d260a803`；兩個 `('COMPLETE', 0)`）、`n4b.RED.log`（`ab637862`，interface：`did_nothing` 還不存在，行為由 4a／4b 承擔） | `n4.GREEN.log` | `C2R5-4a`–`4d` |
+| #5 凍結之後的探測器程式 | 選項：**在乾淨檢查之前把 lab 路徑會載入的每個 `p4_health` 模組都 import**（`probe.LAB_PATH_MODULES`、`load_lab_path`），而不是事後逐檔對 HEAD 重驗。理由：重驗比的是磁碟上的檔，不是行程載入的碼（改了又改回來會過），而且蓋不到驗證之後才載入的模組；先載入則檢查之後行程不再從共用 tree 讀 probe 程式。`S0(frozen=)`：controller trial（`ctrl_trial.trial(controller=)`）與 adapter dry-run 用凍結的副本 | `n5.RED.log`（`64b056e4`）、`n5b.RED.log`（`a613f863`）：dry-run 的 argv 指共用 tree、trial 沒有 `controller`、identity 在 S0 時還沒載入、probe 沒把 frozen 交給 S0 | `n5.GREEN.log` | `C2R5-5a`–`5g` |
+| #6 量測工具 | `mutate_p4_health.sh`：在 baseline **之前**拒絕 `MUT_SHARD` 的 k ≥ n、n > 表的大小、格式不對（含前導 0）、以及任何選不到突變的跑法（含吻合不到任何東西的 `ONLY_LABEL_PREFIX`）；每份 shard log 頂端與尾端印 `NOT THE GATE BY ITSELF: shard k/n`；新 `tests/shell/sum_p4_health_gate_shards.sh <log>…`：同一個 commit／tree／subject sha、baseline／控制／after-check 都綠、rc 都 0、k 剛好 0..n-1、各份的數量等於各自的份額，才印 `GATE: N mutations, S survived, shards k/n ok`，否則印 `NOT THE GATE: …`、rc 1。測試 `tests/shell/test_p4_health_gate_scripts.sh`（43 個檢查）；gate 的 mutant 現在也可以改這兩支 script 的副本。（檔名不用 `mutate_*`，因為 `check_gate_anchors.py` 會把那樣的檔當成 gate、找不到 anchor 就 exit 2。） | `n6.RED.log`（`880f1095`，43 個檢查 38 個紅）；**今天的 script 拒絕不了的跑法**（`n6.old.*.log`，在 `ed6dce9b`）：`MUT_SHARD=400/500` 跑 0 個突變、`rc=0`；`ONLY_LABEL_PREFIX=NOPE-` 跑 0 個突變、`rc=0`；`MUT_SHARD=5/4` 原來就拒絕，但是在約 1 分鐘的 baseline **之後** | `n6.GREEN.log` | `C2R5-6a`–`6z`（26 個，用 `test_p4_health_gate_scripts.sh` 的檢查名當預期） |
+| NIT 7 | `frozen.freeze`：`git rev-parse --verify HEAD` 一次，blob 用 `<sha>:tools/<path>`；`Frozen.head`；health.json 的 `frozen_head`；`repo_identity(head=)` 用同一個 sha | `n789.RED.log`（`1bcdeaf5`；中途 commit 竟然通過凍結） | `n789.GREEN.log` | `C2R5-7a`–`7e` |
+| NIT 8 | `git hash-object --no-filters` | 同上（run 目錄在 repo 裡、`*.py text`、CRLF 的副本通過） | 同上 | `C2R5-8` |
+| NIT 9 | `<run>/frozen` 已存在就拒絕；`os.mkdir`（不 exist_ok）建目錄、`O_CREAT\|O_EXCL\|O_NOFOLLOW` 開檔（`frozen.copy_file`）；放在目的地的連結被拒絕、目標不動 | `n789.RED.log`、`n9b.RED.log`（`b49c95a4`；子目錄的連結） | `n789.GREEN.log` | `C2R5-9a`–`9c` |
+| NIT 10 | `lab_round.py`：body 的 raiser 先換成收拾期間的 handler 再 raise；換 handler 時用 `pthread_sigmask` 擋住三個訊號；紀錄在 `_restore_handlers` **之前**定稿（`_finish`）；`LabRound.rec`，`lab.take_unrecorded` 在 run 被訊號或例外提前結束時補上已開始的輪的紀錄與 state 檔 | `n10_13.RED.log`（`5bebaa96`：第二個訊號跑出 `run()`、teardown 沒跑；`restore` 之後的訊號與例外讓該輪紀錄不見） | `n10_13.GREEN.log` | `C2R5-10a`–`10d` |
+| NIT 11 | `probe.py judge` 從紀錄讀 `stopped`（旗標、輪的 problems、run 的 problems）與 `see_red`（`mutant`／`see_red`）；`observations.json` 多寫 `bringups_complete`、`stopped`、`see_red`、`bringups`、`problems` | `n11.cells.RED.log`、`n11.collect.RED.log`（`5d40ab71`） | `n11.cells.GREEN.log`、`n11.collect.GREEN.log` | `C2R5-11a`–`11f` |
+| NIT 12 | `ctrl_garbage_result` 標明是假設性的（真的 controller 用 tmp＋`os.replace`，`controller_ext.py:399-404`）；`runner.py` 的引用改成 66-71；`adapter_argv` 的 docstring 改成實話（S0 的 dry-run 用同一個 argv 加 `--dry-run`；controller trial 不經過 adapter）；選項：凍結的 adapter＋controller 照 B 的 argv（沒有 `-I`）真的啟動一次，p4runtime 用 stub，檢查載入的檔沒有一個在共用 tree 下，控制組是同樣啟動共用 tree 的檔、偵測器必須看到 | `n12.cells.GREEN.log`（沒有紅：沒有要修的行為；紅由控制組與 mutant 承擔） | 同左 | `C2R5-12` |
+| NIT 13 | `rec["complete"]` 也需要 `knobs_restored` | `n10_13.RED.log`（`True is not false`） | `n10_13.GREEN.log` | `C2R5-13` |
+
+### 8.2 沒辦法確定性測的
+
+- **NIT 10**：`_swap_handlers` 擋住三個訊號再換 handler，目的是不讓訊號夾在兩次 `signal.signal` 之間；這個窗口是位元碼之間的幾個指令，我沒有辦法確定性地在那裡送訊號，所以**沒有針對 `pthread_sigmask` 本身的測試或 mutant**。測到的是審查點名的兩個縫：第二個訊號在 `_handlers(False)` 之前（從那個 hook 送）、訊號／例外在 `_restore_handlers` 之後（從那個 hook 送）。一個訊號落在 `return rec` 與 `recs.append` 之間（呼叫邊界）與 `_restore_handlers` 之後走同一條 `take_unrecorded` 的路，但沒有單獨在那個點測。
+- **#6**：真的 shard log 尾端那一行 `NOT THE GATE BY ITSELF` 與 `MUTATIONS == SELECTED` 的保險要整個 shard 跑完才碰得到，沒有 mutant；被釘住的是頂端那一行，與 sum script 讀的合成 log（格式取自 r4 的真 shard log）。
+- **NIT 9**：`O_NOFOLLOW` 與 `O_EXCL` 沒有各自分開的測試（目的地是連結時 `O_EXCL` 本身就失敗）；mutant `9b` 把兩個一起拿掉。
+- **NIT 12**：B 的真實啟動用的是 stub 的 `p4runtime_lib`、沒有交換機；controller 的 `frames` 延遲 import 是用結束時的 `import p4_health.frames` 驗，不是 controller 真的在連線後走到它。
+- **#5**：行程啟動到乾淨檢查之間（`probe.py` 頂端 import 的 `expected`、`report`、`cells`、`collect.config`、`runner`）與「改了又改回來」都不在保護內。
+
+### 8.3 沒有改、或新發現的
+
+- **S0 仍從共用 tree 讀**：`tools/p4_health/exercise/`（P4 原始碼，編成被測的 pipeline）、`tools/p4_exercise/convert.py`、`preflight.py`、`tools/test_workflow/heartbeat_drop_check.py`、`openapi_probe.py`。#5 只涵蓋審查點名的 controller trial、adapter dry-run 與 identity 等模組。已寫進 §6 前提。
+- **gate fingerprint 的未追蹤檔變動**（`identity.py:91-97`）：依指示沒有修，寫在 §6 前提。
+- **`run_lab` 寫的 `observations.json` 不能直接交給 `probe.py judge`**：JSON 來回後 `table.py` 的 `t1` 對 list 做 `set()`（unhashable）。這在第 5 輪以前就如此；NIT 11 的離線測試用手做的紀錄，只釘 `judge` 讀的那幾個欄位。沒有修。
+- F10、`show_ports_trial` 沒有單元測試：沒有動。
+
+### 8.4 r4 審查「數字對不起來」的處理
+
+- 「Three doc-only commits follow 2e630d34」：只有兩個（`d8ce630b`、`ed6dce9b`）。
+- 「每份 log 最後一行是 `rc=`」：除了兩份 `stopped_by_me_*`（已寫在 LOG4 的說明）。
+- `recover_claiming.log:3,18,33` 標的 39／18／187（共 300）來自那次沒存檔的 300 次；存檔的 `claim_kill_300.log` 是 35／24／241。兩份是不同的跑，不互相佐證。
+- `partial_F1-F3.log:97-100`、`:117-119`：`C2R4-F3e` 在 `551b2751` 是 WRONG-TEST 的存活，`cbc47503` 把它的預期測試改對；第 4 輪的 SUMMARY 與回報都沒有提。
+- `f3.GREEN.log`（`0fa6902a`）早於 `3b283c48` 把 stop 改成旗標：出貨的碼由 `2e630d34` 的整份綠與 mutant `F3b`、`F3c` 涵蓋，不是那份 log。
+- cells：`b1efe699` 的 `Ran` 是 120（第 5 輪把那個 commit 的封存檔跑了一遍：cells 120、collect 130），+10 ＝ 130，不是「119＋10＝129」。
+- §6 的 delta 數字（30／27／0 flipped）和 rollup：補存了 `LOG/r5/delta_counts.log`（假 fabric 的端對端測試，`COMPLETE` rc 0，57 格：same 30、not observed 27；對照 2 列 same；core 9／1／3／3、full 6／4／3／3、q3b 0／0／0／6）。
