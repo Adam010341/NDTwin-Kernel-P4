@@ -2347,6 +2347,30 @@ add "C2R5-3c. an unfinished see-red run reads SEE-RED-NOT-SEEN instead of INCOMP
     if see_red:' \
     'test_a_see_red_run_that_sees_no_red_is_not_a_pass'
 
+add "C2R5-4a. a B that confirmed nothing but register is not a failed B" \
+    "$ROUNDB" \
+    '        if not [k for k, v in (confirmed or {}).items() if v.get("ok") and k != "register"]:' \
+    '        if False:  # MUTANT' \
+    'test_b_whose_controller_reached_no_switch_is_a_failed_b'
+
+add "C2R5-4b. register counts as an attribution B confirmed" \
+    "$ROUNDB" \
+    'if v.get("ok") and k != "register"]:' \
+    'if v.get("ok")]:  # MUTANT' \
+    'test_b_that_confirmed_only_register_is_a_failed_b'
+
+add "C2R5-4c. a B that is not primary on s2 is not a failed B" \
+    "$ROUNDB" \
+    '        if s2 and "connect_error" not in s2 and s2.get("primary") is not True:' \
+    '        if False:  # MUTANT' \
+    'test_b_whose_controller_is_not_primary_on_s2_is_a_failed_b'
+
+add "C2R5-4d. run_lab-level: finish() does not ask whether B did its part" \
+    "$ROUNDB" \
+    '            for why in self.did_nothing(result, self.confirmed):' \
+    '            for why in []:  # MUTANT' \
+    'test_b_whose_controller_reached_no_switch_is_a_failed_b'
+
 
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'

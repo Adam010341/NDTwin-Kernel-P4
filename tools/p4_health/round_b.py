@@ -159,6 +159,31 @@ class BRound(object):
         p3 = None if rx.get(SRC) is None else len(S.received(rx[SRC], "P3"))
         return self.finish(self._load(self.path("controller.result.json")), p3, sent)
 
+    @staticmethod
+    def did_nothing(result, confirmed):
+        """(round 5, #4) Why a controller that wrote a result still did not do its part, as a list of
+        sentences ([] when it did). A result file says nothing of the sort by itself: the controller writes
+        it whether or not it connected or became primary (controller_ext.py:330-359), and an unconfirmed
+        item only counts as False (attribution.py:187-190). Two things are not a B that ran:
+
+          * nothing but the expected `register` (bmv2 refuses RegisterEntry writes) is confirmed;
+          * s2, where the attributions are made, is not primary. The record `connect()` writes
+            (controller_ext.py:148-157) carries `primary`; a switch that never answered carries only
+            `connect_error` (:338-339) and is named in the first sentence.
+        """
+        out = []
+        switches = (result or {}).get("switches") or {}
+        if not [k for k, v in (confirmed or {}).items() if v.get("ok") and k != "register"]:
+            errors = ["s%s connect_error: %s" % (d, rec["connect_error"])
+                      for d, rec in sorted(switches.items()) if rec.get("connect_error")]
+            out.append("B's controller confirmed nothing but register%s" % (
+                " (%s)" % "; ".join(errors) if errors else ""))
+        s2 = switches.get(str(ATTR_DPID)) or {}
+        if s2 and "connect_error" not in s2 and s2.get("primary") is not True:
+            out.append("B's controller is not primary on s%d (arbitration status %s, pipeline set: %s)"
+                       % (ATTR_DPID, s2.get("arbitration_status"), s2.get("set_pipeline_ok")))
+        return out
+
     def finish(self, result, p3, sent=None):
         reader = TH.ThriftReader(self.cfg, self.runner)
         expect = {"digest": [AT.ip_int(self.model.host_ip(4)), D1_SPORT, 40041],
@@ -170,6 +195,10 @@ class BRound(object):
             # (round 4, F2) whatever the way here -- the exits above, a sniffer that never listened,
             # a result file that cannot be read -- a B without a result is a failed B
             self.failed = self.failed or self.problems[-1]
+        else:
+            for why in self.did_nothing(result, self.confirmed):
+                self.problems.append(why)
+                self.failed = self.failed or why
         doc = {"confirmed": self.confirmed, "sent": sent or {}, "p3_received": p3,
                "controller": result, "problems": self.problems + (self.hosts.problems if self.hosts else [])}
         with open(self.path("attributions.json"), "w", encoding="utf-8") as fh:
