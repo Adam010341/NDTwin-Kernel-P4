@@ -2647,6 +2647,23 @@ class TestTheLabRun(Cut2):
             with open(os.path.join(base, rel), "rb") as fh:
                 self.assertEqual(doc["frozen_code"][rel], hashlib.sha256(fh.read()).hexdigest(), rel)
 
+    def test_run_lab_runs_the_frozen_code_it_is_given(self):
+        """(Round 4, F4a) probe.py freezes and checks the code before S0 and hands it to run_lab;
+        run_lab must run exactly that, not freeze a second set unchecked."""
+        from p4_health import frozen as FZ
+        other = os.path.join(self.tmp, "elsewhere")
+        fz = FZ.freeze(other)
+        rc, doc, r = self.run_lab(frozen=fz)
+        root = [c["argv"] for c in r.calls if c["argv"][:4] == ["sudo", "-n", "mnexec", "-a"]
+                and any(a.endswith("hostside.py") for a in c["argv"])]
+        self.assertTrue(root)
+        for argv in root:
+            self.assertIn(fz.hostside, argv)
+        spawn = [c["argv"] for c in r.calls if c.get("spawn") and is_adapter_argv(c["argv"])][0]
+        self.assertEqual((spawn[1], spawn[3]), (fz.adapter, fz.controller))
+        self.assertEqual(doc["frozen_code"], fz.sums)
+        self.assertFalse(os.path.exists(os.path.join(self.cfg.run_dir, "frozen")))
+
     def test_b_controller_is_recorded_when_the_run_dir_path_has_a_link(self):
         """(Round 4, F6) LabRound hands out the RESOLVED package path, so the controller's argv
         carries the resolved run dir. The marker it is registered by must be that path too, or
