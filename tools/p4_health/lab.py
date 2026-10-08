@@ -233,6 +233,7 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
     doc["mutant"] = bool(mutant)
     doc["problems"] = problems
     doc["root_code"] = frozen.root_code            # what root ran: sha256 of the copies
+    doc["frozen_head"] = frozen.head                # the commit every copy was checked against (None: unchecked)
     doc["frozen_code"] = frozen.sums               # every file any round ran, as relative path -> sha256
     # (Cut 2 review m4) design 4.3's system_under_test and the Q6(a) gate fingerprint
     doc["system_under_test"] = (identity or {}).get("system_under_test")

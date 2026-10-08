@@ -2371,6 +2371,60 @@ add "C2R5-4d. run_lab-level: finish() does not ask whether B did its part" \
     '            for why in []:  # MUTANT' \
     'test_b_whose_controller_reached_no_switch_is_a_failed_b'
 
+add "C2R5-7a. the blobs are asked for by HEAD at that moment, not by the pinned sha" \
+    "$FROZENPY" \
+    '            b_rc, blob = git("rev-parse", "%s:tools/%s" % (head, rel))' \
+    '            b_rc, blob = git("rev-parse", "HEAD:tools/%s" % rel)  # MUTANT' \
+    'test_a_commit_that_lands_mid_freeze_cannot_give_a_set_that_matches_no_commit'
+
+add "C2R5-7b. the Frozen does not carry the sha it was checked against" \
+    "$FROZENPY" \
+    '    return Frozen(base, sums, head)' \
+    '    return Frozen(base, sums)  # MUTANT' \
+    'test_head_is_resolved_once_and_every_blob_is_asked_for_by_that_sha'
+
+add "C2R5-7c. probe.py writes the identity of HEAD as it is now, not of the frozen commit" \
+    "$PROBEPY" \
+    '    ident = repo_identity(head=frozen.head)' \
+    '    ident = repo_identity()  # MUTANT' \
+    'test_probe_lab_records_the_frozen_head_in_the_identity_and_in_health_json'
+
+add "C2R5-7d. repo_identity ignores the sha it is given" \
+    "$PROBEPY" \
+    '    return {"head": head or _git("rev-parse", "HEAD") or "unknown", "probe_tree": probe_version(head),' \
+    '    return {"head": _git("rev-parse", "HEAD") or "unknown", "probe_tree": probe_version(head),  # MUTANT' \
+    'test_the_identity_of_a_run_names_the_head_the_freeze_pinned'
+
+add "C2R5-7e. health.json does not record the commit the copies were checked against" \
+    "$LABPY" \
+    '    doc["frozen_head"] = frozen.head ' \
+    '    doc["frozen_head"] = None  # MUTANT ' \
+    'test_probe_lab_records_the_frozen_head_in_the_identity_and_in_health_json'
+
+add "C2R5-8. the copy is hashed through git's input filters" \
+    "$FROZENPY" \
+    '            h_rc, h = git("hash-object", "--no-filters", dst)' \
+    '            h_rc, h = git("hash-object", dst)  # MUTANT' \
+    'test_a_copy_is_hashed_as_its_bytes_not_as_a_filter_would_see_them'
+
+add "C2R5-9a. an existing <run>/frozen is overwritten" \
+    "$FROZENPY" \
+    '    if os.path.lexists(base):' \
+    '    if False:  # MUTANT' \
+    'test_a_frozen_directory_that_is_already_there_is_refused_and_left_alone'
+
+add "C2R5-9b. a copy is written through a link planted at its destination" \
+    "$FROZENPY" \
+    '    fd = os.open(dst, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o644)' \
+    '    fd = os.open(dst, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)  # MUTANT' \
+    'test_a_symlink_planted_at_a_destination_is_not_written_through'
+
+add "C2R5-9c. a link planted for a subdirectory is followed" \
+    "$FROZENPY" \
+    '                os.mkdir(sub)' \
+    '                os.makedirs(sub, exist_ok=True)  # MUTANT' \
+    'test_a_symlink_planted_for_a_subdirectory_is_not_followed'
+
 
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'

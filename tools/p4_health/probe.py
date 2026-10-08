@@ -53,16 +53,19 @@ def _git(*args):
     return out if rc == 0 else ""
 
 
-def probe_version():
-    """The git tree sha of tools/p4_health at HEAD, plus whether the working copy differs."""
-    tree = _git("rev-parse", "HEAD:tools/p4_health") or "unknown"
+def probe_version(head=None):
+    """The git tree sha of tools/p4_health at HEAD (or at `head`, a sha the freeze pinned), plus whether
+    the working copy differs."""
+    tree = _git("rev-parse", "%s:tools/p4_health" % (head or "HEAD")) or "unknown"
     dirty = _git("status", "--porcelain", "--", "tools/p4_health")
     return tree + ("+uncommitted" if dirty else "")
 
 
-def repo_identity():
-    """HEAD (a commit sha), the probe's tree, and whether either is dirty (review MINOR 14)."""
-    return {"head": _git("rev-parse", "HEAD") or "unknown", "probe_tree": probe_version(),
+def repo_identity(head=None):
+    """HEAD (a commit sha), the probe's tree, and whether either is dirty (review MINOR 14). A lab run
+    passes the sha its freeze pinned (round 5, NIT 7): the identity names the commit the copies were
+    checked against, not whatever HEAD is by the time this is written."""
+    return {"head": head or _git("rev-parse", "HEAD") or "unknown", "probe_tree": probe_version(head),
             "dirty_paths": len([l for l in _git("status", "--porcelain").splitlines() if l.strip()])}
 
 
@@ -137,7 +140,7 @@ def cmd_lab(args):
         return 2
     py = args.py_p4 or os.environ.get("P4_PROXY_PY") or os.path.join(REPO, "p4_proxy", "venv", "bin", "python")
     runner = Runner()
-    ident = repo_identity()
+    ident = repo_identity(head=frozen.head)
     print("lab run %s -> %s  (HEAD %s, probe tree %s)" % (run_id, run_dir, ident["head"], ident["probe_tree"]))
     s0 = S0(run_dir, runner, py)
     s0.out["repo"] = ident
